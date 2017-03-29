@@ -2101,6 +2101,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
               };
 
               pax.subclass = Qry.FieldAsString("subclass");
+              pax.dont_check_payment = iPax->dont_check_payment;
 
               TPerson p=DecodePerson(pax.pers_type.c_str());
               if (p==ASTRA::adult) adult_count++;
@@ -2294,6 +2295,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
         TWebPaxFromReq pax;
 
         pax.crs_pax_id=NodeAsIntegerFast("crs_pax_id", node2);
+        pax.dont_check_payment=NodeAsIntegerFast("dont_check_payment", node2, 0)!=0;
         pax.seat_no=NodeAsStringFast("seat_no", node2, "");
 
         xmlNodePtr docNode = GetNode("document", paxNode);
@@ -2461,8 +2463,10 @@ void GetBPPax(int point_dep, int pax_id, bool is_test, PrintInterface::BPPax &pa
   };
   if (!pax.fromDB(pax_id, test_point_dep))
   {
-    if (pax.pax_id==NoExists)
+    if (pax.pax_id==NoExists) {
+      tst();
       throw UserException( "MSG.PASSENGER.NOT_FOUND" );
+    }
     else
       throw UserException( "MSG.FLIGHT.NOT_FOUND" );
   };
@@ -3189,6 +3193,8 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
 
 void WebRequestsIface::AddProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
   resNode=NewTextChild(resNode,"AddProtPaidLayer");
   int time_limit=NoExists;
   int curr_tid=NoExists;
@@ -3272,14 +3278,14 @@ void WebRequestsIface::PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
 
   const char* pax_sql=
-    "SELECT pax_grp.point_dep, pax_grp.grp_id, "
-    "       pax.surname, pax.name, pax.pers_type, pax.reg_no "
+    "SELECT pax_grp.point_dep, NULL AS point_id_tlg, pax_grp.grp_id, "
+    "       pax.surname, pax.name, pax.pers_type, pax.reg_no, pax.tid "
     "FROM pax_grp, pax "
     "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id";
 
   const char* crs_pax_sql=
-    "SELECT tlg_binding.point_id_spp AS point_dep, NULL AS grp_id, "
-    "       crs_pax.surname, crs_pax.name, crs_pax.pers_type, NULL AS reg_no "
+    "SELECT tlg_binding.point_id_spp AS point_dep, point_id_tlg, NULL AS grp_id, "
+    "       crs_pax.surname, crs_pax.name, crs_pax.pers_type, NULL AS reg_no, crs_pax.tid "
     "FROM crs_pax, crs_pnr, tlg_binding "
     "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
     "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
@@ -3287,6 +3293,16 @@ void WebRequestsIface::PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 
   TQuery Qry(&OraSession);
   Qry.DeclareVariable("pax_id", otInteger);
+  TQuery TlgQry(&OraSession);
+  TlgQry.SQLText=
+    "SELECT airp_arv,first_xname,last_xname,first_yname,last_yname "
+    " FROM tlg_comp_layers "
+    "WHERE tlg_comp_layers.crs_pax_id=:crs_pax_id AND "
+    "      point_id=:point_id_tlg AND layer_type=:prot_bpay "
+    "ORDER BY airp_arv";
+  TlgQry.DeclareVariable("point_id_tlg",otInteger);
+  TlgQry.DeclareVariable("crs_pax_id",otInteger);
+  TlgQry.CreateVariable("prot_bpay",otString,EncodeCompLayerType(ASTRA::cltProtBeforePay));
 
   TLogLocale msg;
   msg.ev_type=ASTRA::evtPax;
@@ -3294,21 +3310,65 @@ void WebRequestsIface::PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 
   xmlNodePtr paxNode=GetNode("passengers", reqNode);
   if (paxNode!=NULL) paxNode=paxNode->children;
+  TPointIdsForCheck point_ids_spp; // изменения сохраняются здесь
   for(; paxNode!=NULL; paxNode=paxNode->next)
   {
     xmlNodePtr node2=paxNode->children;
     int crs_pax_id=NodeAsIntegerFast("crs_pax_id", node2);
     string status=NodeAsStringFast("status", node2);
+    string seat_no=NodeAsStringFast("seat_no", node2);
     if (!(status=="PAID" ||
           status=="NOT_PAID"))
       throw EXCEPTIONS::Exception("%s: wrong payment status '%s'", __FUNCTION__, status.c_str());
+    if ( seat_no.empty() )
+      throw EXCEPTIONS::Exception("%s: wrong payment seat empty", __FUNCTION__);
 
     Qry.SetVariable("pax_id", crs_pax_id);
+    ProgTrace( TRACE5, "crs_pax_id=%d, status=%s", crs_pax_id, status.c_str() );
+    // разметить cltProtAfterPay без таймаута, удалить cltProtBeforePay
+    bool usePriorContext=false;
+
     for(int pass=0; pass<2; pass++)
     {
-      Qry.SQLText=(pass==0?pax_sql:crs_pax_sql);
+      Qry.SQLText=(pass==0?crs_pax_sql:pax_sql);
       Qry.Execute();
+      ProgTrace( TRACE5, "pass=%d", pass );
       if (Qry.Eof) continue;
+      if (isTestPaxId(crs_pax_id)) continue;
+      int curr_tid = Qry.FieldAsInteger( "tid" );
+      ProgTrace( TRACE5, "curr_tid=%d", curr_tid );
+      //удаляем слой оплаты
+      if ( pass==0 ) {
+        if ( status=="PAID" ) { // изменяем слой оплаты с cltProtBeforePay на cltProtAfterPay
+          //определяем координаты мест пасса перед оплатой
+          TlgQry.SetVariable("point_id_tlg",Qry.FieldAsInteger( "point_id_tlg" ) );
+          TlgQry.SetVariable("crs_pax_id",crs_pax_id);
+          TlgQry.Execute();
+          for(;!TlgQry.Eof;TlgQry.Next()) {
+            vector<TSeatRange> seats;
+            TSeatRange seatRange( TSeat( TlgQry.FieldAsString( "first_yname" ), TlgQry.FieldAsString( "first_xname" ) ),
+                                  TSeat( TlgQry.FieldAsString( "last_yname" ), TlgQry.FieldAsString( "last_xname" ) ),
+                                  "" );
+            if ( seat_no != denorm_iata_row( string(seatRange.first.row), NULL ) + denorm_iata_line( string(seatRange.first.line), true ) &&
+                 seat_no != denorm_iata_row( seatRange.first.row, NULL ) + denorm_iata_line(seatRange.first.line, false ) ) {
+              continue;
+            }
+            seats.push_back( seatRange );
+            InsertTlgSeatRanges(Qry.FieldAsInteger( "point_id_tlg"),
+                                TlgQry.FieldAsString( "airp_arv" ),
+                                cltProtAfterPay,
+                                seats,
+                                crs_pax_id,
+                                NoExists,NoExists,usePriorContext,curr_tid,point_ids_spp);
+            usePriorContext=true;
+            break;
+          }
+          if ( !usePriorContext ) {
+            throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
+          }
+        }
+        DeleteTlgSeatRanges(cltProtBeforePay, crs_pax_id, curr_tid, point_ids_spp);
+      }
       msg.id1=Qry.FieldAsInteger("point_dep");
       msg.id2=Qry.FieldIsNULL("reg_no")?NoExists:
                                         Qry.FieldAsInteger("reg_no");
@@ -3331,8 +3391,9 @@ void WebRequestsIface::PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
       break;
     };
   }
+  check_layer_change(point_ids_spp);
   NewTextChild( resNode, "PaymentStatus" );
-};
+}
 
 void RevertWebResDoc()
 {

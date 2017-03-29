@@ -469,8 +469,7 @@ void getMenuLayers( bool isTripCraft,
 
     if ( FilterLayers.isFlag( cltProtBeforePay ) ||
          FilterLayers.isFlag( cltProtAfterPay ) ||
-         FilterLayers.isFlag( cltPNLBeforePay ) ||
-         FilterLayers.isFlag( cltPNLAfterPay ) )
+         FilterLayers.isFlag( cltPNLBeforePay ) )
       menuLayers[ cltProtBeforePay ].name_view = AstraLocale::getLocaleText("Резервирование платного места");
     if ( FilterLayers.isFlag( cltProtect ) )
       menuLayers[ cltProtect ].func_key = "Shift+F4";
@@ -1899,6 +1898,7 @@ void TSalons::Write( const TComponSets &compSets )
                   " DELETE trip_comp_rem WHERE point_id=:point_id; "
                   " DELETE trip_comp_baselayers WHERE point_id=:point_id; "
                   " DELETE trip_comp_rates WHERE point_id=:point_id; "
+                  " DELETE trip_comp_rfisc WHERE point_id=:point_id; "
                   " DELETE trip_comp_elems WHERE point_id=:point_id; "
                   "END;";
 

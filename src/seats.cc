@@ -2642,7 +2642,7 @@ void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passG
         }
         addedPasses.insert( pass.index  );
         ProgTrace( TRACE5, "pass.index=%d", pass.index );
-        v[ pass.tariffs.key() + EncodeCompLayerType(pass.preseat_layer) ].Add( pass, pass.index );
+        v[ pass.tariffs.key() + EncodeCompLayerType(pass.preseat_layer) + IntToString( (int)pass.dont_check_payment ) ].Add( pass, pass.index );
 
         ProgTrace( TRACE5, "dividePassengersToGrps: icond=%d, pass=%s, pass.tariffs.key()=%s", icond, pass.toString().c_str(), pass.tariffs.key().c_str() );
 //          ProgTrace( TRACE5, "dividePassengersToGrps: j=%d, i=%d, pass.idx=%d, pass.pax_id=%d, INFT=%d", j,i, pass.paxId, pass.index, pass.isRemark( "INFT") );
@@ -2796,6 +2796,86 @@ bool UsedPayedPreseatForPassenger( const TPlace &seat, int pass_preseat_pax_id, 
 }
 
 
+class AnomalisticConditionsPayment
+{
+  public:
+    static void clearPreseatPaymentLayers( SALONS2::TSalons *Salons, TPassengers &passengers ) {
+      //удаляем предварительно назначенное платное место
+      for ( int i=0; i<passengers.getCount(); i++ ) {
+        TPassenger &pass = passengers.Get( i );
+        ProgTrace( TRACE5, "pass.preseatPlaces.size()=%zu", pass.preseatPlaces.size() );
+        if ( pass.preseatPlaces.empty() || pass.dont_check_payment ) {
+          tst();
+          continue;
+        }
+        vector<TPlace*> pls;
+        bool prClear = false;
+        ProgTrace( TRACE5, "clear pass preseat, pax_id=%d, preseat_layer=%s", pass.preseat_pax_id, EncodeCompLayerType(pass.preseat_layer) );
+        for ( std::vector<TCoordSeat>::iterator iseat=pass.preseatPlaces.begin(); iseat!=pass.preseatPlaces.end(); iseat++ ) {
+          for ( std::vector<TPlaceList*>::iterator item=Salons->placelists.begin(); item!=Salons->placelists.end(); item++ ) {
+            if ( iseat->placeListIdx == (*item)->num ) {
+              TPlace *p = (*item)->place( iseat->p );
+              pls.push_back( p );
+              if ( !prClear &&
+                   ( pass.preseat_layer == cltProtBeforePay || // не оплатили - удаляем из компоновки разметку слоем и пассажира делаем обычным
+                     pass.preseat_layer == cltPNLBeforePay ||
+                     !UsedPayedPreseatForPassenger( *p, pass.preseat_pax_id, pass.preseat_layer ) ) ) { //очистка предварительно назначенных мест
+                prClear = true;
+              }
+            }
+          }
+        }
+        if ( prClear ) {
+          ProgTrace( TRACE5, "clear pass preseat, pax_id=%d, preseat_layer=%s", pass.preseat_pax_id, EncodeCompLayerType(pass.preseat_layer) );
+          for ( vector<TPlace*>::iterator iseat=pls.begin(); iseat!=pls.end(); iseat++ ) {
+            if ( !(*iseat)->layers.empty() &&
+                 (*iseat)->layers.begin()->layer_type == pass.preseat_layer &&
+                 (*iseat)->layers.begin()->pax_id == pass.preseat_pax_id ) {
+              (*iseat)->layers.erase( (*iseat)->layers.begin() );
+            }
+          }
+          pass.preseat_layer = cltUnknown;
+          pass.preseat_no.clear();
+          pass.preseat_pax_id = 0;
+        }
+        pass.preseatPlaces.clear();
+      }
+    }
+    static void clearTariffsOnWebSignal( SALONS2::TSalons *Salons, TPassengers &passengers ) {
+      //удаляем предварительно назначенное платное место
+      for ( int i=0; i<passengers.getCount(); i++ ) {
+        TPassenger &pass = passengers.Get( i );
+        ProgTrace( TRACE5, "pass.preseat_no=%s", pass.preseat_no.c_str() );
+        if ( !pass.dont_check_payment || pass.preseat_no.empty() ) {
+          continue;
+        }
+        for ( vector<SALONS2::TPlaceList*>::iterator plList=Salons->placelists.begin();
+              plList!=Salons->placelists.end(); plList++ ) {
+          TPlaceList* placeList = *plList;
+          TPoint FP;
+          if ( placeList->GetisPlaceXY( pass.preseat_no, FP ) ) {
+            for ( int j=0; j<pass.countPlace; j++ ) {
+              if ( !placeList->ValidPlace( FP ) )
+                break;
+              SALONS2::TPlace *place = placeList->place( FP );
+              place->SeatTariff.clear();
+              switch( (int)pass.Step ) {
+                case sRight:
+                   FP.x++;
+                   break;
+                case sDown:
+                   FP.y++;
+                   break;
+              }
+            }
+            break;
+          }
+        }
+      }
+    }
+};
+
+
 /* рассадка пассажиров */
 void SeatsPassengers( SALONS2::TSalons *Salons,
                       TSeatAlgoParams ASeatAlgoParams /* sdUpDown_Line - умолчание */,
@@ -2813,43 +2893,8 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
   if ( passengers.Get(0).tariffStatus != TSeatTariffMap::stNotRFISC ) {
     Salons->SetTariffsByRFISCColor( Salons->trip_id, passengers.Get(0).tariffs, passengers.Get(0).tariffStatus );
   }
-
-  //удаляем предварительно назначенное платное место
-  for ( int i=0; i<passengers.getCount(); i++ ) {
-    TPassenger &pass = passengers.Get( i );
-    ProgTrace( TRACE5, "pass.preseatPlaces.size()=%zu", pass.preseatPlaces.size() );
-    if ( pass.preseatPlaces.empty() ) {
-      tst();
-      continue;
-    }
-    vector<TPlace*> pls;
-    bool prClear = false;
-    for ( std::vector<TCoordSeat>::iterator iseat=pass.preseatPlaces.begin(); iseat!=pass.preseatPlaces.end(); iseat++ ) {
-      for ( std::vector<TPlaceList*>::iterator item=Salons->placelists.begin(); item!=Salons->placelists.end(); item++ ) {
-        if ( iseat->placeListIdx == (*item)->num ) {
-          TPlace *p = (*item)->place( iseat->p );
-          pls.push_back( p );
-          if ( !prClear && !UsedPayedPreseatForPassenger( *p, pass.preseat_pax_id, pass.preseat_layer ) ) { //очистка предварительно назначенных мест
-            prClear = true;
-          }
-        }
-      }
-    }
-    if ( prClear ) {
-      ProgTrace( TRACE5, "clear pass preseat" );
-      for ( vector<TPlace*>::iterator iseat=pls.begin(); iseat!=pls.end(); iseat++ ) {
-        if ( !(*iseat)->layers.empty() &&
-             (*iseat)->layers.begin()->layer_type == pass.preseat_layer &&
-             (*iseat)->layers.begin()->pax_id == pass.preseat_pax_id ) {
-          (*iseat)->layers.erase( (*iseat)->layers.begin() );
-        }
-      }
-      pass.preseat_layer = cltUnknown;
-      pass.preseat_no.clear();
-      pass.preseat_pax_id = 0;
-    }
-    pass.preseatPlaces.clear();
-  }
+  AnomalisticConditionsPayment::clearPreseatPaymentLayers( Salons, passengers );
+  AnomalisticConditionsPayment::clearTariffsOnWebSignal( Salons, passengers );
 
   GetUseLayers( UseLayers );
   TUseLayers preseat_layers, curr_preseat_layers;
@@ -3499,8 +3544,9 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
        Qry.CreateVariable( "point_dep", otInteger, point_id );
       break;
     case cltProtCkin:
-    case cltProtBeforePay:
+    case cltProtBeforePay: //WEB ChangeProtPaidLayer
     case cltProtAfterPay:
+    case cltPNLAfterPay:
       Qry.SQLText =
         "SELECT surname, name, 0 reg_no, 0 grp_id, seats, a.step step, crs_pax.tid, airp_arv, point_id, 0 point_arv, "
         "       NULL AS seat_no, class, pers_type "
@@ -3509,7 +3555,9 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
         "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
         " WHERE crs_pax.pax_id=:pax_id AND crs_pax.pr_del=0 AND "
         "       crs_pax.pnr_id=crs_pnr.pnr_id";
-     if ( layer_type == cltProtCkin || seatFlag != clNotPaySeat ) {
+     if ( layer_type == cltProtCkin ||
+          (seatFlag == clNotPaySeat && ( layer_type == cltPNLAfterPay || layer_type == cltProtAfterPay )) ||
+          seatFlag != clNotPaySeat ) {
         break;
      }
     default:
@@ -3743,11 +3791,12 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
         curr_tid = Qry.GetVariableAsInteger( "tid" );
         break;
         case cltProtCkin:
+        case cltProtAfterPay:
+        case cltPNLAfterPay:
             // удаление из салона, если есть разметка
             DeleteTlgSeatRanges( layer_type, pax_id, curr_tid, point_ids_spp );
             break;
-        case cltProtBeforePay:
-        case cltProtAfterPay:
+        case cltProtBeforePay: //WEB ChangeProtPaidLayer
           break;
       default:
         ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
@@ -3779,8 +3828,9 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
         curr_tid = Qry.GetVariableAsInteger( "tid" );
         break;
       case cltProtCkin:
-      case cltProtBeforePay:
+      case cltProtBeforePay: //WEB ChangeProtPaidLayer
       case cltProtAfterPay:
+      case cltPNLAfterPay:
         InsertTlgSeatRanges( point_id_tlg, airp_arv, layer_type, seats, pax_id, NoExists, NoExists, false, curr_tid, point_ids_spp );
         break;
       default:
@@ -4168,8 +4218,9 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
        Qry.CreateVariable( "point_dep", otInteger, point_id );
       break;
     case cltProtCkin:
-    case cltProtBeforePay:
+    case cltProtBeforePay: //WEB ChangeProtPaidLayer
     case cltProtAfterPay:
+    case cltPNLAfterPay:
       Qry.SQLText =
         "SELECT surname, name, 0 reg_no, 0 grp_id, seats, a.step step, crs_pax.tid, airp_arv, point_id, 0 point_arv, "
         "       NULL AS seat_no, class, pers_type "
@@ -4178,7 +4229,9 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
         "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
         " WHERE crs_pax.pax_id=:pax_id AND crs_pax.pr_del=0 AND "
         "       crs_pax.pnr_id=crs_pnr.pnr_id";
-        if ( layer_type == cltProtCkin || seatFlag != clNotPaySeat ) {
+        if ( layer_type == cltProtCkin ||
+             (seatFlag == clNotPaySeat && ( layer_type == cltPNLAfterPay || layer_type == cltProtAfterPay )) ||
+             seatFlag != clNotPaySeat ) {
           break;
         }
     default:
@@ -4448,11 +4501,12 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
         curr_tid = Qry.GetVariableAsInteger( "tid" );
         break;
         case cltProtCkin:
+        case cltProtAfterPay:
+        case cltPNLAfterPay:
             // удаление из салона, если есть разметка
             DeleteTlgSeatRanges( layer_type, pax_id, curr_tid, point_ids_spp );
         break;
-        case cltProtBeforePay:
-        case cltProtAfterPay:
+        case cltProtBeforePay: //WEB ChangeProtPaidLayer
           break;
       default:
         ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
@@ -4484,8 +4538,8 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
         curr_tid = Qry.GetVariableAsInteger( "tid" );
         break;
       case cltProtCkin:
-      case cltProtBeforePay:
-      case cltProtAfterPay:
+      case cltProtBeforePay: //WEB ChangeProtPaidLayer
+      case cltPNLAfterPay:
         InsertTlgSeatRanges( point_id_tlg, airp_arv, layer_type, seatRanges, pax_id, NoExists, NoExists, false, curr_tid, point_ids_spp );
         break;
       default:
