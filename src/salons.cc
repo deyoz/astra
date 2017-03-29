@@ -86,7 +86,9 @@ void TSelfCkinSalonTariff::setTariffMap( const std::string &airline,
   TQuery Qry( &OraSession );
   Qry.SQLText =
     "SELECT rfisc,rate,rate_cur, "
-    "       DECODE(airp_dep,:airp_dep,4,0) + DECODE(airp_arv,:airp_arv,2,0) + DECODE(craft,:craft,1,0) as priority "
+    "       DECODE(airp_dep,:airp_dep,1000,NULL,500,0) + "
+    "       DECODE(airp_arv,:airp_arv,100,NULL,50,0) + "
+    "       DECODE(craft,:craft,10,NULL,5,0) as priority "
     " FROM rfisc_rates_self_ckin "
     " WHERE airline=:airline AND rfisc=:rfisc "
     "ORDER BY priority DESC";
