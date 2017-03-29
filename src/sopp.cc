@@ -2557,9 +2557,9 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
         points_check_wait_alarm.push_back( i->first );
       }
     }
-    check_brd_alarm( i->first );
+    TTripAlarmHook::set(Alarm::Brd, i->first);
     check_spec_service_alarm( i->first );
-    check_unbound_emd_alarm( i->first );
+    TTripAlarmHook::set(Alarm::UnboundEMD, i->first);
     check_TrferExists( i->first );
     check_unattached_trfer_alarm( i->first );
     check_conflict_trfer_alarm( i->first );

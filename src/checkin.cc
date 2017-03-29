@@ -6240,9 +6240,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           Qry.Execute();
         }
         //вычисляем и записываем признак waitlist_alarm и brd_alarm и spec_service_alarm
-        check_brd_alarm( grp.point_dep );
+        TTripAlarmHook::set(Alarm::Brd, grp.point_dep);
         check_spec_service_alarm( grp.point_dep );
-        check_unbound_emd_alarm( grp.point_dep );
+        TTripAlarmHook::set(Alarm::UnboundEMD, grp.point_dep);
         check_conflict_trfer_alarm( grp.point_dep );
         if ( first_pax_on_flight ) {
           SALONS2::setManualCompChg( grp.point_dep );

@@ -699,28 +699,9 @@ void check_apis_alarms(int point_id, const set<Alarm::Enum> &checked_alarms)
 void check_unbound_emd_alarm( int point_id )
 {
   bool emd_alarm = false;
-    if ( CheckStageACT(point_id, sCloseCheckIn) )
+  if ( CheckStageACT(point_id, sCloseCheckIn) )
     emd_alarm=PaxASVCList::ExistsUnboundEMD(point_id);
-    set_alarm( point_id, Alarm::UnboundEMD, emd_alarm );
-};
-
-void check_unbound_emd_alarm( set<int> &pax_ids )
-{
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT pax_grp.point_dep FROM pax_grp, pax WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id";
-  Qry.DeclareVariable("pax_id", otInteger);
-  set<int> point_ids;
-  for(set<int>::const_iterator i=pax_ids.begin(); i!=pax_ids.end(); ++i)
-  {
-    Qry.SetVariable("pax_id", *i);
-    Qry.Execute();
-    if (!Qry.Eof) point_ids.insert(Qry.FieldAsInteger("point_dep"));
-  };
-
-  for(set<int>::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
-    check_unbound_emd_alarm(*i);
+  set_alarm( point_id, Alarm::UnboundEMD, emd_alarm );
 };
 
 bool check_apps_alarm( int point_id )
@@ -764,3 +745,73 @@ bool calc_apps_alarm( int point_id )
 
   return (!PaxQry.Eof || !CrsPaxQry.Eof);
 }
+
+void TTripAlarm::check()
+{
+  ProgTrace(TRACE5, "TTripAlarm::check: %s", traceStr().c_str());
+  switch(type)
+  {
+    case Alarm::Brd:
+      check_brd_alarm(id);
+      break;
+    case Alarm::UnboundEMD:
+      check_unbound_emd_alarm(id);
+      break;
+    default:
+      ProgError(STDLOG, "TTripAlarm::check: alarm not supported (%s)", traceStr().c_str());
+  }
+}
+
+void TGrpAlarm::check()
+{
+  ProgError(STDLOG, "TGrpAlarm::check: alarm not supported (%s)", traceStr().c_str());
+}
+
+void TPaxAlarm::check()
+{
+  ProgError(STDLOG, "TPaxAlarm::check: alarm not supported (%s)", traceStr().c_str());
+}
+
+namespace Posthooks
+{
+template <> void Simple<TTripAlarm>::run()
+{
+  p.check();
+}
+
+template <> void Simple<TGrpAlarm>::run()
+{
+  p.check();
+}
+
+template <> void Simple<TPaxAlarm>::run()
+{
+  p.check();
+}
+}
+
+void TTripAlarmHook::set(Alarm::Enum _type, const int& _id)
+{
+  sethBefore(TSomeonesAlarmHook<TTripAlarm>(TTripAlarm(_type, _id)));
+}
+
+void TGrpAlarmHook::set(Alarm::Enum _type, const int& _id)
+{
+  TCachedQuery Qry("SELECT point_dep FROM pax_grp WHERE grp_id=:grp_id",
+                   QParams() << QParam("grp_id", otInteger, _id));
+  Qry.get().Execute();
+  if (Qry.get().Eof) return;
+
+  sethBefore(TSomeonesAlarmHook<TTripAlarm>(TTripAlarm(_type, Qry.get().FieldAsInteger("point_dep"))));
+}
+
+void TPaxAlarmHook::set(Alarm::Enum _type, const int& _id)
+{
+  TCachedQuery Qry("SELECT pax_grp.point_dep FROM pax_grp, pax WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id",
+                   QParams() << QParam("pax_id", otInteger, _id));
+  Qry.get().Execute();
+  if (Qry.get().Eof) return;
+
+  sethBefore(TSomeonesAlarmHook<TTripAlarm>(TTripAlarm(_type, Qry.get().FieldAsInteger("point_dep"))));
+}
+

@@ -1,6 +1,7 @@
 #include "payment_base.h"
 #include "term_version.h"
 #include "qrys.h"
+#include "alarms.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -394,6 +395,8 @@ void TServicePaymentList::toDB(int grp_id) const
         throw;
     };
   }
+
+  TGrpAlarmHook::set(Alarm::UnboundEMD, grp_id);
 }
 
 void TServicePaymentList::copyDB(int grp_id_src, int grp_id_dest)
@@ -478,6 +481,8 @@ void TServicePaymentList::copyDB(int grp_id_src, int grp_id_dest)
     QParams() << QParam("grp_id_src", otInteger, grp_id_src)
               << QParam("grp_id_dest", otInteger, grp_id_dest));
   Qry2.get().Execute();
+
+  TGrpAlarmHook::set(Alarm::UnboundEMD, grp_id_dest);
 }
 
 void TServicePaymentList::toXML(xmlNodePtr node) const

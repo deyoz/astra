@@ -3,6 +3,7 @@
 #include "astra_utils.h"
 #include "qrys.h"
 #include "date_time.h"
+#include "alarms.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -783,6 +784,8 @@ void PaxEMDToDB(int pax_id, const list<TPaxEMDItem> &emds)
     e->toDB(Qry.get());
     Qry.get().Execute();
   };
+
+  TPaxAlarmHook::set(Alarm::UnboundEMD, pax_id);
 };
 
 void SyncPaxEMD(const CheckIn::TTransferItem &trfer,

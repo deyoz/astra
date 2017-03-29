@@ -214,6 +214,7 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
         UQry.SetVariable( "name", name );
         UQry.Execute();
       };
+        callPostHooksBefore();
         OraSession.Commit();
         callPostHooksAfter();
       }

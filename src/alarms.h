@@ -5,6 +5,7 @@
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "transfer.h"
+#include "serverlib/posthooks.h"
 
 class Alarm
 {
@@ -102,7 +103,6 @@ void synch_trip_alarm(int point_id, Alarm::Enum alarm_type);
 bool calc_overload_alarm( int point_id );
 bool check_overload_alarm( int point_id );
 bool check_waitlist_alarm( int point_id );
-bool check_brd_alarm( int point_id );
 bool check_tlg_in_alarm(int point_id_tlg, int point_id_spp);
 bool check_tlg_out_alarm(int point_id);
 bool check_spec_service_alarm(int point_id);
@@ -119,10 +119,75 @@ void check_crew_alarms(int point_id);
 void check_crew_alarms_task(int point_id, const std::string& task_name, const std::string &params);
 void check_apis_alarms(int point_id);
 void check_apis_alarms(int point_id, const std::set<Alarm::Enum> &checked_alarms);
-void check_unbound_emd_alarm( int point_id );
-void check_unbound_emd_alarm( std::set<int> &pax_ids );
 bool check_apps_alarm( int point_id );
 bool calc_apps_alarm( int point_id );
+
+template<typename T>
+class TSomeonesAlarm
+{
+  public:
+    Alarm::Enum type;
+    T id;
+    TSomeonesAlarm(Alarm::Enum _type, const T& _id) : type(_type), id(_id) {}
+    bool operator < (const TSomeonesAlarm &alarm) const
+    {
+      if (!(id==alarm.id))
+        return id < alarm.id;
+      return type < alarm.type;
+    }
+    std::string traceStr()
+    {
+      std::ostringstream s;
+      s << "type=" << AlarmTypes().encode(type) << ", id=" << id;
+      return s.str();
+    }
+};
+
+class TTripAlarm : public TSomeonesAlarm<int>
+{
+  public:
+    TTripAlarm(Alarm::Enum _type, const int& _id) : TSomeonesAlarm<int>(_type, _id) {}
+    void check();
+};
+
+class TGrpAlarm : public TSomeonesAlarm<int>
+{
+  public:
+    TGrpAlarm(Alarm::Enum _type, const int& _id) : TSomeonesAlarm<int>(_type, _id) {}
+    void check();
+};
+
+class TPaxAlarm : public TSomeonesAlarm<int>
+{
+  public:
+    TPaxAlarm(Alarm::Enum _type, const int& _id) : TSomeonesAlarm<int>(_type, _id) {}
+    void check();
+};
+
+template<typename T>
+class TSomeonesAlarmHook : public Posthooks::Simple<T>
+{
+  public:
+    TSomeonesAlarmHook(const T& _alarm) : Posthooks::Simple<T>(_alarm) {}
+};
+
+class TTripAlarmHook : public TSomeonesAlarmHook<TTripAlarm>
+{
+  public:
+    static void set(Alarm::Enum _type, const int& _id);
+};
+
+class TGrpAlarmHook : public TSomeonesAlarmHook<TGrpAlarm>
+{
+  public:
+    static void set(Alarm::Enum _type, const int& _id);
+};
+
+class TPaxAlarmHook : public TSomeonesAlarmHook<TPaxAlarm>
+{
+  public:
+    static void set(Alarm::Enum _type, const int& _id);
+};
 
 #endif
 
