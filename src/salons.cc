@@ -91,6 +91,9 @@ void TSelfCkinSalonTariff::setTariffMap( const std::string &airline,
     " WHERE airline=:airline AND rfisc=:rfisc "
     "ORDER BY priority DESC";
   Qry.CreateVariable( "airline", otString, airline );
+  Qry.CreateVariable( "airp_dep", otString, airp_dep );
+  Qry.CreateVariable( "airp_arv", otString, airp_arv );
+  Qry.CreateVariable( "craft", otString, craft );
   Qry.DeclareVariable( "rfisc", otString );
   for ( TSeatTariffMapType::iterator itariff=tariffMap.begin(); itariff!=tariffMap.end(); itariff++ ) {
     Qry.SetVariable( "rfisc", itariff->second.code );
