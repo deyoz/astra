@@ -102,13 +102,17 @@ string TTagLang::GetLang(TElemFmt &fmt, string firm_lang) const
 { string lang = firm_lang;
   if (lang.empty())
   {
-     lang = desk_lang;
-     if (IsInter())
-     {
-       if (fmt==efmtNameShort || fmt==efmtNameLong) lang=AstraLocale::LANG_EN;
-       if (fmt==efmtCodeNative) fmt=efmtCodeInter;
-       if (fmt==efmtCodeICAONative) fmt=efmtCodeICAOInter;
-     };
+      if(tag_lang.empty()) {
+          lang = desk_lang;
+          if (IsInter())
+          {
+              if (fmt==efmtNameShort || fmt==efmtNameLong) lang=AstraLocale::LANG_EN;
+              if (fmt==efmtCodeNative) fmt=efmtCodeInter;
+              if (fmt==efmtCodeICAONative) fmt=efmtCodeICAOInter;
+          };
+      } else {
+          lang = (tag_lang == "R" ? LANG_RU : LANG_EN);
+      }
   };
   return lang;
 }
@@ -124,9 +128,13 @@ string TTagLang::ElemIdToTagElem(TElemType type, const string &id, TElemFmt fmt,
 
 string TTagLang::GetLang()
 {
-  string lang = TReqInfo::Instance()->desk.lang;
-  if (IsInter()) lang=AstraLocale::LANG_EN;
-  return lang;
+    if(tag_lang.empty()) {
+        string lang = TReqInfo::Instance()->desk.lang;
+        if (IsInter()) lang=AstraLocale::LANG_EN;
+        return lang;
+    } else {
+        return (tag_lang == "R" ? LANG_RU : LANG_EN);
+    }
 }
 
 string TTagLang::ElemIdToTagElem(TElemType type, int id, TElemFmt fmt, string firm_lang) const

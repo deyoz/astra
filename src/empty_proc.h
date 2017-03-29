@@ -20,5 +20,6 @@ int test_conversion(int, char **);
 namespace NatStat { int nat_stat(int argc,char **argv); }
 int ego_stat(int argc,char **argv);
 int tst_vo(int, char**);
+int prn_tags(int argc, char **argv);
 
 #endif

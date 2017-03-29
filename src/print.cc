@@ -20,6 +20,7 @@
 #include "qrys.h"
 #include "sopp.h"
 #include "points.h"
+#include "telegram.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
@@ -2242,6 +2243,71 @@ TOps::TOps(xmlNodePtr node)
         opsItem.fmt_type = NodeAsString("fmt_type", currNode);
         opsItem.prnParams.get_prn_params(currNode);
         items[DecodeDevOperType(NodeAsString("@type", currNode))] = opsItem;
+    }
+}
+
+void PrintInterface::print_bp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    string content = NodeAsString("content", reqNode);
+    size_t idx = content.find('\n');
+    if(idx != string::npos) {
+        vector<string> params;
+        string buf = content.substr(0, idx);
+        boost::split(params, buf, boost::is_any_of(" "));
+        if(params.size() != 5)
+            throw Exception("print_bp: wrong params");
+        content.erase(0, idx + 1);
+
+        TSearchFltInfo filter;
+        filter.airline = CKIN_REPORT::getElemId(etAirline, params[0]);
+        filter.flt_no = ToInt(params[1]);
+        filter.airp_dep = CKIN_REPORT::getElemId(etAirp, params[3]);
+        if(StrToDateTime(params[2].c_str(), "dd.mm.yy", filter.scd_out) == EOF)
+            throw Exception("print_bp: can't convert scd_out: %s", params[2].c_str());
+        filter.scd_out_in_utc = true;
+        filter.only_with_reg = false;
+
+        list<TAdvTripInfo> flts;
+        SearchFlt(filter, flts);
+
+        TNearestDate nd(filter.scd_out);
+        for(list<TAdvTripInfo>::iterator i = flts.begin(); i != flts.end(); ++i)
+            nd.sorted_points[i->scd_out] = i->point_id;
+        int point_id = nd.get();
+        if(point_id == NoExists)
+            throw Exception("print_bp: flight not found");
+
+        int reg_no = ToInt(params[4]);
+
+        TCachedQuery Qry(
+                "select "
+                "   pax.grp_id, "
+                "   pax.pax_id "
+                "from "
+                "   pax_grp, "
+                "   pax "
+                "where "
+                "   pax_grp.point_dep = :point_id and "
+                "   pax_grp.grp_id = pax.grp_id and "
+                "   pax.reg_no = :reg_no ",
+                QParams()
+                << QParam("point_id", otInteger, point_id)
+                << QParam("reg_no", otInteger, reg_no)
+                );
+        Qry.get().Execute();
+        if(not Qry.get().Eof) {
+            int grp_id = Qry.get().FieldAsInteger("grp_id");
+            int pax_id = Qry.get().FieldAsInteger("pax_id");
+            PrintDataParser parser(grp_id, pax_id, false, NULL);
+            parser.pts.set_tag(TAG::GATE, "‚€’€");
+            parser.pts.set_tag(TAG::DUPLICATE, 1);
+            parser.pts.set_tag(TAG::VOUCHER_CODE, "DV");
+            parser.pts.set_tag(TAG::VOUCHER_TEXT, "DV");
+            content = StrUtils::b64_encode(
+                    ConvertCodepage(parser.parse(content),"CP866","UTF-8"));
+            SetProp(NewTextChild(resNode, "content", content), "b64", true);
+        } else
+            throw Exception("reg_no %d not found", reg_no);
     }
 }
 
