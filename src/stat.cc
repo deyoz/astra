@@ -11871,6 +11871,15 @@ void VOUCHERS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     LogTrace(TRACE5) << GetXMLDocText(resNode->doc); //!!!
 }
 
+// ======== SERVICES ========
+
+enum EServiceSortOrder
+{
+    by_reg_no,
+    by_family,
+    by_seat_no
+};
+
 struct TServiceRow
 {
     string seat_no;
@@ -11881,15 +11890,9 @@ struct TServiceRow
     string desc;
     string num;
 
-    enum ESortOrder
-    {
-        by_reg_no,
-        by_family,
-        by_seat_no
-    };
-    const ESortOrder mSortOrder;
+    const EServiceSortOrder mSortOrder;
 
-    TServiceRow(ESortOrder sortOrder = by_reg_no)
+    TServiceRow(EServiceSortOrder sortOrder = by_reg_no)
         : reg_no(NoExists), mSortOrder(sortOrder) {}
 
     bool operator < (const TServiceRow &other) const
@@ -11923,6 +11926,7 @@ public:
     void AddRFIC(string RFIC) { filterRFIC.insert(RFIC); }
     bool Check(const TServiceRow& row) const
     {
+        // if (filterRFIC.empty()) return true; // не выбран ни один фильтр
         for (set<string>::const_iterator iRFIC = filterRFIC.begin(); iRFIC != filterRFIC.end(); ++iRFIC)
             if (row.RFIC == *iRFIC) return true;
         return false;
@@ -11972,7 +11976,7 @@ void SERVICES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     Qry.Execute();
     list<TServiceRow> rows;
     //  инициализация сортировки
-    const TServiceRow::ESortOrder sortOrder = TServiceRow::ESortOrder::by_reg_no; // TODO получать из XML
+    const EServiceSortOrder sortOrder = by_reg_no; // TODO получать из XML
     //  инициализация фильтра
     TServiceFilter filter;
     filter.AddRFIC("G"); // TODO получать из XML
@@ -11997,7 +12001,7 @@ void SERVICES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             //  цикл по одинаковым услугам
             for (int service = 0; service < item.service_quantity; ++service)
             {
-                TServiceRow row(sortOrder); //  для всех строк в контейнере должен быть одинаков!
+                TServiceRow row(sortOrder); // sortOrder для всех строк в контейнере должен быть одинаков!
                 //  Место в салоне
                 string seat_no = getJMPSeatNo(pax_id);
                 if (seat_no.empty()) seat_no = Qry.FieldAsString("seat_no");
