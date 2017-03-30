@@ -13,9 +13,9 @@ IatciPlfResponseHandler::IatciPlfResponseHandler(_EDI_REAL_MES_STRUCT_ *pMes,
 {
 }
 
-iatci::Result::Action_e IatciPlfResponseHandler::action() const
+iatci::dcrcka::Result::Action_e IatciPlfResponseHandler::action() const
 {
-    return iatci::Result::Passlist;
+    return iatci::dcrcka::Result::Passlist;
 }
 
 }//namespace TlgHandling

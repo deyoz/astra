@@ -15,7 +15,7 @@ class IatciRequestHandler: public AstraRequestHandler
     std::string m_ediErrorLevel;
 
 protected:
-    std::list<iatci::Result> m_lRes;
+    std::list<iatci::dcrcka::Result> m_lRes;
 
 public:
     IatciRequestHandler(_EDI_REAL_MES_STRUCT_ *pMes,
@@ -32,9 +32,9 @@ public:
     virtual ~IatciRequestHandler() {}
 
 protected:
-    virtual boost::optional<iatci::BaseParams> params() const = 0; // TODO убрать optional потом
-    virtual boost::optional<iatci::BaseParams> nextParams() const = 0;
-    virtual iatci::Result handleRequest() const = 0;
+    virtual const iatci::IBaseParams* paramsNew() const = 0;
+
+    virtual iatci::dcrcka::Result handleRequest() const = 0;
     virtual edilib::EdiSessionId_t sendCascadeRequest() const = 0;
     virtual void saveErrorInfo(const Ticketing::ErrMsg_t& errCode,
                                const std::string& errText);
@@ -46,7 +46,6 @@ protected:
 
 private:
     virtual void loadDeferredData();
-    iatci::BaseParams requestParams() const;
 };
 
 }//namespace TlgHandling

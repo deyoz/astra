@@ -138,7 +138,7 @@ void viewPpdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxDetails& pax);
 /**
  * @brief makes a PSD element
 */
-void viewSpdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxSeatDetails& pax);
+void viewSpdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SelectPersonalDetails& pax);
 
 /**
  * @brief makes a PSI element
@@ -214,7 +214,7 @@ void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateBaggageDetai
 /**
  * @brief make an UAP element
 */
-void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdatePaxDetails::UpdateDocInfo& updDoc);
+void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateDocDetails& updDoc);
 
 /**
  * @brief make an USI element
@@ -239,7 +239,7 @@ void viewRodElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::RowDetails& rowDet
 /**
  * @brief makes a PAP element
 */
-void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxDetails::DocInfo& doc);
+void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::DocDetails& doc);
 
 
 }//namespace edifact

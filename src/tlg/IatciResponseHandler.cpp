@@ -3,9 +3,10 @@
 #include "postpone_edifact.h"
 #include "basetables.h"
 #include "iatci_api.h"
-#include "edi_msg.h"
+#include "iatci_help.h"
 
 #include <edilib/edi_func_cpp.h>
+#include <serverlib/algo.h>
 
 #include <boost/foreach.hpp>
 
@@ -25,32 +26,62 @@ using namespace Ticketing::TickReader;
 
 class IatciResultMaker
 {
+public:
+
+    class Pxg
+    {
+    private:
+        edifact::PpdElem                  m_ppd;
+        boost::optional<edifact::PrdElem> m_prd;
+        boost::optional<edifact::PfdElem> m_pfd;
+        boost::optional<edifact::PsiElem> m_psi;
+        boost::optional<edifact::PapElem> m_pap;
+        //boost::optional<edifact::AddElem> m_add;
+    public:
+        void setPpd(const boost::optional<PpdElem>& ppd);
+        void setPrd(const boost::optional<edifact::PrdElem>& prd, bool required = false);
+        void setPsi(const boost::optional<edifact::PsiElem>& psi, bool required = false);
+        void setPfd(const boost::optional<edifact::PfdElem>& pfd, bool required = false);
+        void setPap(const boost::optional<edifact::PapElem>& pap, bool required = false);
+
+        iatci::dcrcka::PaxGroup makePaxGroup() const;
+
+    protected:
+        boost::optional<iatci::ReservationDetails> makeReserv() const;
+        boost::optional<iatci::FlightSeatDetails>  makeSeat() const;
+        boost::optional<iatci::ServiceDetails>     makeService() const;
+        boost::optional<iatci::BaggageDetails>     makeBaggage() const;
+        boost::optional<iatci::DocDetails>         makeDoc() const;
+        boost::optional<iatci::AddressDetails>     makeAddress() const;
+    };
+
 private:
     edifact::FdrElem m_fdr;
     edifact::RadElem m_rad;
-    boost::optional<edifact::PpdElem> m_ppd;
-    boost::optional<edifact::ChdElem> m_chd;
-    boost::optional<edifact::PfdElem> m_pfd;
-    boost::optional<edifact::PsiElem> m_psi;
+    boost::optional<edifact::ChdElem> m_chd;        
     boost::optional<edifact::FsdElem> m_fsd;
     boost::optional<edifact::ErdElem> m_erd;
     boost::optional<edifact::WadElem> m_wad;
     boost::optional<edifact::EqdElem> m_eqd;
-    boost::optional<edifact::PapElem> m_pap;
+    std::list<Pxg>                    m_lPxg;
 
 public:
     void setFdr(const boost::optional<edifact::FdrElem>& fdr);
-    void setRad(const boost::optional<edifact::RadElem>& rad);
-    void setPpd(const boost::optional<edifact::PpdElem>& ppd, bool required = false);
-    void setPfd(const boost::optional<edifact::PfdElem>& pfd, bool required = false);
-    void setPsi(const boost::optional<edifact::PsiElem>& psi, bool required = false);
-    void setFsd(const boost::optional<edifact::FsdElem>& fsd, bool required = false);
+    void setRad(const boost::optional<edifact::RadElem>& rad);        
     void setChd(const boost::optional<edifact::ChdElem>& chd, bool required = false);
+    void setFsd(const boost::optional<edifact::FsdElem>& fsd, bool required = false);
     void setErd(const boost::optional<edifact::ErdElem>& erd, bool required = false);
     void setWad(const boost::optional<edifact::WadElem>& wad, bool required = false);
     void setEqd(const boost::optional<edifact::EqdElem>& eqd, bool required = false);
-    void setPap(const boost::optional<edifact::PapElem>& pap, bool required = false);
-    iatci::Result makeResult() const;
+    void addPxg(const Pxg& pxg);
+
+    iatci::dcrcka::Result makeResult() const;
+
+protected:
+    boost::optional<iatci::CascadeHostDetails> makeCascade() const;
+    boost::optional<iatci::EquipmentDetails>   makeEquipment() const;
+    boost::optional<iatci::ErrorDetails>       makeError() const;
+    boost::optional<iatci::WarningDetails>     makeWarning() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -63,6 +94,7 @@ IatciResponseHandler::IatciResponseHandler(_EDI_REAL_MES_STRUCT_ *PMes,
 
 void IatciResponseHandler::fillFuncCodeRespStatus()
 {
+    using iatci::dcrcka::Result;
     readRemoteResults();
     if(pMes())
     {
@@ -85,8 +117,8 @@ void IatciResponseHandler::fillFuncCodeRespStatus()
                 LogError(STDLOG) << "Different response types in message!";
             }
 
-            if(iatci::Result::strToStatus(rad->m_status) == iatci::Result::Failed ||
-               iatci::Result::strToStatus(rad->m_status) == iatci::Result::RecoverableError)
+            if(Result::strToStatus(rad->m_status) == Result::Failed ||
+               Result::strToStatus(rad->m_status) == Result::RecoverableError)
             {
                 numFailedFlights++;
             }
@@ -141,7 +173,7 @@ void IatciResponseHandler::parse()
 
     for(int currFlight = 0; currFlight < flightsCount; ++currFlight)
     {
-        EdiPointHolder flt_holder(pMes());
+        EdiPointHolder flg_holder(pMes());
         SetEdiPointToSegGrG(pMes(), SegGrElement(1, currFlight), "PROG_ERR");
         IatciResultMaker resultMaker;
         resultMaker.setFdr(readEdiFdr(pMes()));
@@ -150,20 +182,26 @@ void IatciResponseHandler::parse()
         resultMaker.setFsd(readEdiFsd(pMes()));
         resultMaker.setErd(readEdiErd(pMes()));
 
-        if(GetNumSegGr(pMes(), 2) > 0)
+        int paxCount = GetNumSegGr(pMes(), 2);
+        for(int currPax = 0; currPax < paxCount; ++currPax)
         {
-            EdiPointHolder pax_holder(pMes());
-            SetEdiPointToSegGrG(pMes(), SegGrElement(2), "PROG_ERR");
-            resultMaker.setPpd(readEdiPpd(pMes()), true /*required*/);
-            resultMaker.setPfd(readEdiPfd(pMes()));
-            resultMaker.setPsi(readEdiPsi(pMes()));
+            EdiPointHolder pxg_holder(pMes());
+            SetEdiPointToSegGrG(pMes(), SegGrElement(2, currPax), "PROG_ERR");
+
+            IatciResultMaker::Pxg pxg;
+            pxg.setPpd(readEdiPpd(pMes()));
+            pxg.setPrd(readEdiPrd(pMes()));
+            pxg.setPfd(readEdiPfd(pMes()));
+            pxg.setPsi(readEdiPsi(pMes()));
 
             if(GetNumSegGr(pMes(), 3) > 0)
             {
                 EdiPointHolder apg_holder(pMes());
                 SetEdiPointToSegGrG(pMes(), SegGrElement(3), "PROG_ERR");
-                resultMaker.setPap(readEdiPap(pMes()));
+                pxg.setPap(readEdiPap(pMes()));
             }
+            
+            resultMaker.addPxg(pxg);
         }
 
         m_lRes.push_back(resultMaker.makeResult());
@@ -182,18 +220,104 @@ void IatciResponseHandler::handle()
     }
 }
 
-void IatciResponseHandler::onTimeOut()
+//---------------------------------------------------------------------------------------
+
+void IatciResultMaker::Pxg::setPpd(const boost::optional<edifact::PpdElem>& ppd)
 {
-    // в список m_lRes положим один элемент, информирующий о таймауте
-    m_lRes.push_back(iatci::Result::makeFailResult(action(),
-                                                   iatci::ErrorDetails(AstraErr::TIMEOUT_ON_HOST_3)));
-    boost::optional<tlgnum_t> ppTlgNum = PostponeEdiHandling::findPostponeTlg(ediSessId());
-    if(ppTlgNum) {
-        iatci::saveDeferredCkiData(*ppTlgNum, m_lRes);
-    }
+    ASSERT(ppd);
+    m_ppd = *ppd;
 }
 
-//---------------------------------------------------------------------------------------
+void IatciResultMaker::Pxg::setPrd(const boost::optional<edifact::PrdElem>& prd,
+                                   bool required)
+{
+    if(required)
+        ASSERT(prd);
+    m_prd = prd;
+}
+
+void IatciResultMaker::Pxg::setPsi(const boost::optional<edifact::PsiElem>& psi,
+                                   bool required)
+{
+    if(required)
+        ASSERT(psi);
+    m_psi = psi;
+}
+
+void IatciResultMaker::Pxg::setPfd(const boost::optional<edifact::PfdElem>& pfd,
+                                   bool required)
+{
+    if(required)
+        ASSERT(pfd);
+    m_pfd = pfd;
+}
+
+void IatciResultMaker::Pxg::setPap(const boost::optional<edifact::PapElem>& pap,
+                                   bool required)
+{
+    if(required)
+        ASSERT(pap);
+    m_pap = pap;
+}
+
+iatci::dcrcka::PaxGroup IatciResultMaker::Pxg::makePaxGroup() const
+{
+    return iatci::dcrcka::PaxGroup(iatci::makePax(m_ppd),
+                                   makeReserv(),
+                                   makeSeat(),
+                                   makeBaggage(),
+                                   makeService(),
+                                   makeDoc(),
+                                   makeAddress());
+}
+
+boost::optional<iatci::ReservationDetails> IatciResultMaker::Pxg::makeReserv() const
+{
+    if(m_prd) {
+        return iatci::makeReserv(*m_prd);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::FlightSeatDetails>  IatciResultMaker::Pxg::makeSeat() const
+{
+    if(m_pfd) {
+        return iatci::makeSeat(*m_pfd);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::ServiceDetails> IatciResultMaker::Pxg::makeService() const
+{
+    if(m_psi) {
+        return iatci::makeService(*m_psi);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::BaggageDetails> IatciResultMaker::Pxg::makeBaggage() const
+{
+    // TODO
+    return boost::none;
+}
+
+boost::optional<iatci::DocDetails> IatciResultMaker::Pxg::makeDoc() const
+{
+    if(m_pap) {
+        return iatci::makeDoc(*m_pap);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::AddressDetails> IatciResultMaker::Pxg::makeAddress() const
+{
+    return boost::none;
+}
+
 
 void IatciResultMaker::setFdr(const boost::optional<edifact::FdrElem>& fdr)
 {
@@ -207,25 +331,11 @@ void IatciResultMaker::setRad(const boost::optional<edifact::RadElem>& rad)
     m_rad = *rad;
 }
 
-void IatciResultMaker::setPpd(const boost::optional<edifact::PpdElem>& ppd, bool required)
+void IatciResultMaker::setChd(const boost::optional<edifact::ChdElem>& chd, bool required)
 {
     if(required)
-        ASSERT(ppd);
-    m_ppd = *ppd;
-}
-
-void IatciResultMaker::setPfd(const boost::optional<edifact::PfdElem>& pfd, bool required)
-{
-    if(required)
-        ASSERT(pfd);
-    m_pfd = pfd;
-}
-
-void IatciResultMaker::setPsi(const boost::optional<edifact::PsiElem>& psi, bool required)
-{
-    if(required)
-        ASSERT(psi);
-    m_psi = psi;
+        ASSERT(chd);
+    m_chd = chd;
 }
 
 void IatciResultMaker::setFsd(const boost::optional<edifact::FsdElem>& fsd, bool required)
@@ -233,13 +343,6 @@ void IatciResultMaker::setFsd(const boost::optional<edifact::FsdElem>& fsd, bool
     if(required)
         ASSERT(fsd);
     m_fsd = fsd;
-}
-
-void IatciResultMaker::setChd(const boost::optional<edifact::ChdElem>& chd, bool required)
-{
-    if(required)
-        ASSERT(chd);
-    m_chd = chd;
 }
 
 void IatciResultMaker::setErd(const boost::optional<edifact::ErdElem>& erd, bool required)
@@ -263,109 +366,63 @@ void IatciResultMaker::setEqd(const boost::optional<edifact::EqdElem>& eqd, bool
     m_eqd = eqd;
 }
 
-void IatciResultMaker::setPap(const boost::optional<edifact::PapElem>& pap, bool required)
+void IatciResultMaker::addPxg(const IatciResultMaker::Pxg& pxg)
 {
-    if(required)
-        ASSERT(pap);
-    m_pap = pap;
+    m_lPxg.push_back(pxg);
 }
 
-iatci::Result IatciResultMaker::makeResult() const
+iatci::dcrcka::Result IatciResultMaker::makeResult() const
 {
-    iatci::FlightDetails flightDetails(BaseTables::Company(m_fdr.m_airl)->rcode(),
-                                       m_fdr.m_flNum,
-                                       BaseTables::Port(m_fdr.m_depPoint)->rcode(),
-                                       BaseTables::Port(m_fdr.m_arrPoint)->rcode(),
-                                       m_fdr.m_depDate,
-                                       m_fdr.m_arrDate,
-                                       m_fdr.m_depTime,
-                                       m_fdr.m_arrTime,
-                                       m_fsd ? m_fsd->m_boardingTime : Dates::not_a_date_time);
+    using iatci::dcrcka::Result;
+    const auto paxGroups = algo::transform(m_lPxg, [](const Pxg& pxg) {
+        return pxg.makePaxGroup();
+    });
 
-    boost::optional<iatci::PaxDetails::DocInfo> paxDoc;
-    if(m_pap) {
-        paxDoc = iatci::PaxDetails::DocInfo(m_pap->m_docQualifier,
-                                            m_pap->m_placeOfIssue,
-                                            m_pap->m_docNumber,
-                                            m_pap->m_surname,
-                                            m_pap->m_name,
-                                            m_pap->m_otherName,
-                                            m_pap->m_gender,
-                                            m_pap->m_nationality,
-                                            m_pap->m_birthDate,
-                                            m_pap->m_expiryDate);
-    }
+    return Result::makeResult(Result::strToAction(m_rad.m_respType),
+                              Result::strToStatus(m_rad.m_status),
+                              iatci::makeFlight(m_fdr, m_fsd),
+                              paxGroups,
+                              boost::none,
+                              makeCascade(),
+                              makeError(),
+                              makeWarning(),
+                              makeEquipment());
+}
 
-    boost::optional<iatci::PaxDetails> paxDetails;
-    if(m_ppd) {
-        paxDetails = iatci::PaxDetails(m_ppd->m_passSurname,
-                                       m_ppd->m_passName,
-                                       iatci::PaxDetails::strToType(m_ppd->m_passType),
-                                       paxDoc,
-                                       m_ppd->m_passQryRef,
-                                       m_ppd->m_passRespRef);
-    }
-
-    boost::optional<iatci::FlightSeatDetails> seatDetails;
-    if(m_pfd) {
-        seatDetails = iatci::FlightSeatDetails(m_pfd->m_seat,
-                                               m_pfd->m_cabinClass,
-                                               m_pfd->m_securityId,
-                                               iatci::FlightSeatDetails::strToSmokeInd(m_pfd->m_noSmokingInd));
-    }
-
-    boost::optional<iatci::CascadeHostDetails> cascadeDetails;
+boost::optional<iatci::CascadeHostDetails> IatciResultMaker::makeCascade() const
+{
     if(m_chd) {
-        cascadeDetails = iatci::CascadeHostDetails(m_chd->m_origAirline.empty() ? "" 
-                                            : BaseTables::Company(m_chd->m_origAirline)->rcode(),
-                                                   m_chd->m_origPoint.empty() ? ""
-                                            : BaseTables::Port(m_chd->m_origPoint)->rcode());
-        BOOST_FOREACH(const std::string& hostAirline, m_chd->m_hostAirlines) {
-            cascadeDetails->addHostAirline(BaseTables::Company(hostAirline)->rcode());
-        }
+        return iatci::makeCascade(*m_chd);
     }
 
-    boost::optional<iatci::ErrorDetails> errorDetails;
-    if(m_erd) {
-        errorDetails = iatci::ErrorDetails(edifact::getInnerErrByErd(m_erd->m_messageNumber),
-                                           m_erd->m_messageText);
-    }
+    return boost::none;
+}
 
-    boost::optional<iatci::WarningDetails> warningDetails;
-    if(m_wad) {
-        warningDetails = iatci::WarningDetails(edifact::getInnerErrByErd(m_wad->m_messageNumber),
-                                               m_wad->m_messageText);
-    }
-
-    boost::optional<iatci::EquipmentDetails> equipmentDetails;
+boost::optional<iatci::EquipmentDetails> IatciResultMaker::makeEquipment() const
+{
     if(m_eqd) {
-        equipmentDetails = iatci::EquipmentDetails(m_eqd->m_equipment);
+        return iatci::makeEquipment(*m_eqd);
     }
 
-    boost::optional<iatci::ServiceDetails> serviceDetails;
-    if(m_psi) {
-        serviceDetails = iatci::ServiceDetails(m_psi->m_osi);
-        BOOST_FOREACH(const PsiElem::SsrDetails& ssr, m_psi->m_lSsr) {
-            serviceDetails->addSsr(iatci::ServiceDetails::SsrInfo(ssr.m_ssrCode,
-                                                                  ssr.m_ssrText,
-                                                                  ssr.m_qualifier == "INF",
-                                                                  ssr.m_freeText,
-                                                                  ssr.m_airline,
-                                                                  ssr.m_numOfPieces));
-        }
+    return boost::none;
+}
+
+boost::optional<iatci::ErrorDetails> IatciResultMaker::makeError() const
+{
+    if(m_erd) {
+        return iatci::makeError(*m_erd);
     }
 
-    return iatci::Result::makeResult(iatci::Result::strToAction(m_rad.m_respType),
-                                     iatci::Result::strToStatus(m_rad.m_status),
-                                     flightDetails,
-                                     paxDetails,
-                                     seatDetails,
-                                     boost::none,
-                                     cascadeDetails,
-                                     errorDetails,
-                                     warningDetails,
-                                     equipmentDetails,
-                                     serviceDetails);
+    return boost::none;
+}
+
+boost::optional<iatci::WarningDetails> IatciResultMaker::makeWarning() const
+{
+    if(m_wad) {
+        return iatci::makeWarning(*m_wad);
+    }
+
+    return boost::none;
 }
 
 }//namespace TlgHandling

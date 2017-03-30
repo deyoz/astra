@@ -1,21 +1,27 @@
 #pragma once
 
 #include "tlg/CheckinBaseTypes.h"
+#include "ticket_types.h"
 
 #include <etick/etick_msg_types.h>
+#include <etick/tick_data.h>
 
-#include <list>
-#include <vector>
 #include <boost/optional.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/date_time/gregorian/gregorian_types.hpp>
-
 #include <boost/serialization/access.hpp>
 
 #include <libxml/tree.h>
 
+#include <list>
+#include <vector>
+
 
 namespace iatci {
+
+namespace dcrcka {
+struct Result;
+}//namespace dcrcka
 
 class MagicTab
 {
@@ -59,7 +65,7 @@ bool operator!=(const Seat& left, const Seat& right);
 
 struct OriginatorDetails
 {
-    friend class Result;
+    friend class dcrcka::Result;
     friend class boost::serialization::access;
 
 protected:
@@ -80,7 +86,7 @@ protected:
 
 struct FlightDetails
 {
-    friend class Result;
+    friend class dcrcka::Result;
     friend class boost::serialization::access;
 
 protected:
@@ -122,52 +128,62 @@ protected:
 
 //---------------------------------------------------------------------------------------
 
+struct DocDetails
+{
+    friend class boost::serialization::access;
+
+    protected:
+        std::string m_docType;
+        std::string m_issueCountry;
+        std::string m_no;
+        std::string m_surname;
+        std::string m_name;
+        std::string m_secondName;
+        std::string m_gender;
+        std::string m_nationality;
+        boost::gregorian::date m_birthDate;
+        boost::gregorian::date m_expiryDate;
+
+    public:
+        DocDetails(const std::string& docType,
+                   const std::string& issueCountry,
+                   const std::string& no,
+                   const std::string& surname,
+                   const std::string& name,
+                   const std::string& secondName,
+                   const std::string& gender,
+                   const std::string& nationality,
+                   const boost::gregorian::date& birthDate = boost::gregorian::date(),
+                   const boost::gregorian::date& expiryDate = boost::gregorian::date());
+
+        const std::string& docType() const;
+        const std::string& issueCountry() const;
+        const std::string& no() const;
+        const std::string& surname() const;
+        const std::string& name() const;
+        const std::string& secondName() const;
+        const std::string& gender() const;
+        const std::string& nationality() const;
+        const boost::gregorian::date& birthDate() const;
+        const boost::gregorian::date& expiryDate() const;
+
+    protected:
+        DocDetails() {} // for boost serialization only
+};
+
+//---------------------------------------------------------------------------------------
+
+struct AddressDetails
+{
+
+};
+
+//---------------------------------------------------------------------------------------
+
 struct PaxDetails
 {
-    struct DocInfo
-    {
-        friend class boost::serialization::access;
-
-        protected:
-            std::string m_docType;
-            std::string m_issueCountry;
-            std::string m_no;
-            std::string m_surname;
-            std::string m_name;
-            std::string m_secondName;
-            std::string m_gender;
-            std::string m_nationality;
-            boost::gregorian::date m_birthDate;
-            boost::gregorian::date m_expiryDate;
-
-        public:
-            DocInfo(const std::string& docType,
-                    const std::string& issueCountry,
-                    const std::string& no,
-                    const std::string& surname,
-                    const std::string& name,
-                    const std::string& secondName,
-                    const std::string& gender,
-                    const std::string& nationality,
-                    const boost::gregorian::date& birthDate = boost::gregorian::date(),
-                    const boost::gregorian::date& expiryDate = boost::gregorian::date());
-
-            const std::string& docType() const;
-            const std::string& issueCountry() const;
-            const std::string& no() const;
-            const std::string& surname() const;
-            const std::string& name() const;
-            const std::string& secondName() const;
-            const std::string& gender() const;
-            const std::string& nationality() const;
-            const boost::gregorian::date& birthDate() const;
-            const boost::gregorian::date& expiryDate() const;
-
-        protected:
-            DocInfo() {} // for boost serialization only
-    };
-
-    friend class Result;
+    friend class dcrcka::Result;
+    friend class PaxGroup;
     friend class boost::serialization::access;
 
     enum PaxType_e
@@ -182,7 +198,6 @@ protected:
     std::string m_surname;
     std::string m_name;
     PaxType_e   m_type;
-    boost::optional<DocInfo> m_doc;
     std::string m_qryRef;
     std::string m_respRef;
 
@@ -190,7 +205,6 @@ public:
     PaxDetails(const std::string& surname,
                const std::string& name,
                PaxType_e type,
-               const boost::optional<DocInfo>& doc = boost::none,
                const std::string& qryRef = "",
                const std::string& respRef = "");
 
@@ -198,7 +212,6 @@ public:
     const std::string& name() const;
     PaxType_e          type() const;
     std::string        typeAsString() const;
-    const boost::optional<DocInfo>& doc() const;
     const std::string& qryRef() const;
     const std::string& respRef() const;
 
@@ -236,39 +249,38 @@ public:
 
 //---------------------------------------------------------------------------------------
 
+struct UpdateDocDetails: public UpdateDetails, public DocDetails
+{
+    UpdateDocDetails(UpdateActionCode_e actionCode,
+                     const std::string& docType,
+                     const std::string& issueCountry,
+                     const std::string& no,
+                     const std::string& surname,
+                     const std::string& name,
+                     const std::string& secondName,
+                     const std::string& gender,
+                     const std::string& nationality,
+                     const boost::gregorian::date& birthDate = boost::gregorian::date(),
+                     const boost::gregorian::date& expiryDate = boost::gregorian::date());
+};
+
+//---------------------------------------------------------------------------------------
+
 struct UpdatePaxDetails: public UpdateDetails
 {
-    struct UpdateDocInfo: public UpdateDetails, public PaxDetails::DocInfo
-    {
-        UpdateDocInfo(UpdateActionCode_e actionCode,
-                      const std::string& docType,
-                      const std::string& issueCountry,
-                      const std::string& no,
-                      const std::string& surname,
-                      const std::string& name,
-                      const std::string& secondName,
-                      const std::string& gender,
-                      const std::string& nationality,
-                      const boost::gregorian::date& birthDate = boost::gregorian::date(),
-                      const boost::gregorian::date& expiryDate = boost::gregorian::date());
-    };
-
 protected:
     std::string m_surname;
     std::string m_name;
-    boost::optional<UpdateDocInfo> m_doc;
     std::string m_qryRef;
 
 public:
     UpdatePaxDetails(UpdateActionCode_e actionCode,
                      const std::string& surname,
                      const std::string& name,
-                     const boost::optional<UpdateDocInfo>& doc,
                      const std::string& qryRef = "");
 
     const std::string& surname() const;
     const std::string& name() const;
-    const boost::optional<UpdatePaxDetails::UpdateDocInfo>& doc() const;
     const std::string& qryRef() const;
 
 };
@@ -277,7 +289,7 @@ public:
 
 struct ReservationDetails
 {
-    friend class Result;
+    friend class dcrcka::Result;
     friend class boost::serialization::access;
 
 protected:
@@ -288,6 +300,8 @@ public:
 
     const std::string& rbd() const;
 
+    Ticketing::SubClass subclass() const;
+
 protected:
     ReservationDetails() {} // for boost serialization only
 };
@@ -296,7 +310,7 @@ protected:
 
 struct SeatDetails
 {
-    friend class Result;
+    friend class dcrcka::Result;
     friend class boost::serialization::access;
 
     enum SmokeIndicator_e
@@ -344,7 +358,7 @@ public:
 
 struct FlightSeatDetails: public SeatDetails
 {
-    friend class Result;
+    friend class dcrcka::Result;
     friend class boost::serialization::access;
 
 protected:
@@ -355,22 +369,22 @@ public:
     FlightSeatDetails(const std::string& seat,
                       const std::string& cabinClass,
                       const std::string& securityId,
-                      SmokeIndicator_e smokeInd = Unknown);
+                      SmokeIndicator_e smokeInd = None);
 
     const std::string& cabinClass() const;
     const std::string& securityId() const;
 
 protected:
-    FlightSeatDetails(SmokeIndicator_e smokeInd = Unknown)
+    FlightSeatDetails(SmokeIndicator_e smokeInd = None)
         : SeatDetails(smokeInd)
     {} // for boost serialization only
 };
 
 //---------------------------------------------------------------------------------------
 
-struct PaxSeatDetails: public PaxDetails
+struct SelectPersonalDetails: public PaxDetails
 {
-    friend class Result;
+    friend class dcrcka::Result;
     friend class boost::serialization::access;
 
 protected:
@@ -381,15 +395,17 @@ protected:
     std::string m_tickNum;
 
 public:
-    PaxSeatDetails(const std::string& surname,
-                   const std::string& name,
-                   const std::string& rbd = "",
-                   const std::string& seat = "",
-                   const std::string& securityId = "",
-                   const std::string& recloc = "",
-                   const std::string& tickNum = "",
-                   const std::string& qryRef = "",
-                   const std::string& respRef = "");
+    SelectPersonalDetails(const std::string& surname,
+                          const std::string& name,
+                          const std::string& rbd = "",
+                          const std::string& seat = "",
+                          const std::string& securityId = "",
+                          const std::string& recloc = "",
+                          const std::string& tickNum = "",
+                          const std::string& qryRef = "",
+                          const std::string& respRef = "");
+
+    SelectPersonalDetails(const PaxDetails& pax);
 
     const std::string& rbd() const;
     const std::string& seat() const;
@@ -398,7 +414,7 @@ public:
     const std::string& tickNum() const;
 
 protected:
-    PaxSeatDetails()
+    SelectPersonalDetails()
     {} // for boost serialization only
 };
 
@@ -406,7 +422,7 @@ protected:
 
 struct BaggageDetails
 {
-    friend class Result;
+    friend class dcrcka::Result;
     friend class boost::serialization::access;
 
 protected:
@@ -432,22 +448,6 @@ struct UpdateBaggageDetails: public UpdateDetails, public BaggageDetails
 public:
     UpdateBaggageDetails(UpdateActionCode_e actionCode,
                          unsigned numOfPieces, unsigned weight);
-};
-
-//---------------------------------------------------------------------------------------
-
-class TicketCpn_t
-{
-    std::string m_tickNum;
-    unsigned    m_cpnNum;
-
-public:
-    TicketCpn_t(const std::string& tickNum, unsigned cpnNum)
-        : m_tickNum(tickNum), m_cpnNum(cpnNum)
-    {}
-
-    const std::string& tickNum() const { return m_tickNum; }
-    unsigned couponNum() const { return m_cpnNum; }
 };
 
 //---------------------------------------------------------------------------------------
@@ -478,7 +478,7 @@ struct ServiceDetails
         const std::string& airline() const;
         unsigned           quantity() const;
 
-        TicketCpn_t toTicketCpn() const;
+        Ticketing::TicketCpn_t toTicketCpn() const;
 
     protected:
         SsrInfo()
@@ -503,7 +503,7 @@ public:
     void addSsrTkne(const std::string& tickNum, unsigned couponNum, bool inftTicket);
     void addSsrFqtv(const std::string& fqtvCode);
 
-    boost::optional<TicketCpn_t> findTicketCpn() const;
+    boost::optional<Ticketing::TicketCpn_t> findTicketCpn() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -523,7 +523,7 @@ protected:
     std::list<UpdSsrInfo> m_lUpdSsr;
 
 public:
-    UpdateServiceDetails(UpdateActionCode_e actionCode);
+    UpdateServiceDetails(UpdateActionCode_e actionCode = UpdateDetails::Replace);
 
     const std::list<UpdSsrInfo>& lSsr() const;
     void addSsr(const UpdateServiceDetails::UpdSsrInfo& updSsr);
@@ -533,7 +533,7 @@ public:
 
 struct SeatRequestDetails: public SeatDetails
 {
-    friend class Result;
+    friend class dcrcka::Result;
     friend class boost::serialization::access;
 
 protected:
@@ -576,7 +576,7 @@ protected:
 
 struct SeatColumnDetails
 {
-    friend class Result;
+    friend class dcrcka::Result;
     friend class boost::serialization::access;
 
 protected:
@@ -603,7 +603,7 @@ protected:
 
 struct CabinDetails
 {
-    friend class Result;
+    friend class dcrcka::Result;
     friend class boost::serialization::access;
 
 protected:
@@ -640,7 +640,7 @@ protected:
 
 struct SeatOccupationDetails
 {
-    friend class Result;
+    friend class dcrcka::Result;
     friend class boost::serialization::access;
 
 protected:
@@ -667,7 +667,7 @@ protected:
 
 struct RowDetails
 {
-    friend class Result;
+    friend class dcrcka::Result;
     friend class boost::serialization::access;
 
 protected:
@@ -695,22 +695,22 @@ protected:
 
 struct SeatmapDetails
 {
-    friend class Result;
+    friend class dcrcka::Result;
     friend class boost::serialization::access;
 
 protected:
-    std::list<CabinDetails>             m_lCabinDetails;
-    std::list<RowDetails>               m_lRowDetails;
-    boost::optional<SeatRequestDetails> m_seatRequestDetails;
+    std::list<CabinDetails>             m_lCabin;
+    std::list<RowDetails>               m_lRow;
+    boost::optional<SeatRequestDetails> m_seatRequest;
 
 public:
-    SeatmapDetails(const std::list<CabinDetails>& lCabinDetails,
-                   const std::list<RowDetails>& lRowDetails,
-                   boost::optional<SeatRequestDetails> seatRequestDetails = boost::none);
+    SeatmapDetails(const std::list<CabinDetails>& lCabin,
+                   const std::list<RowDetails>& lRow,
+                   boost::optional<SeatRequestDetails> seatRequest = boost::none);
 
-    const std::list<CabinDetails>&             lCabinDetails() const;
-    const std::list<RowDetails>&               lRowDetails() const;
-    const boost::optional<SeatRequestDetails>& seatRequestDetails() const;
+    const std::list<CabinDetails>&             lCabin() const;
+    const std::list<RowDetails>&               lRow() const;
+    const boost::optional<SeatRequestDetails>& seatRequest() const;
 
 protected:
     SeatmapDetails() {} // for boost serialization only
@@ -720,7 +720,7 @@ protected:
 
 struct CascadeHostDetails
 {
-    friend class Result;
+    friend class dcrcka::Result;
     friend class boost::serialization::access;
 
 protected:
@@ -747,7 +747,7 @@ protected:
 
 struct ErrorDetails
 {
-    friend class Result;
+    friend class dcrcka::Result;
     friend class boost::serialization::access;
 
 protected:
@@ -769,7 +769,7 @@ protected:
 
 struct EquipmentDetails
 {
-    friend class Result;
+    friend class dcrcka::Result;
     friend class boost::serialization::access;
 
 protected:
@@ -788,7 +788,7 @@ protected:
 
 struct WarningDetails
 {
-    friend class Result;
+    friend class dcrcka::Result;
     friend class boost::serialization::access;
 
 protected:
@@ -864,7 +864,7 @@ public:
             : m_xName(xName), m_yName(yName),
               m_class(cls), m_elemType(elemType),
               m_occupied(occupied)
-        {}        
+        {}
     };
 
     struct PlaceList
@@ -936,6 +936,19 @@ public:
 
 //---------------------------------------------------------------------------------------
 
+class IBaseParams
+{
+public:
+    virtual const OriginatorDetails&                   org() const = 0;
+    virtual const FlightDetails&                       outboundFlight() const = 0;
+    virtual const boost::optional<FlightDetails>&      inboundFlight() const = 0;
+    virtual const boost::optional<CascadeHostDetails>& cascade() const = 0;
+
+    virtual ~IBaseParams() {}
+};
+
+//---------------------------------------------------------------------------------------
+
 struct Params: public BaseParams
 {
 protected:
@@ -956,7 +969,228 @@ public:
 
 //---------------------------------------------------------------------------------------
 
-struct CkiParams: public Params
+class PaxGroup
+{
+protected:
+    PaxDetails                          m_pax;
+    boost::optional<ReservationDetails> m_reserv;
+    boost::optional<BaggageDetails>     m_baggage;
+    boost::optional<ServiceDetails>     m_service;
+    boost::optional<DocDetails>         m_doc;
+    boost::optional<AddressDetails>     m_address;
+
+public:
+    PaxGroup(const PaxDetails& pax,
+             const boost::optional<ReservationDetails>& reserv,
+             const boost::optional<BaggageDetails>& baggage,
+             const boost::optional<ServiceDetails>& service,
+             const boost::optional<DocDetails>& doc,
+             const boost::optional<AddressDetails>& address);
+
+    const PaxDetails&                          pax() const;
+    const boost::optional<ReservationDetails>& reserv() const;
+    const boost::optional<BaggageDetails>&     baggage() const;
+    const boost::optional<ServiceDetails>&     service() const;
+    const boost::optional<DocDetails>&         doc() const;
+    const boost::optional<AddressDetails>&     address() const;
+
+protected:
+    PaxGroup() {} // for boost serialization only
+};
+
+//---------------------------------------------------------------------------------------
+
+class FlightGroup
+{
+protected:
+    FlightDetails                  m_outboundFlight;
+    boost::optional<FlightDetails> m_inboundFlight;
+
+public:
+    FlightGroup(const FlightDetails& outboundFlight,
+                const boost::optional<FlightDetails>& inboundFlight);
+
+    const FlightDetails&                  outboundFlight() const;
+    const boost::optional<FlightDetails>& inboundFlight() const;
+};
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+namespace dcqcki {
+
+class PaxGroup: public iatci::PaxGroup
+{
+protected:
+    boost::optional<SeatDetails> m_seat;
+
+public:
+    PaxGroup(const PaxDetails& pax,
+             const boost::optional<ReservationDetails>& reserv,
+             const boost::optional<SeatDetails>& seat,
+             const boost::optional<BaggageDetails>& baggage,
+             const boost::optional<ServiceDetails>& service,
+             const boost::optional<DocDetails>& doc,
+             const boost::optional<AddressDetails>& address);
+
+    const boost::optional<SeatDetails>& seat() const;
+};
+
+//---------------------------------------------------------------------------------------
+
+class FlightGroup: public iatci::FlightGroup
+{
+protected:
+    std::list<dcqcki::PaxGroup> m_paxGroups;
+
+public:
+    FlightGroup(const FlightDetails& outboundFlight,
+                const boost::optional<FlightDetails>& inboundFlight,
+                const std::list<dcqcki::PaxGroup>& paxGroups);
+
+    const std::list<dcqcki::PaxGroup>& paxGroups() const;
+};
+
+}//namespace dcqcki
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+namespace dcqcku {
+
+class PaxGroup: public iatci::PaxGroup
+{
+protected:
+    boost::optional<UpdatePaxDetails>     m_updPax;
+    boost::optional<UpdateSeatDetails>    m_updSeat;
+    boost::optional<UpdateBaggageDetails> m_updBaggage;
+    boost::optional<UpdateServiceDetails> m_updService;
+    boost::optional<UpdateDocDetails>     m_updDoc;
+
+public:
+    PaxGroup(const PaxDetails& pax,
+             const boost::optional<ReservationDetails>& reserv,
+             const boost::optional<BaggageDetails>& baggage,
+             const boost::optional<ServiceDetails>& service,
+             const boost::optional<UpdatePaxDetails>& updPax,
+             const boost::optional<UpdateSeatDetails>& updSeat,
+             const boost::optional<UpdateBaggageDetails>& updBaggage,
+             const boost::optional<UpdateServiceDetails>& updService,
+             const boost::optional<UpdateDocDetails>& updDoc);
+
+    const boost::optional<UpdatePaxDetails>&     updPax() const;
+    const boost::optional<UpdateSeatDetails>&    updSeat() const;
+    const boost::optional<UpdateBaggageDetails>& updBaggage() const;
+    const boost::optional<UpdateServiceDetails>& updService() const;
+    const boost::optional<UpdateDocDetails>&     updDoc() const;
+};
+
+//---------------------------------------------------------------------------------------
+
+class FlightGroup: public iatci::FlightGroup
+{
+protected:
+    std::list<dcqcku::PaxGroup> m_paxGroups;
+
+public:
+    FlightGroup(const FlightDetails& outboundFlight,
+                const boost::optional<FlightDetails>& inboundFlight,
+                const std::list<dcqcku::PaxGroup>& paxGroups);
+
+    const std::list<dcqcku::PaxGroup>& paxGroups() const;
+};
+
+}//namespace dcqcku
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+namespace dcqckx {
+
+class PaxGroup: public iatci::PaxGroup
+{
+protected:
+    boost::optional<SeatDetails> m_seat;
+
+public:
+    PaxGroup(const PaxDetails& pax,
+             const boost::optional<ReservationDetails>& reserv = boost::none,
+             const boost::optional<SeatDetails>& seat = boost::none,
+             const boost::optional<BaggageDetails>& baggage = boost::none,
+             const boost::optional<ServiceDetails>& service = boost::none);
+
+    const boost::optional<SeatDetails>& seat() const;
+};
+
+//---------------------------------------------------------------------------------------
+
+class FlightGroup: public iatci::FlightGroup
+{
+protected:
+    std::list<dcqckx::PaxGroup> m_paxGroups;
+
+public:
+    FlightGroup(const FlightDetails& outboundFlight,
+                const boost::optional<FlightDetails>& inboundFlight,
+                const std::list<dcqckx::PaxGroup>& paxGroups);
+
+    const std::list<dcqckx::PaxGroup>& paxGroups() const;
+};
+
+}//namespace dcqckx
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+namespace dcqbpr {
+
+class PaxGroup: public iatci::PaxGroup
+{
+public:
+    PaxGroup(const PaxDetails& pax,
+             const boost::optional<ReservationDetails>& reserv,
+             const boost::optional<BaggageDetails>& baggage,
+             const boost::optional<ServiceDetails>& service);
+};
+
+//---------------------------------------------------------------------------------------
+
+class FlightGroup: public iatci::FlightGroup
+{
+protected:
+    std::list<dcqbpr::PaxGroup> m_paxGroups;
+
+public:
+    FlightGroup(const FlightDetails& outboundFlight,
+                const boost::optional<FlightDetails>& inboundFlight,
+                const std::list<dcqbpr::PaxGroup>& paxGroups);
+
+    const std::list<dcqbpr::PaxGroup>& paxGroups() const;
+};
+
+}//namespace dcqbpr
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+class CkiParams: public IBaseParams
+{
+protected:
+    OriginatorDetails                   m_org;
+    boost::optional<CascadeHostDetails> m_cascade;
+    dcqcki::FlightGroup                 m_fltGroup;
+
+public:
+    CkiParams(const OriginatorDetails& org,
+              const boost::optional<CascadeHostDetails>& cascade,
+              const dcqcki::FlightGroup& flg);
+
+    virtual const OriginatorDetails&                   org() const;
+    virtual const FlightDetails&                       outboundFlight() const;
+    virtual const boost::optional<FlightDetails>&      inboundFlight() const;
+    virtual const boost::optional<CascadeHostDetails>& cascade() const;
+
+    const dcqcki::FlightGroup&                         fltGroup() const;
+};
+
+//---------------------------------------------------------------------------------------
+
+struct CkiParamsOld: public Params
 {
 protected:
     boost::optional<SeatDetails>        m_seat;
@@ -964,15 +1198,15 @@ protected:
     boost::optional<ReservationDetails> m_reserv;
 
 public:
-    CkiParams(const OriginatorDetails& origin,
-              const PaxDetails& pax,
-              const FlightDetails& flight,
-              boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-              boost::optional<SeatDetails> seat = boost::none,
-              boost::optional<BaggageDetails> baggage = boost::none,
-              boost::optional<ReservationDetails> reserv = boost::none,
-              boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-              boost::optional<ServiceDetails> serviceDetails = boost::none);
+    CkiParamsOld(const OriginatorDetails& origin,
+                 const PaxDetails& pax,
+                 const FlightDetails& flight,
+                 boost::optional<FlightDetails> flightFromPrevHost = boost::none,
+                 boost::optional<SeatDetails> seat = boost::none,
+                 boost::optional<BaggageDetails> baggage = boost::none,
+                 boost::optional<ReservationDetails> reserv = boost::none,
+                 boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
+                 boost::optional<ServiceDetails> serviceDetails = boost::none);
 
     const boost::optional<SeatDetails>&        seat() const;
     const boost::optional<BaggageDetails>&     baggage() const;
@@ -981,35 +1215,82 @@ public:
 
 //---------------------------------------------------------------------------------------
 
-struct CkuParams: public Params
+struct CkuParams: public IBaseParams
+{
+protected:
+    OriginatorDetails                   m_org;
+    boost::optional<CascadeHostDetails> m_cascade;
+    dcqcku::FlightGroup                 m_fltGroup;
+
+public:
+    CkuParams(const OriginatorDetails& org,
+              const boost::optional<CascadeHostDetails>& cascade,
+              const dcqcku::FlightGroup& flg);
+
+    virtual const OriginatorDetails&                   org() const;
+    virtual const FlightDetails&                       outboundFlight() const;
+    virtual const boost::optional<FlightDetails>&      inboundFlight() const;
+    virtual const boost::optional<CascadeHostDetails>& cascade() const;
+
+    const dcqcku::FlightGroup&                         fltGroup() const;
+
+};
+
+//---------------------------------------------------------------------------------------
+
+struct CkuParamsOld: public Params
 {
 protected:
     boost::optional<UpdatePaxDetails>     m_updPax;
     boost::optional<UpdateServiceDetails> m_updService;
     boost::optional<UpdateSeatDetails>    m_updSeat;
     boost::optional<UpdateBaggageDetails> m_updBaggage;
+    boost::optional<UpdateDocDetails>     m_updDoc;
 
 public:
-    CkuParams(const OriginatorDetails& origin,
-              const PaxDetails& pax,
-              const FlightDetails& flight,
-              boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-              boost::optional<UpdatePaxDetails> updPax = boost::none,
-              boost::optional<UpdateServiceDetails> updService = boost::none,
-              boost::optional<UpdateSeatDetails> updSeat = boost::none,
-              boost::optional<UpdateBaggageDetails> updBaggage = boost::none,
-              boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-              boost::optional<ServiceDetails> serviceDetails = boost::none);
+    CkuParamsOld(const OriginatorDetails& origin,
+                 const PaxDetails& pax,
+                 const FlightDetails& flight,
+                 boost::optional<FlightDetails> flightFromPrevHost = boost::none,
+                 boost::optional<UpdatePaxDetails> updPax = boost::none,
+                 boost::optional<UpdateServiceDetails> updService = boost::none,
+                 boost::optional<UpdateSeatDetails> updSeat = boost::none,
+                 boost::optional<UpdateBaggageDetails> updBaggage = boost::none,
+                 boost::optional<UpdateDocDetails> updDoc = boost::none,
+                 boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
+                 boost::optional<ServiceDetails> serviceDetails = boost::none);
 
     const boost::optional<UpdatePaxDetails>&     updPax() const;
     const boost::optional<UpdateServiceDetails>& updService() const;
     const boost::optional<UpdateSeatDetails>&    updSeat() const;
     const boost::optional<UpdateBaggageDetails>& updBaggage() const;
+    const boost::optional<UpdateDocDetails>&     updDoc() const;
 };
 
 //---------------------------------------------------------------------------------------
 
-struct CkxParams: public Params
+struct CkxParams: public IBaseParams
+{
+    OriginatorDetails                   m_org;
+    boost::optional<CascadeHostDetails> m_cascade;
+    dcqckx::FlightGroup                 m_fltGroup;
+
+public:
+    CkxParams(const OriginatorDetails& org,
+              const boost::optional<CascadeHostDetails>& cascade,
+              const dcqckx::FlightGroup& flg);
+
+    virtual const OriginatorDetails&                   org() const;
+    virtual const FlightDetails&                       outboundFlight() const;
+    virtual const boost::optional<FlightDetails>&      inboundFlight() const;
+    virtual const boost::optional<CascadeHostDetails>& cascade() const;
+
+    const dcqckx::FlightGroup&                         fltGroup() const;
+};
+
+//---------------------------------------------------------------------------------------
+
+struct CkxParamsOld: public Params
 {
 protected:
     boost::optional<ReservationDetails> m_reserv;
@@ -1017,65 +1298,125 @@ protected:
     boost::optional<BaggageDetails>     m_baggage;
 
 public:
-    CkxParams(const OriginatorDetails& origin,
-              const PaxDetails& pax,
-              const FlightDetails& flight,
-              boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-              boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-              boost::optional<ServiceDetails> serviceDetails = boost::none);
+    CkxParamsOld(const OriginatorDetails& origin,
+                 const PaxDetails& pax,
+                 const FlightDetails& flight,
+                 boost::optional<FlightDetails> flightFromPrevHost = boost::none,
+                 boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
+                 boost::optional<ServiceDetails> serviceDetails = boost::none);
 
 };
 
 //---------------------------------------------------------------------------------------
 
-struct PlfParams: public Params
+struct PlfParams: public IBaseParams
 {
 protected:
-    PaxSeatDetails m_paxEx;
+    OriginatorDetails                   m_org;
+    SelectPersonalDetails               m_personal;
+    FlightDetails                       m_outboundFlight;
+    boost::optional<FlightDetails>      m_inboundFlight;
+    boost::optional<CascadeHostDetails> m_cascade;
 
 public:
-    PlfParams(const OriginatorDetails& origin,
-              const PaxSeatDetails& pax,
-              const FlightDetails& flight,
-              boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-              boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
+    PlfParams(const OriginatorDetails& org,
+              const SelectPersonalDetails& personal,
+              const FlightDetails& outboundFlight,
+              const boost::optional<FlightDetails>& inboundFlight = boost::none,
+              const boost::optional<CascadeHostDetails>& cascade = boost::none);
 
-    PlfParams(const OriginatorDetails& origin,
-              const PaxDetails& pax,
-              const FlightDetails& flight,
-              boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-              boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
+    virtual const OriginatorDetails&                   org() const;
+    virtual const FlightDetails&                       outboundFlight() const;
+    virtual const boost::optional<FlightDetails>&      inboundFlight() const;
+    virtual const boost::optional<CascadeHostDetails>& cascade() const;
 
-    const PaxSeatDetails& paxEx() const;
+    const SelectPersonalDetails& personal() const;
 };
 
 //---------------------------------------------------------------------------------------
 
-struct SmfParams: public BaseParams
+struct SmfParams: public IBaseParams
 {
 protected:
-    boost::optional<SeatRequestDetails> m_seatReqDetails;
+    OriginatorDetails                   m_org;
+    boost::optional<SeatRequestDetails> m_seatReq;
+    FlightDetails                       m_outboundFlight;
+    boost::optional<FlightDetails>      m_inboundFlight;
+    boost::optional<CascadeHostDetails> m_cascade;
 
 public:
     SmfParams(const OriginatorDetails& origin,
-              const FlightDetails& flight,
-              boost::optional<SeatRequestDetails> seatReqDetails = boost::none,
-              boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-              boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
+              const boost::optional<SeatRequestDetails>& seatReq,
+              const FlightDetails& outboundFlight,
+              const boost::optional<FlightDetails>& inboundFlight = boost::none,
+              const boost::optional<CascadeHostDetails>& cascade = boost::none);
 
-    const boost::optional<SeatRequestDetails>& seatRequestDetails() const;
+    virtual const OriginatorDetails&                   org() const;
+    virtual const FlightDetails&                       outboundFlight() const;
+    virtual const boost::optional<FlightDetails>&      inboundFlight() const;
+    virtual const boost::optional<CascadeHostDetails>& cascade() const;
+
+    const boost::optional<SeatRequestDetails>& seatRequest() const;
 };
 
 //---------------------------------------------------------------------------------------
 
-struct BprParams: public CkiParams
+struct BprParams: public IBaseParams
+{
+    OriginatorDetails                   m_org;
+    boost::optional<CascadeHostDetails> m_cascade;
+    dcqbpr::FlightGroup                 m_fltGroup;
+
+public:
+    BprParams(const OriginatorDetails& org,
+              const boost::optional<CascadeHostDetails>& cascade,
+              const dcqbpr::FlightGroup& flg);
+
+    virtual const OriginatorDetails&                   org() const;
+    virtual const FlightDetails&                       outboundFlight() const;
+    virtual const boost::optional<FlightDetails>&      inboundFlight() const;
+    virtual const boost::optional<CascadeHostDetails>& cascade() const;
+
+    const dcqbpr::FlightGroup&                         fltGroup() const;
+};
+
+//---------------------------------------------------------------------------------------
+
+struct BprParamsOld: public CkiParamsOld
 {
 public:
-    BprParams(const OriginatorDetails& origin,
-              const PaxDetails& pax,
-              const FlightDetails& flight,
-              boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-              boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
+    BprParamsOld(const OriginatorDetails& origin,
+                 const PaxDetails& pax,
+                 const FlightDetails& flight,
+                 boost::optional<FlightDetails> flightFromPrevHost = boost::none,
+                 boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
+};
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+namespace dcrcka {
+
+class PaxGroup: public iatci::PaxGroup
+{
+    friend class dcrcka::Result;
+    friend class boost::serialization::access;
+
+protected:
+    boost::optional<FlightSeatDetails> m_seat;
+
+public:
+    PaxGroup(const PaxDetails& pax,
+             const boost::optional<ReservationDetails>& reserv,
+             const boost::optional<FlightSeatDetails>& seat,
+             const boost::optional<BaggageDetails>& baggage,
+             const boost::optional<ServiceDetails>& service,
+             const boost::optional<DocDetails>& doc,
+             const boost::optional<AddressDetails>& address);
+
+    const boost::optional<FlightSeatDetails>& seat() const;
+
+protected:
+    PaxGroup() {} // for boost serialization only
 };
 
 //---------------------------------------------------------------------------------------
@@ -1106,116 +1447,68 @@ struct Result
 protected:
     Action_e                            m_action;
     Status_e                            m_status;
-    boost::optional<FlightDetails>      m_flight;
-    boost::optional<PaxDetails>         m_pax;
-    boost::optional<FlightSeatDetails>  m_seat;
+    FlightDetails                       m_flight;
+    std::list<dcrcka::PaxGroup>         m_paxGroups;
     boost::optional<SeatmapDetails>     m_seatmap;
-    boost::optional<CascadeHostDetails> m_cascadeDetails;
-    boost::optional<ErrorDetails>       m_errorDetails;
-    boost::optional<WarningDetails>     m_warningDetails;
-    boost::optional<EquipmentDetails>   m_equipmentDetails;
-    boost::optional<ServiceDetails>     m_serviceDetails;
+    boost::optional<CascadeHostDetails> m_cascade;
+    boost::optional<ErrorDetails>       m_error;
+    boost::optional<WarningDetails>     m_warning;
+    boost::optional<EquipmentDetails>   m_equipment;
 
     Result(Action_e action,
            Status_e status,
-           boost::optional<FlightDetails> flight,
-           boost::optional<PaxDetails> pax,
-           boost::optional<FlightSeatDetails> seat,
-           boost::optional<SeatmapDetails> seatmap,
-           boost::optional<CascadeHostDetails> cascadeDetails,
-           boost::optional<ErrorDetails> errorDetails,
-           boost::optional<WarningDetails> warningDetails,
-           boost::optional<EquipmentDetails> equipmentDetails,
-           boost::optional<ServiceDetails> serviceDetails);
+           const FlightDetails& flight,
+           const std::list<dcrcka::PaxGroup>& paxGroups,
+           const boost::optional<SeatmapDetails>& seatmap,
+           const boost::optional<CascadeHostDetails>& cascade,
+           const boost::optional<ErrorDetails>& error,
+           const boost::optional<WarningDetails>& warning,
+           const boost::optional<EquipmentDetails>& equipment);
 
 public:
     static Result makeResult(Action_e action,
                              Status_e status,
                              const FlightDetails& flight,
-                             boost::optional<PaxDetails> pax,
-                             boost::optional<FlightSeatDetails> seat,
+                             const std::list<dcrcka::PaxGroup>& paxGroups,
                              boost::optional<SeatmapDetails> seatmap,
-                             boost::optional<CascadeHostDetails> cascadeDetails,
-                             boost::optional<ErrorDetails> errorDetails,
-                             boost::optional<WarningDetails> warningDetails,
-                             boost::optional<EquipmentDetails> equipmentDetails,
-                             boost::optional<ServiceDetails> serviceDetails);
-
-    static Result makeCheckinResult(Status_e status,
-                                    const FlightDetails& flight,
-                                    const PaxDetails& pax,
-                                    boost::optional<FlightSeatDetails> seat = boost::none,
-                                    boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-                                    boost::optional<ErrorDetails> errorDetails = boost::none,
-                                    boost::optional<WarningDetails> warningDetails = boost::none,
-                                    boost::optional<EquipmentDetails> equipmentDetails = boost::none,
-                                    boost::optional<ServiceDetails> serviceDetails = boost::none);
-
-    static Result makeUpdateResult(Status_e status,
-                                   const FlightDetails& flight,
-                                   const PaxDetails& pax,
-                                   boost::optional<FlightSeatDetails> seat = boost::none,
-                                   boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-                                   boost::optional<ErrorDetails> errorDetails = boost::none,
-                                   boost::optional<WarningDetails> warningDetails = boost::none,
-                                   boost::optional<EquipmentDetails> equipmentDetails = boost::none,
-                                   boost::optional<ServiceDetails> serviceDetails = boost::none);
+                             boost::optional<CascadeHostDetails> cascade,
+                             boost::optional<ErrorDetails> error,
+                             boost::optional<WarningDetails> warning,
+                             boost::optional<EquipmentDetails> equipment);
 
     static Result makeCancelResult(Status_e status,
                                    const FlightDetails& flight,
-                                   boost::optional<PaxDetails> pax = boost::none,
-                                   boost::optional<FlightSeatDetails> seat = boost::none,
-                                   boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-                                   boost::optional<ErrorDetails> errorDetails = boost::none,
-                                   boost::optional<WarningDetails> warningDetails = boost::none,
-                                   boost::optional<EquipmentDetails> equipmentDetails = boost::none,
-                                   boost::optional<ServiceDetails> serviceDetails = boost::none);
-
-    static Result makeReprintResult(Status_e status,
-                                    const FlightDetails& flight,
-                                    const PaxDetails& pax,
-                                    boost::optional<FlightSeatDetails> seat = boost::none,
-                                    boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-                                    boost::optional<ErrorDetails> errorDetails = boost::none,
-                                    boost::optional<WarningDetails> warningDetails = boost::none,
-                                    boost::optional<EquipmentDetails> equipmentDetails = boost::none,
-                                    boost::optional<ServiceDetails> serviceDetails = boost::none);
-
-    static Result makePasslistResult(Status_e status,
-                                     const FlightDetails& flight,
-                                     const PaxDetails& pax,
-                                     boost::optional<FlightSeatDetails> seat = boost::none,
-                                     boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-                                     boost::optional<ErrorDetails> errorDetails = boost::none,
-                                     boost::optional<WarningDetails> warningDetails = boost::none,
-                                     boost::optional<EquipmentDetails> equipmentDetails = boost::none,
-                                     boost::optional<ServiceDetails> serviceDetails = boost::none);
+                                   const std::list<dcrcka::PaxGroup>& paxGroups = std::list<dcrcka::PaxGroup>(),
+                                   boost::optional<CascadeHostDetails> cascade = boost::none,
+                                   boost::optional<ErrorDetails> error = boost::none,
+                                   boost::optional<WarningDetails> warning = boost::none,
+                                   boost::optional<EquipmentDetails> equipment = boost::none);
 
     static Result makeSeatmapResult(Status_e status,
                                     const FlightDetails& flight,
                                     const SeatmapDetails& seatmap,
-                                    boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-                                    boost::optional<ErrorDetails> errorDetails = boost::none,
-                                    boost::optional<WarningDetails> warningDetails = boost::none,
-                                    boost::optional<EquipmentDetails> equipmentDetails = boost::none);
+                                    boost::optional<CascadeHostDetails> cascade = boost::none,
+                                    boost::optional<ErrorDetails> error = boost::none,
+                                    boost::optional<WarningDetails> warning = boost::none,
+                                    boost::optional<EquipmentDetails> equipment = boost::none);
 
     static Result makeFailResult(Action_e action,
-                                 const ErrorDetails& errorDetails);
+                                 const FlightDetails& flight,
+                                 const ErrorDetails& error);
 
     Action_e                                   action() const;
     Status_e                                   status() const;
     const FlightDetails&                       flight() const;
-    const boost::optional<PaxDetails>&         pax() const;
-    const boost::optional<FlightSeatDetails>&  seat() const;
+    boost::optional<PaxDetails> 	       pax() const;
+    const std::list<dcrcka::PaxGroup>&         paxGroups() const;
     const boost::optional<SeatmapDetails>&     seatmap() const;
-    const boost::optional<CascadeHostDetails>& cascadeDetails() const;
-    const boost::optional<ErrorDetails>&       errorDetails() const;
-    const boost::optional<WarningDetails>&     warningDetails() const;
-    const boost::optional<EquipmentDetails>&   equipmentDetails() const;
-    const boost::optional<ServiceDetails>&     serviceDetails() const;
+    const boost::optional<CascadeHostDetails>& cascade() const;
+    const boost::optional<ErrorDetails>&       error() const;
+    const boost::optional<WarningDetails>&     warning() const;
+    const boost::optional<EquipmentDetails>&   equipment() const;
 
-    std::string                                actionAsString() const;
-    std::string                                statusAsString() const;
+    std::string actionAsString() const;
+    std::string statusAsString() const;
 
     void toXml(xmlNodePtr node) const;
     void toSmpXml(xmlNodePtr node) const;
@@ -1231,5 +1524,7 @@ protected:
         : m_status(Failed)
     {} // for boost serialization only
 };
+
+}// namespace dcrcka
 
 }//namespace iatci

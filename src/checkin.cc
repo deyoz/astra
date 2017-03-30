@@ -3236,15 +3236,6 @@ static xmlNodePtr findIatciSegNode(xmlNodePtr reqNode)
     return result;
 }
 
-static void removeIatciSegNode(xmlNodePtr segNode)
-{
-    // удалим всё содержимое тэга
-    xmlClearNode(segNode);
-    // и сам тэг
-    xmlUnlinkNode(segNode);
-    xmlFreeNode(segNode);
-}
-
 static boost::optional<TGrpMktFlight> LoadIatciMktFlight(int grpId)
 {
     using namespace astra_api::xml_entities;
@@ -3280,7 +3271,7 @@ static void transformSavePaxRequestByIatci(xmlNodePtr reqNode)
     {
         xmlNodePtr node = newChild(reqNode, "iatci_segments");
         CopyNode(node, segNode, true/*recursive*/);
-        removeIatciSegNode(segNode);
+        RemoveNode(segNode);
     }
 }
 
@@ -4575,9 +4566,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   if (r->code.empty()) continue;
                   TRemCategory cat=getRemCategory(r->code, r->text);
                   if (cat==remASVC) continue; //пропускаем ASVC
-                  if (IsReadonlyRem(r->code, r->text))
+                  if (IsReadonlyRem(r->code, r->text)) {
                     throw UserException(pass==0?"MSG.REMARK.ADD_OR_CHANGE_DENIAL":"MSG.REMARK.CHANGE_OR_DEL_DENIAL",
                                         LParams() << LParam("remark", r->code.empty()?r->text.substr(0,5):r->code));
+                  }
                 }
               }
 

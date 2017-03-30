@@ -28,7 +28,11 @@ ENDPNL}
 ) #end-of-macro
 
 
-$(defmacro SAVE_ET_DISP point_id tick_no
+$(defmacro SAVE_ET_DISP
+point_id
+tick_no
+surname=REPIN
+name=IVAN
 {
 {<?xml version='1.0' encoding='CP866'?>
 <term>
@@ -53,7 +57,7 @@ UNZ+1+$(last_edifact_ref)0001"
 UNB+SIRE:1+UTET+UTDC+091030:0529+$(last_edifact_ref)0001+++T"
 UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
 MSG+:131+3"
-TIF+REPIN+IVAN"
+TIF+$(surname)+$(name)"
 TAI+0162"
 RCI+UA:G4LK6W:1"
 MON+B:20.00:USD+T:20.00:USD"
@@ -144,6 +148,7 @@ $(defmacro CHECK_FLIGHT
       <tripheader>
         <point_id>$(point_dep)</point_id>
         <flight>$(airl)$(flt)...
+        <flight_short>$(airl)$(flt)...
         <airline>$(airl)</airline>
         <aircode>...
         <flt_no>$(flt)</flt_no>
@@ -216,38 +221,7 @@ $(defmacro CHECK_SEARCH_PAX
                 <pax_id>...
                 <surname>$(surname)</surname>
                 <name>$(name)</name>
-                <rems/>
-                <fqt_rems/>
-              </pax>
-            </passengers>
-            <transfer>
-              <segment>
-                <num>1</num>
-                <airline>С7</airline>
-                <flt_no>1027</flt_no>
-                <local_date>...
-                <airp_dep>ПЛК</airp_dep>
-                <airp_arv>СОЧ</airp_arv>
-                <subclass>Y</subclass>
-                <trfer_permit>0</trfer_permit>
-              </segment>
-            </transfer>
-            <pnr_addrs>
-              <pnr_addr>
-                <airline>ЮТ</airline>
-                <addr>0840Z6</addr>
-              </pnr_addr>
-              <pnr_addr>
-                <airline>1H</airline>
-                <addr>09T1B3</addr>
-              </pnr_addr>
-            </pnr_addrs>
-          </pnr>
-        </groups>
-      </trip>
-    </trips>
-    <ckin_state>BeforeReg</ckin_state>
-  </answer>
+
 
 }) #end-of-macro
 
@@ -461,6 +435,252 @@ $(defmacro CHECK_TCKIN_ROUTE_2
 }) #end-of-macro
 
 
+$(defmacro CHECK_TCKIN_ROUTE_GRP_1
+    point_dep
+    point_arv
+    airl
+    flt
+    airp_dep
+    airp_arv
+    surname1
+    name1
+    surname2
+    name2
+{
+!! capture=on
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <CheckTCkinRoute>
+      <point_dep>$(point_dep)</point_dep>
+      <point_arv>$(point_arv)</point_arv>
+      <airp_dep>ДМД</airp_dep>
+      <airp_arv>ПЛК</airp_arv>
+      <class>Э</class>
+      <transfer>
+        <segment>
+            <airline>$(get_lat_code awk $(airl))</airline>
+            <flt_no>$(flt)</flt_no>
+            <suffix/>
+            <local_date>$(dd +0 en)</local_date>
+            <airp_dep>$(get_lat_code aer $(airp_dep))</airp_dep>
+            <airp_arv>$(get_lat_code aer $(airp_arv))</airp_arv>
+        </segment>
+      </transfer>
+      <passengers>
+        <pax>
+          <surname>$(surname1)</surname>
+          <name>$(name1)</name>
+          <pers_type>ВЗ</pers_type>
+          <seats>1</seats>
+          <transfer>
+            <segment>
+              <subclass>Y</subclass>
+            </segment>
+          </transfer>
+        </pax>
+        <pax>
+          <surname>$(surname2)</surname>
+          <name>$(name2)</name>
+          <pers_type>ВЗ</pers_type>
+          <seats>1</seats>
+          <transfer>
+            <segment>
+              <subclass>Y</subclass>
+            </segment>
+          </transfer>
+        </pax>
+      </passengers>
+    </CheckTCkinRoute>
+  </query>
+</term>}
+
+>> lines=auto
+        <classes>EDIFACT</classes>
+
+}) #end-of-macro
+
+
+$(defmacro CHECK_TCKIN_ROUTE_GRP_2
+    point_dep
+    point_arv
+    airl
+    flt
+    airp_dep
+    airp_arv
+    surname1
+    name1
+    surname2
+    name2
+{
+!! capture=on
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <CheckTCkinRoute>
+      <point_dep>$(point_dep)</point_dep>
+      <point_arv>$(point_arv)</point_arv>
+      <airp_dep>ДМД</airp_dep>
+      <airp_arv>ПЛК</airp_arv>
+      <class>Э</class>
+      <transfer>
+        <segment>
+            <airline>$(get_lat_code awk $(airl))</airline>
+            <flt_no>$(flt)</flt_no>
+            <suffix/>
+            <local_date>$(dd +0 en)</local_date>
+            <airp_dep>$(get_lat_code aer $(airp_dep))</airp_dep>
+            <airp_arv>$(get_lat_code aer $(airp_arv))</airp_arv>
+            <calc_status>CHECKIN</calc_status>
+            <conf_status>1</conf_status>
+        </segment>
+      </transfer>
+      <passengers>
+        <pax>
+          <surname>$(surname1)</surname>
+          <name>$(name1)</name>
+          <pers_type>ВЗ</pers_type>
+          <seats>1</seats>
+          <transfer>
+            <segment>
+              <subclass>Y</subclass>
+            </segment>
+          </transfer>
+        </pax>
+        <pax>
+          <surname>$(surname2)</surname>
+          <name>$(name2)</name>
+          <pers_type>ВЗ</pers_type>
+          <seats>1</seats>
+          <transfer>
+            <segment>
+              <subclass>Y</subclass>
+            </segment>
+          </transfer>
+        </pax>
+      </passengers>
+    </CheckTCkinRoute>
+  </query>
+</term>}
+
+>> lines=auto
+    <tckin_segments>
+      <tckin_segment>
+        <trfer_permit value='0'/>
+        <tripheader>
+          <flight>$(airl)$(flt) $(airp_dep) (EDI)</flight>
+          <airline>$(airl)</airline>
+          <aircode>...
+          <flt_no>$(flt)</flt_no>
+          <suffix/>
+          <airp>$(airp_dep)</airp>
+          <scd_out_local>$(date_format %d.%m.%Y +0) 03:00:00</scd_out_local>
+          <pr_etl_only>1</pr_etl_only>
+          <pr_etstatus>0</pr_etstatus>
+          <pr_no_ticket_check>1</pr_no_ticket_check>
+          <pr_auto_pt_print>0</pr_auto_pt_print>
+          <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
+        </tripheader>
+        <tripdata>
+          <airps>
+            <airp>
+              <point_id>-1</point_id>
+              <check_info>
+                <pass/>
+                <crew/>
+              </check_info>
+              <target_view>...
+              <airp_code>$(airp_arv)</airp_code>
+              <city_code>...
+            </airp>
+          </airps>
+          <classes/>
+          <gates/>
+          <halls/>
+        </tripdata>
+        <point_dep>-1</point_dep>
+        <airp_dep>$(airp_dep)</airp_dep>
+        <point_arv>-1</point_arv>
+        <airp_arv>$(airp_arv)</airp_arv>
+        <city_arv_code>...
+        <tckin_passengers>
+          <tckin_pax>
+            <trips>
+              <trip>
+                <airline>$(airl)</airline>
+                <point_id>-1</point_id>
+                <airp_dep>$(airp_dep)</airp_dep>
+                <flt_no>$(flt)</flt_no>
+                <scd>$(date_format %d.%m.%Y +0) 00:00:00</scd>
+                <groups>
+                  <pnr>
+                    <pnr_id>-1</pnr_id>
+                    <airp_arv>$(airp_arv)</airp_arv>
+                    <subclass>Э</subclass>
+                    <class>Э</class>
+                    <passengers>
+                      <pax>
+                        <pax_id>-1</pax_id>
+                        <surname>$(surname1)</surname>
+                        <name>$(name1)</name>
+                        <seat_no/>
+                        <document/>
+                        <ticket_no/>
+                        <ticket_rem/>
+                        <rems/>
+                      </pax>
+                    </passengers>
+                    <transfer/>
+                    <pnr_addrs/>
+                  </pnr>
+                </groups>
+              </trip>
+            </trips>
+          </tckin_pax>
+          <tckin_pax>
+            <trips>
+              <trip>
+                <airline>$(airl)</airline>
+                <point_id>-1</point_id>
+                <airp_dep>$(airp_dep)</airp_dep>
+                <flt_no>$(flt)</flt_no>
+                <scd>$(date_format %d.%m.%Y +0) 00:00:00</scd>
+                <groups>
+                  <pnr>
+                    <pnr_id>-1</pnr_id>
+                    <airp_arv>$(airp_arv)</airp_arv>
+                    <subclass>Э</subclass>
+                    <class>Э</class>
+                    <passengers>
+                      <pax>
+                        <pax_id>-1</pax_id>
+                        <surname>$(surname2)</surname>
+                        <name>$(name2)</name>
+                        <seat_no/>
+                        <document/>
+                        <ticket_no/>
+                        <ticket_rem/>
+                        <rems/>
+                      </pax>
+                    </passengers>
+                    <transfer/>
+                    <pnr_addrs/>
+                  </pnr>
+                </groups>
+              </trip>
+            </trips>
+          </tckin_pax>
+        </tckin_passengers>
+        <class_code>Э</class_code>
+      </tckin_segment>
+    </tckin_segments>
+  </answer>
+</term>
+
+}) #end-of-macro
+
+
+
 $(defmacro SAVE_PAX
     pax_id
     point_dep1
@@ -582,6 +802,228 @@ $(defmacro SAVE_PAX
                   <rem_text>FOID PP7774441110</rem_text>
                 </rem>
               </rems>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+      </segments>
+      <excess>0</excess>
+      <hall>1</hall>
+      <paid_bags>
+        <paid_bag>
+          <bag_type/>
+          <weight>0</weight>
+          <rate_id/>
+          <rate_trfer/>
+        </paid_bag>
+      </paid_bags>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+}) #end-of-macro
+
+
+$(defmacro SAVE_GRP
+    pax_id1
+    pax_id2
+    point_dep1
+    point_arv1
+    airl1
+    flt1
+    airp_dep1
+    airp_arv1
+    airl2
+    flt2
+    airp_dep2
+    airp_arv2
+    surname1
+    name1
+    tickno1
+    surname2
+    name2
+    tickno2
+{
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <transfer/>
+      <segments>
+        <segment>
+          <point_dep>$(point_dep1)</point_dep>
+          <point_arv>$(point_arv1)</point_arv>
+          <airp_dep>$(airp_dep1)</airp_dep>
+          <airp_arv>$(airp_arv1)</airp_arv>
+          <class>Э</class>
+          <status>K</status>
+          <wl_type/>
+          <mark_flight>
+            <airline>$(airl1)</airline>
+            <flt_no>$(flt1)</flt_no>
+            <suffix/>
+            <scd>$(date_format %d.%m.%Y +0) 00:00:00</scd>
+            <airp_dep>$(airp_dep1)</airp_dep>
+            <pr_mark_norms>0</pr_mark_norms>
+          </mark_flight>
+          <passengers>
+            <pax>
+              <pax_id>$(pax_id1)</pax_id>
+              <surname>$(surname1)</surname>
+              <name>$(name1)</name>
+              <pers_type>ВЗ</pers_type>
+              <seat_no/>
+              <preseat_no/>
+              <seat_type/>
+              <seats>1</seats>
+              <ticket_no>$(tickno1)</ticket_no>
+              <coupon_no>1</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>0</ticket_confirm>
+              <document>
+                <type>P</type>
+                <issue_country>RUS</issue_country>
+                <no>7774441110</no>
+                <nationality>RUS</nationality>
+                <birth_date>01.05.1976 00:00:00</birth_date>
+                <gender>M</gender>
+                <surname>$(surname1)</surname>
+                <first_name>$(name1)</first_name>
+              </document>
+              <doco/>
+              <addresses/>
+              <subclass>Э</subclass>
+              <bag_pool_num/>
+              <transfer/>
+              <rems>
+                <rem>
+                  <rem_code>DOCS</rem_code>
+                  <rem_text>DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN</rem_text>
+                </rem>
+                <rem>
+                  <rem_code>FOID</rem_code>
+                  <rem_text>FOID PPZB400522509</rem_text>
+                </rem>
+                <rem>
+                  <rem_code>PSPT</rem_code>
+                  <rem_text>PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M</rem_text>
+                </rem>
+                <rem>
+                  <rem_code>TKNE</rem_code>
+                  <rem_text>TKNE HK1 2982401841689/1</rem_text>
+                </rem>
+              </rems>
+              <norms/>
+            </pax>
+            <pax>
+              <pax_id>$(pax_id2)</pax_id>
+              <surname>$(surname2)</surname>
+              <name>$(name2)</name>
+              <pers_type>ВЗ</pers_type>
+              <seat_no/>
+              <preseat_no/>
+              <seat_type/>
+              <seats>1</seats>
+              <ticket_no>$(tickno2)</ticket_no>
+              <coupon_no>1</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>0</ticket_confirm>
+              <document>
+                <type>P</type>
+                <issue_country>RUS</issue_country>
+                <no>7774441112</no>
+                <nationality>RUS</nationality>
+                <birth_date>01.05.1976 00:00:00</birth_date>
+                <gender>M</gender>
+                <surname>$(surname2)</surname>
+                <first_name>$(name2)</first_name>
+              </document>
+              <doco/>
+              <addresses/>
+              <subclass>Э</subclass>
+              <bag_pool_num/>
+              <transfer/>
+              <rems>
+                <rem>
+                  <rem_code>DOCS</rem_code>
+                  <rem_text>DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/PETROV/PETR</rem_text>
+                </rem>
+                <rem>
+                  <rem_code>FOID</rem_code>
+                  <rem_text>FOID PPZB400522510</rem_text>
+                </rem>
+                <rem>
+                  <rem_code>PSPT</rem_code>
+                  <rem_text>PSPT HK1 ZB400522510/TJK/24JUL85/PETROV/PETR/M</rem_text>
+                </rem>
+                <rem>
+                  <rem_code>TKNE</rem_code>
+                  <rem_text>TKNE HK1 2982401841612/1</rem_text>
+                </rem>
+              </rems>
+              <norms/>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+        <segment>
+          <point_dep>-1</point_dep>
+          <point_arv>-1</point_arv>
+          <airp_dep>$(airp_dep2)</airp_dep>
+          <airp_arv>$(airp_arv2)</airp_arv>
+          <class>Э</class>
+          <status>K</status>
+          <wl_type/>
+          <mark_flight>
+            <airline>$(airl2)</airline>
+            <flt_no>$(flt2)</flt_no>
+            <suffix/>
+            <scd>$(date_format %d.%m.%Y +0) 00:00:00</scd>
+            <airp_dep>$(airp_dep2)</airp_dep>
+            <pr_mark_norms>0</pr_mark_norms>
+          </mark_flight>
+          <passengers>
+            <pax>
+              <pax_id/>
+              <surname>$(surname1)</surname>
+              <name>$(name1)</name>
+              <pers_type>ВЗ</pers_type>
+              <seat_no>7A</seat_no>
+              <preseat_no/>
+              <seat_type/>
+              <seats>1</seats>
+              <ticket_no/>
+              <coupon_no/>
+              <ticket_rem/>
+              <ticket_confirm>0</ticket_confirm>
+              <document/>
+              <doco/>
+              <addresses/>
+              <subclass>Э</subclass>
+              <bag_pool_num/>
+              <rems/>
+            </pax>
+            <pax>
+              <pax_id/>
+              <surname>$(surname2)</surname>
+              <name>$(name2)</name>
+              <pers_type>ВЗ</pers_type>
+              <seat_no>8A</seat_no>
+              <preseat_no/>
+              <seat_type/>
+              <seats>1</seats>
+              <ticket_no/>
+              <coupon_no/>
+              <ticket_rem/>
+              <ticket_confirm>0</ticket_confirm>
+              <document/>
+              <doco/>
+              <addresses/>
+              <subclass>Э</subclass>
+              <bag_pool_num/>
+              <rems/>
             </pax>
           </passengers>
           <paid_bag_emd/>
@@ -874,6 +1316,64 @@ UNZ+1+$(last_edifact_ref)0001"
 }) #end-of-macro
 
 
+$(defmacro ETS_COS_EXCHANGE2
+    tickno1
+    cpnno1
+    tickno2
+    cpnno2
+    status
+    pult=МОВРОМ
+{
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+$(pult)"
+EQN+1:TD"
+TKT+$(tickno2):T"
+CPN+$(cpnno2):$(status)"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref 1)0001"
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+$(pult)"
+EQN+1:TD"
+TKT+$(tickno1):T"
+CPN+$(cpnno1):$(status)"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+# ответы от СЭБ
+<<
+UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
+MSG+:142+3"
+EQN+1:TD"
+TKT+$(tickno1):T::3"
+CPN+$(cpnno1):$(status)::E"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
+MSG+:142+3"
+EQN+1:TD"
+TKT+$(tickno2):T::3"
+CPN+$(cpnno2):$(status)::E"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+}) #end-of-macro
+
+
+
 $(defmacro UPDATE_PAX_DOC_NON_IATCI
     point_dep
     point_arv
@@ -1138,9 +1638,10 @@ UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
+PRD+Y"
 PSD++7A"
-PSI+++FOID::::::FOID PP7774441110"
-UNT+7+1"
+PSI++FOID::::::FOID PP7774441110"
+UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -1149,8 +1650,8 @@ UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+S7+1027+$(yymmdd)1000+LED+AER++T"
 RAD+I+O"
 PPD+REPIN+A++IVAN"
-PFD+xx+:Э+1"
-PSI+++TKNE::29861200302972"
+PFD+xx+:Y+1"
+PSI++TKNE::29861200302972"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -1163,6 +1664,7 @@ $(KICK_IN)
       <segment>
         <tripheader>
           <flight>ЮТ103 ДМД</flight>
+          <flight_short>ЮТ103...
           <airline>ЮТ</airline>
           <aircode>298</aircode>
           <flt_no>103</flt_no>
@@ -1239,6 +1741,8 @@ $(KICK_IN)
         <bag_types_id>0</bag_types_id>
         <piece_concept>0</piece_concept>
         <tid>...
+        <show_ticket_norms>0</show_ticket_norms>
+        <show_wt_norms>1</show_wt_norms>
         <city_arv>СПТ</city_arv>
         <mark_flight>
           <airline>ЮТ</airline>
@@ -1277,10 +1781,14 @@ $(KICK_IN)
               <surname>REPIN</surname>
               <first_name>IVAN</first_name>
             </document>
-            <ticket_bag_norm>НЕТ</ticket_bag_norm>
+            <ticket_bag_norm>нет</ticket_bag_norm>
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
             <pr_bi_print>0</pr_bi_print>
+            <service_lists>
+              <service_list...
+              <service_list...
+            </service_lists>
             <rems>
               <rem>
                 <rem_code>FOID</rem_code>
@@ -1429,9 +1937,10 @@ UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
+PRD+Y"
 PSD++7A"
-PSI+++FOID::::::FOID PP7774441110"
-UNT+7+1"
+PSI++FOID::::::FOID PP7774441110"
+UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -1441,7 +1950,7 @@ FDR+S7+1027+$(yymmdd)1000+LED+AER++T"
 RAD+I+O"
 PPD+REPIN+A++IVAN"
 PFD+xx+:Э"
-PSI+++TKNE::42161200302972"
+PSI++TKNE::42161200302972"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -1530,9 +2039,10 @@ UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
+PRD+Y"
 PSD++7A"
-PSI+++FOID::::::FOID PP7774441110"
-UNT+7+1"
+PSI++FOID::::::FOID PP7774441110"
+UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -1542,7 +2052,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A++IVAN"
 PFD+xx+:Э"
-PSI+++TKNE::42161200302982"
+PSI++TKNE::42161200302982"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -1571,7 +2081,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+P+O"
 PPD+REPIN+A++IVAN"
 PFD+2A+:Э+2"
-PSI+++TKNE::42161200302552+FQTV::::::FQTV S7 55555555555555555"
+PSI++TKNE::42161200302552+FQTV::::::FQTV S7 55555555555555555"
 PAP+:::860310:::RUS++PP:1111111111:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -1584,6 +2094,7 @@ $(KICK_IN)
       <segment>
         <tripheader>
           <flight>ЮТ103 ДМД</flight>
+          <flight_short>ЮТ103...
           <airline>ЮТ</airline>
           <aircode>298</aircode>
           <flt_no>103</flt_no>
@@ -1660,6 +2171,8 @@ $(KICK_IN)
         <bag_types_id>0</bag_types_id>
         <piece_concept>0</piece_concept>
         <tid>$(get tid)</tid>
+        <show_ticket_norms>0</show_ticket_norms>
+        <show_wt_norms>1</show_wt_norms>
         <city_arv>СПТ</city_arv>
         <mark_flight>
           <airline>ЮТ</airline>
@@ -1698,10 +2211,14 @@ $(KICK_IN)
               <surname>REPIN</surname>
               <first_name>IVAN</first_name>
             </document>
-            <ticket_bag_norm>НЕТ</ticket_bag_norm>
+            <ticket_bag_norm>нет</ticket_bag_norm>
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
             <pr_bi_print>0</pr_bi_print>
+            <service_lists>
+              <service_list...
+              <service_list...
+            </service_lists>
             <rems>
               <rem>
                 <rem_code>FOID</rem_code>
@@ -1859,9 +2376,10 @@ UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
+PRD+Y"
 PSD++7A"
-PSI+++FOID::::::FOID PP7774441110"
-UNT+7+1"
+PSI++FOID::::::FOID PP7774441110"
+UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -1871,7 +2389,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A++IVAN"
 PFD+xx+:Э"
-PSI+++TKNE::42161200302982"
+PSI++TKNE::42161200302982"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -1899,7 +2417,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+P+O"
 PPD+REPIN+A++IVAN"
 PFD+1A+:Э"
-PSI+++TKNE::42161200302551"
+PSI++TKNE::42161200302551"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -1951,9 +2469,10 @@ UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
+PRD+Y"
 PSD++7A"
-PSI+++FOID::::::FOID PP7774441110"
-UNT+7+1"
+PSI++FOID::::::FOID PP7774441110"
+UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -1963,7 +2482,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A++IVAN"
 PFD+xx+:Э"
-PSI+++TKNE::42161200302982"
+PSI++TKNE::42161200302982"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -1997,7 +2516,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+P+O"
 PPD+REPIN+A++IVAN"
 PFD+1A+:Э"
-PSI+++TKNE::42161200302551+TKNE::::::TKNE HK1 4216120030255/1+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M+FOID::::::FOID PPZB400522509"
+PSI++TKNE::42161200302551+TKNE::::::TKNE HK1 4216120030255/1+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M+FOID::::::FOID PPZB400522509"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -2049,9 +2568,10 @@ UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
+PRD+Y"
 PSD++7A"
-PSI+++FOID::::::FOID PP7774441110"
-UNT+7+1"
+PSI++FOID::::::FOID PP7774441110"
+UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -2061,7 +2581,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A++IVAN"
 PFD+xx+:Э"
-PSI+++TKNE::42161200302982"
+PSI++TKNE::42161200302982"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -2140,9 +2660,10 @@ UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
+PRD+Y"
 PSD++7A"
-PSI+++FOID::::::FOID PP7774441110"
-UNT+7+1"
+PSI++FOID::::::FOID PP7774441110"
+UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -2152,7 +2673,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A++IVAN"
 PFD+xx+:Э"
-PSI+++TKNE::42161200302982"
+PSI++TKNE::42161200302982"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -2236,9 +2757,10 @@ UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
+PRD+Y"
 PSD++7A"
-PSI+++FOID::::::FOID PP7774441110"
-UNT+7+1"
+PSI++FOID::::::FOID PP7774441110"
+UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -2302,9 +2824,10 @@ UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
+PRD+Y"
 PSD++7A"
-PSI+++FOID::::::FOID PP7774441110"
-UNT+7+1"
+PSI++FOID::::::FOID PP7774441110"
+UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -2314,7 +2837,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A++IVAN"
 PFD+xx+:Э"
-PSI+++TKNE::42161200302972"
+PSI++TKNE::42161200302972"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -2404,9 +2927,10 @@ UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
+PRD+Y"
 PSD++7A"
-PSI+++FOID::::::FOID PP7774441110"
-UNT+7+1"
+PSI++FOID::::::FOID PP7774441110"
+UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -2416,7 +2940,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A++IVAN"
 PFD+xx+:Э"
-PSI+++TKNE::42161200302972+OTHS::::::FREE TEXT"
+PSI++TKNE::42161200302972+OTHS::::::FREE TEXT"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -2452,7 +2976,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+U+O"
 PPD+REPIN+A++IVAN"
 PFD+xx+:Э+22"
-PSI+++TKNE::42161200302972"
+PSI++TKNE::42161200302972"
 PAP+:::760501:::RUS++P:99999999999:USA:::491231:M::::::REPIN:IVAN:IVANICH"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -2464,6 +2988,7 @@ $(KICK_IN)
       <segment>
         <tripheader>
           <flight>ЮТ103 ДМД</flight>
+          <flight_short>ЮТ103...
           <airline>ЮТ</airline>
           <aircode>298</aircode>
           <flt_no>103</flt_no>
@@ -2540,6 +3065,8 @@ $(KICK_IN)
         <bag_types_id>0</bag_types_id>
         <piece_concept>0</piece_concept>
         <tid>...
+        <show_ticket_norms>0</show_ticket_norms>
+        <show_wt_norms>1</show_wt_norms>
         <city_arv>СПТ</city_arv>
         <mark_flight>
           <airline>ЮТ</airline>
@@ -2578,10 +3105,14 @@ $(KICK_IN)
               <surname>REPIN</surname>
               <first_name>IVAN</first_name>
             </document>
-            <ticket_bag_norm>НЕТ</ticket_bag_norm>
+            <ticket_bag_norm>нет</ticket_bag_norm>
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
             <pr_bi_print>0</pr_bi_print>
+            <service_lists>
+              <service_list...
+              <service_list...
+            </service_lists>
             <rems>
               <rem>
                 <rem_code>FOID</rem_code>
@@ -2735,9 +3266,10 @@ UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
+PRD+Y"
 PSD++7A"
-PSI+++FOID::::::FOID PP7774441110"
-UNT+7+1"
+PSI++FOID::::::FOID PP7774441110"
+UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -2747,7 +3279,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A++IVAN"
 PFD+xx+:Э"
-PSI+++TKNE::42161200302972"
+PSI++TKNE::42161200302972"
 PAP+:::860310:::RUS++PP:5408123432:RUS::::M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -2818,9 +3350,10 @@ UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
+PRD+Y"
 PSD++7A"
-PSI+++FOID::::::FOID PP7774441110"
-UNT+7+1"
+PSI++FOID::::::FOID PP7774441110"
+UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -2830,7 +3363,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A++IVAN"
 PFD+xx+:Э"
-PSI+++TKNE::42161200302972+FOID::::::FOID PP7774441110"
+PSI++TKNE::42161200302972+FOID::::::FOID PP7774441110"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -2868,7 +3401,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+U+O"
 PPD+REPIN+A++IVAN"
 PFD+xx+:Э"
-PSI+++TKNE::42161200302972+FOID::::::FOID PP7774449999+OTHS::::::OTHS HK1 DOCS/7777771110/PS"
+PSI++TKNE::42161200302972+FOID::::::FOID PP7774449999+OTHS::::::OTHS HK1 DOCS/7777771110/PS"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -2924,9 +3457,10 @@ UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
+PRD+Y"
 PSD++7A"
-PSI+++FOID::::::FOID PP7774441110"
-UNT+7+1"
+PSI++FOID::::::FOID PP7774441110"
+UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -2936,7 +3470,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A++IVAN"
 PFD+xx+:Э"
-PSI+++TKNE::42161200302972+FOID::::::FOID PP7774441110"
+PSI++TKNE::42161200302972+FOID::::::FOID PP7774441110"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -2990,9 +3524,10 @@ UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
+PRD+Y"
 PSD++7A"
-PSI+++FOID::::::FOID PP7774441110"
-UNT+7+1"
+PSI++FOID::::::FOID PP7774441110"
+UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -3002,7 +3537,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A++IVAN"
 PFD+7A+:Э+32"
-PSI+++TKNE::42161200302972+FOID::::::FOID PP7774441110"
+PSI++TKNE::42161200302972+FOID::::::FOID PP7774441110"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -3051,7 +3586,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+B+O"
 PPD+REPIN+A++IVAN"
 PFD+7A+:Э+32"
-PSI+++TKNE::42161200302972+FOID::::::FOID PP7774441110"
+PSI++TKNE::42161200302972+FOID::::::FOID PP7774441110"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -3113,9 +3648,10 @@ UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
+PRD+Y"
 PSD++7A"
-PSI+++FOID::::::FOID PP7774441110"
-UNT+7+1"
+PSI++FOID::::::FOID PP7774441110"
+UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -3125,7 +3661,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A++IVAN"
 PFD+3B+:Э"
-PSI+++TKNE::42161200302972+FOID::::::FOID PP7774441110"
+PSI++TKNE::42161200302972+FOID::::::FOID PP7774441110"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -3169,7 +3705,7 @@ UNZ+1+$(last_edifact_ref)0001"
 $(KICK_IN)
 
 >> lines=auto
-      <salons RFISCMode='0'>
+      <salons pr_lat_seat='1' RFISCMode='0'>
         <filterRoutes>
           <point_dep>-1</point_dep>
           <point_arv>-1</point_arv>
@@ -3189,7 +3725,7 @@ $(KICK_IN)
             <x>0</x>
             <y>0</y>
             <elem_type>К</elem_type>
-            <class>F</class>
+            <class>П</class>
             <xname>A</xname>
             <yname>3</yname>
           </place>
@@ -3197,7 +3733,7 @@ $(KICK_IN)
             <x>1</x>
             <y>0</y>
             <elem_type>К</elem_type>
-            <class>F</class>
+            <class>П</class>
             <xname>B</xname>
             <yname>3</yname>
           </place>
@@ -3205,7 +3741,7 @@ $(KICK_IN)
             <x>3</x>
             <y>0</y>
             <elem_type>К</elem_type>
-            <class>F</class>
+            <class>П</class>
             <xname>E</xname>
             <yname>3</yname>
           </place>
@@ -3213,7 +3749,7 @@ $(KICK_IN)
             <x>4</x>
             <y>0</y>
             <elem_type>К</elem_type>
-            <class>F</class>
+            <class>П</class>
             <xname>F</xname>
             <yname>3</yname>
           </place>
@@ -3221,7 +3757,7 @@ $(KICK_IN)
             <x>0</x>
             <y>1</y>
             <elem_type>К</elem_type>
-            <class>F</class>
+            <class>П</class>
             <xname>A</xname>
             <yname>4</yname>
           </place>
@@ -3229,7 +3765,7 @@ $(KICK_IN)
             <x>1</x>
             <y>1</y>
             <elem_type>К</elem_type>
-            <class>F</class>
+            <class>П</class>
             <xname>B</xname>
             <yname>4</yname>
           </place>
@@ -3237,7 +3773,7 @@ $(KICK_IN)
             <x>3</x>
             <y>1</y>
             <elem_type>К</elem_type>
-            <class>F</class>
+            <class>П</class>
             <xname>E</xname>
             <yname>4</yname>
           </place>
@@ -3245,7 +3781,7 @@ $(KICK_IN)
             <x>4</x>
             <y>1</y>
             <elem_type>К</elem_type>
-            <class>F</class>
+            <class>П</class>
             <xname>F</xname>
             <yname>4</yname>
           </place>
@@ -3253,7 +3789,7 @@ $(KICK_IN)
             <x>0</x>
             <y>2</y>
             <elem_type>К</elem_type>
-            <class>F</class>
+            <class>П</class>
             <xname>A</xname>
             <yname>5</yname>
           </place>
@@ -3261,7 +3797,7 @@ $(KICK_IN)
             <x>1</x>
             <y>2</y>
             <elem_type>К</elem_type>
-            <class>F</class>
+            <class>П</class>
             <xname>B</xname>
             <yname>5</yname>
           </place>
@@ -3269,7 +3805,7 @@ $(KICK_IN)
             <x>3</x>
             <y>2</y>
             <elem_type>К</elem_type>
-            <class>F</class>
+            <class>П</class>
             <xname>E</xname>
             <yname>5</yname>
           </place>
@@ -3277,7 +3813,7 @@ $(KICK_IN)
             <x>4</x>
             <y>2</y>
             <elem_type>К</elem_type>
-            <class>F</class>
+            <class>П</class>
             <xname>F</xname>
             <yname>5</yname>
           </place>
@@ -3285,7 +3821,7 @@ $(KICK_IN)
             <x>0</x>
             <y>3</y>
             <elem_type>К</elem_type>
-            <class>F</class>
+            <class>П</class>
             <xname>A</xname>
             <yname>6</yname>
           </place>
@@ -3298,7 +3834,7 @@ $(KICK_IN)
               </layer>
             </layers>
             <elem_type>К</elem_type>
-            <class>F</class>
+            <class>П</class>
             <xname>B</xname>
             <yname>6</yname>
           </place>
@@ -3306,7 +3842,7 @@ $(KICK_IN)
             <x>3</x>
             <y>3</y>
             <elem_type>К</elem_type>
-            <class>F</class>
+            <class>П</class>
             <xname>E</xname>
             <yname>6</yname>
           </place>
@@ -3314,7 +3850,7 @@ $(KICK_IN)
             <x>4</x>
             <y>3</y>
             <elem_type>К</elem_type>
-            <class>F</class>
+            <class>П</class>
             <xname>F</xname>
             <yname>6</yname>
           </place>
@@ -3355,7 +3891,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+U+O"
 PPD+REPIN+A++IVAN"
 PFD+6A+:Э"
-PSI+++TKNE::42161200302972+FOID::::::FOID PP7774441110"
+PSI++TKNE::42161200302972+FOID::::::FOID PP7774441110"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -3488,9 +4024,10 @@ UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
+PRD+Y"
 PSD++7A"
-PSI+++FOID::::::FOID PP7774441110"
-UNT+7+1"
+PSI++FOID::::::FOID PP7774441110"
+UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -3552,9 +4089,10 @@ UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
+PRD+Y"
 PSD++7A"
-PSI+++FOID::::::FOID PP7774441110"
-UNT+7+1"
+PSI++FOID::::::FOID PP7774441110"
+UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 $(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
@@ -3637,9 +4175,10 @@ UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
+PRD+Y"
 PSD++7A"
-PSI+++FOID::::::FOID PP7774441110"
-UNT+7+1"
+PSI++FOID::::::FOID PP7774441110"
+UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -3649,7 +4188,7 @@ FDR+S7+1027+$(yymmdd)1000+LED+AER++T"
 RAD+I+O"
 PPD+REPIN+A++IVAN"
 PFD+xx+:Э"
-PSI+++TKNE::42161200302972"
+PSI++TKNE::42161200302972"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -3803,9 +4342,10 @@ UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
 PPD+REPIN+A++IVAN"
+PRD+Y"
 PSD++7A"
-PSI+++FOID::::::FOID PP7774441110"
-UNT+7+1"
+PSI++FOID::::::FOID PP7774441110"
+UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -3826,3 +4366,487 @@ $(lastRedisplay)
 
 
 $(ETS_COS_EXCHANGE 2986120030297 1 I SYSTEM)
+
+
+
+%%
+#########################################################################################
+# №21 первичная регистрация группы из двух пассажиров
+###
+
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_dcs С7 TA OA)
+$(init_eds ЮТ UTET UTDC)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_5 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ
+                   REPIN IVAN 2982401841689 1
+                   PETROV PETR 2982401841612 1)
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_1_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
+$(set pax_2_id $(get_single_pax_id $(get point_dep) PETROV PETR))
+
+
+$(OPEN_CHECKIN $(get point_dep))
+$(SAVE_ET_DISP $(get point_dep) 2982401841689 REPIN IVAN)
+$(SAVE_ET_DISP $(get point_dep) 2982401841612 PETROV PETR)
+$(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
+$(CHECK_FLIGHT $(get point_dep) ЮТ 103 ДМД ПЛК)
+$(CHECK_SEARCH_PAX $(get point_dep) ЮТ 103 ДМД ПЛК REPIN IVAN К)
+$(CHECK_SEARCH_PAX $(get point_dep) ЮТ 103 ДМД ПЛК PETROV PETR К)
+$(CHECK_DCS_ADDR_SET)
+$(CHECK_TCKIN_ROUTE_GRP_1 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN PETROV PETR)
+$(CHECK_TCKIN_ROUTE_GRP_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN PETROV PETR)
+
+$(SAVE_GRP $(get pax_1_id) $(get pax_2_id) $(get point_dep) $(get point_arv)
+                ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ
+                REPIN IVAN 2982401841689
+                PETROV PETR 2982401841612)
+
+
+$(ETS_COS_EXCHANGE2 2982401841689 1 2982401841612 1 CK)
+
+$(KICK_IN_SILENT)
+
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
+PPD+REPIN+A++IVAN"
+PRD+Y"
+PSD++7A"
+PPD+PETROV+A++PETR"
+PRD+Y"
+PSD++8A"
+UNT+10+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+DCS2+DCS1+150217:0747+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+S7+1027+$(yymmdd)+LED+AER++T"
+RAD+I+O"
+PPD+REPIN+A++IVAN"
+PFD+7A++1"
+PSI++TKNE::42124018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M+TKNE::::::TKNE HK1 2982401841689/1"
+PAP+:::850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+PPD+PETROV+A++PETR"
+PFD+8A++2"
+PSI++TKNE::42124018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/PETROV/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/PETROV/PETR/M+TKNE::::::TKNE HK1 2982401841612/1"
+PAP+:::850724:::TJK++P:400522510:TJK:::250205:M::::::PETROV:PETR"
+UNT+12+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+$(KICK_IN)
+
+>> lines=auto
+    <segments>
+      <segment>
+        <tripheader>
+          <flight>ЮТ103...
+          <flight_short>ЮТ103...
+          <airline>ЮТ</airline>
+          <aircode>298</aircode>
+          <flt_no>103</flt_no>
+          <suffix/>
+          <airp>ДМД</airp>
+          <scd_out_local>$(date_format %d.%m.%Y +0) 10:00:00</scd_out_local>
+          <pr_etl_only>0</pr_etl_only>
+          <pr_etstatus>0</pr_etstatus>
+          <pr_no_ticket_check>0</pr_no_ticket_check>
+          <pr_auto_pt_print>0</pr_auto_pt_print>
+          <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
+        </tripheader>
+        <tripdata>
+          <airps>
+            <airp>
+              <point_id>$(get point_arv)</point_id>
+              <airp_code>ПЛК</airp_code>
+              <city_code>СПТ</city_code>
+              <target_view>САНКТ-ПЕТЕРБУРГ (ПЛК)</target_view>
+              <check_doc_info/>
+              <check_doco_info/>
+              <check_tkn_info/>
+            </airp>
+          </airps>
+          <classes>
+            <class>
+              <code>Э</code>
+              <class_view>ЭКОНОМ</class_view>
+              <cfg>52</cfg>
+            </class>
+          </classes>
+          <gates/>
+          <halls>
+            <hall>
+              <id>1</id>
+              <name>Зал 1</name>
+            </hall>
+            <hall>
+              <id>0</id>
+              <name>Др.</name>
+            </hall>
+            <hall>
+              <id>1141</id>
+              <name>VIP</name>
+            </hall>
+            <hall>
+              <id>1439</id>
+              <name>Пав. вокз.</name>
+            </hall>
+            <hall>
+              <id>39706</id>
+              <name>супер зал</name>
+            </hall>
+          </halls>
+          <mark_flights>
+            <flight>
+              <airline>ЮТ</airline>
+              <flt_no>103</flt_no>
+              <suffix/>
+              <scd>$(date_format %d.%m.%Y +0) 10:00:00</scd>
+              <airp_dep>ДМД</airp_dep>
+              <pr_mark_norms>0</pr_mark_norms>
+            </flight>
+          </mark_flights>
+        </tripdata>
+        <grp_id>...
+        <point_dep>$(get point_dep)</point_dep>
+        <airp_dep>ДМД</airp_dep>
+        <point_arv>$(get point_arv)</point_arv>
+        <airp_arv>ПЛК</airp_arv>
+        <class>Э</class>
+        <status>K</status>
+        <bag_refuse/>
+        <bag_types_id>0</bag_types_id>
+        <piece_concept>0</piece_concept>
+        <tid>...
+        <show_ticket_norms>0</show_ticket_norms>
+        <show_wt_norms>1</show_wt_norms>
+        <city_arv>СПТ</city_arv>
+        <mark_flight>
+          <airline>ЮТ</airline>
+          <flt_no>103</flt_no>
+          <suffix/>
+          <scd>$(date_format %d.%m.%Y +0) 00:00:00</scd>
+          <airp_dep>ДМД</airp_dep>
+          <pr_mark_norms>0</pr_mark_norms>
+        </mark_flight>
+        <passengers>
+          <pax>
+            <pax_id>$(get pax_1_id)</pax_id>
+            <surname>REPIN</surname>
+            <name>IVAN</name>
+            <pers_type>ВЗ</pers_type>
+            <crew_type/>
+            <seat_no>1A</seat_no>
+            <seat_type/>
+            <seats>1</seats>
+            <refuse/>
+            <reg_no>1</reg_no>
+            <subclass>Э</subclass>
+            <bag_pool_num/>
+            <tid>...
+            <ticket_no>2982401841689</ticket_no>
+            <coupon_no>1</coupon_no>
+            <ticket_rem>TKNE</ticket_rem>
+            <ticket_confirm>1</ticket_confirm>
+            <document>
+              <type>P</type>
+              <issue_country>RUS</issue_country>
+              <no>7774441110</no>
+              <nationality>RUS</nationality>
+              <birth_date>01.05.1976 00:00:00</birth_date>
+              <gender>M</gender>
+              <surname>REPIN</surname>
+              <first_name>IVAN</first_name>
+            </document>
+            <ticket_bag_norm>нет</ticket_bag_norm>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <service_lists>
+              <service_list...
+              <service_list...
+            </service_lists>
+            <rems>
+              <rem>
+                <rem_code>DOCS</rem_code>
+                <rem_text>DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN</rem_text>
+              </rem>
+              <rem>
+                <rem_code>FOID</rem_code>
+                <rem_text>FOID PPZB400522509</rem_text>
+              </rem>
+              <rem>
+                <rem_code>PSPT</rem_code>
+                <rem_text>PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M</rem_text>
+              </rem>
+              <rem>
+                <rem_code>TKNE</rem_code>
+                <rem_text>TKNE HK1 2982401841689/1</rem_text>
+              </rem>
+            </rems>
+            <asvc_rems/>
+            <fqt_rems/>
+            <norms/>
+          </pax>
+          <pax>
+            <pax_id>$(get pax_2_id)</pax_id>
+            <surname>PETROV</surname>
+            <name>PETR</name>
+            <pers_type>ВЗ</pers_type>
+            <crew_type/>
+            <seat_no>1B</seat_no>
+            <seat_type/>
+            <seats>1</seats>
+            <refuse/>
+            <reg_no>2</reg_no>
+            <subclass>Э</subclass>
+            <bag_pool_num/>
+            <tid>...
+            <ticket_no>2982401841612</ticket_no>
+            <coupon_no>1</coupon_no>
+            <ticket_rem>TKNE</ticket_rem>
+            <ticket_confirm>1</ticket_confirm>
+            <document>
+              <type>P</type>
+              <issue_country>RUS</issue_country>
+              <no>7774441112</no>
+              <nationality>RUS</nationality>
+              <birth_date>01.05.1976 00:00:00</birth_date>
+              <gender>M</gender>
+              <surname>PETROV</surname>
+              <first_name>PETR</first_name>
+            </document>
+            <ticket_bag_norm>нет</ticket_bag_norm>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <service_lists>
+              <service_list...
+              <service_list...
+            </service_lists>
+            <rems>
+              <rem>
+                <rem_code>DOCS</rem_code>
+                <rem_text>DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/PETROV/PETR</rem_text>
+              </rem>
+              <rem>
+                <rem_code>FOID</rem_code>
+                <rem_text>FOID PPZB400522510</rem_text>
+              </rem>
+              <rem>
+                <rem_code>PSPT</rem_code>
+                <rem_text>PSPT HK1 ZB400522510/TJK/24JUL85/PETROV/PETR/M</rem_text>
+              </rem>
+              <rem>
+                <rem_code>TKNE</rem_code>
+                <rem_text>TKNE HK1 2982401841612/1</rem_text>
+              </rem>
+            </rems>
+            <asvc_rems/>
+            <fqt_rems/>
+            <norms/>
+          </pax>
+        </passengers>
+        <paid_bag_emd/>
+        <tripcounters>
+          <item>
+            <point_arv>$(get point_arv)</point_arv>
+            <class>Э</class>
+            <noshow>...
+            <trnoshow>...
+            <show>...
+            <free_ok>...
+            <free_goshow>...
+            <nooccupy>...
+          </item>
+        </tripcounters>
+        <load_residue/>
+      </segment>
+      <segment>
+        <tripheader>
+          <flight>С71027/$(date_format %d.%m +0) ПЛК (EDI)</flight>
+          <airline>С7</airline>
+          <aircode>421</aircode>
+          <flt_no>1027</flt_no>
+          <suffix/>
+          <airp>ПЛК</airp>
+          <scd_out_local>$(date_format %d.%m.%Y +0) 00:00:00</scd_out_local>
+          <pr_etl_only>0</pr_etl_only>
+          <pr_etstatus>0</pr_etstatus>
+          <pr_no_ticket_check>0</pr_no_ticket_check>
+          <pr_auto_pt_print>0</pr_auto_pt_print>
+          <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
+        </tripheader>
+        <tripdata>
+          <airps>
+            <airp>
+              <point_id>-1</point_id>
+              <airp_code>СОЧ</airp_code>
+              <city_code>СОЧ</city_code>
+              <target_view>СОЧИ (СОЧ)</target_view>
+              <check_info>
+                <pass/>
+                <crew/>
+              </check_info>
+            </airp>
+          </airps>
+          <classes/>
+          <gates/>
+          <halls/>
+          <mark_flights/>
+        </tripdata>
+        <grp_id>-1</grp_id>
+        <point_dep>...
+        <airp_dep>ПЛК</airp_dep>
+        <point_arv>-1</point_arv>
+        <airp_arv>СОЧ</airp_arv>
+        <class>Э</class>
+        <status>K</status>
+        <bag_refuse/>
+        <piece_concept>0</piece_concept>
+        <tid>0</tid>
+        <city_arv>СОЧ</city_arv>
+        <passengers>
+          <pax>
+            <pax_id>-1</pax_id>
+            <surname>REPIN</surname>
+            <name>IVAN</name>
+            <pers_type>ВЗ</pers_type>
+            <seat_no>7A</seat_no>
+            <seat_type/>
+            <seats>1</seats>
+            <refuse/>
+            <reg_no>1</reg_no>
+            <subclass>Э</subclass>
+            <bag_pool_num/>
+            <tid>0</tid>
+            <ticket_no>4212401841689</ticket_no>
+            <coupon_no>1</coupon_no>
+            <ticket_rem>TKNE</ticket_rem>
+            <ticket_confirm>1</ticket_confirm>
+            <document>
+              <type>P</type>
+              <issue_country>TJK</issue_country>
+              <no>400522509</no>
+              <nationality>TJK</nationality>
+              <birth_date>24.07.1985 00:00:00</birth_date>
+              <gender>M</gender>
+              <surname>REPIN</surname>
+              <first_name>IVAN</first_name>
+              <expiry_date>05.02.2025 00:00:00</expiry_date>
+            </document>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <rems>
+              <rem>
+                <rem_code>DOCS</rem_code>
+                <rem_text>DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN</rem_text>
+              </rem>
+              <rem>
+                <rem_code>FOID</rem_code>
+                <rem_text>FOID PPZB400522509</rem_text>
+              </rem>
+              <rem>
+                <rem_code>PSPT</rem_code>
+                <rem_text>PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M</rem_text>
+              </rem>
+            </rems>
+          </pax>
+          <pax>
+            <pax_id>-2</pax_id>
+            <surname>PETROV</surname>
+            <name>PETR</name>
+            <pers_type>ВЗ</pers_type>
+            <seat_no>8A</seat_no>
+            <seat_type/>
+            <seats>1</seats>
+            <refuse/>
+            <reg_no>2</reg_no>
+            <subclass>Э</subclass>
+            <bag_pool_num/>
+            <tid>0</tid>
+            <ticket_no>4212401841612</ticket_no>
+            <coupon_no>1</coupon_no>
+            <ticket_rem>TKNE</ticket_rem>
+            <ticket_confirm>1</ticket_confirm>
+            <document>
+              <type>P</type>
+              <issue_country>TJK</issue_country>
+              <no>400522510</no>
+              <nationality>TJK</nationality>
+              <birth_date>24.07.1985 00:00:00</birth_date>
+              <gender>M</gender>
+              <surname>PETROV</surname>
+              <first_name>PETR</first_name>
+              <expiry_date>05.02.2025 00:00:00</expiry_date>
+            </document>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <rems>
+              <rem>
+                <rem_code>DOCS</rem_code>
+                <rem_text>DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/PETROV/PETR</rem_text>
+              </rem>
+              <rem>
+                <rem_code>FOID</rem_code>
+                <rem_text>FOID PPZB400522510</rem_text>
+              </rem>
+              <rem>
+                <rem_code>PSPT</rem_code>
+                <rem_text>PSPT HK1 ZB400522510/TJK/24JUL85/PETROV/PETR/M</rem_text>
+              </rem>
+            </rems>
+          </pax>
+        </passengers>
+        <paid_bag_emd/>
+        <tripcounters/>
+        <load_residue/>
+      </segment>
+    </segments>
+
+
+$(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
+$(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
+
+# отменяем регистрацию одного из пассажиров
+$(CANCEL_PAX $(get pax_1_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
+             ЮТ 103 ДМД ПЛК
+             С7 1027 ПЛК СОЧ
+             REPIN IVAN 2982401841689 4212401841689)
+
+
+$(ETS_COS_EXCHANGE 2982401841689 1 I)
+
+$(KICK_IN_SILENT)
+
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKX:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)+LED+AER"
+PPD+REPIN+A++IVAN"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+S7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
+RAD+X+O"
+UNT+4+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(KICK_IN_SILENT)

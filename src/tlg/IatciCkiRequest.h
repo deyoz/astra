@@ -10,6 +10,7 @@ namespace edifact {
 class CkiRequest: public EdifactRequest
 {
     iatci::CkiParams m_params;
+
 public:
     CkiRequest(const iatci::CkiParams& params,
                const std::string& pult,

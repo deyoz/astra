@@ -26,8 +26,10 @@ namespace TlgHandling {
 
 void PostponeEdiHandling::insertDb(const tlgnum_t& tnum, edilib::EdiSessionId_t sessId)
 {
-    OciCpp::CursCtl cur = make_curs("insert into POSTPONED_TLG(MSG_ID, EDISESS_ID) "
-                                    "values(:msg, :edisess)");
+    LogTrace(TRACE3) << "add session " << sessId << " for postpone tlg " << tnum;
+    OciCpp::CursCtl cur = make_curs(
+"insert into POSTPONED_TLG(MSG_ID, EDISESS_ID) "
+"values(:msg, :edisess)");
 
     cur.bind(":msg", tnum.num)
        .bind(":edisess", sessId)
@@ -44,18 +46,32 @@ boost::optional<tlgnum_t> PostponeEdiHandling::deleteDb(edilib::EdiSessionId_t s
             ":msg:=NULL;\n"
             "delete from POSTPONED_TLG where EDISESS_ID=:edisess "
             "returning MSG_ID into :msg; \n"
+            "select count(*) into :remained from POSTPONED_TLG "
+            "where MSG_ID=:msg; \n "
             "end;");
 
+    int remained = 0;
     cur.bind(":edisess", sessId)
        .bindOutNull(":msg", tnum, "")
+       .bindOutNull(":remained", remained, -1)
        .exec();
 
-    LogTrace(TRACE1) << "delete from POSTPONED_TLG for edisess=" << sessId
-                     << "; got msg_id=" << tnum;
-
     std::string tmpNum(tnum);
-    if(!tmpNum.empty())
-        return tlgnum_t(tnum);
+
+    if(tmpNum == "") {
+        tst();
+        return boost::none;
+    }
+
+    LogTrace(TRACE3) << "Remained " << remained << " sessions for postpone tlg " << tnum;
+
+    if(remained == 0) {
+        LogTrace(TRACE1) << "delete from POSTPONED_TLG for edisess=" << sessId
+                         << "; got msg_id=" << tnum;
+
+        if(!tmpNum.empty())
+            return tlgnum_t(tnum);
+    }
 
     return boost::none;
 }
@@ -65,8 +81,8 @@ void PostponeEdiHandling::addToQueue(const tlgnum_t& tnum)
     TlgHandling::TlgSourceEdifact tlg = TlgSource::readFromDb(tnum);
 
     OciCpp::CursCtl cur = make_curs(
-"INSERT INTO tlg_queue(id, sender, tlg_num, receiver, type, priority, status, time, ttl, time_msec) "
-"VALUES(:id, :sender, :tlg_num, :receiver, 'INA', 1, 'PUT', :time, 10, 0)");
+"insert into TLG_QUEUE(ID, SENDER, TLG_NUM, RECEIVER, TYPE, PRIORITY, STATUS, TIME, TTL, TIME_MSEC) "
+"values(:id, :sender, :tlg_num, :receiver, 'INA', 1, 'PUT', :time, 10, 0)");
 
     cur.bind(":id", tnum.num)
        .bind(":sender", tlg.fromRot())
@@ -87,6 +103,15 @@ void PostponeEdiHandling::addToQueue(const tlgnum_t& tnum)
         handle_edi_tlg(tlgi);
     }
 #endif//XP_TESTING
+}
+
+void PostponeEdiHandling::deleteWaiting(const tlgnum_t& tnum)
+{
+    LogTrace(TRACE3) << "delete postponed records for tlgnum: " << tnum;
+    make_curs(
+"delete from POSTPONED_TLG where MSG_ID=:msg")
+       .bind(":msg", tnum.num)
+       .exec();
 }
 
 void PostponeEdiHandling::postpone(const tlgnum_t& tnum, edilib::EdiSessionId_t sessId)

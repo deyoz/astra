@@ -53,10 +53,10 @@ void HandleEdiSessTimeOut(const EdiSessionTimeOut & to)
 
     if(handler)
     {
-        handler->onTimeOut();
         handler->readRemoteResults();
         if(handler->remoteResults())
             handler->remoteResults()->setStatus(RemoteStatus::Timeout);
+        handler->onTimeOut();
     }
     else
     {

@@ -6,6 +6,7 @@
 #include "basetables.h"
 #include "remote_system_context.h"
 #include "iatci_types.h"
+#include "iatci_help.h"
 #include "iatci_api.h"
 #include "astra_msg.h"
 
@@ -13,7 +14,6 @@
 #include <etick/exceptions.h>
 
 #include <boost/optional.hpp>
-#include <boost/foreach.hpp>
 
 #define NICKNAME "ANTON"
 #define NICK_TRACE ANTON_TRACE
@@ -43,6 +43,10 @@ public:
     void setSpd(const boost::optional<edifact::SpdElem>& spd);
     void setChd(const boost::optional<edifact::ChdElem>& chd, bool required = false);
     iatci::PlfParams makeParams() const;
+
+public:
+    boost::optional<iatci::CascadeHostDetails> makeCascade() const;
+
 };
 
 //---------------------------------------------------------------------------------------
@@ -68,41 +72,20 @@ std::string IatciPlfRequestHandler::respType() const
     return "P";
 }
 
-boost::optional<iatci::BaseParams> IatciPlfRequestHandler::params() const
+iatci::dcrcka::Result IatciPlfRequestHandler::handleRequest() const
 {
-    return plfParams();
-}
-
-boost::optional<iatci::BaseParams> IatciPlfRequestHandler::nextParams() const
-{
-    if(nextPlfParams()) {
-        return *nextPlfParams();
-    }
-
-    return boost::none;
-}
-
-iatci::Result IatciPlfRequestHandler::handleRequest() const
-{
-    return iatci::fillPasslist(plfParams());
+    ASSERT(m_plfParams);
+    return iatci::fillPasslist(m_plfParams.get());
 }
 
 edilib::EdiSessionId_t IatciPlfRequestHandler::sendCascadeRequest() const
 {
-    ASSERT(nextPlfParams());
-    return edifact::SendPlfRequest(*nextPlfParams());
+    throw "Not implemented!";
 }
 
-const iatci::PlfParams& IatciPlfRequestHandler::plfParams() const
+const iatci::IBaseParams* IatciPlfRequestHandler::paramsNew() const
 {
-    ASSERT(m_plfParams);
-    return m_plfParams.get();
-}
-
-boost::optional<iatci::PlfParams> IatciPlfRequestHandler::nextPlfParams() const
-{
-    // TODO
-    return boost::none;
+    return m_plfParams.get_ptr();
 }
 
 //---------------------------------------------------------------------------------------
@@ -134,45 +117,20 @@ void IatciPlfParamsMaker::setChd(const boost::optional<edifact::ChdElem>& chd, b
 
 iatci::PlfParams IatciPlfParamsMaker::makeParams() const
 {
-    iatci::OriginatorDetails origDetails(m_lor.m_airline.empty() ? ""
-                                    : BaseTables::Company(m_lor.m_airline)->rcode(),
-                                         m_lor.m_port.empty() ? ""
-                                    : BaseTables::Port(m_lor.m_port)->rcode());
+    return iatci::PlfParams(iatci::makeOrg(m_lor),
+                            iatci::makePersonal(m_spd),
+                            iatci::makeOutboundFlight(m_fdq),
+                            iatci::makeInboundFlight(m_fdq),
+                            makeCascade());
+}
 
-    iatci::FlightDetails flight(BaseTables::Company(m_fdq.m_outbAirl)->rcode(),
-                                m_fdq.m_outbFlNum,
-                                BaseTables::Port(m_fdq.m_outbDepPoint)->rcode(),
-                                BaseTables::Port(m_fdq.m_outbArrPoint)->rcode(),
-                                m_fdq.m_outbDepDate,
-                                Dates::Date_t(),
-                                m_fdq.m_outbDepTime);
-
-    iatci::PaxSeatDetails paxSeatDetails(m_spd.m_passSurname,
-                                         m_spd.m_passName,
-                                         m_spd.m_rbd,
-                                         m_spd.m_passSeat,
-                                         m_spd.m_securityId,
-                                         m_spd.m_recloc,
-                                         m_spd.m_tickNum,
-                                         m_spd.m_passQryRef,
-                                         m_spd.m_passRespRef);
-
-    boost::optional<iatci::CascadeHostDetails> cascadeHostDetails;
+boost::optional<iatci::CascadeHostDetails> IatciPlfParamsMaker::makeCascade() const
+{
     if(m_chd) {
-        cascadeHostDetails = iatci::CascadeHostDetails(m_chd->m_origAirline.empty() ? ""
-                                                : BaseTables::Company(m_chd->m_origAirline)->rcode(),
-                                                       m_chd->m_origPoint.empty() ? ""
-                                                : BaseTables::Port(m_chd->m_origPoint)->rcode());
-        BOOST_FOREACH(const std::string& hostAirline, m_chd->m_hostAirlines) {
-            cascadeHostDetails->addHostAirline(BaseTables::Company(hostAirline)->rcode());
-        }
+        return iatci::makeCascade(*m_chd);
     }
 
-    return iatci::PlfParams(origDetails,
-                            paxSeatDetails,
-                            flight,
-                            boost::none, // TODO
-                            cascadeHostDetails);
+    return boost::none;
 }
 
 }//namespace TlgHandling

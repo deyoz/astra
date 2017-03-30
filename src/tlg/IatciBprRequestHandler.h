@@ -7,7 +7,8 @@ namespace TlgHandling {
 
 class IatciBprRequestHandler: public IatciRequestHandler
 {
-    boost::optional<iatci::BprParams> m_bprParams;
+    boost::optional<iatci::BprParams> m_bprParamsNew;
+
 public:
     IatciBprRequestHandler(_EDI_REAL_MES_STRUCT_ *pMes,
                            const edilib::EdiSessRdData *edisess);
@@ -17,14 +18,10 @@ public:
     virtual ~IatciBprRequestHandler() {}
 
 protected:
-    virtual boost::optional<iatci::BaseParams> params() const;
-    virtual boost::optional<iatci::BaseParams> nextParams() const;
-    virtual iatci::Result handleRequest() const;
-    virtual edilib::EdiSessionId_t sendCascadeRequest() const;
+    virtual const iatci::IBaseParams* paramsNew() const;
 
-private:
-    const iatci::BprParams& bprParams() const;
-    boost::optional<iatci::BprParams> nextBprParams() const;
+    virtual iatci::dcrcka::Result handleRequest() const;
+    virtual edilib::EdiSessionId_t sendCascadeRequest() const;
 };
 
 }//namespace TlgHandling

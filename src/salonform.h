@@ -11,7 +11,7 @@
 #include "astra_misc.h"
 #include "astra_consts.h"
 
-namespace iatci { class Result; }
+namespace iatci { namespace dcrcka { class Result; } }
 namespace iatci { class Seat; }
 
 
@@ -46,11 +46,11 @@ public:
   void Tranzit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   // iatci
-  static void ShowRemote(xmlNodePtr resNode, const iatci::Result& res);
+  static void ShowRemote(xmlNodePtr resNode, const iatci::dcrcka::Result& res);
   static void ReseatRemote(xmlNodePtr resNode,
                            const iatci::Seat& oldSeat,
                            const iatci::Seat& newSeat,
-                           const iatci::Result& res);
+                           const iatci::dcrcka::Result& res);
 
   static SalonFormInterface* instance();
 };

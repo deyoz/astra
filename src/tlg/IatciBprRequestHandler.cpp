@@ -5,9 +5,11 @@
 #include "basetables.h"
 #include "remote_system_context.h"
 #include "iatci_types.h"
+#include "iatci_help.h"
 #include "iatci_api.h"
 #include "astra_msg.h"
 
+#include <serverlib/algo.h>
 #include <edilib/edi_func_cpp.h>
 #include <etick/exceptions.h>
 
@@ -29,20 +31,54 @@ using namespace Ticketing::TickExceptions;
 using namespace Ticketing::RemoteSystemContext;
 
 
-class IatciBprParamsMaker
+class IatciBprParamsNewMaker
 {
+public:
+
+    class Pxg
+    {
+    private:
+        edifact::PpdElem                  m_ppd;
+        boost::optional<edifact::PrdElem> m_prd;
+        boost::optional<edifact::PsdElem> m_psd;
+        boost::optional<edifact::PbdElem> m_pbd;
+        boost::optional<edifact::PsiElem> m_psi;
+
+    public:
+        void setPpd(const boost::optional<edifact::PpdElem>& ppd);
+        void setPrd(const boost::optional<edifact::PrdElem>& prd, bool required = false);
+        void setPsd(const boost::optional<edifact::PsdElem>& psd, bool required = false);
+        void setPbd(const boost::optional<edifact::PbdElem>& pbd, bool required = false);
+        void setPsi(const boost::optional<edifact::PsiElem>& psi, bool required = false);
+
+        iatci::dcqbpr::PaxGroup makePaxGroup() const;
+
+    protected:
+        boost::optional<iatci::ReservationDetails> makeReserv() const;
+        boost::optional<iatci::SeatDetails>        makeSeat() const;
+        boost::optional<iatci::BaggageDetails>     makeBaggage() const;
+        boost::optional<iatci::ServiceDetails>     makeService() const;
+    };
+
+    //-----------------------------------------------------------------------------------
+
 private:
-    edifact::LorElem m_lor;
-    edifact::FdqElem m_fdq;
-    edifact::PpdElem m_ppd;
+    edifact::LorElem                  m_lor;
     boost::optional<edifact::ChdElem> m_chd;
+    edifact::FdqElem                  m_fdq;
+    std::list<Pxg>                    m_lPxg;
 
 public:
     void setLor(const boost::optional<edifact::LorElem>& lor);
-    void setFdq(const boost::optional<edifact::FdqElem>& fdq);
-    void setPpd(const boost::optional<edifact::PpdElem>& ppd);
     void setChd(const boost::optional<edifact::ChdElem>& chd, bool required = false);
+    void setFdq(const boost::optional<edifact::FdqElem>& fdq);
+    void addPxg(const Pxg& pxg);
+
     iatci::BprParams makeParams() const;
+
+protected:
+    iatci::dcqbpr::FlightGroup                 makeFlightGroup() const;
+    boost::optional<iatci::CascadeHostDetails> makeCascade() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -55,25 +91,34 @@ IatciBprRequestHandler::IatciBprRequestHandler(_EDI_REAL_MES_STRUCT_* pMes,
 
 void IatciBprRequestHandler::parse()
 {
-    IatciBprParamsMaker bprParamsMaker;
-    bprParamsMaker.setLor(readEdiLor(pMes())); /* LOR должен быть обязательно */
-    bprParamsMaker.setChd(readEdiChd(pMes()));
+    IatciBprParamsNewMaker bprParamsNewMaker;
+    bprParamsNewMaker.setLor(readEdiLor(pMes()));
+    bprParamsNewMaker.setChd(readEdiChd(pMes()));
 
     SetEdiPointToSegGrG(pMes(), SegGrElement(1), "PROG_ERR");
-    bprParamsMaker.setFdq(readEdiFdq(pMes())); /* FDQ должен быть обязательно */
+    bprParamsNewMaker.setFdq(readEdiFdq(pMes()));
 
     int paxCount = GetNumSegGr(pMes(), 2);
     ASSERT(paxCount > 0);
 
-    if(paxCount > 1) {
-        LogError(STDLOG) << "Warning: bpr request for several passengers!";
+    EdiPointHolder ph(pMes());
+    for(int curPax = 0; curPax < paxCount; ++curPax)
+    {
+        SetEdiPointToSegGrG(pMes(), SegGrElement(2, curPax), "PROG_ERR");
+
+        IatciBprParamsNewMaker::Pxg pxg;
+        pxg.setPpd(readEdiPpd(pMes()));
+        pxg.setPrd(readEdiPrd(pMes()));
+        pxg.setPsd(readEdiPsd(pMes()));
+        pxg.setPbd(readEdiPbd(pMes()));
+        pxg.setPsi(readEdiPsi(pMes()));
+
+        bprParamsNewMaker.addPxg(pxg);
+
+        PopEdiPoint_wdG(pMes());
     }
 
-    EdiPointHolder grp_holder(pMes());
-    SetEdiPointToSegGrG(pMes(), 2, 0, "PROG_ERR");
-    bprParamsMaker.setPpd(readEdiPpd(pMes())); /* PPD должен быть обязательно в Sg2 */
-
-    m_bprParams = bprParamsMaker.makeParams();
+    m_bprParamsNew = bprParamsNewMaker.makeParams();
 }
 
 std::string IatciBprRequestHandler::respType() const
@@ -81,143 +126,157 @@ std::string IatciBprRequestHandler::respType() const
     return "B";
 }
 
-iatci::Result IatciBprRequestHandler::handleRequest() const
+iatci::dcrcka::Result IatciBprRequestHandler::handleRequest() const
 {
-    return iatci::reprintBoardingPass(bprParams());
+    ASSERT(m_bprParamsNew);
+    return iatci::reprintBoardingPass(m_bprParamsNew.get());
 }
 
 edilib::EdiSessionId_t IatciBprRequestHandler::sendCascadeRequest() const
 {
-    ASSERT(nextBprParams());
-    return edifact::SendBprRequest(*nextBprParams());
+    throw "Not implemented!";
 }
 
-boost::optional<iatci::BaseParams> IatciBprRequestHandler::params() const
+const iatci::IBaseParams* IatciBprRequestHandler::paramsNew() const
 {
-    return bprParams();
-}
-
-boost::optional<iatci::BaseParams> IatciBprRequestHandler::nextParams() const
-{
-    if(nextBprParams()) {
-        return *nextBprParams();
-    }
-
-    return boost::none;
-}
-
-const iatci::BprParams& IatciBprRequestHandler::bprParams() const
-{
-    ASSERT(m_bprParams);
-    return m_bprParams.get();
-}
-
-boost::optional<iatci::BprParams> IatciBprRequestHandler::nextBprParams() const
-{
-    boost::optional<iatci::FlightDetails> flightForNextHost;
-    flightForNextHost = iatci::findCascadeFlight(bprParams().flight());
-    if(!flightForNextHost) {
-        tst();
-        return boost::none;
-    }
-
-    iatci::PaxDetails pax = iatci::PaxDetails(bprParams().pax().surname(),
-                                              bprParams().pax().name(),
-                                              bprParams().pax().type(),
-                                              boost::none,
-                                              bprParams().flight().toShortKeyString());
-
-    iatci::CascadeHostDetails cascadeDetails(bprParams().origin().airline(),
-                                             bprParams().origin().port());
-    cascadeDetails.addHostAirline(bprParams().flight().airline());
-    if(bprParams().flightFromPrevHost()) {
-        cascadeDetails.addHostAirline(bprParams().flightFromPrevHost()->airline());
-    }
-
-    return iatci::BprParams(iatci::OriginatorDetails(bprParams().flight().airline()),
-                            pax,
-                            *flightForNextHost,
-                            bprParams().flight(),
-                            cascadeDetails);
+    return m_bprParamsNew.get_ptr();
 }
 
 //---------------------------------------------------------------------------------------
 
-void IatciBprParamsMaker::setLor(const boost::optional<edifact::LorElem>& lor)
-{
-    ASSERT(lor);
-    m_lor = *lor;
-}
-
-void IatciBprParamsMaker::setFdq(const boost::optional<edifact::FdqElem>& fdq)
-{
-    ASSERT(fdq);
-    m_fdq = *fdq;
-}
-
-void IatciBprParamsMaker::setPpd(const boost::optional<edifact::PpdElem>& ppd)
+void IatciBprParamsNewMaker::Pxg::setPpd(const boost::optional<edifact::PpdElem>& ppd)
 {
     ASSERT(ppd);
     m_ppd = *ppd;
 }
 
-void IatciBprParamsMaker::setChd(const boost::optional<edifact::ChdElem>& chd, bool required)
+void IatciBprParamsNewMaker::Pxg::setPrd(const boost::optional<edifact::PrdElem>& prd,
+                                         bool required)
+{
+    if(required)
+        ASSERT(prd);
+    m_prd = prd;
+}
+
+void IatciBprParamsNewMaker::Pxg::setPsd(const boost::optional<edifact::PsdElem>& psd,
+                                         bool required)
+{
+    if(required)
+        ASSERT(psd);
+    m_psd = psd;
+}
+
+void IatciBprParamsNewMaker::Pxg::setPbd(const boost::optional<edifact::PbdElem>& pbd,
+                                         bool required)
+{
+    if(required)
+        ASSERT(pbd);
+    m_pbd = pbd;
+}
+
+void IatciBprParamsNewMaker::Pxg::setPsi(const boost::optional<edifact::PsiElem>& psi,
+                                         bool required)
+{
+    if(required)
+        ASSERT(psi);
+    m_psi = psi;
+}
+
+iatci::dcqbpr::PaxGroup IatciBprParamsNewMaker::Pxg::makePaxGroup() const
+{
+    return iatci::dcqbpr::PaxGroup(iatci::makePax(m_ppd),
+                                   makeReserv(),
+                                   makeBaggage(),
+                                   makeService());
+}
+
+boost::optional<iatci::ReservationDetails> IatciBprParamsNewMaker::Pxg::makeReserv() const
+{
+    if(m_prd) {
+        return iatci::makeReserv(*m_prd);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::SeatDetails> IatciBprParamsNewMaker::Pxg::makeSeat() const
+{
+    if(m_psd) {
+        return iatci::makeSeat(*m_psd);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::BaggageDetails> IatciBprParamsNewMaker::Pxg::makeBaggage() const
+{
+    if(m_pbd) {
+        return iatci::makeBaggage(*m_pbd);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::ServiceDetails> IatciBprParamsNewMaker::Pxg::makeService() const
+{
+    if(m_psi) {
+        return iatci::makeService(*m_psi);
+    }
+
+    return boost::none;
+}
+
+//
+
+void IatciBprParamsNewMaker::setLor(const boost::optional<edifact::LorElem>& lor)
+{
+    ASSERT(lor);
+    m_lor = *lor;
+}
+
+void IatciBprParamsNewMaker::setChd(const boost::optional<edifact::ChdElem>& chd,
+                                    bool required)
 {
     if(required)
         ASSERT(chd);
     m_chd = chd;
 }
 
-iatci::BprParams IatciBprParamsMaker::makeParams() const
+void IatciBprParamsNewMaker::setFdq(const boost::optional<edifact::FdqElem>& fdq)
 {
-    iatci::OriginatorDetails origDetails(m_lor.m_airline.empty() ? ""
-                                    : BaseTables::Company(m_lor.m_airline)->rcode(),
-                                         m_lor.m_port.empty() ? ""
-                                    : BaseTables::Port(m_lor.m_port)->rcode());
+    ASSERT(fdq);
+    m_fdq = *fdq;
+}
 
-    iatci::FlightDetails flight(BaseTables::Company(m_fdq.m_outbAirl)->rcode(),
-                                m_fdq.m_outbFlNum,
-                                BaseTables::Port(m_fdq.m_outbDepPoint)->rcode(),
-                                BaseTables::Port(m_fdq.m_outbArrPoint)->rcode(),
-                                m_fdq.m_outbDepDate,
-                                Dates::Date_t(),
-                                m_fdq.m_outbDepTime);
+void IatciBprParamsNewMaker::addPxg(const Pxg& pxg)
+{
+    m_lPxg.push_back(pxg);
+}
 
-    iatci::FlightDetails prevFlight(m_fdq.m_inbAirl.empty() ? ""
-                                : BaseTables::Company(m_fdq.m_inbAirl)->rcode(),
-                                    m_fdq.m_inbFlNum,
-                                    m_fdq.m_inbDepPoint.empty() ? ""
-                                : BaseTables::Port(m_fdq.m_inbDepPoint)->rcode(),
-                                    m_fdq.m_inbArrPoint.empty() ? ""
-                                : BaseTables::Port(m_fdq.m_inbArrPoint)->rcode(),
-                                    m_fdq.m_inbDepDate,
-                                    m_fdq.m_inbArrDate,
-                                    m_fdq.m_inbDepTime,
-                                    m_fdq.m_inbArrTime);
+iatci::BprParams IatciBprParamsNewMaker::makeParams() const
+{
+    return iatci::BprParams(iatci::makeOrg(m_lor),
+                            makeCascade(),
+                            makeFlightGroup());
+}
 
-    iatci::PaxDetails paxDetails(m_ppd.m_passSurname,
-                                 m_ppd.m_passName,
-                                 iatci::PaxDetails::strToType(m_ppd.m_passType),
-                                 boost::none,
-                                 m_ppd.m_passQryRef,
-                                 m_ppd.m_passRespRef);
+iatci::dcqbpr::FlightGroup IatciBprParamsNewMaker::makeFlightGroup() const
+{
+    const auto paxGroups = algo::transform(m_lPxg, [](const Pxg& pxg) {
+        return pxg.makePaxGroup();
+    });
+    return iatci::dcqbpr::FlightGroup(iatci::makeOutboundFlight(m_fdq),
+                                      iatci::makeInboundFlight(m_fdq),
+                                      paxGroups);
+}
 
-    boost::optional<iatci::CascadeHostDetails> cascadeHostDetails;
+boost::optional<iatci::CascadeHostDetails> IatciBprParamsNewMaker::makeCascade() const
+{
     if(m_chd) {
-        cascadeHostDetails = iatci::CascadeHostDetails(m_chd->m_origAirline.empty() ? ""
-                                                    : BaseTables::Company(m_chd->m_origAirline)->rcode(),
-                                                       m_chd->m_origPoint.empty() ? ""
-                                                    : BaseTables::Port(m_chd->m_origPoint)->rcode());
-        BOOST_FOREACH(const std::string& hostAirline, m_chd->m_hostAirlines) {
-            cascadeHostDetails->addHostAirline(BaseTables::Company(hostAirline)->rcode());
-        }
+        return iatci::makeCascade(*m_chd);
     }
 
-    return iatci::BprParams(origDetails,
-                            paxDetails,
-                            flight,
-                            prevFlight,
-                            cascadeHostDetails);
+    return boost::none;
 }
 
 }//namespace TlgHandling

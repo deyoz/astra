@@ -520,9 +520,9 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   int point_id = NodeAsInteger( "trip_id", reqNode );
   if(point_id < 0)
   {
-      ProgTrace(TRACE3, "Show iatci seat map");
-      IatciInterface::SeatmapRequest(reqNode, point_id);
-      return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO
+      ProgTrace(TRACE3, "Query iatci seat map");
+      IatciInterface::SeatmapRequest(reqNode);
+      return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO #25409
   }
   bool isTranzitSalonsVersion = SALONS2::isTranzitSalons( point_id );
   ProgTrace(TRACE5, "SalonFormInterface::Show point_id=%d, isTranzitSalonsVersion=%d", point_id, isTranzitSalonsVersion );
@@ -1548,11 +1548,11 @@ bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
   return changedOrNotPay;
 }
 
-static void ChangeIatciSeats(xmlNodePtr reqNode, int point_id)
+static void ChangeIatciSeats(xmlNodePtr reqNode)
 {
     ProgTrace(TRACE3, "Query iatci seat change");
-    IatciInterface::UpdateSeatRequest(reqNode, point_id);
-    return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO
+    IatciInterface::UpdateSeatRequest(reqNode);
+    return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO #25409
 }
 
 void CheckResetLayer( TCompLayerType &layer_type, int crs_pax_id )
@@ -1597,7 +1597,7 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
 {
   int point_id = NodeAsInteger( "trip_id", reqNode );
   if(point_id < 0) {
-      return ChangeIatciSeats(reqNode, point_id);
+      return ChangeIatciSeats(reqNode);
   }
   int pax_id = NodeAsInteger( "pax_id", reqNode );
   int tid = NodeAsInteger( "tid", reqNode );
@@ -2091,7 +2091,7 @@ void SalonFormInterface::Tranzit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     }
 }
 
-void SalonFormInterface::ShowRemote(xmlNodePtr resNode, const iatci::Result& res)
+void SalonFormInterface::ShowRemote(xmlNodePtr resNode, const iatci::dcrcka::Result& res)
 {
     LogTrace(TRACE3) << __FUNCTION__;
     xmlNodePtr dataNode = newChild(resNode, "data");
@@ -2101,7 +2101,7 @@ void SalonFormInterface::ShowRemote(xmlNodePtr resNode, const iatci::Result& res
 void SalonFormInterface::ReseatRemote(xmlNodePtr resNode,
                                       const iatci::Seat& oldSeat,
                                       const iatci::Seat& newSeat,
-                                      const iatci::Result& res)
+                                      const iatci::dcrcka::Result& res)
 {
     LogTrace(TRACE3) << __FUNCTION__;
     xmlNodePtr dataNode = newChild(resNode, "data");

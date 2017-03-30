@@ -11,16 +11,18 @@
 
 namespace edifact {
 
+using namespace edilib;
+
+
 CkxRequest::CkxRequest(const iatci::CkxParams& params,
                        const std::string& pult,
                        const std::string& ctxt,
                        const KickInfo& kick)
     : EdifactRequest(pult, ctxt, kick, DCQCKX,
-                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.flight().airline(),
-                                                                            params.flight().flightNum())),
+                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.outboundFlight().airline(),
+                                                                            params.outboundFlight().flightNum())),
       m_params(params)
-{
-}
+{}
 
 std::string CkxRequest::mesFuncCode() const
 {
@@ -34,17 +36,34 @@ std::string CkxRequest::funcCode() const
 
 void CkxRequest::collectMessage()
 {
-    viewLorElement(pMes(), m_params.origin());
-    if(m_params.cascadeDetails())
-        viewChdElement(pMes(), *m_params.cascadeDetails());
+    viewLorElement(pMes(), m_params.org());
+    if(m_params.cascade())
+        viewChdElement(pMes(), *m_params.cascade());
 
     edilib::SetEdiSegGr(pMes(), 1);
     edilib::SetEdiPointToSegGrW(pMes(), 1);
-    viewFdqElement(pMes(), m_params.flight());
+    viewFdqElement(pMes(), m_params.outboundFlight(), m_params.inboundFlight());
 
-    edilib::SetEdiSegGr(pMes(), 2);
-    edilib::SetEdiPointToSegGrW(pMes(), 2);
-    viewPpdElement(pMes(), m_params.pax());
+    int currPxg = 0;
+    for(const auto& pxg: m_params.fltGroup().paxGroups()) {
+        PushEdiPointW(pMes());
+
+        SetEdiSegGr(pMes(), SegGrElement(2, currPxg));
+        SetEdiPointToSegGrW(pMes(), SegGrElement(2, currPxg++));
+
+        viewPpdElement(pMes(), pxg.pax());
+        if(pxg.reserv()) {
+            viewPrdElement(pMes(), *pxg.reserv());
+        }
+        if(pxg.baggage()) {
+            viewPbdElement(pMes(), *pxg.baggage());
+        }
+        if(pxg.service()) {
+            viewPsiElement(pMes(), *pxg.service());
+        }
+
+        PopEdiPointW(pMes());
+    }
 }
 
 //-----------------------------------------------------------------------------

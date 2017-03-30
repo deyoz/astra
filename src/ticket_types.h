@@ -1,5 +1,5 @@
-#ifndef _TICKET_TYPES_H_
-#define _TICKET_TYPES_H_
+#pragma once
+
 #include <string>
 #include <serverlib/int_parameters.h>
 
@@ -79,7 +79,6 @@ namespace Ticketing {
             :TicketNum(tick), Cpn(cpn)
         {
         }
-
         explicit TicketCpn_t(const std::string &tick, int cpn)
             :TicketNum(tick), Cpn(cpn)
         {
@@ -109,5 +108,3 @@ namespace Ticketing {
     }
 
 } // namespace Ticketing
-
-#endif /* _TICKET_TYPES_H_ */

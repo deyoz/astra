@@ -752,7 +752,7 @@ boost::optional<edifact::PsiElem> readEdiPsi(_EDI_REAL_MES_STRUCT_ *pMes)
         ssr.m_numOfPieces = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes, 6806);
         ssr.m_weight = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes, 6803);
         ssr.m_freeText = GetDBFName(pMes, 4440);
-        ssr.m_qualifier = GetDBFName(pMes, 6353);
+        //ssr.m_qualifier = GetDBFName(pMes, 6353); // #28490 - commented
 
         PopEdiPoint_wdG(pMes);
 
@@ -1216,7 +1216,7 @@ boost::optional<edifact::UsiElem> readEdiUsi(_EDI_REAL_MES_STRUCT_ *pMes)
         ssr.m_numOfPieces = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes, 6806);
         ssr.m_weight = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes, 6803);
         ssr.m_freeText = GetDBFName(pMes, 4440);
-        ssr.m_qualifier = GetDBFName(pMes, 6353);
+        //ssr.m_qualifier = GetDBFName(pMes, 6353); // #28490 - commented
 
         PopEdiPoint_wdG(pMes);
 

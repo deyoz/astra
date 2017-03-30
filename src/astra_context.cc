@@ -131,6 +131,11 @@ void CopyContext(const std::string& srcName, int srcId,
         LogWarning(STDLOG) << "Context " << srcName << "[" << srcId << "] is empty!";
     }
 
+    ClearContext(destName, destId);
+
+
+    LogTrace(TRACE3) << "Copied context:\n" << value;
+
     SetContext(destName, destId, value);
 }
 

@@ -4,6 +4,7 @@
 #include "remote_system_context.h"
 #include "edi_msg.h"
 #include "iatci_api.h"
+#include "iatci_help.h"
 
 #include <serverlib/str_utils.h>
 #include <edilib/edi_func_cpp.h>
@@ -43,16 +44,18 @@ bool IatciRequestHandler::fullAnswer() const
 
 void IatciRequestHandler::handle()
 {
-    if(nextParams())
-    {
-        if(!postponeHandling()) {
-            EdiSessionId_t sessId = sendCascadeRequest();
-            throw TlgHandling::TlgToBePostponed(sessId);
-        } else {
-            // достаём данные, которые получили от другой DCS
-            loadDeferredData();
-        }
-    }
+    // TODO
+//    if(nextParams())
+//    {
+//        if(!postponeHandling()) {
+//            // TODO
+//            //EdiSessionId_t sessId = sendCascadeRequest();
+//            //throw TlgHandling::TlgToBePostponed(sessId);
+//        } else {
+//            // достаём данные, которые получили от другой DCS
+//            loadDeferredData();
+//        }
+//    }
 
     // выполним обработку "у нас"
     m_lRes.push_front(handleRequest());
@@ -61,7 +64,7 @@ void IatciRequestHandler::handle()
 void IatciRequestHandler::makeAnAnswer()
 {
     int curSg1 = 0;
-    BOOST_FOREACH(const iatci::Result& res, m_lRes)
+    for(const auto& res: m_lRes)
     {
         PushEdiPointW(pMesW());
         SetEdiSegGr(pMesW(), SegGrElement(1, curSg1));
@@ -69,37 +72,45 @@ void IatciRequestHandler::makeAnAnswer()
 
         viewFdrElement(pMesW(), res.flight());
         viewRadElement(pMesW(), respType(), res.statusAsString());
-        if(res.cascadeDetails()) {
-            viewChdElement(pMesW(), *res.cascadeDetails());
+        if(res.cascade()) {
+            viewChdElement(pMesW(), *res.cascade());
         }
 
         if(fullAnswer())
         {
             viewFsdElement(pMesW(), res.flight());
 
-            PushEdiPointW(pMesW());
-            SetEdiSegGr(pMesW(), SegGrElement(2));
-            SetEdiPointToSegGrW(pMesW(), SegGrElement(2), "SegGr2(pxg) not found");
-
-            ASSERT(res.pax());
-            viewPpdElement(pMesW(), *res.pax());
-            if(res.seat()) {
-                viewPfdElement(pMesW(), *res.seat());
-            }
-            if(res.serviceDetails()) {
-                viewPsiElement(pMesW(), *res.serviceDetails());
-            }
-            if(res.pax()->doc()) {
+            int curSg2 = 0;
+            for(const auto& pxg: res.paxGroups())
+            {
                 PushEdiPointW(pMesW());
-                SetEdiSegGr(pMesW(), SegGrElement(3));
-                SetEdiPointToSegGrW(pMesW(), SegGrElement(3), "SegGr3(apg) not found");
+                SetEdiSegGr(pMesW(), SegGrElement(2, curSg2));
+                SetEdiPointToSegGrW(pMesW(), SegGrElement(2, curSg2), "SegGr2(pxg) not found");
 
-                viewPapElement(pMesW(), *res.pax()->doc());
+                viewPpdElement(pMesW(), pxg.pax());
+                if(pxg.reserv()) {
+                    viewPrdElement(pMesW(), *pxg.reserv());
+                }
+                if(pxg.seat()) {
+                    viewPfdElement(pMesW(), *pxg.seat());
+                }
+                if(pxg.service()) {
+                    viewPsiElement(pMesW(), *pxg.service());
+                }
+                if(pxg.doc()) {
+                    PushEdiPointW(pMesW());
+                    SetEdiSegGr(pMesW(), SegGrElement(3));
+                    SetEdiPointToSegGrW(pMesW(), SegGrElement(3), "SegGr3(apg) not found");
+
+                    viewPapElement(pMesW(), *pxg.doc());
+
+                    PopEdiPointW(pMesW());
+                }
 
                 PopEdiPointW(pMesW());
+                curSg2++;
             }
 
-            PopEdiPointW(pMesW());
         }
         PopEdiPointW(pMesW());
 
@@ -113,7 +124,8 @@ void IatciRequestHandler::makeAnAnswerErr()
     SetEdiSegGr(pMesW(), SegGrElement(1));
     SetEdiPointToSegGrW(pMesW(), SegGrElement(1), "SegGr1(flg) not found");
 
-    viewFdrElement(pMesW(), requestParams().flight());
+    ASSERT(paramsNew());
+    viewFdrElement(pMesW(), paramsNew()->outboundFlight());
     viewRadElement(pMesW(), respType(), "X");
     viewErdElement(pMesW(), ediErrorLevel(), ediErrorCode(), ediErrorText());
 
@@ -148,22 +160,16 @@ void IatciRequestHandler::loadDeferredData()
     if(m_lRes.empty()) {
         throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Empty result list!");
     } else if(m_lRes.size() == 1 &&
-              (m_lRes.front().status() == iatci::Result::Failed ||
-               m_lRes.front().status() == iatci::Result::RecoverableError)) {
+              (m_lRes.front().status() == iatci::dcrcka::Result::Failed ||
+               m_lRes.front().status() == iatci::dcrcka::Result::RecoverableError)) {
         // что-то пошло не так - скорее всего, случился таймаут
-        boost::optional<iatci::ErrorDetails> err = m_lRes.front().errorDetails();
+        boost::optional<iatci::ErrorDetails> err = m_lRes.front().error();
         if(err) {
             throw tick_soft_except(STDLOG, err->errCode(), err->errDesc().c_str());
         } else {
             LogError(STDLOG) << "Warning: error detected but error information not found!";
         }
     }
-}
-
-iatci::BaseParams IatciRequestHandler::requestParams() const
-{
-    ASSERT(params());
-    return *params();
 }
 
 }//namespace TlgHandling

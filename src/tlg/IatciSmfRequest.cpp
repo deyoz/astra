@@ -17,8 +17,8 @@ SmfRequest::SmfRequest(const iatci::SmfParams& params,
                        const std::string& ctxt,
                        const KickInfo& kick)
     : EdifactRequest(pult, ctxt, kick, DCQSMF,
-                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.flight().airline(),
-                                                                            params.flight().flightNum())),
+                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.outboundFlight().airline(),
+                                                                            params.outboundFlight().flightNum())),
       m_params(params)
 {
 }
@@ -35,12 +35,12 @@ std::string SmfRequest::funcCode() const
 
 void SmfRequest::collectMessage()
 {
-    viewLorElement(pMes(), m_params.origin());
-    viewFdqElement(pMes(), m_params.flight());
-    if(m_params.seatRequestDetails())
-        viewSrpElement(pMes(), *m_params.seatRequestDetails());
-    if(m_params.cascadeDetails())
-        viewChdElement(pMes(), *m_params.cascadeDetails());
+    viewLorElement(pMes(), m_params.org());
+    viewFdqElement(pMes(), m_params.outboundFlight());
+    if(m_params.seatRequest())
+        viewSrpElement(pMes(), *m_params.seatRequest());
+    if(m_params.cascade())
+        viewChdElement(pMes(), *m_params.cascade());
 }
 
 //-----------------------------------------------------------------------------

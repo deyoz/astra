@@ -13,9 +13,9 @@ IatciBprResponseHandler::IatciBprResponseHandler(_EDI_REAL_MES_STRUCT_* pMes,
 {
 }
 
-iatci::Result::Action_e IatciBprResponseHandler::action() const
+iatci::dcrcka::Result::Action_e IatciBprResponseHandler::action() const
 {
-    return iatci::Result::Reprint;
+    return iatci::dcrcka::Result::Reprint;
 }
 
 }//namespace TlgHandling

@@ -25,7 +25,7 @@ IatciSeatmapRequestHandler::IatciSeatmapRequestHandler(_EDI_REAL_MES_STRUCT_ *pM
 void IatciSeatmapRequestHandler::makeAnAnswer()
 {
     int curSg1 = 0;
-    BOOST_FOREACH(const iatci::Result& res, m_lRes)
+    BOOST_FOREACH(const iatci::dcrcka::Result& res, m_lRes)
     {
         PushEdiPointW(pMesW());
         SetEdiSegGr(pMesW(), SegGrElement(1, curSg1));
@@ -33,21 +33,21 @@ void IatciSeatmapRequestHandler::makeAnAnswer()
 
         viewFdrElement(pMesW(), res.flight());
         viewRadElement(pMesW(), respType(), res.statusAsString());
-        if(res.cascadeDetails())
-            viewChdElement(pMesW(), *res.cascadeDetails());
+        if(res.cascade())
+            viewChdElement(pMesW(), *res.cascade());
 
         ASSERT(res.seatmap());
-        if(res.seatmap()->seatRequestDetails()) {
-            viewSrpElement(pMesW(), *res.seatmap()->seatRequestDetails());
+        if(res.seatmap()->seatRequest()) {
+            viewSrpElement(pMesW(), *res.seatmap()->seatRequest());
         }
 
         int curCbd = 0;
-        BOOST_FOREACH(const iatci::CabinDetails& cabin, res.seatmap()->lCabinDetails()) {
+        BOOST_FOREACH(const iatci::CabinDetails& cabin, res.seatmap()->lCabin()) {
             viewCbdElement(pMesW(), cabin, curCbd++);
         }
 
         int curRod = 0;
-        BOOST_FOREACH(const iatci::RowDetails& row, res.seatmap()->lRowDetails()) {
+        BOOST_FOREACH(const iatci::RowDetails& row, res.seatmap()->lRow()) {
             viewRodElement(pMesW(), row, curRod++);
         }
 

@@ -48,10 +48,9 @@ class IfmPaxes
     std::list<PaxDetails> m_paxes;
 
 public:
+    IfmPaxes(const std::list<iatci::dcqcki::PaxGroup>& lPxg);
+    IfmPaxes(const std::list<iatci::dcqckx::PaxGroup>& lPxg);
     IfmPaxes(const PaxDetails& pax);
-    IfmPaxes() {}
-    void addPax(const PaxDetails& pax);
-    PaxDetails firstPax() const;
 
     const std::list<PaxDetails>& paxes() const { return m_paxes; }
 };

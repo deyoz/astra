@@ -21,6 +21,7 @@
 #include "typeb_handler.h"
 #include "tlg_source_typeb.h"
 #include "postpone_edifact.h"
+#include "remote_system_context.h"
 #include "astra_context.h"
 
 #include <serverlib/posthooks.h>
@@ -94,6 +95,18 @@ static int PARSER_PROC_COUNT()          //кол-во разбираемых телеграмм за одну и
     VAR=getTCLParam("TYPEB_PARSER_PROC_COUNT",1,NoExists,100);
   return VAR;
 };
+
+static void initRsc(int tlg_id, const std::string& tlg_body)
+{
+    using Ticketing::RemoteSystemContext::SystemContext;
+    SystemContext::initDummyContext();
+    SystemContext::Instance(STDLOG).inbTlgInfo().setTlgSrc(tlg_body);
+    tlgnum_t tlgNum = make_tlgnum(tlg_id);
+    SystemContext::Instance(STDLOG).inbTlgInfo().setTlgNum(tlgNum);
+    if(TlgHandling::isTlgPostponed(tlgNum)) {
+        SystemContext::Instance(STDLOG).inbTlgInfo().setRepeatedlyProcessed();
+    }
+}
 
 static bool handle_tlg(void);
 static bool parse_tlg(void);
@@ -1048,6 +1061,9 @@ bool parse_tlg(void)
             LogTrace(TRACE3) << "Enter to IFM handler";
             std::string tlgBody = parts.addr + parts.heading + parts.body;
             LogTrace(TRACE3) << "IFM body:\n" << tlgBody;
+
+            initRsc(tlg_id, tlgBody); // remote system context
+
             HandleTypebIfm::handle(typeb_parser::TypeBMessage::parse(tlgBody));
             callPostHooksBefore();
             ASTRA::commit();
@@ -1094,21 +1110,11 @@ bool parse_tlg(void)
       }
       catch(TlgHandling::TlgToBePostponed& e)
       {
-          LogTrace(TRACE3) << "tlg.id=" << tlg_id << " e.sessionId=" << e.sessionId();
-          if(tlg_id && e.sessionId())
-          {
-              ProgTrace(TRACE1, "Tlg %d to be postponed for session %d", tlg_id, e.sessionId().get());
-              AstraContext::CopyContext("EDI_SESSION", e.sessionId().get(), "EDI_SESSION_TLG", tlg_id);
-              TlgHandling::PostponeEdiHandling::postpone(tlg_id, e.sessionId());
-              callPostHooksBefore();
-              ASTRA::commit();
-              callPostHooksAfter();
-              emptyHookTables();
-          }
-          else
-          {
-              ProgError(STDLOG, "bad data!");
-          }
+          LogTrace(TRACE1) << "Tlg " << e.tlgNum() << " to be postponed";
+          callPostHooksBefore();
+          ASTRA::commit();
+          callPostHooksAfter();
+          emptyHookTables();
       }
       catch(std::exception &E)
       {

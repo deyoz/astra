@@ -129,6 +129,7 @@ $(KICK_IN)
       <segment>
         <tripheader>
           <flight>ЮТ103 ДМД</flight>
+          <flight_short>...
           <airline>ЮТ</airline>
           <aircode>298</aircode>
           <flt_no>103</flt_no>
@@ -205,6 +206,8 @@ $(KICK_IN)
         <bag_types_id>0</bag_types_id>
         <piece_concept>0</piece_concept>
         <tid>...
+        <show_ticket_norms>0</show_ticket_norms>
+        <show_wt_norms>1</show_wt_norms>
         <city_arv>СПТ</city_arv>
         <mark_flight>
           <airline>ЮТ</airline>
@@ -243,10 +246,14 @@ $(KICK_IN)
               <surname>РЕПИН</surname>
               <first_name>ИВАН</first_name>
             </document>
-            <ticket_bag_norm>НЕТ</ticket_bag_norm>
+            <ticket_bag_norm>нет</ticket_bag_norm>
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
             <pr_bi_print>0</pr_bi_print>
+            <service_lists>
+              <service_list...
+              <service_list...
+            </service_lists>
             <rems>
               <rem>
                 <rem_code>FOID</rem_code>
@@ -445,7 +452,7 @@ UNZ+1+$(last_edifact_ref)0001"
 UNB+SIRE:1+UTET+UTDC+160408:0828+$(last_edifact_ref 1)0001+++T"
 UNH+1+TKCRES:06:1:IA+$(last_edifact_ref 1)"
 MSG+:142+3"
-EQN+2:TD"
+EQN+1:TD"
 TKT+2981212121212:T::3"
 CPN+1:CK::E"
 UNT+6+1"
@@ -455,11 +462,12 @@ UNZ+1+$(last_edifact_ref 1)0001"
 UNB+SIRE:1+UTET+UTDC+160408:0828+$(last_edifact_ref)0001+++T"
 UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
 MSG+:142+3"
-EQN+2:TD"
+EQN+1:TD"
 TKT+2981212121213:T::3"
 CPN+1:CK::E"
-UNT+6+1"
+UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
+
 
 
 $(KICK_IN)
@@ -469,6 +477,7 @@ $(KICK_IN)
       <segment>
         <tripheader>
           <flight>ЮТ103 ДМД</flight>
+          <flight_short>...
           <airline>ЮТ</airline>
           <aircode>298</aircode>
           <flt_no>103</flt_no>
@@ -545,6 +554,8 @@ $(KICK_IN)
         <bag_types_id>0</bag_types_id>
         <piece_concept>0</piece_concept>
         <tid>...
+        <show_ticket_norms>0</show_ticket_norms>
+        <show_wt_norms>1</show_wt_norms>
         <city_arv>СПТ</city_arv>
         <mark_flight>
           <airline>ЮТ</airline>
@@ -583,10 +594,14 @@ $(KICK_IN)
               <surname>РЕПИН</surname>
               <first_name>ИВАН</first_name>
             </document>
-            <ticket_bag_norm>НЕТ</ticket_bag_norm>
+            <ticket_bag_norm>нет</ticket_bag_norm>
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
             <pr_bi_print>0</pr_bi_print>
+            <service_lists>
+              <service_list...
+              <service_list...
+            </service_lists>
             <rems>
               <rem>
                 <rem_code>FOID</rem_code>
@@ -624,10 +639,14 @@ $(KICK_IN)
               <surname>РЕПИНА</surname>
               <first_name>АННА</first_name>
             </document>
-            <ticket_bag_norm>НЕТ</ticket_bag_norm>
+            <ticket_bag_norm>нет</ticket_bag_norm>
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
             <pr_bi_print>0</pr_bi_print>
+            <service_lists>
+              <service_list...
+              <service_list...
+            </service_lists>
             <rems>
               <rem>
                 <rem_code>FOID</rem_code>
@@ -656,10 +675,3 @@ $(KICK_IN)
       </segment>
     </segments>
 
-
-%%
-### test 2 - сквозная регистрации одного пассажира
-#########################################################################################
-
-
-# TODO

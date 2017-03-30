@@ -19,6 +19,8 @@ using namespace edilib;
 using namespace edifact;
 using namespace Ticketing;
 using namespace Ticketing::TickReader;
+using iatci::dcrcka::Result;
+
 
 class IatciSeatmapResultMaker
 {
@@ -49,7 +51,7 @@ public:
     void setEqd(const boost::optional<edifact::EqdElem>& eqd, bool required = false);
     void addCbd(const boost::optional<edifact::CbdElem>& cbd);
     void addRod(const boost::optional<edifact::RodElem>& rod);
-    iatci::Result makeResult() const;
+    Result makeResult() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -189,7 +191,7 @@ std::list<iatci::SeatOccupationDetails> IatciSeatmapResultMaker::makeSeatOccupat
     return lRes;
 }
 
-iatci::Result IatciSeatmapResultMaker::makeResult() const
+Result IatciSeatmapResultMaker::makeResult() const
 {
     iatci::FlightDetails flightDetails(BaseTables::Company(m_fdr.m_airl)->rcode(),
                                        m_fdr.m_flNum,
@@ -261,13 +263,13 @@ iatci::Result IatciSeatmapResultMaker::makeResult() const
     }
 
     ASSERT(seatmapDetails);
-    return iatci::Result::makeSeatmapResult(iatci::Result::strToStatus(m_rad.m_status),
-                                            flightDetails,
-                                            *seatmapDetails,
-                                            cascadeDetails,
-                                            errorDetails,
-                                            warningDetails,
-                                            equipmentDetails);
+    return Result::makeSeatmapResult(Result::strToStatus(m_rad.m_status),
+                                     flightDetails,
+                                     *seatmapDetails,
+                                     cascadeDetails,
+                                     errorDetails,
+                                     warningDetails,
+                                     equipmentDetails);
 }
 
 }//namespace TlgHandling

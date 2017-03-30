@@ -8,6 +8,7 @@ namespace TlgHandling {
 class IatciCkuRequestHandler: public IatciRequestHandler
 {
     boost::optional<iatci::CkuParams> m_ckuParams;
+
 public:
     IatciCkuRequestHandler(_EDI_REAL_MES_STRUCT_ *pMes,
                            const edilib::EdiSessRdData *edisess);
@@ -17,14 +18,10 @@ public:
     virtual ~IatciCkuRequestHandler() {}
 
 protected:
-    virtual boost::optional<iatci::BaseParams> params() const;
-    virtual boost::optional<iatci::BaseParams> nextParams() const;
-    virtual iatci::Result handleRequest() const;
-    virtual edilib::EdiSessionId_t sendCascadeRequest() const;
+    virtual const iatci::IBaseParams* paramsNew() const;
 
-private:
-    const iatci::CkuParams& ckuParams() const;
-    boost::optional<iatci::CkuParams> nextCkuParams() const;
+    virtual iatci::dcrcka::Result handleRequest() const;
+    virtual edilib::EdiSessionId_t sendCascadeRequest() const;
 };
 
 }//namespace TlgHandling

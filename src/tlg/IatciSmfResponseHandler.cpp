@@ -13,9 +13,9 @@ IatciSmfResponseHandler::IatciSmfResponseHandler(_EDI_REAL_MES_STRUCT_ *pMes,
 {
 }
 
-iatci::Result::Action_e IatciSmfResponseHandler::action() const
+iatci::dcrcka::Result::Action_e IatciSmfResponseHandler::action() const
 {
-    return iatci::Result::Seatmap;
+    return iatci::dcrcka::Result::Seatmap;
 }
 
 }//namespace TlgHandling

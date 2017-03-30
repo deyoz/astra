@@ -19,14 +19,10 @@ public:
     virtual ~IatciSmfRequestHandler() {}
 
 protected:
-    virtual boost::optional<iatci::BaseParams> params() const; // TODO убрать optional потом
-    virtual boost::optional<iatci::BaseParams> nextParams() const;
-    virtual iatci::Result handleRequest() const;
-    virtual edilib::EdiSessionId_t sendCascadeRequest() const;
+    virtual const iatci::IBaseParams* paramsNew() const;
 
-private:
-    const iatci::SmfParams& smfParams() const;
-    boost::optional<iatci::SmfParams> nextSmfParams() const;
+    virtual iatci::dcrcka::Result handleRequest() const;
+    virtual edilib::EdiSessionId_t sendCascadeRequest() const;
 };
 
 }//namespace TlgHandling

@@ -7,24 +7,21 @@ namespace TlgHandling {
 
 class IatciCkiRequestHandler: public IatciRequestHandler
 {
-    boost::optional<iatci::CkiParams> m_ckiParams;
+    boost::optional<iatci::CkiParams> m_ckiParamsNew;
 
 public:
     IatciCkiRequestHandler(_EDI_REAL_MES_STRUCT_ *pMes,
                            const edilib::EdiSessRdData *edisess);
     virtual void parse();
     virtual std::string respType() const;
+
     virtual ~IatciCkiRequestHandler() {}
 
 protected:
-    virtual boost::optional<iatci::BaseParams> params() const;
-    virtual boost::optional<iatci::BaseParams> nextParams() const;
-    virtual iatci::Result handleRequest() const;
-    virtual edilib::EdiSessionId_t sendCascadeRequest() const;
+    virtual const iatci::IBaseParams* paramsNew() const;
 
-private:
-    const iatci::CkiParams& ckiParams() const;
-    boost::optional<iatci::CkiParams> nextCkiParams() const;
+    virtual iatci::dcrcka::Result handleRequest() const;
+    virtual edilib::EdiSessionId_t sendCascadeRequest() const;
 };
 
 }//namespace TlgHandling

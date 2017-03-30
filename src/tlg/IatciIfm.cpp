@@ -4,6 +4,7 @@
 #include "remote_system_context.h"
 
 #include <serverlib/dates.h>
+#include <serverlib/algo.h>
 
 #include <sstream>
 
@@ -42,20 +43,23 @@ std::string IfmAction::actAsString() const
 
 //---------------------------------------------------------------------------------------
 
+IfmPaxes::IfmPaxes(const std::list<iatci::dcqcki::PaxGroup>& lPxg)
+{
+    m_paxes = algo::transform(lPxg, [](const iatci::dcqcki::PaxGroup& pxg) {
+        return pxg.pax();
+    });
+}
+
+IfmPaxes::IfmPaxes(const std::list<iatci::dcqckx::PaxGroup>& lPxg)
+{
+    m_paxes = algo::transform(lPxg, [](const iatci::dcqckx::PaxGroup& pxg) {
+       return pxg.pax();
+    });
+}
+
 IfmPaxes::IfmPaxes(const PaxDetails& pax)
 {
-    addPax(pax);
-}
-
-void IfmPaxes::addPax(const PaxDetails& pax)
-{
     m_paxes.push_back(pax);
-}
-
-PaxDetails IfmPaxes::firstPax() const
-{
-    ASSERT(!m_paxes.empty());
-    return m_paxes.front();
 }
 
 //---------------------------------------------------------------------------------------
@@ -111,9 +115,12 @@ std::string IfmMessage::msg() const
     m << "\n";
 
     // PASSENGER INFORMATION
-    m << "1" << paxes().firstPax().surname();
-    m << "/" << paxes().firstPax().name();
-    m << "\n";
+    for(const auto& pax: paxes().paxes())
+    {
+        m << "1" << pax.surname();
+        m << "/" << pax.name();
+        m << "\n";
+    }
 
     // END OF MESSAGE
     m << "ENDIFM\n"; 

@@ -1,6 +1,8 @@
 #include "view_edi_elements.h"
 #include "astra_consts.h"
 #include "basetables.h"
+#include "iatci_help.h"
+#include "convert.h"
 
 #include <edilib/edi_func_cpp.h>
 #include <edilib/edi_astra_msg_types.h>
@@ -479,11 +481,11 @@ void viewPpdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxDetails& pax)
     SetEdiFullSegment(pMes, SegmElement("PPD"), ppd.str());
 }
 
-void viewSpdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxSeatDetails& pax)
+void viewSpdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SelectPersonalDetails& pax)
 {
     std::ostringstream spd;
     spd << pax.surname() << ":" << pax.name() << ":" << pax.rbd() << ":1"
-        << "+" << pax.seat()
+        << "+" << iatci::latSeatNum(pax.seat())
         << "+" << pax.respRef()
         << "+" << pax.qryRef()
         << "+" << pax.securityId()
@@ -496,7 +498,6 @@ void viewPsiElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::ServiceDetails& se
 {
     std::ostringstream psi;
     psi << service.osi();
-    psi << "+"; // TODO show API
     BOOST_FOREACH(const iatci::ServiceDetails::SsrInfo& ssr, service.lSsr())
     {
         psi << "+" << ssr.ssrCode() << ":";
@@ -529,7 +530,7 @@ void viewPsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SeatDetails& seat)
     BOOST_FOREACH(const std::string& seatCharactesistic, seat.characteristics()) {
         psd << ":" << seatCharactesistic;
     }
-    psd << "+" << seat.seat();
+    psd << "+" << iatci::latSeatNum(seat.seat());
 
     SetEdiFullSegment(pMes, SegmElement("PSD"), psd.str());
 }
@@ -596,9 +597,11 @@ void viewPfdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightSeatDetails&
 void viewPfdElement(_EDI_REAL_MES_STRUCT_* pMes, const PfdElem& elem)
 {
     std::ostringstream pfd;
-    pfd << elem.m_seat;
-    pfd << "+" << elem.m_noSmokingInd;
-    pfd << ":" << Ticketing::SubClass(elem.m_cabinClass)->code(ENGLISH);
+    pfd << iatci::latSeatNum(elem.m_seat);
+    pfd << "+" << elem.m_noSmokingInd << ":";
+    if(!elem.m_cabinClass.empty()) {
+        pfd << Ticketing::SubClass(elem.m_cabinClass)->code(ENGLISH);
+    }
     pfd << "+" << elem.m_securityId;
     SetEdiFullSegment(pMes, SegmElement("PFD"), pfd.str());
 }
@@ -627,13 +630,13 @@ void viewUsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateSeatDetails&
     BOOST_FOREACH(const std::string& seatCharactesistic, updSeat.characteristics()) {
         usd << ":" << seatCharactesistic;
     }
-    usd << "+" << updSeat.seat();
+    usd << "+" << iatci::latSeatNum(updSeat.seat());
     //usd << "++++" << updSeat.actionCodeAsString(); TODO
 
     SetEdiFullSegment(pMes, SegmElement("USD"), usd.str());
 }
 
-void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateBaggageDetails &updBaggage)
+void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateBaggageDetails& updBaggage)
 {
     std::ostringstream ubd;
     ubd << updBaggage.actionCodeAsString() << ":";
@@ -641,7 +644,7 @@ void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateBaggageDetai
     SetEdiFullSegment(pMes, SegmElement("UBD"), ubd.str());
 }
 
-void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdatePaxDetails::UpdateDocInfo &updDoc)
+void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateDocDetails& updDoc)
 {
     std::ostringstream uap;
     uap << updDoc.actionCodeAsString() << "+";
@@ -730,7 +733,7 @@ void viewRodElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::RowDetails& rowDet
     SetEdiFullSegment(pMes, SegmElement("ROD", num), rod.str());
 }
 
-void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxDetails::DocInfo& doc)
+void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::DocDetails& doc)
 {
     std::ostringstream pap;
     pap << ":::" << Dates::rrmmdd(doc.birthDate())

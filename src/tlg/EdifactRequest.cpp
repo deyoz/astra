@@ -14,7 +14,6 @@
 #include "edi_tlg.h"
 #include "tlg.h"
 #include "tlg_source_edifact.h"
-#include "postpone_edifact.h"
 #include "EdiSessionTimeOut.h"
 #include "AgentWaitsForRemote.h"
 #include "astra_context.h"
@@ -76,7 +75,6 @@ void EdifactRequest::sendTlg()
                              ediSessId().get(),
                              context());
 
-
     // Записать информацию о timeout отправленной телеграммы
     edilib::EdiSessionTimeOut::add(ediSess()->edih()->msg_type,
                                    funcCode(),
@@ -92,12 +90,6 @@ void EdifactRequest::sendTlg()
                                  ediSess()->ediSession()->pult(),
                                  ediSess()->ediSession()->ida(),
                                  kickInfo());
-
-    if(TReqInfo::Instance()->api_mode)
-    {
-        LogTrace(TRACE3) << "throw TlgToBePostponed for edi_session=" << ediSessId();
-        throw TlgHandling::TlgToBePostponed(ediSessId());
-    }
 }
 
 std::string EdifactRequest::funcCode() const

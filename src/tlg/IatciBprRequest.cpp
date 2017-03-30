@@ -11,13 +11,15 @@
 
 namespace edifact {
 
+using namespace edilib;
+
 BprRequest::BprRequest(const iatci::BprParams& params,
                        const std::string& pult,
                        const std::string& ctxt,
                        const KickInfo& kick)
     : EdifactRequest(pult, ctxt, kick, DCQBPR,
-                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.flight().airline(),
-                                                                            params.flight().flightNum())),
+                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.outboundFlight().airline(),
+                                                                            params.outboundFlight().flightNum())),
       m_params(params)
 {
 }
@@ -34,23 +36,34 @@ std::string BprRequest::funcCode() const
 
 void BprRequest::collectMessage()
 {
-    viewLorElement(pMes(), m_params.origin());
-    if(m_params.cascadeDetails())
-        viewChdElement(pMes(), *m_params.cascadeDetails());
+    viewLorElement(pMes(), m_params.org());
+    if(m_params.cascade())
+        viewChdElement(pMes(), *m_params.cascade());
 
     edilib::SetEdiSegGr(pMes(), 1);
     edilib::SetEdiPointToSegGrW(pMes(), 1);
-    viewFdqElement(pMes(), m_params.flight(), m_params.flightFromPrevHost());
+    viewFdqElement(pMes(), m_params.outboundFlight(), m_params.inboundFlight());
 
-    edilib::SetEdiSegGr(pMes(), 2);
-    edilib::SetEdiPointToSegGrW(pMes(), 2);
-    viewPpdElement(pMes(), m_params.pax());
-    if(m_params.reserv())
-        viewPrdElement(pMes(), *m_params.reserv());
-    if(m_params.seat())
-        viewPsdElement(pMes(), *m_params.seat());
-    if(m_params.baggage())
-        viewPbdElement(pMes(), *m_params.baggage());
+    int currPxg = 0;
+    for(const auto& pxg: m_params.fltGroup().paxGroups()) {
+        PushEdiPointW(pMes());
+
+        SetEdiSegGr(pMes(), SegGrElement(2, currPxg));
+        SetEdiPointToSegGrW(pMes(), SegGrElement(2, currPxg++));
+
+        viewPpdElement(pMes(), pxg.pax());
+        if(pxg.reserv()) {
+            viewPrdElement(pMes(), *pxg.reserv());
+        }
+        if(pxg.baggage()) {
+            viewPbdElement(pMes(), *pxg.baggage());
+        }
+        if(pxg.service()) {
+            viewPsiElement(pMes(), *pxg.service());
+        }
+
+        PopEdiPointW(pMes());
+    }
 }
 
 //-----------------------------------------------------------------------------
@@ -64,7 +77,6 @@ edilib::EdiSessionId_t SendBprRequest(const iatci::BprParams& params,
                      << "with context length[" << ctxt.length() << "]";
     BprRequest bprReq(params, pult, ctxt, kick);
     bprReq.sendTlg();
-    LogTrace(TRACE3) << "Created edisession with id " << bprReq.ediSessId();
     return bprReq.ediSessId();
 }
 

@@ -11,16 +11,18 @@
 
 namespace edifact {
 
+using namespace edilib;
+
+
 CkuRequest::CkuRequest(const iatci::CkuParams& params,
                        const std::string& pult,
                        const std::string& ctxt,
                        const KickInfo& kick)
     : EdifactRequest(pult, ctxt, kick, DCQCKU,
-                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.flight().airline(),
-                                                                            params.flight().flightNum())),
+                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.outboundFlight().airline(),
+                                                                            params.outboundFlight().flightNum())),
       m_params(params)
-{
-}
+{}
 
 std::string CkuRequest::mesFuncCode() const
 {
@@ -34,36 +36,56 @@ std::string CkuRequest::funcCode() const
 
 void CkuRequest::collectMessage()
 {
-    viewLorElement(pMes(), m_params.origin());
-    if(m_params.cascadeDetails())
-        viewChdElement(pMes(), *m_params.cascadeDetails());
+    viewLorElement(pMes(), m_params.org());
+    if(m_params.cascade())
+        viewChdElement(pMes(), *m_params.cascade());
 
     edilib::SetEdiSegGr(pMes(), 1);
     edilib::SetEdiPointToSegGrW(pMes(), 1);
-    viewFdqElement(pMes(), m_params.flight(), m_params.flightFromPrevHost());
+    viewFdqElement(pMes(), m_params.outboundFlight(), m_params.inboundFlight());
 
-    edilib::SetEdiSegGr(pMes(), 2);
-    edilib::SetEdiPointToSegGrW(pMes(), 2);
-    viewPpdElement(pMes(), m_params.pax());
+    int currPxg = 0;
+    for(const auto& pxg: m_params.fltGroup().paxGroups()) {
+        PushEdiPointW(pMes());
 
-    if(m_params.updPax() || m_params.updService() ||
-       m_params.updSeat() || m_params.updBaggage() )
-    {
-        if(m_params.updService())
-            viewUsiElement(pMes(), *m_params.updService());
-        if(m_params.updSeat())
-            viewUsdElement(pMes(), *m_params.updSeat());
-        if(m_params.updBaggage())
-            viewUbdElement(pMes(), *m_params.updBaggage());
+        SetEdiSegGr(pMes(), SegGrElement(2, currPxg));
+        SetEdiPointToSegGrW(pMes(), SegGrElement(2, currPxg++));
 
-        if(m_params.updPax()) {
-            if(m_params.updPax()->doc()) {
-                edilib::SetEdiSegGr(pMes(), 3);
-                edilib::SetEdiPointToSegGrW(pMes(), 3);
-
-                viewUapElement(pMes(), *m_params.updPax()->doc());
-            }
+        viewPpdElement(pMes(), pxg.pax());
+        if(pxg.reserv()) {
+            viewPrdElement(pMes(), *pxg.reserv());
         }
+        if(pxg.baggage()) {
+            viewPbdElement(pMes(), *pxg.baggage());
+        }
+        if(pxg.service()) {
+            viewPsiElement(pMes(), *pxg.service());
+        }
+
+        if(pxg.updPax()) {
+            viewUpdElement(pMes(), *pxg.updPax());
+        }
+        if(pxg.updSeat()) {
+            viewUsdElement(pMes(), *pxg.updSeat());
+        }
+        if(pxg.updBaggage()) {
+            viewUbdElement(pMes(), *pxg.updBaggage());
+        }
+        if(pxg.updService()) {
+            viewUsiElement(pMes(), *pxg.updService());
+        }
+
+        if(pxg.updDoc()) {
+            PushEdiPointW(pMes());
+            edilib::SetEdiSegGr(pMes(), 3);
+            edilib::SetEdiPointToSegGrW(pMes(), 3);
+
+            viewUapElement(pMes(), *pxg.updDoc());
+
+            PopEdiPointW(pMes());
+        }
+
+        PopEdiPointW(pMes());
     }
 }
 

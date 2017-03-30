@@ -13,9 +13,9 @@ IatciCkuResponseHandler::IatciCkuResponseHandler(_EDI_REAL_MES_STRUCT_ *pMes,
 {
 }
 
-iatci::Result::Action_e IatciCkuResponseHandler::action() const
+iatci::dcrcka::Result::Action_e IatciCkuResponseHandler::action() const
 {
-    return iatci::Result::Update;
+    return iatci::dcrcka::Result::Update;
 }
 
 }//namespace TlgHandling

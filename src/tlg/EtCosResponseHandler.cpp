@@ -51,4 +51,12 @@ void EtCosResponseHandler::handle()
     }
 }
 
+void EtCosResponseHandler::onTimeOut()
+{
+    if(remoteResults())
+    {
+        handleEtCosResponse(*remoteResults());
+    }
+}
+
 }//namespace TlgHandling

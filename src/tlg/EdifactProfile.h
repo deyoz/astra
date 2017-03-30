@@ -29,7 +29,7 @@ class EdifactProfile
 {
 public:
     const std::string& name() const;
-    const std::string& version() const;
+    std::string version() const;
     const std::string& subVersion() const;
     const std::string& ctrlAgency() const;
     const std::string& syntaxName() const;

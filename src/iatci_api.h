@@ -2,35 +2,19 @@
 
 #include "iatci_types.h"
 
-#include <edilib/EdiSessionId_t.h>
 #include <libtlg/tlgnum.h>
 
 
-namespace iatci
-{
+namespace iatci {
 
-Result checkinPax(const CkiParams& ckiParams);
-Result checkinPax(tlgnum_t postponeTlgNum);
+dcrcka::Result checkinPaxes(const CkiParams& ckiParams);
+dcrcka::Result cancelCheckin(const CkxParams& ckxParams);
+dcrcka::Result updateCheckin(const CkuParams& ckuParams);
+dcrcka::Result reprintBoardingPass(const BprParams& bprParams);
+dcrcka::Result fillPasslist(const PlfParams& plfParams);
+dcrcka::Result fillSeatmap(const SmfParams& smfParams);
 
-Result cancelCheckin(const CkxParams& ckxParams);
-Result cancelCheckin(tlgnum_t postponeTlgNum);
-
-Result updateCheckin(const CkuParams& ckuParams);
-
-Result reprintBoardingPass(const BprParams& bprParams);
-
-Result fillPasslist(const PlfParams& plfParams);
-
-Result fillSeatmap(const SmfParams& smfParams);
-
-boost::optional<FlightDetails> findCascadeFlight(const FlightDetails& flight);
-
-//---------------------------------------------------------------------------------------
-
-void saveDeferredCkiData(tlgnum_t msgId, const std::list<Result>& lRes);
-std::list<Result> loadDeferredCkiData(tlgnum_t msgId);
-
-void saveCkiData(edilib::EdiSessionId_t sessId, const std::list<Result>& lRes);
-std::list<Result> loadCkiData(edilib::EdiSessionId_t sessId);
+dcrcka::Result checkinPax(tlgnum_t postponeTlgNum);
+dcrcka::Result cancelCheckin(tlgnum_t postponeTlgNum);
 
 }//namespace iatci

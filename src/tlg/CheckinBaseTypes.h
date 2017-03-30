@@ -3,6 +3,7 @@
 
 #include <serverlib/int_parameters.h>
 #include <serverlib/strong_types.h>
+#include <serverlib/str_utils.h>
 #include "exceptions.h"
 
 #include <boost/lexical_cast.hpp>

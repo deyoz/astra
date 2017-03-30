@@ -19,14 +19,10 @@ public:
     virtual ~IatciPlfRequestHandler() {}
 
 protected:
-    virtual boost::optional<iatci::BaseParams> params() const;
-    virtual boost::optional<iatci::BaseParams> nextParams() const;
-    virtual iatci::Result handleRequest() const;
-    virtual edilib::EdiSessionId_t sendCascadeRequest() const;
+    virtual const iatci::IBaseParams* paramsNew() const;
 
-private:
-    const iatci::PlfParams& plfParams() const;
-    boost::optional<iatci::PlfParams> nextPlfParams() const;
+    virtual iatci::dcrcka::Result handleRequest() const;
+    virtual edilib::EdiSessionId_t sendCascadeRequest() const;
 };
 
 }//namespace TlgHandling

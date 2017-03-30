@@ -4,8 +4,7 @@
 #include "read_edi_elements.h"
 #include "view_edi_elements.h"
 #include "iatci_api.h"
-
-#include <boost/foreach.hpp>
+#include "iatci_help.h"
 
 #define NICKNAME "ANTON"
 #define NICK_TRACE ANTON_TRACE
@@ -36,6 +35,10 @@ public:
     void setSrp(const boost::optional<edifact::SrpElem>& srp, bool required = false);
     void setChd(const boost::optional<edifact::ChdElem>& chd, bool required = false);
     iatci::SmfParams makeParams() const;
+
+protected:
+    boost::optional<iatci::SeatRequestDetails> makeSeatReq() const;
+    boost::optional<iatci::CascadeHostDetails> makeCascade() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -62,58 +65,20 @@ std::string IatciSmfRequestHandler::respType() const
     return "S";
 }
 
-boost::optional<iatci::BaseParams> IatciSmfRequestHandler::params() const
+iatci::dcrcka::Result IatciSmfRequestHandler::handleRequest() const
 {
-    return smfParams();
-}
-
-boost::optional<iatci::BaseParams> IatciSmfRequestHandler::nextParams() const
-{
-    if(nextSmfParams()) {
-        return *nextSmfParams();
-    }
-
-    return boost::none;
-}
-
-iatci::Result IatciSmfRequestHandler::handleRequest() const
-{
-    return iatci::fillSeatmap(smfParams());
+    ASSERT(m_smfParams);
+    return iatci::fillSeatmap(m_smfParams.get());
 }
 
 edilib::EdiSessionId_t IatciSmfRequestHandler::sendCascadeRequest() const
 {
-    ASSERT(nextSmfParams());
-    return edifact::SendSmfRequest(*nextSmfParams());
+    throw "Not implemented!";
 }
 
-const iatci::SmfParams& IatciSmfRequestHandler::smfParams() const
+const iatci::IBaseParams* IatciSmfRequestHandler::paramsNew() const
 {
-    ASSERT(m_smfParams);
-    return m_smfParams.get();
-}
-
-boost::optional<iatci::SmfParams> IatciSmfRequestHandler::nextSmfParams() const
-{
-    boost::optional<iatci::FlightDetails> flightForNextHost;
-    flightForNextHost = iatci::findCascadeFlight(smfParams().flight());
-    if(!flightForNextHost) {
-        tst();
-        return boost::none;
-    }
-
-    iatci::CascadeHostDetails cascadeDetails(smfParams().origin().airline(),
-                                             smfParams().origin().port());
-    cascadeDetails.addHostAirline(smfParams().flight().airline());
-    if(smfParams().flightFromPrevHost()) {
-        cascadeDetails.addHostAirline(smfParams().flightFromPrevHost()->airline());
-    }
-
-    return iatci::SmfParams(iatci::OriginatorDetails(smfParams().flight().airline()),
-                            *flightForNextHost,
-                            smfParams().seatRequestDetails(),
-                            smfParams().flight(),
-                            cascadeDetails);
+    return m_smfParams.get_ptr();
 }
 
 //---------------------------------------------------------------------------------------
@@ -146,53 +111,29 @@ void IatciSmfParamsMaker::setChd(const boost::optional<edifact::ChdElem>& chd, b
 
 iatci::SmfParams IatciSmfParamsMaker::makeParams() const
 {
-    iatci::OriginatorDetails origDetails(m_lor.m_airline.empty() ? ""
-                                    : BaseTables::Company(m_lor.m_airline)->rcode(),
-                                         m_lor.m_port.empty() ? ""
-                                    : BaseTables::Port(m_lor.m_port)->rcode());
+    return iatci::SmfParams(iatci::makeOrg(m_lor),
+                            makeSeatReq(),
+                            iatci::makeOutboundFlight(m_fdq),
+                            iatci::makeInboundFlight(m_fdq),
+                            makeCascade());
+}
 
-    iatci::FlightDetails flight(BaseTables::Company(m_fdq.m_outbAirl)->rcode(),
-                                m_fdq.m_outbFlNum,
-                                BaseTables::Port(m_fdq.m_outbDepPoint)->rcode(),
-                                BaseTables::Port(m_fdq.m_outbArrPoint)->rcode(),
-                                m_fdq.m_outbDepDate,
-                                Dates::Date_t(),
-                                m_fdq.m_outbDepTime);
-
-    iatci::FlightDetails prevFlight(m_fdq.m_inbAirl.empty() ? ""
-                                : BaseTables::Company(m_fdq.m_inbAirl)->rcode(),
-                                    m_fdq.m_inbFlNum,
-                                    m_fdq.m_inbDepPoint.empty() ? ""
-                                : BaseTables::Port(m_fdq.m_inbDepPoint)->rcode(),
-                                    m_fdq.m_inbArrPoint.empty() ? ""
-                                : BaseTables::Port(m_fdq.m_inbArrPoint)->rcode(),
-                                    m_fdq.m_inbDepDate,
-                                    m_fdq.m_inbArrDate,
-                                    m_fdq.m_inbDepTime,
-                                    m_fdq.m_inbArrTime);
-
-    boost::optional<iatci::SeatRequestDetails> seatRequestDetails;
+boost::optional<iatci::SeatRequestDetails> IatciSmfParamsMaker::makeSeatReq() const
+{
     if(m_srp) {
-        seatRequestDetails = iatci::SeatRequestDetails(m_srp->m_cabinClass,
-                                                       iatci::SeatRequestDetails::strToSmokeInd(m_srp->m_noSmokingInd));
+        return iatci::makeSeatReq(*m_srp);
     }
 
-    boost::optional<iatci::CascadeHostDetails> cascadeHostDetails;
+    return boost::none;
+}
+
+boost::optional<iatci::CascadeHostDetails> IatciSmfParamsMaker::makeCascade() const
+{
     if(m_chd) {
-        cascadeHostDetails = iatci::CascadeHostDetails(m_chd->m_origAirline.empty() ? ""
-                                                    : BaseTables::Company(m_chd->m_origAirline)->rcode(),
-                                                       m_chd->m_origPoint.empty() ? ""
-                                                    : BaseTables::Company(m_chd->m_origPoint)->rcode());
-        BOOST_FOREACH(const std::string& hostAirline, m_chd->m_hostAirlines) {
-            cascadeHostDetails->addHostAirline(BaseTables::Company(hostAirline)->rcode());
-        }
+        return iatci::makeCascade(*m_chd);
     }
 
-    return iatci::SmfParams(origDetails,
-                            flight,
-                            seatRequestDetails,
-                            prevFlight,
-                            cascadeHostDetails);
+    return boost::none;
 }
 
 }//namespace TlgHandling

@@ -11,6 +11,8 @@
 #include <serverlib/internal_msgid.h>
 #include <serverlib/ehelpsig.h>
 #include <serverlib/posthooks.h>
+#include <serverlib/cursctl.h>
+#include <serverlib/rip_oci.h>
 #include <serverlib/EdiHelpManager.h>
 #include <serverlib/xml_stuff.h>
 #include <serverlib/testmode.h>
@@ -371,6 +373,7 @@ void addToEdiResponseCtxt(int ctxtId,
                           const xmlNodePtr srcNode,
                           const string &destNodeName)
 {
+    LogTrace(TRACE3) << "addToEdiResponseCtxt ctxtId " << ctxtId;
   if (ctxtId==ASTRA::NoExists) return;
   string ctxt;
   AstraContext::GetContext("EDI_RESPONSE",
@@ -483,7 +486,7 @@ static void getEdiSessionCtxt(const std::string& ctxtKey, int keyValue,
                              keyValue,
                              context);
 
-    LogTrace(TRACE3) << ctxtKey << "(" << keyValue << "): " << context;
+    LogTrace(TRACE3) << ctxtKey << "(" << keyValue << "):\n" << context;
 
     if (clear) AstraContext::ClearContext(ctxtKey, keyValue);
 
@@ -520,13 +523,6 @@ std::string getEdiSessionCtxt(int sessIda, bool clear, bool throwEmpty)
     return context;
 }
 
-void getEdiSessionCtxt(const tlgnum_t& tlgNum, bool clear,
-                       const std::string& where, XMLDoc &xmlCtxt)
-{
-    getEdiSessionCtxt("EDI_SESSION_TLG", boost::lexical_cast<int>(tlgNum.num),
-                      clear, where, xmlCtxt);
-}
-
 void cleanOldRecords(int min_ago)
 {
   if (min_ago<1)
@@ -537,9 +533,6 @@ void cleanOldRecords(int min_ago)
   AstraContext::ClearContext("EDI_SESSION",now-min_ago/1440.0);
   AstraContext::ClearContext("TERM_REQUEST",now-min_ago/1440.0);
   AstraContext::ClearContext("EDI_RESPONSE",now-min_ago/1440.0);
-
-  AstraContext::ClearContext("EDI_SESSION_TLG",now-min_ago/1440.0);
-
 
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -578,6 +571,46 @@ void GetEdiError(const xmlNodePtr errorCtxtNode,
     LexemeDataFromXML(node, i->first);
     i->second=NodeAsInteger("@global", node)!=0;
   }
+}
+
+void WritePostponedContext(tlgnum_t tnum, int reqCtxtId)
+{
+    LogTrace(TRACE1) << __FUNCTION__ << ". id=" << reqCtxtId << "; msg_id=" << tnum;
+    OciCpp::CursCtl cur = make_curs(
+"insert into POSTPONED_TLG_CONTEXT (MSG_ID, REQ_CTXT_ID) "
+"values (:msg_id, :req_ctxt_id)");
+
+    cur.bind(":msg_id",      tnum.num)
+       .bind(":req_ctxt_id", reqCtxtId)
+       .exec();
+}
+
+int ReadPostponedContext(tlgnum_t tnum, bool clear)
+{
+    OciCpp::CursCtl cur = make_curs(
+"select REQ_CTXT_ID from POSTPONED_TLG_CONTEXT "
+"where MSG_ID=:msg_id");
+
+    int reqCtxtId = 0;
+    cur.bind(":msg_id", tnum.num)
+       .def(reqCtxtId)
+       .exfet();
+
+    if(clear) {
+        ClearPostponedContext(tnum);
+    }
+
+    return reqCtxtId;
+}
+
+void ClearPostponedContext(tlgnum_t tnum)
+{
+    LogTrace(TRACE1) << __FUNCTION__ << ". msg_id=" << tnum;
+    make_curs(
+"delete from POSTPONED_TLG_CONTEXT "
+"where MSG_ID=:msg_id")
+       .bind(":msg_id", tnum.num)
+       .exec();
 }
 
 } //namespace AstraEdifact

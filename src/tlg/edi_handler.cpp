@@ -168,21 +168,11 @@ void handle_edi_tlg(const tlg_info &tlg)
     }
     catch(TlgHandling::TlgToBePostponed& e)
     {
-        LogTrace(TRACE3) << "tlg.id=" << tlg.id << " e.sessionId=" << e.sessionId();
-        if(tlg.id && e.sessionId())
-        {
-            ProgTrace(TRACE1, "Tlg %d to be postponed for session %d", tlg.id, e.sessionId().get());
-            AstraContext::CopyContext("EDI_SESSION", e.sessionId().get(), "EDI_SESSION_TLG", tlg.id);
-            TlgHandling::PostponeEdiHandling::postpone(tlg.id, e.sessionId());
-            callPostHooksBefore();
-            ASTRA::commit();
-            callPostHooksAfter();
-            emptyHookTables();
-        }
-        else
-        {
-            ProgError(STDLOG, "bad data!");
-        }
+        LogTrace(TRACE1) << "Tlg " << e.tlgNum() << " to be postponed";
+        callPostHooksBefore();
+        ASTRA::commit();
+        callPostHooksAfter();
+        emptyHookTables();
     }
     catch(edifact::edi_exception &e)
     {

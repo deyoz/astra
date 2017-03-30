@@ -196,18 +196,26 @@ void HandleTypebIfm::handle(const typeb_parser::TypeBMessage& tbmsg)
                      << " : " << name->nseats();
 
 
-    iatci::CkxParams cancelParams(iatci::OriginatorDetails(""),
-                                  iatci::PaxDetails(name->surName(),
-                                                    name->passName(),
-                                                    iatci::PaxDetails::Adult),
-                                  iatci::FlightDetails(BaseTables::Company(rfl->airline())->rcode(),
-                                                       Ticketing::FlightNum_t(rfl->flightNum()),
-                                                       BaseTables::Port(rfl->depPoint())->rcode(),
-                                                       BaseTables::Port(rfl->arrPoint())->rcode(),
-                                                       rfl->depDate())
-                                  );
+    // TODO
+    std::list<iatci::dcqckx::PaxGroup> lPxg;
+    lPxg.push_back(
+        iatci::dcqckx::PaxGroup(iatci::PaxDetails(name->surName(),
+                                                  name->passName(),
+                                                  iatci::PaxDetails::Adult)));
 
-    if(iatci::cancelCheckin(cancelParams).status() != iatci::Result::OkWithNoData) {
+    iatci::dcqckx::FlightGroup flg(iatci::FlightDetails(BaseTables::Company(rfl->airline())->rcode(),
+                                                        Ticketing::FlightNum_t(rfl->flightNum()),
+                                                        BaseTables::Port(rfl->depPoint())->rcode(),
+                                                        BaseTables::Port(rfl->arrPoint())->rcode(),
+                                                        rfl->depDate()),
+                                   boost::none,
+                                   lPxg);
+
+    iatci::CkxParams cancelParams(iatci::OriginatorDetails(""),
+                                  boost::none,
+                                  flg);
+
+    if(iatci::cancelCheckin(cancelParams).status() != iatci::dcrcka::Result::OkWithNoData) {
         LogError(STDLOG) << "Unable to handle IFM with DEL indicator!";
     }
 }

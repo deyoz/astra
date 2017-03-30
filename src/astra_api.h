@@ -5,6 +5,7 @@
 #include "xml_unit.h"
 
 #include <serverlib/xmllibcpp.h>
+#include <etick/tick_data.h>
 
 #include <list>
 #include <boost/optional.hpp>
@@ -40,13 +41,13 @@ struct MarketingInfo
 
 struct SegmentInfo
 {
-    int                            m_grpId;
-    int                            m_pointDep;
-    int                            m_pointArv;
-    std::string                    m_airpDep;
-    std::string                    m_airpArv;
-    std::string                    m_cls;
-    boost::optional<MarketingInfo> m_markFlight;
+    int           m_grpId;
+    int           m_pointDep;
+    int           m_pointArv;
+    std::string   m_airpDep;
+    std::string   m_airpArv;
+    std::string   m_cls;
+    MarketingInfo m_markFlight;
 
     SegmentInfo(int grpId,
                 int pointDep,
@@ -54,7 +55,7 @@ struct SegmentInfo
                 const std::string& airpDep,
                 const std::string& airpArv,
                 const std::string& cls,
-                const boost::optional<MarketingInfo>& markFlight);
+                const MarketingInfo& markFlight);
 };
 
 //---------------------------------------------------------------------------------------
@@ -107,6 +108,26 @@ bool operator!=(const DocInfo& left, const DocInfo& right);
 
 //---------------------------------------------------------------------------------------
 
+struct AddressInfo
+{
+    // TODO
+};
+
+bool operator==(const AddressInfo& left, const AddressInfo& right);
+bool operator!=(const AddressInfo& left, const AddressInfo& right);
+
+//---------------------------------------------------------------------------------------
+
+struct VisaInfo
+{
+    // TODO
+};
+
+bool operator==(const VisaInfo& left, const VisaInfo& right);
+bool operator!=(const VisaInfo& left, const VisaInfo& right);
+
+//---------------------------------------------------------------------------------------
+
 struct Remarks
 {
     std::list<Remark> m_lRems;
@@ -119,16 +140,20 @@ bool operator!=(const Remarks& left, const Remarks& right);
 
 struct PaxInfo
 {
-    int                      m_paxId;
-    std::string              m_surname;
-    std::string              m_name;
-    ASTRA::TPerson           m_persType;
-    std::string              m_ticketNum;
-    unsigned                 m_couponNum;
-    std::string              m_ticketRem;
-    std::string              m_seatNo;
-    boost::optional<DocInfo> m_doc;
-    boost::optional<Remarks> m_rems;
+    int                          m_paxId;
+    std::string                  m_surname;
+    std::string                  m_name;
+    ASTRA::TPerson               m_persType;
+    std::string                  m_ticketNum;
+    unsigned                     m_couponNum;
+    std::string                  m_ticketRem;
+    std::string                  m_seatNo;
+    std::string                  m_regNo;
+    Ticketing::SubClass          m_subclass;
+    boost::optional<DocInfo>     m_doc;
+    boost::optional<AddressInfo> m_address;
+    boost::optional<VisaInfo>    m_visa;
+    boost::optional<Remarks>     m_rems;
 
     PaxInfo(int paxId,
             const std::string& surname,
@@ -138,10 +163,13 @@ struct PaxInfo
             unsigned couponNum,
             const std::string& ticketRem,
             const std::string& seatNo,
+            const std::string& regNo,
+            const Ticketing::SubClass& subclass,
             const boost::optional<DocInfo>& doc,
             const boost::optional<Remarks>& rems = boost::none);
 
-    int id() const { return m_paxId; }
+    int             id() const { return m_paxId; }
+    std::string seatNo() const { return m_seatNo; }
 };
 
 bool operator==(const PaxInfo& left, const PaxInfo& right);
@@ -212,7 +240,7 @@ struct XmlPax
     std::string seat_no;
     std::string seat_type;
     int         seats;
-    boost::optional<std::string> refuse;
+    std::string refuse;
     int         reg_no;
     std::string subclass;
     int         bag_pool_num;
@@ -233,6 +261,8 @@ struct XmlPax
     boost::optional<XmlRems> rems;
 
     XmlPax();
+
+    bool equalName(const std::string& surname, const std::string& name) const;
 
     astra_entities::PaxInfo toPax() const;
 };
@@ -354,7 +384,7 @@ struct XmlMarkFlight
     std::string      airline;
     int              flt_no;
     std::string      suffix;
-    TDateTime scd;
+    TDateTime        scd;
     std::string      airp_dep;
     int              pr_mark_norms;
 
@@ -363,6 +393,8 @@ struct XmlMarkFlight
           scd(ASTRA::NoExists),
           pr_mark_norms(ASTRA::NoExists)
     {}
+
+    astra_entities::MarketingInfo toMarkFlight() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -402,10 +434,8 @@ struct XmlTripCounterItem
 
 //---------------------------------------------------------------------------------------
 
-struct XmlSegment
+struct XmlSegmentInfo
 {
-    XmlTripHeader trip_header;
-    XmlTripData   trip_data;
     int           grp_id;
     int           point_dep;
     std::string   airp_dep;
@@ -416,11 +446,28 @@ struct XmlSegment
     std::string   bag_refuse;
     int           tid;
     std::string   city_arv;
-    XmlMarkFlight mark_flight;
+
+    XmlSegmentInfo()
+        : grp_id(ASTRA::NoExists),
+          point_dep(ASTRA::NoExists),
+          point_arv(ASTRA::NoExists),
+          tid(ASTRA::NoExists)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
+struct XmlSegment
+{
+    XmlTripHeader  trip_header;
+    XmlTripData    trip_data;
+    XmlSegmentInfo seg_info;
+    XmlMarkFlight  mark_flight;
     std::list<XmlTripCounterItem> trip_counters;
     std::list<XmlPax> passengers;
 
-    XmlSegment();
+    XmlSegment()
+    {}
 
     astra_entities::SegmentInfo toSeg() const;
 };
@@ -432,14 +479,15 @@ struct XmlTrip
     int         point_id;
     std::string name;
     std::string airline;
-    std::string flt_no;
+    int         flt_no;
     std::string scd;
     std::string airp_dep;
     std::string status;
     std::list<XmlPnr> pnrs;
 
     XmlTrip()
-        : point_id(ASTRA::NoExists)
+        : point_id(ASTRA::NoExists),
+          flt_no(ASTRA::NoExists)
     {}
 
     // пока можем работать только с одним Pnr
@@ -542,6 +590,7 @@ public:
     const XmlSegment& xmlSeg() const;
     astra_entities::SegmentInfo seg() const;
     std::list<astra_entities::PaxInfo> lPax() const;
+    boost::optional<astra_entities::PaxInfo> getPaxById(int paxId) const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -557,6 +606,7 @@ public:
     bool containsEdiTab() const;
 
     const std::vector<XmlCheckInTab>& tabs() const;
+    std::vector<XmlCheckInTab> ediTabs() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -605,6 +655,8 @@ public:
     static XmlTrip                       readTrip(xmlNodePtr tripNode);
     static std::list<XmlTrip>            readTrips(xmlNodePtr tripsNode);
 
+    static XmlSegmentInfo                readSegInfo(xmlNodePtr segNode);
+
     static XmlSegment                    readSeg(xmlNodePtr segNode);
     static std::list<XmlSegment>         readSegs(xmlNodePtr segsNode);
 
@@ -625,6 +677,25 @@ public:
 
 //---------------------------------------------------------------------------------------
 
+class XmlEntityViewer
+{
+public:
+    static xmlNodePtr viewMarkFlight(xmlNodePtr node, const XmlMarkFlight& markFlight);
+
+    static xmlNodePtr viewRem(xmlNodePtr node, const XmlRem& rem);
+    static xmlNodePtr viewRems(xmlNodePtr node, const XmlRems& rems);
+
+    static xmlNodePtr viewDoc(xmlNodePtr node, const XmlPaxDoc& doc);
+
+    static xmlNodePtr viewPax(xmlNodePtr node, const XmlPax& pax);
+
+    static xmlNodePtr viewSegInfo(xmlNodePtr node, const XmlSegmentInfo& segInfo);
+
+    static xmlNodePtr viewSeg(xmlNodePtr node, const XmlSegment& seg);
+};
+
+//---------------------------------------------------------------------------------------
+
 struct SearchPaxXmlResult
 {
     std::list<XmlTrip> lTrip;
@@ -641,11 +712,14 @@ struct LoadPaxXmlResult
 {
     std::list<XmlSegment> lSeg;
 
-    std::vector<iatci::Result> toIatci(iatci::Result::Action_e action,
-                                       iatci::Result::Status_e status) const;
+    std::vector<iatci::dcrcka::Result> toIatci(iatci::dcrcka::Result::Action_e action,
+                                               iatci::dcrcka::Result::Status_e status) const;
 
-    iatci::Result toIatciFirst(iatci::Result::Action_e action,
-                               iatci::Result::Status_e status) const;
+    iatci::dcrcka::Result toIatciFirst(iatci::dcrcka::Result::Action_e action,
+                                       iatci::dcrcka::Result::Status_e status) const;
+
+    std::list<XmlPax> applyNameFilter(const std::string& surname,
+                                      const std::string& name) const;
 
     LoadPaxXmlResult(xmlNodePtr node);
     LoadPaxXmlResult(const std::list<XmlSegment>& lSeg);
@@ -684,7 +758,7 @@ struct GetSeatmapXmlResult
 
     std::list<XmlPlaceList> lPlacelist;
 
-    iatci::Result toIatci() const;
+    iatci::dcrcka::Result toIatci() const;
 
     GetSeatmapXmlResult(xmlNodePtr node);
 };
@@ -722,7 +796,7 @@ public:
                                                       const std::string& paxName);
 
     // сохранение информации о пассажире
-    xml_entities::LoadPaxXmlResult SavePax(int depPointId, const xml_entities::XmlTrip& paxTrip);
+    xml_entities::LoadPaxXmlResult SavePax(int pointDep, const xml_entities::XmlTrip& paxTrip);
     xml_entities::LoadPaxXmlResult SavePax(const xml_entities::XmlSegment& paxSeg);
     xml_entities::LoadPaxXmlResult SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
@@ -747,6 +821,11 @@ int findDepPointId(const std::string& depPort,
                    unsigned flNum,
                    const boost::gregorian::date& depDate);
 
+int findDepPointId(const std::string& depPort,
+                   const std::string& airline,
+                   const Ticketing::FlightNum_t& flNum,
+                   const boost::gregorian::date& depDate);
+
 /**
  * Найти Id прилетного пойнта
  * @return Id или 0(если не найден)
@@ -766,24 +845,24 @@ int findGrpIdByRegNo(int pointDep, int regNo);
 */
 int findGrpIdByPaxId(int pointDep, int paxId);
 
-// регистрация
-iatci::Result checkinIatciPax(const iatci::CkiParams& ckiParams);
-iatci::Result checkinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
+// первичная регистрация
+iatci::dcrcka::Result checkinIatciPaxes(xmlNodePtr reqNode, xmlNodePtr ediResNode);
+iatci::dcrcka::Result checkinIatciPaxes(const iatci::CkiParams& ckiParams);
 
 // обновление регистрационных данных
-iatci::Result updateIatciPax(const iatci::CkuParams& ckuParams);
+iatci::dcrcka::Result updateIatciPaxes(const iatci::CkuParams& ckuParams);
 
 // отмена регистрации
-iatci::Result cancelCheckinIatciPax(const iatci::CkxParams& ckxParams);
-iatci::Result cancelCheckinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
+iatci::dcrcka::Result cancelCheckinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
+iatci::dcrcka::Result cancelCheckinIatciPaxes(const iatci::CkxParams& ckxParams);
 
 // информация по пассажиру
-iatci::Result fillPaxList(const iatci::PlfParams& plfParams);
+iatci::dcrcka::Result fillPaxList(const iatci::PlfParams& plfParams);
 
 // карта мест
-iatci::Result fillSeatmap(const iatci::SmfParams& smfParams);
+iatci::dcrcka::Result fillSeatmap(const iatci::SmfParams& smfParams);
 
 // печть посадочного талона
-iatci::Result printBoardingPass(const iatci::BprParams& bprParams);
+iatci::dcrcka::Result printBoardingPass(const iatci::BprParams& bprParams);
 
 }//namespace astra_api

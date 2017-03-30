@@ -208,7 +208,7 @@ namespace xp_testing {
     namespace tscript {
         void ExecuteTlg(const std::vector<tok::Param>& params);
     }
-};
+}
 
 static std::string FP_tlg_in(const std::vector<tok::Param>& params)
 {
@@ -461,7 +461,7 @@ static std::string FP_getSingleTid(const std::vector<std::string>& p)
     LoadPaxXmlResult lpRes = astra_api::AstraEngine::singletone().LoadPax(pointDep, pax.reg_no);
     assert(!lpRes.lSeg.empty());
     const XmlSegment& paxSeg = lpRes.lSeg.front();
-    return boost::lexical_cast<std::string>(paxSeg.tid);
+    return boost::lexical_cast<std::string>(paxSeg.seg_info.tid);
 }
 
 static std::string FP_get_lat_code(const std::vector<std::string>& p)

@@ -25,8 +25,8 @@ public:
 
     edifact::pRemoteResults remoteResults() const;
 
-    void onTimeOut() {}
-    void onCONTRL() {}
+    virtual void onTimeOut() {}
+    virtual void onCONTRL() {}
 
     virtual void fillFuncCodeRespStatus();
     virtual void fillErrorDetails();

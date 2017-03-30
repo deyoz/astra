@@ -971,7 +971,7 @@ struct UapElem: public PapElem
 
 //---------------------------------------------------------------------------------------
 
-///@class UsiElem
+///@class UsiElem - Update service information --USI
 struct UsiElem
 {
     struct UpdSsrDetails: public PsiElem::SsrDetails

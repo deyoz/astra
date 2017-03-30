@@ -18,11 +18,10 @@ PlfRequest::PlfRequest(const iatci::PlfParams& params,
                        const std::string& ctxt,
                        const KickInfo& kick)
     : EdifactRequest(pult, ctxt, kick, DCQPLF,
-                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.flight().airline(),
-                                                                            params.flight().flightNum())),
+                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.outboundFlight().airline(),
+                                                                            params.outboundFlight().flightNum())),
       m_params(params)
-{
-}
+{}
 
 std::string PlfRequest::mesFuncCode() const
 {
@@ -37,11 +36,11 @@ std::string PlfRequest::funcCode() const
 
 void PlfRequest::collectMessage()
 {
-    viewLorElement(pMes(), m_params.origin());
-    viewFdqElement(pMes(), m_params.flight());
-    viewSpdElement(pMes(), m_params.paxEx());
-    if(m_params.cascadeDetails())
-        viewChdElement(pMes(), *m_params.cascadeDetails());
+    viewLorElement(pMes(), m_params.org());
+    viewFdqElement(pMes(), m_params.outboundFlight());
+    viewSpdElement(pMes(), m_params.personal());
+    if(m_params.cascade())
+        viewChdElement(pMes(), *m_params.cascade());
 }
 
 

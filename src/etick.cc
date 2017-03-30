@@ -40,6 +40,7 @@
 #include "tlg/emd_edifact.h"
 #include "tlg/remote_results.h"
 #include "tlg/remote_system_context.h"
+#include "tlg/postpone_edifact.h"
 #include "tlg/AgentWaitsForRemote.h"
 
 #include <boost/foreach.hpp>
@@ -1275,9 +1276,13 @@ xmlNodePtr TETChangeStatusList::addTicket(const TETChangeStatusKey &key,
                                         const Ticketing::Ticket &tick)
 {
   size_t MaxTicketsInTlg = MAX_TICKETS_IN_TLG;
+//  if(TReqInfo::Instance()->api_mode) {
+//      MaxTicketsInTlg = 99;
+//  }
   if(inTestMode()) {
       MaxTicketsInTlg = 1;
   }
+  LogTrace(TRACE5) << "MaxTicketsInTlg=" << MaxTicketsInTlg;
   if ((*this)[key].empty() ||
       (*this)[key].back().first.size()>=MaxTicketsInTlg)
   {
@@ -1853,11 +1858,24 @@ bool ETStatusInterface::ETChangeStatus(const xmlNodePtr reqNode,
   return result;
 }
 
+struct TlgHaveSent
+{
+    edilib::EdiSessionId_t m_sessId;
+    int                    m_reqCtxtId;
+
+    TlgHaveSent(edilib::EdiSessionId_t sessId,
+                 int reqCtxtId)
+        : m_sessId(sessId),
+          m_reqCtxtId(reqCtxtId)
+    {}
+};
+
 bool ETStatusInterface::ETChangeStatus(const edifact::KickInfo &kickInfo,
                                        const TETChangeStatusList &mtick)
 {
   bool result=false;
 
+  std::list<TlgHaveSent> ths; // tlgs have sent
   if (!mtick.empty())
   {
     string oper_carrier;
@@ -1899,15 +1917,32 @@ bool ETStatusInterface::ETChangeStatus(const edifact::KickInfo &kickInfo,
                                                             OrigOfRequest(airlineToXML(oper_carrier, LANG_RU), *TReqInfo::Instance());
 
         //throw_if_request_dup("ETStatusInterface::ETChangeStatus");
-        ChangeStatus::ETChangeStatus(org,
-                                     ltick,
-                                     ediCtxt,
-                                     kickInfo,
-                                     oper_carrier,
-                                     Ticketing::FlightNum_t());
+        edilib::EdiSessionId_t sessId = ChangeStatus::ETChangeStatus(org,
+                                                                     ltick,
+                                                                     ediCtxt,
+                                                                     kickInfo,
+                                                                     oper_carrier,
+                                                                     Ticketing::FlightNum_t());
+        ths.push_back(TlgHaveSent(sessId, kickInfo.reqCtxtId));
+
         result=true;
       }
     }
+  }
+
+  if(result)
+  {
+      if(TReqInfo::Instance()->api_mode)
+      {
+          tlgnum_t tnum = *RemoteSystemContext::SystemContext::Instance(STDLOG).inbTlgInfo().tlgNum();
+          if(!ths.empty()) {
+              for(const auto& t: ths) {
+                  AstraEdifact::WritePostponedContext(tnum, t.m_reqCtxtId);
+                  TlgHandling::PostponeEdiHandling::postpone(tnum, t.m_sessId);
+            }
+            throw TlgHandling::TlgToBePostponed(tnum);
+          }
+      }
   }
   return result;
 }
@@ -2735,6 +2770,8 @@ static void ChangeStatusToLog(const xmlNodePtr statusNode,
 void handleEtCosResponse(const edifact::RemoteResults& remRes)
 {
     edilib::EdiSessionId_t ediSessId = remRes.ediSession();
+    LogTrace(TRACE3) << __FUNCTION__ << " ediSess: " << remRes.ediSession();
+
     string ctxt;
     AstraContext::GetContext("EDI_SESSION", ediSessId.get(), ctxt);
     ctxt=ConvertCodepage(ctxt,"CP866","UTF-8");
@@ -2779,178 +2816,36 @@ void handleEtCosResponse(const edifact::RemoteResults& remRes)
       };
     };
 
-    ChngStatAnswer chngStatAns = ChngStatAnswer::readEdiTlg(remRes.tlgSource());
-    chngStatAns.Trace(TRACE2);
-    if (chngStatAns.isGlobErr())
+    if(remRes.status()->type() != edifact::RemoteStatus::Timeout)
     {
-        string err,err_locale;
-        LexemaData err_lexeme;
-        if (chngStatAns.globErr().second.empty())
+        ChngStatAnswer chngStatAns = ChngStatAnswer::readEdiTlg(remRes.tlgSource());
+        chngStatAns.Trace(TRACE2);
+        if (chngStatAns.isGlobErr())
         {
-          err="ОШИБКА " + chngStatAns.globErr().first;
-          err_lexeme.lexema_id="MSG.ETICK.ETS_ERROR";
-          err_lexeme.lparams << LParam("msg", chngStatAns.globErr().first);
-        }
-        else
-        {
-          err=chngStatAns.globErr().second;
-          err_lexeme.lexema_id="WRAP.ETS";
-          err_lexeme.lparams << LParam("text", chngStatAns.globErr().second);
-        };
+            string err,err_locale;
+            LexemaData err_lexeme;
+            if (chngStatAns.globErr().second.empty())
+            {
+              err="ОШИБКА " + chngStatAns.globErr().first;
+              err_lexeme.lexema_id="MSG.ETICK.ETS_ERROR";
+              err_lexeme.lparams << LParam("msg", chngStatAns.globErr().first);
+            }
+            else
+            {
+              err=chngStatAns.globErr().second;
+              err_lexeme.lexema_id="WRAP.ETS";
+              err_lexeme.lparams << LParam("text", chngStatAns.globErr().second);
+            };
 
-        for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
-        {
-          xmlNodePtr node2=node->children;
-          LEvntPrms params;
-          params << PrmSmpl<std::string>("ticket_no", NodeAsStringFast("ticket_no",node2))
-                 << PrmSmpl<int>("coupon_no", NodeAsIntegerFast("coupon_no",node2))
-                 << PrmSmpl<std::string>("err", err);
-          xmlNodePtr errNode=NewTextChild(node,"global_error");
-          LexemeDataToXML(err_lexeme, errNode);
-
-          TETickItem ETickItem;
-          ETickItem.et_no=NodeAsStringFast("ticket_no",node2);
-          ETickItem.et_coupon=NodeAsIntegerFast("coupon_no",node2);
-          ETickItem.point_id=NodeAsIntegerFast("point_id",node2);
-          ETickItem.airp_dep=NodeAsStringFast("airp_dep",node2);
-          ETickItem.airp_arv=NodeAsStringFast("airp_arv",node2);
-          ETickItem.change_status_error=err;
-          ETickItem.toDB(TETickItem::ChangeOfStatus);
-
-          ChangeStatusToLog(errNode, false, "EVT.ETICKET", params, screen, user, desk);
-        };
-    }
-    else
-    {
-      std::list<Ticket>::const_iterator currTick;
-
-      for(currTick=chngStatAns.ltick().begin();currTick!=chngStatAns.ltick().end();currTick++)
-      {
-        //попробуем проанализировать ошибку уровня билета
-        string err=chngStatAns.err2Tick(currTick->ticknum(), 0);
-        if (!err.empty())
-        {
-          ProgTrace(TRACE5,"ticket=%s error=%s",
-                           currTick->ticknum().c_str(), err.c_str());
-          LEvntPrms params;
-          params << PrmSmpl<std::string>("tick_num", currTick->ticknum())
-                 << PrmSmpl<std::string>("err", err);
-
-          LexemaData err_lexeme;
-          err_lexeme.lexema_id="MSG.ETICK.CHANGE_STATUS_ERROR";
-          err_lexeme.lparams << LParam("ticknum",currTick->ticknum())
-                             << LParam("error",err);
-
-          if (ticketNode!=NULL)
-          {
-            //поищем все билеты
             for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
             {
               xmlNodePtr node2=node->children;
-              if (NodeAsStringFast("ticket_no",node2)==currTick->ticknum())
-              {
-                xmlNodePtr errNode=NewTextChild(node,"ticket_error");
-                LexemeDataToXML(err_lexeme, errNode);
-                //нашли билет
-                TETickItem ETickItem;
-                ETickItem.et_no=NodeAsStringFast("ticket_no",node2);
-                ETickItem.et_coupon=NodeAsIntegerFast("coupon_no",node2);
-                ETickItem.point_id=NodeAsIntegerFast("point_id",node2);
-                ETickItem.airp_dep=NodeAsStringFast("airp_dep",node2);
-                ETickItem.airp_arv=NodeAsStringFast("airp_arv",node2);
-                ETickItem.change_status_error=err;
-                ETickItem.toDB(TETickItem::ChangeOfStatus);
-
-                ChangeStatusToLog(errNode, false, "EVT.ETICKET_CHANGE_STATUS_MISTAKE", params, screen, user, desk);
-              };
-            };
-          }
-          else
-          {
-            ChangeStatusToLog(NULL, false, "EVT.ETICKET_CHANGE_STATUS_MISTAKE", params, screen, user, desk);
-          };
-          continue;
-        };
-
-        if (currTick->getCoupon().empty()) continue;
-
-        //попробуем проанализировать ошибку уровня купона
-        err = chngStatAns.err2Tick(currTick->ticknum(), currTick->getCoupon().front().couponInfo().num());
-        if (!err.empty())
-        {
-          ProgTrace(TRACE5,"ticket=%s coupon=%d error=%s",
-                    currTick->ticknum().c_str(),
-                    currTick->getCoupon().front().couponInfo().num(),
-                    err.c_str());
-          LEvntPrms params;
-          ostringstream msgh;
-          msgh << currTick->ticknum() << "/" << currTick->getCoupon().front().couponInfo().num();
-          params << PrmSmpl<std::string>("tick_num", msgh.str())
-                 << PrmSmpl<std::string>("err", err);
-
-          LexemaData err_lexeme;
-          err_lexeme.lexema_id="MSG.ETICK.CHANGE_STATUS_ERROR";
-          err_lexeme.lparams << LParam("ticknum",currTick->ticknum()+"/"+
-                                                 IntToString(currTick->getCoupon().front().couponInfo().num()))
-                             << LParam("error",err);
-
-          if (ticketNode!=NULL)
-          {
-            //поищем все билеты
-            for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
-            {
-              xmlNodePtr node2=node->children;
-              if (NodeAsStringFast("ticket_no",node2)==currTick->ticknum() &&
-                  NodeAsIntegerFast("coupon_no",node2)==(int)currTick->getCoupon().front().couponInfo().num())
-              {
-                xmlNodePtr errNode=NewTextChild(node,"coupon_error");
-                LexemeDataToXML(err_lexeme, errNode);
-                //нашли билет
-                TETickItem ETickItem;
-                ETickItem.et_no=NodeAsStringFast("ticket_no",node2);
-                ETickItem.et_coupon=NodeAsIntegerFast("coupon_no",node2);
-                ETickItem.point_id=NodeAsIntegerFast("point_id",node2);
-                ETickItem.airp_dep=NodeAsStringFast("airp_dep",node2);
-                ETickItem.airp_arv=NodeAsStringFast("airp_arv",node2);
-                ETickItem.change_status_error=err;
-                ETickItem.toDB(TETickItem::ChangeOfStatus);
-
-                ChangeStatusToLog(errNode, false, "EVT.ETICKET_CHANGE_STATUS_MISTAKE", params, screen, user, desk);
-              };
-            };
-          }
-          else
-          {
-            ChangeStatusToLog(NULL, false, "EVT.ETICKET_CHANGE_STATUS_MISTAKE", params, screen, user, desk);
-          };
-          continue;
-        };
-
-
-        CouponStatus status(currTick->getCoupon().front().couponInfo().status());
-
-        ProgTrace(TRACE5,"ticket=%s coupon=%d status=%s",
-                         currTick->ticknum().c_str(),
-                         currTick->getCoupon().front().couponInfo().num(),
-                         status->dispCode());
-
-        LEvntPrms params;
-        params << PrmSmpl<std::string>("ticket_no", currTick->ticknum())
-               << PrmSmpl<int>("coupon_no", currTick->getCoupon().front().couponInfo().num())
-               << PrmSmpl<std::string>("disp_code", status->dispCode());
-
-        if (ticketNode!=NULL)
-        {
-          //поищем все билеты
-          for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
-          {
-            xmlNodePtr node2=node->children;
-            if (NodeAsStringFast("ticket_no",node2)==currTick->ticknum() &&
-                NodeAsIntegerFast("coupon_no",node2)==(int)currTick->getCoupon().front().couponInfo().num())
-            {
-              //изменим статус в таблице etickets
-              //нашли билет
-              xmlNodePtr statusNode=NewTextChild(node,"coupon_status",status->dispCode());
+              LEvntPrms params;
+              params << PrmSmpl<std::string>("ticket_no", NodeAsStringFast("ticket_no",node2))
+                     << PrmSmpl<int>("coupon_no", NodeAsIntegerFast("coupon_no",node2))
+                     << PrmSmpl<std::string>("err", err);
+              xmlNodePtr errNode=NewTextChild(node,"global_error");
+              LexemeDataToXML(err_lexeme, errNode);
 
               TETickItem ETickItem;
               ETickItem.et_no=NodeAsStringFast("ticket_no",node2);
@@ -2958,28 +2853,174 @@ void handleEtCosResponse(const edifact::RemoteResults& remRes)
               ETickItem.point_id=NodeAsIntegerFast("point_id",node2);
               ETickItem.airp_dep=NodeAsStringFast("airp_dep",node2);
               ETickItem.airp_arv=NodeAsStringFast("airp_arv",node2);
-              if (status->codeInt()!=CouponStatus::OriginalIssue)
-                ETickItem.status=CouponStatus(status);
-              else
-                ETickItem.status=CouponStatus(CouponStatus::Unavailable);
-
-              TETickItem priorETickItem;
-              priorETickItem.fromDB(ETickItem.et_no, ETickItem.et_coupon, TETickItem::ChangeOfStatus, true);
-
+              ETickItem.change_status_error=err;
               ETickItem.toDB(TETickItem::ChangeOfStatus);
 
-              bool repeated=(priorETickItem.status==ETickItem.status);
-              ChangeStatusToLog(statusNode, repeated, "EVT.ETICKET_CHANGE_STATUS", params, screen, user, desk);
+              ChangeStatusToLog(errNode, false, "EVT.ETICKET", params, screen, user, desk);
             };
-          };
         }
         else
         {
-            ChangeStatusToLog(NULL, false, "EVT.ETICKET_CHANGE_STATUS", params, screen, user, desk);
+          std::list<Ticket>::const_iterator currTick;
+
+          for(currTick=chngStatAns.ltick().begin();currTick!=chngStatAns.ltick().end();currTick++)
+          {
+            //попробуем проанализировать ошибку уровня билета
+            string err=chngStatAns.err2Tick(currTick->ticknum(), 0);
+            if (!err.empty())
+            {
+              ProgTrace(TRACE5,"ticket=%s error=%s",
+                               currTick->ticknum().c_str(), err.c_str());
+              LEvntPrms params;
+              params << PrmSmpl<std::string>("tick_num", currTick->ticknum())
+                     << PrmSmpl<std::string>("err", err);
+
+              LexemaData err_lexeme;
+              err_lexeme.lexema_id="MSG.ETICK.CHANGE_STATUS_ERROR";
+              err_lexeme.lparams << LParam("ticknum",currTick->ticknum())
+                                 << LParam("error",err);
+
+              if (ticketNode!=NULL)
+              {
+                //поищем все билеты
+                for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
+                {
+                  xmlNodePtr node2=node->children;
+                  if (NodeAsStringFast("ticket_no",node2)==currTick->ticknum())
+                  {
+                    xmlNodePtr errNode=NewTextChild(node,"ticket_error");
+                    LexemeDataToXML(err_lexeme, errNode);
+                    //нашли билет
+                    TETickItem ETickItem;
+                    ETickItem.et_no=NodeAsStringFast("ticket_no",node2);
+                    ETickItem.et_coupon=NodeAsIntegerFast("coupon_no",node2);
+                    ETickItem.point_id=NodeAsIntegerFast("point_id",node2);
+                    ETickItem.airp_dep=NodeAsStringFast("airp_dep",node2);
+                    ETickItem.airp_arv=NodeAsStringFast("airp_arv",node2);
+                    ETickItem.change_status_error=err;
+                    ETickItem.toDB(TETickItem::ChangeOfStatus);
+
+                    ChangeStatusToLog(errNode, false, "EVT.ETICKET_CHANGE_STATUS_MISTAKE", params, screen, user, desk);
+                  };
+                };
+              }
+              else
+              {
+                ChangeStatusToLog(NULL, false, "EVT.ETICKET_CHANGE_STATUS_MISTAKE", params, screen, user, desk);
+              };
+              continue;
+            };
+
+            if (currTick->getCoupon().empty()) continue;
+
+            //попробуем проанализировать ошибку уровня купона
+            err = chngStatAns.err2Tick(currTick->ticknum(), currTick->getCoupon().front().couponInfo().num());
+            if (!err.empty())
+            {
+              ProgTrace(TRACE5,"ticket=%s coupon=%d error=%s",
+                        currTick->ticknum().c_str(),
+                        currTick->getCoupon().front().couponInfo().num(),
+                        err.c_str());
+              LEvntPrms params;
+              ostringstream msgh;
+              msgh << currTick->ticknum() << "/" << currTick->getCoupon().front().couponInfo().num();
+              params << PrmSmpl<std::string>("tick_num", msgh.str())
+                     << PrmSmpl<std::string>("err", err);
+
+              LexemaData err_lexeme;
+              err_lexeme.lexema_id="MSG.ETICK.CHANGE_STATUS_ERROR";
+              err_lexeme.lparams << LParam("ticknum",currTick->ticknum()+"/"+
+                                                     IntToString(currTick->getCoupon().front().couponInfo().num()))
+                                 << LParam("error",err);
+
+              if (ticketNode!=NULL)
+              {
+                //поищем все билеты
+                for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
+                {
+                  xmlNodePtr node2=node->children;
+                  if (NodeAsStringFast("ticket_no",node2)==currTick->ticknum() &&
+                      NodeAsIntegerFast("coupon_no",node2)==(int)currTick->getCoupon().front().couponInfo().num())
+                  {
+                    xmlNodePtr errNode=NewTextChild(node,"coupon_error");
+                    LexemeDataToXML(err_lexeme, errNode);
+                    //нашли билет
+                    TETickItem ETickItem;
+                    ETickItem.et_no=NodeAsStringFast("ticket_no",node2);
+                    ETickItem.et_coupon=NodeAsIntegerFast("coupon_no",node2);
+                    ETickItem.point_id=NodeAsIntegerFast("point_id",node2);
+                    ETickItem.airp_dep=NodeAsStringFast("airp_dep",node2);
+                    ETickItem.airp_arv=NodeAsStringFast("airp_arv",node2);
+                    ETickItem.change_status_error=err;
+                    ETickItem.toDB(TETickItem::ChangeOfStatus);
+
+                    ChangeStatusToLog(errNode, false, "EVT.ETICKET_CHANGE_STATUS_MISTAKE", params, screen, user, desk);
+                  };
+                };
+              }
+              else
+              {
+                ChangeStatusToLog(NULL, false, "EVT.ETICKET_CHANGE_STATUS_MISTAKE", params, screen, user, desk);
+              };
+              continue;
+            };
+
+
+            CouponStatus status(currTick->getCoupon().front().couponInfo().status());
+
+            ProgTrace(TRACE5,"ticket=%s coupon=%d status=%s",
+                             currTick->ticknum().c_str(),
+                             currTick->getCoupon().front().couponInfo().num(),
+                             status->dispCode());
+
+            LEvntPrms params;
+            params << PrmSmpl<std::string>("ticket_no", currTick->ticknum())
+                   << PrmSmpl<int>("coupon_no", currTick->getCoupon().front().couponInfo().num())
+                   << PrmSmpl<std::string>("disp_code", status->dispCode());
+
+            if (ticketNode!=NULL)
+            {
+              //поищем все билеты
+              for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
+              {
+                xmlNodePtr node2=node->children;
+                if (NodeAsStringFast("ticket_no",node2)==currTick->ticknum() &&
+                    NodeAsIntegerFast("coupon_no",node2)==(int)currTick->getCoupon().front().couponInfo().num())
+                {
+                  //изменим статус в таблице etickets
+                  //нашли билет
+                  xmlNodePtr statusNode=NewTextChild(node,"coupon_status",status->dispCode());
+
+                  TETickItem ETickItem;
+                  ETickItem.et_no=NodeAsStringFast("ticket_no",node2);
+                  ETickItem.et_coupon=NodeAsIntegerFast("coupon_no",node2);
+                  ETickItem.point_id=NodeAsIntegerFast("point_id",node2);
+                  ETickItem.airp_dep=NodeAsStringFast("airp_dep",node2);
+                  ETickItem.airp_arv=NodeAsStringFast("airp_arv",node2);
+                  if (status->codeInt()!=CouponStatus::OriginalIssue)
+                    ETickItem.status=CouponStatus(status);
+                  else
+                    ETickItem.status=CouponStatus(CouponStatus::Unavailable);
+
+                  TETickItem priorETickItem;
+                  priorETickItem.fromDB(ETickItem.et_no, ETickItem.et_coupon, TETickItem::ChangeOfStatus, true);
+
+                  ETickItem.toDB(TETickItem::ChangeOfStatus);
+
+                  bool repeated=(priorETickItem.status==ETickItem.status);
+                  ChangeStatusToLog(statusNode, repeated, "EVT.ETICKET_CHANGE_STATUS", params, screen, user, desk);
+                };
+              };
+            }
+            else
+            {
+                ChangeStatusToLog(NULL, false, "EVT.ETICKET_CHANGE_STATUS", params, screen, user, desk);
+            }
+          }
         }
-      }
     }
 
+    LogTrace(TRACE3) << "before addToEdiResponseCtxt " << req_ctxt_id;
     addToEdiResponseCtxt(req_ctxt_id, ticketNode, "tickets");
 
     AstraContext::ClearContext("EDI_SESSION", ediSessId.get());

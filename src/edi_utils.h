@@ -95,11 +95,6 @@ void getEdiSessionCtxt(int sessIda,
                        const std::string& where,
                        XMLDoc &xmlCtxt);
 
-void getEdiSessionCtxt(const tlgnum_t& tlgNum,
-                       bool clear,
-                       const std::string& where,
-                       XMLDoc &xmlCtxt);
-
 std::string getEdiSessionCtxt(int sessIda,
                               bool clear,
                               bool throwEmpty = true);
@@ -112,6 +107,12 @@ void ProcEdiError(const AstraLocale::LexemaData &error,
 typedef std::list< std::pair<AstraLocale::LexemaData, bool> > EdiErrorList;
 
 void GetEdiError(const xmlNodePtr errorCtxtNode, EdiErrorList &errors);
+
+void WritePostponedContext(tlgnum_t tnum, int reqCtxtId);
+
+int ReadPostponedContext(tlgnum_t tnum, bool clear);
+
+void ClearPostponedContext(tlgnum_t tnum);
 
 } //namespace AstraEdifact
 

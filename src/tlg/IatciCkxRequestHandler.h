@@ -7,7 +7,7 @@ namespace TlgHandling {
 
 class IatciCkxRequestHandler: public IatciRequestHandler
 {
-    boost::optional<iatci::CkxParams> m_ckxParams;
+    boost::optional<iatci::CkxParams> m_ckxParamsNew;
 
 public:
     IatciCkxRequestHandler(_EDI_REAL_MES_STRUCT_ *pMes,
@@ -20,14 +20,10 @@ public:
     virtual ~IatciCkxRequestHandler() {}
 
 protected:
-    virtual boost::optional<iatci::BaseParams> params() const;
-    virtual boost::optional<iatci::BaseParams> nextParams() const;
-    virtual iatci::Result handleRequest() const;
-    virtual edilib::EdiSessionId_t sendCascadeRequest() const;
+    virtual const iatci::IBaseParams* paramsNew() const;
 
-private:
-    const iatci::CkxParams ckxParams() const;
-    boost::optional<iatci::CkxParams> nextCkxParams() const;
+    virtual iatci::dcrcka::Result handleRequest() const;
+    virtual edilib::EdiSessionId_t sendCascadeRequest() const;
 };
 
 }//namespace TlgHandling

@@ -3,19 +3,21 @@
 #include <libtlg/tlgnum.h>
 #include <edilib/EdiSessionId_t.h>
 
+#include <list>
+
 
 namespace TlgHandling
 {
 
 class TlgToBePostponed
 {
-    edilib::EdiSessionId_t m_sessId;
+    tlgnum_t m_tlgNum;
 public:
-    TlgToBePostponed(edilib::EdiSessionId_t sessId)
-        : m_sessId(sessId)
+    TlgToBePostponed(tlgnum_t tnum)
+        : m_tlgNum(tnum)
     {}
 
-    edilib::EdiSessionId_t sessionId() const { return m_sessId; }
+    const tlgnum_t tlgNum() const { return m_tlgNum; }
 };
 
 //-----------------------------------------------------------------------------
@@ -31,6 +33,7 @@ public:
     static void postpone(int tnum, edilib::EdiSessionId_t sessId);
     static boost::optional<tlgnum_t> deleteWaiting(edilib::EdiSessionId_t sessId);
     static boost::optional<tlgnum_t> findPostponeTlg(edilib::EdiSessionId_t sessId);
+    static void deleteWaiting(const tlgnum_t& tnum);
 };
 
 //-----------------------------------------------------------------------------

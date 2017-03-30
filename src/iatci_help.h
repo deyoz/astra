@@ -1,7 +1,12 @@
 #pragma once
 
 #include "iatci_types.h"
+#include "astra_api.h"
 #include "xml_unit.h"
+#include "tlg/edi_elements.h"
+
+#include <libtlg/tlgnum.h>
+#include <edilib/EdiSessionId_t.h>
 
 
 namespace iatci {
@@ -20,11 +25,11 @@ std::string cityName(const std::string& city);
 std::string paxTypeString(const PaxDetails& pax);
 std::string paxSexString(const PaxDetails& pax);
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 XMLDoc createXmlDoc(const std::string& xml);
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 class IatciXmlDb
 {
@@ -39,5 +44,74 @@ private:
     static void saveXml(int grpId, const std::string& xmlText);
     static void delXml(int grpId);
 };
+
+//---------------------------------------------------------------------------------------
+
+iatci::PaxDetails              makePax(const edifact::PpdElem& ppd);
+iatci::ReservationDetails      makeReserv(const edifact::PrdElem& prd);
+iatci::SeatDetails             makeSeat(const edifact::PsdElem& psd);
+iatci::FlightSeatDetails       makeSeat(const edifact::PfdElem& pfd);
+iatci::SelectPersonalDetails   makePersonal(const edifact::SpdElem& spd);
+iatci::BaggageDetails          makeBaggage(const edifact::PbdElem& pbd);
+iatci::ServiceDetails          makeService(const edifact::PsiElem& psi);
+iatci::DocDetails              makeDoc(const edifact::PapElem& pap);
+iatci::OriginatorDetails       makeOrg(const edifact::LorElem& lor);
+iatci::CascadeHostDetails      makeCascade(const edifact::ChdElem& chd);
+iatci::FlightDetails           makeOutboundFlight(const edifact::FdqElem& fdq);
+boost::optional<FlightDetails> makeInboundFlight(const edifact::FdqElem& fdq);
+iatci::SeatRequestDetails      makeSeatReq(const edifact::SrpElem& srp);
+iatci::ErrorDetails            makeError(const edifact::ErdElem& erd);
+iatci::WarningDetails          makeWarning(const edifact::WadElem& wad);
+iatci::EquipmentDetails        makeEquipment(const edifact::EqdElem& eqd);
+
+iatci::FlightDetails           makeFlight(const edifact::FdrElem& fdr,
+                                          const boost::optional<edifact::FsdElem>& fsd);
+
+iatci::UpdatePaxDetails        makeUpdPax(const edifact::UpdElem& upd);
+iatci::UpdateSeatDetails       makeUpdSeat(const edifact::UsdElem& usd);
+iatci::UpdateBaggageDetails    makeUpdBaggage(const edifact::UbdElem& ubd);
+iatci::UpdateServiceDetails    makeUpdService(const edifact::UsiElem& usi);
+iatci::UpdateDocDetails        makeUpdDoc(const edifact::UapElem& uap);
+
+//---------------------------------------------------------------------------------------
+
+iatci::PaxDetails                          makePax(const astra_api::astra_entities::PaxInfo& pax);
+iatci::FlightDetails                       makeFlight(const astra_api::astra_entities::SegmentInfo& seg);
+iatci::OriginatorDetails                   makeOrg(const astra_api::astra_entities::SegmentInfo& seg);
+boost::optional<iatci::FlightSeatDetails>  makeFlightSeat(const astra_api::astra_entities::PaxInfo& pax);
+boost::optional<iatci::ReservationDetails> makeReserv(const astra_api::astra_entities::PaxInfo& pax);
+boost::optional<iatci::SeatDetails>        makeSeat(const astra_api::astra_entities::PaxInfo& pax);
+boost::optional<iatci::ServiceDetails>     makeService(const astra_api::astra_entities::PaxInfo& pax);
+boost::optional<iatci::BaggageDetails>     makeBaggage(const astra_api::astra_entities::PaxInfo& pax);
+boost::optional<iatci::DocDetails>         makeDoc(const astra_api::astra_entities::PaxInfo& pax);
+boost::optional<iatci::AddressDetails>     makeAddress(const astra_api::astra_entities::PaxInfo& pax);
+boost::optional<iatci::CascadeHostDetails> makeCascade();
+
+iatci::UpdatePaxDetails makeUpdPax(const astra_api::astra_entities::PaxInfo& newPax,
+                                   iatci::UpdateDetails::UpdateActionCode_e act);
+iatci::UpdateServiceDetails::UpdSsrInfo makeUpdSsr(const astra_api::astra_entities::Remark& rem,
+                                                   iatci::UpdateDetails::UpdateActionCode_e act);
+iatci::UpdateDocDetails makeUpdDoc(const astra_api::astra_entities::DocInfo& doc,
+                                   iatci::UpdateDetails::UpdateActionCode_e act);
+
+//---------------------------------------------------------------------------------------
+
+iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg);
+
+//---------------------------------------------------------------------------------------
+
+void saveDeferredCkiData(tlgnum_t msgId, const std::list<dcrcka::Result>& lRes);
+std::list<dcrcka::Result> loadDeferredCkiData(tlgnum_t msgId);
+
+void saveCkiData(edilib::EdiSessionId_t sessId, const std::list<dcrcka::Result>& lRes);
+std::list<dcrcka::Result> loadCkiData(edilib::EdiSessionId_t sessId);
+
+//---------------------------------------------------------------------------------------
+
+iatci::PaxDetails::PaxType_e astra2iatci(ASTRA::TPerson personType);
+
+//---------------------------------------------------------------------------------------
+
+std::string latSeatNum(const std::string& seatNum);
 
 }//namespace iatci

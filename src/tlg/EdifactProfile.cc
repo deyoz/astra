@@ -2,6 +2,7 @@
 #include "exceptions.h"
 
 #include <serverlib/cursctl.h>
+#include <serverlib/str_utils.h>
 
 #define NICKNAME "ANTON"
 #define NICKTRACE ANTON_TRACE
@@ -35,11 +36,19 @@ EdifactProfile::EdifactProfile(const EdifactProfileData& data)
 {}
 
 const std::string& EdifactProfile::name() const       { return m_data.m_profileName; }
-const std::string& EdifactProfile::version() const    { return m_data.m_version;     }
 const std::string& EdifactProfile::subVersion() const { return m_data.m_subVersion;  }
 const std::string& EdifactProfile::ctrlAgency() const { return m_data.m_ctrlAgency;  }
 const std::string& EdifactProfile::syntaxName() const { return m_data.m_syntaxName;  }
 unsigned           EdifactProfile::syntaxVer() const  { return m_data.m_syntaxVer;   }
+
+std::string EdifactProfile::version() const
+{
+    std::string vers = m_data.m_version;
+    if(vers.length() < 2) {
+        vers = StrUtils::LPad(vers, 2, '0');
+    }
+    return vers;
+}
 
 EdifactProfile EdifactProfile::readByName(const std::string& profileName)
 {
