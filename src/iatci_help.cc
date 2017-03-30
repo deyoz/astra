@@ -550,8 +550,7 @@ boost::optional<iatci::ServiceDetails> makeService(const astra_api::astra_entiti
 
 boost::optional<iatci::BaggageDetails> makeBaggage(const astra_api::astra_entities::PaxInfo& pax)
 {
-    // TODO
-    return boost::none;
+    return iatci::BaggageDetails(0, 0);
 }
 
 boost::optional<iatci::DocDetails> makeDoc(const astra_api::astra_entities::PaxInfo& pax)

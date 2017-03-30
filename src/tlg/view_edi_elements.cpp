@@ -538,7 +538,10 @@ void viewPsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SeatDetails& seat)
 void viewPbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::BaggageDetails& baggage)
 {
     std::ostringstream pbd;
-    pbd << baggage.numOfPieces() << ":" << baggage.weight();
+    pbd << baggage.numOfPieces();
+    if(baggage.numOfPieces()) {
+        pbd << ":" << baggage.weight();
+    }
     SetEdiFullSegment(pMes, SegmElement("PBD"), pbd.str());
 }
 
