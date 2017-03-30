@@ -59,6 +59,7 @@ const char *RptTypeS[] = {
     "LIR",
     "ANNUL_TAGS",
     "VOUCHERS",
+    "SERVICES",
     "?"
 };
 
