@@ -505,5 +505,9 @@ PROCEDURE insert_rfisc_rates(vid              IN rfisc_rates.id%TYPE,
                              vrate_cur        IN rfisc_rates.rate_cur%TYPE,
                              vsetting_user    IN history_events.open_user%TYPE,
                              vstation         IN history_events.open_desk%TYPE);
+
+PROCEDURE check_web_sales_row(v_st_desk IN web_sales.st_desk%TYPE,
+                              v_st_user IN web_sales.st_user%TYPE,
+                              vlang     IN lang_types.code%TYPE);
 END adm;
 /

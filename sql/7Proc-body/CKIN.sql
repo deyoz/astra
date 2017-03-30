@@ -252,6 +252,8 @@ FUNCTION need_for_payment(vgrp_id        IN pax_grp.grp_id%TYPE,
                           vbag_refuse    IN pax_grp.bag_refuse%TYPE,
                           vpiece_concept IN pax_grp.piece_concept%TYPE,
                           vexcess        IN pax_grp.excess%TYPE,
+                          vexcess_wt     IN pax_grp.excess_wt%TYPE,
+                          vexcess_pc     IN pax_grp.excess_pc%TYPE,
                           vpax_id        IN pax.pax_id%TYPE) RETURN NUMBER
 IS
 res NUMBER;
@@ -262,12 +264,20 @@ BEGIN
     IF vexcess>0 THEN RETURN 1; END IF;
   ELSE
     IF vpax_id IS NOT NULL THEN
-      SELECT COUNT(*)
-      INTO res
-      FROM paid_bag_pc
-      WHERE pax_id=vpax_id AND
-            status IN ('unknown', 'paid', 'need') AND
-            rownum<2;
+      IF vexcess_wt IS NULL AND vexcess_pc IS NULL THEN
+        SELECT COUNT(*)
+        INTO res
+        FROM paid_bag_pc
+        WHERE pax_id=vpax_id AND
+              status IN ('unknown', 'paid', 'need') AND
+              rownum<2;
+      ELSE
+        SELECT COUNT(*)
+        INTO res
+        FROM paid_rfisc
+        WHERE pax_id=vpax_id AND paid>0 AND rownum<2;
+      END IF;
+
       IF res>0 THEN RETURN 1; END IF;
     END IF;
   END IF;
@@ -287,13 +297,15 @@ FUNCTION get_excess(vgrp_id       IN pax.grp_id%TYPE,
                     vpax_id       IN pax.pax_id%TYPE) RETURN NUMBER
 IS
 vexcess         pax_grp.excess%TYPE;
+vexcess_wt      pax_grp.excess_wt%TYPE;
+vexcess_pc      pax_grp.excess_pc%TYPE;
 vpiece_concept  pax_grp.piece_concept%TYPE;
 main_pax_id     pax.pax_id%TYPE;
 BEGIN
   vexcess:=0;
   BEGIN
-    SELECT NVL(piece_concept,0), DECODE(bag_refuse,0,excess,0)
-    INTO vpiece_concept, vexcess
+    SELECT NVL(piece_concept,0), DECODE(bag_refuse,0,excess,0), excess_wt, excess_pc
+    INTO vpiece_concept, vexcess, vexcess_wt, vexcess_pc
     FROM pax_grp WHERE grp_id=vgrp_id;
   EXCEPTION
     WHEN NO_DATA_FOUND THEN RETURN NULL;
@@ -311,12 +323,19 @@ BEGIN
     END IF;
   ELSE
     IF vpax_id IS NOT NULL THEN
-      SELECT COUNT(*)
-      INTO vexcess
-      FROM paid_bag_pc
-      WHERE pax_id=vpax_id AND
-            transfer_num=0 AND
-            status IN ('unknown', 'paid', 'need');
+      IF vexcess_wt IS NULL AND vexcess_pc IS NULL THEN
+        SELECT COUNT(*)
+        INTO vexcess
+        FROM paid_bag_pc
+        WHERE pax_id=vpax_id AND
+              transfer_num=0 AND
+              status IN ('unknown', 'paid', 'need');
+      ELSE
+        SELECT NVL(SUM(paid), 0)
+        INTO vexcess
+        FROM paid_rfisc
+        WHERE pax_id=vpax_id AND paid>0 AND transfer_num=0;
+      END IF;
     END IF;
   END IF;
   IF vexcess=0 THEN vexcess:=NULL; END IF;

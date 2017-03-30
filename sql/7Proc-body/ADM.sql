@@ -3291,5 +3291,44 @@ BEGIN
   END IF;
 END;
 
+PROCEDURE check_web_sales_row(v_st_desk IN web_sales.st_desk%TYPE,
+                              v_st_user IN web_sales.st_user%TYPE,
+                              vlang     IN lang_types.code%TYPE)
+
+IS
+i BINARY_INTEGER;
+c CHAR(1);
+info	 adm.TCacheInfo;
+lparams  system.TLexemeParams;
+BEGIN
+  FOR i IN 1..2 LOOP
+    c:=CASE i
+         WHEN 1 THEN system.invalid_char_in_name(v_st_desk, NULL, NULL)
+         WHEN 2 THEN system.invalid_char_in_name(v_st_user, NULL, NULL)
+       END;
+    IF c IS NOT NULL THEN
+      info:=adm.get_cache_info('WEB_SALES');
+      lparams('field_name'):=get_locale_text(info.field_title(CASE i
+                                                                WHEN 1 THEN 'ST_DESK'
+                                                                WHEN 2 THEN 'ST_USER'
+                                                              END), vlang);
+      lparams('symbol'):=c;
+      system.raise_user_exception('MSG.FIELD_INCLUDE_INVALID_CHARACTER1', lparams);
+    END IF;
+  END LOOP;
+  IF v_st_desk IS NOT NULL THEN
+    IF LENGTH(v_st_desk)<>6 THEN
+      system.raise_user_exception('MSG.INVALID_DESK_LENGTH');
+    END IF;
+  END IF;
+  IF v_st_user IS NOT NULL THEN
+    IF LENGTH(v_st_user)<10 THEN
+      info:=adm.get_cache_info('WEB_SALES');
+      lparams('fieldname'):=get_locale_text(info.field_title('ST_USER'), vlang);
+      system.raise_user_exception('MSG.TABLE.INVALID_FIELD_VALUE', lparams);
+    END IF;
+  END IF;
+END check_web_sales_row;
+
 END adm;
 /
