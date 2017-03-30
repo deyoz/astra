@@ -106,6 +106,7 @@ void EdiErrMsg::init()
     ADD_MSG2(TOO_MANY_INFANTS,                "61");
     ADD_MSG2(SMOKING_ZONE_UNAVAILABLE,        "62");
     ADD_MSG2(NON_SMOKING_ZONE_UNAVAILABLE,    "63");
+    ADD_MSG2(UNABLE_TO_GIVE_SEAT,             "72");
     ADD_MSG2(EDI_PROC_ERR,                    "102");
     ADD_MSG2(PAX_SURNAME_NOT_CHECKED_IN,      "193");
     ADD_MSG2(TIMEOUT_ON_HOST_3,               "196");

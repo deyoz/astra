@@ -112,7 +112,12 @@ iatci::PaxDetails::PaxType_e astra2iatci(ASTRA::TPerson personType);
 
 //---------------------------------------------------------------------------------------
 
-std::string latSeatNum(const std::string& seatNum);
-std::string latSeatLetter(const std::string& seatLetter);
+std::string normSeatNum(const std::string& seatNum);
+std::string normSeatLetter(const std::string& seatLetter);
+
+//---------------------------------------------------------------------------------------
+
+std::string denormSeatNum(const std::string& seatNum);
+
 
 }//namespace iatci

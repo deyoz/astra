@@ -75,5 +75,8 @@ REGERR(INV_SEAT,
 REGERR(FLIGHT_CLOSED,
        "FLIGHT CLOSED",
        "…‰‘ ‡€Š›’")
+REGERR(UNABLE_TO_GIVE_SEAT,
+       "UNABLE TO GIVE SEAT",
+       "…‚Ž‡ŒŽ†Ž ‚›€’œ „€Ž… Œ…‘’Ž")
 
 }//namespace Ticketing

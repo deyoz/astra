@@ -485,7 +485,7 @@ void viewSpdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SelectPersonalDeta
 {
     std::ostringstream spd;
     spd << pax.surname() << ":" << pax.name() << ":" << pax.rbd() << ":1"
-        << "+" << iatci::latSeatNum(pax.seat())
+        << "+" << iatci::normSeatNum(pax.seat())
         << "+" << pax.respRef()
         << "+" << pax.qryRef()
         << "+" << pax.securityId()
@@ -530,7 +530,7 @@ void viewPsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SeatDetails& seat)
     BOOST_FOREACH(const std::string& seatCharactesistic, seat.characteristics()) {
         psd << ":" << seatCharactesistic;
     }
-    psd << "+" << iatci::latSeatNum(seat.seat());
+    psd << "+" << iatci::normSeatNum(seat.seat());
 
     SetEdiFullSegment(pMes, SegmElement("PSD"), psd.str());
 }
@@ -600,7 +600,7 @@ void viewPfdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightSeatDetails&
 void viewPfdElement(_EDI_REAL_MES_STRUCT_* pMes, const PfdElem& elem)
 {
     std::ostringstream pfd;
-    pfd << iatci::latSeatNum(elem.m_seat);
+    pfd << iatci::normSeatNum(elem.m_seat);
     pfd << "+" << elem.m_noSmokingInd << ":";
     if(!elem.m_cabinClass.empty()) {
         pfd << Ticketing::SubClass(elem.m_cabinClass)->code(ENGLISH);
@@ -633,7 +633,7 @@ void viewUsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateSeatDetails&
     BOOST_FOREACH(const std::string& seatCharactesistic, updSeat.characteristics()) {
         usd << ":" << seatCharactesistic;
     }
-    usd << "+" << iatci::latSeatNum(updSeat.seat());
+    usd << "+" << iatci::normSeatNum(updSeat.seat());
     //usd << "++++" << updSeat.actionCodeAsString(); TODO
 
     SetEdiFullSegment(pMes, SegmElement("USD"), usd.str());
@@ -714,7 +714,7 @@ void viewCbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::CabinDetails& cabi
     }
     cbd << "+";
     BOOST_FOREACH(const iatci::SeatColumnDetails& seatColumn, cabinDetails.seatColumns()) {
-        cbd << iatci::latSeatLetter(seatColumn.column()) << ":"
+        cbd << iatci::normSeatLetter(seatColumn.column()) << ":"
             << seatColumn.desc1() << ":"
             << seatColumn.desc2() << "+";
     }
@@ -727,7 +727,7 @@ void viewRodElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::RowDetails& rowDet
     rod << rowDetails.row() << "+";
     rod << rowDetails.characteristic() << "+";
     BOOST_FOREACH(const iatci::SeatOccupationDetails& seatOccup, rowDetails.lOccupationDetails()) {
-        rod << iatci::latSeatLetter(seatOccup.column())
+        rod << iatci::normSeatLetter(seatOccup.column())
             << ":" << seatOccup.occupation();
         BOOST_FOREACH(const std::string& seatCharstc, seatOccup.lCharacteristics()) {
             rod << ":" << seatCharstc;

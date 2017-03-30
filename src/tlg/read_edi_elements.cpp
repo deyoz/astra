@@ -1,6 +1,7 @@
 #include "read_edi_elements.h"
 #include "edi_elements.h"
 #include "astra_ticket.h"
+#include "iatci_help.h"
 
 #include <serverlib/isdigit.h>
 #include <serverlib/dates.h>
@@ -701,7 +702,8 @@ boost::optional<PsdElem> readEdiPsd(_EDI_REAL_MES_STRUCT_ *pMes)
 
     PsdElem psd;
     psd.m_noSmokingInd   = GetDBFName(pMes, DataElement(9807), CompElement("C024"));
-    psd.m_seat           = GetDBFName(pMes, DataElement(9809), CompElement());
+    std::string seat     = GetDBFName(pMes, DataElement(9809), CompElement());
+    psd.m_seat           = iatci::denormSeatNum(seat);
     psd.m_characteristic = GetDBFName(pMes, DataElement(9825), CompElement("C024"));
 
     LogTrace(TRACE3) << psd;
@@ -827,7 +829,8 @@ boost::optional<PfdElem> readEdiPfd(_EDI_REAL_MES_STRUCT_ *pMes)
     }
 
     PfdElem pfd;
-    pfd.m_seat = GetDBFName(pMes, DataElement(9809), CompElement("C043"));
+    std::string seat = GetDBFName(pMes, DataElement(9809), CompElement("C043"));
+    pfd.m_seat = iatci::denormSeatNum(seat);
     pfd.m_noSmokingInd = GetDBFName(pMes, DataElement(9807), CompElement("C044"));
     pfd.m_cabinClass = GetDBFName(pMes, DataElement(9854), CompElement("C044"));
     pfd.m_securityId = GetDBFName(pMes, DataElement(9874), CompElement("C045"));
@@ -920,7 +923,8 @@ boost::optional<SpdElem> readEdiSpd(_EDI_REAL_MES_STRUCT_ *pMes)
     spd.m_passSurname = GetDBFName(pMes, DataElement(3808), CompElement("C046"));
     spd.m_passName = GetDBFName(pMes, DataElement(3809), CompElement("C046"));
     spd.m_rbd = GetDBFName(pMes, DataElement(9800), CompElement("C046"));
-    spd.m_passSeat = GetDBFName(pMes, DataElement(9809), CompElement("C043"));
+    std::string passSeat = GetDBFName(pMes, DataElement(9809), CompElement("C043"));
+    spd.m_passSeat = iatci::denormSeatNum(passSeat);
     spd.m_passRespRef = GetDBFName(pMes, DataElement(9821), CompElement("C692"));
     spd.m_passQryRef = GetDBFName(pMes, DataElement(9821), CompElement("C690"));
     spd.m_securityId = GetDBFName(pMes, DataElement(9874), CompElement("C045"));
@@ -959,7 +963,8 @@ boost::optional<UsdElem> readEdiUsd(_EDI_REAL_MES_STRUCT_ *pMes)
 
     UsdElem usd;
     usd.m_actionCode = GetDBFName(pMes, DataElement(9858), CompElement("C034"));
-    usd.m_seat = GetDBFName(pMes, DataElement(9809), CompElement());
+    std::string seat = GetDBFName(pMes, DataElement(9809), CompElement());
+    usd.m_seat = iatci::denormSeatNum(seat);
     usd.m_noSmokingInd = GetDBFName(pMes, DataElement(9807), CompElement("C024"));
 
     LogTrace(TRACE3) << usd;

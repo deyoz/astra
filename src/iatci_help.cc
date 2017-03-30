@@ -790,7 +790,7 @@ iatci::PaxDetails::PaxType_e astra2iatci(ASTRA::TPerson personType)
 
 //---------------------------------------------------------------------------------------
 
-std::string latSeatNum(const std::string& seatNum)
+std::string normSeatNum(const std::string& seatNum)
 {
     if(seatNum.empty()) return seatNum;
 
@@ -800,14 +800,14 @@ std::string latSeatNum(const std::string& seatNum)
     }
 
     const char letter = *(--seatNum.end());
-    const unsigned row = std::stoi(std::string(seatNum.begin(), --seatNum.end()));
+    std::string row(seatNum.begin(), --seatNum.end());
 
-    std::ostringstream lat;
-    lat << row << norm_iata_line(std::string(1, letter));
-    return lat.str();
+    std::ostringstream norm;
+    norm << norm_iata_row(row) << norm_iata_line(std::string(1, letter));
+    return norm.str();
 }
 
-std::string latSeatLetter(const std::string& seatLetter)
+std::string normSeatLetter(const std::string& seatLetter)
 {
     if(seatLetter.length() != 1) {
         LogTrace(TRACE1) << "invalid seat letter: " << seatLetter;
@@ -815,6 +815,25 @@ std::string latSeatLetter(const std::string& seatLetter)
     }
 
     return norm_iata_line(seatLetter);
+}
+
+//---------------------------------------------------------------------------------------
+
+std::string denormSeatNum(const std::string& seatNum)
+{
+    if(seatNum.empty()) return seatNum;
+
+    if(!(seatNum.length() > 1 && seatNum.length() < 5)) {
+        LogTrace(TRACE1) << "invalid seat num: " << seatNum;
+        throw EXCEPTIONS::Exception("invalid seat num: %s", seatNum.c_str());
+    }
+
+    const char letter = *(--seatNum.end());
+    std::string row(seatNum.begin(), --seatNum.end());
+
+    std::ostringstream denorm;
+    denorm << denorm_iata_row(row, NULL) << denorm_iata_line(std::string(1, letter), false);
+    return denorm.str();
 }
 
 }//namespace iatci
