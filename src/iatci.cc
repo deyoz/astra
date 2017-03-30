@@ -700,30 +700,32 @@ static iatci::OriginatorDetails makeOrg(int grpId)
 
 static iatci::CkxParams getCkxParams(xmlNodePtr reqNode)
 {
-    XmlCheckInTabs ediTabs(findNodeR(reqNode, "iatci_segments"));
-    ASSERT(!ediTabs.empty());
+    int ownGrpId = getGrpId(reqNode, NULL, IatciInterface::Ckx);
+    XMLDoc xmlDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
 
-    const XmlCheckInTab& firstEdiTab = ediTabs.tabs().front();
+    XmlCheckInTabs oldIatciTabs(findNodeR(xmlDoc.docPtr()->children, "segments"));
+    XmlCheckInTabs reqIatciTabs(findNodeR(reqNode, "iatci_segments"));
+
+    const XmlCheckInTab& firstOldTab = oldIatciTabs.tabs().front();
+    const XmlCheckInTab& firstReqTab = reqIatciTabs.tabs().front();
 
     std::list<iatci::dcqckx::PaxGroup> lPaxGrp;
-    for(const auto& pax: firstEdiTab.lPax()) {
-        lPaxGrp.push_back(iatci::dcqckx::PaxGroup(iatci::makePax(pax)));
+    for(const auto& pax: firstOldTab.lPax()) {
+        if(firstReqTab.getPaxById(pax.id())) {
+            lPaxGrp.push_back(iatci::dcqckx::PaxGroup(iatci::makePax(pax)));
+        }
     }
-
-    int ownGrpId = getGrpId(reqNode, NULL, IatciInterface::Ckx);
 
     return iatci::CkxParams(makeOrg(ownGrpId),
                             makeCascade(),
-                            iatci::dcqckx::FlightGroup(iatci::makeFlight(firstEdiTab.seg()),
+                            iatci::dcqckx::FlightGroup(iatci::makeFlight(firstReqTab.seg()),
                                                        boost::none,
                                                        lPaxGrp));
 }
 
 static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
 {
-    XmlCheckInTabs ownReqTabs(findNodeR(reqNode, "segments"));
-    ASSERT(!ownReqTabs.tabs().empty());
-    int ownGrpId = ownReqTabs.tabs().back().seg().m_grpId;
+    int ownGrpId = getGrpId(reqNode, NULL, IatciInterface::Cku);
     XMLDoc oldXmlDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
 
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
@@ -740,9 +742,9 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
         return boost::none;
     }
 
-    const auto tabDiff = diff.tabsDiff().at(0);
+    const auto firstTabDiff = diff.tabsDiff().at(0);
 
-    PaxDiff paxDiff = tabDiff->paxDiff();
+    PaxDiff paxDiff = firstTabDiff->paxDiff();
     LogTrace(TRACE3) << "Pax diff:" << paxDiff;
 
     std::list<iatci::dcqcku::PaxGroup> lPaxGrp;

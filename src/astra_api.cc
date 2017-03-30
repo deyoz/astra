@@ -1319,6 +1319,7 @@ astra_entities::PaxInfo XmlPax::toPax() const
                                    ticket_rem,
                                    seat_no,
                                    reg_no != ASTRA::NoExists ? std::to_string(reg_no) : "",
+                                   iatci_pax_id,
                                    !subclass.empty() ? Ticketing::SubClass(subclass)
                                                      : Ticketing::SubClass(),
                                    paxDoc,
@@ -1809,6 +1810,7 @@ XmlPax XmlEntityReader::readPax(xmlNodePtr paxNode)
     pax.hall_id        = NodeAsInteger("hall_id",        paxNode, ASTRA::NoExists);
     pax.point_arv      = NodeAsInteger("point_arv",      paxNode, ASTRA::NoExists);
     pax.user_id        = NodeAsInteger("user_id",        paxNode, ASTRA::NoExists);
+    pax.iatci_pax_id   = NodeAsString("iatci_pax_id",    paxNode, "");
 
     // doc
     xmlNodePtr docNode = findNode(paxNode, "document");
@@ -2594,6 +2596,7 @@ PaxInfo::PaxInfo(int paxId,
                  const std::string& ticketRem,
                  const std::string& seatNo,
                  const std::string& regNo,
+                 const std::string& iatciPaxId,
                  const Ticketing::SubClass& subclass,
                  const boost::optional<DocInfo>& doc,
                  const boost::optional<Remarks>& rems)
@@ -2606,6 +2609,7 @@ PaxInfo::PaxInfo(int paxId,
       m_ticketRem(ticketRem),
       m_seatNo(seatNo),
       m_regNo(regNo),
+      m_iatciPaxId(iatciPaxId),
       m_subclass(subclass),
       m_doc(doc),
       m_rems(rems)
@@ -2622,6 +2626,7 @@ bool operator==(const PaxInfo& left, const PaxInfo& right)
             left.m_ticketRem == right.m_ticketRem &&
             left.m_seatNo    == right.m_seatNo &&
             left.m_regNo     == right.m_regNo &&
+            left.m_iatciPaxId== right.m_iatciPaxId &&
             left.m_subclass  == right.m_subclass &&
             left.m_doc       == right.m_doc &&
             left.m_address   == right.m_address &&

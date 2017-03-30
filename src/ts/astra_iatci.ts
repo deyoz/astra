@@ -1650,7 +1650,7 @@ UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+S7+1027+$(yymmdd)1000+LED+AER++T"
 RAD+I+O"
-PPD+REPIN+A++IVAN"
+PPD+REPIN+A+0013929620+IVAN"
 PFD+xx+:Y+1"
 PSI++TKNE::29861200302972"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
@@ -1893,6 +1893,7 @@ $(KICK_IN)
             <pr_bp_print>0</pr_bp_print>
             <pr_bi_print>0</pr_bi_print>
             <rems/>
+            <iatci_pax_id>0013929620</iatci_pax_id>
           </pax>
         </passengers>
         <paid_bag_emd/>
@@ -1950,7 +1951,7 @@ UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+S7+1027+$(yymmdd)1000+LED+AER++T"
 RAD+I+O"
-PPD+REPIN+A++IVAN"
+PPD+REPIN+A+0013929620+IVAN"
 PFD+xx+:ù"
 PSI++TKNE::42161200302972"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
@@ -1982,7 +1983,7 @@ UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
 UNH+1+DCQCKX:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
-PPD+REPIN+A++IVAN"
+PPD+REPIN+A+0013929620+IVAN"
 UNT+5+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -2330,6 +2331,7 @@ $(KICK_IN)
                 <rem_text>FQTV S7 55555555555555555</rem_text>
               </rem>
             </rems>
+            <iatci_pax_id/>
           </pax>
         </passengers>
         <paid_bag_emd/>
@@ -3227,6 +3229,7 @@ $(KICK_IN)
             <pr_bp_print>0</pr_bp_print>
             <pr_bi_print>0</pr_bi_print>
             <rems/>
+            <iatci_pax_id/>
           </pax>
         </passengers>
         <paid_bag_emd/>
@@ -4783,6 +4786,7 @@ $(KICK_IN)
                 <rem_text>PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M</rem_text>
               </rem>
             </rems>
+            <iatci_pax_id/>
           </pax>
           <pax>
             <pax_id>-2</pax_id>
@@ -4829,6 +4833,7 @@ $(KICK_IN)
                 <rem_text>PSPT HK1 ZB400522510/TJK/24JUL85/PETROV/PETR/M</rem_text>
               </rem>
             </rems>
+            <iatci_pax_id/>
           </pax>
         </passengers>
         <paid_bag_emd/>

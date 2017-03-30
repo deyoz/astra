@@ -1269,6 +1269,7 @@ void Result::toXml(xmlNodePtr node) const
         NewTextChild(paxNode, "subclass", "ù"); // TODO
         NewTextChild(paxNode, "bag_pool_num", ""); // TODO
         NewTextChild(paxNode, "tid", 0); // TODO
+
         boost::optional<Ticketing::TicketCpn_t> tickCpn;
         std::string tickRem;
         if(pxg.service()) {
@@ -1336,6 +1337,8 @@ void Result::toXml(xmlNodePtr node) const
                 NewTextChild(paxRemNode, "rem_text", remText);
             }
         }
+
+        NewTextChild(paxNode, "iatci_pax_id", pxg.pax().respRef());
     }
 
     NewTextChild(segNode, "paid_bag_emd", ""); // TODO

@@ -149,6 +149,7 @@ struct PaxInfo
     std::string                  m_ticketRem;
     std::string                  m_seatNo;
     std::string                  m_regNo;
+    std::string                  m_iatciPaxId;
     Ticketing::SubClass          m_subclass;
     boost::optional<DocInfo>     m_doc;
     boost::optional<AddressInfo> m_address;
@@ -164,6 +165,7 @@ struct PaxInfo
             const std::string& ticketRem,
             const std::string& seatNo,
             const std::string& regNo,
+            const std::string& iatciPaxId,
             const Ticketing::SubClass& subclass,
             const boost::optional<DocInfo>& doc,
             const boost::optional<Remarks>& rems = boost::none);
@@ -257,6 +259,7 @@ struct XmlPax
     int         point_arv;
     int         user_id;
     std::string airp_arv;
+    std::string iatci_pax_id;
     boost::optional<XmlPaxDoc> doc;
     boost::optional<XmlRems> rems;
 
