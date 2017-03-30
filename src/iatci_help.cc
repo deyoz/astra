@@ -804,4 +804,14 @@ std::string latSeatNum(const std::string& seatNum)
     return lat.str();
 }
 
+std::string latSeatLetter(const std::string& seatLetter)
+{
+    if(seatLetter.length() != 1) {
+        LogTrace(TRACE1) << "invalid seat letter: " << seatLetter;
+        throw EXCEPTIONS::Exception("invalid seat letter: %s", seatLetter.c_str());
+    }
+
+    return norm_iata_line(seatLetter);
+}
+
 }//namespace iatci

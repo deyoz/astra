@@ -698,7 +698,7 @@ void viewSrpElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SeatRequestDetails
 void viewCbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::CabinDetails& cabinDetails, int num)
 {
     std::ostringstream cbd;
-    cbd << cabinDetails.classDesignator() << "+";
+    cbd << Ticketing::BaseClass(cabinDetails.classDesignator())->code(ENGLISH) << "+";
     cbd << cabinDetails.rowRange().firstRow() << ":"
         << cabinDetails.rowRange().lastRow() << "+";
     cbd << cabinDetails.deck() << "+";
@@ -714,7 +714,7 @@ void viewCbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::CabinDetails& cabi
     }
     cbd << "+";
     BOOST_FOREACH(const iatci::SeatColumnDetails& seatColumn, cabinDetails.seatColumns()) {
-        cbd << seatColumn.column() << ":"
+        cbd << iatci::latSeatLetter(seatColumn.column()) << ":"
             << seatColumn.desc1() << ":"
             << seatColumn.desc2() << "+";
     }
@@ -727,7 +727,8 @@ void viewRodElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::RowDetails& rowDet
     rod << rowDetails.row() << "+";
     rod << rowDetails.characteristic() << "+";
     BOOST_FOREACH(const iatci::SeatOccupationDetails& seatOccup, rowDetails.lOccupationDetails()) {
-        rod << seatOccup.column() << ":" << seatOccup.occupation();
+        rod << iatci::latSeatLetter(seatOccup.column())
+            << ":" << seatOccup.occupation();
         BOOST_FOREACH(const std::string& seatCharstc, seatOccup.lCharacteristics()) {
             rod << ":" << seatCharstc;
         }
