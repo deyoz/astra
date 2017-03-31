@@ -111,6 +111,7 @@ int testbm(int argc,char **argv);
 
 void populate_doc_cap(xmlNodePtr variablesNode, std::string lang);
 void ANNUL_TAGS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode);
+void SERVICES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode);
 
 TDateTime getReportSCDOut(int point_id);
 std::string getJMPSeatNo(int pax_id);

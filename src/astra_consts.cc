@@ -58,6 +58,7 @@ const char *RptTypeS[] = {
     "NOTOC",
     "LIR",
     "ANNUL_TAGS",
+    "SERVICES",
     "?"
 };
 

@@ -27,6 +27,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/shared_array.hpp>
 #include <boost/crc.hpp>
+#include "payment_base.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -11596,3 +11597,215 @@ void ANNUL_TAGS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     //LogTrace(TRACE5) << GetXMLDocText(resNode->doc);
 }
 
+void VOUCHERS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    get_compatible_report_form("vouchers", reqNode, resNode);
+    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
+    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_vouchers");
+    // переменные отчёта
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
+    // заголовок отчёта
+    NewTextChild(variablesNode, "caption", "VOUCHERS TEST");
+    populate_doc_cap(variablesNode, rpt_params.GetLang());
+    NewTextChild(variablesNode, "doc_cap_vou_reg_no", "Рег№");
+    NewTextChild(variablesNode, "doc_cap_vou_fio", "ФИО");
+    NewTextChild(variablesNode, "doc_cap_vou_type", "Тип");
+    NewTextChild(variablesNode, "doc_cap_vou_tick_no", "№ билета");
+    NewTextChild(variablesNode, "doc_cap_vou_quantity", "Кол-во  ваучеров");
+    NewTextChild(variablesNode, "doc_cap_vou_rem", "Ремарки");
+    // строки отчёта
+    for (int i = 0; i < 10; ++i)
+    {
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+        ostringstream buf;
+        buf << "Категория " << i/4;
+        NewTextChild(rowNode, "category", buf.str());
+        NewTextChild(rowNode, "reg_no", i);
+        NewTextChild(rowNode, "fio", "Иванов Иван");
+        NewTextChild(rowNode, "type", "ВЗ");
+        NewTextChild(rowNode, "tick_no", "298855588585/1");
+        NewTextChild(rowNode, "quantity", i+1);
+        NewTextChild(rowNode, "rem", "FQTV GOLD");
+
+        NewTextChild(rowNode, "data", i); // TODO delete
+        NewTextChild(rowNode, "subtotal", i); // TODO delete
+    }
+    LogTrace(TRACE5) << GetXMLDocText(resNode->doc); //!!!
+}
+
+// ======== SERVICES ========
+
+enum EServiceSortOrder
+{
+    by_reg_no,
+    by_family,
+    by_seat_no
+};
+
+struct TServiceRow
+{
+    string seat_no;
+    string family;
+    int reg_no;
+    string RFIC;
+    string RFISC;
+    string desc;
+    string num;
+
+    const EServiceSortOrder mSortOrder;
+
+    TServiceRow(EServiceSortOrder sortOrder = by_reg_no)
+        : reg_no(NoExists), mSortOrder(sortOrder) {}
+
+    bool operator < (const TServiceRow &other) const
+    {
+        switch (mSortOrder)
+        {
+            case by_reg_no: return reg_no < other.reg_no;
+            case by_family: return family < other.family;
+            case by_seat_no: return seat_no < other.seat_no;
+            default: throw Exception("TServiceRow::operator < : unexpected value");
+        }
+    }
+
+    void toXML(xmlNodePtr dataSetNode) const
+    {
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+        NewTextChild(rowNode, "seat_no", seat_no);
+        NewTextChild(rowNode, "family", family);
+        NewTextChild(rowNode, "reg_no", reg_no);
+        NewTextChild(rowNode, "RFIC", RFIC);
+        NewTextChild(rowNode, "RFISC", RFISC);
+        NewTextChild(rowNode, "desc", desc);
+        NewTextChild(rowNode, "num", num);
+    } 
+};
+
+class TServiceFilter
+{
+    set<string> filterRFIC;
+public:
+    void AddRFIC(string RFIC) { filterRFIC.insert(RFIC); }
+    bool Check(const TServiceRow& row) const
+    {
+        // if (filterRFIC.empty()) return true; // не выбран ни один фильтр
+        for (set<string>::const_iterator iRFIC = filterRFIC.begin(); iRFIC != filterRFIC.end(); ++iRFIC)
+            if (row.RFIC == *iRFIC) return true;
+        return false;
+    }
+};
+
+void SERVICES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    get_compatible_report_form("services", reqNode, resNode);
+    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
+    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_services");
+    // переменные отчёта
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
+    // заголовок отчёта
+    NewTextChild(variablesNode, "caption",
+        getLocaleText("CAP.DOC.SERVICES", LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
+    populate_doc_cap(variablesNode, rpt_params.GetLang());
+    NewTextChild(variablesNode, "cap_srv_seat_no", "Место в салоне");
+    NewTextChild(variablesNode, "cap_srv_family", "ФИО пассажира");
+    NewTextChild(variablesNode, "cap_srv_reg_no", "Рег. №");
+    NewTextChild(variablesNode, "cap_srv_RFIC", "RFIC");
+    NewTextChild(variablesNode, "cap_srv_RFISC", "Код услуги");
+    NewTextChild(variablesNode, "cap_srv_desc", "Описание");
+    NewTextChild(variablesNode, "cap_srv_num", "Номер квитанции");
+    // строки отчёта
+    TQuery Qry(&OraSession);
+    string SQLText =
+    "select "
+    "    pax.pax_id, "
+    "    pax.reg_no, "
+    "    pax.grp_id, "
+    "    TRIM(pax.surname||' '||pax.name) AS family, "
+    "    salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no "
+    "from "
+    "    pax_grp, "
+    "    pax "
+    "where "
+    "    pax_grp.point_dep = :point_id and "
+    "    pax_grp.grp_id = pax.grp_id ";
+    /*"order by "
+    "    seat_no, pax.reg_no DESC ";*/
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
+    Qry.CreateVariable("pr_lat", otInteger, rpt_params.IsInter());
+    Qry.Execute();
+    list<TServiceRow> rows;
+    //  инициализация сортировки
+    const EServiceSortOrder sortOrder = by_reg_no; // TODO получать из XML
+    //  инициализация фильтра
+    TServiceFilter filter;
+    filter.AddRFIC("G"); // TODO получать из XML
+    //  цикл для каждого пакса в выборке
+    for (; !Qry.Eof; Qry.Next())
+    {
+        int pax_id = Qry.FieldAsInteger("pax_id");
+        int grp_id = Qry.FieldAsInteger("grp_id");
+        //  получить список услуг для пакса
+        TPaidRFISCList prList;
+        prList.fromDB(pax_id, false);
+        //  получить список квитанций для группы
+        CheckIn::TServicePaymentList spList;
+        spList.fromDB(grp_id);
+        spList.sort();
+        //  цикл для каждой услуги
+        for (TPaidRFISCList::const_iterator pr = prList.begin(); pr != prList.end(); ++pr)
+        {
+            const TPaidRFISCItem item = pr->second;
+            //  рассматривать только первый сегмент трансфера
+            if (item.trfer_num != 0) continue;
+            //  цикл по одинаковым услугам
+            for (int service = 0; service < item.service_quantity; ++service)
+            {
+                TServiceRow row(sortOrder); // sortOrder для всех строк в контейнере должен быть одинаков!
+                //  Место в салоне
+                string seat_no = getJMPSeatNo(pax_id);
+                if (seat_no.empty()) seat_no = Qry.FieldAsString("seat_no");
+                row.seat_no = seat_no;
+                //  ФИО пассажира
+                row.family = transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU);
+                //  Рег. №
+                row.reg_no = Qry.FieldAsInteger("reg_no");
+                if (item.list_item)
+                {
+                    //  RFIC
+                    row.RFIC = item.list_item->RFIC;
+                    //  Код услуги
+                    row.RFISC = item.list_item->RFISC;
+                    //  Описание
+                    row.desc = item.list_item->name_view();
+                }
+                //  цикл по всем квитанциям группы
+                for (CheckIn::TServicePaymentList::iterator sp = spList.begin(); sp != spList.end(); ++ sp)
+                {
+                    /* пока только EMD */
+                    if (sp->pc &&
+                        sp->pax_id != NoExists &&
+                        item.pax_id != NoExists &&
+                        sp->pax_id == item.pax_id &&
+                        sp->trfer_num == item.trfer_num &&
+                        sp->pc->key() == item.key())
+                    {
+                        //  Номер квитанции (найдена первая подходящая)
+                        row.num = sp->no_str();
+                        spList.erase(sp);
+                        break;
+                    }
+                }
+                if (filter.Check(row)) rows.push_back(row);
+            }
+        }
+    }
+    rows.sort();
+    for (list<TServiceRow>::const_iterator irow = rows.begin(); irow != rows.end(); ++irow)
+        irow->toXML(dataSetNode);
+    //  LogTrace(TRACE5) << GetXMLDocText(resNode->doc);
+}
