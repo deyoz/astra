@@ -355,7 +355,6 @@ namespace CKIN_REPORT {
     std::string getElemId(TElemType type, const std::string &elem);
 }
 void get_kuf_stat(int point_id);
-void get_pfs_stat(int point_id);
 
 
 #endif /*_TELEGRAM_H_*/
