@@ -703,18 +703,18 @@ void viewCbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::CabinDetails& cabi
 {
     std::ostringstream cbd;
     cbd << Ticketing::BaseClass(cabinDetails.classDesignator())->code(ENGLISH) << "+";
-    cbd << cabinDetails.rowRange().firstRow() << ":"
-        << cabinDetails.rowRange().lastRow() << "+";
+    cbd << std::setfill('0') << std::setw(3) << cabinDetails.rowRange().firstRow() << ":"
+        << std::setfill('0') << std::setw(3) << cabinDetails.rowRange().lastRow() << "+";
     cbd << cabinDetails.deck() << "+";
     if(cabinDetails.smokingArea()) {
-        cbd << cabinDetails.smokingArea()->firstRow() << ":"
-            << cabinDetails.smokingArea()->lastRow();
+        cbd << std::setfill('0') << std::setw(3) << cabinDetails.smokingArea()->firstRow() << ":"
+            << std::setfill('0') << std::setw(3) << cabinDetails.smokingArea()->lastRow();
     }
     cbd << "+";
     cbd << cabinDetails.defaultSeatOccupation() << "+";
     if(cabinDetails.overwingArea()) {
-        cbd << cabinDetails.overwingArea()->firstRow() << ":"
-            << cabinDetails.overwingArea()->lastRow();
+        cbd << std::setfill('0') << std::setw(3) << cabinDetails.overwingArea()->firstRow() << ":"
+            << std::setfill('0') << std::setw(3) << cabinDetails.overwingArea()->lastRow();
     }
     cbd << "+";
     BOOST_FOREACH(const iatci::SeatColumnDetails& seatColumn, cabinDetails.seatColumns()) {
