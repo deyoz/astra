@@ -647,11 +647,15 @@ void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateBaggageDetai
     SetEdiFullSegment(pMes, SegmElement("UBD"), ubd.str());
 }
 
-void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateDocDetails& updDoc)
+void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes,
+                    const iatci::UpdateDocDetails& updDoc, const iatci::PaxDetails& pax)
 {
     std::ostringstream uap;
     uap << updDoc.actionCodeAsString() << "+";
-    uap << ":::" << Dates::rrmmdd(updDoc.birthDate())
+    uap << pax.typeAsString() << ":"
+        << pax.surname() << ":"
+        << pax.name() << ":"
+        << Dates::rrmmdd(updDoc.birthDate())
         << ":::" << updDoc.nationality() << "++";
     uap << updDoc.docType() << ":"
         << updDoc.no() << ":"
@@ -737,10 +741,14 @@ void viewRodElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::RowDetails& rowDet
     SetEdiFullSegment(pMes, SegmElement("ROD", num), rod.str());
 }
 
-void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::DocDetails& doc)
+void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes,
+                    const iatci::DocDetails& doc, const iatci::PaxDetails& pax)
 {
     std::ostringstream pap;
-    pap << ":::" << Dates::rrmmdd(doc.birthDate())
+    pap << pax.typeAsString() << ":"
+        << pax.surname() << ":"
+        << pax.name() << ":"
+        << Dates::rrmmdd(doc.birthDate())
         << ":::" << doc.nationality() << "++";
     pap << doc.docType() << ":"
         << doc.no() << ":"

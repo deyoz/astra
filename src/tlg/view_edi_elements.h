@@ -214,7 +214,8 @@ void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateBaggageDetai
 /**
  * @brief make an UAP element
 */
-void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateDocDetails& updDoc);
+void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes,
+                    const iatci::UpdateDocDetails& updDoc, const iatci::PaxDetails& pax);
 
 /**
  * @brief make an USI element
@@ -239,7 +240,8 @@ void viewRodElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::RowDetails& rowDet
 /**
  * @brief makes a PAP element
 */
-void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::DocDetails& doc);
+void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes,
+                    const iatci::DocDetails& doc, const iatci::PaxDetails& pax);
 
 
 }//namespace edifact

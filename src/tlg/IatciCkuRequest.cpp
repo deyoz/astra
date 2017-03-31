@@ -80,7 +80,7 @@ void CkuRequest::collectMessage()
             edilib::SetEdiSegGr(pMes(), 3);
             edilib::SetEdiPointToSegGrW(pMes(), 3);
 
-            viewUapElement(pMes(), *pxg.updDoc());
+            viewUapElement(pMes(), *pxg.updDoc(), pxg.pax());
 
             PopEdiPointW(pMes());
         }

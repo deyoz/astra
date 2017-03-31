@@ -70,7 +70,7 @@ void CkiRequest::collectMessage()
             edilib::SetEdiSegGr(pMes(), 3);
             edilib::SetEdiPointToSegGrW(pMes(), 3);
 
-            viewPapElement(pMes(), *pxg.doc());
+            viewPapElement(pMes(), *pxg.doc(), pxg.pax());
 
             PopEdiPointW(pMes());
         }

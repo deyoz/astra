@@ -111,6 +111,7 @@ bool operator!=(const DocInfo& left, const DocInfo& right);
 struct AddressInfo
 {
     // TODO
+    std::string id() const { return "addrs_id"; }
 };
 
 bool operator==(const AddressInfo& left, const AddressInfo& right);
@@ -121,6 +122,7 @@ bool operator!=(const AddressInfo& left, const AddressInfo& right);
 struct VisaInfo
 {
     // TODO
+    std::string id() const { return "visa_id"; }
 };
 
 bool operator==(const VisaInfo& left, const VisaInfo& right);

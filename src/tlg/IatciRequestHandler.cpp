@@ -102,7 +102,7 @@ void IatciRequestHandler::makeAnAnswer()
                     SetEdiSegGr(pMesW(), SegGrElement(3));
                     SetEdiPointToSegGrW(pMesW(), SegGrElement(3), "SegGr3(apg) not found");
 
-                    viewPapElement(pMesW(), *pxg.doc());
+                    viewPapElement(pMesW(), *pxg.doc(), pxg.pax());
 
                     PopEdiPointW(pMesW());
                 }

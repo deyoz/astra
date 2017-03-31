@@ -206,17 +206,15 @@ namespace
     class PaxChange
     {
     public:
-        typedef ModifiedEntity<astra_entities::DocInfo>     DocChange_t;
-        typedef ModifiedEntity<astra_entities::AddressInfo> AddressChange_t;
-        typedef ModifiedEntity<astra_entities::VisaInfo>    VisaChange_t;
-
-        typedef CheckInEntityDiff<astra_entities::Remark> RemChange_t;
+        typedef CheckInEntityDiff<astra_entities::DocInfo>      DocChange_t;
+        typedef CheckInEntityDiff<astra_entities::AddressInfo>  AddressChange_t;
+        typedef CheckInEntityDiff<astra_entities::VisaInfo>     VisaChange_t;
+        typedef CheckInEntityDiff<astra_entities::Remark>       RemChange_t;
 
         typedef DocChange_t::Optional_t     DocChangeOpt_t;
         typedef AddressChange_t::Optional_t AddressChangeOpt_t;
         typedef VisaChange_t::Optional_t    VisaChangeOpt_t;
-
-        typedef RemChange_t::Optional_t RemChangeOpt_t;
+        typedef RemChange_t::Optional_t     RemChangeOpt_t;
 
     private:
         astra_entities::PaxInfo m_oldPax;
@@ -249,33 +247,61 @@ namespace
         : m_oldPax(oldPax), m_newPax(newPax), m_persChange(false)
     {
         // документ
-        if(oldPax.m_doc && newPax.m_doc &&
-           oldPax.m_doc.get() != newPax.m_doc.get())
-        {
-            m_docChange = DocChange_t(oldPax.m_doc.get(), newPax.m_doc.get());
+        std::list<astra_entities::DocInfo> lOldDocs;
+        if(oldPax.m_doc) {
+            lOldDocs.push_back(oldPax.m_doc.get());
+        }
+        std::list<astra_entities::DocInfo> lNewDocs;
+        if(newPax.m_doc) {
+            lNewDocs.push_back(newPax.m_doc.get());
+
+            DocChange_t docChng(lOldDocs, lNewDocs);
+            if(!docChng.empty()) {
+                m_docChange = docChng;
+            }
         }
 
         // адрес
-        if(oldPax.m_address && newPax.m_address &&
-           oldPax.m_address.get() != newPax.m_address.get())
-        {
-            m_addressChange = AddressChange_t(oldPax.m_address.get(), newPax.m_address.get());
+        std::list<astra_entities::AddressInfo> lOldAddrs;
+        if(oldPax.m_address) {
+            lOldAddrs.push_back(oldPax.m_address.get());
+        }
+        std::list<astra_entities::AddressInfo> lNewAddrs;
+        if(newPax.m_address) {
+            lNewAddrs.push_back(newPax.m_address.get());
+
+            AddressChange_t addrsChng(lOldAddrs, lNewAddrs);
+            if(!addrsChng.empty()) {
+                m_addressChange = addrsChng;
+            }
         }
 
         // виза
-        if(oldPax.m_visa && newPax.m_visa &&
-           oldPax.m_visa.get() != newPax.m_visa.get())
-        {
-            m_visaChange = VisaChange_t(oldPax.m_visa.get(), newPax.m_visa.get());
+        std::list<astra_entities::VisaInfo> lOldVisas;
+        if(oldPax.m_visa) {
+            lOldVisas.push_back(oldPax.m_visa.get());
+        }
+        std::list<astra_entities::VisaInfo> lNewVisas;
+        if(newPax.m_visa) {
+            lNewVisas.push_back(newPax.m_visa.get());
+
+            VisaChange_t visaChng(lOldVisas, lNewVisas);
+            if(!visaChng.empty()) {
+                m_visaChange = visaChng;
+            }
         }
 
         // ремарки
-        if(newPax.m_rems)
-        {
-            ASSERT(oldPax.m_rems); // в старом пассажире ремарки быть обязаны
-            RemChange_t remChng(oldPax.m_rems->m_lRems, newPax.m_rems->m_lRems);
-            if(!remChng.empty())
-            {
+        std::list<astra_entities::Remark> lOldRems;
+        if(oldPax.m_rems) {
+            lOldRems = oldPax.m_rems->m_lRems;
+        }
+        std::list<astra_entities::Remark> lNewRems;
+        if(newPax.m_rems) {
+            lNewRems = newPax.m_rems->m_lRems;
+
+            RemChange_t remChng(lOldRems, lNewRems);
+            if(!remChng.empty()) {
                 m_remChange = remChng;
             }
         }
@@ -642,8 +668,25 @@ static boost::optional<iatci::UpdateDocDetails> getUpdDoc(const PaxChange& paxCh
         return boost::none;
     }
 
-    return iatci::makeUpdDoc(paxChange.docChange()->newEntity(),
-                             iatci::UpdateDetails::Replace);
+    // считаем, что может быть один документа на пассажира
+
+    // удаленный
+    // удаления в Астре пока нет
+
+    // добавленный
+    if(!paxChange.docChange()->added().empty()) {
+        return iatci::makeUpdDoc(paxChange.docChange()->added().at(0),
+                                 iatci::UpdateDetails::Add);
+    }
+
+    // изменённый
+    if(!paxChange.docChange()->modified().empty()) {
+        return iatci::makeUpdDoc(paxChange.docChange()->modified().at(0).newEntity(),
+                                 iatci::UpdateDetails::Replace);
+    }
+
+    ASSERT(false); // не должны сюда попадать
+    return boost::none;
 }
 
 static edifact::KickInfo getIatciKickInfo(xmlNodePtr reqNode, xmlNodePtr ediResNode)
