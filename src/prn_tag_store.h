@@ -183,6 +183,7 @@ class TTagLang {
         std::string GetLang();
         std::string dup_lang() { return GetLang()==AstraLocale::LANG_EN ? AstraLocale::LANG_RU : GetLang(); }; // lang for duplicated captions
         void set_tag_lang(std::string val) { tag_lang = val; };
+        std::string get_tag_lang() { return tag_lang; }
         std::string ElemIdToTagElem(TElemType type, const std::string &id, TElemFmt fmt, std::string firm_lang = "") const;
         std::string ElemIdToTagElem(TElemType type, int id, TElemFmt fmt, std::string firm_lang = "") const;
         void Init(bool apr_lat); // Инициализация для использования в тестовых пектабах.
