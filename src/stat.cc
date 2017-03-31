@@ -9034,277 +9034,6 @@ void TOrderStatWriter::insert(const TOrderStatItem &row)
     out.flush();
 }
 
-/* GRISHA */
-void create_plain_files(
-        const TStatParams &params,
-        double &data_size,
-        double &data_size_zip,
-        TQueueItem &item
-        )
-{
-    TFileParams file_params(item.params);
-    // get file name
-    string file_name =
-        file_params.get_name() + "." +
-        DateTimeToStr(item.time, "yymmddhhnn") + "." +
-        DateTimeToStr(params.FirstDate, "yymm") + ".csv";
-
-    TPrintAirline airline;
-    TOrderStatWriter order_writer(item.id, params.FirstDate, file_name);
-    switch(params.statType) {
-        case statRFISC:
-            RunRFISCStat(params, order_writer, airline);
-            break;
-        case statService:
-            RunServiceStat(params, order_writer, airline);
-            break;
-        case statUnaccBag:
-            RunUnaccBagStat(params, order_writer, airline);
-            break;
-        case statTlgOutShort:
-        case statTlgOutDetail:
-        case statTlgOutFull:
-            RunTlgOutStatFile(params, order_writer, airline);
-            break;
-        case statSelfCkinShort:
-        case statSelfCkinDetail:
-        case statSelfCkinFull:
-            RunSelfCkinStatFile(params, order_writer, airline);
-            break;
-        case statAnnulBT:
-            RunAnnulBTStatFile(params, order_writer, airline);
-            break;
-        case statFull:
-        case statTrferFull:
-            RunFullStatFile(params, order_writer, airline);
-            break;
-        case statLimitedCapab:
-            RunLimitedCapabStatFile(params, order_writer, airline);
-            break;
-        case statAgentShort:
-        case statAgentFull:
-        case statAgentTotal:
-            RunAgentStatFile(params, order_writer, airline);
-            break;
-        case statShort:
-        case statDetail:
-        case statPactShort:
-            RunDetailStatFile(params, order_writer, airline);
-            break;
-        default:
-            throw Exception("unsupported statType %d", params.statType);
-    }
-    order_writer.finish();
-    data_size += order_writer.data_size;
-    data_size_zip += order_writer.data_size_zip;
-}
-
-void processStatOrders(TQueueItem &item) {
-    TPerfTimer tm;
-    tm.Init();
-    try {
-        TCachedQuery finishQry(
-                "update stat_orders set "
-                "   data_size = :data_size, "
-                "   data_size_zip = :data_size_zip, "
-                "   time_created = :tc, "
-                "   status = :status "
-                "where file_id = :file_id",
-                QParams()
-                << QParam("data_size", otFloat)
-                << QParam("data_size_zip", otFloat)
-                << QParam("tc", otDate)
-                << QParam("file_id", otInteger, item.id)
-                << QParam("status", otInteger)
-                );
-        TCachedQuery progressQry("update stat_orders set progress = :progress where file_id = :file_id",
-                QParams()
-                << QParam("file_id", otInteger, item.id)
-                << QParam("progress", otInteger)
-                );
-
-        TStatParams params;
-        params.fromFileParams(item.params);
-
-        TReqInfo::Instance()->Initialize(params.desk_city);
-
-        TPeriods periods;
-        periods.get(params.FirstDate, params.LastDate);
-
-        int parts = 0;
-        double data_size = 0;
-        double data_size_zip = 0;
-        TPeriods::TItems::iterator i = periods.items.begin();
-
-        // Возможно, в базе уже есть данные отчета (so_data не пустой)
-        // тогда цикл надо начинать с последнего собранного куска
-        // Иначе говоря, перематываем на текущее состояние сборки.
-        TStatOrders so;
-        so.get(item.id);
-        if(not so.so_data_empty(item.id)) {
-            const TStatOrderData &so_data = so.items.begin()->second.so_data;
-            for(
-                    TStatOrderData::const_iterator i_data = so_data.begin();
-                    (i_data != so_data.end() and not i_data->md5_sum.empty());
-                    i_data++
-               ) {
-                data_size += i_data->file_size;
-                data_size_zip += i_data->file_size_zip;
-                // отматываем периоды
-                // 1. в so_data могут быть пропуски в месяцах, если в них не было данных
-                // поэтому простой i++ не получится
-                // 2. Дата периода не обязана быть первым днем месяца, в то время как
-                // месяц отчета всегда первый день месяца
-                while(true) {
-                    if(DateTimeToStr(i->first, "mm.yy") == DateTimeToStr(i_data->month, "mm.yy"))
-                        break;
-                    i++;
-                    parts++;
-                }
-            }
-            // После перемотки итератор периода стоит на последнем успешном месяце
-            // Надо его передвинуть на новый, еще не собранный месяц
-            // как и счетчик parts, чтобы прогресс отображался правильно
-            i++;
-            parts++;
-        }
-
-        periods.dump(i);
-
-        for(; i != periods.items.end();
-                i++,
-                commit_progress(progressQry.get(), ++parts, periods.items.size())
-           ) {
-            params.FirstDate = i->first;
-            params.LastDate = i->second;
-
-            create_plain_files(
-                    params,
-                    data_size,
-                    data_size_zip,
-                    item
-                    );
-        }
-        finishQry.get().SetVariable("data_size", data_size);
-        finishQry.get().SetVariable("data_size_zip", data_size_zip);
-        finishQry.get().SetVariable("tc", NowUTC());
-        finishQry.get().SetVariable("status", stReady);
-        finishQry.get().Execute();
-    } catch(Exception &E) {
-        TErrCommit::Instance()->exec(item.id, stError, string(E.what()).substr(0, 250).c_str());
-    } catch(...) {
-        TErrCommit::Instance()->exec(item.id, stError, "unknown");
-    }
-     ProgTrace(TRACE5, "Stat Orders processing time: %s", tm.PrintWithMessage().c_str());
-}
-
-void stat_orders_synchro(void)
-{
-    TStatOrders so;
-    so.get(NoExists);
-    TDateTime time_out = NowUTC() - ORDERS_TIMEOUT();
-    set<string> files;
-    for(TStatOrderMap::iterator i = so.items.begin(); i != so.items.end(); i++) {
-        const TStatOrder &so_item = i->second;
-        if(so_item.status != stRunning and so_item.time_created <= time_out)
-            so_item.del();
-        else {
-            for(TStatOrderData::const_iterator so_data = so_item.so_data.begin();
-                    so_data != so_item.so_data.end();
-                    so_data++) {
-                files.insert(
-                        get_part_file_name(
-                            so_item.file_id,
-                            so_data->month
-                            )
-                        );
-            }
-        }
-    }
-
-    namespace fs = boost::filesystem;
-    fs::path so_path(ORDERS_PATH());
-    fs::directory_iterator end_iter;
-    for ( fs::directory_iterator dir_itr( so_path ); dir_itr != end_iter; ++dir_itr ) {
-        if(files.find(dir_itr->path().c_str()) == files.end()) {
-            fs::remove_all(dir_itr->path());
-        }
-    }
-}
-
-int nosir_synchro(int argc,char **argv)
-{
-    cout << DateTimeToStr(NowUTC(), "dd.mm.yyyy 00:00:00") << endl;
-    return 1;
-}
-
-
-void stat_orders_collect(void)
-{
-    TFileQueue file_queue;
-    file_queue.get( TFilterQueue( OWN_POINT_ADDR(), FILE_COLLECT_TYPE ) );
-    for ( TFileQueue::iterator item=file_queue.begin();
-            item!=file_queue.end();
-            item++, OraSession.Commit() ) {
-        try {
-            switch(DecodeOrderSource(item->params[PARAM_ORDER_SOURCE])) {
-                case osSTAT :
-                    processStatOrders(*item);
-                    break;
-                default:
-                    break;
-            }
-            TFileQueue::deleteFile(item->id);
-        }
-        catch(Exception &E) {
-            OraSession.Rollback();
-            try
-            {
-                EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-                if (orae!=NULL&&
-                        (orae->Code==4061||orae->Code==4068)) continue;
-                ProgError(STDLOG,"Exception: %s (file id=%d), SQLText: %s",E.what(),item->id, orae->SQLText());
-            }
-            catch(...) {};
-        }
-        catch(...) {
-            OraSession.Rollback();
-            ProgError(STDLOG, "Something goes wrong");
-        }
-    }
-}
-
-void orderStat(const TStatParams &params, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    TStatOrders so;
-    so.get(NoExists); // list contains all orders in the system
-    if(so.size() >= ORDERS_MAX_TOTAL_SIZE()) {
-        NewTextChild(resNode, "collect_msg", getLocaleText("MSG.STAT_ORDERS.ORDERS_MAX_TOTAL_SIZE_EXCEEDED"));
-    } else {
-        so.get(); // default behaviour, orders list for current user
-        if(so.is_running()) {
-            NewTextChild(resNode, "collect_msg", getLocaleText("MSG.STAT_ORDERS.IS_RUNNING"));
-        } else
-            if(so.size() >= ORDERS_MAX_SIZE()) {
-                NewTextChild(resNode, "collect_msg", getLocaleText("MSG.STAT_ORDERS.MAX_ORDERS_SIZE_EXCEEDED",
-                            LParams() << LParam("max", getFileSizeStr(ORDERS_MAX_SIZE()))
-                            ));
-            } else {
-                map<string, string> file_params;
-                params.toFileParams(file_params);
-                int file_id = TFileQueue::putFile(
-                        OWN_POINT_ADDR(),
-                        OWN_POINT_ADDR(),
-                        FILE_COLLECT_TYPE,
-                        file_params,
-                        ""
-                        );
-                TStatOrder(file_id, TReqInfo::Instance()->user.user_id, osSTAT).toDB();
-                NewTextChild(resNode, "collect_msg", getLocaleText("MSG.COLLECT_STAT_INFO"));
-            }
-    }
-}
-
 /*------------------------------- PFS STAT ---------------------------------------*/
 struct TPFSStatRow {
     int point_id;
@@ -9696,7 +9425,347 @@ void createXMLPFSShortStat(
     NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Общая"));
 }
 
-/*---------------------------------------- ---------------------------------------*/
+struct TPFSFullStatCombo : public TOrderStatItem
+{
+    const TPFSStatRow &row;
+    TPFSFullStatCombo(const TPFSStatRow &_row): row(_row) {}
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
+};
+
+void TPFSFullStatCombo::add_data(ostringstream &buf) const
+{
+        // Дата
+        buf << DateTimeToStr(row.scd_out, "dd.mm.yyyy") << delim;
+        // Рейс
+        buf << row.flt << delim;
+        // Маршрут
+        buf << row.route << delim;
+        // Статус
+        buf << row.status << delim;
+        // Кол-во мест
+        buf << row.seats << delim;
+        // RBD
+        buf << row.subcls << delim;
+        // PNR
+        buf << row.pnr << delim;
+        // Фамилия
+        buf << row.surname << delim;
+        // Имя
+        buf << row.name << delim;
+        // Пол
+        buf << row.gender << delim;
+        // Дата рождения
+        buf << (row.birth_date == NoExists ? "" : DateTimeToStr(row.birth_date, "dd.mm.yyyy"));
+        buf << endl;
+}
+
+void TPFSFullStatCombo::add_header(ostringstream &buf) const
+{
+    buf
+        << "Дата" << delim
+        << "Рейс" << delim
+        << "Маршрут" << delim
+        << "Статус" << delim
+        << "Мест" << delim
+        << "RBD" << delim
+        << "PNR" << delim
+        << "Фамилия" << delim
+        << "Имя" << delim
+        << "Пол" << delim
+        << "Рождение"
+        << endl;
+}
+
+template <class T>
+void RunPFSFullFile(const TStatParams &params, T &writer, TPrintAirline &prn_airline)
+{
+    TPFSStat PFSStat;
+    RunPFSStat(params, PFSStat, prn_airline);
+    for(TPFSStat::iterator i = PFSStat.begin(); i != PFSStat.end(); i++)
+        writer.insert(TPFSFullStatCombo(*i));
+}
+
+/*--------------------------------------------------------------------------------*/
+
+/* GRISHA */
+void create_plain_files(
+        const TStatParams &params,
+        double &data_size,
+        double &data_size_zip,
+        TQueueItem &item
+        )
+{
+    TFileParams file_params(item.params);
+    // get file name
+    string file_name =
+        file_params.get_name() + "." +
+        DateTimeToStr(item.time, "yymmddhhnn") + "." +
+        DateTimeToStr(params.FirstDate, "yymm") + ".csv";
+
+    TPrintAirline airline;
+    TOrderStatWriter order_writer(item.id, params.FirstDate, file_name);
+    switch(params.statType) {
+        case statRFISC:
+            RunRFISCStat(params, order_writer, airline);
+            break;
+        case statService:
+            RunServiceStat(params, order_writer, airline);
+            break;
+        case statUnaccBag:
+            RunUnaccBagStat(params, order_writer, airline);
+            break;
+        case statTlgOutShort:
+        case statTlgOutDetail:
+        case statTlgOutFull:
+            RunTlgOutStatFile(params, order_writer, airline);
+            break;
+        case statSelfCkinShort:
+        case statSelfCkinDetail:
+        case statSelfCkinFull:
+            RunSelfCkinStatFile(params, order_writer, airline);
+            break;
+        case statAnnulBT:
+            RunAnnulBTStatFile(params, order_writer, airline);
+            break;
+        case statFull:
+        case statTrferFull:
+            RunFullStatFile(params, order_writer, airline);
+            break;
+        case statLimitedCapab:
+            RunLimitedCapabStatFile(params, order_writer, airline);
+            break;
+        case statAgentShort:
+        case statAgentFull:
+        case statAgentTotal:
+            RunAgentStatFile(params, order_writer, airline);
+            break;
+        case statShort:
+        case statDetail:
+        case statPactShort:
+            RunDetailStatFile(params, order_writer, airline);
+            break;
+        case statPFSFull:
+            RunPFSFullFile(params, order_writer, airline);
+            break;
+            /*
+        case statPFSShort:
+            RunPFSShortFile(params, order_writer, airline);
+            break;
+            */
+        default:
+            throw Exception("unsupported statType %d", params.statType);
+    }
+    order_writer.finish();
+    data_size += order_writer.data_size;
+    data_size_zip += order_writer.data_size_zip;
+}
+
+void processStatOrders(TQueueItem &item) {
+    TPerfTimer tm;
+    tm.Init();
+    try {
+        TCachedQuery finishQry(
+                "update stat_orders set "
+                "   data_size = :data_size, "
+                "   data_size_zip = :data_size_zip, "
+                "   time_created = :tc, "
+                "   status = :status "
+                "where file_id = :file_id",
+                QParams()
+                << QParam("data_size", otFloat)
+                << QParam("data_size_zip", otFloat)
+                << QParam("tc", otDate)
+                << QParam("file_id", otInteger, item.id)
+                << QParam("status", otInteger)
+                );
+        TCachedQuery progressQry("update stat_orders set progress = :progress where file_id = :file_id",
+                QParams()
+                << QParam("file_id", otInteger, item.id)
+                << QParam("progress", otInteger)
+                );
+
+        TStatParams params;
+        params.fromFileParams(item.params);
+
+        TReqInfo::Instance()->Initialize(params.desk_city);
+
+        TPeriods periods;
+        periods.get(params.FirstDate, params.LastDate);
+
+        int parts = 0;
+        double data_size = 0;
+        double data_size_zip = 0;
+        TPeriods::TItems::iterator i = periods.items.begin();
+
+        // Возможно, в базе уже есть данные отчета (so_data не пустой)
+        // тогда цикл надо начинать с последнего собранного куска
+        // Иначе говоря, перематываем на текущее состояние сборки.
+        TStatOrders so;
+        so.get(item.id);
+        if(not so.so_data_empty(item.id)) {
+            const TStatOrderData &so_data = so.items.begin()->second.so_data;
+            for(
+                    TStatOrderData::const_iterator i_data = so_data.begin();
+                    (i_data != so_data.end() and not i_data->md5_sum.empty());
+                    i_data++
+               ) {
+                data_size += i_data->file_size;
+                data_size_zip += i_data->file_size_zip;
+                // отматываем периоды
+                // 1. в so_data могут быть пропуски в месяцах, если в них не было данных
+                // поэтому простой i++ не получится
+                // 2. Дата периода не обязана быть первым днем месяца, в то время как
+                // месяц отчета всегда первый день месяца
+                while(true) {
+                    if(DateTimeToStr(i->first, "mm.yy") == DateTimeToStr(i_data->month, "mm.yy"))
+                        break;
+                    i++;
+                    parts++;
+                }
+            }
+            // После перемотки итератор периода стоит на последнем успешном месяце
+            // Надо его передвинуть на новый, еще не собранный месяц
+            // как и счетчик parts, чтобы прогресс отображался правильно
+            i++;
+            parts++;
+        }
+
+        periods.dump(i);
+
+        for(; i != periods.items.end();
+                i++,
+                commit_progress(progressQry.get(), ++parts, periods.items.size())
+           ) {
+            params.FirstDate = i->first;
+            params.LastDate = i->second;
+
+            create_plain_files(
+                    params,
+                    data_size,
+                    data_size_zip,
+                    item
+                    );
+        }
+        finishQry.get().SetVariable("data_size", data_size);
+        finishQry.get().SetVariable("data_size_zip", data_size_zip);
+        finishQry.get().SetVariable("tc", NowUTC());
+        finishQry.get().SetVariable("status", stReady);
+        finishQry.get().Execute();
+    } catch(Exception &E) {
+        TErrCommit::Instance()->exec(item.id, stError, string(E.what()).substr(0, 250).c_str());
+    } catch(...) {
+        TErrCommit::Instance()->exec(item.id, stError, "unknown");
+    }
+     ProgTrace(TRACE5, "Stat Orders processing time: %s", tm.PrintWithMessage().c_str());
+}
+
+void stat_orders_synchro(void)
+{
+    TStatOrders so;
+    so.get(NoExists);
+    TDateTime time_out = NowUTC() - ORDERS_TIMEOUT();
+    set<string> files;
+    for(TStatOrderMap::iterator i = so.items.begin(); i != so.items.end(); i++) {
+        const TStatOrder &so_item = i->second;
+        if(so_item.status != stRunning and so_item.time_created <= time_out)
+            so_item.del();
+        else {
+            for(TStatOrderData::const_iterator so_data = so_item.so_data.begin();
+                    so_data != so_item.so_data.end();
+                    so_data++) {
+                files.insert(
+                        get_part_file_name(
+                            so_item.file_id,
+                            so_data->month
+                            )
+                        );
+            }
+        }
+    }
+
+    namespace fs = boost::filesystem;
+    fs::path so_path(ORDERS_PATH());
+    fs::directory_iterator end_iter;
+    for ( fs::directory_iterator dir_itr( so_path ); dir_itr != end_iter; ++dir_itr ) {
+        if(files.find(dir_itr->path().c_str()) == files.end()) {
+            fs::remove_all(dir_itr->path());
+        }
+    }
+}
+
+int nosir_synchro(int argc,char **argv)
+{
+    cout << DateTimeToStr(NowUTC(), "dd.mm.yyyy 00:00:00") << endl;
+    return 1;
+}
+
+
+void stat_orders_collect(void)
+{
+    TFileQueue file_queue;
+    file_queue.get( TFilterQueue( OWN_POINT_ADDR(), FILE_COLLECT_TYPE ) );
+    for ( TFileQueue::iterator item=file_queue.begin();
+            item!=file_queue.end();
+            item++, OraSession.Commit() ) {
+        try {
+            switch(DecodeOrderSource(item->params[PARAM_ORDER_SOURCE])) {
+                case osSTAT :
+                    processStatOrders(*item);
+                    break;
+                default:
+                    break;
+            }
+            TFileQueue::deleteFile(item->id);
+        }
+        catch(Exception &E) {
+            OraSession.Rollback();
+            try
+            {
+                EOracleError *orae=dynamic_cast<EOracleError*>(&E);
+                if (orae!=NULL&&
+                        (orae->Code==4061||orae->Code==4068)) continue;
+                ProgError(STDLOG,"Exception: %s (file id=%d), SQLText: %s",E.what(),item->id, orae->SQLText());
+            }
+            catch(...) {};
+        }
+        catch(...) {
+            OraSession.Rollback();
+            ProgError(STDLOG, "Something goes wrong");
+        }
+    }
+}
+
+void orderStat(const TStatParams &params, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TStatOrders so;
+    so.get(NoExists); // list contains all orders in the system
+    if(so.size() >= ORDERS_MAX_TOTAL_SIZE()) {
+        NewTextChild(resNode, "collect_msg", getLocaleText("MSG.STAT_ORDERS.ORDERS_MAX_TOTAL_SIZE_EXCEEDED"));
+    } else {
+        so.get(); // default behaviour, orders list for current user
+        if(so.is_running()) {
+            NewTextChild(resNode, "collect_msg", getLocaleText("MSG.STAT_ORDERS.IS_RUNNING"));
+        } else
+            if(so.size() >= ORDERS_MAX_SIZE()) {
+                NewTextChild(resNode, "collect_msg", getLocaleText("MSG.STAT_ORDERS.MAX_ORDERS_SIZE_EXCEEDED",
+                            LParams() << LParam("max", getFileSizeStr(ORDERS_MAX_SIZE()))
+                            ));
+            } else {
+                map<string, string> file_params;
+                params.toFileParams(file_params);
+                int file_id = TFileQueue::putFile(
+                        OWN_POINT_ADDR(),
+                        OWN_POINT_ADDR(),
+                        FILE_COLLECT_TYPE,
+                        file_params,
+                        ""
+                        );
+                TStatOrder(file_id, TReqInfo::Instance()->user.user_id, osSTAT).toDB();
+                NewTextChild(resNode, "collect_msg", getLocaleText("MSG.COLLECT_STAT_INFO"));
+            }
+    }
+}
 
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
