@@ -832,7 +832,7 @@ std::string denormSeatNum(const std::string& seatNum)
     std::string row(seatNum.begin(), --seatNum.end());
 
     std::ostringstream denorm;
-    denorm << denorm_iata_row(row, NULL) << denorm_iata_line(std::string(1, letter), false);
+    denorm << denorm_iata_row(row, NULL) << denorm_iata_line(std::string(1, letter), true);
     return denorm.str();
 }
 

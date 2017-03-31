@@ -761,7 +761,7 @@ struct GetSeatmapXmlResult
 
     std::list<XmlPlaceList> lPlacelist;
 
-    iatci::dcrcka::Result toIatci() const;
+    iatci::dcrcka::Result toIatci(const iatci::FlightDetails& outbFlt) const;
 
     GetSeatmapXmlResult(xmlNodePtr node);
 };

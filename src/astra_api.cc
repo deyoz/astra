@@ -413,41 +413,6 @@ void AstraEngine::initReqInfo() const
 
 //---------------------------------------------------------------------------------------
 
-//С7300/29.05 ДМД
-//СУ1204/28 ПЛК
-//ЮТ103 СОЧ
-static void parseTrip(const std::string& trip,
-                      std::string& airline,
-                      std::string& flNum,
-                      std::string& scd)
-{
-    ASSERT(trip.length() > 4);
-    std::vector<std::string> splitted1;
-    StrUtils::split_string(splitted1, trip, ' ');
-    ASSERT(!splitted1.empty());
-    std::string left = splitted1.at(0);
-    ASSERT(!left.empty());
-    if(algo::contains(left, '/')) {
-        std::vector<std::string> splitted2;
-        StrUtils::split_string(splitted2, left, '/');
-        ASSERT(splitted2.size() == 2);
-        left = splitted2.at(0);
-        scd = splitted2.at(1);
-    }
-
-    ASSERT(left.length() > 2);
-    size_t airlLen = 2;
-    if(StrUtils::IsLatOrRusChar(left[2])) {
-        airlLen = 3; // чтобы обрабатывать 3-х символьный код компании
-    }
-    airline = left.substr(0, airlLen);
-    flNum = left.substr(airlLen);
-
-    LogTrace(TRACE3) << trip << " parsed to airline:" << airline << "; "
-                     << "flNum:" << flNum << "; "
-                     << "scd:" << scd;
-}
-
 static boost::optional<XmlPlaceLayer> findLayer(const XmlPlace& place, const std::string& layerType)
 {
     for(const XmlPlaceLayer& layer: place.layers) {
@@ -456,43 +421,6 @@ static boost::optional<XmlPlaceLayer> findLayer(const XmlPlace& place, const std
         }
     }
     return boost::none;
-}
-
-static iatci::FlightDetails createFlightDetails(const std::string& trip,
-                                                const XmlFilterRoutes& filterRoutes)
-{
-    std::string airl, flNum, scd;
-    parseTrip(trip, airl, flNum, scd);
-
-    std::string airpDep = filterRoutes.depItem().airp,
-                airpArv = filterRoutes.arrItem().airp;
-
-    TDateTime now_local = UTCToLocal(NowUTC(), AirpTZRegion(airpDep));
-    int now_day_local = ASTRA::NoExists,
-        now_mon_local = ASTRA::NoExists,
-        now_year_local = ASTRA::NoExists;
-    DecodeDate(now_local,
-                      now_year_local, now_mon_local, now_day_local);
-    LogTrace(TRACE3) << "current local year: " << now_year_local << "; "
-                     << "local month: " << now_mon_local << "; "
-                     << "local day: " << now_day_local;
-
-    if(scd.length() == 2) {
-        // только день - берём текущие месяц и год
-        ASSERT(sscanf(scd.c_str(), "%d", &now_day_local) == 1);
-    } else if(scd.length() == 5 ) {
-        // день.месяц - берём текущий год
-        ASSERT(sscanf(scd.c_str(), "%d.%d", &now_day_local, &now_mon_local) == 2);
-    }
-
-    TDateTime scd_local = ASTRA::NoExists;
-    EncodeDate(now_year_local, now_mon_local, now_day_local, scd_local);
-
-    return iatci::FlightDetails(airl,
-                                Ticketing::getFlightNum(flNum),
-                                airpDep,
-                                airpArv,
-                                DateTimeToBoost(scd_local).date());
 }
 
 static iatci::CabinDetails createCabinDetails(const XmlPlaceList& placelist)
@@ -1102,21 +1030,22 @@ iatci::dcrcka::Result fillPaxList(const iatci::PlfParams& plfParams)
 
 iatci::dcrcka::Result fillSeatmap(const iatci::SmfParams& smfParams)
 {
+    const iatci::FlightDetails& outbFlt = smfParams.outboundFlight();
     LogTrace(TRACE3) << __FUNCTION__ << " by "
-                     << "airp_dep[" << smfParams.outboundFlight().depPort() << "]; "
-                     << "airline["  << smfParams.outboundFlight().airline() << "]; "
-                     << "flight["   << smfParams.outboundFlight().flightNum() << "]; "
-                     << "dep_date[" << smfParams.outboundFlight().depDate() << "]; ";
+                     << "airp_dep[" << outbFlt.depPort() << "]; "
+                     << "airline["  << outbFlt.airline() << "]; "
+                     << "flight["   << outbFlt.flightNum() << "]; "
+                     << "dep_date[" << outbFlt.depDate() << "]; ";
 
-    int pointDep = astra_api::findDepPointId(smfParams.outboundFlight().depPort(),
-                                             smfParams.outboundFlight().airline(),
-                                             smfParams.outboundFlight().flightNum().get(),
-                                             smfParams.outboundFlight().depDate());
+    int pointDep = astra_api::findDepPointId(outbFlt.depPort(),
+                                             outbFlt.airline(),
+                                             outbFlt.flightNum().get(),
+                                             outbFlt.depDate());
 
     LogTrace(TRACE3) << "seatmap point id: " << pointDep;
 
     GetSeatmapXmlResult seatmapXmlRes = AstraEngine::singletone().GetSeatmap(pointDep);
-    return seatmapXmlRes.toIatci();
+    return seatmapXmlRes.toIatci(outbFlt);
 }
 
 iatci::dcrcka::Result printBoardingPass(const iatci::BprParams& bprParams)
@@ -2438,7 +2367,7 @@ GetSeatmapXmlResult::GetSeatmapXmlResult(xmlNodePtr node)
     }
 }
 
-iatci::dcrcka::Result GetSeatmapXmlResult::toIatci() const
+iatci::dcrcka::Result GetSeatmapXmlResult::toIatci(const iatci::FlightDetails& outbFlt) const
 {
     if(lPlacelist.empty() || filterRoutes.items.empty()) {
         LogError(STDLOG) << "Seatmap failed!";
@@ -2446,7 +2375,7 @@ iatci::dcrcka::Result GetSeatmapXmlResult::toIatci() const
     }
 
     return iatci::dcrcka::Result::makeSeatmapResult(iatci::dcrcka::Result::Ok,
-                                                    createFlightDetails(trip, filterRoutes),
+                                                    outbFlt,
                                                     createSeatmapDetails(lPlacelist));
 
 }
