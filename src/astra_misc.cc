@@ -55,6 +55,24 @@ bool TTripInfo::getByPointIdTlg ( const int point_id_tlg )
   return getByPointId( Qry.FieldAsInteger( "point_id_spp" ) );
 }
 
+bool TTripInfo::getByCRSPnrId(const int pnr_id)
+{
+    TCachedQuery Qry("select point_id from crs_pnr where pnr_id = :pnr_id",
+            QParams() << QParam("pnr_id", otInteger, pnr_id));
+    Qry.get().Execute();
+    if(Qry.get().Eof) return false;
+    return getByPointIdTlg(Qry.get().FieldAsInteger("point_Id"));
+}
+
+bool TTripInfo::getByCRSPaxId(const int pax_id)
+{
+    TCachedQuery Qry("select pnr_id from crs_pax where pax_id = :pax_id",
+            QParams() << QParam("pax_id", otInteger, pax_id));
+    Qry.get().Execute();
+    if(Qry.get().Eof) return false;
+    return getByCRSPnrId(Qry.get().FieldAsInteger("pnr_id"));
+}
+
 bool TTripInfo::getByGrpId ( const int grp_id )
 {
   TQuery Qry(&OraSession);

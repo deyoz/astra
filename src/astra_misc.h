@@ -230,6 +230,8 @@ class TTripInfo
     virtual bool getByPointId ( const int point_id );
     virtual bool getByPointIdTlg ( const int point_id_tlg );
     virtual bool getByGrpId ( const int grp_id );
+    virtual bool getByCRSPnrId ( const int pnr_id );
+    virtual bool getByCRSPaxId ( const int pax_id );
     void get_client_dates(TDateTime &scd_out_client, TDateTime &real_out_client, bool trunc_time=true) const;
     static TDateTime get_scd_in(const int &point_arv);
     TDateTime get_scd_in(const std::string &airp_arv) const;
