@@ -679,7 +679,7 @@ void TSR::parse(const char *val)
     format = items[1][0];
     switch(format) {
         case 'C':
-            c.parse(data, etClass);
+            c.parse(data, etSubcls);
             break;
         case 'Z':
             z.parse(data);
