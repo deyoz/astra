@@ -3651,7 +3651,7 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
         int p = Salons.getPriority( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) );
         if ( p < priority &&
              place->isLayer( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) ) ) {
-          throw UserException( "MSG.SEATS.SEAT_NO.EXIT_MORE_PRIORITY" );
+          throw UserException( "MSG.SEATS.SEAT_NO.EXIST_MORE_PRIORITY" );
         }
         if ( p == priority ) { // сохраняем места с нашим слоем
           strcpy( r.first.line, place->xname.c_str() );
@@ -4292,7 +4292,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
   if ( seatLayer.layer_type != cltUnknown ) {
     if ( BASIC_SALONS::TCompLayerTypes::Instance()->priority( seatLayer.layer_type ) <
          BASIC_SALONS::TCompLayerTypes::Instance()->priority( layer_type ) ) {
-      throw UserException( "MSG.SEATS.SEAT_NO.EXIT_MORE_PRIORITY" ); //пассажир имеет более приоритетное место
+      throw UserException( "MSG.SEATS.SEAT_NO.EXIST_MORE_PRIORITY" ); //пассажир имеет более приоритетное место
     }
   }
   vector<TSeatRange> seatRanges;
@@ -4349,13 +4349,8 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
       ProgTrace( TRACE5, "RFISCMode=%d", salonList.getRFISCMode() );
       passTariffs.trace( TRACE5 );
       if ( passTariffs.status() == TSeatTariffMap::stUseRFISC ) {
-        if ( selfckin_client() ) {
-          Qry.SetVariable( "point_id", point_id );
-          Qry.Execute();
-          if ( !Qry.Eof ) {
-            addAirlineSelfCkinTariff( Qry.FieldAsString( "airline" ), passTariffs );
-          }
-        }
+        SALONS2::TSelfCkinSalonTariff SelfCkinSalonTariff;
+        SelfCkinSalonTariff.setTariffMap( point_id, passTariffs );
         seat->SetRFISC( point_id, passTariffs );
         std::map<int, TRFISC,classcomp> vrfiscs;
         seat->GetRFISCs( vrfiscs );

@@ -26,7 +26,7 @@ string getElemId(const string &val, TElemType el)
     string lang;
     string subcls = ElemToElemId(el, val, fmt, lang);
     if(subcls.empty())
-        throw ETlgError("unknown subcls %s", val.c_str());
+        throw ETlgError("unknown %s elem %s", EncodeElemType(el), val.c_str());
     return subcls;
 }
 
@@ -1515,11 +1515,11 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
                     switch(i->second.sr.type) {
                         case TSR::srWB:
                             {
-                                if(not seatRanges.empty()) { // Пришел запрос вида LR SR.WB.C.C12Y116
+                                if(not seatRanges.empty()) { // Пришел запрос вида LR SR.WB.S.1A/1B....
                                     set_seats_option(options.seats, seatRanges, point_id_spp);
                                     options.seat_plan = false;
                                 }
-                                if(not i->second.sr.c.empty()) { // Пришел запрос вида LR SR.WB.S.1A/1B....
+                                if(not i->second.sr.c.empty()) {  // Пришел запрос вида LR SR.WB.C.C12Y116
                                     for(TCFG::iterator
                                             cfg_item = i->second.sr.c.begin();
                                             cfg_item != i->second.sr.c.end();
@@ -1529,6 +1529,7 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
                                         options.cfg.back().cfg = cfg_item->second;
                                     }
                                     options.seat_restrict.clear();
+                                    options.seat_plan = false;
                                 }
                             }
                             break;

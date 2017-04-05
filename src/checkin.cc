@@ -4729,7 +4729,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   //здесь набираем
                   if ( SALONS2::selfckin_client() ) {
                     tariffMap.get_rfisc_colors( fltAdvInfo.airline );
-                    SALONS2::addAirlineSelfCkinTariff( fltAdvInfo.airline, tariffMap );
+                    SALONS2::TSelfCkinSalonTariff SelfCkinSalonTariff;
+                    SelfCkinSalonTariff.setTariffMap( grp.point_dep, tariffMap );
                   }
                   else {
                     tariffMap.get(fltAdvInfo, markFltInfo, pax.tkn);
