@@ -12418,9 +12418,9 @@ public:
     void AddRFIC(string RFIC) { filterRFIC.insert(RFIC); }
     bool Check(const TServiceRow& row) const
     {
-        // if (filterRFIC.empty()) return true; // не выбран ни один фильтр
+        if (filterRFIC.empty()) return true; // не выбран ни один фильтр, значит отдавать всё
         for (set<string>::const_iterator iRFIC = filterRFIC.begin(); iRFIC != filterRFIC.end(); ++iRFIC)
-            if (row.RFIC == *iRFIC) return true;
+            if (row.RFIC == *iRFIC) return true; // найден соответствующий фильтр
         return false;
     }
 };
@@ -12471,7 +12471,8 @@ void SERVICES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     const EServiceSortOrder sortOrder = by_reg_no; // TODO получать из XML
     //  инициализация фильтра
     TServiceFilter filter;
-    filter.AddRFIC("G"); // TODO получать из XML
+    for (list<string>::const_iterator iRFIC = rpt_params.rfic.begin(); iRFIC != rpt_params.rfic.end(); ++iRFIC)
+        filter.AddRFIC(*iRFIC);
     //  цикл для каждого пакса в выборке
     for (; !Qry.Eof; Qry.Next())
     {

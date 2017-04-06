@@ -29,6 +29,7 @@ struct TRptParams {
         TSimpleMktFlight mkt_flt;
         std::string client_type;
         std::map< TRemCategory, std::vector<std::string> > rems;
+        std::list<std::string> rfic;
         int text;
         std::string ElemIdToReportElem(TElemType type, const std::string &id, TElemFmt fmt, std::string firm_lang = "") const;
         std::string ElemIdToReportElem(TElemType type, int id, TElemFmt fmt, std::string firm_lang = "") const;

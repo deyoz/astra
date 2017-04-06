@@ -452,6 +452,14 @@ void TRptParams::Init(xmlNodePtr node)
             rems[cat].push_back(NodeAsString(currNode));
         };
     }
+    xmlNodePtr rficNode = GetNodeFast("rfic", node);
+    if(rficNode != NULL) {
+        xmlNodePtr currNode = rficNode->children;
+        for(; currNode; currNode = currNode->next)
+        {
+            rfic.push_back(NodeAsString(currNode));
+        };
+    }
     if(IsInter()) req_lang = AstraLocale::LANG_EN;
 }
 
