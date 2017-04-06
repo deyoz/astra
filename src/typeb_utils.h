@@ -1150,9 +1150,11 @@ class TBSMOptions : public TCreateOptions
     void init()
     {
       class_of_travel=false;
+      tag_printer_id=false;
     };
   public:
     bool class_of_travel;
+    bool tag_printer_id;
     TBSMOptions() {init();};
     virtual ~TBSMOptions() {};
     virtual void clear()
@@ -1166,6 +1168,7 @@ class TBSMOptions : public TCreateOptions
       if (node==NULL) return;
       xmlNodePtr node2=node->children;
       class_of_travel=NodeAsIntegerFast("class_of_travel", node2, (int)class_of_travel) != 0;
+      tag_printer_id=NodeAsIntegerFast("tag_printer_id", node2, (int)tag_printer_id) != 0;
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
@@ -1181,6 +1184,11 @@ class TBSMOptions : public TCreateOptions
           class_of_travel=OptionsQry.FieldAsInteger("value")!=0;
           continue;
         };
+        if (cat=="TAG_PRINTER_ID")
+        {
+          tag_printer_id=OptionsQry.FieldAsInteger("value")!=0;
+          continue;
+        };
       };
     };
     virtual localizedstream& logStr(localizedstream &s) const
@@ -1189,7 +1197,11 @@ class TBSMOptions : public TCreateOptions
       s << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.BSM.CLASS_OF_TRAVEL") << ": "
         << (class_of_travel ? s.getLocaleText("да"):
-                              s.getLocaleText("нет"));
+                              s.getLocaleText("нет"))
+        << ", "
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.BSM.TAG_PRINTER_ID") << ": "
+        << (tag_printer_id ? s.getLocaleText("да"):
+                             s.getLocaleText("нет"));
       return s;
     };
     virtual localizedstream& extraStr(localizedstream &s) const
@@ -1198,6 +1210,10 @@ class TBSMOptions : public TCreateOptions
       s << s.getLocaleText("CAP.TYPEB_OPTIONS.BSM.CLASS_OF_TRAVEL") << ": "
         << (class_of_travel ? s.getLocaleText("да"):
                               s.getLocaleText("нет"))
+        << endl
+        << s.getLocaleText("CAP.TYPEB_OPTIONS.BSM.TAG_PRINTER_ID") << ": "
+        << (tag_printer_id ? s.getLocaleText("да"):
+                             s.getLocaleText("нет"))
         << endl;
       return s;
     };
@@ -1211,7 +1227,8 @@ class TBSMOptions : public TCreateOptions
       try
       {
         const TBSMOptions &opt = dynamic_cast<const TBSMOptions&>(item);
-        return class_of_travel==opt.class_of_travel;
+        return class_of_travel==opt.class_of_travel &&
+               tag_printer_id==opt.tag_printer_id;
       }
       catch(std::bad_cast)
       {
@@ -1224,7 +1241,8 @@ class TBSMOptions : public TCreateOptions
       try
       {
         const TBSMOptions &opt = dynamic_cast<const TBSMOptions&>(item);
-        return class_of_travel==opt.class_of_travel;
+        return class_of_travel==opt.class_of_travel &&
+               tag_printer_id==opt.tag_printer_id;
       }
       catch(std::bad_cast)
       {
@@ -1238,6 +1256,7 @@ class TBSMOptions : public TCreateOptions
       {
         const TBSMOptions &opt = dynamic_cast<const TBSMOptions&>(item);
         class_of_travel=opt.class_of_travel;
+        tag_printer_id=opt.tag_printer_id;
       }
       catch(std::bad_cast) {};
     };

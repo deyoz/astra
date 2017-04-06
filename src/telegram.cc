@@ -1539,9 +1539,9 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info, int type
 namespace BSM
 {
 
-bool TTlgContent::addTag(double no, const TTlgContent& src)
+bool TTlgContent::addTag(const TTagKey &tagKey, const TTlgContent& src)
 {
-  map<double, CheckIn::TTagItem>::const_iterator srcTag=src.tags.find(no);
+  map<TTagKey, CheckIn::TTagItem>::const_iterator srcTag=src.tags.find(tagKey);
   if (srcTag==src.tags.end()) return false;
   map<int, CheckIn::TBagItem>::const_iterator srcBag=src.bags.find(srcTag->second.bag_num);
   if (srcBag==src.bags.end()) return false;
@@ -1564,7 +1564,7 @@ bool TTlgContent::addTag(double no, const TTlgContent& src)
     if (!addBag(srcBag->second)) return false;
   };
 
-  map<double, CheckIn::TTagItem>::const_iterator destTag=tags.find(srcTag->second.no);
+  map<TTagKey, CheckIn::TTagItem>::const_iterator destTag=tags.find(TTagKey(srcTag->second.no, srcBag->second.is_trfer));
   if (destTag==tags.end())
   {
     if (!addTag(srcTag->second)) return false;
@@ -1574,9 +1574,10 @@ bool TTlgContent::addTag(double no, const TTlgContent& src)
 
 bool TTlgContent::addTag(const CheckIn::TTagItem &tag)
 {
-  if (tag.bag_num==ASTRA::NoExists ||
-      bags.find(tag.bag_num)==bags.end()) return false;
-  tags[tag.no]=tag;
+  if (tag.bag_num==ASTRA::NoExists) return false;
+  map<int, CheckIn::TBagItem>::const_iterator bag=bags.find(tag.bag_num);
+  if (bag==bags.end()) return false;
+  tags[TTagKey(tag.no, bag->second.is_trfer)]=tag;
   return true;
 };
 
@@ -1758,14 +1759,14 @@ void CompareContent(const TTlgContent& con1, const TTlgContent& con2, vector<TTl
       pr_chd= i1!=con1.OnwardFlt.end() || i2!=con2.OnwardFlt.end();
     };
 
-    map<double, CheckIn::TTagItem>::const_iterator i1=con1.tags.begin();
-    map<double, CheckIn::TTagItem>::const_iterator i2=con2.tags.begin();
+    map<TTagKey, CheckIn::TTagItem>::const_iterator i1=con1.tags.begin();
+    map<TTagKey, CheckIn::TTagItem>::const_iterator i2=con2.tags.begin();
     int res;
     for(;i1!=con1.tags.end() || i2!=con2.tags.end();)
     {
       res=0;
       if (i1==con1.tags.end() ||
-          (i2!=con2.tags.end() && i1->first>i2->first)) res=-1;
+          (i2!=con2.tags.end() && i2->first<i1->first)) res=-1;
       if (i2==con2.tags.end() ||
           (i1!=con1.tags.end() && i1->first<i2->first)) res=1;
 
@@ -1855,26 +1856,34 @@ std::string TlgElemIdToElem(TElemType type, std::string id, bool pr_lat)
     }
 };
 
-void CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo, TTlgOutPartInfo &partInfo)
+bool CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo, bool is_trfer, TTlgOutPartInfo &partInfo)
 {
   const TypeB::TBSMOptions &options=*(createInfo.optionsAs<TypeB::TBSMOptions>());
 
   partInfo.pr_lat=options.is_lat;
 
-  map<int/*reg_no*/, pair<TPaxItem, vector<CheckIn::TTagItem> > > tmpPax;
-  for(map<double, CheckIn::TTagItem>::const_iterator iTag=con.tags.begin();iTag!=con.tags.end();++iTag)
+  bool equal_is_trfer_exists=false;
+
+  typedef vector< pair<CheckIn::TTagItem, CheckIn::TBagItem> > TmpTagList;
+  typedef map<int/*reg_no*/, pair<TPaxItem, TmpTagList> > TmpPaxMap;
+
+  TmpPaxMap tmpPax;
+  for(map<TTagKey, CheckIn::TTagItem>::const_iterator iTag=con.tags.begin();iTag!=con.tags.end();++iTag)
   {
+    if (iTag->first.is_trfer!=is_trfer) continue;
+    equal_is_trfer_exists=true;
     map<int, CheckIn::TBagItem>::const_iterator iBag=con.bags.find(iTag->second.bag_num);
     if (iBag==con.bags.end()) continue;
     map<int, TPaxItem>::const_iterator iPax=con.pax.find(iBag->second.bag_pool_num);
     if (iPax==con.pax.end()) continue;
 
-    map<int, pair<TPaxItem, vector<CheckIn::TTagItem> > >::iterator p=tmpPax.find(iPax->second.reg_no);
+    TmpPaxMap::iterator p=tmpPax.find(iPax->second.reg_no);
     if (p==tmpPax.end())
-      tmpPax[iPax->second.reg_no]=make_pair(iPax->second, vector<CheckIn::TTagItem>(1,iTag->second));
+      tmpPax[iPax->second.reg_no]=make_pair(iPax->second, TmpTagList(1, make_pair(iTag->second, iBag->second)));
     else
-      p->second.second.push_back(iTag->second);
+      p->second.second.push_back(make_pair(iTag->second, iBag->second));
   };
+  if (!equal_is_trfer_exists) return false;
   if (tmpPax.empty()) throw Exception("BSM::CreateTlgBody: tmpPax empty");
 
 
@@ -1895,7 +1904,9 @@ void CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
      default: ;
   };
 
-  body << ".V/1L" << TlgElemIdToElem(etAirp, con.OutFlt.operFlt.airp, options.is_lat) << ENDL;
+  body << ".V/1"
+       << (is_trfer?"T":"L")
+       << TlgElemIdToElem(etAirp, con.OutFlt.operFlt.airp, options.is_lat) << ENDL;
 
   TDateTime scd_out;
   if(con.OutFlt.operFlt.airp == "€Ÿ’")
@@ -1931,27 +1942,32 @@ void CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
     body << ENDL;
   };
 
-  map<int, pair<TPaxItem, vector<CheckIn::TTagItem> > >::const_iterator p=tmpPax.begin();
-  for(;p!=tmpPax.end();++p)
+  for(TmpPaxMap::const_iterator p=tmpPax.begin(); p!=tmpPax.end(); ++p)
   {
-    const vector<CheckIn::TTagItem> &tmpTags=p->second.second;
+    const TmpTagList &tmpTags=p->second.second;
     if (tmpTags.empty()) throw Exception("BSM::CreateTlgBody: tmpTags empty");
     double first_no = 0.;
     int num = 0;
-    vector<CheckIn::TTagItem>::const_iterator i=tmpTags.begin();
+    string printer_id;
+    TmpTagList::const_iterator i=tmpTags.begin();
     while(true)
     {
       if (i!=tmpTags.begin() &&
-          (i==tmpTags.end() || i->no!=first_no+num))
+          (i==tmpTags.end() || i->first.no!=first_no+num || (options.tag_printer_id && i->second.tag_printer_id(options.is_lat)!=printer_id)))
       {
         body << ".N/"
              << setw(10) << setfill('0') << setprecision(0) << first_no
              << setw(3) << setfill('0') << num << ENDL;
+        if (options.tag_printer_id && !printer_id.empty())
+          body << ".T/" << printer_id << ENDL;
       };
       if (i==tmpTags.end()) break;
-      if (i==tmpTags.begin() || i->no!=first_no+num)
+      if (i==tmpTags.begin() || i->first.no!=first_no+num || (options.tag_printer_id && i->second.tag_printer_id(options.is_lat)!=printer_id))
       {
-        first_no=i->no;
+        printer_id.clear();
+        if (options.tag_printer_id)
+          printer_id=i->second.tag_printer_id(options.is_lat);
+        first_no=i->first.no;
         num=1;
       }
       else num++;
@@ -1984,6 +2000,7 @@ void CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
   ostringstream ending;
   ending << "ENDBSM" << ENDL;
   partInfo.ending = ending.str();
+  return true;
 };
 
 bool IsSend( const TAdvTripInfo &fltInfo, TBSMAddrs &addrs )
@@ -2018,12 +2035,18 @@ void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &
 
       for(vector<TypeB::TCreateInfo>::const_iterator j=addrs.createInfo.begin();j!=addrs.createInfo.end();++j)
       {
-        p.id=NoExists;
-        p.num=1;
         p.addr=TypeB::format_addr_line(j->get_addrs());
-        CreateTlgBody(*i, *j, p);
-        TelegramInterface::SaveTlgOutPart(p, true, false);
-        TelegramInterface::SendTlg(p.id, false);
+        for(bool is_trfer=false; ; is_trfer=!is_trfer)
+        {
+          p.id=NoExists;
+          p.num=1;
+          if (CreateTlgBody(*i, *j, is_trfer, p))
+          {
+            TelegramInterface::SaveTlgOutPart(p, true, false);
+            TelegramInterface::SendTlg(p.id, false);
+          };
+          if (is_trfer) break;
+        };
       };
     };
 
