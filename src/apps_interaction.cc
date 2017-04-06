@@ -176,7 +176,11 @@ bool checkAPPSSets( const int point_dep, const std::string& airp_arv, bool& tran
   route.GetRouteAfter(NoExists, point_dep, trtWithCurrent, trtNotCancelled);
 
   if ( route.empty() )
-    throw Exception( "Empty route!!!" );
+  {
+    //нормальныя ситуация, когда маршрут полностью отменен
+    ProgTrace( TRACE5, "Empty route!!! (point_dep=%d)", point_dep );
+    return false;
+  }
 
   TQuery AppsSetsQry( &OraSession );
   AppsSetsQry.Clear();
@@ -200,7 +204,7 @@ bool checkAPPSSets( const int point_dep, const std::string& airp_arv, bool& tran
     if ( r->airp == airp_arv )
       return result;
   }
-  ProgTrace( TRACE5, "Airport %s was not found in the flight route !!!", airp_arv.c_str() );
+  ProgTrace( TRACE5, "Airport %s was not found in the flight route !!! (point_dep=%d)", airp_arv.c_str(), point_dep );
   return false;
 }
 
