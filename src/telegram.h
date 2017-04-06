@@ -225,6 +225,20 @@ class TPaxItem
     };
 };
 
+class TTagKey
+{
+  public:
+    double no;
+    bool is_trfer;
+    TTagKey(double _no, bool _is_trfer) : no(_no), is_trfer(_is_trfer) {}
+    bool operator < (const TTagKey &key) const
+    {
+      if (no!=key.no)
+        return no < key.no;
+      return is_trfer < key.is_trfer;
+    }
+};
+
 class TTlgContent
 {
   public:
@@ -236,7 +250,7 @@ class TTlgContent
     std::string OutCls;
     std::vector< std::list<std::string/*class*/> > OnwardCls;
 
-    std::map<double, CheckIn::TTagItem> tags;
+    std::map<TTagKey, CheckIn::TTagItem> tags;
     std::map<int/*bag_num*/, CheckIn::TBagItem> bags;
     std::map<int/*bag_pool_num*/, TPaxItem> pax;
     TTlgContent()
@@ -244,7 +258,7 @@ class TTlgContent
       indicator=TypeB::None;
       pr_lat_seat=false;
     };
-    bool addTag(double no, const TTlgContent& src);
+    bool addTag(const TTagKey& tagKey, const TTlgContent& src);
     bool addTag(const CheckIn::TTagItem &tag);
     bool addBag(const CheckIn::TBagItem &bag);
 };

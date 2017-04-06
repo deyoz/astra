@@ -339,6 +339,19 @@ std::string TBagItem::key_str_compatible() const
     return "";
 };
 
+std::string TBagItem::tag_printer_id(bool is_lat) const
+{
+  if (desk.size()<=6 &&
+      transliter(desk,1,is_lat)==desk)
+  {
+    for(string::const_iterator i=desk.begin(); i!=desk.end(); ++i)
+      if (!IsUpperLetter(*i)) return "XXXXXX";
+    return desk;
+  }
+  else
+    return "XXXXXX";
+}
+
 void TBagMap::procInboundTrferFromDBTmp()
 {
   for(TBagMap::iterator i=begin(); i!=end(); i++)

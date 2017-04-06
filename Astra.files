@@ -17,6 +17,8 @@ src/apis_tools.cc
 src/apis_tools.h
 src/apis_utils.cc
 src/apis_utils.h
+src/apps_interaction.cc
+src/apps_interaction.h
 src/arx_daily.cc
 src/arx_daily.h
 src/astra_callbacks.cc

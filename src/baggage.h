@@ -172,6 +172,8 @@ class TBagItem
 
     std::string key_str(const std::string& lang="") const;
     std::string key_str_compatible() const;
+
+    std::string tag_printer_id(bool is_lat) const;
 };
 
 class TTagItem
