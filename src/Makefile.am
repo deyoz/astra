@@ -159,9 +159,7 @@ astra_SOURCES = \
   img.cpp \
   astra_api.cpp \
   astra_date_time.cpp \
-  icu_conversion.cpp \ 
   basetables.cc \
-  tz_test.cpp \
   collect.cc \
   collect_data.cc \
   SalonPaxList.cc \
@@ -323,7 +321,6 @@ noinst_HEADERS = \
   astra_api.h \
   astra_date_time.h \
   basetables.h \
-  tz_test.h \
   collect.h \
   collect_data.h \
   SalonPaxList.h \
