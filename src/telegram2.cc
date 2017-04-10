@@ -7526,6 +7526,49 @@ int FWD(TypeB::TDetailCreateInfo &info)
     return tlg_row.id;
 }
 
+struct TIDM {
+    void get(TypeB::TDetailCreateInfo &info);
+    void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
+};
+
+void TIDM::get(TypeB::TDetailCreateInfo &info)
+{
+}
+
+void TIDM::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
+{
+    body.push_back("NIL");
+}
+
+int IDM(TypeB::TDetailCreateInfo &info)
+{
+    TTlgDraft tlg_draft(info);
+    TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
+    ostringstream heading;
+    heading << "IDM" << TypeB::endl
+            << info.flight_view() << "/"
+            << info.scd_local_view() << " " << info.airp_dep_view() << " ";
+    tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + TypeB::endl;
+    tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + TypeB::endl;
+    size_t part_len = tlg_row.textSize();
+
+    vector<string> body;
+    try {
+        TIDM idm;
+        idm.get(info);
+        idm.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
+
+    split_n_save(heading, part_len, tlg_draft, tlg_row, body);
+    tlg_row.ending = "ENDIDM" + TypeB::endl;
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
+    return tlg_row.id;
+}
+
 int PNL(TypeB::TDetailCreateInfo &info)
 {
   TypeB::TPNLADLOptions *forwarderOptions=NULL;
@@ -8886,6 +8929,7 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
     else if(tlgTypeInfo.basic_type == "PIM") vid = PIM(info);
     else if(tlgTypeInfo.basic_type == "LCI") vid = LCI(info);
     else if(tlgTypeInfo.basic_type == "PNL") vid = PNL(info);
+    else if(tlgTypeInfo.basic_type == "IDM") vid = IDM(info);
     else if(tlgTypeInfo.basic_type == "->>") vid = FWD(info);
     else vid = Unknown(info);
     ProgTrace(TRACE5, "utg_prl_tst: %s", tm.PrintWithMessage().c_str());
