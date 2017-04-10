@@ -6475,10 +6475,10 @@ struct TSR_WB_C {
         buf << "SR.WB.C.";
         for(TCFG::iterator i = cfg.begin(); i != cfg.end(); i++) {
             TCFGItem new_item;
-            new_item.cls = i->cls;
+            // new_item.cls = i->cls; // игнорим классы
             new_item.cfg = i->cfg;
-            *i = new_item;
             buf << info.TlgElemIdToElem(etSubcls, i->cls) << i->cfg;
+            *i = new_item;
         }
         body.push_back(buf.str());
 
