@@ -429,6 +429,8 @@ class ChangeStatusInterface: public JxtInterface
 
 class EMDAutoBoundInterface: public JxtInterface
 {
+  private:
+    static bool BeforeLock(const EMDAutoBoundId &id, int &point_id, int &grp_id);
   public:
     EMDAutoBoundInterface(): JxtInterface("EMDAutoBound", "EMDAutoBound")
     {
@@ -439,8 +441,9 @@ class EMDAutoBoundInterface: public JxtInterface
     virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 
     static bool Lock(const EMDAutoBoundId &id, int &point_id, int &grp_id);
+    static bool Lock(const EMDAutoBoundId &id, int &point_id, TCkinGrpIds &tckin_grp_ids);
     static void EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqNode);
-    static void EMDTryBind(int grp_id, xmlNodePtr termReqNode, xmlNodePtr ediResNode);
+    static void EMDTryBind(const TCkinGrpIds &tckin_grp_ids, xmlNodePtr termReqNode, xmlNodePtr ediResNode);
 };
 
 

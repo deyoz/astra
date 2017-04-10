@@ -333,32 +333,24 @@ void TCacheTable::initFields()
             FField.ReferName == "CODE_LAT/CODE" )
         {
           FField.ElemCategory=cecCode;
-          if (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
-            FField.ReferName="CODE";
         };
 
         if (FField.ReferName == "NAME/NAME_LAT" ||
             FField.ReferName == "NAME_LAT/NAME" )
         {
           FField.ElemCategory=cecName;
-          if (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
-            FField.ReferName="NAME";
         };
 
         if (FField.ReferName == "SHORT_NAME/SHORT_NAME_LAT" ||
             FField.ReferName == "SHORT_NAME_LAT/SHORT_NAME" )
         {
           FField.ElemCategory=cecNameShort;
-          if (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
-            FField.ReferName="SHORT_NAME";
         };
 
         if (FField.ReferName == "DESCR/DESCR_LAT" ||
             FField.ReferName == "DESCR_LAT/DESCR" )
         {
           FField.ElemCategory=cecNone;
-          if (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
-            FField.ReferName="DESCR";
         };
 
         if ((code == "ROLES" && FField.Name == "ROLE_NAME") ||
@@ -886,7 +878,7 @@ void TCacheTable::refresh()
     else
         pr_irefresh = false;
     if ( (Params.find(TAG_REFRESH_DATA) != Params.end() &&
-            (!TReqInfo::Instance()->desk.compatible(LATIN_VERSION) || !pr_dconst)) ||
+            !pr_dconst) ||
            pr_irefresh ) {
         if ( pr_irefresh )
           clientVerData = -1;
@@ -902,10 +894,7 @@ void TCacheTable::buildAnswer(xmlNodePtr resNode)
     NewTextChild( dataNode, "code", code() );
     NewTextChild(dataNode, "Forbidden", Forbidden);
     NewTextChild(dataNode, "ReadOnly", ReadOnly);
-    if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION))
-      NewTextChild(dataNode, "keep_locally", KeepLocally );
-    else
-      NewTextChild(dataNode, "Keep_Locally", KeepLocally );
+    NewTextChild(dataNode, "keep_locally", KeepLocally );
     NewTextChild(dataNode, "keep_deleted_rows", KeepDeletedRows );
     vector<string> sql_vars;
     bool user_depend = false;
@@ -926,14 +915,8 @@ void TCacheTable::buildAnswer(xmlNodePtr resNode)
     if(pr_irefresh)
         XMLInterface(dataNode);
 
-    if ( TReqInfo::Instance()->desk.compatible(LATIN_VERSION) ) {
-        if ( refresh_data_type != upNone || pr_irefresh )
-            XMLData(dataNode);
-    }
-    else {
-        if ( refresh_data_type == upExists )
-            XMLData(dataNode);
-    }
+    if ( refresh_data_type != upNone || pr_irefresh )
+        XMLData(dataNode);
 }
 
 void TCacheTable::XMLInterface(const xmlNodePtr dataNode)
@@ -1637,7 +1620,7 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
   if ( !Qry->Eof ) {
     curVerIface = Qry->FieldAsInteger( "tid" );
   }
-  if ( pr_dconst && TReqInfo::Instance()->desk.compatible(LATIN_VERSION) ) {
+  if ( pr_dconst ) {
     Params[ TAG_REFRESH_INTERFACE ].Value.clear();
     Params[ TAG_REFRESH_DATA ].Value.clear();
   }

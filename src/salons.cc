@@ -656,12 +656,6 @@ bool compatibleLayer( ASTRA::TCompLayerType layer_type )
   if ( layer_type == cltDisable &&
        !TReqInfo::Instance()->desk.compatible( DISABLE_LAYERS ) )
     return false;
-  if ( ( layer_type == ASTRA::cltProtBeforePay ||
-         layer_type == ASTRA::cltProtAfterPay ||
-         layer_type == ASTRA::cltPNLBeforePay ||
-         layer_type == ASTRA::cltPNLAfterPay ) &&
-        !TReqInfo::Instance()->desk.compatible( PROT_PAID_VERSION ) )
-    return false;
   return true;
 }
 
@@ -6393,7 +6387,7 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
         }
       }
     }
-    set_alarm( ipoint->point_id, atWaitlist,
+    set_alarm( ipoint->point_id, Alarm::Waitlist,
                idep_pass != passengers.end() &&
                idep_pass->second.isWaitList() &&
                !isFreeSeating( ipoint->point_id ) );
@@ -7968,7 +7962,7 @@ void check_diffcomp_alarm( TCompsRoutes &routes )
  for (  TCompsRoutes::iterator i=routes.begin(); i!=routes.end(); i++ ) {
    //!logProgTrace( TRACE5, "check_diffcomp_alarm: i->point_id=%d, pr_alarm=%d",
    //!log           i->point_id, i->pr_alarm );
-   set_alarm( i->point_id, atDiffComps, i->pr_alarm );
+   set_alarm( i->point_id, Alarm::DiffComps, i->pr_alarm );
  }
 }
 
@@ -9728,22 +9722,13 @@ bool _TSalonPassengers::BuildWaitList( xmlNodePtr dataNode )
       Qry.Execute();
       NewTextChild( passNode, "grp_id", ipass->grp_id );
       NewTextChild( passNode, "pax_id", ipass->pax_id );
-      if (TReqInfo::Instance()->desk.compatible(LATIN_VERSION)) {
-        NewTextChild( passNode, "clname", ipass->cl, def.clname );
-        NewTextChild( passNode, "grp_layer_type",
-                      grp_status_row.layer_type,
-                      EncodeCompLayerType( def.grp_status ) );
-        NewTextChild( passNode, "pers_type",
-                      ElemIdToCodeNative(etPersType, ipass->pers_type),
-                      ElemIdToCodeNative(etPersType, def.pers_type) );
-
-      }
-      else {
-        NewTextChild( passNode, "clname", ipass->cl );
-        NewTextChild( passNode, "grp_layer_type",
-                      grp_status_row.layer_type );
-        NewTextChild( passNode, "pers_type", ipass->pers_type );
-      }
+      NewTextChild( passNode, "clname", ipass->cl, def.clname );
+      NewTextChild( passNode, "grp_layer_type",
+                    grp_status_row.layer_type,
+                    EncodeCompLayerType( def.grp_status ) );
+      NewTextChild( passNode, "pers_type",
+                    ElemIdToCodeNative(etPersType, ipass->pers_type),
+                    ElemIdToCodeNative(etPersType, def.pers_type) );
       NewTextChild( passNode, "reg_no", ipass->reg_no );
       string name = ipass->surname;
       NewTextChild( passNode, "name", TrimString( name ) + string(" ") + ipass->name );

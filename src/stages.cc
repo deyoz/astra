@@ -289,10 +289,10 @@ void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
       };
     }
 
-      check_brd_alarm( point_id );
+    TTripAlarmHook::set(Alarm::Brd, point_id);
     check_unattached_trfer_alarm( point_id );
     check_crew_alarms( point_id );
-    check_unbound_emd_alarm( point_id );
+    TTripAlarmHook::set(Alarm::UnboundEMD, point_id);
     string lexema_id;
     LEvntPrms params;
     params << PrmStage("stage", i->first, airp);

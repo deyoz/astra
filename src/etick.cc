@@ -556,16 +556,9 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
   SearchET(params, ETSearchInterface::spETDisplay, kickInfo);
 
   //в лог отсутствие связи
-  if (TReqInfo::Instance()->desk.compatible(DEFER_ETSTATUS_VERSION))
-  {
-    xmlNodePtr errNode=NewTextChild(resNode,"ets_connect_error");
-    SetProp(errNode,"internal_msgid",get_internal_msgid_hex());
-    NewTextChild(errNode,"message",getLocaleText("MSG.ETS_CONNECT_ERROR"));
-  }
-  else
-  {
-    AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR");
-  };
+  xmlNodePtr errNode=NewTextChild(resNode,"ets_connect_error");
+  SetProp(errNode,"internal_msgid",get_internal_msgid_hex());
+  NewTextChild(errNode,"message",getLocaleText("MSG.ETS_CONNECT_ERROR"));
 }
 
 void EMDSearchInterface::EMDTextView(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1197,8 +1190,7 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
       throw EXCEPTIONS::Exception("ChangeAreaStatus: Wrong mtick");
 
 /*  это позже, когда терминалы будут отложенное подтверждение тоже обрабатывать через ets_connect_error!!!
-    if (TReqInfo::Instance()->client_type==ctTerm &&
-          TReqInfo::Instance()->desk.compatible(DEFER_ETSTATUS_VERSION2))
+    if (TReqInfo::Instance()->client_type==ctTerm)
     {
       xmlNodePtr errNode=NewTextChild(resNode,"ets_connect_error");
       SetProp(errNode,"internal_msgid",get_internal_msgid_hex());
@@ -2106,7 +2098,7 @@ void ChangeStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
         bool use_flight=(GetNode("segments",termReqNode)!=NULL &&
                          NodeAsNode("segments/segment",termReqNode)->next!=NULL);  //определим по запросу TERM_REQUEST;
         map<string, pair< set<string>, vector< pair<string,string> > > >::iterator i;
-        if ((reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION) && !defer_etstatus) ||
+        if (!defer_etstatus ||
             reqInfo->client_type == ctWeb ||
             reqInfo->client_type == ctMobile ||
             reqInfo->client_type == ctKiosk)
@@ -2204,7 +2196,7 @@ void ChangeStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     }
 }
 
-bool EMDAutoBoundInterface::Lock(const EMDAutoBoundId &id, int &point_id, int &grp_id)
+bool EMDAutoBoundInterface::BeforeLock(const EMDAutoBoundId &id, int &point_id, int &grp_id)
 {
   point_id=NoExists;
   grp_id=NoExists;
@@ -2220,12 +2212,46 @@ bool EMDAutoBoundInterface::Lock(const EMDAutoBoundId &id, int &point_id, int &g
   TTripInfo info;
   if (!info.getByPointId(point_id)) return false;
   if (GetTripSets(tsNoEMDAutoBinding, info)) return false;
+  return true;
+}
+
+bool EMDAutoBoundInterface::Lock(const EMDAutoBoundId &id, int &point_id, int &grp_id)
+{
+  point_id=NoExists;
+  grp_id=NoExists;
+
+  if (!BeforeLock(id, point_id, grp_id)) return false;
 
   TFlights flightsForLock;
   flightsForLock.Get( point_id, ftTranzit );
   flightsForLock.Lock();
   return true;
 }
+
+bool EMDAutoBoundInterface::Lock(const EMDAutoBoundId &id, int &point_id, TCkinGrpIds &tckin_grp_ids)
+{
+  point_id=NoExists;
+  tckin_grp_ids.clear();
+
+  int grp_id=NoExists;
+  bool res=BeforeLock(id, point_id, grp_id);
+  if (grp_id!=NoExists) tckin_grp_ids.push_back(grp_id);
+  if (!res) return false;
+
+  TCkinRoute route;
+  route.GetRouteAfter(grp_id, crtNotCurrent, crtOnlyDependent);
+
+  TFlights flightsForLock;
+  flightsForLock.Get( point_id, ftTranzit );
+  for(TCkinRoute::const_iterator i=route.begin(); i!=route.end(); ++i)
+  {
+    flightsForLock.Get( i->point_dep, ftTranzit );
+    tckin_grp_ids.push_back(i->grp_id);
+  }
+  flightsForLock.Lock();
+  return true;
+}
+
 
 void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqNode)
 {
@@ -2315,7 +2341,7 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
 
 #include "rfisc_sirena.h" //!!!только ради UpgradeDBForServices, потом удалить
 
-void EMDAutoBoundInterface::EMDTryBind(int grp_id,
+void EMDAutoBoundInterface::EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
                                        xmlNodePtr termReqNode,
                                        xmlNodePtr ediResNode)
 {
@@ -2346,60 +2372,82 @@ void EMDAutoBoundInterface::EMDTryBind(int grp_id,
       };
     };
 
+    if (tckin_grp_ids.empty()) return;
+
     CheckIn::TPaxGrpItem grp; //!!!потом удалить вместе с UpgradeDBForServices
-    if (!grp.fromDB(grp_id)) return;
+    if (!grp.fromDB(tckin_grp_ids.front())) return;
 
     if (grp.need_upgrade_db)
       UpgradeDBForServices(grp.id);
 
     TPaidRFISCList paid_rfisc;
-    paid_rfisc.fromDB(grp_id, true);
+    paid_rfisc.fromDB(grp.id, true);
     if (paid_rfisc.empty()) return; //не к чему пытаться привязывать
     CheckIn::TServicePaymentList payment;
-    payment.fromDB(grp_id);
+    payment.fromDB(grp.id);
     CheckIn::TPaidBagEMDProps paid_bag_emd_props;
-    CheckIn::PaidBagEMDPropsFromDB(grp_id, paid_bag_emd_props);
+    CheckIn::PaidBagEMDPropsFromDB(grp.id, paid_bag_emd_props);
 
     if (PieceConcept::TryEnlargeServicePayment(paid_rfisc, payment, paid_bag_emd_props, confirmed_emd))
     {
-      TGrpToLogInfo grpInfoBefore;
-      GetGrpToLogInfo(grp_id, grpInfoBefore);
-      CheckIn::TServicePaymentList paymentBefore;
-      if (!second_call)
-        paymentBefore.fromDB(grp_id);
-
-      TQuery Qry(&OraSession);
-      Qry.Clear();
-      Qry.SQLText=
-          "UPDATE pax_grp SET tid=cycle_tid__seq.nextval WHERE grp_id=:grp_id";
-      Qry.CreateVariable("grp_id", otInteger, grp_id);
-      Qry.Execute();
-
-      paid_rfisc.toDB(grp_id);
-      payment.toDB(grp_id);
-
-      if (!second_call)
+      bool check_emd_status=!second_call;
+      list<CheckIn::TAfterSaveSegInfo> segs;
+      TEMDChangeStatusList EMDList;
+      for(TCkinGrpIds::const_iterator i=tckin_grp_ids.begin(); i!=tckin_grp_ids.end(); ++i)
       {
-        //здесь ChangeStatus
-        TEMDChangeStatusList EMDList;
-        EMDStatusInterface::EMDCheckStatus(grp_id, paymentBefore, EMDList);
+        int grp_id=*i;
+        segs.push_back(CheckIn::TAfterSaveSegInfo());
+        segs.back().grp_id=grp_id;
+        TGrpToLogInfo &grpInfoBefore=segs.back().grpInfoBefore;
 
-        if (!EMDList.empty())
+        GetGrpToLogInfo(grp_id, grpInfoBefore);
+        CheckIn::TServicePaymentList paymentBefore;
+        if (check_emd_status)
+          paymentBefore.fromDB(grp_id);
+
+        TQuery Qry(&OraSession);
+        Qry.Clear();
+        Qry.SQLText=
+            "UPDATE pax_grp SET tid=cycle_tid__seq.nextval WHERE grp_id=:grp_id";
+        Qry.CreateVariable("grp_id", otInteger, grp_id);
+        Qry.Execute();
+
+        if (i==tckin_grp_ids.begin())
         {
-          //хотя бы один документ будет обрабатываться
-          OraSession.Rollback();  //откат
-          NewTextChild(termReqNode, "second_call");
-          edifact::KickInfo kickInfo=AstraEdifact::createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(termReqNode->doc)),
-                                                                  "EMDAutoBound");
-          EMDStatusInterface::EMDChangeStatus(kickInfo,EMDList);
-          return;
+          paid_rfisc.toDB(grp_id);
+          payment.toDB(grp_id);
+        }
+        else
+        {
+          TPaidRFISCList::copyDB(tckin_grp_ids.front(), grp_id);
+          CheckIn::TServicePaymentList::copyDB(tckin_grp_ids.front(), grp_id);
         };
+
+        if (check_emd_status)
+          EMDStatusInterface::EMDCheckStatus(grp_id, paymentBefore, EMDList);
       };
 
-      TGrpToLogInfo grpInfoAfter;
-      GetGrpToLogInfo(grp_id, grpInfoAfter);
-      TAgentStatInfo agentStat;
-      SaveGrpToLog(grpInfoBefore, grpInfoAfter, CheckIn::TPaidBagEMDProps(), agentStat);
+      //здесь ChangeStatus
+      if (!EMDList.empty())
+      {
+        //хотя бы один документ будет обрабатываться
+        OraSession.Rollback();  //откат
+        NewTextChild(termReqNode, "second_call");
+        edifact::KickInfo kickInfo=AstraEdifact::createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(termReqNode->doc)),
+                                                                "EMDAutoBound");
+        EMDStatusInterface::EMDChangeStatus(kickInfo,EMDList);
+        return;
+      };
+
+      for(list<CheckIn::TAfterSaveSegInfo>::iterator s=segs.begin(); s!=segs.end(); ++s)
+      {
+        int grp_id=s->grp_id;
+        const TGrpToLogInfo &grpInfoBefore=s->grpInfoBefore;
+        TGrpToLogInfo &grpInfoAfter=s->grpInfoAfter;
+        GetGrpToLogInfo(grp_id, grpInfoAfter);
+        TAgentStatInfo agentStat;
+        SaveGrpToLog(grpInfoBefore, grpInfoAfter, CheckIn::TPaidBagEMDProps(), agentStat);
+      };
     };
   }
   catch(UserException &e)
@@ -2432,7 +2480,6 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
   xmlNodePtr ediResNode=NodeAsNode("/context",ediResCtxt.docPtr());
 
-  int point_id=NoExists, grp_id=NoExists;
   if (termReqName=="TCkinLoadPax" ||
       termReqName=="TCkinSavePax" ||
       termReqName=="TCkinSaveUnaccompBag")
@@ -2441,11 +2488,13 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
                       termReqName=="TCkinSaveUnaccompBag";
 
     EMDAutoBoundGrpId id(termReqNode);
-    if (Lock(id, point_id, grp_id))
+    TCkinGrpIds tckin_grp_ids;
+    int point_id=NoExists;
+    if (Lock(id, point_id, tckin_grp_ids))
     {
-      EMDTryBind(grp_id, termReqNode, ediResNode);
-    }
-    else grp_id=id.grp_id;
+      EMDTryBind(tckin_grp_ids, termReqNode, ediResNode);
+    };
+    int grp_id=tckin_grp_ids.empty()?id.grp_id:tckin_grp_ids.front();
 
     if (Ticketing::isDoomedToWait())  //специально в этом месте, потому что LoadPax может вывести более важное сообщение
       AstraLocale::showErrorMessage("MSG.EDS_CONNECT_ERROR");
@@ -2464,9 +2513,11 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
       termReqName=="PaxByScanData")
   {
     EMDAutoBoundRegNo id(termReqNode);
-    if (Lock(id, point_id, grp_id))
+    TCkinGrpIds tckin_grp_ids;
+    int point_id=NoExists;
+    if (Lock(id, point_id, tckin_grp_ids))
     {
-      EMDTryBind(grp_id, termReqNode, ediResNode);
+      EMDTryBind(tckin_grp_ids, termReqNode, ediResNode);
     };
 
     if (Ticketing::isDoomedToWait())

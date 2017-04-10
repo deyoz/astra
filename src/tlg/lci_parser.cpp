@@ -1458,7 +1458,7 @@ void set_seats_option(TPassSeats &seats, const vector<TSeatRange> &seatRanges, i
         else
             seats.insert(seat_range->first);
     }
-    set_alarm(point_id_spp, atWBDifferSeats, not seats.empty());
+    set_alarm(point_id_spp, Alarm::WBDifferSeats, not seats.empty());
     if(seats.empty()) seats.insert(TSeat());
 }
 

@@ -1824,22 +1824,12 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     }
     if ( !tr->cfg.empty() ) {
         lNode = NewTextChild( tripNode, "classes" );
-        string str;
       for ( vector<TCFGItem>::iterator icfg=tr->cfg.begin(); icfg!=tr->cfg.end(); icfg++ ) {
-        if ( TReqInfo::Instance()->desk.compatible( LATIN_VERSION ) )
-          SetProp( NewTextChild( lNode, "class", ElemIdToCodeNative( etClass, icfg->cls ) ), "cfg", icfg->cfg );
-        else {
-          if ( !str.empty() )
-            str += " ";
-            str += ElemIdToCodeNative( etClass, icfg->cls ) + IntToString( icfg->cfg );
-        }
+        SetProp( NewTextChild( lNode, "class", ElemIdToCodeNative( etClass, icfg->cls ) ), "cfg", icfg->cfg );
       }
-      if ( !TReqInfo::Instance()->desk.compatible( LATIN_VERSION ) )
-        NodeSetContent( lNode, str );
     }
     else {
-      if ( TReqInfo::Instance()->desk.compatible( LATIN_VERSION ) &&
-           SALONS2::isFreeSeating( tr->point_id ) ) {
+      if ( SALONS2::isFreeSeating( tr->point_id ) ) {
         lNode = NewTextChild( tripNode, "pr_free_seating", "-" );
       }
     }
@@ -1870,12 +1860,13 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
         NewTextChild( stationNode, "pr_main" );
     }
     xmlNodePtr alarmsNode = NULL;
-    for ( int ialarm=0; ialarm<atLength; ialarm++ ) {
-        TTripAlarmsType alarm = (TTripAlarmsType)ialarm;
+    for(Alarm::TPairs::const_iterator a=Alarm::pairs().begin(); a!=Alarm::pairs().end(); ++a)
+    {
+      Alarm::Enum alarm = a->first;
       if ( tr->Alarms.isFlag( alarm ) ) {
         if ( !alarmsNode )
             alarmsNode = NewTextChild( tripNode, "alarms" );
-        xmlNodePtr an=NewTextChild( alarmsNode, "alarm", EncodeAlarmType(alarm) );
+        xmlNodePtr an=NewTextChild( alarmsNode, "alarm", AlarmTypes().encode(alarm) );
         SetProp( an, "text", TripAlarmString( alarm ) );
       }
     }
@@ -2566,9 +2557,9 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
         points_check_wait_alarm.push_back( i->first );
       }
     }
-    check_brd_alarm( i->first );
+    TTripAlarmHook::set(Alarm::Brd, i->first);
     check_spec_service_alarm( i->first );
-    check_unbound_emd_alarm( i->first );
+    TTripAlarmHook::set(Alarm::UnboundEMD, i->first);
     check_TrferExists( i->first );
     check_unattached_trfer_alarm( i->first );
     check_conflict_trfer_alarm( i->first );
@@ -3062,8 +3053,9 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if ( i->point_id == point_id ) {
       NewTextChild( headerNode, "remark_out", i->remark_out );
       string stralarms;
-      for ( int ialarm=0; ialarm<atLength; ialarm++ ) {
-        TTripAlarmsType alarm = (TTripAlarmsType)ialarm;
+      for(Alarm::TPairs::const_iterator a=Alarm::pairs().begin(); a!=Alarm::pairs().end(); ++a)
+      {
+        Alarm::Enum alarm = a->first;
         if ( !i->Alarms.isFlag( alarm ) )
           continue;
         if ( !stralarms.empty() )

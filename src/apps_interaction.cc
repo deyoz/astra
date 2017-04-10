@@ -147,7 +147,7 @@ bool checkAPPSSets( const int point_dep, const int point_arv )
     "WHERE airline=:airline AND apps_country=:apps_country AND pr_denial=0";
   AppsSetsQry.CreateVariable( "airline", otString, route.front().airline );
   AppsSetsQry.DeclareVariable( "apps_country", otString );
-  
+
   for ( TAdvTripRoute::const_iterator r = route.begin(); r != route.end(); r++ ) {
     AppsSetsQry.SetVariable( "apps_country", getCountryByAirp( r->airp ).code );
     AppsSetsQry.Execute();
@@ -236,12 +236,12 @@ void deleteAPPSData( const int pax_id )
 
 void deleteAPPSAlarms( const int pax_id )
 {
-  set_pax_alarm( pax_id, atAPPSNegativeDirective, false );
-  set_crs_pax_alarm( pax_id, atAPPSNegativeDirective, false );
-  set_pax_alarm( pax_id, atAPPSError, false );
-  set_crs_pax_alarm( pax_id, atAPPSError, false );
-  set_pax_alarm( pax_id, atAPPSConflict, false );
-  set_crs_pax_alarm( pax_id, atAPPSConflict, false );
+  set_pax_alarm( pax_id, Alarm::APPSNegativeDirective, false );
+  set_crs_pax_alarm( pax_id, Alarm::APPSNegativeDirective, false );
+  set_pax_alarm( pax_id, Alarm::APPSError, false );
+  set_crs_pax_alarm( pax_id, Alarm::APPSError, false );
+  set_pax_alarm( pax_id, Alarm::APPSConflict, false );
+  set_crs_pax_alarm( pax_id, Alarm::APPSConflict, false );
 }
 
 void TTransData::init( const bool pre_ckin, const std::string& trans_code, const std::string& id )
@@ -807,8 +807,8 @@ APPSAction TPaxRequest::typeOfAction( const bool is_exists, const std::string& s
   }
   else {
     // рассинхронизация
-    set_pax_alarm( pax.pax_id, atAPPSConflict, true );
-    set_crs_pax_alarm( pax.pax_id, atAPPSConflict, true );
+    set_pax_alarm( pax.pax_id, Alarm::APPSConflict, true );
+    set_crs_pax_alarm( pax.pax_id, Alarm::APPSConflict, true );
     return NoAction;
   }
 }
@@ -1010,7 +1010,7 @@ void TAPPSAns::beforeProcessAnswer() const
   flightsForLock.Lock();
 
   // выключим тревогу "Нет связи с APPS"
-  set_alarm( point_id, atAPPSOutage, false );
+  set_alarm( point_id, Alarm::APPSOutage, false );
 }
 
 bool TAPPSAns::CheckIfNeedResend() const
@@ -1085,8 +1085,8 @@ void TPaxReqAnswer::processErrors() const
     logAnswer( it->country, ASTRA::NoExists, it->error_code, it->error_text );
 
   if( /*!CheckIfNeedResend() &&*/ code == AnsTypeCirs ) {
-    set_pax_alarm( pax_id, atAPPSConflict, true ); // рассинхронизация
-    set_crs_pax_alarm( pax_id, atAPPSConflict, true ); // рассинхронизация
+    set_pax_alarm( pax_id, Alarm::APPSConflict, true ); // рассинхронизация
+    set_crs_pax_alarm( pax_id, Alarm::APPSConflict, true ); // рассинхронизация
     // удаляем apps_pax_data cirq_msg_id
     TQuery Qry( &OraSession );
     Qry.SQLText = "DELETE FROM apps_pax_data WHERE cirq_msg_id = :cirq_msg_id ";
@@ -1131,12 +1131,12 @@ void TPaxReqAnswer::processAnswer() const
        apps_pax_id = it->apps_pax_id;
     // включим тревоги
     if (it->status == "D" || it->status == "X") {
-      set_pax_alarm( pax_id, atAPPSNegativeDirective, true );
-      set_crs_pax_alarm( pax_id, atAPPSNegativeDirective, true );
+      set_pax_alarm( pax_id, Alarm::APPSNegativeDirective, true );
+      set_crs_pax_alarm( pax_id, Alarm::APPSNegativeDirective, true );
     }
     else if (it->status == "U" || it->status == "I" || it->status == "T" || it->status == "E") {
-      set_pax_alarm( pax_id, atAPPSError, true );
-      set_crs_pax_alarm( pax_id, atAPPSError, true );
+      set_pax_alarm( pax_id, Alarm::APPSError, true );
+      set_crs_pax_alarm( pax_id, Alarm::APPSError, true );
     }
     /* Каждая страна участник APPS присылает свой статус пассажира, т.е.
      * один пассажир может иметь несколько статусов. Получим по каждому пассажиру
@@ -1177,10 +1177,10 @@ void TPaxReqAnswer::processAnswer() const
 
   // погасим тревоги
   if ( status == "B" ) {
-    set_pax_alarm( pax_id, atAPPSNegativeDirective, false );
-    set_crs_pax_alarm( pax_id, atAPPSNegativeDirective, false );
-    set_pax_alarm( pax_id, atAPPSError, false );
-    set_crs_pax_alarm( pax_id, atAPPSError, false );
+    set_pax_alarm( pax_id, Alarm::APPSNegativeDirective, false );
+    set_crs_pax_alarm( pax_id, Alarm::APPSNegativeDirective, false );
+    set_pax_alarm( pax_id, Alarm::APPSError, false );
+    set_crs_pax_alarm( pax_id, Alarm::APPSError, false );
   }
   // проверим, нужно ли гасить тревогу "рассинхронизация"
   TPaxRequest * actual = new TPaxRequest();
@@ -1188,8 +1188,8 @@ void TPaxReqAnswer::processAnswer() const
   actual->init( pax_id );
   reseived->fromDBByMsgId( msg_id );
   if ( *reseived == *actual ) {
-    set_pax_alarm( pax_id, atAPPSConflict, false );
-    set_crs_pax_alarm( pax_id, atAPPSConflict, false );
+    set_pax_alarm( pax_id, Alarm::APPSConflict, false );
+    set_crs_pax_alarm( pax_id, Alarm::APPSConflict, false );
   }
   if ( actual ) delete actual;
   if ( reseived ) delete reseived;

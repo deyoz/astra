@@ -50,7 +50,6 @@ class TPaymentDoc
   TPaymentDoc& fromXML(xmlNodePtr node);
   TPaymentDoc& fromXMLcompatible(xmlNodePtr node);
   const TPaymentDoc& toDB(TQuery &Qry) const;
-  const TPaymentDoc& toDBTmp(TQuery &Qry) const; //!!! потом удалить
   TPaymentDoc& fromDB(TQuery &Qry);
   std::string no_str() const;
   std::string emd_no_str() const;
@@ -118,7 +117,6 @@ class TServicePaymentItem : public TPaymentDoc
   TServicePaymentItem& fromXML(xmlNodePtr node, bool is_unaccomp);
   TServicePaymentItem& fromXMLcompatible(xmlNodePtr node, bool baggage_pc);
   const TServicePaymentItem& toDB(TQuery &Qry) const;
-  const TServicePaymentItem& toDBTmp(TQuery &Qry) const; //!!! потом удалить
   TServicePaymentItem& fromDB(TQuery &Qry);
   bool similar(const TServicePaymentItem &item) const
   {
@@ -149,12 +147,14 @@ class TServicePaymentList : public std::list<TServicePaymentItem>
                                             TServicePaymentList &other_svc) const;
     bool equal(const TServicePaymentList &list) const;
     void dump(const std::string &where) const;
+    static void clearDB(int grp_id);
+    static void copyDB(int grp_id_src, int grp_id_dest);
 };
 
 void ServicePaymentFromXML(xmlNodePtr node,
                            int grp_id,
                            bool is_unaccomp,
-                           bool baggage_pc, const TServicePaymentList &prior_payment,
+                           bool baggage_pc,
                            boost::optional<TServicePaymentList> &payment);
 
 void TryCleanServicePayment(const WeightConcept::TPaidBagList &curr_paid,

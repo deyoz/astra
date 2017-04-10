@@ -340,7 +340,7 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
   if (reqInfo->screen.name == "BRDBUS.EXE")
   {
-    check_brd_alarm( point_id );
+    TTripAlarmHook::set(Alarm::Brd, point_id);
     check_u_trfer_alarm_for_next_trfer(point_id, idFlt);
   };
 
@@ -409,7 +409,7 @@ bool PaxUpdate(int point_id, int pax_id, int tid, bool mark, bool pr_exam_with_b
 
     if (reqInfo->screen.name == "BRDBUS.EXE")
     {
-      check_brd_alarm( point_id );
+      TTripAlarmHook::set(Alarm::Brd, point_id);
       check_u_trfer_alarm_for_next_trfer(grp_id, idGrp);
     };
   };

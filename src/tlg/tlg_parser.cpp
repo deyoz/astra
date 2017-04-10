@@ -6731,7 +6731,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         bool UsePriorContext=false;
         TPointIdsForCheck point_ids_spp;
         set<int> et_display_pax_ids;
-        set<int> emd_alarm_pax_ids;
         bool chkd_exists=false;
         bool apps_pax_exists=false;
         int point_id_spp = ASTRA::NoExists;
@@ -7014,7 +7013,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   Qry.CreateVariable("pax_id", otInteger, pax_id);
                   Qry.CreateVariable("sync_pax_asvc_rows", otInteger, 0);
                   Qry.Execute();
-                  if (Qry.GetVariableAsInteger("sync_pax_asvc_rows")>0) emd_alarm_pax_ids.insert(pax_id);
+                  if (Qry.GetVariableAsInteger("sync_pax_asvc_rows")>0)
+                    TPaxAlarmHook::set(Alarm::UnboundEMD, pax_id);
 
                   DeleteTlgSeatRanges(cltPNLCkin, pax_id, tid, point_ids_spp);
                   DeleteTlgSeatRanges(cltPNLBeforePay, pax_id, tid, point_ids_spp);
@@ -7073,7 +7073,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
                   bool sync_pax_asvc;
                   SaveASVCRem(pax_id,iPaxItem->asvc,sync_pax_asvc);
-                  if (sync_pax_asvc) emd_alarm_pax_ids.insert(pax_id);
+                  if (sync_pax_asvc) TPaxAlarmHook::set(Alarm::UnboundEMD, pax_id);
                   //разметка слоев
                   InsertTlgSeatRanges(point_id,iTotals->dest,isPRL?cltPRLTrzt:cltPNLCkin,iPaxItem->seatRanges,
                                       pax_id,tlg_id,NoExists,UsePriorContext,tid,point_ids_spp);
@@ -7179,7 +7179,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         };
         check_layer_change(point_ids_spp);
         TlgETDisplay(point_id, et_display_pax_ids, true);
-        check_unbound_emd_alarm(emd_alarm_pax_ids);
         if (!isPRL && chkd_exists)
         {
           for(TAdvTripInfoList::const_iterator it = trips.begin(); it != trips.end(); it++)
