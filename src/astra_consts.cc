@@ -60,6 +60,7 @@ const char *RptTypeS[] = {
     "ANNUL_TAGS",
     "VOUCHERS",
     "SERVICES",
+    "SERVICESTXT",
     "?"
 };
 
