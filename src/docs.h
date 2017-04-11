@@ -29,6 +29,7 @@ struct TRptParams {
         TSimpleMktFlight mkt_flt;
         std::string client_type;
         std::map< TRemCategory, std::vector<std::string> > rems;
+        std::list<std::string> rfic;
         int text;
         std::string ElemIdToReportElem(TElemType type, const std::string &id, TElemFmt fmt, std::string firm_lang = "") const;
         std::string ElemIdToReportElem(TElemType type, int id, TElemFmt fmt, std::string firm_lang = "") const;
@@ -111,7 +112,6 @@ int testbm(int argc,char **argv);
 
 void populate_doc_cap(xmlNodePtr variablesNode, std::string lang);
 void ANNUL_TAGS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode);
-void SERVICES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode);
 
 TDateTime getReportSCDOut(int point_id);
 std::string getJMPSeatNo(int pax_id);
