@@ -3936,16 +3936,19 @@ void CheckServicePayment(int grp_id,
 
 static bool GetDeferEtStatusFlag(xmlNodePtr ediResNode)
 {
-    LogTrace(TRACE3) << "Enter to GetDeferEtStatusFlag";
-    if(inTestMode()) {
-        tst();
+    LogTrace(TRACE3) << __FUNCTION__;
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    if(reqInfo->api_mode) {
+        LogTrace(TRACE3) << "defer_etstatus is false in api_mode";
         return false;
     }
-
-    tst();
+    if(inTestMode()) {
+        LogTrace(TRACE3) << "defer_etstatus is false in test_mode";
+        return false;
+    }
     bool defer_etstatus=false;
-    TReqInfo *reqInfo = TReqInfo::Instance();
     TQuery Qry(&OraSession);
+
     if (ediResNode==NULL && reqInfo->client_type == ctTerm) //для web-регистрации нераздельное подтверждение ЭБ
     {
       Qry.Clear();
@@ -4452,10 +4455,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 if (defer_etstatus && !pax.tkn.confirm)
                   //возможно это произошло в ситуации, когда изменился у пульта defer_etstatus в true,
                   //а пульт не успел перечитать эту настройку
-                  if(!inTestMode()) {
-                      // TODO в тесте почему-то defer_etstatus выставлен в true
-                      throw UserException("MSG.ETICK.NOT_CONFIRM.NEED_RELOGIN");
-                  }
+                  throw UserException("MSG.ETICK.NOT_CONFIRM.NEED_RELOGIN");
 
                 TETickItem etick;
                 etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
