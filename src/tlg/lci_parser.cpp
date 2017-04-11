@@ -1525,7 +1525,7 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
                                             cfg_item != i->second.sr.c.end();
                                             ++cfg_item) {
                                         options.cfg.push_back(TCFGItem());
-                                        options.cfg.back().cls = cfg_item->first;
+                                        // options.cfg.back().cls = cfg_item->first; // игнорим классы
                                         options.cfg.back().cfg = cfg_item->second;
                                     }
                                     options.seat_restrict.clear();
