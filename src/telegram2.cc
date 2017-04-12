@@ -7526,18 +7526,225 @@ int FWD(TypeB::TDetailCreateInfo &info)
     return tlg_row.id;
 }
 
-struct TIDM {
-    void get(TypeB::TDetailCreateInfo &info);
-    void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
+struct TPaxMapCoord { // coordinates
+    int point_dep;
+    int point_arv;
+    string cls;
+    string grp_status;
+    void dump();
 };
 
-void TIDM::get(TypeB::TDetailCreateInfo &info)
+void TPaxMapCoord::dump()
 {
+    LogTrace(TRACE5) << "-----TPaxMapCoord::dump()-------";
+    LogTrace(TRACE5) << "point_dep: " << point_dep;
+    LogTrace(TRACE5) << "point_arv: " << point_arv;
+    LogTrace(TRACE5) << "cls: " << cls;
+    LogTrace(TRACE5) << "grp_status: " << grp_status;
+    LogTrace(TRACE5) << "--------------------------------";
 }
 
-void TIDM::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
+struct TIDM {
+    TypeB::TDetailCreateInfo &info;
+    vector<TTlgCompLayer> &complayers;
+    bool pr_tranz_reg;
+
+    struct TPax {
+        TName name;
+        string priority;
+        string cls;
+        string airp_arv;
+        string seat;
+    };
+    list<TPax> items;
+
+    void appendArv(
+            TSalonPassengers::iterator iDep,
+            TIntArvSalonPassengers &arvMap,
+            TTripRouteItem &routeItem
+            );
+    void get();
+    void ToTlg(vector<string> &body);
+    void append_evt_transit(
+            TPaxMapCoord &pax_map_coord,
+            const TSalonPax &pax,
+            TTripRouteItem &routeItem
+            );
+
+    TIDM(TypeB::TDetailCreateInfo &_info, vector<TTlgCompLayer> &_complayers):
+        info(_info),
+        complayers(_complayers),
+        pr_tranz_reg(false)
+    {}
+};
+
+void TIDM::append_evt_transit(
+        TPaxMapCoord &pax_map_coord,
+        const TSalonPax &pax,
+        TTripRouteItem &routeItem
+        )
 {
-    body.push_back("NIL");
+    // Если вкл. галочка 'Перерегистрация транзита', то
+    // в счетчики попадают pax.grp_status == psTransit
+    // Если галочка выключена, то паксы, летящие через тек. point_id (routeItem.point_id)
+    if(
+            (pr_tranz_reg and DecodePaxStatus(pax.grp_status.c_str()) == psTransit)
+            or
+            (not pr_tranz_reg and
+             pax.point_dep == info.point_id and
+             pax_map_coord.point_dep == routeItem.point_id)
+      ) {
+        TCachedQuery Qry(
+                "select "
+                "   crs_pnr.status, "
+                "   crs_pnr.priority "
+                "from "
+                "   crs_pax, "
+                "   crs_pnr "
+                "where "
+                "   crs_pax.pax_id = :pax_id and "
+                "   crs_pax.pnr_id = crs_pnr.pnr_id and "
+                "   crs_pnr.system = 'CRS' ",
+                QParams() << QParam("pax_id", otInteger, pax.pax_id));
+        Qry.get().Execute();
+        if(not Qry.get().Eof) {
+            string status = Qry.get().FieldAsString("status");
+            string priority = Qry.get().FieldAsString("priority");
+            if(
+                    status == "DG2" or
+                    status == "ID2" or
+                    status == "RG2"
+              ) {
+                TPax pax_item;
+                pax_item.name.name = pax.name;
+                pax_item.name.surname = pax.surname;
+                pax_item.priority = priority;
+                pax_item.cls = info.TlgElemIdToElem(etClass, pax.cl);
+
+                TTripInfo trip_info;
+                trip_info.getByPointId(pax.point_arv);
+                pax_item.airp_arv = info.TlgElemIdToElem(etAirp, trip_info.airp);
+
+                TTlgSeatList seat_no;
+                seat_no.add_seats(pax.pax_id, complayers);
+                vector<string> seat_list = seat_no.get_seat_vector(info.is_lat());
+                if(not seat_list.empty())
+                    pax_item.seat = seat_list.front();
+                items.push_back(pax_item);
+            }
+        }
+    }
+}
+
+void TIDM::appendArv(
+        TSalonPassengers::iterator iDep,
+        TIntArvSalonPassengers &arvMap,
+        TTripRouteItem &routeItem
+        )
+{
+    for(TIntArvSalonPassengers::const_iterator
+            iArv = arvMap.begin();
+            iArv != arvMap.end();
+            iArv++) {
+        for(TIntClassSalonPassengers::const_iterator
+                iCls = iArv->second.begin();
+                iCls != iArv->second.end();
+                iCls++) {
+            for(TIntStatusSalonPassengers::const_iterator
+                    iStatus = iCls->second.begin();
+                    iStatus != iCls->second.end();
+                    iStatus++) {
+                for(set<TSalonPax,ComparePassenger>::const_iterator
+                        iPax = iStatus->second.begin();
+                        iPax != iStatus->second.end();
+                        iPax++) {
+                    TPaxMapCoord pax_map_coord;
+                    pax_map_coord.point_dep = iDep->first;
+                    pax_map_coord.point_arv = iArv->first;
+                    pax_map_coord.cls = iCls->first;
+                    pax_map_coord.grp_status = iStatus->first;
+                    append_evt_transit(pax_map_coord, *iPax, routeItem);
+                }
+            }
+        }
+    }
+}
+
+void TIDM::get()
+{
+    // fetch pr_tranz_reg
+    TCachedQuery Qry("select pr_tranz_reg from trip_sets where point_id = :point_id",
+            QParams() << QParam("point_id", otInteger, info.point_id));
+    Qry.get().Execute();
+    pr_tranz_reg = false;
+    if(not Qry.get().Eof and not Qry.get().FieldIsNULL("pr_tranz_reg"))
+        pr_tranz_reg = Qry.get().FieldAsInteger("pr_tranz_reg") != 0;
+
+    SALONS2::TSalonList salonList;
+    SALONS2::TGetPassFlags flags;
+
+    try {
+        salonList.ReadFlight( SALONS2::TFilterRoutesSets( info.point_id, ASTRA::NoExists ),
+                SALONS2::isTranzitSalons( info.point_id )?SALONS2::rfTranzitVersion:SALONS2::rfNoTranzitVersion,
+                "", NoExists );
+    } catch(const Exception &E) {
+        LogTrace(TRACE5) << "TIDM::get: salonList.ReadFlight failed: " << E.what();
+    } catch(...) {
+        LogTrace(TRACE5) << "TIDM::get: salonList.ReadFlight failed: unexpected";
+    }
+
+
+    TSalonPassengers tranzit_pax_map;
+    try {
+        flags.setFlag( SALONS2::gpWaitList );
+        flags.setFlag( SALONS2::gpTranzits );
+        flags.setFlag( SALONS2::gpInfants );
+        salonList.getPassengers( tranzit_pax_map, flags );
+    } catch(const Exception &E) {
+        LogTrace(TRACE5) << "TIDM::get: tranzit_pax_map failed: " << E.what();
+    } catch(...) {
+        LogTrace(TRACE5) << "TIDM::get: tranzit_pax_map failed: unexpected";
+    }
+
+    TTripRoute trip_route;
+    try {
+        trip_route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled);
+    } catch(const Exception &E) {
+        LogTrace(TRACE5) << "TIDM::get: trip_route failed: " << E.what();
+    } catch(...) {
+        LogTrace(TRACE5) << "TIDM::get: trip_route failed: unexpected";
+    }
+
+    // Нас интересуют транзитники, летящие через пункт, следующий после текущего.
+    TTripRoute::iterator iRoute = trip_route.begin();
+
+    for(TSalonPassengers::iterator
+            iDep = tranzit_pax_map.begin();
+            iDep != tranzit_pax_map.end();
+            iDep++) {
+        // tranzit
+        appendArv(iDep, iDep->second.infants, *iRoute);
+        appendArv(iDep, iDep->second, *iRoute);
+    }
+}
+
+void TIDM::ToTlg(vector<string> &body)
+{
+    if(items.empty())
+        body.push_back("NIL");
+    else {
+        for(list<TPax>::iterator i = items.begin(); i != items.end(); i++) {
+            ostringstream row;
+            row
+                << i->name.ToPILTlg(info) << " "
+                << i->priority << " "
+                << i->cls << " ";
+            if(not i->seat.empty())
+                row << i->seat << " ";
+            row << i->airp_arv;
+            body.push_back(row.str());
+        }
+    }
 }
 
 int IDM(TypeB::TDetailCreateInfo &info)
@@ -7555,9 +7762,12 @@ int IDM(TypeB::TDetailCreateInfo &info)
 
     vector<string> body;
     try {
-        TIDM idm;
-        idm.get(info);
-        idm.ToTlg(info, body);
+        vector<TTlgCompLayer> complayers;
+        if(not isFreeSeating(info.point_id) and not isEmptySalons(info.point_id))
+            getSalonLayers( info, complayers, false );
+        TIDM idm(info, complayers);
+        idm.get();
+        idm.ToTlg(body);
     } catch(...) {
         ExceptionFilter(body, info);
     }
@@ -9453,13 +9663,6 @@ namespace CKIN_REPORT {
     typedef map<int, TAirpRoute> TRoute; // [order][airp][class] = count
 
     struct TReportData;
-
-    struct TPaxMapCoord { // coordinates
-        int point_dep;
-        int point_arv;
-        string cls;
-        string grp_status;
-    };
 
     typedef void (*TAppendEvent)(
             TPaxMapCoord &pax_map_coord,
