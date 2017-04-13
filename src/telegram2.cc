@@ -878,6 +878,7 @@ void TMItem::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 
 struct TFTLPax;
 struct TETLPax;
+struct TTPLPax;
 struct TASLPax;
 struct TPFSPax;
 
@@ -1195,6 +1196,7 @@ namespace PRL_SPACE {
             vector<string> items;
             void get(TypeB::TDetailCreateInfo &info, TFTLPax &pax);
             void get(TypeB::TDetailCreateInfo &info, TETLPax &pax);
+            void get(TypeB::TDetailCreateInfo &info, TTPLPax &pax);
             void get(TypeB::TDetailCreateInfo &info, TASLPax &pax);
             void get(TypeB::TDetailCreateInfo &info, TPRLPax &pax, vector<TTlgCompLayer> &complayers);
             void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
@@ -4577,6 +4579,26 @@ struct TETLPax {
     }
 };
 
+struct TTPLPax {
+    string target;
+    int cls_grp_id;
+    TName name;
+    int pnr_id;
+    string crs;
+    int pax_id;
+    int grp_id;
+    int bag_pool_num;
+    TPNRListAddressee pnrs;
+    TRemList rems;
+    TTPLPax(TInfants *ainfants): rems(ainfants) {
+        cls_grp_id = NoExists;
+        pnr_id = NoExists;
+        pax_id = NoExists;
+        grp_id = NoExists;
+        bag_pool_num = NoExists;
+    }
+};
+
 void TRemList::get(TypeB::TDetailCreateInfo &info, TASLPax &pax)
 {
     CheckIn::TPaxRemItem rem;
@@ -4613,6 +4635,16 @@ void TRemList::get(TypeB::TDetailCreateInfo &info, TASLPax &pax)
     }
 }
 
+void TRemList::get(TypeB::TDetailCreateInfo &info, TTPLPax &pax)
+{
+    multiset<CheckIn::TPaxRemItem> rems;
+    LoadPaxRem(pax.pax_id, rems);
+    for(multiset<CheckIn::TPaxRemItem>::iterator i = rems.begin(); i != rems.end(); i++) {
+        if(i->code == "ETLP")
+            items.push_back(i->text);
+    }
+}
+
 void TRemList::get(TypeB::TDetailCreateInfo &info, TETLPax &pax)
 {
     CheckIn::TPaxRemItem rem;
@@ -4627,7 +4659,6 @@ void TRemList::get(TypeB::TDetailCreateInfo &info, TETLPax &pax)
         }
     }
 }
-
 
 struct TFTLDest;
 struct TFTLPax {
@@ -4992,6 +5023,101 @@ struct TASLReportDest:TASLDest {
         TASLDest(agrp_map, ainfants)
     {}
 };
+
+struct TTPLDest {
+    string airp;
+    string cls;
+    vector<TTPLPax> PaxList;
+    TGRPMap *grp_map;
+    TInfants *infants;
+    TTPLDest(TGRPMap *agrp_map, TInfants *ainfants) {
+        grp_map = agrp_map;
+        infants = ainfants;
+    }
+    void GetPaxList(TypeB::TDetailCreateInfo &info, vector<TTlgCompLayer> &complayers);
+    void PaxListToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
+};
+
+void TTPLDest::GetPaxList(TypeB::TDetailCreateInfo &info, vector<TTlgCompLayer> &complayers)
+{
+    TCachedQuery Qry(
+            "select "
+            "   pax_grp.airp_arv target, "
+            "   cls_grp.id cls, "
+            "   system.transliter(pax.surname, 1, :pr_lat) surname, "
+            "   system.transliter(pax.name, 1, :pr_lat) name, "
+            "   crs_pnr.pnr_id, "
+            "   pax.pax_id, "
+            "   pax.grp_id, "
+            "   pax.bag_pool_num "
+            "from "
+            "   pax, "
+            "   pax_grp, "
+            "   cls_grp, "
+            "   crs_pax, "
+            "   crs_pnr "
+            "where "
+            "   pax_grp.point_dep = :point_id and "
+            "   pax_grp.airp_arv = :airp and "
+            "   pax_grp.grp_id=pax.grp_id AND "
+            "   pax_grp.class_grp = cls_grp.id(+) AND "
+            "   cls_grp.code = :class and "
+            "   pax.pr_brd = 1 and "
+            "   pax.pax_id = crs_pax.pax_id(+) and "
+            "   crs_pax.pr_del(+)=0 and "
+            "   crs_pax.pnr_id = crs_pnr.pnr_id(+) "
+            "order by "
+            "   target, "
+            "   cls, "
+            "   surname, "
+            "   name nulls first, "
+            "   pax.pax_id ",
+        QParams()
+            << QParam("point_id", otInteger, info.point_id)
+            << QParam("airp", otString, airp)
+            << QParam("class", otString, cls)
+            << QParam("pr_lat", otInteger, info.is_lat()));
+
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        int col_target = Qry.get().FieldIndex("target");
+        int col_cls = Qry.get().FieldIndex("cls");
+        int col_surname = Qry.get().FieldIndex("surname");
+        int col_name = Qry.get().FieldIndex("name");
+        int col_pnr_id = Qry.get().FieldIndex("pnr_id");
+        int col_pax_id = Qry.get().FieldIndex("pax_id");
+        int col_grp_id = Qry.get().FieldIndex("grp_id");
+        int col_bag_pool_num = Qry.get().FieldIndex("bag_pool_num");
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            TTPLPax pax(infants);
+            pax.target = Qry.get().FieldAsString(col_target);
+            if(!Qry.get().FieldIsNULL(col_cls))
+                pax.cls_grp_id = Qry.get().FieldAsInteger(col_cls);
+            pax.name.surname = Qry.get().FieldAsString(col_surname);
+            pax.name.name = Qry.get().FieldAsString(col_name);
+            if(!Qry.get().FieldIsNULL(col_pnr_id))
+                pax.pnr_id = Qry.get().FieldAsInteger(col_pnr_id);
+            pax.pax_id = Qry.get().FieldAsInteger(col_pax_id);
+            pax.grp_id = Qry.get().FieldAsInteger(col_grp_id);
+            if(not Qry.get().FieldIsNULL(col_bag_pool_num))
+                pax.bag_pool_num = Qry.get().FieldAsInteger(col_bag_pool_num);
+            pax.pnrs.get(pax.pnr_id);
+            pax.rems.get(info, pax);
+            grp_map->get(pax.grp_id, pax.bag_pool_num);
+            PaxList.push_back(pax);
+        }
+    }
+}
+
+void TTPLDest::PaxListToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
+{
+    for(vector<TTPLPax>::iterator iv = PaxList.begin(); iv != PaxList.end(); iv++) {
+        iv->name.ToTlg(info, body);
+        iv->pnrs.ToTlg(info, body);
+        iv->rems.ToTlg(info, body);
+        grp_map->ToTlg(info, iv->grp_id, iv->bag_pool_num, body);
+    }
+}
 
 struct TETLDest {
     string airp;
@@ -7746,6 +7872,36 @@ void TIDM::ToTlg(vector<string> &body)
     }
 }
 
+int TPL(TypeB::TDetailCreateInfo &info)
+{
+    TTlgDraft tlg_draft(info);
+    TTlgOutPartInfo tlg_row(info);
+    tlg_row.origin = info.originator.originSection(tlg_row.time_create, TypeB::endl);
+    ostringstream heading;
+    heading << "TPL" << TypeB::endl
+            << info.flight_view() << "/"
+            << info.scd_local_view() << " " << info.airp_dep_view() << " ";
+    tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + TypeB::endl;
+    tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + TypeB::endl;
+    size_t part_len = tlg_row.textSize();
+
+    vector<string> body;
+    try {
+        vector<TTlgCompLayer> complayers;
+        TDestList<TTPLDest> dests;
+        dests.get(info,complayers);
+        dests.ToTlg(info, body);
+    } catch(...) {
+        ExceptionFilter(body, info);
+    }
+
+    split_n_save(heading, part_len, tlg_draft, tlg_row, body);
+    tlg_row.ending = "ENDTPL" + TypeB::endl;
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
+    return tlg_row.id;
+}
+
 int IDM(TypeB::TDetailCreateInfo &info)
 {
     TTlgDraft tlg_draft(info);
@@ -9139,6 +9295,7 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
     else if(tlgTypeInfo.basic_type == "LCI") vid = LCI(info);
     else if(tlgTypeInfo.basic_type == "PNL") vid = PNL(info);
     else if(tlgTypeInfo.basic_type == "IDM") vid = IDM(info);
+    else if(tlgTypeInfo.basic_type == "TPL") vid = TPL(info);
     else if(tlgTypeInfo.basic_type == "->>") vid = FWD(info);
     else vid = Unknown(info);
     ProgTrace(TRACE5, "utg_prl_tst: %s", tm.PrintWithMessage().c_str());
