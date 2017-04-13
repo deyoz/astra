@@ -2116,6 +2116,7 @@ class TTakeoffCreator : public TCreator
             << "ASL"
             << "LDM"
             << "IDM"
+            << "TPL"
             << "CPM";
     };
     virtual bool validInfo(const TCreateInfo &info) const {
