@@ -1106,13 +1106,20 @@ void TClsTotal::dump(const string &caption)
 
 void TClsTotal::parse(const string &val)
 {
+    try {
     vector<string> items;
     split(items, val, '/');
-    if(items.size() != 3)
-        throw ETlgError("wrong class count %uz", items.size());
-    f = ToInt(items[0]);
-    c = ToInt(items[1]);
-    y = ToInt(items[2]);
+    if(items.size() == 1) // пришел извращенный WBW формат -VKO.PT.4.C.4
+        ToInt(items[0]); // просто проверяем, что это число
+    else if(items.size() == 3) { // пришел стандартный формат -SIN.PT.50.C.5/10/35
+        f = ToInt(items[0]);
+        c = ToInt(items[1]);
+        y = ToInt(items[2]);
+    } else 
+        throw ETlgError("wrong class count %zu", items.size());
+    } catch(EConvertError &E) {
+        throw ETlgError(E.what());
+    }
 }
 
 void TGenderTotal::dump()
@@ -1199,6 +1206,7 @@ void TDest::parse(const char *val)
                 {
                     type = DecodeDestInfoType(*iv);
                     if(type == dtUnknown) {
+                        LogTrace(TRACE5) << "within dtUnknown: '" << *iv << "'";
                         vector<string> parts;
                         split(parts, *iv, '/');
                         if(parts.size() == 1) {
@@ -1595,7 +1603,8 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
         }
         TypeBHelpMng::notify_ok(tlg_id, NoExists); // Отвешиваем процесс, если есть.
     } else {
-        //
+        // Здесь нет SendTlg, поэтому отвешиваем ручками
+        TypeBHelpMng::notify_ok(tlg_id, NoExists); // Отвешиваем процесс, если есть.
     }
 }
 
