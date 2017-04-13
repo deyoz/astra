@@ -1809,7 +1809,8 @@ namespace PRL_SPACE {
             "    pax.seats>0 and "
             "    pax.pax_id = crs_pax.pax_id(+) and "
             "    crs_pax.pr_del(+)=0 and "
-            "    crs_pax.pnr_id = crs_pnr.pnr_id(+) "
+            "    crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
+            "    crs_pnr.system(+) = 'CRS' "
             "order by "
             "    target, "
             "    cls, "
@@ -4641,7 +4642,7 @@ void TRemList::get(TypeB::TDetailCreateInfo &info, TTPLPax &pax)
     LoadPaxRem(pax.pax_id, rems);
     for(multiset<CheckIn::TPaxRemItem>::iterator i = rems.begin(); i != rems.end(); i++) {
         if(i->code == "ETLP")
-            items.push_back(i->text);
+            items.push_back(transliter(convert_char_view(i->text, info.is_lat()), 1, info.is_lat()));
     }
 }
 
@@ -4711,6 +4712,7 @@ void TRemList::internal_get(TypeB::TDetailCreateInfo &info, int pax_id, string s
         "   pax_fqt.pax_id = crs_pax.pax_id(+) and "
         "   crs_pax.pr_del(+)=0 and "
         "   crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
+        "   crs_pnr.system(+) = 'CRS' and "
         "   pax_fqt.rem_code in('FQTV', 'FQTU', 'FQTR') ",
             QryParams);
     Qry.get().Execute();
@@ -4940,6 +4942,7 @@ void TFTLBody::get(TypeB::TDetailCreateInfo &info)
         "    pax.pax_id=crs_pax.pax_id(+) AND "
         "    crs_pax.pr_del(+)=0 AND "
         "    crs_pax.pnr_id=crs_pnr.pnr_id(+) AND "
+        "    crs_pnr.system(+) = 'CRS' and "
         "    pax_grp.class=classes.code AND "
         "    pax_grp.point_dep=:point_id AND "
         "    pax_grp.status NOT IN ('E') AND "
@@ -5065,7 +5068,8 @@ void TTPLDest::GetPaxList(TypeB::TDetailCreateInfo &info, vector<TTlgCompLayer> 
             "   pax.pr_brd = 1 and "
             "   pax.pax_id = crs_pax.pax_id(+) and "
             "   crs_pax.pr_del(+)=0 and "
-            "   crs_pax.pnr_id = crs_pnr.pnr_id(+) "
+            "   crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
+            "   crs_pnr.system(+) = 'CRS' "
             "order by "
             "   target, "
             "   cls, "
@@ -5170,6 +5174,7 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
         "    pax.pax_id = crs_pax.pax_id(+) and "
         "    crs_pax.pr_del(+)=0 and "
         "    crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
+        "    crs_pnr.system(+) = 'CRS' and "
         "    pax.ticket_rem = 'TKNE' "
         "order by "
         "    target, "
@@ -5276,6 +5281,7 @@ void TETLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
         "    pax.pax_id = crs_pax.pax_id(+) and "
         "    crs_pax.pr_del(+)=0 and "
         "    crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
+        "    crs_pnr.system(+) = 'CRS' and "
         "    pax.ticket_rem = 'TKNE' "
         "order by "
         "    target, "
@@ -8252,7 +8258,8 @@ struct TPNLPaxInfo {
                 "where "
                 "    crs_pax.pax_id = :pax_id and "
                 "    crs_pax.pr_del=0 and "
-                "    crs_pnr.pnr_id = crs_pax.pnr_id ";
+                "    crs_pnr.pnr_id = crs_pax.pnr_id and "
+                "    crs_pnr.system = 'CRS' ";
             Qry.DeclareVariable("pax_id", otInteger);
         }
 };
@@ -8803,6 +8810,7 @@ void TPFSInfo::get(int point_id)
         "where  "
         "    tlg_binding.point_id_spp = :point_id and  "
         "    tlg_binding.point_id_tlg = crs_pnr.point_id and  "
+        "    crs_pnr.system = 'CRS' and "
         "    crs_pnr.pnr_id = crs_pax.pnr_id and  "
         "    crs_pax.pr_del = 0 and "
         "    crs_pax.pax_id = pax.pax_id(+) and "
