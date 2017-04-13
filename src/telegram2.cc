@@ -4643,7 +4643,7 @@ void TRemList::get(TypeB::TDetailCreateInfo &info, TTPLPax &pax)
     LoadPaxRem(pax.pax_id, rems);
     for(multiset<CheckIn::TPaxRemItem>::iterator i = rems.begin(); i != rems.end(); i++) {
         if(i->code == "ETLP")
-            items.push_back(i->text);
+            items.push_back(transliter(convert_char_view(i->text, info.is_lat()), 1, info.is_lat()));
     }
 }
 
