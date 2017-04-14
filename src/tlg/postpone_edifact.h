@@ -17,7 +17,8 @@ public:
         : m_tlgNum(tnum)
     {}
 
-    const tlgnum_t tlgNum() const { return m_tlgNum; }
+    const tlgnum_t tlgNum() const;
+    int tlgnum() const;
 };
 
 //-----------------------------------------------------------------------------
