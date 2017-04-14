@@ -73,38 +73,35 @@ dcrcka::Result checkinPax(tlgnum_t postponeTlgNum)
     int reqCtxtId = AstraEdifact::ReadPostponedContext(postponeTlgNum, true/*clear*/);
     LogTrace(TRACE3) << "req_ctxt_id=" << reqCtxtId;
 
-    if(reqCtxtId)
-    {
-        tst();
-
-        XMLDoc termReqCtxt;
-        AstraEdifact::getTermRequestCtxt(reqCtxtId, true,
-                                         "iatci::checkinPax", termReqCtxt);
-        xmlNodePtr termReqNode = NodeAsNode("/query", termReqCtxt.docPtr())->children;
-        ASSERT(termReqNode != NULL);
-
-        XMLDoc ediResCtxt;
-        AstraEdifact::getEdiResponseCtxt(reqCtxtId, true,
-                                         "iatci::checkinPax", ediResCtxt, false/*throw*/);
-
-        if(ediResCtxt.docPtr() == NULL) {
-            // сюда попадем если случится таймаут
-            throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "");
-        }
-        xmlNodePtr ediResNode = NodeAsNode("/context", ediResCtxt.docPtr());
-        ASSERT(ediResNode != NULL);
-
-        try {
-            return astra_api::checkinIatciPaxes(termReqNode, ediResNode);
-        } catch(tick_soft_except&) {
-            tst();
-            // откатываем измененные статусы
-            ETRollbackStatus_local(ediResNode->doc);
-            throw;
-        }
+    if(!reqCtxtId) {
+        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "");
     }
 
-    throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "");
+    XMLDoc termReqCtxt;
+    AstraEdifact::getTermRequestCtxt(reqCtxtId, true,
+                                     "iatci::checkinPax", termReqCtxt);
+    xmlNodePtr termReqNode = NodeAsNode("/query", termReqCtxt.docPtr())->children;
+    ASSERT(termReqNode != NULL);
+
+    XMLDoc ediResCtxt;
+    AstraEdifact::getEdiResponseCtxt(reqCtxtId, true,
+                                     "iatci::checkinPax", ediResCtxt, false/*throw*/);
+
+    if(ediResCtxt.docPtr() == NULL) {
+        // что-то пошло не так
+        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "");
+    }
+    xmlNodePtr ediResNode = NodeAsNode("/context", ediResCtxt.docPtr());
+    ASSERT(ediResNode != NULL);
+
+    try {
+        return astra_api::checkinIatciPaxes(termReqNode, ediResNode);
+    } catch(tick_soft_except&) {
+        tst();
+        // откатываем измененные статусы
+        ETRollbackStatus_local(ediResNode->doc);
+        throw;
+    }
 }
 
 dcrcka::Result cancelCheckin(tlgnum_t postponeTlgNum)
@@ -114,32 +111,29 @@ dcrcka::Result cancelCheckin(tlgnum_t postponeTlgNum)
     int reqCtxtId = AstraEdifact::ReadPostponedContext(postponeTlgNum, true/*clear*/);
     LogTrace(TRACE3) << "req_ctxt_id=" << reqCtxtId;
 
-    if(reqCtxtId)
-    {
-        tst();
-
-        XMLDoc termReqCtxt;
-        AstraEdifact::getTermRequestCtxt(reqCtxtId, true,
-                                         "iatci::cancelCheckinPax", termReqCtxt);
-        xmlNodePtr termReqNode = NodeAsNode("/query", termReqCtxt.docPtr())->children;
-        ASSERT(termReqNode != NULL);
-
-        XMLDoc ediResCtxt;
-        AstraEdifact::getEdiResponseCtxt(reqCtxtId, true,
-                                         "iatci::cancelCheckinPax", ediResCtxt, false/*throw*/);
-        if(ediResCtxt.docPtr() == NULL) {
-            // сюда попадем если случится таймаут
-            throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "");
-        }
-
-        xmlNodePtr ediResNode = NodeAsNode("/context", ediResCtxt.docPtr());
-        ASSERT(ediResNode != NULL);
-
-        tst();
-        return astra_api::cancelCheckinIatciPax(termReqNode, ediResNode);
+    if(!reqCtxtId) {
+        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "");
     }
 
-    throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "");
+    XMLDoc termReqCtxt;
+    AstraEdifact::getTermRequestCtxt(reqCtxtId, true,
+                                     "iatci::cancelCheckinPax", termReqCtxt);
+    xmlNodePtr termReqNode = NodeAsNode("/query", termReqCtxt.docPtr())->children;
+    ASSERT(termReqNode != NULL);
+
+    XMLDoc ediResCtxt;
+    AstraEdifact::getEdiResponseCtxt(reqCtxtId, true,
+                                     "iatci::cancelCheckinPax", ediResCtxt, false/*throw*/);
+    if(ediResCtxt.docPtr() == NULL) {
+        // что-то пошло не так
+        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "");
+    }
+
+    xmlNodePtr ediResNode = NodeAsNode("/context", ediResCtxt.docPtr());
+    ASSERT(ediResNode != NULL);
+
+    tst();
+    return astra_api::cancelCheckinIatciPax(termReqNode, ediResNode);
 }
 
 }//namespace iatci

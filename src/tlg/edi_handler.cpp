@@ -169,6 +169,7 @@ void handle_edi_tlg(const tlg_info &tlg)
     catch(TlgHandling::TlgToBePostponed& e)
     {
         LogTrace(TRACE1) << "Tlg " << e.tlgNum() << " to be postponed";
+        deleteTlg(e.tlgnum());
         callPostHooksBefore();
         ASTRA::commit();
         callPostHooksAfter();

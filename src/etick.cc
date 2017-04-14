@@ -1863,8 +1863,7 @@ struct TlgHaveSent
     edilib::EdiSessionId_t m_sessId;
     int                    m_reqCtxtId;
 
-    TlgHaveSent(edilib::EdiSessionId_t sessId,
-                 int reqCtxtId)
+    TlgHaveSent(edilib::EdiSessionId_t sessId, int reqCtxtId)
         : m_sessId(sessId),
           m_reqCtxtId(reqCtxtId)
     {}

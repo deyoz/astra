@@ -575,7 +575,7 @@ void GetEdiError(const xmlNodePtr errorCtxtNode,
 
 void WritePostponedContext(tlgnum_t tnum, int reqCtxtId)
 {
-    LogTrace(TRACE1) << __FUNCTION__ << ". id=" << reqCtxtId << "; msg_id=" << tnum;
+    LogTrace(TRACE1) << __FUNCTION__ << " ctxt_id=" << reqCtxtId << "; msg_id=" << tnum;
     OciCpp::CursCtl cur = make_curs(
 "insert into POSTPONED_TLG_CONTEXT (MSG_ID, REQ_CTXT_ID) "
 "values (:msg_id, :req_ctxt_id)");

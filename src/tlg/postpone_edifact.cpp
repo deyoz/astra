@@ -24,6 +24,18 @@
 
 namespace TlgHandling {
 
+const tlgnum_t TlgToBePostponed::tlgNum() const
+{
+    return m_tlgNum;
+}
+
+int TlgToBePostponed::tlgnum() const
+{
+    return boost::lexical_cast<int>(m_tlgNum.num);
+}
+
+//-----------------------------------------------------------------------------
+
 void PostponeEdiHandling::insertDb(const tlgnum_t& tnum, edilib::EdiSessionId_t sessId)
 {
     LogTrace(TRACE3) << "add session " << sessId << " for postpone tlg " << tnum;
@@ -78,6 +90,8 @@ boost::optional<tlgnum_t> PostponeEdiHandling::deleteDb(edilib::EdiSessionId_t s
 
 void PostponeEdiHandling::addToQueue(const tlgnum_t& tnum)
 {
+    LogTrace(TRACE1) << "putTlg2InputQueue postponed tlg with num: " << tnum;
+
     TlgHandling::TlgSourceEdifact tlg = TlgSource::readFromDb(tnum);
 
     OciCpp::CursCtl cur = make_curs(
@@ -130,9 +144,8 @@ boost::optional<tlgnum_t> PostponeEdiHandling::deleteWaiting(edilib::EdiSessionI
 {
     LogTrace(TRACE3) << "try to find postponed tlg for session: " << sessId;
     boost::optional<tlgnum_t> tnum = deleteDb(sessId);
-    if(tnum)
-    {
-        LogTrace(TRACE1) << "putTlg2InputQueue postponed tlg with num: " << tnum.get();
+    if(tnum) {
+        tst();
         addToQueue(*tnum);
     }
     return tnum;

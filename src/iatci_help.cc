@@ -169,7 +169,7 @@ XMLDoc createXmlDoc(const std::string& xml)
     XMLDoc doc;
     doc.set(ConvertCodepage(xml, "CP866", "UTF-8"));
     if(doc.docPtr() == NULL) {
-        throw EXCEPTIONS::Exception("context %s has wrong XML format", xml.c_str());
+        throw EXCEPTIONS::Exception("document %s has wrong XML format", xml.c_str());
     }
     xml_decode_nodelist(doc.docPtr()->children);
     return doc;
