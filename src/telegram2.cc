@@ -5108,6 +5108,8 @@ void TTPLDest::GetPaxList(TypeB::TDetailCreateInfo &info, vector<TTlgCompLayer> 
                 pax.bag_pool_num = Qry.get().FieldAsInteger(col_bag_pool_num);
             pax.pnrs.get(pax.pnr_id);
             pax.rems.get(info, pax);
+            if(pax.rems.items.empty())
+                continue;
             grp_map->get(pax.grp_id, pax.bag_pool_num);
             PaxList.push_back(pax);
         }
