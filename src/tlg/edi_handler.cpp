@@ -175,7 +175,6 @@ void handle_edi_tlg(const tlg_info &tlg)
         ASTRA::commit();
         callPostHooksAfter();
         emptyHookTables();
-        if(!inTestMode()) throw;
     }
     catch(edifact::edi_exception &e)
     {
@@ -271,11 +270,6 @@ bool handle_tlg(void)
         handle_edi_tlg(tlgi);
       };
       queue_not_empty=!TlgQry.Eof;
-  }
-  catch(TlgHandling::TlgToBePostponed& e)
-  {
-    tst();
-    queue_not_empty = true;
   }
   catch(...)
   {

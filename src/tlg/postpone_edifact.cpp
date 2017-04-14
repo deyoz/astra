@@ -116,6 +116,8 @@ void PostponeEdiHandling::addToQueue(const tlgnum_t& tnum)
         tlgi.text = tlg.text();
         handle_edi_tlg(tlgi);
     }
+#else
+    sendCmd("CMD_EDI_HANDLER","H");
 #endif//XP_TESTING
 }
 
