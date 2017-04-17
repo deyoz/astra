@@ -27,6 +27,10 @@ struct TTlgCompLayer {
     ASTRA::TCompLayerType layer_type;
     std::string xname;
     std::string yname;
+    std::string denorm_view(bool is_lat) const
+    {
+      return TSeat(yname, xname).denorm_view(is_lat);
+    }
 };
 
 

@@ -168,7 +168,7 @@ void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //векто
   };
 
 
-  vector<TSeatRange> seat_view_ranges;
+  TSeatRanges seat_view_ranges;
   for(vector< pair<int, TSeatRange> >::const_iterator r=ranges.begin(); r!=ranges.end(); r++)
     seat_view_ranges.push_back(r->second);
 
@@ -236,7 +236,7 @@ void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //векто
 void InsertTlgSeatRanges(int point_id_tlg,
                          string airp_arv,
                          TCompLayerType layer_type,
-                         const vector<TSeatRange> &ranges,
+                         const TSeatRanges &ranges,
                          int crs_pax_id, //может быть NoExists
                          int tlg_id,     //может быть NoExists
                          int timeout,    //может быть NoExists
@@ -316,7 +316,7 @@ void InsertTlgSeatRanges(int point_id_tlg,
 
   vector< pair<int, TSeatRange> > ranges_for_sync;
 
-  for(vector<TSeatRange>::const_iterator r=ranges.begin();r!=ranges.end();r++)
+  for(TSeatRanges::const_iterator r=ranges.begin();r!=ranges.end();r++)
   {
     Qry.SetVariable("first_xname",r->first.line);
     Qry.SetVariable("last_xname",r->second.line);
@@ -366,7 +366,7 @@ void DeleteTripSeatRanges(const vector<int> range_ids,
     sql << "FOR UPDATE";
     Qry.SQLText=sql.str().c_str();
     Qry.DeclareVariable("range_id", otInteger);
-    map< pair<TCompLayerType, int> , pair<vector<TSeatRange>, bool> > ranges; //ключ - пара layer_type, point_id
+    map< pair<TCompLayerType, int> , pair<TSeatRanges, bool> > ranges; //ключ - пара layer_type, point_id
     for(vector<int>::const_iterator i=range_ids.begin(); i!=range_ids.end(); i++)
     {
       Qry.SetVariable("range_id", *i);
@@ -376,7 +376,7 @@ void DeleteTripSeatRanges(const vector<int> range_ids,
         TCompLayerType layer_type=DecodeCompLayerType(Qry.FieldAsString("layer_type"));
         int point_id=Qry.FieldAsInteger("point_id");
         point_ids_spp.insert( make_pair(point_id, layer_type) );
-        pair<vector<TSeatRange>, bool> &seat_view_ranges=ranges[ make_pair(layer_type,point_id) ];
+        pair<TSeatRanges, bool> &seat_view_ranges=ranges[ make_pair(layer_type,point_id) ];
 
         TSeatRange range(TSeat(Qry.FieldAsString("first_yname"),
                                Qry.FieldAsString("first_xname")),
@@ -388,7 +388,7 @@ void DeleteTripSeatRanges(const vector<int> range_ids,
       };
     };
 
-    map< pair<TCompLayerType, int> , pair<vector<TSeatRange>, bool> >::const_iterator r=ranges.begin();
+    map< pair<TCompLayerType, int> , pair<TSeatRanges, bool> >::const_iterator r=ranges.begin();
     for(;r!=ranges.end();r++)
     {
       TCompLayerType layer_type=r->first.first;
@@ -400,7 +400,7 @@ void DeleteTripSeatRanges(const vector<int> range_ids,
       {
         int point_id=r->first.second;
         bool pr_lat_seat=r->second.second;
-        const vector< TSeatRange > &seat_view_ranges=r->second.first;
+        const TSeatRanges &seat_view_ranges=r->second.first;
 
         TLogLocale tlocale;
         tlocale.ev_type=ASTRA::evtPax;
@@ -548,6 +548,30 @@ void DeleteTlgSeatRanges(TCompLayerType layer_type,
 
   DeleteTlgSeatRanges(range_ids, crs_pax_id, curr_tid, point_ids_spp);
 };
+
+void GetTlgSeatRanges(TCompLayerType layer_type,
+                      int crs_pax_id,
+                      TSeatRanges &ranges)
+{
+  ranges.clear();
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT first_xname, last_xname, first_yname, last_yname FROM tlg_comp_layers "
+    "WHERE crs_pax_id=:crs_pax_id AND layer_type=:layer_type";
+  Qry.CreateVariable("crs_pax_id", otInteger, crs_pax_id);
+  Qry.CreateVariable("layer_type", otString, EncodeCompLayerType(layer_type));
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    TSeatRange range(TSeat(Qry.FieldAsString("first_yname"),
+                           Qry.FieldAsString("first_xname")),
+                     TSeat(Qry.FieldAsString("last_yname"),
+                           Qry.FieldAsString("last_xname")));
+    ranges.push_back(range);
+  };
+}
 
 void SyncTripCompLayers(int point_id_tlg,
                         int point_id_spp,

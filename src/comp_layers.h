@@ -15,7 +15,7 @@ typedef std::set< std::pair<int, ASTRA::TCompLayerType> > TPointIdsForCheck;
 void InsertTlgSeatRanges(int point_id_tlg,
                          std::string airp_arv,
                          ASTRA::TCompLayerType layer_type,
-                         const std::vector<TSeatRange> &ranges,
+                         const TSeatRanges &ranges,
                          int crs_pax_id,  //может быть NoExists
                          int tlg_id,      //может быть NoExists
                          int timeout,     //может быть NoExists
@@ -32,7 +32,11 @@ void DeleteTlgSeatRanges(std::vector<int> range_ids,
                          int crs_pax_id,           //может быть NoExists
                          int &curr_tid,            //если NoExists, то инициализируется в процедуре, служит для обновления crs_pax.tid
                          TPointIdsForCheck &point_ids_spp); //вектор point_id_spp по которым были изменения
-                         
+
+void GetTlgSeatRanges(ASTRA::TCompLayerType layer_type,
+                      int crs_pax_id,
+                      TSeatRanges &ranges);
+
 void InsertTripCompLayers(int point_id_tlg, //point_id_tlg либо point_id_spp м.б. NoExists
                           int point_id_spp,
                           ASTRA::TCompLayerType layer_type,
@@ -42,7 +46,7 @@ void DeleteTripCompLayers(int point_id_tlg, //point_id_tlg либо point_id_spp м.б
                           int point_id_spp,
                           ASTRA::TCompLayerType layer_type,
                           TPointIdsForCheck &point_ids_spp); //вектор point_id_spp по которым были изменения
-                          
+
 void SyncTripCompLayers(int point_id_tlg, //point_id_tlg либо point_id_spp м.б. NoExists
                         int point_id_spp,
                         ASTRA::TCompLayerType layer_type,

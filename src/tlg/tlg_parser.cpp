@@ -113,7 +113,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
                   TTlgParser &tlg, const TDCSHeadingInfo &info, TPnrItem &pnr, TNameElement &ne);
 bool ParseCHDRem(TTlgParser &tlg,string &rem_text,vector<TChdItem> &chd);
 bool ParseINFRem(TTlgParser &tlg,string &rem_text,vector<TInfItem> &inf);
-bool ParseSEATRem(TTlgParser &tlg,string &rem_text,vector<TSeatRange> &seats);
+bool ParseSEATRem(TTlgParser &tlg,string &rem_text,TSeatRanges &seats);
 bool ParseTKNRem(TTlgParser &tlg,string &rem_text,TTKNItem &tkn);
 bool ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fqt);
 
@@ -1604,7 +1604,7 @@ void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con)
     char cat[5];
     *cat=0;
     bool usePriorContext=false;
-    vector<TSeatRange> ranges;
+    TSeatRanges ranges;
 
     e=SeatingCategories;
     do
@@ -1655,7 +1655,7 @@ void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con)
             try
             {
               ParseSeatRange(tlg.lex,ranges,usePriorContext);
-              for(vector<TSeatRange>::iterator i=ranges.begin();i!=ranges.end();i++)
+              for(TSeatRanges::iterator i=ranges.begin();i!=ranges.end();i++)
               {
                 strcpy(i->rem,cat);
               };
@@ -3531,7 +3531,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
             if (iRemItem->text.empty()) continue;
 
             if (iRemItem->code!=r->first) continue;
-            vector<TSeatRange> seats;
+            TSeatRanges seats;
             TSeat seat;
             if (ParseSEATRem(tlg,iRemItem->text,seats))
             {
@@ -3540,7 +3540,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
               if (iPaxItem->seat.Empty())
               {
                 //если место не определено, попробовать привязать
-                for(vector<TSeatRange>::iterator i=seats.begin();i!=seats.end();i++)
+                for(TSeatRanges::iterator i=seats.begin();i!=seats.end();i++)
                 {
                   seat=i->first;
                   do
@@ -3803,7 +3803,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
           if (iRemItem->text.empty()) continue;
 
           if (iRemItem->code!=r->first) continue;
-          vector<TSeatRange> seats;
+          TSeatRanges seats;
           TSeat seat;
           if (ParseSEATRem(tlg,iRemItem->text,seats))
           {
@@ -3811,7 +3811,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
             ne.seatRanges.insert(ne.seatRanges.end(),seats.begin(),seats.end());
 
             //попробуем привязать
-            for(vector<TSeatRange>::iterator i=seats.begin();i!=seats.end();i++)
+            for(TSeatRanges::iterator i=seats.begin();i!=seats.end();i++)
             {
               seat=i->first;
               do
@@ -3902,7 +3902,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
   };
 };
 
-void ParseSeatRange(string str, vector<TSeatRange> &ranges, bool usePriorContext)
+void ParseSeatRange(string str, TSeatRanges &ranges, bool usePriorContext)
 {
   char c;
   int res;
@@ -4120,13 +4120,13 @@ void ParseSeatRange(string str, vector<TSeatRange> &ranges, bool usePriorContext
   while (false);
 
   priorMaxSeat.Clear();
-  for(vector<TSeatRange>::iterator i=ranges.begin();i!=ranges.end();i++)
+  for(TSeatRanges::iterator i=ranges.begin();i!=ranges.end();i++)
   {
     if (priorMaxSeat<i->second) priorMaxSeat=i->second;
   };
 };
 
-bool ParseSEATRem(TTlgParser &tlg,string &rem_text,vector<TSeatRange> &seats)
+bool ParseSEATRem(TTlgParser &tlg,string &rem_text,TSeatRanges &seats)
 {
   char c;
   int res;
@@ -4147,13 +4147,13 @@ bool ParseSEATRem(TTlgParser &tlg,string &rem_text,vector<TSeatRange> &seats)
   if (isSeatRem(rem_code))
   {
     bool usePriorContext=false;
-    vector<TSeatRange> ranges;
+    TSeatRanges ranges;
     while((p=tlg.GetLexeme(p))!=NULL)
     {
       try
       {
         ParseSeatRange(tlg.lex,ranges,usePriorContext);
-        for(vector<TSeatRange>::iterator i=ranges.begin();i!=ranges.end();i++)
+        for(TSeatRanges::iterator i=ranges.begin();i!=ranges.end();i++)
         {
           strcpy(i->rem,rem_code);
         };
@@ -6740,7 +6740,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         int point_id_spp = ASTRA::NoExists;
         TAdvTripInfoList trips;
         if ( !isPRL ) {
-          trips = getTripsByPointIdTlg(point_id);
+          getTripsByPointIdTlg(point_id, trips);
           if (!trips.empty())
             point_id_spp = trips.front().point_id;
         }
@@ -7088,7 +7088,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                                                              iPaxItem->seat_rem);
                     if (rem_layer!=cltPNLCkin && rem_layer!=cltUnknown)
                       InsertTlgSeatRanges(point_id,iTotals->dest,rem_layer,
-                                          vector<TSeatRange>(1,TSeatRange(iPaxItem->seat,iPaxItem->seat)),
+                                          TSeatRanges(iPaxItem->seat),
                                           pax_id,tlg_id,NoExists,UsePriorContext,tid,point_ids_spp);
                   };
                   UsePriorContext=true;

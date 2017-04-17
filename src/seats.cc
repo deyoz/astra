@@ -1402,7 +1402,7 @@ TSeatPlace &TSeatPlaces::GetEqualSeatPlace( TPassenger &pass )
     ispPlaceName_lat.clear();
     ispPlaceName_rus.clear();
     SALONS2::TPlaceList *placeList = isp->placeList;
-    ispPlaceName_lat = denorm_iata_row( placeList->GetYsName( isp->Pos.y ), NULL );
+    ispPlaceName_lat = denorm_iata_row( placeList->GetYsName( isp->Pos.y ) );
     ispPlaceName_rus = ispPlaceName_lat;
     ispPlaceName_lat += denorm_iata_line( placeList->GetXsName( isp->Pos.x ), 1 );
     ispPlaceName_rus += denorm_iata_line( placeList->GetXsName( isp->Pos.x ), 0 );
@@ -2183,7 +2183,7 @@ void TPassengers::Add( SALONS2::TSalons &Salons, TPassenger &pass )
           continue;
         if ( pass.preseat_layer == cltUnknown ) {
           TPoint p( i->x, i->y );
-          pass.preseat_no = denorm_iata_row( i->yname, NULL ) + denorm_iata_line( i->xname, Salons.getLatSeat() );
+          pass.preseat_no = i->denorm_view(Salons.getLatSeat());
           pass.preseat_layer = i->layers.begin()->layer_type;
           pass.preseat_pax_id = i->layers.begin()->pax_id;
         }
@@ -2230,8 +2230,7 @@ void TPassengers::Add( const SALONS2::TSalonList &salonList, TPassenger &pass )
             pass.preseat_layer = ilayer->first.layer_type;
             pass.preseat_pax_id = pass.paxId;
             std::set<TPlace*,CompareSeats>::const_iterator iseat = ilayer->second.seats.begin();
-            pass.preseat_no = denorm_iata_row( (*iseat)->yname, NULL ) +
-                              denorm_iata_line( (*iseat)->xname, salonList.isCraftLat() );
+            pass.preseat_no = (*iseat)->denorm_view(salonList.isCraftLat());
             TCoordSeat coord;
             coord.placeListIdx = -1;
             for ( std::vector<TPlaceList*>::const_iterator plList=salonList.begin();
@@ -3333,7 +3332,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p )
   return res;
 }
 
-void SaveTripSeatRanges( int point_id, TCompLayerType layer_type, vector<TSeatRange> &seats,
+void SaveTripSeatRanges( int point_id, TCompLayerType layer_type, TSeatRanges &seats,
                          int pax_id, int point_dep, int point_arv, TDateTime time_create )
 {
   if (seats.empty()) return;
@@ -3373,7 +3372,7 @@ void SaveTripSeatRanges( int point_id, TCompLayerType layer_type, vector<TSeatRa
   Qry.DeclareVariable( "last_yname", otString );
   Qry.CreateVariable( "time_create", otDate, time_create );
 
-  for(vector<TSeatRange>::iterator i=seats.begin();i!=seats.end();i++)
+  for(TSeatRanges::iterator i=seats.begin();i!=seats.end();i++)
   {
     Qry.SetVariable("first_xname",i->first.line);
     Qry.SetVariable("last_xname",i->second.line);
@@ -3603,7 +3602,7 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   TSeatRange r;
   TSalonPoint p;
   TPlace* place;
-  vector<TSeatRange> nseats;
+  TSeatRanges nseats;
   int priority = Salons.getPriority( layer_type );
 
   // проверка на то, что пассажир имеет уже более приоритетный слой, а хотим назначить менее приоритетный
@@ -3654,7 +3653,7 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     Qry.Next();
   }
 
-  vector<TSeatRange> seats;
+  TSeatRanges seats;
   if ( seat_type != stDropseat ) { // заполнение вектора мест + проверка
     TQuery QrySeatRules( &OraSession );
     QrySeatRules.SQLText =
@@ -3845,10 +3844,10 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
 
   TReqInfo *reqinfo = TReqInfo::Instance();
   string new_seat_no;
-  for (vector<TSeatRange>::iterator ns=seats.begin(); ns!=seats.end(); ns++ ) {
+  for (TSeatRanges::iterator ns=seats.begin(); ns!=seats.end(); ns++ ) {
     if ( !new_seat_no.empty() )
         new_seat_no += " ";
-    new_seat_no += denorm_iata_row( ns->first.row, NULL ) + denorm_iata_line( ns->first.line, pr_lat_seat );
+    new_seat_no += ns->first.denorm_view(pr_lat_seat);
   }
   switch( seat_type ) {
     case stSeat:
@@ -4058,7 +4057,7 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
         }
       }
       else {
-        std::vector<TSeatRange> seats;
+        TSeatRanges seats;
         for ( vector<TSeat>::iterator i=pass.seat_no.begin(); i!=pass.seat_no.end(); i++ ) {
             TSeatRange r(*i,*i);
             seats.push_back( r );
@@ -4285,7 +4284,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
       throw UserException( "MSG.SEATS.SEAT_NO.EXIST_MORE_PRIORITY" ); //пассажир имеет более приоритетное место
     }
   }
-  vector<TSeatRange> seatRanges;
+  TSeatRanges seatRanges;
   vector<pair<TSeatRange,TRFISC> > tariffs;
   TSeatRange r;
   vector<TPlaceList*>::const_iterator isalonList;
@@ -4554,7 +4553,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
     if (it!=tariffs.begin())
       seatPrmEnum.prms << PrmSmpl<string>("", " ");
 
-    seatPrmEnum.prms << PrmSmpl<string>("", denorm_iata_row( it->first.first.row, NULL ) + denorm_iata_line( it->first.first.line, salonList.isCraftLat() ));
+    seatPrmEnum.prms << PrmSmpl<string>("", it->first.first.denorm_view(salonList.isCraftLat()));
 
     if ( !it->second.code.empty() || !it->second.empty())
     {
@@ -4845,7 +4844,7 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
         continue;
     }
     if ( pass.InUse ) { /* смогли посадить */
-      std::vector<TSeatRange> seats;
+      TSeatRanges seats;
       for ( vector<TSeat>::iterator i=pass.seat_no.begin(); i!=pass.seat_no.end(); i++ ) {
           TSeatRange r(*i,*i);
           seats.push_back( r );

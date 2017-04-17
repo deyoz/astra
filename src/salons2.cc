@@ -209,7 +209,7 @@ void TSalons::Build( xmlNodePtr salonsNode )
       if ( place->not_good )
         NewTextChild( placeNode, "not_good" );
       NewTextChild( placeNode, "xname", denorm_iata_line( place->xname, pr_lat_seat ) );
-      NewTextChild( placeNode, "yname", denorm_iata_row( place->yname, NULL ) );
+      NewTextChild( placeNode, "yname", denorm_iata_row( place->yname ) );
       if ( place->status != "FP" )
         NewTextChild( placeNode, "status", place->status ); // вычисляем статус исходя из слоев
       if ( !place->pr_free )
@@ -999,7 +999,7 @@ bool TPlaceList::GetisPlaceXY( string placeName, SALONS2::TPoint &p )
     seat_no.clear();
   for( vector<string>::iterator ix=xs.begin(); ix!=xs.end(); ix++ )
     for ( vector<string>::iterator iy=ys.begin(); iy!=ys.end(); iy++ ) {
-        salon_seat_no = denorm_iata_row(*iy,NULL) + denorm_iata_line(*ix,false);
+        salon_seat_no = denorm_iata_row(*iy) + denorm_iata_line(*ix,false);
       if ( placeName == salon_seat_no ||
            ( !seat_no.empty() && seat_no == salon_seat_no ) ) {
         p.x = distance( xs.begin(), ix );

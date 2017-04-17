@@ -128,8 +128,10 @@ const TRFISCListKey& TRFISCListKey::toSirenaXML(xmlNodePtr node, const std::stri
 {
   if (node==NULL) return *this;
 
-  SetProp(node, "company", airlineToXML(airline, lang));
-  SetProp(node, "service_type", ServiceTypes().encode(service_type));
+  if (!airline.empty())
+    SetProp(node, "company", airlineToXML(airline, lang));
+  if (service_type!=TServiceType::Unknown)
+    SetProp(node, "service_type", ServiceTypes().encode(service_type));
   SetProp(node, "rfisc", RFISC);
   return *this;
 }
@@ -1513,9 +1515,10 @@ void TPaidRFISCList::copyDB(int grp_id_src, int grp_id_dest)
 
 void TGrpServiceList::addBagInfo(int grp_id,
                                  int tckin_seg_count,
-                                 int trfer_seg_count)
+                                 int trfer_seg_count,
+                                 bool include_refused)
 {
-  TCachedQuery Qry("SELECT ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num, 0) AS pax_id, "
+  TCachedQuery Qry("SELECT ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num, :include_refused) AS pax_id, "
                    "       0 AS transfer_num, "
                    "       bag2.list_id, "
                    "       bag2.rfisc, "
@@ -1525,7 +1528,8 @@ void TGrpServiceList::addBagInfo(int grp_id,
                    "       bag2.pr_cabin "
                    "FROM bag2 "
                    "WHERE bag2.grp_id=:grp_id AND bag2.rfisc IS NOT NULL ",
-                   QParams() << QParam("grp_id", otInteger, grp_id));
+                   QParams() << QParam("grp_id", otInteger, grp_id)
+                             << QParam("include_refused", otInteger, (int)include_refused));
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
   {
@@ -1544,11 +1548,12 @@ void TGrpServiceList::addBagInfo(int grp_id,
 
 void TGrpServiceList::prepareForSirena(int grp_id,
                                        int tckin_seg_count,
-                                       int trfer_seg_count)
+                                       int trfer_seg_count,
+                                       bool include_refused)
 {
   clear();
-  fromDB(grp_id, true);
-  addBagInfo(grp_id, tckin_seg_count, trfer_seg_count);
+  fromDB(grp_id, !include_refused);
+  addBagInfo(grp_id, tckin_seg_count, trfer_seg_count, include_refused);
 }
 
 void TGrpServiceList::getAllListItems()

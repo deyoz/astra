@@ -1488,7 +1488,7 @@ void TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
    }
    NewTextChild( node, "class", clname );
    NewTextChild( node, "xname", denorm_iata_line( xname, pr_lat_seat ) );
-   NewTextChild( node, "yname", denorm_iata_row( yname, NULL ) );
+   NewTextChild( node, "yname", denorm_iata_row( yname ) );
 }
 
 void TPlace::SetTariffsByRFISCColor( int point_dep, const TSeatTariffMapType &salonTariffs, const TSeatTariffMap::TStatus &status )
@@ -1763,7 +1763,7 @@ void TPlace::Build( xmlNodePtr node, bool pr_lat_seat, bool pr_update ) const
    }
    NewTextChild( node, "class", clname );
    NewTextChild( node, "xname", denorm_iata_line( xname, pr_lat_seat ) );
-   NewTextChild( node, "yname", denorm_iata_row( yname, NULL ) );
+   NewTextChild( node, "yname", denorm_iata_row( yname ) );
 }
 
 void TSalons::BuildLayersInfo( xmlNodePtr salonsNode,
@@ -4206,6 +4206,33 @@ void TSalonList::getPassengers( TSalonPassengers &passengers, const TGetPassFlag
   JumpToLeg( TFilterRoutesSets( filterRoutes.getDepartureId() ) );
 }
 
+void TSalonList::getPaxLayer( int point_dep, int pax_id, ASTRA::TCompLayerType layer_type,
+                              std::set<TPlace*,CompareSeats> &seats ) const
+{
+  seats.clear();
+  std::map<int,TPaxList>::const_iterator ipax_list = pax_lists.find( point_dep );
+  if ( ipax_list == pax_lists.end() ) {
+    return;
+  }
+  std::map<int,TSalonPax>::const_iterator ipax = ipax_list->second.find( pax_id );
+  if ( ipax == ipax_list->second.end() ) {
+    return;
+  }
+
+  for ( TLayersPax::const_iterator ilayers=ipax->second.layers.begin();
+        ilayers!=ipax->second.layers.end(); ilayers++ ) {
+    if ( ilayers->first.layer_type != layer_type ||
+         !(ilayers->second.waitListReason.layerStatus == layerLess ||
+           ilayers->second.waitListReason.layerStatus == layerValid) ||
+         ilayers->first.getPaxId( ) != pax_id ) {
+      continue;
+    }
+    seats = ilayers->second.seats;
+    break;
+  }
+}
+
+
 void TSalonList::getPaxLayer( int point_dep, int pax_id,
                               TSeatLayer &seatLayer,
                               std::set<TPlace*,CompareSeats> &seats ) const
@@ -4220,7 +4247,7 @@ void TSalonList::getPaxLayer( int point_dep, int pax_id,
   if ( ipax == ipax_list->second.end() ) {
     return;
   }
-  for ( std::map<TSeatLayer,TPaxLayerSeats,SeatLayerCompare>::const_iterator ilayers=ipax->second.layers.begin();
+  for ( TLayersPax::const_iterator ilayers=ipax->second.layers.begin();
         ilayers!=ipax->second.layers.end(); ilayers++ ) {
     if ( ilayers->second.waitListReason.layerStatus != layerValid ||
          ilayers->first.getPaxId( ) != pax_id ) {
@@ -4843,11 +4870,9 @@ void checkRFISC( const TPlace &seat, const string  &color,
 {
   if ( is_rfisc_applied &&
        tariffMap.find( color ) == tariffMap.end() ) {
-    string seat1;
-    seat1 = denorm_iata_row( seat.yname, NULL ) + denorm_iata_line( seat.xname, pr_lat );
     throw UserException( "MSG.TARIFFCOLOR_NOTINUSE",
                          LParams()<<LParam("color",ElemIdToNameLong( etRateColor, color ))
-                         <<LParam("seat1",seat1) );
+                         <<LParam("seat1",seat.denorm_view(pr_lat)) );
   }
 
 }
@@ -4862,13 +4887,10 @@ void checkTariffs( const TPlace &seat, const TSeatTariff &seatTariff,
   if ( !uniqTariffs.empty() ) {
     itariff = uniqTariffs.begin();
     if ( itariff->second.first.currency_id != seatTariff.currency_id ) {
-      string seat1, seat2;
-      seat1 = denorm_iata_row( seat.yname, NULL ) + denorm_iata_line( seat.xname, pr_lat );
-      seat2 = denorm_iata_row( itariff->second.second.yname, NULL ) + denorm_iata_line( itariff->second.second.xname, pr_lat );
       throw UserException( "MSG.DIFFERENTE_CURRENCY",
-                            LParams()<<LParam("seat1", seat1)
+                            LParams()<<LParam("seat1", seat.denorm_view(pr_lat))
                                      <<LParam("currency1", ElemIdToNameShort( etCurrency, seatTariff.currency_id))
-                                     <<LParam("seat2",seat2)
+                                     <<LParam("seat2", itariff->second.second.denorm_view(pr_lat))
                                      <<LParam("currency2", ElemIdToNameShort( etCurrency, itariff->second.first.currency_id) ) );
     }
   }
@@ -4878,14 +4900,11 @@ void checkTariffs( const TPlace &seat, const TSeatTariff &seatTariff,
     return;
   }
   if ( itariff->second.first.rate != seatTariff.rate ) {
-    string seat1, seat2;
-    seat1 = denorm_iata_row( seat.yname, NULL ) + denorm_iata_line( seat.xname, pr_lat );
-    seat2 = denorm_iata_row( itariff->second.second.yname, NULL ) + denorm_iata_line( itariff->second.second.xname, pr_lat );
     throw UserException( "MSG.DIFFERENTE_PRICE",
                           LParams()<<LParam("color",ElemIdToNameLong( etRateColor, seatTariff.color ))
-                                   <<LParam("seat1",seat1)
+                                   <<LParam("seat1",seat.denorm_view(pr_lat))
                                    <<LParam("tariff1",seatTariff.rateView())
-                                   <<LParam("seat2",seat2)
+                                   <<LParam("seat2",itariff->second.second.denorm_view(pr_lat))
                                    <<LParam("tariff2",itariff->second.first.rateView()) );
   }
 }
@@ -7112,7 +7131,7 @@ bool TPlaceList::GetisPlaceXY( string placeName, TPoint &p )
     seat_no.clear();
   for( vector<string>::iterator ix=xs.begin(); ix!=xs.end(); ix++ )
     for ( vector<string>::iterator iy=ys.begin(); iy!=ys.end(); iy++ ) {
-        salon_seat_no = denorm_iata_row(*iy,NULL) + denorm_iata_line(*ix,false);
+        salon_seat_no = denorm_iata_row(*iy) + denorm_iata_line(*ix,false);
       if ( placeName == salon_seat_no ||
            ( !seat_no.empty() && seat_no == salon_seat_no ) ) {
         p.x = distance( xs.begin(), ix );
@@ -8755,9 +8774,9 @@ void getStrSeats( const RowsRef &rows, PrmEnum &params, bool pr_lat )
                 }
           }
             if ( i == 0 ) {
-            str += denorm_iata_row( first_isr->second.yname, NULL );
+            str += denorm_iata_row( first_isr->second.yname );
               if ( prior_isr->first != first_isr->first )
-                str += "-" + denorm_iata_row( prior_isr->second.yname, NULL );
+                str += "-" + denorm_iata_row( prior_isr->second.yname );
               for ( string::const_iterator sp=first_isr->second.xnames.begin(); sp!=first_isr->second.xnames.end(); sp++ ) {
               str += denorm_iata_line( string(1,*sp), pr_lat );
             }
@@ -8769,9 +8788,9 @@ void getStrSeats( const RowsRef &rows, PrmEnum &params, bool pr_lat )
           else
             if ( isr == rows.end() ) {
                 if ( first_isr->first != prior_isr->first )
-                  str = denorm_iata_row( first_isr->second.yname, NULL ) + "-" + denorm_iata_row( prior_isr->second.yname, NULL );
+                  str = denorm_iata_row( first_isr->second.yname ) + "-" + denorm_iata_row( prior_isr->second.yname );
                 else
-                    str = denorm_iata_row( first_isr->second.yname, NULL );
+                    str = denorm_iata_row( first_isr->second.yname );
                 str += denorm_max_lines;
                 // пишем те места, кот нет
                 string minus_lines;
@@ -8782,7 +8801,7 @@ void getStrSeats( const RowsRef &rows, PrmEnum &params, bool pr_lat )
                             minus_lines += denorm_iata_line( string(1,*sp), pr_lat );
                     }
                     if ( !minus_lines.empty() ) {
-                        str += " -" + denorm_iata_row( isr->second.yname, NULL ) + minus_lines;
+                        str += " -" + denorm_iata_row( isr->second.yname ) + minus_lines;
                     }
                 }
                 var2_size += str.size();
@@ -9676,7 +9695,7 @@ void TSalonPax::get_seats( TWaitListReason &waitListReason,
 std::string TSalonPax::seat_no( const std::string &format, bool pr_lat_seat, TWaitListReason &waitListReason ) const
 {
   TPassSeats seats;
-  std::vector<TSeatRange> ranges;
+  TSeatRanges ranges;
   get_seats( waitListReason, seats );
   for ( TPassSeats::const_iterator ipass_seat=seats.begin(); ipass_seat!=seats.end(); ipass_seat++ ) {
     ranges.push_back( TSeatRange( *ipass_seat, *ipass_seat ) );
@@ -9687,7 +9706,7 @@ std::string TSalonPax::seat_no( const std::string &format, bool pr_lat_seat, TWa
 std::string TSalonPax::event_seat_no( bool pr_lat_seat, int point_dep, TWaitListReason &waitListReason, LEvntPrms &evntPrms) const
 {
   evntPrms.clear();
-  std::vector<TSeatRange> ranges;
+  TSeatRanges ranges;
   vector<TPlace*> seats;
   int_get_seats( waitListReason, seats );
   ostringstream res;
@@ -9758,7 +9777,7 @@ std::string TSalonPax::prior_seat_no( const std::string &format, bool pr_lat_sea
   if ( /*res.empty() &&*/
        !invalid_ranges.empty() ) { //слоев нет, смотрим invalid_ranges
 //!log     tst();
-    vector<TSeatRange> ranges;
+    TSeatRanges ranges;
     for ( std::map<TSeatLayer,TInvalidRange,SeatLayerCompare>::const_iterator iranges=invalid_ranges.begin();
           iranges!=invalid_ranges.end(); iranges++ ) {
       if ( iranges->first.layer_type != grp_layer_type ) {
@@ -10037,7 +10056,7 @@ bool isUserProtectLayer( ASTRA::TCompLayerType layer_type )
 };
 
 void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
-                  const std::vector<TSeatRange> &seatRanges,
+                  const TSeatRanges &seatRanges,
                   const std::string &lexema_id )
 {
   TDateTime time_create = NowUTC();
@@ -10054,7 +10073,7 @@ void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
   for ( std::vector<TPlaceList*>::iterator isalonList=salonList.begin();
         isalonList!=salonList.end(); isalonList++ ) {
     for ( TPlaces::iterator iseat=(*isalonList)->places.begin(); iseat!=(*isalonList)->places.end(); iseat++ ) {
-      vector<TSeatRange>::const_iterator iseatRange=seatRanges.begin();
+      TSeatRanges::const_iterator iseatRange=seatRanges.begin();
       for ( ; iseatRange!=seatRanges.end(); iseatRange++ ) {
         if ( iseatRange->first != iseatRange->second ) {
           ProgTrace( TRACE5, "setLayers: layer_type=%s ranges=%s-%s!!!", EncodeCompLayerType( layer_type ),

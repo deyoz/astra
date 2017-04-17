@@ -11,6 +11,54 @@ namespace SirenaExchange
 
 using namespace BASIC::date_time;
 
+template<typename GRP, typename PAX>
+class TVariousReqPassengers : public std::map< GRP, std::set<PAX> >
+{
+  public:
+    bool include_refused;
+    bool include_unbound_svcs;
+    bool only_first_segment;
+    TVariousReqPassengers(const GRP &_grp_id, bool _include_refused, bool _include_unbound_svcs) :
+      include_refused(_include_refused),
+      include_unbound_svcs(_include_unbound_svcs),
+      only_first_segment(false)
+    {
+      if (_grp_id!=ASTRA::NoExists)
+        this->insert(make_pair(_grp_id, std::set<PAX>()));
+    }
+    TVariousReqPassengers(bool _include_refused, bool _include_unbound_svcs, bool _only_first_segment) :
+      include_refused(_include_refused),
+      include_unbound_svcs(_include_unbound_svcs),
+      only_first_segment(_only_first_segment)
+    {}
+    void add(const GRP &_grp_id, const PAX &_pax_id)
+    {
+      if (_grp_id==ASTRA::NoExists || _pax_id==ASTRA::NoExists) return;
+      typename TVariousReqPassengers::iterator i=this->insert(make_pair(_grp_id, std::set<PAX>())).first;
+      if (i!=this->end()) i->second.insert(_pax_id);
+    }
+    bool pax_included(const GRP &_grp_id, const PAX &_pax_id) const
+    {
+      typename TVariousReqPassengers::const_iterator i=this->find(_grp_id);
+      if (i==this->end()) return false;
+      if (i->second.empty()) return true;
+      return (i->second.find(_pax_id)!=i->second.end());
+    }
+};
+
+typedef TVariousReqPassengers<int, int> TCheckedReqPassengers;
+typedef TVariousReqPassengers<int, int> TNotCheckedReqPassengers;
+
+class TCheckedResPassengersItem
+{
+  public:
+    CheckIn::TPaxGrpCategory::Enum grp_cat;
+    TCkinGrpIds tckin_grp_ids;
+    TCheckedResPassengersItem() : grp_cat(CheckIn::TPaxGrpCategory::Unknown) {}
+};
+
+class TCheckedResPassengers : public std::map<int, TCheckedResPassengersItem> {};
+
 class TSegItem
 {
   public:
@@ -239,6 +287,46 @@ class TSvcItem : public TPaxSegRFISCKey
     TSvcItem& fromSirenaXML(xmlNodePtr node);
 };
 
+class TPaxSection
+{
+  private:
+    bool throw_if_empty;
+  public:
+    TPaxSection(bool _throw_if_empty) : throw_if_empty(_throw_if_empty) {}
+    std::list<TPaxItem> paxs;
+    void clear()
+    {
+      paxs.clear();
+    }
+    void toXML(xmlNodePtr node) const;
+    void updateSeg(const Sirena::TPaxSegKey &key);
+};
+
+class TSvcList : public std::list<TSvcItem>
+{
+  public:
+    void addChecked(const TCheckedReqPassengers &req_grps, int grp_id, int tckin_seg_count, int trfer_seg_count);
+    void addASVCs(int pax_id, const std::vector<CheckIn::TPaxASVCItem> &asvc);
+    void addUnbound(const TCheckedReqPassengers &req_grps, int grp_id, int pax_id);
+    void addFromCrs(const TNotCheckedReqPassengers &req_pnrs, int pnr_id, int pax_id);
+    void get(TPaidRFISCList &paid) const;
+};
+
+class TSvcSection
+{
+  private:
+    bool throw_if_empty;
+  public:
+    TSvcSection(bool _throw_if_empty) : throw_if_empty(_throw_if_empty) {}
+    TSvcList svcs;
+    void clear()
+    {
+      svcs.clear();
+    }
+    void toXML(xmlNodePtr node) const;
+    void updateSeg(const Sirena::TPaxSegKey &key);
+};
+
 //запросы Астры в Сирену
 class TAvailability : public TExchange
 {
@@ -275,15 +363,15 @@ class TPassengers : public TExchange
     virtual std::string exchangeId() const { return id; }
 };
 
-class TAvailabilityReq : public TAvailability
+class TAvailabilityReq : public TAvailability, public TPaxSection
 {
   protected:
     virtual bool isRequest() const { return true; }
   public:
-    std::list<TPaxItem> paxs;
+    TAvailabilityReq() : TPaxSection(true) {}
     virtual void clear()
     {
-      paxs.clear();
+      TPaxSection::clear();
     }
     virtual void toXML(xmlNodePtr node) const;
     void bagTypesToDB(const TCkinGrpIds &tckin_grp_ids, bool copy_all_segs=true) const;
@@ -330,24 +418,16 @@ class TAvailabilityRes : public TAvailability, public TAvailabilityResMap
     void brandsToDB(const TCkinGrpIds &tckin_grp_ids) const;
 };
 
-class TSvcList : public std::list<TSvcItem>
-{
-  public:
-    void set(int grp_id, int tckin_seg_count, int trfer_seg_count);
-    void get(TPaidRFISCList &paid) const;
-};
-
-class TPaymentStatusReq : public TPaymentStatus
+class TPaymentStatusReq : public TPaymentStatus, public TPaxSection, public TSvcSection
 {
   protected:
     virtual bool isRequest() const { return true; }
   public:
-    std::list<TPaxItem> paxs;
-    TSvcList svcs;
+    TPaymentStatusReq() : TPaxSection(true), TSvcSection(true) {}
     virtual void clear()
     {
-      paxs.clear();
-      svcs.clear();
+      TPaxSection::clear();
+      TSvcSection::clear();
     }
     virtual void toXML(xmlNodePtr node) const;
 };
@@ -417,17 +497,16 @@ class TGroupInfoReq : public TGroupInfo
     void toDB(TQuery &Qry);
 };
 
-class TGroupInfoRes : public TGroupInfo
+class TGroupInfoRes : public TGroupInfo, public TPaxSection, public TSvcSection
 {
   protected:
     virtual bool isRequest() const { return false; }
   public:
-    std::list<TPaxItem> paxs;
-    TSvcList svcs;
+    TGroupInfoRes() : TPaxSection(true), TSvcSection(true) {}
     virtual void clear()
     {
-      paxs.clear();
-      svcs.clear();
+      TPaxSection::clear();
+      TSvcSection::clear();
     }
     virtual void toXML(xmlNodePtr node) const;
 };
@@ -453,17 +532,16 @@ class TPseudoGroupInfoReq : public TPseudoGroupInfo
     virtual void fromXML(xmlNodePtr node);
 };
 
-class TPseudoGroupInfoRes : public TPseudoGroupInfo
+class TPseudoGroupInfoRes : public TPseudoGroupInfo, public TPaxSection, public TSvcSection
 {
   protected:
     virtual bool isRequest() const { return false; }
   public:
-    std::list<TPaxItem> paxs;
-    TSvcList svcs;
+    TPseudoGroupInfoRes() : TPaxSection(false), TSvcSection(false) {}
     virtual void clear()
     {
-      paxs.clear();
-      svcs.clear();
+      TPaxSection::clear();
+      TSvcSection::clear();
     }
     virtual void toXML(xmlNodePtr node) const;
 };
@@ -474,7 +552,12 @@ void SendRequest(const TExchange &request, TExchange &response);
 
 void fillPaxsBags(int first_grp_id, TExchange &exch, CheckIn::TPaxGrpCategory::Enum &grp_cat, TCkinGrpIds &tckin_grp_ids,
                   bool include_refused=false);
+void fillPaxsBags(const TCheckedReqPassengers &req_grps, TExchange &exch, TCheckedResPassengers &res_grps);
+void fillPaxsSvcs(const TNotCheckedReqPassengers &req_grps, TExchange &exch);
 void fillPaxsSvcs(const TEntityList &entities, TExchange &exch);
+void fillProtBeforePaySvcs(const TAdvTripInfo &operFlt,
+                           const int pax_id,
+                           TExchange &exch);
 
 } //namespace SirenaExchange
 

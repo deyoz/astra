@@ -5275,7 +5275,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                         bool pr_found_preseat_no = false;
                         bool pr_found_agent_no = false;
                         for( std::vector<TSeat>::iterator iseat=pas.seat_no.begin(); iseat!=pas.seat_no.end(); iseat++ ) {
-                          pas_seat_no = denorm_iata_row( iseat->row, NULL ) + denorm_iata_line( iseat->line, pr_lat_seat );
+                          pas_seat_no = iseat->denorm_view(pr_lat_seat);
                         if ( pas_seat_no == pas.preseat_no ) {
                           pr_found_preseat_no = true;
                         }
@@ -5291,7 +5291,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                         change_preseat_no = true;
                       }
 
-                    vector<TSeatRange> ranges;
+                    TSeatRanges ranges;
                     for(vector<TSeat>::iterator iSeat=pas.seat_no.begin();iSeat!=pas.seat_no.end();iSeat++)
                     {
                       TSeatRange range(*iSeat,*iSeat);
@@ -6582,115 +6582,148 @@ namespace SirenaExchange
 void fillPaxsBags(int first_grp_id, TExchange &exch, CheckIn::TPaxGrpCategory::Enum &grp_cat, TCkinGrpIds &tckin_grp_ids,
                   bool include_refused)
 {
-  grp_cat=CheckIn::TPaxGrpCategory::Unknown;
-  tckin_grp_ids.clear();
+  TCheckedReqPassengers req_grps(first_grp_id, include_refused, false);
+  TCheckedResPassengers res_grps;
+  fillPaxsBags(req_grps, exch, res_grps);
+  TCheckedResPassengers::const_iterator iResGrp=res_grps.find(first_grp_id);
+  if (iResGrp==res_grps.end()) throw EXCEPTIONS::Exception("%s: strange situation iResGrp==res_grps.end()");
+  grp_cat=iResGrp->second.grp_cat;
+  tckin_grp_ids=iResGrp->second.tckin_grp_ids;
+}
 
-  TAvailabilityReq  *availabilityReq=dynamic_cast<TAvailabilityReq*>(&exch);
-  TPaymentStatusReq *paymentStatusReq=dynamic_cast<TPaymentStatusReq*>(&exch);
-  TGroupInfoRes     *groupInfoRes=dynamic_cast<TGroupInfoRes*>(&exch);
+void fillPaxsBags(const TCheckedReqPassengers &req_grps, TExchange &exch, TCheckedResPassengers &res_grps)
+{
+  TPaxSection *paxSection=dynamic_cast<TPaxSection*>(&exch);
+  TSvcSection *svcSection=dynamic_cast<TSvcSection*>(&exch);
 
-  TCkinRoute tckin_route;
-  tckin_route.GetRouteAfter(first_grp_id, crtNotCurrent, crtOnlyDependent);
-  tckin_route.get(tckin_grp_ids);
-  tckin_grp_ids.insert(tckin_grp_ids.begin(), first_grp_id);
-
-  TTrferRoute trfer;
-  int seg_no=0;
-  for(TCkinGrpIds::const_iterator grp_id=tckin_grp_ids.begin();grp_id!=tckin_grp_ids.end();grp_id++,seg_no++)
+  for(TCheckedReqPassengers::const_iterator iReqGrp=req_grps.begin(); iReqGrp!=req_grps.end(); ++iReqGrp)
   {
-    CheckIn::TPaxGrpItem grp;
-    if (!grp.fromDB(*grp_id))
+    int first_grp_id=iReqGrp->first;
+    TCheckedResPassengers::iterator iResGrp=res_grps.insert(make_pair(first_grp_id, TCheckedResPassengersItem())).first;
+    CheckIn::TPaxGrpCategory::Enum &grp_cat=iResGrp->second.grp_cat;
+    TCkinGrpIds &tckin_grp_ids=iResGrp->second.tckin_grp_ids;
+
+    TCkinRoute tckin_route;
+    tckin_route.GetRouteAfter(first_grp_id, crtNotCurrent, crtOnlyDependent);
+    tckin_route.get(tckin_grp_ids);
+    tckin_grp_ids.insert(tckin_grp_ids.begin(), first_grp_id);
+
+    TTrferRoute trfer;
+    int seg_no=0;
+    std::list<TPaxItem> paxs;
+    for(TCkinGrpIds::const_iterator grp_id=tckin_grp_ids.begin();grp_id!=tckin_grp_ids.end();grp_id++,seg_no++)
     {
-      tckin_grp_ids.clear();
-      return; //это бывает когда разрегистрация всей группы по ошибке агента
-    }
+      if (req_grps.only_first_segment && grp_id!=tckin_grp_ids.begin()) continue;
 
-    TTripInfo operFlt;
-    operFlt.getByGrpId(*grp_id);
-
-    TDateTime scd_in=TTripInfo::get_scd_in(grp.point_arv);
-
-    if (grp_id==tckin_grp_ids.begin())
-      grp_cat=grp.grpCategory();
-
-    if (grp_cat!=CheckIn::TPaxGrpCategory::UnnacompBag)
-    {
-      if (grp_id==tckin_grp_ids.begin())
-        trfer.GetRoute(grp.id, trtNotFirstSeg);
-
-      if ((paymentStatusReq || groupInfoRes) && grp_id==tckin_grp_ids.begin())
+      CheckIn::TPaxGrpItem grp;
+      if (!grp.fromDB(*grp_id))
       {
-        int trfer_seg_count_pc=0;
-        for(TTrferRoute::const_iterator t=trfer.begin(); t!=trfer.end(); ++t, trfer_seg_count_pc++)
-          if (!t->piece_concept || !t->piece_concept.get()) break; //подсчитываем только кол-во трансферных сегментов с местовой системой расчета
-
-        TSvcList &svcs_ref=(paymentStatusReq?paymentStatusReq->svcs:groupInfoRes->svcs);
-        svcs_ref.set(*grp_id, tckin_route.size()+1, trfer_seg_count_pc+1);
+        tckin_grp_ids.clear();
+        return; //это бывает когда разрегистрация всей группы по ошибке агента
       }
 
-      TGrpMktFlight mktFlight;
-      mktFlight.getByGrpId(grp.id);
+      TAdvTripInfo operFlt;
+      operFlt.getByGrpId(*grp_id);
 
-      TCachedQuery PaxQry(pax_sql, QParams() << QParam("grp_id", otInteger, grp.id));
-      PaxQry.get().Execute();
+      TDateTime scd_in=TTripInfo::get_scd_in(grp.point_arv);
 
+      if (grp_id==tckin_grp_ids.begin())
+        grp_cat=grp.grpCategory();
 
-      if (availabilityReq || paymentStatusReq || groupInfoRes)
+      if (grp_cat!=CheckIn::TPaxGrpCategory::UnnacompBag)
       {
-        std::list<TPaxItem> &paxs_ref=(availabilityReq?availabilityReq->paxs:(paymentStatusReq?paymentStatusReq->paxs:groupInfoRes->paxs));
+        if (grp_id==tckin_grp_ids.begin())
+          trfer.GetRoute(grp.id, trtNotFirstSeg);
 
-        list<TPaxItem>::iterator iReqPax=paxs_ref.begin();
-        for(;!PaxQry.get().Eof; PaxQry.get().Next())
+        if (svcSection && grp_id==tckin_grp_ids.begin())
         {
-          CheckIn::TPaxItem pax;
-          pax.fromDB(PaxQry.get());
-          if (!pax.refuse.empty() && !include_refused) continue;
+          int trfer_seg_count_pc=0;
+          for(TTrferRoute::const_iterator t=trfer.begin(); t!=trfer.end(); ++t, trfer_seg_count_pc++)
+            if (!t->piece_concept || !t->piece_concept.get()) break; //подсчитываем только кол-во трансферных сегментов с местовой системой расчета
 
-          if (grp_id==tckin_grp_ids.begin())
-            iReqPax=paxs_ref.insert(paxs_ref.end(), TPaxItem());
-          if (iReqPax==paxs_ref.end()) throw EXCEPTIONS::Exception("%s: strange situation iReqPax==paxs.end()");
-          TPaxItem &reqPax=*iReqPax;
+          svcSection->svcs.addChecked(req_grps, *grp_id, tckin_route.size()+1, trfer_seg_count_pc+1);
+        }
 
-          if (grp_id==tckin_grp_ids.begin())
+        TGrpMktFlight mktFlight;
+        mktFlight.getByGrpId(grp.id);
+
+        TCachedQuery PaxQry(pax_sql, QParams() << QParam("grp_id", otInteger, grp.id));
+        PaxQry.get().Execute();
+
+
+        if (paxSection)
+        {
+          list<TPaxItem>::iterator iReqPax=paxs.begin();
+          for(;!PaxQry.get().Eof; PaxQry.get().Next())
           {
-            std::list<CheckIn::TPaxTransferItem> pax_trfer;
-            CheckIn::PaxTransferFromDB(pax.id, pax_trfer);
+            CheckIn::TPaxItem pax;
+            pax.fromDB(PaxQry.get());
+            if (!pax.refuse.empty() && !req_grps.include_refused) continue;
 
-            TETickItem etick;
-            if (pax.tkn.validET())
-              etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
-
-            reqPax.set(pax, etick);
-            TTrferRoute::const_iterator s=trfer.begin();
-            list<CheckIn::TPaxTransferItem>::const_iterator p=pax_trfer.begin();
-            for(int trfer_num=1; s!=trfer.end() && p!=pax_trfer.end(); ++s, ++p, trfer_num++)
+            if (svcSection && req_grps.include_unbound_svcs)
             {
-              pair< SirenaExchange::TPaxSegMap::iterator, bool > res=
-                  reqPax.segs.insert(make_pair(trfer_num,SirenaExchange::TPaxSegItem()));
-              if (!res.second) continue;
-              SirenaExchange::TPaxSegItem &reqSeg=res.first->second;
-              reqSeg.set(trfer_num, *s);
-              reqSeg.subcl=p->subclass;
+              svcSection->svcs.addUnbound(req_grps, *grp_id, pax.id);
+              fillProtBeforePaySvcs(operFlt, pax.id, exch);
             }
-            if (s!=trfer.end()) throw EXCEPTIONS::Exception("%s: strange situation s!=trfer.end()", __FUNCTION__);
-            if (p!=pax_trfer.end()) throw EXCEPTIONS::Exception("%s: strange situation p!=pax_trfer.end()", __FUNCTION__);
-          }
 
-          pair< SirenaExchange::TPaxSegMap::iterator, bool > res=
-              reqPax.segs.insert(make_pair(seg_no,SirenaExchange::TPaxSegItem()));
-          SirenaExchange::TPaxSegItem &reqSeg=res.first->second;
-          reqSeg.set(seg_no, operFlt, grp.airp_arv, mktFlight, scd_in);
-          reqSeg.subcl=pax.subcl;
-          reqSeg.tkn=pax.tkn;
-          CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);
-          CheckIn::LoadCrsPaxPNRs(pax.id, reqSeg.pnrs);
-          ++iReqPax;
+            if (grp_id==tckin_grp_ids.begin())
+              iReqPax=paxs.insert(paxs.end(), TPaxItem());
+            if (iReqPax==paxs.end()) throw EXCEPTIONS::Exception("%s: strange situation iReqPax==paxs.end()");
+            TPaxItem &reqPax=*iReqPax;
+
+            if (grp_id==tckin_grp_ids.begin())
+            {
+              std::list<CheckIn::TPaxTransferItem> pax_trfer;
+              CheckIn::PaxTransferFromDB(pax.id, pax_trfer);
+
+              TETickItem etick;
+              if (pax.tkn.validET())
+                etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
+
+              reqPax.set(pax, etick);
+              TTrferRoute::const_iterator s=trfer.begin();
+              list<CheckIn::TPaxTransferItem>::const_iterator p=pax_trfer.begin();
+              for(int trfer_num=1; s!=trfer.end() && p!=pax_trfer.end(); ++s, ++p, trfer_num++)
+              {
+                pair< SirenaExchange::TPaxSegMap::iterator, bool > res=
+                    reqPax.segs.insert(make_pair(trfer_num,SirenaExchange::TPaxSegItem()));
+                if (!res.second) continue;
+                SirenaExchange::TPaxSegItem &reqSeg=res.first->second;
+                reqSeg.set(trfer_num, *s);
+                reqSeg.subcl=p->subclass;
+              }
+              if (s!=trfer.end()) throw EXCEPTIONS::Exception("%s: strange situation s!=trfer.end()", __FUNCTION__);
+              if (p!=pax_trfer.end()) throw EXCEPTIONS::Exception("%s: strange situation p!=pax_trfer.end()", __FUNCTION__);
+            }
+
+            pair< SirenaExchange::TPaxSegMap::iterator, bool > res=
+                reqPax.segs.insert(make_pair(seg_no,SirenaExchange::TPaxSegItem()));
+            SirenaExchange::TPaxSegItem &reqSeg=res.first->second;
+            reqSeg.set(seg_no, operFlt, grp.airp_arv, mktFlight, scd_in);
+            reqSeg.subcl=pax.subcl;
+            reqSeg.tkn=pax.tkn;
+            CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);
+            CheckIn::LoadCrsPaxPNRs(pax.id, reqSeg.pnrs);
+            ++iReqPax;
+          }
         }
       }
+      else break;
     }
-    else break;
+    //фильтруем пассажиров
+    for(std::list<TPaxItem>::iterator i=paxs.begin(); i!=paxs.end();)
+    {
+      if (req_grps.pax_included(first_grp_id, i->id))
+        ++i;
+      else
+        i=paxs.erase(i);
+    }
+    if (!paxs.empty() && paxSection)
+    {
+      std::list<TPaxItem> &paxs_ref=paxSection->paxs;
+      paxs_ref.insert(paxs_ref.end(), paxs.begin(), paxs.end());
+    }
   }
-
 }
 
 } //namespace SirenaExchange
