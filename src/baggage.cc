@@ -345,7 +345,7 @@ std::string TBagItem::tag_printer_id(bool is_lat) const
       transliter(desk,1,is_lat)==desk)
   {
     for(string::const_iterator i=desk.begin(); i!=desk.end(); ++i)
-      if (!IsUpperLetter(*i)) return "XXXXXX";
+      if (!(IsUpperLetter(*i) || IsDigit(*i))) return "XXXXXX";
     return desk;
   }
   else
