@@ -904,6 +904,7 @@ void handleEmdDispResponse(const edifact::RemoteResults& remRes)
             emdItem.service_name=emdCpn.rfisc()?emdCpn.rfisc().get().description():"";
             if (emdItem.service_name.empty()) emdItem.service_name=emdItem.RFISC;
             emdItem.emd_type=(emd.type()==DocType::EmdA ? "A" : "S");
+            emdItem.service_quantity=emdCpn.quantity();
 
             if(!emdCpn.tickNum().empty())
             {
