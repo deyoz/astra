@@ -499,6 +499,179 @@ namespace
         }
     };
 
+    //-----------------------------------------------------------------------------------
+
+    class IatciUpdater
+    {
+    public:
+        IatciUpdater(xmlNodePtr iatciNode, xmlNodePtr reqNode);
+
+        void updatePaxDoc(const iatci::PaxDetails& pax);
+        void updatePaxRems(const iatci::PaxDetails& pax);
+        void updatePersonal(const iatci::PaxDetails& pax,
+                            const iatci::UpdatePaxDetails& updPax);
+        void updatePaxSeat(const iatci::UpdateSeatDetails& updSeat);
+
+        xmlNodePtr iatciNode() const { return m_iatciNode; }
+
+    protected:
+        std::list<xmlNodePtr> findPaxNodes(xmlNodePtr parentNode,
+                                           const iatci::PaxDetails& pax) const;
+
+        void copyNodeFromReqToIatci(const iatci::PaxDetails& pax,
+                                    const std::string& nodeName);
+
+        void updateNode(xmlNodePtr parentNode,
+                        const std::string& newVal,
+                        const std::string& nodeName);
+        void updateSeatNode(int tripId, int paxId, const std::string& seat);
+
+    private:
+        xmlNodePtr        m_iatciNode;
+        xmlNodePtr        m_reqNode;
+    };
+
+    //
+
+    IatciUpdater::IatciUpdater(xmlNodePtr iatciNode, xmlNodePtr reqNode)
+        : m_iatciNode(iatciNode),
+          m_reqNode(reqNode)
+    {
+        ASSERT(m_iatciNode != NULL);
+        ASSERT(m_reqNode != NULL);
+    }
+
+    void IatciUpdater::updatePaxDoc(const iatci::PaxDetails& pax)
+    {
+        copyNodeFromReqToIatci(pax, "document");
+    }
+
+    void IatciUpdater::updatePaxRems(const iatci::PaxDetails& pax)
+    {
+        copyNodeFromReqToIatci(pax, "rems");
+    }
+
+    void IatciUpdater::updatePersonal(const iatci::PaxDetails& pax,
+                                      const iatci::UpdatePaxDetails& updPax)
+    {
+        xmlNodePtr iatciSegsNode = findNodeR(m_iatciNode, "segments");
+        ASSERT(iatciSegsNode != NULL);
+
+        std::list<xmlNodePtr> iatciPaxNodes = findPaxNodes(iatciSegsNode, pax);
+        ASSERT(!iatciPaxNodes.empty());
+        for(const auto& iatciPaxNode: iatciPaxNodes) {
+            updateNode(iatciPaxNode, "surname", updPax.surname());
+            updateNode(iatciPaxNode, "name",    updPax.name());
+        }
+    }
+
+    void IatciUpdater::updatePaxSeat(const iatci::UpdateSeatDetails& updSeat)
+    {
+        int tripId = NodeAsInteger("trip_id", m_reqNode, ASTRA::NoExists);
+        ASSERT(tripId != ASTRA::NoExists);
+
+        int paxId = NodeAsInteger("pax_id", m_reqNode, ASTRA::NoExists);
+        ASSERT(paxId != ASTRA::NoExists);
+
+        updateSeatNode(tripId, paxId, updSeat.seat());
+    }
+
+    std::list<xmlNodePtr> IatciUpdater::findPaxNodes(xmlNodePtr parentNode,
+                                                     const iatci::PaxDetails& pax) const
+    {
+        std::list<xmlNodePtr> paxNodes;
+        for(xmlNodePtr segNode = parentNode->children;
+            segNode != NULL; segNode = segNode->next)
+        {
+            xmlNodePtr paxesNode = findNode(segNode, "passengers");
+            for(xmlNodePtr paxNode = paxesNode->children;
+                paxNode != NULL; paxNode = paxNode->next)
+            {
+                XmlPax xmlPax = XmlEntityReader::readPax(paxNode);
+                // возможно стоит сравнивать ещё что-то (например, тип пакса)
+                if(xmlPax.surname == pax.surname() &&
+                   xmlPax.name    == pax.name())
+                {
+                    paxNodes.push_back(paxNode);
+                }
+            }
+        }
+        return paxNodes;
+    }
+
+    void IatciUpdater::copyNodeFromReqToIatci(const iatci::PaxDetails& pax,
+                                              const std::string& nodeName)
+    {
+        xmlNodePtr iatciSegsNode = findNodeR(m_iatciNode, "segments");
+        ASSERT(iatciSegsNode != NULL);
+        xmlNodePtr reqSegsNode = findNodeR(m_reqNode, "iatci_segments");
+        ASSERT(reqSegsNode != NULL);
+        std::list<xmlNodePtr> reqPaxNodes = findPaxNodes(reqSegsNode, pax);
+        ASSERT(!reqPaxNodes.empty());
+        xmlNodePtr reqPaxNode = reqPaxNodes.front();
+        xmlNodePtr reqPaxDocNode = findNode(reqPaxNode, nodeName);
+        ASSERT(reqPaxDocNode);
+
+        std::list<xmlNodePtr> iatciPaxNodes = findPaxNodes(iatciSegsNode, pax);
+        ASSERT(!iatciPaxNodes.empty());
+        for(const auto& iatciPaxNode: iatciPaxNodes)
+        {
+            xmlNodePtr iatciPaxDocNode = findNode(iatciPaxNode, nodeName);
+            ASSERT(iatciPaxDocNode);
+            RemoveChildNodes(iatciPaxDocNode);
+            RemoveNode(iatciPaxDocNode);
+            CopyNode(iatciPaxNode, reqPaxDocNode);
+        }
+    }
+
+    void IatciUpdater::updateNode(xmlNodePtr parentNode,
+                                  const std::string& newVal,
+                                  const std::string& nodeName)
+    {
+        xmlNodePtr node = findNode(parentNode, nodeName);
+        ASSERT(node != NULL);
+        std::string oldVal = NodeAsString(node);
+        LogTrace(TRACE3) << "replace value of '" << nodeName << "' node from '"
+                         << oldVal << "' to '" << newVal << "'";
+        xmlNodeSetContent(node, newVal);
+    }
+
+    void IatciUpdater::updateSeatNode(int tripId, int paxId,
+                                      const std::string& seat)
+    {
+        xmlNodePtr iatciSegsNode = findNodeR(m_iatciNode, "segments");
+        ASSERT(iatciSegsNode != NULL);
+        for(xmlNodePtr segNode = iatciSegsNode->children;
+            segNode != NULL; segNode = segNode->next)
+        {
+            int pointDep = NodeAsInteger("point_dep", segNode);
+            if(pointDep == tripId) {
+                xmlNodePtr paxesNode = findNode(segNode, "passengers");
+                for(xmlNodePtr paxNode = paxesNode->children;
+                    paxNode != NULL; paxNode = paxNode->next)
+                {
+                    int pId = NodeAsInteger("pax_id", paxNode);
+                    if(pId == paxId) {
+                        xmlNodePtr seatNode = findNode(paxNode, "seat_no");
+                        ASSERT(seatNode != NULL);
+                        std::string oldSeat = NodeAsString(seatNode);
+                        LogTrace(TRACE5) << "Replace seat " << oldSeat << " with " << seat;
+                        xmlNodeSetContent(seatNode, seat);
+                        return;
+                    }
+                }
+            }
+        }
+
+        TST();
+        throw EXCEPTIONS::Exception("Logic error!");
+    }
+
+    void updatePaxNode(const iatci::PaxDetails& pax)
+    {
+
+    }
+
 }//namespace
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -589,6 +762,7 @@ static int getGrpId(xmlNodePtr reqNode, xmlNodePtr resNode, IatciInterface::Requ
     }
 
     LogTrace(TRACE3) << "grpId: " << grpId;
+    ASSERT(grpId > 0);
     return grpId;
 }
 
@@ -1033,16 +1207,51 @@ static void SaveIatciXmlRes(xmlNodePtr iatciResNode, int grpId,
     SaveIatciXmlResByReqType(iatciResNode, grpId, reqType);
 }
 
-static int SaveIatciPax(IatciInterface::RequestType reqType,
-                        xmlNodePtr ediResNode, xmlNodePtr termReqNode, xmlNodePtr resNode)
+static void SaveIatciGrp(int grpId, IatciInterface::RequestType reqType,
+                         xmlNodePtr ediResNode, xmlNodePtr termReqNode, xmlNodePtr resNode)
 {
-    LogTrace(TRACE3) << "Enter to " << __FUNCTION__;
-
-    int grpId = getGrpId(termReqNode, resNode, reqType);
-    ASSERT(grpId > 0);
+    LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId:" << grpId;
     xmlNodePtr iatciResNode = NodeAsNode("/iatci_result", ediResNode);
     SaveIatciXmlRes(iatciResNode, grpId, reqType);
-    return grpId;
+}
+
+static void UpdateIatciGrp(int grpId, IatciInterface::RequestType reqType,
+                           xmlNodePtr ediResNode, xmlNodePtr termReqNode, xmlNodePtr resNode)
+{
+    LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId:" << grpId;
+    XMLDoc loadedDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(grpId));
+
+//    LogTrace(TRACE3) << "loaded:\n" << XMLTreeToText(loadedDoc.docPtr());
+//    LogTrace(TRACE3) << "req was:\n" << XMLTreeToText(termReqNode->doc);
+//    LogTrace(TRACE3) << "edires:\n" << XMLTreeToText(ediResNode->doc);
+
+    boost::optional<iatci::CkuParams> ckuParams;
+    if(isReseatReq(termReqNode)) {
+        ckuParams = getSeatUpdateParams(termReqNode);
+    } else {
+        ckuParams = getCkuParams(termReqNode);
+    }
+    ASSERT(ckuParams);
+
+    IatciUpdater updater(loadedDoc.docPtr()->children, termReqNode);
+
+    dcqcku::FlightGroup fltGrp = ckuParams->fltGroup();
+    for(const dcqcku::PaxGroup& paxGrp: fltGrp.paxGroups()) {
+        if(paxGrp.updDoc()) {
+            updater.updatePaxDoc(paxGrp.pax());
+        }
+        if(paxGrp.updService()) {
+            updater.updatePaxRems(paxGrp.pax());
+        }
+        if(paxGrp.updPax()) {
+            updater.updatePersonal(paxGrp.pax(), paxGrp.updPax().get());
+        }
+        if(paxGrp.updSeat()) {
+            updater.updatePaxSeat(paxGrp.updSeat().get());
+        }
+    }
+
+    SaveIatciGrp(grpId, reqType, updater.iatciNode(), termReqNode, resNode);
 }
 
 //---------------------------------------------------------------------------------------
@@ -1488,7 +1697,12 @@ void IatciInterface::DoKickAction(int ctxtId,
     case ActSavePax:
     {
         ASSERT(CheckInInterface::SavePax(reqNode, ediResCtxt.node(), resNode));
-        int grpId = SaveIatciPax(reqType, iatciResNode, reqNode, resNode);
+        int grpId = getGrpId(reqNode, resNode, reqType);
+        if(reqType == Cku) {
+            UpdateIatciGrp(grpId, reqType, iatciResNode, reqNode, resNode);
+        } else {
+            SaveIatciGrp(grpId, reqType, iatciResNode, reqNode, resNode);
+        }
         CheckInInterface::LoadIatciPax(NULL, resNode, grpId, false);
     }
     break;
@@ -1505,22 +1719,25 @@ void IatciInterface::DoKickAction(int ctxtId,
                              << "Requested: " << requestedSeat << "; "
                              << "Confirmed: " << confirmedSeat;
         }
-        ReqParams(reqNode).setStrParam("old_seat", getOldSeat(reqNode));
-        SaveIatciPax(reqType, iatciResNode, reqNode, resNode);
+        int grpId = getGrpId(reqNode, resNode, reqType);
+        ReqParams(reqNode).setStrParam("old_seat", getOldSeat(reqNode));        
+        UpdateIatciGrp(grpId, reqType, iatciResNode, reqNode, resNode);
         SeatmapRequest(reqNode); // перепосылаем карту мест, чтобы сформировать ответ на смену места
     }
     break;
 
     case ActLoadPax:
     {
-        SaveIatciPax(reqType, iatciResNode, reqNode, resNode);
+        int grpId = getGrpId(reqNode, resNode, reqType);
+        SaveIatciGrp(grpId, reqType, iatciResNode, reqNode, resNode);
         CheckInInterface::LoadPax(reqNode, resNode);
     }
     break;
 
     case ActReprint:
     {
-        SaveIatciPax(reqType, iatciResNode, reqNode, resNode);
+        int grpId = getGrpId(reqNode, resNode, reqType);
+        SaveIatciGrp(grpId, reqType, iatciResNode, reqNode, resNode);
         PrintInterface::GetPrintDataBP(reqNode, resNode);
     }
     break;

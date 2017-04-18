@@ -467,7 +467,6 @@ iatci::UpdateDocDetails makeUpdDoc(const edifact::UapElem& uap)
 
 iatci::PaxDetails makePax(const astra_api::astra_entities::PaxInfo& pax)
 {
-    LogTrace(TRACE3) << "pax.iatci_paxId = " << pax.m_iatciPaxId;
     return iatci::PaxDetails(pax.m_surname,
                              pax.m_name,
                              astra2iatci(pax.m_persType),

@@ -2951,8 +2951,8 @@ UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A++IVAN"
-PFD+xx+:Э"
-PSI++TKNE::42161200302972+OTHS::::::FREE TEXT"
+PFD+xx+:Э+22"
+PSI++TKNE::42161200302972"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -2987,10 +2987,7 @@ UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+U+O"
 PPD+REPIN+A++IVAN"
-PFD+xx+:Э+22"
-PSI++TKNE::42161200302972"
-PAP+:::760501:::RUS++P:99999999999:USA:::491231:M::::::REPIN:IVAN:IVANICH"
-UNT+7+1"
+UNT+5+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 $(KICK_IN)
@@ -3213,23 +3210,21 @@ $(KICK_IN)
             <coupon_no>2</coupon_no>
             <ticket_rem>TKNE</ticket_rem>
             <ticket_confirm>1</ticket_confirm>
-            <document>
-              <type>P</type>
-              <issue_country>USA</issue_country>
-              <no>99999999999</no>
-              <nationality>RUS</nationality>
-              <birth_date>01.05.1976 00:00:00</birth_date>
-              <gender>M</gender>
-              <surname>REPIN</surname>
-              <first_name>IVAN</first_name>
-              <second_name>IVANICH</second_name>
-              <expiry_date>31.12.2049 00:00:00</expiry_date>
-            </document>
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
             <pr_bi_print>0</pr_bi_print>
             <rems/>
             <iatci_pax_id/>
+            <document>
+              <type>P</type>
+              <no>99999999999</no>
+              <nationality>RUS</nationality>
+              <birth_date>01.05.1976 00:00:00</birth_date>
+              <expiry_date>31.12.2049 00:00:00</expiry_date>
+              <surname>REPIN</surname>
+              <first_name>IVAN</first_name>
+              <second_name>IVANICH</second_name>
+            </document>
           </pax>
         </passengers>
         <paid_bag_emd/>
@@ -4845,6 +4840,74 @@ $(KICK_IN)
 
 $(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
 $(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
+
+$(dump_table GRP_IATCI_XML)
+
+# пересадим пассажира PETROV PETR
+
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='salonform' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <Reseat>
+      <trip_id>-$(get grp_id)1</trip_id>
+      <pax_id>-2</pax_id>
+      <xname>A</xname>
+      <yname>6</yname>
+      <tid>0</tid>
+      <question_reseat/>
+    </Reseat>
+  </query>
+</term>}
+
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)+LED+AER"
+PPD+PETROV+A++PETR"
+USD++006A"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+С7+1027+$(yymmdd)1000+LED+AER++T"
+RAD+U+O"
+PPD+REPIN+A++IVAN"
+PFD+006A"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(KICK_IN_SILENT)
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQSMF:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)+LED+AER"
+UNT+4+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRSMF:96:2:IA+$(last_edifact_ref)"
+FDR+С7+1027+$(yymmdd)1000+LED+AER++T"
+RAD+S+O"
+EQD++++++D09"
+CBD+F+3:7+++F++A:W+B:A+E:A+F:W"
+ROD+3++A::K+B::K+E::K+F::K"
+ROD+6++A:O+B+E+F"
+ROD+7++A:O+B+E+F"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(KICK_IN_SILENT)
+
+$(dump_table GRP_IATCI_XML)
+
 
 # отменяем регистрацию одного из пассажиров
 $(CANCEL_PAX $(get pax_1_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
