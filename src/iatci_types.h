@@ -194,32 +194,44 @@ struct PaxDetails
         Male
     };
 
+    enum WithInftIndicator_e
+    {
+        WithoutInfant,
+        WithInfant
+    };
+
 protected:
-    std::string m_surname;
-    std::string m_name;
-    PaxType_e   m_type;
-    std::string m_qryRef;
-    std::string m_respRef;
+    std::string         m_surname;
+    std::string         m_name;
+    PaxType_e           m_type;
+    std::string         m_qryRef;
+    std::string         m_respRef;
+    WithInftIndicator_e m_withInftIndic;
 
 public:
     PaxDetails(const std::string& surname,
                const std::string& name,
                PaxType_e type,
                const std::string& qryRef = "",
-               const std::string& respRef = "");
+               const std::string& respRef = "",
+               WithInftIndicator_e withInftIndic = WithoutInfant);
 
-    const std::string& surname() const;
-    const std::string& name() const;
-    PaxType_e          type() const;
-    std::string        typeAsString() const;
-    const std::string& qryRef() const;
-    const std::string& respRef() const;
+    const std::string&  surname() const;
+    const std::string&  name() const;
+    PaxType_e           type() const;
+    std::string         typeAsString() const;
+    WithInftIndicator_e withInftIndicator() const;
+    std::string         withInftIndicatorAsString() const;
+    const std::string&  qryRef() const;
+    const std::string&  respRef() const;
 
     static PaxType_e strToType(const std::string& s);
+    static WithInftIndicator_e strToWithInftIndicator(const std::string& s);
 
 protected:
     PaxDetails()
-        : m_type(Adult)
+        : m_type(Adult),
+          m_withInftIndic(WithoutInfant)
     {} // for boost serialization only
 };
 

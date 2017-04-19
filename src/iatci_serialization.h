@@ -146,6 +146,7 @@ public:
     using iatci::PaxDetails::m_type;
     using iatci::PaxDetails::m_qryRef;
     using iatci::PaxDetails::m_respRef;
+    using iatci::PaxDetails::m_withInftIndic;
 };
 
 }//namespace
@@ -195,14 +196,16 @@ template<class Archive>
 inline void save(Archive& ar, const iatci::PaxDetails& par, const unsigned int version)
 {
     PaxDetailsAccessor acc(par);
-    ar & acc.m_surname & acc.m_name & acc.m_type & acc.m_respRef & acc.m_qryRef;
+    ar & acc.m_surname & acc.m_name & acc.m_type
+       & acc.m_respRef & acc.m_qryRef & acc.m_withInftIndic;
 }
 
 template<class Archive>
 inline void load(Archive& ar, iatci::PaxDetails& par, const unsigned int version)
 {
     PaxDetailsAccessor acc;
-    ar & acc.m_surname & acc.m_name & acc.m_type & acc.m_respRef & acc.m_qryRef;
+    ar & acc.m_surname & acc.m_name & acc.m_type
+       & acc.m_respRef & acc.m_qryRef & acc.m_withInftIndic;
     par = acc.get();
 }
 
@@ -211,6 +214,10 @@ inline void serialize(Archive& ar, iatci::PaxDetails& par, const unsigned int ve
 {
     boost::serialization::split_free(ar, par, version);
 }
+
+//namespace iatci {
+//    BOOST_CLASS_VERSION(PaxDetails, 1)
+//}//namespace iatci
 
 //---------------------------------------------------------------------------------------
 
@@ -406,6 +413,12 @@ inline void serialize(Archive& ar, iatci::dcrcka::PaxGroup& par, const unsigned 
 {
     boost::serialization::split_free(ar, par, version);
 }
+
+//namespace iatci {
+//namespace dcrcka {
+//    BOOST_CLASS_VERSION(PaxGroup, 1)
+//}//namespace dcrcka
+//}//namespace iatci
 
 //---------------------------------------------------------------------------------------
 
@@ -1210,6 +1223,12 @@ inline void serialize(Archive& ar, iatci::dcrcka::Result& par, const unsigned in
 {
     boost::serialization::split_free(ar, par, version);
 }
+
+//namespace iatci {
+//namespace dcrcka {
+//    BOOST_CLASS_VERSION(Result, 1)
+//}//namespace dcrcka
+//}//namespace iatci
 
 }//namespace serialization
 }//namespace boost

@@ -251,12 +251,14 @@ PaxDetails::PaxDetails(const std::string& surname,
                        const std::string& name,
                        PaxType_e type,
                        const std::string& qryRef,
-                       const std::string& respRef)
+                       const std::string& respRef,
+                       WithInftIndicator_e withInftIndic)
     : m_surname(surname),
       m_name(name),
       m_type(type),
       m_qryRef(qryRef),
-      m_respRef(respRef)
+      m_respRef(respRef),
+      m_withInftIndic(withInftIndic)
 {}
 
 const std::string& PaxDetails::surname() const
@@ -286,6 +288,21 @@ std::string PaxDetails::typeAsString() const
     }
 }
 
+PaxDetails::WithInftIndicator_e PaxDetails::withInftIndicator() const
+{
+    return m_withInftIndic;
+}
+
+std::string PaxDetails::withInftIndicatorAsString() const
+{
+    switch(m_withInftIndic)
+    {
+    case WithInfant:    return "Y";
+    case WithoutInfant: return "N";
+    default:            return "N";
+    }
+}
+
 const std::string& PaxDetails::qryRef() const
 {
     return m_qryRef;
@@ -305,6 +322,16 @@ PaxDetails::PaxType_e PaxDetails::strToType(const std::string& s)
     else {
         LogError(STDLOG) << "Unknown pax type string: " << s;
         return Adult;
+    }
+}
+
+PaxDetails::WithInftIndicator_e PaxDetails::strToWithInftIndicator(const std::string& s)
+{
+    if(s == "Y")      return WithInfant;
+    else if(s == "N") return WithoutInfant;
+    else {
+        LogError(STDLOG) << "Unknown with infant indicator: " << s;
+        return WithoutInfant;
     }
 }
 

@@ -787,6 +787,21 @@ iatci::PaxDetails::PaxType_e astra2iatci(ASTRA::TPerson personType)
     }
 }
 
+ASTRA::TPerson iatci2astra(iatci::PaxDetails::PaxType_e paxType)
+{
+    switch(paxType)
+    {
+    case iatci::PaxDetails::Adult:
+    case iatci::PaxDetails::Female:
+    case iatci::PaxDetails::Male:
+        return ASTRA::adult;
+    case iatci::PaxDetails::Child:
+        return ASTRA::child;
+    default:
+        throw EXCEPTIONS::Exception("Unknow iatci pax type: %d", paxType);
+    }
+}
+
 //---------------------------------------------------------------------------------------
 
 std::string normSeatNum(const std::string& seatNum)

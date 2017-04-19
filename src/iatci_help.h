@@ -109,6 +109,7 @@ std::list<dcrcka::Result> loadCkiData(edilib::EdiSessionId_t sessId);
 //---------------------------------------------------------------------------------------
 
 iatci::PaxDetails::PaxType_e astra2iatci(ASTRA::TPerson personType);
+ASTRA::TPerson iatci2astra(iatci::PaxDetails::PaxType_e paxType);
 
 //---------------------------------------------------------------------------------------
 

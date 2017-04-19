@@ -46,13 +46,12 @@ TDateTime strToAstraDateTime(const std::string& serverFormatDateTimeString)
 }
 
 XmlPax createCheckInPax(const XmlPax& basePax,
-                        const std::string& seatNo,
-                        const std::string& subclass)
+                        const iatci::dcqcki::PaxGroup& paxGrp)
 {
     XmlPax ckiPax = basePax;
-    ckiPax.pers_type = "ВЗ"; // TODO не всегда "ВЗ"
-    ckiPax.seat_no   = seatNo;
-    ckiPax.subclass  = subclass;
+    ckiPax.pers_type = EncodePerson(iatci::iatci2astra(paxGrp.pax().type()));
+    ckiPax.seat_no   = paxGrp.seat() ? paxGrp.seat()->seat() : "";
+    ckiPax.subclass  = paxGrp.reserv() ? paxGrp.reserv()->subclass()->code(RUSSIAN) : "";
     return ckiPax;
 }
 
@@ -800,11 +799,7 @@ iatci::dcrcka::Result checkinIatciPaxes(const iatci::CkiParams& ckiParams)
             throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_PAX_WITH_SAME_SURNAME);
         }
 
-        const std::string seatNo = paxGroup.seat() ? paxGroup.seat()->seat()
-                                                   : "";
-        const std::string subcls = paxGroup.reserv() ? paxGroup.reserv()->subclass()->code(RUSSIAN)
-                                                     : "";
-        XmlPax pax = createCheckInPax(finalPaxes.front(), seatNo, subcls);
+        XmlPax pax = createCheckInPax(finalPaxes.front(), paxGroup);
 
         if(!tripHeader) {
             tripHeader = makeTripHeader(trip);

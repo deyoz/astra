@@ -476,7 +476,8 @@ void viewFdrElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& fli
 void viewPpdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxDetails& pax)
 {
     std::ostringstream ppd;
-    ppd << pax.surname() << "+" << pax.typeAsString()
+    ppd << pax.surname()
+        << "+" << pax.typeAsString() << ":" << pax.withInftIndicatorAsString()
         << "+" << pax.respRef() << "+" << pax.name() << "++" << pax.qryRef();
     SetEdiFullSegment(pMes, SegmElement("PPD"), ppd.str());
 }
