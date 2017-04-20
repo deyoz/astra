@@ -696,6 +696,7 @@ $(defmacro SAVE_PAX
     surname
     name
     tickno
+    pers_type
 {
 !! err=ignore
 {<?xml version='1.0' encoding='CP866'?>
@@ -726,7 +727,7 @@ $(defmacro SAVE_PAX
               <pax_id>$(pax_id)</pax_id>
               <surname>$(surname)</surname>
               <name>$(name)</name>
-              <pers_type>ВЗ</pers_type>
+              <pers_type>$(pers_type)</pers_type>
               <seat_no/>
               <preseat_no/>
               <seat_type/>
@@ -782,7 +783,7 @@ $(defmacro SAVE_PAX
               <pax_id/>
               <surname>$(surname)</surname>
               <name>$(name)</name>
-              <pers_type>ВЗ</pers_type>
+              <pers_type>$(pers_type)</pers_type>
               <seat_no>7A</seat_no>
               <preseat_no/>
               <seat_type/>
@@ -1626,7 +1627,7 @@ $(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IV
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
-                                                           2986120030297)
+                                                           2986120030297 РБ)
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
 $(KICK_IN_SILENT)
@@ -1637,7 +1638,7 @@ UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
 UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
-PPD+REPIN+A:N++IVAN"
+PPD+REPIN+C:N++IVAN"
 PRD+Y"
 PSD++007A"
 PBD+0"
@@ -1650,7 +1651,7 @@ UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+S7+1027+$(yymmdd)1000+LED+AER++T"
 RAD+I+O"
-PPD+REPIN+A+0013929620+IVAN"
+PPD+REPIN+C:N+0013929620+IVAN"
 PFD+xx+:Y+1"
 PSI++TKNE::29861200302972"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
@@ -1758,7 +1759,7 @@ $(KICK_IN)
             <pax_id>$(get pax_id)</pax_id>
             <surname>REPIN</surname>
             <name>IVAN</name>
-            <pers_type>ВЗ</pers_type>
+            <pers_type>РБ</pers_type>
             <crew_type/>
             <seat_no>...
             <seat_type/>
@@ -1865,7 +1866,7 @@ $(KICK_IN)
             <pax_id>-1</pax_id>
             <surname>REPIN</surname>
             <name>IVAN</name>
-            <pers_type>ВЗ</pers_type>
+            <pers_type>РБ</pers_type>
             <seat_no>xx</seat_no>
             <seat_type/>
             <seats>1</seats>
@@ -1927,7 +1928,7 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
-                                                           2986120030297)
+                                                           2986120030297 ВЗ)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -2026,7 +2027,7 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
-                                                           2986120030297)
+                                                           2986120030297 ВЗ)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -2365,7 +2366,7 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
-                                                           2986120030297)
+                                                           2986120030297 ВЗ)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -2459,7 +2460,7 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
-                                                           2986120030297)
+                                                           2986120030297 ВЗ)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -2559,7 +2560,7 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
-                                                           2986120030297)
+                                                           2986120030297 ВЗ)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -2652,7 +2653,7 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
-                                                           2986120030297)
+                                                           2986120030297 ВЗ)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -2750,7 +2751,7 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
-                                                           2986120030297)
+                                                           2986120030297 ВЗ)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -2818,7 +2819,7 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
-                                                           2986120030297)
+                                                           2986120030297 ВЗ)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -2922,7 +2923,7 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
-                                                           2986120030297)
+                                                           2986120030297 ВЗ)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -3258,7 +3259,7 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
-                                                           2986120030297)
+                                                           2986120030297 ВЗ)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -3343,7 +3344,7 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
-                                                           2986120030297)
+                                                           2986120030297 ВЗ)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -3455,7 +3456,7 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
-                                                           2986120030297)
+                                                           2986120030297 ВЗ)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -3523,7 +3524,7 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
-                                                           2986120030297)
+                                                           2986120030297 ВЗ)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -3648,7 +3649,7 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
-                                                           2986120030297)
+                                                           2986120030297 ВЗ)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -4029,7 +4030,7 @@ $(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IV
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
-                                                           2986120030297)
+                                                           2986120030297 ВЗ)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -4091,7 +4092,7 @@ $(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IV
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
-                                                           2986120030297)
+                                                           2986120030297 ВЗ)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
@@ -4177,7 +4178,7 @@ $(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IV
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
-                                                           2986120030297)
+                                                           2986120030297 ВЗ)
 
 
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
@@ -4346,7 +4347,7 @@ $(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IV
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
-                                                           2986120030297)
+                                                           2986120030297 ВЗ)
 $(ETS_COS_EXCHANGE 2986120030297 1 CK)
 
 $(KICK_IN_SILENT)
