@@ -474,12 +474,12 @@ void CouponXmlView::operator () (ViewerData &Data, const list<Coupon> &lcpn) con
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"sac",cpn.couponInfo().sac()),"index",col_num++); // код авторизации (Settlement)
 
     ostringstream ebd;
-    if(itin.luggage().haveLuggage()){
+    if(itin.luggage().haveLuggage())
         ebd << itin.luggage()->quantity()
             << AstraLocale::getLocaleText(TBagNormUnit(itin.luggage()->chargeQualifier()).get_lexeme_form());
-    } else {
-        ebd<<AstraLocale::getLocaleText("НЕТ");
-    }
+    else
+        ebd << AstraLocale::getLocaleText("НЕТ");
+
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"lugg_norm",ebd.str()),"index",col_num++); // Норма багажа
 
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"coup_status",cpn.couponInfo().status()->dispCode()),"index",col_num++); // статус купона

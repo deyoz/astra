@@ -2,6 +2,7 @@
 #include "xml_unit.h"
 #include "exceptions.h"
 #include "astra_locale.h"
+#include "baggage_base.h"
 #include <serverlib/dates_io.h>
 
 #define NICKNAME "ANTON"
@@ -186,12 +187,13 @@ void EmdXmlView::viewEmdTicketCoupons(const std::list<EmdCoupon>& lCpn) const
         xmlSetProp(xmlNewTextChild(rowNode, NULL, "service_quantity", cpn.quantity()),
                    "index", colNum++);
 
-        std::ostringstream ossLuggage;
-        if(cpn.haveItin() && cpn.itin().luggage().haveLuggage()) {
-            ossLuggage << cpn.itin().luggage()->quantity() << " " << cpn.itin().luggage()->code();
-        } else {
+        ostringstream ossLuggage;
+        if(cpn.haveItin() && cpn.itin().luggage().haveLuggage())
+            ossLuggage << cpn.itin().luggage()->quantity()
+                       << AstraLocale::getLocaleText(TBagNormUnit(cpn.itin().luggage()->chargeQualifier()).get_lexeme_form());
+        else
             ossLuggage << "-";
-        }
+
         xmlSetProp(xmlNewTextChild(rowNode, NULL, "luggage", ossLuggage.str()),
                    "index", colNum++);
 
@@ -261,7 +263,7 @@ string EmdXmlViewToText(const Emd &emd, bool &unknownPnrExists, string &base_emd
     "Сумма",
     "RFISC",
     "Кол-во",
-    "Вес",
+    "Опл.",
     "Название услуги",
     "СтКуп.",
     "Ассоц.",
