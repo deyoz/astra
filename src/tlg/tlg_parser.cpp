@@ -2674,7 +2674,9 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
     TPnrAddrItem PnrAddr;
     lexh[0]=0;
     res=sscanf(tlg.lex,".L/%20[A-Z€-Ÿð0-9]%[^.]",PnrAddr.addr,tlg.lex);
-    if (res<1||PnrAddr.addr[0]==0) throw ETlgError("Wrong PNR address");
+    if (res<1||PnrAddr.addr[0]==0||
+        strlen(PnrAddr.addr)<5 ||
+        strlen(PnrAddr.addr)>8) throw ETlgError("Wrong PNR address");
     if (res==2)
     {
       c=0;
