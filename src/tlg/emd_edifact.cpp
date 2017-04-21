@@ -233,6 +233,9 @@ std::list<EmdCoupon> EmdEdifact::makeCpn(const std::list<CpnEdifact>& lcpn,
         EmdCoupon& cpn = result.back();
         cpn.setAmount(c.cpn_->m_amount);
         cpn.setConsumed(c.cpn_->m_action == "6" /*CpnStatAction::consumedAtIssuance*/);
+        if(c.pts_ && c.pts_->m_itemNumber) {
+            cpn.setQuantity(c.pts_->m_itemNumber);
+        }
 
         if(tickAct == TickStatAction::newtick)
         {
