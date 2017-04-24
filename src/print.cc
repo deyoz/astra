@@ -1276,7 +1276,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
           pax_id = Qry.FieldAsInteger("pax_id");
         };
 
-        PrintDataParser parser(tag_key.grp_id, pax_id, tag_key.pr_lat, NULL, route);
+        PrintDataParser parser(dotPrnBT, tag_key.grp_id, pax_id, tag_key.pr_lat, NULL, route);
 
         parser.pts.set_tag(TAG::AIRCODE, aircode);
         parser.pts.set_tag(TAG::NO, no);
@@ -1750,11 +1750,11 @@ void tst_dump(int pax_id, int grp_id, bool pr_lat)
 {
     vector<string> tags;
     {
-        TPrnTagStore pts(grp_id, pax_id, pr_lat, NULL);
+        TPrnTagStore pts(dotPrnBP, grp_id, pax_id, pr_lat, NULL);
         pts.tst_get_tag_list(tags);
     }
     for(vector<string>::iterator iv = tags.begin(); iv != tags.end(); iv++) {
-        TPrnTagStore tmp_pts(grp_id, pax_id, pr_lat, NULL);
+        TPrnTagStore tmp_pts(dotPrnBP, grp_id, pax_id, pr_lat, NULL);
         tmp_pts.set_tag("gate", "");
         ProgTrace(TRACE5, "tag: %s; value: '%s'", iv->c_str(), tmp_pts.get_field(*iv, 0, "L", "dd.mm hh:nn", "R").c_str());
         tmp_pts.confirm_print(false, dotPrnBP);
@@ -1864,9 +1864,9 @@ void PrintInterface::GetPrintDataBP(
         //        tst_dump(iPax->pax_id, iPax->grp_id, prnParams.pr_lat);
         boost::shared_ptr<PrintDataParser> parser;
         if(iPax->pax_id!=NoExists)
-            parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( iPax->grp_id, iPax->pax_id, params.prnParams.pr_lat, params.clientDataNode ));
+            parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->grp_id, iPax->pax_id, params.prnParams.pr_lat, params.clientDataNode ));
         else
-            parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( iPax->scan, true));
+            parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->scan, true));
         //        big_test(parser, dotPrnBP);
         // если это нулевой сегмент, то тогда печатаем выход на посадку иначе не нечатаем
         //надо удалить выход на посадку из данных по пассажиру
@@ -2135,7 +2135,7 @@ void PrintInterface::GetPrintDataVO(
                 int grp_id = Qry.get().FieldAsInteger("grp_id");
                 int reg_no = Qry.get().FieldAsInteger("reg_no");
 
-                PrintDataParser parser(grp_id, pax->first, params.prnParams.pr_lat, params.clientDataNode);
+                PrintDataParser parser(dotPrnBP, grp_id, pax->first, params.prnParams.pr_lat, params.clientDataNode);
 
                 parser.pts.set_tag(TAG::VOUCHER_CODE, v->first);
                 parser.pts.set_tag(TAG::VOUCHER_TEXT, v->first);
@@ -2434,7 +2434,7 @@ void PrintInterface::print_bp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         if(not Qry.get().Eof) {
             int grp_id = Qry.get().FieldAsInteger("grp_id");
             int pax_id = Qry.get().FieldAsInteger("pax_id");
-            PrintDataParser parser(grp_id, pax_id, false, NULL);
+            PrintDataParser parser(dotPrnBP, grp_id, pax_id, false, NULL);
             parser.pts.set_tag(TAG::GATE, "ВРАТА");
             parser.pts.set_tag(TAG::DUPLICATE, 1);
             parser.pts.set_tag(TAG::VOUCHER_CODE, "DV");

@@ -308,7 +308,8 @@ TPrnTagStore::TPrnTagStore(bool apr_lat):
     prn_test_tags.Init();
 }
 
-TPrnTagStore::TPrnTagStore(const string &ascan, bool apr_lat):
+TPrnTagStore::TPrnTagStore(TDevOperType _op_type, const string &ascan, bool apr_lat):
+    op_type(_op_type),
     scan(ascan),
     time_print(NowUTC()),
     prn_tag_props(dotPrnBP)
@@ -396,7 +397,8 @@ void TPrnTagStore::init_bp_tags()
 }
 
 // BP && BT
-TPrnTagStore::TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute):
+TPrnTagStore::TPrnTagStore(TDevOperType _op_type, int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute):
+    op_type(_op_type),
     time_print(NowUTC()),
     prn_tag_props(aroute.empty() ? dotPrnBP : dotPrnBT)
 {
@@ -1205,6 +1207,17 @@ string TPrnTagStore::BCBP_V_5(TFieldParams fp)
     return x;
 }
 
+// Если печатается БП или ваучер, то:
+// В 2D-баркоде:
+// 1. Ducument type = 'I', 
+// 2. не пишем pax_id в баркод,
+// чтобы нельзя было пройти досмотр/посадку по такому баркоду
+// В 1D-баркод забивается getEmptyPaxId()
+bool TPrnTagStore::isBoardingPass()
+{
+    return op_type == dotPrnBP and get_tag(TAG::VOUCHER_CODE).empty();
+}
+
 string TPrnTagStore::BCBP_M_2(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
@@ -1317,7 +1330,7 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
                 // Date of Issue of Boarding Pass (not used)
                 cond1 << setw(4) << " ";
                 // Document type (B - Boarding Pass, I - Itinerary Receipt)
-                cond1 << "B";
+                cond1 << (isBoardingPass() ? "B" : "I");
                 // Airline Designator of Boarding Pass Issuer (not used)
                 cond1 << setw(3) << " ";
                 // Baggage Tag License Plate Number(s) (not used  because dont know how)
@@ -1346,7 +1359,8 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
                 */
 
                 // For individual airline use
-                cond1 << setw(10) << right << setfill('0') << paxInfo.pax_id;
+                if(isBoardingPass())
+                    cond1 << setw(10) << right << setfill('0') << paxInfo.pax_id;
 
             }
 
@@ -2236,7 +2250,9 @@ string TPrnTagStore::ONE_SEAT_NO(TFieldParams fp)
 string TPrnTagStore::PAX_ID(TFieldParams fp)
 {
     ostringstream result;
-    if(!fp.TagInfo.empty()) {
+    if(not isBoardingPass())
+        result << setw(10) << setfill('0') << getEmptyPaxId();
+    else if(!fp.TagInfo.empty()) {
         int paxId = boost::any_cast<int>(fp.TagInfo);
         if(paxId == ASTRA::NoExists || paxId == -1)
             paxId = getEmptyPaxId();

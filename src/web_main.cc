@@ -2564,19 +2564,10 @@ void GetBPPaxFromScanCode(const string &scanCode, PrintInterface::BPPax &pax)
   filters.getBCBPSections(scanCode, scanSections);
   try
   {
-    //внимание!!
-    //процедура заточена только на односегментный посадочный талон
-    //многосегментные посадочные талоны пока не печатаются
-    if (scanSections.repeated.size()!=1)
-      throw UserException("MSG.SCAN_CODE.NOT_SUITABLE_FOR_PRINTING_BOARDING_PASS");
-    const BCBPRepeatedSections &repeated=*(scanSections.repeated.begin());
-    //проверим что это посадочный талон
-    if (repeated.checkinSeqNumber().first==NoExists) //это не посадочный талон, потому что рег. номер не известен
-      throw UserException("MSG.SCAN_CODE.NOT_SUITABLE_FOR_PRINTING_BOARDING_PASS");
-    boost::optional<BCBPSectionsEnums::DocType> doc_type = scanSections.doc_type();
-    if (doc_type && doc_type.get() == BCBPSectionsEnums::itenirary_receipt)
+    if (not scanSections.isBoardingPass())
       throw UserException("MSG.SCAN_CODE.NOT_SUITABLE_FOR_PRINTING_BOARDING_PASS");
     //проверим доступ для перепечати
+    const BCBPRepeatedSections &repeated=*(scanSections.repeated.begin());
     BPReprintOptions::check_access(repeated.dateOfFlight(),
                                    repeated.fromCityAirpCode(),
                                    repeated.operatingCarrierDesignator());
@@ -2831,10 +2822,10 @@ int bcbp_test(int argc,char **argv)
     boost::shared_ptr<PrintDataParser> parser;
     if(pax.pax_id == NoExists) {
         cout << "pax not found." << endl;
-        parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(scan));
+        parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(dotPrnBP, scan));
     } else {
         cout << "pax found, pax_id: " << pax.pax_id << endl;
-        parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(pax.grp_id, pax.pax_id, 0, NULL));
+        parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(dotPrnBP, pax.grp_id, pax.pax_id, 0, NULL));
     }
     cout << endl;
 
@@ -2859,15 +2850,15 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     GetBPPaxFromScanCode(scanCode, pax);
 
     if(pax.pax_id == NoExists)
-      parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(scanCode));
+      parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(dotPrnBP, scanCode));
     else
-      parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(pax.grp_id, pax.pax_id, 0, NULL));
+      parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(dotPrnBP, pax.grp_id, pax.pax_id, 0, NULL));
   }
   else
   {
     bool is_test=isTestPaxId(NodeAsInteger("pax_id", reqNode));
     GetBPPax( reqNode, is_test, true, pax );
-    parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(pax.grp_id, pax.pax_id, 0, NULL));
+    parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(dotPrnBP, pax.grp_id, pax.pax_id, 0, NULL));
   };
   vector<string> tags;
   BPTags::Instance()->getFields( tags );

@@ -2751,6 +2751,15 @@ bool SearchPaxByScanData(xmlNodePtr reqNode,
                          int &reg_no,
                          int &pax_id)
 {
+    bool isBoardingPass;
+    return SearchPaxByScanData(reqNode, point_id, reg_no, pax_id, isBoardingPass);
+}
+
+bool SearchPaxByScanData(xmlNodePtr reqNode,
+                         int &point_id,
+                         int &reg_no,
+                         int &pax_id, bool &isBoardingPass)
+{
   bool result=false;
 
   point_id=NoExists;
@@ -2766,7 +2775,11 @@ bool SearchPaxByScanData(xmlNodePtr reqNode,
   else
     bcbp=NodeAsString("scan_data", reqNode);
   WebSearch::TPNRFilters filters;
-  filters.fromBCBP_M(bcbp);
+
+  BCBPSections scanSections;
+  filters.getBCBPSections(bcbp, scanSections);
+  isBoardingPass = scanSections.isBoardingPass();
+  filters.fromBCBPSections(scanSections);
   if (filters.segs.empty())
     throw EXCEPTIONS::EConvertError("%s: filters.segs.empty()", __FUNCTION__);
   const WebSearch::TPNRFilter &filter=*(filters.segs.begin());

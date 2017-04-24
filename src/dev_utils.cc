@@ -6,7 +6,7 @@
 #include <utility>
 #include <vector>
 #define NICKNAME "VLAD"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace ASTRA;
 using namespace std;
@@ -1588,6 +1588,23 @@ void BCBPSections::set_fast_track(boost::optional<bool> x, int i)
 {   write_field(repeated[i].conditional, pos_fast_track, x, "NY", "fast track", conditional_str);
 }
 
+
+bool BCBPSections::isBoardingPass()
+{
+    //внимание!!
+    //процедура заточена только на односегментный посадочный талон
+    //многосегментные посадочные талоны пока не печатаются
+    if (repeated.size()!=1)
+        return false;
+    const BCBPRepeatedSections &_repeated=*(repeated.begin());
+    //проверим что это посадочный талон
+    if (_repeated.checkinSeqNumber().first==NoExists) //это не посадочный талон, потому что рег. номер не известен
+        return false;
+    boost::optional<BCBPSectionsEnums::DocType> _doc_type = doc_type();
+    if (_doc_type && _doc_type.get() == BCBPSectionsEnums::itenirary_receipt)
+        return false;
+    return true;
+}
 
 void BCBPSections::set_komtech_pax_id(int x, int i, bool shure)
 {   write_field(repeated[i].individual, pos_komtex_pax_id, x, "komtex pax id", airline_data_str);

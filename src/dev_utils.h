@@ -483,6 +483,7 @@ class BCBPSections : public  BCBPInternalWork
      static std::string test_bcbp_build();
      void set_komtech_pax_id(int x, int i, bool shure = true);
 
+     bool isBoardingPass();
 };
 
 

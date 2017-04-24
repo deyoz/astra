@@ -407,7 +407,7 @@ TPNRFilters& TPNRFilters::getBCBPSections(const std::string &bcbp, BCBPSections 
 
   try
   {
-    BCBPSections::get(bcbp, 0, bcbp.size(), sections, true);
+    BCBPSections::get(bcbp, 0, bcbp.size(), sections, false);
   }
   catch(EXCEPTIONS::EConvertError &e)
   {

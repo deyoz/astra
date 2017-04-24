@@ -130,7 +130,7 @@ void savePrintBP(const LoadPaxXmlResult& loadPaxRes)
                          << " pax_id:" << pax.pax_id;
 
 
-        PrintDataParser parser(seg.seg_info.grp_id, pax.pax_id, 0, NULL);
+        PrintDataParser parser(ASTRA::dotPrnBP, seg.seg_info.grp_id, pax.pax_id, 0, NULL);
         parser.pts.confirm_print(true, ASTRA::dotPrnBP);
     }
 }
