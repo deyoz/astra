@@ -111,10 +111,11 @@ $(lastRedisplay)
           <flight index='9'>121</flight>
           <amount index='10'>0.00</amount>
           <rfisc_code index='11'>99K</rfisc_code>
-          <luggage index='12'>25 äÉ</luggage>
-          <rfisc_desc index='13'>BAGGAGE - EXCESS WEIGHT</rfisc_desc>
-          <sac index='14'/>
-          <coup_status index='15'>O</coup_status>
+          <service_quantity index='12'>1</service_quantity>
+          <luggage index='13'>25äÉ</luggage>
+          <rfisc_desc index='14'>BAGGAGE - EXCESS WEIGHT</rfisc_desc>
+          <sac index='15'/>
+          <coup_status index='16'>O</coup_status>
         </row>
         <row index='1'>
           <num index='0'>2</num>
@@ -129,10 +130,11 @@ $(lastRedisplay)
           <flight index='9'>212</flight>
           <amount index='10'>0.00</amount>
           <rfisc_code index='11'>99K</rfisc_code>
-          <luggage index='12'>25 äÉ</luggage>
-          <rfisc_desc index='13'>BAGGAGE - EXCESS WEIGHT</rfisc_desc>
-          <sac index='14'/>
-          <coup_status index='15'>O</coup_status>
+          <service_quantity index='12'>1</service_quantity>
+          <luggage index='13'>25äÉ</luggage>
+          <rfisc_desc index='14'>BAGGAGE - EXCESS WEIGHT</rfisc_desc>
+          <sac index='15'/>
+          <coup_status index='16'>O</coup_status>
         </row>
       </coupon>
     </emd1>
@@ -263,10 +265,11 @@ $(lastRedisplay)
           <flight index='6'> </flight>
           <amount index='7'>500.00</amount>
           <rfisc_code index='8'>0BW</rfisc_code>
-          <luggage index='9'>-</luggage>
-          <rfisc_desc index='10'>REGISTRATION</rfisc_desc>
-          <sac index='11'/>
-          <coup_status index='12'>O</coup_status>
+          <service_quantity index='9'>1</service_quantity>
+          <luggage index='10'>-</luggage>
+          <rfisc_desc index='11'>REGISTRATION</rfisc_desc>
+          <sac index='12'/>
+          <coup_status index='13'>O</coup_status>
         </row>
       </coupon>
     </emd1>
@@ -374,10 +377,11 @@ $(lastRedisplay)
           <flight index='6'>700</flight>
           <amount index='7'>0.00</amount>
           <rfisc_code index='8'>FNA</rfisc_code>
-          <luggage index='9'>-</luggage>
-          <rfisc_desc index='10'>ëèêÄÇäÄ éÅ àëè. ìóÄëíäÄ(éÇ)</rfisc_desc>
-          <sac index='11'/>
-          <coup_status index='12'>F</coup_status>
+          <service_quantity index='9'>1</service_quantity>
+          <luggage index='10'>-</luggage>
+          <rfisc_desc index='11'>ëèêÄÇäÄ éÅ àëè. ìóÄëíäÄ(éÇ)</rfisc_desc>
+          <sac index='12'/>
+          <coup_status index='13'>F</coup_status>
         </row>
       </coupon>
     </emd1>
