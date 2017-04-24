@@ -63,6 +63,7 @@ public:
         boost::optional<iatci::ServiceDetails>     makeService() const;
         boost::optional<iatci::DocDetails>         makeDoc() const;
         boost::optional<iatci::AddressDetails>     makeAddress() const;
+        boost::optional<iatci::PaxDetails>         makeInfant() const;
     };
 
     //-----------------------------------------------------------------------------------
@@ -225,7 +226,8 @@ iatci::dcqcki::PaxGroup IatciCkiParamsMaker::Pxg::makePaxGroup() const
                                    makeBaggage(),
                                    makeService(),
                                    makeDoc(),
-                                   makeAddress());
+                                   makeAddress(),
+                                   makeInfant());
 }
 
 boost::optional<iatci::ReservationDetails> IatciCkiParamsMaker::Pxg::makeReserv() const
@@ -276,6 +278,15 @@ boost::optional<iatci::DocDetails> IatciCkiParamsMaker::Pxg::makeDoc() const
 boost::optional<iatci::AddressDetails> IatciCkiParamsMaker::Pxg::makeAddress() const
 {
     // TODO
+    return boost::none;
+}
+
+boost::optional<iatci::PaxDetails> IatciCkiParamsMaker::Pxg::makeInfant() const
+{
+    if(m_ppd.m_withInftIndicator == "Y") {
+        return iatci::makeInfant(m_ppd);
+    }
+
     return boost::none;
 }
 

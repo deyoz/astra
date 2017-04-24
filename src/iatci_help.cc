@@ -256,7 +256,18 @@ iatci::PaxDetails makePax(const edifact::PpdElem& ppd)
                              ppd.m_passName,
                              iatci::PaxDetails::strToType(ppd.m_passType),
                              ppd.m_passQryRef,
-                             ppd.m_passRespRef);
+                             ppd.m_passRespRef,
+                             iatci::PaxDetails::strToWithInftIndicator(ppd.m_withInftIndicator));
+}
+
+iatci::PaxDetails makeInfant(const edifact::PpdElem& ppd)
+{
+    return iatci::PaxDetails(!ppd.m_inftSurname.empty() ? ppd.m_inftSurname
+                                                        : ppd.m_passSurname,
+                             ppd.m_inftName,
+                             iatci::PaxDetails::Infant,
+                             ppd.m_inftQryRef,
+                             ppd.m_inftRespRef);
 }
 
 iatci::ReservationDetails makeReserv(const edifact::PrdElem& prd)
@@ -465,13 +476,15 @@ iatci::UpdateDocDetails makeUpdDoc(const edifact::UapElem& uap)
 
 //---------------------------------------------------------------------------------------
 
-iatci::PaxDetails makePax(const astra_api::astra_entities::PaxInfo& pax)
+iatci::PaxDetails makePax(const astra_api::astra_entities::PaxInfo& pax, bool withInfant)
 {
     return iatci::PaxDetails(pax.m_surname,
                              pax.m_name,
                              astra2iatci(pax.m_persType),
                              "",
-                             pax.m_iatciPaxId);
+                             pax.m_iatciPaxId,
+                             withInfant ? iatci::PaxDetails::WithInfant
+                                        : iatci::PaxDetails::WithoutInfant);
 }
 
 iatci::FlightDetails makeFlight(const astra_api::astra_entities::SegmentInfo& seg)
@@ -782,6 +795,8 @@ iatci::PaxDetails::PaxType_e astra2iatci(ASTRA::TPerson personType)
         return iatci::PaxDetails::Adult;
     case ASTRA::child:
         return iatci::PaxDetails::Child;
+    case ASTRA::baby:
+        return iatci::PaxDetails::Infant;
     default:
         throw EXCEPTIONS::Exception("Unknown astra person type: %d", personType);
     }
@@ -797,6 +812,8 @@ ASTRA::TPerson iatci2astra(iatci::PaxDetails::PaxType_e paxType)
         return ASTRA::adult;
     case iatci::PaxDetails::Child:
         return ASTRA::child;
+    case iatci::PaxDetails::Infant:
+        return ASTRA::baby;
     default:
         throw EXCEPTIONS::Exception("Unknow iatci pax type: %d", paxType);
     }

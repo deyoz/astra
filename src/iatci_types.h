@@ -191,7 +191,8 @@ struct PaxDetails
         Adult,
         Child,
         Female,
-        Male
+        Male,
+        Infant // внутренний статус
     };
 
     enum WithInftIndicator_e
@@ -224,6 +225,8 @@ public:
     std::string         withInftIndicatorAsString() const;
     const std::string&  qryRef() const;
     const std::string&  respRef() const;
+
+    bool                isInfant() const;
 
     static PaxType_e strToType(const std::string& s);
     static WithInftIndicator_e strToWithInftIndicator(const std::string& s);
@@ -990,6 +993,8 @@ protected:
     boost::optional<ServiceDetails>     m_service;
     boost::optional<DocDetails>         m_doc;
     boost::optional<AddressDetails>     m_address;
+    boost::optional<PaxDetails>         m_infant;
+    boost::optional<DocDetails>         m_infantDoc;
 
 public:
     PaxGroup(const PaxDetails& pax,
@@ -997,7 +1002,9 @@ public:
              const boost::optional<BaggageDetails>& baggage,
              const boost::optional<ServiceDetails>& service,
              const boost::optional<DocDetails>& doc,
-             const boost::optional<AddressDetails>& address);
+             const boost::optional<AddressDetails>& address,
+             const boost::optional<PaxDetails>& infant = boost::none,
+             const boost::optional<DocDetails>& infantDoc = boost::none);
 
     const PaxDetails&                          pax() const;
     const boost::optional<ReservationDetails>& reserv() const;
@@ -1005,6 +1012,8 @@ public:
     const boost::optional<ServiceDetails>&     service() const;
     const boost::optional<DocDetails>&         doc() const;
     const boost::optional<AddressDetails>&     address() const;
+    const boost::optional<PaxDetails>&         infant() const;
+    const boost::optional<DocDetails>&         infantDoc() const;
 
 protected:
     PaxGroup() {} // for boost serialization only
@@ -1042,7 +1051,8 @@ public:
              const boost::optional<BaggageDetails>& baggage,
              const boost::optional<ServiceDetails>& service,
              const boost::optional<DocDetails>& doc,
-             const boost::optional<AddressDetails>& address);
+             const boost::optional<AddressDetails>& address,
+             const boost::optional<PaxDetails>& infant = boost::none);
 
     const boost::optional<SeatDetails>& seat() const;
 };
@@ -1423,7 +1433,9 @@ public:
              const boost::optional<BaggageDetails>& baggage,
              const boost::optional<ServiceDetails>& service,
              const boost::optional<DocDetails>& doc,
-             const boost::optional<AddressDetails>& address);
+             const boost::optional<AddressDetails>& address,
+             const boost::optional<PaxDetails>& infant = boost::none,
+             const boost::optional<DocDetails>& infantDoc = boost::none);
 
     const boost::optional<FlightSeatDetails>& seat() const;
 

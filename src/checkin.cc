@@ -1446,31 +1446,34 @@ static void CreateEdiTCkinResponse(const CheckIn::TTransferItem &ti,
 
     xmlNodePtr tripNode = NewTextChild(tripsNode, "trip");
     NewTextChild(tripNode, "airline",  ti.operFlt.airline);
-    NewTextChild(tripNode, "point_id", -1); // Мы не знаем point_id - его может и не быть?
+    NewTextChild(tripNode, "point_id", -1);
     NewTextChild(tripNode, "airp_dep", ti.operFlt.airp);
     NewTextChild(tripNode, "flt_no",   ti.operFlt.flt_no);
     NewTextChild(tripNode, "scd",      DateTimeToStr(ti.operFlt.scd_out)); // local? utc? TODO
 
     xmlNodePtr groupsNode = NewTextChild(tripNode, "groups");
     xmlNodePtr pnrNode = NewTextChild(groupsNode, "pnr");
-    NewTextChild(pnrNode, "pnr_id", -1); // find pnr id TODO
+    NewTextChild(pnrNode, "pnr_id", -1);
     NewTextChild(pnrNode, "airp_arv", ti.airp_arv);
     NewTextChild(pnrNode, "subclass", pax.subclass);
     NewTextChild(pnrNode, "class",    pax.subclass); // class? TODO
 
     xmlNodePtr paxesNode = NewTextChild(pnrNode, "passengers");
     xmlNodePtr paxNode = NewTextChild(paxesNode, "pax");
-    NewTextChild(paxNode, "pax_id", -1); // find pax_id TODO
-    NewTextChild(paxNode, "surname", pax.surname);
-    NewTextChild(paxNode, "name",    pax.name);
-    NewTextChild(paxNode, "seat_no"); // seat_no мы тут можем не знать
-    NewTextChild(paxNode, "document"); // заполнить информацию по документу TODO
-    NewTextChild(paxNode, "ticket_no", ""); // номера билета в данном случае нет
-    NewTextChild(paxNode, "ticket_rem", "");
-    NewTextChild(paxNode, "rems"); // заполнить информацию по ремаркам TODO
+    NewTextChild(paxNode, "pax_id",    -1);
+    NewTextChild(paxNode, "surname",   pax.surname);
+    NewTextChild(paxNode, "name",      pax.name);
+    NewTextChild(paxNode, "seats",     pax.seats);
+    NewTextChild(paxNode, "pers_type", pax.pers_type);
 
-    /*xmlNodePtr trferNode = */NewTextChild(pnrNode, "transfer"); // заполнить transfer TODO
-    /*xmlNodePtr pnrAddrsNode = */NewTextChild(pnrNode, "pnr_addrs"); // заполнить pnr_addrs TODO
+    NewTextChild(paxNode, "seat_no");
+    NewTextChild(paxNode, "document");
+    NewTextChild(paxNode, "ticket_no", "");
+    NewTextChild(paxNode, "ticket_rem", "");
+    NewTextChild(paxNode, "rems");
+
+    NewTextChild(pnrNode, "transfer");
+    NewTextChild(pnrNode, "pnr_addrs");
 }
 
 static void CreateNoRecResponse(const TInquiryGroupSummary &sum, xmlNodePtr resNode)

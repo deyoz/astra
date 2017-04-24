@@ -145,8 +145,13 @@ std::ostream& operator<<(std::ostream &os, const PpdElem &ppd)
     os << "surname: " << ppd.m_passSurname << "; ";
     os << "name: " << ppd.m_passName << "; ";
     os << "type: " << ppd.m_passType << "; ";
+    os << "withInft: " << ppd.m_withInftIndicator << "; ";
     os << "resp ref: " << ppd.m_passRespRef << "; ";
-    os << "qry ref: " << ppd.m_passQryRef;
+    os << "qry ref: " << ppd.m_passQryRef << "; ";
+    os << "inft surname: " << ppd.m_inftSurname << "; ";
+    os << "inft name: " << ppd.m_inftName << "; ";
+    os << "inft resp ref: " << ppd.m_inftRespRef << "; ";
+    os << "inft qry ref: " << ppd.m_inftQryRef;
     return os;
 }
 

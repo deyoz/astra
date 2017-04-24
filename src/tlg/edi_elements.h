@@ -649,8 +649,13 @@ struct PpdElem
     std::string m_passSurname;
     std::string m_passName;
     std::string m_passType;
+    std::string m_withInftIndicator;
     std::string m_passRespRef;
     std::string m_passQryRef;
+    std::string m_inftSurname;
+    std::string m_inftName;
+    std::string m_inftRespRef;
+    std::string m_inftQryRef;
 };
 
 //---------------------------------------------------------------------------------------

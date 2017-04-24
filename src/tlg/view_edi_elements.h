@@ -134,6 +134,8 @@ void viewFdqElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& nex
  * @brief makes a PPD element
 */
 void viewPpdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxDetails& pax);
+void viewPpdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::PaxDetails& pax,
+                    const iatci::PaxDetails& infant);
 
 /**
  * @brief makes a PSD element

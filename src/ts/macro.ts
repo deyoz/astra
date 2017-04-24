@@ -476,6 +476,59 @@ ENDPNL}
 ) #end-of-macro
 
 
+$(defmacro INBOUND_PNL_6
+    airl1
+    depp1
+    arrp1
+    flt1
+    airl2
+    depp2
+    arrp2
+    flt2
+    surname
+    name
+    tickno
+    cpnno
+    inftSurname
+    inftName
+    inftTickno
+    inftCouponno
+{MOWKB1H
+.MOWRMUT 020815
+PNL
+$(airl1)$(flt1)/$(ddmon +0 en) $(depp1) PART1
+CFG/060F060C060Y
+RBD F/F C/C Y/YKMU
+AVAIL
+ $(depp1)  $(arrp1)
+F060
+C060
+Y059
+-LED000F
+-LED000C
+-LED002Y
+1$(surname)/$(name)
+.L/0840Z7/$(airl1)
+.L/09T1B4/1H
+.O/$(airl2)$(flt2)Y$(dd +0 en)$(depp2)$(arrp2)2315AR
+.R/TKNE HK1 $(tickno)/$(cpnno)-1$(surname)/$(name)
+.R/TKNE HK1 INF$(inftTickno)/$(inftCouponno)-1$(surname)/$(name)
+.R/DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/$(surname)
+.RN//$(name)-1$(surname)/$(name)
+.R/PSPT HK1 ZB400522509/TJK/24JUL85/$(surname)/$(name)/M
+.RN/-1$(surname)/$(name)
+.R/FOID PPZB400522509-1$(surname)/$(name)
+.R/INFT HK1 01JAN17 $(inftSurname)/$(inftName)-1$(surname)/$(name)
+.R/DOCS HK1/P/RUS/1234566/RUS/01JAN17/MI/01JAN20/$(inftSurname)/$(inftName)_
+-LED000K
+-LED000M
+-LED000U
+ENDPNL}
+) #end-of-macro
+
+
+
+
 $(defmacro PREPARE_FLIGHT_5
     airl1=ûí
     flt1=103
@@ -572,6 +625,112 @@ IFT+4:10+REFUNDABLE"
 IFT+4:39+HOUSTON+UNITED AIRLINES INC"
 TKT+$(tickno2):T:1:3"
 CPN+$(cpnno2):I"
+TVL+$(ddmmyy):2205+$(depp1)+$(arrp1)+$(airl1)+$(flt1):Y+J"
+RPI++NS"
+PTS++YINF"
+UNT+19+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+}) #end-of-macro
+
+
+$(defmacro PREPARE_FLIGHT_6
+    airl1=ûí
+    flt1=103
+    depp1=ÑåÑ
+    arrp1=èãä
+    airl2=ë7
+    flt2=1027
+    depp2=èãä
+    arrp2=ëéó
+    surname=REPIN
+    name=IVAN
+    tickno=2982401841689
+    cpnno=1
+    inftSurname=PETROV
+    inftName=PETR
+    inftTickno=2982401841612
+    inftCouponno=1
+{
+$(PREPARE_SEASON_SCD $(get_lat_code awk $(airl1))
+                     $(get_lat_code aer $(depp1))
+                     $(get_lat_code aer $(arrp1))
+                     $(flt1))
+$(create_spp $(ddmmyyyy +0))
+
+<<
+$(INBOUND_PNL_6 $(airl1) $(depp1) $(arrp1) $(flt1)
+                $(airl2) $(depp2) $(arrp2) $(flt2)
+                $(surname) $(name) $(tickno) $(cpnno)
+                $(inftSurname) $(inftName) $(inftTickno) $(inftCouponno))
+
+$(create_random_trip_comp $(get_dep_point_id $(depp1) $(airl1) $(flt1) $(yymmdd +0)) ù)
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
+MSG+:131"
+ORG+ûí:åéÇ++++Y+::RU+SYSTEM"
+TKT+$(tickno)"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref 1)0001"
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 0)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 0)"
+MSG+:131"
+ORG+ûí:åéÇ++++Y+::RU+SYSTEM"
+TKT+$(inftTickno)"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref 0)0001"
+
+<<
+UNB+SIRE:1+UTET+UTDC+091030:0529+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
+MSG+:131+3"
+TIF+$(surname)+$(name)"
+TAI+0162"
+RCI+UA:G4LK6W:1"
+MON+B:20.00:USD+T:20.00:USD"
+FOP+CA:3"
+PTK+++$(ddmmyy)+++:US"
+ODI+$(depp1)+$(arrp1)"
+ORG+UT:MOW++IAH++A+US+D80D1BWO"
+EQN+1:TD"
+TXD+700+0.00:::US"
+IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
+IFT+4:5+00001230161213"
+IFT+4:10+REFUNDABLE"
+IFT+4:39+HOUSTON+UNITED AIRLINES INC"
+TKT+$(tickno):T:1:3"
+CPN+$(cpnno):I"
+TVL+$(ddmmyy):2205+$(depp1)+$(arrp1)+$(airl1)+$(flt1):Y+J"
+RPI++NS"
+PTS++YINF"
+UNT+19+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+UTET+UTDC+091030:0529+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
+MSG+:131+3"
+TIF+$(inftSurname)+$(inftName)"
+TAI+0162"
+RCI+UA:G4LK6W:1"
+MON+B:20.00:USD+T:20.00:USD"
+FOP+CA:3"
+PTK+++$(ddmmyy)+++:US"
+ODI+$(depp1)+$(arrp1)"
+ORG+UT:MOW++IAH++A+US+D80D1BWO"
+EQN+1:TD"
+TXD+700+0.00:::US"
+IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
+IFT+4:5+00001230161213"
+IFT+4:10+REFUNDABLE"
+IFT+4:39+HOUSTON+UNITED AIRLINES INC"
+TKT+$(inftTickno):T:1:3"
+CPN+$(inftCouponno):I"
 TVL+$(ddmmyy):2205+$(depp1)+$(arrp1)+$(airl1)+$(flt1):Y+J"
 RPI++NS"
 PTS++YINF"

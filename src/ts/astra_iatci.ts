@@ -258,6 +258,7 @@ $(defmacro CHECK_TCKIN_ROUTE_1
     airp_arv
     surname
     name
+    pers_type
 {
 !! capture=on
 {<?xml version='1.0' encoding='CP866'?>
@@ -283,7 +284,7 @@ $(defmacro CHECK_TCKIN_ROUTE_1
         <pax>
           <surname>$(surname)</surname>
           <name>$(name)</name>
-          <pers_type>ВЗ</pers_type>
+          <pers_type>$(pers_type)</pers_type>
           <seats>1</seats>
           <transfer>
             <segment>
@@ -311,6 +312,7 @@ $(defmacro CHECK_TCKIN_ROUTE_2
     airp_arv
     surname
     name
+    pers_type
 {
 !! capture=on
 {<?xml version='1.0' encoding='CP866'?>
@@ -338,7 +340,7 @@ $(defmacro CHECK_TCKIN_ROUTE_2
         <pax>
           <surname>$(surname)</surname>
           <name>$(name)</name>
-          <pers_type>ВЗ</pers_type>
+          <pers_type>$(pers_type)</pers_type>
           <seats>1</seats>
           <transfer>
             <segment>
@@ -411,6 +413,8 @@ $(defmacro CHECK_TCKIN_ROUTE_2
                         <pax_id>-1</pax_id>
                         <surname>$(surname)</surname>
                         <name>$(name)</name>
+                        <seats>1</seats>
+                        <pers_type>$(pers_type)</pers_type>
                         <seat_no/>
                         <document/>
                         <ticket_no/>
@@ -444,8 +448,10 @@ $(defmacro CHECK_TCKIN_ROUTE_GRP_1
     airp_arv
     surname1
     name1
+    pers_type1
     surname2
     name2
+    pers_type2
 {
 !! capture=on
 {<?xml version='1.0' encoding='CP866'?>
@@ -471,7 +477,7 @@ $(defmacro CHECK_TCKIN_ROUTE_GRP_1
         <pax>
           <surname>$(surname1)</surname>
           <name>$(name1)</name>
-          <pers_type>ВЗ</pers_type>
+          <pers_type>$(pers_type1)</pers_type>
           <seats>1</seats>
           <transfer>
             <segment>
@@ -482,7 +488,7 @@ $(defmacro CHECK_TCKIN_ROUTE_GRP_1
         <pax>
           <surname>$(surname2)</surname>
           <name>$(name2)</name>
-          <pers_type>ВЗ</pers_type>
+          <pers_type>$(pers_type2)</pers_type>
           <seats>1</seats>
           <transfer>
             <segment>
@@ -510,8 +516,10 @@ $(defmacro CHECK_TCKIN_ROUTE_GRP_2
     airp_arv
     surname1
     name1
+    pers_type1
     surname2
     name2
+    pers_type2
 {
 !! capture=on
 {<?xml version='1.0' encoding='CP866'?>
@@ -539,7 +547,7 @@ $(defmacro CHECK_TCKIN_ROUTE_GRP_2
         <pax>
           <surname>$(surname1)</surname>
           <name>$(name1)</name>
-          <pers_type>ВЗ</pers_type>
+          <pers_type>$(pers_type1)</pers_type>
           <seats>1</seats>
           <transfer>
             <segment>
@@ -550,7 +558,7 @@ $(defmacro CHECK_TCKIN_ROUTE_GRP_2
         <pax>
           <surname>$(surname2)</surname>
           <name>$(name2)</name>
-          <pers_type>ВЗ</pers_type>
+          <pers_type>$(pers_type2)</pers_type>
           <seats>1</seats>
           <transfer>
             <segment>
@@ -623,6 +631,8 @@ $(defmacro CHECK_TCKIN_ROUTE_GRP_2
                         <pax_id>-1</pax_id>
                         <surname>$(surname1)</surname>
                         <name>$(name1)</name>
+                        <seats>1</seats>
+                        <pers_type>$(pers_type1)</pers_type>
                         <seat_no/>
                         <document/>
                         <ticket_no/>
@@ -656,6 +666,8 @@ $(defmacro CHECK_TCKIN_ROUTE_GRP_2
                         <pax_id>-1</pax_id>
                         <surname>$(surname2)</surname>
                         <name>$(name2)</name>
+                        <seats>1</seats>
+                        <pers_type>$(pers_type2)</pers_type>
                         <seat_no/>
                         <document/>
                         <ticket_no/>
@@ -841,9 +853,11 @@ $(defmacro SAVE_GRP
     surname1
     name1
     tickno1
+    pers_type1
     surname2
     name2
     tickno2
+    pers_type2
 {
 !! err=ignore
 {<?xml version='1.0' encoding='CP866'?>
@@ -874,7 +888,7 @@ $(defmacro SAVE_GRP
               <pax_id>$(pax_id1)</pax_id>
               <surname>$(surname1)</surname>
               <name>$(name1)</name>
-              <pers_type>ВЗ</pers_type>
+              <pers_type>$(pers_type1)</pers_type>
               <seat_no/>
               <preseat_no/>
               <seat_type/>
@@ -922,7 +936,7 @@ $(defmacro SAVE_GRP
               <pax_id>$(pax_id2)</pax_id>
               <surname>$(surname2)</surname>
               <name>$(name2)</name>
-              <pers_type>ВЗ</pers_type>
+              <pers_type>$(pers_type2)</pers_type>
               <seat_no/>
               <preseat_no/>
               <seat_type/>
@@ -990,7 +1004,7 @@ $(defmacro SAVE_GRP
               <pax_id/>
               <surname>$(surname1)</surname>
               <name>$(name1)</name>
-              <pers_type>ВЗ</pers_type>
+              <pers_type>$(pers_type1)</pers_type>
               <seat_no>7A</seat_no>
               <preseat_no/>
               <seat_type/>
@@ -1010,7 +1024,7 @@ $(defmacro SAVE_GRP
               <pax_id/>
               <surname>$(surname2)</surname>
               <name>$(name2)</name>
-              <pers_type>ВЗ</pers_type>
+              <pers_type>$(pers_type2)</pers_type>
               <seat_no>8A</seat_no>
               <preseat_no/>
               <seat_type/>
@@ -1622,8 +1636,8 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(CHECK_FLIGHT $(get point_dep) ЮТ 103 ДМД ПЛК)
 $(CHECK_SEARCH_PAX $(get point_dep) ЮТ 103 ДМД ПЛК REPIN IVAN К)
 $(CHECK_DCS_ADDR_SET)
-$(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN)
-$(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN)
+$(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN РБ)
+$(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN РБ)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
@@ -4025,8 +4039,8 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 #!! $(CHECK_FLIGHT $(get point_dep) ЮТ 103 ДМД ПЛК)
 $(CHECK_SEARCH_PAX $(get point_dep) ЮТ 103 ДМД ПЛК REPIN IVAN К)
 $(CHECK_DCS_ADDR_SET)
-$(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN)
-$(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN)
+$(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN ВЗ)
+$(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN ВЗ)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
@@ -4087,8 +4101,8 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(CHECK_FLIGHT $(get point_dep) ЮТ 103 ДМД ПЛК)
 $(CHECK_SEARCH_PAX $(get point_dep) ЮТ 103 ДМД ПЛК REPIN IVAN К)
 $(CHECK_DCS_ADDR_SET)
-$(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN)
-$(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN)
+$(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN ВЗ)
+$(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN ВЗ)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
@@ -4173,8 +4187,8 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(CHECK_FLIGHT $(get point_dep) ЮТ 103 ДМД ПЛК)
 $(CHECK_SEARCH_PAX $(get point_dep) ЮТ 103 ДМД ПЛК REPIN IVAN К)
 $(CHECK_DCS_ADDR_SET)
-$(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN)
-$(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN)
+$(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN ВЗ)
+$(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN ВЗ)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
@@ -4342,8 +4356,8 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(CHECK_FLIGHT $(get point_dep) ЮТ 103 ДМД ПЛК)
 $(CHECK_SEARCH_PAX $(get point_dep) ЮТ 103 ДМД ПЛК REPIN IVAN К)
 $(CHECK_DCS_ADDR_SET)
-$(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN)
-$(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN)
+$(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN ВЗ)
+$(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN ВЗ)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
                                                            С7 1027 ПЛК СОЧ
                                                            REPIN IVAN
@@ -4417,13 +4431,13 @@ $(CHECK_FLIGHT $(get point_dep) ЮТ 103 ДМД ПЛК)
 $(CHECK_SEARCH_PAX $(get point_dep) ЮТ 103 ДМД ПЛК REPIN IVAN К)
 $(CHECK_SEARCH_PAX $(get point_dep) ЮТ 103 ДМД ПЛК PETROV PETR К)
 $(CHECK_DCS_ADDR_SET)
-$(CHECK_TCKIN_ROUTE_GRP_1 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN PETROV PETR)
-$(CHECK_TCKIN_ROUTE_GRP_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN PETROV PETR)
+$(CHECK_TCKIN_ROUTE_GRP_1 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN ВЗ PETROV PETR РБ)
+$(CHECK_TCKIN_ROUTE_GRP_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN ВЗ PETROV PETR РБ)
 
 $(SAVE_GRP $(get pax_1_id) $(get pax_2_id) $(get point_dep) $(get point_arv)
                 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ
-                REPIN IVAN 2982401841689
-                PETROV PETR 2982401841612)
+                REPIN IVAN 2982401841689 ВЗ
+                PETROV PETR 2982401841612 РБ)
 
 
 $(ETS_COS_EXCHANGE2 2982401841689 1 2982401841612 1 CK)
@@ -4440,7 +4454,7 @@ PPD+REPIN+A:N++IVAN"
 PRD+Y"
 PSD++007A"
 PBD+0"
-PPD+PETROV+A:N++PETR"
+PPD+PETROV+C:N++PETR"
 PRD+Y"
 PSD++008A"
 PBD+0"
@@ -4456,7 +4470,7 @@ PPD+REPIN+A:N++IVAN"
 PFD+7A++1"
 PSI++TKNE::42124018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M+TKNE::::::TKNE HK1 2982401841689/1"
 PAP+:::850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
-PPD+PETROV+A:N++PETR"
+PPD+PETROV+C:N++PETR"
 PFD+8A++2"
 PSI++TKNE::42124018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/PETROV/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/PETROV/PETR/M+TKNE::::::TKNE HK1 2982401841612/1"
 PAP+:::850724:::TJK++P:400522510:TJK:::250205:M::::::PETROV:PETR"
@@ -4622,7 +4636,7 @@ $(KICK_IN)
             <pax_id>$(get pax_2_id)</pax_id>
             <surname>PETROV</surname>
             <name>PETR</name>
-            <pers_type>ВЗ</pers_type>
+            <pers_type>РБ</pers_type>
             <crew_type/>
             <seat_no>1B</seat_no>
             <seat_type/>
@@ -4788,7 +4802,7 @@ $(KICK_IN)
             <pax_id>-2</pax_id>
             <surname>PETROV</surname>
             <name>PETR</name>
-            <pers_type>ВЗ</pers_type>
+            <pers_type>РБ</pers_type>
             <seat_no>8A</seat_no>
             <seat_type/>
             <seats>1</seats>
@@ -4867,7 +4881,7 @@ UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
 UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
-PPD+PETROV+A:N++PETR"
+PPD+PETROV+C:N++PETR"
 USD++006A"
 UNT+6+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -4877,7 +4891,7 @@ UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+С7+1027+$(yymmdd)1000+LED+AER++T"
 RAD+U+O"
-PPD+REPIN+A:N++IVAN"
+PPD+PETROV+C:N++PETR"
 PFD+006A"
 UNT+5+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -4906,8 +4920,6 @@ UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 $(KICK_IN_SILENT)
-
-$(dump_table GRP_IATCI_XML)
 
 
 # отменяем регистрацию одного из пассажиров

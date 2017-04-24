@@ -48,6 +48,7 @@ private:
 //---------------------------------------------------------------------------------------
 
 iatci::PaxDetails              makePax(const edifact::PpdElem& ppd);
+iatci::PaxDetails              makeInfant(const edifact::PpdElem& ppd);
 iatci::ReservationDetails      makeReserv(const edifact::PrdElem& prd);
 iatci::SeatDetails             makeSeat(const edifact::PsdElem& psd);
 iatci::FlightSeatDetails       makeSeat(const edifact::PfdElem& pfd);
@@ -75,7 +76,7 @@ iatci::UpdateDocDetails        makeUpdDoc(const edifact::UapElem& uap);
 
 //---------------------------------------------------------------------------------------
 
-iatci::PaxDetails                          makePax(const astra_api::astra_entities::PaxInfo& pax);
+iatci::PaxDetails                          makePax(const astra_api::astra_entities::PaxInfo& pax, bool withInfant = false);
 iatci::FlightDetails                       makeFlight(const astra_api::astra_entities::SegmentInfo& seg);
 iatci::OriginatorDetails                   makeOrg(const astra_api::astra_entities::SegmentInfo& seg);
 boost::optional<iatci::FlightSeatDetails>  makeFlightSeat(const astra_api::astra_entities::PaxInfo& pax);

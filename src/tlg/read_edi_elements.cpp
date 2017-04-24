@@ -667,11 +667,16 @@ boost::optional<PpdElem> readEdiPpd(_EDI_REAL_MES_STRUCT_ *pMes)
     }
 
     PpdElem ppd;
-    ppd.m_passSurname = GetDBFName(pMes, DataElement(3808), CompElement());
-    ppd.m_passType    = GetDBFName(pMes, DataElement(9819), CompElement("C017"));
-    ppd.m_passName    = GetDBFName(pMes, DataElement(3809), CompElement());
-    ppd.m_passRespRef = GetDBFName(pMes, DataElement(9821), CompElement("C692"));
-    ppd.m_passQryRef  = GetDBFName(pMes, DataElement(9821), CompElement("C690"));
+    ppd.m_passSurname       = GetDBFName(pMes, DataElement(3808),  CompElement());
+    ppd.m_passType          = GetDBFName(pMes, DataElement(9819),  CompElement("C017"));
+    ppd.m_withInftIndicator = GetDBFName(pMes, DataElement(9884),  CompElement("C017"));
+    ppd.m_passName          = GetDBFName(pMes, DataElement(3809),  CompElement());
+    ppd.m_passRespRef       = GetDBFName(pMes, DataElement(9821),  CompElement("C692"));
+    ppd.m_passQryRef        = GetDBFName(pMes, DataElement(9821),  CompElement("C690"));
+    ppd.m_inftSurname       = GetDBFName(pMes, DataElement(3808),  CompElement("C018"));
+    ppd.m_inftName          = GetDBFName(pMes, DataElement(3809),  CompElement("C018"));
+    ppd.m_inftRespRef       = GetDBFName(pMes, DataElement(9821,1),CompElement("C692"));
+    ppd.m_inftQryRef        = GetDBFName(pMes, DataElement(9821,1),CompElement("C690"));
 
     LogTrace(TRACE3) << ppd;
 

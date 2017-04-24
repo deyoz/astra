@@ -281,6 +281,7 @@ std::string PaxDetails::typeAsString() const
     switch(m_type)
     {
     case Child:  return "C";
+    case Infant: return "IN";
     case Female: return "F";
     case Male:   return "M";
     case Adult:  return "A";
@@ -313,9 +314,15 @@ const std::string& PaxDetails::respRef() const
     return m_respRef;
 }
 
+bool PaxDetails::isInfant() const
+{
+    return m_type == Infant;
+}
+
 PaxDetails::PaxType_e PaxDetails::strToType(const std::string& s)
 {
     if(s == "C")      return Child;
+    else if(s == "IN")return Infant;
     else if(s == "F") return Female;
     else if(s == "M") return Male;
     else if(s == "A") return Adult;
@@ -329,6 +336,7 @@ PaxDetails::WithInftIndicator_e PaxDetails::strToWithInftIndicator(const std::st
 {
     if(s == "Y")      return WithInfant;
     else if(s == "N") return WithoutInfant;
+    else if(s == "")  return WithoutInfant;
     else {
         LogError(STDLOG) << "Unknown with infant indicator: " << s;
         return WithoutInfant;
@@ -1017,8 +1025,10 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<BaggageDetails>& baggage,
                    const boost::optional<ServiceDetails>& service,
                    const boost::optional<DocDetails>& doc,
-                   const boost::optional<AddressDetails>& address)
-    : iatci::PaxGroup(pax, reserv, baggage, service, doc, address),
+                   const boost::optional<AddressDetails>& address,
+                   const boost::optional<PaxDetails>& infant,
+                   const boost::optional<DocDetails>& infantDoc)
+    : iatci::PaxGroup(pax, reserv, baggage, service, doc, address, infant, infantDoc),
       m_seat(seat)
 {}
 
@@ -1293,7 +1303,13 @@ void Result::toXml(xmlNodePtr node) const
         NewTextChild(paxNode, "seats", 1); // TODO
         NewTextChild(paxNode, "refuse", ""); // TODO
         NewTextChild(paxNode, "reg_no", pxg.seat() ? pxg.seat()->securityId() : "");
-        NewTextChild(paxNode, "subclass", ""); // TODO
+        std::string subcls = "";
+        if(pxg.reserv() && pxg.reserv()->subclass()) {
+            subcls = pxg.reserv()->subclass()->code(RUSSIAN);
+        } else {
+            LogWarning(STDLOG) << "use default subclass []";
+        }
+        NewTextChild(paxNode, "subclass", subcls); // TODO
         NewTextChild(paxNode, "bag_pool_num", ""); // TODO
         NewTextChild(paxNode, "tid", 0); // TODO
 
@@ -1316,7 +1332,6 @@ void Result::toXml(xmlNodePtr node) const
         NewTextChild(paxNode, "ticket_confirm", "1"); // TODO
 
         xmlNodePtr docNode = newChild(paxNode, "document");
-        LogTrace(TRACE3) << "about to show doc";
         if(pxg.doc())
         {
             tst();
@@ -1620,13 +1635,17 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<BaggageDetails>& baggage,
                    const boost::optional<ServiceDetails>& service,
                    const boost::optional<DocDetails>& doc,
-                   const boost::optional<AddressDetails>& address)
+                   const boost::optional<AddressDetails>& address,
+                   const boost::optional<PaxDetails>& infant,
+                   const boost::optional<DocDetails>& infantDoc)
     : m_pax(pax),
       m_reserv(reserv),
       m_baggage(baggage),
       m_service(service),
       m_doc(doc),
-      m_address(address)
+      m_address(address),
+      m_infant(infant),
+      m_infantDoc(infantDoc)
 {}
 
 const PaxDetails& PaxGroup::pax() const
@@ -1659,6 +1678,16 @@ const boost::optional<AddressDetails>& PaxGroup::address() const
     return m_address;
 }
 
+const boost::optional<PaxDetails>& PaxGroup::infant() const
+{
+    return m_infant;
+}
+
+const boost::optional<DocDetails>& PaxGroup::infantDoc() const
+{
+    return m_infantDoc;
+}
+
 //---------------------------------------------------------------------------------------
 
 FlightGroup::FlightGroup(const FlightDetails& outboundFlight,
@@ -1687,8 +1716,9 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<BaggageDetails>& baggage,
                    const boost::optional<ServiceDetails>& service,
                    const boost::optional<DocDetails>& doc,
-                   const boost::optional<AddressDetails>& address)
-    : iatci::PaxGroup(pax, reserv, baggage, service, doc, address),
+                   const boost::optional<AddressDetails>& address,
+                   const boost::optional<PaxDetails>& infant)
+    : iatci::PaxGroup(pax, reserv, baggage, service, doc, address, infant),
       m_seat(seat)
 {}
 

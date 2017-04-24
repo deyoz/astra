@@ -69,6 +69,7 @@ struct Remark
            const std::string& remText);
 
     std::string id() const { return m_remCode + m_remText; }
+    bool containsText(const std::string& text) const;
 };
 
 bool operator==(const Remark& left, const Remark& right);
@@ -172,8 +173,11 @@ struct PaxInfo
             const boost::optional<DocInfo>& doc,
             const boost::optional<Remarks>& rems = boost::none);
 
-    int             id() const { return m_paxId; }
-    std::string seatNo() const { return m_seatNo; }
+    int                          id() const { return m_paxId; }
+    std::string              seatNo() const { return m_seatNo; }
+    bool                   isInfant() const { return m_persType == ASTRA::baby; }
+    boost::optional<Remark> ssrInft() const;
+    std::string            fullName() const;
 };
 
 bool operator==(const PaxInfo& left, const PaxInfo& right);

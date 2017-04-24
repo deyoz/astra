@@ -384,6 +384,8 @@ public:
     using iatci::dcrcka::PaxGroup::m_service;
     using iatci::dcrcka::PaxGroup::m_doc;
     using iatci::dcrcka::PaxGroup::m_address;
+    using iatci::dcrcka::PaxGroup::m_infant;
+    using iatci::dcrcka::PaxGroup::m_infantDoc;
 };
 
 }//namespace
@@ -396,7 +398,8 @@ inline void save(Archive& ar, const iatci::dcrcka::PaxGroup& par, const unsigned
 {
     PaxGroupAccessor acc(par);
     ar & acc.m_pax & acc.m_reserv & acc.m_seat & acc.m_baggage;
-    ar & acc.m_service & acc.m_doc & acc.m_address;
+    ar & acc.m_service & acc.m_doc & acc.m_address & acc.m_infant;
+    ar & acc.m_infantDoc;
 }
 
 template<class Archive>
@@ -404,7 +407,8 @@ inline void load(Archive& ar, iatci::dcrcka::PaxGroup& par, const unsigned int v
 {
     PaxGroupAccessor acc;
     ar & acc.m_pax & acc.m_reserv & acc.m_seat & acc.m_baggage;
-    ar & acc.m_service & acc.m_doc & acc.m_address;
+    ar & acc.m_service & acc.m_doc & acc.m_address & acc.m_infant;
+    ar & acc.m_infantDoc;
     par = acc.get();
 }
 
