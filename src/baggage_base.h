@@ -273,7 +273,7 @@ class TPaxBrandItem : public TSimplePaxBrandItem, public TPaxSegKey
 
 void PaxNormsFromDB(int pax_id, TPaxNormList &norms);
 void PaxBrandsFromDB(int pax_id, TPaxBrandList &brands);
-void PaxNormsToDB(const TCkinGrpIds &tckin_grp_ids, const std::list<TPaxNormItem> &norms, bool old_version);
+void PaxNormsToDB(const TCkinGrpIds &tckin_grp_ids, const std::list<TPaxNormItem> &norms);
 void PaxBrandsToDB(const TCkinGrpIds &tckin_grp_ids, const std::list<TPaxBrandItem> &norms);
 
 } //namespace Sirena
