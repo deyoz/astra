@@ -388,7 +388,6 @@ void TAvailabilityRes::rfiscsToDB(const TCkinGrpIds &tckin_grp_ids, TBagConcept:
 void TAvailabilityRes::normsToDB(const TCkinGrpIds &tckin_grp_ids) const
 {
   list<Sirena::TPaxNormItem> normsList;
-  list<Sirena::TPaxNormItem> oldNormsList;
   for(TAvailabilityResMap::const_iterator i=begin(); i!=end(); ++i)
   {
     for(bool carry_on=false;; carry_on=!carry_on)
@@ -400,23 +399,10 @@ void TAvailabilityRes::normsToDB(const TCkinGrpIds &tckin_grp_ids) const
       item.trfer_num=i->first.trfer_num;
       normsList.push_back(item);
 
-      if (oldNormsList.empty())
-        oldNormsList.push_back(item);
-      else
-      {
-        Sirena::TPaxNormItem &last=oldNormsList.back();
-        if (last.pax_id==item.pax_id &&
-            last.trfer_num==item.trfer_num)
-          last.add(item);
-        else
-          oldNormsList.push_back(item);
-      }
-
       if (carry_on) break;
     };
   }
-  Sirena::PaxNormsToDB(tckin_grp_ids, normsList, false);
-  Sirena::PaxNormsToDB(tckin_grp_ids, oldNormsList, true);
+  Sirena::PaxNormsToDB(tckin_grp_ids, normsList);
 }
 
 void TAvailabilityRes::brandsToDB(const TCkinGrpIds &tckin_grp_ids) const
@@ -562,7 +548,6 @@ void TPaymentStatusRes::fromXML(xmlNodePtr node)
 void TPaymentStatusRes::normsToDB(const TCkinGrpIds &tckin_grp_ids) const
 {
   list<Sirena::TPaxNormItem> normsList;
-  list<Sirena::TPaxNormItem> oldNormsList;
   for(Sirena::TPaxNormList::const_iterator i=norms.begin(); i!=norms.end(); ++i)
   {
     Sirena::TPaxNormItem item;
@@ -570,21 +555,8 @@ void TPaymentStatusRes::normsToDB(const TCkinGrpIds &tckin_grp_ids) const
     item.pax_id=i->first.pax_id;
     item.trfer_num=i->first.trfer_num;
     normsList.push_back(item);
-
-    if (oldNormsList.empty())
-      oldNormsList.push_back(item);
-    else
-    {
-      Sirena::TPaxNormItem &last=oldNormsList.back();
-      if (last.pax_id==item.pax_id &&
-          last.trfer_num==item.trfer_num)
-        last.add(item);
-      else
-        oldNormsList.push_back(item);
-    }
   }
-  Sirena::PaxNormsToDB(tckin_grp_ids, normsList, false);
-  Sirena::PaxNormsToDB(tckin_grp_ids, oldNormsList, true);
+  Sirena::PaxNormsToDB(tckin_grp_ids, normsList);
 }
 
 void TPaymentStatusRes::check_unknown_status(int seg_id, std::set<TRFISCListKey> &rfiscs) const
