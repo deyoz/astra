@@ -2,6 +2,7 @@
 #include "xml_unit.h"
 #include "exceptions.h"
 #include "astra_locale.h"
+#include "baggage_base.h"
 #include <serverlib/dates_io.h>
 
 #define NICKNAME "ANTON"
@@ -183,16 +184,18 @@ void EmdXmlView::viewEmdTicketCoupons(const std::list<EmdCoupon>& lCpn) const
         xmlSetProp(xmlNewTextChild(rowNode, NULL, "rfisc_code", rfisc),
                    "index", colNum++);
 
-        std::ostringstream ossLuggage;
-        if(cpn.haveItin() && cpn.itin().luggage().haveLuggage()) {
-            ossLuggage << cpn.itin().luggage()->quantity() << " " << cpn.itin().luggage()->code();
-        } else {
-            ossLuggage << "-";
-        }
-        xmlSetProp(xmlNewTextChild(rowNode, NULL, "luggage", ossLuggage.str()),
+        xmlSetProp(xmlNewTextChild(rowNode, NULL, "service_quantity", cpn.quantity()),
                    "index", colNum++);
 
-        //ProgTrace(TRACE5, "%s: luggage = %s", __FUNCTION__, ossLuggage.str().c_str());
+        ostringstream ossLuggage;
+        if(cpn.haveItin() && cpn.itin().luggage().haveLuggage())
+            ossLuggage << cpn.itin().luggage()->quantity()
+                       << AstraLocale::getLocaleText(TBagNormUnit(cpn.itin().luggage()->chargeQualifier()).get_lexeme_form());
+        else
+            ossLuggage << "-";
+
+        xmlSetProp(xmlNewTextChild(rowNode, NULL, "luggage", ossLuggage.str()),
+                   "index", colNum++);
 
         std::string rfiscDesc = cpn.rfisc() ? cpn.rfisc()->description() : " ";
         xmlSetProp(xmlNewTextChild(rowNode, NULL, "rfisc_desc", rfiscDesc),
@@ -259,6 +262,7 @@ string EmdXmlViewToText(const Emd &emd, bool &unknownPnrExists, string &base_emd
     "¥©α",
     "‘γ¬¬ ",
     "RFISC",
+    "®«-Ά®",
     "―«.",
     " §Ά ­¨¥ γα«γ£¨",
     "‘βγ―.",
@@ -301,6 +305,7 @@ string EmdXmlViewToText(const Emd &emd, bool &unknownPnrExists, string &base_emd
       i->second.push_back(NodeAsStringFast("flight", node2));
       i->second.push_back(NodeAsStringFast("amount", node2));
       i->second.push_back(NodeAsStringFast("rfisc_code", node2));
+      i->second.push_back(NodeAsStringFast("service_quantity", node2));
       i->second.push_back(NodeAsStringFast("luggage", node2));
       i->second.push_back(NodeAsStringFast("rfisc_desc", node2));
       i->second.push_back(NodeAsStringFast("coup_status", node2));
