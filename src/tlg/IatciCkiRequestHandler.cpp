@@ -43,7 +43,8 @@ public:
         boost::optional<edifact::PsdElem> m_psd;
         boost::optional<edifact::PbdElem> m_pbd;
         boost::optional<edifact::PsiElem> m_psi;
-        boost::optional<edifact::PapElem> m_pap;
+        boost::optional<edifact::PapElem> m_papAdult;
+        boost::optional<edifact::PapElem> m_papInfant;
         //boost::optional<edifact::AddElem> m_add;
 
     public:
@@ -52,7 +53,7 @@ public:
         void setPsd(const boost::optional<edifact::PsdElem>& psd, bool required = false);
         void setPbd(const boost::optional<edifact::PbdElem>& pbd, bool required = false);
         void setPsi(const boost::optional<edifact::PsiElem>& psi, bool required = false);
-        void setPap(const boost::optional<edifact::PapElem>& pap, bool required = false);
+        void addPap(const boost::optional<edifact::PapElem>& pap);
 
         iatci::dcqcki::PaxGroup makePaxGroup() const;
 
@@ -64,6 +65,7 @@ public:
         boost::optional<iatci::DocDetails>         makeDoc() const;
         boost::optional<iatci::AddressDetails>     makeAddress() const;
         boost::optional<iatci::PaxDetails>         makeInfant() const;
+        boost::optional<iatci::DocDetails>         makeInfantDoc() const;
     };
 
     //-----------------------------------------------------------------------------------
@@ -121,16 +123,13 @@ void IatciCkiRequestHandler::parse()
         pxg.setPsi(readEdiPsi(pMes()));
 
         int apgCount = GetNumSegGr(pMes(), 3);
-        if(apgCount > 0) {
-            if(apgCount > 1) {
-                LogError(STDLOG) << "Warning: several APGroups!";
-            }
-
+        for(int curApg = 0; curApg < apgCount; ++curApg)
+        {
             EdiPointHolder ph1(pMes());
-            SetEdiPointToSegGrG(pMes(), SegGrElement(3), "PROG_ERR");
+            SetEdiPointToSegGrG(pMes(), SegGrElement(3, curApg), "PROG_ERR");
 
-            pxg.setPap(readEdiPap(pMes()));
-            //pxg.setAdd(readEdiAdd(pMes()));
+            pxg.addPap(readEdiPap(pMes()));
+            // TODO pxg.setAdd(readEdiAdd(pMes()));
         }
 
         ckiParamsNewMaker.addPxg(pxg);
@@ -179,7 +178,7 @@ void IatciCkiParamsMaker::Pxg::setPpd(const boost::optional<edifact::PpdElem>& p
 }
 
 void IatciCkiParamsMaker::Pxg::setPrd(const boost::optional<edifact::PrdElem>& prd,
-                                         bool required)
+                                      bool required)
 {
     if(required)
         ASSERT(prd);
@@ -187,7 +186,7 @@ void IatciCkiParamsMaker::Pxg::setPrd(const boost::optional<edifact::PrdElem>& p
 }
 
 void IatciCkiParamsMaker::Pxg::setPsd(const boost::optional<edifact::PsdElem>& psd,
-                                         bool required)
+                                      bool required)
 {
     if(required)
         ASSERT(psd);
@@ -195,7 +194,7 @@ void IatciCkiParamsMaker::Pxg::setPsd(const boost::optional<edifact::PsdElem>& p
 }
 
 void IatciCkiParamsMaker::Pxg::setPbd(const boost::optional<edifact::PbdElem>& pbd,
-                                         bool required)
+                                      bool required)
 {
     if(required)
         ASSERT(pbd);
@@ -203,19 +202,21 @@ void IatciCkiParamsMaker::Pxg::setPbd(const boost::optional<edifact::PbdElem>& p
 }
 
 void IatciCkiParamsMaker::Pxg::setPsi(const boost::optional<edifact::PsiElem>& psi,
-                                         bool required)
+                                      bool required)
 {
     if(required)
         ASSERT(psi);
     m_psi = psi;
 }
 
-void IatciCkiParamsMaker::Pxg::setPap(const boost::optional<edifact::PapElem>& pap,
-                                         bool required)
+void IatciCkiParamsMaker::Pxg::addPap(const boost::optional<edifact::PapElem>& pap)
 {
-    if(required)
-        ASSERT(pap);
-    m_pap = pap;
+    if(pap && (pap->m_type == "A" || pap->m_type.empty())) {
+        m_papAdult = pap;
+    }
+    if(pap && pap->m_type == "IN") {
+        m_papInfant = pap;
+    }
 }
 
 iatci::dcqcki::PaxGroup IatciCkiParamsMaker::Pxg::makePaxGroup() const
@@ -227,7 +228,8 @@ iatci::dcqcki::PaxGroup IatciCkiParamsMaker::Pxg::makePaxGroup() const
                                    makeService(),
                                    makeDoc(),
                                    makeAddress(),
-                                   makeInfant());
+                                   makeInfant(),
+                                   makeInfantDoc());
 }
 
 boost::optional<iatci::ReservationDetails> IatciCkiParamsMaker::Pxg::makeReserv() const
@@ -268,8 +270,8 @@ boost::optional<iatci::ServiceDetails> IatciCkiParamsMaker::Pxg::makeService() c
 
 boost::optional<iatci::DocDetails> IatciCkiParamsMaker::Pxg::makeDoc() const
 {
-    if(m_pap) {
-        return iatci::makeDoc(*m_pap);
+    if(m_papAdult) {
+        return iatci::makeDoc(*m_papAdult);
     }
 
     return boost::none;
@@ -285,6 +287,15 @@ boost::optional<iatci::PaxDetails> IatciCkiParamsMaker::Pxg::makeInfant() const
 {
     if(m_ppd.m_withInftIndicator == "Y") {
         return iatci::makeInfant(m_ppd);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::DocDetails> IatciCkiParamsMaker::Pxg::makeInfantDoc() const
+{
+    if(m_papInfant) {
+        return iatci::makeDoc(*m_papInfant);
     }
 
     return boost::none;

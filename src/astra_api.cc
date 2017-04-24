@@ -45,10 +45,30 @@ TDateTime strToAstraDateTime(const std::string& serverFormatDateTimeString)
     return ret;
 }
 
+XmlPaxDoc createCheckInDoc(const iatci::DocDetails& doc)
+{
+    XmlPaxDoc ckiDoc;
+    ckiDoc.no         = doc.no();
+    ckiDoc.type       = doc.docType();
+    if(!doc.birthDate().is_not_a_date()) {
+        ckiDoc.birth_date = HelpCpp::string_cast(doc.birthDate(), "%d.%m.%Y 00:00:00");
+    }
+    if(!doc.expiryDate().is_not_a_date()) {
+        ckiDoc.expiry_date = HelpCpp::string_cast(doc.expiryDate(), "%d.%m.%Y 00:00:00");
+    }
+    ckiDoc.surname       = doc.surname();
+    ckiDoc.first_name    = doc.name();
+    ckiDoc.second_name   = doc.secondName();
+    ckiDoc.nationality   = doc.nationality();
+    ckiDoc.issue_country = doc.issueCountry();
+    return ckiDoc;
+}
+
 XmlPax createCheckInPax(const XmlPax& basePax,
                         const iatci::PaxDetails& pax,
                         const boost::optional<iatci::SeatDetails>& seat,
-                        const boost::optional<iatci::ReservationDetails>& reserv)
+                        const boost::optional<iatci::ReservationDetails>& reserv,
+                        const boost::optional<iatci::DocDetails>& doc)
 {
     XmlPax ckiPax = basePax;
     ckiPax.surname   = pax.surname();
@@ -57,6 +77,9 @@ XmlPax createCheckInPax(const XmlPax& basePax,
     ckiPax.pers_type = EncodePerson(iatci::iatci2astra(pax.type()));
     ckiPax.seat_no   = seat ? seat->seat() : "";
     ckiPax.subclass  = reserv ? reserv->subclass()->code(RUSSIAN) : "";
+    if(doc) {
+        ckiPax.doc = createCheckInDoc(*doc);
+    }
     return ckiPax;
 }
 
@@ -741,12 +764,13 @@ iatci::dcrcka::Result checkinIatciPaxes(xmlNodePtr reqNode, xmlNodePtr ediResNod
                                       iatci::dcrcka::Result::Ok);
 }
 
-static void handleIatciPax(int pointDep,
-                           boost::optional<XmlTripHeader>& tripHeader,
-                           XmlSegment& paxSeg,
-                           const iatci::PaxDetails& pax,
-                           const boost::optional<iatci::SeatDetails>& seat,
-                           const boost::optional<iatci::ReservationDetails>& reserv)
+static void handleIatciCkiPax(int pointDep,
+                              boost::optional<XmlTripHeader>& tripHeader,
+                              XmlSegment& paxSeg,
+                              const iatci::PaxDetails& pax,
+                              const boost::optional<iatci::SeatDetails>& seat,
+                              const boost::optional<iatci::ReservationDetails>& reserv,
+                              const boost::optional<iatci::DocDetails>& doc)
 {
     const std::string PaxSurname = pax.surname();
     const std::string PaxName    = pax.name();
@@ -812,7 +836,8 @@ static void handleIatciPax(int pointDep,
     paxSeg.passengers.push_back(createCheckInPax(finalPaxes.front(),
                                                  pax,
                                                  seat,
-                                                 reserv));
+                                                 reserv,
+                                                 doc));
 }
 
 iatci::dcrcka::Result checkinIatciPaxes(const iatci::CkiParams& ckiParams)
@@ -829,16 +854,18 @@ iatci::dcrcka::Result checkinIatciPaxes(const iatci::CkiParams& ckiParams)
     XmlSegment paxSeg;
     const auto& paxGroups = ckiParams.fltGroup().paxGroups();
     for(const auto& paxGroup: paxGroups) {
-        handleIatciPax(pointDep, tripHeader, paxSeg,
-                       paxGroup.pax(),
-                       paxGroup.seat(),
-                       paxGroup.reserv());
+        handleIatciCkiPax(pointDep, tripHeader, paxSeg,
+                          paxGroup.pax(),
+                          paxGroup.seat(),
+                          paxGroup.reserv(),
+                          paxGroup.doc());
         if(paxGroup.infant()) {
             // докинем инфанта
-            handleIatciPax(pointDep, tripHeader, paxSeg,
-                           paxGroup.infant().get(),
-                           paxGroup.seat(),
-                           paxGroup.reserv());
+            handleIatciCkiPax(pointDep, tripHeader, paxSeg,
+                              paxGroup.infant().get(),
+                              paxGroup.seat(),
+                              paxGroup.reserv(),
+                              paxGroup.infantDoc());
         }
     }
 
@@ -953,6 +980,46 @@ iatci::dcrcka::Result cancelCheckinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediRe
                                                   iatci::dcrcka::Result::OkWithNoData);
 }
 
+static void handleIatciCkxPax(int pointDep,
+                              bool& needMakeSeg,
+                              XmlSegment& paxSeg,
+                              const iatci::PaxDetails& pax)
+{
+    const std::string PaxSurname = pax.surname();
+    const std::string PaxName    = pax.name();
+    LogTrace(TRACE3) << "handle pax: " << PaxSurname << "/" << PaxName;
+
+
+    LoadPaxXmlResult loadPaxXmlRes = LoadPax__(pointDep,
+                                               PaxSurname,
+                                               PaxName);
+
+    std::list<XmlPax> paxesFiltered = loadPaxXmlRes.applyNameFilter(PaxSurname,
+                                                                    PaxName);
+
+    ASSERT(!paxesFiltered.empty());
+    if(paxesFiltered.size() > 1) {
+        // TODO здесь можно уточнить пакса по доп. признакам, например TKNE
+        throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_PAX_WITH_SAME_SURNAME);
+    }
+
+    // здесь в loadPaxXmlRes всегда один сегмент
+    XmlSegment currSeg = loadPaxXmlRes.lSeg.front();
+    ASSERT(currSeg.seg_info.grp_id != ASTRA::NoExists);
+
+    if(needMakeSeg) {
+        paxSeg = makeSegment(currSeg);
+        needMakeSeg = false;
+    }
+
+    if(currSeg.seg_info.grp_id != paxSeg.seg_info.grp_id) {
+        LogWarning(STDLOG) << "Attempt to cancel paxes from different groups at single request! "
+                           << currSeg.seg_info.grp_id << "<>" << paxSeg.seg_info.grp_id;
+        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR);
+    }
+    paxSeg.passengers.push_back(createCancelPax(paxesFiltered.front()));
+}
+
 iatci::dcrcka::Result cancelCheckinIatciPaxes(const iatci::CkxParams& ckxParams)
 {
     LogTrace(TRACE3) << __FUNCTION__;
@@ -963,50 +1030,21 @@ iatci::dcrcka::Result cancelCheckinIatciPaxes(const iatci::CkxParams& ckxParams)
                                              outbFlt.flightNum(),
                                              outbFlt.depDate());
 
-    boost::optional<XmlSegment> paxSeg;
+    XmlSegment paxSeg;
+    bool first = true;
     const auto& paxGroups = ckxParams.fltGroup().paxGroups();
-    for(const auto& paxGroup: paxGroups)
-    {
-        const std::string PaxSurname = paxGroup.pax().surname();
-        const std::string PaxName    = paxGroup.pax().name();
-        LogTrace(TRACE3) << "handle pax: " << PaxSurname << "/" << PaxName;
+    for(const auto& paxGroup: paxGroups) {
+        handleIatciCkxPax(pointDep, first, paxSeg,
+                          paxGroup.pax());
 
-
-        LoadPaxXmlResult loadPaxXmlRes = LoadPax__(pointDep,
-                                                   PaxSurname,
-                                                   PaxName);
-
-        std::list<XmlPax> paxesFiltered = loadPaxXmlRes.applyNameFilter(PaxSurname,
-                                                                        PaxName);
-
-        ASSERT(!paxesFiltered.empty());
-        if(paxesFiltered.size() > 1) {
-            // TODO здесь можно уточнить пакса по доп. признакам, например TKNE
-            throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_PAX_WITH_SAME_SURNAME);
+        if(paxGroup.infant()) {
+            handleIatciCkxPax(pointDep, first, paxSeg,
+                              paxGroup.infant().get());
         }
-
-        XmlPax pax = createCancelPax(paxesFiltered.front());
-        // здесь в loadPaxXmlRes всегда один сегмент
-        XmlSegment currSeg = loadPaxXmlRes.lSeg.front();
-        ASSERT(currSeg.seg_info.grp_id != ASTRA::NoExists);
-
-        if(!paxSeg) {
-            paxSeg = makeSegment(currSeg);
-        }
-
-        if(currSeg.seg_info.grp_id != paxSeg->seg_info.grp_id) {
-            LogWarning(STDLOG) << "Attempt to cancel paxes from different groups at single request! "
-                               << currSeg.seg_info.grp_id << "<>" << paxSeg->seg_info.grp_id;
-            throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR);
-        }
-        paxSeg->passengers.push_back(pax);
     }
 
-    ASSERT(paxSeg);
     // SavePax
-    tst();
-    LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(*paxSeg);
-    tst();
+    LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(paxSeg);
 
     if(!loadPaxXmlRes.lSeg.empty()) {
         tst();

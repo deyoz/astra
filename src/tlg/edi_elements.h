@@ -954,6 +954,7 @@ struct RodElem
 ///@class PapElem - Passenger API/DOT information --PAP
 struct PapElem
 {
+    std::string   m_type;
     Dates::Date_t m_birthDate;
     std::string   m_nationality;
     std::string   m_docQualifier;

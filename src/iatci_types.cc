@@ -1717,8 +1717,9 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<ServiceDetails>& service,
                    const boost::optional<DocDetails>& doc,
                    const boost::optional<AddressDetails>& address,
-                   const boost::optional<PaxDetails>& infant)
-    : iatci::PaxGroup(pax, reserv, baggage, service, doc, address, infant),
+                   const boost::optional<PaxDetails>& infant,
+                   const boost::optional<DocDetails>& infantDoc)
+    : iatci::PaxGroup(pax, reserv, baggage, service, doc, address, infant, infantDoc),
       m_seat(seat)
 {}
 
@@ -1810,8 +1811,9 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<ReservationDetails>& reserv,
                    const boost::optional<SeatDetails>& seat,
                    const boost::optional<BaggageDetails>& baggage,
-                   const boost::optional<ServiceDetails>& service)
-    : iatci::PaxGroup(pax, reserv, baggage, service, boost::none, boost::none),
+                   const boost::optional<ServiceDetails>& service,
+                   const boost::optional<PaxDetails>& infant)
+    : iatci::PaxGroup(pax, reserv, baggage, service, boost::none, boost::none, infant),
       m_seat(seat)
 {}
 

@@ -1052,7 +1052,8 @@ public:
              const boost::optional<ServiceDetails>& service,
              const boost::optional<DocDetails>& doc,
              const boost::optional<AddressDetails>& address,
-             const boost::optional<PaxDetails>& infant = boost::none);
+             const boost::optional<PaxDetails>& infant = boost::none,
+             const boost::optional<DocDetails>& infantDoc = boost::none);
 
     const boost::optional<SeatDetails>& seat() const;
 };
@@ -1136,7 +1137,8 @@ public:
              const boost::optional<ReservationDetails>& reserv = boost::none,
              const boost::optional<SeatDetails>& seat = boost::none,
              const boost::optional<BaggageDetails>& baggage = boost::none,
-             const boost::optional<ServiceDetails>& service = boost::none);
+             const boost::optional<ServiceDetails>& service = boost::none,
+             const boost::optional<PaxDetails>& infant = boost::none);
 
     const boost::optional<SeatDetails>& seat() const;
 };

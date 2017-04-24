@@ -368,6 +368,7 @@ std::ostream& operator<<(std::ostream &os, const RodElem &rod)
 std::ostream& operator<<(std::ostream &os, const PapElem &pap)
 {
     os << "PAP: ";
+    os << "type: " << pap.m_type << "; ";
     os << "birth date: " << pap.m_birthDate << "; ";
     os << "nationality: " << pap.m_nationality << "; ";
     os << "doc qualifier: " << pap.m_docQualifier << "; ";

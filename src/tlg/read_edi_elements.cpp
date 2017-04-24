@@ -1141,6 +1141,7 @@ boost::optional<edifact::PapElem> readEdiPap(_EDI_REAL_MES_STRUCT_ *pMes)
     }
 
     PapElem pap;
+    pap.m_type         = GetDBFName(pMes, DataElement(6353), CompElement("C060"));
     pap.m_nationality  = GetDBFName(pMes, DataElement(3207), CompElement("C060"));
     pap.m_docQualifier = GetDBFName(pMes, DataElement(7365), CompElement("C700"));
     pap.m_docNumber    = GetDBFName(pMes, DataElement(1004), CompElement("C700"));
