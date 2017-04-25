@@ -274,10 +274,6 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
   RemQry.SQLText =
     "SELECT rem FROM pax_rem WHERE pax_id=:pax_id";
   RemQry.DeclareVariable( "pax_id", otInteger );
-  TQuery FltQry(&OraSession);
-  FltQry.SQLText =
-    "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
-  FltQry.DeclareVariable( "point_id", otInteger );
   TDateTime max_time = NoExists;
   node = NULL;
   string res;
@@ -315,12 +311,11 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
       continue; // предыдущий пассажир он же и текущий
     prior_pax_id = pax_id;
     int p_id = Qry.FieldAsInteger( "point_id" );
-    if ( trips.find( Qry.FieldAsInteger( "point_id" ) ) == trips.end() ) {
-      FltQry.SetVariable( "point_id", p_id );
-      FltQry.Execute();
-      if ( FltQry.Eof )
-        throw EXCEPTIONS::Exception("WebRequestsIface::GetPaxsInfo: flight not found, (point_id=%d)", Qry.FieldAsInteger( "point_id" ) );
-      TTripInfo tripInfo( FltQry );
+    if ( trips.find( p_id ) == trips.end() ) {
+      TTripInfo tripInfo;
+      if ( !tripInfo.getByPointId ( p_id ) ) {
+        throw EXCEPTIONS::Exception("WebRequestsIface::GetPaxsInfo: flight not found, (point_id=%d)", p_id );
+      }
       trips.insert( make_pair( p_id, tripInfo ) );
     }
     if ( sync_meridian.find( p_id ) == sync_meridian.end() ) {
