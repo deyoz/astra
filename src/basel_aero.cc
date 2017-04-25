@@ -448,7 +448,7 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
       "      ckin.get_bag_pool_pax_id(bag2.grp_id,bag2.bag_pool_num,0)=:pax_id";
 
     TimeQry.SQLText =
-      "SELECT time,NVL(stations.name,aodb_pax_change.desk) station, client_type, airp "
+      "SELECT time,NVL(stations.name,aodb_pax_change.desk) station, client_type, stations.airp "
       " FROM aodb_pax_change,stations "
       " WHERE pax_id=:pax_id AND aodb_pax_change.reg_no=:reg_no AND "
       "       aodb_pax_change.work_mode=:work_mode AND "

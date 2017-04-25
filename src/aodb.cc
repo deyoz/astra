@@ -634,7 +634,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
   TQuery TimeQry( &OraSession );
   if ( !pr_unaccomp ) {
     TimeQry.SQLText =
-        "SELECT time,NVL(stations.name,aodb_pax_change.desk) station, client_type, airp "
+        "SELECT time,NVL(stations.name,aodb_pax_change.desk) station, client_type, stations.airp "
         " FROM aodb_pax_change,stations "
         " WHERE pax_id=:pax_id AND aodb_pax_change.reg_no=:reg_no AND "
         "       aodb_pax_change.work_mode=:work_mode AND "
