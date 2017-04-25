@@ -1877,17 +1877,11 @@ bool is_sync_paxs( int point_id )
 
 void update_pax_change( int point_id, int pax_id, int reg_no, const string &work_mode )
 {
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-     "SELECT airline, airp FROM points WHERE point_id=:point_id";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  string airline, airp;
-  if ( !Qry.Eof ) {
-    airline = Qry.FieldAsString( "airline" );
-    airp = Qry.FieldAsString( "airp" );
+  TTripInfo tripInfo;
+  if ( !tripInfo.getByPointId ( point_id ) ) {
+    return;
   }
-  Qry.Clear();
+  TQuery Qry( &OraSession );
   Qry.SQLText =
      "BEGIN "
      " UPDATE aodb_pax_change "
@@ -1905,8 +1899,8 @@ void update_pax_change( int point_id, int pax_id, int reg_no, const string &work
   Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
   Qry.CreateVariable( "client_type", otString,  EncodeClientType(TReqInfo::Instance()->client_type) );
   Qry.CreateVariable( "time", otDate, NowUTC() );
-  Qry.CreateVariable( "airline", otString, airline );
-  Qry.CreateVariable( "airp", otString, airp );
+  Qry.CreateVariable( "airline", otString, tripInfo.airline );
+  Qry.CreateVariable( "airp", otString, tripInfo.airp );
   Qry.Execute();
 }
 
