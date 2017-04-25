@@ -139,17 +139,17 @@ struct Tids {
   Tids( ) {
     pax_tid = -1;
     grp_tid = -1;
-  };
+  }
   Tids( int vpax_tid, int vgrp_tid ) {
     pax_tid = vpax_tid;
     grp_tid = vgrp_tid;
-  };
+  }
 };
-
+/*
 bool checkAccess( const std::string &airline, const TTripInfo &tripInfo, const std::set<std::string> &airps ) {
   return ( airline == tripInfo.airline || airps.find( tripInfo.airp ) != airps.end() );
 }
-
+*/
 string getMeridianContextName( const string airline ) {
   string ret = airline + "_meridian_sync";
   return ret;
@@ -172,6 +172,9 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
   }
   if ( !TReqInfo::Instance()->user.access.airlines().permitted( airline ) ) {
     throw AstraLocale::UserException( "Airline is not permit for user" );
+  }
+  if (  TReqInfo::Instance()->client_type != ctWeb ) {
+      throw AstraLocale::UserException( "Invalid client type" );
   }
   TDateTime vdate, vpriordate;
   if ( StrToDateTime( str_date.c_str(), "dd.mm.yyyy hh:nn:ss", vdate ) == EOF )
@@ -212,29 +215,40 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
     "SELECT airp FROM meridian_airps_owner WHERE airline=:airline";
   Qry.CreateVariable( "airline", otString, airline );
   Qry.Execute();
+  bool pr_airps = !Qry.Eof;
   for ( ;!Qry.Eof; Qry.Next() ) {
     accessAirps.insert( Qry.FieldAsString( "airp" ) );
   }
   Qry.Clear();
-  Qry.SQLText =
+  string sql_text =
     "SELECT pax_id,reg_no,work_mode,point_id,desk,client_type,time "
     " FROM aodb_pax_change "
-    "WHERE time >= :time AND time <= :uptime "
-    "ORDER BY time, pax_id, work_mode ";
+    "WHERE time >= :time AND time <= :uptime ";
+  if ( pr_airps ) {
+      sql_text += " AND ( airline=:airline OR airp IN ";
+      sql_text += GetSQLEnum( accessAirps ) + " ) ";
+  }
+  else {
+    sql_text += " AND airline=:airline ";
+  }
+  sql_text += "ORDER BY time, pax_id, work_mode ";
+  Qry.SQLText = sql_text;
+  ProgTrace( TRACE5, "sql_text=%s", sql_text.c_str() );
   TDateTime nowUTC = NowUTC();
   if ( nowUTC - 1 > vdate )
     vdate = nowUTC - 1;
   Qry.CreateVariable( "time", otDate, vdate );
   Qry.CreateVariable( "uptime", otDate, nowUTC - 1.0/1440.0 );
+  Qry.CreateVariable( "airline", otString, airline );
   Qry.Execute();
   TQuery PaxQry(&OraSession);
   PaxQry.SQLText =
        "SELECT pax.pax_id,pax.reg_no,pax.surname||RTRIM(' '||pax.name) name,"
-     "       pax_grp.grp_id,"
+       "       pax_grp.grp_id,"
        "       pax_grp.airp_arv,pax_grp.airp_dep,"
-     "       pax_grp.class,pax.refuse,"
+       "       pax_grp.class,pax.refuse,"
        "       pax.pers_type, "
-     "       NVL(pax.is_female,1) as is_female, "
+       "       NVL(pax.is_female,1) as is_female, "
        "       pax.subclass, "
        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'tlg',rownum) AS seat_no, "
        "       pax.seats seats, "
@@ -243,8 +257,8 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
        "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkweight,"
        "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagamount,"
        "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagweight,"
-     "       ckin.get_bag_pool_pax_id(pax.grp_id,pax.bag_pool_num) AS bag_pool_pax_id, "
-     "       pax.bag_pool_num, "
+       "       ckin.get_bag_pool_pax_id(pax.grp_id,pax.bag_pool_num) AS bag_pool_pax_id, "
+       "       pax.bag_pool_num, "
        "       pax.pr_brd, "
        "       pax_grp.status, "
        "       pax_grp.client_type, "
@@ -270,21 +284,50 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
   int pax_count = 0;
   int prior_pax_id = -1;
   Tids tids;
+  map<int,TTripInfo> trips;
+  map<int,bool> sync_meridian;
+  int col_pax_tid = -1;
+  int col_grp_tid = -1;
+  int col_point_id = -1;
+  int col_grp_id = -1;
+  int col_name = -1;
+  int col_class = -1;
+  int col_subclass = -1;
+  int col_pers_type = -1;
+  int col_is_female =-1;
+  int col_airp_dep = -1;
+  int col_airp_arv = -1;
+  int col_seat_no = -1;
+  int col_seats = -1;
+  int col_excess = -1;
+  int col_rkamount = -1;
+  int col_rkweight = -1;
+  int col_bagamount = -1;
+  int col_bagweight = -1;
+  int col_pr_brd = -1;
+  int col_client_type = -1;
   // пробег по всем пассажирам у которых время больше или равно текущему
-  for ( ;!Qry.Eof && pax_count<=500; Qry.Next() ) {
+  int count_row = 0;
+  for ( ;!Qry.Eof && pax_count<=500; Qry.Next() ) { //по-хорошему меридиан никакого отношения к веб-регистрации не имеет
+    count_row++;
     int pax_id = Qry.FieldAsInteger( "pax_id" );
     if ( pax_id == prior_pax_id ) // удаляем дублирование строки с одним и тем же pax_id для регистрации и посадки
       continue; // предыдущий пассажир он же и текущий
-    ProgTrace( TRACE5, "pax_id=%d", pax_id );
     prior_pax_id = pax_id;
-    FltQry.SetVariable( "point_id", Qry.FieldAsInteger( "point_id" ) );
-    FltQry.Execute();
-    if ( FltQry.Eof )
-      throw EXCEPTIONS::Exception("WebRequestsIface::GetPaxsInfo: flight not found, (point_id=%d)", Qry.FieldAsInteger( "point_id" ) );
-    TTripInfo tripInfo( FltQry );
-    if ( TReqInfo::Instance()->client_type != ctWeb || //по-хорошему меридиан никакого отношения к веб-регистрации не имеет
-         !is_sync_meridian( tripInfo ) || //но описывается в таблице web_clients как веб-регистрация!
-         !checkAccess( airline, tripInfo, accessAirps ) ) { // в запросе появилась авиакомпания и аэропорты принадлежащие авиакомпаниям
+    int p_id = Qry.FieldAsInteger( "point_id" );
+    if ( trips.find( Qry.FieldAsInteger( "point_id" ) ) == trips.end() ) {
+      FltQry.SetVariable( "point_id", p_id );
+      FltQry.Execute();
+      if ( FltQry.Eof )
+        throw EXCEPTIONS::Exception("WebRequestsIface::GetPaxsInfo: flight not found, (point_id=%d)", Qry.FieldAsInteger( "point_id" ) );
+      TTripInfo tripInfo( FltQry );
+      trips.insert( make_pair( p_id, tripInfo ) );
+    }
+    if ( sync_meridian.find( p_id ) == sync_meridian.end() ) {
+      sync_meridian.insert( make_pair( p_id, is_sync_meridian( trips[ p_id ] ) ) );
+    }
+    if ( !sync_meridian[ p_id ] /*|| //но описывается в таблице web_clients как веб-регистрация!
+         !checkAccess( airline, trips[ p_id ], accessAirps )*/ ) { // в запросе появилась авиакомпания и аэропорты принадлежащие авиакомпаниям
       continue;
     }
 
@@ -297,9 +340,31 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
     max_time = Qry.FieldAsDateTime( "time" );
     PaxQry.SetVariable( "pax_id", pax_id );
     PaxQry.Execute();
+    if ( col_point_id < 0 ) {
+      col_pax_tid = PaxQry.GetFieldIndex( "pax_tid" );
+      col_grp_tid = PaxQry.GetFieldIndex( "grp_tid" );
+      col_point_id = PaxQry.GetFieldIndex( "point_id" );
+      col_grp_id = PaxQry.GetFieldIndex( "grp_id" );
+      col_name = PaxQry.GetFieldIndex( "name" );
+      col_class = PaxQry.GetFieldIndex( "class" );
+      col_subclass = PaxQry.GetFieldIndex( "subclass" );
+      col_pers_type = PaxQry.GetFieldIndex( "pers_type" );
+      col_is_female = PaxQry.GetFieldIndex( "is_female" );
+      col_airp_dep = PaxQry.GetFieldIndex( "airp_dep" );
+      col_airp_arv = PaxQry.GetFieldIndex( "airp_arv" );
+      col_seat_no = PaxQry.GetFieldIndex( "seat_no" );
+      col_seats = PaxQry.GetFieldIndex( "seats" );
+      col_excess = PaxQry.GetFieldIndex( "excess" );
+      col_rkamount = PaxQry.GetFieldIndex( "rkamount" );
+      col_rkweight = PaxQry.GetFieldIndex( "rkweight" );
+      col_bagamount = PaxQry.GetFieldIndex( "bagamount" );
+      col_bagweight = PaxQry.GetFieldIndex( "bagweight" );
+      col_pr_brd = PaxQry.GetFieldIndex( "pr_brd" );
+      col_client_type = PaxQry.GetFieldIndex( "client_type" );
+    }
     if ( !PaxQry.Eof ) {
-      tids.pax_tid = PaxQry.FieldAsInteger( "pax_tid" );
-      tids.grp_tid = PaxQry.FieldAsInteger( "grp_tid" );
+      tids.pax_tid = PaxQry.FieldAsInteger( col_pax_tid );
+      tids.grp_tid = PaxQry.FieldAsInteger( col_grp_tid );
     }
     else {
       tids.pax_tid = -1; // пассажир был удален в пред. раз
@@ -317,41 +382,41 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
     pax_count++;
     xmlNodePtr paxNode = NewTextChild( node, "pax" );
     NewTextChild( paxNode, "pax_id", pax_id );
-    NewTextChild( paxNode, "point_id", Qry.FieldAsInteger( "point_id" ) );
+    NewTextChild( paxNode, "point_id", p_id );
     if ( PaxQry.Eof ) {
       NewTextChild( paxNode, "status", "delete" );
       continue;
     }
-    NewTextChild( paxNode, "flight", string(FltQry.FieldAsString( "airline" )) + FltQry.FieldAsString( "flt_no" ) + FltQry.FieldAsString( "suffix" ) );
-    NewTextChild( paxNode, "scd_out", DateTimeToStr( FltQry.FieldAsDateTime( "scd_out" ), ServerFormatDateTimeAsString ) );
-    NewTextChild( paxNode, "grp_id", PaxQry.FieldAsInteger( "grp_id" ) );
-    NewTextChild( paxNode, "name", PaxQry.FieldAsString( "name" ) );
-    NewTextChild( paxNode, "class", PaxQry.FieldAsString( "class" ) );
-    NewTextChild( paxNode, "subclass", PaxQry.FieldAsString( "subclass" ) );
-    NewTextChild( paxNode, "pers_type", PaxQry.FieldAsString( "pers_type" ) );
-    if ( DecodePerson( PaxQry.FieldAsString( "pers_type" ) ) == ASTRA::adult ) {
-      NewTextChild( paxNode, "gender", (PaxQry.FieldAsInteger("is_female")==0?"M":"F") );
+    NewTextChild( paxNode, "flight", trips[ p_id ].airline + IntToString( trips[ p_id ].flt_no ) + trips[ p_id ].suffix );
+    NewTextChild( paxNode, "scd_out", DateTimeToStr(trips[ p_id ].scd_out, ServerFormatDateTimeAsString ) );
+    NewTextChild( paxNode, "grp_id", PaxQry.FieldAsString( col_grp_id ) );
+    NewTextChild( paxNode, "name", PaxQry.FieldAsString( col_name ) );
+    NewTextChild( paxNode, "class", PaxQry.FieldAsString( col_class ) );
+    NewTextChild( paxNode, "subclass", PaxQry.FieldAsString( col_subclass ) );
+    NewTextChild( paxNode, "pers_type", PaxQry.FieldAsString( col_pers_type ) );
+    if ( DecodePerson( PaxQry.FieldAsString( col_pers_type ) ) == ASTRA::adult ) {
+      NewTextChild( paxNode, "gender", (PaxQry.FieldAsInteger(col_is_female)==0?"M":"F") );
     }
-    NewTextChild( paxNode, "airp_dep", PaxQry.FieldAsString("airp_dep") );
-    NewTextChild( paxNode, "airp_arv", PaxQry.FieldAsString("airp_arv") );
-    NewTextChild( paxNode, "seat_no", PaxQry.FieldAsString("seat_no") );
-    NewTextChild( paxNode, "seats", PaxQry.FieldAsInteger("seats") );
-    NewTextChild( paxNode, "excess", PaxQry.FieldAsInteger( "excess" ) );
-    NewTextChild( paxNode, "rkamount", PaxQry.FieldAsInteger( "rkamount" ) );
-    NewTextChild( paxNode, "rkweight", PaxQry.FieldAsInteger( "rkweight" ) );
-    NewTextChild( paxNode, "bagamount", PaxQry.FieldAsInteger( "bagamount" ) );
-    NewTextChild( paxNode, "bagweight", PaxQry.FieldAsInteger( "bagweight" ) );
-    if ( PaxQry.FieldIsNULL( "pr_brd" ) )
+    NewTextChild( paxNode, "airp_dep", PaxQry.FieldAsString( col_airp_dep ) );
+    NewTextChild( paxNode, "airp_arv", PaxQry.FieldAsString( col_airp_arv ) );
+    NewTextChild( paxNode, "seat_no", PaxQry.FieldAsString( col_seat_no ) );
+    NewTextChild( paxNode, "seats", PaxQry.FieldAsInteger( col_seats ) );
+    NewTextChild( paxNode, "excess", PaxQry.FieldAsInteger( col_excess ) );
+    NewTextChild( paxNode, "rkamount", PaxQry.FieldAsInteger( col_rkamount ) );
+    NewTextChild( paxNode, "rkweight", PaxQry.FieldAsInteger( col_rkweight ) );
+    NewTextChild( paxNode, "bagamount", PaxQry.FieldAsInteger( col_bagamount ) );
+    NewTextChild( paxNode, "bagweight", PaxQry.FieldAsInteger( col_bagweight ) );
+    if ( PaxQry.FieldIsNULL( col_pr_brd ) )
       NewTextChild( paxNode, "status", "uncheckin" );
     else
-      if ( PaxQry.FieldAsInteger( "pr_brd" ) == 0 )
+      if ( PaxQry.FieldAsInteger( col_pr_brd ) == 0 )
         NewTextChild( paxNode, "status", "checkin" );
       else
         NewTextChild( paxNode, "status", "boarded" );
-    NewTextChild( paxNode, "client_type", PaxQry.FieldAsString( "client_type" ) );
+    NewTextChild( paxNode, "client_type", PaxQry.FieldAsString( col_client_type ) );
     res.clear();
     TCkinRoute ckinRoute;
-    if ( ckinRoute.GetRouteAfter( PaxQry.FieldAsInteger( "grp_id" ), crtNotCurrent, crtIgnoreDependent ) ) { // есть сквозная регистрация
+    if ( ckinRoute.GetRouteAfter( PaxQry.FieldAsInteger( col_grp_id ), crtNotCurrent, crtIgnoreDependent ) ) { // есть сквозная регистрация
       xmlNodePtr rnode = NewTextChild( paxNode, "tckin_route" );
       int seg_no=1;
       for ( vector<TCkinRouteItem>::iterator i=ckinRoute.begin(); i!=ckinRoute.end(); i++ ) {
@@ -400,6 +465,7 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
     }
     xmlFreeDoc( paxsDoc );
   }
+  ProgTrace( TRACE5, "count_row=%d", count_row);
 }
 ////////////////////////////////////END MERIDIAN SYSTEM/////////////////////////////
 } //namespace MERIDIAN
