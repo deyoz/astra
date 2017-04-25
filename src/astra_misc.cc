@@ -1878,15 +1878,24 @@ bool is_sync_paxs( int point_id )
 void update_pax_change( int point_id, int pax_id, int reg_no, const string &work_mode )
 {
   TQuery Qry( &OraSession );
+  Qry.SQLText =
+     "SELECT airline, airp FROM points WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  string airline, airp;
+  if ( !Qry.Eof ) {
+    airline = Qry.FieldAsString( "airline" );
+    airp = Qry.FieldAsString( "airp" );
+  }
   Qry.Clear();
   Qry.SQLText =
      "BEGIN "
      " UPDATE aodb_pax_change "
-     "  SET point_id=:point_id, desk=:desk, client_type=NVL(:client_type,client_type), time=:time "
+     "  SET point_id=:point_id, airline=:airline, airp=:airp, desk=:desk, client_type=NVL(:client_type,client_type), time=:time "
      " WHERE pax_id=:pax_id AND reg_no=:reg_no AND work_mode=:work_mode; "
      " IF SQL%NOTFOUND AND :client_type IS NOT NULL THEN "
-     "  INSERT INTO aodb_pax_change(pax_id,reg_no,work_mode,point_id,desk,client_type,time) "
-     "   VALUES(:pax_id,:reg_no,:work_mode,:point_id,:desk,:client_type,:time); "
+     "  INSERT INTO aodb_pax_change(pax_id,reg_no,work_mode,point_id,desk,client_type,time,airline,airp) "
+     "   VALUES(:pax_id,:reg_no,:work_mode,:point_id,:desk,:client_type,:time,:airline,:airp); "
      " END IF; "
      "END;";
   Qry.CreateVariable( "pax_id", otInteger, pax_id );
@@ -1896,6 +1905,8 @@ void update_pax_change( int point_id, int pax_id, int reg_no, const string &work
   Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
   Qry.CreateVariable( "client_type", otString,  EncodeClientType(TReqInfo::Instance()->client_type) );
   Qry.CreateVariable( "time", otDate, NowUTC() );
+  Qry.CreateVariable( "airline", otString, airline );
+  Qry.CreateVariable( "airp", otString, airp );
   Qry.Execute();
 }
 
