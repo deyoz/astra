@@ -1826,6 +1826,8 @@ void PaxBrandsNormsToStream(const TTrferRoute &trfer, const CheckIn::TPaxItem &p
         }
         else
         {
+          boost::optional<bool> carry_on=false;
+          carry_on=boost::none;
           //нормы
           for(TPaxNormList::const_iterator n=norms.begin(); n!=norms.end(); ++n)
           {
@@ -1839,6 +1841,16 @@ void PaxBrandsNormsToStream(const TTrferRoute &trfer, const CheckIn::TPaxItem &p
             if (i!=norm.end())
             {
               if (!curr_text.empty()) curr_text+='\n';
+
+              if (!carry_on || carry_on.get()!=norm.carry_on)
+              {
+                curr_text+=getLocaleText(norm.carry_on?"MSG.CARRY_ON_NORM_OF_THE_AIRLINE_APPLIES":
+                                                       "MSG.BAGGAGE_NORM_OF_THE_AIRLINE_APPLIES",
+                                         LParams() << LParam("airline", ElemIdToCodeNative(etAirline, norm.airline)));
+                curr_text+='\n';
+                carry_on=norm.carry_on;
+              };
+
               curr_text+=i->second.text;
             };
           };

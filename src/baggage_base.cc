@@ -314,70 +314,41 @@ void TSimplePaxBrandItem::fromSirenaXMLAdv(xmlNodePtr node)
   };
 }
 
-void CopyPaxNorms(int grp_id_src, int grp_id_dest, bool old_version)
+void CopyPaxNorms(int grp_id_src, int grp_id_dest)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
-  if (old_version)
-    Qry.SQLText="DELETE FROM (SELECT * FROM pax, pax_norms_pc WHERE pax.pax_id=pax_norms_pc.pax_id AND pax.grp_id=:grp_id)";
-  else
-    Qry.SQLText="DELETE FROM (SELECT * FROM pax, pax_norms_text WHERE pax.pax_id=pax_norms_text.pax_id AND pax.grp_id=:grp_id)";
+  Qry.SQLText="DELETE FROM (SELECT * FROM pax, pax_norms_text WHERE pax.pax_id=pax_norms_text.pax_id AND pax.grp_id=:grp_id)";
   Qry.CreateVariable("grp_id", otInteger, grp_id_dest);
   Qry.Execute();
   Qry.Clear();
-  if (old_version)
-    Qry.SQLText=
-      "INSERT INTO pax_norms_pc(pax_id, transfer_num, lang, page_no, text) "
-      "SELECT dest.pax_id, "
-      "       pax_norms_pc.transfer_num+src.seg_no-dest.seg_no, "
-      "       pax_norms_pc.lang, "
-      "       pax_norms_pc.page_no, "
-      "       pax_norms_pc.text "
-      "FROM pax_norms_pc, "
-      "     (SELECT pax.pax_id, "
-      "             tckin_pax_grp.tckin_id, "
-      "             tckin_pax_grp.seg_no, "
-      "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-      "      FROM pax, tckin_pax_grp "
-      "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_src) src, "
-      "     (SELECT pax.pax_id, "
-      "             tckin_pax_grp.tckin_id, "
-      "             tckin_pax_grp.seg_no, "
-      "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-      "      FROM pax, tckin_pax_grp "
-      "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_dest) dest "
-      "WHERE src.tckin_id=dest.tckin_id AND "
-      "      src.distance=dest.distance AND "
-      "      pax_norms_pc.pax_id=src.pax_id AND "
-      "      pax_norms_pc.transfer_num+src.seg_no-dest.seg_no>=0 ";
-  else
-    Qry.SQLText=
-      "INSERT INTO pax_norms_text(pax_id, transfer_num, carry_on, lang, page_no, airline, concept, text) "
-      "SELECT dest.pax_id, "
-      "       pax_norms_text.transfer_num+src.seg_no-dest.seg_no, "
-      "       pax_norms_text.carry_on, "
-      "       pax_norms_text.lang, "
-      "       pax_norms_text.page_no, "
-      "       pax_norms_text.airline, "
-      "       pax_norms_text.concept, "
-      "       pax_norms_text.text "
-      "FROM pax_norms_text, "
-      "     (SELECT pax.pax_id, "
-      "             tckin_pax_grp.tckin_id, "
-      "             tckin_pax_grp.seg_no, "
-      "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-      "      FROM pax, tckin_pax_grp "
-      "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_src) src, "
-      "     (SELECT pax.pax_id, "
-      "             tckin_pax_grp.tckin_id, "
-      "             tckin_pax_grp.seg_no, "
-      "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-      "      FROM pax, tckin_pax_grp "
-      "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_dest) dest "
-      "WHERE src.tckin_id=dest.tckin_id AND "
-      "      src.distance=dest.distance AND "
-      "      pax_norms_text.pax_id=src.pax_id AND "
-      "      pax_norms_text.transfer_num+src.seg_no-dest.seg_no>=0 ";
+  Qry.SQLText=
+    "INSERT INTO pax_norms_text(pax_id, transfer_num, carry_on, lang, page_no, airline, concept, text) "
+    "SELECT dest.pax_id, "
+    "       pax_norms_text.transfer_num+src.seg_no-dest.seg_no, "
+    "       pax_norms_text.carry_on, "
+    "       pax_norms_text.lang, "
+    "       pax_norms_text.page_no, "
+    "       pax_norms_text.airline, "
+    "       pax_norms_text.concept, "
+    "       pax_norms_text.text "
+    "FROM pax_norms_text, "
+    "     (SELECT pax.pax_id, "
+    "             tckin_pax_grp.tckin_id, "
+    "             tckin_pax_grp.seg_no, "
+    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
+    "      FROM pax, tckin_pax_grp "
+    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_src) src, "
+    "     (SELECT pax.pax_id, "
+    "             tckin_pax_grp.tckin_id, "
+    "             tckin_pax_grp.seg_no, "
+    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
+    "      FROM pax, tckin_pax_grp "
+    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_dest) dest "
+    "WHERE src.tckin_id=dest.tckin_id AND "
+    "      src.distance=dest.distance AND "
+    "      pax_norms_text.pax_id=src.pax_id AND "
+    "      pax_norms_text.transfer_num+src.seg_no-dest.seg_no>=0 ";
   Qry.CreateVariable("grp_id_src", otInteger, grp_id_src);
   Qry.CreateVariable("grp_id_dest", otInteger, grp_id_dest);
   Qry.Execute();
@@ -420,41 +391,30 @@ void CopyPaxBrands(int grp_id_src, int grp_id_dest)
   Qry.Execute();
 }
 
-void PaxNormsToDB(int grp_id, const list<TPaxNormItem> &norms, bool old_version)
+void PaxNormsToDB(int grp_id, const list<TPaxNormItem> &norms)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
-  if (old_version)
-    Qry.SQLText="DELETE FROM (SELECT * FROM pax, pax_norms_pc WHERE pax.pax_id=pax_norms_pc.pax_id AND pax.grp_id=:grp_id)";
-  else
-    Qry.SQLText="DELETE FROM (SELECT * FROM pax, pax_norms_text WHERE pax.pax_id=pax_norms_text.pax_id AND pax.grp_id=:grp_id)";
+  Qry.SQLText="DELETE FROM (SELECT * FROM pax, pax_norms_text WHERE pax.pax_id=pax_norms_text.pax_id AND pax.grp_id=:grp_id)";
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.Execute();
   Qry.Clear();
-  if (old_version)
-    Qry.SQLText=
-      "INSERT INTO pax_norms_pc(pax_id, transfer_num, lang, page_no, text) "
-      "VALUES(:pax_id, :transfer_num, :lang, :page_no, :text)";
-  else
-    Qry.SQLText=
-      "INSERT INTO pax_norms_text(pax_id, transfer_num, carry_on, lang, page_no, airline, concept, text) "
-      "VALUES(:pax_id, :transfer_num, :carry_on, :lang, :page_no, :airline, :concept, :text)";
+  Qry.SQLText=
+    "INSERT INTO pax_norms_text(pax_id, transfer_num, carry_on, lang, page_no, airline, concept, text) "
+    "VALUES(:pax_id, :transfer_num, :carry_on, :lang, :page_no, :airline, :concept, :text)";
   Qry.DeclareVariable("pax_id", otInteger);
   Qry.DeclareVariable("transfer_num", otInteger);
+  Qry.DeclareVariable("carry_on", otInteger);
   Qry.DeclareVariable("lang", otString);
   Qry.DeclareVariable("page_no", otInteger);
+  Qry.DeclareVariable("airline", otString);
+  Qry.DeclareVariable("concept", otString);
   Qry.DeclareVariable("text", otString);
-  if (!old_version)
-  {
-    Qry.DeclareVariable("carry_on", otInteger);
-    Qry.DeclareVariable("airline", otString);
-    Qry.DeclareVariable("concept", otString);
-  };
   for(list<TPaxNormItem>::const_iterator i=norms.begin(); i!=norms.end(); ++i)
   {
     Qry.SetVariable("pax_id", i->pax_id);
     Qry.SetVariable("transfer_num", i->trfer_num);
-    if (!old_version) i->toDB(Qry);
+    i->toDB(Qry);
     for(TPaxNormItem::const_iterator j=i->begin(); j!=i->end(); ++j)
     {
       Qry.SetVariable("lang", j->second.lang);
@@ -491,14 +451,14 @@ void PaxBrandsToDB(int grp_id, const list<TPaxBrandItem> &norms)
   };
 };
 
-void PaxNormsToDB(const TCkinGrpIds &tckin_grp_ids, const list<TPaxNormItem> &norms, bool old_version)
+void PaxNormsToDB(const TCkinGrpIds &tckin_grp_ids, const list<TPaxNormItem> &norms)
 {
   for(TCkinGrpIds::const_iterator i=tckin_grp_ids.begin(); i!=tckin_grp_ids.end(); ++i)
   {
     if (i==tckin_grp_ids.begin())
-      PaxNormsToDB(*i, norms, old_version);
+      PaxNormsToDB(*i, norms);
     else
-      CopyPaxNorms(*tckin_grp_ids.begin(), *i, old_version);
+      CopyPaxNorms(*tckin_grp_ids.begin(), *i);
   }
 }
 
