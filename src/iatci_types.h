@@ -518,7 +518,7 @@ public:
     void addSsrTkne(const std::string& tickNum, unsigned couponNum, bool inftTicket);
     void addSsrFqtv(const std::string& fqtvCode);
 
-    boost::optional<Ticketing::TicketCpn_t> findTicketCpn() const;
+    boost::optional<Ticketing::TicketCpn_t> findTicketCpn(bool inftTicket) const;
 };
 
 //---------------------------------------------------------------------------------------

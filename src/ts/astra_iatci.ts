@@ -929,6 +929,10 @@ $(defmacro SAVE_GRP
                   <rem_code>TKNE</rem_code>
                   <rem_text>TKNE HK1 2982401841689/1</rem_text>
                 </rem>
+                <rem>
+                  <rem_code>INFT</rem_code>
+                  <rem_text>INFT HK1 01JAN17 $(surname2)/$(name2)</rem_text>
+                </rem>
               </rems>
               <norms/>
             </pax>
@@ -4620,6 +4624,10 @@ $(KICK_IN)
                 <rem_text>FOID PPZB400522509</rem_text>
               </rem>
               <rem>
+                <rem_code>INFT</rem_code>
+                <rem_text>INFT HK1 01JAN17 PETROV/PETR</rem_text>
+              </rem>
+              <rem>
                 <rem_code>PSPT</rem_code>
                 <rem_text>PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M</rem_text>
               </rem>
@@ -4953,3 +4961,176 @@ UNZ+1+$(last_edifact_ref)0001"
 
 $(KICK_IN_SILENT)
 
+
+%%
+#########################################################################################
+# ¸22 ¨´†§•≠•Ê
+###
+
+$(init)
+$(init_jxt_pult åéÇêéå)
+$(login)
+$(init_dcs ë7 TA OA)
+$(init_eds ûí UTET UTDC)
+
+# ØÆ§£Æ‚Æ¢™† ‡•©·†
+$(PREPARE_FLIGHT_6 ûí 103 ÑåÑ èãä ë7 1027 èãä ëéó
+                   REPIN ADULT 2982401841689 1
+                   REPIN INFANT 2982401841612 1)
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_1_id $(get_single_pax_id $(get point_dep) REPIN ADULT))
+$(set pax_2_id $(get_single_pax_id $(get point_dep) REPIN INFANT))
+
+
+$(OPEN_CHECKIN $(get point_dep))
+$(SAVE_ET_DISP $(get point_dep) 2982401841689 REPIN ADULT)
+$(SAVE_ET_DISP $(get point_dep) 2982401841612 REPIN INFANT)
+$(CHECK_ADV_TRIPS_LIST $(get point_dep) ûí 103 ÑåÑ)
+$(CHECK_FLIGHT $(get point_dep) ûí 103 ÑåÑ èãä)
+# $(CHECK_SEARCH_PAX $(get point_dep) ûí 103 ÑåÑ èãä REPIN ADULT ä)
+# $(CHECK_SEARCH_PAX $(get point_dep) ûí 103 ÑåÑ èãä REPIN INFANT ä)
+$(CHECK_DCS_ADDR_SET)
+$(CHECK_TCKIN_ROUTE_GRP_1 $(get point_dep) $(get point_arv) ë7 1027 èãä ëéó REPIN ADULT Çá REPIN INFANT êå)
+$(CHECK_TCKIN_ROUTE_GRP_2 $(get point_dep) $(get point_arv) ë7 1027 èãä ëéó REPIN ADULT Çá REPIN INFANT êå)
+
+$(deny_ets_interactive ûí 103 ÑåÑ)
+
+$(SAVE_GRP $(get pax_1_id) $(get pax_2_id) $(get point_dep) $(get point_arv)
+                ûí 103 ÑåÑ èãä ë7 1027 èãä ëéó
+                REPIN ADULT 2982401841689 Çá
+                REPIN INFANT 2982401841612 êå)
+
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
+PPD+REPIN+A:Y++ADULT+REPIN:INFANT"
+PRD+Y"
+PSD++007A"
+PBD+0"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+DCS2+DCS1+150217:0745+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+S7+1027+$(yymmdd)+LED+AER++T"
+RAD+I+O"
+PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
+PRD+Y"
+PFD+001A+:Y+1"
+PSI++TKNE::29824018416891+TKNE::INF29824018416121+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M+TKNE::::::TKNE HK1 2982401841689/1+INFT::::::INFT HK1 01JAN17 REPIN/INFANT"
+PAP+A:REPIN:ADULT:760501:::RUS++P:7774441110:RUS::::M::::::REPIN:ADULT"
+PAP+IN:REPIN:INFANT:760501:::RUS++P:7774441112:RUS::::M::::::REPIN:INFANT"
+UNT+10+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(KICK_IN)
+
+>> lines=auto
+        <passengers>
+          <pax>
+            <pax_id>-1</pax_id>
+            <surname>REPIN</surname>
+            <name>ADULT</name>
+            <pers_type>Çá</pers_type>
+            <seat_no>1A</seat_no>
+            <seat_type/>
+            <seats>1</seats>
+            <refuse/>
+            <reg_no>1</reg_no>
+            <subclass>ù</subclass>
+            <bag_pool_num/>
+            <tid>0</tid>
+            <ticket_no>2982401841689</ticket_no>
+            <coupon_no>1</coupon_no>
+            <ticket_rem>TKNE</ticket_rem>
+            <ticket_confirm>1</ticket_confirm>
+            <document>
+              <type>P</type>
+              <issue_country>RUS</issue_country>
+              <no>7774441110</no>
+              <nationality>RUS</nationality>
+              <birth_date>01.05.1976 00:00:00</birth_date>
+              <gender>M</gender>
+              <surname>REPIN</surname>
+              <first_name>ADULT</first_name>
+            </document>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <rems>
+              <rem>
+                <rem_code>DOCS</rem_code>
+                <rem_text>DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN</rem_text>
+              </rem>
+              <rem>
+                <rem_code>FOID</rem_code>
+                <rem_text>FOID PPZB400522509</rem_text>
+              </rem>
+              <rem>
+                <rem_code>PSPT</rem_code>
+                <rem_text>PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M</rem_text>
+              </rem>
+              <rem>
+                <rem_code>INFT</rem_code>
+                <rem_text>INFT HK1 01JAN17 REPIN/INFANT</rem_text>
+              </rem>
+            </rems>
+            <iatci_pax_id>0013949613</iatci_pax_id>
+          </pax>
+          <pax>
+            <pax_id>-2</pax_id>
+            <surname>REPIN</surname>
+            <name>INFANT</name>
+            <pers_type>êå</pers_type>
+            <seat_no/>
+            <seat_type/>
+            <seats>0</seats>
+            <refuse/>
+            <reg_no/>
+            <subclass>ù</subclass>
+            <bag_pool_num/>
+            <tid>0</tid>
+            <ticket_no>2982401841612</ticket_no>
+            <coupon_no>1</coupon_no>
+            <ticket_rem>TKNE</ticket_rem>
+            <ticket_confirm>1</ticket_confirm>
+            <document>
+              <type>P</type>
+              <issue_country>RUS</issue_country>
+              <no>7774441112</no>
+              <nationality>RUS</nationality>
+              <birth_date>01.05.1976 00:00:00</birth_date>
+              <gender>M</gender>
+              <surname>REPIN</surname>
+              <first_name>INFANT</first_name>
+            </document>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <rems>
+              <rem>
+                <rem_code>DOCS</rem_code>
+                <rem_text>DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN</rem_text>
+              </rem>
+              <rem>
+                <rem_code>FOID</rem_code>
+                <rem_text>FOID PPZB400522509</rem_text>
+              </rem>
+              <rem>
+                <rem_code>PSPT</rem_code>
+                <rem_text>PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M</rem_text>
+              </rem>
+              <rem>
+                <rem_code>INFT</rem_code>
+                <rem_text>INFT HK1 01JAN17 REPIN/INFANT</rem_text>
+              </rem>
+            </rems>
+            <iatci_pax_id>0013949614</iatci_pax_id>
+          </pax>
+        </passengers>

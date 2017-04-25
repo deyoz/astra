@@ -854,6 +854,7 @@ int findGrpIdByRegNo(int pointDep, int regNo);
 */
 int findGrpIdByPaxId(int pointDep, int paxId);
 
+
 // первичная регистрация
 iatci::dcrcka::Result checkinIatciPaxes(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 iatci::dcrcka::Result checkinIatciPaxes(const iatci::CkiParams& ckiParams);

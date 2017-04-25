@@ -4570,8 +4570,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   TRemCategory cat=getRemCategory(r->code, r->text);
                   if (cat==remASVC) continue; //пропускаем ASVC
                   if (IsReadonlyRem(r->code, r->text)) {
-                    throw UserException(pass==0?"MSG.REMARK.ADD_OR_CHANGE_DENIAL":"MSG.REMARK.CHANGE_OR_DEL_DENIAL",
+                    if(!inTestMode()) {
+                        throw UserException(pass==0?"MSG.REMARK.ADD_OR_CHANGE_DENIAL":"MSG.REMARK.CHANGE_OR_DEL_DENIAL",
                                         LParams() << LParam("remark", r->code.empty()?r->text.substr(0,5):r->code));
+                    }
                   }
                 }
               }

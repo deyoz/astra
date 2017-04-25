@@ -51,10 +51,10 @@ XmlPaxDoc createCheckInDoc(const iatci::DocDetails& doc)
     ckiDoc.no         = doc.no();
     ckiDoc.type       = doc.docType();
     if(!doc.birthDate().is_not_a_date()) {
-        ckiDoc.birth_date = HelpCpp::string_cast(doc.birthDate(), "%d.%m.%Y 00:00:00");
+        ckiDoc.birth_date = BASIC::date_time::boostDateToAstraFormatStr(doc.birthDate());
     }
     if(!doc.expiryDate().is_not_a_date()) {
-        ckiDoc.expiry_date = HelpCpp::string_cast(doc.expiryDate(), "%d.%m.%Y 00:00:00");
+        ckiDoc.expiry_date = BASIC::date_time::boostDateToAstraFormatStr(doc.expiryDate());
     }
     ckiDoc.surname       = doc.surname();
     ckiDoc.first_name    = doc.name();
@@ -2332,7 +2332,7 @@ static boost::optional<astra_entities::PaxInfo> findInfant(const std::list<astra
             return infant;
         }
     }
-    throw boost::none;
+    return boost::none;
 }
 
 std::vector<iatci::dcrcka::Result> LoadPaxXmlResult::toIatci(iatci::dcrcka::Result::Action_e action,

@@ -35,14 +35,15 @@ public:
         boost::optional<edifact::PrdElem> m_prd;
         boost::optional<edifact::PfdElem> m_pfd;
         boost::optional<edifact::PsiElem> m_psi;
-        boost::optional<edifact::PapElem> m_pap;
+        boost::optional<edifact::PapElem> m_papAdult;
+        boost::optional<edifact::PapElem> m_papInfant;
         //boost::optional<edifact::AddElem> m_add;
     public:
         void setPpd(const boost::optional<PpdElem>& ppd);
         void setPrd(const boost::optional<edifact::PrdElem>& prd, bool required = false);
         void setPsi(const boost::optional<edifact::PsiElem>& psi, bool required = false);
         void setPfd(const boost::optional<edifact::PfdElem>& pfd, bool required = false);
-        void setPap(const boost::optional<edifact::PapElem>& pap, bool required = false);
+        void addPap(const boost::optional<edifact::PapElem>& pap);
 
         iatci::dcrcka::PaxGroup makePaxGroup() const;
 
@@ -53,6 +54,8 @@ public:
         boost::optional<iatci::BaggageDetails>     makeBaggage() const;
         boost::optional<iatci::DocDetails>         makeDoc() const;
         boost::optional<iatci::AddressDetails>     makeAddress() const;
+        boost::optional<iatci::PaxDetails>         makeInfant() const;
+        boost::optional<iatci::DocDetails>         makeInfantDoc() const;
     };
 
 private:
@@ -194,11 +197,13 @@ void IatciResponseHandler::parse()
             pxg.setPfd(readEdiPfd(pMes()));
             pxg.setPsi(readEdiPsi(pMes()));
 
-            if(GetNumSegGr(pMes(), 3) > 0)
+            int apgCount = GetNumSegGr(pMes(), 3);
+            for(int curApg = 0; curApg < apgCount; ++curApg)
             {
                 EdiPointHolder apg_holder(pMes());
-                SetEdiPointToSegGrG(pMes(), SegGrElement(3), "PROG_ERR");
-                pxg.setPap(readEdiPap(pMes()));
+                SetEdiPointToSegGrG(pMes(), SegGrElement(3, curApg), "PROG_ERR");
+
+                pxg.addPap(readEdiPap(pMes()));
             }
             
             resultMaker.addPxg(pxg);
@@ -252,12 +257,14 @@ void IatciResultMaker::Pxg::setPfd(const boost::optional<edifact::PfdElem>& pfd,
     m_pfd = pfd;
 }
 
-void IatciResultMaker::Pxg::setPap(const boost::optional<edifact::PapElem>& pap,
-                                   bool required)
+void IatciResultMaker::Pxg::addPap(const boost::optional<edifact::PapElem>& pap)
 {
-    if(required)
-        ASSERT(pap);
-    m_pap = pap;
+    if(pap && (pap->m_type == "A" || pap->m_type.empty())) {
+        m_papAdult = pap;
+    }
+    if(pap && pap->m_type == "IN") {
+        m_papInfant = pap;
+    }
 }
 
 iatci::dcrcka::PaxGroup IatciResultMaker::Pxg::makePaxGroup() const
@@ -268,7 +275,9 @@ iatci::dcrcka::PaxGroup IatciResultMaker::Pxg::makePaxGroup() const
                                    makeBaggage(),
                                    makeService(),
                                    makeDoc(),
-                                   makeAddress());
+                                   makeAddress(),
+                                   makeInfant(),
+                                   makeInfantDoc());
 }
 
 boost::optional<iatci::ReservationDetails> IatciResultMaker::Pxg::makeReserv() const
@@ -306,8 +315,8 @@ boost::optional<iatci::BaggageDetails> IatciResultMaker::Pxg::makeBaggage() cons
 
 boost::optional<iatci::DocDetails> IatciResultMaker::Pxg::makeDoc() const
 {
-    if(m_pap) {
-        return iatci::makeDoc(*m_pap);
+    if(m_papAdult) {
+        return iatci::makeDoc(*m_papAdult);
     }
 
     return boost::none;
@@ -315,6 +324,24 @@ boost::optional<iatci::DocDetails> IatciResultMaker::Pxg::makeDoc() const
 
 boost::optional<iatci::AddressDetails> IatciResultMaker::Pxg::makeAddress() const
 {
+    return boost::none;
+}
+
+boost::optional<iatci::PaxDetails> IatciResultMaker::Pxg::makeInfant() const
+{
+    if(m_ppd.m_withInftIndicator == "Y") {
+        return iatci::makeInfant(m_ppd);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::DocDetails> IatciResultMaker::Pxg::makeInfantDoc() const
+{
+    if(m_papInfant) {
+        return iatci::makeDoc(*m_papInfant);
+    }
+
     return boost::none;
 }
 

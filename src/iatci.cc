@@ -877,10 +877,57 @@ static edifact::KickInfo getIatciKickInfo(xmlNodePtr reqNode, xmlNodePtr ediResN
     return edifact::KickInfo();
 }
 
+static std::list<astra_entities::PaxInfo> filterNotInfants(const std::list<astra_entities::PaxInfo>& lPax)
+{
+    std::list<astra_entities::PaxInfo> lNotInfants;
+    for(const auto& pax: lPax) {
+        if(!pax.isInfant()) {
+            lNotInfants.push_back(pax);
+        }
+    }
+    return lNotInfants;
+}
+
+static std::list<astra_entities::PaxInfo> filterInfants(const std::list<astra_entities::PaxInfo>& lPax)
+{
+    std::list<astra_entities::PaxInfo> lInfants;
+    for(const auto& pax: lPax) {
+        if(pax.isInfant()) {
+            lInfants.push_back(pax);
+        }
+    }
+    return lInfants;
+}
+
+static boost::optional<astra_entities::PaxInfo> findInfant(const std::list<astra_entities::PaxInfo>& lInfants,
+                                                           const astra_entities::Remark& ssrInft)
+{
+    for(const auto& infant: lInfants) {
+        if(ssrInft.containsText(infant.fullName())) {
+            return infant;
+        }
+    }
+    return boost::none;
+}
+
+static boost::optional<astra_entities::PaxInfo> findPax(const std::list<astra_entities::PaxInfo>& lPax,
+                                                        const astra_entities::PaxInfo& search)
+{
+    for(const auto& pax: lPax) {
+        if(pax.fullName() == search.fullName()) {
+            return pax;
+        }
+    }
+
+    return boost::none;
+}
+
 static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
 {
     XmlCheckInTabs ownTabs(findNodeR(reqNode, "segments"));
     ASSERT(!ownTabs.empty());
+
+    const XmlCheckInTab& firstTab = ownTabs.tabs().front();
 
     const astra_entities::SegmentInfo ownSeg = ownTabs.tabs().back().seg();
 
@@ -890,15 +937,36 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
     const XmlCheckInTab& firstEdiTab = ediTabs.tabs().front();
     ASSERT(!firstEdiTab.lPax().empty());
 
+    const std::list<astra_entities::PaxInfo> lPaxOwn = firstTab.lPax();
+    const std::list<astra_entities::PaxInfo> lPax = firstEdiTab.lPax();
+    const std::list<astra_entities::PaxInfo> lNonInfants = filterNotInfants(lPax);
+    const std::list<astra_entities::PaxInfo> lInfants = filterInfants(lPax);
+
     std::list<iatci::dcqcki::PaxGroup> lPaxGrp;
-    for(const auto& pax: firstEdiTab.lPax()) {
-        lPaxGrp.push_back(iatci::dcqcki::PaxGroup(iatci::makePax(pax),
+    for(const auto& pax: lNonInfants) {
+        // поищем SSR INFT у пассажира из non-edi вкладки
+        boost::optional<astra_entities::PaxInfo> ownPax = findPax(lPaxOwn, pax);
+        ASSERT(ownPax);
+        boost::optional<astra_entities::Remark> ssrInft = ownPax->ssrInft();
+
+        boost::optional<iatci::PaxDetails> infant;
+        boost::optional<iatci::DocDetails> infantDoc;
+        if(ssrInft) {
+            boost::optional<astra_entities::PaxInfo> inft = findInfant(lInfants, *ssrInft);
+            if(inft) {
+                infant = iatci::makePax(*inft);
+                infantDoc = iatci::makeDoc(*inft);
+            }
+        }
+        lPaxGrp.push_back(iatci::dcqcki::PaxGroup(iatci::makePax(pax, infant),
                                                   iatci::makeReserv(pax),
                                                   iatci::makeSeat(pax),
                                                   iatci::makeBaggage(pax),
                                                   iatci::makeService(pax),
                                                   iatci::makeDoc(pax),
-                                                  iatci::makeAddress(pax)));
+                                                  iatci::makeAddress(pax),
+                                                  infant,
+                                                  infantDoc));
     }
 
     return iatci::CkiParams(iatci::makeOrg(ownSeg),

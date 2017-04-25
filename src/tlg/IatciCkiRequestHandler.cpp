@@ -110,9 +110,9 @@ void IatciCkiRequestHandler::parse()
     int paxCount = GetNumSegGr(pMes(), 2);
     ASSERT(paxCount > 0);
 
-    EdiPointHolder ph(pMes());
     for(int curPax = 0; curPax < paxCount; ++curPax)
     {
+        EdiPointHolder pxg_holder(pMes());
         SetEdiPointToSegGrG(pMes(), SegGrElement(2, curPax), "PROG_ERR");
 
         IatciCkiParamsMaker::Pxg pxg;
@@ -125,7 +125,7 @@ void IatciCkiRequestHandler::parse()
         int apgCount = GetNumSegGr(pMes(), 3);
         for(int curApg = 0; curApg < apgCount; ++curApg)
         {
-            EdiPointHolder ph1(pMes());
+            EdiPointHolder apg_holder(pMes());
             SetEdiPointToSegGrG(pMes(), SegGrElement(3, curApg), "PROG_ERR");
 
             pxg.addPap(readEdiPap(pMes()));

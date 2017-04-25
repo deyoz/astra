@@ -706,10 +706,10 @@ void ServiceDetails::addSsrFqtv(const std::string& fqtvCode)
     m_lSsr.push_back(ServiceDetails::SsrInfo("FQTV", fqtvCode));
 }
 
-boost::optional<Ticketing::TicketCpn_t> ServiceDetails::findTicketCpn() const
+boost::optional<Ticketing::TicketCpn_t> ServiceDetails::findTicketCpn(bool inftTicket) const
 {
     BOOST_FOREACH(const ServiceDetails::SsrInfo& ssr, lSsr()) {
-        if(ssr.ssrCode() == "TKNE") {
+        if(ssr.ssrCode() == "TKNE" && ssr.isInfantTicket() == inftTicket) {
             return ssr.toTicketCpn();
         }
     }
@@ -1243,18 +1243,18 @@ std::string Result::statusAsString() const
     throw EXCEPTIONS::Exception("Unknown status value: %d", m_status);
 }
 
-void Result::toXml(xmlNodePtr node) const
+static xmlNodePtr xmlViewIatciFlight(xmlNodePtr node, const iatci::FlightDetails& flight)
 {
     xmlNodePtr segNode = newChild(node, "segment");
 
     xmlNodePtr tripHeaderNode = newChild(segNode, "tripheader");
-    NewTextChild(tripHeaderNode, "flight",  fullFlightString(flight()));
-    NewTextChild(tripHeaderNode, "airline", flight().airline());
-    NewTextChild(tripHeaderNode, "aircode", airlineAccode(flight().airline()));
-    NewTextChild(tripHeaderNode, "flt_no",  flightString(flight()));
+    NewTextChild(tripHeaderNode, "flight",  fullFlightString(flight));
+    NewTextChild(tripHeaderNode, "airline", flight.airline());
+    NewTextChild(tripHeaderNode, "aircode", airlineAccode(flight.airline()));
+    NewTextChild(tripHeaderNode, "flt_no",  flightString(flight));
     NewTextChild(tripHeaderNode, "suffix",  "");
-    NewTextChild(tripHeaderNode, "airp",    flight().depPort());
-    NewTextChild(tripHeaderNode, "scd_out_local", depDateTimeString(flight()));
+    NewTextChild(tripHeaderNode, "airp",    flight.depPort());
+    NewTextChild(tripHeaderNode, "scd_out_local", depDateTimeString(flight));
     NewTextChild(tripHeaderNode, "pr_etl_only", "0"); // TODO
     NewTextChild(tripHeaderNode, "pr_etstatus", "0"); // TODO
     NewTextChild(tripHeaderNode, "pr_no_ticket_check", "0"); // TODO)
@@ -1265,9 +1265,9 @@ void Result::toXml(xmlNodePtr node) const
     xmlNodePtr airpsNode = newChild(tripDataNode, "airps");
     xmlNodePtr airpNode = newChild(airpsNode, "airp");
     NewTextChild(airpNode, "point_id", -1);
-    NewTextChild(airpNode, "airp_code", airportCode(flight().arrPort()));
-    NewTextChild(airpNode, "city_code", airportCityCode(flight().arrPort()));
-    NewTextChild(airpNode, "target_view", fullAirportString(flight().arrPort()));
+    NewTextChild(airpNode, "airp_code", airportCode(flight.arrPort()));
+    NewTextChild(airpNode, "city_code", airportCityCode(flight.arrPort()));
+    NewTextChild(airpNode, "target_view", fullAirportString(flight.arrPort()));
     xmlNodePtr checkInfoNode = newChild(airpNode, "check_info");
     xmlNodePtr passNode = newChild(checkInfoNode, "pass"); // TODO
     xmlNodePtr crewNode = newChild(checkInfoNode, "crew"); // TODO
@@ -1278,109 +1278,137 @@ void Result::toXml(xmlNodePtr node) const
 
     NewTextChild(segNode, "grp_id", -1);
     NewTextChild(segNode, "point_dep", -1);
-    NewTextChild(segNode, "airp_dep", flight().depPort());
+    NewTextChild(segNode, "airp_dep", flight.depPort());
     NewTextChild(segNode, "point_arv", -1);
-    NewTextChild(segNode, "airp_arv", flight().arrPort());
+    NewTextChild(segNode, "airp_arv", flight.arrPort());
     NewTextChild(segNode, "class", "ù"); // TODO
     NewTextChild(segNode, "status", "K"); // TODO
     NewTextChild(segNode, "bag_refuse", ""); // TODO
     NewTextChild(segNode, "piece_concept", 0); // TODO
     NewTextChild(segNode, "tid", 0); // TODO
-    NewTextChild(segNode, "city_arv", airportCityCode(flight().arrPort()));
+    NewTextChild(segNode, "city_arv", airportCityCode(flight.arrPort()));
     //xmlNodePtr markFltNode = newChild(segNode, "mark_flight"); // TODO
 
+    return segNode;
+}
+
+static xmlNodePtr xmlViewIatciPax(xmlNodePtr paxesNode,
+                                  const iatci::PaxDetails& pax,
+                                  const boost::optional<ReservationDetails>& reserv,
+                                  const boost::optional<FlightSeatDetails>& seat,
+                                  const boost::optional<ServiceDetails>& service,
+                                  const boost::optional<DocDetails>& doc,
+                                  int& currPax)
+{
+    xmlNodePtr paxNode = newChild(paxesNode, "pax");
+    NewTextChild(paxNode, "pax_id", -(++currPax));
+    NewTextChild(paxNode, "surname", pax.surname());
+    NewTextChild(paxNode, "name", pax.name());
+    NewTextChild(paxNode, "pers_type", paxTypeString(pax));
+    NewTextChild(paxNode, "seat_no", seat ? seat->seat() : "");
+    NewTextChild(paxNode, "seat_type", "");
+    NewTextChild(paxNode, "seats", pax.isInfant() ? 0 : 1);
+    NewTextChild(paxNode, "refuse", "");
+    NewTextChild(paxNode, "reg_no", seat ? seat->securityId() : "");
+    std::string subcls = "ù";
+    if(reserv && reserv->subclass()) {
+        subcls = reserv->subclass()->code(RUSSIAN);
+    } else {
+        LogWarning(STDLOG) << "use default subclass [ù]";
+    }
+    NewTextChild(paxNode, "subclass", subcls); // TODO
+    NewTextChild(paxNode, "bag_pool_num", ""); // TODO
+    NewTextChild(paxNode, "tid", 0); // TODO
+
+    boost::optional<Ticketing::TicketCpn_t> tickCpn;
+    std::string tickRem;
+    if(service) {
+        tickCpn = service->findTicketCpn(pax.isInfant());
+        tickRem = "TKNE";
+    }
+    if(tickCpn) {
+        NewTextChild(paxNode, "ticket_no", tickCpn->ticket().get());
+        NewTextChild(paxNode, "coupon_no", tickCpn->cpn().get());
+    }
+    else {
+        NewTextChild(paxNode, "ticket_no");
+        NewTextChild(paxNode, "coupon_no");
+    }
+
+    NewTextChild(paxNode, "ticket_rem", tickRem);
+    NewTextChild(paxNode, "ticket_confirm", "1"); // TODO
+
+    xmlNodePtr docNode = newChild(paxNode, "document");
+    if(doc)
+    {
+        tst();
+        NewTextChild(docNode, "type", doc->docType());
+        NewTextChild(docNode, "issue_country", doc->issueCountry());
+        NewTextChild(docNode, "no", doc->no());
+        NewTextChild(docNode, "nationality", doc->nationality());
+        if(!doc->birthDate().is_not_a_date()) {
+            NewTextChild(docNode, "birth_date",
+                         BASIC::date_time::boostDateToAstraFormatStr(doc->birthDate()));
+        }
+        NewTextChild(docNode, "gender", doc->gender());
+        NewTextChild(docNode, "surname", doc->surname());
+        NewTextChild(docNode, "first_name", doc->name());
+        if(!doc->secondName().empty()) {
+            NewTextChild(docNode, "second_name", doc->secondName());
+        }
+        if(!doc->expiryDate().is_not_a_date()) {
+            NewTextChild(docNode, "expiry_date",
+                         BASIC::date_time::boostDateToAstraFormatStr(doc->expiryDate()));
+        }
+    }
+
+    NewTextChild(paxNode, "pr_norec", 0); // TODO
+    NewTextChild(paxNode, "pr_bp_print", 0); // TODO
+    NewTextChild(paxNode, "pr_bi_print", 0); // TODO
+
+
+    xmlNodePtr paxRemsNode = newChild(paxNode, "rems");
+    if(service)
+    {
+        for(const ServiceDetails::SsrInfo& ssr: service->lSsr()) {
+            std::string remCode = ssr.ssrCode(),
+                        remText = ssr.freeText();
+
+            if(remCode == "TKNE") continue;
+
+            xmlNodePtr paxRemNode = newChild(paxRemsNode, "rem");
+            NewTextChild(paxRemNode, "rem_code", remCode);
+            NewTextChild(paxRemNode, "rem_text", remText);
+        }
+    }
+
+    NewTextChild(paxNode, "iatci_pax_id", pax.respRef());
+
+    return paxNode;
+}
+
+void Result::toXml(xmlNodePtr node) const
+{
+    xmlNodePtr segNode = xmlViewIatciFlight(node, flight());
     xmlNodePtr paxesNode = newChild(segNode, "passengers");
     int currPax = 0;
-    for(const auto& pxg: m_paxGroups)
-    { 
-        xmlNodePtr paxNode = newChild(paxesNode, "pax");
-        NewTextChild(paxNode, "pax_id", -(++currPax));
-        NewTextChild(paxNode, "surname", pxg.pax().surname());
-        NewTextChild(paxNode, "name", pxg.pax().name());
-        NewTextChild(paxNode, "pers_type", paxTypeString(pxg.pax())); // TODO
-        NewTextChild(paxNode, "seat_no", pxg.seat() ? pxg.seat()->seat() : "");
-        NewTextChild(paxNode, "seat_type", ""); // TODO
-        NewTextChild(paxNode, "seats", 1); // TODO
-        NewTextChild(paxNode, "refuse", ""); // TODO
-        NewTextChild(paxNode, "reg_no", pxg.seat() ? pxg.seat()->securityId() : "");
-        std::string subcls = "ù";
-        if(pxg.reserv() && pxg.reserv()->subclass()) {
-            subcls = pxg.reserv()->subclass()->code(RUSSIAN);
-        } else {
-            LogWarning(STDLOG) << "use default subclass [ù]";
+    for(const auto& pxg: m_paxGroups) {
+        xmlViewIatciPax(paxesNode,
+                        pxg.pax(),
+                        pxg.reserv(),
+                        pxg.seat(),
+                        pxg.service(),
+                        pxg.doc(),
+                        currPax);
+        if(pxg.infant()) {
+            xmlViewIatciPax(paxesNode,
+                            pxg.infant().get(),
+                            pxg.reserv(),
+                            boost::none,
+                            pxg.service(),
+                            pxg.infantDoc(),
+                            currPax);
         }
-        NewTextChild(paxNode, "subclass", subcls); // TODO
-        NewTextChild(paxNode, "bag_pool_num", ""); // TODO
-        NewTextChild(paxNode, "tid", 0); // TODO
-
-        boost::optional<Ticketing::TicketCpn_t> tickCpn;
-        std::string tickRem;
-        if(pxg.service()) {
-            tickCpn = pxg.service()->findTicketCpn();
-            tickRem = "TKNE";
-        }
-        if(tickCpn) {
-            NewTextChild(paxNode, "ticket_no", tickCpn->ticket().get());
-            NewTextChild(paxNode, "coupon_no", tickCpn->cpn().get());
-        }
-        else {
-            NewTextChild(paxNode, "ticket_no");
-            NewTextChild(paxNode, "coupon_no");
-        }
-
-        NewTextChild(paxNode, "ticket_rem", tickRem);
-        NewTextChild(paxNode, "ticket_confirm", "1"); // TODO
-
-        xmlNodePtr docNode = newChild(paxNode, "document");
-        if(pxg.doc())
-        {
-            tst();
-            NewTextChild(docNode, "type", pxg.doc()->docType());
-            NewTextChild(docNode, "issue_country", pxg.doc()->issueCountry());
-            NewTextChild(docNode, "no", pxg.doc()->no());
-            NewTextChild(docNode, "nationality", pxg.doc()->nationality());
-            if(!pxg.doc()->birthDate().is_not_a_date()) {
-                NewTextChild(docNode, "birth_date", BASIC::date_time::boostDateToAstraFormatStr(pxg.doc()->birthDate()));
-            }
-            NewTextChild(docNode, "gender", pxg.doc()->gender());
-            NewTextChild(docNode, "surname", pxg.doc()->surname());
-            NewTextChild(docNode, "first_name", pxg.doc()->name());
-            if(!pxg.doc()->secondName().empty()) {
-                NewTextChild(docNode, "second_name", pxg.doc()->secondName());
-            }
-            if(!pxg.doc()->expiryDate().is_not_a_date()) {
-                NewTextChild(docNode, "expiry_date", BASIC::date_time::boostDateToAstraFormatStr(pxg.doc()->expiryDate()));
-            }
-        }
-
-        NewTextChild(paxNode, "pr_norec", 0); // TODO
-        NewTextChild(paxNode, "pr_bp_print", 0); // TODO
-        NewTextChild(paxNode, "pr_bi_print", 0); // TODO
-
-
-        xmlNodePtr paxRemsNode = newChild(paxNode, "rems");
-        if(pxg.service())
-        {
-            for(const ServiceDetails::SsrInfo& ssr: pxg.service()->lSsr()) {
-                std::string remCode = ssr.ssrCode(),
-                            remText;
-                if(remCode == "TKNE") continue;
-
-                /*if(remCode == "FQTV") {
-                    remText = ssr.ssrText();
-                } else {
-                    remText = ssr.freeText();
-                }*/
-
-                remText = ssr.freeText();
-
-                xmlNodePtr paxRemNode = newChild(paxRemsNode, "rem");
-                NewTextChild(paxRemNode, "rem_code", remCode);
-                NewTextChild(paxRemNode, "rem_text", remText);
-            }
-        }
-
-        NewTextChild(paxNode, "iatci_pax_id", pxg.pax().respRef());
     }
 
     NewTextChild(segNode, "paid_bag_emd", ""); // TODO

@@ -134,6 +134,8 @@ static ASTRA::TPerson convertPaxType(const PaxDetails::PaxType_e paxType)
         return ASTRA::adult;
     case PaxDetails::Child:
         return ASTRA::child;
+    case PaxDetails::Infant:
+        return ASTRA::baby;
     default:
         ;
     }
@@ -312,9 +314,19 @@ iatci::ServiceDetails makeService(const edifact::PsiElem& psi)
 {
     iatci::ServiceDetails service;
     for(const auto& ediSsr: psi.m_lSsr) {
+        bool inftTicket = false;
+        std::string ssrText = ediSsr.m_ssrText;
+        if(ediSsr.m_ssrCode == "TKNE") {
+            if(ssrText.length() > 13) {
+                if(ssrText.substr(0, 3) == "INF") {
+                    ssrText = ssrText.substr(3);
+                    inftTicket = true;
+                }
+            }
+        }
         service.addSsr(iatci::ServiceDetails::SsrInfo(ediSsr.m_ssrCode,
-                                                      ediSsr.m_ssrText,
-                                                      false,
+                                                      ssrText,
+                                                      inftTicket,
                                                       ediSsr.m_freeText,
                                                       ediSsr.m_airline));
     }
