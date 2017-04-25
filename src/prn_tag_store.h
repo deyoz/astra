@@ -207,6 +207,7 @@ class TPrnTagStore {
 //            }
 //        };
 
+        ASTRA::TDevOperType op_type;
         boost::shared_ptr<BCBPSections> scan_data;
         const std::string scan; // данные 2D баркода
         TBagReceipt rcpt;
@@ -586,11 +587,14 @@ class TPrnTagStore {
 
         void init_bp_tags();
 
+        bool isBoardingPass();
+
+
     public:
         TTagProps prn_tag_props;
         TTagLang tag_lang;
-        TPrnTagStore(int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute = TTrferRoute());
-        TPrnTagStore(const std::string &scan, bool apr_lat);
+        TPrnTagStore(ASTRA::TDevOperType _op_type, int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute = TTrferRoute());
+        TPrnTagStore(ASTRA::TDevOperType _op_type, const std::string &scan, bool apr_lat);
         TPrnTagStore(bool apr_lat);
         TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat);
         void set_tag(std::string name, const BIPrintRules::TRule &value);

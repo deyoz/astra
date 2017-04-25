@@ -126,6 +126,12 @@ bool SearchPaxByScanData(xmlNodePtr reqNode,
                          int &reg_no,
                          int &pax_id);
 
+bool SearchPaxByScanData(xmlNodePtr reqNode,
+                         int &point_id,
+                         int &reg_no,
+                         int &pax_id,
+                         bool &isBoardingPass);
+
 class TripsInterface : public JxtInterface
 {
 private:
