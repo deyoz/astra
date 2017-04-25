@@ -2350,12 +2350,15 @@ std::vector<iatci::dcrcka::Result> LoadPaxXmlResult::toIatci(iatci::dcrcka::Resu
 
             boost::optional<iatci::PaxDetails> infant;
             boost::optional<iatci::DocDetails> infantDoc;
+            boost::optional<iatci::FlightSeatDetails> infantSeat;
             boost::optional<astra_entities::Remark> ssrInft = paxInfo.ssrInft();
             if(ssrInft) {
                 boost::optional<astra_entities::PaxInfo> inft = findInfant(lInfants, *ssrInft);
-                ASSERT(inft);
-                infant = iatci::makePax(*inft);
-                infantDoc = iatci::makeDoc(*inft);
+                if(inft) {
+                    infant = iatci::makePax(*inft);
+                    infantDoc = iatci::makeDoc(*inft);
+                    infantSeat = iatci::makeFlightSeat(*inft);
+                }
             }
 
             paxGroups.push_back(iatci::dcrcka::PaxGroup(iatci::makePax(paxInfo, infant),
@@ -2366,7 +2369,8 @@ std::vector<iatci::dcrcka::Result> LoadPaxXmlResult::toIatci(iatci::dcrcka::Resu
                                                         iatci::makeDoc(paxInfo),
                                                         iatci::makeAddress(paxInfo),
                                                         infant,
-                                                        infantDoc));
+                                                        infantDoc,
+                                                        infantSeat));
         }
 
         lRes.push_back(iatci::dcrcka::Result::makeResult(action,

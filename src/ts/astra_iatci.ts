@@ -5022,7 +5022,7 @@ FDR+S7+1027+$(yymmdd)+LED+AER++T"
 RAD+I+O"
 PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
 PRD+Y"
-PFD+001A+:Y+1"
+PFD+001A+:Y+001:002"
 PSI++TKNE::29824018416891+TKNE::INF29824018416121+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M+TKNE::::::TKNE HK1 2982401841689/1+INFT::::::INFT HK1 01JAN17 REPIN/INFANT"
 PAP+A:REPIN:ADULT:760501:::RUS++P:7774441110:RUS::::M::::::REPIN:ADULT"
 PAP+IN:REPIN:INFANT:760501:::RUS++P:7774441112:RUS::::M::::::REPIN:INFANT"
@@ -5042,7 +5042,7 @@ $(KICK_IN)
             <seat_type/>
             <seats>1</seats>
             <refuse/>
-            <reg_no>1</reg_no>
+            <reg_no>001</reg_no>
             <subclass>ù</subclass>
             <bag_pool_num/>
             <tid>0</tid>
@@ -5092,7 +5092,7 @@ $(KICK_IN)
             <seat_type/>
             <seats>0</seats>
             <refuse/>
-            <reg_no/>
+            <reg_no>002</reg_no>
             <subclass>ù</subclass>
             <bag_pool_num/>
             <tid>0</tid>

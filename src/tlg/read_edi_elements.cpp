@@ -838,7 +838,8 @@ boost::optional<PfdElem> readEdiPfd(_EDI_REAL_MES_STRUCT_ *pMes)
     pfd.m_seat = iatci::denormSeatNum(seat);
     pfd.m_noSmokingInd = GetDBFName(pMes, DataElement(9807), CompElement("C044"));
     pfd.m_cabinClass = GetDBFName(pMes, DataElement(9854), CompElement("C044"));
-    pfd.m_securityId = GetDBFName(pMes, DataElement(9874), CompElement("C045"));
+    pfd.m_regNo = GetDBFName(pMes, DataElement(9874, 0), CompElement("C045"));
+    pfd.m_infantRegNo = GetDBFName(pMes, DataElement(9874, 1), CompElement("C045"));
 
     LogTrace(TRACE3) << pfd;
 

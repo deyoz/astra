@@ -287,7 +287,15 @@ iatci::FlightSeatDetails makeSeat(const edifact::PfdElem& pfd)
 {
     return iatci::FlightSeatDetails(pfd.m_seat,
                                     pfd.m_cabinClass,
-                                    pfd.m_securityId,
+                                    pfd.m_regNo,
+                                    iatci::FlightSeatDetails::strToSmokeInd(pfd.m_noSmokingInd));
+}
+
+boost::optional<iatci::FlightSeatDetails> makeInfantSeat(const edifact::PfdElem& pfd)
+{
+    return iatci::FlightSeatDetails("",
+                                    pfd.m_cabinClass,
+                                    pfd.m_infantRegNo,
                                     iatci::FlightSeatDetails::strToSmokeInd(pfd.m_noSmokingInd));
 }
 
@@ -525,7 +533,7 @@ boost::optional<iatci::ReservationDetails> makeReserv(const astra_api::astra_ent
 
 boost::optional<iatci::FlightSeatDetails> makeFlightSeat(const astra_api::astra_entities::PaxInfo& pax)
 {
-    if(!pax.m_seatNo.empty()) {
+    if(!pax.m_seatNo.empty() || pax.isInfant()) {
         return iatci::FlightSeatDetails(pax.m_seatNo,
                                         pax.m_subclass ? pax.m_subclass->code(ENGLISH) : "",
                                         pax.m_regNo);

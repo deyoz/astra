@@ -754,7 +754,8 @@ struct PfdElem
     std::string m_seat;
     std::string m_noSmokingInd;
     std::string m_cabinClass;
-    std::string m_securityId;
+    std::string m_regNo;
+    std::string m_infantRegNo;
 };
 
 //---------------------------------------------------------------------------------------

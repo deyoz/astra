@@ -378,16 +378,16 @@ struct FlightSeatDetails: public SeatDetails
 
 protected:
     std::string m_cabinClass;
-    std::string m_securityId;
+    std::string m_regNo;
 
 public:
     FlightSeatDetails(const std::string& seat,
                       const std::string& cabinClass,
-                      const std::string& securityId,
+                      const std::string& regNo,
                       SmokeIndicator_e smokeInd = None);
 
     const std::string& cabinClass() const;
-    const std::string& securityId() const;
+    const std::string& regNo() const;
 
 protected:
     FlightSeatDetails(SmokeIndicator_e smokeInd = None)
@@ -1427,6 +1427,7 @@ class PaxGroup: public iatci::PaxGroup
 
 protected:
     boost::optional<FlightSeatDetails> m_seat;
+    boost::optional<FlightSeatDetails> m_infantSeat;
 
 public:
     PaxGroup(const PaxDetails& pax,
@@ -1437,9 +1438,11 @@ public:
              const boost::optional<DocDetails>& doc,
              const boost::optional<AddressDetails>& address,
              const boost::optional<PaxDetails>& infant = boost::none,
-             const boost::optional<DocDetails>& infantDoc = boost::none);
+             const boost::optional<DocDetails>& infantDoc = boost::none,
+             const boost::optional<FlightSeatDetails>& infantSeat = boost::none);
 
     const boost::optional<FlightSeatDetails>& seat() const;
+    const boost::optional<FlightSeatDetails>& infantSeat() const;
 
 protected:
     PaxGroup() {} // for boost serialization only

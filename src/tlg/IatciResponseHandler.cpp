@@ -56,6 +56,7 @@ public:
         boost::optional<iatci::AddressDetails>     makeAddress() const;
         boost::optional<iatci::PaxDetails>         makeInfant() const;
         boost::optional<iatci::DocDetails>         makeInfantDoc() const;
+        boost::optional<iatci::FlightSeatDetails>  makeInfantSeat() const;
     };
 
 private:
@@ -277,7 +278,8 @@ iatci::dcrcka::PaxGroup IatciResultMaker::Pxg::makePaxGroup() const
                                    makeDoc(),
                                    makeAddress(),
                                    makeInfant(),
-                                   makeInfantDoc());
+                                   makeInfantDoc(),
+                                   makeInfantSeat());
 }
 
 boost::optional<iatci::ReservationDetails> IatciResultMaker::Pxg::makeReserv() const
@@ -345,6 +347,14 @@ boost::optional<iatci::DocDetails> IatciResultMaker::Pxg::makeInfantDoc() const
     return boost::none;
 }
 
+boost::optional<iatci::FlightSeatDetails> IatciResultMaker::Pxg::makeInfantSeat() const
+{
+    if(m_pfd) {
+        return iatci::makeInfantSeat(*m_pfd);
+    }
+
+    return boost::none;
+}
 
 void IatciResultMaker::setFdr(const boost::optional<edifact::FdrElem>& fdr)
 {

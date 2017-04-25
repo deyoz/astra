@@ -68,6 +68,8 @@ iatci::EquipmentDetails        makeEquipment(const edifact::EqdElem& eqd);
 iatci::FlightDetails           makeFlight(const edifact::FdrElem& fdr,
                                           const boost::optional<edifact::FsdElem>& fsd);
 
+boost::optional<FlightSeatDetails> makeInfantSeat(const edifact::PfdElem& pfd);
+
 iatci::UpdatePaxDetails        makeUpdPax(const edifact::UpdElem& upd);
 iatci::UpdateSeatDetails       makeUpdSeat(const edifact::UsdElem& usd);
 iatci::UpdateBaggageDetails    makeUpdBaggage(const edifact::UbdElem& ubd);

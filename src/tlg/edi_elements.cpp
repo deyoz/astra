@@ -229,7 +229,8 @@ std::ostream& operator<<(std::ostream &os, const PfdElem &pfd)
     os << "seat: " << pfd.m_seat << "; ";
     os << "nosmoking: " << pfd.m_noSmokingInd << "; ";
     os << "cabin class: " << pfd.m_cabinClass << "; ";
-    os << "security id: " << pfd.m_securityId;
+    os << "reg no: " << pfd.m_regNo << "; ";
+    os << "infant reg no: " << pfd.m_infantRegNo;
     return os;
 }
 

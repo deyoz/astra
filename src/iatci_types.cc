@@ -517,10 +517,10 @@ UpdateSeatDetails::UpdateSeatDetails(UpdateActionCode_e actionCode,
 
 FlightSeatDetails::FlightSeatDetails(const std::string& seat,
                                      const std::string& cabinClass,
-                                     const std::string& securityId,
+                                     const std::string& regNo,
                                      SmokeIndicator_e smokeInd)
     : SeatDetails(seat, smokeInd),
-      m_cabinClass(cabinClass), m_securityId(securityId)
+      m_cabinClass(cabinClass), m_regNo(regNo)
 {}
 
 const std::string& FlightSeatDetails::cabinClass() const
@@ -528,9 +528,9 @@ const std::string& FlightSeatDetails::cabinClass() const
     return m_cabinClass;
 }
 
-const std::string& FlightSeatDetails::securityId() const
+const std::string& FlightSeatDetails::regNo() const
 {
-    return m_securityId;
+    return m_regNo;
 }
 
 //---------------------------------------------------------------------------------------
@@ -1027,9 +1027,10 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<DocDetails>& doc,
                    const boost::optional<AddressDetails>& address,
                    const boost::optional<PaxDetails>& infant,
-                   const boost::optional<DocDetails>& infantDoc)
+                   const boost::optional<DocDetails>& infantDoc,
+                   const boost::optional<FlightSeatDetails>& infantSeat)
     : iatci::PaxGroup(pax, reserv, baggage, service, doc, address, infant, infantDoc),
-      m_seat(seat)
+      m_seat(seat), m_infantSeat(infantSeat)
 {}
 
 const boost::optional<FlightSeatDetails>& PaxGroup::seat() const
@@ -1037,8 +1038,12 @@ const boost::optional<FlightSeatDetails>& PaxGroup::seat() const
     return m_seat;
 }
 
-//---------------------------------------------------------------------------------------
+const boost::optional<FlightSeatDetails>& PaxGroup::infantSeat() const
+{
+    return m_infantSeat;
+}
 
+//---------------------------------------------------------------------------------------
 
 Result::Result(Action_e action,
                Status_e status,
@@ -1309,7 +1314,7 @@ static xmlNodePtr xmlViewIatciPax(xmlNodePtr paxesNode,
     NewTextChild(paxNode, "seat_type", "");
     NewTextChild(paxNode, "seats", pax.isInfant() ? 0 : 1);
     NewTextChild(paxNode, "refuse", "");
-    NewTextChild(paxNode, "reg_no", seat ? seat->securityId() : "");
+    NewTextChild(paxNode, "reg_no", seat ? seat->regNo() : "");
     std::string subcls = "";
     if(reserv && reserv->subclass()) {
         subcls = reserv->subclass()->code(RUSSIAN);
@@ -1404,7 +1409,7 @@ void Result::toXml(xmlNodePtr node) const
             xmlViewIatciPax(paxesNode,
                             pxg.infant().get(),
                             pxg.reserv(),
-                            boost::none,
+                            pxg.infantSeat(),
                             pxg.service(),
                             pxg.infantDoc(),
                             currPax);

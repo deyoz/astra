@@ -97,7 +97,7 @@ void IatciRequestHandler::makeAnAnswer()
                     viewPrdElement(pMesW(), *pxg.reserv());
                 }
                 if(pxg.seat()) {
-                    viewPfdElement(pMesW(), *pxg.seat());
+                    viewPfdElement(pMesW(), *pxg.seat(), pxg.infantSeat());
                 }
                 if(pxg.service()) {
                     viewPsiElement(pMesW(), *pxg.service());

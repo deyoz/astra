@@ -188,7 +188,8 @@ void viewFsdElement(_EDI_REAL_MES_STRUCT_* pMes, const FsdElem& elem);
 /**
  * @brief makes a PFD element
 */
-void viewPfdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightSeatDetails& seat);
+void viewPfdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightSeatDetails& seat,
+                    const boost::optional<iatci::FlightSeatDetails>& infantSeat = boost::none);
 void viewPfdElement(_EDI_REAL_MES_STRUCT_* pMes, const PfdElem& elem);
 
 /**

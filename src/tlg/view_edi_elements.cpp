@@ -605,13 +605,17 @@ void viewFsdElement(_EDI_REAL_MES_STRUCT_* pMes, const FsdElem& elem)
     }
 }
 
-void viewPfdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightSeatDetails& seat)
+void viewPfdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightSeatDetails& seat,
+                    const boost::optional<iatci::FlightSeatDetails>& infantSeat)
 {
     PfdElem pfd;
     pfd.m_seat         = seat.seat();
     pfd.m_noSmokingInd = seat.smokeIndAsString();
     pfd.m_cabinClass   = seat.cabinClass();
-    pfd.m_securityId   = seat.securityId();
+    pfd.m_regNo        = seat.regNo();
+    if(infantSeat) {
+        pfd.m_infantRegNo = infantSeat->regNo();
+    }
     viewPfdElement(pMes, pfd);
 }
 
@@ -623,7 +627,7 @@ void viewPfdElement(_EDI_REAL_MES_STRUCT_* pMes, const PfdElem& elem)
     if(!elem.m_cabinClass.empty()) {
         pfd << Ticketing::SubClass(elem.m_cabinClass)->code(ENGLISH);
     }
-    pfd << "+" << elem.m_securityId;
+    pfd << "+" << elem.m_regNo << ":" << elem.m_infantRegNo;
     SetEdiFullSegment(pMes, SegmElement("PFD"), pfd.str());
 }
 
