@@ -3648,7 +3648,7 @@ void GetInboundTransferForTerm(const vector<CheckIn::TTransferItem> &trfer,
     }
 
     if (!p->trferAttachable()) continue;
-    //ВЗ или РБ с местом:
+
     inbound_trfer_grp_out.paxs.push_back(InboundTrfer::TPaxItem("", p->pax.surname, p->pax.name));
   }
 
@@ -3769,7 +3769,7 @@ void GetInboundTransferForWeb(TSegList &segList,
     }
 
     if (!p->trferAttachable()) continue;
-    //ВЗ или РБ с местом:
+
     inbound_trfer_grp_out.paxs.push_back(InboundTrfer::TPaxItem("", p->pax.surname, p->pax.name));
   }
   //входящий трансфер

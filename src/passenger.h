@@ -531,8 +531,8 @@ class TPaxListItem
 
     bool trferAttachable() const
     {
-      return pax.seats!=ASTRA::NoExists && pax.seats>0 &&
-          (pax.pers_type==ASTRA::adult || pax.pers_type==ASTRA::child) &&
+      return pax.seats!=ASTRA::NoExists &&
+          (pax.pers_type==ASTRA::adult || pax.pers_type==ASTRA::child || pax.pers_type==ASTRA::baby) &&
           pax.refuse!=ASTRA::refuseAgentError;
     }
 
