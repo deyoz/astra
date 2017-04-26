@@ -309,7 +309,11 @@ static void viewConnectedCoupons(XmlViewData &VData, const std::list<Coupon> &lc
 
     int col_num = 0;
     xmlSetProp(xmlNewTextChild(rowNode, NULL, "num", cpn.couponInfo().num()), "index", col_num ++);
-    xmlSetProp(xmlNewTextChild(rowNode, NULL, "connected_num", cpn.couponInfo().connectedCpnNum()), "index", col_num ++);
+    if(cpn.couponInfo().connectedCpnNum()) {
+        xmlSetProp(xmlNewTextChild(rowNode, NULL, "connected_num", *cpn.couponInfo().connectedCpnNum()), "index", col_num ++);
+    } else {
+        xmlSetProp(xmlNewTextChild(rowNode, NULL, "connected_num", "?"), "index", col_num ++);
+    }
     xmlSetProp(xmlNewTextChild(rowNode, NULL, "connection_status", CpnActionStr(cpn.couponInfo().actionCode().get()).c_str()), "index", col_num ++);
   }
 }
