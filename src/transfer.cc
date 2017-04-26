@@ -1245,7 +1245,7 @@ bool TGrpItem::alreadyCheckedIn(int point_id) const
   const char *paxs_sql=
     "SELECT subclass, surname, name "
     "FROM pax "
-    "WHERE grp_id=:grp_id AND bag_pool_num=:bag_pool_num AND seats>0";
+    "WHERE grp_id=:grp_id AND bag_pool_num=:bag_pool_num";
 
   QParams QryParams;
   QryParams << QParam("no", otFloat, tags.begin()->numeric_part);
@@ -1456,7 +1456,7 @@ void GetCheckedTags(int id,  //м.б. point_id или grp_id
   PaxQry.SQLText=
     "SELECT subclass, surname, name "
     "FROM pax "
-    "WHERE grp_id=:grp_id AND bag_pool_num=:bag_pool_num AND seats>0";
+    "WHERE grp_id=:grp_id AND bag_pool_num=:bag_pool_num";
   PaxQry.DeclareVariable("grp_id", otInteger);
   PaxQry.DeclareVariable("bag_pool_num", otInteger);
 
