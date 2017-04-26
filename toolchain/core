@@ -1,0 +1,164 @@
+#!/bin/bash
+
+function delim_items() {
+    local delim=$1;
+    shift 1;
+    local result;
+
+    for item in $@; do
+        result="${result}${item}${delim}"
+    done;
+
+    if [[ -n $result ]]; then
+        result=${result:0:(${#result}-${#delim})};
+    fi;
+    
+    set_result $result;
+}
+
+# $1      -- prefix
+# $2...$N -- items
+# result $prefix$2 ... $prefix$N
+function prefix_items() {
+    local prefix=$1
+    local delim=" "
+    shift 1;
+    declare result;
+
+    for item in $@; do
+        result="${result}${prefix}${item}${delim}"
+    done;
+
+    if [[ -n $result ]]; then
+        result=${result:0:(${#result}-${#delim})}
+    fi;
+
+    set_result $result
+}
+
+function suffix_items() {
+    local suffix=$1
+    local delim=" "
+    shift 1;
+    declare result;
+
+    for item in $@; do
+        result="${result}${item}${suffix}${delim}"
+    done;
+
+    if [[ -n $result ]]; then
+        result=${result:0:(${#result}-${#delim})}
+    fi;
+    
+    set_result $result
+}
+
+function get_include_dirs() {
+    local result;
+    local items="$(get_tools_include) $(get_libc_include_dir)"
+
+    if [[ -z $1 ]]; then
+        result=$items
+    else
+        result=$(delim_items "$1" $items)
+    fi;
+
+    set_result $result
+}
+
+function get_include_flags() {
+    prefix_items ' -I' $(get_tools_include) $(get_libc_include_dir) 
+}
+
+function get_lib_flags() {
+    space=" "
+    prefix_items ' -L' $(get_tools_libs) $(get_libc_lib_dir) 
+}
+
+function get_rpath_flag() {
+    local paths=$(unique_items "$(get_tools_libs) $(get_libc_lib_dir) $(get_gcc_lib_dir)")
+    local rpath=$(prefix_items '-rpath=' $paths)
+    rpath=$(delim_items ',' $rpath)
+
+    if [[ -n $rpath ]]; then
+        echo "-Wl,$rpath"
+    fi;
+}
+
+function get_path() {
+    local key='/bin'
+    local paths=$(unique_items "$(get_tools_prefix) $(get_libc_prefix)")
+    local result=$(suffix_items '/bin' $paths)
+    result=$(delim_items ':' $result)
+
+    set_result $result
+}
+
+function get_lib_dirs() {
+    local space=" "
+    local paths=$(unique_items "$(get_tools_libs) $(get_libc_lib_dir)")
+    local result="$(delim_items "$space" $paths)"
+    set_result $result
+}
+
+function get_cflags() {
+    set_result "$(get_bit_flags)";
+}
+
+function concat_env()
+{
+    if [[ $# -le 1 ]]; then
+        echo $1
+    else
+        echo $1:$2
+    fi;
+}
+
+function tch()
+{
+    local what=$1; shift
+
+    case $what in
+        path)
+            get_path
+        ;;
+        lib-dirs)
+            get_lib_dirs $@
+        ;;
+        lib-flags)
+            get_lib_flags
+        ;; 
+        compiler)
+            get_compiler $1
+        ;;
+        cflags)
+            get_cflags
+        ;;
+        include-dirs)
+            get_include_dirs $@
+        ;;
+        include-flags)
+            get_include_flags
+        ;;
+        dynamic-linker)
+            get_dynamic_linker_flag
+        ;;
+        rpath)
+            get_rpath_flag
+        ;;
+        *)
+            throw "Unexpected env param $1"
+        ;;
+    esac;
+}
+
+function b2_flags() {
+    case $1 in
+        include)
+            echo $(prefix_items "include=" $(tch include-dirs))
+        ;;
+        ldflags)
+            echo $(prefix_items "linkflags=" $(tch lib-flags))
+        ;;
+    esac;
+}
