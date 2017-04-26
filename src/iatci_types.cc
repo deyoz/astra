@@ -1305,6 +1305,11 @@ static xmlNodePtr xmlViewIatciPax(xmlNodePtr paxesNode,
                                   const boost::optional<DocDetails>& doc,
                                   int& currPax)
 {
+    int parentPaxId = 0;
+    if(pax.isInfant()) {
+        parentPaxId = -currPax;
+    }
+
     xmlNodePtr paxNode = newChild(paxesNode, "pax");
     NewTextChild(paxNode, "pax_id", -(++currPax));
     NewTextChild(paxNode, "surname", pax.surname());
@@ -1388,6 +1393,11 @@ static xmlNodePtr xmlViewIatciPax(xmlNodePtr paxesNode,
     }
 
     NewTextChild(paxNode, "iatci_pax_id", pax.respRef());
+    if(parentPaxId) {
+        NewTextChild(paxNode, "iatci_parent_pax_id", parentPaxId);
+    } else {
+        NewTextChild(paxNode, "iatci_parent_pax_id");
+    }
 
     return paxNode;
 }

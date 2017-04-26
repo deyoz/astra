@@ -153,6 +153,7 @@ struct PaxInfo
     std::string                  m_seatNo;
     std::string                  m_regNo;
     std::string                  m_iatciPaxId;
+    int                          m_iatciParentId;
     Ticketing::SubClass          m_subclass;
     boost::optional<DocInfo>     m_doc;
     boost::optional<AddressInfo> m_address;
@@ -171,13 +172,15 @@ struct PaxInfo
             const std::string& iatciPaxId,
             const Ticketing::SubClass& subclass,
             const boost::optional<DocInfo>& doc,
-            const boost::optional<Remarks>& rems = boost::none);
+            const boost::optional<Remarks>& rems = boost::none,
+            int iatciParentId = 0);
 
     int                          id() const { return m_paxId; }
     std::string              seatNo() const { return m_seatNo; }
     bool                   isInfant() const { return m_persType == ASTRA::baby; }
     boost::optional<Remark> ssrInft() const;
     std::string            fullName() const;
+    int               iatciParentId() const { return m_iatciParentId; }
 };
 
 bool operator==(const PaxInfo& left, const PaxInfo& right);
@@ -266,6 +269,7 @@ struct XmlPax
     int         user_id;
     std::string airp_arv;
     std::string iatci_pax_id;
+    int         iatci_parent_id;
     boost::optional<XmlPaxDoc> doc;
     boost::optional<XmlRems> rems;
 

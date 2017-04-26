@@ -1270,7 +1270,8 @@ XmlPax::XmlPax()
       cl_grp_id(ASTRA::NoExists),
       hall_id(ASTRA::NoExists),
       point_arv(ASTRA::NoExists),
-      user_id(ASTRA::NoExists)
+      user_id(ASTRA::NoExists),
+      iatci_parent_id(ASTRA::NoExists)
 {}
 
 bool XmlPax::equalName(const std::string& surname, const std::string& name) const
@@ -1310,7 +1311,8 @@ astra_entities::PaxInfo XmlPax::toPax() const
                                    !subclass.empty() ? Ticketing::SubClass(subclass)
                                                      : Ticketing::SubClass(),
                                    paxDoc,
-                                   paxRems);
+                                   paxRems,
+                                   iatci_parent_id != ASTRA::NoExists ? iatci_parent_id : 0);
 }
 
 //---------------------------------------------------------------------------------------
@@ -1773,31 +1775,32 @@ XmlPax XmlEntityReader::readPax(xmlNodePtr paxNode)
     ASSERT(paxNode);
 
     XmlPax pax;
-    pax.pax_id         = NodeAsInteger("pax_id",         paxNode, ASTRA::NoExists);
-    pax.grp_id         = NodeAsInteger("grp_id",         paxNode, ASTRA::NoExists);
-    pax.cl_grp_id      = NodeAsInteger("cl_grp_id",      paxNode, ASTRA::NoExists);
-    pax.surname        = NodeAsString("surname",         paxNode, "");
-    pax.name           = NodeAsString("name",            paxNode, "");
-    pax.airp_arv       = NodeAsString("airp_arv",        paxNode, "");
-    pax.pers_type      = NodeAsString("pers_type",       paxNode, "");
-    pax.seat_no        = NodeAsString("seat_no",         paxNode, "");
-    pax.seat_type      = NodeAsString("seat_type",       paxNode, "");
-    pax.seats          = NodeAsInteger("seats",          paxNode, ASTRA::NoExists);
-    pax.refuse         = NodeAsString("refuse",          paxNode, "");
-    pax.reg_no         = NodeAsInteger("reg_no",         paxNode, ASTRA::NoExists);
-    pax.subclass       = NodeAsString("subclass",        paxNode, "");
-    pax.bag_pool_num   = NodeAsInteger("bag_pool_num",   paxNode, ASTRA::NoExists);
-    pax.tid            = NodeAsInteger("tid",            paxNode, ASTRA::NoExists);
-    pax.ticket_no      = NodeAsString("ticket_no",       paxNode, "");
-    pax.coupon_no      = NodeAsInteger("coupon_no",      paxNode, ASTRA::NoExists);
-    pax.ticket_rem     = NodeAsString("ticket_rem",      paxNode, "");
-    pax.ticket_confirm = NodeAsInteger("ticket_confirm", paxNode, ASTRA::NoExists);
-    pax.pr_norec       = NodeAsInteger("pr_norec",       paxNode, ASTRA::NoExists);
-    pax.pr_bp_print    = NodeAsInteger("pr_bp_print",    paxNode, ASTRA::NoExists);
-    pax.hall_id        = NodeAsInteger("hall_id",        paxNode, ASTRA::NoExists);
-    pax.point_arv      = NodeAsInteger("point_arv",      paxNode, ASTRA::NoExists);
-    pax.user_id        = NodeAsInteger("user_id",        paxNode, ASTRA::NoExists);
-    pax.iatci_pax_id   = NodeAsString("iatci_pax_id",    paxNode, "");
+    pax.pax_id          = NodeAsInteger("pax_id",              paxNode, ASTRA::NoExists);
+    pax.grp_id          = NodeAsInteger("grp_id",              paxNode, ASTRA::NoExists);
+    pax.cl_grp_id       = NodeAsInteger("cl_grp_id",           paxNode, ASTRA::NoExists);
+    pax.surname         = NodeAsString("surname",              paxNode, "");
+    pax.name            = NodeAsString("name",                 paxNode, "");
+    pax.airp_arv        = NodeAsString("airp_arv",             paxNode, "");
+    pax.pers_type       = NodeAsString("pers_type",            paxNode, "");
+    pax.seat_no         = NodeAsString("seat_no",              paxNode, "");
+    pax.seat_type       = NodeAsString("seat_type",            paxNode, "");
+    pax.seats           = NodeAsInteger("seats",               paxNode, ASTRA::NoExists);
+    pax.refuse          = NodeAsString("refuse",               paxNode, "");
+    pax.reg_no          = NodeAsInteger("reg_no",              paxNode, ASTRA::NoExists);
+    pax.subclass        = NodeAsString("subclass",             paxNode, "");
+    pax.bag_pool_num    = NodeAsInteger("bag_pool_num",        paxNode, ASTRA::NoExists);
+    pax.tid             = NodeAsInteger("tid",                 paxNode, ASTRA::NoExists);
+    pax.ticket_no       = NodeAsString("ticket_no",            paxNode, "");
+    pax.coupon_no       = NodeAsInteger("coupon_no",           paxNode, ASTRA::NoExists);
+    pax.ticket_rem      = NodeAsString("ticket_rem",           paxNode, "");
+    pax.ticket_confirm  = NodeAsInteger("ticket_confirm",      paxNode, ASTRA::NoExists);
+    pax.pr_norec        = NodeAsInteger("pr_norec",            paxNode, ASTRA::NoExists);
+    pax.pr_bp_print     = NodeAsInteger("pr_bp_print",         paxNode, ASTRA::NoExists);
+    pax.hall_id         = NodeAsInteger("hall_id",             paxNode, ASTRA::NoExists);
+    pax.point_arv       = NodeAsInteger("point_arv",           paxNode, ASTRA::NoExists);
+    pax.user_id         = NodeAsInteger("user_id",             paxNode, ASTRA::NoExists);
+    pax.iatci_pax_id    = NodeAsString("iatci_pax_id",         paxNode, "");
+    pax.iatci_parent_id = NodeAsInteger("iatci_parent_pax_id", paxNode, ASTRA::NoExists);
 
     // doc
     xmlNodePtr docNode = findNode(paxNode, "document");
@@ -2642,7 +2645,8 @@ PaxInfo::PaxInfo(int paxId,
                  const std::string& iatciPaxId,
                  const Ticketing::SubClass& subclass,
                  const boost::optional<DocInfo>& doc,
-                 const boost::optional<Remarks>& rems)
+                 const boost::optional<Remarks>& rems,
+                 int iatciParentId)
     : m_paxId(paxId),
       m_surname(surname),
       m_name(name),
@@ -2655,7 +2659,8 @@ PaxInfo::PaxInfo(int paxId,
       m_iatciPaxId(iatciPaxId),
       m_subclass(subclass),
       m_doc(doc),
-      m_rems(rems)
+      m_rems(rems),
+      m_iatciParentId(iatciParentId)
 {}
 
 boost::optional<Remark> PaxInfo::ssrInft() const
@@ -2679,21 +2684,22 @@ std::string PaxInfo::fullName() const
 
 bool operator==(const PaxInfo& left, const PaxInfo& right)
 {
-    return (left.m_paxId     == right.m_paxId &&
-            left.m_surname   == right.m_surname &&
-            left.m_name      == right.m_name &&
-            left.m_persType  == right.m_persType &&
-            left.m_ticketNum == right.m_ticketNum &&
-            left.m_couponNum == right.m_couponNum &&
-            left.m_ticketRem == right.m_ticketRem &&
-            left.m_seatNo    == right.m_seatNo &&
-            left.m_regNo     == right.m_regNo &&
-            left.m_iatciPaxId== right.m_iatciPaxId &&
-            left.m_subclass  == right.m_subclass &&
-            left.m_doc       == right.m_doc &&
-            left.m_address   == right.m_address &&
-            left.m_visa      == right.m_visa &&
-            left.m_rems      == right.m_rems);
+    return (left.m_paxId         == right.m_paxId &&
+            left.m_surname       == right.m_surname &&
+            left.m_name          == right.m_name &&
+            left.m_persType      == right.m_persType &&
+            left.m_ticketNum     == right.m_ticketNum &&
+            left.m_couponNum     == right.m_couponNum &&
+            left.m_ticketRem     == right.m_ticketRem &&
+            left.m_seatNo        == right.m_seatNo &&
+            left.m_regNo         == right.m_regNo &&
+            left.m_iatciPaxId    == right.m_iatciPaxId &&
+            left.m_subclass      == right.m_subclass &&
+            left.m_doc           == right.m_doc &&
+            left.m_address       == right.m_address &&
+            left.m_visa          == right.m_visa &&
+            left.m_rems          == right.m_rems &&
+            left.m_iatciParentId == right.m_iatciParentId);
 }
 
 bool operator!=(const PaxInfo& left, const PaxInfo& right)

@@ -922,6 +922,18 @@ static boost::optional<astra_entities::PaxInfo> findPax(const std::list<astra_en
     return boost::none;
 }
 
+static boost::optional<astra_entities::PaxInfo> findInfantByParentId(const std::list<astra_entities::PaxInfo>& lInfants,
+                                                                     int parentId)
+{
+    for(const auto& inft: lInfants) {
+        if(inft.iatciParentId() == parentId) {
+            return inft;
+        }
+    }
+
+    return boost::none;
+}
+
 static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
 {
     XmlCheckInTabs ownTabs(findNodeR(reqNode, "segments"));
@@ -994,10 +1006,26 @@ static iatci::CkxParams getCkxParams(xmlNodePtr reqNode)
     const XmlCheckInTab& firstOldTab = oldIatciTabs.tabs().front();
     const XmlCheckInTab& firstReqTab = reqIatciTabs.tabs().front();
 
+    const std::list<astra_entities::PaxInfo> lPax = firstOldTab.lPax();
+    const std::list<astra_entities::PaxInfo> lNonInfants = filterNotInfants(lPax);
+    const std::list<astra_entities::PaxInfo> lInfants = filterInfants(lPax);
+
     std::list<iatci::dcqckx::PaxGroup> lPaxGrp;
-    for(const auto& pax: firstOldTab.lPax()) {
+    for(const auto& pax: lNonInfants) {
         if(firstReqTab.getPaxById(pax.id())) {
-            lPaxGrp.push_back(iatci::dcqckx::PaxGroup(iatci::makePax(pax)));
+            boost::optional<iatci::PaxDetails> infant;
+            if(!lInfants.empty()) {
+                boost::optional<astra_entities::PaxInfo> inft = findInfantByParentId(lInfants, pax.id());
+                if(inft) {
+                    infant = iatci::makePax(*inft);
+                }
+            }
+            lPaxGrp.push_back(iatci::dcqckx::PaxGroup(iatci::makePax(pax, infant),
+                                                      boost::none,
+                                                      boost::none,
+                                                      boost::none,
+                                                      boost::none,
+                                                      infant));
         }
     }
 

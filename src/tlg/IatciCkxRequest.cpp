@@ -51,7 +51,12 @@ void CkxRequest::collectMessage()
         SetEdiSegGr(pMes(), SegGrElement(2, currPxg));
         SetEdiPointToSegGrW(pMes(), SegGrElement(2, currPxg++));
 
-        viewPpdElement(pMes(), pxg.pax());
+        if(pxg.infant()) {
+            viewPpdElement(pMes(), pxg.pax(), *pxg.infant());
+        } else {
+            viewPpdElement(pMes(), pxg.pax());
+        }
+
         if(pxg.reserv()) {
             viewPrdElement(pMes(), *pxg.reserv());
         }

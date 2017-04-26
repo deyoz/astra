@@ -1913,6 +1913,7 @@ $(KICK_IN)
             <pr_bi_print>0</pr_bi_print>
             <rems/>
             <iatci_pax_id>0013929620</iatci_pax_id>
+            <iatci_parent_pax_id/>
           </pax>
         </passengers>
         <paid_bag_emd/>
@@ -2351,6 +2352,7 @@ $(KICK_IN)
               </rem>
             </rems>
             <iatci_pax_id/>
+            <iatci_parent_pax_id/>
           </pax>
         </passengers>
         <paid_bag_emd/>
@@ -3234,6 +3236,7 @@ $(KICK_IN)
             <pr_bi_print>0</pr_bi_print>
             <rems/>
             <iatci_pax_id/>
+            <iatci_parent_pax_id/>
             <document>
               <type>P</type>
               <no>99999999999</no>
@@ -4805,6 +4808,7 @@ $(KICK_IN)
               </rem>
             </rems>
             <iatci_pax_id/>
+            <iatci_parent_pax_id/>
           </pax>
           <pax>
             <pax_id>-2</pax_id>
@@ -4852,6 +4856,7 @@ $(KICK_IN)
               </rem>
             </rems>
             <iatci_pax_id/>
+            <iatci_parent_pax_id/>
           </pax>
         </passengers>
         <paid_bag_emd/>
@@ -5082,6 +5087,7 @@ $(KICK_IN)
               </rem>
             </rems>
             <iatci_pax_id>0013949613</iatci_pax_id>
+            <iatci_parent_pax_id/>
           </pax>
           <pax>
             <pax_id>-2</pax_id>
@@ -5132,5 +5138,146 @@ $(KICK_IN)
               </rem>
             </rems>
             <iatci_pax_id>0013949614</iatci_pax_id>
+            <iatci_parent_pax_id>-1</iatci_parent_pax_id>
           </pax>
         </passengers>
+
+
+$(set grp_id $(get_single_grp_id $(get point_dep) REPIN ADULT))
+$(set tid $(get_single_tid $(get point_dep) REPIN ADULT))
+
+
+# Æ‚¨•≠†
+
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <segments>
+        <segment>
+          <point_dep>$(get point_dep)</point_dep>
+          <point_arv>$(get point_arv)</point_arv>
+          <airp_dep>ÑåÑ</airp_dep>
+          <airp_arv>èãä</airp_arv>
+          <class>ù</class>
+          <grp_id>$(get grp_id)</grp_id>
+          <tid>$(get tid)</tid>
+          <passengers>
+            <pax>
+              <pax_id>$(get pax_1_id)</pax_id>
+              <surname>REPIN</surname>
+              <name>ADULT</name>
+              <pers_type>Çá</pers_type>
+              <refuse>Ä</refuse>
+              <ticket_no>2982401841689</ticket_no>
+              <coupon_no>1</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>1</ticket_confirm>
+              <document>
+                <type>P</type>
+                <issue_country>RUS</issue_country>
+                <no>7774441110</no>
+                <nationality>RUS</nationality>
+                <birth_date>01.05.1976 00:00:00</birth_date>
+                <gender>M</gender>
+                <surname>REPIN</surname>
+                <first_name>ADULT</first_name>
+              </document>
+              <doco/>
+              <addresses/>
+              <bag_pool_num/>
+              <subclass>ù</subclass>
+              <tid>$(get tid)</tid>
+            </pax>
+            <pax>
+              <pax_id>$(get pax_2_id)</pax_id>
+              <surname>REPIN</surname>
+              <name>INFANT</name>
+              <pers_type>êå</pers_type>
+              <refuse>Ä</refuse>
+              <ticket_no>2982401841612</ticket_no>
+              <coupon_no>1</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>1</ticket_confirm>
+              <document>
+                <type>P</type>
+                <issue_country>RUS</issue_country>
+                <no>7774441110</no>
+                <nationality>RUS</nationality>
+                <birth_date>01.05.1976 00:00:00</birth_date>
+                <gender>M</gender>
+                <surname>REPIN</surname>
+                <first_name>INFANT</first_name>
+              </document>
+              <doco/>
+              <addresses/>
+              <bag_pool_num/>
+              <subclass>ù</subclass>
+              <tid>$(get tid)</tid>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+        <segment>
+          <point_dep>-1</point_dep>
+          <point_arv>-1</point_arv>
+          <airp_dep>èãä</airp_dep>
+          <airp_arv>ëéó</airp_arv>
+          <grp_id>-1</grp_id>
+          <tid>0</tid>
+          <passengers>
+            <pax>
+              <pax_id>-1</pax_id>
+              <surname>REPIN</surname>
+              <name>ADULT</name>
+              <pers_type>Çá</pers_type>
+              <refuse>Ä</refuse>
+              <ticket_no>2982401841689</ticket_no>
+              <coupon_no/>
+              <ticket_rem/>
+              <ticket_confirm>1</ticket_confirm>
+              <document/>
+              <doco/>
+              <addresses/>
+              <bag_pool_num/>
+              <subclass>ù</subclass>
+              <tid>0</tid>
+            </pax>
+            <pax>
+              <pax_id>-1</pax_id>
+              <surname>REPIN</surname>
+              <name>INFANT</name>
+              <pers_type>êå</pers_type>
+              <refuse>Ä</refuse>
+              <ticket_no>2982401841612</ticket_no>
+              <coupon_no/>
+              <ticket_rem/>
+              <ticket_confirm>1</ticket_confirm>
+              <document/>
+              <doco/>
+              <addresses/>
+              <bag_pool_num/>
+              <subclass>ù</subclass>
+              <tid>0</tid>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+      </segments>
+      <hall>1</hall>
+      <bag_refuse/>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKX:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)+LED+AER"
+PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"
