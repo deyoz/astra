@@ -9,7 +9,7 @@ function uab_config_and_build() {
     shift 1
     
     cd $prefix/src/source
-    ./configure --prefix=$prefix CC="CC" CXX="CXX" CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" $@
+    ./configure --prefix=$prefix CC="$CC" CXX="$CXX" CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" $@
     make -j${MAKE_J:-3}
     make install
 }
