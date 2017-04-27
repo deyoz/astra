@@ -43,7 +43,7 @@ public:
         boost::optional<edifact::PsdElem> m_psd;
         boost::optional<edifact::PbdElem> m_pbd;
         boost::optional<edifact::PsiElem> m_psi;
-        boost::optional<edifact::PapElem> m_papAdult;
+        boost::optional<edifact::PapElem> m_pap;
         boost::optional<edifact::PapElem> m_papInfant;
         //boost::optional<edifact::AddElem> m_add;
 
@@ -211,11 +211,10 @@ void IatciCkiParamsMaker::Pxg::setPsi(const boost::optional<edifact::PsiElem>& p
 
 void IatciCkiParamsMaker::Pxg::addPap(const boost::optional<edifact::PapElem>& pap)
 {
-    if(pap && (pap->m_type == "A" || pap->m_type.empty())) {
-        m_papAdult = pap;
-    }
     if(pap && pap->m_type == "IN") {
         m_papInfant = pap;
+    } else {
+        m_pap = pap;
     }
 }
 
@@ -270,8 +269,8 @@ boost::optional<iatci::ServiceDetails> IatciCkiParamsMaker::Pxg::makeService() c
 
 boost::optional<iatci::DocDetails> IatciCkiParamsMaker::Pxg::makeDoc() const
 {
-    if(m_papAdult) {
-        return iatci::makeDoc(*m_papAdult);
+    if(m_pap) {
+        return iatci::makeDoc(*m_pap);
     }
 
     return boost::none;
