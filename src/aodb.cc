@@ -179,114 +179,6 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
                    vector<AODB_STRUCT> &prior_aodb_pax, vector<AODB_STRUCT> &prior_aodb_bag,
                    string &res_checkin );
 
-// привязка к новому рейсу
-void bindingAODBFlt( const std::string &point_addr, int point_id, double aodb_point_id )
-{
-  ProgTrace( TRACE5, "bindingAODBFlt: point_addr=%s, point_id=%d, aodb_point_id=%f",
-             point_addr.c_str(), point_id, aodb_point_id );
-  vector<string> strs;
-  vector<int> points;
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-      "SELECT point_addr,aodb_point_id, point_id FROM aodb_points "
-      " WHERE point_addr=:point_addr AND aodb_point_id=:aodb_point_id AND point_id!=:point_id FOR UPDATE";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "point_addr", otString, point_addr );
-  Qry.CreateVariable( "aodb_point_id", otFloat, aodb_point_id );
-  Qry.Execute();
-  while ( !Qry.Eof ) {
-    string str = string( "point_addr=" ) +  Qry.FieldAsString("point_addr") +
-        ",point_id="+Qry.FieldAsString( "point_id" ) +",aodb_point_id=" +  Qry.FieldAsString( "aodb_point_id" );
-    points.push_back( Qry.FieldAsInteger( "point_id" ) );
-    strs.push_back( str );
-    Qry.Next();
-  }
-  try {
-    Qry.Clear();
-    Qry.SQLText =
-        "BEGIN "
-        " DELETE aodb_bag WHERE point_addr=:point_addr AND "
-        "   pax_id IN ( SELECT pax_id FROM aodb_pax WHERE point_id=:point_id AND point_addr=:point_addr ); "
-        " DELETE aodb_unaccomp WHERE point_addr=:point_addr AND point_id=:point_id; "
-        " DELETE aodb_pax WHERE point_addr=:point_addr AND point_id=:point_id; "
-        " DELETE aodb_points WHERE point_addr=:point_addr AND point_id=:point_id; "
-        "END;";
-    Qry.CreateVariable( "point_addr", otString, point_addr );
-    Qry.DeclareVariable( "point_id", otInteger );
-    for ( vector<int>::iterator i=points.begin(); i!=points.end(); i++ ) {
-      Qry.SetVariable( "point_id", *i );
-      Qry.Execute();
-    }
-    Qry.Clear();
-    Qry.SQLText =
-        "BEGIN "
-        " UPDATE aodb_points "
-        " SET aodb_point_id=:aodb_point_id, pr_del=0 "
-        " WHERE point_id=:point_id AND point_addr=:point_addr; "
-        " IF SQL%NOTFOUND THEN "
-        "  INSERT INTO aodb_points(aodb_point_id,point_addr,point_id,rec_no_pax,rec_no_bag,rec_no_flt,rec_no_unaccomp,overload_alarm,pr_del) "
-        "    VALUES(:aodb_point_id,:point_addr,:point_id,-1,-1,-1,-1,0,0);"
-        " END IF; "
-        "END;";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.CreateVariable( "point_addr", otString, point_addr );
-    Qry.CreateVariable( "aodb_point_id", otFloat, aodb_point_id );
-    Qry.Execute();
-  }
-  catch(EOracleError &E) {  // deadlock!!!
-    ProgError( STDLOG, "bindingAODBFlt EOracleError:" );
-    try {
-      for ( vector<string>::iterator i=strs.begin(); i!=strs.end(); i++ ) {
-        ProgTrace( TRACE5, "%s", i->c_str() );
-      }
-    }
-    catch(...){};
-    throw;
-  }
-}
-
-void bindingAODBFlt( const std::string &airline, const int flt_no, const std::string suffix,
-                     const TDateTime locale_scd_out, const std::string airp )
-{
-  tst();
-  TFndFlts flts;
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT point_addr, aodb_point_id FROM aodb_points WHERE point_id=:point_id AND aodb_point_id IS NOT NULL FOR UPDATE";
-  Qry.DeclareVariable( "point_id", otInteger );
-  if ( findFlt( airline, flt_no, suffix, locale_scd_out, airp, true, flts ) ) {
-    map<string,double> aodb_point_ids;
-    int point_id = NoExists;
-    for ( TFndFlts::iterator i=flts.begin(); i!=flts.end(); i++ ) {
-      ProgTrace( TRACE5, "bindingAODBFlt: i->point_id=%d, i->pr_del=%d", i->point_id, i->pr_del );
-      if ( i->pr_del == -1 ) {
-        Qry.SetVariable( "point_id", i->point_id );
-        Qry.Execute();
-        if ( !Qry.Eof ) {
-          aodb_point_ids[ Qry.FieldAsString( "point_addr" ) ] = Qry.FieldAsFloat( "aodb_point_id" );
-        }
-      }
-      if ( i->pr_del != -1 && point_id == NoExists ) {
-        point_id = i->point_id;
-      }
-    }
-    if ( point_id == NoExists )
-      return;
-    for ( map<string,double>::iterator i=aodb_point_ids.begin(); i!=aodb_point_ids.end(); i++ ) {
-      Qry.Clear();
-      Qry.SQLText =
-          "BEGIN "
-          "DELETE aodb_points WHERE point_id=:point_id AND point_addr=:point_addr AND aodb_point_id!=:aodb_point_id;"
-          "UPDATE aodb_points SET point_id=:point_id, pr_del=0 WHERE aodb_point_id=:aodb_point_id AND point_addr=:point_addr;"
-          "END;";
-      Qry.CreateVariable( "point_id", otInteger, point_id );
-      Qry.CreateVariable( "point_addr", otString, i->first );
-      Qry.CreateVariable( "aodb_point_id", otFloat, i->second );
-      Qry.Execute();
-    }
-  }
-}
-
 void createFileParamsAODB( int point_id, map<string,string> &params, bool pr_bag )
 {
   TQuery FlightQry( &OraSession );
@@ -1792,7 +1684,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
       check_DesksGates( point_id );
     }*/
 
-    bindingAODBFlt( point_addr, point_id, fl.id );
+    AODB_POINTS::bindingAODBFlt( point_addr, point_id, fl.id );
     err++;
     TTlgBinding(true).bind_flt_oper(flts);
     TTrferBinding().bind_flt_oper(flts);
@@ -2061,19 +1953,7 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr,
     else
       r<<std::fixed<<setw(6)<<rec_no<<setw(10)<<"";
     r<<setw(10)<<flight.substr(0,10)<<setw(16)<<DateTimeToStr( scd_out, "dd.mm.yyyy hh:nn" )<<record.str();
-    Qry.Clear();
-    Qry.SQLText =
-        "BEGIN "
-        " UPDATE aodb_points SET rec_no_flt=NVL(rec_no_flt,-1)+1 "
-        "  WHERE point_id=:point_id AND point_addr=:point_addr; "
-        "  IF SQL%NOTFOUND THEN "
-        "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,rec_no_flt,rec_no_pax,rec_no_bag,rec_no_unaccomp,pr_del) "
-        "      VALUES(:point_id,:point_addr,NULL,0,-1,-1,-1,0); "
-        "  END IF; "
-        "END;";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.CreateVariable( "point_addr", otString, point_addr );
-    Qry.Execute();
+    AODB_POINTS::recNoFltNext( point_id, point_addr );
     put_string_into_snapshot_points( point_id, FILE_AODB_OUT_TYPE, point_addr, !old_record.empty(), record.str() );
     fd.file_data = r.str() + "\n";
   }
@@ -2215,7 +2095,178 @@ bool is_sync_aodb_pax( const TTripInfo &tripInfo )
   Qry.CreateVariable( "flt_no", otInteger, tripInfo.flt_no );
   Qry.Execute();
   return ( !Qry.Eof );
-};
+}
+
+namespace AODB_POINTS {
+
+void recNoFltNext( int point_id, std::string point_addr )
+{
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+  "BEGIN "
+  " UPDATE aodb_points SET rec_no_flt=NVL(rec_no_flt,-1)+1 "
+  "  WHERE point_id=:point_id AND point_addr=:point_addr; "
+  "  IF SQL%NOTFOUND THEN "
+  "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,rec_no_flt,rec_no_pax,rec_no_bag,rec_no_unaccomp,pr_del,scd_out_ext) "
+  "      VALUES(:point_id,:point_addr,NULL,0,-1,-1,-1,0,NULL); "
+  "  END IF; "
+  "END;";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "point_addr", otString, point_addr );
+  Qry.Execute();
+}
+
+void setDelete( int aodb_point_id )
+{
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "UPDATE aodb_points SET pr_del=1 WHERE aodb_point_id=:aodb_point_id";
+  Qry.CreateVariable( "aodb_point_id", otFloat, aodb_point_id  );
+  Qry.Execute();
+}
+
+bool isDelete( int point_id )
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT pr_del from aodb_points WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  return ( !Qry.Eof && Qry.FieldAsInteger( "pr_del" ) );
+}
+
+void setSCD_OUT( int aodb_point_id, TDateTime aodb_scd_out )
+{
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "UPDATE aodb_points SET scd_out_ext=:scd_out_ext WHERE aodb_point_id=:aodb_point_id";
+  Qry.CreateVariable( "aodb_point_id", otFloat, aodb_point_id );
+  Qry.CreateVariable( "scd_out_ext", otDate, aodb_scd_out );
+  Qry.Execute();
+}
+
+TDateTime getSCD_OUT( int point_id )
+{
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT scd_out_ext FROM aodb_pointgs WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otFloat, point_id );
+  Qry.Execute();
+  if ( Qry.Eof || Qry.FieldIsNULL( "scd_out_ext" ) ) {
+    return ASTRA::NoExists;
+  }
+  return Qry.FieldAsDateTime( "scd_out_ext" );
+}
+
+void bindingAODBFlt( const std::string &point_addr, int point_id, double aodb_point_id )
+{
+  ProgTrace( TRACE5, "bindingAODBFlt: point_addr=%s, point_id=%d, aodb_point_id=%f",
+             point_addr.c_str(), point_id, aodb_point_id );
+  vector<string> strs;
+  vector<int> points;
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+      "SELECT point_addr,aodb_point_id, point_id FROM aodb_points "
+      " WHERE point_addr=:point_addr AND aodb_point_id=:aodb_point_id AND point_id!=:point_id FOR UPDATE";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "point_addr", otString, point_addr );
+  Qry.CreateVariable( "aodb_point_id", otFloat, aodb_point_id );
+  Qry.Execute();
+  while ( !Qry.Eof ) {
+    string str = string( "point_addr=" ) +  Qry.FieldAsString("point_addr") +
+        ",point_id="+Qry.FieldAsString( "point_id" ) +",aodb_point_id=" +  Qry.FieldAsString( "aodb_point_id" );
+    points.push_back( Qry.FieldAsInteger( "point_id" ) );
+    strs.push_back( str );
+    Qry.Next();
+  }
+  try {
+    Qry.Clear();
+    Qry.SQLText =
+        "BEGIN "
+        " DELETE aodb_bag WHERE point_addr=:point_addr AND "
+        "   pax_id IN ( SELECT pax_id FROM aodb_pax WHERE point_id=:point_id AND point_addr=:point_addr ); "
+        " DELETE aodb_unaccomp WHERE point_addr=:point_addr AND point_id=:point_id; "
+        " DELETE aodb_pax WHERE point_addr=:point_addr AND point_id=:point_id; "
+        " DELETE aodb_points WHERE point_addr=:point_addr AND point_id=:point_id; "
+        "END;";
+    Qry.CreateVariable( "point_addr", otString, point_addr );
+    Qry.DeclareVariable( "point_id", otInteger );
+    for ( vector<int>::iterator i=points.begin(); i!=points.end(); i++ ) {
+      Qry.SetVariable( "point_id", *i );
+      Qry.Execute();
+    }
+    Qry.Clear();
+    Qry.SQLText =
+      "BEGIN "
+      " UPDATE aodb_points "
+      " SET aodb_point_id=:aodb_point_id, pr_del=0, scd_out_ext=NULL "
+      " WHERE point_id=:point_id AND point_addr=:point_addr; "
+      " IF SQL%NOTFOUND THEN "
+      "  INSERT INTO aodb_points(aodb_point_id,point_addr,point_id,rec_no_pax,rec_no_bag,rec_no_flt,rec_no_unaccomp,overload_alarm,pr_del,scd_out_ext) "
+      "    VALUES(:aodb_point_id,:point_addr,:point_id,-1,-1,-1,-1,0,0,NULL);"
+      " END IF; "
+      "END;";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.CreateVariable( "point_addr", otString, point_addr );
+    Qry.CreateVariable( "aodb_point_id", otFloat, aodb_point_id );
+    Qry.Execute();
+  }
+  catch(EOracleError &E) {  // deadlock!!!
+    ProgError( STDLOG, "bindingAODBFlt EOracleError:" );
+    try {
+      for ( vector<string>::iterator i=strs.begin(); i!=strs.end(); i++ ) {
+        ProgTrace( TRACE5, "%s", i->c_str() );
+      }
+    }
+    catch(...){};
+    throw;
+  }
+}
+
+void bindingAODBFlt( const std::string &airline, const int flt_no, const std::string suffix,
+                     const TDateTime locale_scd_out, const std::string airp )
+{
+  tst();
+  TFndFlts flts;
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT point_addr, aodb_point_id FROM aodb_points WHERE point_id=:point_id AND aodb_point_id IS NOT NULL FOR UPDATE";
+  Qry.DeclareVariable( "point_id", otInteger );
+  if ( findFlt( airline, flt_no, suffix, locale_scd_out, airp, true, flts ) ) {
+    map<string,double> aodb_point_ids;
+    int point_id = NoExists;
+    for ( TFndFlts::iterator i=flts.begin(); i!=flts.end(); i++ ) { //пробег по найденным рейсам
+      ProgTrace( TRACE5, "bindingAODBFlt: i->point_id=%d, i->pr_del=%d", i->point_id, i->pr_del );
+      if ( i->pr_del == -1 ) {
+        Qry.SetVariable( "point_id", i->point_id );
+        Qry.Execute();
+        if ( !Qry.Eof ) {
+          aodb_point_ids[ Qry.FieldAsString( "point_addr" ) ] = Qry.FieldAsFloat( "aodb_point_id" );
+        }
+      }
+      if ( i->pr_del != -1 && point_id == NoExists ) {
+        point_id = i->point_id;
+      }
+    }
+    if ( point_id == NoExists )
+      return;
+    for ( map<string,double>::iterator i=aodb_point_ids.begin(); i!=aodb_point_ids.end(); i++ ) {
+      Qry.Clear();
+      Qry.SQLText =
+          "BEGIN "
+          "DELETE aodb_points WHERE point_id=:point_id AND point_addr=:point_addr AND aodb_point_id!=:aodb_point_id;"
+          "UPDATE aodb_points SET point_id=:point_id, pr_del=0, scd_out_ext=NULL WHERE aodb_point_id=:aodb_point_id AND point_addr=:point_addr;"
+          "END;";
+      Qry.CreateVariable( "point_id", otInteger, point_id );
+      Qry.CreateVariable( "point_addr", otString, i->first );
+      Qry.CreateVariable( "aodb_point_id", otFloat, i->second );
+      Qry.Execute();
+    }
+  }
+}
+
+} //end namespace AODB_POINTS
+
 
 void VerifyParseFlight( )
 {

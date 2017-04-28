@@ -10,6 +10,7 @@
 #include "base_tables.h"
 #include "season.h"
 #include "brd.h"
+#include "aodb.h"
 #include "astra_misc.h"
 #include "term_version.h"
 #include "load_fr.h"
@@ -968,9 +969,14 @@ void trip_rpt_person(xmlNodePtr resNode, TRptParams &rpt_params)
 
 TDateTime getReportSCDOut(int point_id)
 {
-    TTripInfo flt;
-    flt.getByPointId(point_id);
-    return flt.scd_out;
+  TDateTime res = AODB_POINTS::getSCD_OUT( point_id );
+  if ( res == ASTRA::NoExists ) {
+    TTripInfo tripInfo;
+    if ( tripInfo.getByPointId ( point_id ) ) {
+      res = tripInfo.scd_out;
+    }
+  }
+  return res;
 }
 
 string getJMPSeatNo(int pax_id)
@@ -3598,7 +3604,7 @@ struct TServiceRow
         NewTextChild(rowNode, "RFISC", RFISC);
         NewTextChild(rowNode, "desc", desc);
         NewTextChild(rowNode, "num", num);
-    } 
+    }
 };
 
 class TServiceFilter
@@ -3742,7 +3748,7 @@ void SERVICES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 void SERVICESTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     SERVICES(rpt_params, reqNode, resNode);
-    
+
     xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
     xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
     int page_width=80;

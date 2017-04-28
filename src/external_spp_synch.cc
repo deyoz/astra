@@ -383,18 +383,6 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
     " ORDER BY point_num";
   uQry.DeclareVariable( "move_id", otInteger );
   uQry.CreateVariable( "airp", otString, TReqInfo::Instance()->desk.airp );
-  TQuery pQry( &OraSession );
-  pQry.SQLText =
-   "BEGIN "
-   " UPDATE aodb_points SET rec_no_flt=NVL(rec_no_flt,-1)+1 "
-   "  WHERE point_id=:point_id AND point_addr=:point_addr; "
-   "  IF SQL%NOTFOUND THEN "
-   "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,rec_no_flt,rec_no_pax,rec_no_bag,rec_no_unaccomp,pr_del) "
-   "      VALUES(:point_id,:point_addr,NULL,0,-1,-1,-1,0); "
-   "  END IF; "
-   "END;";
-  pQry.DeclareVariable( "point_id", otInteger );
-  pQry.CreateVariable( "point_addr", otString, TReqInfo::Instance()->desk.code );
   for ( std::map<std::string,map<bool, TParseFlight> >::iterator iflight = flights.begin();
         iflight != flights.end(); iflight ++ ) {
     TPoints points;
@@ -650,8 +638,7 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
                 idest!=points.dests.items.end(); idest++ ) {
             if ( pr_change_dests && idest->airp == TReqInfo::Instance()->desk.airp ) {
               ProgTrace( TRACE5, "aodb_points update point_id=%d", idest->point_id );
-              pQry.SetVariable( "point_id", idest->point_id );
-              pQry.Execute();
+              AODB_POINTS::recNoFltNext( idest->point_id, TReqInfo::Instance()->desk.code );
               break;
             }
           }
@@ -1017,19 +1004,9 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TP
  */
 class ConnectSinchronAstraCharterFlight
 {
-private:
-  bool isDeleteStatusAODB( int point_id, TQuery &Qry ) {
-    Qry.SetVariable( "point_id", point_id );
-    Qry.Execute();
-    return ( !Qry.Eof && Qry.FieldAsInteger( "pr_del" ) );
-  }
 public:
    void search( int range_hours, const TAdvTripInfo &flt, TAdvTripInfo &idealFlt ) {
      idealFlt.Clear();
-     TQuery Qry(&OraSession);
-     Qry.SQLText =
-       "SELECT pr_del from aodb_points WHERE point_id=:point_id";
-     Qry.DeclareVariable( "point_id", otInteger );
      TSearchFltInfo filter;
      filter.airline = flt.airline;
      filter.airp_dep = flt.airp;
@@ -1059,13 +1036,13 @@ public:
            continue;
          }
          if ( idealFlt.point_id == ASTRA::NoExists ) { //first init
-           if ( isDeleteStatusAODB( iflt->point_id, Qry ) ) {
+           if ( AODB_POINTS::isDelete( iflt->point_id ) ) {
              idealFlt = *iflt;
            }
            continue;
          }
          if ( fabs( idealFlt.real_out - flt.scd_out ) > fabs( iflt->real_out - flt.scd_out ) ) {
-           if ( isDeleteStatusAODB( iflt->point_id, Qry ) ) {
+           if ( AODB_POINTS::isDelete( iflt->point_id ) ) {
              idealFlt = *iflt;
            }
          }
@@ -1148,11 +1125,7 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, s
     if ( d.status == tdDelete ) {
       ProgTrace( TRACE5, "flight status=delete, but not save this event to db, ignore" );
       //aodb_points - set pr_del for charter or update aodb_point_id to NULL!!!
-      Qry.Clear();
-      Qry.SQLText =
-        "UPDATE aodb_points SET pr_del=1 WHERE aodb_point_id=:aodb_point_id";
-      Qry.CreateVariable( "aodb_point_id", otFloat, aodb_point_id  );
-      Qry.Execute();
+      AODB_POINTS::setDelete( aodb_point_id );
       return;
     }
     BitSet<TUseDestData> UseData;
@@ -1316,7 +1289,10 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, s
       d.max_commerce.Save( owndest->point_id );
       //stages and delay for next dest!!!
       //bindingAODBFlt была вызвана, когда сохраняли маршрут ???
-      bindingAODBFlt( TReqInfo::Instance()->desk.code, owndest->point_id, aodb_point_id );
+      AODB_POINTS::bindingAODBFlt( TReqInfo::Instance()->desk.code, owndest->point_id, aodb_point_id );
+      if ( pr_charter_range ) { // сохраняем плановую дату, передаваемую из Синхрона
+        AODB_POINTS::setSCD_OUT( aodb_point_id, d.scd_out );
+      }
     }
 /*  }
   catch( Exception &e ) {
