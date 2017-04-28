@@ -1,3 +1,4 @@
+m4_include([m4/pkg.m4])
 m4_include([m4/oracle.m4])
 m4_include([m4/serverlib.m4])
 m4_include([m4/eticklib.m4])

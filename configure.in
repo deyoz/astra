@@ -14,6 +14,8 @@ AC_LANG_CPLUSPLUS
 AC_PROG_CC
 AC_PROG_CXX
 
+PKG_PROG_PKG_CONFIG
+
 #check for oracle
 MRJ_CHECK_ORACLE
 #check for serverlib
