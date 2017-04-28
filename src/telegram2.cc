@@ -1713,12 +1713,12 @@ namespace PRL_SPACE {
         LoadPaxDoco(pax.pax_id, doco);
         if (getPaxRem(info, doco, inf_indicator, rem)) items.push_back(rem.text);
         //адреса
-        list<CheckIn::TPaxDocaItem> doca;
-        LoadPaxDoca(pax.pax_id, doca);
-        for(list<CheckIn::TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
+        CheckIn::TDocaMap doca_map;
+        LoadPaxDoca(pax.pax_id, doca_map);
+        for(CheckIn::TDocaMap::const_iterator d = doca_map.begin(); d != doca_map.end(); ++d)
         {
-          if (d->type!="D" && d->type!="R") continue;
-          if (getPaxRem(info, *d, inf_indicator, rem)) items.push_back(rem.text);
+          if (d->second.type!="D" && d->second.type!="R") continue;
+          if (getPaxRem(info, d->second, inf_indicator, rem)) items.push_back(rem.text);
         };
     }
 
@@ -8284,6 +8284,16 @@ void doca_list2vector(const list<CheckIn::TPaxDocaItem> &lst, vector<CheckIn::TP
     sort(v.begin(), v.end());
 }
 
+void doca_map2vector(const CheckIn::TDocaMap &doca_map, vector<CheckIn::TPaxDocaItem> &v)
+{
+    for(CheckIn::TDocaMap::const_iterator d = doca_map.begin(); d != doca_map.end(); ++d)
+    {
+        if (d->second.type!="D" && d->second.type!="R") continue;
+        v.push_back(d->second);
+    };
+    sort(v.begin(), v.end());
+}
+
 template<class T>
 void get_docX_rem(const T &doc, const T &crs_doc, TypeB::TDetailCreateInfo &info, bool inf_indicator, CheckIn::TPaxRemItem &rem, TRemList &rems) // getting doc* remarks
 {
@@ -8305,13 +8315,13 @@ bool APIPX_cmp_internal(TypeB::TDetailCreateInfo &info, int pax_id, bool inf_ind
     LoadCrsPaxDoc(pax_id, crs_docs);
     get_docX_rem(docs, crs_docs, info, inf_indicator, rem, rems);
 
-    list<CheckIn::TPaxDocaItem> doca, crs_doca;
+    CheckIn::TDocaMap doca_map, crs_doca_map;
     vector<CheckIn::TPaxDocaItem> vdoca, vcrs_doca;
-    LoadPaxDoca(pax_id, doca);
-    LoadCrsPaxDoca(pax_id, crs_doca);
+    LoadPaxDoca(pax_id, doca_map);
+    LoadCrsPaxDoca(pax_id, crs_doca_map);
 
-    doca_list2vector(doca, vdoca);
-    doca_list2vector(crs_doca, vcrs_doca);
+    doca_map2vector(doca_map, vdoca);
+    doca_map2vector(crs_doca_map, vcrs_doca);
 
     vector<CheckIn::TPaxDocaItem>::const_iterator vdoca_i = vdoca.begin();
     vector<CheckIn::TPaxDocaItem>::const_iterator vcrs_doca_i = vcrs_doca.begin();

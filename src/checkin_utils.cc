@@ -462,24 +462,26 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
               NewTextChild(paxNode,"ticket_confirm",(int)false);
             };
 
+            ASTRA::TPaxTypeExt pax_ext(currPnr.status, iPaxForCkin->crew_type);
+
             if (iPaxForCkin->present_in_req.find(apiDoc) != iPaxForCkin->present_in_req.end())
-              CheckDoc(iPaxForCkin->apis.doc, currPnr.status, iPaxForCkin->surname, checkInfo, now_local);
+              CheckDoc(iPaxForCkin->apis.doc, pax_ext, iPaxForCkin->surname, checkInfo, now_local);
             iPaxForCkin->apis.doc.toXML(paxNode);
 
             if (iPaxForCkin->present_in_req.find(apiDoco) != iPaxForCkin->present_in_req.end())
-              CheckDoco(iPaxForCkin->apis.doco, currPnr.status, checkInfo, now_local);
+              CheckDoco(iPaxForCkin->apis.doco, pax_ext, checkInfo, now_local);
             iPaxForCkin->apis.doco.toXML(paxNode);
 
-            for(list<CheckIn::TPaxDocaItem>::const_iterator d=iPaxForCkin->apis.doca.begin(); d!=iPaxForCkin->apis.doca.end(); ++d)
+            for(CheckIn::TDocaMap::const_iterator d = iPaxForCkin->apis.doca_map.begin(); d != iPaxForCkin->apis.doca_map.end(); ++d)
             {
-              const CheckIn::TPaxDocaItem &doca=*d;
+              const CheckIn::TPaxDocaItem &doca = d->second;
               if (iPaxForCkin->present_in_req.find(doca.apiType()) != iPaxForCkin->present_in_req.end())
-                CheckDoca(doca, currPnr.status, checkInfo);
+                CheckDoca(doca, pax_ext, checkInfo);
             }
 
             xmlNodePtr docaNode=NewTextChild(paxNode, "addresses");
-            for(list<CheckIn::TPaxDocaItem>::const_iterator d=iPaxForCkin->apis.doca.begin(); d!=iPaxForCkin->apis.doca.end(); ++d)
-              d->toXML(docaNode);
+            for(CheckIn::TDocaMap::const_iterator d = iPaxForCkin->apis.doca_map.begin(); d != iPaxForCkin->apis.doca_map.end(); ++d)
+              d->second.toXML(docaNode);
 
             NewTextChild(paxNode,"subclass",iPaxForCkin->subclass);
             NewTextChild(paxNode,"transfer"); //пустой тег - трансфера нет
@@ -561,10 +563,12 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
             };
           };
 
+          ASTRA::TPaxTypeExt pax_ext(currPnr.status, iPaxForChng->crew_type);
+
           bool DocUpdatesPending=false;
           if (iPaxForChng->present_in_req.find(apiDoc) != iPaxForChng->present_in_req.end()) //тег <document> пришел
           {
-            CheckDoc(iPaxForChng->doc, currPnr.status, iPaxForChng->surname, checkInfo, now_local);
+            CheckDoc(iPaxForChng->doc, pax_ext, iPaxForChng->surname, checkInfo, now_local);
             CheckIn::TPaxDocItem prior_doc;
             LoadPaxDoc(iPaxForChng->crs_pax_id, prior_doc);
             DocUpdatesPending=!(prior_doc.equal(iPaxForChng->doc)); //реагируем также на изменение scanned_attrs
@@ -573,7 +577,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
           bool DocoUpdatesPending=false;
           if (iPaxForChng->present_in_req.find(apiDoco) != iPaxForChng->present_in_req.end()) //тег <doco> пришел
           {
-            CheckDoco(iPaxForChng->doco, currPnr.status, checkInfo, now_local);
+            CheckDoco(iPaxForChng->doco, pax_ext, checkInfo, now_local);
             CheckIn::TPaxDocoItem prior_doco;
             LoadPaxDoco(iPaxForChng->crs_pax_id, prior_doco);
             DocoUpdatesPending=!(prior_doco.equal(iPaxForChng->doco)); //реагируем также на изменение scanned_attrs

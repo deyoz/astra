@@ -261,6 +261,14 @@ void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv
         };
       };
     };
+    _extra_crew = _pass;
+    // применение настроек "не контролировать документ"
+    if (GetTripSets(tsNoCtrlDocsCrew, fltInfo))
+      for (std::set<TAPIType>::const_iterator api = get_apis_doc_set().begin(); api != get_apis_doc_set().end(); ++api)
+        _crew.get(*api).required_fields = NO_FIELDS;
+    if (GetTripSets(tsNoCtrlDocsExtraCrew, fltInfo))
+      for (std::set<TAPIType>::const_iterator api = get_apis_doc_set().begin(); api != get_apis_doc_set().end(); ++api)
+        _extra_crew.get(*api).required_fields = NO_FIELDS;
   };
 }
 
@@ -326,12 +334,12 @@ void throwInvalidSymbol(const string &fieldname,
 }
 
 void CheckDoc(const CheckIn::TPaxDocItem &doc,
-              ASTRA::TPaxStatus status,
+              TPaxTypeExt pax_type_ext,
               const std::string &pax_surname,
               const TCompleteAPICheckInfo &checkInfo,
               TDateTime nowLocal)
 {
-  const TAPICheckInfo &ci=checkInfo.get(doc, status);
+  const TAPICheckInfo &ci=checkInfo.get(doc, pax_type_ext);
 
   TReqInfo *reqInfo = TReqInfo::Instance();
   try
@@ -460,11 +468,11 @@ void CheckDoc(const CheckIn::TPaxDocItem &doc,
 }
 
 void CheckDoco(const CheckIn::TPaxDocoItem &doc,
-               ASTRA::TPaxStatus status,
+               TPaxTypeExt pax_type_ext,
                const TCompleteAPICheckInfo &checkInfo,
                TDateTime nowLocal)
 {
-  const TAPICheckInfo &ci=checkInfo.get(doc, status);
+  const TAPICheckInfo &ci=checkInfo.get(doc, pax_type_ext);
 
   TReqInfo *reqInfo = TReqInfo::Instance();
   try
@@ -562,10 +570,10 @@ void CheckDoco(const CheckIn::TPaxDocoItem &doc,
 }
 
 void CheckDoca(const CheckIn::TPaxDocaItem &doc,
-               ASTRA::TPaxStatus status,
+               TPaxTypeExt pax_type_ext,
                const TCompleteAPICheckInfo &checkInfo)
 {
-  const TAPICheckInfo &ci=checkInfo.get(doc, status);
+  const TAPICheckInfo &ci=checkInfo.get(doc, pax_type_ext);
 
   TReqInfo *reqInfo = TReqInfo::Instance();
   try
@@ -1085,10 +1093,11 @@ void HandleDoc(const CheckIn::TPaxGrpItem &grp,
                const TDateTime &checkDate,
                CheckIn::TPaxDocItem &doc)
 {
+  ASTRA::TPaxTypeExt pax_type_ext(grp.status, pax.crew_type);
   doc=NormalizeDoc(doc);
-  CheckDoc(doc, grp.status, pax.surname, checkInfo, checkDate);
+  CheckDoc(doc, pax_type_ext, pax.surname, checkInfo, checkDate);
 
-  if (checkInfo.incomplete(doc, grp.status))
+  if (checkInfo.incomplete(doc, pax_type_ext))
     throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOC_INFO_NOT_SET");
 
   for(set<string>::const_iterator f=checkInfo.apis_formats().begin(); f!=checkInfo.apis_formats().end(); ++f)
@@ -1118,10 +1127,11 @@ void HandleDoco(const CheckIn::TPaxGrpItem &grp,
 {
   if (!(doco.getNotEmptyFieldsMask()==NO_FIELDS && doco.doco_confirm)) //пришла непустая информация о визе
   {
+    ASTRA::TPaxTypeExt pax_type_ext(grp.status, pax.crew_type);
     doco=NormalizeDoco(doco);
-    CheckDoco(doco, grp.status, checkInfo, checkDate);
+    CheckDoco(doco, pax_type_ext, checkInfo, checkDate);
 
-    if (checkInfo.incomplete(doco, grp.status))
+    if (checkInfo.incomplete(doco, pax_type_ext))
       throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOCO_INFO_NOT_SET");
   };
 };
@@ -1129,14 +1139,15 @@ void HandleDoco(const CheckIn::TPaxGrpItem &grp,
 void HandleDoca(const CheckIn::TPaxGrpItem &grp,
                 const CheckIn::TSimplePaxItem &pax,
                 const TCompleteAPICheckInfo &checkInfo,
-                list<CheckIn::TPaxDocaItem> &doca)
+                CheckIn::TDocaMap &doca_map)
 {
-  for(list<CheckIn::TPaxDocaItem>::iterator d=doca.begin(); d!=doca.end(); ++d)
+  ASTRA::TPaxTypeExt pax_type_ext(grp.status, pax.crew_type);
+  for(CheckIn::TDocaMap::iterator d = doca_map.begin(); d != doca_map.end(); ++d)
   {
-    CheckIn::TPaxDocaItem &doc=*d;
+    CheckIn::TPaxDocaItem &doc = d->second;
     doc=NormalizeDoca(doc);
-    CheckDoca(doc, grp.status, checkInfo);
-    if (checkInfo.incomplete(doc, grp.status))
+    CheckDoca(doc, pax_type_ext, checkInfo);
+    if (checkInfo.incomplete(doc, pax_type_ext))
     {
       switch(doc.apiType())
       {

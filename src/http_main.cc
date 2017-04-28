@@ -365,10 +365,6 @@ void save_http_client_headers(const request &req)
 
 void http_main(reply& rep, const request& req)
 {
-  LogTrace(TRACE5) << "GRISHA: " << __FUNCTION__;
-  LogTrace(TRACE5) << "method = " << req.method;
-  LogTrace(TRACE5) << "uri = " << req.uri;
-  LogTrace(TRACE5) << "content = " << req.content;
   try
   {
     try
