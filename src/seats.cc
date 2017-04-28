@@ -1577,7 +1577,7 @@ bool TSeatPlaces::SeatsGrp_On( SALONS2::TPoint FP  )
 
 bool TSeatPlaces::SeatsPassenger_OnBasePlace( string &placeName, TSeatStep Step )
 {
-//  ProgTrace( TRACE5, "SeatsPassenger_OnBasePlace( )" );
+//  ProgTrace( TRACE5, "SeatsPassenger_OnBasePlace( ) placeName=%s", placeName.c_str() );
   bool OldCanUseSmoke = CanUseSmoke;
   //bool CanUseSmoke = false;
   try {
@@ -1641,7 +1641,7 @@ bool TSeatPlaces::SeatGrpOnBasePlace( )
     for ( int i=0; i<lp; i++ ) {
       /* выделяем из группы главного пассажира и находим для него место */
       TPassenger &pass = Passengers.Get( i );
-      //ProgTrace( TRACE5, "pass.countPlace=%d, pass.step=%d(sDown=%d)", pass.countPlace, pass.Step, sDown );
+//      ProgTrace( TRACE5, "pass %s", pass.toString().c_str() );
       Passengers.SetCountersForPass( pass );
       getRemarks( pass );
       if ( !pass.preseat_no.empty() &&
@@ -1734,7 +1734,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
   bool isWorkINFT = AllowedAttrsSeat.pr_isWorkINFT;
 
   bool pr_seat = false;
-  //ProgTrace( TRACE5, "SeatsPassengers: pr_isWorkINFT=%d", AllowedAttrsSeat.pr_isWorkINFT );
+//  ProgTrace( TRACE5, "SeatsPassengers: pr_isWorkINFT=%d", AllowedAttrsSeat.pr_isWorkINFT );
 
   try {
     for ( int FCanUseINFT=AllowedAttrsSeat.pr_isWorkINFT; FCanUseINFT>=0; FCanUseINFT-- ) {
@@ -1748,8 +1748,9 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
               if ( ipass->InUse )
                 continue;
               if ( SALONS2::isUserProtectLayer( PlaceLayer ) && !CanUseLayer( PlaceLayer, UseLayers ) &&
-                   ( ipass->preseat_layer != PlaceLayer ) )
+                   ( ipass->preseat_layer != PlaceLayer ) ) {
                 continue;
+              }
               if (!( (ik == 0 && ((!AllowedAttrsSeat.pr_isWorkINFT) || (FCanUseINFT == 1 && ipass->countPlace > 0 && ipass->isRemark( "INFT" )))) ||
                      (ik == 1 && FCanUseINFT == 1 && !(ipass->countPlace > 0 && ipass->isRemark( "INFT" ))) ||
                      (ik == 2 && FCanUseINFT == 0 && !(ipass->countPlace > 0 && ipass->isRemark( "INFT" ))) )) {
@@ -2831,8 +2832,46 @@ class AnomalisticConditionsPayment
         pass.preseatPlaces.clear();
       }
     }
-    static void clearTariffsOnWebSignal( SALONS2::TSalons *Salons, TPassengers &passengers ) {
-      //удаляем предварительно назначенное платное место
+    static void setPayementOnWebSignal( SALONS2::TSalons *Salons, TPassengers &passengers ) {
+      for ( int i=0; i<passengers.getCount(); i++ ) {
+        TPassenger &pass = passengers.Get( i );
+        //ProgTrace( TRACE5, "pass %s", pass.toString().c_str() );
+        if ( !pass.dont_check_payment || pass.preseat_no.empty() ) {
+          continue;
+        }
+        for ( vector<SALONS2::TPlaceList*>::iterator plList=Salons->placelists.begin();
+              plList!=Salons->placelists.end(); plList++ ) {
+          TPlaceList* placeList = *plList;
+          TPoint FP;
+          if ( placeList->GetisPlaceXY( pass.preseat_no, FP ) ) {
+            for ( int j=0; j<pass.countPlace; j++ ) {
+              if ( !placeList->ValidPlace( FP ) )
+                break;
+              SALONS2::TPlace *place = placeList->place( FP );
+              place->AddLayerToPlace( cltProtAfterPay, NowUTC(), pass.paxId, Salons->trip_id, pass.point_arv, BASIC_SALONS::TCompLayerTypes::Instance()->priority( cltProtAfterPay ) );
+              pass.preseat_pax_id = pass.paxId;
+              pass.preseat_layer = cltProtAfterPay;
+              switch( (int)pass.Step ) {
+                case sRight:
+                   FP.x++;
+                   break;
+                case sDown:
+                   FP.y++;
+                   break;
+              }
+            }
+            break;
+          }
+        }
+      }
+/*      for ( int i=0; i<passengers.getCount(); i++ ) {
+        TPassenger &pass = passengers.Get( i );
+        ProgTrace( TRACE5, "pass %s", pass.toString().c_str() );
+      }*/
+    }
+
+/*    static void clearTariffsOnWebSignal( SALONS2::TSalons *Salons, TPassengers &passengers ) {
+      //очищаем тариф места
       for ( int i=0; i<passengers.getCount(); i++ ) {
         TPassenger &pass = passengers.Get( i );
         ProgTrace( TRACE5, "pass.preseat_no=%s", pass.preseat_no.c_str() );
@@ -2862,7 +2901,7 @@ class AnomalisticConditionsPayment
           }
         }
       }
-    }
+    }*/
 };
 
 
@@ -2884,7 +2923,8 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
     Salons->SetTariffsByRFISCColor( Salons->trip_id, passengers.Get(0).tariffs, passengers.Get(0).tariffStatus );
   }
   AnomalisticConditionsPayment::clearPreseatPaymentLayers( Salons, passengers );
-  AnomalisticConditionsPayment::clearTariffsOnWebSignal( Salons, passengers );
+  //AnomalisticConditionsPayment::clearTariffsOnWebSignal( Salons, passengers );
+  AnomalisticConditionsPayment::setPayementOnWebSignal( Salons, passengers );
 
   GetUseLayers( UseLayers );
   TUseLayers preseat_layers, curr_preseat_layers;
@@ -2926,7 +2966,6 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
     TPassenger &pass = passengers.Get( i );
     if ( SALONS2::isUserProtectLayer( pass.preseat_layer ) ) {
       preseat_layers[ pass.preseat_layer ] = true;
-      ProgTrace( TRACE5, "preseat_layers: pass.preseat_layer=%s", EncodeCompLayerType( pass.preseat_layer ) );
       if ( pass.preseat_layer == cltProtBeforePay ||
            pass.preseat_layer == cltPNLBeforePay ||
            pass.preseat_layer == cltProtAfterPay ||
@@ -2992,6 +3031,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                                       CanUseLayer( cltPNLAfterPay, preseat_layers ) );
            /* если есть в группе предварительная рассадка, то тогда сажаем всех отдельно */
            /* если есть в группе подкласс С и он не у всех пассажиров, то тогда сажаем всех отдельно */
+  //         ProgTrace( TRACE5, "use_preseat_layer=%d, SeatOnlyBasePlace=%d",use_preseat_layer,SeatOnlyBasePlace);
            if ( ( use_preseat_layer ||
                   Status_seat_no_BR ||
                   SeatOnlyBasePlace || // для каждого пассажира задано свой номер места
@@ -3033,7 +3073,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
 //               ProgTrace( TRACE5, "current_rate=condRates.rates.current_rate=%s", condRates.current_rate->str().c_str() );
                if ( ( condRates.current_rate->rate != 0.0   &&
                       SeatAlg != sSeatPassengers ) ) { //рассадка на платные места только по одному SeatAlg=1
-                 //ProgTrace( TRACE5, "condRates.current_rate=%f continue", condRates.current_rate->rate );
+  //               ProgTrace( TRACE5, "condRates.current_rate=%f continue", condRates.current_rate->rate );
                  continue;
                }
                if ( use_preseat_layer && SeatAlg == sSeatPassengers ) { // если предварительно размеченный слой, то игнорируем платные места
