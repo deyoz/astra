@@ -938,8 +938,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       }
       else
       {
-        SearchPaxByScanData(reqNode, found_point_id, reg_no, found_pax_id);
-        if (found_point_id==NoExists || reg_no==NoExists || found_pax_id==NoExists)
+          bool isBoardingPass;
+        SearchPaxByScanData(reqNode, found_point_id, reg_no, found_pax_id, isBoardingPass);
+        if (found_point_id==NoExists || reg_no==NoExists || found_pax_id==NoExists || not isBoardingPass)
           throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
       };
 
