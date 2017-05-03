@@ -2116,7 +2116,7 @@ void recNoFltNext( int point_id, std::string point_addr )
   Qry.Execute();
 }
 
-void setDelete( int aodb_point_id )
+void setDelete( double aodb_point_id )
 {
   TQuery Qry( &OraSession );
   Qry.SQLText =
@@ -2135,7 +2135,7 @@ bool isDelete( int point_id )
   return ( !Qry.Eof && Qry.FieldAsInteger( "pr_del" ) );
 }
 
-void setSCD_OUT( int aodb_point_id, TDateTime aodb_scd_out )
+void setSCD_OUT( double aodb_point_id, TDateTime aodb_scd_out )
 {
   TQuery Qry( &OraSession );
   Qry.SQLText =
