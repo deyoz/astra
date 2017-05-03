@@ -34,8 +34,8 @@ namespace AODB_POINTS {
   void bindingAODBFlt( const std::string &airline, const int flt_no, const std::string suffix,
                        const TDateTime locale_scd_out, const std::string airp );
   void recNoFltNext( int point_id, std::string point_addr );
-  void setDelete( int point_id );
-  void setSCD_OUT( int aodb_point_id, TDateTime aodb_scd_out );
+  void setDelete( double aodb_point_id );
+  void setSCD_OUT( double aodb_point_id, TDateTime aodb_scd_out );
   bool isDelete( int point_id );
   TDateTime getSCD_OUT( int point_id );
 }
