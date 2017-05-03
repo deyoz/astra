@@ -1275,7 +1275,7 @@ void TPoints::WriteDest( TPointsDest &dest )
       dest.stage_est = Qry.GetVariableAsDateTime( "vest" );
     }
   }
-  tst();  
+  tst();
 }
 
 template <class A, class B>
@@ -1891,8 +1891,8 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
       try {
         string region = AirpTZRegion( this->key.airp, true );
         TDateTime locale_scd_out = UTCToLocal( this->key.scd_out, region );
-        bindingAODBFlt( this->key.airline, this->key.flt_no, this->key.suffix,
-                        locale_scd_out, this->key.airp );
+        AODB_POINTS::bindingAODBFlt( this->key.airline, this->key.flt_no, this->key.suffix,
+                                     locale_scd_out, this->key.airp );
       }
       catch(std::exception &E) {
         ProgError(STDLOG,"BindAODBFlt: point_id=%d, %s",this->key.point_id,E.what());
