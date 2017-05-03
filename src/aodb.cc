@@ -2149,7 +2149,7 @@ TDateTime getSCD_OUT( int point_id )
 {
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT scd_out_ext FROM aodb_pointgs WHERE point_id=:point_id";
+    "SELECT scd_out_ext FROM aodb_points WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otFloat, point_id );
   Qry.Execute();
   if ( Qry.Eof || Qry.FieldIsNULL( "scd_out_ext" ) ) {
