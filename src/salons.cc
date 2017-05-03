@@ -115,37 +115,6 @@ void TSelfCkinSalonTariff::setTariffMap( const std::string &airline,
   }
 }
 
-/*
-
-void addAirlineSelfCkinTariff( const std::string &airline, TSeatTariffMap &tariffMap )
-{
-  ProgTrace( TRACE5, "addAirlineSelfCkinTariff: clear tariffMap");
-  if ( !selfckin_client() ) {
-    return;
-  }
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT rfisc,rate,rate_cur "
-    " FROM rfisc_rates_self_ckin "
-    " WHERE airline=:airline AND rfisc=:rfisc";
-  Qry.CreateVariable( "airline", otString, airline );
-  Qry.DeclareVariable( "rfisc", otString );
-  for ( TSeatTariffMapType::iterator itariff=tariffMap.begin(); itariff!=tariffMap.end(); itariff++ ) {
-    Qry.SetVariable( "rfisc", itariff->second.code );
-    Qry.Execute();
-    //find priority
-    if ( !Qry.Eof ) {
-      itariff->second.rate = Qry.FieldAsFloat("rate");
-      itariff->second.currency_id = Qry.FieldAsString("rate_cur");
-    }
-    else {
-      itariff->second.clear();
-      itariff->second.rate = INT_MAX;
-    }
-  }
-  tariffMap.trace(TRACE5);
-}*/
-
 void TSeatTariffMap::get(TQuery &Qry, const std::string &traceDetail)
 {
   clear();
@@ -5227,9 +5196,10 @@ void TSalonList::WriteFlight( int vpoint_id )
       "BEGIN "
       " UPDATE trip_sets SET pr_lat_seat=:pr_lat_seat WHERE point_id=:point_id; "
       " DELETE trip_comp_rem WHERE point_id=:point_id; "
-      " DELETE trip_comp_baselayers WHERE point_id=:point_id; "
       " DELETE trip_comp_rfisc WHERE point_id=:point_id; "
+      " DELETE trip_comp_baselayers WHERE point_id=:point_id; "
       " DELETE trip_comp_rates WHERE point_id=:point_id; "
+      " DELETE trip_comp_rfisc WHERE point_id=:point_id; "
       " DELETE trip_comp_elems WHERE point_id=:point_id; "
       "END;";
   Qry.CreateVariable( "point_id", otInteger, vpoint_id );
@@ -9410,6 +9380,7 @@ void DeleteSalons( int point_id )
     " DELETE trip_comp_rem WHERE point_id=:point_id; "
     " DELETE trip_comp_baselayers WHERE point_id=:point_id; "
     " DELETE trip_comp_rates WHERE point_id=:point_id; "
+    " DELETE trip_comp_rfisc WHERE point_id=:point_id; "
     " DELETE trip_comp_elems WHERE point_id=:point_id; "
     "END;";
   Qry.CreateVariable( "point_id", otInteger, point_id );
