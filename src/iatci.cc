@@ -961,20 +961,22 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
         ASSERT(ownPax);
         boost::optional<astra_entities::Remark> ssrInft = ownPax->ssrInft();
 
+        boost::optional<astra_entities::PaxInfo> inft;
+
         boost::optional<iatci::PaxDetails> infant;
         boost::optional<iatci::DocDetails> infantDoc;
         if(ssrInft) {
-            boost::optional<astra_entities::PaxInfo> inft = findInfant(lInfants, *ssrInft);
+            inft = findInfant(lInfants, *ssrInft);
             if(inft) {
                 infant = iatci::makePax(*inft);
                 infantDoc = iatci::makeDoc(*inft);
             }
         }
-        lPaxGrp.push_back(iatci::dcqcki::PaxGroup(iatci::makePax(pax, infant),
+        lPaxGrp.push_back(iatci::dcqcki::PaxGroup(iatci::makePax(pax, inft),
                                                   iatci::makeReserv(pax),
                                                   iatci::makeSeat(pax),
                                                   iatci::makeBaggage(pax),
-                                                  iatci::makeService(pax),
+                                                  iatci::makeService(pax, inft),
                                                   iatci::makeDoc(pax),
                                                   iatci::makeAddress(pax),
                                                   infant,
@@ -1013,14 +1015,15 @@ static iatci::CkxParams getCkxParams(xmlNodePtr reqNode)
     std::list<iatci::dcqckx::PaxGroup> lPaxGrp;
     for(const auto& pax: lNonInfants) {
         if(firstReqTab.getPaxById(pax.id())) {
+            boost::optional<astra_entities::PaxInfo> inft;
             boost::optional<iatci::PaxDetails> infant;
             if(!lInfants.empty()) {
-                boost::optional<astra_entities::PaxInfo> inft = findInfantByParentId(lInfants, pax.id());
+                inft = findInfantByParentId(lInfants, pax.id());
                 if(inft) {
                     infant = iatci::makePax(*inft);
                 }
             }
-            lPaxGrp.push_back(iatci::dcqckx::PaxGroup(iatci::makePax(pax, infant),
+            lPaxGrp.push_back(iatci::dcqckx::PaxGroup(iatci::makePax(pax, inft),
                                                       boost::none,
                                                       boost::none,
                                                       boost::none,

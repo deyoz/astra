@@ -522,12 +522,14 @@ void viewPsiElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::ServiceDetails& se
         if(!ssr.airline().empty()) {
             psi << BaseTables::Company(ssr.airline())->code(/*lang*/);
         }
-        psi << ":" << ssr.ssrText() << "::";
+        psi << ":";
+        if(ssr.isInfantTicket())
+            psi << "INF";
+        psi << ssr.ssrText() << "::";
         if(ssr.quantity())
             psi << ssr.quantity();
         psi << "::" << ssr.freeText();
-        if(ssr.isInfantTicket())
-            psi << "INF";
+
     }
 
     if(!psi.str().empty())

@@ -497,15 +497,16 @@ iatci::UpdateDocDetails makeUpdDoc(const edifact::UapElem& uap)
 
 //---------------------------------------------------------------------------------------
 
-iatci::PaxDetails makePax(const astra_api::astra_entities::PaxInfo& pax, bool withInfant)
+iatci::PaxDetails makePax(const astra_api::astra_entities::PaxInfo& pax,
+                          const boost::optional<astra_api::astra_entities::PaxInfo>& infant)
 {
     return iatci::PaxDetails(pax.m_surname,
                              pax.m_name,
                              astra2iatci(pax.m_persType),
                              "",
                              pax.m_iatciPaxId,
-                             withInfant ? iatci::PaxDetails::WithInfant
-                                        : iatci::PaxDetails::WithoutInfant);
+                             infant ? iatci::PaxDetails::WithInfant
+                                    : iatci::PaxDetails::WithoutInfant);
 }
 
 iatci::FlightDetails makeFlight(const astra_api::astra_entities::SegmentInfo& seg)
@@ -552,7 +553,8 @@ boost::optional<iatci::SeatDetails> makeSeat(const astra_api::astra_entities::Pa
     return boost::none;
 }
 
-boost::optional<iatci::ServiceDetails> makeService(const astra_api::astra_entities::PaxInfo& pax)
+boost::optional<iatci::ServiceDetails> makeService(const astra_api::astra_entities::PaxInfo& pax,
+                                                   const boost::optional<astra_api::astra_entities::PaxInfo>& infant)
 {
     boost::optional<iatci::ServiceDetails> service;
 
@@ -569,6 +571,14 @@ boost::optional<iatci::ServiceDetails> makeService(const astra_api::astra_entiti
             service->addSsr(pax.m_ticketRem,
                             pax.m_ticketNum);
         }
+
+        if(infant) {
+            if(infant->m_ticketRem == "TKNE") {
+                service->addSsrTkne(infant->m_ticketNum,
+                                    infant->m_couponNum,
+                                    true);
+            }
+        }
     }
 
     if(pax.m_rems) {
@@ -577,7 +587,9 @@ boost::optional<iatci::ServiceDetails> makeService(const astra_api::astra_entiti
         }
 
         for(const auto& rem: pax.m_rems->m_lRems) {
-            service->addSsr(rem.m_remCode, rem.m_remText);
+            if(rem.m_remCode != "TKNE") {
+                service->addSsr(rem.m_remCode, rem.m_remText);
+            }
         }
     }
 

@@ -2349,12 +2349,14 @@ std::vector<iatci::dcrcka::Result> LoadPaxXmlResult::toIatci(iatci::dcrcka::Resu
         for(const auto& paxInfo: lNonInfants) {
             LogTrace(TRACE3) << "handle pax " << paxInfo.m_surname << "/" << paxInfo.m_name;
 
+            boost::optional<astra_entities::PaxInfo> inft;
+
             boost::optional<iatci::PaxDetails> infant;
             boost::optional<iatci::DocDetails> infantDoc;
             boost::optional<iatci::FlightSeatDetails> infantSeat;
             boost::optional<astra_entities::Remark> ssrInft = paxInfo.ssrInft();
             if(ssrInft) {
-                boost::optional<astra_entities::PaxInfo> inft = findInfant(lInfants, *ssrInft);
+                inft = findInfant(lInfants, *ssrInft);
                 if(inft) {
                     infant = iatci::makePax(*inft);
                     infantDoc = iatci::makeDoc(*inft);
@@ -2362,11 +2364,11 @@ std::vector<iatci::dcrcka::Result> LoadPaxXmlResult::toIatci(iatci::dcrcka::Resu
                 }
             }
 
-            paxGroups.push_back(iatci::dcrcka::PaxGroup(iatci::makePax(paxInfo, infant),
+            paxGroups.push_back(iatci::dcrcka::PaxGroup(iatci::makePax(paxInfo, inft),
                                                         iatci::makeReserv(paxInfo),
                                                         iatci::makeFlightSeat(paxInfo),
                                                         iatci::makeBaggage(paxInfo),
-                                                        iatci::makeService(paxInfo),
+                                                        iatci::makeService(paxInfo, inft),
                                                         iatci::makeDoc(paxInfo),
                                                         iatci::makeAddress(paxInfo),
                                                         infant,

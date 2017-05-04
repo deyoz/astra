@@ -78,13 +78,15 @@ iatci::UpdateDocDetails        makeUpdDoc(const edifact::UapElem& uap);
 
 //---------------------------------------------------------------------------------------
 
-iatci::PaxDetails                          makePax(const astra_api::astra_entities::PaxInfo& pax, bool withInfant = false);
+iatci::PaxDetails                          makePax(const astra_api::astra_entities::PaxInfo& pax,
+                                                   const boost::optional<astra_api::astra_entities::PaxInfo>& infant = boost::none);
 iatci::FlightDetails                       makeFlight(const astra_api::astra_entities::SegmentInfo& seg);
 iatci::OriginatorDetails                   makeOrg(const astra_api::astra_entities::SegmentInfo& seg);
 boost::optional<iatci::FlightSeatDetails>  makeFlightSeat(const astra_api::astra_entities::PaxInfo& pax);
 boost::optional<iatci::ReservationDetails> makeReserv(const astra_api::astra_entities::PaxInfo& pax);
 boost::optional<iatci::SeatDetails>        makeSeat(const astra_api::astra_entities::PaxInfo& pax);
-boost::optional<iatci::ServiceDetails>     makeService(const astra_api::astra_entities::PaxInfo& pax);
+boost::optional<iatci::ServiceDetails>     makeService(const astra_api::astra_entities::PaxInfo& pax,
+                                                       const boost::optional<astra_api::astra_entities::PaxInfo>& infant = boost::none);
 boost::optional<iatci::BaggageDetails>     makeBaggage(const astra_api::astra_entities::PaxInfo& pax);
 boost::optional<iatci::DocDetails>         makeDoc(const astra_api::astra_entities::PaxInfo& pax);
 boost::optional<iatci::AddressDetails>     makeAddress(const astra_api::astra_entities::PaxInfo& pax);
