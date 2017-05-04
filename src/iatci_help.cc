@@ -15,6 +15,7 @@
 #include <serverlib/dates_io.h>
 #include <serverlib/int_parameters_oci.h>
 #include <serverlib/rip_oci.h>
+#include <serverlib/algo.h>
 
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
@@ -885,6 +886,462 @@ std::string denormSeatNum(const std::string& seatNum)
     std::ostringstream denorm;
     denorm << denorm_iata_row(row) << denorm_iata_line(std::string(1, letter), true);
     return denorm.str();
+}
+
+//---------------------------------------------------------------------------------------
+
+IatciViewXmlParams::IatciViewXmlParams(const std::list<Ticketing::TicketNum_t>& tnOrder)
+    : m_tnOrder(tnOrder)
+{}
+
+const std::list<Ticketing::TicketNum_t>& IatciViewXmlParams::tickNumOrder() const
+{
+    return m_tnOrder;
+}
+
+//---------------------------------------------------------------------------------------
+
+static xmlNodePtr xmlViewIatciFlight(xmlNodePtr node, const iatci::FlightDetails& flight)
+{
+    xmlNodePtr segNode = newChild(node, "segment");
+    xmlNodePtr tripHeaderNode = newChild(segNode, "tripheader");
+    NewTextChild(tripHeaderNode, "flight",  fullFlightString(flight));
+    NewTextChild(tripHeaderNode, "airline", flight.airline());
+    NewTextChild(tripHeaderNode, "aircode", airlineAccode(flight.airline()));
+    NewTextChild(tripHeaderNode, "flt_no",  flightString(flight));
+    NewTextChild(tripHeaderNode, "suffix",  "");
+    NewTextChild(tripHeaderNode, "airp",    flight.depPort());
+    NewTextChild(tripHeaderNode, "scd_out_local", depDateTimeString(flight));
+    NewTextChild(tripHeaderNode, "pr_etl_only", "0"); // TODO
+    NewTextChild(tripHeaderNode, "pr_etstatus", "0"); // TODO
+    NewTextChild(tripHeaderNode, "pr_no_ticket_check", "0"); // TODO)
+    NewTextChild(tripHeaderNode, "pr_auto_pt_print", 0); // TODO
+    NewTextChild(tripHeaderNode, "pr_auto_pt_print_reseat", 0); // TODO
+
+    xmlNodePtr tripDataNode = newChild(segNode, "tripdata");
+    xmlNodePtr airpsNode = newChild(tripDataNode, "airps");
+    xmlNodePtr airpNode = newChild(airpsNode, "airp");
+    NewTextChild(airpNode, "point_id", -1);
+    NewTextChild(airpNode, "airp_code", airportCode(flight.arrPort()));
+    NewTextChild(airpNode, "city_code", airportCityCode(flight.arrPort()));
+    NewTextChild(airpNode, "target_view", fullAirportString(flight.arrPort()));
+    xmlNodePtr checkInfoNode = newChild(airpNode, "check_info");
+    xmlNodePtr passNode = newChild(checkInfoNode, "pass"); // TODO
+    xmlNodePtr crewNode = newChild(checkInfoNode, "crew"); // TODO
+    xmlNodePtr classesNode = newChild(tripDataNode, "classes"); // TODO
+    xmlNodePtr gatesNode = newChild(tripDataNode, "gates"); // TODO
+    xmlNodePtr hallsNode = newChild(tripDataNode, "halls"); // TODO
+    xmlNodePtr markFltsNode = newChild(tripDataNode, "mark_flights"); // TODO
+
+    NewTextChild(segNode, "grp_id", -1);
+    NewTextChild(segNode, "point_dep", -1);
+    NewTextChild(segNode, "airp_dep", flight.depPort());
+    NewTextChild(segNode, "point_arv", -1);
+    NewTextChild(segNode, "airp_arv", flight.arrPort());
+    NewTextChild(segNode, "class", "ù"); // TODO
+    NewTextChild(segNode, "status", "K"); // TODO
+    NewTextChild(segNode, "bag_refuse", ""); // TODO
+    NewTextChild(segNode, "piece_concept", 0); // TODO
+    NewTextChild(segNode, "tid", 0); // TODO
+    NewTextChild(segNode, "city_arv", airportCityCode(flight.arrPort()));
+    //xmlNodePtr markFltNode = newChild(segNode, "mark_flight"); // TODO
+    return segNode;
+}
+
+static xmlNodePtr xmlViewIatciPax(xmlNodePtr paxesNode,
+                                  const iatci::PaxDetails& pax,
+                                  const boost::optional<ReservationDetails>& reserv,
+                                  const boost::optional<FlightSeatDetails>& seat,
+                                  const boost::optional<ServiceDetails>& service,
+                                  const boost::optional<DocDetails>& doc,
+                                  int& currPax)
+{
+    int parentPaxId = 0;
+    if(pax.isInfant()) {
+        parentPaxId = -currPax;
+    }
+
+    xmlNodePtr paxNode = newChild(paxesNode, "pax");
+    NewTextChild(paxNode, "pax_id", -(++currPax));
+    NewTextChild(paxNode, "surname", pax.surname());
+    NewTextChild(paxNode, "name", pax.name());
+    NewTextChild(paxNode, "pers_type", paxTypeString(pax));
+    NewTextChild(paxNode, "seat_no", seat ? seat->seat() : "");
+    NewTextChild(paxNode, "seat_type", "");
+    NewTextChild(paxNode, "seats", pax.isInfant() ? 0 : 1);
+    NewTextChild(paxNode, "refuse", "");
+    NewTextChild(paxNode, "reg_no", seat ? seat->regNo() : "");
+    std::string subcls = "ù";
+    if(reserv && reserv->subclass()) {
+        subcls = reserv->subclass()->code(RUSSIAN);
+    } else {
+        LogWarning(STDLOG) << "use default subclass [ù]";
+    }
+    NewTextChild(paxNode, "subclass", subcls); // TODO
+    NewTextChild(paxNode, "bag_pool_num", ""); // TODO
+    NewTextChild(paxNode, "tid", 0); // TODO
+
+    boost::optional<Ticketing::TicketCpn_t> tickCpn;
+    std::string tickRem;
+    if(service) {
+        tickCpn = service->findTicketCpn(pax.isInfant());
+        tickRem = "TKNE";
+    }
+    if(tickCpn) {
+        NewTextChild(paxNode, "ticket_no", tickCpn->ticket().get());
+        NewTextChild(paxNode, "coupon_no", tickCpn->cpn().get());
+    }
+    else {
+        NewTextChild(paxNode, "ticket_no");
+        NewTextChild(paxNode, "coupon_no");
+    }
+
+    NewTextChild(paxNode, "ticket_rem", tickRem);
+    NewTextChild(paxNode, "ticket_confirm", "1"); // TODO
+
+    xmlNodePtr docNode = newChild(paxNode, "document");
+    if(doc)
+    {
+        tst();
+        NewTextChild(docNode, "type", doc->docType());
+        NewTextChild(docNode, "issue_country", doc->issueCountry());
+        NewTextChild(docNode, "no", doc->no());
+        NewTextChild(docNode, "nationality", doc->nationality());
+        if(!doc->birthDate().is_not_a_date()) {
+            NewTextChild(docNode, "birth_date",
+                         BASIC::date_time::boostDateToAstraFormatStr(doc->birthDate()));
+        }
+        NewTextChild(docNode, "gender", doc->gender());
+        NewTextChild(docNode, "surname", doc->surname());
+        NewTextChild(docNode, "first_name", doc->name());
+        if(!doc->secondName().empty()) {
+            NewTextChild(docNode, "second_name", doc->secondName());
+        }
+        if(!doc->expiryDate().is_not_a_date()) {
+            NewTextChild(docNode, "expiry_date",
+                         BASIC::date_time::boostDateToAstraFormatStr(doc->expiryDate()));
+        }
+    }
+
+    NewTextChild(paxNode, "pr_norec", 0); // TODO
+    NewTextChild(paxNode, "pr_bp_print", 0); // TODO
+    NewTextChild(paxNode, "pr_bi_print", 0); // TODO
+
+
+    xmlNodePtr paxRemsNode = newChild(paxNode, "rems");
+    if(service)
+    {
+        for(const ServiceDetails::SsrInfo& ssr: service->lSsr()) {
+            std::string remCode = ssr.ssrCode(),
+                        remText = ssr.freeText();
+
+            if(remCode == "TKNE") continue;
+
+            xmlNodePtr paxRemNode = newChild(paxRemsNode, "rem");
+            NewTextChild(paxRemNode, "rem_code", remCode);
+            NewTextChild(paxRemNode, "rem_text", remText);
+        }
+    }
+
+    NewTextChild(paxNode, "iatci_pax_id", pax.respRef());
+    if(parentPaxId) {
+        NewTextChild(paxNode, "iatci_parent_pax_id", parentPaxId);
+    } else {
+        NewTextChild(paxNode, "iatci_parent_pax_id");
+    }
+
+    return paxNode;
+}
+
+static boost::optional<dcrcka::PaxGroup> findPaxGroup(const std::list<dcrcka::PaxGroup>& lPxg,
+                                                      const Ticketing::TicketNum_t& tickNum,
+                                                      bool& isInfant)
+{
+    for(const auto& pxg: lPxg) {
+        if(pxg.service()) {
+            for(const auto& ssr: pxg.service()->lSsr()) {
+                if(ssr.ssrCode() == "TKNE") {
+                    if(ssr.toTicketCpn().ticket() == tickNum) {
+                        isInfant = ssr.isInfantTicket();
+                        return pxg;
+                    }
+                }
+            }
+        }
+    }
+
+    return boost::none;
+}
+
+static void traceTickNums(const std::list<Ticketing::TicketNum_t>& tnums,
+                          const std::string& header,
+                          int loglevel, const char* nick, const char* file, int line)
+{
+    LogTrace(loglevel, nick, file, line) << header << ":\n";
+    for(const auto& t: tnums) {
+        LogTrace(loglevel, nick, file, line) << t << ", ";
+    }
+}
+
+static bool tickNumsAreEqual(const std::list<Ticketing::TicketNum_t>& tn1,
+                             const std::list<Ticketing::TicketNum_t>& tn2)
+{
+    if(tn1.size() != tn2.size()) return false;
+    for(const auto& t: tn1) {
+        if(!algo::contains(tn2, t)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool checkTickNums(const iatci::dcrcka::Result& res,
+                   const std::list<Ticketing::TicketNum_t>& tickNums)
+{
+    std::list<Ticketing::TicketNum_t> resTickNums = res.tickNums();
+    if(!tickNumsAreEqual(resTickNums, tickNums)) {
+        LogError(STDLOG) << "Ticknums check failed!";
+        traceTickNums(resTickNums, "iatci ticknums", TRACE0);
+        traceTickNums(tickNums, "ticknums", TRACE0);
+        return false;
+    }
+    return true;
+}
+
+void xmlViewIatciPaxes_tickNumOrder(xmlNodePtr paxesNode,
+                                    const std::list<dcrcka::PaxGroup>& paxGroups,
+                                    const std::list<Ticketing::TicketNum_t>& tickNumOrder)
+{
+    ASSERT(!tickNumOrder.empty());
+    int currPax = 0;
+    for(const auto& tickNum: tickNumOrder) {
+        bool isInfant = false;
+        boost::optional<dcrcka::PaxGroup> pxgOpt = findPaxGroup(paxGroups,
+                                                                tickNum,
+                                                                isInfant);
+        ASSERT(pxgOpt);
+        const auto& pxg = pxgOpt.get();
+        if(!isInfant) {
+            xmlViewIatciPax(paxesNode,
+                            pxg.pax(),
+                            pxg.reserv(),
+                            pxg.seat(),
+                            pxg.service(),
+                            pxg.doc(),
+                            currPax);
+        } else {
+            xmlViewIatciPax(paxesNode,
+                            pxg.infant().get(),
+                            pxg.reserv(),
+                            pxg.infantSeat(),
+                            pxg.service(),
+                            pxg.infantDoc(),
+                            currPax);
+        }
+    }
+}
+
+void xmlViewIatciPaxes_asisOrder(xmlNodePtr paxesNode,
+                                 const std::list<dcrcka::PaxGroup>& paxGroups)
+{
+    int currPax = 0;
+    for(const auto& pxg: paxGroups) {
+        xmlViewIatciPax(paxesNode,
+                        pxg.pax(),
+                        pxg.reserv(),
+                        pxg.seat(),
+                        pxg.service(),
+                        pxg.doc(),
+                        currPax);
+        if(pxg.infant()) {
+            xmlViewIatciPax(paxesNode,
+                            pxg.infant().get(),
+                            pxg.reserv(),
+                            pxg.infantSeat(),
+                            pxg.service(),
+                            pxg.infantDoc(),
+                            currPax);
+        }
+    }
+}
+
+void iatci2xml(xmlNodePtr node, const iatci::dcrcka::Result& res,
+               const IatciViewXmlParams& viewParams)
+{
+    xmlNodePtr segNode = xmlViewIatciFlight(node, res.flight());
+    xmlNodePtr paxesNode = newChild(segNode, "passengers");
+    if(!viewParams.tickNumOrder().empty() && checkTickNums(res, viewParams.tickNumOrder())) {
+        xmlViewIatciPaxes_tickNumOrder(paxesNode, res.paxGroups(), viewParams.tickNumOrder());
+    } else {
+        LogError(STDLOG) << "Warning! Unable to perform ticknums order!";
+        xmlViewIatciPaxes_asisOrder(paxesNode, res.paxGroups());
+    }
+
+    NewTextChild(segNode, "paid_bag_emd", ""); // TODO
+    xmlNodePtr tripCountersNode = newChild(segNode, "tripcounters"); // TODO
+    NewTextChild(segNode, "load_residue", ""); // TODO
+}
+
+void iatci2xml(xmlNodePtr node, const std::list<iatci::dcrcka::Result>& lRes,
+               const IatciViewXmlParams& viewParams)
+{
+    for(const auto& res: lRes) {
+        iatci2xml(node, res, viewParams);
+    }
+}
+
+//---------------------------------------------------------------------------------------
+
+static PlaceMatrix createPlaceMatrix(const SeatmapDetails& seatmap)
+{
+    PlaceMatrix placeMatrix;
+    size_t placeListNum = 0;
+    for(const CabinDetails& cbd: seatmap.lCabin()) {
+        PlaceMatrix::PlaceList placeList;
+        unsigned y = 0;
+        for(unsigned row = cbd.rowRange().firstRow(); row <= cbd.rowRange().lastRow(); ++row)  {
+            unsigned x = 0;
+            bool wasAisle = false;
+            for(const SeatColumnDetails& col: cbd.seatColumns()) {
+                std::string curXName = col.column(),
+                            curYName = boost::lexical_cast<std::string>(row);
+                std::string cls = cbd.classDesignator();
+                if(!cls.empty()) {
+                    cls = Ticketing::SubClass(cls)->baseClass()->code(RUSSIAN);
+                }
+                PlaceMatrix::Place place(curXName,
+                                         curYName,
+                                         cls,
+                                         "ä", // TODO get it
+                                         cbd.defaultSeatOccupation() == "O" ? true : false);
+                for(const RowDetails& rod: seatmap.lRow()) {
+                    if(rod.row() == curYName) {
+                        for(const SeatOccupationDetails& seatOccup: rod.lOccupationDetails()) {
+                            if(seatOccup.column() == curXName) {
+                                if(seatOccup.occupation() == "O") {
+                                    place.m_occupied = true;
+                                }
+                            }
+                        }
+                    }
+                }
+                placeList.setPlace(PlaceMatrix::Coord2D(x, y), place);
+                ++x;
+                if(col.desc1() == "A") {
+                    if(!wasAisle) {
+                        wasAisle = true;
+                        ++x;
+                    } else {
+                        wasAisle = false;
+                    }
+                }
+
+            }
+            ++y;
+        }
+
+        placeMatrix.addPlaceList(placeListNum++, placeList);
+    }
+
+    return placeMatrix;
+}
+
+void iatci2xmlSmp(xmlNodePtr node, const dcrcka::Result& res)
+{
+    ASSERT(res.seatmap());
+    PlaceMatrix placeMatrix = createPlaceMatrix(res.seatmap().get());
+
+    const iatci::FlightDetails& flight = res.flight();
+
+    NewTextChild(node, "trip",        fullFlightString(flight, false));
+    NewTextChild(node, "craft",       ""); // TODO get it
+    NewTextChild(node, "bort",        ""); // TODO get it
+    NewTextChild(node, "travel_time", depTimeString(flight));
+    NewTextChild(node, "comp_id",     -1);
+    NewTextChild(node, "descr",       "");
+
+    xmlNodePtr salonsNode = newChild(node, "salons"); // TODO fill node properties
+    xmlSetProp(salonsNode, "pr_lat_seat", 1);
+    xmlSetProp(salonsNode, "RFISCMode",   0);
+
+    xmlNodePtr filterRoutesNode = newChild(salonsNode, "filterRoutes");
+    NewTextChild(filterRoutesNode, "point_dep", -1);
+    NewTextChild(filterRoutesNode, "point_arv", -1);
+
+    xmlNodePtr itemsNode = newChild(filterRoutesNode, "items");
+
+    xmlNodePtr depItemNode = newChild(itemsNode, "item");
+    NewTextChild(depItemNode, "point_id", -1);
+    NewTextChild(depItemNode, "airp", airportCode(flight.depPort()));
+
+    xmlNodePtr arrItemNode = newChild(itemsNode, "item");
+    NewTextChild(arrItemNode, "point_id", -1);
+    NewTextChild(arrItemNode, "airp", airportCode(flight.arrPort()));
+
+    for(const auto& pm: placeMatrix.placeLists()) {
+        PlaceMatrix::Limits limits = pm.second.limits();
+        xmlNodePtr placeListNode = newChild(salonsNode, "placelist");
+        xmlSetProp(placeListNode, "num", pm.first);
+        xmlSetProp(placeListNode, "xcount", limits.width() ? limits.width() + 1 : 0);
+        xmlSetProp(placeListNode, "ycount", limits.height() ? limits.height() + 1 : 0);
+
+        for(const auto& pl: pm.second.places()) {
+            xmlNodePtr placeNode = newChild(placeListNode, "place");
+            NewTextChild(placeNode, "x", (int)pl.first.m_x);
+            NewTextChild(placeNode, "y", (int)pl.first.m_y);
+            if(pl.second.m_occupied) {
+                xmlNodePtr layersNode = newChild(placeNode, "layers");
+                xmlNodePtr layerNode = newChild(layersNode, "layer");
+                NewTextChild(layerNode, "layer_type", "CHECKIN");
+            }
+            NewTextChild(placeNode, "elem_type", pl.second.m_elemType);
+            NewTextChild(placeNode, "class", pl.second.m_class);
+            NewTextChild(placeNode, "xname", pl.second.m_xName);
+            NewTextChild(placeNode, "yname", pl.second.m_yName);
+        }
+    }
+}
+
+void iatci2xmlSmpUpd(xmlNodePtr node, const dcrcka::Result& res,
+                     const iatci::Seat& oldSeat, const iatci::Seat& newSeat)
+{
+    ASSERT(res.seatmap());
+    PlaceMatrix placeMatrix = createPlaceMatrix(res.seatmap().get());
+
+    xmlNodePtr salonsNode = newChild(node, "update_salons");
+    xmlSetProp(salonsNode, "RFISCMode", 0);
+
+    xmlNodePtr seatsNode = newChild(salonsNode, "seats");
+
+    size_t newSeatSalonNum = placeMatrix.findPlaceListNum(newSeat.col(), newSeat.row());
+    size_t oldSeatSalonNum = placeMatrix.findPlaceListNum(oldSeat.col(), oldSeat.row());
+
+    xmlNodePtr salonNode = newChild(seatsNode, "salon");
+    xmlSetProp(salonNode, "num", oldSeatSalonNum);
+
+    const PlaceMatrix::PlaceList& oldSeatSalon = placeMatrix.placeLists().at(oldSeatSalonNum);
+    xmlNodePtr oldPlaceNode = newChild(salonNode, "place");
+    boost::optional<PlaceMatrix::Coord2D> oldPlaceCoord = oldSeatSalon.findPlaceCoords(oldSeat.col(), oldSeat.row());
+    ASSERT(oldPlaceCoord);
+    NewTextChild(oldPlaceNode, "x", (int)oldPlaceCoord->m_x);
+    NewTextChild(oldPlaceNode, "y", (int)oldPlaceCoord->m_y);
+
+
+    if(newSeatSalonNum != oldSeatSalonNum) {
+        salonNode = newChild(seatsNode, "salon");
+        xmlSetProp(salonNode, "num", newSeatSalonNum);
+    }
+
+    const PlaceMatrix::PlaceList& newSeatSalon = placeMatrix.placeLists().at(newSeatSalonNum);
+    xmlNodePtr newPlaceNode = newChild(salonNode, "place");
+    boost::optional<PlaceMatrix::Coord2D> newPlaceCoord = newSeatSalon.findPlaceCoords(newSeat.col(), newSeat.row());
+    ASSERT(newPlaceCoord);
+    NewTextChild(newPlaceNode, "x", (int)newPlaceCoord->m_x);
+    NewTextChild(newPlaceNode, "y", (int)newPlaceCoord->m_y);
+    xmlNodePtr layersNode = newChild(newPlaceNode, "layers");
+    xmlNodePtr layerNode = newChild(layersNode, "layer");
+    NewTextChild(layerNode, "layer_type", "CHECKIN");
 }
 
 }//namespace iatci

@@ -153,12 +153,12 @@ struct PaxInfo
     std::string                  m_seatNo;
     std::string                  m_regNo;
     std::string                  m_iatciPaxId;
-    int                          m_iatciParentId;
     Ticketing::SubClass          m_subclass;
     boost::optional<DocInfo>     m_doc;
     boost::optional<AddressInfo> m_address;
     boost::optional<VisaInfo>    m_visa;
     boost::optional<Remarks>     m_rems;
+    int                          m_iatciParentId;
 
     PaxInfo(int paxId,
             const std::string& surname,
@@ -181,6 +181,7 @@ struct PaxInfo
     boost::optional<Remark> ssrInft() const;
     std::string            fullName() const;
     int               iatciParentId() const { return m_iatciParentId; }
+    Ticketing::TicketNum_t  tickNum() const;
 };
 
 bool operator==(const PaxInfo& left, const PaxInfo& right);

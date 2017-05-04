@@ -1082,7 +1082,6 @@ $(defmacro CANCEL_PAX
     surname
     name
     tickno
-    tickno2
 {
 !! err=ignore
 {<?xml version='1.0' encoding='CP866'?>
@@ -1143,7 +1142,7 @@ $(defmacro CANCEL_PAX
               <name>$(name)</name>
               <pers_type>ВЗ</pers_type>
               <refuse>А</refuse>
-              <ticket_no>42161200302972</ticket_no>
+              <ticket_no>$(tickno)</ticket_no>
               <coupon_no/>
               <ticket_rem/>
               <ticket_confirm>1</ticket_confirm>
@@ -1973,7 +1972,7 @@ FDR+S7+1027+$(yymmdd)1000+LED+AER++T"
 RAD+I+O"
 PPD+REPIN+A+0013929620+IVAN"
 PFD+xx+:Э"
-PSI++TKNE::42161200302972"
+PSI++TKNE::29861200302972"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -1992,7 +1991,7 @@ $(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
 $(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
              ЮТ 103 ДМД ПЛК
              С7 1027 ПЛК СОЧ
-             REPIN IVAN 2986120030297 42161200302972)
+             REPIN IVAN 2986120030297)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 I)
 
@@ -2076,7 +2075,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A:N++IVAN"
 PFD+xx+:Э"
-PSI++TKNE::42161200302982"
+PSI++TKNE::29861200302972"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -2105,7 +2104,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+P+O"
 PPD+REPIN+A:N++IVAN"
 PFD+2A+:Э+2"
-PSI++TKNE::42161200302552+FQTV::::::FQTV S7 55555555555555555"
+PSI++TKNE::29861200302972+FQTV::::::FQTV S7 55555555555555555"
 PAP+:::860310:::RUS++PP:1111111111:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -2327,7 +2326,7 @@ $(KICK_IN)
             <subclass>Э</subclass>
             <bag_pool_num/>
             <tid>0</tid>
-            <ticket_no>4216120030255</ticket_no>
+            <ticket_no>2986120030297</ticket_no>
             <coupon_no>2</coupon_no>
             <ticket_rem>TKNE</ticket_rem>
             <ticket_confirm>1</ticket_confirm>
@@ -2416,7 +2415,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A:N++IVAN"
 PFD+xx+:Э"
-PSI++TKNE::42161200302982"
+PSI++TKNE::29861200302972"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -2444,7 +2443,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+P+O"
 PPD+REPIN+A:N++IVAN"
 PFD+1A+:Э"
-PSI++TKNE::42161200302551"
+PSI++TKNE::29861200302972"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -2510,7 +2509,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A:N++IVAN"
 PFD+xx+:Э"
-PSI++TKNE::42161200302982"
+PSI++TKNE::29861200302972"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -2544,7 +2543,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+P+O"
 PPD+REPIN+A:N++IVAN"
 PFD+1A+:Э"
-PSI++TKNE::42161200302551+TKNE::::::TKNE HK1 4216120030255/1+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M+FOID::::::FOID PPZB400522509"
+PSI++TKNE::29861200302972+TKNE::::::TKNE HK1 2986120030297/2+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M+FOID::::::FOID PPZB400522509"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -2610,7 +2609,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A:N++IVAN"
 PFD+xx+:Э"
-PSI++TKNE::42161200302982"
+PSI++TKNE::29861200302972"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -2703,7 +2702,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A:N++IVAN"
 PFD+xx+:Э"
-PSI++TKNE::42161200302982"
+PSI++TKNE::29861200302972"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -2869,7 +2868,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A:N++IVAN"
 PFD+xx+:Э"
-PSI++TKNE::42161200302972"
+PSI++TKNE::29861200302972"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -2888,7 +2887,7 @@ $(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
 $(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
              ЮТ 103 ДМД ПЛК
              С7 1027 ПЛК СОЧ
-             REPIN IVAN 2986120030297 42161200302972)
+             REPIN IVAN 2986120030297)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 I)
 
@@ -2973,7 +2972,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A:N++IVAN"
 PFD+xx+:Э+22"
-PSI++TKNE::42161200302972"
+PSI++TKNE::29861200302972"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -2990,7 +2989,7 @@ $(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
 
 $(UPDATE_PAX_DOC $(get point_dep) $(get point_arv) ДМД ПЛК
                  $(get grp_id) $(get pax_id) $(get tid) ПЛК СОЧ
-                 REPIN IVAN IVANICH 4216120030297 2)
+                 REPIN IVAN IVANICH 2986120030297 2)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -3227,7 +3226,7 @@ $(KICK_IN)
             <subclass>Э</subclass>
             <bag_pool_num/>
             <tid>0</tid>
-            <ticket_no>4216120030297</ticket_no>
+            <ticket_no>2986120030297</ticket_no>
             <coupon_no>2</coupon_no>
             <ticket_rem>TKNE</ticket_rem>
             <ticket_confirm>1</ticket_confirm>
@@ -3310,7 +3309,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A:N++IVAN"
 PFD+xx+:Э"
-PSI++TKNE::42161200302972"
+PSI++TKNE::29861200302972"
 PAP+:::860310:::RUS++PP:5408123432:RUS::::M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -3395,7 +3394,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A:N++IVAN"
 PFD+xx+:Э"
-PSI++TKNE::42161200302972+FOID::::::FOID PP7774441110"
+PSI++TKNE::29861200302972+FOID::::::FOID PP7774441110"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -3503,7 +3502,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A:N++IVAN"
 PFD+xx+:Э"
-PSI++TKNE::42161200302972+FOID::::::FOID PP7774441110"
+PSI++TKNE::29861200302972+FOID::::::FOID PP7774441110"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -3517,7 +3516,7 @@ $(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
 
 $(UPDATE_PAX_REMS_WITH_LONG $(get point_dep) $(get point_arv) ДМД ПЛК
                             $(get grp_id) $(get pax_id) $(get tid) ПЛК СОЧ
-                            REPIN IVAN IVANICH 4216120030297 2)
+                            REPIN IVAN IVANICH 2986120030297 2)
 
 
 %%
@@ -3571,7 +3570,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A:N++IVAN"
 PFD+7A+:Э+32"
-PSI++TKNE::42161200302972+FOID::::::FOID PP7774441110"
+PSI++TKNE::29861200302972+FOID::::::FOID PP7774441110"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -3620,7 +3619,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+B+O"
 PPD+REPIN+A:N++IVAN"
 PFD+7A+:Э+32"
-PSI++TKNE::42161200302972+FOID::::::FOID PP7774441110"
+PSI++TKNE::29861200302972+FOID::::::FOID PP7774441110"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -3696,7 +3695,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+I+O"
 PPD+REPIN+A:N++IVAN"
 PFD+3B+:Э"
-PSI++TKNE::42161200302972+FOID::::::FOID PP7774441110"
+PSI++TKNE::29861200302972+FOID::::::FOID PP7774441110"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -3926,7 +3925,7 @@ FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+U+O"
 PPD+REPIN+A:N++IVAN"
 PFD+6A+:Э"
-PSI++TKNE::42161200302972+FOID::::::FOID PP7774441110"
+PSI++TKNE::29861200302972+FOID::::::FOID PP7774441110"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -4226,7 +4225,7 @@ FDR+S7+1027+$(yymmdd)1000+LED+AER++T"
 RAD+I+O"
 PPD+REPIN+A:N++IVAN"
 PFD+xx+:Э"
-PSI++TKNE::42161200302972"
+PSI++TKNE::29861200302972"
 PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -4246,7 +4245,7 @@ $(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
 $(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
              ЮТ 103 ДМД ПЛК
              С7 1027 ПЛК СОЧ
-             REPIN IVAN 2986120030297 42161200302972)
+             REPIN IVAN 2986120030297)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 I)
 
@@ -4300,7 +4299,7 @@ ENDIFM
 $(CANCEL_PAX $(get pax_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
              ЮТ 103 ДМД ПЛК
              С7 1027 ПЛК СОЧ 
-             REPIN IVAN 2986120030297 42161200302972)
+             REPIN IVAN 2986120030297)
 
 
 >>
@@ -4475,11 +4474,11 @@ FDR+S7+1027+$(yymmdd)+LED+AER++T"
 RAD+I+O"
 PPD+REPIN+A:N++IVAN"
 PFD+7A++1"
-PSI++TKNE::42124018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M+TKNE::::::TKNE HK1 2982401841689/1"
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
 PAP+:::850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
 PPD+PETROV+C:N++PETR"
 PFD+8A++2"
-PSI++TKNE::42124018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/PETROV/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/PETROV/PETR/M+TKNE::::::TKNE HK1 2982401841612/1"
+PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/PETROV/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/PETROV/PETR/M"
 PAP+:::850724:::TJK++P:400522510:TJK:::250205:M::::::PETROV:PETR"
 UNT+12+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -4775,7 +4774,7 @@ $(KICK_IN)
             <subclass>Э</subclass>
             <bag_pool_num/>
             <tid>0</tid>
-            <ticket_no>4212401841689</ticket_no>
+            <ticket_no>2982401841689</ticket_no>
             <coupon_no>1</coupon_no>
             <ticket_rem>TKNE</ticket_rem>
             <ticket_confirm>1</ticket_confirm>
@@ -4823,7 +4822,7 @@ $(KICK_IN)
             <subclass>Э</subclass>
             <bag_pool_num/>
             <tid>0</tid>
-            <ticket_no>4212401841612</ticket_no>
+            <ticket_no>2982401841612</ticket_no>
             <coupon_no>1</coupon_no>
             <ticket_rem>TKNE</ticket_rem>
             <ticket_confirm>1</ticket_confirm>
@@ -4939,7 +4938,7 @@ $(KICK_IN_SILENT)
 $(CANCEL_PAX $(get pax_1_id) $(get grp_id) $(get tid) $(get point_dep) $(get point_arv)
              ЮТ 103 ДМД ПЛК
              С7 1027 ПЛК СОЧ
-             REPIN IVAN 2982401841689 4212401841689)
+             REPIN IVAN 2982401841689)
 
 
 $(ETS_COS_EXCHANGE 2982401841689 1 I)

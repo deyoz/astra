@@ -11,8 +11,6 @@
 #include <boost/date_time/gregorian/gregorian_types.hpp>
 #include <boost/serialization/access.hpp>
 
-#include <libxml/tree.h>
-
 #include <list>
 #include <vector>
 
@@ -925,10 +923,6 @@ public:
 
 //---------------------------------------------------------------------------------------
 
-PlaceMatrix createPlaceMatrix(const SeatmapDetails& seatmap);
-
-//---------------------------------------------------------------------------------------
-
 struct BaseParams
 {
 protected:
@@ -1444,6 +1438,9 @@ public:
     const boost::optional<FlightSeatDetails>& seat() const;
     const boost::optional<FlightSeatDetails>& infantSeat() const;
 
+    Ticketing::TicketNum_t tickNum() const;
+    boost::optional<Ticketing::TicketNum_t> tickNumInfant() const;
+
 protected:
     PaxGroup() {} // for boost serialization only
 };
@@ -1536,14 +1533,10 @@ public:
     const boost::optional<WarningDetails>&     warning() const;
     const boost::optional<EquipmentDetails>&   equipment() const;
 
+    std::list<Ticketing::TicketNum_t> tickNums() const;
+
     std::string actionAsString() const;
     std::string statusAsString() const;
-
-    void toXml(xmlNodePtr node) const;
-    void toSmpXml(xmlNodePtr node) const;
-    void toSmpUpdXml(xmlNodePtr node,
-                     const Seat& oldSeat,
-                     const Seat& newSeat) const;
 
     static Action_e strToAction(const std::string& a);
     static Status_e strToStatus(const std::string& s);

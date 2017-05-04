@@ -6,13 +6,9 @@
 #include "astra_msg.h"
 
 #include <serverlib/exception.h>
-#include <serverlib/xml_tools.h>
-#include <serverlib/xmllibcpp.h>
-
 #include <etick/exceptions.h>
 
 #include <ostream>
-#include <boost/foreach.hpp>
 
 #define NICKNAME "ANTON"
 #define NICKTRACE ANTON_TRACE
@@ -708,7 +704,7 @@ void ServiceDetails::addSsrFqtv(const std::string& fqtvCode)
 
 boost::optional<Ticketing::TicketCpn_t> ServiceDetails::findTicketCpn(bool inftTicket) const
 {
-    BOOST_FOREACH(const ServiceDetails::SsrInfo& ssr, lSsr()) {
+    for(const auto& ssr: lSsr()) {
         if(ssr.ssrCode() == "TKNE" && ssr.isInfantTicket() == inftTicket) {
             return ssr.toTicketCpn();
         }
@@ -1043,6 +1039,24 @@ const boost::optional<FlightSeatDetails>& PaxGroup::infantSeat() const
     return m_infantSeat;
 }
 
+Ticketing::TicketNum_t PaxGroup::tickNum() const
+{
+    ASSERT(service());
+    boost::optional<Ticketing::TicketCpn_t> tickCpn = service()->findTicketCpn(false);
+    ASSERT(tickCpn);
+    return tickCpn->ticket();
+}
+
+boost::optional<Ticketing::TicketNum_t> PaxGroup::tickNumInfant() const
+{
+    ASSERT(service());
+    boost::optional<Ticketing::TicketCpn_t> tickCpn = service()->findTicketCpn(true);
+    if(tickCpn) {
+        return tickCpn->ticket();
+    }
+    return boost::none;
+}
+
 //---------------------------------------------------------------------------------------
 
 Result::Result(Action_e action,
@@ -1193,6 +1207,20 @@ const boost::optional<EquipmentDetails>& Result::equipment() const
     return m_equipment;
 }
 
+std::list<Ticketing::TicketNum_t> Result::tickNums() const
+{
+    std::list<Ticketing::TicketNum_t> tnums;
+    for(const auto& pxg: paxGroups()) {
+        tnums.push_back(pxg.tickNum());
+        if(pxg.infant()) {
+            boost::optional<Ticketing::TicketNum_t> inftTickNum = pxg.tickNumInfant();
+            ASSERT(inftTickNum);
+            tnums.push_back(inftTickNum.get());
+        }
+    }
+    return tnums;
+}
+
 Result::Action_e Result::strToAction(const std::string& a)
 {
     if     (a == "I") return Checkin;
@@ -1248,285 +1276,6 @@ std::string Result::statusAsString() const
     throw EXCEPTIONS::Exception("Unknown status value: %d", m_status);
 }
 
-static xmlNodePtr xmlViewIatciFlight(xmlNodePtr node, const iatci::FlightDetails& flight)
-{
-    xmlNodePtr segNode = newChild(node, "segment");
-
-    xmlNodePtr tripHeaderNode = newChild(segNode, "tripheader");
-    NewTextChild(tripHeaderNode, "flight",  fullFlightString(flight));
-    NewTextChild(tripHeaderNode, "airline", flight.airline());
-    NewTextChild(tripHeaderNode, "aircode", airlineAccode(flight.airline()));
-    NewTextChild(tripHeaderNode, "flt_no",  flightString(flight));
-    NewTextChild(tripHeaderNode, "suffix",  "");
-    NewTextChild(tripHeaderNode, "airp",    flight.depPort());
-    NewTextChild(tripHeaderNode, "scd_out_local", depDateTimeString(flight));
-    NewTextChild(tripHeaderNode, "pr_etl_only", "0"); // TODO
-    NewTextChild(tripHeaderNode, "pr_etstatus", "0"); // TODO
-    NewTextChild(tripHeaderNode, "pr_no_ticket_check", "0"); // TODO)
-    NewTextChild(tripHeaderNode, "pr_auto_pt_print", 0); // TODO
-    NewTextChild(tripHeaderNode, "pr_auto_pt_print_reseat", 0); // TODO
-
-    xmlNodePtr tripDataNode = newChild(segNode, "tripdata");
-    xmlNodePtr airpsNode = newChild(tripDataNode, "airps");
-    xmlNodePtr airpNode = newChild(airpsNode, "airp");
-    NewTextChild(airpNode, "point_id", -1);
-    NewTextChild(airpNode, "airp_code", airportCode(flight.arrPort()));
-    NewTextChild(airpNode, "city_code", airportCityCode(flight.arrPort()));
-    NewTextChild(airpNode, "target_view", fullAirportString(flight.arrPort()));
-    xmlNodePtr checkInfoNode = newChild(airpNode, "check_info");
-    xmlNodePtr passNode = newChild(checkInfoNode, "pass"); // TODO
-    xmlNodePtr crewNode = newChild(checkInfoNode, "crew"); // TODO
-    xmlNodePtr classesNode = newChild(tripDataNode, "classes"); // TODO
-    xmlNodePtr gatesNode = newChild(tripDataNode, "gates"); // TODO
-    xmlNodePtr hallsNode = newChild(tripDataNode, "halls"); // TODO
-    xmlNodePtr markFltsNode = newChild(tripDataNode, "mark_flights"); // TODO
-
-    NewTextChild(segNode, "grp_id", -1);
-    NewTextChild(segNode, "point_dep", -1);
-    NewTextChild(segNode, "airp_dep", flight.depPort());
-    NewTextChild(segNode, "point_arv", -1);
-    NewTextChild(segNode, "airp_arv", flight.arrPort());
-    NewTextChild(segNode, "class", "ù"); // TODO
-    NewTextChild(segNode, "status", "K"); // TODO
-    NewTextChild(segNode, "bag_refuse", ""); // TODO
-    NewTextChild(segNode, "piece_concept", 0); // TODO
-    NewTextChild(segNode, "tid", 0); // TODO
-    NewTextChild(segNode, "city_arv", airportCityCode(flight.arrPort()));
-    //xmlNodePtr markFltNode = newChild(segNode, "mark_flight"); // TODO
-
-    return segNode;
-}
-
-static xmlNodePtr xmlViewIatciPax(xmlNodePtr paxesNode,
-                                  const iatci::PaxDetails& pax,
-                                  const boost::optional<ReservationDetails>& reserv,
-                                  const boost::optional<FlightSeatDetails>& seat,
-                                  const boost::optional<ServiceDetails>& service,
-                                  const boost::optional<DocDetails>& doc,
-                                  int& currPax)
-{
-    int parentPaxId = 0;
-    if(pax.isInfant()) {
-        parentPaxId = -currPax;
-    }
-
-    xmlNodePtr paxNode = newChild(paxesNode, "pax");
-    NewTextChild(paxNode, "pax_id", -(++currPax));
-    NewTextChild(paxNode, "surname", pax.surname());
-    NewTextChild(paxNode, "name", pax.name());
-    NewTextChild(paxNode, "pers_type", paxTypeString(pax));
-    NewTextChild(paxNode, "seat_no", seat ? seat->seat() : "");
-    NewTextChild(paxNode, "seat_type", "");
-    NewTextChild(paxNode, "seats", pax.isInfant() ? 0 : 1);
-    NewTextChild(paxNode, "refuse", "");
-    NewTextChild(paxNode, "reg_no", seat ? seat->regNo() : "");
-    std::string subcls = "ù";
-    if(reserv && reserv->subclass()) {
-        subcls = reserv->subclass()->code(RUSSIAN);
-    } else {
-        LogWarning(STDLOG) << "use default subclass [ù]";
-    }
-    NewTextChild(paxNode, "subclass", subcls); // TODO
-    NewTextChild(paxNode, "bag_pool_num", ""); // TODO
-    NewTextChild(paxNode, "tid", 0); // TODO
-
-    boost::optional<Ticketing::TicketCpn_t> tickCpn;
-    std::string tickRem;
-    if(service) {
-        tickCpn = service->findTicketCpn(pax.isInfant());
-        tickRem = "TKNE";
-    }
-    if(tickCpn) {
-        NewTextChild(paxNode, "ticket_no", tickCpn->ticket().get());
-        NewTextChild(paxNode, "coupon_no", tickCpn->cpn().get());
-    }
-    else {
-        NewTextChild(paxNode, "ticket_no");
-        NewTextChild(paxNode, "coupon_no");
-    }
-
-    NewTextChild(paxNode, "ticket_rem", tickRem);
-    NewTextChild(paxNode, "ticket_confirm", "1"); // TODO
-
-    xmlNodePtr docNode = newChild(paxNode, "document");
-    if(doc)
-    {
-        tst();
-        NewTextChild(docNode, "type", doc->docType());
-        NewTextChild(docNode, "issue_country", doc->issueCountry());
-        NewTextChild(docNode, "no", doc->no());
-        NewTextChild(docNode, "nationality", doc->nationality());
-        if(!doc->birthDate().is_not_a_date()) {
-            NewTextChild(docNode, "birth_date",
-                         BASIC::date_time::boostDateToAstraFormatStr(doc->birthDate()));
-        }
-        NewTextChild(docNode, "gender", doc->gender());
-        NewTextChild(docNode, "surname", doc->surname());
-        NewTextChild(docNode, "first_name", doc->name());
-        if(!doc->secondName().empty()) {
-            NewTextChild(docNode, "second_name", doc->secondName());
-        }
-        if(!doc->expiryDate().is_not_a_date()) {
-            NewTextChild(docNode, "expiry_date",
-                         BASIC::date_time::boostDateToAstraFormatStr(doc->expiryDate()));
-        }
-    }
-
-    NewTextChild(paxNode, "pr_norec", 0); // TODO
-    NewTextChild(paxNode, "pr_bp_print", 0); // TODO
-    NewTextChild(paxNode, "pr_bi_print", 0); // TODO
-
-
-    xmlNodePtr paxRemsNode = newChild(paxNode, "rems");
-    if(service)
-    {
-        for(const ServiceDetails::SsrInfo& ssr: service->lSsr()) {
-            std::string remCode = ssr.ssrCode(),
-                        remText = ssr.freeText();
-
-            if(remCode == "TKNE") continue;
-
-            xmlNodePtr paxRemNode = newChild(paxRemsNode, "rem");
-            NewTextChild(paxRemNode, "rem_code", remCode);
-            NewTextChild(paxRemNode, "rem_text", remText);
-        }
-    }
-
-    NewTextChild(paxNode, "iatci_pax_id", pax.respRef());
-    if(parentPaxId) {
-        NewTextChild(paxNode, "iatci_parent_pax_id", parentPaxId);
-    } else {
-        NewTextChild(paxNode, "iatci_parent_pax_id");
-    }
-
-    return paxNode;
-}
-
-void Result::toXml(xmlNodePtr node) const
-{
-    xmlNodePtr segNode = xmlViewIatciFlight(node, flight());
-    xmlNodePtr paxesNode = newChild(segNode, "passengers");
-    int currPax = 0;
-    for(const auto& pxg: m_paxGroups) {
-        xmlViewIatciPax(paxesNode,
-                        pxg.pax(),
-                        pxg.reserv(),
-                        pxg.seat(),
-                        pxg.service(),
-                        pxg.doc(),
-                        currPax);
-        if(pxg.infant()) {
-            xmlViewIatciPax(paxesNode,
-                            pxg.infant().get(),
-                            pxg.reserv(),
-                            pxg.infantSeat(),
-                            pxg.service(),
-                            pxg.infantDoc(),
-                            currPax);
-        }
-    }
-
-    NewTextChild(segNode, "paid_bag_emd", ""); // TODO
-    xmlNodePtr tripCountersNode = newChild(segNode, "tripcounters"); // TODO
-    NewTextChild(segNode, "load_residue", ""); // TODO
-}
-
-void Result::toSmpXml(xmlNodePtr node) const
-{
-    ASSERT(seatmap());
-    PlaceMatrix placeMatrix = createPlaceMatrix(seatmap().get());
-
-    NewTextChild(node, "trip",        fullFlightString(flight(), false));
-    NewTextChild(node, "craft",       ""); // TODO get it
-    NewTextChild(node, "bort",        ""); // TODO get it
-    NewTextChild(node, "travel_time", depTimeString(flight()));
-    NewTextChild(node, "comp_id",     -1);
-    NewTextChild(node, "descr",       "");
-
-    xmlNodePtr salonsNode = newChild(node, "salons"); // TODO fill node properties
-    xmlSetProp(salonsNode, "pr_lat_seat", 1);
-    xmlSetProp(salonsNode, "RFISCMode",   0);
-
-    xmlNodePtr filterRoutesNode = newChild(salonsNode, "filterRoutes");
-    NewTextChild(filterRoutesNode, "point_dep", -1);
-    NewTextChild(filterRoutesNode, "point_arv", -1);
-
-    xmlNodePtr itemsNode = newChild(filterRoutesNode, "items");
-
-    xmlNodePtr depItemNode = newChild(itemsNode, "item");
-    NewTextChild(depItemNode, "point_id", -1);
-    NewTextChild(depItemNode, "airp", airportCode(flight().depPort()));
-
-    xmlNodePtr arrItemNode = newChild(itemsNode, "item");
-    NewTextChild(arrItemNode, "point_id", -1);
-    NewTextChild(arrItemNode, "airp", airportCode(flight().arrPort()));
-
-    for(const auto& pm: placeMatrix.placeLists()) {
-        PlaceMatrix::Limits limits = pm.second.limits();
-        xmlNodePtr placeListNode = newChild(salonsNode, "placelist");
-        xmlSetProp(placeListNode, "num", pm.first);
-        xmlSetProp(placeListNode, "xcount", limits.width() ? limits.width() + 1 : 0);
-        xmlSetProp(placeListNode, "ycount", limits.height() ? limits.height() + 1 : 0);
-
-        for(const auto& pl: pm.second.places()) {
-            xmlNodePtr placeNode = newChild(placeListNode, "place");
-            NewTextChild(placeNode, "x", (int)pl.first.m_x);
-            NewTextChild(placeNode, "y", (int)pl.first.m_y);
-            if(pl.second.m_occupied) {
-                xmlNodePtr layersNode = newChild(placeNode, "layers");
-                xmlNodePtr layerNode = newChild(layersNode, "layer");
-                NewTextChild(layerNode, "layer_type", "CHECKIN");
-            }
-            NewTextChild(placeNode, "elem_type", pl.second.m_elemType);
-            NewTextChild(placeNode, "class", pl.second.m_class);
-            NewTextChild(placeNode, "xname", pl.second.m_xName);
-            NewTextChild(placeNode, "yname", pl.second.m_yName);
-        }
-    }
-}
-
-void Result::toSmpUpdXml(xmlNodePtr node,
-                         const Seat& oldSeat,
-                         const Seat& newSeat) const
-{
-    ASSERT(seatmap());
-    PlaceMatrix placeMatrix = createPlaceMatrix(seatmap().get());
-
-    xmlNodePtr salonsNode = newChild(node, "update_salons");
-    xmlSetProp(salonsNode, "RFISCMode", 0);
-
-    xmlNodePtr seatsNode = newChild(salonsNode, "seats");
-
-    size_t newSeatSalonNum = placeMatrix.findPlaceListNum(newSeat.col(), newSeat.row());
-    size_t oldSeatSalonNum = placeMatrix.findPlaceListNum(oldSeat.col(), oldSeat.row());
-
-    xmlNodePtr salonNode = newChild(seatsNode, "salon");
-    xmlSetProp(salonNode, "num", oldSeatSalonNum);
-
-    const PlaceMatrix::PlaceList& oldSeatSalon = placeMatrix.placeLists().at(oldSeatSalonNum);
-    xmlNodePtr oldPlaceNode = newChild(salonNode, "place");
-    boost::optional<PlaceMatrix::Coord2D> oldPlaceCoord = oldSeatSalon.findPlaceCoords(oldSeat.col(), oldSeat.row());
-    ASSERT(oldPlaceCoord);
-    NewTextChild(oldPlaceNode, "x", (int)oldPlaceCoord->m_x);
-    NewTextChild(oldPlaceNode, "y", (int)oldPlaceCoord->m_y);
-
-
-    if(newSeatSalonNum != oldSeatSalonNum) {
-        salonNode = newChild(seatsNode, "salon");
-        xmlSetProp(salonNode, "num", newSeatSalonNum);
-    }
-
-    const PlaceMatrix::PlaceList& newSeatSalon = placeMatrix.placeLists().at(newSeatSalonNum);
-    xmlNodePtr newPlaceNode = newChild(salonNode, "place");
-    boost::optional<PlaceMatrix::Coord2D> newPlaceCoord = newSeatSalon.findPlaceCoords(newSeat.col(), newSeat.row());
-    ASSERT(newPlaceCoord);
-    NewTextChild(newPlaceNode, "x", (int)newPlaceCoord->m_x);
-    NewTextChild(newPlaceNode, "y", (int)newPlaceCoord->m_y);
-    xmlNodePtr layersNode = newChild(newPlaceNode, "layers");
-    xmlNodePtr layerNode = newChild(layersNode, "layer");
-    NewTextChild(layerNode, "layer_type", "CHECKIN");
-}
-
 }//namespace dcrcka
 
 //---------------------------------------------------------------------------------------
@@ -1561,62 +1310,6 @@ PlaceMatrix::Limits PlaceMatrix::PlaceList::limits() const
 {
     return PlaceMatrix::Limits(m_places.begin()->first,
                                m_places.rbegin()->first);
-}
-
-//---------------------------------------------------------------------------------------
-
-PlaceMatrix createPlaceMatrix(const SeatmapDetails& seatmap)
-{
-    PlaceMatrix placeMatrix;
-    size_t placeListNum = 0;
-    for(const CabinDetails& cbd: seatmap.lCabin()) {
-        PlaceMatrix::PlaceList placeList;
-        unsigned y = 0;
-        for(unsigned row = cbd.rowRange().firstRow(); row <= cbd.rowRange().lastRow(); ++row)  {
-            unsigned x = 0;
-            bool wasAisle = false;
-            for(const SeatColumnDetails& col: cbd.seatColumns()) {
-                std::string curXName = col.column(),
-                            curYName = boost::lexical_cast<std::string>(row);
-                std::string cls = cbd.classDesignator();
-                if(!cls.empty()) {
-                    cls = Ticketing::SubClass(cls)->baseClass()->code(RUSSIAN);
-                }
-                PlaceMatrix::Place place(curXName,
-                                         curYName,
-                                         cls,
-                                         "ä", // TODO get it
-                                         cbd.defaultSeatOccupation() == "O" ? true : false);
-                for(const RowDetails& rod: seatmap.lRow()) {
-                    if(rod.row() == curYName) {
-                        for(const SeatOccupationDetails& seatOccup: rod.lOccupationDetails()) {
-                            if(seatOccup.column() == curXName) {
-                                if(seatOccup.occupation() == "O") {
-                                    place.m_occupied = true;
-                                }
-                            }
-                        }
-                    }
-                }
-                placeList.setPlace(PlaceMatrix::Coord2D(x, y), place);
-                ++x;
-                if(col.desc1() == "A") {
-                    if(!wasAisle) {
-                        wasAisle = true;
-                        ++x;
-                    } else {
-                        wasAisle = false;
-                    }
-                }
-
-            }
-            ++y;
-        }
-
-        placeMatrix.addPlaceList(placeListNum++, placeList);
-    }
-
-    return placeMatrix;
 }
 
 //---------------------------------------------------------------------------------------

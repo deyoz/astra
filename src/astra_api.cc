@@ -71,8 +71,6 @@ XmlPax createCheckInPax(const XmlPax& basePax,
                         const boost::optional<iatci::DocDetails>& doc)
 {
     XmlPax ckiPax = basePax;
-    ckiPax.surname   = pax.surname();
-    ckiPax.name      = pax.name();
     ckiPax.seats     = pax.isInfant() ? 0 : 1;
     ckiPax.pers_type = EncodePerson(iatci::iatci2astra(pax.type()));
     ckiPax.seat_no   = seat ? seat->seat() : "";
@@ -2680,6 +2678,11 @@ boost::optional<Remark> PaxInfo::ssrInft() const
 std::string PaxInfo::fullName() const
 {
     return m_surname + "/" + m_name;
+}
+
+Ticketing::TicketNum_t PaxInfo::tickNum() const
+{
+    return Ticketing::TicketNum_t(m_ticketNum);
 }
 
 bool operator==(const PaxInfo& left, const PaxInfo& right)

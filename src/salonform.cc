@@ -16,7 +16,7 @@
 #include "seats_utils.h"
 #include "convert.h"
 #include "iatci.h"
-#include "iatci_types.h"
+#include "iatci_help.h"
 #include "astra_misc.h"
 #include "tlg/tlg_parser.h" // only for convert_salons
 #include "term_version.h"
@@ -2095,7 +2095,7 @@ void SalonFormInterface::ShowRemote(xmlNodePtr resNode, const iatci::dcrcka::Res
 {
     LogTrace(TRACE3) << __FUNCTION__;
     xmlNodePtr dataNode = newChild(resNode, "data");
-    res.toSmpXml(dataNode);
+    iatci::iatci2xmlSmp(dataNode, res);
 }
 
 void SalonFormInterface::ReseatRemote(xmlNodePtr resNode,
@@ -2108,7 +2108,7 @@ void SalonFormInterface::ReseatRemote(xmlNodePtr resNode,
     NewTextChild(dataNode, "tid",        0);
     NewTextChild(dataNode, "seat_no",    newSeat.toStr());
     NewTextChild(dataNode, "layer_type", "CHECKIN");
-    res.toSmpUpdXml(dataNode, oldSeat, newSeat);
+    iatci::iatci2xmlSmpUpd(dataNode, res, oldSeat, newSeat);
 }
 
 SalonFormInterface* SalonFormInterface::instance()

@@ -123,5 +123,27 @@ std::string normSeatLetter(const std::string& seatLetter);
 
 std::string denormSeatNum(const std::string& seatNum);
 
+//---------------------------------------------------------------------------------------
+
+class IatciViewXmlParams
+{
+public:
+    IatciViewXmlParams(const std::list<Ticketing::TicketNum_t>& tickNumOrder);
+
+    const std::list<Ticketing::TicketNum_t>& tickNumOrder() const;
+
+private:
+    std::list<Ticketing::TicketNum_t> m_tnOrder;
+};
+
+//---------------------------------------------------------------------------------------
+
+void iatci2xml(xmlNodePtr node, const dcrcka::Result& res,
+               const IatciViewXmlParams& viewParams);
+void iatci2xml(xmlNodePtr node, const std::list<dcrcka::Result>& lRes,
+               const IatciViewXmlParams& viewParams);
+void iatci2xmlSmp(xmlNodePtr node, const dcrcka::Result& res);
+void iatci2xmlSmpUpd(xmlNodePtr node, const dcrcka::Result& res,
+                     const Seat& oldSeat, const Seat& newSeat);
 
 }//namespace iatci

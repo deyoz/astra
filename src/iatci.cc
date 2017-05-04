@@ -1317,10 +1317,6 @@ static void UpdateIatciGrp(int grpId, IatciInterface::RequestType reqType,
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId:" << grpId;
     XMLDoc loadedDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(grpId));
 
-//    LogTrace(TRACE3) << "loaded:\n" << XMLTreeToText(loadedDoc.docPtr());
-//    LogTrace(TRACE3) << "req was:\n" << XMLTreeToText(termReqNode->doc);
-//    LogTrace(TRACE3) << "edires:\n" << XMLTreeToText(ediResNode->doc);
-
     boost::optional<iatci::CkuParams> ckuParams;
     if(isReseatReq(termReqNode)) {
         ckuParams = getSeatUpdateParams(termReqNode);
@@ -1763,6 +1759,31 @@ int IatciInterface::GetReqCtxtId(xmlNodePtr kickReqNode) const
     return NodeAsInteger("@req_ctxt_id", kickReqNode);
 }
 
+static std::list<Ticketing::TicketNum_t> getTickNumsOnFirstSeg(xmlNodePtr node)
+{
+    std::list<Ticketing::TicketNum_t> tickNums;
+    XmlCheckInTabs tabs(findNodeR(node, "segments"));
+    ASSERT(tabs.size() > 0);
+    const XmlCheckInTab& firstTab = tabs.tabs().front();
+    std::list<astra_entities::PaxInfo> lPax = firstTab.lPax();
+    for(const auto& pax: lPax) {
+        tickNums.push_back(pax.tickNum());
+    }
+    return tickNums;
+}
+
+static IatciViewXmlParams getIatciViewXmlParams(xmlNodePtr node)
+{
+    std::list<Ticketing::TicketNum_t> tickNumOrder = getTickNumsOnFirstSeg(node);
+    return IatciViewXmlParams(tickNumOrder);
+}
+
+static IatciViewXmlParams getIatciViewXmlParams(int grpId)
+{
+    XMLDoc oldXml = iatci::createXmlDoc(iatci::IatciXmlDb::load(grpId));
+    return getIatciViewXmlParams(oldXml.docPtr()->children);
+}
+
 void IatciInterface::DoKickAction(int ctxtId,
                                   xmlNodePtr reqNode,
                                   xmlNodePtr resNode,
@@ -1777,15 +1798,6 @@ void IatciInterface::DoKickAction(int ctxtId,
     xmlNodePtr iatciResNode = NodeAsNode(std::string("/iatci_result").c_str(), iatciResCtxt.docPtr());
     xmlNodePtr segmentsNode = newChild(iatciResNode, "segments");
 
-    // ответ на отмену, не содержащий данных, дополним информацией о пассажирах
-    if(reqType == Ckx) {
-        CopyNode(segmentsNode, findNodeR(reqNode, "iatci_segments"));
-    } else {
-        for(const auto& res: lRes) {
-            res.toXml(segmentsNode);
-        }
-    }
-
     EdiResCtxtWrapper ediResCtxt(ctxtId, iatciResNode, "context", __FUNCTION__);
 
     switch(act)
@@ -1794,6 +1806,14 @@ void IatciInterface::DoKickAction(int ctxtId,
     {
         ASSERT(CheckInInterface::SavePax(reqNode, ediResCtxt.node(), resNode));
         int grpId = getGrpId(reqNode, resNode, reqType);
+
+        if(reqType == Ckx) {
+            // ответ на отмену, не содержащий данных, дополним информацией о пассажирах
+            CopyNode(segmentsNode, findNodeR(reqNode, "iatci_segments"));
+        } else if(reqType == Cki) {
+            iatci::iatci2xml(segmentsNode, lRes, getIatciViewXmlParams(resNode));
+        }
+
         if(reqType == Cku) {
             UpdateIatciGrp(grpId, reqType, iatciResNode, reqNode, resNode);
         } else {
@@ -1825,6 +1845,7 @@ void IatciInterface::DoKickAction(int ctxtId,
     case ActLoadPax:
     {
         int grpId = getGrpId(reqNode, resNode, reqType);
+        iatci::iatci2xml(segmentsNode, lRes, getIatciViewXmlParams(grpId));
         SaveIatciGrp(grpId, reqType, iatciResNode, reqNode, resNode);
         CheckInInterface::LoadPax(reqNode, resNode);
     }
@@ -1833,6 +1854,7 @@ void IatciInterface::DoKickAction(int ctxtId,
     case ActReprint:
     {
         int grpId = getGrpId(reqNode, resNode, reqType);
+        iatci::iatci2xml(segmentsNode, lRes, getIatciViewXmlParams(grpId));
         SaveIatciGrp(grpId, reqType, iatciResNode, reqNode, resNode);
         PrintInterface::GetPrintDataBP(reqNode, resNode);
     }
@@ -1841,6 +1863,7 @@ void IatciInterface::DoKickAction(int ctxtId,
     default:
         throw EXCEPTIONS::Exception("Can't be here!");
     }
+
     FuncOut(DoKickAction);
 }
 
