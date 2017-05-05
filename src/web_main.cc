@@ -1275,6 +1275,7 @@ struct TWebPlace {
     string seat_no;
     string elem_type;
     int pr_free;
+    bool reserv_owner;
     int pr_CHIN;
     int pax_id;
     ASTRA::TCompLayerType layer_type;
@@ -1288,6 +1289,7 @@ struct TWebPlace {
       pax_id = NoExists;
       layer_type = ASTRA::TCompLayerType::cltUnknown;
       layer_pax_id = NoExists;
+      reserv_owner = false;
     }
 };
 
@@ -1423,6 +1425,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
                ilayer->layer_type != cltUnknown ) {
             pr_first = false;
             wp.pr_free = ( ilayer->layer_type != cltPNLCkin && !SALONS2::isUserProtectLayer( ilayer->layer_type ) );
+            wp.reserv_owner =  ( ( ilayer->layer_type == cltPNLCkin || SALONS2::isUserProtectLayer( ilayer->layer_type ) ) && isOwnerFreePlace( ilayer->pax_id, pnr ) );
               ProgTrace( TRACE5, "l->layer_type=%s, l->pax_id=%d, isOwnerFreePlace( l->pax_id, pnr )=%d, pr_first=%d",
                          EncodeCompLayerType(ilayer->layer_type), ilayer->pax_id, isOwnerFreePlace( ilayer->pax_id, pnr ), pr_first );
               if ( wp.pr_free )
@@ -1441,6 +1444,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
           }
 
           wp.pr_free = ( wp.pr_free || pr_first ); // 0 - занято, 1 - свободно, 2 - частично занято
+          wp.reserv_owner = ( wp.reserv_owner || pr_first );
 
         if ( wp.pr_free ) {
           //место свободно
@@ -1464,12 +1468,14 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
               }
               else { // подклассы не совпали
                 wp.pr_free = 0; // занято
+                wp.reserv_owner = false;
               }
           }
           else {
             // у пассажира нет подкласса
             if ( !seat_subcls.empty() ) { // подкласс у места
                 wp.pr_free = 0; // занято
+                wp.reserv_owner = false;
             }
           }
         }
@@ -1495,12 +1501,17 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
   }
 }
 
-int get_seat_status( TWebPlace &wp, bool pr_find_free_subcls_place )
+int get_seat_status( TWebPlace &wp, bool pr_find_free_subcls_place, bool view_craft )
 {
   int status = 0;
   switch( wp.pr_free ) {
     case 0: // занято
-        status = 1;
+        if ( view_craft ) {
+          status = 1;
+        }
+        else {
+          status = !wp.reserv_owner;
+        }
         break;
     case 1: // свободно
         status = 0;
@@ -1539,7 +1550,7 @@ void GetCrsPaxSeats( int point_id, const vector<TWebPax> &pnr,
       for ( TWebPlaces::iterator wp = isal->second.places.begin();
             wp != isal->second.places.end(); wp++ ) {
         if ( i->crs_seat_no == wp->seat_no ) {
-          if ( get_seat_status( *wp, pr_find_free_subcls_place ) == 1 )
+          if ( get_seat_status( *wp, pr_find_free_subcls_place, false ) == 1 )
             ld.lexema_id = "MSG.SEATS.SEAT_NO.NOT_AVAIL";
           wp->pax_id = i->crs_pax_id;
           pr_find = true;
@@ -1605,7 +1616,7 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       NewTextChild( placeNode, "y", wp->y );
       NewTextChild( placeNode, "seat_no", wp->seat_no );
       NewTextChild( placeNode, "elem_type", wp->elem_type );
-      NewTextChild( placeNode, "status", get_seat_status( *wp, pr_find_free_subcls_place ) );
+      NewTextChild( placeNode, "status", get_seat_status( *wp, pr_find_free_subcls_place, true ) );
       if ( wp->pax_id != NoExists )
         NewTextChild( placeNode, "pax_id", wp->pax_id );
       if ( !wp->SeatTariff.empty() ) { // если платная регистрация отключена, value=0.0 в любом случае
