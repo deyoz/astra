@@ -2,6 +2,7 @@
 #define _CONVERT_H_
 
 #include <string>
+#include <boost/optional.hpp>
 
 #define FIRST_IATA_ROW  1
 #define LAST_IATA_ROW   199
@@ -13,7 +14,7 @@ std::string norm_iata_line(std::string line);
 // convert iata line depends on pr_lat
 std::string denorm_iata_line(std::string line, bool pr_lat);
 std::string norm_iata_row(std::string row);
-std::string denorm_iata_row(std::string row, const char* add_ch);
+std::string denorm_iata_row(std::string row, boost::optional<char> add_ch=boost::none);
 std::string prev_iata_line(std::string line);
 std::string next_iata_line(std::string line);
 std::string prev_iata_row(std::string row);

@@ -58,6 +58,8 @@ class TSeat
         res=strcmp(line,seat.line);
       return res<0;
     };
+
+    std::string denorm_view(bool is_lat) const;
 };
 
 class TSeatRange : public std::pair<TSeat,TSeat>
@@ -80,6 +82,16 @@ class TSeatRange : public std::pair<TSeat,TSeat>
     {
       return range1.first<range2.first;
     };
+    std::string traceStr() const;
+};
+
+class TSeatRanges : public std::vector<TSeatRange>
+{
+  public:
+    TSeatRanges(const TSeat &seat) : std::vector<TSeatRange>(1,TSeatRange(seat,seat)) {}
+    TSeatRanges() : std::vector<TSeatRange>() {}
+    bool contains(const TSeat &seat) const;
+    std::string traceStr() const;
 };
 
 struct CompareSeat  {
@@ -110,12 +122,12 @@ class TPassSeats: public std::set<TSeat,CompareSeat> {
 
 
 //функция кроме представления номера места возвращает кол-во мест
-std::string GetSeatRangeView(const std::vector<TSeatRange> &ranges,
+std::string GetSeatRangeView(const TSeatRanges &ranges,
                              const std::string &format,
                              bool pr_lat,
                              int &seats);
 
-std::string GetSeatRangeView(const std::vector<TSeatRange> &ranges,
+std::string GetSeatRangeView(const TSeatRanges &ranges,
                              const std::string &format,
                              bool pr_lat);
                              
@@ -135,7 +147,7 @@ bool PriorNormSeatLine(TSeat &seat);
 TSeat& FirstNormSeatLine(TSeat &seat);
 TSeat& LastNormSeatLine(TSeat &seat);
 bool NextNormSeat(TSeat &seat);
-bool SeatInRange(TSeatRange &range, TSeat &seat);
+bool SeatInRange(const TSeatRange &range, const TSeat &seat);
 bool NextSeatInRange(TSeatRange &range, TSeat &seat);
 
 #endif /*_SEATS_UTILS_H_*/

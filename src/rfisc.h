@@ -531,10 +531,12 @@ class TGrpServiceList : public std::list<TGrpServiceItem>
     void toXML(xmlNodePtr node) const;
     void addBagInfo(int grp_id,
                     int tckin_seg_count,
-                    int trfer_seg_count);
+                    int trfer_seg_count,
+                    bool include_refused);
     void prepareForSirena(int grp_id,
                           int tckin_seg_count,
-                          int trfer_seg_count);
+                          int trfer_seg_count,
+                          bool include_refused);
     void getAllListItems();
     static void clearDB(int grp_id);
     static void copyDB(int grp_id_src, int grp_id_dest);

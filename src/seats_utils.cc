@@ -13,6 +13,38 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace ASTRA;
 
+std::string TSeat::denorm_view(bool is_lat) const
+{
+  return denorm_iata_row( row ) + denorm_iata_line( line, is_lat );
+}
+
+bool TSeatRanges::contains(const TSeat &seat) const
+{
+  for(TSeatRanges::const_iterator r=begin(); r!=end(); ++r)
+    if (SeatInRange(*r, seat)) return true;
+  return false;
+}
+
+std::string TSeatRange::traceStr() const
+{
+  ostringstream s;
+  s << first.denorm_view(true);
+  if (first!=second)
+    s << "-" << second.denorm_view(true);
+  return s.str();
+}
+
+std::string TSeatRanges::traceStr() const
+{
+  ostringstream s;
+  for(TSeatRanges::const_iterator r=begin(); r!=end(); ++r)
+  {
+    if (r!=begin()) s << ", ";
+    s << r->traceStr();
+  }
+  return s.str();
+}
+
 void NormalizeSeat(TSeat &seat)
 {
   if (!is_iata_row(seat.row)) throw EConvertError("NormalizeSeat: non-IATA row '%s'",seat.row);
@@ -128,7 +160,7 @@ bool NextNormSeat(TSeat &seat)
   return true;
 };
 
-bool SeatInRange(TSeatRange &range, TSeat &seat)
+bool SeatInRange(const TSeatRange &range, const TSeat &seat)
 {
   return strcmp(seat.row,range.first.row)>=0 &&
          strcmp(seat.row,range.second.row)<=0 &&
@@ -149,12 +181,12 @@ bool NextSeatInRange(TSeatRange &range, TSeat &seat)
   return true;
 };
 
-string GetSeatRangeView(const vector<TSeatRange> &ranges, const string &format, bool pr_lat, int &seats)
+string GetSeatRangeView(const TSeatRanges &ranges, const string &format, bool pr_lat, int &seats)
 {
   //создаем сортированный массив TSeat
   vector<TSeat> iata_seats;
-  vector<TSeatRange> not_iata_ranges;
-  for(vector<TSeatRange>::const_iterator r=ranges.begin(); r!=ranges.end(); r++)
+  TSeatRanges not_iata_ranges;
+  for(TSeatRanges::const_iterator r=ranges.begin(); r!=ranges.end(); r++)
   {
     TSeatRange iata_range(r->first, r->second);
     try
@@ -167,7 +199,7 @@ string GetSeatRangeView(const vector<TSeatRange> &ranges, const string &format, 
         not_iata_ranges.push_back(*r);
       continue;
     };
-    
+
     TSeat iata_seat=iata_range.first;
     do
     {
@@ -176,48 +208,48 @@ string GetSeatRangeView(const vector<TSeatRange> &ranges, const string &format, 
     }
     while (NextSeatInRange(iata_range,iata_seat));
   };
-    
+
   sort(iata_seats.begin(),iata_seats.end());
   sort(not_iata_ranges.begin(),not_iata_ranges.end());
 
   string fmt=format;
-  const char* add_ch = NULL;
- 	if ( fmt == "_list" || fmt == "_one" || fmt == "_seats" )
- 	{
-  		add_ch = " ";
-	  	fmt.erase(0,1);
-	 };
-	 ostringstream res;
+  boost::optional<char> add_ch;
+    if ( fmt == "_list" || fmt == "_one" || fmt == "_seats" )
+    {
+        add_ch = ' ';
+        fmt.erase(0,1);
+     };
+     ostringstream res;
   for(vector<TSeat>::const_iterator s=iata_seats.begin(); s!=iata_seats.end(); s++)
   {
     if (!res.str().empty())
     {
       if (fmt=="list") res << " "; else break;
     };
-  
+
     res << denorm_iata_row( s->row, add_ch )
         << denorm_iata_line( s->line, pr_lat );
-    add_ch = NULL;
+    add_ch = boost::none;
   };
-  for(vector<TSeatRange>::const_iterator r=not_iata_ranges.begin(); r!=not_iata_ranges.end(); r++)
+  for(TSeatRanges::const_iterator r=not_iata_ranges.begin(); r!=not_iata_ranges.end(); r++)
   {
     if (!res.str().empty())
     {
       if (fmt=="list") res << " "; else break;
     };
-    
+
     res << r->first.row << r->first.line;
     if (fmt=="list" && r->first!=r->second)
       res << "-" << r->second.row << r->second.line;
   };
-  
+
   seats=iata_seats.size()+not_iata_ranges.size();
   if ( fmt != "list" && fmt != "one" && seats > 1 )
     res << "+" << seats-1;
   return res.str();
 };
 
-string GetSeatRangeView(const vector<TSeatRange> &ranges, const string &format, bool pr_lat)
+string GetSeatRangeView(const TSeatRanges &ranges, const string &format, bool pr_lat)
 {
   int seats=NoExists;
   return GetSeatRangeView(ranges, format, pr_lat, seats);
@@ -225,6 +257,6 @@ string GetSeatRangeView(const vector<TSeatRange> &ranges, const string &format, 
 
 string GetSeatView(const TSeat &seat, const string &format, bool pr_lat)
 {
-  return GetSeatRangeView(vector<TSeatRange>(1,TSeatRange(seat,seat)), format, pr_lat);
+  return GetSeatRangeView(TSeatRanges(seat), format, pr_lat);
 };
 

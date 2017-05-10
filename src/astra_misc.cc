@@ -44,33 +44,29 @@ bool TTripInfo::getByPointId ( const int point_id )
 
 bool TTripInfo::getByPointIdTlg ( const int point_id_tlg )
 {
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg = :point_id ORDER BY point_id_spp";
-  Qry.CreateVariable("point_id", otInteger, point_id_tlg);
-  Qry.Execute();
-
-  if ( Qry.Eof ) return false;
-
-  return getByPointId( Qry.FieldAsInteger( "point_id_spp" ) );
+  TAdvTripInfoList trips;
+  getTripsByPointIdTlg(point_id_tlg, trips);
+  if (trips.empty()) return false;
+  *this=trips.front();
+  return true;
 }
 
 bool TTripInfo::getByCRSPnrId(const int pnr_id)
 {
-    TCachedQuery Qry("select point_id from crs_pnr where pnr_id = :pnr_id",
-            QParams() << QParam("pnr_id", otInteger, pnr_id));
-    Qry.get().Execute();
-    if(Qry.get().Eof) return false;
-    return getByPointIdTlg(Qry.get().FieldAsInteger("point_Id"));
+  TAdvTripInfoList trips;
+  getTripsByCRSPnrId(pnr_id, trips);
+  if (trips.empty()) return false;
+  *this=trips.front();
+  return true;
 }
 
 bool TTripInfo::getByCRSPaxId(const int pax_id)
 {
-    TCachedQuery Qry("select pnr_id from crs_pax where pax_id = :pax_id",
-            QParams() << QParam("pax_id", otInteger, pax_id));
-    Qry.get().Execute();
-    if(Qry.get().Eof) return false;
-    return getByCRSPnrId(Qry.get().FieldAsInteger("pnr_id"));
+  TAdvTripInfoList trips;
+  getTripsByCRSPaxId(pax_id, trips);
+  if (trips.empty()) return false;
+  *this=trips.front();
+  return true;
 }
 
 bool TTripInfo::getByGrpId ( const int grp_id )
@@ -86,22 +82,42 @@ bool TTripInfo::getByGrpId ( const int grp_id )
   return getByPointId( Qry.FieldAsInteger( "point_dep" ) );
 }
 
-TAdvTripInfoList getTripsByPointIdTlg( const int point_id_tlg )
+void getTripsByPointIdTlg( const int point_id_tlg, TAdvTripInfoList &trips )
 {
+  trips.clear();
   TQuery Qry( &OraSession );
   Qry.SQLText =
     "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg = :point_id ORDER BY point_id_spp";
   Qry.CreateVariable( "point_id", otInteger, point_id_tlg );
   Qry.Execute();
 
-  TAdvTripInfoList trips;
   for( ; !Qry.Eof; Qry.Next() ) {
     TAdvTripInfo info;
     if (info.getByPointId( Qry.FieldAsInteger( "point_id_spp" ) ))
       trips.push_back( info );
   }
+}
 
-  return trips;
+void getTripsByCRSPnrId(const int pnr_id, TAdvTripInfoList &trips)
+{
+  trips.clear();
+  TCachedQuery Qry("select point_id from crs_pnr where pnr_id = :pnr_id",
+          QParams() << QParam("pnr_id", otInteger, pnr_id));
+  Qry.get().Execute();
+  if(Qry.get().Eof) return;
+
+  getTripsByPointIdTlg(Qry.get().FieldAsInteger("point_id"), trips);
+}
+
+void getTripsByCRSPaxId(const int pax_id, TAdvTripInfoList &trips)
+{
+  trips.clear();
+  TCachedQuery Qry("select pnr_id from crs_pax where pax_id = :pax_id",
+          QParams() << QParam("pax_id", otInteger, pax_id));
+  Qry.get().Execute();
+  if(Qry.get().Eof) return;
+
+  getTripsByCRSPnrId(Qry.get().FieldAsInteger("pnr_id"), trips);
 }
 
 void TTripInfo::get_client_dates(TDateTime &scd_out_client, TDateTime &real_out_client, bool trunc_time) const
@@ -1497,15 +1513,15 @@ TPaxSeats::TPaxSeats( int point_id )
 std::string TPaxSeats::getSeats( int pax_id, const std::string format )
 {
   Qry->SetVariable( "pax_id", pax_id );
-    Qry->Execute();
-    vector<TSeatRange> ranges;
-    for(;!Qry->Eof;Qry->Next())
-    {
-      ranges.push_back(TSeatRange(TSeat(Qry->FieldAsString("first_yname"),
+  Qry->Execute();
+  TSeatRanges ranges;
+  for(;!Qry->Eof;Qry->Next())
+  {
+    ranges.push_back(TSeatRange(TSeat(Qry->FieldAsString("first_yname"),
                                       Qry->FieldAsString("first_xname")),
                                 TSeat(Qry->FieldAsString("last_yname"),
                                       Qry->FieldAsString("last_xname"))));
-    };
+  };
   return GetSeatRangeView(ranges, format, pr_lat_seat);
 }
 
