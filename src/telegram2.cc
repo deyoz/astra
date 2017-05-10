@@ -5884,7 +5884,7 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
     }
     if(options.version == "28ed")
         body.insert(body.end(), si.begin(), si.end());
-    if(options.version == "CEK") {
+    if(options.version == "CEK" and options.exb) {
         row.str("");
         row << "SI: EXB" << excess.excess << KG;
         body.push_back(row.str());
