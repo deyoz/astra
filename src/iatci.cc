@@ -911,10 +911,22 @@ static boost::optional<astra_entities::PaxInfo> findInfant(const std::list<astra
 }
 
 static boost::optional<astra_entities::PaxInfo> findPax(const std::list<astra_entities::PaxInfo>& lPax,
-                                                        const astra_entities::PaxInfo& search)
+                                                        int paxId)
 {
     for(const auto& pax: lPax) {
-        if(pax.fullName() == search.fullName()) {
+        if(pax.id() == paxId) {
+            return pax;
+        }
+    }
+
+    return boost::none;
+}
+
+static boost::optional<astra_entities::PaxInfo> findPax(const std::list<astra_entities::PaxInfo>& lPax,
+                                                        const std::string& fullName)
+{
+    for(const auto& pax: lPax) {
+        if(pax.fullName() == fullName) {
             return pax;
         }
     }
@@ -932,6 +944,17 @@ static boost::optional<astra_entities::PaxInfo> findInfantByParentId(const std::
     }
 
     return boost::none;
+}
+
+static void checkInfants(const std::list<astra_entities::PaxInfo>& lInfants,
+                         const std::list<astra_entities::PaxInfo>& lNonInfants)
+{
+    for(const auto& inft: lInfants) {
+        ASSERT(inft.iatciParentId());
+        if(!findPax(lNonInfants, inft.iatciParentId())) {
+            throw AstraLocale::UserException("MSG.CHECKIN.UNABLE_TO_CANCEL_INFANT_WITHOUT_PARENT");
+        }
+    }
 }
 
 static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
@@ -957,7 +980,7 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
     std::list<iatci::dcqcki::PaxGroup> lPaxGrp;
     for(const auto& pax: lNonInfants) {
         // поищем SSR INFT у пассажира из non-edi вкладки
-        boost::optional<astra_entities::PaxInfo> ownPax = findPax(lPaxOwn, pax);
+        boost::optional<astra_entities::PaxInfo> ownPax = findPax(lPaxOwn, pax.fullName());
         ASSERT(ownPax);
         boost::optional<astra_entities::Remark> ssrInft = ownPax->ssrInft();
 
@@ -1011,6 +1034,8 @@ static iatci::CkxParams getCkxParams(xmlNodePtr reqNode)
     const std::list<astra_entities::PaxInfo> lPax = firstOldTab.lPax();
     const std::list<astra_entities::PaxInfo> lNonInfants = filterNotInfants(lPax);
     const std::list<astra_entities::PaxInfo> lInfants = filterInfants(lPax);
+
+    checkInfants(lInfants, lNonInfants);
 
     std::list<iatci::dcqckx::PaxGroup> lPaxGrp;
     for(const auto& pax: lNonInfants) {
@@ -1079,7 +1104,7 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
     }
 
     if(lPaxGrp.empty()) {
-        LogTrace(TRACE3) << "Non-iatci pax change!";
+        LogTrace(TRACE0) << "Non-iatci pax change!";
         return boost::none;
     }
 
