@@ -10463,8 +10463,8 @@ namespace CKIN_REPORT {
         NewTextChild(rootNode, "date_scd", DateTimeToStr(scd_out, "dd.mm.yyyy hh:nn:ss"));
 
         string status;
-        if(ft == KUF_STAT::TFileType::ftClose) status = "CL";
-        if(ft == KUF_STAT::TFileType::ftTakeoff) status = "CC";
+        if(ft == KUF_STAT::TFileType::ftClose) status = "close";
+        if(ft == KUF_STAT::TFileType::ftTakeoff) status = "flight_close";
         if(status.empty())
             throw Exception("TReportData::toXML: unknown file type %d", ft);
 
@@ -10481,13 +10481,13 @@ namespace CKIN_REPORT {
                 if(not iAirp->second.empty()) {
                     for(TClsRoute::iterator iCls = iAirp->second.begin(); iCls != iAirp->second.end(); iCls++) {
                         if(iCls->second.booking) {
-                            xmlNodePtr bookingNode = getNode(airpNode, "booking");
+                            xmlNodePtr bookingNode = getNode(routeNode, "booking");
                             xmlNodePtr classNode = NewTextChild(bookingNode, "class", iCls->second.booking);
                             SetProp(classNode, "code", iCls->first);
                         }
-                        genderToXML(airpNode, "checkin/tranzit", iCls->second.tranzit, iCls->first);
-                        genderToXML(airpNode, "checkin/goshow", iCls->second.goshow, iCls->first);
-                        genderToXML(airpNode, "checkin/self_checkin", iCls->second.self_checkin, iCls->first);
+                        genderToXML(routeNode, "checkin/tranzit", iCls->second.tranzit, iCls->first);
+                        genderToXML(routeNode, "checkin/goshow", iCls->second.goshow, iCls->first);
+                        genderToXML(routeNode, "checkin/self_checkin", iCls->second.self_checkin, iCls->first);
                     }
                 }
             }
