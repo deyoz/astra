@@ -1034,8 +1034,9 @@ static iatci::CkxParams getCkxParams(xmlNodePtr reqNode)
     const std::list<astra_entities::PaxInfo> lPax = firstOldTab.lPax();
     const std::list<astra_entities::PaxInfo> lNonInfants = filterNotInfants(lPax);
     const std::list<astra_entities::PaxInfo> lInfants = filterInfants(lPax);
+    const std::list<astra_entities::PaxInfo> lReqNonInfants = filterNotInfants(firstReqTab.lPax());
 
-    checkInfants(lInfants, lNonInfants);
+    checkInfants(lInfants, lReqNonInfants);
 
     std::list<iatci::dcqckx::PaxGroup> lPaxGrp;
     for(const auto& pax: lNonInfants) {
