@@ -5245,7 +5245,7 @@ $(set tid $(get_single_tid $(get point_dep) REPIN ADULT))
               <tid>0</tid>
             </pax>
             <pax>
-              <pax_id>-1</pax_id>
+              <pax_id>-2</pax_id>
               <surname>REPIN</surname>
               <name>INFANT</name>
               <pers_type>êå</pers_type>

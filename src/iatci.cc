@@ -946,12 +946,14 @@ static boost::optional<astra_entities::PaxInfo> findInfantByParentId(const std::
     return boost::none;
 }
 
-static void checkInfants(const std::list<astra_entities::PaxInfo>& lInfants,
-                         const std::list<astra_entities::PaxInfo>& lNonInfants)
+static void checkInfants(const std::list<astra_entities::PaxInfo>& lReqInfants,
+                         const std::list<astra_entities::PaxInfo>& lReqNonInfants,
+                         const std::list<astra_entities::PaxInfo>& lPax)
 {
-    for(const auto& inft: lInfants) {
-        ASSERT(inft.iatciParentId());
-        if(!findPax(lNonInfants, inft.iatciParentId())) {
+    for(const auto& reqInft: lReqInfants) {
+        auto inft = findPax(lPax, reqInft.id());
+        ASSERT(inft && inft->iatciParentId());
+        if(!findPax(lReqNonInfants, inft->iatciParentId())) {
             throw AstraLocale::UserException("MSG.CHECKIN.UNABLE_TO_CANCEL_INFANT_WITHOUT_PARENT");
         }
     }
@@ -1031,12 +1033,17 @@ static iatci::CkxParams getCkxParams(xmlNodePtr reqNode)
     const XmlCheckInTab& firstOldTab = oldIatciTabs.tabs().front();
     const XmlCheckInTab& firstReqTab = reqIatciTabs.tabs().front();
 
+    // что имеем
     const std::list<astra_entities::PaxInfo> lPax = firstOldTab.lPax();
     const std::list<astra_entities::PaxInfo> lNonInfants = filterNotInfants(lPax);
     const std::list<astra_entities::PaxInfo> lInfants = filterInfants(lPax);
-    const std::list<astra_entities::PaxInfo> lReqNonInfants = filterNotInfants(firstReqTab.lPax());
 
-    checkInfants(lInfants, lReqNonInfants);
+    // что в запросе
+    const std::list<astra_entities::PaxInfo> lReqPax = firstReqTab.lPax();
+    const std::list<astra_entities::PaxInfo> lReqNonInfants = filterNotInfants(lReqPax);
+    const std::list<astra_entities::PaxInfo> lReqInfants = filterInfants(lReqPax);
+
+    checkInfants(lReqInfants, lReqNonInfants, lPax);
 
     std::list<iatci::dcqckx::PaxGroup> lPaxGrp;
     for(const auto& pax: lNonInfants) {
