@@ -24,15 +24,28 @@ using namespace std;
 using namespace ASTRA;
 using namespace ASTRA::date_time;
 
-bool TTripInfo::getByPointId ( const int point_id )
+bool TTripInfo::getByPointId ( const TDateTime part_key, const int point_id )
 {
   TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT airline, flt_no, suffix, airp, craft, scd_out, "
-    "       NVL(act_out,NVL(est_out,scd_out)) AS real_out, pr_del, "
-    "       airline_fmt, suffix_fmt, airp_fmt, craft_fmt  "
-    "FROM points "
-    "WHERE point_id = :point_id AND pr_del>=0";
+  if (part_key==NoExists)
+  {
+    Qry.SQLText =
+      "SELECT airline, flt_no, suffix, airp, craft, scd_out, "
+      "       NVL(act_out,NVL(est_out,scd_out)) AS real_out, pr_del, "
+      "       airline_fmt, suffix_fmt, airp_fmt, craft_fmt  "
+      "FROM points "
+      "WHERE point_id=:point_id AND pr_del>=0";
+  }
+  else
+  {
+    Qry.SQLText =
+      "SELECT airline, flt_no, suffix, airp, craft, scd_out, "
+      "       NVL(act_out,NVL(est_out,scd_out)) AS real_out, pr_del, "
+      "       airline_fmt, suffix_fmt, airp_fmt, craft_fmt  "
+      "FROM arx_points "
+      "WHERE part_key=:part_key AND point_id=:point_id AND pr_del>=0";
+    Qry.CreateVariable( "part_key", otDate, part_key );
+  };
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
 
@@ -40,6 +53,11 @@ bool TTripInfo::getByPointId ( const int point_id )
 
   init( Qry );
   return true;
+}
+
+bool TTripInfo::getByPointId ( const int point_id )
+{
+  return getByPointId(NoExists, point_id);
 }
 
 bool TTripInfo::getByPointIdTlg ( const int point_id_tlg )
@@ -248,15 +266,28 @@ string GetTripName( const TTripInfo &info, TElemContext ctxt, bool showAirp, boo
   return trip.str();
 };
 
-bool TAdvTripInfo::getByPointId ( const int point_id )
+bool TAdvTripInfo::getByPointId ( const TDateTime part_key, const int point_id )
 {
   TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT airline, flt_no, suffix, airp, scd_out, NVL(act_out,NVL(est_out,scd_out)) AS real_out, "
-    "       pr_del, airline_fmt, suffix_fmt, airp_fmt, point_id, "
-    "       point_num, first_point, pr_tranzit "
-    "FROM points "
-    "WHERE point_id = :point_id";
+  if (part_key==NoExists)
+  {
+    Qry.SQLText =
+      "SELECT airline, flt_no, suffix, airp, scd_out, NVL(act_out,NVL(est_out,scd_out)) AS real_out, "
+      "       pr_del, airline_fmt, suffix_fmt, airp_fmt, point_id, "
+      "       point_num, first_point, pr_tranzit "
+      "FROM points "
+      "WHERE point_id=:point_id AND pr_del>=0 ";
+  }
+  else
+  {
+    Qry.SQLText =
+      "SELECT airline, flt_no, suffix, airp, scd_out, NVL(act_out,NVL(est_out,scd_out)) AS real_out, "
+      "       pr_del, airline_fmt, suffix_fmt, airp_fmt, point_id, "
+      "       point_num, first_point, pr_tranzit "
+      "FROM arx_points "
+      "WHERE part_key=:part_key AND point_id=:point_id AND pr_del>=0 ";
+    Qry.CreateVariable( "part_key", otDate, part_key );
+  };
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
 
@@ -264,6 +295,11 @@ bool TAdvTripInfo::getByPointId ( const int point_id )
 
   Init( Qry );
   return true;
+}
+
+bool TAdvTripInfo::getByPointId ( const int point_id )
+{
+  return getByPointId(NoExists, point_id);
 }
 
 string TLastTrferInfo::str()

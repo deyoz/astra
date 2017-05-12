@@ -229,6 +229,7 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic
       return "DOCS";
     }
     std::string logStr(const std::string &lang=AstraLocale::LANG_EN) const;
+    std::string full_name() const;
 };
 
 const std::string DOCO_PSEUDO_TYPE="-";
