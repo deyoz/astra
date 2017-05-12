@@ -377,6 +377,17 @@ std::string TPaxDocItem::logStr(const std::string &lang) const
   return result.str();
 }
 
+std::string TPaxDocItem::full_name() const
+{
+  ostringstream s;
+  s << surname;
+  if (!first_name.empty())
+    s << " " << first_name;
+  if (!second_name.empty())
+    s << " " << second_name;
+  return s.str();
+};
+
 bool TPaxDocoItem::needPseudoType() const
 {
   TReqInfo *reqInfo = TReqInfo::Instance();

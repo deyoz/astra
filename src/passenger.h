@@ -229,6 +229,7 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic
       return "DOCS";
     }
     std::string logStr(const std::string &lang=AstraLocale::LANG_EN) const;
+    std::string full_name() const;
 };
 
 const std::string DOCO_PSEUDO_TYPE="-";
@@ -458,7 +459,7 @@ class TDocaMap : public std::map<TAPIType, TPaxDocaItem>
       for (TDocaMap::const_iterator i = this->begin(); i != this->end(); ++i)
         result += "[" + i->second.type + "]";
       return result;
-    }    
+    }
 };
 
 class TPaxItem : public TSimplePaxItem

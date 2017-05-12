@@ -2,6 +2,7 @@
 #define _STAT_H_
 
 #include <libxml/tree.h>
+#include <set>
 #include "jxtlib/JxtInterface.h"
 #include "date_time.h"
 
@@ -41,7 +42,14 @@ namespace STAT {
     int ovb(int argc,char **argv);
 
     xmlNodePtr getVariablesNode(xmlNodePtr resNode);
+
+    class TMoveIds : public std::set< std::pair<TDateTime, int> >
+    {
+      public:
+        void get_for_airp(TDateTime first_date, TDateTime last_date, const std::string& airp);
+    };
 }
+
 
 class StatInterface : public JxtInterface
 {
