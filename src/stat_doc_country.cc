@@ -82,8 +82,8 @@ int stat_belgorod(int argc, char **argv)
               << QParam("airp", otString, belgorod_airp));
 
 
-  std::ofstream farv(fname_arv.str());
-  std::ofstream fdep(fname_dep.str());
+  std::ofstream farv(fname_arv.str().c_str());
+  std::ofstream fdep(fname_dep.str().c_str());
   try
   {
     if(!farv.is_open())
