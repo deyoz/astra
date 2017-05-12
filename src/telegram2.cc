@@ -10640,7 +10640,7 @@ namespace KUF_STAT {
 
         TQuery Qry(&OraSession);
         Qry.SQLText =
-            "select id, point_id, file_type from kuf_stat where file_type in(:close, :flight_close)";
+            "select id, point_id, file_type from kuf_stat where file_type in(:close, :flight_close) order by point_id";
         Qry.CreateVariable("close", otString, TFileTypes().encode(TFileType::ftClose));
         Qry.CreateVariable("flight_close", otString, TFileTypes().encode(TFileType::ftTakeoff));
         Qry.Execute();
@@ -10671,22 +10671,20 @@ namespace KUF_STAT {
 
                 xmlNodePtr routeNode = NodeAsNodeFast("route", curNode);
                 for(; routeNode; routeNode = routeNode->next) {
-                    LogTrace(TRACE5) << "num: " << NodeAsString("@num", routeNode);
+                    xmlNodePtr airpNode = routeNode->children;
+                    if(airpNode->children) {
+                        CopyNodeList(routeNode, airpNode);
+                        RemoveChildNodes(airpNode);
+                    }
                 }
 
-                LogTrace(TRACE5) << "content: '" << content << "'";
+                content = StrUtils::b64_encode(GetXMLDocText(doc.docPtr()));
 
-                content = GetXMLDocText(doc.docPtr());
-
-                LogTrace(TRACE5) << "fixed content: '" << content << "'";
-
-                /*
                 delQry.SetVariable("id", id);
                 delQry.Execute();
 
                 txtQry.SetVariable("id", id);
                 longToDB(txtQry, "text", content);
-                */
                 OraSession.Commit();
                 fixed++;
             }
