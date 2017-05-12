@@ -10625,6 +10625,78 @@ namespace KUF_STAT {
     {
         KUF_STAT::toDB(tripInfo, ftype, KUF_STAT::getFileData(tripInfo.point_id, ftype));
     }
+
+    int fix(int argc, char **argv)
+    {
+        TQuery delQry(&OraSession);
+        delQry.SQLText = "delete from kuf_stat_text where id = :id";
+        delQry.DeclareVariable("id", otInteger);
+
+        TQuery txtQry(&OraSession);
+        txtQry.SQLText = "insert into kuf_stat_text(id, page_no, text) values(:id, :page_no, :text)",
+        txtQry.DeclareVariable("id", otInteger);
+        txtQry.DeclareVariable("page_no", otInteger);
+        txtQry.DeclareVariable("text", otString);
+
+        TQuery Qry(&OraSession);
+        Qry.SQLText =
+            "select id, point_id, file_type from kuf_stat where file_type in(:close, :flight_close)";
+        Qry.CreateVariable("close", otString, TFileTypes().encode(TFileType::ftClose));
+        Qry.CreateVariable("flight_close", otString, TFileTypes().encode(TFileType::ftTakeoff));
+        Qry.Execute();
+        int count = 0;
+        int fixed = 0;
+        for(; not Qry.Eof; Qry.Next(), count++) {
+            int id = Qry.FieldAsInteger("id");
+            int point_id = Qry.FieldAsInteger("point_id");
+            TFileType::Enum file_type = TFileTypes().decode(Qry.FieldAsString("file_type"));
+            string fname;
+            string content = StrUtils::b64_decode(KUF_STAT::fromDB(point_id, file_type, fname));
+
+            XMLDoc doc(content);
+            if(doc.docPtr()){
+                // здесь начинается исправление контента
+                xmlNodePtr flightNode = NodeAsNode("/flight", doc.docPtr());
+                xmlNodePtr curNode = flightNode->children;
+                xmlNodePtr statusNode = NodeAsNodeFast("status", curNode);
+                string status = NodeAsString(statusNode);
+                if(status == "CC")
+                    status = "flight_close";
+                else if(status == "CL")
+                    status = "close";
+                else
+                    continue;
+
+                NodeSetContent(statusNode, status);
+
+                xmlNodePtr routeNode = NodeAsNodeFast("route", curNode);
+                for(; routeNode; routeNode = routeNode->next) {
+                    LogTrace(TRACE5) << "num: " << NodeAsString("@num", routeNode);
+                }
+
+                LogTrace(TRACE5) << "content: '" << content << "'";
+
+                content = GetXMLDocText(doc.docPtr());
+
+                LogTrace(TRACE5) << "fixed content: '" << content << "'";
+
+                /*
+                delQry.SetVariable("id", id);
+                delQry.Execute();
+
+                txtQry.SetVariable("id", id);
+                longToDB(txtQry, "text", content);
+                */
+                OraSession.Commit();
+                fixed++;
+            }
+
+        }
+        cout << "total reports: " << count << endl;
+        cout << fixed << " reports fixed" << endl;
+
+        return 1;
+    }
 }
 
 void TelegramInterface::kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
