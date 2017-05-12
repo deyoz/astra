@@ -966,15 +966,11 @@ static xmlNodePtr xmlViewIatciPax(xmlNodePtr paxesNode,
                                   const boost::optional<FlightSeatDetails>& seat,
                                   const boost::optional<ServiceDetails>& service,
                                   const boost::optional<DocDetails>& doc,
+                                  int parentPaxId,
                                   int& currPax)
 {
-    int parentPaxId = 0;
-    if(pax.isInfant()) {
-        parentPaxId = -currPax;
-    }
-
     xmlNodePtr paxNode = newChild(paxesNode, "pax");
-    NewTextChild(paxNode, "pax_id", -(++currPax));
+    NewTextChild(paxNode, "pax_id", --currPax);
     NewTextChild(paxNode, "surname", pax.surname());
     NewTextChild(paxNode, "name", pax.name());
     NewTextChild(paxNode, "pers_type", paxTypeString(pax));
@@ -1126,6 +1122,9 @@ void xmlViewIatciPaxes_tickNumOrder(xmlNodePtr paxesNode,
                                     const std::list<Ticketing::TicketNum_t>& tickNumOrder)
 {
     ASSERT(!tickNumOrder.empty());
+
+    std::map<Ticketing::TicketNum_t, int> inftTicknums;
+
     int currPax = 0;
     for(const auto& tickNum: tickNumOrder) {
         bool isInfant = false;
@@ -1134,6 +1133,7 @@ void xmlViewIatciPaxes_tickNumOrder(xmlNodePtr paxesNode,
                                                                 isInfant);
         ASSERT(pxgOpt);
         const auto& pxg = pxgOpt.get();
+        int parentPaxId = 0;
         if(!isInfant) {
             xmlViewIatciPax(paxesNode,
                             pxg.pax(),
@@ -1141,14 +1141,27 @@ void xmlViewIatciPaxes_tickNumOrder(xmlNodePtr paxesNode,
                             pxg.seat(),
                             pxg.service(),
                             pxg.doc(),
+                            parentPaxId,
                             currPax);
+            if(pxg.infant()) {
+                ASSERT(pxg.tickNumInfant());
+                inftTicknums.insert(std::make_pair(pxg.tickNumInfant().get(), currPax));
+            }
         } else {
+            ASSERT(pxg.infant());
+            if(algo::contains(inftTicknums, tickNum)) {
+                parentPaxId = inftTicknums.at(tickNum);
+            } else {
+                LogError(STDLOG) << "Unable to find infant parent! Ticknum: " << tickNum;
+            }
+
             xmlViewIatciPax(paxesNode,
                             pxg.infant().get(),
                             pxg.reserv(),
                             pxg.infantSeat(),
                             pxg.service(),
                             pxg.infantDoc(),
+                            parentPaxId,
                             currPax);
         }
     }
@@ -1165,6 +1178,7 @@ void xmlViewIatciPaxes_asisOrder(xmlNodePtr paxesNode,
                         pxg.seat(),
                         pxg.service(),
                         pxg.doc(),
+                        0,
                         currPax);
         if(pxg.infant()) {
             xmlViewIatciPax(paxesNode,
@@ -1173,6 +1187,7 @@ void xmlViewIatciPaxes_asisOrder(xmlNodePtr paxesNode,
                             pxg.infantSeat(),
                             pxg.service(),
                             pxg.infantDoc(),
+                            currPax-1,
                             currPax);
         }
     }
