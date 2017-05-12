@@ -882,6 +882,58 @@ iatci::dcrcka::Result checkinIatciPaxes(const iatci::CkiParams& ckiParams)
                                       iatci::dcrcka::Result::Ok);
 }
 
+static void handleIatciCkuPax(int pointDep,
+                              bool& needMakeSeg,
+                              XmlSegment& paxSeg,
+                              const iatci::PaxDetails& pax,
+                              const boost::optional<iatci::UpdatePaxDetails>& updPax,
+                              const boost::optional<iatci::UpdateDocDetails>& updDoc,
+                              const boost::optional<iatci::UpdateSeatDetails>& updSeat,
+                              const boost::optional<iatci::UpdateServiceDetails>& updService)
+{
+    const std::string PaxSurname = pax.surname();
+    const std::string PaxName    = pax.name();
+    LogTrace(TRACE3) << "handle pax: " << PaxSurname << "/" << PaxName;
+
+    LoadPaxXmlResult loadPaxXmlRes = LoadPax__(pointDep,
+                                               PaxSurname,
+                                               PaxName);
+
+    std::list<XmlPax> paxesFiltered = loadPaxXmlRes.applyNameFilter(PaxSurname,
+                                                                    PaxName);
+
+    ASSERT(!paxesFiltered.empty());
+    if(paxesFiltered.size() > 1) {
+        // TODO здесь можно уточнить пакса по доп. признакам, например TKNE
+        throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_PAX_WITH_SAME_SURNAME);
+    }
+
+    XmlPax newPax = paxesFiltered.front();
+
+    // здесь в loadPaxXmlRes всегда один сегмент
+    XmlSegment currSeg = loadPaxXmlRes.lSeg.front();
+    ASSERT(currSeg.seg_info.grp_id != ASTRA::NoExists);
+
+    if(needMakeSeg) {
+        paxSeg = makeSegment(currSeg);
+        needMakeSeg = false;
+    }
+
+    if(updSeat) {
+        applySeatUpdate(newPax, *updSeat);
+    }
+
+    if(updDoc) {
+        applyDocUpdate(newPax, *updDoc);
+    }
+
+    if(updService) {
+        applyRemsUpdate(newPax, *updService);
+    }
+
+    paxSeg.passengers.push_back(newPax);
+}
+
 iatci::dcrcka::Result updateIatciPaxes(const iatci::CkuParams& ckuParams)
 {
     LogTrace(TRACE3) << __FUNCTION__;
@@ -899,55 +951,36 @@ iatci::dcrcka::Result updateIatciPaxes(const iatci::CkuParams& ckuParams)
                                              outbFlt.depDate());
 
 
-    const auto& paxGroup = ckuParams.fltGroup().paxGroups().front();
-    const std::string PaxSurname = paxGroup.pax().surname();
-    const std::string PaxName    = paxGroup.pax().name();
+    const auto& paxGroup = ckuParams.fltGroup().paxGroups().front();    
     bool Reseat = paxGroup.updSeat();
-    LogTrace(TRACE3) << "handle pax: " << PaxSurname << "/" << PaxName;
 
-    LoadPaxXmlResult loadPaxXmlRes = LoadPax__(pointDep,
-                                               PaxSurname,
-                                               PaxName);
-
-    std::list<XmlPax> paxesFiltered = loadPaxXmlRes.applyNameFilter(PaxSurname,
-                                                                    PaxName);
-
-    ASSERT(!paxesFiltered.empty());
-    if(paxesFiltered.size() > 1) {
-        // TODO здесь можно уточнить пакса по доп. признакам, например TKNE
-        throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_PAX_WITH_SAME_SURNAME);
+    XmlSegment paxSeg;
+    bool first = true;
+    handleIatciCkuPax(pointDep,
+                      first, paxSeg,
+                      paxGroup.pax(),
+                      paxGroup.updPax(),
+                      paxGroup.updDoc(),
+                      paxGroup.updSeat(),
+                      paxGroup.updService()
+                      );
+    if(paxGroup.infant()) {
+        handleIatciCkuPax(pointDep,
+                          first, paxSeg,
+                          paxGroup.infant().get(),
+                          paxGroup.updInfant(),
+                          paxGroup.updInfantDoc(),
+                          boost::none, // infant seat
+                          boost::none  // infant service
+                          );
     }
-
-    XmlPax pax = paxesFiltered.front();
-    // здесь в loadPaxXmlRes всегда один сегмент
-    XmlSegment currSeg = loadPaxXmlRes.lSeg.front();
-    ASSERT(currSeg.seg_info.grp_id != ASTRA::NoExists);
-
-
-    XmlSegment paxSeg = makeSegment(currSeg);
-
-
-    if(paxGroup.updSeat()) {
-        applySeatUpdate(pax, *paxGroup.updSeat());
-    }
-
-    if(paxGroup.updDoc()) {
-        applyDocUpdate(pax, *paxGroup.updDoc());
-    }
-
-    if(paxGroup.updService()) {
-        applyRemsUpdate(pax, *paxGroup.updService());
-    }
-
-    paxSeg.passengers.push_back(pax);
-
 
     if(Reseat) {
-        loadPaxXmlRes = AstraEngine::singletone().ReseatPax(paxSeg);
+        LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().ReseatPax(paxSeg);
         return loadPaxXmlRes.toIatciFirst(iatci::dcrcka::Result::Update,
                                           iatci::dcrcka::Result::Ok);
     } else {
-        loadPaxXmlRes = AstraEngine::singletone().SavePax(paxSeg);
+        LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(paxSeg);
         if(loadPaxXmlRes.lSeg.empty()) {
             // не смогли сохранить
             throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to update pax");
@@ -2347,7 +2380,7 @@ std::vector<iatci::dcrcka::Result> LoadPaxXmlResult::toIatci(iatci::dcrcka::Resu
         std::list<astra_entities::PaxInfo> lInfants = convertInfants(seg.passengers);
 
         for(const auto& paxInfo: lNonInfants) {
-            LogTrace(TRACE3) << "handle pax " << paxInfo.m_surname << "/" << paxInfo.m_name;
+            LogTrace(TRACE3) << "current pax " << paxInfo.m_surname << "/" << paxInfo.m_name;
 
             boost::optional<astra_entities::PaxInfo> inft;
 

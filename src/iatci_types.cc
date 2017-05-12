@@ -1488,14 +1488,18 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<ReservationDetails>& reserv,
                    const boost::optional<BaggageDetails>& baggage,
                    const boost::optional<ServiceDetails>& service,
+                   const boost::optional<PaxDetails>& infant,
                    const boost::optional<UpdatePaxDetails>& updPax,
                    const boost::optional<UpdateSeatDetails>& updSeat,
                    const boost::optional<UpdateBaggageDetails>& updBaggage,
                    const boost::optional<UpdateServiceDetails>& updService,
-                   const boost::optional<UpdateDocDetails>& updDoc)
-    : iatci::PaxGroup(pax, reserv, baggage, service, boost::none, boost::none),
+                   const boost::optional<UpdateDocDetails>& updDoc,
+                   const boost::optional<UpdatePaxDetails>& updInfant,
+                   const boost::optional<UpdateDocDetails>& updInfantDoc)
+    : iatci::PaxGroup(pax, reserv, baggage, service, boost::none, boost::none, infant),
       m_updPax(updPax), m_updSeat(updSeat), m_updBaggage(updBaggage),
-      m_updService(updService), m_updDoc(updDoc)
+      m_updService(updService), m_updDoc(updDoc),
+      m_updInfant(updInfant), m_updInfantDoc(updInfantDoc)
 {}
 
 const boost::optional<UpdatePaxDetails>& PaxGroup::updPax() const
@@ -1521,6 +1525,16 @@ const boost::optional<UpdateServiceDetails>& PaxGroup::updService() const
 const boost::optional<UpdateDocDetails>& PaxGroup::updDoc() const
 {
     return m_updDoc;
+}
+
+const boost::optional<UpdatePaxDetails>& PaxGroup::updInfant() const
+{
+    return m_updInfant;
+}
+
+const boost::optional<UpdateDocDetails>& PaxGroup::updInfantDoc() const
+{
+    return m_updInfantDoc;
 }
 
 //---------------------------------------------------------------------------------------

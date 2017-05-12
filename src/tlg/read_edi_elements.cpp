@@ -953,7 +953,11 @@ boost::optional<UpdElem> readEdiUpd(_EDI_REAL_MES_STRUCT_ *pMes)
     upd.m_actionCode = GetDBFName(pMes, DataElement(9858), CompElement());
     upd.m_surname = GetDBFName(pMes, DataElement(3808), CompElement());
     upd.m_name = GetDBFName(pMes, DataElement(3809), CompElement());
+    upd.m_withInftIndicator = GetDBFName(pMes, DataElement(9884), CompElement());
+    upd.m_inftSurname = GetDBFName(pMes, DataElement(3808), CompElement("C018"));
+    upd.m_inftName = GetDBFName(pMes, DataElement(3809), CompElement("C019"));
     upd.m_passQryRef = GetDBFName(pMes, DataElement(9821), CompElement("C690"));
+    upd.m_inftQryRef = GetDBFName(pMes, DataElement(9821, 1), CompElement("C690"));
 
     LogTrace(TRACE3) << upd;
 
@@ -1177,7 +1181,8 @@ boost::optional<edifact::UapElem> readEdiUap(_EDI_REAL_MES_STRUCT_ *pMes)
     }
 
     UapElem uap;
-    uap.m_actionCode = GetDBFName(pMes, DataElement(9858), CompElement("C031"));
+    uap.m_actionCode   = GetDBFName(pMes, DataElement(9858), CompElement("C031"));
+    uap.m_type         = GetDBFName(pMes, DataElement(6353), CompElement("C060"));
     uap.m_nationality  = GetDBFName(pMes, DataElement(3207), CompElement("C060"));
     uap.m_docQualifier = GetDBFName(pMes, DataElement(7365), CompElement("C700"));
     uap.m_docNumber    = GetDBFName(pMes, DataElement(1004), CompElement("C700"));

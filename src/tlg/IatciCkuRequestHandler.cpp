@@ -50,6 +50,7 @@ public:
         boost::optional<edifact::UbdElem> m_ubd;
         boost::optional<edifact::UsiElem> m_usi;
         boost::optional<edifact::UapElem> m_uap;
+        boost::optional<edifact::UapElem> m_uapInfant;
 
     public:
         void setPpd(const boost::optional<edifact::PpdElem>& ppd);
@@ -63,7 +64,7 @@ public:
         void setUsd(const boost::optional<edifact::UsdElem>& usd, bool required = false);
         void setUbd(const boost::optional<edifact::UbdElem>& ubd, bool required = false);
         void setUsi(const boost::optional<edifact::UsiElem>& usi, bool required = false);
-        void setUap(const boost::optional<edifact::UapElem>& uap, bool required = false);
+        void addUap(const boost::optional<edifact::UapElem>& uap);
 
         iatci::dcqcku::PaxGroup makePaxGroup() const;
 
@@ -71,12 +72,15 @@ public:
         boost::optional<iatci::ReservationDetails> makeReserv() const;
         boost::optional<iatci::BaggageDetails>     makeBaggage() const;
         boost::optional<iatci::ServiceDetails>     makeService() const;
+        boost::optional<iatci::PaxDetails>         makeInfant() const;
 
         boost::optional<iatci::UpdatePaxDetails>     makeUpdPax() const;
         boost::optional<iatci::UpdateSeatDetails>    makeUpdSeat() const;
         boost::optional<iatci::UpdateBaggageDetails> makeUpdBaggage() const;
         boost::optional<iatci::UpdateServiceDetails> makeUpdService() const;
         boost::optional<iatci::UpdateDocDetails>     makeUpdDoc() const;
+        boost::optional<iatci::UpdatePaxDetails>     makeUpdInfant() const;
+        boost::optional<iatci::UpdateDocDetails>     makeUpdInfantDoc() const;
     };
 
     //-----------------------------------------------------------------------------------
@@ -139,15 +143,12 @@ void IatciCkuRequestHandler::parse()
         pxg.setUsi(readEdiUsi(pMes()));
 
         int apgCount = GetNumSegGr(pMes(), 3);
-        if(apgCount > 0) {
-            if(apgCount > 1) {
-                LogError(STDLOG) << "Warning: several APGroups!";
-            }
+        for(int curApg = 0; curApg < apgCount; ++curApg)
+        {
+            EdiPointHolder apg_holder(pMes());
+            SetEdiPointToSegGrG(pMes(), SegGrElement(3, curApg), "PROG_ERR");
 
-            EdiPointHolder ph1(pMes());
-            SetEdiPointToSegGrG(pMes(), SegGrElement(3), "PROG_ERR");
-
-            pxg.setUap(readEdiUap(pMes()));
+            pxg.addUap(readEdiUap(pMes()));
         }
 
         ckuParamsMaker.addPxg(pxg);
@@ -251,12 +252,13 @@ void IatciCkuParamsMaker::Pxg::setUsi(const boost::optional<edifact::UsiElem>& u
     m_usi = usi;
 }
 
-void IatciCkuParamsMaker::Pxg::setUap(const boost::optional<edifact::UapElem>& uap,
-                                      bool required)
+void IatciCkuParamsMaker::Pxg::addUap(const boost::optional<edifact::UapElem>& uap)
 {
-    if(required)
-        ASSERT(uap);
-    m_uap = uap;
+    if(uap && uap->m_type == "IN") {
+        m_uapInfant = uap;
+    } else {
+        m_uap = uap;
+    }
 }
 
 iatci::dcqcku::PaxGroup IatciCkuParamsMaker::Pxg::makePaxGroup() const
@@ -265,11 +267,14 @@ iatci::dcqcku::PaxGroup IatciCkuParamsMaker::Pxg::makePaxGroup() const
                                    makeReserv(),
                                    makeBaggage(),
                                    makeService(),
+                                   makeInfant(),
                                    makeUpdPax(),
                                    makeUpdSeat(),
                                    makeUpdBaggage(),
                                    makeUpdService(),
-                                   makeUpdDoc());
+                                   makeUpdDoc(),
+                                   makeUpdInfant(),
+                                   makeUpdInfantDoc());
 }
 
 boost::optional<iatci::ReservationDetails> IatciCkuParamsMaker::Pxg::makeReserv() const
@@ -294,6 +299,15 @@ boost::optional<iatci::ServiceDetails> IatciCkuParamsMaker::Pxg::makeService() c
 {
     if(m_psi) {
         return iatci::makeService(*m_psi);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::PaxDetails> IatciCkuParamsMaker::Pxg::makeInfant() const
+{
+    if(m_ppd.m_withInftIndicator == "Y") {
+        return iatci::makeInfant(m_ppd);
     }
 
     return boost::none;
@@ -344,6 +358,24 @@ boost::optional<iatci::UpdateDocDetails> IatciCkuParamsMaker::Pxg::makeUpdDoc() 
     return boost::none;
 }
 
+boost::optional<iatci::UpdatePaxDetails> IatciCkuParamsMaker::Pxg::makeUpdInfant() const
+{
+    if(m_upd) {
+        return iatci::makeUpdPax(*m_upd);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::UpdateDocDetails> IatciCkuParamsMaker::Pxg::makeUpdInfantDoc() const
+{
+    if(m_uapInfant) {
+        return iatci::makeUpdDoc(*m_uapInfant);
+    }
+
+    return boost::none;
+}
+
 //
 
 void IatciCkuParamsMaker::setLor(const boost::optional<edifact::LorElem>& lor)
@@ -373,8 +405,8 @@ void IatciCkuParamsMaker::addPxg(const Pxg& pxg)
 iatci::CkuParams IatciCkuParamsMaker::makeParams() const
 {
     return iatci::CkuParams(iatci::makeOrg(m_lor),
-                               makeCascade(),
-                               makeFlightGroup());
+                            makeCascade(),
+                            makeFlightGroup());
 }
 
 iatci::dcqcku::FlightGroup IatciCkuParamsMaker::makeFlightGroup() const

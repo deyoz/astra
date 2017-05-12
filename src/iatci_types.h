@@ -1081,23 +1081,32 @@ protected:
     boost::optional<UpdateBaggageDetails> m_updBaggage;
     boost::optional<UpdateServiceDetails> m_updService;
     boost::optional<UpdateDocDetails>     m_updDoc;
+    boost::optional<UpdatePaxDetails>     m_updInfant;
+    boost::optional<UpdateSeatDetails>    m_updInfantSeat;
+    boost::optional<UpdateServiceDetails> m_updInfantService;
+    boost::optional<UpdateDocDetails>     m_updInfantDoc;
 
 public:
     PaxGroup(const PaxDetails& pax,
              const boost::optional<ReservationDetails>& reserv,
              const boost::optional<BaggageDetails>& baggage,
              const boost::optional<ServiceDetails>& service,
+             const boost::optional<PaxDetails>& infant,
              const boost::optional<UpdatePaxDetails>& updPax,
              const boost::optional<UpdateSeatDetails>& updSeat,
              const boost::optional<UpdateBaggageDetails>& updBaggage,
              const boost::optional<UpdateServiceDetails>& updService,
-             const boost::optional<UpdateDocDetails>& updDoc);
+             const boost::optional<UpdateDocDetails>& updDoc,
+             const boost::optional<UpdatePaxDetails>& updInfant = boost::none,
+             const boost::optional<UpdateDocDetails>& updInfantDoc = boost::none);
 
     const boost::optional<UpdatePaxDetails>&     updPax() const;
     const boost::optional<UpdateSeatDetails>&    updSeat() const;
     const boost::optional<UpdateBaggageDetails>& updBaggage() const;
     const boost::optional<UpdateServiceDetails>& updService() const;
     const boost::optional<UpdateDocDetails>&     updDoc() const;
+    const boost::optional<UpdatePaxDetails>&     updInfant() const;
+    const boost::optional<UpdateDocDetails>&     updInfantDoc() const;
 };
 
 //---------------------------------------------------------------------------------------

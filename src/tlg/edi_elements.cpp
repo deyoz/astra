@@ -289,7 +289,11 @@ std::ostream& operator<<(std::ostream &os, const UpdElem &upd)
     os << "action code: " << upd.m_actionCode << "; ";
     os << "surname: " << upd.m_surname << "; ";
     os << "name: " << upd.m_name << "; ";
-    os << "qry ref: " << upd.m_passQryRef;
+    os << "withInft: " << upd.m_withInftIndicator << "; ";
+    os << "qry ref: " << upd.m_passQryRef << "; ";
+    os << "inft surname: " << upd.m_inftSurname << "; ";
+    os << "inft name: " << upd.m_inftName << "; ";
+    os << "inft qry ref: " << upd.m_inftQryRef;
     return os;
 }
 
@@ -387,6 +391,7 @@ std::ostream& operator<<(std::ostream &os, const UapElem &uap)
 {
     os << "UAP: ";
     os << "action code: " << uap.m_actionCode << "; ";
+    os << "type: " << uap.m_type << "; ";
     os << "birth date: " << uap.m_birthDate << "; ";
     os << "nationality: " << uap.m_nationality << "; ";
     os << "doc qualifier: " << uap.m_docQualifier << "; ";

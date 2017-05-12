@@ -831,7 +831,11 @@ struct UpdElem
     std::string m_actionCode;
     std::string m_surname;
     std::string m_name;
+    std::string m_withInftIndicator;
     std::string m_passQryRef;
+    std::string m_inftSurname;
+    std::string m_inftName;
+    std::string m_inftQryRef;
 };
 
 //---------------------------------------------------------------------------------------

@@ -1104,6 +1104,7 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
                                                   boost::none, // Reserv
                                                   boost::none, // Baggage
                                                   boost::none, // Service
+                                                  boost::none, // infant
                                                   getUpdPax(paxChange),
                                                   boost::none, // Seat
                                                   getUpdBaggage(paxChange),
@@ -1169,6 +1170,7 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
                                               boost::none, // Reserv
                                               boost::none, // Baggage
                                               boost::none, // Service
+                                              boost::none, // Infant
                                               boost::none, // Update personal
                                               updSeat,     // Update seat
                                               boost::none, // Update baggage
