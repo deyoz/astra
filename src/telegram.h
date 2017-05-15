@@ -375,6 +375,10 @@ namespace CKIN_REPORT {
 void get_kuf_stat(int point_id);
 void get_pfs_stat(int point_id);
 
+namespace KUF_STAT {
+    int fix(int argc, char **argv);
+}
+
 
 #endif /*_TELEGRAM_H_*/
 
