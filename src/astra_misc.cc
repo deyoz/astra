@@ -1812,7 +1812,9 @@ void GetTagRanges(const multiset<TBagTagNumber> &tags,
     {
       ostringstream range;
       range.setf(ios::fixed);
-      range << first_alpha_part << setw(10) << setfill('0') << setprecision(0)
+      range << first_alpha_part
+            << setw(iTag->numeric_part_max_len)
+            << setfill('0') << setprecision(0)
             << (first_pack*1000.0+first_no);
       if (num!=1)
         range << "-"
@@ -1831,6 +1833,73 @@ void GetTagRanges(const multiset<TBagTagNumber> &tags,
   };
 };
 
+void GetTagRangesNew(const multiset<TBagTagNumber> &tags,
+                    vector<string> &ranges)
+{
+  ranges.clear();
+  if (tags.empty()) return;
+
+  TBagTagNumber first=*(tags.begin());
+  int diff=0;
+  for(std::multiset<TBagTagNumber>::const_iterator iTag=tags.begin();; ++iTag)
+  {
+    const TBagTagNumber& curr=*iTag;
+    if (iTag==tags.end() ||
+        !first.equal_pack(curr) ||
+        first.number_in_pack()+diff!=curr.number_in_pack())
+    {
+      ostringstream range;
+      range << first.str();
+      if (diff!=1)
+        range << "-" << first.number_in_pack_str(diff-1);
+
+      ranges.push_back(range.str());
+
+      if (iTag==tags.end()) break;
+      first=curr;
+      diff=0;
+    };
+    diff++;
+  }
+}
+
+string GetTagRangesStrShort(const multiset<TBagTagNumber> &tags)
+{
+  ostringstream s;
+  if (tags.empty()) return s.str();
+
+  boost::optional<TBagTagNumber> first_in_pack;
+  TBagTagNumber first_in_range=*(tags.begin());
+  int diff=0;
+  for(std::multiset<TBagTagNumber>::const_iterator iTag=tags.begin();; ++iTag)
+  {
+    const TBagTagNumber& curr=*iTag;
+
+    if (iTag==tags.end() ||
+        !first_in_range.equal_pack(curr) ||
+        first_in_range.number_in_pack()+diff!=curr.number_in_pack())
+    {
+      if (!first_in_pack || !first_in_range.equal_pack(first_in_pack.get()))
+      {
+        if (first_in_pack) s << ", ";
+        s << first_in_range.str();
+        first_in_pack=first_in_range;
+      }
+      else
+      {
+        s << "," << first_in_range.number_in_pack_str();
+      }
+      if (diff!=1)
+        s << "-" << first_in_range.number_in_pack_str(diff-1);
+
+      if (iTag==tags.end()) break;
+      first_in_range=curr;
+      diff=0;
+    };
+    diff++;
+  };
+  return s.str();
+}
 
 string GetTagRangesStr(const multiset<TBagTagNumber> &tags)
 {
