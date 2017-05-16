@@ -45,6 +45,8 @@ namespace BIPrintRules {
             const string &subcls,
             const string &rem_code,
             const string &brand,
+            const string &fqt_airline,
+            const string &aircode,
             TRule &rule
             )
     {
@@ -55,8 +57,10 @@ namespace BIPrintRules {
                 "    decode(class, null, 0, 1) + "
                 "    decode(subclass, null, 0, 2) + "
                 "    decode(brand_code, null, 0, 3) + "
-                "    decode(fqt_tier_level, null, 0, 4) + "
-                "    decode(rem_code, null, 0, 5) "
+                "    decode(fqt_airline, null, 0, 4) + "
+                "    decode(fqt_tier_level, null, 0, 5) + "
+                "    decode(aircode, null, 0, 6) + "
+                "    decode(rem_code, null, 0, 7) "
                 "    priority "
                 "from "
                 "    bi_print_rules "
@@ -66,7 +70,9 @@ namespace BIPrintRules {
                 "    (class is null or class = :class) and "
                 "    (subclass is null or subclass = :subclass) and "
                 "    (brand_code is null or brand_code = :brand) and "
+                "    (fqt_airline is null or fqt_airline = :fqt_airline) and "
                 "    (fqt_tier_level is null or fqt_tier_level = :tier_level) and "
+                "    (aircode is null or aircode = :aircode) and "
                 "    (rem_code is null or rem_code = :rem_code) "
                 "order by "
                 "    priority desc ",
@@ -75,7 +81,9 @@ namespace BIPrintRules {
                 << QParam("class", otString, cls)
                 << QParam("subclass", otString, subcls)
                 << QParam("brand", otString, subcls)
+                << QParam("fqt_airline", otString, fqt_airline)
                 << QParam("tier_level", otString, tier_level)
+                << QParam("aircode", otString, aircode)
                 << QParam("rem_code", otString, rem_code)
                 );
         Qry.get().Execute();
@@ -333,6 +341,13 @@ namespace BIPrintRules {
                 // Если не найдено ни одной ремарки, добавляем пустую, чтобы get_rule все-таки отработала
                 if(fqts.empty()) fqts.insert(CheckIn::TPaxFQTItem());
 
+                // Достаем номер билета и из него расч. код (первые 3 символа)
+                string aircode;
+                CheckIn::TPaxTknItem tkn;
+                if(CheckIn::LoadPaxTkn(pax_id, tkn)) {
+                    aircode = tkn.no.substr(0, 3);
+                }
+
                 // Пробег по брендам и ремаркам
                 // у паса может быть несколько ремарок с разными
                 // настройками группы регистрации (bi_print_rules.print_type = ALL, TWO, ONE)
@@ -348,6 +363,8 @@ namespace BIPrintRules {
                                 subcls,
                                 iFqt->rem,
                                 ElemIdToCodeNative(etBrand, *iBrand),
+                                iFqt->airline,
+                                aircode,
                                 tmp_rule
                                 );
 

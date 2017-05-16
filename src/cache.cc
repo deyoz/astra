@@ -401,6 +401,7 @@ void TCacheTable::initFields()
           FField.ElemType=etAirp;
         };
         if ((FField.ReferCode == "BRANDS" ||
+             FField.ReferCode == "FQT_TIER_LEVELS" ||
              FField.ReferCode == "RFISC_COMP_PROPS") && FField.ReferName == "AIRLINE_VIEW")
         {
           FField.ElemCategory=cecCode;
