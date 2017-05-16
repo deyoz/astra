@@ -10449,8 +10449,8 @@ namespace CKIN_REPORT {
         NewTextChild(rootNode, "date_scd", DateTimeToStr(scd_out, "dd.mm.yyyy hh:nn:ss"));
 
         string status;
-        if(ft == KUF_STAT::TFileType::ftClose) status = "CL";
-        if(ft == KUF_STAT::TFileType::ftTakeoff) status = "CC";
+        if(ft == KUF_STAT::TFileType::ftClose) status = "close";
+        if(ft == KUF_STAT::TFileType::ftTakeoff) status = "flight_close";
         if(status.empty())
             throw Exception("TReportData::toXML: unknown file type %d", ft);
 
@@ -10467,13 +10467,13 @@ namespace CKIN_REPORT {
                 if(not iAirp->second.empty()) {
                     for(TClsRoute::iterator iCls = iAirp->second.begin(); iCls != iAirp->second.end(); iCls++) {
                         if(iCls->second.booking) {
-                            xmlNodePtr bookingNode = getNode(airpNode, "booking");
+                            xmlNodePtr bookingNode = getNode(routeNode, "booking");
                             xmlNodePtr classNode = NewTextChild(bookingNode, "class", iCls->second.booking);
                             SetProp(classNode, "code", iCls->first);
                         }
-                        genderToXML(airpNode, "checkin/tranzit", iCls->second.tranzit, iCls->first);
-                        genderToXML(airpNode, "checkin/goshow", iCls->second.goshow, iCls->first);
-                        genderToXML(airpNode, "checkin/self_checkin", iCls->second.self_checkin, iCls->first);
+                        genderToXML(routeNode, "checkin/tranzit", iCls->second.tranzit, iCls->first);
+                        genderToXML(routeNode, "checkin/goshow", iCls->second.goshow, iCls->first);
+                        genderToXML(routeNode, "checkin/self_checkin", iCls->second.self_checkin, iCls->first);
                     }
                 }
             }
@@ -10629,6 +10629,76 @@ namespace KUF_STAT {
     void run(const TTripInfo &tripInfo, TFileType::Enum ftype)
     {
         KUF_STAT::toDB(tripInfo, ftype, KUF_STAT::getFileData(tripInfo.point_id, ftype));
+    }
+
+    int fix(int argc, char **argv)
+    {
+        TQuery delQry(&OraSession);
+        delQry.SQLText = "delete from kuf_stat_text where id = :id";
+        delQry.DeclareVariable("id", otInteger);
+
+        TQuery txtQry(&OraSession);
+        txtQry.SQLText = "insert into kuf_stat_text(id, page_no, text) values(:id, :page_no, :text)",
+        txtQry.DeclareVariable("id", otInteger);
+        txtQry.DeclareVariable("page_no", otInteger);
+        txtQry.DeclareVariable("text", otString);
+
+        TQuery Qry(&OraSession);
+        Qry.SQLText =
+            "select id, point_id, file_type from kuf_stat where file_type in(:close, :flight_close) order by point_id";
+        Qry.CreateVariable("close", otString, TFileTypes().encode(TFileType::ftClose));
+        Qry.CreateVariable("flight_close", otString, TFileTypes().encode(TFileType::ftTakeoff));
+        Qry.Execute();
+        int count = 0;
+        int fixed = 0;
+        for(; not Qry.Eof; Qry.Next(), count++) {
+            int id = Qry.FieldAsInteger("id");
+            int point_id = Qry.FieldAsInteger("point_id");
+            TFileType::Enum file_type = TFileTypes().decode(Qry.FieldAsString("file_type"));
+            string fname;
+            string content = StrUtils::b64_decode(KUF_STAT::fromDB(point_id, file_type, fname));
+
+            XMLDoc doc(content);
+            if(doc.docPtr()){
+                // здесь начинается исправление контента
+                xmlNodePtr flightNode = NodeAsNode("/flight", doc.docPtr());
+                xmlNodePtr curNode = flightNode->children;
+                xmlNodePtr statusNode = NodeAsNodeFast("status", curNode);
+                string status = NodeAsString(statusNode);
+                if(status == "CC")
+                    status = "flight_close";
+                else if(status == "CL")
+                    status = "close";
+                else
+                    continue;
+
+                NodeSetContent(statusNode, status);
+
+                xmlNodePtr routeNode = NodeAsNodeFast("route", curNode);
+                for(; routeNode; routeNode = routeNode->next) {
+                    xmlNodePtr airpNode = routeNode->children;
+                    if(airpNode->children) {
+                        CopyNodeList(routeNode, airpNode);
+                        RemoveChildNodes(airpNode);
+                    }
+                }
+
+                content = StrUtils::b64_encode(GetXMLDocText(doc.docPtr()));
+
+                delQry.SetVariable("id", id);
+                delQry.Execute();
+
+                txtQry.SetVariable("id", id);
+                longToDB(txtQry, "text", content);
+                OraSession.Commit();
+                fixed++;
+            }
+
+        }
+        cout << "total reports: " << count << endl;
+        cout << fixed << " reports fixed" << endl;
+
+        return 1;
     }
 }
 
