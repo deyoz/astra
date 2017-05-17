@@ -7587,6 +7587,7 @@ struct TAnnulBTStatRow {
     int id;
     string airp_dep;
     string airp_arv;
+    string full_name;
     int pax_id;
     int point_id;
     int bag_type;
@@ -7686,6 +7687,7 @@ void RunAnnulBTStat(
             "   annul_bag.id, "
             "   pax_grp.airp_dep, "
             "   pax_grp.airp_arv, "
+            "   pax.surname||' '||pax.name full_name, "
             "   annul_bag.pax_id, "
             "   annul_bag.bag_type, "
             "   annul_bag.rfisc, "
@@ -7715,6 +7717,7 @@ void RunAnnulBTStat(
         if(pass != 0) {
             SQLText +=
                 "   arx_pax_grp pax_grp, \n"
+                "   arx_pax pax, \n"
                 "   arx_annul_bag annul_bag,"
                 "   arx_points points, \n "
                 "   arx_transfer transfer \n";
@@ -7725,6 +7728,7 @@ void RunAnnulBTStat(
             SQLText +=
                 "   annul_bag, "
                 "   pax_grp, \n"
+                "   pax, \n"
                 "   transfer, \n"
                 "   trfer_trips, \n"
                 "   points ";
@@ -7734,6 +7738,7 @@ void RunAnnulBTStat(
             SQLText +=
                 "   points.part_key = annul_bag.part_key and "
                 "   pax_grp.part_key = points.part_key and \n"
+                "   pax_grp.part_key = pax.part_key(+) and \n"
                 "   pax_grp.part_key = transfer.part_key(+) and \n";
         if(pass == 1)
             SQLText += " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
@@ -7748,6 +7753,7 @@ void RunAnnulBTStat(
                 "   points.point_id = :point_id and ";
         SQLText +=
             "   points.point_id = pax_grp.point_dep and "
+            "   pax_grp.grp_id = pax.grp_id(+) and "
             "   pax_grp.grp_id = annul_bag.grp_id and "
             "   pax_grp.grp_id = transfer.grp_id(+) and \n"
             "   transfer.pr_final(+) <> 0 \n";
@@ -7770,6 +7776,7 @@ void RunAnnulBTStat(
             int col_id = Qry.get().FieldIndex("id");
             int col_airp_dep = Qry.get().FieldIndex("airp_dep");
             int col_airp_arv = Qry.get().FieldIndex("airp_arv");
+            int col_full_name = Qry.get().FieldIndex("full_name");
             int col_pax_id = Qry.get().FieldIndex("pax_id");
             int col_bag_type = Qry.get().FieldIndex("bag_type");
             int col_rfisc = Qry.get().FieldIndex("rfisc");
@@ -7799,8 +7806,10 @@ void RunAnnulBTStat(
                 row.id = Qry.get().FieldAsInteger(col_id);
                 row.airp_dep = Qry.get().FieldAsString(col_airp_dep);
                 row.airp_arv = Qry.get().FieldAsString(col_airp_arv);
-                if(not Qry.get().FieldIsNULL(col_pax_id))
+                if(not Qry.get().FieldIsNULL(col_pax_id)) {
                     row.pax_id = Qry.get().FieldAsInteger(col_pax_id);
+                    row.full_name = Qry.get().FieldAsString(col_full_name);
+                }
                 if(not Qry.get().FieldIsNULL(col_bag_type))
                     row.bag_type = Qry.get().FieldAsInteger(col_bag_type);
                 row.rfisc = Qry.get().FieldAsString(col_rfisc);
@@ -7875,6 +7884,10 @@ void createXMLAnnulBTStat(
     SetProp(colNode, "width", 100);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Пассажир"));
+    SetProp(colNode, "width", 100);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("№№ баг. бирок"));
     SetProp(colNode, "width", 90);
     SetProp(colNode, "align", TAlignment::LeftJustify);
@@ -7942,6 +7955,8 @@ void createXMLAnnulBTStat(
         NewTextChild(rowNode, "col", buf.str());
         // Агент
         NewTextChild(rowNode, "col", i->agent);
+        // Пассажир
+        NewTextChild(rowNode, "col", transliter(i->full_name, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU));
         // №№ баг. бирок
         NewTextChild(rowNode, "col", get_tag_range(i->tags, LANG_EN));
         // От
@@ -8022,6 +8037,7 @@ void TAnnulBTStatCombo::add_header(ostringstream &buf) const
         << "АП" << delim
         << "Рейс" << delim
         << "Агент" << delim
+        << "Пассажир" << delim
         << "№№ баг. бирок" << delim
         << "От" << delim
         << "До" << delim
@@ -8050,6 +8066,8 @@ void TAnnulBTStatCombo::add_data(ostringstream &buf) const
     buf <<  oss1.str() << delim
         // Агент
         <<  data.agent << delim
+        // Пассажир
+        <<  transliter(data.full_name, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU) << delim
         // №№ баг. бирок
         <<  get_tag_range(data.tags, LANG_EN) << delim
         // От
