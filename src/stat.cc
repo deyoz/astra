@@ -33,7 +33,6 @@
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
 
-#define MAX_STAT_ROWS 2000
 #define WITHOUT_TOTAL_WHEN_PROBLEM false
 
 using namespace std;
@@ -41,6 +40,14 @@ using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace BASIC::date_time;
 using namespace ASTRA::date_time;
+
+int MAX_STAT_ROWS()
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("MAX_STAT_ROWS",NoExists,NoExists,2000);
+  return VAR;
+};
 
 const string SYSTEM_USER = "Система";
 
@@ -385,9 +392,9 @@ void GetFltCBoxList(TScreenState scr, TDateTime first_date, TDateTime last_date,
                     points.push_back(pointsRow);
 
                     count++;
-                    if(count >= MAX_STAT_ROWS) {
+                    if(count >= MAX_STAT_ROWS()) {
                         AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
-                                LParams() << LParam("num", MAX_STAT_ROWS));
+                                LParams() << LParam("num", MAX_STAT_ROWS()));
                         break;
                     }
                 }
@@ -1042,9 +1049,9 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             NewTextChild(rowNode, "screen", Qry.FieldAsString(col_screen), "");
 
             count++;
-            if(count >= MAX_STAT_ROWS) {
+            if(count >= MAX_STAT_ROWS()) {
                 AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
-                        LParams() << LParam("num", MAX_STAT_ROWS));
+                        LParams() << LParam("num", MAX_STAT_ROWS()));
                 break;
             }
         }
@@ -1364,9 +1371,9 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 NewTextChild(rowNode, "screen", Qry.FieldAsString(col_screen), "");
 
                 count++;
-                if(count >= MAX_STAT_ROWS) {
+                if(count >= MAX_STAT_ROWS()) {
                     AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
-                            LParams() << LParam("num", MAX_STAT_ROWS));
+                            LParams() << LParam("num", MAX_STAT_ROWS()));
                     break;
                 }
             }
@@ -1468,9 +1475,9 @@ void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, TExcessNodeList &excessN
       if (isPaxSearch)
       {
         count++;
-        if(count >= MAX_STAT_ROWS) {
+        if(count >= MAX_STAT_ROWS()) {
             AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
-                    LParams() << LParam("num", MAX_STAT_ROWS));
+                    LParams() << LParam("num", MAX_STAT_ROWS()));
             break;
         }
       };
@@ -1592,9 +1599,9 @@ void PaxListToXML(TQuery &Qry, xmlNodePtr resNode, TExcessNodeList& excessNodeLi
       if (isPaxSearch)
       {
         count++;
-        if(count >= MAX_STAT_ROWS) {
+        if(count >= MAX_STAT_ROWS()) {
             AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
-                    LParams() << LParam("num", MAX_STAT_ROWS));
+                    LParams() << LParam("num", MAX_STAT_ROWS()));
             break;
         }
       };
@@ -3003,7 +3010,7 @@ struct TFullCmp {
 };
 typedef map<TFullStatKey, TFullStatRow, TFullCmp> TFullStat;
 
-// TODO переименовать здесь и всюду bool full в что-то типа override_MAX_STAT_ROWS
+// TODO переименовать здесь и всюду bool full в что-то типа override_MAX_STAT_ROWS()
 template <class keyClass, class rowClass, class cmpClass>
 void AddStatRow(const keyClass &key, const rowClass &row, map<keyClass, rowClass, cmpClass> &stat, bool full = false)
 {
@@ -3012,7 +3019,7 @@ void AddStatRow(const keyClass &key, const rowClass &row, map<keyClass, rowClass
     i->second+=row;
   else
   {
-    if (full or stat.size()<=MAX_STAT_ROWS)
+    if (full or stat.size()<=MAX_STAT_ROWS())
       stat.insert(make_pair(key,row));
   };
 };
@@ -3305,10 +3312,10 @@ void createXMLDetailStat(const TStatParams &params, bool pr_pact,
       int rows = 0;
       for(TDetailStat::const_iterator si = DetailStat.begin(); si != DetailStat.end(); ++si, rows++)
       {
-          if(rows >= MAX_STAT_ROWS) {
-              throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
+          if(rows >= MAX_STAT_ROWS()) {
+              throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
               /*AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
-                      LParams() << LParam("num", MAX_STAT_ROWS));
+                      LParams() << LParam("num", MAX_STAT_ROWS()));
               if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
               break;*/
           }
@@ -3482,10 +3489,10 @@ void createXMLFullStat(const TStatParams &params,
       int rows = 0;
       for(TFullStat::const_iterator im = FullStat.begin(); im != FullStat.end(); ++im, rows++)
       {
-          if(rows >= MAX_STAT_ROWS) {
-              throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
+          if(rows >= MAX_STAT_ROWS()) {
+              throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
               /*AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
-                                            LParams() << LParam("num", MAX_STAT_ROWS));
+                                            LParams() << LParam("num", MAX_STAT_ROWS()));
               if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
               break;*/
           }
@@ -4464,10 +4471,10 @@ void createXMLSelfCkinStat(const TStatParams &params,
     int rows = 0;
     for(TSelfCkinStat::const_iterator im = SelfCkinStat.begin(); im != SelfCkinStat.end(); ++im, rows++)
     {
-        if(rows >= MAX_STAT_ROWS) {
-            throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
+        if(rows >= MAX_STAT_ROWS()) {
+            throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
             /*AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
-                    LParams() << LParam("num", MAX_STAT_ROWS));
+                    LParams() << LParam("num", MAX_STAT_ROWS()));
             if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
             break;*/
         }
@@ -5054,10 +5061,10 @@ void createXMLTlgOutStat(const TStatParams &params,
       int rows = 0;
       for(TTlgOutStat::const_iterator im = TlgOutStat.begin(); im != TlgOutStat.end(); ++im, rows++)
       {
-          if(rows >= MAX_STAT_ROWS) {
-              throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
+          if(rows >= MAX_STAT_ROWS()) {
+              throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
               /*AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
-                                            LParams() << LParam("num", MAX_STAT_ROWS));
+                                            LParams() << LParam("num", MAX_STAT_ROWS()));
               if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
               break;*/
           }
@@ -5625,10 +5632,10 @@ void createXMLAgentStat(const TStatParams &params,
       int rows = 0;
       for(TAgentStat::const_iterator im = AgentStat.begin(); im != AgentStat.end(); ++im, rows++)
       {
-        if(rows >= MAX_STAT_ROWS) {
-            throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
+        if(rows >= MAX_STAT_ROWS()) {
+            throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
             /*AstraLocale::showErrorMessage("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH",
-                                          LParams() << LParam("num", MAX_STAT_ROWS));
+                                          LParams() << LParam("num", MAX_STAT_ROWS()));
             if (WITHOUT_TOTAL_WHEN_PROBLEM) showTotal=false; //не будем показывать итоговую строку дабы не ввести в заблуждение
             break;*/
         }
@@ -6421,7 +6428,7 @@ void createCSVFullStat(const TStatParams &params, const TFullStat &FullStat, con
 void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
 {
     if(RFISCStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
-    if (RFISCStat.size() > MAX_STAT_ROWS) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
+    if (RFISCStat.size() > (size_t)MAX_STAT_ROWS()) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
 
@@ -7358,7 +7365,7 @@ void createXMLUnaccBagStat(
         xmlNodePtr resNode)
 {
     if(UnaccBagStat.rows.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
-    if (UnaccBagStat.rows.size() > MAX_STAT_ROWS) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
+    if (UnaccBagStat.rows.size() > (size_t)MAX_STAT_ROWS()) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
 
@@ -7845,8 +7852,8 @@ void createXMLAnnulBTStat(
         xmlNodePtr resNode)
 {
     if(AnnulBTStat.rows.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
-    if (AnnulBTStat.rows.size() > MAX_STAT_ROWS)
-        throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
+    if (AnnulBTStat.rows.size() > (size_t)MAX_STAT_ROWS())
+        throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
 
@@ -8197,8 +8204,8 @@ void RunLimitedCapabStat(
 void createXMLLimitedCapabStat(const TStatParams &params, const TLimitedCapabStat &LimitedCapabStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
 {
     if(LimitedCapabStat.rows.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
-    if (LimitedCapabStat.rows.size() >= MAX_STAT_ROWS)
-        throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
+    if (LimitedCapabStat.rows.size() >= (size_t)MAX_STAT_ROWS())
+        throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
 
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
@@ -8462,7 +8469,7 @@ void RunServiceStat(
 void createXMLServiceStat(const TStatParams &params, const TServiceStat &ServiceStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
 {
     if(ServiceStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
-    if (ServiceStat.size() > MAX_STAT_ROWS) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
+    if (ServiceStat.size() > (size_t)MAX_STAT_ROWS()) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
 
@@ -9235,7 +9242,7 @@ void createXMLPFSStat(
         xmlNodePtr resNode)
 {
     if(PFSStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
-    if(PFSStat.size() > MAX_STAT_ROWS) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
+    if(PFSStat.size() > (size_t)MAX_STAT_ROWS()) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
 
@@ -9348,7 +9355,7 @@ void createXMLPFSShortStat(
         xmlNodePtr resNode)
 {
     if(PFSShortStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
-    if(PFSShortStat.size() > MAX_STAT_ROWS) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS));
+    if(PFSShortStat.size() > (size_t)MAX_STAT_ROWS()) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
 
@@ -9608,6 +9615,10 @@ void processStatOrders(TQueueItem &item) {
         params.fromFileParams(item.params);
 
         TReqInfo::Instance()->Initialize(params.desk_city);
+
+        // По client_type = ctHTTP будем определять, что статистика формируется из заказа
+        // В частности в статистике Саморегистрация
+        TReqInfo::Instance()->client_type = ctHTTP;
 
         TPeriods periods;
         periods.get(params.FirstDate, params.LastDate);
@@ -10350,7 +10361,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         Qry.CreateVariable("tag_no", otFloat, Value);
     }
     int count = 0;
-    for(int pass = 0; (pass <= 2) && (count < MAX_STAT_ROWS); pass++) {
+    for(int pass = 0; (pass <= 2) && (count < MAX_STAT_ROWS()); pass++) {
         ostringstream sql;
         sql << "SELECT \n";
         if (pass==0)
