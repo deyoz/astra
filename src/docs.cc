@@ -3517,7 +3517,7 @@ void WEBTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     EXAMTXT(rpt_params, reqNode, resNode);
 }
 
-// ======== VOUCHERS BEGIN ========
+// VOUCHERS BEGIN
 
 void VOUCHERS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -3557,9 +3557,9 @@ void VOUCHERS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     LogTrace(TRACE5) << GetXMLDocText(resNode->doc); //!!!
 }
 
-// ======== VOUCHERS END ========
+// VOUCHERS END
 
-// ======== SERVICES BEGIN ========
+// SERVICES BEGIN
 
 enum EServiceSortOrder
 {
@@ -3609,15 +3609,15 @@ struct TServiceRow
 
 class TServiceFilter
 {
-    set<string> filterRFIC;
+    set<string> filterIncludeRFIC;
+    set<string> filterExcludeRFIC;
 public:
-    void AddRFIC(string RFIC) { filterRFIC.insert(RFIC); }
+    void AddRFIC(string RFIC) { filterIncludeRFIC.insert(RFIC); }
+    void ExcludeRFIC(string RFIC) { filterExcludeRFIC.insert(RFIC); }
     bool Check(const TServiceRow& row) const
     {
-        if (filterRFIC.empty()) return true; // не выбран ни один фильтр, значит отдавать всё
-        for (set<string>::const_iterator iRFIC = filterRFIC.begin(); iRFIC != filterRFIC.end(); ++iRFIC)
-            if (row.RFIC == *iRFIC) return true; // найден соответствующий фильтр
-        return false;
+        if (filterIncludeRFIC.empty()) { if (filterExcludeRFIC.count(row.RFIC)) return false; else return true; }
+        if (filterIncludeRFIC.count(row.RFIC)) return true; else return false;
     }
 };
 
@@ -3677,8 +3677,9 @@ void SERVICES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     }
     //  инициализация фильтра
     TServiceFilter filter;
-    for (list<string>::const_iterator iRFIC = rpt_params.rfic.begin(); iRFIC != rpt_params.rfic.end(); ++iRFIC)
-        filter.AddRFIC(*iRFIC);
+    if (TReqInfo::Instance()->desk.compatible( RFIC_FILTER_VERSION ))
+    for (list<string>::const_iterator iRFIC = rpt_params.rfic.begin(); iRFIC != rpt_params.rfic.end(); ++iRFIC) filter.AddRFIC(*iRFIC);
+    else filter.ExcludeRFIC("C"); // Для старых терминалов в отчет должны попадать все услуги, кроме RFIC=C
     //  цикл для каждого пакса в выборке
     for (; !Qry.Eof; Qry.Next())
     {
@@ -3818,7 +3819,7 @@ void SERVICESTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     }
 }
 
-// ======== SERVICES END ========
+// SERVICES END
 
 
 void SPPCentrovka(TDateTime date, xmlNodePtr resNode)
