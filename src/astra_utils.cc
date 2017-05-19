@@ -437,6 +437,8 @@ void TProfiledRights::toXML(xmlNodePtr node)
 
 void TProfiledRights::fromDB(const string &airline, const string &airp)
 {
+    if(TReqInfo::Instance()->user.user_type != utAirport) return;
+
     TCachedQuery Qry(
             "select profile_id from airline_profiles where "
             "   airline = :airline and "
@@ -473,26 +475,28 @@ TProfiledRights::TProfiledRights(int point_id)
 bool TAccess::check_profile(const string &airp, const string &airline, int right_id)
 {
     bool result = true;
-    TCachedQuery Qry(
-            "select profile_id from airline_profiles where "
-            "   airline = :airline and "
-            "   (airp is null or airp = :airp) "
-            "order by airp nulls last ",
-            QParams()
-            << QParam("airline", otString, airline)
-            << QParam("airp", otString, airp));
-    Qry.get().Execute();
-    if(not Qry.get().Eof) {
-        TCachedQuery rightQry(
-                "select * from profile_rights where "
-                "   profile_id = :profile_id and "
-                "   right_id = :right_id ",
+    if(TReqInfo::Instance()->user.user_type == utAirport) {
+        TCachedQuery Qry(
+                "select profile_id from airline_profiles where "
+                "   airline = :airline and "
+                "   (airp is null or airp = :airp) "
+                "order by airp nulls last ",
                 QParams()
-                << QParam("profile_id", otInteger, Qry.get().FieldAsInteger("profile_id"))
-                << QParam("right_id", otInteger, right_id));
-        rightQry.get().Execute();
-        result = rightQry.get().Eof;
+                << QParam("airline", otString, airline)
+                << QParam("airp", otString, airp));
+        Qry.get().Execute();
+        if(not Qry.get().Eof) {
+            TCachedQuery rightQry(
+                    "select * from profile_rights where "
+                    "   profile_id = :profile_id and "
+                    "   right_id = :right_id ",
+                    QParams()
+                    << QParam("profile_id", otInteger, Qry.get().FieldAsInteger("profile_id"))
+                    << QParam("right_id", otInteger, right_id));
+            rightQry.get().Execute();
+            result = rightQry.get().Eof;
 
+        }
     }
     if(result) result = TReqInfo::Instance()->user.access.rights().permitted(right_id);
     return result;
