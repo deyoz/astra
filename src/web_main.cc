@@ -1424,7 +1424,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
                ilayer->layer_type != cltSmoke &&
                ilayer->layer_type != cltUnknown ) {
             pr_first = false;
-            wp.pr_free = ( ilayer->layer_type != cltPNLCkin && !SALONS2::isUserProtectLayer( ilayer->layer_type ) );
+            wp.pr_free = false;//( ilayer->layer_type != cltPNLCkin && !SALONS2::isUserProtectLayer( ilayer->layer_type ) );
             wp.reserv_owner =  ( ( ilayer->layer_type == cltPNLCkin || SALONS2::isUserProtectLayer( ilayer->layer_type ) ) && isOwnerFreePlace( ilayer->pax_id, pnr ) );
               ProgTrace( TRACE5, "l->layer_type=%s, l->pax_id=%d, isOwnerFreePlace( l->pax_id, pnr )=%d, pr_first=%d",
                          EncodeCompLayerType(ilayer->layer_type), ilayer->pax_id, isOwnerFreePlace( ilayer->pax_id, pnr ), pr_first );
