@@ -685,7 +685,7 @@ xmlDocPtr TextToXMLTree( const string& str )
   return res;
 };
 
-string XMLTreeToText( xmlDocPtr doc )
+string XMLTreeToText( xmlDocPtr doc, bool formatting_spaces )
 {
   char *data2=NULL;
   int datalen=0;
@@ -697,7 +697,7 @@ string XMLTreeToText( xmlDocPtr doc )
     //это в свою очередь приводит к ошибке xmlDocDumpFormatMemory
     //вообще libxml с версии 2.7 хранит и требует работать с деревом в UTF-8, а не в 866
     SetXMLDocEncoding(doc, "UTF-8");
-    xmlDocDumpFormatMemory(doc,(unsigned char**)&data2,&datalen,1);
+    xmlDocDumpFormatMemory(doc,(unsigned char**)&data2,&datalen,(int)formatting_spaces);
     res=data2;
     if (data2!=NULL) xmlFree(data2);
   }

@@ -101,7 +101,7 @@ void RenameNode(xmlNodePtr node, const char* name);
 void SetXMLDocEncoding(xmlDocPtr doc, const char *encoding);
 xmlDocPtr CreateXMLDoc(const char *root);
 xmlDocPtr TextToXMLTree( const std::string& str );
-std::string XMLTreeToText( xmlDocPtr doc);
+std::string XMLTreeToText( xmlDocPtr doc, bool formatting_spaces=true);
 std::string GetXMLDocText( xmlDocPtr doc);
 std::string EncodeSpecialChars(const std::string &val);
 std::string URIUnescapeString(const std::string &val);

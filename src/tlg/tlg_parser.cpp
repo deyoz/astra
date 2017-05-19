@@ -4932,7 +4932,7 @@ bool ParseASVCRem(TTlgParser &tlg, string &rem_text, TASVCItem &asvc)
             if (c!=0||res!=1) throw ETlgError("Wrong format");
             break;
           case 4:
-            res=sscanf(tlg.lex,"%30[A-Z€-Ÿð0-9 ]%c",asvc.service_name,&c);
+            res=sscanf(tlg.lex,"%30[A-Z€-Ÿð0-9 ]%*[A-Z€-Ÿð0-9 ]%c",asvc.service_name,&c);
             if (c!=0||res!=1) throw ETlgError("Wrong format");
             break;
           case 5:
