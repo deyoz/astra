@@ -5146,6 +5146,232 @@ $(set grp_id $(get_single_grp_id $(get point_dep) REPIN ADULT))
 $(set tid $(get_single_tid $(get point_dep) REPIN ADULT))
 
 
+!!
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <segments>
+        <segment>
+          <point_dep>$(get point_dep)</point_dep>
+          <point_arv>$(get point_arv)</point_arv>
+          <airp_dep>ДМД</airp_dep>
+          <airp_arv>ПЛК</airp_arv>
+          <class>Э</class>
+          <grp_id>$(get grp_id)</grp_id>
+          <tid>$(get tid)</tid>
+          <passengers/>
+          <paid_bag_emd/>
+        </segment>
+        <segment>
+          <point_dep>-1</point_dep>
+          <point_arv>-1</point_arv>
+          <airp_dep>ПЛК</airp_dep>
+          <airp_arv>СОЧ</airp_arv>
+          <class>Э</class>
+          <grp_id>-1</grp_id>
+          <tid>0</tid>
+          <passengers>
+            <pax>
+              <pax_id>-1</pax_id>
+              <surname>REPIN</surname>
+              <name>ADULT</name>
+              <pers_type>ВЗ</pers_type>
+              <refuse/>
+              <ticket_no>29824018416891</ticket_no>
+              <coupon_no>2</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>1</ticket_confirm>
+              <document>
+                  <type>P</type>
+                  <no>987654321</no>
+                  <nationality>RUS</nationality>
+                  <birth_date>01.05.1976 00:00:00</birth_date>
+                  <expiry_date>31.12.2049 00:00:00</expiry_date>
+                  <surname>REPIN</surname>
+                  <first_name>ADULT</first_name>
+                  <second_name>PETROVICH</second_name>
+              </document>
+              <doco/>
+              <addresses/>
+              <bag_pool_num/>
+              <subclass>Э</subclass>
+              <tid>0</tid>
+            </pax>
+            <pax>
+              <pax_id>-2</pax_id>
+              <surname>REPIN</surname>
+              <name>INFANT</name>
+              <pers_type>РМ</pers_type>
+              <refuse/>
+              <ticket_no>2982401841612</ticket_no>
+              <coupon_no>1</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>1</ticket_confirm>
+              <document>
+                  <type>P</type>
+                  <no>123456789</no>
+                  <nationality>RUS</nationality>
+                  <birth_date>01.05.2016 00:00:00</birth_date>
+                  <expiry_date>31.12.2049 00:00:00</expiry_date>
+                  <surname>REPIN</surname>
+                  <first_name>INFANT</first_name>
+                  <second_name>IVANOVICH</second_name>
+              </document>
+              <doco/>
+              <addresses/>
+              <bag_pool_num/>
+              <subclass>Э</subclass>
+              <tid>0</tid>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+      </segments>
+      <hall>1</hall>
+      <bag_refuse/>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)+LED+AER"
+PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
+UAP+A+A:REPIN:ADULT:760501:::RUS++P:987654321::::491231:::::::REPIN:ADULT:PETROVICH"
+UAP+A+IN:REPIN:INFANT:160501:::RUS++P:123456789::::491231:::::::REPIN:INFANT:IVANOVICH"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+150217:0745+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+S7+1027+$(yymmdd)+LED+AER++T"
+RAD+U+O"
+PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
+PRD+Y"
+PFD+001A+:Y+001:002"
+PSI++TKNE::29824018416891+TKNE::INF29824018416121+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M+TKNE::::::TKNE HK1 2982401841689/1+INFT::::::INFT HK1 01JAN17 REPIN/INFANT"
+PAP+A:REPIN:ADULT:760501:::RUS++P:987654321::::491231:::::::REPIN:ADULT:PETROVICH"
+PAP+IN:REPIN:INFANT:160501:::RUS++P:123456789::::491231:::::::REPIN:INFANT:IVANOVICH"
+UNT+10+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+$(KICK_IN)
+
+>> lines=auto
+        <passengers>
+          <pax>
+            <pax_id>-1</pax_id>
+            <surname>REPIN</surname>
+            <name>ADULT</name>
+            <pers_type>ВЗ</pers_type>
+            <seat_no>1A</seat_no>
+            <seat_type/>
+            <seats>1</seats>
+            <refuse/>
+            <reg_no>001</reg_no>
+            <subclass>Э</subclass>
+            <bag_pool_num/>
+            <tid>0</tid>
+            <ticket_no>2982401841689</ticket_no>
+            <coupon_no>1</coupon_no>
+            <ticket_rem>TKNE</ticket_rem>
+            <ticket_confirm>1</ticket_confirm>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <rems>
+              <rem>
+                <rem_code>DOCS</rem_code>
+                <rem_text>DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN</rem_text>
+              </rem>
+              <rem>
+                <rem_code>FOID</rem_code>
+                <rem_text>FOID PPZB400522509</rem_text>
+              </rem>
+              <rem>
+                <rem_code>PSPT</rem_code>
+                <rem_text>PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M</rem_text>
+              </rem>
+              <rem>
+                <rem_code>INFT</rem_code>
+                <rem_text>INFT HK1 01JAN17 REPIN/INFANT</rem_text>
+              </rem>
+            </rems>
+            <iatci_pax_id>0013949613</iatci_pax_id>
+            <iatci_parent_pax_id/>
+            <document>
+              <type>P</type>
+              <no>987654321</no>
+              <nationality>RUS</nationality>
+              <birth_date>01.05.1976 00:00:00</birth_date>
+              <expiry_date>31.12.2049 00:00:00</expiry_date>
+              <surname>REPIN</surname>
+              <first_name>ADULT</first_name>
+              <second_name>PETROVICH</second_name>
+            </document>
+          </pax>
+          <pax>
+            <pax_id>-2</pax_id>
+            <surname>REPIN</surname>
+            <name>INFANT</name>
+            <pers_type>РМ</pers_type>
+            <seat_no/>
+            <seat_type/>
+            <seats>0</seats>
+            <refuse/>
+            <reg_no>002</reg_no>
+            <subclass>Э</subclass>
+            <bag_pool_num/>
+            <tid>0</tid>
+            <ticket_no>2982401841612</ticket_no>
+            <coupon_no>1</coupon_no>
+            <ticket_rem>TKNE</ticket_rem>
+            <ticket_confirm>1</ticket_confirm>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <rems>
+              <rem>
+                <rem_code>DOCS</rem_code>
+                <rem_text>DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN</rem_text>
+              </rem>
+              <rem>
+                <rem_code>FOID</rem_code>
+                <rem_text>FOID PPZB400522509</rem_text>
+              </rem>
+              <rem>
+                <rem_code>PSPT</rem_code>
+                <rem_text>PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M</rem_text>
+              </rem>
+              <rem>
+                <rem_code>INFT</rem_code>
+                <rem_text>INFT HK1 01JAN17 REPIN/INFANT</rem_text>
+              </rem>
+            </rems>
+            <iatci_pax_id>0013949614</iatci_pax_id>
+            <iatci_parent_pax_id>-1</iatci_parent_pax_id>
+            <document>
+              <type>P</type>
+              <no>123456789</no>
+              <nationality>RUS</nationality>
+              <birth_date>01.05.2016 00:00:00</birth_date>
+              <expiry_date>31.12.2049 00:00:00</expiry_date>
+              <surname>REPIN</surname>
+              <first_name>INFANT</first_name>
+              <second_name>IVANOVICH</second_name>
+            </document>
+          </pax>
+        </passengers>
+
+
+$(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
+
 # отмена
 
 !! err=ignore
@@ -5162,7 +5388,7 @@ $(set tid $(get_single_tid $(get point_dep) REPIN ADULT))
           <airp_arv>ПЛК</airp_arv>
           <class>Э</class>
           <grp_id>$(get grp_id)</grp_id>
-          <tid>$(get tid)</tid>
+          <tid>$(get tid_new)</tid>
           <passengers>
             <pax>
               <pax_id>$(get pax_1_id)</pax_id>

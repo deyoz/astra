@@ -908,6 +908,11 @@ static void handleIatciCkuPax(int pointDep,
         throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_PAX_WITH_SAME_SURNAME);
     }
 
+    if(updPax) {
+        // Обновление инфы по паксу пока? не позволяем
+        throw tick_soft_except(STDLOG, AstraErr::FUNC_NOT_SUPPORTED);
+    }
+
     XmlPax newPax = paxesFiltered.front();
 
     // здесь в loadPaxXmlRes всегда один сегмент

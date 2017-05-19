@@ -63,12 +63,12 @@ void IatciRequestHandler::handle()
 
 void IatciRequestHandler::makeAnAnswer()
 {
-    int curSg1 = 0;
+    int curFlg = 0;
     for(const auto& res: m_lRes)
     {
         PushEdiPointW(pMesW());
-        SetEdiSegGr(pMesW(), SegGrElement(1, curSg1));
-        SetEdiPointToSegGrW(pMesW(), SegGrElement(1, curSg1), "SegGr1(flg) not found");
+        SetEdiSegGr(pMesW(), SegGrElement(1, curFlg));
+        SetEdiPointToSegGrW(pMesW(), SegGrElement(1, curFlg), "SegGr1(flg) not found");
 
         viewFdrElement(pMesW(), res.flight());
         viewRadElement(pMesW(), respType(), res.statusAsString());
@@ -80,12 +80,12 @@ void IatciRequestHandler::makeAnAnswer()
         {
             viewFsdElement(pMesW(), res.flight());
 
-            int curSg2 = 0;
+            int curPxg = 0;
             for(const auto& pxg: res.paxGroups())
             {
                 PushEdiPointW(pMesW());
-                SetEdiSegGr(pMesW(), SegGrElement(2, curSg2));
-                SetEdiPointToSegGrW(pMesW(), SegGrElement(2, curSg2), "SegGr2(pxg) not found");
+                SetEdiSegGr(pMesW(), SegGrElement(2, curPxg));
+                SetEdiPointToSegGrW(pMesW(), SegGrElement(2, curPxg), "SegGr2(pxg) not found");
 
                 if(pxg.infant()) {
                     viewPpdElement(pMesW(), pxg.pax(), *pxg.infant());
@@ -102,38 +102,38 @@ void IatciRequestHandler::makeAnAnswer()
                 if(pxg.service()) {
                     viewPsiElement(pMesW(), *pxg.service());
                 }
-                int curSg3 = 0;
+                int curApg = 0;
                 if(pxg.doc()) {
                     PushEdiPointW(pMesW());
-                    SetEdiSegGr(pMesW(), SegGrElement(3, curSg3));
-                    SetEdiPointToSegGrW(pMesW(), SegGrElement(3, curSg3), "SegGr3(apg) not found");
+                    SetEdiSegGr(pMesW(), SegGrElement(3, curApg));
+                    SetEdiPointToSegGrW(pMesW(), SegGrElement(3, curApg), "SegGr3(apg) not found");
 
                     viewPapElement(pMesW(), *pxg.doc(), pxg.pax());
 
                     PopEdiPointW(pMesW());
-                    curSg3++;
+                    curApg++;
                 }
 
                 if(pxg.infantDoc()) {
                     ASSERT(pxg.infant());
                     PushEdiPointW(pMesW());
-                    SetEdiSegGr(pMesW(), SegGrElement(3, curSg3));
-                    SetEdiPointToSegGrW(pMesW(), SegGrElement(3, curSg3), "SegGr3(apg) not found");
+                    SetEdiSegGr(pMesW(), SegGrElement(3, curApg));
+                    SetEdiPointToSegGrW(pMesW(), SegGrElement(3, curApg), "SegGr3(apg) not found");
 
                     viewPapElement(pMesW(), *pxg.infantDoc(), *pxg.infant());
 
                     PopEdiPointW(pMesW());
-                    curSg3++;
+                    curApg++;
                 }
 
                 PopEdiPointW(pMesW());
-                curSg2++;
+                curPxg++;
             }
 
         }
         PopEdiPointW(pMesW());
 
-        curSg1++;
+        curFlg++;
     }
 }
 

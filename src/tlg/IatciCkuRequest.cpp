@@ -49,9 +49,14 @@ void CkuRequest::collectMessage()
         PushEdiPointW(pMes());
 
         SetEdiSegGr(pMes(), SegGrElement(2, currPxg));
-        SetEdiPointToSegGrW(pMes(), SegGrElement(2, currPxg++));
+        SetEdiPointToSegGrW(pMes(), SegGrElement(2, currPxg));
 
-        viewPpdElement(pMes(), pxg.pax());
+        if(pxg.infant()) {
+            viewPpdElement(pMes(), pxg.pax(), *pxg.infant());
+        } else {
+            viewPpdElement(pMes(), pxg.pax());
+        }
+
         if(pxg.reserv()) {
             viewPrdElement(pMes(), *pxg.reserv());
         }
@@ -75,14 +80,28 @@ void CkuRequest::collectMessage()
             viewUsiElement(pMes(), *pxg.updService());
         }
 
+        int curApg = 0;
         if(pxg.updDoc()) {
             PushEdiPointW(pMes());
-            edilib::SetEdiSegGr(pMes(), 3);
-            edilib::SetEdiPointToSegGrW(pMes(), 3);
+            edilib::SetEdiSegGr(pMes(), SegGrElement(3, curApg));
+            SetEdiPointToSegGrW(pMes(), SegGrElement(3, curApg), "SegGr3(apg) not found");
 
             viewUapElement(pMes(), *pxg.updDoc(), pxg.pax());
 
             PopEdiPointW(pMes());
+            curApg++;
+        }
+
+        if(pxg.updInfantDoc()) {
+            ASSERT(pxg.infant());
+            PushEdiPointW(pMes());
+            SetEdiSegGr(pMes(), SegGrElement(3, curApg));
+            SetEdiPointToSegGrW(pMes(), SegGrElement(3, curApg), "SegGr3(apg) not found");
+
+            viewUapElement(pMes(), *pxg.updInfantDoc(), *pxg.infant());
+
+            PopEdiPointW(pMes());
+            curApg++;
         }
 
         PopEdiPointW(pMes());

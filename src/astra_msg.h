@@ -45,6 +45,7 @@ namespace Ticketing
         DEFERR(INV_SEAT);
         DEFERR(FLIGHT_CLOSED);
         DEFERR(UNABLE_TO_GIVE_SEAT);
+        DEFERR(FUNC_NOT_SUPPORTED);
     };
 }//namespace Ticketing
 
