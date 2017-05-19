@@ -1173,7 +1173,8 @@ public:
     PaxGroup(const PaxDetails& pax,
              const boost::optional<ReservationDetails>& reserv,
              const boost::optional<BaggageDetails>& baggage,
-             const boost::optional<ServiceDetails>& service);
+             const boost::optional<ServiceDetails>& service,
+             const boost::optional<PaxDetails>& infant = boost::none);
 };
 
 //---------------------------------------------------------------------------------------

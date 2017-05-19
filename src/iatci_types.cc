@@ -1595,8 +1595,9 @@ namespace dcqbpr {
 PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<ReservationDetails>& reserv,
                    const boost::optional<BaggageDetails>& baggage,
-                   const boost::optional<ServiceDetails>& service)
-    : iatci::PaxGroup(pax, reserv, baggage, service, boost::none, boost::none)
+                   const boost::optional<ServiceDetails>& service,
+                   const boost::optional<PaxDetails>& infant)
+    : iatci::PaxGroup(pax, reserv, baggage, service, boost::none, boost::none, infant)
 {}
 
 //---------------------------------------------------------------------------------------

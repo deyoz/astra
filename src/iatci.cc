@@ -1043,13 +1043,10 @@ static iatci::CkxParams getCkxParams(xmlNodePtr reqNode)
     std::list<iatci::dcqckx::PaxGroup> lPaxGrp;
     for(const auto& pax: lNonInfants) {
         if(firstReqTab.getPaxById(pax.id())) {
-            boost::optional<astra_entities::PaxInfo> inft;
             boost::optional<iatci::PaxDetails> infant;
-            if(!lInfants.empty()) {
-                inft = findInfantByParentId(lInfants, pax.id());
-                if(inft) {
-                    infant = iatci::makePax(*inft);
-                }
+            auto inft = findInfantByParentId(lInfants, pax.id());
+            if(inft) {
+                infant = iatci::makePax(*inft);
             }
             lPaxGrp.push_back(iatci::dcqckx::PaxGroup(iatci::makePax(pax, inft),
                                                       boost::none,
@@ -1263,13 +1260,22 @@ static iatci::BprParams getBprParams(xmlNodePtr reqNode)
 
     const XmlCheckInTab& firstEdiTab = oldIatciTabs.tabs().front();
 
+    const std::list<astra_entities::PaxInfo> lPax = firstEdiTab.lPax();
+    const std::list<astra_entities::PaxInfo> lNonInfants = filterNotInfants(lPax);
+    const std::list<astra_entities::PaxInfo> lInfants = filterInfants(lPax);
+
     std::list<iatci::dcqbpr::PaxGroup> lPaxGrp;
-    for(const auto& pax: firstEdiTab.lPax()) {
+    for(const auto& pax: lNonInfants) {
+        boost::optional<iatci::PaxDetails> infant;
+        auto inft = findInfantByParentId(lInfants, pax.id());
+        if(inft) {
+            infant = iatci::makePax(*inft);
+        }
         lPaxGrp.push_back(iatci::dcqbpr::PaxGroup(iatci::makePax(pax),
                                                   boost::none, // reserv
                                                   boost::none, // baggage
-                                                  boost::none  // service
-                                                  ));
+                                                  boost::none, // service
+                                                  infant));
     }
 
     return iatci::BprParams(makeOrg(ownGrpId),
