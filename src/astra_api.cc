@@ -138,20 +138,18 @@ public:
 
 //---------------------------------------------------------------------------------------
 
-void savePrintBP(const LoadPaxXmlResult& loadPaxRes)
+void savePrintBP(int grpId, const std::list<XmlPax>& paxes)
 {
-    ASSERT(!loadPaxRes.lSeg.empty());
-    const XmlSegment& seg = loadPaxRes.lSeg.front();
-    ASSERT(!seg.passengers.empty());
+    ASSERT(!paxes.empty());
     DeskCodeReplacement dcr("IATCIP");
-    for(const auto& pax: seg.passengers)
+    for(const auto& pax: paxes)
     {
         LogTrace(TRACE3) << __FUNCTION__
-                         << " grp_id:" << seg.seg_info.grp_id
+                         << " grp_id:" << grpId
                          << " pax_id:" << pax.pax_id;
 
 
-        PrintDataParser parser(ASTRA::dotPrnBP, seg.seg_info.grp_id, pax.pax_id, 0, NULL);
+        PrintDataParser parser(ASTRA::dotPrnBP, grpId, pax.pax_id, 0, NULL);
         parser.pts.confirm_print(true, ASTRA::dotPrnBP);
     }
 }
@@ -215,6 +213,22 @@ LoadPaxXmlResult AstraEngine::LoadPax(int pointId, int paxRegNo)
     return LoadPaxXmlResult(resNode);
 }
 
+xml_entities::LoadPaxXmlResult AstraEngine::LoadGrp(int pointId, int grpId)
+{
+    xmlNodePtr reqNode = getQueryNode(),
+               resNode = getAnswerNode();
+
+    xmlNodePtr loadPaxNode = NewTextChild(reqNode, "TCkinLoadPax");
+    NewTextChild(loadPaxNode, "point_id", pointId);
+    NewTextChild(loadPaxNode, "grp_id", grpId);
+
+    initReqInfo();
+
+    LogTrace(TRACE3) << "load pax query:\n" << XMLTreeToText(reqNode->doc);
+    CheckInInterface::instance()->LoadPax(getRequestCtxt(), loadPaxNode, resNode);
+    LogTrace(TRACE3) << "load pax answer:\n" << XMLTreeToText(resNode->doc);
+    return LoadPaxXmlResult(resNode);
+}
 
 SearchPaxXmlResult AstraEngine::SearchCheckInPax(int pointDep,
                                                  const std::string& paxSurname,
@@ -574,6 +588,20 @@ static LoadPaxXmlResult LoadPax__(int pointDep,
 
     LoadPaxXmlResult loadPaxXmlRes =
                 AstraEngine::singletone().LoadPax(pointDep, pax.reg_no);
+
+    if(loadPaxXmlRes.lSeg.size() != 1) {
+        LogError(STDLOG) << "Load pax failed! " << loadPaxXmlRes.lSeg.size() << " "
+                         << "segments found but should be 1";
+        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR);
+    }
+
+    return loadPaxXmlRes;
+}
+
+static LoadPaxXmlResult LoadGrp__(int pointDep, int grpId)
+{
+    LoadPaxXmlResult loadPaxXmlRes =
+                AstraEngine::singletone().LoadGrp(pointDep, grpId);
 
     if(loadPaxXmlRes.lSeg.size() != 1) {
         LogError(STDLOG) << "Load pax failed! " << loadPaxXmlRes.lSeg.size() << " "
@@ -1142,6 +1170,45 @@ iatci::dcrcka::Result fillSeatmap(const iatci::SmfParams& smfParams)
     return seatmapXmlRes.toIatci(outbFlt);
 }
 
+static void handleIatciBprPax(int pointDep,
+                              bool& needMakeSeg,
+                              XmlSegment& paxSeg,
+                              const iatci::PaxDetails& pax)
+{
+    const std::string PaxSurname = pax.surname();
+    const std::string PaxName    = pax.name();
+    LogTrace(TRACE3) << "handle pax: " << PaxSurname << "/" << PaxName;
+
+    LoadPaxXmlResult loadPaxXmlRes = LoadPax__(pointDep,
+                                               PaxSurname,
+                                               PaxName);
+
+    std::list<XmlPax> paxesFiltered = loadPaxXmlRes.applyNameFilter(PaxSurname,
+                                                                    PaxName);
+
+
+    ASSERT(!paxesFiltered.empty());
+    if(paxesFiltered.size() > 1) {
+        // TODO здесь можно уточнить пакса по доп. признакам, например TKNE
+        throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_PAX_WITH_SAME_SURNAME);
+    }
+
+    XmlSegment currSeg = loadPaxXmlRes.lSeg.front();
+
+    // здесь в loadPaxXmlRes всегда один сегмент
+    if(needMakeSeg) {
+        paxSeg = makeSegment(currSeg);
+        needMakeSeg = false;
+    }
+
+    if(currSeg.seg_info.grp_id != paxSeg.seg_info.grp_id) {
+        LogWarning(STDLOG) << "Attempt to print BP for paxes from different groups at single request! "
+                           << currSeg.seg_info.grp_id << "<>" << paxSeg.seg_info.grp_id;
+        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR);
+    }
+    paxSeg.passengers.push_back(paxesFiltered.front());
+}
+
 iatci::dcrcka::Result printBoardingPass(const iatci::BprParams& bprParams)
 {
     LogTrace(TRACE3) << __FUNCTION__;
@@ -1152,63 +1219,29 @@ iatci::dcrcka::Result printBoardingPass(const iatci::BprParams& bprParams)
                                              outbFlt.flightNum(),
                                              outbFlt.depDate());
 
-    boost::optional<XmlPax> firstPax;
-    boost::optional<XmlSegment> paxSeg;
+    XmlSegment paxSeg;
+    bool first = true;
     const auto& paxGroups = bprParams.fltGroup().paxGroups();
-    for(const auto& paxGroup: paxGroups)
-    {
-        const std::string PaxSurname = paxGroup.pax().surname();
-        const std::string PaxName    = paxGroup.pax().name();
-        LogTrace(TRACE3) << "handle pax: " << PaxSurname << "/" << PaxName;
+    for(const auto& paxGroup: paxGroups) {
+        handleIatciBprPax(pointDep, first, paxSeg,
+                          paxGroup.pax());
 
-
-        LoadPaxXmlResult loadPaxXmlRes = LoadPax__(pointDep,
-                                                   PaxSurname,
-                                                   PaxName);
-
-        std::list<XmlPax> paxesFiltered = loadPaxXmlRes.applyNameFilter(PaxSurname,
-                                                                        PaxName);
-
-        ASSERT(!paxesFiltered.empty());
-        if(paxesFiltered.size() > 1) {
-            // TODO здесь можно уточнить пакса по доп. признакам, например TKNE
-            throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_PAX_WITH_SAME_SURNAME);
-        }
-
-        XmlPax pax = paxesFiltered.front();
-        XmlSegment currSeg = loadPaxXmlRes.lSeg.front();
-        ASSERT(currSeg.seg_info.grp_id != ASTRA::NoExists);
-
-        // здесь в loadPaxXmlRes всегда один сегмент
-        if(!paxSeg) {
-            paxSeg = currSeg;
-        }
-        if(!firstPax) {
-            firstPax = pax;
-        }
-
-        if(currSeg.seg_info.grp_id != paxSeg->seg_info.grp_id) {
-            LogWarning(STDLOG) << "Attempt to print BP for paxes from different groups at single request! "
-                               << currSeg.seg_info.grp_id << "<>" << paxSeg->seg_info.grp_id;
-            throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR);
+        if(paxGroup.infant()) {
+            handleIatciBprPax(pointDep, first, paxSeg,
+                              paxGroup.infant().get());
         }
     }
 
-    if(!paxSeg) {
+    savePrintBP(paxSeg.seg_info.grp_id, paxSeg.passengers);
+
+    LoadPaxXmlResult loadGrpXmlRes = LoadGrp__(pointDep, paxSeg.seg_info.grp_id);
+    if(loadGrpXmlRes.lSeg.empty()) {
         tst();
-        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to find pax/group");
+        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to load grp");
     }
 
-    // все проверки прошли - можно брать любого пассажира из группы
-    // и грузить данные по всей группе. Берём первого пассажира
-
-    LoadPaxXmlResult loadPaxXmlRes = LoadPax__(pointDep,
-                                               firstPax->surname,
-                                               firstPax->name);
-
-    savePrintBP(loadPaxXmlRes);
-
-    return loadPaxXmlRes.toIatciFirst(iatci::dcrcka::Result::Passlist,
+    tst();
+    return loadGrpXmlRes.toIatciFirst(iatci::dcrcka::Result::Reprint,
                                       iatci::dcrcka::Result::Ok);
 }
 

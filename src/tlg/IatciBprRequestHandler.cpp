@@ -58,6 +58,7 @@ public:
         boost::optional<iatci::SeatDetails>        makeSeat() const;
         boost::optional<iatci::BaggageDetails>     makeBaggage() const;
         boost::optional<iatci::ServiceDetails>     makeService() const;
+        boost::optional<iatci::PaxDetails>         makeInfant() const;
     };
 
     //-----------------------------------------------------------------------------------
@@ -187,7 +188,8 @@ iatci::dcqbpr::PaxGroup IatciBprParamsNewMaker::Pxg::makePaxGroup() const
     return iatci::dcqbpr::PaxGroup(iatci::makePax(m_ppd),
                                    makeReserv(),
                                    makeBaggage(),
-                                   makeService());
+                                   makeService(),
+                                   makeInfant());
 }
 
 boost::optional<iatci::ReservationDetails> IatciBprParamsNewMaker::Pxg::makeReserv() const
@@ -221,6 +223,15 @@ boost::optional<iatci::ServiceDetails> IatciBprParamsNewMaker::Pxg::makeService(
 {
     if(m_psi) {
         return iatci::makeService(*m_psi);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::PaxDetails> IatciBprParamsNewMaker::Pxg::makeInfant() const
+{
+    if(m_ppd.m_withInftIndicator == "Y") {
+        return iatci::makeInfant(m_ppd);
     }
 
     return boost::none;

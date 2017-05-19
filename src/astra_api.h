@@ -804,6 +804,8 @@ public:
     // поиск зарегистрированного пассажира по регистрационному номеру
     xml_entities::LoadPaxXmlResult LoadPax(int depPointId, int paxRegNo);
 
+    xml_entities::LoadPaxXmlResult LoadGrp(int depPointId, int grpId);
+
     // поиск НЕзарегистрированного пассажира на рейсе
     xml_entities::SearchPaxXmlResult SearchCheckInPax(int depPointId,
                                                       const std::string& paxSurname,
