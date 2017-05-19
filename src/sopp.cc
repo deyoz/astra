@@ -2870,22 +2870,57 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     AstraLocale::showMessage( "MSG.DATA_SAVED" );
 }
 
+std::string GetTagsOfNotBoardedPax(int point_id)
+{
+  TQuery Qry(&OraSession);
+
+  Qry.SQLText =
+      /* Только бирки тех багажных пулов, все пассажиры которых не прошли посадку */
+    "SELECT bag_tags.color, bag_tags.no, tag_types.no_len "
+    "FROM pax_grp, bag2, bag_tags, tag_types "
+    "WHERE pax_grp.grp_id=bag2.grp_id AND "
+    "      bag2.grp_id=bag_tags.grp_id AND "
+    "      bag2.num=bag_tags.bag_num AND "
+    "      bag_tags.tag_type=tag_types.code AND "
+    "      pax_grp.point_dep=:point_id AND pax_grp.status NOT IN ('E') AND "
+    "      ckin.bag_pool_refused(bag2.grp_id, bag2.bag_pool_num, pax_grp.class, pax_grp.bag_refuse)=0 AND "
+    "      ckin.bag_pool_boarded(bag2.grp_id, bag2.bag_pool_num, pax_grp.class, pax_grp.bag_refuse)=0 "
+    "UNION "
+    "SELECT bag_tags.color, bag_tags.no, tag_types.no_len "
+    "FROM pax_grp, bag_tags, tag_types "
+    "WHERE pax_grp.grp_id=bag_tags.grp_id AND "
+    "      bag_tags.bag_num IS NULL AND "
+    "      bag_tags.tag_type=tag_types.code AND "
+    "      pax_grp.point_dep=:point_id AND pax_grp.status NOT IN ('E') AND "
+    "      ckin.bag_pool_refused(bag_tags.grp_id, 1, pax_grp.class, pax_grp.bag_refuse)=0 AND "
+    "      ckin.bag_pool_boarded(bag_tags.grp_id, 1, pax_grp.class, pax_grp.bag_refuse)=0 ";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  multiset<TBagTagNumber> tags;
+  for(; !Qry.Eof; Qry.Next())
+  {
+    TBagTagNumber tag(ElemIdToCodeNative(etTagColor, Qry.FieldAsString("color")),
+                      Qry.FieldAsFloat("no"),
+                      Qry.FieldAsInteger("no_len"));
+    tags.insert(tag);
+  }
+
+  return GetTagRangesStrShort(tags);
+}
+
 void GetBirks( int point_id, xmlNodePtr dataNode )
 {
   xmlNodePtr node = NewTextChild( dataNode, "birks" );
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-      "SELECT COUNT(*) AS nobrd "
-      "FROM pax_grp, pax "
-      "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pax_grp.status NOT IN ('E') AND pr_brd=0";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.Execute();
-    NewTextChild( node, "nobrd", Qry.FieldAsInteger( "nobrd" ) );
+
+  TQuery Qry(&OraSession);
   Qry.SQLText =
-    "SELECT sopp.get_birks(:point_id,:vlang) AS birks FROM dual";
-  Qry.CreateVariable( "vlang", otString, TReqInfo::Instance()->desk.lang.empty() );
-    Qry.Execute();
-    NewTextChild( node, "birks", Qry.FieldAsString( "birks" ) );
+    "SELECT COUNT(*) AS nobrd "
+    "FROM pax_grp, pax "
+    "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pax_grp.status NOT IN ('E') AND pr_brd=0";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  NewTextChild( node, "nobrd", Qry.FieldAsInteger( "nobrd" ) );
+  NewTextChild( node, "birks", GetTagsOfNotBoardedPax(point_id) );
 }
 
 void GetEMD( int point_id, xmlNodePtr dataNode )
