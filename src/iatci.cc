@@ -1237,7 +1237,7 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
     }
 
     std::list<iatci::dcqcku::PaxGroup> lPaxGrp;
-    lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makePax(*paxOpt),
+    lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makePax(*paxOpt, inft),
                                               boost::none, // Reserv
                                               boost::none, // Baggage
                                               boost::none, // Service
