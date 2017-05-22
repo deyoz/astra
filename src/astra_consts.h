@@ -154,6 +154,7 @@ enum TRptType {
     rtLIR,
     rtANNUL_TAGS,
     rtSERVICES,
+    rtSERVICESTXT,
     rtUnknown,
     rtTypeNum
 };
