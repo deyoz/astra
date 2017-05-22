@@ -10,8 +10,9 @@ export LOCAL_LIBS=$(pwd)/locallibs
 
 export CPP_STD_VERSION="c++11"
 
-export ASTRA_FLAGS="-Wno-deprecated-declarations -fsanitize=address"
-export DEBUG='-ggdb'
+export ASTRA_FLAGS="-Wno-deprecated-declarations" 
+# -fsanitize=address"
+#export DEBUG='-ggdb'
 
 #./buildFromScratch.sh xren --build_external_libs --configlibs --buildlibs --configastra --buildastra
 ./buildFromScratch.sh xren --configlibs --buildlibs --configastra --buildastra
