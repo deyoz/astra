@@ -1214,8 +1214,8 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
                      << "; paxId: " << paxId;
 
     int ownGrpId = magicTab.grpId();
-
     XMLDoc oldXmlDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
+
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
     ASSERT(magicTab.tabInd() <= oldIatciTabs.size() && magicTab.tabInd() > 0);
     const XmlCheckInTab& oldIatciTab = oldIatciTabs.tabs().at(magicTab.tabInd() - 1);
@@ -1229,14 +1229,19 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
         throw AstraLocale::UserException("MSG.SEATS.SEAT_NO.PASSENGER_OWNER");
     }
 
-    const XmlCheckInTab& firstEdiTab = oldIatciTabs.tabs().front();
+    boost::optional<astra_entities::PaxInfo> inft = findInfantByParentId(oldIatciTab.lPax(),
+                                                                         paxOpt->id());
+    boost::optional<iatci::PaxDetails> infant;
+    if(inft) {
+        infant = iatci::makePax(*inft);
+    }
 
     std::list<iatci::dcqcku::PaxGroup> lPaxGrp;
     lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makePax(*paxOpt),
                                               boost::none, // Reserv
                                               boost::none, // Baggage
                                               boost::none, // Service
-                                              boost::none, // Infant
+                                              infant,
                                               boost::none, // Update personal
                                               updSeat,     // Update seat
                                               boost::none, // Update baggage
@@ -1246,7 +1251,7 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
 
     return iatci::CkuParams(makeOrg(ownGrpId),
                             boost::none,
-                            iatci::dcqcku::FlightGroup(iatci::makeFlight(firstEdiTab.xmlSeg()),
+                            iatci::dcqcku::FlightGroup(iatci::makeFlight(oldIatciTabs.tabs().front().xmlSeg()),
                                                        boost::none,
                                                        lPaxGrp));
 }
