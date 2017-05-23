@@ -10,7 +10,8 @@
 #include "tripinfo.h"
 #include "passenger.h"
 #include "qrys.h"
-#include "serverlib/str_utils.h"
+#include <serverlib/str_utils.h>
+#include <serverlib/testmode.h>
 
 #define NICKNAME "DEN"
 #include "serverlib/slogger.h"
@@ -1215,6 +1216,12 @@ string TPrnTagStore::BCBP_V_5(TFieldParams fp)
 // В 1D-баркод забивается getEmptyPaxId()
 bool TPrnTagStore::isBoardingPass()
 {
+#ifdef XP_TESTING
+    if(inTestMode()) {
+        return op_type == dotPrnBP;
+    }
+#endif //XP_TESTING
+
     return op_type == dotPrnBP and get_tag(TAG::VOUCHER_CODE).empty();
 }
 

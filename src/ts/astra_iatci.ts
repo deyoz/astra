@@ -3605,9 +3605,9 @@ $(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+DCQBPR:96:2:IA+$(last_edifact_ref)"
-LOR+ûí:ÑåÑ"
-FDQ+ë7+1027+$(yymmdd)+èãä+ëéó"
+UNH+1+DCQBPR:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)+LED+AER"
 PPD+REPIN+A:N++IVAN"
 UNT+5+1"
 UNZ+1+$(last_edifact_ref)0001"

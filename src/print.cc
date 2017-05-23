@@ -2316,6 +2316,10 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(BPNode, "pectab", pectab);
         xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
         for (std::vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
+            if(iPax->grp_id < 0 || iPax->pax_id < 0) {
+                LogTrace(TRACE3) << "skip iatci pax...";
+                continue;
+            }
 
             // В режиме приглашений выводим только тех, у кого есть правила.
             const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
