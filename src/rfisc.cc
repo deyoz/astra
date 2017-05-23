@@ -825,6 +825,7 @@ void TRFISCList::toDB(int list_id, bool old_version) const
       if (E.Code==1)
       {
         if (!old_version) throw;
+        ProgError(STDLOG, "Warning: TRFISCList::toDB: duplicate list_id=%d rfisc=%s", list_id, i->second.RFISC.c_str());
       }
       else
         throw;
@@ -832,7 +833,7 @@ void TRFISCList::toDB(int list_id, bool old_version) const
   }
 }
 
-int TRFISCList::crc(bool old_version) const
+int TRFISCList::crc(bool old_version, const std::string& baggage_airline) const
 {
   if (empty()) throw Exception("TRFISCList::crc: empty list");
   boost::crc_basic<32> crc32( 0x04C11DB7, 0xFFFFFFFF, 0xFFFFFFFF, true, true );
@@ -842,7 +843,13 @@ int TRFISCList::crc(bool old_version) const
     if (old_version)
     {
       if (i->second.service_type!=TServiceType::BaggageCharge) continue;
-      buf << i->second.RFISC << ";";
+      buf << i->second.RFISC << ";"
+          << i->second.service_type << ";"
+          << (baggage_airline.empty()?i->second.airline:baggage_airline) << ";"
+          << i->second.category << ";"
+          << (i->second.visible?"+":"-") << ";"
+          << i->second.name.substr(0, 10) << ";"
+          << i->second.name_lat.substr(0, 10) << ";";
     }
     else
       buf << i->second.RFISC << ";"
@@ -873,12 +880,20 @@ boost::optional<TRFISCListKey> TRFISCList::getBagRFISCListKey(const std::string 
 
 int TRFISCList::toDBAdv(bool old_version) const
 {
-  int crc_tmp=crc(old_version);
+  string baggage_airline;
+  if (old_version)
+  {
+    boost::optional<TRFISCListKey> key=getBagRFISCListKey("", false);
+    if (!key) throw Exception("TRFISCList::toDBAdv: empty baggage dominant RFISC list");
+    baggage_airline=key.get().airline;
+  }
+
+  int crc_tmp=crc(old_version, baggage_airline);
 
   TQuery Qry(&OraSession);
   Qry.Clear();
   if (old_version)
-    Qry.SQLText = "SELECT id FROM bag_types_lists WHERE crc=:crc";
+    Qry.SQLText = "SELECT id FROM bag_types_lists WHERE crc=:crc AND rownum<=10";
   else
   {
     Qry.SQLText = "SELECT id FROM service_lists WHERE crc=:crc AND rfisc_used=:rfisc_used";
@@ -891,7 +906,7 @@ int TRFISCList::toDBAdv(bool old_version) const
     int list_id=Qry.FieldAsInteger("id");
     TRFISCList list;
     list.fromDB(list_id, old_version);
-    if (equal(list, old_version)) return list_id;
+    if (equal(list, old_version, baggage_airline)) return list_id;
   };
 
   Qry.Clear();
@@ -902,9 +917,7 @@ int TRFISCList::toDBAdv(bool old_version) const
         "  SELECT bag_types_lists__seq.nextval INTO :id FROM dual; "
         "  INSERT INTO bag_types_lists(id, airline, crc) VALUES(:id, :airline, :crc); "
         "END;";
-    boost::optional<TRFISCListKey> key=getBagRFISCListKey("", false);
-    if (!key) throw Exception("TRFISCList::toDBAdv: empty baggage dominant RFISC list");
-    Qry.CreateVariable("airline", otString, key.get().airline);
+    Qry.CreateVariable("airline", otString, baggage_airline);
   }
   else
   {
@@ -939,7 +952,7 @@ bool TRFISCList::exists(const TServiceType::Enum service_type) const
   return false;
 }
 
-bool TRFISCList::equal(const TRFISCList &list, bool old_version) const
+bool TRFISCList::equal(const TRFISCList &list, bool old_version, const std::string& baggage_airline) const
 {
   if (old_version)
   {
@@ -962,7 +975,7 @@ bool TRFISCList::equal(const TRFISCList &list, bool old_version) const
           i1->second.RFIC==i2->second.RFIC &&
           i1->second.RFISC==i2->second.RFISC &&
           i1->second.service_type==i2->second.service_type &&
-          i1->second.airline==i2->second.airline &&
+          (baggage_airline.empty()?i1->second.airline:baggage_airline)==i2->second.airline &&
           i1->second.emd_type==i2->second.emd_type &&
           i1->second.carry_on()==i2->second.carry_on() &&
           i1->second.name==i2->second.name &&
