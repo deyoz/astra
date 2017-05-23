@@ -2392,10 +2392,12 @@ int COM(TypeB::TDetailCreateInfo &info)
     tlg_row.heading = heading.str();
     tlg_row.ending = "ENDCOM" + TypeB::endl;
     try {
+        const TypeB::TCOMOptions &options = *info.optionsAs<TypeB::TCOMOptions>();
+        TDateTime scd = (options.version == "DME" ? info.scd_local : info.scd_utc);
         ostringstream body;
         body
             << info.flight_view() << "/"
-            << DateTimeToStr(info.scd_utc, "ddmmm", 1) << " " << info.airp_dep_view()
+            << DateTimeToStr(scd, "ddmmm", 1) << " " << info.airp_dep_view()
             << "/0 OP/NAM" << TypeB::endl;
         TCOMClasses classes;
         TCOMZones zones;
