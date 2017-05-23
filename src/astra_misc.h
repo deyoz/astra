@@ -808,22 +808,65 @@ class TBagTagNumber
   public:
     std::string alpha_part;
     double numeric_part;
-    TBagTagNumber(const std::string &apart, double npart):alpha_part(apart),numeric_part(npart) {};
+    int numeric_part_max_len;
+    TBagTagNumber(const std::string &apart, double npart)
+      :alpha_part(apart),numeric_part(npart),numeric_part_max_len(10) {}
+    TBagTagNumber(const std::string &apart, double npart, int max_len)
+      :alpha_part(apart),numeric_part(npart),numeric_part_max_len(max_len) {}
     bool operator < (const TBagTagNumber &no) const
     {
+      if (numeric_part_max_len!=no.numeric_part_max_len)
+        return numeric_part_max_len<no.numeric_part_max_len;
       if (alpha_part!=no.alpha_part)
         return alpha_part<no.alpha_part;
       return numeric_part<no.numeric_part;
-    };
+    }
     bool operator == (const TBagTagNumber &no) const
     {
-      return alpha_part == no.alpha_part &&
+      return numeric_part_max_len == no.numeric_part_max_len &&
+             alpha_part == no.alpha_part &&
              numeric_part == no.numeric_part;
-    };
+    }
+    double pack() const
+    {
+      double result;
+      modf(numeric_part/1000.0,&result);
+      return result;
+    }
+    double number_in_pack() const
+    {
+      return fmod(numeric_part, 1000.0);
+    }
+    bool equal_pack(const TBagTagNumber& tag) const
+    {
+      return alpha_part==tag.alpha_part &&
+             numeric_part_max_len==tag.numeric_part_max_len &&
+             pack()==tag.pack();
+    }
+    std::string str() const
+    {
+      std::ostringstream s;
+      s.setf(std::ios::fixed);
+      s << alpha_part
+        << std::setw(numeric_part_max_len)
+        << std::setfill('0') << std::setprecision(0)
+        << numeric_part;
+      return s.str();
+    }
+    std::string number_in_pack_str(int inc=0) const
+    {
+      std::ostringstream s;
+      s.setf(std::ios::fixed);
+      s << std::setw(3)
+        << std::setfill('0') << std::setprecision(0)
+        << number_in_pack()+inc;
+      return s.str();
+    }
 };
 
 void GetTagRanges(const std::multiset<TBagTagNumber> &tags,
                   std::vector<std::string> &ranges);   //ranges сортирован
+std::string GetTagRangesStrShort(const std::multiset<TBagTagNumber> &tags);
 
 std::string GetTagRangesStr(const std::multiset<TBagTagNumber> &tags);
 std::string GetTagRangesStr(const TBagTagNumber &tag);
