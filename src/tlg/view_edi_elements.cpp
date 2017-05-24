@@ -627,9 +627,23 @@ void viewPfdElement(_EDI_REAL_MES_STRUCT_* pMes, const PfdElem& elem)
     pfd << iatci::normSeatNum(elem.m_seat);
     pfd << "+" << elem.m_noSmokingInd << ":";
     if(!elem.m_cabinClass.empty()) {
-        pfd << Ticketing::SubClass(elem.m_cabinClass)->code(ENGLISH);
+        Ticketing::BaseClass cabin(elem.m_cabinClass);
+        pfd << cabin->code(ENGLISH) << ":"
+            << cabin->codeInt() + 1;
+    } else {
+        pfd << ":";
     }
-    pfd << "+" << elem.m_regNo << ":" << elem.m_infantRegNo;
+
+    pfd << ":::::" << "Y" << ":" << elem.m_noSmokingInd;
+
+
+    if(!elem.m_regNo.empty()) {
+        pfd << "+" << std::setfill('0') << std::setw(3) << elem.m_regNo;
+        if(!elem.m_infantRegNo.empty()) {
+           pfd << ":" << std::setfill('0') << std::setw(3) << elem.m_infantRegNo;
+        }
+    }
+    pfd << "+" << "Y";
     SetEdiFullSegment(pMes, SegmElement("PFD"), pfd.str());
 }
 
