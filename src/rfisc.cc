@@ -781,7 +781,7 @@ void TRFISCList::fromDB(int list_id, bool old_version, bool only_visible)
   }
 }
 
-void TRFISCList::toDB(int list_id, bool old_version) const
+void TRFISCList::toDB(int list_id, bool old_version, const std::string &baggage_airline) const
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -812,25 +812,46 @@ void TRFISCList::toDB(int list_id, bool old_version) const
   Qry.DeclareVariable( "emd_type", otString );
   Qry.DeclareVariable( "name", otString );
   Qry.DeclareVariable( "name_lat", otString );
-  for(TRFISCList::const_iterator i=begin(); i!=end(); ++i)
+  if (old_version)
   {
-    if (old_version && i->second.service_type!=TServiceType::BaggageCharge) continue;
-    i->second.toDB(Qry, old_version);
-    try
+    for(TRFISCList::const_iterator i=begin(); i!=end(); ++i)
     {
-      Qry.Execute();
-    }
-    catch(EOracleError E)
-    {
-      if (E.Code==1)
+      if (!included_in_old_version(i->second, baggage_airline)) continue;
+      i->second.toDB(Qry, old_version);
+      try
       {
-        if (!old_version) throw;
-        ProgError(STDLOG, "Warning: TRFISCList::toDB: duplicate list_id=%d rfisc=%s", list_id, i->second.RFISC.c_str());
+        Qry.Execute();
       }
-      else
-        throw;
+      catch(EOracleError E)
+      {
+        if (E.Code==1)
+          ProgError(STDLOG, "Warning: TRFISCList::toDB: duplicate list_id=%d rfisc=%s", list_id, i->second.RFISC.c_str());
+        else
+          throw;
+      };
     };
   }
+  else
+  {
+    for(TRFISCList::const_iterator i=begin(); i!=end(); ++i)
+    {
+      i->second.toDB(Qry, old_version);
+      Qry.Execute();
+    };
+  };
+}
+
+bool TRFISCList::included_in_old_version(const TRFISCListItem& item, const std::string &baggage_airline) const
+{
+  if (item.service_type!=TServiceType::BaggageCharge) return false;
+  if (!baggage_airline.empty() && item.airline!=baggage_airline)
+  {
+    //услуга не принадлежит багажу
+    TRFISCListKey key=item;
+    key.airline=baggage_airline;
+    if (find(key)!=end()) return false;
+  };
+  return true;
 }
 
 int TRFISCList::crc(bool old_version, const std::string& baggage_airline) const
@@ -839,10 +860,11 @@ int TRFISCList::crc(bool old_version, const std::string& baggage_airline) const
   boost::crc_basic<32> crc32( 0x04C11DB7, 0xFFFFFFFF, 0xFFFFFFFF, true, true );
   crc32.reset();
   ostringstream buf;
-  for(TRFISCList::const_iterator i=begin(); i!=end(); ++i)
-    if (old_version)
+  if (old_version)
+  {
+    for(TRFISCList::const_iterator i=begin(); i!=end(); ++i)
     {
-      if (i->second.service_type!=TServiceType::BaggageCharge) continue;
+      if (!included_in_old_version(i->second, baggage_airline)) continue;
       buf << i->second.RFISC << ";"
           << i->second.service_type << ";"
           << (baggage_airline.empty()?i->second.airline:baggage_airline) << ";"
@@ -850,8 +872,13 @@ int TRFISCList::crc(bool old_version, const std::string& baggage_airline) const
           << (i->second.visible?"+":"-") << ";"
           << i->second.name.substr(0, 10) << ";"
           << i->second.name_lat.substr(0, 10) << ";";
-    }
-    else
+    };
+    if (buf.str().empty())
+      throw Exception("TRFISCList::crc: empty baggage dominant RFISC list");
+  }
+  else
+  {
+    for(TRFISCList::const_iterator i=begin(); i!=end(); ++i)
       buf << i->second.RFISC << ";"
           << i->second.service_type << ";"
           << i->second.airline << ";"
@@ -859,8 +886,7 @@ int TRFISCList::crc(bool old_version, const std::string& baggage_airline) const
           << (i->second.visible?"+":"-") << ";"
           << i->second.name.substr(0, 10) << ";"
           << i->second.name_lat.substr(0, 10) << ";";
-  if (old_version && buf.str().empty())
-    throw Exception("TRFISCList::crc: empty baggage dominant RFISC list");
+  };
   //ProgTrace(TRACE5, "TRFISCList::crc: %s", buf.str().c_str());
   crc32.process_bytes( buf.str().c_str(), buf.str().size() );
   return crc32.checksum();
@@ -932,7 +958,7 @@ int TRFISCList::toDBAdv(bool old_version) const
   Qry.CreateVariable("crc", otInteger, crc_tmp);
   Qry.Execute();
   int list_id=Qry.GetVariableAsInteger("id");
-  toDB(list_id, old_version);
+  toDB(list_id, old_version, baggage_airline);
   return list_id;
 }
 
@@ -960,12 +986,12 @@ bool TRFISCList::equal(const TRFISCList &list, bool old_version, const std::stri
     TRFISCList::const_iterator i2=list.begin();
     for(;i1!=end() || i2!=list.end();)
     {
-      if (i1!=end() && i1->second.service_type!=TServiceType::BaggageCharge)
+      if (i1!=end() && !included_in_old_version(i1->second, baggage_airline))
       {
         ++i1;
         continue;
       };
-      if (i2!=list.end() && i2->second.service_type!=TServiceType::BaggageCharge)
+      if (i2!=list.end() && !list.included_in_old_version(i2->second, baggage_airline))
       {
         ++i2;
         continue;
