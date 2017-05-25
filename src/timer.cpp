@@ -43,7 +43,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 #include "serverlib/ourtime.h"
 
 const int sleepsec = 25;
@@ -465,11 +465,14 @@ void get_full_stat(TDateTime utcdate)
     "      time_out<:stat_date AND time_out>TO_DATE('01.01.0001','DD.MM.YYYY')";
   PointsQry.CreateVariable("stat_date",otDate,utcdate-2); //2 дня
   PointsQry.Execute();
+  map<string, long> stat_times;
   for(;!PointsQry.Eof;PointsQry.Next())
   {
-    get_flight_stat(PointsQry.FieldAsInteger("point_id"), true);
+    get_flight_stat(stat_times, PointsQry.FieldAsInteger("point_id"), true);
     OraSession.Commit();
   };
+  for(map<string, long>::iterator i = stat_times.begin(); i != stat_times.end(); i++)
+      LogTrace(TRACE5) << i->first << ": " << i->second;
 };
 
 
