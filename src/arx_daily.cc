@@ -241,7 +241,8 @@ void TArxMoveFlt::LockAndCollectStat(int move_id)
     bool pr_reg=Qry.FieldAsInteger("pr_reg")!=0;
     int point_id=Qry.FieldAsInteger("point_id");
     if (pr_del<0) continue;
-    if (pr_del==0 && pr_reg) get_flight_stat(point_id, true);
+    map<string, long> stat_times;
+    if (pr_del==0 && pr_reg) get_flight_stat(stat_times, point_id, true);
     TReqInfo::Instance()->LocaleToLog("EVT.FLIGHT_MOOVED_TO_ARCHIVE", evtFlt, point_id);
   };
 };

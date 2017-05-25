@@ -112,7 +112,7 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 
-void get_flight_stat(int point_id, bool final_collection);
+void get_flight_stat(std::map<std::string, long> &stat_times, int point_id, bool final_collection);
 int nosir_rfisc_stat(int argc,char **argv);
 int nosir_stat_order(int argc,char **argv);
 int nosir_departed_pax(int argc, char **argv);

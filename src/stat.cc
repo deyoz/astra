@@ -11070,7 +11070,16 @@ int nosir_rfisc_stat(int argc,char **argv)
     return 0;
 }
 
-void get_flight_stat(int point_id, bool final_collection)
+void add_stat_time(map<string, long> &stat_times, const string &name, long time)
+{
+    map<string, long>::iterator i = stat_times.find(name);
+    if(i == stat_times.end())
+        stat_times[name] = time;
+    else
+        stat_times[name] += time;
+}
+
+void get_flight_stat(map<string, long> &stat_times, int point_id, bool final_collection)
 {
    TFlights flightsForLock;
    flightsForLock.Get( point_id, ftTranzit );
@@ -11093,12 +11102,25 @@ void get_flight_stat(int point_id, bool final_collection)
                       "  statist.get_self_ckin_stat(:point_id); "
                       "END;",
                       QryParams);
+     TPerfTimer tm;
+     tm.Init();
      Qry.get().Execute();
+     add_stat_time(stat_times, "statist", tm.Print());
+     tm.Init();
      get_rfisc_stat(point_id);
+     add_stat_time(stat_times, "rfisc_stat", tm.Print());
+     tm.Init();
      get_service_stat(point_id);
+     add_stat_time(stat_times, "service_stat", tm.Print());
+     tm.Init();
      get_limited_capability_stat(point_id);
+     add_stat_time(stat_times, "limited_capability_stat", tm.Print());
+     tm.Init();
      get_kuf_stat(point_id);
+     add_stat_time(stat_times, "kuf_stat", tm.Print());
+     tm.Init();
      get_pfs_stat(point_id);
+     add_stat_time(stat_times, "pfs_stat", tm.Print());
    };
 
    TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);

@@ -1062,7 +1062,8 @@ void Takeoff( int point_id )
   time_start=time(NULL);
   try
   {
-    get_flight_stat(point_id, false);
+      map<string, long> stat_times;
+    get_flight_stat(stat_times, point_id, false);
   }
   catch(const EOracleError &E) {
       ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
