@@ -355,12 +355,13 @@ class TRFISCList : public TRFISCListMap
     void fromSirenaXML(xmlNodePtr node);
     void toXML(int list_id, xmlNodePtr node) const;
     void fromDB(int list_id, bool old_version, bool only_visible=false); // загрузка только списка RFISC
-    void toDB(int list_id, bool old_version) const; // сохранение только списка RFISC
+    void toDB(int list_id, bool old_version, const std::string &baggage_airline) const; // сохранение только списка RFISC
     int crc(bool old_version, const std::string &baggage_airline="") const;
     int toDBAdv(bool old_version) const; //продвинутое сохранение с анализом существующих справочников
     std::string localized_name(const TRFISCListKey &key, const std::string& lang) const; //локализованное описание RFISC
     bool exists(const TServiceType::Enum service_type) const;
     bool equal(const TRFISCList &list, bool old_version, const std::string &baggage_airline="") const;
+    bool included_in_old_version(const TRFISCListItem& item, const std::string &baggage_airline) const;
 };
 
 class TRFISCBagProps
