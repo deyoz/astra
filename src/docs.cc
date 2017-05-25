@@ -1404,6 +1404,8 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     if(not Qry.FieldIsNULL("act_out"))
         takeoff = UTCToLocal(Qry.FieldAsDateTime("act_out"), tz_region);
     NewTextChild(variablesNode, "takeoff", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "dd.mm.yy hh:nn")));
+    NewTextChild(variablesNode, "takeoff_date", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "dd.mm")));
+    NewTextChild(variablesNode, "takeoff_time", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "hh:nn")));
 }
 
 void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1869,6 +1871,8 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     if(not Qry.FieldIsNULL("act_out"))
         takeoff = UTCToLocal(Qry.FieldAsDateTime("act_out"), tz_region);
     NewTextChild(variablesNode, "takeoff", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "dd.mm.yy hh:nn")));
+    NewTextChild(variablesNode, "takeoff_date", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "dd.mm")));
+    NewTextChild(variablesNode, "takeoff_time", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "hh:nn")));
 }
 
 string get_test_str(int page_width, string lang)
