@@ -690,7 +690,7 @@ void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes,
 {
     std::ostringstream uap;
     uap << updDoc.actionCodeAsString() << "+";
-    uap << pax.typeAsString() << ":"
+    uap << (pax.type() == iatci::PaxDetails::Infant ? "IN" : "A") << ":"
         << pax.surname() << ":"
         << pax.name() << ":"
         << Dates::rrmmdd(updDoc.birthDate())
@@ -783,7 +783,7 @@ void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes,
                     const iatci::DocDetails& doc, const iatci::PaxDetails& pax)
 {
     std::ostringstream pap;
-    pap << pax.typeAsString() << ":"
+    pap << (pax.type() == iatci::PaxDetails::Infant ? "IN" : "A") << ":"
         << pax.surname() << ":"
         << pax.name() << ":"
         << Dates::rrmmdd(doc.birthDate())
