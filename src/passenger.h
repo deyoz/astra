@@ -380,14 +380,7 @@ class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
     long int getEqualAttrsFieldsMask(const TPaxDocaItem &item) const;
     void ReplacePunctSymbols();
     long int getNotEmptyFieldsMask() const;
-    TAPIType apiType() const
-    {
-      TAPIType result=apiUnknown;
-      if (type=="B") result=apiDocaB;
-      if (type=="R") result=apiDocaR;
-      if (type=="D") result=apiDocaD;
-      return result;
-    }
+    TAPIType apiType() const;
     std::string rem_code() const
     {
       return "DOCA";
@@ -448,12 +441,33 @@ class TSimplePaxItem
     bool upward_within_bag_pool(const TSimplePaxItem& pax) const;
 };
 
+class TDocaMap : public std::map<TAPIType, TPaxDocaItem>
+{
+  public:
+    TDocaMap() { Clear(); }
+    void Clear()
+    {
+      typedef std::map<TAPIType, TPaxDocaItem> Base;
+      Base::clear();
+      Base::operator[](apiDocaB).type = "B";
+      Base::operator[](apiDocaR).type = "R";
+      Base::operator[](apiDocaD).type = "D";
+    }
+    std::string ToString() const
+    {
+      std::string result = "TDocaMap types: ";
+      for (TDocaMap::const_iterator i = this->begin(); i != this->end(); ++i)
+        result += "[" + i->second.type + "]";
+      return result;
+    }    
+};
+
 class TPaxItem : public TSimplePaxItem
 {
   public:
     TPaxDocItem doc;
     TPaxDocoItem doco;
-    std::list<TPaxDocaItem> doca;
+    TDocaMap doca_map;
     bool PaxUpdatesPending;
     bool DocExists;
     bool DocoExists;
@@ -468,7 +482,7 @@ class TPaxItem : public TSimplePaxItem
       TSimplePaxItem::clear();
       doc.clear();
       doco.clear();
-      doca.clear();
+      doca_map.Clear();
       PaxUpdatesPending=false;
       DocExists=false;
       DocoExists=false;
@@ -488,7 +502,7 @@ class TAPISItem
   public:
     TPaxDocItem doc;
     TPaxDocoItem doco;
-    std::list<TPaxDocaItem> doca;
+    TDocaMap doca_map;
     TAPISItem()
     {
       clear();
@@ -497,7 +511,7 @@ class TAPISItem
     {
       doc.clear();
       doco.clear();
-      doca.clear();
+      doca_map.Clear();
     };
 
     const TAPISItem& toXML(xmlNodePtr node) const;
@@ -656,23 +670,23 @@ enum TDocaType
   docaBirth
 };
 
-void ConvertDoca(const std::list<TPaxDocaItem> &doca,
+void ConvertDoca(TDocaMap doca_map,
                  TPaxDocaItem &docaB,
                  TPaxDocaItem &docaR,
                  TPaxDocaItem &docaD);
 
-bool LoadPaxDoca(int pax_id, std::list<TPaxDocaItem> &doca);
+bool LoadPaxDoca(int pax_id, TDocaMap &doca_map);
 bool LoadPaxDoca(int pax_id, TDocaType type, TPaxDocaItem &doca);
-bool LoadPaxDoca(TDateTime part_key, int pax_id, std::list<TPaxDocaItem> &doca);
+bool LoadPaxDoca(TDateTime part_key, int pax_id, TDocaMap &doca_map);
 bool LoadPaxDoca(TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &doca);
 
 bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, bool without_inf_indicator=false);
 bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc);
-bool LoadCrsPaxDoca(int pax_id, std::list<TPaxDocaItem> &doca);
+bool LoadCrsPaxDoca(int pax_id, TDocaMap &doca_map);
 
 void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry);
 void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry);
-void SavePaxDoca(int pax_id, const std::list<TPaxDocaItem> &doca, TQuery& PaxDocaQry, bool new_checkin);
+void SavePaxDoca(int pax_id, const TDocaMap &doca_map, TQuery& PaxDocaQry, bool new_checkin);
 
 std::string PaxDocGenderNormalize(const std::string &pax_doc_gender);
 

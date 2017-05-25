@@ -560,10 +560,10 @@ bool is_valid_doco_info(const TCompleteAPICheckInfo &checkInfo,
 };
 
 bool is_valid_doca_info(const TCompleteAPICheckInfo &checkInfo,
-                        const list<CheckIn::TPaxDocaItem> &doca)
+                        const CheckIn::TDocaMap &doca_map)
 {
-  for(list<CheckIn::TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
-    if (checkInfo.incomplete(*d)) return false;
+  for(CheckIn::TDocaMap::const_iterator d = doca_map.begin(); d != doca_map.end(); ++d)
+    if (checkInfo.incomplete(d->second)) return false;
   return true;
 };
 
@@ -904,7 +904,7 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
             //ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d pax.doc.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, pax.doc.getNotEmptyFieldsMask());
             LoadCrsPaxVisa(pax.crs_pax_id, pax.doco);
             //ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d pax.doco.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, pax.doco.getNotEmptyFieldsMask());
-            LoadCrsPaxDoca(pax.crs_pax_id, pax.doca);
+            LoadCrsPaxDoca(pax.crs_pax_id, pax.doca_map);
 
             CheckIn::LoadCrsPaxRem(pax.crs_pax_id, pax.rems);
             CheckIn::LoadCrsPaxFQT(pax.crs_pax_id, pax.fqts);
@@ -920,7 +920,7 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
               pax.agent_checkin_reasons.insert("incomplete_doc");
             if (!is_valid_doco_info(pnr.checkInfo, pax.doco))
               pax.agent_checkin_reasons.insert("incomplete_doco");
-            if (!is_valid_doca_info(pnr.checkInfo, pax.doca))
+            if (!is_valid_doca_info(pnr.checkInfo, pax.doca_map))
               pax.agent_checkin_reasons.insert("incomplete_doca");
             if (!is_valid_tkn_info(pnr.checkInfo, pax.tkn))
               pax.agent_checkin_reasons.insert("incomplete_tkn");
@@ -1922,7 +1922,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
 
   const char* PaxQrySQL=
         "SELECT point_dep,point_arv,airp_dep,airp_arv,class,excess,bag_refuse, "
-        "       pax_grp.grp_id,pax.surname,pax.name,pax.pers_type,pax.seats, "
+        "       pax_grp.grp_id,pax.surname,pax.name,pax.pers_type,pax.seats, pax.crew_type, "
         "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
         "       pax_grp.tid AS pax_grp_tid, "
         "       pax.tid AS pax_tid, "
@@ -2064,6 +2064,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
               pax.pers_type = Qry.FieldAsString("pers_type");
               pax.seat_no = Qry.FieldAsString("seat_no");
               pax.seats = Qry.FieldAsInteger("seats");
+              pax.crew_type = CrewTypes().decode(Qry.FieldAsString("crew_type"));
               if (iPax->present_in_req.find(apiDoc) !=  iPax->present_in_req.end())
               {
                 //проверка всех реквизитов документа

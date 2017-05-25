@@ -209,6 +209,17 @@ class TCrewTypes : public ASTRA::PairList<TCrewType::Enum, std::string>
 #define TRACE_PARAMS Level, nickname, filename, line
 #define ERROR_PARAMS -1, nickname, filename, line
 
+struct TPaxTypeExt
+{
+  TPaxStatus       _pax_status;
+  TCrewType::Enum  _crew_type;
+  TPaxTypeExt(TPaxStatus ps, TCrewType::Enum ct)
+    : _pax_status(ps), _crew_type(ct) {}
+  std::string ToString() const;
+  private:
+  TPaxTypeExt();
+};
+
 enum TIdType {idFlt, idGrp, idPax};
 
 };

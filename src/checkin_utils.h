@@ -49,12 +49,18 @@ struct TWebPaxForChng
   std::string surname;
   std::string name;
   std::string pers_type;
+  ASTRA::TCrewType::Enum crew_type;
   std::string seat_no;
   int seats;
 
   CheckIn::TPaxDocItem doc;
   CheckIn::TPaxDocoItem doco;
   std::set<TAPIType> present_in_req;
+
+  TWebPaxForChng()
+  {
+    crew_type = ASTRA::TCrewType::Unknown;
+  }
 };
 
 struct TWebPaxForCkin
@@ -64,7 +70,7 @@ struct TWebPaxForCkin
   std::string surname;
   std::string name;
   std::string pers_type;
-  std::string crew_type;
+  ASTRA::TCrewType::Enum crew_type;
   std::string seat_no;
   std::string seat_type;
   int seats;
@@ -82,6 +88,7 @@ struct TWebPaxForCkin
     seats = ASTRA::NoExists;
     reg_no = ASTRA::NoExists;
     dont_check_payment = false;
+    crew_type = ASTRA::TCrewType::Unknown;
   }
 
   bool operator == (const TWebPaxForCkin &pax) const

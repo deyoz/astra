@@ -1736,12 +1736,12 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry, xmlNodePtr resNode)
     //обработка адресов
     if (TReqInfo::Instance()->desk.compatible(DOCA_VERSION))
     {
-      list<CheckIn::TPaxDocaItem> doca;
-      if (LoadCrsPaxDoca(pax_id, doca))
+      CheckIn::TDocaMap doca_map;
+      if (LoadCrsPaxDoca(pax_id, doca_map))
       {
         xmlNodePtr docaNode=NewTextChild(node, "addresses");
-        for(list<CheckIn::TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
-          d->toXML(docaNode);
+        for(CheckIn::TDocaMap::const_iterator d = doca_map.begin(); d != doca_map.end(); ++d)
+          d->second.toXML(docaNode);
       };
     };
 
@@ -4284,7 +4284,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               };
               if (pax.refuse.empty())
               {
-                if (checkInfo.incomplete(pax.tkn, grp.status))
+                if (checkInfo.incomplete(pax.tkn, grp.status, pax.crew_type))
                   throw UserException("MSG.CHECKIN.PASSENGERS_TICKETS_NOT_SET"); //WEB
               };
 
@@ -4305,17 +4305,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 }
               };
             };
-
-            TDateTime checkDate=UTCToLocal(NowUTC(), AirpTZRegion(grp.airp_dep));
-            //документ
-            if (pax.DocExists)
-              HandleDoc(grp, pax, checkInfo, checkDate, pax.doc);
-            //виза
-            if (pax.DocoExists)
-              HandleDoco(grp, pax, checkInfo, checkDate, pax.doco);
-
-            if (pax.DocaExists)
-              HandleDoca(grp, pax, checkInfo, pax.doca);
 
             if (new_checkin || p->remsExists)
             {
@@ -4395,6 +4384,18 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   (!new_checkin && p->pax.PaxUpdatesPending && p->pax.pers_type!=adult))
                 throw UserException("MSG.PASSENGER.IS_ADULT_WITH_AT_LEAST_ONE_SEAT");
             };
+
+          TDateTime checkDate=UTCToLocal(NowUTC(), AirpTZRegion(grp.airp_dep));
+          //документ
+          if (pax.DocExists)
+            HandleDoc(grp, pax, checkInfo, checkDate, pax.doc);
+          //виза
+          if (pax.DocoExists)
+            HandleDoco(grp, pax, checkInfo, checkDate, pax.doco);
+
+          if (pax.DocaExists)
+            HandleDoca(grp, pax, checkInfo, pax.doca_map);
+
           }
           catch(CheckIn::UserException)
           {
@@ -5144,13 +5145,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
                 if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCA_VERSION))
                 {
-                  if (pax.DocaExists) CheckIn::SavePaxDoca(pax_id, pax.doca, PaxDocaQry, true);
+                  if (pax.DocaExists) CheckIn::SavePaxDoca(pax_id, pax.doca_map, PaxDocaQry, true);
                 }
                 else
                 {
-                  list<CheckIn::TPaxDocaItem> doca;
-                  if (LoadCrsPaxDoca(pax_id, doca))
-                    SavePaxDoca(pax_id, doca, PaxDocaQry, true);
+                  CheckIn::TDocaMap doca_map;
+                  if (LoadCrsPaxDoca(pax_id, doca_map))
+                    SavePaxDoca(pax_id, doca_map, PaxDocaQry, true);
                 };
 
                 if (save_trfer)
@@ -5382,7 +5383,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
                 if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCA_VERSION))
                 {
-                  if (pax.DocaExists) CheckIn::SavePaxDoca(pax.id, pax.doca, PaxDocaQry, false);
+                  if (pax.DocaExists) CheckIn::SavePaxDoca(pax.id, pax.doca_map, PaxDocaQry, false);
                 };
 
                 if (reqInfo->client_type!=ctTerm && pax.refuse==refuseAgentError) //ctPNL???
@@ -8610,16 +8611,23 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                     is_commander = true;
                 }
                 TWebPaxForCkin paxForCkin;
-                paxForCkin.crew_type = NodeAsString("CREW_TYPE", crew_member, "");
-                if (paxForCkin.crew_type == "CR2" || paxForCkin.crew_type == "CR4" ||
-                    paxForCkin.crew_type == "CR5" || paxForCkin.crew_type == "CR3")
+                paxForCkin.crew_type = CrewTypes().decode(NodeAsString("CREW_TYPE", crew_member, ""));
+                switch (paxForCkin.crew_type)
+                {
+                  case ASTRA::TCrewType::Crew2:
+                  case ASTRA::TCrewType::Crew4:
+                  case ASTRA::TCrewType::Crew5:
+                  case ASTRA::TCrewType::Crew3:
                     cabin++;
-                else if (paxForCkin.crew_type == "CR1")
+                    break;
+                  case ASTRA::TCrewType::Crew1:
                     cockpit++;
-                else throw AstraLocale::UserException("MSG.CHECK_XML_INVALID_CREW_TYPE",
-                                                LEvntPrms() << PrmSmpl<string>("fieldname", "CREW_TYPE"));
-                xmlNodePtr pers_data = NodeAsNode("PERSONAL_DATA", crew_member);
+                    break;
+                  default:
+                    throw AstraLocale::UserException("MSG.CHECK_XML_INVALID_CREW_TYPE", LEvntPrms() << PrmSmpl<string>("fieldname", "CREW_TYPE"));
+                }
 
+                xmlNodePtr pers_data = NodeAsNode("PERSONAL_DATA", crew_member);
                 for (xmlNodePtr document = pers_data->children; document != NULL; document = document->next) {
                     xmlNodePtr doc=document->children;
                     if (doc==NULL) continue;
@@ -8704,7 +8712,8 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                         doca.city=NodeAsStringFast("CITY",doc,"");
                         doca.region=NodeAsStringFast("REGION",doc,"");
                         doca.postal_code=NodeAsStringFast("POSTAL_CODE",doc,"");
-                        paxForCkin.apis.doca.push_back(NormalizeDoca(doca));
+                        CheckIn::TPaxDocaItem norm_doca = NormalizeDoca(doca);
+                        paxForCkin.apis.doca_map[norm_doca.apiType()] = norm_doca;
                     }
                 }
 
