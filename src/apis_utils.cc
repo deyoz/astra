@@ -168,97 +168,13 @@ void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv
       set_not_apis(false);
       for(std::set<std::string>::const_iterator f=_apis_formats.begin(); f!=_apis_formats.end(); ++f)
       {
-        const string &fmt=*f;
-        if (fmt=="CSV_CZ")
+        TAPISFormat* pAPISFormat = SpawnAPISFormat(*f);
+        for (std::set<TAPIType>::const_iterator api = get_apis_doc_set().begin(); api != get_apis_doc_set().end(); ++api)
         {
-          _pass.get(apiDoc).required_fields|=DOC_CSV_CZ_FIELDS;
-        };
-        if (fmt=="EDI_CZ")
-        {
-          _pass.get(apiDoc).required_fields|=DOC_EDI_CZ_FIELDS;
-        };
-        if (fmt=="EDI_CN")
-        {
-          _pass.get(apiDoc).required_fields|=DOC_EDI_CN_FIELDS;
-          _crew.get(apiDoc).required_fields|=DOC_EDI_CN_FIELDS;
-        };
-        if (fmt=="EDI_IN")
-        {
-          _pass.get(apiDoc).required_fields|=DOC_EDI_IN_FIELDS;
-          _crew.get(apiDoc).required_fields|=DOC_EDI_IN_FIELDS;
-        };
-        if (fmt=="EDI_US")
-        {
-          _pass.get(apiDoc).required_fields|=DOC_EDI_US_FIELDS;
-          _crew.get(apiDoc).required_fields|=DOC_EDI_US_FIELDS;
-          _crew.get(apiDocaB).required_fields|=DOCA_B_CREW_EDI_US_FIELDS;
-          _pass.get(apiDocaR).required_fields|=DOCA_R_PASS_EDI_US_FIELDS;
-          _crew.get(apiDocaR).required_fields|=DOCA_R_CREW_EDI_US_FIELDS;
-          _pass.get(apiDocaD).required_fields|=DOCA_D_PASS_EDI_US_FIELDS;
-        };
-        if (fmt=="EDI_USBACK")
-        {
-          _pass.get(apiDoc).required_fields|=DOC_EDI_USBACK_FIELDS;
-          _crew.get(apiDoc).required_fields|=DOC_EDI_USBACK_FIELDS;
-          _crew.get(apiDocaB).required_fields|=DOCA_B_CREW_EDI_USBACK_FIELDS;
-          _pass.get(apiDocaR).required_fields|=DOCA_R_PASS_EDI_USBACK_FIELDS;
-          _crew.get(apiDocaR).required_fields|=DOCA_R_CREW_EDI_USBACK_FIELDS;
-          _pass.get(apiDocaD).required_fields|=DOCA_D_PASS_EDI_USBACK_FIELDS;
-        };
-        if (fmt=="EDI_UK")
-        {
-          _pass.get(apiDoc).required_fields|=DOC_EDI_UK_FIELDS;
-          _crew.get(apiDoc).required_fields|=DOC_EDI_UK_FIELDS;
-        };
-        if (fmt=="EDI_ES")
-        {
-          _pass.get(apiDoc).required_fields|=DOC_EDI_ES_FIELDS;
-          _crew.get(apiDoc).required_fields|=DOC_EDI_ES_FIELDS;
-        };
-        if (fmt=="CSV_DE")
-        {
-          _pass.get(apiDoc).required_fields|=DOC_CSV_DE_FIELDS;
-          _pass.get(apiDoco).required_fields|=DOCO_CSV_DE_FIELDS;
-        };
-        if (fmt=="TXT_EE")
-        {
-          _pass.get(apiDoc).required_fields|=DOC_TXT_EE_FIELDS;
-          _pass.get(apiDoco).required_fields|=DOCO_TXT_EE_FIELDS;
-        };
-        if (fmt=="XML_TR")
-        {
-          _pass.get(apiDoc).required_fields|=DOC_XML_TR_FIELDS;
-          _crew.get(apiDoc).required_fields|=DOC_XML_TR_FIELDS;
-        };
-        if (fmt=="CSV_AE")
-        {
-          _pass.get(apiDoc).required_fields|=DOC_CSV_AE_FIELDS;
-          _crew.get(apiDoc).required_fields|=DOC_CSV_AE_FIELDS;
-        };
-        if (fmt=="EDI_LT")
-        {
-          _pass.get(apiDoc).required_fields|=DOC_EDI_LT_FIELDS;
-        };
-        if (fmt=="CSV_TH")
-        {
-          _pass.get(apiDoc).required_fields|=DOC_CSV_TH_FIELDS;
-          _crew.get(apiDoc).required_fields|=DOC_CSV_TH_FIELDS;
-        };
-        if (fmt=="EDI_KR")
-        {
-          _pass.get(apiDoc).required_fields|=DOC_EDI_KR_FIELDS;
-          _crew.get(apiDoc).required_fields|=DOC_EDI_KR_FIELDS;
-        };
-        if(fmt=="APPS_SITA")
-        {
-          _pass.get(apiDoc).required_fields|=DOC_APPS_SITA_FIELDS;
-          _crew.get(apiDoc).required_fields|=DOC_APPS_SITA_FIELDS;
-        };
-        if (fmt=="EDI_AZ")
-        {
-          _pass.get(apiDoc).required_fields|=DOC_EDI_AZ_FIELDS;
-          _crew.get(apiDoc).required_fields|=DOC_EDI_AZ_FIELDS;
-        };
+          _pass.get(*api).required_fields |= pAPISFormat->required_fields(TAPISFormat::pass, *api);
+          _crew.get(*api).required_fields |= pAPISFormat->required_fields(TAPISFormat::crew, *api);
+        }
+        delete pAPISFormat;
       };
     };
     _extra_crew = _pass;

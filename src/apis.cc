@@ -267,7 +267,7 @@ bool create_apis_file(int point_id, const string& task_name)
 
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText=
-      "SELECT pax.pax_id, pax.surname, pax.name, pax.pr_brd, pax.grp_id, "
+      "SELECT pax.pax_id, pax.surname, pax.name, pax.pr_brd, pax.grp_id, pax.crew_type, "
       "       tckin_segments.airp_arv AS airp_final, pax_grp.status, pers_type, ticket_no, "
       "       ckin.get_bagAmount2(pax.grp_id, pax.pax_id, pax.bag_pool_num) AS bag_amount, "
       "       ckin.get_bagWeight2(pax.grp_id, pax.pax_id, pax.bag_pool_num) AS bag_weight "
@@ -544,6 +544,47 @@ bool create_apis_file(int point_id, const string& task_name)
               docaB_exists=LoadPaxDoca(pax_id, CheckIn::docaBirth, (CheckIn::TPaxDocaItem&)docaB);
             };
 
+            /* OMIT INCOMPLETE APIS */
+            TTripInfo fltInfo;
+            if (fltInfo.getByPointId(point_id))
+            {
+              ASTRA::TCrewType::Enum crew_type = CrewTypes().decode(PaxQry.FieldAsString("crew_type"));
+              bool noCtrlDocsCrew = (status == psCrew) && GetTripSets(tsNoCtrlDocsCrew, fltInfo);
+              bool noCtrlDocsExtraCrew =  (status != psCrew) &&
+                                          (crew_type == ASTRA::TCrewType::ExtraCrew ||
+                                          crew_type == ASTRA::TCrewType::DeadHeadCrew ||
+                                          crew_type == ASTRA::TCrewType::MiscOperStaff) &&
+                                          GetTripSets(tsNoCtrlDocsExtraCrew, fltInfo);
+              if (noCtrlDocsCrew || noCtrlDocsExtraCrew)
+              {
+                TAPISFormat::TPaxType pax = (status == psCrew) ? TAPISFormat::crew : TAPISFormat::pass;
+                TAPISFormat* pAPISFormat = SpawnAPISFormat(fmt);
+                bool omit_apis = false;
+                std::set<TAPIType> apis_doc_set = TCompleteAPICheckInfo::get_apis_doc_set();
+                for (std::set<TAPIType>::const_iterator api = apis_doc_set.begin(); api != apis_doc_set.end(); ++api)
+                {
+                  const CheckIn::TPaxAPIItem *pItem = NULL;
+                  switch (*api)
+                  {
+                    case apiDoc: pItem = &doc; break;
+                    case apiDoco: pItem = &doco; break;
+                    case apiDocaB: pItem = &docaB; break;
+                    case apiDocaR: pItem = &docaR; break;
+                    case apiDocaD: pItem = &docaD; break;
+                    default: throw EXCEPTIONS::Exception("Unhandled TAPIType %d", *api);
+                  }
+                  long int required_fields = pAPISFormat->required_fields(pax, *api);
+                  if ((pItem->getNotEmptyFieldsMask() & required_fields) != required_fields)
+                  {
+                    omit_apis = true;
+                    break;
+                  }
+                }
+                delete pAPISFormat;
+                if (omit_apis) continue; // ApisSetsQry
+              }
+            }
+            
               string doc_surname, doc_first_name, doc_second_name;
             if (!doc.surname.empty())
             {
