@@ -1733,55 +1733,6 @@ string GetRouteAfterStr(TDateTime part_key,
 };
 
 void GetTagRanges(const multiset<TBagTagNumber> &tags,
-                  vector<string> &ranges)
-{
-  ranges.clear();
-  if (tags.empty()) return;
-
-  string first_alpha_part,curr_alpha_part;
-  double first_no = 0.,first_pack = 0.,curr_no = 0.,curr_pack=0.;
-  first_alpha_part=tags.begin()->alpha_part;
-  first_no=fmod(tags.begin()->numeric_part, 1000.0);
-  modf(tags.begin()->numeric_part/1000.0,&first_pack);
-  int num=0;
-  for(std::multiset<TBagTagNumber>::const_iterator iTag=tags.begin();; ++iTag)
-  {
-    if (iTag!=tags.end())
-    {
-      curr_alpha_part=iTag->alpha_part;
-      curr_no=fmod(iTag->numeric_part, 1000.0);
-      modf(iTag->numeric_part/1000.0,&curr_pack);
-    };
-
-    if (iTag==tags.end() ||
-        first_alpha_part!=curr_alpha_part||
-        first_pack!=curr_pack||
-        first_no+num!=curr_no)
-    {
-      ostringstream range;
-      range.setf(ios::fixed);
-      range << first_alpha_part
-            << setw(iTag->numeric_part_max_len)
-            << setfill('0') << setprecision(0)
-            << (first_pack*1000.0+first_no);
-      if (num!=1)
-        range << "-"
-              << setw(3)  << setfill('0')
-              << (first_no+num-1);
-
-      ranges.push_back(range.str());
-
-      if (iTag==tags.end()) break;
-      first_alpha_part=curr_alpha_part;
-      first_no=curr_no;
-      first_pack=curr_pack;
-      num=0;
-    };
-    num++;
-  };
-};
-
-void GetTagRangesNew(const multiset<TBagTagNumber> &tags,
                     vector<string> &ranges)
 {
   ranges.clear();
@@ -1791,7 +1742,8 @@ void GetTagRangesNew(const multiset<TBagTagNumber> &tags,
   int diff=0;
   for(std::multiset<TBagTagNumber>::const_iterator iTag=tags.begin();; ++iTag)
   {
-    const TBagTagNumber& curr=*iTag;
+    const TBagTagNumber& curr=(iTag!=tags.end()?*iTag:*(tags.begin()));
+
     if (iTag==tags.end() ||
         !first.equal_pack(curr) ||
         first.number_in_pack()+diff!=curr.number_in_pack())
@@ -1821,7 +1773,7 @@ string GetTagRangesStrShort(const multiset<TBagTagNumber> &tags)
   int diff=0;
   for(std::multiset<TBagTagNumber>::const_iterator iTag=tags.begin();; ++iTag)
   {
-    const TBagTagNumber& curr=*iTag;
+    const TBagTagNumber& curr=(iTag!=tags.end()?*iTag:*(tags.begin()));
 
     if (iTag==tags.end() ||
         !first_in_range.equal_pack(curr) ||
