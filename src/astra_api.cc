@@ -2026,6 +2026,30 @@ std::list<XmlTrip> XmlEntityReader::readTrips(xmlNodePtr tripsNode)
     return trips;
 }
 
+XmlServiceList XmlEntityReader::readServiceList(xmlNodePtr svcListNode)
+{
+    ASSERT(svcListNode);
+
+    XmlServiceList svcList;
+    xmlGetPropInt(svcListNode, "seg_no",   &svcList.seg_no);
+    xmlGetPropInt(svcListNode, "category", &svcList.category);
+    xmlGetPropInt(svcListNode, "list_id",  &svcList.list_id);
+    return svcList;
+}
+
+std::list<XmlServiceList> XmlEntityReader::readServiceLists(xmlNodePtr svcListsNode)
+{
+    ASSERT(svcListsNode);
+
+    std::list<XmlServiceList> svcLists;
+    for(xmlNodePtr svcListNode = svcListsNode->children;
+        svcListNode != NULL; svcListNode = svcListNode->next)
+    {
+        svcLists.push_back(XmlEntityReader::readServiceList(svcListNode));
+    }
+    return svcLists;
+}
+
 XmlSegmentInfo XmlEntityReader::readSegInfo(xmlNodePtr segNode)
 {
     ASSERT(segNode);
@@ -2321,6 +2345,21 @@ xmlNodePtr XmlEntityViewer::viewSeg(xmlNodePtr node, const XmlSegment& seg)
     xmlNodePtr segNode = NewTextChild(node, "segment");
     XmlEntityViewer::viewSegInfo(segNode, seg.seg_info);
     return segNode;
+}
+
+xmlNodePtr XmlEntityViewer::viewServiveList(xmlNodePtr node, const XmlServiceList& svcList)
+{
+    xmlNodePtr svcListNode = NewTextChild(node, "service_list");
+    if(svcList.seg_no != ASTRA::NoExists) {
+        xmlSetProp(svcListNode, "seg_no", std::to_string(svcList.seg_no));
+    }
+    if(svcList.category != ASTRA::NoExists) {
+        xmlSetProp(svcListNode, "category", std::to_string(svcList.category));
+    }
+    if(svcList.list_id != ASTRA::NoExists) {
+        xmlSetProp(svcListNode, "list_id", std::to_string(svcList.list_id));
+    }
+    return svcListNode;
 }
 
 //---------------------------------------------------------------------------------------

@@ -6960,6 +6960,61 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
   }
 }
 
+static void CloneServiceLists(xmlNodePtr segsNode, int numToClone)
+{
+    using namespace astra_api::xml_entities;
+    LogTrace(TRACE3) << "Clone:\n" << XMLTreeToText(segsNode->doc);
+    xmlNodePtr passengersNode = findNodeR(segsNode, "passengers");
+    int maxSegNo = -1, listIdCat1 = 0, listIdCat2 = 0;
+    for(xmlNodePtr paxNode = passengersNode->children; paxNode != NULL;
+        paxNode = paxNode->next)
+    {
+        xmlNodePtr svcListsNode = findNodeR(paxNode, "service_lists");
+        if(svcListsNode) {
+            const auto svcLists = XmlEntityReader::readServiceLists(svcListsNode);
+            for(const auto& svcList: svcLists) {
+                if(svcList.seg_no > maxSegNo) {
+                    maxSegNo = svcList.seg_no;
+                }
+
+                if(svcList.category == 1) {
+                    if(listIdCat1 && svcList.list_id != listIdCat1) {
+                        LogError(STDLOG) << "Service list_ids of category 1 are not equal. "
+                                         << listIdCat1 << " <> " << svcList.list_id;
+                    }
+                    listIdCat1 = svcList.list_id;
+                }
+
+                if(svcList.category == 2) {
+                    if(listIdCat2 && svcList.list_id != listIdCat2) {
+                        LogError(STDLOG) << "Service list_ids of category 2 are not equal. "
+                                         << listIdCat2 << " <> " << svcList.list_id;
+                    }
+                    listIdCat2 = svcList.list_id;
+                }
+            }
+        }
+    }
+    
+    if(maxSegNo < 0) {
+        tst();
+        return;
+    }
+    for(xmlNodePtr paxNode = passengersNode->children; paxNode != NULL;
+        paxNode = paxNode->next)
+    {
+        xmlNodePtr svcListsNode = findNodeR(paxNode, "service_lists");
+        if(svcListsNode) {
+            for(int i = 1; i <= numToClone; i++) {
+                XmlEntityViewer::viewServiveList(svcListsNode,
+                                                 XmlServiceList(maxSegNo + i, 1, listIdCat1));
+                XmlEntityViewer::viewServiveList(svcListsNode,
+                                                 XmlServiceList(maxSegNo + i, 2, listIdCat2));
+            }
+        }
+    }
+}
+
 void CheckInInterface::LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int grpId, bool needSync)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " grpId:" << grpId << "; needSync:" << needSync;
@@ -6977,10 +7032,14 @@ void CheckInInterface::LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int 
         ASSERT(srcSegsNode != NULL);
 
         xmlNodePtr destSegsNode = findNodeR(resNode, "segments");
-        for(xmlNodePtr srcSegNode = srcSegsNode->children; srcSegNode != NULL; srcSegNode = srcSegNode->next)
+        int iatciSegsCount = 0;
+        for(xmlNodePtr srcSegNode = srcSegsNode->children; srcSegNode != NULL;
+            srcSegNode = srcSegNode->next, iatciSegsCount++)
         {
             CopyNode(destSegsNode, srcSegNode, true/*recursive*/);
         }
+
+        CloneServiceLists(destSegsNode, iatciSegsCount);
     }
 }
 

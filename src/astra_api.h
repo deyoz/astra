@@ -519,8 +519,29 @@ struct XmlFilterRouteItem
     int point_id;
     std::string airp;
 
-    XmlFilterRouteItem() :
-        point_id(ASTRA::NoExists)
+    XmlFilterRouteItem()
+        : point_id(ASTRA::NoExists)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
+struct XmlServiceList
+{
+    int seg_no;
+    int category;
+    int list_id;
+
+    XmlServiceList()
+        : seg_no(ASTRA::NoExists),
+          category(ASTRA::NoExists),
+          list_id(ASTRA::NoExists)
+    {}
+
+    XmlServiceList(int segNo, int cat, int listId)
+        : seg_no(segNo),
+          category(cat),
+          list_id(listId)
     {}
 };
 
@@ -669,6 +690,9 @@ public:
     static XmlTrip                       readTrip(xmlNodePtr tripNode);
     static std::list<XmlTrip>            readTrips(xmlNodePtr tripsNode);
 
+    static XmlServiceList                readServiceList(xmlNodePtr svcListNode);
+    static std::list<XmlServiceList>     readServiceLists(xmlNodePtr svcListsNode);
+
     static XmlSegmentInfo                readSegInfo(xmlNodePtr segNode);
 
     static XmlSegment                    readSeg(xmlNodePtr segNode);
@@ -706,6 +730,8 @@ public:
     static xmlNodePtr viewSegInfo(xmlNodePtr node, const XmlSegmentInfo& segInfo);
 
     static xmlNodePtr viewSeg(xmlNodePtr node, const XmlSegment& seg);
+
+    static xmlNodePtr viewServiveList(xmlNodePtr node, const XmlServiceList& svcList);
 };
 
 //---------------------------------------------------------------------------------------
