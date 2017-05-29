@@ -10019,6 +10019,17 @@ namespace CKIN_REPORT {
 
         point_id = apoint_id;
 
+        TTripRoute before_route;
+        try {
+            before_route.GetRouteBefore(NoExists, apoint_id, trtWithCurrent, trtNotCancelled);
+            if(not before_route.empty())
+                point_id = before_route[0].point_id;
+        } catch(const Exception &E) {
+            LogTrace(TRACE5) << "TReportData::get: before_route failed: " << E.what();
+        } catch(...) {
+            LogTrace(TRACE5) << "TReportData::get: before_route failed: unexpected";
+        }
+
         TQuery Qry(&OraSession);
         Qry.SQLText =
             "select "
