@@ -54,7 +54,7 @@ public:
   static void GetPax(xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
-void GetAPISAlarms(ASTRA::TPaxStatus status,
+void GetAPISAlarms(ASTRA::TPaxTypeExt pax_ext,
                    bool api_doc_applied,
                    int crs_pax_id, //¬.¡. NoExists
                    const TCompleteAPICheckInfo &check_info,

@@ -137,7 +137,7 @@ struct TWebPax {
     CheckIn::TPaxDocItem doc;
     CheckIn::TPaxDocoItem doco;
     TETickItem etick;
-    std::list<CheckIn::TPaxDocaItem> doca;
+    CheckIn::TDocaMap doca_map;
     std::set<CheckIn::TPaxFQTItem> fqts;
     std::multiset<CheckIn::TPaxRemItem> rems;
     TWebPax() {

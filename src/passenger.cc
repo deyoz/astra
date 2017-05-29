@@ -676,6 +676,16 @@ std::string TPaxDocaItem::logStr(const std::string &lang) const
   return result.str();
 }
 
+TAPIType TPaxDocaItem::apiType() const
+{
+  // throw exception вместо apiUnknown?
+  TAPIType result = apiUnknown;
+  if (type == "B") result = apiDocaB;
+  if (type == "R") result = apiDocaR;
+  if (type == "D") result = apiDocaD;
+  return result;
+}
+
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc)
 {
   return LoadPaxDoc(ASTRA::NoExists, pax_id, doc);
@@ -808,28 +818,23 @@ bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc)
   return !doc.empty();
 };
 
-void ConvertDoca(const list<TPaxDocaItem> &doca,
+void ConvertDoca(CheckIn::TDocaMap doca_map,
                  TPaxDocaItem &docaB,
                  TPaxDocaItem &docaR,
                  TPaxDocaItem &docaD)
 {
-  docaB.clear();
-  docaB.type="B";
-  docaR.clear();
-  docaR.type="R";
-  docaD.clear();
-  docaD.type="D";
-  for(list<CheckIn::TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
-  {
-    if (d->type=="B") docaB=*d;
-    if (d->type=="R") docaR=*d;
-    if (d->type=="D") docaD=*d;
-  };
+  // дополнительная защита, если вместо TDocaMap::Clear() вызвано TDocaMap::clear()
+  docaB.clear(); docaB.type="B";
+  docaR.clear(); docaR.type="R";
+  docaD.clear(); docaD.type="D";
+  if (doca_map.count(apiDocaB)) docaB = doca_map[apiDocaB];
+  if (doca_map.count(apiDocaR)) docaR = doca_map[apiDocaR];
+  if (doca_map.count(apiDocaD)) docaD = doca_map[apiDocaD];
 };
 
-bool LoadPaxDoca(int pax_id, list<TPaxDocaItem> &doca)
+bool LoadPaxDoca(int pax_id, CheckIn::TDocaMap &doca_map)
 {
-  return LoadPaxDoca(ASTRA::NoExists, pax_id, doca);
+  return LoadPaxDoca(ASTRA::NoExists, pax_id, doca_map);
 };
 
 bool LoadPaxDoca(int pax_id, TDocaType type, TPaxDocaItem &doca)
@@ -837,17 +842,19 @@ bool LoadPaxDoca(int pax_id, TDocaType type, TPaxDocaItem &doca)
   return LoadPaxDoca(ASTRA::NoExists, pax_id, type, doca);
 };
 
-bool LoadPaxDoca(TDateTime part_key, int pax_id, list<TPaxDocaItem> &doca)
+bool LoadPaxDoca(TDateTime part_key, int pax_id, CheckIn::TDocaMap &doca_map)
 {
-  doca.clear();
+  doca_map.Clear();
   TPaxDocaItem docaItem;
   if (CheckIn::LoadPaxDoca(part_key, pax_id, docaDestination, docaItem))
-    doca.push_back(docaItem);
+    doca_map[apiDocaD] = docaItem;
   if (CheckIn::LoadPaxDoca(part_key, pax_id, docaResidence, docaItem))
-    doca.push_back(docaItem);
+    doca_map[apiDocaR] = docaItem;
   if (CheckIn::LoadPaxDoca(part_key, pax_id, docaBirth, docaItem))
-    doca.push_back(docaItem);
-  return !doca.empty();
+    doca_map[apiDocaB] = docaItem;
+  for (CheckIn::TDocaMap::const_iterator i = doca_map.begin(); i != doca_map.end(); ++i)
+    if (not i->second.empty()) return true;
+  return false;
 };
 
 bool LoadPaxDoca(TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &doca)
@@ -879,9 +886,9 @@ bool LoadPaxDoca(TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &d
   return !doca.empty();
 };
 
-bool LoadCrsPaxDoca(int pax_id, list<TPaxDocaItem> &doca)
+bool LoadCrsPaxDoca(int pax_id, CheckIn::TDocaMap &doca_map)
 {
-  doca.clear();
+  doca_map.Clear();
   const char* sql=
     "SELECT type, country, address, city, region, postal_code "
     "FROM crs_pax_doca "
@@ -896,11 +903,15 @@ bool LoadCrsPaxDoca(int pax_id, list<TPaxDocaItem> &doca)
   {
     if (prior_type!=PaxDocaQry.get().FieldAsString("type"))
     {
-      doca.push_back(TPaxDocaItem().fromDB(PaxDocaQry.get()));
+      TPaxDocaItem doca_item;
+      doca_item.fromDB(PaxDocaQry.get());
+      doca_map[doca_item.apiType()] = doca_item;
       prior_type=PaxDocaQry.get().FieldAsString("type");
     };
   };
-  return !doca.empty();
+  for (CheckIn::TDocaMap::const_iterator i = doca_map.begin(); i != doca_map.end(); ++i)
+    if (not i->second.empty()) return true;
+  return false;
 };
 
 void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry)
@@ -983,21 +994,23 @@ void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry)
   PaxQry.get().Execute();
 };
 
-void SavePaxDoca(int pax_id, const list<TPaxDocaItem> &doca, TQuery& PaxDocaQry, bool new_checkin)
+void SavePaxDoca(int pax_id, const CheckIn::TDocaMap &doca_map, TQuery& PaxDocaQry, bool new_checkin)
 {
-  list<TPaxDocaItem> doca2=doca;
+  list<TPaxDocaItem> doca2;
+  for (CheckIn::TDocaMap::const_iterator idm = doca_map.begin(); idm != doca_map.end(); ++idm)
+    doca2.push_back(idm->second);
   if (!doca2.empty() &&
       !(TReqInfo::Instance()->client_type!=ASTRA::ctTerm ||
         TReqInfo::Instance()->desk.compatible(APIS_CITY_REGION_VERSION)))
   {
-    list<TPaxDocaItem> old_doca;
+    CheckIn::TDocaMap old_doca_map;
     if (new_checkin)
-      LoadCrsPaxDoca(pax_id, old_doca); //данные из бронирования
+      LoadCrsPaxDoca(pax_id, old_doca_map); //данные из бронирования
     else
-      LoadPaxDoca(ASTRA::NoExists, pax_id, old_doca);
+      LoadPaxDoca(ASTRA::NoExists, pax_id, old_doca_map);
 
     TPaxDocaItem old_docaB, old_docaR, old_docaD;
-    ConvertDoca(old_doca, old_docaB, old_docaR, old_docaD);
+    ConvertDoca(old_doca_map, old_docaB, old_docaR, old_docaD);
     for(list<CheckIn::TPaxDocaItem>::iterator d=doca2.begin(); d!=doca2.end(); ++d)
     {
       CheckIn::TPaxDocaItem old_doca;
@@ -1095,8 +1108,8 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node) const
     if (DocaExists)
     {
       xmlNodePtr docaNode=NewTextChild(paxNode, "addresses");
-      for(list<TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
-        d->toXML(docaNode);
+      for(CheckIn::TDocaMap::const_iterator d = doca_map.begin(); d != doca_map.end(); ++d)
+        d->second.toXML(docaNode);
     };
   };
   return *this;
@@ -1164,7 +1177,7 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
               TPaxDocaItem docaItem;
               docaItem.fromXML(docaNode);
               if (docaItem.empty()) continue;
-              doca.push_back(docaItem);
+              if (docaItem.apiType() != apiUnknown) doca_map[docaItem.apiType()] = docaItem;
             };
           };
           DocaExists=true;
@@ -1185,7 +1198,7 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
             TPaxDocaItem docaItem;
             docaItem.fromXML(docaNode);
             if (docaItem.empty()) continue;
-            doca.push_back(docaItem);
+            if (docaItem.apiType() != apiUnknown) doca_map[docaItem.apiType()] = docaItem;
           };
         };
 
@@ -1247,7 +1260,7 @@ TSimplePaxItem& TSimplePaxItem::fromDB(TQuery &Qry)
   surname=Qry.FieldAsString("surname");
   name=Qry.FieldAsString("name");
   pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
-  crew_type=Qry.FieldIsNULL("crew_type")?ASTRA::TCrewType::Unknown:CrewTypes().decode(Qry.FieldAsString("crew_type"));
+  crew_type = CrewTypes().decode(Qry.FieldAsString("crew_type"));
   if(Qry.GetFieldIndex("seat_no") >= 0)
       seat_no=Qry.FieldAsString("seat_no");
   seat_type=Qry.FieldAsString("seat_type");
@@ -1268,7 +1281,7 @@ TPaxItem& TPaxItem::fromDB(TQuery &Qry)
   TSimplePaxItem::fromDB(Qry);
   DocExists=CheckIn::LoadPaxDoc(id, doc);
   DocoExists=CheckIn::LoadPaxDoco(id, doco);
-  DocaExists=CheckIn::LoadPaxDoca(id, doca);
+  DocaExists=CheckIn::LoadPaxDoca(id, doca_map);
   return *this;
 };
 
@@ -1329,7 +1342,7 @@ TAPISItem& TAPISItem::fromDB(int pax_id)
   clear();
   CheckIn::LoadPaxDoc(pax_id, doc);
   CheckIn::LoadPaxDoco(pax_id, doco);
-  CheckIn::LoadPaxDoca(pax_id, doca);
+  CheckIn::LoadPaxDoca(pax_id, doca_map);
   return *this;
 };
 
@@ -1341,8 +1354,8 @@ const TAPISItem& TAPISItem::toXML(xmlNodePtr node) const
   doc.toXML(apisNode);
   doco.toXML(apisNode);
   xmlNodePtr docaNode=NewTextChild(apisNode, "addresses");
-  for(list<CheckIn::TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
-    d->toXML(docaNode);
+  for(CheckIn::TDocaMap::const_iterator d = doca_map.begin(); d != doca_map.end(); ++d)
+    d->second.toXML(docaNode);
   return *this;
 };
 

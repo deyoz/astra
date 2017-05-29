@@ -634,7 +634,7 @@ void check_apis_alarms(int point_id, const set<Alarm::Enum> &checked_alarms)
       bool need_crs_pax=off_alarms.find(APIS::atDiffersFromBooking)!=off_alarms.end();
 
       ostringstream sql;
-      sql << "SELECT pax.pax_id, pax.name, pax_grp.airp_arv, pax_grp.status, ";
+      sql << "SELECT pax.pax_id, pax.name, pax_grp.airp_arv, pax_grp.status, pax.crew_type, ";
       if (need_crs_pax)
         sql << "       crs_pax.pax_id AS crs_pax_id ";
       else
@@ -661,6 +661,8 @@ void check_apis_alarms(int point_id, const set<Alarm::Enum> &checked_alarms)
         string name=Qry.FieldAsString("name");
         string airp_arv=Qry.FieldAsString("airp_arv");
         TPaxStatus status=DecodePaxStatus(Qry.FieldAsString("status"));
+        ASTRA::TCrewType::Enum crew_type = CrewTypes().decode(Qry.FieldAsString("crew_type"));
+        ASTRA::TPaxTypeExt pax_ext(status, crew_type);
 
         boost::optional<const TCompleteAPICheckInfo&> check_info=route_check_info.get(airp_arv);
         if (!check_info || check_info.get().apis_formats().empty()) continue;
@@ -675,7 +677,7 @@ void check_apis_alarms(int point_id, const set<Alarm::Enum> &checked_alarms)
           CheckIn::LoadPaxDoc(pax_id, apis.doc);
 
         set<APIS::TAlarmType> alarms;
-        GetAPISAlarms(status, name!="CBBG", crs_pax_id, check_info.get(), apis, off_alarms, alarms);
+        GetAPISAlarms(pax_ext, name!="CBBG", crs_pax_id, check_info.get(), apis, off_alarms, alarms);
         for(set<APIS::TAlarmType>::const_iterator a=alarms.begin(); a!=alarms.end(); ++a) off_alarms.erase(*a);
       };
     };

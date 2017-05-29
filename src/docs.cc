@@ -2777,7 +2777,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       CheckIn::TPaxTknItem tkn;
       CheckIn::TPaxDocItem doc;
       CheckIn::TPaxDocoItem doco;
-      list<CheckIn::TPaxDocaItem> doca;
+      CheckIn::TDocaMap doca_map;
       set<CheckIn::TPaxFQTItem> fqts;
       vector<CheckIn::TPaxASVCItem> asvc;
       multiset<CheckIn::TPaxRemItem> rems;
@@ -2824,7 +2824,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             case remDOCA:
               if (find(iRem->second.begin(),iRem->second.end(),"DOCA")!=iRem->second.end())
               {
-                if (LoadPaxDoca(pax_id, doca)) pr_find=true;
+                if (LoadPaxDoca(pax_id, doca_map)) pr_find=true;
                 cats[remDOCA]=true;
               };
               break;
@@ -2884,9 +2884,9 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       if (!cats[remDOCO]) LoadPaxDoco(pax_id, doco);
       if (getPaxRem(rpt_params, doco, inf_indicator, rem)) final_rems.insert(rem);
       //адреса
-      if (!cats[remDOCA]) LoadPaxDoca(pax_id, doca);
-      for(list<CheckIn::TPaxDocaItem>::const_iterator d=doca.begin(); d!=doca.end(); ++d)
-        if (getPaxRem(rpt_params, *d, inf_indicator, rem)) final_rems.insert(rem);
+      if (!cats[remDOCA]) LoadPaxDoca(pax_id, doca_map);
+      for(CheckIn::TDocaMap::const_iterator d = doca_map.begin(); d != doca_map.end(); ++d)
+        if (getPaxRem(rpt_params, d->second, inf_indicator, rem)) final_rems.insert(rem);
       //бонус-программа
       if (!cats[remFQT]) LoadPaxFQT(pax_id, fqts);
       for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();++f)

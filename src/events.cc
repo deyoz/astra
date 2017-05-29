@@ -756,20 +756,16 @@ void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
   };
 
   CheckIn::TPaxDocaItem docaBefore[3];
-  for(list<CheckIn::TPaxDocaItem>::const_iterator d=apisBefore.doca.begin(); d!=apisBefore.doca.end(); ++d)
-  {
-    if (d->type=="B") docaBefore[0]=*d;
-    if (d->type=="R") docaBefore[1]=*d;
-    if (d->type=="D") docaBefore[2]=*d;
-  };
+  CheckIn::TDocaMap dm_before(apisBefore.doca_map); // to keep const qualifier
+  docaBefore[0] = dm_before[apiDocaB];
+  docaBefore[1] = dm_before[apiDocaR];
+  docaBefore[2] = dm_before[apiDocaD];
 
   CheckIn::TPaxDocaItem docaAfter[3];
-  for(list<CheckIn::TPaxDocaItem>::const_iterator d=apisAfter.doca.begin(); d!=apisAfter.doca.end(); ++d)
-  {
-    if (d->type=="B") docaAfter[0]=*d;
-    if (d->type=="R") docaAfter[1]=*d;
-    if (d->type=="D") docaAfter[2]=*d;
-  };
+  CheckIn::TDocaMap dm_after(apisAfter.doca_map); // to keep const qualifier
+  docaAfter[0] = dm_after[apiDocaB];
+  docaAfter[1] = dm_after[apiDocaR];
+  docaAfter[2] = dm_after[apiDocaD];
 
   for(int pass=0; pass<3; pass++)
   {
@@ -858,7 +854,7 @@ void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
                 (apis_control ||
                  (aPax->second.apis.doc.equalAttrs(bPax->second.apis.doc) &&
                   aPax->second.apis.doco.equalAttrs(bPax->second.apis.doco) &&
-                  aPax->second.apis.doca==bPax->second.apis.doca)) &&
+                  aPax->second.apis.doca_map==bPax->second.apis.doca_map)) &&
                 aPax->second.rems==bPax->second.rems))
           {
             //пассажир изменен
