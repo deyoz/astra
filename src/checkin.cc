@@ -3129,7 +3129,7 @@ bool CheckRefusability(int point_dep, int pax_id)
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT pax_grp.grp_id, pax_grp.client_type, pax.pr_brd "
+    "SELECT pax_grp.grp_id, pax_grp.client_type, pax.* "
     "FROM pax_grp, pax "
     "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id";
   Qry.CreateVariable("pax_id", otInteger, pax_id);
@@ -3142,6 +3142,12 @@ bool CheckRefusability(int point_dep, int pax_id)
   if (!(ckinClientType==ctWeb ||
         ckinClientType==ctKiosk ||
         ckinClientType==ctMobile)) return false; //регистрации не с сайта, киоска или мобильного
+
+  CheckIn::TSimplePaxItem pax;
+  pax.fromDB(Qry);
+  if (pax.HaveBaggage()) return false;
+
+  if (GetSelfCkinSets(tsAllowCancelSelfCkin, point_dep, reqInfo->client_type)) return true;
 
   Qry.Clear();
   Qry.SQLText=
