@@ -3203,6 +3203,12 @@ bool CheckRefusability(int point_dep, int pax_id)
         ckinClientType==ctKiosk ||
         ckinClientType==ctMobile)) return false; //регистрации не с сайта, киоска или мобильного
 
+  CheckIn::TSimplePaxItem pax;
+  pax.fromDB(Qry);
+  if (pax.HaveBaggage()) return false;
+
+  if (GetSelfCkinSets(tsAllowCancelSelfCkin, point_dep, reqInfo->client_type)) return true;
+
   Qry.Clear();
   Qry.SQLText=
     "SELECT events_bilingual.station "
