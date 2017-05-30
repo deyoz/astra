@@ -352,7 +352,7 @@ TSOPPStation TCheckerFlt::checkStation( const std::string airp, int terminal,
   station.work_mode = value2;
   station.work_mode = TrimString( station.work_mode );
   if ( station.name.empty() )
-    throw Exception( "Ошибка формата номера стойки, значение='%s'", value1.c_str() );
+    throw EConvertError( "Ошибка формата номера стойки, значение='%s'", value1.c_str() ); //!!!
   if ( station.work_mode != "П" && station.work_mode != "Р" )
     throw EConvertError( "Ошибка формата типа стойки, значение='%s'", value2.c_str() );
   Qry.Clear();
