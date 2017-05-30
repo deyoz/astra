@@ -5639,7 +5639,7 @@ void ChangeTrip( int point_id, TSOPPTrip tr1, TSOPPTrip tr2, BitSet<TSOPPTripCha
          tr1.scd_out != NoExists && tr1.flt_no_out != NoExists && !tr1.airline_out.empty() ) {
       try {
         TDateTime locale_scd_out = UTCToLocal( tr1.scd_out, tr1.region );
-        bindingAODBFlt( tr1.airline_out, tr1.flt_no_out, tr1.suffix_out, locale_scd_out, tr1.airp );
+        AODB_POINTS::bindingAODBFlt( tr1.airline_out, tr1.flt_no_out, tr1.suffix_out, locale_scd_out, tr1.airp );
       }
       catch(std::exception &E) {
         ProgError(STDLOG,"BindAODBFlt: point_id=%d, %s",tr1.point_id,E.what());
@@ -6007,7 +6007,6 @@ void SoppInterface::WriteVoucher(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     TReqInfo::Instance()->LocaleToLog("EVT.DELETE_TRIP_VOUCHER", LEvntPrms() << del_prmenum, evtFlt, point_id);
   }
 }
-
 
 void set_pr_tranzit(int point_id, int point_num, int first_point, bool new_pr_tranzit)
 {

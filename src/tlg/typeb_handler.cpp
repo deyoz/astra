@@ -227,10 +227,10 @@ void progError(int tlg_id,
   for(TFlightsForBind::const_iterator f=flts.begin(); f!=flts.end(); ++f)
   {
     ostringstream flight;
-    flight << f->first.airline
-           << setw(3) << setfill('0') << f->first.flt_no << f->first.suffix
-           << "/" << DateTimeToStr(f->first.scd, "ddmmm")
-           << " " << f->first.airp_dep << f->first.airp_arv;
+    flight << f->flt_info.airline
+           << setw(3) << setfill('0') << f->flt_info.flt_no << f->flt_info.suffix
+           << "/" << DateTimeToStr(f->flt_info.scd, "ddmmm")
+           << " " << f->flt_info.airp_dep << f->flt_info.airp_arv;
     if (f==flts.begin())
       only_trace?ProgTrace(TRACE0, "Flights: %s", flight.str().c_str()):
                  ProgError(STDLOG, "Flights: %s", flight.str().c_str());
@@ -251,9 +251,9 @@ void bindTypeB(int typeb_tlg_id, const TFlightsForBind &flts, ETlgErrorType erro
   {
     try
     {
-      TFltInfo normFlt(f->first);
+      TFltInfo normFlt(f->flt_info);
       NormalizeFltInfo(normFlt);
-      SaveFlt(typeb_tlg_id, normFlt, f->second, error_type);
+      SaveFlt(typeb_tlg_id, normFlt, f->bind_type, f->search_params, error_type);
     }
     catch(...) {};
   };
@@ -943,7 +943,7 @@ bool parse_tlg(void)
                 MVTParser::SaveMVTContent(tlg_id, info, con);
             } else {
                 ParseAHMFltInfo(part,info,info.flt,info.bind_type);
-                SaveFlt(tlg_id,info.flt,info.bind_type);
+                SaveFlt(tlg_id,info.flt,info.bind_type, TSearchFltInfoPtr());
             }
             parseTypeB(tlg_id);
             callPostHooksBefore();
@@ -959,7 +959,7 @@ bool parse_tlg(void)
           case tcLDM:
           {
               TUCMHeadingInfo &info = *(dynamic_cast<TUCMHeadingInfo*>(HeadingInfo));
-              SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg);
+              SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg,TSearchFltInfoPtr());
               parseTypeB(tlg_id);
               callPostHooksBefore();
               ASTRA::commit();//OraSession.Commit();

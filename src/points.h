@@ -26,7 +26,7 @@ enum TDestField { dfPoint_num, dfAirp, dfPr_tranzit, dfFirst_point,
                   
                   
 enum TUseDestData { udNoCalcESTTimeStage, udDelays, udStages, udCargo, udMaxCommerce,
-                    udNum, udStations };
+                    udStations, udNum };
 enum TDestEvents { dmChangeCraft, dmSetCraft, dmInitStages, dmInitComps,
                    dmChangeBort, dmSetBort, dmSetCancel, dmSetUnCancel, dmSetDelete,
                    dmSetSCDOUT, dmChangeSCDOUT, dmDeleteSCDOUT,
@@ -270,6 +270,18 @@ class TFlightStations {
     void Add( TSOPPStation &station ) {
       stations.push_back( station );
     }
+    void Delete( TSOPPStation &station ) {
+      for ( tstations::iterator istation=stations.begin(); istation!=stations.end(); istation++ ) {
+        if ( istation->name == station.name ) {
+          stations.erase( istation );
+          break;
+        }
+      }
+    }
+    void clear() {
+      stations.clear();
+    }
+
     bool equal( const TFlightStations &flightStations, std::string work_mode ) {
       return ( intequal( stations, flightStations.stations, work_mode ) &&
                intequal( flightStations.stations, stations, work_mode ) );
@@ -282,6 +294,65 @@ class TFlightStations {
     void Get( tstations &vstations ) {
       vstations = stations;
     }
+};
+
+struct TElemStruct {
+  std::string code;
+  TElemFmt fmt;
+  TElemStruct() {
+    clear();
+  }
+  void clear() {
+    code.clear();
+    fmt = efmtUnknown;
+  }
+};
+
+struct TFltNo {
+  TElemStruct airline;
+  int flt_no;
+  TElemStruct suffix;
+  TFltNo() {
+    clear();
+  }
+  void clear() {
+    airline.clear();
+    flt_no = ASTRA::NoExists;
+    suffix.clear();
+  }
+};
+
+class TCheckerFlt {
+  private:
+  public:
+    enum CheckMode { etNormal, etExtAODB };
+    void parseFltNo( const std::string &value, TFltNo &fltNo );
+    void checkFltNo( CheckMode mode, TFltNo &fltNo );
+    void checkFltNo( CheckMode mode, TFltNo &fltNo, TQuery &Qry );
+
+    TFltNo parse_checkFltNo( const std::string &value, CheckMode mode );
+    TFltNo parse_checkFltNo( const std::string &value, CheckMode mode, TQuery &Qry );
+    std::string checkLitera( const std::string &value, CheckMode mode );
+    std::string checkLitera( const std::string &value, CheckMode mode, TQuery &Qry );
+    int checkTerminalNo( const std::string &value );
+    int checkMaxCommerce( const std::string &value );
+    int checkPointNum( const std::string &value );
+    TElemStruct checkCraft( const std::string &value, CheckMode mode, bool with_exception );
+    TElemStruct checkCraft( const std::string &value, CheckMode mode, bool with_exception, TQuery &Qry );
+    TElemStruct checkAirp( const std::string &value, CheckMode mode, bool with_exception );
+    TElemStruct checkAirp( const std::string &value, CheckMode mode, bool with_exception, TQuery &Qry );
+    BASIC::date_time::TDateTime checkLocalTime( const std::string &value, const std::string format,
+                                                const std::string &region, const std::string stage,
+                                                bool empty_value_exception );
+    BASIC::date_time::TDateTime checkLocalTime( const std::string &value,
+                                                const std::string &region, const std::string stage,
+                                                bool empty_value_exception);
+    TSOPPStation checkStation( const std::string airp, int terminal,
+                               const std::string &value1, const std::string value2,
+                               CheckMode mode );
+    TSOPPStation checkStation( const std::string airp, int terminal,
+                               const std::string &value1, const std::string value2,
+                               CheckMode mode, TQuery &Qry );
 };
 
 class TPointsDest {
@@ -367,6 +438,9 @@ class TPointDests {
     void Load( int move_id, BitSet<TUseDestData> FUseData );
     //возвращаем new_dests с заданными point_id
     void sychDests( TPointDests &new_dests, bool pr_change_dests, sychDestsType sychType ); // возвращаем изменение в объекте, но не синхронизируем по существующим строкам. Надо делать отдельно
+    void clear() {
+      items.clear();
+    }
 };
 
 template <typename T> class KeyTrip {
@@ -418,8 +492,8 @@ public:
                      dest.suffix, dest.airp, dest.scd_in, dest.scd_out );
   }
   static bool isDouble( int move_id, std::string airline, int flt_no,
-	                      std::string suffix, std::string airp,
-	                      TDateTime scd_in, TDateTime scd_out,
+                        std::string suffix, std::string airp,
+                        TDateTime scd_in, TDateTime scd_out,
                         int &findMove_id, int &point_id );
   static bool isDouble( int move_id, const TPointsDest &dest,
                         int &findMove_id, int &point_id ) {
@@ -427,6 +501,7 @@ public:
                      dest.suffix, dest.airp, dest.scd_in, dest.scd_out,
                      findMove_id, point_id );
   }
+  static bool checkDeleteDest( int point_id );
 };
 
 void ConvertSOPPToPOINTS( int move_id, const TSOPPDests &dests, std::string reference, TPoints &points );
@@ -479,6 +554,8 @@ class TFlights:public std::vector<FlightPoints> {
     }
     void Lock();
 };
+
+std::string getRegion( const std::string &airp );
 
 
 #endif /*_POINTS_H_*/

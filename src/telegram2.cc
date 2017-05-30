@@ -23,6 +23,7 @@
 #include "serverlib/xml_stuff.h" // для xml_decode_nodelist
 #include "serverlib/str_utils.h"
 #include <boost/regex.hpp>
+#include "docs.h"
 
 #define NICKNAME "DEN"
 #include "serverlib/slogger.h"
@@ -9188,7 +9189,7 @@ void fillFltDetails(TypeB::TDetailCreateInfo &info)
     string tz_region=AirpTZRegion(info.airp_dep);
     if (!Qry.get().FieldIsNULL("scd_out"))
     {
-        info.scd_utc = Qry.get().FieldAsDateTime("scd_out");
+        info.scd_utc = getReportSCDOut(info.point_id);
         info.scd_local = UTCToLocal( info.scd_utc, tz_region );
         int Year, Month, Day;
         DecodeDate(info.scd_local, Year, Month, Day);

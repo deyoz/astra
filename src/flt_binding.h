@@ -58,7 +58,7 @@ class TFltInfo
              strcmp(airp_dep, flt.airp_dep)==0 &&
              strcmp(airp_arv, flt.airp_arv)==0;
     };
-    void dump();
+    void dump() const;
 };
 
 void crs_recount(int point_id_tlg, int point_id_spp, bool check_comp);
@@ -81,6 +81,7 @@ class TFltBinding
     virtual void bind_flt_virt(int point_id, const std::vector<int> &spp_point_ids)=0;
     virtual std::string bind_or_unbind_flt_sql(bool unbind, bool use_scd_utc)=0;
     virtual std::string unbind_flt_sql()=0;
+    virtual TSearchFltInfoPtr get_search_params() { return TSearchFltInfoPtr(); }
 
   public:
     void bind_flt(TFltInfo &flt, TBindType bind_type, std::vector<int> &spp_point_ids);
@@ -98,14 +99,19 @@ class TTlgBinding : public TFltBinding
 {
   private:
     bool check_comp;
+    TSearchFltInfoPtr search_params;
+
     void unbind_flt_virt(int point_id, int point_id_spp, bool try_bind_again);
     std::string bind_flt_sql();
     void bind_flt_virt(int point_id, const std::vector<int> &spp_point_ids);
     std::string bind_or_unbind_flt_sql(bool unbind, bool use_scd_utc);
     std::string unbind_flt_sql();
     void after_bind_or_unbind_flt(int point_id_tlg, int point_id_spp, bool unbind);
+    virtual TSearchFltInfoPtr get_search_params() { return search_params; }
+
   public:
-    TTlgBinding(bool pcheck_comp):check_comp(pcheck_comp) {};
+    TTlgBinding(bool pcheck_comp):check_comp(pcheck_comp), search_params(TSearchFltInfoPtr()) {};
+    TTlgBinding(bool pcheck_comp, TSearchFltInfoPtr psearch_params):check_comp(pcheck_comp), search_params(psearch_params) {};
 };
 
 class TTrferBinding : public TFltBinding

@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <set>
+#include <tr1/memory>
 #include "date_time.h"
 #include "astra_consts.h"
 #include "oralib.h"
@@ -1000,6 +1001,9 @@ struct TCFG:public std::vector<TCFGItem> {
     TCFG() {};
 };
 
+enum TDepDateType {ddtEST, ddtACT}; // departure date type
+class TDepDateFlags: public BitSet<TDepDateType> {};
+
 class TSearchFltInfo
 {
   public:
@@ -1009,6 +1013,11 @@ class TSearchFltInfo
     bool scd_out_in_utc;
     bool only_with_reg;
     std::string additional_where;
+
+    TDepDateFlags dep_date_flags;
+    virtual bool before_add(const TAdvTripInfo &flt) const { return true; };
+    virtual void before_exit(std::list<TAdvTripInfo> &flts) const {};
+
     TSearchFltInfo()
     {
       flt_no=ASTRA::NoExists;
@@ -1016,6 +1025,16 @@ class TSearchFltInfo
       scd_out_in_utc=false;
       only_with_reg=false;
     };
+
+    virtual ~TSearchFltInfo() {}
+};
+
+typedef std::tr1::shared_ptr<TSearchFltInfo> TSearchFltInfoPtr;
+
+struct TLCISearchParams:public TSearchFltInfo {
+    TLCISearchParams() { dep_date_flags.setFlag(ddtEST); }
+    virtual bool before_add(const TAdvTripInfo &flt) const { return true; };
+    virtual void before_exit(std::list<TAdvTripInfo> &flts) const {};
 };
 
 void SearchFlt(const TSearchFltInfo &filter, std::list<TAdvTripInfo> &flts);
