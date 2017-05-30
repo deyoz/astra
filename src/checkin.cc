@@ -3189,7 +3189,7 @@ bool CheckRefusability(int point_dep, int pax_id)
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT pax_grp.grp_id, pax_grp.client_type, pax.pr_brd "
+    "SELECT pax_grp.grp_id, pax_grp.client_type, pax.* "
     "FROM pax_grp, pax "
     "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id";
   Qry.CreateVariable("pax_id", otInteger, pax_id);
