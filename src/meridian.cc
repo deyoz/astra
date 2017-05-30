@@ -304,6 +304,10 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
   int col_client_type = -1;
   // пробег по всем пассажирам у которых время больше или равно текущему
   int count_row = 0;
+  TQuery FltQry(&OraSession);
+  FltQry.SQLText =
+    "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
+  FltQry.DeclareVariable( "point_id", otInteger );
   for ( ;!Qry.Eof && pax_count<=500; Qry.Next() ) { //по-хорошему меридиан никакого отношения к веб-регистрации не имеет
     count_row++;
     int pax_id = Qry.FieldAsInteger( "pax_id" );
@@ -312,10 +316,12 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
     prior_pax_id = pax_id;
     int p_id = Qry.FieldAsInteger( "point_id" );
     if ( trips.find( p_id ) == trips.end() ) {
-      TTripInfo tripInfo;
-      if ( !tripInfo.getByPointId ( p_id ) ) {
+      FltQry.SetVariable( "point_id", p_id );
+      FltQry.Execute();
+      TTripInfo tripInfo( FltQry );
+/*      if ( !tripInfo.getByPointId ( p_id ) ) {
         throw EXCEPTIONS::Exception("WebRequestsIface::GetPaxsInfo: flight not found, (point_id=%d)", p_id );
-      }
+      }*/
       trips.insert( make_pair( p_id, tripInfo ) );
     }
     if ( sync_meridian.find( p_id ) == sync_meridian.end() ) {
