@@ -7738,7 +7738,7 @@ void RunAnnulBTStat(
             SQLText +=
                 "   points.part_key = annul_bag.part_key and "
                 "   pax_grp.part_key = points.part_key and \n"
-                "   pax_grp.part_key = pax.part_key(+) and \n"
+                "   annul_bag.part_key = pax.part_key(+) and \n"
                 "   pax_grp.part_key = transfer.part_key(+) and \n";
         if(pass == 1)
             SQLText += " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
