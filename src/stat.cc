@@ -7754,6 +7754,7 @@ void RunAnnulBTStat(
             "   points.point_id = pax_grp.point_dep and "
             "   pax_grp.grp_id = pax.grp_id(+) and "
             "   pax_grp.grp_id = annul_bag.grp_id and "
+            "   pax.pax_id(+) = annul_bag.pax_id and "
             "   pax_grp.grp_id = transfer.grp_id(+) and \n"
             "   transfer.pr_final(+) <> 0 \n";
         if(pass == 0)

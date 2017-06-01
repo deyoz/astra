@@ -2487,23 +2487,30 @@ void EMD(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_emd");
 
-    for( std::map<int, std::vector<std::string> >::iterator i = tab.begin(); i != tab.end(); i++) {
-        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-        NewTextChild(rowNode, "reg_no", i->first);
-        const vector<string> &fields = i->second;
-        for(size_t j = 0; j < fields.size(); j++) {
-            switch(j) {
-                case 0:
-                    NewTextChild(rowNode, "full_name", transliter(fields[j], 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-                    break;
-                case 1:
-                    NewTextChild(rowNode, "etkt_no", fields[j]);
-                    break;
-                case 2:
-                    NewTextChild(rowNode, "emd_no", fields[j]);
-                    break;
+    if(tab.size() != 0) {
+        for( std::map<int, std::vector<std::string> >::iterator i = tab.begin(); i != tab.end(); i++) {
+            xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+            NewTextChild(rowNode, "reg_no", i->first);
+            const vector<string> &fields = i->second;
+            for(size_t j = 0; j < fields.size(); j++) {
+                switch(j) {
+                    case 0:
+                        NewTextChild(rowNode, "full_name", transliter(fields[j], 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+                        break;
+                    case 1:
+                        NewTextChild(rowNode, "etkt_no", fields[j]);
+                        break;
+                    case 2:
+                        NewTextChild(rowNode, "emd_no", fields[j]);
+                        break;
+                }
             }
         }
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+        NewTextChild(rowNode, "reg_no");
+        NewTextChild(rowNode, "full_name", getLocaleText("Итого:", rpt_params.GetLang()));
+        NewTextChild(rowNode, "etkt_no");
+        NewTextChild(rowNode, "emd_no", (int)tab.size());
     }
 
     // Теперь переменные отчета
