@@ -379,7 +379,7 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
   TQuery uQry( &OraSession );
   uQry.SQLText =
     "SELECT p.point_id, point_num FROM points p, aodb_points a"
-    " WHERE p.point_id=a.point_id AND p.move_id=:move_id AND airp=:airp AND pr_del<>-1"
+    " WHERE p.point_id=a.point_id AND p.move_id=:move_id AND airp=:airp AND a.pr_del<>-1"
     " ORDER BY point_num";
   uQry.DeclareVariable( "move_id", otInteger );
   uQry.CreateVariable( "airp", otString, TReqInfo::Instance()->desk.airp );
