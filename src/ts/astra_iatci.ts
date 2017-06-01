@@ -1064,6 +1064,159 @@ $(defmacro SAVE_GRP
 
 }) #end-of-macro
 
+$(defmacro SAVE_GRP_BAGGAGE
+    grp_id
+    tid
+    point_dep1
+    point_arv1
+    airp_dep1
+    airp_arv1
+    airp_dep2
+    airp_arv2
+    pax_id1
+    tid1
+    surname1
+    name1
+    pers_type1
+    tickno1
+    doc_type1
+    doc_no1
+    doc_nationality1
+    doc_birthdate1
+    doc_expirydate1
+    doc_surname1
+    doc_name1
+    doc_secname1
+{
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <segments>
+        <segment>
+          <point_dep>$(point_dep1)</point_dep>
+          <point_arv>$(point_arv1)</point_arv>
+          <airp_dep>$(airp_dep1)</airp_dep>
+          <airp_arv>$(airp_arv1)</airp_arv>
+          <class>Э</class>
+          <grp_id>$(grp_id)</grp_id>
+          <tid>$(tid)</tid>
+          <passengers>
+            <pax>
+              <pax_id>$(pax_id1)</pax_id>
+              <surname>$(surname1)</surname>
+              <name>$(name1)</name>
+              <pers_type>$(pers_type1)</pers_type>
+              <refuse/>
+              <ticket_no>$(tickno1)</ticket_no>
+              <coupon_no>1</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>0</ticket_confirm>
+              <document>
+                <type>$(doc_type1)</type>
+                <no>$(doc_no1)</no>
+                <nationality>$(doc_nationality1)</nationality>
+                <birth_date>$(doc_birthdate1)</birth_date>
+                <expiry_date>$(doc_expirydate1)</expiry_date>
+                <surname>$(doc_surname1)</surname>
+                <first_name>$(doc_name1)</first_name>
+                <second_name>$(doc_secname1)</second_name>
+              </document>
+              <doco/>
+              <addresses>
+                <doca>
+                  <type>B</type>
+                </doca>
+                <doca>
+                  <type>R</type>
+                </doca>
+                <doca>
+                  <type>D</type>
+                </doca>
+              </addresses>
+              <subclass>Э</subclass>
+              <bag_pool_num>1</bag_pool_num>
+              <subclass>Э</subclass>
+              <tid>$(tid1)</tid>
+            </pax>
+          </passengers>
+          <service_payment/>
+        </segment>
+        <segment>
+          <point_dep>-1</point_dep>
+          <point_arv>-1</point_arv>
+          <airp_dep>$(airp_dep2)</airp_dep>
+          <airp_arv>$(airp_arv2)</airp_arv>
+          <class>Э</class>
+          <grp_id>-1</grp_id>
+          <tid>0</tid>
+          <passengers>
+            <pax>
+              <pax_id>-1</pax_id>
+              <surname>$(surname1)</surname>
+              <name>$(name1)</name>
+              <pers_type>$(pers_type1)</pers_type>
+              <refuse/>
+              <ticket_no>$(tickno1)</ticket_no>
+              <coupon_no>2</coupon_no>
+              <ticket_rem/>
+              <ticket_confirm>0</ticket_confirm>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>1</ticket_confirm>
+              <document/>
+              <doco/>
+              <addresses/>
+              <bag_pool_num>1</bag_pool_num>
+              <subclass>Э</subclass>
+              <tid>0</tid>
+            </pax>
+          </passengers>
+          <service_payment/>
+        </segment>
+      </segments>
+      <hall>1</hall>
+      <bag_refuse/>
+      <value_bags/>
+      <bags>
+        <bag>
+          <bag_type/>
+          <airline>S7</airline>
+          <num>1</num>
+          <pr_cabin>0</pr_cabin>
+          <amount>1</amount>
+          <weight>13</weight>
+          <value_bag_num/>
+          <pr_liab_limit>0</pr_liab_limit>
+          <to_ramp>0</to_ramp>
+          <using_scales>0</using_scales>
+          <is_trfer>0</is_trfer>
+          <bag_pool_num>1</bag_pool_num>
+        </bag>
+        <bag>
+          <bag_type/>
+          <airline>S7</airline>
+          <num>2</num>
+          <pr_cabin>1</pr_cabin>
+          <amount>1</amount>
+          <weight>5</weight>
+          <value_bag_num/>
+          <pr_liab_limit>0</pr_liab_limit>
+          <to_ramp>0</to_ramp>
+          <using_scales>0</using_scales>
+          <is_trfer>0</is_trfer>
+          <bag_pool_num>1</bag_pool_num>
+        </bag>
+      </bags>
+      <tags pr_print='1'/>
+      <unaccomps/>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+}) #end-of-macro
+
 
 $(defmacro CANCEL_PAX
     pax_id
@@ -5379,8 +5532,109 @@ $(KICK_IN)
           </pax>
         </passengers>
 
+$(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
+
+!!
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <segments>
+        <segment>
+          <point_dep>$(get point_dep)</point_dep>
+          <point_arv>$(get point_arv)</point_arv>
+          <airp_dep>ДМД</airp_dep>
+          <airp_arv>ПЛК</airp_arv>
+          <class>Э</class>
+          <grp_id>$(get grp_id)</grp_id>
+          <tid>$(get tid)</tid>
+          <passengers/>
+          <paid_bag_emd/>
+        </segment>
+        <segment>
+          <point_dep>-1</point_dep>
+          <point_arv>-1</point_arv>
+          <airp_dep>ПЛК</airp_dep>
+          <airp_arv>СОЧ</airp_arv>
+          <class>Э</class>
+          <grp_id>-1</grp_id>
+          <tid>0</tid>
+          <passengers>
+            <pax>
+              <pax_id>-1</pax_id>
+              <surname>REPIN</surname>
+              <name>ADULT</name>
+              <pers_type>ВЗ</pers_type>
+              <refuse/>
+              <ticket_no>29824018416891</ticket_no>
+              <coupon_no>2</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>1</ticket_confirm>
+              <document>
+                  <type>P</type>
+                  <no>987654321</no>
+                  <nationality>RUS</nationality>
+                  <birth_date>01.05.1976 00:00:00</birth_date>
+                  <expiry_date>31.12.2049 00:00:00</expiry_date>
+                  <surname>REPIN</surname>
+                  <first_name>ADULT</first_name>
+                  <second_name>PETROVICH</second_name>
+              </document>
+              <doco/>
+              <addresses/>
+              <bag_pool_num>1</bag_pool_num>
+              <subclass>Э</subclass>
+              <tid>0</tid>
+            </pax>
+            <pax>
+              <pax_id>-2</pax_id>
+              <surname>REPIN</surname>
+              <name>INFANT</name>
+              <pers_type>РМ</pers_type>
+              <refuse/>
+              <ticket_no>2982401841612</ticket_no>
+              <coupon_no>1</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>1</ticket_confirm>
+              <document>
+                  <type>P</type>
+                  <no>123456789</no>
+                  <nationality>RUS</nationality>
+                  <birth_date>01.05.2016 00:00:00</birth_date>
+                  <expiry_date>31.12.2049 00:00:00</expiry_date>
+                  <surname>REPIN</surname>
+                  <first_name>INFANT</first_name>
+                  <second_name>IVANOVICH</second_name>
+              </document>
+              <doco/>
+              <addresses/>
+              <bag_pool_num/>
+              <subclass>Э</subclass>
+              <tid>0</tid>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+      </segments>
+      <hall>1</hall>
+      <bag_refuse/>
+    </TCkinSavePax>
+  </query>
+</term>}
 
 $(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
+
+$(sql "insert into TRIP_BT(POINT_ID, TAG_TYPE) values($(get point_dep), 'ВНКС')")
+
+$(SAVE_GRP_BAGGAGE $(get grp_id) $(get tid_new)
+                   $(get point_dep) $(get point_arv)
+                   ДМД ПЛК ПЛК СОЧ
+                   $(get pax_1_id) $(get tid) REPIN ADULT ВЗ 2982401841689
+                   P 987654321 RUS
+                   "01.05.1976 00:00:00" "31.12.2049 00:00:00"
+                   REPIN ADULT PETROVICH)
+
 
 # отмена
 

@@ -1381,6 +1381,7 @@ astra_entities::PaxInfo XmlPax::toPax() const
                                                      : Ticketing::SubClass(),
                                    paxDoc,
                                    paxRems,
+                                   bag_pool_num != ASTRA::NoExists ? bag_pool_num : 0,
                                    iatci_parent_id != ASTRA::NoExists ? iatci_parent_id : 0);
 }
 
@@ -2129,6 +2130,35 @@ std::list<XmlSegment> XmlEntityReader::readSegs(xmlNodePtr segsNode)
     return segs;
 }
 
+XmlBag XmlEntityReader::readBag(xmlNodePtr bagNode)
+{
+    ASSERT(bagNode);
+
+    XmlBag bag;
+    bag.bag_type     = NodeAsString("bag_type",      bagNode, "");
+    bag.airline      = NodeAsString("airline",       bagNode, "");
+    bag.id           = NodeAsInteger("id",           bagNode, ASTRA::NoExists);
+    bag.num          = NodeAsInteger("num",          bagNode, ASTRA::NoExists);
+    bag.pr_cabin     = NodeAsBoolean("pr_cabin",     bagNode, false);
+    bag.amount       = NodeAsInteger("amount",       bagNode, ASTRA::NoExists);
+    bag.weight       = NodeAsInteger("weight",       bagNode, ASTRA::NoExists);
+    bag.bag_pool_num = NodeAsInteger("bag_pool_num", bagNode, ASTRA::NoExists);
+    return bag;
+}
+
+std::list<XmlBag> XmlEntityReader::readBags(xmlNodePtr bagsNode)
+{
+    ASSERT(bagsNode);
+
+    std::list<XmlBag> bags;
+    for(xmlNodePtr bagNode = bagsNode->children;
+        bagNode != NULL; bagNode = bagNode->next)
+    {
+        bags.push_back(XmlEntityReader::readBag(bagNode));
+    }
+    return bags;
+}
+
 XmlPlaceLayer XmlEntityReader::readPlaceLayer(xmlNodePtr layerNode)
 {
     ASSERT(layerNode);
@@ -2756,6 +2786,7 @@ PaxInfo::PaxInfo(int paxId,
                  const Ticketing::SubClass& subclass,
                  const boost::optional<DocInfo>& doc,
                  const boost::optional<Remarks>& rems,
+                 int bagPoolNum,
                  int iatciParentId)
     : m_paxId(paxId),
       m_surname(surname),
@@ -2770,6 +2801,7 @@ PaxInfo::PaxInfo(int paxId,
       m_subclass(subclass),
       m_doc(doc),
       m_rems(rems),
+      m_bagPoolNum(bagPoolNum),
       m_iatciParentId(iatciParentId)
 {}
 
@@ -2814,12 +2846,83 @@ bool operator==(const PaxInfo& left, const PaxInfo& right)
             left.m_address       == right.m_address &&
             left.m_visa          == right.m_visa &&
             left.m_rems          == right.m_rems &&
+            left.m_bagPoolNum    == right.m_bagPoolNum &&
             left.m_iatciParentId == right.m_iatciParentId);
 }
 
 bool operator!=(const PaxInfo& left, const PaxInfo& right)
 {
     return !(left == right);
+}
+
+//---------------------------------------------------------------------------------------
+
+BagPool::BagPool(int poolNum, int amount, int weight)
+    : m_poolNum(poolNum),
+      m_amount(amount),
+      m_weight(weight)
+{}
+
+BagPool BagPool::operator+(const BagPool& pool)
+{
+    return BagPool(this->m_poolNum,
+                   this->m_amount + pool.m_amount,
+                   this->m_weight + pool.m_weight);
+}
+
+BagPool& BagPool::operator+=(const BagPool& pool)
+{
+    this->m_amount += pool.m_amount;
+    this->m_weight += pool.m_weight;
+    return *this;
+}
+
+//---------------------------------------------------------------------------------------
+
+void Baggage::addPool(const BagPool& p, bool handLuggage)
+{
+    if(handLuggage) {
+        addHandPool(p);
+    } else {
+        addPool(p);
+    }
+}
+
+void Baggage::addPool(const BagPool& p)
+{
+    m_bagPools.insert(std::make_pair(p.m_poolNum, p));
+    m_poolNums.insert(p.m_poolNum);
+}
+
+void Baggage::addHandPool(const BagPool& p)
+{
+    m_handBagPools.insert(std::make_pair(p.m_poolNum, p));
+    m_poolNums.insert(p.m_poolNum);
+}
+
+static BagPool getTotalByPoolNum(const std::multimap<int, BagPool>& bagPools, int poolNum)
+{
+    BagPool total(poolNum);
+    auto range = bagPools.equal_range(poolNum);
+    for(auto it = range.first; it != range.second; ++it) {
+        total += it->second;
+    }
+    return total;
+}
+
+BagPool Baggage::totalByPoolNum(int poolNum) const
+{
+    return getTotalByPoolNum(m_bagPools, poolNum);
+}
+
+BagPool Baggage::totalByHandPoolNum(int poolNum) const
+{
+    return getTotalByPoolNum(m_handBagPools, poolNum);
+}
+
+const std::set<int>& Baggage::poolNums() const
+{
+    return m_poolNums;
 }
 
 }//namespace astra_entities

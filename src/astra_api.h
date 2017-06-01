@@ -8,6 +8,8 @@
 #include <etick/tick_data.h>
 
 #include <list>
+#include <map>
+#include <set>
 #include <boost/optional.hpp>
 #include <boost/date_time/gregorian/gregorian_types.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
@@ -159,6 +161,7 @@ struct PaxInfo
     boost::optional<VisaInfo>    m_visa;
     boost::optional<Remarks>     m_rems;
     int                          m_iatciParentId;
+    int                          m_bagPoolNum;
 
     PaxInfo(int paxId,
             const std::string& surname,
@@ -173,6 +176,7 @@ struct PaxInfo
             const Ticketing::SubClass& subclass,
             const boost::optional<DocInfo>& doc,
             const boost::optional<Remarks>& rems = boost::none,
+            int bagPoolNum = 0,
             int iatciParentId = 0);
 
     int                          id() const { return m_paxId; }
@@ -182,10 +186,47 @@ struct PaxInfo
     std::string            fullName() const;
     int               iatciParentId() const { return m_iatciParentId; }
     Ticketing::TicketNum_t  tickNum() const;
+    int                  bagPoolNum() const { return m_bagPoolNum; }
 };
 
 bool operator==(const PaxInfo& left, const PaxInfo& right);
 bool operator!=(const PaxInfo& left, const PaxInfo& right);
+
+//---------------------------------------------------------------------------------------
+
+struct BagPool
+{
+    int m_poolNum;
+    int m_amount;
+    int m_weight;
+
+    BagPool(int poolNum, int amount = 0, int weight = 0);
+
+    int amount() const { return m_amount; }
+    int weight() const { return m_weight; }
+
+    BagPool  operator+ (const BagPool& pool);
+    BagPool& operator+=(const BagPool& pool);
+};
+
+//---------------------------------------------------------------------------------------
+
+class Baggage
+{
+private:
+    std::multimap<int, BagPool> m_bagPools;
+    std::multimap<int, BagPool> m_handBagPools;
+    std::set<int> m_poolNums;
+
+public:
+    Baggage() {}
+    void addPool(const BagPool& p, bool handLuggage);
+    void addPool(const BagPool& p);
+    void addHandPool(const BagPool& p);
+    BagPool totalByPoolNum(int poolNum) const;
+    BagPool totalByHandPoolNum(int poolNum) const;
+    const std::set<int>& poolNums() const;
+};
 
 }//namespace astra_entities
 
@@ -488,6 +529,29 @@ struct XmlSegment
 
 //---------------------------------------------------------------------------------------
 
+struct XmlBag
+{
+    std::string bag_type;
+    std::string airline;
+    int         id;
+    int         num;
+    bool        pr_cabin;
+    int         amount;
+    int         weight;
+    int         bag_pool_num;
+
+    XmlBag()
+        : id(ASTRA::NoExists),
+          num(ASTRA::NoExists),
+          pr_cabin(false),
+          amount(ASTRA::NoExists),
+          weight(ASTRA::NoExists),
+          bag_pool_num(ASTRA::NoExists)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
 struct XmlTrip
 {
     int         point_id;
@@ -697,6 +761,9 @@ public:
 
     static XmlSegment                    readSeg(xmlNodePtr segNode);
     static std::list<XmlSegment>         readSegs(xmlNodePtr segsNode);
+
+    static XmlBag                        readBag(xmlNodePtr bagNode);
+    static std::list<XmlBag>             readBags(xmlNodePtr bagsNode);
 
     static XmlPlaceLayer                 readPlaceLayer(xmlNodePtr layerNode);
     static std::list<XmlPlaceLayer>      readPlaceLayers(xmlNodePtr layersNode);

@@ -666,6 +666,14 @@ iatci::UpdateDocDetails makeUpdDoc(const astra_api::astra_entities::DocInfo& new
                                    newDoc.m_expiryDate);
 }
 
+iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::BagPool& bagPool,
+                                           const astra_api::astra_entities::BagPool& handBagPool)
+{
+    return iatci::UpdateBaggageDetails(iatci::UpdateDetails::Replace,
+                                       bagPool.amount(), bagPool.weight(),
+                                       handBagPool.amount(), handBagPool.weight());
+}
+
 //---------------------------------------------------------------------------------------
 
 iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg)

@@ -450,6 +450,10 @@ namespace
 
     //-----------------------------------------------------------------------------------
 
+
+
+    //-----------------------------------------------------------------------------------
+
     struct PointInfo
     {
         std::string m_airline;
@@ -670,11 +674,6 @@ namespace
         throw EXCEPTIONS::Exception("Logic error!");
     }
 
-    void updatePaxNode(const iatci::PaxDetails& pax)
-    {
-
-    }
-
 }//namespace
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -795,11 +794,6 @@ static boost::optional<iatci::UpdatePaxDetails> getUpdPersonal(const PaxChange& 
 
     return iatci::makeUpdPax(paxChange.newPax(),
                              iatci::UpdateDetails::Replace);
-}
-
-static boost::optional<iatci::UpdateBaggageDetails> getUpdBaggage(const PaxChange& paxChange)
-{
-    return boost::none; // TODO
 }
 
 static boost::optional<iatci::UpdateServiceDetails> getUpdService(const PaxChange& paxChange)
@@ -1075,121 +1069,6 @@ static boost::optional<PaxChange> findPaxChange(const std::vector<PaxChange>& al
     return boost::none;
 }
 
-static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
-{
-    int ownGrpId = getGrpId(reqNode, NULL, IatciInterface::Cku);
-    XMLDoc oldXmlDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
-
-    XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
-    XmlCheckInTabs newIatciTabs(findNodeR(reqNode, "iatci_segments"));
-
-    const XmlCheckInTab& firstOldTab = oldIatciTabs.tabs().front();
-
-    TabsDiff diff(oldIatciTabs, newIatciTabs);
-    if(diff.tabsDiff().empty()) {
-        LogTrace(TRACE1) << "Empty iatci tabs diff";
-        return boost::none;
-    }
-
-    if(!diff.tabsDiff().at(0)) {
-        LogTrace(TRACE1) << "No changed at first iatci tab";
-        return boost::none;
-    }
-
-    std::set<int> processedPaxIds;
-
-    // что имеем
-    const std::list<astra_entities::PaxInfo> lPax = firstOldTab.lPax();
-    const std::list<astra_entities::PaxInfo> lNonInfants = filterNotInfants(lPax);
-    const std::list<astra_entities::PaxInfo> lInfants = filterInfants(lPax);
-
-    const auto firstTabDiff = diff.tabsDiff().at(0);
-
-    PaxDiff paxDiff = firstTabDiff->paxDiff();
-    LogTrace(TRACE3) << "Pax diff:" << paxDiff;
-
-    std::list<iatci::dcqcku::PaxGroup> lPaxGrp;
-
-    const PaxDiff::PaxChanges_t& allChanges = paxDiff.paxChanges();
-    for(const auto& paxChange: allChanges) {
-        const astra_entities::PaxInfo& oldPax = paxChange.oldPax();
-        LogTrace(TRACE3) << "process diff of pax: " << oldPax.fullName();
-        if(algo::contains(processedPaxIds, paxChange.paxId())) {
-            LogTrace(TRACE1) << "Skip pax already processed: " << oldPax.fullName();
-            continue;
-        }
-
-        boost::optional<PaxChange> adultChange, inftChange;
-
-        boost::optional<astra_entities::PaxInfo> adult, inft;
-
-        LogTrace(TRACE3) << paxChange;
-        if(oldPax.isInfant()) {
-            inft = oldPax;
-            adult = findPax(lNonInfants, oldPax.iatciParentId());
-            inftChange = paxChange;
-        } else {
-            inft = findInfantByParentId(lInfants, oldPax.id());
-            adult = oldPax;
-            adultChange = paxChange;
-        }
-
-        ASSERT(adult);
-        adultChange = findPaxChange(allChanges, adult->id());
-        if(inft) {
-            inftChange = findPaxChange(allChanges, inft->id());
-        }
-
-        boost::optional<iatci::PaxDetails> infant;
-        processedPaxIds.insert(adult->id());
-        if(inft) {
-            processedPaxIds.insert(inft->id());
-            infant = iatci::makePax(*inft);
-        }
-
-        boost::optional<iatci::UpdatePaxDetails>     adultUpdPersonal, inftUpdPersonal;
-        boost::optional<iatci::UpdateBaggageDetails> adultUpdBaggage;
-        boost::optional<iatci::UpdateServiceDetails> adultUpdService;
-        boost::optional<iatci::UpdateDocDetails>     adultUpdDoc,      inftUpdDoc;
-
-        if(adultChange) {
-            adultUpdPersonal = boost::none;//getUpdPersonal(*adultChange);
-            adultUpdBaggage  = getUpdBaggage(*adultChange);
-            adultUpdService  = getUpdService(*adultChange);
-            adultUpdDoc      = getUpdDoc(*adultChange);
-        }
-
-        if(inftChange) {
-            inftUpdPersonal = boost::none; //getUpdPersonal(*inftChange);
-            inftUpdDoc      = getUpdDoc(*inftChange);
-        }
-
-        lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makePax(adult.get(), inft),
-                                                  boost::none, // Reserv
-                                                  boost::none, // Baggage
-                                                  boost::none, // Service
-                                                  infant,
-                                                  adultUpdPersonal,
-                                                  boost::none, // Seat
-                                                  adultUpdBaggage,
-                                                  adultUpdService,
-                                                  adultUpdDoc,
-                                                  inftUpdPersonal,
-                                                  inftUpdDoc));
-    }
-
-    if(lPaxGrp.empty()) {
-        LogTrace(TRACE0) << "Non-iatci pax change!";
-        return boost::none;
-    }
-
-    return iatci::CkuParams(makeOrg(ownGrpId),
-                            boost::none,
-                            iatci::dcqcku::FlightGroup(iatci::makeFlight(oldIatciTabs.tabs().front().xmlSeg()),
-                                                       boost::none,
-                                                       lPaxGrp));
-}
-
 static iatci::UpdateSeatDetails getSeatUpdate(xmlNodePtr reqNode)
 {
     const std::string seatYname = NodeAsString("yname", reqNode);
@@ -1201,7 +1080,6 @@ static iatci::UpdateSeatDetails getSeatUpdate(xmlNodePtr reqNode)
     return iatci::UpdateSeatDetails(iatci::UpdateDetails::Replace,
                                     seat);
 }
-
 
 static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
 {
@@ -1248,6 +1126,224 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
                                               boost::none, // Update service
                                               boost::none  // Update doc
                                               ));
+
+    return iatci::CkuParams(makeOrg(ownGrpId),
+                            boost::none,
+                            iatci::dcqcku::FlightGroup(iatci::makeFlight(oldIatciTabs.tabs().front().xmlSeg()),
+                                                       boost::none,
+                                                       lPaxGrp));
+}
+
+static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
+{
+    int ownGrpId = getGrpId(reqNode, NULL, IatciInterface::Cku);
+    XMLDoc oldXmlDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
+
+    XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
+    XmlCheckInTabs reqIatciTabs(findNodeR(reqNode, "iatci_segments"));
+
+    const XmlCheckInTab& firstOldTab = oldIatciTabs.tabs().front();
+    const XmlCheckInTab& firstReqTab = reqIatciTabs.tabs().front();
+
+    std::list<XmlBag> reqBags = XmlEntityReader::readBags(findNodeR(reqNode, "bags"));
+    astra_api::astra_entities::Baggage baggage;
+
+    for(const auto& reqBag: reqBags) {
+        baggage.addPool(astra_api::astra_entities::BagPool(reqBag.bag_pool_num,
+                                                           reqBag.amount,
+                                                           reqBag.weight),
+                        reqBag.pr_cabin);
+    }
+
+    for(int poolNum: baggage.poolNums()) {
+        astra_api::astra_entities::BagPool total = baggage.totalByPoolNum(poolNum);
+        astra_api::astra_entities::BagPool handTotal = baggage.totalByHandPoolNum(poolNum);
+
+        LogTrace(TRACE3) << "pool " << poolNum << "; "
+                         << "total " << total.m_amount << "/" << total.m_weight << "; "
+                         << "hand total " << handTotal.m_amount << "/" << handTotal.m_weight;
+    }
+
+    // что имеем
+    const std::list<astra_entities::PaxInfo> lPax = firstOldTab.lPax();
+    const std::list<astra_entities::PaxInfo> lNonInfants = filterNotInfants(lPax);
+    const std::list<astra_entities::PaxInfo> lInfants = filterInfants(lPax);
+
+    // что в запросе
+    const std::list<astra_entities::PaxInfo> lReqPax = firstReqTab.lPax();
+    const std::list<astra_entities::PaxInfo> lReqNonInfants = filterNotInfants(lReqPax);
+    const std::list<astra_entities::PaxInfo> lReqInfants = filterInfants(lReqPax);
+
+    std::list<iatci::dcqcku::PaxGroup> lPaxGrp;
+
+    boost::optional<astra_entities::PaxInfo> adult, inft;
+
+    std::set<int> processedPaxIds;
+    for(const auto& pax: lReqPax) {
+        if(algo::contains(processedPaxIds, pax.id())) {
+            LogTrace(TRACE1) << "Skip pax already processed: " << pax.fullName();
+            continue;
+        }
+
+        if(pax.isInfant()) {
+            inft = pax;
+            adult = findPax(lNonInfants, pax.iatciParentId());
+        } else {
+            inft = findInfantByParentId(lInfants, pax.id());
+            adult = pax;
+        }
+
+        ASSERT(adult);
+
+        boost::optional<iatci::PaxDetails> infant;
+        processedPaxIds.insert(adult->id());
+        if(inft) {
+            processedPaxIds.insert(inft->id());
+            infant = iatci::makePax(*inft);
+        }
+
+        astra_api::astra_entities::BagPool total(adult->bagPoolNum()),
+                                       handTotal(adult->bagPoolNum());
+
+        if(adult->bagPoolNum()) {
+            total += baggage.totalByPoolNum(adult->bagPoolNum());
+            handTotal += baggage.totalByHandPoolNum(adult->bagPoolNum());
+        }
+
+        if(inft && inft->bagPoolNum()) {
+            total += baggage.totalByPoolNum(inft->bagPoolNum());
+            handTotal += baggage.totalByHandPoolNum(inft->bagPoolNum());
+        }
+
+        lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makePax(adult.get(), inft),
+                                                  boost::none, // Reserv
+                                                  boost::none, // Baggage
+                                                  boost::none, // Service
+                                                  infant,
+                                                  boost::none,
+                                                  boost::none,
+                                                  iatci::makeUpdBaggage(total, handTotal),
+                                                  boost::none,
+                                                  boost::none));
+    }
+
+    ASSERT(!lPaxGrp.empty());
+
+    return iatci::CkuParams(makeOrg(ownGrpId),
+                            boost::none,
+                            iatci::dcqcku::FlightGroup(iatci::makeFlight(oldIatciTabs.tabs().front().xmlSeg()),
+                                                       boost::none,
+                                                       lPaxGrp));
+}
+
+static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
+{
+    if(findNodeR(reqNode, "bags")) {
+        return getUpdateBaggageParams(reqNode);
+    }
+
+    int ownGrpId = getGrpId(reqNode, NULL, IatciInterface::Cku);
+    XMLDoc oldXmlDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
+
+    XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
+    XmlCheckInTabs reqIatciTabs(findNodeR(reqNode, "iatci_segments"));
+
+    const XmlCheckInTab& firstOldTab = oldIatciTabs.tabs().front();
+
+    TabsDiff diff(oldIatciTabs, reqIatciTabs);
+    if(diff.tabsDiff().empty()) {
+        LogTrace(TRACE1) << "Empty iatci tabs diff";
+        return boost::none;
+    }
+
+    if(!diff.tabsDiff().at(0)) {
+        LogTrace(TRACE1) << "No changes at first iatci tab";
+        return boost::none;
+    }
+
+    // что имеем
+    const std::list<astra_entities::PaxInfo> lPax = firstOldTab.lPax();
+    const std::list<astra_entities::PaxInfo> lNonInfants = filterNotInfants(lPax);
+    const std::list<astra_entities::PaxInfo> lInfants = filterInfants(lPax);
+
+    const auto firstTabDiff = diff.tabsDiff().at(0);
+
+    PaxDiff paxDiff = firstTabDiff->paxDiff();
+    LogTrace(TRACE3) << "Pax diff:" << paxDiff;
+
+    std::list<iatci::dcqcku::PaxGroup> lPaxGrp;
+
+    std::set<int> processedPaxIds;
+    const PaxDiff::PaxChanges_t& allChanges = paxDiff.paxChanges();
+    for(const auto& paxChange: allChanges) {
+        const astra_entities::PaxInfo& oldPax = paxChange.oldPax();
+        LogTrace(TRACE3) << "process diff of pax: " << oldPax.fullName();
+        if(algo::contains(processedPaxIds, paxChange.paxId())) {
+            LogTrace(TRACE1) << "Skip pax already processed: " << oldPax.fullName();
+            continue;
+        }
+
+        boost::optional<PaxChange> adultChange, inftChange;
+
+        boost::optional<astra_entities::PaxInfo> adult, inft;
+
+        LogTrace(TRACE3) << paxChange;
+        if(oldPax.isInfant()) {
+            inft = oldPax;
+            adult = findPax(lNonInfants, oldPax.iatciParentId());
+            inftChange = paxChange;
+        } else {
+            inft = findInfantByParentId(lInfants, oldPax.id());
+            adult = oldPax;
+            adultChange = paxChange;
+        }
+
+        ASSERT(adult);
+        adultChange = findPaxChange(allChanges, adult->id());
+        if(inft) {
+            inftChange = findPaxChange(allChanges, inft->id());
+        }
+
+        boost::optional<iatci::PaxDetails> infant;
+        processedPaxIds.insert(adult->id());
+        if(inft) {
+            processedPaxIds.insert(inft->id());
+            infant = iatci::makePax(*inft);
+        }
+
+        boost::optional<iatci::UpdatePaxDetails>     adultUpdPersonal, inftUpdPersonal;
+        boost::optional<iatci::UpdateServiceDetails> adultUpdService;
+        boost::optional<iatci::UpdateDocDetails>     adultUpdDoc, inftUpdDoc;
+
+        if(adultChange) {
+            adultUpdPersonal = boost::none;//getUpdPersonal(*adultChange);
+            adultUpdService  = getUpdService(*adultChange);
+            adultUpdDoc      = getUpdDoc(*adultChange);
+        }
+
+        if(inftChange) {
+            inftUpdPersonal = boost::none; //getUpdPersonal(*inftChange);
+            inftUpdDoc      = getUpdDoc(*inftChange);
+        }
+
+        lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makePax(adult.get(), inft),
+                                                  boost::none, // Reserv
+                                                  boost::none, // Baggage
+                                                  boost::none, // Service
+                                                  infant,
+                                                  adultUpdPersonal,
+                                                  boost::none, // Seat
+                                                  boost::none, // Baggage
+                                                  adultUpdService,
+                                                  adultUpdDoc,
+                                                  inftUpdPersonal,
+                                                  inftUpdDoc));
+    }
+
+    if(lPaxGrp.empty()) {
+        LogTrace(TRACE0) << "Non-iatci pax change!";
+        return boost::none;
+    }
 
     return iatci::CkuParams(makeOrg(ownGrpId),
                             boost::none,

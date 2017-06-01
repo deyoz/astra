@@ -438,19 +438,41 @@ struct BaggageDetails
     friend class dcrcka::Result;
     friend class boost::serialization::access;
 
+    struct BagInfo
+    {
+        friend class boost::serialization::access;
+
+    protected:
+        unsigned m_numOfPieces;
+        unsigned m_weight;
+
+    public:
+        BagInfo(unsigned numOfPieces = 0, unsigned weight = 0)
+            : m_numOfPieces(numOfPieces),
+              m_weight(weight)
+        {}
+
+        unsigned numOfPieces() const { return m_numOfPieces; }
+        unsigned weight() const { return m_weight; }
+    };
+
 protected:
-    unsigned m_numOfPieces;
-    unsigned m_weight;
+    BagInfo m_bag;
+    BagInfo m_handBag;
 
 public:
     BaggageDetails(unsigned numOfPieces, unsigned weight);
+    BaggageDetails(unsigned numOfPieces, unsigned weight,
+                   unsigned numOfHandPieces, unsigned handWeight);
 
     unsigned numOfPieces() const;
     unsigned weight() const;
 
+    unsigned numOfHandPieces() const;
+    unsigned handWeight() const;
+
 protected:
     BaggageDetails()
-        : m_numOfPieces(0), m_weight(0)
     {} // for boost serialization only
 };
 
@@ -461,6 +483,9 @@ struct UpdateBaggageDetails: public UpdateDetails, public BaggageDetails
 public:
     UpdateBaggageDetails(UpdateActionCode_e actionCode,
                          unsigned numOfPieces, unsigned weight);
+    UpdateBaggageDetails(UpdateActionCode_e actionCode,
+                         unsigned numOfPieces, unsigned weight,
+                         unsigned handNumOfPieces, unsigned handWeight);
 };
 
 //---------------------------------------------------------------------------------------

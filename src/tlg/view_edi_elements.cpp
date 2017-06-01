@@ -680,8 +680,16 @@ void viewUsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateSeatDetails&
 void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateBaggageDetails& updBaggage)
 {
     std::ostringstream ubd;
-    ubd << updBaggage.actionCodeAsString() << ":";
-    ubd << updBaggage.numOfPieces() << ":" << updBaggage.weight();
+    if(updBaggage.numOfPieces()) {
+        ubd << updBaggage.actionCodeAsString() << ":";
+        ubd << updBaggage.numOfPieces() << ":" << updBaggage.weight();
+    }
+    ubd << "+";
+    if(updBaggage.numOfHandPieces()) {
+        ubd << updBaggage.actionCodeAsString() << ":";
+        ubd << updBaggage.numOfHandPieces() << ":" << updBaggage.handWeight();
+    }
+    ubd << "+" << updBaggage.actionCodeAsString() << ":" << "NP";
     SetEdiFullSegment(pMes, SegmElement("UBD"), ubd.str());
 }
 

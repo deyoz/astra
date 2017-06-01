@@ -270,6 +270,54 @@ inline void serialize(Archive& ar, iatci::ReservationDetails& par, const unsigne
 
 namespace {
 
+class BagInfoAccessor: private iatci::BaggageDetails::BagInfo
+{
+public:
+    // for save
+    explicit BagInfoAccessor(const iatci::BaggageDetails::BagInfo& b)
+        : iatci::BaggageDetails::BagInfo(b)
+    {}
+
+    // for load
+    BagInfoAccessor()
+    {}
+
+    const iatci::BaggageDetails::BagInfo& get() const { return *this; }
+
+    using iatci::BaggageDetails::BagInfo::m_numOfPieces;
+    using iatci::BaggageDetails::BagInfo::m_weight;
+};
+
+}//namespace
+
+/******
+ * BagInfo
+ ******/
+template<class Archive>
+inline void save(Archive& ar, const iatci::BaggageDetails::BagInfo& par, const unsigned int version)
+{
+    BagInfoAccessor acc(par);
+    ar & acc.m_numOfPieces & acc.m_weight;
+}
+
+template<class Archive>
+inline void load(Archive& ar, iatci::BaggageDetails::BagInfo& par, const unsigned int version)
+{
+    BagInfoAccessor acc;
+    ar & acc.m_numOfPieces & acc.m_weight;
+    par = acc.get();
+}
+
+template<class Archive>
+inline void serialize(Archive& ar, iatci::BaggageDetails::BagInfo& par, const unsigned int version)
+{
+    boost::serialization::split_free(ar, par, version);
+}
+
+//---------------------------------------------------------------------------------------
+
+namespace {
+
 class BaggageDetailsAccessor: private iatci::BaggageDetails
 {
 public:
@@ -284,8 +332,8 @@ public:
 
     const iatci::BaggageDetails& get() const { return *this; }
 
-    using iatci::BaggageDetails::m_numOfPieces;
-    using iatci::BaggageDetails::m_weight;
+    using iatci::BaggageDetails::m_bag;
+    using iatci::BaggageDetails::m_handBag;
 };
 
 }//namespace
@@ -297,14 +345,14 @@ template<class Archive>
 inline void save(Archive& ar, const iatci::BaggageDetails& par, const unsigned int version)
 {
     BaggageDetailsAccessor acc(par);
-    ar & acc.m_numOfPieces & acc.m_weight;
+    ar & acc.m_bag & acc.m_handBag;
 }
 
 template<class Archive>
 inline void load(Archive& ar, iatci::BaggageDetails& par, const unsigned int version)
 {
     BaggageDetailsAccessor acc;
-    ar & acc.m_numOfPieces & acc.m_weight;
+    ar & acc.m_bag & acc.m_handBag;
     par = acc.get();
 }
 

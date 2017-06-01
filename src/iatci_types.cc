@@ -579,18 +579,33 @@ const std::string& SelectPersonalDetails::tickNum() const
 //---------------------------------------------------------------------------------------
 
 BaggageDetails::BaggageDetails(unsigned numOfPieces, unsigned weight)
-    : m_numOfPieces(numOfPieces),
-      m_weight(weight)
+    : m_bag(BagInfo(numOfPieces, weight))
+{}
+
+BaggageDetails::BaggageDetails(unsigned numOfPieces, unsigned weight,
+                               unsigned handNumOfPieces, unsigned handWeight)
+    : m_bag(numOfPieces, weight),
+      m_handBag(handNumOfPieces, handWeight)
 {}
 
 unsigned BaggageDetails::numOfPieces() const
 {
-    return m_numOfPieces;
+    return m_bag.numOfPieces();
 }
 
 unsigned BaggageDetails::weight() const
 {
-    return m_weight;
+    return m_bag.weight();
+}
+
+unsigned BaggageDetails::numOfHandPieces() const
+{
+    return m_handBag.numOfPieces();
+}
+
+unsigned BaggageDetails::handWeight() const
+{
+    return m_handBag.weight();
 }
 
 //---------------------------------------------------------------------------------------
@@ -598,6 +613,13 @@ unsigned BaggageDetails::weight() const
 UpdateBaggageDetails::UpdateBaggageDetails(UpdateActionCode_e actionCode,
                                            unsigned numOfPieces, unsigned weight)
     : UpdateDetails(actionCode), BaggageDetails(numOfPieces, weight)
+{}
+
+UpdateBaggageDetails::UpdateBaggageDetails(UpdateActionCode_e actionCode,
+                                           unsigned numOfPieces, unsigned weight,
+                                           unsigned handNumOfPieces, unsigned handWeight)
+    : UpdateDetails(actionCode), BaggageDetails(numOfPieces, weight,
+                                                handNumOfPieces, handWeight)
 {}
 
 //---------------------------------------------------------------------------------------
