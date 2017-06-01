@@ -7718,7 +7718,7 @@ void RunAnnulBTStat(
             SQLText +=
                 "   points.part_key = annul_bag.part_key and "
                 "   pax_grp.part_key = points.part_key and \n"
-                "   pax_grp.part_key = pax.part_key(+) and \n"
+                "   annul_bag.part_key = pax.part_key(+) and \n"
                 "   pax_grp.part_key = transfer.part_key(+) and \n";
         if(pass == 1)
             SQLText += " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
@@ -7733,8 +7733,8 @@ void RunAnnulBTStat(
                 "   points.point_id = :point_id and ";
         SQLText +=
             "   points.point_id = pax_grp.point_dep and "
-            "   pax_grp.grp_id = pax.grp_id(+) and "
             "   pax_grp.grp_id = annul_bag.grp_id and "
+            "   annul_bag.pax_id = pax.pax_id(+) and "
             "   pax_grp.grp_id = transfer.grp_id(+) and \n"
             "   transfer.pr_final(+) <> 0 \n";
         if(pass == 0)
