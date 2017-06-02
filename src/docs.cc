@@ -301,9 +301,6 @@ void populate_doc_cap(xmlNodePtr variablesNode, string lang)
     NewTextChild(variablesNode, "doc_cap_test", (bad_client_img_version() and not get_test_server()) ? " " : getLocaleText("CAP.TEST", lang));
     NewTextChild(variablesNode, "doc_cap_user_descr", getLocaleText("Оператор", lang));
     NewTextChild(variablesNode, "doc_cap_emd_no", getLocaleText("№ EMD", lang));
-    NewTextChild(variablesNode, "doc_cap_total", getLocaleText("Итого:", lang));
-    NewTextChild(variablesNode, "doc_cap_overall", getLocaleText("Всего:", lang));
-    NewTextChild(variablesNode, "doc_cap_vou_quantity", getLocaleText("Кол-во ваучеров", lang));
 }
 
 void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode, TDateTime part_key)
@@ -416,8 +413,7 @@ void TRptParams::Init(xmlNodePtr node)
             rpt_type != rtLOADSHEET and
             rpt_type != rtNOTOC and
             rpt_type != rtLIR and
-            rpt_type != rtANNUL_TAGS and
-            rpt_type != rtVOUCHERS
+            rpt_type != rtANNUL_TAGS
             )
         rpt_type = TRptType((int)rpt_type + 1);
     string route_country;
@@ -2733,152 +2729,11 @@ void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     }
 }
 
-bool getPaxRem(const string &lang, const CheckIn::TPaxRemBasic &basic, bool inf_indicator, CheckIn::TPaxRemItem &rem)
+bool getPaxRem(const TRptParams &rpt_params, const CheckIn::TPaxRemBasic &basic, bool inf_indicator, CheckIn::TPaxRemItem &rem)
 {
   if (basic.empty()) return false;
-  rem=CheckIn::TPaxRemItem(basic, inf_indicator, lang, applyLangForTranslit);
+  rem=CheckIn::TPaxRemItem(basic, inf_indicator, rpt_params.GetLang(), applyLangForTranslit);
   return true;
-}
-
-namespace REPORT_PAX_REMS {
-    void get(TQuery &Qry, const string &lang, const map< TRemCategory, vector<string> > &filter, multiset<CheckIn::TPaxRemItem> &final_rems)
-    {
-        CheckIn::TPaxTknItem tkn;
-        CheckIn::TPaxDocItem doc;
-        CheckIn::TPaxDocoItem doco;
-        CheckIn::TDocaMap doca_map;
-        set<CheckIn::TPaxFQTItem> fqts;
-        vector<CheckIn::TPaxASVCItem> asvc;
-        multiset<CheckIn::TPaxRemItem> rems;
-        map< TRemCategory, bool > cats;
-        cats[remTKN]=false;
-        cats[remDOC]=false;
-        cats[remDOCO]=false;
-        cats[remDOCA]=false;
-        cats[remFQT]=false;
-        cats[remASVC]=false;
-        cats[remUnknown]=false;
-        int pax_id=Qry.FieldAsInteger("pax_id");
-        bool inf_indicator=DecodePerson(Qry.FieldAsString("pers_type"))==ASTRA::baby && Qry.FieldAsInteger("seats")==0;
-        bool pr_find=true;
-        if (!filter.empty())
-        {
-            pr_find=false;
-            //фильтр по конкретным ремаркам
-            map< TRemCategory, vector<string> >::const_iterator iRem=filter.begin();
-            for(; iRem!=filter.end(); iRem++)
-            {
-                switch(iRem->first)
-                {
-                    case remTKN:
-                        tkn.fromDB(Qry);
-                        if (!tkn.empty() && !tkn.rem.empty() &&
-                                find(iRem->second.begin(),iRem->second.end(),tkn.rem)!=iRem->second.end())
-                            pr_find=true;
-                        cats[remTKN]=true;
-                        break;
-                    case remDOC:
-                        if (find(iRem->second.begin(),iRem->second.end(),"DOCS")!=iRem->second.end())
-                        {
-                            if (LoadPaxDoc(pax_id, doc)) pr_find=true;
-                            cats[remDOC]=true;
-                        };
-                        break;
-                    case remDOCO:
-                        if (find(iRem->second.begin(),iRem->second.end(),"DOCO")!=iRem->second.end())
-                        {
-                            if (LoadPaxDoco(pax_id, doco)) pr_find=true;
-                            cats[remDOCO]=true;
-                        };
-                        break;
-                    case remDOCA:
-                        if (find(iRem->second.begin(),iRem->second.end(),"DOCA")!=iRem->second.end())
-                        {
-                            if (LoadPaxDoca(pax_id, doca_map)) pr_find=true;
-                            cats[remDOCA]=true;
-                        };
-                        break;
-                    case remFQT:
-                        LoadPaxFQT(pax_id, fqts);
-                        for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();f++)
-                        {
-                            if (!f->rem.empty() &&
-                                    find(iRem->second.begin(),iRem->second.end(),f->rem)!=iRem->second.end())
-                            {
-                                pr_find=true;
-                                break;
-                            };
-                        };
-                        cats[remFQT]=true;
-                        break;
-                    case remASVC:
-                        if (find(iRem->second.begin(),iRem->second.end(),"ASVC")!=iRem->second.end())
-                        {
-                            if (LoadPaxASVC(pax_id, asvc)) pr_find=true;
-                            cats[remASVC]=true;
-                        };
-                        break;
-                    default:
-                        LoadPaxRem(pax_id, rems);
-                        for(multiset<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();r++)
-                        {
-                            if (!r->code.empty() &&
-                                    find(iRem->second.begin(),iRem->second.end(),r->code)!=iRem->second.end())
-                            {
-                                pr_find=true;
-                                break;
-                            };
-                        };
-                        cats[remUnknown]=true;
-                        break;
-                };
-                if (pr_find) break;
-            };
-        };
-
-        if(pr_find) {
-            CheckIn::TPaxRemItem rem;
-            //обычные ремарки (обязательно обрабатываем первыми)
-            if (!cats[remUnknown]) LoadPaxRem(pax_id, rems);
-            for(multiset<CheckIn::TPaxRemItem>::iterator r=rems.begin();r!=rems.end();++r)
-                if (getPaxRem(lang, *r, inf_indicator, rem)) final_rems.insert(rem);
-
-            //билет
-            if (!cats[remTKN]) tkn.fromDB(Qry);
-            if (getPaxRem(lang, tkn, inf_indicator, rem)) final_rems.insert(rem);
-            //документ
-            if (!cats[remDOC]) LoadPaxDoc(pax_id, doc);
-            if (getPaxRem(lang, doc, inf_indicator, rem)) final_rems.insert(rem);
-            //виза
-            if (!cats[remDOCO]) LoadPaxDoco(pax_id, doco);
-            if (getPaxRem(lang, doco, inf_indicator, rem)) final_rems.insert(rem);
-            //адреса
-            if (!cats[remDOCA]) LoadPaxDoca(pax_id, doca_map);
-            for(CheckIn::TDocaMap::const_iterator d = doca_map.begin(); d != doca_map.end(); ++d)
-                if (getPaxRem(lang, d->second, inf_indicator, rem)) final_rems.insert(rem);
-            //бонус-программа
-            if (!cats[remFQT]) LoadPaxFQT(pax_id, fqts);
-            for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();++f)
-                if (getPaxRem(lang, *f, inf_indicator, rem)) final_rems.insert(rem);
-            //услуги
-            if (!cats[remASVC]) LoadPaxASVC(pax_id, asvc);
-            for(vector<CheckIn::TPaxASVCItem>::const_iterator a=asvc.begin();a!=asvc.end();++a)
-                if (getPaxRem(lang, *a, inf_indicator, rem)) final_rems.insert(rem);
-        }
-    }
-
-    void get(TQuery &Qry, const string &lang, multiset<CheckIn::TPaxRemItem> &final_rems)
-    {
-        return get(Qry, lang, map< TRemCategory, vector<string> >(), final_rems);
-    }
-
-    void get_rem_codes(TQuery &Qry, const string &lang, set<string> &rem_codes)
-    {
-        multiset<CheckIn::TPaxRemItem> final_rems;
-        get(Qry, lang, map< TRemCategory, vector<string> >(), final_rems);
-        for(multiset<CheckIn::TPaxRemItem>::iterator i = final_rems.begin(); i != final_rems.end(); i++)
-            rem_codes.insert(i->code);
-    }
 }
 
 void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2932,8 +2787,128 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_rem");
     for(; !Qry.Eof; Qry.Next())
     {
+      CheckIn::TPaxTknItem tkn;
+      CheckIn::TPaxDocItem doc;
+      CheckIn::TPaxDocoItem doco;
+      CheckIn::TDocaMap doca_map;
+      set<CheckIn::TPaxFQTItem> fqts;
+      vector<CheckIn::TPaxASVCItem> asvc;
+      multiset<CheckIn::TPaxRemItem> rems;
+      map< TRemCategory, bool > cats;
+      cats[remTKN]=false;
+      cats[remDOC]=false;
+      cats[remDOCO]=false;
+      cats[remDOCA]=false;
+      cats[remFQT]=false;
+      cats[remASVC]=false;
+      cats[remUnknown]=false;
+      int pax_id=Qry.FieldAsInteger("pax_id");
+      bool inf_indicator=DecodePerson(Qry.FieldAsString("pers_type"))==ASTRA::baby && Qry.FieldAsInteger("seats")==0;
+      if (!rpt_params.rems.empty())
+      {
+        bool pr_find=false;
+        //фильтр по конкретным ремаркам
+        map< TRemCategory, vector<string> >::const_iterator iRem=rpt_params.rems.begin();
+        for(; iRem!=rpt_params.rems.end(); iRem++)
+        {
+          switch(iRem->first)
+          {
+            case remTKN:
+              tkn.fromDB(Qry);
+              if (!tkn.empty() && !tkn.rem.empty() &&
+                  find(iRem->second.begin(),iRem->second.end(),tkn.rem)!=iRem->second.end())
+                pr_find=true;
+              cats[remTKN]=true;
+              break;
+            case remDOC:
+              if (find(iRem->second.begin(),iRem->second.end(),"DOCS")!=iRem->second.end())
+              {
+                if (LoadPaxDoc(pax_id, doc)) pr_find=true;
+                cats[remDOC]=true;
+              };
+              break;
+            case remDOCO:
+              if (find(iRem->second.begin(),iRem->second.end(),"DOCO")!=iRem->second.end())
+              {
+                if (LoadPaxDoco(pax_id, doco)) pr_find=true;
+                cats[remDOCO]=true;
+              };
+              break;
+            case remDOCA:
+              if (find(iRem->second.begin(),iRem->second.end(),"DOCA")!=iRem->second.end())
+              {
+                if (LoadPaxDoca(pax_id, doca_map)) pr_find=true;
+                cats[remDOCA]=true;
+              };
+              break;
+            case remFQT:
+              LoadPaxFQT(pax_id, fqts);
+              for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();f++)
+              {
+                if (!f->rem.empty() &&
+                    find(iRem->second.begin(),iRem->second.end(),f->rem)!=iRem->second.end())
+                {
+                  pr_find=true;
+                  break;
+                };
+              };
+              cats[remFQT]=true;
+              break;
+            case remASVC:
+              if (find(iRem->second.begin(),iRem->second.end(),"ASVC")!=iRem->second.end())
+              {
+                if (LoadPaxASVC(pax_id, asvc)) pr_find=true;
+                cats[remASVC]=true;
+              };
+              break;
+            default:
+              LoadPaxRem(pax_id, rems);
+              for(multiset<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();r++)
+              {
+                if (!r->code.empty() &&
+                    find(iRem->second.begin(),iRem->second.end(),r->code)!=iRem->second.end())
+                {
+                  pr_find=true;
+                  break;
+                };
+              };
+              cats[remUnknown]=true;
+              break;
+          };
+          if (pr_find) break;
+        };
+        if (!pr_find) continue;
+      };
+
       multiset<CheckIn::TPaxRemItem> final_rems;
-      REPORT_PAX_REMS::get(Qry, rpt_params.GetLang(), rpt_params.rems, final_rems);
+      CheckIn::TPaxRemItem rem;
+      //обычные ремарки (обязательно обрабатываем первыми)
+      if (!cats[remUnknown]) LoadPaxRem(pax_id, rems);
+      for(multiset<CheckIn::TPaxRemItem>::iterator r=rems.begin();r!=rems.end();++r)
+        if (getPaxRem(rpt_params, *r, inf_indicator, rem)) final_rems.insert(rem);
+
+      //билет
+      if (!cats[remTKN]) tkn.fromDB(Qry);
+      if (getPaxRem(rpt_params, tkn, inf_indicator, rem)) final_rems.insert(rem);
+      //документ
+      if (!cats[remDOC]) LoadPaxDoc(pax_id, doc);
+      if (getPaxRem(rpt_params, doc, inf_indicator, rem)) final_rems.insert(rem);
+      //виза
+      if (!cats[remDOCO]) LoadPaxDoco(pax_id, doco);
+      if (getPaxRem(rpt_params, doco, inf_indicator, rem)) final_rems.insert(rem);
+      //адреса
+      if (!cats[remDOCA]) LoadPaxDoca(pax_id, doca_map);
+      for(CheckIn::TDocaMap::const_iterator d = doca_map.begin(); d != doca_map.end(); ++d)
+        if (getPaxRem(rpt_params, d->second, inf_indicator, rem)) final_rems.insert(rem);
+      //бонус-программа
+      if (!cats[remFQT]) LoadPaxFQT(pax_id, fqts);
+      for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();++f)
+        if (getPaxRem(rpt_params, *f, inf_indicator, rem)) final_rems.insert(rem);
+      //услуги
+      if (!cats[remASVC]) LoadPaxASVC(pax_id, asvc);
+      for(vector<CheckIn::TPaxASVCItem>::const_iterator a=asvc.begin();a!=asvc.end();++a)
+        if (getPaxRem(rpt_params, *a, inf_indicator, rem)) final_rems.insert(rem);
+
 
       if(rpt_params.rpt_type == rtSPEC or rpt_params.rpt_type == rtSPECTXT)
       {
@@ -2951,7 +2926,6 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
       NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
 
-      int pax_id=Qry.FieldAsInteger("pax_id");
       string seat_no = getJMPSeatNo(pax_id);
       if(seat_no.empty()) seat_no = Qry.FieldAsString("seat_no");
       NewTextChild(rowNode, "seat_no", seat_no);
@@ -3559,112 +3533,38 @@ void WEBTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 void VOUCHERS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     get_compatible_report_form("vouchers", reqNode, resNode);
-
-    TCachedQuery Qry(
-            "select "
-            "    confirm_print.pax_id, "
-            "    pax.surname||' '||pax.name AS full_name, "
-            "    pax.pers_type, "
-            "    pax.reg_no, "
-            "    pax.ticket_no, "
-            "    pax.coupon_no, "
-            "    pax.ticket_rem, "
-            "    pax.ticket_confirm, "
-            "    pax.pers_type, "
-            "    pax.seats, "
-            "    confirm_print.voucher, "
-            "    count(*) total "
-            "from "
-            "    pax_grp, "
-            "    pax, "
-            "    confirm_print "
-            "where "
-            "    pax_grp.point_dep = :point_id and "
-            "    pax_grp.grp_id = pax.grp_id and "
-            "    pax.pax_id = confirm_print.pax_id and "
-            "    confirm_print.voucher is not null and "
-            "    confirm_print.pr_print <> 0 "
-            "group by "
-            "    confirm_print.pax_id, "
-            "    pax.surname||' '||pax.name, "
-            "    pax.pers_type, "
-            "    pax.reg_no, "
-            "    pax.ticket_no, "
-            "    pax.coupon_no, "
-            "    pax.ticket_rem, "
-            "    pax.ticket_confirm, "
-            "    pax.pers_type, "
-            "    pax.seats, "
-            "    confirm_print.voucher "
-            "order by "
-            "    confirm_print.voucher, "
-            "    pax.reg_no ",
-            QParams()
-            << QParam("point_id", otInteger, rpt_params.point_id));
-    Qry.get().Execute();
-
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
-    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_vouchers");
     // переменные отчёта
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
     // заголовок отчёта
-    NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.VOUCHERS",
-                LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
+    NewTextChild(variablesNode, "caption", "VOUCHERS TEST");
     populate_doc_cap(variablesNode, rpt_params.GetLang());
-
-    if(not Qry.get().Eof) {
-        xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_vouchers");
-        // строки отчёта
-
-        map<string, int> totals;
-        for(; not Qry.get().Eof; Qry.get().Next()) {
-            string voucher = Qry.get().FieldAsString("voucher");
-            int reg_no = Qry.get().FieldAsInteger("reg_no");
-            xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-            string category = rpt_params.ElemIdToReportElem(etVoucherType, voucher, efmtNameLong);
-            NewTextChild(rowNode, "category", category);
-            NewTextChild(rowNode, "reg_no", reg_no);
-            NewTextChild(rowNode, "fio", transliter(Qry.get().FieldAsString("full_name"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-            NewTextChild(rowNode, "type", getLocaleText(Qry.get().FieldAsString("pers_type"), rpt_params.GetLang()));
-
-            string ticket_no = Qry.get().FieldAsString("ticket_no");
-            string coupon_no = Qry.get().FieldAsString("coupon_no");
-            ostringstream ticket;
-            if(not ticket_no.empty())
-                ticket << ticket_no << (coupon_no.empty() ? "" : "/") << coupon_no;
-
-            NewTextChild(rowNode, "tick_no", ticket.str());
-
-            int quantity = Qry.get().FieldAsInteger("total");
-            totals[category] += quantity;
-            NewTextChild(rowNode, "quantity", quantity);
-
-            set<string> rems;
-            REPORT_PAX_REMS::get_rem_codes(Qry.get(), rpt_params.GetLang(), rems);
-            ostringstream rems_list;
-            for(set<string>::iterator i = rems.begin(); i != rems.end(); i++) {
-                if(rems_list.str().size() != 0)
-                    rems_list << " ";
-                rems_list << *i;
-            }
-            NewTextChild(rowNode, "rem", rems_list.str());
-        }
-        dataSetNode = NewTextChild(dataSetsNode, "totals");
-        int total_sum = 0;
-        for(map<string, int>::iterator i = totals.begin(); i != totals.end(); i++) {
-            xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-            ostringstream buf;
-            buf << i->first << " " << i->second;
-            total_sum += i->second;
-            NewTextChild(rowNode, "item", buf.str());
-        }
+    NewTextChild(variablesNode, "doc_cap_vou_reg_no", "Рег№");
+    NewTextChild(variablesNode, "doc_cap_vou_fio", "ФИО");
+    NewTextChild(variablesNode, "doc_cap_vou_type", "Тип");
+    NewTextChild(variablesNode, "doc_cap_vou_tick_no", "№ билета");
+    NewTextChild(variablesNode, "doc_cap_vou_quantity", "Кол-во  ваучеров");
+    NewTextChild(variablesNode, "doc_cap_vou_rem", "Ремарки");
+    // строки отчёта
+    for (int i = 0; i < 10; ++i)
+    {
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
         ostringstream buf;
-        buf << getLocaleText("Всего:", rpt_params.GetLang()) << " " << total_sum;
-        NewTextChild(rowNode, "item", buf.str());
-    }
+        buf << "Категория " << i/4;
+        NewTextChild(rowNode, "category", buf.str());
+        NewTextChild(rowNode, "reg_no", i);
+        NewTextChild(rowNode, "fio", "Иванов Иван");
+        NewTextChild(rowNode, "type", "ВЗ");
+        NewTextChild(rowNode, "tick_no", "298855588585/1");
+        NewTextChild(rowNode, "quantity", i+1);
+        NewTextChild(rowNode, "rem", "FQTV GOLD");
 
+        NewTextChild(rowNode, "data", i); // TODO delete
+        NewTextChild(rowNode, "subtotal", i); // TODO delete
+    }
     LogTrace(TRACE5) << GetXMLDocText(resNode->doc); //!!!
 }
 
