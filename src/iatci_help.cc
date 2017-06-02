@@ -995,7 +995,7 @@ static xmlNodePtr xmlViewIatciPax(xmlNodePtr paxesNode,
         LogWarning(STDLOG) << "use default subclass [Э]";
     }
     NewTextChild(paxNode, "subclass", subcls); // TODO
-    NewTextChild(paxNode, "bag_pool_num", ""); // TODO
+    NewTextChild(paxNode, "bag_pool_num", ""); // здесь не может заполнить - нет контекста
     NewTextChild(paxNode, "tid", 0); // TODO
 
     boost::optional<Ticketing::TicketCpn_t> tickCpn;

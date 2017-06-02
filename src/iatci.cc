@@ -1189,8 +1189,12 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
                         reqBag.pr_cabin);
     }
 
-    std::set<int> processedPaxIds;
     std::set<int> bagPoolNums = baggage.poolNums();
+    if(bagPoolNums.empty()) {
+        // удаление
+    }
+
+    std::set<int> processedPaxIds;
     for(int poolNum: bagPoolNums) {
         boost::optional<astra_entities::PaxInfo> pax = findPaxByBagPoolNum(lPax,
                                                                            lReqPax,
@@ -1474,6 +1478,44 @@ static void MagicUpdate(xmlNodePtr resNode, int grpId)
     }
 }
 
+static void UpdateBagPoolNums(xmlNodePtr resNode, xmlNodePtr reqNode)
+{
+    xmlNodePtr reqSegsNode = findNodeR(reqNode, "iatci_segments");
+    xmlNodePtr resSegsNode = findNodeR(resNode, "segments");
+    if(!(reqSegsNode && resSegsNode)) {
+        tst();
+        return;
+    }
+
+    xmlNodePtr reqSegNode = reqSegsNode->children;
+    xmlNodePtr resSegNode = resSegsNode->children;
+    ASSERT(reqSegNode && resSegNode);
+
+    for(;reqSegNode != NULL && resSegsNode != NULL;
+        reqSegNode = reqSegNode->next, resSegNode = resSegNode->next)
+    {
+        xmlNodePtr reqPaxesNode = findNodeR(reqSegNode, "passengers");
+        xmlNodePtr resPaxesNode = findNodeR(resSegNode, "passengers");
+        ASSERT(reqPaxesNode && resPaxesNode);
+
+        xmlNodePtr reqPaxNode = reqPaxesNode->children;
+        xmlNodePtr resPaxNode = resPaxesNode->children;
+        ASSERT(reqPaxNode && resPaxNode);
+
+        for(;reqPaxNode != NULL && resPaxNode != NULL;
+            reqPaxNode = reqPaxNode->next, resPaxNode = resPaxNode->next)
+        {
+            xmlNodePtr reqBagPoolNode = findNode(reqPaxNode, "bag_pool_num");
+            xmlNodePtr resBagPoolNode = findNode(resPaxNode, "bag_pool_num");
+            if(reqBagPoolNode && resBagPoolNode) {
+                if(!NodeIsNULL(reqBagPoolNode)) {
+                    NodeSetContent(resBagPoolNode, NodeAsString(reqBagPoolNode));
+                }
+            }
+        }
+    }
+}
+
 static void SaveIatciCkiXmlRes(xmlNodePtr iatciResNode, int grpId)
 {
     LogTrace(TRACE3) << __FUNCTION__;
@@ -1555,11 +1597,12 @@ static void SaveIatciXmlResByReqType(xmlNodePtr iatciResNode, int grpId,
     }
 }
 
-static void SaveIatciXmlRes(xmlNodePtr iatciResNode, int grpId,
+static void SaveIatciXmlRes(xmlNodePtr iatciResNode, xmlNodePtr termReqNode, int grpId,
                             IatciInterface::RequestType reqType)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__;
     MagicUpdate(iatciResNode, grpId);
+    UpdateBagPoolNums(iatciResNode, termReqNode);
     SaveIatciXmlResByReqType(iatciResNode, grpId, reqType);
 }
 
@@ -1568,7 +1611,7 @@ static void SaveIatciGrp(int grpId, IatciInterface::RequestType reqType,
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId:" << grpId;
     xmlNodePtr iatciResNode = NodeAsNode("/iatci_result", ediResNode);
-    SaveIatciXmlRes(iatciResNode, grpId, reqType);
+    SaveIatciXmlRes(iatciResNode, termReqNode, grpId, reqType);
 }
 
 static void UpdateIatciGrp(int grpId, IatciInterface::RequestType reqType,

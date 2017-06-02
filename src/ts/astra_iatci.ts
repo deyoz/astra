@@ -5645,6 +5645,18 @@ UBD+R:1:13+R:1:5+R:NP"
 UNT+6+1"
 UNZ+1+$(last_edifact_ref)0001"
 
+<<
+UNB+SIRE:1+TA+OA+150217:0745+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+S7+1027+$(yymmdd)+LED+AER++T"
+RAD+U+P"
+UNT+4+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(KICK_IN_SILENT)
+
+$(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
+
 
 # отмена
 
@@ -5688,7 +5700,7 @@ UNZ+1+$(last_edifact_ref)0001"
               <addresses/>
               <bag_pool_num/>
               <subclass>Э</subclass>
-              <tid>$(get tid)</tid>
+              <tid>$(get tid_new)</tid>
             </pax>
             <pax>
               <pax_id>$(get pax_2_id)</pax_id>
