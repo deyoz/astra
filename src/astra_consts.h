@@ -153,6 +153,7 @@ enum TRptType {
     rtNOTOC,
     rtLIR,
     rtANNUL_TAGS,
+    rtVOUCHERS,
     rtSERVICES,
     rtSERVICESTXT,
     rtUnknown,

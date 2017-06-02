@@ -3664,8 +3664,6 @@ void VOUCHERS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         buf << getLocaleText("Всего:", rpt_params.GetLang()) << " " << total_sum;
         NewTextChild(rowNode, "item", buf.str());
     }
-
-    LogTrace(TRACE5) << GetXMLDocText(resNode->doc); //!!!
 }
 
 // VOUCHERS END
@@ -4031,6 +4029,9 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             break;
         case rtANNUL_TAGS:
             ANNUL_TAGS(rpt_params, reqNode, resNode);
+            break;
+        case rtVOUCHERS:
+            VOUCHERS(rpt_params, reqNode, resNode);
             break;
         case rtSERVICES:
             SERVICES(rpt_params, reqNode, resNode);
