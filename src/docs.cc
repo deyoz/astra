@@ -4038,9 +4038,6 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         case rtSERVICESTXT:
             SERVICESTXT(rpt_params, reqNode, resNode);
             break;
-        case rtVOUCHERS:
-            VOUCHERS(rpt_params, reqNode, resNode);
-            break;
         default:
             throw AstraLocale::UserException("MSG.TEMPORARILY_NOT_SUPPORTED");
     }
