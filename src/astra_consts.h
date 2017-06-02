@@ -155,6 +155,7 @@ enum TRptType {
     rtANNUL_TAGS,
     rtSERVICES,
     rtSERVICESTXT,
+    rtVOUCHERS,
     rtUnknown,
     rtTypeNum
 };
