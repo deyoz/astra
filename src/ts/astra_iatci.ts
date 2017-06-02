@@ -5635,6 +5635,16 @@ $(SAVE_GRP_BAGGAGE $(get grp_id) $(get tid_new)
                    "01.05.1976 00:00:00" "31.12.2049 00:00:00"
                    REPIN ADULT PETROVICH)
 
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)+LED+AER"
+PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
+UBD+R:1:13+R:1:5+R:NP"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
 
 # отмена
 
