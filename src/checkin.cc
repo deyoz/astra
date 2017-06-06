@@ -7045,6 +7045,7 @@ void CheckInInterface::LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int 
             CopyNode(destSegsNode, srcSegNode, true/*recursive*/);
         }
 
+        // обманем терминал
         CloneServiceLists(destSegsNode, iatciSegsCount);
     }
 }

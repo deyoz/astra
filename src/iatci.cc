@@ -1478,41 +1478,63 @@ static void MagicUpdate(xmlNodePtr resNode, int grpId)
     }
 }
 
+
 static void UpdateBagPoolNums(xmlNodePtr resNode, xmlNodePtr reqNode)
 {
     xmlNodePtr reqSegsNode = findNodeR(reqNode, "iatci_segments");
     xmlNodePtr resSegsNode = findNodeR(resNode, "segments");
-    if(!(reqSegsNode && resSegsNode)) {
+    if(!(reqSegsNode && resSegsNode))
+    {
         tst();
         return;
     }
 
     xmlNodePtr reqSegNode = reqSegsNode->children;
     xmlNodePtr resSegNode = resSegsNode->children;
-    ASSERT(reqSegNode && resSegNode);
-
-    for(;reqSegNode != NULL && resSegsNode != NULL;
-        reqSegNode = reqSegNode->next, resSegNode = resSegNode->next)
+    if(!(reqSegNode && resSegNode))
     {
-        xmlNodePtr reqPaxesNode = findNodeR(reqSegNode, "passengers");
-        xmlNodePtr resPaxesNode = findNodeR(resSegNode, "passengers");
-        ASSERT(reqPaxesNode && resPaxesNode);
+        tst();
+        return;
+    }
 
-        xmlNodePtr reqPaxNode = reqPaxesNode->children;
-        xmlNodePtr resPaxNode = resPaxesNode->children;
-        ASSERT(reqPaxNode && resPaxNode);
+    // берём только первый сегмент
+    xmlNodePtr reqPaxesNode = findNodeR(reqSegNode, "passengers");
+    ASSERT(reqPaxesNode);
 
-        for(;reqPaxNode != NULL && resPaxNode != NULL;
-            reqPaxNode = reqPaxNode->next, resPaxNode = resPaxNode->next)
+    xmlNodePtr reqPaxNode = reqPaxesNode->children;
+    ASSERT(reqPaxNode);
+
+    for(;reqPaxNode != NULL; reqPaxNode = reqPaxNode->next)
+    {
+        std::string tickno = NodeAsString("ticket_no", reqPaxNode, "");
+        if(tickno.empty())
         {
-            xmlNodePtr reqBagPoolNode = findNode(reqPaxNode, "bag_pool_num");
-            xmlNodePtr resBagPoolNode = findNode(resPaxNode, "bag_pool_num");
-            if(reqBagPoolNode && resBagPoolNode) {
-                if(!NodeIsNULL(reqBagPoolNode)) {
+            tst();
+            continue;
+        }
+
+        xmlNodePtr reqBagPoolNode = findNode(reqPaxNode, "bag_pool_num");
+        if(NodeIsNULL(reqBagPoolNode)) continue;
+
+        for(;resSegNode != NULL; resSegNode = resSegNode->next)
+        {
+            xmlNodePtr resPaxesNode = findNodeR(resSegNode, "passengers");
+            ASSERT(resPaxesNode);
+
+            xmlNodePtr resPaxNode = resPaxesNode->children;
+            ASSERT(resPaxNode);
+            for(;resPaxNode != NULL; resPaxNode = resPaxNode->next)
+            {
+                tst();
+                std::string resTickno = NodeAsString("ticket_no", resPaxNode, "");
+                if(resTickno == tickno) {
+                    xmlNodePtr resBagPoolNode = findNode(resPaxNode, "bag_pool_num");
+                    ASSERT(resBagPoolNode);
                     NodeSetContent(resBagPoolNode, NodeAsString(reqBagPoolNode));
                 }
             }
         }
+
     }
 }
 
@@ -1597,12 +1619,20 @@ static void SaveIatciXmlResByReqType(xmlNodePtr iatciResNode, int grpId,
     }
 }
 
+static void MakeXmlUpdates(xmlNodePtr iatciResNode, xmlNodePtr termReqNode, int grpId,
+                           IatciInterface::RequestType reqType)
+{
+    MagicUpdate(iatciResNode, grpId);
+    if(reqType == IatciInterface::Cku) {
+        UpdateBagPoolNums(iatciResNode, termReqNode);
+    }
+}
+
 static void SaveIatciXmlRes(xmlNodePtr iatciResNode, xmlNodePtr termReqNode, int grpId,
                             IatciInterface::RequestType reqType)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__;
-    MagicUpdate(iatciResNode, grpId);
-    UpdateBagPoolNums(iatciResNode, termReqNode);
+    MakeXmlUpdates(iatciResNode, termReqNode, grpId, reqType);
     SaveIatciXmlResByReqType(iatciResNode, grpId, reqType);
 }
 
