@@ -105,6 +105,7 @@ void CkuRequest::collectMessage()
         }
 
         PopEdiPointW(pMes());
+        currPxg++;
     }
 }
 

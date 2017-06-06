@@ -6969,7 +6969,6 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
 static void CloneServiceLists(xmlNodePtr segsNode, int numToClone)
 {
     using namespace astra_api::xml_entities;
-    LogTrace(TRACE3) << "Clone:\n" << XMLTreeToText(segsNode->doc);
     xmlNodePtr passengersNode = findNodeR(segsNode, "passengers");
     int maxSegNo = -1, listIdCat1 = 0, listIdCat2 = 0;
     for(xmlNodePtr paxNode = passengersNode->children; paxNode != NULL;

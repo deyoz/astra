@@ -1203,7 +1203,11 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
 
     std::set<int> bagPoolNums = baggage.poolNums();
     if(bagPoolNums.empty()) {
-        // удаление
+        for(const auto& p: lPax) {
+            if(p.bagPoolNum()) {
+                bagPoolNums.insert(p.bagPoolNum());
+            }
+        }
     }
 
     std::set<int> processedPaxIds;
