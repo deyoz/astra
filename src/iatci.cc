@@ -1202,11 +1202,9 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
     }
 
     std::set<int> bagPoolNums = baggage.poolNums();
-    if(bagPoolNums.empty()) {
-        for(const auto& p: lPax) {
-            if(p.bagPoolNum()) {
-                bagPoolNums.insert(p.bagPoolNum());
-            }
+    for(const auto& p: lPax) {
+        if(p.bagPoolNum()) {
+            bagPoolNums.insert(p.bagPoolNum());
         }
     }
 
