@@ -515,6 +515,7 @@ namespace
 
         void updatePaxDoc(const iatci::PaxDetails& pax);
         void updatePaxRems(const iatci::PaxDetails& pax);
+        void updateBagPoolNums(const iatci::PaxDetails& pax);
         void updatePersonal(const iatci::PaxDetails& pax,
                             const iatci::UpdatePaxDetails& updPax);
         void updatePaxSeat(const iatci::UpdateSeatDetails& updSeat);
@@ -558,6 +559,11 @@ namespace
         copyNodeFromReqToIatci(pax, "rems");
     }
 
+    void IatciUpdater::updateBagPoolNums(const iatci::PaxDetails& pax)
+    {
+        copyNodeFromReqToIatci(pax, "bag_pool_num");
+    }
+
     void IatciUpdater::updatePersonal(const iatci::PaxDetails& pax,
                                       const iatci::UpdatePaxDetails& updPax)
     {
@@ -595,6 +601,8 @@ namespace
                 paxNode != NULL; paxNode = paxNode->next)
             {
                 XmlPax xmlPax = XmlEntityReader::readPax(paxNode);
+                LogTrace(TRACE3) << "compare paxes: " << xmlPax.surname << "/" << xmlPax.name
+                                 << " and " << pax.surname() << "/" << pax.name();
                 // возможно стоит сравнивать ещё что-то (например, тип пакса)
                 if(xmlPax.surname == pax.surname() &&
                    xmlPax.name    == pax.name())
@@ -614,20 +622,24 @@ namespace
         xmlNodePtr reqSegsNode = findNodeR(m_reqNode, "iatci_segments");
         ASSERT(reqSegsNode != NULL);
         std::list<xmlNodePtr> reqPaxNodes = findPaxNodes(reqSegsNode, pax);
-        ASSERT(!reqPaxNodes.empty());
+        if(reqPaxNodes.empty()) {
+            tst();
+            return;
+        }
+
         xmlNodePtr reqPaxNode = reqPaxNodes.front();
-        xmlNodePtr reqPaxDocNode = findNode(reqPaxNode, nodeName);
-        ASSERT(reqPaxDocNode);
+        xmlNodePtr srcNode = findNode(reqPaxNode, nodeName);
+        ASSERT(srcNode);
 
         std::list<xmlNodePtr> iatciPaxNodes = findPaxNodes(iatciSegsNode, pax);
         ASSERT(!iatciPaxNodes.empty());
         for(const auto& iatciPaxNode: iatciPaxNodes)
         {
-            xmlNodePtr iatciPaxDocNode = findNode(iatciPaxNode, nodeName);
-            ASSERT(iatciPaxDocNode);
-            RemoveChildNodes(iatciPaxDocNode);
-            RemoveNode(iatciPaxDocNode);
-            CopyNode(iatciPaxNode, reqPaxDocNode);
+            xmlNodePtr destNode = findNode(iatciPaxNode, nodeName);
+            ASSERT(destNode);
+            RemoveChildNodes(destNode);
+            RemoveNode(destNode);
+            CopyNode(iatciPaxNode, srcNode);
         }
     }
 
@@ -1196,6 +1208,9 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
 
     std::set<int> processedPaxIds;
     for(int poolNum: bagPoolNums) {
+        //boost::optional<astra_entities::PaxInfo> reqPax = findPaxByBagPoolNum(lReqPax,
+        //                                                                      poolNum);
+
         boost::optional<astra_entities::PaxInfo> pax = findPaxByBagPoolNum(lPax,
                                                                            lReqPax,
                                                                            poolNum);
@@ -1478,66 +1493,6 @@ static void MagicUpdate(xmlNodePtr resNode, int grpId)
     }
 }
 
-
-static void UpdateBagPoolNums(xmlNodePtr resNode, xmlNodePtr reqNode)
-{
-    xmlNodePtr reqSegsNode = findNodeR(reqNode, "iatci_segments");
-    xmlNodePtr resSegsNode = findNodeR(resNode, "segments");
-    if(!(reqSegsNode && resSegsNode))
-    {
-        tst();
-        return;
-    }
-
-    xmlNodePtr reqSegNode = reqSegsNode->children;
-    xmlNodePtr resSegNode = resSegsNode->children;
-    if(!(reqSegNode && resSegNode))
-    {
-        tst();
-        return;
-    }
-
-    // берём только первый сегмент
-    xmlNodePtr reqPaxesNode = findNodeR(reqSegNode, "passengers");
-    ASSERT(reqPaxesNode);
-
-    xmlNodePtr reqPaxNode = reqPaxesNode->children;
-    ASSERT(reqPaxNode);
-
-    for(;reqPaxNode != NULL; reqPaxNode = reqPaxNode->next)
-    {
-        std::string tickno = NodeAsString("ticket_no", reqPaxNode, "");
-        if(tickno.empty())
-        {
-            tst();
-            continue;
-        }
-
-        xmlNodePtr reqBagPoolNode = findNode(reqPaxNode, "bag_pool_num");
-        if(NodeIsNULL(reqBagPoolNode)) continue;
-
-        for(;resSegNode != NULL; resSegNode = resSegNode->next)
-        {
-            xmlNodePtr resPaxesNode = findNodeR(resSegNode, "passengers");
-            ASSERT(resPaxesNode);
-
-            xmlNodePtr resPaxNode = resPaxesNode->children;
-            ASSERT(resPaxNode);
-            for(;resPaxNode != NULL; resPaxNode = resPaxNode->next)
-            {
-                tst();
-                std::string resTickno = NodeAsString("ticket_no", resPaxNode, "");
-                if(resTickno == tickno) {
-                    xmlNodePtr resBagPoolNode = findNode(resPaxNode, "bag_pool_num");
-                    ASSERT(resBagPoolNode);
-                    NodeSetContent(resBagPoolNode, NodeAsString(reqBagPoolNode));
-                }
-            }
-        }
-
-    }
-}
-
 static void SaveIatciCkiXmlRes(xmlNodePtr iatciResNode, int grpId)
 {
     LogTrace(TRACE3) << __FUNCTION__;
@@ -1619,20 +1574,11 @@ static void SaveIatciXmlResByReqType(xmlNodePtr iatciResNode, int grpId,
     }
 }
 
-static void MakeXmlUpdates(xmlNodePtr iatciResNode, xmlNodePtr termReqNode, int grpId,
-                           IatciInterface::RequestType reqType)
-{
-    MagicUpdate(iatciResNode, grpId);
-    if(reqType == IatciInterface::Cku) {
-        UpdateBagPoolNums(iatciResNode, termReqNode);
-    }
-}
-
 static void SaveIatciXmlRes(xmlNodePtr iatciResNode, xmlNodePtr termReqNode, int grpId,
                             IatciInterface::RequestType reqType)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__;
-    MakeXmlUpdates(iatciResNode, termReqNode, grpId, reqType);
+    MagicUpdate(iatciResNode, grpId);
     SaveIatciXmlResByReqType(iatciResNode, grpId, reqType);
 }
 
@@ -1662,6 +1608,12 @@ static void UpdateIatciGrp(int grpId, IatciInterface::RequestType reqType,
 
     dcqcku::FlightGroup fltGrp = ckuParams->fltGroup();
     for(const dcqcku::PaxGroup& paxGrp: fltGrp.paxGroups()) {
+        if(paxGrp.updBaggage()) {
+            updater.updateBagPoolNums(paxGrp.pax());
+            if(paxGrp.infant()) {
+                updater.updateBagPoolNums(paxGrp.infant().get());
+            }
+        }
         if(paxGrp.updDoc()) {
             updater.updatePaxDoc(paxGrp.pax());
         }
