@@ -594,7 +594,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                                    tmp_bag,
                                    list<WeightConcept::TBagNormInfo>(),
                                    paid,
-                                   CheckIn::TServicePaymentList(),
+                                   CheckIn::TServicePaymentListWithAuto(),
                                    "",
                                    PaidBagViewMap, TrferBagViewMap);
     WeightConcept::PaidBagViewToXML(PaidBagViewMap, TrferBagViewMap, dataNode);
@@ -616,9 +616,9 @@ void PaymentInterface::LoadReceipts(int id, bool pr_grp, bool pr_lat, xmlNodePtr
     xmlNodePtr node=NewTextChild(dataNode,"prepayment");
 
     //квитанции EMD, MCO
-    CheckIn::TServicePaymentList payment;
+    CheckIn::TServicePaymentListWithAuto payment;
     payment.fromDB(id);
-    for(CheckIn::TServicePaymentList::const_iterator i=payment.begin(); i!=payment.end(); ++i)
+    for(CheckIn::TServicePaymentListWithAuto::const_iterator i=payment.begin(); i!=payment.end(); ++i)
     {
       const CheckIn::TServicePaymentItem &item=*i;
       if (item.trfer_num!=0) continue;
@@ -1556,9 +1556,9 @@ void PaymentInterface::GetReceiptFromXML(xmlNodePtr reqNode, TBagReceipt &rcpt)
       if (NodeIsNULL("no",rcptNode) && !rcpt.prev_no.empty())
       {
         //проверим что это не номер EMD
-        CheckIn::TServicePaymentList payment;
+        CheckIn::TServicePaymentListWithAuto payment;
         payment.fromDB(grp_id);
-        for(CheckIn::TServicePaymentList::const_iterator i=payment.begin(); i!=payment.end(); ++i)
+        for(CheckIn::TServicePaymentListWithAuto::const_iterator i=payment.begin(); i!=payment.end(); ++i)
         {
           const CheckIn::TServicePaymentItem &item=*i;
           if (item.trfer_num!=0) continue;

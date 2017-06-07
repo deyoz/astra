@@ -8,6 +8,7 @@
 #include "xml_unit.h"
 #include "oralib.h"
 #include "baggage_base.h"
+#include "remarks.h"
 
 //какая-то фигня с определением кодировки этого файла, поэтому я вставил эту фразу
 
@@ -36,6 +37,7 @@ class TServiceType
         l.push_back(std::make_pair(Merchendaise,   "M"));
         l.push_back(std::make_pair(BaggageCharge,  "C"));
         l.push_back(std::make_pair(BaggagePrepaid, "P"));
+        l.push_back(std::make_pair(Unknown,        ""));
       }
       return l;
     }
@@ -218,6 +220,16 @@ class TRFISCListItem : public TRFISCListKey
     TRFISCListItem()
     {
       clear();
+    }
+    TRFISCListItem(const CheckIn::TPaxASVCItem& item)
+    {
+      clear();
+      RFISC=item.RFISC;
+      RFIC=item.RFIC;
+      name=item.service_name;
+      name_lat=item.service_name;
+      category=TServiceCategory::Other;
+      visible=true;
     }
 
     void clear()
@@ -492,6 +504,11 @@ class TPaxSegRFISCKey : public Sirena::TPaxSegKey, public TRFISCKey
         return TPaxSegKey::operator <(key);
       return TRFISCKey::operator <(key);
     }
+    bool operator == (const TPaxSegRFISCKey &key) const
+    {
+      return TPaxSegKey::operator == (key) &&
+             TRFISCKey::operator ==(key);
+    }
 
     const TPaxSegRFISCKey& toSirenaXML(xmlNodePtr node, const std::string &lang) const;
     TPaxSegRFISCKey& fromSirenaXML(xmlNodePtr node);
@@ -502,12 +519,30 @@ class TPaxSegRFISCKey : public Sirena::TPaxSegKey, public TRFISCKey
     TPaxSegRFISCKey& fromDB(TQuery &Qry);
 };
 
+class TGrpServiceAutoItem : public Sirena::TPaxSegKey, public CheckIn::TPaxASVCItem
+{
+  public:
+    void clear()
+    {
+      TPaxSegKey::clear();
+      TPaxASVCItem::clear();
+    }
+    TGrpServiceAutoItem& fromDB(TQuery &Qry);
+    const TGrpServiceAutoItem& toDB(TQuery &Qry) const;
+    bool isSuitableForAutoCheckin() const
+    {
+      return RFIC!="C";
+    }
+    bool permittedForAutoCheckin(const TTripInfo &flt) const;
+};
+
 class TGrpServiceItem : public TPaxSegRFISCKey
 {
   public:
     int service_quantity;
 
     TGrpServiceItem() { clear(); }
+    TGrpServiceItem(const TGrpServiceAutoItem& item);
     TGrpServiceItem(const TPaxSegRFISCKey& _item, const int _service_quantity) :
       TPaxSegRFISCKey(_item), service_quantity(_service_quantity) {}
     void clear()
@@ -521,6 +556,26 @@ class TGrpServiceItem : public TPaxSegRFISCKey
     const TGrpServiceItem& toDB(TQuery &Qry) const;
     TGrpServiceItem& fromDB(TQuery &Qry);
     bool service_quantity_valid() const { return service_quantity!=ASTRA::NoExists && service_quantity>0; }
+    bool is_auto_service() const
+    {
+      return service_type==TServiceType::Unknown;
+    }
+    bool similar(const TGrpServiceAutoItem& item) const
+    {
+      TGrpServiceItem tmp(item);
+      return TPaxSegKey::operator == (tmp) &&
+             RFISC == tmp.RFISC &&
+             list_item && tmp.list_item && list_item.get().RFIC==tmp.list_item.get().RFIC;
+    }
+};
+
+class TGrpServiceAutoList : public std::list<TGrpServiceAutoItem>
+{
+  public:
+    void fromDB(int id, bool is_grp_id, bool without_refused=false);
+    void toDB(int grp_id) const;
+    static void clearDB(int grp_id);
+    static void copyDB(int grp_id_src, int grp_id_dest, bool not_clear=false);
 };
 
 class TGrpServiceList : public std::list<TGrpServiceItem>
@@ -528,8 +583,7 @@ class TGrpServiceList : public std::list<TGrpServiceItem>
   public:
     void fromDB(int grp_id, bool without_refused=false);
     void toDB(int grp_id) const;
-    bool fromXML(xmlNodePtr node);
-    void toXML(xmlNodePtr node) const;
+
     void addBagInfo(int grp_id,
                     int tckin_seg_count,
                     int trfer_seg_count,
@@ -541,6 +595,17 @@ class TGrpServiceList : public std::list<TGrpServiceItem>
     void getAllListItems();
     static void clearDB(int grp_id);
     static void copyDB(int grp_id_src, int grp_id_dest);
+    void moveFrom(TGrpServiceAutoList& list);
+};
+
+class TGrpServiceListWithAuto : public std::list<TGrpServiceItem>
+{
+  public:
+    void addItem(const TGrpServiceItem& item);
+    void fromDB(int grp_id, bool without_refused=false);
+    bool fromXML(xmlNodePtr node);
+    void toXML(xmlNodePtr node) const;
+    void split(int grp_id, TGrpServiceList& list1, TGrpServiceAutoList& list2) const;
 };
 
 class TPaidRFISCStatus : public TPaxSegRFISCKey
@@ -567,6 +632,8 @@ class TPaidRFISCItem : public TGrpServiceItem
     int need;
 
     TPaidRFISCItem() { clear(); }
+    TPaidRFISCItem(const TGrpServiceAutoItem& item) :
+      TGrpServiceItem(item), paid(item.service_quantity), need(0) {};
     TPaidRFISCItem(const TGrpServiceItem& item):TGrpServiceItem(item)
     {
       paid=ASTRA::NoExists;
@@ -600,6 +667,13 @@ class TPaidRFISCList : public std::map<TPaxSegRFISCKey, TPaidRFISCItem>
     static void clearDB(int grp_id);
     static void copyDB(int grp_id_src, int grp_id_dest);
     static void updateExcess(int grp_id);
+};
+
+class TPaidRFISCListWithAuto : public std::map<TPaxSegRFISCKey, TPaidRFISCItem>
+{
+  public:
+    void addItem(const TPaidRFISCItem& item);
+    void fromDB(int id, bool is_grp_id);
 };
 
 class TPaidRFISCViewKey : public TRFISCKey
@@ -652,7 +726,7 @@ class TPaidRFISCViewItem : public TPaidRFISCViewKey
 
 typedef std::map<TPaidRFISCViewKey, TPaidRFISCViewItem> TPaidRFISCViewMap;
 
-void CalcPaidRFISCView(const TPaidRFISCList &paid,
+void CalcPaidRFISCView(const TPaidRFISCListWithAuto &paid,
                        TPaidRFISCViewMap &paid_view);
 
 void PaidRFISCViewToXML(const TPaidRFISCViewMap &paid_view, xmlNodePtr node);

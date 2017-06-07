@@ -1270,6 +1270,14 @@ const TPaxSegRFISCKey& TPaxSegRFISCKey::toXML(xmlNodePtr node) const
   return *this;
 }
 
+TGrpServiceItem::TGrpServiceItem(const TGrpServiceAutoItem& item)
+{
+  list_item=TRFISCListItem(item);
+  (TPaxSegKey&)(*this)=item;
+  (TRFISCListKey&)(*this)=list_item.get();
+  service_quantity=item.service_quantity;
+}
+
 const TGrpServiceItem& TGrpServiceItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
@@ -1328,6 +1336,45 @@ TGrpServiceItem& TGrpServiceItem::fromDB(TQuery &Qry)
   return *this;
 }
 
+TGrpServiceAutoItem& TGrpServiceAutoItem::fromDB(TQuery &Qry)
+{
+  clear();
+  TPaxSegKey::fromDB(Qry);
+  TPaxASVCItem::fromDB(Qry);
+  return *this;
+}
+
+const TGrpServiceAutoItem& TGrpServiceAutoItem::toDB(TQuery &Qry) const
+{
+  TPaxSegKey::toDB(Qry);
+  TPaxASVCItem::toDB(Qry);
+  return *this;
+}
+
+bool TGrpServiceAutoItem::permittedForAutoCheckin(const TTripInfo& flt) const
+{
+  TCachedQuery Qry("SELECT auto_checkin, "
+                   "    DECODE(flt_no,NULL,0,2)+ "
+                   "    DECODE(airp_dep,NULL,0,4)+ "
+                   "    DECODE(rfisc,NULL,0,1) AS priority "
+                   "FROM rfisc_sets "
+                   "WHERE airline=:airline AND "
+                   "      rfic=:rfic AND "
+                   "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+                   "      (airp_dep IS NULL OR airp_dep=:airp_dep) AND "
+                   "      (rfisc IS NULL OR rfisc=:rfisc) "
+                   "ORDER BY priority DESC",
+                   QParams() << QParam("airline", otString, flt.airline)
+                             << QParam("flt_no", otInteger, flt.flt_no)
+                             << QParam("airp_dep", otString, flt.airp)
+                             << QParam("rfic", otString, RFIC)
+                             << QParam("rfisc", otString, RFISC));
+  Qry.get().Execute();
+  if (Qry.get().Eof) return false;
+  return Qry.get().FieldAsInteger("auto_checkin")!=0;
+}
+
+
 void TGrpServiceList::fromDB(int grp_id, bool without_refused)
 {
   clear();
@@ -1340,6 +1387,88 @@ void TGrpServiceList::fromDB(int grp_id, bool without_refused)
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
     push_back(TGrpServiceItem().fromDB(Qry.get()));
+}
+
+void TGrpServiceAutoList::fromDB(int id, bool is_grp_id, bool without_refused)
+{
+  clear();
+  TCachedQuery Qry(is_grp_id?
+                   (without_refused?
+                      "SELECT pax_services_auto.* FROM pax, pax_services_auto "
+                      "WHERE pax_services_auto.pax_id=pax.pax_id AND pax.grp_id=:id AND pax.refuse IS NULL":
+                      "SELECT pax_services_auto.* FROM pax, pax_services_auto "
+                      "WHERE pax_services_auto.pax_id=pax.pax_id AND pax.grp_id=:id"):
+                   (without_refused?
+                      "SELECT pax_services_auto.* FROM pax, pax_services_auto "
+                      "WHERE pax_services_auto.pax_id=pax.pax_id AND pax.pax_id=:id AND pax.refuse IS NULL":
+                      "SELECT * FROM pax_services_auto WHERE pax_id=:id"),
+                   QParams() << QParam("id", otInteger, id));
+  Qry.get().Execute();
+  for(; !Qry.get().Eof; Qry.get().Next())
+  {
+    TGrpServiceAutoItem item;
+    item.fromDB(Qry.get());
+    if (!item.isSuitableForAutoCheckin()) continue;
+    push_back(item);
+  }
+}
+
+void TGrpServiceListWithAuto::fromDB(int grp_id, bool without_refused)
+{
+  TGrpServiceList list1;
+  list1.fromDB(grp_id, without_refused);
+  for(TGrpServiceList::const_iterator i=list1.begin(); i!=list1.end(); ++i)
+    push_back(*i);
+
+  TGrpServiceAutoList list2;
+  list2.fromDB(grp_id, true, without_refused);
+  for(TGrpServiceAutoList::const_iterator i=list2.begin(); i!=list2.end(); ++i)
+    addItem(TGrpServiceItem(*i));
+}
+
+void TGrpServiceListWithAuto::addItem(const TGrpServiceItem& item)
+{
+  TGrpServiceList::iterator i=begin();
+  for(; i!=end(); ++i)
+  {
+    const TPaxSegRFISCKey& key=*i;
+    if (key==item) break;
+  };
+  if (i!=end())
+  {
+    TGrpServiceItem& dest=*i;
+
+    if (item.service_quantity_valid())
+    {
+      if (dest.service_quantity_valid())
+        dest.service_quantity+=item.service_quantity;
+      else
+        dest.service_quantity=item.service_quantity;
+    };
+  }
+  else push_back(item);
+}
+
+void TPaidRFISCListWithAuto::addItem(const TPaidRFISCItem& item)
+{
+  TPaidRFISCList::iterator i=find(item);
+  if (i!=end())
+  {
+    TPaidRFISCItem& dest=i->second;
+
+    if (item.service_quantity_valid())
+    {
+      if (dest.service_quantity_valid())
+        dest.service_quantity+=item.service_quantity;
+      else
+        dest.service_quantity=item.service_quantity;
+    };
+    if (item.paid_positive())
+      dest.paid=(dest.paid==ASTRA::NoExists?0:dest.paid) + item.paid;
+    if (item.need_positive())
+      dest.need=(dest.need==ASTRA::NoExists?0:dest.need) + item.need;
+  }
+  else insert( make_pair(item, item) );
 }
 
 void TPaidRFISCList::fromDB(int id, bool is_grp_id)
@@ -1405,9 +1534,29 @@ void TPaidRFISCList::fromDB(int id, bool is_grp_id)
   };
 }
 
+void TPaidRFISCListWithAuto::fromDB(int id, bool is_grp_id)
+{
+  TPaidRFISCList list1;
+  list1.fromDB(id, is_grp_id);
+  for(TPaidRFISCList::const_iterator i=list1.begin(); i!=list1.end(); ++i)
+    insert(*i);
+
+  TGrpServiceAutoList list2;
+  list2.fromDB(id, is_grp_id);
+  for(TGrpServiceAutoList::const_iterator i=list2.begin(); i!=list2.end(); ++i)
+    addItem(TPaidRFISCItem(*i));
+}
+
 void TGrpServiceList::clearDB(int grp_id)
 {
   TCachedQuery Qry("DELETE FROM (SELECT * FROM pax, pax_services WHERE pax_services.pax_id=pax.pax_id AND pax.grp_id=:grp_id)",
+                   QParams() << QParam("grp_id", otInteger, grp_id));
+  Qry.get().Execute();
+}
+
+void TGrpServiceAutoList::clearDB(int grp_id)
+{
+  TCachedQuery Qry("DELETE FROM (SELECT * FROM pax, pax_services_auto WHERE pax_services_auto.pax_id=pax.pax_id AND pax.grp_id=:grp_id)",
                    QParams() << QParam("grp_id", otInteger, grp_id));
   Qry.get().Execute();
 }
@@ -1425,6 +1574,28 @@ void TGrpServiceList::toDB(int grp_id) const
                              << QParam("airline", otString)
                              << QParam("service_quantity", otInteger));
   for(TGrpServiceList::const_iterator i=begin(); i!=end(); ++i)
+  {
+    i->toDB(Qry.get());
+    Qry.get().Execute();
+  }
+}
+
+void TGrpServiceAutoList::toDB(int grp_id) const
+{
+  clearDB(grp_id);
+  TCachedQuery Qry("INSERT INTO pax_services_auto(pax_id, transfer_num, rfic, rfisc, service_quantity, ssr_code, service_name, emd_type, emd_no, emd_coupon) "
+                   "VALUES(:pax_id, :transfer_num, :rfic, :rfisc, :service_quantity, :ssr_code, :service_name, :emd_type, :emd_no, :emd_coupon)",
+                   QParams() << QParam("pax_id", otInteger)
+                             << QParam("transfer_num", otInteger)
+                             << QParam("rfic", otString)
+                             << QParam("rfisc", otString)
+                             << QParam("service_quantity", otInteger)
+                             << QParam("ssr_code", otString)
+                             << QParam("service_name", otString)
+                             << QParam("emd_type", otString)
+                             << QParam("emd_no", otString)
+                             << QParam("emd_coupon", otInteger));
+  for(TGrpServiceAutoList::const_iterator i=begin(); i!=end(); ++i)
   {
     i->toDB(Qry.get());
     Qry.get().Execute();
@@ -1463,6 +1634,99 @@ void TGrpServiceList::copyDB(int grp_id_src, int grp_id_dest)
     QParams() << QParam("grp_id_src", otInteger, grp_id_src)
               << QParam("grp_id_dest", otInteger, grp_id_dest));
   Qry.get().Execute();
+}
+
+void TGrpServiceAutoList::copyDB(int grp_id_src, int grp_id_dest, bool not_clear)
+{
+  if (!not_clear) clearDB(grp_id_dest);
+  TCachedQuery Qry(
+    "INSERT INTO pax_services_auto(pax_id, transfer_num, rfic, rfisc, service_quantity, ssr_code, service_name, emd_type, emd_no, emd_coupon) "
+    "SELECT dest.pax_id, "
+    "       pax_services_auto.transfer_num+src.seg_no-dest.seg_no, "
+    "       pax_services_auto.rfic, "
+    "       pax_services_auto.rfisc, "
+    "       pax_services_auto.service_quantity, "
+    "       pax_services_auto.ssr_code, "
+    "       pax_services_auto.service_name, "
+    "       pax_services_auto.emd_type, "
+    "       pax_services_auto.emd_no, "
+    "       pax_services_auto.emd_coupon "
+    "FROM pax_services_auto, "
+    "     (SELECT pax.pax_id, "
+    "             tckin_pax_grp.tckin_id, "
+    "             tckin_pax_grp.seg_no, "
+    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
+    "      FROM pax, tckin_pax_grp "
+    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_src) src, "
+    "     (SELECT pax.pax_id, "
+    "             tckin_pax_grp.tckin_id, "
+    "             tckin_pax_grp.seg_no, "
+    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
+    "      FROM pax, tckin_pax_grp "
+    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_dest) dest "
+    "WHERE src.tckin_id=dest.tckin_id AND "
+    "      src.distance=dest.distance AND "
+    "      pax_services_auto.pax_id=src.pax_id AND "
+    "      pax_services_auto.transfer_num+src.seg_no-dest.seg_no>=0 ",
+    QParams() << QParam("grp_id_src", otInteger, grp_id_src)
+              << QParam("grp_id_dest", otInteger, grp_id_dest));
+  Qry.get().Execute();
+}
+
+void TGrpServiceListWithAuto::split(int grp_id, TGrpServiceList& list1, TGrpServiceAutoList& list2) const
+{
+  list1.clear();
+  list2.clear();
+  TGrpServiceAutoList prior;
+  prior.fromDB(grp_id, true);
+  for(TGrpServiceList::const_iterator i=begin(); i!=end(); ++i)
+  {
+    if (i->is_auto_service())
+    {
+      int service_quantity=0;
+      for(TGrpServiceAutoList::iterator j=prior.begin(); j!=prior.end();)
+      {
+        TGrpServiceItem item(*j);
+        if (*i==item)
+        {
+          list2.push_back(*j);
+          if (j->service_quantity_valid()) service_quantity+=j->service_quantity;
+          j=prior.erase(j);
+        }
+        else ++j;
+      };
+      if (!i->service_quantity_valid() ||
+          i->service_quantity!=service_quantity)
+        throw Exception("TGrpServiceList::split: wrong service_quantity (%s)", i->traceStr().c_str());
+    }
+    else list1.push_back(*i);
+  };
+}
+
+void TGrpServiceList::moveFrom(TGrpServiceAutoList& list)
+{
+  for(TGrpServiceAutoList::iterator i=list.begin(); i!=list.end();)
+  {
+    TGrpServiceList::iterator j=begin();
+    for(; j!=end(); ++j)
+    {
+      if (j->similar(*i))
+      {
+        if (i->service_quantity_valid())
+        {
+          if (j->service_quantity_valid())
+            j->service_quantity+=i->service_quantity;
+          else
+            j->service_quantity=i->service_quantity;
+          break;
+        };
+      }
+    };
+    if (j!=end())
+      i=list.erase(i);
+    else
+      ++i;
+  }
 }
 
 void TPaidRFISCList::clearDB(int grp_id)
@@ -1601,7 +1865,7 @@ void TGrpServiceList::getAllListItems()
     i->getListItemByPaxId(i->pax_id, i->trfer_num, TServiceCategory::Other, "TGrpServiceList");
 }
 
-bool TGrpServiceList::fromXML(xmlNodePtr node)
+bool TGrpServiceListWithAuto::fromXML(xmlNodePtr node)
 {
   clear();
   if (node==NULL) return false;
@@ -1615,7 +1879,7 @@ bool TGrpServiceList::fromXML(xmlNodePtr node)
   return true;
 }
 
-void TGrpServiceList::toXML(xmlNodePtr node) const
+void TGrpServiceListWithAuto::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return;
   xmlNodePtr servicesNode=NewTextChild(node, "services");
@@ -1794,11 +2058,11 @@ int TPaidRFISCViewItem::priority() const
   return ASTRA::NoExists;
 }
 
-void CalcPaidRFISCView(const TPaidRFISCList &paid,
+void CalcPaidRFISCView(const TPaidRFISCListWithAuto &paid,
                        TPaidRFISCViewMap &paid_view)
 {
   paid_view.clear();
-  for(TPaidRFISCList::const_iterator p=paid.begin(); p!=paid.end(); ++p)
+  for(TPaidRFISCListWithAuto::const_iterator p=paid.begin(); p!=paid.end(); ++p)
   {
     TPaidRFISCViewItem item(p->second);
     TPaidRFISCViewMap::iterator i=paid_view.find(item);
@@ -1950,9 +2214,9 @@ bool RFISCPaymentCompleted(int grp_id, int pax_id, bool only_tckin_segs)
   if (only_tckin_segs)
     max_trfer_num=get_max_tckin_num(grp_id);
 
-  TPaidRFISCList paid;
+  TPaidRFISCListWithAuto paid;
   paid.fromDB(pax_id, false);
-  for(TPaidRFISCList::const_iterator i=paid.begin(); i!=paid.end(); ++i)
+  for(TPaidRFISCListWithAuto::const_iterator i=paid.begin(); i!=paid.end(); ++i)
   {
     if (max_trfer_num!=ASTRA::NoExists && i->second.trfer_num>max_trfer_num) continue;
     if (i->second.need_positive()) return false;

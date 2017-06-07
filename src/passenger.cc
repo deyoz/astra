@@ -1622,8 +1622,18 @@ TPaxGrpItem& TPaxGrpItem::fromXMLadditional(xmlNodePtr node, xmlNodePtr firstSeg
   group_bag=TGroupBagItem();
   if (!group_bag.get().fromXML(node, id, hall, is_unaccomp, baggage_pc, trfer_confirm)) group_bag=boost::none;
 
-  svc=TGrpServiceList();
-  if (!svc.get().fromXML(node)) svc=boost::none;
+  TGrpServiceListWithAuto list;
+  if (!list.fromXML(node))
+  {
+    svc=boost::none;
+    svc_auto=boost::none;
+  }
+  else
+  {
+    svc=TGrpServiceList();
+    svc_auto=TGrpServiceAutoList();
+    list.split(id, svc.get(), svc_auto.get());
+  }
 
   ServicePaymentFromXML(firstSegNode, id, is_unaccomp, baggage_pc, payment);
 
@@ -1708,6 +1718,38 @@ TPaxGrpCategory::Enum TPaxGrpItem::grpCategory() const
     return TPaxGrpCategory::UnnacompBag;
   else
     return TPaxGrpCategory::Passenges;
+}
+
+void TPaxGrpItem::SyncServiceAuto(const TTripInfo& flt)
+{
+  ostringstream sql;
+  sql <<
+    "SELECT pax.pax_id, 0 AS transfer_num, "
+    "       rfic, rfisc, service_quantity, ssr_code, service_name, emd_type, emd_no, emd_coupon "
+    "FROM pax, crs_pax_asvc "
+    "WHERE pax.pax_id=crs_pax_asvc.pax_id AND "
+    "      rem_status='HI' AND "
+    "      rfic IS NOT NULL AND "
+    "      rfisc IS NOT NULL AND "
+    "      service_name IS NOT NULL AND "
+    "      emd_type IS NOT NULL AND "
+    "      emd_no IS NOT NULL AND "
+    "      emd_coupon IS NOT NULL AND "
+    "      pax.grp_id=:id ";
+  QParams QryParams;
+  QryParams << QParam("id", otInteger, id);
+  TCachedQuery Qry(sql.str().c_str(), QryParams);
+  Qry.get().Execute();
+  for(;!Qry.get().Eof; Qry.get().Next())
+  {
+    TGrpServiceAutoItem item;
+    item.fromDB(Qry.get());
+    if (!item.isSuitableForAutoCheckin()) continue;
+    if (!item.permittedForAutoCheckin(flt)) continue;
+
+    if (!svc_auto) svc_auto=TGrpServiceAutoList();
+    svc_auto.get().push_back(item);
+  }
 }
 
 TPnrAddrItem& TPnrAddrItem::fromDB(TQuery &Qry)

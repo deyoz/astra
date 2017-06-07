@@ -10694,10 +10694,10 @@ struct TRFISCBag {
     {
         TGrpIdGroup::iterator result = items.find(grp_id);
         if(result == items.end()) {
-          TPaidRFISCList paid;
+          TPaidRFISCListWithAuto paid;
           paid.fromDB(grp_id, true);
           TPaidRFISCStatusList statusList;
-          for(TPaidRFISCList::const_iterator i=paid.begin(); i!=paid.end(); ++i)
+          for(TPaidRFISCListWithAuto::const_iterator i=paid.begin(); i!=paid.end(); ++i)
           {
             const TPaidRFISCItem &item=i->second;
             if (!item.list_item)
