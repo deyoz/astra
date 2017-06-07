@@ -958,16 +958,16 @@ static boost::optional<astra_entities::PaxInfo> findPaxByBagPoolNum(const std::l
     return boost::none;
 }
 
-static boost::optional<astra_entities::PaxInfo> findPaxByBagPoolNum(const std::list<astra_entities::PaxInfo>& lOldPax,
-                                                                    const std::list<astra_entities::PaxInfo>& lReqPax,
-                                                                    int bagPoolNum)
-{
-    boost::optional<astra_entities::PaxInfo> reqPax = findPaxByBagPoolNum(lReqPax, bagPoolNum);
-    if(reqPax) {
-        return findPax(lOldPax, reqPax->id());
-    }
-    return findPaxByBagPoolNum(lOldPax, bagPoolNum);
-}
+//static boost::optional<astra_entities::PaxInfo> findPaxByBagPoolNum(const std::list<astra_entities::PaxInfo>& lOldPax,
+//                                                                    const std::list<astra_entities::PaxInfo>& lReqPax,
+//                                                                    int bagPoolNum)
+//{
+//    boost::optional<astra_entities::PaxInfo> reqPax = findPaxByBagPoolNum(lReqPax, bagPoolNum);
+//    if(reqPax) {
+//        return findPax(lOldPax, reqPax->id());
+//    }
+//    return findPaxByBagPoolNum(lOldPax, bagPoolNum);
+//}
 
 static void checkInfants(const std::list<astra_entities::PaxInfo>& lReqInfants,
                          const std::list<astra_entities::PaxInfo>& lReqNonInfants,
@@ -1183,13 +1183,9 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
 
     // что имеем
     const std::list<astra_entities::PaxInfo> lPax = firstOldTab.lPax();
-    const std::list<astra_entities::PaxInfo> lNonInfants = filterNotInfants(lPax);
-    const std::list<astra_entities::PaxInfo> lInfants = filterInfants(lPax);
 
     // что в запросе
     const std::list<astra_entities::PaxInfo> lReqPax = firstReqTab.lPax();
-    const std::list<astra_entities::PaxInfo> lReqNonInfants = filterNotInfants(lReqPax);
-    const std::list<astra_entities::PaxInfo> lReqInfants = filterInfants(lReqPax);
 
     std::list<iatci::dcqcku::PaxGroup> lPaxGrp;
 
@@ -1201,76 +1197,62 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
                         reqBag.pr_cabin);
     }
 
-    std::set<int> bagPoolNums = baggage.poolNums();
-    for(const auto& p: lPax) {
-        if(p.bagPoolNum()) {
-            bagPoolNums.insert(p.bagPoolNum());
+    const std::set<int> bagPoolNums = baggage.poolNums();
+
+    std::list<astra_entities::PaxInfo> lModPax;
+    for(const auto& oldPax: lPax) {
+        astra_entities::PaxInfo modPax = oldPax;
+        boost::optional<astra_entities::PaxInfo> reqPax = findPax(lReqPax, oldPax.id());
+        if(reqPax) {
+            modPax.setBagPoolNum(reqPax->bagPoolNum());
         }
+        lModPax.push_back(modPax);
     }
 
+    const std::list<astra_entities::PaxInfo> lModNonInfants = filterNotInfants(lModPax);
+    const std::list<astra_entities::PaxInfo> lModInfants = filterInfants(lModPax);
+
+
+
     std::set<int> processedPaxIds;
-    for(int poolNum: bagPoolNums) {
-        //boost::optional<astra_entities::PaxInfo> reqPax = findPaxByBagPoolNum(lReqPax,
-        //                                                                      poolNum);
-
-        boost::optional<astra_entities::PaxInfo> pax = findPaxByBagPoolNum(lPax,
-                                                                           lReqPax,
-                                                                           poolNum);
-        ASSERT(pax); // должны найти пакса
-
-        if(algo::contains(processedPaxIds, pax->id())) {
-            LogTrace(TRACE1) << "Skip pax already processed: " << pax->fullName();
+    for(const auto& pax: lModPax) {
+        if(algo::contains(processedPaxIds, pax.id())) {
+            LogTrace(TRACE1) << "Skip pax already processed: " << pax.fullName()
+                             << " (" << pax.id() << ")";
             continue;
         }
 
-        int poolNumAdult = 0, poolNumInft = 0;
+        int poolNumAdult = 0, poolNumInft = 0, poolNum = 0;
         boost::optional<astra_entities::PaxInfo> adult, inft;
-        if(pax->isInfant()) {
+        if(pax.isInfant()) {
             inft = pax;
-            adult = findPax(lNonInfants, pax->iatciParentId());
-            poolNumInft = poolNum;
+            adult = findPax(lModNonInfants, pax.iatciParentId());
+            poolNumInft = inft->bagPoolNum();
             if(adult) {
-                boost::optional<astra_entities::PaxInfo> reqAdult = findPax(lReqNonInfants,
-                                                                            adult->id());
-                if(reqAdult) {
-                    poolNumAdult = reqAdult->bagPoolNum();
-                    if(!poolNumAdult) {
-                        poolNumAdult = adult->bagPoolNum();
-                    }
-                } else {
-                    poolNumAdult = adult->bagPoolNum();
-                }
+                poolNumAdult = adult->bagPoolNum();
             }
+            poolNum = poolNumInft;
         } else {
-            inft = findInfantByParentId(lInfants, pax->id());
+            inft = findInfantByParentId(lModInfants, pax.id());
             adult = pax;
-            poolNumAdult = poolNum;
+            poolNumAdult = adult->bagPoolNum();
             if(inft) {
-                boost::optional<astra_entities::PaxInfo> reqInft = findPax(lReqInfants,
-                                                                           inft->id());
-                if(reqInft) {
-                    poolNumInft = reqInft->bagPoolNum();
-                    if(!poolNumInft) {
-                        poolNumInft = inft->bagPoolNum();
-                    }
-                } else {
-                    poolNumInft = inft->bagPoolNum();
-                }
+                poolNumInft = inft->bagPoolNum();
             }
-
+            poolNum = poolNumAdult;
         }
-
-        ASSERT(adult);
 
         astra_api::astra_entities::BagPool total(poolNum),
                                        handTotal(poolNum);
 
-        if(poolNumInft && algo::contains(bagPoolNums, poolNumInft)) {
+        if(poolNumInft) {
+            ASSERT(algo::contains(bagPoolNums, poolNumInft));
             total += baggage.totalByPoolNum(poolNumInft);
             handTotal += baggage.totalByHandPoolNum(poolNumInft);
         }
 
-        if(poolNumAdult && algo::contains(bagPoolNums, poolNumAdult)) {
+        if(poolNumAdult) {
+            ASSERT(algo::contains(bagPoolNums, poolNumAdult));
             total += baggage.totalByPoolNum(poolNumAdult);
             handTotal += baggage.totalByHandPoolNum(poolNumAdult);
         }
@@ -1293,6 +1275,7 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
                                                   boost::none,
                                                   boost::none));
     }
+
 
     ASSERT(!lPaxGrp.empty());
 

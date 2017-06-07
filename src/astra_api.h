@@ -186,7 +186,9 @@ struct PaxInfo
     std::string            fullName() const;
     int               iatciParentId() const { return m_iatciParentId; }
     Ticketing::TicketNum_t  tickNum() const;
+
     int                  bagPoolNum() const { return m_bagPoolNum; }
+    void setBagPoolNum(int poolNum) { m_bagPoolNum = poolNum; }
 };
 
 bool operator==(const PaxInfo& left, const PaxInfo& right);
