@@ -2990,6 +2990,13 @@ struct TFullCmp {
 };
 typedef map<TFullStatKey, TFullStatRow, TFullCmp> TFullStat;
 
+namespace AstraLocale {
+class MaxStatRowsException: public UserException
+{
+    public: MaxStatRowsException(const std::string &vlexema, const LParams &aparams): UserException(vlexema, aparams) {}
+};
+}
+
 // TODO переименовать здесь и всюду bool full в что-то типа override_MAX_STAT_ROWS()
 template <class keyClass, class rowClass, class cmpClass>
 void AddStatRow(const keyClass &key, const rowClass &row, map<keyClass, rowClass, cmpClass> &stat, bool full = false)
@@ -2999,6 +3006,8 @@ void AddStatRow(const keyClass &key, const rowClass &row, map<keyClass, rowClass
     i->second+=row;
   else
   {
+    if ((not full) and (stat.size() > (size_t)MAX_STAT_ROWS()))
+      throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
     if (full or stat.size()<=(size_t)MAX_STAT_ROWS())
       stat.insert(make_pair(key,row));
   };
@@ -3264,13 +3273,6 @@ void setClientTypeCaps(xmlNodePtr variablesNode)
     NewTextChild(variablesNode, "pax", getLocaleText("CAP.PAX"));
     NewTextChild(variablesNode, "mob", getLocaleText("CAP.MOB"));
     NewTextChild(variablesNode, "mobile_devices", getLocaleText("CAP.MOBILE_DEVICES"));
-}
-
-namespace AstraLocale {
-class MaxStatRowsException: public UserException
-{
-    public: MaxStatRowsException(const std::string &vlexema, const LParams &aparams): UserException(vlexema, aparams) {}
-};
 }
 
 void createXMLDetailStat(const TStatParams &params, bool pr_pact,
