@@ -3026,9 +3026,9 @@ void AddStatRow(const keyClass &key, const rowClass &row, map<keyClass, rowClass
     i->second+=row;
   else
   {
-    if ((not full) and (stat.size() > MAX_STAT_ROWS()))
+    if ((not full) and (stat.size() > (size_t)MAX_STAT_ROWS()))
       throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
-    if (full or stat.size()<=MAX_STAT_ROWS())
+    if (full or stat.size()<=(size_t)MAX_STAT_ROWS())
       stat.insert(make_pair(key,row));
   };
 };
