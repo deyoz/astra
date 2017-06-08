@@ -171,6 +171,7 @@ const TServicePaymentItem& TServicePaymentItem::toXML(xmlNodePtr node) const
   if (pc) pc.get().toXML(node);
   else if (wt) wt.get().toXML(node);
   NewTextChild(node, "doc_weight", doc_weight, ASTRA::NoExists);
+  NewTextChild(node, "read_only", (int)is_auto_service(), (int)false);
   return *this;
 }
 
@@ -346,6 +347,19 @@ void TServicePaymentList::fromDB(int grp_id)
   };
 }
 
+void TServicePaymentListWithAuto::fromDB(int grp_id)
+{
+  TServicePaymentList list1;
+  list1.fromDB(grp_id);
+  for(TServicePaymentList::const_iterator i=list1.begin(); i!=list1.end(); ++i)
+    push_back(*i);
+
+  TGrpServiceAutoList list2;
+  list2.fromDB(grp_id, true);
+  for(TGrpServiceAutoList::const_iterator i=list2.begin(); i!=list2.end(); ++i)
+    push_back(TServicePaymentItem(*i));
+}
+
 void TServicePaymentList::clearDB(int grp_id)
 {
   TCachedQuery Qry("DELETE FROM service_payment WHERE grp_id=:grp_id",
@@ -485,22 +499,22 @@ void TServicePaymentList::copyDB(int grp_id_src, int grp_id_dest)
   TGrpAlarmHook::set(Alarm::UnboundEMD, grp_id_dest);
 }
 
-void TServicePaymentList::toXML(xmlNodePtr node) const
+void TServicePaymentListWithAuto::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return;
   if (TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
   {
     xmlNodePtr paymentNode=NewTextChild(node, "service_payment");
-    for(TServicePaymentList::const_iterator i=begin(); i!=end(); ++i)
+    for(TServicePaymentListWithAuto::const_iterator i=begin(); i!=end(); ++i)
       i->toXML(NewTextChild(paymentNode, "item"));
   }
   else
   {
-    TServicePaymentList compatible, not_compatible, other_svc;
+    TServicePaymentListWithAuto compatible, not_compatible, other_svc;
     getCompatibleWithPriorTermVersions(compatible, not_compatible, other_svc);
 
     xmlNodePtr paymentNode=NewTextChild(node, "paid_bag_emd");
-    for(TServicePaymentList::const_iterator i=compatible.begin(); i!=compatible.end(); ++i)
+    for(TServicePaymentListWithAuto::const_iterator i=compatible.begin(); i!=compatible.end(); ++i)
     {
       if (i->notCompatibleWithPriorTermVersions()) continue;
       i->toXMLcompatible(NewTextChild(paymentNode, "emd"));
@@ -624,44 +638,16 @@ bool TServicePaymentList::dec(const TPaxSegRFISCKey &key)
   return false;
 }
 
-int TServicePaymentList::getDocWeight(const TBagTypeListKey &key) const
+int TServicePaymentListWithAuto::getDocWeight(const TBagTypeListKey &key) const
 {
   int result=0;
-  for(TServicePaymentList::const_iterator i=begin(); i!=end(); ++i)
+  for(TServicePaymentListWithAuto::const_iterator i=begin(); i!=end(); ++i)
     if (i->wt && key==i->wt.get() && i->trfer_num==0)
     {
       if (i->doc_weight!=ASTRA::NoExists && i->doc_weight>0)
         result+=i->doc_weight;
     };
   return result;
-}
-
-void TServicePaymentList::getCompatibleWithPriorTermVersions(TServicePaymentList &compatible,
-                                                             TServicePaymentList &not_compatible,
-                                                             TServicePaymentList &other_svc) const
-{
-  compatible.clear();
-  not_compatible.clear();
-  other_svc.clear();
-
-  for(TServicePaymentList::const_iterator i=begin(); i!=end(); ++i)
-  {
-    if (i->pc)
-    {
-      if (!i->pc.get().list_item)  throw Exception("%s: !i->pc.get().list_item", __FUNCTION__);
-      if (!i->pc.get().list_item.get().carry_on())
-      {
-        other_svc.push_back(*i);
-        continue; //выводим только багаж
-      };
-    }
-    if (i->notCompatibleWithPriorTermVersions())
-    {
-      not_compatible.push_back(*i);
-      continue; //не выводим EMDS МСО service_quantity>1
-    };
-    compatible.push_back(*i);
-  };
 }
 
 bool TServicePaymentList::equal(const TServicePaymentList &list) const
@@ -704,9 +690,9 @@ void ServicePaymentFromXML(xmlNodePtr node,
     payment=TServicePaymentList();
     for(xmlNodePtr itemNode=paymentNode->children; itemNode!=NULL; itemNode=itemNode->next)
     {
+      TServicePaymentItem item;
       if (!TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
       {
-        TServicePaymentItem item;
         item.fromXMLcompatible(itemNode, baggage_pc);
         if (item.wt)
         {
@@ -718,13 +704,14 @@ void ServicePaymentFromXML(xmlNodePtr node,
           if (item.pc.get().RFISC.empty())
             throw UserException("MSG.EMD_ATTACHED_TO_UNKNOWN_RFISC", LParams()<<LParam("emd_no",item.no_str()));
         };
-        payment.get().push_back(item);
       }
       else
       {
         if (string((char*)itemNode->name)!="item") continue;
-        payment.get().push_back(TServicePaymentItem().fromXML(itemNode, is_unaccomp));
+        item.fromXML(itemNode, is_unaccomp);
       };
+      if (item.is_auto_service()) continue;
+      payment.get().push_back(item);
     }
     if (!TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
       payment.get().getAllListKeys(grp_id, is_unaccomp);

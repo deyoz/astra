@@ -2265,9 +2265,9 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
 
   //услуги
   set<int> pax_ids_for_refresh;
-  TPaidRFISCList paid_rfisc;
+  TPaidRFISCListWithAuto paid_rfisc;
   paid_rfisc.fromDB(grp_id, true);
-  for(TPaidRFISCList::const_iterator p=paid_rfisc.begin(); p!=paid_rfisc.end(); ++p)
+  for(TPaidRFISCListWithAuto::const_iterator p=paid_rfisc.begin(); p!=paid_rfisc.end(); ++p)
     if (p->second.need_positive()) pax_ids_for_refresh.insert(p->second.pax_id);
   //багаж wt
   bool all_pax_ids_for_refresh=false;
@@ -2277,7 +2277,7 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
     //для местовой системы делаем refresh только при загрузке группы
     WeightConcept::TPaidBagList paid;
     WeightConcept::PaidBagFromDB(NoExists, grp_id, paid);
-    CheckIn::TServicePaymentList payment;
+    CheckIn::TServicePaymentListWithAuto payment;
     payment.fromDB(grp_id);
     for(WeightConcept::TPaidBagList::const_iterator p=paid.begin(); p!=paid.end(); ++p)
     {

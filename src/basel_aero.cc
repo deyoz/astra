@@ -608,9 +608,9 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
         {
           if (part_key==NoExists)
           {
-            TPaidRFISCList paid;
+            TPaidRFISCListWithAuto paid;
             paid.fromDB(stat.pax_id==NoExists?stat.viewGroup:stat.pax_id, stat.pax_id==NoExists);
-            for(TPaidRFISCList::const_iterator p=paid.begin(); p!=paid.end(); ++p)
+            for(TPaidRFISCListWithAuto::const_iterator p=paid.begin(); p!=paid.end(); ++p)
             {
               if (p->second.trfer_num!=0) continue;
               paidInfo.add(p->second);

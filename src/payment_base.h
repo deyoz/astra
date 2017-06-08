@@ -1,6 +1,7 @@
 #ifndef _PAYMENT_BASE_H_
 #define _PAYMENT_BASE_H_
 
+#include "exceptions.h"
 #include "baggage_wt.h"
 #include "rfisc.h"
 
@@ -18,6 +19,14 @@ class TPaymentDoc
   TPaymentDoc()
   {
     clear();
+  }
+  TPaymentDoc(const CheckIn::TPaxASVCItem& item)
+  {
+    clear();
+    doc_type="EMD"+item.emd_type;
+    doc_no=item.emd_no;
+    doc_coupon=item.emd_coupon;
+    service_quantity=item.service_quantity;
   }
   void clear()
   {
@@ -85,6 +94,14 @@ class TServicePaymentItem : public TPaymentDoc
   {
     clear();
   }
+  TServicePaymentItem(const TGrpServiceAutoItem& item) : TPaymentDoc(item)
+  {
+    pax_id=item.pax_id;
+    trfer_num=item.trfer_num;
+    pc=TRFISCKey();
+    pc.get().list_item=TRFISCListItem(item);
+    (TRFISCListKey&)(pc.get())=pc.get().list_item.get();
+  }
   void clear()
   {
     pax_id=ASTRA::NoExists;
@@ -130,25 +147,74 @@ class TServicePaymentItem : public TPaymentDoc
 
   std::string key_str(const std::string& lang="") const;
   std::string key_str_compatible() const;
+  bool is_auto_service() const
+  {
+    return pc && pc.get().service_type==TServiceType::Unknown;
+  }
 };
+
+template <class T>
+void splitServicePaymentItems(const T &src,
+                              T &compatible,
+                              T &not_compatible,
+                              T &other_svc)
+{
+  compatible.clear();
+  not_compatible.clear();
+  other_svc.clear();
+
+  for(typename T::const_iterator i=src.begin(); i!=src.end(); ++i)
+  {
+    if (i->pc)
+    {
+      if (!i->pc.get().list_item)  throw EXCEPTIONS::Exception("%s: !i->pc.get().list_item", __FUNCTION__);
+      if (!i->pc.get().list_item.get().carry_on())
+      {
+        other_svc.push_back(*i);
+        continue; //выводим только багаж
+      };
+    }
+    if (i->notCompatibleWithPriorTermVersions())
+    {
+      not_compatible.push_back(*i);
+      continue; //не выводим EMDS МСО service_quantity>1
+    };
+    compatible.push_back(*i);
+  };
+}
 
 class TServicePaymentList : public std::list<TServicePaymentItem>
 {
   public:
+    void getCompatibleWithPriorTermVersions(TServicePaymentList &compatible,
+                                            TServicePaymentList &not_compatible,
+                                            TServicePaymentList &other_svc) const
+    {
+      splitServicePaymentItems<TServicePaymentList>(*this, compatible, not_compatible, other_svc);
+    }
     void fromDB(int grp_id);
     void toDB(int grp_id) const;
-    void toXML(xmlNodePtr node) const;
     void getAllListKeys(int grp_id, bool is_unaccomp);
     void getAllListItems(int grp_id, bool is_unaccomp);
     bool dec(const TPaxSegRFISCKey &key);
-    int getDocWeight(const TBagTypeListKey &key) const;
-    void getCompatibleWithPriorTermVersions(TServicePaymentList &compatible,
-                                            TServicePaymentList &not_compatible,
-                                            TServicePaymentList &other_svc) const;
     bool equal(const TServicePaymentList &list) const;
     void dump(const std::string &where) const;
     static void clearDB(int grp_id);
     static void copyDB(int grp_id_src, int grp_id_dest);
+};
+
+class TServicePaymentListWithAuto : public std::list<TServicePaymentItem>
+{
+  public:
+    void getCompatibleWithPriorTermVersions(TServicePaymentListWithAuto &compatible,
+                                            TServicePaymentListWithAuto &not_compatible,
+                                            TServicePaymentListWithAuto &other_svc) const
+    {
+      splitServicePaymentItems<TServicePaymentListWithAuto>(*this, compatible, not_compatible, other_svc);
+    }
+    int getDocWeight(const TBagTypeListKey &key) const;
+    void fromDB(int grp_id);
+    void toXML(xmlNodePtr node) const;
 };
 
 void ServicePaymentFromXML(xmlNodePtr node,

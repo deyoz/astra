@@ -591,6 +591,7 @@ class TPaxGrpItem
     boost::optional< WeightConcept::TPaidBagList > paid;
     boost::optional< TGroupBagItem > group_bag;
     boost::optional< TGrpServiceList > svc;
+    boost::optional< TGrpServiceAutoList > svc_auto;
     boost::optional< TServicePaymentList > payment;
     TPaxGrpItem()
     {
@@ -623,6 +624,7 @@ class TPaxGrpItem
       paid=boost::none;
       group_bag=boost::none;
       svc=boost::none;
+      svc_auto=boost::none;
       payment=boost::none;
     };
 
@@ -637,6 +639,7 @@ class TPaxGrpItem
     {
       return grpCategory()==TPaxGrpCategory::UnnacompBag;
     }
+    void SyncServiceAuto(const TTripInfo &flt);
 };
 
 class TPnrAddrItem
