@@ -601,7 +601,7 @@ class TPrnTagStore {
         TPrnTagStore(ASTRA::TDevOperType _op_type, const std::string &scan, bool apr_lat);
         TPrnTagStore(bool apr_lat);
         TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat);
-        TPrnTagStore(const std::string& airp_dep, const std::string& airp_arv);
+        TPrnTagStore(const std::string& airp_dep, const std::string& airp_arv, bool apr_lat);
 
         void set_tag(std::string name, const BIPrintRules::TRule &value);
         void set_tag(std::string name, std::string value);

@@ -289,14 +289,14 @@ TPrnTagStore::TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat):
 }
 
 TPrnTagStore::TPrnTagStore(const std::string& airp_dep,
-                           const std::string& airp_arv) :
+                           const std::string& airp_arv, bool apr_lat) :
     pax_id(NoExists),
     print_mode(0),
     time_print(NowUTC()),
     prn_tag_props(dotPrnBP)
 {
     init_bp_tags();
-    tag_lang.Init(airp_dep, airp_arv, false/*apr_lat*/);
+    tag_lang.Init(airp_dep, airp_arv, apr_lat);
 }
 
 // Test tags

@@ -37,8 +37,8 @@ class PrintDataParser {
         PrintDataParser(const TBagReceipt &rcpt, bool pr_lat): pectab_format(0), pts(rcpt, pr_lat) {}
         PrintDataParser(ASTRA::TDevOperType op_type, int grp_id, int pax_id, bool pr_lat, xmlNodePtr tagsNode, const TTrferRoute &route = TTrferRoute()):
             pectab_format(0), pts(op_type, grp_id, pax_id, pr_lat, tagsNode, route) {}
-        PrintDataParser(const std::string& airp_dep, const std::string& airp_arv)
-            : pectab_format(0), pts(airp_dep, airp_arv) {}
+        PrintDataParser(const std::string& airp_dep, const std::string& airp_arv, bool pr_lat)
+            : pectab_format(0), pts(airp_dep, airp_arv, pr_lat) {}
 
         std::string parse(std::string &form);
 };

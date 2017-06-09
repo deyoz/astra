@@ -1861,7 +1861,7 @@ void PrintInterface::GetPrintDataBP(
     get_pectab(op_type, params, data, pectab);
 
     for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
-        //        tst_dump(iPax->pax_id, iPax->grp_id, prnParams.pr_lat);
+
         boost::shared_ptr<PrintDataParser> parser;
         if(iPax->pax_id!=NoExists)
             parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->grp_id, iPax->pax_id, params.prnParams.pr_lat, params.clientDataNode ));
@@ -1933,7 +1933,7 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
                 std::string data(data_in);
                 boost::shared_ptr<PrintDataParser> parser;
                 parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(xmlSeg.seg_info.airp_dep,
-                                                                                xmlSeg.seg_info.airp_arv));
+                                                                                xmlSeg.seg_info.airp_arv, params.prnParams.pr_lat));
 
                 // билет/купон
                 std::ostringstream tickCpn;
@@ -1956,7 +1956,7 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
                 parser->pts.set_tag(TAG::BAG_AMOUNT,    0); // TODO get it
                 parser->pts.set_tag(TAG::BAGGAGE,       ""); // TODO get it
                 parser->pts.set_tag(TAG::BAG_WEIGHT,    0); // TODO get it
-                parser->pts.set_tag(TAG::BCBP_M_2,      ""); // TODO get it
+                parser->pts.set_tag(TAG::BCBP_M_2,      " "); // TODO get it
                 parser->pts.set_tag(TAG::BRD_FROM,      NowUTC()); // TODO get it
                 parser->pts.set_tag(TAG::BRD_TO,        NowUTC()); // TODO get it
                 parser->pts.set_tag(TAG::CHD,           ""); // TODO get it
