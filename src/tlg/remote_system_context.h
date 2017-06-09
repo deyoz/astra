@@ -321,6 +321,8 @@ namespace RemoteSystemContext
 
         void setOurAddrEdifact(const std::string& val);
         void setRemoteAddrEdifact(const std::string& val);
+        void setOurAddrEdifactExt(const std::string& val);
+        void setRemoteAddrEdifactExt(const std::string& val);
         void setOurAddrAirimp(const std::string& val);
         void setRemoteAddrAirimp(const std::string& val);
         void setAirline(const std::string& val);

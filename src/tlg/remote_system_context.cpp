@@ -349,6 +349,8 @@ DcsSystemContext* DcsSystemContext::read(const std::string& airl, const Ticketin
     ctxtMaker.setOurAddrEdifact(ourEdiAddr);    // our EDIFACT address
     ctxtMaker.setRemoteAddrAirimp(airAddr);      // their AIRIMP address
     ctxtMaker.setOurAddrAirimp(ourAirAddr);     // our AIRIMP address
+    ctxtMaker.setRemoteAddrEdifactExt(ediAddrExt);
+    ctxtMaker.setOurAddrEdifactExt(ourEdiAddrExt);
     return new DcsSystemContext(ctxtMaker.getSystemContext());
 }
 
@@ -449,6 +451,16 @@ void SystemContextMaker::setOurAddrEdifact(const std::string &val)
 void SystemContextMaker::setRemoteAddrEdifact(const std::string &val)
 {
     cont.RemoteAddrEdifact = val;
+}
+
+void SystemContextMaker::setOurAddrEdifactExt(const std::string& val)
+{
+    cont.OurAddrEdifactExt = val;
+}
+
+void SystemContextMaker::setRemoteAddrEdifactExt(const std::string& val)
+{
+    cont.RemoteAddrEdifactExt = val;
 }
 
 void SystemContextMaker::setOurAddrAirimp(const std::string& val)
