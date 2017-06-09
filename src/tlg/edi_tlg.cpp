@@ -177,6 +177,16 @@ std::string AstraEdiSessWR::unbAddr() const
     return sysCont()->remoteAddrEdifact();
 }
 
+std::string AstraEdiSessWR::ourUnbAddrExt() const
+{
+    return sysCont()->ourAddrEdifactExt();
+}
+
+std::string AstraEdiSessWR::unbAddrExt() const
+{
+    return sysCont()->remoteAddrAirimpExt();
+}
+
 std::string AstraEdiSessWR::ctrlAgency() const
 {
     return sysCont()->edifactProfile().ctrlAgency();

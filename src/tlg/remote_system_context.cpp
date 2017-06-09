@@ -301,7 +301,8 @@ void EdsSystemContext::updateDb()
 DcsSystemContext* DcsSystemContext::read(const std::string& airl, const Ticketing::FlightNum_t& flNum)
 {
     std::string sql = 
-"select ID, AIRLINE, EDI_ADDR, EDI_OWN_ADDR, AIRIMP_ADDR, AIRIMP_OWN_ADDR, EDIFACT_PROFILE, "
+"select ID, AIRLINE, EDI_ADDR, EDI_OWN_ADDR, EDI_ADDR_EXT, EDI_OWN_ADDR_EXT, "
+"       AIRIMP_ADDR, AIRIMP_OWN_ADDR, EDIFACT_PROFILE, "
 "       DECODE(AIRLINE,NULL,0,2)+ "
 "       DECODE(FLT_NO,NULL,0,1) AS priority "
 "from DCS_ADDR_SET "
@@ -312,6 +313,7 @@ DcsSystemContext* DcsSystemContext::read(const std::string& airl, const Ticketin
     int systemId = 0;
     std::string airline;
     std::string ediAddr, ourEdiAddr;
+    std::string ediAddrExt, ourEdiAddrExt;
     std::string airAddr, ourAirAddr; 
     std::string ediProfileName;
     short null = -1, nnull = 0;
@@ -321,6 +323,8 @@ DcsSystemContext* DcsSystemContext::read(const std::string& airl, const Ticketin
        .def(airline)
        .def(ediAddr)
        .def(ourEdiAddr)
+       .defNull(ediAddrExt, "")
+       .defNull(ourEdiAddrExt, "")
        .defNull(airAddr, "")
        .defNull(ourAirAddr, "")
        .defNull(ediProfileName, "");
@@ -335,9 +339,6 @@ DcsSystemContext* DcsSystemContext::read(const std::string& airl, const Ticketin
                          << airl << " and flight " << flNum;
         throw system_not_found(airl, flNum);
     }
-
-    LogTrace(TRACE3) << "airimp address: " << airAddr;
-    LogTrace(TRACE3) << "our airimp address: " << ourAirAddr;
 
     SystemContextMaker ctxtMaker;
     ctxtMaker.setIda(Ticketing::SystemAddrs_t(systemId));

@@ -54,6 +54,9 @@ public:
     virtual std::string ourUnbAddr() const;
     virtual std::string unbAddr() const;
 
+    virtual std::string ourUnbAddrExt() const;
+    virtual std::string unbAddrExt() const;
+
     virtual std::string ctrlAgency() const;
     virtual std::string version() const;
     virtual std::string subVersion() const;

@@ -142,6 +142,8 @@ namespace RemoteSystemContext
         std::string Airline;
         std::string OurAddrEdifact;
         std::string RemoteAddrEdifact;
+        std::string OurAddrEdifactExt;
+        std::string RemoteAddrEdifactExt;
         std::string OurAddrAirimp;
         std::string RemoteAddrAirimp;
         std::string EdifactProfileName;
@@ -163,15 +165,17 @@ namespace RemoteSystemContext
 
         static pSystemContext SysCtxt;
     public:
-        Ticketing::SystemAddrs_t ida() const          { return Ida;                }
-        const std::string& canonName() const          { return CanonName;          }
-        const std::string& airline() const            { return Airline;            }
-        const std::string& ourAddrEdifact() const     { return OurAddrEdifact;     }
-        const std::string& remoteAddrEdifact() const  { return RemoteAddrEdifact;  }
-        const std::string& ourAddrAirimp() const      { return OurAddrAirimp;      }
-        const std::string& remoteAddrAirimp() const   { return RemoteAddrAirimp;   }
-        const std::string& edifactProfileName() const { return EdifactProfileName; }
-        const std::string& routerCanonName() const    { return CanonName;          }
+        Ticketing::SystemAddrs_t ida() const           { return Ida;                  }
+        const std::string& canonName() const           { return CanonName;            }
+        const std::string& airline() const             { return Airline;              }
+        const std::string& ourAddrEdifact() const      { return OurAddrEdifact;       }
+        const std::string& remoteAddrEdifact() const   { return RemoteAddrEdifact;    }
+        const std::string& ourAddrAirimp() const       { return OurAddrAirimp;        }
+        const std::string& ourAddrEdifactExt() const   { return OurAddrEdifactExt;    }
+        const std::string& remoteAddrAirimp() const    { return RemoteAddrAirimp;     }
+        const std::string& remoteAddrAirimpExt() const { return RemoteAddrEdifactExt; }
+        const std::string& edifactProfileName() const  { return EdifactProfileName;   }
+        const std::string& routerCanonName() const     { return CanonName;            }
 
         edifact::EdifactProfile edifactProfile() const;
 
