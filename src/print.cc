@@ -2150,6 +2150,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     if(TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION)) {
         bool bi_access = false;
         for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
+            if(first_seg_grp_id != iPax->grp_id) continue;
 
             LogTrace(TRACE5) << "bi_rules.get pax_id = " << iPax->pax_id;
 
