@@ -1624,7 +1624,7 @@ bool transliter_equal(const string &value1, const string &value2, int fmt)
 
 bool transliter_equal(const string &value1, const string &value2)
 {
-  for(int fmt=1;fmt<=2;fmt++)
+  for(int fmt=1;fmt<=3;fmt++)
     if (transliter_equal(value1, value2, fmt)) return true;
   return false;
 };
