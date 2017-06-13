@@ -147,7 +147,7 @@ void CalcPaidBagView(const TAirlines &airlines,
                      const std::map<int/*id*/, TEventsBagItem> &bag,
                      const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
                      const TPaidBagList &paid,
-                     const CheckIn::TServicePaymentList &payment,
+                     const CheckIn::TServicePaymentListWithAuto &payment,
                      const std::string &used_airline_mark,
                      TPaidBagViewMap &paid_view,
                      TPaidBagViewMap &trfer_view);

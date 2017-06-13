@@ -3795,14 +3795,14 @@ void SERVICES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         int pax_id = Qry.FieldAsInteger("pax_id");
         int grp_id = Qry.FieldAsInteger("grp_id");
         //  получить список услуг для пакса
-        TPaidRFISCList prList;
+        TPaidRFISCListWithAuto prList;
         prList.fromDB(pax_id, false);
         //  получить список квитанций для группы
-        CheckIn::TServicePaymentList spList;
+        CheckIn::TServicePaymentListWithAuto spList;
         spList.fromDB(grp_id);
         spList.sort();
         //  цикл для каждой услуги
-        for (TPaidRFISCList::const_iterator pr = prList.begin(); pr != prList.end(); ++pr)
+        for (TPaidRFISCListWithAuto::const_iterator pr = prList.begin(); pr != prList.end(); ++pr)
         {
             const TPaidRFISCItem item = pr->second;
             //  рассматривать только первый сегмент трансфера
@@ -3829,7 +3829,7 @@ void SERVICES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                     row.desc = item.list_item->name_view();
                 }
                 //  цикл по всем квитанциям группы
-                for (CheckIn::TServicePaymentList::iterator sp = spList.begin(); sp != spList.end(); ++ sp)
+                for (CheckIn::TServicePaymentListWithAuto::iterator sp = spList.begin(); sp != spList.end(); ++ sp)
                 {
                     /* пока только EMD */
                     if (sp->pc &&

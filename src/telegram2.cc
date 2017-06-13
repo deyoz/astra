@@ -4521,7 +4521,7 @@ void TName::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body, string p
     body.push_back(result);
 }
 
-typedef map<int, CheckIn::TServicePaymentList> TGrpEmds;
+typedef map<int, CheckIn::TServicePaymentListWithAuto> TGrpEmds;
 
 struct TASLPax {
     string target;
@@ -4606,9 +4606,9 @@ void TRemList::get(TypeB::TDetailCreateInfo &info, TASLPax &pax)
     multiset<TPaxEMDItem> emds;
     GetPaxEMD(pax.pax_id, emds);
 
-    CheckIn::TServicePaymentList &payment = (*pax.grpEmds)[pax.grp_id];
+    CheckIn::TServicePaymentListWithAuto &payment = (*pax.grpEmds)[pax.grp_id];
 
-    for(CheckIn::TServicePaymentList::iterator p = payment.begin(); p != payment.end(); ++p)
+    for(CheckIn::TServicePaymentListWithAuto::iterator p = payment.begin(); p != payment.end(); ++p)
     {
       if (!p->isEMD()) continue; //обрабатываем только EMD
       for(multiset<TPaxEMDItem>::iterator e = emds.begin(); e != emds.end(); ++e)
@@ -5226,9 +5226,9 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
 
             TGrpEmds::iterator idx = grpEmds.find(pax.grp_id);
             if(idx == grpEmds.end()) {
-                CheckIn::TServicePaymentList &payment = grpEmds[pax.grp_id];
+                CheckIn::TServicePaymentListWithAuto &payment = grpEmds[pax.grp_id];
                 payment.fromDB(pax.grp_id);
-                for(CheckIn::TServicePaymentList::iterator p=payment.begin(); p!=payment.end();)
+                for(CheckIn::TServicePaymentListWithAuto::iterator p=payment.begin(); p!=payment.end();)
                 {
                   if (p->isEMD() && (is_report() || p->trfer_num==0))  //!!! текущий сегмент или все? только ASVC из PNL или из псевдо PNR тоже?
                     ++p;

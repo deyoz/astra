@@ -434,9 +434,9 @@ void TGrpToLogInfo::setExcess()
   }
   else
   {
-    TPaidRFISCList paid_rfisc;
+    TPaidRFISCListWithAuto paid_rfisc;
     paid_rfisc.fromDB(grp_id, true);
-    for(TPaidRFISCList::const_iterator p=paid_rfisc.begin(); p!=paid_rfisc.end(); ++p)
+    for(TPaidRFISCListWithAuto::const_iterator p=paid_rfisc.begin(); p!=paid_rfisc.end(); ++p)
     {
       const TPaidRFISCItem &item=p->second;
       if (item.trfer_num!=0) continue;
@@ -465,9 +465,9 @@ void TGrpToLogInfo::clearEmd()
 
 void TGrpToLogInfo::setEmd()
 {
-  CheckIn::TServicePaymentList payment;
+  CheckIn::TServicePaymentListWithAuto payment;
   payment.fromDB(grp_id);
-  for(CheckIn::TServicePaymentList::const_iterator p=payment.begin(); p!=payment.end(); ++p)
+  for(CheckIn::TServicePaymentListWithAuto::const_iterator p=payment.begin(); p!=payment.end(); ++p)
   {
     if (p->pax_id==ASTRA::NoExists)
     {

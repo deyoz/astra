@@ -2084,7 +2084,7 @@ void CalcPaidBagView(const TAirlines &airlines,
                      const std::map<int/*id*/, TEventsBagItem> &bag,
                      const std::list<TBagNormInfo> &norms, //вообще список всевозможных норм для всех пассажиров вперемешку
                      const TPaidBagList &paid,
-                     const CheckIn::TServicePaymentList &payment,
+                     const CheckIn::TServicePaymentListWithAuto &payment,
                      const std::string &used_airline_mark,
                      TPaidBagViewMap &paid_view,
                      TPaidBagViewMap &trfer_view)
@@ -2181,9 +2181,9 @@ string GetBagRcptStr(int grp_id, int pax_id)
       (main_pax_id!=NoExists && main_pax_id==pax_id))
   {
     vector<string> rcpts;
-    CheckIn::TServicePaymentList payment;
+    CheckIn::TServicePaymentListWithAuto payment;
     payment.fromDB(grp_id);
-    for(CheckIn::TServicePaymentList::const_iterator i=payment.begin(); i!=payment.end(); ++i)
+    for(CheckIn::TServicePaymentListWithAuto::const_iterator i=payment.begin(); i!=payment.end(); ++i)
       if (i->trfer_num==0 && i->wt) rcpts.push_back(i->doc_no); //!!!почему только trfer_num=0?
 
     Qry.SQLText="SELECT no FROM bag_prepay WHERE grp_id=:grp_id";
@@ -2300,9 +2300,9 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count)
       };
     };
     //EMD
-    CheckIn::TServicePaymentList payment;
+    CheckIn::TServicePaymentListWithAuto payment;
     payment.fromDB(grp_id);
-    for(CheckIn::TServicePaymentList::const_iterator i=payment.begin(); i!=payment.end(); ++i)
+    for(CheckIn::TServicePaymentListWithAuto::const_iterator i=payment.begin(); i!=payment.end(); ++i)
       if (i->trfer_num==0 && i->wt && i->doc_weight!=ASTRA::NoExists)
       {
         string bag_type=i->wt.get().bag_type;
@@ -2388,9 +2388,9 @@ namespace PieceConcept
 string GetBagRcptStr(int grp_id, int pax_id)
 {
   vector<string> rcpts;
-  CheckIn::TServicePaymentList payment;
+  CheckIn::TServicePaymentListWithAuto payment;
   payment.fromDB(grp_id);
-  for(CheckIn::TServicePaymentList::const_iterator i=payment.begin(); i!=payment.end(); ++i)
+  for(CheckIn::TServicePaymentListWithAuto::const_iterator i=payment.begin(); i!=payment.end(); ++i)
     if (i->trfer_num==0 && i->pc && //!!!почему только trfer_num=0?
         (i->pax_id==ASTRA::NoExists || pax_id==ASTRA::NoExists || i->pax_id==pax_id)) rcpts.push_back(i->doc_no);
   if (!rcpts.empty())

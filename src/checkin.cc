@@ -5196,6 +5196,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             }; // end for paxs
           }; //end for k
           CheckIn::SyncPaxASVC(grp.id, true); //синхронизируем ASVC только при первой регистрации
+          grp.SyncServiceAuto(fltInfo);
         }
         else
         {
@@ -5528,8 +5529,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           if (grp.svc)
           {
             grp.svc.get().getAllListItems();
+            if (grp.svc_auto)
+              grp.svc.get().moveFrom(grp.svc_auto.get());
             grp.svc.get().toDB(grp.id);
           }
+          if (grp.svc_auto)
+            grp.svc_auto.get().toDB(grp.id);
+
           if (grp.wt)
           {
             if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
@@ -5632,6 +5638,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           //знаем систему расчета
           if (segList.front().grp.svc)
             TGrpServiceList::copyDB(AfterSaveInfo.segs.front().grp_id, grp.id);
+          if (segList.front().grp.svc_auto)
+            TGrpServiceAutoList::copyDB(AfterSaveInfo.segs.front().grp_id, grp.id);
           if (segList.front().grp.payment)
             CheckIn::TServicePaymentList::copyDB(AfterSaveInfo.segs.front().grp_id, grp.id);
         }
@@ -6113,6 +6121,19 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     };
 
   }; //цикл по сегментам
+
+  if (new_checkin)
+  {
+    TSegList::reverse_iterator iNextSegListItem=segList.rend();
+    for(TSegList::reverse_iterator iSegListItem=segList.rbegin(); iSegListItem!=segList.rend(); ++iSegListItem)
+    {
+      if (iSegListItem->grp.svc_auto)
+        iSegListItem->grp.svc_auto.get().toDB(iSegListItem->grp.id);
+      if (iNextSegListItem!=segList.rend())
+        TGrpServiceAutoList::copyDB(iNextSegListItem->grp.id, iSegListItem->grp.id, true);
+      iNextSegListItem=iSegListItem;
+    }
+  };
 
   if (AfterSaveInfo.action==CheckIn::actionRefreshPaidBagPC)
   try
@@ -6798,7 +6819,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
     catch(EBaseTableError) {};
 
     CheckIn::TGroupBagItem group_bag;
-    TGrpServiceList svc;
+    TGrpServiceListWithAuto svc;
     if (grp_id==tckin_grp_ids.begin())
     {
       group_bag.fromDB(grp.id, ASTRA::NoExists, !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS));
@@ -6907,7 +6928,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
     {
       group_bag.toXML(resNode);
 
-      CheckIn::TServicePaymentList payment;
+      CheckIn::TServicePaymentListWithAuto payment;
       payment.fromDB(grp.id);
       payment.toXML(segNode);
 
@@ -6916,7 +6937,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
       {
         //услуги + pc
         svc.toXML(resNode);
-        TPaidRFISCList PaidRFISCList;
+        TPaidRFISCListWithAuto PaidRFISCList;
         PaidRFISCList.fromDB(grp.id, true);
         CalcPaidRFISCView(PaidRFISCList, PaidRFISCViewMap);
         PaidRFISCViewToXML(PaidRFISCViewMap, resNode);
