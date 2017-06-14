@@ -1,6 +1,7 @@
 #include <vector>
 #include <utility>
 #include <boost/date_time/local_time/local_time.hpp>
+#include <boost/algorithm/string/classification.hpp>
 #include "telegram.h"
 #include "xml_unit.h"
 #include "oralib.h"
@@ -1987,10 +1988,14 @@ bool CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
       body << '/' << p->second.first.rk_weight;*/
     body << ENDL;
 
-    body << ".P/" << transliter(p->second.first.surname,1,options.is_lat);
-    if (!p->second.first.name.empty())
-      body << '/' << transliter(p->second.first.name,1,options.is_lat);
-    body  << ENDL;
+    string surname=transliter(p->second.first.surname,1,options.is_lat);
+    string name=transliter(p->second.first.name,1,options.is_lat);
+    if (options.pas_name_rp1745)
+    {
+      surname.erase(remove_if(surname.begin(), surname.end(), boost::is_any_of(" -")), surname.end());
+      name.erase(remove_if(name.begin(), name.end(), boost::is_any_of(" -")), name.end());
+    }
+    body << ".P/" << surname << (name.empty()?"":"/") << name << ENDL;
 
     if (!p->second.first.pnr_addr.empty())
       body << ".L/" << convert_pnr_addr(p->second.first.pnr_addr,options.is_lat) << ENDL;
