@@ -711,7 +711,9 @@ iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg)
 
 //---------------------------------------------------------------------------------------
 
-static const int MaxSerializedDataLen = 4000;
+static const size_t MaxDataPartLen = 4000;
+static const size_t MaxDataParts = 5;
+
 
 static std::string serialize(const std::list<dcrcka::Result>& lRes)
 {
@@ -735,6 +737,36 @@ static void deserialize(std::list<dcrcka::Result>& lRes, const std::string& data
 
 //---------------------------------------------------------------------------------------
 
+static std::vector<std::string> splitBySize(const std::string& in, size_t size)
+{
+    std::vector<std::string> ret;
+    for(size_t i = 0; i < in.length(); i += size) {
+        ret.push_back(in.substr(i, size));
+    }
+    return ret;
+}
+
+//---------------------------------------------------------------------------------------
+
+static void normalizeParts(std::vector<std::string>& parts, size_t maxParts)
+{
+    ASSERT(parts.size() <= maxParts);
+    for(size_t i = parts.size(); i < maxParts; ++i) {
+        parts.push_back("");
+    }
+}
+
+//---------------------------------------------------------------------------------------
+
+static std::vector<std::string> slpitDataParts(const std::string& in)
+{
+    std::vector<std::string> parts = splitBySize(in, MaxDataPartLen);
+    normalizeParts(parts, MaxDataParts);
+    return parts;
+}
+
+//---------------------------------------------------------------------------------------
+
 void saveDeferredCkiData(tlgnum_t msgId, const std::list<dcrcka::Result>& lRes)
 {
     std::string serialized = serialize(lRes);
@@ -743,13 +775,17 @@ void saveDeferredCkiData(tlgnum_t msgId, const std::list<dcrcka::Result>& lRes)
                      << " by msgId: " << msgId
                      << " [data size=" << serialized.size() << "]";
 
-    ASSERT(serialized.size() < MaxSerializedDataLen);
+    std::vector<std::string> parts = slpitDataParts(serialized);
 
     OciCpp::CursCtl cur = make_curs(
-"insert into DEFERRED_CKI_DATA(MSG_ID, DATA) "
-"values (:msg_id, :data)");
+"insert into DEFERRED_CKI_DATA(MSG_ID, DATA1, DATA2, DATA3, DATA4, DATA5) "
+"values (:msg_id, :data1, :data2, :data3, :data4, :data5)");
     cur.bind(":msg_id", msgId.num)
-       .bind(":data", serialized)
+       .bind(":data1", parts[0])
+       .bind(":data2", parts[1])
+       .bind(":data3", parts[2])
+       .bind(":data4", parts[3])
+       .bind(":data5", parts[4])
        .exec();
 }
 
@@ -757,20 +793,28 @@ std::list<dcrcka::Result> loadDeferredCkiData(tlgnum_t msgId)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " by msgId: " << msgId;
 
-    char data[MaxSerializedDataLen + 1] = {};
+    char data[MaxDataParts][MaxDataPartLen + 1] = {};
 
     OciCpp::CursCtl cur = make_curs(
 "begin\n"
-":data:=NULL;\n"
+":data1:=NULL;\n"
+":data2:=NULL;\n"
+":data3:=NULL;\n"
+":data4:=NULL;\n"
+":data5:=NULL;\n"
 "delete from DEFERRED_CKI_DATA where MSG_ID=:msg_id "
-"returning DATA into :data; \n"
+"returning DATA1, DATA2, DATA3, DATA4, DATA5 "
+"into :data1, :data2, :data3, :data4, :data5; \n"
 "end;");
     cur.bind(":msg_id", msgId.num)
-       .bindOutNull(":data", data, "")
+       .bindOut(":data1",     data[0])
+       .bindOutNull(":data2", data[1], "")
+       .bindOutNull(":data3", data[2], "")
+       .bindOutNull(":data4", data[3], "")
+       .bindOutNull(":data5", data[4], "")
        .exec();
 
-    std::string serialized(data);
-
+    std::string serialized(std::string(data[0]) + data[1] + data[2] + data[3] + data[5]);
     if(serialized.empty()) {
         tst();
         return std::list<dcrcka::Result>();
@@ -789,13 +833,17 @@ void saveCkiData(edilib::EdiSessionId_t sessId, const std::list<dcrcka::Result>&
                      << " by sessId: " << sessId
                      << " [data size=" << serialized.size() << "]";
 
-    ASSERT(serialized.size() < MaxSerializedDataLen);
+    std::vector<std::string> parts = slpitDataParts(serialized);
 
     OciCpp::CursCtl cur = make_curs(
-"insert into CKI_DATA(EDISESSION_ID, DATA) "
-"values (:sessid, :data)");
+"insert into CKI_DATA(EDISESSION_ID, DATA1, DATA2, DATA3, DATA4, DATA5) "
+"values (:sessid, :data1, :data2, :data3, :data4, :data5)");
     cur.bind(":sessid", sessId)
-       .bind(":data", serialized)
+       .bind(":data1", parts[0])
+       .bind(":data2", parts[1])
+       .bind(":data3", parts[2])
+       .bind(":data4", parts[3])
+       .bind(":data5", parts[4])
        .exec();
 }
 
@@ -803,20 +851,29 @@ std::list<dcrcka::Result> loadCkiData(edilib::EdiSessionId_t sessId)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " by sessId: " << sessId;
 
-    char data[MaxSerializedDataLen + 1] = {};
+    char data[MaxDataParts][MaxDataPartLen + 1] = {};
 
     OciCpp::CursCtl cur = make_curs(
 "begin\n"
-":data:=NULL;\n"
+":data1:=NULL;\n"
+":data2:=NULL;\n"
+":data3:=NULL;\n"
+":data4:=NULL;\n"
+":data5:=NULL;\n"
 "delete from CKI_DATA where EDISESSION_ID=:sessid "
-"returning DATA into :data; \n"
+"returning DATA1, DATA2, DATA3, DATA4, DATA5 "
+"into :data1, :data2, :data3, :data4, :data5; \n "
 "end;");
 
     cur.bind(":sessid", sessId)
-       .bindOutNull(":data", data, "")
+       .bindOut(":data1",     data[0])
+       .bindOutNull(":data2", data[1], "")
+       .bindOutNull(":data3", data[2], "")
+       .bindOutNull(":data4", data[3], "")
+       .bindOutNull(":data5", data[4], "")
        .exec();
 
-    std::string serialized(data);
+    std::string serialized(std::string(data[0]) + data[1] + data[2] + data[3] + data[5]);
     if(serialized.empty()) {
         tst();
         return std::list<dcrcka::Result>();
