@@ -115,6 +115,7 @@ void EdiErrMsg::init()
     ADD_MSG2(UPDATE_SEPARATELY,               "208");
     ADD_MSG2(CASCADED_QUERY_TIMEOUT,          "254");
     ADD_MSG2(ID_CARD_REQUIRED,                "259");
+    ADD_MSG2(DOC_EXPIRE_DATE_REQUIRED,        "280");
 
 #undef ADD_MSG2
     (*m_ediErrMsgMap)[9845] = el_9845;
