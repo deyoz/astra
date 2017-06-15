@@ -1909,17 +1909,11 @@ bool CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
        << (is_trfer?"T":"L")
        << TlgElemIdToElem(etAirp, con.OutFlt.operFlt.airp, options.is_lat) << ENDL;
 
-  TDateTime scd_out;
-  if(con.OutFlt.operFlt.airp == "€Ÿ’")
-      scd_out = con.OutFlt.operFlt.real_out;
-  else
-      scd_out = con.OutFlt.operFlt.scd_out;
-
   body << ".F/"
        << TlgElemIdToElem(etAirline, con.OutFlt.operFlt.airline, options.is_lat)
        << setw(3) << setfill('0') << con.OutFlt.operFlt.flt_no
        << (con.OutFlt.operFlt.suffix.empty() ? "" : TlgElemIdToElem(etSuffix, con.OutFlt.operFlt.suffix, options.is_lat)) << '/'
-       << DateTimeToStr( scd_out, "ddmmm", options.is_lat) << '/'
+       << DateTimeToStr( con.OutFlt.operFlt.scd_out, "ddmmm", options.is_lat) << '/'
        << TlgElemIdToElem(etAirp, con.OutFlt.airp_arv, options.is_lat);
   if (options.class_of_travel && !con.OutCls.empty())
     body << '/' << TlgElemIdToElem(etClass, con.OutCls, options.is_lat);
