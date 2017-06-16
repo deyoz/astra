@@ -174,8 +174,17 @@ std::ostream& operator<<(std::ostream &os, const PsdElem &psd)
 std::ostream& operator<<(std::ostream &os, const PbdElem &pbd)
 {
     os << "PBD: ";
-    os << "num of pieces: " << pbd.m_numOfPieces << "; ";
-    os << "weight: " << pbd.m_weight;
+    if(pbd.m_bag) {
+        os << "Bag: ";
+        os << "num of pieces: " << pbd.m_bag->m_numOfPieces << "; ";
+        os << "weight: " << pbd.m_bag->m_weight;
+    }
+    os << " ";
+    if(pbd.m_handBag) {
+        os << "Hand bag: ";
+        os << "num of pieces: " << pbd.m_handBag->m_numOfPieces << "; ";
+        os << "weight: " << pbd.m_handBag->m_weight;
+    }
     return os;
 }
 
@@ -309,9 +318,19 @@ std::ostream& operator<<(std::ostream &os, const UsdElem &usd)
 std::ostream& operator<<(std::ostream &os, const UbdElem &ubd)
 {
     os << "UBD: ";
-    os << "action code: " << ubd.m_actionCode << "; ";
-    os << "num of pieces: " << ubd.m_numOfPieces << "; ";
-    os << "weight: " << ubd.m_weight;
+    if(ubd.m_bag) {
+        os << "Update bag ";
+        os << "action code: " << ubd.m_bag->m_actionCode << "; ";
+        os << "num of pieces: " << ubd.m_bag->m_numOfPieces << "; ";
+        os << "weight: " << ubd.m_bag->m_weight;
+    }
+    os << " ";
+    if(ubd.m_handBag) {
+        os << "Update hand bag ";
+        os << "action code: " << ubd.m_handBag->m_actionCode << "; ";
+        os << "num of pieces: " << ubd.m_handBag->m_numOfPieces << "; ";
+        os << "weight: " << ubd.m_handBag->m_weight;
+    }
     return os;
 }
 

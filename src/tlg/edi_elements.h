@@ -681,12 +681,18 @@ struct PsdElem
 ///@class PbdElem - Passenger baggage information --PBD
 struct PbdElem
 {
-    unsigned m_numOfPieces;
-    unsigned m_weight;
+    struct Bag
+    {
+        unsigned m_numOfPieces;
+        unsigned m_weight;
 
-    PbdElem()
-        : m_numOfPieces(0), m_weight(0)
-    {}
+        Bag()
+            : m_numOfPieces(0), m_weight(0)
+        {}
+    };
+
+    boost::optional<Bag> m_bag;
+    boost::optional<Bag> m_handBag;
 };
 
 //---------------------------------------------------------------------------------------
@@ -853,13 +859,19 @@ struct UsdElem
 ///@class UbdElem - Update baggage details --UBD
 struct UbdElem
 {
-    std::string m_actionCode;
-    unsigned    m_numOfPieces;
-    unsigned    m_weight;
+    struct Bag
+    {
+        std::string m_actionCode;
+        unsigned    m_numOfPieces;
+        unsigned    m_weight;
 
-    UbdElem()
-        : m_numOfPieces(0), m_weight(0)
-    {}
+        Bag()
+            : m_numOfPieces(0), m_weight(0)
+        {}
+    };
+
+    boost::optional<Bag> m_bag;
+    boost::optional<Bag> m_handBag;
 };
 
 //---------------------------------------------------------------------------------------

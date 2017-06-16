@@ -88,6 +88,9 @@ boost::optional<iatci::SeatDetails>        makeSeat(const astra_api::astra_entit
 boost::optional<iatci::ServiceDetails>     makeService(const astra_api::astra_entities::PaxInfo& pax,
                                                        const boost::optional<astra_api::astra_entities::PaxInfo>& infant = boost::none);
 boost::optional<iatci::BaggageDetails>     makeBaggage(const astra_api::astra_entities::PaxInfo& pax);
+boost::optional<iatci::BaggageDetails>     makeBaggage(const astra_api::astra_entities::PaxInfo& pax,
+                                                       const std::list<astra_api::astra_entities::BagPool>& bags,
+                                                       const std::list<astra_api::astra_entities::BagPool>& handBags);
 boost::optional<iatci::DocDetails>         makeDoc(const astra_api::astra_entities::PaxInfo& pax);
 boost::optional<iatci::AddressDetails>     makeAddress(const astra_api::astra_entities::PaxInfo& pax);
 boost::optional<iatci::CascadeHostDetails> makeCascade();

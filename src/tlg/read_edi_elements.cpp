@@ -724,10 +724,35 @@ boost::optional<PbdElem> readEdiPbd(_EDI_REAL_MES_STRUCT_ *pMes)
     }
 
     PbdElem pbd;
-    pbd.m_numOfPieces = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes,
-                                                 DataElement(6806), "", CompElement("C027"));
-    pbd.m_weight = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes,
-                                            DataElement(6803), "", CompElement("C027"));
+    if(GetNumComposite(pMes, "C027"))
+    {
+        pbd.m_bag = PbdElem::Bag();
+        pbd.m_bag->m_numOfPieces = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(),
+                                                            pMes,
+                                                            DataElement(6806),
+                                                            "",
+                                                            CompElement("C027"));
+        pbd.m_bag->m_weight = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(),
+                                                       pMes,
+                                                       DataElement(6803),
+                                                       "",
+                                                       CompElement("C027"));
+    }
+
+    if(GetNumComposite(pMes, "C028"))
+    {
+        pbd.m_handBag = PbdElem::Bag();
+        pbd.m_handBag->m_numOfPieces = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(),
+                                                                pMes,
+                                                                DataElement(6806),
+                                                                "",
+                                                                CompElement("C028"));
+        pbd.m_handBag->m_weight = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(),
+                                                           pMes,
+                                                           DataElement(6803),
+                                                           "",
+                                                           CompElement("C028"));
+    }
 
     LogTrace(TRACE3) << pbd;
 
@@ -990,11 +1015,38 @@ boost::optional<UbdElem> readEdiUbd(_EDI_REAL_MES_STRUCT_ *pMes)
     }
 
     UbdElem ubd;
-    ubd.m_actionCode = GetDBFName(pMes, DataElement(9858), CompElement("C035"));
-    ubd.m_numOfPieces = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes,
-                                                 DataElement(6806), "", CompElement("C035"));
-    ubd.m_weight = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes,
-                                            DataElement(6803), "", CompElement("C035"));
+    if(GetNumComposite(pMes, "C035"))
+    {
+        ubd.m_bag = UbdElem::Bag();
+        ubd.m_bag->m_actionCode = GetDBFName(pMes, DataElement(9858), CompElement("C035"));
+        ubd.m_bag->m_numOfPieces = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(),
+                                                            pMes,
+                                                            DataElement(6806),
+                                                            "",
+                                                            CompElement("C035"));
+        ubd.m_bag->m_weight = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(),
+                                                       pMes,
+                                                       DataElement(6803),
+                                                       "",
+                                                       CompElement("C035"));
+
+    }
+
+    if(GetNumComposite(pMes, "C036"))
+    {
+        ubd.m_handBag = UbdElem::Bag();
+        ubd.m_handBag->m_actionCode = GetDBFName(pMes, DataElement(9858), CompElement("C036"));
+        ubd.m_handBag->m_numOfPieces = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(),
+                                                                pMes,
+                                                                DataElement(6806),
+                                                                "",
+                                                                CompElement("C036"));
+        ubd.m_handBag->m_weight = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(),
+                                                           pMes,
+                                                           DataElement(6803),
+                                                           "",
+                                                           CompElement("C036"));
+    }
 
     LogTrace(TRACE3) << ubd;
 

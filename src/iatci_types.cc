@@ -578,48 +578,17 @@ const std::string& SelectPersonalDetails::tickNum() const
 
 //---------------------------------------------------------------------------------------
 
-BaggageDetails::BaggageDetails(unsigned numOfPieces, unsigned weight)
-    : m_bag(BagInfo(numOfPieces, weight))
+BaggageDetails::BaggageDetails(const boost::optional<BagInfo>& bag,
+                               const boost::optional<BagInfo>& handBag)
+    : m_bag(bag), m_handBag(handBag)
 {}
-
-BaggageDetails::BaggageDetails(unsigned numOfPieces, unsigned weight,
-                               unsigned handNumOfPieces, unsigned handWeight)
-    : m_bag(numOfPieces, weight),
-      m_handBag(handNumOfPieces, handWeight)
-{}
-
-unsigned BaggageDetails::numOfPieces() const
-{
-    return m_bag.numOfPieces();
-}
-
-unsigned BaggageDetails::weight() const
-{
-    return m_bag.weight();
-}
-
-unsigned BaggageDetails::numOfHandPieces() const
-{
-    return m_handBag.numOfPieces();
-}
-
-unsigned BaggageDetails::handWeight() const
-{
-    return m_handBag.weight();
-}
 
 //---------------------------------------------------------------------------------------
 
 UpdateBaggageDetails::UpdateBaggageDetails(UpdateActionCode_e actionCode,
-                                           unsigned numOfPieces, unsigned weight)
-    : UpdateDetails(actionCode), BaggageDetails(numOfPieces, weight)
-{}
-
-UpdateBaggageDetails::UpdateBaggageDetails(UpdateActionCode_e actionCode,
-                                           unsigned numOfPieces, unsigned weight,
-                                           unsigned handNumOfPieces, unsigned handWeight)
-    : UpdateDetails(actionCode), BaggageDetails(numOfPieces, weight,
-                                                handNumOfPieces, handWeight)
+                                           const boost::optional<BagInfo>& bag,
+                                           const boost::optional<BagInfo>& handBag)
+    : UpdateDetails(actionCode), BaggageDetails(bag, handBag)
 {}
 
 //---------------------------------------------------------------------------------------

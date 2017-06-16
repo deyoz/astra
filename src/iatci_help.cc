@@ -315,8 +315,16 @@ iatci::SelectPersonalDetails makePersonal(const edifact::SpdElem& spd)
 
 iatci::BaggageDetails makeBaggage(const edifact::PbdElem& pbd)
 {
-    return iatci::BaggageDetails(pbd.m_numOfPieces,
-                                 pbd.m_weight);
+    boost::optional<iatci::BaggageDetails::BagInfo> bag, handBag;
+    if(pbd.m_bag) {
+        bag = iatci::BaggageDetails::BagInfo(pbd.m_bag->m_numOfPieces,
+                                             pbd.m_bag->m_weight);
+    }
+    if(pbd.m_handBag) {
+        handBag = iatci::BaggageDetails::BagInfo(pbd.m_handBag->m_numOfPieces,
+                                                 pbd.m_handBag->m_weight);
+    }
+    return iatci::BaggageDetails(bag, handBag);
 }
 
 iatci::ServiceDetails makeService(const edifact::PsiElem& psi)
@@ -461,8 +469,17 @@ iatci::UpdateSeatDetails makeUpdSeat(const edifact::UsdElem& usd)
 
 iatci::UpdateBaggageDetails makeUpdBaggage(const edifact::UbdElem& ubd)
 {
-    return iatci::UpdateBaggageDetails(iatci::UpdateBaggageDetails::strToActionCode(ubd.m_actionCode),
-                                       ubd.m_numOfPieces, ubd.m_weight);
+    boost::optional<iatci::UpdateBaggageDetails::BagInfo> updBag, updHandBag;
+    if(ubd.m_bag) {
+        updBag = iatci::UpdateBaggageDetails::BagInfo(ubd.m_bag->m_numOfPieces,
+                                                      ubd.m_bag->m_weight);
+    }
+    if(ubd.m_handBag) {
+        updHandBag = iatci::UpdateBaggageDetails::BagInfo(ubd.m_handBag->m_numOfPieces,
+                                                          ubd.m_handBag->m_weight);
+    }
+    return iatci::UpdateBaggageDetails(iatci::UpdateDetails::Replace,
+                                       updBag, updHandBag);
 }
 
 iatci::UpdateServiceDetails makeUpdService(const edifact::UsiElem& usi)
@@ -599,7 +616,31 @@ boost::optional<iatci::ServiceDetails> makeService(const astra_api::astra_entiti
 
 boost::optional<iatci::BaggageDetails> makeBaggage(const astra_api::astra_entities::PaxInfo& pax)
 {
-    return iatci::BaggageDetails(0, 0);
+    return iatci::BaggageDetails(iatci::BaggageDetails::BagInfo());
+}
+
+boost::optional<iatci::BaggageDetails> makeBaggage(const astra_api::astra_entities::PaxInfo& pax,
+                                                   const std::list<astra_api::astra_entities::BagPool>& bags,
+                                                   const std::list<astra_api::astra_entities::BagPool>& handBags)
+{
+    if(!pax.bagPoolNum()) {
+        return boost::none;
+    }
+
+    boost::optional<iatci::BaggageDetails::BagInfo> bag, handBag;
+    for(const auto& b: bags) {
+        if(b.poolNum() == pax.bagPoolNum()) {
+            bag = iatci::BaggageDetails::BagInfo(b.amount(), b.weight());
+        }
+    }
+
+    for(const auto& hb: handBags) {
+        if(hb.poolNum() == pax.bagPoolNum()) {
+            handBag = iatci::BaggageDetails::BagInfo(hb.amount(), hb.weight());
+        }
+    }
+
+    return iatci::BaggageDetails(bag, handBag);
 }
 
 boost::optional<iatci::DocDetails> makeDoc(const astra_api::astra_entities::PaxInfo& pax)
@@ -669,9 +710,12 @@ iatci::UpdateDocDetails makeUpdDoc(const astra_api::astra_entities::DocInfo& new
 iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::BagPool& bagPool,
                                            const astra_api::astra_entities::BagPool& handBagPool)
 {
+
     return iatci::UpdateBaggageDetails(iatci::UpdateDetails::Replace,
-                                       bagPool.amount(), bagPool.weight(),
-                                       handBagPool.amount(), handBagPool.weight());
+                                       iatci::UpdateBaggageDetails::BagInfo(bagPool.amount(),
+                                                                            bagPool.weight()),
+                                       iatci::UpdateBaggageDetails::BagInfo(handBagPool.amount(),
+                                                                            handBagPool.weight()));
 }
 
 //---------------------------------------------------------------------------------------

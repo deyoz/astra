@@ -160,8 +160,8 @@ struct PaxInfo
     boost::optional<AddressInfo> m_address;
     boost::optional<VisaInfo>    m_visa;
     boost::optional<Remarks>     m_rems;
-    int                          m_iatciParentId;
     int                          m_bagPoolNum;
+    int                          m_iatciParentId;
 
     PaxInfo(int paxId,
             const std::string& surname,
@@ -204,8 +204,9 @@ struct BagPool
 
     BagPool(int poolNum, int amount = 0, int weight = 0);
 
-    int amount() const { return m_amount; }
-    int weight() const { return m_weight; }
+    int poolNum() const { return m_poolNum; }
+    int amount()  const { return m_amount;  }
+    int weight()  const { return m_weight;  }
 
     BagPool  operator+ (const BagPool& pool);
     BagPool& operator+=(const BagPool& pool);
@@ -527,6 +528,11 @@ struct XmlSegment
     {}
 
     astra_entities::SegmentInfo toSeg() const;
+
+    std::list<XmlPax> nameFilter(const std::string& surname,
+                                 const std::string& name) const;
+
+    boost::optional<XmlPax> idFilter(int paxId) const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -542,14 +548,33 @@ struct XmlBag
     int         weight;
     int         bag_pool_num;
 
+    // доп инфа
+    int         pax_id;
+
     XmlBag()
         : id(ASTRA::NoExists),
           num(ASTRA::NoExists),
           pr_cabin(false),
           amount(ASTRA::NoExists),
           weight(ASTRA::NoExists),
-          bag_pool_num(ASTRA::NoExists)
+          bag_pool_num(ASTRA::NoExists),
+          pax_id(ASTRA::NoExists)
     {}
+};
+
+//---------------------------------------------------------------------------------------
+
+struct XmlBags
+{
+    std::list<XmlBag> bags;
+
+    XmlBags()
+    {}
+    XmlBags(const std::list<XmlBag>& b)
+        : bags(b)
+    {}
+
+    boost::optional<XmlBag> findBag(int paxId, int prCabin) const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -800,6 +825,9 @@ public:
 
     static xmlNodePtr viewSeg(xmlNodePtr node, const XmlSegment& seg);
 
+    static xmlNodePtr viewBag(xmlNodePtr node, const XmlBag& bag);
+    static xmlNodePtr viewBags(xmlNodePtr node, const XmlBags& bags);
+
     static xmlNodePtr viewServiveList(xmlNodePtr node, const XmlServiceList& svcList);
 };
 
@@ -821,6 +849,8 @@ struct LoadPaxXmlResult
 {
     std::list<XmlSegment> lSeg;
 
+    std::list<XmlBag> lBag;
+
     std::vector<iatci::dcrcka::Result> toIatci(iatci::dcrcka::Result::Action_e action,
                                                iatci::dcrcka::Result::Status_e status) const;
 
@@ -830,8 +860,11 @@ struct LoadPaxXmlResult
     std::list<XmlPax> applyNameFilter(const std::string& surname,
                                       const std::string& name) const;
 
+    boost::optional<XmlPax> applyIdFilter(int paxId) const;
+
     LoadPaxXmlResult(xmlNodePtr node);
-    LoadPaxXmlResult(const std::list<XmlSegment>& lSeg);
+    LoadPaxXmlResult(const std::list<XmlSegment>& lSeg,
+                     const std::list<XmlBag>& lBag = std::list<XmlBag>());
 };
 
 //---------------------------------------------------------------------------------------
@@ -908,7 +941,8 @@ public:
 
     // сохранение информации о пассажире
     xml_entities::LoadPaxXmlResult SavePax(int pointDep, const xml_entities::XmlTrip& paxTrip);
-    xml_entities::LoadPaxXmlResult SavePax(const xml_entities::XmlSegment& paxSeg);
+    xml_entities::LoadPaxXmlResult SavePax(const xml_entities::XmlSegment& paxSeg,
+                                           boost::optional<xml_entities::XmlBags> bags = boost::none);
     xml_entities::LoadPaxXmlResult SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
     // изменение места пассажира

@@ -558,9 +558,20 @@ void viewPsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SeatDetails& seat)
 void viewPbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::BaggageDetails& baggage)
 {
     std::ostringstream pbd;
-    pbd << baggage.numOfPieces();
-    if(baggage.numOfPieces()) {
-        pbd << ":" << baggage.weight();
+    if(baggage.bag()) {
+        pbd << baggage.bag()->numOfPieces();
+        if(baggage.bag()->numOfPieces()) {
+            pbd << ":" << baggage.bag()->weight();
+        }
+    } else {
+        pbd << "0";
+    }
+    pbd << "+";
+    if(baggage.handBag()) {
+        pbd << baggage.handBag()->numOfPieces();
+        if(baggage.handBag()->numOfPieces()) {
+            pbd << ":" << baggage.handBag()->weight();
+        }
     }
     SetEdiFullSegment(pMes, SegmElement("PBD"), pbd.str());
 }
@@ -680,20 +691,26 @@ void viewUsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateSeatDetails&
 void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateBaggageDetails& updBaggage)
 {
     std::ostringstream ubd;
-    ubd << updBaggage.actionCodeAsString() << ":";
-    ubd << updBaggage.numOfPieces();
-    if(updBaggage.numOfPieces()) {
-        ubd << ":" << updBaggage.weight();
+    if(updBaggage.bag()) {
+        ubd << updBaggage.actionCodeAsString() << ":";
+        ubd << updBaggage.bag()->numOfPieces();
+        if(updBaggage.bag()->numOfPieces()) {
+            ubd << ":" << updBaggage.bag()->weight();
+        }
     }
     ubd << "+";
 
-    ubd << updBaggage.actionCodeAsString() << ":";
-    ubd << updBaggage.numOfHandPieces();
-    if(updBaggage.numOfHandPieces()) {
-        ubd << ":" << updBaggage.handWeight();
+    if(updBaggage.handBag()) {
+        ubd << updBaggage.actionCodeAsString() << ":";
+        ubd << updBaggage.handBag()->numOfPieces();
+        if(updBaggage.handBag()->numOfPieces()) {
+            ubd << ":" << updBaggage.handBag()->weight();
+        }
     }
+    ubd << "+";
 
-    ubd << "+" << updBaggage.actionCodeAsString() << ":" << "NP";
+    ubd<< updBaggage.actionCodeAsString() << ":" << "NP";
+
     SetEdiFullSegment(pMes, SegmElement("UBD"), ubd.str());
 }
 
@@ -735,9 +752,6 @@ void viewUsiElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateServiceDetai
         if(ssr.isInfantTicket())
             usi << ":INF";
     }
-
-    LogTrace(TRACE3) << "usi:" << usi.str();
-
     SetEdiFullSegment(pMes, SegmElement("USI"), usi.str());
 }
 

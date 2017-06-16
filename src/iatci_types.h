@@ -453,23 +453,19 @@ struct BaggageDetails
         {}
 
         unsigned numOfPieces() const { return m_numOfPieces; }
-        unsigned weight() const { return m_weight; }
+        unsigned weight()      const { return m_weight; }
     };
 
 protected:
-    BagInfo m_bag;
-    BagInfo m_handBag;
+    boost::optional<BagInfo> m_bag;
+    boost::optional<BagInfo> m_handBag;
 
 public:
-    BaggageDetails(unsigned numOfPieces, unsigned weight);
-    BaggageDetails(unsigned numOfPieces, unsigned weight,
-                   unsigned numOfHandPieces, unsigned handWeight);
+    BaggageDetails(const boost::optional<BagInfo>& bag,
+                   const boost::optional<BagInfo>& handBag = boost::none);
 
-    unsigned numOfPieces() const;
-    unsigned weight() const;
-
-    unsigned numOfHandPieces() const;
-    unsigned handWeight() const;
+    const boost::optional<BagInfo>& bag()     const { return m_bag; }
+    const boost::optional<BagInfo>& handBag() const { return m_handBag; }
 
 protected:
     BaggageDetails()
@@ -482,10 +478,8 @@ struct UpdateBaggageDetails: public UpdateDetails, public BaggageDetails
 {
 public:
     UpdateBaggageDetails(UpdateActionCode_e actionCode,
-                         unsigned numOfPieces, unsigned weight);
-    UpdateBaggageDetails(UpdateActionCode_e actionCode,
-                         unsigned numOfPieces, unsigned weight,
-                         unsigned handNumOfPieces, unsigned handWeight);
+                         const boost::optional<BagInfo>& bag,
+                         const boost::optional<BagInfo>& handBag);
 };
 
 //---------------------------------------------------------------------------------------

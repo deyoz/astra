@@ -102,6 +102,9 @@ void IatciRequestHandler::makeAnAnswer()
                 if(pxg.service()) {
                     viewPsiElement(pMesW(), *pxg.service());
                 }
+                if(pxg.baggage()) {
+                    viewPbdElement(pMesW(), *pxg.baggage());
+                }
                 int curApg = 0;
                 if(pxg.doc()) {
                     PushEdiPointW(pMesW());
