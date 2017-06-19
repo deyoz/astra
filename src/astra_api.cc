@@ -428,6 +428,26 @@ GetSeatmapXmlResult AstraEngine::GetSeatmap(int depPointId)
     return GetSeatmapXmlResult(resNode);
 }
 
+AstraEngine::AstraEngine()
+{
+    m_userId = getUserId();
+}
+
+int AstraEngine::getUserId() const
+{
+    int usrId = -1;
+    OciCpp::CursCtl cur = make_curs(
+"select USER_ID from USERS2 where LOGIN=:api_login");
+    cur.bind(":api_login", "IATCIUSR")
+       .def(usrId)
+       .EXfet();
+    if(cur.err() == NO_DATA_FOUND) {
+        LogError(STDLOG) << "Unable to find IATCI user!";
+    }
+
+    return usrId;
+}
+
 XMLRequestCtxt* AstraEngine::getRequestCtxt() const
 {
     return NULL;
@@ -454,6 +474,7 @@ void AstraEngine::initReqInfo() const
     TReqInfo::Instance()->desk.version = VERSION_WITH_BAG_POOLS;
     TReqInfo::Instance()->desk.lang    = AstraLocale::LANG_EN;
     TReqInfo::Instance()->api_mode     = true;
+    TReqInfo::Instance()->user.user_id = m_userId;
     JxtContext::JxtContHolder::Instance()
             ->setHandler(new JxtContext::JxtContHandlerSir(""));
 

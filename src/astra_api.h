@@ -915,13 +915,17 @@ class AstraEngine
 private:
     mutable XMLDoc m_reqDoc;
     mutable XMLDoc m_resDoc;
+    int            m_userId;
 
 protected:
+    int             getUserId() const;
     XMLRequestCtxt* getRequestCtxt() const;
     xmlNodePtr      getQueryNode() const;
     xmlNodePtr      getAnswerNode() const;
 
     void initReqInfo() const;
+    
+    AstraEngine();
 
 public:
     static AstraEngine& singletone();
