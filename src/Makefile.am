@@ -126,6 +126,7 @@ astra_SOURCES = \
   spp_cek.cc \
   stages.cc \
   stat.cc \
+  stat_doc_country.cc \
   qrys.cpp \
   telegram.cc \
   telegram2.cc \
@@ -228,7 +229,6 @@ noinst_HEADERS = \
   docs.h \
   edi_utils.h \
   emdoc.h \
-  empty_proc.h \
   etick_change_status.h \
   etick.h \
   events.h \

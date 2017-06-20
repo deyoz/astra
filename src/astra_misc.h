@@ -228,6 +228,7 @@ class TTripInfo
     {
       init(flt);
     };
+    virtual bool getByPointId ( const TDateTime part_key, const int point_id );
     virtual bool getByPointId ( const int point_id );
     virtual bool getByPointIdTlg ( const int point_id_tlg );
     virtual bool getByGrpId ( const int grp_id );
@@ -295,6 +296,7 @@ class TAdvTripInfo : public TTripInfo
       TTripInfo::Init(Qry);
       init(Qry);
     };
+    virtual bool getByPointId ( const TDateTime part_key, const int point_id );
     virtual bool getByPointId ( const int point_id );
 };
 

@@ -408,6 +408,25 @@ void GetFltCBoxList(TScreenState scr, TDateTime first_date, TDateTime last_date,
     ProgTrace(TRACE5, "FltCBoxDropDown SORT: %s", tm.PrintWithMessage().c_str());
 };
 
+namespace STAT
+{
+
+void TMoveIds::get_for_airp(TDateTime first_date, TDateTime last_date, const std::string& airp)
+{
+  clear();
+
+  TReqInfo &reqInfo = *(TReqInfo::Instance());
+  reqInfo.user.access.set_total_permit();
+  reqInfo.user.access.merge_airps(TAccessElems<std::string>(airp, true));
+
+  vector<TPointsRow> points;
+  GetFltCBoxList(ssPaxList, first_date, last_date, false, points);
+  for(vector<TPointsRow>::const_iterator i=points.begin(); i!=points.end(); ++i)
+    insert(make_pair(i->part_key, i->move_id));
+}
+
+}
+
 void GetMinMaxPartKey(const string &where, TDateTime &min_part_key, TDateTime &max_part_key)
 {
   TQuery Qry(&OraSession);
@@ -4000,7 +4019,7 @@ void TDetailStatCombo::add_data(ostringstream &buf) const
         buf << data.first.col1 << delim; // col1
     if (params.statType == statDetail)
         buf << data.first.col2 << delim; // col2
-    if(params.statType != statPactShort)    
+    if(params.statType != statPactShort)
         buf << (int)(pr_pact ? data.second.flts.size() : data.second.flt_amount) << delim; // Кол-во рейсов
     if(params.statType == statPactShort)
         buf << data.first.pact_descr << delim; // № договора
@@ -4009,7 +4028,7 @@ void TDetailStatCombo::add_data(ostringstream &buf) const
     {
         buf << data.second.f << delim; // П
         buf << data.second.c << delim; // Б
-        buf << data.second.y << delim; // Э  
+        buf << data.second.y << delim; // Э
         buf << data.second.i_stat.web << delim; // Web
         buf << data.second.i_stat.web_bag << delim; // БГ
         buf << data.second.i_stat.web_bp << delim; // ПТ
@@ -4121,7 +4140,7 @@ void TFullStatCombo::add_header(ostringstream &buf) const
     buf << "Направление" << delim;
     buf << "Кол-во пасс." << delim;
     if (params.statType==statFull)
-    {    
+    {
         /* TInetStat::toXML begin */
         buf << "Web" << delim;
         buf << "БГ" << delim;
@@ -4156,7 +4175,7 @@ void TFullStatCombo::add_data(ostringstream &buf) const
     buf << data.first.places.get() << delim; // Направление
     buf << data.second.pax_amount << delim; // Кол-во пасс.
     if (params.statType==statFull)
-    {    
+    {
         buf << data.second.i_stat.web << delim; // Web
         buf << data.second.i_stat.web_bag << delim; // БГ
         buf << data.second.i_stat.web_bp << delim; // ПТ
@@ -4770,7 +4789,7 @@ void TSelfCkinStatCombo::add_data(ostringstream &buf) const
     buf << data.first.ak << delim; // код а/к
     if (params.statType == statSelfCkinDetail or params.statType == statSelfCkinFull)
         buf << ElemIdToCodeNative(etAirp, data.first.ap) << delim; // код а/п
-    if (params.statType == statSelfCkinShort or params.statType == statSelfCkinDetail)        
+    if (params.statType == statSelfCkinShort or params.statType == statSelfCkinDetail)
         buf << (int)data.second.flts.size() << delim; // Кол-во рейсов
     if (params.statType == statSelfCkinFull)
     {

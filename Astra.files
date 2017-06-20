@@ -110,7 +110,6 @@ src/edi_utils.h
 src/emdoc.cc
 src/emdoc.h
 src/empty_proc.cc
-src/empty_proc.h
 src/etick.cc
 src/etick.h
 src/etick_change_status.cpp
@@ -199,6 +198,7 @@ src/stages.cc
 src/stages.h
 src/stat.cc
 src/stat.h
+src/stat_doc_country.cc
 src/telegram.cc
 src/telegram.h
 src/telegram2.cc
