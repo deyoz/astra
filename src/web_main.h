@@ -145,7 +145,6 @@ struct TWebPax {
     CheckIn::TDocaMap doca_map;
     std::set<CheckIn::TPaxFQTItem> fqts;
     std::multiset<CheckIn::TPaxRemItem> rems;
-    std::vector<CheckIn::TPaxASVCItem> svcs;
     TWebPax() {
       pax_no = ASTRA::NoExists;
       crs_pax_id = ASTRA::NoExists;

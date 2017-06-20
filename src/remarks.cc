@@ -512,26 +512,6 @@ const TPaxASVCItem& TPaxASVCItem::toXML(xmlNodePtr node) const
   return *this;
 };
 
-// <svc qtty="1" status="HI" rfic="A" rfisc="..." emdt="EMD-A" name="...">   status только HI
-//                                                                           emdt только EMD-A или EMD-S
-const TPaxASVCItem& TPaxASVCItem::toWebXML(xmlNodePtr node) const
-{
-  if (node==NULL) return *this;
-  xmlNodePtr remNode=NewTextChild(node, "svc");
-  SetProp(remNode, "rfic", RFIC);
-  SetProp(remNode, "rfisc", RFISC);
-  SetProp(remNode, "qtty", service_quantity);
-  SetProp(remNode, "status", "HI");
-  if (emd_type=="A")
-    SetProp(remNode, "emdt", "EMD-A");
-  else if (emd_type=="S")
-    SetProp(remNode, "emdt", "EMD-S");
-  else
-    SetProp(remNode, "emdt", "");
-  SetProp(remNode, "name", service_name);
-  return *this;
-};
-
 const TPaxASVCItem& TPaxASVCItem::toDB(TQuery &Qry) const
 {
   Qry.SetVariable("rfic", RFIC);
