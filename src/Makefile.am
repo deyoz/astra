@@ -145,8 +145,6 @@ astra_SOURCES = \
   TypeBHelpMng.cpp \
   img.cpp \
   astra_date_time.cpp \
-  icu_conversion.cpp \ 
-  tz_test.cpp \
   collect.cc \
   collect_data.cc \
   SalonPaxList.cc \
@@ -290,7 +288,6 @@ noinst_HEADERS = \
   TypeBHelpMng.h \
   img.h \
   astra_date_time.h \
-  tz_test.h \
   collect.h \
   collect_data.h \
   SalonPaxList.h \

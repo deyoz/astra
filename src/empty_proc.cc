@@ -2767,7 +2767,7 @@ int pc_wt_stat(int argc,char **argv)
   return 0;
 }
 
-
+/*
 void TZUpdate();
 
 int tz_conversion(int, char **) {
@@ -2790,6 +2790,7 @@ int test_conversion(int, char **) {
 
     return 0;
 }
+*/
 
 #include "serverlib/xml_stuff.h" // для xml_decode_nodelist
 
