@@ -875,10 +875,6 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
             LoadPaxDoc(pax.pax_id, pax.doc);
             LoadPaxDoco(pax.pax_id, pax.doco);
             CheckIn::LoadPaxFQT(pax.pax_id, pax.fqts);
-            std::multiset<TPaxEMDItem> emds;
-            GetPaxEMD(pax.pax_id, emds);
-            for(multiset<TPaxEMDItem>::const_iterator i=emds.begin(); i!=emds.end(); ++i)
-              pax.svcs.push_back(*i);
           }
           else
           {
@@ -908,7 +904,6 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
 
             CheckIn::LoadCrsPaxRem(pax.crs_pax_id, pax.rems);
             CheckIn::LoadCrsPaxFQT(pax.crs_pax_id, pax.fqts);
-            CheckIn::LoadCrsPaxASVC(pax.crs_pax_id, pax.svcs);
 
             if (!is_valid_pnr_status(Qry.FieldAsString("pnr_status")))
               pax.agent_checkin_reasons.insert("pnr_status");
@@ -1187,10 +1182,6 @@ void IntLoadPnr( const vector<TIdsPnrData> &ids,
 
         }
         else NewTextChild( paxNode, "bag_norm" );
-
-        xmlNodePtr svcsNode = NewTextChild( paxNode, "svcs" );
-        for(vector<CheckIn::TPaxASVCItem>::const_iterator i=iPax->svcs.begin();
-                                                          i!=iPax->svcs.end(); ++i) i->toWebXML(svcsNode);
 
         xmlNodePtr tidsNode = NewTextChild( paxNode, "tids" );
         NewTextChild( tidsNode, "crs_pnr_tid", iPax->crs_pnr_tid );
