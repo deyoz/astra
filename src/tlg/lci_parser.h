@@ -4,7 +4,6 @@
 #include "tlg_parser.h"
 #include <tr1/memory>
 
-using BASIC::date_time::TDateTime;
 
 namespace TypeB
 {
