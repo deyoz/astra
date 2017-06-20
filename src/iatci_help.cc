@@ -514,14 +514,26 @@ iatci::UpdateDocDetails makeUpdDoc(const edifact::UapElem& uap)
 
 //---------------------------------------------------------------------------------------
 
-iatci::PaxDetails makePax(const astra_api::astra_entities::PaxInfo& pax,
-                          const boost::optional<astra_api::astra_entities::PaxInfo>& infant)
+iatci::PaxDetails makeQryPax(const astra_api::astra_entities::PaxInfo& pax,
+                             const boost::optional<astra_api::astra_entities::PaxInfo>& infant)
 {
     return iatci::PaxDetails(pax.m_surname,
                              pax.m_name,
                              astra2iatci(pax.m_persType),
                              "",
-                             pax.m_iatciPaxId,
+                             pax.theirId(),
+                             infant ? iatci::PaxDetails::WithInfant
+                                    : iatci::PaxDetails::WithoutInfant);
+}
+
+iatci::PaxDetails makeRespPax(const astra_api::astra_entities::PaxInfo& pax,
+                              const boost::optional<astra_api::astra_entities::PaxInfo>& infant)
+{
+    return iatci::PaxDetails(pax.m_surname,
+                             pax.m_name,
+                             astra2iatci(pax.m_persType),
+                             "",
+                             pax.ourId(),
                              infant ? iatci::PaxDetails::WithInfant
                                     : iatci::PaxDetails::WithoutInfant);
 }

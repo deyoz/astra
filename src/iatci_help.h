@@ -78,8 +78,10 @@ iatci::UpdateDocDetails        makeUpdDoc(const edifact::UapElem& uap);
 
 //---------------------------------------------------------------------------------------
 
-iatci::PaxDetails                          makePax(const astra_api::astra_entities::PaxInfo& pax,
-                                                   const boost::optional<astra_api::astra_entities::PaxInfo>& infant = boost::none);
+iatci::PaxDetails                          makeQryPax(const astra_api::astra_entities::PaxInfo& pax,
+                                                      const boost::optional<astra_api::astra_entities::PaxInfo>& infant = boost::none);
+iatci::PaxDetails                          makeRespPax(const astra_api::astra_entities::PaxInfo& pax,
+                                                       const boost::optional<astra_api::astra_entities::PaxInfo>& infant = boost::none);
 iatci::FlightDetails                       makeFlight(const astra_api::astra_entities::SegmentInfo& seg);
 iatci::OriginatorDetails                   makeOrg(const astra_api::astra_entities::SegmentInfo& seg);
 boost::optional<iatci::FlightSeatDetails>  makeFlightSeat(const astra_api::astra_entities::PaxInfo& pax);

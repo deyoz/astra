@@ -2,6 +2,7 @@
 
 #include "astra_consts.h"
 #include "iatci_types.h"
+#include "date_time.h"
 #include "xml_unit.h"
 
 #include <serverlib/xmllibcpp.h>
@@ -17,12 +18,9 @@
 
 class XMLRequestCtxt;
 
-
 namespace astra_api {
 
 namespace astra_entities {
-
-using BASIC::date_time::TDateTime;
 
 struct MarketingInfo
 {
@@ -186,6 +184,8 @@ struct PaxInfo
     std::string            fullName() const;
     int               iatciParentId() const { return m_iatciParentId; }
     Ticketing::TicketNum_t  tickNum() const;
+    std::string             theirId() const;
+    std::string               ourId() const;
 
     int                  bagPoolNum() const { return m_bagPoolNum; }
     void setBagPoolNum(int poolNum) { m_bagPoolNum = poolNum; }
@@ -374,6 +374,8 @@ struct XmlPnr
 
     std::list<XmlPax> applyNameFilter(const std::string& surname,
                                       const std::string& name) const;
+
+    std::list<XmlPax> applyTickNumFilter(const Ticketing::TicketNum_t& ticknum) const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -386,7 +388,7 @@ struct XmlTripHeader
     int              flt_no;
     std::string      suffix;
     std::string      airp;
-    TDateTime scd_out_local;
+    BASIC::date_time::TDateTime scd_out_local;
     int              pr_etl_only;
     int              pr_etstatus;
     int              pr_no_ticket_check;
@@ -442,7 +444,7 @@ struct XmlMarkFlight
     std::string      airline;
     int              flt_no;
     std::string      suffix;
-    TDateTime        scd;
+    BASIC::date_time::TDateTime scd;
     std::string      airp_dep;
     int              pr_mark_norms;
 
@@ -601,6 +603,8 @@ struct XmlTrip
 
     std::list<XmlPnr> applyNameFilter(const std::string& surname,
                                       const std::string& name) const;
+
+    std::list<XmlPnr> applyTickNumFilter(const Ticketing::TicketNum_t& ticknum) const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -833,6 +837,71 @@ public:
 
 //---------------------------------------------------------------------------------------
 
+struct NameFilter
+{
+    std::string m_surname;
+    std::string m_name;
+
+    NameFilter(const std::string& surname, const std::string& name)
+        : m_surname(surname), m_name(name)
+    {}
+
+    inline bool operator()(const XmlPax& pax) const
+    {
+        return pax.surname == m_surname &&
+               pax.name    == m_name;
+    }
+};
+
+//---------------------------------------------------------------------------------------
+
+struct TicknumFilter
+{
+    Ticketing::TicketNum_t m_ticknum;
+
+    TicknumFilter(const Ticketing::TicketNum_t& ticknum)
+        : m_ticknum(ticknum)
+    {}
+
+    inline bool operator()(const XmlPax& pax) const
+    {
+        return pax.ticket_no == m_ticknum.get();
+    }
+};
+
+//---------------------------------------------------------------------------------------
+
+struct IdFilter
+{
+    int m_id;
+
+    IdFilter(int id)
+        : m_id(id)
+    {}
+
+    inline bool operator()(const XmlPax& pax) const
+    {
+        return pax.pax_id == m_id;
+    }
+};
+
+//---------------------------------------------------------------------------------------
+
+struct PaxFilter
+{
+    boost::optional<NameFilter>    m_nameFilter;
+    boost::optional<TicknumFilter> m_ticknumFilter;
+    boost::optional<IdFilter>      m_idFilter;
+
+    PaxFilter(const boost::optional<NameFilter>& nameFilter,
+              const boost::optional<TicknumFilter>& ticknumFilter,
+              const boost::optional<IdFilter>& idFilter);
+
+    bool operator()(const XmlPax& pax) const;
+};
+
+//---------------------------------------------------------------------------------------
+
 struct SearchPaxXmlResult
 {
     std::list<XmlTrip> lTrip;
@@ -857,10 +926,8 @@ struct LoadPaxXmlResult
     iatci::dcrcka::Result toIatciFirst(iatci::dcrcka::Result::Action_e action,
                                        iatci::dcrcka::Result::Status_e status) const;
 
-    std::list<XmlPax> applyNameFilter(const std::string& surname,
-                                      const std::string& name) const;
 
-    boost::optional<XmlPax> applyIdFilter(int paxId) const;
+    void applyPaxFilter(const PaxFilter& filters);
 
     LoadPaxXmlResult(xmlNodePtr node);
     LoadPaxXmlResult(const std::list<XmlSegment>& lSeg,
@@ -875,6 +942,8 @@ struct PaxListXmlResult
 
     std::list<XmlPax> applyNameFilter(const std::string& surname,
                                       const std::string& name) const;
+
+    std::list<XmlPax> applyFilters(const PaxFilter& filters) const;
 
     PaxListXmlResult(xmlNodePtr node);
 };
@@ -915,7 +984,7 @@ class AstraEngine
 private:
     mutable XMLDoc m_reqDoc;
     mutable XMLDoc m_resDoc;
-    int            m_userId;
+    int 	   m_userId;
 
 protected:
     int             getUserId() const;

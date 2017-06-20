@@ -1016,11 +1016,11 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
         if(ssrInft) {
             inft = findInfant(lInfants, *ssrInft);
             if(inft) {
-                infant = iatci::makePax(*inft);
+                infant = iatci::makeQryPax(*inft);
                 infantDoc = iatci::makeDoc(*inft);
             }
         }
-        lPaxGrp.push_back(iatci::dcqcki::PaxGroup(iatci::makePax(pax, inft),
+        lPaxGrp.push_back(iatci::dcqcki::PaxGroup(iatci::makeQryPax(pax, inft),
                                                   iatci::makeReserv(pax),
                                                   iatci::makeSeat(pax),
                                                   iatci::makeBaggage(pax),
@@ -1074,9 +1074,9 @@ static iatci::CkxParams getCkxParams(xmlNodePtr reqNode)
             boost::optional<iatci::PaxDetails> infant;
             auto inft = findInfantByParentId(lInfants, pax.id());
             if(inft) {
-                infant = iatci::makePax(*inft);
+                infant = iatci::makeQryPax(*inft);
             }
-            lPaxGrp.push_back(iatci::dcqckx::PaxGroup(iatci::makePax(pax, inft),
+            lPaxGrp.push_back(iatci::dcqckx::PaxGroup(iatci::makeQryPax(pax, inft),
                                                       boost::none,
                                                       boost::none,
                                                       boost::none,
@@ -1145,11 +1145,11 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
                                                                          paxOpt->id());
     boost::optional<iatci::PaxDetails> infant;
     if(inft) {
-        infant = iatci::makePax(*inft);
+        infant = iatci::makeQryPax(*inft);
     }
 
     std::list<iatci::dcqcku::PaxGroup> lPaxGrp;
-    lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makePax(*paxOpt, inft),
+    lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makeQryPax(*paxOpt, inft),
                                               boost::none, // Reserv
                                               boost::none, // Baggage
                                               boost::none, // Service
@@ -1261,10 +1261,10 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
         processedPaxIds.insert(adult->id());
         if(inft) {
             processedPaxIds.insert(inft->id());
-            infant = iatci::makePax(*inft);
+            infant = iatci::makeQryPax(*inft);
         }
 
-        lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makePax(adult.get(), inft),
+        lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makeQryPax(adult.get(), inft),
                                                   boost::none, // Reserv
                                                   boost::none, // Baggage
                                                   boost::none, // Service
@@ -1358,7 +1358,7 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
         processedPaxIds.insert(adult->id());
         if(inft) {
             processedPaxIds.insert(inft->id());
-            infant = iatci::makePax(*inft);
+            infant = iatci::makeQryPax(*inft);
         }
 
         boost::optional<iatci::UpdatePaxDetails>     adultUpdPersonal, inftUpdPersonal;
@@ -1376,7 +1376,7 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
             inftUpdDoc      = getUpdDoc(*inftChange);
         }
 
-        lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makePax(adult.get(), inft),
+        lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makeQryPax(adult.get(), inft),
                                                   boost::none, // Reserv
                                                   boost::none, // Baggage
                                                   boost::none, // Service
@@ -1420,9 +1420,9 @@ static iatci::BprParams getBprParams(xmlNodePtr reqNode)
         boost::optional<iatci::PaxDetails> infant;
         auto inft = findInfantByParentId(lInfants, pax.id());
         if(inft) {
-            infant = iatci::makePax(*inft);
+            infant = iatci::makeQryPax(*inft);
         }
-        lPaxGrp.push_back(iatci::dcqbpr::PaxGroup(iatci::makePax(pax),
+        lPaxGrp.push_back(iatci::dcqbpr::PaxGroup(iatci::makeQryPax(pax),
                                                   boost::none, // reserv
                                                   boost::none, // baggage
                                                   boost::none, // service
