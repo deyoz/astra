@@ -59,6 +59,7 @@
 #include <serverlib/xml_stuff.h>
 #include <serverlib/testmode.h>
 #include <serverlib/dump_table.h>
+#include <etick/tick_data.h>
 
 #include <boost/algorithm/string.hpp>
 
@@ -1455,8 +1456,12 @@ static void CreateEdiTCkinResponse(const CheckIn::TTransferItem &ti,
     xmlNodePtr pnrNode = NewTextChild(groupsNode, "pnr");
     NewTextChild(pnrNode, "pnr_id", -1);
     NewTextChild(pnrNode, "airp_arv", ti.airp_arv);
-    NewTextChild(pnrNode, "subclass", pax.subclass);
-    NewTextChild(pnrNode, "class",    pax.subclass); // class? TODO
+
+    Ticketing::SubClass subcls(pax.subclass);
+    Language lang = TReqInfo::Instance()->desk.lang == AstraLocale::LANG_RU ? RUSSIAN
+                                                                            : ENGLISH;
+    NewTextChild(pnrNode, "subclass", subcls->code(lang));
+    NewTextChild(pnrNode, "class",    subcls->baseClass()->code(lang));
 
     xmlNodePtr paxesNode = NewTextChild(pnrNode, "passengers");
     xmlNodePtr paxNode = NewTextChild(paxesNode, "pax");
@@ -7048,10 +7053,11 @@ void CheckInInterface::LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int 
     std::string xmlData = iatci::IatciXmlDb::load(grpId);
     if(!xmlData.empty())
     {
-        if(needSync && reqNode != NULL) {
-            IatciInterface::PasslistRequest(reqNode, grpId);
-            return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO #25409
-        }
+//   закомментировано, т.к. PLF никто не поддерживает
+//        if(needSync && reqNode != NULL) {
+//            IatciInterface::PasslistRequest(reqNode, grpId);
+//            return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO #25409
+//        }
         XMLDoc xmlDoc = iatci::createXmlDoc(xmlData);
 
         xmlNodePtr srcSegsNode = findNodeR(xmlDoc.docPtr()->children, "segments");
