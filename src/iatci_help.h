@@ -101,6 +101,8 @@ iatci::UpdatePaxDetails makeUpdPax(const astra_api::astra_entities::PaxInfo& new
                                    iatci::UpdateDetails::UpdateActionCode_e act);
 iatci::UpdateServiceDetails::UpdSsrInfo makeUpdSsr(const astra_api::astra_entities::Remark& rem,
                                                    iatci::UpdateDetails::UpdateActionCode_e act);
+iatci::UpdateServiceDetails::UpdSsrInfo makeUpdSsrFqt(const astra_api::astra_entities::FqtRemark& rem,
+                                                      iatci::UpdateDetails::UpdateActionCode_e act);
 iatci::UpdateDocDetails makeUpdDoc(const astra_api::astra_entities::DocInfo& doc,
                                    iatci::UpdateDetails::UpdateActionCode_e act);
 iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::BagPool& bagPool,

@@ -23,7 +23,6 @@
 #include <edilib/edi_sess.h>
 
 #include <boost/lexical_cast.hpp>
-#include <boost/foreach.hpp>
 
 #include <time.h>
 #include <sstream>
@@ -413,7 +412,7 @@ std::vector< std::string > PaxlstInfo::toEdiStrings( unsigned maxPaxPerString ) 
     std::string ediRef = createEdiInterchangeReference();
     unsigned partNum = 0,
             partsCnt = splitted.size();
-    BOOST_FOREACH( const PaxlstInfo& paxlst, splitted )
+    for( const PaxlstInfo& paxlst: splitted )
     {
         res.push_back( createEdiPaxlstString( paxlst,
                                               ediRef,

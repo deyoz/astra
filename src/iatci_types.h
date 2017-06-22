@@ -533,7 +533,8 @@ public:
     void addSsr(const std::string& ssrCode, const std::string& ssrFreeText);
     void addSsrTkne(const std::string& tickNum, bool isInftTicket = false);
     void addSsrTkne(const std::string& tickNum, unsigned couponNum, bool inftTicket);
-    void addSsrFqtv(const std::string& fqtvCode);
+    void addSsrFqtv(const std::string& remCode, const std::string& airline,
+                    const std::string& fqtNum, unsigned tierLev = 0);
 
     boost::optional<Ticketing::TicketCpn_t> findTicketCpn(bool inftTicket) const;
 };

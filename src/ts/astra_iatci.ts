@@ -815,6 +815,13 @@ $(defmacro SAVE_PAX
                   <rem_text>FOID PP7774441110</rem_text>
                 </rem>
               </rems>
+              <fqt_rems>
+                <fqt_rem>
+                  <rem_code>FQTV</rem_code>
+                  <airline>$(airl2)</airline>
+                  <no>7788990011</no>
+                </fqt_rem>
+              </fqt_rems>
             </pax>
           </passengers>
           <paid_bag_emd/>
@@ -1683,6 +1690,13 @@ $(defmacro UPDATE_PAX_REMS
                   <rem_text>OTHS HK1 DOCS/7777771110/PS</rem_text>
                 </rem>
               </rems>
+              <fqt_rems>
+                <fqt_rem>
+                  <rem_code>FQTV</rem_code>
+                  <airline>UT</airline>
+                  <no>7788990011</no>
+                </fqt_rem>
+              </fqt_rems>
             </pax>
           </passengers>
           <paid_bag_emd/>
@@ -1812,7 +1826,7 @@ PPD+REPIN+C:N++IVAN"
 PRD+Y"
 PSD++007A"
 PBD+0"
-PSI++FOID::::::FOID PP7774441110"
+PSI++FOID::::::FOID PP7774441110+FQTV:S7:7788990011"
 UNT+9+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -2116,7 +2130,7 @@ PPD+REPIN+A:N++IVAN"
 PRD+Y"
 PSD++007A"
 PBD+0"
-PSI++FOID::::::FOID PP7774441110"
+PSI++FOID::::::FOID PP7774441110+FQTV:S7:7788990011"
 UNT+9+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -2251,7 +2265,7 @@ PPD+REPIN+A:N++IVAN"
 PRD+Y"
 PSD++007A"
 PBD+0"
-PSI++FOID::::::FOID PP7774441110"
+PSI++FOID::::::FOID PP7774441110+FQTV:S7:7788990011"
 UNT+9+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -2319,7 +2333,7 @@ PPD+REPIN+A:N++IVAN"
 PRD+Y"
 PSD++007A"
 PBD+0"
-PSI++FOID::::::FOID PP7774441110"
+PSI++FOID::::::FOID PP7774441110+FQTV:S7:7788990011"
 UNT+9+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -2423,7 +2437,7 @@ PPD+REPIN+A:N++IVAN"
 PRD+Y"
 PSD++007A"
 PBD+0"
-PSI++FOID::::::FOID PP7774441110"
+PSI++FOID::::::FOID PP7774441110+FQTV:S7:7788990011"
 UNT+9+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -2762,7 +2776,7 @@ PPD+REPIN+A:N++IVAN"
 PRD+Y"
 PSD++007A"
 PBD+0"
-PSI++FOID::::::FOID PP7774441110"
+PSI++FOID::::::FOID PP7774441110+FQTV:S7:7788990011"
 UNT+9+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -2847,7 +2861,7 @@ PPD+REPIN+A:N++IVAN"
 PRD+Y"
 PSD++007A"
 PBD+0"
-PSI++FOID::::::FOID PP7774441110"
+PSI++FOID::::::FOID PP7774441110+FQTV:S7:7788990011"
 UNT+9+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -2884,7 +2898,7 @@ UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 PPD+REPIN+A:N++IVAN"
-USI++C:FOID::::::FOID PP7774441110+A:FOID::::::FOID PP7774449999+A:OTHS::::::OTHS HK1 DOCS/7777771110/PS"
+USI++C:FOID::::::FOID PP7774441110+A:FOID::::::FOID PP7774449999+A:OTHS::::::OTHS HK1 DOCS/7777771110/PS+A:FQTV:UT:7788990011"
 UNT+6+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -2955,7 +2969,7 @@ PPD+REPIN+A:N++IVAN"
 PRD+Y"
 PSD++007A"
 PBD+0"
-PSI++FOID::::::FOID PP7774441110"
+PSI++FOID::::::FOID PP7774441110+FQTV:S7:7788990011"
 UNT+9+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -3023,7 +3037,7 @@ PPD+REPIN+A:N++IVAN"
 PRD+Y"
 PSD++007A"
 PBD+0"
-PSI++FOID::::::FOID PP7774441110"
+PSI++FOID::::::FOID PP7774441110+FQTV:S7:7788990011"
 UNT+9+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -3101,7 +3115,7 @@ $(KICK_IN)
             <prn_form hex='0'>0,20,0,ACT:             '$(date_format %d.%m.%Y) 10:00:00                     ' 0,25,0,AGENT:           'PIKE                                    ' 0,30,0,AIRLINE:         'ûí                                      ' 0,35,0,AIRLINE_NAME:    'éÄé ÄÇàÄäéåèÄçàü ûíùâê                  ' 0,40,0,AIRLINE_SHORT:   'ûíùâê                                   ' 0,45,0,AIRP_ARV:        'èãä                                     ' 0,50,0,AIRP_ARV_NAME:   'èìãäéÇé                                 ' 0,55,0,AIRP_DEP:        'ÑåÑ                                     ' 0,60,0,AIRP_DEP_NAME:   'ÑéåéÑÖÑéÇé                              ' 0,65,0,BAG_AMOUNT:      '0                                       ' 0,70,0,BAGGAGE:         '                                        ' 0,75,0,BAG_WEIGHT:      '0                                       ' 0,80,0,BCBP_M_2:        'M1REPIN/IVAN          E0840Z6 DMELEDUT 0103 xxxY001A0001 128&gt;2180OO    B                0000000$(get pax_id)' 0,85,0,BRD_FROM:        '$(date_format %d.%m.%Y) 09:15:00                     ' 0,90,0,BRD_TO:          '$(date_format %d.%m.%Y) 09:35:00                     ' 0,95,0,CHD:             '                                        ' 0,100,0,CITY_ARV_NAME:  'ëÄçäí-èÖíÖêÅìêÉ                         ' 0,105,0,CITY_DEP_NAME:  'åéëäÇÄ                                  ' 0,110,0,CLASS:          'ù                                       ' 0,115,0,CLASS_NAME:     'ùäéçéå                                  ' 0,120,0,DESK:           'åéÇêéå                                  ' 0,125,0,DOCUMENT:       '7774441110                              ' 0,130,0,DUPLICATE:      '                                        ' 0,135,0,EST:            '$(date_format %d.%m.%Y) 10:00:00                     ' 0,140,0,ETICKET_NO:     '2986120030297/1                         ' 0,145,0,ETKT:           'ETKT2986120030297/1                     ' 0,150,0,EXCESS:         '0                                       ' 0,155,0,FLT_NO:         '103                                     ' 0,160,0,FQT:            '                                        ' 0,165,0,FULLNAME:       'REPIN IVAN                              ' 0,170,0,FULL_PLACE_ARV: 'ëÄçäí-èÖíÖêÅìêÉ èìãäéÇé                 ' 0,175,0,FULL_PLACE_DEP: 'åéëäÇÄ ÑéåéÑÖÑéÇé                       ' 0,180,0,GATE:           '1                                       ' 0,185,0,GATES:          '                                        ' 0,190,0,HALL:           'á†´ 1                                   ' 0,195,0,INF:            '                                        ' 0,200,0,LIST_SEAT_NO:   'xx                                      ' 0,205,0,LONG_ARV:       'ëÄçäí-èÖíÖêÅìêÉ(èãä)/ST PETERSBURG(LED) ' 0,210,0,LONG_DEP:       'åéëäÇÄ(ÑåÑ)/MOSCOW(DME)                 ' 0,215,0,NAME:           'IVAN                                    ' 0,220,0,NO_SMOKE:       'X                                       ' 0,225,0,ONE_SEAT_NO:    'xx                                      ' 0,230,0,PAX_ID:         '00000$(get pax_id)                              ' 0,235,0,PAX_TITLE:      'É-ç                                     ' 0,240,0,PLACE_ARV:      'ëÄçäí-èÖíÖêÅìêÉ(èãä)                    ' 0,245,0,PLACE_DEP:      'åéëäÇÄ(ÑåÑ)                             ' 0,250,0,PNR:            '0840Z6                                  ' 0,255,0,REG_NO:         '001                                     ' 0,260,0,REM:            '                                        ' 0,265,0,RK_AMOUNT:      '0                                       ' 0,270,0,RK_WEIGHT:      '0                                       ' 0,275,0,RSTATION:       '                                        ' 0,280,0,SCD:            '$(date_format %d.%m.%Y) 10:00:00                     ' 0,285,0,SEAT_NO:        'xx                                      ' 0,290,0,STR_SEAT_NO:    'xx                                      ' 0,295,0,SUBCLS:         'ù                                       ' 0,300,0,SURNAME:        'REPIN                                   ' 0,305,0,TAGS:           '                                        ' 0,310,0,TEST_SERVER:    '                                        ' 0,315,0,TIME_PRINT:     '$(date_format %d.%m.%Y) xx:xx:xx                     '</prn_form>
           </pax>
           <pax pax_id...
-            <prn_form hex='0'>0,20,0,ACT:             '$(date_format %d.%m.%Y) 10:00:00                     ' 0,25,0,AGENT:           'PIKE                                    ' 0,30,0,AIRLINE:         'ë7                                      ' 0,35,0,AIRLINE_NAME:    'ÄÇàÄäéåèÄçàü ëàÅàêú                     ' 0,40,0,AIRLINE_SHORT:   'ëàÅàêú                                  ' 0,45,0,AIRP_ARV:        'ëéó                                     ' 0,50,0,AIRP_ARV_NAME:   'ëéóà                                    ' 0,55,0,AIRP_DEP:        'èãä                                     ' 0,60,0,AIRP_DEP_NAME:   'èìãäéÇé                                 ' 0,65,0,BAG_AMOUNT:      '0                                       ' 0,70,0,BAGGAGE:         '                                        ' 0,75,0,BAG_WEIGHT:      '0                                       ' 0,80,0,BCBP_M_2:        ' ' 0,85,0,BRD_FROM:        '$(date_format %d.%m.%Y) xx:xx:xx                     ' 0,90,0,BRD_TO:          '$(date_format %d.%m.%Y) xx:xx:xx                     ' 0,95,0,CHD:             '                                        ' 0,100,0,CITY_ARV_NAME:  'ëéóà                                    ' 0,105,0,CITY_DEP_NAME:  'ëÄçäí-èÖíÖêÅìêÉ                         ' 0,110,0,CLASS:          '                                        ' 0,115,0,CLASS_NAME:     '                                        ' 0,120,0,DESK:           'åéÇêéå                                  ' 0,125,0,DOCUMENT:       '5408123432                              ' 0,130,0,DUPLICATE:      '                                        ' 0,135,0,EST:            '$(date_format %d.%m.%Y) 10:00:00                     ' 0,140,0,ETICKET_NO:     '2986120030297/2                         ' 0,145,0,ETKT:           'ETKT2986120030297/2                     ' 0,150,0,EXCESS:         '0                                       ' 0,155,0,FLT_NO:         '1027                                    ' 0,160,0,FQT:            '                                        ' 0,165,0,FULLNAME:       'REPIN IVAN                              ' 0,170,0,FULL_PLACE_ARV: 'ëéóà                                    ' 0,175,0,FULL_PLACE_DEP: 'ëÄçäí-èÖíÖêÅìêÉ èìãäéÇé                 ' 0,180,0,GATE:           '                                        ' 0,185,0,GATES:          '                                        ' 0,190,0,HALL:           '                                        ' 0,195,0,INF:            '                                        ' 0,200,0,LIST_SEAT_NO:   '7A                                      ' 0,205,0,LONG_ARV:       'ëéóà(ëéó)/SOCHI(AER)                    ' 0,210,0,LONG_DEP:       'ëÄçäí-èÖíÖêÅìêÉ(èãä)/ST PETERSBURG(LED) ' 0,215,0,NAME:           'IVAN                                    ' 0,220,0,NO_SMOKE:       'X                                       ' 0,225,0,ONE_SEAT_NO:    '7A                                      ' 0,230,0,PAX_ID:         '2000000000                              ' 0,235,0,PAX_TITLE:      '                                        ' 0,240,0,PLACE_ARV:      'ëéóà(ëéó)                               ' 0,245,0,PLACE_DEP:      'ëÄçäí-èÖíÖêÅìêÉ(èãä)                    ' 0,250,0,PNR:            '                                        ' 0,255,0,REG_NO:         '032                                     ' 0,260,0,REM:            '                                        ' 0,265,0,RK_AMOUNT:      '0                                       ' 0,270,0,RK_WEIGHT:      '0                                       ' 0,275,0,RSTATION:       '                                        ' 0,280,0,SCD:            '$(date_format %d.%m.%Y) 10:00:00                     ' 0,285,0,SEAT_NO:        '7A                                      ' 0,290,0,STR_SEAT_NO:    '7A                                      ' 0,295,0,SUBCLS:         'ù                                       ' 0,300,0,SURNAME:        'REPIN                                   ' 0,305,0,TAGS:           '                                        ' 0,310,0,TEST_SERVER:    '                                        ' 0,315,0,TIME_PRINT:     '$(date_format %d.%m.%Y) xx:xx:xx                     '</prn_form>
+            <prn_form hex='0'>0,20,0,ACT:             '$(date_format %d.%m.%Y) 10:00:00                     ' 0,25,0,AGENT:           'PIKE                                    ' 0,30,0,AIRLINE:         'ë7                                      ' 0,35,0,AIRLINE_NAME:    'ÄÇàÄäéåèÄçàü ëàÅàêú                     ' 0,40,0,AIRLINE_SHORT:   'ëàÅàêú                                  ' 0,45,0,AIRP_ARV:        'ëéó                                     ' 0,50,0,AIRP_ARV_NAME:   'ëéóà                                    ' 0,55,0,AIRP_DEP:        'èãä                                     ' 0,60,0,AIRP_DEP_NAME:   'èìãäéÇé                                 ' 0,65,0,BAG_AMOUNT:      '0                                       ' 0,70,0,BAGGAGE:         '                                        ' 0,75,0,BAG_WEIGHT:      '0                                       ' 0,80,0,BCBP_M_2:        ' ' 0,85,0,BRD_FROM:        'xx.xx.xxxx xx:xx:xx                     ' 0,90,0,BRD_TO:          'xx.xx.xxxx xx:xx:xx                     ' 0,95,0,CHD:             '                                        ' 0,100,0,CITY_ARV_NAME:  'ëéóà                                    ' 0,105,0,CITY_DEP_NAME:  'ëÄçäí-èÖíÖêÅìêÉ                         ' 0,110,0,CLASS:          '                                        ' 0,115,0,CLASS_NAME:     '                                        ' 0,120,0,DESK:           'åéÇêéå                                  ' 0,125,0,DOCUMENT:       '5408123432                              ' 0,130,0,DUPLICATE:      '                                        ' 0,135,0,EST:            '$(date_format %d.%m.%Y) 10:00:00                     ' 0,140,0,ETICKET_NO:     '2986120030297/2                         ' 0,145,0,ETKT:           'ETKT2986120030297/2                     ' 0,150,0,EXCESS:         '0                                       ' 0,155,0,FLT_NO:         '1027                                    ' 0,160,0,FQT:            '                                        ' 0,165,0,FULLNAME:       'REPIN IVAN                              ' 0,170,0,FULL_PLACE_ARV: 'ëéóà                                    ' 0,175,0,FULL_PLACE_DEP: 'ëÄçäí-èÖíÖêÅìêÉ èìãäéÇé                 ' 0,180,0,GATE:           '                                        ' 0,185,0,GATES:          '                                        ' 0,190,0,HALL:           '                                        ' 0,195,0,INF:            '                                        ' 0,200,0,LIST_SEAT_NO:   '7A                                      ' 0,205,0,LONG_ARV:       'ëéóà(ëéó)/SOCHI(AER)                    ' 0,210,0,LONG_DEP:       'ëÄçäí-èÖíÖêÅìêÉ(èãä)/ST PETERSBURG(LED) ' 0,215,0,NAME:           'IVAN                                    ' 0,220,0,NO_SMOKE:       'X                                       ' 0,225,0,ONE_SEAT_NO:    '7A                                      ' 0,230,0,PAX_ID:         '2000000000                              ' 0,235,0,PAX_TITLE:      '                                        ' 0,240,0,PLACE_ARV:      'ëéóà(ëéó)                               ' 0,245,0,PLACE_DEP:      'ëÄçäí-èÖíÖêÅìêÉ(èãä)                    ' 0,250,0,PNR:            '                                        ' 0,255,0,REG_NO:         '032                                     ' 0,260,0,REM:            '                                        ' 0,265,0,RK_AMOUNT:      '0                                       ' 0,270,0,RK_WEIGHT:      '0                                       ' 0,275,0,RSTATION:       '                                        ' 0,280,0,SCD:            '$(date_format %d.%m.%Y) 10:00:00                     ' 0,285,0,SEAT_NO:        '7A                                      ' 0,290,0,STR_SEAT_NO:    '7A                                      ' 0,295,0,SUBCLS:         'ù                                       ' 0,300,0,SURNAME:        'REPIN                                   ' 0,305,0,TAGS:           '                                        ' 0,310,0,TEST_SERVER:    '                                        ' 0,315,0,TIME_PRINT:     '$(date_format %d.%m.%Y) xx:xx:xx                     '</prn_form>
           </pax>
         </passengers>
       </printBP>
@@ -3148,7 +3162,7 @@ PPD+REPIN+A:N++IVAN"
 PRD+Y"
 PSD++007A"
 PBD+0"
-PSI++FOID::::::FOID PP7774441110"
+PSI++FOID::::::FOID PP7774441110+FQTV:S7:7788990011"
 UNT+9+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -3525,7 +3539,7 @@ PPD+REPIN+A:N++IVAN"
 PRD+Y"
 PSD++007A"
 PBD+0"
-PSI++FOID::::::FOID PP7774441110"
+PSI++FOID::::::FOID PP7774441110+FQTV:S7:7788990011"
 UNT+9+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -3591,7 +3605,7 @@ PPD+REPIN+A:N++IVAN"
 PRD+Y"
 PSD++007A"
 PBD+0"
-PSI++FOID::::::FOID PP7774441110"
+PSI++FOID::::::FOID PP7774441110+FQTV:S7:7788990011"
 UNT+9+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -3678,7 +3692,7 @@ PPD+REPIN+A:N++IVAN"
 PRD+Y"
 PSD++007A"
 PBD+0"
-PSI++FOID::::::FOID PP7774441110"
+PSI++FOID::::::FOID PP7774441110+FQTV:S7:7788990011"
 UNT+9+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -3846,7 +3860,7 @@ PPD+REPIN+A:N++IVAN"
 PRD+Y"
 PSD++007A"
 PBD+0"
-PSI++FOID::::::FOID PP7774441110"
+PSI++FOID::::::FOID PP7774441110+FQTV:S7:7788990011"
 UNT+9+1"
 UNZ+1+$(last_edifact_ref)0001"
 

@@ -622,6 +622,16 @@ boost::optional<iatci::ServiceDetails> makeService(const astra_api::astra_entiti
             }
         }
     }
+    
+    if(pax.m_fqtRems) {
+        if(!service) {
+            service = iatci::ServiceDetails();
+        }
+        
+        for(const auto& rem: pax.m_fqtRems->m_lFqtRems) {
+            service->addSsrFqtv(rem.m_remCode, rem.m_airline, rem.m_fqtNo);
+        }
+    }
 
     return service;
 }
@@ -701,6 +711,17 @@ iatci::UpdateServiceDetails::UpdSsrInfo makeUpdSsr(const astra_api::astra_entiti
                                                    "",
                                                    false,
                                                    rem.m_remText);
+}
+
+iatci::UpdateServiceDetails::UpdSsrInfo makeUpdSsrFqt(const astra_api::astra_entities::FqtRemark& rem,
+                                                      iatci::UpdateDetails::UpdateActionCode_e act)
+{
+    return iatci::UpdateServiceDetails::UpdSsrInfo(act,
+                                                   rem.m_remCode,
+                                                   rem.m_fqtNo,
+                                                   false,
+                                                   "",
+                                                   rem.m_airline);
 }
 
 iatci::UpdateDocDetails makeUpdDoc(const astra_api::astra_entities::DocInfo& newDoc,
@@ -1207,7 +1228,7 @@ static void traceTickNums(const std::list<Ticketing::TicketNum_t>& tnums,
                           const std::string& header,
                           int loglevel, const char* nick, const char* file, int line)
 {
-    LogTrace(loglevel, nick, file, line) << header << ":\n";
+    LogTrace(loglevel, nick, file, line) << header;
     for(const auto& t: tnums) {
         LogTrace(loglevel, nick, file, line) << t << ", ";
     }

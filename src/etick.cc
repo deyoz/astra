@@ -43,8 +43,6 @@
 #include "tlg/postpone_edifact.h"
 #include "tlg/AgentWaitsForRemote.h"
 
-#include <boost/foreach.hpp>
-
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include <serverlib/slogger.h>
@@ -784,7 +782,7 @@ void EMDSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
 
 static bool timeoutOccured(const std::list<edifact::RemoteResults> lRemRes)
 {
-    BOOST_FOREACH(const edifact::RemoteResults& remRes, lRemRes) {
+    for(const edifact::RemoteResults& remRes: lRemRes) {
         if(remRes.status() == edifact::RemoteStatus::Timeout) {
             LogWarning(STDLOG) << "Timeout occured for edissesion: " << remRes.ediSession();
             return true;

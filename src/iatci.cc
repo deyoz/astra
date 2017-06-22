@@ -211,11 +211,13 @@ namespace
         typedef CheckInEntityDiff<astra_entities::AddressInfo>  AddressChange_t;
         typedef CheckInEntityDiff<astra_entities::VisaInfo>     VisaChange_t;
         typedef CheckInEntityDiff<astra_entities::Remark>       RemChange_t;
+        typedef CheckInEntityDiff<astra_entities::FqtRemark>    FqtRemChange_t;
 
         typedef DocChange_t::Optional_t     DocChangeOpt_t;
         typedef AddressChange_t::Optional_t AddressChangeOpt_t;
         typedef VisaChange_t::Optional_t    VisaChangeOpt_t;
         typedef RemChange_t::Optional_t     RemChangeOpt_t;
+        typedef FqtRemChange_t::Optional_t  FqtRemChangeOpt_t;
 
     private:
         astra_entities::PaxInfo m_oldPax;
@@ -225,6 +227,7 @@ namespace
         AddressChangeOpt_t      m_addressChange;
         VisaChangeOpt_t         m_visaChange;
         RemChangeOpt_t          m_remChange;
+        FqtRemChangeOpt_t	m_fqtRemChange;
         bool                    m_persChange;
 
     public:
@@ -240,6 +243,7 @@ namespace
         const AddressChangeOpt_t& addressChange() const { return m_addressChange; }
         const VisaChangeOpt_t&    visaChange() const { return m_visaChange; }
         const RemChangeOpt_t&     remChange() const { return m_remChange; }
+        const FqtRemChangeOpt_t&  fqtRemChange() const { return m_fqtRemChange; }
         bool                      persChange() const { return m_persChange; }
     };
 
@@ -308,6 +312,21 @@ namespace
                 m_remChange = remChng;
             }
         }
+        
+        // ремарки fqt
+        std::list<astra_entities::FqtRemark> lOldFqtRems;
+        if(oldPax.m_fqtRems) {
+            lOldFqtRems = oldPax.m_fqtRems->m_lFqtRems;
+        }
+        std::list<astra_entities::FqtRemark> lNewFqtRems;
+        if(newPax.m_fqtRems) {
+            lNewFqtRems = newPax.m_fqtRems->m_lFqtRems;
+            
+            FqtRemChange_t fqtRemChng(lOldFqtRems, lNewFqtRems);
+            if(!fqtRemChng.empty()) {
+                m_fqtRemChange = fqtRemChng;
+            }
+        }
 
         // персональная информация
         if(oldPax.m_surname != newPax.m_surname || oldPax.m_name != newPax.m_name)
@@ -330,6 +349,9 @@ namespace
         }
         if(pc.remChange()) {
             os << "\nChange of pax remarks detected";
+        }
+        if(pc.fqtRemChange()) {
+            os << "\nChange of pax fqt remarks detected";
         }
         if(pc.persChange()) {
             os << "\nChange of pax personal detected";
@@ -810,28 +832,63 @@ static boost::optional<iatci::UpdatePaxDetails> getUpdPersonal(const PaxChange& 
 
 static boost::optional<iatci::UpdateServiceDetails> getUpdService(const PaxChange& paxChange)
 {
-    if(!paxChange.remChange()) {
-        return boost::none;
+    boost::optional<iatci::UpdateServiceDetails> updService;
+
+    if(paxChange.remChange())
+    {
+        if(!updService) {
+            updService = iatci::UpdateServiceDetails();
+        }
+
+        /* ремарки */
+
+        // удалённые
+        for(auto& rem: paxChange.remChange()->removed()) {
+            updService->addSsr(iatci::makeUpdSsr(rem,
+                                                 iatci::UpdateDetails::Cancel));
+        }
+
+        // добавленные
+        for(auto& rem: paxChange.remChange()->added()) {
+            updService->addSsr(iatci::makeUpdSsr(rem,
+                                                 iatci::UpdateDetails::Add));
+        }
+
+        // измененные
+        for(auto& chng: paxChange.remChange()->modified()) {
+            updService->addSsr(iatci::makeUpdSsr(chng.newEntity(),
+                                                 iatci::UpdateDetails::Replace));
+        }
     }
 
-    iatci::UpdateServiceDetails updService;
 
-    // удалённые
-    for(auto& rem: paxChange.remChange()->removed()) {
-        updService.addSsr(iatci::makeUpdSsr(rem,
-                                            iatci::UpdateDetails::Cancel));
-    }
+    //
 
-    // добавленные
-    for(auto& rem: paxChange.remChange()->added()) {
-        updService.addSsr(iatci::makeUpdSsr(rem,
-                                            iatci::UpdateDetails::Add));
-    }
+    if(paxChange.fqtRemChange())
+    {
+        if(!updService) {
+            updService = iatci::UpdateServiceDetails();
+        }
 
-    // измененные
-    for(auto& chng: paxChange.remChange()->modified()) {
-        updService.addSsr(iatci::makeUpdSsr(chng.newEntity(),
-                                            iatci::UpdateDetails::Replace));
+        /* ремарки fqt */
+
+        // удалённые
+        for(auto& rem: paxChange.fqtRemChange()->removed()) {
+            updService->addSsr(iatci::makeUpdSsrFqt(rem,
+                                                    iatci::UpdateDetails::Cancel));
+        }
+
+        // добавленные
+        for(auto& rem: paxChange.fqtRemChange()->added()) {
+            updService->addSsr(iatci::makeUpdSsrFqt(rem,
+                                                    iatci::UpdateDetails::Add));
+        }
+
+        // измененные
+        for(auto& chng: paxChange.fqtRemChange()->modified()) {
+            updService->addSsr(iatci::makeUpdSsrFqt(chng.newEntity(),
+                                                    iatci::UpdateDetails::Replace));
+        }
     }
 
     return updService;

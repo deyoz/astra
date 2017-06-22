@@ -688,9 +688,10 @@ void ServiceDetails::addSsrTkne(const std::string& tickNum, unsigned couponNum, 
     addSsrTkne(tkne.str(), inftTicket);
 }
 
-void ServiceDetails::addSsrFqtv(const std::string& fqtvCode)
+void ServiceDetails::addSsrFqtv(const std::string& remCode, const std::string& airline,
+                                const std::string& fqtNum, unsigned tierLevel)
 {
-    m_lSsr.push_back(ServiceDetails::SsrInfo("FQTV", fqtvCode));
+    m_lSsr.push_back(ServiceDetails::SsrInfo(remCode, fqtNum, false, "", airline, tierLevel ));
 }
 
 boost::optional<Ticketing::TicketCpn_t> ServiceDetails::findTicketCpn(bool inftTicket) const

@@ -3,8 +3,6 @@
 #include <etick/tick_data.h>
 #include <serverlib/dates.h>
 
-#include <boost/foreach.hpp>
-
 #define NICKNAME "ANTON"
 #define NICK_TRACE ANTON_TRACE
 #include <serverlib/slogger.h>
@@ -193,7 +191,7 @@ std::ostream& operator<<(std::ostream &os, const PsiElem &psi)
     os << "PSI: ";
     os << "osi: " << psi.m_osi << ";";
     os << "\nssrs:";
-    BOOST_FOREACH(const PsiElem::SsrDetails& ssr, psi.m_lSsr) {
+    for(const PsiElem::SsrDetails& ssr: psi.m_lSsr) {
         os << "\ncode: " << ssr.m_ssrCode << "; ";
         os << "airline: " << ssr.m_airline << "; ";
         os << "text: " << ssr.m_ssrText << "; ";
@@ -255,7 +253,7 @@ std::ostream& operator<<(std::ostream &os, const ChdElem &chd)
     os << "arr point: " << chd.m_arrPoint << "; ";
     os << "outb flight continuation indicator: " << chd.m_outbFlContinIndic;
     os << "host airlines: ";
-    BOOST_FOREACH(const std::string& hostAirline, chd.m_hostAirlines) {
+    for(const std::string& hostAirline: chd.m_hostAirlines) {
         os << hostAirline << ", ";
     }
     return os;
@@ -368,7 +366,7 @@ std::ostream& operator<<(std::ostream &os, const CbdElem &cbd)
     os << "seat occupation default indicator: " << cbd.m_seatOccupDefIndic << "; ";
     os << "first overwing row: " << cbd.m_firstOverwingRow << "; last overwing row: " << cbd.m_lastOverwingRow << "\n";
     os << "seat columns:\n";
-    BOOST_FOREACH(const CbdElem::SeatColumn& seatColumn, cbd.m_lSeatColumns) {
+    for(const CbdElem::SeatColumn& seatColumn: cbd.m_lSeatColumns) {
         os << seatColumn.m_col << ":" << seatColumn.m_desc1 << ":" << seatColumn.m_desc2 << ", ";
     }
     return os;
@@ -380,9 +378,9 @@ std::ostream& operator<<(std::ostream &os, const RodElem &rod)
     os << "row: " << rod.m_row << "; ";
     os << "row áharacteristic: " << rod.m_characteristic << "; ";
     os << "\nseat occupations:";
-    BOOST_FOREACH(const RodElem::SeatOccupation& seatOccup, rod.m_lSeatOccupations) {
+    for(const RodElem::SeatOccupation& seatOccup: rod.m_lSeatOccupations) {
         os << "\n" << seatOccup.m_col << ":[" << seatOccup.m_occup << "] -> ";
-        BOOST_FOREACH(const std::string& c, seatOccup.m_lCharacteristics) {
+        for(const std::string& c: seatOccup.m_lCharacteristics) {
             os << c << ",";
         }
     }
@@ -428,7 +426,7 @@ std::ostream& operator<<(std::ostream &os, const UsiElem &usi)
 {
     os << "USI: ";
     os << "\nssrs:";
-    BOOST_FOREACH(const UsiElem::UpdSsrDetails& ssr, usi.m_lSsr) {
+    for(const UsiElem::UpdSsrDetails& ssr: usi.m_lSsr) {
         os << "\naction code: " << ssr.m_actionCode << "; ";
         os << "\ncode: " << ssr.m_ssrCode << "; ";
         os << "airline: " << ssr.m_airline << "; ";

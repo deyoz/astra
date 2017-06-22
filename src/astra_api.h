@@ -77,6 +77,26 @@ bool operator!=(const Remark& left, const Remark& right);
 
 //---------------------------------------------------------------------------------------
 
+struct FqtRemark
+{
+    std::string m_remCode;
+    std::string m_airline;
+    std::string m_fqtNo;
+    std::string m_tierLevel;
+
+    FqtRemark(const std::string& remCode,
+              const std::string& airline,
+              const std::string& fqtNo,
+              const std::string& tierLevel = "");
+
+    std::string id() const { return m_remCode + m_airline + m_fqtNo; }
+};
+
+bool operator==(const FqtRemark& left, const FqtRemark& right);
+bool operator!=(const FqtRemark& left, const FqtRemark& right);
+
+//---------------------------------------------------------------------------------------
+
 struct DocInfo
 {
     std::string            m_type;
@@ -141,6 +161,16 @@ bool operator!=(const Remarks& left, const Remarks& right);
 
 //---------------------------------------------------------------------------------------
 
+struct FqtRemarks
+{
+    std::list<FqtRemark> m_lFqtRems;
+};
+
+bool operator==(const FqtRemarks& left, const FqtRemarks& right);
+bool operator!=(const FqtRemarks& left, const FqtRemarks& right);
+
+//---------------------------------------------------------------------------------------
+
 struct PaxInfo
 {
     int                          m_paxId;
@@ -158,6 +188,7 @@ struct PaxInfo
     boost::optional<AddressInfo> m_address;
     boost::optional<VisaInfo>    m_visa;
     boost::optional<Remarks>     m_rems;
+    boost::optional<FqtRemarks>  m_fqtRems;
     int                          m_bagPoolNum;
     int                          m_iatciParentId;
 
@@ -174,6 +205,7 @@ struct PaxInfo
             const Ticketing::SubClass& subclass,
             const boost::optional<DocInfo>& doc,
             const boost::optional<Remarks>& rems = boost::none,
+            const boost::optional<FqtRemarks>& fqtRems = boost::none,
             int bagPoolNum = 0,
             int iatciParentId = 0);
 
@@ -279,9 +311,27 @@ bool operator==(const XmlRem& l, const XmlRem& r);
 
 //---------------------------------------------------------------------------------------
 
+struct XmlFqtRem
+{
+    std::string rem_code;
+    std::string airline;
+    std::string no;
+    std::string tier_level;
+};
+bool operator==(const XmlFqtRem& l, const XmlFqtRem& r);
+
+//---------------------------------------------------------------------------------------
+
 struct XmlRems
 {
     std::list<XmlRem> rems;
+};
+
+//---------------------------------------------------------------------------------------
+
+struct XmlFqtRems
+{
+    std::list<XmlFqtRem> rems;
 };
 
 //---------------------------------------------------------------------------------------
@@ -317,6 +367,7 @@ struct XmlPax
     int         iatci_parent_id;
     boost::optional<XmlPaxDoc> doc;
     boost::optional<XmlRems> rems;
+    boost::optional<XmlFqtRems> fqt_rems;
 
     XmlPax();
 
@@ -767,6 +818,9 @@ public:
 
     static XmlRem                        readRem(xmlNodePtr remNode);
     static XmlRems                       readRems(xmlNodePtr remsNode);
+
+    static XmlFqtRem                     readFqtRem(xmlNodePtr remNode);
+    static XmlFqtRems                    readFqtRems(xmlNodePtr remsNode);
 
     static XmlPaxDoc                     readDoc(xmlNodePtr docNode);
 

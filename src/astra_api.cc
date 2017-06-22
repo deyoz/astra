@@ -1534,6 +1534,16 @@ bool operator==(const XmlRem& l, const XmlRem& r)
 
 //---------------------------------------------------------------------------------------
 
+bool operator==(const XmlFqtRem& l, const XmlFqtRem& r)
+{
+    return (l.rem_code   == r.rem_code &&
+            l.airline    == r.airline &&
+            l.no         == r.no &&
+            l.tier_level == r.tier_level);
+}
+
+//---------------------------------------------------------------------------------------
+
 astra_entities::MarketingInfo XmlMarkFlight::toMarkFlight() const
 {
     return astra_entities::MarketingInfo(airline,
@@ -1604,6 +1614,18 @@ astra_entities::PaxInfo XmlPax::toPax() const
         }
     }
 
+    boost::optional<astra_entities::FqtRemarks> paxFqtRems;
+    if(fqt_rems)
+    {
+        paxFqtRems = astra_entities::FqtRemarks();
+        for(const XmlFqtRem& rem: fqt_rems->rems) {
+            paxFqtRems->m_lFqtRems.push_back(astra_entities::FqtRemark(rem.rem_code,
+                                                                       rem.airline,
+                                                                       rem.no,
+                                                                       rem.tier_level));
+        }
+    }
+
     return astra_entities::PaxInfo(pax_id,
                                    surname,
                                    name,
@@ -1618,6 +1640,7 @@ astra_entities::PaxInfo XmlPax::toPax() const
                                                      : Ticketing::SubClass(),
                                    paxDoc,
                                    paxRems,
+                                   paxFqtRems,
                                    bag_pool_num != ASTRA::NoExists ? bag_pool_num : 0,
                                    iatci_parent_id != ASTRA::NoExists ? iatci_parent_id : 0);
 }
@@ -2112,6 +2135,31 @@ XmlRems XmlEntityReader::readRems(xmlNodePtr remsNode)
     return rems;
 }
 
+XmlFqtRem XmlEntityReader::readFqtRem(xmlNodePtr remNode)
+{
+    ASSERT(remNode);
+
+    XmlFqtRem rem;
+    rem.rem_code   = getStrFromXml(remNode, "rem_code");
+    rem.airline    = getStrFromXml(remNode, "airline");
+    rem.no         = getStrFromXml(remNode, "no");
+    rem.tier_level = getStrFromXml(remNode, "tier_level");
+    return rem;
+}
+
+XmlFqtRems XmlEntityReader::readFqtRems(xmlNodePtr remsNode)
+{
+    ASSERT(remsNode);
+
+    XmlFqtRems rems;
+    for(xmlNodePtr remNode = remsNode->children;
+        remNode != NULL; remNode = remNode->next)
+    {
+        rems.rems.push_back(XmlEntityReader::readFqtRem(remNode));
+    }
+    return rems;
+}
+
 XmlPaxDoc XmlEntityReader::readDoc(xmlNodePtr docNode)
 {
     ASSERT(docNode);
@@ -2176,6 +2224,12 @@ XmlPax XmlEntityReader::readPax(xmlNodePtr paxNode)
     xmlNodePtr remsNode = findNode(paxNode, "rems");
     if(remsNode != NULL && !isempty(remsNode)) {
         pax.rems = XmlEntityReader::readRems(remsNode);
+    }
+
+    // fqt remarks
+    xmlNodePtr fqtRemsNode = findNode(paxNode, "fqt_rems");
+    if(fqtRemsNode != NULL && !isempty(fqtRemsNode)) {
+        pax.fqt_rems = XmlEntityReader::readFqtRems(fqtRemsNode);
     }
 
     return pax;
@@ -3081,6 +3135,31 @@ bool operator!=(const Remark& left, const Remark& right)
 
 //---------------------------------------------------------------------------------------
 
+FqtRemark::FqtRemark(const std::string& remCode,
+                     const std::string& airline,
+                     const std::string& fqtNo,
+                     const std::string& tierLevel)
+    : m_remCode(remCode),
+      m_airline(airline),
+      m_fqtNo(fqtNo),
+      m_tierLevel(tierLevel)
+{}
+
+bool operator==(const FqtRemark& left, const FqtRemark& right)
+{
+    return (left.m_remCode   == right.m_remCode &&
+            left.m_airline   == right.m_airline &&
+            left.m_fqtNo     == right.m_fqtNo &&
+            left.m_tierLevel == right.m_tierLevel);
+}
+
+bool operator!=(const FqtRemark& left, const FqtRemark& right)
+{
+    return !(left == right);
+}
+
+//---------------------------------------------------------------------------------------
+
 DocInfo::DocInfo(const std::string& type,
                  const std::string& country,
                  const std::string& num,
@@ -3160,6 +3239,18 @@ bool operator!=(const Remarks& left, const Remarks& right)
 
 //---------------------------------------------------------------------------------------
 
+bool operator==(const FqtRemarks& left, const FqtRemarks& right)
+{
+    return (left.m_lFqtRems == right.m_lFqtRems);
+}
+
+bool operator!=(const FqtRemarks& left, const FqtRemarks& right)
+{
+    return !(left == right);
+}
+
+//---------------------------------------------------------------------------------------
+
 PaxInfo::PaxInfo(int paxId,
                  const std::string& surname,
                  const std::string& name,
@@ -3173,6 +3264,7 @@ PaxInfo::PaxInfo(int paxId,
                  const Ticketing::SubClass& subclass,
                  const boost::optional<DocInfo>& doc,
                  const boost::optional<Remarks>& rems,
+                 const boost::optional<FqtRemarks>& fqtRems,
                  int bagPoolNum,
                  int iatciParentId)
     : m_paxId(paxId),
@@ -3188,6 +3280,7 @@ PaxInfo::PaxInfo(int paxId,
       m_subclass(subclass),
       m_doc(doc),
       m_rems(rems),
+      m_fqtRems(fqtRems),
       m_bagPoolNum(bagPoolNum),
       m_iatciParentId(iatciParentId)
 {}
@@ -3247,6 +3340,7 @@ bool operator==(const PaxInfo& left, const PaxInfo& right)
             left.m_address       == right.m_address &&
             left.m_visa          == right.m_visa &&
             left.m_rems          == right.m_rems &&
+            left.m_fqtRems       == right.m_fqtRems &&
             left.m_bagPoolNum    == right.m_bagPoolNum &&
             left.m_iatciParentId == right.m_iatciParentId);
 }

@@ -4,8 +4,6 @@
 #include <list>
 #include <string>
 
-#include <boost/foreach.hpp>
-
 #include <serverlib/xp_test_utils.h>
 #include <serverlib/checkunit.h>
 #include <serverlib/str_utils.h>
@@ -71,7 +69,7 @@ std::string TestStrings::show_mismatch(std::string const &answer) const
 {
     size_t pos = 0;
     size_t pos_prev = 0;
-    BOOST_FOREACH(std::string const &s, pl->match_list) {
+    for(std::string const &s: pl->match_list) {
         pos_prev = pos;
         pos = answer.find(s, pos);
         if (pos == std::string::npos) {
@@ -91,7 +89,7 @@ std::string TestStrings::show_mismatch(std::string const &answer) const
 std::string TestStrings::check(std::string const & answer) const
 {
     size_t pos = 0;
-    BOOST_FOREACH(std::string const &s, pl->match_list) {
+    for(std::string const &s: pl->match_list) {
         pos = answer.find(s, pos);
         if (pos == std::string::npos) {
             return s;
@@ -104,7 +102,7 @@ std::string TestStrings::check(std::string const & answer) const
 std::string TestStrings::find_all(std::string const & answer) const
 {
     std::map<std::string,size_t> find_pos; 
-    BOOST_FOREACH(std::string const &s, pl->match_list) {
+    for(std::string const &s: pl->match_list) {
         std::map<std::string,size_t>::iterator i_find_pos=find_pos.find(s);
         size_t pos = (i_find_pos==find_pos.end()?0:i_find_pos->second);
         pos = answer.find(s, pos);
