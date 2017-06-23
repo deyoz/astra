@@ -268,7 +268,7 @@ void WebRequestsIface::SearchPNRs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
       reqInfo->user.access.airps().totally_not_permitted() )
   {
     ProgError(STDLOG, "WebRequestsIface::SearchPNRs: empty user's access (user.descr=%s)", reqInfo->user.descr.c_str());
-    return;
+    throw UserException( "MSG.PASSENGERS.NOT_FOUND" );
   };
 
   WebSearch::TPNRFilter filter;
