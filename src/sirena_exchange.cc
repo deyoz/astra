@@ -251,11 +251,10 @@ void SendRequest(const TExchange &request, TExchange &response,
   };
 
   xmlDocPtr doc=TextToXMLTree(responseInfo.content);
-  if (!load_res) response.saveToFile(XMLTreeToText(doc));
-  if (doc!=NULL)
-    traceXML(XMLTreeToText(doc));
-  else
-    traceXML(responseInfo.content);
+  string s=doc!=NULL?XMLTreeToText(doc):responseInfo.content;
+  if (!load_res) response.saveToFile(s);
+  traceXML(s);
+
   response.parse(responseInfo.content);
   if (response.error()) throw Exception("SIRENA ERROR: %s", response.traceError().c_str());
 
