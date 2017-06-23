@@ -1459,6 +1459,8 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if (strcmp((char*)node->name,"msg")==0)
     {
       string error_type="ERROR";
+      if (TReqInfo::Instance()->desk.code.substr(0, 3)=="UFA")
+        error_type=="TRACE5";
       string text=NodeAsString(node);
       Qry.SetVariable("text", text.substr(0,250));
       Qry.Execute();
