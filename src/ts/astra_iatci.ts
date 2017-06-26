@@ -1710,6 +1710,69 @@ $(defmacro UPDATE_PAX_REMS
 
 }) #end-of-macro
 
+$(defmacro CANCEL_PAX_REMS
+    point_dep
+    point_arv
+    airp_dep
+    airp_arv
+    grp_id
+    pax_id
+    tid
+    airp_dep2
+    airp_arv2
+    surname
+    name
+    second_name
+    tickno
+    cpnno
+{
+!!
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <segments>
+        <segment>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(airp_dep)</airp_dep>
+          <airp_arv>$(airp_arv)</airp_arv>
+          <class>Э</class>
+          <grp_id>$(grp_id)</grp_id>
+          <tid>$(tid)</tid>
+          <passengers/>
+          <paid_bag_emd/>
+        </segment>
+        <segment>
+          <point_dep>-1</point_dep>
+          <point_arv>-1</point_arv>
+          <airp_dep>$(airp_dep2)</airp_dep>
+          <airp_arv>$(airp_arv2)</airp_arv>
+          <class>Э</class>
+          <grp_id>-1</grp_id>
+          <tid>0</tid>
+          <passengers>
+            <pax>
+              <pax_id>-1</pax_id>
+              <surname>$(surname)</surname>
+              <name>$(name)</name>
+              <tid>0</tid>
+              <rems/>
+              <fqt_rems/>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+      </segments>
+      <hall>1</hall>
+      <bag_refuse/>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+}) #end-of-macro
+
 
 $(defmacro UPDATE_PAX_REMS_WITH_LONG
     point_dep
@@ -2930,6 +2993,71 @@ $(KICK_IN)
                 <rem_text>OTHS HK1 DOCS/7777771110/PS</rem_text>
               </rem>
             </rems>
+
+$(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
+
+$(CANCEL_PAX_REMS $(get point_dep) $(get point_arv) ДМД ПЛК
+                  $(get grp_id) $(get pax_id) $(get tid) ПЛК СОЧ
+                  REPIN IVAN IVANICH 4216120030297 2)
+
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+170626+LED+AER"
+PPD+REPIN+A:N++IVAN"
+USI++C:FOID::::::FOID PP7774449999+C:OTHS::::::OTHS HK1 DOCS/7777771110/PS+C:FQTV:UT:7788990011"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
+RAD+U+O"
+PPD+REPIN+A:N++IVAN"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+$(KICK_IN)
+
+>> lines=auto
+            <pax_id>-1</pax_id>
+            <surname>REPIN</surname>
+            <name>IVAN</name>
+            <pers_type>ВЗ</pers_type>
+            <seat_no>xx</seat_no>
+            <seat_type/>
+            <seats>1</seats>
+            <refuse/>
+            <reg_no/>
+            <subclass>Э</subclass>
+            <bag_pool_num/>
+            <tid>0</tid>
+            <ticket_no>2986120030297</ticket_no>
+            <coupon_no>2</coupon_no>
+            <ticket_rem>TKNE</ticket_rem>
+            <ticket_confirm>1</ticket_confirm>
+            <document>
+              <type>PP</type>
+              <issue_country>RUS</issue_country>
+              <no>5408123432</no>
+              <nationality>RUS</nationality>
+              <birth_date>10.03.1986 00:00:00</birth_date>
+              <gender>M</gender>
+              <surname>REPIN</surname>
+              <first_name>IVAN</first_name>
+              <expiry_date>31.12.2049 00:00:00</expiry_date>
+            </document>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <iatci_pax_id/>
+            <iatci_parent_pax_id/>
+            <rems/>
+            <fqt_rems/>
 
 
 %%

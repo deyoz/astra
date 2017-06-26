@@ -2227,13 +2227,13 @@ XmlPax XmlEntityReader::readPax(xmlNodePtr paxNode)
 
     // remarks
     xmlNodePtr remsNode = findNode(paxNode, "rems");
-    if(remsNode != NULL && !isempty(remsNode)) {
+    if(remsNode != NULL) {
         pax.rems = XmlEntityReader::readRems(remsNode);
     }
 
     // fqt remarks
     xmlNodePtr fqtRemsNode = findNode(paxNode, "fqt_rems");
-    if(fqtRemsNode != NULL && !isempty(fqtRemsNode)) {
+    if(fqtRemsNode != NULL) {
         pax.fqt_rems = XmlEntityReader::readFqtRems(fqtRemsNode);
     }
 
@@ -2248,7 +2248,6 @@ std::list<XmlPax> XmlEntityReader::readPaxes(xmlNodePtr paxesNode)
     for(xmlNodePtr paxNode = paxesNode->children;
         paxNode != NULL; paxNode = paxNode->next)
     {
-        tst();
         paxes.push_back(XmlEntityReader::readPax(paxNode));
     }
     return paxes;

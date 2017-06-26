@@ -172,7 +172,6 @@ namespace
         CheckInEntityDiff(const std::list<EntityT>& lOld, const std::list<EntityT>& lNew)
         {
             for(const EntityT& oldEntity: lOld) {
-                //if(oldEntity.id() == ASTRA::NoExists) continue; // неправильные сущности пропускаем
                 const auto newEntityOpt = algo::find_opt_if<boost::optional>(lNew,
                     [&oldEntity](const EntityT& newEntity) { return newEntity.id() == oldEntity.id(); } );
                 if(newEntityOpt) { // если найдена в новых и с изменениями -> помещаем в modified
@@ -185,7 +184,6 @@ namespace
             }
 
             for(const EntityT& newEntity: lNew) {
-                //if(newEntity.id() == ASTRA::NoExists) continue; // неправильных пассажиров пропускаем
                 const auto oldEntityOpt = algo::find_opt_if<boost::optional>(lOld,
                     [&newEntity](const EntityT& oldEntity) { return oldEntity.id() == newEntity.id(); } );
                 if(!oldEntityOpt) { // если в старых не найден -> помещаем в added
@@ -306,7 +304,6 @@ namespace
         std::list<astra_entities::Remark> lNewRems;
         if(newPax.m_rems) {
             lNewRems = newPax.m_rems->m_lRems;
-
             RemChange_t remChng(lOldRems, lNewRems);
             if(!remChng.empty()) {
                 m_remChange = remChng;
@@ -321,13 +318,12 @@ namespace
         std::list<astra_entities::FqtRemark> lNewFqtRems;
         if(newPax.m_fqtRems) {
             lNewFqtRems = newPax.m_fqtRems->m_lFqtRems;
-            
             FqtRemChange_t fqtRemChng(lOldFqtRems, lNewFqtRems);
             if(!fqtRemChng.empty()) {
                 m_fqtRemChange = fqtRemChng;
             }
         }
-
+            
         // персональная информация
         if(oldPax.m_surname != newPax.m_surname || oldPax.m_name != newPax.m_name)
         {
