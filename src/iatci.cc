@@ -537,6 +537,7 @@ namespace
 
         void updatePaxDoc(const iatci::PaxDetails& pax);
         void updatePaxRems(const iatci::PaxDetails& pax);
+        void updatePaxFqtRems(const iatci::PaxDetails& pax);
         void updateBagPoolNums(const iatci::PaxDetails& pax);
         void updatePersonal(const iatci::PaxDetails& pax,
                             const iatci::UpdatePaxDetails& updPax);
@@ -579,6 +580,11 @@ namespace
     void IatciUpdater::updatePaxRems(const iatci::PaxDetails& pax)
     {
         copyNodeFromReqToIatci(pax, "rems");
+    }
+
+    void IatciUpdater::updatePaxFqtRems(const iatci::PaxDetails& pax)
+    {
+        copyNodeFromReqToIatci(pax, "fqt_rems");
     }
 
     void IatciUpdater::updateBagPoolNums(const iatci::PaxDetails& pax)
@@ -1660,7 +1666,12 @@ static void UpdateIatciGrp(int grpId, IatciInterface::RequestType reqType,
             updater.updatePaxDoc(paxGrp.pax());
         }
         if(paxGrp.updService()) {
-            updater.updatePaxRems(paxGrp.pax());
+            if(paxGrp.updService()->containsNonFqt()) {
+                updater.updatePaxRems(paxGrp.pax());
+            }
+            if(paxGrp.updService()->containsFqt()) {
+                updater.updatePaxFqtRems(paxGrp.pax());
+            }
         }
         if(paxGrp.updPax()) {
             updater.updatePersonal(paxGrp.pax(), paxGrp.updPax().get());

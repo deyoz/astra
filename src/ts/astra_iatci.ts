@@ -2080,6 +2080,7 @@ $(KICK_IN)
             <pr_bp_print>0</pr_bp_print>
             <pr_bi_print>0</pr_bi_print>
             <rems/>
+            <fqt_rems/>
             <iatci_pax_id>0013929620</iatci_pax_id>
             <iatci_parent_pax_id/>
           </pax>
@@ -2712,6 +2713,7 @@ $(KICK_IN)
             <pr_bp_print>0</pr_bp_print>
             <pr_bi_print>0</pr_bi_print>
             <rems/>
+            <fqt_rems/>
             <iatci_pax_id/>
             <iatci_parent_pax_id/>
             <document>
@@ -4288,6 +4290,7 @@ $(KICK_IN)
                 <rem_text>PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M</rem_text>
               </rem>
             </rems>
+            <fqt_rems/>
             <iatci_pax_id/>
             <iatci_parent_pax_id/>
           </pax>
@@ -4336,6 +4339,7 @@ $(KICK_IN)
                 <rem_text>PSPT HK1 ZB400522510/TJK/24JUL85/PETROV/PETR/M</rem_text>
               </rem>
             </rems>
+            <fqt_rems/>
             <iatci_pax_id/>
             <iatci_parent_pax_id/>
           </pax>
@@ -4567,6 +4571,7 @@ $(KICK_IN)
                 <rem_text>INFT HK1 01JAN17 REPIN/INFANT</rem_text>
               </rem>
             </rems>
+            <fqt_rems/>
             <iatci_pax_id>0013949613</iatci_pax_id>
             <iatci_parent_pax_id/>
           </pax>
@@ -4618,6 +4623,7 @@ $(KICK_IN)
                 <rem_text>INFT HK1 01JAN17 REPIN/INFANT</rem_text>
               </rem>
             </rems>
+            <fqt_rems/>
             <iatci_pax_id>0013949614</iatci_pax_id>
             <iatci_parent_pax_id>-1</iatci_parent_pax_id>
           </pax>
@@ -4785,6 +4791,7 @@ $(KICK_IN)
                 <rem_text>INFT HK1 01JAN17 REPIN/INFANT</rem_text>
               </rem>
             </rems>
+            <fqt_rems/>
             <iatci_pax_id>0013949613</iatci_pax_id>
             <iatci_parent_pax_id/>
             <document>
@@ -4836,6 +4843,7 @@ $(KICK_IN)
                 <rem_text>INFT HK1 01JAN17 REPIN/INFANT</rem_text>
               </rem>
             </rems>
+            <fqt_rems/>
             <iatci_pax_id>0013949614</iatci_pax_id>
             <iatci_parent_pax_id>-1</iatci_parent_pax_id>
             <document>

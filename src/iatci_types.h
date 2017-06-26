@@ -510,6 +510,11 @@ struct ServiceDetails
         const std::string& airline() const;
         unsigned           quantity() const;
 
+        bool isTkn() const;
+        bool isFqt() const;
+
+        bool isTkne() const;
+
         Ticketing::TicketCpn_t toTicketCpn() const;
 
     protected:
@@ -560,6 +565,9 @@ public:
 
     const std::list<UpdSsrInfo>& lSsr() const;
     void addSsr(const UpdateServiceDetails::UpdSsrInfo& updSsr);
+
+    bool containsFqt() const;
+    bool containsNonFqt() const;
 };
 
 //---------------------------------------------------------------------------------------

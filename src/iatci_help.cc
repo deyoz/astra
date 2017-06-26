@@ -1182,15 +1182,28 @@ static xmlNodePtr xmlViewIatciPax(xmlNodePtr paxesNode,
     xmlNodePtr paxRemsNode = newChild(paxNode, "rems");
     if(service)
     {
-        for(const ServiceDetails::SsrInfo& ssr: service->lSsr()) {
-            std::string remCode = ssr.ssrCode(),
-                        remText = ssr.freeText();
-
-            if(remCode == "TKNE") continue;
+        for(const ServiceDetails::SsrInfo& ssr: service->lSsr())
+        {
+            if(ssr.isTkn()) continue;
+            if(ssr.isFqt()) continue;
 
             xmlNodePtr paxRemNode = newChild(paxRemsNode, "rem");
-            NewTextChild(paxRemNode, "rem_code", remCode);
-            NewTextChild(paxRemNode, "rem_text", remText);
+            NewTextChild(paxRemNode, "rem_code", ssr.ssrCode());
+            NewTextChild(paxRemNode, "rem_text", ssr.freeText());
+        }
+    }
+
+    xmlNodePtr paxFqtRemsNode = newChild(paxNode, "fqt_rems");
+    if(service)
+    {
+        for(const ServiceDetails::SsrInfo& ssr: service->lSsr())
+        {
+            if(!ssr.isFqt()) continue;
+
+            xmlNodePtr paxFqtRemNode = newChild(paxFqtRemsNode, "fqt_rem");
+            NewTextChild(paxFqtRemNode, "rem_code", ssr.ssrCode());
+            NewTextChild(paxFqtRemNode, "airline",  ssr.airline());
+            NewTextChild(paxFqtRemNode, "no",       ssr.ssrText());
         }
     }
 
@@ -1211,7 +1224,7 @@ static boost::optional<dcrcka::PaxGroup> findPaxGroup(const std::list<dcrcka::Pa
     for(const auto& pxg: lPxg) {
         if(pxg.service()) {
             for(const auto& ssr: pxg.service()->lSsr()) {
-                if(ssr.ssrCode() == "TKNE") {
+                if(ssr.isTkne()) {
                     if(ssr.toTicketCpn().ticket() == tickNum) {
                         isInfant = ssr.isInfantTicket();
                         return pxg;

@@ -758,6 +758,11 @@ static void applyRemsUpdate(XmlPax& pax, const iatci::UpdateServiceDetails& updS
         rem.rem_code = updSsr.ssrCode();
         rem.rem_text = updSsr.freeText();
 
+        // 堪
+        if(rem.rem_text.empty()) {
+            rem.rem_text = rem.rem_code;
+        }
+
         switch(updSsr.actionCode())
         {
         case iatci::UpdateDetails::Add:

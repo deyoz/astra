@@ -636,6 +636,21 @@ unsigned ServiceDetails::SsrInfo::quantity() const
     return m_quantity;
 }
 
+bool ServiceDetails::SsrInfo::isTkn() const
+{
+    return m_ssrCode.substr(0, 3) == "TKN";
+}
+
+bool ServiceDetails::SsrInfo::isFqt() const
+{
+    return m_ssrCode.substr(0, 3) == "FQT";
+}
+
+bool ServiceDetails::SsrInfo::isTkne() const
+{
+    return m_ssrCode == "TKNE";
+}
+
 Ticketing::TicketCpn_t ServiceDetails::SsrInfo::toTicketCpn() const
 {
     ASSERT(m_ssrCode == "TKNE");
@@ -731,6 +746,28 @@ const std::list<UpdateServiceDetails::UpdSsrInfo>& UpdateServiceDetails::lSsr() 
 void UpdateServiceDetails::addSsr(const UpdateServiceDetails::UpdSsrInfo& updSsr)
 {
     m_lUpdSsr.push_back(updSsr);
+}
+
+bool UpdateServiceDetails::containsFqt() const
+{
+    for(const auto& ssr: m_lUpdSsr) {
+        if(ssr.isFqt()) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool UpdateServiceDetails::containsNonFqt() const
+{
+    for(const auto& ssr: m_lUpdSsr) {
+        if(!ssr.isFqt()) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 //---------------------------------------------------------------------------------------
