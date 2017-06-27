@@ -55,11 +55,19 @@ bool getBoolFromXml(xmlNodePtr node, const std::string& childName, bool def)
     return NodeAsBoolean(childName.c_str(), node, def);
 }
 
+std::string getAstraDocType(const std::string& docType)
+{
+    if     (docType == "PT") return "P";
+    else if(docType == "VI") return "V";
+    else if(docType == "MI") return "M";
+    else                     return docType;
+}
+
 XmlPaxDoc createCheckInDoc(const iatci::DocDetails& doc)
 {
     XmlPaxDoc ckiDoc;
     ckiDoc.no         = doc.no();
-    ckiDoc.type       = doc.docType();
+    ckiDoc.type       = getAstraDocType(doc.docType());
     if(!doc.birthDate().is_not_a_date()) {
         ckiDoc.birth_date = BASIC::date_time::boostDateToAstraFormatStr(doc.birthDate());
     }
@@ -298,6 +306,9 @@ LoadPaxXmlResult AstraEngine::SavePax(int pointDep, const XmlTrip& paxTrip)
         if(pax.rems) {
             XmlEntityViewer::viewRems(paxNode, *pax.rems);
         }
+        if(pax.fqt_rems) {
+            XmlEntityViewer::viewFqtRems(paxNode, *pax.fqt_rems);
+        }
     }
 
     NewTextChild(savePaxNode, "excess");
@@ -337,6 +348,9 @@ LoadPaxXmlResult AstraEngine::SavePax(const xml_entities::XmlSegment& paxSeg,
         }
         if(pax.rems) {
             XmlEntityViewer::viewRems(paxNode, *pax.rems);
+        }
+        if(pax.fqt_rems) {
+            XmlEntityViewer::viewFqtRems(paxNode, *pax.fqt_rems);
         }
     }
 
@@ -481,6 +495,7 @@ void AstraEngine::initReqInfo() const
 {
     TReqInfo::Instance()->Initialize("ŒŽ‚");
     TReqInfo::Instance()->client_type  = ASTRA::ctTerm;
+    //TReqInfo::Instance()->desk.code = "IATCIP";
     TReqInfo::Instance()->desk.version = VERSION_WITH_BAG_POOLS;
     TReqInfo::Instance()->desk.lang    = AstraLocale::LANG_EN;
     TReqInfo::Instance()->api_mode     = true;
@@ -679,7 +694,7 @@ static void applyDocUpdate(XmlPax& pax, const iatci::UpdateDocDetails& updDoc)
     LogTrace(TRACE3) << __FUNCTION__ << " with act code: " << updDoc.actionCodeAsString();
     XmlPaxDoc newDoc;
     newDoc.no            = updDoc.no();
-    newDoc.type          = updDoc.docType();
+    newDoc.type          = getAstraDocType(updDoc.docType());
     newDoc.birth_date    = boostDateToAstraFormatStr(updDoc.birthDate());
     newDoc.expiry_date   = boostDateToAstraFormatStr(updDoc.expiryDate());
     newDoc.surname       = updDoc.surname();
@@ -745,43 +760,98 @@ static void applyBaggageUpdate(XmlBags& newBags, XmlBags& delBags,
 
 //---------------------------------------------------------------------------------------
 
-static void applyRemsUpdate(XmlPax& pax, const iatci::UpdateServiceDetails& updSvc)
+static void applyXmlRem(XmlPax& pax, const iatci::UpdateServiceDetails::UpdSsrInfo& updSsr)
 {
     LogTrace(TRACE3) << __FUNCTION__;
+
     if(!pax.rems) {
         pax.rems = XmlRems();
     }
 
+    XmlRem rem;
+    rem.rem_code = updSsr.ssrCode();
+    rem.rem_text = updSsr.freeText();
+
+    // å ª
+    if(rem.rem_text.empty()) {
+        rem.rem_text = rem.rem_code;
+    }
+
+    switch(updSsr.actionCode())
+    {
+    case iatci::UpdateDetails::Add:
+    case iatci::UpdateDetails::Replace:
+    {
+        LogTrace(TRACE3) << "add/modify remark: " << updSsr.ssrCode() <<
+                            "/" << updSsr.ssrText() << " (" << updSsr.freeText() << ")";
+        pax.rems->rems.push_back(rem);
+        break;
+    }
+    case iatci::UpdateDetails::Cancel:
+    {
+        LogTrace(TRACE3) << "cancel remark: " << updSsr.ssrCode() <<
+                            "/" << updSsr.ssrText() << " (" << updSsr.freeText() << ")";
+        pax.rems->rems.remove(rem);
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+static void applyFqtXmlRem(XmlPax& pax, const iatci::UpdateServiceDetails::UpdSsrInfo& updSsr)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+
+    if(!pax.fqt_rems) {
+        pax.fqt_rems = XmlFqtRems();
+    }
+
+    XmlFqtRem rem;
+    rem.rem_code = updSsr.ssrCode();
+    rem.airline  = updSsr.airline();
+    rem.no       = updSsr.ssrText();
+    if(updSsr.quantity()) {
+        rem.tier_level = std::to_string(updSsr.quantity());
+    }
+
+    switch(updSsr.actionCode())
+    {
+    case iatci::UpdateDetails::Add:
+    case iatci::UpdateDetails::Replace:
+    {
+        LogTrace(TRACE3) << "add/modify fqt remark: " << updSsr.ssrCode()
+                         << "/" << updSsr.airline() << "/" << updSsr.ssrText()
+                         << "/" << updSsr.quantity();
+        pax.fqt_rems->rems.push_back(rem);
+        break;
+    }
+    case iatci::UpdateDetails::Cancel:
+    {
+        LogTrace(TRACE3) << "cancel fqt remark: " << updSsr.ssrCode()
+                         << "/" << updSsr.airline() << "/" << updSsr.ssrText()
+                         << "/" << updSsr.quantity();
+        pax.fqt_rems->rems.remove(rem);
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+
+static void applyRemsUpdate(XmlPax& pax, const iatci::UpdateServiceDetails& updSvc)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+
     for(const iatci::UpdateServiceDetails::UpdSsrInfo& updSsr: updSvc.lSsr())
     {
-        XmlRem rem;
-        rem.rem_code = updSsr.ssrCode();
-        rem.rem_text = updSsr.freeText();
+        if(updSsr.isTkne()) continue;
 
-        // å ª
-        if(rem.rem_text.empty()) {
-            rem.rem_text = rem.rem_code;
-        }
-
-        switch(updSsr.actionCode())
-        {
-        case iatci::UpdateDetails::Add:
-        case iatci::UpdateDetails::Replace:
-        {
-            LogTrace(TRACE3) << "add/modify remark: " << updSsr.ssrCode() <<
-                                "/" << updSsr.ssrText() << " (" << updSsr.freeText() << ")";
-            pax.rems->rems.push_back(rem);
-            break;
-        }
-        case iatci::UpdateDetails::Cancel:
-        {
-            LogTrace(TRACE3) << "cancel remark: " << updSsr.ssrCode() <<
-                                "/" << updSsr.ssrText() << " (" << updSsr.freeText() << ")";
-            pax.rems->rems.remove(rem);
-            break;
-        }
-        default:
-            break;
+        if(updSsr.isFqt()) {
+            applyFqtXmlRem(pax, updSsr);
+        } else {
+            applyXmlRem(pax, updSsr);
         }
     }
 }
@@ -2651,6 +2721,27 @@ xmlNodePtr XmlEntityViewer::viewRems(xmlNodePtr node, const XmlRems& rems)
     xmlNodePtr remsNode = NewTextChild(node, "rems");
     for(const XmlRem& rem: rems.rems) {
         XmlEntityViewer::viewRem(remsNode, rem);
+    }
+    return remsNode;
+}
+
+xmlNodePtr XmlEntityViewer::viewFqtRem(xmlNodePtr node, const XmlFqtRem& rem)
+{
+    xmlNodePtr remNode = NewTextChild(node, "fqt_rem");
+    NewTextChild(remNode, "rem_code", rem.rem_code);
+    NewTextChild(remNode, "airline",  rem.airline);
+    NewTextChild(remNode, "no",       rem.no);
+    if(!rem.tier_level.empty()) {
+        NewTextChild(remNode, "tier_level", rem.tier_level);
+    }
+    return remNode;
+}
+
+xmlNodePtr XmlEntityViewer::viewFqtRems(xmlNodePtr node, const XmlFqtRems& rems)
+{
+    xmlNodePtr remsNode = NewTextChild(node, "fqt_rems");
+    for(const XmlFqtRem& rem: rems.rems) {
+        XmlEntityViewer::viewFqtRem(remsNode, rem);
     }
     return remsNode;
 }

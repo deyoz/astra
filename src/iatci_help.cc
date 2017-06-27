@@ -345,7 +345,8 @@ iatci::ServiceDetails makeService(const edifact::PsiElem& psi)
                                                       ssrText,
                                                       inftTicket,
                                                       ediSsr.m_freeText,
-                                                      ediSsr.m_airline));
+                                                      ediSsr.m_airline,
+                                                      ediSsr.m_numOfPieces));
     }
     return service;
 }
@@ -491,7 +492,9 @@ iatci::UpdateServiceDetails makeUpdService(const edifact::UsiElem& usi)
                               ssr.m_ssrCode,
                               ssr.m_ssrText,
                               false,
-                              ssr.m_freeText));
+                              ssr.m_freeText,
+                              ssr.m_airline,
+                              ssr.m_numOfPieces));
     }
 
     return updService;
@@ -617,7 +620,7 @@ boost::optional<iatci::ServiceDetails> makeService(const astra_api::astra_entiti
         }
 
         for(const auto& rem: pax.m_rems->m_lRems) {
-            if(rem.m_remCode != "TKNE") {
+            if(rem.m_remCode != "TKNE" && rem.m_remCode.substr(0, 3) != "FQT") {
                 service->addSsr(rem.m_remCode, rem.m_remText);
             }
         }

@@ -875,6 +875,9 @@ public:
     static xmlNodePtr viewRem(xmlNodePtr node, const XmlRem& rem);
     static xmlNodePtr viewRems(xmlNodePtr node, const XmlRems& rems);
 
+    static xmlNodePtr viewFqtRem(xmlNodePtr node, const XmlFqtRem& rem);
+    static xmlNodePtr viewFqtRems(xmlNodePtr node, const XmlFqtRems& rems);
+
     static xmlNodePtr viewDoc(xmlNodePtr node, const XmlPaxDoc& doc);
 
     static xmlNodePtr viewPax(xmlNodePtr node, const XmlPax& pax);

@@ -3005,7 +3005,7 @@ $(CANCEL_PAX_REMS $(get point_dep) $(get point_arv) ÑåÑ èãä
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
 UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
-FDQ+S7+1027+170626+LED+AER"
+FDQ+S7+1027+$(yymmdd)+LED+AER"
 PPD+REPIN+A:N++IVAN"
 USI++C:FOID::::::FOID PP7774449999+C:OTHS::::::OTHS HK1 DOCS/7777771110/PS+C:FQTV:UT:7788990011"
 UNT+6+1"

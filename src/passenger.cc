@@ -1393,7 +1393,8 @@ TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode)
       if (cat==remASVC) continue; //пропускаем переданные ASVC
       rems.insert(rem);
     };
-    if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(FQT_TIER_LEVEL_VERSION))
+    if (reqInfo->api_mode ||
+            (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(FQT_TIER_LEVEL_VERSION)))
     {
       //ремарки FQT
       for(remNode=NodeAsNodeFast("fqt_rems",node2)->children; remNode!=NULL; remNode=remNode->next)
