@@ -131,8 +131,21 @@ bool operator!=(const DocInfo& left, const DocInfo& right);
 
 struct AddressInfo
 {
-    // TODO
-    std::string id() const { return "addrs_id"; }
+    std::string m_type;
+    std::string m_country;
+    std::string m_address;
+    std::string m_city;
+    std::string m_region;
+    std::string m_postalCode;
+
+    AddressInfo(const std::string& type,
+                const std::string& country,
+                const std::string& address,
+                const std::string& city,
+                const std::string& region,
+                const std::string& postalCode);
+
+    std::string id() const { return m_type; }
 };
 
 bool operator==(const AddressInfo& left, const AddressInfo& right);

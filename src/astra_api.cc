@@ -3158,8 +3158,8 @@ GetSeatmapXmlResult::GetSeatmapXmlResult(xmlNodePtr node)
 iatci::dcrcka::Result GetSeatmapXmlResult::toIatci(const iatci::FlightDetails& outbFlt) const
 {
     if(lPlacelist.empty() || filterRoutes.items.empty()) {
-        LogError(STDLOG) << "Seatmap failed!";
-        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR);
+        tst();
+        throw tick_soft_except(STDLOG, AstraErr::INV_FLIGHT_DATE);
     }
 
     return iatci::dcrcka::Result::makeSeatmapResult(iatci::dcrcka::Result::Ok,
@@ -3298,9 +3298,28 @@ bool operator!=(const DocInfo& left, const DocInfo& right)
 
 //---------------------------------------------------------------------------------------
 
+AddressInfo::AddressInfo(const std::string& type,
+                         const std::string& country,
+                         const std::string& address,
+                         const std::string& city,
+                         const std::string& region,
+                         const std::string& postalCode)
+    : m_type(type),
+      m_country(country),
+      m_address(address),
+      m_city(city),
+      m_region(region),
+      m_postalCode(postalCode)
+{}
+
 bool operator==(const AddressInfo& left, const AddressInfo& right)
 {
-    return true; // TODO
+    return (left.m_type       == right.m_type &&
+            left.m_country    == right.m_country &&
+            left.m_address    == right.m_address &&
+            left.m_city       == right.m_city &&
+            left.m_region     == right.m_region &&
+            left.m_postalCode == right.m_postalCode);
 }
 
 bool operator!=(const AddressInfo& left, const AddressInfo& right)
