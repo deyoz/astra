@@ -60,6 +60,8 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
   if ( Params.find( TAG_CODE ) == Params.end() )
     throw Exception("wrong message format");
   string code = Params[TAG_CODE].Value;
+  if (code.find("USE_ACCESS")==0)
+    throw UserException("MSG.WORKING_WITH_TABLE_PROHIBITED.USE_ACCESS_SCREEN");
   Qry = OraSession.CreateQuery();
   Forbidden = true;
   ReadOnly = true;
