@@ -2186,7 +2186,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
             bool pr_print =
                 op_type == dotPrnBP or
-                (op_type == dotPrnBI and bi_rule.exists());
+                (op_type == dotPrnBI and bi_rule.exists() and first_seg_grp_id == iPax->grp_id);
 
             xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
             SetProp(paxNode, "pax_id", iPax->pax_id);
