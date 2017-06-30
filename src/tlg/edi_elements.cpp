@@ -404,6 +404,21 @@ std::ostream& operator<<(std::ostream &os, const PapElem &pap)
     return os;
 }
 
+std::ostream& operator<<(std::ostream &os, const AddElem &add)
+{
+    os << "ADD: ";
+    os << "action code: " << add.m_actionCode << "; ";
+    for(const AddElem::Address& addr: add.m_lAddr) {
+        os << "purpose code: " << addr.m_purposeCode << "; ";
+        os << "address: " << addr.m_address << "; ";
+        os << "city: " << addr.m_city << "; ";
+        os << "region: " << addr.m_region << "; ";
+        os << "country: " << addr.m_country << "; ";
+        os << "postal code: " << addr.m_postalCode << "; ";
+    }
+    return os;
+}
+
 std::ostream& operator<<(std::ostream &os, const UapElem &uap)
 {
     os << "UAP: ";

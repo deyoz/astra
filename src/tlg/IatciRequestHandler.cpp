@@ -106,24 +106,40 @@ void IatciRequestHandler::makeAnAnswer()
                     viewPbdElement(pMesW(), *pxg.baggage());
                 }
                 int curApg = 0;
-                if(pxg.doc()) {
+                if(pxg.doc() || pxg.address()) {
                     PushEdiPointW(pMesW());
                     SetEdiSegGr(pMesW(), SegGrElement(3, curApg));
                     SetEdiPointToSegGrW(pMesW(), SegGrElement(3, curApg), "SegGr3(apg) not found");
 
-                    viewPapElement(pMesW(), *pxg.doc(), pxg.pax());
+                    if(pxg.doc()) {
+                        viewPapElement(pMesW(), *pxg.doc(), pxg.pax());
+                    } else {
+                        viewPapElement(pMesW(), false/*not-infant*/);
+                    }
+
+                    if(pxg.address()) {
+                        viewAddElement(pMesW(), *pxg.address());
+                    }
 
                     PopEdiPointW(pMesW());
                     curApg++;
                 }
 
-                if(pxg.infantDoc()) {
+                if(pxg.infantDoc() || pxg.infantAddress()) {
                     ASSERT(pxg.infant());
                     PushEdiPointW(pMesW());
                     SetEdiSegGr(pMesW(), SegGrElement(3, curApg));
                     SetEdiPointToSegGrW(pMesW(), SegGrElement(3, curApg), "SegGr3(apg) not found");
 
-                    viewPapElement(pMesW(), *pxg.infantDoc(), *pxg.infant());
+                    if(pxg.infantDoc()) {
+                        viewPapElement(pMesW(), *pxg.infantDoc(), *pxg.infant());
+                    } else {
+                        viewPapElement(pMesW(), true/*infant*/);
+                    }
+
+                    if(pxg.infantAddress()) {
+                        viewAddElement(pMesW(), *pxg.infantAddress());
+                    }
 
                     PopEdiPointW(pMesW());
                     curApg++;

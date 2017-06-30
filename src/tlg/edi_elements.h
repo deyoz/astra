@@ -986,10 +986,32 @@ struct PapElem
 
 //---------------------------------------------------------------------------------------
 
+///@class AddElem - Address Details --ADD
+struct AddElem
+{
+    std::string m_actionCode;
+
+    struct Address
+    {
+        std::string m_purposeCode;
+        std::string m_address;
+        std::string m_city;
+        std::string m_region;
+        std::string m_country;
+        std::string m_postalCode;
+    };
+
+    std::list<Address> m_lAddr;
+};
+
+//---------------------------------------------------------------------------------------
+
 ///@class UapElem - Update API information --UAP
 struct UapElem: public PapElem
 {
     std::string m_actionCode;
+
+    bool isGroupHeader() const { return m_actionCode.empty(); }
 };
 
 //---------------------------------------------------------------------------------------
@@ -1034,6 +1056,7 @@ std::ostream& operator<<(std::ostream &os, const EqdElem &eqd);
 std::ostream& operator<<(std::ostream &os, const CbdElem &cbd);
 std::ostream& operator<<(std::ostream &os, const RodElem &rod);
 std::ostream& operator<<(std::ostream &os, const PapElem &pap);
+std::ostream& operator<<(std::ostream &os, const AddElem &add);
 std::ostream& operator<<(std::ostream &os, const UapElem &uap);
 std::ostream& operator<<(std::ostream &os, const UsiElem &usi);
 

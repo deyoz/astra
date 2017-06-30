@@ -243,6 +243,71 @@ const boost::gregorian::date& DocDetails::expiryDate() const
 
 //---------------------------------------------------------------------------------------
 
+AddressDetails::AddrInfo::AddrInfo(const std::string& type,
+                                   const std::string& country,
+                                   const std::string& address,
+                                   const std::string& city,
+                                   const std::string& region,
+                                   const std::string& postalCode)
+    : m_type(type),
+      m_country(country),
+      m_address(address),
+      m_city(city),
+      m_region(region),
+      m_postalCode(postalCode)
+{}
+
+const std::string& AddressDetails::AddrInfo::type() const
+{
+    return m_type;
+}
+
+const std::string& AddressDetails::AddrInfo::country() const
+{
+    return m_country;
+}
+
+const std::string& AddressDetails::AddrInfo::address() const
+{
+    return m_address;
+}
+
+const std::string& AddressDetails::AddrInfo::city() const
+{
+    return m_city;
+}
+
+const std::string& AddressDetails::AddrInfo::region() const
+{
+    return m_region;
+}
+
+const std::string& AddressDetails::AddrInfo::postalCode() const
+{
+    return m_postalCode;
+}
+
+//
+
+AddressDetails::AddressDetails()
+{}
+
+AddressDetails::AddressDetails(const std::list<AddrInfo>& lAddr)
+    : m_lAddr(lAddr)
+{}
+
+const std::list<AddressDetails::AddrInfo>& AddressDetails::lAddr() const
+{
+    return m_lAddr;
+}
+
+void AddressDetails::addAddr(const AddressDetails::AddrInfo& addr)
+{
+    m_lAddr.push_back(addr);
+}
+
+//---------------------------------------------------------------------------------------
+
 PaxDetails::PaxDetails(const std::string& surname,
                        const std::string& name,
                        PaxType_e type,
@@ -498,6 +563,18 @@ UpdateDocDetails::UpdateDocDetails(UpdateActionCode_e actionCode,
       DocDetails(docType, issueCountry, no,
                  surname, name, secondName,
                  gender, nationality, birthDate, expiryDate)
+{}
+
+//---------------------------------------------------------------------------------------
+
+UpdateAddressDetails::UpdateAddressDetails(UpdateActionCode_e actionCode)
+    : UpdateDetails(actionCode)
+{}
+
+UpdateAddressDetails::UpdateAddressDetails(UpdateActionCode_e actionCode,
+                                           const std::list<AddrInfo> &lAddr)
+    : UpdateDetails(actionCode),
+      AddressDetails(lAddr)
 {}
 
 //---------------------------------------------------------------------------------------
@@ -1053,8 +1130,10 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<AddressDetails>& address,
                    const boost::optional<PaxDetails>& infant,
                    const boost::optional<DocDetails>& infantDoc,
+                   const boost::optional<AddressDetails>& infantAddress,
                    const boost::optional<FlightSeatDetails>& infantSeat)
-    : iatci::PaxGroup(pax, reserv, baggage, service, doc, address, infant, infantDoc),
+    : iatci::PaxGroup(pax, reserv, baggage, service, doc, address,
+                      infant, infantDoc, infantAddress),
       m_seat(seat), m_infantSeat(infantSeat)
 {}
 
@@ -1402,7 +1481,8 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<DocDetails>& doc,
                    const boost::optional<AddressDetails>& address,
                    const boost::optional<PaxDetails>& infant,
-                   const boost::optional<DocDetails>& infantDoc)
+                   const boost::optional<DocDetails>& infantDoc,
+                   const boost::optional<AddressDetails>& infantAddress)
     : m_pax(pax),
       m_reserv(reserv),
       m_baggage(baggage),
@@ -1410,7 +1490,8 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
       m_doc(doc),
       m_address(address),
       m_infant(infant),
-      m_infantDoc(infantDoc)
+      m_infantDoc(infantDoc),
+      m_infantAddress(infantAddress)
 {}
 
 const PaxDetails& PaxGroup::pax() const
@@ -1453,6 +1534,11 @@ const boost::optional<DocDetails>& PaxGroup::infantDoc() const
     return m_infantDoc;
 }
 
+const boost::optional<AddressDetails>& PaxGroup::infantAddress() const
+{
+    return m_infantAddress;
+}
+
 //---------------------------------------------------------------------------------------
 
 FlightGroup::FlightGroup(const FlightDetails& outboundFlight,
@@ -1483,8 +1569,10 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<DocDetails>& doc,
                    const boost::optional<AddressDetails>& address,
                    const boost::optional<PaxDetails>& infant,
-                   const boost::optional<DocDetails>& infantDoc)
-    : iatci::PaxGroup(pax, reserv, baggage, service, doc, address, infant, infantDoc),
+                   const boost::optional<DocDetails>& infantDoc,
+                   const boost::optional<AddressDetails>& infantAddress)
+    : iatci::PaxGroup(pax, reserv, baggage, service, doc, address,
+                      infant, infantDoc, infantAddress),
       m_seat(seat)
 {}
 
@@ -1523,12 +1611,14 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<UpdateBaggageDetails>& updBaggage,
                    const boost::optional<UpdateServiceDetails>& updService,
                    const boost::optional<UpdateDocDetails>& updDoc,
+                   const boost::optional<UpdateAddressDetails>& updAddress,
                    const boost::optional<UpdatePaxDetails>& updInfant,
-                   const boost::optional<UpdateDocDetails>& updInfantDoc)
+                   const boost::optional<UpdateDocDetails>& updInfantDoc,
+                   const boost::optional<UpdateAddressDetails>& updInfantAddress)
     : iatci::PaxGroup(pax, reserv, baggage, service, boost::none, boost::none, infant),
       m_updPax(updPax), m_updSeat(updSeat), m_updBaggage(updBaggage),
-      m_updService(updService), m_updDoc(updDoc),
-      m_updInfant(updInfant), m_updInfantDoc(updInfantDoc)
+      m_updService(updService), m_updDoc(updDoc), m_updAddress(updAddress),
+      m_updInfant(updInfant), m_updInfantDoc(updInfantDoc), m_updInfantAddress(updInfantAddress)
 {}
 
 const boost::optional<UpdatePaxDetails>& PaxGroup::updPax() const
@@ -1556,6 +1646,11 @@ const boost::optional<UpdateDocDetails>& PaxGroup::updDoc() const
     return m_updDoc;
 }
 
+const boost::optional<UpdateAddressDetails>& PaxGroup::updAddress() const
+{
+    return m_updAddress;
+}
+
 const boost::optional<UpdatePaxDetails>& PaxGroup::updInfant() const
 {
     return m_updInfant;
@@ -1564,6 +1659,11 @@ const boost::optional<UpdatePaxDetails>& PaxGroup::updInfant() const
 const boost::optional<UpdateDocDetails>& PaxGroup::updInfantDoc() const
 {
     return m_updInfantDoc;
+}
+
+const boost::optional<UpdateAddressDetails>& PaxGroup::updInfantAddress() const
+{
+    return m_updInfantAddress;
 }
 
 //---------------------------------------------------------------------------------------

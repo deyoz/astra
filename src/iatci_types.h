@@ -173,7 +173,48 @@ struct DocDetails
 
 struct AddressDetails
 {
+    struct AddrInfo
+    {
+        friend class boost::serialization::access;
 
+    protected:
+        std::string m_type;
+        std::string m_country;
+        std::string m_address;
+        std::string m_city;
+        std::string m_region;
+        std::string m_postalCode;
+
+    public:
+        AddrInfo(const std::string& type,
+                 const std::string& country,
+                 const std::string& address = "",
+                 const std::string& city = "",
+                 const std::string& region = "",
+                 const std::string& postalCode = "");
+
+        const std::string&       type() const;
+        const std::string&    country() const;
+        const std::string&    address() const;
+        const std::string&       city() const;
+        const std::string&     region() const;
+        const std::string& postalCode() const;
+
+    protected:
+        AddrInfo()
+        {} // for boost serialization only
+    };
+
+protected:
+    std::list<AddrInfo> m_lAddr;
+
+public:
+    AddressDetails();
+    AddressDetails(const std::list<AddrInfo>& lAddr);
+
+    const std::list<AddrInfo>& lAddr() const;
+
+    void addAddr(const AddressDetails::AddrInfo& addr);
 };
 
 //---------------------------------------------------------------------------------------
@@ -275,6 +316,16 @@ struct UpdateDocDetails: public UpdateDetails, public DocDetails
                      const std::string& nationality,
                      const boost::gregorian::date& birthDate = boost::gregorian::date(),
                      const boost::gregorian::date& expiryDate = boost::gregorian::date());
+};
+
+//---------------------------------------------------------------------------------------
+
+struct UpdateAddressDetails: public UpdateDetails, public AddressDetails
+{
+    UpdateAddressDetails(UpdateActionCode_e actionCode);
+
+    UpdateAddressDetails(UpdateActionCode_e actionCode,
+                         const std::list<AddrInfo>& lAddr);
 };
 
 //---------------------------------------------------------------------------------------
@@ -1017,6 +1068,7 @@ protected:
     boost::optional<AddressDetails>     m_address;
     boost::optional<PaxDetails>         m_infant;
     boost::optional<DocDetails>         m_infantDoc;
+    boost::optional<AddressDetails>     m_infantAddress;
 
 public:
     PaxGroup(const PaxDetails& pax,
@@ -1026,7 +1078,8 @@ public:
              const boost::optional<DocDetails>& doc,
              const boost::optional<AddressDetails>& address,
              const boost::optional<PaxDetails>& infant = boost::none,
-             const boost::optional<DocDetails>& infantDoc = boost::none);
+             const boost::optional<DocDetails>& infantDoc = boost::none,
+             const boost::optional<AddressDetails>& infantAddress = boost::none);
 
     const PaxDetails&                          pax() const;
     const boost::optional<ReservationDetails>& reserv() const;
@@ -1036,6 +1089,7 @@ public:
     const boost::optional<AddressDetails>&     address() const;
     const boost::optional<PaxDetails>&         infant() const;
     const boost::optional<DocDetails>&         infantDoc() const;
+    const boost::optional<AddressDetails>&     infantAddress() const;
 
 protected:
     PaxGroup() {} // for boost serialization only
@@ -1075,7 +1129,8 @@ public:
              const boost::optional<DocDetails>& doc,
              const boost::optional<AddressDetails>& address,
              const boost::optional<PaxDetails>& infant = boost::none,
-             const boost::optional<DocDetails>& infantDoc = boost::none);
+             const boost::optional<DocDetails>& infantDoc = boost::none,
+             const boost::optional<AddressDetails>& infantAddress = boost::none);
 
     const boost::optional<SeatDetails>& seat() const;
 };
@@ -1109,10 +1164,12 @@ protected:
     boost::optional<UpdateBaggageDetails> m_updBaggage;
     boost::optional<UpdateServiceDetails> m_updService;
     boost::optional<UpdateDocDetails>     m_updDoc;
+    boost::optional<UpdateAddressDetails> m_updAddress;
     boost::optional<UpdatePaxDetails>     m_updInfant;
     boost::optional<UpdateSeatDetails>    m_updInfantSeat;
     boost::optional<UpdateServiceDetails> m_updInfantService;
     boost::optional<UpdateDocDetails>     m_updInfantDoc;
+    boost::optional<UpdateAddressDetails> m_updInfantAddress;
 
 public:
     PaxGroup(const PaxDetails& pax,
@@ -1125,16 +1182,20 @@ public:
              const boost::optional<UpdateBaggageDetails>& updBaggage,
              const boost::optional<UpdateServiceDetails>& updService,
              const boost::optional<UpdateDocDetails>& updDoc,
+             const boost::optional<UpdateAddressDetails>& updAddress,
              const boost::optional<UpdatePaxDetails>& updInfant = boost::none,
-             const boost::optional<UpdateDocDetails>& updInfantDoc = boost::none);
+             const boost::optional<UpdateDocDetails>& updInfantDoc = boost::none,
+             const boost::optional<UpdateAddressDetails>& updInfantAddress = boost::none);
 
     const boost::optional<UpdatePaxDetails>&     updPax() const;
     const boost::optional<UpdateSeatDetails>&    updSeat() const;
     const boost::optional<UpdateBaggageDetails>& updBaggage() const;
     const boost::optional<UpdateServiceDetails>& updService() const;
     const boost::optional<UpdateDocDetails>&     updDoc() const;
+    const boost::optional<UpdateAddressDetails>& updAddress() const;
     const boost::optional<UpdatePaxDetails>&     updInfant() const;
     const boost::optional<UpdateDocDetails>&     updInfantDoc() const;
+    const boost::optional<UpdateAddressDetails>& updInfantAddress() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -1471,6 +1532,7 @@ public:
              const boost::optional<AddressDetails>& address,
              const boost::optional<PaxDetails>& infant = boost::none,
              const boost::optional<DocDetails>& infantDoc = boost::none,
+             const boost::optional<AddressDetails>& infantAddress = boost::none,
              const boost::optional<FlightSeatDetails>& infantSeat = boost::none);
 
     const boost::optional<FlightSeatDetails>& seat() const;

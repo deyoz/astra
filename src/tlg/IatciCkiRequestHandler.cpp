@@ -45,7 +45,8 @@ public:
         boost::optional<edifact::PsiElem> m_psi;
         boost::optional<edifact::PapElem> m_pap;
         boost::optional<edifact::PapElem> m_papInfant;
-        //boost::optional<edifact::AddElem> m_add;
+        boost::optional<edifact::AddElem> m_add;
+        boost::optional<edifact::AddElem> m_addInfant;
 
     public:
         void setPpd(const boost::optional<edifact::PpdElem>& ppd);
@@ -53,7 +54,8 @@ public:
         void setPsd(const boost::optional<edifact::PsdElem>& psd, bool required = false);
         void setPbd(const boost::optional<edifact::PbdElem>& pbd, bool required = false);
         void setPsi(const boost::optional<edifact::PsiElem>& psi, bool required = false);
-        void addPap(const boost::optional<edifact::PapElem>& pap);
+        void addApg(const boost::optional<edifact::PapElem>& pap,
+                    const boost::optional<edifact::AddElem>& add);
 
         iatci::dcqcki::PaxGroup makePaxGroup() const;
 
@@ -66,6 +68,7 @@ public:
         boost::optional<iatci::AddressDetails>     makeAddress() const;
         boost::optional<iatci::PaxDetails>         makeInfant() const;
         boost::optional<iatci::DocDetails>         makeInfantDoc() const;
+        boost::optional<iatci::AddressDetails>     makeInfantAddress() const;
     };
 
     //-----------------------------------------------------------------------------------
@@ -128,8 +131,7 @@ void IatciCkiRequestHandler::parse()
             EdiPointHolder apg_holder(pMes());
             SetEdiPointToSegGrG(pMes(), SegGrElement(3, curApg), "PROG_ERR");
 
-            pxg.addPap(readEdiPap(pMes()));
-            // TODO pxg.setAdd(readEdiAdd(pMes()));
+            pxg.addApg(readEdiPap(pMes()), readEdiAdd(pMes()));
         }
 
         ckiParamsNewMaker.addPxg(pxg);
@@ -209,12 +211,15 @@ void IatciCkiParamsMaker::Pxg::setPsi(const boost::optional<edifact::PsiElem>& p
     m_psi = psi;
 }
 
-void IatciCkiParamsMaker::Pxg::addPap(const boost::optional<edifact::PapElem>& pap)
+void IatciCkiParamsMaker::Pxg::addApg(const boost::optional<edifact::PapElem>& pap,
+                                      const boost::optional<edifact::AddElem>& add)
 {
     if(pap && pap->m_type == "IN") {
         m_papInfant = pap;
+        m_addInfant = add;
     } else {
         m_pap = pap;
+        m_add = add;
     }
 }
 
@@ -228,7 +233,8 @@ iatci::dcqcki::PaxGroup IatciCkiParamsMaker::Pxg::makePaxGroup() const
                                    makeDoc(),
                                    makeAddress(),
                                    makeInfant(),
-                                   makeInfantDoc());
+                                   makeInfantDoc(),
+                                   makeInfantAddress());
 }
 
 boost::optional<iatci::ReservationDetails> IatciCkiParamsMaker::Pxg::makeReserv() const
@@ -278,7 +284,10 @@ boost::optional<iatci::DocDetails> IatciCkiParamsMaker::Pxg::makeDoc() const
 
 boost::optional<iatci::AddressDetails> IatciCkiParamsMaker::Pxg::makeAddress() const
 {
-    // TODO
+    if(m_add) {
+        return iatci::makeAddress(*m_add);
+    }
+
     return boost::none;
 }
 
@@ -295,6 +304,15 @@ boost::optional<iatci::DocDetails> IatciCkiParamsMaker::Pxg::makeInfantDoc() con
 {
     if(m_papInfant) {
         return iatci::makeDoc(*m_papInfant);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::AddressDetails> IatciCkiParamsMaker::Pxg::makeInfantAddress() const
+{
+    if(m_addInfant) {
+        return iatci::makeAddress(*m_addInfant);
     }
 
     return boost::none;

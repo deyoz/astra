@@ -165,6 +165,30 @@ std::string paxSexString(const PaxDetails& pax)
     return "";
 }
 
+static std::string getAstraDocType(const std::string& iatciDocType)
+{
+    if     (iatciDocType == "PT") return "P";
+    else if(iatciDocType == "VI") return "V";
+    else if(iatciDocType == "MI") return "M";
+    else                          return iatciDocType;
+}
+
+static std::string getAstraAddrType(const std::string& iatciAddrType)
+{
+    if     (iatciAddrType == "700") return "R";
+    else if(iatciAddrType == "701") return "B";
+    else if(iatciAddrType == "703") return "D";
+    else                            return iatciAddrType;
+}
+
+static std::string getIatciAddrType(const std::string& astraAddrType)
+{
+    if     (astraAddrType == "B") return "701";
+    else if(astraAddrType == "R") return "700";
+    else if(astraAddrType == "D") return "703";
+    else                          return "";
+}
+
 //---------------------------------------------------------------------------------------
 
 XMLDoc createXmlDoc(const std::string& xml)
@@ -353,7 +377,7 @@ iatci::ServiceDetails makeService(const edifact::PsiElem& psi)
 
 iatci::DocDetails makeDoc(const edifact::PapElem& pap)
 {
-    return iatci::DocDetails(pap.m_docQualifier,
+    return iatci::DocDetails(getAstraDocType(pap.m_docQualifier),
                              pap.m_placeOfIssue,
                              pap.m_docNumber,
                              pap.m_surname,
@@ -363,6 +387,20 @@ iatci::DocDetails makeDoc(const edifact::PapElem& pap)
                              pap.m_nationality,
                              pap.m_birthDate,
                              pap.m_expiryDate);
+}
+
+iatci::AddressDetails makeAddress(const edifact::AddElem& add)
+{
+    iatci::AddressDetails addrs;
+    for(const auto& ediAddr: add.m_lAddr) {
+        addrs.addAddr(iatci::AddressDetails::AddrInfo(getAstraAddrType(ediAddr.m_purposeCode),
+                                                      ediAddr.m_country,
+                                                      ediAddr.m_address,
+                                                      ediAddr.m_city,
+                                                      ediAddr.m_region,
+                                                      ediAddr.m_postalCode));
+    }
+    return addrs;
 }
 
 iatci::OriginatorDetails makeOrg(const edifact::LorElem& lor)
@@ -503,7 +541,7 @@ iatci::UpdateServiceDetails makeUpdService(const edifact::UsiElem& usi)
 iatci::UpdateDocDetails makeUpdDoc(const edifact::UapElem& uap)
 {
     return iatci::UpdateDocDetails(iatci::UpdateDetails::strToActionCode(uap.m_actionCode),
-                                   uap.m_docQualifier,
+                                   getAstraDocType(uap.m_docQualifier),
                                    uap.m_placeOfIssue,
                                    uap.m_docNumber,
                                    uap.m_surname,
@@ -513,6 +551,20 @@ iatci::UpdateDocDetails makeUpdDoc(const edifact::UapElem& uap)
                                    uap.m_nationality,
                                    uap.m_birthDate,
                                    uap.m_expiryDate);
+}
+
+iatci::UpdateAddressDetails makeUpdAddress(const edifact::AddElem& add)
+{
+    iatci::UpdateAddressDetails updAddress(iatci::UpdateDetails::strToActionCode(add.m_actionCode));
+    for(const auto& ediAddr: add.m_lAddr) {
+        updAddress.addAddr(iatci::AddressDetails::AddrInfo(getAstraAddrType(ediAddr.m_purposeCode),
+                                                           ediAddr.m_country,
+                                                           ediAddr.m_address,
+                                                           ediAddr.m_city,
+                                                           ediAddr.m_region,
+                                                           ediAddr.m_postalCode));
+    }
+    return updAddress;
 }
 
 //---------------------------------------------------------------------------------------
@@ -688,7 +740,24 @@ boost::optional<iatci::DocDetails> makeDoc(const astra_api::astra_entities::PaxI
 
 boost::optional<iatci::AddressDetails> makeAddress(const astra_api::astra_entities::PaxInfo& pax)
 {
-    // TODO
+    if(pax.m_addrs) {
+        boost::optional<iatci::AddressDetails> addrs;
+        for(const auto& addr: pax.m_addrs->m_lAddrs) {
+            if(!addr.isEmpty()) {
+                if(!addrs) {
+                    addrs = iatci::AddressDetails();
+                }
+                addrs->addAddr(iatci::AddressDetails::AddrInfo(getIatciAddrType(addr.m_type),
+                                                               addr.m_country,
+                                                               addr.m_address,
+                                                               addr.m_city,
+                                                               addr.m_region,
+                                                               addr.m_postalCode));
+            }
+        }
+        return addrs;
+    }
+
     return boost::none;
 }
 

@@ -5361,7 +5361,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   CrsQry.Execute();
                 }
 
-                if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCA_VERSION))
+                if (reqInfo->api_mode ||
+                        reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCA_VERSION))
                 {
                   if (pax.DocaExists) CheckIn::SavePaxDoca(pax_id, pax.doca_map, PaxDocaQry, true);
                 }
@@ -5600,7 +5601,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   CrsQry.Execute();
                 }
 
-                if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCA_VERSION))
+                if (reqInfo->api_mode ||
+                        reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCA_VERSION))
                 {
                   if (pax.DocaExists) CheckIn::SavePaxDoca(pax.id, pax.doca_map, PaxDocaQry, false);
                 }

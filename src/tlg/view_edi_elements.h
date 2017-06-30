@@ -246,6 +246,13 @@ void viewRodElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::RowDetails& rowDet
 void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes,
                     const iatci::DocDetails& doc, const iatci::PaxDetails& pax);
 
+void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes, bool infant);
+
+/**
+ * @brief makes an ADD element
+*/
+void viewAddElement(_EDI_REAL_MES_STRUCT_* pMes,
+                    const iatci::AddressDetails& addr);
 
 }//namespace edifact
 

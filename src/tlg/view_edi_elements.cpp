@@ -826,4 +826,28 @@ void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes,
     SetEdiFullSegment(pMes, SegmElement("PAP"), pap.str());
 }
 
+void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes, bool infant)
+{
+    SetEdiFullSegment(pMes, SegmElement("PAP"), infant ? "IN" : "");
+}
+
+void viewAddElement(_EDI_REAL_MES_STRUCT_* pMes,
+                    const iatci::AddressDetails& addr)
+{
+    std::ostringstream add;
+    add << "+";
+    for(const auto& addrInfo: addr.lAddr()) {
+        add << addrInfo.type() << ":"
+            << addrInfo.address() << ":"
+            << addrInfo.city() << ":"
+            << ":"
+            << addrInfo.region() << ":"
+            << addrInfo.country() << ":"
+            << addrInfo.postalCode()
+            << "+";
+    }
+
+    SetEdiFullSegment(pMes, SegmElement("ADD"), add.str());
+}
+
 }//namespace edifact

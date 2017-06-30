@@ -56,6 +56,7 @@ iatci::SelectPersonalDetails   makePersonal(const edifact::SpdElem& spd);
 iatci::BaggageDetails          makeBaggage(const edifact::PbdElem& pbd);
 iatci::ServiceDetails          makeService(const edifact::PsiElem& psi);
 iatci::DocDetails              makeDoc(const edifact::PapElem& pap);
+iatci::AddressDetails          makeAddress(const edifact::AddElem& add);
 iatci::OriginatorDetails       makeOrg(const edifact::LorElem& lor);
 iatci::CascadeHostDetails      makeCascade(const edifact::ChdElem& chd);
 iatci::FlightDetails           makeOutboundFlight(const edifact::FdqElem& fdq);
@@ -75,6 +76,7 @@ iatci::UpdateSeatDetails       makeUpdSeat(const edifact::UsdElem& usd);
 iatci::UpdateBaggageDetails    makeUpdBaggage(const edifact::UbdElem& ubd);
 iatci::UpdateServiceDetails    makeUpdService(const edifact::UsiElem& usi);
 iatci::UpdateDocDetails        makeUpdDoc(const edifact::UapElem& uap);
+iatci::UpdateAddressDetails    makeUpdAddress(const edifact::AddElem& add);
 
 //---------------------------------------------------------------------------------------
 

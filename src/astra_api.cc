@@ -55,19 +55,11 @@ bool getBoolFromXml(xmlNodePtr node, const std::string& childName, bool def)
     return NodeAsBoolean(childName.c_str(), node, def);
 }
 
-std::string getAstraDocType(const std::string& docType)
-{
-    if     (docType == "PT") return "P";
-    else if(docType == "VI") return "V";
-    else if(docType == "MI") return "M";
-    else                     return docType;
-}
-
 XmlPaxDoc createCheckInDoc(const iatci::DocDetails& doc)
 {
     XmlPaxDoc ckiDoc;
     ckiDoc.no         = doc.no();
-    ckiDoc.type       = getAstraDocType(doc.docType());
+    ckiDoc.type       = doc.docType();
     if(!doc.birthDate().is_not_a_date()) {
         ckiDoc.birth_date = BASIC::date_time::boostDateToAstraFormatStr(doc.birthDate());
     }
@@ -82,11 +74,28 @@ XmlPaxDoc createCheckInDoc(const iatci::DocDetails& doc)
     return ckiDoc;
 }
 
+XmlPaxAddresses createCheckInAddrs(const iatci::AddressDetails& addrs)
+{
+    XmlPaxAddresses ckiAddrs;
+    for(const auto& addr: addrs.lAddr()) {
+        XmlPaxAddress ckiAddr;
+        ckiAddr.type        = addr.type();
+        ckiAddr.country     = addr.country();
+        ckiAddr.address     = addr.address();
+        ckiAddr.city        = addr.city();
+        ckiAddr.region      = addr.region();
+        ckiAddr.postal_code = addr.postalCode();
+        ckiAddrs.addresses.push_back(ckiAddr);
+    }
+    return ckiAddrs;
+}
+
 XmlPax createCheckInPax(const XmlPax& basePax,
                         const iatci::PaxDetails& pax,
                         const boost::optional<iatci::SeatDetails>& seat,
                         const boost::optional<iatci::ReservationDetails>& reserv,
-                        const boost::optional<iatci::DocDetails>& doc)
+                        const boost::optional<iatci::DocDetails>& doc,
+                        const boost::optional<iatci::AddressDetails>& addrs)
 {
     XmlPax ckiPax = basePax;
     ckiPax.seats     = pax.isInfant() ? 0 : 1;
@@ -95,6 +104,9 @@ XmlPax createCheckInPax(const XmlPax& basePax,
     ckiPax.subclass  = reserv ? reserv->subclass()->code(RUSSIAN) : "";
     if(doc) {
         ckiPax.doc = createCheckInDoc(*doc);
+    }
+    if(addrs) {
+        ckiPax.addrs = createCheckInAddrs(*addrs);
     }
     return ckiPax;
 }
@@ -345,6 +357,10 @@ LoadPaxXmlResult AstraEngine::SavePax(const xml_entities::XmlSegment& paxSeg,
         xmlNodePtr paxNode = XmlEntityViewer::viewPax(passengersNode, pax);
         if(pax.doc) {
             XmlEntityViewer::viewDoc(paxNode, *pax.doc);
+        }
+        NewTextChild(paxNode, "doco");
+        if(pax.addrs) {
+            XmlEntityViewer::viewAddresses(paxNode, *pax.addrs);
         }
         if(pax.rems) {
             XmlEntityViewer::viewRems(paxNode, *pax.rems);
@@ -694,7 +710,7 @@ static void applyDocUpdate(XmlPax& pax, const iatci::UpdateDocDetails& updDoc)
     LogTrace(TRACE3) << __FUNCTION__ << " with act code: " << updDoc.actionCodeAsString();
     XmlPaxDoc newDoc;
     newDoc.no            = updDoc.no();
-    newDoc.type          = getAstraDocType(updDoc.docType());
+    newDoc.type          = updDoc.docType();
     newDoc.birth_date    = boostDateToAstraFormatStr(updDoc.birthDate());
     newDoc.expiry_date   = boostDateToAstraFormatStr(updDoc.expiryDate());
     newDoc.surname       = updDoc.surname();
@@ -704,6 +720,54 @@ static void applyDocUpdate(XmlPax& pax, const iatci::UpdateDocDetails& updDoc)
     newDoc.issue_country = updDoc.issueCountry();
     newDoc.gender        = updDoc.gender();
     pax.doc              = newDoc;
+}
+
+//---------------------------------------------------------------------------------------
+
+static void applyAddressUpdate(XmlPax& pax,
+                               iatci::UpdateDetails::UpdateActionCode_e actCode,
+                               const iatci::UpdateAddressDetails::AddrInfo& a)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+    if(!pax.addrs) {
+        pax.addrs = XmlPaxAddresses();
+    }
+
+    XmlPaxAddress addr;
+    addr.type        = a.type();
+    addr.country     = a.country();
+    addr.address     = a.address();
+    addr.city        = a.city();
+    addr.region      = a.region();
+    addr.postal_code = a.postalCode();
+
+    switch(actCode)
+    {
+    case iatci::UpdateDetails::Add:
+    case iatci::UpdateDetails::Replace:
+    {
+        LogTrace(TRACE3) << "add/modify address " << addr.type;
+        pax.addrs->addresses.push_back(addr);
+        break;
+    }
+    case iatci::UpdateDetails::Cancel:
+    {
+        LogTrace(TRACE3) << "cancel address: " << addr.type;
+        pax.addrs->addresses.remove(addr);
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+static void applyAddressesUpdate(XmlPax& pax, const iatci::UpdateAddressDetails& updAddress)
+{
+    LogTrace(TRACE3) << __FUNCTION__ << " with act code: " << updAddress.actionCodeAsString();
+    XmlPaxAddresses newAddrs;
+    for(const auto& addr: updAddress.lAddr()) {
+        applyAddressUpdate(pax, updAddress.actionCode(), addr);
+    }
 }
 
 //---------------------------------------------------------------------------------------
@@ -984,7 +1048,8 @@ static void handleIatciCkiPax(int pointDep,
                               const boost::optional<iatci::SeatDetails>& seat,
                               const boost::optional<iatci::ReservationDetails>& reserv,
                               const boost::optional<iatci::ServiceDetails>& service,
-                              const boost::optional<iatci::DocDetails>& doc
+                              const boost::optional<iatci::DocDetails>& doc,
+                              const boost::optional<iatci::AddressDetails>& addr
                               )
 {
     const std::string PaxSurname = pax.surname();
@@ -1070,7 +1135,8 @@ static void handleIatciCkiPax(int pointDep,
                                                  pax,
                                                  seat,
                                                  reserv,
-                                                 doc));
+                                                 doc,
+                                                 addr));
 }
 
 iatci::dcrcka::Result checkinIatciPaxes(const iatci::CkiParams& ckiParams)
@@ -1092,7 +1158,8 @@ iatci::dcrcka::Result checkinIatciPaxes(const iatci::CkiParams& ckiParams)
                           paxGroup.seat(),
                           paxGroup.reserv(),
                           paxGroup.service(),
-                          paxGroup.doc());
+                          paxGroup.doc(),
+                          paxGroup.address());
         if(paxGroup.infant()) {
             // докинем инфанта
             handleIatciCkiPax(pointDep, tripHeader, paxSeg,
@@ -1100,7 +1167,8 @@ iatci::dcrcka::Result checkinIatciPaxes(const iatci::CkiParams& ckiParams)
                               paxGroup.seat(),
                               paxGroup.reserv(),
                               paxGroup.service(),
-                              paxGroup.infantDoc());
+                              paxGroup.infantDoc(),
+                              paxGroup.infantAddress());
         }
     }
 
@@ -1201,6 +1269,7 @@ static void handleIatciCkuPax(int pointDep,
                               const iatci::PaxDetails& pax,
                               const boost::optional<iatci::UpdatePaxDetails>& updPax,
                               const boost::optional<iatci::UpdateDocDetails>& updDoc,
+                              const boost::optional<iatci::UpdateAddressDetails>& updAddress,
                               const boost::optional<iatci::UpdateSeatDetails>& updSeat,
                               const boost::optional<iatci::UpdateServiceDetails>& updService,
                               const boost::optional<iatci::UpdateBaggageDetails>& updBaggage)
@@ -1230,6 +1299,10 @@ static void handleIatciCkuPax(int pointDep,
 
     if(updDoc) {
         applyDocUpdate(newPax, *updDoc);
+    }
+
+    if(updAddress) {
+        applyAddressesUpdate(newPax, *updAddress);
     }
 
     if(updService) {
@@ -1326,6 +1399,7 @@ iatci::dcrcka::Result updateIatciPaxes(const iatci::CkuParams& ckuParams)
                           paxGroup.pax(),
                           paxGroup.updPax(),
                           paxGroup.updDoc(),
+                          paxGroup.updAddress(),
                           paxGroup.updSeat(),
                           paxGroup.updService(),
                           paxGroup.updBaggage());
@@ -1335,6 +1409,7 @@ iatci::dcrcka::Result updateIatciPaxes(const iatci::CkuParams& ckuParams)
                               paxGroup.infant().get(),
                               paxGroup.updInfant(),
                               paxGroup.updInfantDoc(),
+                              paxGroup.updInfantAddress(),
                               boost::none,  // infant seat
                               boost::none,  // infant service
                               boost::none); // infant baggage
@@ -1601,6 +1676,12 @@ std::string ReqParams::getStrParam(const std::string& param)
 
 //---------------------------------------------------------------------------------------
 
+astra_entities::Remark XmlRem::toRem() const
+{
+    return astra_entities::Remark(rem_code,
+                                  rem_text);
+}
+
 bool operator==(const XmlRem& l, const XmlRem& r)
 {
     return (l.rem_code == r.rem_code &&
@@ -1609,12 +1690,42 @@ bool operator==(const XmlRem& l, const XmlRem& r)
 
 //---------------------------------------------------------------------------------------
 
+astra_entities::FqtRemark XmlFqtRem::toFqtRem() const
+{
+    return astra_entities::FqtRemark(rem_code,
+                                     airline,
+                                     no,
+                                     tier_level);
+}
+
 bool operator==(const XmlFqtRem& l, const XmlFqtRem& r)
 {
     return (l.rem_code   == r.rem_code &&
             l.airline    == r.airline &&
             l.no         == r.no &&
             l.tier_level == r.tier_level);
+}
+
+//---------------------------------------------------------------------------------------
+
+astra_entities::Remarks XmlRems::toRems() const
+{
+    astra_entities::Remarks res;
+    for(const XmlRem& rem: rems) {
+        res.m_lRems.push_back(rem.toRem());
+    }
+    return res;
+}
+
+//---------------------------------------------------------------------------------------
+
+astra_entities::FqtRemarks XmlFqtRems::toFqtRems() const
+{
+    astra_entities::FqtRemarks res;
+    for(const XmlFqtRem& rem: rems) {
+        res.m_lFqtRems.push_back(rem.toFqtRem());
+    }
+    return res;
 }
 
 //---------------------------------------------------------------------------------------
@@ -1647,6 +1758,34 @@ astra_entities::DocInfo XmlPaxDoc::toDoc() const
 
 //---------------------------------------------------------------------------------------
 
+astra_entities::AddressInfo XmlPaxAddress::toAddress() const
+{
+    return astra_entities::AddressInfo(type,
+                                       country,
+                                       address,
+                                       city,
+                                       region,
+                                       postal_code);
+}
+
+bool operator==(const XmlPaxAddress& l, const XmlPaxAddress& r)
+{
+    return (l.type == r.type);
+}
+
+//---------------------------------------------------------------------------------------
+
+astra_entities::Addresses XmlPaxAddresses::toAddresses() const
+{
+    astra_entities::Addresses res;
+    for(const XmlPaxAddress& addr: addresses) {
+        res.m_lAddrs.push_back(addr.toAddress());
+    }
+    return res;
+}
+
+//---------------------------------------------------------------------------------------
+
 XmlPax::XmlPax()
     : pax_id(ASTRA::NoExists),
       seats(ASTRA::NoExists),
@@ -1674,33 +1813,6 @@ bool XmlPax::equalName(const std::string& surname, const std::string& name) cons
 
 astra_entities::PaxInfo XmlPax::toPax() const
 {
-    boost::optional<astra_entities::DocInfo> paxDoc;
-    if(doc) {
-        paxDoc = doc->toDoc();
-    }
-
-    boost::optional<astra_entities::Remarks> paxRems;
-    if(rems)
-    {
-        paxRems = astra_entities::Remarks();
-        for(const XmlRem& rem: rems->rems) {
-            paxRems->m_lRems.push_back(astra_entities::Remark(rem.rem_code,
-                                                              rem.rem_text));
-        }
-    }
-
-    boost::optional<astra_entities::FqtRemarks> paxFqtRems;
-    if(fqt_rems)
-    {
-        paxFqtRems = astra_entities::FqtRemarks();
-        for(const XmlFqtRem& rem: fqt_rems->rems) {
-            paxFqtRems->m_lFqtRems.push_back(astra_entities::FqtRemark(rem.rem_code,
-                                                                       rem.airline,
-                                                                       rem.no,
-                                                                       rem.tier_level));
-        }
-    }
-
     return astra_entities::PaxInfo(pax_id,
                                    surname,
                                    name,
@@ -1713,9 +1825,10 @@ astra_entities::PaxInfo XmlPax::toPax() const
                                    iatci_pax_id,
                                    !subclass.empty() ? Ticketing::SubClass(subclass)
                                                      : Ticketing::SubClass(),
-                                   paxDoc,
-                                   paxRems,
-                                   paxFqtRems,
+                                   doc ? doc->toDoc() : boost::optional<astra_entities::DocInfo>(),
+                                   addrs ? addrs->toAddresses() : boost::optional<astra_entities::Addresses>(),
+                                   rems ? rems->toRems() : boost::optional<astra_entities::Remarks>(),
+                                   fqt_rems ? fqt_rems->toFqtRems() : boost::optional<astra_entities::FqtRemarks>(),
                                    bag_pool_num != ASTRA::NoExists ? bag_pool_num : 0,
                                    iatci_parent_id != ASTRA::NoExists ? iatci_parent_id : 0);
 }
@@ -2257,6 +2370,33 @@ XmlPaxDoc XmlEntityReader::readDoc(xmlNodePtr docNode)
     return doc;
 }
 
+XmlPaxAddress XmlEntityReader::readAddress(xmlNodePtr addrNode)
+{
+    ASSERT(addrNode);
+
+    XmlPaxAddress addr;
+    addr.type        = getStrFromXml(addrNode, "type");
+    addr.country     = getStrFromXml(addrNode, "country");
+    addr.address     = getStrFromXml(addrNode, "address");
+    addr.city        = getStrFromXml(addrNode, "city");
+    addr.region      = getStrFromXml(addrNode, "region");
+    addr.postal_code = getStrFromXml(addrNode, "postal_code");
+    return addr;
+}
+
+XmlPaxAddresses XmlEntityReader::readAddresses(xmlNodePtr addrsNode)
+{
+    ASSERT(addrsNode);
+
+    XmlPaxAddresses addrs;
+    for(xmlNodePtr addrNode = addrsNode->children;
+        addrNode != NULL; addrNode = addrNode->next)
+    {
+        addrs.addresses.push_back(XmlEntityReader::readAddress(addrNode));
+    }
+    return addrs;
+}
+
 XmlPax XmlEntityReader::readPax(xmlNodePtr paxNode)
 {
     ASSERT(paxNode);
@@ -2293,6 +2433,11 @@ XmlPax XmlEntityReader::readPax(xmlNodePtr paxNode)
     xmlNodePtr docNode = findNode(paxNode, "document");
     if(docNode != NULL && !isempty(docNode)) {
         pax.doc = XmlEntityReader::readDoc(docNode);
+    }
+
+    xmlNodePtr addrsNode = findNode(paxNode, "addresses");
+    if(addrsNode != NULL) {
+        pax.addrs = XmlEntityReader::readAddresses(addrsNode);
     }
 
     // remarks
@@ -2762,6 +2907,27 @@ xmlNodePtr XmlEntityViewer::viewDoc(xmlNodePtr node, const XmlPaxDoc& doc)
     return docNode;
 }
 
+xmlNodePtr XmlEntityViewer::viewAddress(xmlNodePtr node, const XmlPaxAddress& addr)
+{
+    xmlNodePtr addrNode = NewTextChild(node, "doca");
+    NewTextChild(addrNode, "type",        addr.type);
+    NewTextChild(addrNode, "country",     addr.country);
+    NewTextChild(addrNode, "address",     addr.address);
+    NewTextChild(addrNode, "city",        addr.city);
+    NewTextChild(addrNode, "region",      addr.region);
+    NewTextChild(addrNode, "postal_code", addr.postal_code);
+    return addrNode;
+}
+
+xmlNodePtr XmlEntityViewer::viewAddresses(xmlNodePtr node, const XmlPaxAddresses& addrs)
+{
+    xmlNodePtr addrsNode = NewTextChild(node, "addresses");
+    for(const XmlPaxAddress& addr: addrs.addresses) {
+        XmlEntityViewer::viewAddress(addrsNode, addr);
+    }
+    return addrsNode;
+}
+
 xmlNodePtr XmlEntityViewer::viewPax(xmlNodePtr node, const XmlPax& pax)
 {
     xmlNodePtr paxNode = NewTextChild(node, "pax");
@@ -3014,6 +3180,7 @@ std::vector<iatci::dcrcka::Result> LoadPaxXmlResult::toIatci(iatci::dcrcka::Resu
 
             boost::optional<iatci::PaxDetails> infant;
             boost::optional<iatci::DocDetails> infantDoc;
+            boost::optional<iatci::AddressDetails> infantAddress;
             boost::optional<iatci::FlightSeatDetails> infantSeat;
             boost::optional<astra_entities::Remark> ssrInft = paxInfo.ssrInft();
             if(ssrInft) {
@@ -3021,6 +3188,7 @@ std::vector<iatci::dcrcka::Result> LoadPaxXmlResult::toIatci(iatci::dcrcka::Resu
                 if(inft) {
                     infant = iatci::makeRespPax(*inft);
                     infantDoc = iatci::makeDoc(*inft);
+                    infantAddress = iatci::makeAddress(*inft);
                     infantSeat = iatci::makeFlightSeat(*inft);
                 }
             }
@@ -3047,6 +3215,7 @@ std::vector<iatci::dcrcka::Result> LoadPaxXmlResult::toIatci(iatci::dcrcka::Resu
                                                         iatci::makeAddress(paxInfo),
                                                         infant,
                                                         infantDoc,
+                                                        infantAddress,
                                                         infantSeat));
         }
 
@@ -3312,6 +3481,15 @@ AddressInfo::AddressInfo(const std::string& type,
       m_postalCode(postalCode)
 {}
 
+bool AddressInfo::isEmpty() const
+{
+    return (m_country.empty() &&
+            m_address.empty() &&
+            m_city.empty()    &&
+            m_region.empty()  &&
+            m_postalCode.empty());
+}
+
 bool operator==(const AddressInfo& left, const AddressInfo& right)
 {
     return (left.m_type       == right.m_type &&
@@ -3323,6 +3501,18 @@ bool operator==(const AddressInfo& left, const AddressInfo& right)
 }
 
 bool operator!=(const AddressInfo& left, const AddressInfo& right)
+{
+    return !(left == right);
+}
+
+//---------------------------------------------------------------------------------------
+
+bool operator==(const Addresses& left, const Addresses& right)
+{
+    return (left.m_lAddrs == right.m_lAddrs);
+}
+
+bool operator!=(const Addresses& left, const Addresses& right)
 {
     return !(left == right);
 }
@@ -3377,6 +3567,7 @@ PaxInfo::PaxInfo(int paxId,
                  const std::string& iatciPaxId,
                  const Ticketing::SubClass& subclass,
                  const boost::optional<DocInfo>& doc,
+                 const boost::optional<Addresses>& addrs,
                  const boost::optional<Remarks>& rems,
                  const boost::optional<FqtRemarks>& fqtRems,
                  int bagPoolNum,
@@ -3393,6 +3584,7 @@ PaxInfo::PaxInfo(int paxId,
       m_iatciPaxId(iatciPaxId),
       m_subclass(subclass),
       m_doc(doc),
+      m_addrs(addrs),
       m_rems(rems),
       m_fqtRems(fqtRems),
       m_bagPoolNum(bagPoolNum),
@@ -3451,7 +3643,7 @@ bool operator==(const PaxInfo& left, const PaxInfo& right)
             left.m_iatciPaxId    == right.m_iatciPaxId &&
             left.m_subclass      == right.m_subclass &&
             left.m_doc           == right.m_doc &&
-            left.m_address       == right.m_address &&
+            left.m_addrs         == right.m_addrs &&
             left.m_visa          == right.m_visa &&
             left.m_rems          == right.m_rems &&
             left.m_fqtRems       == right.m_fqtRems &&

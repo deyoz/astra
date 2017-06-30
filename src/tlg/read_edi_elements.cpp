@@ -1225,6 +1225,40 @@ boost::optional<edifact::PapElem> readEdiPap(_EDI_REAL_MES_STRUCT_ *pMes)
     return pap;
 }
 
+boost::optional<edifact::AddElem> readEdiAdd(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder add_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "ADD")) {
+        return boost::optional<AddElem>();
+    }
+
+    AddElem add;
+    add.m_actionCode  = GetDBFName(pMes, DataElement(9858), CompElement("C031"));
+
+    unsigned num_addrs = GetNumComposite(pMes, "C032");
+    EdiPointHolder c032_holder(pMes);
+    for(unsigned i = 0; i < num_addrs; i++)
+    {
+        edifact::AddElem::Address addr;
+
+        SetEdiPointToCompositeG(pMes, "C032", i, "EtErr::INV_ADDR_DETAILS");
+        addr.m_purposeCode = GetDBFName(pMes, 3299);
+        addr.m_address     = GetDBFName(pMes, 3042);
+        addr.m_city        = GetDBFName(pMes, 3164);
+        addr.m_region      = GetDBFName(pMes, 3228);
+        addr.m_country     = GetDBFName(pMes, 3207);
+        addr.m_postalCode  = GetDBFName(pMes, 3251);
+
+        add.m_lAddr.push_back(addr);
+
+        PopEdiPoint_wdG(pMes);
+    }
+
+    LogTrace(TRACE3) << add;
+
+    return add;
+}
+
 boost::optional<edifact::UapElem> readEdiUap(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     EdiPointHolder pap_holder(pMes);

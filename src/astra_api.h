@@ -145,11 +145,23 @@ struct AddressInfo
                 const std::string& region,
                 const std::string& postalCode);
 
+    bool isEmpty() const;
+
     std::string id() const { return m_type; }
 };
 
 bool operator==(const AddressInfo& left, const AddressInfo& right);
 bool operator!=(const AddressInfo& left, const AddressInfo& right);
+
+//---------------------------------------------------------------------------------------
+
+struct Addresses
+{
+    std::list<AddressInfo> m_lAddrs;
+};
+
+bool operator==(const Addresses& left, const Addresses& right);
+bool operator!=(const Addresses& left, const Addresses& right);
 
 //---------------------------------------------------------------------------------------
 
@@ -198,7 +210,7 @@ struct PaxInfo
     std::string                  m_iatciPaxId;
     Ticketing::SubClass          m_subclass;
     boost::optional<DocInfo>     m_doc;
-    boost::optional<AddressInfo> m_address;
+    boost::optional<Addresses>   m_addrs;
     boost::optional<VisaInfo>    m_visa;
     boost::optional<Remarks>     m_rems;
     boost::optional<FqtRemarks>  m_fqtRems;
@@ -217,6 +229,7 @@ struct PaxInfo
             const std::string& iatciPaxId,
             const Ticketing::SubClass& subclass,
             const boost::optional<DocInfo>& doc,
+            const boost::optional<Addresses>& addrs,
             const boost::optional<Remarks>& rems = boost::none,
             const boost::optional<FqtRemarks>& fqtRems = boost::none,
             int bagPoolNum = 0,
@@ -315,10 +328,36 @@ struct XmlPaxDoc
 
 //---------------------------------------------------------------------------------------
 
+struct XmlPaxAddress
+{
+    std::string type;
+    std::string country;
+    std::string address;
+    std::string city;
+    std::string region;
+    std::string postal_code;
+
+    astra_entities::AddressInfo toAddress() const;
+};
+bool operator==(const XmlPaxAddress& l, const XmlPaxAddress& r);
+
+//---------------------------------------------------------------------------------------
+
+struct XmlPaxAddresses
+{
+    std::list<XmlPaxAddress> addresses;
+
+    astra_entities::Addresses toAddresses() const;
+};
+
+//---------------------------------------------------------------------------------------
+
 struct XmlRem
 {
     std::string rem_code;
     std::string rem_text;
+
+    astra_entities::Remark toRem() const;
 };
 bool operator==(const XmlRem& l, const XmlRem& r);
 
@@ -330,6 +369,8 @@ struct XmlFqtRem
     std::string airline;
     std::string no;
     std::string tier_level;
+
+    astra_entities::FqtRemark toFqtRem() const;
 };
 bool operator==(const XmlFqtRem& l, const XmlFqtRem& r);
 
@@ -338,6 +379,8 @@ bool operator==(const XmlFqtRem& l, const XmlFqtRem& r);
 struct XmlRems
 {
     std::list<XmlRem> rems;
+
+    astra_entities::Remarks toRems() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -345,6 +388,8 @@ struct XmlRems
 struct XmlFqtRems
 {
     std::list<XmlFqtRem> rems;
+
+    astra_entities::FqtRemarks toFqtRems() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -379,6 +424,7 @@ struct XmlPax
     std::string iatci_pax_id;
     int         iatci_parent_id;
     boost::optional<XmlPaxDoc> doc;
+    boost::optional<XmlPaxAddresses> addrs;
     boost::optional<XmlRems> rems;
     boost::optional<XmlFqtRems> fqt_rems;
 
@@ -837,6 +883,9 @@ public:
 
     static XmlPaxDoc                     readDoc(xmlNodePtr docNode);
 
+    static XmlPaxAddress                 readAddress(xmlNodePtr addrNode);
+    static XmlPaxAddresses               readAddresses(xmlNodePtr addrsNode);
+
     static XmlPax                        readPax(xmlNodePtr paxNode);
     static std::list<XmlPax>             readPaxes(xmlNodePtr paxesNode);
 
@@ -892,6 +941,9 @@ public:
     static xmlNodePtr viewFqtRems(xmlNodePtr node, const XmlFqtRems& rems);
 
     static xmlNodePtr viewDoc(xmlNodePtr node, const XmlPaxDoc& doc);
+
+    static xmlNodePtr viewAddress(xmlNodePtr node, const XmlPaxAddress& addr);
+    static xmlNodePtr viewAddresses(xmlNodePtr node, const XmlPaxAddresses& addrs);
 
     static xmlNodePtr viewPax(xmlNodePtr node, const XmlPax& pax);
 

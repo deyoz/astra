@@ -266,14 +266,14 @@ namespace
             }
         }
 
-        // адрес
+        // адреса
         std::list<astra_entities::AddressInfo> lOldAddrs;
-        if(oldPax.m_address) {
-            lOldAddrs.push_back(oldPax.m_address.get());
+        if(oldPax.m_addrs) {
+            lOldAddrs = oldPax.m_addrs->m_lAddrs;
         }
         std::list<astra_entities::AddressInfo> lNewAddrs;
-        if(newPax.m_address) {
-            lNewAddrs.push_back(newPax.m_address.get());
+        if(newPax.m_addrs) {
+            lNewAddrs = newPax.m_addrs->m_lAddrs;
 
             AddressChange_t addrsChng(lOldAddrs, lNewAddrs);
             if(!addrsChng.empty()) {
@@ -1217,7 +1217,8 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
                                               updSeat,     // Update seat
                                               boost::none, // Update baggage
                                               boost::none, // Update service
-                                              boost::none  // Update doc
+                                              boost::none, // Update doc
+                                              boost::none  // Updatr address
                                               ));
 
     return iatci::CkuParams(makeOrg(ownGrpId),
@@ -1332,6 +1333,7 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
                                                   boost::none,
                                                   iatci::makeUpdBaggage(total, handTotal),
                                                   boost::none,
+                                                  boost::none,
                                                   boost::none));
     }
 
@@ -1423,6 +1425,7 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
         boost::optional<iatci::UpdatePaxDetails>     adultUpdPersonal, inftUpdPersonal;
         boost::optional<iatci::UpdateServiceDetails> adultUpdService;
         boost::optional<iatci::UpdateDocDetails>     adultUpdDoc, inftUpdDoc;
+        boost::optional<iatci::UpdateAddressDetails> adultUpdAddress, inftUpdAddress;
 
         if(adultChange) {
             adultUpdPersonal = boost::none;//getUpdPersonal(*adultChange);
@@ -1445,8 +1448,10 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
                                                   boost::none, // Baggage
                                                   adultUpdService,
                                                   adultUpdDoc,
+                                                  adultUpdAddress, // Address
                                                   inftUpdPersonal,
-                                                  inftUpdDoc));
+                                                  inftUpdDoc,
+                                                  inftUpdAddress));
     }
 
     if(lPaxGrp.empty()) {

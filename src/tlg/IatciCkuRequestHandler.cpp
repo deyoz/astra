@@ -51,6 +51,8 @@ public:
         boost::optional<edifact::UsiElem> m_usi;
         boost::optional<edifact::UapElem> m_uap;
         boost::optional<edifact::UapElem> m_uapInfant;
+        boost::optional<edifact::AddElem> m_add;
+        boost::optional<edifact::AddElem> m_addInfant;
 
     public:
         void setPpd(const boost::optional<edifact::PpdElem>& ppd);
@@ -64,7 +66,8 @@ public:
         void setUsd(const boost::optional<edifact::UsdElem>& usd, bool required = false);
         void setUbd(const boost::optional<edifact::UbdElem>& ubd, bool required = false);
         void setUsi(const boost::optional<edifact::UsiElem>& usi, bool required = false);
-        void addUap(const boost::optional<edifact::UapElem>& uap);
+        void addApg(const boost::optional<edifact::UapElem>& uap,
+                    const boost::optional<edifact::AddElem>& add);
 
         iatci::dcqcku::PaxGroup makePaxGroup() const;
 
@@ -79,8 +82,10 @@ public:
         boost::optional<iatci::UpdateBaggageDetails> makeUpdBaggage() const;
         boost::optional<iatci::UpdateServiceDetails> makeUpdService() const;
         boost::optional<iatci::UpdateDocDetails>     makeUpdDoc() const;
+        boost::optional<iatci::UpdateAddressDetails> makeUpdAddress() const;
         boost::optional<iatci::UpdatePaxDetails>     makeUpdInfant() const;
         boost::optional<iatci::UpdateDocDetails>     makeUpdInfantDoc() const;
+        boost::optional<iatci::UpdateAddressDetails> makeUpdInfantAddress() const;
     };
 
     //-----------------------------------------------------------------------------------
@@ -148,7 +153,7 @@ void IatciCkuRequestHandler::parse()
             EdiPointHolder apg_holder(pMes());
             SetEdiPointToSegGrG(pMes(), SegGrElement(3, curApg), "PROG_ERR");
 
-            pxg.addUap(readEdiUap(pMes()));
+            pxg.addApg(readEdiUap(pMes()), readEdiAdd(pMes()));
         }
 
         ckuParamsMaker.addPxg(pxg);
@@ -252,12 +257,15 @@ void IatciCkuParamsMaker::Pxg::setUsi(const boost::optional<edifact::UsiElem>& u
     m_usi = usi;
 }
 
-void IatciCkuParamsMaker::Pxg::addUap(const boost::optional<edifact::UapElem>& uap)
+void IatciCkuParamsMaker::Pxg::addApg(const boost::optional<edifact::UapElem>& uap,
+                                      const boost::optional<edifact::AddElem>& add)
 {
     if(uap && uap->m_type == "IN") {
         m_uapInfant = uap;
+        m_addInfant = add;
     } else {
         m_uap = uap;
+        m_add = add;
     }
 }
 
@@ -273,8 +281,10 @@ iatci::dcqcku::PaxGroup IatciCkuParamsMaker::Pxg::makePaxGroup() const
                                    makeUpdBaggage(),
                                    makeUpdService(),
                                    makeUpdDoc(),
+                                   makeUpdAddress(),
                                    makeUpdInfant(),
-                                   makeUpdInfantDoc());
+                                   makeUpdInfantDoc(),
+                                   makeUpdInfantAddress());
 }
 
 boost::optional<iatci::ReservationDetails> IatciCkuParamsMaker::Pxg::makeReserv() const
@@ -351,8 +361,17 @@ boost::optional<iatci::UpdateServiceDetails> IatciCkuParamsMaker::Pxg::makeUpdSe
 
 boost::optional<iatci::UpdateDocDetails> IatciCkuParamsMaker::Pxg::makeUpdDoc() const
 {
-    if(m_uap) {
+    if(m_uap && !m_uap->isGroupHeader()) {
         return iatci::makeUpdDoc(*m_uap);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::UpdateAddressDetails> IatciCkuParamsMaker::Pxg::makeUpdAddress() const
+{
+    if(m_add) {
+        return iatci::makeUpdAddress(*m_add);
     }
 
     return boost::none;
@@ -369,8 +388,17 @@ boost::optional<iatci::UpdatePaxDetails> IatciCkuParamsMaker::Pxg::makeUpdInfant
 
 boost::optional<iatci::UpdateDocDetails> IatciCkuParamsMaker::Pxg::makeUpdInfantDoc() const
 {
-    if(m_uapInfant) {
+    if(m_uapInfant && !m_uapInfant->isGroupHeader()) {
         return iatci::makeUpdDoc(*m_uapInfant);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::UpdateAddressDetails> IatciCkuParamsMaker::Pxg::makeUpdInfantAddress() const
+{
+    if(m_addInfant) {
+        return iatci::makeUpdAddress(*m_addInfant);
     }
 
     return boost::none;
