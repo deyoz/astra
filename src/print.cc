@@ -2322,7 +2322,7 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
             if(iPax->grp_id > 0 && iPax->pax_id > 0) {
                 // В режиме приглашений выводим только тех, у кого есть правила.
                 const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
-                pr_print |= (op_type == dotPrnBI and bi_rule.exists());
+                pr_print |= (op_type == dotPrnBI and bi_rule.exists() and first_seg_grp_id == iPax->grp_id);
             }
 
             xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
