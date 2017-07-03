@@ -47,6 +47,7 @@ namespace BIPrintRules {
             const string &brand,
             const string &fqt_airline,
             const string &aircode,
+            const string &rfisc,
             TRule &rule
             )
     {
@@ -60,7 +61,8 @@ namespace BIPrintRules {
                 "    decode(fqt_airline, null, 0, 4) + "
                 "    decode(fqt_tier_level, null, 0, 5) + "
                 "    decode(aircode, null, 0, 6) + "
-                "    decode(rem_code, null, 0, 7) "
+                "    decode(rem_code, null, 0, 7) + "
+                "    decode(rfisc, null, 0, 8) "
                 "    priority "
                 "from "
                 "    bi_print_rules "
@@ -73,6 +75,7 @@ namespace BIPrintRules {
                 "    (fqt_airline is null or fqt_airline = :fqt_airline) and "
                 "    (fqt_tier_level is null or fqt_tier_level = :tier_level) and "
                 "    (aircode is null or aircode = :aircode) and "
+                "    (rfisc is null or rfisc = :rfisc) and "
                 "    (rem_code is null or rem_code = :rem_code) "
                 "order by "
                 "    priority desc ",
@@ -84,6 +87,7 @@ namespace BIPrintRules {
                 << QParam("fqt_airline", otString, fqt_airline)
                 << QParam("tier_level", otString, tier_level)
                 << QParam("aircode", otString, aircode)
+                << QParam("rfisc", otString, rfisc)
                 << QParam("rem_code", otString, rem_code)
                 );
         Qry.get().Execute();
@@ -298,6 +302,22 @@ namespace BIPrintRules {
         return iPax->second;
     }
 
+    void get_rfisc(int grp_id, int pax_id, set<string> &rfisc)
+    {
+        CheckIn::TServicePaymentListWithAuto payment_list;
+        payment_list.fromDB(grp_id);
+
+        for(CheckIn::TServicePaymentListWithAuto::iterator i = payment_list.begin(); i != payment_list.end(); i++) {
+            if(
+                    i->trfer_num == 0 and // ??? никакого эффекта
+                    i->pax_id == pax_id and
+                    i->pc)
+                    rfisc.insert(i->pc.get().RFISC);
+        }
+        // Если не найдено ни одного RFISC, добавляем пустой, чтобы get_rule все-таки отработала
+        if(rfisc.empty()) rfisc.insert("");
+    }
+
     void Holder::getByGrpId(int grp_id)
     {
         TCachedQuery fltQry("select points.* from points, pax_grp where pax_grp.grp_id = :grp_id and pax_grp.point_dep = points.point_id",
@@ -329,6 +349,10 @@ namespace BIPrintRules {
                 // Список залов     (bi_rule.halls)
                 // Биз. пригл.      (bi_rule.pr_print_bi)
 
+                // Достаем RFISC-и
+                set<string> rfisc;
+                get_rfisc(grp_id, pax_id, rfisc);
+
                 // Достаем бренды
                 TBrands brands;
                 brands.get(pax_id);
@@ -354,35 +378,37 @@ namespace BIPrintRules {
                 // выбираем самую приоритетную.
 
                 BIPrintRules::TRule tmp_rule = bi_rule; // чтобы не потерять hall, is_business_hall, pr_print_bi
-                for(set<CheckIn::TPaxFQTItem>::iterator iFqt = fqts.begin(); iFqt != fqts.end(); ++iFqt)
-                    for(TBrands::TItems::iterator iBrand = brands.items.begin(); iBrand != brands.items.end(); ++iBrand) {
-                        BIPrintRules::get_rule(
-                                t.airline,
-                                iFqt->tier_level,
-                                cls,
-                                subcls,
-                                iFqt->rem,
-                                ElemIdToCodeNative(etBrand, *iBrand),
-                                iFqt->airline,
-                                aircode,
-                                tmp_rule
-                                );
+                for(set<string>::iterator iRfisc = rfisc.begin(); iRfisc != rfisc.end(); ++iRfisc)
+                    for(set<CheckIn::TPaxFQTItem>::iterator iFqt = fqts.begin(); iFqt != fqts.end(); ++iFqt)
+                        for(TBrands::TItems::iterator iBrand = brands.items.begin(); iBrand != brands.items.end(); ++iBrand) {
+                            BIPrintRules::get_rule(
+                                    t.airline,
+                                    iFqt->tier_level,
+                                    cls,
+                                    subcls,
+                                    iFqt->rem,
+                                    ElemIdToCodeNative(etBrand, *iBrand),
+                                    iFqt->airline,
+                                    aircode,
+                                    *iRfisc,
+                                    tmp_rule
+                                    );
 
-                        // После нахождения правила из кеша Правила печати приглашений
-                        // данные этого правила сохраняются в bi_rule:
-                        // Группа регистрации (bi_rule.print_type)
-                        // Оформление (bi_rule.pr_issue)
+                            // После нахождения правила из кеша Правила печати приглашений
+                            // данные этого правила сохраняются в bi_rule:
+                            // Группа регистрации (bi_rule.print_type)
+                            // Оформление (bi_rule.pr_issue)
 
-                        if(tmp_rule.exists()) {
-                            if(not bi_rule.exists())
-                                bi_rule = tmp_rule;
-                            else {
-                                // вот здесь выбор по приоритету
-                                if(bi_rule.print_type < tmp_rule.print_type)
+                            if(tmp_rule.exists()) {
+                                if(not bi_rule.exists())
                                     bi_rule = tmp_rule;
+                                else {
+                                    // вот здесь выбор по приоритету
+                                    if(bi_rule.print_type < tmp_rule.print_type)
+                                        bi_rule = tmp_rule;
+                                }
                             }
                         }
-                    }
             }
             items.insert(make_pair(pax_id, bi_rule));
         }

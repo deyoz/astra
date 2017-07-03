@@ -1824,8 +1824,25 @@ void AfterApplyAll(TCacheTable &cache)
     };
 };
 
+#include <boost/regex.hpp>
+
 void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCacheQueryType qryType)
 {
+  if (cache.code() == "BI_PRINT_RULES") {
+    string rfisc;
+    if (
+            row.status != usDeleted and
+            row.status != usUnmodified
+            )
+      rfisc=cache.FieldValue("rfisc", row);
+
+    if(not rfisc.empty()) {
+        static const boost::regex e("^[€-ŸðA-Z0-9]{3,15}$");
+        boost::match_results<std::string::const_iterator> results;
+        if(not boost::regex_match(rfisc, results, e))
+            throw AstraLocale::UserException("MSG.WRONG_RFISC");
+    }
+  }
   if (cache.code() == "CODESHARE_SETS")
   {
     string airp;

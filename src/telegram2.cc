@@ -9338,8 +9338,9 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
     return vid;
 }
 
-void EMDReport(int point_id, map<int, vector<string> > &tab)
+void EMDReport(int point_id, map<int, vector<string> > &tab, size_t &total)
 {
+    total = 0;
 
     TypeB::TCreateInfo createInfo("ASL", TypeB::TCreatePoint());
 
@@ -9359,6 +9360,7 @@ void EMDReport(int point_id, map<int, vector<string> > &tab)
             for(vector<CheckIn::TPaxASVCItem>::iterator i = pax->used_asvc.begin(); i != pax->used_asvc.end(); i++) {
                 buf << i->emd_no << "/" << i->emd_coupon << ' ';
             }
+            total += pax->used_asvc.size();
             row.push_back(buf.str());
         }
     }
