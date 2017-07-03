@@ -366,7 +366,7 @@ void get_tlg_info(
         std::string &tlg_type,
         std::string &airline,
         std::string &airp);
-void EMDReport(int point_id, std::map<int, std::vector<std::string> > &tab);
+void EMDReport(int point_id, std::map<int, std::vector<std::string> > &tab, size_t &total);
 
 namespace CKIN_REPORT {
     int run(int argc, char **argv);
