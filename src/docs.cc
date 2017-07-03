@@ -2485,7 +2485,8 @@ void EMD(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     else
         get_compatible_report_form("EMD", reqNode, resNode);
     std::map<int, std::vector<std::string> > tab;
-    EMDReport(rpt_params.point_id, tab);
+    size_t total = 0;
+    EMDReport(rpt_params.point_id, tab, total);
 
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
@@ -2514,7 +2515,7 @@ void EMD(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "reg_no");
         NewTextChild(rowNode, "full_name", getLocaleText("Итого:", rpt_params.GetLang()));
         NewTextChild(rowNode, "etkt_no");
-        NewTextChild(rowNode, "emd_no", (int)tab.size());
+        NewTextChild(rowNode, "emd_no", (int)total);
     }
 
     // Теперь переменные отчета
