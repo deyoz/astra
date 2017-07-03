@@ -5903,7 +5903,7 @@ void TAgentStatCombo::add_header(ostringstream &buf) const
         buf << "Пас." << delim;
         buf << "Сквоз." << delim;
         buf << "Баг." << delim;
-        buf << "Р/к" << delim;
+        buf << "Р/к";
     }
     else
     {
@@ -5915,7 +5915,7 @@ void TAgentStatCombo::add_header(ostringstream &buf) const
         buf << "Баг. (-)" << delim;
         buf << "Р/к (+)" << delim;
         buf << "Р/к (-)" << delim;
-        buf << "Сек./пас." << delim;
+        buf << "Сек./пас.";
     }
     buf << endl;
 }
@@ -5951,7 +5951,7 @@ void TAgentStatCombo::add_data(ostringstream &buf) const
         buf << data.second.dtckin_amount.inc << delim; // Кол-во сквоз.
         buf <<  IntToString(data.second.dbag_amount.inc) + "/" +
                 IntToString(data.second.dbag_weight.inc) << delim; // Багаж (мест/вес)
-        buf << data.second.drk_weight.inc << delim; // Р/кладь (вес)
+        buf << data.second.drk_weight.inc << endl; // Р/кладь (вес)
     }
     else
     {
@@ -5970,7 +5970,7 @@ void TAgentStatCombo::add_data(ostringstream &buf) const
             oss << fixed << setprecision(2) << data.second.time / data.second.processed_pax;
         else
             oss << fixed << setprecision(2) << 0.0;
-        buf << oss.str() << delim; // Среднее время, затраченное на пассажира
+        buf << oss.str() << endl; // Среднее время, затраченное на пассажира
     }
 }
 
