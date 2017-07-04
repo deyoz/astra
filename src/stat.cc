@@ -11025,7 +11025,7 @@ void nosir_rfisc_stat_point(int point_id)
 {
     TFlights flightsForLock;
     flightsForLock.Get( point_id, ftTranzit );
-    flightsForLock.Lock();
+    flightsForLock.Lock(__FUNCTION__);
 
     TQuery Qry(&OraSession);
     Qry.SQLText = "SELECT count(*) from points where point_id=:point_id AND pr_del=0";
@@ -11085,7 +11085,7 @@ void get_flight_stat(map<string, long> &stat_times, int point_id, bool final_col
 {
    TFlights flightsForLock;
    flightsForLock.Get( point_id, ftTranzit );
-   flightsForLock.Lock();
+   flightsForLock.Lock(__FUNCTION__);
 
    {
      QParams QryParams;

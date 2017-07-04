@@ -3553,7 +3553,7 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   /* лочим рейс */
   TFlights flights;
   flights.Get( point_id, ftTranzit );
-  flights.Lock();
+  flights.Lock(__FUNCTION__);
 
   /* считываем инфу по пассажиру */
   switch ( layer_type ) {
@@ -4224,7 +4224,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
   TQuery Qry( &OraSession );
   TFlights flights;
   flights.Get( point_id, ftTranzit );
-  flights.Lock();
+  flights.Lock(__FUNCTION__);
 
   TAdvTripInfo operFlt;
   operFlt.getByPointId( point_id );

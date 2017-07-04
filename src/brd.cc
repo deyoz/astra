@@ -260,7 +260,7 @@ void lock_and_get_new_tid(int locked_point_id)
   {
     TFlights flights;
     flights.Get( locked_point_id, ftTranzit );
-    flights.Lock(); //лочим весь транзитный рейс
+    flights.Lock(__FUNCTION__); //лочим весь транзитный рейс
   };
   TCachedQuery Qry("SELECT cycle_tid__seq.nextval FROM dual");
   Qry.get().Execute();
@@ -1012,7 +1012,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
       TFlights flights;
       flights.Get( point_id, ftTranzit );
-      flights.Lock(); //лочим весь транзитный рейс
+      flights.Lock(__FUNCTION__); //лочим весь транзитный рейс
 
       if (set_mark && !EMDAutoBoundRegNo::exists(reqNode))
       {
@@ -1725,7 +1725,7 @@ void BrdInterface::SavePaxAPIS(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   TFlights flightsForLock;
   flightsForLock.Get( point_id, ftTranzit );
-  flightsForLock.Lock();
+  flightsForLock.Lock(__FUNCTION__);
 
   SaveAPIS(point_id, pax_id, tid, apisNode);
   check_apis_alarms(point_id);

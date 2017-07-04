@@ -1422,7 +1422,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
 
       TFlights  flights;
       flights.Get( point_id, ftAll );
-      flights.Lock();
+      flights.Lock(__FUNCTION__);
       Qry.Clear();
       Qry.SQLText =
           "UPDATE points "

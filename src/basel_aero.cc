@@ -160,7 +160,7 @@ void sych_basel_aero_stat( TDateTime utcdate )
 
           TFlights  flights;
           flights.Get( Qry.FieldAsInteger( "point_id" ), ftTranzit );
-          flights.Lock(); //лочим весь транзитный рейс
+          flights.Lock(__FUNCTION__); //лочим весь транзитный рейс
 
       TripSetsQry.SetVariable( "point_id", Qry.FieldAsInteger( "point_id" ) );
       TripSetsQry.Execute(); //лочим рейс

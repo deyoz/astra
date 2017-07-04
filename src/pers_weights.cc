@@ -280,7 +280,7 @@ void PersWeightRules::write( int point_id )
   fligths.Get( point_id, ftTranzit );
   if ( fligths.empty() )
     throw Exception( "Flight not found" );
-  fligths.Lock();
+  fligths.Lock(__FUNCTION__);
   TQuery Qry(&OraSession);
   Qry.SQLText =
     "DELETE trip_pers_weights WHERE point_id=:point_id";

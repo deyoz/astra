@@ -3218,7 +3218,7 @@ void WebRequestsIface::AddProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   //lock flights
   TFlights flights;
   flights.Get( point_ids, ftTranzit );
-  flights.Lock();
+  flights.Lock(__FUNCTION__);
 
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -3889,7 +3889,7 @@ void SyncCHKD(int point_id_tlg, int point_id_spp, bool sync_all) //регистрация C
     {
       TFlights flightsForLock;
       flightsForLock.Get( point_id_spp, ftTranzit );
-      flightsForLock.Lock();
+      flightsForLock.Lock(__FUNCTION__);
 
       WebSearch::TPnrData pnrData;
       pnrData.flt.fromDB(point_id_spp, true, true);
