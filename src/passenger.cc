@@ -1239,6 +1239,8 @@ const TPaxItem& TPaxItem::toDB(TQuery &Qry) const
     Qry.SetVariable("pers_type", EncodePerson(pers_type));
   if (Qry.GetVariableIndex("crew_type")>=0)
     Qry.SetVariable("crew_type", CrewTypes().encode(crew_type));
+  if (Qry.GetVariableIndex("is_jmp")>=0)
+    Qry.SetVariable("is_jmp", (int)is_jmp);
   if (Qry.GetVariableIndex("seat_type")>=0)
     Qry.SetVariable("seat_type", seat_type);
   if (Qry.GetVariableIndex("seats")>=0)
@@ -1274,6 +1276,7 @@ TSimplePaxItem& TSimplePaxItem::fromDB(TQuery &Qry)
   name=Qry.FieldAsString("name");
   pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
   crew_type = CrewTypes().decode(Qry.FieldAsString("crew_type"));
+  is_jmp=Qry.FieldAsInteger("is_jmp")!=0;
   if(Qry.GetFieldIndex("seat_no") >= 0)
       seat_no=Qry.FieldAsString("seat_no");
   seat_type=Qry.FieldAsString("seat_type");

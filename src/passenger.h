@@ -396,6 +396,7 @@ class TSimplePaxItem
     std::string name;
     ASTRA::TPerson pers_type;
     ASTRA::TCrewType::Enum crew_type;
+    bool is_jmp;
     std::string seat_no;
     std::string seat_type;
     int seats;
@@ -420,6 +421,7 @@ class TSimplePaxItem
       name.clear();
       pers_type=ASTRA::NoPerson;
       crew_type=ASTRA::TCrewType::Unknown;
+      is_jmp=false;
       seat_no.clear();
       seat_type.clear();
       seats=ASTRA::NoExists;
