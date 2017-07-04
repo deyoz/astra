@@ -213,7 +213,7 @@ void TTripStages::WriteStagesUTC( int point_id, TMapTripStages &ts )
 {
   TFlights flights;
   flights.Get( point_id, ftTranzit );
-  flights.Lock();
+  flights.Lock(__FUNCTION__);
 
     TReqInfo *reqInfo = TReqInfo::Instance();
     std::string airp;
@@ -323,7 +323,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
 {
   TFlights flights;
   flights.Get( point_id, ftTranzit );
-  flights.Lock();
+  flights.Lock(__FUNCTION__);
 
     TReqInfo *reqInfo = TReqInfo::Instance();
   TQuery Qry( &OraSession );
@@ -831,7 +831,7 @@ void astra_timer( TDateTime utcdate )
         string airp = Qry.FieldAsString( "airp" );
       TFlights flightsForLock;
       flightsForLock.Get( point_id, ftTranzit );
-      flightsForLock.Lock();
+      flightsForLock.Lock(__FUNCTION__);
         QExecStage.SetVariable( "point_id", point_id );
         QExecStage.SetVariable( "stage_id", stage_id );
       TDateTime execTime2 = NowUTC();

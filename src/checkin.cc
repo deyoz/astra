@@ -4022,7 +4022,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   TFlights flightsForLock;
   flightsForLock.Get( point_ids, ftTranzit );
   //лочить рейсы надо по возрастанию poind_dep иначе может быть deadlock
-  flightsForLock.Lock();
+  flightsForLock.Lock(__FUNCTION__);
 
   for(map<int,TSegInfo>::iterator s=segs.begin();s!=segs.end();++s)
   {
@@ -9085,7 +9085,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
         const TAdvTripInfo &flt=*(flts.begin());
         TFlights flightsForLock;
         flightsForLock.Get(flt.point_id, ftTranzit);
-        flightsForLock.Lock();
+        flightsForLock.Lock(__FUNCTION__);
 
         WebSearch::TPnrData pnrData;
         pnrData.flt.fromDB(flt.point_id, true, true);

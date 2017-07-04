@@ -552,7 +552,7 @@ class TFlights:public std::vector<FlightPoints> {
       std::vector<int> points( 1, point_dep );
       Get( points, flightType );
     }
-    void Lock();
+    void Lock(std::string from);
 };
 
 std::string getRegion( const std::string &airp );

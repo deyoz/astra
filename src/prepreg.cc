@@ -392,7 +392,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     //лочим рейс - весь маршрут, т.к. pr_tranzit может поменяться
     TFlights flights;
         flights.Get( point_id, ftAll );
-        flights.Lock();
+        flights.Lock(__FUNCTION__);
 
     Qry.Clear();
     Qry.SQLText =

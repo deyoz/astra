@@ -1630,7 +1630,7 @@ bool createUTGDataFiles( int point_id, const std::string &point_addr, TFileDatas
             file.params );
     TFlights Flights;
     Flights.Get(point_id, ftTranzit);
-    Flights.Lock();
+    Flights.Lock(__FUNCTION__);
     utgQry.get().SetVariable("point_id", point_id);
     utgQry.get().Execute();
     if(stats) stats->selected++;

@@ -2309,7 +2309,7 @@ bool EMDAutoBoundInterface::Lock(const EMDAutoBoundId &id, int &point_id, int &g
 
   TFlights flightsForLock;
   flightsForLock.Get( point_id, ftTranzit );
-  flightsForLock.Lock();
+  flightsForLock.Lock(__FUNCTION__);
   return true;
 }
 
@@ -2333,7 +2333,7 @@ bool EMDAutoBoundInterface::Lock(const EMDAutoBoundId &id, int &point_id, TCkinG
     flightsForLock.Get( i->point_dep, ftTranzit );
     tckin_grp_ids.push_back(i->grp_id);
   }
-  flightsForLock.Lock();
+  flightsForLock.Lock(__FUNCTION__);
   return true;
 }
 

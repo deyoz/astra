@@ -2065,7 +2065,7 @@ void TPoints::Save( bool isShowMsg )
       if ( id->status != tdInsert ) {
         TFlights flights;
             flights.Get( id->point_id, ftAll );
-            flights.Lock();
+            flights.Lock(__FUNCTION__);
         break;
       }
     }
@@ -3156,7 +3156,9 @@ void TFlights::Get( const std::vector<int> &points, TFlightType flightType )
   }
 }
 
-void TFlights::Lock()
+const boost::posix_time::ptime start_abs(boost::posix_time::time_from_string("2017-01-01 00:00:00.000"));
+
+void TFlights::Lock(std::string from)
 {
   set<int,std::less<int> > points;
   TQuery Qry( &OraSession );
@@ -3175,8 +3177,14 @@ void TFlights::Lock()
   }
   for ( set<int>::iterator ipoint=points.begin(); ipoint!=points.end(); ipoint++ ) {
     Qry.SetVariable( "point_id", *ipoint );
+    // https://stackoverflow.com/questions/6734375/get-current-time-in-milliseconds-using-c-and-boost
+    boost::posix_time::ptime mst1 = boost::posix_time::microsec_clock::local_time();
     Qry.Execute();
-    ProgTrace( TRACE5, "TLockedFlights::Lock(%d)", *ipoint );
+    boost::posix_time::ptime mst2 = boost::posix_time::microsec_clock::local_time();
+    boost::posix_time::time_duration msdiff = mst2 - mst1;
+    boost::posix_time::time_duration msabs = mst2 - start_abs;
+    ProgTrace( TRACE5, "TLockedFlights::Lock(%d), %ld ms, from %s, %ld",
+               *ipoint, msdiff.total_milliseconds(), from.c_str(), msabs.total_milliseconds() );
   }
 }
 

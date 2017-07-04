@@ -1011,7 +1011,7 @@ void TAPPSAns::beforeProcessAnswer() const
 {
   TFlights flightsForLock;
   flightsForLock.Get( point_id, ftTranzit );
-  flightsForLock.Lock();
+  flightsForLock.Lock(__FUNCTION__);
 
   // выключим тревогу "Нет связи с APPS"
   set_alarm( point_id, Alarm::APPSOutage, false );
@@ -1567,7 +1567,7 @@ static void sendAPPSInfo( const int point_id, const int point_id_tlg )
 
   TFlights flightsForLock;
   flightsForLock.Get( point_id, ftTranzit );
-  flightsForLock.Lock();
+  flightsForLock.Lock(__FUNCTION__);
 
   for ( ; !Qry.Eof; Qry.Next() )
     if ( checkAPPSSets( point_id, Qry.FieldAsString( "airp_arv" ) ) )
@@ -1605,7 +1605,7 @@ void sendNewAPPSInfo( const int point_id, const std::string& task_name, const st
 
   TFlights flightsForLock;
   flightsForLock.Get( point_id, ftTranzit );
-  flightsForLock.Lock();
+  flightsForLock.Lock(__FUNCTION__);
 
   for( ; !Qry.Eof; Qry.Next() ) {
     int pax_id = Qry.FieldAsInteger( "pax_id" );
