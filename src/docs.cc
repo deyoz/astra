@@ -983,21 +983,6 @@ TDateTime getReportSCDOut(int point_id)
   return res;
 }
 
-string getJMPSeatNo(int pax_id)
-{
-    LogTrace(TRACE5) << "getJMPSeatNo: pax_id: " << pax_id;
-    static const string JMP = "JMP";
-    multiset<CheckIn::TPaxRemItem> rems;
-    LoadPaxRem(pax_id, rems);
-    LogTrace(TRACE5) << "getJMPSeatNo: rems.size: " << rems.size();
-    string result;
-    for(multiset<CheckIn::TPaxRemItem>::iterator i = rems.begin(); i != rems.end(); i++)
-        if(i->code == JMP) {
-            result = JMP;
-        }
-    return result;
-}
-
 void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
@@ -1030,7 +1015,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     TQuery Qry(&OraSession);
     string SQLText =
         "SELECT \n"
-        "   pax.pax_id, \n"
+        "   pax.*, \n"
         "   pax_grp.point_dep AS trip_id, \n"
         "   pax_grp.airp_arv AS target, \n";
     if(rpt_params.pr_trfer)
@@ -1045,10 +1030,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "   pax_grp.class_grp, \n"
         "   DECODE(pax_grp.status, 'T', pax_grp.status, 'N') status, \n"
         "   surname||' '||pax.name AS full_name, \n"
-        "   pax.pers_type, \n"
-        "   pax.is_female, \n"
-        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no, \n"
-        "   pax.seats, \n";
+        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no, \n";
     if(rpt_params.pr_et) { //ЭБ
         SQLText +=
             "    ticket_no||'/'||coupon_no AS remarks, \n";
@@ -1280,7 +1262,9 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         // seat_no достается с добитыми слева пробелами, чтобы order by
         // правильно отрабатывал, далее эти пробелы нам ни к чему
         // (в частности они мешаются в текстовом отчете).
-        string seat_no = getJMPSeatNo(pax_id);
+        CheckIn::TSimplePaxItem pax;
+        pax.fromDB(Qry);
+        string seat_no = pax.getJMPSeatNo();
         if(seat_no.empty()) seat_no = trim(Qry.FieldAsString("seat_no"));
         NewTextChild(rowNode, "seat_no", seat_no);
 
@@ -2606,7 +2590,7 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "       pax_id, "
         "       reg_no, "
         "       surname||' '||pax.name family, "
-        "       pax.pers_type, "
+        "       pax.*, "
         "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no, "
         "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bagAmount, "
         "       ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags "
@@ -2643,7 +2627,9 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
         NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
 
-        string seat_no = getJMPSeatNo(Qry.FieldAsInteger("pax_id"));
+        CheckIn::TSimplePaxItem pax;
+        pax.fromDB(Qry);
+        string seat_no = pax.getJMPSeatNo();
         if(seat_no.empty()) seat_no = Qry.FieldAsString("seat_no");
         NewTextChild(rowNode, "seat_no", seat_no);
 
@@ -2899,13 +2885,9 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     TQuery Qry(&OraSession);
     string SQLText =
         "SELECT pax_grp.point_dep AS point_id, "
-        "       pax.pax_id, "
-        "       pax.reg_no, "
+        "       pax.*, "
         "       TRIM(pax.surname||' '||pax.name) AS family, "
-        "       pax.pers_type, "
-        "       pax.seats, "
-        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no, "
-        "       pax.ticket_no, pax.coupon_no, pax.ticket_rem, pax.ticket_confirm "
+        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no "
         "FROM   pax_grp,pax "
         "WHERE  pax_grp.grp_id=pax.grp_id AND "
         "       pr_brd IS NOT NULL and "
@@ -2952,8 +2934,9 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
       NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
 
-      int pax_id=Qry.FieldAsInteger("pax_id");
-      string seat_no = getJMPSeatNo(pax_id);
+      CheckIn::TSimplePaxItem pax;
+      pax.fromDB(Qry);
+      string seat_no = pax.getJMPSeatNo();
       if(seat_no.empty()) seat_no = Qry.FieldAsString("seat_no");
       NewTextChild(rowNode, "seat_no", seat_no);
 
@@ -3192,11 +3175,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "pnr_ref", pnr_addr);
             NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
             NewTextChild(rowNode, "class", rpt_params.ElemIdToReportElem(etClass, Qry.FieldAsString("class"), efmtCodeNative));
-
-            string seat_no = getJMPSeatNo(pax_id);
-            if(seat_no.empty()) seat_no = Qry.FieldAsString("seat_no");
-            NewTextChild(rowNode, "seat_no", seat_no);
-
+            NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
             NewTextChild(rowNode, "target", rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("target"), efmtCodeNative));
             string last_target = Qry.FieldAsString("last_target");
             TElemFmt fmt;
@@ -3360,7 +3339,9 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(paxNode, "pr_exam", Qry.FieldAsInteger("pr_exam"), 0);
         NewTextChild(paxNode, "pr_brd", Qry.FieldAsInteger("pr_brd"), 0);
 
-        string seat_no = getJMPSeatNo(pax_id);
+        CheckIn::TSimplePaxItem pax;
+        pax.fromDB(Qry);
+        string seat_no = pax.getJMPSeatNo();
         if(seat_no.empty()) seat_no = Qry.FieldAsString("seat_no");
         NewTextChild(paxNode, "seat_no", seat_no);
 
@@ -3761,9 +3742,7 @@ void SERVICES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     TQuery Qry(&OraSession);
     string SQLText =
     "select "
-    "    pax.pax_id, "
-    "    pax.reg_no, "
-    "    pax.grp_id, "
+    "    pax.*, "
     "    TRIM(pax.surname||' '||pax.name) AS family, "
     "    salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no "
     "from "
@@ -3815,7 +3794,9 @@ void SERVICES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             {
                 TServiceRow row(sortOrder); // sortOrder для всех строк в контейнере должен быть одинаков!
                 //  Место в салоне
-                string seat_no = getJMPSeatNo(pax_id);
+                CheckIn::TSimplePaxItem pax;
+                pax.fromDB(Qry);
+                string seat_no = pax.getJMPSeatNo();
                 if (seat_no.empty()) seat_no = Qry.FieldAsString("seat_no");
                 row.seat_no = seat_no;
                 //  ФИО пассажира

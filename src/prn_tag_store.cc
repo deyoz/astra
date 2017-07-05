@@ -938,6 +938,7 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
 
             TPrPrint().get_pr_print(grp_info.grp_id, pax_id, pr_bp_print, pr_bi_print);
             brand.get(pax_id);
+            pax.load(pax_id);
         }
         else
         {
@@ -2365,7 +2366,7 @@ string TPrnTagStore::get_fmt_seat(string fmt, bool english_tag)
     TQuery Qry(&OraSession);
     if (!isTestPaxId(paxInfo.pax_id))
     {
-        string result = getJMPSeatNo(paxInfo.pax_id);
+        string result = paxInfo.pax.getJMPSeatNo();
         if(result.empty()) {
             Qry.SQLText =
                 "select "

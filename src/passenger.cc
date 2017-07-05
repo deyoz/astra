@@ -1268,6 +1268,24 @@ const TPaxItem& TPaxItem::toDB(TQuery &Qry) const
   return *this;
 };
 
+string TSimplePaxItem::getJMPSeatNo()
+{
+    string result;
+    if(is_jmp) result = "JMP";
+    return result;
+}
+
+TSimplePaxItem& TSimplePaxItem::load(int pax_id)
+{
+    clear();
+    TCachedQuery Qry("select * from pax where pax_id = :pax_id",
+            QParams() << QParam("pax_id", otInteger, pax_id));
+    Qry.get().Execute();
+    if(not Qry.get().Eof)
+        fromDB(Qry.get());
+    return *this;
+}
+
 TSimplePaxItem& TSimplePaxItem::fromDB(TQuery &Qry)
 {
   clear();

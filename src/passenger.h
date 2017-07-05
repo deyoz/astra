@@ -438,6 +438,8 @@ class TSimplePaxItem
     }
 
     TSimplePaxItem& fromDB(TQuery &Qry);
+    TSimplePaxItem& load(int pax_id);
+    std::string getJMPSeatNo();
     std::string full_name() const;
     bool api_doc_applied() const;
     bool upward_within_bag_pool(const TSimplePaxItem& pax) const;
