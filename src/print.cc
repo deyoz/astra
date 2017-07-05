@@ -1507,7 +1507,7 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     TFlights flightsForLock;
     flightsForLock.Get( point_ids, ftTranzit );
     //лочить рейсы надо по возрастанию poind_dep иначе может быть deadlock
-    flightsForLock.Lock();
+    flightsForLock.Lock(__FUNCTION__);
 
     CheckIn::UserException ue;
     ConfirmPrintBP(op_type, paxs, ue); //не надо прокидывать ue в терминал - подтверждаем все что можем!
@@ -1556,7 +1556,7 @@ void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     TFlights flightsForLock;
     flightsForLock.Get( point_ids, ftTranzit );
     //лочить рейсы надо по возрастанию poind_dep иначе может быть deadlock
-    flightsForLock.Lock();
+    flightsForLock.Lock(__FUNCTION__);
 
     TQuery Qry(&OraSession);
     Qry.SQLText =

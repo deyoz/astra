@@ -284,7 +284,7 @@ void TSalons::Write()
   if ( readStyle == SALONS2::rTripSalons ) {
     TFlights flights;
         flights.Get( trip_id, ftTranzit );
-        flights.Lock();
+        flights.Lock(__FUNCTION__);
     Qry.SQLText = "BEGIN "\
                   " UPDATE trip_sets SET pr_lat_seat=:pr_lat_seat WHERE point_id=:point_id; "
                   " DELETE trip_comp_rem WHERE point_id=:point_id; "

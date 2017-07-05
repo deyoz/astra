@@ -2404,7 +2404,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
 
   TFlights flightsForLock;
   flightsForLock.Get( point_id, ftTranzit );
-  flightsForLock.Lock();
+  flightsForLock.Lock(__FUNCTION__);
 
   TQuery Qry(&OraSession);
     Qry.Clear();
@@ -2514,7 +2514,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
 
         TFlights flightsForLock;
         flightsForLock.Get( point_ids, ftTranzit );
-        flightsForLock.Lock();
+        flightsForLock.Lock(__FUNCTION__);
 
         for(list< pair<int/*point_id*/, int/*grp_id*/> >::const_iterator g=grp_ids.begin(); g!=grp_ids.end(); ++g)
         {
@@ -3657,7 +3657,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   else {
     TFlights flights;
     flights.Get( lock_point_id, ftAll );
-    flights.Lock();
+    flights.Lock(__FUNCTION__);
     Qry.Clear();
     Qry.SQLText =
      "UPDATE move_ref SET reference=:reference WHERE move_id=:move_id ";
@@ -4801,7 +4801,7 @@ void SetFlightFact(int point_id, TDateTime utc_act_out)
   ProgTrace( TRACE5, "SetFlightFact: point_id=%d, utc_act_out=%f", point_id, utc_act_out );
   TFlights flights;
   flights.Get( point_id, ftAll );  //весь маршрут
-  flights.Lock();
+  flights.Lock(__FUNCTION__);
   TQuery Qry(&OraSession);
     Qry.SQLText=
     "SELECT move_id,airline,flt_no,suffix,act_out,airp,point_num,pr_del "
@@ -4846,7 +4846,7 @@ void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   int point_id = NodeAsInteger( "point_id", reqNode );
   TFlights flights;
   flights.Get( point_id, ftAll );  //весь маршрут
-  flights.Lock();
+  flights.Lock(__FUNCTION__);
 
   TQuery Qry(&OraSession);
     Qry.SQLText=
@@ -5435,7 +5435,7 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   };
   TFlights flights;
   flights.Get( lock_point_id, ftAll );
-  flights.Lock();
+  flights.Lock(__FUNCTION__);
     TQuery Qry(&OraSession);
   // проверка на предмет того, что во всех пп стоит статус неактивен иначе ругаемся
     Qry.Clear();
@@ -6685,7 +6685,7 @@ void set_flight_sets(int point_id, int f, int c, int y)
   //лочим рейс - весь маршрут, т.к. pr_tranzit может поменяться
   TFlights flights;
      flights.Get( point_id, ftAll );
-     flights.Lock();
+     flights.Lock(__FUNCTION__);
 
   TQuery Qry(&OraSession);
   Qry.Clear();

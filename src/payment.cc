@@ -699,7 +699,7 @@ int PaymentInterface::LockAndUpdTid(int point_dep, int grp_id, int tid)
 {
   TFlights flights;
   flights.Get( point_dep, ftTranzit );
-  flights.Lock();
+  flights.Lock(__FUNCTION__);
   TQuery Qry(&OraSession);
   //лочим рейс
   Qry.Clear();

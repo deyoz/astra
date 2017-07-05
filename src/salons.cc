@@ -1926,7 +1926,7 @@ void TSalons::Write( const TComponSets &compSets )
   if ( readStyle == rTripSalons ) {
     TFlights flights;
         flights.Get( trip_id, ftTranzit );
-        flights.Lock();
+        flights.Lock(__FUNCTION__);
     Qry.SQLText = "BEGIN "\
                   " UPDATE trip_sets SET pr_lat_seat=:pr_lat_seat WHERE point_id=:point_id; "
                   " DELETE trip_comp_rem WHERE point_id=:point_id; "
@@ -5144,7 +5144,7 @@ void TSalonList::WriteFlight( int vpoint_id )
   ProgTrace( TRACE5, "TSalonList::WriteFlight: point_id=%d, RFISCMode=%d", vpoint_id, getRFISCMode() );
   TFlights flights;
   flights.Get( vpoint_id, ftTranzit );
-  flights.Lock();
+  flights.Lock(__FUNCTION__);
   TQuery Qry( &OraSession );
   TQuery QryLayers( &OraSession );
   QryLayers.SQLText =
@@ -6023,7 +6023,7 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
 {
   TFlights flights;
   flights.Get( points_tranzit_check_wait_alarm, ftAll );
-  flights.Lock();
+  flights.Lock(__FUNCTION__);
 
   TSalonList salonList;
   TSalonPassengers passengers;
@@ -7968,7 +7968,7 @@ TFindSetCraft SetCraft( bool pr_tranzit_routes, int point_id, TSetsCraftPoints &
 {
   TFlights flights;
     flights.Get( point_id, ftTranzit );
-  flights.Lock();
+  flights.Lock(__FUNCTION__);
 
   points.Clear();
     TQuery Qry(&OraSession);
@@ -9372,7 +9372,7 @@ void DeleteSalons( int point_id )
 {
   TFlights flights;
     flights.Get( point_id, ftTranzit );
-    flights.Lock();
+    flights.Lock(__FUNCTION__);
     TQuery Qry( &OraSession );
   Qry.SQLText =
     "BEGIN "
@@ -9846,7 +9846,7 @@ void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
   TDateTime time_create = NowUTC();
   TFlights flights;
   flights.Get( point_id, ftTranzit );
-  flights.Lock();
+  flights.Lock(__FUNCTION__);
   SALONS2::TSalonList priorsalonList, salonList;
   // надо перечитать заново
   /*всегда работаем с новой компоновкой, т.к. см. !salonChangesToText*/
