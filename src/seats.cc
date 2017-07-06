@@ -3185,7 +3185,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                              case sSeatPassengers:
                                if ( SeatPlaces.SeatsPassengers() )
                                  throw 1;
-                               if ( SeatOnlyBasePlace ) {
+                               if ( SeatOnlyBasePlace && !canUseSUBCLS ) {  
                                  SeatOnlyBasePlace = false;
                                  FSeatAlg=0;
                                }
