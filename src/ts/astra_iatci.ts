@@ -2104,7 +2104,7 @@ $(KICK_IN)
         <airp_dep>èãä</airp_dep>
         <point_arv>-1</point_arv>
         <airp_arv>ëéó</airp_arv>
-        <class>ù</class>
+        <class/>
         <status>K</status>
         <bag_refuse/>
         <piece_concept>0</piece_concept>
@@ -2748,7 +2748,7 @@ $(KICK_IN)
         <airp_dep>èãä</airp_dep>
         <point_arv>-1</point_arv>
         <airp_arv>ëéó</airp_arv>
-        <class>ù</class>
+        <class/>
         <status>K</status>
         <bag_refuse/>
         <piece_concept>0</piece_concept>
@@ -3328,7 +3328,8 @@ UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
 UNH+1+DCQSMF:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
-UNT+4+1"
+SRP+Y"
+UNT+5+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -3546,7 +3547,8 @@ UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
 UNH+1+DCQSMF:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
-UNT+4+1"
+SRP+Y"
+UNT+5+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 
@@ -4366,7 +4368,7 @@ $(KICK_IN)
         <airp_dep>èãä</airp_dep>
         <point_arv>-1</point_arv>
         <airp_arv>ëéó</airp_arv>
-        <class>ù</class>
+        <class/>
         <status>K</status>
         <bag_refuse/>
         <piece_concept>0</piece_concept>
@@ -4529,7 +4531,8 @@ UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
 UNH+1+DCQSMF:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
-UNT+4+1"
+SRP+Y"
+UNT+5+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<

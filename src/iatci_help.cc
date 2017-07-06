@@ -1180,7 +1180,7 @@ static xmlNodePtr xmlViewIatciFlight(xmlNodePtr node, const iatci::FlightDetails
     NewTextChild(segNode, "airp_dep", flight.depPort());
     NewTextChild(segNode, "point_arv", -1);
     NewTextChild(segNode, "airp_arv", flight.arrPort());
-    NewTextChild(segNode, "class", "ù"); // TODO
+    NewTextChild(segNode, "class");
     NewTextChild(segNode, "status", "K"); // TODO
     NewTextChild(segNode, "bag_refuse", ""); // TODO
     NewTextChild(segNode, "piece_concept", 0); // TODO
