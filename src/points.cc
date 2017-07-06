@@ -34,6 +34,7 @@
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace BASIC::date_time;
@@ -3226,8 +3227,8 @@ void TFlights::Lock(std::string from)
     boost::posix_time::ptime mst2 = boost::posix_time::microsec_clock::local_time();
     boost::posix_time::time_duration msdiff = mst2 - mst1;
     boost::posix_time::time_duration msabs = mst2 - start_abs;
-    ProgTrace( TRACE5, "TLockedFlights::Lock(%d), %ld ms, from %s, %ld",
-               *ipoint, msdiff.total_milliseconds(), from.c_str(), msabs.total_milliseconds() );
+    LogTrace(TRACE5) << "TLockedFlights::Lock(" <<  *ipoint << "), " <<  msdiff.total_milliseconds()
+                     << " ms, from " << from << ", " << msabs.total_milliseconds(); 
   }
 }
 
