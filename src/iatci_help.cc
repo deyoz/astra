@@ -860,6 +860,21 @@ iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg)
 
 //---------------------------------------------------------------------------------------
 
+boost::optional<iatci::SeatRequestDetails> makeSeatReq(const astra_api::xml_entities::XmlSegment& seg)
+{
+    ASSERT(!seg.passengers.empty());
+    std::string subCls = seg.passengers.front().subclass;
+    for(const auto& pax: seg.passengers) {
+        if(subCls != pax.subclass) {
+            LogTrace(TRACE1) << "Different subclasses in group!";
+            return boost::none;
+        }
+    }
+    return iatci::SeatRequestDetails(subCls);
+}
+
+//---------------------------------------------------------------------------------------
+
 static const size_t MaxDataPartLen = 4000;
 static const size_t MaxDataParts = 5;
 

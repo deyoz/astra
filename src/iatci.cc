@@ -1514,11 +1514,15 @@ static iatci::SmfParams getSmfParams(int magicId)
     if(magicId == -1) {
         throw AstraLocale::UserException("MSG.UNABLE_TO_SHOW_SEATMAP_BEFORE_CHECKIN"); // TODO #25409
     }
+
     iatci::MagicTab magicTab = iatci::MagicTab::fromNeg(magicId);
-    IatciPaxSeg iatciPaxSeg = IatciPaxSeg::read(magicTab.grpId(), magicTab.tabInd());
+    XMLDoc oldXmlDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(magicTab.grpId()));
+    XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
+    const XmlCheckInTab& oldIatciTab = oldIatciTabs.tabs().at(magicTab.tabInd() - 1);
+
     return iatci::SmfParams(makeOrg(magicTab.grpId()),
-                            boost::none, // TODO
-                            iatciPaxSeg.seg());
+                            iatci::makeSeatReq(oldIatciTab.xmlSeg()),
+                            iatci::makeFlight(oldIatciTab.xmlSeg()));
 }
 
 static iatci::SmfParams getSmfParams(xmlNodePtr reqNode)

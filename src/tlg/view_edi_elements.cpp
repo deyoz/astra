@@ -758,7 +758,7 @@ void viewUsiElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateServiceDetai
 void viewSrpElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SeatRequestDetails& seatReqDetails)
 {
     std::ostringstream srp;
-    srp << seatReqDetails.cabinClass() << ":";
+    srp << Ticketing::SubClass(seatReqDetails.cabinClass())->code(ENGLISH) << ":";
     srp << seatReqDetails.smokeIndAsString();
     SetEdiFullSegment(pMes, SegmElement("SRP"), srp.str());
 }
