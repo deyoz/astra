@@ -320,7 +320,7 @@ boost::optional<iatci::FlightSeatDetails> makeInfantSeat(const edifact::PfdElem&
 {
     return iatci::FlightSeatDetails("",
                                     pfd.m_cabinClass,
-                                    pfd.m_infantRegNo,
+                                    !pfd.m_infantRegNo.empty() ? pfd.m_infantRegNo : pfd.m_regNo,
                                     iatci::FlightSeatDetails::strToSmokeInd(pfd.m_noSmokingInd));
 }
 
