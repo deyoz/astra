@@ -373,47 +373,7 @@ void TPeriodOfOper::parse(bool pr_from, const char *val)
 
 void TSSMDate::parse(const char *val)
 {
-    char sday[3];
-    char smonth[4];
-    char syear[3];
-    *syear = 0;
-    char c = 0;
-    int res;
-    res = sscanf(val, "%2[0-9]%3[A-Z€-Ÿð]%2[0-9]%c", sday, smonth, syear, &c);
-    if(c != 0 or res != 3) {
-        *syear = 0;
-        c = 0;
-        res=sscanf(val,"%2[0-9]%3[A-Z€-Ÿð]%c", sday, smonth, &c);
-        if(c != 0 or res != 2)
-            throw Exception("wrong format");
-    }
-    if(
-            strlen(sday) != 2 or
-            strlen(smonth) != 3 or
-            (res == 3 and strlen(syear) != 2)
-      )
-        throw Exception("wrong format");
-
-    TDateTime today=NowUTC();
-    int year,mon,currday, day;
-    StrToInt(sday, day);
-
-    if(*syear != 0)
-        StrToInt(syear, year);
-    else
-        DecodeDate(today,year,mon,currday);
-
-    try
-    {
-        for(mon=1;mon<=12;mon++)
-            if (strcmp(smonth,Months[mon-1].lat)==0||
-                    strcmp(smonth,Months[mon-1].rus)==0) break;
-        EncodeDate(year,mon,day,date);
-    }
-    catch(EConvertError)
-    {
-        throw ETlgError("Can't convert UTC date");
-    };
+    date = ParseDate(val);
 }
 
 void TDEIHolder::dump()
@@ -1405,27 +1365,20 @@ TDateTime ParseDate(const string &buf)
         throw ETlgError("Flight Identifier: wrond year %s", syear);
 
     TDateTime today=NowUTC();
-    int year,mon,currday, day;
-    StrToInt(sday, day);
-
-    if(*syear != 0)
-        StrToInt(syear, year);
-    else
-        DecodeDate(today,year,mon,currday);
 
     TDateTime date;
-    try
-    {
-        if(*smonth)
-            for(mon=1;mon<=12;mon++)
-                if (strcmp(smonth,Months[mon-1].lat)==0||
-                        strcmp(smonth,Months[mon-1].rus)==0) break;
+    int year(NoExists), mon(NoExists), day(NoExists);
+    StrToInt(sday, day);
+    if(*smonth) mon = monthAsNum(smonth);
+    if(*syear) {
+        StrToInt(syear, year);
         EncodeDate(year,mon,day,date);
+    } else if(*smonth) {
+        date = DayMonthToDate(day, mon, today, dateEverywhere);
+    } else {
+        date = DayToDate(day, today + 1, true);
     }
-    catch(EConvertError)
-    {
-        throw ETlgError("Can't convert UTC date");
-    };
+
     return date;
 }
 
