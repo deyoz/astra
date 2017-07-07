@@ -42,20 +42,6 @@ using namespace std;
 namespace TypeB
 {
 
-const TMonthCode Months[12] =
-    {{"üçÇ","JAN"},
-     {"îÖÇ","FEB"},
-     {"åÄê","MAR"},
-     {"Äèê","APR"},
-     {"åÄâ","MAY"},
-     {"àûç","JUN"},
-     {"àûã","JUL"},
-     {"ÄÇÉ","AUG"},
-     {"ëÖç","SEP"},
-     {"éäí","OCT"},
-     {"çéü","NOV"},
-     {"ÑÖä","DEC"}};
-
 const char* TTlgElementS[] =
               {//Æ°È®•
                "Address",
@@ -532,17 +518,10 @@ char ParseBSMElement(const char *p, TTlgParser &tlg, TBSMInfo* &data, TMemoryMan
             res=sscanf(tlg.lex,"%2lu%3[A-ZÄ-ü]%c",&day,month,&c);
             if (c!=0||res!=2||day<=0) throw ETlgError("Wrong flight date");
 
-            TDateTime today = Now();
-            int year,mon,currday;
-            DecodeDate(today,year,mon,currday);
+
             try
             {
-              for(mon=1;mon<=12;mon++)
-                if (strcmp(month,Months[mon-1].lat)==0||
-                    strcmp(month,Months[mon-1].rus)==0) break;
-              EncodeDate(year,mon,day,flt.scd);
-              if ((int)today>(int)IncMonth(flt.scd,6))  //ØÆ´-£Æ§†
-                EncodeDate(year+1,mon,day,flt.scd);
+              flt.scd = DayMonthToDate(day, monthAsNum(month), Now(), dateEverywhere);
             }
             catch(EConvertError)
             {
@@ -1044,23 +1023,16 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info, TFligh
             if (res==3&&
                 !IsUpperLetter(info.flt.suffix[0])) throw ETlgError("Wrong flight");
 
-            TDateTime today=Now();
-            int year,mon,currday;
-            DecodeDate(today,year,mon,currday);
             try
             {
-              for(mon=1;mon<=12;mon++)
-                if (strcmp(month,Months[mon-1].lat)==0||
-                    strcmp(month,Months[mon-1].rus)==0) break;
-              EncodeDate(year,mon,day,info.flt.scd);
-              if ((int)today>(int)IncMonth(info.flt.scd,6))  //ØÆ´-£Æ§†
-                EncodeDate(year+1,mon,day,info.flt.scd);
+              info.flt.scd = DayMonthToDate(day, monthAsNum(month), Now(), dateEverywhere);
               info.flt.pr_utc=false;
             }
             catch(EConvertError)
             {
               throw ETlgError("Can't convert local date");
             };
+
             if (strcmp(info.tlg_type,"PNL")==0||
                 strcmp(info.tlg_type,"ADL")==0||
                 strcmp(info.tlg_type,"SOM")==0||
@@ -7258,6 +7230,34 @@ void split(vector<string> &result, const string val, char c)
         result.push_back(val.substr(idx1, idx - idx1));
     } else
         result.push_back(val);
+}
+
+int monthAsNum(const std::string &smonth)
+{
+
+    typedef struct { const char *rus, *lat; } TMonthCode;
+
+    static const TMonthCode Months[12] = {
+        {"üçÇ","JAN"},
+        {"îÖÇ","FEB"},
+        {"åÄê","MAR"},
+        {"Äèê","APR"},
+        {"åÄâ","MAY"},
+        {"àûç","JUN"},
+        {"àûã","JUL"},
+        {"ÄÇÉ","AUG"},
+        {"ëÖç","SEP"},
+        {"éäí","OCT"},
+        {"çéü","NOV"},
+        {"ÑÖä","DEC"}};
+
+    int mon = NoExists;
+    for(mon=1;mon<=12;mon++)
+        if (strcmp(smonth.c_str(),Months[mon-1].lat)==0||
+                strcmp(smonth.c_str(),Months[mon-1].rus)==0) break;
+    if(mon == NoExists)
+        throw Exception("%s: cant convert month %s to num", smonth.c_str());
+    return mon;
 }
 
 }

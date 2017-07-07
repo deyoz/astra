@@ -473,6 +473,42 @@ string GetPaxPnrAddr(int pax_id, vector<TPnrAddrItem> &pnrs, string &airline)
     return "";
 };
 
+TDateTime DayMonthToDate(int day, int month, TDateTime base_date, TDateDirection direction)
+{
+    if (day<1 || day>31) throw EConvertError("%s: wrong day: %d", __FUNCTION__, day);
+    if (month<1 || month>12) throw EConvertError("%s: wrong month: %d", __FUNCTION__, month);
+    boost::optional<TDateTime> result = 0.;
+    result=boost::none;
+    int Year, Month, Day;
+    DecodeDate(base_date, Year, Month, Day);
+
+    int lower_offset = 0, upper_offset = 0;
+
+    //+-8 лет достаточно, чтобы гарантированно попасть на високосный год
+    if (direction == dateBefore || direction == dateEverywhere)
+        lower_offset = (day == 29 and month == 2 ? 8 : 1);
+
+    if (direction == dateAfter || direction == dateEverywhere)
+        upper_offset = (day == 29 and month == 2 ? 8 : 1);
+
+    for (int y = Year - lower_offset; y <= Year + upper_offset; ++y)
+    {
+        TDateTime d;
+        try {
+            EncodeDate(y, month, day, d);
+        }
+        catch(EConvertError) { continue; };
+
+        if ((direction == dateBefore && d > base_date) || (direction == dateAfter && d < base_date))
+            continue;
+
+        if (!result || fabs(result.get() - base_date) > fabs(d - base_date))
+            result = d;
+    }
+    if (!result) throw EConvertError("impossible");
+    return result.get();
+}
+
 TDateTime DayToDate(int day, TDateTime base_date, bool back)
 {
   if (day<1 || day>31) throw EConvertError("DayToDate: wrong day: %d", day);

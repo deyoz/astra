@@ -285,11 +285,6 @@ class TEndingInfo
 
 typedef struct
 {
-  const char *rus, *lat;
-} TMonthCode;
-
-typedef struct
-{
   char subcl[2];
   long seats;
   ASTRA::TClass cl;
@@ -950,7 +945,6 @@ class TTlgParser
 };
 
 extern char lexh[];
-extern const TMonthCode Months[];
 
 int CalcEOLCount(const char* p);
 char* TlgElemToElemId(TElemType type, const char* elem, char* id, bool with_icao=false);
@@ -994,6 +988,7 @@ struct TFlightIdentifier {
 TTlgPartInfo nextPart(const TTlgPartInfo &curr, const char* line_p);
 void throwTlgError(const char* msg, const TTlgPartInfo &curr, const char* line_p);
 void split(std::vector<std::string> &result, const std::string val, char c);
+int monthAsNum(const std::string &smonth);
 
 } //namespace TypeB
 
