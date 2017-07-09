@@ -250,7 +250,7 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
        "       pax.pers_type, "
        "       NVL(pax.is_female,1) as is_female, "
        "       pax.subclass, "
-       "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'tlg',rownum) AS seat_no, "
+       "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'tlg',rownum) AS seat_no, "
        "       pax.seats seats, "
        "       ckin.get_excess(pax_grp.grp_id,pax.pax_id) excess,"
        "       ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkamount,"

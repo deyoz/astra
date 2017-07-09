@@ -3185,7 +3185,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                              case sSeatPassengers:
                                if ( SeatPlaces.SeatsPassengers() )
                                  throw 1;
-                               if ( SeatOnlyBasePlace && !canUseSUBCLS ) {  
+                               if ( SeatOnlyBasePlace && !canUseSUBCLS ) {
                                  SeatOnlyBasePlace = false;
                                  FSeatAlg=0;
                                }
@@ -3281,7 +3281,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p )
     "       pax.tid, "
     "       pax.wl_type, "
     "       pax_grp.point_arv, "
-    "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'list',rownum) AS seat_no, "
+    "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'list',rownum) AS seat_no, "
     "       tckin_pax_grp.tckin_id, tckin_pax_grp.seg_no "
     "FROM pax_grp, pax, cls_grp, tckin_pax_grp "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
@@ -3562,8 +3562,8 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     case cltCheckin:
     case cltTCheckin:
       Qry.SQLText =
-       "SELECT surname, name, reg_no, pax.grp_id, pax.seats, a.step step, pax.tid, '' airp_arv, point_dep, point_arv, "
-       "       0 point_id, salons.get_seat_no(pax.pax_id,pax.seats,NULL,:point_dep,'list',rownum) AS seat_no, "
+       "SELECT surname, name, reg_no, pax.grp_id, pax.seats, pax.is_jmp, a.step step, pax.tid, '' airp_arv, point_dep, point_arv, "
+       "       0 point_id, salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,:point_dep,'list',rownum) AS seat_no, "
        "       class, pers_type "
        " FROM pax, pax_grp, "
        "( SELECT COUNT(*) step FROM pax_rem "
@@ -3577,7 +3577,7 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     case cltProtAfterPay:
     case cltPNLAfterPay:
       Qry.SQLText =
-        "SELECT surname, name, 0 reg_no, 0 grp_id, seats, a.step step, crs_pax.tid, airp_arv, point_id, 0 point_arv, "
+        "SELECT surname, name, 0 reg_no, 0 grp_id, seats, 0 is_jmp, a.step step, crs_pax.tid, airp_arv, point_id, 0 point_arv, "
         "       NULL AS seat_no, class, pers_type "
         " FROM crs_pax, crs_pnr, "
         "( SELECT COUNT(*) step FROM crs_pax_rem "
@@ -3612,6 +3612,7 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   int point_id_tlg = Qry.FieldAsInteger( "point_id" );
   int point_arv = Qry.FieldAsInteger( "point_arv" );
   int seats_count = Qry.FieldAsInteger( "seats" );
+  bool is_jmp = Qry.FieldAsInteger( "is_jmp" )!=0;
   int pr_down;
   if ( Qry.FieldAsInteger( "step" ) )
     pr_down = 1;
@@ -3623,6 +3624,7 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     ProgTrace( TRACE5, "!!! Passenger has count seats=0 in funct ChangeLayer" );
     throw UserException( "MSG.SEATS.NOT_RESEATS_SEATS_ZERO" );
   }
+  if (is_jmp) throw UserException( "MSG.SEATS.NOT_RESEATS_PASSENGER_FROM_JUMP_SEAT" );
 
   if ( Qry.FieldAsInteger( "tid" ) != tid  ) {
     ProgTrace( TRACE5, "!!! Passenger has changed in other term in funct ChangeLayer" );
@@ -3997,6 +3999,11 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
             continue;
           if ( pass.grp_status != DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) ) // разбиваем пассажиров по типам Бронь, Транзит...
             continue;
+//          if ( pass.is_jmp()) { //!!!vlad
+//            //!!!djek
+//            ProgError
+//            continue;
+//          }
           ProgTrace( TRACE5, "isSeat=%d, pass.pax_id=%d, pass.foundSeats=%s, pass.clname=%s, layer_type=%s, pass.grp_status=%s, equal_y_class=%d",
                      pass.isSeat, pass.paxId, pass.foundSeats.c_str(), pass.clname.c_str(), Qry.FieldAsString( "layer_type" ),
                      EncodeCompLayerType( pass.grp_status ), pass.clname == "Э" );
@@ -4054,7 +4061,7 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
     TQuery QryUpd( &OraSession );
     QryPax.SQLText =
       "SELECT point_dep, point_arv, "
-      "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,point_dep,'list',rownum) AS seat_no "
+      "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,point_dep,'list',rownum) AS seat_no "
       " FROM pax, pax_grp "
       " WHERE pax.pax_id=:pax_id AND "
       "       pax.grp_id=pax_grp.grp_id ";
@@ -4236,8 +4243,8 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
     case cltCheckin:
     case cltTCheckin:
       Qry.SQLText =
-       "SELECT surname, name, reg_no, pax.grp_id, pax.seats, a.step step, pax.tid, '' airp_arv, point_dep, point_arv, "
-       "       0 point_id, salons.get_seat_no(pax.pax_id,pax.seats,NULL,:point_dep,'list',rownum) AS seat_no, "
+       "SELECT surname, name, reg_no, pax.grp_id, pax.seats, pax.is_jmp, a.step step, pax.tid, '' airp_arv, point_dep, point_arv, "
+       "       0 point_id, salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,:point_dep,'list',rownum) AS seat_no, "
        "       class, pers_type "
        " FROM pax, pax_grp, "
        "( SELECT COUNT(*) step FROM pax_rem "
@@ -4251,7 +4258,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
     case cltProtAfterPay:
     case cltPNLAfterPay:
       Qry.SQLText =
-        "SELECT surname, name, 0 reg_no, 0 grp_id, seats, a.step step, crs_pax.tid, airp_arv, point_id, 0 point_arv, "
+        "SELECT surname, name, 0 reg_no, 0 grp_id, seats, 0 is_jmp, a.step step, crs_pax.tid, airp_arv, point_id, 0 point_arv, "
         "       NULL AS seat_no, class, pers_type "
         " FROM crs_pax, crs_pnr, "
         "( SELECT COUNT(*) step FROM crs_pax_rem "
@@ -4286,6 +4293,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
   int point_id_tlg = Qry.FieldAsInteger( "point_id" );
   int point_arv = Qry.FieldAsInteger( "point_arv" );
   int seats_count = Qry.FieldAsInteger( "seats" );
+  bool is_jmp = Qry.FieldAsInteger( "is_jmp" )!=0;
   int pr_down;
   if ( Qry.FieldAsInteger( "step" ) )
     pr_down = 1;
@@ -4297,6 +4305,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
     ProgTrace( TRACE5, "!!! Passenger has count seats=0 in funct ChangeLayer" );
     throw UserException( "MSG.SEATS.NOT_RESEATS_SEATS_ZERO" );
   }
+  if (is_jmp) throw UserException( "MSG.SEATS.NOT_RESEATS_PASSENGER_FROM_JUMP_SEAT" );
 
   if ( Qry.FieldAsInteger( "tid" ) != tid  ) {
     ProgTrace( TRACE5, "!!! Passenger has changed in other term in funct ChangeLayer" );
@@ -4789,6 +4798,11 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
               tst();
               continue;
             }
+//            if ( ipass->is_jmp()) { !!!vlad
+//              //!!!djek
+//              ProgError
+//              continue;
+//            }
             TPassenger vpass;
             vpass.grpId = ipass->grp_id;
             vpass.regNo = ipass->reg_no;

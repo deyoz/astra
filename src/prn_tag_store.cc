@@ -921,6 +921,7 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
                 "       'SMSW',1, "
                 "       'SMST',1, "
                 "       0) pr_smoke, "
+                "   is_jmp, "
                 "   reg_no, "
                 "   seats, "
                 "   pers_type, "
@@ -938,7 +939,6 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
 
             TPrPrint().get_pr_print(grp_info.grp_id, pax_id, pr_bp_print, pr_bi_print);
             brand.get(pax_id);
-            pax.load(pax_id);
         }
         else
         {
@@ -950,6 +950,7 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
                 "   tkn_no AS ticket_no, "
                 "   1 AS coupon_no, "
                 "   0 AS pr_smoke, "
+                "   0 AS is_jmp, "
                 "   reg_no, "
                 "   1 AS seats, "
                 "   :adult AS pers_type, "
@@ -985,6 +986,7 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
         ticket_no = Qry.FieldAsString("ticket_no");
         coupon_no = Qry.FieldAsInteger("coupon_no");
         pr_smoke = Qry.FieldAsInteger("pr_smoke") != 0;
+        is_jmp = Qry.FieldAsInteger("is_jmp") != 0;
         reg_no = Qry.FieldAsInteger("reg_no");
         seats = Qry.FieldAsInteger("seats");
         pers_type = Qry.FieldAsString("pers_type");
@@ -1211,7 +1213,7 @@ string TPrnTagStore::BCBP_V_5(TFieldParams fp)
 
 // Если печатается БП или ваучер, то:
 // В 2D-баркоде:
-// 1. Ducument type = 'I', 
+// 1. Ducument type = 'I',
 // 2. не пишем pax_id в баркод,
 // чтобы нельзя было пройти досмотр/посадку по такому баркоду
 // В 1D-баркод забивается getEmptyPaxId()
@@ -2366,26 +2368,23 @@ string TPrnTagStore::get_fmt_seat(string fmt, bool english_tag)
     TQuery Qry(&OraSession);
     if (!isTestPaxId(paxInfo.pax_id))
     {
-        string result = paxInfo.pax.getJMPSeatNo();
-        if(result.empty()) {
-            Qry.SQLText =
-                "select "
-                "   salons.get_seat_no(:pax_id,:seats,NULL,NULL,:fmt,NULL,:is_inter) AS seat_no "
-                "from dual";
-            Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
-            Qry.CreateVariable("seats", otInteger, paxInfo.seats);
-            Qry.CreateVariable("fmt", otString, fmt);
+        Qry.SQLText =
+            "select "
+            "   salons.get_seat_no(:pax_id,:seats,:is_jmp,NULL,NULL,:fmt,NULL,:is_inter) AS seat_no "
+            "from dual";
+        Qry.CreateVariable("pax_id", otInteger, paxInfo.pax_id);
+        Qry.CreateVariable("seats", otInteger, paxInfo.seats);
+        Qry.CreateVariable("is_jmp", otInteger, (int)paxInfo.is_jmp);
+        Qry.CreateVariable("fmt", otString, fmt);
 
-            Qry.CreateVariable("is_inter", otInteger, 0);
+        Qry.CreateVariable("is_inter", otInteger, 0);
+        Qry.Execute();
+        if ((tag_lang.get_pr_lat() or english_tag) && not IsAscii7(Qry.FieldAsString("seat_no")))
+        {
+            Qry.SetVariable("is_inter",1);
             Qry.Execute();
-            if ((tag_lang.get_pr_lat() or english_tag) && not IsAscii7(Qry.FieldAsString("seat_no")))
-            {
-                Qry.SetVariable("is_inter",1);
-                Qry.Execute();
-            }
-            result = Qry.FieldAsString("seat_no");
         }
-        return result;
+        return Qry.FieldAsString("seat_no");
     }
     else
     {

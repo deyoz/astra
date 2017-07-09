@@ -208,7 +208,7 @@ const size_t IatciXmlDb::PageSize = 1000;
 
 void IatciXmlDb::add(int grpId, const std::string& xmlText)
 {
-    LogTrace(TRACE5) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;   
+    LogTrace(TRACE5) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
     saveXml(grpId, xmlText);
 }
 
@@ -1159,6 +1159,7 @@ static xmlNodePtr xmlViewIatciFlight(xmlNodePtr node, const iatci::FlightDetails
     NewTextChild(tripHeaderNode, "pr_no_ticket_check", "0"); // TODO)
     NewTextChild(tripHeaderNode, "pr_auto_pt_print", 0); // TODO
     NewTextChild(tripHeaderNode, "pr_auto_pt_print_reseat", 0); // TODO
+    NewTextChild(tripHeaderNode, "use_jmp", 0); // TODO
 
     xmlNodePtr tripDataNode = newChild(segNode, "tripdata");
     xmlNodePtr airpsNode = newChild(tripDataNode, "airps");

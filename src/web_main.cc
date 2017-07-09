@@ -775,7 +775,7 @@ void getPnr( int point_id, int pnr_id, TWebPnr &pnr, bool pr_throw, bool afterSa
           "       DECODE(pax.pax_id,NULL,crs_pax.name,pax.name) AS name, "
           "       DECODE(pax.pax_id,NULL,crs_pax.pers_type,pax.pers_type) AS pers_type, "
           "       crs_pax.seat_xname, crs_pax.seat_yname, crs_pax.seats AS crs_seats, crs_pnr.point_id AS point_id_tlg, "
-          "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
+          "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
           "       DECODE(pax.pax_id,NULL,crs_pax.seats,pax.seats) AS seats, "
           "       DECODE(pax_grp.class,NULL,crs_pnr.class,pax_grp.class) AS class, "
           "       DECODE(pax.subclass,NULL,crs_pnr.subclass,pax.subclass) AS subclass, "
@@ -1898,7 +1898,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
   const char* PaxQrySQL=
         "SELECT point_dep,point_arv,airp_dep,airp_arv,class,excess,bag_refuse, "
         "       pax_grp.grp_id,pax.surname,pax.name,pax.pers_type,pax.seats, pax.crew_type, "
-        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
+        "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
         "       pax_grp.tid AS pax_grp_tid, "
         "       pax.tid AS pax_tid, "
         "       crs_pax.pnr_id, crs_pax.pr_del "

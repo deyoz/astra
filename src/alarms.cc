@@ -54,7 +54,7 @@ void TripAlarms( int point_id, BitSet<Alarm::Enum> &Alarms )
 
     if ( !Qry.FieldAsInteger( "pr_salon" ) &&
          !Qry.FieldIsNULL( "act" ) &&
-         !setList.value(tsFreeSeating) ) {
+         !setList.value<bool>(tsFreeSeating) ) {
         Alarms.setFlag( Alarm::Salon );
     }
     if ( Qry.FieldAsInteger( "pr_etstatus" ) < 0 ) {
@@ -253,7 +253,7 @@ bool calc_waitlist_alarm( int point_id )
     "      pax_grp.point_dep=:point_id AND "
     "      pax_grp.status NOT IN ('E') AND "
     "      pax.pr_brd IS NOT NULL AND "
-    "      salons.is_waitlist(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,rownum)<>0 AND "
+    "      salons.is_waitlist(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,rownum)<>0 AND "
     "      rownum<2";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();

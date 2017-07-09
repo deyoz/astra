@@ -76,7 +76,7 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
      "      c.point_dep=:point_id  "
      "GROUP BY classes.priority,c.class "
      "UNION "
-     "SELECT points.point_num, "
+     "SELECT points.point_num+100, "
      "       points.airp, "
      "       SUM(cfg), "
      "       SUM(crs_ok), "
@@ -91,6 +91,19 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
      "      c.point_arv=points.point_id AND "
      "      c.point_dep=:point_id AND points.pr_del>=0 "
      "GROUP BY points.point_num,points.airp "
+     "UNION "
+     "SELECT 1, "
+     "       'JMP', "
+     "       NVL(jmp_cfg, 0), "
+     "       TO_NUMBER(NULL), "
+     "       TO_NUMBER(NULL), "
+     "       TO_NUMBER(NULL), "
+     "       NVL(jmp_nooccupy, 0), "
+     "       TO_NUMBER(NULL) "
+     "FROM counters2 c, trip_sets "
+     "WHERE c.point_dep=trip_sets.point_id AND "
+     "      c.point_dep=:point_id AND NVL(trip_sets.use_jmp, 0)<>0 AND "
+     "      rownum<2 "
      "ORDER BY 1";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.CreateVariable( "cfg_exists", otInteger, (int)cfg_exists );
@@ -98,15 +111,19 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
   Qry.Execute();
 
   xmlNodePtr node = NewTextChild( dataNode, "tripcounters" );
-  while ( !Qry.Eof ) {
+  while ( !Qry.Eof )
+  {
+    int num=Qry.FieldAsInteger( "num" );
+    string firstcol=Qry.FieldAsString( "firstcol" );
     xmlNodePtr itemNode = NewTextChild( node, "item" );
-    if ( Qry.FieldAsInteger( "num" ) == -100 ) // Всего
-        NewTextChild( itemNode, "firstcol", getLocaleText( Qry.FieldAsString( "firstcol" ) ) );
-    else
-        if ( Qry.FieldAsInteger( "num" ) < 0 ) // классы
-        NewTextChild( itemNode, "firstcol", ElemIdToCodeNative(etClass,Qry.FieldAsString( "firstcol" )) );
-      else // аэропорты
-        NewTextChild( itemNode, "firstcol", ElemIdToCodeNative(etAirp,Qry.FieldAsString( "firstcol" )) );
+    if ( num>=-10 && num < 0 ) // классы
+      NewTextChild( itemNode, "firstcol", ElemIdToCodeNative(etClass, firstcol) );
+    else // аэропорты
+      if (num >= 100)
+        NewTextChild( itemNode, "firstcol", ElemIdToCodeNative(etAirp, firstcol) );
+      else
+        NewTextChild( itemNode, "firstcol", getLocaleText(firstcol) );
+
     if (!Qry.FieldIsNULL( "cfg" ))
       NewTextChild( itemNode, "cfg", Qry.FieldAsInteger( "cfg" ) );
     else
@@ -338,6 +355,26 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
   }
 }
 
+void CheckJMPCount(int point_id, int jmp_cfg)
+{
+  TQuery Qry( &OraSession );
+  Qry.Clear();
+  Qry.SQLText="SELECT SUM(NVL(jmp_tranzit, 0))+SUM(NVL(jmp_ok, 0))+SUM(NVL(jmp_goshow, 0)) AS jmp_show "
+              "FROM counters2 "
+              "WHERE point_dep=:point_id";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.Execute();
+  if (Qry.Eof) return;
+  int jmp_show=Qry.FieldAsInteger("jmp_show");
+  if (jmp_show>jmp_cfg)
+  {
+    if (jmp_cfg>0)
+      throw UserException("MSG.NEED_TO_CANCEL_CKIN_FOR_PAX_ON_JUMP_SEATS");
+    else
+      throw UserException("MSG.NEED_TO_CANCEL_CKIN_FOR_ALL_PAX_ON_JUMP_SEATS");
+  };
+}
+
 void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id = NodeAsInteger( "point_id", reqNode );
@@ -435,7 +472,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     if (old_pr_tranzit!=new_pr_tranzit ||
         old_pr_tranz_reg!=new_pr_tranz_reg ||
         old_pr_block_trzt!=new_pr_block_trzt ||
-        oldSetList.value(tsFreeSeating)!=newSetList.value(tsFreeSeating)) {
+        oldSetList.value<bool>(tsFreeSeating)!=newSetList.value<bool>(tsFreeSeating)) {
       pr_isTranzitSalons = SALONS2::isTranzitSalons( point_id );
     }
 
@@ -524,15 +561,22 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       }
     };
 
+    if (oldSetList.value<bool>(tsUseJmp)!=newSetList.value<bool>(tsUseJmp) ||
+        oldSetList.value<int>(tsJmpCfg)!=newSetList.value<int>(tsJmpCfg))
+    {
+      //проверим что кол-во зарегистрированных JMP меньше или равно кол-ву мест JMP
+      CheckJMPCount(point_id, newSetList.value<bool>(tsUseJmp)?newSetList.value<int>(tsJmpCfg):0);
+    }
+
     TTripSetList differSetList;
     set_difference(newSetList.begin(), newSetList.end(),
                    oldSetList.begin(), oldSetList.end(),
-                   inserter(differSetList, differSetList.end()));
+                   inserter(differSetList, differSetList.end()), TTripSetListItemLess);
     differSetList.toDB(point_id);
 
-    if (oldSetList.value(tsFreeSeating)!=newSetList.value(tsFreeSeating))
+    if (oldSetList.value<bool>(tsFreeSeating)!=newSetList.value<bool>(tsFreeSeating))
     {
-      if ( newSetList.value(tsFreeSeating) ) {
+      if ( newSetList.value<bool>(tsFreeSeating) ) {
         SALONS2::DeleteSalons( point_id );
       }
       check_diffcomp_alarms.push_back( point_id );
@@ -554,11 +598,11 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         }
       }
     }
-    if (oldSetList.value(tsAPISControl)!=newSetList.value(tsAPISControl))
+    if (oldSetList.value<bool>(tsAPISControl)!=newSetList.value<bool>(tsAPISControl))
     {
       check_apis_alarms(point_id);
     }
-    if (oldSetList.value(tsAPISManualInput)!=newSetList.value(tsAPISManualInput))
+    if (oldSetList.value<bool>(tsAPISManualInput)!=newSetList.value<bool>(tsAPISManualInput))
     {
       set<Alarm::Enum> checked_alarms;
       checked_alarms.insert(Alarm::APISManualInput);

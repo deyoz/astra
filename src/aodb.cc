@@ -503,7 +503,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
         "SELECT pax.pax_id,pax.reg_no,pax.surname||RTRIM(' '||pax.name) name,pax_grp.grp_id,"
         "       pax_grp.airp_arv,pax_grp.class,pax.refuse,"
         "       pax.pers_type, NVL(pax.is_female, 1) AS is_female, "
-        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
+        "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
         "       pax.seats seats, "
         "       ckin.get_excess(pax_grp.grp_id,pax.pax_id) excess,"
         "       ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkamount,"

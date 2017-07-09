@@ -1248,8 +1248,7 @@ const TPaxItem& TPaxItem::toDB(TQuery &Qry) const
   if (Qry.GetVariableIndex("refuse")>=0)
     Qry.SetVariable("refuse", refuse);
   if (Qry.GetVariableIndex("pr_brd")>=0)
-    pr_brd!=ASTRA::NoExists?Qry.SetVariable("pr_brd", (int)pr_brd):
-                            Qry.SetVariable("pr_brd", FNull);
+    Qry.SetVariable("pr_brd", (int)pr_brd);
   if (Qry.GetVariableIndex("pr_exam")>=0)
     Qry.SetVariable("pr_exam", (int)pr_exam);
   if (Qry.GetVariableIndex("wl_type")>=0)
@@ -1268,22 +1267,34 @@ const TPaxItem& TPaxItem::toDB(TQuery &Qry) const
   return *this;
 };
 
-string TSimplePaxItem::getJMPSeatNo()
+ASTRA::TGender::Enum TSimplePaxItem::genderFromDB(TQuery &Qry)
 {
-    string result;
-    if(is_jmp) result = "JMP";
-    return result;
+  if (Qry.FieldIsNULL("is_female"))
+    return ASTRA::TGender::Unknown;
+  else if (Qry.FieldAsInteger("is_female")!=0)
+    return ASTRA::TGender::Female;
+  else
+    return ASTRA::TGender::Male;
 }
 
-TSimplePaxItem& TSimplePaxItem::load(int pax_id)
+ASTRA::TTrickyGender::Enum TSimplePaxItem::getTrickyGender(ASTRA::TPerson pers_type, ASTRA::TGender::Enum gender)
 {
-    clear();
-    TCachedQuery Qry("select * from pax where pax_id = :pax_id",
-            QParams() << QParam("pax_id", otInteger, pax_id));
-    Qry.get().Execute();
-    if(not Qry.get().Eof)
-        fromDB(Qry.get());
-    return *this;
+  ASTRA::TTrickyGender::Enum result=ASTRA::TTrickyGender::Male;
+  switch(pers_type)
+  {
+    case ASTRA::adult:
+      if (gender==ASTRA::TGender::Female) result=ASTRA::TTrickyGender::Female;
+      break;
+    case ASTRA::child:
+      result=ASTRA::TTrickyGender::Child;
+      break;
+    case ASTRA::baby:
+      result=ASTRA::TTrickyGender::Infant;
+      break;
+    default:
+      break;
+  };
+  return result;
 }
 
 TSimplePaxItem& TSimplePaxItem::fromDB(TQuery &Qry)
@@ -1295,18 +1306,32 @@ TSimplePaxItem& TSimplePaxItem::fromDB(TQuery &Qry)
   pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
   crew_type = CrewTypes().decode(Qry.FieldAsString("crew_type"));
   is_jmp=Qry.FieldAsInteger("is_jmp")!=0;
-  if(Qry.GetFieldIndex("seat_no") >= 0)
-      seat_no=Qry.FieldAsString("seat_no");
+  if (Qry.GetFieldIndex("seat_no") >= 0)
+    seat_no=Qry.FieldAsString("seat_no");
   seat_type=Qry.FieldAsString("seat_type");
   seats=Qry.FieldAsInteger("seats");
   refuse=Qry.FieldAsString("refuse");
+  pr_brd=Qry.FieldAsInteger("pr_brd")!=0;
+  pr_exam=Qry.FieldAsInteger("pr_exam")!=0;
   reg_no=Qry.FieldAsInteger("reg_no");
   subcl=Qry.FieldAsString("subclass");
   bag_pool_num=Qry.FieldIsNULL("bag_pool_num")?ASTRA::NoExists:Qry.FieldAsInteger("bag_pool_num");
   tid=Qry.FieldAsInteger("tid");
   tkn.fromDB(Qry);
   TknExists=true;
+  gender=genderFromDB(Qry);
   return *this;
+}
+
+bool TSimplePaxItem::getByPaxId(int pax_id)
+{
+  clear();
+  TCachedQuery PaxQry("SELECT pax.* FROM pax WHERE pax_id=:pax_id",
+                      QParams() << QParam("pax_id", otInteger, pax_id));
+  PaxQry.get().Execute();
+  if (PaxQry.get().Eof) return false;
+  fromDB(PaxQry.get());
+  return true;
 }
 
 TPaxItem& TPaxItem::fromDB(TQuery &Qry)
@@ -1481,63 +1506,86 @@ void TPaxListItem::checkFQTTierLevel()
   fqts=tmp_fqts;
 }
 
-void TPaxListItem::checkCrewType(bool new_checkin, ASTRA::TPaxStatus grp_status)
+void TPaxListItem::checkImportantRems(bool new_checkin, ASTRA::TPaxStatus grp_status)
 {
-  Statistic<string> crewRemsStat;
-  for(multiset<CheckIn::TPaxRemItem>::iterator r=rems.begin(); r!=rems.end(); ++r)
+  for(int pass=0; pass<2; pass++)
   {
-    TRemCategory cat=getRemCategory(r->code, r->text);
-    if (!r->code.empty() && cat==remCREW)
-      crewRemsStat.add(r->code);
-  };
-  if (!crewRemsStat.empty())
-  {
-    //есть ремарки, связанные с экипажем
-    //пороверяем дублирование ремарок и взаимоислючающие ремарки
-    if (crewRemsStat.size()>1)
+    Statistic<string> crewRemsStat;
+    for(multiset<CheckIn::TPaxRemItem>::iterator r=rems.begin(); r!=rems.end(); ++r)
     {
-      //взаимоисключающие
-      throw UserException("MSG.REMARK.MUTUALLY_EXCLUSIVE",
-                          LParams() << LParam("surname", pax.full_name())
-                                    << LParam("remark1", crewRemsStat.begin()->first)
-                                    << LParam("remark2", crewRemsStat.rbegin()->first));
+      if (pass==0)
+      {
+        TRemCategory cat=getRemCategory(r->code, r->text);
+        if (!r->code.empty() && cat==remCREW)
+          crewRemsStat.add(r->code);
+      }
+      else
+      {
+        if (r->code=="JMP")
+          crewRemsStat.add(r->code);
+      }
+    };
+    if (!crewRemsStat.empty())
+    {
+      //есть ремарки, связанные с экипажем
+      //пороверяем дублирование ремарок и взаимоислючающие ремарки
+      if (crewRemsStat.size()>1)
+      {
+        //взаимоисключающие
+        throw UserException("MSG.REMARK.MUTUALLY_EXCLUSIVE",
+                            LParams() << LParam("surname", pax.full_name())
+                            << LParam("remark1", crewRemsStat.begin()->first)
+                            << LParam("remark2", crewRemsStat.rbegin()->first));
+      }
+      else
+      {
+        if (crewRemsStat.begin()->second>1)
+          //повторяющиеся
+          throw UserException("MSG.REMARK.DUPLICATED",
+                              LParams() << LParam("surname", pax.full_name())
+                              << LParam("remark", crewRemsStat.begin()->first));
+
+        if (new_checkin)
+        {
+          if (pass==0)
+          {
+            if (grp_status==ASTRA::psCrew)
+              pax.crew_type=ASTRA::TCrewType::Unknown;
+            else
+              pax.crew_type=CrewTypes().decode(crewRemsStat.begin()->first);
+          }
+          else
+          {
+            if (grp_status==ASTRA::psCrew || pax.pers_type==ASTRA::baby)
+              pax.is_jmp=false;
+            else
+              pax.is_jmp=(crewRemsStat.begin()->first=="JMP");
+          }
+        };
+
+        CheckIn::TPaxRemItem rem=(pass==0?CalcCrewRem(grp_status, pax.crew_type):
+                                          CalcJmpRem(grp_status, pax.is_jmp));
+        if (crewRemsStat.begin()->first!=rem.code)
+        {
+          //удаляем неправильную ремарку
+          for(multiset<CheckIn::TPaxRemItem>::iterator r=rems.begin(); r!=rems.end();)
+          {
+            if (r->code==crewRemsStat.begin()->first) r=Erase(rems, r); else ++r;
+          }
+          //добавляем правильную ремарку
+          if (!rem.code.empty())
+            rems.insert(CheckIn::TPaxRemItem(rem.code,rem.text));
+        }
+      };
     }
     else
     {
-      if (crewRemsStat.begin()->second>1)
-        //повторяющиеся
-        throw UserException("MSG.REMARK.DUPLICATED",
-                            LParams() << LParam("surname", pax.full_name())
-                                      << LParam("remark", crewRemsStat.begin()->first));
-
-      if (new_checkin)
-      {
-        if (grp_status==ASTRA::psCrew)
-          pax.crew_type=ASTRA::TCrewType::Unknown;
-        else
-          pax.crew_type=CrewTypes().decode(crewRemsStat.begin()->first);
-      };
-
-      CheckIn::TPaxRemItem rem=CalcCrewRem(grp_status, pax.crew_type);
-      if (crewRemsStat.begin()->first!=rem.code)
-      {
-        //удаляем неправильную ремарку
-        for(multiset<CheckIn::TPaxRemItem>::iterator r=rems.begin(); r!=rems.end();)
-        {
-          if (r->code==crewRemsStat.begin()->first) r=Erase(rems, r); else ++r;
-        }
-        //добавляем правильную ремарку
-        if (!rem.code.empty())
-          rems.insert(CheckIn::TPaxRemItem(rem.code,rem.text));
-      }
+      //нет ремарок, связанных с экипажем
+      CheckIn::TPaxRemItem rem=(pass==0?CalcCrewRem(grp_status, pax.crew_type):
+                                        CalcJmpRem(grp_status, pax.is_jmp));
+      if (!rem.code.empty())
+        rems.insert(CheckIn::TPaxRemItem(rem.code,rem.text));
     };
-  }
-  else
-  {
-    //нет ремарок, связанных с экипажем
-    CheckIn::TPaxRemItem rem=CalcCrewRem(grp_status, pax.crew_type);
-    if (!rem.code.empty())
-      rems.insert(CheckIn::TPaxRemItem(rem.code,rem.text));
   };
 }
 

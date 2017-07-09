@@ -283,7 +283,7 @@ SearchPaxXmlResult AstraEngine::SearchCheckInPax(int pointDep,
 }
 
 LoadPaxXmlResult AstraEngine::SavePax(int pointDep, const XmlTrip& paxTrip)
-{   
+{
     const XmlPnr& pnr = paxTrip.pnr();
 
     xmlNodePtr reqNode = getQueryNode(),
@@ -2281,7 +2281,7 @@ XmlTripCounterItem XmlEntityReader::readTripCounterItem(xmlNodePtr itemNode)
     item.noshow      = getIntFromXml(itemNode, "noshow",       ASTRA::NoExists);
     item.trnoshow    = getIntFromXml(itemNode, "trnoshow",     ASTRA::NoExists);
     item.show        = getIntFromXml(itemNode, "show",         ASTRA::NoExists);
-    item.free_ok     = getIntFromXml(itemNode, "free_ok",      ASTRA::NoExists);
+    item.free_ok     = getIntFromXml(itemNode, "free_ok",      ASTRA::NoExists);  //!!!vlad
     item.free_goshow = getIntFromXml(itemNode, "free_goshow",  ASTRA::NoExists);
     item.nooccupy    = getIntFromXml(itemNode, "nooccupy",     ASTRA::NoExists);
     return item;

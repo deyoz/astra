@@ -406,7 +406,7 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type, bool inc
     else
       sql << " AND pr_brd IS NOT NULL ";
     if(not include_wait_list)
-      sql << " and salons.is_waitlist(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,rownum)=0 ";
+      sql << " and salons.is_waitlist(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,rownum)=0 ";
     sql << " AND point_dep=:point_id "
            " AND pax_grp.status NOT IN ('E') "
            "GROUP BY class, subclass "

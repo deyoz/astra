@@ -367,7 +367,6 @@ class TPrnTagStore {
             bool pr_bp_print;
             bool pr_bi_print;
             CheckIn::TPaxDocItem doc;
-            CheckIn::TSimplePaxItem pax;
             TBrands brand;
             TPaxInfo():
                 pax_id(ASTRA::NoExists),

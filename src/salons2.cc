@@ -602,7 +602,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
         "      pax_grp.point_dep=:point_id AND "
         "      pax.grp_id=pax_grp.grp_id AND "
         "      pax_grp.status NOT IN ('E') AND "
-        "      salons.is_waitlist(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,rownum)<>0 ";
+        "      salons.is_waitlist(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,rownum)<>0 ";
     sql_text += " ORDER BY num, x desc, y desc ";
     Qry.SQLText = sql_text;
     Qry.CreateVariable( "point_id", otInteger, trip_id );

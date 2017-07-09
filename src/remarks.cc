@@ -1117,6 +1117,14 @@ CheckIn::TPaxRemItem CalcCrewRem(const ASTRA::TPaxStatus grp_status,
   return CheckIn::TPaxRemItem();
 }
 
+CheckIn::TPaxRemItem CalcJmpRem(const ASTRA::TPaxStatus grp_status,
+                                const bool is_jmp)
+{
+  if (grp_status!=ASTRA::psCrew && is_jmp)
+    return CheckIn::TPaxRemItem("JMP", "JMP");
+  return CheckIn::TPaxRemItem();
+}
+
 
 
 

@@ -2051,7 +2051,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if (setList.empty())
     throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
   if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION) &&
-      setList.value(tsPieceConcept))
+      setList.value<bool>(tsPieceConcept))
     throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
 
   TInquiryGroup grp;
@@ -2408,19 +2408,23 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
 }
 
-int CheckInInterface::CheckCounters(int point_dep,
-                                    int point_arv,
-                                    const string &cl,
-                                    TPaxStatus grp_status,
-                                    const TCFG &cfg,
-                                    bool free_seating)
+void CheckInInterface::CheckCounters(int point_dep,
+                                     int point_arv,
+                                     const string &cl,
+                                     TPaxStatus grp_status,
+                                     const TCFG &cfg,
+                                     bool free_seating,
+                                     int &free,
+                                     int &jmp_free)
 {
-    if (cfg.empty() && free_seating) return ASTRA::NoExists;
+    free=ASTRA::NoExists;
+    jmp_free=ASTRA::NoExists;
+    if (cfg.empty() && free_seating) return;
     //проверка наличия свободных мест
     TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText=
-      "SELECT free_ok,free_goshow,nooccupy FROM counters2 "
+      "SELECT free_ok, free_goshow, nooccupy, jmp_nooccupy FROM counters2 "
       "WHERE point_dep=:point_dep AND point_arv=:point_arv AND class=:class ";
     Qry.CreateVariable("point_dep", otInteger, point_dep);
     Qry.CreateVariable("point_arv", otInteger, point_arv);
@@ -2439,10 +2443,14 @@ int CheckInInterface::CheckCounters(int point_dep,
       RecountQry.Execute();
       Qry.Execute();
     }
-    if (Qry.Eof) return 0;
+    if (Qry.Eof)
+    {
+      free=0;
+      jmp_free=0;
+      return;
+    };
     TTripStages tripStages( point_dep );
     TStage ckin_stage =  tripStages.getStage( stCheckIn );
-    int free;
     switch (grp_status)
     {
       case psTransit:
@@ -2464,10 +2472,11 @@ int CheckInInterface::CheckCounters(int point_dep,
                  else
                    free=Qry.FieldAsInteger("nooccupy");
     }
-    if (free>=0)
-      return free;
-    else
-      return 0;
+
+    jmp_free=Qry.FieldAsInteger("jmp_nooccupy");
+
+    if (free<0) free=0;
+    if (jmp_free<0) jmp_free=0;
 }
 
 bool CheckFltOverload(int point_id, const TTripInfo &fltInfo, bool overload_alarm )
@@ -2478,9 +2487,9 @@ bool CheckFltOverload(int point_id, const TTripInfo &fltInfo, bool overload_alar
   setList.fromDB(point_id);
   if (setList.empty()) throw EXCEPTIONS::Exception("Flight not found in trip_sets (point_id=%d)",point_id);
 
-  if (!setList.value(tsCheckLoad) && setList.value(tsOverloadReg)) return false;
+  if (!setList.value<bool>(tsCheckLoad) && setList.value<bool>(tsOverloadReg)) return false;
 
-  if (setList.value(tsOverloadReg))
+  if (setList.value<bool>(tsOverloadReg))
   {
     AstraLocale::showErrorMessage("MSG.FLIGHT.MAX_COMMERCE");
     return true;
@@ -2548,7 +2557,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  last_tckin_seg.suffix AS tckin_seg_suffix, "
     "  last_tckin_seg.airp_arv AS tckin_seg_airp_arv, "
     "  class,pax.subclass,pax_grp.status, "
-    "  salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
+    "  salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
     "  seats,wl_type,pers_type,ticket_rem, "
     "  ticket_no||DECODE(coupon_no,NULL,NULL,'/'||coupon_no) AS ticket_no, "
     "  ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
@@ -4435,9 +4444,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         TCompleteAPICheckInfo checkInfo;
         if (first_segment || !notCheckAPI)
           checkInfo.set(grp.point_dep, grp.airp_arv);
-        Qry.Clear();
-        Qry.SQLText="SELECT pax.*, NULL AS seat_no FROM pax WHERE pax_id=:pax_id";
-        Qry.DeclareVariable("pax_id", otInteger);
         for(CheckIn::TPaxList::iterator p=paxs.begin(); p!=paxs.end(); ++p)
         {
           CheckIn::TPaxItem &pax=p->pax;
@@ -4446,11 +4452,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             CheckIn::TSimplePaxItem priorPax;
             if (!new_checkin)
             {
-              Qry.SetVariable("pax_id",pax.id);
-              Qry.Execute();
-              if (Qry.Eof) throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-              priorPax.fromDB(Qry);
+              if (!priorPax.getByPaxId(pax.id))
+                throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
               pax.crew_type=priorPax.crew_type;
+              pax.is_jmp=priorPax.is_jmp;
             }
 
             if (pax.name.empty() && pr_mintrans_file)
@@ -4486,7 +4491,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             //билет
             if (pax.TknExists)
             {
-              if (setList.value(tsRegWithoutTKNA) &&
+              if (setList.value<bool>(tsRegWithoutTKNA) &&
                   pax.tkn.rem!="TKNE" &&
                   !pax.tkn.equalAttrs(priorPax.tkn))
                 throw UserException("MSG.CHECKIN.TKNA_DENIAL");
@@ -4578,7 +4583,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 }
               }
 
-              p->checkCrewType(new_checkin, grp.status);
+              p->checkImportantRems(new_checkin, grp.status);
 
               //простановка ремарок VIP,EXST, если нужно
               //набор ремарок FQT
@@ -4729,15 +4734,18 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           if (wl_type.empty() && grp.status!=psCrew)
           {
             //подсчет общего кол-ва мест, требуемых группе
-            int seats_sum=0;
-            for(CheckIn::TPaxList::iterator p=paxs.begin(); p!=paxs.end(); ++p) seats_sum+=p->pax.seats;
+            int seats_sum=0, jmp_seats_sum=0;
+            for(CheckIn::TPaxList::iterator p=paxs.begin(); p!=paxs.end(); ++p)
+              (p->pax.is_jmp?jmp_seats_sum:seats_sum)+=p->pax.seats;
             //проверка наличия свободных мест
-            int free=CheckCounters(grp.point_dep,grp.point_arv,grp.cl,grp.status,TCFG(grp.point_dep),setList.value(tsFreeSeating));
+            int free, jmp_free;
+            CheckCounters(grp.point_dep,grp.point_arv,grp.cl,grp.status,TCFG(grp.point_dep),setList.value<bool>(tsFreeSeating),free,jmp_free);
             if (free!=NoExists && free<seats_sum)
-              throw UserException("MSG.CHECKIN.AVAILABLE_SEATS",
-                                  LParams()<<LParam("count",free)); //WEB
+              throw UserException("MSG.CHECKIN.AVAILABLE_SEATS", LParams() << LParam("count",free)); //WEB
+            if (jmp_free!=NoExists && jmp_free<jmp_seats_sum)
+              throw UserException("MSG.CHECKIN.AVAILABLE_JUMP_SEATS", LParams() << LParam("count",jmp_free)); //WEB
 
-            if (setList.value(tsFreeSeating)) wl_type="F";
+            if (setList.value<bool>(tsFreeSeating)) wl_type="F";
           }
 
           if (grp.status!=psCrew)
@@ -4858,6 +4866,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 try
                 {
                   if (pax.seats<=0||(pax.seats>0&&k==1)) continue;
+                  if (pax.is_jmp) continue;
                   SEATS2::TPassenger pas;
 
                   pas.clname=grp.cl;
@@ -5183,10 +5192,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             "  IF :pax_id IS NULL THEN "
             "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
             "  END IF; "
-            "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,crew_type,is_female,seat_type,seats,pr_brd, "
+            "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,crew_type,is_jmp,is_female,seat_type,seats,pr_brd, "
             "                  wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm,doco_confirm, "
             "                  pr_exam,subclass,bag_pool_num,tid) "
-            "  VALUES(:pax_id,pax_grp__seq.currval,:surname,:name,:pers_type,:crew_type,:is_female,:seat_type,:seats,:pr_brd, "
+            "  VALUES(:pax_id,pax_grp__seq.currval,:surname,:name,:pers_type,:crew_type,:is_jmp,:is_female,:seat_type,:seats,:pr_brd, "
             "         :wl_type,NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:ticket_confirm,0, "
             "         :pr_exam,:subclass,:bag_pool_num,cycle_tid__seq.currval); "
             "END;";
@@ -5195,6 +5204,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           Qry.DeclareVariable("name",otString);
           Qry.DeclareVariable("pers_type",otString);
           Qry.DeclareVariable("crew_type",otString);
+          Qry.DeclareVariable("is_jmp",otInteger);
           Qry.DeclareVariable("is_female",otInteger);
           Qry.DeclareVariable("seat_type",otString);
           Qry.DeclareVariable("seats",otInteger);
@@ -5265,7 +5275,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 if (wl_type.empty() && grp.status!=psCrew)
                 {
                   //запись номеров мест
-                  if (pax.seats>0 && i<SEATS2::Passengers.getCount())
+                  if (pax.seats>0 && !pax.is_jmp && i<SEATS2::Passengers.getCount())
                   {
                     SEATS2::TPassenger pas = SEATS2::Passengers.Get(i);
                     ProgTrace( TRACE5, "pas.pax_id=%d, pax.id=%d, pax_id=%d", pas.paxId, pax.id, pax_id );
@@ -5698,12 +5708,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       }
 
       if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION) &&
-          AfterSaveInfo.action==CheckIn::actionCheckPieceConcept && setList.value(tsPieceConcept))
+          AfterSaveInfo.action==CheckIn::actionCheckPieceConcept && setList.value<bool>(tsPieceConcept))
         throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
 
       bool unknown_concept=!inbound_group_bag.empty() ||
                            (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION) &&
-                            AfterSaveInfo.action==CheckIn::actionCheckPieceConcept && setList.value(tsPieceConcept));
+                            AfterSaveInfo.action==CheckIn::actionCheckPieceConcept && setList.value<bool>(tsPieceConcept));
 
       AfterSaveInfo.segs.back().grp_id=grp.id;
 
@@ -6604,12 +6614,8 @@ void ShowPaxCatWarning(const string &airline, const set<string> &cats)
 }
 
 const char* pax_sql=
-    "SELECT pax.pax_id,pax.surname,pax.name,pax.pers_type,crew_type,"
-    "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'one',rownum) AS seat_no, "
-    "       pax.seat_type, "
-    "       pax.seats,pax.refuse,pax.reg_no, "
-    "       pax.ticket_no,pax.coupon_no,pax.ticket_rem,pax.ticket_confirm, "
-    "       pax.subclass,pax.tid,pax.bag_pool_num, "
+    "SELECT pax.*, "
+    "       salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,NULL,NULL,'one',rownum) AS seat_no, "
     "       crs_pax.pax_id AS crs_pax_id "
     "FROM pax,crs_pax "
     "WHERE pax.pax_id=crs_pax.pax_id(+) AND crs_pax.pr_del(+)=0 AND "
@@ -6797,7 +6803,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
   SirenaExchange::fillPaxsBags(first_grp_id, req, grp_cat, tckin_grp_ids);
 
   TReqInfo *reqInfo = TReqInfo::Instance();
-  if (setList.value(tsPieceConcept))
+  if (setList.value<bool>(tsPieceConcept))
   {
     if (reqInfo->client_type!=ASTRA::ctTerm  ||
         reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
@@ -7028,7 +7034,7 @@ static void CloneServiceLists(xmlNodePtr segsNode, int numToClone)
             }
         }
     }
-    
+
     if(maxSegNo < 0) {
         tst();
         return;
@@ -7946,12 +7952,11 @@ void CheckInInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
   TQuery Qry( &OraSession );
   Qry.SQLText =
      "SELECT point_arv, class, "
-     "       crs_ok-ok AS noshow, "
-     "       crs_tranzit-tranzit AS trnoshow, "
+     "       crs_ok-ok-NVL(jmp_ok,0) AS noshow, "
+     "       crs_tranzit-tranzit-NVL(jmp_tranzit,0) AS trnoshow, "
      "       tranzit+ok+goshow AS show, "
-     "       free_ok, "
-     "       free_goshow, "
-     "       nooccupy "
+     "       NVL(jmp_tranzit,0)+NVL(jmp_ok,0)+NVL(jmp_goshow,0) AS jmp_show, "
+     "       NVL(jmp_nooccupy,0) AS jmp_nooccupy "
      "FROM counters2 "
      "WHERE point_dep=:point_id";
   Qry.CreateVariable("point_id",otInteger,point_id);
@@ -7965,9 +7970,14 @@ void CheckInInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
     NewTextChild( itemNode, "noshow", Qry.FieldAsInteger( "noshow" ) );
     NewTextChild( itemNode, "trnoshow", Qry.FieldAsInteger( "trnoshow" ) );
     NewTextChild( itemNode, "show", Qry.FieldAsInteger( "show" ) );
-    NewTextChild( itemNode, "free_ok", Qry.FieldAsInteger( "free_ok" ) );         //не используется
-    NewTextChild( itemNode, "free_goshow", Qry.FieldAsInteger( "free_goshow" ) ); //не используется
-    NewTextChild( itemNode, "nooccupy", Qry.FieldAsInteger( "nooccupy" ) );       //не используется
+    if (!TReqInfo::Instance()->desk.compatible(JMP_VERSION))
+    {
+      NewTextChild( itemNode, "free_ok", 0 );        //не используется
+      NewTextChild( itemNode, "free_goshow", 0 );    //не используется
+      NewTextChild( itemNode, "nooccupy", 0 );       //не используется
+    };
+    NewTextChild( itemNode, "jmp_show", Qry.FieldAsInteger( "jmp_show" ), 0 );
+    NewTextChild( itemNode, "jmp_nooccupy", Qry.FieldAsInteger( "jmp_nooccupy" ), 0 );
   }
 
   int load_residue=getCommerceWeight( point_id, onlyCheckin, CWResidual );
@@ -8167,11 +8177,16 @@ void CheckInInterface::readTripSets( int point_id,
     Qry.Execute();
     if (Qry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
 
+    TTripSetList setList;
+    setList.fromDB(point_id);
+    if (setList.empty()) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
+
     NewTextChild( tripSetsNode, "pr_etl_only", (int)GetTripSets(tsETSNoInteract,fltInfo) );
     NewTextChild( tripSetsNode, "pr_etstatus", Qry.FieldAsInteger("pr_etstatus") );
     NewTextChild( tripSetsNode, "pr_no_ticket_check", (int)GetTripSets(tsNoTicketCheck,fltInfo) );
     NewTextChild( tripSetsNode, "pr_auto_pt_print", (int)GetTripSets(tsAutoPTPrint,fltInfo) );
     NewTextChild( tripSetsNode, "pr_auto_pt_print_reseat", (int)GetTripSets(tsAutoPTPrintReseat,fltInfo) );
+    NewTextChild( tripSetsNode, "use_jmp", (int)setList.value<bool>(tsUseJmp) );
 }
 
 void CheckInInterface::GetTripCounters(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -8848,7 +8863,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
               //считаем кол-во свободных мест
               //(после поиска пассажиров, так как необходимо определить базовый класс)
-              int free=CheckCounters(currSeg.point_dep,currSeg.point_arv,(char*)cl.c_str(),psTCheckin,cfg,free_seating);
+              int free, jmp_free;
+              CheckCounters(currSeg.point_dep,currSeg.point_arv,(char*)cl.c_str(),psTCheckin,cfg,free_seating,free,jmp_free);
               if (free!=NoExists && free<seatsSum)
               {
                 xmlNodePtr wlNode;
@@ -8906,6 +8922,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           NewTextChild(operFltNode, "pr_no_ticket_check", 1); // TODO
           NewTextChild(operFltNode, "pr_auto_pt_print", 0);   // TODO
           NewTextChild(operFltNode, "pr_auto_pt_print_reseat", 0); // TODO
+          NewTextChild(operFltNode, "use_jmp", 0); // TODO
 
           xmlNodePtr tripdataNode = NewTextChild(seg2Node, "tripdata");
           xmlNodePtr node = NewTextChild(tripdataNode, "airps");

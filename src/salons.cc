@@ -7245,7 +7245,7 @@ bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull )
                "       pax.pr_brd IS NOT NULL AND "
                "       seats > 0 AND rownum <= 1 ";
  if ( SeatNoIsNull ) {
-  sql += " AND salons.is_waitlist(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,rownum)<>0 ";
+  sql += " AND salons.is_waitlist(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,rownum)<>0 ";
  }
  Qry.SQLText = sql;
  Qry.CreateVariable( "point_id", otInteger, trip_id );

@@ -341,7 +341,9 @@ void get_DesksGates( int point_id, tstations &stations );
 void check_DesksGates( int point_id );
 void IntReadTrips( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, long int &exec_time );
 
-class TTripSetList : public std::map<TTripSetType, bool>
+bool TTripSetListItemLess(const std::pair<TTripSetType, boost::any> &a, const std::pair<TTripSetType, boost::any> &b);
+
+class TTripSetList : public std::map<TTripSetType, boost::any>
 {
   private:
     std::set<TTripSetType> _setTypes;
@@ -356,8 +358,62 @@ class TTripSetList : public std::map<TTripSetType, bool>
     TTripSetList& fromDB(int point_id);
     TTripSetList& fromDB(const TTripInfo &info);
     void append(const TTripSetList &list);
-    bool value(const TTripSetType setType) const;
-    bool value(const TTripSetType setType, const bool defValue) const;
+
+    void throwBadCastException(const TTripSetType setType, const std::string &where) const
+    {
+      throw EXCEPTIONS::Exception("%s: setType=%d bad cast", where.c_str(), (int)setType);
+    }
+
+    template<typename T>
+    T value(const TTripSetType setType) const
+    {
+      TTripSetList::const_iterator i=find(setType);
+      if (i==end())
+        throw EXCEPTIONS::Exception("TTripSetList::%s: setType=%d not found", __FUNCTION__, (int)setType);
+      try
+      {
+        return boost::any_cast<T>(i->second);
+      }
+      catch(boost::bad_any_cast)
+      {
+        throw EXCEPTIONS::Exception("TTripSetList::%s: setType=%d bad cast", __FUNCTION__, (int)setType);
+      }
+    }
+
+    template<typename T>
+    T value(const TTripSetType setType, const T &defValue) const
+    {
+      TTripSetList::const_iterator i=find(setType);
+      if (i==end()) return defValue;
+      try
+      {
+        return boost::any_cast<T>(i->second);
+      }
+      catch(boost::bad_any_cast)
+      {
+        throw EXCEPTIONS::Exception("TTripSetList::%s: setType=%d bad cast", __FUNCTION__, (int)setType);
+      }
+    }
+
+    bool isInt(const TTripSetType setType) const
+    {
+      return setType==tsJmpCfg;
+    }
+    bool isBool(const TTripSetType setType) const
+    {
+      return !isInt(setType);
+    }
+    boost::any defaultValue(const TTripSetType setType) const
+    {
+      if (isBool(setType))
+        return DefaultTripSets(setType);
+      else if (isInt(setType))
+        return (int)0;
+      else
+        return boost::any();
+    }
+
+
 };
 
 void set_flight_sets(int point_id, int f=0, int c=0, int y=0);

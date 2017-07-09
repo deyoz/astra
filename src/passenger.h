@@ -410,6 +410,7 @@ class TSimplePaxItem
     int tid;
     TPaxTknItem tkn;
     bool TknExists;
+    ASTRA::TGender::Enum gender;
     TSimplePaxItem()
     {
       clear();
@@ -435,15 +436,19 @@ class TSimplePaxItem
       tid=ASTRA::NoExists;
       tkn.clear();
       TknExists=false;
+      gender=ASTRA::TGender::Unknown;
     }
 
+    static ASTRA::TGender::Enum genderFromDB(TQuery &Qry);
+    static ASTRA::TTrickyGender::Enum getTrickyGender(ASTRA::TPerson pers_type, ASTRA::TGender::Enum gender);
+
     TSimplePaxItem& fromDB(TQuery &Qry);
-    TSimplePaxItem& load(int pax_id);
-    std::string getJMPSeatNo();
+    bool getByPaxId(int pax_id);
     std::string full_name() const;
     bool api_doc_applied() const;
     bool upward_within_bag_pool(const TSimplePaxItem& pax) const;
-    bool HaveBaggage() { return bag_pool_num != ASTRA::NoExists; }
+    bool HaveBaggage() const { return bag_pool_num != ASTRA::NoExists; }
+    ASTRA::TTrickyGender::Enum getTrickyGender() const { return getTrickyGender(pers_type, gender); }
 };
 
 class TDocaMap : public std::map<TAPIType, TPaxDocaItem>
@@ -560,7 +565,7 @@ class TPaxListItem
 
     void addFQT(const CheckIn::TPaxFQTItem &fqt);
     void checkFQTTierLevel();
-    void checkCrewType(bool new_checkin, ASTRA::TPaxStatus grp_status);
+    void checkImportantRems(bool new_checkin, ASTRA::TPaxStatus grp_status);
 };
 
 class TPaxList : public std::list<CheckIn::TPaxListItem>
