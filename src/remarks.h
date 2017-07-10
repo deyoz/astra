@@ -354,6 +354,8 @@ std::string GetCrsRemarkStr(const TRemGrp &rem_grp, int pax_id, const std::strin
 
 CheckIn::TPaxRemItem CalcCrewRem(const ASTRA::TPaxStatus grp_status,
                                  const ASTRA::TCrewType::Enum crew_type);
+CheckIn::TPaxRemItem CalcJmpRem(const ASTRA::TPaxStatus grp_status,
+                                const bool is_jmp);
 
 #endif
 

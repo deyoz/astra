@@ -284,7 +284,8 @@ const char * arx_points_ISG_SQL =
     "      arx_points.pr_del!=-1 \n"
     "ORDER BY arx_points.move_id,point_num,point_id";
 const char* regSQL =
-    "SELECT SUM(tranzit)+SUM(ok)+SUM(goshow) AS reg FROM counters2 "
+    "SELECT SUM(tranzit)+SUM(ok)+SUM(goshow)+ "
+    "       SUM(NVL(jmp_tranzit, 0))+SUM(NVL(jmp_ok, 0))+SUM(NVL(jmp_goshow, 0)) AS reg FROM counters2 "
     "WHERE point_dep=:point_id";
 const char* arx_regSQL =
     "SELECT SUM(arx_pax.seats) as reg "
@@ -6253,7 +6254,7 @@ void set_trip_sets(const TAdvTripInfo &flt)
   TTripSetList differSetList;
   set_difference(newSetList.begin(), newSetList.end(),
                  oldSetList.begin(), oldSetList.end(),
-                 inserter(differSetList, differSetList.end()));
+                 inserter(differSetList, differSetList.end()), TTripSetListItemLess);
   differSetList.toDB(flt.point_id);
 
   //платная регистрация
@@ -6329,6 +6330,8 @@ TTripSetList::TTripSetList()
   _setTypes.insert(tsAPISControl);
   _setTypes.insert(tsAPISManualInput);
   _setTypes.insert(tsPieceConcept);
+  _setTypes.insert(tsUseJmp);
+  _setTypes.insert(tsJmpCfg);
 }
 
 const std::set<TTripSetType>& TTripSetList::setTypes()
@@ -6366,6 +6369,10 @@ std::string TTripSetList::setTypeStr(const TTripSetType setType) const
       return "apis_manual_input";
     case tsPieceConcept:
       return "piece_concept";
+    case tsUseJmp:
+      return "use_jmp";
+    case tsJmpCfg:
+      return "jmp_cfg";
     default: throw Exception("%s: wrong setType=%d", __FUNCTION__, (int)setType);
   }
 }
@@ -6374,7 +6381,19 @@ const TTripSetList& TTripSetList::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
   for(TTripSetList::const_iterator i=begin(); i!=end(); ++i)
-    NewTextChild(node, setTypeStr(i->first).c_str(), (int)i->second);
+  {
+    try
+    {
+      if (isBool(i->first))
+        NewTextChild(node, setTypeStr(i->first).c_str(), (int)boost::any_cast<bool>(i->second));
+      else if (isInt(i->first))
+        NewTextChild(node, setTypeStr(i->first).c_str(), (int)boost::any_cast<int>(i->second));
+    }
+    catch(boost::bad_any_cast)
+    {
+      throwBadCastException(i->first, __FUNCTION__);
+    };
+  };
   return *this;
 }
 
@@ -6387,7 +6406,12 @@ TTripSetList& TTripSetList::fromXML(xmlNodePtr node)
   {
     xmlNodePtr n=GetNodeFast(setTypeStr(*i).c_str(), node2);
     if (n!=NULL)
-      insert(make_pair(*i, NodeAsInteger(n)!=0));
+    {
+      if (isBool(*i))
+        insert(make_pair(*i, NodeAsInteger(n)!=0));
+      else if (isInt(*i))
+        insert(make_pair(*i, NodeAsInteger(n)));
+    };
   }
   return *this;
 }
@@ -6408,8 +6432,18 @@ const TTripSetList& TTripSetList::initDB(int point_id, int f, int c, int y) cons
          "  0, 0, 0, 1";
   for(set<TTripSetType>::const_iterator i=_setTypes.begin(); i!=_setTypes.end(); ++i)
   {
-    sql << ", :" << setTypeStr(*i);
-    Qry.CreateVariable(setTypeStr(*i), otInteger, (int)DefaultTripSets(*i));
+    try
+    {
+      sql << ", :" << setTypeStr(*i);
+      if (isBool(*i))
+        Qry.CreateVariable(setTypeStr(*i), otInteger, (int)boost::any_cast<bool>(defaultValue(*i)));
+      else if (isInt(*i))
+        Qry.CreateVariable(setTypeStr(*i), otInteger, boost::any_cast<int>(defaultValue(*i)));
+    }
+    catch(boost::bad_any_cast)
+    {
+      throwBadCastException(*i, __FUNCTION__);
+    };
   };
   sql << ") ";
 
@@ -6430,73 +6464,133 @@ const TTripSetList& TTripSetList::toDB(int point_id) const
   if (empty()) return *this;
 
   TQuery Qry(&OraSession);
-  list<string> msgs;
+  list< pair<string, LEvntPrms> > msgs;
 
   ostringstream sql;
   sql << "UPDATE trip_sets SET ";
   for(TTripSetList::const_iterator i=begin(); i!=end(); ++i)
   {
-    if (i!=begin()) sql << ", ";
-    sql << setTypeStr(i->first) << "=:" << setTypeStr(i->first);
-    Qry.CreateVariable(setTypeStr(i->first), otInteger, (int)i->second);
-
-    switch (i->first)
+    try
     {
-      case tsCheckLoad:
-        msgs.push_back(i->second?"EVT.SET_MODE_CHECK_LOAD":
-                                 "EVT.SET_MODE_WITHOUT_CHECK_LOAD");
-        break;
-      case tsOverloadReg:
-        msgs.push_back(i->second?"EVT.SET_MODE_OVERLOAD_REG_PERMISSION":
-                                 "EVT.SET_MODE_OVERLOAD_REG_PROHIBITION");
-        break;
-      case tsExam:
-        msgs.push_back(i->second?"EVT.SET_MODE_EXAM":
-                                 "EVT.SET_MODE_WITHOUT_EXAM");
-        break;
-      case tsCheckPay:
-        msgs.push_back(i->second?"EVT.SET_MODE_CHECK_PAY":
-                                 "EVT.SET_MODE_WITHOUT_CHECK_PAY");
-        break;
-      case tsExamCheckPay:
-        msgs.push_back(i->second?"EVT.SET_MODE_EXAM_CHACK_PAY":
-                                 "EVT.SET_MODE_WITHOUT_EXAM_CHACK_PAY");
-        break;
-      case tsRegWithTkn:
-        msgs.push_back(i->second?"EVT.SET_MODE_REG_WITHOUT_TKN_PROHIBITION":
-                                 "EVT.SET_MODE_REG_WITHOUT_TKN_PERMISSION");
-        break;
-      case tsRegWithDoc:
-        msgs.push_back(i->second?"EVT.SET_MODE_REG_WITHOUT_DOC_PROHIBITION":
-                                 "EVT.SET_MODE_REG_WITHOUT_DOC_PERMISSION");
-        break;
-      case tsRegWithoutTKNA:
-        msgs.push_back(i->second?"EVT.SET_MODE_REG_WITHOUT_TKNA":
-                                 "EVT.CANCEL_MODE_REG_WITHOUT_TKNA");
-        break;
-      case tsAutoWeighing:
-        msgs.push_back(i->second?"EVT.SET_AUTO_WEIGHING":
-                                 "EVT.CANCEL_AUTO_WEIGHING");
-        break;
-      case tsFreeSeating:
-        msgs.push_back(i->second?"EVT.SET_FREE_SEATING":
-                                 "EVT.CANCEL_FREE_SEATING");
-        break;
-      case tsAPISControl:
-        msgs.push_back(i->second?"EVT.SET_APIS_DATA_CONTROL":
-                                 "EVT.CANCELED_APIS_DATA_CONTROL");
-        break;
-      case tsAPISManualInput:
-        msgs.push_back(i->second?"EVT.ALLOWED_APIS_DATA_MANUAL_INPUT":
-                                 "EVT.NOT_ALLOWED_APIS_DATA_MANUAL_INPUT");
-        break;
-      case tsPieceConcept:
-        msgs.push_back(i->second?"EVT.SET_BAGGAGE_PIECE_CONCEPT":
-                                 "EVT.SET_BAGGAGE_WEIGHT_CONCEPT");
-        break;
-      default:
-        break;
-    };
+      if (i!=begin()) sql << ", ";
+      sql << setTypeStr(i->first) << "=:" << setTypeStr(i->first);
+      if (isBool(i->first))
+        Qry.CreateVariable(setTypeStr(i->first), otInteger, (int)boost::any_cast<bool>(i->second));
+      else if (isInt(i->first))
+        Qry.CreateVariable(setTypeStr(i->first), otInteger, boost::any_cast<int>(i->second));
+
+      switch (i->first)
+      {
+        case tsCheckLoad:
+          msgs.push_back(make_pair(
+                           boost::any_cast<bool>(i->second)?
+                           "EVT.SET_MODE_CHECK_LOAD":
+                           "EVT.SET_MODE_WITHOUT_CHECK_LOAD",
+                           LEvntPrms()));
+          break;
+        case tsOverloadReg:
+          msgs.push_back(make_pair(
+                           boost::any_cast<bool>(i->second)?
+                           "EVT.SET_MODE_OVERLOAD_REG_PERMISSION":
+                           "EVT.SET_MODE_OVERLOAD_REG_PROHIBITION",
+                           LEvntPrms()));
+          break;
+        case tsExam:
+          msgs.push_back(make_pair(
+                           boost::any_cast<bool>(i->second)?
+                           "EVT.SET_MODE_EXAM":
+                           "EVT.SET_MODE_WITHOUT_EXAM",
+                           LEvntPrms()));
+          break;
+        case tsCheckPay:
+          msgs.push_back(make_pair(
+                           boost::any_cast<bool>(i->second)?
+                           "EVT.SET_MODE_CHECK_PAY":
+                           "EVT.SET_MODE_WITHOUT_CHECK_PAY",
+                           LEvntPrms()));
+          break;
+        case tsExamCheckPay:
+          msgs.push_back(make_pair(
+                           boost::any_cast<bool>(i->second)?
+                           "EVT.SET_MODE_EXAM_CHACK_PAY":
+                           "EVT.SET_MODE_WITHOUT_EXAM_CHACK_PAY",
+                           LEvntPrms()));
+          break;
+        case tsRegWithTkn:
+          msgs.push_back(make_pair(
+                           boost::any_cast<bool>(i->second)?
+                           "EVT.SET_MODE_REG_WITHOUT_TKN_PROHIBITION":
+                           "EVT.SET_MODE_REG_WITHOUT_TKN_PERMISSION",
+                           LEvntPrms()));
+          break;
+        case tsRegWithDoc:
+          msgs.push_back(make_pair(
+                           boost::any_cast<bool>(i->second)?
+                           "EVT.SET_MODE_REG_WITHOUT_DOC_PROHIBITION":
+                           "EVT.SET_MODE_REG_WITHOUT_DOC_PERMISSION",
+                           LEvntPrms()));
+          break;
+        case tsRegWithoutTKNA:
+          msgs.push_back(make_pair(
+                           boost::any_cast<bool>(i->second)?
+                           "EVT.SET_MODE_REG_WITHOUT_TKNA":
+                           "EVT.CANCEL_MODE_REG_WITHOUT_TKNA",
+                           LEvntPrms()));
+          break;
+        case tsAutoWeighing:
+          msgs.push_back(make_pair(
+                           boost::any_cast<bool>(i->second)?
+                           "EVT.SET_AUTO_WEIGHING":
+                           "EVT.CANCEL_AUTO_WEIGHING",
+                           LEvntPrms()));
+          break;
+        case tsFreeSeating:
+          msgs.push_back(make_pair(
+                           boost::any_cast<bool>(i->second)?
+                           "EVT.SET_FREE_SEATING":
+                           "EVT.CANCEL_FREE_SEATING",
+                           LEvntPrms()));
+          break;
+        case tsAPISControl:
+          msgs.push_back(make_pair(
+                           boost::any_cast<bool>(i->second)?
+                           "EVT.SET_APIS_DATA_CONTROL":
+                           "EVT.CANCELED_APIS_DATA_CONTROL",
+                           LEvntPrms()));
+          break;
+        case tsAPISManualInput:
+          msgs.push_back(make_pair(
+                           boost::any_cast<bool>(i->second)?
+                           "EVT.ALLOWED_APIS_DATA_MANUAL_INPUT":
+                           "EVT.NOT_ALLOWED_APIS_DATA_MANUAL_INPUT",
+                           LEvntPrms()));
+          break;
+        case tsPieceConcept:
+          msgs.push_back(make_pair(
+                           boost::any_cast<bool>(i->second)?
+                           "EVT.SET_BAGGAGE_PIECE_CONCEPT":
+                           "EVT.SET_BAGGAGE_WEIGHT_CONCEPT",
+                           LEvntPrms()));
+          break;
+        case tsUseJmp:
+          msgs.push_back(make_pair(
+                           boost::any_cast<bool>(i->second)?
+                           "EVT.ALLOWED_JUMP_SEAT_CHECKIN":
+                           "EVT.NOT_ALLOWED_JUMP_SEAT_CHECKIN",
+                           LEvntPrms()));
+          break;
+        case tsJmpCfg:
+          msgs.push_back(make_pair(
+                           "EVT.JUMP_SEAT_CFG",
+                           LEvntPrms() << PrmSmpl<int>("jmp_cfg", boost::any_cast<int>(i->second))));
+        default:
+          break;
+      };
+    }
+    catch(boost::bad_any_cast)
+    {
+      throwBadCastException(i->first, __FUNCTION__);
+    }
   };
   sql << " WHERE point_id=:point_id";
 
@@ -6509,9 +6603,10 @@ const TTripSetList& TTripSetList::toDB(int point_id) const
     TLogLocale locale;
     locale.ev_type=evtFlt;
     locale.id1=point_id;
-    for(list<string>::const_iterator i=msgs.begin(); i!=msgs.end(); ++i)
+    for(list< pair<string, LEvntPrms> >::const_iterator i=msgs.begin(); i!=msgs.end(); ++i)
     {
-      locale.lexema_id=*i;
+      locale.lexema_id=i->first;
+      locale.prms=i->second;
       TReqInfo::Instance()->LocaleToLog(locale);
     };
   };
@@ -6537,9 +6632,14 @@ TTripSetList& TTripSetList::fromDB(int point_id)
   for(set<TTripSetType>::const_iterator i=_setTypes.begin(); i!=_setTypes.end(); ++i)
   {
     if (!SetsQry.get().FieldIsNULL(setTypeStr(*i)))
-      insert(make_pair(*i, SetsQry.get().FieldAsInteger(setTypeStr(*i))!=0));
+    {
+      if (isBool(*i))
+        insert(make_pair(*i, SetsQry.get().FieldAsInteger(setTypeStr(*i))!=0));
+      else if (isInt(*i))
+        insert(make_pair(*i, SetsQry.get().FieldAsInteger(setTypeStr(*i))));
+    }
     else
-      insert(make_pair(*i, DefaultTripSets(*i)));
+      insert(make_pair(*i, defaultValue(*i)));
   };
   return *this;
 }
@@ -6548,7 +6648,11 @@ TTripSetList& TTripSetList::fromDB(const TTripInfo &info)
 {
   clear();
   for(set<TTripSetType>::const_iterator i=_setTypes.begin(); i!=_setTypes.end(); ++i)
-    insert(make_pair(*i, GetTripSets(*i, info)));
+    if (isBool(*i))
+      insert(make_pair(*i, GetTripSets(*i, info)));
+    else if (isInt(*i))
+      insert(make_pair(*i, defaultValue(*i)));
+
   return *this;
 }
 
@@ -6557,18 +6661,23 @@ void TTripSetList::append(const TTripSetList &list)
   for(TTripSetList::const_iterator i=list.begin(); i!=list.end(); ++i) insert(*i);
 }
 
-bool TTripSetList::value(const TTripSetType setType) const
+bool TTripSetListItemLess(const std::pair<TTripSetType, boost::any> &a, const std::pair<TTripSetType, boost::any> &b)
 {
-  TTripSetList::const_iterator i=find(setType);
-  if (i==end()) throw Exception("TTripSetList::%s: setType=%d not found", __FUNCTION__, (int)setType);
-  return i->second;
-}
-
-bool TTripSetList::value(const TTripSetType setType, const bool defValue) const
-{
-  TTripSetList::const_iterator i=find(setType);
-  if (i==end()) return defValue;
-  return i->second;
+  if (a.first!=b.first)
+    return a.first<b.first;
+  if (a.second.type().name()!=b.second.type().name())
+    return a.second.type().name()<b.second.type().name();
+  try
+  {
+    return boost::any_cast<bool>(a.second)<boost::any_cast<bool>(b.second);
+  }
+  catch(boost::bad_any_cast) {};
+  try
+  {
+    return boost::any_cast<int>(a.second)<boost::any_cast<int>(b.second);
+  }
+  catch(boost::bad_any_cast) {};
+  return false;
 }
 
 void puttrip_stages(int point_id)

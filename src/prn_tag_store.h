@@ -351,6 +351,7 @@ class TPrnTagStore {
             std::string ticket_rem;
             std::string ticket_no;
             int coupon_no;
+            bool is_jmp;
             int reg_no;
             bool pr_smoke;
             int seats;
@@ -366,6 +367,7 @@ class TPrnTagStore {
             TPaxInfo():
                 pax_id(ASTRA::NoExists),
                 coupon_no(ASTRA::NoExists),
+                is_jmp(false),
                 reg_no(ASTRA::NoExists),
                 pr_smoke(false),
                 seats(ASTRA::NoExists),

@@ -72,6 +72,18 @@ const ASTRA::TCrewTypes& CrewTypes()
   return crewTypes;
 }
 
+const ASTRA::TTlgTrickyGenders& TlgTrickyGenders()
+{
+  static ASTRA::TTlgTrickyGenders trickyGenders;
+  return trickyGenders;
+}
+
+const ASTRA::TDocTrickyGenders& DocTrickyGenders()
+{
+  static ASTRA::TDocTrickyGenders trickyGenders;
+  return trickyGenders;
+}
+
 const TAlignments& Alignments()
 {
   static TAlignments alignments;

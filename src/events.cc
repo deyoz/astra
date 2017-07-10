@@ -514,7 +514,7 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
     "       pax_grp.pr_mark_norms, pax_grp.bag_refuse, "
     "       pax.pax_id, pax.reg_no, "
     "       pax.surname, pax.name, pax.pers_type, pax.refuse, pax.subclass, pax.is_female, pax.seats, "
-    "       salons.get_seat_no(pax.pax_id, pax.seats, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
+    "       salons.get_seat_no(pax.pax_id, pax.seats, pax.is_jmp, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
     "       pax.ticket_no, pax.coupon_no, pax.ticket_rem, 0 AS ticket_confirm, "
     "       pax.pr_brd, pax.pr_exam, "
     "       NVL(ckin.get_bagAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_amount, "

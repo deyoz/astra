@@ -1114,6 +1114,11 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
         NewTextChild( node, "pr_no_ticket_check", (int)GetTripSets(tsNoTicketCheck,info) );
         NewTextChild( node, "pr_auto_pt_print", (int)GetTripSets(tsAutoPTPrint,info) );
         NewTextChild( node, "pr_auto_pt_print_reseat", (int)GetTripSets(tsAutoPTPrintReseat,info) );
+
+        TTripSetList setList;
+        setList.fromDB(point_id);
+        if (setList.empty()) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
+        NewTextChild( node, "use_jmp", (int)setList.value<bool>(tsUseJmp) );
     };
   };
 
@@ -2414,7 +2419,8 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      pax_grp.status grp_status, "
      "      pax.refuse, "
      "      pax.grp_id, "
-     "      pax.wl_type "
+     "      pax.wl_type, "
+     "      pax.is_jmp "
      "FROM crs_pnr,crs_pax,pax,pax_grp,"
      "       ( ";
 
@@ -2446,7 +2452,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   SQry.SQLText =
     "BEGIN "
     " IF :mode=0 THEN "
-    "  :seat_no:=salons.get_seat_no(:pax_id,:seats,:layer_type,:point_id,'_seats',:pax_row); "
+    "  :seat_no:=salons.get_seat_no(:pax_id,:seats,:is_jmp,:layer_type,:point_id,'_seats',:pax_row); "
     " ELSE "
     "  :seat_no:=salons.get_crs_seat_no(:pax_id,:xname,:yname,:seats,:point_id,:layer_type,'_seats',:crs_row); "
     " END IF; "
@@ -2461,6 +2467,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   SQry.DeclareVariable( "pax_row", otInteger );
   SQry.DeclareVariable( "crs_row", otInteger );
   SQry.DeclareVariable( "seat_no", otString );
+  SQry.DeclareVariable( "is_jmp", otInteger );
 
   //рейс пассажиров
   TQuery TlgTripsQry( &OraSession );
@@ -2536,6 +2543,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   int col_grp_status=Qry.FieldIndex("grp_status");
   int col_pax_seats=Qry.FieldIndex("pax_seats");
   int col_wl_type=Qry.FieldIndex("wl_type");
+  int col_is_jmp=Qry.FieldIndex("is_jmp");
   int mode; // режим для поиска мест 0 - регистрация иначе список pnl
   int crs_row=1, pax_row=1;
   vector<TPnrAddrItem> pnrs;
@@ -2651,6 +2659,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     }
     SQry.SetVariable( "mode", mode );
     SQry.SetVariable( "pax_id", pax_id );
+    SQry.SetVariable( "is_jmp", (int)(Qry.FieldAsInteger(col_is_jmp)!=0) );
     SQry.SetVariable( "seat_no", FNull );
     SQry.Execute();
     if ( mode == 0 )

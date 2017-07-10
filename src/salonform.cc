@@ -1118,7 +1118,7 @@ void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no,
   SQry.SQLText =
     "BEGIN "
     " IF :mode=0 THEN "
-    "  :seat_no:=salons.get_seat_no(:pax_id,:seats,:grp_status,:point_id,:format,:pax_row); "
+    "  :seat_no:=salons.get_seat_no(:pax_id,:seats,NULL,:grp_status,:point_id,:format,:pax_row); "
     " ELSE "
     "  :seat_no:=salons.get_crs_seat_no(:pax_id,:xname,:yname,:seats,:point_id,:layer_type,:format,:crs_row); "
     " END IF; "

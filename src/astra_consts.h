@@ -40,7 +40,7 @@ class PairList
         //нашли
         TO result=i->second;
         ++i;
-        if (i==map.end() || i->second!=result) return result;
+        if (i==map.end() || i->first!=value) return result;
         std::ostringstream s;
         s << className() << "." << where << ": " << value << " duplicated";  //не решена проблема с возможным рекурсивным вызовом!!!
         throw EXCEPTIONS::EConvertError(s.str().c_str());
@@ -161,6 +161,78 @@ enum TRptType {
 };
 extern const char *RptTypeS[rtTypeNum];
 
+class TGender
+{
+  public:
+    enum Enum
+    {
+      Male,
+      Female,
+      Unknown
+    };
+};
+
+class TTrickyGender
+{
+  public:
+    enum Enum
+    {
+      Male,
+      Female,
+      Child,
+      Infant,
+      Unknown
+    };
+
+    static const std::list< std::pair<Enum, std::string> >& pairsForTlg()
+    {
+      static std::list< std::pair<Enum, std::string> > l;
+      if (l.empty())
+      {
+        l.push_back(std::make_pair(Male,       "M"));
+        l.push_back(std::make_pair(Female,     "F"));
+        l.push_back(std::make_pair(Child,      "C"));
+        l.push_back(std::make_pair(Infant,     "I"));
+        l.push_back(std::make_pair(Unknown,    ""));
+      }
+      return l;
+    }
+
+    static const std::list< std::pair<Enum, std::string> >& pairsForDoc()
+    {
+      static std::list< std::pair<Enum, std::string> > l;
+      if (l.empty())
+      {
+        l.push_back(std::make_pair(Male,       "ADL"));
+        l.push_back(std::make_pair(Female,     "ADL"));
+        l.push_back(std::make_pair(Child,      "CHD"));
+        l.push_back(std::make_pair(Infant,     "INF"));
+        l.push_back(std::make_pair(Unknown,    ""));
+      }
+      return l;
+    }
+};
+
+class TTlgTrickyGenders : public ASTRA::PairList<TTrickyGender::Enum, std::string>
+{
+  private:
+    virtual std::string className() const { return "TTlgTrickyGenders"; }
+  public:
+    TTlgTrickyGenders() : ASTRA::PairList<TTrickyGender::Enum, std::string>(TTrickyGender::pairsForTlg(),
+                                                                            TTrickyGender::Unknown,
+                                                                            boost::none) {}
+};
+
+class TDocTrickyGenders : public ASTRA::PairList<TTrickyGender::Enum, std::string>
+{
+  private:
+    virtual std::string className() const { return "TDocTrickyGenders"; }
+  public:
+    TDocTrickyGenders() : ASTRA::PairList<TTrickyGender::Enum, std::string>(TTrickyGender::pairsForDoc(),
+                                                                            boost::none,
+                                                                            boost::none) {}
+};
+
 class TCrewType
 {
   public:
@@ -226,6 +298,8 @@ enum TIdType {idFlt, idGrp, idPax};
 };
 
 const ASTRA::TCrewTypes& CrewTypes();
+const ASTRA::TTlgTrickyGenders& TlgTrickyGenders();
+const ASTRA::TDocTrickyGenders& DocTrickyGenders();
 
 const std::string TIMEOUT_OCCURRED = "Timeout occurred";
 const std::string ACCESS_DENIED = "Access denied";

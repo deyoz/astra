@@ -983,21 +983,6 @@ TDateTime getReportSCDOut(int point_id)
   return res;
 }
 
-string getJMPSeatNo(int pax_id)
-{
-    LogTrace(TRACE5) << "getJMPSeatNo: pax_id: " << pax_id;
-    static const string JMP = "JMP";
-    multiset<CheckIn::TPaxRemItem> rems;
-    LoadPaxRem(pax_id, rems);
-    LogTrace(TRACE5) << "getJMPSeatNo: rems.size: " << rems.size();
-    string result;
-    for(multiset<CheckIn::TPaxRemItem>::iterator i = rems.begin(); i != rems.end(); i++)
-        if(i->code == JMP) {
-            result = JMP;
-        }
-    return result;
-}
-
 void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
@@ -1030,7 +1015,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     TQuery Qry(&OraSession);
     string SQLText =
         "SELECT \n"
-        "   pax.pax_id, \n"
+        "   pax.*, \n"
         "   pax_grp.point_dep AS trip_id, \n"
         "   pax_grp.airp_arv AS target, \n";
     if(rpt_params.pr_trfer)
@@ -1044,11 +1029,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     SQLText +=
         "   pax_grp.class_grp, \n"
         "   DECODE(pax_grp.status, 'T', pax_grp.status, 'N') status, \n"
-        "   surname||' '||pax.name AS full_name, \n"
-        "   pax.pers_type, \n"
-        "   pax.is_female, \n"
-        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no, \n"
-        "   pax.seats, \n";
+        "   salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no, \n";
     if(rpt_params.pr_et) { //ЭБ
         SQLText +=
             "    ticket_no||'/'||coupon_no AS remarks, \n";
@@ -1060,9 +1041,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "   NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) AS excess, \n"
         "   nvl(pax_grp.piece_concept,0) piece_concept, "
         "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, \n"
-        "   reg_no, \n"
-        "   pax_grp.grp_id, \n"
-        "   pax.crew_type \n"
+        "   pax_grp.grp_id \n"
         "FROM  \n"
         "   pax_grp, \n"
         "   points, \n"
@@ -1124,7 +1103,8 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             break;
         case stSurname:
             SQLText +=
-                "    full_name ASC, \n"
+                "    pax.surname ASC, \n"
+                "    pax.name ASC, \n"
                 "    pax.reg_no ASC, \n"
                 "    pax.seats DESC \n";
             break;
@@ -1152,10 +1132,12 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     TRemGrp rem_grp;
     bool rem_grp_loaded = false;
     for(; !Qry.Eof; Qry.Next()) {
-        int pax_id = Qry.FieldAsInteger("pax_id");
+        CheckIn::TSimplePaxItem pax;
+        pax.fromDB(Qry);
+
         if(not rpt_params.mkt_flt.empty()) {
             TMktFlight mkt_flt;
-            mkt_flt.getByPaxId(pax_id);
+            mkt_flt.getByPaxId(pax.id);
             if(mkt_flt.empty() or not(mkt_flt == rpt_params.mkt_flt))
                 continue;
         }
@@ -1172,26 +1154,25 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             key.pr_trfer = Qry.FieldAsInteger("pr_trfer");
         }
         TPMTotalsRow &row = PMTotals[key];
-        row.seats += Qry.FieldAsInteger("seats");
+        row.seats += pax.seats;
+        switch(pax.getTrickyGender())
         {
-            TPerson pers_type = DecodePerson(Qry.FieldAsString("pers_type"));
-            switch(pers_type) {
-                case adult:
-                    if(not Qry.FieldIsNULL("is_female") and Qry.FieldAsInteger("is_female") != 0)
-                      row.adl_f++;
-                    else
-                      row.adl_m++;
-                    break;
-                case child:
-                    row.chd++;
-                    break;
-                case baby:
-                    row.inf++;
-                    break;
-                default:
-                    throw Exception("DecodePerson failed");
-            }
+          case TTrickyGender::Male:
+            row.adl_m++;
+            break;
+          case TTrickyGender::Female:
+            row.adl_f++;
+            break;
+          case TTrickyGender::Child:
+            row.chd++;
+            break;
+          case TTrickyGender::Infant:
+            row.inf++;
+            break;
+          default:
+            throw Exception("DecodePerson failed");
         }
+
         bool piece_concept = Qry.FieldAsInteger("piece_concept");
         row.rk_weight += Qry.FieldAsInteger("rk_weight");
         row.bag_amount += Qry.FieldAsInteger("bag_amount");
@@ -1201,8 +1182,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         else
             row.excess += Qry.FieldAsInteger("excess");
 
-        string crew_type = Qry.FieldAsString("crew_type");
-        switch(TCrewTypes().decode(crew_type)) {
+        switch(pax.crew_type) {
             case TCrewType::ExtraCrew:
                 row.xcr++;
                 break;
@@ -1217,8 +1197,8 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         }
 
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-        NewTextChild(rowNode, "reg_no", Qry.FieldAsString("reg_no"));
-        NewTextChild(rowNode, "full_name", transliter(Qry.FieldAsString("full_name"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+        NewTextChild(rowNode, "reg_no", pax.reg_no);
+        NewTextChild(rowNode, "full_name", transliter(pax.full_name(), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
         string last_target;
         int pr_trfer = 0;
         if(rpt_params.pr_trfer) {
@@ -1236,8 +1216,8 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
         NewTextChild(rowNode, "class_name", key.cls_name);
         NewTextChild(rowNode, "class", key.cls);
-        NewTextChild(rowNode, "seats", Qry.FieldAsInteger("seats"));
-        NewTextChild(rowNode, "crew_type", Qry.FieldAsString("crew_type"));
+        NewTextChild(rowNode, "seats", pax.seats);
+        NewTextChild(rowNode, "crew_type", CrewTypes().encode(pax.crew_type));
         NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
         NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
         NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
@@ -1254,42 +1234,34 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         }
 
         {
-            TPerson pers_type = DecodePerson(Qry.FieldAsString("pers_type"));
-            string gender;
-            switch(pers_type) {
-                case adult:
-                    if(not Qry.FieldIsNULL("is_female") and Qry.FieldAsInteger("is_female") != 0)
-                        gender = "F";
-                    else
-                        gender = "M";
-                    NewTextChild(rowNode, "pers_type", "ADL");
-                    break;
-                case child:
-                    NewTextChild(rowNode, "pers_type", "CHD");
-                    break;
-                case baby:
-                    NewTextChild(rowNode, "pers_type", "INF");
-                    break;
-                default:
-                    throw Exception("DecodePerson failed");
-            }
-            NewTextChild(rowNode, "gender", gender);
+          string gender;
+          switch(pax.getTrickyGender())
+          {
+            case TTrickyGender::Male:
+              gender = "M";
+              break;
+            case TTrickyGender::Female:
+              gender = "F";
+              break;
+            default:
+              break;
+          };
+          NewTextChild(rowNode, "pers_type", DocTrickyGenders().encode(pax.getTrickyGender()));
+          NewTextChild(rowNode, "gender", gender);
         }
         NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
 
         // seat_no достается с добитыми слева пробелами, чтобы order by
         // правильно отрабатывал, далее эти пробелы нам ни к чему
         // (в частности они мешаются в текстовом отчете).
-        string seat_no = getJMPSeatNo(pax_id);
-        if(seat_no.empty()) seat_no = trim(Qry.FieldAsString("seat_no"));
-        NewTextChild(rowNode, "seat_no", seat_no);
+        NewTextChild(rowNode, "seat_no", TrimString(pax.seat_no));
 
         if(not rem_grp_loaded) {
             rem_grp_loaded = true;
             rem_grp.Load(retRPT_PM, rpt_params.point_id);
         }
         NewTextChild(rowNode, "remarks",
-                (rpt_params.pr_et ? Qry.FieldAsString("remarks") : GetRemarkStr(rem_grp, pax_id, rpt_params.GetLang())));
+                (rpt_params.pr_et ? Qry.FieldAsString("remarks") : GetRemarkStr(rem_grp, pax.id, rpt_params.GetLang())));
     }
 
     dataSetNode = NewTextChild(dataSetsNode, rpt_params.pr_trfer ? "v_pm_trfer_total" : "v_pm_total");
@@ -2603,11 +2575,8 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     TQuery Qry(&OraSession);
     string SQLText =
         "SELECT point_dep AS point_id, "
-        "       pax_id, "
-        "       reg_no, "
-        "       surname||' '||pax.name family, "
-        "       pax.pers_type, "
-        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no, "
+        "       pax.*, "
+        "       salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no, "
         "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bagAmount, "
         "       ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags "
         "FROM   pax_grp,pax "
@@ -2621,7 +2590,7 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             SQLText += " pax.reg_no, pax.seats DESC ";
             break;
         case stSurname:
-            SQLText += " family, pax.reg_no, pax.seats DESC ";
+            SQLText += " pax.surname, pax.name, pax.reg_no, pax.seats DESC ";
             break;
         case stSeatNo:
             SQLText += " seat_no, pax.reg_no, pax.seats DESC ";
@@ -2636,21 +2605,19 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_notpres");
     while(!Qry.Eof) {
-        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+      CheckIn::TSimplePaxItem pax;
+      pax.fromDB(Qry);
+      xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
 
-        NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
-        NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
-        NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-        NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
+      NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
+      NewTextChild(rowNode, "reg_no", pax.reg_no);
+      NewTextChild(rowNode, "family", transliter(pax.full_name(), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+      NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, EncodePerson(pax.pers_type), efmtCodeNative));
+      NewTextChild(rowNode, "seat_no", pax.seat_no);
+      NewTextChild(rowNode, "bagamount", Qry.FieldAsInteger("bagamount"));
+      NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
 
-        string seat_no = getJMPSeatNo(Qry.FieldAsInteger("pax_id"));
-        if(seat_no.empty()) seat_no = Qry.FieldAsString("seat_no");
-        NewTextChild(rowNode, "seat_no", seat_no);
-
-        NewTextChild(rowNode, "bagamount", Qry.FieldAsInteger("bagamount"));
-        NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
-
-        Qry.Next();
+      Qry.Next();
     }
 
     // Теперь переменные отчета
@@ -2899,13 +2866,8 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     TQuery Qry(&OraSession);
     string SQLText =
         "SELECT pax_grp.point_dep AS point_id, "
-        "       pax.pax_id, "
-        "       pax.reg_no, "
-        "       TRIM(pax.surname||' '||pax.name) AS family, "
-        "       pax.pers_type, "
-        "       pax.seats, "
-        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no, "
-        "       pax.ticket_no, pax.coupon_no, pax.ticket_rem, pax.ticket_confirm "
+        "       pax.*, "
+        "       salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no "
         "FROM   pax_grp,pax "
         "WHERE  pax_grp.grp_id=pax.grp_id AND "
         "       pr_brd IS NOT NULL and "
@@ -2917,7 +2879,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             SQLText += " pax.reg_no, pax.seats DESC ";
             break;
         case stSurname:
-            SQLText += " family, pax.reg_no, pax.seats DESC ";
+            SQLText += " pax.surname, pax.name, pax.reg_no, pax.seats DESC ";
             break;
         case stSeatNo:
             SQLText += " seat_no, pax.reg_no, pax.seats DESC ";
@@ -2933,6 +2895,9 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_rem");
     for(; !Qry.Eof; Qry.Next())
     {
+      CheckIn::TSimplePaxItem pax;
+      pax.fromDB(Qry);
+
       multiset<CheckIn::TPaxRemItem> final_rems;
       REPORT_PAX_REMS::get(Qry, rpt_params.GetLang(), rpt_params.rems, final_rems);
 
@@ -2948,14 +2913,10 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
       xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
       NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
-      NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
-      NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-      NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
-
-      int pax_id=Qry.FieldAsInteger("pax_id");
-      string seat_no = getJMPSeatNo(pax_id);
-      if(seat_no.empty()) seat_no = Qry.FieldAsString("seat_no");
-      NewTextChild(rowNode, "seat_no", seat_no);
+      NewTextChild(rowNode, "reg_no", pax.reg_no);
+      NewTextChild(rowNode, "family", transliter(pax.full_name(), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+      NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, EncodePerson(pax.pers_type), efmtCodeNative));
+      NewTextChild(rowNode, "seat_no", pax.seat_no);
 
       ostringstream rem_info;
       for(multiset<CheckIn::TPaxRemItem>::const_iterator r=final_rems.begin();r!=final_rems.end();++r)
@@ -3192,11 +3153,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "pnr_ref", pnr_addr);
             NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
             NewTextChild(rowNode, "class", rpt_params.ElemIdToReportElem(etClass, Qry.FieldAsString("class"), efmtCodeNative));
-
-            string seat_no = getJMPSeatNo(pax_id);
-            if(seat_no.empty()) seat_no = Qry.FieldAsString("seat_no");
-            NewTextChild(rowNode, "seat_no", seat_no);
-
+            NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
             NewTextChild(rowNode, "target", rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("target"), efmtCodeNative));
             string last_target = Qry.FieldAsString("last_target");
             TElemFmt fmt;
@@ -3348,25 +3305,23 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         check_pay_on_tckin_segs=GetTripSets(tsCheckPayOnTCkinSegs, fltInfo);
 
       for( ; !Qry.Eof; Qry.Next()) {
+        CheckIn::TSimplePaxItem pax;
+        pax.fromDB(Qry);
+
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
         int grp_id = Qry.FieldAsInteger("grp_id");
-        int pax_id = Qry.FieldAsInteger("pax_id");
-        NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger("reg_no"));
-        NewTextChild(paxNode, "surname", transliter(Qry.FieldAsString("surname"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-        NewTextChild(paxNode, "name", transliter(Qry.FieldAsString("name"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+        NewTextChild(paxNode, "reg_no", pax.reg_no);
+        NewTextChild(paxNode, "surname", transliter(pax.surname, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+        NewTextChild(paxNode, "name", transliter(pax.name, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
         if(pr_web)
           NewTextChild(paxNode, "user_descr", transliter(Qry.FieldAsString("user_descr"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-        NewTextChild(paxNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
-        NewTextChild(paxNode, "pr_exam", Qry.FieldAsInteger("pr_exam"), 0);
-        NewTextChild(paxNode, "pr_brd", Qry.FieldAsInteger("pr_brd"), 0);
-
-        string seat_no = getJMPSeatNo(pax_id);
-        if(seat_no.empty()) seat_no = Qry.FieldAsString("seat_no");
-        NewTextChild(paxNode, "seat_no", seat_no);
-
-        NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(NoExists, pax_id, false, rpt_params.GetLang()));
-        NewTextChild(paxNode, "ticket_no", Qry.FieldAsString("ticket_no"));
-        NewTextChild(paxNode, "coupon_no", Qry.FieldAsInteger("coupon_no"));
+        NewTextChild(paxNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, EncodePerson(pax.pers_type), efmtCodeNative));
+        NewTextChild(paxNode, "pr_exam", (int)pax.pr_exam, (int)false);
+        NewTextChild(paxNode, "pr_brd", (int)pax.pr_brd, (int)false);
+        NewTextChild(paxNode, "seat_no", pax.seat_no);
+        NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(NoExists, pax.id, false, rpt_params.GetLang()));
+        NewTextChild(paxNode, "ticket_no", pax.tkn.no);
+        NewTextChild(paxNode, "coupon_no", pax.tkn.coupon);
         NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
         NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
         NewTextChild(paxNode, "rk_amount", Qry.FieldAsInteger("rk_amount"));
@@ -3374,11 +3329,11 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(paxNode, "excess", Qry.FieldAsInteger("excess"));
         bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
         NewTextChild(paxNode, "piece_concept", (int)piece_concept);
-        bool pr_payment=RFISCPaymentCompleted(grp_id, pax_id, check_pay_on_tckin_segs) &&
+        bool pr_payment=RFISCPaymentCompleted(grp_id, pax.id, check_pay_on_tckin_segs) &&
                         WeightConcept::BagPaymentCompleted(grp_id);
         NewTextChild(paxNode, "pr_payment", (int)pr_payment);
         NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
-        NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax_id, rpt_params.GetLang()));
+        NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax.id, rpt_params.GetLang()));
       }
     }
 
@@ -3759,11 +3714,8 @@ void SERVICES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     TQuery Qry(&OraSession);
     string SQLText =
     "select "
-    "    pax.pax_id, "
-    "    pax.reg_no, "
-    "    pax.grp_id, "
-    "    TRIM(pax.surname||' '||pax.name) AS family, "
-    "    salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no "
+    "    pax.*, "
+    "    salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no "
     "from "
     "    pax_grp, "
     "    pax "
@@ -3793,11 +3745,12 @@ void SERVICES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     //  цикл для каждого пакса в выборке
     for (; !Qry.Eof; Qry.Next())
     {
-        int pax_id = Qry.FieldAsInteger("pax_id");
+        CheckIn::TSimplePaxItem pax;
+        pax.fromDB(Qry);
         int grp_id = Qry.FieldAsInteger("grp_id");
         //  получить список услуг для пакса
         TPaidRFISCListWithAuto prList;
-        prList.fromDB(pax_id, false);
+        prList.fromDB(pax.id, false);
         //  получить список квитанций для группы
         CheckIn::TServicePaymentListWithAuto spList;
         spList.fromDB(grp_id);
@@ -3813,13 +3766,11 @@ void SERVICES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             {
                 TServiceRow row(sortOrder); // sortOrder для всех строк в контейнере должен быть одинаков!
                 //  Место в салоне
-                string seat_no = getJMPSeatNo(pax_id);
-                if (seat_no.empty()) seat_no = Qry.FieldAsString("seat_no");
-                row.seat_no = seat_no;
+                row.seat_no = pax.seat_no;
                 //  ФИО пассажира
-                row.family = transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU);
+                row.family = transliter(pax.full_name(), 1, rpt_params.GetLang() != AstraLocale::LANG_RU);
                 //  Рег. №
-                row.reg_no = Qry.FieldAsInteger("reg_no");
+                row.reg_no = pax.reg_no;
                 if (item.list_item)
                 {
                     //  RFIC
