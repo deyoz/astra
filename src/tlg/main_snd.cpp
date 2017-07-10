@@ -234,9 +234,14 @@ bool scan_tlg(bool sendOutAStepByStep)
         //проверим TTL
         ttl=0;
         if (!TlgQry.FieldIsNULL("ttl"))
-          ttl=TlgQry.FieldAsInteger("ttl")-
-              (int)((NowUTC()-TlgQry.FieldAsDateTime("time"))*SecsPerDay);
-        if (!TlgQry.FieldIsNULL("ttl") && ttl<=0 && priority!=(int)qpOutAStepByStep)
+        {
+          if (priority!=(int)qpOutAStepByStep)
+            ttl=TlgQry.FieldAsInteger("ttl")-
+                (int)((NowUTC()-TlgQry.FieldAsDateTime("time"))*SecsPerDay);
+          else
+            ttl=TlgQry.FieldAsInteger("ttl");
+        }
+        if (!TlgQry.FieldIsNULL("ttl") && ttl<=0)
         {
             errorTlg(tlg_id,"TTL");
         }
