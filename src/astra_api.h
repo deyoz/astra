@@ -587,18 +587,16 @@ struct XmlTripCounterItem
     int           noshow;
     int           trnoshow;
     int           show;
-    int           free_ok;
-    int           free_goshow;
-    int           nooccupy;
+    int           jmp_show;
+    int           jmp_nooccupy;
 
     XmlTripCounterItem()
         : point_arv(ASTRA::NoExists),
           noshow(ASTRA::NoExists),
           trnoshow(ASTRA::NoExists),
           show(ASTRA::NoExists),
-          free_ok(ASTRA::NoExists),
-          free_goshow(ASTRA::NoExists),
-          nooccupy(ASTRA::NoExists)
+          jmp_show(ASTRA::NoExists),
+          jmp_nooccupy(ASTRA::NoExists)
     {}
 };
 
@@ -1115,7 +1113,7 @@ protected:
     xmlNodePtr      getAnswerNode() const;
 
     void initReqInfo() const;
-    
+
     AstraEngine();
 
 public:

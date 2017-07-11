@@ -2960,6 +2960,7 @@ void TSalonList::ReadPaxs( TQuery &Qry, TPaxList &pax_list )
   int idx_parent_pax_id = Qry.FieldIndex( "parent_pax_id" );
   int idx_reg_no = Qry.FieldIndex( "reg_no" );
   int idx_seats = Qry.FieldIndex( "seats" );
+  int idx_is_jmp = Qry.FieldIndex( "is_jmp" );
   int idx_pers_type = Qry.FieldIndex( "pers_type" );
   int idx_name = Qry.FieldIndex( "name" );
   int idx_surname = Qry.FieldIndex( "surname" );
@@ -2989,6 +2990,7 @@ void TSalonList::ReadPaxs( TQuery &Qry, TPaxList &pax_list )
     if(not Qry.FieldIsNULL(idx_crew_type))
         pass.crew_type = TCrewTypes().decode(Qry.FieldAsString(idx_crew_type));
     pass.seats = Qry.FieldAsInteger( idx_seats );
+    pass.is_jmp = Qry.FieldAsInteger( idx_is_jmp )!=0;
     pass.cl =  Qry.FieldAsString( idx_class );
     pass.class_grp = Qry.FieldAsInteger( idx_class_grp );
     //!logProgTrace( TRACE5, "ReadPaxs: pax_id=%d, grp_status=%s, point_arv=%d, pass.pr_web=%d",
@@ -4606,7 +4608,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     // начитываем список зарегистрированных пассажиров по маршруту  pax_list
     Qry.Clear();
     Qry.SQLText =
-      " SELECT pax.grp_id, pax.pax_id, pax.pers_type, pax.seats, class, class_grp, "
+      " SELECT pax.grp_id, pax.pax_id, pax.pers_type, pax.seats, pax.is_jmp, class, class_grp, "
       "        reg_no, pax.name, pax.surname, pax.is_female, pax_grp.status, "
       "        pax_grp.point_dep, pax_grp.point_arv, "
       "        crs_inf.pax_id AS parent_pax_id, "

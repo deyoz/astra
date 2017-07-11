@@ -2276,14 +2276,13 @@ XmlTripCounterItem XmlEntityReader::readTripCounterItem(xmlNodePtr itemNode)
     ASSERT(itemNode);
 
     XmlTripCounterItem item;
-    item.point_arv   = getIntFromXml(itemNode, "point_arv",    ASTRA::NoExists);
-    item.cls         = getStrFromXml(itemNode, "class");
-    item.noshow      = getIntFromXml(itemNode, "noshow",       ASTRA::NoExists);
-    item.trnoshow    = getIntFromXml(itemNode, "trnoshow",     ASTRA::NoExists);
-    item.show        = getIntFromXml(itemNode, "show",         ASTRA::NoExists);
-    item.free_ok     = getIntFromXml(itemNode, "free_ok",      ASTRA::NoExists);  //!!!vlad
-    item.free_goshow = getIntFromXml(itemNode, "free_goshow",  ASTRA::NoExists);
-    item.nooccupy    = getIntFromXml(itemNode, "nooccupy",     ASTRA::NoExists);
+    item.point_arv    = getIntFromXml(itemNode, "point_arv",    ASTRA::NoExists);
+    item.cls          = getStrFromXml(itemNode, "class");
+    item.noshow       = getIntFromXml(itemNode, "noshow",       ASTRA::NoExists);
+    item.trnoshow     = getIntFromXml(itemNode, "trnoshow",     ASTRA::NoExists);
+    item.show         = getIntFromXml(itemNode, "show",         ASTRA::NoExists);
+    item.jmp_show     = getIntFromXml(itemNode, "jmp_show",     ASTRA::NoExists);
+    item.jmp_nooccupy = getIntFromXml(itemNode, "jmp_nooccupy", ASTRA::NoExists);
     return item;
 }
 

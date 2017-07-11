@@ -3272,6 +3272,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p )
     "       pax_grp.class, "
     "       cls_grp.code subclass, "
     "       pax.seats, "
+    "       pax.is_jmp, "
     "       pax_grp.status, "
     "       pax.pers_type, "
     "       pax.ticket_no, "
@@ -3304,6 +3305,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p )
     pass.foundSeats = Qry.FieldAsString( "seat_no" );
     pass.clname = Qry.FieldAsString( "class" );
     pass.countPlace = Qry.FieldAsInteger( "seats" );
+    pass.is_jmp = Qry.FieldAsInteger( "is_jmp" )!=0;
     pass.tid = Qry.FieldAsInteger( "tid" );
     pass.grpId = Qry.FieldAsInteger( "grp_id" );
     pass.regNo = Qry.FieldAsInteger( "reg_no" );
@@ -3999,11 +4001,10 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
             continue;
           if ( pass.grp_status != DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) ) // разбиваем пассажиров по типам Бронь, Транзит...
             continue;
-//          if ( pass.is_jmp()) { //!!!vlad
-//            //!!!djek
-//            ProgError
-//            continue;
-//          }
+          if ( pass.is_jmp) {
+            //!!!djek ProgError?
+            continue;
+          }
           ProgTrace( TRACE5, "isSeat=%d, pass.pax_id=%d, pass.foundSeats=%s, pass.clname=%s, layer_type=%s, pass.grp_status=%s, equal_y_class=%d",
                      pass.isSeat, pass.paxId, pass.foundSeats.c_str(), pass.clname.c_str(), Qry.FieldAsString( "layer_type" ),
                      EncodeCompLayerType( pass.grp_status ), pass.clname == "Э" );
@@ -4798,11 +4799,10 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
               tst();
               continue;
             }
-//            if ( ipass->is_jmp()) { !!!vlad
-//              //!!!djek
-//              ProgError
-//              continue;
-//            }
+            if ( ipass->is_jmp) {
+              //!!!djek ProgError?
+              continue;
+            }
             TPassenger vpass;
             vpass.grpId = ipass->grp_id;
             vpass.regNo = ipass->reg_no;
@@ -4814,6 +4814,7 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
             vpass.foundSeats = string("(") + ipass->prior_seat_no( "one", salonList.isCraftLat() ) + string(")");
             vpass.isSeat = false;
             vpass.countPlace = ipass->seats;
+            vpass.is_jmp = ipass->is_jmp;
             vpass.clname = ipass->cl;
             vpass.grp_status = grp_layer_type;
             if ( ipass->pr_infant != ASTRA::NoExists ) {
