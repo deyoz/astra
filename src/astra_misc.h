@@ -455,6 +455,9 @@ std::string GetPaxPnrAddr(int pax_id, std::vector<TPnrAddrItem> &pnrs, std::stri
 //параметр back - направление поиска (true - в прошлое от base_date, false - в будущее)
 TDateTime DayToDate(int day, TDateTime base_date, bool back);
 
+enum TDateDirection { dateBefore, dateAfter, dateEverywhere };
+TDateTime DayMonthToDate(int day, int month, TDateTime base_date, TDateDirection dir);
+
 struct TTripRouteItem
 {
   TDateTime part_key;
