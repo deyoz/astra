@@ -4684,6 +4684,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   }
                   pas.preseat_no=pax.seat_no; // crs or hand made
                   pas.countPlace=pax.seats;
+                  pas.is_jmp=pax.is_jmp;
                   pas.placeRem=pax.seat_type;
                   pas.pers_type = EncodePerson(pax.pers_type);
                   bool flagCHIN=pax.pers_type != ASTRA::adult;

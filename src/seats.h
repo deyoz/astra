@@ -21,20 +21,20 @@ enum TChangeLayerFlags { flWaitList, flQuestionReseat, flSetPayLayer, flCheckPay
 enum TChangeLayerProcFlag { clNotPaySeat, clPaySeatSet, clPaySeatCheck };
 
 /* алгоритм рассадки пассажиров
-	   sdUpDown_Row - сверху вниз в ряд
-	   sdUpDown_Line - сверху вниз в линию
-	   sdDownUp_Row - снизу вверх в ряд
-	   sdDownUp_Line - снизу вверх в линию
+       sdUpDown_Row - сверху вниз в ряд
+       sdUpDown_Line - сверху вниз в линию
+       sdDownUp_Row - снизу вверх в ряд
+       sdDownUp_Line - снизу вверх в линию
 */
 enum TSeatAlgoTypes { sdUpDown_Line, sdDownUp_Line, sdUpDown_Row, sdDownUp_Row };
 
 struct TSeatAlgoParams {
-	 TSeatAlgoTypes SeatAlgoType;
-	 bool pr_canUseOneRow;
-	 TSeatAlgoParams() {
-		 SeatAlgoType = sdUpDown_Line;
-		 pr_canUseOneRow = false;
-	 }
+     TSeatAlgoTypes SeatAlgoType;
+     bool pr_canUseOneRow;
+     TSeatAlgoParams() {
+         SeatAlgoType = sdUpDown_Line;
+         pr_canUseOneRow = false;
+     }
 };
 
 class TCounters {
@@ -111,6 +111,7 @@ struct TPassenger {
     bool isSeat;
     std::string wl_type;
     int countPlace;
+    bool is_jmp;
     TSeatStep Step;
     std::string SUBCLS_REM;
     std::string maxRem;
@@ -147,6 +148,7 @@ struct TPassenger {
       bag_amount = 0;
       excess = 0;
       countPlace = 1;
+      is_jmp = false;
       prSmoke = false;
       dont_check_payment = false;
       preseat_layer = ASTRA::cltUnknown;
@@ -194,6 +196,9 @@ struct TPassenger {
       }
       if ( countPlace != 1 ) {
         buf << "countPlace=" << countPlace << ",";
+      }
+      if ( is_jmp ) {
+        buf << "is_jmp,";
       }
       if ( Step != sLeft && Step != sRight ) {
         buf << "Step=UpDown";
@@ -363,15 +368,15 @@ class TSeatPlaces {
 };
 
 struct TSublsRem {
-	std::string subclass;
-	std::string rem;
+    std::string subclass;
+    std::string rem;
 };
 
 struct TSublsRems {
-	std::string airline;
-	std::vector<TSublsRem> rems;
-	TSublsRems( const std::string &airline );
-	bool IsSubClsRem( const std::string &subclass, std::string &rem );
+    std::string airline;
+    std::vector<TSublsRem> rems;
+    TSublsRems( const std::string &airline );
+    bool IsSubClsRem( const std::string &subclass, std::string &rem );
 };
 
 bool isREM_SUBCLS( std::string rem );
