@@ -370,6 +370,7 @@ $(defmacro CHECK_TCKIN_ROUTE_2
           <pr_no_ticket_check>1</pr_no_ticket_check>
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
+          <use_jmp>0</use_jmp>
         </tripheader>
         <tripdata>
           <airps>
@@ -588,6 +589,7 @@ $(defmacro CHECK_TCKIN_ROUTE_GRP_2
           <pr_no_ticket_check>1</pr_no_ticket_check>
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
+          <use_jmp>0</use_jmp>
         </tripheader>
         <tripdata>
           <airps>
@@ -1925,6 +1927,7 @@ $(KICK_IN)
           <pr_no_ticket_check>0</pr_no_ticket_check>
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
+          <use_jmp>0</use_jmp>
         </tripheader>
         <tripdata>
           <airps>
@@ -2080,6 +2083,7 @@ $(KICK_IN)
           <pr_no_ticket_check>0</pr_no_ticket_check>
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
+          <use_jmp>0</use_jmp>
         </tripheader>
         <tripdata>
           <airps>
@@ -2569,6 +2573,7 @@ $(KICK_IN)
           <pr_no_ticket_check>0</pr_no_ticket_check>
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
+          <use_jmp>0</use_jmp>
         </tripheader>
         <tripdata>
           <airps>
@@ -2724,6 +2729,7 @@ $(KICK_IN)
           <pr_no_ticket_check>0</pr_no_ticket_check>
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
+          <use_jmp>0</use_jmp>
         </tripheader>
         <tripdata>
           <airps>
@@ -4078,7 +4084,7 @@ UNT+12+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
-UNB+SIRE:1+DCS2+DCS1+150217:0747+$(last_edifact_ref)0001+++T"
+UNB+SIRE:1+TA+OA+150217:0747+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+S7+1027+$(yymmdd)+LED+AER++T"
 RAD+I+O"
@@ -4113,6 +4119,7 @@ $(KICK_IN)
           <pr_no_ticket_check>0</pr_no_ticket_check>
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
+          <use_jmp>0</use_jmp>
         </tripheader>
         <tripdata>
           <airps>
@@ -4344,6 +4351,7 @@ $(KICK_IN)
           <pr_no_ticket_check>0</pr_no_ticket_check>
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
+          <use_jmp>0</use_jmp>
         </tripheader>
         <tripdata>
           <airps>
@@ -4637,7 +4645,7 @@ UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
-UNB+SIRE:1+DCS2+DCS1+150217:0745+$(last_edifact_ref)0001+++T"
+UNB+SIRE:1+TA+OA+150217:0745+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+S7+1027+$(yymmdd)+LED+AER++T"
 RAD+I+O"
@@ -5099,7 +5107,7 @@ UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
-UBD+R:1:13+R:1:5+R:NP"
+UBD+R:1:13+R:1:5+R:NP+R:UT:1:1:DME:298"
 UNT+6+1"
 UNZ+1+$(last_edifact_ref)0001"
 

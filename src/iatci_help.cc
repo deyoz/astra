@@ -4,6 +4,7 @@
 #include "astra_elems.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
+#include "astra_misc.h"
 #include "basetables.h"
 #include "convert.h"
 #include "tlg/edi_msg.h"
@@ -190,7 +191,7 @@ static std::string getIatciAddrType(const std::string& astraAddrType)
 }
 
 //---------------------------------------------------------------------------------------
-
+ 
 XMLDoc createXmlDoc(const std::string& xml)
 {
     XMLDoc doc;
@@ -509,6 +510,7 @@ iatci::UpdateSeatDetails makeUpdSeat(const edifact::UsdElem& usd)
 iatci::UpdateBaggageDetails makeUpdBaggage(const edifact::UbdElem& ubd)
 {
     boost::optional<iatci::UpdateBaggageDetails::BagInfo> updBag, updHandBag;
+    boost::optional<iatci::UpdateBaggageDetails::BagTagInfo> updBagTag; // TODO
     if(ubd.m_bag) {
         updBag = iatci::UpdateBaggageDetails::BagInfo(ubd.m_bag->m_numOfPieces,
                                                       ubd.m_bag->m_weight);
@@ -518,7 +520,7 @@ iatci::UpdateBaggageDetails makeUpdBaggage(const edifact::UbdElem& ubd)
                                                           ubd.m_handBag->m_weight);
     }
     return iatci::UpdateBaggageDetails(iatci::UpdateDetails::Replace,
-                                       updBag, updHandBag);
+                                       updBag, updHandBag, updBagTag);
 }
 
 iatci::UpdateServiceDetails makeUpdService(const edifact::UsiElem& usi)
@@ -812,15 +814,24 @@ iatci::UpdateDocDetails makeUpdDoc(const astra_api::astra_entities::DocInfo& new
                                    newDoc.m_expiryDate);
 }
 
-iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::BagPool& bagPool,
+iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::SegmentInfo& depSeg,
+                                           const astra_api::astra_entities::BagPool& bagPool,
                                            const astra_api::astra_entities::BagPool& handBagPool)
 {
+    TTripInfo info = {};
+    ASSERT(info.getByPointId(depSeg.m_pointDep));
+    BaseTables::Company firstAirl(info.airline);
 
     return iatci::UpdateBaggageDetails(iatci::UpdateDetails::Replace,
                                        iatci::UpdateBaggageDetails::BagInfo(bagPool.amount(),
                                                                             bagPool.weight()),
                                        iatci::UpdateBaggageDetails::BagInfo(handBagPool.amount(),
-                                                                            handBagPool.weight()));
+                                                                            handBagPool.weight()),
+                                       iatci::UpdateBaggageDetails::BagTagInfo(firstAirl->lcode(),
+                                                                               BaseTables::Port(depSeg.m_airpDep)->lcode(),
+                                                                               firstAirl->accode(),
+                                                                               1,
+                                                                               bagPool.amount()));
 }
 
 //---------------------------------------------------------------------------------------

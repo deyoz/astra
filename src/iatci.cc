@@ -1236,6 +1236,10 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
     XmlCheckInTabs reqIatciTabs(findNodeR(reqNode, "iatci_segments"));
 
+    XmlCheckInTabs ownTabs(findNodeR(reqNode, "segments"));
+    ASSERT(!ownTabs.empty());
+    const XmlCheckInTab& firstOwnTab = ownTabs.tabs().front();
+
     const XmlCheckInTab& firstOldTab = oldIatciTabs.tabs().front();
     const XmlCheckInTab& firstReqTab = reqIatciTabs.tabs().front();
 
@@ -1331,7 +1335,7 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
                                                   infant,
                                                   boost::none,
                                                   boost::none,
-                                                  iatci::makeUpdBaggage(total, handTotal),
+                                                  iatci::makeUpdBaggage(firstOwnTab.seg(), total, handTotal),
                                                   boost::none,
                                                   boost::none,
                                                   boost::none));

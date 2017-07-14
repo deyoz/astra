@@ -656,16 +656,18 @@ const std::string& SelectPersonalDetails::tickNum() const
 //---------------------------------------------------------------------------------------
 
 BaggageDetails::BaggageDetails(const boost::optional<BagInfo>& bag,
-                               const boost::optional<BagInfo>& handBag)
-    : m_bag(bag), m_handBag(handBag)
+                               const boost::optional<BagInfo>& handBag,
+                               const boost::optional<BagTagInfo>& bagTag)
+    : m_bag(bag), m_handBag(handBag), m_bagTag(bagTag)
 {}
 
 //---------------------------------------------------------------------------------------
 
 UpdateBaggageDetails::UpdateBaggageDetails(UpdateActionCode_e actionCode,
                                            const boost::optional<BagInfo>& bag,
-                                           const boost::optional<BagInfo>& handBag)
-    : UpdateDetails(actionCode), BaggageDetails(bag, handBag)
+                                           const boost::optional<BagInfo>& handBag,
+                                           const boost::optional<BagTagInfo>& bagTag)
+    : UpdateDetails(actionCode), BaggageDetails(bag, handBag, bagTag)
 {}
 
 //---------------------------------------------------------------------------------------

@@ -318,6 +318,59 @@ inline void serialize(Archive& ar, iatci::BaggageDetails::BagInfo& par, const un
 
 namespace {
 
+class BagTagInfoAccessor: private iatci::BaggageDetails::BagTagInfo
+{
+public:
+    // for save
+    explicit BagTagInfoAccessor(const iatci::BaggageDetails::BagTagInfo& b)
+        : iatci::BaggageDetails::BagTagInfo(b)
+    {}
+
+    // for load
+    BagTagInfoAccessor()
+    {}
+
+    const iatci::BaggageDetails::BagTagInfo& get() const { return *this; }
+
+    using iatci::BaggageDetails::BagTagInfo::m_carrierCode;
+    using iatci::BaggageDetails::BagTagInfo::m_dest;
+    using iatci::BaggageDetails::BagTagInfo::m_accode;
+    using iatci::BaggageDetails::BagTagInfo::m_tagSerial;
+    using iatci::BaggageDetails::BagTagInfo::m_qtty;
+};
+
+}//namespace
+
+/******
+ * BagTagInfo
+ ******/
+template<class Archive>
+inline void save(Archive& ar, const iatci::BaggageDetails::BagTagInfo& par, const unsigned int version)
+{
+    BagTagInfoAccessor acc(par);
+    ar & acc.m_carrierCode & acc.m_dest & acc.m_accode;
+    ar & acc.m_tagSerial & acc.m_qtty;
+}
+
+template<class Archive>
+inline void load(Archive& ar, iatci::BaggageDetails::BagTagInfo& par, const unsigned int version)
+{
+    BagTagInfoAccessor acc;
+    ar & acc.m_carrierCode & acc.m_dest & acc.m_accode;
+    ar & acc.m_tagSerial & acc.m_qtty;
+    par = acc.get();
+}
+
+template<class Archive>
+inline void serialize(Archive& ar, iatci::BaggageDetails::BagTagInfo& par, const unsigned int version)
+{
+    boost::serialization::split_free(ar, par, version);
+}
+
+//---------------------------------------------------------------------------------------
+
+namespace {
+
 class BaggageDetailsAccessor: private iatci::BaggageDetails
 {
 public:
@@ -334,6 +387,7 @@ public:
 
     using iatci::BaggageDetails::m_bag;
     using iatci::BaggageDetails::m_handBag;
+    using iatci::BaggageDetails::m_bagTag;
 };
 
 }//namespace
@@ -345,14 +399,14 @@ template<class Archive>
 inline void save(Archive& ar, const iatci::BaggageDetails& par, const unsigned int version)
 {
     BaggageDetailsAccessor acc(par);
-    ar & acc.m_bag & acc.m_handBag;
+    ar & acc.m_bag & acc.m_handBag & acc.m_bagTag;
 }
 
 template<class Archive>
 inline void load(Archive& ar, iatci::BaggageDetails& par, const unsigned int version)
 {
     BaggageDetailsAccessor acc;
-    ar & acc.m_bag & acc.m_handBag;
+    ar & acc.m_bag & acc.m_handBag & acc.m_bagTag;
     par = acc.get();
 }
 
