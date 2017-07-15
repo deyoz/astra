@@ -257,7 +257,7 @@ struct TCondRate {
   void Init( SALONS2::TSalons &Salons, bool apr_pay, TClientType client_type ) {
     pr_web = apr_pay;
     use_rate = ( client_type == ctTerm || client_type == ctPNL );
-    ProgTrace( TRACE5, "use_rate=%d", use_rate);
+    ProgTrace( TRACE5, "TCondRate::Init use_rate=%d", use_rate);
     rates.clear();
     ignore_rate = false;
     rates.insert( TSeatTariff( "", 0.0, "" ) ); // всегда задаем - означает, что надо использовать места без тарифа
@@ -309,13 +309,13 @@ struct TCondRate {
 
   bool CanUseRate( TPlace *place ) { /* если все возможные тарифы попробовали при рассадке и не смогли рассадить или нет тарифов на рейсе или место без тарифа, то можно использовать */
     bool res = ( pr_web || (current_rate_end() && use_rate) /*!!!|| place->SeatTariff.empty()*/ || ignore_rate );
-//    ProgTrace( TRACE5, "CanUseRate: x=%d, y=%d, place->SeatTariff=%s, res=%d,use_rate=%d,  current_rate=%s",
-//               place->x, place->y, place->SeatTariff.str().c_str(), res, use_rate, current_rate->str().c_str() );
+//    ProgTrace( TRACE5, "CanUseRate: x=%d, y=%d, place->SeatTariff=%s, res=%d,use_rate=%d",
+//               place->x, place->y, place->SeatTariff.str().c_str(), res, use_rate/*, current_rate->str().c_str() );
     if ( !res ) {
       for ( set<TSeatTariff,SeatTariffCompare>::iterator i=rates.begin(); ; i++ ) { // просмотр всех тарифов, кот. сортированы в порядке возрастания приоритета использования
-        if ( i->rate == place->SeatTariff.rate &&
+        if ( i != rates.end() &&
+             i->rate == place->SeatTariff.rate &&
              i->color == place->SeatTariff.color ) {
-          //tst();
           if ( use_rate || i->rate == 0.0 ) {
             res = true;
           }
@@ -890,8 +890,8 @@ int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep 
   vector<SALONS2::TRem>::iterator prem;
   vector<string>::iterator irem;
 /*  if ( SeatAlg == 1 && !canUseSUBCLS && CanUseRems == sNotUse_NotUseDenial )
-      ProgTrace( TRACE5, "sNotUse_NotUseDenial CurrSalon->placeIsFree( place )=%d,place->isplace=%d,place->visible=%d,Passengers.clname=%s",
-                 CurrSalon->placeIsFree( place ),place->isplace,place->visible,Passengers.clname.c_str() );*/
+      ProgTrace( TRACE5, "sNotUse_NotUseDenial CurrSalon->placeIsFree( place )=%d,place->isplace=%d,place->visible=%d,Passengers.clname=%s, VerifyUseLayer( place )=%d, condRates.CanUseRate( place )=%d,  AllowedAttrsSeat.passSeat( place )=%d",
+                 CurrSalon->placeIsFree( place ),place->isplace,place->visible,Passengers.clname.c_str(), VerifyUseLayer( place ), condRates.CanUseRate( place ),  AllowedAttrsSeat.passSeat( place ) );*/
   while ( CurrSalon->placeIsFree( place ) && place->isplace && place->visible &&
           place->clname == Passengers.clname &&
           Result + foundCount < MAXPLACE() &&
@@ -959,7 +959,7 @@ int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep 
         if ( CanUseRems == sNotUseDenial ) break;
       case sNotUse:
          for( vector<SALONS2::TRem>::const_iterator prem=place->rems.begin(); prem!=place->rems.end(); prem++ ) {
-//  	     	 ProgTrace( TRACE5, "sNotUse: Result=%d, FP.x=%d, FP.y=%d, rem=%s", Result, FP.x, FP.y, prem->rem.c_str() );
+//           ProgTrace( TRACE5, "sNotUse: Result=%d, FP.x=%d, FP.y=%d, rem=%s", Result, FP.x, FP.y, prem->rem.c_str() );
                if ( !prem->pr_denial ) {
                  return Result;
                }
@@ -1661,7 +1661,6 @@ bool TSeatPlaces::SeatGrpOnBasePlace( )
               for ( vector<TPoint>::iterator ic=icoord->coords[ varCoord ].begin(); ic!=icoord->coords[ varCoord ].end(); ic++ ) {
                 if ( SeatSubGrp_On( *ic, pass.Step, 0 ) && LSD( G3, G2, G, V3, V2, (TWhere )Where ) ) {
                     //ProgTrace( TRACE5, "G3=%d, G2=%d, G=%d, V3=%d, V2=%d, commit", G3, G2, G, V3, V2 );
-                    tst();
                   return true;
                 }
                 //ProgTrace( TRACE5, "rollback" );
@@ -1705,8 +1704,8 @@ bool TSeatPlaces::SeatsGrp( )
      CurrSalon->SetCurrPlaceList( icoord->placeList );
      for ( vector<TPoint>::iterator ic=icoord->coords[ varCoord ].begin(); ic!=icoord->coords[ varCoord ].end(); ic++ ) {
          if ( SeatsGrp_On( *ic ) ) {
-         return true;
-       }
+           return true;
+         }
      }
    }
  }
@@ -1757,7 +1756,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
 //                tst();
                 continue;
               }
-//              ProgTrace( TRACE5, "pax_id=%d,ik=%d, FCanUseINFT=%d, ipass->countPlace=%d, pass.INFT=%d", ipass->paxId,ik, FCanUseINFT, ipass->countPlace, ipass->isRemark( "INFT" ) );
+//          ProgTrace( TRACE5, "pax_id=%d,ik=%d, FCanUseINFT=%d, ipass->countPlace=%d, pass.INFT=%d", ipass->paxId,ik, FCanUseINFT, ipass->countPlace, ipass->isRemark( "INFT" ) );
               /*???31.03.11        if ( ipass->InUse || PlaceLayer == cltProtCkin && !CanUseLayer( cltProtCkin, UseLayers ) && //!!!
                                ( ipass->layer != PlaceLayer || ipass->preseat.empty() || ipass->preseat != ipass->placeName ) )
           continue;*/
@@ -1796,8 +1795,8 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
                 if ( i == 2 || ( i == 0 && canUseSUBCLS && ipass->SUBCLS_REM != SUBCLS_REM ) )
                   continue; // сейчас идет поиск по подклассам, а у пассажира его нет - не пытаемся его рассадить
                 if ( i == 1 ) { // сейчас идет поиск мест для пассажиров у которых нет подкласса
-                  /*       		  	ProgTrace( TRACE5, "ipass->SUBCLS_REM=%s, SUBCLS_REM=%s, canUseSUBCLS=%d, pr_seat_SUBCLS=%d",
-                           ipass->SUBCLS_REM.c_str(), SUBCLS_REM.c_str(), canUseSUBCLS, pr_seat_SUBCLS );*/
+/*                                                ProgTrace( TRACE5, "ipass->SUBCLS_REM=%s, SUBCLS_REM=%s, canUseSUBCLS=%d",
+                           ipass->SUBCLS_REM.c_str(), SUBCLS_REM.c_str(), canUseSUBCLS );*/
                   if ( canUseSUBCLS && !pr_seat )
                     continue;
                   FindSUBCLS = false;
@@ -3971,6 +3970,7 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
   CanUseTube = true;
   CanUseAlone = uTrue;
   SeatPlaces.Clear();
+  condRates.Init( Salons, false, TReqInfo::Instance()->client_type ); // собирает все типы платных мест в массив по приоритетам, если это web-клиент, то не учитываем
 
   //!!! не задано pass.placeName, pass.PrevPlaceName, pass.OldPlaceName, pass.placeList,pass.InUse ,x,y???
     TQuery Qry( &OraSession );
@@ -4788,6 +4788,8 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
         CanUseAlone = uTrue;
         SeatPlaces.Clear();
         Passengers.Clear();
+        condRates.Init( SalonsN, false, TReqInfo::Instance()->client_type ); // собирает все типы платных мест в массив по приоритетам, если это web-клиент, то не учитываем
+
 
         try {
           for ( std::set<TSalonPax,ComparePassenger>::iterator ipass=ipass_status->second.begin();
