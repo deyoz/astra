@@ -6082,7 +6082,7 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
   }
 }
 
-void getStrWaitListReasion( const std::string &fullname,
+void getStrWaitListReason( const std::string &fullname,
                                    const std::string &seat_no,
                                    const std::string &airp_dep,
                                    const std::string &airp_arv,
@@ -6159,7 +6159,7 @@ void CheckWaitListToLog( TQuery &QryAirp,
   switch( waitListReason.layerStatus ) {
     case layerInvalid:
       params << PrmLexema("reason", "EVT.REASON_LAYER_INVALID");
-      getStrWaitListReasion( fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
+      getStrWaitListReason( fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
       break;
     case layerLess:
       airp_dep.clear();
@@ -6183,44 +6183,44 @@ void CheckWaitListToLog( TQuery &QryAirp,
       switch ( waitListReason.layer.layer_type ) {
         case cltBlockCent:
           params << PrmLexema("reason", "EVT.REASON_BLOCK_CENT");
-          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
+          getStrWaitListReason(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
           break;
         case cltDisable:
           params << PrmLexema("reason", "EVT.REASON_DISABLE");
-          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
+          getStrWaitListReason(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
           break;
         case cltProtBeforePay:
         case cltProtAfterPay:
         case cltPNLBeforePay:
         case cltPNLAfterPay:
           params << PrmLexema("reason", "EVT.REASON_PAYMENT");
-          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
+          getStrWaitListReason(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
           break;
         case cltBlockTrzt:
         case cltSOMTrzt:
         case cltPRLTrzt:
         case cltProtTrzt:
           params << PrmLexema("reason", "EVT.REASON_TRZT");
-          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
+          getStrWaitListReason(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
           break;
         case cltPNLCkin:
           params << PrmLexema("reason", "EVT.REASON_PNL_CKIN");
-          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
+          getStrWaitListReason(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
           break;
         case cltProtCkin:
           params << PrmLexema("reason", "EVT.REASON_PROT_CKIN");
-          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
+          getStrWaitListReason(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
           break;
         case cltProtect:
           params << PrmLexema("reason", "EVT.REASON_PROTECT");
-          getStrWaitListReasion(fullname, airp_dep, new_seat_no, airp_arv, regNo, params);
+          getStrWaitListReason(fullname, airp_dep, new_seat_no, airp_arv, regNo, params);
           break;
         case cltCheckin:
         case cltTCheckin:
         case cltGoShow:
         case cltTranzit:
           params << PrmLexema("reason", "EVT.REASON_COOUPIED");
-          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
+          getStrWaitListReason(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
         default:;
       };
       break;
@@ -6299,6 +6299,9 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
                 igrp_layer!=iclass->second.end(); igrp_layer++ ) {
             for ( std::set<TSalonPax,ComparePassenger>::iterator ipass=igrp_layer->second.begin();
                   ipass!=igrp_layer->second.end(); ipass++ ) {
+              if ( ipass->is_jmp ) {
+                continue;
+              }
               passes[ ipass->pax_id ] = *ipass;
               ipass->get_seats( waitListReason, seats );
               if ( waitListReason.layerStatus != layerValid ) {
@@ -9499,6 +9502,10 @@ void TSalonPax::get_seats( TWaitListReason &waitListReason,
 
 std::string TSalonPax::seat_no( const std::string &format, bool pr_lat_seat, TWaitListReason &waitListReason ) const
 {
+  if ( is_jmp ) {
+    tst();
+    return "JMP";
+  }
   TPassSeats seats;
   TSeatRanges ranges;
   get_seats( waitListReason, seats );
@@ -9735,13 +9742,13 @@ bool _TSalonPassengers::BuildWaitList( xmlNodePtr dataNode )
         }
       }
       NewTextChild( passNode, "seat_no", seat_no, def.placeName );
-      if ( waitListReason.layerStatus != layerValid && status_wait_list == wlNo ) {
+      if ( !ipass->is_jmp && waitListReason.layerStatus != layerValid && status_wait_list == wlNo ) {
         status_wait_list = wlYes; //есть ЛО
       }
       NewTextChild( passNode, "wl_type", Qry.FieldAsString( "wl_type" ), def.wl_type );
       NewTextChild( passNode, "seats", ipass->seats, def.countPlace );
       NewTextChild( passNode, "tid", Qry.FieldAsInteger( "tid" ) );
-      NewTextChild( passNode, "isseat", (int)waitListReason.layerStatus == layerValid, (int)def.isSeat );
+      NewTextChild( passNode, "isseat", (int)waitListReason.layerStatus == layerValid || ipass->is_jmp, (int)def.isSeat );
       NewTextChild( passNode, "ticket_no", Qry.FieldAsString( "ticket_no" ), def.ticket_no );
       NewTextChild( passNode, "document",
                     CheckIn::GetPaxDocStr(NoExists, ipass->pax_id, true),
