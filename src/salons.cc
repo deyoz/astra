@@ -9790,7 +9790,7 @@ bool _TSalonPassengers::isWaitList( )
                 ipass!=igrp_layer->second.end(); ipass++ ) {
             TWaitListReason waitListReason;
             ipass->get_seats( waitListReason, seats );
-            if ( waitListReason.layerStatus != layerValid ) {
+            if ( !ipass->is_jmp && waitListReason.layerStatus != layerValid ) {
               status_wait_list = wlYes;
               break;
             }
