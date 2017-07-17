@@ -71,7 +71,7 @@ UNZ+1+$(last_edifact_ref)0001"
 
 
 <<
-UNB+SIRE:1+UT+1H+121212:1212+$(last_edifact_ref 1)0001+++T"
+UNB+SIRE:1+UTET+UTDC+121212:1212+$(last_edifact_ref 1)0001+++T"
 UNH+1+TKCRES:06:1:IA+$(last_edifact_ref 1)"
 MSG+:791+3"
 TIF+’…‘’Ž‚€:F+€‘‘€†ˆŠ€"
@@ -107,7 +107,7 @@ UNT+32+1"
 UNZ+1+$(last_edifact_ref 1)0001"
 
 <<
-UNB+SIRE:1+UT+1H+121212:1212+$(last_edifact_ref)0001+++T"
+UNB+SIRE:1+UTET+UTDC+121212:1212+$(last_edifact_ref)0001+++T"
 UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
 MSG+:791+3"
 TIF+’…‘’Ž‚€:F+€‘‘€†ˆŠ€"

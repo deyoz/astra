@@ -3266,7 +3266,7 @@ static boost::optional<TGrpMktFlight> LoadIatciMktFlight(int grpId)
     std::string xmlData = iatci::IatciXmlDb::load(grpId);
     if(!xmlData.empty())
     {
-        XMLDoc xmlDoc = iatci::createXmlDoc(xmlData);
+        XMLDoc xmlDoc = ASTRA::createXmlDoc(xmlData);
         xmlNodePtr tripHeaderNode = findNodeR(xmlDoc.docPtr()->children, "tripheader");
         if(tripHeaderNode)
         {
@@ -7067,7 +7067,7 @@ void CheckInInterface::LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int 
 //            IatciInterface::PasslistRequest(reqNode, grpId);
 //            return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO #25409
 //        }
-        XMLDoc xmlDoc = iatci::createXmlDoc(xmlData);
+        XMLDoc xmlDoc = ASTRA::createXmlDoc(xmlData);
 
         xmlNodePtr srcSegsNode = findNodeR(xmlDoc.docPtr()->children, "segments");
         ASSERT(srcSegsNode != NULL);

@@ -8,6 +8,7 @@
 #include "astra_emd_view_xml.h"
 #include "astra_tick_read_edi.h"
 #include "exceptions.h"
+#include "environ.h"
 #include "astra_locale.h"
 #include "astra_consts.h"
 #include "astra_misc.h"
@@ -26,6 +27,7 @@
 #include <serverlib/testmode.h>
 
 #include "emdoc.h"
+#include "astra_pnr.h"
 #include "astra_emd.h"
 #include "astra_emd_view_xml.h"
 #include "edi_utils.h"
@@ -38,6 +40,7 @@
 #include "tlg/emd_system_update_request.h"
 #include "tlg/emd_cos_request.h"
 #include "tlg/emd_edifact.h"
+#include "tlg/et_rac_request.h"
 #include "tlg/remote_results.h"
 #include "tlg/remote_system_context.h"
 #include "tlg/postpone_edifact.h"
@@ -55,6 +58,7 @@ using namespace Ticketing::TickReader;
 using namespace Ticketing::TickView;
 using namespace Ticketing::TickMng;
 using namespace Ticketing::ChangeStatus;
+using namespace Ticketing::RemoteSystemContext;
 using namespace boost::gregorian;
 using namespace boost::posix_time;
 using namespace ASTRA;
@@ -594,7 +598,29 @@ void EMDSearchInterface::EMDTextView(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   AstraLocale::showProgError("MSG.ETS_EDS_CONNECT_ERROR");
 }
 
-Pnr readPnr(const string &tlg_text)
+Ticketing::Pnr readPnr(const std::string& tlg_text, edifact::EdiMessageType tlg_type)
+{
+    int ret = ReadEdiMessage(tlg_text.c_str());
+    if(ret == EDI_MES_STRUCT_ERR){
+      throw EXCEPTIONS::Exception("Error in message structure: %s",EdiErrGetString());
+    } else if( ret == EDI_MES_NOT_FND){
+      throw EXCEPTIONS::Exception("No message found in template: %s",EdiErrGetString());
+    } else if( ret == EDI_MES_ERR) {
+      throw EXCEPTIONS::Exception("Edifact error ");
+    }
+
+    try {
+      Pnr pnr = PnrRdr::doRead<Pnr>(PnrEdiRead(GetEdiMesStruct(), tlg_type));
+      Pnr::Trace(TRACE2, pnr);
+      return pnr;
+    }
+    catch(edilib::EdiExcept &e)
+    {
+      throw EXCEPTIONS::Exception("edilib: %s", e.what());
+    }
+}
+
+Pnr readDispPnr(const string &tlg_text)
 {
   int ret = ReadEdiMessage(tlg_text.c_str());
   if(ret == EDI_MES_STRUCT_ERR){
@@ -605,33 +631,53 @@ Pnr readPnr(const string &tlg_text)
     throw EXCEPTIONS::Exception("Edifact error ");
   }
 
-  EDI_REAL_MES_STRUCT *pMes= GetEdiMesStruct();
-  int num = GetNumSegGr(pMes, 3);
-  if(!num){
-    if(GetNumSegment(pMes, "ERC")){
-      const char *errc = GetDBFName(pMes, DataElement(9321),
-                                    "ET_NEG",
-                                    CompElement("C901"),
-                                    SegmElement("ERC"));
-      ProgTrace(TRACE1, "ETS: ERROR %s", errc);
-      const char * err_msg = GetDBFName(pMes,
-                                        DataElement(4440),
-                                        SegmElement("IFT"));
-      if (*err_msg==0)
-      {
-          tst();
-        throw AstraLocale::UserException("MSG.ETICK.ETS_ERROR", LParams() << LParam("msg", errc));
+  return readDispPnr(GetEdiMesStruct());
+}
+
+Ticketing::Pnr readDispPnr(EDI_REAL_MES_STRUCT *pMes)
+{
+    int num = GetNumSegGr(pMes, 3);
+    if(!num){
+      if(GetNumSegment(pMes, "ERC")){
+        const char *errc = GetDBFName(pMes, DataElement(9321),
+                                      "ET_NEG",
+                                      CompElement("C901"),
+                                      SegmElement("ERC"));
+        ProgTrace(TRACE1, "ETS: ERROR %s", errc);
+        const char * err_msg = GetDBFName(pMes,
+                                          DataElement(4440),
+                                          SegmElement("IFT"));
+        if (*err_msg==0)
+        {
+            tst();
+          throw AstraLocale::UserException("MSG.ETICK.ETS_ERROR", LParams() << LParam("msg", errc));
+        }
+        else
+        {
+          ProgTrace(TRACE1, "ETS: %s", err_msg);
+          throw AstraLocale::UserException("MSG.ETICK.ETS_ERROR", LParams() << LParam("msg", err_msg));
+        }
       }
-      else
-      {
-        ProgTrace(TRACE1, "ETS: %s", err_msg);
-        throw AstraLocale::UserException("MSG.ETICK.ETS_ERROR", LParams() << LParam("msg", err_msg));
+      throw EXCEPTIONS::Exception("ETS error");
+    } else if(num==1){
+      try{
+        Pnr pnr = PnrRdr::doRead<Pnr>(PnrEdiRead(pMes, edifact::EdiDisplRes));
+        Pnr::Trace(TRACE2, pnr);
+        return pnr;
       }
+      catch(edilib::EdiExcept &e)
+      {
+        throw EXCEPTIONS::Exception("edilib: %s", e.what());
+      }
+    } else {
+      throw AstraLocale::UserException("MSG.ETICK.ET_LIST_VIEW_UNSUPPORTED"); //пока не поддерживается
     }
-    throw EXCEPTIONS::Exception("ETS error");
-  } else if(num==1){
+}
+
+Ticketing::Pnr readUacPnr(EDI_REAL_MES_STRUCT *pMes)
+{
     try{
-      Pnr pnr = PnrRdr::doRead<Pnr>(PnrEdiRead(GetEdiMesStruct()));
+      Pnr pnr = PnrRdr::doRead<Pnr>(PnrEdiRead(pMes, edifact::EdiUacReq));
       Pnr::Trace(TRACE2, pnr);
       return pnr;
     }
@@ -639,10 +685,7 @@ Pnr readPnr(const string &tlg_text)
     {
       throw EXCEPTIONS::Exception("edilib: %s", e.what());
     }
-  } else {
-    throw AstraLocale::UserException("MSG.ETICK.ET_LIST_VIEW_UNSUPPORTED"); //пока не поддерживается
-  }
-};
+}
 
 void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
                                     xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -652,7 +695,7 @@ void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
 
     edifact::pRemoteResults remRes = edifact::RemoteResults::readSingle();
     try {
-        Pnr pnr=readPnr(remRes->tlgSource());
+        Pnr pnr=readDispPnr(remRes->tlgSource());
         xmlNodePtr dataNode=getNode(astra_iface(resNode, "ETViewForm"),"data");
         PnrDisp::doDisplay(PnrXmlView(dataNode), pnr);
     }
@@ -2615,6 +2658,41 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   }
 }
 
+//---------------------------------------------------------------------------------------
+
+void ETRequestACInterface::RequestControl(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+
+    int pointId  = NodeAsInteger("point_id", reqNode);
+    Ticketing::TicketNum_t tickNum(NodeAsString("TickNoEdit", reqNode));
+    CouponNum_t cpnNum(NodeAsInteger("TickCpnNo", reqNode));
+
+    LogTrace(TRACE3) << pointId << "/" << tickNum << cpnNum;
+
+    TTripInfo info;
+    info.getByPointId(pointId);
+
+    const OrigOfRequest org = OrigOfRequest(airlineToXML(info.airline, LANG_RU), *TReqInfo::Instance());
+
+
+    SendEtRacRequest(edifact::EtRacParams(org,
+                                          "",
+                                          edifact::KickInfo(),
+                                          info.airline,
+                                          Ticketing::FlightNum_t(info.flt_no),
+                                          tickNum,
+                                          cpnNum));
+
+}
+
+void ETRequestACInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+}
+
+//---------------------------------------------------------------------------------------
+
 void handleEtDispResponse(const edifact::RemoteResults& remRes)
 {
     edilib::EdiSessionId_t ediSessId = remRes.ediSession();
@@ -2623,7 +2701,7 @@ void handleEtDispResponse(const edifact::RemoteResults& remRes)
     try
     {
         if (!pnr) {
-            pnr = readPnr(remRes.tlgSource());
+            pnr = readDispPnr(remRes.tlgSource());
         }
         ETDisplayToDB(pnr.get());
     }
@@ -2678,7 +2756,7 @@ void handleEtDispResponse(const edifact::RemoteResults& remRes)
 
             try
             {
-                if (!pnr) pnr = readPnr(remRes.tlgSource());
+                if (!pnr) pnr = readDispPnr(remRes.tlgSource());
 
                 edifact::KickInfo kickInfo;
                 kickInfo.fromXML(rootNode);
@@ -3021,4 +3099,34 @@ void handleEtCosResponse(const edifact::RemoteResults& remRes)
     addToEdiResponseCtxt(req_ctxt_id, ticketNode, "tickets");
 
     AstraContext::ClearContext("EDI_SESSION", ediSessId.get());
+}
+
+void handleEtRacResponse(const edifact::RemoteResults& remRes)
+{
+    using namespace edifact;
+
+    LogTrace(TRACE3) << __FUNCTION__;
+
+    if(remRes.status() == RemoteStatus::Success)
+    {
+        try {
+            int readStatus = ReadEdiMessage(remRes.tlgSource().c_str());
+            ASSERT(readStatus == EDI_MES_OK);
+            Ticketing::saveWcPnr(SystemContext::Instance(STDLOG).airlineImpl()->ida(),
+                                 Ticketing::EdiPnr(remRes.tlgSource(), EdiRacRes));
+        }
+        catch(std::exception &e) {
+            ProgTrace(TRACE5, ">>>> %s: %s", __FUNCTION__, e.what());
+        }
+        catch(...) {
+            ProgTrace(TRACE5, ">>>> %s: unknown error", __FUNCTION__);
+        }
+    }
+}
+
+void handleEtUac(const std::string& uac)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+    Ticketing::saveWcPnr(SystemContext::Instance(STDLOG).airlineImpl()->ida(),
+                         Ticketing::EdiPnr(uac, edifact::EdiUacReq));
 }

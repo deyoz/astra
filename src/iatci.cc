@@ -122,7 +122,7 @@ namespace
         {
             LogTrace(TRACE3) << "read iatci paxseg for grpId: " << grpId
                              << " and segInd:" << segInd;
-            XMLDoc loadedDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(grpId));
+            XMLDoc loadedDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(grpId));
             XmlCheckInTabs loadedTabs(findNodeR(loadedDoc.docPtr()->children, "segments"));
             std::list<XmlSegment> lSeg = algo::transform< std::list<XmlSegment> >(loadedTabs.tabs(),
                 [](const XmlCheckInTab& tab) { return tab.xmlSeg(); });
@@ -730,7 +730,7 @@ static std::string getOldSeat(xmlNodePtr reqNode)
     ASSERT(tripIdNode != NULL && !NodeIsNULL(tripIdNode));
     int magicId = NodeAsInteger(tripIdNode);
     iatci::MagicTab magicTab = iatci::MagicTab::fromNeg(magicId);
-    XMLDoc oldXmlDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(magicTab.grpId()));
+    XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(magicTab.grpId()));
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
     const XmlCheckInTab& oldIatciTab = oldIatciTabs.tabs().at(magicTab.tabInd() - 1);
     ASSERT(!oldIatciTab.lPax().empty());
@@ -755,7 +755,7 @@ static PointInfo readPointInfo(int grpId)
 static std::string getIatciRequestContext(const edifact::KickInfo& kickInfo = edifact::KickInfo())
 {
     // TODO fill whole context
-    XMLDoc xmlCtxt = iatci::createXmlDoc("<context/>");
+    XMLDoc xmlCtxt = ASTRA::createXmlDoc("<context/>");
     xmlNodePtr rootNode = NodeAsNode("/context", xmlCtxt.docPtr());
     kickInfo.toXML(rootNode);
     SetProp(rootNode,"req_ctxt_id", kickInfo.reqCtxtId);
@@ -1107,7 +1107,7 @@ static iatci::OriginatorDetails makeOrg(int grpId)
 static iatci::CkxParams getCkxParams(xmlNodePtr reqNode)
 {
     int ownGrpId = getGrpId(reqNode, NULL, IatciInterface::Ckx);
-    XMLDoc xmlDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
+    XMLDoc xmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
 
     XmlCheckInTabs oldIatciTabs(findNodeR(xmlDoc.docPtr()->children, "segments"));
     XmlCheckInTabs reqIatciTabs(findNodeR(reqNode, "iatci_segments"));
@@ -1185,7 +1185,7 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
                      << "; paxId: " << paxId;
 
     int ownGrpId = magicTab.grpId();
-    XMLDoc oldXmlDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
+    XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
 
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
     ASSERT(magicTab.tabInd() <= oldIatciTabs.size() && magicTab.tabInd() > 0);
@@ -1231,7 +1231,7 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
 static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
 {
     int ownGrpId = getGrpId(reqNode, NULL, IatciInterface::Cku);
-    XMLDoc oldXmlDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
+    XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
 
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
     XmlCheckInTabs reqIatciTabs(findNodeR(reqNode, "iatci_segments"));
@@ -1358,7 +1358,7 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
     }
 
     int ownGrpId = getGrpId(reqNode, NULL, IatciInterface::Cku);
-    XMLDoc oldXmlDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
+    XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
 
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
     XmlCheckInTabs reqIatciTabs(findNodeR(reqNode, "iatci_segments"));
@@ -1473,7 +1473,7 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
 static iatci::BprParams getBprParams(xmlNodePtr reqNode)
 {
     int ownGrpId = NodeAsInteger("grp_id", reqNode);
-    XMLDoc oldXmlDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
+    XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
     ASSERT(!oldIatciTabs.tabs().empty());
 
@@ -1520,7 +1520,7 @@ static iatci::SmfParams getSmfParams(int magicId)
     }
 
     iatci::MagicTab magicTab = iatci::MagicTab::fromNeg(magicId);
-    XMLDoc oldXmlDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(magicTab.grpId()));
+    XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(magicTab.grpId()));
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
     const XmlCheckInTab& oldIatciTab = oldIatciTabs.tabs().at(magicTab.tabInd() - 1);
 
@@ -1566,7 +1566,7 @@ static void SaveIatciCkxXmlRes(xmlNodePtr iatciResNode, int grpId)
 {
     LogTrace(TRACE3) << __FUNCTION__;
 
-    XMLDoc loadedDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(grpId));
+    XMLDoc loadedDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(grpId));
     xmlNodePtr loadedSegsNode = findNodeR(loadedDoc.docPtr()->children, "segments");
 
     // считаем, что список отменяемых пассажиров один и тот же на разных сегментах
@@ -1651,7 +1651,7 @@ static void UpdateIatciGrp(int grpId, IatciInterface::RequestType reqType,
                            xmlNodePtr ediResNode, xmlNodePtr termReqNode, xmlNodePtr resNode)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId:" << grpId;
-    XMLDoc loadedDoc = iatci::createXmlDoc(iatci::IatciXmlDb::load(grpId));
+    XMLDoc loadedDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(grpId));
 
     boost::optional<iatci::CkuParams> ckuParams;
     if(isReseatReq(termReqNode)) {
@@ -2135,7 +2135,7 @@ static IatciViewXmlParams getIatciViewXmlParams(xmlNodePtr node)
 
 static IatciViewXmlParams getIatciViewXmlParams(int grpId)
 {
-    XMLDoc oldXml = iatci::createXmlDoc(iatci::IatciXmlDb::load(grpId));
+    XMLDoc oldXml = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(grpId));
     return getIatciViewXmlParams(oldXml.docPtr()->children);
 }
 
@@ -2149,7 +2149,7 @@ void IatciInterface::DoKickAction(int ctxtId,
     FuncIn(DoKickAction);
     ReqParams(reqNode).setBoolParam("after_kick", true);        
 
-    XMLDoc iatciResCtxt = iatci::createXmlDoc("<iatci_result/>");
+    XMLDoc iatciResCtxt = ASTRA::createXmlDoc("<iatci_result/>");
     xmlNodePtr iatciResNode = NodeAsNode(std::string("/iatci_result").c_str(), iatciResCtxt.docPtr());
     xmlNodePtr segmentsNode = newChild(iatciResNode, "segments");
 

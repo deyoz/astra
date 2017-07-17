@@ -19,6 +19,7 @@
 #include "CheckinBaseTypes.h"
 #include "EdifactProfile.h"
 #include "iatci_settings.h"
+#include "basetables.h"
 
 #include <etick/lang.h>
 #include <etick/tick_data.h>
@@ -33,6 +34,9 @@
 #include <boost/optional.hpp>
 
 
+namespace OciCpp { class CursCtl; }
+
+
 namespace Ticketing
 {
 
@@ -43,6 +47,7 @@ namespace RemoteSystemContext
       std::string m_airline;
       Ticketing::FlightNum_t m_flNum;
       public:
+        system_not_found() {}
         system_not_found(const std::string &v_airline, const Ticketing::FlightNum_t &v_flNum) : m_airline(v_airline), m_flNum(v_flNum) {}
         const std::string &airline() const { return m_airline; }
         const Ticketing::FlightNum_t &flNum() const { return m_flNum; }
@@ -139,7 +144,7 @@ namespace RemoteSystemContext
 
         Ticketing::SystemAddrs_t Ida;
         std::string CanonName;
-        std::string Airline;
+        std::string RemoteAirline;
         std::string OurAddrEdifact;
         std::string RemoteAddrEdifact;
         std::string OurAddrEdifactExt;
@@ -160,14 +165,20 @@ namespace RemoteSystemContext
         void checkContinuity() const;
         void readEdifactProfile();
 
+        static SystemContext readByEdiAddrs
+                (const std::string& source, const std::string& source_ext,
+                 const std::string& dest,   const std::string& dest_ext);
+
     protected:
         static Ticketing::SystemAddrs_t getNextId();
+
+        static SystemContext defSelData(OciCpp::CursCtl& cur);
 
         static pSystemContext SysCtxt;
     public:
         Ticketing::SystemAddrs_t ida() const           { return Ida;                  }
         const std::string& canonName() const           { return CanonName;            }
-        const std::string& airline() const             { return Airline;              }
+        const std::string& airline() const             { return RemoteAirline;        }
         const std::string& ourAddrEdifact() const      { return OurAddrEdifact;       }
         const std::string& remoteAddrEdifact() const   { return RemoteAddrEdifact;    }
         const std::string& ourAddrAirimp() const       { return OurAddrAirimp;        }
@@ -179,6 +190,8 @@ namespace RemoteSystemContext
 
         edifact::EdifactProfile edifactProfile() const;
 
+        BaseTables::Company airlineImpl() const;
+
         unsigned edifactResponseTimeOut() const;
         InboundTlgInfo& inbTlgInfo() const { return InbTlgInfo; }
 
@@ -188,14 +201,11 @@ namespace RemoteSystemContext
 
         static bool initialized();
 
-        /*
-         * @brief TODO !!!
-         *        Сейчас при получении входящей тлг экземпляр SystemContext
-         *        необходим только для проброса текста входящей тлг, поэтому
-         *        нет особого смысла читать его по edifact адресам
-         *        Сделаем это в будущем.
-         */
         static SystemContext* initDummyContext();
+        static SystemContext* initEdifact(const std::string& src, const std::string& src_ext,
+                                          const std::string& dest,const std::string& dest_ext);
+        static SystemContext* initEdifactByAnswer(const std::string& src, const std::string& src_ext,
+                                                  const std::string& dest,const std::string& dest_ext);
 
         static SystemContext* init(const SystemContext &);
         /**
@@ -249,6 +259,9 @@ namespace RemoteSystemContext
     public:
         EdsSystemContext(const SystemContext& baseCnt, const EdsSystemSettings &Settings = EdsSystemSettings());
         static EdsSystemContext* read(const std::string& airl, const Ticketing::FlightNum_t& flNum);
+        static SystemContext* readByEdiAddrs(const std::string& source, const std::string& source_ext,
+                                             const std::string& dest,   const std::string& dest_ext,
+                                             bool throwNf = true);
 
 #ifdef XP_TESTING
         static EdsSystemContext* create4TestsOnly(const std::string& airline,
@@ -275,6 +288,9 @@ namespace RemoteSystemContext
         virtual void updateDb();
 
         virtual ~EdsSystemContext() {}
+
+    private:
+        static std::string getSelectSql();
     };
 
 //---------------------------------------------------------------------------------------
@@ -288,6 +304,9 @@ namespace RemoteSystemContext
         DcsSystemContext(const SystemContext& baseCnt);
         static DcsSystemContext* read(const std::string& airl,
                                       const Ticketing::FlightNum_t& flNum = Ticketing::FlightNum_t());
+        static SystemContext* readByEdiAddrs(const std::string& source, const std::string& source_ext,
+                                             const std::string& dest,   const std::string& dest_ext,
+                                             bool throwNf = true);
 
         iatci::IatciSettings iatciSettings() const;
 
@@ -306,6 +325,9 @@ namespace RemoteSystemContext
         virtual void updateDb();
 
         virtual ~DcsSystemContext() {}
+
+    private:
+        static std::string getSelectSql();
     };
 
 //---------------------------------------------------------------------------------------

@@ -168,6 +168,11 @@ astra_SOURCES = \
   html_pages.cc \
   brands.cpp \
   md5_sum.cc \
+  astra_pnr.cpp \
+  recloc.cc \
+  environ.cc \
+  AirportControl.cpp
+  md5_sum.cc \
   kiosk_alias.cpp
 
 
@@ -328,5 +333,10 @@ noinst_HEADERS = \
   annul_bt.h \
   html_pages.h \
   brands.h \
+  md5_sum.h \
+  astra_pnr.h \
+  recloc.h \
+  environ.h \
+  AirportControl.h
   md5_sum.h \
   kiosk_alias.h

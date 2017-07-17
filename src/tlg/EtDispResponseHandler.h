@@ -17,5 +17,4 @@ public:
     virtual ~EtDispResponseHandler() {}
 };
 
-
-}
+}//namespace TlgHandling

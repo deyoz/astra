@@ -448,6 +448,19 @@ class EMDAutoBoundInterface: public AstraJxtIface
     static void EMDTryBind(const TCkinGrpIds &tckin_grp_ids, xmlNodePtr termReqNode, xmlNodePtr ediResNode);
 };
 
+class ETRequestACInterface: public AstraJxtIface
+{
+public:
+    ETRequestACInterface(): AstraJxtIface("RequestAC")
+    {
+        AddEvent("RequestControl", JXT_HANDLER(ETRequestACInterface, RequestControl));
+        AddEvent("kick",           JXT_HANDLER(ETRequestACInterface, KickHandler));
+    }
+
+    void RequestControl(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+};
+
 
 inline xmlNodePtr astra_iface(xmlNodePtr resNode, const std::string &iface_id)
 {
@@ -463,6 +476,9 @@ inline xmlNodePtr astra_iface(xmlNodePtr resNode, const std::string &iface_id)
 
 void handleEtDispResponse(const edifact::RemoteResults& remRes);
 void handleEtCosResponse(const edifact::RemoteResults& remRes);
+void handleEtRacResponse(const edifact::RemoteResults& remRes);
+
+void handleEtUac(const std::string& uac);
 
 #endif
 

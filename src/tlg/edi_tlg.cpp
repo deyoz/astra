@@ -35,6 +35,8 @@
 #include "IatciBprResponseHandler.h"
 #include "IatciPlfResponseHandler.h"
 #include "IatciSmfResponseHandler.h"
+// control method
+#include "EtRacResponseHandler.h"
 
 // request handlers
 #include "IatciCkiRequestHandler.h"
@@ -43,6 +45,8 @@
 #include "IatciBprRequestHandler.h"
 #include "IatciPlfRequestHandler.h"
 #include "IatciSmfRequestHandler.h"
+// control method
+#include "UacRequestHandler.h"
 
 #include <etick/lang.h>
 #include <etick/exceptions.h>
@@ -502,6 +506,8 @@ edilib::EdiRequestHandler *
     __DECLARE_HANDLER__(IatciBprRequestHandler,     DCQBPR, "");
     __DECLARE_HANDLER__(IatciPlfRequestHandler,     DCQPLF, "");
     __DECLARE_HANDLER__(IatciSmfRequestHandler,     DCQSMF, "");
+    // control method
+    __DECLARE_HANDLER__(UacRequestHandler,          TKCUAC, "733");
     return 0;
 }
 
@@ -557,6 +563,9 @@ AstraEdiResponseHandler *
     __DECLARE_HANDLER__(IatciBprResponseHandler,            DCRCKA, "B");
     __DECLARE_HANDLER__(IatciPlfResponseHandler,            DCRCKA, "P");
     __DECLARE_HANDLER__(IatciSmfResponseHandler,            DCRSMF, "S");
+    // control method
+    __DECLARE_HANDLER__(EtRacResponseHandler,               TKCRES, "734")
+    __DECLARE_HANDLER__(EtRacResponseHandler,               TKCRES, "751")
 
     return 0;
 }
@@ -674,17 +683,21 @@ void AstraEdiHandlerManager::beforeProc()
 {
     if(sessionHandler()->edih()->msg_type_req == QUERY)
     {
-//        Ticketing::RemoteSystemContext::SystemContext::initEdifact(
-//                    sessionHandler()->edih()->from,
-//                    sessionHandler()->edih()->to);
+        Ticketing::RemoteSystemContext::SystemContext::initEdifact(
+                    sessionHandler()->edih()->from,
+                    sessionHandler()->edih()->fromAddExt,
+                    sessionHandler()->edih()->to,
+                    sessionHandler()->edih()->toAddExt);
     }
     else
     {
-//        Ticketing::RemoteSystemContext::SystemContext::initEdifactByAnswer(
-//                    sessionHandler()->edih()->from,
-//                    sessionHandler()->edih()->to);
+        Ticketing::RemoteSystemContext::SystemContext::initEdifactByAnswer(
+                    sessionHandler()->edih()->from,
+                    sessionHandler()->edih()->fromAddExt,
+                    sessionHandler()->edih()->to,
+                    sessionHandler()->edih()->toAddExt);
     }
-    RemoteSystemContext::SystemContext::initDummyContext();
+
     RemoteSystemContext::SystemContext::Instance(STDLOG).inbTlgInfo().setTlgSrc(TlgSrc->text());
     boost::optional<tlgnum_t> tlgNum = TlgSrc->tlgNum();
     ASSERT(tlgNum);

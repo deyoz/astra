@@ -16,6 +16,18 @@ namespace RemoteSystemContext {
 }//RemoteSystemContext
 }//namespace Ticketing
 
+
+namespace edifact{
+
+enum EdiMessageType {
+    EdiDisplRes,
+    EdiUacReq,
+    EdiRacRes
+};
+
+}//namespace edifact
+
+
 void set_edi_addrs( const std::pair<std::string,std::string> &addrs );
 std::string get_edi_addr();
 std::string get_edi_own_addr();
@@ -153,7 +165,10 @@ public:
 // Обработка EDIFACT
 boost::optional<TlgHandling::TlgSourceEdifact> proc_new_edifact(boost::shared_ptr<TlgHandling::TlgSourceEdifact> tlg);
 
-Ticketing::Pnr readPnr(const std::string &tlg_text);
+Ticketing::Pnr readPnr(const std::string& tlg_text, edifact::EdiMessageType tlg_type);
+Ticketing::Pnr readDispPnr(const std::string &tlg_text);
+Ticketing::Pnr readDispPnr(EDI_REAL_MES_STRUCT *pMes);
+Ticketing::Pnr readUacPnr(EDI_REAL_MES_STRUCT *pMes);
 void SearchEMDsByTickNo(const std::set<Ticketing::TicketNum_t> &emds,
                         const edifact::KickInfo& kickInfo,
                         const Ticketing::OrigOfRequest &org,

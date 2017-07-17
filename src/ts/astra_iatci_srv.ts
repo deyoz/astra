@@ -40,6 +40,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
@@ -83,6 +84,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 $(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
@@ -261,6 +263,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 $(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
@@ -354,6 +357,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
@@ -469,6 +473,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
@@ -499,6 +504,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
@@ -564,6 +570,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
@@ -631,6 +638,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 
 # § ―ΰ®α ª €αβΰ¥
@@ -675,11 +683,12 @@ ENDIFM
 $(init)
 $(init_jxt_pult ‚)
 $(login)
+$(init_dcs “6 U6 UT)
 
 
 # § ―ΰ®α ª €αβΰ¥
 << h2h=V.\VHLG.WA/E11ADCS1/I11HDCS2/P015ZK3\VGYA\$()
-UNB+SIRE:1+U6+U6+161019:0436+1"
+UNB+SIRE:1+U6+UT+161019:0436+1"
 UNH+1+DCQSMF:03:1:IA+GUZ2TQPGKY0025"
 LOR+U6:LCG"
 FDQ+U6+537+$(yymmdd)+SAW+MAD"
@@ -688,7 +697,7 @@ UNT+5+1"
 UNZ+1+1"
 
 >>
-UNB+SIRE:1+U6+U6+xxxxxx:xxxx+1"
+UNB+SIRE:1+UT+U6+xxxxxx:xxxx+1"
 UNH+1+DCRSMF:03:1:IA+GUZ2TQPGKY0025"
 FDR+U6+537+$(yymmdd)+SAW+MAD++T"
 RAD+S+X"
@@ -704,6 +713,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
@@ -783,6 +793,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
@@ -878,6 +889,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
@@ -922,6 +934,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
@@ -981,6 +994,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
@@ -1053,6 +1067,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
@@ -1350,6 +1365,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
@@ -1464,6 +1480,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
@@ -1566,6 +1583,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
@@ -1612,6 +1630,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_6 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
@@ -1832,6 +1851,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
@@ -2007,6 +2027,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α  α ®¤­®δ ¬¨«μζ ¬¨
 $(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
@@ -2185,6 +2206,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
@@ -2227,6 +2249,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 # § ―ΰ®α ª €αβΰ¥
 <<
@@ -2254,6 +2277,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
+$(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
@@ -2399,7 +2423,7 @@ $(init)
 $(init_jxt_pult ‚)
 $(login)
 $(init_eds ’ UTET UTDC)
-
+$(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
 $(PREPARE_FLIGHT_6 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—

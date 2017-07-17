@@ -1777,6 +1777,17 @@ tlgnum_t make_tlgnum(int n)
   return tlgnum_t(boost::lexical_cast<std::string>(n));
 }
 
+XMLDoc createXmlDoc(const std::string& xml)
+{
+    XMLDoc doc;
+    doc.set(ConvertCodepage(xml, "CP866", "UTF-8"));
+    if(doc.docPtr() == NULL) {
+        throw EXCEPTIONS::Exception("document %s has wrong XML format", xml.c_str());
+    }
+    xml_decode_nodelist(doc.docPtr()->children);
+    return doc;
+}
+
 }// namespace ASTRA
 
 void TRegEvents::fromDB(TDateTime part_key, int point_id)

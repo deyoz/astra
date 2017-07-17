@@ -18,7 +18,6 @@
 #include "edi_utils.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
-#include "basetables.h"
 
 #include <serverlib/posthooks.h>
 #include <serverlib/cursctl.h>
@@ -64,6 +63,46 @@ Ticketing::SystemAddrs_t SystemContext::getNextId()
     return Ticketing::SystemAddrs_t(val);
 }
 
+SystemContext SystemContext::defSelData(OciCpp::CursCtl& cur)
+{
+    int systemId = 0;
+    std::string airline;
+    std::string ediAddr, ourEdiAddr;
+    std::string ediAddrExt, ourEdiAddrExt;
+    std::string airAddr, ourAirAddr;
+    std::string ediProfileName;
+
+    cur.def(systemId)
+       .def(airline)
+       .def(ediAddr)
+       .def(ourEdiAddr)
+       .defNull(ediAddrExt, "")
+       .defNull(ourEdiAddrExt, "")
+       .defNull(airAddr, "")
+       .defNull(ourAirAddr, "")
+       .defNull(ediProfileName, "");
+    cur.EXfet();
+
+    if(cur.err() == NO_DATA_FOUND)
+    {
+        throw system_not_found();
+    }
+
+    SystemContextMaker ctxtMaker;
+    ctxtMaker.setIda(Ticketing::SystemAddrs_t(systemId));
+    ctxtMaker.setCanonName(AstraEdifact::get_canon_name(ediAddr));
+    ctxtMaker.setEdifactProfileName(ediProfileName);
+    ctxtMaker.setAirline(airline);
+    ctxtMaker.setRemoteAddrEdifact(ediAddr);
+    ctxtMaker.setOurAddrEdifact(ourEdiAddr);
+    ctxtMaker.setRemoteAddrAirimp(airAddr);
+    ctxtMaker.setOurAddrAirimp(ourAirAddr);
+    ctxtMaker.setRemoteAddrEdifactExt(ediAddrExt);
+    ctxtMaker.setOurAddrEdifactExt(ourEdiAddrExt);
+    return ctxtMaker.getSystemContext();
+}
+
+
 void SystemContext::readEdifactProfile()
 {
     using edifact::EdifactProfile;
@@ -73,6 +112,30 @@ void SystemContext::readEdifactProfile()
     } else {
         EdiProfile.reset(new EdifactProfile(EdifactProfile::readByName(EdifactProfileName)));
     }
+}
+
+SystemContext SystemContext::readByEdiAddrs(const std::string &source, const std::string &source_ext,
+                                            const std::string &dest,   const std::string &dest_ext)
+{
+    LogTrace(TRACE3) << __FUNCTION__ << " by "
+                     << source << "/" << source_ext << " and "
+                     << dest << "/" << dest_ext;
+    std::unique_ptr<SystemContext> dcs(DcsSystemContext::readByEdiAddrs(source, source_ext, dest, dest_ext, false));
+    std::unique_ptr<SystemContext> eds(EdsSystemContext::readByEdiAddrs(source, source_ext, dest, dest_ext, false));
+    if(!dcs && !eds) {
+        throw UnknownSystAddrs(source + "/" + source_ext,
+                               dest + "/" + dest_ext);
+    }
+
+    if(dcs && eds) {
+        throw EXCEPTIONS::ExceptionFmt() <<
+                "unknown system type (DCS or EDS?)";
+    }
+
+    if(dcs) return *dcs;
+    if(eds) return *eds;
+
+    throw EXCEPTIONS::ExceptionFmt() << "Can't be here";
 }
 
 const SystemContext& SystemContext::Instance(const char *nick, const char *file, unsigned line)
@@ -122,11 +185,29 @@ SystemContext* SystemContext::init(const SystemContext& new_ctxt)
 }
 
 
-SystemContext * SystemContext::initDummyContext()
+SystemContext* SystemContext::initDummyContext()
 {
-    LogTrace(TRACE3) << "initDummyContext";
+    LogTrace(TRACE3) << __FUNCTION__;
     SystemContext dummyCtxt = {};
     return SystemContext::init(dummyCtxt);
+}
+
+SystemContext* SystemContext::initEdifact(const std::string& src, const std::string& src_ext,
+                                          const std::string& dest,const std::string& dest_ext)
+{
+    LogTrace(TRACE3) << __FUNCTION__ << " "
+                     << src << "/" << src_ext << " and "
+                     << dest << "/" << dest_ext;
+    return SystemContext::init(SystemContext::readByEdiAddrs(src, src_ext, dest, dest_ext));
+}
+
+SystemContext* SystemContext::initEdifactByAnswer(const std::string& src, const std::string& src_ext,
+                                                  const std::string& dest,const std::string& dest_ext)
+{
+    LogTrace(TRACE3) << __FUNCTION__ << " "
+                     << src << "/" << src_ext << " and "
+                     << dest << "/" << dest_ext;
+    return SystemContext::init(SystemContext::readByEdiAddrs(src, src_ext, dest, dest_ext));
 }
 
 bool SystemContext::initialized()
@@ -156,25 +237,72 @@ edifact::EdifactProfile SystemContext::edifactProfile() const
     return *EdiProfile.get();
 }
 
+BaseTables::Company SystemContext::airlineImpl() const
+{
+    return BaseTables::Company(airline());
+}
+
 // ================== E D S =====================
 
 EdsSystemContext* EdsSystemContext::read(const std::string& airl, const Ticketing::FlightNum_t& flNum)
 {
-    int systemId = 0;
-    std::pair<std::string, std::string> addrs;
-    if(!AstraEdifact::get_et_addr_set(airl, flNum?flNum.get():ASTRA::NoExists, addrs, systemId)) {
-        tst();
+    std::string sql = getSelectSql();
+    sql +=
+"WHERE AIRLINE=:airl AND (FLT_NO is null OR FLT_NO=:flt_no) "
+"ORDER BY priority DESC";
+
+    short null = -1, nnull = 0;
+    OciCpp::CursCtl cur = make_curs(sql);
+    cur.bind(":airl", airl)
+       .bind(":flt_no", flNum?flNum.get():0, flNum?&nnull:&null);
+
+    SystemContext sysCtxt;
+    try
+    {
+        sysCtxt = defSelData(cur);
+    }
+    catch(system_not_found)
+    {
         throw system_not_found(airl, flNum);
     }
 
-    SystemContextMaker ctxtMaker;
-    ctxtMaker.setIda(Ticketing::SystemAddrs_t(systemId));
-    ctxtMaker.setCanonName(AstraEdifact::get_canon_name(addrs.first));
-    ctxtMaker.setAirline(airl);
-    ctxtMaker.setRemoteAddrEdifact(addrs.first);
-    ctxtMaker.setOurAddrEdifact(addrs.second);
+    return new EdsSystemContext(sysCtxt);
+}
 
-    return new EdsSystemContext(ctxtMaker.getSystemContext());
+SystemContext* EdsSystemContext::readByEdiAddrs(const std::string& source, const std::string& source_ext,
+                                                const std::string& dest,   const std::string& dest_ext,
+                                                bool throwNf)
+{
+    std::string sql = getSelectSql();
+    sql +=
+"where EDI_ADDR = :src and EDI_OWN_ADDR = :dest ";
+    sql +=
+"and (EDI_ADDR_EXT = :src_ext or :src_ext is null) "
+"and (EDI_OWN_ADDR_EXT = :dest_ext or :dest_ext is null) ";
+    sql += "ORDER BY priority DESC";
+
+    OciCpp::CursCtl cur = make_curs(sql);
+    cur.bind(":src", source)
+       .bind(":src_ext", source_ext)
+       .bind(":dest", dest)
+       .bind(":dest_ext", dest_ext);
+
+    try
+    {
+        return new EdsSystemContext(defSelData(cur));
+    }
+    catch(system_not_found)
+    {
+        if(throwNf) {
+            LogWarning(STDLOG) << "Unknown edifact addresses pair "
+                    "[" << source << "::" << source_ext << "]/"
+                    "[" << dest   << "::" << dest_ext   << "]";
+            throw UnknownSystAddrs(source + "/" + source_ext,
+                                   dest + "/" + dest_ext);
+        }
+    }
+
+    return nullptr;
 }
 
 EdsSystemContext::EdsSystemContext(const SystemContext& baseCnt,
@@ -296,62 +424,74 @@ void EdsSystemContext::updateDb()
     SystemContext::updateDb();
 }
 
-// ================== D C S =====================
-
-DcsSystemContext* DcsSystemContext::read(const std::string& airl, const Ticketing::FlightNum_t& flNum)
+std::string EdsSystemContext::getSelectSql()
 {
-    std::string sql = 
+    return
 "select ID, AIRLINE, EDI_ADDR, EDI_OWN_ADDR, EDI_ADDR_EXT, EDI_OWN_ADDR_EXT, "
 "       AIRIMP_ADDR, AIRIMP_OWN_ADDR, EDIFACT_PROFILE, "
 "       DECODE(AIRLINE,NULL,0,2)+ "
 "       DECODE(FLT_NO,NULL,0,1) AS priority "
-"from DCS_ADDR_SET "
-"WHERE AIRLINE=:airl AND "
-"      (FLT_NO is null OR FLT_NO=:flt_no) "
-"ORDER BY priority DESC";    
-        
-    int systemId = 0;
-    std::string airline;
-    std::string ediAddr, ourEdiAddr;
-    std::string ediAddrExt, ourEdiAddrExt;
-    std::string airAddr, ourAirAddr; 
-    std::string ediProfileName;
-    short null = -1, nnull = 0;
+"from ET_ADDR_SET ";
+}
 
+// ================== D C S =====================
+
+DcsSystemContext* DcsSystemContext::read(const std::string& airl, const Ticketing::FlightNum_t& flNum)
+{
+    std::string sql = getSelectSql();
+    sql +=
+"WHERE AIRLINE=:airl AND (FLT_NO is null OR FLT_NO=:flt_no) "
+"ORDER BY priority DESC";
+
+    short null = -1, nnull = 0;
     OciCpp::CursCtl cur = make_curs(sql);
-    cur.def(systemId)
-       .def(airline)
-       .def(ediAddr)
-       .def(ourEdiAddr)
-       .defNull(ediAddrExt, "")
-       .defNull(ourEdiAddrExt, "")
-       .defNull(airAddr, "")
-       .defNull(ourAirAddr, "")
-       .defNull(ediProfileName, "");
     cur.bind(":airl", airl)
        .bind(":flt_no", flNum?flNum.get():0, flNum?&nnull:&null);
-    cur.EXfet();
 
-
-    if(cur.err() == NO_DATA_FOUND)
+    try
     {
-        LogTrace(TRACE0) << "DCS system not found by airline "
-                         << airl << " and flight " << flNum;
+        return new DcsSystemContext(defSelData(cur));
+    }
+    catch(system_not_found)
+    {
         throw system_not_found(airl, flNum);
     }
+}
 
-    SystemContextMaker ctxtMaker;
-    ctxtMaker.setIda(Ticketing::SystemAddrs_t(systemId));
-    ctxtMaker.setCanonName(AstraEdifact::get_canon_name(ediAddr));
-    ctxtMaker.setEdifactProfileName(ediProfileName);
-    ctxtMaker.setAirline(airline);
-    ctxtMaker.setRemoteAddrEdifact(ediAddr);    // their EDIFACT address
-    ctxtMaker.setOurAddrEdifact(ourEdiAddr);    // our EDIFACT address
-    ctxtMaker.setRemoteAddrAirimp(airAddr);      // their AIRIMP address
-    ctxtMaker.setOurAddrAirimp(ourAirAddr);     // our AIRIMP address
-    ctxtMaker.setRemoteAddrEdifactExt(ediAddrExt);
-    ctxtMaker.setOurAddrEdifactExt(ourEdiAddrExt);
-    return new DcsSystemContext(ctxtMaker.getSystemContext());
+SystemContext* DcsSystemContext::readByEdiAddrs(const std::string& source, const std::string& source_ext,
+                                                const std::string& dest,   const std::string& dest_ext,
+                                                bool throwNf)
+{
+    std::string sql = getSelectSql();
+    sql +=
+"where EDI_ADDR = :src and EDI_OWN_ADDR = :dest ";
+    sql +=
+"and (EDI_ADDR_EXT = :src_ext or :src_ext is null) "
+"and (EDI_OWN_ADDR_EXT = :dest_ext or :dest_ext is null) ";
+    sql += "ORDER BY priority DESC";
+
+    OciCpp::CursCtl cur = make_curs(sql);
+    cur.bind(":src", source)
+       .bind(":src_ext", source_ext)
+       .bind(":dest", dest)
+       .bind(":dest_ext", dest_ext);
+
+    try
+    {
+        return new DcsSystemContext(defSelData(cur));
+    }
+    catch(system_not_found)
+    {
+        if(throwNf) {
+            LogWarning(STDLOG) << "Unknown edifact addresses pair "
+                    "[" << source << "::" << source_ext << "]/"
+                    "[" << dest   << "::" << dest_ext   << "]";
+            throw UnknownSystAddrs(source + "/" + source_ext,
+                                   dest + "/" + dest_ext);
+        }
+    }
+
+    return nullptr;
 }
 
 DcsSystemContext::DcsSystemContext(const SystemContext& baseCnt)
@@ -441,6 +581,16 @@ iatci::IatciSettings DcsSystemContext::iatciSettings() const
     return iatci::readIatciSettings(ida(), true);
 }
 
+std::string DcsSystemContext::getSelectSql()
+{
+    return
+"select ID, AIRLINE, EDI_ADDR, EDI_OWN_ADDR, EDI_ADDR_EXT, EDI_OWN_ADDR_EXT, "
+"       AIRIMP_ADDR, AIRIMP_OWN_ADDR, EDIFACT_PROFILE, "
+"       DECODE(AIRLINE,NULL,0,2)+ "
+"       DECODE(FLT_NO,NULL,0,1) AS priority "
+"from DCS_ADDR_SET ";
+}
+
 //---------------------------------------------------------------------------------------
 
 void SystemContextMaker::setOurAddrEdifact(const std::string &val)
@@ -490,7 +640,7 @@ void SystemContextMaker::setEdifactProfileName(const std::string& edifactProfile
 
 void SystemContextMaker::setAirline(const std::string& val)
 {
-    cont.Airline = val;
+    cont.RemoteAirline = val;
 }
 
 void SystemContextMaker::setSystemSettings(const SystemSettings& val)

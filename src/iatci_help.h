@@ -27,10 +27,6 @@ std::string paxSexString(const PaxDetails& pax);
 
 //---------------------------------------------------------------------------------------
 
-XMLDoc createXmlDoc(const std::string& xml);
-
-//---------------------------------------------------------------------------------------
-
 class IatciXmlDb
 {
 public:

@@ -1923,7 +1923,7 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
             IatciInterface::ReprintRequest(reqNode);
             return false;
         }
-        XMLDoc xml = iatci::createXmlDoc(loaded);
+        XMLDoc xml = ASTRA::createXmlDoc(loaded);
         std::list<XmlSegment> lSeg = XmlEntityReader::readSegs(findNodeR(xml.docPtr()->children, "segments"));
 
         for(const XmlSegment& xmlSeg: lSeg)

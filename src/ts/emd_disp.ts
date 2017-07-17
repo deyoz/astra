@@ -299,7 +299,7 @@ UNZ+1+$(last_edifact_ref)0001"
 
 
 <<
-UNB+SIRE:1+ETP2+ETDT+160527:1125+$(last_edifact_ref)0001+++T"
+UNB+SIRE:1+UTET+UTDC+160527:1125+$(last_edifact_ref)0001+++T"
 UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
 MSG+:791+3"
 TIF+’…‘’+’…‘’"

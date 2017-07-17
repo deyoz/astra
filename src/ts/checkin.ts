@@ -17,6 +17,7 @@ $(set point_arv $(get_next_trip_point_id $(get point_dep)))
 $(set pax_id $(get_single_pax_id $(get point_dep) …ˆ ˆ‚€))
 
 $(OPEN_CHECKIN $(get point_dep))
+
 $(SAVE_ET_DISP $(get point_dep) 2981212121212 …ˆ ˆ‚€)
 
 !! err=ignore
@@ -141,6 +142,7 @@ $(KICK_IN)
           <pr_no_ticket_check>0</pr_no_ticket_check>
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
+          <use_jmp>0</use_jmp>
         </tripheader>
         <tripdata>
           <airps>
@@ -489,6 +491,7 @@ $(KICK_IN)
           <pr_no_ticket_check>0</pr_no_ticket_check>
           <pr_auto_pt_print>0</pr_auto_pt_print>
           <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
+          <use_jmp>0</use_jmp>
         </tripheader>
         <tripdata>
           <airps>
