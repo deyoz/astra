@@ -2960,6 +2960,7 @@ void TSalonList::ReadPaxs( TQuery &Qry, TPaxList &pax_list )
   int idx_parent_pax_id = Qry.FieldIndex( "parent_pax_id" );
   int idx_reg_no = Qry.FieldIndex( "reg_no" );
   int idx_seats = Qry.FieldIndex( "seats" );
+  int idx_is_jmp = Qry.FieldIndex( "is_jmp" );
   int idx_pers_type = Qry.FieldIndex( "pers_type" );
   int idx_name = Qry.FieldIndex( "name" );
   int idx_surname = Qry.FieldIndex( "surname" );
@@ -2989,6 +2990,7 @@ void TSalonList::ReadPaxs( TQuery &Qry, TPaxList &pax_list )
     if(not Qry.FieldIsNULL(idx_crew_type))
         pass.crew_type = TCrewTypes().decode(Qry.FieldAsString(idx_crew_type));
     pass.seats = Qry.FieldAsInteger( idx_seats );
+    pass.is_jmp = Qry.FieldAsInteger( idx_is_jmp )!=0;
     pass.cl =  Qry.FieldAsString( idx_class );
     pass.class_grp = Qry.FieldAsInteger( idx_class_grp );
     //!logProgTrace( TRACE5, "ReadPaxs: pax_id=%d, grp_status=%s, point_arv=%d, pass.pr_web=%d",
@@ -4579,7 +4581,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     // начитываем список зарегистрированных пассажиров по маршруту  pax_list
     Qry.Clear();
     Qry.SQLText =
-      " SELECT pax.grp_id, pax.pax_id, pax.pers_type, pax.seats, class, class_grp, "
+      " SELECT pax.grp_id, pax.pax_id, pax.pers_type, pax.seats, pax.is_jmp, class, class_grp, "
       "        reg_no, pax.name, pax.surname, pax.is_female, pax_grp.status, "
       "        pax_grp.point_dep, pax_grp.point_arv, "
       "        crs_inf.pax_id AS parent_pax_id, "
@@ -6061,7 +6063,7 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
   }
 }
 
-void getStrWaitListReasion( const std::string &fullname,
+void getStrWaitListReason( const std::string &fullname,
                                    const std::string &seat_no,
                                    const std::string &airp_dep,
                                    const std::string &airp_arv,
@@ -6138,7 +6140,7 @@ void CheckWaitListToLog( TQuery &QryAirp,
   switch( waitListReason.layerStatus ) {
     case layerInvalid:
       params << PrmLexema("reason", "EVT.REASON_LAYER_INVALID");
-      getStrWaitListReasion( fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
+      getStrWaitListReason( fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
       break;
     case layerLess:
       airp_dep.clear();
@@ -6162,44 +6164,44 @@ void CheckWaitListToLog( TQuery &QryAirp,
       switch ( waitListReason.layer.layer_type ) {
         case cltBlockCent:
           params << PrmLexema("reason", "EVT.REASON_BLOCK_CENT");
-          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
+          getStrWaitListReason(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
           break;
         case cltDisable:
           params << PrmLexema("reason", "EVT.REASON_DISABLE");
-          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
+          getStrWaitListReason(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
           break;
         case cltProtBeforePay:
         case cltProtAfterPay:
         case cltPNLBeforePay:
         case cltPNLAfterPay:
           params << PrmLexema("reason", "EVT.REASON_PAYMENT");
-          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
+          getStrWaitListReason(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
           break;
         case cltBlockTrzt:
         case cltSOMTrzt:
         case cltPRLTrzt:
         case cltProtTrzt:
           params << PrmLexema("reason", "EVT.REASON_TRZT");
-          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
+          getStrWaitListReason(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
           break;
         case cltPNLCkin:
           params << PrmLexema("reason", "EVT.REASON_PNL_CKIN");
-          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
+          getStrWaitListReason(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
           break;
         case cltProtCkin:
           params << PrmLexema("reason", "EVT.REASON_PROT_CKIN");
-          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
+          getStrWaitListReason(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
           break;
         case cltProtect:
           params << PrmLexema("reason", "EVT.REASON_PROTECT");
-          getStrWaitListReasion(fullname, airp_dep, new_seat_no, airp_arv, regNo, params);
+          getStrWaitListReason(fullname, airp_dep, new_seat_no, airp_arv, regNo, params);
           break;
         case cltCheckin:
         case cltTCheckin:
         case cltGoShow:
         case cltTranzit:
           params << PrmLexema("reason", "EVT.REASON_COOUPIED");
-          getStrWaitListReasion(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
+          getStrWaitListReason(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
         default:;
       };
       break;
@@ -6278,6 +6280,9 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
                 igrp_layer!=iclass->second.end(); igrp_layer++ ) {
             for ( std::set<TSalonPax,ComparePassenger>::iterator ipass=igrp_layer->second.begin();
                   ipass!=igrp_layer->second.end(); ipass++ ) {
+              if ( ipass->is_jmp ) {
+                continue;
+              }
               passes[ ipass->pax_id ] = *ipass;
               ipass->get_seats( waitListReason, seats );
               if ( waitListReason.layerStatus != layerValid ) {
@@ -7226,7 +7231,7 @@ bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull )
                "       pax.pr_brd IS NOT NULL AND "
                "       seats > 0 AND rownum <= 1 ";
  if ( SeatNoIsNull ) {
-  sql += " AND salons.is_waitlist(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,rownum)<>0 ";
+  sql += " AND salons.is_waitlist(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,rownum)<>0 ";
  }
  Qry.SQLText = sql;
  Qry.CreateVariable( "point_id", otInteger, trip_id );
@@ -9478,6 +9483,10 @@ void TSalonPax::get_seats( TWaitListReason &waitListReason,
 
 std::string TSalonPax::seat_no( const std::string &format, bool pr_lat_seat, TWaitListReason &waitListReason ) const
 {
+  if ( is_jmp ) {
+    tst();
+    return "JMP";
+  }
   TPassSeats seats;
   std::vector<TSeatRange> ranges;
   get_seats( waitListReason, seats );
@@ -9594,7 +9603,7 @@ bool _TSalonPassengers::isWaitList( )
                 ipass!=igrp_layer->second.end(); ipass++ ) {
             TWaitListReason waitListReason;
             ipass->get_seats( waitListReason, seats );
-            if ( waitListReason.layerStatus != layerValid ) {
+            if ( !ipass->is_jmp && waitListReason.layerStatus != layerValid ) {
               status_wait_list = wlYes;
               break;
             }
@@ -9714,13 +9723,13 @@ bool _TSalonPassengers::BuildWaitList( xmlNodePtr dataNode )
         }
       }
       NewTextChild( passNode, "seat_no", seat_no, def.placeName );
-      if ( waitListReason.layerStatus != layerValid && status_wait_list == wlNo ) {
+      if ( !ipass->is_jmp && waitListReason.layerStatus != layerValid && status_wait_list == wlNo ) {
         status_wait_list = wlYes; //есть ЛО
       }
       NewTextChild( passNode, "wl_type", Qry.FieldAsString( "wl_type" ), def.wl_type );
       NewTextChild( passNode, "seats", ipass->seats, def.countPlace );
       NewTextChild( passNode, "tid", Qry.FieldAsInteger( "tid" ) );
-      NewTextChild( passNode, "isseat", (int)waitListReason.layerStatus == layerValid, (int)def.isSeat );
+      NewTextChild( passNode, "isseat", (int)waitListReason.layerStatus == layerValid || ipass->is_jmp, (int)def.isSeat );
       NewTextChild( passNode, "ticket_no", Qry.FieldAsString( "ticket_no" ), def.ticket_no );
       NewTextChild( passNode, "document",
                     CheckIn::GetPaxDocStr(NoExists, ipass->pax_id, true),

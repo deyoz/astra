@@ -311,7 +311,7 @@ void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPa
      "       pax_grp.status NOT IN ('E') AND "
        "       pax.wl_type IS NULL AND "
        "       pax.seats > 0 AND "
-       "       salons.is_waitlist(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,rownum)=0 AND "
+       "       salons.is_waitlist(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,rownum)=0 AND "
        "       pax.pax_id=pax_doc.pax_id(+) ";
   Qry.CreateVariable( "point_id", otInteger, point_dep );
   Qry.CreateVariable( "sex", otString, getDefaultSex() );
@@ -890,40 +890,15 @@ struct TName {
     string ToPILTlg(TypeB::TDetailCreateInfo &info) const;
 };
 
-enum TGender {gMale, gFemale, gChild, gInfant};
-
-
-TGender getGender(TPerson pers_type, int is_female)
-{
-    TGender result = gMale;
-    switch(pers_type) {
-        case NoPerson:
-            break;
-        case adult:
-            result = (is_female == NoExists ? gMale : (is_female != 0 ? gFemale : gMale));
-            break;
-        case child:
-            result = gChild;
-            break;
-        case baby:
-            result = gInfant;
-            break;
-    }
-    return result;
-}
-
-TGender getGender(TQuery &Qry)
+TTrickyGender::Enum getGender(TQuery &Qry)
 {
     if(Qry.Eof)
         throw Exception("getGender: Qry.Eof");
-    int is_female = NoExists;
-    if(not Qry.FieldIsNULL("is_female"))
-        is_female = Qry.FieldAsInteger("is_female") != 0;
     TPerson pers_type = DecodePerson(Qry.FieldAsString("pers_type"));
-    return getGender(pers_type, is_female);
+    return CheckIn::TSimplePaxItem::getTrickyGender(pers_type, CheckIn::TSimplePaxItem::genderFromDB(Qry));
 }
 
-TGender getGender(int pax_id)
+TTrickyGender::Enum getGender(int pax_id)
 {
     TCachedQuery Qry(
             "select is_female, pers_type from pax where pax_id = :pax_id",
@@ -1565,7 +1540,7 @@ namespace PRL_SPACE {
         TFirmSpaceAvail firm_space_avail;
         TRemList rems;
         TPRLOnwardList OList;
-        TGender gender;
+        TTrickyGender::Enum gender;
         TPerson pers_type;
         ASTRA::TCrewType::Enum crew_type;
         TPRLPax(TInfants *ainfants): rems(ainfants) {
@@ -1574,7 +1549,7 @@ namespace PRL_SPACE {
             pax_id = NoExists;
             grp_id = NoExists;
             bag_pool_num = NoExists;
-            gender = gMale;
+            gender = TTrickyGender::Male;
             crew_type = TCrewType::Unknown;
         }
     };
@@ -2154,7 +2129,7 @@ namespace PRL_SPACE {
             "   pax_grp.point_dep = :point_id AND "
             "   pax_grp.status NOT IN ('E') AND "
             "   pax_grp.grp_id = pax.grp_id AND "
-            "   salons.is_waitlist(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,rownum)=0 AND "
+            "   salons.is_waitlist(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,rownum)=0 AND "
             "   pax.refuse IS NULL "
             "GROUP BY "
             "   pax_grp.point_arv "
@@ -6666,16 +6641,17 @@ struct TByGender {
     size_t m, f, c, i;
     TByGender(): m(0), f(0), c(0), i(0) {};
     bool empty() const;
-    void append(TGender gender, int count = 1);
+    void append(TTrickyGender::Enum gender, int count = 1);
 };
 
-void TByGender::append(TGender gender, int count)
+void TByGender::append(TTrickyGender::Enum gender, int count)
 {
     switch(gender) {
-        case gMale:     m += count; break;
-        case gFemale:   f += count; break;
-        case gChild:    c += count; break;
-        case gInfant:   i += count; break;
+        case TTrickyGender::Male:     m += count; break;
+        case TTrickyGender::Female:   f += count; break;
+        case TTrickyGender::Child:    c += count; break;
+        case TTrickyGender::Infant:   i += count; break;
+        default: break;
     }
 }
 
@@ -7173,6 +7149,7 @@ struct TSeatPlan {
         template <typename T>
             void fill_seats(TypeB::TDetailCreateInfo &info, const T &inserter);
         string getXCRType(int pax_id);
+        void append_crew_type(std::string &seat, ASTRA::TCrewType::Enum crew_type, const std::string &xcr_type);
     public:
         map<int,TCheckinPaxSeats> checkinPaxsSeats;
         void get(TypeB::TDetailCreateInfo &info);
@@ -7210,6 +7187,26 @@ void TSeatPlan::get(TypeB::TDetailCreateInfo &info)
     }
 }
 
+void TSeatPlan::append_crew_type(string &seat, ASTRA::TCrewType::Enum crew_type, const string &xcr_type)
+{
+    switch(crew_type) {
+        case TCrewType::ExtraCrew:
+            {
+                if(not xcr_type.empty())
+                    seat += "/" + xcr_type;
+            }
+            break;
+        case TCrewType::DeadHeadCrew:
+            seat += "/D";
+            break;
+        case TCrewType::MiscOperStaff:
+            seat += "/M";
+            break;
+        default:
+            break;
+    }
+}
+
 template <typename T>
 void TSeatPlan::fill_seats(TypeB::TDetailCreateInfo &info, const T &inserter)
 {
@@ -7237,27 +7234,42 @@ void TSeatPlan::fill_seats(TypeB::TDetailCreateInfo &info, const T &inserter)
                         seat += "/" + gender;
                     if(is != im->second.seats.begin())
                         seat += "/B"; // так обозначаются доп. места (extra seats)
-                    else switch(im->second.crew_type) {
-                        case TCrewType::ExtraCrew:
-                            {
-                                if(not xcr_type.empty())
-                                    seat += "/" + xcr_type;
-                            }
-                            break;
-                        case TCrewType::DeadHeadCrew:
-                            seat += "/D";
-                            break;
-                        case TCrewType::MiscOperStaff:
-                            seat += "/M";
-                            break;
-                        default:
-                            break;
-                    }
+                    else
+                        append_crew_type(seat, im->second.crew_type, xcr_type);
                 } else
                     seat += "/" + gender;
                 inserter.do_insert(seat, is->point_arv);
                 if(g == 1) break; // Для инфанта печатаем только первое место
             }
+        }
+    }
+    // Добавим JMP
+    if(options.version == "WB") {
+        TCachedQuery Qry(
+                "select "
+                "   pax.*, "
+                "   pax_grp.class, "
+                "   pax_grp.point_arv "
+                "from "
+                "   pax, "
+                "   pax_grp "
+                "   where "
+                "   pax_grp.grp_id=pax.grp_id and "
+                "   pax_grp.point_dep=:point_id and "
+                "   pax_grp.status not in ('E') and "
+                "   pax.is_jmp <> 0 and "
+                "   pax.grp_id = pax_grp.grp_id and "
+                "   pax.pr_brd is not null ",
+                QParams() << QParam("point_id", otInteger, info.point_id));
+        Qry.get().Execute();
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            string seat =
+                ".J" + info.TlgElemIdToElem(etClass, Qry.get().FieldAsString("class")) + "/" +
+                TlgTrickyGenders().encode(getGender(Qry.get()));
+            string xcr_type = getXCRType(Qry.get().FieldAsInteger("pax_id"));
+            ASTRA::TCrewType::Enum crew_type = TCrewTypes().decode(Qry.get().FieldAsString("crew_type"));
+            append_crew_type(seat, crew_type, xcr_type);
+            inserter.do_insert(seat, Qry.get().FieldAsInteger("point_arv"));
         }
     }
 }
@@ -9702,7 +9714,7 @@ namespace CKIN_REPORT {
 
     void TPaxCounters::append(const TSalonPax &pax)
     {
-        TGender gender = getGender(pax.pax_id);
+        TTrickyGender::Enum gender = getGender(pax.pax_id);
         /* Это не работает!
            switch(pax.pers_type) {
            case adult:

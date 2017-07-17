@@ -440,10 +440,10 @@ bool CheckSeat(int pax_id, const string& scan_data, string& curr_seat_no)
     if (scan_seat_no.empty())
     {
       Qry.SQLText =
-        "SELECT salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',1,0) AS curr_seat_no_list, "
-        "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',1,1) AS curr_seat_no_list_lat, "
-        "       LPAD(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'one',1,0),4,'0') AS curr_seat_no_one, "
-        "       LPAD(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'one',1,1),4,'0') AS curr_seat_no_one_lat, "
+        "SELECT salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,NULL,NULL,'list',1,0) AS curr_seat_no_list, "
+        "       salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,NULL,NULL,'list',1,1) AS curr_seat_no_list_lat, "
+        "       LPAD(salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,NULL,NULL,'one',1,0),4,'0') AS curr_seat_no_one, "
+        "       LPAD(salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,NULL,NULL,'one',1,1),4,'0') AS curr_seat_no_one_lat, "
         "       confirm_print.seat_no_lat AS bp_seat_no_lat "
         "FROM confirm_print,pax, "
         "     (SELECT MAX(time_print) AS time_print FROM confirm_print WHERE pax_id=:pax_id AND voucher is null and pr_print<>0 and " OP_TYPE_COND("op_type")") a "
@@ -455,9 +455,9 @@ bool CheckSeat(int pax_id, const string& scan_data, string& curr_seat_no)
     else
     {
       Qry.SQLText =
-        "SELECT salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',1,0) AS curr_seat_no_list, "
-        "       LPAD(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'one',1,0),4,'0') AS curr_seat_no_one, "
-        "       LPAD(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'one',1,1),4,'0') AS curr_seat_no_one_lat "
+        "SELECT salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,NULL,NULL,'list',1,0) AS curr_seat_no_list, "
+        "       LPAD(salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,NULL,NULL,'one',1,0),4,'0') AS curr_seat_no_one, "
+        "       LPAD(salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,NULL,NULL,'one',1,1),4,'0') AS curr_seat_no_one_lat "
         "FROM pax "
         "WHERE pax_id=:pax_id";
     };
@@ -519,22 +519,8 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         "    pax_grp.class, "
         "    pax_grp.status, "
         "    pax_grp.client_type, "
-        "    pax.pax_id, "
-        "    pax.pr_brd, "
-        "    pax.pr_exam, "
-        "    pax.reg_no, "
-        "    pax.surname, "
-        "    pax.name, "
-        "    pax.pers_type, "
-        "    salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
-        "    pax.seats, "
-        "    pax.wl_type, "
-        "    pax.ticket_no, "
-        "    pax.coupon_no, "
-        "    pax.ticket_rem, "
-        "    pax.crew_type, "
-        "    ticket_confirm, "
-        "    pax.tid, "
+        "    pax.*, "
+        "    salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum) AS seat_no, "
         "    NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_amount, "
         "    NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS bag_weight, "
         "    NVL(ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_amount, "
@@ -773,16 +759,9 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
   CheckIn::TPaxGrpItem grp;
   grp.fromDB(Qry);
 
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT pax.*, NULL As seat_no FROM pax WHERE pax_id=:pax_id";
-  Qry.CreateVariable("pax_id", otInteger, pax_id);
-  Qry.Execute();
-  if (Qry.Eof)
-    throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-
   CheckIn::TSimplePaxItem pax;
-  pax.fromDB(Qry);
+  if (!pax.getByPaxId(pax_id))
+    throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
 
   if (!(pax.refuse.empty() && pax.api_doc_applied())) return;
 
@@ -1197,7 +1176,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
 
         //============================ проверка листа ожидания ============================
-        if (set_mark && !setList.value(tsFreeSeating) &&
+        if (set_mark && !setList.value<bool>(tsFreeSeating) &&
             ((paxWithSeat.exists() && !paxWithSeat.wl_type.empty()) ||
              (paxWithoutSeat.exists() && !paxWithoutSeat.wl_type.empty())))   //!!vlad младенцы без мест и ЛО?
         {
@@ -1206,7 +1185,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         };
 
         //============================ проверка прохождения досмотра ============================
-        if (screen==sBoarding && set_mark && !pr_exam_with_brd && setList.value(tsExam) &&
+        if (screen==sBoarding && set_mark && !pr_exam_with_brd && setList.value<bool>(tsExam) &&
             ((paxWithSeat.exists() && !paxWithSeat.pr_exam) ||
              (paxWithoutSeat.exists() && !paxWithoutSeat.pr_exam)))
         {
@@ -1216,7 +1195,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
         //============================ проверка оплаты багажа ============================
         if (set_mark &&
-            (screen==sBoarding?setList.value(tsCheckPay):setList.value(tsExamCheckPay)) &&
+            (screen==sBoarding?setList.value<bool>(tsCheckPay):setList.value<bool>(tsExamCheckPay)) &&
             (!WeightConcept::BagPaymentCompleted(grp_id) ||
              !RFISCPaymentCompleted(grp_id, paxWithSeat.pax_id, check_pay_on_tckin_segs)||
              !RFISCPaymentCompleted(grp_id, paxWithoutSeat.pax_id, check_pay_on_tckin_segs)))
@@ -1248,7 +1227,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             set<APIS::TAlarmType> alarms;
             bool document_alarm=false;
             GetAPISAlarms(airp_arv, pax_ext, pax.name!="CBBG", pax.pax_id, NoExists,
-                          setList.value(tsAPISControl), setList.value(tsAPISManualInput), route_check_info,
+                          setList.value<bool>(tsAPISControl), setList.value<bool>(tsAPISManualInput), route_check_info,
                           apis, alarms, document_alarm);
             if (document_alarm &&
                 reqInfo->desk.compatible(APIS_CONTROL_VERSION))
@@ -1309,7 +1288,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
               case 2: if (screen==sBoarding && set_mark &&
                           GetNode("confirmations/seat_no",reqNode)==NULL)
                       {
-                        if (setList.value(tsFreeSeating)) break;
+                        if (setList.value<bool>(tsFreeSeating)) break;
                         string curr_seat_no, scan_data;
                         if (GetNode("scan_data",reqNode)!=NULL)
                           scan_data=NodeAsString("scan_data",reqNode);
@@ -1593,7 +1572,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         */
           boost::optional<const TCompleteAPICheckInfo &> check_info=route_check_info.get(airp_arv);
           if (GetAPISAlarms(airp_arv, pax_ext, name!="CBBG", pax_id, crs_pax_id,
-                            setList.value(tsAPISControl), setList.value(tsAPISManualInput), route_check_info,
+                            setList.value<bool>(tsAPISControl), setList.value<bool>(tsAPISManualInput), route_check_info,
                             apis, alarms, document_alarm))
           {
             if (document_alarm)

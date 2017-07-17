@@ -1209,14 +1209,9 @@ void TPaxReqAnswer::logAnswer( const std::string& country, const int status_code
   lexema.prms << PrmSmpl<string>( "passenger", family_name );
   params << lexema;
 
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "SELECT pax.*, NULL As seat_no FROM pax WHERE pax_id=:pax_id";
-  Qry.CreateVariable("pax_id", otInteger, pax_id);
-  Qry.Execute();
   CheckIn::TSimplePaxItem pax;
-  if (!Qry.Eof)
-    pax.fromDB(Qry);
-  TReqInfo::Instance()->LocaleToLog( "MSG.APPS_RESP", params, evtPax, point_id, pax.reg_no );
+  if (pax.getByPaxId(pax_id))
+    TReqInfo::Instance()->LocaleToLog( "MSG.APPS_RESP", params, evtPax, point_id, pax.reg_no );
 }
 
 void TMftAnswer::logAnswer( const std::string& country, const int status_code,

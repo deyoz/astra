@@ -257,7 +257,7 @@ struct TCondRate {
   void Init( SALONS2::TSalons &Salons, bool apr_pay, TClientType client_type ) {
     pr_web = apr_pay;
     use_rate = ( client_type == ctTerm || client_type == ctPNL );
-    ProgTrace( TRACE5, "use_rate=%d", use_rate);
+    ProgTrace( TRACE5, "TCondRate::Init use_rate=%d", use_rate);
     rates.clear();
     ignore_rate = false;
     rates.insert( TSeatTariff( "", 0.0, "" ) ); // всегда задаем - означает, что надо использовать места без тарифа
@@ -309,13 +309,13 @@ struct TCondRate {
 
   bool CanUseRate( TPlace *place ) { /* если все возможные тарифы попробовали при рассадке и не смогли рассадить или нет тарифов на рейсе или место без тарифа, то можно использовать */
     bool res = ( pr_web || (current_rate_end() && use_rate) /*!!!|| place->SeatTariff.empty()*/ || ignore_rate );
-//    ProgTrace( TRACE5, "CanUseRate: x=%d, y=%d, place->SeatTariff=%s, res=%d,use_rate=%d,  current_rate=%s",
-//               place->x, place->y, place->SeatTariff.str().c_str(), res, use_rate, current_rate->str().c_str() );
+//    ProgTrace( TRACE5, "CanUseRate: x=%d, y=%d, place->SeatTariff=%s, res=%d,use_rate=%d",
+//               place->x, place->y, place->SeatTariff.str().c_str(), res, use_rate/*, current_rate->str().c_str() );
     if ( !res ) {
       for ( set<TSeatTariff,SeatTariffCompare>::iterator i=rates.begin(); ; i++ ) { // просмотр всех тарифов, кот. сортированы в порядке возрастания приоритета использования
-        if ( i->rate == place->SeatTariff.rate &&
+        if ( i != rates.end() &&
+             i->rate == place->SeatTariff.rate &&
              i->color == place->SeatTariff.color ) {
-          //tst();
           if ( use_rate || i->rate == 0.0 ) {
             res = true;
           }
@@ -890,8 +890,8 @@ int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep 
   vector<SALONS2::TRem>::iterator prem;
   vector<string>::iterator irem;
 /*  if ( SeatAlg == 1 && !canUseSUBCLS && CanUseRems == sNotUse_NotUseDenial )
-      ProgTrace( TRACE5, "sNotUse_NotUseDenial CurrSalon->placeIsFree( place )=%d,place->isplace=%d,place->visible=%d,Passengers.clname=%s",
-                 CurrSalon->placeIsFree( place ),place->isplace,place->visible,Passengers.clname.c_str() );*/
+      ProgTrace( TRACE5, "sNotUse_NotUseDenial CurrSalon->placeIsFree( place )=%d,place->isplace=%d,place->visible=%d,Passengers.clname=%s, VerifyUseLayer( place )=%d, condRates.CanUseRate( place )=%d,  AllowedAttrsSeat.passSeat( place )=%d",
+                 CurrSalon->placeIsFree( place ),place->isplace,place->visible,Passengers.clname.c_str(), VerifyUseLayer( place ), condRates.CanUseRate( place ),  AllowedAttrsSeat.passSeat( place ) );*/
   while ( CurrSalon->placeIsFree( place ) && place->isplace && place->visible &&
           place->clname == Passengers.clname &&
           Result + foundCount < MAXPLACE() &&
@@ -959,7 +959,7 @@ int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep 
         if ( CanUseRems == sNotUseDenial ) break;
       case sNotUse:
          for( vector<SALONS2::TRem>::const_iterator prem=place->rems.begin(); prem!=place->rems.end(); prem++ ) {
-//  	     	 ProgTrace( TRACE5, "sNotUse: Result=%d, FP.x=%d, FP.y=%d, rem=%s", Result, FP.x, FP.y, prem->rem.c_str() );
+//           ProgTrace( TRACE5, "sNotUse: Result=%d, FP.x=%d, FP.y=%d, rem=%s", Result, FP.x, FP.y, prem->rem.c_str() );
                if ( !prem->pr_denial ) {
                  return Result;
                }
@@ -1661,7 +1661,6 @@ bool TSeatPlaces::SeatGrpOnBasePlace( )
               for ( vector<TPoint>::iterator ic=icoord->coords[ varCoord ].begin(); ic!=icoord->coords[ varCoord ].end(); ic++ ) {
                 if ( SeatSubGrp_On( *ic, pass.Step, 0 ) && LSD( G3, G2, G, V3, V2, (TWhere )Where ) ) {
                     //ProgTrace( TRACE5, "G3=%d, G2=%d, G=%d, V3=%d, V2=%d, commit", G3, G2, G, V3, V2 );
-                    tst();
                   return true;
                 }
                 //ProgTrace( TRACE5, "rollback" );
@@ -1705,8 +1704,8 @@ bool TSeatPlaces::SeatsGrp( )
      CurrSalon->SetCurrPlaceList( icoord->placeList );
      for ( vector<TPoint>::iterator ic=icoord->coords[ varCoord ].begin(); ic!=icoord->coords[ varCoord ].end(); ic++ ) {
          if ( SeatsGrp_On( *ic ) ) {
-         return true;
-       }
+           return true;
+         }
      }
    }
  }
@@ -1757,7 +1756,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
 //                tst();
                 continue;
               }
-//              ProgTrace( TRACE5, "pax_id=%d,ik=%d, FCanUseINFT=%d, ipass->countPlace=%d, pass.INFT=%d", ipass->paxId,ik, FCanUseINFT, ipass->countPlace, ipass->isRemark( "INFT" ) );
+//          ProgTrace( TRACE5, "pax_id=%d,ik=%d, FCanUseINFT=%d, ipass->countPlace=%d, pass.INFT=%d", ipass->paxId,ik, FCanUseINFT, ipass->countPlace, ipass->isRemark( "INFT" ) );
               /*???31.03.11        if ( ipass->InUse || PlaceLayer == cltProtCkin && !CanUseLayer( cltProtCkin, UseLayers ) && //!!!
                                ( ipass->layer != PlaceLayer || ipass->preseat.empty() || ipass->preseat != ipass->placeName ) )
           continue;*/
@@ -1796,8 +1795,8 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
                 if ( i == 2 || ( i == 0 && canUseSUBCLS && ipass->SUBCLS_REM != SUBCLS_REM ) )
                   continue; // сейчас идет поиск по подклассам, а у пассажира его нет - не пытаемся его рассадить
                 if ( i == 1 ) { // сейчас идет поиск мест для пассажиров у которых нет подкласса
-                  /*       		  	ProgTrace( TRACE5, "ipass->SUBCLS_REM=%s, SUBCLS_REM=%s, canUseSUBCLS=%d, pr_seat_SUBCLS=%d",
-                           ipass->SUBCLS_REM.c_str(), SUBCLS_REM.c_str(), canUseSUBCLS, pr_seat_SUBCLS );*/
+/*                                                ProgTrace( TRACE5, "ipass->SUBCLS_REM=%s, SUBCLS_REM=%s, canUseSUBCLS=%d",
+                           ipass->SUBCLS_REM.c_str(), SUBCLS_REM.c_str(), canUseSUBCLS );*/
                   if ( canUseSUBCLS && !pr_seat )
                     continue;
                   FindSUBCLS = false;
@@ -3186,7 +3185,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                              case sSeatPassengers:
                                if ( SeatPlaces.SeatsPassengers() )
                                  throw 1;
-                               if ( SeatOnlyBasePlace && !canUseSUBCLS ) {  
+                               if ( SeatOnlyBasePlace && !canUseSUBCLS ) {
                                  SeatOnlyBasePlace = false;
                                  FSeatAlg=0;
                                }
@@ -3273,6 +3272,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p )
     "       pax_grp.class, "
     "       cls_grp.code subclass, "
     "       pax.seats, "
+    "       pax.is_jmp, "
     "       pax_grp.status, "
     "       pax.pers_type, "
     "       pax.ticket_no, "
@@ -3282,7 +3282,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p )
     "       pax.tid, "
     "       pax.wl_type, "
     "       pax_grp.point_arv, "
-    "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'list',rownum) AS seat_no, "
+    "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'list',rownum) AS seat_no, "
     "       tckin_pax_grp.tckin_id, tckin_pax_grp.seg_no "
     "FROM pax_grp, pax, cls_grp, tckin_pax_grp "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
@@ -3305,6 +3305,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p )
     pass.foundSeats = Qry.FieldAsString( "seat_no" );
     pass.clname = Qry.FieldAsString( "class" );
     pass.countPlace = Qry.FieldAsInteger( "seats" );
+    pass.is_jmp = Qry.FieldAsInteger( "is_jmp" )!=0;
     pass.tid = Qry.FieldAsInteger( "tid" );
     pass.grpId = Qry.FieldAsInteger( "grp_id" );
     pass.regNo = Qry.FieldAsInteger( "reg_no" );
@@ -3563,8 +3564,8 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     case cltCheckin:
     case cltTCheckin:
       Qry.SQLText =
-       "SELECT surname, name, reg_no, pax.grp_id, pax.seats, a.step step, pax.tid, '' airp_arv, point_dep, point_arv, "
-       "       0 point_id, salons.get_seat_no(pax.pax_id,pax.seats,NULL,:point_dep,'list',rownum) AS seat_no, "
+       "SELECT surname, name, reg_no, pax.grp_id, pax.seats, pax.is_jmp, a.step step, pax.tid, '' airp_arv, point_dep, point_arv, "
+       "       0 point_id, salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,:point_dep,'list',rownum) AS seat_no, "
        "       class, pers_type "
        " FROM pax, pax_grp, "
        "( SELECT COUNT(*) step FROM pax_rem "
@@ -3578,7 +3579,7 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     case cltProtAfterPay:
     case cltPNLAfterPay:
       Qry.SQLText =
-        "SELECT surname, name, 0 reg_no, 0 grp_id, seats, a.step step, crs_pax.tid, airp_arv, point_id, 0 point_arv, "
+        "SELECT surname, name, 0 reg_no, 0 grp_id, seats, 0 is_jmp, a.step step, crs_pax.tid, airp_arv, point_id, 0 point_arv, "
         "       NULL AS seat_no, class, pers_type "
         " FROM crs_pax, crs_pnr, "
         "( SELECT COUNT(*) step FROM crs_pax_rem "
@@ -3613,6 +3614,7 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   int point_id_tlg = Qry.FieldAsInteger( "point_id" );
   int point_arv = Qry.FieldAsInteger( "point_arv" );
   int seats_count = Qry.FieldAsInteger( "seats" );
+  bool is_jmp = Qry.FieldAsInteger( "is_jmp" )!=0;
   int pr_down;
   if ( Qry.FieldAsInteger( "step" ) )
     pr_down = 1;
@@ -3624,6 +3626,7 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     ProgTrace( TRACE5, "!!! Passenger has count seats=0 in funct ChangeLayer" );
     throw UserException( "MSG.SEATS.NOT_RESEATS_SEATS_ZERO" );
   }
+  if (is_jmp) throw UserException( "MSG.SEATS.NOT_RESEATS_PASSENGER_FROM_JUMP_SEAT" );
 
   if ( Qry.FieldAsInteger( "tid" ) != tid  ) {
     ProgTrace( TRACE5, "!!! Passenger has changed in other term in funct ChangeLayer" );
@@ -3968,6 +3971,7 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
   CanUseTube = true;
   CanUseAlone = uTrue;
   SeatPlaces.Clear();
+  condRates.Init( Salons, false, TReqInfo::Instance()->client_type ); // собирает все типы платных мест в массив по приоритетам, если это web-клиент, то не учитываем
 
   //!!! не задано pass.placeName, pass.PrevPlaceName, pass.OldPlaceName, pass.placeList,pass.InUse ,x,y???
     TQuery Qry( &OraSession );
@@ -3998,6 +4002,10 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
             continue;
           if ( pass.grp_status != DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) ) // разбиваем пассажиров по типам Бронь, Транзит...
             continue;
+          if ( pass.is_jmp) {
+            //!!!djek ProgError?
+            continue;
+          }
           ProgTrace( TRACE5, "isSeat=%d, pass.pax_id=%d, pass.foundSeats=%s, pass.clname=%s, layer_type=%s, pass.grp_status=%s, equal_y_class=%d",
                      pass.isSeat, pass.paxId, pass.foundSeats.c_str(), pass.clname.c_str(), Qry.FieldAsString( "layer_type" ),
                      EncodeCompLayerType( pass.grp_status ), pass.clname == "Э" );
@@ -4055,7 +4063,7 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatA
     TQuery QryUpd( &OraSession );
     QryPax.SQLText =
       "SELECT point_dep, point_arv, "
-      "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,point_dep,'list',rownum) AS seat_no "
+      "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,point_dep,'list',rownum) AS seat_no "
       " FROM pax, pax_grp "
       " WHERE pax.pax_id=:pax_id AND "
       "       pax.grp_id=pax_grp.grp_id ";
@@ -4237,8 +4245,8 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
     case cltCheckin:
     case cltTCheckin:
       Qry.SQLText =
-       "SELECT surname, name, reg_no, pax.grp_id, pax.seats, a.step step, pax.tid, '' airp_arv, point_dep, point_arv, "
-       "       0 point_id, salons.get_seat_no(pax.pax_id,pax.seats,NULL,:point_dep,'list',rownum) AS seat_no, "
+       "SELECT surname, name, reg_no, pax.grp_id, pax.seats, pax.is_jmp, a.step step, pax.tid, '' airp_arv, point_dep, point_arv, "
+       "       0 point_id, salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,:point_dep,'list',rownum) AS seat_no, "
        "       class, pers_type "
        " FROM pax, pax_grp, "
        "( SELECT COUNT(*) step FROM pax_rem "
@@ -4252,7 +4260,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
     case cltProtAfterPay:
     case cltPNLAfterPay:
       Qry.SQLText =
-        "SELECT surname, name, 0 reg_no, 0 grp_id, seats, a.step step, crs_pax.tid, airp_arv, point_id, 0 point_arv, "
+        "SELECT surname, name, 0 reg_no, 0 grp_id, seats, 0 is_jmp, a.step step, crs_pax.tid, airp_arv, point_id, 0 point_arv, "
         "       NULL AS seat_no, class, pers_type "
         " FROM crs_pax, crs_pnr, "
         "( SELECT COUNT(*) step FROM crs_pax_rem "
@@ -4287,6 +4295,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
   int point_id_tlg = Qry.FieldAsInteger( "point_id" );
   int point_arv = Qry.FieldAsInteger( "point_arv" );
   int seats_count = Qry.FieldAsInteger( "seats" );
+  bool is_jmp = Qry.FieldAsInteger( "is_jmp" )!=0;
   int pr_down;
   if ( Qry.FieldAsInteger( "step" ) )
     pr_down = 1;
@@ -4298,6 +4307,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
     ProgTrace( TRACE5, "!!! Passenger has count seats=0 in funct ChangeLayer" );
     throw UserException( "MSG.SEATS.NOT_RESEATS_SEATS_ZERO" );
   }
+  if (is_jmp) throw UserException( "MSG.SEATS.NOT_RESEATS_PASSENGER_FROM_JUMP_SEAT" );
 
   if ( Qry.FieldAsInteger( "tid" ) != tid  ) {
     ProgTrace( TRACE5, "!!! Passenger has changed in other term in funct ChangeLayer" );
@@ -4779,6 +4789,8 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
         CanUseAlone = uTrue;
         SeatPlaces.Clear();
         Passengers.Clear();
+        condRates.Init( SalonsN, false, TReqInfo::Instance()->client_type ); // собирает все типы платных мест в массив по приоритетам, если это web-клиент, то не учитываем
+
 
         try {
           for ( std::set<TSalonPax,ComparePassenger>::iterator ipass=ipass_status->second.begin();
@@ -4788,6 +4800,10 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
             string seat_no = ipass->seat_no( "one", salonList.isCraftLat(), waitListReason );
             if ( waitListReason.layerStatus == layerValid ) {
               tst();
+              continue;
+            }
+            if ( ipass->is_jmp) {
+              //!!!djek ProgError?
               continue;
             }
             TPassenger vpass;
@@ -4801,6 +4817,7 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
             vpass.foundSeats = string("(") + ipass->prior_seat_no( "one", salonList.isCraftLat() ) + string(")");
             vpass.isSeat = false;
             vpass.countPlace = ipass->seats;
+            vpass.is_jmp = ipass->is_jmp;
             vpass.clname = ipass->cl;
             vpass.grp_status = grp_layer_type;
             if ( ipass->pr_infant != ASTRA::NoExists ) {

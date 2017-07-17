@@ -948,6 +948,7 @@ struct TPass {
   std::string cl;
   int class_grp;
   int seats;
+  bool is_jmp;
   ASTRA::TPerson pers_type;
   ASTRA::TCrewType::Enum crew_type;
   TPass() {
@@ -963,6 +964,7 @@ struct TPass {
     pr_inf = false;
     pr_web = false;
     crew_type = ASTRA::TCrewType::Unknown;
+    is_jmp = false;
   }
 };
 
@@ -977,6 +979,7 @@ struct TSalonPax {
     int point_dep;
     int point_arv;
     unsigned int seats; //+
+    bool is_jmp;
     std::string cl; //+
     int class_grp;
     int reg_no; //+
@@ -993,6 +996,7 @@ struct TSalonPax {
     std::map<TSeatLayer,TInvalidRange,SeatLayerCompare> invalid_ranges;
     TSalonPax() {
       seats = 0;
+      is_jmp = false;
       reg_no = ASTRA::NoExists;
       is_female = ASTRA::NoExists;
       pr_infant = ASTRA::NoExists;
@@ -1010,6 +1014,7 @@ struct TSalonPax {
       point_dep = pass.point_dep;
       point_arv = pass.point_arv;
       seats = pass.seats;
+      is_jmp = pass.is_jmp;
       reg_no = pass.reg_no;
       pers_type = pass.pers_type;
       cl = pass.cl;
