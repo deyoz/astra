@@ -167,7 +167,8 @@ astra_SOURCES = \
   annul_bt.cc \
   html_pages.cc \
   brands.cpp \
-  md5_sum.cc
+  md5_sum.cc \
+  kiosk_alias.cpp
 
 
 astra_LDADD = $(all_libraries) \
@@ -327,4 +328,5 @@ noinst_HEADERS = \
   annul_bt.h \
   html_pages.h \
   brands.h \
-  md5_sum.h
+  md5_sum.h \
+  kiosk_alias.h

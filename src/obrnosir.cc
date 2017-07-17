@@ -22,6 +22,7 @@
 #include "collect.h"
 #include "html_pages.h"
 #include "web_main.h"
+#include "kiosk_alias.h"
 
 int nosir_test(int argc,char **argv);
 void nosir_test_help(const char *name);
@@ -123,6 +124,7 @@ const
     {"-prn_tags",               prn_tags,               NULL,                       NULL},
     {"-kuf_fix",                KUF_STAT::fix,          NULL,                       NULL},
     {"-stat_belgorod",          stat_belgorod,          NULL,                       NULL},
+    {"-alias_to_db",            KIOSK::alias_to_db,     NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
