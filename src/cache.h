@@ -33,7 +33,7 @@ public:
 #define TAG_CODE                "CODE"
 
 enum TCacheFieldCharCase {ecNormal, ecUpperCase, ecLowerCase};
-enum TCacheFieldType {ftSignedNumber, ftUnsignedNumber, ftDate, ftTime, ftString, ftBoolean, ftStringList,
+enum TCacheFieldType {ftSignedNumber, ftUnsignedNumber, ftDate, ftTime, ftString, ftBoolean, ftStringList, ftUTF,
                       ftUnknown, NumFieldType};
 enum TCacheConvertType {ctInteger,ctDouble,ctDateTime,ctString};
 enum TCacheUpdateStatus {usUnmodified, usModified, usInserted, usDeleted};

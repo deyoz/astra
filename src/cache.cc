@@ -21,7 +21,7 @@
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
 
-const char * CacheFieldTypeS[NumFieldType] = {"NS","NU","D","T","S","B","SL",""};
+const char * CacheFieldTypeS[NumFieldType] = {"NS","NU","D","T","S","B","SL","UTF",""};
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -1566,6 +1566,10 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
 
         SetVariables( *iv, vars );
         try {
+            LogTrace(TRACE5) << "cache qry: " << Qry->SQLText.SQLText();
+            for(int i = 0; i < Qry->VariablesCount(); i++)
+                LogTrace(TRACE5) << Qry->VariableName(i) << " = " << Qry->GetVariableAsString(i);
+
           Qry->Execute();
           if ( Logging ) /* логирование */
             OnLogging( *iv, status );
@@ -1654,6 +1658,7 @@ void TCacheTable::DeclareVariables(const std::vector<string> &vars)
                  Qry->DeclareVariable(VarName,otDate);
                  break;
           case ftString:
+          case ftUTF:
           case ftStringList:
                  Qry->DeclareVariable(VarName,otString);
                  break;
