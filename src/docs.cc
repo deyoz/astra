@@ -21,6 +21,7 @@
 #include "serverlib/str_utils.h"
 #include <boost/shared_array.hpp>
 #include "baggage_calc.h"
+#include "salons.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -292,6 +293,7 @@ void populate_doc_cap(xmlNodePtr variablesNode, string lang)
     NewTextChild(variablesNode, "doc_cap_pas", getLocaleText("Пас", lang));
     NewTextChild(variablesNode, "doc_cap_type", getLocaleText("Тип", lang));
     NewTextChild(variablesNode, "doc_cap_seat_no", getLocaleText("№ м", lang));
+    NewTextChild(variablesNode, "doc_cap_new_seat_no", getLocaleText("Н № м", lang));
     NewTextChild(variablesNode, "doc_cap_remarks", getLocaleText("Ремарки", lang));
     NewTextChild(variablesNode, "doc_cap_cl", getLocaleText("Кл", lang));
     NewTextChild(variablesNode, "doc_cap_dest", getLocaleText("П/н", lang));
@@ -3907,6 +3909,73 @@ void  DocsInterface::RunSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
 }
 
+void RESEAT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    if(rpt_params.rpt_type == rtSERVICESTXT)
+        get_compatible_report_form("docTxt", reqNode, resNode);
+    else
+        get_compatible_report_form("reseat", reqNode, resNode);
+
+    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
+    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_reseat");
+    // переменные отчёта
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
+    // заголовок отчёта
+    NewTextChild(variablesNode, "caption",
+        getLocaleText("CAP.DOC.RESEAT", LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
+    populate_doc_cap(variablesNode, rpt_params.GetLang());
+
+    // строки отчёта
+    map<bool,map <int,TSeatRanges> > seats;
+    SALONS2::getPaxSeatsWL(rpt_params.point_id, seats);
+
+    map<int, pair<string, string> > prepared_seats; // prepared_seats[reg_no] = ...
+    for(map<bool,map <int,TSeatRanges> >::iterator i = seats.begin(); i != seats.end(); i++) {
+        for(map <int,TSeatRanges>::iterator i_seats = i->second.begin();
+                i_seats != i->second.end(); i_seats++) {
+
+            pair<string, string> &pair_seats = prepared_seats[i_seats->first];
+            string seat_list = GetSeatRangeView(i_seats->second, "list", rpt_params.GetLang() != AstraLocale::LANG_RU);
+            if(i->first)
+                pair_seats.first = seat_list;
+            else
+                pair_seats.second = seat_list;
+        }
+    }
+
+    struct TSortedPax {
+        CheckIn::TSimplePaxItem pax;
+        pair<string, string> seats;
+    };
+
+    map<int, TSortedPax> sorted_pax;
+    for(map<int, pair<string, string> >::iterator i = prepared_seats.begin();
+            i != prepared_seats.end(); i++) {
+        CheckIn::TSimplePaxItem pax;
+        pax.getByPaxId(i->first);
+        sorted_pax[pax.reg_no].pax = pax;
+        sorted_pax[pax.reg_no].seats = i->second;
+    }
+
+    for(map<int, TSortedPax>::iterator i = sorted_pax.begin();
+            i != sorted_pax.end(); i++) {
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+        NewTextChild(rowNode, "reg_no", i->second.pax.reg_no);
+        NewTextChild(rowNode, "full_name", transliter(i->second.pax.full_name(), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+        NewTextChild(rowNode, "old_seat_no", i->second.seats.first);
+        NewTextChild(rowNode, "new_seat_no", i->second.seats.second);
+    }
+
+
+    LogTrace(TRACE5) << GetXMLDocText(resNode->doc); //!!!
+}
+
+void RESEATTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+}
+
 void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr node = reqNode->children;
@@ -3992,6 +4061,12 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             break;
         case rtSERVICESTXT:
             SERVICESTXT(rpt_params, reqNode, resNode);
+            break;
+        case rtRESEAT:
+            RESEAT(rpt_params, reqNode, resNode);
+            break;
+        case rtRESEATTXT:
+            RESEATTXT(rpt_params, reqNode, resNode);
             break;
         default:
             throw AstraLocale::UserException("MSG.TEMPORARILY_NOT_SUPPORTED");
@@ -4143,4 +4218,3 @@ void get_new_report_form(const string name, xmlNodePtr reqNode, xmlNodePtr resNo
         return;
     get_report_form(name, resNode);
 }
-

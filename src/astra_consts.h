@@ -156,6 +156,8 @@ enum TRptType {
     rtVOUCHERS,
     rtSERVICES,
     rtSERVICESTXT,
+    rtRESEAT,
+    rtRESEATTXT,
     rtUnknown,
     rtTypeNum
 };
