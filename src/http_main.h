@@ -12,6 +12,7 @@ namespace AstraHTTP
 #define SPP_SYNCH_JXT_INTERFACE_ID "SppSynch"
 #define CHECKIN_JXT_INTERFACE_ID "CheckIn"
 #define TELEGRAM_JXT_INTERFACE_ID "Telegram"
+#define KIOSK_ALIAS_JXT_INTERFACE_ID "KioskAlias"
 #define STAT_JXT_INTERFACE_ID "stat"
 #define HTML_JXT_INTERFACE_ID "html"
 #define PIECE_CONCEPT_JXT_INTERFACE_ID "PieceConcept"
@@ -48,21 +49,23 @@ struct HTTPClient
   ServerFramework::HTTP::reply& fromJXT( std::string res, ServerFramework::HTTP::reply& rep );
   HTTPClient() {
     jxt_format = false;
-    jxt_interface["SaveSPP"] =              JxtInfo(SPP_SYNCH_JXT_INTERFACE_ID, NULL);
-    jxt_interface["SaveSinhronSPP"] =       JxtInfo(SPP_SYNCH_JXT_INTERFACE_ID, NULL);
-    jxt_interface["CREWCHECKIN"] =          JxtInfo(CHECKIN_JXT_INTERFACE_ID, HTTPPostProcessXMLAnswer);
-    jxt_interface["tlg_srv"] =              JxtInfo(TELEGRAM_JXT_INTERFACE_ID, TlgPostProcessXMLAnswer);
-    jxt_interface["kick"] =                 JxtInfo(TELEGRAM_JXT_INTERFACE_ID, TlgPostProcessXMLAnswer);
-    jxt_interface["kuf_file"] =             JxtInfo(TELEGRAM_JXT_INTERFACE_ID, NULL);
-    jxt_interface["kuf_stat"] =             JxtInfo(TELEGRAM_JXT_INTERFACE_ID, NULL);
-    jxt_interface["kuf_stat_flts"] =        JxtInfo(TELEGRAM_JXT_INTERFACE_ID, NULL);
-    jxt_interface["stat_srv"] =             JxtInfo(STAT_JXT_INTERFACE_ID, NULL);
+    jxt_interface["SaveSPP"] =              JxtInfo(SPP_SYNCH_JXT_INTERFACE_ID,     NULL);
+    jxt_interface["SaveSinhronSPP"] =       JxtInfo(SPP_SYNCH_JXT_INTERFACE_ID,     NULL);
+    jxt_interface["CREWCHECKIN"] =          JxtInfo(CHECKIN_JXT_INTERFACE_ID,       HTTPPostProcessXMLAnswer);
+    jxt_interface["tlg_srv"] =              JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      TlgPostProcessXMLAnswer);
+    jxt_interface["kick"] =                 JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      TlgPostProcessXMLAnswer);
+    jxt_interface["kuf_file"] =             JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      NULL);
+    jxt_interface["kuf_stat"] =             JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      NULL);
+    jxt_interface["kuf_stat_flts"] =        JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      NULL);
+    jxt_interface["kiosk_alias"] =          JxtInfo(KIOSK_ALIAS_JXT_INTERFACE_ID,   NULL);
+    jxt_interface["kiosk_alias_locale"] =   JxtInfo(KIOSK_ALIAS_JXT_INTERFACE_ID,   NULL);
+    jxt_interface["stat_srv"] =             JxtInfo(STAT_JXT_INTERFACE_ID,          NULL);
     jxt_interface["piece_concept"] =        JxtInfo(PIECE_CONCEPT_JXT_INTERFACE_ID, NULL);
-    jxt_interface["GetPrintDataBP"] =       JxtInfo(PRINT_JXT_INTERFACE_ID, NULL);
-    jxt_interface["GetGRPPrintDataBP"] =    JxtInfo(PRINT_JXT_INTERFACE_ID, NULL);
-    jxt_interface["GetImg"] =               JxtInfo(PRINT_JXT_INTERFACE_ID, NULL);
-    jxt_interface["get_resource"] =         JxtInfo(HTML_JXT_INTERFACE_ID, NULL);
-    jxt_interface["print_bp"] =             JxtInfo(PRINT_JXT_INTERFACE_ID, NULL);
+    jxt_interface["GetPrintDataBP"] =       JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
+    jxt_interface["GetGRPPrintDataBP"] =    JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
+    jxt_interface["GetImg"] =               JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
+    jxt_interface["get_resource"] =         JxtInfo(HTML_JXT_INTERFACE_ID,          NULL);
+    jxt_interface["print_bp"] =             JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
   }
 };
 

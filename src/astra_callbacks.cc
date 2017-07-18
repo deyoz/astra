@@ -45,6 +45,7 @@
 #include "external_spp_synch.h"
 #include "rfisc_sirena.h"
 #include "html_pages.h"
+#include "kiosk_alias.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -88,6 +89,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new CryptInterface();
     new TestInterface();
     new HtmlInterface();
+    new KioskAliasInterface();
 
     new AstraWeb::WebRequestsIface();
 

@@ -9,6 +9,8 @@
 #include "serverlib/str_utils.h"
 #include "oralib.h"
 #include "xml_unit.h"
+#include "stl_utils.h"
+#include "qrys.h"
 
 #include <cstdio>
 #include <memory>
@@ -136,6 +138,11 @@ namespace KIOSK {
 
     typedef map<string, TAliasList> TAliasBaseList;
 
+    void max(const string &val, size_t &len)
+    {
+        if(len < val.size()) len = val.size();
+    }
+
     int alias_to_db(int argc, char **argv)
     {
         try {
@@ -179,12 +186,15 @@ namespace KIOSK {
                 }
 
                 if(alias.name == "DEN") {
+                    continue;
+
+
                     LogTrace(TRACE5) << "DEN: " << alias.locale["de"];
 
 
                     xmlDocPtr doc = CreateXMLDoc( "tst" );
                     try {
-                        xmlNodePtr queryNode = NewTextChild(doc->children, "query", "&" + alias.locale["de"]);
+                        NewTextChild(doc->children, "query", "&" + alias.locale["de"]);
                         LogTrace(TRACE5) << GetXMLDocText(doc);
                     }
                     catch ( ... ) {
@@ -248,14 +258,49 @@ namespace KIOSK {
             LogTrace(TRACE5) << found.size() << " alias bases found";
             count = 0;
             size_t alias_len = 0;
+            size_t b64_alias_len = 0;
             size_t descr_len = 0;
+            size_t b64_descr_len = 0;
+            size_t b64_text_len = 0;
             LogTrace(TRACE5) << "----dump results----";
+
+            TQuery lstQry(&OraSession);
+            lstQry.SQLText = "insert into kiosk_alias_list(code, descr) values(:code, :descr)";
+            lstQry.DeclareVariable("code", otString);
+            lstQry.DeclareVariable("descr", otString);
+
+            TQuery localeQry(&OraSession);
+            localeQry.SQLText =
+                "insert into kiosk_alias_locale ( "
+                "   code, "
+                "   lang, "
+                "   text, "
+                "   app, "
+                "   pr_del, "
+                "   tid "
+                ") values ( "
+                "   :code, "
+                "   :lang, "
+                "   :text, "
+                "   NULL, "
+                "   0, "
+                "   0 "
+                ") ";
+            localeQry.DeclareVariable("code", otString);
+            localeQry.DeclareVariable("lang", otString);
+            localeQry.DeclareVariable("text", otString);
+
             for(TAliasBaseList::iterator i = found.begin(); i != found.end(); i++) {
                 count += i->second.alias_list.size();
                 LogTrace(TRACE5) << "alias_base: " << i->first;
                 LogTrace(TRACE5) << "src: " << i->second.src;
                 for(set<TAlias>::iterator j = i->second.alias_list.begin();
                         j != i->second.alias_list.end(); j++) {
+
+                    lstQry.SetVariable("code", StrUtils::b64_encode(j->name));
+                    lstQry.SetVariable("descr", StrUtils::b64_encode(j->descr));
+                    lstQry.Execute();
+
                     LogTrace(TRACE5) << j->name;
 
                     boost::match_results<std::string::const_iterator> results;
@@ -263,11 +308,25 @@ namespace KIOSK {
                     if(not boost::regex_match(j->name, results, e))
                         LogTrace(TRACE5) << "NOT MATCH: " << j->name;
 
-                    if(alias_len < j->name.size()) alias_len = j->name.size();
-                    if(descr_len < j->descr.size()) descr_len = j->descr.size();
+                    max(StrUtils::b64_encode(j->name), b64_alias_len);
+                    max(StrUtils::b64_encode(j->descr), b64_descr_len);
+                    max(j->name, alias_len);
+                    max(j->descr, descr_len);
+
+                    for(map<string, string>::const_iterator i_locale = j->locale.begin();
+                            i_locale != j->locale.end(); i_locale++) {
+                        max(StrUtils::b64_encode(i_locale->second), b64_text_len);
+                        localeQry.SetVariable("code", StrUtils::b64_encode(j->name));
+                        localeQry.SetVariable("lang", upperc(i_locale->first));
+                        localeQry.SetVariable("text", StrUtils::b64_encode(i_locale->second));
+                        localeQry.Execute();
+                    }
                 }
             }
             LogTrace(TRACE5) << count << " aliases found by base";
+            LogTrace(TRACE5) << "b64_alias_len: " << b64_alias_len;
+            LogTrace(TRACE5) << "b64_descr_len: " << b64_descr_len;
+            LogTrace(TRACE5) << "b64_text_len: " << b64_text_len;
             LogTrace(TRACE5) << "alias_len: " << alias_len;
             LogTrace(TRACE5) << "descr_len: " << descr_len;
         } catch(Exception &E) {
@@ -276,5 +335,42 @@ namespace KIOSK {
         }
         return 0;
     }
+
+    struct TKioskAliasLocale {
+        map<string, TAlias> alias_list;
+        void fromDB();
+        void toXML();
+    };
+
+    void fromDB()
+    {
+        TCachedQuery Qry(
+                "select lst.descr, locale.* from kiosk_alias_list lst, kiosk_alias_locale locale where "
+                "   lst.code = locale.code "
+                );
+        Qry.get().Execute();
+        /*
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            TAlias alias;
+            alias.name = Qry.get().FieldAsString("code");
+            alias.descr = Qry.get().FieldAsString("descr");
+            pair<set<TAlias>::iterator, bool> ret;
+            ret = alias_list.insert(alias);
+            ret.first->locale.insert(make_pair(
+                        Qry.get().FieldAsString("lang"),
+                        Qry.get().FieldAsString("text")));
+        }
+        */
+    }
+
+
+}
+
+void KioskAliasInterface::KioskAlias(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+}
+
+void KioskAliasInterface::KioskAliasLocale(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
 
 }
