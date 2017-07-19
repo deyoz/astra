@@ -6242,16 +6242,16 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
   TQuery Qry( &OraSession );
   Qry.SQLText =
     "SELECT pax_id, xname, yname from pax_seats "
-    " WHERE point_id=:point_id AND pr_wl=0";
+    " WHERE point_id=:point_id AND NVL(pr_wl,0)=0";
   Qry.DeclareVariable( "point_id", otInteger );
   TQuery DelQry( &OraSession );
   DelQry.SQLText =
     "BEGIN "
     " IF :pr_update = 1 THEN "
     " DELETE pax_seats WHERE point_id=:point_id AND pax_id=:pax_id AND pr_wl=1; "
-    " UPDATE pax_seats SET pr_wl=1 WHERE point_id=:point_id AND pax_id=:pax_id AND pr_wl=0; "
+    " UPDATE pax_seats SET pr_wl=1 WHERE point_id=:point_id AND pax_id=:pax_id AND NVL(pr_wl,0)=0; "
     " END IF;"
-    " DELETE pax_seats WHERE point_id=:point_id AND pax_id=:pax_id AND pr_wl=0; "
+    " DELETE pax_seats WHERE point_id=:point_id AND pax_id=:pax_id AND NVL(pr_wl,0)=0; "
     " :pr_update := SQL%ROWCOUNT;"
     "END;";
   DelQry.DeclareVariable( "point_id", otInteger );
@@ -9848,7 +9848,7 @@ void TAutoSeats::WritePaxSeats( int point_dep, int pax_id )
   }
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "DELETE pax_seats WHERE pax_id=:pax_id AND pr_wl=0";
+    "DELETE pax_seats WHERE pax_id=:pax_id AND NVL(pr_wl,0)=0";
   Qry.CreateVariable( "pax_id", otInteger, ipax->pax_id );
   Qry.Execute();
   Qry.Clear();
@@ -9986,7 +9986,7 @@ void getPaxSeatsWL( int point_id, std::map< bool,std::map < int,TSeatRanges > > 
   seats.clear();
   TQuery Qry(&OraSession);
   Qry.SQLText =
-    "SELECT pax_id, xname, yname, pr_wl FROM pax_seats "
+    "SELECT pax_id, xname, yname, NVL(pr_wl,0) pr_wl FROM pax_seats "
     "WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
