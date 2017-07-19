@@ -963,7 +963,7 @@ bool TPlace::CompareTariffs( const TPlace &seat ) const
 
 bool TPlace::CompareRFISCs( const TPlace &seat ) const
 {
-  ProgTrace( TRACE5, "rfiscs.size()=%zu, seat.rfiscs.size()=%zu",rfiscs.size(),seat.rfiscs.size());
+//  ProgTrace( TRACE5, "rfiscs.size()=%zu, seat.rfiscs.size()=%zu",rfiscs.size(),seat.rfiscs.size());
   if ( rfiscs.size() != seat.rfiscs.size() ) {
     return false;
   }
@@ -6242,23 +6242,30 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
   TQuery Qry( &OraSession );
   Qry.SQLText =
     "SELECT pax_id, xname, yname from pax_seats "
-    " WHERE point_id=:point_id";
+    " WHERE point_id=:point_id AND pr_wl=0";
   Qry.DeclareVariable( "point_id", otInteger );
   TQuery DelQry( &OraSession );
   DelQry.SQLText =
-    "DELETE pax_seats WHERE point_id=:point_id AND pax_id=:pax_id";
-  DelQry.DeclareVariable( "point_id", otInteger);
+    "BEGIN "
+    " IF :pr_update = 1 THEN "
+    " DELETE pax_seats WHERE point_id=:point_id AND pax_id=:pax_id AND pr_wl=1; "
+    " UPDATE pax_seats SET pr_wl=1 WHERE point_id=:point_id AND pax_id=:pax_id AND pr_wl=0; "
+    " END IF;"
+    " DELETE pax_seats WHERE point_id=:point_id AND pax_id=:pax_id AND pr_wl=0; "
+    " :pr_update := SQL%ROWCOUNT;"
+    "END;";
+  DelQry.DeclareVariable( "point_id", otInteger );
   DelQry.DeclareVariable( "pax_id", otInteger );
+  DelQry.DeclareVariable( "pr_update", otInteger );
   TQuery InsQry( &OraSession );
   InsQry.Clear();
   InsQry.SQLText =
-    "INSERT INTO pax_seats(point_id,pax_id,xname,yname) "
-    "VALUES(:point_id,:pax_id,:xname,:yname)";
+    "INSERT INTO pax_seats(point_id,pax_id,xname,yname,pr_wl) "
+    "VALUES(:point_id,:pax_id,:xname,:yname,0)";
   InsQry.DeclareVariable( "point_id", otInteger );
   InsQry.DeclareVariable( "pax_id", otInteger );
   InsQry.DeclareVariable( "xname", otString );
   InsQry.DeclareVariable( "yname", otString );
-
   TQuery QryAirp( &OraSession );
   QryAirp.SQLText =
     "SELECT airline,airp FROM points WHERE point_id=:point_id";
@@ -6328,13 +6335,15 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
         }
         //изменились места - удаляем старые, записываем новые
         DelQry.SetVariable( "pax_id", inew->first );
+        DelQry.SetVariable( "pr_update", 0 );
         DelQry.Execute();
-        change_pax_seats.insert( make_pair( inew->first, DelQry.RowCount() ) );
+        change_pax_seats.insert( make_pair( inew->first, DelQry.GetVariableAsInteger( "pr_update") ) );
       }
       else { //пассажир не найден в новом списке - разрегистрация по ошибке агента или ЛО
         DelQry.SetVariable( "pax_id", iold->first );
+        DelQry.SetVariable( "pr_update", 1 );
         DelQry.Execute();
-        bool pr_exists = ( DelQry.RowCount() );
+        bool pr_exists = DelQry.GetVariableAsInteger( "pr_update") != 0;
         if ( pr_exists ) {
           if ( passes.find( iold->first ) != passes.end() ) { //существует такой пассажир
             if ( paxs_external_logged.find( iold->first ) == paxs_external_logged.end() ) {
@@ -9839,13 +9848,13 @@ void TAutoSeats::WritePaxSeats( int point_dep, int pax_id )
   }
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "DELETE pax_seats WHERE pax_id=:pax_id";
+    "DELETE pax_seats WHERE pax_id=:pax_id AND pr_wl=0";
   Qry.CreateVariable( "pax_id", otInteger, ipax->pax_id );
   Qry.Execute();
   Qry.Clear();
   Qry.SQLText =
-    "INSERT INTO pax_seats(point_id,pax_id,xname,yname) "
-    "VALUES(:point_id,:pax_id,:xname,:yname)";
+    "INSERT INTO pax_seats(point_id,pax_id,xname,yname,pr_wl) "
+    "VALUES(:point_id,:pax_id,:xname,:yname,0)";
   Qry.CreateVariable( "point_id", otInteger, point_dep );
   Qry.CreateVariable( "pax_id", otInteger, ipax->pax_id );
   Qry.DeclareVariable( "xname", otString );
@@ -9971,6 +9980,22 @@ void getSalonDesrcs( int point_id, TSalonDesrcs &descrs )
     descrs[ Qry.FieldAsInteger( "salon_num" ) ].insert( Qry.FieldAsString( "desc_code" ) );
   }
 }
+
+void getPaxSeatsWL( int point_id, std::map< bool,std::map < int,TSeatRanges > > &seats )
+{
+  seats.clear();
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT pax_id, xname, yname, pr_wl FROM pax_seats "
+    "WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  for ( ;!Qry.Eof;Qry.Next() ) {
+    seats[ Qry.FieldAsInteger( "pr_wl" ) ][ Qry.FieldAsInteger( "pax_id" ) ].push_back( TSeatRange( TSeat( Qry.FieldAsString( "yname" ), Qry.FieldAsString( "xname" ) ),
+                                                                                                    TSeat( Qry.FieldAsString( "yname" ), Qry.FieldAsString( "xname" ) ) ) );
+  }
+}
+
 
 } // end namespace SALONS2
 

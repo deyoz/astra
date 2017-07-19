@@ -1299,6 +1299,7 @@ TSimplePaxItem& TSimplePaxItem::fromDB(TQuery &Qry)
 {
   clear();
   id=Qry.FieldAsInteger("pax_id");
+  grp_id=Qry.FieldAsInteger("grp_id");
   surname=Qry.FieldAsString("surname");
   name=Qry.FieldAsString("name");
   pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
