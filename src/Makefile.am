@@ -178,7 +178,7 @@ astra_SOURCES = \
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
 	tests/libtests.a \
-	@SHARED_LIBS@ @SHARED_EXT_LIBS@ \
+	@SHARED_LIBS@ @SHARED_DEPEND_LIBS@ \
 	@LIBTLG_LIBS@ \
 	@SERVERLIB_LIBS@ \
         @LIBTYPEB_LIBS@ \
