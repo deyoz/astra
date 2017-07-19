@@ -392,6 +392,7 @@ class TSimplePaxItem
 {
   public:
     int id;
+    int grp_id;
     std::string surname;
     std::string name;
     ASTRA::TPerson pers_type;
@@ -418,6 +419,7 @@ class TSimplePaxItem
     void clear()
     {
       id=ASTRA::NoExists;
+      grp_id=ASTRA::NoExists;
       surname.clear();
       name.clear();
       pers_type=ASTRA::NoPerson;

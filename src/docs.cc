@@ -296,6 +296,7 @@ void populate_doc_cap(xmlNodePtr variablesNode, string lang)
     NewTextChild(variablesNode, "doc_cap_new_seat_no", getLocaleText("Н № м", lang));
     NewTextChild(variablesNode, "doc_cap_remarks", getLocaleText("Ремарки", lang));
     NewTextChild(variablesNode, "doc_cap_cl", getLocaleText("Кл", lang));
+    NewTextChild(variablesNode, "doc_cap_seats", getLocaleText("Крс", lang));
     NewTextChild(variablesNode, "doc_cap_dest", getLocaleText("П/н", lang));
     NewTextChild(variablesNode, "doc_cap_to", getLocaleText("CAP.DOC.TO", lang));
     NewTextChild(variablesNode, "doc_cap_ex", getLocaleText("Дс", lang));
@@ -3911,7 +3912,7 @@ void  DocsInterface::RunSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 
 void RESEAT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    if(rpt_params.rpt_type == rtSERVICESTXT)
+    if(rpt_params.rpt_type == rtRESEATTXT)
         get_compatible_report_form("docTxt", reqNode, resNode);
     else
         get_compatible_report_form("reseat", reqNode, resNode);
@@ -3927,22 +3928,26 @@ void RESEAT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         getLocaleText("CAP.DOC.RESEAT", LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
     populate_doc_cap(variablesNode, rpt_params.GetLang());
 
-    // строки отчёта
-    map<bool,map <int,TSeatRanges> > seats;
+    map<bool,map <int,TSeatRanges> > seats; // true - старые, false - новые места
     SALONS2::getPaxSeatsWL(rpt_params.point_id, seats);
 
-    map<int, pair<string, string> > prepared_seats; // prepared_seats[reg_no] = ...
-    for(map<bool,map <int,TSeatRanges> >::iterator i = seats.begin(); i != seats.end(); i++) {
-        for(map <int,TSeatRanges>::iterator i_seats = i->second.begin();
-                i_seats != i->second.end(); i_seats++) {
+    // приведем seats к нормальному виду prepared_seats
+    map<int, pair<string, string> > prepared_seats;
 
-            pair<string, string> &pair_seats = prepared_seats[i_seats->first];
-            string seat_list = GetSeatRangeView(i_seats->second, "list", rpt_params.GetLang() != AstraLocale::LANG_RU);
-            if(i->first)
-                pair_seats.first = seat_list;
-            else
-                pair_seats.second = seat_list;
-        }
+    // Пробег по паксам со старыми местами (в мэпе seats[true])
+    for(map <int,TSeatRanges>::iterator old_seats = seats[true].begin();
+            old_seats != seats[true].end(); old_seats++) {
+
+        pair<string, string> &pair_seats = prepared_seats[old_seats->first];
+
+        // Старые места выводим
+        pair_seats.first = GetSeatRangeView(old_seats->second, "list", rpt_params.GetLang() != AstraLocale::LANG_RU);
+
+        // Ищем, есть ли у пакса новые места (в мэпе seats[false])
+        // Если есть, выводим
+        map<int,TSeatRanges>::iterator new_seats = seats[false].find(old_seats->first);
+        if(new_seats != seats[false].end())
+            pair_seats.second = GetSeatRangeView(new_seats->second, "list", rpt_params.GetLang() != AstraLocale::LANG_RU);
     }
 
     struct TSortedPax {
@@ -3959,21 +3964,107 @@ void RESEAT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         sorted_pax[pax.reg_no].seats = i->second;
     }
 
+    // строки отчёта
+    map<int, string> classes;
     for(map<int, TSortedPax>::iterator i = sorted_pax.begin();
             i != sorted_pax.end(); i++) {
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
         NewTextChild(rowNode, "reg_no", i->second.pax.reg_no);
         NewTextChild(rowNode, "full_name", transliter(i->second.pax.full_name(), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
+        NewTextChild(rowNode, "pr_brd", i->second.pax.pr_brd);
+        NewTextChild(rowNode, "seats", i->second.pax.seats);
         NewTextChild(rowNode, "old_seat_no", i->second.seats.first);
         NewTextChild(rowNode, "new_seat_no", i->second.seats.second);
+
+        map<int, string>::iterator i_cls = classes.find(i->second.pax.grp_id);
+        if(i_cls == classes.end()) {
+            CheckIn::TPaxGrpItem grp;
+            grp.fromDB(i->second.pax.grp_id);
+            pair<map<int, string>::iterator, bool> ret;
+            ret = classes.insert(make_pair(i->second.pax.grp_id, grp.cl));
+            i_cls = ret.first;
+        }
+        NewTextChild(rowNode, "cls", rpt_params.ElemIdToReportElem(etClass, i_cls->second, efmtCodeNative));
+
+        NewTextChild(rowNode, "document", CheckIn::GetPaxDocStr(NoExists, i->second.pax.id, false, rpt_params.GetLang()));
+
+        ostringstream ticket_no;
+        ticket_no << i->second.pax.tkn.no;
+        if(i->second.pax.tkn.coupon)
+            ticket_no << "/" << i->second.pax.tkn.coupon;
+
+        NewTextChild(rowNode, "ticket_no", ticket_no.str());
     }
-
-
-    LogTrace(TRACE5) << GetXMLDocText(resNode->doc); //!!!
 }
 
 void RESEATTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    RESEAT(rpt_params, reqNode, resNode);
+
+    xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
+    xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
+    int page_width=80;
+    NewTextChild(variablesNode, "page_width", page_width);
+    NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
+    if(bad_client_img_version())
+        NewTextChild(variablesNode, "doc_cap_test", " ");
+    NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
+    ostringstream s;
+    s.str("");
+    s << NodeAsString("caption", variablesNode);
+    string str = s.str().substr(0, page_width);
+    s.str("");
+    s << right << setw(((page_width - str.size()) / 2) + str.size()) << str;
+    NewTextChild(variablesNode, "page_header_top", s.str());
+    s.str("");
+    s
+        << left
+        << setw(3)  << getLocaleText("№", rpt_params.GetLang())
+        << setw(26) << getLocaleText("Ф.И.О.", rpt_params.GetLang())
+        << setw(4)  << getLocaleText("Пс", rpt_params.GetLang())
+        << setw(3)  << (getLocaleText("Кл", rpt_params.GetLang()))
+        << setw(4)  << (getLocaleText("Крс", rpt_params.GetLang()))
+        << setw(6)  << (getLocaleText("№ м", rpt_params.GetLang()))
+        << setw(8)  << (getLocaleText("Н № м", rpt_params.GetLang()))
+        << setw(11) << getLocaleText("Документ", rpt_params.GetLang())
+        << setw(15) << getLocaleText("Билет", rpt_params.GetLang());
+    NewTextChild(variablesNode, "page_header_bottom", s.str() );
+    NewTextChild(variablesNode, "page_footer_top",
+            getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
+    xmlNodePtr dataSetNode = NodeAsNode("v_reseat", dataSetsNode);
+    xmlNodeSetName(dataSetNode, BAD_CAST "table");
+    vector<string> rows;
+    map< string, vector<string> > fields;
+    int row;
+    xmlNodePtr rowNode=dataSetNode->children;
+    const char col_sym = ' ';
+    for(; rowNode != NULL; rowNode = rowNode->next)
+    {
+        SeparateString(NodeAsString("full_name", rowNode), 25, rows);
+        fields["full_name"]=rows;
+
+        row=0;
+        s.str("");
+        do
+        {
+            if (row != 0) s << endl;
+            s
+                << right << setw(2) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
+                << left << setw(25) << (!fields["full_name"].empty() ? *(fields["full_name"].begin()) : "") << col_sym
+                << left <<  setw(3) << (row == 0 ? (strcmp(NodeAsString("pr_brd", rowNode, ""), "") == 0 ? "-" : "+") : "") << col_sym
+                << left <<  setw(2) << (row == 0 ? NodeAsString("cls", rowNode) : "") << col_sym
+                << left <<  setw(3) << (row == 0 ? NodeAsString("seats", rowNode) : "") << col_sym
+                << left <<  setw(5) << (row == 0 ? NodeAsString("old_seat_no", rowNode) : "") << col_sym
+                << left <<  setw(7) << (row == 0 ? NodeAsString("new_seat_no", rowNode) : "") << col_sym
+                << left <<  setw(10) << (row == 0 ? NodeAsString("document", rowNode) : "") << col_sym
+                << left <<  setw(15) << (row == 0 ? NodeAsString("ticket_no", rowNode) : "");
+            for(map< string, vector<string> >::iterator f = fields.begin(); f != fields.end(); f++)
+                if (!f->second.empty()) f->second.erase(f->second.begin());
+            row++;
+        }
+        while(!fields["full_name"].empty());
+        NewTextChild(rowNode,"str",s.str());
+    }
 }
 
 void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
