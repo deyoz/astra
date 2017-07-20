@@ -1,0 +1,17 @@
+#!/bin/bash
+
+#TOOLCHAIN=/tools
+#LIBC_PREFIX=
+
+TARGET_BIT=32
+### PLATFORM=m64/m32
+
+#BINUTILS_PREFIX=/tools
+
+#GCC=/tools/bin/gcc
+
+#TOOLS=/tools/utils
+
+#CPP_STD_VERSION=c++11
+#C_STD_VERSION=c99
+#DEBUG

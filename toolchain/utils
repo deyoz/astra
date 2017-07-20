@@ -1,0 +1,93 @@
+#!/bin/bash
+
+define_func() {
+    local func_name=$1;
+    local body=${!2};
+
+    eval "$func_name() { $body; }"
+}
+
+define_echo_func() {
+    local func_name=$1;
+    local echo_var=${!2}
+
+    local body="echo $echo_var"
+    define_func $func_name body
+}
+
+define_empty_func() 
+{
+    local func_name=$1
+    stub=':'
+    define_func $func_name stub
+}
+
+define_bool_func()
+{
+    local func_name=$1;
+    local ret_var=$2
+
+    local body="return $ret_var"
+    define_func $func_name body
+
+}
+
+_TCH_ERROR=0
+
+set_result()
+{
+    echo $@;
+}
+
+report_error()
+{
+    echo $@ 1>&2;
+}
+
+log_func_call() {
+    # 0 - current, 1 - prev, 2 - prev prev func call, ...
+    # we call this func from throw by default. so we need 2 as a parameter
+
+    ind=${1:-2}
+
+    echo "${BASH_SOURCE[$ind]}:${BASH_LINENO[$ind]} - ${FUNCNAME[$ind]}"
+}
+
+throw()
+{
+    info=$(log_func_call);
+
+    report_error "Error: ($info) '$1'";
+    _TCH_ERROR=1;
+    exit $_TCH_ERROR;
+}
+
+exit_on_error()
+{
+    if [[ $? != 0 ]]; then
+        exit $?;
+    fi;
+}
+
+add_end_slash()
+{
+    echo ${1:+$(dirname $1/x)/}
+}
+
+remove_end_slash() {
+    echo ${1:+$(dirname $1/x)}
+}
+
+function apply_script()
+{
+    if ! source $1; then
+        exit 1;
+    fi;
+}
+
+function unique_items() {
+    local tokens=$@
+    set_result $(echo -e "${tokens// /\\n}" | sort -u)
+}
+
+export -f set_result

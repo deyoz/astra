@@ -1,0 +1,37 @@
+#!/bin/bash
+
+cd $(dirname ${BASH_SOURCE})
+
+source ./utils
+apply_script ./config
+apply_script ./toolchain
+source ./core
+
+cd - > /dev/null
+ 
+TCH_LDFLAGS="$(tch lib-flags) $(tch rpath) $(tch dynamic-linker)"
+export TCH_BOOST_LINKFLAGS=$(b2_flags ldflags)
+
+TCH_INCLUDES=$(tch include-dirs ':')
+export TCH_BOOST_INCLUDES=$(b2_flags include)
+
+TCH_LIB_DIR_LIST=$(tch lib-dirs ':')
+TCH_PATH=$(tch path)
+
+export CC=$(tch compiler c)
+export CXX=$(tch compiler c++)
+
+export TCH_LIB_SUFFIX=$(get_host_libdir)
+export LIB_SUFFIX=/lib
+
+export LDFLAGS=$TCH_LDFLAGS
+cmnflags="$(tch include-flags) $(tch cflags)"
+export CFLAGS="$cmnflags $CFLAGS"
+export CXXFLAGS="$cmnflags $CXXFLAGS"
+export LIBRARY_PATH=$TCH_LIB_DIR_LIST
+export PATH="$(concat_env ${TCH_PATH} $PATH)"
+export CPATH=$TCH_INCLUDES
+
+#export C_INCLUDE_PATH=$TCH_INCLUDES
+#export CPLUS_INCLUDE_PATH=$TCH_INCLUDES
+

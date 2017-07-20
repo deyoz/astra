@@ -1,0 +1,133 @@
+#!/bin/bash
+
+__prefix="/usr"
+os32_lib32="/lib32"
+os64_lib32=$os32_lib32
+os64_lib64="/lib/x86_64-linux-gnu"
+include="/include"
+
+# check host and target ARCH & BITS
+
+###################  Red Hat OS Impl   #####################
+
+get_default_libc_prefix()  {
+    echo $__prefix
+}
+
+select_libc_prefix() {
+    echo ${1:-$(get_default_libc_prefix)}
+}
+
+array_find()
+{
+    if [[ $# -eq 0 ]]; then
+        throw "Too few arguments"
+    fi; 
+
+    what=$1;
+    read -a arr
+
+    for i in ${arr[*]}; do
+        if [[ $i == $what ]]; then
+            return 0;
+        fi;
+    done;
+
+    return 1;
+}
+
+can_use_bit() {
+    get_host_supported_bits | array_find $1
+}
+
+process_bit() {
+    local bit=${1:-$(get_host_default_bit)}
+    
+    if ! can_use_bit $bit; then
+        throw "Unsupported bit: $bit"
+    fi;
+
+    define_bit_related_funcs $bit
+
+    #set_result $bit
+}
+
+get_host_libc_path() {
+    echo "$(select_libc_prefix $1)$(get_host_libdir)"
+}
+
+get_host_include_path() {
+    echo $(select_libc_prefix $1)$include
+}
+
+_redhat32()
+{
+    get_host_default_bit() {
+        echo 32
+    }
+    get_host_supported_bits() {
+        get_host_default_bit
+    }
+        
+    define_bit_related_funcs() {
+    	function get_host_libdir() {
+            echo $os32_lib32
+        }
+
+        define_bool_func 'is_system_default_bit' 0 # - true
+
+        local bit=$(get_host_default_bit)
+        define_echo_func 'get_bit' bit
+     }   
+}
+
+_redhat64()
+{
+    get_host_default_bit()     { 
+        echo 64 
+    }
+    get_host_supported_bits()  { 
+        echo '32 64'
+    }
+
+    define_bit_related_funcs() {
+        local bit=${1:-$(get_host_default_bit)}
+
+        case $bit in
+            32)
+        		function get_host_libdir() {
+                    echo $os64_lib32;
+                }
+                define_bool_func 'is_system_default_bit' 1 # - false
+            ;;
+
+            64)
+	        	function get_host_libdir() {
+                    echo $os64_lib64;
+                }
+                define_bool_func 'is_system_default_bit' 0 # - true
+            ;;
+            *) throw "Unsupported bit ($1)"
+            ;;
+        esac;
+
+        define_echo_func 'get_bit' bit
+    }
+}
+
+####  End  ########  Red Hat OS Impl   #####################
+
+_get_redhat_os()
+{
+    case $(get_distro_bit) in
+        32)
+            _redhat32 $@
+        ;;
+        64) 
+            _redhat64 $@
+        ;;
+    esac;
+}
+
+_get_redhat_os
+

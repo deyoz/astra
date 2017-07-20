@@ -32,7 +32,7 @@ xp-tests: clean-xp-tests
 	grep "100%: Checks" xp-tests.log > /dev/null 2>&1
 	
 
-AM_CXXFLAGS = $(TCLINCLUDE) @PION_CXXFLAGS@
+AM_CXXFLAGS = $(TCLINCLUDE) @PION_CFLAGS@ 
 astra_SOURCES = \
   adm.cc \
   access.cc \
@@ -158,16 +158,16 @@ astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
   tests/libtests.a \
 	@ETICKLIB_LIBS@ \
-	@SHARED_EXT_LIBS@ \
+	@SHARED_LIBS@ @SHARED_DEPEND_LIBS@ \
 	@ORACLE_LIBS@ @EDILIB_LIBS@ @EDILIB_LIBLOADING@ \
-	@JXTLIB_LIBS@ @SHARED_LIBS@ \
+	@JXTLIB_LIBS@ \
 	@LIBTLG_LIBS@ @SERVERLIB_LIBS@ \
 	$(XML_LIBS) @CHECK_LIBS@\
 	@BOOST_IOSTREAMS_LIB@ \
 	@BOOST_SYSTEM_LIB@\
 	@BOOST_FILESYSTEM_LIB@\
 	@BOOST_REGEX_LIB@\
-        @PION_LDFLAGS@
+    @PION_LIBS@
 
 
 #	-L/usr/lib -lboost_filesystem
