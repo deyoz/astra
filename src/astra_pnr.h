@@ -158,4 +158,10 @@ bool changeOfStatusWcCoupon(const std::string& airline,
                             const Ticketing::CouponStatus& newStatus,
                             bool throwErr = false);
 
+// попытка вернуть контроль над купоном
+bool returnWcCoupon(const Ticketing::Airline_t& airline,
+                    const Ticketing::TicketNum_t& ticknum,
+                    const Ticketing::CouponNum_t& cpnnum,
+                    bool throwErr = false);
+
 }//namespace Ticketing

@@ -3121,6 +3121,8 @@ void handleEtRacResponse(const edifact::RemoteResults& remRes)
         catch(...) {
             ProgTrace(TRACE5, ">>>> %s: unknown error", __FUNCTION__);
         }
+    } else {
+        LogTrace(TRACE3) << "remote error code: " << remRes.ediErrCode();
     }
 }
 

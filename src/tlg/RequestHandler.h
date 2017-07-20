@@ -19,8 +19,8 @@ public:
     virtual void onHandlerError(const std::exception *e);
     virtual bool needPutErrToQueue() const;
 
-    virtual void saveErrorInfo(const Ticketing::ErrMsg_t &errCode,
-                               const std::string& errText) {}
+    virtual void saveErrorInfo(const Ticketing::ErrMsg_t& errCode,
+                               const std::string& errText);
 
     virtual ~AstraRequestHandler() {}
 

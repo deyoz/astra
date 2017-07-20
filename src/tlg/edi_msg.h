@@ -74,6 +74,9 @@ public:
 std::string getErdErrByInner(const Ticketing::ErrMsg_t& innerErr);
 Ticketing::ErrMsg_t getInnerErrByErd(const std::string& erdErr);
 
+std::string getErcErrByInner(const Ticketing::ErrMsg_t& innerErr);
+Ticketing::ErrMsg_t getInnerErrByErc(const std::string& ercErr);
+
 }//namespace edifact
 
 #undef REGERR

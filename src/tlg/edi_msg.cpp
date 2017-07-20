@@ -90,6 +90,14 @@ EdiErrMsgDataElem* EdiErrMsg::getEdiErrMapByDataElem(int de)
 void EdiErrMsg::init()
 {
     LogTrace(TRACE5) << "Initializing edi_msg...";
+
+    // edifact error codes represented by data element 9321 (ERC)
+    EdiErrMsgDataElem* el_9321 = new EdiErrMsgDataElem(9321, EdiErrMsgERC::DefaultEdiErr);
+ #define ADD_MSG2(s, e) ADD_MSG(9321, AstraErr::s, e)
+     ADD_MSG2(INV_COUPON_STATUS,              "396");
+#undef ADD_MSG2
+    (*m_ediErrMsgMap)[9321] = el_9321;
+
     // edifact error codes represented by data element 9845 (ERD)
     EdiErrMsgDataElem* el_9845 = new EdiErrMsgDataElem(9845, EdiErrMsgERD::DefaultEdiErr);
 #define ADD_MSG2(s, e) ADD_MSG(9845, AstraErr::s, e)
@@ -125,14 +133,20 @@ void EdiErrMsg::init()
 
 std::string EdiErrMsgERC::getEdiErrByInner(const Ticketing::ErrMsg_t& innerErr)
 {
-    // TODO
-    return DefaultEdiErr;
+    EdiErrMsgDataElem* errMap = getEdiErrMapByDataElem(9321);
+    if(errMap)
+        return errMap->getEdiErrByInner(innerErr);
+    else
+        return DefaultEdiErr;
 }
 
 Ticketing::ErrMsg_t EdiErrMsgERC::getInnerErrByEdi(const std::string& ediErr)
 {
-    // TODO
-    return DefaultInnerErr;
+    EdiErrMsgDataElem* errMap = getEdiErrMapByDataElem(9321);
+    if(errMap)
+        return errMap->getInnerErrByEdi(ediErr);
+    else
+        return DefaultInnerErr;
 }
 
 //---------------------------------------------------------------------------------------
@@ -165,6 +179,16 @@ std::string getErdErrByInner(const Ticketing::ErrMsg_t& innerErr)
 Ticketing::ErrMsg_t getInnerErrByErd(const std::string& erdErr)
 {
     return EdiErrMsgERD::getInnerErrByEdi(erdErr);
+}
+
+std::string getErcErrByInner(const Ticketing::ErrMsg_t& innerErr)
+{
+    return EdiErrMsgERC::getEdiErrByInner(innerErr);
+}
+
+Ticketing::ErrMsg_t getInnerErrByErc(const std::string& ercErr)
+{
+    return EdiErrMsgERC::getInnerErrByEdi(ercErr);
 }
 
 }//namespace edifact

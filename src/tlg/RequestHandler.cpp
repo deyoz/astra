@@ -14,6 +14,7 @@
 
 namespace TlgHandling {
 
+using namespace edifact;
 using namespace Ticketing;
 using namespace Ticketing::RemoteSystemContext;
 
@@ -35,7 +36,8 @@ void AstraRequestHandler::onHandlerError(const std::exception *e)
     edilib::EdiRequestHandler::onHandlerError(e);
 
     if(__CAST(TickExceptions::tick_exception, exc, e)) {
-        ProgTrace(TRACE1, "errCode(): %s", exc->errCode().c_str());
+        ProgTrace(TRACE1, "errCode(): %s, errText(): %s", exc->errCode().c_str(),
+                                                          exc->errText().c_str());
         if(exc->errCode() == AstraErr::EDI_PROC_ERR) {
             ProgError(STDLOG, "%s", exc->what());
         } else {
@@ -54,6 +56,13 @@ void AstraRequestHandler::onHandlerError(const std::exception *e)
 bool AstraRequestHandler::needPutErrToQueue() const
 {
     return false;
+}
+
+void AstraRequestHandler::saveErrorInfo(const Ticketing::ErrMsg_t& errCode,
+                                        const std::string& errText)
+{
+    setEdiErrorCode(StrUtils::ToUpper(getErcErrByInner(errCode)));
+    setEdiErrorText(StrUtils::ToUpper(errText));
 }
 
 tlgnum_t AstraRequestHandler::inboundTlgNum() const

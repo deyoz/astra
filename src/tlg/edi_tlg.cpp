@@ -47,6 +47,7 @@
 #include "IatciSmfRequestHandler.h"
 // control method
 #include "UacRequestHandler.h"
+#include "EtCosRequestHandler.h"
 
 #include <etick/lang.h>
 #include <etick/exceptions.h>
@@ -508,6 +509,7 @@ edilib::EdiRequestHandler *
     __DECLARE_HANDLER__(IatciSmfRequestHandler,     DCQSMF, "");
     // control method
     __DECLARE_HANDLER__(UacRequestHandler,          TKCUAC, "733");
+    __DECLARE_HANDLER__(CosRequestHandler,          TKCREQ, "142");
     return 0;
 }
 

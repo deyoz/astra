@@ -163,6 +163,15 @@ static void saveWcPnr(const std::string& recloc,
     savePnrEdifact(recloc, airline, ediPnr.m_ediText, ediPnr.m_ediType);
 }
 
+static bool controlMayBeReturned(const WcCoupon& cpn)
+{
+    if(cpn.status() == Ticketing::CouponStatus::OriginalIssue) {
+        return true;
+    }
+
+    return false;
+}
+
 //---------------------------------------------------------------------------------------
 
 std::ostream& operator<<(std::ostream& os, const EdiPnr& ediPnr)
@@ -407,6 +416,50 @@ bool changeOfStatusWcCoupon(const std::string& airline,
                                   Ticketing::CouponNum_t(cpnnum),
                                   newStatus,
                                   throwErr);
+}
+
+bool returnWcCoupon(const Ticketing::Airline_t& airline,
+                    const Ticketing::TicketNum_t& ticknum,
+                    const Ticketing::CouponNum_t& cpnnum,
+                    bool throwErr)
+{
+    LogTrace(TRACE3) << __FUNCTION__ << " "
+                     << airline << "/" << ticknum << "/" << cpnnum;
+    boost::scoped_ptr<AirportControl> ac(AirportControl::readDb(airline,
+                                                                ticknum,
+                                                                cpnnum));
+    if(!ac) {
+        LogWarning(STDLOG) << "Airport control not fround: "
+                           << airline << "/" << ticknum << "/" << cpnnum;
+        if(throwErr) {
+            throw AirportControlNotFound(airline, ticknum, cpnnum);
+        }
+        return false;
+    }
+
+    boost::optional<WcCoupon> cpn = readWcCoupon(airline, ticknum, cpnnum);
+    if(!cpn) {
+        LogWarning(STDLOG) << "Coupon not found: "
+                           << airline << "/" << ticknum << "/" << cpnnum;
+        if(throwErr) {
+            throw WcCouponNotFound(airline, ticknum, cpnnum);
+        }
+        return false;
+    }
+
+    if(!controlMayBeReturned(*cpn)) {
+        LogWarning(STDLOG) << "Control "
+                           << airline << "/" << ticknum << "/" << cpnnum
+                           << " may NOT be returned due to status " << cpn->status();
+
+        if(throwErr) {
+            throw AirportControlCantBeReturned(airline, ticknum, cpnnum);
+        }
+        return false;
+    }
+
+    ac->deleteDb();
+    return true;
 }
 
 }//namespace Ticketing

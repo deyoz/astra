@@ -29,6 +29,16 @@ public:
 
 //---------------------------------------------------------------------------------------
 
+class AirportControlCantBeReturned : public EXCEPTIONS::Exception
+{
+public:
+    AirportControlCantBeReturned(const Ticketing::Airline_t& airl,
+                                 const Ticketing::TicketNum_t& tick,
+                                 const Ticketing::CouponNum_t& cpn);
+};
+
+//---------------------------------------------------------------------------------------
+
 class AirportControl
 {
 public:

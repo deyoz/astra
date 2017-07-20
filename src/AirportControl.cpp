@@ -31,6 +31,18 @@ AirportControlNotFound::AirportControlNotFound(const std::string& rl)
     setMessage(err);
 }
 
+AirportControlCantBeReturned::AirportControlCantBeReturned(const Ticketing::Airline_t& airl,
+                                                           const Ticketing::TicketNum_t& tick,
+                                                           const Ticketing::CouponNum_t& cpn)
+    : EXCEPTIONS::Exception("")
+{
+    std::string err = "AirportControl can't be returned: ";
+    err += BaseTables::Company(airl)->code() + "/" + tick.get() + "/" +
+            std::to_string(cpn.get());
+
+    setMessage(err);
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////
 
 class AirportControlMaker
