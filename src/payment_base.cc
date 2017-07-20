@@ -5,7 +5,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace AstraLocale;
@@ -345,6 +345,20 @@ void TServicePaymentList::fromDB(int grp_id)
       push_back(TServicePaymentItem().fromDB(Qry.get()));
     };
   };
+}
+
+bool TServicePaymentListWithAuto::isRFISCGrpExists(int pax_id, const string &grp, const string &subgrp) const
+{
+    for(TServicePaymentListWithAuto::const_iterator item = begin(); item != end(); item++) {
+        if(
+                item->pax_id == pax_id and item->trfer_num == 0 and
+                item->pc and
+                item->pc->list_item and
+                item->pc->list_item->grp == grp and
+                (subgrp.empty() or item->pc->list_item->subgrp == subgrp))
+            return true;
+    }
+    return false;
 }
 
 void TServicePaymentListWithAuto::fromDB(int grp_id)

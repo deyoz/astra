@@ -1449,6 +1449,18 @@ void TGrpServiceListWithAuto::addItem(const TGrpServiceItem& item)
   else push_back(item);
 }
 
+bool TPaidRFISCListWithAuto::isRFISCGrpExists(int pax_id, const std::string &grp, const std::string &subgrp) const
+{
+    for(TPaidRFISCListWithAuto::const_iterator item = begin(); item != end(); item++)
+        if(
+                item->second.pax_id == pax_id and item->second.trfer_num == 0 and
+                item->second.list_item and
+                item->second.list_item->grp == grp and
+                (subgrp.empty() or item->second.list_item->subgrp == subgrp))
+            return true;
+    return false;
+}
+
 void TPaidRFISCListWithAuto::addItem(const TPaidRFISCItem& item)
 {
   TPaidRFISCList::iterator i=find(item);

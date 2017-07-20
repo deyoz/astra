@@ -674,6 +674,7 @@ class TPaidRFISCListWithAuto : public std::map<TPaxSegRFISCKey, TPaidRFISCItem>
   public:
     void addItem(const TPaidRFISCItem& item);
     void fromDB(int id, bool is_grp_id);
+    bool isRFISCGrpExists(int pax_id, const std::string &grp, const std::string &subgrp) const;
 };
 
 class TPaidRFISCViewKey : public TRFISCKey

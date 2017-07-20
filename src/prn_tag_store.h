@@ -63,6 +63,7 @@ namespace TAG {
     const std::string HALL = "HALL";
     const std::string INF = "INF";
     const std::string IMG = "IMG";
+    const std::string LIST_SEAT_NO = "LIST_SEAT_NO";
     const std::string LONG_ARV = "LONG_ARV";
     const std::string LONG_DEP = "LONG_DEP";
     const std::string NAME = "NAME";
@@ -73,6 +74,9 @@ namespace TAG {
     const std::string PLACE_DEP = "PLACE_DEP";
     const std::string REG_NO = "REG_NO";
     const std::string REM = "REM";
+    const std::string RFISC_BSN_LONGUE = "RFISC_BSN_LONGUE";
+    const std::string RFISC_FAST_TRACK = "RFISC_FAST_TRACK";
+    const std::string RFISC_UPGRADE = "RFISC_UPGRADE";
     const std::string RK_AMOUNT = "RK_AMOUNT";
     const std::string RK_WEIGHT = "RK_WEIGHT";
     const std::string RSTATION = "RSTATION";
@@ -80,7 +84,6 @@ namespace TAG {
     const std::string SEAT_NO = "SEAT_NO";
     const std::string STR_SEAT_NO = "STR_SEAT_NO";
     const std::string SUBCLS = "SUBCLS";
-    const std::string LIST_SEAT_NO = "LIST_SEAT_NO";
     const std::string SURNAME = "SURNAME";
     const std::string TEST_SERVER = "TEST_SERVER";
     const std::string TIME_PRINT = "TIME_PRINT";
@@ -192,6 +195,63 @@ class TTagLang {
 };
 
 int separate_double(double d, int precision, int *iptr);
+
+class TBPServiceTypes {
+    public:
+        enum Enum
+        {
+            UP,
+            LG,
+            TS_FT,    // Группа TS и подгруппа FT
+            Unknown
+        };
+
+        static const std::list< std::pair<Enum, std::string> >& pairsCodes()
+        {
+            static std::list< std::pair<Enum, std::string> > l;
+            if (l.empty())
+            {
+                l.push_back(std::make_pair(UP,      "UP"));
+                l.push_back(std::make_pair(LG,      "LG"));
+                l.push_back(std::make_pair(TS_FT,   "TS FT"));
+                l.push_back(std::make_pair(Unknown, ""));
+            }
+            return l;
+        }
+
+        static const std::list< std::pair<Enum, std::string> >& pairsDescr()
+        {
+            static std::list< std::pair<Enum, std::string> > l;
+            if (l.empty())
+            {
+                l.push_back(std::make_pair(UP,      "Upgrade"));
+                l.push_back(std::make_pair(LG,      "Business Longue"));
+                l.push_back(std::make_pair(TS_FT,    "Fast Track"));
+                l.push_back(std::make_pair(Unknown, ""));
+            }
+            return l;
+        }
+};
+
+class TBPServiceTypesCode : public ASTRA::PairList<TBPServiceTypes::Enum, std::string>
+{
+  private:
+    virtual std::string className() const { return "TBPServiceTypesCode"; }
+  public:
+    TBPServiceTypesCode() : ASTRA::PairList<TBPServiceTypes::Enum, std::string>(TBPServiceTypes::pairsCodes(),
+                                                                            boost::none,
+                                                                            boost::none) {}
+};
+
+class TBPServiceTypesDescr : public ASTRA::PairList<TBPServiceTypes::Enum, std::string>
+{
+  private:
+    virtual std::string className() const { return "TBPServiceTypesDescr"; }
+  public:
+    TBPServiceTypesDescr() : ASTRA::PairList<TBPServiceTypes::Enum, std::string>(TBPServiceTypes::pairsDescr(),
+                                                                            boost::none,
+                                                                            boost::none) {}
+};
 
 class TPrnTagStore {
     private:
@@ -494,6 +554,9 @@ class TPrnTagStore {
         std::string PLACE_DEP(TFieldParams fp);
         std::string REG_NO(TFieldParams fp);
         std::string REM(TFieldParams fp);
+        std::string RFISC_BSN_LONGUE(TFieldParams fp);
+        std::string RFISC_FAST_TRACK(TFieldParams fp);
+        std::string RFISC_UPGRADE(TFieldParams fp);
         std::string RK_AMOUNT(TFieldParams fp);
         std::string RK_WEIGHT(TFieldParams fp);
         std::string RSTATION(TFieldParams fp);
@@ -594,6 +657,8 @@ class TPrnTagStore {
         void init_bp_tags();
 
         bool isBoardingPass();
+
+        std::string rfisc_descr(TBPServiceTypes::Enum code);
 
 
     public:

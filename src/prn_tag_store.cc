@@ -12,6 +12,8 @@
 #include "qrys.h"
 #include <serverlib/str_utils.h>
 #include <serverlib/testmode.h>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
 
 #define NICKNAME "DEN"
 #include "serverlib/slogger.h"
@@ -375,6 +377,9 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::PLACE_DEP,               TTagListItem(&TPrnTagStore::PLACE_DEP)));
     tag_list.insert(make_pair(TAG::REG_NO,                  TTagListItem(&TPrnTagStore::REG_NO, PAX_INFO)));
     tag_list.insert(make_pair(TAG::REM,                     TTagListItem(&TPrnTagStore::REM, REM_INFO)));
+    tag_list.insert(make_pair(TAG::RFISC_BSN_LONGUE,        TTagListItem(&TPrnTagStore::RFISC_BSN_LONGUE)));
+    tag_list.insert(make_pair(TAG::RFISC_FAST_TRACK,        TTagListItem(&TPrnTagStore::RFISC_FAST_TRACK)));
+    tag_list.insert(make_pair(TAG::RFISC_UPGRADE,           TTagListItem(&TPrnTagStore::RFISC_UPGRADE)));
     tag_list.insert(make_pair(TAG::RK_AMOUNT,               TTagListItem(&TPrnTagStore::RK_AMOUNT, PAX_INFO)));
     tag_list.insert(make_pair(TAG::RK_WEIGHT,               TTagListItem(&TPrnTagStore::RK_WEIGHT, PAX_INFO)));
     tag_list.insert(make_pair(TAG::RSTATION,                TTagListItem(&TPrnTagStore::RSTATION, RSTATION_INFO)));
@@ -2281,6 +2286,64 @@ string TPrnTagStore::PLACE_ARV(TFieldParams fp)
 string TPrnTagStore::PLACE_DEP(TFieldParams fp)
 {
     return cut_place(AIRP_DEP(fp), CITY_DEP_NAME(fp), fp.len);
+}
+
+string TPrnTagStore::rfisc_descr(TBPServiceTypes::Enum code)
+{
+    static boost::optional<set<TBPServiceTypes::Enum> > found_services;
+
+    if(not found_services) {
+        found_services = set<TBPServiceTypes::Enum>();
+        CheckIn::TServicePaymentListWithAuto paid_services; // оплаченные услуги
+        TPaidRFISCListWithAuto registered_services;         // зарегистрирванные услуги
+
+        paid_services.fromDB(grpInfo.grp_id);
+        registered_services.fromDB(pax_id, false);
+
+        for(list< pair<TBPServiceTypes::Enum, string> >::const_iterator
+                i = TBPServiceTypes::pairsCodes().begin();
+                i != TBPServiceTypes::pairsCodes().end(); i++) {
+            if(i->first == TBPServiceTypes::Unknown) continue;
+            string grp, subgrp;
+
+            if(i->first == TBPServiceTypes::TS_FT) {
+                vector<string> tokens;
+                boost::split(tokens, i->second, boost::is_any_of(" "));
+                if(tokens.size() != 2)
+                    throw Exception("%s: wrong service type code: %s", __FUNCTION__, i->second.c_str());
+                grp = tokens[0];
+                subgrp = tokens[1];
+            } else
+                grp = i->second;
+
+            if(paid_services.isRFISCGrpExists(pax_id, grp, subgrp))
+                found_services->insert(i->first);
+            else if(registered_services.isRFISCGrpExists(pax_id, grp, subgrp))
+                throw UserException("MSG.UNPAID_SERVICE_EXISTS");
+        }
+
+    }
+
+    return (found_services->find(code) != found_services->end() ? TBPServiceTypesDescr().encode(code) : "");
+}
+
+
+string TPrnTagStore::RFISC_BSN_LONGUE(TFieldParams fp)
+{
+    if(!fp.TagInfo.empty()) return boost::any_cast<std::string>(fp.TagInfo);
+    return rfisc_descr(TBPServiceTypes::LG);
+}
+
+string TPrnTagStore::RFISC_FAST_TRACK(TFieldParams fp)
+{
+    if(!fp.TagInfo.empty()) return boost::any_cast<std::string>(fp.TagInfo);
+    return rfisc_descr(TBPServiceTypes::TS_FT);
+}
+
+string TPrnTagStore::RFISC_UPGRADE(TFieldParams fp)
+{
+    if(!fp.TagInfo.empty()) return boost::any_cast<std::string>(fp.TagInfo);
+    return rfisc_descr(TBPServiceTypes::UP);
 }
 
 string TPrnTagStore::REM(TFieldParams fp)
