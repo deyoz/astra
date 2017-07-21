@@ -349,6 +349,7 @@ class TRFISCKey : public TRFISCListKey
     }
     std::string traceStr() const;
     bool isBaggageOrCarryOn(const std::string &where) const;
+    void getListItemAuto(int pax_id, int transfer_num, const std::string& rfic);
 };
 
 typedef std::map<TRFISCListKey, TRFISCListItem> TRFISCListMap;

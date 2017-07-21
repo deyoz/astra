@@ -389,7 +389,12 @@ void TServicePaymentListWithAuto::fromDB(int grp_id)
   TGrpServiceAutoList list2;
   list2.fromDB(grp_id, true);
   for(TGrpServiceAutoList::const_iterator i=list2.begin(); i!=list2.end(); ++i)
-    push_back(TServicePaymentItem(*i));
+  {
+    TServicePaymentItem item(*i);
+    if (item.pc)
+      item.pc.get().getListItemAuto(i->pax_id, i->trfer_num, i->RFIC);
+    push_back(item);
+  };
 }
 
 void TServicePaymentList::clearDB(int grp_id)
