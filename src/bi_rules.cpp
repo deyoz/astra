@@ -306,7 +306,7 @@ namespace BIPrintRules {
     {
         CheckIn::TServicePaymentListWithAuto payment_list;
         payment_list.fromDB(grp_id);
-        payment_list.getRFISCSet(pax_id, rfisc);
+        payment_list.getUniqRFISCSs(pax_id, rfisc);
         // Если не найдено ни одного RFISC, добавляем пустой, чтобы get_rule все-таки отработала
         if(rfisc.empty()) rfisc.insert("");
     }

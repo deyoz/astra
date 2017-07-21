@@ -347,7 +347,15 @@ void TServicePaymentList::fromDB(int grp_id)
   };
 }
 
-void TServicePaymentListWithAuto::getRFISCSet(int pax_id, set<string> &rfisc_set) const
+void TServicePaymentListWithAuto::dump(const string &file, int line) const
+{
+    LogTrace(TRACE5) << "-----TServicePaymentListWithAuto::dump: " << file << ": " << line << "-----";
+    for(TServicePaymentListWithAuto::const_iterator i = begin(); i != end(); i++)
+        LogTrace(TRACE5) << i->traceStr();
+    LogTrace(TRACE5) << "-------------------------------------";
+}
+
+void TServicePaymentListWithAuto::getUniqRFISCSs(int pax_id, set<string> &rfisc_set) const
 {
     for(TServicePaymentListWithAuto::const_iterator i = begin(); i != end(); i++)
         if(

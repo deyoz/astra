@@ -658,8 +658,23 @@ class TPrnTagStore {
 
         bool isBoardingPass();
 
-        std::string rfisc_descr(TBPServiceTypes::Enum code);
+        struct TRfiscDescr {
+            std::set<TBPServiceTypes::Enum> found_services;
 
+            void fromDB(int grp_id, int pax_id);
+            std::string get(TBPServiceTypes::Enum code);
+
+            TRfiscDescr()
+            {
+                clear();
+            }
+
+            void clear()
+            {
+                found_services.clear();
+            }
+        };
+        TRfiscDescr rfisc_descr;
 
     public:
         TTagProps prn_tag_props;
