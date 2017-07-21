@@ -216,6 +216,7 @@ class TServicePaymentListWithAuto : public std::list<TServicePaymentItem>
     void fromDB(int grp_id);
     void toXML(xmlNodePtr node) const;
     bool isRFISCGrpExists(int pax_id, const std::string &grp, const std::string &subgrp) const;
+    void getRFISCSet(int pax_id, std::set<std::string> &rfisc_set) const;
 };
 
 void ServicePaymentFromXML(xmlNodePtr node,

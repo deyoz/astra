@@ -347,6 +347,16 @@ void TServicePaymentList::fromDB(int grp_id)
   };
 }
 
+void TServicePaymentListWithAuto::getRFISCSet(int pax_id, set<string> &rfisc_set) const
+{
+    for(TServicePaymentListWithAuto::const_iterator i = begin(); i != end(); i++)
+        if(
+                i->trfer_num == 0 and
+                i->pax_id == pax_id and
+                i->pc)
+            rfisc_set.insert(i->pc->RFISC);
+}
+
 bool TServicePaymentListWithAuto::isRFISCGrpExists(int pax_id, const string &grp, const string &subgrp) const
 {
     for(TServicePaymentListWithAuto::const_iterator item = begin(); item != end(); item++) {
