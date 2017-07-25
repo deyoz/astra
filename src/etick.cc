@@ -869,7 +869,7 @@ void EMDSystemUpdateInterface::SysUpdateEmdCoupon(XMLRequestCtxt *ctxt, xmlNodeP
     CouponNum_t emdCpnNum(NodeAsInteger("EmdCpnNo", reqNode));
 
     Ticketing::CpnStatAction::CpnStatAction_t cpnStatAction(CpnStatAction::disassociate);
-    if( strcmp((char *)reqNode->name, "AssociateEMD") == 0)
+    if( strcmp((const char*)reqNode->name, "AssociateEMD") == 0)
       cpnStatAction=CpnStatAction::associate;
 
     int pointId = NodeAsInteger("point_id",reqNode);
@@ -934,7 +934,7 @@ void EMDSystemUpdateInterface::EMDCheckDisassociation(const int point_id,
   if (!fltParams.get(point_id)) return;
 
   list< TEMDCtxtItem > emds;
-  GetEMDDisassocList(point_id, fltParams.in_final_status, emds);
+  GetBagEMDDisassocList(point_id, fltParams.in_final_status, emds);
 
   string flight=GetTripName(fltParams.fltInfo,ecNone,true,false);
 
@@ -1321,9 +1321,9 @@ void ETStatusInterface::ETCheckStatus(int point_id,
           int coupon_no=NodeAsIntegerFast("coupon_no",node2);
 
           string airp_dep=NodeAsStringFast("prior_airp_dep",node2,
-                                           (char*)NodeAsStringFast("airp_dep",node2));
+                                           NodeAsStringFast("airp_dep",node2));
           string airp_arv=NodeAsStringFast("prior_airp_arv",node2,
-                                           (char*)NodeAsStringFast("airp_arv",node2));
+                                           NodeAsStringFast("airp_arv",node2));
           CouponStatus status=CouponStatus::fromDispCode(NodeAsStringFast("coupon_status",node2));
           CouponStatus prior_status=CouponStatus::fromDispCode(NodeAsStringFast("prior_coupon_status",node2));
           //надо вычислить реальный статус
@@ -1976,7 +1976,7 @@ void ChangeStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
         //это web-регистрация
         if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
       }
-      string termReqName=(char*)(termReqNode->name);
+      string termReqName=(const char*)(termReqNode->name);
 
       if (reqInfo->client_type==ctWeb ||
           reqInfo->client_type==ctMobile ||
@@ -2271,7 +2271,7 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
     if (p->second.need_positive()) pax_ids_for_refresh.insert(p->second.pax_id);
   //багаж wt
   bool all_pax_ids_for_refresh=false;
-  string reqName=(char*)(reqNode->name);
+  string reqName=(const char*)(reqNode->name);
   if (reqName=="TCkinLoadPax")
   {
     //для местовой системы делаем refresh только при загрузке группы
@@ -2476,7 +2476,7 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   if (termReqNode==NULL)
     throw EXCEPTIONS::Exception("EMDAutoBoundInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");
 
-  string termReqName=(char*)(termReqNode->name);
+  string termReqName=(const char*)(termReqNode->name);
 
   xmlNodePtr ediResNode=NodeAsNode("/context",ediResCtxt.docPtr());
 

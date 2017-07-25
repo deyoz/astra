@@ -244,7 +244,7 @@ void TAvailabilityRes::fromXML(xmlNodePtr node)
     if (node==NULL) throw Exception("node not defined");
     for(node=node->children; node!=NULL; node=node->next)
     {
-      if (string((char*)node->name)!="svc_list") continue;
+      if (string((const char*)node->name)!="svc_list") continue;
       Sirena::TPaxSegKey key;
       key.fromSirenaXML(node);
       if (find(key)!=end())
@@ -514,7 +514,7 @@ void TPaymentStatusRes::fromXML(xmlNodePtr node)
     if (node==NULL) throw Exception("node not defined");
     for(node=node->children; node!=NULL; node=node->next)
     {
-      string nodeName=(char*)node->name;
+      string nodeName=(const char*)node->name;
       if (nodeName!="svc" &&
           nodeName!="free_baggage_norm" &&
           nodeName!="free_carry_on_norm") continue;
@@ -668,7 +668,7 @@ void TPseudoGroupInfoReq::fromXML(xmlNodePtr node)
     if (node==NULL) throw Exception("node not defined");
     for(node=node->children; node!=NULL; node=node->next)
     {
-      string nodeName=(char*)node->name;
+      string nodeName=(const char*)node->name;
       if (nodeName!="entity") continue;
       Sirena::TPaxSegKey key;
       key.fromSirenaXML(node);
@@ -698,7 +698,7 @@ void PieceConceptInterface::procPieceConcept(XMLRequestCtxt *ctxt, xmlNodePtr re
   reqNode=NodeAsNode("content", reqNode);
 
   reqNode=NodeAsNode("query", reqNode)->children;
-  std::string exchangeId = (char *)reqNode->name;
+  std::string exchangeId = (const char*)reqNode->name;
   ProgTrace( TRACE5, "%s: exchangeId=<%s>", __FUNCTION__, exchangeId.c_str() );
 
   resNode=NewTextChild(resNode, "content");
@@ -1260,7 +1260,7 @@ void ServicePaymentInterface::LoadServiceLists(XMLRequestCtxt *ctxt, xmlNodePtr 
   xmlNodePtr svcNode=NewTextChild(resNode, "service_lists");
   for(xmlNodePtr node=NodeAsNode("service_lists", reqNode)->children; node!=NULL; node=node->next)
   {
-    if (string((char*)node->name)!="list_id") continue;
+    if (string((const char*)node->name)!="list_id") continue;
     int list_id=NodeAsInteger(node);
     if (list_id>=0)
     {

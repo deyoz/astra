@@ -454,7 +454,7 @@ bool need_crew_checkin(const TAdvTripInfo &fltInfo)
   TBaseTable &baseairps = base_tables.get( "airps" );
   TBaseTable &basecities = base_tables.get( "cities" );
 
-  string country_dep = ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", fltInfo.airp )).city)).country;
+  string country_dep = ((const TCitiesRow&)basecities.get_row( "code", ((const TAirpsRow&)baseairps.get_row( "code", fltInfo.airp )).city)).country;
 
   TTripRoute route;
   route.GetRouteAfter(NoExists,
@@ -477,7 +477,7 @@ bool need_crew_checkin(const TAdvTripInfo &fltInfo)
   TTripRoute::const_iterator r=route.begin();
   for(; r!=route.end(); ++r)
   {
-    string country_arv = ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", r->airp )).city)).country;
+    string country_arv = ((const TCitiesRow&)basecities.get_row( "code", ((const TAirpsRow&)baseairps.get_row( "code", r->airp )).city)).country;
     Qry.SetVariable("country_arv", country_arv);
     Qry.Execute();
     if (!Qry.Eof) break;
@@ -702,7 +702,7 @@ void check_unbound_emd_alarm( int point_id )
 {
   bool emd_alarm = false;
   if ( CheckStageACT(point_id, sCloseCheckIn) )
-    emd_alarm=PaxASVCList::ExistsUnboundEMD(point_id);
+    emd_alarm=PaxASVCList::ExistsUnboundBagEMD(point_id);
   set_alarm( point_id, Alarm::UnboundEMD, emd_alarm );
 };
 

@@ -1075,7 +1075,7 @@ string internal_ReadData_N( TSOPPTrips &trips, TDateTime first_date, TDateTime n
 
     d.airp = PointsQry.FieldAsString( col_airp );
     d.airp_fmt = (TElemFmt)PointsQry.FieldAsInteger( col_airp_fmt );
-    d.city = ((TAirpsRow&)airps.get_row( "code", d.airp, true )).city;
+    d.city = ((const TAirpsRow&)airps.get_row( "code", d.airp, true )).city;
 
     if ( PointsQry.FieldIsNULL( col_first_point ) )
       d.first_point = NoExists;
@@ -1131,7 +1131,7 @@ string internal_ReadData_N( TSOPPTrips &trips, TDateTime first_date, TDateTime n
     d.pr_reg = PointsQry.FieldAsInteger( col_pr_reg );
     d.pr_del = PointsQry.FieldAsInteger( col_pr_del );
     d.tid = PointsQry.FieldAsInteger( col_tid );
-    d.region = ((TCitiesRow&)cities.get_row( "code", d.city, true )).tz_region;
+    d.region = ((const TCitiesRow&)cities.get_row( "code", d.city, true )).tz_region;
     if ( arx )
         d.part_key = PointsQry.FieldAsDateTime( col_part_key );
     else
@@ -1485,7 +1485,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
 
     d.airp = PointsQry.FieldAsString( col_airp );
     d.airp_fmt = (TElemFmt)PointsQry.FieldAsInteger( col_airp_fmt );
-    d.city = ((TAirpsRow&)airps.get_row( "code", d.airp, true )).city;
+    d.city = ((const TAirpsRow&)airps.get_row( "code", d.airp, true )).city;
 
     if ( PointsQry.FieldIsNULL( col_first_point ) )
       d.first_point = NoExists;
@@ -1541,7 +1541,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
     d.pr_reg = PointsQry.FieldAsInteger( col_pr_reg );
     d.pr_del = PointsQry.FieldAsInteger( col_pr_del );
     d.tid = PointsQry.FieldAsInteger( col_tid );
-    d.region = ((TCitiesRow&)cities.get_row( "code", d.city, true )).tz_region;
+    d.region = ((const TCitiesRow&)cities.get_row( "code", d.city, true )).tz_region;
     if ( arx )
         d.part_key = PointsQry.FieldAsDateTime( col_part_key );
     else
@@ -2232,15 +2232,15 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
 void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  bool pr_inbound_tckin=(strcmp((char *)reqNode->name, "GetInboundTCkin") == 0);
+  bool pr_inbound_tckin=(strcmp((const char*)reqNode->name, "GetInboundTCkin") == 0);
 
   bool pr_out=NodeAsInteger("pr_out",reqNode)!=0;
   bool pr_tlg=true;
   if (GetNode("pr_tlg",reqNode)!=NULL)
     pr_tlg=NodeAsInteger("pr_tlg",reqNode)!=0;
 
-  bool pr_bag=(strcmp((char *)reqNode->name, "GetInboundTCkin") == 0) ||
-              (strcmp((char *)reqNode->name, "GetBagTransfer") == 0);
+  bool pr_bag=(strcmp((const char*)reqNode->name, "GetInboundTCkin") == 0) ||
+              (strcmp((const char*)reqNode->name, "GetBagTransfer") == 0);
   int point_id=NodeAsInteger("point_id",reqNode);
 
   TrferList::TTrferType trferType;
@@ -2928,7 +2928,7 @@ void GetEMD( int point_id, xmlNodePtr dataNode )
 {
   xmlNodePtr node = NewTextChild( dataNode, "emd" );
   std::multiset<CheckIn::TPaxASVCItem> asvc;
-  PaxASVCList::GetUnboundEMD(point_id, asvc);
+  PaxASVCList::GetUnboundBagEMD(point_id, asvc);
 
   ostringstream s;
   for(multiset<CheckIn::TPaxASVCItem>::const_iterator i=asvc.begin(); i!=asvc.end(); ++i)
@@ -3624,7 +3624,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     }
 
     id->pr_reg = ( id->scd_out > NoExists &&
-                   ((TTripTypesRow&)base_tables.get("trip_types").get_row( "code", id->triptype, true )).pr_reg!=0 &&
+                   ((const TTripTypesRow&)base_tables.get("trip_types").get_row( "code", id->triptype, true )).pr_reg!=0 &&
                    /*!id->pr_del &&*/ id != dests.end() - 1 );
 /*    if ( id->pr_reg ) {
       TSOPPDests::iterator r=id;
@@ -3859,7 +3859,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       old_dest.pr_reg = Qry.FieldAsInteger( "pr_reg" );
       old_dest.remark = Qry.FieldAsString( "remark" );
       old_dest.point_id = id->point_id;
-      old_dest.region = CityTZRegion( ((TAirpsRow&)baseairps.get_row( "code", old_dest.airp, true )).city );
+      old_dest.region = CityTZRegion( ((const TAirpsRow&)baseairps.get_row( "code", old_dest.airp, true )).city );
       voldDests.push_back( old_dest );
 
 
@@ -4592,7 +4592,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     catch( EConvertError &e ) {
       throw AstraLocale::UserException( "MSG.AIRP.INVALID_GIVEN_CODE" );
     }
-        city = ((TAirpsRow&)baseairps.get_row( "code", d.airp, true )).city;
+        city = ((const TAirpsRow&)baseairps.get_row( "code", d.airp, true )).city;
         region = CityTZRegion( city );
         d.region = region;
         fnode = GetNodeFast( "airline", snode );
@@ -5968,7 +5968,7 @@ void SoppInterface::WriteVoucher(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   getTripVouchers( point_id, vouchers_old, Qry );
   xmlNodePtr node = GetNode( "vouchers", reqNode );
   node = node->children;
-  while ( node != NULL && string( "voucher" ) == (char*)node->name ) {
+  while ( node != NULL && string( "voucher" ) == (const char*)node->name ) {
     vouchers_new.insert( NodeAsString( node ) );
     node = node->next;
   }
