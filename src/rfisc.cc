@@ -177,7 +177,7 @@ TRFISCListItem& TRFISCListItem::fromSirenaXML(xmlNodePtr node)
     xmlNodePtr nameNode=node->children;
     for(; nameNode!=NULL; nameNode=nameNode->next)
     {
-      if (string((char*)nameNode->name)!="name") continue;
+      if (string((const char*)nameNode->name)!="name") continue;
       string lang=NodeAsString("@language", nameNode, "");
       if (lang.empty()) throw Exception("Empty @language");
       if (lang=="ru" || lang=="en")
@@ -198,7 +198,7 @@ TRFISCListItem& TRFISCListItem::fromSirenaXML(xmlNodePtr node)
     xmlNodePtr descrNode=node->children;
     for(int i=0; descrNode!=NULL; descrNode=descrNode->next)
     {
-      if (string((char*)descrNode->name)!="description") continue;
+      if (string((const char*)descrNode->name)!="description") continue;
       if (i>=2) throw Exception("Excess <description>");
       string &d=i==0?descr1:descr2;
       d=NodeAsString(descrNode);
@@ -748,7 +748,7 @@ void TRFISCList::fromSirenaXML(xmlNodePtr node)
   if (node==NULL) throw Exception("TRFISCListItem::fromSirenaXML: node not defined");
   for(node=node->children; node!=NULL; node=node->next)
   {
-    if (string((char*)node->name)!="svc") continue;
+    if (string((const char*)node->name)!="svc") continue;
     TRFISCListItem item;
     item.fromSirenaXML(node);
     if (insert(make_pair(TRFISCListKey(item), item)).second)
@@ -1921,7 +1921,7 @@ bool TGrpServiceListWithAuto::fromXML(xmlNodePtr node)
   if (servicesNode==NULL) return false;
   for(xmlNodePtr itemNode=servicesNode->children; itemNode!=NULL; itemNode=itemNode->next)
   {
-    if (string((char*)itemNode->name)!="item") continue;
+    if (string((const char*)itemNode->name)!="item") continue;
     push_back(TGrpServiceItem().fromXML(itemNode));
   }
   return true;
@@ -2297,7 +2297,7 @@ void GetBagConcepts(int grp_id, bool &pc, bool &wt, bool &rfisc_used)
     for(;!Qry.Eof;Qry.Next())
     {
       bool _rfisc_used=Qry.FieldAsInteger("rfisc_used");
-      bool category=Qry.FieldAsInteger("category");
+      int category=Qry.FieldAsInteger("category");
       if (_rfisc_used) rfisc_used=true;
       if (category==(int)TServiceCategory::Baggage ||
           category==(int)TServiceCategory::CarryOn)
