@@ -624,6 +624,35 @@ void TRFISCKey::getListItemIfNone()
   if (!list_item) getListItem();
 }
 
+void TRFISCKey::getListItemAuto(int pax_id, int transfer_num, const std::string& rfic)
+{
+  list_item=boost::none;
+  if (list_id!=ASTRA::NoExists)
+  {
+    getListItem();
+    return;
+  };
+  TCachedQuery Qry("SELECT rfisc_list_items.* \n"
+                   "FROM pax_service_lists, rfisc_list_items \n"
+                   "WHERE pax_service_lists.list_id=rfisc_list_items.list_id AND \n"
+                   "      pax_service_lists.pax_id=:id AND \n"
+                   "      pax_service_lists.transfer_num=:transfer_num AND \n"
+                   "      rfisc_list_items.rfisc=:rfisc AND \n"
+                   "      rfisc_list_items.rfic=:rfic \n"
+                   "      AND rownum<2 \n",
+                   QParams() << QParam("id", otInteger, pax_id)
+                             << QParam("transfer_num", otInteger, transfer_num)
+                             << QParam("rfisc", otString, RFISC)
+                             << QParam("rfic", otString, rfic));
+  Qry.get().Execute();
+  if (!Qry.get().Eof && !Qry.get().FieldIsNULL("list_id"))
+  {
+    list_id=Qry.get().FieldAsInteger("list_id");
+    list_item=TRFISCListItem();
+    list_item.get().fromDB(Qry.get(), false);
+  }
+}
+
 void TRFISCKey::getListItem()
 {
   list_item=boost::none;
@@ -1374,7 +1403,6 @@ bool TGrpServiceAutoItem::permittedForAutoCheckin(const TTripInfo& flt) const
   return Qry.get().FieldAsInteger("auto_checkin")!=0;
 }
 
-
 void TGrpServiceList::fromDB(int grp_id, bool without_refused)
 {
   clear();
@@ -1423,7 +1451,11 @@ void TGrpServiceListWithAuto::fromDB(int grp_id, bool without_refused)
   TGrpServiceAutoList list2;
   list2.fromDB(grp_id, true, without_refused);
   for(TGrpServiceAutoList::const_iterator i=list2.begin(); i!=list2.end(); ++i)
-    addItem(TGrpServiceItem(*i));
+  {
+    TGrpServiceItem item(*i);
+    item.getListItemAuto(i->pax_id, i->trfer_num, i->RFIC);
+    addItem(item);
+  }
 }
 
 void TGrpServiceListWithAuto::addItem(const TGrpServiceItem& item)
@@ -1447,6 +1479,18 @@ void TGrpServiceListWithAuto::addItem(const TGrpServiceItem& item)
     };
   }
   else push_back(item);
+}
+
+bool TPaidRFISCListWithAuto::isRFISCGrpExists(int pax_id, const std::string &grp, const std::string &subgrp) const
+{
+    for(TPaidRFISCListWithAuto::const_iterator item = begin(); item != end(); item++)
+        if(
+                item->second.pax_id == pax_id and item->second.trfer_num == 0 and
+                item->second.list_item and
+                item->second.list_item->grp == grp and
+                (subgrp.empty() or item->second.list_item->subgrp == subgrp))
+            return true;
+    return false;
 }
 
 void TPaidRFISCListWithAuto::addItem(const TPaidRFISCItem& item)
@@ -1544,7 +1588,11 @@ void TPaidRFISCListWithAuto::fromDB(int id, bool is_grp_id)
   TGrpServiceAutoList list2;
   list2.fromDB(id, is_grp_id);
   for(TGrpServiceAutoList::const_iterator i=list2.begin(); i!=list2.end(); ++i)
-    addItem(TPaidRFISCItem(*i));
+  {
+    TPaidRFISCItem item(*i);
+    item.getListItemAuto(i->pax_id, i->trfer_num, i->RFIC);
+    addItem(item);
+  }
 }
 
 void TGrpServiceList::clearDB(int grp_id)
