@@ -938,7 +938,7 @@ struct TPMTotalsCmp {
 
 struct TPMTotalsRow {
     int seats, adl_m, adl_f, chd, inf, rk_weight, bag_amount, bag_weight, excess, excess_pc;
-    int xcr, dhc, mos;
+    int xcr, dhc, mos, jmp;
     TPMTotalsRow():
         seats(0),
         adl_m(0),
@@ -952,7 +952,8 @@ struct TPMTotalsRow {
         excess_pc(0),
         xcr(0),
         dhc(0),
-        mos(0)
+        mos(0),
+        jmp(0)
     {};
 };
 
@@ -1198,6 +1199,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             default:
                 break;
         }
+        if(pax.is_jmp) row.jmp++;
 
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
         NewTextChild(rowNode, "reg_no", pax.reg_no);
@@ -1297,6 +1299,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "xcr", row.xcr);
         NewTextChild(rowNode, "dhc", row.dhc);
         NewTextChild(rowNode, "mos", row.mos);
+        NewTextChild(rowNode, "jmp", row.jmp);
     }
 
     // Теперь переменные отчета
@@ -2011,11 +2014,11 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         << right
         << setw(5)
         << getLocaleText("Р/кл", rpt_params.GetLang())
-        << setw(11) << " " // заполнение 11 пробелов (обязат. д.б. вкл. флаг right, см. выше)
-        << "XCR DHC MOS"
+        << setw(7) << " " // заполнение 7 пробелов (обязат. д.б. вкл. флаг right, см. выше)
+        << "XCR DHC MOS JMP"
         << endl
         // Здесь видно, что Багаж и р/кл (%2u/%-4u%5u) расположены вплотную, что не есть хорошо.
-        << "%-16s %-7s  %3u %3u %3u %2u/%-4u%5u           %3u %3u %3u";
+        << "%-16s %-7s  %3u %3u %3u %2u/%-4u%5u       %3u %3u %3u %3u";
     NewTextChild(variablesNode, "total_in_class_fmt", s.str());
 
     s.str("");
@@ -2041,8 +2044,8 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       << setw(7) << (getLocaleText("Вес", rpt_params.GetLang()))
       << setw(7) << (getLocaleText("Р/кл", rpt_params.GetLang()))
       << setw(8) << (getLocaleText("CAP.DOC.EX_BAG", rpt_params.GetLang()))
-      << setw(12) << "XCR DHC MOS" << endl
-      << "%-6u %-7s %-6u %-6u %-6u %-6u %-6u %-6s  %-3u %-3u %-3u" << endl
+      << setw(16) << "XCR DHC MOS JMP" << endl
+      << "%-6u %-7s %-6u %-6u %-6u %-6u %-6u %-6s  %-3u %-3u %-3u %-3u" << endl
       << (getLocaleText("Подпись", rpt_params.GetLang())) << endl
       << setw(30) << string(NodeAsString("pts_agent", variablesNode)).substr(0, 30) << endl
       << (getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
@@ -2181,10 +2184,11 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         << setw(7) << NodeAsInteger("bag_weight",rowNode)
         << setw(7) << NodeAsInteger("rk_weight",rowNode)
         << setw(7) << str_excess.str() << endl
-        << "XCR/DHC/MOS: "
+        << "XCR/DHC/MOS/JMP: "
         << NodeAsInteger("xcr",rowNode) << "/"
         << NodeAsInteger("dhc",rowNode) << "/"
-        << NodeAsInteger("mos",rowNode);
+        << NodeAsInteger("mos",rowNode) << "/"
+        << NodeAsInteger("jmp",rowNode);
 
       NewTextChild(rowNode,"str",s.str());
     };
