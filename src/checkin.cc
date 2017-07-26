@@ -3184,15 +3184,6 @@ bool CheckInInterface::CheckAPPSRems(const std::multiset<CheckIn::TPaxRemItem> &
   return is_forced;
 }
 
-LexemaData GetLexemeDataWithFlight(const LexemaData &data, const TTripInfo &fltInfo)
-{
-  LexemaData result;
-  result.lexema_id="WRAP.FLIGHT";
-  result.lparams << LParam("flight",GetTripName(fltInfo,ecCkin,true,false))
-                 << LParam("text",data);
-  return result;
-}
-
 bool CheckRefusability(int point_dep, int pax_id)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();

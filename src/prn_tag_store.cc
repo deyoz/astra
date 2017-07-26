@@ -408,7 +408,7 @@ TPrnTagStore::TPrnTagStore(TDevOperType _op_type, int agrp_id, int apax_id, int 
     time_print(NowUTC()),
     prn_tag_props(aroute.empty() ? dotPrnBP : dotPrnBT)
 {
-    if(op_type == dotPrnBP) rfisc_descr.fromDB(agrp_id, apax_id);
+    if(op_type == dotPrnBP or op_type == dotPrnBI) rfisc_descr.fromDB(agrp_id, apax_id);
 
     print_mode = 0;
     grpInfo.Init(agrp_id, apax_id);
@@ -2295,8 +2295,20 @@ string TPrnTagStore::TRfiscDescr::get(TBPServiceTypes::Enum code)
     return (found_services.find(code) != found_services.end() ? TBPServiceTypesDescr().encode(code) : "");
 }
 
+void TPrnTagStore::TRfiscDescr::dump() const
+{
+    LogTrace(TRACE5) << "---TPrnTagStore::TRfiscDescr::dump---";
+    for(std::set<TBPServiceTypes::Enum>::const_iterator i = found_services.begin();
+            i != found_services.end(); i++)
+        LogTrace(TRACE5) << TBPServiceTypesCode().encode(*i);
+    LogTrace(TRACE5) << "-------------------------------------";
+}
+
 void TPrnTagStore::TRfiscDescr::fromDB(int grp_id, int pax_id)
 {
+    LogTrace(TRACE5) << "TPrnTagStore::TRfiscDescr::fromDB BEGIN";
+    LogTrace(TRACE5) << "grp_id: " << grp_id;
+    LogTrace(TRACE5) << "pax_id: " << pax_id;
     clear();
 
     CheckIn::TServicePaymentListWithAuto paid_services; // оплаченные услуги
@@ -2325,9 +2337,14 @@ void TPrnTagStore::TRfiscDescr::fromDB(int grp_id, int pax_id)
 
         if(paid_services.isRFISCGrpExists(pax_id, grp, subgrp))
             found_services.insert(i->first);
-        else if(registered_services.isRFISCGrpExists(pax_id, grp, subgrp))
-            throw UserException("MSG.UNPAID_SERVICE_EXISTS");
+        else if(registered_services.isRFISCGrpExists(pax_id, grp, subgrp)) {
+            CheckIn::TSimplePaxItem pax;
+            pax.getByPaxId(pax_id);
+            throw UserException("MSG.UNPAID_SERVICE_EXISTS",
+                    LParams() << LParam("reg_no", pax.reg_no));
+        }
     }
+    dump();
 }
 
 string TPrnTagStore::RFISC_BSN_LONGUE(TFieldParams fp)

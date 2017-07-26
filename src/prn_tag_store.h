@@ -203,6 +203,7 @@ class TBPServiceTypes {
             UP,
             LG,
             TS_FT,    // Группа TS и подгруппа FT
+            SA,
             Unknown
         };
 
@@ -213,7 +214,8 @@ class TBPServiceTypes {
             {
                 l.push_back(std::make_pair(UP,      "UP"));
                 l.push_back(std::make_pair(LG,      "LG"));
-                l.push_back(std::make_pair(TS_FT,   "TS FT"));
+                l.push_back(std::make_pair(TS_FT,   "TS PO")); // !!!
+                l.push_back(std::make_pair(SA,      "SA"));
                 l.push_back(std::make_pair(Unknown, ""));
             }
             return l;
@@ -673,6 +675,7 @@ class TPrnTagStore {
             {
                 found_services.clear();
             }
+            void dump() const;
         };
         TRfiscDescr rfisc_descr;
 

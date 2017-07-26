@@ -66,6 +66,7 @@ class PrintInterface: public JxtInterface
           std::string prn_form;
           std::string scan;
           std::string voucher;
+          bool error;
 
           bool hex;
           BPPax()
@@ -91,6 +92,7 @@ class PrintInterface: public JxtInterface
             prn_form.clear();
             scan.clear();
             hex=false;
+            error = false;
           };
           bool fromDB(int vpax_id, int test_point_dep);
         };
@@ -145,7 +147,8 @@ class PrintInterface: public JxtInterface
                                    std::string &data,
                                    std::string &pectab,
                                    BIPrintRules::Holder &bi_rules,
-                                   std::vector<BPPax> &paxs);
+                                   std::vector<BPPax> &paxs,
+                                   boost::optional<AstraLocale::LexemaData> &error);
         static bool GetIatciPrintDataBP(xmlNodePtr reqNode,
                                         int grpId,
                                         const std::string& data,

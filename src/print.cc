@@ -1848,15 +1848,23 @@ void PrintInterface::get_pectab(
     data = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("data"));
 }
 
+bool IsErrPax(const PrintInterface::BPPax &pax)
+{
+    return pax.error;
+}
+
 void PrintInterface::GetPrintDataBP(
                                     TDevOperType op_type,
                                     BPParams &params,
                                     std::string &data,
                                     string &pectab,
                                     BIPrintRules::Holder &bi_rules,
-                                    std::vector<BPPax> &paxs)
+                                    std::vector<BPPax> &paxs,
+                                    boost::optional<AstraLocale::LexemaData> &error
+                                    )
 {
     if(paxs.empty()) return;
+    error = boost::none;
 
     get_pectab(op_type, params, data, pectab);
 
@@ -1864,7 +1872,17 @@ void PrintInterface::GetPrintDataBP(
 
         boost::shared_ptr<PrintDataParser> parser;
         if(iPax->pax_id!=NoExists)
-            parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->grp_id, iPax->pax_id, params.prnParams.pr_lat, params.clientDataNode ));
+            try {
+                parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->grp_id, iPax->pax_id, params.prnParams.pr_lat, params.clientDataNode ));
+            } catch(UserException &E) {
+                if(not error) {
+                    TTripInfo fltInfo;
+                    fltInfo.getByGrpId(iPax->grp_id);
+                    error = GetLexemeDataWithFlight(E.getLexemaData( ), fltInfo);
+                }
+                iPax->error = true;
+                continue;
+            }
         else
             parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->scan, true));
         //        big_test(parser, dotPrnBP);
@@ -1898,6 +1916,7 @@ void PrintInterface::GetPrintDataBP(
             parser->pts.confirm_print(false, op_type);
         iPax->time_print=parser->pts.get_time_print();
     }
+    paxs.erase(remove_if(paxs.begin(), paxs.end(), IsErrPax), paxs.end());
 }
 
 /**
@@ -2304,7 +2323,9 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
     } else {
 
         LogTrace(TRACE5) << "complete true";
-        GetPrintDataBP(op_type, params, data, pectab, bi_rules, paxs);
+
+        boost::optional<AstraLocale::LexemaData> error;
+        GetPrintDataBP(op_type, params, data, pectab, bi_rules, paxs, error);
 
         if(!GetIatciPrintDataBP(reqNode, first_seg_grp_id, data, params, paxs)) {
             tst();
@@ -2338,6 +2359,8 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
                 SetProp(NewTextChild(paxNode, "prn_form", iPax->prn_form),"hex",(int)iPax->hex);
             }
         }
+        if(error)
+            AstraLocale::showErrorMessage(error.get());
     }
 }
 
