@@ -128,8 +128,10 @@ const TRFISCListKey& TRFISCListKey::toSirenaXML(xmlNodePtr node, const std::stri
 {
   if (node==NULL) return *this;
 
-  SetProp(node, "company", airlineToXML(airline, lang));
-  SetProp(node, "service_type", ServiceTypes().encode(service_type));
+  if (!airline.empty())
+    SetProp(node, "company", airlineToXML(airline, lang));
+  if (service_type!=TServiceType::Unknown)
+    SetProp(node, "service_type", ServiceTypes().encode(service_type));
   SetProp(node, "rfisc", RFISC);
   return *this;
 }
@@ -175,7 +177,7 @@ TRFISCListItem& TRFISCListItem::fromSirenaXML(xmlNodePtr node)
     xmlNodePtr nameNode=node->children;
     for(; nameNode!=NULL; nameNode=nameNode->next)
     {
-      if (string((char*)nameNode->name)!="name") continue;
+      if (string((const char*)nameNode->name)!="name") continue;
       string lang=NodeAsString("@language", nameNode, "");
       if (lang.empty()) throw Exception("Empty @language");
       if (lang=="ru" || lang=="en")
@@ -196,7 +198,7 @@ TRFISCListItem& TRFISCListItem::fromSirenaXML(xmlNodePtr node)
     xmlNodePtr descrNode=node->children;
     for(int i=0; descrNode!=NULL; descrNode=descrNode->next)
     {
-      if (string((char*)descrNode->name)!="description") continue;
+      if (string((const char*)descrNode->name)!="description") continue;
       if (i>=2) throw Exception("Excess <description>");
       string &d=i==0?descr1:descr2;
       d=NodeAsString(descrNode);
@@ -717,7 +719,7 @@ void TRFISCList::fromSirenaXML(xmlNodePtr node)
   if (node==NULL) throw Exception("TRFISCListItem::fromSirenaXML: node not defined");
   for(node=node->children; node!=NULL; node=node->next)
   {
-    if (string((char*)node->name)!="svc") continue;
+    if (string((const char*)node->name)!="svc") continue;
     TRFISCListItem item;
     item.fromSirenaXML(node);
     if (insert(make_pair(TRFISCListKey(item), item)).second)
@@ -1816,9 +1818,10 @@ void TPaidRFISCList::copyDB(int grp_id_src, int grp_id_dest)
 
 void TGrpServiceList::addBagInfo(int grp_id,
                                  int tckin_seg_count,
-                                 int trfer_seg_count)
+                                 int trfer_seg_count,
+                                 bool include_refused)
 {
-  TCachedQuery Qry("SELECT ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num, 0) AS pax_id, "
+  TCachedQuery Qry("SELECT ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num, :include_refused) AS pax_id, "
                    "       0 AS transfer_num, "
                    "       bag2.list_id, "
                    "       bag2.rfisc, "
@@ -1828,7 +1831,8 @@ void TGrpServiceList::addBagInfo(int grp_id,
                    "       bag2.pr_cabin "
                    "FROM bag2 "
                    "WHERE bag2.grp_id=:grp_id AND bag2.rfisc IS NOT NULL ",
-                   QParams() << QParam("grp_id", otInteger, grp_id));
+                   QParams() << QParam("grp_id", otInteger, grp_id)
+                             << QParam("include_refused", otInteger, (int)include_refused));
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
   {
@@ -1847,11 +1851,12 @@ void TGrpServiceList::addBagInfo(int grp_id,
 
 void TGrpServiceList::prepareForSirena(int grp_id,
                                        int tckin_seg_count,
-                                       int trfer_seg_count)
+                                       int trfer_seg_count,
+                                       bool include_refused)
 {
   clear();
-  fromDB(grp_id, true);
-  addBagInfo(grp_id, tckin_seg_count, trfer_seg_count);
+  fromDB(grp_id, !include_refused);
+  addBagInfo(grp_id, tckin_seg_count, trfer_seg_count, include_refused);
 }
 
 void TGrpServiceList::getAllListItems()
@@ -1868,7 +1873,7 @@ bool TGrpServiceListWithAuto::fromXML(xmlNodePtr node)
   if (servicesNode==NULL) return false;
   for(xmlNodePtr itemNode=servicesNode->children; itemNode!=NULL; itemNode=itemNode->next)
   {
-    if (string((char*)itemNode->name)!="item") continue;
+    if (string((const char*)itemNode->name)!="item") continue;
     push_back(TGrpServiceItem().fromXML(itemNode));
   }
   return true;
@@ -2244,7 +2249,7 @@ void GetBagConcepts(int grp_id, bool &pc, bool &wt, bool &rfisc_used)
     for(;!Qry.Eof;Qry.Next())
     {
       bool _rfisc_used=Qry.FieldAsInteger("rfisc_used");
-      bool category=Qry.FieldAsInteger("category");
+      int category=Qry.FieldAsInteger("category");
       if (_rfisc_used) rfisc_used=true;
       if (category==(int)TServiceCategory::Baggage ||
           category==(int)TServiceCategory::CarryOn)

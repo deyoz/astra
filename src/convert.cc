@@ -67,7 +67,7 @@ string norm_iata_row(string row)
     return row;
 }
 
-string denorm_iata_row(string row, const char* add_ch)
+string denorm_iata_row(string row, boost::optional<char> add_ch)
 {
     if(is_iata_row(row)) {
         TrimString(row);
@@ -76,8 +76,8 @@ string denorm_iata_row(string row, const char* add_ch)
             if(row[i] != '0')
                 break;
         row = row.substr(i);
-        if ( add_ch != NULL )
-        	row = string(3,*add_ch) + row;
+        if ( add_ch )
+            row = string(3, add_ch.get()) + row;
     }
     return row;
 }

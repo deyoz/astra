@@ -2146,7 +2146,7 @@ void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info, bool completed, b
 
 void TelegramInterface::TestSeatRanges(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  vector<TSeatRange> ranges;
+  TSeatRanges ranges;
   try
   {
     TypeB::ParseSeatRange(NodeAsString("lexeme",reqNode),ranges,true);
@@ -2170,7 +2170,7 @@ void TelegramInterface::TestSeatRanges(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       while (NextSeatInRange(range,seat));
     };
 
-    for(vector<TSeatRange>::iterator i=ranges.begin();i!=ranges.end();i++)
+    for(TSeatRanges::iterator i=ranges.begin();i!=ranges.end();i++)
     {
       rangeNode=NewTextChild(rangesNode,"range");
       NewTextChild(rangeNode,"first_row",i->first.row);

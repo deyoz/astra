@@ -136,7 +136,23 @@ string GetSQL(const TListType ltype)
 
     sql << "        service_payment.doc_type IN ('EMDA', 'EMDS') AND \n"
            "        NOT(pax_grp.excess_wt IS NULL AND pax_grp.excess_pc IS NULL) AND \n"
-           "        pax_grp.status NOT IN ('E')) b \n"
+           "        pax_grp.status NOT IN ('E') \n"
+//           "  UNION \n"
+//           "  SELECT pax_grp.grp_id, pax_services_auto.emd_no, pax_services_auto.emd_coupon \n"
+//           "  FROM pax_grp, pax_services_auto, pax \n"
+//           "  WHERE pax.pax_id=pax_services_auto.pax_id AND \n"
+//           "        pax.grp_id=pax_grp.grp_id AND \n";
+//    if (ltype==unboundByPointId ||
+//        ltype==allWithTknByPointId)
+//      sql <<
+//           "        pax_grp.point_dep=:id AND \n";
+//    if (ltype==unboundByPaxId)
+//      sql <<
+//           "        pax.pax_id=:id AND \n";
+//    sql << "        pax_services_auto.emd_type IN ('A', 'S') AND \n"
+//           "        NOT(pax_grp.excess_wt IS NULL AND pax_grp.excess_pc IS NULL) AND \n"
+//           "        pax_grp.status NOT IN ('E') \n"
+           " ) b \n"
            "WHERE a.grp_id=b.grp_id(+) AND \n"
            "      a.emd_no=b.emd_no(+) AND \n"
            "      a.emd_coupon=b.emd_coupon(+) \n";
@@ -250,7 +266,7 @@ void printSQLs()
   ProgTrace(TRACE5, "%s: SQL(oneWithTknByPaxId)=\n%s", __FUNCTION__, GetSQL(oneWithTknByPaxId).c_str());
 }
 
-void GetUnboundEMD(int id, multiset<CheckIn::TPaxASVCItem> &asvc, bool is_pax_id, bool only_one)
+void GetUnboundBagEMD(int id, multiset<CheckIn::TPaxASVCItem> &asvc, bool is_pax_id, bool only_one)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -265,28 +281,28 @@ void GetUnboundEMD(int id, multiset<CheckIn::TPaxASVCItem> &asvc, bool is_pax_id
     std::set<ASTRA::TRcptServiceType> service_types;
     item.rcpt_service_types(service_types);
     if (service_types.find(ASTRA::rstExcess)==service_types.end() &&
-        service_types.find(ASTRA::rstPaid)==service_types.end()) continue;
+        service_types.find(ASTRA::rstPaid)==service_types.end()) continue; //когда это уберется, тогда переименовать процедуру в GetUnboundEMD
     asvc.insert(item);
     if (only_one) break;
   };
 };
 
-void GetUnboundEMD(int point_id, multiset<CheckIn::TPaxASVCItem> &asvc)
+void GetUnboundBagEMD(int point_id, multiset<CheckIn::TPaxASVCItem> &asvc)
 {
-  GetUnboundEMD(point_id, asvc, false, false);
+  GetUnboundBagEMD(point_id, asvc, false, false);
 };
 
-bool ExistsUnboundEMD(int point_id)
+bool ExistsUnboundBagEMD(int point_id)
 {
   multiset<CheckIn::TPaxASVCItem> asvc;
-  GetUnboundEMD(point_id, asvc, false, true);
+  GetUnboundBagEMD(point_id, asvc, false, true);
   return !asvc.empty();
 };
 
-bool ExistsPaxUnboundEMD(int pax_id)
+bool ExistsPaxUnboundBagEMD(int pax_id)
 {
   multiset<CheckIn::TPaxASVCItem> asvc;
-  GetUnboundEMD(pax_id, asvc, true, true);
+  GetUnboundBagEMD(pax_id, asvc, true, true);
   return !asvc.empty();
 };
 
@@ -411,9 +427,9 @@ std::string TEMDCtxtItem::no_str() const
   return s.str();
 }
 
-void GetEMDDisassocList(const int point_id,
-                        const bool in_final_status,
-                        std::list<TEMDCtxtItem> &emds)
+void GetBagEMDDisassocList(const int point_id,
+                           const bool in_final_status,
+                           std::list<TEMDCtxtItem> &emds)
 {
   emds.clear();
 
@@ -429,7 +445,7 @@ void GetEMDDisassocList(const int point_id,
     std::set<ASTRA::TRcptServiceType> service_types;
     asvc.rcpt_service_types(service_types);
     if (service_types.find(ASTRA::rstExcess)==service_types.end() &&
-        service_types.find(ASTRA::rstPaid)==service_types.end()) continue;
+        service_types.find(ASTRA::rstPaid)==service_types.end()) continue; //когда это уберется, тогда переименовать процедуру в GetEMDDisassocList
 
     TEMDCtxtItem item;
     item.emd_no=asvc.emd_no;

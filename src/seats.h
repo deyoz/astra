@@ -403,7 +403,7 @@ bool ChangeLayer( const SALONS2::TSalonList &salonList, ASTRA::TCompLayerType la
 bool ChangeLayer( ASTRA::TCompLayerType layer_type, int point_id, int pax_id, int &tid,
                   std::string first_xname, std::string first_yname, TSeatsType seat_type,
                   bool pr_lat_seat, TChangeLayerProcFlag seatFlag );
-void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, std::vector<TSeatRange> &seats,
+void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, TSeatRanges &seats,
                          int pax_id, int point_dep, int point_arv, TDateTime time_create );
 bool GetPassengersForWaitList( int point_id, TPassengers &p );
 TSeatAlgoParams GetSeatAlgo(TQuery &Qry, std::string airline, int flt_no, std::string airp_dep);

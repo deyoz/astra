@@ -618,7 +618,7 @@ class TPaxItem
     std::string name;
     ASTRA::TPerson pers_type;
     long seats;
-    std::vector<TSeatRange> seatRanges;
+    TSeatRanges seatRanges;
     TSeat seat; //это место, назначенное разборщиком на основе tlg_comp_layers
     char seat_rem[5];
     std::vector<TRemItem> rem;
@@ -739,7 +739,7 @@ class TNameElement
     std::string surname;
     std::vector<TPaxItem> pax;
     std::vector<TRemItem> rem;
-    std::vector<TSeatRange> seatRanges;
+    TSeatRanges seatRanges;
     TBagItem bag;
     std::vector<TTagItem> tags;
     int bag_pool;
@@ -865,7 +865,7 @@ class TSeatsByDest
 {
   public:
     char airp_arv[4];
-    std::vector<TSeatRange> ranges;
+    TSeatRanges ranges;
     TSeatsByDest()
     {
       Clear();
@@ -968,7 +968,7 @@ void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con);
 void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& flt, TBindType &bind_type);
 int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, TSearchFltInfoPtr search_params, ETlgErrorType error_type=tlgeNotError);
 
-void ParseSeatRange(std::string str, std::vector<TSeatRange> &ranges, bool usePriorContext);
+void ParseSeatRange(std::string str, TSeatRanges &ranges, bool usePriorContext);
 
 void TestBSMElemOrder(const std::string &s);
 

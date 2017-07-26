@@ -21,9 +21,9 @@ enum TListType {unboundByPointId,
                 oneWithTknByPaxId};
 std::string GetSQL(const TListType ltype);
 void printSQLs();
-void GetUnboundEMD(int point_id, std::multiset<CheckIn::TPaxASVCItem> &asvc);
-bool ExistsUnboundEMD(int point_id);
-bool ExistsPaxUnboundEMD(int pax_id);
+void GetUnboundBagEMD(int point_id, std::multiset<CheckIn::TPaxASVCItem> &asvc);
+bool ExistsUnboundBagEMD(int point_id);
+bool ExistsPaxUnboundBagEMD(int pax_id);
 
 }; //namespace PaxASVCList
 
@@ -108,9 +108,9 @@ class TEMDCtxtItem : public TEdiCtxtItem
     std::string no_str() const;
 };
 
-void GetEMDDisassocList(const int point_id,
-                        const bool in_final_status,
-                        std::list< TEMDCtxtItem > &emds);
+void GetBagEMDDisassocList(const int point_id,
+                           const bool in_final_status,
+                           std::list< TEMDCtxtItem > &emds);
 
 void GetEMDStatusList(const int grp_id,
                       const bool in_final_status,

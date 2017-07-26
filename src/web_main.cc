@@ -1405,7 +1405,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
         web_place_list.xcount = place->x;
       if ( place->y > web_place_list.ycount )
         web_place_list.ycount = place->y;
-      wp.seat_no = denorm_iata_row( place->yname, NULL ) + denorm_iata_line( place->xname, Salons->getLatSeat() );
+      wp.seat_no = place->denorm_view(Salons->getLatSeat());
       if ( !place->elem_type.empty() ) {
         if ( place->elem_type != PARTITION_ELEM_TYPE )
             wp.elem_type = ARMCHAIR_ELEM_TYPE;
@@ -3280,13 +3280,13 @@ void WebRequestsIface::PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
 
   const char* pax_sql=
-    "SELECT pax_grp.point_dep, NULL AS point_id_tlg, pax_grp.grp_id, "
+    "SELECT pax_grp.point_dep, NULL AS point_id_tlg, pax_grp.grp_id, pax_grp.airp_arv, "
     "       pax.surname, pax.name, pax.pers_type, pax.reg_no, pax.tid "
     "FROM pax_grp, pax "
     "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id";
 
   const char* crs_pax_sql=
-    "SELECT tlg_binding.point_id_spp AS point_dep, point_id_tlg, NULL AS grp_id, "
+    "SELECT tlg_binding.point_id_spp AS point_dep, point_id_tlg, NULL AS grp_id, crs_pnr.airp_arv, "
     "       crs_pax.surname, crs_pax.name, crs_pax.pers_type, NULL AS reg_no, crs_pax.tid "
     "FROM crs_pax, crs_pnr, tlg_binding "
     "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
@@ -3295,16 +3295,6 @@ void WebRequestsIface::PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 
   TQuery Qry(&OraSession);
   Qry.DeclareVariable("pax_id", otInteger);
-  TQuery TlgQry(&OraSession);
-  TlgQry.SQLText=
-    "SELECT airp_arv,first_xname,last_xname,first_yname,last_yname "
-    " FROM tlg_comp_layers "
-    "WHERE tlg_comp_layers.crs_pax_id=:crs_pax_id AND "
-    "      point_id=:point_id_tlg AND layer_type=:prot_bpay "
-    "ORDER BY airp_arv";
-  TlgQry.DeclareVariable("point_id_tlg",otInteger);
-  TlgQry.DeclareVariable("crs_pax_id",otInteger);
-  TlgQry.CreateVariable("prot_bpay",otString,EncodeCompLayerType(ASTRA::cltProtBeforePay));
 
   TLogLocale msg;
   msg.ev_type=ASTRA::evtPax;
@@ -3328,8 +3318,6 @@ void WebRequestsIface::PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     Qry.SetVariable("pax_id", crs_pax_id);
     ProgTrace( TRACE5, "crs_pax_id=%d, status=%s", crs_pax_id, status.c_str() );
     // разметить cltProtAfterPay без таймаута, удалить cltProtBeforePay
-    bool usePriorContext=false;
-
     for(int pass=0; pass<2; pass++)
     {
       Qry.SQLText=(pass==0?crs_pax_sql:pax_sql);
@@ -3343,31 +3331,23 @@ void WebRequestsIface::PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
       if ( pass==0 ) {
         if ( status=="PAID" ) { // изменяем слой оплаты с cltProtBeforePay на cltProtAfterPay
           //определяем координаты мест пасса перед оплатой
-          TlgQry.SetVariable("point_id_tlg",Qry.FieldAsInteger( "point_id_tlg" ) );
-          TlgQry.SetVariable("crs_pax_id",crs_pax_id);
-          TlgQry.Execute();
-          for(;!TlgQry.Eof;TlgQry.Next()) {
-            vector<TSeatRange> seats;
-            TSeatRange seatRange( TSeat( TlgQry.FieldAsString( "first_yname" ), TlgQry.FieldAsString( "first_xname" ) ),
-                                  TSeat( TlgQry.FieldAsString( "last_yname" ), TlgQry.FieldAsString( "last_xname" ) ),
-                                  "" );
-            if ( seat_no != denorm_iata_row( string(seatRange.first.row), NULL ) + denorm_iata_line( string(seatRange.first.line), true ) &&
-                 seat_no != denorm_iata_row( seatRange.first.row, NULL ) + denorm_iata_line(seatRange.first.line, false ) ) {
-              continue;
-            }
-            seats.push_back( seatRange );
-            InsertTlgSeatRanges(Qry.FieldAsInteger( "point_id_tlg"),
-                                TlgQry.FieldAsString( "airp_arv" ),
-                                cltProtAfterPay,
-                                seats,
-                                crs_pax_id,
-                                NoExists,NoExists,usePriorContext,curr_tid,point_ids_spp);
-            usePriorContext=true;
-            break;
-          }
-          if ( !usePriorContext ) {
+          TSeatRanges ranges;
+          GetTlgSeatRanges(ASTRA::cltProtBeforePay, crs_pax_id, ranges);
+          TSeatRanges::const_iterator r=ranges.begin();
+          for(; r!=ranges.end(); ++r)
+          {
+            const TSeatRange& seatRange=*r;
+            if ( seat_no == seatRange.first.denorm_view(true) ||
+                 seat_no == seatRange.first.denorm_view(false) ) break;
+          };
+          if (r==ranges.end())
             throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
-          }
+          InsertTlgSeatRanges(Qry.FieldAsInteger("point_id_tlg"),
+                              Qry.FieldAsString("airp_arv"),
+                              cltProtAfterPay,
+                              ranges,
+                              crs_pax_id,
+                              NoExists,NoExists,false,curr_tid,point_ids_spp);
         }
         DeleteTlgSeatRanges(cltProtBeforePay, crs_pax_id, curr_tid, point_ids_spp);
       }
@@ -4051,20 +4031,217 @@ void SyncAllCHKD(int point_id_spp, const string& task_name, const string& params
 namespace SirenaExchange
 {
 
-void fillPaxsSvcs(const TEntityList &entities, TExchange &exch)
+void fillProtBeforePaySvcs(const TAdvTripInfo &operFlt,
+                           const int pax_id,
+                           TExchange &exch)
 {
   TPseudoGroupInfoRes *pseudoGroupInfoRes=dynamic_cast<TPseudoGroupInfoRes*>(&exch);
   if (!pseudoGroupInfoRes) return;
-  TSvcList &svcs_ref=pseudoGroupInfoRes->svcs;
-  std::list<TPaxItem> &paxs_ref=pseudoGroupInfoRes->paxs;
+
+  int point_id=operFlt.point_id;
+  if (!SALONS2::isFreeSeating(point_id) &&
+      !SALONS2::isEmptySalons(point_id))
+  {
+    //получить RFISC компоновки и номера мест, который размечен на местах BeforePay, если BeforePay самый приоритетный слой пассажира
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    ASTRA::TClientType prior_client_type=reqInfo->client_type;
+    try
+    {
+      reqInfo->client_type=ctWeb;
+      int point_arv = SALONS2::getCrsPaxPointArv( pax_id, point_id );
+      TSalonList salonList;
+      salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), SALONS2::rfTranzitVersion, "", ASTRA::NoExists );
+      ProgTrace(TRACE5, "%s: salonList.ReadFlight (point_dep=%d, point_arv=%d)", __FUNCTION__, point_id, point_arv);
+      if (salonList.getRFISCMode()==rRFISC)
+      {
+        std::set<TPlace*,CompareSeats> seats;
+        salonList.getPaxLayer( point_id, pax_id, cltProtBeforePay, seats );
+
+          //массив мест с RFISCами
+        vector< pair<TSeat, TRFISC> > seats_with_rfisc;
+        for(std::set<TPlace*,CompareSeats>::const_iterator s=seats.begin(); s!=seats.end(); ++s)
+        {
+          //цикл по местам
+          const TPlace &place=**s;
+
+          TRFISC rfisc=place.getRFISC(point_id);
+          if (rfisc.empty() || rfisc.code.empty())
+          {
+            ProgTrace(TRACE5, "%s: seat_no=%s, rfisc.empty() || rfisc.code.empty()",
+                      __FUNCTION__, place.denorm_view(salonList.isCraftLat()).c_str());
+            continue;
+          };
+
+          ProgTrace(TRACE5, "%s: seat_no=%s, rfisc.code=%s",
+                    __FUNCTION__, place.denorm_view(salonList.isCraftLat()).c_str(), rfisc.code.c_str());
+
+          seats_with_rfisc.push_back(make_pair(place.getTSeat(), rfisc));
+        };
+
+        if (!seats_with_rfisc.empty())
+        {
+          //грузим множество оплаченных мест
+          TSeatRanges ranges;
+          GetTlgSeatRanges(cltProtAfterPay, pax_id, ranges);
+          if (!ranges.empty())
+            ProgTrace(TRACE5, "%s: layer_type=%s, ranges: %s",
+                      __FUNCTION__, EncodeCompLayerType(cltProtAfterPay), ranges.traceStr().c_str());
+
+          if (ranges.empty())
+          {
+            GetTlgSeatRanges(cltPNLAfterPay, pax_id, ranges);
+            if (!ranges.empty())
+              ProgTrace(TRACE5, "%s: layer_type=%s, ranges: %s",
+                        __FUNCTION__, EncodeCompLayerType(cltPNLAfterPay), ranges.traceStr().c_str());
+          }
+          //грузим множество оплаченных EMD
+          vector<CheckIn::TPaxASVCItem> asvc;
+          CheckIn::LoadCrsPaxASVC(pax_id, asvc);
+
+          for(vector< pair<TSeat, TRFISC> >::const_iterator i=seats_with_rfisc.begin(); i!=seats_with_rfisc.end(); ++i)
+          {
+            const TSeat& seat=i->first;
+            const TRFISC& rfisc=i->second;
+
+            if (ranges.empty() ||
+                (!ranges.empty() && ranges.contains(seat)))
+            {
+              //проверить соответствующий RFISC
+              bool rfisc_found=false;
+              for(vector<CheckIn::TPaxASVCItem>::iterator e=asvc.begin(); e!=asvc.end(); ++e)
+                if (e->RFISC==rfisc.code)
+                {
+                  rfisc_found=true;
+                  ProgTrace(TRACE5, "%s: seat_no=%s, rfisc.code=%s, %s",
+                            __FUNCTION__, seat.denorm_view(salonList.isCraftLat()).c_str(),
+                            rfisc.code.c_str(),
+                            e->rem_text(false, LANG_EN, applyLang).c_str());
+                  asvc.erase(e);
+                  break;
+                };
+              if (rfisc_found) continue;
+            };
+
+            TRFISCKey RFISCKey;
+            RFISCKey.RFISC=rfisc.code;
+            RFISCKey.service_type=TServiceType::FlightRelated;
+            RFISCKey.airline=operFlt.airline;
+            TSvcItem item(TPaxSegRFISCKey(Sirena::TPaxSegKey(pax_id, 0), RFISCKey), TServiceStatus::Need);
+            item.ssr_text=seat.denorm_view(salonList.isCraftLat());
+            pseudoGroupInfoRes->svcs.push_back(item);
+          }
+        }
+      };
+      reqInfo->client_type=prior_client_type;
+    }
+    catch(...)
+    {
+      reqInfo->client_type=prior_client_type;
+      throw;
+    };
+  };
+}
+
+void fillPaxsSvcs(const TNotCheckedReqPassengers &req_pnrs, TExchange &exch)
+{
+  TPaxSection *paxSection=dynamic_cast<TPaxSection*>(&exch);
+  TSvcSection *svcSection=dynamic_cast<TSvcSection*>(&exch);
 
   TQuery Qry(&OraSession);
+  Qry.Clear();
   Qry.SQLText =
-    "SELECT crs_pnr.point_id, crs_pnr.airp_arv, "
-    "       crs_pax.surname, crs_pax.name, crs_pax.pers_type, crs_pax.seats "
+    "SELECT crs_pnr.airp_arv, "
+    "       crs_pax.pax_id, crs_pax.surname, crs_pax.name, crs_pax.pers_type, crs_pax.seats "
     "FROM crs_pax, crs_pnr "
     "WHERE crs_pax.pnr_id=crs_pnr.pnr_id AND "
-    "      crs_pax.pax_id=:pax_id AND crs_pax.pr_del=0";
+    "      crs_pax.pnr_id=:pnr_id AND "
+    "      crs_pnr.system='CRS' AND "
+    "      crs_pax.pr_del=0 ";
+  Qry.DeclareVariable("pnr_id", otInteger);
+
+  for(TNotCheckedReqPassengers::const_iterator iReqPnr=req_pnrs.begin(); iReqPnr!=req_pnrs.end(); ++iReqPnr)
+  {
+    int pnr_id=iReqPnr->first;
+    boost::optional<TAdvTripInfo> operFlt=boost::none;
+    TAdvTripInfoList flts;
+    getTripsByCRSPnrId(pnr_id, flts);
+    for(TAdvTripInfoList::const_iterator f=flts.begin(); f!=flts.end(); ++f)
+    {
+      if (f->pr_del!=0) continue;
+      operFlt=*f;
+      break;
+    };
+    if (!operFlt) continue;
+
+    Qry.SetVariable("pnr_id", pnr_id);
+    Qry.Execute();
+    if (Qry.Eof) continue;
+
+    string airp_arv=Qry.FieldAsString("airp_arv");
+
+    std::list<TPaxItem> paxs;
+    for(;!Qry.Eof;Qry.Next())
+    {
+      CheckIn::TPaxItem pax;
+      pax.id=Qry.FieldAsInteger("pax_id");
+      pax.surname=Qry.FieldAsString("surname");
+      pax.name=Qry.FieldAsString("name");
+      pax.pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
+      pax.seats=Qry.FieldAsInteger("seats");
+      if (!req_pnrs.pax_included(pnr_id, pax.id)) continue;
+
+      CheckIn::LoadCrsPaxDoc(pax.id, pax.doc);
+      CheckIn::LoadCrsPaxTkn(pax.id, pax.tkn);
+
+      TETickItem etick;
+      if (pax.tkn.validET())
+        etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
+
+      list<TPaxItem>::iterator iReqPax=paxs.insert(paxs.end(), TPaxItem());
+      if (iReqPax==paxs.end()) throw EXCEPTIONS::Exception("%s: strange situation iReqPax==paxs.end()");
+      TPaxItem &reqPax=*iReqPax;
+
+      reqPax.set(pax, etick);
+
+      SirenaExchange::TPaxSegMap::iterator iReqSeg=
+          reqPax.segs.insert(make_pair(0,SirenaExchange::TPaxSegItem())).first;
+      if (iReqSeg==reqPax.segs.end()) throw EXCEPTIONS::Exception("%s: strange situation iReqSeg==reqPax.segs.end()");
+      SirenaExchange::TPaxSegItem &reqSeg=iReqSeg->second;
+      TMktFlight mktFlight;
+      mktFlight.getByCrsPaxId(pax.id);
+      reqSeg.set(0, operFlt.get(), airp_arv, mktFlight, operFlt.get().get_scd_in(airp_arv));
+      reqSeg.subcl=mktFlight.subcls;
+      reqSeg.tkn=pax.tkn;
+      CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);
+      CheckIn::LoadCrsPaxPNRs(pax.id, reqSeg.pnrs);
+
+      if (svcSection && req_pnrs.include_unbound_svcs)
+      {
+        svcSection->svcs.addFromCrs(req_pnrs, pnr_id, pax.id);
+        fillProtBeforePaySvcs(operFlt.get(), pax.id, exch);
+      };
+    };
+    if (!paxs.empty() && paxSection)
+    {
+      std::list<TPaxItem> &paxs_ref=paxSection->paxs;
+      paxs_ref.insert(paxs_ref.end(), paxs.begin(), paxs.end());
+    }
+  }
+}
+
+void fillPaxsSvcs(const TEntityList &entities, TExchange &exch)
+{
+  TCheckedReqPassengers req_grps(false, true, true);
+  TNotCheckedReqPassengers req_pnrs(false, true, true);
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT pax.grp_id, pax.pax_id, crs_pax.pnr_id AS crs_pnr_id, crs_pax.pax_id AS crs_pax_id "
+    "FROM (SELECT grp_id, pax_id FROM pax WHERE pax_id=:pax_id) pax "
+    "     FULL OUTER JOIN "
+    "     (SELECT pnr_id, pax_id FROM crs_pax WHERE pax_id=:pax_id AND pr_del=0) crs_pax "
+    "ON pax.pax_id=crs_pax.pax_id ";
   Qry.DeclareVariable("pax_id", otInteger);
   for(TEntityList::const_iterator i=entities.begin(); i!=entities.end(); ++i)
   {
@@ -4075,110 +4252,27 @@ void fillPaxsSvcs(const TEntityList &entities, TExchange &exch)
     Qry.Execute();
     if (Qry.Eof) continue;
 
-    int point_id_tlg=Qry.FieldAsInteger("point_id");
-    string airp_arv=Qry.FieldAsString("airp_arv");
-
-    boost::optional<TAdvTripInfo> operFlt=boost::none;
-    TAdvTripInfoList flts=getTripsByPointIdTlg(point_id_tlg);
-    for(TAdvTripInfoList::const_iterator f=flts.begin(); f!=flts.end(); ++f)
+    if (!Qry.FieldIsNULL("grp_id") && !Qry.FieldIsNULL("pax_id"))
     {
-      if (f->pr_del!=0) continue;
-      operFlt=*f;
-      break;
-    };
-    if (!operFlt) continue;
-
-    list<TPaxItem>::iterator iReqPax=paxs_ref.insert(paxs_ref.end(), TPaxItem());
-    if (iReqPax==paxs_ref.end()) throw EXCEPTIONS::Exception("%s: strange situation iReqPax==paxs.end()");
-    TPaxItem &reqPax=*iReqPax;
-
-    CheckIn::TPaxItem pax;
-    pax.id=entity.pax_id;
-    pax.surname=Qry.FieldAsString("surname");
-    pax.name=Qry.FieldAsString("name");
-    pax.pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
-    pax.seats=Qry.FieldAsInteger("seats");
-    CheckIn::LoadCrsPaxDoc(pax.id, pax.doc);
-    CheckIn::LoadCrsPaxTkn(pax.id, pax.tkn);
-
-    TETickItem etick;
-    if (pax.tkn.validET())
-      etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
-
-    reqPax.set(pax, etick);
-
-    SirenaExchange::TPaxSegMap::iterator iReqSeg=
-        reqPax.segs.insert(make_pair(entity.trfer_num,SirenaExchange::TPaxSegItem())).first;
-    if (iReqSeg==reqPax.segs.end()) throw EXCEPTIONS::Exception("%s: strange situation iReqSeg==reqPax.segs.end()");
-    SirenaExchange::TPaxSegItem &reqSeg=iReqSeg->second;
-    TMktFlight mktFlight;
-    mktFlight.getByCrsPaxId(pax.id);
-    reqSeg.set(entity.trfer_num, operFlt.get(), airp_arv, mktFlight, operFlt.get().get_scd_in(airp_arv));
-    reqSeg.subcl=mktFlight.subcls;
-    reqSeg.tkn=pax.tkn;
-    CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);
-    CheckIn::LoadCrsPaxPNRs(pax.id, reqSeg.pnrs);
-
-    int point_id=operFlt.get().point_id;
-
-    if (SALONS2::isFreeSeating(point_id) ||
-        SALONS2::isEmptySalons(point_id))
-    {
-      ProgTrace(TRACE5, "%s: isFreeSeating or isEmptySalons (point_id=%d)", __FUNCTION__, point_id);
-      continue;
-    };
-
-    //получить RFISC компоновки и номера мест, который размечен на местах BeforePay, если BeforePay самый приоритетный слой пассажира
-    TReqInfo *reqInfo = TReqInfo::Instance();
-    ASTRA::TClientType prior_client_type=reqInfo->client_type;
-    try
-    {      
-      reqInfo->client_type=ctWeb;
-      int point_arv = SALONS2::getCrsPaxPointArv( entity.pax_id, point_id );
-      TSalonList salonList;
-      salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), SALONS2::rfTranzitVersion, "", ASTRA::NoExists );
-      ProgTrace(TRACE5, "%s: salonList.ReadFlight (point_dep=%d, point_arv=%d)", __FUNCTION__, point_id, point_arv);
-      if (salonList.getRFISCMode()==rRFISC)
-      {
-        TSeatLayer seatLayer;
-        std::set<TPlace*,CompareSeats> seats;
-        salonList.getPaxLayer( point_id, entity.pax_id, seatLayer, seats );
-        ProgTrace(TRACE5, "%s: seatLayer.layer_type=%s", __FUNCTION__, EncodeCompLayerType(seatLayer.layer_type));
-        if (seatLayer.layer_type == cltProtBeforePay)
-        {
-          for(std::set<TPlace*,CompareSeats>::const_iterator s=seats.begin(); s!=seats.end(); ++s)
-          {
-            //цикл по местам
-            const TPlace &place=**s;
-  
-            string seat_no=denorm_iata_row( place.yname, NULL ) + denorm_iata_line( place.xname, salonList.isCraftLat() );
-            ProgTrace(TRACE5, "%s: seat_no=%s", __FUNCTION__, seat_no.c_str());
-  
-            TRFISC rfisc=place.getRFISC(point_id);
-            if (rfisc.empty() || rfisc.code.empty())
-            {
-              ProgTrace(TRACE5, "%s: rfisc.empty() || rfisc.code.empty()", __FUNCTION__);
-              continue;
-            };
-  
-            TRFISCKey RFISCKey;
-            RFISCKey.RFISC=rfisc.code;
-            RFISCKey.service_type=TServiceType::FlightRelated;
-            RFISCKey.airline=operFlt.get().airline;
-            TSvcItem item(TPaxSegRFISCKey(entity, RFISCKey), TServiceStatus::Need);
-            item.ssr_text=seat_no;
-            svcs_ref.push_back(item);
-          }
-        }
-      };
-      reqInfo->client_type=prior_client_type;
+      req_grps.add(Qry.FieldAsInteger("grp_id"), Qry.FieldAsInteger("pax_id"));
     }
-    catch(...)
+    else if (!Qry.FieldIsNULL("crs_pnr_id") && !Qry.FieldIsNULL("crs_pax_id"))
     {
-      reqInfo->client_type=prior_client_type;
-      throw;
-    };  
-  }
+      req_pnrs.add(Qry.FieldAsInteger("crs_pnr_id"), Qry.FieldAsInteger("crs_pax_id"));
+    };
+  };
+
+  TCheckedResPassengers res_grps;
+  fillPaxsBags(req_grps, exch, res_grps);
+  fillPaxsSvcs(req_pnrs, exch);
+
+  TPaxSection *paxSection=dynamic_cast<TPaxSection*>(&exch);
+  TSvcSection *svcSection=dynamic_cast<TSvcSection*>(&exch);
+  for(TEntityList::const_iterator i=entities.begin(); i!=entities.end(); ++i)
+  {
+    if (paxSection) paxSection->updateSeg(*i);
+    if (svcSection) svcSection->updateSeg(*i);
+  };
 }
 
 } //namespace SirenaExchange

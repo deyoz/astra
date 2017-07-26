@@ -707,7 +707,7 @@ void ServicePaymentFromXML(xmlNodePtr node,
       }
       else
       {
-        if (string((char*)itemNode->name)!="item") continue;
+        if (string((const char*)itemNode->name)!="item") continue;
         item.fromXML(itemNode, is_unaccomp);
       };
       if (item.is_auto_service()) continue;

@@ -166,18 +166,54 @@ TSvcItem& TSvcItem::fromSirenaXML(xmlNodePtr node)
   return *this;
 }
 
+void TPaxSection::toXML(xmlNodePtr node) const
+{
+  if (paxs.empty() && throw_if_empty) throw Exception("TPaxSection::toXML: paxs.empty()");
+
+  for(list<TPaxItem>::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
+    p->toSirenaXML(NewTextChild(node, "passenger"), LANG_EN);
+}
+
+void TPaxSection::updateSeg(const Sirena::TPaxSegKey &key)
+{
+  for(list<TPaxItem>::iterator p=paxs.begin(); p!=paxs.end(); ++p)
+  {
+    if (p->id!=key.pax_id) continue;
+    if (p->segs.empty() || p->segs.begin()->first==key.trfer_num) continue;
+
+    int trfer_num=key.trfer_num;
+    TPaxSegMap new_segs;
+    for(TPaxSegMap::const_iterator s=p->segs.begin(); s!=p->segs.end(); ++s, trfer_num++)
+      new_segs.insert(make_pair(trfer_num,s->second));
+    p->segs=new_segs;
+    for(TPaxSegMap::iterator s=p->segs.begin(); s!=p->segs.end(); ++s)
+      s->second.id=s->first;
+  };
+}
+
+void TSvcSection::toXML(xmlNodePtr node) const
+{
+  if (svcs.empty() && throw_if_empty) throw Exception("TSvcSection::toXML: svcs.empty()");
+
+  for(TSvcList::const_iterator i=svcs.begin(); i!=svcs.end(); ++i)
+    i->toSirenaXML(NewTextChild(node, "svc"), LANG_EN);
+}
+
+void TSvcSection::updateSeg(const Sirena::TPaxSegKey &key)
+{
+  for(TSvcList::iterator i=svcs.begin(); i!=svcs.end(); ++i)
+    if (i->pax_id==key.pax_id) i->trfer_num=key.trfer_num;
+}
+
 void TAvailabilityReq::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return;
-
-  if (paxs.empty()) throw Exception("TAvailabilityReq::toXML: paxs.empty()");
 
   SetProp(node, "show_brand_info", "true");
   SetProp(node, "show_all_svc", "true");
   SetProp(node, "show_free_carry_on_norm", "true");
 
-  for(list<TPaxItem>::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
-    p->toSirenaXML(NewTextChild(node, "passenger"), LANG_EN);
+  TPaxSection::toXML(node);
 }
 
 void TAvailabilityResItem::remove_unnecessary()
@@ -208,7 +244,7 @@ void TAvailabilityRes::fromXML(xmlNodePtr node)
     if (node==NULL) throw Exception("node not defined");
     for(node=node->children; node!=NULL; node=node->next)
     {
-      if (string((char*)node->name)!="svc_list") continue;
+      if (string((const char*)node->name)!="svc_list") continue;
       Sirena::TPaxSegKey key;
       key.fromSirenaXML(node);
       if (find(key)!=end())
@@ -391,11 +427,26 @@ void TSvcList::get(TPaidRFISCList &paid) const
     paid.inc(*i, i->status);
 }
 
-void TSvcList::set(int grp_id, int tckin_seg_count, int trfer_seg_count)
+void TSvcList::addChecked(const TCheckedReqPassengers &req_grps, int grp_id, int tckin_seg_count, int trfer_seg_count)
 {
-  clear();
   TGrpServiceList list;
-  list.prepareForSirena(grp_id, tckin_seg_count, trfer_seg_count);
+  list.prepareForSirena(grp_id, tckin_seg_count, trfer_seg_count, req_grps.include_refused);
+  //отфильтруем ненужные
+  for(TGrpServiceList::iterator i=list.begin(); i!=list.end();)
+  {
+    if (req_grps.only_first_segment && i->trfer_num!=0)
+    {
+      i=list.erase(i);
+      continue;
+    }
+    if (!req_grps.pax_included(grp_id, i->pax_id))
+    {
+      i=list.erase(i);
+      continue;
+    }
+    ++i;
+  }
+
   CheckIn::TServicePaymentList payment;
   payment.fromDB(grp_id);
   for(TGrpServiceList::const_iterator i=list.begin(); i!=list.end(); ++i)
@@ -405,20 +456,53 @@ void TSvcList::set(int grp_id, int tckin_seg_count, int trfer_seg_count)
   };
 }
 
+void TSvcList::addASVCs(int pax_id, const std::vector<CheckIn::TPaxASVCItem> &asvc)
+{
+  for(vector<CheckIn::TPaxASVCItem>::const_iterator i=asvc.begin(); i!=asvc.end(); ++i)
+  {
+    for(int j=i->service_quantity; j>0; j--)
+    {
+      TRFISCKey RFISCKey;
+      RFISCKey.RFISC=i->RFISC;
+      push_back(TSvcItem(TPaxSegRFISCKey(Sirena::TPaxSegKey(pax_id, 0), RFISCKey), TServiceStatus::Paid));
+    };
+  }
+}
+
+void TSvcList::addUnbound(const TCheckedReqPassengers &req_grps, int grp_id, int pax_id)
+{
+  if (!req_grps.include_unbound_svcs ||
+      !req_grps.pax_included(grp_id, pax_id)) return;
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText = PaxASVCList::GetSQL(PaxASVCList::unboundByPaxId);
+  Qry.CreateVariable( "id", otInteger, pax_id );
+  Qry.Execute();
+  vector<CheckIn::TPaxASVCItem> asvc;
+  for(;!Qry.Eof;Qry.Next())
+    asvc.push_back(CheckIn::TPaxASVCItem().fromDB(Qry));
+  addASVCs(pax_id, asvc);
+}
+
+void TSvcList::addFromCrs(const TNotCheckedReqPassengers &req_pnrs, int pnr_id, int pax_id)
+{
+  if (!req_pnrs.include_unbound_svcs ||
+      !req_pnrs.pax_included(pnr_id, pax_id)) return;
+
+  vector<CheckIn::TPaxASVCItem> asvc;
+  CheckIn::LoadCrsPaxASVC(pax_id, asvc);
+  addASVCs(pax_id, asvc);
+}
+
 void TPaymentStatusReq::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return;
 
-  if (paxs.empty()) throw Exception("TPaymentStatusReq::toXML: paxs.empty()");
-  if (svcs.empty()) throw Exception("TPaymentStatusReq::toXML: svcs.empty()");
-
-
   SetProp(node, "show_free_carry_on_norm", "true");
 
-  for(list<TPaxItem>::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
-    p->toSirenaXML(NewTextChild(node, "passenger"), LANG_EN);
-  for(TSvcList::const_iterator i=svcs.begin(); i!=svcs.end(); ++i)
-    i->toSirenaXML(NewTextChild(node, "svc"), LANG_EN);
+  TPaxSection::toXML(node);
+  TSvcSection::toXML(node);
 }
 
 void TPaymentStatusRes::fromXML(xmlNodePtr node)
@@ -430,7 +514,7 @@ void TPaymentStatusRes::fromXML(xmlNodePtr node)
     if (node==NULL) throw Exception("node not defined");
     for(node=node->children; node!=NULL; node=node->next)
     {
-      string nodeName=(char*)node->name;
+      string nodeName=(const char*)node->name;
       if (nodeName!="svc" &&
           nodeName!="free_baggage_norm" &&
           nodeName!="free_carry_on_norm") continue;
@@ -571,15 +655,8 @@ void TGroupInfoRes::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return;
 
-  if (paxs.empty()) throw Exception("TGroupInfoRes::toXML: paxs.empty()");
-
-  for(list<TPaxItem>::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
-    p->toSirenaXML(NewTextChild(node, "passenger"), LANG_EN);
-
-  if (svcs.empty()) throw Exception("TGroupInfoRes::toXML: svcs.empty()");
-
-  for(TSvcList::const_iterator i=svcs.begin(); i!=svcs.end(); ++i)
-    i->toSirenaXML(NewTextChild(node, "svc"), LANG_EN);
+  TPaxSection::toXML(node);
+  TSvcSection::toXML(node);
 }
 
 void TPseudoGroupInfoReq::fromXML(xmlNodePtr node)
@@ -591,7 +668,7 @@ void TPseudoGroupInfoReq::fromXML(xmlNodePtr node)
     if (node==NULL) throw Exception("node not defined");
     for(node=node->children; node!=NULL; node=node->next)
     {
-      string nodeName=(char*)node->name;
+      string nodeName=(const char*)node->name;
       if (nodeName!="entity") continue;
       Sirena::TPaxSegKey key;
       key.fromSirenaXML(node);
@@ -609,11 +686,8 @@ void TPseudoGroupInfoRes::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return;
 
-  for(list<TPaxItem>::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
-    p->toSirenaXML(NewTextChild(node, "passenger"), LANG_EN);
-
-  for(TSvcList::const_iterator i=svcs.begin(); i!=svcs.end(); ++i)
-    i->toSirenaXML(NewTextChild(node, "svc"), LANG_EN);
+  TPaxSection::toXML(node);
+  TSvcSection::toXML(node);
 }
 
 } //namespace SirenaExchange
@@ -624,7 +698,7 @@ void PieceConceptInterface::procPieceConcept(XMLRequestCtxt *ctxt, xmlNodePtr re
   reqNode=NodeAsNode("content", reqNode);
 
   reqNode=NodeAsNode("query", reqNode)->children;
-  std::string exchangeId = (char *)reqNode->name;
+  std::string exchangeId = (const char*)reqNode->name;
   ProgTrace( TRACE5, "%s: exchangeId=<%s>", __FUNCTION__, exchangeId.c_str() );
 
   resNode=NewTextChild(resNode, "content");
@@ -767,59 +841,59 @@ void PieceConceptInterface::procPseudoGroupInfo( const SirenaExchange::TPseudoGr
 
 int verifyHTTP(int argc,char **argv)
 {
-  try
-  {
-    SirenaExchange::TPassengersReq req;
-    SirenaExchange::TPassengersRes res;
-    string reqText
-    (
-      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-      "<query>"
-      "  <passenger_with_svc>"
-      "    <company>UT</company>"
-      "    <flight>454</flight>"
-      "    <departure_date>2015-10-20</departure_date>"
-      "    <departure>РЩН</departure>"
-      "  </passenger_with_svc>"
-      "</query>");
-    reqText = ConvertCodepage( reqText, "CP866", "UTF-8" );
-    SirenaExchange::SendTestRequest(reqText);
-    req.parse(reqText);
-    PieceConceptInterface::procPassengers(req, res);
-    string resText;
-    res.build(resText);
-    printf("%s\n", resText.c_str());
-  }
-  catch(std::exception &e)
-  {
-    printf("%s\n", e.what());
-  }
+//  try
+//  {
+//    SirenaExchange::TPassengersReq req;
+//    SirenaExchange::TPassengersRes res;
+//    string reqText
+//    (
+//      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+//      "<query>"
+//      "  <passenger_with_svc>"
+//      "    <company>UT</company>"
+//      "    <flight>454</flight>"
+//      "    <departure_date>2015-10-20</departure_date>"
+//      "    <departure>РЩН</departure>"
+//      "  </passenger_with_svc>"
+//      "</query>");
+//    reqText = ConvertCodepage( reqText, "CP866", "UTF-8" );
+//    SirenaExchange::SendTestRequest(reqText);
+//    req.parse(reqText);
+//    PieceConceptInterface::procPassengers(req, res);
+//    string resText;
+//    res.build(resText);
+//    printf("%s\n", resText.c_str());
+//  }
+//  catch(std::exception &e)
+//  {
+//    printf("%s\n", e.what());
+//  }
 
-  try
-  {
-    SirenaExchange::TGroupInfoReq req;
-    SirenaExchange::TGroupInfoRes res;
-    string reqText
-    (
-      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-      "<query>"
-      "  <group_svc_info>"
-      "    <regnum>SDA12F</regnum>"
-      "    <group_id>34877</group_id>"
-      "  </group_svc_info>"
-      "</query>");
-    reqText = ConvertCodepage( reqText, "CP866", "UTF-8" );
-    SirenaExchange::SendTestRequest(reqText);
-    req.parse(reqText);
-    PieceConceptInterface::procGroupInfo(req, res);
-    string resText;
-    res.build(resText);
-    printf("%s\n", resText.c_str());
-  }
-  catch(std::exception &e)
-  {
-    printf("%s\n", e.what());
-  }
+//  try
+//  {
+//    SirenaExchange::TGroupInfoReq req;
+//    SirenaExchange::TGroupInfoRes res;
+//    string reqText
+//    (
+//      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+//      "<query>"
+//      "  <group_svc_info>"
+//      "    <regnum>SDA12F</regnum>"
+//      "    <group_id>34877</group_id>"
+//      "  </group_svc_info>"
+//      "</query>");
+//    reqText = ConvertCodepage( reqText, "CP866", "UTF-8" );
+//    SirenaExchange::SendTestRequest(reqText);
+//    req.parse(reqText);
+//    PieceConceptInterface::procGroupInfo(req, res);
+//    string resText;
+//    res.build(resText);
+//    printf("%s\n", resText.c_str());
+//  }
+//  catch(std::exception &e)
+//  {
+//    printf("%s\n", e.what());
+//  }
 
   try
   {
@@ -830,21 +904,21 @@ int verifyHTTP(int argc,char **argv)
       "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
       "<query>"
       "  <pseudogroup_svc_info>"
-      "    <entity passenger-id=\"33085384\" segment-id=\"0\"/> "
-      "    <entity passenger-id=\"33085385\" segment-id=\"0\"/> "
-      "    <entity passenger-id=\"33085386\" segment-id=\"0\"/> "
-      "    <entity passenger-id=\"33085387\" segment-id=\"0\"/> "
-      "    <entity passenger-id=\"33085388\" segment-id=\"0\"/> "
-      "    <entity passenger-id=\"33085389\" segment-id=\"0\"/> "
-      "    <entity passenger-id=\"33085390\" segment-id=\"0\"/> "
-      "    <entity passenger-id=\"33085391\" segment-id=\"0\"/> "
-      "    <entity passenger-id=\"33085392\" segment-id=\"0\"/> "
-      "    <entity passenger-id=\"33085393\" segment-id=\"0\"/> "
-      "    <entity passenger-id=\"33085871\" segment-id=\"0\"/> "
+      "    <entity passenger-id=\"33085384\" segment-id=\"1\"/> "
+      "    <entity passenger-id=\"33085385\" segment-id=\"2\"/> "
+      "    <entity passenger-id=\"33085386\" segment-id=\"3\"/> "
+      "    <entity passenger-id=\"33085387\" segment-id=\"4\"/> "
+      "    <entity passenger-id=\"33085388\" segment-id=\"5\"/> "
+      "    <entity passenger-id=\"33085389\" segment-id=\"6\"/> "
+      "    <entity passenger-id=\"33085390\" segment-id=\"7\"/> "
+      "    <entity passenger-id=\"33085391\" segment-id=\"8\"/> "
+      "    <entity passenger-id=\"33085392\" segment-id=\"9\"/> "
+      "    <entity passenger-id=\"33085393\" segment-id=\"10\"/> "
+      "    <entity passenger-id=\"33085871\" segment-id=\"11\"/> "
       "  </pseudogroup_svc_info>"
       "</query>");
     reqText = ConvertCodepage( reqText, "CP866", "UTF-8" );
-    SirenaExchange::SendTestRequest(reqText);
+//    SirenaExchange::SendTestRequest(reqText);
     req.parse(reqText);
     PieceConceptInterface::procPseudoGroupInfo(req, res);
     string resText;
@@ -1186,7 +1260,7 @@ void ServicePaymentInterface::LoadServiceLists(XMLRequestCtxt *ctxt, xmlNodePtr 
   xmlNodePtr svcNode=NewTextChild(resNode, "service_lists");
   for(xmlNodePtr node=NodeAsNode("service_lists", reqNode)->children; node!=NULL; node=node->next)
   {
-    if (string((char*)node->name)!="list_id") continue;
+    if (string((const char*)node->name)!="list_id") continue;
     int list_id=NodeAsInteger(node);
     if (list_id>=0)
     {

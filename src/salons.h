@@ -857,6 +857,12 @@ class TPlace {
                 TRFISCMode RFISCMode, bool pr_update,
                 bool with_pax, const std::map<int,TPaxList> &pax_lists ) const;
 
+    std::string denorm_view(bool is_lat) const
+    {
+      return getTSeat().denorm_view(is_lat);
+    }
+
+    TSeat getTSeat() const { return TSeat(yname, xname); }
 };
 
 typedef std::vector<TPlace> TPlaces;
@@ -1416,6 +1422,8 @@ class TSalonList: public std::vector<TPlaceList*> {
     void JumpToLeg( const FilterRoutesProperty &filterRoutesNew );
     void JumpToLeg( const TFilterRoutesSets &routesSets );
     void getPassengers( TSalonPassengers &passengers, const TGetPassFlags &flags );
+    void getPaxLayer( int point_dep, int pax_id, ASTRA::TCompLayerType layer_type,
+                      std::set<TPlace*,CompareSeats> &seats ) const;
     void getPaxLayer( int point_dep, int pax_id,
                       TSeatLayer &seatLayer,
                       std::set<TPlace*,CompareSeats> &seats ) const;
@@ -1442,7 +1450,7 @@ class TSalonList: public std::vector<TPlaceList*> {
                                                  const std::set<int> &paxs_external_logged );
     void check_waitlist_alarm_on_tranzit_routes( int point_dep );
     void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm );
-    void WritePaxSeats( int point_dep, int pax_id, const std::vector<TSeatRange> &ranges );
+    void WritePaxSeats( int point_dep, int pax_id, const TSeatRanges &ranges );
 
 
 //typedef std::map<TPlace*, std::vector<TPlaceLayer> > TPlacePaxs; // сортировка по приоритетам слоев
@@ -1503,7 +1511,7 @@ class TSalonList: public std::vector<TPlaceList*> {
   void DeleteSalons( int point_id );
   bool isUserProtectLayer( ASTRA::TCompLayerType layer_type );
   void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
-                    const std::vector<TSeatRange> &seatRanges, const std::string &reason );
+                    const TSeatRanges &seatRanges, const std::string &reason );
   bool selfckin_client();
 /*  void addAirlineSelfCkinTariff( const std::string &airline, TSeatTariffMap &tariffMap );
                                  std::string getPointAirp(int point_id);*/

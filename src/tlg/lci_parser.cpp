@@ -1444,7 +1444,7 @@ void ParseLCIContent(TTlgPartInfo body, TLCIHeadingInfo& info, TLCIContent& con,
     };
 }
 
-void set_seats_option(TPassSeats &seats, const vector<TSeatRange> &seatRanges, int point_id_spp)
+void set_seats_option(TPassSeats &seats, const TSeatRanges &seatRanges, int point_id_spp)
 {
     SALONS2::TSalonList salonList;
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id_spp ), SALONS2::rfTranzitVersion, "", NoExists );
@@ -1456,7 +1456,7 @@ void set_seats_option(TPassSeats &seats, const vector<TSeatRange> &seatRanges, i
         }
     }
 
-    for(vector<TSeatRange>::const_iterator
+    for(TSeatRanges::const_iterator
             seat_range = seatRanges.begin();
             seat_range != seatRanges.end();
             seat_range++) {
@@ -1490,7 +1490,7 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
     }
     int point_id_spp = nd.get();
 
-    vector<TSeatRange> ranges_tmp, seatRanges;
+    TSeatRanges ranges_tmp, seatRanges;
 
     TCreateInfo createInfo("LCI", TCreatePoint());
     // !!! приведение константной ссылки к неконстантной. Не хорошо.
