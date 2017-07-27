@@ -293,7 +293,8 @@ void populate_doc_cap(xmlNodePtr variablesNode, string lang)
     NewTextChild(variablesNode, "doc_cap_pas", getLocaleText("Пас", lang));
     NewTextChild(variablesNode, "doc_cap_type", getLocaleText("Тип", lang));
     NewTextChild(variablesNode, "doc_cap_seat_no", getLocaleText("№ м", lang));
-    NewTextChild(variablesNode, "doc_cap_new_seat_no", getLocaleText("Н № м", lang));
+    NewTextChild(variablesNode, "doc_cap_old_seat_no", getLocaleText("Стар.", lang));
+    NewTextChild(variablesNode, "doc_cap_new_seat_no", getLocaleText("Нов.", lang));
     NewTextChild(variablesNode, "doc_cap_remarks", getLocaleText("Ремарки", lang));
     NewTextChild(variablesNode, "doc_cap_cl", getLocaleText("Кл", lang));
     NewTextChild(variablesNode, "doc_cap_seats", getLocaleText("Крс", lang));
