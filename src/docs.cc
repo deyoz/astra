@@ -3994,7 +3994,7 @@ void RESEAT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
         ostringstream ticket_no;
         ticket_no << i->second.pax.tkn.no;
-        if(i->second.pax.tkn.coupon)
+        if(i->second.pax.tkn.coupon != NoExists)
             ticket_no << "/" << i->second.pax.tkn.coupon;
 
         NewTextChild(rowNode, "ticket_no", ticket_no.str());
