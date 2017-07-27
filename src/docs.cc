@@ -4028,8 +4028,8 @@ void RESEATTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         << setw(4)  << getLocaleText("Пс", rpt_params.GetLang())
         << setw(3)  << (getLocaleText("Кл", rpt_params.GetLang()))
         << setw(4)  << (getLocaleText("Крс", rpt_params.GetLang()))
-        << setw(6)  << (getLocaleText("№ м", rpt_params.GetLang()))
-        << setw(8)  << (getLocaleText("Н № м", rpt_params.GetLang()))
+        << setw(6)  << (getLocaleText("Стар.", rpt_params.GetLang()))
+        << setw(8)  << (getLocaleText("Нов.", rpt_params.GetLang()))
         << setw(11) << getLocaleText("Документ", rpt_params.GetLang())
         << setw(15) << getLocaleText("Билет", rpt_params.GetLang());
     NewTextChild(variablesNode, "page_header_bottom", s.str() );
