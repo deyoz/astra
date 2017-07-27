@@ -379,6 +379,7 @@ namespace KUF_STAT {
     int fix(int argc, char **argv);
 }
 
+int com_tst(int argc, char **argv);
 
 #endif /*_TELEGRAM_H_*/
 

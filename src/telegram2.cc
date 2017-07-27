@@ -909,6 +909,44 @@ TTrickyGender::Enum getGender(int pax_id)
 }
 
 
+int com_tst(int argc, char **argv)
+{
+    string qry =
+        "<?xml version='1.0' encoding='cp866'?> " // !!! должно быть cp866
+        "<term> "
+        "  <query handle='0' id='Telegram' ver='1' opr='DEN' screen='TLG.EXE' mode='STAND' lang='RU' term_id='2984993714'> "
+        "    <CreateTlg> "
+        "      <point_id>9674740</point_id> "
+        "      <tlg_type>COM</tlg_type> "
+        "      <pr_lat>1</pr_lat> "
+        "      <addrs>QQQQQQQ </addrs> "
+        "    </CreateTlg> "
+        "    <response/>" // сам дописал, туда будет засовываться ответ
+        "  </query> "
+        "</term> ";
+    xmlDocPtr doc = TextToXMLTree(qry); // все данные в UTF
+    xml_decode_nodelist(doc->children);
+    xmlNodePtr rootNode=xmlDocGetRootElement(doc);
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    reqInfo->Initialize("МОВ");
+    XMLRequestCtxt *ctxt = getXmlCtxt();
+    JxtInterfaceMng::Instance()->
+        GetInterface("Telegram")->
+        OnEvent("CreateTlg",  ctxt,
+                rootNode->children->children,
+                rootNode->children->children->next);
+    int tlg_id = NodeAsInteger("tlg_id", rootNode->children->children->next);
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select body from tlg_out where id = :id order by num";
+    Qry.CreateVariable("id", otInteger, tlg_id);
+    Qry.Execute();
+    ostringstream res;
+    for(; not Qry.Eof; Qry.Next())
+        res << Qry.FieldAsString("body");
+    LogTrace(TRACE5) << res.str();
+    return 1; // 0 - изменения коммитятся, 1 - rollback
+}
+
 namespace PRL_SPACE {
     struct TPNRItem {
         string airline, addr;
