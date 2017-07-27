@@ -4026,8 +4026,8 @@ void RESEATTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         << setw(4)  << getLocaleText("Пс", rpt_params.GetLang())
         << setw(3)  << (getLocaleText("Кл", rpt_params.GetLang()))
         << setw(4)  << (getLocaleText("Крс", rpt_params.GetLang()))
-        << setw(6)  << (getLocaleText("№ м", rpt_params.GetLang()))
-        << setw(8)  << (getLocaleText("Н № м", rpt_params.GetLang()))
+        << setw(6)  << (getLocaleText("Стар.", rpt_params.GetLang()))
+        << setw(8)  << (getLocaleText("Нов.", rpt_params.GetLang()))
         << setw(11) << getLocaleText("Документ", rpt_params.GetLang())
         << setw(15) << getLocaleText("Билет", rpt_params.GetLang());
     NewTextChild(variablesNode, "page_header_bottom", s.str() );
@@ -4053,7 +4053,7 @@ void RESEATTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             s
                 << right << setw(2) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
                 << left << setw(25) << (!fields["full_name"].empty() ? *(fields["full_name"].begin()) : "") << col_sym
-                << left <<  setw(3) << (row == 0 ? (strcmp(NodeAsString("pr_brd", rowNode, ""), "") == 0 ? "-" : "+") : "") << col_sym
+                << left <<  setw(3) << (row == 0 ? (strcmp(NodeAsString("pr_brd", rowNode, "0"), "0") == 0 ? "-" : "+") : "") << col_sym
                 << left <<  setw(2) << (row == 0 ? NodeAsString("cls", rowNode) : "") << col_sym
                 << left <<  setw(3) << (row == 0 ? NodeAsString("seats", rowNode) : "") << col_sym
                 << left <<  setw(5) << (row == 0 ? NodeAsString("old_seat_no", rowNode) : "") << col_sym
