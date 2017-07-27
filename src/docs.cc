@@ -4055,7 +4055,7 @@ void RESEATTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             s
                 << right << setw(2) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
                 << left << setw(25) << (!fields["full_name"].empty() ? *(fields["full_name"].begin()) : "") << col_sym
-                << left <<  setw(3) << (row == 0 ? (strcmp(NodeAsString("pr_brd", rowNode, "0"), "0") == 0 ? "-" : "+") : "") << col_sym
+                << left <<  setw(3) << (row == 0 ? (strcmp(NodeAsString("pr_brd", rowNode, ""), "") == 0 ? "-" : "+") : "") << col_sym
                 << left <<  setw(2) << (row == 0 ? NodeAsString("cls", rowNode) : "") << col_sym
                 << left <<  setw(3) << (row == 0 ? NodeAsString("seats", rowNode) : "") << col_sym
                 << left <<  setw(5) << (row == 0 ? NodeAsString("old_seat_no", rowNode) : "") << col_sym

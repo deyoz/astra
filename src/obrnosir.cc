@@ -125,7 +125,6 @@ const
     {"-kuf_fix",                KUF_STAT::fix,          NULL,                       NULL},
     {"-stat_belgorod",          stat_belgorod,          NULL,                       NULL},
     {"-alias_to_db",            KIOSK::alias_to_db,     NULL,                       NULL},
-    {"-com",                    com_tst,                NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
