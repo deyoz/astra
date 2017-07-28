@@ -335,7 +335,7 @@ bool TRFISCKey::isBaggageOrCarryOn(const std::string &where) const
   if (!list_item)
     throw Exception("%s: item.list_item=boost::none! (%s)", where.c_str(), traceStr().c_str());
 
-  return (bool)list_item.get().carry_on();
+  return list_item.get().carry_on();
 }
 
 void TRFISCKey::getListKey(GetItemWay way, int id, int transfer_num, int bag_pool_num,
