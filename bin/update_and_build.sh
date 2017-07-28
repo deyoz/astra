@@ -21,7 +21,7 @@ if [ -d $prefix/include ] && [ -d $prefix/lib ] && uab_check_version $prefix ; t
 fi
 rm -rf $prefix/include $prefix/lib $prefix/src
 
-ftp=ftp://storage.komtex/externallibs
+ftp=ftp://storage.komtex/externallibs_astra
 pkg_tgz=$(uab_pkg_tarball)
 pkg_uri=$ftp/$pkg_tgz
 
