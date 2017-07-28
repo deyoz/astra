@@ -2151,6 +2151,7 @@ namespace PRL_SPACE {
             "   pax_grp, bag2, pax "
             "WHERE "
             "   pax_grp.grp_id = pax.grp_id(+) and "
+            "   bag2.bag_pool_num = pax.bag_pool_num(+) and "
             "   (pax.crew_type is null or pax.crew_type <> :xcr) and "
             "   pax_grp.point_dep = :point_id AND "
             "   pax_grp.status NOT IN ('E') AND "
