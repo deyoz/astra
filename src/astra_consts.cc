@@ -61,6 +61,8 @@ const char *RptTypeS[] = {
     "VOUCHERS",
     "SERVICES",
     "SERVICESTXT",
+    "RESEAT",
+    "RESEATTXT",
     "?"
 };
 

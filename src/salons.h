@@ -1517,6 +1517,7 @@ class TSalonList: public std::vector<TPlaceList*> {
                                  std::string getPointAirp(int point_id);*/
   typedef std::map<int,std::set<std::string> > TSalonDesrcs;
   void getSalonDesrcs( int point_id, TSalonDesrcs &descrs );
+  void getPaxSeatsWL( int point_id, std::map< bool,std::map < int,TSeatRanges > > &seats );
 } // END namespace SALONS2
 int testsalons(int argc,char **argv);
 #endif /*_SALONS2_H_*/
