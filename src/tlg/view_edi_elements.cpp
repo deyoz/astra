@@ -69,8 +69,13 @@ void viewUngElement(_EDI_REAL_MES_STRUCT_* pMes, const UngElem& elem)
     SetEdiComposite(pMes, CompElement("S004", 0));
     PushEdiPointW(pMes);
     SetEdiPointToCompositeW(pMes, CompElement("S004", 0));
+#if APIS_TEST
+    SetEdiDataElem(pMes, DataElement(17, 0), "000000");
+    SetEdiDataElem(pMes, DataElement(19, 0), "0000");
+#else
     SetEdiDataElem(pMes, DataElement(17, 0), DateTimeToStr(elem.m_prepareDateTime, "yymmdd"));
     SetEdiDataElem(pMes, DataElement(19, 0), DateTimeToStr(elem.m_prepareDateTime, "hhnn"));
+#endif
     PopEdiPointW(pMes);
 
     SetEdiDataElem(pMes, DataElement(48, 0), elem.m_groupRefNum);

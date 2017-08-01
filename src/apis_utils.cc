@@ -5,6 +5,8 @@
 #include "astra_service.h"
 #include "sopp.h"
 
+#include "apis_creator.h"
+
 using namespace std;
 using namespace ASTRA;
 using namespace BASIC::date_time;

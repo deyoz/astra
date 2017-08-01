@@ -782,6 +782,15 @@ bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, bool without_inf_indicator)
   return !doc.empty();
 };
 
+boost::optional<TPaxDocoItem> LoadPaxDoco(int pax_id)
+{
+  TPaxDocoItem doc;
+  if (LoadPaxDoco(pax_id, doc))
+    return doc;
+  else
+    return boost::none;
+}
+
 bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc)
 {
   return LoadPaxDoco(ASTRA::NoExists, pax_id, doc);
@@ -842,6 +851,15 @@ void ConvertDoca(CheckIn::TDocaMap doca_map,
   if (doca_map.count(apiDocaR)) docaR = doca_map[apiDocaR];
   if (doca_map.count(apiDocaD)) docaD = doca_map[apiDocaD];
 };
+
+boost::optional<TPaxDocaItem> LoadPaxDoca(int pax_id, TDocaType type)
+{
+  TPaxDocaItem doc;
+  if (LoadPaxDoca(pax_id, type, doc))
+    return doc;
+  else
+    return boost::none;
+}
 
 bool LoadPaxDoca(int pax_id, CheckIn::TDocaMap &doca_map)
 {

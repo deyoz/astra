@@ -84,6 +84,9 @@ std::string createEdiPaxlstFileName( const std::string& carrierCode,
 
 static std::string createEdiInterchangeReference()
 {
+#if APIS_TEST
+    return "TEST_REF";
+#endif      
     std::ostringstream ref;
     ref << time( NULL );
     return ref.str();
@@ -341,8 +344,13 @@ static std::string createEdiPaxlstString( const PaxlstInfo& paxlst,
     edih.mes_num = 1;
     strcpy( edih.chset, Chset );
     strcpy( edih.to, paxlst.recipientName().c_str() );
+#if APIS_TEST
+    strcpy( edih.date, "000000" );
+    strcpy( edih.time, "0000" );
+#else
     strcpy( edih.date, DateTimeToStr( nowUtc, "yymmdd" ).c_str() );
     strcpy( edih.time, DateTimeToStr( nowUtc, "hhnn" ).c_str() );
+#endif
     strcpy( edih.from, paxlst.senderName().c_str() );
     strcpy( edih.acc_ref, paxlst.iataCode().c_str() );
     strcpy( edih.other_ref, "" );
@@ -441,8 +449,13 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
     SetProp(systemNode, "ApplicationVersion", 1);
     xmlNodePtr contactNode = NewTextChild(systemNode, "Contact");
     NewTextChild(contactNode, "Name", "SIRENA-TRAVEL");
+#if APIS_TEST
+    NewTextChild(messageNode, "CreateDateTime",
+                 DateTimeToStr(nowUtc, "0000-00-00'T'00:00:00"));
+#else    
     NewTextChild(messageNode, "CreateDateTime",
                  DateTimeToStr(nowUtc, "yyyy-mm-dd'T'hh:nn:00"));
+#endif                 
     NewTextChild(messageNode, "SentDateTime",
                  DateTimeToStr(nowUtc, "yyyy-mm-dd"));
     if (senderCarrierCode().empty())

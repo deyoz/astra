@@ -12,7 +12,8 @@ using BASIC::date_time::TDateTime;
 
 class FlightLeg {
 private:
-  int loc_qualifier;
+  // int loc_qualifier;
+  int loc_qualifier = -1; // исправлено APIS_TEST
   std::string airp;
   std::string country;
   TDateTime sch_in;

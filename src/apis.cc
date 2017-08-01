@@ -18,6 +18,7 @@
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 #define ENDL "\r\n"
 
@@ -95,13 +96,13 @@ const char* APIS_PARTY_INFO()
 #define MAX_PAX_PER_EDI_PART 15
 #define MAX_LEN_OF_EDI_PART 3000
 
-class TAirlineOfficeInfo
-{
-  public:
-    string contact_name;
-    string phone;
-    string fax;
-};
+// class TAirlineOfficeInfo
+// {
+//   public:
+//     string contact_name;
+//     string phone;
+//     string fax;
+// };
 
 void GetAirlineOfficeInfo(const string &airline,
                           const string &country,
@@ -220,7 +221,18 @@ int create_apis_nosir(int argc,char **argv)
   return 0;
 };
 
+#if USE_NEW_CREATE_APIS
+// старая функция
+bool create_apis_file_old(int point_id, const string& task_name)
+#else
+
+#if APIS_TEST
+bool create_apis_file(int point_id, const string& task_name, TApisTestMap* test_map)
+#else
 bool create_apis_file(int point_id, const string& task_name)
+#endif
+
+#endif
 {
   bool result=false;
   try
@@ -235,7 +247,10 @@ bool create_apis_file(int point_id, const string& task_name)
       "      point_id=:point_id AND points.pr_del=0 AND points.pr_reg<>0 ";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
-    if (Qry.Eof) return result;
+    if (Qry.Eof)
+    {
+      return result;
+    }
 
     TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code",Qry.FieldAsString("airline"));
     string country_dep = Qry.FieldAsString("country");
@@ -257,6 +272,9 @@ bool create_apis_file(int point_id, const string& task_name)
 
     TQuery ApisSetsQry(&OraSession);
     ApisSetsQry.Clear();
+#if APIS_TEST_ALL_FORMATS
+    ApisSetsQry.SQLText = apis_test_text;
+#else    
     ApisSetsQry.SQLText=
       "SELECT dir,edi_addr,edi_own_addr,format "
       "FROM apis_sets "
@@ -264,6 +282,7 @@ bool create_apis_file(int point_id, const string& task_name)
     ApisSetsQry.CreateVariable("airline", otString, airline.code);
     ApisSetsQry.CreateVariable("country_dep", otString, country_dep);
     ApisSetsQry.DeclareVariable("country_arv", otString);
+#endif    
 
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText=
@@ -275,7 +294,8 @@ bool create_apis_file(int point_id, const string& task_name)
       "WHERE pax_grp.grp_id=pax.grp_id AND "
       "      pax_grp.grp_id=tckin_segments.grp_id(+) AND tckin_segments.pr_final(+)<>0 AND "
       "      pax_grp.point_dep=:point_dep AND pax_grp.point_arv=:point_arv AND pr_brd IS NOT NULL AND "
-      "      (pax.name IS NULL OR pax.name<>'CBBG')";
+      "      (pax.name IS NULL OR pax.name<>'CBBG') "
+      "ORDER BY pax.reg_no, pax.pax_id";
     PaxQry.CreateVariable("point_dep",otInteger,point_id);
     PaxQry.DeclareVariable("point_arv",otInteger);
 
@@ -293,6 +313,9 @@ bool create_apis_file(int point_id, const string& task_name)
 
     for(TTripRoute::const_iterator r=route.begin(); r!=route.end(); r++)
     {
+#if APIS_TEST
+      if (test_map != nullptr) test_map->try_key.set(r->point_id, "");
+#endif
       //получим информацию по пункту маршрута
       RouteQry.SetVariable("point_id",r->point_id);
       RouteQry.Execute();
@@ -318,7 +341,9 @@ bool create_apis_file(int point_id, const string& task_name)
               task_name==ON_CLOSE_BOARDING )))) continue;
 
       //получим информацию по настройке APIS
+#if !APIS_TEST_ALL_FORMATS       
       ApisSetsQry.SetVariable("country_arv",country_arv.code);
+#endif      
       ApisSetsQry.Execute();
 
       if (!ApisSetsQry.Eof)
@@ -354,6 +379,9 @@ bool create_apis_file(int point_id, const string& task_name)
         for(;!ApisSetsQry.Eof;ApisSetsQry.Next())
         {
           string fmt=ApisSetsQry.FieldAsString("format");
+#if APIS_TEST
+          if (test_map != nullptr) test_map->try_key.set(r->point_id, fmt);
+#endif
           if ( (task_name==ON_CLOSE_CHECKIN && fmt!="EDI_UK" && fmt!="XML_TR" && fmt!="EDI_AZ") ||
                (task_name==ON_CLOSE_BOARDING && fmt!="EDI_LT") ||
                (task_name==ON_TAKEOFF && (fmt=="EDI_LT" || fmt=="EDI_AZ")) ) continue;
@@ -380,7 +408,8 @@ bool create_apis_file(int point_id, const string& task_name)
           };
 
           string apis_country, direction;
-          if (fmt=="CSV_AE" || fmt == "CSV_TH") {
+          if (fmt=="CSV_AE" || fmt == "CSV_TH") 
+          {
             apis_country = (fmt=="CSV_AE")?"AE":"TH";
             direction = (country_dep == apis_country)?"O":"I";
           }
@@ -470,7 +499,8 @@ bool create_apis_file(int point_id, const string& task_name)
               paxlstInfo.setDepDateTime(scd_out_local);
               paxlstInfo.setArrPort(airp_arv.code_lat);
               paxlstInfo.setArrDateTime(scd_in_local);
-              if (fmt=="XML_TR") {
+              if (fmt=="XML_TR") 
+              {
                 //Flight legs
                 TTripRoute route, tmp;
                 route.GetRouteBefore(NoExists, point_id, trtWithCurrent, trtNotCancelled);
@@ -498,30 +528,39 @@ bool create_apis_file(int point_id, const string& task_name)
                   paxlstInfo.setFltLegs(legs);
                 }
               }
-            };
-          };
+            }; // for(int pass=0; pass<2; pass++)
+          }; // if (fmt==...
 
             int count=0;
           ostringstream body, paxs_body, crew_body;
           PaxQry.SetVariable("point_arv",r->point_id);
           PaxQry.Execute();
-          for(;!PaxQry.Eof;PaxQry.Next(),count++)
+          // for(;!PaxQry.Eof;PaxQry.Next(),count++)
+          for(;!PaxQry.Eof;PaxQry.Next()) // исправлено APIS_TEST
           {
             int pax_id=PaxQry.FieldAsInteger("pax_id");
             bool boarded=PaxQry.FieldAsInteger("pr_brd")!=0;
             TPaxStatus status=DecodePaxStatus(PaxQry.FieldAsString("status"));
+
             if (status==psCrew && !(fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="EDI_UK" ||
                                     fmt=="EDI_ES" || fmt=="XML_TR" || fmt=="CSV_AE"|| fmt=="CSV_TH" || fmt=="EDI_KR" ||
-                                    fmt=="EDI_AZ")) continue;
-            if (status!=psCrew && !boarded && final_apis) continue;
+                                    fmt=="EDI_AZ"))
+            {
+              continue;
+            }
+
+            if (status!=psCrew && !boarded && final_apis)
+            {
+              continue;
+            }
 
             Paxlst::PassengerInfo paxInfo;
             string airp_final_lat;
             if (fmt=="CSV_DE")
+            {
+              if (!PaxQry.FieldIsNULL("airp_final"))
               {
-                if (!PaxQry.FieldIsNULL("airp_final"))
-                {
-                  TAirpsRow &airp_final = (TAirpsRow&)base_tables.get("airps").get_row("code",PaxQry.FieldAsString("airp_final"));
+                TAirpsRow &airp_final = (TAirpsRow&)base_tables.get("airps").get_row("code",PaxQry.FieldAsString("airp_final"));
                 if (airp_final.code_lat.empty()) throw Exception("airp_final.code_lat empty (code=%s)",airp_final.code.c_str());
                 airp_final_lat=airp_final.code_lat;
               }
@@ -544,7 +583,7 @@ bool create_apis_file(int point_id, const string& task_name)
               docaB_exists=LoadPaxDoca(pax_id, CheckIn::docaBirth, (CheckIn::TPaxDocaItem&)docaB);
             };
 
-            /* OMIT INCOMPLETE APIS */
+            // OMIT INCOMPLETE APIS
             TTripInfo fltInfo;
             if (fltInfo.getByPointId(point_id))
             {
@@ -581,16 +620,21 @@ bool create_apis_file(int point_id, const string& task_name)
                   }
                 }
                 delete pAPISFormat;
-                if (omit_apis) continue; // ApisSetsQry
+                if (omit_apis)
+                {
+                  continue; // PaxQry
+                }
               }
-            }
+            } // if (fltInfo.getByPointId(point_id))
 
-              string doc_surname, doc_first_name, doc_second_name;
+            ++count; // исправлено APIS_TEST
+
+            string doc_surname, doc_first_name, doc_second_name;
             if (!doc.surname.empty())
             {
               doc_surname=transliter(doc.surname,1,1);
-                doc_first_name=transliter(doc.first_name,1,1);
-                doc_second_name=transliter(doc.second_name,1,1);
+              doc_first_name=transliter(doc.first_name,1,1);
+              doc_second_name=transliter(doc.second_name,1,1);
             }
             else
             {
@@ -628,33 +672,33 @@ bool create_apis_file(int point_id, const string& task_name)
               if (fmt=="CSV_AE" || fmt=="CSV_TH") gender = "X";
             };
 
-                string doc_type;
-                if (!doc.type.empty())
-                {
-                  TPaxDocTypesRow &doc_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",doc.type);
-                  if (doc_type_row.code_lat.empty()) throw Exception("doc_type.code_lat empty (code=%s)",doc.type.c_str());
-                  doc_type=doc_type_row.code_lat;
+            string doc_type;
+            if (!doc.type.empty())
+            {
+              TPaxDocTypesRow &doc_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",doc.type);
+              if (doc_type_row.code_lat.empty()) throw Exception("doc_type.code_lat empty (code=%s)",doc.type.c_str());
+              doc_type=doc_type_row.code_lat;
 
               if (!APIS::isValidDocType(fmt, status, doc_type)) doc_type.clear();
 
-                  if (fmt=="CSV_DE")
-                  {
-                    if (doc_type!="P" && doc_type!="I") doc_type="P";
+              if (fmt=="CSV_DE")
+              {
+                if (doc_type!="P" && doc_type!="I") doc_type="P";
               };
               if (fmt=="TXT_EE")
-                  {
-                    if (doc_type!="P") doc_type.clear(); else doc_type="2";
-                  };
+              {
+                if (doc_type!="P") doc_type.clear(); else doc_type="2";
+              };
               if (fmt=="CSV_AE" || fmt=="CSV_TH")
               {
                 if (doc_type!="P") doc_type="O";
               };
-                };
-                string nationality=doc.nationality;
-                string issue_country=doc.issue_country;
-                string birth_date;
-                if (doc.birth_date!=NoExists)
-                {
+            };
+            string nationality=doc.nationality;
+            string issue_country=doc.issue_country;
+            string birth_date;
+            if (doc.birth_date!=NoExists)
+            {
               if (fmt=="CSV_CZ")
                     birth_date=DateTimeToStr(doc.birth_date,"ddmmmyy",true);
               else if (fmt=="CSV_DE")
@@ -663,16 +707,16 @@ bool create_apis_file(int point_id, const string& task_name)
                 birth_date=DateTimeToStr(doc.birth_date,"dd.mm.yyyy",true);
               else if (fmt=="CSV_AE"|| fmt=="CSV_TH")
                 birth_date=DateTimeToStr(doc.birth_date,"dd-mmm-yyyy",true);
-                };
+            };
 
-                string expiry_date;
-                if (doc.expiry_date!=NoExists)
-                {
+            string expiry_date;
+            if (doc.expiry_date!=NoExists)
+            {
               if (fmt=="CSV_CZ")
-                    expiry_date=DateTimeToStr(doc.expiry_date,"ddmmmyy",true);
+                expiry_date=DateTimeToStr(doc.expiry_date,"ddmmmyy",true);
               if (fmt=="CSV_AE" || fmt=="CSV_TH")
                 expiry_date=DateTimeToStr(doc.expiry_date,"dd-mmm-yyyy",true);
-                };
+            };
 
             string doc_no=doc.no;
             if (fmt=="EDI_IN")
@@ -682,11 +726,13 @@ bool create_apis_file(int point_id, const string& task_name)
                 fmt=="EDI_AZ")
               doc_no=NormalizeDocNo(doc.no, false);
 
-            if (fmt=="XML_TR") {
+            if (fmt=="XML_TR") 
+            {
               paxInfo.setPrBrd(boarded);
               paxInfo.setGoShow(status==psGoshow);
               TPerson pers_type = DecodePerson(PaxQry.FieldAsString("pers_type"));
-              switch(pers_type) {
+              switch(pers_type) 
+              {
                 case adult:
                   paxInfo.setPersType("Adult");
                   break;
@@ -696,7 +742,7 @@ bool create_apis_file(int point_id, const string& task_name)
                 case baby:
                   paxInfo.setPersType("Infant");
                   break;
-              default:
+                default:
                   throw Exception("DecodePerson failed");
               }
               paxInfo.setTicketNumber(PaxQry.FieldAsString("ticket_no"));
@@ -708,11 +754,13 @@ bool create_apis_file(int point_id, const string& task_name)
               //Marketing flights
               TMktFlight mktflt;
               mktflt.getByPaxId(pax_id);
-              if (!mktflt.empty()) {
+              if (!mktflt.empty()) 
+              {
                 TAirlinesRow &mkt_airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code",mktflt.airline);
                 if (mkt_airline.code_lat.empty()) throw Exception("mkt_airline.code_lat empty (code=%s)",mkt_airline.code.c_str());
                 std::string mkt_flt = IntToString(mktflt.flt_no);
-                if (!mktflt.suffix.empty()) {
+                if (!mktflt.suffix.empty()) 
+                {
                   TTripSuffixesRow &mkt_suffix = (TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code",mktflt.suffix);
                   if (mkt_suffix.code_lat.empty()) throw Exception("mkt_suffix.code_lat empty (code=%s)",mkt_suffix.code.c_str());
                   mkt_flt = mkt_flt + mkt_suffix.code_lat;
@@ -724,7 +772,8 @@ bool create_apis_file(int point_id, const string& task_name)
               }
             }
 
-            if (fmt=="XML_TR" || fmt=="EDI_AZ") {
+            if (fmt=="XML_TR" || fmt=="EDI_AZ") 
+            {
               vector< pair<int, string> > seats;
               SeatsQry.SetVariable("pax_id",pax_id);
               SeatsQry.Execute();
@@ -733,12 +782,15 @@ bool create_apis_file(int point_id, const string& task_name)
               paxInfo.setSeats(seats);
             }
 
-            if (fmt=="EDI_AZ") {
-              if (!PaxQry.FieldIsNULL("bag_amount")) {
+            if (fmt=="EDI_AZ") 
+            {
+              if (!PaxQry.FieldIsNULL("bag_amount")) 
+              {
                 int amount = PaxQry.FieldAsInteger("bag_amount");
                 if (amount) paxInfo.setBagCount(amount);
               }
-              if (!PaxQry.FieldIsNULL("bag_weight")) {
+              if (!PaxQry.FieldIsNULL("bag_weight")) 
+              {
                 int weight = PaxQry.FieldAsInteger("bag_weight");
                 if (weight) paxInfo.setBagWeight(weight);
               }
@@ -837,7 +889,8 @@ bool create_apis_file(int point_id, const string& task_name)
             if ( fmt=="CSV_AE" || fmt=="CSV_TH" )
             {
               ostringstream data;
-              if ( fmt=="CSV_TH" ) {
+              if ( fmt=="CSV_TH" ) 
+              {
                 data << doc_type << ","
                      << nationality << ","
                      << doc_no << ","
@@ -850,7 +903,8 @@ bool create_apis_file(int point_id, const string& task_name)
                      << birth_country << ","
                      << trip_type << ",,";
               }
-              else {
+              else 
+              {
                 data << doc_no << ","
                      << nationality << ","
                      << doc_type << ","
@@ -870,7 +924,8 @@ bool create_apis_file(int point_id, const string& task_name)
             };
             if (fmt=="TXT_EE")
             {
-              body << "1# " << count+1 << ENDL
+              // body << "1# " << count+1 << ENDL
+              body << "1# " << count << ENDL // исправлено APIS_TEST
                        << "2# " << doc_surname << ENDL
                        << "3# " << doc_first_name << ENDL
                        << "4# " << birth_date << ENDL
@@ -883,17 +938,17 @@ bool create_apis_file(int point_id, const string& task_name)
             if (doco_exists && (fmt=="CSV_DE" || fmt=="TXT_EE"))
             {
               //виза пассажира найдена
-                string doco_type;
-                if (!doco.type.empty())
-                {
-                  TPaxDocTypesRow &doco_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",doco.type);
-                  if (doco_type_row.code_lat.empty()) throw Exception("doco_type.code_lat empty (code=%s)",doco.type.c_str());
-                  doco_type=doco_type_row.code_lat;
-                };
-                string applic_country=doco.applic_country;
+              string doco_type;
+              if (!doco.type.empty())
+              {
+                TPaxDocTypesRow &doco_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",doco.type);
+                if (doco_type_row.code_lat.empty()) throw Exception("doco_type.code_lat empty (code=%s)",doco.type.c_str());
+                doco_type=doco_type_row.code_lat;
+              };
+              string applic_country=doco.applic_country;
 
               if (fmt=="CSV_DE")
-                {
+              {
                   body << ";"
                      << doco_type << ";"
                      << convert_char_view(doco.no,true) << ";"
@@ -928,7 +983,8 @@ bool create_apis_file(int point_id, const string& task_name)
               };
             };
 
-            if (docaR_exists && fmt=="XML_TR") {
+            if (docaR_exists && fmt=="XML_TR") 
+            {
               paxInfo.setResidCountry(docaR.country);
             }
 
@@ -949,7 +1005,8 @@ bool create_apis_file(int point_id, const string& task_name)
               };
             };
 
-            if (docaB_exists && fmt=="XML_TR") {
+            if (docaB_exists && fmt=="XML_TR") 
+            {
               paxInfo.setBirthCountry(docaB.country);
             }
 
@@ -978,6 +1035,8 @@ bool create_apis_file(int point_id, const string& task_name)
           }; //цикл по пассажирам
 
           vector< pair<string, string> > files;
+          string text, type;
+          std::map<std::string, std::string> file_params;
 
           if (fmt=="EDI_CZ" || fmt=="EDI_CN" || fmt=="EDI_IN" || fmt=="EDI_US" ||
               fmt=="EDI_USBACK" || fmt=="EDI_UK" || fmt=="EDI_ES" || fmt=="EDI_KR" ||
@@ -1040,52 +1099,62 @@ bool create_apis_file(int point_id, const string& task_name)
                                                                lst_type);
                   files.push_back( make_pair(file_name.str(), *p) );
                 };
-              };
-            };
-          }
-          else if ( fmt=="XML_TR" || fmt=="EDI_LT" ) {
-            string text, type;
+              }; // if (!paxlstInfo.passengersList().empty())
+            }; // for(int pass=0; pass<2; pass++)
+          } // if (fmt==...
+          else if ( fmt=="XML_TR" || fmt=="EDI_LT" ) 
+          {
+            // string text, type;
             int passengers_count = FPM.passengersList().size();
             int crew_count = FCM.passengersList().size();
             // сформируем файл
-            if ( fmt=="XML_TR" && ( passengers_count || crew_count )) {
+            if ( fmt=="XML_TR" && ( passengers_count || crew_count )) 
+            {
               XMLDoc doc;
               doc.set("FlightMessage");
               if (doc.docPtr()==NULL)
                 throw EXCEPTIONS::Exception("create_apis_file: CreateXMLDoc failed");
               xmlNodePtr apisNode=xmlDocGetRootElement(doc.docPtr());
               int version = 0 ;
+#if !APIS_TEST
               if (get_trip_apis_param(point_id, "XML_TR", "version", version)) version++;
               set_trip_apis_param(point_id, "XML_TR", "version", version);
+#endif
               FPM.toXMLFormat(apisNode, passengers_count, crew_count, version);
               FCM.toXMLFormat(apisNode, passengers_count, crew_count, version);
               text = GetXMLDocText(doc.docPtr());
               type = APIS_TR;
             }
-            else if ( fmt == "EDI_LT" && passengers_count ) {
+            else if ( fmt == "EDI_LT" && passengers_count ) 
+            {
               type = APIS_LT;
               text = FPM.toEdiString();
             }
             // положим апис в очередь на отправку
-            if ( !text.empty() ) {
-              std::map<std::string, std::string> file_params;
+            if ( !text.empty() ) 
+            {
+              // std::map<std::string, std::string> file_params;
               TFileQueue::add_sets_params(airp_dep.code, airline.code, IntToString(flt_no), OWN_POINT_ADDR(),
                       type, 1, file_params);
-              if(not file_params.empty()) {
-                  file_params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
-                  file_params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
-                  TFileQueue::putFile(OWN_POINT_ADDR(), OWN_POINT_ADDR(),
-                          type, file_params, ConvertCodepage( text, "CP866", "UTF-8"));
-                  LEvntPrms params;
-                  params << PrmSmpl<string>("fmt", fmt) << PrmElem<string>("country_dep", etCountry, country_dep)
-                      << PrmElem<string>("airp_dep", etAirp, airp_dep.code)
-                      << PrmElem<string>("country_arv", etCountry, country_arv.code)
-                      << PrmElem<string>("airp_arv", etAirp, airp_arv.code);
-                  TReqInfo::Instance()->LocaleToLog("EVT.APIS_CREATED", params, evtFlt, point_id);
-                  result = true;
+              if(not file_params.empty()) 
+              {
+                file_params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
+                file_params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
+#if !APIS_TEST
+                // LogTrace(TRACE5) << "GRISHA TFileQueue::putFile fmt " << fmt;
+                TFileQueue::putFile(OWN_POINT_ADDR(), OWN_POINT_ADDR(),
+                        type, file_params, ConvertCodepage( text, "CP866", "UTF-8"));
+                LEvntPrms params;
+                params << PrmSmpl<string>("fmt", fmt) << PrmElem<string>("country_dep", etCountry, country_dep)
+                    << PrmElem<string>("airp_dep", etAirp, airp_dep.code)
+                    << PrmElem<string>("country_arv", etCountry, country_arv.code)
+                    << PrmElem<string>("airp_arv", etAirp, airp_arv.code);
+                TReqInfo::Instance()->LocaleToLog("EVT.APIS_CREATED", params, evtFlt, point_id);
+#endif
+                result = true;
               }
             }
-          }
+          } // else if ( fmt==...
           else
           {
             if (task_name.empty() ||
@@ -1177,25 +1246,36 @@ bool create_apis_file(int point_id, const string& task_name)
                          << "2$ " << ENDL
                          << "3$ " << count << ENDL;
               };
-              if (fmt=="CSV_AE" || fmt=="CSV_TH") {
-                if ( !paxs_body.str().empty() && !pax_header.str().empty() ) {
-                ostringstream paxs;
-                paxs << pax_header.str() << ENDL << "***START,,,,,,,,,,,,"  << ENDL << paxs_body.str() << "***END,,,,,,,,,,,," << ENDL;
-                files.push_back( make_pair( file_name.str() + string("_P.CSV"), paxs.str() ) );
+              if (fmt=="CSV_AE" || fmt=="CSV_TH") 
+              {
+                if ( !paxs_body.str().empty() && !pax_header.str().empty() ) 
+                {
+                  ostringstream paxs;
+                  paxs << pax_header.str() << ENDL << "***START,,,,,,,,,,,,"  << ENDL << paxs_body.str() << "***END,,,,,,,,,,,," << ENDL;
+                  files.push_back( make_pair( file_name.str() + string("_P.CSV"), paxs.str() ) );
                 }
-                if ( !crew_body.str().empty() && !crew_header.str().empty() ) {
+                if ( !crew_body.str().empty() && !crew_header.str().empty() ) 
+                {
                   ostringstream crew;
                   crew << crew_header.str() << ENDL << "***START,,,,,,,,,,,,"  << ENDL << crew_body.str() << "***END,,,,,,,,,,,," << ENDL;
                   files.push_back( make_pair( file_name.str() + string("_C.CSV"), crew.str() ) );
                 }
               }
-              else {
+              else 
+              {
                 if(!file_name.str().empty() && !header.str().empty() && !body.str().empty())
                   files.push_back( make_pair(file_name.str(), string(header.str()).append(body.str())) );
               }
-            };
-          };
-
+            }; // if (task_name.empty()
+          }; // else
+#if APIS_TEST
+        if (test_map != nullptr)
+        {
+          apis_test_key key(r->point_id, fmt);
+          apis_test_value value(files, text, type, file_params);
+          test_map->insert(make_pair(key, value));
+        }
+#else
           if (!files.empty())
           {
             for(vector< pair<string, string> >::const_iterator iFile=files.begin();iFile!=files.end();++iFile)
@@ -1228,14 +1308,14 @@ bool create_apis_file(int point_id, const string& task_name)
                    << PrmElem<string>("country_arv", etCountry, country_arv.code)
                    << PrmElem<string>("airp_arv", etAirp, airp_arv.code);
             TReqInfo::Instance()->LocaleToLog("EVT.APIS_CREATED", params, evtFlt, point_id);
-
             result=true;
-          };
-        };
-      };
+          }; // if (!files.empty())
+#endif
+        }; // for(;!ApisSetsQry.Eof;ApisSetsQry.Next())
+      }; // if (!ApisSetsQry.Eof)
 
-    };
-  }
+    }; // for(TTripRoute::const_iterator r=route.begin(); r!=route.end(); r++)
+  } // try
   catch(Exception &E)
   {
     throw Exception("create_apis_file: %s",E.what());
