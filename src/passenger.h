@@ -676,6 +676,7 @@ std::string GetPaxDocStr(TDateTime part_key,
                          bool with_issue_country=false,
                          const std::string &lang="");
 
+boost::optional<TPaxDocoItem> LoadPaxDoco(int pax_id);
 bool LoadPaxDoco(int pax_id, TPaxDocoItem &doc);
 bool LoadPaxDoco(TDateTime part_key, int pax_id, TPaxDocoItem &doc);
 enum TDocaType
@@ -690,6 +691,7 @@ void ConvertDoca(TDocaMap doca_map,
                  TPaxDocaItem &docaR,
                  TPaxDocaItem &docaD);
 
+boost::optional<TPaxDocaItem> LoadPaxDoca(int pax_id, TDocaType type);
 bool LoadPaxDoca(int pax_id, TDocaMap &doca_map);
 bool LoadPaxDoca(int pax_id, TDocaType type, TPaxDocaItem &doca);
 bool LoadPaxDoca(TDateTime part_key, int pax_id, TDocaMap &doca_map);

@@ -8,6 +8,12 @@
 #include <boost/optional.hpp>
 #include "exceptions.h"
 
+#define USE_NEW_CREATE_APIS 1
+// для корректной работы APIS_TEST* надо отключить USE_NEW_CREATE_APIS
+#define APIS_TEST 0
+#define APIS_TEST_ALL_FORMATS 0
+#define APIS_TEST_CREATE_FILES 0
+
 namespace ASTRA
 {
 

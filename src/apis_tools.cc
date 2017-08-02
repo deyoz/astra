@@ -33,7 +33,8 @@ void FlightLegs::FlightLegstoXML(xmlNodePtr FlightLegsNode) const {
      iter->toXML(FlightLegsNode);
 }
 
-void FlightLegs::FillLocQualifier() {
+void FlightLegs::FillLocQualifier() 
+{
   /* Code set:
   87 : airport initial arrival in target country.
   125: last departure airport before arrival in target country.
@@ -41,18 +42,31 @@ void FlightLegs::FillLocQualifier() {
   92: in-transit airport. */
   std::string target_country;
   bool change_flag = false;
-  std::vector<FlightLeg>::reverse_iterator previos, next;
-  for (previos=rbegin(), (next=rbegin())++; next!=rend(); previos++, next++) {
-    if(previos==rbegin()) target_country = previos->Country();
-    if(change_flag) next->setLocQualifier(92);
-    else if(previos->Country() != next->Country() && previos->Country() == target_country) {
-      previos->setLocQualifier(87);
-      next->setLocQualifier(125);
-      change_flag = true;
-    }
-    else if(previos==rbegin())
-      previos->setLocQualifier(130);
-    else previos->setLocQualifier(92);
+  std::vector<FlightLeg>::reverse_iterator previous, next;
+
+  for (previous=rbegin(), (next=rbegin())++; next!=rend(); previous++, next++) 
+  {
+    if (previous==rbegin()) 
+      target_country = previous->Country();
+
+    if(change_flag) 
+      next->setLocQualifier(92);
+    else
+
+      if (previous->Country() != next->Country() && previous->Country() == target_country) 
+      {
+        previous->setLocQualifier(87);
+        next->setLocQualifier(125);
+        change_flag = true;
+      }
+      else 
+      {
+        next->setLocQualifier(87); // исправлено APIS_TEST
+        if (previous==rbegin())
+          previous->setLocQualifier(130);
+        else 
+          previous->setLocQualifier(92);
+      }
   }
 }
 
@@ -62,7 +76,11 @@ const std::string generate_envelope_id (const std::string& airl)
   std::stringstream ss;
   ss << uuid;
   std::string res = airl + std::string("-") + ss.str();
+#if APIS_TEST
+  return airl + std::string("-") + std::string("TEST_ENVELOPE_ID");
+#else  
   return airl + std::string("-") + ss.str();
+#endif  
 }
 
 const std::string get_msg_identifier ()
@@ -72,7 +90,11 @@ const std::string get_msg_identifier ()
   Qry.Execute();
   std::stringstream ss;
   ss << std::string("ASTRA") << std::setw(7) << std::setfill('0') << Qry.FieldAsString("vid");
+#if APIS_TEST
+  return "TEST_MSG_ID";
+#else  
   return ss.str();
+#endif  
 }
 
 bool get_trip_apis_param (const int point_id, const std::string& format, const std::string& param_name, int& param_value)
