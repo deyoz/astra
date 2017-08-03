@@ -571,7 +571,7 @@ public:
     const std::vector< std::pair<int, std::string> >& seats() const {
         return pax_seats;
     }
-    void setSeats(std::vector< std::pair<int, std::string> >& values) {
+    void setSeats(const std::vector< std::pair<int, std::string> >& values) {
       pax_seats = values;
     }
     const int bagCount() const {

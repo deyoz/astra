@@ -119,6 +119,7 @@ const
     {"-prn_tags",               prn_tags,               NULL,                       NULL},
     {"-kuf_fix",                KUF_STAT::fix,          NULL,                       NULL},
     {"-stat_belgorod",          stat_belgorod,          NULL,                       NULL},
+    {"-apis_test",              apis_test,              NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)

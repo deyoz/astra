@@ -6,6 +6,8 @@
 #include "sopp.h"
 #include <pion/http/parser.hpp>
 
+#include "apis_creator.h"
+
 using namespace std;
 using namespace ASTRA;
 using namespace BASIC::date_time;
