@@ -321,7 +321,7 @@ void ETCheckStatusFlt(void)
   {
     SirenaExchange::TLastExchangeInfo::cleanOldRecords();//!!!потом для очистки чего бы то ни было выделить отдельную процедуру
     ServerFramework::EdiHelpManager::cleanOldRecords();
-    AstraEdifact::cleanOldRecords(30);
+    AstraEdifact::cleanOldRecords(120);
     OraSession.Commit();
 
     TDateTime now=NowUTC();
