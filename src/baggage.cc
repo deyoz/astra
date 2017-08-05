@@ -589,7 +589,7 @@ void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges
     "      pax_grp.grp_id=:grp_id";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.Execute();
-  if (Qry.Eof) throw EXCEPTIONS::Exception("CheckIn::GetNextTagNo: group not found (grp_id=%d)",grp_id);
+  if (Qry.Eof) throw EXCEPTIONS::Exception("%s: group not found (grp_id=%d)", __FUNCTION__, grp_id);
 
   int point_id=Qry.FieldAsInteger("point_dep");
   string airp_dep=Qry.FieldAsString("airp_dep");
@@ -606,29 +606,10 @@ void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges
 
   if (aircode==-1) aircode=954;
 
-  Qry.Clear();
-  Qry.SQLText=
-    "BEGIN "
-    "  SELECT range INTO :range FROM last_tag_ranges2 WHERE aircode=:aircode FOR UPDATE; "
-    "EXCEPTION "
-    "  WHEN NO_DATA_FOUND THEN "
-    "  BEGIN "
-    "    :range:=9999; "
-    "    INSERT INTO last_tag_ranges2(aircode,range) VALUES(:aircode,:range); "
-    "  EXCEPTION "
-    "    WHEN DUP_VAL_ON_INDEX THEN "
-    "      SELECT range INTO :range FROM last_tag_ranges2 WHERE aircode=:aircode FOR UPDATE; "
-    "  END; "
-    "END;";
-  Qry.CreateVariable("aircode",otInteger,aircode);
-  Qry.CreateVariable("range",otInteger,FNull);
-  Qry.Execute();
-  //получим последний использованный диапазон (+лочка):
-  int last_range=Qry.GetVariableAsInteger("range");
-
   int range = 0;
   int no = 0;
   bool use_new_range=false;
+  int last_range=ASTRA::NoExists;
   while (tag_count>0)
   {
     if (!use_new_range)
@@ -693,7 +674,7 @@ void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges
               "      last_access<:now_utc-1 ";
           };
         };
-        sql << "ORDER BY last_access";
+        sql << "ORDER BY last_access FOR UPDATE";
 
 
         Qry.SQLText=sql.str().c_str();
@@ -708,6 +689,30 @@ void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges
       if (k>5) //среди уже существующих диапазонов нет подходящего - берем новый
       {
         use_new_range=true;
+
+        if (last_range==ASTRA::NoExists)
+        {
+          Qry.Clear();
+          Qry.SQLText=
+              "BEGIN "
+              "  SELECT range INTO :range FROM last_tag_ranges2 WHERE aircode=:aircode FOR UPDATE; "
+              "EXCEPTION "
+              "  WHEN NO_DATA_FOUND THEN "
+              "  BEGIN "
+              "    :range:=9999; "
+              "    INSERT INTO last_tag_ranges2(aircode,range) VALUES(:aircode,:range); "
+              "  EXCEPTION "
+              "    WHEN DUP_VAL_ON_INDEX THEN "
+              "      SELECT range INTO :range FROM last_tag_ranges2 WHERE aircode=:aircode FOR UPDATE; "
+              "  END; "
+              "END;";
+          Qry.CreateVariable("aircode",otInteger,aircode);
+          Qry.CreateVariable("range",otInteger,FNull);
+          Qry.Execute();
+          //получим последний использованный диапазон (+лочка):
+          last_range=Qry.GetVariableAsInteger("range");
+        };
+
         range=last_range;
       };
     };
@@ -721,9 +726,10 @@ void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges
         no=0; //нулевая бирка 000000 запрещена IATA
       };
 
-
+      if (last_range==ASTRA::NoExists)
+        throw EXCEPTIONS::Exception("%s: last_range==ASTRA::NoExists! (aircode=%d)", __FUNCTION__, aircode);
       if (range==last_range)
-        throw EXCEPTIONS::Exception("CheckIn::GetNextTagNo: free range not found (aircode=%d)",aircode);
+        throw EXCEPTIONS::Exception("%s: free range not found (aircode=%d)", __FUNCTION__, aircode);
 
       Qry.Clear();
       Qry.SQLText="SELECT range FROM tag_ranges2 WHERE aircode=:aircode AND range=:range";
