@@ -5,8 +5,8 @@
 
 #include <serverlib/helpcpp.h>
 #include <serverlib/posthooks.h>
+#include <serverlib/loki/LokiTypeInfo.h>
 
-#include <loki/LokiTypeInfo.h>
 #include <typeinfo>
 #include <boost/shared_ptr.hpp>
 
