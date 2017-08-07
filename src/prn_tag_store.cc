@@ -11,6 +11,8 @@
 #include "passenger.h"
 #include "qrys.h"
 #include "serverlib/str_utils.h"
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
 
 #define NICKNAME "DEN"
 #include "serverlib/slogger.h"
@@ -363,6 +365,9 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::PLACE_DEP,               TTagListItem(&TPrnTagStore::PLACE_DEP)));
     tag_list.insert(make_pair(TAG::REG_NO,                  TTagListItem(&TPrnTagStore::REG_NO, PAX_INFO)));
     tag_list.insert(make_pair(TAG::REM,                     TTagListItem(&TPrnTagStore::REM, REM_INFO)));
+    tag_list.insert(make_pair(TAG::RFISC_BSN_LONGUE,        TTagListItem(&TPrnTagStore::RFISC_BSN_LONGUE)));
+    tag_list.insert(make_pair(TAG::RFISC_FAST_TRACK,        TTagListItem(&TPrnTagStore::RFISC_FAST_TRACK)));
+    tag_list.insert(make_pair(TAG::RFISC_UPGRADE,           TTagListItem(&TPrnTagStore::RFISC_UPGRADE)));
     tag_list.insert(make_pair(TAG::RK_AMOUNT,               TTagListItem(&TPrnTagStore::RK_AMOUNT, PAX_INFO)));
     tag_list.insert(make_pair(TAG::RK_WEIGHT,               TTagListItem(&TPrnTagStore::RK_WEIGHT, PAX_INFO)));
     tag_list.insert(make_pair(TAG::RSTATION,                TTagListItem(&TPrnTagStore::RSTATION, RSTATION_INFO)));
@@ -391,6 +396,8 @@ TPrnTagStore::TPrnTagStore(TDevOperType _op_type, int agrp_id, int apax_id, int 
     time_print(NowUTC()),
     prn_tag_props(aroute.empty() ? dotPrnBP : dotPrnBT)
 {
+    if(op_type == dotPrnBP or op_type == dotPrnBI) rfisc_descr.fromDB(agrp_id, apax_id);
+
     print_mode = 0;
     grpInfo.Init(agrp_id, apax_id);
     tag_lang.Init(
@@ -2049,6 +2056,81 @@ string TPrnTagStore::PLACE_ARV(TFieldParams fp)
 string TPrnTagStore::PLACE_DEP(TFieldParams fp)
 {
     return cut_place(AIRP_DEP(fp), CITY_DEP_NAME(fp), fp.len);
+}
+
+string TPrnTagStore::TRfiscDescr::get(TBPServiceTypes::Enum code)
+{
+    return (found_services.find(code) != found_services.end() ? TBPServiceTypesDescr().encode(code) : "");
+}
+
+void TPrnTagStore::TRfiscDescr::dump() const
+{
+    LogTrace(TRACE5) << "---TPrnTagStore::TRfiscDescr::dump---";
+    for(std::set<TBPServiceTypes::Enum>::const_iterator i = found_services.begin();
+            i != found_services.end(); i++)
+        LogTrace(TRACE5) << TBPServiceTypesCode().encode(*i);
+    LogTrace(TRACE5) << "-------------------------------------";
+}
+
+void TPrnTagStore::TRfiscDescr::fromDB(int grp_id, int pax_id)
+{
+    LogTrace(TRACE5) << "TPrnTagStore::TRfiscDescr::fromDB BEGIN";
+    LogTrace(TRACE5) << "grp_id: " << grp_id;
+    LogTrace(TRACE5) << "pax_id: " << pax_id;
+    clear();
+
+    CheckIn::TServicePaymentListWithAuto paid_services; // оплаченные услуги
+    TPaidRFISCListWithAuto registered_services;         // зарегистрирванные услуги
+
+    paid_services.fromDB(grp_id);
+    registered_services.fromDB(pax_id, false);
+
+    paid_services.dump(__FILE__, __LINE__);
+
+    for(list< pair<TBPServiceTypes::Enum, string> >::const_iterator
+            i = TBPServiceTypes::pairsCodes().begin();
+            i != TBPServiceTypes::pairsCodes().end(); i++) {
+        if(i->first == TBPServiceTypes::Unknown) continue;
+        string grp, subgrp;
+
+        if(i->first == TBPServiceTypes::TS_FT) {
+            vector<string> tokens;
+            boost::split(tokens, i->second, boost::is_any_of(" "));
+            if(tokens.size() != 2)
+                throw Exception("%s: wrong service type code: %s", __FUNCTION__, i->second.c_str());
+            grp = tokens[0];
+            subgrp = tokens[1];
+        } else
+            grp = i->second;
+
+        if(paid_services.isRFISCGrpExists(pax_id, grp, subgrp))
+            found_services.insert(i->first);
+        else if(registered_services.isRFISCGrpExists(pax_id, grp, subgrp)) {
+            CheckIn::TSimplePaxItem pax;
+            pax.getByPaxId(pax_id);
+            throw UserException("MSG.UNPAID_SERVICE_EXISTS",
+                    LParams() << LParam("reg_no", pax.reg_no));
+        }
+    }
+    dump();
+}
+
+string TPrnTagStore::RFISC_BSN_LONGUE(TFieldParams fp)
+{
+    if(!fp.TagInfo.empty()) return boost::any_cast<std::string>(fp.TagInfo);
+    return rfisc_descr.get(TBPServiceTypes::LG);
+}
+
+string TPrnTagStore::RFISC_FAST_TRACK(TFieldParams fp)
+{
+    if(!fp.TagInfo.empty()) return boost::any_cast<std::string>(fp.TagInfo);
+    return rfisc_descr.get(TBPServiceTypes::TS_FT);
+}
+
+string TPrnTagStore::RFISC_UPGRADE(TFieldParams fp)
+{
+    if(!fp.TagInfo.empty()) return boost::any_cast<std::string>(fp.TagInfo);
+    return rfisc_descr.get(TBPServiceTypes::UP);
 }
 
 string TPrnTagStore::REM(TFieldParams fp)
