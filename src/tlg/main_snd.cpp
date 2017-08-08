@@ -146,14 +146,12 @@ bool scan_tlg(bool sendOutAStepByStep)
   {
     TlgQry.Clear();
     TlgQry.SQLText=
-      "SELECT tlg_queue.id,tlg_queue.tlg_num,tlg_queue.receiver,tlg_queue.priority, "
+      "SELECT tlg_queue.id,tlg_queue.tlg_num,tlg_queue.sender,tlg_queue.receiver,tlg_queue.priority, "
       "       tlg_queue.time,tlg_queue.last_send,ttl,ip_address,ip_port "
       "FROM tlg_queue,rot "
       "WHERE tlg_queue.receiver=rot.canon_name(+) AND tlg_queue.sender=rot.own_canon_name(+) AND "
-      "      tlg_queue.sender=:sender AND "
       "      tlg_queue.type IN ('OUTA','OUTB','OAPP') AND tlg_queue.status='PUT' "
       "ORDER BY tlg_queue.priority, tlg_queue.time_msec, tlg_queue.tlg_num";
-    TlgQry.CreateVariable("sender",otString,OWN_CANON_NAME());
   };
 
   static TQuery TlgUpdQry(&OraSession);
@@ -194,6 +192,7 @@ bool scan_tlg(bool sendOutAStepByStep)
   {
     for(;!TlgQry.Eof;trace_count++,TlgQry.Next(),OraSession.Commit())
     {
+      if (strcmp(TlgQry.FieldAsString("sender"), OWN_CANON_NAME())!=0) continue; //не добавлять критерий "tlg_queue.sender=:sender" в TlgQry - плохой план разбора
       int tlg_id=TlgQry.FieldAsInteger("id");
       int priority=TlgQry.FieldAsInteger("priority");
       try
