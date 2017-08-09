@@ -175,9 +175,9 @@ void TPrnTagStore::TPrnTestTags::Init()
                 );
 }
 
-void TPrnTagStore::TTagProps::Init(TDevOperType vop)
+void TPrnTagStore::TTagProps::Init(TDevOper::Enum vop)
 {
-    ProgTrace(TRACE5, "TTagProps::Init: %s", EncodeDevOperType(vop).c_str());
+    ProgTrace(TRACE5, "TTagProps::Init: %s", DevOperTypes().encode(vop).c_str());
     if(op == vop) return;
     op = vop;
     ProgTrace(TRACE5, "TTagProps::Init: load from base");
@@ -193,7 +193,7 @@ void TPrnTagStore::TTagProps::Init(TDevOperType vop)
         "   prn_tag_props "
         "where "
         "   op_type = :op_type";
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op));
     Qry.Execute();
     items.clear();
     for(; not Qry.Eof; Qry.Next())
@@ -207,7 +207,7 @@ void TPrnTagStore::TTagProps::Init(TDevOperType vop)
     op = vop;
 }
 
-TPrnTagStore::TTagProps::TTagProps(TDevOperType vop): op(dotUnknown)
+TPrnTagStore::TTagProps::TTagProps(TDevOper::Enum vop): op(TDevOper::Unknown)
 {
     Init(vop);
 }
@@ -240,7 +240,7 @@ void TPrnTagStore::TRemarksInfo::Init(TPrnTagStore &pts)
 TPrnTagStore::TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat):
     rcpt(arcpt),
     time_print(NowUTC()),
-    prn_tag_props(dotPrnBR)
+    prn_tag_props(TDevOper::PrnBR)
 {
     print_mode = 0;
     tag_lang.Init(arcpt, apr_lat);
@@ -295,7 +295,7 @@ TPrnTagStore::TPrnTagStore(const std::string& airp_dep,
     pax_id(NoExists),
     print_mode(0),
     time_print(NowUTC()),
-    prn_tag_props(dotPrnBP)
+    prn_tag_props(TDevOper::PrnBP)
 {
     init_bp_tags();
     tag_lang.Init(airp_dep, airp_arv, apr_lat);
@@ -304,18 +304,18 @@ TPrnTagStore::TPrnTagStore(const std::string& airp_dep,
 // Test tags
 TPrnTagStore::TPrnTagStore(bool apr_lat):
     time_print(NowUTC()),
-    prn_tag_props(dotUnknown)
+    prn_tag_props(TDevOper::Unknown)
 {
     print_mode = 0;
     tag_lang.Init(apr_lat);
     prn_test_tags.Init();
 }
 
-TPrnTagStore::TPrnTagStore(TDevOperType _op_type, const string &ascan, bool apr_lat):
+TPrnTagStore::TPrnTagStore(TDevOper::Enum _op_type, const string &ascan, bool apr_lat):
     op_type(_op_type),
     scan(ascan),
     time_print(NowUTC()),
-    prn_tag_props(dotPrnBP)
+    prn_tag_props(TDevOper::PrnBP)
 {
     scan_data = boost::shared_ptr<BCBPSections>(new BCBPSections());
     BCBPSections::get(ascan, 0, ascan.size(), *scan_data);
@@ -403,12 +403,12 @@ void TPrnTagStore::init_bp_tags()
 }
 
 // BP && BT
-TPrnTagStore::TPrnTagStore(TDevOperType _op_type, int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute):
+TPrnTagStore::TPrnTagStore(TDevOper::Enum _op_type, int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute):
     op_type(_op_type),
     time_print(NowUTC()),
-    prn_tag_props(aroute.empty() ? dotPrnBP : dotPrnBT)
+    prn_tag_props(aroute.empty() ? TDevOper::PrnBP : TDevOper::PrnBT)
 {
-    if(op_type == dotPrnBP or op_type == dotPrnBI) rfisc_descr.fromDB(agrp_id, apax_id);
+    if(op_type == TDevOper::PrnBP or op_type == TDevOper::PrnBI) rfisc_descr.fromDB(agrp_id, apax_id);
 
     print_mode = 0;
     grpInfo.Init(agrp_id, apax_id);
@@ -417,7 +417,7 @@ TPrnTagStore::TPrnTagStore(TDevOperType _op_type, int agrp_id, int apax_id, int 
             (aroute.empty() ? grpInfo.airp_arv : aroute.back().airp_arv),
             apr_lat != 0);
     pax_id = apax_id;
-    if(prn_tag_props.op == dotPrnBP and pax_id == NoExists)
+    if(prn_tag_props.op == TDevOper::PrnBP and pax_id == NoExists)
         throw Exception("TPrnTagStore::TPrnTagStore: pax_id not defined for bp mode");
     init_bp_tags();
 
@@ -751,7 +751,7 @@ TPrnQryBuilder::TPrnQryBuilder(TQuery &aQry): Qry(aQry)
         "       :op_type ";
 };
 
-void TPrnTagStore::confirm_print(bool pr_print, TDevOperType op_type)
+void TPrnTagStore::confirm_print(bool pr_print, TDevOper::Enum op_type)
 {
     if(scan_data != NULL) return;
     if (isTestPaxId(pax_id)) return;
@@ -764,7 +764,7 @@ void TPrnTagStore::confirm_print(bool pr_print, TDevOperType op_type)
     Qry.CreateVariable("pr_print", otInteger, pr_print);
     Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
     Qry.CreateVariable("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type));
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
 
     if(
             tag_list[TAG::SEAT_NO].processed or
@@ -800,7 +800,7 @@ void TPrnTagStore::confirm_print(bool pr_print, TDevOperType op_type)
         Qry.Execute();
     } catch(EOracleError &E) {
         if(E.Code == 1) {
-            if(TReqInfo::Instance()->client_type == ctTerm and op_type == dotPrnBP)
+            if(TReqInfo::Instance()->client_type == ctTerm and op_type == TDevOper::PrnBP)
                 throw UserException("MSG.PRINT.BP_ALREADY_PRODUCED");
         } else
             throw;
@@ -1103,7 +1103,7 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
     }
 }
 
-void TPrnTagStore::TPointInfo::Init(TDevOperType op, int apoint_id, int agrp_id)
+void TPrnTagStore::TPointInfo::Init(TDevOper::Enum op, int apoint_id, int agrp_id)
 {
     if(apoint_id == NoExists || agrp_id == NoExists) {
         LogTrace(TRACE3) << "Fake point_id or grp_id detected!";
@@ -1155,7 +1155,7 @@ void TPrnTagStore::TPointInfo::Init(TDevOperType op, int apoint_id, int agrp_id)
                 TTripInfo markFlt(Qry);
                 TCodeShareSets codeshareSets;
                 codeshareSets.get(operFlt,markFlt);
-                if ( op == dotPrnBP and codeshareSets.pr_mark_bp )
+                if ( op == TDevOper::PrnBP and codeshareSets.pr_mark_bp )
                 {
                     airline = markFlt.airline;
                     flt_no = markFlt.flt_no;
@@ -1228,11 +1228,11 @@ bool TPrnTagStore::isBoardingPass()
 {
 #ifdef XP_TESTING
     if(inTestMode()) {
-        return op_type == dotPrnBP;
+        return op_type == TDevOper::PrnBP;
     }
 #endif //XP_TESTING
 
-    return op_type == dotPrnBP and get_tag(TAG::VOUCHER_CODE).empty();
+    return op_type == TDevOper::PrnBP and get_tag(TAG::VOUCHER_CODE).empty();
 }
 
 string TPrnTagStore::BCBP_M_2(TFieldParams fp)

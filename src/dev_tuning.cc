@@ -108,7 +108,7 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, TQuery &applyQry, c
                     "   bp_models.fmt_type = :fmt_type and "
                     "   bp_models.id = prn_forms.id ";
                 Qry.CreateVariable("form_type", otString, form_type);
-                Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+                Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
                 Qry.CreateVariable("dev_model", otString, dev_model);
                 Qry.CreateVariable("fmt_type", otString, fmt_type);
                 Qry.Execute();
@@ -278,10 +278,10 @@ struct TPrnFormVersCmp {
 };
 
 struct TPectabItem {
-    TDevOperType op_type;
+    TDevOper::Enum op_type;
     int num;
     string form_type, dev_model, fmt_type, form, data;
-    TPectabItem(): op_type(dotUnknown), num(0) {};
+    TPectabItem(): op_type(TDevOper::Unknown), num(0) {};
 };
 
 
@@ -602,7 +602,7 @@ void TBIModels::ToBase()
         "  end if; "
         "end; ";
     Qry.DeclareVariable("form_type", otString);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBI));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBI));
     Qry.DeclareVariable("dev_model", otString);
     Qry.DeclareVariable("fmt_type", otString);
     Qry.DeclareVariable("id", otInteger);
@@ -651,7 +651,7 @@ void TBPModels::ToBase()
         "  end if; "
         "end; ";
     Qry.DeclareVariable("form_type", otString);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
     Qry.DeclareVariable("dev_model", otString);
     Qry.DeclareVariable("fmt_type", otString);
     Qry.DeclareVariable("id", otInteger);
@@ -794,7 +794,7 @@ void TBRTypes::get_pectabs(vector<TPectabItem> &pectabs)
         if(im != br_models.prn_form_vers.items.end()) {
             map<int, TPrnFormsItem>::iterator prn_forms_i = br_models.prn_forms.items.find(iv->id);
             if(prn_forms_i == br_models.prn_forms.items.end()) throw Exception("TBRTypes::get_pectabs: prn_form not found %d", iv->id);
-            pectab.op_type = DecodeDevOperType(prn_forms_i->second.op_type);
+            pectab.op_type = DevOperTypes().decode(prn_forms_i->second.op_type);
             pectab.form = im->second.form;
             pectab.data = im->second.data;
             pectabs.push_back(pectab);
@@ -884,7 +884,7 @@ void TBITypes::get_pectabs(vector<TPectabItem> &pectabs)
         if(im != bi_models.prn_form_vers.items.end()) {
             map<int, TPrnFormsItem>::iterator prn_forms_i = bi_models.prn_forms.items.find(iv->id);
             if(prn_forms_i == bi_models.prn_forms.items.end()) throw Exception("TBITypes::get_pectabs: prn_form not found %d", iv->id);
-            pectab.op_type = DecodeDevOperType(prn_forms_i->second.op_type);
+            pectab.op_type = DevOperTypes().decode(prn_forms_i->second.op_type);
             pectab.form = im->second.form;
             pectab.data = im->second.data;
             pectabs.push_back(pectab);
@@ -906,7 +906,7 @@ void TBPTypes::get_pectabs(vector<TPectabItem> &pectabs)
         if(im != bp_models.prn_form_vers.items.end()) {
             map<int, TPrnFormsItem>::iterator prn_forms_i = bp_models.prn_forms.items.find(iv->id);
             if(prn_forms_i == bp_models.prn_forms.items.end()) throw Exception("TBPTypes::get_pectabs: prn_form not found %d", iv->id);
-            pectab.op_type = DecodeDevOperType(prn_forms_i->second.op_type);
+            pectab.op_type = DevOperTypes().decode(prn_forms_i->second.op_type);
             pectab.form = im->second.form;
             pectab.data = im->second.data;
             pectabs.push_back(pectab);
@@ -932,7 +932,7 @@ void TBITypes::copy(string src, string dest)
     Qry.SQLText =
         "  delete from bp_models where form_type = :dest AND op_type = :op_type";
     Qry.CreateVariable("dest", otString, dest);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBI));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBI));
     Qry.Execute();
     Qry.Clear();
     Qry.SQLText =
@@ -952,7 +952,7 @@ void TBITypes::copy(string src, string dest)
         "  :version "
         ") ";
     Qry.DeclareVariable("form_type", otString);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBI));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBI));
     Qry.DeclareVariable("dev_model", otString);
     Qry.DeclareVariable("fmt_type", otString);
     Qry.DeclareVariable("id", otInteger);
@@ -975,7 +975,7 @@ void TBPTypes::copy(string src, string dest)
     Qry.SQLText =
         "  delete from bp_models where form_type = :dest AND op_type = :op_type";
     Qry.CreateVariable("dest", otString, dest);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
     Qry.Execute();
     Qry.Clear();
     Qry.SQLText =
@@ -995,7 +995,7 @@ void TBPTypes::copy(string src, string dest)
         "  :version "
         ") ";
     Qry.DeclareVariable("form_type", otString);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
     Qry.DeclareVariable("dev_model", otString);
     Qry.DeclareVariable("fmt_type", otString);
     Qry.DeclareVariable("id", otInteger);
@@ -1107,7 +1107,7 @@ void TBITypes::ToBase()
     Qry.DeclareVariable("airline", otString);
     Qry.DeclareVariable("airp", otString);
     Qry.DeclareVariable("name", otString);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBI));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBI));
     Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
     Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
     for(vector<TBITypesItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
@@ -1155,7 +1155,7 @@ void TBPTypes::ToBase()
     Qry.DeclareVariable("airline", otString);
     Qry.DeclareVariable("airp", otString);
     Qry.DeclareVariable("name", otString);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
     Qry.CreateVariable("SYS_user_descr", otString, TReqInfo::Instance()->user.descr);
     Qry.CreateVariable("SYS_desk_code", otString, TReqInfo::Instance()->desk.code);
     for(vector<TBPTypesItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
@@ -1308,7 +1308,7 @@ void TBITypes::add(string type)
         "where "
         "   code = :code AND op_type=:op_type";
     Qry.CreateVariable("code", otString, type);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBI));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBI));
     Qry.Execute();
     if(Qry.Eof)
         throw AstraLocale::UserException("MSG.TUNE.BLANK_NOT_ACCESSIBLE.REFRES_DATA", LParams() << LParam("blank", type));//!!!param
@@ -1334,7 +1334,7 @@ void TBPTypes::add(string type)
         "where "
         "   code = :code AND op_type=:op_type";
     Qry.CreateVariable("code", otString, type);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
     Qry.Execute();
     if(Qry.Eof)
         throw AstraLocale::UserException("MSG.TUNE.BLANK_NOT_ACCESSIBLE.REFRES_DATA", LParams() << LParam("blank", type));//!!!param
@@ -1475,7 +1475,7 @@ void TTagTypes::get_pectabs(vector<TPectabItem> &pectabs)
         if(im != bt_models.prn_form_vers.items.end()) {
             map<int, TPrnFormsItem>::iterator prn_forms_i = bt_models.prn_forms.items.find(iv->id);
             if(prn_forms_i == bt_models.prn_forms.items.end()) throw Exception("TBTTypes::get_pectabs: prn_form not found %d", iv->id);
-            pectab.op_type = DecodeDevOperType(prn_forms_i->second.op_type);
+            pectab.op_type = DevOperTypes().decode(prn_forms_i->second.op_type);
             pectab.form = im->second.form;
             pectab.data = im->second.data;
             pectab.num = iv->num;
@@ -1758,7 +1758,7 @@ void TBIModels::add(string type)
         "where "
         "   form_type = :code AND op_type=:op_type";
     Qry.CreateVariable("code", otString, type);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBI));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBI));
     Qry.Execute();
     for(; !Qry.Eof; Qry.Next()) {
         TBIModelsItem item;
@@ -1788,7 +1788,7 @@ void TBPModels::add(string type)
         "where "
         "   form_type = :code AND op_type=:op_type";
     Qry.CreateVariable("code", otString, type);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
     Qry.Execute();
     for(; !Qry.Eof; Qry.Next()) {
         TBPModelsItem item;
@@ -1837,17 +1837,17 @@ void DevTuningInterface::Export(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 {
     string op_type = NodeAsString("op_type", reqNode);
     boost::shared_ptr<TPrnFormTypes> form_types;
-    switch(DecodeDevOperType(op_type)) {
-        case dotPrnBP:
+    switch(DevOperTypes().decode(op_type)) {
+        case TDevOper::PrnBP:
             form_types = boost::shared_ptr<TBPTypes>(new TBPTypes);
             break;
-        case dotPrnBT:
+        case TDevOper::PrnBT:
             form_types = boost::shared_ptr<TTagTypes>(new TTagTypes);
             break;
-        case dotPrnBR:
+        case TDevOper::PrnBR:
             form_types = boost::shared_ptr<TBRTypes>(new TBRTypes);
             break;
-        case dotPrnBI:
+        case TDevOper::PrnBI:
             form_types = boost::shared_ptr<TBITypes>(new TBITypes);
             break;
         default:
@@ -1870,7 +1870,7 @@ struct TPrnFormType;
 struct TVersionType {
     TVersAction action;
     string form, data, fmt_type, name;
-    TDevOperType op_type;
+    TDevOper::Enum op_type;
     int id, version;
     map<string, boost::shared_ptr<TPrnFormType> > forms;
     void get_typed_forms(string form_type, vector<boost::shared_ptr<TPrnFormType> > &typed_forms);
@@ -1886,7 +1886,7 @@ struct TVersionType {
     void delete_blanks(TVersionType &vers);
     TVersionType *get_forms_vers(bool pr_dst = false);
     void get_form_list(vector<boost::shared_ptr<TPrnFormType> > &form_list);
-    TVersionType(): action(vaNone), op_type(dotUnknown), id(0), version(0) {};
+    TVersionType(): action(vaNone), op_type(TDevOper::Unknown), id(0), version(0) {};
 };
 
 struct TVersList;
@@ -1934,7 +1934,7 @@ boost::shared_ptr<TVersionType> TVersionType::find_dst_vers()
         "  prn_forms.fmt_type = :fmt_type and "
         "  prn_form_vers.form = :form and "
         "  prn_form_vers.data = :data ";
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
     Qry.CreateVariable("fmt_type", otString, fmt_type);
     Qry.CreateVariable("form", otString, form);
     Qry.CreateVariable("data", otString, data);
@@ -2182,7 +2182,7 @@ void TBIPrnFormType::insert(TVersionType &vers)
         "  :version "
         ") ";
     Qry.CreateVariable("form_type", otString, form_type);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBI));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBI));
     Qry.CreateVariable("dev_model", otString, dev_model);
     Qry.CreateVariable("fmt_type", otString, fmt_type);
     Qry.CreateVariable("id", otInteger, vers.id);
@@ -2214,7 +2214,7 @@ void TBPPrnFormType::insert(TVersionType &vers)
         "  :version "
         ") ";
     Qry.CreateVariable("form_type", otString, form_type);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
     Qry.CreateVariable("dev_model", otString, dev_model);
     Qry.CreateVariable("fmt_type", otString, fmt_type);
     Qry.CreateVariable("id", otInteger, vers.id);
@@ -2300,7 +2300,7 @@ void TBIPrnFormType::del()
         "  dev_model = :dev_model and "
         "  fmt_type = :fmt_type ";
     Qry.CreateVariable("form_type", otString, form_type);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBI));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBI));
     Qry.CreateVariable("dev_model", otString, dev_model);
     Qry.CreateVariable("fmt_type", otString, fmt_type);
     try {
@@ -2321,7 +2321,7 @@ void TBPPrnFormType::del()
         "  dev_model = :dev_model and "
         "  fmt_type = :fmt_type ";
     Qry.CreateVariable("form_type", otString, form_type);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
     Qry.CreateVariable("dev_model", otString, dev_model);
     Qry.CreateVariable("fmt_type", otString, fmt_type);
     try {
@@ -2521,7 +2521,7 @@ void TBIPrnFormType::get_version(TVersionType &ver)
         "  bp_models.id = prn_form_vers.id and "
         "  bp_models.version = prn_form_vers.version ";
     Qry.CreateVariable("form_type", otString, form_type);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBI));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBI));
     Qry.CreateVariable("dev_model", otString, dev_model);
     Qry.CreateVariable("fmt_type", otString, fmt_type);
     Qry.Execute();
@@ -2558,7 +2558,7 @@ void TBPPrnFormType::get_version(TVersionType &ver)
         "  bp_models.id = prn_form_vers.id and "
         "  bp_models.version = prn_form_vers.version ";
     Qry.CreateVariable("form_type", otString, form_type);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
     Qry.CreateVariable("dev_model", otString, dev_model);
     Qry.CreateVariable("fmt_type", otString, fmt_type);
     Qry.Execute();
@@ -2678,7 +2678,7 @@ void TVersionType::insert()
         "    values(:id, 0, 'Inserted by prnc', :form, :data, 1); "
         "end; ";
     Qry.SQLText = SQLText;
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
     Qry.CreateVariable("fmt_type", otString, fmt_type);
     Qry.CreateVariable("name", otString, name);
     Qry.CreateVariable("form", otString, form);
@@ -2862,16 +2862,16 @@ string TVersList::add_to_vers(string vers_i, TPectabItem &pectab)
 {
     boost::shared_ptr<TPrnFormType> form;
     switch(pectab.op_type) {
-        case dotPrnBP:
+        case TDevOper::PrnBP:
             form = boost::shared_ptr<TBPPrnFormType>(new TBPPrnFormType);
             break;
-        case dotPrnBT:
+        case TDevOper::PrnBT:
             form = boost::shared_ptr<TBTPrnFormType>(new TBTPrnFormType);
             break;
-        case dotPrnBR:
+        case TDevOper::PrnBR:
             form = boost::shared_ptr<TBRPrnFormType>(new TBRPrnFormType);
             break;
-        case dotPrnBI:
+        case TDevOper::PrnBI:
             form = boost::shared_ptr<TBIPrnFormType>(new TBIPrnFormType);
             break;
         default:
@@ -2959,17 +2959,17 @@ void DevTuningInterface::Import(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 {
     string op_type = NodeAsString("op_type", reqNode);
     auto_ptr<TPrnFormTypes> form_types;
-    switch(DecodeDevOperType(op_type)) {
-        case dotPrnBP:
+    switch(DevOperTypes().decode(op_type)) {
+        case TDevOper::PrnBP:
             form_types = auto_ptr<TBPTypes> (new TBPTypes);
             break;
-        case dotPrnBT:
+        case TDevOper::PrnBT:
             form_types = auto_ptr<TTagTypes> (new TTagTypes);
             break;
-        case dotPrnBR:
+        case TDevOper::PrnBR:
             form_types = auto_ptr<TBRTypes> (new TBRTypes);
             break;
-        case dotPrnBI:
+        case TDevOper::PrnBI:
             form_types = auto_ptr<TBITypes> (new TBITypes);
             break;
         default:

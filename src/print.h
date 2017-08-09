@@ -32,10 +32,10 @@ class PrintDataParser {
         std::string parse_tag(int offset, std::string tag);
     public:
         TPrnTagStore pts;
-        PrintDataParser(ASTRA::TDevOperType op_type, const std::string &scan, bool pr_lat = false): pectab_format(0), pts(op_type, scan, pr_lat) {}
+        PrintDataParser(ASTRA::TDevOper::Enum op_type, const std::string &scan, bool pr_lat = false): pectab_format(0), pts(op_type, scan, pr_lat) {}
         PrintDataParser(bool pr_lat = false): pectab_format(0), pts(pr_lat) {}
         PrintDataParser(const TBagReceipt &rcpt, bool pr_lat): pectab_format(0), pts(rcpt, pr_lat) {}
-        PrintDataParser(ASTRA::TDevOperType op_type, int grp_id, int pax_id, bool pr_lat, xmlNodePtr tagsNode, const TTrferRoute &route = TTrferRoute()):
+        PrintDataParser(ASTRA::TDevOper::Enum op_type, int grp_id, int pax_id, bool pr_lat, xmlNodePtr tagsNode, const TTrferRoute &route = TTrferRoute()):
             pectab_format(0), pts(op_type, grp_id, pax_id, pr_lat, tagsNode, route) {}
         PrintDataParser(const std::string& airp_dep, const std::string& airp_arv, bool pr_lat)
             : pectab_format(0), pts(airp_dep, airp_arv, pr_lat) {}
@@ -44,7 +44,7 @@ class PrintDataParser {
 };
 
 
-void GetTripBPPectabs(int point_id, ASTRA::TDevOperType op_type, const std::string &dev_model, const std::string &fmt_type, xmlNodePtr node);
+void GetTripBPPectabs(int point_id, ASTRA::TDevOper::Enum op_type, const std::string &dev_model, const std::string &fmt_type, xmlNodePtr node);
 void GetTripBTPectabs(int point_id, const std::string &dev_model, const std::string &fmt_type, xmlNodePtr node);
 
 std::string get_validator(const TBagReceipt &rcpt, bool pr_lat);
@@ -106,7 +106,7 @@ class PrintInterface: public JxtInterface
         };
 
         PrintInterface(): JxtInterface("123", "print")
-        {            
+        {
             AddEvent("GetPrintDataBP",    JXT_HANDLER(PrintInterface, GetPrintDataBP));
             AddEvent("GetGRPPrintDataBP", JXT_HANDLER(PrintInterface, GetPrintDataBP));
             AddEvent("GetGRPPrintData",   JXT_HANDLER(PrintInterface, GetPrintDataBP));
@@ -142,7 +142,7 @@ class PrintInterface: public JxtInterface
         virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
         static void GetPrintDataBP(
-                                   ASTRA::TDevOperType op_type,
+                                   ASTRA::TDevOper::Enum op_type,
                                    BPParams &params,
                                    std::string &data,
                                    std::string &pectab,
@@ -154,15 +154,15 @@ class PrintInterface: public JxtInterface
                                         const std::string& data,
                                         const BPParams &params,
                                         std::vector<BPPax> &paxs);
-        static void ConfirmPrintBP(ASTRA::TDevOperType op_type,
+        static void ConfirmPrintBP(ASTRA::TDevOper::Enum op_type,
                                    const std::vector<BPPax> &paxs,
                                    CheckIn::UserException &ue);
         static void GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode);
-        
-        static void check_pectab_availability(BPParams &params, int grp_id, ASTRA::TDevOperType op_type);
+
+        static void check_pectab_availability(BPParams &params, int grp_id, ASTRA::TDevOper::Enum op_type);
 
         static void get_pectab(
-                ASTRA::TDevOperType op_type,
+                ASTRA::TDevOper::Enum op_type,
                 BPParams &params,
                 std::string &data,
                 std::string &pectab

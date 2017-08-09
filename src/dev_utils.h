@@ -13,9 +13,7 @@
 
 using namespace BASIC::date_time;
 
-ASTRA::TDevOperType DecodeDevOperType(std::string s);
 ASTRA::TDevFmtType DecodeDevFmtType(std::string s);
-std::string EncodeDevOperType(ASTRA::TDevOperType s);
 std::string EncodeDevFmtType(ASTRA::TDevFmtType s);
 
 ASTRA::TDevClassType getDevClass(const ASTRA::TOperMode desk_mode,
@@ -489,7 +487,33 @@ class BCBPSections : public  BCBPInternalWork
 
 std::ostream& operator<<(std::ostream& os, const BCBPSections&);
 
+class DeviceInfo
+{
+  typedef std::map<std::string, std::string> ParamsList;
 
+  private:
+    std::string _dev_model;
+    ASTRA::TDevFmtType _fmt_type;
+    ParamsList _params;
+  public:
+    DeviceInfo(xmlNodePtr node);
+    std::string ParamAsString(const std::string &name, const std::string &def) const;
+    int ParamAsInteger(const std::string &name, const int &def) const;
+    bool ParamAsBoolean(const std::string &name, const bool &def) const;
+};
+
+class ScanDeviceInfo : public DeviceInfo
+{
+  private:
+    std::list<std::string> display_prefixes = {"agent_", "passenger_", "external_"};
+
+    unsigned int _display_height, _display_width;
+  public:
+    ScanDeviceInfo(xmlNodePtr node);
+    unsigned int display_height() const { return _display_height; }
+    unsigned int display_width() const { return _display_width; }
+    std::string bgr_message(const std::list<std::string> &msg) const;
+};
 
 
 

@@ -2433,7 +2433,7 @@ BPTags::BPTags()
 {
     TQuery Qry(&OraSession);
     Qry.SQLText = "select code from prn_tag_props where op_type = :op_type order by code";
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
     Qry.Execute();
     for(; not Qry.Eof; Qry.Next()) {
         if(TAG::GATE == Qry.FieldAsString("code")) continue;
@@ -2670,7 +2670,7 @@ void WebRequestsIface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     };
   };
 
-  PrintInterface::ConfirmPrintBP(dotPrnBP, paxs, ue);  //не надо прокидывать ue в терминал - подтверждаем все что можем!
+  PrintInterface::ConfirmPrintBP(TDevOper::PrnBP, paxs, ue);  //не надо прокидывать ue в терминал - подтверждаем все что можем!
 
   NewTextChild( resNode, "ConfirmPrintBP" );
 };
@@ -2698,7 +2698,7 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
       "      (desk_grp_id IS NULL OR desk_grp_id=:desk_grp_id) AND "
       "      (desk IS NULL OR desk=:desk) "
       "ORDER BY priority DESC ";
-  Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+  Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
   Qry.CreateVariable("desk_grp_id", otInteger, reqInfo->desk.grp_id);
   Qry.CreateVariable("desk", otString, reqInfo->desk.code);
   Qry.Execute();
@@ -2755,9 +2755,9 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   if (!ue.empty()) throw ue;
 
   string pectab, data;
-  BIPrintRules::Holder bi_rules(dotPrnBP);
+  BIPrintRules::Holder bi_rules(TDevOper::PrnBP);
   boost::optional<AstraLocale::LexemaData> error;
-  PrintInterface::GetPrintDataBP(dotPrnBP, params, data, pectab, bi_rules, paxs, error);
+  PrintInterface::GetPrintDataBP(TDevOper::PrnBP, params, data, pectab, bi_rules, paxs, error);
   // надо что-то делать с error !!!
 
   xmlNodePtr BPNode = NewTextChild( resNode, "GetPrintDataBP" );
@@ -2826,10 +2826,10 @@ int bcbp_test(int argc,char **argv)
     boost::shared_ptr<PrintDataParser> parser;
     if(pax.pax_id == NoExists) {
         cout << "pax not found." << endl;
-        parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(dotPrnBP, scan));
+        parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(TDevOper::PrnBP, scan));
     } else {
         cout << "pax found, pax_id: " << pax.pax_id << endl;
-        parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(dotPrnBP, pax.grp_id, pax.pax_id, 0, NULL));
+        parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(TDevOper::PrnBP, pax.grp_id, pax.pax_id, 0, NULL));
     }
     cout << endl;
 
@@ -2854,15 +2854,15 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     GetBPPaxFromScanCode(scanCode, pax);
 
     if(pax.pax_id == NoExists)
-      parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(dotPrnBP, scanCode));
+      parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(TDevOper::PrnBP, scanCode));
     else
-      parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(dotPrnBP, pax.grp_id, pax.pax_id, 0, NULL));
+      parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(TDevOper::PrnBP, pax.grp_id, pax.pax_id, 0, NULL));
   }
   else
   {
     bool is_test=isTestPaxId(NodeAsInteger("pax_id", reqNode));
     GetBPPax( reqNode, is_test, true, pax );
-    parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(dotPrnBP, pax.grp_id, pax.pax_id, 0, NULL));
+    parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(TDevOper::PrnBP, pax.grp_id, pax.pax_id, 0, NULL));
   };
   vector<string> tags;
   BPTags::Instance()->getFields( tags );
@@ -2874,7 +2874,7 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       ProgTrace( TRACE5, "field name=%s, value=%s", (*i + (j == 0 ? "" : "_lat")).c_str(), value.c_str() );
     }
   }
-  parser->pts.confirm_print(true, dotPrnBP);
+  parser->pts.confirm_print(true, TDevOper::PrnBP);
 
   string gate=GetBPGate(pax.point_dep);
   if (!gate.empty())

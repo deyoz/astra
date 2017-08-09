@@ -602,12 +602,12 @@ struct TPlatformParams
                   const string& p3) : dev_model(p1), addr(p2), pool_key(p3) {};
 };
 
-void AddPlatformParams(const ASTRA::TDevOperType &oper,
+void AddPlatformParams(const ASTRA::TDevOper::Enum &oper,
                        const string &dev_model,
                        const vector<string> &addrs,
                        const string &pool_key,
                        const set<string> &addrs_in_use,
-                       map<TDevOperType, TPlatformParams > &opers)
+                       map<TDevOper::Enum, TPlatformParams > &opers)
 {
   if ( opers.find( oper ) == opers.end() )
   {
@@ -625,7 +625,7 @@ void AddPlatformParams(const ASTRA::TDevOperType &oper,
 
 void GetPlatformAddrs( const ASTRA::TOperMode desk_mode,
                        xmlNodePtr reqNode,
-                       map<TDevOperType, TPlatformParams > &opers,
+                       map<TDevOper::Enum, TPlatformParams > &opers,
                        map<string/*dev_model*/, set<string> > &addrs )
 {
   opers.clear();
@@ -692,17 +692,17 @@ void GetPlatformAddrs( const ASTRA::TOperMode desk_mode,
         dev_addrs_set.insert(dev_addrs.begin(), dev_addrs.end());
 
         if ( dev_class == dctATB )
-          AddPlatformParams(dotPrnBP, dev_model, dev_addrs, env_name, set<string>(), opers);
+          AddPlatformParams(TDevOper::PrnBP, dev_model, dev_addrs, env_name, set<string>(), opers);
 
         if ( dev_class == dctBTP )
-          AddPlatformParams(dotPrnBT, dev_model, dev_addrs, env_name, set<string>(), opers);
+          AddPlatformParams(TDevOper::PrnBT, dev_model, dev_addrs, env_name, set<string>(), opers);
 
         if ( dev_class == dctDCP )
         {
-          AddPlatformParams(dotPrnFlt, dev_model, dev_addrs, env_name, set<string>(), opers);
-          AddPlatformParams(dotPrnArch, dev_model, dev_addrs, env_name, set<string>(), opers);
-          AddPlatformParams(dotPrnDisp, dev_model, dev_addrs, env_name, set<string>(), opers);
-          AddPlatformParams(dotPrnTlg, dev_model, dev_addrs, env_name, set<string>(), opers);
+          AddPlatformParams(TDevOper::PrnFlt, dev_model, dev_addrs, env_name, set<string>(), opers);
+          AddPlatformParams(TDevOper::PrnArch, dev_model, dev_addrs, env_name, set<string>(), opers);
+          AddPlatformParams(TDevOper::PrnDisp, dev_model, dev_addrs, env_name, set<string>(), opers);
+          AddPlatformParams(TDevOper::PrnTlg, dev_model, dev_addrs, env_name, set<string>(), opers);
         };
 
         if ( dev_class == dctBGR ||
@@ -710,31 +710,31 @@ void GetPlatformAddrs( const ASTRA::TOperMode desk_mode,
              dev_class == dctWGE)
         {
           set<string> addrs_in_use;
-          AddPlatformParams(dotScnBP1, dev_model, dev_addrs, env_name, addrs_in_use, opers);
-          if ( opers.find( dotScnBP1 ) != opers.end() )
+          AddPlatformParams(TDevOper::ScnBP1, dev_model, dev_addrs, env_name, addrs_in_use, opers);
+          if ( opers.find( TDevOper::ScnBP1 ) != opers.end() )
           {
-            addrs_in_use.insert(opers[dotScnBP1].addr);
-            AddPlatformParams(dotScnBP2, dev_model, dev_addrs, env_name, addrs_in_use, opers);
+            addrs_in_use.insert(opers[TDevOper::ScnBP1].addr);
+            AddPlatformParams(TDevOper::ScnBP2, dev_model, dev_addrs, env_name, addrs_in_use, opers);
           };
         }
 
         if ( dev_class == dctOCR ||
              dev_class == dctWGE)
-          AddPlatformParams(dotScnDoc, dev_model, dev_addrs, env_name, set<string>(), opers);
+          AddPlatformParams(TDevOper::ScnDoc, dev_model, dev_addrs, env_name, set<string>(), opers);
 
         if ( dev_class == dctMSR ||
              dev_class == dctWGE)
-          AddPlatformParams(dotScnCard, dev_model, dev_addrs, env_name, set<string>(), opers);
+          AddPlatformParams(TDevOper::ScnCard, dev_model, dev_addrs, env_name, set<string>(), opers);
       };
     };
   };
 
-  if ( opers.find( dotScnBP1 ) != opers.end() &&
-       opers.find( dotScnBP2 ) != opers.end() &&
-       opers[dotScnBP1].pool_key == opers[dotScnBP2].pool_key)
+  if ( opers.find( TDevOper::ScnBP1 ) != opers.end() &&
+       opers.find( TDevOper::ScnBP2 ) != opers.end() &&
+       opers[TDevOper::ScnBP1].pool_key == opers[TDevOper::ScnBP2].pool_key)
   {
-    opers[dotScnBP1].pool_key+="1";
-    opers[dotScnBP2].pool_key+="2";
+    opers[TDevOper::ScnBP1].pool_key+="1";
+    opers[TDevOper::ScnBP2].pool_key+="2";
   };
 
   string str_addrs;
@@ -1265,7 +1265,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
                                                    DefQry.FieldAsString( "fmt_type" ) ) );
   }
 
-  map<TDevOperType, TPlatformParams > opers;
+  map<TDevOper::Enum, TPlatformParams > opers;
   map<string/*dev_model*/, set<string> > valid_addrs;
   if ( reqInfo->desk.mode==omRESA ||
        reqInfo->desk.mode==omCUSE ||
@@ -1296,7 +1296,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
         def->dev_model.clear();
         def->sess_type.clear();
         def->fmt_type.clear();
-        TDevOperType oper=DecodeDevOperType(def->op_type);
+        TDevOper::Enum oper=DevOperTypes().decode(def->op_type);
         if (!opers[oper].addr.empty())
         {
           DefQry.SetVariable( "op_type", def->op_type );
@@ -1440,7 +1440,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
            reqInfo->desk.mode==omCUSE ||
            (reqInfo->desk.mode==omMUSE && reqInfo->desk.compatible(MUSE_DEV_VARIABLES)) )
       {
-        TDevOperType oper=DecodeDevOperType(operation);
+        TDevOper::Enum oper=DevOperTypes().decode(operation);
         if (!opers[oper].dev_model.empty() && opers[oper].dev_model==dev_model)
         {
           for(TCategoryDevParams::iterator p=params.begin();p!=params.end();++p)
@@ -1873,11 +1873,11 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   {
     vector<TScanParams> ScanParams;
     TScanParams params;
-    TDevOperType op_type=DecodeDevOperType(NodeAsString("operation/@type",reqNode));
-    if (op_type!=dotScnBP1 &&
-        op_type!=dotScnBP2 &&
-        op_type!=dotScnDoc &&
-        op_type!=dotScnCard) throw EConvertError("op_type=%s not supported",EncodeDevOperType(op_type).c_str());
+    TDevOper::Enum op_type=DevOperTypes().decode(NodeAsString("operation/@type",reqNode));
+    if (op_type!=TDevOper::ScnBP1 &&
+        op_type!=TDevOper::ScnBP2 &&
+        op_type!=TDevOper::ScnDoc &&
+        op_type!=TDevOper::ScnCard) throw EConvertError("op_type=%s not supported",DevOperTypes().encode(op_type).c_str());
 
     TDevFmtType fmt_type=DecodeDevFmtType(NodeAsString("operation/fmt_params/@type",reqNode));
     if (fmt_type!=dftSCAN1 &&
@@ -1897,17 +1897,17 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       data=ConvertCodepage(data,encoding,"CP866"); //иногда возвращает EConvertError
       ProgTrace(TRACE5,"DetermineScanParams: data=%s", data.c_str());
 
-      if (op_type==dotScnBP1 || op_type==dotScnBP2)
+      if (op_type==TDevOper::ScnBP1 || op_type==TDevOper::ScnBP2)
       {
         if (ParseScanBPData(data,params))
           ScanParams.push_back(params);
       };
-      if (op_type==dotScnDoc)
+      if (op_type==TDevOper::ScnDoc)
       {
         if (ParseScanDocData(data,params))
           ScanParams.push_back(params);
       };
-      if (op_type==dotScnCard)
+      if (op_type==TDevOper::ScnCard)
       {
         if (ParseScanCardData(data,params))
           ScanParams.push_back(params);

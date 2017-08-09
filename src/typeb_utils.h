@@ -1333,7 +1333,7 @@ class TForwardOptions : public TCreateOptions
       std::string tlg_type = Qry.FieldAsString("tlg_type");
       try
       {
-          const TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
+          const TTypeBTypesRow& row = (const TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
           basic_type=row.basic_type;
       }
       catch(EBaseTableError)
@@ -1450,7 +1450,7 @@ class TPNLADLOptions : public TMarkInfoOptions
       std::string tlg_type = Qry.FieldAsString("tlg_type");
       try
       {
-          const TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
+          const TTypeBTypesRow& row = (const TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
           basic_type=row.basic_type;
       }
       catch(EBaseTableError)

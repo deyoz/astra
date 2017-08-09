@@ -78,6 +78,13 @@ class PairList
     }
 };
 
+template<class T>
+const T& singletone()
+{
+  static T result;
+  return result;
+}
+
 enum TClientType { ctTerm, ctWeb, ctKiosk, ctPNL, ctHTTP, ctMobile, ctEDI, ctTypeNum };
 extern const char* ClientTypeS[ctTypeNum];
 

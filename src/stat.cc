@@ -11743,7 +11743,7 @@ void departed_flt(TQuery &Qry, TEncodedFileStream &of)
             "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,NULL,'list',NULL,0) AS seat_no, "
             "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, \n"
             "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight \n";
-        paxQry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+        paxQry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
     } else
     SQLText +=
           " NVL(arch.get_bagAmount2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, \n"
