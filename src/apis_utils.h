@@ -163,6 +163,9 @@ const long int DOCO_CSV_DE_FIELDS=DOCO_TYPE_FIELD|
                                   DOCO_NO_FIELD|
                                   DOCO_APPLIC_COUNTRY_FIELD;
 
+const long int DOC_EDI_DE_FIELDS = DOC_CSV_DE_FIELDS;
+const long int DOCO_EDI_DE_FIELDS = DOCO_CSV_DE_FIELDS;
+
 //==============================================================================
 const long int DOC_TXT_EE_FIELDS=DOC_SURNAME_FIELD|
                                  DOC_FIRST_NAME_FIELD|

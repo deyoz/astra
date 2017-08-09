@@ -357,6 +357,10 @@ class PassengerInfo
     int m_bagWeight;
     std::set<CheckIn::TPaxFQTItem> pax_fqts;
 
+    std::string m_doco_type;
+    std::string m_doco_no;
+    std::string m_doco_applic_country;
+
 public:
     PassengerInfo()
         : m_birthDate( ASTRA::NoExists ), m_docExpirateDate( ASTRA::NoExists ),
@@ -592,6 +596,35 @@ public:
     void setFqts(std::set<CheckIn::TPaxFQTItem>& values) {
       pax_fqts = values;
     }
+
+    // passenger's visa type
+    const std::string& docoType() const 
+    { 
+      return m_doco_type; 
+    }
+    void setDocoType( const std::string& t ) 
+    { 
+      m_doco_type = upperc( t.substr( 0, 3 ) ); 
+    }
+    // passenger's visa number
+    const std::string& docoNumber() const 
+    { 
+      return m_doco_no; 
+    }
+    void setDocoNumber( const std::string& dn ) 
+    { 
+      m_doco_no = upperc( dn.substr( 0, 35 ) ); 
+    }
+    // passenger's visa country
+    const std::string& docoCountry() const 
+    { 
+      return m_doco_applic_country; 
+    }
+    void setDocoCountry( const std::string& dc ) 
+    { 
+      m_doco_applic_country = upperc( dc.substr( 0, 25 ) ); 
+    }
+
 };
 typedef std::list< PassengerInfo > PassengersList_t;
 
