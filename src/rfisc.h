@@ -349,7 +349,6 @@ class TRFISCKey : public TRFISCListKey
     }
     std::string traceStr() const;
     bool isBaggageOrCarryOn(const std::string &where) const;
-    void getListItemAuto(int pax_id, int transfer_num, const std::string& rfic);
 };
 
 typedef std::map<TRFISCListKey, TRFISCListItem> TRFISCListMap;
@@ -675,7 +674,6 @@ class TPaidRFISCListWithAuto : public std::map<TPaxSegRFISCKey, TPaidRFISCItem>
   public:
     void addItem(const TPaidRFISCItem& item);
     void fromDB(int id, bool is_grp_id);
-    bool isRFISCGrpExists(int pax_id, const std::string &grp, const std::string &subgrp) const;
 };
 
 class TPaidRFISCViewKey : public TRFISCKey

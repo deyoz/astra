@@ -2772,9 +2772,7 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
   string pectab, data;
   BIPrintRules::Holder bi_rules(dotPrnBP);
-  boost::optional<AstraLocale::LexemaData> error;
-  PrintInterface::GetPrintDataBP(dotPrnBP, params, data, pectab, bi_rules, paxs, error);
-  // надо что-то делать с error !!!
+  PrintInterface::GetPrintDataBP(dotPrnBP, params, data, pectab, bi_rules, paxs);
 
   xmlNodePtr BPNode = NewTextChild( resNode, "GetPrintDataBP" );
   NewTextChild(BPNode, "pectab", pectab);

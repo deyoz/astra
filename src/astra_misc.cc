@@ -2327,13 +2327,3 @@ string getFileSizeStr(double size)
     }
     return result.str();
 }
-
-AstraLocale::LexemaData GetLexemeDataWithFlight(const AstraLocale::LexemaData &data, const TTripInfo &fltInfo)
-{
-  AstraLocale::LexemaData result;
-  result.lexema_id="WRAP.FLIGHT";
-  result.lparams << AstraLocale::LParam("flight",GetTripName(fltInfo,ecCkin,true,false))
-                 << AstraLocale::LParam("text",data);
-  return result;
-}
-

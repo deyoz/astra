@@ -1845,23 +1845,15 @@ void PrintInterface::get_pectab(
     data = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("data"));
 }
 
-bool IsErrPax(const PrintInterface::BPPax &pax)
-{
-    return pax.error;
-}
-
 void PrintInterface::GetPrintDataBP(
                                     TDevOperType op_type,
                                     BPParams &params,
                                     std::string &data,
                                     string &pectab,
                                     BIPrintRules::Holder &bi_rules,
-                                    std::vector<BPPax> &paxs,
-                                    boost::optional<AstraLocale::LexemaData> &error
-                                    )
+                                    std::vector<BPPax> &paxs)
 {
     if(paxs.empty()) return;
-    error = boost::none;
 
     get_pectab(op_type, params, data, pectab);
 
@@ -1869,17 +1861,7 @@ void PrintInterface::GetPrintDataBP(
         //        tst_dump(iPax->pax_id, iPax->grp_id, prnParams.pr_lat);
         boost::shared_ptr<PrintDataParser> parser;
         if(iPax->pax_id!=NoExists)
-            try {
-                parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->grp_id, iPax->pax_id, params.prnParams.pr_lat, params.clientDataNode ));
-            } catch(UserException &E) {
-                if(not error) {
-                    TTripInfo fltInfo;
-                    fltInfo.getByGrpId(iPax->grp_id);
-                    error = GetLexemeDataWithFlight(E.getLexemaData( ), fltInfo);
-                }
-                iPax->error = true;
-                continue;
-            }
+            parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->grp_id, iPax->pax_id, params.prnParams.pr_lat, params.clientDataNode ));
         else
             parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->scan, true));
         //        big_test(parser, dotPrnBP);
@@ -1913,8 +1895,7 @@ void PrintInterface::GetPrintDataBP(
             parser->pts.confirm_print(false, op_type);
         iPax->time_print=parser->pts.get_time_print();
     }
-    paxs.erase(remove_if(paxs.begin(), paxs.end(), IsErrPax), paxs.end());
-}
+};
 
 void PrintInterface::GetPrintDataVO(
         int first_seg_grp_id,
@@ -2192,9 +2173,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     } else {
 
         LogTrace(TRACE5) << "complete true";
-
-        boost::optional<AstraLocale::LexemaData> error;
-        GetPrintDataBP(op_type, params, data, pectab, bi_rules, paxs, error);
+        GetPrintDataBP(op_type, params, data, pectab, bi_rules, paxs);
 
         xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"),
                 (TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION) ? "print" : "printBP")
@@ -2222,8 +2201,6 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                 SetProp(NewTextChild(paxNode, "prn_form", iPax->prn_form),"hex",(int)iPax->hex);
             }
         }
-        if(error)
-            AstraLocale::showErrorMessage(error.get());
     }
 }
 

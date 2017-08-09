@@ -5,7 +5,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/slogger.h"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace AstraLocale;
@@ -347,38 +347,6 @@ void TServicePaymentList::fromDB(int grp_id)
   };
 }
 
-void TServicePaymentListWithAuto::dump(const string &file, int line) const
-{
-    LogTrace(TRACE5) << "-----TServicePaymentListWithAuto::dump: " << file << ": " << line << "-----";
-    for(TServicePaymentListWithAuto::const_iterator i = begin(); i != end(); i++)
-        LogTrace(TRACE5) << i->traceStr();
-    LogTrace(TRACE5) << "-------------------------------------";
-}
-
-void TServicePaymentListWithAuto::getUniqRFISCSs(int pax_id, set<string> &rfisc_set) const
-{
-    for(TServicePaymentListWithAuto::const_iterator i = begin(); i != end(); i++)
-        if(
-                i->trfer_num == 0 and
-                i->pax_id == pax_id and
-                i->pc)
-            rfisc_set.insert(i->pc->RFISC);
-}
-
-bool TServicePaymentListWithAuto::isRFISCGrpExists(int pax_id, const string &grp, const string &subgrp) const
-{
-    for(TServicePaymentListWithAuto::const_iterator item = begin(); item != end(); item++) {
-        if(
-                item->pax_id == pax_id and item->trfer_num == 0 and
-                item->pc and
-                item->pc->list_item and
-                item->pc->list_item->grp == grp and
-                (subgrp.empty() or item->pc->list_item->subgrp == subgrp))
-            return true;
-    }
-    return false;
-}
-
 void TServicePaymentListWithAuto::fromDB(int grp_id)
 {
   TServicePaymentList list1;
@@ -389,12 +357,7 @@ void TServicePaymentListWithAuto::fromDB(int grp_id)
   TGrpServiceAutoList list2;
   list2.fromDB(grp_id, true);
   for(TGrpServiceAutoList::const_iterator i=list2.begin(); i!=list2.end(); ++i)
-  {
-    TServicePaymentItem item(*i);
-    if (item.pc)
-      item.pc.get().getListItemAuto(i->pax_id, i->trfer_num, i->RFIC);
-    push_back(item);
-  };
+    push_back(TServicePaymentItem(*i));
 }
 
 void TServicePaymentList::clearDB(int grp_id)

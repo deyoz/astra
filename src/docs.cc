@@ -405,8 +405,6 @@ void TRptParams::Init(xmlNodePtr node)
     prn_params.get_prn_params(node->parent);
     point_id = NodeAsIntegerFast("point_id", node);
     rpt_type = DecodeRptType(NodeAsStringFast("rpt_type", node));
-    cls = NodeAsStringFast("cls", node, "");
-    subcls = NodeAsStringFast("subcls", node, "");
     airp_arv = NodeAsStringFast("airp_arv", node, "");
     ckin_zone = NodeAsStringFast("ckin_zone", node, ALL_CKIN_ZONES.c_str());
     pr_et = NodeAsIntegerFast("pr_et", node, 0) != 0;
@@ -453,41 +451,15 @@ void TRptParams::Init(xmlNodePtr node)
         req_lang = "";
     else
         req_lang = TReqInfo::Instance()->desk.lang;
-
     xmlNodePtr remsNode = GetNodeFast("rems", node);
-    set<int> rem_grps;
     if(remsNode != NULL) {
-        TBaseTable &base_rems = base_tables.get("ckin_rem_types");
         xmlNodePtr currNode = remsNode->children;
         for(; currNode; currNode = currNode->next)
         {
-            string rem = NodeAsString(currNode);
-            rem_grps.insert(((TCkinRemTypesRow&)base_rems.get_row("code", rem)).grp_id);
-            TRemCategory cat=getRemCategory(rem, "");
+            TRemCategory cat=getRemCategory(NodeAsString(currNode), "");
             rems[cat].push_back(NodeAsString(currNode));
         };
     }
-
-    xmlNodePtr remGrpNode = GetNodeFast("rem_grp", node);
-    if(remGrpNode != NULL) {
-        xmlNodePtr currNode = remGrpNode->children;
-        for(; currNode; currNode = currNode->next)
-        {
-            int rem_grp_id = NodeAsInteger(currNode);
-            // Если не было выбрано ремарок для тек. группы, добавляем все ремарки тек. группы
-            if(rem_grps.find(rem_grp_id) == rem_grps.end()) {
-                TCachedQuery Qry("select code from ckin_rem_types where grp_id = :grp_id",
-                        QParams() << QParam("grp_id", otInteger, rem_grp_id));
-                Qry.get().Execute();
-                for(; not Qry.get().Eof; Qry.get().Next()) {
-                    string rem = Qry.get().FieldAsString("code");
-                    TRemCategory cat=getRemCategory(rem, "");
-                    rems[cat].push_back(rem);
-                }
-            }
-        };
-    }
-
     xmlNodePtr rficNode = GetNodeFast("rfic", node);
     if(rficNode != NULL) {
         xmlNodePtr currNode = rficNode->children;
@@ -1096,20 +1068,6 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "   pr_brd IS NOT NULL and \n"
         "   decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
     Qry.CreateVariable("pr_brd_pax", otInteger, rpt_params.pr_brd);
-
-    if(not rpt_params.subcls.empty()) {
-        SQLText +=
-            "   pax.subclass = :subcls and \n";
-        Qry.CreateVariable("subcls", otString, rpt_params.subcls);
-    }
-
-    if(not rpt_params.cls.empty()) {
-        SQLText +=
-            "   pax_grp.class = :cls and \n";
-        Qry.CreateVariable("cls", otString, rpt_params.cls);
-    }
-
-
     if(rpt_params.pr_et) //ЭБ
         SQLText +=
             "   pax.ticket_rem='TKNE' and \n";

@@ -215,9 +215,6 @@ class TServicePaymentListWithAuto : public std::list<TServicePaymentItem>
     int getDocWeight(const TBagTypeListKey &key) const;
     void fromDB(int grp_id);
     void toXML(xmlNodePtr node) const;
-    bool isRFISCGrpExists(int pax_id, const std::string &grp, const std::string &subgrp) const;
-    void getUniqRFISCSs(int pax_id, std::set<std::string> &rfisc_set) const;
-    void dump(const std::string &file, int line) const;
 };
 
 void ServicePaymentFromXML(xmlNodePtr node,

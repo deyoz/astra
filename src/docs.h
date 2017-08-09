@@ -21,8 +21,6 @@ struct TRptParams {
         TSortType sort;
         int point_id;
         ASTRA::TRptType rpt_type;
-        std::string cls;
-        std::string subcls;
         std::string airp_arv;
         std::string ckin_zone;
         bool pr_et;
