@@ -2366,15 +2366,14 @@ void TStatParams::get(xmlNodePtr reqNode)
     name = NodeAsString("stat_mode", reqNode);
     type = NodeAsString("stat_type", reqNode, "Общая");
 
-    if(type == "Общая") {
+    if(type == "Трансфер") {
+        if(name == "Общая") statType = statTrferFull;
+        else throw Exception("Unknown stat mode " + name);
+    } else if(type == "Общая") {
         if(name == "Подробная") statType=statFull;
-        else
-            if(name == "Общая") statType=statShort;
-            else
-                if(name == "Детализированная") statType=statDetail;
-                else
-                    if(name == "Трансфер") statType=statTrferFull;
-                    else throw Exception("Unknown stat mode " + name);
+        else if(name == "Общая") statType=statShort;
+        else if(name == "Детализированная") statType=statDetail;
+        else throw Exception("Unknown stat mode " + name);
     } else if(type ==
             ((TReqInfo::Instance()->client_type==ctHTTP ||
               TReqInfo::Instance()->desk.compatible(SELF_CKIN_STAT_VERSION)) ?
@@ -6749,6 +6748,27 @@ void get_limited_capability_stat(int point_id)
                 }
             }
         }
+    }
+}
+
+void get_trfer_pax_stat(int point_id)
+{
+    TCachedQuery insQry(
+            "insert into trfer_pax_stat(pax_id) values(:pax_id)",
+            QParams() << QParam("pax_id", otInteger));
+
+    TCachedQuery selQry(
+            "select pax_id from pax_grp, pax, transfer where "
+            "   pax_grp.grp_id = pax.grp_id and "
+            "   point_dep = :point_id and "
+            "   pax_grp.status not in('E') and "
+            "   pax_grp.grp_id = transfer.grp_id and "
+            "   transfer_num = 1 ",
+            QParams() << QParam("point_id", otInteger, point_id));
+    selQry.get().Execute();
+    for(; not selQry.get().Eof; selQry.get().Next()) {
+        insQry.get().SetVariable("pax_id", selQry.get().FieldAsInteger("pax_id"));
+        insQry.get().Execute();
     }
 }
 
@@ -11464,6 +11484,9 @@ void get_flight_stat(map<string, long> &stat_times, int point_id, bool final_col
      add_stat_time(stat_times, "kuf_stat", tm.Print());
      tm.Init();
      get_pfs_stat(point_id);
+     add_stat_time(stat_times, "pfs_stat", tm.Print());
+     tm.Init();
+     get_trfer_pax_stat(point_id);
      add_stat_time(stat_times, "pfs_stat", tm.Print());
    };
 
