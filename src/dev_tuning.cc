@@ -149,7 +149,7 @@ void DevTuningInterface::ApplyCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 void DevTuningInterface::Cache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     ProgTrace(TRACE2, "DevTuningInterface::Cache, reqNode->Name=%s, resNode->Name=%s",
-            (char*)reqNode->name,(char*)resNode->name);
+            (const char*)reqNode->name,(const char*)resNode->name);
 
     TCacheTable cache;
     cache.Init(reqNode);
@@ -186,8 +186,8 @@ void DevTuningInterface::Load(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if(Qry.Eof)
         throw AstraLocale::UserException("MSG.TUNE.FORM_NOT_ACCESSIBLE.REFRES_DATA");
 
-    TDevFmtType fmt_type = DecodeDevFmtType(Qry.FieldAsString("fmt_type"));
-    if(fmt_type == dftGraphics2D)
+    TDevFmt::Enum fmt_type = DevFmtTypes().decode(Qry.FieldAsString("fmt_type"));
+    if(fmt_type == TDevFmt::Graphics2D)
         throw UserException("MSG.TEMPORARILY_NOT_SUPPORTED");
     xmlNodePtr prnFormNode = NewTextChild(resNode, "prn_form");
     NewTextChild(prnFormNode, "fmt_type", Qry.FieldAsString("fmt_type"));
@@ -227,7 +227,7 @@ void DevTuningInterface::UpdateCopy(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     string data = NodeAsStringFast("data", node);
     string descr = NodeAsStringFast("descr", node);
     TQuery Qry(&OraSession);
-    if(*(char*)reqNode->name == 'U') // Update
+    if(*(const char*)reqNode->name == 'U') // Update
         Qry.SQLText =
             "update prn_form_vers set form = :form, data = :data, descr = :descr where id = :id and version = :vers";
     else // Copy
@@ -242,7 +242,7 @@ void DevTuningInterface::UpdateCopy(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     if(Qry.RowsProcessed() == 0)
         throw AstraLocale::UserException("MSG.TUNE.FORM_NOT_ACCESSIBLE.REFRES_DATA");
 
-    if(*(char*)reqNode->name == 'U') // Update
+    if(*(const char*)reqNode->name == 'U') // Update
         TReqInfo::Instance()->LocaleToLog("EVT.DEVICE.CHANGE_PECTAB_DATA",
                                            LEvntPrms() << PrmSmpl<int>("id", id) << PrmSmpl<int>("vers", vers), evtSystem);
     else // Copy
@@ -2958,19 +2958,19 @@ void process(vector<TPectabItem> &pectabs, map<string, set<string> > &mapping)
 void DevTuningInterface::Import(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string op_type = NodeAsString("op_type", reqNode);
-    auto_ptr<TPrnFormTypes> form_types;
+    shared_ptr<TPrnFormTypes> form_types;
     switch(DevOperTypes().decode(op_type)) {
         case TDevOper::PrnBP:
-            form_types = auto_ptr<TBPTypes> (new TBPTypes);
+            form_types = shared_ptr<TBPTypes> (new TBPTypes);
             break;
         case TDevOper::PrnBT:
-            form_types = auto_ptr<TTagTypes> (new TTagTypes);
+            form_types = shared_ptr<TTagTypes> (new TTagTypes);
             break;
         case TDevOper::PrnBR:
-            form_types = auto_ptr<TBRTypes> (new TBRTypes);
+            form_types = shared_ptr<TBRTypes> (new TBRTypes);
             break;
         case TDevOper::PrnBI:
-            form_types = auto_ptr<TBITypes> (new TBITypes);
+            form_types = shared_ptr<TBITypes> (new TBITypes);
             break;
         default:
             throw Exception("Unknown type: %s", op_type.c_str());

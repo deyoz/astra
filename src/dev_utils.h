@@ -13,9 +13,6 @@
 
 using namespace BASIC::date_time;
 
-ASTRA::TDevFmtType DecodeDevFmtType(std::string s);
-std::string EncodeDevFmtType(ASTRA::TDevFmtType s);
-
 ASTRA::TDevClassType getDevClass(const ASTRA::TOperMode desk_mode,
                                  const std::string &env_name);
 
@@ -493,7 +490,7 @@ class DeviceInfo
 
   private:
     std::string _dev_model;
-    ASTRA::TDevFmtType _fmt_type;
+    ASTRA::TDevFmt::Enum _fmt_type;
     ParamsList _params;
   public:
     DeviceInfo(xmlNodePtr node);

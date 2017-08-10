@@ -566,7 +566,7 @@ void GetTerminalParams(xmlNodePtr reqNode, std::vector<std::string> &paramsList 
   if ( node == NULL || node->children == NULL ) return;
   string params;
   node = node->children;
-  while ( node != NULL && string((char*)node->name) == "param" ) {
+  while ( node != NULL && string((const char*)node->name) == "param" ) {
     if ( !params.empty() )
       params += " ";
     params += string("'") + NodeAsString( node ) + "'";
@@ -671,7 +671,7 @@ void GetPlatformAddrs( const ASTRA::TOperMode desk_mode,
   {
     for(xmlNodePtr node = n->children; node!=NULL; node = node->next)
     {
-      string env_name=(char*)node->name;
+      string env_name=(const char*)node->name;
       ASTRA::TDevClassType dev_class=getDevClass(desk_mode, env_name);
       string dev_model=getDefaultDevModel(desk_mode, dev_class);
 
@@ -918,7 +918,7 @@ void GetSessionAirlines(const vector<string> &run_params, TSessionAirlines &airl
       {
         try
         {
-          TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code/code_lat",code));
+          const TAirlinesRow &row=(const TAirlinesRow&)(base_tables.get("airlines").get_row("code/code_lat",code));
           airline=row.code;
           sess.code=row.code;
           sess.code_lat=row.code_lat;
@@ -931,7 +931,7 @@ void GetSessionAirlines(const vector<string> &run_params, TSessionAirlines &airl
       {
         try
         {
-          TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("aircode",code));
+          const TAirlinesRow &row=(const TAirlinesRow&)(base_tables.get("airlines").get_row("aircode",code));
           airline=row.code;
           sess.code=row.code;
           sess.code_lat=row.code_lat;
@@ -1018,7 +1018,7 @@ void PutSessionAirlines(const TSessionAirlines &airlines, xmlNodePtr resNode)
     {
       if (airlines.find(*i)!=airlines.end()) continue;
 
-      TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code",*i));
+      const TAirlinesRow &row=(const TAirlinesRow&)(base_tables.get("airlines").get_row("code",*i));
       TSessionAirline sess;
       sess.code=row.code;
       sess.code_lat=row.code_lat;
@@ -1879,11 +1879,11 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         op_type!=TDevOper::ScnDoc &&
         op_type!=TDevOper::ScnCard) throw EConvertError("op_type=%s not supported",DevOperTypes().encode(op_type).c_str());
 
-    TDevFmtType fmt_type=DecodeDevFmtType(NodeAsString("operation/fmt_params/@type",reqNode));
-    if (fmt_type!=dftSCAN1 &&
-        fmt_type!=dftBCR &&
-        fmt_type!=dftSCAN2 &&
-        fmt_type!=dftSCAN3) throw EConvertError("fmt_type=%s not supported",EncodeDevFmtType(fmt_type).c_str());
+    TDevFmt::Enum fmt_type=DevFmtTypes().decode(NodeAsString("operation/fmt_params/@type",reqNode));
+    if (fmt_type!=TDevFmt::SCAN1 &&
+        fmt_type!=TDevFmt::BCR &&
+        fmt_type!=TDevFmt::SCAN2 &&
+        fmt_type!=TDevFmt::SCAN3) throw EConvertError("fmt_type=%s not supported",DevFmtTypes().encode(fmt_type).c_str());
     xmlNodePtr node;
     node=GetNode("operation/fmt_params/encoding",reqNode);
     if (node==NULL) throw EConvertError("Node 'encoding' not found");
@@ -1920,7 +1920,7 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         params=*i;
       else
       {
-        if (fmt_type==dftSCAN1 || fmt_type==dftBCR)
+        if (fmt_type==TDevFmt::SCAN1 || fmt_type==TDevFmt::BCR)
         {
           if (params.prefix.size()!=i->prefix.size() ||
               params.postfix!=i->postfix) throw EConvertError("Different prefix size or postfix");
@@ -1932,14 +1932,14 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
             if (*j1!=*j2) break;
           if (params.prefix.size()-j>params.code_id_len) params.code_id_len=params.prefix.size()-j;
         };
-        if (fmt_type==dftSCAN2 || fmt_type==dftSCAN3)
+        if (fmt_type==TDevFmt::SCAN2 || fmt_type==TDevFmt::SCAN3)
         {
           if (params.prefix !=i->prefix ||
               params.postfix!=i->postfix) throw EConvertError("Different prefix or postfix");
         };
       };
     };
-    if (fmt_type==dftSCAN1 || fmt_type==dftBCR)
+    if (fmt_type==TDevFmt::SCAN1 || fmt_type==TDevFmt::BCR)
     {
       //вычисляем prefix с учетом code_id_len
       if (params.code_id_len>9 ||
@@ -1953,7 +1953,7 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     NewTextChild(node,"prefix",data);
     StringToHex(ConvertCodepage(params.postfix,"CP866",encoding),data);
     NewTextChild(node,"postfix",data);
-    if (fmt_type==dftSCAN1 || fmt_type==dftBCR)
+    if (fmt_type==TDevFmt::SCAN1 || fmt_type==TDevFmt::BCR)
     {
       NewTextChild(node,"code_id_len",(int)params.code_id_len);
     };

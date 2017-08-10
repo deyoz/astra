@@ -88,7 +88,7 @@ namespace to_esc {
                     "  dev_model nulls last, "
                     "  desk_grp_id nulls last ";
                 Qry.DeclareVariable("dev_model", otString);
-                Qry.CreateVariable("fmt_type", otString, EncodeDevFmtType(dftEPSON));
+                Qry.CreateVariable("fmt_type", otString, DevFmtTypes().encode(TDevFmt::EPSON));
                 Qry.DeclareVariable("param_name", otString);
                 Qry.CreateVariable("desk_grp_id", otInteger, TReqInfo::Instance()->desk.grp_id);
             };
@@ -898,32 +898,32 @@ string PrintDataParser::parse_tag(int offset, string tag)
             return data;
         }
 
-        string DoIt(TDevFmtType fmt_type, string data)
+        string DoIt(TDevFmt::Enum fmt_type, string data)
         {
             string result;
             switch(fmt_type) {
-                case dftTEXT:
-                case dftFRX:
+                case TDevFmt::TEXT:
+                case TDevFmt::FRX:
                     result = data;
                     break;
-                case dftATB:
-                case dftBTP:
-                case dftZPL2:
+                case TDevFmt::ATB:
+                case TDevFmt::BTP:
+                case TDevFmt::ZPL2:
                     result = delete_all_CR_LF(data);
                     break;
-                case dftEPL2:
-                case dftDPL:
-                case dftEPSON:
+                case TDevFmt::EPL2:
+                case TDevFmt::DPL:
+                case TDevFmt::EPSON:
                     result = place_CR_LF(data);
                     break;
-                case dftGraphics2D:
+                case TDevFmt::Graphics2D:
                     result = place_LF(data);
                     break;
-                case dftSCAN1:
-                case dftSCAN2:
-                case dftSCAN3:
-                case dftBCR:
-                case dftUnknown:
+                case TDevFmt::SCAN1:
+                case TDevFmt::SCAN2:
+                case TDevFmt::SCAN3:
+                case TDevFmt::BCR:
+                case TDevFmt::Unknown:
                     throw Exception("AdjustCR_LF: unknown fmt_type");
             }
             return result;
@@ -931,7 +931,7 @@ string PrintDataParser::parse_tag(int offset, string tag)
 
         string DoIt(string fmt_type, string data)
         {
-            return DoIt(DecodeDevFmtType(fmt_type), data);
+            return DoIt(DevFmtTypes().decode(fmt_type), data);
         }
     };
 
@@ -1616,7 +1616,7 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser,
     string mso_form = AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("data"));
     mso_form = parser.parse(mso_form);
     hex=false;
-    if(DecodeDevFmtType(fmt_type) == dftEPSON) {
+    if(DevFmtTypes().decode(fmt_type) == TDevFmt::EPSON) {
       to_esc::TConvertParams ConvertParams;
       ConvertParams.init(dev_model);
       LogTrace(TRACE5) << "br form: " << mso_form;
@@ -1830,8 +1830,8 @@ void PrintInterface::get_pectab(
     Qry.Execute();
     if(Qry.Eof or
        Qry.FieldIsNULL("data") or
-       (Qry.FieldIsNULL( "form" ) and (DecodeDevFmtType(params.fmt_type) == dftBTP or
-                                     DecodeDevFmtType(params.fmt_type) == dftATB))
+       (Qry.FieldIsNULL( "form" ) and (DevFmtTypes().decode(params.fmt_type) == TDevFmt::BTP or
+                                     DevFmtTypes().decode(params.fmt_type) == TDevFmt::ATB))
       ) {
         switch(op_type) {
             case TDevOper::PrnBP:
@@ -1904,7 +1904,7 @@ void PrintInterface::GetPrintDataBP(
 
         iPax->prn_form = parser->parse(data);
         iPax->hex=false;
-        if(DecodeDevFmtType(params.fmt_type) == dftEPSON) {
+        if(DevFmtTypes().decode(params.fmt_type) == TDevFmt::EPSON) {
             to_esc::TConvertParams ConvertParams;
             ConvertParams.init(params.dev_model);
             ProgTrace(TRACE5, "prn_form: %s", iPax->prn_form.c_str());
@@ -2026,7 +2026,7 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
                 pax.reg_no = xmlPax.reg_no; // Зачем?
                 pax.prn_form = parser->parse(data);
                 pax.hex = false;
-                if(DecodeDevFmtType(params.fmt_type) == dftEPSON) {
+                if(DevFmtTypes().decode(params.fmt_type) == TDevFmt::EPSON) {
                     to_esc::TConvertParams ConvertParams;
                     ConvertParams.init(params.dev_model);
                     to_esc::convert(pax.prn_form, ConvertParams, params.prnParams);
@@ -2162,7 +2162,7 @@ void PrintInterface::GetPrintDataVO(
 
                 string prn_form = parser.parse(data);
                 bool hex = false;
-                if(DecodeDevFmtType(params.fmt_type) == dftEPSON) {
+                if(DevFmtTypes().decode(params.fmt_type) == TDevFmt::EPSON) {
                     to_esc::TConvertParams ConvertParams;
                     ConvertParams.init(params.dev_model);
                     ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
@@ -2521,9 +2521,9 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                 parser.pts.tag_lang.Init(prnParams.pr_lat);
                 data = parser.parse(data);
                 TDevOper::Enum dev_oper_type = DevOperTypes().decode(item.op_type);
-                TDevFmtType dev_fmt_type = DecodeDevFmtType(item.fmt_type);
+                TDevFmt::Enum dev_fmt_type = DevFmtTypes().decode(item.fmt_type);
                 bool hex=false;
-                if(dev_fmt_type == dftEPSON) {
+                if(dev_fmt_type == TDevFmt::EPSON) {
                     to_esc::TConvertParams ConvertParams;
                     ConvertParams.init(item.dev_model);
                     to_esc::convert(data, ConvertParams, prnParams);

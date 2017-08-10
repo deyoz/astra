@@ -101,21 +101,6 @@ const std::string BCBPInternalWork::small_data_size(int i)
 {   return std::string("too small size of section (") + BCBPSectionsEnums::to_string(i) + ")";
 }
 
-TDevFmtType DecodeDevFmtType(string s)
-{
-  unsigned int i;
-  for(i=0;i<sizeof(TDevFmtTypeS)/sizeof(TDevFmtTypeS[0]);i+=1) if (s == TDevFmtTypeS[i]) break;
-  if (i<sizeof(TDevFmtTypeS)/sizeof(TDevFmtTypeS[0]))
-    return (TDevFmtType)i;
-  else
-    return dftUnknown;
-}
-
-string EncodeDevFmtType(TDevFmtType s)
-{
-  return TDevFmtTypeS[s];
-};
-
 ASTRA::TDevClassType getDevClass(const TOperMode desk_mode,
                                  const std::string &env_name)
 {
@@ -1652,12 +1637,12 @@ std::string BCBPSections::test_bcbp_build()
 
 }
 
-DeviceInfo::DeviceInfo(xmlNodePtr node) : _fmt_type(dftUnknown)
+DeviceInfo::DeviceInfo(xmlNodePtr node) : _fmt_type(TDevFmt::Unknown)
 {
   if (node==nullptr) return;
   xmlNodePtr node2=node->children;
   _dev_model=NodeAsStringFast("dev_model", node2);
-  _fmt_type=DecodeDevFmtType(NodeAsStringFast("fmt_type", node2));
+  _fmt_type=DevFmtTypes().decode(NodeAsStringFast("fmt_type", node2));
   for(xmlNodePtr paramNode=NodeAsNodeFast("params", node2)->children;
       paramNode!=nullptr;
       paramNode=paramNode->next) _params.insert(make_pair((const char*)paramNode->name, NodeAsString(paramNode)));
