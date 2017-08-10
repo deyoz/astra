@@ -269,7 +269,7 @@ class TPrnTagStore {
 //            }
 //        };
 
-        ASTRA::TDevOperType op_type;
+        ASTRA::TDevOper::Enum op_type;
         boost::shared_ptr<BCBPSections> scan_data;
         const std::string scan; // данные 2D баркода
         TBagReceipt rcpt;
@@ -320,10 +320,10 @@ class TPrnTagStore {
         };
 
         struct TTagProps {
-            ASTRA::TDevOperType op;
+            ASTRA::TDevOper::Enum op;
             std::map<std::string, TTagPropsItem> items;
-            TTagProps(ASTRA::TDevOperType vop);
-            void Init(ASTRA::TDevOperType vop);
+            TTagProps(ASTRA::TDevOper::Enum vop);
+            void Init(ASTRA::TDevOper::Enum vop);
         };
 
 
@@ -366,7 +366,7 @@ class TPrnTagStore {
                 act(ASTRA::NoExists),
                 point_id(ASTRA::NoExists)
             {};
-            void Init(ASTRA::TDevOperType op, int apoint_id, int grp_id);
+            void Init(ASTRA::TDevOper::Enum op, int apoint_id, int grp_id);
         };
         TPointInfo pointInfo;
 
@@ -678,8 +678,8 @@ class TPrnTagStore {
     public:
         TTagProps prn_tag_props;
         TTagLang tag_lang;
-        TPrnTagStore(ASTRA::TDevOperType _op_type, int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute = TTrferRoute());
-        TPrnTagStore(ASTRA::TDevOperType _op_type, const std::string &scan, bool apr_lat);
+        TPrnTagStore(ASTRA::TDevOper::Enum _op_type, int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute = TTrferRoute());
+        TPrnTagStore(ASTRA::TDevOper::Enum _op_type, const std::string &scan, bool apr_lat);
         TPrnTagStore(bool apr_lat);
         TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat);
         void set_tag(std::string name, const BIPrintRules::TRule &value);
@@ -687,7 +687,7 @@ class TPrnTagStore {
         void set_tag(std::string name, int value);
         void set_tag(std::string name, TDateTime value);
         std::string get_field(std::string name, size_t len, std::string align, std::string date_format, std::string tag_lang, bool pr_user_except = true);
-        void confirm_print(bool pr_print, ASTRA::TDevOperType op_type);
+        void confirm_print(bool pr_print, ASTRA::TDevOper::Enum op_type);
         std::string get_tag_no_err( // Версия get_tag, которая игнорирует ошибку "Данные печати не латинские"
                 std::string name,
                 std::string date_format = BASIC::date_time::ServerFormatDateTimeAsString,

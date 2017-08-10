@@ -6079,7 +6079,7 @@ void set_trip_sets(const TAdvTripInfo &flt)
   Qry.DeclareVariable("op_type", otString);
   for(int pass=0; pass<2; pass++)
   {
-    Qry.SetVariable("op_type", EncodeDevOperType(pass==0?dotPrnBP:dotPrnBI));
+    Qry.SetVariable("op_type", DevOperTypes().encode(pass==0?TDevOper::PrnBP:TDevOper::PrnBI));
     Qry.Execute();
 
     bool pr_first=true;
@@ -6092,7 +6092,7 @@ void set_trip_sets(const TAdvTripInfo &flt)
       {
         InsQry.SetVariable("class", cl);
         InsQry.SetVariable("bp_type", bp_type);
-        InsQry.SetVariable("op_type", EncodeDevOperType(pass==0?dotPrnBP:dotPrnBI));
+        InsQry.SetVariable("op_type", DevOperTypes().encode(pass==0?TDevOper::PrnBP:TDevOper::PrnBI));
         InsQry.Execute();
 
         ostringstream msg;

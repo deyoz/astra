@@ -99,12 +99,12 @@ namespace BIPrintRules {
 
     bool bi_airline_service(
             const TTripInfo &info,
-            TDevOperType op_type,
+            TDevOper::Enum op_type,
             TRule &rule
             )
     {
-        if(op_type != dotPrnBI and op_type != dotPrnBP) return false;
-        rule.pr_print_bi = op_type == dotPrnBI;
+        if(op_type != TDevOper::PrnBI and op_type != TDevOper::PrnBP) return false;
+        rule.pr_print_bi = op_type == TDevOper::PrnBI;
 
         TCachedQuery Qry(
                 "select "
@@ -158,12 +158,12 @@ namespace BIPrintRules {
         return result;
     }
 
-    bool TRule::tags_enabled(TDevOperType op_type, bool first_seg) const
+    bool TRule::tags_enabled(TDevOper::Enum op_type, bool first_seg) const
     {
         return
             exists() and                // правило существует
             (not pr_print_bi or         // Выключен признак Биз. пригл. в таблице Обслуживание АК в биз. залах
-             op_type == dotPrnBI) and   // или тек. операция - печать приглашений
+             op_type == TDevOper::PrnBI) and   // или тек. операция - печать приглашений
             first_seg;                  // тек. пакс из первого сегмента
     }
 
@@ -210,7 +210,7 @@ namespace BIPrintRules {
         return result;
     }
 
-    int Holder::get_hall_id(TDevOperType op_type, int pax_id)
+    int Holder::get_hall_id(TDevOper::Enum op_type, int pax_id)
     {
         TCachedQuery Qry(
                 "select confirm_print.hall_id "
@@ -218,7 +218,7 @@ namespace BIPrintRules {
                 "     (SELECT MAX(time_print) AS time_print FROM confirm_print WHERE pax_id=:pax_id and voucher is null AND pr_print<>0 and " OP_TYPE_COND("op_type")") a "
                 "WHERE confirm_print.time_print=a.time_print AND confirm_print.pax_id=:pax_id AND voucher is null and "
                 "      " OP_TYPE_COND("confirm_print.op_type"),
-                QParams() << QParam("pax_id", otInteger, pax_id) << QParam("op_type", otString, EncodeDevOperType(op_type))
+                QParams() << QParam("pax_id", otInteger, pax_id) << QParam("op_type", otString, DevOperTypes().encode(op_type))
                 );
         Qry.get().Execute();
         int result = NoExists;
@@ -227,7 +227,7 @@ namespace BIPrintRules {
         return result;
     }
 
-    void Holder::toXML(TDevOperType op_type, xmlNodePtr resNode)
+    void Holder::toXML(TDevOper::Enum op_type, xmlNodePtr resNode)
     {
         xmlNodePtr paxListNode = NULL;
         for(TPaxList::const_iterator i = items.begin(); i != items.end(); i++) {
@@ -452,7 +452,7 @@ void TPrPrint::fromDB(int grp_id, int pax_id, TQuery &Qry)
             QParams() << QParam("grp_id", otInteger, grp_id));
     grpQry.get().Execute();
 
-    Qry.SetVariable("op_type", EncodeDevOperType(dotPrnBI));
+    Qry.SetVariable("op_type", DevOperTypes().encode(TDevOper::PrnBI));
 
     for(; not grpQry.get().Eof; grpQry.get().Next()) {
         int grp_pax_id = grpQry.get().FieldAsInteger("pax_id");
@@ -513,7 +513,7 @@ void TPrPrint::get_pr_print(int grp_id, int pax_id, bool &pr_bp_print, bool &pr_
 {
     TCachedQuery Qry(
             "SELECT pax_id FROM confirm_print WHERE pax_id=:pax_id and voucher is null AND pr_print<>0 AND rownum=1 and " OP_TYPE_COND("op_type"),
-            QParams() << QParam("pax_id", otInteger, pax_id) << QParam("op_type", otString, EncodeDevOperType(dotPrnBP))
+            QParams() << QParam("pax_id", otInteger, pax_id) << QParam("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP))
             );
     Qry.get().Execute();
     pr_bp_print = not Qry.get().Eof;

@@ -557,7 +557,7 @@ void GetTerminalParams(xmlNodePtr reqNode, std::vector<std::string> &paramsList 
   if ( node == NULL || node->children == NULL ) return;
   string params;
   node = node->children;
-  while ( node != NULL && string((char*)node->name) == "param" ) {
+  while ( node != NULL && string((const char*)node->name) == "param" ) {
     if ( !params.empty() )
       params += " ";
     params += string("'") + NodeAsString( node ) + "'";
@@ -593,12 +593,12 @@ struct TPlatformParams
                   const string& p3) : dev_model(p1), addr(p2), pool_key(p3) {};
 };
 
-void AddPlatformParams(const ASTRA::TDevOperType &oper,
+void AddPlatformParams(const ASTRA::TDevOper::Enum &oper,
                        const string &dev_model,
                        const vector<string> &addrs,
                        const string &pool_key,
                        const set<string> &addrs_in_use,
-                       map<TDevOperType, TPlatformParams > &opers)
+                       map<TDevOper::Enum, TPlatformParams > &opers)
 {
   if ( opers.find( oper ) == opers.end() )
   {
@@ -616,7 +616,7 @@ void AddPlatformParams(const ASTRA::TDevOperType &oper,
 
 void GetPlatformAddrs( const ASTRA::TOperMode desk_mode,
                        xmlNodePtr reqNode,
-                       map<TDevOperType, TPlatformParams > &opers,
+                       map<TDevOper::Enum, TPlatformParams > &opers,
                        map<string/*dev_model*/, set<string> > &addrs )
 {
   opers.clear();
@@ -662,7 +662,7 @@ void GetPlatformAddrs( const ASTRA::TOperMode desk_mode,
   {
     for(xmlNodePtr node = n->children; node!=NULL; node = node->next)
     {
-      string env_name=(char*)node->name;
+      string env_name=(const char*)node->name;
       ASTRA::TDevClassType dev_class=getDevClass(desk_mode, env_name);
       string dev_model=getDefaultDevModel(desk_mode, dev_class);
 
@@ -683,17 +683,17 @@ void GetPlatformAddrs( const ASTRA::TOperMode desk_mode,
         dev_addrs_set.insert(dev_addrs.begin(), dev_addrs.end());
 
         if ( dev_class == dctATB )
-          AddPlatformParams(dotPrnBP, dev_model, dev_addrs, env_name, set<string>(), opers);
+          AddPlatformParams(TDevOper::PrnBP, dev_model, dev_addrs, env_name, set<string>(), opers);
 
         if ( dev_class == dctBTP )
-          AddPlatformParams(dotPrnBT, dev_model, dev_addrs, env_name, set<string>(), opers);
+          AddPlatformParams(TDevOper::PrnBT, dev_model, dev_addrs, env_name, set<string>(), opers);
 
         if ( dev_class == dctDCP )
         {
-          AddPlatformParams(dotPrnFlt, dev_model, dev_addrs, env_name, set<string>(), opers);
-          AddPlatformParams(dotPrnArch, dev_model, dev_addrs, env_name, set<string>(), opers);
-          AddPlatformParams(dotPrnDisp, dev_model, dev_addrs, env_name, set<string>(), opers);
-          AddPlatformParams(dotPrnTlg, dev_model, dev_addrs, env_name, set<string>(), opers);
+          AddPlatformParams(TDevOper::PrnFlt, dev_model, dev_addrs, env_name, set<string>(), opers);
+          AddPlatformParams(TDevOper::PrnArch, dev_model, dev_addrs, env_name, set<string>(), opers);
+          AddPlatformParams(TDevOper::PrnDisp, dev_model, dev_addrs, env_name, set<string>(), opers);
+          AddPlatformParams(TDevOper::PrnTlg, dev_model, dev_addrs, env_name, set<string>(), opers);
         };
 
         if ( dev_class == dctBGR ||
@@ -701,31 +701,31 @@ void GetPlatformAddrs( const ASTRA::TOperMode desk_mode,
              dev_class == dctWGE)
         {
           set<string> addrs_in_use;
-          AddPlatformParams(dotScnBP1, dev_model, dev_addrs, env_name, addrs_in_use, opers);
-          if ( opers.find( dotScnBP1 ) != opers.end() )
+          AddPlatformParams(TDevOper::ScnBP1, dev_model, dev_addrs, env_name, addrs_in_use, opers);
+          if ( opers.find( TDevOper::ScnBP1 ) != opers.end() )
           {
-            addrs_in_use.insert(opers[dotScnBP1].addr);
-            AddPlatformParams(dotScnBP2, dev_model, dev_addrs, env_name, addrs_in_use, opers);
+            addrs_in_use.insert(opers[TDevOper::ScnBP1].addr);
+            AddPlatformParams(TDevOper::ScnBP2, dev_model, dev_addrs, env_name, addrs_in_use, opers);
           };
         }
 
         if ( dev_class == dctOCR ||
              dev_class == dctWGE)
-          AddPlatformParams(dotScnDoc, dev_model, dev_addrs, env_name, set<string>(), opers);
+          AddPlatformParams(TDevOper::ScnDoc, dev_model, dev_addrs, env_name, set<string>(), opers);
 
         if ( dev_class == dctMSR ||
              dev_class == dctWGE)
-          AddPlatformParams(dotScnCard, dev_model, dev_addrs, env_name, set<string>(), opers);
+          AddPlatformParams(TDevOper::ScnCard, dev_model, dev_addrs, env_name, set<string>(), opers);
       };
     };
   };
 
-  if ( opers.find( dotScnBP1 ) != opers.end() &&
-       opers.find( dotScnBP2 ) != opers.end() &&
-       opers[dotScnBP1].pool_key == opers[dotScnBP2].pool_key)
+  if ( opers.find( TDevOper::ScnBP1 ) != opers.end() &&
+       opers.find( TDevOper::ScnBP2 ) != opers.end() &&
+       opers[TDevOper::ScnBP1].pool_key == opers[TDevOper::ScnBP2].pool_key)
   {
-    opers[dotScnBP1].pool_key+="1";
-    opers[dotScnBP2].pool_key+="2";
+    opers[TDevOper::ScnBP1].pool_key+="1";
+    opers[TDevOper::ScnBP2].pool_key+="2";
   };
 
   string str_addrs;
@@ -909,7 +909,7 @@ void GetSessionAirlines(const vector<string> &run_params, TSessionAirlines &airl
       {
         try
         {
-          TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code/code_lat",code));
+          const TAirlinesRow &row=(const TAirlinesRow&)(base_tables.get("airlines").get_row("code/code_lat",code));
           airline=row.code;
           sess.code=row.code;
           sess.code_lat=row.code_lat;
@@ -922,7 +922,7 @@ void GetSessionAirlines(const vector<string> &run_params, TSessionAirlines &airl
       {
         try
         {
-          TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("aircode",code));
+          const TAirlinesRow &row=(const TAirlinesRow&)(base_tables.get("airlines").get_row("aircode",code));
           airline=row.code;
           sess.code=row.code;
           sess.code_lat=row.code_lat;
@@ -1009,7 +1009,7 @@ void PutSessionAirlines(const TSessionAirlines &airlines, xmlNodePtr resNode)
     {
       if (airlines.find(*i)!=airlines.end()) continue;
 
-      TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code",*i));
+      const TAirlinesRow &row=(const TAirlinesRow&)(base_tables.get("airlines").get_row("code",*i));
       TSessionAirline sess;
       sess.code=row.code;
       sess.code_lat=row.code_lat;
@@ -1256,7 +1256,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
                                                    DefQry.FieldAsString( "fmt_type" ) ) );
   }
 
-  map<TDevOperType, TPlatformParams > opers;
+  map<TDevOper::Enum, TPlatformParams > opers;
   map<string/*dev_model*/, set<string> > valid_addrs;
   if ( reqInfo->desk.mode==omRESA ||
        reqInfo->desk.mode==omCUSE ||
@@ -1287,7 +1287,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
         def->dev_model.clear();
         def->sess_type.clear();
         def->fmt_type.clear();
-        TDevOperType oper=DecodeDevOperType(def->op_type);
+        TDevOper::Enum oper=DevOperTypes().decode(def->op_type);
         if (!opers[oper].addr.empty())
         {
           DefQry.SetVariable( "op_type", def->op_type );
@@ -1431,7 +1431,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
            reqInfo->desk.mode==omCUSE ||
            (reqInfo->desk.mode==omMUSE && reqInfo->desk.compatible(MUSE_DEV_VARIABLES)) )
       {
-        TDevOperType oper=DecodeDevOperType(operation);
+        TDevOper::Enum oper=DevOperTypes().decode(operation);
         if (!opers[oper].dev_model.empty() && opers[oper].dev_model==dev_model)
         {
           for(TCategoryDevParams::iterator p=params.begin();p!=params.end();++p)
@@ -1849,17 +1849,17 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   {
     vector<TScanParams> ScanParams;
     TScanParams params;
-    TDevOperType op_type=DecodeDevOperType(NodeAsString("operation/@type",reqNode));
-    if (op_type!=dotScnBP1 &&
-        op_type!=dotScnBP2 &&
-        op_type!=dotScnDoc &&
-        op_type!=dotScnCard) throw EConvertError("op_type=%s not supported",EncodeDevOperType(op_type).c_str());
+    TDevOper::Enum op_type=DevOperTypes().decode(NodeAsString("operation/@type",reqNode));
+    if (op_type!=TDevOper::ScnBP1 &&
+        op_type!=TDevOper::ScnBP2 &&
+        op_type!=TDevOper::ScnDoc &&
+        op_type!=TDevOper::ScnCard) throw EConvertError("op_type=%s not supported",DevOperTypes().encode(op_type).c_str());
 
-    TDevFmtType fmt_type=DecodeDevFmtType(NodeAsString("operation/fmt_params/@type",reqNode));
-    if (fmt_type!=dftSCAN1 &&
-        fmt_type!=dftBCR &&
-        fmt_type!=dftSCAN2 &&
-        fmt_type!=dftSCAN3) throw EConvertError("fmt_type=%s not supported",EncodeDevFmtType(fmt_type).c_str());
+    TDevFmt::Enum fmt_type=DevFmtTypes().decode(NodeAsString("operation/fmt_params/@type",reqNode));
+    if (fmt_type!=TDevFmt::SCAN1 &&
+        fmt_type!=TDevFmt::BCR &&
+        fmt_type!=TDevFmt::SCAN2 &&
+        fmt_type!=TDevFmt::SCAN3) throw EConvertError("fmt_type=%s not supported",DevFmtTypes().encode(fmt_type).c_str());
     xmlNodePtr node;
     node=GetNode("operation/fmt_params/encoding",reqNode);
     if (node==NULL) throw EConvertError("Node 'encoding' not found");
@@ -1873,17 +1873,17 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       data=ConvertCodepage(data,encoding,"CP866"); //иногда возвращает EConvertError
       ProgTrace(TRACE5,"DetermineScanParams: data=%s", data.c_str());
 
-      if (op_type==dotScnBP1 || op_type==dotScnBP2)
+      if (op_type==TDevOper::ScnBP1 || op_type==TDevOper::ScnBP2)
       {
         if (ParseScanBPData(data,params))
           ScanParams.push_back(params);
       };
-      if (op_type==dotScnDoc)
+      if (op_type==TDevOper::ScnDoc)
       {
         if (ParseScanDocData(data,params))
           ScanParams.push_back(params);
       };
-      if (op_type==dotScnCard)
+      if (op_type==TDevOper::ScnCard)
       {
         if (ParseScanCardData(data,params))
           ScanParams.push_back(params);
@@ -1896,7 +1896,7 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         params=*i;
       else
       {
-        if (fmt_type==dftSCAN1 || fmt_type==dftBCR)
+        if (fmt_type==TDevFmt::SCAN1 || fmt_type==TDevFmt::BCR)
         {
           if (params.prefix.size()!=i->prefix.size() ||
               params.postfix!=i->postfix) throw EConvertError("Different prefix size or postfix");
@@ -1908,14 +1908,14 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
             if (*j1!=*j2) break;
           if (params.prefix.size()-j>params.code_id_len) params.code_id_len=params.prefix.size()-j;
         };
-        if (fmt_type==dftSCAN2 || fmt_type==dftSCAN3)
+        if (fmt_type==TDevFmt::SCAN2 || fmt_type==TDevFmt::SCAN3)
         {
           if (params.prefix !=i->prefix ||
               params.postfix!=i->postfix) throw EConvertError("Different prefix or postfix");
         };
       };
     };
-    if (fmt_type==dftSCAN1 || fmt_type==dftBCR)
+    if (fmt_type==TDevFmt::SCAN1 || fmt_type==TDevFmt::BCR)
     {
       //вычисляем prefix с учетом code_id_len
       if (params.code_id_len>9 ||
@@ -1929,7 +1929,7 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     NewTextChild(node,"prefix",data);
     StringToHex(ConvertCodepage(params.postfix,"CP866",encoding),data);
     NewTextChild(node,"postfix",data);
-    if (fmt_type==dftSCAN1 || fmt_type==dftBCR)
+    if (fmt_type==TDevFmt::SCAN1 || fmt_type==TDevFmt::BCR)
     {
       NewTextChild(node,"code_id_len",(int)params.code_id_len);
     };

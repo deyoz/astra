@@ -85,7 +85,7 @@ namespace to_esc {
                     "  dev_model nulls last, "
                     "  desk_grp_id nulls last ";
                 Qry.DeclareVariable("dev_model", otString);
-                Qry.CreateVariable("fmt_type", otString, EncodeDevFmtType(dftEPSON));
+                Qry.CreateVariable("fmt_type", otString, DevFmtTypes().encode(TDevFmt::EPSON));
                 Qry.DeclareVariable("param_name", otString);
                 Qry.CreateVariable("desk_grp_id", otInteger, TReqInfo::Instance()->desk.grp_id);
             };
@@ -895,32 +895,32 @@ string PrintDataParser::parse_tag(int offset, string tag)
             return data;
         }
 
-        string DoIt(TDevFmtType fmt_type, string data)
+        string DoIt(TDevFmt::Enum fmt_type, string data)
         {
             string result;
             switch(fmt_type) {
-                case dftTEXT:
-                case dftFRX:
+                case TDevFmt::TEXT:
+                case TDevFmt::FRX:
                     result = data;
                     break;
-                case dftATB:
-                case dftBTP:
-                case dftZPL2:
+                case TDevFmt::ATB:
+                case TDevFmt::BTP:
+                case TDevFmt::ZPL2:
                     result = delete_all_CR_LF(data);
                     break;
-                case dftEPL2:
-                case dftDPL:
-                case dftEPSON:
+                case TDevFmt::EPL2:
+                case TDevFmt::DPL:
+                case TDevFmt::EPSON:
                     result = place_CR_LF(data);
                     break;
-                case dftGraphics2D:
+                case TDevFmt::Graphics2D:
                     result = place_LF(data);
                     break;
-                case dftSCAN1:
-                case dftSCAN2:
-                case dftSCAN3:
-                case dftBCR:
-                case dftUnknown:
+                case TDevFmt::SCAN1:
+                case TDevFmt::SCAN2:
+                case TDevFmt::SCAN3:
+                case TDevFmt::BCR:
+                case TDevFmt::Unknown:
                     throw Exception("AdjustCR_LF: unknown fmt_type");
             }
             return result;
@@ -928,11 +928,11 @@ string PrintDataParser::parse_tag(int offset, string tag)
 
         string DoIt(string fmt_type, string data)
         {
-            return DoIt(DecodeDevFmtType(fmt_type), data);
+            return DoIt(DevFmtTypes().decode(fmt_type), data);
         }
     };
 
-void GetTripBPPectabs(int point_id, TDevOperType op_type, const string &dev_model, const string &fmt_type, xmlNodePtr node)
+void GetTripBPPectabs(int point_id, TDevOper::Enum op_type, const string &dev_model, const string &fmt_type, xmlNodePtr node)
 {
     if (node==NULL) return;
     TQuery Qry(&OraSession);
@@ -945,7 +945,7 @@ void GetTripBPPectabs(int point_id, TDevOperType op_type, const string &dev_mode
         "WHERE point_id=:point_id AND op_type=:op_type "
         "ORDER BY class, priority DESC ";
     Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
     Qry.Execute();
     vector<string> bp_types;
     string prior_class;
@@ -975,7 +975,7 @@ void GetTripBPPectabs(int point_id, TDevOperType op_type, const string &dev_mode
         "   bp_models.version = prn_form_vers.version and "
         "   prn_form_vers.form IS NOT NULL";
     Qry.DeclareVariable("form_type", otString);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
     Qry.CreateVariable("dev_model", otString, dev_model);
     Qry.CreateVariable("fmt_type", otString, fmt_type);
     xmlNodePtr formNode=NewTextChild(node,"bp_forms");
@@ -1107,7 +1107,7 @@ struct TTagKey {
     TTagKey(): grp_id(0), pr_lat(false), no(-1.0) {};
 };
 
-void big_test(PrintDataParser &parser, TDevOperType op_type)
+void big_test(PrintDataParser &parser, TDevOper::Enum op_type)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -1129,7 +1129,7 @@ void big_test(PrintDataParser &parser, TDevOperType op_type)
         "   fmt_type, "
         "   id, "
         "   version";
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
     Qry.Execute();
     ofstream out("check_parse");
     for(; not Qry.Eof; Qry.Next()) {
@@ -1273,7 +1273,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
           pax_id = Qry.FieldAsInteger("pax_id");
         };
 
-        PrintDataParser parser(dotPrnBT, tag_key.grp_id, pax_id, tag_key.pr_lat, NULL, route);
+        PrintDataParser parser(TDevOper::PrnBT, tag_key.grp_id, pax_id, tag_key.pr_lat, NULL, route);
 
         parser.pts.set_tag(TAG::AIRCODE, aircode);
         parser.pts.set_tag(TAG::NO, no);
@@ -1298,7 +1298,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 
         for(int i = 0; i < BT_count; ++i) {
             set_via_fields(parser, route, i * VIA_num, (i + 1) * VIA_num);
-//            big_test(parser, dotPrnBT);
+//            big_test(parser, TDevOper::PrnBT);
             string prn_form = parser.parse(prn_forms.back());
 //            ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
             SetProp(NewTextChild(tagNode, "prn_form", prn_form),"hex",(int)false);
@@ -1385,7 +1385,7 @@ void PrintInterface::GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     GetPrintDataBT(dataNode, tag_key);
 }
 
-void PrintInterface::ConfirmPrintBP(TDevOperType op_type,
+void PrintInterface::ConfirmPrintBP(TDevOper::Enum op_type,
                                     const std::vector<BPPax> &paxs,
                                     CheckIn::UserException &ue)
 {
@@ -1404,7 +1404,7 @@ void PrintInterface::ConfirmPrintBP(TDevOperType op_type,
         "  RETURNING seat_no INTO :seat_no; "
         "  :rows:=SQL%ROWCOUNT; "
         "END;";
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
     Qry.DeclareVariable("rows", otInteger);
     Qry.DeclareVariable("seat_no", otString);
     Qry.DeclareVariable("pax_id", otInteger);
@@ -1428,7 +1428,7 @@ void PrintInterface::ConfirmPrintBP(TDevOperType op_type,
 
             string lexeme;
             switch(op_type) {
-                case dotPrnBP:
+                case TDevOper::PrnBP:
                     lexeme = (iPax->voucher.empty() ? "EVT.PRINT_BOARDING_PASS" : "EVT.PRINT_VOUCHER");
                     if(not iPax->voucher.empty())
                         params << PrmSmpl<string>("voucher", ElemIdToNameLong(etVoucherType, iPax->voucher));
@@ -1437,7 +1437,7 @@ void PrintInterface::ConfirmPrintBP(TDevOperType op_type,
                         else params << PrmSmpl<std::string>("seat_no", seat_no);
                     }
                     break;
-                case dotPrnBI:
+                case TDevOper::PrnBI:
                     lexeme = "EVT.PRINT_INVITATION";
                     break;
                 default:
@@ -1472,7 +1472,7 @@ string getVoucherCode(xmlNodePtr prnCodeNode)
 
 void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    TDevOperType op_type = DecodeDevOperType(NodeAsString("@op_type", reqNode, EncodeDevOperType(dotPrnBP).c_str()));
+    TDevOper::Enum op_type = DevOperTypes().decode(NodeAsString("@op_type", reqNode, DevOperTypes().encode(TDevOper::PrnBP).c_str()));
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText =
         "SELECT pax.grp_id, surname||' '||name full_name, reg_no, point_dep "
@@ -1580,7 +1580,7 @@ void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser,
         string &Print, bool &hex, xmlNodePtr reqNode)
 {
-//    big_test(parser, dotPrnBR);
+//    big_test(parser, TDevOper::PrnBR);
     xmlNodePtr currNode = reqNode->children;
     string dev_model = NodeAsStringFast("dev_model", currNode);
     string fmt_type = NodeAsStringFast("fmt_type", currNode);
@@ -1613,7 +1613,7 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser,
     string mso_form = AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("data"));
     mso_form = parser.parse(mso_form);
     hex=false;
-    if(DecodeDevFmtType(fmt_type) == dftEPSON) {
+    if(DevFmtTypes().decode(fmt_type) == TDevFmt::EPSON) {
       to_esc::TConvertParams ConvertParams;
       ConvertParams.init(dev_model);
       LogTrace(TRACE5) << "br form: " << mso_form;
@@ -1747,18 +1747,18 @@ void tst_dump(int pax_id, int grp_id, bool pr_lat)
 {
     vector<string> tags;
     {
-        TPrnTagStore pts(dotPrnBP, grp_id, pax_id, pr_lat, NULL);
+        TPrnTagStore pts(TDevOper::PrnBP, grp_id, pax_id, pr_lat, NULL);
         pts.tst_get_tag_list(tags);
     }
     for(vector<string>::iterator iv = tags.begin(); iv != tags.end(); iv++) {
-        TPrnTagStore tmp_pts(dotPrnBP, grp_id, pax_id, pr_lat, NULL);
+        TPrnTagStore tmp_pts(TDevOper::PrnBP, grp_id, pax_id, pr_lat, NULL);
         tmp_pts.set_tag("gate", "");
         ProgTrace(TRACE5, "tag: %s; value: '%s'", iv->c_str(), tmp_pts.get_field(*iv, 0, "L", "dd.mm hh:nn", "R").c_str());
-        tmp_pts.confirm_print(false, dotPrnBP);
+        tmp_pts.confirm_print(false, TDevOper::PrnBP);
     }
 }
 
-void PrintInterface::check_pectab_availability(BPParams &params, int grp_id, TDevOperType op_type)
+void PrintInterface::check_pectab_availability(BPParams &params, int grp_id, TDevOper::Enum op_type)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText="SELECT point_dep, class, status FROM pax_grp WHERE grp_id=:grp_id";
@@ -1783,13 +1783,13 @@ void PrintInterface::check_pectab_availability(BPParams &params, int grp_id, TDe
         "ORDER BY priority DESC ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("class", otString, cl);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
     Qry.Execute();
     if(Qry.Eof)
         switch(op_type) {
-            case dotPrnBP:
+            case TDevOper::PrnBP:
                 throw AstraLocale::UserException("MSG.BP_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS");
-            case dotPrnBI:
+            case TDevOper::PrnBI:
                 throw AstraLocale::UserException("MSG.BI_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS");
             default:
                 throw Exception("%d: %d: unexpected dev oper type %d", op_type);
@@ -1798,7 +1798,7 @@ void PrintInterface::check_pectab_availability(BPParams &params, int grp_id, TDe
 }
 
 void PrintInterface::get_pectab(
-        TDevOperType op_type,
+        TDevOper::Enum op_type,
         BPParams &params,
         string &data,
         string &pectab
@@ -1821,20 +1821,20 @@ void PrintInterface::get_pectab(
         "   bp_models.id = prn_form_vers.id and "
         "   bp_models.version = prn_form_vers.version ";
     Qry.CreateVariable("form_type", otString, params.form_type);
-    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
+    Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
     Qry.CreateVariable("dev_model", otString, params.dev_model);
     Qry.CreateVariable("fmt_type", otString, params.fmt_type);
     Qry.Execute();
     if(Qry.Eof or
        Qry.FieldIsNULL("data") or
-       (Qry.FieldIsNULL( "form" ) and (DecodeDevFmtType(params.fmt_type) == dftBTP or
-                                     DecodeDevFmtType(params.fmt_type) == dftATB))
+       (Qry.FieldIsNULL( "form" ) and (DevFmtTypes().decode(params.fmt_type) == TDevFmt::BTP or
+                                     DevFmtTypes().decode(params.fmt_type) == TDevFmt::ATB))
       ) {
         switch(op_type) {
-            case dotPrnBP:
+            case TDevOper::PrnBP:
                 previewDeviceSets(true, "MSG.PRINT.BP_UNAVAILABLE_FOR_THIS_DEVICE");
                 break;
-            case dotPrnBI:
+            case TDevOper::PrnBI:
                 previewDeviceSets(true, "MSG.PRINT.BI_UNAVAILABLE_FOR_THIS_DEVICE");
                 break;
             default:
@@ -1851,7 +1851,7 @@ bool IsErrPax(const PrintInterface::BPPax &pax)
 }
 
 void PrintInterface::GetPrintDataBP(
-                                    TDevOperType op_type,
+                                    TDevOper::Enum op_type,
                                     BPParams &params,
                                     std::string &data,
                                     string &pectab,
@@ -1882,7 +1882,7 @@ void PrintInterface::GetPrintDataBP(
             }
         else
             parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->scan, true));
-        //        big_test(parser, dotPrnBP);
+        //        big_test(parser, TDevOper::PrnBP);
         // если это нулевой сегмент, то тогда печатаем выход на посадку иначе не нечатаем
         //надо удалить выход на посадку из данных по пассажиру
         if (iPax->gate.second)
@@ -1901,7 +1901,7 @@ void PrintInterface::GetPrintDataBP(
 
         iPax->prn_form = parser->parse(data);
         iPax->hex=false;
-        if(DecodeDevFmtType(params.fmt_type) == dftEPSON) {
+        if(DevFmtTypes().decode(params.fmt_type) == TDevFmt::EPSON) {
             to_esc::TConvertParams ConvertParams;
             ConvertParams.init(params.dev_model);
             ProgTrace(TRACE5, "prn_form: %s", iPax->prn_form.c_str());
@@ -2000,7 +2000,7 @@ void PrintInterface::GetPrintDataVO(
 
         xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"), "print");
         string data, pectab;
-        get_pectab(dotPrnBP, params, data, pectab);
+        get_pectab(TDevOper::PrnBP, params, data, pectab);
         NewTextChild(BPNode, "pectab", pectab);
         xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
 
@@ -2023,7 +2023,7 @@ void PrintInterface::GetPrintDataVO(
                 int grp_id = Qry.get().FieldAsInteger("grp_id");
                 int reg_no = Qry.get().FieldAsInteger("reg_no");
 
-                PrintDataParser parser(dotPrnBP, grp_id, pax->first, params.prnParams.pr_lat, params.clientDataNode);
+                PrintDataParser parser(TDevOper::PrnBP, grp_id, pax->first, params.prnParams.pr_lat, params.clientDataNode);
 
                 parser.pts.set_tag(TAG::VOUCHER_CODE, v->first);
                 parser.pts.set_tag(TAG::VOUCHER_TEXT, v->first);
@@ -2031,7 +2031,7 @@ void PrintInterface::GetPrintDataVO(
 
                 string prn_form = parser.parse(data);
                 bool hex = false;
-                if(DecodeDevFmtType(params.fmt_type) == dftEPSON) {
+                if(DevFmtTypes().decode(params.fmt_type) == TDevFmt::EPSON) {
                     to_esc::TConvertParams ConvertParams;
                     ConvertParams.init(params.dev_model);
                     ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
@@ -2040,7 +2040,7 @@ void PrintInterface::GetPrintDataVO(
                     LogTrace(TRACE5) << "after StringToHex prn_form: " << prn_form;
                     hex=true;
                 }
-                parser.pts.confirm_print(false, dotPrnBP);
+                parser.pts.confirm_print(false, TDevOper::PrnBP);
 
                 xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
                 SetProp(paxNode, "pax_id", pax->first);
@@ -2061,7 +2061,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     int first_seg_grp_id = NodeAsIntegerFast("grp_id", currNode, NoExists); // grp_id - первого сегмента или ид. группы
     int pax_id = NodeAsIntegerFast("pax_id", currNode, NoExists);
     int pr_all = NodeAsIntegerFast("pr_all", currNode, NoExists);
-    TDevOperType op_type = DecodeDevOperType(NodeAsStringFast("op_type", currNode, EncodeDevOperType(dotPrnBP).c_str()));
+    TDevOper::Enum op_type = DevOperTypes().decode(NodeAsStringFast("op_type", currNode, DevOperTypes().encode(TDevOper::PrnBP).c_str()));
     bool pr_voucher = GetNodeFast("vouchers", currNode) != NULL;
     params.dev_model = NodeAsStringFast("dev_model", currNode);
     params.fmt_type = NodeAsStringFast("fmt_type", currNode);
@@ -2128,7 +2128,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                 "       cp.pr_print(+) <> 0 AND "
                 "       cp.pax_id IS NULL "
                 "ORDER BY pax.reg_no, pax.seats DESC";
-            Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
+            Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
         }
         Qry.DeclareVariable( "grp_id", otInteger );
         for( vector<int>::iterator igrp=grps.begin(); igrp!=grps.end(); igrp++ ) {
@@ -2177,7 +2177,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
             bi_access = bi_access or not (not bi_rule.exists() or not bi_rule.pr_print_bi);
         }
-        if(op_type == dotPrnBI and not bi_access)
+        if(op_type == TDevOper::PrnBI and not bi_access)
             throw AstraLocale::UserException("MSG.BI.ACCESS_DENIED");
     }
 
@@ -2206,8 +2206,8 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             // В режиме приглашений выводим только тех, у кого есть правила.
             const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
             bool pr_print =
-                op_type == dotPrnBP or
-                (op_type == dotPrnBI and bi_rule.exists() and first_seg_grp_id == iPax->grp_id);
+                op_type == TDevOper::PrnBP or
+                (op_type == TDevOper::PrnBI and bi_rule.exists() and first_seg_grp_id == iPax->grp_id);
 
             xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
             SetProp(paxNode, "pax_id", iPax->pax_id);
@@ -2252,7 +2252,7 @@ struct TOpsItem {
 };
 
 struct TOps {
-    map<TDevOperType, TOpsItem> items;
+    map<TDevOper::Enum, TOpsItem> items;
     TOps(xmlNodePtr node);
 };
 
@@ -2266,7 +2266,7 @@ TOps::TOps(xmlNodePtr node)
             continue;
         opsItem.fmt_type = NodeAsString("fmt_type", currNode);
         opsItem.prnParams.get_prn_params(currNode);
-        items[DecodeDevOperType(NodeAsString("@type", currNode))] = opsItem;
+        items[DevOperTypes().decode(NodeAsString("@type", currNode))] = opsItem;
     }
 }
 
@@ -2322,7 +2322,7 @@ void PrintInterface::print_bp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         if(not Qry.get().Eof) {
             int grp_id = Qry.get().FieldAsInteger("grp_id");
             int pax_id = Qry.get().FieldAsInteger("pax_id");
-            PrintDataParser parser(dotPrnBP, grp_id, pax_id, false, NULL);
+            PrintDataParser parser(TDevOper::PrnBP, grp_id, pax_id, false, NULL);
             parser.pts.set_tag(TAG::GATE, "ВРАТА");
             parser.pts.set_tag(TAG::DUPLICATE, 1);
             parser.pts.set_tag(TAG::VOUCHER_CODE, "DV");
@@ -2374,19 +2374,19 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                 string form = AdjustCR_LF::DoIt(item.fmt_type, Qry.FieldAsString("form"));
                 string data = AdjustCR_LF::DoIt(item.fmt_type, Qry.FieldAsString("data"));
                 TPrnParams prnParams;
-                map<TDevOperType, TOpsItem>::iterator oi = ops.items.find(DecodeDevOperType(item.op_type));
+                map<TDevOper::Enum, TOpsItem>::iterator oi = ops.items.find(DevOperTypes().decode(item.op_type));
                 if(
                         oi != ops.items.end()and
                         oi->second.fmt_type == item.fmt_type
                   )
                     prnParams = oi->second.prnParams;
-                parser.pts.prn_tag_props.Init(DecodeDevOperType(item.op_type));
+                parser.pts.prn_tag_props.Init(DevOperTypes().decode(item.op_type));
                 parser.pts.tag_lang.Init(prnParams.pr_lat);
                 data = parser.parse(data);
-                TDevOperType dev_oper_type = DecodeDevOperType(item.op_type);
-                TDevFmtType dev_fmt_type = DecodeDevFmtType(item.fmt_type);
+                TDevOper::Enum dev_oper_type = DevOperTypes().decode(item.op_type);
+                TDevFmt::Enum dev_fmt_type = DevFmtTypes().decode(item.fmt_type);
                 bool hex=false;
-                if(dev_fmt_type == dftEPSON) {
+                if(dev_fmt_type == TDevFmt::EPSON) {
                     to_esc::TConvertParams ConvertParams;
                     ConvertParams.init(item.dev_model);
                     to_esc::convert(data, ConvertParams, prnParams);
@@ -2403,7 +2403,7 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                 if (node!=NULL)
                 {
                   SetProp(node, "hex", (int)hex);
-                  if (dev_oper_type == dotPrnBP) {
+                  if (dev_oper_type == TDevOper::PrnBP) {
                     string barcode;
                     if(parser.pts.tag_processed(TAG::PAX_ID))
                         barcode = parser.pts.get_tag(TAG::PAX_ID);

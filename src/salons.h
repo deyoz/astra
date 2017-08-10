@@ -1193,8 +1193,8 @@ struct ComparePassenger {
 struct CompareGrpStatus {
   bool operator() ( const std::string grp_status1, const std::string grp_status2  ) const {
     TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
-     const TGrpStatusTypesRow &row1 = (TGrpStatusTypesRow&)grp_status_types.get_row( "code", grp_status1 );
-     const TGrpStatusTypesRow &row2 = (TGrpStatusTypesRow&)grp_status_types.get_row( "code", grp_status2 );
+     const TGrpStatusTypesRow &row1 = (const TGrpStatusTypesRow&)grp_status_types.get_row( "code", grp_status1 );
+     const TGrpStatusTypesRow &row2 = (const TGrpStatusTypesRow&)grp_status_types.get_row( "code", grp_status2 );
     if ( row1.priority != row2.priority ) {
       return ( row1.priority < row2.priority );
     }
