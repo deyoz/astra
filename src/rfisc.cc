@@ -624,32 +624,27 @@ void TRFISCKey::getListItemIfNone()
   if (!list_item) getListItem();
 }
 
-void TRFISCKey::getListItemAuto(int pax_id, int transfer_num, const std::string& rfic)
+void TRFISCKey::getListItemsAuto(int pax_id, int transfer_num, const std::string& rfic,
+                                 TRFISCListItems& items) const
 {
-  list_item=boost::none;
-  if (list_id!=ASTRA::NoExists)
-  {
-    getListItem();
-    return;
-  };
-  TCachedQuery Qry("SELECT rfisc_list_items.* \n"
+  items.clear();
+  TCachedQuery Qry("SELECT DISTINCT rfisc_list_items.* \n"
                    "FROM pax_service_lists, rfisc_list_items \n"
                    "WHERE pax_service_lists.list_id=rfisc_list_items.list_id AND \n"
                    "      pax_service_lists.pax_id=:id AND \n"
                    "      pax_service_lists.transfer_num=:transfer_num AND \n"
                    "      rfisc_list_items.rfisc=:rfisc AND \n"
-                   "      rfisc_list_items.rfic=:rfic \n"
-                   "      AND rownum<2 \n",
+                   "      rfisc_list_items.rfic=:rfic \n",
                    QParams() << QParam("id", otInteger, pax_id)
                              << QParam("transfer_num", otInteger, transfer_num)
                              << QParam("rfisc", otString, RFISC)
                              << QParam("rfic", otString, rfic));
   Qry.get().Execute();
-  if (!Qry.get().Eof && !Qry.get().FieldIsNULL("list_id"))
+  for(;!Qry.get().Eof; Qry.get().Next())
   {
-    list_id=Qry.get().FieldAsInteger("list_id");
-    list_item=TRFISCListItem();
-    list_item.get().fromDB(Qry.get(), false);
+    TRFISCListItem item;
+    item.fromDB(Qry.get(), false);
+    items.push_back(item);
   }
 }
 
@@ -722,7 +717,17 @@ TRFISCListItem& TRFISCListItem::fromDB(TQuery &Qry, bool old_version)
   if (Qry.GetFieldIndex("priority")>=0 && !Qry.FieldIsNULL("priority"))
     priority=Qry.FieldAsInteger("priority");
   return *this;
-};
+}
+
+std::string TRFISCListItem::traceStr() const
+{
+  ostringstream s;
+  s << TRFISCListKey::str(AstraLocale::LANG_EN)
+    << ", RFIC=" << RFIC
+    << ", grp=" << grp
+    << ", subgrp=" << subgrp;
+  return s.str();
+}
 
 TRFISCListKey& TRFISCListKey::fromDB(TQuery &Qry)
 {
@@ -1365,6 +1370,15 @@ TGrpServiceItem& TGrpServiceItem::fromDB(TQuery &Qry)
   return *this;
 }
 
+std::string TPaxSegRFISCKey::traceStr() const
+{
+  ostringstream s;
+  s << "pax_id=" << pax_id << ", "
+    << "trfer_num=" << trfer_num << ", "
+    << TRFISCKey::traceStr();
+  return s.str();
+}
+
 TGrpServiceAutoItem& TGrpServiceAutoItem::fromDB(TQuery &Qry)
 {
   clear();
@@ -1443,6 +1457,8 @@ void TGrpServiceAutoList::fromDB(int id, bool is_grp_id, bool without_refused)
 
 void TGrpServiceListWithAuto::fromDB(int grp_id, bool without_refused)
 {
+  clear();
+
   TGrpServiceList list1;
   list1.fromDB(grp_id, without_refused);
   for(TGrpServiceList::const_iterator i=list1.begin(); i!=list1.end(); ++i)
@@ -1451,11 +1467,7 @@ void TGrpServiceListWithAuto::fromDB(int grp_id, bool without_refused)
   TGrpServiceAutoList list2;
   list2.fromDB(grp_id, true, without_refused);
   for(TGrpServiceAutoList::const_iterator i=list2.begin(); i!=list2.end(); ++i)
-  {
-    TGrpServiceItem item(*i);
-    item.getListItemAuto(i->pax_id, i->trfer_num, i->RFIC);
-    addItem(item);
-  }
+    addItem(TGrpServiceItem(*i));
 }
 
 void TGrpServiceListWithAuto::addItem(const TGrpServiceItem& item)
@@ -1481,16 +1493,53 @@ void TGrpServiceListWithAuto::addItem(const TGrpServiceItem& item)
   else push_back(item);
 }
 
+void TRFISCListItemsCache::getRFISCListItems(const TPaxSegRFISCKey& key,
+                                             TRFISCListItems& items) const
+{
+  items.clear();
+  if (!key.list_item) return;
+
+  if (key.is_auto_service())
+  {
+    auto i=secret_map.find(key);
+    if (i!=secret_map.end())
+      items=i->second;
+    else
+    {
+      key.getListItemsAuto(key.pax_id, key.trfer_num, key.list_item.get().RFIC, items);
+      secret_map.insert(make_pair(key, items));
+    };
+  }
+  else
+    items.push_back(key.list_item.get());
+}
+
+void TRFISCListItemsCache::dumpCache() const
+{
+  ProgTrace(TRACE5, "secret_map: start dump ");
+  for(const auto& i : secret_map)
+  {
+    ProgTrace(TRACE5, "secret_map: %s", i.first.traceStr().c_str());
+    for(const auto& j : i.second)
+      ProgTrace(TRACE5, "secret_map:     %s", j.traceStr().c_str());
+  }
+  ProgTrace(TRACE5, "secret_map: finish dump ");
+}
+
 bool TPaidRFISCListWithAuto::isRFISCGrpExists(int pax_id, const std::string &grp, const std::string &subgrp) const
 {
-    for(TPaidRFISCListWithAuto::const_iterator item = begin(); item != end(); item++)
-        if(
-                item->second.pax_id == pax_id and item->second.trfer_num == 0 and
-                item->second.list_item and
-                item->second.list_item->grp == grp and
-                (subgrp.empty() or item->second.list_item->subgrp == subgrp))
-            return true;
-    return false;
+  for(const auto& i : *this)
+  {
+    if (i.second.pax_id == pax_id and i.second.trfer_num == 0)
+    {
+      TRFISCListItems items;
+      getRFISCListItems(i.second, items);
+      for(const auto& j : items)
+        if (j.grp == grp and
+            (subgrp.empty() or j.subgrp == subgrp)) return true;
+    };
+  };
+  return false;
 }
 
 void TPaidRFISCListWithAuto::addItem(const TPaidRFISCItem& item)
@@ -1580,6 +1629,9 @@ void TPaidRFISCList::fromDB(int id, bool is_grp_id)
 
 void TPaidRFISCListWithAuto::fromDB(int id, bool is_grp_id)
 {
+  clear();
+  clearCache();
+
   TPaidRFISCList list1;
   list1.fromDB(id, is_grp_id);
   for(TPaidRFISCList::const_iterator i=list1.begin(); i!=list1.end(); ++i)
@@ -1588,11 +1640,7 @@ void TPaidRFISCListWithAuto::fromDB(int id, bool is_grp_id)
   TGrpServiceAutoList list2;
   list2.fromDB(id, is_grp_id);
   for(TGrpServiceAutoList::const_iterator i=list2.begin(); i!=list2.end(); ++i)
-  {
-    TPaidRFISCItem item(*i);
-    item.getListItemAuto(i->pax_id, i->trfer_num, i->RFIC);
-    addItem(item);
-  }
+    addItem(TPaidRFISCItem(*i));
 }
 
 void TGrpServiceList::clearDB(int grp_id)

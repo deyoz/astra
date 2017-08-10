@@ -367,20 +367,27 @@ void TServicePaymentListWithAuto::getUniqRFISCSs(int pax_id, set<string> &rfisc_
 
 bool TServicePaymentListWithAuto::isRFISCGrpExists(int pax_id, const string &grp, const string &subgrp) const
 {
-    for(TServicePaymentListWithAuto::const_iterator item = begin(); item != end(); item++) {
-        if(
-                item->pax_id == pax_id and item->trfer_num == 0 and
-                item->pc and
-                item->pc->list_item and
-                item->pc->list_item->grp == grp and
-                (subgrp.empty() or item->pc->list_item->subgrp == subgrp))
-            return true;
-    }
-    return false;
+  for(const auto& i : *this)
+  {
+    if (i.pc and i.pax_id == pax_id and i.trfer_num == 0)
+    {
+      TPaxSegRFISCKey key(Sirena::TPaxSegKey(i.pax_id, i.trfer_num), i.pc.get());
+      TRFISCListItems items;
+      getRFISCListItems(key, items);
+      for(const auto& j : items)
+        if (j.grp == grp and
+            (subgrp.empty() or j.subgrp == subgrp)) return true;
+
+    };
+  };
+  return false;
 }
 
 void TServicePaymentListWithAuto::fromDB(int grp_id)
 {
+  clear();
+  clearCache();
+
   TServicePaymentList list1;
   list1.fromDB(grp_id);
   for(TServicePaymentList::const_iterator i=list1.begin(); i!=list1.end(); ++i)
@@ -389,12 +396,7 @@ void TServicePaymentListWithAuto::fromDB(int grp_id)
   TGrpServiceAutoList list2;
   list2.fromDB(grp_id, true);
   for(TGrpServiceAutoList::const_iterator i=list2.begin(); i!=list2.end(); ++i)
-  {
-    TServicePaymentItem item(*i);
-    if (item.pc)
-      item.pc.get().getListItemAuto(i->pax_id, i->trfer_num, i->RFIC);
-    push_back(item);
-  };
+    push_back(TServicePaymentItem(*i));
 }
 
 void TServicePaymentList::clearDB(int grp_id)
