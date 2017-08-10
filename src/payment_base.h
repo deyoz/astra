@@ -203,7 +203,7 @@ class TServicePaymentList : public std::list<TServicePaymentItem>
     static void copyDB(int grp_id_src, int grp_id_dest);
 };
 
-class TServicePaymentListWithAuto : public std::list<TServicePaymentItem>
+class TServicePaymentListWithAuto : public std::list<TServicePaymentItem>, public TRFISCListItemsCache
 {
   public:
     void getCompatibleWithPriorTermVersions(TServicePaymentListWithAuto &compatible,
