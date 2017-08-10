@@ -22,7 +22,7 @@ std::string EtRacRequest::mesFuncCode() const
 
 void EtRacRequest::collectMessage()
 {
-    viewOrgElement(pMes(), m_racParams.org());
+    viewOrgElement2(pMes(), m_racParams.org());
     viewEqnElement(pMes(), EqnElem(1, "TD"));
 
     edilib::SetEdiSegGr(pMes(), 1);

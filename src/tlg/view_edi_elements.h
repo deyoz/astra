@@ -5,7 +5,7 @@
 #include "iatci_types.h"
 
 #include <edilib/edi_types.h>
-
+#include <serverlib/lngv.h>
 
 namespace edifact
 {
@@ -116,6 +116,8 @@ void viewEqnElement(_EDI_REAL_MES_STRUCT_* pMes, const std::list<EqnElem>& lElem
  * @brief makes an ORG element
 */
 void viewOrgElement(_EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest& elem);
+
+void viewOrgElement2(_EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest& elem);
 
 
 //-------------------------------------IACTI---------------------------------------------

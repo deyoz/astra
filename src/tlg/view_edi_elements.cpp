@@ -378,6 +378,16 @@ void viewOrgElement(_EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest&
     SetEdiFullSegment(pMes, SegmElement("ORG"), org.str());
 }
 
+void viewOrgElement2(_EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest& elem)
+{
+    std::ostringstream org;
+    org << BaseTables::Company(elem.airlineCode())->code(elem.lang()) << ":";
+    org << BaseTables::City(elem.locationCode())->code(elem.lang()) << "+";
+    org << elem.pprNumber() << "+++";
+    org << elem.type() << "+::";
+    org << elem.langStr()<< "+" << (elem.lang() == RUSSIAN ? elem.pult() : StrUtils::translit(elem.pult(), false));
+    SetEdiFullSegment(pMes, SegmElement("ORG"), org.str());
+}
 
 //-------------------------------------IACTI---------------------------------------------
 

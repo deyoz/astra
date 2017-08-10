@@ -820,7 +820,7 @@ $(defmacro REQUEST_AC_BY_TICK_NO_CPN_NO
 !! err=ignore
 {<?xml version='1.0' encoding='CP866'?>
 <term>
-  <query handle='0' id='RequestAC' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+  <query handle='0' id='RequestAC' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='EN' term_id='2479792165'>
     <RequestControl>
       <point_id>$(point_dep)</point_id>
       <TickNoEdit>$(tick_no)</TickNoEdit>
