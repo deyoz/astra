@@ -568,10 +568,10 @@ string PrintDataParser::parse_field1(int offset, string field)
             delim +
             FieldAlign +
             delim +
-            pts.get_field(FieldName, 0, "L", DateFormat, tag_lang);
+            pts.get_field(FieldName, 0, "", "L", DateFormat, tag_lang);
     else
         result =
-            pts.get_field(FieldName, ToInt(FieldLen), FieldAlign, DateFormat, tag_lang);
+            pts.get_field(FieldName, ToInt(FieldLen), "", FieldAlign, DateFormat, tag_lang);
     return result;
 }
 
@@ -682,9 +682,7 @@ string PrintDataParser::parse_field0(int offset, string field)
     if(Mode != 'L' && Mode != 'F')
             throw Exception("')' not found at " + IntToString(offset + i + 1));
 
-    LogTrace(TRACE5) << "FieldText: " << FieldText;
-
-    return pts.get_field(FieldName, FieldLen, FieldAlign, DateFormat, tag_lang);
+    return pts.get_field(FieldName, FieldLen, FieldText, FieldAlign, DateFormat, tag_lang);
 }
 
 string PrintDataParser::parse(string &form)
@@ -1783,7 +1781,7 @@ void tst_dump(int pax_id, int grp_id, bool pr_lat)
     for(vector<string>::iterator iv = tags.begin(); iv != tags.end(); iv++) {
         TPrnTagStore tmp_pts(TDevOper::PrnBP, grp_id, pax_id, pr_lat, NULL);
         tmp_pts.set_tag("gate", "");
-        ProgTrace(TRACE5, "tag: %s; value: '%s'", iv->c_str(), tmp_pts.get_field(*iv, 0, "L", "dd.mm hh:nn", "R").c_str());
+        ProgTrace(TRACE5, "tag: %s; value: '%s'", iv->c_str(), tmp_pts.get_field(*iv, 0, "", "L", "dd.mm hh:nn", "R").c_str());
         tmp_pts.confirm_print(false, TDevOper::PrnBP);
     }
 }
