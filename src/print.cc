@@ -585,8 +585,10 @@ string PrintDataParser::parse_field0(int offset, string field)
     string FieldName = upperc(field);
     int FieldLen = 0;
     string FieldAlign = "L";
+    string FieldText;
     string DateFormat = ServerFormatDateTimeAsString;
     string tag_lang;
+    bool screened_quote = false;
 
     string buf;
     string::size_type i = 0;
@@ -615,12 +617,34 @@ string PrintDataParser::parse_field0(int offset, string field)
                         if(buf.size()) FieldLen = ToInt(buf);
                         VarPos = i;
                         Mode = '2';
+                        LogTrace(TRACE5) << "jump to mode 2: " << curr_char;
                     } else
                         throw Exception("1st param must consist of digits only at " + IntToString(offset + i + 1));
                 }
                 break;
+            case '4':
+                {
+                    if(curr_char == '\'') {
+                        if(screened_quote)
+                            screened_quote = false;
+                        else {
+                            screened_quote = field.size() - 1 >= i + 1 and field[i + 1]  == '\'';
+                            if(not screened_quote) {
+                                FieldText = field.substr(VarPos + 1, i - VarPos - 1);
+                                boost::replace_all(FieldText, "''", "'");
+                                VarPos = i;
+                                Mode = '3';
+                            }
+                        }
+                    }
+                }
+                break;
             case '2':
-                if(curr_char != 'R' && curr_char != 'L' && curr_char != 'C') {
+                LogTrace(TRACE5) << "mode 2: " << curr_char;
+                if(curr_char == '\'') {
+                        VarPos = i;
+                        Mode = '4';
+                } else if(curr_char != 'R' && curr_char != 'L' && curr_char != 'C') {
                     if(curr_char == ',') {
                         buf = field.substr(VarPos + 1, i - VarPos - 1);
                         if(buf.size()) FieldAlign = buf;
@@ -657,6 +681,9 @@ string PrintDataParser::parse_field0(int offset, string field)
     }
     if(Mode != 'L' && Mode != 'F')
             throw Exception("')' not found at " + IntToString(offset + i + 1));
+
+    LogTrace(TRACE5) << "FieldText: " << FieldText;
+
     return pts.get_field(FieldName, FieldLen, FieldAlign, DateFormat, tag_lang);
 }
 
