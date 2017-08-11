@@ -565,10 +565,10 @@ string PrintDataParser::parse_field1(int offset, string field)
             delim +
             FieldAlign +
             delim +
-            pts.get_field(FieldName, 0, "L", DateFormat, tag_lang);
+            pts.get_field(FieldName, 0, "", "L", DateFormat, tag_lang);
     else
         result =
-            pts.get_field(FieldName, ToInt(FieldLen), FieldAlign, DateFormat, tag_lang);
+            pts.get_field(FieldName, ToInt(FieldLen), "", FieldAlign, DateFormat, tag_lang);
     return result;
 }
 
@@ -582,8 +582,10 @@ string PrintDataParser::parse_field0(int offset, string field)
     string FieldName = upperc(field);
     int FieldLen = 0;
     string FieldAlign = "L";
+    string FieldText;
     string DateFormat = ServerFormatDateTimeAsString;
     string tag_lang;
+    bool screened_quote = false;
 
     string buf;
     string::size_type i = 0;
@@ -612,12 +614,34 @@ string PrintDataParser::parse_field0(int offset, string field)
                         if(buf.size()) FieldLen = ToInt(buf);
                         VarPos = i;
                         Mode = '2';
+                        LogTrace(TRACE5) << "jump to mode 2: " << curr_char;
                     } else
                         throw Exception("1st param must consist of digits only at " + IntToString(offset + i + 1));
                 }
                 break;
+            case '4':
+                {
+                    if(curr_char == '\'') {
+                        if(screened_quote)
+                            screened_quote = false;
+                        else {
+                            screened_quote = field.size() - 1 >= i + 1 and field[i + 1]  == '\'';
+                            if(not screened_quote) {
+                                FieldText = field.substr(VarPos + 1, i - VarPos - 1);
+                                boost::replace_all(FieldText, "''", "'");
+                                VarPos = i;
+                                Mode = '3';
+                            }
+                        }
+                    }
+                }
+                break;
             case '2':
-                if(curr_char != 'R' && curr_char != 'L' && curr_char != 'C') {
+                LogTrace(TRACE5) << "mode 2: " << curr_char;
+                if(curr_char == '\'') {
+                        VarPos = i;
+                        Mode = '4';
+                } else if(curr_char != 'R' && curr_char != 'L' && curr_char != 'C') {
                     if(curr_char == ',') {
                         buf = field.substr(VarPos + 1, i - VarPos - 1);
                         if(buf.size()) FieldAlign = buf;
@@ -654,7 +678,8 @@ string PrintDataParser::parse_field0(int offset, string field)
     }
     if(Mode != 'L' && Mode != 'F')
             throw Exception("')' not found at " + IntToString(offset + i + 1));
-    return pts.get_field(FieldName, FieldLen, FieldAlign, DateFormat, tag_lang);
+
+    return pts.get_field(FieldName, FieldLen, FieldText, FieldAlign, DateFormat, tag_lang);
 }
 
 string PrintDataParser::parse(string &form)
@@ -1753,7 +1778,7 @@ void tst_dump(int pax_id, int grp_id, bool pr_lat)
     for(vector<string>::iterator iv = tags.begin(); iv != tags.end(); iv++) {
         TPrnTagStore tmp_pts(TDevOper::PrnBP, grp_id, pax_id, pr_lat, NULL);
         tmp_pts.set_tag("gate", "");
-        ProgTrace(TRACE5, "tag: %s; value: '%s'", iv->c_str(), tmp_pts.get_field(*iv, 0, "L", "dd.mm hh:nn", "R").c_str());
+        ProgTrace(TRACE5, "tag: %s; value: '%s'", iv->c_str(), tmp_pts.get_field(*iv, 0, "", "L", "dd.mm hh:nn", "R").c_str());
         tmp_pts.confirm_print(false, TDevOper::PrnBP);
     }
 }
