@@ -274,7 +274,10 @@ class TRFISCListItem : public TRFISCListKey
     const TRFISCListItem& toXML(xmlNodePtr node, const boost::optional<TRFISCListItem> &def=boost::none) const;
     const TRFISCListItem& toDB(TQuery &Qry, bool old_version) const;
     TRFISCListItem& fromDB(TQuery &Qry, bool old_version);
+    std::string traceStr() const;
 };
+
+typedef std::list<TRFISCListItem> TRFISCListItems;
 
 class TRFISCKey : public TRFISCListKey
 {
@@ -349,6 +352,14 @@ class TRFISCKey : public TRFISCListKey
     }
     std::string traceStr() const;
     bool isBaggageOrCarryOn(const std::string &where) const;
+
+    bool is_auto_service() const
+    {
+      return service_type==TServiceType::Unknown;
+    }
+
+    void getListItemsAuto(int pax_id, int transfer_num, const std::string& rfic,
+                          TRFISCListItems& items) const;
 };
 
 typedef std::map<TRFISCListKey, TRFISCListItem> TRFISCListMap;
@@ -517,6 +528,7 @@ class TPaxSegRFISCKey : public Sirena::TPaxSegKey, public TRFISCKey
     TPaxSegRFISCKey& fromXML(xmlNodePtr node);
     const TPaxSegRFISCKey& toDB(TQuery &Qry) const;
     TPaxSegRFISCKey& fromDB(TQuery &Qry);
+    std::string traceStr() const;
 };
 
 class TGrpServiceAutoItem : public Sirena::TPaxSegKey, public CheckIn::TPaxASVCItem
@@ -556,10 +568,6 @@ class TGrpServiceItem : public TPaxSegRFISCKey
     const TGrpServiceItem& toDB(TQuery &Qry) const;
     TGrpServiceItem& fromDB(TQuery &Qry);
     bool service_quantity_valid() const { return service_quantity!=ASTRA::NoExists && service_quantity>0; }
-    bool is_auto_service() const
-    {
-      return service_type==TServiceType::Unknown;
-    }
     bool similar(const TGrpServiceAutoItem& item) const
     {
       TGrpServiceItem tmp(item);
@@ -669,11 +677,23 @@ class TPaidRFISCList : public std::map<TPaxSegRFISCKey, TPaidRFISCItem>
     static void updateExcess(int grp_id);
 };
 
-class TPaidRFISCListWithAuto : public std::map<TPaxSegRFISCKey, TPaidRFISCItem>
+class TRFISCListItemsCache
+{
+  private:
+    mutable std::map<TPaxSegRFISCKey, TRFISCListItems> secret_map; //:)
+  public:
+    void getRFISCListItems(const TPaxSegRFISCKey& key,
+                           TRFISCListItems& items) const;
+    void dumpCache() const;
+    void clearCache() { secret_map.clear(); }
+};
+
+class TPaidRFISCListWithAuto : public std::map<TPaxSegRFISCKey, TPaidRFISCItem>, public TRFISCListItemsCache
 {
   public:
     void addItem(const TPaidRFISCItem& item);
     void fromDB(int id, bool is_grp_id);
+    bool isRFISCGrpExists(int pax_id, const std::string &grp, const std::string &subgrp) const;
 };
 
 class TPaidRFISCViewKey : public TRFISCKey

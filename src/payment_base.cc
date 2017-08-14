@@ -5,7 +5,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace AstraLocale;
@@ -347,8 +347,47 @@ void TServicePaymentList::fromDB(int grp_id)
   };
 }
 
+void TServicePaymentListWithAuto::dump(const string &file, int line) const
+{
+    LogTrace(TRACE5) << "-----TServicePaymentListWithAuto::dump: " << file << ": " << line << "-----";
+    for(TServicePaymentListWithAuto::const_iterator i = begin(); i != end(); i++)
+        LogTrace(TRACE5) << i->traceStr();
+    LogTrace(TRACE5) << "-------------------------------------";
+}
+
+void TServicePaymentListWithAuto::getUniqRFISCSs(int pax_id, set<string> &rfisc_set) const
+{
+    for(TServicePaymentListWithAuto::const_iterator i = begin(); i != end(); i++)
+        if(
+                i->trfer_num == 0 and
+                i->pax_id == pax_id and
+                i->pc)
+            rfisc_set.insert(i->pc->RFISC);
+}
+
+bool TServicePaymentListWithAuto::isRFISCGrpExists(int pax_id, const string &grp, const string &subgrp) const
+{
+  for(const auto& i : *this)
+  {
+    if (i.pc and i.pax_id == pax_id and i.trfer_num == 0)
+    {
+      TPaxSegRFISCKey key(Sirena::TPaxSegKey(i.pax_id, i.trfer_num), i.pc.get());
+      TRFISCListItems items;
+      getRFISCListItems(key, items);
+      for(const auto& j : items)
+        if (j.grp == grp and
+            (subgrp.empty() or j.subgrp == subgrp)) return true;
+
+    };
+  };
+  return false;
+}
+
 void TServicePaymentListWithAuto::fromDB(int grp_id)
 {
+  clear();
+  clearCache();
+
   TServicePaymentList list1;
   list1.fromDB(grp_id);
   for(TServicePaymentList::const_iterator i=list1.begin(); i!=list1.end(); ++i)
