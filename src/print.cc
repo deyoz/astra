@@ -614,7 +614,6 @@ string PrintDataParser::parse_field0(int offset, string field)
                         if(buf.size()) FieldLen = ToInt(buf);
                         VarPos = i;
                         Mode = '2';
-                        LogTrace(TRACE5) << "jump to mode 2: " << curr_char;
                     } else
                         throw Exception("1st param must consist of digits only at " + IntToString(offset + i + 1));
                 }
@@ -637,7 +636,6 @@ string PrintDataParser::parse_field0(int offset, string field)
                 }
                 break;
             case '2':
-                LogTrace(TRACE5) << "mode 2: " << curr_char;
                 if(curr_char == '\'') {
                         VarPos = i;
                         Mode = '4';
