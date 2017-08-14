@@ -215,26 +215,49 @@ TElemStruct TCheckerFlt::checkCraft( const::string &value, CheckMode mode, bool 
   std::string tmp = value;
   tmp =  TrimString( tmp );
   craft.code = tmp;
+  Qry.Clear();
   if ( !tmp.empty() ) {
     try {
       try {
-        tmp = ElemCtxtToElemId( ecDisp, etCraft, tmp, craft.fmt, false );
-        craft.code = tmp;
+        if ( mode == etExtSVO ) {
+          Qry.SQLText =
+             "SELECT code, 2 as lvl FROM crafts WHERE ( name=:code OR name_lat=:code ) AND pr_del=0 "
+             " UNION "
+             "SELECT craft as code, 1 FROM aodb_crafts WHERE aodb_code=:code "
+             " ORDER BY lvl";
+          Qry.CreateVariable( "code", otString, craft.code );
+          Qry.Execute();
+          if ( !Qry.RowCount() )
+            throw EConvertError( "Неизвестный тип ВС, значение=%s", value.c_str() );
+          tmp = Qry.FieldAsString( "code" );
+          tmp = ElemCtxtToElemId( ecDisp, etCraft, tmp, craft.fmt, false );
+          craft.code = tmp;
+        }
+        else {
+          tmp = ElemCtxtToElemId( ecDisp, etCraft, tmp, craft.fmt, false );
+          craft.code = tmp;
+        }
       }
       catch( EConvertError &e ) {
         Qry.Clear();
-        Qry.SQLText =
-            "SELECT code, 1 as lvl FROM crafts WHERE ( name=:code OR name_lat=:code ) AND pr_del=0 "
-            " UNION "
-            "SELECT craft as code, 2 FROM aodb_crafts WHERE aodb_code=:code "
-            " ORDER BY lvl";
-        Qry.CreateVariable( "code", otString, craft.code );
-        Qry.Execute();
-        if ( !Qry.RowCount() || (mode == etNormal && Qry.FieldAsInteger( "lvl" ) == 2) )
-          throw EConvertError( "Неизвестный тип ВС, значение=%s", value.c_str() );
-        tmp = Qry.FieldAsString( "code" );
-        tmp = ElemCtxtToElemId( ecDisp, etCraft, tmp, craft.fmt, false );
-        craft.code = tmp;
+        if ( mode == etExtSVO ) {
+          tmp = ElemCtxtToElemId( ecDisp, etCraft, tmp, craft.fmt, false );
+          craft.code = tmp;
+        }
+        else {
+          Qry.SQLText =
+              "SELECT code, 1 as lvl FROM crafts WHERE ( name=:code OR name_lat=:code ) AND pr_del=0 "
+              " UNION "
+              "SELECT craft as code, 2 FROM aodb_crafts WHERE aodb_code=:code "
+              " ORDER BY lvl";
+          Qry.CreateVariable( "code", otString, craft.code );
+          Qry.Execute();
+          if ( !Qry.RowCount() || (mode == etNormal && Qry.FieldAsInteger( "lvl" ) == 2) )
+            throw EConvertError( "Неизвестный тип ВС, значение=%s", value.c_str() );
+          tmp = Qry.FieldAsString( "code" );
+          tmp = ElemCtxtToElemId( ecDisp, etCraft, tmp, craft.fmt, false );
+          craft.code = tmp;
+        }
       }
     }
     catch( EConvertError &e ) {
@@ -3185,7 +3208,7 @@ void TFlights::Lock(std::string from)
     boost::posix_time::time_duration msdiff = mst2 - mst1;
     boost::posix_time::time_duration msabs = mst2 - start_abs;
     LogTrace(TRACE5) << "TLockedFlights::Lock(" <<  *ipoint << "), " <<  msdiff.total_milliseconds()
-                     << " ms, from " << from << ", " << msabs.total_milliseconds(); 
+                     << " ms, from " << from << ", " << msabs.total_milliseconds();
   }
 }
 

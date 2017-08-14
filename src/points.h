@@ -23,8 +23,8 @@ enum TDestField { dfPoint_num, dfAirp, dfPr_tranzit, dfFirst_point,
                   dfTrip_type, dfLitera, dfPart_in, dfPart_out, dfRemark, dfPr_reg,
                   dfpr_del, DfTid, dfAirp_fmt, dfAirline_fmt, dfSuffix_fmt, dfCraft_fmt,
                   dfStations, dfStages, dfEvents };
-                  
-                  
+
+
 enum TUseDestData { udNoCalcESTTimeStage, udDelays, udStages, udCargo, udMaxCommerce,
                     udStations, udNum };
 enum TDestEvents { dmChangeCraft, dmSetCraft, dmInitStages, dmInitComps,
@@ -40,7 +40,7 @@ enum TDestEvents { dmChangeCraft, dmSetCraft, dmInitStages, dmInitComps,
                    dmChangeAirline, dmChangeFltNo, dmChangeSuffix, dmChangeAirp,
                    dmTranzit, dmReg, dmFirst_Point, dmChangeRemark,
                    dmChangeStageESTTime, dmPoint_Num, dmChangeStages };
-                   
+
 enum TPointsEvents { peInsert, pePointNum };
 enum TTripEvents { teNewLand, teNewTakeoff, teDeleteLand, teDeleteTakeoff,
                    teSetCancelLand, teSetCancelTakeoff,
@@ -64,7 +64,7 @@ enum TTripEvents { teNewLand, teNewTakeoff, teDeleteLand, teDeleteTakeoff,
                    teNeedChangeComps, teNeedUnBindTlgs, teNeedBindTlgs,
                    teChangeCargos, teChangeMaxCommerce, teChangeStages,
                    teChangeStations };
-                   
+
 class TPointsDestDelay {
 public:
 	std::string code;
@@ -72,8 +72,8 @@ public:
 	TPointsDestDelay( const TSOPPDelay &delay ) {
     code = delay.code;
     time = delay.time;
-	};
-	TPointsDestDelay(){};
+        };
+        TPointsDestDelay(){};
 };
 
 class TPointsDest;
@@ -100,7 +100,7 @@ struct TPointsDestCargo {
              airp_arv == vcargo.airp_arv &&
              airp_arv_fmt == vcargo.airp_arv_fmt &&
              key == vcargo.key );
-	}
+        }
 };
 
 class TFlightCargos {
@@ -325,7 +325,7 @@ struct TFltNo {
 class TCheckerFlt {
   private:
   public:
-    enum CheckMode { etNormal, etExtAODB };
+    enum CheckMode { etNormal, etExtAODB, etExtSVO };
     void parseFltNo( const std::string &value, TFltNo &fltNo );
     void checkFltNo( CheckMode mode, TFltNo &fltNo );
     void checkFltNo( CheckMode mode, TFltNo &fltNo, TQuery &Qry );
@@ -485,8 +485,8 @@ public:
   void Save( bool isShowMsg );
   void SaveCargos();
   static bool isDouble( int move_id, std::string airline, int flt_no,
-	                      std::string suffix, std::string airp,
-	                      TDateTime scd_in, TDateTime scd_out );
+                              std::string suffix, std::string airp,
+                              TDateTime scd_in, TDateTime scd_out );
   static bool isDouble( int move_id, const TPointsDest &dest ) {
     return isDouble( move_id, dest.airline, dest.flt_no,
                      dest.suffix, dest.airp, dest.scd_in, dest.scd_out );

@@ -896,7 +896,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TP
   dest.max_commerce.SetValue( checkerFlt.checkMaxCommerce( string(NodeAsStringFast( "max_commerce", flightNode, "" )) ) );
   //craft
   ProgTrace(TRACE5,"check craft");
-  elem = checkerFlt.checkCraft( NodeAsStringFast( "craft", flightNode, "" ), TCheckerFlt::etExtAODB, false, Qry );
+  elem = checkerFlt.checkCraft( NodeAsStringFast( "craft", flightNode, "" ), TCheckerFlt::etExtSVO, false, Qry );
   dest.craft = elem.code;
   dest.craft_fmt = elem.fmt;
   ProgTrace( TRACE5, "craft=%s, fmt=%d", dest.craft.c_str(), dest.craft_fmt );
