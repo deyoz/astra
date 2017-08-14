@@ -383,6 +383,16 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::BI_AIRP_TERMINAL,        TTagListItem(&TPrnTagStore::BI_AIRP_TERMINAL)));
     tag_list.insert(make_pair(TAG::VOUCHER_CODE,            TTagListItem(&TPrnTagStore::VOUCHER_CODE)));
     tag_list.insert(make_pair(TAG::VOUCHER_TEXT,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT1,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT2,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT3,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT4,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT5,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT6,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT7,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT8,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT9,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT10,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
 }
 
 // BP && BT
@@ -480,18 +490,18 @@ void TPrnTagStore::set_tag(string name, string value)
     im->second.TagInfo = value;
 }
 
-string TPrnTagStore::get_field_from_bcbp(std::string name, size_t len, std::string date_format)
+string TPrnTagStore::get_field_from_bcbp(std::string name, size_t len, const std::string &text, std::string date_format)
 {
     map<const string, TTagListItem>::iterator im = tag_list.find(name);
     if(im == tag_list.end())
         throw Exception("TPrnTagStore::get_field_from_bcbp: tag '%s' not implemented", name.c_str());
-    string result = (this->*im->second.tag_funct)(TFieldParams(date_format, im->second.TagInfo, len));
+    string result = (this->*im->second.tag_funct)(TFieldParams(date_format, im->second.TagInfo, len, text));
     im->second.processed = true;
     im->second.english_only &= tag_lang.english_tag();
     return result;
 }
 
-string TPrnTagStore::get_test_field(std::string name, size_t len, std::string date_format)
+string TPrnTagStore::get_test_field(std::string name, size_t len, const std::string &text, std::string date_format)
 {
     name = upperc(name);
     map<string, TPrnTestTagsItem>::iterator im = prn_test_tags.items.find(name);
@@ -518,7 +528,7 @@ string TPrnTagStore::get_test_field(std::string name, size_t len, std::string da
     return result.str();
 }
 
-string TPrnTagStore::get_real_field(std::string name, size_t len, std::string date_format)
+string TPrnTagStore::get_real_field(std::string name, size_t len, const std::string &text, std::string date_format)
 {
     map<const string, TTagListItem>::iterator im = tag_list.find(name);
     if(im == tag_list.end())
@@ -539,7 +549,7 @@ string TPrnTagStore::get_real_field(std::string name, size_t len, std::string da
         remInfo.Init(grpInfo.point_dep);
     string result;
     try {
-        result = (this->*im->second.tag_funct)(TFieldParams(date_format, im->second.TagInfo, len));
+        result = (this->*im->second.tag_funct)(TFieldParams(date_format, im->second.TagInfo, len, text));
         im->second.processed = true;
         im->second.english_only &= tag_lang.english_tag();
     } catch(UserException E) {
@@ -569,13 +579,13 @@ bool TPrnTagStore::tag_processed(std::string name)
 
 string TPrnTagStore::get_tag_no_err(string name, string date_format, string tag_lang)
 {
-    return get_field(upperc(name), 0, "L", date_format, tag_lang, false);
+    return get_field(upperc(name), 0, "", "L", date_format, tag_lang, false);
 }
 
 
 string TPrnTagStore::get_tag(string name, string date_format, string tag_lang)
 {
-    return get_field(upperc(name), 0, "L", date_format, tag_lang);
+    return get_field(upperc(name), 0, "", "L", date_format, tag_lang);
 }
 
 string cut_result(string result)
@@ -586,7 +596,7 @@ string cut_result(string result)
     return result;
 }
 
-string TPrnTagStore::get_field(std::string name, size_t len, std::string align, std::string date_format, string tag_lang, bool pr_user_except)
+string TPrnTagStore::get_field(std::string name, size_t len, const std::string &text, std::string align, std::string date_format, string tag_lang, bool pr_user_except)
 {
     std::map<std::string, TTagPropsItem>::iterator iprops = prn_tag_props.items.find(name);
     if(iprops == prn_tag_props.items.end())
@@ -596,11 +606,11 @@ string TPrnTagStore::get_field(std::string name, size_t len, std::string align, 
     try {
         string result;
         if(scan_data != NULL) {
-            result = get_field_from_bcbp(name, len, date_format);
+            result = get_field_from_bcbp(name, len, text, date_format);
         } else if(prn_test_tags.items.empty())
-            result = get_real_field(name, len, date_format);
+            result = get_real_field(name, len, text, date_format);
         else {
-            result = get_test_field(name, len, date_format);
+            result = get_test_field(name, len, text, date_format);
             if(iprops->second.length == 0 and len != 0)
                 result = result.substr(0, len);
         }
@@ -2385,6 +2395,13 @@ string TPrnTagStore::VOUCHER_CODE(TFieldParams fp) {
                 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
     }
     return result.str();
+}
+
+string TPrnTagStore::VOUCHER_TEXT_FREE(TFieldParams fp) {
+    string result;
+    if(not tag_list[TAG::VOUCHER_CODE].TagInfo.empty())
+        result = fp.text;
+    return result;
 }
 
 string TPrnTagStore::VOUCHER_TEXT(TFieldParams fp) {

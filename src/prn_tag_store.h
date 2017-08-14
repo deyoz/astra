@@ -92,6 +92,16 @@ namespace TAG {
     const std::string BI_AIRP_TERMINAL = "BI_AIRP_TERMINAL";
     const std::string VOUCHER_CODE = "VOUCHER_CODE";
     const std::string VOUCHER_TEXT = "VOUCHER_TEXT";
+    const std::string VOUCHER_TEXT1 = "VOUCHER_TEXT1";
+    const std::string VOUCHER_TEXT2 = "VOUCHER_TEXT2";
+    const std::string VOUCHER_TEXT3 = "VOUCHER_TEXT3";
+    const std::string VOUCHER_TEXT4 = "VOUCHER_TEXT4";
+    const std::string VOUCHER_TEXT5 = "VOUCHER_TEXT5";
+    const std::string VOUCHER_TEXT6 = "VOUCHER_TEXT6";
+    const std::string VOUCHER_TEXT7 = "VOUCHER_TEXT7";
+    const std::string VOUCHER_TEXT8 = "VOUCHER_TEXT8";
+    const std::string VOUCHER_TEXT9 = "VOUCHER_TEXT9";
+    const std::string VOUCHER_TEXT10 = "VOUCHER_TEXT10";
 
     // specific for bag tags
     const std::string AIRCODE = "AIRCODE";
@@ -216,10 +226,12 @@ class TPrnTagStore {
             std::string date_format;
             boost::any TagInfo;
             size_t len;
-            TFieldParams(std::string adate_format, boost::any aTagInfo, int alen):
+            std::string text;
+            TFieldParams(std::string adate_format, boost::any aTagInfo, int alen, const std::string &atext):
                 date_format(adate_format),
                 TagInfo(aTagInfo),
-                len(alen)
+                len(alen),
+                text(atext)
             {};
         };
 
@@ -509,6 +521,7 @@ class TPrnTagStore {
         std::string BI_AIRP_TERMINAL(TFieldParams fp);
         std::string VOUCHER_CODE(TFieldParams fp);
         std::string VOUCHER_TEXT(TFieldParams fp);
+        std::string VOUCHER_TEXT_FREE(TFieldParams fp);
 
         // specific for bag tags
         std::string AIRCODE(TFieldParams fp);
@@ -583,9 +596,9 @@ class TPrnTagStore {
         std::string TO(TFieldParams fp);
         std::string TOTAL(TFieldParams fp);
 
-        std::string get_test_field(std::string name, size_t len, std::string date_format);
-        std::string get_real_field(std::string name, size_t len, std::string date_format);
-        std::string get_field_from_bcbp(std::string name, size_t len, std::string date_format);
+        std::string get_test_field(std::string name, size_t len, const std::string &text, std::string date_format);
+        std::string get_real_field(std::string name, size_t len, const std::string &text, std::string date_format);
+        std::string get_field_from_bcbp(std::string name, size_t len, const std::string &text, std::string date_format);
 
         void init_bp_tags();
 
@@ -603,7 +616,7 @@ class TPrnTagStore {
         void set_tag(std::string name, std::string value);
         void set_tag(std::string name, int value);
         void set_tag(std::string name, TDateTime value);
-        std::string get_field(std::string name, size_t len, std::string align, std::string date_format, std::string tag_lang, bool pr_user_except = true);
+        std::string get_field(std::string name, size_t len, const std::string &text, std::string align, std::string date_format, std::string tag_lang, bool pr_user_except = true);
         void confirm_print(bool pr_print, ASTRA::TDevOperType op_type);
         std::string get_tag_no_err( // Версия get_tag, которая игнорирует ошибку "Данные печати не латинские"
                 std::string name,
