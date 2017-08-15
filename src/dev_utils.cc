@@ -101,36 +101,6 @@ const std::string BCBPInternalWork::small_data_size(int i)
 {   return std::string("too small size of section (") + BCBPSectionsEnums::to_string(i) + ")";
 }
 
-TDevOperType DecodeDevOperType(string s)
-{
-  unsigned int i;
-  for(i=0;i<sizeof(TDevOperTypeS)/sizeof(TDevOperTypeS[0]);i+=1) if (s == TDevOperTypeS[i]) break;
-  if (i<sizeof(TDevOperTypeS)/sizeof(TDevOperTypeS[0]))
-    return (TDevOperType)i;
-  else
-    return dotUnknown;
-}
-
-string EncodeDevOperType(TDevOperType s)
-{
-  return TDevOperTypeS[s];
-}
-
-TDevFmtType DecodeDevFmtType(string s)
-{
-  unsigned int i;
-  for(i=0;i<sizeof(TDevFmtTypeS)/sizeof(TDevFmtTypeS[0]);i+=1) if (s == TDevFmtTypeS[i]) break;
-  if (i<sizeof(TDevFmtTypeS)/sizeof(TDevFmtTypeS[0]))
-    return (TDevFmtType)i;
-  else
-    return dftUnknown;
-}
-
-string EncodeDevFmtType(TDevFmtType s)
-{
-  return TDevFmtTypeS[s];
-};
-
 ASTRA::TDevClassType getDevClass(const TOperMode desk_mode,
                                  const std::string &env_name)
 {
@@ -1667,4 +1637,89 @@ std::string BCBPSections::test_bcbp_build()
 
 }
 
+DeviceInfo::DeviceInfo(xmlNodePtr node) : _fmt_type(TDevFmt::Unknown)
+{
+  if (node==nullptr) return;
+  xmlNodePtr node2=node->children;
+  _dev_model=NodeAsStringFast("dev_model", node2);
+  _fmt_type=DevFmtTypes().decode(NodeAsStringFast("fmt_type", node2));
+  for(xmlNodePtr paramNode=NodeAsNodeFast("params", node2)->children;
+      paramNode!=nullptr;
+      paramNode=paramNode->next) _params.insert(make_pair((const char*)paramNode->name, NodeAsString(paramNode)));
+}
+
+std::string DeviceInfo::ParamAsString(const std::string &name, const std::string &def) const
+{
+  ParamsList::const_iterator i=_params.find(name);
+  if (i==_params.end()) return def;
+  return i->second;
+}
+
+int DeviceInfo::ParamAsInteger(const std::string &name, const int &def) const
+{
+  ParamsList::const_iterator i=_params.find(name);
+  if (i==_params.end()) return def;
+  int result;
+  if (StrToInt(i->second.c_str(), result)==EOF)
+    throw EConvertError("ParamAsInteger('%s') convert error", name.c_str());
+  return result;
+}
+
+bool DeviceInfo::ParamAsBoolean(const std::string &name, const bool &def) const
+{
+  ParamsList::const_iterator i=_params.find(name);
+  if (i==_params.end()) return def;
+  int result;
+  if (StrToInt(i->second.c_str(), result)==EOF || (result!=0 && result!=1))
+    throw EConvertError("ParamAsBoolean('%s') convert error", name.c_str());
+  return (bool)result;
+}
+
+ScanDeviceInfo::ScanDeviceInfo(xmlNodePtr node) : DeviceInfo(node), _display_height(0), _display_width(0)
+{
+  for (const auto& prefix : display_prefixes)
+  {
+    unsigned int height=ParamAsInteger(prefix+"display_height", 0);
+    unsigned int width=ParamAsInteger(prefix+"display_width", 0);
+    if (height==0 || width==0)  continue;
+    if (_display_height==0 || _display_height>height) _display_height=height;
+    if (_display_width==0 || _display_width>width) _display_width=width;
+  }
+}
+
+std::string ScanDeviceInfo::bgr_message(const std::list<std::string> &msg) const
+{
+  static const vector<char> lines={'A', 'B', 'C', 'D'};
+  static const char CR='\r';
+
+  ProgTrace(TRACE5, "%s: display_height=%u display_width=%u", __FUNCTION__, _display_height, _display_width);
+
+  ostringstream s;
+  if (_display_height!=0 && _display_width!=0)
+  {
+    s << "MG#B#";
+    list<string>::const_iterator j=msg.begin();
+    for(size_t i=0; i<lines.size(); i++)
+    {
+      if (i>=_display_height) break;
+      s << lines[i];
+
+      if (j!=msg.end())
+      {
+        s << j->substr(0, _display_width);
+        ++j;
+      }
+      s << CR;
+    }
+
+    for(const auto& i : msg)
+      ProgTrace(TRACE5, "%s: %s", __FUNCTION__, i.c_str());
+    string str=s.str();
+    replace(str.begin(), str.end(), CR, '\n');
+    ProgTrace(TRACE5, "%s:\n%s", __FUNCTION__, str.c_str());
+  }
+
+  return s.str();
+
+}
 

@@ -83,7 +83,7 @@ const TPrintTypesView& PrintTypesView();
         bool exists() const { return print_type != TPrintType::None; }
         void dump(const std::string &file, int line) const;
         void fromDB(TQuery &Qry);
-        bool tags_enabled(ASTRA::TDevOperType op_type, bool first_seg) const;
+        bool tags_enabled(ASTRA::TDevOper::Enum op_type, bool first_seg) const;
         TRule():
             pr_get(false),
             id(ASTRA::NoExists),
@@ -111,17 +111,17 @@ const TPrintTypesView& PrintTypesView();
         private:
             typedef std::map<int, TRule> TPaxList;
             void getByGrpId(int grp_id);
-            int get_hall_id(ASTRA::TDevOperType op_type, int pax_id);
+            int get_hall_id(ASTRA::TDevOper::Enum op_type, int pax_id);
             std::set<int> grps;
             TPaxList items;
-            ASTRA::TDevOperType op_type;
+            ASTRA::TDevOper::Enum op_type;
         public:
             const TRule &get(int grp_id, int pax_id);
             void dump(const std::string &file, int line) const;
             bool complete() const;
             bool select(xmlNodePtr reqNode);
-            void toXML(ASTRA::TDevOperType op_type, xmlNodePtr resNode);
-            Holder(ASTRA::TDevOperType aop_type): op_type(aop_type) {}
+            void toXML(ASTRA::TDevOper::Enum op_type, xmlNodePtr resNode);
+            Holder(ASTRA::TDevOper::Enum aop_type): op_type(aop_type) {}
     };
 
 } //namespace BIPrintRules
@@ -144,7 +144,7 @@ class TPrPrint {
     public:
         void get_pr_print(int grp_id, int pax_id, bool &pr_bp_print, bool &pr_bi_print);
         void dump(const std::string &file, int line);
-        TPrPrint(): bi_rules(ASTRA::dotPrnBI) {}
+        TPrPrint(): bi_rules(ASTRA::TDevOper::PrnBI) {}
 };
 
 #endif

@@ -26,6 +26,7 @@
 #include "sopp.h"
 #include "rfisc.h"
 #include "tlg/AgentWaitsForRemote.h"
+#include "dev_utils.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
@@ -450,7 +451,7 @@ bool CheckSeat(int pax_id, const string& scan_data, string& curr_seat_no)
         "WHERE confirm_print.time_print=a.time_print AND confirm_print.pax_id=:pax_id AND voucher is null and "
         "      " OP_TYPE_COND("confirm_print.op_type")" and "
         "      pax.pax_id=:pax_id";
-      Qry.CreateVariable("op_type", otString, EncodeDevOperType(dotPrnBP));
+      Qry.CreateVariable("op_type", otString, DevOperTypes().encode(TDevOper::PrnBP));
     }
     else
     {
@@ -853,18 +854,20 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                       refreshWholeFlight};
 
     TSearchType search_type=refreshWholeFlight;
-    if( strcmp((char *)reqNode->name, "PaxByPaxId") == 0) search_type=updateByPaxId;
+    if( strcmp((const char*)reqNode->name, "PaxByPaxId") == 0) search_type=updateByPaxId;
     else
-      if( strcmp((char *)reqNode->name, "PaxByRegNo") == 0) search_type=updateByRegNo;
+      if( strcmp((const char*)reqNode->name, "PaxByRegNo") == 0) search_type=updateByRegNo;
       else
-        if( strcmp((char *)reqNode->name, "PaxByScanData") == 0) search_type=updateByScanData;
+        if( strcmp((const char*)reqNode->name, "PaxByScanData") == 0) search_type=updateByScanData;
         else
-          if( strcmp((char *)reqNode->name, "SavePaxAPIS") == 0) search_type=refreshByPaxId;
+          if( strcmp((const char*)reqNode->name, "SavePaxAPIS") == 0) search_type=refreshByPaxId;
 
     TReqInfo *reqInfo = TReqInfo::Instance();
 
     enum TScreenType {sSecurity, sBoarding};
     TScreenType screen=(reqInfo->screen.name == "BRDBUS.EXE"?sBoarding:sSecurity);
+
+    ScanDeviceInfo scanDevice(GetNode("scan_device", reqNode));
 
     int point_id=NodeAsInteger("point_id",reqNode);
     int found_point_id=NoExists;
@@ -1003,7 +1006,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       Qry.SQLText=
         "SELECT pax_grp.grp_id, pax_grp.point_arv, pax_grp.airp_arv, pax_grp.status, "
         "       pax.pax_id, pax.surname, pax.name, pax.seats, pax.crew_type, "
-        "       pax.pr_brd, pax.pr_exam, pax.wl_type, pax.ticket_rem, pax.tid "
+        "       pax.pr_brd, pax.pr_exam, pax.wl_type, pax.ticket_rem, pax.tid, "
+        "       salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'seats',rownum,1) AS seat_no_lat "
         "FROM pax_grp, pax "
         "WHERE pax_grp.grp_id=pax.grp_id AND "
         "      point_dep= :point_id AND pax_grp.status NOT IN ('E') AND pr_brd IS NOT NULL AND "
@@ -1029,8 +1033,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           string ticket_rem;
           bool pr_brd, pr_exam, already_marked;
           int tid;
+          string seat_no_lat;
           bool updated;
-          TPaxItem() {clear();};
+          TPaxItem() {clear();}
           void clear()
           {
             pax_id=NoExists;
@@ -1042,12 +1047,13 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             pr_exam=false;
             already_marked=false;
             tid=NoExists;
+            seat_no_lat.clear();
             updated=false;
-          };
+          }
           bool exists() const
           {
             return pax_id!=NoExists;
-          };
+          }
           string full_name() const
           {
             ostringstream s;
@@ -1055,7 +1061,24 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             if (!name.empty())
               s << " " << name;
             return s.str();
-          };
+          }
+          string bgr_message(const ScanDeviceInfo &dev) const
+          {
+            list<string> msg;
+            //1-я строка
+            msg.push_back(transliter(full_name(), 1, true));
+
+            string seat_str="SEAT: "+seat_no_lat;
+            if (seat_str.size()>dev.display_width())
+              seat_str=seat_no_lat;
+            if (seat_str.size()>dev.display_width())
+              seat_str.clear();
+            //2-я строка
+            msg.push_back(seat_str);
+
+            return dev.bgr_message(msg);
+          }
+
       };
 
       TPaxItem paxWithSeat, paxWithoutSeat;
@@ -1078,6 +1101,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         pax.pr_exam=Qry.FieldAsInteger("pr_exam")!=0;
         pax.already_marked=(screen==sBoarding?pax.pr_brd:pax.pr_exam);
         pax.tid=Qry.FieldAsInteger("tid");
+        pax.seat_no_lat=Qry.FieldAsString("seat_no_lat");
       };
 
       if (!paxWithSeat.exists() && !paxWithoutSeat.exists())
@@ -1355,10 +1379,14 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         {
           if (paxWithSeat.exists() && paxWithSeat.updated)
             NewTextChild(dataNode, "updated", paxWithSeat.pax_id);
-          else
-            if (paxWithoutSeat.exists() && paxWithoutSeat.updated)
-              NewTextChild(dataNode, "updated", paxWithoutSeat.pax_id);
+          else if (paxWithoutSeat.exists() && paxWithoutSeat.updated)
+            NewTextChild(dataNode, "updated", paxWithoutSeat.pax_id);
         };
+
+        if (paxWithSeat.exists() && paxWithSeat.updated)
+          NewTextChild(dataNode, "bgr_message", paxWithSeat.bgr_message(scanDevice), "");
+        else if (paxWithoutSeat.exists() && paxWithoutSeat.updated)
+          NewTextChild(dataNode, "bgr_message", paxWithoutSeat.bgr_message(scanDevice), "");
 
         xmlNodePtr node=NewTextChild(dataNode,"trip_sets");
         NewTextChild( node, "pr_etl_only", (int)pr_etl_only );
