@@ -173,7 +173,8 @@ astra_SOURCES = \
   environ.cc \
   AirportControl.cpp \
   md5_sum.cc \
-  kiosk_alias.cpp
+  kiosk_alias.cpp \
+  bagmessage.cc
 
 
 astra_LDADD = $(all_libraries) \

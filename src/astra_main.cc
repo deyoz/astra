@@ -25,6 +25,7 @@
 
 int main_edi_timer_tcl(int supervisorSocket, int argc, char *argv[]);
 int main_msg_handler_tcl(int supervisorSocket, int argc, char *argv[]);
+int main_bag_msg_handler_tcl(int supervisorSocket, int argc, char *argv[]);
 
 int astraMsgControl(int type /* 0 - request, 1 - answer */,
                      const char *head, int hlen, const char *body, int blen)
@@ -92,7 +93,9 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
                 ->add("edi_timer", "logdaemon", main_edi_timer_tcl)
                 ->add("msg_handler", "logdaemon", main_msg_handler_tcl)
                 ->add("apps_handler", "logairimp", main_apps_handler_tcl)
-                ->add("apps_answer_emul", "logairimp", main_apps_answer_emul_tcl);
+                ->add("apps_answer_emul", "logairimp", main_apps_answer_emul_tcl)
+                ->add("bag_msg_handler", "logdaemon", main_bag_msg_handler_tcl)
+        ;
     }
     virtual int jxt_proc(const char *body, int blen, const char *head, int hlen,
                  char **res, int len)
