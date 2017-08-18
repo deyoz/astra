@@ -493,6 +493,12 @@ void GetEventCmd( const vector<string> &event_names,
 
       };
 
+      if (!TReqInfo::Instance()->desk.compatible(BGR_READ_CONFIG_VERSION) &&
+          cmd_data=="RC" &&
+          first_fmt_type=="BCR" &&
+          (first_sess_type=="COM/CUTE" || first_sess_type=="CUTE"))
+        cmd_data="AD;"+cmd_data;
+
       if (CmdQry.FieldAsInteger("binary")==0 &&
           ValidXMLString(cmd_data))
       {
