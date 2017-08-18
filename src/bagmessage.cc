@@ -7,7 +7,6 @@
 #include "astra_utils.h"
 #include "file_queue.h"
 #include "date_time.h"
-//#include "bagmessage.h"
 
 #define NICKNAME "GRIG"
 #define NICKTRACE GRIG_TRACE
@@ -79,12 +78,15 @@ class BMConnection // Соединение с системой SITA BagMessage
       VERSION_2 = 2        // Пока что только такое
     } BM_HEADER_VERSIONS;
   private:
+    typedef struct
+    {
+      string host;        // IP-адрес хоста
+      int port;           // Порт
+    } BM_HOST;
+    static const int NUMLINES = 2;
   // Настройки, прочитанные извне при запуске
     string canonName;  // Имя сервиса, по которому отправляются телеграммы
-    string host1;      // Адрес хоста для основной линии
-    int port1;         // Порт для основной линии
-    string host2;      // Адрес хоста для резервной линии
-    int port2;         // Порт для резервной линии
+    BM_HOST ip_addr[NUMLINES];  // Адреса для линий связи - основной и резервный (резервнЫЕ?)
     string login;      // Логин в системе SITA BagMessage
     string password;   // Пароль там же
     int heartBeat;     // Максимальный интервал времени между сообщениями
@@ -92,6 +94,7 @@ class BMConnection // Соединение с системой SITA BagMessage
     bool configured;   // Признак того, что конфигурация прочитана
     bool connected;    // Признак того, что связь установлена
     bool paused;       // Признак того, что другая сторона запросила паузу (выдала DATA_OFF)
+    int activeIp;      // Какая из линий связи сейчас используется?
     BM_LOGIN_STATUS loginStatus;  // Признак того, что мы вошли в ту систему
     io_service *io;          // Сервис, обеспечивающий связь
     ip::tcp::socket *socket; // Сокет для связи
@@ -153,15 +156,17 @@ void BMConnection::init()
   if( configured )
     return;
   canonName = getTCLParam( "SBM_CANON_NAME", NULL );
-  host1 = getTCLParam( "SBM_HOST1", NULL );
-  port1 = getTCLParam( "SBM_PORT1", 1000, 65535, 65535 );
-  host2 = getTCLParam( "SBM_HOST2", "" );
-  port2 = getTCLParam( "SBM_PORT2", 1000, 65535, 65535 );
+  ip_addr[0].host = getTCLParam( "SBM_HOST1", NULL );
+  ip_addr[0].port = getTCLParam( "SBM_PORT1", 1000, 65535, 65535 );
+  ip_addr[1].host = getTCLParam( "SBM_HOST2", NULL );
+  ip_addr[1].port = getTCLParam( "SBM_PORT2", 1000, 65535, 65535 );
+  activeIp = 0;
   login = getTCLParam( "SBM_LOGIN", NULL );
   password = getTCLParam( "SBM_PASSWORD", NULL );
   heartBeat = getTCLParam( "SBM_HEARTBEAT_INTERVAL", 0, 60, 30 );
-  ProgTrace( TRACE0, "BMConnection::init(): canon_name=%s,host1=%s,port1=%d,host2=%s,port2=%d,login=%s,password=%s,heartbeat=%d",
-             canonName.c_str(), host1.c_str(), port1, host2.c_str(), port2, login.c_str(), password.c_str(), heartBeat );
+  ProgTrace( TRACE0, "BMConnection::init(): canon_name=%s,ip[0]=%s:%d,ip[1]=%s:%d,login=%s,password=%s,heartbeat=%d",
+             canonName.c_str(), ip_addr[0].host.c_str(), ip_addr[0].port, ip_addr[1].host.c_str(), ip_addr[1].port,
+             login.c_str(), password.c_str(), heartBeat );
   configured = true;
   // Если вдруг возникла необходимость перечитать конфигурацию - то скорее всего был обрыв связи,
   // и нужно восстанавливать заново и соединение, и вход в систему
@@ -180,7 +185,8 @@ void BMConnection::connect( io_service& service )
     return;
   lastAdmin = now;
   io = &service;
-  ip::tcp::endpoint ep( ip::address::from_string( host1 ), port1 );
+  BM_HOST *ip = & ip_addr[ activeIp ];
+  ip::tcp::endpoint ep( ip::address::from_string( ip->host ), ip->port );
  // Тонкость: если вдруг возникла необходимость перечитать конфигурацию - то вполне возможно, что socket уже существует, причем открытый.
  // Поэтому надо защититься от возможных неприятностей.
   if( socket == NULL )
@@ -191,13 +197,15 @@ void BMConnection::connect( io_service& service )
   socket->connect( ep, err );
   if( err.value() == 0 )
   {
-    ProgTrace( TRACE5, "after connect(): error=%d(%s)", err.value(), err.message().c_str() );
+    ProgTrace( TRACE0, "Connect to SITA BagMessage on %s:%d - success", ip->host.c_str(), ip->port );
     connected = true;
   }
   else
   {
-    ProgError( STDLOG, "Cannot connect to SITA BagMessage. error=%d(%s)", err.value(), err.message().c_str() );
+    ProgError( STDLOG, "Cannot connect to SITA BagMessage on %s:%d. error=%d(%s)", ip->host.c_str(), ip->port,
+               err.value(), err.message().c_str() );
     connected = false;
+    activeIp = ( activeIp + 1 ) % NUMLINES; // Чтобы при неудачном попытке установить связь следующая попытка была по другой линии
   }
 }
 
