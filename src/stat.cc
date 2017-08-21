@@ -6822,10 +6822,16 @@ string segListFromDB(int tckin_id)
     ostringstream result;
     for(; not Qry.get().Eof; Qry.get().Next()) {
         int grp_id = Qry.get().FieldAsInteger("grp_id");
-        if(not result.str().empty()) result << ",";
+        if(not result.str().empty()) result << ";";
         TTripInfo info;
-        if(info.getByGrpId(grp_id))
-            result << info.point_id;
+        if(info.getByGrpId(grp_id)) {
+            result
+                << info.airline << ","
+                << info.airp << ","
+                << info.flt_no << ","
+                << info.suffix << ","
+                << DateTimeToStr(info.scd_out);
+        }
     }
     return result.str();
 }
@@ -10029,13 +10035,21 @@ struct TTrferPaxStatItem {
 
 typedef list<TTrferPaxStatItem> TTrferPaxStat;
 
-void getSegList(const string &segments, list<int> &seg_list)
+void getSegList(const string &segments, list<TTripInfo> &seg_list)
 {
     vector<string> tokens;
-    boost::split(tokens, segments, boost::is_any_of(","));
+    boost::split(tokens, segments, boost::is_any_of(";"));
     for(vector<string>::iterator i = tokens.begin();
             i != tokens.end(); i++) {
-        seg_list.push_back(ToInt(*i));
+        vector<string> flt_info;
+        boost::split(flt_info, *i, boost::is_any_of(","));
+        TTripInfo flt;
+        flt.airline = flt_info[0];
+        flt.airp = flt_info[1];
+        flt.flt_no = ToInt(flt_info[2]);
+        flt.suffix = flt_info[3];
+        StrToDateTime(flt_info[4].c_str(), ServerFormatDateTimeAsString, flt.scd_out);
+        seg_list.push_back(flt);
     }
 }
 
@@ -10049,105 +10063,140 @@ void RunTrferPaxStat(
     QryParams
         << QParam("FirstDate", otDate, params.FirstDate)
         << QParam("LastDate", otDate, params.LastDate);
-    string SQLText =
-        "select "
-        "   trfer_pax_stat.*, "
-        "   pax.surname||' '||pax.name full_name, "
-        "   pax.pers_type "
-        "from "
-        "   trfer_pax_stat, "
-        "   pax, "
-        "   points "
-        "where "
-        "   trfer_pax_stat.point_id = points.point_id and ";
-    params.AccessClause(SQLText);
-    SQLText +=
-        "   trfer_pax_stat.scd_out>=:FirstDate AND trfer_pax_stat.scd_out<:LastDate and "
-        "   trfer_pax_stat.pax_id = pax.pax_id ";
-    TCachedQuery Qry(SQLText, QryParams);
-    Qry.get().Execute();
-    if(not Qry.get().Eof) {
-        int col_point_id = Qry.get().FieldIndex("point_id");
-        int col_scd_out = Qry.get().FieldIndex("scd_out");
-        int col_pax_id = Qry.get().FieldIndex("pax_id");
-        int col_rk_weight = Qry.get().FieldIndex("rk_weight");
-        int col_bag_weight = Qry.get().FieldIndex("bag_weight");
-        int col_bag_amount = Qry.get().FieldIndex("bag_amount");
-        int col_segments = Qry.get().FieldIndex("segments");
-        int col_full_name = Qry.get().FieldIndex("full_name");
-        int col_pers_type = Qry.get().FieldIndex("pers_type");
-        for(; not Qry.get().Eof; Qry.get().Next()) {
-            int point_id = Qry.get().FieldAsInteger(col_point_id);
-            TDateTime scd_out = Qry.get().FieldAsDateTime(col_scd_out);
-            int pax_id = Qry.get().FieldAsInteger(col_pax_id);
-            int rk_weight = Qry.get().FieldAsInteger(col_rk_weight);
-            int bag_weight = Qry.get().FieldAsInteger(col_bag_weight);
-            int bag_amount = Qry.get().FieldAsInteger(col_bag_amount);
-            string segments = Qry.get().FieldAsString(col_segments);
-            string full_name = Qry.get().FieldAsString(col_full_name);
-            string pers_type = Qry.get().FieldAsString(col_pers_type);
+    for(int pass = 0; pass <= 2; pass++) {
+        if (pass!=0)
+            QryParams << QParam("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
+        string SQLText =
+            "select ";
+        if(pass)
+            SQLText += "points.part_key, ";
+        else
+            SQLText += "null part_key, ";
+        SQLText +=
+            "   trfer_pax_stat.*, "
+            "   pax.surname||' '||pax.name full_name, "
+            "   pax.pers_type "
+            "from ";
 
-            list<int> seg_list;
-            getSegList(segments, seg_list);
+        if (pass!=0)
+        {
+            SQLText +=
+            "   arx_trfer_pax_stat trfer_pax_stat, "
+            "   arx_pax pax, "
+            "   arx_points points ";
+            if (pass==2)
+                SQLText += ",(SELECT part_key, move_id FROM move_arx_ext \n"
+                    "  WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
+        }
+        else
+            SQLText +=
+            "   trfer_pax_stat, "
+            "   pax, "
+            "   points ";
 
-            TTrferPaxStat tmp_stat;
-            TTrferPaxStatItem item;
-            for(list<int>::iterator i = seg_list.begin();
-                    i != seg_list.end(); i++) {
-                TTripInfo flt;
-                flt.getByPointId(*i);
+        SQLText +=
+            "where ";
+        if(pass != 0)
+            SQLText +=
+                "   points.part_key = trfer_pax_stat.part_key and "
+                "   pax.part_key = trfer_pax_stat.part_key and ";
 
-                if(item.airline.empty()) {
-                    prn_airline.check(flt.airline);
-                    item.airline = flt.airline;
-                    item.airp = flt.airp;
-                    item.flt_no1 = flt.flt_no;
-                    item.suffix1 = flt.suffix;
-                    item.date1 = flt.scd_out;
-                } else {
-                    item.trfer_airp = flt.airp;
-                    item.airline2 = flt.airline;
-                    item.flt_no2 = flt.flt_no;
-                    item.suffix2 = flt.suffix;
-                    item.date2 = flt.scd_out;
-                    item.pax_name = transliter(full_name, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
-                    item.pax_doc = CheckIn::GetPaxDocStr(NoExists, pax_id, false);
+        if (pass==1)
+            SQLText += " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
+        if (pass==2)
+            SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
+        SQLText +=
+            "   trfer_pax_stat.point_id = points.point_id and ";
+        params.AccessClause(SQLText);
+        SQLText +=
+            "   trfer_pax_stat.scd_out>=:FirstDate AND trfer_pax_stat.scd_out<:LastDate and "
+            "   trfer_pax_stat.pax_id = pax.pax_id ";
+        TCachedQuery Qry(SQLText, QryParams);
+        Qry.get().Execute();
+        if(not Qry.get().Eof) {
+            int col_part_key = Qry.get().FieldIndex("part_key");
+            int col_point_id = Qry.get().FieldIndex("point_id");
+            int col_scd_out = Qry.get().FieldIndex("scd_out");
+            int col_pax_id = Qry.get().FieldIndex("pax_id");
+            int col_rk_weight = Qry.get().FieldIndex("rk_weight");
+            int col_bag_weight = Qry.get().FieldIndex("bag_weight");
+            int col_bag_amount = Qry.get().FieldIndex("bag_amount");
+            int col_segments = Qry.get().FieldIndex("segments");
+            int col_full_name = Qry.get().FieldIndex("full_name");
+            int col_pers_type = Qry.get().FieldIndex("pers_type");
+            for(; not Qry.get().Eof; Qry.get().Next()) {
+                TDateTime part_key = NoExists;
+                if(not Qry.get().FieldIsNULL(col_part_key))
+                    part_key = Qry.get().FieldAsDateTime(col_part_key);
+//                int point_id = Qry.get().FieldAsInteger(col_point_id);
+//                TDateTime scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+                int pax_id = Qry.get().FieldAsInteger(col_pax_id);
+                int rk_weight = Qry.get().FieldAsInteger(col_rk_weight);
+                int bag_weight = Qry.get().FieldAsInteger(col_bag_weight);
+                int bag_amount = Qry.get().FieldAsInteger(col_bag_amount);
+                string segments = Qry.get().FieldAsString(col_segments);
+                string full_name = Qry.get().FieldAsString(col_full_name);
+                string pers_type = Qry.get().FieldAsString(col_pers_type);
 
-                    TSegCategories::Enum seg_category = TSegCategories::Unknown;
-                    if(params.seg_category != TSegCategories::Unknown) {
-                        bool is_inter1 = not rus_airp(item.airp);
-                        bool is_inter2 = not rus_airp(item.trfer_airp);
-                        if(not is_inter1 and not is_inter2) seg_category = TSegCategories::IntInt;
-                        if(is_inter1 and is_inter2) seg_category = TSegCategories::ForFor;
-                        if(is_inter1 and not is_inter2) seg_category = TSegCategories::ForInt;
-                        if(not is_inter1 and is_inter2) seg_category = TSegCategories::IntFor;
+                list<TTripInfo> seg_list;
+                getSegList(segments, seg_list);
+
+                TTrferPaxStat tmp_stat;
+                TTrferPaxStatItem item;
+                for(list<TTripInfo>::iterator flt = seg_list.begin();
+                        flt != seg_list.end(); flt++) {
+                    if(item.airline.empty()) {
+                        prn_airline.check(flt->airline);
+                        item.airline = flt->airline;
+                        item.airp = flt->airp;
+                        item.flt_no1 = flt->flt_no;
+                        item.suffix1 = flt->suffix;
+                        item.date1 = flt->scd_out;
+                    } else {
+                        item.trfer_airp = flt->airp;
+                        item.airline2 = flt->airline;
+                        item.flt_no2 = flt->flt_no;
+                        item.suffix2 = flt->suffix;
+                        item.date2 = flt->scd_out;
+                        item.pax_name = transliter(full_name, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
+                        item.pax_doc = CheckIn::GetPaxDocStr(part_key, pax_id, false);
+
+                        TSegCategories::Enum seg_category = TSegCategories::Unknown;
+                        if(params.seg_category != TSegCategories::Unknown) {
+                            bool is_inter1 = not rus_airp(item.airp);
+                            bool is_inter2 = not rus_airp(item.trfer_airp);
+                            if(not is_inter1 and not is_inter2) seg_category = TSegCategories::IntInt;
+                            if(is_inter1 and is_inter2) seg_category = TSegCategories::ForFor;
+                            if(is_inter1 and not is_inter2) seg_category = TSegCategories::ForInt;
+                            if(not is_inter1 and is_inter2) seg_category = TSegCategories::IntFor;
+                        }
+
+                        if(
+                                params.seg_category == seg_category and
+                                (params.trfer_airp.empty() or params.trfer_airp == item.trfer_airp) and
+                                (params.trfer_airline.empty() or params.trfer_airline == item.airline)
+                          )
+                            tmp_stat.push_back(item);
+
+                        item.clear();
+                        item.airline = flt->airline;
+                        item.airp = flt->airp;
+                        item.flt_no1 = flt->flt_no;
+                        item.suffix1 = flt->suffix;
+                        item.date1 = flt->scd_out;
                     }
-
-                    if(
-                            params.seg_category == seg_category and
-                            (params.trfer_airp.empty() or params.trfer_airp == item.trfer_airp) and
-                            (params.trfer_airline.empty() or params.trfer_airline == item.airline)
-                      )
-                        tmp_stat.push_back(item);
-
-                    item.clear();
-                    item.airline = flt.airline;
-                    item.airp = flt.airp;
-                    item.flt_no1 = flt.flt_no;
-                    item.suffix1 = flt.suffix;
-                    item.date1 = flt.scd_out;
                 }
-            }
 
-            if(tmp_stat.begin() != tmp_stat.end()) {
-                tmp_stat.begin()->pax_amount = 1;
-                tmp_stat.begin()->pers_type = pers_type;
-                tmp_stat.begin()->rk_weight = rk_weight;
-                tmp_stat.begin()->bag_amount = bag_amount;
-                tmp_stat.begin()->bag_weight = bag_weight;
-            }
+                if(tmp_stat.begin() != tmp_stat.end()) {
+                    tmp_stat.begin()->pax_amount = 1;
+                    tmp_stat.begin()->pers_type = pers_type;
+                    tmp_stat.begin()->rk_weight = rk_weight;
+                    tmp_stat.begin()->bag_amount = bag_amount;
+                    tmp_stat.begin()->bag_weight = bag_weight;
+                }
 
-            TrferPaxStat.insert(TrferPaxStat.end(), tmp_stat.begin(), tmp_stat.end());
+                TrferPaxStat.insert(TrferPaxStat.end(), tmp_stat.begin(), tmp_stat.end());
+            }
         }
     }
 }
