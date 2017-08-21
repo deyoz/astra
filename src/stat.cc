@@ -1932,6 +1932,7 @@ enum TStatType {
     statAnnulBT,
     statPFSShort,
     statPFSFull,
+    statTrferPax,
     statNum
 };
 
@@ -1956,7 +1957,8 @@ const char *TStatTypeS[statNum] = {
     "statUnaccBag",
     "statAnnulBT",
     "statPFSShort",
-    "statPFSFull"
+    "statPFSFull",
+    "statTrferPax"
 };
 
 TStatType DecodeStatType( const string stat_type )
@@ -2002,6 +2004,42 @@ static const string PARAM_SKIP_ROWS             = "skip_rows";
 static const string PARAM_ORDER_SOURCE          = "order_source";
 static const string PARAM_PR_PACTS              = "pr_pacts";
 
+class TSegCategories {
+    public:
+        enum Enum
+        {
+            IntInt, // Internal - Internal
+            ForFor, // Foreign - Foreign
+            ForInt, // Foreign -Internal
+            IntFor,  // Internal - Foreign
+            Unknown
+        };
+
+        static const std::list< std::pair<Enum, std::string> >& pairsCodes()
+        {
+            static std::list< std::pair<Enum, std::string> > l;
+            if (l.empty())
+            {
+                l.push_back(std::make_pair(IntInt,  "ВВЛ-ВВЛ"));
+                l.push_back(std::make_pair(ForFor,  "МВЛ-МВЛ"));
+                l.push_back(std::make_pair(ForInt,  "МВЛ-ВВЛ"));
+                l.push_back(std::make_pair(IntFor,  "ВВЛ-МВЛ"));
+                l.push_back(std::make_pair(Unknown, ""));
+            }
+            return l;
+        }
+};
+
+class TSegCategory : public ASTRA::PairList<TSegCategories::Enum, std::string>
+{
+  private:
+    virtual std::string className() const { return "TSegCategory"; }
+  public:
+    TSegCategory() : ASTRA::PairList<TSegCategories::Enum, std::string>(TSegCategories::pairsCodes(),
+                                                                            boost::none,
+                                                                            boost::none) {}
+};
+
 struct TStatParams {
     string desk_city; // Используется в TReqInfo::Initialize(city) в фоновой статистике
     string name, type;
@@ -2021,6 +2059,9 @@ struct TStatParams {
     bool order;
     bool skip_rows;
     bool pr_pacts;
+    TSegCategories::Enum seg_category;
+    string trfer_airp;
+    string trfer_airline;
     void get(xmlNodePtr resNode);
     void toFileParams(map<string, string> &file_params) const;
     void fromFileParams(map<string, string> &file_params);
@@ -2365,15 +2406,15 @@ void TStatParams::get(xmlNodePtr reqNode)
     name = NodeAsString("stat_mode", reqNode);
     type = NodeAsString("stat_type", reqNode, "Общая");
 
-    if(type == "Общая") {
+    if(type == "Трансфер") {
+        if(name == "Общая") statType = statTrferFull;
+        else if(name == "Подробная") statType=statTrferPax;
+        else throw Exception("Unknown stat mode " + name);
+    } else if(type == "Общая") {
         if(name == "Подробная") statType=statFull;
-        else
-            if(name == "Общая") statType=statShort;
-            else
-                if(name == "Детализированная") statType=statDetail;
-                else
-                    if(name == "Трансфер") statType=statTrferFull;
-                    else throw Exception("Unknown stat mode " + name);
+        else if(name == "Общая") statType=statShort;
+        else if(name == "Детализированная") statType=statDetail;
+        else throw Exception("Unknown stat mode " + name);
     } else if(type ==
             ((TReqInfo::Instance()->client_type==ctHTTP ||
               TReqInfo::Instance()->desk.compatible(SELF_CKIN_STAT_VERSION)) ?
@@ -2470,6 +2511,10 @@ void TStatParams::get(xmlNodePtr reqNode)
     receiver_descr = NodeAsStringFast("receiver_descr", curNode, "");
     reg_type = NodeAsStringFast("reg_type", curNode, "");
     order = NodeAsStringFast("Order", curNode, 0) != 0;
+    seg_category = TSegCategory().decode(NodeAsStringFast("SegCategory", curNode, ""));
+    TElemFmt fmt;
+    trfer_airp = ElemToElemId(etAirp, NodeAsStringFast("trfer_airp", curNode, ""), fmt);
+    trfer_airline = ElemToElemId(etAirline, NodeAsStringFast("trfer_airline", curNode, ""), fmt);
 
     ProgTrace(TRACE5, "ak: %s", ak.c_str());
     ProgTrace(TRACE5, "ap: %s", ap.c_str());
@@ -6063,6 +6108,22 @@ void TParamItem::toXML(xmlNodePtr resNode)
     NewTextChild(itemNode, "ref", ref);
     NewTextChild(itemNode, "ref_field", ref_field);
     NewTextChild(itemNode, "tag", tag);
+
+    if(code == "SegCategory") {
+        xmlNodePtr dataNode = NewTextChild(itemNode, "data");
+        xmlNodePtr CBoxItemNode = NewTextChild(dataNode, "item");
+        NewTextChild(CBoxItemNode, "code");
+        NewTextChild(CBoxItemNode, "caption");
+        for(list<pair<TSegCategories::Enum, string> >::const_iterator
+                i = TSegCategories::pairsCodes().begin();
+                i != TSegCategories::pairsCodes().end(); i++) {
+            if(i->first == TSegCategories::Unknown) continue;
+            CBoxItemNode = NewTextChild(dataNode, "item");
+            NewTextChild(CBoxItemNode, "code", i->second);
+            NewTextChild(CBoxItemNode, "caption", i->second);
+        }
+    }
+
     if(code == "Seance") {
         static const char *seances[] = {"", "АК", "АП"};
         xmlNodePtr dataNode = NewTextChild(itemNode, "data");
@@ -6747,6 +6808,103 @@ void get_limited_capability_stat(int point_id)
                     insQry.get().Execute();
                 }
             }
+        }
+    }
+}
+
+string segListFromDB(int tckin_id)
+{
+    TCachedQuery Qry(
+            "select grp_id from tckin_pax_grp where tckin_id = :tckin_id order by seg_no",
+            QParams() << QParam("tckin_id", otInteger, tckin_id));
+    Qry.get().Execute();
+    ostringstream result;
+    for(; not Qry.get().Eof; Qry.get().Next()) {
+        int grp_id = Qry.get().FieldAsInteger("grp_id");
+        if(not result.str().empty()) result << ";";
+        TTripInfo info;
+        if(info.getByGrpId(grp_id)) {
+            result
+                << info.airline << ","
+                << info.airp << ","
+                << info.flt_no << ","
+                << info.suffix << ","
+                << DateTimeToStr(info.scd_out);
+        }
+    }
+    return result.str();
+}
+
+void get_trfer_pax_stat(int point_id)
+{
+    TCachedQuery delQry("delete from trfer_pax_stat where point_id = :point_id",
+            QParams() << QParam("point_id", otInteger, point_id));
+    delQry.get().Execute();
+
+    TTripInfo info;
+    info.getByPointId(point_id);
+
+    TCachedQuery insQry(
+            "insert into trfer_pax_stat( "
+            "   point_id, "
+            "   scd_out, "
+            "   pax_id, "
+            "   rk_weight, "
+            "   bag_weight, "
+            "   bag_amount, "
+            "   segments "
+            ") values( "
+            "   :point_id, "
+            "   :scd_out, "
+            "   :pax_id, "
+            "   :rk_weight, "
+            "   :bag_weight, "
+            "   :bag_amount, "
+            "   :segments "
+            ")",
+            QParams()
+            << QParam("point_id", otInteger, point_id)
+            << QParam("scd_out", otDate, info.scd_out)
+            << QParam("pax_id", otInteger)
+            << QParam("rk_weight", otInteger)
+            << QParam("bag_weight", otInteger)
+            << QParam("bag_amount", otInteger)
+            << QParam("segments", otString)
+            );
+
+    TCachedQuery selQry(
+            "select "
+            "    pax.pax_id, "
+            "    tckin_pax_grp.tckin_id, "
+            "    NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS rk_weight, "
+            "    NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_amount, "
+            "    NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_weight "
+            "from "
+            "    pax_grp, "
+            "    tckin_pax_grp, "
+            "    pax "
+            "where "
+            "    pax_grp.point_dep = :point_id and "
+            "    pax_grp.grp_id = tckin_pax_grp.grp_id and "
+            "    tckin_pax_grp.seg_no = 1 and "
+            "    pax_grp.grp_id = pax.grp_id ",
+            QParams() << QParam("point_id", otInteger, point_id));
+    selQry.get().Execute();
+    if(not selQry.get().Eof) {
+        int col_pax_id = selQry.get().FieldIndex("pax_id");
+        int col_tckin_id = selQry.get().FieldIndex("tckin_id");
+        int col_rk_weight = selQry.get().FieldIndex("rk_weight");
+        int col_bag_amount = selQry.get().FieldIndex("bag_amount");
+        int col_bag_weight = selQry.get().FieldIndex("bag_weight");
+        for(; not selQry.get().Eof; selQry.get().Next()) {
+
+            insQry.get().SetVariable("pax_id", selQry.get().FieldAsInteger(col_pax_id));
+            insQry.get().SetVariable("rk_weight", selQry.get().FieldAsInteger(col_rk_weight));
+            insQry.get().SetVariable("bag_weight", selQry.get().FieldAsInteger(col_bag_weight));
+            insQry.get().SetVariable("bag_amount", selQry.get().FieldAsInteger(col_bag_amount));
+            insQry.get().SetVariable("segments", segListFromDB(selQry.get().FieldAsInteger(col_tckin_id)));
+
+            insQry.get().Execute();
         }
     }
 }
@@ -9790,6 +9948,412 @@ void createXMLPFSShortStat(
 
 /*---------------------------------------- ---------------------------------------*/
 
+/***************** TrferPaxStat *********************/
+
+
+struct TTrferPaxStatItem {
+    string airline;
+    string airp;
+    int flt_no1;
+    string suffix1;
+
+    TDateTime date1;
+
+    string trfer_airp;
+    string airline2;
+    int flt_no2;
+    string suffix2;
+
+    TDateTime date2;
+
+    string pax_name;
+    string pax_doc;
+    int pax_amount;
+    string pers_type;
+
+    int rk_weight;
+    int bag_amount;
+    int bag_weight;
+
+    TTrferPaxStatItem()
+    {
+        clear();
+    }
+
+    void clear()
+    {
+        airline.clear();
+        airp.clear();
+        flt_no1 = NoExists;
+        suffix1.clear();
+
+        date1 = 0;
+
+        trfer_airp.clear();
+        flt_no2 = NoExists;
+        suffix2.clear();
+
+        date2 = 0;
+
+        pax_name.clear();
+        pax_doc.clear();
+        pax_amount = 0;
+        pers_type.clear();
+
+        rk_weight = 0;
+        bag_amount = 0;
+        bag_weight = 0;
+    }
+};
+
+typedef list<TTrferPaxStatItem> TTrferPaxStat;
+
+void getSegList(const string &segments, list<TTripInfo> &seg_list)
+{
+    vector<string> tokens;
+    boost::split(tokens, segments, boost::is_any_of(";"));
+    for(vector<string>::iterator i = tokens.begin();
+            i != tokens.end(); i++) {
+        vector<string> flt_info;
+        boost::split(flt_info, *i, boost::is_any_of(","));
+        TTripInfo flt;
+        flt.airline = flt_info[0];
+        flt.airp = flt_info[1];
+        flt.flt_no = ToInt(flt_info[2]);
+        flt.suffix = flt_info[3];
+        StrToDateTime(flt_info[4].c_str(), ServerFormatDateTimeAsString, flt.scd_out);
+        seg_list.push_back(flt);
+    }
+}
+
+void RunTrferPaxStat(
+        const TStatParams &params,
+        TTrferPaxStat &TrferPaxStat,
+        TPrintAirline &prn_airline
+        )
+{
+    QParams QryParams;
+    QryParams
+        << QParam("FirstDate", otDate, params.FirstDate)
+        << QParam("LastDate", otDate, params.LastDate);
+    for(int pass = 0; pass <= 2; pass++) {
+        if (pass!=0)
+            QryParams << QParam("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
+        string SQLText =
+            "select ";
+        if(pass)
+            SQLText += "points.part_key, ";
+        else
+            SQLText += "null part_key, ";
+        SQLText +=
+            "   trfer_pax_stat.*, "
+            "   pax.surname||' '||pax.name full_name, "
+            "   pax.pers_type "
+            "from ";
+
+        if (pass!=0)
+        {
+            SQLText +=
+            "   arx_trfer_pax_stat trfer_pax_stat, "
+            "   arx_pax pax, "
+            "   arx_points points ";
+            if (pass==2)
+                SQLText += ",(SELECT part_key, move_id FROM move_arx_ext \n"
+                    "  WHERE part_key >= :LastDate+:arx_trip_date_range AND part_key <= :LastDate+date_range) arx_ext \n";
+        }
+        else
+            SQLText +=
+            "   trfer_pax_stat, "
+            "   pax, "
+            "   points ";
+
+        SQLText +=
+            "where ";
+        if(pass != 0)
+            SQLText +=
+                "   points.part_key = trfer_pax_stat.part_key and "
+                "   pax.part_key = trfer_pax_stat.part_key and ";
+
+        if (pass==1)
+            SQLText += " points.part_key >= :FirstDate AND points.part_key < :LastDate + :arx_trip_date_range AND \n";
+        if (pass==2)
+            SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
+        SQLText +=
+            "   trfer_pax_stat.point_id = points.point_id and ";
+        params.AccessClause(SQLText);
+        SQLText +=
+            "   trfer_pax_stat.scd_out>=:FirstDate AND trfer_pax_stat.scd_out<:LastDate and "
+            "   trfer_pax_stat.pax_id = pax.pax_id ";
+        TCachedQuery Qry(SQLText, QryParams);
+        Qry.get().Execute();
+        if(not Qry.get().Eof) {
+            int col_part_key = Qry.get().FieldIndex("part_key");
+            int col_point_id = Qry.get().FieldIndex("point_id");
+            int col_scd_out = Qry.get().FieldIndex("scd_out");
+            int col_pax_id = Qry.get().FieldIndex("pax_id");
+            int col_rk_weight = Qry.get().FieldIndex("rk_weight");
+            int col_bag_weight = Qry.get().FieldIndex("bag_weight");
+            int col_bag_amount = Qry.get().FieldIndex("bag_amount");
+            int col_segments = Qry.get().FieldIndex("segments");
+            int col_full_name = Qry.get().FieldIndex("full_name");
+            int col_pers_type = Qry.get().FieldIndex("pers_type");
+            for(; not Qry.get().Eof; Qry.get().Next()) {
+                TDateTime part_key = NoExists;
+                if(not Qry.get().FieldIsNULL(col_part_key))
+                    part_key = Qry.get().FieldAsDateTime(col_part_key);
+//                int point_id = Qry.get().FieldAsInteger(col_point_id);
+//                TDateTime scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+                int pax_id = Qry.get().FieldAsInteger(col_pax_id);
+                int rk_weight = Qry.get().FieldAsInteger(col_rk_weight);
+                int bag_weight = Qry.get().FieldAsInteger(col_bag_weight);
+                int bag_amount = Qry.get().FieldAsInteger(col_bag_amount);
+                string segments = Qry.get().FieldAsString(col_segments);
+                string full_name = Qry.get().FieldAsString(col_full_name);
+                string pers_type = Qry.get().FieldAsString(col_pers_type);
+
+                list<TTripInfo> seg_list;
+                getSegList(segments, seg_list);
+
+                TTrferPaxStat tmp_stat;
+                TTrferPaxStatItem item;
+                for(list<TTripInfo>::iterator flt = seg_list.begin();
+                        flt != seg_list.end(); flt++) {
+                    if(item.airline.empty()) {
+                        prn_airline.check(flt->airline);
+                        item.airline = flt->airline;
+                        item.airp = flt->airp;
+                        item.flt_no1 = flt->flt_no;
+                        item.suffix1 = flt->suffix;
+                        item.date1 = flt->scd_out;
+                    } else {
+                        item.trfer_airp = flt->airp;
+                        item.airline2 = flt->airline;
+                        item.flt_no2 = flt->flt_no;
+                        item.suffix2 = flt->suffix;
+                        item.date2 = flt->scd_out;
+                        item.pax_name = transliter(full_name, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
+                        item.pax_doc = CheckIn::GetPaxDocStr(part_key, pax_id, false);
+
+                        TSegCategories::Enum seg_category = TSegCategories::Unknown;
+                        if(params.seg_category != TSegCategories::Unknown) {
+                            bool is_inter1 = not rus_airp(item.airp);
+                            bool is_inter2 = not rus_airp(item.trfer_airp);
+                            if(not is_inter1 and not is_inter2) seg_category = TSegCategories::IntInt;
+                            if(is_inter1 and is_inter2) seg_category = TSegCategories::ForFor;
+                            if(is_inter1 and not is_inter2) seg_category = TSegCategories::ForInt;
+                            if(not is_inter1 and is_inter2) seg_category = TSegCategories::IntFor;
+                        }
+
+                        if(
+                                params.seg_category == seg_category and
+                                (params.trfer_airp.empty() or params.trfer_airp == item.trfer_airp) and
+                                (params.trfer_airline.empty() or params.trfer_airline == item.airline)
+                          )
+                            tmp_stat.push_back(item);
+
+                        item.clear();
+                        item.airline = flt->airline;
+                        item.airp = flt->airp;
+                        item.flt_no1 = flt->flt_no;
+                        item.suffix1 = flt->suffix;
+                        item.date1 = flt->scd_out;
+                    }
+                }
+
+                if(tmp_stat.begin() != tmp_stat.end()) {
+                    tmp_stat.begin()->pax_amount = 1;
+                    tmp_stat.begin()->pers_type = pers_type;
+                    tmp_stat.begin()->rk_weight = rk_weight;
+                    tmp_stat.begin()->bag_amount = bag_amount;
+                    tmp_stat.begin()->bag_weight = bag_weight;
+                }
+
+                TrferPaxStat.insert(TrferPaxStat.end(), tmp_stat.begin(), tmp_stat.end());
+            }
+        }
+    }
+}
+
+void createXMLTrferPaxStat(
+        const TStatParams &params,
+        TTrferPaxStat &TrferPaxStat,
+        const TPrintAirline &prn_airline,
+        xmlNodePtr resNode)
+{
+    if(TrferPaxStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
+    if(TrferPaxStat.size() > (size_t)MAX_STAT_ROWS()) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
+    NewTextChild(resNode, "airline", prn_airline.get(), "");
+
+    xmlNodePtr grdNode = NewTextChild(resNode, "grd");
+
+    xmlNodePtr headerNode = NewTextChild(grdNode, "header");
+    xmlNodePtr colNode;
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АК"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АП"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Сег.1"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Трансфер"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Сег.2"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("ФИО"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Паспорт"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("ВЗ"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("РБ"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("РМ"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Р/кладь(вес)"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("БГ мест"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("БГ вес"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+
+    xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
+    xmlNodePtr rowNode;
+
+    struct TStatTotals {
+        int pax_amount;
+        int adult;
+        int child;
+        int baby;
+        int rk_weight;
+        int bag_amount;
+        int bag_weight;
+        TStatTotals():
+            pax_amount(0),
+            adult(0),
+            child(0),
+            baby(0),
+            rk_weight(0),
+            bag_amount(0),
+            bag_weight(0)
+        {}
+    } totals;
+
+    for(TTrferPaxStat::iterator stat = TrferPaxStat.begin();
+            stat != TrferPaxStat.end(); stat++) {
+        rowNode = NewTextChild(rowsNode, "row");
+        // АК
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirline, stat->airline));
+        // АП
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, stat->airp));
+        //Сег.1
+        ostringstream buf;
+        buf << setw(3) << setfill('0') << stat->flt_no1 << ElemIdToCodeNative(etSuffix, stat->suffix1);
+        NewTextChild(rowNode, "col", buf.str());
+        //Дата
+        NewTextChild(rowNode, "col", DateTimeToStr(stat->date1, "dd.mm.yyyy"));
+        //Трансфер
+        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, stat->trfer_airp));
+        //Сег.2
+        buf.str("");
+        buf
+            << ElemIdToCodeNative(etAirline, stat->airline2)
+            << setw(3) << setfill('0') << stat->flt_no2 << ElemIdToCodeNative(etSuffix, stat->suffix2);
+        NewTextChild(rowNode, "col", buf.str());
+        //Дата
+        NewTextChild(rowNode, "col", DateTimeToStr(stat->date2, "dd.mm.yyyy"));
+        //ФИО
+        NewTextChild(rowNode, "col", stat->pax_name);
+        //Паспорт
+        NewTextChild(rowNode, "col", stat->pax_doc);
+        //Кол-во пасс.
+        NewTextChild(rowNode, "col", stat->pax_amount);
+        //ВЗ
+        NewTextChild(rowNode, "col", stat->pers_type == "ВЗ");
+        //РБ
+        NewTextChild(rowNode, "col", stat->pers_type == "РБ");
+        //РМ
+        NewTextChild(rowNode, "col", stat->pers_type == "РМ");
+        //Р/кладь(вес)
+        NewTextChild(rowNode, "col", stat->rk_weight);
+        //БГ мест
+        NewTextChild(rowNode, "col", stat->bag_amount);
+        //БГ вес
+        NewTextChild(rowNode, "col", stat->bag_weight);
+
+        totals.pax_amount += stat->pax_amount;
+        totals.adult += stat->pers_type == "ВЗ";
+        totals.child += stat->pers_type == "РБ";
+        totals.baby += stat->pers_type == "РМ";
+        totals.rk_weight += stat->rk_weight;
+        totals.bag_amount += stat->bag_amount;
+        totals.bag_weight += stat->bag_weight;
+    }
+
+    rowNode = NewTextChild(rowsNode, "row");
+    NewTextChild(rowNode, "col", getLocaleText("Итого:"));
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col", totals.pax_amount);
+    NewTextChild(rowNode, "col", totals.adult);
+    NewTextChild(rowNode, "col", totals.child);
+    NewTextChild(rowNode, "col", totals.baby);
+    NewTextChild(rowNode, "col", totals.rk_weight);
+    NewTextChild(rowNode, "col", totals.bag_amount);
+    NewTextChild(rowNode, "col", totals.bag_weight);
+
+    xmlNodePtr variablesNode = STAT::set_variables(resNode);
+    NewTextChild(variablesNode, "stat_type", params.statType);
+    NewTextChild(variablesNode, "stat_mode", getLocaleText("Трансфер"));
+    NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
+}
+
+
+/***************** end of TrferPaxStat *********************/
+
+
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -9874,6 +10438,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         case statAnnulBT:
         case statPFSFull:
         case statPFSShort:
+        case statTrferPax:
             get_compatible_report_form("stat", reqNode, resNode);
             break;
         default:
@@ -9993,6 +10558,13 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             TPFSShortStat PFSShortStat;
             RunPFSShortStat(params, PFSShortStat, airline);
             createXMLPFSShortStat(params, PFSShortStat, airline, resNode);
+        }
+        if(params.statType == statTrferPax)
+        {
+            TPrintAirline airline;
+            TTrferPaxStat TrferPaxStat;
+            RunTrferPaxStat(params, TrferPaxStat, airline);
+            createXMLTrferPaxStat(params, TrferPaxStat, airline, resNode);
         }
     }
     /* GRISHA */
@@ -11122,6 +11694,9 @@ void get_flight_stat(map<string, long> &stat_times, int point_id, bool final_col
      add_stat_time(stat_times, "kuf_stat", tm.Print());
      tm.Init();
      get_pfs_stat(point_id);
+     add_stat_time(stat_times, "pfs_stat", tm.Print());
+     tm.Init();
+     get_trfer_pax_stat(point_id);
      add_stat_time(stat_times, "pfs_stat", tm.Print());
    };
 

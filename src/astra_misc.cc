@@ -52,6 +52,7 @@ bool TTripInfo::getByPointId ( const TDateTime part_key, const int point_id )
   if ( Qry.Eof ) return false;
 
   init( Qry );
+  this->point_id = point_id;
   return true;
 }
 
