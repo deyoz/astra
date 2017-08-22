@@ -1982,6 +1982,7 @@ enum TSeanceType { seanceAirline, seanceAirport, seanceAll };
 
 static const string PARAM_SEANCE_TYPE           = "seance_type";
 static const string PARAM_DESK_CITY             = "desk_city";
+static const string PARAM_DESK_LANG             = "desk_lang";
 static const string PARAM_NAME                  = "name";
 static const string PARAM_TYPE                  = "type";
 static const string PARAM_STAT_TYPE             = "stat_type";
@@ -2003,6 +2004,9 @@ static const string PARAM_REG_TYPE              = "reg_type";
 static const string PARAM_SKIP_ROWS             = "skip_rows";
 static const string PARAM_ORDER_SOURCE          = "order_source";
 static const string PARAM_PR_PACTS              = "pr_pacts";
+static const string PARAM_TRFER_AIRP            = "trfer_airp";
+static const string PARAM_TRFER_AIRLINE         = "trfer_airline";
+static const string PARAM_SEG_CATEGORY          = "seg_category";
 
 class TSegCategories {
     public:
@@ -2042,6 +2046,7 @@ class TSegCategory : public ASTRA::PairList<TSegCategories::Enum, std::string>
 
 struct TStatParams {
     string desk_city; // Используется в TReqInfo::Initialize(city) в фоновой статистике
+    string desk_lang;
     string name, type;
     TStatType statType;
     TAccessElems<string> airlines, airps;
@@ -2070,8 +2075,12 @@ struct TStatParams {
 
 void TStatParams::fromFileParams(map<string, string> &file_params)
 {
+    trfer_airp = file_params[PARAM_TRFER_AIRP];
+    trfer_airline = file_params[PARAM_TRFER_AIRLINE];
+    seg_category = TSegCategory().decode(file_params[PARAM_SEG_CATEGORY]);
     seance = (TSeanceType)ToInt(file_params[PARAM_SEANCE_TYPE]);
     desk_city = file_params[PARAM_DESK_CITY];
+    desk_lang = file_params[PARAM_DESK_LANG];
     name = file_params[PARAM_NAME];
     type = file_params[PARAM_TYPE];
     statType = DecodeStatType(file_params[PARAM_STAT_TYPE]);
@@ -2100,8 +2109,12 @@ void TStatParams::fromFileParams(map<string, string> &file_params)
 
 void TStatParams::toFileParams(map<string, string> &file_params) const
 {
+    file_params[PARAM_TRFER_AIRP] = trfer_airp;
+    file_params[PARAM_TRFER_AIRLINE] = trfer_airline;
+    file_params[PARAM_SEG_CATEGORY] = TSegCategory().encode(seg_category);
     file_params[PARAM_SEANCE_TYPE] = IntToString(seance);
     file_params[PARAM_DESK_CITY] = TReqInfo::Instance()->desk.city;
+    file_params[PARAM_DESK_LANG] = TReqInfo::Instance()->desk.lang;
     file_params[PARAM_NAME] = name;
     file_params[PARAM_TYPE] = type;
     file_params[PARAM_STAT_TYPE] = EncodeStatType(statType);
@@ -9195,8 +9208,14 @@ struct TOrderStatWriter {
     boost::iostreams::filtering_ostream out;
     size_t rowcount;
 
+    void push_back(const TOrderStatItem &row)
+    {
+        insert(row);
+    }
+
     void insert(const TOrderStatItem &row);
     void finish();
+    size_t size() { return 0; }
 
     TOrderStatWriter(int afile_id, TDateTime amonth, const string &afile_name):
         enc("CP1251"),
@@ -9280,6 +9299,13 @@ void TOrderStatWriter::insert(const TOrderStatItem &row)
     out.flush();
 }
 
+template <class T>
+void RunTrferPaxStat(
+        const TStatParams &params,
+        T &TrferPaxStat,
+        TPrintAirline &prn_airline
+        );
+
 /* GRISHA */
 void create_plain_files(
         const TStatParams &params,
@@ -9298,6 +9324,9 @@ void create_plain_files(
     TPrintAirline airline;
     TOrderStatWriter order_writer(item.id, params.FirstDate, file_name);
     switch(params.statType) {
+        case statTrferPax:
+            RunTrferPaxStat(params, order_writer, airline);
+            break;
         case statRFISC:
             RunRFISCStat(params, order_writer, airline);
             break;
@@ -9373,6 +9402,7 @@ void processStatOrders(TQueueItem &item) {
         params.fromFileParams(item.params);
 
         TReqInfo::Instance()->Initialize(params.desk_city);
+        TReqInfo::Instance()->desk.lang = params.desk_lang;
 
         // По client_type = ctHTTP будем определять, что статистика формируется из заказа
         // В частности в статистике Саморегистрация
@@ -9951,7 +9981,7 @@ void createXMLPFSShortStat(
 /***************** TrferPaxStat *********************/
 
 
-struct TTrferPaxStatItem {
+struct TTrferPaxStatItem:public TOrderStatItem {
     string airline;
     string airp;
     int flt_no1;
@@ -9969,7 +9999,9 @@ struct TTrferPaxStatItem {
     string pax_name;
     string pax_doc;
     int pax_amount;
-    string pers_type;
+    int adult;
+    int child;
+    int baby;
 
     int rk_weight;
     int bag_amount;
@@ -9998,13 +10030,94 @@ struct TTrferPaxStatItem {
         pax_name.clear();
         pax_doc.clear();
         pax_amount = 0;
-        pers_type.clear();
+        adult = 0;
+        child = 0;
+        baby = 0;
 
         rk_weight = 0;
         bag_amount = 0;
         bag_weight = 0;
     }
+
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
 };
+
+void TTrferPaxStatItem::add_header(ostringstream &buf) const
+{
+    buf
+        << getLocaleText("АК") << delim
+        << getLocaleText("АП") << delim
+        << getLocaleText("Сег.1") << delim
+        << getLocaleText("Дата") << delim
+        << getLocaleText("Трансфер") << delim
+        << getLocaleText("Сег.2") << delim
+        << getLocaleText("Дата") << delim
+        << getLocaleText("ФИО пассажира") << delim
+        << getLocaleText("Документ") << delim
+        << getLocaleText("Кол-во пасс.") << delim
+        << getLocaleText("ВЗ") << delim
+        << getLocaleText("РБ") << delim
+        << getLocaleText("РМ") << delim
+        << getLocaleText("Р/кладь (вес)") << delim
+        << getLocaleText("БГ мест") << delim
+        << getLocaleText("БГ вес") << endl;
+}
+
+void TTrferPaxStatItem::add_data(ostringstream &buf) const
+{
+    if(airline.empty()) {
+        buf
+            << getLocaleText("Итого:") << delim
+            << delim
+            << delim
+            << delim
+            << delim
+            << delim
+            << delim
+            << delim
+            << delim;
+    } else {
+        // АК
+        buf << ElemIdToCodeNative(etAirline, airline) << delim;
+        // АП
+        buf << ElemIdToCodeNative(etAirp, airp) << delim;
+        //Сег.1
+        ostringstream tmp;
+        tmp << setw(3) << setfill('0') << flt_no1 << ElemIdToCodeNative(etSuffix, suffix1);
+        buf << tmp.str() << delim;
+        //Дата
+        buf << DateTimeToStr(date1, "dd.mm.yyyy") << delim;
+        //Трансфер
+        buf << ElemIdToCodeNative(etAirp, trfer_airp) << delim;
+        //Сег.2
+        tmp.str("");
+        tmp
+            << ElemIdToCodeNative(etAirline, airline2)
+            << setw(3) << setfill('0') << flt_no2 << ElemIdToCodeNative(etSuffix, suffix2);
+        buf << tmp.str() << delim;
+        //Дата
+        buf << DateTimeToStr(date2, "dd.mm.yyyy") << delim;
+        //ФИО
+        buf << pax_name << delim;
+        //Паспорт
+        buf << pax_doc << delim;
+    }
+    //Кол-во пасс.
+    buf << pax_amount << delim;
+    //ВЗ
+    buf << adult << delim;
+    //РБ
+    buf << child << delim;
+    //РМ
+    buf << baby << delim;
+    //Р/кладь(вес)
+    buf << rk_weight << delim;
+    //БГ мест
+    buf << bag_amount << delim;
+    //БГ вес
+    buf << bag_weight << endl;
+}
 
 typedef list<TTrferPaxStatItem> TTrferPaxStat;
 
@@ -10026,9 +10139,10 @@ void getSegList(const string &segments, list<TTripInfo> &seg_list)
     }
 }
 
+template <class T>
 void RunTrferPaxStat(
         const TStatParams &params,
-        TTrferPaxStat &TrferPaxStat,
+        T &TrferPaxStat,
         TPrintAirline &prn_airline
         )
 {
@@ -10036,6 +10150,7 @@ void RunTrferPaxStat(
     QryParams
         << QParam("FirstDate", otDate, params.FirstDate)
         << QParam("LastDate", otDate, params.LastDate);
+    TTrferPaxStatItem totals;
     for(int pass = 0; pass <= 2; pass++) {
         if (pass!=0)
             QryParams << QParam("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
@@ -10101,8 +10216,6 @@ void RunTrferPaxStat(
                 TDateTime part_key = NoExists;
                 if(not Qry.get().FieldIsNULL(col_part_key))
                     part_key = Qry.get().FieldAsDateTime(col_part_key);
-//                int point_id = Qry.get().FieldAsInteger(col_point_id);
-//                TDateTime scd_out = Qry.get().FieldAsDateTime(col_scd_out);
                 int pax_id = Qry.get().FieldAsInteger(col_pax_id);
                 int rk_weight = Qry.get().FieldAsInteger(col_rk_weight);
                 int bag_weight = Qry.get().FieldAsInteger(col_bag_weight);
@@ -10162,16 +10275,34 @@ void RunTrferPaxStat(
 
                 if(tmp_stat.begin() != tmp_stat.end()) {
                     tmp_stat.begin()->pax_amount = 1;
-                    tmp_stat.begin()->pers_type = pers_type;
+                    tmp_stat.begin()->adult = pers_type == "ВЗ";
+                    tmp_stat.begin()->child = pers_type == "РБ";
+                    tmp_stat.begin()->baby = pers_type == "РМ";
                     tmp_stat.begin()->rk_weight = rk_weight;
                     tmp_stat.begin()->bag_amount = bag_amount;
                     tmp_stat.begin()->bag_weight = bag_weight;
+
+                    totals.pax_amount++;
+                    totals.adult += tmp_stat.begin()->adult;
+                    totals.child += tmp_stat.begin()->child;
+                    totals.baby += tmp_stat.begin()->baby;
+                    totals.rk_weight += rk_weight;
+                    totals.bag_amount += bag_amount;
+                    totals.bag_weight += bag_weight;
                 }
 
-                TrferPaxStat.insert(TrferPaxStat.end(), tmp_stat.begin(), tmp_stat.end());
+                for(TTrferPaxStat::iterator i = tmp_stat.begin();
+                        i != tmp_stat.end(); i++) TrferPaxStat.push_back(*i);
+
+                if(
+                        not is_same<T, TOrderStatWriter>::value and
+                        TrferPaxStat.size() > (size_t)MAX_STAT_ROWS()
+                  ) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
             }
         }
     }
+    if(totals.pax_amount != 0)
+        TrferPaxStat.push_back(totals);
 }
 
 void createXMLTrferPaxStat(
@@ -10181,7 +10312,6 @@ void createXMLTrferPaxStat(
         xmlNodePtr resNode)
 {
     if(TrferPaxStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
-    if(TrferPaxStat.size() > (size_t)MAX_STAT_ROWS()) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
 
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
@@ -10216,11 +10346,11 @@ void createXMLTrferPaxStat(
     SetProp(colNode, "width", 60);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("ФИО"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("ФИО пассажира"));
     SetProp(colNode, "width", 60);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Паспорт"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Документ"));
     SetProp(colNode, "width", 60);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
@@ -10240,7 +10370,7 @@ void createXMLTrferPaxStat(
     SetProp(colNode, "width", 60);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Р/кладь(вес)"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Р/кладь (вес)"));
     SetProp(colNode, "width", 60);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
@@ -10256,93 +10386,60 @@ void createXMLTrferPaxStat(
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
     xmlNodePtr rowNode;
 
-    struct TStatTotals {
-        int pax_amount;
-        int adult;
-        int child;
-        int baby;
-        int rk_weight;
-        int bag_amount;
-        int bag_weight;
-        TStatTotals():
-            pax_amount(0),
-            adult(0),
-            child(0),
-            baby(0),
-            rk_weight(0),
-            bag_amount(0),
-            bag_weight(0)
-        {}
-    } totals;
-
     for(TTrferPaxStat::iterator stat = TrferPaxStat.begin();
             stat != TrferPaxStat.end(); stat++) {
         rowNode = NewTextChild(rowsNode, "row");
-        // АК
-        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirline, stat->airline));
-        // АП
-        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, stat->airp));
-        //Сег.1
-        ostringstream buf;
-        buf << setw(3) << setfill('0') << stat->flt_no1 << ElemIdToCodeNative(etSuffix, stat->suffix1);
-        NewTextChild(rowNode, "col", buf.str());
-        //Дата
-        NewTextChild(rowNode, "col", DateTimeToStr(stat->date1, "dd.mm.yyyy"));
-        //Трансфер
-        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, stat->trfer_airp));
-        //Сег.2
-        buf.str("");
-        buf
-            << ElemIdToCodeNative(etAirline, stat->airline2)
-            << setw(3) << setfill('0') << stat->flt_no2 << ElemIdToCodeNative(etSuffix, stat->suffix2);
-        NewTextChild(rowNode, "col", buf.str());
-        //Дата
-        NewTextChild(rowNode, "col", DateTimeToStr(stat->date2, "dd.mm.yyyy"));
-        //ФИО
-        NewTextChild(rowNode, "col", stat->pax_name);
-        //Паспорт
-        NewTextChild(rowNode, "col", stat->pax_doc);
+        if(stat->airline.empty()) {
+            NewTextChild(rowNode, "col", getLocaleText("Итого:"));
+            NewTextChild(rowNode, "col");
+            NewTextChild(rowNode, "col");
+            NewTextChild(rowNode, "col");
+            NewTextChild(rowNode, "col");
+            NewTextChild(rowNode, "col");
+            NewTextChild(rowNode, "col");
+            NewTextChild(rowNode, "col");
+            NewTextChild(rowNode, "col");
+        } else {
+            // АК
+            NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirline, stat->airline));
+            // АП
+            NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, stat->airp));
+            //Сег.1
+            ostringstream buf;
+            buf << setw(3) << setfill('0') << stat->flt_no1 << ElemIdToCodeNative(etSuffix, stat->suffix1);
+            NewTextChild(rowNode, "col", buf.str());
+            //Дата
+            NewTextChild(rowNode, "col", DateTimeToStr(stat->date1, "dd.mm.yyyy"));
+            //Трансфер
+            NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, stat->trfer_airp));
+            //Сег.2
+            buf.str("");
+            buf
+                << ElemIdToCodeNative(etAirline, stat->airline2)
+                << setw(3) << setfill('0') << stat->flt_no2 << ElemIdToCodeNative(etSuffix, stat->suffix2);
+            NewTextChild(rowNode, "col", buf.str());
+            //Дата
+            NewTextChild(rowNode, "col", DateTimeToStr(stat->date2, "dd.mm.yyyy"));
+            //ФИО
+            NewTextChild(rowNode, "col", stat->pax_name);
+            //Паспорт
+            NewTextChild(rowNode, "col", stat->pax_doc);
+        }
         //Кол-во пасс.
         NewTextChild(rowNode, "col", stat->pax_amount);
         //ВЗ
-        NewTextChild(rowNode, "col", stat->pers_type == "ВЗ");
+        NewTextChild(rowNode, "col", stat->adult);
         //РБ
-        NewTextChild(rowNode, "col", stat->pers_type == "РБ");
+        NewTextChild(rowNode, "col", stat->child);
         //РМ
-        NewTextChild(rowNode, "col", stat->pers_type == "РМ");
+        NewTextChild(rowNode, "col", stat->baby);
         //Р/кладь(вес)
         NewTextChild(rowNode, "col", stat->rk_weight);
         //БГ мест
         NewTextChild(rowNode, "col", stat->bag_amount);
         //БГ вес
         NewTextChild(rowNode, "col", stat->bag_weight);
-
-        totals.pax_amount += stat->pax_amount;
-        totals.adult += stat->pers_type == "ВЗ";
-        totals.child += stat->pers_type == "РБ";
-        totals.baby += stat->pers_type == "РМ";
-        totals.rk_weight += stat->rk_weight;
-        totals.bag_amount += stat->bag_amount;
-        totals.bag_weight += stat->bag_weight;
     }
-
-    rowNode = NewTextChild(rowsNode, "row");
-    NewTextChild(rowNode, "col", getLocaleText("Итого:"));
-    NewTextChild(rowNode, "col");
-    NewTextChild(rowNode, "col");
-    NewTextChild(rowNode, "col");
-    NewTextChild(rowNode, "col");
-    NewTextChild(rowNode, "col");
-    NewTextChild(rowNode, "col");
-    NewTextChild(rowNode, "col");
-    NewTextChild(rowNode, "col");
-    NewTextChild(rowNode, "col", totals.pax_amount);
-    NewTextChild(rowNode, "col", totals.adult);
-    NewTextChild(rowNode, "col", totals.child);
-    NewTextChild(rowNode, "col", totals.baby);
-    NewTextChild(rowNode, "col", totals.rk_weight);
-    NewTextChild(rowNode, "col", totals.bag_amount);
-    NewTextChild(rowNode, "col", totals.bag_weight);
 
     xmlNodePtr variablesNode = STAT::set_variables(resNode);
     NewTextChild(variablesNode, "stat_type", params.statType);
