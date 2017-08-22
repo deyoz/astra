@@ -378,14 +378,17 @@ void viewOrgElement(_EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest&
     SetEdiFullSegment(pMes, SegmElement("ORG"), org.str());
 }
 
-void viewOrgElement2(_EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest& elem)
+void viewOrgElement2(_EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest& elem,
+                     bool translit)
 {
     std::ostringstream org;
-    org << BaseTables::Company(elem.airlineCode())->code(elem.lang()) << ":";
-    org << BaseTables::City(elem.locationCode())->code(elem.lang()) << "+";
+    BaseTables::Company airl = BaseTables::Company(elem.airlineCode());
+    org << (translit ? airl->lcode() : airl->rcode()) << ":";
+    BaseTables::City city = BaseTables::City(elem.locationCode());
+    org << (translit ? city->lcode() : city->rcode()) << "+";
     org << elem.pprNumber() << "+++";
     org << elem.type() << "+::";
-    org << elem.langStr()<< "+" << (elem.lang() == RUSSIAN ? elem.pult() : StrUtils::translit(elem.pult(), false));
+    org << elem.langStr()<< "+" << (translit ? StrUtils::translit(elem.pult(), false) : elem.pult());
     SetEdiFullSegment(pMes, SegmElement("ORG"), org.str());
 }
 

@@ -628,6 +628,7 @@ void dumpTable(const std::string& table,
 
 void commit();
 void rollback();
+void rollbackSavePax();
 
 tlgnum_t make_tlgnum(int n);
 

@@ -117,7 +117,8 @@ void viewEqnElement(_EDI_REAL_MES_STRUCT_* pMes, const std::list<EqnElem>& lElem
 */
 void viewOrgElement(_EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest& elem);
 
-void viewOrgElement2(_EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest& elem);
+void viewOrgElement2(_EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest& elem,
+                     bool translit);
 
 
 //-------------------------------------IACTI---------------------------------------------

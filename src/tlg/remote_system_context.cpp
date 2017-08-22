@@ -317,10 +317,10 @@ EdsSystemContext::EdsSystemContext(const SystemContext& baseCnt,
 EdsSystemContext* EdsSystemContext::create4TestsOnly(const std::string& airline,
                                                      const std::string& ediAddr,
                                                      const std::string& ourEdiAddr,
+                                                     bool translit,
                                                      const std::string& h2hAddr,
                                                      const std::string& ourH2hAddr)
 {
-    tst();
     EdsSystemContext* eds = 0;
     try
     {
@@ -333,6 +333,7 @@ EdsSystemContext* EdsSystemContext::create4TestsOnly(const std::string& airline,
         SystemContextMaker ctxtMaker;
         ctxtMaker.setIda(getNextId());
         RotParams rotParams("MOWET");
+        rotParams.translit = translit;
         if(!h2hAddr.empty() && !ourH2hAddr.empty()) {
             rotParams.setH2hAddrs(h2hAddr, ourH2hAddr);
         }
@@ -675,11 +676,12 @@ std::string createRot(const RotParams &par)
         LogTrace(TRACE3) << "create rot: " << par.canon_name;
 
         make_curs("begin "
-"insert into ROT (CANON_NAME, OWN_CANON_NAME, ID, LOOPBACK, IP_ADDRESS, IP_PORT, H2H, H2H_ADDR, OUR_H2H_ADDR) "
+"insert into ROT (CANON_NAME, OWN_CANON_NAME, ROUTER_TRANSLIT, ID, LOOPBACK, IP_ADDRESS, IP_PORT, H2H, H2H_ADDR, OUR_H2H_ADDR) "
 "values "
-"(:canon_name, 'ASTRA', id__seq.nextval, 1, '0.0.0.0', '8888', :h2h, :h2h_addr, :our_h2h_addr) "
+"(:canon_name, 'ASTRA', :translit, id__seq.nextval, 1, '0.0.0.0', '8888', :h2h, :h2h_addr, :our_h2h_addr) "
 "returning id into :id; end;").
         bind(":canon_name",   par.canon_name).
+        bind(":translit",     par.translit).
         bind(":h2h",          par.h2h?1:0).
         bind(":h2h_addr",     par.h2h_addr).
         bind(":our_h2h_addr", par.our_h2h_addr).

@@ -177,7 +177,6 @@ namespace RemoteSystemContext
         static pSystemContext SysCtxt;
     public:
         Ticketing::SystemAddrs_t ida() const           { return Ida;                  }
-        const std::string& canonName() const           { return CanonName;            }
         const std::string& airline() const             { return RemoteAirline;        }
         const std::string& ourAddrEdifact() const      { return OurAddrEdifact;       }
         const std::string& remoteAddrEdifact() const   { return RemoteAddrEdifact;    }
@@ -267,6 +266,7 @@ namespace RemoteSystemContext
         static EdsSystemContext* create4TestsOnly(const std::string& airline,
                                                   const std::string& ediAddr,
                                                   const std::string& ourEdiAddr,
+                                                  bool translit,
                                                   const std::string& h2hAddr = "",
                                                   const std::string& ourH2hAddr = "");
 #endif /*XP_TESTING*/
@@ -365,12 +365,14 @@ namespace RemoteSystemContext
     struct RotParams
     {
         std::string canon_name;
+        bool translit;
         std::string h2h_addr;
         std::string our_h2h_addr;
         bool h2h;
 
         RotParams(const std::string &cn) :
             canon_name(cn),
+            translit(false),
             h2h(false)
         {}
 

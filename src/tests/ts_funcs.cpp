@@ -8,6 +8,7 @@
 #include "astra_main.h"
 #include "astra_misc.h"
 #include "astra_api.h"
+#include "checkin.h"
 #include "season.h"
 #include "salons.h"
 #include "date_time.h"
@@ -28,6 +29,7 @@
 #include <serverlib/func_placeholders.h>
 #include <serverlib/cursctl.h>
 #include <serverlib/str_utils.h>
+#include <serverlib/tcl_utils.h>
 #include <jxtlib/jxtlib.h>
 #include <jxtlib/utf2cp866.h>
 
@@ -225,16 +227,24 @@ static std::string FP_init_eds(const std::vector<std::string> &p)
     using namespace Ticketing::RemoteSystemContext;
 
     assert(p.size() > 2);
+
+    bool translit = false;
+    if(p.size() > 3) {
+        translit = (p.at(3) == "translit");
+    }
+
     std::string h2hAddr = "",
              ourH2hAddr = "";
     if(p.size() > 4) {
-        h2hAddr = p.at(3);
-        ourH2hAddr = p.at(4);
+        h2hAddr = p.at(4);
+        ourH2hAddr = p.at(5);
     }
+
 
     EdsSystemContext::create4TestsOnly(p.at(0) /*airline*/,
                                        p.at(1) /*remote edi address - to*/,
                                        p.at(2) /*our edi address - from*/,
+                                       translit,
                                        h2hAddr,
                                        ourH2hAddr);
 
@@ -528,6 +538,24 @@ static std::string FP_prepare_bp_printing(const std::vector<std::string>& p)
     return "";
 }
 
+static std::string FP_settcl(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 2);
+    setTclVar(par.at(0), par.at(1));
+    return std::string();
+}
+
+static std::string FP_lastGeneratedPaxId(const std::vector<std::string>& par)
+{
+    int lgpid = lastGeneratedPaxId();
+    if(lgpid == ASTRA::NoExists) {
+        return "";
+    }
+
+    return std::to_string(lgpid);
+}
+
+
 
 FP_REGISTER("<<", FP_tlg_in);
 FP_REGISTER("!!", FP_req);
@@ -550,5 +578,7 @@ FP_REGISTER("get_single_tid", FP_getSingleTid);
 FP_REGISTER("get_lat_code", FP_get_lat_code);
 FP_REGISTER("prepare_bp_printing", FP_prepare_bp_printing);
 FP_REGISTER("deny_ets_interactive", FP_deny_ets_interactive);
+FP_REGISTER("settcl", FP_settcl);
+FP_REGISTER("last_generated_pax_id", FP_lastGeneratedPaxId);
 
 #endif /* XP_TESTING */

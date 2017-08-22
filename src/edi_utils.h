@@ -90,6 +90,11 @@ void getTermRequestCtxt(int ctxtId,
                         const std::string &where,
                         XMLDoc &xmlCtxt);
 
+void getHttpRequestCtxt(int ctxtId,
+                        bool clear,
+                        const std::string &where,
+                        XMLDoc &xmlCtxt);
+
 void getEdiSessionCtxt(int sessIda,
                        bool clear,
                        const std::string& where,

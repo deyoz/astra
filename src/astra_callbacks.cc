@@ -96,6 +96,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new HTTPRequestsIface();
     new PieceConceptInterface();
     new ServicePaymentInterface();
+    new SirenaExchangeInterface();
 
     CheckInInterface::instance();
     TripsInterface::instance();

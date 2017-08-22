@@ -1772,6 +1772,12 @@ void rollback()
     }
 }
 
+void rollbackSavePax()
+{
+    LogTrace(TRACE3) << "ASTRA::rollbackSavePax()";
+    make_curs("rollback to savepoint sp_savepax").exec();
+}
+
 tlgnum_t make_tlgnum(int n)
 {
   return tlgnum_t(boost::lexical_cast<std::string>(n));

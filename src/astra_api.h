@@ -4,6 +4,7 @@
 #include "iatci_types.h"
 #include "date_time.h"
 #include "xml_unit.h"
+#include "term_version.h"
 
 #include <serverlib/xmllibcpp.h>
 #include <etick/tick_data.h>
@@ -1112,7 +1113,7 @@ protected:
     xmlNodePtr      getQueryNode() const;
     xmlNodePtr      getAnswerNode() const;
 
-    void initReqInfo() const;
+    void initReqInfo(const std::string& deskVersion = VERSION_WITH_BAG_POOLS) const;
 
     AstraEngine();
 

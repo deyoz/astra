@@ -45,8 +45,8 @@
 #include "astra_elem_utils.h"
 #include "baggage_wt.h"
 #include "payment_base.h"
+#include "edi_utils.h"
 #include "rfisc.h"
-#include "rfisc_sirena.h"
 #include "ffp_sirena.h"
 #include "annul_bt.h"
 #include "tlg/AgentWaitsForRemote.h"
@@ -55,8 +55,8 @@
 
 #include <jxtlib/jxt_cont.h>
 #include <serverlib/cursctl.h>
-#include <serverlib/savepoint.h>
 #include <serverlib/xml_stuff.h>
+#include <serverlib/savepoint.h>
 #include <serverlib/testmode.h>
 #include <serverlib/dump_table.h>
 #include <etick/tick_data.h>
@@ -72,7 +72,102 @@ using namespace std;
 using namespace ASTRA;
 using namespace BASIC::date_time;
 using namespace AstraLocale;
+using namespace AstraEdifact;
 using astra_api::xml_entities::ReqParams;
+
+
+void SirenaExchangeInterface::AvailabilityRequest(xmlNodePtr reqNode,
+                                                  xmlNodePtr answerResNode,
+                                                  const SirenaExchange::TAvailabilityReq& avlReq)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+
+    std::string reqText;
+    avlReq.build(reqText);
+
+    DoRequest(reqNode, answerResNode, reqText);
+}
+
+void SirenaExchangeInterface::PaymentStatusRequest(xmlNodePtr reqNode,
+                                                   xmlNodePtr answerResNode,
+                                                   const SirenaExchange::TPaymentStatusReq& psReq)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+
+    std::string reqText;
+    psReq.build(reqText);
+
+    DoRequest(reqNode, answerResNode, reqText);
+}
+
+void SirenaExchangeInterface::DoRequest(xmlNodePtr reqNode,
+                                        xmlNodePtr answerResNode,
+                                        const std::string& reqText)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+    LogTrace(TRACE3) << "req:\n" << XMLTreeToText(reqNode->doc);
+    if(answerResNode) {
+        LogTrace(TRACE3) << "answer res (old ediRes):\n" << XMLTreeToText(answerResNode->doc);
+    }
+
+    int reqCtxtId = AstraContext::SetContext("TERM_REQUEST", XMLTreeToText(reqNode->doc));
+    addToEdiResponseCtxt(reqCtxtId, answerResNode, "");
+
+    SirenaExchange::SirenaClient sirClient;
+    sirClient.sendRequest(reqText, createKickInfo(reqCtxtId, "SirenaExchange"));
+}
+
+void SirenaExchangeInterface::KickHandler(XMLRequestCtxt *ctxt,
+                                          xmlNodePtr reqNode,
+                                          xmlNodePtr resNode)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+
+    boost::optional<httpsrv::HttpResp> resp = SirenaExchange::SirenaClient::receive("TODO");
+    if(resp) {
+        LogTrace(TRACE3) << "req:\n" << resp->req.text;
+        if(resp->commErr) {
+             LogError(STDLOG) << "Http communication error! "
+                              << "(" << resp->commErr->code << "/" << resp->commErr->errMsg << ")";
+             return;
+        }
+    } else {
+        LogError(STDLOG) << "Enter to KickHandler but HttpResponse is empty!";
+    }
+
+    if(GetNode("@req_ctxt_id",reqNode) != NULL)
+    {
+        int req_ctxt_id = NodeAsInteger("@req_ctxt_id", reqNode);
+
+        XMLDoc termReqCtxt;
+        getTermRequestCtxt(req_ctxt_id, true, "SirenaExchangeInterface::KickHandler", termReqCtxt);
+        xmlNodePtr termReqNode = NodeAsNode("/term/query", termReqCtxt.docPtr())->children;
+        if(termReqNode == NULL)
+          throw EXCEPTIONS::Exception("ChangeStatusInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
+        LogTrace(TRACE3) << "term req:\n" << XMLTreeToText(termReqCtxt.docPtr());
+
+        if(resp)
+        {
+            XMLDoc answerResDoc = ASTRA::createXmlDoc(resp->text.substr(resp->text.find("<answer>")));
+            xmlNodePtr answerResNode = NodeAsNode("/answer", answerResDoc.docPtr());
+            addToEdiResponseCtxt(req_ctxt_id, answerResNode, "");
+        }
+
+        XMLDoc answerResCtxt;
+        getEdiResponseCtxt(req_ctxt_id, true, "ChangeStatusInterface::KickHandler", answerResCtxt);
+        xmlNodePtr answerResNode = NodeAsNode("/context", answerResCtxt.docPtr());
+        if(answerResNode == NULL)
+          throw EXCEPTIONS::Exception("ChangeStatusInterface::KickHandler: context EDI_RESPONSE answerResNode=NULL");;
+        LogTrace(TRACE3) << "answer res (old ediRes):\n" << XMLTreeToText(answerResCtxt.docPtr());
+
+        if(!CheckInInterface::SavePax(termReqNode, answerResNode, resNode))
+        {
+            // TODO
+        }
+    }
+}
+
+//---------------------------------------------------------------------------------------
 
 void CheckInInterface::LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -3363,7 +3458,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
             SirenaExchangeList.handle(__FUNCTION__);
         }
 
-        AfterSaveInfoList.handle(__FUNCTION__);
+        CheckIn::TAfterSaveInfoData data(reqNode, ediResNode);
+        AfterSaveInfoList.handle(data, __FUNCTION__);
+        if(data.httpWasSent) {
+            return true;
+        }
 
         // если нам возможно требуется послать iatci-запрос, то
         // пытаемся послать его и, если послан, фиксируем этот факт
@@ -3438,23 +3537,64 @@ void CheckIn::TAfterSaveInfo::toLog(const string& where)
   }
 }
 
-void CheckIn::TAfterSaveInfoList::handle(const string& where)
+static bool needSyncSirena(xmlNodePtr answerResNode)
 {
+    return (answerResNode == NULL ||
+            (answerResNode != NULL && !findNodeR(answerResNode, "answer")));
+}
+
+static xmlNodePtr findAnswerNode(xmlNodePtr answerResNode)
+{
+    return findNodeR(answerResNode, "answer");
+}
+
+
+bool CheckIn::TAfterSaveInfoData::needSync() const
+{
+    return needSyncSirena(answerResNode);
+}
+
+xmlNodePtr CheckIn::TAfterSaveInfoData::getAnswerNode() const
+{
+    xmlNodePtr answerNode = findAnswerNode(answerResNode);
+    ASSERT(answerNode != NULL);
+    return answerNode;
+}
+
+void CheckIn::TAfterSaveInfoList::handle(TAfterSaveInfoData& data, const string& where)
+{
+  LogTrace(TRACE3) << __FUNCTION__ << " " << where;
   if (empty())
     throw EXCEPTIONS::Exception("%s: empty TAfterSaveInfoList!", where.c_str());
   set<int> tckin_ids;
   for(TAfterSaveInfoList::const_iterator i=begin(); i!=end(); ++i)
     if (i->tckin_id!=ASTRA::NoExists) tckin_ids.insert(i->tckin_id);
   CheckTCkinIntegrity(tckin_ids, NoExists);
+  handleInner(data, where);
   for(TAfterSaveInfoList::iterator i=begin(); i!=end(); ++i)
   {
     if (i->segs.empty())
       throw EXCEPTIONS::Exception("%s: empty TAfterSaveInfo.segs!", where.c_str());
     if (i->segs.front().grp_id==ASTRA::NoExists)
       throw EXCEPTIONS::Exception("%s: unknown TAfterSaveSegInfo.grp_id!", where.c_str());
-    CheckInInterface::AfterSaveAction(i->segs.front().grp_id, i->action);
     i->toLog(where);
   }
+}
+
+void CheckIn::TAfterSaveInfoList::handleInner(TAfterSaveInfoData& data, const string& where)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+
+    const TAfterSaveInfo& info = front();
+    if(info.segs.empty())
+        throw EXCEPTIONS::Exception("%s: empty TAfterSaveInfo.segs!", where.c_str());
+    if(info.segs.front().grp_id == ASTRA::NoExists)
+      throw EXCEPTIONS::Exception("%s: unknown TAfterSaveSegInfo.grp_id!", where.c_str());
+
+    data.grpId = info.segs.front().grp_id;
+    data.action = info.action;
+
+    CheckInInterface::AfterSaveAction(data);
 }
 
 struct TSegListItem
@@ -3977,8 +4117,14 @@ static bool GetDeferEtStatusFlag(xmlNodePtr ediResNode)
     }
 
     return defer_etstatus;
-
 }
+
+#ifdef XP_TESTING
+static int LastGeneratedPaxId = ASTRA::NoExists;
+
+int lastGeneratedPaxId()              { return LastGeneratedPaxId;  }
+void setLastGeneratedPaxId(int lgpid) { LastGeneratedPaxId = lgpid; }
+#endif/*XP_TESTING*/
 
 //процедура должна возвращать true только в том случае если произведена реальная регистрация
 bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
@@ -5262,7 +5408,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 }
                 int pax_id=Qry.GetVariableAsInteger("pax_id"); //специально вводим дополнительную переменную чтобы не запортить pax.id
                 ReplaceTextChild(p->node,"generated_pax_id",pax_id);
-                if (pax.id==NoExists) p->generated_pax_id=pax_id; //заполняется только при первоначальной регистрации (new_checkin) и только для NOREC
+#ifdef XP_TESTING
+                if(inTestMode()) {
+                    setLastGeneratedPaxId(pax_id);
+                }
+#endif/*XP_TESTING*/
+                if (pax.id==NoExists) {
+                    p->generated_pax_id=pax_id; //заполняется только при первоначальной регистрации (new_checkin) и только для NOREC
+                }
 
                 if (wl_type.empty() && grp.status!=psCrew)
                 {
@@ -6385,12 +6538,25 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             prior.pc_payment_res.empty() ||
             prior.pc_payment_req!=curr.pc_payment_req)
         {
-          RequestInfo requestInfo;
-          ResponseInfo responseInfo;
-          SirenaExchange::SendRequest(req, res, requestInfo, responseInfo);
-          curr.grp_id=first_grp_id;
-          curr.pc_payment_res=responseInfo.content;
-          SirenaExchangeList.push_back(curr);
+          //RequestInfo requestInfo;
+          //ResponseInfo responseInfo;
+          //SirenaExchange::SendRequest(req, res, requestInfo, responseInfo);
+
+          if(needSyncSirena(ediResNode)) {
+            ASTRA::rollbackSavePax();
+            SirenaExchangeInterface::PaymentStatusRequest(reqNode,
+                                                          ediResNode,
+                                                          req);
+            return false;
+          } else {
+            xmlNodePtr answerNode = findAnswerNode(ediResNode);
+            ASSERT(answerNode != NULL);
+            res.parse(answerNode);
+
+            curr.grp_id=first_grp_id;
+            curr.pc_payment_res=XMLTreeToText(answerNode->doc);
+            SirenaExchangeList.push_back(curr);
+          }
         }
         else
           res.parse(prior.pc_payment_res);
@@ -6766,18 +6932,22 @@ void fillPaxsBags(const TCheckedReqPassengers &req_grps, TExchange &exch, TCheck
 
 } //namespace SirenaExchange
 
-void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActionType action)
+void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
 {
-  if (action!=CheckIn::actionCheckPieceConcept) return;
+  if (data.action!=CheckIn::actionCheckPieceConcept) return;
 
-  ProgTrace(TRACE5, "%s started with actionCheckPieceConcept (first_grp_id=%d)", __FUNCTION__, first_grp_id);
+  ProgTrace(TRACE5, "%s started with actionCheckPieceConcept (first_grp_id=%d)", __FUNCTION__, data.grpId);
 
   TCachedQuery Qry("SELECT point_dep, piece_concept "
                    "FROM pax_grp "
                    "WHERE grp_id=:grp_id",
-                   QParams() << QParam("grp_id", otInteger, first_grp_id));
+                   QParams() << QParam("grp_id", otInteger, data.grpId));
   Qry.get().Execute();
-  if (Qry.get().Eof) return; //это бывает когда разрегистрация всей группы по ошибке агента
+  if (Qry.get().Eof) {
+      LogTrace(TRACE1) << "pax_grp not found";
+      return; //это бывает когда разрегистрация всей группы по ошибке агента
+  }
+
   int point_id=Qry.get().FieldAsInteger("point_dep");
 
   TTripSetList setList;
@@ -6791,8 +6961,9 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
   map<int/*seg_no*/,TBagConcept::Enum> bag_concept_by_seg;
   CheckIn::TPaxGrpCategory::Enum grp_cat;
   TLogLocale event;
+
   SirenaExchange::TAvailabilityReq req;
-  SirenaExchange::fillPaxsBags(first_grp_id, req, grp_cat, tckin_grp_ids);
+  SirenaExchange::fillPaxsBags(data.grpId, req, grp_cat, tckin_grp_ids);
 
   TReqInfo *reqInfo = TReqInfo::Instance();
   if (setList.value<bool>(tsPieceConcept))
@@ -6811,7 +6982,20 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
         {
           if (!req.paxs.empty())
           {
-            SirenaExchange::SendRequest(req, res);
+              if(data.needSync()) {
+                  ASTRA::rollbackSavePax();
+                  SirenaExchangeInterface::AvailabilityRequest(data.reqNode,
+                                                               data.answerResNode,
+                                                               req);
+                  data.httpWasSent = true;
+                  return;
+              } else {
+                  res.parse(data.getAnswerNode());
+                  if (res.error()) throw Exception("SIRENA ERROR: %s", res.traceError().c_str());
+              }
+
+            //SirenaExchange::SendRequest(req, res); синхронный метод обмена с сиреной
+
             if (res.empty()) throw EXCEPTIONS::Exception("%s: strange situation: res.empty()", __FUNCTION__);
             if (req.paxs.empty()) throw EXCEPTIONS::Exception("%s: strange situation: req.paxs.empty()", __FUNCTION__);
             const SirenaExchange::TPaxSegMap &segs=req.paxs.front().segs;
@@ -6820,6 +7004,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
             bag_concept=boost::none; //дурацкое решение, но это для того чтобы не вызывать ошибку error: ?*((void*)& bag_concept +4)? may be used uninitialized in this function
             for(SirenaExchange::TPaxSegMap::const_iterator s=segs.begin(); s!=segs.end(); ++s)
             {
+                tst();
               string flight_view=GetTripName(s->second.operFlt, ecCkin);
               //пробегаемся по сегментам
               boost::optional<TBagConcept::Enum> seg_concept;
@@ -6873,13 +7058,18 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
                 throw EXCEPTIONS::Exception("%s: strange situation: unknown rfisc_list!", __FUNCTION__);
               bag_types_id=rfisc_list.get().toDBAdv(true);
             };
+            tst();
             res.rfiscsToDB(tckin_grp_ids, bag_concept.get(), true); //на первом этапе применяем только концепт багажа (old_version=true) !!!потом убрать
+            tst();
             res.normsToDB(tckin_grp_ids);
+            tst();
             res.brandsToDB(tckin_grp_ids);
+            tst();
           }
         }
         catch(UserException &e)
         {
+            tst();
           throw;
         }
         catch(std::exception &e)
@@ -6913,10 +7103,16 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
     else throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
   }
 
-  if (grp_cat!=CheckIn::TPaxGrpCategory::UnnacompBag)
+  tst();
+  if (grp_cat!=CheckIn::TPaxGrpCategory::UnnacompBag) {
+      tst();
     req.bagTypesToDB(tckin_grp_ids);  //дополняем весовыми типами багажа
-  else
-    unaccBagTypesToDB(first_grp_id);
+  } else {
+      tst();
+    unaccBagTypesToDB(data.grpId);
+  }
+
+  tst();
 
   TCachedQuery GrpQry("BEGIN "
                       "  UPDATE pax_grp "
@@ -6928,10 +7124,12 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
                                 << QParam("piece_concept", otInteger)
                                 << QParam("bag_types_id", otInteger)
                                 << QParam("point_id", otInteger));
+  tst();
   TCachedQuery TrferQry("UPDATE transfer SET piece_concept=:piece_concept WHERE grp_id=:grp_id AND transfer_num=:transfer_num",
                         QParams() << QParam("grp_id", otInteger)
                                   << QParam("transfer_num", otInteger)
                                   << QParam("piece_concept", otInteger));
+  tst();
 
   TCkinGrpIds::const_iterator grp_id=tckin_grp_ids.begin();
   if (bag_concept_by_seg.empty())
@@ -9258,8 +9456,9 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
               if (SavePax(emulReqNode, NULL, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList))
               {
                 //сюда попадаем если была реальная регистрация
+                CheckIn::TAfterSaveInfoData afterSaveData(emulReqNode, NULL);
                 SirenaExchangeList.handle(__FUNCTION__);
-                AfterSaveInfoList.handle(__FUNCTION__);
+                AfterSaveInfoList.handle(afterSaveData, __FUNCTION__);
               }
             }
         }

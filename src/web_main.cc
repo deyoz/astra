@@ -2394,7 +2394,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
     if (ediResNode==NULL && !ChangeStatusInfo.empty())
     {
       //хотя бы один билет будет обрабатываться
-      OraSession.Rollback();  //откат
+      ASTRA::rollback();  //откат
       ChangeStatusInterface::ChangeStatus(reqNode, ChangeStatusInfo);
       SirenaExchangeList.handle(__FUNCTION__);
       return false;
@@ -2404,8 +2404,10 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       SirenaExchangeList.handle(__FUNCTION__);
     };
 
-    if (handleAfterSave)
-      AfterSaveInfoList.handle(__FUNCTION__); //если только изменение места пассажира, то не вызываем
+    if (handleAfterSave) {
+      CheckIn::TAfterSaveInfoData afterSaveData(reqNode, ediResNode);
+      AfterSaveInfoList.handle(afterSaveData, __FUNCTION__); //если только изменение места пассажира, то не вызываем
+    }
 
     boost::optional<WebSearch::TPNRFilter> filter;
     vector< TWebPnr > pnrs;
@@ -3973,8 +3975,9 @@ void SyncCHKD(int point_id_tlg, int point_id_spp, bool sync_all) //регистрация C
               if (CheckInInterface::SavePax(emulReqNode, NULL/*ediResNode*/, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList))
               {
                 //сюда попадаем если была реальная регистрация
+                CheckIn::TAfterSaveInfoData afterSaveData(emulReqNode, NULL/*ediResNode*/);
                 SirenaExchangeList.handle(__FUNCTION__);
-                AfterSaveInfoList.handle(__FUNCTION__);
+                AfterSaveInfoList.handle(afterSaveData, __FUNCTION__);
               };
             };
           }

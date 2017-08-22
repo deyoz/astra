@@ -4,7 +4,7 @@ include(ts/macro.ts)
 
 $(init_jxt_pult Œ‚Œ)
 $(login)
-$(init_eds ’ UTET UTDC TADDR OADDR)
+$(init_eds ’ UTET UTDC)
 
 $(PREPARE_FLIGHT_1 ’ 103 „Œ„ ‹Š REPIN IVAN)
 

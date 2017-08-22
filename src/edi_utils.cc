@@ -357,7 +357,15 @@ string make_xml_kick(const edifact::KickInfo &kickInfo)
     SetProp(NewTextChild(node,"kick"),"req_ctxt_id",kickInfo.reqCtxtId);
   else
     NewTextChild(node,"kick");
-  return ConvertCodepage(XMLTreeToText(kickDoc.docPtr()),"CP866","UTF-8");
+  std::string redisplay = ConvertCodepage(XMLTreeToText(kickDoc.docPtr()),"CP866","UTF-8");
+#ifdef XP_TESTING
+  if(inTestMode()) {
+      if(kickInfo.iface == "SirenaExchange") {
+          ServerFramework::setRedisplay(redisplay);
+      }
+  }
+#endif//XP_TESTING
+  return redisplay;
 };
 
 edifact::KickInfo createKickInfo(int v_reqCtxtId,
@@ -465,6 +473,8 @@ void getTermRequestCtxt(int ctxtId,
                            ctxtId,
                            context);
 
+  LogTrace(TRACE3) << "term req ctxt:\n" << context;
+
   if (clear) AstraContext::ClearContext("TERM_REQUEST", ctxtId);
 
   if (context.empty())
@@ -475,6 +485,28 @@ void getTermRequestCtxt(int ctxtId,
     throw EXCEPTIONS::Exception("%s: context TERM_REQUEST wrong XML format", where.c_str());
 
   xml_decode_nodelist(xmlCtxt.docPtr()->children);
+}
+
+void getHttpRequestCtxt(int ctxtId,
+                        bool clear,
+                        const std::string &where,
+                        XMLDoc &xmlCtxt)
+{
+    string context;
+    AstraContext::GetContext("HTTP_REQUEST",
+                             ctxtId,
+                             context);
+
+    if (clear) AstraContext::ClearContext("HTTP_REQUEST", ctxtId);
+
+    if (context.empty())
+      throw EXCEPTIONS::Exception("%s: context HTTP_REQUEST empty", where.c_str());
+
+    xmlCtxt.set(ConvertCodepage(context,"CP866","UTF-8"));
+    if (xmlCtxt.docPtr()==NULL)
+      throw EXCEPTIONS::Exception("%s: context HTTP_REQUEST wrong XML format", where.c_str());
+
+    xml_decode_nodelist(xmlCtxt.docPtr()->children);
 }
 
 static void getEdiSessionCtxt(const std::string& ctxtKey, int keyValue,

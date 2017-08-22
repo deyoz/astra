@@ -241,7 +241,7 @@ $(run_daemon edi_timeout)
 $(init)
 $(init_jxt_pult Œ‚Œ)
 $(login)
-$(init_eds KAR IKET IKDC)
+$(init_eds KAR IKET IKDC translit)
 
 $(PREPARE_FLIGHT_1 KAR 103 „Œ„ ‹Š REPIN IVAN)
 
@@ -260,7 +260,7 @@ $(CHECKIN_PAX $(get pax_id) $(get point_dep) $(get point_arv)
 UNB+SIRE:1+IKDC+IKET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
 UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
 MSG+:142"
-ORG+IK:Œ‚++++Y+::RU+Œ‚Œ"
+ORG+IK:MOW++++Y+::RU+MOVROM"
 EQN+1:TD"
 TKT+7706120030297:T"
 CPN+1:CK"

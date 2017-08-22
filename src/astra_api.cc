@@ -218,7 +218,7 @@ PaxListXmlResult AstraEngine::PaxList(int pointId)
     xmlNodePtr paxListNode = NewTextChild(reqNode, "PaxList");
     NewTextChild(paxListNode, "point_id", pointId);
 
-    initReqInfo();
+    initReqInfo(JMP_VERSION);
 
     LogTrace(TRACE3) << "pax list query:\n" << XMLTreeToText(reqNode->doc);
     CheckInInterface::instance()->PaxList(getRequestCtxt(), paxListNode, resNode);
@@ -235,7 +235,7 @@ LoadPaxXmlResult AstraEngine::LoadPax(int pointId, int paxRegNo)
     NewTextChild(loadPaxNode, "point_id", pointId);
     NewTextChild(loadPaxNode, "reg_no", paxRegNo);
 
-    initReqInfo();
+    initReqInfo(JMP_VERSION);
 
     LogTrace(TRACE3) << "load pax query:\n" << XMLTreeToText(reqNode->doc);
     CheckInInterface::instance()->LoadPax(getRequestCtxt(), loadPaxNode, resNode);
@@ -274,7 +274,7 @@ SearchPaxXmlResult AstraEngine::SearchCheckInPax(int pointDep,
     NewTextChild(searchPaxNode, "pax_status", "K"); // "K" - CheckIn status
     NewTextChild(searchPaxNode, "query", query);
 
-    initReqInfo();
+    initReqInfo(JMP_VERSION);
 
     LogTrace(TRACE3) << "search pax query:\n" << XMLTreeToText(reqNode->doc);
     CheckInInterface::instance()->SearchPax(getRequestCtxt(), searchPaxNode, resNode);
@@ -507,12 +507,12 @@ xmlNodePtr AstraEngine::getAnswerNode() const
     return NodeAsNode("/answer", m_resDoc.docPtr());
 }
 
-void AstraEngine::initReqInfo() const
+void AstraEngine::initReqInfo(const std::string& deskVersion) const
 {
     TReqInfo::Instance()->Initialize("ŒŽ‚");
     TReqInfo::Instance()->client_type  = ASTRA::ctTerm;
     //TReqInfo::Instance()->desk.code = "IATCIP";
-    TReqInfo::Instance()->desk.version = VERSION_WITH_BAG_POOLS;
+    TReqInfo::Instance()->desk.version = deskVersion;
     TReqInfo::Instance()->desk.lang    = AstraLocale::LANG_EN;
     TReqInfo::Instance()->api_mode     = true;
     TReqInfo::Instance()->user.user_id = m_userId;
