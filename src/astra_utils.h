@@ -703,4 +703,6 @@ struct TProfiledRights {
     void toXML(xmlNodePtr node);
 };
 
+bool rus_airp(const std::string &airp);
+
 #endif /*_ASTRA_UTILS_H_*/
