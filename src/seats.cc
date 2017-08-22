@@ -708,23 +708,25 @@ int TSeatPlaces::Put_Find_Places( SALONS2::TPoint FP, SALONS2::TPoint EP, int fo
       }
       else {
        p_Step = 1;  /* начнем слева */
-       if ( Need <= p_Next )
+       if ( Need <= p_Next ) {
          Need = 0; /* ничего не трогаем и начинаем с текущей позиции */
-       else
-        if ( p_Prior < Need )
-          Need = p_Prior;
-        switch( (int)Step ) {
-          case sRight:
-          case sLeft:
-             EP.x = FP.x - Need; /* перемещаемся на исходную позицию */
-             Step = sRight; /* начинаем двигаться вправо */
-             break;
-          case sDown:
-          case sUp:
-             EP.y = FP.y - Need; /* перемещаемся на исходную позицию */
-             Step = sDown; /* начинаем двигаться вниз */
-             break;
-        }
+       }
+       else {
+         if ( p_Prior < Need )
+           Need = p_Prior;
+       }
+       switch( (int)Step ) {
+         case sRight:
+         case sLeft:
+            EP.x = FP.x - Need; /* перемещаемся на исходную позицию */
+            Step = sRight; /* начинаем двигаться вправо */
+            break;
+         case sDown:
+         case sUp:
+            EP.y = FP.y - Need; /* перемещаемся на исходную позицию */
+            Step = sDown; /* начинаем двигаться вниз */
+            break;
+       }
       } /* конец определения направления ( p_Prior >= p_Next ... ) */
     } /* конец p_Step = 0 */
 
@@ -1627,7 +1629,7 @@ inline void getRemarks( TPassenger &pass )
    изменяется лишь CanUseRems и PlaceRemark */
 bool TSeatPlaces::SeatGrpOnBasePlace( )
 {
-  //ProgTrace( TRACE5, "SeatGrpOnBasePlace( )" );
+//  ProgTrace( TRACE5, "SeatGrpOnBasePlace( )" );
   int G3 = Passengers.counters.p_Count_3( sRight );
   int G2 = Passengers.counters.p_Count_2( sRight );
   int G = Passengers.counters.p_Count( sRight );
@@ -2833,7 +2835,7 @@ class AnomalisticConditionsPayment
     static void setPayementOnWebSignal( SALONS2::TSalons *Salons, TPassengers &passengers ) {
       for ( int i=0; i<passengers.getCount(); i++ ) {
         TPassenger &pass = passengers.Get( i );
-        //ProgTrace( TRACE5, "pass %s", pass.toString().c_str() );
+      //  ProgTrace( TRACE5, "pass %s", pass.toString().c_str() );
         if ( !pass.dont_check_payment || pass.preseat_no.empty() ) {
           continue;
         }
@@ -2990,16 +2992,17 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
   ProgTrace( TRACE5, "pr_SUBCLS=%d,pr_all_pass_SUBCLS=%d,SUBCLS_REM=%s,pr_pay=%d,prINFT=%d",
              pr_SUBCLS, pr_all_pass_SUBCLS, SUBCLS_REM.c_str(), pr_pay, prINFT );
 
-  bool SeatOnlyBasePlace=true;
+  bool VSeatOnlyBasePlace=true;
   for ( int i=0; i<passengers.getCount(); i++ ) {
     TPassenger &pass = passengers.Get( i );
     if ( pass.preseat_no.empty() ) {
-        SeatOnlyBasePlace=false;
+        VSeatOnlyBasePlace=false;
         break;
     }
   }
 
   try {
+   for ( int SeatOnlyBasePlace=VSeatOnlyBasePlace; SeatOnlyBasePlace>=0; SeatOnlyBasePlace-- ) {
    for ( int FCanUserSUBCLS=(int)pr_SUBCLS; FCanUserSUBCLS>=0; FCanUserSUBCLS-- ) {
      if ( pr_SUBCLS && FCanUserSUBCLS == 0 )
        ProgTrace( TRACE5, ">>>SeatsPassengers: error FCanUserSUBCLS=false, pr_SUBCLS=%d,pr_all_pass_SUBCLS=%d, SUBCLS_REM=%s", pr_SUBCLS, pr_all_pass_SUBCLS, SUBCLS_REM.c_str() );
@@ -3029,7 +3032,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                                       CanUseLayer( cltPNLAfterPay, preseat_layers ) );
            /* если есть в группе предварительная рассадка, то тогда сажаем всех отдельно */
            /* если есть в группе подкласс С и он не у всех пассажиров, то тогда сажаем всех отдельно */
-  //         ProgTrace( TRACE5, "use_preseat_layer=%d, SeatOnlyBasePlace=%d",use_preseat_layer,SeatOnlyBasePlace);
+         //  ProgTrace( TRACE5, "use_preseat_layer=%d, SeatOnlyBasePlace=%d",use_preseat_layer,SeatOnlyBasePlace);
            if ( ( use_preseat_layer ||
                   Status_seat_no_BR ||
                   SeatOnlyBasePlace || // для каждого пассажира задано свой номер места
@@ -3093,6 +3096,11 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                  }
                  curr_preseat_layers.clear();
                  curr_preseat_layers.insert( preseat_layers.begin(), preseat_layers.end() );
+                 //ProgTrace(TRACE5, "SeatOnlyBasePlace=%d, KeyLayers=%d", SeatOnlyBasePlace, KeyLayers );
+                 if ( SeatOnlyBasePlace && KeyLayers <= -2 ) { //если указано место, которое оплатил другой, то нельзя его забирать
+                   //tst();
+                   continue;
+                 }
                  if ( KeyLayers == -2 ) {
                    if ( CanUseLayer( cltProtBeforePay, curr_preseat_layers ) &&
                         CanUseLayer( cltPNLBeforePay, curr_preseat_layers ) ) {
@@ -3113,6 +3121,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                    curr_preseat_layers[ cltProtAfterPay ] = true;
                    curr_preseat_layers[ cltPNLAfterPay ] = true;
                  }
+                 //ProgTrace(TRACE5, "KeyLayers=%d", KeyLayers);
                  /* задаем массив статусов мест */
                  SetLayers( SeatsLayers,
                             CanUseMutiLayer,
@@ -3184,7 +3193,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                              case sSeatPassengers:
                                if ( SeatPlaces.SeatsPassengers() )
                                  throw 1;
-                               if ( SeatOnlyBasePlace && !canUseSUBCLS ) {
+                               if ( SeatOnlyBasePlace && pr_SUBCLS && !canUseSUBCLS ) { //перешли на последний алгоритм, когда есть подклассы и указаны места, но реально разметки подклассов нет в салоне
                                  SeatOnlyBasePlace = false;
                                  FSeatAlg=0;
                                }
@@ -3203,13 +3212,14 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
        } /* end for FCanUseRemarks */
      } /*  end for FCanUseElem_Type */
    } /*  end for FCanUserSUBCLS */
+   }  /* end for SeatOnlyBasePlace */
     SeatAlg = (TSeatAlg)0;
   }
   catch( int ierror ) {
     AllowedAttrsSeat.pr_isWorkINFT = isWorkINFT;
     if ( ierror != 1 )
       throw;
-    ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseElem_Type=%d,FCanUseRems=%s,FCanUseAlone=%d,KeyLayers=%d,FCanUseTube=%d,FCanUseSmoke=%d,PlaceStatus=%s, MAXPLACE=%d,canUseOneRow=%d, CanUseSUBCLS=%d, SUBCLS_REM=%s",
+    ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseElem_Type=%d,FCanUseRems=%s,FCanUseAlone=%d,KeyLayers=%d,FCanUseTube=%d,FCanUseSmoke=%d,PlaceLayer=%s, MAXPLACE=%d,canUseOneRow=%d, CanUseSUBCLS=%d, SUBCLS_REM=%s",
                param1,param2,param3.c_str(),param4,param5,param6,param7,param8.c_str(),param9,param10,param11,param12.c_str());
 
 //    ProgTrace( TRACE5, "SeatAlg=%d, CanUseRems=%d", (int)SeatAlg, (int)CanUseRems );
