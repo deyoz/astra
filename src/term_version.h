@@ -39,6 +39,7 @@
 #define PAX_SERVICE_VERSION           "201612-0188319"
 #define RFIC_FILTER_VERSION           "201704-0192754"
 #define JMP_VERSION                   "201707-0195750"
+#define BGR_READ_CONFIG_VERSION       "201708-0196816"
 
 #define TRANSIT_CRAFT_VERSION         "202000-0000000"
 #define EMDA_VERSION                  "202000-0000000"
