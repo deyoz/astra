@@ -350,6 +350,18 @@ void SendTestRequest(const string &req)
 
 //---------------------------------------------------------------------------------------
 
+static std::string makeHttpPostRequest(const std::string& resource,
+                                       const std::string& host,
+                                       const std::string& postbody)
+{
+    return "POST " + resource + " HTTP/1.1\r\n"
+             "Host: " + host + "\r\n"
+             "Content-Type: application/xml; charset=utf-8\r\n"
+             "Content-Length: " + HelpCpp::string_cast(postbody.size()) + "\r\n"
+             "\r\n" +
+             postbody;
+}
+
 SirenaClient::SirenaClient()
     : m_addr(SIRENA_HOST(), SIRENA_PORT()),
       m_timeout(SIRENA_REQ_TIMEOUT()),
@@ -360,26 +372,29 @@ void SirenaClient::sendRequest(const std::string& reqText, const edifact::KickIn
 {
     std::string desk = kickInfo.desk.empty() ? "SYSPUL" : kickInfo.desk;
 
+    const std::string path = "/astra";
+    const std::string httpPost = makeHttpPostRequest(path, m_addr.host, reqText);
+
     LogTrace(TRACE5) << "HTTP Request from [" << desk << "], text:\n" << reqText;
 
     const httpsrv::Pult pul(desk);
     const httpsrv::Domain domain("ASTRA");
     const std::string kick(AstraEdifact::make_xml_kick(kickInfo));
 
-    httpsrv::DoHttpRequest req(pul, domain, m_addr, reqText);
+    httpsrv::DoHttpRequest req(pul, domain, m_addr, httpPost);
     req.setTimeout(boost::posix_time::seconds(m_timeout))
         .setMaxTryCount(1/*SIRENA_REQ_ATTEMPTS()*/)
         .setSSL(m_useSsl)
         .setPeresprosReq(kick)
         .setDeffered(true);
 
-    const std::string reqTextCP866 = UTF8toCP866(reqText);
-    LogTrace(TRACE1) << "request: " << reqTextCP866;
+    const std::string httpPostCP866 = UTF8toCP866(httpPost);
+    LogTrace(TRACE1) << "request: " << httpPostCP866;
 
 #ifdef XP_TESTING
     if (inTestMode()) {
         xp_testing::TlgOutbox::getInstance().push(tlgnum_t("httpreq"),
-                        StrUtils::replaceSubstrCopy(reqTextCP866, "\r", ""), 0 /* h2h */);
+                        StrUtils::replaceSubstrCopy(httpPostCP866, "\r", ""), 0 /* h2h */);
     }
 #endif // XP_TESTING
 
