@@ -15,6 +15,7 @@
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace BASIC::date_time;
@@ -843,10 +844,13 @@ void ConvertDoca(CheckIn::TDocaMap doca_map,
                  TPaxDocaItem &docaR,
                  TPaxDocaItem &docaD)
 {
-  // дополнительная защита, если вместо TDocaMap::Clear() вызвано TDocaMap::clear()
-  docaB.clear(); docaB.type="B";
-  docaR.clear(); docaR.type="R";
-  docaD.clear(); docaD.type="D";
+  // присвоение полю type было в старом коде!
+  docaB.clear();
+  docaB.type="B";
+  docaR.clear();
+  docaR.type="R";
+  docaD.clear();
+  docaD.type="D";
   if (doca_map.count(apiDocaB)) docaB = doca_map[apiDocaB];
   if (doca_map.count(apiDocaR)) docaR = doca_map[apiDocaR];
   if (doca_map.count(apiDocaD)) docaD = doca_map[apiDocaD];
@@ -893,9 +897,7 @@ bool LoadPaxDoca(TDateTime part_key, int pax_id, CheckIn::TDocaMap &doca_map)
   {
     TPaxDocaItem docaItem;
     docaItem.fromDB(PaxDocQry.get());
-    if (docaItem.type == "D") doca_map[apiDocaD] = docaItem;
-    if (docaItem.type == "R") doca_map[apiDocaR] = docaItem;
-    if (docaItem.type == "B") doca_map[apiDocaB] = docaItem;
+    if (docaItem.apiType() != apiUnknown) doca_map[docaItem.apiType()] = docaItem;
   }
   for (CheckIn::TDocaMap::const_iterator i = doca_map.begin(); i != doca_map.end(); ++i)
     if (not i->second.empty()) return true;
@@ -950,7 +952,7 @@ bool LoadCrsPaxDoca(int pax_id, CheckIn::TDocaMap &doca_map)
     {
       TPaxDocaItem doca_item;
       doca_item.fromDB(PaxDocaQry.get());
-      doca_map[doca_item.apiType()] = doca_item;
+      if (doca_item.apiType() != apiUnknown) doca_map[doca_item.apiType()] = doca_item;
       prior_type=PaxDocaQry.get().FieldAsString("type");
     };
   };
@@ -1043,7 +1045,7 @@ void SavePaxDoca(int pax_id, const CheckIn::TDocaMap &doca_map, TQuery& PaxDocaQ
 {
   list<TPaxDocaItem> doca2;
   for (CheckIn::TDocaMap::const_iterator idm = doca_map.begin(); idm != doca_map.end(); ++idm)
-    doca2.push_back(idm->second);
+    if (!idm->second.empty()) doca2.push_back(idm->second);
   if (!doca2.empty() &&
       !(TReqInfo::Instance()->client_type!=ASTRA::ctTerm ||
         TReqInfo::Instance()->desk.compatible(APIS_CITY_REGION_VERSION)))

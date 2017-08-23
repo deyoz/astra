@@ -486,7 +486,7 @@ void HandleDoco(const CheckIn::TPaxGrpItem &grp,
 void HandleDoca(const CheckIn::TPaxGrpItem &grp,
                 const CheckIn::TSimplePaxItem &pax,
                 const TCompleteAPICheckInfo &checkInfo,
-                CheckIn::TDocaMap &doca_map);
+                const CheckIn::TDocaMap &doca_map);
 
 const std::string APIS_TR = "APIS_TR";
 const std::string APIS_LT = "APIS_LT";

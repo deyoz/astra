@@ -9427,7 +9427,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                         doca.region=NodeAsStringFast("REGION",doc,"");
                         doca.postal_code=NodeAsStringFast("POSTAL_CODE",doc,"");
                         CheckIn::TPaxDocaItem norm_doca = NormalizeDoca(doca);
-                        paxForCkin.apis.doca_map[norm_doca.apiType()] = norm_doca;
+                        if (norm_doca.apiType() != apiUnknown) paxForCkin.apis.doca_map[norm_doca.apiType()] = norm_doca;
                     }
                 }
 
