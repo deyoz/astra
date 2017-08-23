@@ -304,6 +304,40 @@ void viewItin(EDI_REAL_MES_STRUCT *pMes, const Ticketing::Itin &itin, int num)
     SetEdiFullSegment(pMes, SegmElement("TVL"), tvl.str());
 }
 
+void viewItin2(EDI_REAL_MES_STRUCT *pMes, const Ticketing::Itin &itin,
+               bool translit, int num)
+{
+    std::ostringstream tvl;
+
+    BaseTables::Port depPort(itin.depPointCode()),
+                     arrPort(itin.arrPointCode());
+    BaseTables::Company airl(itin.airCode());
+
+    tvl << (itin.date1().is_special()?"":
+            HelpCpp::string_cast(itin.date1(), "%d%m%y"))
+            << ":" << (itin.time1().is_special()?"":
+            HelpCpp::string_cast(itin.time1(), "%H%M")) << "+" <<
+            (translit ? depPort->lcode() : depPort->rcode()) << "+" <<
+            (translit ? arrPort->lcode() : arrPort->rcode()) << "+" <<
+            (translit ? airl->lcode() : airl->rcode());
+    if(!itin.airCodeOper().empty()) {
+        BaseTables::Company operAirl(itin.airCodeOper());
+        tvl << ":" << (translit ? operAirl->lcode() : operAirl->rcode());
+    }
+    tvl << "+";
+    if(itin.flightnum()) {
+        tvl << itin.flightnum();
+    } else {
+        tvl << Ticketing::ItinStatus::Open;
+    }
+    tvl << ":" << itin.classCodeStr();
+    if (num) {
+        tvl << "++" << num;
+    }
+
+    SetEdiFullSegment(pMes, SegmElement("TVL"), tvl.str());
+}
+
 void viewTktElement(_EDI_REAL_MES_STRUCT_* pMes, const TktElem& elem)
 {
     std::ostringstream tkt;

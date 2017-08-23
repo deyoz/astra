@@ -34,7 +34,7 @@ void EtCosRequest::collectMessage()
     int sg1 = 0;
     Ticketing::Ticket::Trace(TRACE4, m_chngStatData.ltick());
     if(m_chngStatData.isGlobItin()) {
-        viewItin(pMes(), m_chngStatData.itin());
+        viewItin2(pMes(), m_chngStatData.itin(), rot->translit());
     }
 
     for(std::list<Ticketing::Ticket>::const_iterator i = m_chngStatData.ltick().begin();
