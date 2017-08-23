@@ -15,6 +15,7 @@
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace BASIC::date_time;
@@ -843,10 +844,13 @@ void ConvertDoca(CheckIn::TDocaMap doca_map,
                  TPaxDocaItem &docaR,
                  TPaxDocaItem &docaD)
 {
-  // дополнительная защита, если вместо TDocaMap::Clear() вызвано TDocaMap::clear()
-  docaB.clear(); docaB.type="B";
-  docaR.clear(); docaR.type="R";
-  docaD.clear(); docaD.type="D";
+  // присвоение полю type было в старом коде!
+  docaB.clear();
+  docaB.type="B";
+  docaR.clear();
+  docaR.type="R";
+  docaD.clear();
+  docaD.type="D";
   if (doca_map.count(apiDocaB)) docaB = doca_map[apiDocaB];
   if (doca_map.count(apiDocaR)) docaR = doca_map[apiDocaR];
   if (doca_map.count(apiDocaD)) docaD = doca_map[apiDocaD];
@@ -874,13 +878,27 @@ bool LoadPaxDoca(int pax_id, TDocaType type, TPaxDocaItem &doca)
 bool LoadPaxDoca(TDateTime part_key, int pax_id, CheckIn::TDocaMap &doca_map)
 {
   doca_map.Clear();
-  TPaxDocaItem docaItem;
-  if (CheckIn::LoadPaxDoca(part_key, pax_id, docaDestination, docaItem))
-    doca_map[apiDocaD] = docaItem;
-  if (CheckIn::LoadPaxDoca(part_key, pax_id, docaResidence, docaItem))
-    doca_map[apiDocaR] = docaItem;
-  if (CheckIn::LoadPaxDoca(part_key, pax_id, docaBirth, docaItem))
-    doca_map[apiDocaB] = docaItem;
+  const char* sql = "SELECT * FROM pax_doca WHERE pax_id=:pax_id";
+  const char* sql_arx = "SELECT * FROM arx_pax_doca WHERE part_key=:part_key AND pax_id=:pax_id";
+  const char* sql_result = nullptr;
+  QParams QryParams;
+  if (part_key != ASTRA::NoExists)
+  {
+    QryParams << QParam("part_key", otDate, part_key);
+    sql_result = sql_arx;
+  }
+  else
+  {
+    sql_result = sql;
+  }
+  QryParams << QParam("pax_id", otInteger, pax_id);
+  TCachedQuery PaxDocQry(sql_result, QryParams);  
+  for(PaxDocQry.get().Execute(); !PaxDocQry.get().Eof; PaxDocQry.get().Next())
+  {
+    TPaxDocaItem docaItem;
+    docaItem.fromDB(PaxDocQry.get());
+    if (docaItem.apiType() != apiUnknown) doca_map[docaItem.apiType()] = docaItem;
+  }
   for (CheckIn::TDocaMap::const_iterator i = doca_map.begin(); i != doca_map.end(); ++i)
     if (not i->second.empty()) return true;
   return false;
@@ -934,7 +952,7 @@ bool LoadCrsPaxDoca(int pax_id, CheckIn::TDocaMap &doca_map)
     {
       TPaxDocaItem doca_item;
       doca_item.fromDB(PaxDocaQry.get());
-      doca_map[doca_item.apiType()] = doca_item;
+      if (doca_item.apiType() != apiUnknown) doca_map[doca_item.apiType()] = doca_item;
       prior_type=PaxDocaQry.get().FieldAsString("type");
     };
   };
@@ -1027,7 +1045,7 @@ void SavePaxDoca(int pax_id, const CheckIn::TDocaMap &doca_map, TQuery& PaxDocaQ
 {
   list<TPaxDocaItem> doca2;
   for (CheckIn::TDocaMap::const_iterator idm = doca_map.begin(); idm != doca_map.end(); ++idm)
-    doca2.push_back(idm->second);
+    if (!idm->second.empty()) doca2.push_back(idm->second);
   if (!doca2.empty() &&
       !(TReqInfo::Instance()->client_type!=ASTRA::ctTerm ||
         TReqInfo::Instance()->desk.compatible(APIS_CITY_REGION_VERSION)))
