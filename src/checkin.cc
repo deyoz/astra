@@ -151,8 +151,7 @@ void SirenaExchangeInterface::KickHandler(XMLRequestCtxt *ctxt,
         {
             const auto fnd = resp->text.find("<answer>");
             ASSERT(fnd != std::string::npos);
-            std::string answer = resp->text.substr(fnd);
-            XMLDoc answerResDoc = ASTRA::createXmlDoc2(answer);
+            XMLDoc answerResDoc = ASTRA::createXmlDoc2(resp->text.substr(fnd));
             xmlNodePtr answerResNode = NodeAsNode("/answer", answerResDoc.docPtr());
             addToEdiResponseCtxt(req_ctxt_id, answerResNode, "");
         }
@@ -6558,6 +6557,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             res.parse(answerNode);
 
             curr.grp_id=first_grp_id;
+            xml_encode_nodelist(answerNode->doc->children);
             curr.pc_payment_res=XMLTreeToText(answerNode->doc);
             SirenaExchangeList.push_back(curr);
           }
@@ -7008,7 +7008,6 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
             bag_concept=boost::none; //дурацкое решение, но это для того чтобы не вызывать ошибку error: ?*((void*)& bag_concept +4)? may be used uninitialized in this function
             for(SirenaExchange::TPaxSegMap::const_iterator s=segs.begin(); s!=segs.end(); ++s)
             {
-                tst();
               string flight_view=GetTripName(s->second.operFlt, ecCkin);
               //пробегаемся по сегментам
               boost::optional<TBagConcept::Enum> seg_concept;
@@ -7062,18 +7061,13 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
                 throw EXCEPTIONS::Exception("%s: strange situation: unknown rfisc_list!", __FUNCTION__);
               bag_types_id=rfisc_list.get().toDBAdv(true);
             };
-            tst();
             res.rfiscsToDB(tckin_grp_ids, bag_concept.get(), true); //на первом этапе применяем только концепт багажа (old_version=true) !!!потом убрать
-            tst();
             res.normsToDB(tckin_grp_ids);
-            tst();
             res.brandsToDB(tckin_grp_ids);
-            tst();
           }
         }
         catch(UserException &e)
         {
-            tst();
           throw;
         }
         catch(std::exception &e)
@@ -7107,16 +7101,11 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
     else throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
   }
 
-  tst();
   if (grp_cat!=CheckIn::TPaxGrpCategory::UnnacompBag) {
-      tst();
     req.bagTypesToDB(tckin_grp_ids);  //дополняем весовыми типами багажа
   } else {
-      tst();
     unaccBagTypesToDB(data.grpId);
   }
-
-  tst();
 
   TCachedQuery GrpQry("BEGIN "
                       "  UPDATE pax_grp "
@@ -7128,12 +7117,11 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
                                 << QParam("piece_concept", otInteger)
                                 << QParam("bag_types_id", otInteger)
                                 << QParam("point_id", otInteger));
-  tst();
+
   TCachedQuery TrferQry("UPDATE transfer SET piece_concept=:piece_concept WHERE grp_id=:grp_id AND transfer_num=:transfer_num",
                         QParams() << QParam("grp_id", otInteger)
                                   << QParam("transfer_num", otInteger)
                                   << QParam("piece_concept", otInteger));
-  tst();
 
   TCkinGrpIds::const_iterator grp_id=tckin_grp_ids.begin();
   if (bag_concept_by_seg.empty())

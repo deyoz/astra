@@ -1801,6 +1801,7 @@ XMLDoc createXmlDoc2(const std::string& xml)
     if(doc.docPtr() == NULL) {
         throw EXCEPTIONS::Exception("document %s has wrong XML format", xml.c_str());
     }
+    xml_decode_nodelist(doc.docPtr()->children);
     return doc;
 }
 
