@@ -130,6 +130,7 @@ void SirenaExchangeInterface::KickHandler(XMLRequestCtxt *ctxt,
         if(resp->commErr) {
              LogError(STDLOG) << "Http communication error! "
                               << "(" << resp->commErr->code << "/" << resp->commErr->errMsg << ")";
+             AstraLocale::showProgError("MSG.SIRENA_HTTP_COMMUNICATION_ERROR");
              return;
         }
     } else {
