@@ -633,6 +633,7 @@ void rollbackSavePax();
 tlgnum_t make_tlgnum(int n);
 
 XMLDoc createXmlDoc(const std::string& xml);
+XMLDoc createXmlDoc2(const std::string& xml);
 
 }//namespace ASTRA
 

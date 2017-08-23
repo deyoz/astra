@@ -1794,6 +1794,16 @@ XMLDoc createXmlDoc(const std::string& xml)
     return doc;
 }
 
+XMLDoc createXmlDoc2(const std::string& xml)
+{
+    XMLDoc doc;
+    doc.set(xml);
+    if(doc.docPtr() == NULL) {
+        throw EXCEPTIONS::Exception("document %s has wrong XML format", xml.c_str());
+    }
+    return doc;
+}
+
 }// namespace ASTRA
 
 void TRegEvents::fromDB(TDateTime part_key, int point_id)

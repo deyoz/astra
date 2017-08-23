@@ -158,8 +158,6 @@ $(KICK_IN_SILENT)
 !! capture=on
 $(lastRedisplay)
 
->> lines=auto
-...MSG.BAGGAGE_NORM_OF_THE_AIRLINE_APPLIES...
 
 $(set grp_id $(get_single_grp_id $(get point_dep) …ˆ ˆ‚€))
 $(set tid $(get_single_tid $(get point_dep) …ˆ ˆ‚€))

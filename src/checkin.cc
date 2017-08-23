@@ -146,11 +146,13 @@ void SirenaExchangeInterface::KickHandler(XMLRequestCtxt *ctxt,
         xmlNodePtr termReqNode = NodeAsNode("/term/query", termReqCtxt.docPtr())->children;
         if(termReqNode == NULL)
           throw EXCEPTIONS::Exception("ChangeStatusInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
-        LogTrace(TRACE3) << "term req:\n" << XMLTreeToText(termReqCtxt.docPtr());
 
         if(resp)
         {
-            XMLDoc answerResDoc = ASTRA::createXmlDoc(resp->text.substr(resp->text.find("<answer>")));
+            const auto fnd = resp->text.find("<answer>");
+            ASSERT(fnd != std::string::npos);
+            std::string answer = resp->text.substr(fnd);
+            XMLDoc answerResDoc = ASTRA::createXmlDoc2(answer);
             xmlNodePtr answerResNode = NodeAsNode("/answer", answerResDoc.docPtr());
             addToEdiResponseCtxt(req_ctxt_id, answerResNode, "");
         }
@@ -162,9 +164,9 @@ void SirenaExchangeInterface::KickHandler(XMLRequestCtxt *ctxt,
           throw EXCEPTIONS::Exception("ChangeStatusInterface::KickHandler: context EDI_RESPONSE answerResNode=NULL");;
         LogTrace(TRACE3) << "answer res (old ediRes):\n" << XMLTreeToText(answerResCtxt.docPtr());
 
-        if(!CheckInInterface::SavePax(termReqNode, answerResNode, resNode))
-        {
-            // TODO
+
+        if(!CheckInInterface::SavePax(termReqNode, answerResNode, resNode)) {
+            LogError(STDLOG) << "Call SavePax from SirenaExchangeInterface::Kick failed!";
         }
     }
 }
