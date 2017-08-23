@@ -358,9 +358,11 @@ SirenaClient::SirenaClient()
 
 void SirenaClient::sendRequest(const std::string& reqText, const edifact::KickInfo& kickInfo)
 {
-    LogTrace(TRACE5) << "HTTP Request " << reqText;
+    std::string desk = kickInfo.desk.empty() ? "SYSPUL" : kickInfo.desk;
 
-    const httpsrv::Pult pul("SYSPUL");
+    LogTrace(TRACE5) << "HTTP Request from [" << desk << "], text:\n" << reqText;
+
+    const httpsrv::Pult pul(desk);
     const httpsrv::Domain domain("ASTRA");
     const std::string kick(AstraEdifact::make_xml_kick(kickInfo));
 

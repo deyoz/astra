@@ -260,7 +260,7 @@ $(http_forecast content=$(get_svc_payment_status_resp))
   <svc_payment_status show_free_carry_on_norm=\"true\">
     <passenger id=\"...\" surname=\"…ˆ\" name=\"ˆ‚€\" category=\"ADT\" birthdate=\"1976-05-01\" sex=\"male\">
       <document number=\"7774441110\" country=\"RUS\"/>
-      <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"2017-08-22T10:00:00\" arrival_time=\"2017-08-22T12:00:00\" subclass=\"Y\">
+      <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"xxxx-xx-xxTxx:xx:xx\" arrival_time=\"xxxx-xx-xxTxx:xx:xx\" subclass=\"Y\">
         <ticket number=\"2981212121212\" coupon_num=\"1\"/>
         <recloc crs=\"UT\">0840Z6</recloc>
         <recloc crs=\"1H\">09T1B3</recloc>
