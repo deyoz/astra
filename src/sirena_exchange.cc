@@ -388,7 +388,7 @@ void SirenaClient::sendRequest(const std::string& reqText, const edifact::KickIn
 
 boost::optional<httpsrv::HttpResp> SirenaClient::receive(const std::string& pult)
 {
-    const httpsrv::Pult pul("SYSPUL");
+    const httpsrv::Pult pul(pult);
     const httpsrv::Domain domain("ASTRA");
 
     const std::vector<httpsrv::HttpResp> responses = httpsrv::FetchHttpResponses(pul, domain);

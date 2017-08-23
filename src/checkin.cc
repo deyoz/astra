@@ -121,9 +121,10 @@ void SirenaExchangeInterface::KickHandler(XMLRequestCtxt *ctxt,
                                           xmlNodePtr reqNode,
                                           xmlNodePtr resNode)
 {
-    LogTrace(TRACE3) << __FUNCTION__;
+    std::string pult = TReqInfo::Instance()->desk.code;
+    LogTrace(TRACE3) << __FUNCTION__ << " for pult [" << pult << "]";
 
-    boost::optional<httpsrv::HttpResp> resp = SirenaExchange::SirenaClient::receive("TODO");
+    boost::optional<httpsrv::HttpResp> resp = SirenaExchange::SirenaClient::receive(pult);
     if(resp) {
         LogTrace(TRACE3) << "req:\n" << resp->req.text;
         if(resp->commErr) {
