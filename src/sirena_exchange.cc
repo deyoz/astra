@@ -364,7 +364,7 @@ static std::string makeHttpPostRequest(const std::string& resource,
 
 SirenaClient::SirenaClient()
     : m_addr(SIRENA_HOST(), SIRENA_PORT()),
-      m_timeout(SIRENA_REQ_TIMEOUT()),
+      m_timeout(SIRENA_REQ_TIMEOUT()/1000),
       m_useSsl(false)
 {}
 
