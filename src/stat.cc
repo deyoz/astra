@@ -6927,6 +6927,32 @@ void get_trfer_pax_stat(int point_id)
     }
 }
 
+int nosir_trfer_pax_fix(int argc, char **argv)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select point_id, segments from trfer_pax_stat";
+    Qry.Execute();
+    set<int> point_ids;
+    for(; not Qry.Eof; Qry.Next()) {
+        int point_id = Qry.FieldAsInteger("point_id");
+        string segments = Qry.FieldAsString("segments");
+        vector<string> tokens;
+        boost::split(tokens, segments, boost::is_any_of(";"));
+        vector<string> flt_info;
+        boost::split(flt_info, tokens[0], boost::is_any_of(","));
+        if(flt_info.size() < 6)
+            point_ids.insert(point_id);
+    }
+    int count = 0;
+    for(set<int>::iterator i = point_ids.begin(); i != point_ids.end(); i++, count++) {
+        cout << count << " processing " << *i << "... ";
+        get_trfer_pax_stat(*i);
+        OraSession.Commit();
+        cout << "done." << endl;
+    }
+    return 0;
+}
+
 void get_service_stat(int point_id)
 {
     TCachedQuery delQry("delete from service_stat where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
