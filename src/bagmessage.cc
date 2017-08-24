@@ -24,10 +24,6 @@ public:
     BagMsgQueueDaemon() : ServerFramework::NewDaemon("bag_msg_handler") {}
 };
 
-// Расшифровки типов сообщений, которые могут быть посланы в систему SITA BagMessage
-char messageTypes[][20] = { "unknown", "LOGIN_RQST", "LOGIN_ACCEPT", "LOGIN_REJECT", "DATA", "ACK_DATA", "ACK_MSG", "NAK_MSG",
-                          "STATUS", "DATA_ON", "DATA_OFF", "LOG_OFF" };
-
 /**************************************************************************/
 /* Заголовок сообщения, отправляемого в BagMessage или получаемого оттуда */
 /**************************************************************************/
@@ -86,20 +82,19 @@ std::queue<BM_MESSAGE> mes_queue;
 /******************************/
 /* Выходная очередь сообщений */
 /******************************/
-class BM_OUTPUT_QUEUE
+class BM_OUTPUT_QUEUE : public TFileQueue
 {
   private:
     string canonName;                      // Имя сервиса, по которому отправляются телеграммы
-    TFileQueue fileQueue;                  // Сообщения в очереди
     static const int WAIT_ANSWER_SEC = 30; // Тайм-аут между отметками 'send' и 'done'. Если истек - сообщение подлежит повторной отсылке
     time_t lastRead;                       // Когда последний раз читали очередь из базы
   public:
-    BM_OUTPUT_QUEUE();                                   // Конструктор
-    bool empty() { return fileQueue.empty(); }           // Очередь пустая?
-    TQueueItem& begin() { return * fileQueue.begin(); }  // Взять первый элемент из очереди
-    void get();                                          // Перечитать очередь
-    void sendFile( int tlg_id );                         // Поставить отметку "телеграмма взята на отсылку"
-    static void doneFile( int tlg_id );                  // Поставить отметку "телеграмма доставлена"
+    BM_OUTPUT_QUEUE();                     // Конструктор
+    void get();                            // Перечитать очередь
+    void sendFile( int tlg_id );           // Поставить отметку "телеграмма взята на отсылку"
+    static void unSendFile( int tlg_id );  // Снять отметку "телеграмма взята на отсылку"
+    static void doneFile( int tlg_id );    // Поставить отметку "телеграмма доставлена"
+    static void onWriteFinished( int tlg_id, int result ); // Обработчик завершения отправки телеграммы
 };
 
 BM_OUTPUT_QUEUE::BM_OUTPUT_QUEUE()
@@ -112,10 +107,10 @@ BM_OUTPUT_QUEUE::BM_OUTPUT_QUEUE()
 void BM_OUTPUT_QUEUE::get()
 {
   time_t now = time( NULL );
-  if( now - lastRead > 0 ) // Чтобы не перечитывать базу по несколько раз в секунду
+//  if( now - lastRead > 0 ) // Чтобы не перечитывать базу по несколько раз в секунду
   {
     ProgTrace( TRACE5, "re-reading outgoing queue" );
-    fileQueue.get( TFilterQueue( canonName, WAIT_ANSWER_SEC ) );
+    TFileQueue::get( TFilterQueue( canonName, WAIT_ANSWER_SEC ) );
     lastRead = now;
   }
 }
@@ -128,15 +123,46 @@ void BM_OUTPUT_QUEUE::sendFile( int tlg_id )
   get();
 }
 
+void BM_OUTPUT_QUEUE::unSendFile( int tlg_id )
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText = "UPDATE file_queue SET status='PUT', time=system.UTCSYSDATE WHERE id= :id";
+  Qry.CreateVariable( "id", otInteger, tlg_id );
+  Qry.Execute();
+  bool res = ( Qry.RowsProcessed() > 0 );
+  if ( res ) {
+    ProgTrace( TRACE5, "unSendFile id=%d", tlg_id );
+  }
+  OraSession.Commit();
+}
+
 void BM_OUTPUT_QUEUE::doneFile( int tlg_id )
 {
   TFileQueue::doneFile( tlg_id );
   OraSession.Commit();
 }
 
+void BM_OUTPUT_QUEUE::onWriteFinished( int tlg_id, int error )
+{
+  if( error == 0 )
+  {
+    ProgTrace( TRACE5, "Message id=%d sent OK", tlg_id );
+    doneFile( tlg_id );
+  }
+  else
+  {
+    ProgError( STDLOG, "Failed to send message to SITA BagMessage! tlg_id=%d", tlg_id );
+    unSendFile( tlg_id );
+  }
+}
+
 /*****************************************/
 /* Соединение с системой SITA BagMessage */
 /*****************************************/
+// Расшифровки типов сообщений, которые могут быть посланы в систему SITA BagMessage
+const string messageTypes[] = { "unknown", "LOGIN_RQST", "LOGIN_ACCEPT", "LOGIN_REJECT", "DATA", "ACK_DATA",
+                                "ACK_MSG", "NAK_MSG", "STATUS", "DATA_ON", "DATA_OFF", "LOG_OFF" };
+
 class BMConnection
 {
   public:
@@ -145,7 +171,7 @@ class BMConnection
     {
       BM_OP_NONE = 0,      // Не было попытки сделать операцию
       BM_OP_WAIT = 1,      // Операция начата - ждем завершения
-      BM_OP_READY = 2      // Закончено
+      BM_OP_READY = 2      // Закончено нормально
     } BM_OPERATION_STATUS;
   // Типы сообщений, которые могут быть посланы в систему SITA BagMessage или приняты из нее.
     typedef enum
@@ -192,12 +218,12 @@ class BMConnection
     int activeIp;        // Какая из линий связи сейчас используется?
     unsigned mes_num;    // Номер сообщения для протокола связи
     time_t lastAdmin;    // Время последнего действия по управлению процессом - для организации задержек
-  // Передача
+  // Прием
     time_t lastRecvTime; // Время прихода предыдущего сообщения - отслеживается для оценки работоспособности линии
     char *rbuf;          // Буфер для функции async_read
     BM_HEADER rheader;   // Заголовок принятого сообщения
     int needSendAck;     // Нужно передать подтверждение принятого сообщения с этим номером
-  // Прием
+  // Передача
     time_t lastSendTime; // Время передачи предыдущего сообщения - для передачи статуса при затишье
     BM_HEADER header;    // Заголовок сообщения, формируемого для передачи
     string text;         // Текст сообщения, формируемого для передачи
@@ -206,6 +232,7 @@ class BMConnection
                          // ответ на который еще не получен, или -1 если ничего не ждем
     int waitForAckId;    // ID соответствующей телеграммы в базе данных
     time_t waitForAckTime; // Когда послали это сообщение
+    void (*writeHandler)( int tlg_id, int status ); // Обработчик завершения передачи с подтверждением
   public:
     BMConnection( int i, io_service& io ) : socket( io ) { line_number = i; configured = false; wbuf = NULL; rbuf = NULL; }
     ~BMConnection();
@@ -226,9 +253,8 @@ class BMConnection
   public:
     int getNumber() { return line_number; }    // Выдать номер соединения наружу
     void sendTlg( string text );               // Послать BSM-телеграмму
-    void sendTlgAck( int id, string text );    // Послать BSM-телеграмму с запросом подтверждения приема
-    bool readyToSend() { return configured && connected == BM_OP_READY && loginStatus == BM_OP_READY && ( ! paused )
-                             && writeStatus == BM_OP_NONE; } // Проверить, что соединение доступно для отсылки сообщений
+    void sendTlgAck( int id, string text, void (*handler)( int, int) );  // Послать BSM-телеграмму с запросом подтверждения приема
+    bool readyToSend();                        // Проверить, что соединение доступно для отсылки сообщений
 };
 
 BMConnection::~BMConnection()
@@ -251,14 +277,30 @@ void BMConnection::init()
     return;
 // Пока что читаем настроечные параметры из конфигурационного файла
 // В будущем возможно чтение из другого источника, да к тому же в зависимости от значения line_number
-  ip_addr[0].host = getTCLParam( "SBM_HOST1", NULL );
-  ip_addr[0].port = getTCLParam( "SBM_PORT1", 1000, 65535, 65535 );
-  ip_addr[1].host = getTCLParam( "SBM_HOST2", NULL );
-  ip_addr[1].port = getTCLParam( "SBM_PORT2", 1000, 65535, 65535 );
-  activeIp = 0;
-  login = getTCLParam( "SBM_LOGIN", NULL );
-  password = getTCLParam( "SBM_PASSWORD", NULL );
-  heartBeat = getTCLParam( "SBM_HEARTBEAT_INTERVAL", 0, 60, 30 );
+//  if( line_number == 0 )
+//  {
+    ip_addr[0].host = getTCLParam( "SBM_HOST1", NULL );
+    ip_addr[0].port = getTCLParam( "SBM_PORT1", 1000, 65535, 65535 );
+    ip_addr[1].host = getTCLParam( "SBM_HOST2", NULL );
+    ip_addr[1].port = getTCLParam( "SBM_PORT2", 1000, 65535, 65535 );
+    activeIp = 0;
+    login = getTCLParam( "SBM_LOGIN", NULL );
+    password = getTCLParam( "SBM_PASSWORD", NULL );
+    heartBeat = getTCLParam( "SBM_HEARTBEAT_INTERVAL", 0, 60, 30 );
+/* Следы отладки 2-линейного варианта. Потом можно будет убрать
+  }
+  else if( line_number == 1 )
+  {
+    ip_addr[0].host = getTCLParam( "SBM_HOST1", NULL );
+    ip_addr[0].port = 8854;
+    ip_addr[1].host = getTCLParam( "SBM_HOST2", NULL );
+    ip_addr[1].port = 8855;
+    activeIp = 0;
+    login = getTCLParam( "SBM_LOGIN", NULL );
+    password = getTCLParam( "SBM_PASSWORD", NULL );
+    heartBeat = getTCLParam( "SBM_HEARTBEAT_INTERVAL", 0, 60, 30 );
+  }
+*/
   ProgTrace( TRACE0, "BMConnection::init(): line_number=%d,ip[0]=%s:%d,ip[1]=%s:%d,login=%s,password=%s,heartbeat=%d",
              line_number, ip_addr[0].host.c_str(), ip_addr[0].port, ip_addr[1].host.c_str(), ip_addr[1].port,
              login.c_str(), password.c_str(), heartBeat );
@@ -342,8 +384,8 @@ bool BMConnection::makeMessage( BM_MESSAGE_TYPE type, string message_text, int m
 void BMConnection::doSendMessage()
 {
   ProgTrace( TRACE5, "connection %d doSendMessage(): try to send: appl_id=%8.8s version=%d type=%d(%s) id=%d data_len=%d",
-             line_number, header.appl_id.c_str(), header.version, header.type, messageTypes[ header.type ], header.message_id_number,
-             header.data_length );
+             line_number, header.appl_id.c_str(), header.version, header.type, messageTypes[ header.type ].c_str(),
+             header.message_id_number, header.data_length );
   if( wbuf != NULL )
     delete( wbuf );
   wbuf = new char[ BM_HEADER::SIZE + header.data_length + 1 ];
@@ -364,12 +406,11 @@ void BMConnection::doSendMessage()
 
 void BMConnection::onWrite( const boost::system::error_code& error, std::size_t n )
 {
-  ProgTrace( TRACE5, "async_write() finished for connection %d. n=%lu bytes written, err=%d(%s)",
-             line_number, n, error.value(), error.message().c_str() );
   delete( wbuf );
   wbuf = NULL;
   if( error.value() == 0 )
   {
+    ProgTrace( TRACE5, "async_write() finished for connection %d. %lu bytes written", line_number, n );
     writeStatus = BM_OP_NONE;
     if( needSendAck > 0 ) // Стоит запрос на подтверждение сообщения - отослать вне очереди
     {
@@ -379,7 +420,14 @@ void BMConnection::onWrite( const boost::system::error_code& error, std::size_t 
   }
   else
   { // Ошибки в передаче просто так не возникают. Скорее всего, проблемы со связью. И надо устанавливать ее заново.
+    ProgError( STDLOG, "async_write() finished with errors for connection %d. %lu bytes written, err=%d(%s)",
+               line_number, n, error.value(), error.message().c_str() );
     connected = BM_OP_NONE;
+    if( writeHandler != NULL )
+    {
+      (*writeHandler)( waitForAckId, error.value() );
+      writeHandler = NULL;
+    }
   }
 }
 
@@ -417,36 +465,43 @@ void BMConnection::sendTlg( string text )
   sendMessage( DATA, text );
 }
 
-void BMConnection::sendTlgAck( int id, string text )
+void BMConnection::sendTlgAck( int id, string text, void (*handler)( int, int ) )
 {
   ProgTrace( TRACE5, "sendTlgAck(): id=%d,text=%s", id, text.c_str() );
   waitForAckId = id;
+  writeHandler = handler;
   sendMessage( ACK_DATA, text );
 }
 
 void BMConnection::onRead( const boost::system::error_code& error, std::size_t n )
 {
-  ProgTrace( TRACE5, "async_read() finished for connection %d. n=%lu bytes read, err=%d(%s)",
-             line_number, n, error.value(), error.message().c_str() );
-
-  if( rheader.type == ACK_DATA )
+  if( error.value() == 0 && n == rheader.data_length )
   {
-    needSendAck = rheader.message_id_number;
+    ProgTrace( TRACE5, "async_read() finished for connection %d. %lu bytes read", line_number, n );
+    if( rheader.type == ACK_DATA )
+    {
+      needSendAck = rheader.message_id_number;
+    }
+    else
+      needSendAck = -1;
+    if( rheader.type == DATA || rheader.type == ACK_DATA )
+    {
+      BM_MESSAGE mes;
+      mes.head = rheader;
+      mes.text = string( rbuf, rheader.data_length );
+      delete( rbuf );
+      rbuf = NULL;
+      mes_queue.push( mes ); // НЕХОРОШО - используем глобальную переменную mes_queue. Надо бы переделать
+    }
+    else
+    {
+      ProgError( STDLOG, "SITA BagMessage sends a message of incorrect type %d for connection %d", rheader.type, line_number );
+    }
   }
   else
-    needSendAck = -1;
-  if( rheader.type == DATA || rheader.type == ACK_DATA )
   {
-    BM_MESSAGE mes;
-    mes.head = rheader;
-    mes.text = string( rbuf, rheader.data_length );
-    delete( rbuf );
-    rbuf = NULL;
-    mes_queue.push( mes );
-  }
-  else
-  {
-    ProgError( STDLOG, "SITA BagMessage sends a message of incorrect type %d for connection %d", rheader.type, line_number );
+    ProgError( STDLOG, "async_read() finished with errors for connection %d. %lu bytes read (%d expected), err=%d(%s)",
+               line_number, n, rheader.data_length, error.value(), error.message().c_str() );
   }
 }
 
@@ -461,7 +516,7 @@ void BMConnection::checkInput()
 
     rheader.loadFrom( buf );
     ProgTrace( TRACE5, "header received on connection %d: size=%lu, head: appl_id=%8.8s version=%d type=%d(%s) id=%d data_len=%d",
-               line_number, size, rheader.appl_id.c_str(), rheader.version, rheader.type, messageTypes[ rheader.type ],
+               line_number, size, rheader.appl_id.c_str(), rheader.version, rheader.type, messageTypes[ rheader.type ].c_str(),
                rheader.message_id_number, rheader.data_length );
     lastRecvTime = time( NULL );
     if( rheader.data_length > 0 ) // Помимо заголовка есть данные
@@ -489,7 +544,11 @@ void BMConnection::checkInput()
           if( (int)rheader.message_id_number == waitForAck )
           { // Подтверждена доставка сообщения - только теперь помечаем его как доставленное
             waitForAck = -1;
-            BM_OUTPUT_QUEUE::doneFile( waitForAckId );
+            if( writeHandler != NULL )
+            {
+              (*writeHandler)( waitForAckId, 0 );
+              writeHandler = NULL;
+            }
           }
           else
           {
@@ -594,6 +653,15 @@ void BMConnection::run()
   }
 }
 
+bool BMConnection::readyToSend()
+{
+  bool result = configured && connected == BM_OP_READY && loginStatus == BM_OP_READY && ( ! paused ) && writeStatus == BM_OP_NONE;
+  return result;
+}
+
+/*****************************************/
+/* Обработка очереди пришедших сообщений */
+/*****************************************/
 void processBagMessageMes( BM_MESSAGE& mes )
 { // Если для пришедшего сообщения нужна какая-то своя обработка - то вставить это сюда
   // А пока что просто трассировка
@@ -604,17 +672,19 @@ void processBagMessageMes( BM_MESSAGE& mes )
 /* Основные рабочие функции */
 /****************************/
 typedef std::shared_ptr<BMConnection> pBMConnection;
-static const int NUM_CONNECTIONS = 1; // Количество параллельных соединений; в будущем может быть увеличено;
-                                      // Также в будущем возможно чтение этой величины из конфигурационного файла
 
 void run_bag_msg_process( const std::string &name )
 {
   io_service io;
   BM_OUTPUT_QUEUE queue;
-/* Это на будущее, когда будет несколько параллельных соединений */
+  int NUM_CONNECTIONS = 1; // Количество параллельных соединений; в будущем может быть увеличено;
+// Также в будущем возможно чтение этой величины из конфигурационного файла
+//  NUM_CONNECTIONS = getTCLParam( "SBM_NUM_CONNECTIONS", 1, 4, 1 );
+  ProgTrace( TRACE0, "SITA BagMessage: NUM_CONNECTIONS=%d", NUM_CONNECTIONS );
   vector<pBMConnection> conn;
   for( int i = 0; i < NUM_CONNECTIONS; ++i )
     conn.push_back( pBMConnection( new BMConnection( i, io ) ) );
+  vector<pBMConnection>::iterator lastSend = conn.begin();
 
   for(;;)
   {
@@ -629,28 +699,40 @@ void run_bag_msg_process( const std::string &name )
     queue.get();
     if( ! queue.empty() )
     {
-      TQueueItem tlg = queue.begin();
+      TQueueItem tlg = *queue.begin();
       ProgTrace( TRACE5, "first in queue: id=%d,receiver=%s,type=%s,time=%s",
                  tlg.id, tlg.receiver.c_str(), tlg.type.c_str(), DateTimeToStr( tlg.time, "yyyy-mm-dd hh:nn:ss" ).c_str() );
-      vector<pBMConnection>::iterator curr = conn.begin();
-      for( ; curr != conn.end(); ++curr )
+      vector<pBMConnection>::iterator curr = lastSend + 1;
+      if( curr == conn.end() )
+        curr = conn.begin();
+      unsigned n = 0;
+      for( ; n < conn.size(); n++ )
       {
         if( (*curr)->readyToSend() )
         {
-          ProgTrace( TRACE5, "send it via connection %d", (*curr)->getNumber() );
+          ProgTrace( TRACE5, "send message via connection %d", (*curr)->getNumber() );
           queue.sendFile( tlg.id );
 #if 1
 // Пока что работаем в режиме "с подтверждением"
-          (*curr)->sendTlgAck( tlg.id, tlg.data );
+          (*curr)->sendTlgAck( tlg.id, tlg.data, BM_OUTPUT_QUEUE::onWriteFinished );
 #else
 // А если будем слать без подтверждения - тогда так:
           (*curr)->sendTlg( tlg.data );
           BM_OUTPUT_QUEUE::doneFile( tlg.id );
 #endif
+          lastSend = curr;
           break;
         }
+        if( curr + 1 == conn.end() )
+        {
+          curr = conn.begin();
+        }
+        else
+        {
+          curr = curr + 1;
+        }
       }
-      if( curr == conn.end() )
+      if( n == conn.size() )
       {
         ProgTrace( TRACE5, "No ready connections to send message" );
       }
