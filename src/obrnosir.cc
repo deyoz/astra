@@ -126,7 +126,6 @@ const
     {"-stat_belgorod",          stat_belgorod,          NULL,                       NULL},
     {"-apis_test",              apis_test,              NULL,                       NULL},
     {"-alias_to_db",            KIOSK::alias_to_db,     NULL,                       NULL},
-    {"-trfer_pax_fix",          nosir_trfer_pax_fix,    NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
