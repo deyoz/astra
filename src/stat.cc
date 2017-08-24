@@ -6133,7 +6133,7 @@ void TParamItem::toXML(xmlNodePtr resNode)
             if(i->first == TSegCategories::Unknown) continue;
             CBoxItemNode = NewTextChild(dataNode, "item");
             NewTextChild(CBoxItemNode, "code", i->second);
-            NewTextChild(CBoxItemNode, "caption", i->second);
+            NewTextChild(CBoxItemNode, "caption", getLocaleText(i->second));
         }
     }
 
@@ -6834,6 +6834,7 @@ string segListFromDB(int tckin_id)
     ostringstream result;
     for(; not Qry.get().Eof; Qry.get().Next()) {
         int grp_id = Qry.get().FieldAsInteger("grp_id");
+
         if(not result.str().empty()) result << ";";
         TTripInfo info;
         if(info.getByGrpId(grp_id)) {
@@ -6842,7 +6843,10 @@ string segListFromDB(int tckin_id)
                 << info.airp << ","
                 << info.flt_no << ","
                 << info.suffix << ","
-                << DateTimeToStr(info.scd_out);
+                << DateTimeToStr(info.scd_out) << ",";
+            CheckIn::TPaxGrpItem grp;
+            if(grp.fromDB(grp_id))
+                result << grp.airp_arv;
         }
     }
     return result.str();
@@ -9996,6 +10000,8 @@ struct TTrferPaxStatItem:public TOrderStatItem {
 
     TDateTime date2;
 
+    string airp_arv;
+    TSegCategories::Enum seg_category;
     string pax_name;
     string pax_doc;
     int pax_amount;
@@ -10027,6 +10033,8 @@ struct TTrferPaxStatItem:public TOrderStatItem {
 
         date2 = 0;
 
+        airp_arv.clear();
+        seg_category = TSegCategories::Unknown;
         pax_name.clear();
         pax_doc.clear();
         pax_amount = 0;
@@ -10053,6 +10061,8 @@ void TTrferPaxStatItem::add_header(ostringstream &buf) const
         << getLocaleText("Трансфер") << delim
         << getLocaleText("Сег.2") << delim
         << getLocaleText("Дата") << delim
+        << getLocaleText("А/п прилета") << delim
+        << getLocaleText("Категория") << delim
         << getLocaleText("ФИО пассажира") << delim
         << getLocaleText("Документ") << delim
         << getLocaleText("Кол-во пасс.") << delim
@@ -10069,6 +10079,8 @@ void TTrferPaxStatItem::add_data(ostringstream &buf) const
     if(airline.empty()) {
         buf
             << getLocaleText("Итого:") << delim
+            << delim
+            << delim
             << delim
             << delim
             << delim
@@ -10098,6 +10110,10 @@ void TTrferPaxStatItem::add_data(ostringstream &buf) const
         buf << tmp.str() << delim;
         //Дата
         buf << DateTimeToStr(date2, "dd.mm.yyyy") << delim;
+        //А/п прилета
+        buf << ElemIdToCodeNative(etAirp, airp_arv) << delim;
+        //Категория
+        buf << getLocaleText(TSegCategory().encode(seg_category)) << delim;
         //ФИО
         buf << pax_name << delim;
         //Паспорт
@@ -10121,7 +10137,7 @@ void TTrferPaxStatItem::add_data(ostringstream &buf) const
 
 typedef list<TTrferPaxStatItem> TTrferPaxStat;
 
-void getSegList(const string &segments, list<TTripInfo> &seg_list)
+void getSegList(const string &segments, list<pair<TTripInfo, string> > &seg_list)
 {
     vector<string> tokens;
     boost::split(tokens, segments, boost::is_any_of(";"));
@@ -10135,7 +10151,11 @@ void getSegList(const string &segments, list<TTripInfo> &seg_list)
         flt.flt_no = ToInt(flt_info[2]);
         flt.suffix = flt_info[3];
         StrToDateTime(flt_info[4].c_str(), ServerFormatDateTimeAsString, flt.scd_out);
-        seg_list.push_back(flt);
+
+        string airp_arv;
+        if(flt_info.size() > 5)
+            airp_arv = flt_info[5];
+        seg_list.push_back(make_pair(flt, airp_arv));
     }
 }
 
@@ -10224,37 +10244,40 @@ void RunTrferPaxStat(
                 string full_name = Qry.get().FieldAsString(col_full_name);
                 string pers_type = Qry.get().FieldAsString(col_pers_type);
 
-                list<TTripInfo> seg_list;
+                list<pair<TTripInfo, string> > seg_list;
                 getSegList(segments, seg_list);
 
                 TTrferPaxStat tmp_stat;
                 TTrferPaxStatItem item;
-                for(list<TTripInfo>::iterator flt = seg_list.begin();
+                for(list<pair<TTripInfo, string> >::iterator flt = seg_list.begin();
                         flt != seg_list.end(); flt++) {
                     if(item.airline.empty()) {
-                        prn_airline.check(flt->airline);
-                        item.airline = flt->airline;
-                        item.airp = flt->airp;
-                        item.flt_no1 = flt->flt_no;
-                        item.suffix1 = flt->suffix;
-                        item.date1 = flt->scd_out;
+                        prn_airline.check(flt->first.airline);
+                        item.airline = flt->first.airline;
+                        item.airp = flt->first.airp;
+                        item.flt_no1 = flt->first.flt_no;
+                        item.suffix1 = flt->first.suffix;
+                        item.date1 = flt->first.scd_out;
                     } else {
-                        item.trfer_airp = flt->airp;
-                        item.airline2 = flt->airline;
-                        item.flt_no2 = flt->flt_no;
-                        item.suffix2 = flt->suffix;
-                        item.date2 = flt->scd_out;
+                        item.trfer_airp = flt->first.airp;
+                        item.airline2 = flt->first.airline;
+                        item.flt_no2 = flt->first.flt_no;
+                        item.suffix2 = flt->first.suffix;
+                        item.date2 = flt->first.scd_out;
+                        item.airp_arv = flt->second;
                         item.pax_name = transliter(full_name, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
                         item.pax_doc = CheckIn::GetPaxDocStr(part_key, pax_id, false);
 
+                        bool is_inter1 = not rus_airp(item.airp);
+                        bool is_inter2 = not rus_airp(item.trfer_airp);
+                        if(not is_inter1 and not is_inter2) item.seg_category = TSegCategories::IntInt;
+                        if(is_inter1 and is_inter2) item.seg_category = TSegCategories::ForFor;
+                        if(is_inter1 and not is_inter2) item.seg_category = TSegCategories::ForInt;
+                        if(not is_inter1 and is_inter2) item.seg_category = TSegCategories::IntFor;
+
                         TSegCategories::Enum seg_category = TSegCategories::Unknown;
                         if(params.seg_category != TSegCategories::Unknown) {
-                            bool is_inter1 = not rus_airp(item.airp);
-                            bool is_inter2 = not rus_airp(item.trfer_airp);
-                            if(not is_inter1 and not is_inter2) seg_category = TSegCategories::IntInt;
-                            if(is_inter1 and is_inter2) seg_category = TSegCategories::ForFor;
-                            if(is_inter1 and not is_inter2) seg_category = TSegCategories::ForInt;
-                            if(not is_inter1 and is_inter2) seg_category = TSegCategories::IntFor;
+                            seg_category = item.seg_category;
                         }
 
                         if(
@@ -10265,11 +10288,11 @@ void RunTrferPaxStat(
                             tmp_stat.push_back(item);
 
                         item.clear();
-                        item.airline = flt->airline;
-                        item.airp = flt->airp;
-                        item.flt_no1 = flt->flt_no;
-                        item.suffix1 = flt->suffix;
-                        item.date1 = flt->scd_out;
+                        item.airline = flt->first.airline;
+                        item.airp = flt->first.airp;
+                        item.flt_no1 = flt->first.flt_no;
+                        item.suffix1 = flt->first.suffix;
+                        item.date1 = flt->first.scd_out;
                     }
                 }
 
@@ -10346,6 +10369,14 @@ void createXMLTrferPaxStat(
     SetProp(colNode, "width", 60);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("А/п прилета"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Категория"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("ФИО пассажира"));
     SetProp(colNode, "width", 60);
     SetProp(colNode, "align", TAlignment::LeftJustify);
@@ -10399,6 +10430,8 @@ void createXMLTrferPaxStat(
             NewTextChild(rowNode, "col");
             NewTextChild(rowNode, "col");
             NewTextChild(rowNode, "col");
+            NewTextChild(rowNode, "col");
+            NewTextChild(rowNode, "col");
         } else {
             // АК
             NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirline, stat->airline));
@@ -10420,6 +10453,10 @@ void createXMLTrferPaxStat(
             NewTextChild(rowNode, "col", buf.str());
             //Дата
             NewTextChild(rowNode, "col", DateTimeToStr(stat->date2, "dd.mm.yyyy"));
+            //А/п прилета
+            NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, stat->airp_arv));
+            //Категория
+            NewTextChild(rowNode, "col", getLocaleText(TSegCategory().encode(stat->seg_category)));
             //ФИО
             NewTextChild(rowNode, "col", stat->pax_name);
             //Паспорт
