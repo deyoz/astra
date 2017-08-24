@@ -15,6 +15,8 @@
 
 using BASIC::date_time::TDateTime;
 
+std::string getDocsFlags( int pax_id, bool pr_checkin );
+
 class TTripListFilter
 {
   public:

@@ -30,6 +30,7 @@
 #include "sopp.h"
 #include "apps_interaction.h"
 #include "brands.h"
+#include "passenger.h"
 
 #include <serverlib/testmode.h>
 
@@ -2535,6 +2536,11 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   NewTextChild(defNode, "refuse", "");
   NewTextChild(defNode, "brand", "");
   NewTextChild(defNode, "fqt", "");
+  bool apis_generation = TReqInfo::Instance()->desk.compatible(VIEEWCRSLIST_DOCSFLAGS) &&
+                         TRouteAPICheckInfo(point_id).apis_generation();
+  if ( apis_generation ) {
+    NewTextChild(defNode, "apis", "");
+  }
 
   TRemGrp rem_grp;
   rem_grp.Load(retPNL_SEL, point_id);
@@ -2751,9 +2757,92 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
         break;
       }
     }
+    //DocsFlags
+    if ( !apis_generation ) {
+      continue;
+    }
+    std::string docflags = getDocsFlags( pax_id, !Qry.FieldIsNULL(col_grp_id) );
+    ProgTrace( TRACE5, "docflags=%s", docflags.c_str() );
+    NewTextChild( node, "apis", docflags, "" );
     //end for
   };
 };
+
+
+template <class T1>
+std::string getDocsFlag( const T1 &crs_pax_doc, const T1 &pax_doc, bool pr_checkin, std::string flagStr, bool firstFlag )
+{
+  std::string res;
+  if ( (crs_pax_doc.empty() && !pax_doc.empty()) ||
+       (!crs_pax_doc.empty() && !pax_doc.empty() && !crs_pax_doc.equalAttrs( pax_doc )) ) {
+     if ( !firstFlag ) res += "/";
+     res += string("+") + flagStr;
+  }
+  if ( !crs_pax_doc.empty() && ( !pr_checkin || crs_pax_doc.equalAttrs( pax_doc ) ) ) {
+    res += flagStr;
+  }
+  if ( !crs_pax_doc.empty() && pax_doc.empty() && pr_checkin ) {
+    res += string("-" ) + flagStr;
+  }
+  return res;
+}
+
+std::string getDocsFlags( int pax_id, bool pr_checkin )
+{
+  //ProgTrace( TRACE5, "getDocsFlags: pax_id=%d, pr_checkin=%d", pax_id, pr_checkin);
+  std::string res;
+  CheckIn::TPaxDocItem pax_doc, crs_pax_doc;
+  CheckIn::TPaxDocoItem pax_doco, crs_pax_doco;
+  CheckIn::LoadCrsPaxDoc(pax_id,crs_pax_doc);
+  if ( pr_checkin ) {
+    CheckIn::LoadPaxDoc(pax_id,pax_doc);
+  }
+  res += getDocsFlag( crs_pax_doc, pax_doc, pr_checkin, "S", res.empty() );
+  CheckIn::LoadCrsPaxVisa(pax_id,crs_pax_doco);
+  if ( pr_checkin ) {
+    CheckIn::LoadPaxDoco(pax_id,pax_doco);
+  }
+  res += getDocsFlag( crs_pax_doco, pax_doco, pr_checkin, "O", res.empty() );
+  CheckIn::TDocaMap doca_map, crs_doca_map;
+  CheckIn::LoadCrsPaxDoca(pax_id,crs_doca_map);
+  if ( pr_checkin ) {
+    CheckIn::LoadPaxDoca(pax_id,doca_map);
+  }
+  CheckIn::TPaxDocaItem pax_doca, crs_pax_doca;
+  if ( doca_map.find( apiDocaB ) != doca_map.end() ||
+       !doca_map[ apiDocaB ].empty() ) {
+    pax_doca = doca_map[ apiDocaB ];
+  }
+  if ( crs_doca_map.find( apiDocaB ) != crs_doca_map.end() ||
+       !crs_doca_map[ apiDocaB ].empty() ) {
+    crs_pax_doca = crs_doca_map[ apiDocaB ];
+  }
+  ProgTrace( TRACE5, "pax_doco.empty()=%d", pax_doco.empty() );
+  res += getDocsFlag( crs_pax_doca, pax_doca, pr_checkin, "AB", res.empty() );
+  pax_doca.clear();
+  crs_pax_doca.clear();
+  if ( doca_map.find( apiDocaR ) != doca_map.end() ||
+       !doca_map[ apiDocaR ].empty() ) {
+    pax_doca = doca_map[ apiDocaR ];
+  }
+  if ( crs_doca_map.find( apiDocaR ) != crs_doca_map.end() ||
+       !crs_doca_map[ apiDocaR ].empty() ) {
+    crs_pax_doca = crs_doca_map[ apiDocaR ];
+  }
+  res += getDocsFlag( crs_pax_doca, pax_doca, pr_checkin, "AR", res.empty() );
+  pax_doca.clear();
+  crs_pax_doca.clear();
+  if ( doca_map.find( apiDocaD ) != doca_map.end() ||
+       !doca_map[ apiDocaD ].empty() ) {
+    pax_doca = doca_map[ apiDocaD ];
+  }
+  if ( crs_doca_map.find( apiDocaD ) != crs_doca_map.end() ||
+       !crs_doca_map[ apiDocaD ].empty() ) {
+    crs_pax_doca = crs_doca_map[ apiDocaD ];
+  }
+  res += getDocsFlag( crs_pax_doca, pax_doca, pr_checkin, "AD", res.empty() );
+  return res;
+}
 
 bool SearchPaxByScanData(xmlNodePtr reqNode,
                          int &point_id,
