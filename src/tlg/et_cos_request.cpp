@@ -61,7 +61,7 @@ void EtCosRequest::collectMessage()
                               cpn.couponInfo().status()->code());
 
             if(cpn.haveItin()) {
-                viewItin2(pMes(), cpn.itin(), cpn.couponInfo().num(), rot->translit());
+                viewItin2(pMes(), cpn.itin(), rot->translit(), cpn.couponInfo().num());
             }
         }
 
