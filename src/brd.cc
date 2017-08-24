@@ -810,7 +810,7 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
       CheckIn::TPaxDocaItem docaItem;
       docaItem.fromXML(docaNode);
       if (docaItem.empty()) continue;
-      if (docaItem.apiType() != apiUnknown) apis.doca_map[docaItem.apiType()] = docaItem;
+      apis.doca_map[docaItem.apiType()] = docaItem;
     };
     HandleDoca(grp, pax, checkInfo, apis.doca_map);
     CheckIn::SavePaxDoca(pax_id, apis.doca_map, Qry, false);

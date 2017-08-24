@@ -1058,20 +1058,10 @@ void HandleDoco(const CheckIn::TPaxGrpItem &grp,
 void HandleDoca(const CheckIn::TPaxGrpItem &grp,
                 const CheckIn::TSimplePaxItem &pax,
                 const TCompleteAPICheckInfo &checkInfo,
-                const CheckIn::TDocaMap &doca_map)
+                CheckIn::TDocaMap &doca_map)
 {
   ASTRA::TPaxTypeExt pax_type_ext(grp.status, pax.crew_type);
-  // При вкл. настройке "не контролировать документ у экипажа / доп. экипажа"
-  // не производится проверка заполнения обязательных полей для используемого APIS,
-  // таким образом, становится возможным отсутствие документа в контейнере,
-  // из-за чего проверка incomplete не производится.
-  // Для обхода этой ситуации введён дополнительный контейнер, содержащий в том числе и пустые документы
-  // (с заполненным типом, во избежание Exception: NormalizeDoca: result.apiType()==apiUnknown!)
-  CheckIn::TDocaMap doca_map_2(doca_map);
-  if (!doca_map_2.count(apiDocaB)) doca_map_2[apiDocaB].type = "B";
-  if (!doca_map_2.count(apiDocaR)) doca_map_2[apiDocaR].type = "R";
-  if (!doca_map_2.count(apiDocaD)) doca_map_2[apiDocaD].type = "D";
-  for(CheckIn::TDocaMap::iterator d = doca_map_2.begin(); d != doca_map_2.end(); ++d)
+  for(CheckIn::TDocaMap::iterator d = doca_map.begin(); d != doca_map.end(); ++d)
   {
     CheckIn::TPaxDocaItem &doc = d->second;
     doc=NormalizeDoca(doc);
