@@ -348,6 +348,14 @@ class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
              region.empty() &&
              postal_code.empty();
     };
+    bool empty_without_type() const
+    {
+      return country.empty() &&
+             address.empty() &&
+             city.empty() &&
+             region.empty() &&
+             postal_code.empty();
+    };
     bool operator < (const TPaxDocaItem &item) const
     {
         if(type != item.type)

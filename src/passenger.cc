@@ -897,7 +897,7 @@ bool LoadPaxDoca(TDateTime part_key, int pax_id, CheckIn::TDocaMap &doca_map)
   {
     TPaxDocaItem docaItem;
     docaItem.fromDB(PaxDocQry.get());
-    if (docaItem.apiType() != apiUnknown) doca_map[docaItem.apiType()] = docaItem;
+    if (!docaItem.empty_without_type() && docaItem.apiType() != apiUnknown) doca_map[docaItem.apiType()] = docaItem;
   }
   for (CheckIn::TDocaMap::const_iterator i = doca_map.begin(); i != doca_map.end(); ++i)
     if (not i->second.empty()) return true;
@@ -952,7 +952,7 @@ bool LoadCrsPaxDoca(int pax_id, CheckIn::TDocaMap &doca_map)
     {
       TPaxDocaItem doca_item;
       doca_item.fromDB(PaxDocaQry.get());
-      if (doca_item.apiType() != apiUnknown) doca_map[doca_item.apiType()] = doca_item;
+      if (!doca_item.empty_without_type() && doca_item.apiType() != apiUnknown) doca_map[doca_item.apiType()] = doca_item;
       prior_type=PaxDocaQry.get().FieldAsString("type");
     };
   };
