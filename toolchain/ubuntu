@@ -6,9 +6,7 @@ os64_lib32=$os32_lib32
 os64_lib64="/lib/x86_64-linux-gnu"
 include="/include"
 
-# check host and target ARCH & BITS
-
-###################  Red Hat OS Impl   #####################
+###################  Ubuntu OS Impl   #####################
 
 get_default_libc_prefix()  {
     echo $__prefix
@@ -60,7 +58,7 @@ get_host_include_path() {
     echo $(select_libc_prefix $1)$include
 }
 
-_redhat32()
+_ubuntu32()
 {
     get_host_default_bit() {
         echo 32
@@ -81,7 +79,7 @@ _redhat32()
      }   
 }
 
-_redhat64()
+_ubuntu64()
 {
     get_host_default_bit()     { 
         echo 64 
@@ -95,14 +93,14 @@ _redhat64()
 
         case $bit in
             32)
-        		function get_host_libdir() {
+                function get_host_libdir() {
                     echo $os64_lib32;
                 }
                 define_bool_func 'is_system_default_bit' 1 # - false
             ;;
 
             64)
-	        	function get_host_libdir() {
+                function get_host_libdir() {
                     echo $os64_lib64;
                 }
                 define_bool_func 'is_system_default_bit' 0 # - true
@@ -115,19 +113,19 @@ _redhat64()
     }
 }
 
-####  End  ########  Red Hat OS Impl   #####################
+####  End  ########  Ubuntu OS Impl   #####################
 
-_get_redhat_os()
+_get_ubuntu_os()
 {
     case $(get_distro_bit) in
         32)
-            _redhat32 $@
+            _ubuntu32 $@
         ;;
         64) 
-            _redhat64 $@
+            _ubuntu64 $@
         ;;
     esac;
 }
 
-_get_redhat_os
+_get_ubuntu_os
 
