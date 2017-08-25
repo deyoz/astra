@@ -984,8 +984,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     setList.fromDB(point_id);
     if (setList.empty())
       throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-    bool apis_generation = TReqInfo::Instance()->desk.compatible(VIEEWCRSLIST_DOCSFLAGS) &&
-                           TRouteAPICheckInfo(point_id).apis_generation();
+    bool apis_generation = TRouteAPICheckInfo(point_id).apis_generation();
 
     if(search_type==updateByPaxId ||
        search_type==updateByRegNo ||
