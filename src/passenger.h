@@ -380,6 +380,10 @@ class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
              region == item.region &&
              postal_code == item.postal_code;
     };
+    bool equalAttrs(const TPaxDocaItem &item) const
+    {
+      return operator ==(item);
+    }
     const TPaxDocaItem& toXML(xmlNodePtr node) const;
     TPaxDocaItem& fromXML(xmlNodePtr node);
     const TPaxDocaItem& toDB(TQuery &Qry) const;
