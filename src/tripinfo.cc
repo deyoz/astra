@@ -2536,8 +2536,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   NewTextChild(defNode, "refuse", "");
   NewTextChild(defNode, "brand", "");
   NewTextChild(defNode, "fqt", "");
-  bool apis_generation = TReqInfo::Instance()->desk.compatible(VIEEWCRSLIST_DOCSFLAGS) &&
-                         TRouteAPICheckInfo(point_id).apis_generation();
+  bool apis_generation = TRouteAPICheckInfo(point_id).apis_generation();
   if ( apis_generation ) {
     NewTextChild(defNode, "apis", "");
   }
