@@ -73,11 +73,11 @@ TktElem makeTkt(const TicketNum_t& tickNum)
     return tkt;
 }
 
-CpnElem makeCpn(const CouponNum_t& cpnNum)
+CpnElem makeCpn(const CouponNum_t& cpnNum, const CouponStatus& status)
 {
     CpnElem cpn;
     cpn.m_num        = cpnNum;
-    cpn.m_status     = CouponStatus(CouponStatus::OriginalIssue);
+    cpn.m_status     = status;
     cpn.m_media      = TicketMedia::Electronic;
     cpn.m_prevStatus = CouponStatus(CouponStatus::Airport);
     return cpn;
@@ -136,15 +136,21 @@ void CosRequestHandler::makeAnAnswer()
     LogTrace(TRACE3) << __FUNCTION__;
     ASSERT(m_cosParams);
 
+    boost::optional<WcCoupon> wcCpn;
+    wcCpn= Ticketing::readWcCoupon(SystemContext::Instance(STDLOG).airlineImpl()->ida(),
+                                   m_cosParams->m_tickNum,
+                                   m_cosParams->m_cpnNum);
+    ASSERT(wcCpn);
+
     PushEdiPointW(pMesW());
     SetEdiSegGr(pMesW(), SegGrElement(1));
     SetEdiPointToSegGrW(pMesW(), SegGrElement(1), "SegGr1 not found");
-    viewTktElement(pMesW(), makeTkt(m_cosParams->m_tickNum));
+    viewTktElement(pMesW(), makeTkt(wcCpn->tickNum()));
 
     PushEdiPointW(pMesW());
     SetEdiSegGr(pMesW(), SegGrElement(2));
     SetEdiPointToSegGrW(pMesW(), SegGrElement(2), "SegGr2 not found");
-    viewCpnElement(pMesW(), makeCpn(m_cosParams->m_cpnNum));
+    viewCpnElement(pMesW(), makeCpn(wcCpn->cpnNum(), wcCpn->status()));
 }
 
 void CosRequestHandler::saveErrorInfo(const Ticketing::ErrMsg_t& errCode,
