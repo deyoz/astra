@@ -984,6 +984,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     setList.fromDB(point_id);
     if (setList.empty())
       throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
+    bool apis_generation = TRouteAPICheckInfo(point_id).apis_generation();
 
     if(search_type==updateByPaxId ||
        search_type==updateByRegNo ||
@@ -1452,6 +1453,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       NewTextChild(defNode, "ticket_no", "");
       NewTextChild(defNode, "coupon_no", 0);
       NewTextChild(defNode, "bag_norm", "");
+      if ( apis_generation ) {
+        NewTextChild(defNode, "apisFlags", "");
+      }
       NewTextChild(defNode, "document", "");
       NewTextChild(defNode, "excess", 0);
       NewTextChild(defNode, "value_bag_count", 0);
@@ -1551,6 +1555,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           };
           NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no), "");
           NewTextChild(paxNode, "coupon_no", Qry.FieldAsInteger(col_coupon_no), 0);
+          if ( apis_generation ) {
+            std::string docflags = getDocsFlags( pax_id, !Qry.FieldIsNULL(col_grp_id) );
+            ProgTrace( TRACE5, "docflags=%s", docflags.c_str() );
+            NewTextChild( paxNode, "apisFlags", docflags, "" );
+          }
+
           NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(NoExists, pax_id, false), "");
           NewTextChild(paxNode, "tid", Qry.FieldAsInteger(col_tid));
           xmlNodePtr excessNode = NewTextChild(paxNode,"excess",Qry.FieldAsInteger(col_excess),0);
