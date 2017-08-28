@@ -165,7 +165,8 @@ static void saveWcPnr(const std::string& recloc,
 
 static bool controlMayBeReturned(const WcCoupon& cpn)
 {
-    if(cpn.status() == Ticketing::CouponStatus::OriginalIssue) {
+    if(cpn.status() == Ticketing::CouponStatus::OriginalIssue ||
+       cpn.status() == Ticketing::CouponStatus::Flown) {
         return true;
     }
 
