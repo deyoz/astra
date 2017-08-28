@@ -2753,10 +2753,12 @@ std::string getDocsFlag( const T1 &crs_pax_doc, const T1 &pax_doc, bool pr_check
      res += string("+") + flagStr;
   }
   if ( !crs_pax_doc.empty() && ( !pr_checkin || crs_pax_doc.equalAttrs( pax_doc ) ) ) {
+    if ( !firstFlag ) res += "/";
     res += flagStr;
   }
   if ( !crs_pax_doc.empty() && pax_doc.empty() && pr_checkin ) {
-    res += string("-" ) + flagStr;
+    if ( !firstFlag ) res += "/";
+    res += string("-") + flagStr;
   }
   return res;
 }
