@@ -620,6 +620,11 @@ namespace ASTRA
 {
 void commit();
 void rollback();
+void rollbackSavePax();
+
+XMLDoc createXmlDoc(const std::string& xml);
+XMLDoc createXmlDoc2(const std::string& xml);
+
 };
 
 struct TRegEvents:public  std::map< std::pair<int, int>, std::pair<TDateTime, TDateTime> > {

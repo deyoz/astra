@@ -23,8 +23,10 @@
 #include "dev_consts.h"
 #include "dev_utils.h"
 
+#include <serverlib/cursctl.h>
+
 #define NICKNAME "VLAD"
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace std;
 using namespace ASTRA;
@@ -1725,6 +1727,41 @@ void rollback()
     //inTestMode()?rollback():OraSession.Rollback();
     if(!inTestMode())
         OraSession.Rollback();
+}
+
+void rollbackSavePax()
+{
+    LogTrace(TRACE3) << "ASTRA::rollbackSavePax()";
+    make_curs("rollback to savepoint sp_savepax").exec();
+}
+
+/*
+tlgnum_t make_tlgnum(int n)
+{
+  return tlgnum_t(boost::lexical_cast<std::string>(n));
+}
+*/
+
+XMLDoc createXmlDoc(const std::string& xml)
+{
+    XMLDoc doc;
+    doc.set(ConvertCodepage(xml, "CP866", "UTF-8"));
+    if(doc.docPtr() == NULL) {
+        throw EXCEPTIONS::Exception("document %s has wrong XML format", xml.c_str());
+    }
+    xml_decode_nodelist(doc.docPtr()->children);
+    return doc;
+}
+
+XMLDoc createXmlDoc2(const std::string& xml)
+{
+    XMLDoc doc;
+    doc.set(xml);
+    if(doc.docPtr() == NULL) {
+        throw EXCEPTIONS::Exception("document %s has wrong XML format", xml.c_str());
+    }
+    xml_decode_nodelist(doc.docPtr()->children);
+    return doc;
 }
 
 }// namespace ASTRA

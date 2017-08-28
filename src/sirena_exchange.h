@@ -6,6 +6,10 @@
 #include "date_time.h"
 #include "xml_unit.h"
 #include "httpClient.h"
+#include "tlg/EdifactRequest.h"
+
+#include <serverlib/httpsrv.h>
+
 
 namespace SirenaExchange
 {
@@ -53,6 +57,7 @@ class TExchange
     TErrorReference error_reference;
     virtual void build(std::string &content) const;
     virtual void parse(const std::string &content);
+    virtual void parse(xmlNodePtr node);
     virtual void toXML(xmlNodePtr node) const;
     virtual void fromXML(xmlNodePtr node);
     virtual void errorToXML(xmlNodePtr node) const;
@@ -116,6 +121,25 @@ class TLastExchangeList : public std::list<TLastExchangeInfo>
 };
 
 void SendTestRequest(const std::string &req);
+
+
+//---------------------------------------------------------------------------------------
+
+class SirenaClient
+{
+private:
+    httpsrv::HostAndPort m_addr;
+    int                  m_timeout;
+    httpsrv::UseSSLFlag  m_useSsl;
+
+public:
+    void sendRequest(const std::string& reqText, const edifact::KickInfo& kickInfo);
+
+    static boost::optional<httpsrv::HttpResp> receive(const std::string& pult);
+
+public:
+    SirenaClient();
+};
 
 } //namespace SirenaExchange
 
