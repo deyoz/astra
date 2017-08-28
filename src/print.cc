@@ -1748,12 +1748,6 @@ string get_validator(const TBagReceipt &rcpt, bool pr_lat)
     return validator.str();
 }
 
-bool rus_airp(const string &airp)
-{
-    string city = base_tables.get("AIRPS").get_row("code", airp).AsString("city");
-    return base_tables.get("CITIES").get_row("code", city).AsString("country") == "êî";
-}
-
 bool get_bp_pr_lat(int grp_id, bool pr_lat)
 {
     TQuery Qry(&OraSession);
