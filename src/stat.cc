@@ -10295,12 +10295,27 @@ void RunTrferPaxStat(
                         item.pax_name = transliter(full_name, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
                         item.pax_doc = CheckIn::GetPaxDocStr(part_key, pax_id, false);
 
+                        typedef map<bool, TSegCategories::Enum> TAirpArvMap;
+                        typedef map<bool, TAirpArvMap> TTrferMap;
+                        typedef map<bool, TTrferMap> TCategoryMap;
+
+                        static TCategoryMap category_map =
+                        {
+                            {false, {{false, {{false, TSegCategories::IntInt}}}}},
+                            {false, {{false, {{true,  TSegCategories::IntFor}}}}},
+                            {true,  {{false, {{false, TSegCategories::ForInt}}}}},
+
+                            {false, {{true,  {{false, TSegCategories::ForFor}}}}},
+                            {false, {{true,  {{true,  TSegCategories::ForFor}}}}},
+                            {true,  {{false, {{true,  TSegCategories::ForFor}}}}},
+                            {true,  {{true,  {{false, TSegCategories::ForFor}}}}},
+                            {true,  {{true,  {{true,  TSegCategories::ForFor}}}}}
+                        };
+
                         bool is_inter1 = not rus_airp(item.airp);
                         bool is_inter2 = not rus_airp(item.trfer_airp);
-                        if(not is_inter1 and not is_inter2) item.seg_category = TSegCategories::IntInt;
-                        if(is_inter1 and is_inter2) item.seg_category = TSegCategories::ForFor;
-                        if(is_inter1 and not is_inter2) item.seg_category = TSegCategories::ForInt;
-                        if(not is_inter1 and is_inter2) item.seg_category = TSegCategories::IntFor;
+                        bool is_inter3 = not rus_airp(item.airp_arv);
+                        item.seg_category = category_map[is_inter1][is_inter2][is_inter3];
 
                         TSegCategories::Enum seg_category = TSegCategories::Unknown;
                         if(params.seg_category != TSegCategories::Unknown) {
