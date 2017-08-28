@@ -264,7 +264,7 @@ ORG+IK:MOW++++Y+::RU+MOVROM"
 EQN+1:TD"
 TKT+7706120030297:T"
 CPN+1:CK"
-TVL+$(ddmmyy)+ÑåÑ+èãä+IK+103: ++1"
+TVL+$(ddmmyy)+DME+LED+IK+103: ++1"
 UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 

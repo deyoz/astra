@@ -34,7 +34,7 @@ public:
     virtual bool fullAnswer() const;
     virtual void parse();
     virtual void handle();
-    virtual void makeAnAnswer() {}
+    virtual void makeAnAnswer();
 
     virtual void saveErrorInfo(const Ticketing::ErrMsg_t& errCode,
                                const std::string& errText);

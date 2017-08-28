@@ -370,7 +370,11 @@ void viewCpnElement(_EDI_REAL_MES_STRUCT_* pMes, const CpnElem& elem)
     if(elem.m_media)
         cpn << elem.m_media->code();
 
-    cpn << ":" << elem.m_sac << ":::";
+    cpn << ":" << elem.m_sac;
+    cpn << "::";
+    if(elem.m_prevStatus)
+        cpn << elem.m_prevStatus->code();
+    cpn << ":";
     if(elem.m_connectedNum)
         cpn << elem.m_connectedNum;
     cpn << "::";

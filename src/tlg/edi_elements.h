@@ -541,6 +541,7 @@ struct CpnElem
     Ticketing::TaxAmount::Amount m_amount;
     Ticketing::CouponStatus m_status;
     std::string m_sac;
+    Ticketing::CouponStatus m_prevStatus;
     std::string m_action;
     Ticketing::CouponNum_t m_connectedNum;
 };

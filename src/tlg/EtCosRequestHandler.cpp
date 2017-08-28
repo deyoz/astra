@@ -9,6 +9,7 @@
 #include "AirportControl.h"
 
 #include <edilib/edi_func_cpp.h>
+#include <etick/tick_data.h>
 
 #define NICKNAME "ANTON"
 #define NICKTRACE ANTON_TRACE
@@ -60,6 +61,28 @@ CosParams CosParamsMaker::makeParams() const
                      m_cpn.m_num);
 }
 
+//---------------------------------------------------------------------------------------
+
+TktElem makeTkt(const TicketNum_t& tickNum)
+{
+    TktElem tkt;
+    tkt.m_ticketNum      = tickNum;
+    tkt.m_docType        = DocType::Ticket;
+    tkt.m_conjunctionNum = 1;
+    tkt.m_tickStatAction = TickStatAction::newtick;
+    return tkt;
+}
+
+CpnElem makeCpn(const CouponNum_t& cpnNum)
+{
+    CpnElem cpn;
+    cpn.m_num        = cpnNum;
+    cpn.m_status     = CouponStatus(CouponStatus::OriginalIssue);
+    cpn.m_media      = TicketMedia::Electronic;
+    cpn.m_prevStatus = CouponStatus(CouponStatus::Airport);
+    return cpn;
+}
+
 }//namespace
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -95,6 +118,7 @@ void CosRequestHandler::handle()
 {
     LogTrace(TRACE3) << __FUNCTION__;
     ASSERT(m_cosParams);
+
     try {
         Ticketing::returnWcCoupon(SystemContext::Instance(STDLOG).airlineImpl()->ida(),
                                   m_cosParams->m_tickNum,
@@ -105,6 +129,22 @@ void CosRequestHandler::handle()
     } catch(const AirportControlNotFound& e) {
         throw tick_soft_except(STDLOG, AstraErr::INV_COUPON_STATUS);
     }
+}
+
+void CosRequestHandler::makeAnAnswer()
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+    ASSERT(m_cosParams);
+
+    PushEdiPointW(pMesW());
+    SetEdiSegGr(pMesW(), SegGrElement(1));
+    SetEdiPointToSegGrW(pMesW(), SegGrElement(1), "SegGr1 not found");
+    viewTktElement(pMesW(), makeTkt(m_cosParams->m_tickNum));
+
+    PushEdiPointW(pMesW());
+    SetEdiSegGr(pMesW(), SegGrElement(2));
+    SetEdiPointToSegGrW(pMesW(), SegGrElement(2), "SegGr2 not found");
+    viewCpnElement(pMesW(), makeCpn(m_cosParams->m_cpnNum));
 }
 
 void CosRequestHandler::saveErrorInfo(const Ticketing::ErrMsg_t& errCode,
