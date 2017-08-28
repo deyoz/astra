@@ -348,6 +348,14 @@ class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
              region.empty() &&
              postal_code.empty();
     };
+    bool empty_without_type() const
+    {
+      return country.empty() &&
+             address.empty() &&
+             city.empty() &&
+             region.empty() &&
+             postal_code.empty();
+    };
     bool operator < (const TPaxDocaItem &item) const
     {
         if(type != item.type)
@@ -457,21 +465,10 @@ class TDocaMap : public std::map<TAPIType, TPaxDocaItem>
 {
   public:
     TDocaMap() { Clear(); }
-    void Clear()
-    {
-      typedef std::map<TAPIType, TPaxDocaItem> Base;
-      Base::clear();
-      Base::operator[](apiDocaB).type = "B";
-      Base::operator[](apiDocaR).type = "R";
-      Base::operator[](apiDocaD).type = "D";
-    }
-    std::string ToString() const
-    {
-      std::string result = "TDocaMap types: ";
-      for (TDocaMap::const_iterator i = this->begin(); i != this->end(); ++i)
-        result += "[" + i->second.type + "]";
-      return result;
-    }    
+    // при инициализации пустыми значениями вылетает Exception: NormalizeDoca: result.apiType()==apiUnknown!
+    // при инициализации полями с заполненным типом неправильно отрабатывает empty()
+    // см. также HandleDoca
+    void Clear() { clear(); }
 };
 
 class TPaxItem : public TSimplePaxItem
