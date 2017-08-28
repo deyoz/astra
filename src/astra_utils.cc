@@ -1951,3 +1951,16 @@ void traceXML(const xmlDocPtr doc)
   for(size_t pos=0; pos<len; pos+=portion)
     ProgTrace(TRACE5, "%s", xml.substr(pos,portion).c_str());
 }
+
+bool rus_airp(const string &airp)
+{
+    string city = base_tables.get("AIRPS").get_row("code", airp).AsString("city");
+    return base_tables.get("CITIES").get_row("code", city).AsString("country") == "”";
+}
+
+string get_airp_country(const string &airp)
+{
+    string city = base_tables.get("AIRPS").get_row("code", airp).AsString("city");
+    return base_tables.get("CITIES").get_row("code", city).AsString("country");
+}
+

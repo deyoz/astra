@@ -10295,27 +10295,23 @@ void RunTrferPaxStat(
                         item.pax_name = transliter(full_name, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
                         item.pax_doc = CheckIn::GetPaxDocStr(part_key, pax_id, false);
 
-                        typedef map<bool, TSegCategories::Enum> TAirpArvMap;
-                        typedef map<bool, TAirpArvMap> TTrferMap;
-                        typedef map<bool, TTrferMap> TCategoryMap;
+                        typedef map<bool, TSegCategories::Enum> TSeg2Map;
+                        typedef map<bool, TSeg2Map> TCategoryMap;
 
                         static TCategoryMap category_map =
                         {
-                            {false, {{false, {{false, TSegCategories::IntInt}}}}},
-                            {false, {{false, {{true,  TSegCategories::IntFor}}}}},
-                            {true,  {{false, {{false, TSegCategories::ForInt}}}}},
-
-                            {false, {{true,  {{false, TSegCategories::ForFor}}}}},
-                            {false, {{true,  {{true,  TSegCategories::ForFor}}}}},
-                            {true,  {{false, {{true,  TSegCategories::ForFor}}}}},
-                            {true,  {{true,  {{false, TSegCategories::ForFor}}}}},
-                            {true,  {{true,  {{true,  TSegCategories::ForFor}}}}}
+                            {false, {{false, TSegCategories::IntInt}}},
+                            {false, {{true,  TSegCategories::IntFor}}},
+                            {true,  {{false, TSegCategories::ForInt}}},
+                            {true,  {{true,  TSegCategories::ForFor}}}
                         };
 
-                        bool is_inter1 = not rus_airp(item.airp);
-                        bool is_inter2 = not rus_airp(item.trfer_airp);
-                        bool is_inter3 = not rus_airp(item.airp_arv);
-                        item.seg_category = category_map[is_inter1][is_inter2][is_inter3];
+                        string country1 = get_airp_country(item.airp);
+                        string country2 = get_airp_country(item.trfer_airp);
+                        string country3 = get_airp_country(item.airp_arv);
+                        bool is_inter1 = country1 != country2;
+                        bool is_inter2 = country2 != country3;
+                        item.seg_category = category_map[is_inter1][is_inter2];
 
                         TSegCategories::Enum seg_category = TSegCategories::Unknown;
                         if(params.seg_category != TSegCategories::Unknown) {
