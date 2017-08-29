@@ -121,6 +121,7 @@ void SirenaExchangeInterface::KickHandler(XMLRequestCtxt *ctxt,
                                           xmlNodePtr reqNode,
                                           xmlNodePtr resNode)
 {
+    const std::string DefaultAnswer = "<answer/>";
     std::string pult = TReqInfo::Instance()->desk.code;
     LogTrace(TRACE3) << __FUNCTION__ << " for pult [" << pult << "]";
 
@@ -130,8 +131,6 @@ void SirenaExchangeInterface::KickHandler(XMLRequestCtxt *ctxt,
         if(resp->commErr) {
              LogError(STDLOG) << "Http communication error! "
                               << "(" << resp->commErr->code << "/" << resp->commErr->errMsg << ")";
-             AstraLocale::showProgError("MSG.SIRENA_HTTP_COMMUNICATION_ERROR");
-             return;
         }
     } else {
         LogError(STDLOG) << "Enter to KickHandler but HttpResponse is empty!";
@@ -147,18 +146,21 @@ void SirenaExchangeInterface::KickHandler(XMLRequestCtxt *ctxt,
         if(termReqNode == NULL)
           throw EXCEPTIONS::Exception("ChangeStatusInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
 
-        if(resp)
-        {
+        std::string answerStr = DefaultAnswer;
+        if(resp) {
             const auto fnd = resp->text.find("<answer>");
-            ASSERT(fnd != std::string::npos);
-            XMLDoc answerResDoc = ASTRA::createXmlDoc2(resp->text.substr(fnd));
-            xmlNodePtr answerResNode = NodeAsNode("/answer", answerResDoc.docPtr());
-            addToEdiResponseCtxt(req_ctxt_id, answerResNode, "");
+            if(fnd != std::string::npos) {
+                answerStr = resp->text.substr(fnd);
+            }
         }
+
+        XMLDoc answerResDoc = ASTRA::createXmlDoc2(answerStr);
+        xmlNodePtr answerResNode = NodeAsNode("/answer", answerResDoc.docPtr());
+        addToEdiResponseCtxt(req_ctxt_id, answerResNode, "");
 
         XMLDoc answerResCtxt;
         getEdiResponseCtxt(req_ctxt_id, true, "ChangeStatusInterface::KickHandler", answerResCtxt);
-        xmlNodePtr answerResNode = NodeAsNode("/context", answerResCtxt.docPtr());
+        answerResNode = NodeAsNode("/context", answerResCtxt.docPtr());
         if(answerResNode == NULL)
           throw EXCEPTIONS::Exception("ChangeStatusInterface::KickHandler: context EDI_RESPONSE answerResNode=NULL");;
         LogTrace(TRACE3) << "answer res (old ediRes):\n" << XMLTreeToText(answerResCtxt.docPtr());
