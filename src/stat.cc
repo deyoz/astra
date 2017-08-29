@@ -10271,20 +10271,31 @@ void RunTrferPaxStat(
                         typedef map<bool, TSegCategories::Enum> TSeg2Map;
                         typedef map<bool, TSeg2Map> TCategoryMap;
 
-                        static TCategoryMap category_map =
+                        static const TCategoryMap category_map =
                         {
-                            {false, {{false, TSegCategories::IntInt}}},
-                            {false, {{true,  TSegCategories::IntFor}}},
-                            {true,  {{false, TSegCategories::ForInt}}},
-                            {true,  {{true,  TSegCategories::ForFor}}}
+                            {
+                                false,
+                                {
+                                    {false, TSegCategories::IntInt},
+                                    {true, TSegCategories::IntFor}
+                                }
+                            },
+                            {
+                                true,
+                                {
+                                    {false, TSegCategories::ForInt},
+                                    {true, TSegCategories::ForFor}
+                                }
+                            }
                         };
 
                         string country1 = get_airp_country(item.airp);
                         string country2 = get_airp_country(item.trfer_airp);
                         string country3 = get_airp_country(item.airp_arv);
+
                         bool is_inter1 = country1 != country2;
                         bool is_inter2 = country2 != country3;
-                        item.seg_category = category_map[is_inter1][is_inter2];
+                        item.seg_category = category_map.at(is_inter1).at(is_inter2);
 
                         TSegCategories::Enum seg_category = TSegCategories::Unknown;
                         if(params.seg_category != TSegCategories::Unknown) {
