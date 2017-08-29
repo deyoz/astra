@@ -126,7 +126,7 @@ class TETickItem
     TDateTime issue_date;
     std::string surname, name;
     std::string fare_basis;
-    std::string cls;
+    std::string subcls;
     int bag_norm;
     TBagNormUnit bag_norm_unit;
     Ticketing::CouponStatus status;
@@ -146,7 +146,7 @@ class TETickItem
       surname.clear();
       name.clear();
       fare_basis.clear();
-      cls.clear();
+      subcls.clear();
       bag_norm=ASTRA::NoExists;
       bag_norm_unit.clear();
       status=Ticketing::CouponStatus(Ticketing::CouponStatus::Unavailable);

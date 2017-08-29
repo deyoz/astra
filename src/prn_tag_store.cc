@@ -1024,9 +1024,11 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
         subcls = Qry.FieldAsString("subclass");
         crs_cls = Qry.FieldAsString("crs_cls");
 
+        /*
         TETickItem ETickItem;
         ETickItem.fromDB(ticket_no, coupon_no, TETickItem::Display, false);
         if(not ETickItem.empty()) crs_cls = ETickItem.cls;
+        */
 
         // daem dorabotat' do konca, potom
 
