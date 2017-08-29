@@ -278,6 +278,7 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
                 << QParam("fare_basis", otString, fare_basis)
                 << (bag_norm!=ASTRA::NoExists?QParam("bag_norm", otInteger, bag_norm):
                                               QParam("bag_norm", otInteger, FNull))
+                << QParam("subcls", otString, subcls)
                 << QParam("bag_norm_unit", otString, bag_norm_unit.get_db_form());
       break;
     case ChangeOfStatus:
@@ -295,14 +296,14 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
         "BEGIN "
         "  UPDATE eticks_display "
         "  SET point_id=:point_id, issue_date=:issue_date, surname=:surname, name=:name, "
-        "      fare_basis=:fare_basis, bag_norm=:bag_norm, bag_norm_unit=:bag_norm_unit, "
+        "      fare_basis=:fare_basis, bag_norm=:bag_norm, subcls=:subcls, bag_norm_unit=:bag_norm_unit, "
         "      last_display=SYSTEM.UTCSYSDATE "
         "  WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
         "  IF SQL%NOTFOUND THEN "
         "    INSERT INTO eticks_display(ticket_no, coupon_no, point_id, issue_date, surname, name, "
-        "      fare_basis, bag_norm, bag_norm_unit, last_display) "
+        "      fare_basis, bag_norm, subcls, bag_norm_unit, last_display) "
         "    VALUES(:ticket_no, :coupon_no, :point_id, :issue_date, :surname, :name, "
-        "      :fare_basis, :bag_norm, :bag_norm_unit, SYSTEM.UTCSYSDATE); "
+        "      :fare_basis, :bag_norm, :subcls, :bag_norm_unit, SYSTEM.UTCSYSDATE); "
         "  END IF; "
         "END;";
 
@@ -352,6 +353,7 @@ TETickItem& TETickItem::fromDB(const TEdiAction ediAction,
     surname=Qry.FieldAsString("surname");
     name=Qry.FieldAsString("name");
     fare_basis=Qry.FieldAsString("fare_basis");
+    subcls=Qry.FieldAsString("subcls");
     bag_norm=Qry.FieldIsNULL("bag_norm")?ASTRA::NoExists:
                                          Qry.FieldAsInteger("bag_norm");
     bag_norm_unit.set(Qry.FieldAsString("bag_norm_unit"));
@@ -470,6 +472,7 @@ void ETDisplayToDB(const Ticketing::Pnr &pnr)
         ETickItem.bag_norm=itin.luggage()->quantity();
         ETickItem.bag_norm_unit=itin.luggage()->chargeQualifier();
       };
+      ETickItem.subcls = itin.rbd()->code(RUSSIAN);
 
       ETickItem.toDB(TETickItem::Display);
     }
