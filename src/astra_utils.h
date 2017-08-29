@@ -704,5 +704,6 @@ struct TProfiledRights {
 };
 
 bool rus_airp(const std::string &airp);
+std::string get_airp_country(const std::string &airp);
 
 #endif /*_ASTRA_UTILS_H_*/
