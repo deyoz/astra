@@ -167,6 +167,118 @@ $(set tid $(get_single_tid $(get point_dep) РЕПИН ИВАН))
 $(sql "insert into TRIP_BT(POINT_ID, TAG_TYPE) values($(get point_dep), 'ВНКС')")
 
 
+# добавление багажа c ошибкой
+
+$(http_forecast content=$(get_svc_payment_status_invalid_resp))
+
+!!
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <segments>
+        <segment>
+          <point_dep>$(get point_dep)</point_dep>
+          <point_arv>$(get point_arv)</point_arv>
+          <airp_dep>ДМД</airp_dep>
+          <airp_arv>ПЛК</airp_arv>
+          <class>Э</class>
+          <grp_id>$(get grp_id)</grp_id>
+          <tid>$(get tid)</tid>
+          <passengers>
+            <pax>
+              <pax_id>$(last_generated_pax_id)</pax_id>
+              <surname>РЕПИН</surname>
+              <name>ИВАН</name>
+              <pers_type>ВЗ</pers_type>
+              <refuse/>
+              <ticket_no>2981212121212</ticket_no>
+              <coupon_no>1</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>0</ticket_confirm>
+              <document>
+                <type>P</type>
+                <issue_country>RUS</issue_country>
+                <no>7774441110</no>
+                <nationality>RUS</nationality>
+                <birth_date>01.05.1976 00:00:00</birth_date>
+                <gender>M</gender>
+                <surname>РЕПИН</surname>
+                <first_name>ИВАН</first_name>
+              </document>
+              <doco/>
+              <addresses>
+                <doca>
+                  <type>B</type>
+                </doca>
+                <doca>
+                  <type>R</type>
+                </doca>
+                <doca>
+                  <type>D</type>
+                </doca>
+              </addresses>
+              <subclass>Э</subclass>
+              <bag_pool_num>1</bag_pool_num>
+              <subclass>Э</subclass>
+              <tid>$(get tid)</tid>
+            </pax>
+          </passengers>
+          <service_payment/>
+        </segment>
+      </segments>
+      <hall>1</hall>
+      <bag_refuse/>
+      <value_bags/>
+      <bags>
+        <bag>
+          <rfisc>0L1</rfisc>
+          <airline>ЮТ</airline>
+          <service_type>C</service_type>
+          <num>1</num>
+          <pr_cabin>0</pr_cabin>
+          <amount>1</amount>
+          <weight>13</weight>
+          <value_bag_num/>
+          <pr_liab_limit>0</pr_liab_limit>
+          <to_ramp>0</to_ramp>
+          <using_scales>0</using_scales>
+          <is_trfer>0</is_trfer>
+          <bag_pool_num>1</bag_pool_num>
+        </bag>
+      </bags>
+      <tags pr_print='1'/>
+      <unaccomps/>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+
+>> lines=auto
+<query>
+  <svc_payment_status show_free_carry_on_norm=\"true\">
+    <passenger id=\"...\" surname=\"РЕПИН\" name=\"ИВАН\" category=\"ADT\" birthdate=\"1976-05-01\" sex=\"male\">
+      <document number=\"7774441110\" country=\"RUS\"/>
+      <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"xxxx-xx-xxTxx:xx:xx\" arrival_time=\"xxxx-xx-xxTxx:xx:xx\" subclass=\"Y\">
+        <ticket number=\"2981212121212\" coupon_num=\"1\"/>
+        <recloc crs=\"UT\">0840Z6</recloc>
+        <recloc crs=\"1H\">09T1B3</recloc>
+      </segment>
+    </passenger>
+    <svc passenger-id=\"...\" segment-id=\"0\" company=\"UT\" service_type=\"C\" rfisc=\"0L1\" rfic=\"C\" emd_type=\"EMD-A\"/>
+  </svc_payment_status>
+</query>
+
+
+$(KICK_IN)
+
+>> lines=auto
+    <command>
+      <user_error lexema_id='MSG.CHECKIN.UNABLE_CALC_PAID_BAG_TRY_RE_CHECKIN' code='0'>Невозможно произвести расчет оплачиваемого багажа. Попробуйте перерегистрировать пассажиров</user_error>
+    </command>
+
+
 # добавление багажа
 
 $(http_forecast content=$(get_svc_payment_status_resp))

@@ -74,3 +74,10 @@ $(defmacro get_svc_availability_invalid_resp
 $(utf8 invalid_answer)
 }
 )
+
+
+$(defmacro get_svc_payment_status_invalid_resp
+{
+$(utf8 invalid_answer)
+}
+)
