@@ -394,6 +394,7 @@ class TPrnTagStore {
             std::string airp_dep;
             std::string airp_arv;
             int point_dep, point_arv;
+            std::string cls;
             int class_grp;
             int excess;
             int hall;
@@ -434,6 +435,7 @@ class TPrnTagStore {
             int rk_amount, rk_weight;
             std::string tags;
             std::string subcls;
+            std::string crs_cls;
             bool pr_bp_print;
             bool pr_bi_print;
             CheckIn::TPaxDocItem doc;
@@ -673,7 +675,7 @@ class TPrnTagStore {
             std::set<TBPServiceTypes::Enum> found_services;
 
             void fromDB(int grp_id, int pax_id);
-            std::string get(TBPServiceTypes::Enum code);
+            std::string get(const std::string &crs_cls, TBPServiceTypes::Enum code);
 
             TRfiscDescr()
             {

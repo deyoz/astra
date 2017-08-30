@@ -365,9 +365,9 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::PLACE_DEP,               TTagListItem(&TPrnTagStore::PLACE_DEP)));
     tag_list.insert(make_pair(TAG::REG_NO,                  TTagListItem(&TPrnTagStore::REG_NO, PAX_INFO)));
     tag_list.insert(make_pair(TAG::REM,                     TTagListItem(&TPrnTagStore::REM, REM_INFO)));
-    tag_list.insert(make_pair(TAG::RFISC_BSN_LONGUE,        TTagListItem(&TPrnTagStore::RFISC_BSN_LONGUE)));
-    tag_list.insert(make_pair(TAG::RFISC_FAST_TRACK,        TTagListItem(&TPrnTagStore::RFISC_FAST_TRACK)));
-    tag_list.insert(make_pair(TAG::RFISC_UPGRADE,           TTagListItem(&TPrnTagStore::RFISC_UPGRADE)));
+    tag_list.insert(make_pair(TAG::RFISC_BSN_LONGUE,        TTagListItem(&TPrnTagStore::RFISC_BSN_LONGUE, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::RFISC_FAST_TRACK,        TTagListItem(&TPrnTagStore::RFISC_FAST_TRACK, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::RFISC_UPGRADE,           TTagListItem(&TPrnTagStore::RFISC_UPGRADE, PAX_INFO)));
     tag_list.insert(make_pair(TAG::RK_AMOUNT,               TTagListItem(&TPrnTagStore::RK_AMOUNT, PAX_INFO)));
     tag_list.insert(make_pair(TAG::RK_WEIGHT,               TTagListItem(&TPrnTagStore::RK_WEIGHT, PAX_INFO)));
     tag_list.insert(make_pair(TAG::RSTATION,                TTagListItem(&TPrnTagStore::RSTATION, RSTATION_INFO)));
@@ -896,11 +896,11 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
             LoadPaxDoc(pax_id, doc);
             Qry.SQLText =
                 "select "
-                "   surname, "
-                "   name, "
-                "   ticket_rem, "
-                "   ticket_no, "
-                "   coupon_no, "
+                "   pax.surname, "
+                "   pax.name, "
+                "   pax.ticket_rem, "
+                "   pax.ticket_no, "
+                "   pax.coupon_no, "
                 "   DECODE( "
                 "       pax.SEAT_TYPE, "
                 "       'SMSA',1, "
@@ -908,19 +908,26 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
                 "       'SMST',1, "
                 "       0) pr_smoke, "
                 "   is_jmp, "
-                "   reg_no, "
-                "   seats, "
-                "   pers_type, "
+                "   pax.reg_no, "
+                "   pax.seats, "
+                "   pax.pers_type, "
                 "   ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount, "
                 "   ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_weight, "
                 "   ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_amount, "
                 "   ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_weight, "
                 "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
-                "   pax.subclass "
+                "   pax.subclass, "
+                "   crs_pnr.class crs_cls "
                 "from "
-                "   pax "
+                "   pax, "
+                "   crs_pax, "
+                "   crs_pnr "
                 "where "
-                "   pax_id = :pax_id ";
+                "   pax.pax_id = :pax_id and "
+                "   pax.pax_id = crs_pax.pax_id(+) and "
+                "   crs_pax.pr_del(+) = 0 and "
+                "   crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
+                "   crs_pnr.system(+) = 'CRS' ";
             Qry.CreateVariable("lang", otString, tag_lang.GetLang());
 
             TPrPrint().get_pr_print(grp_info.grp_id, pax_id, pr_bp_print, pr_bi_print);
@@ -945,7 +952,8 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
                 "   0 AS rk_amount, "
                 "   0 AS rk_weight, "
                 "   NULL AS tags, "
-                "   null subclass "
+                "   null subclass, "
+                "   null crs_cls "
                 "FROM "
                 "   test_pax "
                 "WHERE "
@@ -982,6 +990,13 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
         rk_weight = Qry.FieldAsInteger("rk_weight");
         tags = Qry.FieldAsString("tags");
         subcls = Qry.FieldAsString("subclass");
+        crs_cls = Qry.FieldAsString("crs_cls");
+
+        /*
+        TETickItem ETickItem;
+        ETickItem.fromDB(ticket_no, coupon_no, TETickItem::Display, false);
+        if(not ETickItem.empty()) crs_cls = ETickItem.cls;
+        */
 
         // daem dorabotat' do konca, potom
 
@@ -1014,6 +1029,7 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
                 "   airp_dep, "
                 "   airp_arv, "
                 "   class_grp, "
+                "   class, "
                 "   hall, "
                 "   DECODE(pax_grp.bag_refuse,0,pax_grp.excess,0) AS excess "
                 "from "
@@ -1030,6 +1046,7 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
             point_arv = Qry.FieldAsInteger("point_arv");
             if(not Qry.FieldIsNULL("class_grp"))
                 class_grp = Qry.FieldAsInteger("class_grp");
+            cls = Qry.FieldAsString("class");
             if(not Qry.FieldIsNULL("hall"))
                 hall = Qry.FieldAsInteger("hall");
             excess = Qry.FieldAsInteger("excess");
@@ -2068,9 +2085,12 @@ string TPrnTagStore::PLACE_DEP(TFieldParams fp)
     return cut_place(AIRP_DEP(fp), CITY_DEP_NAME(fp), fp.len);
 }
 
-string TPrnTagStore::TRfiscDescr::get(TBPServiceTypes::Enum code)
+string TPrnTagStore::TRfiscDescr::get(const string &crs_cls, TBPServiceTypes::Enum code)
 {
-    return (found_services.find(code) != found_services.end() ? TBPServiceTypesDescr().encode(code) : "");
+    if((code == TBPServiceTypes::LG or code == TBPServiceTypes::TS_FT) and crs_cls == "Å")
+        return TBPServiceTypesDescr().encode(code);
+    else
+        return (found_services.find(code) != found_services.end() ? TBPServiceTypesDescr().encode(code) : "");
 }
 
 void TPrnTagStore::TRfiscDescr::dump() const
@@ -2128,19 +2148,19 @@ void TPrnTagStore::TRfiscDescr::fromDB(int grp_id, int pax_id)
 string TPrnTagStore::RFISC_BSN_LONGUE(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) return boost::any_cast<std::string>(fp.TagInfo);
-    return rfisc_descr.get(TBPServiceTypes::LG);
+    return rfisc_descr.get(paxInfo.crs_cls, TBPServiceTypes::LG);
 }
 
 string TPrnTagStore::RFISC_FAST_TRACK(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) return boost::any_cast<std::string>(fp.TagInfo);
-    return rfisc_descr.get(TBPServiceTypes::TS_FT);
+    return rfisc_descr.get(paxInfo.crs_cls, TBPServiceTypes::TS_FT);
 }
 
 string TPrnTagStore::RFISC_UPGRADE(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) return boost::any_cast<std::string>(fp.TagInfo);
-    return rfisc_descr.get(TBPServiceTypes::UP);
+    return rfisc_descr.get(paxInfo.crs_cls, TBPServiceTypes::UP);
 }
 
 string TPrnTagStore::REM(TFieldParams fp)
