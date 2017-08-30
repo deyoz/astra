@@ -278,6 +278,7 @@ $(KICK_IN)
       <user_error lexema_id='MSG.CHECKIN.UNABLE_CALC_PAID_BAG_TRY_RE_CHECKIN' code='0'>Невозможно произвести расчет оплачиваемого багажа. Попробуйте перерегистрировать пассажиров</user_error>
     </command>
 
+$(sql "delete from etickets")
 
 # добавление багажа
 

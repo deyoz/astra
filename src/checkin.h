@@ -238,7 +238,8 @@ public:
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                       TChangeStatusList &ChangeStatusInfo,
                       SirenaExchange::TLastExchangeList &SirenaExchangeList,
-                      CheckIn::TAfterSaveInfoList &AfterSaveInfoList);
+                      CheckIn::TAfterSaveInfoList &AfterSaveInfoList,
+                      bool& httpWasSent);
 
   static void SaveTagPacks(xmlNodePtr node);
 
