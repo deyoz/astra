@@ -74,7 +74,6 @@ namespace TAG {
     const std::string PLACE_DEP = "PLACE_DEP";
     const std::string REG_NO = "REG_NO";
     const std::string REM = "REM";
-    const std::string RFISC_BL_FT = "RFISC_BL_FT";
     const std::string RFISC_BSN_LONGUE = "RFISC_BSN_LONGUE";
     const std::string RFISC_FAST_TRACK = "RFISC_FAST_TRACK";
     const std::string RFISC_UPGRADE = "RFISC_UPGRADE";
@@ -567,7 +566,6 @@ class TPrnTagStore {
         std::string PLACE_DEP(TFieldParams fp);
         std::string REG_NO(TFieldParams fp);
         std::string REM(TFieldParams fp);
-        std::string RFISC_BL_FT(TFieldParams fp);
         std::string RFISC_BSN_LONGUE(TFieldParams fp);
         std::string RFISC_FAST_TRACK(TFieldParams fp);
         std::string RFISC_UPGRADE(TFieldParams fp);
@@ -677,7 +675,7 @@ class TPrnTagStore {
             std::set<TBPServiceTypes::Enum> found_services;
 
             void fromDB(int grp_id, int pax_id);
-            std::string get(TBPServiceTypes::Enum code);
+            std::string get(const std::string &crs_cls, TBPServiceTypes::Enum code);
 
             TRfiscDescr()
             {

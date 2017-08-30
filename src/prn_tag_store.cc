@@ -365,10 +365,9 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::PLACE_DEP,               TTagListItem(&TPrnTagStore::PLACE_DEP)));
     tag_list.insert(make_pair(TAG::REG_NO,                  TTagListItem(&TPrnTagStore::REG_NO, PAX_INFO)));
     tag_list.insert(make_pair(TAG::REM,                     TTagListItem(&TPrnTagStore::REM, REM_INFO)));
-    tag_list.insert(make_pair(TAG::RFISC_BL_FT,             TTagListItem(&TPrnTagStore::RFISC_BL_FT, PAX_INFO)));
-    tag_list.insert(make_pair(TAG::RFISC_BSN_LONGUE,        TTagListItem(&TPrnTagStore::RFISC_BSN_LONGUE)));
-    tag_list.insert(make_pair(TAG::RFISC_FAST_TRACK,        TTagListItem(&TPrnTagStore::RFISC_FAST_TRACK)));
-    tag_list.insert(make_pair(TAG::RFISC_UPGRADE,           TTagListItem(&TPrnTagStore::RFISC_UPGRADE)));
+    tag_list.insert(make_pair(TAG::RFISC_BSN_LONGUE,        TTagListItem(&TPrnTagStore::RFISC_BSN_LONGUE, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::RFISC_FAST_TRACK,        TTagListItem(&TPrnTagStore::RFISC_FAST_TRACK, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::RFISC_UPGRADE,           TTagListItem(&TPrnTagStore::RFISC_UPGRADE, PAX_INFO)));
     tag_list.insert(make_pair(TAG::RK_AMOUNT,               TTagListItem(&TPrnTagStore::RK_AMOUNT, PAX_INFO)));
     tag_list.insert(make_pair(TAG::RK_WEIGHT,               TTagListItem(&TPrnTagStore::RK_WEIGHT, PAX_INFO)));
     tag_list.insert(make_pair(TAG::RSTATION,                TTagListItem(&TPrnTagStore::RSTATION, RSTATION_INFO)));
@@ -2086,9 +2085,12 @@ string TPrnTagStore::PLACE_DEP(TFieldParams fp)
     return cut_place(AIRP_DEP(fp), CITY_DEP_NAME(fp), fp.len);
 }
 
-string TPrnTagStore::TRfiscDescr::get(TBPServiceTypes::Enum code)
+string TPrnTagStore::TRfiscDescr::get(const string &crs_cls, TBPServiceTypes::Enum code)
 {
-    return (found_services.find(code) != found_services.end() ? TBPServiceTypesDescr().encode(code) : "");
+    if((code == TBPServiceTypes::LG or code == TBPServiceTypes::TS_FT) and crs_cls == "Å")
+        return TBPServiceTypesDescr().encode(code);
+    else
+        return (found_services.find(code) != found_services.end() ? TBPServiceTypesDescr().encode(code) : "");
 }
 
 void TPrnTagStore::TRfiscDescr::dump() const
@@ -2143,31 +2145,22 @@ void TPrnTagStore::TRfiscDescr::fromDB(int grp_id, int pax_id)
     dump();
 }
 
-string TPrnTagStore::RFISC_BL_FT(TFieldParams fp)
-{
-    if(!fp.TagInfo.empty()) return boost::any_cast<std::string>(fp.TagInfo);
-    string result;
-    if(paxInfo.crs_cls == "Å")
-        result = "Business Longue and Fast Track";
-    return result;
-}
-
 string TPrnTagStore::RFISC_BSN_LONGUE(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) return boost::any_cast<std::string>(fp.TagInfo);
-    return rfisc_descr.get(TBPServiceTypes::LG);
+    return rfisc_descr.get(paxInfo.crs_cls, TBPServiceTypes::LG);
 }
 
 string TPrnTagStore::RFISC_FAST_TRACK(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) return boost::any_cast<std::string>(fp.TagInfo);
-    return rfisc_descr.get(TBPServiceTypes::TS_FT);
+    return rfisc_descr.get(paxInfo.crs_cls, TBPServiceTypes::TS_FT);
 }
 
 string TPrnTagStore::RFISC_UPGRADE(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) return boost::any_cast<std::string>(fp.TagInfo);
-    return rfisc_descr.get(TBPServiceTypes::UP);
+    return rfisc_descr.get(paxInfo.crs_cls, TBPServiceTypes::UP);
 }
 
 string TPrnTagStore::REM(TFieldParams fp)
