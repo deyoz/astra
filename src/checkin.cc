@@ -117,6 +117,7 @@ void SirenaExchangeInterface::KickHandler(XMLRequestCtxt *ctxt,
                                           xmlNodePtr reqNode,
                                           xmlNodePtr resNode)
 {
+    const std::string DefaultAnswer = "<answer/>";
     std::string pult = TReqInfo::Instance()->desk.code;
     LogTrace(TRACE3) << __FUNCTION__ << " for pult [" << pult << "]";
 
@@ -126,8 +127,6 @@ void SirenaExchangeInterface::KickHandler(XMLRequestCtxt *ctxt,
         if(resp->commErr) {
              LogError(STDLOG) << "Http communication error! "
                               << "(" << resp->commErr->code << "/" << resp->commErr->errMsg << ")";
-             AstraLocale::showProgError("MSG.SIRENA_HTTP_COMMUNICATION_ERROR");
-             return;
         }
     } else {
         LogError(STDLOG) << "Enter to KickHandler but HttpResponse is empty!";
@@ -143,25 +142,28 @@ void SirenaExchangeInterface::KickHandler(XMLRequestCtxt *ctxt,
         if(termReqNode == NULL)
           throw EXCEPTIONS::Exception("ChangeStatusInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
 
-        if(resp)
-        {
+        std::string answerStr = DefaultAnswer;
+        if(resp) {
             const auto fnd = resp->text.find("<answer>");
-            ASSERT(fnd != std::string::npos);
-            XMLDoc answerResDoc = ASTRA::createXmlDoc2(resp->text.substr(fnd));
-            xmlNodePtr answerResNode = NodeAsNode("/answer", answerResDoc.docPtr());
-            addToEdiResponseCtxt(req_ctxt_id, answerResNode, "");
+            if(fnd != std::string::npos) {
+                answerStr = resp->text.substr(fnd);
+            }
         }
+
+        XMLDoc answerResDoc = ASTRA::createXmlDoc2(answerStr);
+        xmlNodePtr answerResNode = NodeAsNode("/answer", answerResDoc.docPtr());
+        addToEdiResponseCtxt(req_ctxt_id, answerResNode, "");
 
         XMLDoc answerResCtxt;
         getEdiResponseCtxt(req_ctxt_id, true, "ChangeStatusInterface::KickHandler", answerResCtxt);
-        xmlNodePtr answerResNode = NodeAsNode("/context", answerResCtxt.docPtr());
+        answerResNode = NodeAsNode("/context", answerResCtxt.docPtr());
         if(answerResNode == NULL)
           throw EXCEPTIONS::Exception("ChangeStatusInterface::KickHandler: context EDI_RESPONSE answerResNode=NULL");;
         LogTrace(TRACE3) << "answer res (old ediRes):\n" << XMLTreeToText(answerResCtxt.docPtr());
 
 
         if(!CheckInInterface::SavePax(termReqNode, answerResNode, resNode)) {
-            LogError(STDLOG) << "Call SavePax from SirenaExchangeInterface::Kick failed!";
+            //LogError(STDLOG) << "Call SavePax from SirenaExchangeInterface::Kick failed!";
         }
     }
 }
@@ -3281,27 +3283,41 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   SavePax(reqNode, NULL, resNode);
 };
 
-//процедура должна возвращать true только в том случае если произведена реальная регистрация
+static bool needSyncEdsEts(xmlNodePtr answerResNode)
+{
+    return (answerResNode == NULL ||
+            (answerResNode != NULL && !findNodeR(answerResNode, "tickets")
+                                   && !findNodeR(answerResNode, "emdocs")));
+}
+
+// процедура должна возвращать true только в том случае если произведена реальная регистрация
 bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode)
 {
-  TChangeStatusList ChangeStatusInfo;
-  SirenaExchange::TLastExchangeList SirenaExchangeList;
-  CheckIn::TAfterSaveInfoList AfterSaveInfoList;
-  bool result=SavePax(reqNode, ediResNode, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList);
-  if (result)
-  {
-    if (ediResNode==NULL && !ChangeStatusInfo.empty())
+    TChangeStatusList ChangeStatusInfo;
+    SirenaExchange::TLastExchangeList SirenaExchangeList;
+    CheckIn::TAfterSaveInfoList AfterSaveInfoList;
+    bool httpWasSent = false;
+    bool result=SavePax(reqNode, ediResNode, ChangeStatusInfo,
+                        SirenaExchangeList, AfterSaveInfoList,
+                        httpWasSent);
+    if (result)
     {
-      //хотя бы один билет будет обрабатываться
-      OraSession.Rollback();  //откат
-      ChangeStatusInterface::ChangeStatus(reqNode, ChangeStatusInfo);
-      SirenaExchangeList.handle(__FUNCTION__);
-      return false;
-    }
-    else
-    {
-      SirenaExchangeList.handle(__FUNCTION__);
-    };
+        if(httpWasSent) {
+            return false;
+        }
+
+        if (needSyncEdsEts(ediResNode) && !ChangeStatusInfo.empty())
+        {
+            //хотя бы один билет будет обрабатываться
+            OraSession.Rollback();  //откат
+            ChangeStatusInterface::ChangeStatus(reqNode, ChangeStatusInfo);
+            SirenaExchangeList.handle(__FUNCTION__);
+            return false;
+        }
+        else
+        {
+            SirenaExchangeList.handle(__FUNCTION__);
+        }
 
         CheckIn::TAfterSaveInfoData data(reqNode, ediResNode);
         AfterSaveInfoList.handle(data, __FUNCTION__);
@@ -3921,7 +3937,8 @@ void setLastGeneratedPaxId(int lgpid) { LastGeneratedPaxId = lgpid; }
 bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                                TChangeStatusList &ChangeStatusInfo,
                                SirenaExchange::TLastExchangeList &SirenaExchangeList,
-                               CheckIn::TAfterSaveInfoList &AfterSaveInfoList)
+                               CheckIn::TAfterSaveInfoList &AfterSaveInfoList,
+                               bool& httpWasSent)
 {
   AfterSaveInfoList.push_back(CheckIn::TAfterSaveInfo());
   CheckIn::TAfterSaveInfo &AfterSaveInfo=AfterSaveInfoList.back();
@@ -3939,7 +3956,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   bool defer_etstatus=false;
 
   TQuery Qry(&OraSession);
-  if (ediResNode==NULL && reqInfo->client_type == ctTerm) //для web-регистрации нераздельное подтверждение ЭБ
+  if (needSyncEdsEts(ediResNode) && reqInfo->client_type == ctTerm) //для web-регистрации нераздельное подтверждение ЭБ
   {
     Qry.Clear();
     Qry.SQLText=
@@ -5994,7 +6011,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       //вот здесь ETCheckStatus::CheckGrpStatus
       //обязательно до ckin.check_grp
-      if (ediResNode==NULL && reqInfo->client_type!=ctPNL)
+      if (needSyncEdsEts(ediResNode) && reqInfo->client_type!=ctPNL)
       {
         if (!defer_etstatus)
           ETStatusInterface::ETCheckStatus(grp.id, csaGrp, NoExists, false, ChangeStatusInfo.ET, true);
@@ -6352,15 +6369,21 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             SirenaExchangeInterface::PaymentStatusRequest(reqNode,
                                                           ediResNode,
                                                           req);
-            return false;
+            httpWasSent = true;
+            return true;
           } else {
             xmlNodePtr answerNode = findAnswerNode(ediResNode);
             ASSERT(answerNode != NULL);
-            res.parse(answerNode);
+            res.parseResponse(answerNode);
 
             curr.grp_id=first_grp_id;
             xml_encode_nodelist(answerNode->doc->children);
-            curr.pc_payment_res=XMLTreeToText(answerNode->doc);
+
+            XMLDoc answerDoc("answer");
+            CopyNodeList(NodeAsNode("/answer", answerDoc.docPtr()), answerNode);
+
+            curr.pc_payment_res=XMLTreeToText(answerDoc.docPtr());
+
             SirenaExchangeList.push_back(curr);
           }
         }
@@ -6402,7 +6425,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
     paid.getAllListItems();
     bool update_payment=false;
-    bool check_emd_status=(ediResNode==NULL && reqInfo->client_type!=ctPNL);
+    bool check_emd_status=(needSyncEdsEts(ediResNode) && reqInfo->client_type!=ctPNL);
     for(TCkinGrpIds::const_iterator i=tckin_grp_ids.begin(); i!=tckin_grp_ids.end(); ++i)
     {
       int grp_id=*i;
@@ -6796,7 +6819,7 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
                   data.httpWasSent = true;
                   return;
               } else {
-                  res.parse(data.getAnswerNode());
+                  res.parseResponse(data.getAnswerNode());
                   if (res.error()) throw Exception("SIRENA ERROR: %s", res.traceError().c_str());
               }
 
@@ -6874,6 +6897,8 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
         }
         catch(std::exception &e)
         {
+          if (data.needSync()) throw;
+
           bag_concept_by_seg.clear();
           bag_types_id=ASTRA::NoExists;
           if (res.error() &&
@@ -8977,7 +9002,8 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
               xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulCkinDoc.docPtr())->children;
               if (emulReqNode==NULL)
                 throw EXCEPTIONS::Exception("CheckInInterface::CrewCheckin: emulReqNode=NULL");
-              if (SavePax(emulReqNode, NULL, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList))
+              bool httpWasSent = false;
+              if (SavePax(emulReqNode, NULL, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList, httpWasSent))
               {
                 //сюда попадаем если была реальная регистрация
                 CheckIn::TAfterSaveInfoData afterSaveData(emulReqNode, NULL);
