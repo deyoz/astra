@@ -108,6 +108,12 @@ void TExchange::parse(xmlNodePtr node)
     };
 }
 
+void TExchange::parseResponse(xmlNodePtr node)
+{
+  if (!isRequest() && (node==nullptr || node->children==nullptr))
+    throw Exception("Response for '%s' not recieved", exchangeId().c_str());
+}
+
 void TExchange::toXML(xmlNodePtr node) const
 {
   throw Exception("TExchange::toXML: %s <%s> not implemented", isRequest()?"Request":"Response", exchangeId().c_str());

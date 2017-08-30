@@ -58,6 +58,7 @@ class TExchange
     virtual void build(std::string &content) const;
     virtual void parse(const std::string &content);
     virtual void parse(xmlNodePtr node);
+    virtual void parseResponse(xmlNodePtr node);
     virtual void toXML(xmlNodePtr node) const;
     virtual void fromXML(xmlNodePtr node);
     virtual void errorToXML(xmlNodePtr node) const;

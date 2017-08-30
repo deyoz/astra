@@ -3461,7 +3461,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
     if (result)
     {
         if(httpWasSent) {
-            tst();
             return false;
         }
 
@@ -3481,7 +3480,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
         CheckIn::TAfterSaveInfoData data(reqNode, ediResNode);
         AfterSaveInfoList.handle(data, __FUNCTION__);
         if(data.httpWasSent) {
-            tst();
             return true;
         }
 
@@ -6574,7 +6572,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           } else {
             xmlNodePtr answerNode = findAnswerNode(ediResNode);
             ASSERT(answerNode != NULL);
-            res.parse(answerNode);
+            res.parseResponse(answerNode);
 
             curr.grp_id=first_grp_id;
             xml_encode_nodelist(answerNode->doc->children);
@@ -6584,8 +6582,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
             curr.pc_payment_res=XMLTreeToText(answerDoc.docPtr());
 
-
-            LogTrace(TRACE3) << "cached value:\n" << curr.pc_payment_res;
             SirenaExchangeList.push_back(curr);
           }
         }
@@ -7021,7 +7017,7 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
                   data.httpWasSent = true;
                   return;
               } else {
-                  res.parse(data.getAnswerNode());
+                  res.parseResponse(data.getAnswerNode());
                   if (res.error()) throw Exception("SIRENA ERROR: %s", res.traceError().c_str());
               }
 
@@ -7099,6 +7095,8 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
         }
         catch(std::exception &e)
         {
+          if (data.needSync()) throw;
+
           bag_concept_by_seg.clear();
           bag_types_id=ASTRA::NoExists;
           if (res.error() &&
