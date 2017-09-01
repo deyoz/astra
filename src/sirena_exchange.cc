@@ -112,6 +112,7 @@ void TExchange::parseResponse(xmlNodePtr node)
 {
   if (!isRequest() && (node==nullptr || node->children==nullptr))
     throw Exception("Response for '%s' not recieved", exchangeId().c_str());
+  parse(node);
 }
 
 void TExchange::toXML(xmlNodePtr node) const
