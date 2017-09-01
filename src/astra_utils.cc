@@ -1732,7 +1732,8 @@ void rollback()
 void rollbackSavePax()
 {
     LogTrace(TRACE3) << "ASTRA::rollbackSavePax()";
-    make_curs("rollback to savepoint sp_savepax").exec();
+    //make_curs("rollback to savepoint sp_savepax").exec();
+    rollback(); //!!!TODO когда будем ставить IATCI подумать
 }
 
 /*
