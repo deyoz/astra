@@ -82,7 +82,11 @@ function extract_libc_path_from_loader_script()
 function get_real_libc_path()
 {
     local libc_path=$1
-	local loader_script=$(readlink -f $libc_path)
+    local loader_script=$(readlink -e $libc_path)
+
+    if [ ! $loader_script ]; then
+        throw "Unable to locate libc library ($TARGET_BIT bit) at '$libc_path'"
+    fi;
 
     if [ -f $loader_script ]; then
         if file $loader_script | grep ASCII > /dev/null; then
