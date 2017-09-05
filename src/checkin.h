@@ -9,7 +9,6 @@
 #include "astra_ticket.h"
 #include "astra_locale.h"
 #include "astra_consts.h"
-#include "rfisc_sirena.h"
 #include "astra_misc.h"
 #include "oralib.h"
 #include "etick.h"
@@ -18,7 +17,6 @@
 #include "events.h"
 #include "tlg/tlg_parser.h"
 #include "sirena_exchange.h"
-
 
 using BASIC::date_time::TDateTime;
 
@@ -111,58 +109,13 @@ class TAfterSaveInfo
     void toLog(const std::string& where);
 };
 
-struct TAfterSaveInfoData
-{
-    xmlNodePtr reqNode;
-    xmlNodePtr answerResNode;
-    bool httpWasSent;
-    int grpId;
-    TAfterSaveActionType action;
-
-    TAfterSaveInfoData(xmlNodePtr rNode, xmlNodePtr aNode)
-        : reqNode(rNode), answerResNode(aNode), httpWasSent(false),
-          grpId(ASTRA::NoExists), action(CheckIn::actionNone)
-    {}
-
-    bool needSync() const;
-    xmlNodePtr getAnswerNode() const;
-};
-
 class TAfterSaveInfoList : public std::list<TAfterSaveInfo>
 {
   public:
-    void handle(TAfterSaveInfoData& data, const std::string& where);
-  protected:
-    void handleInner(TAfterSaveInfoData& data, const std::string& where);
+    void handle(const std::string& where);
 };
 
 } //namespace CheckIn
-
-
-class SirenaExchangeInterface : public JxtInterface
-{
-public:
-    SirenaExchangeInterface() : JxtInterface("", "SirenaExchange")
-    {
-        AddEvent("kick", JXT_HANDLER(SirenaExchangeInterface, KickHandler));
-    }
-
-    static void AvailabilityRequest(xmlNodePtr reqNode,
-                                    xmlNodePtr answerResNode,
-                                    const SirenaExchange::TAvailabilityReq& avlReq);
-
-    static void PaymentStatusRequest(xmlNodePtr reqNode,
-                                     xmlNodePtr answerResNode,
-                                     const SirenaExchange::TPaymentStatusReq& psReq);
-    void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-
-protected:
-    static void DoRequest(xmlNodePtr reqNode,
-                          xmlNodePtr answerResNode,
-                          const std::string& reqText);
-
-};
-
 
 class CheckInInterface : public JxtInterface
 {
@@ -252,12 +205,11 @@ public:
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                       TChangeStatusList &ChangeStatusInfo,
                       SirenaExchange::TLastExchangeList &SirenaExchangeList,
-                      CheckIn::TAfterSaveInfoList &AfterSaveInfoList,
-                      bool& httpWasSent);
+                      CheckIn::TAfterSaveInfoList &AfterSaveInfoList);
 
   static void SaveTagPacks(xmlNodePtr node);
 
-  static void AfterSaveAction(CheckIn::TAfterSaveInfoData& data);
+  static void AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActionType action);
   static void LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax);
   static void LoadPaxRem(xmlNodePtr paxNode);
   static void BuildTransfer(const TTrferRoute &trfer, TTrferRouteType route_type, xmlNodePtr transferNode);
@@ -353,10 +305,5 @@ class UserException:public AstraLocale::UserException
 void showError(const std::map<int, std::map <int, AstraLocale::LexemaData> > &segs);
 
 } //namespace CheckIn
-
-#ifdef XP_TESTING
-int lastGeneratedPaxId();
-void setLastGeneratedPaxId(int lgpid);
-#endif/*XP_TESTING*/
 
 #endif
