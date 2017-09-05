@@ -1778,21 +1778,9 @@ void tst_dump(int pax_id, int grp_id, bool pr_lat)
     }
 }
 
-void PrintInterface::check_pectab_availability(BPParams &params, int grp_id, TDevOper::Enum op_type)
+void PrintInterface::check_pectab_availability(BPParams &params, TDevOper::Enum op_type, int point_id, const string &cl)
 {
     TQuery Qry(&OraSession);
-    Qry.SQLText="SELECT point_dep, class, status FROM pax_grp WHERE grp_id=:grp_id";
-    Qry.CreateVariable("grp_id",otInteger,grp_id);
-    Qry.Execute();
-    if(Qry.Eof)
-        throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-    if (DecodePaxStatus(Qry.FieldAsString("status"))==psCrew)
-        throw AstraLocale::UserException("MSG.BOARDINGPASS_NOT_AVAILABLE_FOR_CREW");
-    if(Qry.FieldIsNULL("class"))
-        throw AstraLocale::UserException("MSG.BOARDINGPASS_NOT_AVAILABLE_FOR_UNACC_BAGGAGE");
-    int point_id = Qry.FieldAsInteger("point_dep");
-    string cl = Qry.FieldAsString("class");
-    Qry.Clear();
     Qry.SQLText =
         "SELECT bp_type, "
         "       DECODE(class,NULL,0,1) AS priority "
@@ -1815,6 +1803,23 @@ void PrintInterface::check_pectab_availability(BPParams &params, int grp_id, TDe
                 throw Exception("%d: %d: unexpected dev oper type %d", op_type);
         }
     params.form_type = Qry.FieldAsString("bp_type");
+}
+
+void PrintInterface::check_pectab_availability(BPParams &params, int grp_id, TDevOper::Enum op_type)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText="SELECT point_dep, class, status FROM pax_grp WHERE grp_id=:grp_id";
+    Qry.CreateVariable("grp_id",otInteger,grp_id);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+    if (DecodePaxStatus(Qry.FieldAsString("status"))==psCrew)
+        throw AstraLocale::UserException("MSG.BOARDINGPASS_NOT_AVAILABLE_FOR_CREW");
+    if(Qry.FieldIsNULL("class"))
+        throw AstraLocale::UserException("MSG.BOARDINGPASS_NOT_AVAILABLE_FOR_UNACC_BAGGAGE");
+    int point_id = Qry.FieldAsInteger("point_dep");
+    string cl = Qry.FieldAsString("class");
+    check_pectab_availability(params, op_type, point_id, cl);
 }
 
 void PrintInterface::get_pectab(
@@ -2064,6 +2069,41 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     GetPrintDataBP(reqNode, resNode);
 }
 
+void tripVOToXML(list<int> &pax_ids, int point_id, xmlNodePtr resNode, bool pr_paxes)
+{
+    set<string> trip_vouchers;
+    getTripVouchers(point_id, trip_vouchers);
+
+    if(trip_vouchers.empty())
+        throw AstraLocale::UserException("MSG.VOUCHER.ACCESS_DENIED");
+
+    xmlNodePtr printNode = NewTextChild(NewTextChild(resNode, "data"), "print");
+    SetProp(printNode, "vouchers");
+
+    xmlNodePtr voNode = NewTextChild(printNode, "voucher_types");
+    for(set<string>::iterator
+            i = trip_vouchers.begin(); i != trip_vouchers.end(); i++) {
+        xmlNodePtr itemNode = NewTextChild(voNode, "item");
+        NewTextChild(itemNode, "code", *i);
+        NewTextChild(itemNode, "name", ElemIdToNameLong(etVoucherType, *i));
+    }
+
+    xmlNodePtr paxListNode = NewTextChild(printNode, "passengers");
+    for(list<int>::iterator i = pax_ids.begin(); i != pax_ids.end(); i++) {
+        xmlNodePtr paxNode = NewTextChild(paxListNode, "passenger");
+        NewTextChild(paxNode,
+                (pr_paxes ? "pax_id" : "id"),
+                *i);
+        voNode = NewTextChild(paxNode, "vouchers");
+        for(set<string>::iterator
+                i = trip_vouchers.begin(); i != trip_vouchers.end(); i++) {
+            xmlNodePtr itemNode = NewTextChild(voNode, "item");
+            NewTextChild(itemNode, "code", *i);
+            NewTextChild(itemNode, "pr_print", true);
+        }
+    }
+}
+
 void PrintInterface::GetPrintDataVO(
         int first_seg_grp_id,
         int pax_id,
@@ -2098,35 +2138,7 @@ void PrintInterface::GetPrintDataVO(
         if(pax_ids.empty())
             throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
 
-        set<string> trip_vouchers;
-        getTripVouchers(point_id, trip_vouchers);
-
-        if(trip_vouchers.empty())
-            throw AstraLocale::UserException("MSG.VOUCHER.ACCESS_DENIED");
-
-        xmlNodePtr printNode = NewTextChild(NewTextChild(resNode, "data"), "print");
-        SetProp(printNode, "vouchers");
-
-        xmlNodePtr voNode = NewTextChild(printNode, "voucher_types");
-        for(set<string>::iterator
-                i = trip_vouchers.begin(); i != trip_vouchers.end(); i++) {
-            xmlNodePtr itemNode = NewTextChild(voNode, "item");
-            NewTextChild(itemNode, "code", *i);
-            NewTextChild(itemNode, "name", ElemIdToNameLong(etVoucherType, *i));
-        }
-
-        xmlNodePtr paxListNode = NewTextChild(printNode, "passengers");
-        for(list<int>::iterator i = pax_ids.begin(); i != pax_ids.end(); i++) {
-            xmlNodePtr paxNode = NewTextChild(paxListNode, "passenger");
-            NewTextChild(paxNode, "pax_id", *i);
-            voNode = NewTextChild(paxNode, "vouchers");
-            for(set<string>::iterator
-                    i = trip_vouchers.begin(); i != trip_vouchers.end(); i++) {
-                xmlNodePtr itemNode = NewTextChild(voNode, "item");
-                NewTextChild(itemNode, "code", *i);
-                NewTextChild(itemNode, "pr_print", true);
-            }
-        }
+        tripVOToXML(pax_ids, point_id, resNode, true);
     } else {
         // С клиента пришел список паксов с выбранными значениями
         typedef list<pair<string, bool> > TvList;
@@ -2202,6 +2214,176 @@ void PrintInterface::GetPrintDataVO(
     }
 }
 
+void PrintInterface::GetPrintDataVOUnregistered(
+        BPParams &params,
+        TDevOper::Enum op_type,
+        xmlNodePtr reqNode,
+        xmlNodePtr resNode)
+{
+    LogTrace(TRACE5) << "GetPrintDataVOUnregistered begin";
+    xmlNodePtr currNode = reqNode->children;
+    xmlNodePtr vouchersNode = GetNodeFast("vouchers", currNode);
+    if(not vouchersNode)
+        throw Exception("GetPrintDataVOUnregistered: vouchers node not found where expected");
+    string cl = NodeAsString("@cl", vouchersNode);
+    int point_id = NodeAsInteger("@point_id", vouchersNode);
+    if(cl.empty()) throw AstraLocale::UserException("MSG.PASSENGERS.NOT_SET_CLASS");
+
+    check_pectab_availability(params, op_type, point_id, cl);
+
+    currNode = vouchersNode->children;
+    currNode = GetNodeFast("pax_list", currNode);
+    if(currNode) { // пришли незареганные паксы, которых надо вывести в форму ваучеров.
+        currNode = currNode->children;
+        list<int> ids;
+        for(; currNode; currNode = currNode->next)
+            ids.push_back(NodeAsInteger(currNode));
+        tripVOToXML(ids, point_id, resNode, false);
+    } else { // пришли паксы на печать
+        struct TVOPax {
+            string name;
+            string surname;
+        };
+
+        typedef list<pair<string, bool> > TvList;
+        typedef list<pair<TVOPax, TvList> > TPaxList;
+
+        TPaxList pax_list;
+        for(xmlNodePtr paxNode = vouchersNode->children;
+                paxNode; paxNode = paxNode->next) {
+            currNode = paxNode->children;
+            TVOPax pax;
+            pax.surname = NodeAsStringFast("surname", currNode);
+            pax.name = NodeAsStringFast("name", currNode);
+            pax_list.push_back(make_pair(pax, TvList()));
+
+            currNode = NodeAsNodeFast("vouchers", currNode);
+            for(xmlNodePtr itemNode = currNode->children;
+                    itemNode; itemNode = itemNode->next) {
+                currNode = itemNode->children;
+                string vCode = NodeAsStringFast("code", currNode);
+                bool pr_print = NodeAsIntegerFast("pr_print", currNode) != 0;
+                pax_list.back().second.push_back(make_pair(vCode, pr_print));
+            }
+        }
+
+        xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"), "print");
+        string data, pectab;
+        get_pectab(TDevOper::PrnBP, params, data, pectab);
+        NewTextChild(BPNode, "pectab", pectab);
+        xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
+
+        TTripRoute route;
+        route.GetRouteAfter(NoExists, point_id, trtWithCurrent, trtNotCancelled);
+        if(route.size() < 2) throw Exception("%s: wrong route", __FUNCTION__);
+        string airp_dep = route[0].airp;
+        string airp_arv = route[1].airp;
+
+        TTripInfo info;
+        info.getByPointId(point_id);
+
+        PrintDataParser parser(airp_dep, airp_arv, params.prnParams.pr_lat);
+
+        parser.pts.set_tag(TAG::ACT,           info.real_out);
+        parser.pts.set_tag(TAG::AIRLINE,       info.airline);
+        parser.pts.set_tag(TAG::AIRLINE_NAME,  info.airline);
+        parser.pts.set_tag(TAG::AIRLINE_SHORT, info.airline);
+        parser.pts.set_tag(TAG::AIRP_ARV,      airp_arv);
+        parser.pts.set_tag(TAG::AIRP_ARV_NAME, airp_arv);
+        parser.pts.set_tag(TAG::AIRP_DEP,      airp_dep);
+        parser.pts.set_tag(TAG::AIRP_DEP_NAME, airp_dep);
+        parser.pts.set_tag(TAG::BAG_AMOUNT,    0); // TODO get it
+        parser.pts.set_tag(TAG::BAGGAGE,       ""); // TODO get it
+        parser.pts.set_tag(TAG::BAG_WEIGHT,    0); // TODO get it
+        parser.pts.set_tag(TAG::BCBP_M_2,      " "); // TODO get it
+        parser.pts.set_tag(TAG::BRD_FROM,      TDateTime(NoExists)); // TODO get it
+        parser.pts.set_tag(TAG::BRD_TO,        TDateTime(NoExists)); // TODO get it
+        parser.pts.set_tag(TAG::CHD,           ""); // TODO get it
+        parser.pts.set_tag(TAG::CITY_ARV_NAME, airp_arv);
+        parser.pts.set_tag(TAG::CITY_DEP_NAME, airp_dep);
+        parser.pts.set_tag(TAG::CLASS,         cl);
+        parser.pts.set_tag(TAG::CLASS_NAME,    cl);
+        parser.pts.set_tag(TAG::DOCUMENT,      "");
+        parser.pts.set_tag(TAG::DUPLICATE,     0); // TODO get it
+        parser.pts.set_tag(TAG::EST,           info.real_out);
+        parser.pts.set_tag(TAG::ETICKET_NO,    "");
+        parser.pts.set_tag(TAG::ETKT,          "");
+        parser.pts.set_tag(TAG::EXCESS,        0); // TODO get it
+        parser.pts.set_tag(TAG::FLT_NO,        info.flt_no);
+        parser.pts.set_tag(TAG::FQT,           ""); // TODO get it
+        parser.pts.set_tag(TAG::FULL_PLACE_ARV,airp_arv);
+        parser.pts.set_tag(TAG::FULL_PLACE_DEP,airp_dep);
+        parser.pts.set_tag(TAG::GATE,          ""); // TODO get it
+        parser.pts.set_tag(TAG::GATES,         ""); // TODO get it
+        parser.pts.set_tag(TAG::HALL,          ""); // TODO get it
+        parser.pts.set_tag(TAG::INF,           "");
+        parser.pts.set_tag(TAG::LIST_SEAT_NO,  "");
+        parser.pts.set_tag(TAG::LONG_ARV,      airp_arv);
+        parser.pts.set_tag(TAG::LONG_DEP,      airp_dep);
+        parser.pts.set_tag(TAG::NO_SMOKE,      0); // TODO get it
+        parser.pts.set_tag(TAG::ONE_SEAT_NO,   "");
+        parser.pts.set_tag(TAG::PAX_ID,        NoExists);
+        parser.pts.set_tag(TAG::PAX_TITLE,     ""); // TODO get it
+        parser.pts.set_tag(TAG::PLACE_ARV,     airp_arv);
+        parser.pts.set_tag(TAG::PLACE_DEP,     airp_dep);
+        parser.pts.set_tag(TAG::PNR,           ""); // TODO get it
+        parser.pts.set_tag(TAG::REG_NO,        0);
+        parser.pts.set_tag(TAG::REM,           ""); // TODO get it
+        parser.pts.set_tag(TAG::RK_AMOUNT,      0); // TODO get it
+        parser.pts.set_tag(TAG::RK_WEIGHT,      0); // TODO get it
+        parser.pts.set_tag(TAG::SCD,           info.scd_out);
+        parser.pts.set_tag(TAG::SEAT_NO,       "");
+        parser.pts.set_tag(TAG::STR_SEAT_NO,   "");
+        parser.pts.set_tag(TAG::SUBCLS,        "");
+        parser.pts.set_tag(TAG::TAGS,          ""); // TODO get it
+
+
+        for(TPaxList::iterator
+                pax = pax_list.begin();
+                pax != pax_list.end();
+                pax++) {
+            for(TvList::iterator
+                    v = pax->second.begin();
+                    v != pax->second.end();
+                    v++) {
+                if(not v->second) continue;
+
+
+                parser.pts.set_tag(TAG::VOUCHER_CODE, v->first);
+                parser.pts.set_tag(TAG::VOUCHER_TEXT, v->first);
+                parser.pts.set_tag(TAG::DUPLICATE, 0);
+
+                std::ostringstream fullName;
+                fullName << pax->first.surname << " " << pax->first.name;
+                parser.pts.set_tag(TAG::FULLNAME,      fullName.str());
+                parser.pts.set_tag(TAG::NAME,          pax->first.name);
+                parser.pts.set_tag(TAG::SURNAME,       pax->first.surname);
+
+                string prn_form = parser.parse(data);
+                bool hex = false;
+                if(DevFmtTypes().decode(params.fmt_type) == TDevFmt::EPSON) {
+                    to_esc::TConvertParams ConvertParams;
+                    ConvertParams.init(params.dev_model);
+                    ProgTrace(TRACE5, "prn_form: %s", prn_form.c_str());
+                    to_esc::convert(prn_form, ConvertParams, params.prnParams);
+                    StringToHex( string(prn_form), prn_form );
+                    LogTrace(TRACE5) << "after StringToHex prn_form: " << prn_form;
+                    hex=true;
+                }
+                //parser.pts.confirm_print(false, TDevOper::PrnBP);
+
+                xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
+                SetProp(paxNode, "pax_id", 0);
+                SetProp(paxNode, "reg_no", 0);
+                SetProp(paxNode, "pr_print", true);
+                SetProp(paxNode, "print_code", "voucher." + v->first);
+                SetProp(paxNode, "time_print", DateTimeToStr(parser.pts.get_time_print()));
+                SetProp(NewTextChild(paxNode, "prn_form", prn_form),"hex",hex);
+            }
+        }
+    }
+}
+
 void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr currNode = reqNode->children;
@@ -2210,13 +2392,17 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
     int pax_id = NodeAsIntegerFast("pax_id", currNode, NoExists);
     int pr_all = NodeAsIntegerFast("pr_all", currNode, NoExists);
     TDevOper::Enum op_type = DevOperTypes().decode(NodeAsStringFast("op_type", currNode, DevOperTypes().encode(TDevOper::PrnBP).c_str()));
-    bool pr_voucher = GetNodeFast("vouchers", currNode) != NULL;
+    xmlNodePtr vouchersNode = GetNodeFast("vouchers", currNode);
+    xmlNodePtr VOPaxListNode = GetNode("pax_list", vouchersNode);
     params.dev_model = NodeAsStringFast("dev_model", currNode);
     params.fmt_type = NodeAsStringFast("fmt_type", currNode);
     params.prnParams.get_prn_params(reqNode);
     params.clientDataNode = NodeAsNodeFast("clientData", currNode);
     if(params.dev_model.empty())
       previewDeviceSets(false, "MSG.PRINTER_NOT_SPECIFIED");
+
+    if(VOPaxListNode or first_seg_grp_id == 0)
+        return GetPrintDataVOUnregistered(params, op_type, reqNode, resNode);
 
     TQuery Qry(&OraSession);
     if(first_seg_grp_id == NoExists) {
@@ -2231,7 +2417,7 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
 
     check_pectab_availability(params, first_seg_grp_id, op_type);
 
-    if(pr_voucher)
+    if(vouchersNode)
         return GetPrintDataVO(
                 first_seg_grp_id,
                 pax_id,

@@ -160,6 +160,7 @@ class PrintInterface: public JxtInterface
         static void GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode);
 
         static void check_pectab_availability(BPParams &params, int grp_id, ASTRA::TDevOper::Enum op_type);
+        static void check_pectab_availability(BPParams &params, ASTRA::TDevOper::Enum op_type, int point_id, const std::string &cl);
 
         static void get_pectab(
                 ASTRA::TDevOper::Enum op_type,
@@ -177,6 +178,11 @@ class PrintInterface: public JxtInterface
                 xmlNodePtr resNode
                 );
 
+        static void GetPrintDataVOUnregistered(
+                BPParams &params,
+                ASTRA::TDevOper::Enum op_type,
+                xmlNodePtr reqNode,
+                xmlNodePtr resNode);
 };
 
 #endif
