@@ -9,6 +9,7 @@
 
 using namespace std;
 using namespace boost::asio;
+using namespace boost::posix_time;
 
 #include "bagmessage.h"
 
@@ -123,16 +124,18 @@ void BMConnection::init()
 
 void BMConnection::onConnect( const boost::system::error_code& err )
 {
+  time_duration cd = microsec_clock::local_time() - adminStartTime;
   BM_HOST *ip = & ip_addr[ activeIp ];
   if( err.value() == 0 )
   {
-    ProgTrace( TRACE0, "Connection %d: connected to SITA BagMessage on %s:%d", line_number, ip->host.c_str(), ip->port );
+    ProgTrace( TRACE0, "Connection %d: connected to SITA BagMessage on %s:%d (after wait for %ld ms)",
+               line_number, ip->host.c_str(), ip->port, cd.total_milliseconds() );
     connected = BM_OP_READY;
   }
   else
   {
-    ProgError( STDLOG, "Connection %d: Cannot connect to SITA BagMessage on %s:%d. error=%d(%s)", line_number,
-               ip->host.c_str(), ip->port, err.value(), err.message().c_str() );
+    ProgError( STDLOG, "Connection %d: Cannot connect to SITA BagMessage on %s:%d. error=%d(%s) wait=%ld ms", line_number,
+               ip->host.c_str(), ip->port, err.value(), err.message().c_str(), cd.total_milliseconds() );
     socket.close(); // При асинхронной операции он остается открытым, и повторный async_connect() не проходит - надо закрыть
     connected = BM_OP_NONE;
     activeIp = ( activeIp + 1 ) % NUMLINES; // Чтобы при неудачной попытке установить связь следующая попытка была по другой линии
@@ -153,6 +156,7 @@ void BMConnection::connect()
   if( socket.is_open() ) // Тонкость: если сокет почему-то уже открытый - то установка соединения не проходит. Так что надо закрыть.
     socket.close();
   ProgTrace( TRACE5, "connection %d try to connect", line_number );
+  adminStartTime = microsec_clock::local_time();
   socket.async_connect( ep, boost::bind( &BMConnection::onConnect, this, boost::asio::placeholders::error) );
 }
 
@@ -191,9 +195,10 @@ void BMConnection::doSendMessage()
   if( header.data_length > 0 )
     memcpy( wbuf + BM_HEADER::SIZE, text.c_str(), header.data_length );
   writeStatus = BM_OP_WAIT;
+  lastSendTime = time( NULL );
+  sendStartTime = microsec_clock::local_time();
   async_write( socket, buffer( wbuf, BM_HEADER::SIZE + header.data_length ),
                boost::bind( &BMConnection::onWrite, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred) );
-  lastSendTime = time( NULL );
   if( header.type == ACK_DATA )
   {
     waitForAck = header.message_id_number;
@@ -204,11 +209,13 @@ void BMConnection::doSendMessage()
 
 void BMConnection::onWrite( const boost::system::error_code& error, std::size_t n )
 {
+  time_duration cd = microsec_clock::local_time() - sendStartTime;
   delete( wbuf );
   wbuf = NULL;
   if( error.value() == 0 )
   {
-    ProgTrace( TRACE5, "async_write() finished for connection %d. %lu bytes written", line_number, n );
+    ProgTrace( TRACE5, "async_write() finished for connection %d. %lu bytes written, %ld ms spent",
+               line_number, n, cd.total_milliseconds() );
     writeStatus = BM_OP_NONE;
     if( needSendAck > 0 ) // Стоит запрос на подтверждение сообщения - отослать вне очереди
     {
@@ -218,8 +225,8 @@ void BMConnection::onWrite( const boost::system::error_code& error, std::size_t 
   }
   else
   { // Ошибки в передаче просто так не возникают. Скорее всего, проблемы со связью. И надо устанавливать ее заново.
-    ProgError( STDLOG, "async_write() finished with errors for connection %d. %lu bytes written, err=%d(%s)",
-               line_number, n, error.value(), error.message().c_str() );
+    ProgError( STDLOG, "async_write() finished with errors for connection %d. %lu bytes written, err=%d(%s). %ld ms spent ",
+               line_number, n, error.value(), error.message().c_str(), cd.total_milliseconds() );
     connected = BM_OP_NONE;
     if( writeHandler != NULL )
     {
@@ -327,10 +334,12 @@ void BMConnection::checkInput()
     }
     else // Сообщение только из заголовка - служебное, надо обработать здесь
     {
+      time_duration cd = microsec_clock::local_time() - sendStartTime;
       switch( rheader.type ) // Быстрая обработка того, что связано с протоколом
       {
         case LOGIN_ACCEPT:
-          ProgTrace( TRACE5, "SITA BagMessage: login accepted for connection %d", line_number );
+          ProgTrace( TRACE5, "SITA BagMessage: login accepted for connection %d after %ld ms waiting",
+                     line_number, cd.total_milliseconds() );
           loginStatus = BM_OP_READY;
           break;
         case LOGIN_REJECT:
@@ -338,7 +347,8 @@ void BMConnection::checkInput()
           loginStatus = BM_OP_NONE;
           break;
         case ACK_MSG:
-          ProgTrace( TRACE5, "SITA BagMessage: receive ACK_MSG for message id=%d", rheader.message_id_number );
+          ProgTrace( TRACE5, "SITA BagMessage: receive ACK_MSG for message id=%d after %ld ms waiting",
+                     rheader.message_id_number, cd.total_milliseconds() );
           if( (int)rheader.message_id_number == waitForAck )
           { // Подтверждена доставка сообщения - только теперь помечаем его как доставленное
             waitForAck = -1;
@@ -355,7 +365,8 @@ void BMConnection::checkInput()
           }
           break;
         case NAK_MSG:
-          ProgTrace( TRACE5, "SITA BagMessage: receive NAK_MSG for message id=%d", rheader.message_id_number );
+          ProgTrace( TRACE5, "SITA BagMessage: receive NAK_MSG for message id=%d after %ld ms waiting",
+                     rheader.message_id_number, cd.total_milliseconds() );
           waitForAck = -1;
           doSendMessage();
           break;

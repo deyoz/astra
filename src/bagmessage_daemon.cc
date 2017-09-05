@@ -53,7 +53,7 @@ BM_OUTPUT_QUEUE::BM_OUTPUT_QUEUE()
 void BM_OUTPUT_QUEUE::get()
 {
   time_t now = time( NULL );
-//  if( now - lastRead > 0 ) // Чтобы не перечитывать базу по несколько раз в секунду
+  if( now - lastRead > 0 ) // Чтобы не перечитывать базу по несколько раз в секунду
   {
     ProgTrace( TRACE5, "re-reading outgoing queue" );
     TFileQueue::get( TFilterQueue( canonName, WAIT_ANSWER_SEC ) );
@@ -139,20 +139,20 @@ void run_bag_msg_process( const std::string &name )
   // Текущая работа самого boost'а
     io.poll_one();
   // Очередь на выход
-    queue.get();
-    if( ! queue.empty() )
+    vector<pBMConnection>::iterator curr = lastSend + 1;
+    if( curr == conn.end() )
+      curr = conn.begin();
+    unsigned n = 0;
+    for( ; n < conn.size(); n++ )
     {
-      TQueueItem tlg = *queue.begin();
-      ProgTrace( TRACE5, "first in queue: id=%d,receiver=%s,type=%s,time=%s",
-                 tlg.id, tlg.receiver.c_str(), tlg.type.c_str(), DateTimeToStr( tlg.time, "yyyy-mm-dd hh:nn:ss" ).c_str() );
-      vector<pBMConnection>::iterator curr = lastSend + 1;
-      if( curr == conn.end() )
-        curr = conn.begin();
-      unsigned n = 0;
-      for( ; n < conn.size(); n++ )
+      if( (*curr)->readyToSend() )
       {
-        if( (*curr)->readyToSend() )
+        queue.get();
+        if( ! queue.empty() )
         {
+          TQueueItem tlg = *queue.begin();
+          ProgTrace( TRACE5, "first in queue: id=%d,receiver=%s,type=%s,time=%s",
+                     tlg.id, tlg.receiver.c_str(), tlg.type.c_str(), DateTimeToStr( tlg.time, "yyyy-mm-dd hh:nn:ss" ).c_str() );
           ProgTrace( TRACE5, "send message via connection %d", (*curr)->getNumber() );
           queue.sendFile( tlg.id );
 #if 1
@@ -166,19 +166,19 @@ void run_bag_msg_process( const std::string &name )
           lastSend = curr;
           break;
         }
-        if( curr + 1 == conn.end() )
-        {
-          curr = conn.begin();
-        }
-        else
-        {
-          curr = curr + 1;
-        }
       }
-      if( n == conn.size() )
+      if( curr + 1 == conn.end() )
       {
-        ProgTrace( TRACE5, "No ready connections to send message" );
+        curr = conn.begin();
       }
+      else
+      {
+        curr = curr + 1;
+      }
+    }
+    if( n == conn.size() && ! queue.empty() )
+    {
+      ProgTrace( TRACE5, "No ready connections to send message" );
     }
   // Очередь на вход
   // Сначала переставить из очередей соединений в общую очередь

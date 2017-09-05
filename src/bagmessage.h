@@ -4,6 +4,7 @@
 #include <string>
 #include <queue>
 #include <boost/asio.hpp>
+#include <boost/date_time/posix_time/posix_time_types.hpp>
 
 /**************************************************************************/
 /* Заголовок сообщения, отправляемого в BagMessage или получаемого оттуда */
@@ -92,6 +93,7 @@ class BMConnection
     int activeIp;                         // Какая из линий связи сейчас используется?
     unsigned mes_num;                     // Номер сообщения для протокола связи
     time_t lastAdmin;                     // Время последнего действия по управлению процессом - для организации задержек
+    boost::posix_time::ptime adminStartTime; // Точное время последней операции по управлению - для оценки времени ее выполнения
   // Прием
     time_t lastRecvTime; // Время прихода предыдущего сообщения - отслеживается для оценки работоспособности линии
     char *rbuf;          // Буфер для функции async_read
@@ -108,6 +110,7 @@ class BMConnection
     int waitForAckId;    // ID соответствующей телеграммы в базе данных
     time_t waitForAckTime; // Когда послали это сообщение
     void (*writeHandler)( int tlg_id, int status ); // Обработчик завершения передачи с подтверждением
+    boost::posix_time::ptime sendStartTime; // Время начала операции передачи - для точного вычисления времени ее выполнения
   public:
     BMConnection( int i, boost::asio::io_service& io );
     ~BMConnection();
