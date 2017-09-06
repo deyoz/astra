@@ -394,26 +394,38 @@ void BMConnection::checkInput()
 void BMConnection::checkTimer()
 {
   time_t now = time( NULL );
-  if( now - lastSendTime >= heartBeat )
-  { // давно ничего не посылали - надо послать статус
-    sendMessage( STATUS );
+  if( loginStatus == BM_OP_WAIT )
+  {
+    if( now - lastSendTime >= heartBeat )
+    { // Ответ на запрос логина не пришел - надо начинать с начала
+      ProgError( STDLOG, "SITA BagMessage: no LOGIN_ACCEPT input message on connection %d after %d seconds waiting",
+                 line_number, heartBeat );
+      loginStatus = BM_OP_NONE;
+    }
   }
-  if( now - lastRecvTime >= 2 * heartBeat )
-  { // давно ничего не получали - считаем, что линия грохнулась
-    ProgError( STDLOG, "SITA BagMessage: no input messages on connection %d in last %d seconds - connection may be failed",
-               line_number, 2 * heartBeat );
-    socket.close();
-    connected = BM_OP_NONE;
-    loginStatus = BM_OP_NONE;
-    paused = false;
-    // И после этого в основном рабочем цикле заново начнется установка связи и прочее
-  }
-  if( waitForAck >= 0 && now - waitForAckTime > 1 )
-  { // Запросили подтверждение приема, а оно не пришло вовремя
-    ProgTrace( TRACE5, "connection %d TIMEOUT! now=%lu, waitForAckTime=%lu - No acknowledgment for message id=%d - resending",
-               line_number, now, waitForAckTime, waitForAck );
-    waitForAck = -1;
-    doSendMessage();
+  else if( loginStatus == BM_OP_READY )
+  {
+    if( now - lastSendTime >= heartBeat )
+    { // давно ничего не посылали - надо послать статус
+      sendMessage( STATUS );
+    }
+    if( now - lastRecvTime >= 2 * heartBeat )
+    { // давно ничего не получали - считаем, что линия грохнулась
+      ProgError( STDLOG, "SITA BagMessage: no input messages on connection %d in last %d seconds - connection may be failed",
+                 line_number, 2 * heartBeat );
+      socket.close();
+      connected = BM_OP_NONE;
+      loginStatus = BM_OP_NONE;
+      paused = false;
+      // И после этого в основном рабочем цикле заново начнется установка связи и прочее
+    }
+    if( waitForAck >= 0 && now - waitForAckTime > 1 )
+    { // Запросили подтверждение приема, а оно не пришло вовремя
+      ProgTrace( TRACE5, "connection %d TIMEOUT! now=%lu, waitForAckTime=%lu - No acknowledgment for message id=%d - resending",
+                 line_number, now, waitForAckTime, waitForAck );
+      waitForAck = -1;
+      doSendMessage();
+    }
   }
 }
 
@@ -440,12 +452,7 @@ void BMConnection::run()
       sendLogin();
       return;
     }
-    else if( loginStatus == BM_OP_WAIT )
-    {
-      checkInput();
-      return;
-    }
-    else if( loginStatus == BM_OP_READY )
+    else if( loginStatus == BM_OP_WAIT || loginStatus == BM_OP_READY )
     {
       checkInput();
       checkTimer();
