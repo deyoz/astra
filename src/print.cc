@@ -2284,7 +2284,7 @@ void PrintInterface::GetPrintDataVOUnregistered(
 
         PrintDataParser parser(airp_dep, airp_arv, params.prnParams.pr_lat);
 
-        parser.pts.set_tag(TAG::ACT,           info.real_out);
+        parser.pts.set_tag(TAG::ACT,           UTCToLocal(info.real_out, AirpTZRegion(airp_dep)));
         parser.pts.set_tag(TAG::AIRLINE,       info.airline);
         parser.pts.set_tag(TAG::AIRLINE_NAME,  info.airline);
         parser.pts.set_tag(TAG::AIRLINE_SHORT, info.airline);
@@ -2305,7 +2305,7 @@ void PrintInterface::GetPrintDataVOUnregistered(
         parser.pts.set_tag(TAG::CLASS_NAME,    cl);
         parser.pts.set_tag(TAG::DOCUMENT,      "");
         parser.pts.set_tag(TAG::DUPLICATE,     0); // TODO get it
-        parser.pts.set_tag(TAG::EST,           info.real_out);
+        parser.pts.set_tag(TAG::EST,           UTCToLocal(info.est_out, AirpTZRegion(airp_dep)));;
         parser.pts.set_tag(TAG::ETICKET_NO,    "");
         parser.pts.set_tag(TAG::ETKT,          "");
         parser.pts.set_tag(TAG::EXCESS,        0); // TODO get it
@@ -2331,13 +2331,42 @@ void PrintInterface::GetPrintDataVOUnregistered(
         parser.pts.set_tag(TAG::REM,           ""); // TODO get it
         parser.pts.set_tag(TAG::RK_AMOUNT,      0); // TODO get it
         parser.pts.set_tag(TAG::RK_WEIGHT,      0); // TODO get it
-        parser.pts.set_tag(TAG::SCD,           info.scd_out);
+        parser.pts.set_tag(TAG::SCD,           UTCToLocal(info.scd_out, AirpTZRegion(airp_dep)));
         parser.pts.set_tag(TAG::SEAT_NO,       "");
         parser.pts.set_tag(TAG::STR_SEAT_NO,   "");
         parser.pts.set_tag(TAG::SUBCLS,        "");
         parser.pts.set_tag(TAG::TAGS,          ""); // TODO get it
 
 
+        QParams qryParams;
+        qryParams
+            << QParam("time_print", otDate, NowUTC())
+            << QParam("point_id", otInteger, point_id)
+            << QParam("surname", otString)
+            << QParam("name", otString)
+            << QParam("voucher", otString)
+            << QParam("desk", otString, TReqInfo::Instance()->desk.code)
+            << QParam("user_id", otInteger, TReqInfo::Instance()->user.user_id);
+        TCachedQuery confirmQry(
+                "insert into unreg_vouchers ( "
+                "   id, "
+                "   time_print, "
+                "   point_id, "
+                "   surname, "
+                "   name, "
+                "   voucher, "
+                "   desk, "
+                "   user_id "
+                ") values ( "
+                "   id__seq.nextval, "
+                "   :time_print, "
+                "   :point_id, "
+                "   :surname, "
+                "   :name, "
+                "   :voucher, "
+                "   :desk, "
+                "   :user_id "
+                ")", qryParams);
         for(TPaxList::iterator
                 pax = pax_list.begin();
                 pax != pax_list.end();
@@ -2371,6 +2400,17 @@ void PrintInterface::GetPrintDataVOUnregistered(
                     hex=true;
                 }
                 //parser.pts.confirm_print(false, TDevOper::PrnBP);
+                confirmQry.get().SetVariable("surname", pax->first.surname);
+                confirmQry.get().SetVariable("name", pax->first.name);
+                confirmQry.get().SetVariable("voucher", v->first);
+                confirmQry.get().Execute();
+
+                LEvntPrms params;
+                params << PrmSmpl<std::string>("full_name", fullName.str());
+                params << PrmSmpl<string>("voucher", ElemIdToNameLong(etVoucherType, v->first));
+                TReqInfo::Instance()->LocaleToLog("EVT.PRINT_VOUCHER", params, ASTRA::evtPax, point_id);
+
+
 
                 xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
                 SetProp(paxNode, "pax_id", 0);
