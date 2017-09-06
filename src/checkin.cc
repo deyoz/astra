@@ -111,7 +111,8 @@ void SirenaExchangeInterface::DoRequest(xmlNodePtr reqNode,
     }
 
     int reqCtxtId = AstraContext::SetContext("TERM_REQUEST", XMLTreeToText(reqNode->doc));
-    addToEdiResponseCtxt(reqCtxtId, answerResNode, "");
+    if (answerResNode!=nullptr)
+      addToEdiResponseCtxt(reqCtxtId, answerResNode->children, "");
 
     SirenaExchange::SirenaClient sirClient;
     sirClient.sendRequest(reqText, createKickInfo(reqCtxtId, "SirenaExchange"));
@@ -3589,31 +3590,18 @@ void CheckIn::TAfterSaveInfoList::handle(TAfterSaveInfoData& data, const string&
   for(TAfterSaveInfoList::const_iterator i=begin(); i!=end(); ++i)
     if (i->tckin_id!=ASTRA::NoExists) tckin_ids.insert(i->tckin_id);
   CheckTCkinIntegrity(tckin_ids, NoExists);
-  handleInner(data, where);
   for(TAfterSaveInfoList::iterator i=begin(); i!=end(); ++i)
   {
     if (i->segs.empty())
       throw EXCEPTIONS::Exception("%s: empty TAfterSaveInfo.segs!", where.c_str());
     if (i->segs.front().grp_id==ASTRA::NoExists)
       throw EXCEPTIONS::Exception("%s: unknown TAfterSaveSegInfo.grp_id!", where.c_str());
+    data.grpId = i->segs.front().grp_id;
+    data.action = i->action;
+    CheckInInterface::AfterSaveAction(data);
+    if (data.httpWasSent) break;
     i->toLog(where);
   }
-}
-
-void CheckIn::TAfterSaveInfoList::handleInner(TAfterSaveInfoData& data, const string& where)
-{
-    LogTrace(TRACE3) << __FUNCTION__;
-
-    const TAfterSaveInfo& info = front();
-    if(info.segs.empty())
-        throw EXCEPTIONS::Exception("%s: empty TAfterSaveInfo.segs!", where.c_str());
-    if(info.segs.front().grp_id == ASTRA::NoExists)
-      throw EXCEPTIONS::Exception("%s: unknown TAfterSaveSegInfo.grp_id!", where.c_str());
-
-    data.grpId = info.segs.front().grp_id;
-    data.action = info.action;
-
-    CheckInInterface::AfterSaveAction(data);
 }
 
 struct TSegListItem
@@ -5252,7 +5240,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           "        END; "
           "    END; "
           "  END LOOP; "
-          "  SELECT pax_grp__seq.nextval INTO :grp_id FROM dual; "
+          "  IF :grp_id IS NULL THEN "
+          "    SELECT pax_grp__seq.nextval INTO :grp_id FROM dual; "
+          "  END IF; "
           "  INSERT INTO pax_grp(grp_id,point_dep,point_arv,airp_dep,airp_arv,class, "
           "    status,excess,excess_wt,excess_pc,hall,bag_refuse,trfer_confirm,user_id,desk,time_create,client_type, "
           "    point_id_mark,pr_mark_norms,trfer_conflict,inbound_confirm,tid) "
@@ -6095,7 +6085,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               throw;
           }
         }
-        if (ediResNode!=NULL)
+        if (!needSyncEdsEts(ediResNode))
         {
           //изменим ticket_confirm и events_bilingual на основе подтвержденных статусов
           Qry.Clear();
@@ -6563,6 +6553,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           //SirenaExchange::SendRequest(req, res, requestInfo, responseInfo);
 
           if(needSyncSirena(ediResNode)) {
+            if (httpWasSent)
+              throw Exception("%s: very bad situation! needSyncSirena again!", __FUNCTION__);
+
             ASTRA::rollbackSavePax();
             SirenaExchangeInterface::PaymentStatusRequest(reqNode,
                                                           ediResNode,
@@ -7010,6 +7003,9 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
           if (!req.paxs.empty())
           {
               if(data.needSync()) {
+                  if (data.httpWasSent)
+                    throw Exception("%s: very bad situation! needSync again!", __FUNCTION__);
+
                   ASTRA::rollbackSavePax();
                   SirenaExchangeInterface::AvailabilityRequest(data.reqNode,
                                                                data.answerResNode,
