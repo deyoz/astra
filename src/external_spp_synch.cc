@@ -1210,19 +1210,14 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, s
       if ( d.craft.empty() ) {
         warning += " ;Не задан тип ВС, оставляем старое значение '" + owndest->craft + "'";
       }
-      else {
+      else
         if ( d.craft_fmt == efmtUnknown ) {
           warning += " ;Неизвестный тип ВС, значение '" + d.craft + "', оставляем старое значение '" + owndest->craft + "'";
         }
-      }
       d.craft = owndest->craft;
       d.craft_fmt = owndest->craft_fmt;
     }
-    if ( !owndest->craft.empty() ) { //оставляем сторое значение типа ВС
-      d.craft = owndest->craft;
-      d.craft_fmt = owndest->craft_fmt;
-    }
-    if ( !owndest->bort.empty() ) {
+    if ( d.bort.empty() && !owndest->bort.empty() ) {
       warning += " ;Не задан борт ВС, оставляем старое значение '" + owndest->bort + "'";
       d.bort = owndest->bort;
     }
