@@ -146,6 +146,7 @@ class TTripInfo
       airp.clear();
       craft.clear();
       scd_out=ASTRA::NoExists;
+      est_out=ASTRA::NoExists;
       real_out=ASTRA::NoExists;
       pr_del = ASTRA::NoExists;
       airline_fmt = efmtUnknown;
@@ -164,6 +165,8 @@ class TTripInfo
         craft=Qry.FieldAsString("craft");
       if (!Qry.FieldIsNULL("scd_out"))
         scd_out = Qry.FieldAsDateTime("scd_out");
+      if (Qry.GetFieldIndex("est_out")>=0 && !Qry.FieldIsNULL("est_out"))
+        est_out = Qry.FieldAsDateTime("est_out");
       if (Qry.GetFieldIndex("real_out")>=0 && !Qry.FieldIsNULL("real_out"))
         real_out = Qry.FieldAsDateTime("real_out");
       if (Qry.GetFieldIndex("pr_del")>=0)
@@ -202,7 +205,7 @@ class TTripInfo
     std::string airline, suffix, airp, craft;
     int flt_no, pr_del;
     TElemFmt airline_fmt, suffix_fmt, airp_fmt, craft_fmt;
-    TDateTime scd_out, real_out;
+    TDateTime scd_out, est_out, real_out;
     TTripInfo()
     {
       init();
