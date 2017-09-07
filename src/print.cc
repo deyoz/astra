@@ -2241,6 +2241,7 @@ void PrintInterface::GetPrintDataVOUnregistered(
         tripVOToXML(ids, point_id, resNode, false);
     } else { // пришли паксы на печать
         struct TVOPax {
+            int id;
             string name;
             string surname;
         };
@@ -2253,6 +2254,7 @@ void PrintInterface::GetPrintDataVOUnregistered(
                 paxNode; paxNode = paxNode->next) {
             currNode = paxNode->children;
             TVOPax pax;
+            pax.id = NodeAsIntegerFast("id", currNode);
             pax.surname = NodeAsStringFast("surname", currNode);
             pax.name = NodeAsStringFast("name", currNode);
             pax_list.push_back(make_pair(pax, TvList()));
@@ -2342,30 +2344,32 @@ void PrintInterface::GetPrintDataVOUnregistered(
         qryParams
             << QParam("time_print", otDate, NowUTC())
             << QParam("point_id", otInteger, point_id)
+            << QParam("scd_out", otDate, info.scd_out)
             << QParam("surname", otString)
             << QParam("name", otString)
             << QParam("voucher", otString)
-            << QParam("desk", otString, TReqInfo::Instance()->desk.code)
-            << QParam("user_id", otInteger, TReqInfo::Instance()->user.user_id);
+            << QParam("desk", otString, TReqInfo::Instance()->desk.code);
         TCachedQuery confirmQry(
-                "insert into unreg_vouchers ( "
+                "insert into voucher_stat ( "
                 "   id, "
+                "   pax_id, "
                 "   time_print, "
                 "   point_id, "
+                "   scd_out, "
                 "   surname, "
                 "   name, "
                 "   voucher, "
-                "   desk, "
-                "   user_id "
+                "   desk "
                 ") values ( "
                 "   id__seq.nextval, "
+                "   null, "
                 "   :time_print, "
                 "   :point_id, "
+                "   :scd_out, "
                 "   :surname, "
                 "   :name, "
                 "   :voucher, "
-                "   :desk, "
-                "   :user_id "
+                "   :desk "
                 ")", qryParams);
         for(TPaxList::iterator
                 pax = pax_list.begin();
@@ -2414,6 +2418,7 @@ void PrintInterface::GetPrintDataVOUnregistered(
 
                 xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
                 SetProp(paxNode, "pax_id", 0);
+                SetProp(paxNode, "id", pax->first.id);
                 SetProp(paxNode, "reg_no", 0);
                 SetProp(paxNode, "pr_print", true);
                 SetProp(paxNode, "print_code", "voucher." + v->first);
