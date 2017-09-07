@@ -2371,7 +2371,6 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
   TChangeStatusList ChangeStatusInfo;
   SirenaExchange::TLastExchangeList SirenaExchangeList;
   CheckIn::TAfterSaveInfoList AfterSaveInfoList;
-  bool httpWasSent = false;
   bool result=true;
   bool handleAfterSave=false;
   //важно, что сначала вызывается CheckInInterface::SavePax для emulCkinDoc
@@ -2384,7 +2383,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
     xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulCkinDoc.docPtr())->children;
     if (emulReqNode==NULL)
       throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
-    if (!CheckInInterface::SavePax(emulReqNode, ediResNode, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList, httpWasSent)) result=false;
+    if (!CheckInInterface::SavePax(emulReqNode, ediResNode, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList)) result=false;
     handleAfterSave=true;
   };
   if (result)
@@ -2395,7 +2394,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulChngDoc.docPtr())->children;
       if (emulReqNode==NULL)
         throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
-      if (!CheckInInterface::SavePax(emulReqNode, ediResNode, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList, httpWasSent))
+      if (!CheckInInterface::SavePax(emulReqNode, ediResNode, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList))
       {
         //по идее сюда мы никогда не должны попадать (см. комментарий выше)
         //для этого никогда не возвращаем false и делаем специальную защиту в SavePax:
@@ -2408,10 +2407,10 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
 
   if (result)
   {
-    if (ediResNode==NULL && !ChangeStatusInfo.empty()) // needSyncEdsEts
+    if (ediResNode==NULL && !ChangeStatusInfo.empty())
     {
       //хотя бы один билет будет обрабатываться
-      ASTRA::rollback();  //откат
+      OraSession.Rollback();  //откат
       ChangeStatusInterface::ChangeStatus(reqNode, ChangeStatusInfo);
       SirenaExchangeList.handle(__FUNCTION__);
       return false;
@@ -2421,10 +2420,8 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       SirenaExchangeList.handle(__FUNCTION__);
     };
 
-    if (handleAfterSave) {
-      CheckIn::TAfterSaveInfoData afterSaveData(reqNode, ediResNode);
-      AfterSaveInfoList.handle(afterSaveData, __FUNCTION__); //если только изменение места пассажира, то не вызываем
-    }
+    if (handleAfterSave)
+      AfterSaveInfoList.handle(__FUNCTION__); //если только изменение места пассажира, то не вызываем
 
     boost::optional<WebSearch::TPNRFilter> filter;
     vector< TWebPnr > pnrs;
@@ -3937,13 +3934,11 @@ void SyncCHKD(int point_id_tlg, int point_id_spp, bool sync_all) //регистрация C
               TChangeStatusList ChangeStatusInfo;
               SirenaExchange::TLastExchangeList SirenaExchangeList;
               CheckIn::TAfterSaveInfoList AfterSaveInfoList;
-              bool httpWasSent = false;
-              if (CheckInInterface::SavePax(emulReqNode, NULL/*ediResNode*/, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList, httpWasSent))
+              if (CheckInInterface::SavePax(emulReqNode, NULL/*ediResNode*/, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList))
               {
                 //сюда попадаем если была реальная регистрация
-                CheckIn::TAfterSaveInfoData afterSaveData(emulReqNode, NULL/*ediResNode*/);
                 SirenaExchangeList.handle(__FUNCTION__);
-                AfterSaveInfoList.handle(afterSaveData, __FUNCTION__);
+                AfterSaveInfoList.handle(__FUNCTION__);
               };
             };
           }

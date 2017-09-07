@@ -1,17 +1,11 @@
 #include "sirena_exchange.h"
 #include "astra_context.h"
-#include "edi_utils.h"
-#include "xp_testing.h"
-
-#include <libtlg/tlg_outbox.h>
-#include <serverlib/testmode.h>
-#include <serverlib/xml_stuff.h>
-
 #include <boost/asio.hpp>
+#include <serverlib/xml_stuff.h>
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include <serverlib/slogger.h>
+#include "serverlib/test.h"
 
 using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
@@ -85,34 +79,15 @@ void TExchange::parse(const std::string &content)
     };
     xml_decode_nodelist(doc.docPtr()->children);
     xmlNodePtr node=NodeAsNode(isRequest()?"/query":"/answer", doc.docPtr());
-    parse(node);
+    node=NodeAsNode(exchangeId().c_str(), node);
+    errorFromXML(node);
+    if (!error())
+      fromXML(node);
   }
   catch(Exception &e)
   {
     throw Exception("TExchange::parse: %s", e.what());
   };
-}
-
-void TExchange::parse(xmlNodePtr node)
-{
-    try
-    {
-      node=NodeAsNode(exchangeId().c_str(), node);
-      errorFromXML(node);
-      if (!error())
-        fromXML(node);
-    }
-    catch(Exception &e)
-    {
-      throw Exception("TExchange::parse: %s", e.what());
-    };
-}
-
-void TExchange::parseResponse(xmlNodePtr node)
-{
-  if (!isRequest() && (node==nullptr || node->children==nullptr))
-    throw Exception("Response for '%s' not recieved", exchangeId().c_str());
-  parse(node);
 }
 
 void TExchange::toXML(xmlNodePtr node) const
@@ -355,82 +330,5 @@ void SendTestRequest(const string &req)
   ProgTrace( TRACE5, "response.content=%s", response.content.c_str());
 }
 
-//---------------------------------------------------------------------------------------
-
-static std::string makeHttpPostRequest(const std::string& resource,
-                                       const std::string& host,
-                                       const std::string& postbody)
-{
-    return "POST " + resource + " HTTP/1.1\r\n"
-             "Host: " + host + "\r\n"
-             "Content-Type: application/xml; charset=utf-8\r\n"
-             "Content-Length: " + HelpCpp::string_cast(postbody.size()) + "\r\n"
-             "\r\n" +
-             postbody;
-}
-
-SirenaClient::SirenaClient()
-    : m_addr(SIRENA_HOST(), SIRENA_PORT()),
-      m_timeout(SIRENA_REQ_TIMEOUT()/1000),
-      m_useSsl(false)
-{}
-
-void SirenaClient::sendRequest(const std::string& reqText, const edifact::KickInfo& kickInfo)
-{
-    std::string desk = kickInfo.desk.empty() ? "SYSPUL" : kickInfo.desk;
-
-    const std::string path = "/astra";
-    const std::string httpPost = makeHttpPostRequest(path, m_addr.host, reqText);
-
-    LogTrace(TRACE5) << "HTTP Request from [" << desk << "], text:\n" << reqText;
-
-    const httpsrv::Pult pul(desk);
-    const httpsrv::Domain domain("ASTRA");
-    const std::string kick(AstraEdifact::make_xml_kick(kickInfo));
-
-    httpsrv::DoHttpRequest req(pul, domain, m_addr, httpPost);
-    req.setTimeout(boost::posix_time::seconds(m_timeout))
-        .setMaxTryCount(1/*SIRENA_REQ_ATTEMPTS()*/)
-        .setSSL(m_useSsl)
-        .setPeresprosReq(kick)
-        .setDeffered(true);
-
-#ifdef XP_TESTING
-    if (inTestMode()) {
-        const std::string httpPostCP866 = UTF8toCP866(httpPost);
-        LogTrace(TRACE1) << "request: " << httpPostCP866;
-        xp_testing::TlgOutbox::getInstance().push(tlgnum_t("httpreq"),
-                        StrUtils::replaceSubstrCopy(httpPostCP866, "\r", ""), 0 /* h2h */);
-    }
-#endif // XP_TESTING
-
-    req();
-}
-
-boost::optional<httpsrv::HttpResp> SirenaClient::receive(const std::string& pult)
-{
-    const httpsrv::Pult pul(pult);
-    const httpsrv::Domain domain("ASTRA");
-
-    const std::vector<httpsrv::HttpResp> responses = httpsrv::FetchHttpResponses(pul, domain);
-
-    for (const httpsrv::HttpResp& httpResp: responses)
-    {
-        LogTrace(TRACE1) << "httpResp text: '" << httpResp.text << "'";
-    }
-
-    const size_t responseCount = responses.size();
-    if (responseCount == 0)
-    {
-        LogTrace(TRACE1) << "FetchHttpResponses: hasn't got any responses yet";
-        return {};
-    }
-    if (responseCount > 1)
-    {
-        LogError(STDLOG) << "FetchHttpResponses: " << responseCount << " responses!";
-    }
-
-    return responses.front();
-}
-
 } //namespace SirenaExchange
+
