@@ -92,6 +92,11 @@ void getTermRequestCtxt(const int ctxtId,
 
 void cleanOldRecords(const int min_ago);
 
+void getHttpRequestCtxt(int ctxtId,
+                        bool clear,
+                        const std::string &where,
+                        XMLDoc &xmlCtxt);
+
 void ProcEdiError(const AstraLocale::LexemaData &error,
                   const xmlNodePtr errorCtxtNode,
                   const bool isGlobal);

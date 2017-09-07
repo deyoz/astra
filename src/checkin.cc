@@ -44,11 +44,21 @@
 #include "astra_elem_utils.h"
 #include "baggage_wt.h"
 #include "payment_base.h"
+#include "edi_utils.h"
 #include "rfisc.h"
-#include "rfisc_sirena.h"
 #include "ffp_sirena.h"
 #include "annul_bt.h"
 #include "tlg/AgentWaitsForRemote.h"
+#include "tlg/tlg_parser.h"
+
+#include <jxtlib/jxt_cont.h>
+#include <serverlib/cursctl.h>
+#include <serverlib/savepoint.h>
+#include <serverlib/xml_stuff.h>
+#include <serverlib/testmode.h>
+#include <serverlib/dump_table.h>
+#include <etick/tick_data.h>
+
 #include <boost/algorithm/string.hpp>
 
 #define NICKNAME "VLAD"
@@ -59,6 +69,113 @@ using namespace std;
 using namespace ASTRA;
 using namespace BASIC::date_time;
 using namespace AstraLocale;
+using namespace AstraEdifact;
+
+
+void SirenaExchangeInterface::AvailabilityRequest(xmlNodePtr reqNode,
+                                                  xmlNodePtr answerResNode,
+                                                  const SirenaExchange::TAvailabilityReq& avlReq)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+
+    std::string reqText;
+    avlReq.build(reqText);
+
+    DoRequest(reqNode, answerResNode, reqText);
+}
+
+void SirenaExchangeInterface::PaymentStatusRequest(xmlNodePtr reqNode,
+                                                   xmlNodePtr answerResNode,
+                                                   const SirenaExchange::TPaymentStatusReq& psReq)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+
+    std::string reqText;
+    psReq.build(reqText);
+
+    DoRequest(reqNode, answerResNode, reqText);
+}
+
+void SirenaExchangeInterface::DoRequest(xmlNodePtr reqNode,
+                                        xmlNodePtr answerResNode,
+                                        const std::string& reqText)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+
+    int reqCtxtId = AstraContext::SetContext("TERM_REQUEST", XMLTreeToText(reqNode->doc));
+    if (answerResNode!=nullptr)
+      addToEdiResponseCtxt(reqCtxtId, answerResNode->children, "");
+
+    SirenaExchange::SirenaClient sirClient;
+    sirClient.sendRequest(reqText, createKickInfo(reqCtxtId, "SirenaExchange"));
+}
+
+void SirenaExchangeInterface::KickHandler(XMLRequestCtxt *ctxt,
+                                          xmlNodePtr reqNode,
+                                          xmlNodePtr resNode)
+{
+    const std::string DefaultAnswer = "<answer/>";
+    std::string pult = TReqInfo::Instance()->desk.code;
+    LogTrace(TRACE3) << __FUNCTION__ << " for pult [" << pult << "]";
+
+    boost::optional<httpsrv::HttpResp> resp = SirenaExchange::SirenaClient::receive(pult);
+    if(resp) {
+        //LogTrace(TRACE3) << "req:\n" << resp->req.text;
+        if(resp->commErr) {
+             LogError(STDLOG) << "Http communication error! "
+                              << "(" << resp->commErr->code << "/" << resp->commErr->errMsg << ")";
+        }
+    } else {
+        LogError(STDLOG) << "Enter to KickHandler but HttpResponse is empty!";
+    }
+
+    if(GetNode("@req_ctxt_id",reqNode) != NULL)
+    {
+        int req_ctxt_id = NodeAsInteger("@req_ctxt_id", reqNode);
+
+        XMLDoc termReqCtxt;
+        getTermRequestCtxt(req_ctxt_id, true, "SirenaExchangeInterface::KickHandler", termReqCtxt);
+        xmlNodePtr termReqNode = NodeAsNode("/term/query", termReqCtxt.docPtr())->children;
+        if(termReqNode == NULL)
+          throw EXCEPTIONS::Exception("ChangeStatusInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
+
+        std::string answerStr = DefaultAnswer;
+        if(resp) {
+            const auto fnd = resp->text.find("<answer>");
+            if(fnd != std::string::npos) {
+                answerStr = resp->text.substr(fnd);
+            }
+        }
+
+        XMLDoc answerResDoc;
+        try
+        {
+          answerResDoc = ASTRA::createXmlDoc2(answerStr);
+          LogTrace(TRACE5) << "HTTP Response for [" << pult << "], text:\n" << XMLTreeToText(answerResDoc.docPtr());
+        }
+        catch(std::exception &e)
+        {
+          LogError(STDLOG) << "ASTRA::createXmlDoc2(answerStr) error";
+          answerResDoc = ASTRA::createXmlDoc2(DefaultAnswer);
+        }
+        xmlNodePtr answerResNode = NodeAsNode("/answer", answerResDoc.docPtr());
+        addToEdiResponseCtxt(req_ctxt_id, answerResNode, "");
+
+        XMLDoc answerResCtxt;
+        getEdiResponseCtxt(req_ctxt_id, true, "ChangeStatusInterface::KickHandler", answerResCtxt);
+        answerResNode = NodeAsNode("/context", answerResCtxt.docPtr());
+        if(answerResNode == NULL)
+          throw EXCEPTIONS::Exception("ChangeStatusInterface::KickHandler: context EDI_RESPONSE answerResNode=NULL");;
+        //LogTrace(TRACE3) << "answer res (old ediRes):\n" << XMLTreeToText(answerResCtxt.docPtr());
+
+
+        if(!CheckInInterface::SavePax(termReqNode, answerResNode, resNode)) {
+            //LogError(STDLOG) << "Call SavePax from SirenaExchangeInterface::Kick failed!";
+        }
+    }
+}
+
+//---------------------------------------------------------------------------------------
 
 void CheckInInterface::LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -3173,29 +3290,47 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   SavePax(reqNode, NULL, resNode);
 };
 
-//процедура должна возвращать true только в том случае если произведена реальная регистрация
+static bool needSyncEdsEts(xmlNodePtr answerResNode)
+{
+    return (answerResNode == NULL ||
+            (answerResNode != NULL && !findNodeR(answerResNode, "tickets")
+                                   && !findNodeR(answerResNode, "emdocs")));
+}
+
+// процедура должна возвращать true только в том случае если произведена реальная регистрация
 bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode)
 {
-  TChangeStatusList ChangeStatusInfo;
-  SirenaExchange::TLastExchangeList SirenaExchangeList;
-  CheckIn::TAfterSaveInfoList AfterSaveInfoList;
-  bool result=SavePax(reqNode, ediResNode, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList);
-  if (result)
-  {
-    if (ediResNode==NULL && !ChangeStatusInfo.empty())
+    TChangeStatusList ChangeStatusInfo;
+    SirenaExchange::TLastExchangeList SirenaExchangeList;
+    CheckIn::TAfterSaveInfoList AfterSaveInfoList;
+    bool httpWasSent = false;
+    bool result=SavePax(reqNode, ediResNode, ChangeStatusInfo,
+                        SirenaExchangeList, AfterSaveInfoList,
+                        httpWasSent);
+    if (result)
     {
-      //хотя бы один билет будет обрабатываться
-      OraSession.Rollback();  //откат
-      ChangeStatusInterface::ChangeStatus(reqNode, ChangeStatusInfo);
-      SirenaExchangeList.handle(__FUNCTION__);
-      return false;
-    }
-    else
-    {
-      SirenaExchangeList.handle(__FUNCTION__);
-    };
+        if(httpWasSent) {
+            return false;
+        }
 
-    AfterSaveInfoList.handle(__FUNCTION__);
+        if (needSyncEdsEts(ediResNode) && !ChangeStatusInfo.empty())
+        {
+            //хотя бы один билет будет обрабатываться
+            OraSession.Rollback();  //откат
+            ChangeStatusInterface::ChangeStatus(reqNode, ChangeStatusInfo);
+            SirenaExchangeList.handle(__FUNCTION__);
+            return false;
+        }
+        else
+        {
+            SirenaExchangeList.handle(__FUNCTION__);
+        }
+
+        CheckIn::TAfterSaveInfoData data(reqNode, ediResNode);
+        AfterSaveInfoList.handle(data, __FUNCTION__);
+        if(data.httpWasSent) {
+            return true;
+        }
 
     if (!AfterSaveInfoList.empty() &&
         !AfterSaveInfoList.front().segs.empty())
@@ -3247,8 +3382,33 @@ void CheckIn::TAfterSaveInfo::toLog(const string& where)
   };
 }
 
-void CheckIn::TAfterSaveInfoList::handle(const string& where)
+static bool needSyncSirena(xmlNodePtr answerResNode)
 {
+    return (answerResNode == NULL ||
+            (answerResNode != NULL && !findNodeR(answerResNode, "answer")));
+}
+
+static xmlNodePtr findAnswerNode(xmlNodePtr answerResNode)
+{
+    return findNodeR(answerResNode, "answer");
+}
+
+
+bool CheckIn::TAfterSaveInfoData::needSync() const
+{
+    return needSyncSirena(answerResNode);
+}
+
+xmlNodePtr CheckIn::TAfterSaveInfoData::getAnswerNode() const
+{
+    xmlNodePtr answerNode = findAnswerNode(answerResNode);
+    ASSERT(answerNode != NULL);
+    return answerNode;
+}
+
+void CheckIn::TAfterSaveInfoList::handle(TAfterSaveInfoData& data, const string& where)
+{
+  LogTrace(TRACE3) << __FUNCTION__ << " " << where;
   if (empty())
     throw EXCEPTIONS::Exception("%s: empty TAfterSaveInfoList!", where.c_str());
   set<int> tckin_ids;
@@ -3261,7 +3421,10 @@ void CheckIn::TAfterSaveInfoList::handle(const string& where)
       throw EXCEPTIONS::Exception("%s: empty TAfterSaveInfo.segs!", where.c_str());
     if (i->segs.front().grp_id==ASTRA::NoExists)
       throw EXCEPTIONS::Exception("%s: unknown TAfterSaveSegInfo.grp_id!", where.c_str());
-    CheckInInterface::AfterSaveAction(i->segs.front().grp_id, i->action);
+    data.grpId = i->segs.front().grp_id;
+    data.action = i->action;
+    CheckInInterface::AfterSaveAction(data);
+    if (data.httpWasSent) break;
     i->toLog(where);
   };
 }
@@ -3757,11 +3920,19 @@ void CheckServicePayment(int grp_id,
   };
 }
 
+#ifdef XP_TESTING
+static int LastGeneratedPaxId = ASTRA::NoExists;
+
+int lastGeneratedPaxId()              { return LastGeneratedPaxId;  }
+void setLastGeneratedPaxId(int lgpid) { LastGeneratedPaxId = lgpid; }
+#endif/*XP_TESTING*/
+
 //процедура должна возвращать true только в том случае если произведена реальная регистрация
 bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                                TChangeStatusList &ChangeStatusInfo,
                                SirenaExchange::TLastExchangeList &SirenaExchangeList,
-                               CheckIn::TAfterSaveInfoList &AfterSaveInfoList)
+                               CheckIn::TAfterSaveInfoList &AfterSaveInfoList,
+                               bool& httpWasSent)
 {
   AfterSaveInfoList.push_back(CheckIn::TAfterSaveInfo());
   CheckIn::TAfterSaveInfo &AfterSaveInfo=AfterSaveInfoList.back();
@@ -3779,7 +3950,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   bool defer_etstatus=false;
 
   TQuery Qry(&OraSession);
-  if (ediResNode==NULL && reqInfo->client_type == ctTerm) //для web-регистрации нераздельное подтверждение ЭБ
+  if (needSyncEdsEts(ediResNode) && reqInfo->client_type == ctTerm) //для web-регистрации нераздельное подтверждение ЭБ
   {
     Qry.Clear();
     Qry.SQLText=
@@ -5050,7 +5221,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 };
                 int pax_id=Qry.GetVariableAsInteger("pax_id"); //специально вводим дополнительную переменную чтобы не запортить pax.id
                 ReplaceTextChild(p->node,"generated_pax_id",pax_id);
-                if (pax.id==NoExists) p->generated_pax_id=pax_id; //заполняется только при первоначальной регистрации (new_checkin) и только для NOREC
+#ifdef XP_TESTING
+                if(inTestMode()) {
+                    setLastGeneratedPaxId(pax_id);
+                }
+#endif/*XP_TESTING*/
+                if (pax.id==NoExists) {
+                    p->generated_pax_id=pax_id; //заполняется только при первоначальной регистрации (new_checkin) и только для NOREC
+                }
 
                 if (wl_type.empty() && grp.status!=psCrew)
                 {
@@ -5708,7 +5886,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               throw;
           };
         };
-        if (ediResNode!=NULL)
+        if (!needSyncEdsEts(ediResNode))
         {
           //изменим ticket_confirm и events_bilingual на основе подтвержденных статусов
           Qry.Clear();
@@ -5827,7 +6005,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       //вот здесь ETCheckStatus::CheckGrpStatus
       //обязательно до ckin.check_grp
-      if (ediResNode==NULL && reqInfo->client_type!=ctPNL)
+      if (needSyncEdsEts(ediResNode) && reqInfo->client_type!=ctPNL)
       {
         if (!defer_etstatus)
           ETStatusInterface::ETCheckStatus(grp.id, csaGrp, NoExists, false, ChangeStatusInfo.ET, true);
@@ -6176,12 +6354,35 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             prior.pc_payment_res.empty() ||
             prior.pc_payment_req!=curr.pc_payment_req)
         {
-          RequestInfo requestInfo;
-          ResponseInfo responseInfo;
-          SirenaExchange::SendRequest(req, res, requestInfo, responseInfo);
-          curr.grp_id=first_grp_id;
-          curr.pc_payment_res=responseInfo.content;
-          SirenaExchangeList.push_back(curr);
+          //RequestInfo requestInfo;
+          //ResponseInfo responseInfo;
+          //SirenaExchange::SendRequest(req, res, requestInfo, responseInfo);
+
+          if(needSyncSirena(ediResNode)) {
+            if (httpWasSent)
+              throw Exception("%s: very bad situation! needSyncSirena again!", __FUNCTION__);
+
+            ASTRA::rollbackSavePax();
+            SirenaExchangeInterface::PaymentStatusRequest(reqNode,
+                                                          ediResNode,
+                                                          req);
+            httpWasSent = true;
+            return true;
+          } else {
+            xmlNodePtr answerNode = findAnswerNode(ediResNode);
+            ASSERT(answerNode != NULL);
+            res.parseResponse(answerNode);
+
+            curr.grp_id=first_grp_id;
+            xml_encode_nodelist(answerNode->doc->children);
+
+            XMLDoc answerDoc("answer");
+            CopyNodeList(NodeAsNode("/answer", answerDoc.docPtr()), answerNode);
+
+            curr.pc_payment_res=XMLTreeToText(answerDoc.docPtr());
+
+            SirenaExchangeList.push_back(curr);
+          }
         }
         else
           res.parse(prior.pc_payment_res);
@@ -6221,7 +6422,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
     paid.getAllListItems();
     bool update_payment=false;
-    bool check_emd_status=(ediResNode==NULL && reqInfo->client_type!=ctPNL);
+    bool check_emd_status=(needSyncEdsEts(ediResNode) && reqInfo->client_type!=ctPNL);
     for(TCkinGrpIds::const_iterator i=tckin_grp_ids.begin(); i!=tckin_grp_ids.end(); ++i)
     {
       int grp_id=*i;
@@ -6557,18 +6758,22 @@ void fillPaxsBags(const TCheckedReqPassengers &req_grps, TExchange &exch, TCheck
 
 } //namespace SirenaExchange
 
-void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActionType action)
+void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
 {
-  if (action!=CheckIn::actionCheckPieceConcept) return;
+  if (data.action!=CheckIn::actionCheckPieceConcept) return;
 
-  ProgTrace(TRACE5, "%s started with actionCheckPieceConcept (first_grp_id=%d)", __FUNCTION__, first_grp_id);
+  ProgTrace(TRACE5, "%s started with actionCheckPieceConcept (first_grp_id=%d)", __FUNCTION__, data.grpId);
 
   TCachedQuery Qry("SELECT point_dep, piece_concept "
                    "FROM pax_grp "
                    "WHERE grp_id=:grp_id",
-                   QParams() << QParam("grp_id", otInteger, first_grp_id));
+                   QParams() << QParam("grp_id", otInteger, data.grpId));
   Qry.get().Execute();
-  if (Qry.get().Eof) return; //это бывает когда разрегистрация всей группы по ошибке агента
+  if (Qry.get().Eof) {
+      LogTrace(TRACE1) << "pax_grp not found";
+      return; //это бывает когда разрегистрация всей группы по ошибке агента
+  }
+
   int point_id=Qry.get().FieldAsInteger("point_dep");
 
   TTripSetList setList;
@@ -6582,8 +6787,9 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
   map<int/*seg_no*/,TBagConcept::Enum> bag_concept_by_seg;
   CheckIn::TPaxGrpCategory::Enum grp_cat;
   TLogLocale event;
+
   SirenaExchange::TAvailabilityReq req;
-  SirenaExchange::fillPaxsBags(first_grp_id, req, grp_cat, tckin_grp_ids);
+  SirenaExchange::fillPaxsBags(data.grpId, req, grp_cat, tckin_grp_ids);
 
   TReqInfo *reqInfo = TReqInfo::Instance();
   if (setList.value<bool>(tsPieceConcept))
@@ -6602,7 +6808,23 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
         {
           if (!req.paxs.empty())
           {
-            SirenaExchange::SendRequest(req, res);
+              if(data.needSync()) {
+                  if (data.httpWasSent)
+                    throw Exception("%s: very bad situation! needSync again!", __FUNCTION__);
+
+                  ASTRA::rollbackSavePax();
+                  SirenaExchangeInterface::AvailabilityRequest(data.reqNode,
+                                                               data.answerResNode,
+                                                               req);
+                  data.httpWasSent = true;
+                  return;
+              } else {
+                  res.parseResponse(data.getAnswerNode());
+                  if (res.error()) throw Exception("SIRENA ERROR: %s", res.traceError().c_str());
+              }
+
+            //SirenaExchange::SendRequest(req, res); синхронный метод обмена с сиреной
+
             if (res.empty()) throw EXCEPTIONS::Exception("%s: strange situation: res.empty()", __FUNCTION__);
             if (req.paxs.empty()) throw EXCEPTIONS::Exception("%s: strange situation: req.paxs.empty()", __FUNCTION__);
             const SirenaExchange::TPaxSegMap &segs=req.paxs.front().segs;
@@ -6675,6 +6897,8 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
         }
         catch(std::exception &e)
         {
+          if (data.needSync()) throw;
+
           bag_concept_by_seg.clear();
           bag_types_id=ASTRA::NoExists;
           if (res.error() &&
@@ -6704,10 +6928,11 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
     else throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
   };
 
-  if (grp_cat!=CheckIn::TPaxGrpCategory::UnnacompBag)
+  if (grp_cat!=CheckIn::TPaxGrpCategory::UnnacompBag) {
     req.bagTypesToDB(tckin_grp_ids);  //дополняем весовыми типами багажа
-  else
-    unaccBagTypesToDB(first_grp_id);
+  } else {
+    unaccBagTypesToDB(data.grpId);
+  }
 
   TCachedQuery GrpQry("BEGIN "
                       "  UPDATE pax_grp "
@@ -6719,6 +6944,7 @@ void CheckInInterface::AfterSaveAction(int first_grp_id, CheckIn::TAfterSaveActi
                                 << QParam("piece_concept", otInteger)
                                 << QParam("bag_types_id", otInteger)
                                 << QParam("point_id", otInteger));
+
   TCachedQuery TrferQry("UPDATE transfer SET piece_concept=:piece_concept WHERE grp_id=:grp_id AND transfer_num=:transfer_num",
                         QParams() << QParam("grp_id", otInteger)
                                   << QParam("transfer_num", otInteger)
@@ -8776,11 +9002,13 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
               xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulCkinDoc.docPtr())->children;
               if (emulReqNode==NULL)
                 throw EXCEPTIONS::Exception("CheckInInterface::CrewCheckin: emulReqNode=NULL");
-              if (SavePax(emulReqNode, NULL, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList))
+              bool httpWasSent = false;
+              if (SavePax(emulReqNode, NULL, ChangeStatusInfo, SirenaExchangeList, AfterSaveInfoList, httpWasSent))
               {
                 //сюда попадаем если была реальная регистрация
+                CheckIn::TAfterSaveInfoData afterSaveData(emulReqNode, NULL);
                 SirenaExchangeList.handle(__FUNCTION__);
-                AfterSaveInfoList.handle(__FUNCTION__);
+                AfterSaveInfoList.handle(afterSaveData, __FUNCTION__);
               }
             }
         }
