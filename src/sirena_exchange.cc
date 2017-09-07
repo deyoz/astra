@@ -395,11 +395,10 @@ void SirenaClient::sendRequest(const std::string& reqText, const edifact::KickIn
         .setPeresprosReq(kick)
         .setDeffered(true);
 
-    const std::string httpPostCP866 = UTF8toCP866(httpPost);
-    LogTrace(TRACE1) << "request: " << httpPostCP866;
-
 #ifdef XP_TESTING
     if (inTestMode()) {
+        const std::string httpPostCP866 = UTF8toCP866(httpPost);
+        LogTrace(TRACE1) << "request: " << httpPostCP866;
         xp_testing::TlgOutbox::getInstance().push(tlgnum_t("httpreq"),
                         StrUtils::replaceSubstrCopy(httpPostCP866, "\r", ""), 0 /* h2h */);
     }

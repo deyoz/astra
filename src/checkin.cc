@@ -105,10 +105,6 @@ void SirenaExchangeInterface::DoRequest(xmlNodePtr reqNode,
                                         const std::string& reqText)
 {
     LogTrace(TRACE3) << __FUNCTION__;
-    LogTrace(TRACE3) << "req:\n" << XMLTreeToText(reqNode->doc);
-    if(answerResNode) {
-        LogTrace(TRACE3) << "answer res (old ediRes):\n" << XMLTreeToText(answerResNode->doc);
-    }
 
     int reqCtxtId = AstraContext::SetContext("TERM_REQUEST", XMLTreeToText(reqNode->doc));
     if (answerResNode!=nullptr)
@@ -128,7 +124,7 @@ void SirenaExchangeInterface::KickHandler(XMLRequestCtxt *ctxt,
 
     boost::optional<httpsrv::HttpResp> resp = SirenaExchange::SirenaClient::receive(pult);
     if(resp) {
-        LogTrace(TRACE3) << "req:\n" << resp->req.text;
+        //LogTrace(TRACE3) << "req:\n" << resp->req.text;
         if(resp->commErr) {
              LogError(STDLOG) << "Http communication error! "
                               << "(" << resp->commErr->code << "/" << resp->commErr->errMsg << ")";
@@ -155,7 +151,17 @@ void SirenaExchangeInterface::KickHandler(XMLRequestCtxt *ctxt,
             }
         }
 
-        XMLDoc answerResDoc = ASTRA::createXmlDoc2(answerStr);
+        XMLDoc answerResDoc;
+        try
+        {
+          answerResDoc = ASTRA::createXmlDoc2(answerStr);
+          LogTrace(TRACE5) << "HTTP Response for [" << pult << "], text:\n" << XMLTreeToText(answerResDoc.docPtr());
+        }
+        catch(std::exception &e)
+        {
+          LogError(STDLOG) << "ASTRA::createXmlDoc2(answerStr) error";
+          answerResDoc = ASTRA::createXmlDoc2(DefaultAnswer);
+        }
         xmlNodePtr answerResNode = NodeAsNode("/answer", answerResDoc.docPtr());
         addToEdiResponseCtxt(req_ctxt_id, answerResNode, "");
 
@@ -164,7 +170,7 @@ void SirenaExchangeInterface::KickHandler(XMLRequestCtxt *ctxt,
         answerResNode = NodeAsNode("/context", answerResCtxt.docPtr());
         if(answerResNode == NULL)
           throw EXCEPTIONS::Exception("ChangeStatusInterface::KickHandler: context EDI_RESPONSE answerResNode=NULL");;
-        LogTrace(TRACE3) << "answer res (old ediRes):\n" << XMLTreeToText(answerResCtxt.docPtr());
+        //LogTrace(TRACE3) << "answer res (old ediRes):\n" << XMLTreeToText(answerResCtxt.docPtr());
 
 
         if(!CheckInInterface::SavePax(termReqNode, answerResNode, resNode)) {
@@ -5240,9 +5246,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           "        END; "
           "    END; "
           "  END LOOP; "
-          "  IF :grp_id IS NULL THEN "
-          "    SELECT pax_grp__seq.nextval INTO :grp_id FROM dual; "
-          "  END IF; "
+          "  SELECT pax_grp__seq.nextval INTO :grp_id FROM dual; "
           "  INSERT INTO pax_grp(grp_id,point_dep,point_arv,airp_dep,airp_arv,class, "
           "    status,excess,excess_wt,excess_pc,hall,bag_refuse,trfer_confirm,user_id,desk,time_create,client_type, "
           "    point_id_mark,pr_mark_norms,trfer_conflict,inbound_confirm,tid) "
