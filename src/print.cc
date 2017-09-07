@@ -2198,7 +2198,7 @@ void PrintInterface::GetPrintDataVOUnregistered(
         parser.pts.set_tag(TAG::PLACE_ARV,     airp_arv);
         parser.pts.set_tag(TAG::PLACE_DEP,     airp_dep);
         parser.pts.set_tag(TAG::PNR,           ""); // TODO get it
-        parser.pts.set_tag(TAG::REG_NO,        0);
+        parser.pts.set_tag(TAG::REG_NO,        NoExists);
         parser.pts.set_tag(TAG::REM,           ""); // TODO get it
         parser.pts.set_tag(TAG::RK_AMOUNT,      0); // TODO get it
         parser.pts.set_tag(TAG::RK_WEIGHT,      0); // TODO get it
