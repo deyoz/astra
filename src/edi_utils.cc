@@ -456,8 +456,6 @@ void getTermRequestCtxt(const int ctxtId,
                            ctxtId,
                            context);
 
-  LogTrace(TRACE3) << "term req ctxt:\n" << context;
-
   if (clear) AstraContext::ClearContext("TERM_REQUEST", ctxtId);
 
   if (context.empty())
