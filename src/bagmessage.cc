@@ -212,11 +212,11 @@ void BMConnection::onWrite( const boost::system::error_code& error, std::size_t 
   time_duration cd = microsec_clock::local_time() - sendStartTime;
   delete( wbuf );
   wbuf = NULL;
+  writeStatus = BM_OP_NONE;
   if( error.value() == 0 )
   {
     ProgTrace( TRACE5, "async_write() finished for connection %d. %lu bytes written, %ld ms spent",
                line_number, n, cd.total_milliseconds() );
-    writeStatus = BM_OP_NONE;
     if( needSendAck > 0 ) // Стоит запрос на подтверждение сообщения - отослать вне очереди
     {
       sendMessage( ACK_MSG, "", needSendAck ); // подтвердить прием
@@ -228,40 +228,49 @@ void BMConnection::onWrite( const boost::system::error_code& error, std::size_t 
     ProgError( STDLOG, "async_write() finished with errors for connection %d. %lu bytes written, err=%d(%s). %ld ms spent ",
                line_number, n, error.value(), error.message().c_str(), cd.total_milliseconds() );
     connected = BM_OP_NONE;
+    loginStatus = BM_OP_NONE;
+  }
+  if( waitForAck <= 0 )
+  { // нет сообщения, ожидающего подтверждения, - вызываем обработчик завершения сейчас
     if( writeHandler != NULL )
     {
       (*writeHandler)( waitForAckId, error.value() );
       writeHandler = NULL;
     }
   }
+  // А если нужно подтверждение с той стороны - то обработчик завершения нужно вызвать после приема этого подтверждения
 }
 
-void BMConnection::sendMessage( BM_MESSAGE_TYPE type, string message_text, int msg_id )
+bool BMConnection::sendMessage( BM_MESSAGE_TYPE type, string message_text, int msg_id )
 {
   if( ! configured )
   {
     ProgError( STDLOG, "Call to sendMessage() before connection is cofigured" );
-    return;
+    return false;
   }
   if( waitForAck >= 0 )
   {
     ProgTrace( TRACE5, "Call to sendMessage() while waiting for data acknowledgment!!!" );
-    return;
+    return false;
   }
   if( writeStatus != BM_OP_NONE )
   {
     ProgTrace( TRACE5, "Call to sendMessage() while previous operation is not finished" );
-    return;
+    return false;
   }
   if( makeMessage( type, message_text, msg_id ) )
+  {
     doSendMessage();
+    return true;
+  }
+  return false;
 }
 
 void BMConnection::sendLogin()
 {
   ProgTrace( TRACE5, "connection %d sendLogin()", line_number );
-  sendMessage( LOGIN_RQST, password );
-  loginStatus = BM_OP_WAIT;
+  if( sendMessage( LOGIN_RQST, password ) )
+    loginStatus = BM_OP_WAIT;
 }
 
 void BMConnection::sendTlg( string text )

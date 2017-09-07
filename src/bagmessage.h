@@ -124,7 +124,7 @@ class BMConnection
     void onWrite( const boost::system::error_code& error, std::size_t n ); // Обработчик завершения операции посылки сообщения
     bool makeMessage( BM_MESSAGE_TYPE type, std::string text = "" , int msg_id = -1 );  // Подготовить заголовок и текст к отсылке
     void doSendMessage();                                                               // Отослать подготовленное сообщение
-    void sendMessage( BM_MESSAGE_TYPE type, std::string text = "", int msg_id = -1 );   // Послать в BagMessage сообщение - общие дела
+    bool sendMessage( BM_MESSAGE_TYPE type, std::string text = "", int msg_id = -1 );   // Послать в BagMessage сообщение - общие дела
     void sendLogin();                     // Послать в ту систему логин и пароль
     void checkInput();                    // Проверить входной поток и что-то с ним сделать
     void checkTimer();                    // Проверить таймеры сообщений - вдруг линия грохнулась
