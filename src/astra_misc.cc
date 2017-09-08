@@ -273,18 +273,20 @@ bool TAdvTripInfo::getByPointId ( const TDateTime part_key, const int point_id )
   if (part_key==NoExists)
   {
     Qry.SQLText =
-      "SELECT airline, flt_no, suffix, airp, scd_out, NVL(act_out,NVL(est_out,scd_out)) AS real_out, "
-      "       pr_del, airline_fmt, suffix_fmt, airp_fmt, point_id, "
-      "       point_num, first_point, pr_tranzit "
+      "SELECT airline, flt_no, suffix, airp, craft, scd_out, "
+      "       NVL(act_out,NVL(est_out,scd_out)) AS real_out, pr_del, "
+      "       airline_fmt, suffix_fmt, airp_fmt, craft_fmt, "
+      "       point_id, point_num, first_point, pr_tranzit "
       "FROM points "
       "WHERE point_id=:point_id AND pr_del>=0 ";
   }
   else
   {
     Qry.SQLText =
-      "SELECT airline, flt_no, suffix, airp, scd_out, NVL(act_out,NVL(est_out,scd_out)) AS real_out, "
-      "       pr_del, airline_fmt, suffix_fmt, airp_fmt, point_id, "
-      "       point_num, first_point, pr_tranzit "
+      "SELECT airline, flt_no, suffix, airp, craft, scd_out, "
+      "       NVL(act_out,NVL(est_out,scd_out)) AS real_out, pr_del, "
+      "       airline_fmt, suffix_fmt, airp_fmt, craft_fmt, "
+      "       point_id, point_num, first_point, pr_tranzit "
       "FROM arx_points "
       "WHERE part_key=:part_key AND point_id=:point_id AND pr_del>=0 ";
     Qry.CreateVariable( "part_key", otDate, part_key );
