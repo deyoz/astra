@@ -6,6 +6,7 @@
 #define NICKNAME "GRIG"
 #define NICKTRACE GRIG_TRACE
 #include <serverlib/slogger.h>
+#include <serverlib/ourtime.h>
 
 #include "bagmessage.h"
 
@@ -116,7 +117,7 @@ void processBagMessageMes( BM_MESSAGE& mes )
 /****************************/
 typedef std::shared_ptr<BMConnection> pBMConnection;
 
-void run_bag_msg_process( const std::string &name )
+void run_bag_msg_process( const char *cmd, const std::string &name )
 {
   io_service io;
   BM_OUTPUT_QUEUE queue;
@@ -133,6 +134,7 @@ void run_bag_msg_process( const std::string &name )
   {
     if( io.stopped() ) // Обязательно! Иначе сервис дойдет до конца своей очереди, остановится и больше ничего делать не будет.
       io.reset();
+    InitLogTime( cmd ); // Чтобы время в лог правильно писалось.
   // Текущая работа соединений
     for( vector<pBMConnection>::iterator curr = conn.begin(); curr != conn.end(); ++curr )
       (*curr)->run();
@@ -204,8 +206,9 @@ int main_bag_msg_handler_tcl( int supervisorSocket, int argc, char *argv[] )
   try
   {
     sleep(2); // !!!vlad это необходимо чтобы cores не забивали дисковое пространство
+    InitLogTime( argc > 0 ? argv[0] : NULL );
     BagMsgQueueDaemon daemon;
-    run_bag_msg_process( argc > 1 ? argv[1] : "" );
+    run_bag_msg_process( argc > 0 ? argv[0] : NULL, argc > 1 ? argv[1] : "" );
   }
   catch( std::exception &E )
   {
