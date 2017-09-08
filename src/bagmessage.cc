@@ -418,10 +418,10 @@ void BMConnection::checkTimer()
     { // давно ничего не посылали - надо послать статус
       sendMessage( STATUS );
     }
-    if( now - lastRecvTime >= 2 * heartBeat )
+    if( now - lastRecvTime >= 7 * heartBeat / 2 )
     { // давно ничего не получали - считаем, что линия грохнулась
       ProgError( STDLOG, "SITA BagMessage: no input messages on connection %d in last %d seconds - connection may be failed",
-                 line_number, 2 * heartBeat );
+                 line_number, 7 * heartBeat / 2 );
       socket.close();
       connected = BM_OP_NONE;
       loginStatus = BM_OP_NONE;
