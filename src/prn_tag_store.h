@@ -237,7 +237,7 @@ class TBPServiceTypes {
             if (l.empty())
             {
                 l.push_back(std::make_pair(UP,      "Upgrade"));
-                l.push_back(std::make_pair(LG,      "Business Longue"));
+                l.push_back(std::make_pair(LG,      "Business Lounge"));
                 l.push_back(std::make_pair(TS_FT,    "Fast Track"));
                 l.push_back(std::make_pair(Unknown, ""));
             }
