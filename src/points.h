@@ -23,8 +23,8 @@ enum TDestField { dfPoint_num, dfAirp, dfPr_tranzit, dfFirst_point,
                   dfTrip_type, dfLitera, dfPart_in, dfPart_out, dfRemark, dfPr_reg,
                   dfpr_del, DfTid, dfAirp_fmt, dfAirline_fmt, dfSuffix_fmt, dfCraft_fmt,
                   dfStations, dfStages, dfEvents };
-                  
-                  
+
+
 enum TUseDestData { udNoCalcESTTimeStage, udDelays, udStages, udCargo, udMaxCommerce,
                     udStations, udNum };
 enum TDestEvents { dmChangeCraft, dmSetCraft, dmInitStages, dmInitComps,
@@ -40,7 +40,7 @@ enum TDestEvents { dmChangeCraft, dmSetCraft, dmInitStages, dmInitComps,
                    dmChangeAirline, dmChangeFltNo, dmChangeSuffix, dmChangeAirp,
                    dmTranzit, dmReg, dmFirst_Point, dmChangeRemark,
                    dmChangeStageESTTime, dmPoint_Num, dmChangeStages };
-                   
+
 enum TPointsEvents { peInsert, pePointNum };
 enum TTripEvents { teNewLand, teNewTakeoff, teDeleteLand, teDeleteTakeoff,
                    teSetCancelLand, teSetCancelTakeoff,
@@ -64,43 +64,43 @@ enum TTripEvents { teNewLand, teNewTakeoff, teDeleteLand, teDeleteTakeoff,
                    teNeedChangeComps, teNeedUnBindTlgs, teNeedBindTlgs,
                    teChangeCargos, teChangeMaxCommerce, teChangeStages,
                    teChangeStations, teNeedApisUSA };
-                   
+
 class TPointsDestDelay {
 public:
-	std::string code;
-	TDateTime time;
-	TPointsDestDelay( const TSOPPDelay &delay ) {
+    std::string code;
+    TDateTime time;
+    TPointsDestDelay( const TSOPPDelay &delay ) {
     code = delay.code;
     time = delay.time;
-	};
-	TPointsDestDelay(){};
+    };
+    TPointsDestDelay(){};
 };
 
 class TPointsDest;
 class TPointDests;
 
 struct TPointsDestCargo {
-	int cargo;
-	int mail;
-	int point_arv;
-	std::string key;
-	std::string airp_arv;
-	TElemFmt airp_arv_fmt;
-	//int dosbag_weight;
-	TPointsDestCargo() {
-		cargo = 0;
-		mail = 0;
-		point_arv = ASTRA::NoExists;
-		airp_arv_fmt = efmtUnknown;
-	}
-	bool equal( const TPointsDestCargo &vcargo ) {
+    int cargo;
+    int mail;
+    int point_arv;
+    std::string key;
+    std::string airp_arv;
+    TElemFmt airp_arv_fmt;
+    //int dosbag_weight;
+    TPointsDestCargo() {
+        cargo = 0;
+        mail = 0;
+        point_arv = ASTRA::NoExists;
+        airp_arv_fmt = efmtUnknown;
+    }
+    bool equal( const TPointsDestCargo &vcargo ) {
     return ( cargo == vcargo.cargo &&
              mail == vcargo.mail &&
              point_arv == vcargo.point_arv &&
              airp_arv == vcargo.airp_arv &&
              airp_arv_fmt == vcargo.airp_arv_fmt &&
              key == vcargo.key );
-	}
+    }
 };
 
 class TFlightCargos {
@@ -485,8 +485,8 @@ public:
   void Save( bool isShowMsg );
   void SaveCargos();
   static bool isDouble( int move_id, std::string airline, int flt_no,
-	                      std::string suffix, std::string airp,
-	                      TDateTime scd_in, TDateTime scd_out );
+                          std::string suffix, std::string airp,
+                          TDateTime scd_in, TDateTime scd_out );
   static bool isDouble( int move_id, const TPointsDest &dest ) {
     return isDouble( move_id, dest.airline, dest.flt_no,
                      dest.suffix, dest.airp, dest.scd_in, dest.scd_out );
@@ -552,7 +552,7 @@ class TFlights:public std::vector<FlightPoints> {
       std::vector<int> points( 1, point_dep );
       Get( points, flightType );
     }
-    void Lock(std::string from);
+    void Lock(const std::string &from);
 };
 
 std::string getRegion( const std::string &airp );
