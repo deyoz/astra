@@ -1643,7 +1643,7 @@ string TPrnTagStore::RK_AMOUNT(TFieldParams fp)
             rk_am = boost::any_cast<int>(fp.TagInfo);
         else
             rk_am = paxInfo.rk_amount;
-        return IntToString(rk_am);
+        return (rk_am == 0 ? "" : IntToString(rk_am));
     } else {
         return string();
     }
@@ -1657,7 +1657,7 @@ string TPrnTagStore::RK_WEIGHT(TFieldParams fp)
             rk_we = boost::any_cast<int>(fp.TagInfo);
         else
             rk_we = paxInfo.rk_weight;
-        return IntToString(rk_we);
+        return (rk_we == 0 ? "" : IntToString(rk_we));
     } else {
         return string();
     }
@@ -1665,15 +1665,12 @@ string TPrnTagStore::RK_WEIGHT(TFieldParams fp)
 
 string TPrnTagStore::BAG_AMOUNT(TFieldParams fp)
 {
-    if(!fp.TagInfo.empty()) {
-        int amBag = boost::any_cast<int>(fp.TagInfo);
-        return IntToString(amBag);
-    } else {
-        if(scan_data == NULL)
-            return IntToString(paxInfo.bag_amount);
-        else
-            return string();
-    }
+    int amBag = 0;
+    if(!fp.TagInfo.empty())
+        amBag = boost::any_cast<int>(fp.TagInfo);
+    else if(scan_data == NULL)
+        amBag = paxInfo.bag_amount;
+    return (amBag == 0 ? "" : IntToString(amBag));
 }
 
 string TPrnTagStore::TAGS(TFieldParams fp)
@@ -1692,15 +1689,12 @@ string TPrnTagStore::TAGS(TFieldParams fp)
 
 string TPrnTagStore::BAG_WEIGHT(TFieldParams fp)
 {
-    if(!fp.TagInfo.empty()) {
-        int bagWeight = boost::any_cast<int>(fp.TagInfo);
-        return IntToString(bagWeight);
-    } else {
-        if(scan_data == NULL)
-            return IntToString(paxInfo.bag_weight);
-        else
-            return string();
-    }
+    int bagWeight = 0;
+    if(!fp.TagInfo.empty())
+        bagWeight = boost::any_cast<int>(fp.TagInfo);
+    else if(scan_data == NULL)
+        bagWeight = paxInfo.bag_weight;
+    return (bagWeight == 0 ? "" : IntToString(paxInfo.bag_weight));
 }
 
 string TPrnTagStore::BRAND(TFieldParams fp)
@@ -1944,15 +1938,12 @@ string TPrnTagStore::ETKT(TFieldParams fp)
 
 string TPrnTagStore::EXCESS(TFieldParams fp)
 {
-    if(!fp.TagInfo.empty()) {
-        int exbg = boost::any_cast<int>(fp.TagInfo);
-        return IntToString(exbg);
-    } else {
-        if(scan_data != NULL)
-            return string();
-        else
-            return IntToString(grpInfo.excess);
-    }
+    int exbg = 0;
+    if(!fp.TagInfo.empty())
+        exbg = boost::any_cast<int>(fp.TagInfo);
+    else if(scan_data == NULL)
+        exbg = grpInfo.excess;
+    return (exbg == 0 ? "" : IntToString(exbg));
 }
 
 string TPrnTagStore::FLT_NO(TFieldParams fp)
