@@ -1938,15 +1938,12 @@ string TPrnTagStore::ETKT(TFieldParams fp)
 
 string TPrnTagStore::EXCESS(TFieldParams fp)
 {
-    if(!fp.TagInfo.empty()) {
-        int exbg = boost::any_cast<int>(fp.TagInfo);
-        return IntToString(exbg);
-    } else {
-        if(scan_data != NULL)
-            return string();
-        else
-            return IntToString(grpInfo.excess);
-    }
+    int exbg = 0;
+    if(!fp.TagInfo.empty())
+        exbg = boost::any_cast<int>(fp.TagInfo);
+    else if(scan_data == NULL)
+        exbg = grpInfo.excess;
+    return (exbg == 0 ? "" : IntToString(exbg));
 }
 
 string TPrnTagStore::FLT_NO(TFieldParams fp)
