@@ -31,6 +31,7 @@ bool TTripInfo::getByPointId ( const TDateTime part_key, const int point_id )
   {
     Qry.SQLText =
       "SELECT airline, flt_no, suffix, airp, craft, scd_out, "
+      "       NVL( points.est_out, points.scd_out ) est_out, "
       "       NVL(act_out,NVL(est_out,scd_out)) AS real_out, pr_del, "
       "       airline_fmt, suffix_fmt, airp_fmt, craft_fmt  "
       "FROM points "
@@ -40,6 +41,7 @@ bool TTripInfo::getByPointId ( const TDateTime part_key, const int point_id )
   {
     Qry.SQLText =
       "SELECT airline, flt_no, suffix, airp, craft, scd_out, "
+      "       NVL( points.est_out, points.scd_out ) est_out, "
       "       NVL(act_out,NVL(est_out,scd_out)) AS real_out, pr_del, "
       "       airline_fmt, suffix_fmt, airp_fmt, craft_fmt  "
       "FROM arx_points "

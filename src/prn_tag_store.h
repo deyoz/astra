@@ -268,16 +268,16 @@ class TBPServiceTypesDescr : public ASTRA::PairList<TBPServiceTypes::Enum, std::
 class TPrnTagStore {
     private:
 
-//        struct TImgMng {
-//            static TImgMng *Instance()
-//            {
-//                static boost::shared_ptr<TImgMng> instance_ = NULL;
-//                if ( !instance_ ) {
-//                    instance_ = boost::shared_ptr<TImgMng>(new TImgMng);
-//                }
-//                return instance_.get();
-//            }
-//        };
+        struct TImgMng {
+            static TImgMng *Instance()
+            {
+                static boost::shared_ptr<TImgMng> instance_ = NULL;
+                if ( !instance_ ) {
+                    instance_ = boost::shared_ptr<TImgMng>(new TImgMng);
+                }
+                return instance_.get();
+            }
+        };
 
         ASTRA::TDevOper::Enum op_type;
         boost::shared_ptr<BCBPSections> scan_data;
@@ -376,8 +376,9 @@ class TPrnTagStore {
                 scd(ASTRA::NoExists),
                 est(ASTRA::NoExists),
                 act(ASTRA::NoExists),
-                point_id(ASTRA::NoExists)
-            {};
+                point_id(ASTRA::NoExists),
+                flt_no(ASTRA::NoExists)
+            {}
             void Init(ASTRA::TDevOper::Enum op, int apoint_id, int grp_id);
         };
         TPointInfo pointInfo;
@@ -402,10 +403,13 @@ class TPrnTagStore {
             bool pr_print_fio_pnl;
             TGrpInfo():
                 grp_id(ASTRA::NoExists),
+                point_dep(ASTRA::NoExists),
+                point_arv(ASTRA::NoExists),
                 class_grp(ASTRA::NoExists),
+                excess(ASTRA::NoExists),
                 hall(ASTRA::NoExists),
                 pr_print_fio_pnl(false)
-            {};
+            {}
             void Init(int agrp_id, int apax_id);
         };
         TGrpInfo grpInfo;
@@ -453,7 +457,7 @@ class TPrnTagStore {
                 rk_weight(ASTRA::NoExists),
                 pr_bp_print(false),
                 pr_bi_print(false)
-            {};
+            {}
             void Init(const TGrpInfo &grp_info, int apax_id, TTagLang &tag_lang);
         };
         TPaxInfo paxInfo;
@@ -697,6 +701,8 @@ class TPrnTagStore {
         TPrnTagStore(ASTRA::TDevOper::Enum _op_type, const std::string &scan, bool apr_lat);
         TPrnTagStore(bool apr_lat);
         TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat);
+        TPrnTagStore(const std::string& airp_dep, const std::string& airp_arv, bool apr_lat);
+
         void set_tag(std::string name, const BIPrintRules::TRule &value);
         void set_tag(std::string name, std::string value);
         void set_tag(std::string name, int value);

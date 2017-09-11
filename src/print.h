@@ -37,6 +37,8 @@ class PrintDataParser {
         PrintDataParser(const TBagReceipt &rcpt, bool pr_lat): pectab_format(0), pts(rcpt, pr_lat) {};
         PrintDataParser(ASTRA::TDevOper::Enum op_type, int grp_id, int pax_id, bool pr_lat, xmlNodePtr tagsNode, const TTrferRoute &route = TTrferRoute()):
             pectab_format(0), pts(op_type, grp_id, pax_id, pr_lat, tagsNode, route) {}
+        PrintDataParser(const std::string& airp_dep, const std::string& airp_arv, bool pr_lat)
+            : pectab_format(0), pts(airp_dep, airp_arv, pr_lat) {}
         std::string parse(std::string &form);
 };
 
@@ -151,6 +153,7 @@ class PrintInterface: public JxtInterface
                                    CheckIn::UserException &ue);
 
         static void check_pectab_availability(BPParams &params, int grp_id, ASTRA::TDevOper::Enum op_type);
+        static void check_pectab_availability(BPParams &params, ASTRA::TDevOper::Enum op_type, int point_id, const std::string &cl);
 
         static void get_pectab(
                 ASTRA::TDevOper::Enum op_type,
@@ -168,6 +171,11 @@ class PrintInterface: public JxtInterface
                 xmlNodePtr resNode
                 );
 
+        static void GetPrintDataVOUnregistered(
+                BPParams &params,
+                ASTRA::TDevOper::Enum op_type,
+                xmlNodePtr reqNode,
+                xmlNodePtr resNode);
 };
 
 #endif
