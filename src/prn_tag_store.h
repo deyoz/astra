@@ -679,7 +679,7 @@ class TPrnTagStore {
             std::set<TBPServiceTypes::Enum> found_services;
 
             void fromDB(int grp_id, int pax_id);
-            std::string get(const std::string &crs_cls, TBPServiceTypes::Enum code);
+            std::string get(const std::string &crs_cls, TBPServiceTypes::Enum code, TPrnTagStore &pts);
 
             TRfiscDescr()
             {

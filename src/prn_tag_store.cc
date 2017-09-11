@@ -2308,9 +2308,13 @@ string TPrnTagStore::PLACE_DEP(TFieldParams fp)
     return cut_place(AIRP_DEP(fp), CITY_DEP_NAME(fp), fp.len);
 }
 
-string TPrnTagStore::TRfiscDescr::get(const string &crs_cls, TBPServiceTypes::Enum code)
+string TPrnTagStore::TRfiscDescr::get(const string &crs_cls, TBPServiceTypes::Enum code, TPrnTagStore &pts)
 {
-    if((code == TBPServiceTypes::LG or code == TBPServiceTypes::TS_FT) and crs_cls == "Å")
+    string bi_rule = pts.get_tag(TAG::BI_HALL);
+    if(
+            (code == TBPServiceTypes::LG or code == TBPServiceTypes::TS_FT) and
+            (crs_cls == "Å" or crs_cls == "è" or not bi_rule.empty())
+      )
         return TBPServiceTypesDescr().encode(code);
     else
         return (found_services.find(code) != found_services.end() ? TBPServiceTypesDescr().encode(code) : "");
@@ -2371,19 +2375,19 @@ void TPrnTagStore::TRfiscDescr::fromDB(int grp_id, int pax_id)
 string TPrnTagStore::RFISC_BSN_LONGUE(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) return boost::any_cast<std::string>(fp.TagInfo);
-    return rfisc_descr.get(paxInfo.crs_cls, TBPServiceTypes::LG);
+    return rfisc_descr.get(paxInfo.crs_cls, TBPServiceTypes::LG, *this);
 }
 
 string TPrnTagStore::RFISC_FAST_TRACK(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) return boost::any_cast<std::string>(fp.TagInfo);
-    return rfisc_descr.get(paxInfo.crs_cls, TBPServiceTypes::TS_FT);
+    return rfisc_descr.get(paxInfo.crs_cls, TBPServiceTypes::TS_FT, *this);
 }
 
 string TPrnTagStore::RFISC_UPGRADE(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) return boost::any_cast<std::string>(fp.TagInfo);
-    return rfisc_descr.get(paxInfo.crs_cls, TBPServiceTypes::UP);
+    return rfisc_descr.get(paxInfo.crs_cls, TBPServiceTypes::UP, *this);
 }
 
 string TPrnTagStore::REM(TFieldParams fp)
