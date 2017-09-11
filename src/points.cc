@@ -3159,12 +3159,12 @@ void TFlights::Get( const std::vector<int> &points, TFlightType flightType )
 
 const boost::posix_time::ptime start_abs(boost::posix_time::time_from_string("2017-01-01 00:00:00.000"));
 
-void TFlights::Lock(std::string from)
+void TFlights::Lock(const std::string &from)
 {
   set<int,std::less<int> > points;
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT point_id FROM points WHERE point_id=:point_id FOR UPDATE";
+    "SELECT point_id, points_lock__seq.nextval AS lock_id FROM points WHERE point_id=:point_id FOR UPDATE";
   Qry.DeclareVariable( "point_id", otInteger );
   for( TFlights::iterator iflight=begin();
        iflight!=end(); iflight++ ) {
@@ -3182,10 +3182,21 @@ void TFlights::Lock(std::string from)
     boost::posix_time::ptime mst1 = boost::posix_time::microsec_clock::local_time();
     Qry.Execute();
     boost::posix_time::ptime mst2 = boost::posix_time::microsec_clock::local_time();
+    TDateTime nowUTC=NowUTC();
     boost::posix_time::time_duration msdiff = mst2 - mst1;
     boost::posix_time::time_duration msabs = mst2 - start_abs;
-    LogTrace(TRACE5) << "TLockedFlights::Lock(" <<  *ipoint << "), " <<  msdiff.total_milliseconds()
-                     << " ms, from " << from << ", " << msabs.total_milliseconds(); 
+//    LogTrace(TRACE5) << "TLockedFlights::Lock(" <<  *ipoint << "), " <<  msdiff.total_milliseconds()
+//                     << " ms, from " << from << ", " << msabs.total_milliseconds();
+    if (!Qry.Eof)
+    {
+      LogTrace(TRACE5) << "points_lock_events: "
+                       << Qry.FieldAsInteger("lock_id") << "|"
+                       << *ipoint << "|"
+                       << from << "|"
+                       << msdiff.total_milliseconds() << "|"
+                       << msabs.total_milliseconds() << "|"
+                       << DateTimeToStr(nowUTC, "dd.mm.yy-hh:nn:ss");
+    };
   }
 }
 
