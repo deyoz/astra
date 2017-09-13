@@ -8,6 +8,7 @@
 #include "checkin.h"
 #include "points.h"
 #include "date_time.h"
+#include "qrys.h"
 
 const int NumSendAttempts = 5; // количество попыток до включения тревоги "Нет связи с APPS"
 const int MaxSendAttempts = 99; // максимальное количество попыток
@@ -34,21 +35,35 @@ void deleteAPPSData( const int pax_id );
 void deleteAPPSAlarms( const int pax_id );
 const char* getAPPSRotName();
 
+struct TAppsSets
+{
+  TAppsSets(const std::string& airline, const std::string& country);
+  bool get_country();
+  bool get_inbound_outbound(int& inbound, int& outbound);
+  bool get_flt_closeout(int& flt_closeout);
+  int get_version();
+private:
+  TAppsSets();
+  void init_qry(TQuery& AppsSetsQry, const std::string& select_string);
+  std::string _airline;
+  std::string _country;
+};
+
 struct TTransData
 {
   int msg_id;
   std::string code;
   std::string user_id;
   bool type; // '' = Check-in Transaction. "P" = Pre-Check-in Vetting
-  int ver; // для Арабских Эмиратов версия 21
+  int version = 0;
 
-  TTransData() : type( false ), ver( ASTRA::NoExists ) {}
-  void init( const bool pre_ckin, const std::string& trans_code, const std::string& id );
+  TTransData() : type( false ) {}
+  void init( const bool pre_ckin, const std::string& trans_code, const std::string& id, int ver );
   bool operator == ( const TTransData& data ) const
   {
     return type == data.type &&
            user_id == data.user_id &&
-           ver == data.ver;
+           version == data.version;
   }
   void check_data() const;
   std::string msg() const;
@@ -63,12 +78,13 @@ struct TFlightData
   TDateTime date;
   std::string arv_port;  // IATA Airport Code
   TDateTime arv_date;
+  int version = 0;
 
   TFlightData() : point_id( ASTRA::NoExists ), date( ASTRA::NoExists ),
                   arv_date( ASTRA::NoExists ) {}
-  void init( const int point_id, const std::string& type );
+  void init( const int point_id, const std::string& type, int ver );
   void init( const int point_id, const std::string& type, const std::string& num, const std::string& airp, const std::string& arv_airp,
-             TDateTime dep, TDateTime arv );
+             TDateTime dep, TDateTime arv, int ver );
   bool operator == ( const TFlightData& data ) const
   {
     return type == data.type &&
@@ -76,7 +92,8 @@ struct TFlightData
            port == data.port &&
            date == data.date &&
            arv_port == data.arv_port &&
-           arv_date == data.arv_date;
+           arv_date == data.arv_date &&
+           version == data.version;
   }
   void check_data() const;
   std::string msg() const;
@@ -110,10 +127,13 @@ struct TPaxData
   "xx" = IATA country code */
   std::string pnr_source; // conditional
   std::string pnr_locator; // conditional
+  std::string reference; // conditional, version 24
+  int version = 0;
 
   TPaxData () : pax_id(ASTRA::NoExists) {}
   void init( const int pax_id, const std::string& surname, const std::string name,
-             const bool is_crew, const int transfer, const std::string& override );
+             const bool is_crew, const int transfer, const std::string& override,
+             const int reg_no, const ASTRA::TTrickyGender::Enum tricky_gender, int ver );
   void init( TQuery &Qry );
   bool operator == ( const TPaxData& data ) const
   {
@@ -136,7 +156,9 @@ struct TPaxData
         trfer_at_origin == data.trfer_at_origin &&
         trfer_at_dest == data.trfer_at_dest &&
         pnr_source == data.pnr_source &&
-        pnr_locator == data.pnr_locator;
+        pnr_locator == data.pnr_locator &&
+        reference == data.reference &&
+        version == data.version;
   }
   void check_data() const;
   std::string msg() const;
@@ -147,12 +169,14 @@ struct TMftData
   std::string country; // 2-character IATA Country Code of the participating country.
   std::string mft_pax; // The only option supported for UAE will be "C".
   std::string mft_crew; // The only option supported for UAE will be "C".
+  int version = 0;
 
-  void init( const std::string& code )
+  void init( const std::string& code, int ver )
   {
     country = code;
     mft_pax = "C";
     mft_crew = "C";
+    version = ver;
   }
   void check_data() const;
   std::string msg() const;
@@ -165,16 +189,13 @@ class TPaxRequest
   TFlightData int_flt;
   TFlightData ckin_flt;
   TPaxData pax;
+  int version = 0;
   bool getByPaxId( const int pax_id, const std::string& override_type );
   bool getByCrsPaxId( const int pax_id, const std::string& override_type );
   void saveData() const;
 
 public:
-  void init( const int pax_id, const std::string& override_type = "" )
-  {
-    if ( !getByPaxId( pax_id, override_type ) )
-      getByCrsPaxId( pax_id, override_type );
-  }
+  void init( const int pax_id, const std::string& override_type = "" );
   bool fromDBByPaxId( const int pax_id );
   bool fromDBByMsgId( const int msg_id );
   bool operator == (const TPaxRequest &c) const
@@ -182,7 +203,8 @@ public:
     return trans == c.trans &&
            ckin_flt == c.ckin_flt &&
            int_flt == c.int_flt &&
-           pax == c.pax;
+           pax == c.pax &&
+           version == c.version;
   }
   bool operator != (const TPaxRequest &c) const
   {
@@ -203,8 +225,9 @@ class TManifestRequest
   TTransData trans;
   TFlightData int_flt;
   TMftData mft_req;
+  int version = 0;
 public:
-  void init( const int point_id, const std::string& country );
+  void init( const int point_id, const std::string& country_lat, const std::string& country_code );
   std::string msg() const;
   void sendReq() const;
 };
@@ -224,11 +247,12 @@ struct TAnsPaxData
   std::string error_text2; // Conditional (on error condition)
   int error_code3; // Conditional (on error condition)
   std::string error_text3; // Conditional (on error condition)
+  int version = 0;
 
   TAnsPaxData() : code(ASTRA::NoExists), error_code1(ASTRA::NoExists),
                   error_code2(ASTRA::NoExists), error_code3(ASTRA::NoExists) {}
   std::string toString() const;
-  void init( std::string source );
+  void init( std::string source, int ver );
 };
 
 struct TError
@@ -250,6 +274,7 @@ protected:
   std::string msg_text;
   int point_id;
   std::vector<TError> errors; // Error (repeating). Conditional
+  int version = 0;
 
   bool CheckIfNeedResend() const;
   virtual void getLogParams( LEvntPrms& params, const std::string& country, const int status_code,
