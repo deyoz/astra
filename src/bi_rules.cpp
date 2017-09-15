@@ -83,7 +83,7 @@ namespace BIPrintRules {
                 << QParam("airline", otString, airline)
                 << QParam("class", otString, cls)
                 << QParam("subclass", otString, subcls)
-                << QParam("brand", otString, subcls)
+                << QParam("brand", otString, brand)
                 << QParam("fqt_airline", otString, fqt_airline)
                 << QParam("tier_level", otString, tier_level)
                 << QParam("aircode", otString, aircode)
