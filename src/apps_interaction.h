@@ -132,9 +132,9 @@ struct TPaxData
 
   TPaxData () : pax_id(ASTRA::NoExists) {}
   void init( const int pax_id, const std::string& surname, const std::string name,
-             const bool is_crew, const int transfer, const std::string& override,
+             const bool is_crew, const int transfer, const std::string& override_type,
              const int reg_no, const ASTRA::TTrickyGender::Enum tricky_gender, int ver );
-  void init( TQuery &Qry );
+  void init( TQuery &Qry, int ver );
   bool operator == ( const TPaxData& data ) const
   {
     return pax_id == data.pax_id &&
@@ -159,6 +159,42 @@ struct TPaxData
         pnr_locator == data.pnr_locator &&
         reference == data.reference &&
         version == data.version;
+  }
+  void check_data() const;
+  std::string msg() const;
+};
+
+struct TPaxAddData // Passenger Additional Data
+{
+  int version = 0;
+  std::string country_for_data; // Country for Additional Data // 4
+  std::string doco_type; // Document Type // 5
+  std::string doco_no; // Document Number X(20) // 6
+  std::string country_issuance; // Country of Issuance // 7 // omit
+  std::string doco_expiry_date; // Expiration Date CCYYMMDD // 8
+  std::string num_street; // Address: Number and Street // 9
+  std::string city; // Address: City // 10
+  std::string state; // Address: State // 11
+  std::string postal_code; // Address: Postal Code // 12
+  std::string redress_number; // Passenger Redress Number // 13 // omit
+  std::string traveller_number; // Known Traveller Number // 14 // omit
+
+  void init( const int pax_id, const int ver );
+  void init( TQuery &Qry, int ver );
+  bool operator == (const TPaxAddData& d) const
+  {
+    return version == d.version &&
+      country_for_data == d.country_for_data &&
+      doco_type == d.doco_type &&
+      doco_no == d.doco_no &&
+      country_issuance == d.country_issuance &&
+      doco_expiry_date == d.doco_expiry_date &&
+      num_street == d.num_street &&
+      city == d.city &&
+      state == d.state &&
+      postal_code == d.postal_code &&
+      redress_number == d.redress_number &&
+      traveller_number == d.traveller_number;
   }
   void check_data() const;
   std::string msg() const;
@@ -189,6 +225,7 @@ class TPaxRequest
   TFlightData int_flt;
   TFlightData ckin_flt;
   TPaxData pax;
+  TPaxAddData pax_add;
   int version = 0;
   bool getByPaxId( const int pax_id, const std::string& override_type );
   bool getByCrsPaxId( const int pax_id, const std::string& override_type );

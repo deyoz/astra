@@ -49,6 +49,8 @@ using namespace ASTRA;
 
 const int basic_version = 21;
 
+const int pax_seq_num = 1;
+
 static const int MaxCirqPaxNum = 5;
 static const int MaxCicxPaxNum = 10;
 
@@ -61,8 +63,6 @@ bool CorrectVersion(int version)
 
 int FieldCount( string data_group, int version )
 {
-  // if (!CorrectVersion(version))
-  //   throw Exception("unsupported APPS version: %d", version);
   // независимые от версии
   if (data_group == "CHK") return 2;
   if (data_group == "INT") return 8;
@@ -72,6 +72,7 @@ int FieldCount( string data_group, int version )
   if (data_group == "EXO") return 4;
   if (data_group == "EXD") return 4;
   if (data_group == "MAK") return 4;
+  if (data_group == "PAD") return 12;
   // зависимые от версии
   if (version == 21)
   {
@@ -348,8 +349,6 @@ void TTransData::check_data() const
 {
   if (code != "CIRQ" && code != "CICX" && code != "CIMR")
     throw Exception("Incorrect transacion code");
-  // if (!CorrectVersion(version))
-  //   throw Exception("Incorrect APPS version");
   if (user_id.empty() || user_id.size() > 6)
     throw Exception("Incorrect User ID");
 }
@@ -484,7 +483,7 @@ std::string TFlightData::msg() const
 }
 
 void TPaxData::init( const int pax_ident, const std::string& surname, const std::string name,
-                     const bool is_crew, const int transfer, const std::string& override,
+                     const bool is_crew, const int transfer, const std::string& override_type,
                      const int reg_no, const ASTRA::TTrickyGender::Enum tricky_gender, int ver )
 {
   pax_id = pax_ident;
@@ -518,8 +517,8 @@ void TPaxData::init( const int pax_ident, const std::string& surname, const std:
   sex = (doc.gender == "M" || doc.gender == "F")?doc.gender:"U";
   trfer_at_origin = (transfer == Origin || transfer == Both)?"Y":"N";
   trfer_at_dest = (transfer == Dest || transfer == Both)?"Y":"N";
-  if(!override.empty())
-    override_codes = override;
+  if(!override_type.empty())
+    override_codes = override_type;
   // passenger reference
   int seq_num = (reg_no == ASTRA::NoExists) ? 0 : reg_no;
   int pass_desc;
@@ -537,7 +536,7 @@ void TPaxData::init( const int pax_ident, const std::string& surname, const std:
   version = ver;
 }
 
-void TPaxData::init( TQuery &Qry )
+void TPaxData::init( TQuery &Qry, int ver )
 {
   pax_id = Qry.FieldAsInteger("pax_id");
   if (!Qry.FieldIsNULL("apps_pax_id"))
@@ -577,7 +576,7 @@ void TPaxData::init( TQuery &Qry )
     status = Qry.FieldAsString("status");
   if (!Qry.FieldIsNULL("pass_ref"))
     reference = Qry.FieldAsString("pass_ref");
-  version = Qry.FieldIsNULL("version")? basic_version: Qry.FieldAsInteger("version");
+  version = ver;
 }
 
 void TPaxData::check_data() const
@@ -613,7 +612,7 @@ std::string TPaxData::msg() const
     data_group = "PRQ";
     /* 1  */ msg << data_group << '/';
     /* 2  */ msg << FieldCount(data_group, version) << '/';
-    /* 3  */ msg << "1" << '/';
+    /* 3  */ msg << pax_seq_num << '/'; // Passenger Sequence Number
     /* 4  */ msg << pax_crew << '/';
     /* 5  */ msg << nationality << '/';
     /* 6  */ msg << issuing_state << '/';
@@ -650,7 +649,7 @@ std::string TPaxData::msg() const
     data_group = "PCX";
     /* 1  */ msg << data_group << '/';
     /* 2  */ msg << FieldCount(data_group, version) << '/';
-    /* 3  */ msg << "1" << '/';
+    /* 3  */ msg << pax_seq_num << '/'; // Passenger Sequence Number
     /* 4  */ msg << apps_pax_id << '/';
     /* 5  */ msg << pax_crew << '/';
     /* 6  */ msg << nationality << '/';
@@ -676,6 +675,101 @@ std::string TPaxData::msg() const
       /* 23 */ msg << reference;
     }
   }
+  return msg.str();
+}
+
+void TPaxAddData::init( const int pax_id, const int ver )
+{
+  version = ver;
+
+  CheckIn::TPaxDocoItem doco;
+  if ( !CheckIn::LoadPaxDoco( pax_id, doco ) )
+    CheckIn::LoadCrsPaxVisa( pax_id, doco );
+
+  CheckIn::TPaxDocaItem docaD;
+  if ( !CheckIn::LoadPaxDoca( pax_id, CheckIn::docaDestination, docaD ) )
+  {
+    CheckIn::TDocaMap doca_map;
+    CheckIn::LoadCrsPaxDoca( pax_id, doca_map );
+    docaD = doca_map[apiDocaD];
+  }
+
+  string country_code = ((TPaxDocCountriesRow&)base_tables.get("pax_doc_countries").get_row("code", doco.applic_country)).country;
+  country_for_data = country_code.empty() ? "" : ((TCountriesRow&)base_tables.get("countries").get_row("code", country_code)).code_lat;
+  doco_type = doco.type;
+  doco_no = doco.no.substr(0, 20); // в БД doco.no VARCHAR2(25 BYTE)
+  country_issuance = "";
+  doco_expiry_date = DateTimeToStr( doco.expiry_date, "yyyymmdd" );
+
+  num_street = docaD.address;
+  city = docaD.city;
+  state = docaD.region.substr(0, 20); // уточнить
+  postal_code = docaD.postal_code;
+
+  redress_number = "";
+  traveller_number = "";
+}
+
+void TPaxAddData::init( TQuery &Qry, int ver )
+{
+  country_for_data = Qry.FieldAsString("country_for_data");
+  doco_type = Qry.FieldAsString("doco_type");
+  doco_no = Qry.FieldAsString("doco_no");
+  country_issuance = Qry.FieldAsString("country_issuance");
+  doco_expiry_date = Qry.FieldAsString("doco_expiry_date");
+  num_street = Qry.FieldAsString("num_street");
+  city = Qry.FieldAsString("city");
+  state = Qry.FieldAsString("state");
+  postal_code = Qry.FieldAsString("postal_code");
+  redress_number = Qry.FieldAsString("redress_number");
+  traveller_number = Qry.FieldAsString("traveller_number");
+  version = ver;
+}
+
+void TPaxAddData::check_data() const
+{
+  if (country_for_data.size() > 2)
+    throw Exception( "country_for_data too long: %s", country_for_data.c_str() );
+  if (doco_type.size() > 2)
+    throw Exception( "doco_type too long: %s", doco_type.c_str() );
+  if (doco_no.size() > 20)
+    throw Exception( "doco_no too long: %s", doco_no.c_str() );
+  if (country_issuance.size() > 3)
+    throw Exception( "country_issuance too long: %s", country_issuance.c_str() );
+  if (doco_expiry_date.size() > 8)
+    throw Exception( "doco_expiry_date too long: %s", doco_expiry_date.c_str() );
+  if (num_street.size() > 60)
+    throw Exception( "num_street too long: %s", num_street.c_str() );
+  if (city.size() > 60)
+    throw Exception( "city too long: %s", city.c_str() );
+  if (state.size() > 20)
+    throw Exception( "state too long: %s", state.c_str() );
+  if (postal_code.size() > 20)
+    throw Exception( "postal_code too long: %s", postal_code.c_str() );
+  if (redress_number.size() > 13)
+    throw Exception( "redress_number too long: %s", redress_number.c_str() );
+  if (traveller_number.size() > 25)
+    throw Exception( "traveller_number too long: %s", traveller_number.c_str() );
+}
+
+std::string TPaxAddData::msg() const
+{
+  check_data();
+  std::ostringstream msg;
+  /* 1  */ msg << "PAD" << '/';
+  /* 2  */ msg << FieldCount("PAD", version) << '/';
+  /* 3  */ msg << pax_seq_num << '/'; // Passenger Sequence Number
+  /* 4  */ msg << country_for_data << '/';
+  /* 5  */ msg << doco_type << '/';
+  /* 6  */ msg << doco_no << '/';
+  /* 7  */ msg << country_issuance << '/';
+  /* 8  */ msg << doco_expiry_date << '/';
+  /* 9  */ msg << num_street << '/';
+  /* 10 */ msg << city << '/';
+  /* 11 */ msg << state << '/';
+  /* 12 */ msg << postal_code << '/';
+  /* 13 */ msg << redress_number << '/';
+  /* 14 */ msg << traveller_number;
   return msg.str();
 }
 
@@ -757,6 +851,7 @@ bool TPaxRequest::getByPaxId( const int pax_id, const std::string& override_type
     DecodePerson(Qry.FieldAsString("pers_type")), CheckIn::TSimplePaxItem::genderFromDB(Qry) );
   pax.init( pax_id, Qry.FieldAsString("surname"), name, (pax_status==psCrew), transfer, override_type,
     Qry.FieldAsInteger("reg_no"), tricky_gender, version );
+  pax_add.init(pax_id, version);
   return true;
 }
 
@@ -814,6 +909,7 @@ bool TPaxRequest::getByCrsPaxId( const int pax_id, const std::string& override_t
     DecodePerson(Qry.FieldAsString("pers_type")), TGender::Unknown );
   pax.init( pax_id, Qry.FieldAsString("surname"), name, false, transfer, override_type,
     ASTRA::NoExists, tricky_gender, version );
+  pax_add.init(pax_id, version);
   return true;
 }
 
@@ -828,7 +924,9 @@ bool TPaxRequest::fromDBByPaxId( const int pax_id )
                 "        date_of_birth, sex, birth_country, is_endorsee, transfer_at_orgn, "
                 "        transfer_at_dest, pnr_source, pnr_locator, send_time, pre_ckin, "
                 "        flt_num, dep_port, dep_date, arv_port, arv_date, ckin_flt_num, ckin_port, "
-                "        point_id, ckin_point_id, pass_ref, version "
+                "        point_id, ckin_point_id, pass_ref, version, "
+                " country_for_data, doco_type, doco_no, country_issuance, doco_expiry_date, "
+                " num_street, city, state, postal_code, redress_number, traveller_number "
                 "FROM apps_pax_data "
                 "WHERE pax_id = :pax_id "
                 "ORDER BY send_time DESC) "
@@ -853,7 +951,8 @@ bool TPaxRequest::fromDBByPaxId( const int pax_id )
   if ( !Qry.FieldIsNULL("ckin_point_id") )
     ckin_flt.init( Qry.FieldAsInteger("ckin_point_id"), "CHK", Qry.FieldAsString("ckin_flt_num"),
                    Qry.FieldAsString("ckin_port"), "", ASTRA::NoExists, ASTRA::NoExists, version );
-  pax.init( Qry );
+  pax.init( Qry, version );
+  pax_add.init(Qry, version);
   return true;
 }
 
@@ -867,7 +966,9 @@ bool TPaxRequest::fromDBByMsgId( const int msg_id )
                 "       date_of_birth, sex, birth_country, is_endorsee, transfer_at_orgn, "
                 "       transfer_at_dest, pnr_source, pnr_locator, send_time, pre_ckin, "
                 "       flt_num, dep_port, dep_date, arv_port, arv_date, ckin_flt_num, ckin_port, "
-                "       point_id, ckin_point_id, pass_ref, version "
+                "       point_id, ckin_point_id, pass_ref, version, "
+                " country_for_data, doco_type, doco_no, country_issuance, doco_expiry_date, "
+                " num_street, city, state, postal_code, redress_number, traveller_number "
                 "FROM apps_pax_data "
                 "WHERE cirq_msg_id = :msg_id";
 
@@ -891,7 +992,8 @@ bool TPaxRequest::fromDBByMsgId( const int msg_id )
   if ( !Qry.FieldIsNULL("ckin_point_id") )
     ckin_flt.init( Qry.FieldAsInteger("ckin_point_id"), "CHK", Qry.FieldAsString("ckin_flt_num"),
                    Qry.FieldAsString("ckin_port"), "", ASTRA::NoExists, ASTRA::NoExists, version );
-  pax.init( Qry );
+  pax.init( Qry, version );
+  pax_add.init(Qry, version);
   return true;
 }
 
@@ -905,6 +1007,10 @@ std::string TPaxRequest::msg() const
     msg << ckin_flt.msg() << "/";
   }
   msg << pax.msg() << "/";
+  if ( trans.code == "CIRQ" && version >= 24 )
+  {
+    msg << pax_add.msg() << "/";
+  }
   return string(header + "\x02" + msg.str() + "\x03");
 }
 
@@ -929,20 +1035,24 @@ void TPaxRequest::saveData() const
                 "                       date_of_birth, sex, birth_country, is_endorsee, transfer_at_orgn, "
                 "                       transfer_at_dest, pnr_source, pnr_locator, send_time, pre_ckin, "
                 "                       flt_num, dep_port, dep_date, arv_port, arv_date, ckin_flt_num, ckin_port, "
-                "                       point_id, ckin_point_id, pass_ref, version ) "
+                "                       point_id, ckin_point_id, pass_ref, version, "
+                "     country_for_data, doco_type, doco_no, country_issuance, doco_expiry_date, "
+                "     num_street, city, state, postal_code, redress_number, traveller_number ) "
                 "VALUES (:pax_id, :cirq_msg_id, :pax_crew, :nationality, :issuing_state, :passport, "
                 "        :check_char, :doc_type, :expiry_date, :sup_check_char, :sup_doc_type, :sup_passport, "
                 "        :family_name, :given_names, :date_of_birth, :sex, :birth_country, :is_endorsee, "
                 "        :transfer_at_orgn, :transfer_at_dest, :pnr_source, :pnr_locator, :send_time, :pre_ckin, "
                 "        :flt_num, :dep_port, :dep_date, :arv_port, :arv_date, :ckin_flt_num, :ckin_port, "
-                "        :point_id, :ckin_point_id, :pass_ref, :version )";
+                "        :point_id, :ckin_point_id, :pass_ref, :version, "
+                "     :country_for_data, :doco_type, :doco_no, :country_issuance, :doco_expiry_date, "
+                "     :num_street, :city, :state, :postal_code, :redress_number, :traveller_number )";
 
   Qry.CreateVariable("cirq_msg_id", otInteger, trans.msg_id);
   Qry.CreateVariable("pax_id", otInteger, pax.pax_id);
   Qry.CreateVariable("pax_crew", otString, pax.pax_crew);
   Qry.CreateVariable("nationality", otString, pax.nationality);
   Qry.CreateVariable("issuing_state", otString, pax.issuing_state);
-  Qry.CreateVariable("passport", otString,pax. passport);
+  Qry.CreateVariable("passport", otString, pax.passport);
   Qry.CreateVariable("check_char", otString, pax.check_char);
   Qry.CreateVariable("doc_type", otString, pax.doc_type);
   Qry.CreateVariable("expiry_date", otString, pax.expiry_date);
@@ -975,6 +1085,17 @@ void TPaxRequest::saveData() const
     Qry.CreateVariable("ckin_point_id", otInteger, FNull);
   Qry.CreateVariable("pass_ref", otString, pax.reference);
   Qry.CreateVariable("version", otInteger, version);
+  Qry.CreateVariable("country_for_data", otString, pax_add.country_for_data);
+  Qry.CreateVariable("doco_type", otString, pax_add.doco_type);
+  Qry.CreateVariable("doco_no", otString, pax_add.doco_no);
+  Qry.CreateVariable("country_issuance", otString, pax_add.country_issuance);
+  Qry.CreateVariable("doco_expiry_date", otString, pax_add.doco_expiry_date);
+  Qry.CreateVariable("num_street", otString, pax_add.num_street);
+  Qry.CreateVariable("city", otString, pax_add.city);
+  Qry.CreateVariable("state", otString, pax_add.state);
+  Qry.CreateVariable("postal_code", otString, pax_add.postal_code);
+  Qry.CreateVariable("redress_number", otString, pax_add.redress_number);
+  Qry.CreateVariable("traveller_number", otString, pax_add.traveller_number);
   Qry.Execute();
 }
 
@@ -1108,7 +1229,7 @@ void TAnsPaxData::init( std::string source, int ver )
     throw Exception( "Incorrect field_count: %d", field_count );
 
   int seq_num = getInt(tmp[2]); /* 3 */
-  if( seq_num != 1 )
+  if( seq_num != pax_seq_num ) // Passenger Sequence Number
     throw Exception( "Incorrect seq_num: %d", seq_num );
 
   country = tmp[3]; /* 4 */
