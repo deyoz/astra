@@ -26,7 +26,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
