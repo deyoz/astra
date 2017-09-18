@@ -142,7 +142,7 @@ $(KICK_IN_SILENT)
   <svc_availability show_brand_info=\"true\" show_all_svc=\"true\" show_free_carry_on_norm=\"true\">
     <passenger id=\"...\" surname=\"РЕПИН\" name=\"ИВАН\" category=\"ADT\" birthdate=\"1976-05-01\" sex=\"male\">
       <document number=\"7774441110\" country=\"RUS\"/>
-      <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"xxxx-xx-xxT10:00:00\" arrival_time=\"xxxx-xx-xxT12:00:00\" subclass=\"Y\">
+      <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"xxxx-xx-xxT10:00:00\" arrival_time=\"xxxx-xx-xxT12:00:00\" equipment=\"xxx\" subclass=\"Y\">
         <ticket number=\"2981212121212\" coupon_num=\"1\"/>
         <recloc crs=\"UT\">0840Z6</recloc>
         <recloc crs=\"1H\">09T1B3</recloc>
@@ -260,7 +260,7 @@ $(http_forecast content=$(get_svc_payment_status_invalid_resp))
   <svc_payment_status show_free_carry_on_norm=\"true\">
     <passenger id=\"...\" surname=\"РЕПИН\" name=\"ИВАН\" category=\"ADT\" birthdate=\"1976-05-01\" sex=\"male\">
       <document number=\"7774441110\" country=\"RUS\"/>
-      <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"xxxx-xx-xxTxx:xx:xx\" arrival_time=\"xxxx-xx-xxTxx:xx:xx\" subclass=\"Y\">
+      <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"xxxx-xx-xxTxx:xx:xx\" arrival_time=\"xxxx-xx-xxTxx:xx:xx\" equipment=\"xxx\" subclass=\"Y\">
         <ticket number=\"2981212121212\" coupon_num=\"1\"/>
         <recloc crs=\"UT\">0840Z6</recloc>
         <recloc crs=\"1H\">09T1B3</recloc>
@@ -277,8 +277,6 @@ $(KICK_IN)
     <command>
       <user_error lexema_id='MSG.CHECKIN.UNABLE_CALC_PAID_BAG_TRY_RE_CHECKIN' code='0'>Невозможно произвести расчет оплачиваемого багажа. Попробуйте перерегистрировать пассажиров</user_error>
     </command>
-
-$(sql "delete from etickets")
 
 # добавление багажа
 
@@ -373,7 +371,7 @@ $(http_forecast content=$(get_svc_payment_status_resp))
   <svc_payment_status show_free_carry_on_norm=\"true\">
     <passenger id=\"...\" surname=\"РЕПИН\" name=\"ИВАН\" category=\"ADT\" birthdate=\"1976-05-01\" sex=\"male\">
       <document number=\"7774441110\" country=\"RUS\"/>
-      <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"xxxx-xx-xxTxx:xx:xx\" arrival_time=\"xxxx-xx-xxTxx:xx:xx\" subclass=\"Y\">
+      <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"xxxx-xx-xxTxx:xx:xx\" arrival_time=\"xxxx-xx-xxTxx:xx:xx\" equipment=\"xxx\" subclass=\"Y\">
         <ticket number=\"2981212121212\" coupon_num=\"1\"/>
         <recloc crs=\"UT\">0840Z6</recloc>
         <recloc crs=\"1H\">09T1B3</recloc>
@@ -937,7 +935,7 @@ $(KICK_IN_SILENT)
   <svc_availability show_brand_info=\"true\" show_all_svc=\"true\" show_free_carry_on_norm=\"true\">
     <passenger id=\"...\" surname=\"РЕПИН\" name=\"ИВАН\" category=\"ADT\" birthdate=\"1976-05-01\" sex=\"male\">
       <document number=\"7774441110\" country=\"RUS\"/>
-      <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"xxxx-xx-xxT10:00:00\" arrival_time=\"xxxx-xx-xxT12:00:00\" subclass=\"Y\">
+      <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"xxxx-xx-xxT10:00:00\" arrival_time=\"xxxx-xx-xxT12:00:00\" equipment=\"xxx\" subclass=\"Y\">
         <ticket number=\"2981212121212\" coupon_num=\"1\"/>
         <recloc crs=\"UT\">0840Z6</recloc>
         <recloc crs=\"1H\">09T1B3</recloc>
