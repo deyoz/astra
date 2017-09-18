@@ -2315,7 +2315,7 @@ void PrintInterface::GetPrintDataVOUnregistered(
         parser.pts.set_tag(TAG::FQT,           ""); // TODO get it
         parser.pts.set_tag(TAG::FULL_PLACE_ARV,airp_arv);
         parser.pts.set_tag(TAG::FULL_PLACE_DEP,airp_dep);
-        parser.pts.set_tag(TAG::GATE,          ""); // TODO get it
+        // parser.pts.set_tag(TAG::GATE,          ""); // приходит с клиента см. tagsFromXML ниже
         parser.pts.set_tag(TAG::GATES,         ""); // TODO get it
         parser.pts.set_tag(TAG::HALL,          ""); // TODO get it
         parser.pts.set_tag(TAG::INF,           "");
@@ -2339,6 +2339,7 @@ void PrintInterface::GetPrintDataVOUnregistered(
         parser.pts.set_tag(TAG::SUBCLS,        "");
         parser.pts.set_tag(TAG::TAGS,          ""); // TODO get it
 
+        parser.pts.tagsFromXML(params.clientDataNode);
 
         QParams qryParams;
         qryParams

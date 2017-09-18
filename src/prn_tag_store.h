@@ -722,6 +722,7 @@ class TPrnTagStore {
         void clear();
         TDateTime get_time_print() { return time_print.val; };
         void tst_get_tag_list(std::vector<std::string> &tag_list);
+        void tagsFromXML(xmlNodePtr tagsNode);
 };
 
 #endif

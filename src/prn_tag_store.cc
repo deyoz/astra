@@ -412,6 +412,18 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::VOUCHER_TEXT10,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
 }
 
+void TPrnTagStore::tagsFromXML(xmlNodePtr tagsNode)
+{
+    if(tagsNode) {
+        // Положим теги из клиентского запроса
+        for(xmlNodePtr curNode = tagsNode->children; curNode; curNode = curNode->next) {
+            string value = NodeAsString(curNode);
+            if(value.empty()) continue;
+            set_tag(upperc((char *)curNode->name), NodeAsString(curNode));
+        }
+    }
+}
+
 // BP && BT
 TPrnTagStore::TPrnTagStore(TDevOper::Enum _op_type, int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute):
     op_type(_op_type),
@@ -457,14 +469,7 @@ TPrnTagStore::TPrnTagStore(TDevOper::Enum _op_type, int agrp_id, int apax_id, in
     tag_list.insert(make_pair(TAG::AIRP_ARV_NAME2,  TTagListItem(&TPrnTagStore::AIRP_ARV_NAME2)));
     tag_list.insert(make_pair(TAG::AIRP_ARV_NAME3,  TTagListItem(&TPrnTagStore::AIRP_ARV_NAME3)));
 
-    if(tagsNode) {
-        // Положим теги из клиентского запроса
-        for(xmlNodePtr curNode = tagsNode->children; curNode; curNode = curNode->next) {
-            string value = NodeAsString(curNode);
-            if(value.empty()) continue;
-            set_tag(upperc((char *)curNode->name), NodeAsString(curNode));
-        }
-    }
+    tagsFromXML(tagsNode);
 }
 
 void TPrnTagStore::clear()
