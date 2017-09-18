@@ -1011,7 +1011,7 @@ std::string TPaxRequest::msg() const
     msg << ckin_flt.msg() << "/";
   }
   msg << pax.msg() << "/";
-  if ( trans.code == "CIRQ" && version >= 24 )
+  if ( trans.code == "CIRQ" && version >= 24 && !pax_add.country_for_data.empty() )
   {
     msg << pax_add.msg() << "/";
   }
