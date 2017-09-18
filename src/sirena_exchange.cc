@@ -390,7 +390,8 @@ void SirenaClient::sendRequest(const std::string& reqText, const edifact::KickIn
     const httpsrv::Domain domain("ASTRA");
     const std::string kick(AstraEdifact::make_xml_kick(kickInfo));
 
-    httpsrv::DoHttpRequest req(ServerFramework::getQueryRunner().getEdiHelpManager().msgId(),
+    httpsrv::DoHttpRequest req(pul,
+                               /*ServerFramework::getQueryRunner().getEdiHelpManager().msgId(),*/
                                domain, m_addr, httpPost);
     req.setTimeout(boost::posix_time::seconds(m_timeout))
         .setMaxTryCount(1/*SIRENA_REQ_ATTEMPTS()*/)
@@ -416,7 +417,8 @@ boost::optional<httpsrv::HttpResp> SirenaClient::receive(const std::string& pult
     const httpsrv::Domain domain("ASTRA");
 
     const std::vector<httpsrv::HttpResp> responses = httpsrv::FetchHttpResponses(
-                ServerFramework::getQueryRunner().getEdiHelpManager().msgId(),
+                pul,
+                /*ServerFramework::getQueryRunner().getEdiHelpManager().msgId(),*/
                 domain);
 
     for (const httpsrv::HttpResp& httpResp: responses)
