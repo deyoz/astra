@@ -694,12 +694,16 @@ void TPaxAddData::init( const int pax_id, const int ver )
     docaD = doca_map[apiDocaD];
   }
 
-  string country_code = ((TPaxDocCountriesRow&)base_tables.get("pax_doc_countries").get_row("code", doco.applic_country)).country;
-  country_for_data = country_code.empty() ? "" : ((TCountriesRow&)base_tables.get("countries").get_row("code", country_code)).code_lat;
+  if (!doco.applic_country.empty())
+  {
+    string country_code = ((TPaxDocCountriesRow&)base_tables.get("pax_doc_countries").get_row("code", doco.applic_country)).country;
+    country_for_data = country_code.empty() ? "" : ((TCountriesRow&)base_tables.get("countries").get_row("code", country_code)).code_lat;
+  }
   doco_type = doco.type;
   doco_no = doco.no.substr(0, 20); // ¢ ÅÑ doco.no VARCHAR2(25 BYTE)
   country_issuance = "";
-  doco_expiry_date = DateTimeToStr( doco.expiry_date, "yyyymmdd" );
+  if (doco.expiry_date != ASTRA::NoExists)
+    doco_expiry_date = DateTimeToStr( doco.expiry_date, "yyyymmdd" );
 
   num_street = docaD.address;
   city = docaD.city;
