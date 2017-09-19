@@ -9297,7 +9297,8 @@ typedef multiset<TPFSStatRow> TPFSStat;
 void RunPFSStat(
         const TStatParams &params,
         TPFSStat &PFSStat,
-        TPrintAirline &prn_airline
+        TPrintAirline &prn_airline,
+        bool full = false
         )
 {
     for(int pass = 0; pass <= 2; pass++) {
@@ -9431,6 +9432,10 @@ void RunPFSStat(
                 else
                     row.birth_date = Qry.get().FieldAsDateTime(col_birth_date);
                 PFSStat.insert(row);
+                if ((not full) and (PFSStat.size() > (size_t)MAX_STAT_ROWS())) {
+                    LogTrace(TRACE5) << "RIGHT";
+                    throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
+                }
             }
         }
     }
@@ -9708,7 +9713,7 @@ template <class T>
 void RunPFSFullFile(const TStatParams &params, T &writer, TPrintAirline &prn_airline)
 {
     TPFSStat PFSStat;
-    RunPFSStat(params, PFSStat, prn_airline);
+    RunPFSStat(params, PFSStat, prn_airline, true);
     for(TPFSStat::iterator i = PFSStat.begin(); i != PFSStat.end(); i++)
         writer.insert(TPFSFullStatCombo(*i));
 }
