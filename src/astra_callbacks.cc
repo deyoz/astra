@@ -46,6 +46,7 @@
 #include "rfisc_sirena.h"
 #include "html_pages.h"
 #include "kiosk_alias.h"
+#include "hotel_acmd.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -90,6 +91,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new TestInterface();
     new HtmlInterface();
     new KioskAliasInterface();
+    new HotelAcmdInterface();
 
     new AstraWeb::WebRequestsIface();
 
