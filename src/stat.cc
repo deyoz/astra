@@ -9310,6 +9310,9 @@ void RunTrferPaxStat(
         TPrintAirline &prn_airline
         );
 
+template <class T>
+void RunPFSFullFile(const TStatParams &params, T &writer, TPrintAirline &prn_airline);
+
 /* GRISHA */
 void create_plain_files(
         const TStatParams &params,
@@ -9369,6 +9372,9 @@ void create_plain_files(
         case statDetail:
         case statPactShort:
             RunDetailStatFile(params, order_writer, airline);
+            break;
+        case statPFSFull:
+            RunPFSFullFile(params, order_writer, airline);
             break;
         default:
             throw Exception("unsupported statType %d", params.statType);
@@ -9625,7 +9631,8 @@ typedef multiset<TPFSStatRow> TPFSStat;
 void RunPFSStat(
         const TStatParams &params,
         TPFSStat &PFSStat,
-        TPrintAirline &prn_airline
+        TPrintAirline &prn_airline,
+        bool full = false
         )
 {
     for(int pass = 0; pass <= 2; pass++) {
@@ -9759,6 +9766,8 @@ void RunPFSStat(
                 else
                     row.birth_date = Qry.get().FieldAsDateTime(col_birth_date);
                 PFSStat.insert(row);
+                if ((not full) and (PFSStat.size() > (size_t)MAX_STAT_ROWS()))
+                    throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
             }
         }
     }
@@ -9978,6 +9987,67 @@ void createXMLPFSShortStat(
     NewTextChild(variablesNode, "stat_type", params.statType);
     NewTextChild(variablesNode, "stat_mode", "PFS");
     NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Общая"));
+}
+
+struct TPFSFullStatCombo : public TOrderStatItem
+{
+    const TPFSStatRow &row;
+    TPFSFullStatCombo(const TPFSStatRow &_row): row(_row) {}
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
+};
+
+void TPFSFullStatCombo::add_data(ostringstream &buf) const
+{
+        // Дата
+        buf << DateTimeToStr(row.scd_out, "dd.mm.yyyy") << delim;
+        // Рейс
+        buf << row.flt << delim;
+        // Маршрут
+        buf << row.route << delim;
+        // Статус
+        buf << row.status << delim;
+        // Кол-во мест
+        buf << row.seats << delim;
+        // RBD
+        buf << row.subcls << delim;
+        // PNR
+        buf << row.pnr << delim;
+        // Фамилия
+        buf << row.surname << delim;
+        // Имя
+        buf << row.name << delim;
+        // Пол
+        buf << row.gender << delim;
+        // Дата рождения
+        buf << (row.birth_date == NoExists ? "" : DateTimeToStr(row.birth_date, "dd.mm.yyyy"));
+        buf << endl;
+}
+
+void TPFSFullStatCombo::add_header(ostringstream &buf) const
+{
+    buf
+        << "Дата" << delim
+        << "Рейс" << delim
+        << "Маршрут" << delim
+        << "Статус" << delim
+        << "Мест" << delim
+        << "RBD" << delim
+        << "PNR" << delim
+        << "Фамилия" << delim
+        << "Имя" << delim
+        << "Пол" << delim
+        << "Рождение"
+        << endl;
+}
+
+template <class T>
+void RunPFSFullFile(const TStatParams &params, T &writer, TPrintAirline &prn_airline)
+{
+    TPFSStat PFSStat;
+    RunPFSStat(params, PFSStat, prn_airline, true);
+    for(TPFSStat::iterator i = PFSStat.begin(); i != PFSStat.end(); i++)
+        writer.insert(TPFSFullStatCombo(*i));
 }
 
 /*---------------------------------------- ---------------------------------------*/
