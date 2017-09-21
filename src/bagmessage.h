@@ -118,6 +118,7 @@ class BMConnection
   private:
     bool isInit() { return configured; };      // Проверить, что конфигурация прочитана
     void init();                               // Прочитать конфигурацию и сохранить в объекте
+    void reset();                              // Сбросить все внутренние статусы в исходное состояние
     void connect();                            // Подключиться к серверу
     void onConnect( const boost::system::error_code& err );                // Обработчик завершения операции подключения
     void onRead( const boost::system::error_code& error, std::size_t n );  // Обработчик завершения операции приема сообщения

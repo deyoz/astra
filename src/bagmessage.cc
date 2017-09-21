@@ -70,6 +70,16 @@ BMConnection::~BMConnection()
     delete( rbuf );
 }
 
+void BMConnection::reset()
+{
+  connected = BM_OP_NONE;
+  loginStatus = BM_OP_NONE;
+  writeStatus = BM_OP_NONE;
+  paused = false;
+  waitForAck = -1;
+  needSendAck = -1;
+}
+
 void BMConnection::init()
 {
   if( configured )
@@ -106,14 +116,9 @@ void BMConnection::init()
   configured = true;
   // Если вдруг возникла необходимость перечитать конфигурацию - то скорее всего был обрыв связи,
   // и нужно восстанавливать заново и соединение, и вход в систему
-  connected = BM_OP_NONE;
-  loginStatus = BM_OP_NONE;
-  writeStatus = BM_OP_NONE;
-  paused = false;
+  reset();
   lastAdmin = 0;
   mes_num = 1;
-  waitForAck = -1;
-  needSendAck = -1;
   if( wbuf != NULL )
     delete( wbuf );
   wbuf = NULL;
@@ -137,7 +142,7 @@ void BMConnection::onConnect( const boost::system::error_code& err )
     ProgError( STDLOG, "Connection %d: Cannot connect to SITA BagMessage on %s:%d. error=%d(%s) wait=%ld ms", line_number,
                ip->host.c_str(), ip->port, err.value(), err.message().c_str(), cd.total_milliseconds() );
     socket.close(); // При асинхронной операции он остается открытым, и повторный async_connect() не проходит - надо закрыть
-    connected = BM_OP_NONE;
+    reset();
     activeIp = ( activeIp + 1 ) % NUMLINES; // Чтобы при неудачной попытке установить связь следующая попытка была по другой линии
   }
 }
@@ -227,8 +232,7 @@ void BMConnection::onWrite( const boost::system::error_code& error, std::size_t 
   { // Ошибки в передаче просто так не возникают. Скорее всего, проблемы со связью. И надо устанавливать ее заново.
     ProgError( STDLOG, "async_write() finished with errors for connection %d. %lu bytes written, err=%d(%s). %ld ms spent ",
                line_number, n, error.value(), error.message().c_str(), cd.total_milliseconds() );
-    connected = BM_OP_NONE;
-    loginStatus = BM_OP_NONE;
+    reset();
   }
   if( waitForAck <= 0 )
   { // нет сообщения, ожидающего подтверждения, - вызываем обработчик завершения сейчас
@@ -427,9 +431,7 @@ void BMConnection::checkTimer()
       ProgError( STDLOG, "SITA BagMessage: no input messages on connection %d in last %d seconds - connection may be failed",
                  line_number, 7 * heartBeat / 2 );
       socket.close();
-      connected = BM_OP_NONE;
-      loginStatus = BM_OP_NONE;
-      paused = false;
+      reset();
       // И после этого в основном рабочем цикле заново начнется установка связи и прочее
     }
     if( waitForAck >= 0 && now - waitForAckTime > 1 )
@@ -484,7 +486,8 @@ void BMConnection::run()
 
 bool BMConnection::readyToSend()
 {
-  bool result = configured && connected == BM_OP_READY && loginStatus == BM_OP_READY && ( ! paused ) && writeStatus == BM_OP_NONE;
+  bool result = configured && connected == BM_OP_READY && loginStatus == BM_OP_READY && ( ! paused ) && writeStatus == BM_OP_NONE
+             && waitForAck < 0;
   return result;
 }
 
