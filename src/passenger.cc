@@ -1358,18 +1358,6 @@ TSimplePaxItem& TSimplePaxItem::fromDB(TQuery &Qry)
   return *this;
 }
 
-TSimplePaxItem& TSimplePaxItem::fromDBCrs(TQuery &Qry)
-{
-  clear();
-  id=Qry.FieldAsInteger("pax_id");
-  surname=Qry.FieldAsString("surname");
-  name=Qry.FieldAsString("name");
-  pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
-  seat_type=Qry.FieldAsString("seat_type");
-  seats=Qry.FieldAsInteger("seats");
-  return *this;
-}
-
 bool TSimplePaxItem::getByPaxId(int pax_id)
 {
   clear();
