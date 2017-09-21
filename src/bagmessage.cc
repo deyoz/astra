@@ -77,6 +77,7 @@ void BMConnection::reset()
   writeStatus = BM_OP_NONE;
   paused = false;
   waitForAck = -1;
+  writeHandler = NULL;
   needSendAck = -1;
 }
 
@@ -209,6 +210,11 @@ void BMConnection::doSendMessage()
     waitForAck = header.message_id_number;
     waitForAckTime = time( NULL );
     ProgTrace( TRACE5, "connection %d set timer for ACK_DATA - id=%d,now=%lu", line_number, waitForAck, waitForAckTime );
+  }
+  else
+  {
+    waitForAck = -1;
+    writeHandler = NULL;
   }
 }
 
