@@ -378,6 +378,7 @@ void BMConnection::checkInput()
               writeHandler = NULL;
             }
           }
+ /*
           else if( waitForAck > 0 )
           {
             ProgTrace( TRACE5, "... but we are waiting for id=%d - resending need!", waitForAck );
@@ -386,6 +387,11 @@ void BMConnection::checkInput()
           else
           {
             ProgTrace( TRACE5, "... but we are not waiting for anything - ignore" );
+          }
+*/
+          else
+          {
+            ProgTrace( TRACE5, "... but it is unexpected - ignore" );
           }
           break;
         case NAK_MSG:
