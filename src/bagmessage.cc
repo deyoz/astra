@@ -209,7 +209,8 @@ void BMConnection::doSendMessage()
   {
     waitForAck = header.message_id_number;
     waitForAckTime = time( NULL );
-    ProgTrace( TRACE5, "connection %d set timer for ACK_DATA - id=%d,now=%lu", line_number, waitForAck, waitForAckTime );
+    ProgTrace( TRACE5, "connection %d set timer for ACK_DATA - id=%d(tlg_id=%d),now=%lu",
+               line_number, waitForAck, waitForAckId, waitForAckTime );
   }
   else
   {
