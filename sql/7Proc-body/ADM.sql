@@ -2944,6 +2944,7 @@ PROCEDURE sync_LDM_options(vid            typeb_addrs.id%TYPE,
                            vversion       typeb_addr_options.value%TYPE,
                            vcabin_baggage typeb_addr_options.value%TYPE,
                            vgender        typeb_addr_options.value%TYPE,
+                           vexb           typeb_addr_options.value%TYPE,
                            vsetting_user  history_events.open_user%TYPE,
                            vstation       history_events.open_desk%TYPE)
 IS
@@ -2956,6 +2957,7 @@ BEGIN
            DECODE(src.category, 'VERSION',       vversion,
                                 'CABIN_BAGGAGE', vcabin_baggage,
                                 'GENDER',        vgender,
+                                'EXB',           vexb,
                                                  default_value) AS value
     FROM (SELECT * FROM typeb_addr_options WHERE typeb_addrs_id=vid) dest
          FULL OUTER JOIN
@@ -3036,6 +3038,8 @@ END sync_PRL_options;
 PROCEDURE sync_BSM_options(vid              typeb_addrs.id%TYPE,
                            vbasic_type      typeb_addr_options.tlg_type%TYPE,
                            vclass_of_travel typeb_addr_options.value%TYPE,
+                           vtag_printer_id  typeb_addr_options.value%TYPE,
+                           vpas_name_rp1745 typeb_addr_options.value%TYPE,
                            vsetting_user    history_events.open_user%TYPE,
                            vstation         history_events.open_desk%TYPE)
 IS
@@ -3046,6 +3050,8 @@ BEGIN
   OPEN cur FOR
     SELECT vid AS typeb_addrs_id, src.tlg_type, src.category, dest.id,
            DECODE(src.category, 'CLASS_OF_TRAVEL', vclass_of_travel,
+                                'TAG_PRINTER_ID',  vtag_printer_id,
+                                'PAS_NAME_RP1745', vpas_name_rp1745,
                                                    default_value) AS value
     FROM (SELECT * FROM typeb_addr_options WHERE typeb_addrs_id=vid) dest
          FULL OUTER JOIN
@@ -3294,7 +3300,6 @@ END;
 PROCEDURE check_web_sales_row(v_st_desk IN web_sales.st_desk%TYPE,
                               v_st_user IN web_sales.st_user%TYPE,
                               vlang     IN lang_types.code%TYPE)
-
 IS
 i BINARY_INTEGER;
 c CHAR(1);

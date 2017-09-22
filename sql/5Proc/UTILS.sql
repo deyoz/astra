@@ -1,6 +1,19 @@
 create or replace PACKAGE utils
 AS
 
+/*
+DROP TABLE update_code_progress;
+CREATE TABLE update_code_progress
+(
+  table_name VARCHAR2(50),
+  column_name VARCHAR2(50),
+  num_rows NUMBER,
+  partition_name VARCHAR2(50),
+  updated NUMBER,
+  update_priority NUMBER(1)
+);
+*/
+
 CURSOR oper_cur IS
   SELECT user_cons_columns.table_name, user_cons_columns.column_name,
          DECODE(user_tab_partitions.table_name, NULL, user_tables.num_rows, user_tab_partitions.num_rows) AS num_rows,
@@ -17,8 +30,7 @@ CURSOR oper_cur IS
         user_cons_columns.column_name not like 'DROP%' AND
      NOT(user_cons_columns.table_name like 'ARX%' OR
          user_cons_columns.table_name like 'HIST%' OR
-         user_cons_columns.table_name IN (/*'AODB_EVENTS',*/
-                                          'TLG_STAT',
+         user_cons_columns.table_name IN ('TLG_STAT',
                                           'RFISC_STAT'))
   UNION
   SELECT user_tab_columns.table_name, user_tab_columns.column_name,
@@ -32,8 +44,12 @@ CURSOR oper_cur IS
         user_tab_columns.data_type='VARCHAR2' AND
         user_tab_columns.table_name not like 'DROP%' AND
         user_tab_columns.column_name not like 'DROP%' AND
-        user_tab_columns.table_name IN ('BI_PRINT_RULES',
+        user_tab_columns.table_name IN ('AODB_EVENTS',
+                                        'AODB_PAX_CHANGE',
+                                        'BI_PRINT_RULES',
                                         'CRS_TRANSFER',
+                                        'PAID_RFISC',
+                                        'PAX_SERVICES',
                                         'RFISC_RATES',
 --                                        'ROZYSK',
                                         'TLG_OUT',
@@ -53,8 +69,7 @@ CURSOR hist_cur IS
         user_tab_columns.table_name not like 'DROP%' AND
         user_tab_columns.column_name not like 'DROP%' AND
         (user_tab_columns.table_name like 'HIST%' OR
-         user_tab_columns.table_name IN (/*'AODB_EVENTS',*/
-                                         'TLG_STAT',
+         user_tab_columns.table_name IN ('TLG_STAT',
                                          'RFISC_STAT'))
   ORDER BY num_rows, table_name;
 
@@ -100,6 +115,15 @@ PROCEDURE airline_update_arx(old_airline_code airlines.code%TYPE,
                              max_rows user_tables.num_rows%TYPE);
 PROCEDURE view_update_progress;
 PROCEDURE users_logoff(new_airline_code airlines.code%TYPE);
+
+card_like_pattern CONSTANT VARCHAR2(100)   :='([1-9][0-9][0-9]|[0-9][1-9][0-9]|[0-9][0-9][1-9])[0-9] *[0-9]{2}[0-9]{2} *[0-9]{4} *[0-9]{4}';
+card_instr_pattern CONSTANT VARCHAR2(100)  :=card_like_pattern;
+card_replace_pattern CONSTANT VARCHAR2(100):='([0-9]{4})( *)([0-9]{2})([0-9]{2})( *)([0-9]{4})( *)([0-9]{4})';
+card_replace_string CONSTANT VARCHAR2(100) :='\1\2\300\50000\7\8';
+rem_like_pattern CONSTANT VARCHAR2(20)     :='(FQT.|OTHS|FOID)';
+
+FUNCTION masking_cards(src IN VARCHAR2) RETURN VARCHAR2;
+PROCEDURE masking_cards_update(vtab IN VARCHAR2);
 
 END utils;
 /

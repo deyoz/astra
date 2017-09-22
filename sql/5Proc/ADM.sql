@@ -414,6 +414,7 @@ PROCEDURE sync_LDM_options(vid            typeb_addrs.id%TYPE,
                            vversion       typeb_addr_options.value%TYPE,
                            vcabin_baggage typeb_addr_options.value%TYPE,
                            vgender        typeb_addr_options.value%TYPE,
+                           vexb           typeb_addr_options.value%TYPE,
                            vsetting_user  history_events.open_user%TYPE,
                            vstation       history_events.open_desk%TYPE);
 
@@ -444,6 +445,8 @@ PROCEDURE sync_PRL_options(vid            typeb_addrs.id%TYPE,
 PROCEDURE sync_BSM_options(vid              typeb_addrs.id%TYPE,
                            vbasic_type      typeb_addr_options.tlg_type%TYPE,
                            vclass_of_travel typeb_addr_options.value%TYPE,
+                           vtag_printer_id  typeb_addr_options.value%TYPE,
+                           vpas_name_rp1745 typeb_addr_options.value%TYPE,
                            vsetting_user    history_events.open_user%TYPE,
                            vstation         history_events.open_desk%TYPE);
 

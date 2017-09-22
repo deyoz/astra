@@ -541,6 +541,51 @@ BEGIN
       DELETE FROM limited_capability_stat WHERE rowid=rowids(i);
 
     SELECT rowid BULK COLLECT INTO rowids
+    FROM pfs_stat
+    WHERE point_id=curRow.point_id FOR UPDATE;
+    IF use_insert THEN
+      FORALL i IN 1..rowids.COUNT
+        INSERT INTO arx_pfs_stat
+        (point_id, pax_id, status, airp_arv, seats, subcls, pnr, surname, name, gender, birth_date, part_key)
+        SELECT
+         point_id, pax_id, status, airp_arv, seats, subcls, pnr, surname, name, gender, birth_date, vpart_key
+        FROM pfs_stat
+        WHERE rowid=rowids(i);
+    END IF;
+    FORALL i IN 1..rowids.COUNT
+      DELETE FROM pfs_stat WHERE rowid=rowids(i);
+
+    SELECT rowid BULK COLLECT INTO rowids
+    FROM voucher_stat
+    WHERE point_id=curRow.point_id FOR UPDATE;
+    IF use_insert THEN
+      FORALL i IN 1..rowids.COUNT
+        INSERT INTO arx_voucher_stat
+        (id, pax_id, time_print, point_id, scd_out, surname, name, voucher, desk, part_key)
+        SELECT
+         id, pax_id, time_print, point_id, scd_out, surname, name, voucher, desk, vpart_key
+        FROM voucher_stat
+        WHERE rowid=rowids(i);
+    END IF;
+    FORALL i IN 1..rowids.COUNT
+      DELETE FROM voucher_stat WHERE rowid=rowids(i);
+
+    SELECT rowid BULK COLLECT INTO rowids
+    FROM trfer_pax_stat
+    WHERE point_id=curRow.point_id FOR UPDATE;
+    IF use_insert THEN
+      FORALL i IN 1..rowids.COUNT
+        INSERT INTO arx_trfer_pax_stat
+        (point_id, scd_out, pax_id, rk_weight, bag_weight, bag_amount, segments, part_key)
+        SELECT
+         point_id, scd_out, pax_id, rk_weight, bag_weight, bag_amount, segments, vpart_key
+        FROM trfer_pax_stat
+        WHERE rowid=rowids(i);
+    END IF;
+    FORALL i IN 1..rowids.COUNT
+      DELETE FROM trfer_pax_stat WHERE rowid=rowids(i);
+
+    SELECT rowid BULK COLLECT INTO rowids
     FROM agent_stat
     WHERE point_id=curRow.point_id FOR UPDATE;
     IF use_insert THEN
@@ -824,13 +869,13 @@ BEGIN
       IF use_insert THEN
         FORALL i IN 1..paxrowids.COUNT
           INSERT INTO arx_pax
-            (pax_id,grp_id,surname,name,pers_type,is_female,seat_no,seat_type,seats,
+            (pax_id,grp_id,surname,name,pers_type,is_female,seat_no,seat_type,seats,is_jmp,
              pr_brd,pr_exam,wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm,doco_confirm,
              subclass,bag_pool_num,tid,part_key)
           SELECT
              pax_id,grp_id,surname,name,pers_type,is_female,
-             salons.get_seat_no(pax_id,seats,NULL,curRow.point_id,'one',rownum) AS seat_no, /*­¥ ®¯â¨¬ «ì­®. ­ ¤® ¯¥à¥¤ ¢ âì grp_status */
-             seat_type,seats,
+             salons.get_seat_no(pax_id,seats,is_jmp,NULL,curRow.point_id,'one',rownum) AS seat_no, /*­¥ ®¯â¨¬ «ì­®. ­ ¤® ¯¥à¥¤ ¢ âì grp_status */
+             seat_type,seats,is_jmp,
              pr_brd,pr_exam,wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm,doco_confirm,
              subclass,bag_pool_num,tid,vpart_key
           FROM pax
@@ -1015,27 +1060,35 @@ BEGIN
         FORALL i IN 1..rowids.COUNT
           DELETE FROM pax_doca WHERE rowid=rowids(i);
 
+        DELETE FROM confirm_print WHERE pax_id=paxids(k);
         DELETE FROM pax_fqt WHERE pax_id=paxids(k);
         DELETE FROM pax_asvc WHERE pax_id=paxids(k);
         DELETE FROM pax_emd WHERE pax_id=paxids(k);
-        DELETE FROM confirm_print WHERE pax_id=paxids(k);
-        DELETE FROM trip_comp_layers WHERE pax_id=paxids(k);
-        DELETE FROM rozysk WHERE pax_id=paxids(k);
-        DELETE FROM pax_seats WHERE pax_id=paxids(k);
         DELETE FROM pax_norms_pc WHERE pax_id=paxids(k);
         DELETE FROM pax_brands WHERE pax_id=paxids(k);
+        DELETE FROM pax_rem_origin WHERE pax_id=paxids(k);
+        DELETE FROM pax_seats WHERE pax_id=paxids(k);
+        DELETE FROM rozysk WHERE pax_id=paxids(k);
+        DELETE FROM trip_comp_layers WHERE pax_id=paxids(k);
         DELETE FROM paid_bag_pc WHERE pax_id=paxids(k);
         UPDATE paid_bag_emd SET pax_id=NULL WHERE pax_id=paxids(k);
+        UPDATE service_payment SET pax_id=NULL WHERE pax_id=paxids(k);
         DELETE FROM pax_alarms WHERE pax_id=paxids(k);
-        DELETE FROM pax_rem_origin WHERE pax_id=paxids(k);
+        DELETE FROM pax_service_lists WHERE pax_id=paxids(k);
+        DELETE FROM pax_services WHERE pax_id=paxids(k);
+        DELETE FROM pax_services_auto WHERE pax_id=paxids(k);
+        DELETE FROM paid_rfisc WHERE pax_id=paxids(k);
+        DELETE FROM pax_norms_text WHERE pax_id=paxids(k);
         pax_count:=pax_count+1;
       END LOOP;
       FORALL i IN 1..paxrowids.COUNT
         DELETE FROM pax WHERE rowid=paxrowids(i);
-      DELETE FROM tckin_pax_grp WHERE grp_id=grpids(j);
       DELETE FROM paid_bag_emd WHERE grp_id=grpids(j);
       DELETE FROM paid_bag_emd_props WHERE grp_id=grpids(j);
+      DELETE FROM service_payment WHERE grp_id=grpids(j);
+      DELETE FROM tckin_pax_grp WHERE grp_id=grpids(j);
       DELETE FROM pnr_addrs_pc WHERE grp_id=grpids(j);
+      DELETE FROM grp_service_lists WHERE grp_id=grpids(j);
     END LOOP;
     FORALL i IN 1..grprowids.COUNT
       DELETE FROM pax_grp WHERE rowid=grprowids(i);
@@ -1394,7 +1447,7 @@ BEGIN
   remain_rows:=max_rows;
   time_finish:=SYSDATE+time_duration/86400;
 
-  WHILE step>=1 AND step<=4 LOOP
+  WHILE step>=1 AND step<=5 LOOP
     IF SYSDATE>time_finish THEN RETURN; END IF;
     IF step=1 THEN
       OPEN cur FOR
@@ -1483,6 +1536,10 @@ BEGIN
       END LOOP;
       CLOSE cur;
     END IF;
+    IF step=5 THEN
+      DELETE FROM eticks_display WHERE last_display<arx_date AND rownum<=remain_rows;
+      remain_rows:=remain_rows-SQL%ROWCOUNT;
+    END IF;
 
     IF remain_rows<=0 THEN RETURN; END IF;
     step:=step+1;
@@ -1510,137 +1567,5 @@ BEGIN
   DELETE FROM typeb_in WHERE id=vid;
 END;
 
-/*
-Ž–…„“€ Ž‚…Šˆ €Ž’› €•ˆ‚€:
-
-CREATE OR REPLACE PROCEDURE check_arx_daily_log(vmsg VARCHAR2)
-IS
-BEGIN
-  INSERT INTO drop_check_arx_daily_log(msg,time)
-  VALUES(vmsg,SYSDATE);
-  COMMIT;
-END check_arx_daily_log;
-
-CREATE OR REPLACE PROCEDURE check_arx_daily(before IN BOOLEAN)
-IS
-  cur INTEGER;
-  i INTEGER;
-  n INTEGER;
-  ignore    INTEGER;
-  CURSOR curTab IS
-    SELECT table_name FROM user_tables WHERE table_name LIKE 'ARX_%' AND table_name NOT IN ('ARX_TLGS_IN');
-  row drop_check_arx_daily%ROWTYPE;
-BEGIN
-  DELETE FROM drop_check_arx_daily_log;
-  COMMIT;
-  FOR curTabRow IN curTab LOOP
-    check_arx_daily_log(curTabRow.table_name||' started');
-
-    IF before THEN
-      SELECT COUNT(*) INTO n FROM drop_check_arx_daily
-      WHERE arx_table_name=curTabRow.table_name AND (oper_count_before IS NOT NULL OR arx_count_before IS NOT NULL);
-    ELSE
-      SELECT COUNT(*) INTO n FROM drop_check_arx_daily
-      WHERE arx_table_name=curTabRow.table_name AND (oper_count_after IS NOT NULL OR arx_count_after IS NOT NULL);
-    END IF;
-    IF n=0 THEN
-      check_arx_daily_log(curTabRow.table_name||' n=0');
-
-      row.arx_table_name:=curTabRow.table_name;
-      row.oper_table_name:=SUBSTR(curTabRow.table_name, 5);
-      FOR i IN 1..2 LOOP
-        cur:=DBMS_SQL.OPEN_CURSOR;
-        check_arx_daily_log(curTabRow.table_name||' after open (i='||TO_CHAR(i)||')');
-        IF i=1 THEN
-          DBMS_SQL.PARSE(cur,
-                         'SELECT COUNT(*) FROM '||row.oper_table_name,
-                         DBMS_SQL.NATIVE);
-        ELSE
-          DBMS_SQL.PARSE(cur,
-                         'SELECT COUNT(*) FROM '||row.arx_table_name,
-                         DBMS_SQL.NATIVE);
-        END IF;
-        check_arx_daily_log(curTabRow.table_name||' after parse (i='||TO_CHAR(i)||')');
-        DBMS_SQL.DEFINE_COLUMN(cur,1,n);
-        check_arx_daily_log(curTabRow.table_name||' after define_column (i='||TO_CHAR(i)||')');
-        ignore:=DBMS_SQL.EXECUTE(cur);
-        check_arx_daily_log(curTabRow.table_name||' after execute (i='||TO_CHAR(i)||')');
-        ignore:=DBMS_SQL.FETCH_ROWS(cur);
-        check_arx_daily_log(curTabRow.table_name||' after fetch_rows (i='||TO_CHAR(i)||')');
-        DBMS_SQL.COLUMN_VALUE(cur,1,n);
-        check_arx_daily_log(curTabRow.table_name||' after column_value (i='||TO_CHAR(i)||')');
-        DBMS_SQL.CLOSE_CURSOR(cur);
-        check_arx_daily_log(curTabRow.table_name||' after close (i='||TO_CHAR(i)||')');
-
-        IF before THEN
-          IF i=1 THEN
-            row.oper_count_before:=n;
-          ELSE
-            row.arx_count_before:=n;
-          END IF;
-        ELSE
-          IF i=1 THEN
-            row.oper_count_after:=n;
-          ELSE
-            row.arx_count_after:=n;
-          END IF;
-        END IF;
-      END LOOP;
-      IF before THEN
-        INSERT INTO drop_check_arx_daily(oper_table_name, arx_table_name,
-                                         oper_count_before, arx_count_before)
-        VALUES(row.oper_table_name, row.arx_table_name,
-               row.oper_count_before, row.arx_count_before);
-        check_arx_daily_log(curTabRow.table_name||' after insert (i='||TO_CHAR(i)||')');
-      ELSE
-        UPDATE drop_check_arx_daily
-        SET oper_count_after=row.oper_count_after,
-            arx_count_after=row.arx_count_after
-        WHERE oper_table_name=row.oper_table_name AND
-              arx_table_name=row.arx_table_name;
-        check_arx_daily_log(curTabRow.table_name||' after update (i='||TO_CHAR(i)||')');
-      END IF;
-      COMMIT;
-      check_arx_daily_log(curTabRow.table_name||' finished');
-    END IF;
-  END LOOP;
-EXCEPTION
-  WHEN OTHERS THEN
-    IF DBMS_SQL.IS_OPEN(cur) THEN
-      DBMS_SQL.CLOSE_CURSOR(cur);
-    END IF;
-    RAISE;
-END;
-
-SELECT SUBSTR(oper_table_name,1,20) oper_table_name,
-       SUBSTR(arx_table_name,1,20) arx_table_name,
-       oper_count_before oper_before,
-       oper_count_after  oper_after,
-       arx_count_before  arx_before,
-       arx_count_after   arx_after
-FROM drop_check_arx_daily
-WHERE oper_count_before-oper_count_after<>arx_count_after-arx_count_before
-ORDER BY oper_table_name;
-
-CREATE TABLE drop_check_arx_daily
-(
-  oper_table_name   VARCHAR2(40),
-  arx_table_name    VARCHAR2(40),
-  oper_count_before NUMBER(10),
-  oper_count_after  NUMBER(10),
-  arx_count_before  NUMBER(10),
-  arx_count_after   NUMBER(10)
-);
-
-CREATE TABLE drop_check_arx_daily_log
-(
-  msg VARCHAR2(1000),
-  time DATE
-);
-
-SELECT 'ALTER TABLE '||table_name||' ENABLE CONSTRAINT '||constraint_name||';'
-FROM user_constraints
-WHERE r_constraint_name in ('TLG_TRIPS__PK','CRS_PNR__PK','CRS_PAX__PK');
-*/
 END arch;
 /

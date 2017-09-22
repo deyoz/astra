@@ -561,12 +561,15 @@ vpoint_num       points.point_num%TYPE;
 vfirst_point     points.first_point%TYPE;
 vpr_tranz_reg    trip_sets.pr_tranz_reg%TYPE;
 vpr_free_seating trip_sets.pr_free_seating%TYPE;
+vuse_jmp         trip_sets.use_jmp%TYPE;
+vjmp_cfg         trip_sets.jmp_cfg%TYPE;
 cfg_exists       BINARY_INTEGER;
 
 CURSOR cur1 IS
   SELECT counters2.class,
          crs_tranzit AS crs_tr,crs_ok,
-         tranzit AS tr,ok,goshow,
+         tranzit AS tr, ok, goshow,
+         jmp_tranzit AS jmp_tr, jmp_ok, jmp_goshow,
          NVL(cfg,0) AS cfg, NVL(block,0) AS block, NVL(prot,0) AS prot
   FROM counters2,points,trip_classes
   WHERE counters2.point_dep=trip_classes.point_id(+) AND
@@ -608,7 +611,11 @@ TYPE TSum IS RECORD
    double_ok    counters2.crs_ok%TYPE,
    tr           counters2.tranzit%TYPE,
    ok           counters2.ok%TYPE,
-   goshow       counters2.goshow%TYPE);
+   goshow       counters2.goshow%TYPE,
+   jmp_tr       counters2.jmp_tranzit%TYPE,
+   jmp_ok       counters2.jmp_ok%TYPE,
+   jmp_goshow   counters2.jmp_goshow%TYPE
+  );
 vsum TSum;
 
 sumRow counters2%ROWTYPE;
@@ -624,16 +631,26 @@ BEGIN
 
   SELECT COUNT(*) INTO cfg_exists FROM trip_classes WHERE point_id=vpoint_id AND cfg>0 AND rownum<2;
   vpr_free_seating:=0;
+  vuse_jmp:=0;
+  vjmp_cfg:=0;
   BEGIN
-    SELECT pr_free_seating INTO vpr_free_seating FROM trip_sets WHERE point_id=vpoint_id;
+    SELECT pr_free_seating, NVL(use_jmp, 0), NVL(jmp_cfg, 0)
+    INTO vpr_free_seating, vuse_jmp, vjmp_cfg
+    FROM trip_sets
+    WHERE point_id=vpoint_id;
   EXCEPTION
     WHEN NO_DATA_FOUND THEN NULL;
   END;
 
 
-  INSERT INTO counters2(point_dep,point_arv,class,crs_tranzit,crs_ok,avail,tranzit,ok,goshow,free_ok,free_goshow,nooccupy)
-  SELECT vpoint_id,main.point_arv,main.class,
-         0,0,0,NVL(pax.trok,0),NVL(pax.ok,0),NVL(pax.goshow,0),0,0,0
+  INSERT INTO counters2(point_dep,point_arv,class,crs_tranzit,crs_ok,avail,
+                        tranzit,ok,goshow,
+                        jmp_tranzit,jmp_ok,jmp_goshow,
+                        free_ok,free_goshow,nooccupy,jmp_nooccupy)
+  SELECT vpoint_id,main.point_arv,main.class,0,0,0,
+         NVL(pax.trok,0),NVL(pax.ok,0),NVL(pax.goshow,0),
+         NVL(pax.jmp_trok,0),NVL(pax.jmp_ok,0),NVL(pax.jmp_goshow,0),
+         0,0,0,0
   FROM
        (SELECT points.point_id AS point_arv,point_num,classes.code AS class
         FROM points,classes,trip_classes
@@ -641,9 +658,12 @@ BEGIN
               points.first_point=vfirst_point AND points.point_num>vpoint_num AND points.pr_del=0 AND
               (trip_classes.point_id IS NOT NULL OR cfg_exists=0 AND vpr_free_seating<>0)) main,
        (SELECT pax_grp.point_arv,pax_grp.class,
-               SUM(DECODE(pax_grp.status,'T',pax.seats,0)) AS trok,
-               SUM(DECODE(pax_grp.status,'K',pax.seats,'C',pax.seats,0)) AS ok,
-               SUM(DECODE(pax_grp.status,'P',pax.seats,0)) AS goshow
+               SUM(DECODE(NVL(pax.is_jmp, 0), 0, DECODE(pax_grp.status,'T',pax.seats,0), 0)) AS trok,
+               SUM(DECODE(NVL(pax.is_jmp, 0), 0, DECODE(pax_grp.status,'K',pax.seats,'C',pax.seats,0), 0)) AS ok,
+               SUM(DECODE(NVL(pax.is_jmp, 0), 0, DECODE(pax_grp.status,'P',pax.seats,0), 0)) AS goshow,
+               SUM(DECODE(NVL(pax.is_jmp, 0), 0, 0, DECODE(pax_grp.status,'T',pax.seats,0))) AS jmp_trok,
+               SUM(DECODE(NVL(pax.is_jmp, 0), 0, 0, DECODE(pax_grp.status,'K',pax.seats,'C',pax.seats,0))) AS jmp_ok,
+               SUM(DECODE(NVL(pax.is_jmp, 0), 0, 0, DECODE(pax_grp.status,'P',pax.seats,0))) AS jmp_goshow
         FROM pax_grp,pax
         WHERE pax_grp.grp_id=pax.grp_id AND
               pax_grp.point_dep=vpoint_id AND
@@ -670,12 +690,18 @@ BEGIN
 
   UPDATE counters2
   SET crs_tranzit=DECODE(vpr_tranzit,0,0,crs_tranzit),
-      tranzit=DECODE(vpr_tranzit,0,0,
-                     DECODE(vpr_tranz_reg,0,
-                            DECODE(SIGN(tranzit-crs_tranzit),-1,crs_tranzit,tranzit),tranzit))
+      tranzit=    DECODE(vpr_tranzit,0,0,
+                         DECODE(vpr_tranz_reg,0,
+                                DECODE(SIGN(tranzit-crs_tranzit),-1,crs_tranzit,tranzit),tranzit)),
+      jmp_tranzit=DECODE(vpr_tranzit,0,0,
+                         DECODE(vpr_tranz_reg,0,0,jmp_tranzit))
+
   WHERE point_dep=vpoint_id;
 
   ctrsOld.class:=NULL;
+  vsum.jmp_tr:=0;
+  vsum.jmp_ok:=0;
+  vsum.jmp_goshow:=0;
   OPEN cur1;
   FETCH cur1 INTO ctrsRow;
   IF (cur1%FOUND) THEN
@@ -691,20 +717,9 @@ BEGIN
       END IF;
       EXIT WHEN cur1%NOTFOUND;
       IF cur1%FOUND THEN
-  /*    IF pr_tranzit=0 THEN
-          ctrsRow.crs_tr:=0;
-          ctrsRow.tr:=0;
-        END IF;
-        IF pr_reg<>0 AND ctrsRow.tr<ctrsRow.crs_tr THEN
-          ctrsRow.tr:=ctrsRow.crs_tr;
-        END IF; */
         double_tr:=ctrsRow.tr-ctrsRow.crs_tr;
         IF double_tr<0 THEN double_tr:=0; END IF;
-        IF ctrsOld.class IS NULL OR ctrsOld.class<>ctrsRow.class THEN
-          double_ok:=ctrsRow.ok/*+ctrsRow.prot*/-ctrsRow.crs_ok;
-        ELSE
-          double_ok:=ctrsRow.ok-ctrsRow.crs_ok;
-        END IF;
+        double_ok:=ctrsRow.ok-ctrsRow.crs_ok;
         IF double_ok<0 THEN double_ok:=0; END IF;
         IF ctrsOld.class IS NULL OR ctrsOld.class<>ctrsRow.class THEN
           vsum.crs_tr:=0;
@@ -722,12 +737,20 @@ BEGIN
         vsum.tr:=vsum.tr+ctrsRow.tr;
         vsum.ok:=vsum.ok+ctrsRow.ok;
         vsum.goshow:=vsum.goshow+ctrsRow.goshow;
+        vsum.jmp_tr:=vsum.jmp_tr+ctrsRow.jmp_tr;
+        vsum.jmp_ok:=vsum.jmp_ok+ctrsRow.jmp_ok;
+        vsum.jmp_goshow:=vsum.jmp_goshow+ctrsRow.jmp_goshow;
       END IF;
       ctrsOld:=ctrsRow;
       FETCH cur1 INTO ctrsRow;
     END LOOP;
   END IF;
   CLOSE cur1;
+
+  UPDATE counters2
+  SET jmp_nooccupy=DECODE(vuse_jmp, 0, 0, vjmp_cfg)-vsum.jmp_tr-vsum.jmp_ok-vsum.jmp_goshow
+  WHERE point_dep=vpoint_id;
+
 EXCEPTION
   WHEN NO_DATA_FOUND THEN NULL;
 END recount;
@@ -837,8 +860,10 @@ BEGIN
         DELETE FROM pax_alarms WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_service_lists WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_services WHERE pax_id=curRow.pax_id;
+        DELETE FROM pax_services_auto WHERE pax_id=curRow.pax_id;
         DELETE FROM paid_rfisc WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_norms_text WHERE pax_id=curRow.pax_id;
+        DELETE FROM trfer_pax_stat WHERE pax_id=curRow.pax_id;
         DELETE FROM pax WHERE pax_id=curRow.pax_id;
         FOR langCurRow IN langCur LOOP
           UPDATE events_bilingual SET id2=NULL

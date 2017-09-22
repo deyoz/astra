@@ -46,7 +46,10 @@ BEGIN
                                               'ARX_TRIP_SETS',
                                               'ARX_TRIP_STAGES',
                                               'ARX_VALUE_BAG_TAXES',
-                                              'ARX_MARK_TRIPS'));
+                                              'ARX_MARK_TRIPS',
+                                              'ARX_ANNUL_BAG',
+                                              'ARX_ANNUL_TAGS',
+                                              'ARX_LIMITED_CAPABILITY_STAT'));
 
     /* Первый проход: Ищем названия partition и tablespace */
     /* Второй проход: Выводим строку ALTER */
