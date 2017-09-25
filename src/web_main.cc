@@ -1115,6 +1115,8 @@ void IntLoadPnr( const vector<TIdsPnrData> &ids,
         if ( iPax->doc.birth_date != NoExists )
             NewTextChild( paxNode, "birth_date", DateTimeToStr( iPax->doc.birth_date, ServerFormatDateTimeAsString ) );
         NewTextChild( paxNode, "pers_type", iPax->pers_type_extended );
+        NewTextChild( paxNode, "subclass", iPax->pass_subclass );
+        NewTextChild( paxNode, "class", iPax->pass_class );
         string seat_no_view;
         if ( !iPax->seat_no.empty() )
           seat_no_view = iPax->seat_no;
