@@ -68,7 +68,6 @@ buildboost="1"
 EXTERNALLIBS_DIR=${SIRENA_EXTERNALS:-$(pwd)/externallibs}
 
 
-
 function build_externallib() {
     ./bin/astra_update_and_build.sh $1 $EXTERNALLIBS_DIR/$1
     checkresult build_$1 $?
@@ -107,6 +106,7 @@ checkresult()
         exit 1
     fi
 }
+
 
 if [ $# -eq 0 ]; then
     usage
@@ -176,6 +176,11 @@ else
     done
 fi
 
+user=`echo ${CONNECT_STRING} | sed -e 's/\/.*//'`
+password=`echo ${CONNECT_STRING} | sed -e 's/.*\///'`
+PG_CONNECT_STRING="postgresql://$user:$password@localhost/${user}_db"
+
+
 #echo MAKE_J=${MAKE_J} TEST_J=${TEST_J}
 if [ `expr match "$CONNECT_STRING" "^-.*\$"` -ne 0 ]; then
     echo "invalid CONNECT_STRING='$CONNECT_STRING'"
@@ -231,6 +236,7 @@ if [ "$createtcl" = "1" ]; then
         XP_TESTING_FILES="$ASTRA_HOME/src/tests" \
         XP_TESTING_FILES_SERVERLIB="$ASTRA_HOME/locallibs/serverlib/src/testdata" \
         OURNAME='ASTRA' \
+        PG_CONNECT_STRING=$PG_CONNECT_STRING \
         ./create_local_tcl.sh)
     checkresult createtcl $?
 fi

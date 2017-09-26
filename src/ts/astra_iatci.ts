@@ -226,29 +226,6 @@ $(defmacro CHECK_SEARCH_PAX
 }) #end-of-macro
 
 
-$(defmacro CHECK_DCS_ADDR_SET
-{
-!! capture=on
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='cache' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <cache>
-      <params>
-        <code>DCS_ADDR_SET</code>
-        <data_ver/>
-        <interface_ver/>
-      </params>
-    </cache>
-  </query>
-</term>}
-
-
->> lines=auto
-        <title>Адреса систем регистрации</title>
-
-}) #end-of-macro
-
-
 $(defmacro CHECK_TCKIN_ROUTE_1
     point_dep
     point_arv
@@ -1870,7 +1847,6 @@ $(SAVE_ET_DISP $(get point_dep) 2986120030297)
 $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(CHECK_FLIGHT $(get point_dep) ЮТ 103 ДМД ПЛК)
 $(CHECK_SEARCH_PAX $(get point_dep) ЮТ 103 ДМД ПЛК REPIN IVAN К)
-$(CHECK_DCS_ADDR_SET)
 $(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN РБ)
 $(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN РБ)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
@@ -3660,7 +3636,6 @@ $(OPEN_CHECKIN $(get point_dep))
 $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 #!! $(CHECK_FLIGHT $(get point_dep) ЮТ 103 ДМД ПЛК)
 $(CHECK_SEARCH_PAX $(get point_dep) ЮТ 103 ДМД ПЛК REPIN IVAN К)
-$(CHECK_DCS_ADDR_SET)
 $(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN ВЗ)
 $(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN ВЗ)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
@@ -3722,7 +3697,6 @@ $(SAVE_ET_DISP $(get point_dep) 2986120030297)
 $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(CHECK_FLIGHT $(get point_dep) ЮТ 103 ДМД ПЛК)
 $(CHECK_SEARCH_PAX $(get point_dep) ЮТ 103 ДМД ПЛК REPIN IVAN К)
-$(CHECK_DCS_ADDR_SET)
 $(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN ВЗ)
 $(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN ВЗ)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
@@ -3808,7 +3782,6 @@ $(SAVE_ET_DISP $(get point_dep) 2986120030297)
 $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(CHECK_FLIGHT $(get point_dep) ЮТ 103 ДМД ПЛК)
 $(CHECK_SEARCH_PAX $(get point_dep) ЮТ 103 ДМД ПЛК REPIN IVAN К)
-$(CHECK_DCS_ADDR_SET)
 $(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN ВЗ)
 $(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN ВЗ)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
@@ -3977,7 +3950,6 @@ $(SAVE_ET_DISP $(get point_dep) 2986120030297)
 $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(CHECK_FLIGHT $(get point_dep) ЮТ 103 ДМД ПЛК)
 $(CHECK_SEARCH_PAX $(get point_dep) ЮТ 103 ДМД ПЛК REPIN IVAN К)
-$(CHECK_DCS_ADDR_SET)
 $(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN ВЗ)
 $(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN ВЗ)
 $(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ЮТ 103 ДМД ПЛК
@@ -4052,7 +4024,6 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(CHECK_FLIGHT $(get point_dep) ЮТ 103 ДМД ПЛК)
 $(CHECK_SEARCH_PAX $(get point_dep) ЮТ 103 ДМД ПЛК REPIN IVAN К)
 $(CHECK_SEARCH_PAX $(get point_dep) ЮТ 103 ДМД ПЛК PETROV PETR К)
-$(CHECK_DCS_ADDR_SET)
 $(CHECK_TCKIN_ROUTE_GRP_1 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN ВЗ PETROV PETR РБ)
 $(CHECK_TCKIN_ROUTE_GRP_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN IVAN ВЗ PETROV PETR РБ)
 
@@ -4620,7 +4591,6 @@ $(CHECK_ADV_TRIPS_LIST $(get point_dep) ЮТ 103 ДМД)
 $(CHECK_FLIGHT $(get point_dep) ЮТ 103 ДМД ПЛК)
 # $(CHECK_SEARCH_PAX $(get point_dep) ЮТ 103 ДМД ПЛК REPIN ADULT К)
 # $(CHECK_SEARCH_PAX $(get point_dep) ЮТ 103 ДМД ПЛК REPIN INFANT К)
-$(CHECK_DCS_ADDR_SET)
 $(CHECK_TCKIN_ROUTE_GRP_1 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN ADULT ВЗ REPIN INFANT РМ)
 $(CHECK_TCKIN_ROUTE_GRP_2 $(get point_dep) $(get point_arv) С7 1027 ПЛК СОЧ REPIN ADULT ВЗ REPIN INFANT РМ)
 
