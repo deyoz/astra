@@ -96,7 +96,10 @@ void BMConnection::init()
     activeIp = 0;
     login = getTCLParam( "SBM_LOGIN", NULL );
     password = getTCLParam( "SBM_PASSWORD", NULL );
-    heartBeat = getTCLParam( "SBM_HEARTBEAT_INTERVAL", 0, 60, 30 );
+    heartBeat = getTCLParam( "SBM_HEARTBEAT_INTERVAL", 1, 60, 30 );
+    heartBeatTimeout = getTCLParam( "SBM_HEARTBEAT_TIMEOUT", 1, 300, 105 );
+    loginTimeout = getTCLParam( "SBM_LOGIN_TIMEOUT", 1, 30, 15 );
+    ackTimeout = getTCLParam( "SBM_ACK_MSG_TIMEOUT", 1, 30, 15 );
 /* Следы отладки 2-линейного варианта. Потом можно будет убрать
   }
   else if( line_number == 1 )
@@ -111,9 +114,10 @@ void BMConnection::init()
     heartBeat = getTCLParam( "SBM_HEARTBEAT_INTERVAL", 0, 60, 30 );
   }
 */
-  ProgTrace( TRACE0, "BMConnection::init(): line_number=%d,ip[0]=%s:%d,ip[1]=%s:%d,login=%s,password=%s,heartbeat=%d",
+  ProgTrace( TRACE0, "BMConnection::init(): line_number=%d,ip[0]=%s:%d,ip[1]=%s:%d,login=%s,password=%s,heartbeat=%d,heartbeatTimeout=%d,"
+                     "loginTimeout=%d,ackTimeout=%d",
              line_number, ip_addr[0].host.c_str(), ip_addr[0].port, ip_addr[1].host.c_str(), ip_addr[1].port,
-             login.c_str(), password.c_str(), heartBeat );
+             login.c_str(), password.c_str(), heartBeat, heartBeatTimeout, loginTimeout, ackTimeout );
   configured = true;
   // Если вдруг возникла необходимость перечитать конфигурацию - то скорее всего был обрыв связи,
   // и нужно восстанавливать заново и соединение, и вход в систему
@@ -161,7 +165,7 @@ void BMConnection::connect()
   ip::tcp::endpoint ep( ip::address::from_string( ip->host ), ip->port );
   if( socket.is_open() ) // Тонкость: если сокет почему-то уже открытый - то установка соединения не проходит. Так что надо закрыть.
     socket.close();
-  ProgTrace( TRACE5, "connection %d try to connect", line_number );
+  ProgTrace( TRACE5, "connection %d try to connect on %s:%d ...", line_number, ip->host.c_str(), ip->port );
   adminStartTime = microsec_clock::local_time();
   socket.async_connect( ep, boost::bind( &BMConnection::onConnect, this, boost::asio::placeholders::error) );
 }
@@ -208,9 +212,9 @@ void BMConnection::doSendMessage()
   if( header.type == ACK_DATA )
   {
     waitForAck = header.message_id_number;
-    waitForAckTime = time( NULL );
-    ProgTrace( TRACE5, "connection %d set timer for ACK_DATA - id=%d(tlg_id=%d),now=%lu",
-               line_number, waitForAck, waitForAckId, waitForAckTime );
+    waitForAckTime = microsec_clock::local_time();
+    ProgTrace( TRACE5, "connection %d set timer for ACK_DATA - id=%d tlg_id=%d now=%s",
+               line_number, waitForAck, waitForAckId, to_iso_string( waitForAckTime ).c_str() );
   }
   else
   {
@@ -426,10 +430,10 @@ void BMConnection::checkTimer()
   time_t now = time( NULL );
   if( loginStatus == BM_OP_WAIT )
   {
-    if( now - lastSendTime >= heartBeat )
+    if( now - lastSendTime >= loginTimeout )
     { // Ответ на запрос логина не пришел - надо начинать с начала
       ProgError( STDLOG, "SITA BagMessage: no LOGIN_ACCEPT input message on connection %d after %d seconds waiting",
-                 line_number, heartBeat );
+                 line_number, loginTimeout );
       loginStatus = BM_OP_NONE;
     }
   }
@@ -439,20 +443,25 @@ void BMConnection::checkTimer()
     { // давно ничего не посылали - надо послать статус
       sendMessage( STATUS );
     }
-    if( now - lastRecvTime >= 7 * heartBeat / 2 )
+    if( now - lastRecvTime >= heartBeatTimeout )
     { // давно ничего не получали - считаем, что линия грохнулась
       ProgError( STDLOG, "SITA BagMessage: no input messages on connection %d in last %d seconds - connection may be failed",
-                 line_number, 7 * heartBeat / 2 );
+                 line_number, heartBeatTimeout );
       socket.close();
       reset();
       // И после этого в основном рабочем цикле заново начнется установка связи и прочее
     }
-    if( waitForAck >= 0 && now - waitForAckTime > 1 )
-    { // Запросили подтверждение приема, а оно не пришло вовремя
-      ProgTrace( TRACE5, "connection %d TIMEOUT! now=%lu, waitForAckTime=%lu - No acknowledgment for message id=%d - resending",
-                 line_number, now, waitForAckTime, waitForAck );
-      waitForAck = -1;
-      doSendMessage();
+    if( waitForAck >= 0 ) // Есть ожидающий запрос подтверждения
+    {
+      ptime pnow = microsec_clock::local_time();
+      time_duration d = pnow - waitForAckTime;
+      if( d.total_seconds() >= ackTimeout )
+      { // Запросили подтверждение приема, а оно не пришло вовремя
+        ProgTrace( TRACE5, "connection %d TIMEOUT! pnow=%s, waitForAckTime=%s - No acknowledgment for message id=%d - resending",
+                   line_number, to_iso_string( pnow ).c_str(), to_iso_string( waitForAckTime ).c_str(), waitForAck );
+        waitForAck = -1;
+        doSendMessage();
+      }
     }
   }
 }
