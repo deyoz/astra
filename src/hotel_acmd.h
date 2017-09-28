@@ -10,11 +10,14 @@ class HotelAcmdInterface : public JxtInterface
         HotelAcmdInterface() : JxtInterface("","hotel_acmd")
     {
         Handler *evHandle;
-        evHandle=JxtHandler<HotelAcmdInterface>::CreateHandler(&HotelAcmdInterface::ViewHotelPaxList);
-        AddEvent("ViewHotelPaxList",evHandle);
+        evHandle=JxtHandler<HotelAcmdInterface>::CreateHandler(&HotelAcmdInterface::Save);
+        AddEvent("Save",evHandle);
+        evHandle=JxtHandler<HotelAcmdInterface>::CreateHandler(&HotelAcmdInterface::View);
+        AddEvent("View",evHandle);
     }
 
-        void ViewHotelPaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+        void View(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+        void Save(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
 #endif
