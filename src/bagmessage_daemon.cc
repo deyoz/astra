@@ -1,4 +1,5 @@
 #include <serverlib/new_daemon.h>
+#include <unistd.h>
 
 #include "file_queue.h"
 #include "astra_utils.h"
@@ -132,6 +133,7 @@ void run_bag_msg_process( const char *cmd, const std::string &name )
 
   for(;;)
   {
+    usleep( 1000 ); // Чтобы процессор не грузить
     if( io.stopped() ) // Обязательно! Иначе сервис дойдет до конца своей очереди, остановится и больше ничего делать не будет.
       io.reset();
     InitLogTime( cmd ); // Чтобы время в лог правильно писалось.
