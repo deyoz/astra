@@ -8059,7 +8059,8 @@ void TDestList<T>::get_subcls_lst(TypeB::TDetailCreateInfo &info, list<string> &
         QryParams << QParam("point_id", otInteger, info.point_id);
         TCachedQuery Qry(
                 "select distinct nvl(pax.subclass, pax_grp.class) subcls from pax, pax_grp "
-                "where pax_grp.point_dep = :point_id and pax_grp.grp_id = pax.grp_id",
+                "where pax_grp.point_dep = :point_id and pax_grp.grp_id = pax.grp_id and "
+                "   pax_grp.status NOT IN ('E') ",
                 QryParams);
         Qry.get().Execute();
         for(; not Qry.get().Eof; Qry.get().Next())
