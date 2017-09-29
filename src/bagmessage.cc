@@ -81,6 +81,14 @@ void BMConnection::reset()
   needSendAck = -1;
 }
 
+void BMConnection::resetAndSwitch()
+{
+  socket.close(); // Он может остаться открытым, и тогда повторный async_connect() не проходит - надо закрыть
+  reset();
+  channelStart = 0;
+  activeIp = ( activeIp + 1 ) % NUMLINES; // Чтобы следующая попытка была по другой линии
+}
+
 void BMConnection::init()
 {
   if( configured )
@@ -100,6 +108,7 @@ void BMConnection::init()
     heartBeatTimeout = getTCLParam( "SBM_HEARTBEAT_TIMEOUT", 1, 300, 105 );
     loginTimeout = getTCLParam( "SBM_LOGIN_TIMEOUT", 1, 30, 15 );
     ackTimeout = getTCLParam( "SBM_ACK_MSG_TIMEOUT", 1, 30, 15 );
+    warmUpTimeout = getTCLParam( "SBM_WARM_UP_TIMEOUT", 5, 240, 120 );
 /* Следы отладки 2-линейного варианта. Потом можно будет убрать
   }
   else if( line_number == 1 )
@@ -115,13 +124,14 @@ void BMConnection::init()
   }
 */
   ProgTrace( TRACE0, "BMConnection::init(): line_number=%d,ip[0]=%s:%d,ip[1]=%s:%d,login=%s,password=%s,heartbeat=%d,heartbeatTimeout=%d,"
-                     "loginTimeout=%d,ackTimeout=%d",
+                     "loginTimeout=%d,ackTimeout=%d,warmUpTimeout=%d",
              line_number, ip_addr[0].host.c_str(), ip_addr[0].port, ip_addr[1].host.c_str(), ip_addr[1].port,
-             login.c_str(), password.c_str(), heartBeat, heartBeatTimeout, loginTimeout, ackTimeout );
+             login.c_str(), password.c_str(), heartBeat, heartBeatTimeout, loginTimeout, ackTimeout, warmUpTimeout );
   configured = true;
   // Если вдруг возникла необходимость перечитать конфигурацию - то скорее всего был обрыв связи,
   // и нужно восстанавливать заново и соединение, и вход в систему
   reset();
+  channelStart = 0;
   lastAdmin = 0;
   mes_num = 1;
   if( wbuf != NULL )
@@ -146,9 +156,7 @@ void BMConnection::onConnect( const boost::system::error_code& err )
   {
     ProgError( STDLOG, "Connection %d: Cannot connect to SITA BagMessage on %s:%d. error=%d(%s) wait=%ld ms", line_number,
                ip->host.c_str(), ip->port, err.value(), err.message().c_str(), cd.total_milliseconds() );
-    socket.close(); // При асинхронной операции он остается открытым, и повторный async_connect() не проходит - надо закрыть
-    reset();
-    activeIp = ( activeIp + 1 ) % NUMLINES; // Чтобы при неудачной попытке установить связь следующая попытка была по другой линии
+    resetAndSwitch();
   }
 }
 
@@ -161,6 +169,11 @@ void BMConnection::connect()
     return;
   connected = BM_OP_WAIT;
   lastAdmin = now;
+  if( channelStart == 0 )
+  {
+    channelStart = now;
+    ProgTrace( TRACE5, "connection %d warmup begins at time %lu", line_number, channelStart );
+  }
   BM_HOST *ip = & ip_addr[ activeIp ];
   ip::tcp::endpoint ep( ip::address::from_string( ip->host ), ip->port );
   if( socket.is_open() ) // Тонкость: если сокет почему-то уже открытый - то установка соединения не проходит. Так что надо закрыть.
@@ -365,6 +378,7 @@ void BMConnection::checkInput()
           ProgTrace( TRACE5, "SITA BagMessage: login accepted for connection %d after %ld ms waiting",
                      line_number, cd.total_milliseconds() );
           loginStatus = BM_OP_READY;
+          channelStart = 0;
           break;
         case LOGIN_REJECT:
           ProgError( STDLOG, "SITA BagMessage: login rejected for connection %d!!! Login or password may be incorrect.", line_number );
@@ -382,7 +396,7 @@ void BMConnection::checkInput()
               writeHandler = NULL;
             }
           }
- /*
+/* Если строго по протоколу - то должно быть так:
           else if( waitForAck > 0 )
           {
             ProgTrace( TRACE5, "... but we are waiting for id=%d - resending need!", waitForAck );
@@ -392,6 +406,9 @@ void BMConnection::checkInput()
           {
             ProgTrace( TRACE5, "... but we are not waiting for anything - ignore" );
           }
+   Но при очень плохой связи с очень большими задержками это приводит к тому, что одно и то же сообщение посылается много раз,
+   потом подтверждается много раз, и начиная со второго раза эти подтверждения считаются "неожиданными" и могут привести
+   к повторной посылке следующих сообщений. Так что ...
 */
           else
           {
@@ -428,7 +445,13 @@ void BMConnection::checkInput()
 void BMConnection::checkTimer()
 {
   time_t now = time( NULL );
-  if( loginStatus == BM_OP_WAIT )
+  if( channelStart != 0 && now - channelStart >= warmUpTimeout )
+  {
+    ProgError( STDLOG, "SITA BagMessage: cannot warm up connection %d in %d seconds - try to switch channels",
+               line_number, warmUpTimeout );
+    resetAndSwitch();
+  }
+  else if( loginStatus == BM_OP_WAIT )
   {
     if( now - lastSendTime >= loginTimeout )
     { // Ответ на запрос логина не пришел - надо начинать с начала
