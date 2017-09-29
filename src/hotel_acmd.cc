@@ -278,6 +278,9 @@ struct TAcmdDate {
 
 void TAcmdDate::toDB()
 {
+    TTripInfo info;
+    info.getByPointId(point_id);
+
     TCachedQuery Qry(
             "begin "
             "   insert into hotel_acmd_dates ( "
@@ -299,8 +302,8 @@ void TAcmdDate::toDB()
             "end; ",
             QParams()
             << QParam("point_id", otInteger, point_id)
-            << QParam("acmd_date_from", otDate, acmd_date_from)
-            << QParam("acmd_date_to", otDate, acmd_date_to));
+            << QParam("acmd_date_from", otDate, LocalToUTC(acmd_date_from, AirpTZRegion(info.airp)))
+            << QParam("acmd_date_to", otDate, LocalToUTC(acmd_date_to, AirpTZRegion(info.airp))));
     Qry.get().Execute();
 }
 
