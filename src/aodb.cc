@@ -600,6 +600,10 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
       int category = 0;
       while ( !RemQry.Eof && category == 0 ) {
         string rem = RemQry.FieldAsString( "rem_code" );
+        if ( rem == "DVIP" ) {
+          category = 1;
+        }
+        else
         if ( rem == "VIP" ) {
           category = 2;
         }
