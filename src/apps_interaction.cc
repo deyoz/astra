@@ -9,6 +9,7 @@
 #include "exceptions.h"
 #include "points.h"
 #include "qrys.h"
+#include "trip_tasks.h"
 #include "tlg/tlg.h"
 
 #define NICKNAME "ANNA"
@@ -1928,7 +1929,7 @@ static void sendAPPSInfo( const int point_id, const int point_id_tlg )
       processPax( Qry.FieldAsInteger( "pax_id" ) );
 }
 
-void sendAllAPPSInfo( const int point_id, const std::string& task_name, const std::string& params )
+void sendAllAPPSInfo(const TTripTaskKey &task)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -1938,14 +1939,14 @@ void sendAllAPPSInfo( const int point_id, const std::string& task_name, const st
     "WHERE tlg_binding.point_id_spp=points.point_id AND "
     "      point_id_spp=:point_id_spp AND "
     "      points.pr_del=0 AND points.pr_reg<>0";
-  Qry.CreateVariable("point_id_spp", otInteger, point_id);
+  Qry.CreateVariable("point_id_spp", otInteger, task.point_id);
   Qry.Execute();
 
   for( ; !Qry.Eof; Qry.Next() )
-    sendAPPSInfo( point_id, Qry.FieldAsInteger("point_id_tlg") );
+    sendAPPSInfo( task.point_id, Qry.FieldAsInteger("point_id_tlg") );
 }
 
-void sendNewAPPSInfo( const int point_id, const std::string& task_name, const std::string& params )
+void sendNewAPPSInfo(const TTripTaskKey &task)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -1954,11 +1955,11 @@ void sendNewAPPSInfo( const int point_id, const std::string& task_name, const st
                "WHERE need_apps <> 0 AND point_id_spp = :point_id_spp AND "
                "      crs_pax.pnr_id = crs_pnr.pnr_id AND "
                "      crs_pnr.point_id = tlg_binding.point_id_tlg";
-  Qry.CreateVariable("point_id_spp", otInteger, point_id);
+  Qry.CreateVariable("point_id_spp", otInteger, task.point_id);
   Qry.Execute();
 
   TFlights flightsForLock;
-  flightsForLock.Get( point_id, ftTranzit );
+  flightsForLock.Get( task.point_id, ftTranzit );
   flightsForLock.Lock(__FUNCTION__);
 
   for( ; !Qry.Eof; Qry.Next() ) {

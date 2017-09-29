@@ -5,7 +5,7 @@
 #include <string>
 #include "oralib.h"
 #include "astra_consts.h"
-
+#include "trip_tasks.h"
 #include "apis_creator.h"
 
 namespace APIS
@@ -21,7 +21,7 @@ std::string GetCustomsRegulCountry(const std::string &depend,
 
 };
 
-void create_apis_task(int point_id, const std::string& task_name, const std::string &params);
+void create_apis_task(const TTripTaskKey &task);
 
 #if !USE_NEW_CREATE_APIS
 

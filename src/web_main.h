@@ -9,6 +9,7 @@
 #include "checkin_utils.h"
 #include "brands.h"
 #include "etick.h"
+#include "trip_tasks.h"
 #include <tuple>
 #include <vector>
 #include <cstdint>
@@ -177,8 +178,8 @@ int nosir_parse_bcbp(int argc,char **argv);
 
 namespace TypeB
 {
-  void SyncNewCHKD(int point_id_spp, const std::string& task_name, const std::string& params);
-  void SyncAllCHKD(int point_id_spp, const std::string& task_name, const std::string& params);
+  void SyncNewCHKD(const TTripTaskKey &task);
+  void SyncAllCHKD(const TTripTaskKey &task);
 } // namespace TypeB
 
 #endif // __WEB_MAIN_H__

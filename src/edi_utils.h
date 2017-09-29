@@ -66,8 +66,11 @@ void copy_notify_levb(int src_edi_sess_id,
                       bool err_if_not_found);
 void confirm_notify_levb(int edi_sess_id, bool err_if_not_found);
 std::string make_xml_kick(const edifact::KickInfo &kickInfo);
-edifact::KickInfo createKickInfo(int v_reqCtxtId,
+edifact::KickInfo createKickInfo(const int v_reqCtxtId,
                                  const std::string &v_iface);
+edifact::KickInfo createKickInfo(const int v_reqCtxtId,
+                                 const int v_point_id,
+                                 const std::string &v_task_name);
 
 void addToEdiResponseCtxt(int ctxtId,
                           const xmlNodePtr srcNode,
@@ -76,21 +79,10 @@ void addToEdiResponseCtxt(int ctxtId,
 void getEdiResponseCtxt(int ctxtId,
                         bool clear,
                         const std::string &where,
-                        std::string &context,
-                        bool throwEmpty=true);
-
-void getEdiResponseCtxt(int ctxtId,
-                        bool clear,
-                        const std::string &where,
                         XMLDoc &xmlCtxt,
-                        bool throwEmpty=true);
+                        bool throwIfEmpty=true);
 
 void getTermRequestCtxt(int ctxtId,
-                        bool clear,
-                        const std::string &where,
-                        XMLDoc &xmlCtxt);
-
-void getHttpRequestCtxt(int ctxtId,
                         bool clear,
                         const std::string &where,
                         XMLDoc &xmlCtxt);
@@ -98,11 +90,11 @@ void getHttpRequestCtxt(int ctxtId,
 void getEdiSessionCtxt(int sessIda,
                        bool clear,
                        const std::string& where,
-                       XMLDoc &xmlCtxt);
+                       XMLDoc &xmlCtxt,
+                       bool throwIfEmpty);
 
-std::string getEdiSessionCtxt(int sessIda,
-                              bool clear,
-                              bool throwEmpty = true);
+void traceEdiSessionCtxt(int sessIda, const std::string &whence);
+void traceTermRequestCtxt(int sessIda, const std::string &whence);
 
 void cleanOldRecords(int min_ago);
 

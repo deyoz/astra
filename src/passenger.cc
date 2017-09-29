@@ -1445,6 +1445,13 @@ bool TSimplePaxItem::upward_within_bag_pool(const TSimplePaxItem& pax) const
   return res>0;
 }
 
+void TSimplePaxItem::UpdTid(int pax_id)
+{
+  TCachedQuery Qry("UPDATE pax SET tid=cycle_tid__seq.nextval WHERE pax_id=:pax_id",
+                   QParams() << QParam("pax_id", otInteger, pax_id));
+  Qry.get().Execute();
+}
+
 TAPISItem& TAPISItem::fromDB(int pax_id)
 {
   clear();
@@ -1871,6 +1878,13 @@ void TPaxGrpItem::SyncServiceAuto(const TTripInfo& flt)
     if (!svc_auto) svc_auto=TGrpServiceAutoList();
     svc_auto.get().push_back(item);
   }
+}
+
+void TPaxGrpItem::UpdTid(int grp_id)
+{
+  TCachedQuery Qry("UPDATE pax_grp SET tid=cycle_tid__seq.nextval WHERE grp_id=:grp_id",
+                   QParams() << QParam("grp_id", otInteger, grp_id));
+  Qry.get().Execute();
 }
 
 TPnrAddrItem& TPnrAddrItem::fromDB(TQuery &Qry)

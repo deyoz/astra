@@ -6,19 +6,52 @@
 
 namespace edifact {
 
+struct JxtHandlerForKick
+{
+    std::string iface;
+    std::string handle;
+
+  public:
+    JxtHandlerForKick(const std::string &_iface, const std::string &_handle) :
+      iface(_iface), handle(_handle) {}
+    JxtHandlerForKick(xmlNodePtr node) { fromXML(node); }
+    void clear();
+    const JxtHandlerForKick& toXML(xmlNodePtr node) const;
+    JxtHandlerForKick& fromXML(xmlNodePtr node);
+};
+
+struct TripTaskForPostpone
+{
+    int point_id;
+    std::string name;
+
+  public:
+    TripTaskForPostpone(const int &_point_id, const std::string &_name) :
+      point_id(_point_id), name(_name) {}
+    TripTaskForPostpone(xmlNodePtr node) { fromXML(node); }
+    void clear();
+    const TripTaskForPostpone& toXML(xmlNodePtr node) const;
+    TripTaskForPostpone& fromXML(xmlNodePtr node);
+};
+
 struct KickInfo
 {
     int reqCtxtId;
-    std::string iface;
-    std::string handle;
     int parentSessId;
     std::string msgId;
     std::string desk;
+    boost::optional<JxtHandlerForKick> jxt;
+    boost::optional<TripTaskForPostpone> task;
 
   public:
-    KickInfo();
+    KickInfo() { clear(); }
     KickInfo(const int v_reqCtxtId,
              const std::string& v_iface,
+             const std::string& v_msgid,
+             const std::string& v_desk);
+    KickInfo(const int v_reqCtxtId,
+             const int v_point_id,
+             const std::string& v_task_name,
              const std::string& v_msgid,
              const std::string& v_desk);
 

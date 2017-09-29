@@ -5,6 +5,7 @@
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "transfer.h"
+#include "trip_tasks.h"
 #include "serverlib/posthooks.h"
 
 class Alarm
@@ -116,7 +117,7 @@ void check_u_trfer_alarm_for_next_trfer( int id,  //м.б. point_id или grp_id
                                          ASTRA::TIdType id_type );
 bool check_conflict_trfer_alarm(int point_id);
 void check_crew_alarms(int point_id);
-void check_crew_alarms_task(int point_id, const std::string& task_name, const std::string &params);
+void check_crew_alarms_task(const TTripTaskKey &task);
 void check_apis_alarms(int point_id);
 void check_apis_alarms(int point_id, const std::set<Alarm::Enum> &checked_alarms);
 bool check_apps_alarm( int point_id );
