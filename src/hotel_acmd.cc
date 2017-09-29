@@ -258,6 +258,88 @@ void THotelAcmdPax::fromDB(int point_id)
     }
 }
 
+struct TAcmdDate {
+    int point_id;
+    TDateTime acmd_date_from;
+    TDateTime acmd_date_to;
+
+    TAcmdDate():
+        point_id(NoExists),
+        acmd_date_from(NoExists),
+        acmd_date_to(NoExists)
+    {}
+
+    void fromDB(int point_id);
+    void fromXML(xmlNodePtr node);
+
+    void toXML(xmlNodePtr node);
+    void toDB();
+};
+
+void TAcmdDate::toDB()
+{
+    TCachedQuery Qry(
+            "begin "
+            "   insert into hotel_acmd_dates ( "
+            "       point_id, "
+            "       acmd_date_from, "
+            "       acmd_date_to "
+            "   ) values ( "
+            "       :point_id, "
+            "       :acmd_date_from, "
+            "       :acmd_date_to "
+            "   ); "
+            "exception "
+            "   when dup_val_on_index then "
+            "       update hotel_acmd_dates set "
+            "           acmd_date_from = :acmd_date_from, "
+            "           acmd_date_to = :acmd_date_to "
+            "       where "
+            "           point_id = :point_id; "
+            "end; ",
+            QParams()
+            << QParam("point_id", otInteger, point_id)
+            << QParam("acmd_date_from", otDate, acmd_date_from)
+            << QParam("acmd_date_to", otDate, acmd_date_to));
+    Qry.get().Execute();
+}
+
+void TAcmdDate::fromXML(xmlNodePtr node)
+{
+    point_id = NodeAsInteger("point_id", node);
+    acmd_date_from = NodeAsDateTime("acmd_date_from", node);
+    acmd_date_to = NodeAsDateTime("acmd_date_to", node);
+    if(acmd_date_to < acmd_date_from)
+        throw AstraLocale::UserException("MSG.INVALID_RANGE");
+}
+
+void TAcmdDate::toXML(xmlNodePtr node)
+{
+    TTripInfo info;
+    info.getByPointId(point_id);
+    NewTextChild(node, "acmd_date_from",
+            DateTimeToStr(UTCToLocal(acmd_date_from, AirpTZRegion(info.airp)),
+                ServerFormatDateTimeAsString));
+    NewTextChild(node, "acmd_date_to",
+            DateTimeToStr(UTCToLocal(acmd_date_to, AirpTZRegion(info.airp)),
+                ServerFormatDateTimeAsString));
+}
+
+void TAcmdDate::fromDB(int apoint_id)
+{
+    point_id = apoint_id;
+    TCachedQuery Qry("select * from hotel_acmd_dates where point_id = :point_id",
+            QParams() << QParam("point_id", otInteger, point_id));
+    Qry.get().Execute();
+    acmd_date_from = NowUTC();
+    acmd_date_to = acmd_date_from;
+    if(not Qry.get().Eof) {
+        acmd_date_from = Qry.get().FieldAsDateTime("acmd_date_from");
+        acmd_date_to = Qry.get().FieldAsDateTime("acmd_date_to");
+    }
+
+}
+
 void HotelAcmdInterface::View(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     int point_id = NodeAsInteger( "point_id", reqNode );
@@ -292,11 +374,19 @@ void HotelAcmdInterface::View(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     NewTextChild(defaultsNode, "dinner", 0);
     NewTextChild(defaultsNode, "supper", 0);
 
+    TAcmdDate acmd_date;
+    acmd_date.fromDB(point_id);
+    acmd_date.toXML(resNode);
+
     LogTrace(TRACE5) << GetXMLDocText(resNode->doc);
 }
 
 void HotelAcmdInterface::Save(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TAcmdDate acmd_date;
+    acmd_date.fromXML(reqNode);
+    acmd_date.toDB();
+
     THotelAcmdPax acmd_pax;
     acmd_pax.fromXML(reqNode);
     list<pair<int, int> > inserted_paxes;
