@@ -33,6 +33,8 @@ struct THotelAcmdPaxItem {
 
 struct THotelAcmdPax
 {
+    int point_id;
+    THotelAcmdPax(): point_id(NoExists) {}
     map<int, THotelAcmdPaxItem> items;
     void fromDB(int point_id);
     void fromXML(xmlNodePtr reqNode);
@@ -52,7 +54,7 @@ struct TPaxListItem {
 };
 
 struct TPaxList {
-    list<TPaxListItem> items;
+    map<int, TPaxListItem> items;
     void fromDB(int point_id);
 };
 
@@ -86,7 +88,7 @@ void TPaxList::fromDB(int point_id)
             item.reg_no = crsQry.get().FieldAsInteger("reg_no");
         item.pers_type = DecodePerson(crsQry.get().FieldAsString("pers_type"));
         item.full_name = crsQry.get().FieldAsString("full_name");
-        items.push_back(item);
+        items[item.pax_id] = item;
     }
 
     // норики
@@ -101,7 +103,7 @@ void TPaxList::fromDB(int point_id)
         item.reg_no = pax.reg_no;
         item.pers_type = pax.pers_type;
         item.full_name = pax.surname + " " + pax.name;
-        items.push_back(item);
+        items[item.pax_id] = item;
     }
 
     // паксы введенные вручную
@@ -113,7 +115,7 @@ void TPaxList::fromDB(int point_id)
         item.pax_id = freePaxQry.get().FieldAsInteger("pax_id");
         item.pers_type = DecodePerson(freePaxQry.get().FieldAsString("pers_type"));
         item.full_name = freePaxQry.get().FieldAsString("full_name");
-        items.push_back(item);
+        items[item.pax_id] = item;
     }
 }
 
@@ -141,8 +143,14 @@ void THotelAcmdPax::toDB(list<pair<int, int> > &inserted_paxes)
             << QParam("full_name", otString)
             << QParam("pers_type", otString));
 
-    TCachedQuery delQry("delete from hotel_acmd_pax where pax_id = :pax_id",
-            QParams() << QParam("pax_id", otInteger));
+    TCachedQuery delQry(
+            "begin "
+            "  select hotel_id into :hotel_id from hotel_acmd_pax where pax_id = :pax_id; "
+            "  delete from hotel_acmd_pax where pax_id = :pax_id; "
+            "end; ",
+            QParams()
+            << QParam("pax_id", otInteger)
+            << QParam("hotel_id", otInteger));
 
     TCachedQuery insQry(
             "begin "
@@ -183,6 +191,8 @@ void THotelAcmdPax::toDB(list<pair<int, int> > &inserted_paxes)
             << QParam("breakfast", otInteger)
             << QParam("dinner", otInteger)
             << QParam("supper", otInteger));
+    TPaxList pax_list;
+    pax_list.fromDB(point_id);
     for(map<int, THotelAcmdPaxItem>::iterator pax = items.begin();
             pax != items.end(); pax++) {
         if(pax->second.pax_id == NoExists) {
@@ -193,9 +203,29 @@ void THotelAcmdPax::toDB(list<pair<int, int> > &inserted_paxes)
             pax->second.pax_id = newPaxQry.get().GetVariableAsInteger("pax_id");
             inserted_paxes.push_back(make_pair(pax->second.idx, pax->second.pax_id));
         }
+
+        // Проверим, что в базе есть такой пакс
+        if(pax_list.items.find(pax->second.pax_id) == pax_list.items.end())
+            throw AstraLocale::UserException("MSG.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+
+        CheckIn::TSimplePaxItem ckin_pax;
+        int reg_no = NoExists;
+        int grp_id = NoExists;
+        if(ckin_pax.getByPaxId(pax->second.pax_id)) {
+            reg_no = ckin_pax.reg_no;
+            grp_id = ckin_pax.grp_id;
+        }
+
+
         if(pax->second.hotel_id == NoExists) {
             delQry.get().SetVariable("pax_id", pax->second.pax_id);
             delQry.get().Execute();
+            if(delQry.get().RowsProcessed()) {
+                LEvntPrms params;
+                params << PrmSmpl<std::string>("full_name", pax->second.full_name);
+                params << PrmSmpl<string>("hotel_name", ElemIdToNameLong(etHotel, delQry.get().GetVariableAsInteger("hotel_id")));
+                TReqInfo::Instance()->LocaleToLog("EVT.HOTEL_ACMD_ANNUL", params, ASTRA::evtPax, point_id, reg_no, grp_id);
+            }
         } else {
             insQry.get().SetVariable("pax_id", pax->second.pax_id);
             insQry.get().SetVariable("point_id", pax->second.point_id);
@@ -205,13 +235,22 @@ void THotelAcmdPax::toDB(list<pair<int, int> > &inserted_paxes)
             insQry.get().SetVariable("dinner", pax->second.dinner);
             insQry.get().SetVariable("supper", pax->second.supper);
             insQry.get().Execute();
+
+            LEvntPrms params;
+            params << PrmSmpl<std::string>("full_name", pax->second.full_name);
+            params << PrmSmpl<string>("hotel_name", ElemIdToNameLong(etHotel, pax->second.hotel_id));
+            params << PrmSmpl<string>("room_type", ElemIdToNameLong(etHotelRoomType, pax->second.room_type));
+            params << PrmBool("breakfast", pax->second.breakfast);
+            params << PrmBool("dinner", pax->second.dinner);
+            params << PrmBool("supper", pax->second.supper);
+            TReqInfo::Instance()->LocaleToLog("EVT.HOTEL_ACMD", params, ASTRA::evtPax, point_id, reg_no, grp_id);
         }
     }
 }
 
 void THotelAcmdPax::fromXML(xmlNodePtr reqNode)
 {
-    int point_id = NodeAsInteger("point_id", reqNode);
+    point_id = NodeAsInteger("point_id", reqNode);
     xmlNodePtr lstNode = NodeAsNode("PaxList", reqNode);
     xmlNodePtr paxNode = lstNode->children;
     for(; paxNode; paxNode = paxNode->next) {
@@ -233,6 +272,7 @@ void THotelAcmdPax::fromXML(xmlNodePtr reqNode)
 
 void THotelAcmdPax::fromDB(int point_id)
 {
+    this->point_id = point_id;
     TCachedQuery Qry("select * from hotel_acmd_pax where point_id = :point_id",
             QParams() << QParam("point_id", otInteger, point_id));
     Qry.get().Execute();
@@ -278,6 +318,7 @@ struct TAcmdDate {
 
 void TAcmdDate::toDB()
 {
+    if(acmd_date_from == NoExists) return;
     TTripInfo info;
     info.getByPointId(point_id);
 
@@ -310,8 +351,8 @@ void TAcmdDate::toDB()
 void TAcmdDate::fromXML(xmlNodePtr node)
 {
     point_id = NodeAsInteger("point_id", node);
-    acmd_date_from = NodeAsDateTime("acmd_date_from", node);
-    acmd_date_to = NodeAsDateTime("acmd_date_to", node);
+    acmd_date_from = NodeAsDateTime("acmd_date_from", node, NoExists);
+    acmd_date_to = NodeAsDateTime("acmd_date_to", node, NoExists);
     if(acmd_date_to < acmd_date_from)
         throw AstraLocale::UserException("MSG.INVALID_RANGE");
 }
@@ -351,17 +392,17 @@ void HotelAcmdInterface::View(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     THotelAcmdPax hotel_acmd_pax;
     hotel_acmd_pax.fromDB(point_id);
     xmlNodePtr paxListNode = NULL;
-    for(list<TPaxListItem>::iterator pax = pax_list.items.begin();
+    for(map<int, TPaxListItem>::iterator pax = pax_list.items.begin();
             pax != pax_list.items.end(); pax++) {
         if(not paxListNode)
             paxListNode = NewTextChild(resNode, "PaxList");
         xmlNodePtr paxNode = NewTextChild(paxListNode, "pax");
-        NewTextChild(paxNode, "pax_id", pax->pax_id);
-        if(pax->reg_no != NoExists)
-            NewTextChild(paxNode, "reg_no", pax->reg_no);
-        NewTextChild(paxNode, "pers_type", pax->pers_type);
-        NewTextChild(paxNode, "full_name", transliter(pax->full_name, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU));
-        map<int, THotelAcmdPaxItem>::iterator acmd_pax = hotel_acmd_pax.items.find(pax->pax_id);
+        NewTextChild(paxNode, "pax_id", pax->second.pax_id);
+        if(pax->second.reg_no != NoExists)
+            NewTextChild(paxNode, "reg_no", pax->second.reg_no);
+        NewTextChild(paxNode, "pers_type", pax->second.pers_type);
+        NewTextChild(paxNode, "full_name", transliter(pax->second.full_name, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU));
+        map<int, THotelAcmdPaxItem>::iterator acmd_pax = hotel_acmd_pax.items.find(pax->second.pax_id);
         if(acmd_pax != hotel_acmd_pax.items.end()) {
             NewTextChild(paxNode, "hotel_id", acmd_pax->second.hotel_id);
             NewTextChild(paxNode, "room_type", acmd_pax->second.room_type);
