@@ -65,6 +65,14 @@ static int TLG_STEP_BY_STEP_TIMEOUT()       //миллисекунды
   return VAR;
 };
 
+static int PUT_TIMEOUT()          //кол-во посылаемых телеграмм за одно сканирование по каждому шлюзу
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("TLG_SND_PUT_TIMEOUT",60,NoExists,120);   //сколько минут могут максимально существовать телеграммы в статусе PUT
+  return VAR;
+};
+
 static int sockfd=-1;
 
 static bool scan_tlg(bool sendOutAStepByStep);
@@ -150,7 +158,8 @@ bool scan_tlg(bool sendOutAStepByStep)
   {
     TlgQry.Clear();
     TlgQry.SQLText=
-      "SELECT tlg_queue.id,tlg_queue.tlg_num,tlg_queue.sender,tlg_queue.receiver,tlg_queue.priority, "
+      "SELECT /*+ INDEX (tlg_queue tlg_queue__IDX2)*/ "
+      "       tlg_queue.id,tlg_queue.tlg_num,tlg_queue.sender,tlg_queue.receiver,tlg_queue.priority, "
       "       tlg_queue.time,tlg_queue.last_send,ttl,ip_address,ip_port "
       "FROM tlg_queue,rot "
       "WHERE tlg_queue.receiver=rot.canon_name(+) AND tlg_queue.sender=rot.own_canon_name(+) AND "
@@ -180,10 +189,12 @@ bool scan_tlg(bool sendOutAStepByStep)
 
   int trace_count=0;
   map< pair<string, int>, int > count;
-  bool alreadySendedOutAStepByStep=false;
+  int firstStepByStepTlgId=ASTRA::NoExists;
   TlgQry.Execute();
   bool result=true;
   if (!TlgQry.Eof)
+  {
+  try
   {
     for(;!TlgQry.Eof;trace_count++,TlgQry.Next(),OraSession.Commit())
     {
@@ -192,12 +203,20 @@ bool scan_tlg(bool sendOutAStepByStep)
       int priority=TlgQry.FieldAsInteger("priority");
       try
       {
-        if (priority==(int)qpOutAStepByStep &&
-            (!sendOutAStepByStep || alreadySendedOutAStepByStep))
+        if ((NowUTC()-TlgQry.FieldAsDateTime("time"))*1440>PUT_TIMEOUT())
         {
-          result=true;
-          break;
-        };
+          //удаляем устаревшие
+          errorTlg(tlg_id,"TIME");
+          continue;
+        }
+
+        if (priority==(int)qpOutAStepByStep)
+        {
+          if (!sendOutAStepByStep ||
+              (firstStepByStepTlgId!=ASTRA::NoExists && tlg_id!=firstStepByStepTlgId)) throw 1;
+
+          firstStepByStepTlgId=tlg_id;
+        }
 
         if (TlgQry.FieldIsNULL("ip_address")||TlgQry.FieldIsNULL("ip_port"))
           throw Exception("Unknown receiver %s", TlgQry.FieldAsString("receiver"));
@@ -279,8 +298,6 @@ bool scan_tlg(bool sendOutAStepByStep)
                              (unsigned long)ntohl(tlg_out.num),
                              nowUTC,
                              priority);
-
-            if (priority==(int)qpOutAStepByStep) alreadySendedOutAStepByStep=true;
           };
         };
         if (iCount!=count.end())
@@ -301,13 +318,17 @@ bool scan_tlg(bool sendOutAStepByStep)
         }
         catch(...) {};
       };
-    };
+    }
+  }
+  catch(int) {}
   }
   else result=false;
+
+  TlgQry.Close();
   time_t time_end=time(NULL);
   if (time_end-time_start>1)
-    ProgTrace(TRACE5,"Attention! scan_tlg execute time: %ld secs, count=%d",
-                     time_end-time_start,trace_count);
+    ProgTrace(TRACE5,"Attention! scan_tlg execute time: %ld secs, count=%d, sendOutAStepByStep=%d",
+                     time_end-time_start,trace_count,(int)sendOutAStepByStep);
   return result;
 };
 

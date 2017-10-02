@@ -804,6 +804,7 @@ boost::optional<TlgSourceEdifact> proc_new_edifact(boost::shared_ptr<TlgHandling
     {
         LogError(STDLOG) << "Exception at this point tells something wrong";
         LogError(STDLOG) << e.what();
+        sendCmdTlgSndStepByStep();
         throw Ticketing::TickExceptions::tick_fatal_except(STDLOG, AstraErr::EDI_PROC_ERR);
     }
 
