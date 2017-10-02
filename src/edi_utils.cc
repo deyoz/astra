@@ -496,12 +496,19 @@ void cleanOldRecords(const int min_ago)
     throw EXCEPTIONS::Exception("%s: wrong min_ago=%d", __FUNCTION__, min_ago);
 
   TDateTime now=NowUTC();
+  TDateTime min_time=now-min_ago/1440.0;
 
-  AstraContext::ClearContext("EDI_SESSION",now-min_ago/1440.0);
-  AstraContext::ClearContext("TERM_REQUEST",now-min_ago/1440.0);
-  AstraContext::ClearContext("EDI_RESPONSE",now-min_ago/1440.0);
+  AstraContext::ClearContext("EDI_SESSION", min_time);
+  AstraContext::ClearContext("TERM_REQUEST",min_time);
+  AstraContext::ClearContext("EDI_RESPONSE",min_time);
 
   TQuery Qry(&OraSession);
+
+  Qry.Clear();
+  Qry.SQLText="DELETE FROM tlg_queue WHERE status='SEND' AND time<:time";
+  Qry.CreateVariable("time", otDate, now-(min_ago+60)/1440.0);
+  Qry.Execute();
+
   Qry.Clear();
   Qry.SQLText="SELECT ida FROM edisession WHERE sessdatecr<SYSDATE-:min_ago/1440 FOR UPDATE";
   Qry.CreateVariable("min_ago", otInteger, min_ago);
