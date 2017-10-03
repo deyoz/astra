@@ -330,6 +330,7 @@ void proc_edifact(const std::string &tlg)
         ret = -1;
     }
     if(ret){
+         sendCmdTlgSndStepByStep();
          throw edi_fatal_except(STDLOG, EdiErr::EDI_PROC_ERR, "Ошибка обработки");
     }
     ProgTrace(TRACE2, "Edifact done.");
@@ -661,6 +662,7 @@ void proc_new_edifact(const std::string& tlg)
     {
         LogError(STDLOG) << "Exception at this point tells something wrong";
         LogError(STDLOG) << e.what();
+        sendCmdTlgSndStepByStep();
         // TODO throw normal typified exception here
         //throw EdifactTlgHandleErr(Tr(EtsErr::EDI_PROC_ERR, ENGLISH));
         throw EXCEPTIONS::Exception("EDI_PROC_ERR");
