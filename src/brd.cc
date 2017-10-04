@@ -1288,7 +1288,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         {
           //============================ вопрос в терминал ============================
           bool reset=false;
-          for(int pass=1;pass<=3;pass++)
+          for(int pass=1;pass<=4;pass++)
           {
             switch(pass)
             {
@@ -1297,6 +1297,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                       {
                         TRemGrp rem_grp;
                         rem_grp.Load(retBRD_WARN, point_id);
+                        rem_grp.erase("MSG");
                         if ((!paxWithSeat.exists() || GetRemarkStr(rem_grp, paxWithSeat.pax_id, reqInfo->desk.lang).empty()) &&
                             (!paxWithoutSeat.exists() || GetRemarkStr(rem_grp, paxWithoutSeat.pax_id, reqInfo->desk.lang).empty())) break;
 
@@ -1348,6 +1349,22 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                             << getLocaleText("QST.PASSENGER.RETURN_FOR_EXAM");
                         NewTextChild(confirmNode,"message",msg.str());
                         throw 1;
+                      };
+                      break;
+              case 4: if (screen==sBoarding && set_mark &&
+                          GetNode("confirmations/pr_msg",reqNode)==NULL)
+                      {
+                        string txt = GetRemarkMSGText( paxWithSeat.pax_id, "MSG" );
+                        if ( !txt.empty() ) {
+                          ostringstream msg;
+                          xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
+                          NewTextChild(confirmNode,"reset",(int)reset);
+                          NewTextChild(confirmNode,"type","pr_msg");
+                          msg << txt << endl
+                              << getLocaleText("QST.CONTINUE_BRD");
+                          NewTextChild(confirmNode,"message",msg.str());
+                          throw 1;
+                        }
                       };
                       break;
             };
@@ -1598,6 +1615,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight), 0);
           NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags), "");
           NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax_id, reqInfo->desk.lang), "");
+
           if (DecodeClientType(Qry.FieldAsString(col_client_type))!=ctTerm)
             NewTextChild(paxNode, "client_name", ElemIdToNameShort(etClientType, Qry.FieldAsString(col_client_type)));
 
