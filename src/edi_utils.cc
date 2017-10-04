@@ -547,4 +547,21 @@ void GetEdiError(const xmlNodePtr errorCtxtNode,
   }
 };
 
+bool isTermCheckinRequest(xmlNodePtr reqNode)
+{
+  return reqNode!=nullptr &&
+         TReqInfo::Instance()->client_type==ctTerm &&
+         (strcmp((const char*)reqNode->name, "TCkinSavePax") == 0 ||
+          strcmp((const char*)reqNode->name, "TCkinSaveUnaccompBag") == 0);
+}
+
+bool isWebCheckinRequest(xmlNodePtr reqNode)
+{
+  return reqNode!=nullptr &&
+         (TReqInfo::Instance()->client_type==ctWeb ||
+          TReqInfo::Instance()->client_type==ctMobile ||
+          TReqInfo::Instance()->client_type==ctKiosk) &&
+         strcmp((const char*)reqNode->name, "SavePax") == 0;
+}
+
 } //namespace AstraEdifact

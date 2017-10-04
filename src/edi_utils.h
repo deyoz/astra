@@ -105,6 +105,9 @@ typedef std::list< std::pair<AstraLocale::LexemaData, bool> > EdiErrorList;
 void GetEdiError(const xmlNodePtr errorCtxtNode,
                  EdiErrorList &errors);
 
+bool isTermCheckinRequest(xmlNodePtr reqNode);
+bool isWebCheckinRequest(xmlNodePtr reqNode);
+
 } //namespace AstraEdifact
 
 #endif /*_EDI_UTILS_H_*/
