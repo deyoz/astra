@@ -1366,6 +1366,9 @@ void APPSFlightCloseout( const int point_id )
 
   TAdvTripRoute route;
   route.GetRouteAfter( NoExists, point_id, trtWithCurrent, trtNotCancelled );
+  if ( route.empty() )  {
+    return;
+  }
   TAdvTripRoute::const_iterator r=route.begin();
   set<string> countries;
   countries.insert( getCountryByAirp(r->airp).code );
