@@ -94,6 +94,8 @@ const
                          {etGraphStageWOInactive,  "etGraphStageWOInactive",  "graph_stages"},
                          {etGrpStatusType,         "etGrpStatusType",         "grp_status_types"},
                          {etHall,                  "etHall",                  ""},
+                         {etHotel,                 "etHotel",                 ""},
+                         {etHotelRoomType,         "etHotelRoomType",         ""},
                          {etLangType,              "etLangType",              "lang_types"},
                          {etMiscSetType,           "etMiscSetType",           "misc_set_types"},
                          {etMsgTransport,          "etMsgTransport",          "msg_transports"},
@@ -676,6 +678,8 @@ string ElemIdToElem(TElemType type, int id, const vector< pair<TElemFmt,string> 
             case etProfiles: Qry.SQLText="SELECT name AS name, name AS name_lat FROM airline_profiles WHERE profile_id=:id"; break;
         case etAirpTerminal: Qry.SQLText="SELECT name AS name, name AS name_lat FROM airp_terminals WHERE id=:id"; break;
                case etBrand: Qry.SQLText="SELECT code, code code_lat, name, name_lat FROM brands WHERE id=:id"; break;
+               case etHotel: Qry.SQLText="SELECT hotel_name name, hotel_name name_lat FROM hotel_acmd WHERE id=:id"; break;
+       case etHotelRoomType: Qry.SQLText="SELECT name, name name_lat FROM hotel_room_types WHERE id=:id"; break;
                     default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
     };
     Qry.CreateVariable("id",otInteger,id);
