@@ -432,6 +432,8 @@ class ChangeStatusInterface: public AstraJxtIface
     void KickOnTimeout(xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
+void ContinueCheckin(xmlNodePtr termReqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode);
+
 class EMDAutoBoundInterface: public AstraJxtIface
 {
   private:

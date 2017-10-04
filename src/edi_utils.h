@@ -111,6 +111,9 @@ int ReadPostponedContext(tlgnum_t tnum, bool clear);
 
 void ClearPostponedContext(tlgnum_t tnum);
 
+bool isTermCheckinRequest(xmlNodePtr reqNode);
+bool isWebCheckinRequest(xmlNodePtr reqNode);
+
 } //namespace AstraEdifact
 
 #endif /*_EDI_UTILS_H_*/
