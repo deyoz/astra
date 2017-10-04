@@ -16,11 +16,14 @@ class HotelAcmdInterface : public JxtInterface
         AddEvent("View",evHandle);
         evHandle=JxtHandler<HotelAcmdInterface>::CreateHandler(&HotelAcmdInterface::HotelAcmdClaim);
         AddEvent("HotelAcmdClaim",evHandle);
+        evHandle=JxtHandler<HotelAcmdInterface>::CreateHandler(&HotelAcmdInterface::Print);
+        AddEvent("Print",evHandle);
     }
 
         void View(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void Save(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void HotelAcmdClaim(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+        void Print(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
 #endif

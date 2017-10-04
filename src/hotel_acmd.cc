@@ -385,9 +385,44 @@ void TAcmdDate::fromDB(int apoint_id)
 
 }
 
+void HotelAcmdInterface::Print(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    int point_id = NodeAsInteger( "point_id", reqNode );
+
+    string hotel_name = NodeAsString("hotel_name", reqNode, "");
+    int total_pax = NodeAsInteger("total_pax", reqNode, NoExists);
+    int breakfast = NodeAsInteger("breakfast", reqNode, NoExists);
+    int dinner = NodeAsInteger("dinner", reqNode, NoExists);
+    int supper = NodeAsInteger("supper", reqNode, NoExists);
+
+    if(not hotel_name.empty()) {
+        LEvntPrms params;
+        params << PrmSmpl<string>("hotel_name", hotel_name);
+        params << PrmSmpl<int>("total_pax", total_pax);
+        params << PrmSmpl<int>("breakfast", breakfast);
+        params << PrmSmpl<int>("dinner", dinner);
+        params << PrmSmpl<int>("supper", supper);
+        TReqInfo::Instance()->LocaleToLog("EVT.HOTEL_ACMD.PRINT_CLAIM", params, evtFlt, point_id);
+    } else
+        TReqInfo::Instance()->LocaleToLog("EVT.HOTEL_ACMD.PRINT_LIST", evtFlt, point_id);
+}
+
 void HotelAcmdInterface::HotelAcmdClaim(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    int point_id = NodeAsInteger( "point_id", reqNode );
     get_compatible_report_form("HotelAcmdClaim", reqNode, resNode);
+
+    xmlNodePtr formDataNode = STAT::set_variables(resNode);
+    TRptParams rpt_params(TReqInfo::Instance()->desk.lang);
+    PaxListVars(point_id, rpt_params, formDataNode);
+
+    string real_out = NodeAsString("real_out", formDataNode);
+    string scd_out = NodeAsString("scd_out", formDataNode);
+    string date = real_out + (real_out == scd_out ? "" : "(" + scd_out + ")");
+    NewTextChild(formDataNode, "caption", getLocaleText("CAP.DOC.HOTEL_ACMD_LIST",
+                LParams() << LParam("trip", NodeAsString("trip", formDataNode))
+                << LParam("date", date)
+                ));
 }
 
 void HotelAcmdInterface::View(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
