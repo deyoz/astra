@@ -1357,7 +1357,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                         string txt = GetRemarkMSGText( paxWithSeat.pax_id, "MSG" );
                         if ( !txt.empty() ) {
                           std::vector<std::string> strs;
-                          SeparateString( txt, 30, strs );
+                          SeparateString( txt.c_str(), 30, strs );
                           ostringstream msg;
                           xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
                           NewTextChild(confirmNode,"reset",(int)reset);
