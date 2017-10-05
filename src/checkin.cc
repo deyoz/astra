@@ -168,10 +168,7 @@ void SirenaExchangeInterface::KickHandler(XMLRequestCtxt *ctxt,
           throw EXCEPTIONS::Exception("ChangeStatusInterface::KickHandler: context EDI_RESPONSE answerResNode=NULL");;
         //LogTrace(TRACE3) << "answer res (old ediRes):\n" << XMLTreeToText(answerResCtxt.docPtr());
 
-
-        if(!CheckInInterface::SavePax(termReqNode, answerResNode, resNode)) {
-            //LogError(STDLOG) << "Call SavePax from SirenaExchangeInterface::Kick failed!";
-        }
+        ContinueCheckin(termReqNode, answerResNode, resNode);
     }
 }
 

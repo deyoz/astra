@@ -2159,44 +2159,40 @@ void ChangeStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
       if (defer_etstatus) return;
 
-      try
-      {
-        if (reqInfo->client_type==ctTerm)
-        {
-          if (termReqName=="TCkinSavePax" ||
-              termReqName=="TCkinSaveUnaccompBag")
-          {
-            if (!CheckInInterface::SavePax(termReqNode, ediResNode, resNode))
-            {
-              //откатываем статусы так как запись группы так и не прошла
-              ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
-              return;
-            }
-          }
-        }
+      ContinueCheckin(termReqNode, ediResNode, resNode);
+    }
+}
 
-        if (reqInfo->client_type==ctWeb ||
-            reqInfo->client_type==ctMobile ||
-            reqInfo->client_type==ctKiosk)
-        {
-          if (termReqName=="SavePax")
-          {
-            if (!AstraWeb::WebRequestsIface::SavePax(termReqNode, ediResNode, resNode))
-            {
-              //откатываем статусы так как запись группы так и не прошла
-              ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
-              return;
-            }
-          }
-        }
-      }
-      catch(ServerFramework::Exception &e)
+void ContinueCheckin(xmlNodePtr termReqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode)
+{
+  try
+  {
+    if (isTermCheckinRequest(termReqNode))
+    {
+      if (!CheckInInterface::SavePax(termReqNode, externalSysResNode, resNode))
       {
-        OraSession.Rollback();
-        jxtlib::JXTLib::Instance()->GetCallbacks()->HandleException(&e);
-        ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
+        //откатываем статусы так как запись группы так и не прошла
+        ETStatusInterface::ETRollbackStatus(externalSysResNode->doc,false);
+        return;
       }
     }
+
+    if (isWebCheckinRequest(termReqNode))
+    {
+      if (!AstraWeb::WebRequestsIface::SavePax(termReqNode, externalSysResNode, resNode))
+      {
+        //откатываем статусы так как запись группы так и не прошла
+        ETStatusInterface::ETRollbackStatus(externalSysResNode->doc,false);
+        return;
+      }
+    }
+  }
+  catch(ServerFramework::Exception &e)
+  {
+    ASTRA::rollback();
+    jxtlib::JXTLib::Instance()->GetCallbacks()->HandleException(&e);
+    ETStatusInterface::ETRollbackStatus(externalSysResNode->doc,false);
+  }
 }
 
 bool EMDAutoBoundInterface::BeforeLock(const EMDAutoBoundId &id, int &point_id, int &grp_id)

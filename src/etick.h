@@ -429,6 +429,8 @@ class ChangeStatusInterface: public JxtInterface
                              const TChangeStatusList &info);
 };
 
+void ContinueCheckin(xmlNodePtr termReqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode);
+
 class EMDAutoBoundInterface: public JxtInterface
 {
   private:
