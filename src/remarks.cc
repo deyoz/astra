@@ -233,7 +233,35 @@ string GetRemarkStr(const TRemGrp &rem_grp, const multiset<CheckIn::TPaxRemItem>
       result+=r->code;
   };
   return result;
-};
+}
+
+string GetRemarkMSGText(int pax_id, const string &rem_msg)
+{
+   string res;
+   const char *sql =
+       "SELECT TRIM(rem) rem FROM pax_rem "
+       "WHERE pax_id=:pax_id AND rem_code=:rem_msg "
+       "ORDER BY rem";
+   QParams QryParams;
+   QryParams << QParam("pax_id", otInteger, pax_id);
+   QryParams << QParam("rem_msg", otString, rem_msg);
+   TCachedQuery Qry(sql, QryParams);
+   Qry.get().Execute();
+   tst();
+   for(;!Qry.get().Eof;Qry.get().Next()) {
+     string value = Qry.get().FieldAsString( "rem" );
+     if ( rem_msg == value.substr( 0, 3 ) ) {
+       value.erase( 0, 3 );
+       value = TrimString(value);
+     }
+     if ( !res.empty() ) {
+       res += "\n";
+     }
+     res += value;
+   }
+   ProgTrace( TRACE5, "res=%s", res.c_str() );
+   return res;
+}
 
 string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const string &lang, const string &term)
 {
