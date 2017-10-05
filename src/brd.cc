@@ -1356,12 +1356,16 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                       {
                         string txt = GetRemarkMSGText( paxWithSeat.pax_id, "MSG" );
                         if ( !txt.empty() ) {
+                          std::vector<std::string> strs;
+                          SeparateString( txt, 30, strs );
                           ostringstream msg;
                           xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
                           NewTextChild(confirmNode,"reset",(int)reset);
                           NewTextChild(confirmNode,"type","pr_msg");
-                          msg << txt << endl
-                              << getLocaleText("QST.CONTINUE_BRD");
+                          for ( const auto& s : strs ) {
+                            msg << s << endl;
+                          }
+                          msg  << getLocaleText("QST.CONTINUE_BRD");
                           NewTextChild(confirmNode,"message",msg.str());
                           throw 1;
                         }
