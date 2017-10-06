@@ -9,6 +9,8 @@ using namespace ASTRA;
 using namespace std;
 using namespace AstraLocale;
 
+const string HotelAcmdDateFormat = "dd.mm.yyyy hh:nn";
+
 struct THotelAcmdPaxItem {
     int idx;
     int point_id;
@@ -362,12 +364,23 @@ void TAcmdDate::toXML(xmlNodePtr node)
 {
     TTripInfo info;
     info.getByPointId(point_id);
-    NewTextChild(node, "acmd_date_from",
-            DateTimeToStr(UTCToLocal(acmd_date_from, AirpTZRegion(info.airp)),
-                ServerFormatDateTimeAsString));
-    NewTextChild(node, "acmd_date_to",
-            DateTimeToStr(UTCToLocal(acmd_date_to, AirpTZRegion(info.airp)),
-                ServerFormatDateTimeAsString));
+    if(acmd_date_from == NoExists) {
+        acmd_date_from = NowUTC();
+        acmd_date_to = acmd_date_from;
+        NewTextChild(node, "acmd_date_from",
+                DateTimeToStr(UTCToLocal(acmd_date_from, AirpTZRegion(info.airp)),
+                    "dd.mm.yyyy"));
+        NewTextChild(node, "acmd_date_to",
+                DateTimeToStr(UTCToLocal(acmd_date_to, AirpTZRegion(info.airp)),
+                    "dd.mm.yyyy"));
+    } else {
+        NewTextChild(node, "acmd_date_from",
+                DateTimeToStr(UTCToLocal(acmd_date_from, AirpTZRegion(info.airp)),
+                    HotelAcmdDateFormat));
+        NewTextChild(node, "acmd_date_to",
+                DateTimeToStr(UTCToLocal(acmd_date_to, AirpTZRegion(info.airp)),
+                    HotelAcmdDateFormat));
+    }
 }
 
 void TAcmdDate::fromDB(int apoint_id)
@@ -376,8 +389,6 @@ void TAcmdDate::fromDB(int apoint_id)
     TCachedQuery Qry("select * from hotel_acmd_dates where point_id = :point_id",
             QParams() << QParam("point_id", otInteger, point_id));
     Qry.get().Execute();
-    acmd_date_from = NowUTC();
-    acmd_date_to = acmd_date_from;
     if(not Qry.get().Eof) {
         acmd_date_from = Qry.get().FieldAsDateTime("acmd_date_from");
         acmd_date_to = Qry.get().FieldAsDateTime("acmd_date_to");
@@ -415,14 +426,7 @@ void HotelAcmdInterface::HotelAcmdClaim(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     xmlNodePtr formDataNode = STAT::set_variables(resNode);
     TRptParams rpt_params(TReqInfo::Instance()->desk.lang);
     PaxListVars(point_id, rpt_params, formDataNode);
-
-    string real_out = NodeAsString("real_out", formDataNode);
-    string scd_out = NodeAsString("scd_out", formDataNode);
-    string date = real_out + (real_out == scd_out ? "" : "(" + scd_out + ")");
-    NewTextChild(formDataNode, "caption", getLocaleText("CAP.DOC.HOTEL_ACMD_LIST",
-                LParams() << LParam("trip", NodeAsString("trip", formDataNode))
-                << LParam("date", date)
-                ));
+    NewTextChild(formDataNode, "doc_hotel_acmd_caption", getLocaleText("DOC.HOTEL_ACMD.CAPTION"));
 }
 
 void HotelAcmdInterface::View(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -477,9 +481,6 @@ void HotelAcmdInterface::View(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     TAcmdDate acmd_date;
     acmd_date.fromDB(point_id);
     acmd_date.toXML(resNode);
-
-
-    LogTrace(TRACE5) << GetXMLDocText(resNode->doc);
 }
 
 void HotelAcmdInterface::Save(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
