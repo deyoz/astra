@@ -379,6 +379,7 @@ namespace KUF_STAT {
     int fix(int argc, char **argv);
 }
 
+void get_bag_info(std::map<std::string, std::pair<int, int> > &bag_info, int point_id);
 
 #endif /*_TELEGRAM_H_*/
 
