@@ -1568,6 +1568,96 @@ string excessStr(int excess_wt, int excess_pc, bool &unit_required)
   return s.str();
 }
 
+std::string createCrewFilter()
+{
+  return "pax_grp.status NOT IN ('E') AND ";
+}
+
+void readPaxZoneLoad( int point_id, const string &crew_filter, list<TPaxLoadItem> &paxLoad, std::map<std::string,int> &paxRemCounters ) //pr_section=true
+{
+  multiset<CheckIn::TPaxRemItem> rems;
+  for ( auto& ic : paxRemCounters ) {
+    ic.second = 0;
+  }
+  paxLoad.clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  ostringstream sql;
+  sql << "SELECT pax.pax_id, pax.grp_id, pax.surname, pax.pers_type, pax.seats, pax.reg_no, " << endl
+      << "       NVL(pax.is_female, 0) AS is_female, " << endl
+      << "       crs_inf.pax_id AS parent_pax_id, " << endl
+      << "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, " << endl
+      << "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, " << endl
+      << "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight " << endl
+      << "FROM pax_grp, pax, crs_inf " << endl
+      << "WHERE pax_grp.grp_id=pax.grp_id AND " << endl
+      << "      pax_grp.point_dep=:point_id AND " << endl
+      << "      " << crew_filter << endl
+      << "      pax.pr_brd IS NOT NULL AND " << endl
+      << "      pax.pax_id=crs_inf.inf_id(+)" << endl;
+  Qry.SQLText=sql.str().c_str();
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.Execute();
+  vector<TZonePaxItem> zonePaxs;
+  //читаем пассажиров на рейсе
+  for(;!Qry.Eof;Qry.Next())
+  {
+    TZonePaxItem pax;
+    pax.pax_id=Qry.FieldAsInteger("pax_id");
+    pax.grp_id=Qry.FieldAsInteger("grp_id");
+    pax.seats=Qry.FieldAsInteger("seats");
+    pax.reg_no=Qry.FieldAsInteger("reg_no");
+    pax.surname=Qry.FieldAsString("surname");
+    pax.pers_type=Qry.FieldAsString("pers_type");
+    pax.is_female=Qry.FieldAsInteger("is_female")!=0;
+    pax.parent_pax_id=Qry.FieldIsNULL("parent_pax_id")?NoExists:Qry.FieldAsInteger("parent_pax_id");
+    pax.rk_weight=Qry.FieldAsInteger("rk_weight");
+    pax.bag_amount=Qry.FieldAsInteger("bag_amount");
+    pax.bag_weight=Qry.FieldAsInteger("bag_weight");
+    if ( !paxRemCounters.empty() ) {
+      CheckIn::LoadPaxRem( pax.pax_id, rems );
+      for ( auto& ir : rems ) {
+        if ( paxRemCounters.find( ir.rem_code() ) != paxRemCounters.end() ) {
+          paxRemCounters[ ir.rem_code() ]++;
+        }
+      }
+    }
+    zonePaxs.push_back(pax);
+  };
+
+  vector<SALONS2::TCompSection> compSections;
+  //получаем информацию по зонам
+  ZonePax(point_id, zonePaxs, compSections);
+
+  for(vector<SALONS2::TCompSection>::const_iterator i=compSections.begin();i!=compSections.end();i++)
+  {
+    TPaxLoadItem item;
+    item.section = i->name;
+    for(vector<TZonePaxItem>::const_iterator p=zonePaxs.begin();p!=zonePaxs.end();p++)
+    {
+      if (item.section!=p->zone) continue;
+      item.seats+=p->seats;
+      switch(DecodePerson(p->pers_type.c_str()))
+      {
+        case adult: p->is_female?item.adult_f++:item.adult_m++; break;
+        case child: item.child++; break;
+        case baby:  item.baby++;  break;
+        default: ;
+      };
+      item.rk_weight+=p->rk_weight;
+      item.bag_amount+=p->bag_amount;
+      item.bag_weight+=p->bag_weight;
+    };
+    paxLoad.push_back(item);
+  };
+}
+
+void readPaxZoneLoad( int point_id, const string &crew_filter, list<TPaxLoadItem> &paxLoad ) //pr_section=true
+{
+  std::map<std::string,int> paxRemCounters;
+  readPaxZoneLoad( point_id, crew_filter, paxLoad, paxRemCounters );
+}
+
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
   reqNode=GetNode("tripcounters",reqNode);
@@ -1721,7 +1811,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   list<TPaxLoadItem> paxLoad;
 
   string crew_filter;
-  if (!(pr_class || pr_cl_grp || pr_status)) crew_filter="pax_grp.status NOT IN ('E') AND ";
+  if (!(pr_class || pr_cl_grp || pr_status)) crew_filter=createCrewFilter();
 
   if (!pr_section)
   {
@@ -2225,68 +2315,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   }
   else
   {
-    //pr_section=true
-    Qry.Clear();
-    ostringstream sql;
-    sql << "SELECT pax.pax_id, pax.grp_id, pax.surname, pax.pers_type, pax.seats, pax.reg_no, " << endl
-        << "       NVL(pax.is_female, 0) AS is_female, " << endl
-        << "       crs_inf.pax_id AS parent_pax_id, " << endl
-        << "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, " << endl
-        << "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, " << endl
-        << "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight " << endl
-        << "FROM pax_grp, pax, crs_inf " << endl
-        << "WHERE pax_grp.grp_id=pax.grp_id AND " << endl
-        << "      pax_grp.point_dep=:point_id AND " << endl
-        << "      " << crew_filter << endl
-        << "      pax.pr_brd IS NOT NULL AND " << endl
-        << "      pax.pax_id=crs_inf.inf_id(+)" << endl;
-    Qry.SQLText=sql.str().c_str();
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.Execute();
-    vector<TZonePaxItem> zonePaxs;
-    //читаем пассажиров на рейсе
-    for(;!Qry.Eof;Qry.Next())
-    {
-      TZonePaxItem pax;
-      pax.pax_id=Qry.FieldAsInteger("pax_id");
-      pax.grp_id=Qry.FieldAsInteger("grp_id");
-      pax.seats=Qry.FieldAsInteger("seats");
-      pax.reg_no=Qry.FieldAsInteger("reg_no");
-      pax.surname=Qry.FieldAsString("surname");
-      pax.pers_type=Qry.FieldAsString("pers_type");
-      pax.is_female=Qry.FieldAsInteger("is_female")!=0;
-      pax.parent_pax_id=Qry.FieldIsNULL("parent_pax_id")?NoExists:Qry.FieldAsInteger("parent_pax_id");
-      pax.rk_weight=Qry.FieldAsInteger("rk_weight");
-      pax.bag_amount=Qry.FieldAsInteger("bag_amount");
-      pax.bag_weight=Qry.FieldAsInteger("bag_weight");
-      zonePaxs.push_back(pax);
-    };
-
-    vector<SALONS2::TCompSection> compSections;
-    //получаем информацию по зонам
-    ZonePax(point_id, zonePaxs, compSections);
-
-    for(vector<SALONS2::TCompSection>::const_iterator i=compSections.begin();i!=compSections.end();i++)
-    {
-      TPaxLoadItem item;
-      item.section = i->name;
-      for(vector<TZonePaxItem>::const_iterator p=zonePaxs.begin();p!=zonePaxs.end();p++)
-      {
-        if (item.section!=p->zone) continue;
-        item.seats+=p->seats;
-        switch(DecodePerson(p->pers_type.c_str()))
-        {
-          case adult: p->is_female?item.adult_f++:item.adult_m++; break;
-          case child: item.child++; break;
-          case baby:  item.baby++;  break;
-          default: ;
-        };
-        item.rk_weight+=p->rk_weight;
-        item.bag_amount+=p->bag_amount;
-        item.bag_weight+=p->bag_weight;
-      };
-      paxLoad.push_back(item);
-    };
+    readPaxZoneLoad( point_id, crew_filter, paxLoad );
   };
 
   //сортируем массив
@@ -2414,7 +2443,64 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
       NewTextChild(rowNode,"section",i->section);
     };
   };
-};
+}
+
+void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
+{
+  list<TPaxLoadItem> paxLoad;
+  //начится инфы по пассажирам + кол-во ремарок XCR, DHC, MOS, UMNR, EXST, WCHC, WCHR, WCHS
+  std::map<std::string,int> paxRemCounters;
+  paxRemCounters[ "XCR" ] = 0;
+  paxRemCounters[ "DHC" ] = 0;
+  paxRemCounters[ "MOS" ] = 0;
+  paxRemCounters[ "UMNR" ] = 0;
+  paxRemCounters[ "EXST" ] = 0;
+  paxRemCounters[ "WCHC" ] = 0;
+  paxRemCounters[ "WCHR" ] = 0;
+  paxRemCounters[ "WCHS" ] = 0;
+  readPaxZoneLoad( point_id, createCrewFilter(), paxLoad, paxRemCounters );
+  map<string, pair<int, int> > bag_info;
+  //начится ремарок багажа
+  get_bag_info(bag_info, point_id);
+  TPaxLoadOrder paxLoadOrder;
+  paxLoadOrder.fields.push_back( "section" );
+  paxLoad.sort(paxLoadOrder);
+  xmlNodePtr node;
+  node = NewTextChild( resNode, "sectionsData" );
+  xmlNodePtr rowsNode = NewTextChild( node, "rows" );
+  for ( const auto& i : paxLoad ) {
+    xmlNodePtr rowNode=NewTextChild(rowsNode,"row");
+    NewTextChild(rowNode,"seats",i.seats,0);
+    if (TReqInfo::Instance()->desk.compatible(PAX_LOAD_BY_GENDER))
+    {
+      NewTextChild(rowNode,"adult_m",i.adult_m,0);
+      NewTextChild(rowNode,"adult_f",i.adult_f,0);
+    }
+    else
+      NewTextChild(rowNode,"adult",i.adult_m+i.adult_f,0);
+    NewTextChild(rowNode,"child",i.child,0);
+    NewTextChild(rowNode,"baby",i.baby,0);
+    NewTextChild(rowNode,"bag_amount",i.bag_amount,0);
+    NewTextChild(rowNode,"bag_weight",i.bag_weight,0);
+    NewTextChild(rowNode,"rk_weight",i.rk_weight,0);
+    NewTextChild(rowNode,"section",i.section);
+  };
+  node = NewTextChild( resNode, "bagsData" );
+  rowsNode = NewTextChild( node, "rows" );
+  for ( const auto& i : bag_info ) {
+    xmlNodePtr rowNode=NewTextChild(rowsNode,"row");
+    NewTextChild(rowNode,"rem",i.first);
+    NewTextChild(rowNode,"amount",i.second.first);
+    NewTextChild(rowNode,"weight",i.second.second);
+  }
+  node = NewTextChild( resNode, "remsData" );
+  rowsNode = NewTextChild( node, "rows" );
+  for ( const auto& i : paxRemCounters ) {
+    xmlNodePtr rowNode=NewTextChild(rowsNode,"row");
+    NewTextChild(rowNode,"rem",i.first);
+    NewTextChild(rowNode,"count",i.second);
+  }
+}
 
 void viewCRSList( int point_id, xmlNodePtr dataNode )
 {

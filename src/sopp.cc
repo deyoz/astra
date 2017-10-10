@@ -3036,6 +3036,14 @@ void GetLuggage( int point_id, xmlNodePtr dataNode )
   }
 }
 
+void SoppInterface::readPaxZoneLoad(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  resNode = NewTextChild( resNode, "reportPaxZoneLoadData" );
+  viewPaxLoadSectionReport( NodeAsInteger( "point_id", reqNode ), resNode );
+}
+
+
+
 void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     int point_id = NodeAsInteger( "point_id", reqNode );
