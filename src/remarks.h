@@ -351,6 +351,8 @@ CheckIn::TPaxRemItem getAPPSRem(const int pax_id, const std::string &lang );
 std::string GetRemarkStr(const TRemGrp &rem_grp, const std::multiset<CheckIn::TPaxRemItem> &rems, const std::string &term = " ");
 std::string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const std::string &lang, const std::string &term = " ");
 std::string GetCrsRemarkStr(const TRemGrp &rem_grp, int pax_id, const std::string &term = " ");
+std::string GetRemarkMSGText(int pax_id, const std::string &rem_msg);
+
 
 CheckIn::TPaxRemItem CalcCrewRem(const ASTRA::TPaxStatus grp_status,
                                  const ASTRA::TCrewType::Enum crew_type);
