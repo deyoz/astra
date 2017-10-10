@@ -247,7 +247,6 @@ string GetRemarkMSGText(int pax_id, const string &rem_msg)
    QryParams << QParam("rem_msg", otString, rem_msg);
    TCachedQuery Qry(sql, QryParams);
    Qry.get().Execute();
-   tst();
    for(;!Qry.get().Eof;Qry.get().Next()) {
      string value = Qry.get().FieldAsString( "rem" );
      if ( rem_msg == value.substr( 0, 3 ) ) {
@@ -259,7 +258,6 @@ string GetRemarkMSGText(int pax_id, const string &rem_msg)
      }
      res += value;
    }
-   ProgTrace( TRACE5, "res=%s", res.c_str() );
    return res;
 }
 
