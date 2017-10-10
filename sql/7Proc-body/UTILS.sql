@@ -1,620 +1,456 @@
 create or replace PACKAGE BODY utils
 AS
+PROCEDURE other_constraints(curRow oper_cur%ROWTYPE, venable BOOLEAN)
+IS
+sql_text VARCHAR2(4000);
+BEGIN
+  FOR cRow IN other_cons_cur(curRow) LOOP
+    IF venable THEN
+      sql_text:='ALTER TABLE '||cRow.table_name||' ENABLE CONSTRAINT '||cRow.constraint_name;
+    ELSE
+      sql_text:='ALTER TABLE '||cRow.table_name||' DISABLE CONSTRAINT '||cRow.constraint_name;
+    END IF;
+    EXECUTE IMMEDIATE sql_text;
+    DBMS_OUTPUT.PUT_LINE(sql_text);
+  END LOOP;
+END other_constraints;
 
-procedure fill_tz_regions is
-    cursor cur is select country, gmt_offset, min(id) id from date_time_zonespec where
-        country IS NOT NULL group by country, gmt_offset;
-    vtid NUMBER;
-begin
-    select tid__seq.nextval into vtid from dual;
-    for c in cur loop
-        update tz_regions set region=c.id,pr_del=0,tid=vtid
-        where country=c.country and tz=to_number(substr(c.gmt_offset, 1, 3));
-        if SQL%NOTFOUND then
-          insert into tz_regions (country, tz, region, pr_del, tid) values
-              (c.country, to_number(substr(c.gmt_offset, 1, 3)), c.id, 0, vtid);
-        end if;
-    end loop;
-    commit;
-end;
+PROCEDURE print_tab_num_rows(curRow oper_cur%ROWTYPE)
+IS
 
-PROCEDURE add_sync_error(vtable_name IN code_sync_error.table_name%TYPE,
-                    vida        IN code_sync_error.ida%TYPE,
-                    vcode       IN code_sync_error.code%TYPE,
-                    vmsg        IN code_sync_error.msg%TYPE)
+BEGIN
+  DBMS_OUTPUT.PUT_LINE(RPAD(curRow.table_name,30)||RPAD(curRow.column_name,15)||LPAD(curRow.num_rows,12)||' '||curRow.partition_name);
+  FOR cRow IN other_cons_cur(curRow) LOOP
+    DBMS_OUTPUT.PUT_LINE(cRow.constraint_name||' -> '||cRow.r_constraint_name||'!!!');
+  END LOOP;
+END print_tab_num_rows;
+
+PROCEDURE airline_tab_num_rows
 IS
 BEGIN
-  UPDATE code_sync_error SET code=vcode, msg=vmsg
-  WHERE table_name=vtable_name AND ida=vida;
-  IF SQL%NOTFOUND THEN
-    INSERT INTO code_sync_error(table_name,ida,code,msg)
-    VALUES(vtable_name,vida,vcode,vmsg);
+  DBMS_OUTPUT.PUT_LINE('Оперативные таблицы:');
+  FOR curRow IN oper_cur LOOP
+    print_tab_num_rows(curRow);
+  END LOOP;
+  DBMS_OUTPUT.PUT_LINE('==========================================================================');
+  DBMS_OUTPUT.PUT_LINE('Таблицы истории и статистики:');
+  FOR curRow IN hist_cur LOOP
+    print_tab_num_rows(curRow);
+  END LOOP;
+  DBMS_OUTPUT.PUT_LINE('==========================================================================');
+  DBMS_OUTPUT.PUT_LINE('Таблицы архива:');
+  FOR curRow IN arx_cur LOOP
+    print_tab_num_rows(curRow);
+  END LOOP;
+  DBMS_OUTPUT.PUT_LINE('==========================================================================');
+END airline_tab_num_rows;
+
+PROCEDURE print_count(curRow oper_cur%ROWTYPE,
+                      airline_code airlines.code%TYPE,
+                      max_num_rows user_tables.num_rows%TYPE)
+IS
+cur INTEGER;
+n INTEGER;
+ignore INTEGER;
+sql_text VARCHAR2(4000);
+BEGIN
+  IF curRow.partition_name IS NOT NULL THEN
+    sql_text:='SELECT COUNT(*) FROM '||curRow.table_name||' PARTITION ('||curRow.partition_name||') p WHERE p.'||curRow.column_name||'='''||airline_code||'''';
+  ELSE
+    sql_text:='SELECT COUNT(*) FROM '||curRow.table_name||' WHERE '||curRow.column_name||'='''||airline_code||'''';
   END IF;
-END add_sync_error;
-
-PROCEDURE del_sync_error(vtable_name IN code_sync_error.table_name%TYPE,
-                    vida        IN code_sync_error.ida%TYPE)
-IS
-BEGIN
-  DELETE FROM code_sync_error WHERE table_name=vtable_name AND ida=vida;
-END del_sync_error;
-
-PROCEDURE sync_countries
-IS
-  CURSOR cur IS
-    SELECT ida,
-           UPPER(TRIM(rcodeg)) AS rcode,
-           TRANSLATE(UPPER(TRIM(lcodeg)),'АВСЕНКМОРТХ','ABCEHKMOPTX') AS lcode,
-           UPPER(TRIM(rname)) AS rname,
-           TRANSLATE(UPPER(TRIM(lname)),'АВСЕНКМОРТХ','ABCEHKMOPTX') AS lname,
-           TRANSLATE(UPPER(TRIM(iso_codeg)),'АВСЕНКМОРТХ','ABCEHKMOPTX') AS iso_code
-    FROM gos WHERE close=0;
-row	cur%ROWTYPE;
-row2	countries%ROWTYPE;
-row3    countries%ROWTYPE;
-info	adm.TCacheInfo;
-vtable_name     code_sync_error.table_name%TYPE;
-BEGIN
-  vtable_name:='COUNTRIES';
-  info:=adm.get_cache_info('COUNTRIES');
-
-  row2.tid:=NULL;
-  FOR row IN cur LOOP
-    row2.id:=NULL;
-    row2.code:=NULL;
-    row2.code_lat:=NULL;
-    row2.code_iso:=NULL;
-    row2.name:=NULL;
-    row2.name_lat:=NULL;
-
-    BEGIN
-      /* проверяем длину и допустимые символы в кодах и названиях */
-      IF row.rcode IS NOT NULL AND
-         LENGTH(row.rcode)=2 AND
-         system.is_upp_let(row.rcode)<>0 THEN row2.code:=row.rcode; END IF;
-      IF row.lcode IS NOT NULL AND
-         LENGTH(row.lcode)=2 AND
-         system.is_upp_let(row.lcode,1)<>0 THEN row2.code_lat:=row.lcode; END IF;
-      IF row.iso_code IS NOT NULL AND
-         LENGTH(row.iso_code)=3 AND
-         system.is_upp_let(row.iso_code,1)<>0 THEN row2.code_iso:=row.iso_code; END IF;
-      IF row.rname IS NOT NULL AND
-         system.is_name(row.rname)<>0 THEN row2.name:=row.rname; END IF;
-      IF row.lname IS NOT NULL AND
-         system.is_name(row.lname,1)<>0 THEN row2.name_lat:=row.lname; END IF;
-      IF row.rname IS NULL THEN row2.name:=row2.name_lat; END IF;
-
-      row3.id:=NULL;
-      BEGIN
-        -- берем строку из астровского кодификатора, соответствующую коду
-        SELECT * INTO row3 FROM countries WHERE code=row2.code FOR UPDATE;
-        row2.id:=row3.id;
-        IF NVL(row2.code,' ') <> NVL(row3.code,' ') OR
-           NVL(row2.code_lat,' ') <> NVL(row3.code_lat,' ') OR
-           NVL(row2.code_iso,' ') <> NVL(row3.code_iso,' ') OR
-           NVL(row2.name,' ') <> NVL(row3.name,' ') OR
-           NVL(row2.name_lat,' ') <> NVL(row3.name_lat,' ') THEN
-          -- изменяем строку
-          IF row3.tid_sync IS NULL OR
-             row3.tid_sync IS NOT NULL AND row3.tid<>row3.tid_sync THEN
-            add_sync_error(vtable_name,row.ida,row2.code,'Строка была изменена вручную. Синхронизация не производится');
-            GOTO end_loop;
-          ELSE
-            IF row2.tid IS NULL THEN SELECT tid__seq.nextval INTO row2.tid FROM dual; END IF;
-            UPDATE countries
-            SET code=row2.code,
-                code_lat=row2.code_lat,
-                code_iso=row2.code_iso,
-                name=row2.name,
-                name_lat=row2.name_lat,
-                pr_del=0,
-                tid=row2.tid,
-                tid_sync=row2.tid
-            WHERE id=row2.id;
-            adm.check_country_codes(row2.id,row2.code,row2.code_lat,row2.code_iso,'RU');
-          END IF;
-        ELSE
-          del_sync_error(vtable_name,row.ida);
-          GOTO end_loop;
-        END IF;
-      EXCEPTION
-        WHEN NO_DATA_FOUND THEN
-          -- не нашли строку в Астре, соответствующую коду
-          IF row2.tid IS NULL THEN SELECT tid__seq.nextval INTO row2.tid FROM dual; END IF;
-          INSERT INTO countries(id,code,code_lat,code_iso,name,name_lat,pr_del,tid,tid_sync)
-          VALUES(id__seq.nextval,row2.code,row2.code_lat,row2.code_iso,row2.name,row2.name_lat,0,row2.tid,row2.tid);
-          SELECT id__seq.currval INTO row2.id FROM dual;
-          adm.check_country_codes(row2.id,row2.code,row2.code_lat,row2.code_iso,'RU');
-      END;
-      del_sync_error(vtable_name,row.ida);
-      system.MsgToLog(CASE WHEN row3.id IS NULL THEN 'Ввод' ELSE 'Изменение' END ||
-                      ' строки в таблице '''||info.title||''': '||
-                      info.field_title('CODE')    ||'='''||row2.code    ||''', '||
-                      info.field_title('CODE_LAT')||'='''||row2.code_lat||''', '||
-                      info.field_title('CODE_ISO')||'='''||row2.code_iso||''', '||
-                      info.field_title('NAME')    ||'='''||row2.name    ||''', '||
-                      info.field_title('NAME_LAT')||'='''||row2.name_lat||'''. '||
-                      'Идентификатор: '||
-                      info.field_title('ID')      ||'='''||row2.id||'''',
-                      system.evtCodif);
-    EXCEPTION
-      WHEN OTHERS THEN
-         ROLLBACK;
-         add_sync_error(vtable_name,row.ida,row2.code,SUBSTR(SQLERRM,1,1000));
-    END;
-    <<end_loop>>
-    COMMIT;
-  END LOOP;
-END sync_countries;
-
-PROCEDURE sync_cities(pr_summer IN NUMBER)
-IS
-  CURSOR cur IS
-    SELECT sfe.ida,
-           UPPER(TRIM(sfe.rcodec)) AS rcode,
-           TRANSLATE(UPPER(TRIM(sfe.lcodec)),'АВСЕНКМОРТХ','ABCEHKMOPTX') AS lcode,
-           UPPER(TRIM(sfe.rname)) AS rname,
-           TRANSLATE(UPPER(TRIM(sfe.lname)),'АВСЕНКМОРТХ','ABCEHKMOPTX') AS lname,
-           UPPER(TRIM(gos.rcodeg)) AS codeg,
-           sfe.offset,gos.nodst
-    FROM sfe,gos WHERE sfe.codeg=gos.ida AND sfe.close=0;
-row	cur%ROWTYPE;
-row2	cities%ROWTYPE;
-row3    cities%ROWTYPE;
-info	adm.TCacheInfo;
-vtable_name     code_sync_error.table_name%TYPE;
-num     INTEGER;
-BEGIN
-  vtable_name:='CITIES';
-  info:=adm.get_cache_info('CITIES');
-
-  row2.tid:=NULL;
-  FOR row IN cur LOOP
-    row2.id:=NULL;
-    row2.code:=NULL;
-    row2.code_lat:=NULL;
-    row2.name:=NULL;
-    row2.name_lat:=NULL;
-    row2.country:=NULL;
-    row2.tz:=NULL;
-
-    BEGIN
-      /* проверяем длину и допустимые символы в кодах и названиях */
-      IF row.rcode IS NOT NULL AND
-         LENGTH(row.rcode)=3 AND
-         system.is_upp_let(row.rcode)<>0 THEN row2.code:=row.rcode; END IF;
-      IF row.lcode IS NOT NULL AND
-         LENGTH(row.lcode)=3 AND
-         system.is_upp_let(row.lcode,1)<>0 THEN row2.code_lat:=row.lcode; END IF;
-      IF row.rname IS NOT NULL AND
-         system.is_name(row.rname,0,' -()./`')<>0 THEN row2.name:=row.rname; END IF;
-      IF row.lname IS NOT NULL AND
-         system.is_name(row.lname,1,' -()./`')<>0 THEN row2.name_lat:=row.lname; END IF;
-      IF row.rname IS NULL THEN row2.name:=row2.name_lat; END IF;
-
-      SELECT COUNT(*) INTO num FROM countries WHERE code=row.codeg;
-      IF num>0 THEN row2.country:=row.codeg; END IF;
-      --кривость Сирены
-      IF pr_summer=0 AND row.nodst<>0 THEN row.offset:=row.offset-1; END IF;
-      row2.tz:=row.offset-12;
-
-      row3.id:=NULL;
-      BEGIN
-        -- берем строку из астровского кодификатора, соответствующую коду
-        SELECT * INTO row3 FROM cities WHERE code=row2.code FOR UPDATE;
-        row2.id:=row3.id;
-        IF NVL(row2.code,' ') <> NVL(row3.code,' ') OR
-           NVL(row2.code_lat,' ') <> NVL(row3.code_lat,' ') OR
-           NVL(row2.name,' ') <> NVL(row3.name,' ') OR
-           NVL(row2.name_lat,' ') <> NVL(row3.name_lat,' ') OR
-           NVL(row2.country,' ') <> NVL(row3.country,' ') OR
-           NVL(row2.tz,100) <> NVL(row3.tz,100) THEN
-           -- изменяем строку
-          IF row3.tid_sync IS NULL OR
-             row3.tid_sync IS NOT NULL AND row3.tid<>row3.tid_sync THEN
-            add_sync_error(vtable_name,row.ida,row2.code,'Строка была изменена вручную. Синхронизация не производится');
-            GOTO end_loop;
-          ELSE
-            IF row2.tid IS NULL THEN SELECT tid__seq.nextval INTO row2.tid FROM dual; END IF;
-            UPDATE cities
-            SET code=row2.code,
-                code_lat=row2.code_lat,
-                name=row2.name,
-                name_lat=row2.name_lat,
-                country=row2.country,
-                tz=row2.tz,
-                pr_del=0,
-                tid=row2.tid,
-                tid_sync=row2.tid
-            WHERE id=row2.id;
-            adm.check_city_codes(row2.id,row2.code,row2.code_lat,'RU');
-          END IF;
-        ELSE
-          del_sync_error(vtable_name,row.ida);
-          GOTO end_loop;
-        END IF;
-      EXCEPTION
-        WHEN NO_DATA_FOUND THEN
-          -- не нашли строку в Астре, соответствующую коду
-          IF row2.tid IS NULL THEN SELECT tid__seq.nextval INTO row2.tid FROM dual; END IF;
-          INSERT INTO cities(id,code,code_lat,name,name_lat,country,tz,pr_del,tid,tid_sync)
-          VALUES(id__seq.nextval,row2.code,row2.code_lat,row2.name,row2.name_lat,
-                 row2.country,row2.tz,0,row2.tid,row2.tid);
-          SELECT id__seq.currval INTO row2.id FROM dual;
-          adm.check_city_codes(row2.id,row2.code,row2.code_lat,'RU');
-      END;
-      del_sync_error(vtable_name,row.ida);
-      system.MsgToLog(CASE WHEN row3.id IS NULL THEN 'Ввод' ELSE 'Изменение' END ||
-                      ' строки в таблице '''||info.title||''': '||
-                      info.field_title('CODE')    ||'='''||row2.code    ||''', '||
-                      info.field_title('CODE_LAT')||'='''||row2.code_lat||''', '||
-                      info.field_title('NAME')    ||'='''||row2.name    ||''', '||
-                      info.field_title('NAME_LAT')||'='''||row2.name_lat||''', '||
-                      info.field_title('COUNTRY') ||'='''||row2.country ||''', '||
-                      info.field_title('TZ')      ||'='''||row2.tz      ||'''. '||
-                      'Идентификатор: '||
-                      info.field_title('ID')      ||'='''||row2.id||'''',
-                      system.evtCodif);
-    EXCEPTION
-      WHEN OTHERS THEN
-         ROLLBACK;
-         add_sync_error(vtable_name,row.ida,row2.code,SUBSTR(SQLERRM,1,1000));
-    END;
-    <<end_loop>>
-    COMMIT;
-  END LOOP;
+  IF curRow.num_rows IS NULL OR curRow.num_rows<=max_num_rows THEN
+    cur:=DBMS_SQL.OPEN_CURSOR;
+    DBMS_SQL.PARSE(cur, sql_text, DBMS_SQL.NATIVE);
+    DBMS_SQL.DEFINE_COLUMN(cur,1,n);
+    ignore:=DBMS_SQL.EXECUTE(cur);
+    ignore:=DBMS_SQL.FETCH_ROWS(cur);
+    DBMS_SQL.COLUMN_VALUE(cur,1,n);
+    DBMS_SQL.CLOSE_CURSOR(cur);
+    IF n>0 THEN
+      DBMS_OUTPUT.PUT_LINE(RPAD(curRow.table_name,30)||RPAD(curRow.column_name,15)||LPAD(n,12)||' '||curRow.partition_name);
+    END IF;
+  ELSE
+    DBMS_OUTPUT.PUT_LINE(sql_text);
+  END IF;
 END;
 
-PROCEDURE sync_airps
+PROCEDURE update_code(curRow oper_cur%ROWTYPE,
+                      old_airline_code airlines.code%TYPE,
+                      new_airline_code airlines.code%TYPE,
+                      max_rows INTEGER,
+                      upd_priority NUMBER)
 IS
-  CURSOR cur IS
-    SELECT sfe.ida,
-           UPPER(TRIM(sfe.rcodec)) AS rcode,
-           TRANSLATE(UPPER(TRIM(sfe.lcodec)),'АВСЕНКМОРТХ','ABCEHKMOPTX') AS lcode,
-           UPPER(TRIM(sfe.rcodec)) AS codec,
-           UPPER(TRIM(sfe.rname)) AS rname,
-           TRANSLATE(UPPER(TRIM(sfe.lname)),'АВСЕНКМОРТХ','ABCEHKMOPTX') AS lname
-    FROM sfe WHERE sfe.flprt=0 AND sfe.close=0
-    UNION
-    SELECT aer.ida,
-           UPPER(TRIM(aer.rcodep)) AS rcode,
-           TRANSLATE(UPPER(TRIM(aer.lcodep)),'АВСЕНКМОРТХ','ABCEHKMOPTX') AS lcode,
-           UPPER(TRIM(sfe.rcodec)) AS codec,
-           UPPER(TRIM(aer.rname)) AS rname,
-           TRANSLATE(UPPER(TRIM(aer.lname)),'АВСЕНКМОРТХ','ABCEHKMOPTX') AS lname
-    FROM aer,sfe WHERE aer.codec=sfe.ida AND aer.close=0;
-row	cur%ROWTYPE;
-row2	airps%ROWTYPE;
-row3    airps%ROWTYPE;
-info	adm.TCacheInfo;
-vtable_name     code_sync_error.table_name%TYPE;
-num	INTEGER;
+cur INTEGER;
+n INTEGER;
+rows_processed INTEGER;
+sql_text VARCHAR2(4000);
 BEGIN
-  vtable_name:='AIRPS';
-  info:=adm.get_cache_info('AIRPS');
+  IF curRow.partition_name IS NOT NULL THEN
+    sql_text:='UPDATE '||curRow.table_name||' PARTITION ('||curRow.partition_name||') p '||
+              'SET p.'||curRow.column_name||'='''||new_airline_code||''' '||
+              'WHERE p.'||curRow.column_name||'='''||old_airline_code||''' AND rownum<='||max_rows;
+  ELSE
+    sql_text:='UPDATE '||curRow.table_name||' '||
+              'SET '||curRow.column_name||'='''||new_airline_code||''' '||
+              'WHERE '||curRow.column_name||'='''||old_airline_code||''' AND rownum<='||max_rows;
+  END IF;
+  n:=0;
+  cur:=DBMS_SQL.OPEN_CURSOR;
+  DBMS_SQL.PARSE(cur, sql_text, DBMS_SQL.NATIVE);
+  LOOP
+    rows_processed:=DBMS_SQL.EXECUTE(cur);
+    n:=n+rows_processed;
 
-  row2.tid:=NULL;
-  FOR row IN cur LOOP
-    row2.id:=NULL;
-    row2.code:=NULL;
-    row2.code_lat:=NULL;
-    row2.name:=NULL;
-    row2.name_lat:=NULL;
-    row2.city:=NULL;
-
-    BEGIN
-      /* проверяем длину и допустимые символы в кодах и названиях */
-      IF row.rcode IS NOT NULL AND
-         LENGTH(row.rcode)=3 AND
-         system.is_upp_let(row.rcode)<>0 THEN row2.code:=row.rcode; END IF;
-      IF row.lcode IS NOT NULL AND
-         LENGTH(row.lcode)=3 AND
-         system.is_upp_let(row.lcode,1)<>0 THEN row2.code_lat:=row.lcode; END IF;
-      IF row.rname IS NOT NULL AND
-         system.is_name(row.rname,0,' -()./`')<>0 THEN row2.name:=row.rname; END IF;
-      IF row.lname IS NOT NULL AND
-         system.is_name(row.lname,1,' -()./`')<>0 THEN row2.name_lat:=row.lname; END IF;
-      IF row.rname IS NULL THEN row2.name:=row2.name_lat; END IF;
-
-      SELECT COUNT(*) INTO num FROM cities WHERE code=row.codec;
-      IF num>0 THEN row2.city:=row.codec; END IF;
-
-      row3.id:=NULL;
-      BEGIN
-        -- берем строку из астровского кодификатора, соответствующую коду
-        SELECT * INTO row3 FROM airps WHERE code=row2.code FOR UPDATE;
-        row2.id:=row3.id;
-        IF NVL(row2.code,' ') <> NVL(row3.code,' ') OR
-           NVL(row2.code_lat,' ') <> NVL(row3.code_lat,' ') OR
-           NVL(row2.name,' ') <> NVL(row3.name,' ') OR
-           NVL(row2.name_lat,' ') <> NVL(row3.name_lat,' ') OR
-           NVL(row2.city,' ') <> NVL(row3.city,' ') THEN
-          -- изменяем строку
-          IF row3.tid_sync IS NULL OR
-             row3.tid_sync IS NOT NULL AND row3.tid<>row3.tid_sync THEN
-            add_sync_error(vtable_name,row.ida,row2.code,'Строка была изменена вручную. Синхронизация не производится');
-            GOTO end_loop;
-          ELSE
-            IF row2.tid IS NULL THEN SELECT tid__seq.nextval INTO row2.tid FROM dual; END IF;
-            UPDATE airps
-            SET code=row2.code,
-                code_lat=row2.code_lat,
-                name=row2.name,
-                name_lat=row2.name_lat,
-                city=row2.city,
-                pr_del=0,
-                tid=row2.tid,
-                tid_sync=row2.tid
-            WHERE id=row2.id;
-            adm.check_airp_codes(row2.id,row2.code,row2.code_lat,NULL,NULL,'RU');
-          END IF;
-        ELSE
-          del_sync_error(vtable_name,row.ida);
-          GOTO end_loop;
-        END IF;
-      EXCEPTION
-        WHEN NO_DATA_FOUND THEN
-          -- не нашли строку в Астре, соответствующую коду
-          IF row2.tid IS NULL THEN SELECT tid__seq.nextval INTO row2.tid FROM dual; END IF;
-          INSERT INTO airps(id,code,code_lat,name,name_lat,city,pr_del,tid,tid_sync)
-          VALUES(id__seq.nextval,row2.code,row2.code_lat,row2.name,row2.name_lat,
-                 row2.city,0,row2.tid,row2.tid);
-          SELECT id__seq.currval INTO row2.id FROM dual;
-          adm.check_airp_codes(row2.id,row2.code,row2.code_lat,NULL,NULL,'RU');
-      END;
-      del_sync_error(vtable_name,row.ida);
-      system.MsgToLog(CASE WHEN row3.id IS NULL THEN 'Ввод' ELSE 'Изменение' END ||
-                      ' строки в таблице '''||info.title||''': '||
-                      info.field_title('CODE')    ||'='''||row2.code    ||''', '||
-                      info.field_title('CODE_LAT')||'='''||row2.code_lat||''', '||
-                      info.field_title('NAME')    ||'='''||row2.name    ||''', '||
-                      info.field_title('NAME_LAT')||'='''||row2.name_lat||''', '||
-                      info.field_title('CITY')    ||'='''||row2.city    ||'''. '||
-                      'Идентификатор: '||
-                      info.field_title('ID')      ||'='''||row2.id||'''',
-                      system.evtCodif);
-    EXCEPTION
-      WHEN OTHERS THEN
-         ROLLBACK;
-         add_sync_error(vtable_name,row.ida,row2.code,SUBSTR(SQLERRM,1,1000));
-    END;
-    <<end_loop>>
+    UPDATE update_code_progress
+    SET updated=n
+    WHERE table_name=curRow.table_name AND column_name=curRow.column_name AND
+          (partition_name IS NULL AND curRow.partition_name IS NULL OR partition_name=curRow.partition_name);
+    IF SQL%NOTFOUND THEN
+      INSERT INTO update_code_progress(table_name, column_name, num_rows, partition_name, updated, update_priority)
+      VALUES(curRow.table_name, curRow.column_name, curRow.num_rows, curRow.partition_name, n, upd_priority);
+    END IF;
     COMMIT;
+
+    EXIT WHEN rows_processed<max_rows;
   END LOOP;
-END;
+  DBMS_SQL.CLOSE_CURSOR(cur);
+--  ROLLBACK;
+  IF n>0 THEN
+    DBMS_OUTPUT.PUT_LINE(RPAD(curRow.table_name,30)||RPAD(curRow.column_name,15)||LPAD(n,12)||' '||curRow.partition_name);
+  END IF;
+END update_code;
 
-PROCEDURE sync_airlines
-IS
-  CURSOR cur IS
-    SELECT awk.ida,
-           UPPER(TRIM(awk.rcodea)) AS rcode,
-           TRANSLATE(UPPER(TRIM(awk.lcodea)),'АВСЕНКМОРТХ','ABCEHKMOPTX') AS lcode,
-           UPPER(TRIM(awk.rname)) AS rname,
-           TRANSLATE(UPPER(TRIM(awk.lname)),'АВСЕНКМОРТХ','ABCEHKMOPTX') AS lname,
-           UPPER(TRIM(awk.accode)) AS accode,
-           UPPER(TRIM(sfe.rcodec)) AS codec
-    FROM awk,sfe WHERE awk.codec=sfe.ida AND awk.close=0;
-row	cur%ROWTYPE;
-row2	airlines%ROWTYPE;
-row3    airlines%ROWTYPE;
-info	adm.TCacheInfo;
-vtable_name     code_sync_error.table_name%TYPE;
-num	INTEGER;
-BEGIN
-  vtable_name:='AIRLINES';
-  info:=adm.get_cache_info('AIRLINES');
-
-  row2.tid:=NULL;
-  FOR row IN cur LOOP
-    row2.id:=NULL;
-    row2.code:=NULL;
-    row2.code_lat:=NULL;
-    row2.name:=NULL;
-    row2.name_lat:=NULL;
-    row2.aircode:=NULL;
-    row2.city:=NULL;
-
-    BEGIN
-      /* проверяем длину и допустимые символы в кодах и названиях */
-      IF row.rcode IS NOT NULL AND
-         (LENGTH(row.rcode)=2 AND
-          system.is_upp_let_dig(row.rcode)<>0 OR
-          LENGTH(row.rcode)=3 AND
-          system.is_upp_let(row.rcode)<>0) THEN row2.code:=row.rcode; END IF;
-      IF row.lcode IS NOT NULL AND
-         (LENGTH(row.lcode)=2 AND
-          system.is_upp_let_dig(row.lcode,1)<>0 OR
-          LENGTH(row.lcode)=3 AND
-          system.is_upp_let(row.lcode,1)<>0) THEN row2.code_lat:=row.lcode; END IF;
-      IF row.rname IS NOT NULL AND
-         system.is_airline_name(row.rname)<>0 THEN row2.name:=row.rname; END IF;
-      IF row.lname IS NOT NULL AND
-         system.is_airline_name(row.lname,1)<>0 THEN row2.name_lat:=row.lname; END IF;
-      IF row.accode IS NOT NULL AND
-         LENGTH(row.accode) BETWEEN 2 AND 3 AND
-         system.is_upp_let_dig(row.accode)<>0 THEN row2.aircode:=row.accode; END IF;
-      IF row.rname IS NULL THEN row2.name:=row2.name_lat; END IF;
-
-      SELECT COUNT(*) INTO num FROM cities WHERE code=row.codec;
-      IF num>0 THEN row2.city:=row.codec; END IF;
-
-      row3.id:=NULL;
-      BEGIN
-        -- берем строку из астровского кодификатора, соответствующую коду
-        SELECT * INTO row3 FROM airlines WHERE code=row2.code FOR UPDATE;
-        row2.id:=row3.id;
-        IF NVL(row2.code,' ') <> NVL(row3.code,' ') OR
-           NVL(row2.code_lat,' ') <> NVL(row3.code_lat,' ') OR
-           NVL(row2.name,' ') <> NVL(row3.name,' ') OR
-           NVL(row2.name_lat,' ') <> NVL(row3.name_lat,' ') OR
-           NVL(row2.aircode,' ') <> NVL(row3.aircode,' ') OR
-           NVL(row2.city,' ') <> NVL(row3.city,' ') THEN
-          -- изменяем строку
-          IF row3.tid_sync IS NULL OR
-             row3.tid_sync IS NOT NULL AND row3.tid<>row3.tid_sync THEN
-            add_sync_error(vtable_name,row.ida,row2.code,'Строка была изменена вручную. Синхронизация не производится');
-            GOTO end_loop;
-          ELSE
-            IF row2.tid IS NULL THEN SELECT tid__seq.nextval INTO row2.tid FROM dual; END IF;
-            UPDATE airlines
-            SET code=row2.code,
-                code_lat=row2.code_lat,
-                name=row2.name,
-                name_lat=row2.name_lat,
-                aircode=row2.aircode,
-                city=row2.city,
-                pr_del=0,
-                tid=row2.tid,
-                tid_sync=row2.tid
-            WHERE id=row2.id;
-            adm.check_airline_codes(row2.id,row2.code,row2.code_lat,NULL,NULL,row2.aircode,'RU');
-          END IF;
-        ELSE
-          del_sync_error(vtable_name,row.ida);
-          GOTO end_loop;
-        END IF;
-      EXCEPTION
-        WHEN NO_DATA_FOUND THEN
-          -- не нашли строку в Астре, соответствующую коду
-          IF row2.tid IS NULL THEN SELECT tid__seq.nextval INTO row2.tid FROM dual; END IF;
-          INSERT INTO airlines(id,code,code_lat,name,name_lat,aircode,city,pr_del,tid,tid_sync)
-          VALUES(id__seq.nextval,row2.code,row2.code_lat,row2.name,row2.name_lat,
-                 row2.aircode,row2.city,0,row2.tid,row2.tid);
-          SELECT id__seq.currval INTO row2.id FROM dual;
-          adm.check_airline_codes(row2.id,row2.code,row2.code_lat,NULL,NULL,row2.aircode,'RU');
-      END;
-      del_sync_error(vtable_name,row.ida);
-      system.MsgToLog(CASE WHEN row3.id IS NULL THEN 'Ввод' ELSE 'Изменение' END ||
-                      ' строки в таблице '''||info.title||''': '||
-                      info.field_title('CODE')    ||'='''||row2.code    ||''', '||
-                      info.field_title('CODE_LAT')||'='''||row2.code_lat||''', '||
-                      info.field_title('NAME')    ||'='''||row2.name    ||''', '||
-                      info.field_title('NAME_LAT')||'='''||row2.name_lat||''', '||
-                      info.field_title('AIRCODE') ||'='''||row2.aircode ||''', '||
-                      info.field_title('CITY')    ||'='''||row2.city    ||'''. '||
-                      'Идентификатор: '||
-                      info.field_title('ID')      ||'='''||row2.id||'''',
-                      system.evtCodif);
-    EXCEPTION
-      WHEN OTHERS THEN
-         ROLLBACK;
-         add_sync_error(vtable_name,row.ida,row2.code,SUBSTR(SQLERRM,1,1000));
-    END;
-    <<end_loop>>
-    COMMIT;
-  END LOOP;
-END;
-
-PROCEDURE sync_crafts
-IS
-  CURSOR cur IS
-    SELECT ida,
-           UPPER(TRIM(rcodet)) AS rcode,
-           TRANSLATE(UPPER(TRIM(lcodet)),'АВСЕНКМОРТХ','ABCEHKMOPTX') AS lcode,
-           UPPER(TRIM(rname)) AS rname,
-           TRANSLATE(UPPER(TRIM(lname)),'АВСЕНКМОРТХ','ABCEHKMOPTX') AS lname
-    FROM tts WHERE close=0;
-row	cur%ROWTYPE;
-row2	crafts%ROWTYPE;
-row3    crafts%ROWTYPE;
-info	adm.TCacheInfo;
-vtable_name     code_sync_error.table_name%TYPE;
-BEGIN
-  vtable_name:='CRAFTS';
-  info:=adm.get_cache_info('CRAFTS');
-
-  row2.tid:=NULL;
-  FOR row IN cur LOOP
-    row2.id:=NULL;
-    row2.code:=NULL;
-    row2.code_lat:=NULL;
-    row2.name:=NULL;
-    row2.name_lat:=NULL;
-
-    BEGIN
-      /* проверяем длину и допустимые символы в кодах и названиях */
-      IF row.rcode IS NOT NULL AND
-         LENGTH(row.rcode)=3 AND
-         system.is_upp_let_dig(row.rcode)<>0 THEN row2.code:=row.rcode; END IF;
-      IF row.lcode IS NOT NULL AND
-         LENGTH(row.lcode)=3 AND
-         system.is_upp_let_dig(row.lcode,1)<>0 THEN row2.code_lat:=row.lcode; END IF;
-      IF row.rname IS NOT NULL AND
-         system.is_name(row.rname)<>0 THEN row2.name:=row.rname; END IF;
-      IF row.lname IS NOT NULL AND
-         system.is_name(row.lname,1)<>0 THEN row2.name_lat:=row.lname; END IF;
-      IF row.rname IS NULL THEN row2.name:=row2.name_lat; END IF;
-      IF row2.name IS NULL THEN row2.name:=row2.code; END IF;
-
-      row3.id:=NULL;
-      BEGIN
-        -- берем строку из астровского кодификатора, соответствующую коду
-        SELECT * INTO row3 FROM crafts WHERE code=row2.code FOR UPDATE;
-        row2.id:=row3.id;
-        IF NVL(row2.code,' ') <> NVL(row3.code,' ') OR
-           NVL(row2.code_lat,' ') <> NVL(row3.code_lat,' ') OR
-           NVL(row2.name,' ') <> NVL(row3.name,' ') OR
-           NVL(row2.name_lat,' ') <> NVL(row3.name_lat,' ') THEN
-          -- изменяем строку
-          IF row3.tid_sync IS NULL OR
-             row3.tid_sync IS NOT NULL AND row3.tid<>row3.tid_sync THEN
-            add_sync_error(vtable_name,row.ida,row2.code,'Строка была изменена вручную. Синхронизация не производится');
-            GOTO end_loop;
-          ELSE
-            IF row2.tid IS NULL THEN SELECT tid__seq.nextval INTO row2.tid FROM dual; END IF;
-            UPDATE crafts
-            SET code=row2.code,
-                code_lat=row2.code_lat,
-                name=row2.name,
-                name_lat=row2.name_lat,
-                pr_del=0,
-                tid=row2.tid,
-                tid_sync=row2.tid
-            WHERE id=row2.id;
-            adm.check_craft_codes(row2.id,row2.code,row2.code_lat,NULL,NULL,'RU');
-          END IF;
-        ELSE
-          del_sync_error(vtable_name,row.ida);
-          GOTO end_loop;
-        END IF;
-      EXCEPTION
-        WHEN NO_DATA_FOUND THEN
-          -- не нашли строку в Астре, соответствующую коду
-          IF row2.tid IS NULL THEN SELECT tid__seq.nextval INTO row2.tid FROM dual; END IF;
-          INSERT INTO crafts(id,code,code_lat,name,name_lat,pr_del,tid,tid_sync)
-          VALUES(id__seq.nextval,row2.code,row2.code_lat,row2.name,row2.name_lat,0,row2.tid,row2.tid);
-          SELECT id__seq.currval INTO row2.id FROM dual;
-          adm.check_craft_codes(row2.id,row2.code,row2.code_lat,NULL,NULL,'RU');
-      END;
-      del_sync_error(vtable_name,row.ida);
-      system.MsgToLog(CASE WHEN row3.id IS NULL THEN 'Ввод' ELSE 'Изменение' END ||
-                      ' строки в таблице '''||info.title||''': '||
-                      info.field_title('CODE')    ||'='''||row2.code    ||''', '||
-                      info.field_title('CODE_LAT')||'='''||row2.code_lat||''', '||
-                      info.field_title('NAME')    ||'='''||row2.name    ||''', '||
-                      info.field_title('NAME_LAT')||'='''||row2.name_lat||'''. '||
-                      'Идентификатор: '||
-                      info.field_title('ID')      ||'='''||row2.id||'''',
-                      system.evtCodif);
-    EXCEPTION
-      WHEN OTHERS THEN
-         ROLLBACK;
-         add_sync_error(vtable_name,row.ida,row2.code,SUBSTR(SQLERRM,1,1000));
-    END;
-    <<end_loop>>
-    COMMIT;
-  END LOOP;
-END;
-
-PROCEDURE sync_sirena_codes(pr_summer IN NUMBER)
+PROCEDURE airline_count(airline_code airlines.code%TYPE,
+                        max_num_rows user_tables.num_rows%TYPE)
 IS
 BEGIN
-  sync_countries;
-  sync_cities(pr_summer);
-  sync_airps;
-  sync_airlines;
-  sync_crafts;
-END;
+  DBMS_OUTPUT.PUT_LINE('Оперативные таблицы:');
+  FOR curRow IN oper_cur LOOP
+    print_count(curRow, airline_code, max_num_rows);
+  END LOOP;
+  DBMS_OUTPUT.PUT_LINE('==========================================================================');
+  DBMS_OUTPUT.PUT_LINE('Таблицы истории и статистики:');
+  FOR curRow IN hist_cur LOOP
+    print_count(curRow, airline_code, max_num_rows);
+  END LOOP;
+  DBMS_OUTPUT.PUT_LINE('==========================================================================');
+  DBMS_OUTPUT.PUT_LINE('Таблицы архива:');
+  FOR curRow IN arx_cur LOOP
+    print_count(curRow, airline_code, max_num_rows);
+  END LOOP;
+  DBMS_OUTPUT.PUT_LINE('==========================================================================');
+END airline_count;
+
+PROCEDURE airline_update_oper(old_airline_code airlines.code%TYPE,
+                              new_airline_code airlines.code%TYPE,
+                              max_rows user_tables.num_rows%TYPE)
+IS
+vid airlines.id%TYPE;
+BEGIN
+  IF old_airline_code=new_airline_code THEN RETURN; END IF;
+
+  vid:=NULL;
+  DELETE FROM airlines WHERE code=new_airline_code AND pr_del<>0 RETURNING id INTO vid;
+  IF vid IS NULL THEN
+    SELECT id__seq.nextval INTO vid FROM dual;
+  END IF;
+
+  INSERT INTO airlines
+    (code,code_lat,code_icao,code_icao_lat,name,name_lat,short_name,short_name_lat,aircode,city,
+     id,tid,tid_sync,pr_del)
+  SELECT new_airline_code,code_lat,code_icao,code_icao_lat,name,name_lat,short_name,short_name_lat,aircode,city,
+     vid,tid__seq.nextval,NULL,0
+  FROM airlines
+  WHERE code=old_airline_code;
+  hist.synchronize_history('airlines',vid,NULL,NULL);
+
+  vid:=NULL;
+  UPDATE airlines
+  SET code_lat=NULL, code_icao=NULL, code_icao_lat=NULL, aircode=NULL, tid=tid__seq.currval, pr_del=1
+  WHERE code=old_airline_code RETURNING id INTO vid;
+  hist.synchronize_history('airlines',vid,NULL,NULL);
+  COMMIT;
+
+  DBMS_OUTPUT.PUT_LINE('Оперативные таблицы:');
+
+  FOR curRow IN oper_cur LOOP
+    other_constraints(curRow, FALSE);
+  END LOOP;
+
+  FOR curRow IN oper_cur LOOP
+    update_code(curRow, old_airline_code, new_airline_code, max_rows, 1);
+  END LOOP;
+
+  FOR curRow IN oper_cur LOOP
+    other_constraints(curRow, TRUE);
+  END LOOP;
+
+  DBMS_OUTPUT.PUT_LINE('==========================================================================');
+
+  UPDATE aodb_airlines SET aodb_code=old_airline_code WHERE airline=new_airline_code AND aodb_code=new_airline_code;
+  COMMIT;
+END airline_update_oper;
+
+PROCEDURE airline_update_arx(old_airline_code airlines.code%TYPE,
+                             new_airline_code airlines.code%TYPE,
+                             max_rows user_tables.num_rows%TYPE)
+IS
+BEGIN
+  IF old_airline_code=new_airline_code THEN RETURN; END IF;
+
+  DBMS_OUTPUT.PUT_LINE('Таблицы истории и статистики:');
+
+  FOR curRow IN hist_cur LOOP
+    other_constraints(curRow, FALSE);
+  END LOOP;
+
+  FOR curRow IN hist_cur LOOP
+    update_code(curRow, old_airline_code, new_airline_code, max_rows, 2);
+  END LOOP;
+
+  FOR curRow IN hist_cur LOOP
+    other_constraints(curRow, TRUE);
+  END LOOP;
+
+  DBMS_OUTPUT.PUT_LINE('==========================================================================');
+
+  DBMS_OUTPUT.PUT_LINE('Таблицы архива:');
+  FOR curRow IN arx_cur LOOP
+    update_code(curRow, old_airline_code, new_airline_code, max_rows, 3);
+  END LOOP;
+  DBMS_OUTPUT.PUT_LINE('==========================================================================');
+  COMMIT;
+END airline_update_arx;
+
+PROCEDURE view_update_progress
+IS
+BEGIN
+  FOR curRow IN progress_cur LOOP
+    IF curRow.num_rows>0 THEN
+      DBMS_OUTPUT.PUT_LINE(RPAD(curRow.table_name,30)||RPAD(curRow.column_name,15)||LPAD(curRow.num_rows,12)||' '||curRow.partition_name);
+    END IF;
+  END LOOP;
+END view_update_progress;
+
+PROCEDURE users_logoff(new_airline_code airlines.code%TYPE)
+IS
+  CURSOR cur(code airlines.code%TYPE) IS
+    SELECT user_id
+    FROM users2
+    WHERE desk IS NOT NULL AND
+          adm.check_airline_access(code, user_id)<>0;
+BEGIN
+  FOR curRow IN cur(new_airline_code) LOOP
+    UPDATE users2 SET desk = NULL WHERE user_id = curRow.user_id;
+  END LOOP;
+  COMMIT;
+END users_logoff;
+
+/*
+DROP TABLE masking_cards_progress;
+CREATE TABLE masking_cards_progress
+(
+  table_name      VARCHAR2(30),
+  last_part_key   DATE,
+  last_id         NUMBER(9),
+  step_part_key   NUMBER(5),
+  step_id         NUMBER(9),
+  updated         NUMBER(9)
+);
+
+ALTER TABLE masking_cards_progress
+       ADD CONSTRAINT masking_cards_progress__PK PRIMARY KEY (table_name);
+
+DELETE FROM masking_cards_progress;
+INSERT INTO masking_cards_progress(table_name, last_part_key, last_id, step_part_key, step_id, updated)
+SELECT 'crs_pax_rem', NULL, MIN(pax_id), NULL, 50000, 0
+FROM crs_pax_rem;
+INSERT INTO masking_cards_progress(table_name, last_part_key, last_id, step_part_key, step_id, updated)
+SELECT 'crs_pax_fqt', NULL, MIN(pax_id), NULL, 50000, 0
+FROM crs_pax_fqt;
+INSERT INTO masking_cards_progress(table_name, last_part_key, last_id, step_part_key, step_id, updated)
+SELECT 'pax_rem', NULL, MIN(pax_id), NULL, 50000, 0
+FROM pax_rem;
+INSERT INTO masking_cards_progress(table_name, last_part_key, last_id, step_part_key, step_id, updated)
+SELECT 'pax_fqt', NULL, MIN(pax_id), NULL, 50000, 0
+FROM pax_fqt;
+INSERT INTO masking_cards_progress(table_name, last_part_key, last_id, step_part_key, step_id, updated)
+SELECT 'typeb_in_body', NULL, MIN(id), NULL, 20000, 0
+FROM typeb_in_body;
+INSERT INTO masking_cards_progress(table_name, last_part_key, last_id, step_part_key, step_id, updated)
+SELECT 'tlg_out', NULL, MIN(id), NULL, 20000, 0
+FROM tlg_out;
+
+INSERT INTO masking_cards_progress(table_name, last_part_key, last_id, step_part_key, step_id, updated)
+SELECT 'arx_pax_rem', MIN(part_key), NULL, 180, NULL, 0
+FROM arx_pax_rem;
+INSERT INTO masking_cards_progress(table_name, last_part_key, last_id, step_part_key, step_id, updated)
+SELECT 'arx_tlgs_in', MIN(part_key), NULL, 360, NULL, 0
+FROM arx_tlgs_in;
+INSERT INTO masking_cards_progress(table_name, last_part_key, last_id, step_part_key, step_id, updated)
+SELECT 'arx_tlg_out', MIN(part_key), NULL, 720, NULL, 0
+FROM arx_tlg_out;
+COMMIT;
+
+RENAME masking_cards_progress TO masking_cards_progress2;
+
+*/
+
+FUNCTION masking_cards(src IN VARCHAR2) RETURN VARCHAR2
+IS
+pos INTEGER;
+prior_pos INTEGER;
+dest VARCHAR2(4000);
+BEGIN
+  pos:=0;
+  prior_pos:=NULL;
+  dest:=src;
+  WHILE TRUE LOOP
+   IF prior_pos IS NULL THEN
+     pos:=REGEXP_INSTR(dest, card_instr_pattern);
+   ELSE
+     pos:=REGEXP_INSTR(dest, card_instr_pattern, prior_pos, 2);
+   END IF;
+   EXIT WHEN pos=0 OR pos IS NULL;
+   dest:=REGEXP_REPLACE(dest, card_replace_pattern, card_replace_string, pos, 1);
+--   DBMS_OUTPUT.PUT_LINE('prior_pos='||prior_pos||', pos='||pos||', dest='||SUBSTR(dest,pos));
+   prior_pos:=pos;
+  END LOOP;
+
+  RETURN dest;
+END masking_cards;
+
+PROCEDURE masking_cards_update(vtab IN VARCHAR2)
+IS
+sets masking_cards_progress%ROWTYPE;
+curr_part_key DATE;
+fin_part_key DATE;
+curr_id NUMBER(9);
+fin_id NUMBER(9);
+BEGIN
+  SELECT * INTO sets FROM masking_cards_progress WHERE table_name=LOWER(vtab);
+  IF sets.last_id IS NOT NULL THEN
+    IF sets.table_name='crs_pax_rem' THEN
+      SELECT MAX(pax_id) INTO fin_id FROM crs_pax_rem;
+    END IF;
+    IF sets.table_name='crs_pax_fqt' THEN
+      SELECT MAX(pax_id) INTO fin_id FROM crs_pax_fqt;
+    END IF;
+    IF sets.table_name='pax_rem' THEN
+      SELECT MAX(pax_id) INTO fin_id FROM pax_rem;
+    END IF;
+    IF sets.table_name='pax_fqt' THEN
+      SELECT MAX(pax_id) INTO fin_id FROM pax_fqt;
+    END IF;
+    IF sets.table_name='typeb_in_body' THEN
+      SELECT MAX(id) INTO fin_id FROM typeb_in_body;
+    END IF;
+    IF sets.table_name='tlg_out' THEN
+      SELECT MAX(id) INTO fin_id FROM tlg_out;
+    END IF;
+
+    WHILE sets.last_id<=fin_id LOOP
+      curr_id:=sets.last_id+sets.step_id;
+      IF sets.table_name='crs_pax_rem' THEN
+        UPDATE crs_pax_rem
+        SET rem=masking_cards(rem)
+        WHERE pax_id>=sets.last_id AND pax_id<curr_id AND
+              REGEXP_LIKE(rem_code, rem_like_pattern) AND
+              REGEXP_LIKE(rem, card_like_pattern);
+      END IF;
+      IF sets.table_name='crs_pax_fqt' THEN
+        UPDATE crs_pax_fqt
+        SET no=masking_cards(no)
+        WHERE pax_id>=sets.last_id AND pax_id<curr_id AND
+              REGEXP_LIKE(no, card_like_pattern);
+      END IF;
+      IF sets.table_name='pax_rem' THEN
+        UPDATE pax_rem
+        SET rem=masking_cards(rem)
+        WHERE pax_id>=sets.last_id AND pax_id<curr_id AND
+              REGEXP_LIKE(rem_code, rem_like_pattern) AND
+              REGEXP_LIKE(rem, card_like_pattern);
+      END IF;
+      IF sets.table_name='pax_fqt' THEN
+        UPDATE pax_fqt
+        SET no=masking_cards(no)
+        WHERE pax_id>=sets.last_id AND pax_id<curr_id AND
+              REGEXP_LIKE(no, card_like_pattern);
+      END IF;
+      IF sets.table_name='typeb_in_body' THEN
+        UPDATE typeb_in_body
+        SET text=masking_cards(text)
+        WHERE id>=sets.last_id AND id<curr_id AND
+              REGEXP_LIKE(text, card_like_pattern);
+      END IF;
+      IF sets.table_name='tlg_out' THEN
+        UPDATE tlg_out
+        SET body=masking_cards(body)
+        WHERE id>=sets.last_id AND id<curr_id AND
+              REGEXP_LIKE(body, card_like_pattern);
+      END IF;
+
+      sets.updated:=SQL%ROWCOUNT;
+      sets.last_id:=curr_id;
+      ROLLBACK;
+      UPDATE masking_cards_progress
+      SET last_id=sets.last_id, updated=updated+sets.updated
+      WHERE table_name=sets.table_name;
+      COMMIT;
+    END LOOP;
+  END IF;
+
+  IF sets.last_part_key IS NOT NULL THEN
+    IF sets.table_name='arx_pax_rem' THEN
+      SELECT MAX(part_key) INTO fin_part_key FROM arx_pax_rem;
+    END IF;
+    IF sets.table_name='arx_tlgs_in' THEN
+      SELECT MAX(part_key) INTO fin_part_key FROM arx_tlgs_in;
+    END IF;
+    IF sets.table_name='arx_tlg_out' THEN
+      SELECT MAX(part_key) INTO fin_part_key FROM arx_tlg_out;
+    END IF;
+
+    WHILE sets.last_part_key<=fin_part_key LOOP
+      curr_part_key:=sets.last_part_key+(sets.step_part_key/1440);
+      IF sets.table_name='arx_pax_rem' THEN
+        UPDATE arx_pax_rem
+        SET rem=masking_cards(rem)
+        WHERE part_key>=sets.last_part_key AND part_key<curr_part_key AND
+              REGEXP_LIKE(rem_code, rem_like_pattern) AND
+              REGEXP_LIKE(rem, card_like_pattern);
+      END IF;
+      IF sets.table_name='arx_tlgs_in' THEN
+        UPDATE arx_tlgs_in
+        SET body=masking_cards(body)
+        WHERE part_key>=sets.last_part_key AND part_key<curr_part_key AND
+              REGEXP_LIKE(body, card_like_pattern);
+      END IF;
+      IF sets.table_name='arx_tlg_out' THEN
+        UPDATE arx_tlg_out
+        SET body=masking_cards(body)
+        WHERE part_key>=sets.last_part_key AND part_key<curr_part_key AND
+              REGEXP_LIKE(body, card_like_pattern);
+      END IF;
+
+      sets.updated:=SQL%ROWCOUNT;
+      sets.last_part_key:=curr_part_key;
+--      ROLLBACK;
+      UPDATE masking_cards_progress
+      SET last_part_key=sets.last_part_key, updated=updated+sets.updated
+      WHERE table_name=sets.table_name;
+      COMMIT;
+    END LOOP;
+
+  END IF;
+EXCEPTION
+  WHEN OTHERS THEN
+  BEGIN
+    ROLLBACK;
+    RAISE;
+  END;
+END masking_cards_update;
 
 END utils;
 /

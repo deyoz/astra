@@ -88,19 +88,19 @@ echo @$SCRIPTS/getrig.sql $i
 done>$$-work.sql
 sqlplus $1 @$$-work.sql </dev/null
 
-cat triggers.lst|awk 'NF==1 {print $1}'| \
-while read i; do
-ed 8Trig/$i.sql <<EOF
-\$
-?;
-+1,\$d
-a
-/
-.
-w
-q
-EOF
-done
+#cat triggers.lst|awk 'NF==1 {print $1}'| \
+#while read i; do
+#ed 8Trig/$i.sql <<EOF
+#\$
+#?;
+#+1,\$d
+#a
+#/
+#.
+#w
+#q
+#EOF
+#done
 
 cat views.lst |awk 'NF==1 {print $1}'| \
 while read i; do

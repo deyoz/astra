@@ -246,17 +246,17 @@ END get_crs_seat_no;
    '_seats': одно левое верхнее место пассажира плюс оставшееся кол-во мест: 4А+2 + пробелы слева
    иначе:    одно левое верхнее место пассажира плюс оставшееся кол-во мест: 4А+2
 */
-FUNCTION get_seatno(vpax_id     IN pax.pax_id%TYPE,
-                    vseats      IN pax.seats%TYPE,
-                    vpoint_id   IN trip_sets.point_id%TYPE,
-                    fmt	 IN VARCHAR2,
-                    row	 IN NUMBER DEFAULT 1,
-                    only_lat    IN NUMBER DEFAULT 0) RETURN VARCHAR2
+FUNCTION get_seat_no_int2(vpax_id     IN pax.pax_id%TYPE,
+                          vseats      IN pax.seats%TYPE,
+                          vpoint_id   IN trip_sets.point_id%TYPE,
+                          fmt	      IN VARCHAR2,
+                          row	      IN NUMBER DEFAULT 1,
+                          only_lat    IN NUMBER DEFAULT 0) RETURN VARCHAR2
 IS
 CURSOR cur(vpoint_id   IN trip_sets.point_id%TYPE,
            vpax_id     IN pax.pax_id%TYPE) IS
   SELECT yname, xname FROM pax_seats
-   WHERE pax_id=vpax_id
+   WHERE pax_id=vpax_id AND NVL(pr_wl,0) = 0
   ORDER BY yname, xname;
 curRow    	cur%ROWTYPE;
 vpoint_dep 	trip_sets.point_id%TYPE;
@@ -404,7 +404,7 @@ BEGIN
     END IF;
   END IF;
   RETURN res_num;
-END get_seatno;
+END get_seat_no_int2;
 
 /*
    fmt - формат данных.
@@ -418,13 +418,13 @@ END get_seatno;
    '_seats': одно левое верхнее место пассажира плюс оставшееся кол-во мест: 4А+2 + пробелы слева
    иначе:    одно левое верхнее место пассажира плюс оставшееся кол-во мест: 4А+2
 */
-FUNCTION get_seat_no(vpax_id     IN pax.pax_id%TYPE,
-                     vseats      IN pax.seats%TYPE,
-                     vgrp_status IN pax_grp.status%TYPE,
-                     vpoint_id   IN trip_sets.point_id%TYPE,
-                     fmt	 IN VARCHAR2,
-                     row	 IN NUMBER DEFAULT 1,
-                     only_lat    IN NUMBER DEFAULT 0) RETURN VARCHAR2
+FUNCTION get_seat_no_int(vpax_id     IN pax.pax_id%TYPE,
+                         vseats      IN pax.seats%TYPE,
+                         vgrp_status IN pax_grp.status%TYPE,
+                         vpoint_id   IN trip_sets.point_id%TYPE,
+                         fmt	     IN VARCHAR2,
+                         row	     IN NUMBER DEFAULT 1,
+                         only_lat    IN NUMBER DEFAULT 0) RETURN VARCHAR2
 IS
 CURSOR cur(vpax_id     IN pax.pax_id%TYPE,
            vgrp_status IN pax_grp.status%TYPE) IS
@@ -480,8 +480,9 @@ CURSOR cur3(vpoint_num	   IN points.point_num%TYPE,
          ) points
     WHERE tlg_binding.point_id_spp=points.point_id AND
           tlg_source.point_id_tlg=tlg_binding.point_id_tlg AND
+          NVL(tlg_source.has_errors,0)=0 AND
           tlgs_in.id=tlg_source.tlg_id AND tlgs_in.num=1 AND tlgs_in.type IN ('PRL','SOM')
-    ORDER BY point_num DESC,DECODE(tlgs_in.type,'PRL',0,1);
+    ORDER BY point_num DESC,DECODE(tlgs_in.type,'PRL',1,0);
 
 CURSOR cur4 IS
   SELECT code FROM comp_layer_types
@@ -581,7 +582,7 @@ BEGIN
     EXCEPTION WHEN NO_DATA_FOUND THEN NULL;
     END;
     IF seatInfo.pr_tranzit_salon<>0 THEN
-      RETURN get_seatno(vpax_id,vseats,vpoint_dep,fmt,vrow,only_lat);
+      RETURN get_seat_no_int2(vpax_id,vseats,vpoint_dep,fmt,vrow,only_lat);
     END IF;
   END IF;
 
@@ -802,6 +803,24 @@ BEGIN
     END IF;
   END IF;
   RETURN res_num;
+END get_seat_no_int;
+
+FUNCTION get_seat_no(vpax_id     IN pax.pax_id%TYPE,
+                     vseats      IN pax.seats%TYPE,
+                     vis_jmp     IN pax.is_jmp%TYPE,
+                     vgrp_status IN pax_grp.status%TYPE,
+                     vpoint_id   IN trip_sets.point_id%TYPE,
+                     fmt	 IN VARCHAR2,
+                     row	 IN NUMBER DEFAULT 1,
+                     only_lat    IN NUMBER DEFAULT 0) RETURN VARCHAR2
+IS
+result VARCHAR2(50);
+BEGIN
+  result:=get_seat_no_int(vpax_id, vseats, vgrp_status, vpoint_id, fmt, row, only_lat);
+  IF result IS NULL AND vis_jmp IS NOT NULL AND vis_jmp<>0 THEN
+    result:='JMP';
+  END IF;
+  RETURN result;
 END get_seat_no;
 
 FUNCTION normalize_bort(str points.bort%TYPE) RETURN points.bort%TYPE
@@ -873,6 +892,7 @@ END check_bort;
 
 FUNCTION is_waitlist(vpax_id     IN pax.pax_id%TYPE,
                      vseats      IN pax.seats%TYPE,
+                     vis_jmp     IN pax.is_jmp%TYPE,
                      vgrp_status IN pax_grp.status%TYPE,
                      vpoint_id   IN trip_sets.point_id%TYPE,
                      row	 IN NUMBER DEFAULT 1) RETURN NUMBER
@@ -923,7 +943,7 @@ BEGIN
     IF vrow=1 AND vseats=0 THEN seatInfo.point_id:=NULL; END IF; --след. вызов инициализация seatInfo, т.к. в get_seat_no она не прошла
     RETURN 0;
   END IF;
-  IF get_seat_no(vpax_id,vseats,vgrp_status,vpoint_id,'one',vrow) IS NULL THEN
+  IF get_seat_no(vpax_id,vseats,vis_jmp,vgrp_status,vpoint_id,'one',vrow) IS NULL THEN
    RETURN 1;
   ELSE
    RETURN 0;

@@ -6,88 +6,6 @@ TYPE TStagesInStageType IS TABLE OF BOOLEAN INDEX BY BINARY_INTEGER;
 TYPE TStageStatuses IS TABLE OF TStagesInStageType INDEX BY BINARY_INTEGER;
 stage_statuses_t TStageStatuses;
 
-PROCEDURE puttrip_stages( vpoint_id IN points.point_id%TYPE )
-IS
-CURSOR cur_stages(vairp		stage_sets.airp%TYPE) IS
-  SELECT graph_stages.stage_id,
-         NVL(stage_names.name,graph_stages.name) name,
-         NVL(stage_sets.pr_auto,graph_stages.pr_auto) pr_auto
-   FROM graph_stages, stage_sets, stage_names
-  WHERE graph_stages.stage_id > 0 AND graph_stages.stage_id < 99 AND
-        stage_sets.airp(+) = vairp AND
-        stage_names.airp(+) = vairp AND
-        stage_sets.stage_id(+) = graph_stages.stage_id AND
-        stage_names.stage_id(+) = graph_stages.stage_id
-   ORDER BY stage_id;
-vrow_stages 	cur_stages%ROWTYPE;
-CURSOR cur_times(vstage_id	graph_times.stage_id%TYPE,
-                 vairline	graph_times.airline%TYPE,
-                 vairp		graph_times.airp%TYPE,
-                 vcraft		graph_times.craft%TYPE,
-                 vtrip_type	graph_times.trip_type%TYPE) IS
-  SELECT time,
-         DECODE( graph_times.airline, NULL, 0, 8 ) +
-         DECODE( graph_times.airp, NULL, 0, 4 ) +
-         DECODE( graph_times.craft, NULL, 0, 2 ) +
-         DECODE( graph_times.trip_type, NULL, 0, 1 ) AS priority
-  FROM graph_times
-  WHERE stage_id = vstage_id AND
-        ( graph_times.airline IS NULL OR graph_times.airline = vairline ) AND
-        ( graph_times.airp IS NULL OR graph_times.airp = vairp ) AND
-        ( graph_times.craft IS NULL OR graph_times.craft = vcraft ) AND
-        ( graph_times.trip_type IS NULL OR graph_times.trip_type = vtrip_type )
-  UNION
-  SELECT time, -1 AS priority
-  FROM graph_stages
-  WHERE stage_id = vstage_id
-  ORDER BY 2/*priority*/ DESC;
-vrow_times 	cur_times%ROWTYPE;
-vc 		NUMBER;
-vscd		points.scd_out%TYPE;
-vact		points.act_out%TYPE;
-vpr_del		points.pr_del%TYPE;
-vairp		points.airp%TYPE;
-vairline	points.airline%TYPE;
-vcraft		points.craft%TYPE;
-vtrip_type	points.trip_type%TYPE;
-vtime           trip_stages.scd%TYPE;
-vignore_auto	trip_stages.ignore_auto%TYPE;
-BEGIN
- BEGIN
-   SELECT scd_out,airline,airp,craft,trip_type,act_out,points.pr_del
-   INTO vscd,vairline,vairp,vcraft,vtrip_type,vact,vpr_del
-   FROM points, trip_types
-   WHERE points.point_id = vpoint_id AND points.pr_del>=0 AND
-         points.trip_type = trip_types.code AND
-         trip_types.pr_reg = 1;
- EXCEPTION
-   WHEN NO_DATA_FOUND THEN RETURN;
- END;
- FOR vrow_stages IN cur_stages( vairp ) LOOP
-  SELECT COUNT(*) INTO vc FROM trip_stages
-   WHERE point_id = vpoint_id AND
-         stage_id = vrow_stages.stage_id;
-  IF vc = 0 THEN
-   OPEN cur_times(vrow_stages.stage_id,vairline,vairp,vcraft,vtrip_type);
-   FETCH cur_times INTO vrow_times;
-   IF cur_times%FOUND THEN
-     vtime:=TRUNC(vscd-vrow_times.time/1440,'MI');
-     IF vact IS NULL AND vpr_del = 0 THEN
-       vignore_auto := 0;
-     ELSE
-       vignore_auto := 1;
-     END IF;
-     INSERT INTO trip_stages( point_id,stage_id,scd,est,act,pr_auto,pr_manual,ignore_auto )
-     VALUES( vpoint_id,vrow_stages.stage_id,vtime,NULL,NULL,vrow_stages.pr_auto,0,vignore_auto );
-     system.MsgToLog('Этап '''||vrow_stages.name||''': план. время='||
-                     TO_CHAR(vtime,'HH24:MI DD.MM.YY')||' (UTC)',system.evtGraph,vpoint_id);
-   END IF;
-   CLOSE cur_times;
-  END IF;
- END LOOP;
- sync_trip_final_stages( vpoint_id );
-END puttrip_stages;
-
 FUNCTION IsClientStage( vpoint_id IN points.point_id%TYPE,
                         vstage_id IN trip_stages.stage_id%TYPE,
                         vpr_permit OUT trip_ckin_client.pr_permit%TYPE ) RETURN NUMBER
@@ -177,8 +95,7 @@ IS
     SELECT stage_types.id, trip_final_stages.stage_id
     FROM stage_types, trip_final_stages
     WHERE stage_types.id=trip_final_stages.stage_type(+) AND
-          trip_final_stages.point_id(+)=vpoint_id
-    FOR UPDATE;
+          trip_final_stages.point_id(+)=vpoint_id;
   CURSOR cur2 IS
     SELECT stage_id FROM graph_stages;
 vpr_permit	      trip_ckin_client.pr_permit%TYPE;

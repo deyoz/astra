@@ -1,11 +1,12 @@
 create or replace PACKAGE system
 AS
 
-SUBTYPE TEventType IS events.type%TYPE;
+SUBTYPE TEventType IS events_bilingual.type%TYPE;
 evtSeason       CONSTANT TEventType := 'ëÖá';
 evtDisp         CONSTANT TEventType := 'Ñàë';
 evtFlt          CONSTANT TEventType := 'êÖâ';
 evtGraph        CONSTANT TEventType := 'Éêî';
+evtFltTask      CONSTANT TEventType := 'áÑó';
 evtPax          CONSTANT TEventType := 'èÄë';
 evtPay          CONSTANT TEventType := 'éèã';
 evtComp         CONSTANT TEventType := 'äåè';
@@ -14,6 +15,7 @@ evtAccess       CONSTANT TEventType := 'Ñëí';
 evtSystem       CONSTANT TEventType := 'ëàë';
 evtCodif        CONSTANT TEventType := 'äéÑ';
 evtPeriod       CONSTANT TEventType := 'èêÑ';
+evtPrn          CONSTANT TEventType := 'èóí';
 evtProgError    CONSTANT TEventType := '!';
 evtUnknown      CONSTANT TEventType := '?';
 
@@ -42,15 +44,6 @@ PRAGMA RESTRICT_REFERENCES (IsLeapYear, WNDS, WNPS, RNPS);
 PRAGMA RESTRICT_REFERENCES (LastDayofMonth, WNDS, WNPS, RNPS);
 PRAGMA RESTRICT_REFERENCES (UTCSYSDATE, WNDS, WNPS, RNPS);
 PRAGMA RESTRICT_REFERENCES (LOCALSYSDATE, WNDS, WNPS, RNPS);
-PROCEDURE MsgToLog(vmsg         VARCHAR2,
-                   vtype        TEventType,
-                   vid1         events.id1%TYPE DEFAULT NULL,
-                   vid2         events.id2%TYPE DEFAULT NULL,
-                   vid3         events.id3%TYPE DEFAULT NULL);
-PROCEDURE ErrorToLog(vmsg       VARCHAR2,
-                   vid1         events.id1%TYPE DEFAULT NULL,
-                   vid2         events.id2%TYPE DEFAULT NULL,
-                   vid3         events.id3%TYPE DEFAULT NULL);
 
 TYPE TTranslitDicts IS TABLE OF translit_dicts%ROWTYPE INDEX BY translit_dicts.letter%TYPE;
 translit_dicts_t TTranslitDicts;
