@@ -178,4 +178,6 @@ class PrintInterface: public JxtInterface
                 xmlNodePtr resNode);
 };
 
+int prn_tst(int argc, char **argv);
+
 #endif
