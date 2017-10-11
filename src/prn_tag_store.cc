@@ -1262,14 +1262,6 @@ bool TPrnTagStore::isBoardingPass()
     return op_type == TDevOper::PrnBP and get_tag(TAG::VOUCHER_CODE).empty();
 }
 
-string airp_code_2D(const string &code)
-{
-    string result = code;
-    if(result.size() > 3)
-        result = "XXX";
-    return result;
-}
-
 string TPrnTagStore::BCBP_M_2(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
@@ -1321,9 +1313,9 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
             else if(strlen(iv->addr) <= 7)
                 result << setw(7) << convert_pnr_addr(iv->addr, tag_lang.GetLang() != AstraLocale::LANG_RU);
             // From City Airport Code
-            result << setw(3) << airp_code_2D(AIRP_DEP(fp));
+            result << setw(3) << AIRP_DEP(fp);
             // To City Airport Code
-            result << setw(3) << airp_code_2D(AIRP_ARV(fp));
+            result << setw(3) << AIRP_ARV(fp);
             // Operating Carrier Designator
             result << left << setw(3) << AIRLINE(fp);
             // Flight Number
