@@ -152,7 +152,7 @@ namespace RemoteSystemContext
         std::string OurAddrAirimp;
         std::string RemoteAddrAirimp;
         std::string EdifactProfileName;
-        boost::shared_ptr<edifact::EdifactProfile> EdiProfile;
+        std::shared_ptr<edifact::EdifactProfile> EdiProfile;
 
         mutable InboundTlgInfo InbTlgInfo;
 
@@ -174,7 +174,6 @@ namespace RemoteSystemContext
 
         static SystemContext defSelData(OciCpp::CursCtl& cur);
 
-        static pSystemContext SysCtxt;
     public:
         Ticketing::SystemAddrs_t ida() const           { return Ida;                  }
         const std::string& airline() const             { return RemoteAirline;        }
@@ -263,12 +262,12 @@ namespace RemoteSystemContext
                                              bool throwNf = true);
 
 #ifdef XP_TESTING
-        static EdsSystemContext* create4TestsOnly(const std::string& airline,
-                                                  const std::string& ediAddr,
-                                                  const std::string& ourEdiAddr,
-                                                  bool translit,
-                                                  const std::string& h2hAddr = "",
-                                                  const std::string& ourH2hAddr = "");
+        static void create4TestsOnly(const std::string& airline,
+                                     const std::string& ediAddr,
+                                     const std::string& ourEdiAddr,
+                                     bool translit,
+                                     const std::string& h2hAddr = "",
+                                     const std::string& ourH2hAddr = "");
 #endif /*XP_TESTING*/
 
         /**
@@ -311,13 +310,13 @@ namespace RemoteSystemContext
         iatci::IatciSettings iatciSettings() const;
 
 #ifdef XP_TESTING
-        static DcsSystemContext* create4TestsOnly(const std::string& airline,
-                                                  const std::string& ediAddr,
-                                                  const std::string& ourEdiAddr,
-                                                  const std::string& airAddr = "",
-                                                  const std::string& ourAirAddr = "",
-                                                  const std::string& h2hAddr = "",
-                                                  const std::string& ourH2hAddr = "");
+        static void create4TestsOnly(const std::string& airline,
+                                     const std::string& ediAddr,
+                                     const std::string& ourEdiAddr,
+                                     const std::string& airAddr = "",
+                                     const std::string& ourAirAddr = "",
+                                     const std::string& h2hAddr = "",
+                                     const std::string& ourH2hAddr = "");
 #endif /*XP_TESTING*/
 
         virtual void deleteDb();

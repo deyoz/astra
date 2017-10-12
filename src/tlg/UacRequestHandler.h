@@ -5,7 +5,7 @@
 
 namespace TlgHandling {
 
-class UacRequestHandler: public AstraRequestHandler
+class UacRequestHandler: public AstraEdiRequestHandler
 {
 public:
     UacRequestHandler(_EDI_REAL_MES_STRUCT_ *pMes,

@@ -89,7 +89,7 @@ CpnElem makeCpn(const CouponNum_t& cpnNum, const CouponStatus& status)
 
 CosRequestHandler::CosRequestHandler(_EDI_REAL_MES_STRUCT_ *pMes,
                                      const edilib::EdiSessRdData *edisess)
-    : AstraRequestHandler(pMes, edisess)
+    : AstraEdiRequestHandler(pMes, edisess)
 {}
 
 std::string CosRequestHandler::mesFuncCode() const

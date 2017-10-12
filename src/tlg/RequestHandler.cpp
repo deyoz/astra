@@ -18,20 +18,20 @@ using namespace edifact;
 using namespace Ticketing;
 using namespace Ticketing::RemoteSystemContext;
 
-AstraRequestHandler::AstraRequestHandler(_EDI_REAL_MES_STRUCT_* pMes,
-                                         const edilib::EdiSessRdData *edisess)
+AstraEdiRequestHandler::AstraEdiRequestHandler(_EDI_REAL_MES_STRUCT_* pMes,
+                                               const edilib::EdiSessRdData *edisess)
     : edilib::EdiRequestHandler(pMes, edisess)
 {
 }
 
-void AstraRequestHandler::onParseError(const std::exception *e)
+void AstraEdiRequestHandler::onParseError(const std::exception *e)
 {
     // TODO
 }
 
 #define __CAST(type, var, c) const type *var = dynamic_cast<const type *>(c)
 
-void AstraRequestHandler::onHandlerError(const std::exception *e)
+void AstraEdiRequestHandler::onHandlerError(const std::exception *e)
 {
     edilib::EdiRequestHandler::onHandlerError(e);
 
@@ -53,19 +53,19 @@ void AstraRequestHandler::onHandlerError(const std::exception *e)
     }
 }
 
-bool AstraRequestHandler::needPutErrToQueue() const
+bool AstraEdiRequestHandler::needPutErrToQueue() const
 {
     return false;
 }
 
-void AstraRequestHandler::saveErrorInfo(const Ticketing::ErrMsg_t& errCode,
-                                        const std::string& errText)
+void AstraEdiRequestHandler::saveErrorInfo(const Ticketing::ErrMsg_t& errCode,
+                                           const std::string& errText)
 {
     setEdiErrorCode(StrUtils::ToUpper(getErcErrByInner(errCode)));
     setEdiErrorText(StrUtils::ToUpper(errText));
 }
 
-tlgnum_t AstraRequestHandler::inboundTlgNum() const
+tlgnum_t AstraEdiRequestHandler::inboundTlgNum() const
 {
     boost::optional<tlgnum_t> inbTlgNum = SystemContext::Instance(STDLOG).inbTlgInfo().tlgNum();
     ASSERT(inbTlgNum);

@@ -22,7 +22,7 @@ struct CosParams
 
 //---------------------------------------------------------------------------------------
 
-class CosRequestHandler: public AstraRequestHandler
+class CosRequestHandler: public AstraEdiRequestHandler
 {
     boost::optional<CosParams> m_cosParams;
 

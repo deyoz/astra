@@ -49,7 +49,10 @@ void HandleEdiSessTimeOut(const EdiSessionTimeOut & to)
     boost::shared_ptr<AstraEdiSessRD> psess = getSess(to.ediSessionId());
 
     boost::scoped_ptr<TlgHandling::AstraEdiResponseHandler> handler
-            (Ticketing::EdiResHandlersFactory(to.answerMsgType(), to.funcCode(), psess));
+            (Ticketing::EdiResHandlersFactory(0, /*pMes*/
+                                              to.answerMsgType(),
+                                              to.funcCode(),
+                                              psess.get()));
 
     if(handler)
     {

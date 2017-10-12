@@ -9,7 +9,7 @@
 
 namespace TlgHandling {
 
-class IatciRequestHandler: public AstraRequestHandler
+class IatciRequestHandler: public AstraEdiRequestHandler
 {
     std::string m_reqRef;
     std::string m_ediErrorLevel;

@@ -41,7 +41,7 @@ UnknownSystAddrs::UnknownSystAddrs(const std::string& src, const std::string& de
 }
 
 
-boost::shared_ptr<SystemContext> SystemContext::SysCtxt;
+boost::shared_ptr<SystemContext> SysCtxt;
 
 void SystemContext::checkContinuity() const
 {
@@ -108,9 +108,9 @@ void SystemContext::readEdifactProfile()
     using edifact::EdifactProfile;
     if(EdifactProfileName.empty()) {
         LogTrace(TRACE0) << "EdifactProfile not set. Use default!";
-        EdiProfile.reset(new EdifactProfile(EdifactProfile::createDefault()));
+        EdiProfile = std::make_shared<EdifactProfile>(EdifactProfile::createDefault());
     } else {
-        EdiProfile.reset(new EdifactProfile(EdifactProfile::readByName(EdifactProfileName)));
+        EdiProfile = std::make_shared<EdifactProfile>(EdifactProfile::readByName(EdifactProfileName));
     }
 }
 
@@ -145,7 +145,7 @@ const SystemContext& SystemContext::Instance(const char *nick, const char *file,
         throw TickExceptions::tick_fatal_except(nick, file, line, EtErr::ProgErr,
                                                 "SystemContext::Instance is NULL!");
     }
-    return *SystemContext::SysCtxt;
+    return *SysCtxt;
 }
 
 void SystemContext::deleteDb()
@@ -173,15 +173,15 @@ void SystemContext::updateDb()
 
 SystemContext* SystemContext::init(const SystemContext& new_ctxt)
 {
-    ProgTrace(TRACE0, "Init SystemContext::SysCtxt");
-    if(SystemContext::SysCtxt)
+    ProgTrace(TRACE0, "Init SysCtxt");
+    if(SysCtxt)
     {
-        LogError(STDLOG) << "SystemContext::SysCtxt is not null in SystemContext::init function";
+        LogError(STDLOG) << "SysCtxt is not null in SystemContext::init function";
         SystemContext::free();
     }
-    SystemContext::SysCtxt.reset(new SystemContext(new_ctxt));
+    SysCtxt.reset(new SystemContext(new_ctxt));
     registerHookAfter(SystemContext::free);
-    return SystemContext::SysCtxt.get();
+    return SysCtxt.get();
 }
 
 
@@ -212,18 +212,18 @@ SystemContext* SystemContext::initEdifactByAnswer(const std::string& src, const 
 
 bool SystemContext::initialized()
 {
-    return SystemContext::SysCtxt.get() != NULL;
+    return SysCtxt.get() != NULL;
 }
 
 void SystemContext::free()
 {
-    if(!SystemContext::SysCtxt.get())
+    if(!SysCtxt.get())
     {
         throw TickExceptions::tick_fatal_except(STDLOG, "EtErr::ProgErr",
                                                 "SystemContext::Instance is NULL!");
     }
-    ProgTrace(TRACE0, "Free SystemContext::SysCtxt");
-    SystemContext::SysCtxt.reset();
+    ProgTrace(TRACE0, "Free SysCtxt");
+    SysCtxt.reset();
 }
 
 unsigned SystemContext::edifactResponseTimeOut() const
@@ -314,17 +314,18 @@ EdsSystemContext::EdsSystemContext(const SystemContext& baseCnt,
 
 
 #ifdef XP_TESTING
-EdsSystemContext* EdsSystemContext::create4TestsOnly(const std::string& airline,
-                                                     const std::string& ediAddr,
-                                                     const std::string& ourEdiAddr,
-                                                     bool translit,
-                                                     const std::string& h2hAddr,
-                                                     const std::string& ourH2hAddr)
+void EdsSystemContext::create4TestsOnly(const std::string& airline,
+                                        const std::string& ediAddr,
+                                        const std::string& ourEdiAddr,
+                                        bool translit,
+                                        const std::string& h2hAddr,
+                                        const std::string& ourH2hAddr)
 {
-    EdsSystemContext* eds = 0;
+    std::unique_ptr<EdsSystemContext> eds;
     try
     {
-        eds = read(airline, Ticketing::FlightNum_t());
+        eds.reset(read(airline,
+                       Ticketing::FlightNum_t()));
         eds->deleteDb();
         throw system_not_found(airline, Ticketing::FlightNum_t());
     }
@@ -341,11 +342,9 @@ EdsSystemContext* EdsSystemContext::create4TestsOnly(const std::string& airline,
         ctxtMaker.setAirline(airline);
         ctxtMaker.setRemoteAddrEdifact(ediAddr);
         ctxtMaker.setOurAddrEdifact(ourEdiAddr);
-        eds = new EdsSystemContext(ctxtMaker.getSystemContext());
+        eds.reset(new EdsSystemContext(ctxtMaker.getSystemContext()));
         eds->addDb();
     }
-
-    return eds;
 }
 #endif/*XP_TESTING*/
 
@@ -501,18 +500,19 @@ DcsSystemContext::DcsSystemContext(const SystemContext& baseCnt)
 }
 
 #ifdef XP_TESTING
-DcsSystemContext* DcsSystemContext::create4TestsOnly(const std::string& airline,
-                                                     const std::string& ediAddr,
-                                                     const std::string& ourEdiAddr,
-                                                     const std::string& airAddr,
-                                                     const std::string& ourAirAddr,
-                                                     const std::string& h2hAddr,
-                                                     const std::string& ourH2hAddr)
+void DcsSystemContext::create4TestsOnly(const std::string& airline,
+                                        const std::string& ediAddr,
+                                        const std::string& ourEdiAddr,
+                                        const std::string& airAddr,
+                                        const std::string& ourAirAddr,
+                                        const std::string& h2hAddr,
+                                        const std::string& ourH2hAddr)
 {
-    DcsSystemContext* dcs = 0;
+    std::unique_ptr<DcsSystemContext> dcs;
     try
     {
-        dcs = read(airline, Ticketing::FlightNum_t());
+        dcs.reset(read(airline,
+                       Ticketing::FlightNum_t()));
         dcs->deleteDb();
         throw system_not_found(airline, Ticketing::FlightNum_t());
     }
@@ -532,11 +532,9 @@ DcsSystemContext* DcsSystemContext::create4TestsOnly(const std::string& airline,
         ctxtMaker.setOurAddrAirimp(ourAirAddr);
         ctxtMaker.setEdifactProfileName(createIatciEdifactProfile());
 
-        dcs = new DcsSystemContext(ctxtMaker.getSystemContext());
+        dcs.reset(new DcsSystemContext(ctxtMaker.getSystemContext()));
         dcs->addDb();
     }
-
-    return dcs;
 }
 #endif /*XP_TESTING*/
 

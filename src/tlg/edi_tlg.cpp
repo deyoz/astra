@@ -21,33 +21,7 @@
 #include "astra_tick_read_edi.h"
 #include "etick.h"
 #include "iatci_api.h"
-
-// response handlers
-#include "EmdDispResponseHandler.h"
-#include "EmdSysUpdateResponseHandler.h"
-#include "EmdCosResponseHandler.h"
-#include "EtDispResponseHandler.h"
-#include "EtCosResponseHandler.h"
-
-#include "IatciCkiResponseHandler.h"
-#include "IatciCkuResponseHandler.h"
-#include "IatciCkxResponseHandler.h"
-#include "IatciBprResponseHandler.h"
-#include "IatciPlfResponseHandler.h"
-#include "IatciSmfResponseHandler.h"
-// control method
-#include "EtRacResponseHandler.h"
-
-// request handlers
-#include "IatciCkiRequestHandler.h"
-#include "IatciCkuRequestHandler.h"
-#include "IatciCkxRequestHandler.h"
-#include "IatciBprRequestHandler.h"
-#include "IatciPlfRequestHandler.h"
-#include "IatciSmfRequestHandler.h"
-// control method
-#include "UacRequestHandler.h"
-#include "EtCosRequestHandler.h"
+#include "EdiHandlersFactory.h"
 
 #include <etick/lang.h>
 #include <etick/exceptions.h>
@@ -62,7 +36,6 @@
 #include <serverlib/EdiHelpManager.h>
 #include <edilib/edi_func_cpp.h>
 #include <edilib/edi_types.h>
-#include <edilib/edi_astra_msg_types.h>
 #include <edilib/edi_handler.h>
 #include <edilib/EdiSessionTimeOut.h>
 
@@ -484,12 +457,6 @@ public:
     virtual ~AstraEdifactResponseHandlerFactory() {}
 };
 
-#define __DECLARE_HANDLER__(handler, msg__, func_code__) \
-        if(msg__ == msgid && (func_code == func_code__ || !*func_code__))\
-        {\
-            return new handler(pMes, sessionHandler);\
-        }
-
 edilib::EdiRequestHandler *
     AstraEdifactRequestHandlerFactory::makeHandler(EDI_REAL_MES_STRUCT *pMes,
                                                    edi_msg_types_t msgid,
@@ -500,17 +467,10 @@ edilib::EdiRequestHandler *
                                                      edilib::DataElement(1225), "",
                                                      edilib::CompElement("C302"),
                                                      edilib::SegmElement("MSG"));
-    // здесь будут регистрироваться обработчики edifact-запросов
-    __DECLARE_HANDLER__(IatciCkiRequestHandler,     DCQCKI, "");
-    __DECLARE_HANDLER__(IatciCkuRequestHandler,     DCQCKU, "");
-    __DECLARE_HANDLER__(IatciCkxRequestHandler,     DCQCKX, "");
-    __DECLARE_HANDLER__(IatciBprRequestHandler,     DCQBPR, "");
-    __DECLARE_HANDLER__(IatciPlfRequestHandler,     DCQPLF, "");
-    __DECLARE_HANDLER__(IatciSmfRequestHandler,     DCQSMF, "");
-    // control method
-    __DECLARE_HANDLER__(UacRequestHandler,          TKCUAC, "733");
-    __DECLARE_HANDLER__(CosRequestHandler,          TKCREQ, "142");
-    return 0;
+
+    LogTrace(TRACE3) << "find request handler for msg " << msgid << " with func_code: " << func_code;
+
+    return EdiReqHandlersFactory(pMes, msgid, func_code, sessionHandler);
 }
 
 AstraEdifactRequestHandlerFactory *AstraEdifactRequestHandlerFactory::Instance = 0;
@@ -552,24 +512,8 @@ AstraEdiResponseHandler *
     }
 
     LogTrace(TRACE3) << "find response handler for msg " << msgid << " with func_code: " << func_code;
-    // здесь будут регистрироваться обработчики edifact-ответов
-    __DECLARE_HANDLER__(EtDispResponseHandler,              TKCRES, "131");
-    __DECLARE_HANDLER__(EtCosResponseHandler,               TKCRES, "142");
-    __DECLARE_HANDLER__(EmdDispResponseHandler,             TKCRES, "791");
-    __DECLARE_HANDLER__(EmdCosResponseHandler,              TKCRES, "793");
-    __DECLARE_HANDLER__(EmdSysUpdateResponseHandler,        TKCRES, "794");
-    // IATCI
-    __DECLARE_HANDLER__(IatciCkiResponseHandler,            DCRCKA, "I");
-    __DECLARE_HANDLER__(IatciCkuResponseHandler,            DCRCKA, "U");
-    __DECLARE_HANDLER__(IatciCkxResponseHandler,            DCRCKA, "X");
-    __DECLARE_HANDLER__(IatciBprResponseHandler,            DCRCKA, "B");
-    __DECLARE_HANDLER__(IatciPlfResponseHandler,            DCRCKA, "P");
-    __DECLARE_HANDLER__(IatciSmfResponseHandler,            DCRSMF, "S");
-    // control method
-    __DECLARE_HANDLER__(EtRacResponseHandler,               TKCRES, "734")
-    __DECLARE_HANDLER__(EtRacResponseHandler,               TKCRES, "751")
 
-    return 0;
+    return EdiResHandlersFactory(pMes, msgid, func_code, sessionHandler);
 }
 
 class AstraEdiHandlerManager : public edilib::EdiHandlerManager

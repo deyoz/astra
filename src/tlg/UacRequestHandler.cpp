@@ -22,7 +22,7 @@ using namespace Ticketing::TickExceptions;
 
 UacRequestHandler::UacRequestHandler(_EDI_REAL_MES_STRUCT_ *pMes,
                                      const edilib::EdiSessRdData *edisess)
-    : AstraRequestHandler(pMes, edisess)
+    : AstraEdiRequestHandler(pMes, edisess)
 {}
 
 std::string UacRequestHandler::mesFuncCode() const

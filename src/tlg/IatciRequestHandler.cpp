@@ -28,7 +28,7 @@ using namespace Ticketing::RemoteSystemContext;
 
 IatciRequestHandler::IatciRequestHandler(_EDI_REAL_MES_STRUCT_ *pMes,
                                          const edilib::EdiSessRdData *edisess)
-    : AstraRequestHandler(pMes, edisess), m_ediErrorLevel("1")
+    : AstraEdiRequestHandler(pMes, edisess), m_ediErrorLevel("1")
 {
 }
 
