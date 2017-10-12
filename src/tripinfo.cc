@@ -2465,38 +2465,31 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
   TPaxLoadOrder paxLoadOrder;
   paxLoadOrder.fields.push_back( "section" );
   paxLoad.sort(paxLoadOrder);
+  xmlNodePtr datasetsNode = NewTextChild(resNode, "datasets");
   xmlNodePtr node;
-  node = NewTextChild( resNode, "sectionsData" );
-  xmlNodePtr rowsNode = NewTextChild( node, "rows" );
+  node = NewTextChild( datasetsNode, "sectionsData" );
   for ( const auto& i : paxLoad ) {
-    xmlNodePtr rowNode=NewTextChild(rowsNode,"row");
-    NewTextChild(rowNode,"seats",i.seats,0);
-    if (TReqInfo::Instance()->desk.compatible(PAX_LOAD_BY_GENDER))
-    {
-      NewTextChild(rowNode,"adult_m",i.adult_m,0);
-      NewTextChild(rowNode,"adult_f",i.adult_f,0);
-    }
-    else
-      NewTextChild(rowNode,"adult",i.adult_m+i.adult_f,0);
-    NewTextChild(rowNode,"child",i.child,0);
-    NewTextChild(rowNode,"baby",i.baby,0);
-    NewTextChild(rowNode,"bag_amount",i.bag_amount,0);
-    NewTextChild(rowNode,"bag_weight",i.bag_weight,0);
-    NewTextChild(rowNode,"rk_weight",i.rk_weight,0);
+    xmlNodePtr rowNode=NewTextChild(node,"row");
+    NewTextChild(rowNode,"seats",i.seats);
+    NewTextChild(rowNode,"adult_m",i.adult_m);
+    NewTextChild(rowNode,"adult_f",i.adult_f);
+    NewTextChild(rowNode,"child",i.child);
+    NewTextChild(rowNode,"baby",i.baby);
+    NewTextChild(rowNode,"bag_amount",i.bag_amount);
+    NewTextChild(rowNode,"bag_weight",i.bag_weight);
+    NewTextChild(rowNode,"rk_weight",i.rk_weight);
     NewTextChild(rowNode,"section",i.section);
   };
-  node = NewTextChild( resNode, "bagsData" );
-  rowsNode = NewTextChild( node, "rows" );
+  node = NewTextChild( datasetsNode, "bagsData" );
   for ( const auto& i : bag_info ) {
-    xmlNodePtr rowNode=NewTextChild(rowsNode,"row");
+    xmlNodePtr rowNode=NewTextChild(node,"row");
     NewTextChild(rowNode,"rem",i.first);
     NewTextChild(rowNode,"amount",i.second.first);
     NewTextChild(rowNode,"weight",i.second.second);
   }
-  node = NewTextChild( resNode, "remsData" );
-  rowsNode = NewTextChild( node, "rows" );
+  node = NewTextChild( datasetsNode, "remsData" );
   for ( const auto& i : paxRemCounters ) {
-    xmlNodePtr rowNode=NewTextChild(rowsNode,"row");
+    xmlNodePtr rowNode=NewTextChild(node,"row");
     NewTextChild(rowNode,"rem",i.first);
     NewTextChild(rowNode,"count",i.second);
   }

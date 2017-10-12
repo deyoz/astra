@@ -310,6 +310,8 @@ public:
      AddEvent("ReadVoucher",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::WriteVoucher);
      AddEvent("WriteVoucher",evHandle);
+     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::readPaxZoneLoad);
+     AddEvent("readPaxZoneLoad",evHandle);
   };
   void readPaxZoneLoad(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

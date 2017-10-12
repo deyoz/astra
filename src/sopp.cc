@@ -3038,8 +3038,10 @@ void GetLuggage( int point_id, xmlNodePtr dataNode )
 
 void SoppInterface::readPaxZoneLoad(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  get_compatible_report_form("PaxZoneLoad", reqNode, resNode);
   resNode = NewTextChild( resNode, "reportPaxZoneLoadData" );
   viewPaxLoadSectionReport( NodeAsInteger( "point_id", reqNode ), resNode );
+  LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
 }
 
 
