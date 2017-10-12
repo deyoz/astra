@@ -12,8 +12,6 @@
 #include "ResponseHandler.h"
 #include "RequestHandler.h"
 
-#include <edilib/edi_astra_msg_types.h>
-
 class AstraEdiSessRD;
 
 namespace Ticketing
