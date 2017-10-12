@@ -406,8 +406,7 @@ int edifact::init_edifact()
         ProgError(STDLOG,"InitEdiCharSet() failed");
         return -3;
     }*/
-    edilib::EdiSessLib::Instance()->
-            setCallBacks(new AstraEdiSessCallBack());
+    delete edilib::EdiSessLib::Instance()->setCallBacks(new AstraEdiSessCallBack());
 
     return 0;
 }
