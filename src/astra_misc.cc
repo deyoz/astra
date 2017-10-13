@@ -24,26 +24,22 @@ using namespace std;
 using namespace ASTRA;
 using namespace ASTRA::date_time;
 
-bool TTripInfo::getByPointId ( const TDateTime part_key, const int point_id )
+bool TTripInfo::getByPointId ( const TDateTime part_key,
+                               const int point_id,
+                               const FlightProps &props )
 {
   TQuery Qry( &OraSession );
   if (part_key==NoExists)
   {
     Qry.SQLText =
-      "SELECT airline, flt_no, suffix, airp, craft, scd_out, "
-      "       NVL( points.est_out, points.scd_out ) est_out, "
-      "       NVL(act_out,NVL(est_out,scd_out)) AS real_out, pr_del, "
-      "       airline_fmt, suffix_fmt, airp_fmt, craft_fmt  "
+      "SELECT " + selectedFields() +
       "FROM points "
       "WHERE point_id=:point_id AND pr_del>=0";
   }
   else
   {
     Qry.SQLText =
-      "SELECT airline, flt_no, suffix, airp, craft, scd_out, "
-      "       NVL( points.est_out, points.scd_out ) est_out, "
-      "       NVL(act_out,NVL(est_out,scd_out)) AS real_out, pr_del, "
-      "       airline_fmt, suffix_fmt, airp_fmt, craft_fmt  "
+      "SELECT " + selectedFields() +
       "FROM arx_points "
       "WHERE part_key=:part_key AND point_id=:point_id AND pr_del>=0";
     Qry.CreateVariable( "part_key", otDate, part_key );
@@ -52,15 +48,16 @@ bool TTripInfo::getByPointId ( const TDateTime part_key, const int point_id )
   Qry.Execute();
 
   if ( Qry.Eof ) return false;
+  if (!match(Qry, props)) return false;
 
   init( Qry );
-  this->point_id = point_id;
   return true;
 }
 
-bool TTripInfo::getByPointId ( const int point_id )
+bool TTripInfo::getByPointId ( const int point_id,
+                               const FlightProps &props )
 {
-  return getByPointId(NoExists, point_id);
+  return getByPointId(NoExists, point_id, props);
 }
 
 bool TTripInfo::getByPointIdTlg ( const int point_id_tlg )
@@ -152,9 +149,9 @@ void TTripInfo::get_client_dates(TDateTime &scd_out_client, TDateTime &real_out_
   scd_out_client=UTCToClient(scd_out,tz_region);
   if (trunc_time)
     modf(scd_out_client,&scd_out_client);
-  if (real_out!=ASTRA::NoExists)
+  if (act_est_scd_out()!=ASTRA::NoExists)
   {
-    real_out_client=UTCToClient(real_out,tz_region);
+    real_out_client=UTCToClient(act_est_scd_out(),tz_region);
     if (trunc_time)
       modf(real_out_client,&real_out_client);
   }
@@ -269,26 +266,22 @@ string GetTripName( const TTripInfo &info, TElemContext ctxt, bool showAirp, boo
   return trip.str();
 };
 
-bool TAdvTripInfo::getByPointId ( const TDateTime part_key, const int point_id )
+bool TAdvTripInfo::getByPointId ( const TDateTime part_key,
+                                  const int point_id,
+                                  const FlightProps &props )
 {
   TQuery Qry( &OraSession );
   if (part_key==NoExists)
   {
     Qry.SQLText =
-      "SELECT airline, flt_no, suffix, airp, craft, scd_out, "
-      "       NVL(act_out,NVL(est_out,scd_out)) AS real_out, pr_del, "
-      "       airline_fmt, suffix_fmt, airp_fmt, craft_fmt, "
-      "       point_id, point_num, first_point, pr_tranzit "
+      "SELECT " + selectedFields() +
       "FROM points "
       "WHERE point_id=:point_id AND pr_del>=0 ";
   }
   else
   {
     Qry.SQLText =
-      "SELECT airline, flt_no, suffix, airp, craft, scd_out, "
-      "       NVL(act_out,NVL(est_out,scd_out)) AS real_out, pr_del, "
-      "       airline_fmt, suffix_fmt, airp_fmt, craft_fmt, "
-      "       point_id, point_num, first_point, pr_tranzit "
+      "SELECT "  + selectedFields() +
       "FROM arx_points "
       "WHERE part_key=:part_key AND point_id=:point_id AND pr_del>=0 ";
     Qry.CreateVariable( "part_key", otDate, part_key );
@@ -297,14 +290,16 @@ bool TAdvTripInfo::getByPointId ( const TDateTime part_key, const int point_id )
   Qry.Execute();
 
   if ( Qry.Eof ) return false;
+  if (!match(Qry, props)) return false;
 
   Init( Qry );
   return true;
 }
 
-bool TAdvTripInfo::getByPointId ( const int point_id )
+bool TAdvTripInfo::getByPointId ( const int point_id,
+                                  const FlightProps &props )
 {
-  return getByPointId(NoExists, point_id);
+  return getByPointId(NoExists, point_id, props);
 }
 
 string TLastTrferInfo::str()
@@ -916,9 +911,7 @@ bool TTrferRoute::GetRoute(int grp_id,
   {
     Qry.Clear();
     Qry.SQLText=
-      "SELECT points.airline, points.flt_no, points.suffix, points.airp, points.scd_out, "
-      "       NVL(points.act_out, NVL(points.est_out, points.scd_out)) AS real_out, "
-      "       points.pr_del, points.airline_fmt, points.suffix_fmt, points.airp_fmt, "
+      "SELECT " + TTripInfo::selectedFields("points") + ", "
       "       pax_grp.airp_arv, pax_grp.piece_concept "
       "FROM pax_grp, points "
       "WHERE points.point_id=pax_grp.point_dep AND "
@@ -929,8 +922,12 @@ bool TTrferRoute::GetRoute(int grp_id,
     push_back(TTrferRouteItem());
     TTrferRouteItem &item=back();
     item.operFlt.Init(Qry);
-    item.operFlt.scd_out=UTCToLocal(item.operFlt.scd_out, AirpTZRegion(item.operFlt.airp));
-    item.operFlt.real_out=UTCToLocal(item.operFlt.real_out, AirpTZRegion(item.operFlt.airp));
+    if (item.operFlt.scd_out!=NoExists)
+      item.operFlt.scd_out=UTCToLocal(item.operFlt.scd_out, AirpTZRegion(item.operFlt.airp));
+    if (item.operFlt.est_out!=NoExists)
+      item.operFlt.est_out=UTCToLocal(item.operFlt.est_out, AirpTZRegion(item.operFlt.airp));
+    if (item.operFlt.act_out!=NoExists)
+      item.operFlt.act_out=UTCToLocal(item.operFlt.act_out, AirpTZRegion(item.operFlt.airp));
     item.airp_arv=Qry.FieldAsString("airp_arv");
     if (!Qry.FieldIsNULL("piece_concept"))
       item.piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
@@ -987,9 +984,7 @@ void TCkinRoute::GetRoute(int tckin_id,
                           TQuery& Qry)
 {
   ostringstream sql;
-  sql << "SELECT points.airline, points.flt_no, points.suffix, points.airp, points.scd_out, "
-         "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
-         "       points.airline_fmt, points.suffix_fmt, points.airp_fmt, points.pr_del, "
+  sql << "SELECT " + TTripInfo::selectedFields("points") + ", "
          "       pax_grp.grp_id, pax_grp.point_dep, pax_grp.point_arv, "
          "       pax_grp.airp_dep, pax_grp.airp_arv, "
          "       tckin_pax_grp.seg_no, tckin_pax_grp.pr_depend "
@@ -1757,8 +1752,8 @@ bool IsTrferInter(string airp_dep, string airp_arv, string &country)
 {
     TBaseTable &baseairps = base_tables.get( "airps" );
     TBaseTable &basecities = base_tables.get( "cities" );
-    string country_dep = ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", airp_dep, true )).city)).country;
-    string country_arv = ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", airp_arv, true )).city)).country;
+    string country_dep = ((const TCitiesRow&)basecities.get_row( "code", ((const TAirpsRow&)baseairps.get_row( "code", airp_dep, true )).city)).country;
+    string country_arv = ((const TCitiesRow&)basecities.get_row( "code", ((const TAirpsRow&)baseairps.get_row( "code", airp_arv, true )).city)).country;
     country.clear();
     if(country_dep != country_arv) return true;
     country = country_dep;
@@ -1957,17 +1952,10 @@ bool isEmptyPaxId(int id)
 
 bool is_sync_paxs( int point_id )
 {
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT point_id, airline, flt_no, suffix, airp, scd_out, "
-    "       NVL(act_out,NVL(est_out,scd_out)) AS real_out "
-    " FROM points "
-    " WHERE point_id=:point_id AND pr_reg<>0 AND pr_del=0";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  if ( Qry.Eof )
-    return false;
-  TTripInfo tripInfo( Qry );
+  TTripInfo tripInfo;
+  if (!tripInfo.getByPointId(point_id, FlightProps(FlightProps::NotCancelled,
+                                                   FlightProps::WithCheckIn))) return false;
+
   return MERIDIAN::is_sync_meridian( tripInfo ) ||
          is_sync_basel_pax( tripInfo ) ||
          is_sync_aodb_pax( tripInfo );
@@ -2200,9 +2188,7 @@ void SearchFlt(const TSearchFltInfo &filter, list<TAdvTripInfo> &flts)
 
   ostringstream sql;
   sql <<
-    "SELECT point_id, point_num, first_point, pr_tranzit, \n"
-    "       airline, flt_no, suffix, airp, scd_out, NVL(act_out,NVL(est_out,scd_out)) AS real_out, pr_del \n"
-    "FROM points \n";
+    "SELECT " << TAdvTripInfo::selectedFields() << " FROM points \n";
 
   if (!filter.scd_out_in_utc)
   {

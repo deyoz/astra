@@ -203,7 +203,7 @@ TGrpItem& TGrpItem::paxFromDB(TQuery &PaxQry, TQuery &RemQry, bool fromTlg)
         try
         {
           //вычислкние базового класса grp.subcl
-          string cl=((TSubclsRow&)base_tables.get( "subcls" ).get_row( "code", p->subcl, true )).cl;
+          string cl=((const TSubclsRow&)base_tables.get( "subcls" ).get_row( "code", p->subcl, true )).cl;
           if (subcl.empty())
             subcl=cl;
           else
@@ -294,28 +294,20 @@ void TrferFromDB(TTrferType type,
   TQuery TagQry(&OraSession);
   TQuery TrferQry(&OraSession);
 
-  TQuery FltQry(&OraSession);
-  FltQry.Clear();
-  FltQry.SQLText=
-    "SELECT airline, flt_no, suffix, scd_out, airp, pr_del, "
-    "       NVL(act_out,NVL(est_out,scd_out)) AS real_out "
-    "FROM points "
-    "WHERE point_id=:point_id";
-  FltQry.DeclareVariable("point_id", otInteger);
   TTripRouteItem priorAirp;
   if (type==trferIn)
   {
     //point_id содержит пункт прилета, а нам нужен предыдущий пункт вылета
     TTripRoute().GetPriorAirp(NoExists,point_id,trtNotCancelled,priorAirp);
     if (priorAirp.point_id==NoExists) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
-    FltQry.SetVariable("point_id", priorAirp.point_id);
+    if (!flt.getByPointId(priorAirp.point_id))
+      throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
   }
   else
-    FltQry.SetVariable("point_id", point_id);
-  FltQry.Execute();
-  if (FltQry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
-  flt.Init(FltQry);
-  if (flt.pr_del==NoExists) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
+  {
+    if (!flt.getByPointId(point_id))
+      throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
+  };
 
   Qry.Clear();
   ostringstream sql;
@@ -430,10 +422,9 @@ void TrferFromDB(TTrferType type,
       id=spp_point_ids_from_ckin.find(point_dep);
       if (id==spp_point_ids_from_ckin.end())
       {
-        FltQry.SetVariable("point_id", point_dep);
-        FltQry.Execute();
-        if (FltQry.Eof) continue;
-        TFltInfo flt1(FltQry, true);
+        TAdvTripInfo tmp;
+        if (!tmp.getByPointId(point_dep)) continue;
+        TFltInfo flt1(tmp, true);
         if (flt1.pr_del==NoExists) continue;
         id=spp_point_ids_from_ckin.insert( make_pair(point_dep, flt1) ).first;
         flts_from_ckin.insert(flt1);
@@ -908,8 +899,8 @@ void GrpsToGrpsView(TTrferType type,
         grp.subcl_priority=0;
         try
         {
-          TSubclsRow &subclsRow=(TSubclsRow&)base_tables.get("subcls").get_row("code",g->subcl);
-          grp.subcl_priority=((TClassesRow&)base_tables.get("classes").get_row("code",subclsRow.cl)).priority;
+          const TSubclsRow &subclsRow=(const TSubclsRow&)base_tables.get("subcls").get_row("code",g->subcl);
+          grp.subcl_priority=((const TClassesRow&)base_tables.get("classes").get_row("code",subclsRow.cl)).priority;
         }
         catch(EBaseTableError){};
       }
