@@ -95,7 +95,8 @@ bool TFltParams::get(int point_id)
   TDateTime real_in=ASTRA::NoExists;
   if (!Qry.FieldIsNULL("real_in")) real_in=Qry.FieldAsDateTime("real_in");
 
-  in_final_status=fltInfo.act_out!=NoExists && real_in!=NoExists && real_in<NowUTC();
+  in_final_status=fltInfo.act_out && fltInfo.act_out.get()!=NoExists &&
+                  real_in!=NoExists && real_in<NowUTC();
   return true;
 }
 

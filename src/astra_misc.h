@@ -166,8 +166,8 @@ class TTripInfo
       airp.clear();
       craft.clear();
       scd_out=ASTRA::NoExists;
-      est_out=ASTRA::NoExists;
-      act_out=ASTRA::NoExists;
+      est_out=boost::none;
+      act_out=boost::none;
       pr_del = ASTRA::NoExists;
       pr_reg = false;
       airline_fmt = efmtUnknown;
@@ -186,10 +186,12 @@ class TTripInfo
         craft=Qry.FieldAsString("craft");
       if (!Qry.FieldIsNULL("scd_out"))
         scd_out = Qry.FieldAsDateTime("scd_out");
-      if (Qry.GetFieldIndex("est_out")>=0 && !Qry.FieldIsNULL("est_out"))
-        est_out = Qry.FieldAsDateTime("est_out");
-      if (Qry.GetFieldIndex("act_out")>=0 && !Qry.FieldIsNULL("act_out"))
-        act_out = Qry.FieldAsDateTime("act_out");
+      if (Qry.GetFieldIndex("est_out")>=0)
+        est_out = Qry.FieldIsNULL("est_out")?ASTRA::NoExists:
+                                             Qry.FieldAsDateTime("est_out");
+      if (Qry.GetFieldIndex("act_out")>=0)
+        act_out = Qry.FieldIsNULL("act_out")?ASTRA::NoExists:
+                                             Qry.FieldAsDateTime("act_out");
       if (Qry.GetFieldIndex("pr_del")>=0)
         pr_del = Qry.FieldAsInteger("pr_del");
       if (Qry.GetFieldIndex("pr_reg")>=0)
@@ -255,7 +257,8 @@ class TTripInfo
 
     int point_id;
     std::string airline, suffix, airp, craft;
-    TDateTime scd_out, est_out, act_out;
+    TDateTime scd_out;
+    boost::optional<TDateTime> est_out, act_out;
     int flt_no, pr_del;
     bool pr_reg;
     TElemFmt airline_fmt, suffix_fmt, airp_fmt, craft_fmt;
@@ -297,11 +300,13 @@ class TTripInfo
     static TDateTime get_scd_in(const int &point_arv);
     TDateTime get_scd_in(const std::string &airp_arv) const;
     std::string flight_view(TElemContext ctxt=ecNone, bool showScdOut=true, bool showAirp=true) const;
-    TDateTime est_scd_out() const { return est_out!=ASTRA::NoExists?est_out:
-                                                                    scd_out; }
-    TDateTime act_est_scd_out() const { return act_out!=ASTRA::NoExists?act_out:
-                                               est_out!=ASTRA::NoExists?est_out:
-                                                                        scd_out; }
+    TDateTime est_scd_out() const { return !est_out?ASTRA::NoExists:
+                                           est_out.get()!=ASTRA::NoExists?est_out.get():
+                                                                          scd_out; }
+    TDateTime act_est_scd_out() const { return !act_out||!est_out?ASTRA::NoExists:
+                                               act_out.get()!=ASTRA::NoExists?act_out.get():
+                                               est_out.get()!=ASTRA::NoExists?est_out.get():
+                                                                              scd_out; }
 };
 
 std::string flight_view(int grp_id, int seg_no); //начиная с 1

@@ -537,7 +537,7 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
     stat.viewChekinDuration = NoExists;
     stat.viewBoardingTime = times.second;
     stat.viewDeparturePlanTime = operFlt.scd_out;
-    stat.viewDepartureRealTime = operFlt.act_out;
+    stat.viewDepartureRealTime = operFlt.act_out?operFlt.act_out.get():NoExists;
 
     if (!piece_concept)
     {
