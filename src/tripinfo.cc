@@ -1658,6 +1658,88 @@ void readPaxZoneLoad( int point_id, const string &crew_filter, list<TPaxLoadItem
   readPaxZoneLoad( point_id, crew_filter, paxLoad, paxRemCounters );
 }
 
+struct PaxLoadTotalRowStruct {
+  int seats;
+  int adult_m;
+  int adult_f;
+  int child;
+  int baby;
+  int bag_amount;
+  int bag_weight;
+  int rk_weight;
+  std::map<std::string, pair<int,int>> bags;
+  int crs_ok;
+  int crs_tranzit;
+  int excess_wt;
+  int excess_pc;
+  int cfg;
+};
+
+void createReadPaxLoadTotalRow( TQuery &Qry, int point_id, PaxLoadTotalRowStruct &total )
+{
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT a.seats,a.adult_m,a.adult_f,a.child,a.baby, "
+    "       c.crs_ok,c.crs_tranzit, "
+    "       e.excess_wt,e.excess_pc,f.cfg "
+    "FROM "
+    " (SELECT NVL(SUM(seats),0) AS seats, "
+    "         NVL(SUM(DECODE(pers_type,:adult,DECODE(pax.is_female,0,1,NULL,1,0),0)),0) AS adult_m, "
+    "         NVL(SUM(DECODE(pers_type,:adult,DECODE(pax.is_female,0,0,NULL,0,1),0)),0) AS adult_f, "
+    "         NVL(SUM(DECODE(pers_type,:child,1,0)),0) AS child, "
+    "         NVL(SUM(DECODE(pers_type,:baby,1,0)),0) AS baby "
+    "  FROM pax_grp,pax "
+    "  WHERE pax_grp.grp_id=pax.grp_id AND "
+    "        point_dep=:point_id AND status NOT IN ('E') AND pr_brd IS NOT NULL) a, "
+    " (SELECT NVL(SUM(crs_ok),0) AS crs_ok, "
+    "         NVL(SUM(crs_tranzit),0) AS crs_tranzit "
+    "  FROM counters2 "
+    "  WHERE point_dep=:point_id) c, "
+    " (SELECT NVL(SUM(DECODE(piece_concept, 0, excess, NULL, excess,      0)),0) AS excess_wt, "
+    "         NVL(SUM(DECODE(piece_concept, 0,      0, NULL,      0, excess)),0) AS excess_pc "
+    "  FROM pax_grp "
+    "  WHERE point_dep=:point_id AND status NOT IN ('E') AND bag_refuse=0) e, "
+    " (SELECT NVL(SUM(cfg),0) AS cfg "
+    "  FROM trip_classes "
+    "  WHERE point_id=:point_id) f";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.CreateVariable("adult",otString,EncodePerson(ASTRA::adult));
+  Qry.CreateVariable("child",otString,EncodePerson(ASTRA::child));
+  Qry.CreateVariable("baby",otString,EncodePerson(ASTRA::baby));
+  Qry.Execute();
+  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
+
+  total.seats = Qry.FieldAsInteger("seats");
+  total.adult_m = Qry.FieldAsInteger("adult_m");
+  total.adult_f = Qry.FieldAsInteger("adult_f");
+  total.child = Qry.FieldAsInteger("child");
+  total.baby = Qry.FieldAsInteger("baby");
+  total.crs_ok = Qry.FieldAsInteger("crs_ok");
+  total.crs_tranzit = Qry.FieldAsInteger("crs_tranzit");
+  total.excess_wt = Qry.FieldAsInteger("excess_wt");
+  total.excess_pc = Qry.FieldAsInteger("excess_pc");
+  total.cfg = Qry.FieldAsInteger("cfg");
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT NVL(SUM(DECODE(pr_cabin,0,amount,0)),0) AS bag_amount, "
+    "         NVL(SUM(DECODE(pr_cabin,0,weight,0)),0) AS bag_weight, "
+    "         NVL(SUM(DECODE(pr_cabin,0,0,weight)),0) AS rk_weight, "
+    "         pax_grp.class "
+    "  FROM pax_grp,bag2 "
+    "  WHERE pax_grp.grp_id=bag2.grp_id AND "
+    "        point_dep=:point_id AND status NOT IN ('E') AND "
+    "        ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
+    " GROUP BY class";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  total.bags.clear();
+  for ( ; !Qry.Eof; Qry.Next() ) {
+     total.bag_amount +=  Qry.FieldAsInteger("bag_amount");
+     total.bag_weight += Qry.FieldAsInteger("bag_weight");
+     total.rk_weight += Qry.FieldAsInteger("rk_weight");
+     total.bags[ Qry.FieldAsString( "class" ) ] = make_pair( Qry.FieldAsInteger("bag_amount"),  Qry.FieldAsInteger("bag_weight") );
+  }
+}
+
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
   reqNode=GetNode("tripcounters",reqNode);
@@ -1705,75 +1787,34 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   Qry.Execute();
   if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
   TTripInfo fltInfo(Qry);
-
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT a.seats,a.adult_m,a.adult_f,a.child,a.baby, "
-    "       b.bag_amount, "
-    "       b.bag_weight, "
-    "       b.rk_weight, "
-    "       c.crs_ok,c.crs_tranzit, "
-    "       e.excess_wt,e.excess_pc,f.cfg "
-    "FROM "
-    " (SELECT NVL(SUM(seats),0) AS seats, "
-    "         NVL(SUM(DECODE(pers_type,:adult,DECODE(pax.is_female,0,1,NULL,1,0),0)),0) AS adult_m, "
-    "         NVL(SUM(DECODE(pers_type,:adult,DECODE(pax.is_female,0,0,NULL,0,1),0)),0) AS adult_f, "
-    "         NVL(SUM(DECODE(pers_type,:child,1,0)),0) AS child, "
-    "         NVL(SUM(DECODE(pers_type,:baby,1,0)),0) AS baby "
-    "  FROM pax_grp,pax "
-    "  WHERE pax_grp.grp_id=pax.grp_id AND "
-    "        point_dep=:point_id AND status NOT IN ('E') AND pr_brd IS NOT NULL) a, "
-    " (SELECT NVL(SUM(DECODE(pr_cabin,0,amount,0)),0) AS bag_amount, "
-    "         NVL(SUM(DECODE(pr_cabin,0,weight,0)),0) AS bag_weight, "
-    "         NVL(SUM(DECODE(pr_cabin,0,0,weight)),0) AS rk_weight "
-    "  FROM pax_grp,bag2 "
-    "  WHERE pax_grp.grp_id=bag2.grp_id AND "
-    "        point_dep=:point_id AND status NOT IN ('E') AND "
-    "        ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0) b, "
-    " (SELECT NVL(SUM(crs_ok),0) AS crs_ok, "
-    "         NVL(SUM(crs_tranzit),0) AS crs_tranzit "
-    "  FROM counters2 "
-    "  WHERE point_dep=:point_id) c, "
-    " (SELECT NVL(SUM(DECODE(piece_concept, 0, excess, NULL, excess,      0)),0) AS excess_wt, "
-    "         NVL(SUM(DECODE(piece_concept, 0,      0, NULL,      0, excess)),0) AS excess_pc "
-    "  FROM pax_grp "
-    "  WHERE point_dep=:point_id AND status NOT IN ('E') AND bag_refuse=0) e, "
-    " (SELECT NVL(SUM(cfg),0) AS cfg "
-    "  FROM trip_classes "
-    "  WHERE point_id=:point_id) f";
-  Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.CreateVariable("adult",otString,EncodePerson(ASTRA::adult));
-  Qry.CreateVariable("child",otString,EncodePerson(ASTRA::child));
-  Qry.CreateVariable("baby",otString,EncodePerson(ASTRA::baby));
-  Qry.Execute();
-  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-
+  PaxLoadTotalRowStruct total;
+  createReadPaxLoadTotalRow( Qry, point_id, total );
   //секция строк
   xmlNodePtr rowsNode=NewTextChild(resNode,"rows");
 
   xmlNodePtr rowNode=NewTextChild(rowsNode,"row");
   NewTextChild(rowNode,"title",AstraLocale::getLocaleText("Всего"));
-  NewTextChild(rowNode,"seats",Qry.FieldAsInteger("seats"),0);
+  NewTextChild(rowNode,"seats",total.seats,0);
   if (TReqInfo::Instance()->desk.compatible(PAX_LOAD_BY_GENDER))
   {
-    NewTextChild(rowNode,"adult_m",Qry.FieldAsInteger("adult_m"),0);
-    NewTextChild(rowNode,"adult_f",Qry.FieldAsInteger("adult_f"),0);
+    NewTextChild(rowNode,"adult_m",total.adult_m,0);
+    NewTextChild(rowNode,"adult_f",total.adult_f,0);
   }
   else
-    NewTextChild(rowNode,"adult",Qry.FieldAsInteger("adult_m")+Qry.FieldAsInteger("adult_f"),0);
-  NewTextChild(rowNode,"child",Qry.FieldAsInteger("child"),0);
-  NewTextChild(rowNode,"baby",Qry.FieldAsInteger("baby"),0);
-  NewTextChild(rowNode,"bag_amount",Qry.FieldAsInteger("bag_amount"),0);
-  NewTextChild(rowNode,"bag_weight",Qry.FieldAsInteger("bag_weight"),0);
-  NewTextChild(rowNode,"rk_weight",Qry.FieldAsInteger("rk_weight"),0);
-  NewTextChild(rowNode,"crs_ok",Qry.FieldAsInteger("crs_ok"),0);
-  NewTextChild(rowNode,"crs_tranzit",Qry.FieldAsInteger("crs_tranzit"),0);
+    NewTextChild(rowNode,"adult",total.adult_m+total.adult_f,0);
+  NewTextChild(rowNode,"child",total.child,0);
+  NewTextChild(rowNode,"baby",total.baby,0);
+  NewTextChild(rowNode,"bag_amount",total.bag_amount,0);
+  NewTextChild(rowNode,"bag_weight",total.bag_weight,0);
+  NewTextChild(rowNode,"rk_weight",total.rk_weight,0);
+  NewTextChild(rowNode,"crs_ok",total.crs_ok,0);
+  NewTextChild(rowNode,"crs_tranzit",total.crs_tranzit,0);
 
   bool excess_unit_required=false;
-  NewTextChild(rowNode,"excess",excessStr(Qry.FieldAsInteger("excess_wt"),
-                                          Qry.FieldAsInteger("excess_pc"),
+  NewTextChild(rowNode,"excess",excessStr(total.excess_wt,
+                                          total.excess_pc,
                                           excess_unit_required),"0");
-  NewTextChild(rowNode,"cfg",Qry.FieldAsInteger("cfg"),0);
+  NewTextChild(rowNode,"cfg",total.cfg,0);
   NewTextChild(rowNode,"load",getCommerceWeight( point_id, onlyCheckin, CWTotal ),0);
 
   if (paxLoadOrder.fields.empty()) return;
@@ -2447,6 +2488,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
 void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
 {
+  //header
+
   list<TPaxLoadItem> paxLoad;
   //начится инфы по пассажирам + кол-во ремарок XCR, DHC, MOS, UMNR, EXST, WCHC, WCHR, WCHS
   std::map<std::string,int> paxRemCounters;
@@ -2465,9 +2508,107 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
   TPaxLoadOrder paxLoadOrder;
   paxLoadOrder.fields.push_back( "section" );
   paxLoad.sort(paxLoadOrder);
+  //////////////////////HEADER////////////////////////////////////////////////
+  TTripInfoSQLParams filter;
+  filter.set();
+  filter.point_id=point_id;
+
+  TQuery Qry( &OraSession );
+  TQuery StagesQry( &OraSession );
+  setSQLTripList( Qry, filter );
+  //ProgTrace(TRACE5, "TripInfo SQL=%s", Qry.SQLText.SQLText());
+  Qry.Execute();
+  throw AstraLocale::UserException( "MSG.FLIGHT.NOT_FOUND" );
+
+  TTripInfo info(Qry);
+  xmlNodePtr node = NewTextChild( node, "tripheader" );
+  NewTextChild( node, "point_id", Qry.FieldAsInteger( "point_id" ) );
+
+  TripsInterface::readOperFltHeader(info,node);
+
+  string &tz_region=AirpTZRegion(info.airp);
+  TDateTime scd_out_client,
+            act_out_client,
+            real_out_client;
+
+  NewTextChild( node, "scd_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region)), "hh:nn" );
+  if (!Qry.FieldIsNULL("est_out")) {
+    NewTextChild( node, "est_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region)), "hh:nn" );
+  }
+  if (!Qry.FieldIsNULL("act_out")) {
+    NewTextChild( node, "act_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region)), "hh:nn" );
+  }
+  NewTextChild( node, "craft", ElemIdToElemCtxt(ecCkin,etCraft, Qry.FieldAsString( "craft" ), (TElemFmt)Qry.FieldAsInteger( "craft_fmt" )) );
+  NewTextChild( node, "bort", Qry.FieldAsString( "bort" ) );
+  NewTextChild( node, "classes", TCFG(point_id).str() );
+  string route=GetRouteAfterStr(NoExists, point_id, trtWithCurrent, trtNotCancelled);
+  NewTextChild( node, "route", route );
+  NewTextChild( node, "places", route );
+  NewTextChild( node, "trip_type", ElemIdToCodeNative(etTripType,Qry.FieldAsString( "trip_type" )) );
+  NewTextChild( node, "litera", Qry.FieldAsString( "litera" ) );
+  //trip нужен для ChangeTrip клиента:
+  NewTextChild( node, "trip", GetTripName(info,ecCkin,false,true));
+
+  TTripStages tripStages( point_id );
+  TStagesRules *stagesRules = TStagesRules::Instance();
+  NewTextChild( node, "status", stagesRules->status_view( stCheckIn, tripStages.getStage( stBoarding ) ));
+  string stralarms;
+  BitSet<Alarm::Enum> Alarms;
+  TripAlarms( point_id, Alarms );
+  for(Alarm::TPairs::const_iterator a=Alarm::pairs().begin(); a!=Alarm::pairs().end(); ++a)
+  {
+    Alarm::Enum alarm = a->first;
+    string rem;
+    if ( !Alarms.isFlag( alarm ) )
+      continue;
+    switch( alarm ) {
+      case Alarm::Waitlist:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::Overload:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::Salon:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::DiffComps:
+        rem = TripAlarmString( alarm ) + SALONS2::getDiffCompsAlarmRoutes( point_id );
+        break;
+      default:
+        break;
+    }
+    if ( !rem.empty() ) {
+      if ( !stralarms.empty() )
+          stralarms += " ";
+      stralarms += "!" + rem;
+    }
+  }
+  if ( !stralarms.empty() ) {
+    NewTextChild( node, "alarms", stralarms );
+  }
+  //////////////////////////////////////////////////////////////////////////////
   xmlNodePtr datasetsNode = NewTextChild(resNode, "datasets");
-  xmlNodePtr node;
   node = NewTextChild( datasetsNode, "sectionsData" );
+  PaxLoadTotalRowStruct total;
+  Qry.Clear();
+  createReadPaxLoadTotalRow( Qry, point_id, total );
+  xmlNodePtr rowNode=NewTextChild(node,"row");
+  NewTextChild(rowNode,"seats",total.seats);
+  NewTextChild(rowNode,"adult_m",total.adult_m);
+  NewTextChild(rowNode,"adult_f",total.adult_f);
+  NewTextChild(rowNode,"child",total.child);
+  NewTextChild(rowNode,"baby",total.baby);
+  NewTextChild(rowNode,"bag_amount",total.bag_amount);
+  NewTextChild(rowNode,"bag_weight",total.bag_weight);
+  NewTextChild(rowNode,"rk_weight",total.rk_weight);
+  NewTextChild(rowNode,"crs_ok",total.crs_ok);
+  NewTextChild(rowNode,"crs_tranzit",total.crs_tranzit);
+  bool excess_unit_required=false;
+  NewTextChild(rowNode,"excess",excessStr(total.excess_wt,
+                                          total.excess_pc,
+                                          excess_unit_required));
+  NewTextChild(rowNode,"section","");
+  NewTextChild(rowNode,"cfg",total.cfg,0);
   for ( const auto& i : paxLoad ) {
     xmlNodePtr rowNode=NewTextChild(node,"row");
     NewTextChild(rowNode,"seats",i.seats);
@@ -2478,6 +2619,9 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
     NewTextChild(rowNode,"bag_amount",i.bag_amount);
     NewTextChild(rowNode,"bag_weight",i.bag_weight);
     NewTextChild(rowNode,"rk_weight",i.rk_weight);
+    NewTextChild(rowNode,"crs_ok","");
+    NewTextChild(rowNode,"crs_tranzit","");
+    NewTextChild(rowNode,"excess","");
     NewTextChild(rowNode,"section",i.section);
   };
   node = NewTextChild( datasetsNode, "bagsData" );
@@ -2493,6 +2637,14 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
     NewTextChild(rowNode,"rem",i.first);
     NewTextChild(rowNode,"count",i.second);
   }
+  node = NewTextChild( datasetsNode, "bagsClassData" );
+  for ( const auto& i : total.bags ) {
+    xmlNodePtr rowNode=NewTextChild(node,"row");
+    NewTextChild(rowNode,"class",i.first);
+    NewTextChild(rowNode,"amount",i.second.first);
+    NewTextChild(rowNode,"weight",i.second.second);
+  }
+
 }
 
 void viewCRSList( int point_id, xmlNodePtr dataNode )
