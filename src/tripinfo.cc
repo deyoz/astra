@@ -1672,7 +1672,7 @@ struct PaxLoadTotalRowStruct {
   int crs_tranzit;
   int excess_wt;
   int excess_pc;
-  int cfg;  
+  int cfg;
   PaxLoadTotalRowStruct() {
    seats = 0;
    adult_m = 0;
@@ -1737,9 +1737,9 @@ void createReadPaxLoadTotalRow( TQuery &Qry, int point_id, PaxLoadTotalRowStruct
   Qry.Clear();
   Qry.SQLText =
     "SELECT NVL(SUM(DECODE(pr_cabin,0,amount,0)),0) AS bag_amount, "
-    "         NVL(SUM(DECODE(pr_cabin,0,weight,0)),0) AS bag_weight, "
-    "         NVL(SUM(DECODE(pr_cabin,0,0,weight)),0) AS rk_weight, "
-    "         pax_grp.class "
+    "       NVL(SUM(DECODE(pr_cabin,0,weight,0)),0) AS bag_weight, "
+    "       NVL(SUM(DECODE(pr_cabin,0,0,weight)),0) AS rk_weight, "
+    "       pax_grp.class "
     "  FROM pax_grp,bag2 "
     "  WHERE pax_grp.grp_id=bag2.grp_id AND "
     "        point_dep=:point_id AND status NOT IN ('E') AND "
@@ -2525,33 +2525,28 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
   paxLoadOrder.fields.push_back( "section" );
   paxLoad.sort(paxLoadOrder);
   //////////////////////HEADER////////////////////////////////////////////////
-  TTripInfoSQLParams filter;
-  filter.set();
-  filter.point_id=point_id;
 
   TQuery Qry( &OraSession );
-  TQuery StagesQry( &OraSession );
-  setSQLTripList( Qry, filter );
-  ProgTrace(TRACE5, "TripInfo SQL=%s", Qry.SQLText.SQLText());
+  //TQuery StagesQry( &OraSession );
+  Qry.SQLText =
+    "SELECT point_id,airline,flt_no,suffix,suffix_fmt,litera,airp,airp_fmt,scd_out,est_out,act_out,craft,craft_fmt,bort,trip_type "
+    " FROM points WHERE point_id=:point_id";
+  Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
   if ( Qry.Eof ) {
-    tst();
     throw AstraLocale::UserException( "MSG.FLIGHT.NOT_FOUND" );
   }
-  tst();
 
   TTripInfo info(Qry);
   xmlNodePtr node = NewTextChild( resNode, "tripheader" );
   NewTextChild( node, "point_id", Qry.FieldAsInteger( "point_id" ) );
 
-  TripsInterface::readOperFltHeader(info,node);
-
   string &tz_region=AirpTZRegion(info.airp);
 
   NewTextChild( node, "scd_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region)), "hh:nn" );
-/*!!!  if (!Qry.FieldIsNULL("est_out")) {
+  if (!Qry.FieldIsNULL("est_out")) {
     NewTextChild( node, "est_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region)), "hh:nn" );
-  }*/
+  }
   if (!Qry.FieldIsNULL("act_out")) {
     NewTextChild( node, "act_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region)), "hh:nn" );
   }
@@ -2656,6 +2651,9 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
   }
   node = NewTextChild( datasetsNode, "bagsClassData" );
   for ( const auto& i : total.bags ) {
+    if ( i.first.empty() ) {
+      continue;
+    }
     xmlNodePtr rowNode=NewTextChild(node,"row");
     NewTextChild(rowNode,"class",i.first);
     NewTextChild(rowNode,"amount",i.second.first);
@@ -3218,6 +3216,4 @@ bool SearchPaxByScanData(xmlNodePtr reqNode,
   };
   return result;
 };
-
-
 
