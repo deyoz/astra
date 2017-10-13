@@ -16,6 +16,26 @@
 
 using BASIC::date_time::TDateTime;
 
+class FlightProps
+{
+  public:
+    enum Cancellation { NotCancelled,
+                        WithCancelled };
+    enum CheckInAbility { WithCheckIn,
+                          WithOrWithoutCheckIn };
+  private:
+    Cancellation _cancellation;
+    CheckInAbility _checkin_ability;
+  public:
+    FlightProps() :
+      _cancellation(WithCancelled), _checkin_ability(WithOrWithoutCheckIn) {}
+    FlightProps(Cancellation prop1,
+                CheckInAbility prop2=WithOrWithoutCheckIn) :
+      _cancellation(prop1), _checkin_ability(prop2) {}
+    Cancellation cancellation() const { return _cancellation; }
+    CheckInAbility checkin_ability() const { return _checkin_ability; }
+};
+
 class TSimpleMktFlight
 {
   private:
@@ -147,8 +167,9 @@ class TTripInfo
       craft.clear();
       scd_out=ASTRA::NoExists;
       est_out=ASTRA::NoExists;
-      real_out=ASTRA::NoExists;
+      act_out=ASTRA::NoExists;
       pr_del = ASTRA::NoExists;
+      pr_reg = false;
       airline_fmt = efmtUnknown;
       suffix_fmt = efmtUnknown;
       airp_fmt = efmtUnknown;
@@ -167,10 +188,12 @@ class TTripInfo
         scd_out = Qry.FieldAsDateTime("scd_out");
       if (Qry.GetFieldIndex("est_out")>=0 && !Qry.FieldIsNULL("est_out"))
         est_out = Qry.FieldAsDateTime("est_out");
-      if (Qry.GetFieldIndex("real_out")>=0 && !Qry.FieldIsNULL("real_out"))
-        real_out = Qry.FieldAsDateTime("real_out");
+      if (Qry.GetFieldIndex("act_out")>=0 && !Qry.FieldIsNULL("act_out"))
+        act_out = Qry.FieldAsDateTime("act_out");
       if (Qry.GetFieldIndex("pr_del")>=0)
         pr_del = Qry.FieldAsInteger("pr_del");
+      if (Qry.GetFieldIndex("pr_reg")>=0)
+        pr_reg = Qry.FieldAsInteger("pr_reg")!=0;
       if (Qry.GetFieldIndex("airline_fmt")>=0)
         airline_fmt = (TElemFmt)Qry.FieldAsInteger("airline_fmt");
       if (Qry.GetFieldIndex("suffix_fmt")>=0)
@@ -200,12 +223,42 @@ class TTripInfo
       scd_out=flt.scd_date_local;
       airp=flt.airp_dep;
     }
+  protected:
+    bool match(TQuery &Qry, const FlightProps& props) const
+    {
+      if (props.cancellation()==FlightProps::NotCancelled && Qry.FieldAsInteger("pr_del")!=0) return false;
+      if (props.checkin_ability()==FlightProps::WithCheckIn && Qry.FieldAsInteger("pr_reg")==0) return false;
+      return true;
+    }
   public:
+    static std::string selectedFields(const std::string& table_name="")
+    {
+      std::string prefix=table_name+(table_name.empty()?"":".");
+      std::ostringstream s;
+      s << " " << prefix << "point_id,"
+        << " " << prefix << "airline,"
+        << " " << prefix << "flt_no,"
+        << " " << prefix << "suffix,"
+        << " " << prefix << "airp,"
+        << " " << prefix << "craft,"
+        << " " << prefix << "scd_out,"
+        << " " << prefix << "est_out,"
+        << " " << prefix << "act_out,"
+        << " " << prefix << "pr_del,"
+        << " " << prefix << "pr_reg,"
+        << " " << prefix << "airline_fmt,"
+        << " " << prefix << "suffix_fmt,"
+        << " " << prefix << "airp_fmt,"
+        << " " << prefix << "craft_fmt ";
+      return s.str();
+    }
+
     int point_id;
     std::string airline, suffix, airp, craft;
+    TDateTime scd_out, est_out, act_out;
     int flt_no, pr_del;
+    bool pr_reg;
     TElemFmt airline_fmt, suffix_fmt, airp_fmt, craft_fmt;
-    TDateTime scd_out, est_out, real_out;
     TTripInfo()
     {
       init();
@@ -231,8 +284,11 @@ class TTripInfo
     {
       init(flt);
     };
-    virtual bool getByPointId ( const TDateTime part_key, const int point_id );
-    virtual bool getByPointId ( const int point_id );
+    virtual bool getByPointId ( const TDateTime part_key,
+                                const int point_id,
+                                const FlightProps& props = FlightProps() );
+    virtual bool getByPointId ( const int point_id,
+                                const FlightProps& props = FlightProps() );
     virtual bool getByPointIdTlg ( const int point_id_tlg );
     virtual bool getByGrpId ( const int grp_id );
     virtual bool getByCRSPnrId ( const int pnr_id );
@@ -241,6 +297,11 @@ class TTripInfo
     static TDateTime get_scd_in(const int &point_arv);
     TDateTime get_scd_in(const std::string &airp_arv) const;
     std::string flight_view(TElemContext ctxt=ecNone, bool showScdOut=true, bool showAirp=true) const;
+    TDateTime est_scd_out() const { return est_out!=ASTRA::NoExists?est_out:
+                                                                    scd_out; }
+    TDateTime act_est_scd_out() const { return act_out!=ASTRA::NoExists?act_out:
+                                               est_out!=ASTRA::NoExists?est_out:
+                                                                        scd_out; }
 };
 
 std::string flight_view(int grp_id, int seg_no); //начиная с 1
@@ -266,6 +327,17 @@ class TAdvTripInfo : public TTripInfo
       pr_tranzit = Qry.FieldAsInteger("pr_tranzit")!=0;
     };
   public:
+    static std::string selectedFields(const std::string& table_name="")
+    {
+      std::string prefix=table_name+(table_name.empty()?"":".");
+      std::ostringstream s;
+      s << " " << prefix << "point_num,"
+        << " " << prefix << "first_point,"
+        << " " << prefix << "pr_tranzit,"
+        << TTripInfo::selectedFields(table_name);
+      return s.str();
+    }
+
     int point_id, point_num, first_point;
     bool pr_tranzit;
     TAdvTripInfo()
@@ -299,8 +371,11 @@ class TAdvTripInfo : public TTripInfo
       TTripInfo::Init(Qry);
       init(Qry);
     };
-    virtual bool getByPointId ( const TDateTime part_key, const int point_id );
-    virtual bool getByPointId ( const int point_id );
+    virtual bool getByPointId ( const TDateTime part_key,
+                                const int point_id,
+                                const FlightProps& props = FlightProps() );
+    virtual bool getByPointId ( const int point_id,
+                                const FlightProps& props = FlightProps() );
 };
 
 typedef std::list<TAdvTripInfo> TAdvTripInfoList;

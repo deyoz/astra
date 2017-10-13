@@ -556,12 +556,10 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
              point_id, point_arv, pax_id, pr_comps, pr_images );
   if ( pr_comps ) {
     Qry.SQLText =
-      "SELECT point_num,first_point,pr_tranzit,pr_del,scd_out, "
-      "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
-      "       airline_fmt,suffix_fmt,airp_fmt,"
-      "       bort,airline,flt_no,suffix,airp,craft,NVL(comp_id,-1) comp_id "
+      "SELECT " + TAdvTripInfo::selectedFields("points") + ", "
+      "       bort, NVL(comp_id,-1) comp_id "
       " FROM points, trip_sets "
-      " WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id(+)";
+      " WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id(+) AND points.pr_del>=0";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
     if ( !Qry.RowCount() )
@@ -882,12 +880,10 @@ void SalonFormInterface::ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       crc_comp = NodeAsInteger( "@crc_comp", tmpNode );
     ProgTrace( TRACE5, "point_id=%d, crc_comp=%d", point_id, crc_comp );
     Qry.SQLText =
-      "SELECT point_num,first_point,pr_tranzit,pr_del,scd_out, "
-      "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
-      "       airline_fmt,suffix_fmt,airp_fmt,"
-      "       bort,airline,flt_no,suffix,airp,craft,crc_comp "
+      "SELECT " + TAdvTripInfo::selectedFields("points") + ", "
+      "       bort, crc_comp "
       " FROM points, trip_sets "
-      " WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id(+)";
+      " WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id(+) AND points.pr_del>=0";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
     if ( !Qry.RowCount() )
@@ -1155,7 +1151,7 @@ void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no,
         if ( pr_grp_id ) {
             TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
             try {
-              slayer_type = ((TGrpStatusTypesRow&)grp_status_types.get_row("code",grp_status)).layer_type;
+              slayer_type = ((const TGrpStatusTypesRow&)grp_status_types.get_row("code",grp_status)).layer_type;
             }
             catch(EBaseTableError){};
         }

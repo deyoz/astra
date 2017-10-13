@@ -62,9 +62,8 @@ bool TFltParams::get(int point_id)
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT points.point_id, points.point_num, points.first_point, points.pr_tranzit, "
-    "       points.airline, points.flt_no, points.suffix, points.airp, points.scd_out, "
-    "       points.act_out AS real_out, trip_sets.pr_etstatus, trip_sets.et_final_attempt "
+    "SELECT " + TAdvTripInfo::selectedFields("points") + ", "
+    "       trip_sets.pr_etstatus, trip_sets.et_final_attempt "
     "FROM points,trip_sets "
     "WHERE trip_sets.point_id=points.point_id AND "
     "      points.point_id=:point_id AND points.pr_del>=0 ";
@@ -96,7 +95,7 @@ bool TFltParams::get(int point_id)
   TDateTime real_in=ASTRA::NoExists;
   if (!Qry.FieldIsNULL("real_in")) real_in=Qry.FieldAsDateTime("real_in");
 
-  in_final_status=fltInfo.real_out!=NoExists && real_in!=NoExists && real_in<NowUTC();
+  in_final_status=fltInfo.act_out!=NoExists && real_in!=NoExists && real_in<NowUTC();
   return true;
 }
 

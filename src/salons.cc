@@ -4925,9 +4925,9 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
     xmlNodePtr placeNode = salonNode->children;
     while ( placeNode &&
             ( ( TReqInfo::Instance()->desk.compatible( TRANSIT_CRAFT_VERSION ) &&
-                string( (char*)placeNode->name ) == "seat" ) ||
+                string( (const char*)placeNode->name ) == "seat" ) ||
               ( !TReqInfo::Instance()->desk.compatible( TRANSIT_CRAFT_VERSION ) &&
-                string( (char*)placeNode->name ) == "place" ) ) ) {
+                string( (const char*)placeNode->name ) == "place" ) ) ) {
       node = placeNode->children;
       TPlace place;
       place.x = NodeAsIntegerFast( "x", node );
@@ -4972,7 +4972,7 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
         n1 = GetNodeFast( "remarks", node );
         if ( n1 ) {
             n1 = n1->children;
-            while ( n1 && string( (char*)n1->name ) == "remark" ) {
+            while ( n1 && string( (const char*)n1->name ) == "remark" ) {
               n2 = n1->children;
               int point_id = NodeAsIntegerFast( "point_id", n2, vpoint_id );
               seatRemark.value = NodeAsStringFast( "code", n2, "" );
@@ -5012,7 +5012,7 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
       n1 = GetNodeFast( "layers", node );
       if ( n1 ) {
         n1 = n1->children; //layer
-        while( n1 && string( (char*)n1->name ) == "layer" ) {
+        while( n1 && string( (const char*)n1->name ) == "layer" ) {
             n2 = n1->children;
             TSeatLayer seatlayer;
             seatlayer.layer_type = DecodeCompLayerType( NodeAsStringFast( "layer_type", n2, "" ) );
@@ -5046,7 +5046,7 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
         n1 = GetNodeFast( "tariffs", node );
         if ( n1 ) {
           n1 = n1->children;
-          while ( n1 && string( (char*)n1->name ) == "tariff" ) {
+          while ( n1 && string( (const char*)n1->name ) == "tariff" ) {
             n2 = n1->children;
             TSeatTariff seatTariff;
             int point_id = NodeAsIntegerFast( "point_id", n2, vpoint_id );
@@ -5102,7 +5102,7 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
         n1 = GetNodeFast( "rfiscs", node );
         if ( n1 ) {
           n1 = n1->children;
-          while ( n1 && string( (char*)n1->name ) == "rfisc" ) {
+          while ( n1 && string( (const char*)n1->name ) == "rfisc" ) {
             n2 = n1->children;
             TRFISC rfisc;
             int point_id = NodeAsIntegerFast( "point_id", n2, vpoint_id );
@@ -7187,10 +7187,9 @@ void GetTripParams( int trip_id, xmlNodePtr dataNode )
 
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT airp,airp_fmt,airline,airline_fmt,flt_no,suffix,suffix_fmt,craft,craft_fmt,bort,scd_out, "
-    "       NVL(act_out,NVL(est_out,scd_out)) AS real_out, pr_del "
+    "SELECT " + TTripInfo::selectedFields() + ", bort "
     "FROM points "
-    "WHERE point_id=:point_id ";
+    "WHERE point_id=:point_id AND pr_del>=0";
   Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.Execute();
   if (Qry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
@@ -9279,7 +9278,7 @@ void ParseCompSections( xmlNodePtr sectionsNode, std::vector<TCompSection> &Comp
   if ( !sectionsNode )
     return;
   sectionsNode = sectionsNode->children;
-  while ( sectionsNode && string((char*)sectionsNode->name) == "section" ) {
+  while ( sectionsNode && string((const char*)sectionsNode->name) == "section" ) {
     TCompSection cs;
     cs.name = NodeAsString( sectionsNode );
     if ( !IsAscii7( cs.name ) ) {
@@ -9641,7 +9640,7 @@ void TSalonPax::int_get_seats( TWaitListReason &waitListReason,
   //!logProgTrace( TRACE5, "grp_status=%s, pax_id=%d", grp_status.c_str(), pax_id );
   if ( DecodePaxStatus(grp_status.c_str()) == psCrew )
     throw EXCEPTIONS::Exception("TSalonPax::get_seats: DecodePaxStatus(grp_status) == psCrew");
-  const TGrpStatusTypesRow &grp_status_row = (TGrpStatusTypesRow&)grp_status_types.get_row( "code", grp_status );
+  const TGrpStatusTypesRow &grp_status_row = (const TGrpStatusTypesRow&)grp_status_types.get_row( "code", grp_status );
   ASTRA::TCompLayerType grp_layer_type = DecodeCompLayerType( grp_status_row.layer_type.c_str() );
   TLayersPax::const_iterator ilayer=layers.begin();
   for ( ; ilayer!=layers.end(); ilayer++ ) {
@@ -9760,7 +9759,7 @@ std::string TSalonPax::prior_seat_no( const std::string &format, bool pr_lat_sea
   //!logProgTrace( TRACE5, "grp_status=%s, pax_id=%d", grp_status.c_str(), pax_id );
   if ( DecodePaxStatus(grp_status.c_str()) == psCrew )
     throw EXCEPTIONS::Exception("TSalonPax::prior_seat_no: DecodePaxStatus(grp_status) == psCrew");
-  const TGrpStatusTypesRow &grp_status_row = (TGrpStatusTypesRow&)grp_status_types.get_row( "code", grp_status );
+  const TGrpStatusTypesRow &grp_status_row = (const TGrpStatusTypesRow&)grp_status_types.get_row( "code", grp_status );
   ASTRA::TCompLayerType grp_layer_type = DecodeCompLayerType( grp_status_row.layer_type.c_str() );
   string res;
   if ( /*res.empty() &&*/
@@ -9876,7 +9875,7 @@ bool _TSalonPassengers::BuildWaitList( xmlNodePtr dataNode )
   for ( map<string,std::set<TSalonPax,ComparePassenger>,CompareGrpStatus >::iterator igrp_layer=salonGrpStatusPaxs.begin();
         igrp_layer!=salonGrpStatusPaxs.end(); igrp_layer++ ) {
     layerNode = NULL;
-    const TGrpStatusTypesRow &grp_status_row = (TGrpStatusTypesRow&)grp_status_types.get_row( "code", igrp_layer->first );
+    const TGrpStatusTypesRow &grp_status_row = (const TGrpStatusTypesRow&)grp_status_types.get_row( "code", igrp_layer->first );
     //!logProgTrace( TRACE5, "igrp_layer=%s, igrp_layer->second.size()=%zu", igrp_layer->first.c_str(), igrp_layer->second.size() );
     if ( DecodePaxStatus(igrp_layer->first.c_str()) == psCrew )
       throw EXCEPTIONS::Exception("TSalonPassengers::BuildWaitList: DecodePaxStatus(igrp_layer->first) == psCrew");

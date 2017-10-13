@@ -296,11 +296,8 @@ void GetFltCBoxList(TScreenState scr, TDateTime first_date, TDateTime last_date,
                     "    arx_points.part_key, \n"
                     "    arx_points.move_id, \n";
 
-            sql << "    point_id, airp, airline, flt_no, \n"
-                "    airline_fmt, airp_fmt, suffix_fmt, \n"
-                "    suffix, \n"
-                "    scd_out, trunc(NVL(act_out,NVL(est_out,scd_out))) AS real_out, \n"
-                "    pr_del, point_num \n";
+            sql << "    " << TTripInfo::selectedFields() << ", \n"
+                   "    point_num \n";
             if (pass==0)
                 sql << "FROM points \n"
                     "WHERE points.scd_out >= :FirstDate AND points.scd_out < :LastDate \n";
@@ -1326,17 +1323,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                     if(TripItems.find(point_id) == TripItems.end()) {
                         TQuery tripQry(&OraSession);
                         string SQLText =
-                            "select "
-                            "   airline, "
-                            "   flt_no, "
-                            "   suffix, "
-                            "   airp, "
-                            "   scd_out, "
-                            "   airp_fmt, "
-                            "   airline_fmt, "
-                            "   suffix_fmt, "
-                            "   NVL(act_out,NVL(est_out,scd_out)) AS real_out, "
-                            "   pr_del "
+                            "select " + TTripInfo::selectedFields() +
                             "from ";
                         SQLText += (j == 0 ? "points" : "arx_points");
                         SQLText +=
@@ -1632,17 +1619,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         if(part_key == NoExists)  {
             SQLText =
                 "SELECT "
-                "   null part_key, "
-                "   pax_grp.point_dep point_id, "
-                "   points.airline, "
-                "   points.flt_no, "
-                "   points.suffix, "
-                "   points.airline_fmt, "
-                "   points.airp_fmt, "
-                "   points.suffix_fmt, "
-                "   points.airp, "
-                "   points.scd_out, "
-                "   NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
+                "   null part_key, " +
+                TTripInfo::selectedFields("points") + ", "
                 "   pax.reg_no, "
                 "   pax_grp.airp_arv, "
                 "   pax.surname||' '||pax.name full_name, "
@@ -1681,17 +1659,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         } else {
             SQLText =
                 "SELECT "
-                "   arx_points.part_key, "
-                "   arx_pax_grp.point_dep point_id, "
-                "   arx_points.airline, "
-                "   arx_points.flt_no, "
-                "   arx_points.suffix, "
-                "   arx_points.airp, "
-                "   arx_points.scd_out, "
-                "   arx_points.airline_fmt, "
-                "   arx_points.airp_fmt, "
-                "   arx_points.suffix_fmt, "
-                "   NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out, "
+                "   arx_points.part_key, " +
+                TTripInfo::selectedFields("arx_points") + ", "
                 "   arx_pax.reg_no, "
                 "   arx_pax_grp.airp_arv, "
                 "   arx_pax.surname||' '||arx_pax.name full_name, "
@@ -1755,17 +1724,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         if(part_key == NoExists)  {
             Qry.SQLText=
                 "SELECT "
-                "   null part_key, "
-                "   pax_grp.point_dep point_id, "
-                "   points.airline, "
-                "   points.flt_no, "
-                "   points.suffix, "
-                "   points.airline_fmt, "
-                "   points.airp_fmt, "
-                "   points.suffix_fmt, "
-                "   points.airp, "
-                "   points.scd_out, "
-                "   NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
+                "   null part_key, " +
+                TTripInfo::selectedFields("points") + ", "
                 "   pax_grp.airp_arv, "
                 "   ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL) AS bag_amount, "
                 "   ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL) AS bag_weight, "
@@ -1796,17 +1756,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         } else {
             Qry.SQLText=
                 "SELECT "
-                "  arx_pax_grp.part_key, "
-                "  arx_pax_grp.point_dep point_id, "
-                "  arx_points.airline, "
-                "  arx_points.flt_no, "
-                "  arx_points.suffix, "
-                "  arx_points.airline_fmt, "
-                "  arx_points.airp_fmt, "
-                "  arx_points.suffix_fmt, "
-                "  arx_points.airp, "
-                "  arx_points.scd_out, "
-                "  NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out, "
+                "  arx_pax_grp.part_key, " +
+                TTripInfo::selectedFields("arx_points") + ", "
                 "  arx_pax_grp.airp_arv, "
                 "  arch.get_bagAmount2(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL,NULL) AS bag_amount, "
                 "  arch.get_bagWeight2(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL,NULL) AS bag_weight, "
@@ -10255,8 +10206,6 @@ void RunTrferPaxStat(
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             int col_part_key = Qry.get().FieldIndex("part_key");
-            int col_point_id = Qry.get().FieldIndex("point_id");
-            int col_scd_out = Qry.get().FieldIndex("scd_out");
             int col_pax_id = Qry.get().FieldIndex("pax_id");
             int col_rk_weight = Qry.get().FieldIndex("rk_weight");
             int col_bag_weight = Qry.get().FieldIndex("bag_weight");
@@ -11121,16 +11070,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
           sql << " NULL part_key, \n";
         else
           sql << " points.part_key, \n";
-        sql << " pax_grp.point_dep point_id, \n"
-               " points.airline, \n"
-               " points.flt_no, \n"
-               " points.suffix, \n"
-               " points.airline_fmt, \n"
-               " points.airp_fmt, \n"
-               " points.suffix_fmt, \n"
-               " points.airp, \n"
-               " points.scd_out, \n"
-               " NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, \n"
+        sql << TTripInfo::selectedFields("points") << ", \n"
                " pax.reg_no, \n"
                " pax_grp.airp_arv, \n"
                " pax.surname||' '||pax.name full_name, \n";

@@ -322,7 +322,6 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
         "   craft, "
         "   bort, "
         "   park_out park, "
-//        "   NVL(act_out,NVL(est_out,scd_out)) real_out, "
         "   act_out, "
         "   scd_out "
         "from ";
@@ -379,7 +378,7 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
     NewTextChild(variablesNode, "lang", TReqInfo::Instance()->desk.lang );
     NewTextChild(variablesNode, "own_airp_name", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, rpt_params.dup_lang())), rpt_params.dup_lang()));
     NewTextChild(variablesNode, "own_airp_name_lat", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, AstraLocale::LANG_EN)), AstraLocale::LANG_EN));
-    TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("AIRPS").get_row("code",airp);
+    const TAirpsRow &airpRow = (const TAirpsRow&)base_tables.get("AIRPS").get_row("code",airp);
     NewTextChild(variablesNode, "airp_dep_name", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong));
     NewTextChild(variablesNode, "airp_dep_city", rpt_params.ElemIdToReportElem(etCity, airpRow.city, efmtCodeNative));
     NewTextChild(variablesNode, "airline_name", airline_name);
@@ -462,7 +461,7 @@ void TRptParams::Init(xmlNodePtr node)
         for(; currNode; currNode = currNode->next)
         {
             string rem = NodeAsString(currNode);
-            rem_grps.insert(((TCkinRemTypesRow&)base_rems.get_row("code", rem)).grp_id);
+            rem_grps.insert(((const TCkinRemTypesRow&)base_rems.get_row("code", rem)).grp_id);
             TRemCategory cat=getRemCategory(rem, "");
             rems[cat].push_back(NodeAsString(currNode));
         };
@@ -1196,7 +1195,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         int class_grp = Qry.FieldAsInteger("class_grp");
         key.cls = rpt_params.ElemIdToReportElem(etClsGrp, class_grp, efmtCodeNative);
         key.cls_name = rpt_params.ElemIdToReportElem(etClsGrp, class_grp, efmtNameLong);
-        key.lvl = ((TClsGrpRow&)base_tables.get("cls_grp").get_row( "id", class_grp, true)).priority;
+        key.lvl = ((const TClsGrpRow&)base_tables.get("cls_grp").get_row( "id", class_grp, true)).priority;
         if(rpt_params.pr_trfer) {
             key.pr_trfer = Qry.FieldAsInteger("pr_trfer");
         }
@@ -1576,7 +1575,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         if(Qry.FieldIsNULL("class"))
             bag_tag_row.class_priority = 100;
         else {
-            bag_tag_row.class_priority = ((TClassesRow&)base_tables.get("classes").get_row( "code", class_code)).priority;
+            bag_tag_row.class_priority = ((const TClassesRow&)base_tables.get("classes").get_row( "code", class_code)).priority;
             bag_tag_row.class_code = rpt_params.ElemIdToReportElem(etClass, class_code, efmtCodeNative);
             bag_tag_row.class_name = rpt_params.ElemIdToReportElem(etClass, class_code, efmtNameLong);
         }

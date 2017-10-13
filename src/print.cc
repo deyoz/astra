@@ -1097,7 +1097,8 @@ void DumpRoute(const TTrferRoute &route)
         ProgTrace(TRACE5, "airp_dep: %s", iv->operFlt.airp.c_str());
         ProgTrace(TRACE5, "airp_arv: %s", iv->airp_arv.c_str());
         ProgTrace(TRACE5, "scd: %s",
-                  DateTimeToStr(iv->operFlt.real_out==ASTRA::NoExists?iv->operFlt.scd_out:iv->operFlt.real_out, ServerFormatDateTimeAsString).c_str());
+                  DateTimeToStr(iv->operFlt.act_est_scd_out()==ASTRA::NoExists?iv->operFlt.scd_out:
+                                                                               iv->operFlt.act_est_scd_out(), ServerFormatDateTimeAsString).c_str());
         ProgTrace(TRACE5, "-----------RouteItem-----------");
     }
 }
@@ -1109,7 +1110,7 @@ void set_via_fields(PrintDataParser &parser, const TTrferRoute &route, int start
         string str_via_idx = IntToString(via_idx);
         ostringstream flt_no;
         flt_no << setw(3) << setfill('0') << route[j].operFlt.flt_no;
-        TDateTime real_local=route[j].operFlt.real_out==ASTRA::NoExists?route[j].operFlt.scd_out:route[j].operFlt.real_out;
+        TDateTime real_local=route[j].operFlt.act_est_scd_out()==ASTRA::NoExists?route[j].operFlt.scd_out:route[j].operFlt.act_est_scd_out();
 
         parser.pts.set_tag("flt_no" + str_via_idx, flt_no.str() + route[j].operFlt.suffix);
         parser.pts.set_tag("local_date" + str_via_idx, real_local);
@@ -2286,7 +2287,7 @@ void PrintInterface::GetPrintDataVOUnregistered(
 
         PrintDataParser parser(airp_dep, airp_arv, params.prnParams.pr_lat);
 
-        parser.pts.set_tag(TAG::ACT,           UTCToLocal(info.real_out, AirpTZRegion(airp_dep)));
+        parser.pts.set_tag(TAG::ACT,           UTCToLocal(info.act_est_scd_out(), AirpTZRegion(airp_dep)));
         parser.pts.set_tag(TAG::AIRLINE,       info.airline);
         parser.pts.set_tag(TAG::AIRLINE_NAME,  info.airline);
         parser.pts.set_tag(TAG::AIRLINE_SHORT, info.airline);
@@ -2307,7 +2308,7 @@ void PrintInterface::GetPrintDataVOUnregistered(
         parser.pts.set_tag(TAG::CLASS_NAME,    cl);
         parser.pts.set_tag(TAG::DOCUMENT,      "");
         parser.pts.set_tag(TAG::DUPLICATE,     0); // TODO get it
-        parser.pts.set_tag(TAG::EST,           UTCToLocal(info.est_out, AirpTZRegion(airp_dep)));;
+        parser.pts.set_tag(TAG::EST,           UTCToLocal(info.est_scd_out(), AirpTZRegion(airp_dep)));;
         parser.pts.set_tag(TAG::ETICKET_NO,    "");
         parser.pts.set_tag(TAG::ETKT,          "");
         parser.pts.set_tag(TAG::EXCESS,        0); // TODO get it
