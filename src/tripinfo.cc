@@ -1672,7 +1672,22 @@ struct PaxLoadTotalRowStruct {
   int crs_tranzit;
   int excess_wt;
   int excess_pc;
-  int cfg;
+  int cfg;  
+  PaxLoadTotalRowStruct() {
+   seats = 0;
+   adult_m = 0;
+   adult_f = 0;
+   child = 0;
+   baby = 0;
+   bag_amount = 0;
+   bag_weight = 0;
+   rk_weight = 0;
+   crs_ok = 0;
+   crs_tranzit = 0;
+   excess_wt = 0;
+   excess_pc = 0;
+   cfg = 0;
+  }
 };
 
 void createReadPaxLoadTotalRow( TQuery &Qry, int point_id, PaxLoadTotalRowStruct &total )
@@ -1731,6 +1746,7 @@ void createReadPaxLoadTotalRow( TQuery &Qry, int point_id, PaxLoadTotalRowStruct
     "        ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
     " GROUP BY class";
   Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.Execute();
   total.bags.clear();
   for ( ; !Qry.Eof; Qry.Next() ) {
      total.bag_amount +=  Qry.FieldAsInteger("bag_amount");
@@ -2516,25 +2532,26 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
   TQuery Qry( &OraSession );
   TQuery StagesQry( &OraSession );
   setSQLTripList( Qry, filter );
-  //ProgTrace(TRACE5, "TripInfo SQL=%s", Qry.SQLText.SQLText());
+  ProgTrace(TRACE5, "TripInfo SQL=%s", Qry.SQLText.SQLText());
   Qry.Execute();
-  throw AstraLocale::UserException( "MSG.FLIGHT.NOT_FOUND" );
+  if ( Qry.Eof ) {
+    tst();
+    throw AstraLocale::UserException( "MSG.FLIGHT.NOT_FOUND" );
+  }
+  tst();
 
   TTripInfo info(Qry);
-  xmlNodePtr node = NewTextChild( node, "tripheader" );
+  xmlNodePtr node = NewTextChild( resNode, "tripheader" );
   NewTextChild( node, "point_id", Qry.FieldAsInteger( "point_id" ) );
 
   TripsInterface::readOperFltHeader(info,node);
 
   string &tz_region=AirpTZRegion(info.airp);
-  TDateTime scd_out_client,
-            act_out_client,
-            real_out_client;
 
   NewTextChild( node, "scd_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region)), "hh:nn" );
-  if (!Qry.FieldIsNULL("est_out")) {
+/*!!!  if (!Qry.FieldIsNULL("est_out")) {
     NewTextChild( node, "est_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region)), "hh:nn" );
-  }
+  }*/
   if (!Qry.FieldIsNULL("act_out")) {
     NewTextChild( node, "act_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region)), "hh:nn" );
   }
