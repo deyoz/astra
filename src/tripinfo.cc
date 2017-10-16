@@ -2589,6 +2589,51 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
       case Alarm::APISManualInput:
         rem = TripAlarmString( alarm );
         break;
+      case Alarm::SpecService:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::UnattachedTrfer:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::ConflictTrfer:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::CrewCheckin:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::CrewNumber:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::CrewDiff:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::APISDiffersFromBooking:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::UnboundEMD:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::APPSProblem:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::APPSOutage:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::APPSConflict:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::APPSNegativeDirective:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::APPSError:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::WBDifferLayout:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::WBDifferSeats:
+        rem = TripAlarmString( alarm );
+        break;
       default:
         break;
     }
@@ -2598,9 +2643,7 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
       stralarms += "!" + rem;
     }
   }
-  if ( !stralarms.empty() ) {
-    NewTextChild( node, "alarms", stralarms );
-  }
+  NewTextChild( node, "alarms", stralarms );
   //////////////////////////////////////////////////////////////////////////////
   xmlNodePtr datasetsNode = NewTextChild(resNode, "datasets");
   node = NewTextChild( datasetsNode, "sectionsData" );
