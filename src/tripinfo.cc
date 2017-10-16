@@ -2481,6 +2481,99 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   };
 }
 
+void PaxLoadtoXML(
+        xmlNodePtr datasetsNode,
+        const map<string, pair<int, int> > &bag_info,   // bagsData информация по багажу
+        const map<string,int> &paxRemCounters,          // remsData информация по паксам
+        const map<string, pair<int, int> > &bags        // Общие данные
+        )
+{
+    size_t rowcount = bag_info.size();
+    if(rowcount < paxRemCounters.size())
+        rowcount = paxRemCounters.size();
+
+    map<string, pair<int, int> >::const_iterator bag_info_i = bag_info.begin();
+    map<string,int>::const_iterator paxRemCounters_i = paxRemCounters.begin();
+    map<string, pair<int, int> >::const_iterator bags_i = bags.begin();
+
+    vector<vector<string> > result;
+    for(size_t i = 0; i < rowcount; i++) {
+        vector<string> row;
+        if(paxRemCounters_i == paxRemCounters.end()) {
+            row.push_back("");
+            row.push_back("");
+        } else {
+            row.push_back(paxRemCounters_i->first);
+            row.push_back(IntToString(paxRemCounters_i->second));
+            paxRemCounters_i++;
+        }
+
+        if(bag_info_i == bag_info.end()) {
+                row.push_back("");
+                row.push_back("");
+                row.push_back("");
+        } else {
+            row.push_back(bag_info_i->first);
+            row.push_back(IntToString(bag_info_i->second.first));
+            row.push_back(IntToString(bag_info_i->second.second));
+            bag_info_i++;
+        }
+        result.push_back(row);
+    }
+
+    vector<string> row;
+    row.push_back("");
+    row.push_back("");
+    row.push_back("");
+    row.push_back("");
+    row.push_back("");
+    result.push_back(row);
+    row.clear();
+    row.push_back("");
+    row.push_back("");
+    row.push_back("Общие данные");
+    row.push_back("");
+    row.push_back("");
+    result.push_back(row);
+
+    int amount = 0;
+    int weight = 0;
+
+    for ( const auto& i : bags ) {
+        if ( i.first.empty() ) {
+            continue;
+        }
+        vector<string> row;
+        row.push_back("");
+        row.push_back("");
+        row.push_back(i.first);
+        row.push_back(IntToString(i.second.first));
+        row.push_back(IntToString(i.second.second));
+        result.push_back(row);
+        amount += i.second.first;
+        weight += i.second.second;
+    }
+
+    row.clear();
+    row.push_back("");
+    row.push_back("");
+    row.push_back("Всего");
+    row.push_back(IntToString(amount));
+    row.push_back(IntToString(weight));
+    result.push_back(row);
+
+    xmlNodePtr node = NewTextChild( datasetsNode, "multiData" );
+    for(const auto &i_table : result) {
+        xmlNodePtr rowNode=NewTextChild(node,"row");
+        int col_idx = 0;
+        for(const auto &i_row : i_table) {
+            ostringstream col_name;
+            col_name << "col" << col_idx++;
+            NewTextChild(rowNode, col_name.str().c_str(), i_row);
+        }
+    }
+}
+
 void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
 {
   //header
@@ -2522,15 +2615,15 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
 
   string &tz_region=AirpTZRegion(info.airp);
 
-  NewTextChild( node, "scd_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region)), "hh:nn" );
+  NewTextChild( node, "scd_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region), "hh:nn") );
   if (!Qry.FieldIsNULL("est_out")) {
-    NewTextChild( node, "est_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region)), "hh:nn" );
+    NewTextChild( node, "est_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region), "hh:nn") );
   }
   else {
     NewTextChild( node, "est_out" );
   }
   if (!Qry.FieldIsNULL("act_out")) {
-    NewTextChild( node, "act_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region)), "hh:nn" );
+    NewTextChild( node, "act_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region), "hh:nn") );
   }
   else {
     NewTextChild( node, "act_out" );
@@ -2551,9 +2644,11 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
   NewTextChild( node, "status", stagesRules->status_view( stCheckIn, tripStages.getStage( stCheckIn ) ));
   string stralarms;
   BitSet<Alarm::Enum> Alarms;
+  tst();
   TripAlarms( point_id, Alarms );
   for(Alarm::TPairs::const_iterator a=Alarm::pairs().begin(); a!=Alarm::pairs().end(); ++a)
   {
+    tst();
     Alarm::Enum alarm = a->first;
     string rem;
     if ( !Alarms.isFlag( alarm ) )
@@ -2644,6 +2739,28 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
     }
   }
   NewTextChild( node, "alarms", stralarms );
+
+  ostringstream tripheader;
+  tripheader
+      << getLocaleText("Рейс") << " "
+      << GetTripName(info,ecCkin,false,true) << " "
+      << route << " "
+      << getLocaleText("ВС") << "/" << ElemIdToElemCtxt(ecCkin,etCraft, Qry.FieldAsString( "craft" ), (TElemFmt)Qry.FieldAsInteger( "craft_fmt" )) << " "
+      << getLocaleText("Борт") << "/" << Qry.FieldAsString( "bort" ) << " "
+      << getLocaleText("Компоновка") << "/" << TCFG(point_id).str() << " "
+      << getLocaleText("Отпр.") << "/" << DateTimeToStr(UTCToClient(info.scd_out,tz_region), "hh:nn") << " "
+      << getLocaleText("Расч") << "/"
+      << (info.est_out == boost::none ? "" : DateTimeToStr(UTCToClient(*info.est_out,tz_region), "hh:nn"))
+      << " "
+      << getLocaleText("Факт") << "/"
+      << (info.act_out == boost::none ? "" : DateTimeToStr(UTCToClient(*info.act_out,tz_region), "hh:nn"))
+      << endl
+      << getLocaleText("Статус") << ": " << stagesRules->status_view( stCheckIn, tripStages.getStage( stCheckIn ) ) << endl
+      << getLocaleText("Тревога") << ": " << stralarms;
+
+  NewTextChild( node, "tripheader", tripheader.str() );
+
+
   //////////////////////////////////////////////////////////////////////////////
   xmlNodePtr datasetsNode = NewTextChild(resNode, "datasets");
   node = NewTextChild( datasetsNode, "sectionsData" );
@@ -2682,6 +2799,7 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
     NewTextChild(rowNode,"excess","");
     NewTextChild(rowNode,"section",i.section);
   };
+
   node = NewTextChild( datasetsNode, "bagsData" );
   for ( const auto& i : bag_info ) {
     xmlNodePtr rowNode=NewTextChild(node,"row");
@@ -2706,6 +2824,7 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
     NewTextChild(rowNode,"weight",i.second.second);
   }
 
+  PaxLoadtoXML(datasetsNode, bag_info, paxRemCounters, total.bags);
 }
 
 void viewCRSList( int point_id, xmlNodePtr dataNode )
