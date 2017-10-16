@@ -46,6 +46,7 @@ enum TElemType {
                  etMiscSetType,              //типы настроек для рейсов
                  etMsgTransport,             //типы транспортов для сообщений
                  etPaxDocCountry,            //коды государств в документах пассажиров
+                 etPaxDocSubtype,            //подтипы документов пассажиров
                  etPaxDocType,               //типы документов пассажиров
                  etPayType,                  //код типа оплаты
                  etPersType,                 //тип пассажира ВЗ, РБ, РМ
