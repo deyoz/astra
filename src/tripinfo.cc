@@ -2526,8 +2526,14 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
   if (!Qry.FieldIsNULL("est_out")) {
     NewTextChild( node, "est_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region)), "hh:nn" );
   }
+  else {
+    NewTextChild( node, "est_out" );
+  }
   if (!Qry.FieldIsNULL("act_out")) {
     NewTextChild( node, "act_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region)), "hh:nn" );
+  }
+  else {
+    NewTextChild( node, "act_out" );
   }
   NewTextChild( node, "craft", ElemIdToElemCtxt(ecCkin,etCraft, Qry.FieldAsString( "craft" ), (TElemFmt)Qry.FieldAsInteger( "craft_fmt" )) );
   NewTextChild( node, "bort", Qry.FieldAsString( "bort" ) );
@@ -2542,7 +2548,7 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
 
   TTripStages tripStages( point_id );
   TStagesRules *stagesRules = TStagesRules::Instance();
-  NewTextChild( node, "status", stagesRules->status_view( stCheckIn, tripStages.getStage( stBoarding ) ));
+  NewTextChild( node, "status", stagesRules->status_view( stCheckIn, tripStages.getStage( stCheckIn ) ));
   string stralarms;
   BitSet<Alarm::Enum> Alarms;
   TripAlarms( point_id, Alarms );
@@ -2564,6 +2570,24 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
         break;
       case Alarm::DiffComps:
         rem = TripAlarmString( alarm ) + SALONS2::getDiffCompsAlarmRoutes( point_id );
+        break;
+      case Alarm::Brd:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::ETStatus:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::TlgIn:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::TlgOut:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::APISIncomplete:
+        rem = TripAlarmString( alarm );
+        break;
+      case Alarm::APISManualInput:
+        rem = TripAlarmString( alarm );
         break;
       default:
         break;
