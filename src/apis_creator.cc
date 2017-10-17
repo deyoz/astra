@@ -373,14 +373,25 @@ void CreateEdi( const TApisRouteData& route,
     if (!format.rule(_omitAirlineCode))
       flight << route.airline_code_lat();
     flight << route.flt_no << route.suffix;
-
     string iataCode;
-    if (format.rule(_iataCode_UK))
-      iataCode=Paxlst::createIataCode(flight.str(), route.scd_in_local, "yyyymmddhhnn");
-    else if (format.rule(_iataCode_TR))
-      iataCode=Paxlst::createIataCode(route.airline_code_lat() + flight.str(), route.scd_in_local, "/yymmdd/hhnn");
-    else
-      iataCode=Paxlst::createIataCode(flight.str(), route.scd_in_local, "/yymmdd/hhnn");
+    switch (format.IataCodeType())
+    {
+      case iata_code_UK:
+        //"[flight][scd_in[yyyymmddhhnn]]"
+        iataCode=Paxlst::createIataCode(flight.str(), route.scd_in_local, "yyyymmddhhnn");
+        break;
+      case iata_code_TR:
+        iataCode=Paxlst::createIataCode(route.airline_code_lat() + flight.str(), route.scd_in_local, "/yymmdd/hhnn");
+        break;
+      case iata_code_DE:
+        iataCode=Paxlst::createIataCode(flight.str(), route.scd_in_local, "yymmddhhnnss");
+        break;
+      case iata_code_default:
+      default:
+        iataCode=Paxlst::createIataCode(flight.str(), route.scd_in_local, "/yymmdd/hhnn");
+        break;
+    }
+    // LogTrace(TRACE5) << "iataCode \"" << iataCode << "\" type " << format.IataCodeType();
     paxlstInfo.setIataCode( iataCode );
 
     if (format.rule(_setCarrier))
@@ -500,6 +511,7 @@ void CreateEdi( const TApisRouteData& route,
 
     if (format.rule(_convertPaxNames))
       format.convert_pax_names(doc_first_name, doc_second_name);
+
     paxInfo.setSurname(doc_surname);
     paxInfo.setFirstName(doc_first_name);
     paxInfo.setSecondName(doc_second_name);
@@ -588,6 +600,13 @@ void CreateEdi( const TApisRouteData& route,
       paxInfo.setBirthCity(iPax->docaB.get().city);
       paxInfo.setBirthRegion(iPax->docaB.get().region);
       paxInfo.setBirthCountry(iPax->docaB.get().country);
+    }
+
+    if (format.rule(_doco) && iPax->doco)
+    {
+      paxInfo.setDocoType(iPax->doco_type_lat());
+      paxInfo.setDocoNumber(iPax->doco.get().no);
+      paxInfo.setDocoCountry(iPax->doco.get().applic_country);
     }
 
     if (iPax->status != psCrew)

@@ -317,47 +317,56 @@ string NormalizeDocNo(const string& str, bool try_keep_only_digits); // apis.cc
 
 enum TApisRule
 {
-  _setPrBrd,
-  _setGoShow,
-  _setPersType,
-  _setTicketNumber,
-  _setFqts,
-  _addMarkFlt,
-  _setSeats,
-  _setBagCount,
-  _setBagWeight,
-  _convertPaxNames,
-  _setCBPPort,
-  _processDocType,
-  _processDocNumber,
-  _docaD_US,
-  _setResidCountry,
-  _docaR_US,
-  _setBirthCountry,
-  _docaB_US,
-  _notSetSenderRecipient,
-  _omitAirlineCode,
-  _iataCode_UK,
-  _iataCode_TR,
-  _setCarrier,
-  _notOmitCrew,
-  _setFltLegs,
+  // TODO ã¡à âì ­ §¢ ­¨ï ä®à¬ â®¢ ¨§ ¯à ¢¨«
+
+  // PaxlstInfo
+  _notSetSenderRecipient, // edi // tr
+  _omitAirlineCode, // edi // tr // TODO ¯¥à¥¤¥« âì ¯®«ãçè¥
+  _setCarrier, // edi // ¤«ï ¢á¥å edi?
+  _setFltLegs, // edi // tr
+
+  // PassengerInfo
+  _notOmitCrew, // edi
+  _setPrBrd, // edi // tr
+  _setGoShow, // edi // tr
+  _setPersType, // edi // tr
+  _setTicketNumber, // edi // tr
+  _setFqts, // edi // tr
+  _addMarkFlt, // edi // tr
+  _setSeats, // edi
+  _setBagCount, // edi
+  _setBagWeight, // edi
+  _convertPaxNames, // edi
+  _setCBPPort, // edi // â®«ìª® ¤«ï US? (LOC 22)
+  _processDocType, // edi
+  _processDocNumber, // edi
+  _docaD_US, // edi
+  _setResidCountry, // edi
+  _docaR_US, // edi
+  _setBirthCountry, // edi
+  _docaB_US, // edi
+  
+  // creation
   _create_ON_CLOSE_CHECKIN,
   _create_ON_CLOSE_BOARDING,
   _skip_ON_TAKEOFF,
+
   // file
-  _fileExtTXT,
-  _fileSimplePush,
-  _lstTypeLetter,
-  _file_XML_TR,
-  _file_LT,
+  _fileExtTXT, // edi
+  _fileSimplePush, // edi
+  _lstTypeLetter, // edi
+  _file_XML_TR, // edi
+  _file_LT, // edi
+
   // txt & csv
   _birth_date,
   _expiry_date,
-  _birth_country,
+  _birth_country, // TODO _setBirthCountry
   _trip_type,
   _airp_arv_code_lat,
   _airp_dep_code_lat,
+
+  //  ‚ˆ‡€
   _doco,
 };
 
@@ -377,6 +386,13 @@ enum TApisFormatType
   _format_txt,
 };
 
+enum TIataCodeType
+{
+  iata_code_default,
+  iata_code_UK,
+  iata_code_TR,
+  iata_code_DE,    
+};
 
 struct TPaxDataFormatted
 {
@@ -437,6 +453,7 @@ struct TAPISFormat
 
   virtual void convert_pax_names(string& first_name, string& second_name) const {}
   virtual string unknown_gender() const = 0;
+
   virtual string Gender(ASTRA::TGender::Enum gender) const
   {
     switch(gender)
@@ -450,16 +467,20 @@ struct TAPISFormat
         return unknown_gender(); break;
     }
   }
+
   virtual string lst_type_extra(bool final_apis) const { return ""; }
   virtual string process_doc_type(const string& doc_type) const { return doc_type; }
   virtual string process_doc_no(const string& no) const { return no; }
   virtual bool check_doc_type_no(const string& doc_type, const string& doc_no) const
-  { return !doc_no.empty(); }
+  { return !doc_no.empty(); } // edi?
+
+  // TODO â®«ìª® ¤«ï EDI
   virtual string appRef() const { return "APIS"; }
   virtual string mesRelNum() const { return "02B"; }
   virtual string mesAssCode() const { return "IATA"; }
   virtual string respAgnCode() const { return "111"; }
   virtual bool viewUNGandUNE() const { return false; }
+
   virtual string ProcessPhoneFax(const string& s) const { return s; }
   virtual string apis_country() const { return ""; }
   string direction(string country_dep) const { return (country_dep == apis_country())?"O":"I"; }
@@ -486,6 +507,8 @@ struct TAPISFormat
   string HeaderEnd_AE_TH() const { return "***END,,,,,,,,,,,,"; }
   string NameTrailPax_AE_TH() const { return "_P.CSV"; }
   string NameTrailCrew_AE_TH() const { return "_C.CSV"; }
+
+  virtual TIataCodeType IataCodeType() const { return iata_code_default; }
 
 protected:
   void ConvertPaxNamesTrunc(string& doc_first_name, string& doc_second_name) const
@@ -571,7 +594,10 @@ struct TEdiAPISFormat : public TAPISFormat
   {
     return !doc_type.empty() && !doc_no.empty();
   }
-  virtual bool viewUNGandUNE() const { return true; }
+  virtual bool viewUNGandUNE() const
+  { 
+    return true; 
+  }
 };
 
 struct TTxtApisFormat : public TAPISFormat
@@ -766,7 +792,6 @@ struct TAPISFormat_EDI_UK : public TEdiAPISFormat
 {
   TAPISFormat_EDI_UK()
   {
-    add_rule(_iataCode_UK);
     add_rule(_setCarrier);
     add_rule(_notOmitCrew);
     add_rule(_processDocNumber);
@@ -785,6 +810,7 @@ struct TAPISFormat_EDI_UK : public TEdiAPISFormat
   string respAgnCode() const { return "109"; }
   string appRef() const { return "UKBAOP"; }
   string mesRelNum() const { return "05B"; }
+  TIataCodeType IataCodeType() const { return iata_code_UK; }
 };
 
 struct TAPISFormat_EDI_ES : public TEdiAPISFormat
@@ -805,6 +831,52 @@ struct TAPISFormat_EDI_ES : public TEdiAPISFormat
   string unknown_gender() const { return "U"; }
   string process_doc_no(const string& no) const { return NormalizeDocNo(no, false); }
 };
+
+///////////////////////////////////////////////////
+// EDI_DE
+struct TAPISFormat_EDI_DE : public TEdiAPISFormat
+{
+  // ãâ®ç­¨âì viewUNGandUNE
+
+  TAPISFormat_EDI_DE()
+  {
+    add_rule(_setCarrier);
+    add_rule(_convertPaxNames);
+    add_rule(_setCBPPort); // “’—ˆ’œ!
+    add_rule(_processDocType); // ãâ®ç­¨âì
+    add_rule(_processDocNumber); // ãâ®ç­¨âì
+    add_rule(_doco); // ‚ˆ‡€!!!
+    file_rule = _file_rule_1;
+  }
+  long int required_fields(TPaxType pax, TAPIType api) const
+  {
+    if (pax == pass && api == apiDoc) return DOC_EDI_DE_FIELDS;
+    if (pax == pass && api == apiDoco) return DOCO_EDI_DE_FIELDS;
+    return NO_FIELDS;
+  }
+  string unknown_gender() const { return "U"; }
+  TIataCodeType IataCodeType() const { return iata_code_DE; }
+
+  // ãâ®ç­¨âì
+  void convert_pax_names(string& first_name, string& second_name) const
+  {
+    ConvertPaxNamesTrunc(first_name, second_name);
+  }
+
+  // ãâ®ç­¨âì
+  string process_doc_type(const string& doc_type) const
+  {
+    if (doc_type!="P" && doc_type!="I") return "P";
+    else return doc_type;
+  }
+
+  // ãâ®ç­¨âì
+  string process_doc_no(const string& no) const
+  { 
+    return NormalizeDocNo(no, false); 
+  }
+};
+///////////////////////////////////////////////////
 
 struct TAPISFormat_CSV_DE : public TTxtApisFormat
 {
@@ -1002,7 +1074,6 @@ struct TAPISFormat_XML_TR : public TEdiAPISFormat
     add_rule(_setBirthCountry);
     add_rule(_notSetSenderRecipient);
     add_rule(_omitAirlineCode);
-    add_rule(_iataCode_TR);
     add_rule(_setCarrier);
     add_rule(_notOmitCrew);
     add_rule(_file_XML_TR);
@@ -1021,6 +1092,7 @@ struct TAPISFormat_XML_TR : public TEdiAPISFormat
     ConvertPaxNamesTrunc(first_name, second_name);
   }
   string unknown_gender() const { return "U"; }
+  TIataCodeType IataCodeType() const { return iata_code_TR; }
 };
 
 struct TAPISFormat_CSV_AE : public TTxtApisFormat
@@ -1285,6 +1357,9 @@ inline TAPISFormat* SpawnAPISFormat(const string& fmt)
   if (fmt=="EDI_KR")      p = new TAPISFormat_EDI_KR;
   if (fmt=="APPS_SITA")   p = new TAPISFormat_APPS_SITA;
   if (fmt=="EDI_AZ")      p = new TAPISFormat_EDI_AZ;
+
+  if (fmt=="EDI_DE")      p = new TAPISFormat_EDI_DE;
+
   if (p == NULL) throw Exception("SpawnAPISFormat: unhandled format %s", fmt.c_str());
   p->fmt = fmt;
   return p;
