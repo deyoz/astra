@@ -2746,10 +2746,10 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
       << getLocaleText("Компоновка") << "/" << TCFG(point_id).str() << " "
       << getLocaleText("Отпр.") << "/" << DateTimeToStr(UTCToClient(info.scd_out,tz_region), "hh:nn") << " "
       << getLocaleText("Расч") << "/"
-      << (info.est_out == boost::none ? "" : DateTimeToStr(UTCToClient(*info.est_out,tz_region), "hh:nn"))
+      << (Qry.FieldIsNULL("est_out") ? "" : DateTimeToStr(UTCToClient(Qry.FieldAsDateTime("est_out"),tz_region), "hh:nn"))
       << " "
       << getLocaleText("Факт") << "/"
-      << (info.act_out == boost::none ? "" : DateTimeToStr(UTCToClient(*info.act_out,tz_region), "hh:nn"))
+      << (Qry.FieldIsNULL("act_out") ? "" : DateTimeToStr(UTCToClient(Qry.FieldAsDateTime("act_out"),tz_region), "hh:nn"))
       << endl
       << getLocaleText("Статус") << ": " << stagesRules->status_view( stCheckIn, tripStages.getStage( stCheckIn ) ) << endl
       << getLocaleText("Тревога") << ": " << stralarms;
