@@ -30,7 +30,6 @@ xp-tests: clean-xp-tests
 		XP_TESTING=1 ./nosir.tcl -run_tests | tee xp-tests.log 2>&1; \
 	fi; \
 	grep "100%: Checks" xp-tests.log > /dev/null 2>&1
-	
 
 AM_CXXFLAGS = $(TCLINCLUDE) @PION_CFLAGS@ 
 astra_SOURCES = \
@@ -153,7 +152,9 @@ astra_SOURCES = \
   annul_bt.cc \
   html_pages.cc \
   hotel_acmd.cc \
-  brands.cpp
+  brands.cpp \
+  bagmessage.cc \
+  bagmessage_daemon.cc
 
 
 astra_LDADD = $(all_libraries) \
