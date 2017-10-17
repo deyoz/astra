@@ -5479,23 +5479,37 @@ bool TToRampBag::empty()
 // Категории багажа
 // Категории багажа (коды RFISC)
 struct TBagRems {
-    typedef map<string, int> TBagRemItems; // <rem_code, bagAmount>
+    typedef map<string, pair<int, int> > TBagRemItems; // <rem_code, bagAmount>
     typedef map<string, TBagRemItems> TARVItems; // <airp_arv, TRFISCItems>
     TARVItems items;
     void get(TypeB::TDetailCreateInfo &info);
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
+    void ToMap(TypeB::TDetailCreateInfo &info, map<string, pair<int, int> > &bag_info);
 };
+
+void TBagRems::ToMap(TypeB::TDetailCreateInfo &info, map<string, pair<int, int> > &bag_info)
+{
+    bag_info.clear();
+    for(TARVItems::iterator airp_arv = items.begin(); airp_arv != items.end(); airp_arv++) {
+        for(TBagRemItems::iterator bag_rem = airp_arv->second.begin(); bag_rem != airp_arv->second.end(); bag_rem++) {
+            if(bag_rem->second.first != 0) {
+                bag_info[bag_rem->first].first += bag_rem->second.first;
+                bag_info[bag_rem->first].second += bag_rem->second.second;
+            }
+        }
+    }
+}
 
 void TBagRems::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
 {
     for(TARVItems::iterator airp_arv = items.begin(); airp_arv != items.end(); airp_arv++) {
         for(TBagRemItems::iterator bag_rem = airp_arv->second.begin(); bag_rem != airp_arv->second.end(); bag_rem++) {
-            if(bag_rem->second != 0) {
+            if(bag_rem->second.first != 0) {
                 ostringstream res;
                 res
                     << "-" << info.TlgElemIdToElem(etAirp, airp_arv->first)
                     << "." << info.TlgElemIdToElem(etCkinRemType, bag_rem->first)
-                    << "/" << bag_rem->second;
+                    << "/" << bag_rem->second.first;
                 body.push_back(res.str());
             }
         }
@@ -5540,22 +5554,24 @@ void TBagRems::get(TypeB::TDetailCreateInfo &info)  //лучше бы переделать
         int col_bag_types_id = Qry.get().FieldIndex("bag_types_id");
         int col_rem_code = Qry.get().FieldIndex("rem_code");
         int col_amount = Qry.get().FieldIndex("amount");
-        // int col_weight = Qry.get().FieldIndex("weight");
+        int col_weight = Qry.get().FieldIndex("weight");
         for(; not Qry.get().Eof; Qry.get().Next()) {
             string airp_arv = Qry.get().FieldAsString(col_airp_arv);
             string rfisc = Qry.get().FieldAsString(col_rfisc);
             int bag_types_id = Qry.get().FieldAsInteger(col_bag_types_id);
             string rem_code = Qry.get().FieldAsString(col_rem_code);
             int amount = Qry.get().FieldAsInteger(col_amount);
-            // int weight = Qry.get().FieldAsInteger(col_weight);
+            int weight = Qry.get().FieldAsInteger(col_weight);
 
             if(not rfisc.empty()) { // piece concept
                 rfisc_list.fromDB(bag_types_id, true);
                 rem_code = rfisc_list.get_rem_code(rfisc, false); //что делать в будущем если ручная кладь тоже попадает?
             }
 
-            if(not rem_code.empty())
-                items[airp_arv][rem_code] += amount;
+            if(not rem_code.empty()) {
+                items[airp_arv][rem_code].first += amount;
+                items[airp_arv][rem_code].second += weight;
+            }
         }
     }
 }
@@ -11012,6 +11028,16 @@ namespace PFS_STAT {
             }
         }
     }
+}
+
+
+void get_bag_info(map<string, pair<int, int> > &bag_info, int point_id)
+{
+    TypeB::TDetailCreateInfo info;
+    info.point_id = point_id;
+    TBagRems bag_rems;
+    bag_rems.get(info);
+    bag_rems.ToMap(info, bag_info);
 }
 
 void get_pfs_stat(int point_id)

@@ -122,6 +122,7 @@ const int CREW_CLS_GRP_ID=1000000000;
 const std::string CREW_CLS_GRP_VIEW=" ";
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode );
 void viewCRSList( int point_id, xmlNodePtr dataNode );
+void viewPaxLoadSectionReport( int point_id, xmlNodePtr resNode );
 
 bool SearchPaxByScanData(xmlNodePtr reqNode,
                          int &point_id,
