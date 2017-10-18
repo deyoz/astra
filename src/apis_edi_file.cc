@@ -279,11 +279,12 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
             viewRffElement( pMes, RffElem( "SEA", IntToString( i->first ) + i->second ), rffNum++ );
         }
 
+        int seg5iter = 0;
         if( !it->docType().empty() || !it->docNumber().empty() )
         {
-            SetEdiSegGr( pMes, SegGrElement( 5, 0 ) );
+            SetEdiSegGr( pMes, SegGrElement( 5, seg5iter ) );
             PushEdiPointW( pMes );
-            SetEdiPointToSegGrW( pMes, SegGrElement( 5, 0 ) );
+            SetEdiPointToSegGrW( pMes, SegGrElement( 5, seg5iter ) );
 
             // DOC
             viewDocElement( pMes, DocElem( it->docType(), it->docNumber(), paxlst.settings().respAgnCode() ) );
@@ -302,6 +303,27 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
             }
 
             PopEdiPointW( pMes );
+            ++seg5iter;
+        }
+
+        // ‚ˆ‡€
+        if( !it->docoType().empty() || !it->docoNumber().empty() )
+        {
+            SetEdiSegGr( pMes, SegGrElement( 5, seg5iter ) );
+            PushEdiPointW( pMes );
+            SetEdiPointToSegGrW( pMes, SegGrElement( 5, seg5iter ) );
+
+            // DOC
+            viewDocElement( pMes, DocElem( it->docoType(), it->docoNumber(), paxlst.settings().respAgnCode() ) );
+
+            if( !it->docoCountry().empty() )
+            {
+                // LOC
+                viewLocElement( pMes, LocElem( LocElem::DocCountry, it->docoCountry() ) );
+            }
+
+            PopEdiPointW( pMes );
+            ++seg5iter;
         }
 
         PopEdiPointW( pMes );
