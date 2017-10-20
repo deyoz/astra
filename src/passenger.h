@@ -149,6 +149,7 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic
                              bool language_lat) const;
   public:
     std::string type;
+    std::string subtype;
     std::string issue_country;
     std::string no;
     std::string nationality;
@@ -245,6 +246,7 @@ class TPaxDocoItem : public TPaxAPIItem, public TPaxRemBasic
   public:
     std::string birth_place;
     std::string type;
+    std::string subtype;
     std::string no;
     std::string issue_place;
     TDateTime issue_date;

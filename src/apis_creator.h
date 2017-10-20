@@ -384,6 +384,7 @@ enum TApisFormatType
   _format_undef,
   _format_edi,
   _format_txt,
+  _format_apps,
 };
 
 enum TIataCodeType
@@ -444,6 +445,7 @@ struct TAPISFormat
   void add_rule(TApisRule r) { rules.insert(r); }
   bool rule(TApisRule r) const { return rules.count(r); }
   virtual long int required_fields(TPaxType, TAPIType) const = 0;
+  virtual bool CheckDocoIssueCountry(string country) { return true; }
   TAPISFormat()
   {
     file_rule = _file_rule_undef;
@@ -452,7 +454,7 @@ struct TAPISFormat
   virtual ~TAPISFormat() {}
 
   virtual void convert_pax_names(string& first_name, string& second_name) const {}
-  virtual string unknown_gender() const = 0;
+  virtual string unknown_gender() const { return ""; }
 
   virtual string Gender(ASTRA::TGender::Enum gender) const
   {
@@ -608,6 +610,13 @@ struct TTxtApisFormat : public TAPISFormat
   }
 };
 
+struct TAppsSitaFormat : public TAPISFormat
+{
+  TAppsSitaFormat()
+  {
+    format_type = _format_apps;
+  }
+};
 
 struct TAPISFormat_CSV_CZ : public TTxtApisFormat
 {
@@ -1301,8 +1310,8 @@ struct TAPISFormat_APPS_SITA : public TAPISFormat
   }
   long int required_fields(TPaxType pax, TAPIType api) const
   {
-    if (pax == pass && api == apiDoc) return DOC_APPS_SITA_FIELDS;
-    if (pax == crew && api == apiDoc) return DOC_APPS_SITA_FIELDS;
+    if (pax == pass && api == apiDoc) return DOC_APPS_21_FIELDS;
+    if (pax == crew && api == apiDoc) return DOC_APPS_21_FIELDS;
     return NO_FIELDS;
   }
   string unknown_gender() const { return ""; }
@@ -1335,11 +1344,42 @@ struct TAPISFormat_EDI_AZ : public TEdiAPISFormat
 };
 
 /////////////////////////////////////////////////////////////////////////////////////////
+
+struct TAPPSVersion21 : public TAppsSitaFormat
+{
+  long int required_fields(TPaxType pax, TAPIType api) const
+  {
+    if (api == apiDoc) return DOC_APPS_21_FIELDS;
+    return NO_FIELDS;
+  }
+  bool CheckDocoIssueCountry(string country)
+  {
+    return true; // для 21 версии не требуется
+  }
+};
+
+struct TAPPSVersion26 : public TAppsSitaFormat
+{
+  long int required_fields(TPaxType pax, TAPIType api) const
+  {
+    if (api == apiDoc) return DOC_APPS_26_FIELDS;
+    if (api == apiDoco) return DOCO_APPS_26_FIELDS;
+    return NO_FIELDS;
+  }
+  bool CheckDocoIssueCountry(string country)
+  {
+    TElemFmt elem_fmt;
+    ElemToPaxDocCountryId(upperc(country), elem_fmt);
+    return elem_fmt != efmtUnknown;
+  }
+};
+
+/////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////
 
 inline TAPISFormat* SpawnAPISFormat(const string& fmt)
 {
-  TAPISFormat* p = NULL;
+  TAPISFormat* p = nullptr;
   if (fmt=="CSV_CZ")      p = new TAPISFormat_CSV_CZ;
   if (fmt=="EDI_CZ")      p = new TAPISFormat_EDI_CZ;
   if (fmt=="EDI_CN")      p = new TAPISFormat_EDI_CN;
@@ -1355,12 +1395,14 @@ inline TAPISFormat* SpawnAPISFormat(const string& fmt)
   if (fmt=="EDI_LT")      p = new TAPISFormat_EDI_LT;
   if (fmt=="CSV_TH")      p = new TAPISFormat_CSV_TH;
   if (fmt=="EDI_KR")      p = new TAPISFormat_EDI_KR;
-  if (fmt=="APPS_SITA")   p = new TAPISFormat_APPS_SITA;
+  if (fmt=="APPS_SITA")   p = new TAPISFormat_APPS_SITA; // TODO remove
   if (fmt=="EDI_AZ")      p = new TAPISFormat_EDI_AZ;
-
   if (fmt=="EDI_DE")      p = new TAPISFormat_EDI_DE;
 
-  if (p == NULL) throw Exception("SpawnAPISFormat: unhandled format %s", fmt.c_str());
+  if (fmt=="APPS_21")     p = new TAPPSVersion21;
+  if (fmt=="APPS_26")     p = new TAPPSVersion26;
+
+  if (p == nullptr) throw Exception("SpawnAPISFormat: unhandled format %s", fmt.c_str());
   p->fmt = fmt;
   return p;
 }

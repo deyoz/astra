@@ -11,6 +11,7 @@
 #include "jxtlib/jxt_cont.h"
 #include "astra_elem_utils.h"
 #include "apis_utils.h"
+#include "base_tables.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -212,7 +213,14 @@ const TPaxDocItem& TPaxDocItem::toXML(xmlNodePtr node) const
   if (node==NULL) return *this;
   //документ
   xmlNodePtr docNode=NewTextChild(node,"document");
-  NewTextChild(docNode, "type", type, "");
+
+  if (TReqInfo::Instance()->client_type == ASTRA::ctTerm)
+    NewTextChild(docNode, "type", type.empty()?"":type+subtype, "");
+  else
+  {
+    NewTextChild(docNode, "type", type, "");
+    NewTextChild(docNode, "subtype", subtype, "");
+  };
   NewTextChild(docNode, "issue_country", issue_country, "");
   NewTextChild(docNode, "no", no, "");
   NewTextChild(docNode, "nationality", nationality, "");
@@ -235,8 +243,34 @@ TPaxDocItem& TPaxDocItem::fromXML(xmlNodePtr node)
   if (node==NULL) return *this;
   xmlNodePtr node2=node->children;
   if (node2==NULL) return *this;
+  
+  if (TReqInfo::Instance()->client_type == ASTRA::ctTerm)
+  {
+    string compound = NodeAsStringFast("type",node2,"");
+    if (!compound.empty())
+    {
+      TElemFmt fmt;
+      ElemToElemId(etPaxDocType, compound, fmt);
+      if (fmt!=efmtUnknown) type=compound;  
+      else
+      {        
+        type=compound.substr(0,1);
+        subtype=compound.substr(1);
+        ElemToElemId(etPaxDocSubtype, TPaxDocSubtypes::ConstructCode(type, subtype), fmt);
+        if (fmt==efmtUnknown) 
+        {
+          type=compound;
+          subtype.clear();
+        };  
+      };
+    } 
+  }
+  else
+  {
+    type=NodeAsStringFast("type",node2,"");
+    subtype=NodeAsStringFast("subtype",node2,"");
+  }
 
-  type=NodeAsStringFast("type",node2,"");
   issue_country=NodeAsStringFast("issue_country",node2,"");
   no=NodeAsStringFast("no",node2,"");
   nationality=NodeAsStringFast("nationality",node2,"");
@@ -256,6 +290,7 @@ TPaxDocItem& TPaxDocItem::fromXML(xmlNodePtr node)
 const TPaxDocItem& TPaxDocItem::toDB(TQuery &Qry) const
 {
   Qry.SetVariable("type", type);
+  Qry.SetVariable("subtype", subtype);
   Qry.SetVariable("issue_country", issue_country);
   Qry.SetVariable("no", no);
   Qry.SetVariable("nationality", nationality);
@@ -282,6 +317,8 @@ TPaxDocItem& TPaxDocItem::fromDB(TQuery &Qry)
 {
   clear();
   type=Qry.FieldAsString("type");
+  if (Qry.GetFieldIndex("subtype")>=0)
+    subtype=Qry.FieldAsString("subtype");
   issue_country=Qry.FieldAsString("issue_country");
   no=Qry.FieldAsString("no");
   nationality=Qry.FieldAsString("nationality");
@@ -968,10 +1005,10 @@ void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry)
         "  DELETE FROM pax_doc WHERE pax_id=:pax_id; "
         "  IF :only_delete=0 THEN "
         "    INSERT INTO pax_doc "
-        "      (pax_id,type,issue_country,no,nationality,birth_date,gender,expiry_date, "
+        "      (pax_id,type,subtype,issue_country,no,nationality,birth_date,gender,expiry_date, "
         "       surname,first_name,second_name,pr_multi,type_rcpt,scanned_attrs) "
         "    VALUES "
-        "      (:pax_id,:type,:issue_country,:no,:nationality,:birth_date,:gender,:expiry_date, "
+        "      (:pax_id,:type,:subtype,:issue_country,:no,:nationality,:birth_date,:gender,:expiry_date, "
         "       :surname,:first_name,:second_name,:pr_multi,:type_rcpt,:scanned_attrs); "
         "  END IF; "
         "END;";
@@ -981,6 +1018,7 @@ void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry)
     PaxDocQry.SQLText=sql;
     PaxDocQry.DeclareVariable("pax_id",otInteger);
     PaxDocQry.DeclareVariable("type",otString);
+    PaxDocQry.DeclareVariable("subtype",otString);
     PaxDocQry.DeclareVariable("issue_country",otString);
     PaxDocQry.DeclareVariable("no",otString);
     PaxDocQry.DeclareVariable("nationality",otString);
