@@ -2266,7 +2266,7 @@ TDateTime getTimeTravel(const string &craft, const string &airp, const string &a
 }
 
 const char* units[] = {"B", "K", "M", "G", "T", "P", "E", "Z", "Y"};
-const int units_size = sizeof(units) / sizeof(units[0]);
+const size_t units_size = sizeof(units) / sizeof(units[0]);
 
 double getFileSizeDouble(const string &str)
 {
@@ -2276,10 +2276,10 @@ double getFileSizeDouble(const string &str)
             StrToFloat( str.substr(0, str.size() - 1).c_str(), Result ) != EOF
       ) {
         char c = *(upperc(str).end() - 1);
-        int i = 0;
+        size_t i = 0;
         for(; i < units_size; i++)
             if(c == units[i][0]) break;
-        Result = Result * pow((double)1024, i);
+        Result = Result * pow(1024, i);
     }
     return Result;
 }
@@ -2292,7 +2292,7 @@ string getFileSizeStr(double size)
     ostringstream result;
 
     for(int i = 8; i >= 0; i--) {
-        double val = size / pow((double)1024, i);
+        double val = size / pow(1024, i);
         if(round(val) != 0) {
             double integral;
             int fract = (int)(modf(val, &integral) * 100);

@@ -1,4 +1,4 @@
-create or replace PACKAGE BODY system
+CREATE OR REPLACE PACKAGE BODY system
 AS
 
 FUNCTION is_lat(str     IN VARCHAR2) RETURN BOOLEAN
@@ -126,9 +126,9 @@ END IsLeapYear;
 FUNCTION LastDayofMonth( vYear NUMBER, vMonth NUMBER ) RETURN NUMBER
 IS
 BEGIN
- IF vMonth IN (1,3,5,7,8,10,12)
+ IF vMonth IN (1,3,5,7,8,10,12) 
   THEN RETURN 31;
-  ELSE IF vMonth = 2
+  ELSE IF vMonth = 2 
         THEN RETURN 28 + IsLeapYear( vYear );
         ELSE RETURN 30;
        END IF;
@@ -222,7 +222,7 @@ IS
 BEGIN
   IF str1 IS NULL OR str2 IS NULL THEN RETURN 0; END IF;
   FOR ifmt IN 1..3 LOOP
-    IF fmt IS NULL OR
+    IF fmt IS NULL OR 
        fmt IS NOT NULL AND fmt=ifmt THEN
       IF transliter(str1,ifmt)=transliter(str2,ifmt) THEN RETURN 1; END IF;
     END IF;

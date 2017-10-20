@@ -1,7 +1,7 @@
 #include $(TCLMON_PATH)/tclconfig
 
 # set the include path found by configure
-INCLUDES = $(all_includes)
+AM_CPPFLAGS = $(all_includes)
 export ASTRA_SRC=$(top_srcdir)
 
 bin_PROGRAMS = astra
@@ -14,6 +14,8 @@ SysTarg:
 
 astra_LDFLAGS = @ORACLE_LDFLAGS@ @SHARED_LDFLAGS@
 
+install-edimessages:
+	./nosir.tcl -ediinsert -i ${EDILIB_PATH}/edi_messages
 
 clean-xp-tests:
 	@if [ ! -d ./Cores ]; then \
@@ -30,6 +32,7 @@ xp-tests: clean-xp-tests
 		XP_TESTING=1 ./nosir.tcl -run_tests | tee xp-tests.log 2>&1; \
 	fi; \
 	grep "100%: Checks" xp-tests.log > /dev/null 2>&1
+
 
 AM_CXXFLAGS = $(TCLINCLUDE) @PION_CFLAGS@ 
 astra_SOURCES = \
@@ -143,34 +146,48 @@ astra_SOURCES = \
   ticket_types.cpp \
   astra_emd.cpp \
   EdiTimeOutsDaemon.cc \
+  iatci_types.cc \
+  iatci_api.cc \
+  iatci_help.cc \
+  iatci_settings.cc \
   TypeBHelpMng.cpp \
+  astra_msg.cc \
   img.cpp \
+  astra_api.cc \
   astra_date_time.cpp \
+  basetables.cc \
   collect.cc \
   collect_data.cc \
   SalonPaxList.cc \
   annul_bt.cc \
   html_pages.cc \
-  hotel_acmd.cc \
   brands.cpp \
+  astra_pnr.cpp \
+  recloc.cc \
+  environ.cc \
+  AirportControl.cpp \
   bagmessage.cc \
+  hotel_acmd.cc \
   bagmessage_daemon.cc
 
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
-  tests/libtests.a \
-	@ETICKLIB_LIBS@ \
+        tests/libtests.a \
 	@SHARED_LIBS@ @SHARED_DEPEND_LIBS@ \
-	@ORACLE_LIBS@ @EDILIB_LIBS@ @EDILIB_LIBLOADING@ \
+	@LIBTLG_LIBS@ \
+	@SERVERLIB_LIBS@ \
+        @LIBTYPEB_LIBS@ \
+	@ETICKLIB_LIBS@ @EDILIB_LIBS@ \
+	@ORACLE_LIBS@ \
 	@JXTLIB_LIBS@ \
-	@LIBTLG_LIBS@ @SERVERLIB_LIBS@ \
-	$(XML_LIBS) @CHECK_LIBS@\
+	@LIBXML2_LIBS@ \
+	@CHECK_LIBS@ \
+	@PION_LIBS@ \
 	@BOOST_IOSTREAMS_LIB@ \
-	@BOOST_SYSTEM_LIB@\
-	@BOOST_FILESYSTEM_LIB@\
-	@BOOST_REGEX_LIB@\
-    @PION_LIBS@
+	@BOOST_SYSTEM_LIB@ \
+	@BOOST_FILESYSTEM_LIB@ \
+	@BOOST_REGEX_LIB@
 
 
 #	-L/usr/lib -lboost_filesystem
@@ -289,13 +306,24 @@ noinst_HEADERS = \
   astra_dates.h \
   astra_dates_oci.h \
   astra_emd.h \
+  iatci_types.h \
+  iatci_serialization.h \
+  iatci_api.h \
+  iatci_help.h \
+  iatci_settings.h \
   TypeBHelpMng.h \
+  astra_msg.h \
   img.h \
+  astra_iface.h \
+  astra_api.h \
   astra_date_time.h \
+  basetables.h \
   collect.h \
   collect_data.h \
   SalonPaxList.h \
   annul_bt.h \
   html_pages.h \
-  hotel_acmd.h \
-  brands.h
+  brands.h \
+  astra_pnr.h \
+  AirportControl.h \
+  hotel_acmd.h

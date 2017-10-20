@@ -1,0 +1,28 @@
+LOAD DATA
+INFILE *
+INTO TABLE seat_algo_sets
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+id
+,airline
+,flt_no
+,airp_dep
+,algo_type
+,pr_seat_in_row
+)
+BEGINDATA
+491900|"01"|123|"AAA"|2|0
+39636|"ûí"|777|"ÑåÑ"|0|0
+39634|||"ÑåÑ"|0|0
+39635||555||1|0
+44466|"ûí"|||2|1
+39614|"ûê"|||0|1
+39615|"11"|||1|0
+39616|"12"|||1|1
+39617|"13"|||2|0
+39619|"1A"|||3|0
+39620|"1ò"|||3|1
+39705|"ûí"|454||3|1
+39715|"ì6"||"ëìê"|0|0

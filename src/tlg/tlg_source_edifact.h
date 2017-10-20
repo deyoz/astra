@@ -39,11 +39,11 @@ public:
             H2h.reset(new hth::HthInfo(*h2h_));
     }
 
-    virtual const char *name() const { return "EDIFACT"; }
+    virtual const char *name() const { return "TPA"; }
     virtual tlg_type_t type() const { return TlgType::edifact; }
     void readH2H();
     /**
-     * Запись в базу (переопределение)
+     * Запись в базу
      */
     virtual void write();
 
@@ -54,13 +54,6 @@ public:
     }
 
     static bool isItYours(const std::string &txt);
-
-    /**
-     * Установить подтип телеграммы
-     * Reimplement
-     * @param stype  type
-     */
-    virtual void setTlgSubtype(const std::string &stype);
 
     virtual const std::string& text2view() const;
     /**

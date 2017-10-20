@@ -9,18 +9,15 @@
 //
 #pragma once
 
-#include <string>
+#include "request_params.h"
 
 #include <edilib/edi_types.h>
 #include <edilib/edi_request.h>
-
-#include "astra_consts.h"
-#include "xml_unit.h"
+#include <edilib/edi_astra_msg_types.h>
 
 struct _edi_mes_head_;
 struct _EDI_REAL_MES_STRUCT_;
 
-class AstraEdiSessWR;
 namespace Ticketing {
 namespace RemoteSystemContext{
     class SystemContext;
@@ -35,48 +32,6 @@ namespace TlgHandling{
 namespace edifact
 {
 
-struct KickInfo
-{
-    int reqCtxtId;
-    std::string iface;
-    std::string handle;
-    int parentSessId;
-    std::string msgId;
-    std::string desk;
-  public:
-    KickInfo()
-    {
-      clear();
-    }
-    KickInfo(const int v_reqCtxtId,
-             const std::string &v_iface,
-             const std::string &v_msgid,
-             const std::string &v_desk)
-      : reqCtxtId(v_reqCtxtId),
-        iface(v_iface),
-        handle("0"),
-        parentSessId(ASTRA::NoExists),
-        msgId(v_msgid),
-        desk(v_desk)
-    {};
-    void clear()
-    {
-      reqCtxtId=ASTRA::NoExists;
-      iface.clear();
-      handle.clear();
-      parentSessId=ASTRA::NoExists;
-      msgId.clear();
-      desk.clear();
-    };    
-    const KickInfo& toXML(xmlNodePtr node) const;
-    KickInfo& fromXML(xmlNodePtr node);
-
-    bool background_mode() const
-    {
-      return msgId.empty();
-    }
-};
-
 /**
  * @class EdifactRequest
  * @brief Makes an EDIFACT request structure
@@ -86,14 +41,16 @@ class EdifactRequest : public edilib::EdifactRequest
    TlgHandling::TlgSourceEdifact *TlgOut;
    std::string ediSessCtxt;
    KickInfo m_kickInfo;
+   const Ticketing::RemoteSystemContext::SystemContext* SysCont;
+
 public:
     /**
      * @brief EdifactRequest
      * @param msg_type тип сообщения
      */
-    EdifactRequest(const std::string &pult,
+    EdifactRequest(const std::string& pult,
                    const std::string& ctxt,
-                   const KickInfo &v_kickInfo,
+                   const edifact::KickInfo& v_kickInfo,
                    edi_msg_types_t msg_type,
                    const Ticketing::RemoteSystemContext::SystemContext* sysCont);
 
@@ -102,13 +59,17 @@ public:
 
     virtual void sendTlg();
 
-    const std::string & context() const { return ediSessCtxt; }
-    const KickInfo &kickInfo() const { return m_kickInfo; }
+    // Обобщённый код сообщения - совпадает с mesFuncCode всегда, кроме iatci сообщений
+    virtual std::string funcCode() const;
 
-    const TlgHandling::TlgSourceEdifact *tlgOut() const;
+    const std::string& context() const { return ediSessCtxt; }
+    const KickInfo& kickInfo() const { return m_kickInfo; }
 
-    const Ticketing::RemoteSystemContext::SystemContext *sysCont();
+    const TlgHandling::TlgSourceEdifact* tlgOut() const;
+
+    const Ticketing::RemoteSystemContext::SystemContext* sysCont();
 
     virtual ~EdifactRequest();
 };
+
 } // namespace edifact

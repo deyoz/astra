@@ -5,6 +5,7 @@
 #include "date_time.h"
 #include "astra_main.h"
 #include "astra_consts.h"
+#include "astra_context.h"
 #include "astra_utils.h"
 #include "base_tables.h"
 #include "exceptions.h"
@@ -14,17 +15,21 @@
 #include "edi_tlg.h"
 #include "edi_msg.h"
 #include "edi_handler.h"
+#include "postpone_edifact.h"
 #include "tlg_source_edifact.h"
+#include "remote_system_context.h"
 
 #include <serverlib/query_runner.h>
 #include <serverlib/posthooks.h>
 #include <serverlib/ourtime.h>
 #include <serverlib/TlgLogger.h>
+#include <serverlib/testmode.h>
 #include <edilib/edi_func_cpp.h>
+#include <libtlg/telegrams.h>
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include <serverlib/test.h>
+#include <serverlib/slogger.h>
 
 using namespace ASTRA;
 using namespace BASIC::date_time;
@@ -100,32 +105,33 @@ int main_edi_handler_tcl(int supervisorSocket, int argc, char *argv[])
     ProgError(STDLOG, "Unknown exception");
   };
   return 0;
-};
-
-
-static bool isNewEdifact(const std::string& ediText)
-{
-    EDI_REAL_MES_STRUCT *pMes = edilib::ReadEdifactMessage(ediText.c_str());
-    const std::string func_code = edilib::GetDBFName(pMes,
-                                                     edilib::DataElement(1225), "",
-                                                     edilib::CompElement("C302"),
-                                                     edilib::SegmElement("MSG"));
-    if(func_code == "791"
-    || func_code == "793"
-    || func_code == "794") {
-        return true;
-    }
-
-    return false;
 }
+
+static bool isTlgPostponed(const tlg_info& tlg)
+{
+    // в идеале признак postponed должен уже храниться в структуре (tlg_info, tlg_source...)
+    tlgnum_t tnum(boost::lexical_cast<std::string>(tlg.id));
+    return TlgHandling::isTlgPostponed(tnum);
+}
+
 
 void handle_edi_tlg(const tlg_info &tlg)
 {    
+    hth::HthInfo h2h = {};
+    bool isH2h = false;
+
+    tlgnum_t tlgNum(boost::lexical_cast<std::string>(tlg.id));
+    if (!telegrams::callbacks()->readHthInfo(tlgNum, h2h)) {
+        isH2h = true;
+    }
+
     LogTlg() << "| TNUM: " << tlg.id
              << " | DIR: " << "IN"
              << " | ROUTER: " << tlg.sender
-             << " | TSTAMP: " << boost::posix_time::second_clock::local_time();
-    LogTlg() << TlgHandling::TlgSourceEdifact(tlg.text).text2view();
+             << " | TSTAMP: " << boost::posix_time::second_clock::local_time()
+             << (isTlgPostponed(tlg) ? " | POSTPONED" : "") << "\n"
+             << (isH2h ? hth::toStringOnTerm(h2h) + "\n" : "")
+             << TlgHandling::TlgSourceEdifact(tlg.text).text2view();
 
     const int tlg_id = tlg.id;
     ProgTrace(TRACE1,"========= %d TLG: START HANDLE =============",tlg_id);
@@ -140,16 +146,37 @@ void handle_edi_tlg(const tlg_info &tlg)
     else
     try
     {
+        boost::optional<TlgHandling::TlgSourceEdifact> answTlg;
         procTlg(tlg_id);
         ASTRA::commit();
-        isNewEdifact(tlg.text) ? proc_new_edifact(tlg.text) : proc_edifact(tlg.text);
+
+        boost::shared_ptr<TlgHandling::TlgSourceEdifact> tlgSrc;
+        tlgSrc.reset(new TlgHandling::TlgSourceEdifact(TlgHandling::TlgSource::readFromDb(ASTRA::make_tlgnum(tlg_id))));
+        answTlg = proc_new_edifact(tlgSrc);
+
+        // если сформировался ответ, отправим его
+        if(answTlg)
+        {
+            answTlg->setToRot(tlg.sender);
+            answTlg->setFromRot(OWN_CANON_NAME());
+            sendEdiTlg(*answTlg);
+        }
         deleteTlg(tlg_id);
         callPostHooksBefore();
         ASTRA::commit();
         callPostHooksAfter();
         emptyHookTables();
     }
-    catch(edi_exception &e)
+    catch(TlgHandling::TlgToBePostponed& e)
+    {
+        LogTrace(TRACE1) << "Tlg " << e.tlgNum() << " to be postponed";
+        deleteTlg(e.tlgnum());
+        callPostHooksBefore();
+        ASTRA::commit();
+        callPostHooksAfter();
+        emptyHookTables();
+    }
+    catch(edifact::edi_exception &e)
     {
         ASTRA::rollback();
         try
@@ -167,6 +194,17 @@ void handle_edi_tlg(const tlg_info &tlg)
         {
           ProgError(STDLOG, "std::exception: %s", e.what());
           errorTlg(tlg_id,"PARS",e.what());
+          ASTRA::commit();
+        }
+        catch(...) {};
+    }
+    catch(Ticketing::RemoteSystemContext::system_not_found &e)
+    {
+        ASTRA::rollback();
+        try
+        {
+          ProgError(STDLOG, "system_not_found");
+          errorTlg(tlg_id,"PARS", "bad system");
           ASTRA::commit();
         }
         catch(...) {};
@@ -245,8 +283,3 @@ bool handle_tlg(void)
 
   return queue_not_empty;
 }
-
-
-
-
-

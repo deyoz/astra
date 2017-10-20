@@ -8,3 +8,6 @@ PAX_ID NUMBER(9) NOT NULL,
 TEXT VARCHAR2(4000) NOT NULL,
 TRANSFER_NUM NUMBER(1) NOT NULL
 );
+
+ALTER TABLE pax_norms_text
+ADD CONSTRAINT pax_norms_text__PK PRIMARY KEY(pax_id, transfer_num, carry_on, lang, page_no);

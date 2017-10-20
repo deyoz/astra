@@ -1,0 +1,16 @@
+LOAD DATA
+INFILE *
+INTO TABLE prn_form_vers
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+data char(4000)
+,descr
+,form
+,id
+,read_only
+,version
+)
+BEGINDATA
+"0,20,0,ACT:             '[<ACT(40,,)>]' 0,25,0,AGENT:           '[<AGENT(40,,)>]' 0,30,0,AIRLINE:         '[<AIRLINE(40,,)>]' 0,35,0,AIRLINE_NAME:    '[<AIRLINE_NAME(40,,)>]' 0,40,0,AIRLINE_SHORT:   '[<AIRLINE_SHORT(40,,)>]' 0,45,0,AIRP_ARV:        '[<AIRP_ARV(40,,)>]' 0,50,0,AIRP_ARV_NAME:   '[<AIRP_ARV_NAME(40,,)>]' 0,55,0,AIRP_DEP:        '[<AIRP_DEP(40,,)>]' 0,60,0,AIRP_DEP_NAME:   '[<AIRP_DEP_NAME(40,,)>]' 0,65,0,BAG_AMOUNT:      '[<BAG_AMOUNT(40,,)>]' 0,70,0,BAGGAGE:         '[<BAGGAGE(40,,)>]' 0,75,0,BAG_WEIGHT:      '[<BAG_WEIGHT(40,,)>]' 0,80,0,BCBP_M_2:        '[<BCBP_M_2(,,,E)>]' 0,85,0,BRD_FROM:        '[<BRD_FROM(40,,)>]' 0,90,0,BRD_TO:          '[<BRD_TO(40,,)>]' 0,95,0,CHD:             '[<CHD(40,,)>]' 0,100,0,CITY_ARV_NAME:  '[<CITY_ARV_NAME(40,,)>]' 0,105,0,CITY_DEP_NAME:  '[<CITY_DEP_NAME(40,,)>]' 0,110,0,CLASS:          '[<CLASS(40,,)>]' 0,115,0,CLASS_NAME:     '[<CLASS_NAME(40,,)>]' 0,120,0,DESK:           '[<DESK(40,,)>]' 0,125,0,DOCUMENT:       '[<DOCUMENT(40,,)>]' 0,130,0,DUPLICATE:      '[<DUPLICATE(40,,)>]' 0,135,0,EST:            '[<EST(40,,)>]' 0,140,0,ETICKET_NO:     '[<ETICKET_NO(40,,)>]' 0,145,0,ETKT:           '[<ETKT(40,,)>]' 0,150,0,EXCESS:         '[<EXCESS(40,,)>]' 0,155,0,FLT_NO:         '[<FLT_NO(40,,)>]' 0,160,0,FQT:            '[<FQT(40,,)>]' 0,165,0,FULLNAME:       '[<FULLNAME(40,,)>]' 0,170,0,FULL_PLACE_ARV: '[<FULL_PLACE_ARV(40,,)>]' 0,175,0,FULL_PLACE_DEP: '[<FULL_PLACE_DEP(40,,)>]' 0,180,0,GATE:           '[<GATE(40,,)>]' 0,185,0,GATES:          '[<GATES(40,,)>]' 0,190,0,HALL:           '[<HALL(40,,)>]' 0,195,0,INF:            '[<INF(40,,)>]' 0,200,0,LIST_SEAT_NO:   '[<LIST_SEAT_NO(40,,)>]' 0,205,0,LONG_ARV:       '[<LONG_ARV(40,,)>]' 0,210,0,LONG_DEP:       '[<LONG_DEP(40,,)>]' 0,215,0,NAME:           '[<NAME(40,,)>]' 0,220,0,NO_SMOKE:       '[<NO_SMOKE(40,,)>]' 0,225,0,ONE_SEAT_NO:    '[<ONE_SEAT_NO(40,,)>]' 0,230,0,PAX_ID:         '[<PAX_ID(40,,)>]' 0,235,0,PAX_TITLE:      '[<PAX_TITLE(40,,)>]' 0,240,0,PLACE_ARV:      '[<PLACE_ARV(40,,)>]' 0,245,0,PLACE_DEP:      '[<PLACE_DEP(40,,)>]' 0,250,0,PNR:            '[<PNR(40,,)>]' 0,255,0,REG_NO:         '[<REG_NO(40,,)>]' 0,260,0,REM:            '[<REM(40,,)>]' 0,265,0,RK_AMOUNT:      '[<RK_AMOUNT(40,,)>]' 0,270,0,RK_WEIGHT:      '[<RK_WEIGHT(40,,)>]' 0,275,0,RSTATION:       '[<RSTATION(40,,)>]' 0,280,0,SCD:            '[<SCD(40,,)>]' 0,285,0,SEAT_NO:        '[<SEAT_NO(40,,)>]' 0,290,0,STR_SEAT_NO:    '[<STR_SEAT_NO(40,,)>]' 0,295,0,SUBCLS:         '[<SUBCLS(40,,)>]' 0,300,0,SURNAME:        '[<SURNAME(40,,)>]' 0,305,0,TAGS:           '[<TAGS(40,,)>]' 0,310,0,TEST_SERVER:    '[<TEST_SERVER(40,,)>]' 0,315,0,TIME_PRINT:     '[<TIME_PRINT(40,,)>]'"|"baggage"|"PT##?K1Z#@;#TICK#>>/#BOARD#0101#0250E01W#0311H01W#0411L01W#0508H13W#0705H40#0906L27W#0A05M12R#0B01H30W#0C06L38W#0D16O02W#0E21Q01Q52W#0F15R01R53W#2020C53W#2120E53W#2220H53W#2508O53W#2705L53O#2B01L67W#2C06O64W#3FB1R30B601031#F104D41A54#FF72M01W#"|39897|0|16

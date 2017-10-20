@@ -20,28 +20,30 @@
 #define NICKTRACE ROMAN_TRACE
 #include <serverlib/slogger.h>
 
+using namespace edifact;
+
 const char *edifact::RemoteStatusElem::ElemName = "Remote action status";
 
-using namespace edifact;
-template <> BaseTypeElemHolder< RemoteStatusElem >::TypesMap
-        BaseTypeElemHolder< RemoteStatusElem >::VTypes =
-        BaseTypeElemHolder< RemoteStatusElem >::TypesMap();
-template <> bool BaseTypeElemHolder<RemoteStatusElem>::initialized = false;
-template <> void BaseTypeElemHolder<RemoteStatusElem>::init()
+DESCRIBE_CODE_SET(edifact::RemoteStatusElem)
 {
-    addElem( RemoteStatusElem(RemoteStatus::CommonError,
+    addElem( VTypes,
+             RemoteStatusElem(RemoteStatus::CommonError,
              "CE",
              "Error in remote host", "Ошибка обработки в удаленном хосте"));
-    addElem( RemoteStatusElem(RemoteStatus::Contrl,
+    addElem( VTypes,
+             RemoteStatusElem(RemoteStatus::Contrl,
              "CL",
              "Communication error (CONTRL)",  "Ошибка связи (CONTRL)"));
-    addElem( RemoteStatusElem(RemoteStatus::Timeout,
+    addElem( VTypes,
+             RemoteStatusElem(RemoteStatus::Timeout,
              "TO",
              "Time out",  "Time out"));
-    addElem( RemoteStatusElem(RemoteStatus::Success,
+    addElem( VTypes,
+             RemoteStatusElem(RemoteStatus::Success,
              "SS",
              "Success",  "Успешно"));
-    addElem( RemoteStatusElem(RemoteStatus::RequestSent,
+    addElem( VTypes,
+             RemoteStatusElem(RemoteStatus::RequestSent,
              "RS",
              "Request was sent",  "Запрос обрабатывается удаленным хостом"));
 }

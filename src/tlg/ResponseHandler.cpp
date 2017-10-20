@@ -15,15 +15,14 @@ namespace TlgHandling
 using namespace edilib;
 
 
-AstraEdiResponseHandler::AstraEdiResponseHandler(_EDI_REAL_MES_STRUCT_ * pmes,
+AstraEdiResponseHandler::AstraEdiResponseHandler(_EDI_REAL_MES_STRUCT_ * pMes,
                                          const edilib::EdiSessRdData *edisess)
-    : EdiResponseHandler(pmes, edisess)
+    : EdiResponseHandler(pMes, edisess)
 {
 }
 
 void AstraEdiResponseHandler::setRemoteResultStatus()
 {
-    tst();
     if(!remoteResults())
         return;
 
@@ -34,8 +33,9 @@ void AstraEdiResponseHandler::setRemoteResultStatus()
         case EdiRespStatus::successfully:
             stat = RemoteStatus::Success;
             break;
-        case EdiRespStatus::unsuccessfully:
         case EdiRespStatus::partial:
+        case EdiRespStatus::notProcessed:
+        case EdiRespStatus::rejected:
             stat = RemoteStatus::CommonError;
             break;
     }
@@ -44,16 +44,13 @@ void AstraEdiResponseHandler::setRemoteResultStatus()
 
 void AstraEdiResponseHandler::readRemoteResults()
 {
-    tst();
     RemoteResults = edifact::RemoteResults::readDb(ediSessId());
 
     if(RemoteResults)
     {
-        tst();
-        if(ediErrCode().empty())
+        if(ediErrCode().empty()) {
             RemoteResults->setStatus(edifact::RemoteStatus::Success);
-        else
-        {
+        } else {
             RemoteResults->setStatus(edifact::RemoteStatus::CommonError);
             RemoteResults->setEdiErrCode(ediErrCode());
             RemoteResults->setRemark(ediErrText());
@@ -68,7 +65,6 @@ edifact::pRemoteResults AstraEdiResponseHandler::remoteResults() const
 
 AstraEdiResponseHandler::~AstraEdiResponseHandler()
 {
-    LogTrace(TRACE3) << "destruct ~AstraEdiResponseHandler";
     if(RemoteResults)
     {
         LogTrace(TRACE3) << "next MeetAgentExpectations";
@@ -78,7 +74,6 @@ AstraEdiResponseHandler::~AstraEdiResponseHandler()
 
 void AstraEdiResponseHandler::fillFuncCodeRespStatus()
 {
-    LogTrace(TRACE3) << "fillFuncCodeRespStatus called";
     readRemoteResults();
     if(pMes())
     {
@@ -97,10 +92,8 @@ void AstraEdiResponseHandler::fillFuncCodeRespStatus()
 
 void AstraEdiResponseHandler::fillErrorDetails()
 {
-    tst();
     if(pMes())
     {
-        tst();
         edilib::EdiPointHolder ph(pMes());
         edilib::SetEdiPointToSegGrG(pMes(), 1);
         edilib::EdiResponseHandler::fillErrorDetails();

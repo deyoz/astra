@@ -2,17 +2,16 @@
 
 #include "ResponseHandler.h"
 
-namespace TlgHandling
-{
+namespace TlgHandling {
 
 class EmdDispResponseHandler : public AstraEdiResponseHandler
 {
 public:
-    EmdDispResponseHandler(_EDI_REAL_MES_STRUCT_ *pmes,
+    EmdDispResponseHandler(_EDI_REAL_MES_STRUCT_ *pMes,
                            const edilib::EdiSessRdData *edisess);
 
-    void parse();
     void handle();
+    void parse() {}
     void onTimeOut() {}
     void onCONTRL() {}
 

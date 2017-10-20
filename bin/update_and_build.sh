@@ -34,6 +34,16 @@ fi
 compression=`file --dereference $prefix/$pkg_tgz | cut -f2 -d\ `
 tar --$compression -xf $prefix/$pkg_tgz --strip-components=1 --directory $pkg_src
 
+if [ -n "$PLATFORM" ] ; then
+    export CXX="${LOCALCXX:?LOCALCXX is not set} -$PLATFORM"
+    export CC="${LOCALCC?:LOCALCC is not set} -$PLATFORM"
+else
+    export CXX=${LOCALCXX:?LOCALCXX is not set}
+    export CC=${LOCALCC?:LOCALCC is not set}
+fi
+export CFLAGS=$MY_LOCAL_CFLAGS
+export LDFLAGS=$MY_LOCAL_LDFLAGS
+
 shift 2
 cd $pkg_src
 uab_config_and_build $prefix $@

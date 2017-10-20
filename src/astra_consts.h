@@ -123,7 +123,7 @@ const char lat_seat[]="ABCDEFGHJKLMNOPQRSTUVWXYZ";
 
 enum TCompLayerType { cltBlockCent, cltTranzit, cltCheckin, cltTCheckin, cltGoShow, cltBlockTrzt, cltSOMTrzt, cltPRLTrzt,
                       cltProtBeforePay, cltProtAfterPay, cltPNLBeforePay, cltPNLAfterPay,
-	                    cltProtTrzt, cltPNLCkin, cltProtCkin, cltProtect, cltUncomfort, cltSmoke, cltDisable, cltUnknown, cltTypeNum };
+                        cltProtTrzt, cltPNLCkin, cltProtCkin, cltProtect, cltUncomfort, cltSmoke, cltDisable, cltUnknown, cltTypeNum };
 extern const char* CompLayerTypeS[cltTypeNum];
 
 enum TBagNormType { bntFree, bntOrdinary, bntPaid,
@@ -293,10 +293,6 @@ class TCrewTypes : public ASTRA::PairList<TCrewType::Enum, std::string>
                                                                  boost::none) {}
 };
 
-#define TRACE_SIGNATURE int Level, const char *nickname, const char *filename, int line
-#define TRACE_PARAMS Level, nickname, filename, line
-#define ERROR_PARAMS -1, nickname, filename, line
-
 struct TPaxTypeExt
 {
   TPaxStatus       _pax_status;
@@ -307,6 +303,9 @@ struct TPaxTypeExt
   private:
   TPaxTypeExt();
 };
+
+#define TRACE_PARAMS level, nick, file, line
+#define ERROR_PARAMS    -1, nick, file, line
 
 enum TIdType {idFlt, idGrp, idPax};
 

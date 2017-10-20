@@ -782,6 +782,7 @@ enum TCkinRouteType2 { crtOnlyDependent,
                        crtIgnoreDependent };
 
 class TCkinGrpIds : public std::list<int> {};
+class TGrpIds     : public std::list<int> {};
 
 class TCkinRoute : public std::vector<TCkinRouteItem>
 {

@@ -8,6 +8,7 @@
 #include "astra_emd_view_xml.h"
 #include "astra_tick_read_edi.h"
 #include "exceptions.h"
+#include "environ.h"
 #include "astra_locale.h"
 #include "astra_consts.h"
 #include "astra_misc.h"
@@ -25,8 +26,8 @@
 #include <edilib/edi_func_cpp.h>
 #include <serverlib/testmode.h>
 
-// TODO emd
 #include "emdoc.h"
+#include "astra_pnr.h"
 #include "astra_emd.h"
 #include "astra_emd_view_xml.h"
 #include "edi_utils.h"
@@ -34,18 +35,21 @@
 #include "brd.h"
 #include "astra_elems.h"
 #include "baggage_calc.h"
+#include "tlg/et_disp_request.h"
 #include "tlg/emd_disp_request.h"
 #include "tlg/emd_system_update_request.h"
 #include "tlg/emd_cos_request.h"
 #include "tlg/emd_edifact.h"
+#include "tlg/et_rac_request.h"
 #include "tlg/remote_results.h"
 #include "tlg/remote_system_context.h"
+#include "tlg/postpone_edifact.h"
 #include "tlg/AgentWaitsForRemote.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
-#include "serverlib/slogger.h"
+#include <serverlib/slogger.h>
+
 
 using namespace std;
 using namespace Ticketing;
@@ -54,6 +58,7 @@ using namespace Ticketing::TickReader;
 using namespace Ticketing::TickView;
 using namespace Ticketing::TickMng;
 using namespace Ticketing::ChangeStatus;
+using namespace Ticketing::RemoteSystemContext;
 using namespace boost::gregorian;
 using namespace boost::posix_time;
 using namespace ASTRA;
@@ -543,8 +548,12 @@ void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
       break;
   };
 
-  TickDispByNum tickDisp(org, XMLTreeToText(xmlCtxt.docPtr()), kickInfo, params.tick_no);
-  SendEdiTlgTKCREQ_Disp( tickDisp );
+  edifact::SendEtDispByNumRequest(edifact::EtDispByNumParams(org,
+                                                             XMLTreeToText(xmlCtxt.docPtr()),
+                                                             kickInfo,
+                                                             info.airline,
+                                                             Ticketing::FlightNum_t(info.flt_no),
+                                                             tickNum));
 }
 
 void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -592,7 +601,29 @@ void EMDSearchInterface::EMDTextView(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   AstraLocale::showProgError("MSG.ETS_EDS_CONNECT_ERROR");
 }
 
-Pnr readPnr(const string &tlg_text)
+Ticketing::Pnr readPnr(const std::string& tlg_text, edifact::EdiMessageType tlg_type)
+{
+    int ret = ReadEdiMessage(tlg_text.c_str());
+    if(ret == EDI_MES_STRUCT_ERR){
+      throw EXCEPTIONS::Exception("Error in message structure: %s",EdiErrGetString());
+    } else if( ret == EDI_MES_NOT_FND){
+      throw EXCEPTIONS::Exception("No message found in template: %s",EdiErrGetString());
+    } else if( ret == EDI_MES_ERR) {
+      throw EXCEPTIONS::Exception("Edifact error ");
+    }
+
+    try {
+      Pnr pnr = PnrRdr::doRead<Pnr>(PnrEdiRead(GetEdiMesStruct(), tlg_type));
+      Pnr::Trace(TRACE2, pnr);
+      return pnr;
+    }
+    catch(edilib::EdiExcept &e)
+    {
+      throw EXCEPTIONS::Exception("edilib: %s", e.what());
+    }
+}
+
+Pnr readDispPnr(const string &tlg_text)
 {
   int ret = ReadEdiMessage(tlg_text.c_str());
   if(ret == EDI_MES_STRUCT_ERR){
@@ -603,32 +634,53 @@ Pnr readPnr(const string &tlg_text)
     throw EXCEPTIONS::Exception("Edifact error ");
   }
 
-  EDI_REAL_MES_STRUCT *pMes= GetEdiMesStruct();
-  int num = GetNumSegGr(pMes, 3);
-  if(!num){
-    if(GetNumSegment(pMes, "ERC")){
-      const char *errc = GetDBFName(pMes, DataElement(9321),
-                                    "ET_NEG",
-                                    CompElement("C901"),
-                                    SegmElement("ERC"));
-      ProgTrace(TRACE1, "ETS: ERROR %s", errc);
-      const char * err_msg = GetDBFName(pMes,
-                                        DataElement(4440),
-                                        SegmElement("IFT"));
-      if (*err_msg==0)
-      {
-        throw AstraLocale::UserException("MSG.ETICK.ETS_ERROR", LParams() << LParam("msg", errc));
+  return readDispPnr(GetEdiMesStruct());
+}
+
+Ticketing::Pnr readDispPnr(EDI_REAL_MES_STRUCT *pMes)
+{
+    int num = GetNumSegGr(pMes, 3);
+    if(!num){
+      if(GetNumSegment(pMes, "ERC")){
+        const char *errc = GetDBFName(pMes, DataElement(9321),
+                                      "ET_NEG",
+                                      CompElement("C901"),
+                                      SegmElement("ERC"));
+        ProgTrace(TRACE1, "ETS: ERROR %s", errc);
+        const char * err_msg = GetDBFName(pMes,
+                                          DataElement(4440),
+                                          SegmElement("IFT"));
+        if (*err_msg==0)
+        {
+            tst();
+          throw AstraLocale::UserException("MSG.ETICK.ETS_ERROR", LParams() << LParam("msg", errc));
+        }
+        else
+        {
+          ProgTrace(TRACE1, "ETS: %s", err_msg);
+          throw AstraLocale::UserException("MSG.ETICK.ETS_ERROR", LParams() << LParam("msg", err_msg));
+        }
       }
-      else
-      {
-        ProgTrace(TRACE1, "ETS: %s", err_msg);
-        throw AstraLocale::UserException("MSG.ETICK.ETS_ERROR", LParams() << LParam("msg", err_msg));
+      throw EXCEPTIONS::Exception("ETS error");
+    } else if(num==1){
+      try{
+        Pnr pnr = PnrRdr::doRead<Pnr>(PnrEdiRead(pMes, edifact::EdiDisplRes));
+        Pnr::Trace(TRACE2, pnr);
+        return pnr;
       }
+      catch(edilib::EdiExcept &e)
+      {
+        throw EXCEPTIONS::Exception("edilib: %s", e.what());
+      }
+    } else {
+      throw AstraLocale::UserException("MSG.ETICK.ET_LIST_VIEW_UNSUPPORTED"); //пока не поддерживается
     }
-    throw EXCEPTIONS::Exception("ETS error");
-  } else if(num==1){
+}
+
+Ticketing::Pnr readUacPnr(EDI_REAL_MES_STRUCT *pMes)
+{
     try{
-      Pnr pnr = PnrRdr::doRead<Pnr>(PnrEdiRead(GetEdiMesStruct()));
+      Pnr pnr = PnrRdr::doRead<Pnr>(PnrEdiRead(pMes, edifact::EdiUacReq));
       Pnr::Trace(TRACE2, pnr);
       return pnr;
     }
@@ -636,29 +688,22 @@ Pnr readPnr(const string &tlg_text)
     {
       throw EXCEPTIONS::Exception("edilib: %s", e.what());
     }
-  } else {
-    throw AstraLocale::UserException("MSG.ETICK.ET_LIST_VIEW_UNSUPPORTED"); //пока не поддерживается
-  }
-};
+}
 
 void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
                                     xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    string context;
     int req_ctxt_id=NodeAsInteger("@req_ctxt_id",reqNode);
-
     AstraContext::ClearContext("TERM_REQUEST", req_ctxt_id);
 
-    getEdiResponseCtxt(req_ctxt_id, true, "ETSearchInterface::KickHandler", context);
-
-    try{
-      Pnr pnr=readPnr(context);
-      xmlNodePtr dataNode=getNode(astra_iface(resNode, "ETViewForm"),"data");
-      PnrDisp::doDisplay(PnrXmlView(dataNode), pnr);
+    edifact::pRemoteResults remRes = edifact::RemoteResults::readSingle();
+    try {
+        Pnr pnr=readDispPnr(remRes->tlgSource());
+        xmlNodePtr dataNode=getNode(astra_iface(resNode, "ETViewForm"),"data");
+        PnrDisp::doDisplay(PnrXmlView(dataNode), pnr);
     }
-    catch(edilib::EdiExcept &e)
-    {
-      throw EXCEPTIONS::Exception("edilib: %s", e.what());
+    catch(edilib::EdiExcept &e) {
+        throw EXCEPTIONS::Exception("edilib: %s", e.what());
     }
 }
 
@@ -781,9 +826,29 @@ void EMDSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
     FuncOut(KickHandler);
 }
 
+static bool timeoutOccured(const std::list<edifact::RemoteResults> lRemRes)
+{
+    for(const edifact::RemoteResults& remRes: lRemRes) {
+        if(remRes.status() == edifact::RemoteStatus::Timeout) {
+            LogWarning(STDLOG) << "Timeout occured for edissesion: " << remRes.ediSession();
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void EMDDisplayInterface::KickHandler(XMLRequestCtxt *ctxt,
                                       xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  list<edifact::RemoteResults> lres;
+  edifact::RemoteResults::readDb(lres);
+
+  if(timeoutOccured(lres)) {
+      // TODO add timeout error id
+      throw AstraLocale::UserException("MSG.EMD.EDS_TIMEOUT_ERROR");
+  }
+
   int req_ctxt_id=NodeAsInteger("@req_ctxt_id",reqNode);
   XMLDoc ediResCtxt;
   getEdiResponseCtxt(req_ctxt_id, true, "EMDDisplayInterface::KickHandler", ediResCtxt);
@@ -793,15 +858,11 @@ void EMDDisplayInterface::KickHandler(XMLRequestCtxt *ctxt,
     throw AstraLocale::UserException(errList.front().first.lexema_id,
                                      errList.front().first.lparams);
 
-  list<edifact::RemoteResults> lres;
-  edifact::RemoteResults::readDb(lres);
-
   map<string, Emd> emds;
   map<string, LexemaData> errors;
   for(list<edifact::RemoteResults>::const_iterator r=lres.begin(); r!=lres.end(); ++r)
   {
-    string emd_no;
-    AstraContext::GetContext("EDI_SESSION", r->ediSession().get(), emd_no);
+    string emd_no = AstraEdifact::getEdiSessionCtxt(r->ediSession().get(), true/*clear*/, false/*throw*/);
     if (emd_no.empty())
     {
       LogError(STDLOG) << "EMDDisplayInterface::KickHandler: strange situation - empty EDI_SESSION context";
@@ -1258,8 +1319,16 @@ void ETStatusInterface::ETRollbackStatus(xmlDocPtr ediResDocPtr,
 xmlNodePtr TETChangeStatusList::addTicket(const TETChangeStatusKey &key,
                                         const Ticketing::Ticket &tick)
 {
+  size_t MaxTicketsInTlg = MAX_TICKETS_IN_TLG;
+//  if(TReqInfo::Instance()->api_mode) {
+//      MaxTicketsInTlg = 99;
+//  }
+  if(inTestMode()) {
+      MaxTicketsInTlg = 1;
+  }
+  LogTrace(TRACE5) << "MaxTicketsInTlg=" << MaxTicketsInTlg;
   if ((*this)[key].empty() ||
-      (*this)[key].back().first.size()>=MAX_TICKETS_IN_TLG)
+      (*this)[key].back().first.size()>=MaxTicketsInTlg)
   {
     (*this)[key].push_back(TETChangeStatusItem());
   }
@@ -1513,7 +1582,7 @@ bool EMDStatusInterface::EMDChangeStatus(const edifact::KickInfo &kickInfo,
         string ediCtxt=XMLTreeToText(j->ctxt.docPtr());
         //ProgTrace(TRACE5, "ediCosCtxt=%s", ediCtxt.c_str());
 
-        edifact::EmdCOSParams cosParams(OrigOfRequest(airlineToXML(i->first.airline_oper, LANG_RU), *TReqInfo::Instance()),
+        edifact::EmdCosParams cosParams(OrigOfRequest(airlineToXML(i->first.airline_oper, LANG_RU), *TReqInfo::Instance()),
                                         ediCtxt,
                                         kickInfo,
                                         i->first.airline_oper,
@@ -1522,7 +1591,7 @@ bool EMDStatusInterface::EMDChangeStatus(const edifact::KickInfo &kickInfo,
                                         j->emd.cpn(),
                                         i->first.coupon_status);
 
-        edifact::EmdCOSRequest ediReq(cosParams);
+        edifact::EmdCosRequest ediReq(cosParams);
         //throw_if_request_dup("EMDStatusInterface::EMDChangeStatus");
         ediReq.sendTlg();
 
@@ -1833,11 +1902,23 @@ bool ETStatusInterface::ETChangeStatus(const xmlNodePtr reqNode,
   return result;
 }
 
+struct TlgHaveSent
+{
+    edilib::EdiSessionId_t m_sessId;
+    int                    m_reqCtxtId;
+
+    TlgHaveSent(edilib::EdiSessionId_t sessId, int reqCtxtId)
+        : m_sessId(sessId),
+          m_reqCtxtId(reqCtxtId)
+    {}
+};
+
 bool ETStatusInterface::ETChangeStatus(const edifact::KickInfo &kickInfo,
                                        const TETChangeStatusList &mtick)
 {
   bool result=false;
 
+  std::list<TlgHaveSent> ths; // tlgs have sent
   if (!mtick.empty())
   {
     string oper_carrier;
@@ -1882,11 +1963,14 @@ bool ETStatusInterface::ETChangeStatus(const edifact::KickInfo &kickInfo,
         ChangeStatus::ETChangeStatus(org,
                                      ltick,
                                      ediCtxt,
-                                     kickInfo);
+                                     kickInfo,
+                                     oper_carrier,
+                                     Ticketing::FlightNum_t());
         result=true;
       }
     }
   }
+
   return result;
 }
 
@@ -1909,8 +1993,8 @@ void EMDStatusInterface::ChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     OrigOfRequest org(airlineToXML(airline, LANG_RU), *TReqInfo::Instance());
     edifact::KickInfo kickInfo=createKickInfo(ASTRA::NoExists, "EMDStatus");
 
-    edifact::EmdCOSParams cosParams(org, "", kickInfo, airline, flNum, emdDocNum, emdCpnNum, emdCpnStatus);
-    edifact::EmdCOSRequest ediReq(cosParams);
+    edifact::EmdCosParams cosParams(org, "", kickInfo, airline, flNum, emdDocNum, emdCpnNum, emdCpnStatus);
+    edifact::EmdCosRequest ediReq(cosParams);
     //throw_if_request_dup("EMDStatusInterface::ChangeStatus");
     ediReq.sendTlg();
 }
@@ -1918,9 +2002,6 @@ void EMDStatusInterface::ChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 void EMDStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     FuncIn(KickHandler);
-    using namespace edifact;
-    pRemoteResults res = RemoteResults::readSingle();
-    LogTrace(TRACE3) << "RemoteResults::Status: " << res->status();
     // TODO add kick handling
     FuncOut(KickHandler);
 }
@@ -1955,7 +2036,33 @@ void ChangeStatusInterface::ChangeStatus(const xmlNodePtr reqNode,
   };
 }
 
+static bool WasTimeout(const std::list<edifact::RemoteResults>& lRemRes)
+{
+    using namespace edifact;
+
+    for(const RemoteResults& remRes: lRemRes) {
+        if(remRes.status()->codeInt() == RemoteStatus::Timeout) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void ChangeStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    using namespace edifact;
+
+    std::list<RemoteResults> lRemRes;
+    RemoteResults::readDb(lRemRes);
+    if(WasTimeout(lRemRes)) {
+        KickOnTimeout(reqNode, resNode);
+    } else {
+        KickOnAnswer(reqNode, resNode);
+    }
+}
+
+void ChangeStatusInterface::KickOnAnswer(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string context;
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -2195,6 +2302,11 @@ void ContinueCheckin(xmlNodePtr termReqNode, xmlNodePtr externalSysResNode, xmlN
   }
 }
 
+void ChangeStatusInterface::KickOnTimeout(xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    // TODO handle COS timeout
+}
+
 bool EMDAutoBoundInterface::BeforeLock(const EMDAutoBoundId &id, int &point_id, int &grp_id)
 {
   point_id=NoExists;
@@ -2430,7 +2542,7 @@ void EMDAutoBoundInterface::EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
       if (!EMDList.empty())
       {
         //хотя бы один документ будет обрабатываться
-        OraSession.Rollback();  //откат
+        ASTRA::rollback();
         NewTextChild(termReqNode, "second_call");
         edifact::KickInfo kickInfo=AstraEdifact::createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(termReqNode->doc)),
                                                                 "EMDAutoBound");
@@ -2451,12 +2563,12 @@ void EMDAutoBoundInterface::EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
   }
   catch(UserException &e)
   {
-    OraSession.Rollback();
+    ASTRA::rollback();
     ProgTrace(TRACE5, ">>>> %s: UserException: %s", __FUNCTION__, e.what());
   }
   catch(std::exception &e)
   {
-    OraSession.Rollback();
+    ASTRA::rollback();
     ProgError(STDLOG, "%s: std::exception: %s", __FUNCTION__, e.what());
   }
 }
@@ -2529,5 +2641,477 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   }
 }
 
+//---------------------------------------------------------------------------------------
+
+void ETRequestACInterface::RequestControl(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+
+    int pointId  = NodeAsInteger("point_id", reqNode);
+    Ticketing::TicketNum_t tickNum(NodeAsString("TickNoEdit", reqNode));
+    CouponNum_t cpnNum(NodeAsInteger("TickCpnNo", reqNode));
+
+    LogTrace(TRACE3) << pointId << "/" << tickNum << cpnNum;
+
+    TTripInfo info;
+    info.getByPointId(pointId);
+
+    const OrigOfRequest org = OrigOfRequest(airlineToXML(info.airline, LANG_RU), *TReqInfo::Instance());
 
 
+    SendEtRacRequest(edifact::EtRacParams(org,
+                                          "",
+                                          edifact::KickInfo(),
+                                          info.airline,
+                                          Ticketing::FlightNum_t(info.flt_no),
+                                          tickNum,
+                                          cpnNum));
+
+}
+
+void ETRequestACInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+}
+
+//---------------------------------------------------------------------------------------
+
+void handleEtDispResponse(const edifact::RemoteResults& remRes)
+{
+    edilib::EdiSessionId_t ediSessId = remRes.ediSession();
+
+    boost::optional<Ticketing::Pnr> pnr;
+    try
+    {
+        if (!pnr) {
+            pnr = readDispPnr(remRes.tlgSource());
+        }
+        ETDisplayToDB(pnr.get());
+    }
+    catch(std::exception &e)
+    {
+        ProgTrace(TRACE5, ">>>> %s: %s", __FUNCTION__, e.what());
+    }
+    catch(...)
+    {
+        ProgTrace(TRACE5, ">>>> %s: unknown error", __FUNCTION__);
+    }
+    //для фонового режима выйти и не продолжать с контекстом
+    if (remRes.pult()=="SYSTEM") return;
+
+    std::string ctxt;
+    AstraContext::GetContext("EDI_SESSION", ediSessId.get(), ctxt);
+    ctxt=ConvertCodepage(ctxt,"CP866","UTF-8");
+
+    XMLDoc ediSessCtxt(ctxt);
+    if(ediSessCtxt.docPtr()!=NULL)
+    {
+        //для нормальной работы надо все дерево перевести в CP866:
+        xml_decode_nodelist(ediSessCtxt.docPtr()->children);
+        xmlNodePtr rootNode=NodeAsNode("/context",ediSessCtxt.docPtr());
+        int req_ctxt_id=NodeAsInteger("@req_ctxt_id",rootNode);
+        int point_id=NodeAsInteger("point_id",rootNode);
+
+        TQuery Qry(&OraSession);
+        Qry.SQLText=
+          "UPDATE trip_sets SET pr_etstatus=0 "
+          "WHERE point_id=:point_id AND pr_etstatus<0 ";
+        Qry.CreateVariable("point_id",otInteger,point_id);
+        Qry.Execute();
+        if (Qry.RowsProcessed()>0)
+        {
+            //запишем в лог
+            TReqInfo::Instance()->LocaleToLog("EVT.RETURNED_INTERACTIVE_WITH_ETC", ASTRA::evtFlt, point_id );
+        };
+
+        std::string purpose=NodeAsString("@purpose",rootNode);
+
+        if (purpose=="EMDDisplay" ||
+            purpose=="EMDRefresh")
+        {
+            XMLDoc ediResCtxt("context");
+            if (ediResCtxt.docPtr()==NULL)
+                throw EXCEPTIONS::Exception("%s: CreateXMLDoc failed", __FUNCTION__);
+            xmlNodePtr ediResCtxtNode=NodeAsNode("/context",ediResCtxt.docPtr());
+
+            // подчищаем RemoteResults дисплея ЭБ - они больше не нужны
+            edifact::RemoteResults::deleteDb(ediSessId);
+
+            try
+            {
+                if (!pnr) pnr = readDispPnr(remRes.tlgSource());
+
+                edifact::KickInfo kickInfo;
+                kickInfo.fromXML(rootNode);
+                kickInfo.parentSessId=ediSessId.get();
+                OrigOfRequest org("");
+                string airline;
+                Ticketing::FlightNum_t flNum;
+                OrigOfRequest::fromXML(rootNode, org, airline, flNum);
+                std::set<Ticketing::TicketNum_t> emds;
+                for(std::list<Ticket>::const_iterator i=pnr.get().ltick().begin(); i!=pnr.get().ltick().end(); ++i)
+                if (i->actCode() == TickStatAction::inConnectionWith)
+                {
+                    emds.insert(i->connectedDocNum());
+                    //ProgTrace(TRACE5, "%s: %s", __FUNCTION__, i->connectedDocNum().get().c_str());
+                };
+                Ticket::Trace(TRACE5, pnr.get().ltick());
+                SearchEMDsByTickNo(emds, kickInfo, org, airline, flNum);
+            }
+            catch(AstraLocale::UserException &e)
+            {
+                //для остальных ошибок падаем
+                ProcEdiError(e.getLexemaData(), ediResCtxtNode, true);
+            }
+            LogTrace(TRACE3) << "Before addToEdiResponseCtxt";
+            addToEdiResponseCtxt(req_ctxt_id, ediResCtxtNode->children, "");
+        }
+
+        AstraContext::ClearContext("EDI_SESSION", ediSessId.get());
+    }
+}
+
+static void ChangeStatusToLog(const xmlNodePtr statusNode,
+                              const bool repeated,
+                              const string lexema_id,
+                              LEvntPrms& params,
+                              const string &screen,
+                              const string &user,
+                              const string &desk)
+{
+  TLogLocale locale;
+  locale.ev_type=ASTRA::evtPax;
+
+  if (statusNode!=NULL)
+  {
+    xmlNodePtr node2=statusNode;
+
+    locale.id1=NodeAsIntegerFast("point_id",node2);
+    if (GetNodeFast("reg_no",node2)!=NULL)
+    {
+      locale.id2=NodeAsIntegerFast("reg_no",node2);
+      locale.id3=NodeAsIntegerFast("grp_id",node2);
+    };
+    if (GetNodeFast("pax_full_name",node2)!=NULL &&
+        GetNodeFast("pers_type",node2)!=NULL)
+    {
+      locale.lexema_id = "EVT.PASSENGER_DATA";
+      locale.prms << PrmSmpl<string>("pax_name", NodeAsStringFast("pax_full_name",node2))
+                  << PrmElem<string>("pers_type", etPersType, NodeAsStringFast("pers_type",node2));
+      PrmLexema lexema("param", lexema_id);
+      lexema.prms = params;
+      locale.prms << lexema;
+    }
+  }
+  else
+  {
+    locale.lexema_id = lexema_id;
+    locale.prms = params;
+  }
+  if (!repeated) locale.toDB(screen, user, desk);
+
+  if (statusNode!=NULL)
+  {
+    SetProp(statusNode,"repeated",(int)repeated);
+    xmlNodePtr eventNode = NewTextChild(statusNode, "event");
+    LocaleToXML (eventNode, locale.lexema_id, locale.prms);
+    if (!repeated &&
+        locale.ev_time!=ASTRA::NoExists &&
+        locale.ev_order!=ASTRA::NoExists)
+    {
+      SetProp(eventNode,"ev_time",DateTimeToStr(locale.ev_time, ServerFormatDateTimeAsString));
+      SetProp(eventNode,"ev_order",locale.ev_order);
+    };
+  };
+}
+
+void handleEtCosResponse(const edifact::RemoteResults& remRes)
+{
+    edilib::EdiSessionId_t ediSessId = remRes.ediSession();
+    LogTrace(TRACE3) << __FUNCTION__ << " ediSess: " << remRes.ediSession();
+
+    string ctxt;
+    AstraContext::GetContext("EDI_SESSION", ediSessId.get(), ctxt);
+    ctxt=ConvertCodepage(ctxt,"CP866","UTF-8");
+
+
+    XMLDoc ediSessCtxt(ctxt);
+    xmlNodePtr rootNode=NULL,ticketNode=NULL;
+    int req_ctxt_id=ASTRA::NoExists;
+    string screen,user,desk;
+    if (ediSessCtxt.docPtr()!=NULL)
+    {
+      //для нормальной работы надо все дерево перевести в CP866:
+      xml_decode_nodelist(ediSessCtxt.docPtr()->children);
+      rootNode=NodeAsNode("/context",ediSessCtxt.docPtr());
+      ticketNode=NodeAsNode("tickets",rootNode)->children;
+      if (GetNode("@req_ctxt_id",rootNode))
+        req_ctxt_id=NodeAsInteger("@req_ctxt_id",rootNode);
+      screen=NodeAsString("@screen",rootNode);
+      user=NodeAsString("@user",rootNode);
+      desk=NodeAsString("@desk",rootNode);
+    };
+
+    TQuery Qry(&OraSession);
+    Qry.SQLText=
+      "UPDATE trip_sets SET pr_etstatus=0 "
+      "WHERE point_id=:point_id AND pr_etstatus<0 ";
+    Qry.DeclareVariable("point_id",otInteger);
+
+    int point_id=-1;
+    for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
+    {
+      if (point_id!=NodeAsInteger("point_id",node))
+      {
+        point_id=NodeAsInteger("point_id",node);
+        Qry.SetVariable("point_id",point_id);
+        Qry.Execute();
+        if (Qry.RowsProcessed()>0)
+        {
+          //запишем в лог
+          TReqInfo::Instance()->LocaleToLog("EVT.RETURNED_INTERACTIVE_WITH_ETC", ASTRA::evtFlt, point_id);
+        };
+      };
+    };
+
+    if(remRes.status()->type() != edifact::RemoteStatus::Timeout)
+    {
+        ChngStatAnswer chngStatAns = ChngStatAnswer::readEdiTlg(remRes.tlgSource());
+        chngStatAns.Trace(TRACE2);
+        if (chngStatAns.isGlobErr())
+        {
+            string err,err_locale;
+            LexemaData err_lexeme;
+            if (chngStatAns.globErr().second.empty())
+            {
+              err="ОШИБКА " + chngStatAns.globErr().first;
+              err_lexeme.lexema_id="MSG.ETICK.ETS_ERROR";
+              err_lexeme.lparams << LParam("msg", chngStatAns.globErr().first);
+            }
+            else
+            {
+              err=chngStatAns.globErr().second;
+              err_lexeme.lexema_id="WRAP.ETS";
+              err_lexeme.lparams << LParam("text", chngStatAns.globErr().second);
+            };
+
+            for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
+            {
+              xmlNodePtr node2=node->children;
+              LEvntPrms params;
+              params << PrmSmpl<std::string>("ticket_no", NodeAsStringFast("ticket_no",node2))
+                     << PrmSmpl<int>("coupon_no", NodeAsIntegerFast("coupon_no",node2))
+                     << PrmSmpl<std::string>("err", err);
+              xmlNodePtr errNode=NewTextChild(node,"global_error");
+              LexemeDataToXML(err_lexeme, errNode);
+
+              TETickItem ETickItem;
+              ETickItem.et_no=NodeAsStringFast("ticket_no",node2);
+              ETickItem.et_coupon=NodeAsIntegerFast("coupon_no",node2);
+              ETickItem.point_id=NodeAsIntegerFast("point_id",node2);
+              ETickItem.airp_dep=NodeAsStringFast("airp_dep",node2);
+              ETickItem.airp_arv=NodeAsStringFast("airp_arv",node2);
+              ETickItem.change_status_error=err;
+              ETickItem.toDB(TETickItem::ChangeOfStatus);
+
+              ChangeStatusToLog(errNode, false, "EVT.ETICKET", params, screen, user, desk);
+            };
+        }
+        else
+        {
+          std::list<Ticket>::const_iterator currTick;
+
+          for(currTick=chngStatAns.ltick().begin();currTick!=chngStatAns.ltick().end();currTick++)
+          {
+            //попробуем проанализировать ошибку уровня билета
+            string err=chngStatAns.err2Tick(currTick->ticknum(), 0);
+            if (!err.empty())
+            {
+              ProgTrace(TRACE5,"ticket=%s error=%s",
+                               currTick->ticknum().c_str(), err.c_str());
+              LEvntPrms params;
+              params << PrmSmpl<std::string>("tick_num", currTick->ticknum())
+                     << PrmSmpl<std::string>("err", err);
+
+              LexemaData err_lexeme;
+              err_lexeme.lexema_id="MSG.ETICK.CHANGE_STATUS_ERROR";
+              err_lexeme.lparams << LParam("ticknum",currTick->ticknum())
+                                 << LParam("error",err);
+
+              if (ticketNode!=NULL)
+              {
+                //поищем все билеты
+                for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
+                {
+                  xmlNodePtr node2=node->children;
+                  if (NodeAsStringFast("ticket_no",node2)==currTick->ticknum())
+                  {
+                    xmlNodePtr errNode=NewTextChild(node,"ticket_error");
+                    LexemeDataToXML(err_lexeme, errNode);
+                    //нашли билет
+                    TETickItem ETickItem;
+                    ETickItem.et_no=NodeAsStringFast("ticket_no",node2);
+                    ETickItem.et_coupon=NodeAsIntegerFast("coupon_no",node2);
+                    ETickItem.point_id=NodeAsIntegerFast("point_id",node2);
+                    ETickItem.airp_dep=NodeAsStringFast("airp_dep",node2);
+                    ETickItem.airp_arv=NodeAsStringFast("airp_arv",node2);
+                    ETickItem.change_status_error=err;
+                    ETickItem.toDB(TETickItem::ChangeOfStatus);
+
+                    ChangeStatusToLog(errNode, false, "EVT.ETICKET_CHANGE_STATUS_MISTAKE", params, screen, user, desk);
+                  };
+                };
+              }
+              else
+              {
+                ChangeStatusToLog(NULL, false, "EVT.ETICKET_CHANGE_STATUS_MISTAKE", params, screen, user, desk);
+              };
+              continue;
+            };
+
+            if (currTick->getCoupon().empty()) continue;
+
+            //попробуем проанализировать ошибку уровня купона
+            err = chngStatAns.err2Tick(currTick->ticknum(), currTick->getCoupon().front().couponInfo().num());
+            if (!err.empty())
+            {
+              ProgTrace(TRACE5,"ticket=%s coupon=%d error=%s",
+                        currTick->ticknum().c_str(),
+                        currTick->getCoupon().front().couponInfo().num(),
+                        err.c_str());
+              LEvntPrms params;
+              ostringstream msgh;
+              msgh << currTick->ticknum() << "/" << currTick->getCoupon().front().couponInfo().num();
+              params << PrmSmpl<std::string>("tick_num", msgh.str())
+                     << PrmSmpl<std::string>("err", err);
+
+              LexemaData err_lexeme;
+              err_lexeme.lexema_id="MSG.ETICK.CHANGE_STATUS_ERROR";
+              err_lexeme.lparams << LParam("ticknum",currTick->ticknum()+"/"+
+                                                     IntToString(currTick->getCoupon().front().couponInfo().num()))
+                                 << LParam("error",err);
+
+              if (ticketNode!=NULL)
+              {
+                //поищем все билеты
+                for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
+                {
+                  xmlNodePtr node2=node->children;
+                  if (NodeAsStringFast("ticket_no",node2)==currTick->ticknum() &&
+                      NodeAsIntegerFast("coupon_no",node2)==(int)currTick->getCoupon().front().couponInfo().num())
+                  {
+                    xmlNodePtr errNode=NewTextChild(node,"coupon_error");
+                    LexemeDataToXML(err_lexeme, errNode);
+                    //нашли билет
+                    TETickItem ETickItem;
+                    ETickItem.et_no=NodeAsStringFast("ticket_no",node2);
+                    ETickItem.et_coupon=NodeAsIntegerFast("coupon_no",node2);
+                    ETickItem.point_id=NodeAsIntegerFast("point_id",node2);
+                    ETickItem.airp_dep=NodeAsStringFast("airp_dep",node2);
+                    ETickItem.airp_arv=NodeAsStringFast("airp_arv",node2);
+                    ETickItem.change_status_error=err;
+                    ETickItem.toDB(TETickItem::ChangeOfStatus);
+
+                    ChangeStatusToLog(errNode, false, "EVT.ETICKET_CHANGE_STATUS_MISTAKE", params, screen, user, desk);
+                  };
+                };
+              }
+              else
+              {
+                ChangeStatusToLog(NULL, false, "EVT.ETICKET_CHANGE_STATUS_MISTAKE", params, screen, user, desk);
+              };
+              continue;
+            };
+
+
+            CouponStatus status(currTick->getCoupon().front().couponInfo().status());
+
+            ProgTrace(TRACE5,"ticket=%s coupon=%d status=%s",
+                             currTick->ticknum().c_str(),
+                             currTick->getCoupon().front().couponInfo().num(),
+                             status->dispCode());
+
+            LEvntPrms params;
+            params << PrmSmpl<std::string>("ticket_no", currTick->ticknum())
+                   << PrmSmpl<int>("coupon_no", currTick->getCoupon().front().couponInfo().num())
+                   << PrmSmpl<std::string>("disp_code", status->dispCode());
+
+            if (ticketNode!=NULL)
+            {
+              //поищем все билеты
+              for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
+              {
+                xmlNodePtr node2=node->children;
+                if (NodeAsStringFast("ticket_no",node2)==currTick->ticknum() &&
+                    NodeAsIntegerFast("coupon_no",node2)==(int)currTick->getCoupon().front().couponInfo().num())
+                {
+                  //изменим статус в таблице etickets
+                  //нашли билет
+                  xmlNodePtr statusNode=NewTextChild(node,"coupon_status",status->dispCode());
+
+                  TETickItem ETickItem;
+                  ETickItem.et_no=NodeAsStringFast("ticket_no",node2);
+                  ETickItem.et_coupon=NodeAsIntegerFast("coupon_no",node2);
+                  ETickItem.point_id=NodeAsIntegerFast("point_id",node2);
+                  ETickItem.airp_dep=NodeAsStringFast("airp_dep",node2);
+                  ETickItem.airp_arv=NodeAsStringFast("airp_arv",node2);
+                  if (status->codeInt()!=CouponStatus::OriginalIssue)
+                    ETickItem.status=CouponStatus(status);
+                  else
+                    ETickItem.status=CouponStatus(CouponStatus::Unavailable);
+
+                  TETickItem priorETickItem;
+                  priorETickItem.fromDB(ETickItem.et_no, ETickItem.et_coupon, TETickItem::ChangeOfStatus, true);
+
+                  ETickItem.toDB(TETickItem::ChangeOfStatus);
+
+                  bool repeated=(priorETickItem.status==ETickItem.status);
+                  ChangeStatusToLog(statusNode, repeated, "EVT.ETICKET_CHANGE_STATUS", params, screen, user, desk);
+                };
+              };
+            }
+            else
+            {
+                ChangeStatusToLog(NULL, false, "EVT.ETICKET_CHANGE_STATUS", params, screen, user, desk);
+            }
+          }
+        }
+    }
+
+    LogTrace(TRACE3) << "before addToEdiResponseCtxt " << req_ctxt_id;
+    addToEdiResponseCtxt(req_ctxt_id, ticketNode, "tickets");
+
+    AstraContext::ClearContext("EDI_SESSION", ediSessId.get());
+}
+
+void handleEtRacResponse(const edifact::RemoteResults& remRes)
+{
+    using namespace edifact;
+
+    LogTrace(TRACE3) << __FUNCTION__;
+
+    if(remRes.status() == RemoteStatus::Success)
+    {
+        try {
+            int readStatus = ReadEdiMessage(remRes.tlgSource().c_str());
+            ASSERT(readStatus == EDI_MES_OK);
+            Ticketing::saveWcPnr(SystemContext::Instance(STDLOG).airlineImpl()->ida(),
+                                 Ticketing::EdiPnr(remRes.tlgSource(), EdiRacRes));
+        }
+        catch(std::exception &e) {
+            ProgTrace(TRACE5, ">>>> %s: %s", __FUNCTION__, e.what());
+        }
+        catch(...) {
+            ProgTrace(TRACE5, ">>>> %s: unknown error", __FUNCTION__);
+        }
+    } else {
+        LogTrace(TRACE3) << "remote error code: " << remRes.ediErrCode();
+    }
+}
+
+void handleEtUac(const std::string& uac)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+    Ticketing::saveWcPnr(SystemContext::Instance(STDLOG).airlineImpl()->ida(),
+                         Ticketing::EdiPnr(uac, edifact::EdiUacReq));
+}

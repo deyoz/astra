@@ -36,17 +36,13 @@ static void ConfigAgentToWait_(const std::string& pult,
                                const edilib::EdiSessionId_t &sida,
                                const edifact::KickInfo &kickInfo)
 {
-  //std::string iface = JxtContext::getSysContext()->read("CUR_IFACE", ""); Не использовать эту конструкцию, так как от имени одного пульта м.б. множество разных параллельных запросов
-
-  if (kickInfo.parentSessId!=ASTRA::NoExists)
+  if (kickInfo.parentSessId!=ASTRA::NoExists) {
     copy_notify_levb(kickInfo.parentSessId, sida.get(), true);
-  else
+  } else {
     ServerFramework::getQueryRunner().
         getEdiHelpManager().
         configForPerespros(STDLOG, make_xml_kick(kickInfo).c_str(), sida.get(), 15 /*seconds to wait*/);
-
-  //edifact::RemoteResults::add(pult, sida, rida); здесь не надо, потому что это логически не связано с AgentToWait
-
+  }
 }
 
 void ConfigAgentToWait(const Ticketing::SystemAddrs_t& rida,
@@ -54,7 +50,7 @@ void ConfigAgentToWait(const Ticketing::SystemAddrs_t& rida,
                        const edilib::EdiSessionId_t& sida,
                        const edifact::KickInfo &kickInfo)
 {
-    //if(Environment::Environ::Instance().handlerType() == Environment::HumanHandler)
+
     if (!kickInfo.background_mode())
     {
         LogTrace(TRACE3) << "ConfigAgentToWait for pult " << pult;
@@ -65,13 +61,12 @@ void ConfigAgentToWait(const Ticketing::SystemAddrs_t& rida,
 void MeetAgentExpectations(const edifact::RemoteResults & res)
 {
     res.updateDb();
-    LogTrace(TRACE1) << res;
-
+    LogTrace(TRACE1) << __FUNCTION__ << " " << res;
     if (!res.pult().empty())
     {
-      LogTrace(TRACE3) << "confirm_notify_levb for edisession: " << res.ediSession();
-      confirm_notify_levb(res.ediSession().get(), true);
-    };
+        LogTrace(TRACE3) << "confirm_notify_levb for edisession: " << res.ediSession();
+        confirm_notify_levb(res.ediSession().get(), true);
+    }
 }
 
 bool isDoomedToWait()

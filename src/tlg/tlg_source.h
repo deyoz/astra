@@ -34,16 +34,18 @@ private:
     std::string ToRot;
     boost::posix_time::ptime ReceiveDate; // AutoGen
     boost::posix_time::ptime ProcessDate; // AutoGen
-    tlgnum_t TlgNum; // AutoGen
+    boost::optional<tlgnum_t> TlgNum; // AutoGen
     std::string ErrorText;
-    tlgnum_t AnswerTlgNum; // Номер ответной телеграммы
+    boost::optional<tlgnum_t> AnswerTlgNum; // Номер ответной телеграммы
     bool Postponed;
     int HandMade;
+    int GatewayNum;
 
     std::string TypeStr;
     std::string SubtypeStr;
     std::string FuncCodeStr;
 
+protected:
     void setReceiveDate(const boost::posix_time::ptime &date)
     {
         ReceiveDate = date;
@@ -52,7 +54,6 @@ private:
     {
         ProcessDate = date;
     }
-protected:
     void setTypeStr(const std::string &t);
     void setSubtypeStr(const std::string &st)
     {
@@ -63,14 +64,6 @@ protected:
         FuncCodeStr = fc;
     }
 protected:
-    /**
-     * Запись в базу
-     * Устанавливает номер телеграммы и дату
-     * Поэтому-то и принемает не константную сцылку
-     * @param tlg TlgSource
-     */
-    static void writeToDb(TlgSource &tlg);
-
     /**
      * Раскладывает текст телеграммы на строки (нужно для функции diff)
      * @param spliter - символ разделитель
@@ -121,7 +114,7 @@ public:
      * Номер телеграммы
      * @return tlgnum_t
      */
-    virtual const tlgnum_t &tlgNum() const { return TlgNum; }
+    virtual const boost::optional<tlgnum_t> &tlgNum() const { return TlgNum; }
 
     /**
      * Если телеграмма обработана или принята из сети с ошибкой,
@@ -141,6 +134,9 @@ public:
      * @return ссылка, чтобы не сломать unstb binds
      */
     int handMade() const { return HandMade; }
+
+    int gatewayNum() const { return GatewayNum; }
+
 
     /**
      * Установить текст ошибки
@@ -182,7 +178,7 @@ public:
     /**
      * Номер ответной телеграммы
      */
-    virtual const tlgnum_t& answerTlgNum() const
+    virtual const boost::optional<tlgnum_t>& answerTlgNum() const
     {
         return AnswerTlgNum;
     }
@@ -226,6 +222,12 @@ public:
     void setTlgNum(const tlgnum_t& tnum)
     {
         TlgNum = tnum;
+    }
+    void setTlgNum(int tnum_deprecated);
+
+    void setGatewayNum(int gwNum)
+    {
+        GatewayNum = gwNum;
     }
 
     /**
@@ -272,7 +274,7 @@ public:
     /**
      * Запись в базу
      */
-    virtual void write() { TlgSource::writeToDb(*this); };
+    virtual void write() {}
 };
 
 /// @class TlgSourceTypified базовый класс типизированной тлг
@@ -317,10 +319,12 @@ public:
     virtual std::string text2viewHtml() const { return text2view(); }
 
     /**
-     * Установить подтип телеграммы
-     * @param stype  type
+     * Запись в базу
+     * Устанавливает номер телеграммы и дату
+     * Поэтому-то и принемает не константную сцылку
+     * @param tlg TlgSource
      */
-    virtual void setTlgSubtype(const std::string &stype) = 0;
+    static void writeToDb(TlgSourceTypified &tlg);
 };
 
 typedef boost::shared_ptr <TlgSourceTypified> TlgSourceTypifiedPtr_t;

@@ -139,14 +139,14 @@ public:
      */
     static pRemoteResults readDb(const edilib::EdiSessionId_t &Id);
 
+    static void deleteDb(const edilib::EdiSessionId_t &Id);
+
     /**
      * @brief write data
      */
     void writeDb();
 
     void updateDb() const;    
-
-    void deleteDb(const edilib::EdiSessionId_t &Id);
 
     static void cleanOldRecords(const int min_ago);
 

@@ -449,9 +449,11 @@ void TICAOBaseTable::delete_row(TBaseTableRow *row)
   {
     map<string, TBaseTableRow*>::iterator i;
     i=code_icao.find(((TICAOBaseTableRow*)row)->code_icao);
-    if (i->second==row) code_icao.erase(i);
+    if (i!=code_icao.end() && i->second==row) 
+      code_icao.erase(i);
     i=code_icao_lat.find(((TICAOBaseTableRow*)row)->code_icao_lat);
-    if (i->second==row) code_icao_lat.erase(i);
+    if (i!=code_icao_lat.end() && i->second==row) 
+      code_icao_lat.erase(i);
   };
   TTIDBaseTable::delete_row(row);
 };

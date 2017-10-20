@@ -13,12 +13,14 @@
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg.h"
+#include "apps_interaction.h"
 #include <edilib/edi_user_func.h>
 #include <serverlib/ourtime.h>
-#include "apps_interaction.h"
+#include <libtlg/telegrams.h>
+
 
 #define NICKNAME "VLAD"
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace ASTRA;
 using namespace BASIC::date_time;
@@ -38,12 +40,13 @@ static int WAIT_INTERVAL()       //миллисекунды
 static int sockfd=-1;
 
 void process_tlg(void);
-int h2h_in(char *h2h_tlg, H2H_MSG *h2h);
+//int h2h_in(char *h2h_tlg, H2H_MSG *h2h);
 
 int main_srv_tcl(int supervisorSocket, int argc, char *argv[])
 {
   try
   {
+    init_tlg_callbacks();
     sleep(1);
     InitLogTime(argc>0?argv[0]:NULL);
 
@@ -119,13 +122,11 @@ void process_tlg(void)
   struct sockaddr_in to_addr,from_addr;
   memset(&to_addr,0,sizeof(to_addr));
   memset(&from_addr,0,sizeof(from_addr));
-  AIRSRV_MSG tlg_in,tlg_out;
+  AIRSRV_MSG tlg_in = {}, tlg_out = {};
   int len,tlg_len,from_addr_len,tlg_header_len=sizeof(tlg_in)-sizeof(tlg_in.body);
   from_addr_len=sizeof(from_addr);
   char *tlg_body;
 
-  H2H_MSG h2hinf;
-  bool is_h2h=false;
   int type = tNone;
   time_t start_time=time(NULL);
 
@@ -194,23 +195,27 @@ void process_tlg(void)
     {
       case TLG_IN:
       case TLG_OUT:
+      {
         monitor_idle_zapr_type(1, QUEPOT_TLG_INP);
         //проверяем на host-to-host
-        if (len-tlg_header_len>(int)sizeof(h2hinf.data)-1)
-          throw Exception("Telegram too long. Can't check H2H header (sender=%s, num=%d, type=%d)",
-                          tlg_in.Sender,tlg_in.num,tlg_in.type);
-        if (h2h_in(tlg_in.body, &h2hinf) >= 0) is_h2h = true;
+//        if (len-tlg_header_len>(int)sizeof(h2hinf.data)-1)
+//          throw Exception("Telegram too long. Can't check H2H header (sender=%s, num=%d, type=%d)",
+//                          tlg_in.Sender,tlg_in.num,tlg_in.type);
 
-        if (is_h2h)
-        {
-          tlg_body=h2hinf.data;
-          tlg_len=strlen(h2hinf.data);
+        bool is_hth = false;
+        hth::HthInfo hthInfo = {};
+        size_t hthHeadLen = hth::fromString(tlg_in.body, hthInfo);
+
+        if (hthHeadLen > 0) {
+            tlg_body = tlg_in.body + hthHeadLen;
+            hth::removeSpecSymbols(tlg_body);
+            is_hth = true;
+            hth::trace(TRACE5, hthInfo);
+        } else {
+            tlg_body = tlg_in.body;
         }
-        else
-        {
-          tlg_body=tlg_in.body;
-          tlg_len=len-tlg_header_len;
-        };
+
+        tlg_len = strlen(tlg_body);
 
         if(IsEdifactText(tlg_body,tlg_len))
           type = tEdi;
@@ -277,30 +282,14 @@ void process_tlg(void)
               TlgInsQry.CreateVariable("ttl",otInteger,FNull);
             TlgInsQry.CreateVariable("time_msec",otFloat,nowUTC);
             TlgInsQry.Execute();
-            if (is_h2h)
+            if(is_hth)
             {
-              //h2h_tlgs
-              char buf[2];
-              TlgInsQry.Clear();
-              TlgInsQry.SQLText=
-                "INSERT INTO h2h_tlgs(id,type,qri5,qri6,sender,receiver,tpr,err) "
-                "VALUES(:id,:type,:qri5,:qri6,:sender,:receiver,:tpr,:err)";
-              TlgInsQry.CreateVariable("id",otInteger,tlg_id);
-              buf[1]=0;
-              buf[0]=h2hinf.type;
-              TlgInsQry.CreateVariable("type",otString,buf);
-              buf[0]=h2hinf.qri5;
-              TlgInsQry.CreateVariable("qri5",otString,buf);
-              buf[0]=h2hinf.qri6;
-              TlgInsQry.CreateVariable("qri6",otString,buf);
-              TlgInsQry.CreateVariable("sender",otString,h2hinf.sndr);
-              TlgInsQry.CreateVariable("receiver",otString,h2hinf.rcvr);
-              TlgInsQry.CreateVariable("tpr",otString,h2hinf.tpr);
-              TlgInsQry.CreateVariable("err",otString,h2hinf.err);
-              TlgInsQry.Execute();
-            };
+                tlgnum_t tlgNum(boost::lexical_cast<std::string>(tlg_id));
+                telegrams::callbacks()->writeHthInfo(tlgNum, hthInfo);
+            }
           };
         };
+      }
         break;
       case TLG_ACK:
         {
@@ -461,113 +450,113 @@ void process_tlg(void)
    для телеграмм в обрамлении H2H.
    Выделяеет EDIFACTовскую телеграмму.
  */
-int h2h_in(char *h2h_tlg, H2H_MSG *h2h)
-{
-  int len;
-  char *p, *p1, *why_p, *end_p, part = 0;
-/*
-        memcpy(&tlg_len, h2h_tlg, sizeof(tlg_len));
+//int h2h_in(char *h2h_tlg, H2H_MSG *h2h)
+//{
+//  int len;
+//  char *p, *p1, *why_p, *end_p, part = 0;
+///*
+//        memcpy(&tlg_len, h2h_tlg, sizeof(tlg_len));
 
-        if ( tlg_len != strlen(h2h_tlg+2)+2 )
-        {
-          ProgError(STDLOG, "H2H Error of TLG length");
-          return -1;
-        }
-*/
-        memset(h2h, 0, sizeof(H2H_MSG));
+//        if ( tlg_len != strlen(h2h_tlg+2)+2 )
+//        {
+//          ProgError(STDLOG, "H2H Error of TLG length");
+//          return -1;
+//        }
+//*/
+//        memset(h2h, 0, sizeof(H2H_MSG));
 
-        if ( memcmp(h2h_tlg, H2H_BEG_STR, strlen(H2H_BEG_STR)) )
-        {
-//        ProgTrace(1, STDLOG, "TLG not in H2H format");
-          strcpy(h2h->data, h2h_tlg);
-          return -1;
-        }
+//        if ( memcmp(h2h_tlg, H2H_BEG_STR, strlen(H2H_BEG_STR)) )
+//        {
+////        ProgTrace(1, STDLOG, "TLG not in H2H format");
+//          strcpy(h2h->data, h2h_tlg);
+//          return -1;
+//        }
 
-        h2h->type = h2h_tlg[4];
-/*
-        if ( h2h_tlg[8] != '/')
-        {
-                if ( h2h_tlg[8] == 'V' )
-                  part = 1;
-                else
-                if ( h2h_tlg[8] == 'U' )
-                  h2h->end = TRUE;
-                else
-                if ( h2h_tlg[8] == 'T' )
-                {
-                        if ( h2h_tlg[9] != '/' )
-                          part = h2h_tlg[9] - 64;               segment A - Z (1 - 26)
-                        else
-                          ProgError(STDLOG, "H2H Segment unknown");
-                }
-        }
-        h2h->part = part;
-*/
-        if ( h2h_tlg[8] != '/')
-        {
-                h2h->qri5 = h2h_tlg[8];
-                h2h->qri6 = h2h_tlg[9];
-        }
+//        h2h->type = h2h_tlg[4];
+///*
+//        if ( h2h_tlg[8] != '/')
+//        {
+//                if ( h2h_tlg[8] == 'V' )
+//                  part = 1;
+//                else
+//                if ( h2h_tlg[8] == 'U' )
+//                  h2h->end = TRUE;
+//                else
+//                if ( h2h_tlg[8] == 'T' )
+//                {
+//                        if ( h2h_tlg[9] != '/' )
+//                          part = h2h_tlg[9] - 64;               segment A - Z (1 - 26)
+//                        else
+//                          ProgError(STDLOG, "H2H Segment unknown");
+//                }
+//        }
+//        h2h->part = part;
+//*/
+//        if ( h2h_tlg[8] != '/')
+//        {
+//                h2h->qri5 = h2h_tlg[8];
+//                h2h->qri6 = h2h_tlg[9];
+//        }
 
-        if ( (p=strstr(h2h_tlg,"/E")) && (p1=strchr(p+1,'/')) && ((len=p1-p-3) <= 10) )
-        {
-                memcpy(h2h->sndr, p+3, len);
-                h2h->sndr[len] = 0;
-        }
-        else
-        {
-                ProgError(STDLOG, "H2H Sender too long");
-          return -1;
-        }
+//        if ( (p=strstr(h2h_tlg,"/E")) && (p1=strchr(p+1,'/')) && ((len=p1-p-3) <= 10) )
+//        {
+//                memcpy(h2h->sndr, p+3, len);
+//                h2h->sndr[len] = 0;
+//        }
+//        else
+//        {
+//                ProgError(STDLOG, "H2H Sender too long");
+//          return -1;
+//        }
 
-        if ( (p=strstr(h2h_tlg,"/I")) && (p1=strchr(p+1,'/')) && ((len=p1-p-3) <= 10) )
-        {
-                memcpy(h2h->rcvr, p+3, len);
-                h2h->rcvr[len] = 0;
-        }
-        else
-        {
-                ProgError(STDLOG, "H2H Receiver too long");
-          return -1;
-        }
+//        if ( (p=strstr(h2h_tlg,"/I")) && (p1=strchr(p+1,'/')) && ((len=p1-p-3) <= 10) )
+//        {
+//                memcpy(h2h->rcvr, p+3, len);
+//                h2h->rcvr[len] = 0;
+//        }
+//        else
+//        {
+//                ProgError(STDLOG, "H2H Receiver too long");
+//          return -1;
+//        }
 
-        p = strstr(p+1, "/P");
+//        p = strstr(p+1, "/P");
 
-        end_p = strchr(p, '\r');
+//        end_p = strchr(p, '\r');
 
-        if ( (why_p=strchr(p+1, '/')) && (why_p < end_p) )
-          p1 = why_p;
-        else
-          p1 = end_p;
+//        if ( (why_p=strchr(p+1, '/')) && (why_p < end_p) )
+//          p1 = why_p;
+//        else
+//          p1 = end_p;
 
-        if ( (len=p1-p-2) <= 20 )       /* -2 = "/P" */
-        {
-                memcpy(h2h->tpr, p+2, len);
-                h2h->tpr[len] = 0;
-        }
-        else
-        {
-                ProgError(STDLOG, "H2H TPR too long");
-          return -1;
-        }
+//        if ( (len=p1-p-2) <= 20 )       /* -2 = "/P" */
+//        {
+//                memcpy(h2h->tpr, p+2, len);
+//                h2h->tpr[len] = 0;
+//        }
+//        else
+//        {
+//                ProgError(STDLOG, "H2H TPR too long");
+//          return -1;
+//        }
 
-        if ( (p1 != end_p) && (end_p-p1-1 == 2) )
-        {
-                memcpy(h2h->err, p1+1, 2);
-                h2h->err[2] = 0;
-        }
+//        if ( (p1 != end_p) && (end_p-p1-1 == 2) )
+//        {
+//                memcpy(h2h->err, p1+1, 2);
+//                h2h->err[2] = 0;
+//        }
 
-        end_p = strchr(end_p+1, '\r');
+//        end_p = strchr(end_p+1, '\r');
 
-        if ( *(end_p+1) == 0x02 )                                               /*      if STX  */
-          end_p += 2;
-        else
-          end_p += 1;
+//        if ( *(end_p+1) == 0x02 )                                               /*      if STX  */
+//          end_p += 2;
+//        else
+//          end_p += 1;
 
-        strcpy(h2h->data, end_p);
+//        strcpy(h2h->data, end_p);
 
-        if ( h2h->data[strlen(h2h->data)-1] == 0x03 )   /*      if ETX  */
-          h2h->data[strlen(h2h->data)-1] = 0;
+//        if ( h2h->data[strlen(h2h->data)-1] == 0x03 )   /*      if ETX  */
+//          h2h->data[strlen(h2h->data)-1] = 0;
 
-  return (int)part;
-}
+//  return (int)part;
+//}

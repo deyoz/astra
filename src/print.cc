@@ -23,7 +23,8 @@
 #include "telegram.h"
 
 #define NICKNAME "DENIS"
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
+
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
 

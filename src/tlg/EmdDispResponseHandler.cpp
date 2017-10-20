@@ -19,13 +19,9 @@ namespace
 }//namespace
 
 
-EmdDispResponseHandler::EmdDispResponseHandler(_EDI_REAL_MES_STRUCT_ *pmes,
+EmdDispResponseHandler::EmdDispResponseHandler(_EDI_REAL_MES_STRUCT_ *pMes,
                                                const edilib::EdiSessRdData *edisess)
-    : AstraEdiResponseHandler(pmes, edisess)
-{
-}
-
-void EmdDispResponseHandler::parse()
+    : AstraEdiResponseHandler(pMes, edisess)
 {
 }
 
@@ -45,8 +41,9 @@ void EmdDispResponseHandler::handle()
             handleEmdDispResponse(*remoteResults());
         }
         break;
-    case edilib::EdiRespStatus::partial:
-    case edilib::EdiRespStatus::unsuccessfully:
+    case edilib::EdiRespStatus::partial:        
+    case edilib::EdiRespStatus::notProcessed:  
+    case edilib::EdiRespStatus::rejected:
         break;
     }
   }

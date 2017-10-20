@@ -6,12 +6,14 @@ $(init_jxt_pult Œ‚Œ)
 $(login)
 $(init_eds ’ UTET UTDC)
 
+$(PREPARE_FLIGHT_1 ’ 103 „Œ„ ‹Š REPIN IVAN)
 
-{<?xml version='1.0' encoding='UTF-8'?>
+
+{<?xml version='1.0' encoding='CP866'?>
  <term>
    <query handle='0' id='EMDSystemUpdate' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
      <DisassociateEMD>
-       <point_id>2276899</point_id>
+       <point_id>$(last_point_id_spp)</point_id>
        <TickNoEdit>2982348111616</TickNoEdit>
        <TickCpnNo>1</TickCpnNo>
        <EmdNoEdit>2981212121212</EmdNoEdit>
@@ -55,11 +57,13 @@ $(init_jxt_pult Œ‚Œ)
 $(login)
 $(init_eds ’ UTET UTDC)
 
-{<?xml version='1.0' encoding='UTF-8'?>
+$(PREPARE_FLIGHT_1 ’ 103 „Œ„ ‹Š REPIN IVAN)
+
+{<?xml version='1.0' encoding='CP866'?>
  <term>
    <query handle='0' id='EMDSystemUpdate' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
      <DisassociateEMD>
-       <point_id>2276899</point_id>
+       <point_id>$(last_point_id_spp)</point_id>
        <TickNoEdit>2982348111616</TickNoEdit>
        <TickCpnNo>1</TickCpnNo>
        <EmdNoEdit>2981212121212</EmdNoEdit>
@@ -100,11 +104,13 @@ $(init_jxt_pult Œ‚Œ)
 $(login)
 $(init_eds ’ UTET UTDC)
 
-{<?xml version='1.0' encoding='UTF-8'?>
+$(PREPARE_FLIGHT_1 ’ 103 „Œ„ ‹Š REPIN IVAN)
+
+{<?xml version='1.0' encoding='CP866'?>
  <term>
    <query handle='0' id='EMDSystemUpdate' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
      <DisassociateEMD>
-       <point_id>2276899</point_id>
+       <point_id>$(last_point_id_spp)</point_id>
        <TickNoEdit>2982348111616</TickNoEdit>
        <TickCpnNo>1</TickCpnNo>
        <EmdNoEdit>2981212121212</EmdNoEdit>

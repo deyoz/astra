@@ -16,15 +16,10 @@ using namespace std;
 namespace TlgHandling
 {
 
-EmdSysUpdateResponseHandler::EmdSysUpdateResponseHandler(_EDI_REAL_MES_STRUCT_ *pmes,
-                                                         const edilib::EdiSessRdData *edisess)
-    : AstraEdiResponseHandler(pmes, edisess)
+EmdSysUpdateResponseHandler::EmdSysUpdateResponseHandler(_EDI_REAL_MES_STRUCT_* pMes,
+                                                         const edilib::EdiSessRdData* edisess)
+    : AstraEdiResponseHandler(pMes, edisess)
 {
-}
-
-void EmdSysUpdateResponseHandler::parse()
-{
-
 }
 
 void EmdSysUpdateResponseHandler::handle()
@@ -90,24 +85,15 @@ void EmdSysUpdateResponseHandler::handle()
           event.prms << PrmSmpl<std::string>("err", EMDocItem.system_update_error);
 
         ProcEdiEvent(event, EMDCtxt, NULL, false);
-      };
-    };
+      }
+    }
+
     AstraContext::ClearContext("EDI_SESSION", ediSessId().get());
   }
   catch(std::exception &e)
   {
     ProgError(STDLOG, "EmdSysUpdateResponseHandler::handle: %s", e.what());
-  };
-}
-
-void EmdSysUpdateResponseHandler::onTimeOut()
-{
-
-}
-
-void EmdSysUpdateResponseHandler::onCONTRL()
-{
-
+  }
 }
 
 }//namespace TlgHandling

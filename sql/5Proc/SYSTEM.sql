@@ -1,4 +1,4 @@
-create or replace PACKAGE system
+CREATE OR REPLACE PACKAGE system
 AS
 
 SUBTYPE TEventType IS events_bilingual.type%TYPE;
@@ -34,7 +34,7 @@ FUNCTION is_name(str	IN VARCHAR2,
                  pr_lat IN INTEGER DEFAULT NULL,
                  symbols IN VARCHAR2 DEFAULT ' -') RETURN NUMBER;
 FUNCTION is_airline_name(str	IN VARCHAR2,
-                         pr_lat IN INTEGER DEFAULT NULL) RETURN NUMBER;
+                         pr_lat IN INTEGER DEFAULT NULL) RETURN NUMBER;                                         
 
 FUNCTION IsLeapYear( vYear NUMBER ) RETURN NUMBER;
 FUNCTION LastDayofMonth( vYear NUMBER, vMonth NUMBER ) RETURN NUMBER;
@@ -43,7 +43,7 @@ FUNCTION LOCALSYSDATE RETURN DATE;
 PRAGMA RESTRICT_REFERENCES (IsLeapYear, WNDS, WNPS, RNPS);
 PRAGMA RESTRICT_REFERENCES (LastDayofMonth, WNDS, WNPS, RNPS);
 PRAGMA RESTRICT_REFERENCES (UTCSYSDATE, WNDS, WNPS, RNPS);
-PRAGMA RESTRICT_REFERENCES (LOCALSYSDATE, WNDS, WNPS, RNPS);
+PRAGMA RESTRICT_REFERENCES (LOCALSYSDATE, WNDS, WNPS, RNPS);        
 
 TYPE TTranslitDicts IS TABLE OF translit_dicts%ROWTYPE INDEX BY translit_dicts.letter%TYPE;
 translit_dicts_t TTranslitDicts;

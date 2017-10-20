@@ -15,6 +15,8 @@
 #include "serverlib/dates_io.h"
 #include "serverlib/testmode.h"
 
+#include <boost/optional/optional_io.hpp>
+
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
 #include "serverlib/test.h"

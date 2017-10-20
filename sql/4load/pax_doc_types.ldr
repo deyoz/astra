@@ -1,0 +1,24 @@
+LOAD DATA
+INFILE *
+INTO TABLE pax_doc_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,name_lat
+,code_mintrans
+)
+BEGINDATA
+"T"|"Миграционная карта и виза на повторный въезд, перевозочный документ U.S."|"Re-entry permit or refugee travel document"|"99"
+"M"|"Военный билет"|"Military ID"|"08"
+"N"|"Документ, подтверждающий гражданство"|"Naturalization certificate"|"99"
+"V"|"Пассажирская виза"|"Passenger Visa"|"99"
+"F"|"Вспомогательные документы (свидетельство о рождении, права и прочее)"|"Facilitation documents (examples: driver's license, birth certificate, etc.)"|"99"
+"A"|"Удостоверение иностранца, проживающего в стране"|"Alien resident card"|"09"
+"C"|"Удостоверение постоянного резидента"|"Permanent resident card"|"99"
+"I"|"Удостоверение личности"|"ID card"|"99"
+"IP"|"Паспортная карта"|"Passport card"|"99"
+"P"|"Пассажирский паспорт"|"Passenger passport"|"99"
+"AC"|"Удостоверение члена экипажа"|"Crew member certificate"|"99"

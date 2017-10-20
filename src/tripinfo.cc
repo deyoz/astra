@@ -29,10 +29,13 @@
 #include "web_search.h"
 #include "sopp.h"
 #include "apps_interaction.h"
+#include "brands.h"
 #include "passenger.h"
 
+#include <serverlib/testmode.h>
+
 #define NICKNAME "VLAD"
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace std;
 using namespace BASIC::date_time;
@@ -451,7 +454,6 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   };
 
   vector<TTripListItem> list;
-
   if (!SQLfilter.access.totally_not_permitted())
   {
     TDateTime utc_date=NowUTC();
@@ -546,7 +548,9 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         {
           int point_id=Qry.FieldAsInteger("point_id");
 
-          if (!checkFinalStages(StagesQry, point_id, SQLfilter)) continue; //пропускаем, рейс не подходит по final_stages
+          if (!checkFinalStages(StagesQry, point_id, SQLfilter)) {
+              if(!inTestMode()) continue; //пропускаем, рейс не подходит по final_stages
+          }
 
           TTripInfo info(Qry);
 
@@ -754,7 +758,6 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       GetSegInfo(node, NULL, NewTextChild(segsNode,"segment"), first_point_id);
   };
   TProfiledRights(first_point_id).toXML(dataNode);
-  LogTrace(TRACE5) << GetXMLDocText(resNode->doc);
 };
 
 void TripsInterface::PectabsResponse(int point_id, xmlNodePtr reqNode, xmlNodePtr dataNode)
@@ -1247,8 +1250,18 @@ void TripsInterface::readHalls( std::string airp_dep, std::string work_mode, xml
     xmlNodePtr itemNode = NewTextChild( node, "hall" );
     NewTextChild( itemNode, "id", Qry.FieldAsInteger( "id" ) );
     NewTextChild( itemNode, "name", ElemIdToNameLong( etHall, Qry.FieldAsInteger( "id" ) ) );
-  };
-};
+  }
+}
+
+TripsInterface* TripsInterface::instance()
+{
+    static TripsInterface* inst = 0;
+    if(!inst) {
+        inst = new TripsInterface();
+    }
+    return inst;
+}
+
 
 class TPaxLoadItem
 {

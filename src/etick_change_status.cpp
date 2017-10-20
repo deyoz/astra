@@ -1,18 +1,14 @@
-//
-// C++ Implementation: etick_change_status
-//
-// Description: Функции запроса на смену статуса
-//
-// Roman
-#define NICKNAME "ROMAN"
-#include "serverlib/test.h"
-
 #include "etick_change_status.h"
 #include "astra_ticket.h"
-#include "edilib/edi_func_cpp.h"
-#include "tlg/edi_tlg.h"
 #include "astra_tick_read_edi.h"
 #include "exceptions.h"
+#include "tlg/edi_tlg.h"
+#include "tlg/et_cos_request.h"
+
+#include <edilib/edi_func_cpp.h>
+
+#define NICKNAME "ANTON"
+#include <serverlib/slogger.h>
 
 namespace Ticketing
 {
@@ -25,18 +21,30 @@ namespace ChangeStatus
                         const std::list<Ticket> &lTick,
                         const std::string &ediSessCtxt,
                         const edifact::KickInfo &kickInfo,
+                        const std::string& airline,
+                        const Ticketing::FlightNum_t& flNum,
                         Ticketing::Itin* itin)
     {
         ProgTrace(TRACE2,"request for change of status from:");
         org.Trace(TRACE2);
+        LogTrace(TRACE3) << "airline: " << airline;
+        LogTrace(TRACE3) << "flNum: " << flNum;
         Ticket::Trace(TRACE2, lTick);
         if(itin)
         {
             itin->Trace(TRACE2);
         }
 
-        ChngStatData chngData(org,ediSessCtxt,kickInfo,lTick,itin);
-        SendEdiTlgTKCREQ_ChangeStat(chngData);
+        edifact::EtCosParams chngData(org,
+                                      ediSessCtxt,
+                                      kickInfo,
+                                      airline,
+                                      flNum,
+                                      lTick,
+                                      itin);
+
+        edifact::EtCosRequest cosReq(chngData);
+        cosReq.sendTlg();
     }
 
     ChngStatAnswer ChngStatAnswer::readEdiTlg(EDI_REAL_MES_STRUCT *pMes)
@@ -96,6 +104,20 @@ namespace ChangeStatus
         }
         PopEdiPointG(pMes);
         return ChngStatAnswer(lTick, errMap);
+    }
+
+    ChngStatAnswer ChngStatAnswer::readEdiTlg(const std::string& tlgText)
+    {
+        int ret = ReadEdiMessage(tlgText.c_str());
+        if(ret == EDI_MES_STRUCT_ERR){
+          throw EXCEPTIONS::Exception("Error in message structure: %s",EdiErrGetString());
+        } else if( ret == EDI_MES_NOT_FND){
+          throw EXCEPTIONS::Exception("No message found in template: %s",EdiErrGetString());
+        } else if( ret == EDI_MES_ERR) {
+          throw EXCEPTIONS::Exception("Edifact error ");
+        }
+
+        return readEdiTlg(GetEdiMesStruct());
     }
 
     std::string ChngStatAnswer::err2Tick(const std::string & tnum, unsigned cpn) const

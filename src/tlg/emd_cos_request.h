@@ -10,9 +10,9 @@
 namespace edifact
 {
 
-class EmdCOSParams: public EmdRequestParams
+class EmdCosParams: public EmdRequestParams
 {
-    friend class EmdCOSRequest;
+    friend class EmdCosRequest;
     
     class EmdCOSItem
     {
@@ -33,10 +33,7 @@ class EmdCOSParams: public EmdRequestParams
     };
     
 public:
-    /**
-     * @brief Конструктор объекта параметров для смены статуса ОДНОГО купона EMD
-    */
-    EmdCOSParams(const Ticketing::OrigOfRequest& org,
+    EmdCosParams(const Ticketing::OrigOfRequest& org,
                  const std::string& ctxt,
                  const edifact::KickInfo& kickInfo,
                  const std::string& airline,
@@ -46,11 +43,7 @@ public:
                  const Ticketing::CouponStatus& status,
                  const boost::optional<Ticketing::Itin>& itin = boost::optional<Ticketing::Itin>());
     
-    /**
-     * @brief Конструктор объекта параметров для смена статуса купонов EMD,
-     *        добавляемых методом addCoupon
-    */
-    EmdCOSParams(const Ticketing::OrigOfRequest& org,
+    EmdCosParams(const Ticketing::OrigOfRequest& org,
                  const std::string& ctxt,
                  const edifact::KickInfo& kickInfo,
                  const std::string& airline,
@@ -70,17 +63,17 @@ private:
 
 //-----------------------------------------------------------------------------
 
-class EmdCOSRequest: public EmdRequest
+class EmdCosRequest: public EmdRequest
 {
-    EmdCOSParams m_cosParams;
+    EmdCosParams m_cosParams;
     
 public:
-    EmdCOSRequest(const EmdCOSParams& cosParams);
+    EmdCosRequest(const EmdCosParams& cosParams);
 
     virtual std::string mesFuncCode() const;
     virtual void collectMessage();
 
-    virtual ~EmdCOSRequest() {}
+    virtual ~EmdCosRequest() {}
 };
 
 }//namespace edifact

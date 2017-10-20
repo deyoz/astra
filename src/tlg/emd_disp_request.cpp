@@ -1,4 +1,7 @@
-#include "config.h"
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include "astra_context.h"
 #include "astra_ticket.h"
 #include "remote_results.h"
@@ -42,38 +45,3 @@ std::string EmdDispRequestByNum::mesFuncCode() const
 }
 
 }//namespace edifact
-
-
-#ifdef XP_TESTING
-#include <serverlib/func_placeholders.h>
-
-void runEdiTimer_4testsOnly();
-
-static std::string FP_init_eds(const std::vector<std::string> &p)
-{
-    using namespace Ticketing::RemoteSystemContext;
-
-    ASSERT(p.size() == 3);
-    std::string airline = p.at(0);
-    std::string ediAddrTo = p.at(1);
-    std::string ediAddrFrom = p.at(2);
-
-    EdsSystemContext::create4TestsOnly(airline, ediAddrTo, ediAddrFrom);
-
-    // for compatibility
-    set_edi_addrs(std::make_pair(ediAddrFrom, ediAddrTo));
-    return "";
-}
-
-std::string FP_run_daemon(const std::vector<std::string> &params) {
-    assert(params.size() > 0);
-    if(params.at(0) == "edi_timeout") {
-        runEdiTimer_4testsOnly();
-    }
-    return "";
-}
-
-FP_REGISTER("init_eds",   FP_init_eds);
-FP_REGISTER("run_daemon", FP_run_daemon);
-
-#endif /* XP_TESTING */

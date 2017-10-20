@@ -1,12 +1,11 @@
 #ifndef _ETICK_H_
 #define _ETICK_H_
 
-#include "jxtlib/JxtInterface.h"
-#include "jxtlib/xmllibcpp.h"
 #include "date_time.h"
 #include "astra_utils.h"
 #include "astra_ticket.h"
 #include "astra_misc.h"
+#include "astra_iface.h"
 #include "xml_unit.h"
 #include "edi_utils.h"
 #include "emdoc.h"
@@ -14,10 +13,13 @@
 #include "qrys.h"
 #include "tlg/EdifactRequest.h"
 
+#include <jxtlib/xmllibcpp.h>
+
 using BASIC::date_time::TDateTime;
 
 namespace edifact{
     class RemoteResults;
+    class KickInfo;
 }//namespace edifact
 
 class ETSearchParams
@@ -197,17 +199,15 @@ class TETickItem
 
 void ETDisplayToDB(const Ticketing::Pnr &pnr);
 
-class ETSearchInterface : public JxtInterface
+class ETSearchInterface : public AstraJxtIface
 {
 public:
   enum SearchPurpose {spETDisplay, spTlgETDisplay, spEMDDisplay, spEMDRefresh};
 
-  ETSearchInterface() : JxtInterface("ETSearchForm","ETSearchForm")
+  ETSearchInterface() : AstraJxtIface("ETSearchForm")
   {
-     Handler *evHandle;
-     evHandle=JxtHandler<ETSearchInterface>::CreateHandler(&ETSearchInterface::SearchETByTickNo);
-     AddEvent("SearchETByTickNo",evHandle);
-     AddEvent("kick", JxtHandler<ETSearchInterface>::CreateHandler(&ETSearchInterface::KickHandler));
+     AddEvent("SearchETByTickNo", JXT_HANDLER(ETSearchInterface, SearchETByTickNo));
+     AddEvent("kick",             JXT_HANDLER(ETSearchInterface, KickHandler));
   }
 
   void SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -220,10 +220,10 @@ public:
 
 };
 
-class EMDSearchInterface : public JxtInterface
+class EMDSearchInterface : public AstraJxtIface
 {
 public:
-    EMDSearchInterface() : JxtInterface("", "EMDSearch")
+    EMDSearchInterface() : AstraJxtIface("EMDSearch")
     {
         AddEvent("EMDTextView",      JXT_HANDLER(EMDSearchInterface, EMDTextView));
         AddEvent("SearchEMDByDocNo", JXT_HANDLER(EMDSearchInterface, SearchEMDByDocNo));
@@ -236,10 +236,10 @@ public:
     virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 };
 
-class EMDDisplayInterface : public JxtInterface
+class EMDDisplayInterface : public AstraJxtIface
 {
 public:
-    EMDDisplayInterface() : JxtInterface("", "EMDDisplay")
+    EMDDisplayInterface() : AstraJxtIface("EMDDisplay")
     {
         AddEvent("kick",             JXT_HANDLER(EMDDisplayInterface, KickHandler));
     }
@@ -261,10 +261,10 @@ class TEMDSystemUpdateItem
 
 typedef std::list< std::pair<TEMDSystemUpdateItem, XMLDoc> > TEMDSystemUpdateList;
 
-class EMDSystemUpdateInterface : public JxtInterface
+class EMDSystemUpdateInterface : public AstraJxtIface
 {
 public:
-    EMDSystemUpdateInterface() : JxtInterface("", "EMDSystemUpdate")
+    EMDSystemUpdateInterface() : AstraJxtIface("EMDSystemUpdate")
     {
         AddEvent("DisassociateEMD", JXT_HANDLER(EMDSystemUpdateInterface, SysUpdateEmdCoupon));
         AddEvent("AssociateEMD",    JXT_HANDLER(EMDSystemUpdateInterface, SysUpdateEmdCoupon));
@@ -354,18 +354,16 @@ class TChangeStatusList
     }
 };
 
-class ETStatusInterface : public JxtInterface
+class ETStatusInterface : public AstraJxtIface
 {
 public:
-  ETStatusInterface() : JxtInterface("ETStatus","ETStatus")
+  ETStatusInterface() : AstraJxtIface("ETStatus")
   {
-     Handler *evHandle;
-     evHandle=JxtHandler<ETStatusInterface>::CreateHandler(&ETStatusInterface::SetTripETStatus);
-     AddEvent("SetTripETStatus",evHandle);
 
-     AddEvent("ChangePaxStatus",JxtHandler<ETStatusInterface>::CreateHandler(&ETStatusInterface::ChangePaxStatus));
-     AddEvent("ChangeGrpStatus",JxtHandler<ETStatusInterface>::CreateHandler(&ETStatusInterface::ChangeGrpStatus));
-     AddEvent("ChangeFltStatus",JxtHandler<ETStatusInterface>::CreateHandler(&ETStatusInterface::ChangeFltStatus));
+     AddEvent("SetTripETStatus", JXT_HANDLER(ETStatusInterface, SetTripETStatus));
+     AddEvent("ChangePaxStatus", JXT_HANDLER(ETStatusInterface, ChangePaxStatus));
+     AddEvent("ChangeGrpStatus", JXT_HANDLER(ETStatusInterface, ChangeGrpStatus));
+     AddEvent("ChangeFltStatus", JXT_HANDLER(ETStatusInterface, ChangeFltStatus));
   }
 
   void SetTripETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -393,10 +391,10 @@ public:
                              const TETChangeStatusList &mtick);
 };
 
-class EMDStatusInterface: public JxtInterface
+class EMDStatusInterface: public AstraJxtIface
 {
 public:
-    EMDStatusInterface(): JxtInterface("EMDStatus", "EMDStatus")
+    EMDStatusInterface(): AstraJxtIface("EMDStatus")
     {
         AddEvent("ChangeStatus",    JXT_HANDLER(EMDStatusInterface, ChangeStatus));
         AddEvent("kick",            JXT_HANDLER(EMDStatusInterface, KickHandler));
@@ -414,10 +412,10 @@ public:
                                 const TEMDChangeStatusList &emdList);
 };
 
-class ChangeStatusInterface: public JxtInterface
+class ChangeStatusInterface: public AstraJxtIface
 {
   public:
-    ChangeStatusInterface(): JxtInterface("ChangeStatus", "ChangeStatus")
+    ChangeStatusInterface(): AstraJxtIface("ChangeStatus")
     {
         AddEvent("kick",            JXT_HANDLER(ChangeStatusInterface, KickHandler));
     }
@@ -427,18 +425,22 @@ class ChangeStatusInterface: public JxtInterface
 
     static void ChangeStatus(const xmlNodePtr reqNode,
                              const TChangeStatusList &info);
+
+  protected:
+    void KickOnAnswer(xmlNodePtr reqNode, xmlNodePtr resNode);
+    void KickOnTimeout(xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
 void ContinueCheckin(xmlNodePtr termReqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode);
 
-class EMDAutoBoundInterface: public JxtInterface
+class EMDAutoBoundInterface: public AstraJxtIface
 {
   private:
     static bool BeforeLock(const EMDAutoBoundId &id, int &point_id, int &grp_id);
   public:
-    EMDAutoBoundInterface(): JxtInterface("EMDAutoBound", "EMDAutoBound")
+    EMDAutoBoundInterface(): AstraJxtIface("EMDAutoBound")
     {
-        AddEvent("kick",            JXT_HANDLER(EMDAutoBoundInterface, KickHandler));
+        AddEvent("kick", JXT_HANDLER(EMDAutoBoundInterface, KickHandler));
     }
 
     void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -450,11 +452,24 @@ class EMDAutoBoundInterface: public JxtInterface
     static void EMDTryBind(const TCkinGrpIds &tckin_grp_ids, xmlNodePtr termReqNode, xmlNodePtr ediResNode);
 };
 
+class ETRequestACInterface: public AstraJxtIface
+{
+public:
+    ETRequestACInterface(): AstraJxtIface("RequestAC")
+    {
+        AddEvent("RequestControl", JXT_HANDLER(ETRequestACInterface, RequestControl));
+        AddEvent("kick",           JXT_HANDLER(ETRequestACInterface, KickHandler));
+    }
+
+    void RequestControl(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+};
+
 
 inline xmlNodePtr astra_iface(xmlNodePtr resNode, const std::string &iface_id)
 {
 
-    xmlSetProp(resNode,"handle", "1");
+    xmlSetProp(resNode,"handle","1");
 
     xmlNodePtr ifaceNode=getNode(resNode,"interface");
     xmlSetProp(ifaceNode,"id",iface_id);
@@ -462,6 +477,12 @@ inline xmlNodePtr astra_iface(xmlNodePtr resNode, const std::string &iface_id)
 
     return ifaceNode;
 }
+
+void handleEtDispResponse(const edifact::RemoteResults& remRes);
+void handleEtCosResponse(const edifact::RemoteResults& remRes);
+void handleEtRacResponse(const edifact::RemoteResults& remRes);
+
+void handleEtUac(const std::string& uac);
 
 #endif
 
