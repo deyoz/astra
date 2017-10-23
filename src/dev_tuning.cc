@@ -12,6 +12,7 @@
 #include "cache.h"
 #include "jxtlib/xml_stuff.h"
 #include "dev_utils.h"
+#include "term_version.h"
 
 #define NICKNAME "DEN"
 #include "serverlib/test.h"
@@ -187,7 +188,10 @@ void DevTuningInterface::Load(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         throw AstraLocale::UserException("MSG.TUNE.FORM_NOT_ACCESSIBLE.REFRES_DATA");
 
     TDevFmt::Enum fmt_type = DevFmtTypes().decode(Qry.FieldAsString("fmt_type"));
-    if(fmt_type == TDevFmt::Graphics2D)
+    if(
+            not TReqInfo::Instance()->desk.compatible(GRAPHICS2D_VERSION) and
+            fmt_type == TDevFmt::Graphics2D
+      )
         throw UserException("MSG.TEMPORARILY_NOT_SUPPORTED");
     xmlNodePtr prnFormNode = NewTextChild(resNode, "prn_form");
     NewTextChild(prnFormNode, "fmt_type", Qry.FieldAsString("fmt_type"));
