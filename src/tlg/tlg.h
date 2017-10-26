@@ -97,7 +97,9 @@ int sendTlg(const char* receiver,
             int typeb_tlg_id,
             int typeb_tlg_num);
 
-void sendEdiTlg(TlgHandling::TlgSourceEdifact& tlg, int ttl=20);
+void sendEdiTlg(TlgHandling::TlgSourceEdifact& tlg,
+                TTlgQueuePriority queuePriority,
+                int ttl=20);
 void sendTpbTlg(TlgHandling::TlgSourceTypeB& tlg);
 
 int loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_error);

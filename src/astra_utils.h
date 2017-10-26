@@ -367,6 +367,8 @@ class TUser {
 
 class TDesk {
   public:
+    static const std::string system_code;
+
     std::string code;
     std::string city,airp,airline;
     std::string tz_region;
@@ -539,8 +541,8 @@ std::string EncodeOperMode(const ASTRA::TOperMode mode );
 ASTRA::TEventType DecodeEventType( const std::string ev_type );
 std::string EncodeEventType( const ASTRA::TEventType ev_type );
 
-std::string& AirpTZRegion(std::string airp, bool with_exception=true);
-std::string& CityTZRegion(std::string city, bool with_exception=true);
+const std::string& AirpTZRegion(std::string airp, bool with_exception=true);
+const std::string& CityTZRegion(std::string city, bool with_exception=true);
 std::string DeskCity(std::string desk, bool with_exception=true);
 
 TCountriesRow getCountryByAirp( const std::string& airp);

@@ -76,7 +76,7 @@ public:
     static void add(const std::string &msgId,
                     const std::string &pult,
                     const edilib::EdiSessionId_t &edisess,
-                    const Ticketing::SystemAddrs_t &remoteId);    
+                    const Ticketing::SystemAddrs_t &remoteId);
 
     /**
      * @brief to whom
@@ -85,6 +85,8 @@ public:
     const std::string &msgId() const { return MsgId; }
 
     const std::string &pult() const { return Pult; }
+
+    bool isSystemPult() const;
 
     const RemoteStatus &status() const { return Status; }
 
@@ -146,7 +148,7 @@ public:
      */
     void writeDb();
 
-    void updateDb() const;    
+    void updateDb() const;
 
     static void cleanOldRecords(const int min_ago);
 

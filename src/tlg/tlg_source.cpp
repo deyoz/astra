@@ -323,9 +323,9 @@ TlgSourceTypified::TlgSourceTypified(const TlgSource & src)
 void TlgSourceTypified::writeToDb(TlgSourceTypified& tlg)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " called!";
-    int tlgNum = saveTlg(tlg.fromRot().c_str(),
-                         tlg.toRot().c_str(),
-                         tlg.name(),
+    int tlgNum = saveTlg(tlg.toRot().c_str(),
+                         tlg.fromRot().c_str(),
+                         tlg.nameToDB(true),
                          tlg.text().c_str());
 
     tlg.setTlgNum(tlgNum);

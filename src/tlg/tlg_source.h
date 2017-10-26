@@ -292,6 +292,7 @@ public:
     }
 
     virtual const char *name() const = 0;
+    virtual const char *nameToDB(bool out) const = 0;
 
     /**
      * Тип телеграммы числом
@@ -340,6 +341,7 @@ public:
     }
 
     virtual const char *name() const { return "UNKNOWN"; }
+    virtual const char *nameToDB(bool out) const { return "UNKNOWN"; }
     virtual tlg_type_t type() const { return TlgType::unknown; }
     virtual void setTlgSubtype(const std::string &stype){}
 };

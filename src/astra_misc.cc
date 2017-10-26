@@ -145,7 +145,7 @@ void TTripInfo::get_client_dates(TDateTime &scd_out_client, TDateTime &real_out_
 
   if (airp.empty() || scd_out==ASTRA::NoExists) return;
 
-  string &tz_region=AirpTZRegion(airp);
+  const string &tz_region=AirpTZRegion(airp);
   scd_out_client=UTCToClient(scd_out,tz_region);
   if (trunc_time)
     modf(scd_out_client,&scd_out_client);

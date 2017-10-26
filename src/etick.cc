@@ -806,7 +806,7 @@ void EMDSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
     {
         LogTrace(TRACE1) << "Remote error!";
         throw AstraLocale::UserException("MSG.ETICK.ETS_ERROR", LParams() << LParam("msg", "Remote error!"));
-        //AddRemoteResultsMessageBox(resNode, *res);
+        //AddRemoteResultsMessageBox(resNode, *res); //!!!vlad
     }
     else
     {
@@ -2697,7 +2697,11 @@ void handleEtDispResponse(const edifact::RemoteResults& remRes)
         ProgTrace(TRACE5, ">>>> %s: unknown error", __FUNCTION__);
     }
     //для фонового режима выйти и не продолжать с контекстом
-    if (remRes.pult()=="SYSTEM") return;
+    if (remRes.isSystemPult())
+    {
+      LogTrace(TRACE5) << __FUNCTION__ << ": remRes.isSystemPult()=true";
+      return;
+    };
 
     std::string ctxt;
     AstraContext::GetContext("EDI_SESSION", ediSessId.get(), ctxt);

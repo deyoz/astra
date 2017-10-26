@@ -911,7 +911,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
 
   readOperFltHeader(info,node);
 
-  string &tz_region=AirpTZRegion(info.airp);
+  const string &tz_region=AirpTZRegion(info.airp);
   TDateTime scd_out_client,
             act_out_client,
             real_out_client;
@@ -2601,7 +2601,7 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
   xmlNodePtr node = NewTextChild( resNode, "tripheader" );
   NewTextChild( node, "point_id", Qry.FieldAsInteger( "point_id" ) );
 
-  string &tz_region=AirpTZRegion(info.airp);
+  const string &tz_region=AirpTZRegion(info.airp);
 
   NewTextChild( node, "scd_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region), "hh:nn") );
   if (!Qry.FieldIsNULL("est_out")) {

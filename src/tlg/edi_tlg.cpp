@@ -281,7 +281,7 @@ int FuncAfterEdiProc(edi_mes_head *pHead, void *udata, int *err)
             //Это важная строчка!
             //После очередного окончания обработки телеграммы в фоновом режиме
             //отправщику посылается уведомление о том, что он может отправить следующую с типом 'step by step'
-            if (data->sessData()->ediSession()->pult()=="SYSTEM")
+            if (data->sessData()->ediSession()->pult()==TDesk::system_code)
               registerHookAfter(sendCmdTlgSndStepByStep);
         }
         catch (edilib::Exception &x){
@@ -345,7 +345,7 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
 
         ProgTrace(TRACE1,"tlg out: %s", tlg.c_str());
         TTlgQueuePriority queuePriority=qpOutA;
-        if (ed->sessData()->ediSession()->pult()=="SYSTEM")
+        if (ed->sessData()->ediSession()->pult()==TDesk::system_code)
           queuePriority=qpOutAStepByStep;  //в фоновом режиме можем себе позволить не торопиться
 
         sendTlg(get_canon_name(edi_addr).c_str(),
@@ -680,6 +680,11 @@ void AstraEdiHandlerManager::afterProc()
         if(sessionHandler()->ediSession()->mustBeDeleted()) {
             TlgHandling::PostponeEdiHandling::deleteWaiting(sessionHandler()->ediSession()->ida());
         }
+        if (sessionHandler()->ediSession()->pult()==TDesk::system_code)
+        {
+          registerHookAfter(sendCmdTlgSndStepByStep);
+          LogTrace(TRACE5) << __FUNCTION__ << ": registerHookAfter(sendCmdTlgSndStepByStep)";
+        };
     }
 }
 
