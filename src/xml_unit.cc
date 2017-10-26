@@ -750,6 +750,14 @@ XMLDoc::XMLDoc(const char *root)
   set(root);
 };
 
+XMLDoc::XMLDoc(const std::string &root, xmlNodePtr &rootNode, const std::string &whence) : XMLDoc(root.c_str())
+{
+  rootNode=nullptr;
+  if (docPtr()==nullptr)
+    throw EXCEPTIONS::Exception("%s: XMLDoc not created", whence.c_str());
+  rootNode=NodeAsNode(string("/"+root).c_str(), docPtr());
+}
+
 XMLDoc::XMLDoc(const std::string &text)
 {
   set(text);
@@ -777,6 +785,11 @@ void XMLDoc::set(const std::string &text)
   else
     docPtrCoverPtr.reset(new xmlDocPtrCover(NULL));
 };
+
+std::string XMLDoc::text() const
+{
+  return XMLTreeToText(docPtr());
+}
 
 bool ValidXMLChar( const char c )
 {

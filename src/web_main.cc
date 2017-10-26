@@ -4008,14 +4008,14 @@ void SyncCHKD(int point_id_spp, bool sync_all)
     SyncCHKD(Qry.FieldAsInteger("point_id_tlg"), point_id_spp, sync_all);
 };
 
-void SyncNewCHKD(int point_id_spp, const string& task_name, const string& params)
+void SyncNewCHKD(const TTripTaskKey &task)
 {
-  SyncCHKD(point_id_spp, false);
+  SyncCHKD(task.point_id, false);
 };
 
-void SyncAllCHKD(int point_id_spp, const string& task_name, const string& params)
+void SyncAllCHKD(const TTripTaskKey &task)
 {
-  SyncCHKD(point_id_spp, true);
+  SyncCHKD(task.point_id, true);
 };
 
 } //namespace TypeB

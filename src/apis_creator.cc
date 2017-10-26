@@ -22,10 +22,10 @@ bool TApisDataset::FromDB(int point_id, const string& task_name)
 {
   try
   {
-#if APIS_TEST    
+#if APIS_TEST
     if (test_map == nullptr)
       return false;
-#endif      
+#endif
     TQuery Qry(&OraSession);
     Qry.SQLText =
     "SELECT airline, flt_no, suffix, airp, scd_out, act_out, "
@@ -117,7 +117,7 @@ bool TApisDataset::FromDB(int point_id, const string& task_name)
       if (RouteQry.Eof)
         continue;
 
-      TCountriesRow country_arv = (TCountriesRow&)base_tables.get("countries").get_row("code",RouteQry.FieldAsString("country"));
+      const TCountriesRow& country_arv = (const TCountriesRow&)base_tables.get("countries").get_row("code",RouteQry.FieldAsString("country"));
       rd.country_arv_code = country_arv.code;
       rd.country_arv_code_lat = country_arv.code_lat;
       rd.country_regul_dep = APIS::GetCustomsRegulCountry(rd.country_dep, CustomsQry);
@@ -131,26 +131,26 @@ bool TApisDataset::FromDB(int point_id, const string& task_name)
 
       if  (!( rd.task_name.empty()
               ||
-              (rd.use_us_customs_tasks && 
+              (rd.use_us_customs_tasks &&
               (rd.task_name==BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL || rd.task_name==BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL ))
               ||
               (!rd.use_us_customs_tasks &&
-              (rd.task_name==ON_TAKEOFF || rd.task_name==ON_CLOSE_CHECKIN || rd.task_name==ON_CLOSE_BOARDING )) )) 
+              (rd.task_name==ON_TAKEOFF || rd.task_name==ON_CLOSE_CHECKIN || rd.task_name==ON_CLOSE_BOARDING )) ))
         continue;
 
       //получим информацию по настройке APIS
-#if !APIS_TEST_ALL_FORMATS      
+#if !APIS_TEST_ALL_FORMATS
       ApisSetsQry.SetVariable("country_arv", rd.country_arv_code);
 #endif
       ApisSetsQry.Execute();
       if (ApisSetsQry.Eof)
         continue;
-    
+
       rd.flt_no = Qry.FieldAsInteger("flt_no");
 
       if (!Qry.FieldIsNULL("suffix"))
       {
-        TTripSuffixesRow suffixRow = (TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code",Qry.FieldAsString("suffix"));
+        const TTripSuffixesRow& suffixRow = (const TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code",Qry.FieldAsString("suffix"));
         if (suffixRow.code_lat.empty())
           throw Exception("suffixRow.code_lat empty (code=%s)",suffixRow.code.c_str());
         rd.suffix = suffixRow.code_lat;
@@ -191,9 +191,9 @@ bool TApisDataset::FromDB(int point_id, const string& task_name)
         FlightlegDataset leg;
         RouteQry.SetVariable("point_id",r->point_id);
         RouteQry.Execute();
-        if (RouteQry.Eof) 
+        if (RouteQry.Eof)
           continue;
-        TAirpsRow airp = (TAirpsRow&)base_tables.get("airps").get_row("code",RouteQry.FieldAsString("airp"));
+        const TAirpsRow& airp = (const TAirpsRow&)base_tables.get("airps").get_row("code",RouteQry.FieldAsString("airp"));
         leg.airp_code_lat = airp.code_lat;
         leg.airp_code = airp.code;
         string tz_region = AirpTZRegion(airp.code);
@@ -202,7 +202,7 @@ bool TApisDataset::FromDB(int point_id, const string& task_name)
           leg.scd_out_local	= UTCToLocal(RouteQry.FieldAsDateTime("scd_out"),tz_region);
         if (!RouteQry.FieldIsNULL("scd_in"))
           leg.scd_in_local = UTCToLocal(RouteQry.FieldAsDateTime("scd_in"),tz_region);
-        TCountriesRow countryRow = (TCountriesRow&)base_tables.get("countries").get_row("code",RouteQry.FieldAsString("country"));
+        const TCountriesRow& countryRow = (const TCountriesRow&)base_tables.get("countries").get_row("code",RouteQry.FieldAsString("country"));
         leg.country_code_iso = countryRow.code_iso;
         leg.country_code = countryRow.code;
         rd.lstLegs.push_back(leg);
@@ -236,7 +236,7 @@ bool TApisDataset::FromDB(int point_id, const string& task_name)
 
         if (!PaxQry.FieldIsNULL("airp_final"))
         {
-          TAirpsRow airp_final = (TAirpsRow&)base_tables.get("airps").get_row("code",PaxQry.FieldAsString("airp_final"));
+          const TAirpsRow& airp_final = (const TAirpsRow&)base_tables.get("airps").get_row("code",PaxQry.FieldAsString("airp_final"));
           pax.airp_final_lat = airp_final.code_lat;
           pax.airp_final_code = airp_final.code;
         }
@@ -408,9 +408,9 @@ void CreateEdi( const TApisRouteData& route,
       FlightLegs legs;
       for (list<FlightlegDataset>::const_iterator iLeg = route.lstLegs.begin(); iLeg != route.lstLegs.end(); ++iLeg)
       {
-        if (iLeg->airp_code_lat.empty()) 
+        if (iLeg->airp_code_lat.empty())
           throw EXCEPTIONS::Exception("airp.code_lat empty (code=%s)",iLeg->airp_code.c_str());
-        if (iLeg->country_code_iso.empty()) 
+        if (iLeg->country_code_iso.empty())
           throw EXCEPTIONS::Exception("countryRow.code_iso empty (code=%s)",iLeg->country_code.c_str());
         legs.push_back(FlightLeg(iLeg->airp_code_lat, iLeg->country_code_iso, iLeg->scd_in_local, iLeg->scd_out_local));
       }
@@ -419,8 +419,8 @@ void CreateEdi( const TApisRouteData& route,
     }
   } // for int pass
 
-  for ( list<TApisPaxData>::const_iterator iPax = route.lstPaxData.begin(); 
-        iPax != route.lstPaxData.end(); 
+  for ( list<TApisPaxData>::const_iterator iPax = route.lstPaxData.begin();
+        iPax != route.lstPaxData.end();
         ++iPax)
   {
     Paxlst::PassengerInfo paxInfo;
@@ -466,13 +466,13 @@ void CreateEdi( const TApisRouteData& route,
       mktflt.getByPaxId(iPax->id);
       if (!mktflt.empty())
       {
-        TAirlinesRow &mkt_airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code",mktflt.airline);
+        const TAirlinesRow &mkt_airline = (const TAirlinesRow&)base_tables.get("airlines").get_row("code",mktflt.airline);
         if (mkt_airline.code_lat.empty())
           throw Exception("mkt_airline.code_lat empty (code=%s)",mkt_airline.code.c_str());
         string mkt_flt = IntToString(mktflt.flt_no);
         if (!mktflt.suffix.empty())
         {
-          TTripSuffixesRow &mkt_suffix = (TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code",mktflt.suffix);
+          const TTripSuffixesRow &mkt_suffix = (const TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code",mktflt.suffix);
           if (mkt_suffix.code_lat.empty())
             throw Exception("mkt_suffix.code_lat empty (code=%s)",mkt_suffix.code.c_str());
           mkt_flt = mkt_flt + mkt_suffix.code_lat;
@@ -698,7 +698,7 @@ bool CreateEdiFile2(  const TApisRouteData& route,
   int passengers_count = FPM.passengersList().size();
   int crew_count = FCM.passengersList().size();
   // сформируем файл
-  if ( format.rule(_file_XML_TR) && ( passengers_count || crew_count )) 
+  if ( format.rule(_file_XML_TR) && ( passengers_count || crew_count ))
   {
     XMLDoc doc;
     doc.set("FlightMessage");
@@ -706,7 +706,7 @@ bool CreateEdiFile2(  const TApisRouteData& route,
       throw EXCEPTIONS::Exception("CreateEdiFile2: CreateXMLDoc failed");
     xmlNodePtr apisNode=xmlDocGetRootElement(doc.docPtr());
     int version = 0;
-#if !APIS_TEST    
+#if !APIS_TEST
     if (get_trip_apis_param(route.dataset_point_id, "XML_TR", "version", version))
       version++;
     set_trip_apis_param(route.dataset_point_id, "XML_TR", "version", version);
@@ -716,17 +716,17 @@ bool CreateEdiFile2(  const TApisRouteData& route,
     text = GetXMLDocText(doc.docPtr());
     type = APIS_TR;
   }
-  else if ( format.rule(_file_LT) && passengers_count ) 
+  else if ( format.rule(_file_LT) && passengers_count )
   {
     type = APIS_LT;
     text = FPM.toEdiString();
   }
   // положим апис в очередь на отправку
-  if ( !text.empty() ) 
+  if ( !text.empty() )
   {
     TFileQueue::add_sets_params(route.airp_dep_code(), route.airline_code(), IntToString(route.flt_no),
         OWN_POINT_ADDR(), type, 1, file_params);
-    if(not file_params.empty()) 
+    if(not file_params.empty())
     {
       file_params[ NS_PARAM_EVENT_ID1 ] = IntToString( route.dataset_point_id );
       file_params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
@@ -757,13 +757,13 @@ void CreateTxt( const TApisRouteData& route,
         iPax != route.lstPaxData.end();
         ++iPax)
   {
-    if (iPax->status==psCrew && !format.rule(_notOmitCrew)) 
+    if (iPax->status==psCrew && !format.rule(_notOmitCrew))
       continue;
     if (iPax->status!=psCrew && !iPax->pr_brd && route.final_apis)
       continue;
-    if (omit_incomplete_apis(route.dataset_point_id, *iPax, format)) 
+    if (omit_incomplete_apis(route.dataset_point_id, *iPax, format))
       continue;
-      
+
     TPaxDataFormatted pdf;
 
     pdf.status = iPax->status;
@@ -783,7 +783,7 @@ void CreateTxt( const TApisRouteData& route,
       pdf.doc_first_name = transliter(iPax->name,1,1);
     }
 
-    if (format.rule(_convertPaxNames)) 
+    if (format.rule(_convertPaxNames))
       format.convert_pax_names(pdf.doc_first_name, pdf.doc_second_name);
 
     pdf.gender=format.Gender(iPax->gender);
@@ -791,25 +791,25 @@ void CreateTxt( const TApisRouteData& route,
     pdf.doc_type = iPax->doc_type_lat(); // throws
     pdf.doc_no = iPax->doc.no;
 
-    if (!APIS::isValidDocType(format.fmt, iPax->status, pdf.doc_type)) 
+    if (!APIS::isValidDocType(format.fmt, iPax->status, pdf.doc_type))
       pdf.doc_type.clear();
 
-    if (!pdf.doc_type.empty() && format.rule(_processDocType)) 
+    if (!pdf.doc_type.empty() && format.rule(_processDocType))
       pdf.doc_type = format.process_doc_type(pdf.doc_type);
 
-    if (format.rule(_processDocNumber)) 
+    if (format.rule(_processDocNumber))
       pdf.doc_no = format.process_doc_no(pdf.doc_no);
 
     pdf.nationality = iPax->doc.nationality;
     pdf.issue_country = iPax->doc.issue_country;
 
-    if (iPax->doc.birth_date!=NoExists && format.rule(_birth_date)) 
+    if (iPax->doc.birth_date!=NoExists && format.rule(_birth_date))
       pdf.birth_date = DateTimeToStr(iPax->doc.birth_date, format.DateTimeFormat(), true);
 
-    if (iPax->doc.expiry_date!=NoExists && format.rule(_expiry_date)) 
+    if (iPax->doc.expiry_date!=NoExists && format.rule(_expiry_date))
       pdf.expiry_date = DateTimeToStr(iPax->doc.expiry_date, format.DateTimeFormat(), true);
 
-    if (iPax->docaB && format.rule(_birth_country)) 
+    if (iPax->docaB && format.rule(_birth_country))
       pdf.birth_country = iPax->docaB.get().country;
 
     pdf.trip_type = "N";
@@ -849,10 +849,10 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map)
 bool CreateApisFiles(const TApisDataset& dataset)
 #endif
 {
-#if APIS_TEST    
+#if APIS_TEST
   if (test_map == nullptr)
     return false;
-#endif      
+#endif
   bool result = false;
   try
   {
@@ -862,13 +862,13 @@ bool CreateApisFiles(const TApisDataset& dataset)
       {
 #if APIS_TEST
         test_map->try_key.set(iRoute->route_point_id, iApis->fmt);
-#endif        
+#endif
         boost::scoped_ptr<const TAPISFormat> pFormat(SpawnAPISFormat(*iApis));
         // https://stackoverflow.com/questions/6718538/does-boostscoped-ptr-violate-the-guideline-of-logical-constness
 
         if ((iRoute->task_name==ON_CLOSE_CHECKIN && !pFormat->rule(_create_ON_CLOSE_CHECKIN)) ||
             (iRoute->task_name==ON_CLOSE_BOARDING && !pFormat->rule(_create_ON_CLOSE_BOARDING)) ||
-            (iRoute->task_name==ON_TAKEOFF && pFormat->rule(_skip_ON_TAKEOFF))) 
+            (iRoute->task_name==ON_TAKEOFF && pFormat->rule(_skip_ON_TAKEOFF)))
           continue;
 
         string lst_type_extra = pFormat->lst_type_extra(iRoute->final_apis);
@@ -913,17 +913,17 @@ bool CreateApisFiles(const TApisDataset& dataset)
               switch (pFormat->file_rule)
               {
                 case _file_rule_txt_AE_TH:
-                  if ( !paxs_body.str().empty() && !pax_header.str().empty() ) 
+                  if ( !paxs_body.str().empty() && !pax_header.str().empty() )
                   {
                     ostringstream paxs;
-                    paxs << pax_header.str() << ENDL << pFormat->HeaderStart_AE_TH()  << ENDL 
+                    paxs << pax_header.str() << ENDL << pFormat->HeaderStart_AE_TH()  << ENDL
                           << paxs_body.str() << pFormat->HeaderEnd_AE_TH() << ENDL;
                     files.push_back( make_pair( file_name + pFormat->NameTrailPax_AE_TH(), paxs.str() ) );
                   }
-                  if ( !crew_body.str().empty() && !crew_header.str().empty() ) 
+                  if ( !crew_body.str().empty() && !crew_header.str().empty() )
                   {
                     ostringstream crew;
-                    crew << crew_header.str() << ENDL << pFormat->HeaderStart_AE_TH()  << ENDL 
+                    crew << crew_header.str() << ENDL << pFormat->HeaderStart_AE_TH()  << ENDL
                           << crew_body.str() << pFormat->HeaderEnd_AE_TH() << ENDL;
                     files.push_back( make_pair( file_name + pFormat->NameTrailCrew_AE_TH(), crew.str() ) );
                   }
@@ -949,7 +949,7 @@ bool CreateApisFiles(const TApisDataset& dataset)
         {
 #if APIS_TEST_CREATE_FILES
           LogTrace(TRACE5) << "CREATING FILES ON DISK \"" << pFormat->fmt << "\"";
-#endif          
+#endif
           for(vector< pair<string, string> >::const_iterator iFile=files.begin();iFile!=files.end();++iFile)
           {
             ofstream f;
@@ -981,7 +981,7 @@ bool CreateApisFiles(const TApisDataset& dataset)
                   << PrmElem<string>("airp_arv", etAirp, iRoute->airp_arv_code());
           TReqInfo::Instance()->LocaleToLog("EVT.APIS_CREATED", params, evtFlt, iRoute->dataset_point_id);
           result = true;
-        }        
+        }
 #endif
       } // for iApis
     } // for iRoute
@@ -1042,7 +1042,7 @@ void DumpDiff(  int point_id,
     ostringstream fname_old, fname_new;
     fname_old << dir << "cmp_" << point_id << "_" << task_name << "_" << key.route_point_id << "_" << key.format << "_old.txt";
     fname_new << dir << "cmp_" << point_id << "_" << task_name << "_" << key.route_point_id << "_" << key.format << "_new.txt";
-    
+
     f_old.open(fname_old.str().c_str(), ios_base::trunc|ios_base::out);
     if (!f_old.is_open())
       throw Exception("Can't open file '%s'",fname_old.str().c_str());
@@ -1082,15 +1082,15 @@ string TruncExceptionString(const string& s)
 /////////////////////////////////////////////////////////////////////////////////////////
 
 int apis_test(int argc, char **argv)
-{ 
+{
   if(edifact::init_edifact() < 0)
-    throw EXCEPTIONS::Exception("'init_edifact' error!"); 
+    throw EXCEPTIONS::Exception("'init_edifact' error!");
   const bool DUMP_EQUAL = argc > 1;
 
   list<int> lst_point_id;
   TQuery PointIdQry(&OraSession);
   PointIdQry.Clear();
-  PointIdQry.SQLText=   
+  PointIdQry.SQLText=
   "SELECT point_id FROM points WHERE airline IS NOT NULL AND PR_DEL=0 AND "
   "SCD_OUT between to_date('01.08.16 00:00', 'DD.MM.YY HH24:MI') AND to_date('01.08.17 00:00','DD.MM.YY HH24:MI')";
   PointIdQry.Execute();
@@ -1108,7 +1108,7 @@ int apis_test(int argc, char **argv)
       ++iteration;
       nosir_wait(iteration, false, 2, 0);
 
-#if APIS_TEST        
+#if APIS_TEST
       ostringstream test_data;
       test_data << "point " << point_id << " task \"" << task_name << "\"";
       TApisTestMap map_old, map_new;
@@ -1123,7 +1123,7 @@ int apis_test(int argc, char **argv)
       {
         map_old.exception = true;
         map_old.str_exception = E.what();
-      } 
+      }
 
       // TEST NEW
       LogTrace(TRACE5) << "STARTING NEW " << test_data.str();
@@ -1137,8 +1137,8 @@ int apis_test(int argc, char **argv)
       {
         map_new.exception = true;
         map_new.str_exception = E.what();
-      } 
-      
+      }
+
       // COMPARE MAPS
       bool compare_keys = false;
 
@@ -1222,7 +1222,7 @@ int apis_test(int argc, char **argv)
           DumpDiff(point_id, task_name, key, val_old, val_new);
         }
       }
-      LogTrace(TRACE5) << "OVERALL " << cnt << ", empty " << cnt_empty 
+      LogTrace(TRACE5) << "OVERALL " << cnt << ", empty " << cnt_empty
                         << ", equal " << cnt_eq << ", different " << cnt_dif;
 #else
 
@@ -1237,7 +1237,7 @@ int apis_test(int argc, char **argv)
       }
 #endif
 
-#endif                        
+#endif
     } // for (string task_name : lst_task_name)
   } // for (int point_id : lst_point_id)
   return 1;

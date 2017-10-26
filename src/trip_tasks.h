@@ -4,6 +4,7 @@
 #include <string>
 #include "date_time.h"
 #include "astra_consts.h"
+#include "oralib.h"
 #include <set>
 
 using BASIC::date_time::TDateTime;
@@ -16,28 +17,38 @@ const std::string BEFORE_TAKEOFF_70_US_CUSTOMS_ARRIVAL="BEFORE_TAKEOFF_70_US_CUS
 const std::string ON_CLOSE_CHECKIN="ON_CLOSE_CHECKIN";
 const std::string ON_CLOSE_BOARDING="ON_CLOSE_BOARDING";
 const std::string ON_TAKEOFF="ON_TAKEOFF";
-const std::string LCI = "LCI";
-const std::string COM = "COM";
-const std::string SOM = "SOM";
-const std::string FWD_POSTFIX = "->>";
-const std::string UCM_FWD = "UCM" + FWD_POSTFIX;
-const std::string LDM_FWD = "LDM" + FWD_POSTFIX;
-const std::string CPM_FWD = "CPM" + FWD_POSTFIX;
-const std::string SLS_FWD = "SLS" + FWD_POSTFIX;
 
 const std::string SYNC_NEW_CHKD="SYNC_NEW_CHKD";
 const std::string SYNC_ALL_CHKD="SYNC_ALL_CHKD";
+const std::string EMD_REFRESH="EMD_REFRESH";
+const std::string EMD_TRY_BIND="EMD_TRY_BIND";
 const std::string EMD_SYS_UPDATE="EMD_SYS_UPDATE";
 const std::string SEND_NEW_APPS_INFO="SEND_NEW_APPS_INFO";
 const std::string SEND_ALL_APPS_INFO="SEND_ALL_APPS_INFO";
+
+class TTripTaskKey
+{
+  public:
+    int point_id;
+    std::string name;
+    std::string params;
+    TTripTaskKey(int _point_id, const std::string& _name, const std::string& _params) :
+      point_id(_point_id), name(_name), params(_params) {}
+    TTripTaskKey(TQuery &Qry) { fromDB(Qry); }
+    const TTripTaskKey& toDB(TQuery &Qry) const;
+    TTripTaskKey& fromDB(TQuery &Qry);
+    std::string traceStr() const;
+};
+
+std::ostream& operator<<(std::ostream& os, const TTripTaskKey& task);
 
 void add_trip_task(int point_id,
                    const std::string& task_name,
                    const std::string &params,
                    TDateTime new_next_exec=ASTRA::NoExists);
-void remove_trip_task(int point_id,
-                      const std::string& task_name,
-                      const std::string &params);
+void add_trip_task(const TTripTaskKey &task,
+                   TDateTime new_next_exec=ASTRA::NoExists);
+void remove_trip_task(const TTripTaskKey &task);
 
 void check_trip_tasks();
 #define CALL_POINT (string)__FILE__ + ":" +  IntToString(__LINE__)
@@ -74,7 +85,7 @@ class TSyncTlgOutMng {
         void sync_by_cache(const std::string &cache_name, int point_id);
 
         void sync_by_type(const std::string &type, int point_id);
-        void add_tasks(std::map<std::string, void (*)(int, const std::string &, const std::string &)> &items);
+        void add_tasks(std::map<std::string, void (*)(const TTripTaskKey&)> &items);
 };
 
 #endif

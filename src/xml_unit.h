@@ -119,11 +119,13 @@ class XMLDoc
   public:
     XMLDoc();
     XMLDoc(const char *root);
+    XMLDoc(const std::string &root, xmlNodePtr &rootNode, const std::string &whence); //конструктор выкидывает исключение, другие конструкторы нет
     XMLDoc(const std::string &text);
     ~XMLDoc();
     xmlDocPtr docPtr() const;
     void set(const char *root);
     void set(const std::string &text);
+    std::string text() const;
 };
 
 bool ValidXMLChar( const char c );

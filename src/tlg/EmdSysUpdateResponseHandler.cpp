@@ -1,10 +1,10 @@
 #include "EmdSysUpdateResponseHandler.h"
 
-#include "astra_context.h"
 //потом перенести в edi_context.h
 #include "stl_utils.h"
 #include "xml_unit.h"
 #include "emdoc.h"
+#include "edi_utils.h"
 #include <jxtlib/xml_stuff.h>
 
 #define NICKNAME "ANTON"
@@ -27,16 +27,12 @@ void EmdSysUpdateResponseHandler::handle()
   try
   {
     ProgTrace(TRACE5, "EmdSysUpdateResponseHandler::handle");
-    string ctxt;
-    AstraContext::GetContext("EDI_SESSION", ediSessId().get(), ctxt);
-    ctxt=ConvertCodepage(ctxt,"CP866","UTF-8");
 
-    XMLDoc ediSessCtxt(ctxt);
+    XMLDoc ediSessCtxt;
+    AstraEdifact::getEdiSessionCtxt(ediSessId().get(), true, "EmdSysUpdateResponseHandler::handle", ediSessCtxt, false);
     if (ediSessCtxt.docPtr()!=NULL)
     {
       using namespace Ticketing;
-      //для нормальной работы надо все дерево перевести в CP866:
-      xml_decode_nodelist(ediSessCtxt.docPtr()->children);
 
       xmlNodePtr node=NodeAsNode("/context/emdoc",ediSessCtxt.docPtr());
 
@@ -87,8 +83,6 @@ void EmdSysUpdateResponseHandler::handle()
         ProcEdiEvent(event, EMDCtxt, NULL, false);
       }
     }
-
-    AstraContext::ClearContext("EDI_SESSION", ediSessId().get());
   }
   catch(std::exception &e)
   {

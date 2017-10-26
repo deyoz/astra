@@ -274,7 +274,7 @@ bool create_apis_file(int point_id, const string& task_name)
     ApisSetsQry.Clear();
 #if APIS_TEST_ALL_FORMATS
     ApisSetsQry.SQLText = apis_test_text;
-#else    
+#else
     ApisSetsQry.SQLText=
       "SELECT dir,edi_addr,edi_own_addr,format "
       "FROM apis_sets "
@@ -282,7 +282,7 @@ bool create_apis_file(int point_id, const string& task_name)
     ApisSetsQry.CreateVariable("airline", otString, airline.code);
     ApisSetsQry.CreateVariable("country_dep", otString, country_dep);
     ApisSetsQry.DeclareVariable("country_arv", otString);
-#endif    
+#endif
 
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText=
@@ -341,9 +341,9 @@ bool create_apis_file(int point_id, const string& task_name)
               task_name==ON_CLOSE_BOARDING )))) continue;
 
       //получим информацию по настройке APIS
-#if !APIS_TEST_ALL_FORMATS       
+#if !APIS_TEST_ALL_FORMATS
       ApisSetsQry.SetVariable("country_arv",country_arv.code);
-#endif      
+#endif
       ApisSetsQry.Execute();
 
       if (!ApisSetsQry.Eof)
@@ -408,7 +408,7 @@ bool create_apis_file(int point_id, const string& task_name)
           };
 
           string apis_country, direction;
-          if (fmt=="CSV_AE" || fmt == "CSV_TH") 
+          if (fmt=="CSV_AE" || fmt == "CSV_TH")
           {
             apis_country = (fmt=="CSV_AE")?"AE":"TH";
             direction = (country_dep == apis_country)?"O":"I";
@@ -499,7 +499,7 @@ bool create_apis_file(int point_id, const string& task_name)
               paxlstInfo.setDepDateTime(scd_out_local);
               paxlstInfo.setArrPort(airp_arv.code_lat);
               paxlstInfo.setArrDateTime(scd_in_local);
-              if (fmt=="XML_TR") 
+              if (fmt=="XML_TR")
               {
                 //Flight legs
                 TTripRoute route, tmp;
@@ -726,12 +726,12 @@ bool create_apis_file(int point_id, const string& task_name)
                 fmt=="EDI_AZ")
               doc_no=NormalizeDocNo(doc.no, false);
 
-            if (fmt=="XML_TR") 
+            if (fmt=="XML_TR")
             {
               paxInfo.setPrBrd(boarded);
               paxInfo.setGoShow(status==psGoshow);
               TPerson pers_type = DecodePerson(PaxQry.FieldAsString("pers_type"));
-              switch(pers_type) 
+              switch(pers_type)
               {
                 case adult:
                   paxInfo.setPersType("Adult");
@@ -754,12 +754,12 @@ bool create_apis_file(int point_id, const string& task_name)
               //Marketing flights
               TMktFlight mktflt;
               mktflt.getByPaxId(pax_id);
-              if (!mktflt.empty()) 
+              if (!mktflt.empty())
               {
                 TAirlinesRow &mkt_airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code",mktflt.airline);
                 if (mkt_airline.code_lat.empty()) throw Exception("mkt_airline.code_lat empty (code=%s)",mkt_airline.code.c_str());
                 std::string mkt_flt = IntToString(mktflt.flt_no);
-                if (!mktflt.suffix.empty()) 
+                if (!mktflt.suffix.empty())
                 {
                   TTripSuffixesRow &mkt_suffix = (TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code",mktflt.suffix);
                   if (mkt_suffix.code_lat.empty()) throw Exception("mkt_suffix.code_lat empty (code=%s)",mkt_suffix.code.c_str());
@@ -772,7 +772,7 @@ bool create_apis_file(int point_id, const string& task_name)
               }
             }
 
-            if (fmt=="XML_TR" || fmt=="EDI_AZ") 
+            if (fmt=="XML_TR" || fmt=="EDI_AZ")
             {
               vector< pair<int, string> > seats;
               SeatsQry.SetVariable("pax_id",pax_id);
@@ -782,14 +782,14 @@ bool create_apis_file(int point_id, const string& task_name)
               paxInfo.setSeats(seats);
             }
 
-            if (fmt=="EDI_AZ") 
+            if (fmt=="EDI_AZ")
             {
-              if (!PaxQry.FieldIsNULL("bag_amount")) 
+              if (!PaxQry.FieldIsNULL("bag_amount"))
               {
                 int amount = PaxQry.FieldAsInteger("bag_amount");
                 if (amount) paxInfo.setBagCount(amount);
               }
-              if (!PaxQry.FieldIsNULL("bag_weight")) 
+              if (!PaxQry.FieldIsNULL("bag_weight"))
               {
                 int weight = PaxQry.FieldAsInteger("bag_weight");
                 if (weight) paxInfo.setBagWeight(weight);
@@ -889,7 +889,7 @@ bool create_apis_file(int point_id, const string& task_name)
             if ( fmt=="CSV_AE" || fmt=="CSV_TH" )
             {
               ostringstream data;
-              if ( fmt=="CSV_TH" ) 
+              if ( fmt=="CSV_TH" )
               {
                 data << doc_type << ","
                      << nationality << ","
@@ -903,7 +903,7 @@ bool create_apis_file(int point_id, const string& task_name)
                      << birth_country << ","
                      << trip_type << ",,";
               }
-              else 
+              else
               {
                 data << doc_no << ","
                      << nationality << ","
@@ -983,7 +983,7 @@ bool create_apis_file(int point_id, const string& task_name)
               };
             };
 
-            if (docaR_exists && fmt=="XML_TR") 
+            if (docaR_exists && fmt=="XML_TR")
             {
               paxInfo.setResidCountry(docaR.country);
             }
@@ -1005,7 +1005,7 @@ bool create_apis_file(int point_id, const string& task_name)
               };
             };
 
-            if (docaB_exists && fmt=="XML_TR") 
+            if (docaB_exists && fmt=="XML_TR")
             {
               paxInfo.setBirthCountry(docaB.country);
             }
@@ -1102,13 +1102,13 @@ bool create_apis_file(int point_id, const string& task_name)
               }; // if (!paxlstInfo.passengersList().empty())
             }; // for(int pass=0; pass<2; pass++)
           } // if (fmt==...
-          else if ( fmt=="XML_TR" || fmt=="EDI_LT" ) 
+          else if ( fmt=="XML_TR" || fmt=="EDI_LT" )
           {
             // string text, type;
             int passengers_count = FPM.passengersList().size();
             int crew_count = FCM.passengersList().size();
             // сформируем файл
-            if ( fmt=="XML_TR" && ( passengers_count || crew_count )) 
+            if ( fmt=="XML_TR" && ( passengers_count || crew_count ))
             {
               XMLDoc doc;
               doc.set("FlightMessage");
@@ -1125,18 +1125,18 @@ bool create_apis_file(int point_id, const string& task_name)
               text = GetXMLDocText(doc.docPtr());
               type = APIS_TR;
             }
-            else if ( fmt == "EDI_LT" && passengers_count ) 
+            else if ( fmt == "EDI_LT" && passengers_count )
             {
               type = APIS_LT;
               text = FPM.toEdiString();
             }
             // положим апис в очередь на отправку
-            if ( !text.empty() ) 
+            if ( !text.empty() )
             {
               // std::map<std::string, std::string> file_params;
               TFileQueue::add_sets_params(airp_dep.code, airline.code, IntToString(flt_no), OWN_POINT_ADDR(),
                       type, 1, file_params);
-              if(not file_params.empty()) 
+              if(not file_params.empty())
               {
                 file_params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
                 file_params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
@@ -1246,22 +1246,22 @@ bool create_apis_file(int point_id, const string& task_name)
                          << "2$ " << ENDL
                          << "3$ " << count << ENDL;
               };
-              if (fmt=="CSV_AE" || fmt=="CSV_TH") 
+              if (fmt=="CSV_AE" || fmt=="CSV_TH")
               {
-                if ( !paxs_body.str().empty() && !pax_header.str().empty() ) 
+                if ( !paxs_body.str().empty() && !pax_header.str().empty() )
                 {
                   ostringstream paxs;
                   paxs << pax_header.str() << ENDL << "***START,,,,,,,,,,,,"  << ENDL << paxs_body.str() << "***END,,,,,,,,,,,," << ENDL;
                   files.push_back( make_pair( file_name.str() + string("_P.CSV"), paxs.str() ) );
                 }
-                if ( !crew_body.str().empty() && !crew_header.str().empty() ) 
+                if ( !crew_body.str().empty() && !crew_header.str().empty() )
                 {
                   ostringstream crew;
                   crew << crew_header.str() << ENDL << "***START,,,,,,,,,,,,"  << ENDL << crew_body.str() << "***END,,,,,,,,,,,," << ENDL;
                   files.push_back( make_pair( file_name.str() + string("_C.CSV"), crew.str() ) );
                 }
               }
-              else 
+              else
               {
                 if(!file_name.str().empty() && !header.str().empty() && !body.str().empty())
                   files.push_back( make_pair(file_name.str(), string(header.str()).append(body.str())) );
@@ -1323,8 +1323,9 @@ bool create_apis_file(int point_id, const string& task_name)
   return result;
 };
 
-void create_apis_task(int point_id, const std::string& task_name, const string &params)
+void create_apis_task(const TTripTaskKey &task)
 {
-  create_apis_file(point_id, task_name);
+  LogTrace(TRACE5) << __FUNCTION__ << ": " << task;
+  create_apis_file(task.point_id, task.params);
 };
 

@@ -9,6 +9,7 @@
 #include "astra_elems.h"
 #include "astra_utils.h"
 #include "astra_locale.h"
+#include "astra_misc.h"
 #include "sopp.h"
 #include "stages.h"
 
@@ -552,6 +553,7 @@ class TFlights:public std::vector<FlightPoints> {
       std::vector<int> points( 1, point_dep );
       Get( points, flightType );
     }
+    void GetForTCkinRouteDependent(const int grp_id, const TFlightType flightType, TCkinGrpIds &tckin_grp_ids);
     void Lock(const std::string &from);
 };
 
