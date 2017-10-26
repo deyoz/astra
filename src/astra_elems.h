@@ -42,6 +42,7 @@ enum TElemType {
                  etHall,                     //залы регистрации и посадки
                  etHotel,                    //названия гостиниц
                  etHotelRoomType,            //типы номеров в гостиницах
+                 etKiosksGrp,                //группы киосков
                  etLangType,                 //языки
                  etMiscSetType,              //типы настроек для рейсов
                  etMsgTransport,             //типы транспортов для сообщений
