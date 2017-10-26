@@ -206,7 +206,7 @@ public:
                         "","",//ppr,agn
                         !req.desk.code.empty()?req.desk.city:"ŒŽ‚",
                         'Y',
-                        !req.desk.code.empty()?req.desk.code:"SYSTEM",
+                        !req.desk.code.empty()?req.desk.code:TDesk::system_code,
                         "",
                         !req.desk.code.empty()?(req.desk.lang == AstraLocale::LANG_RU?RUSSIAN:ENGLISH):RUSSIAN)
     {
@@ -218,7 +218,7 @@ public:
                         "","",//ppr,agn
                         "ŒŽ‚",
                         'Y',
-                        "SYSTEM",
+                        TDesk::system_code,
                         "",
                         RUSSIAN)
     {

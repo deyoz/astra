@@ -40,6 +40,7 @@ public:
     }
 
     virtual const char *name() const { return "TPA"; }
+    virtual const char *nameToDB(bool out) const { return out?"OUTA":"INA"; }
     virtual tlg_type_t type() const { return TlgType::edifact; }
     void readH2H();
     /**

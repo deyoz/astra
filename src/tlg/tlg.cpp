@@ -372,10 +372,9 @@ int sendTlg(const char* receiver,
 
         logTlg(tp.Type, tlg_num, receiver, text);
 
-        if (queuePriority==qpOutAStepByStep)
-          registerHookAfter(sendCmdTlgSndStepByStep);
-        else
-          registerHookAfter(sendCmdTlgSnd);
+        registerHookAfter(queuePriority==qpOutAStepByStep?
+                            sendCmdTlgSndStepByStep:
+                            sendCmdTlgSnd);
 
         return tlg_num;
     }
@@ -392,14 +391,18 @@ int sendTlg(const char* receiver,
 }
 
 
-void sendEdiTlg(TlgHandling::TlgSourceEdifact& tlg, int ttl)
+void sendEdiTlg(TlgHandling::TlgSourceEdifact& tlg,
+                TTlgQueuePriority queuePriority,
+                int ttl)
 {
     try
     {
         tlg.write(); // сохранение телеграммы
-        putTlg2OutQueue(tlg, qpOutA, ttl);
+        putTlg2OutQueue(tlg, queuePriority, ttl);
         logTlg(tlg);
-        registerHookAfter(sendCmdTlgSnd);
+        registerHookAfter(queuePriority==qpOutAStepByStep?
+                            sendCmdTlgSndStepByStep:
+                            sendCmdTlgSnd);
     }
     catch( std::exception &e)
     {

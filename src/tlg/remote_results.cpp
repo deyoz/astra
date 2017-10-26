@@ -137,7 +137,7 @@ void RemoteResults::readDb(/*const std::string &pult,*/ std::list<RemoteResults>
     CursCtl cur = make_curs((select + " where INTMSGID=:INTID").c_str());
 
     cur.
-            stb().            
+            stb().
             bind(":INTID", ServerFramework::getQueryRunner().getEdiHelpManager().msgId().asString());
     OciDef(cur, defs);
     cur.exec();
@@ -269,6 +269,11 @@ void RemoteResults::cleanOldRecords(const int min_ago)
     make_curs("delete from REMOTE_RESULTS where DATE_CR < :min_ago")
             .bind(":min_ago", OciCpp::to_oracle_datetime(amin_ago))
             .exec();
+}
+
+bool RemoteResults::isSystemPult() const
+{
+  return Pult.empty();
 }
 
 std::ostream & operator <<(std::ostream & os, const RemoteResults & rr)

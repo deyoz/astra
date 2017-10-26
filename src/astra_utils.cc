@@ -63,6 +63,8 @@ string AlignString(string str, int len, string align)
     return result;
 };
 
+const std::string TDesk::system_code="SYSTEM";
+
 bool TDesk::isValidVersion(const std::string &ver)
 {
   if (ver.size()!=14) return false;
@@ -1460,7 +1462,7 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   xmlNodePtr node=reqNode->children;
   for(;node!=NULL;node=node->next)
   {
-    if (strcmp((char*)node->name,"msg")==0)
+    if (strcmp((const char*)node->name,"msg")==0)
     {
       string error_type="ERROR";
       if (TReqInfo::Instance()->desk.code.substr(0, 3)=="UFA")
@@ -1489,17 +1491,17 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   };
 }
 
-string& AirpTZRegion(string airp, bool with_exception)
+const std::string& AirpTZRegion(string airp, bool with_exception)
 {
   if (airp.empty()) throw EXCEPTIONS::Exception("Airport not specified");
-  TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",airp,true);
+  const TAirpsRow& row=(const TAirpsRow&)base_tables.get("airps").get_row("code",airp,true);
   return CityTZRegion(row.city,with_exception);
 };
 
-string& CityTZRegion(string city, bool with_exception)
+const std::string &CityTZRegion(string city, bool with_exception)
 {
   if (city.empty()) throw EXCEPTIONS::Exception("City not specified");
-  TCitiesRow& row=(TCitiesRow&)base_tables.get("cities").get_row("code",city,true);
+  const TCitiesRow& row=(const TCitiesRow&)base_tables.get("cities").get_row("code",city,true);
   if (row.tz_region.empty() && with_exception)
     throw AstraLocale::UserException("MSG.CITY.REGION_NOT_DEFINED",LParams() << LParam("city", city));
   return row.tz_region;
@@ -1529,18 +1531,18 @@ string DeskCity(string desk, bool with_exception)
 // std::string getAirlineId((TAirlinesRow&))
 // {
 //   return row.code
-// }  
+// }
 
 // std::string getCountryIdByAirp( const std::string& airp )
-// {  
+// {
 //   return getCountryByAirp().code;
-// };  
+// };
 
 TCountriesRow getCountryByAirp( const std::string& airp)
 {
-  TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("airps").get_row("code",airp);
-  TCitiesRow &cityRow = (TCitiesRow&)base_tables.get("cities").get_row("code",airpRow.city);
-  return ((TCountriesRow&)base_tables.get("countries").get_row("code",cityRow.country));
+  const TAirpsRow &airpRow = (const TAirpsRow&)base_tables.get("airps").get_row("code",airp);
+  const TCitiesRow &cityRow = (const TCitiesRow&)base_tables.get("cities").get_row("code",airpRow.city);
+  return ((const TCountriesRow&)base_tables.get("countries").get_row("code",cityRow.country));
 }
 
 char ToLatPnrAddr(char c)

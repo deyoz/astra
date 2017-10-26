@@ -66,7 +66,9 @@ void EdifactRequest::sendTlg()
     LogTrace(TRACE1) << *TlgOut;
 
     // В очередь на отправку
-    sendEdiTlg(*TlgOut, sysCont()->edifactResponseTimeOut());
+    sendEdiTlg(*TlgOut,
+               kickInfo().background_mode()?qpOutAStepByStep:qpOutA,
+               sysCont()->edifactResponseTimeOut());
 
     ediSess()->ediSession()->CommitEdiSession();
 

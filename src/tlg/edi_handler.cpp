@@ -116,7 +116,7 @@ static bool isTlgPostponed(const tlg_info& tlg)
 
 
 void handle_edi_tlg(const tlg_info &tlg)
-{    
+{
     hth::HthInfo h2h = {};
     bool isH2h = false;
 
@@ -159,7 +159,7 @@ void handle_edi_tlg(const tlg_info &tlg)
         {
             answTlg->setToRot(tlg.sender);
             answTlg->setFromRot(OWN_CANON_NAME());
-            sendEdiTlg(*answTlg);
+            sendEdiTlg(*answTlg, qpOutA);
         }
         deleteTlg(tlg_id);
         callPostHooksBefore();
