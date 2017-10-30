@@ -169,6 +169,7 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic
     void clear()
     {
       type.clear();
+      subtype.clear();
       issue_country.clear();
       no.clear();
       nationality.clear();
@@ -185,6 +186,7 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic
     bool empty() const
     {
       return type.empty() &&
+             subtype.empty() &&
              issue_country.empty() &&
              no.empty() &&
              nationality.empty() &&
@@ -200,6 +202,7 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic
     bool equalAttrs(const TPaxDocItem &item) const
     {
       return type == item.type &&
+             subtype == item.subtype &&
              issue_country == item.issue_country &&
              no == item.no &&
              nationality == item.nationality &&

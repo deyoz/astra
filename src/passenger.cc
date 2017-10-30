@@ -346,6 +346,7 @@ long int TPaxDocItem::getNotEmptyFieldsMask() const
   long int result=NO_FIELDS;
 
   if (!type.empty())                result|=DOC_TYPE_FIELD;
+  // if (!subtype.empty())             result|=DOC_SUBTYPE_FIELD;
   if (!issue_country.empty())       result|=DOC_ISSUE_COUNTRY_FIELD;
   if (!no.empty())                  result|=DOC_NO_FIELD;
   if (!nationality.empty())         result|=DOC_NATIONALITY_FIELD;
@@ -363,6 +364,7 @@ long int TPaxDocItem::getEqualAttrsFieldsMask(const TPaxDocItem &item) const
   long int result=NO_FIELDS;
 
   if (type == item.type)                   result|=DOC_TYPE_FIELD;
+  // if (subtype == item.subtype)             result|=DOC_SUBTYPE_FIELD;
   if (issue_country == item.issue_country) result|=DOC_ISSUE_COUNTRY_FIELD;
   if (no == item.no)                       result|=DOC_NO_FIELD;
   if (nationality == item.nationality)     result|=DOC_NATIONALITY_FIELD;

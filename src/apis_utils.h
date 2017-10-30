@@ -19,6 +19,7 @@ const long int DOC_EXPIRY_DATE_FIELD=0x0040;
 const long int DOC_SURNAME_FIELD=0x0080;
 const long int DOC_FIRST_NAME_FIELD=0x0100;
 const long int DOC_SECOND_NAME_FIELD=0x0200;
+// const long int DOC_SUBTYPE_FIELD=0x0400;
 
 const long int DOCO_BIRTH_PLACE_FIELD=0x0001;
 const long int DOCO_TYPE_FIELD=0x0002;
