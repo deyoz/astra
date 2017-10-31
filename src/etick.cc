@@ -2675,7 +2675,12 @@ void emd_try_bind_task(const TTripTaskKey &task)
   xmlNodePtr reqNode=NodeAsNode("/context", reqCtxt.docPtr());
 
   XMLDoc resCtxt;
-  getEdiResponseCtxt(req_ctxt_id, true, __FUNCTION__, resCtxt);
+  getEdiResponseCtxt(req_ctxt_id, true, __FUNCTION__, resCtxt, false);
+  if(resCtxt.docPtr()==NULL)
+  {
+    LogTrace(TRACE5) << __FUNCTION__ << ": resCtxt.docPtr()==NULL";
+    return;
+  };
   xmlNodePtr resNode=NodeAsNode("/context", resCtxt.docPtr());
 
   EMDAutoBoundGrpId id(reqNode);
