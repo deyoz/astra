@@ -471,7 +471,12 @@ void ETDisplayToDB(const Ticketing::Pnr &pnr)
       {
         ETickItem.bag_norm=itin.luggage()->quantity();
         ETickItem.bag_norm_unit=itin.luggage()->chargeQualifier();
-      };
+      }
+      else
+      {
+        ETickItem.bag_norm=ASTRA::NoExists;
+        ETickItem.bag_norm_unit.clear();
+      }
       ETickItem.subcls = itin.rbd()->code(RUSSIAN);
 
       ETickItem.toDB(TETickItem::Display);
