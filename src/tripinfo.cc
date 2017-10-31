@@ -112,21 +112,9 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
     const TTripListSQLParams &params=dynamic_cast<const TTripListSQLParams&>(filter);
 
     sql <<
-      "SELECT points.point_id, "
-      "       points.airp, "
-      "       points.airline, "
-      "       points.flt_no, "
-      "       points.suffix, "
-      "       points.scd_out, "
-      "       points.est_out, "
-      "       points.act_out, "
-      "       points.airline_fmt, "
-      "       points.airp_fmt, "
-      "       points.suffix_fmt, "
-      "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
+      "SELECT " + TTripInfo::selectedFields("points") + ", "
       "       points.move_id, "
-      "       points.point_num, "
-      "       points.pr_del "
+      "       points.point_num "
       "FROM points ";
     if (!params.station.first.empty() && !params.station.second.empty())
       sql << ",trip_stations ";
@@ -165,18 +153,9 @@ void setSQLTripList( TQuery &Qry, const TTripListSQLFilter &filter )
     const TTripInfoSQLParams &params=dynamic_cast<const TTripInfoSQLParams&>(filter);
 
     sql <<
-      "SELECT points.point_id, "
-      "       points.airline, "
-      "       points.flt_no, "
-      "       points.suffix, "
-      "       points.craft, "
-      "       points.craft_fmt, "
-      "       points.airp, "
-      "       points.scd_out, "
-      "       points.act_out, "
+      "SELECT " + TTripInfo::selectedFields("points") + ", "
       "       points.bort, "
       "       points.park_out, "
-      "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
       "       points.trip_type, "
       "       points.litera, "
       "       points.remark, "
@@ -426,7 +405,7 @@ void TTripInfoSQLParams::set(void)
 /*******************************************************************************/
 void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  bool advanced_trip_list=strcmp((char *)reqNode->name, "GetAdvTripList")==0;
+  bool advanced_trip_list=strcmp((const char*)reqNode->name, "GetAdvTripList")==0;
 
   TReqInfo *reqInfo = TReqInfo::Instance();
   //reqInfo->user.check_access( amRead );
@@ -881,7 +860,7 @@ void TripsInterface::readOperFltHeader( const TTripInfo &info, xmlNodePtr node )
 
   NewTextChild( node, "airline", info.airline );
 
-  TAirlinesRow &row = (TAirlinesRow&)base_tables.get("airlines").get_row("code",info.airline);
+  const TAirlinesRow &row = (const TAirlinesRow&)base_tables.get("airlines").get_row("code",info.airline);
   NewTextChild( node, "aircode", row.aircode );
 
   NewTextChild( node, "flt_no", info.flt_no );
@@ -935,7 +914,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
             real_out_client;
 
   scd_out_client= UTCToClient(info.scd_out,tz_region);
-  real_out_client=UTCToClient(info.real_out,tz_region);
+  real_out_client=UTCToClient(info.act_est_scd_out(),tz_region);
 
   if ( reqInfo->screen.name == "TLG.EXE" )
   {
@@ -1746,8 +1725,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   TPaxLoadOrder paxLoadOrder;
   for(xmlNodePtr node=reqFieldsNode->children;node!=NULL;node=node->next)
   {
-    paxLoadOrder.fields.push_back((char*)node->name);
-    NewTextChild(fieldsNode,"field",(char*)node->name);
+    paxLoadOrder.fields.push_back((const char*)node->name);
+    NewTextChild(fieldsNode,"field",(const char*)node->name);
   };
   NewTextChild(fieldsNode,"field","cfg");
   NewTextChild(fieldsNode,"field","crs_ok");
@@ -3034,7 +3013,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     {
       try
       {
-        TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code/code_lat",Qry.FieldAsString( col_airp_arv_final )));
+        const TAirpsRow &row=(const TAirpsRow&)(base_tables.get("airps").get_row("code/code_lat",Qry.FieldAsString( col_airp_arv_final )));
         NewTextChild( node, "last_target", ElemIdToCodeNative(etAirp,row.code));
       }
       catch(EBaseTableError)
@@ -3112,12 +3091,12 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
         string seat_no = SQry.GetVariableAsString( "seat_no" );
         string layer_type;
         if ( mode == 0 ) {
-            layer_type = ((TGrpStatusTypesRow&)grp_status_types.get_row("code",Qry.FieldAsString( col_grp_status ))).layer_type;
+            layer_type = ((const TGrpStatusTypesRow&)grp_status_types.get_row("code",Qry.FieldAsString( col_grp_status ))).layer_type;
         }
         else {
             layer_type = SQry.GetVariableAsString( "layer_type" );
         }
-        switch ( DecodeCompLayerType( (char*)layer_type.c_str() ) ) { // 12.12.08 для совместимости со старой версией
+        switch ( DecodeCompLayerType( (const char*)layer_type.c_str() ) ) { // 12.12.08 для совместимости со старой версией
             case cltProtCkin:
                 NewTextChild( node, "preseat_no", seat_no );
                 NewTextChild( node, "crs_seat_no", string(Qry.FieldAsString( col_seat_xname ))+Qry.FieldAsString( col_seat_yname ) );

@@ -696,7 +696,7 @@ void parse_saveFlights( int range_hours, xmlNodePtr reqNode, xmlNodePtr resNode 
   string event;
   int flight_number = 1;
   double aodb_point_id;
-  while ( node != NULL && (string)"flight" == (char*)node->name ) {
+  while ( node != NULL && (string)"flight" == (const char*)node->name ) {
     TPointDests dests;
     bool prerror = true;
     try {
@@ -927,7 +927,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TP
   xmlNodePtr n = GetNodeFast( "stations", flightNode );
   if ( n != NULL ) {
     n = n->children;
-    while ( n != NULL && string("station") == (char*)n->name ) {
+    while ( n != NULL && string("station") == (const char*)n->name ) {
       propNode = GetNode( "@name", n );
       if ( propNode == NULL ) {
         throw EConvertError( "node 'station @name' not found" );
@@ -956,7 +956,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TP
   }
   n = n->children;
   map<int,TPointsDest> dsts;
-  while ( n != NULL && string("dest") == (char*)n->name ) {
+  while ( n != NULL && string("dest") == (const char*)n->name ) {
     propNode = n->children;
     TPointsDest p;
     TPointsDest *ppoint;
@@ -1041,7 +1041,7 @@ public:
            }
            continue;
          }
-         if ( fabs( idealFlt.real_out - flt.scd_out ) > fabs( iflt->real_out - flt.scd_out ) ) {
+         if ( fabs( idealFlt.act_est_scd_out() - flt.scd_out ) > fabs( iflt->act_est_scd_out() - flt.scd_out ) ) {
            if ( AODB_POINTS::isDelete( iflt->point_id ) ) {
              idealFlt = *iflt;
            }

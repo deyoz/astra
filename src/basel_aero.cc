@@ -392,27 +392,10 @@ void read_basel_aero_stat( const string &airp, ofstream &f )
 void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TBaselStat> &stats )
 {
   stats.clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  ostringstream sql;
-  sql <<
-    "SELECT airline, flt_no, suffix, airp, scd_out, act_out AS real_out ";
-  if (part_key!=NoExists)
-  {
-    sql << "FROM arx_points "
-           "WHERE part_key=:part_key AND point_id=:point_id AND "
-           "      pr_del=0 AND pr_reg<>0 ";
-    Qry.CreateVariable("part_key", otDate, part_key);
-  }
-  else
-    sql << "FROM points "
-           "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0 ";
-  Qry.SQLText=sql.str().c_str();
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.Execute();
-  if (Qry.Eof) return;
+
   TTripInfo operFlt;
-  operFlt.Init(Qry);
+  if (!operFlt.getByPointId(part_key, point_id, FlightProps(FlightProps::NotCancelled,
+                                                            FlightProps::WithCheckIn))) return;
 
   TRegEvents events;
   events.fromDB(part_key, point_id);
@@ -458,8 +441,9 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
     TimeQry.CreateVariable( "work_mode", otString, "" );
   };
 
+  TQuery Qry(&OraSession);
   Qry.Clear();
-  sql.str("");
+  ostringstream sql;
   sql <<
     "SELECT pax_grp.grp_id, pax_grp.class, NVL(pax_grp.piece_concept, 0) AS piece_concept, "
     "       pax.pax_id, pax.surname, pax.name, "
@@ -553,7 +537,7 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
     stat.viewChekinDuration = NoExists;
     stat.viewBoardingTime = times.second;
     stat.viewDeparturePlanTime = operFlt.scd_out;
-    stat.viewDepartureRealTime = operFlt.real_out;
+    stat.viewDepartureRealTime = operFlt.act_out?operFlt.act_out.get():NoExists;
 
     if (!piece_concept)
     {

@@ -889,9 +889,9 @@ void CheckTrferPermit(const pair<CheckIn::TTransferItem, TCkinSegFlts> &in,
       Qry.Execute();
       if (!Qry.Eof && !Qry.FieldIsNULL("real_in"))
       {
-        if (outSeg.fltInfo.real_out==NoExists)
-          throw EXCEPTIONS::Exception("CheckTrferPermit: outSeg.fltInfo.real_out==NoExists");
-        double interval=round((outSeg.fltInfo.real_out-Qry.FieldAsDateTime("real_in"))*1440);
+        if (outSeg.fltInfo.act_est_scd_out()==NoExists)
+          throw EXCEPTIONS::Exception("CheckTrferPermit: outSeg.fltInfo.act_est_scd_out()==NoExists");
+        double interval=round((outSeg.fltInfo.act_est_scd_out()-Qry.FieldAsDateTime("real_in"))*1440);
         //ProgTrace(TRACE5, "interval=%f, min_interval=%d, max_interval=%d", interval, min_interval, max_interval);
         if ((min_interval!=NoExists && interval<min_interval) ||
             (max_interval!=NoExists && interval>max_interval)) return;
@@ -2588,7 +2588,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   int def_client_type_id=(int)ctTerm;
   int def_status_id=(int)psCheckin;
 
-  bool with_rcpt_info=(strcmp((char *)reqNode->name, "BagPaxList")==0);
+  bool with_rcpt_info=(strcmp((const char *)reqNode->name, "BagPaxList")==0);
 
   bool check_pay_on_tckin_segs=false;
   if (with_rcpt_info) check_pay_on_tckin_segs=GetTripSets(tsCheckPayOnTCkinSegs, operFlt);
@@ -3033,10 +3033,7 @@ bool CheckInInterface::CheckCkinFlight(const int point_dep,
   TQuery Qry(&OraSession);
   Qry.Clear();
   ostringstream sql;
-  sql << "SELECT airline,flt_no,suffix,airp,scd_out, "
-         "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
-         "       point_num,first_point,pr_tranzit, "
-         "       pr_del "
+  sql << "SELECT " + TAdvTripInfo::selectedFields() +
          "FROM points "
          "WHERE point_id=:point_id AND airp=:airp AND pr_del>=0 AND pr_reg<>0";
 
@@ -3164,7 +3161,7 @@ bool CheckInInterface::ParseFQTRem(TypeB::TTlgParser &tlg, string &rem_text, Che
 
             try
             {
-              TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code/code_lat",fqth.airline));
+              const TAirlinesRow &row=(const TAirlinesRow&)(base_tables.get("airlines").get_row("code/code_lat",fqth.airline));
               strcpy(fqth.airline,row.code.c_str());
             }
             catch (EBaseTableError)
@@ -4014,7 +4011,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     "END;";
   Qry.Execute();
 
-  bool pr_unaccomp=strcmp((char *)reqNode->name, "TCkinSaveUnaccompBag") == 0;
+  bool pr_unaccomp=strcmp((const char*)reqNode->name, "TCkinSaveUnaccompBag") == 0;
 
   //reqInfo->user.check_access(amPartialWrite);
   //определим, открыт ли рейс для регистрации
@@ -5247,10 +5244,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                       paxs_external_logged.insert( pax_id );
                     }
 
-                      if ( pas.preseat_pax_id > 0 )
-                        exists_preseats = true;
-                        if ( !pas.isValidPlace )
-                            invalid_seat_no = true;
+                    if ( pas.preseat_pax_id > 0 )
+                      exists_preseats = true;
+                    if ( !pas.isValidPlace )
+                      invalid_seat_no = true;
 
                     if (pas.seat_no.empty()) throw EXCEPTIONS::Exception("SeatsPassengers: empty seat_no");
                         string pas_seat_no;
@@ -6496,18 +6493,10 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         NewTextChild( dataNode, "point_id", point_id );
         if (!TripsInterface::readTripHeader( point_id, dataNode ))
         {
-          TQuery FltQry(&OraSession);
-          FltQry.Clear();
-          FltQry.SQLText=
-            "SELECT airline,flt_no,suffix,airp,scd_out, "
-            "       NVL(act_out,NVL(est_out,scd_out)) AS real_out "
-            "FROM points WHERE point_id=:point_id AND pr_del>=0";
-          FltQry.CreateVariable("point_id",otInteger,point_id);
-          FltQry.Execute();
           string msg;
-          if (!FltQry.Eof)
+          TTripInfo info;
+          if (info.getByPointId(point_id))
           {
-            TTripInfo info(FltQry);
             if (!pr_unaccomp)
               msg=getLocaleText("MSG.PASSENGER.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(info,ecCkin)));
             else
@@ -7066,8 +7055,8 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
     NewTextChild(segNode,"city_arv");
     try
     {
-      TAirpsRow& airpsRow=(TAirpsRow&)base_tables.get("airps").get_row("code",grp.airp_arv);
-      TCitiesRow& citiesRow=(TCitiesRow&)base_tables.get("cities").get_row("code",airpsRow.city);
+      const TAirpsRow& airpsRow=(const TAirpsRow&)base_tables.get("airps").get_row("code",grp.airp_arv);
+      const TCitiesRow& citiesRow=(const TCitiesRow&)base_tables.get("cities").get_row("code",airpsRow.city);
       ReplaceTextChild( segNode, "city_arv", citiesRow.code );
     }
     catch(EBaseTableError) {};
@@ -7663,7 +7652,7 @@ void CheckInInterface::SaveTransfer(int grp_id,
         (checkType==checkFirstSeg && t==firstTrfer))
     {
       {
-        TAirlinesRow& row=(TAirlinesRow&)base_tables.get("airlines").get_row("code",t->operFlt.airline);
+        const TAirlinesRow& row=(const TAirlinesRow&)base_tables.get("airlines").get_row("code",t->operFlt.airline);
         if (row.code_lat.empty())
         {
           strh=ElemIdToClientElem(etAirline, t->operFlt.airline, t->operFlt.airline_fmt);
@@ -7674,7 +7663,7 @@ void CheckInInterface::SaveTransfer(int grp_id,
         };
       };
       {
-        TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",t->operFlt.airp);
+        const TAirpsRow& row=(const TAirpsRow&)base_tables.get("airps").get_row("code",t->operFlt.airp);
         if (row.code_lat.empty())
         {
           strh=ElemIdToClientElem(etAirp, t->operFlt.airp, t->operFlt.airp_fmt);
@@ -7684,7 +7673,7 @@ void CheckInInterface::SaveTransfer(int grp_id,
         };
       };
       {
-        TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",t->airp_arv);
+        const TAirpsRow& row=(const TAirpsRow&)base_tables.get("airps").get_row("code",t->airp_arv);
         if (row.code_lat.empty())
         {
           strh=ElemIdToClientElem(etAirp, t->airp_arv, t->airp_arv_fmt);
@@ -7934,7 +7923,7 @@ void CheckInInterface::readTripData(int point_id, int first_point_id, xmlNodePtr
 
     try
     {
-      TAirpsRow& airpsRow=(TAirpsRow&)base_tables.get("airps").get_row("code",r->airp);
+      const TAirpsRow& airpsRow=(const TAirpsRow&)base_tables.get("airps").get_row("code",r->airp);
 
       itemNode = NewTextChild( node, "airp" );
       NewTextChild( itemNode, "point_id", r->point_id );
@@ -8211,8 +8200,6 @@ class TCkinSegmentItem : public TCkinSegFlts
 
 void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo* reqInfo = TReqInfo::Instance();
-
   TSegInfo firstSeg;
   if (!CheckCkinFlight(NodeAsInteger("point_dep",reqNode),
                        NodeAsString("airp_dep",reqNode),
@@ -8416,8 +8403,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           NewTextChild( seg2Node, "airp_arv", currSeg.airp_arv);
           try
           {
-            TAirpsRow& airpsRow=(TAirpsRow&)base_tables.get("airps").get_row("code",currSeg.airp_arv);
-            TCitiesRow& citiesRow=(TCitiesRow&)base_tables.get("cities").get_row("code",airpsRow.city);
+            const TAirpsRow& airpsRow=(const TAirpsRow&)base_tables.get("airps").get_row("code",currSeg.airp_arv);
+            const TCitiesRow& citiesRow=(const TCitiesRow&)base_tables.get("cities").get_row("code",airpsRow.city);
             NewTextChild( seg2Node, "city_arv_code", citiesRow.code );
           }
           catch(EBaseTableError) {};
@@ -8566,7 +8553,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             {
               try
               {
-                TSubclsRow& row=(TSubclsRow&)base_tables.get("subcls").get_row("code/code_lat",iPax->subclass);
+                const TSubclsRow& row=(const TSubclsRow&)base_tables.get("subcls").get_row("code/code_lat",iPax->subclass);
                 if (cl.find(row.cl)==string::npos) cl.append(row.cl);
               }
               catch(EBaseTableError) {};
@@ -8662,7 +8649,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           {
             try
             {
-              TClassesRow& classesRow=(TClassesRow&)base_tables.get("classes").get_row("code",cl);
+              const TClassesRow& classesRow=(const TClassesRow&)base_tables.get("classes").get_row("code",cl);
               NewTextChild( seg2Node, "class_code", classesRow.code );
             }
             catch(EBaseTableError) {};
@@ -8700,7 +8687,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
               //считаем кол-во свободных мест
               //(после поиска пассажиров, так как необходимо определить базовый класс)
               int free, jmp_free;
-              CheckCounters(currSeg.point_dep,currSeg.point_arv,(char*)cl.c_str(),psTCheckin,cfg,free_seating,free,jmp_free);
+              CheckCounters(currSeg.point_dep,currSeg.point_arv,cl,psTCheckin,cfg,free_seating,free,jmp_free);
               if (free!=NoExists && free<seatsSum)
               {
                 xmlNodePtr wlNode;
