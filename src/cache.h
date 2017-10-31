@@ -83,6 +83,7 @@ const
                          {"MISC_SET_TYPES",          etMiscSetType},
                          {"RATE_COLORS",             etRateColor},
                          {"REM_GRP",                 etRemGrp},
+                         {"REPORT_TYPES",            etReportType},
                          {"RIGHTS",                  etRight},
                          {"SEASON_TYPES",            etSeasonType},
                          {"SEAT_ALGO_TYPES",         etSeatAlgoType},

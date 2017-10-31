@@ -4113,6 +4113,31 @@ void RESEATTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     }
 }
 
+int GetNumCopies(TRptParams rpt_params)
+{
+  TTripInfo info;
+  info.getByPointId(rpt_params.point_id);
+  TQuery Qry( &OraSession );
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT num, "
+    "    DECODE(airline,NULL,0,8)+ "
+    "    DECODE(flt_no,NULL,0,2)+ "
+    "    DECODE(airp_dep,NULL,0,4) AS priority "
+    "FROM doc_num_copies "
+    "WHERE report_type = :report_type AND "
+    "      (airline IS NULL OR airline=:airline) AND "
+    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+    "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
+    "ORDER BY priority DESC";
+  Qry.CreateVariable("report_type",otString,EncodeRptType(rpt_params.rpt_type));
+  Qry.CreateVariable("airline",otString,info.airline);
+  Qry.CreateVariable("flt_no",otInteger,info.flt_no);
+  Qry.CreateVariable("airp_dep",otString,info.airp);
+  Qry.Execute();
+  return Qry.Eof ? 1 : Qry.FieldAsInteger("num");
+}
+
 void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr node = reqNode->children;
@@ -4208,6 +4233,8 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         default:
             throw AstraLocale::UserException("MSG.TEMPORARILY_NOT_SUPPORTED");
     }
+    NewTextChild(resNode, "copies", GetNumCopies(rpt_params));
+    // LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
 }
 
 void  DocsInterface::LogPrintEvent(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
