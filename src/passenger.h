@@ -249,7 +249,6 @@ class TPaxDocoItem : public TPaxAPIItem, public TPaxRemBasic
   public:
     std::string birth_place;
     std::string type;
-    std::string subtype;
     std::string no;
     std::string issue_place;
     TDateTime issue_date;
