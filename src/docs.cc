@@ -404,6 +404,7 @@ void TRptParams::Init(xmlNodePtr node)
     prn_params.get_prn_params(node->parent);
     point_id = NodeAsIntegerFast("point_id", node);
     rpt_type = DecodeRptType(NodeAsStringFast("rpt_type", node));
+    orig_rpt_type = rpt_type;
     cls = NodeAsStringFast("cls", node, "");
     subcls = NodeAsStringFast("subcls", node, "");
     airp_arv = NodeAsStringFast("airp_arv", node, "");
@@ -4130,12 +4131,12 @@ int GetNumCopies(TRptParams rpt_params)
     "      (flt_no IS NULL OR flt_no=:flt_no) AND "
     "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
     "ORDER BY priority DESC";
-  Qry.CreateVariable("report_type",otString,EncodeRptType(rpt_params.rpt_type));
+  Qry.CreateVariable("report_type",otString,EncodeRptType(rpt_params.orig_rpt_type));
   Qry.CreateVariable("airline",otString,info.airline);
   Qry.CreateVariable("flt_no",otInteger,info.flt_no);
   Qry.CreateVariable("airp_dep",otString,info.airp);
   Qry.Execute();
-  return Qry.Eof ? 1 : Qry.FieldAsInteger("num");
+  return Qry.Eof ? NoExists : Qry.FieldAsInteger("num");
 }
 
 void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -4233,15 +4234,22 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         default:
             throw AstraLocale::UserException("MSG.TEMPORARILY_NOT_SUPPORTED");
     }
-    NewTextChild(resNode, "copies", GetNumCopies(rpt_params));
-    // LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
+    NewTextChild(resNode, "copies", GetNumCopies(rpt_params), NoExists);
 }
 
 void  DocsInterface::LogPrintEvent(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    TReqInfo::Instance()->LocaleToLog("EVT.PRINT_REPORT", LEvntPrms()
-                                       << PrmElem<std::string>("report", etReportType, NodeAsString("rpt_type", reqNode), efmtNameLong),
-                                       ASTRA::evtPrn, NodeAsInteger("point_id", reqNode));
+    int copies = NodeAsInteger("copies", reqNode, NoExists);
+    int printed_copies = NodeAsInteger("printed_copies", reqNode);
+    ostringstream str;
+    str << getLocaleText("Напечатано копий") << ": " << printed_copies;
+    if(copies != NoExists and copies != printed_copies)
+        str << "; " << getLocaleText("Задано копий") << ": " << copies;
+    TReqInfo::Instance()->LocaleToLog("EVT.PRINT_REPORT",
+            LEvntPrms()
+            << PrmElem<std::string>("report", etReportType, NodeAsString("rpt_type", reqNode), efmtNameLong)
+            << PrmSmpl<std::string>("copies", str.str()),
+            ASTRA::evtPrn, NodeAsInteger("point_id", reqNode));
 }
 
 void  DocsInterface::LogExportEvent(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

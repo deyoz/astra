@@ -20,7 +20,8 @@ struct TRptParams {
         TPrnParams prn_params;
         TSortType sort;
         int point_id;
-        ASTRA::TRptType rpt_type;
+        ASTRA::TRptType rpt_type; // тип отчета в зависимости от параметра Текстовый формат
+        ASTRA::TRptType orig_rpt_type; // тип отчета, как он пришел в запросе
         std::string cls;
         std::string subcls;
         std::string airp_arv;

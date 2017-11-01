@@ -81,6 +81,7 @@ const
                          {"KIOSK_CKIN_DESK_GRP",     etDeskGrp},
                          {"KIOSKS_GRP",              etKiosksGrp},
                          {"MISC_SET_TYPES",          etMiscSetType},
+                         {"NO_TXT_REPORT_TYPES",     etReportType},
                          {"RATE_COLORS",             etRateColor},
                          {"REM_GRP",                 etRemGrp},
                          {"REPORT_TYPES",            etReportType},
