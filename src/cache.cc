@@ -1828,6 +1828,16 @@ void AfterApplyAll(TCacheTable &cache)
 
 void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCacheQueryType qryType)
 {
+    if (cache.code() == "DOC_NUM_COPIES") {
+        string num;
+        if (
+                row.status != usDeleted and
+                row.status != usUnmodified
+           )
+            num=cache.FieldValue("num", row);
+        if(not num.empty() and num[0] == '0')
+                throw AstraLocale::UserException("MSG.INVALID_COPIES");
+    }
   if (cache.code() == "BI_PRINT_RULES") {
     string rfisc;
     if (
