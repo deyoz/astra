@@ -537,7 +537,8 @@ void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
   NewTextChild(rootNode,"point_id",params.point_id);
   kickInfo.toXML(rootNode);
   OrigOfRequest::toXML(org, getTripAirline(info), getTripFlightNum(info), rootNode);
-  SetProp(rootNode,"req_ctxt_id",kickInfo.reqCtxtId);
+
+  SetProp(rootNode,"req_ctxt_id", kickInfo.reqCtxtId, ASTRA::NoExists);
   switch(searchPurpose)
   {
     case spETDisplay:
@@ -751,7 +752,7 @@ void SearchEMDsByTickNo(const set<Ticketing::TicketNum_t> &emds,
 
       xmlNodePtr rootNode;
       XMLDoc xmlCtxt("context", rootNode, __FUNCTION__);
-      SetProp(rootNode, "req_ctxt_id", kickInfo.reqCtxtId);
+      SetProp(rootNode, "req_ctxt_id", kickInfo.reqCtxtId, ASTRA::NoExists);
       NewTextChild(rootNode, "emd_no", e->get());
       edifact::EmdDispByNum emdDispParams(org,
                                           xmlCtxt.text(),
@@ -1095,8 +1096,7 @@ bool EMDSystemUpdateInterface::EMDChangeDisassociation(const edifact::KickInfo &
 
       xmlNodePtr rootNode=NodeAsNode("/context",i->second.docPtr());
 
-      if (kickInfo.reqCtxtId!=ASTRA::NoExists)
-        SetProp(rootNode,"req_ctxt_id",kickInfo.reqCtxtId);
+      SetProp(rootNode, "req_ctxt_id", kickInfo.reqCtxtId, ASTRA::NoExists);
       TEdiOriginCtxt::toXML(rootNode);
 
       string ediCtxt=XMLTreeToText(i->second.docPtr());
@@ -1588,8 +1588,7 @@ bool EMDStatusInterface::EMDChangeStatus(const edifact::KickInfo &kickInfo,
       {
         xmlNodePtr rootNode=NodeAsNode("/context",j->ctxt.docPtr());
 
-        if (kickInfo.reqCtxtId!=ASTRA::NoExists)
-          SetProp(rootNode,"req_ctxt_id",kickInfo.reqCtxtId);
+        SetProp(rootNode, "req_ctxt_id", kickInfo.reqCtxtId, ASTRA::NoExists);
         TEdiOriginCtxt::toXML(rootNode);
 
         string ediCtxt=XMLTreeToText(j->ctxt.docPtr());
@@ -1963,8 +1962,7 @@ bool ETStatusInterface::ETChangeStatus(const edifact::KickInfo &kickInfo,
 
         xmlNodePtr rootNode=NodeAsNode("/context",j->second.docPtr());
 
-        if (kickInfo.reqCtxtId!=ASTRA::NoExists)
-          SetProp(rootNode,"req_ctxt_id",kickInfo.reqCtxtId);
+        SetProp(rootNode, "req_ctxt_id", kickInfo.reqCtxtId, ASTRA::NoExists);
         TEdiOriginCtxt::toXML(rootNode);
 
         string ediCtxt=XMLTreeToText(j->second.docPtr());
@@ -2396,7 +2394,7 @@ bool EMDAutoBoundInterface::Lock(const EMDAutoBoundId &id, int &point_id, TCkinG
 void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqNode)
 {
   //раскомментировав эту строчку, ты, дорогой друг, отключишь любую автопривязку EMD, кроме фоновой по закрытию регистрации
-  //try { dynamic_cast<const EMDAutoBoundPointId&>(id); } catch(std::bad_cast) { return; }
+  // try { dynamic_cast<const EMDAutoBoundPointId&>(id); } catch(std::bad_cast) { return; }
 
   int point_id=NoExists;
   TGrpIds grp_ids;
@@ -2815,19 +2813,12 @@ void handleEtDispResponse(const edifact::RemoteResults& remRes)
     {
         ProgTrace(TRACE5, ">>>> %s: unknown error", __FUNCTION__);
     }
-    //для фонового режима выйти и не продолжать с контекстом
-    if (remRes.isSystemPult())
-    {
-      LogTrace(TRACE5) << __FUNCTION__ << ": remRes.isSystemPult()=true";
-      return;
-    };
 
     XMLDoc ediSessCtxt;
     AstraEdifact::getEdiSessionCtxt(ediSessId.get(), true, "handleEtDispResponse", ediSessCtxt, false);
     if(ediSessCtxt.docPtr()!=NULL)
     {
         xmlNodePtr rootNode=NodeAsNode("/context",ediSessCtxt.docPtr());
-        int req_ctxt_id=NodeAsInteger("@req_ctxt_id",rootNode);
         int point_id=NodeAsInteger("point_id",rootNode);
 
         TQuery Qry(&OraSession);
@@ -2882,6 +2873,7 @@ void handleEtDispResponse(const edifact::RemoteResults& remRes)
                 ProcEdiError(e.getLexemaData(), ediResCtxtNode, true);
             }
             LogTrace(TRACE3) << "Before addToEdiResponseCtxt";
+            int req_ctxt_id=NodeAsInteger("@req_ctxt_id", rootNode, ASTRA::NoExists);
             addToEdiResponseCtxt(req_ctxt_id, ediResCtxtNode->children, "");
         }
     }
