@@ -83,8 +83,8 @@ void TParseFlight::add_est( const std::string &value ) {
   if ( value.empty() )
         throw Exception( "è¨¡ª  ä®à¬ â  à áç¥â­®£® ¢à¥¬¥­¨, §­ ç¥­¨¥=%s", value.c_str() );
   std::string tmp_value = value;
-  if ( tmp_value.size() == 23 ) {
-    tmp_value = tmp_value.substr(0, 19); //®âá¥ª ¥¬ ¬¨««¨á¥ªã­¤ë
+  if ( tmp_value.size() > FormatFlightDateTime.size() ) {
+    tmp_value = tmp_value.substr(0, FormatFlightDateTime.size()); //®âá¥ª ¥¬ ¬¨««¨á¥ªã­¤ë
   }
   if ( StrToDateTime( tmp_value.c_str(), FormatFlightDateTime.c_str(), est ) == EOF )
         throw Exception( "è¨¡ª  ä®à¬ â  à áç¥â­®£® ¢à¥¬¥­¨, §­ ç¥­¨¥=%s", value.c_str() );
@@ -1218,7 +1218,7 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, s
       d.craft = owndest->craft;
       d.craft_fmt = owndest->craft_fmt;
     }
-    if ( !owndest->craft.empty() ) { //®áâ ¢«ï¥¬ áâ®à®¥ §­ ç¥­¨¥ â¨¯  ‚‘
+    if ( !owndest->craft.empty() ) { //®áâ ¢«ï¥¬ áâ à®¥ §­ ç¥­¨¥ â¨¯  ‚‘
       d.craft = owndest->craft;
       d.craft_fmt = owndest->craft_fmt;
     }
