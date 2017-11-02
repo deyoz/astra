@@ -154,6 +154,8 @@ src/pers_weights.cc
 src/pers_weights.h
 src/points.cc
 src/points.h
+src/postpone_trip_task.cc
+src/postpone_trip_task.h
 src/prepreg.cc
 src/prepreg.h
 src/print.cc

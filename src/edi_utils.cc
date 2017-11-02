@@ -356,10 +356,7 @@ string make_xml_kick(const edifact::KickInfo &kickInfo)
   SetProp(node,"lang",reqInfo->desk.lang);
   if (reqInfo->desk.term_id!=ASTRA::NoExists)
     SetProp(node,"term_id",FloatToString(reqInfo->desk.term_id,0));
-  if (kickInfo.reqCtxtId!=ASTRA::NoExists)
-    SetProp(NewTextChild(node,"kick"),"req_ctxt_id",kickInfo.reqCtxtId);
-  else
-    NewTextChild(node,"kick");
+  SetProp(NewTextChild(node,"kick"), "req_ctxt_id", kickInfo.reqCtxtId, ASTRA::NoExists);
   std::string redisplay = ConvertCodepage(XMLTreeToText(kickDoc.docPtr()),"CP866","UTF-8");
 #ifdef XP_TESTING
   if(inTestMode()) {
@@ -528,13 +525,15 @@ void traceTermRequestCtxt(int sessIda, const std::string &whence)
   if(ediSessCtxt.docPtr()!=NULL)
   {
     xmlNodePtr rootNode=NodeAsNode("/context",ediSessCtxt.docPtr());
-    int req_ctxt_id=NodeAsInteger("@req_ctxt_id",rootNode);
-
-    traceCtxt("TERM_REQUEST", req_ctxt_id, whence);
+    int req_ctxt_id=NodeAsInteger("@req_ctxt_id",rootNode,ASTRA::NoExists);
+    if (req_ctxt_id!=ASTRA::NoExists)
+      traceCtxt("TERM_REQUEST", req_ctxt_id, whence);
+    else
+      LogTrace(TRACE5) << whence << ": req_ctxt_id==ASTRA::NoExists";
   }
   else
   {
-    LogTrace(TRACE5) << "EDI_SESSION has wrong XML format";
+    LogTrace(TRACE5) << whence << ": EDI_SESSION has wrong XML format";
     traceCtxt("EDI_SESSION", sessIda, whence);
   };
 }
