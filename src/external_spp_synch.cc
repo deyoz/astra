@@ -83,8 +83,8 @@ void TParseFlight::add_est( const std::string &value ) {
   if ( value.empty() )
         throw Exception( "Ошибка формата расчетного времени, значение=%s", value.c_str() );
   std::string tmp_value = value;
-  if ( tmp_value.size() == 23 ) {
-    tmp_value = tmp_value.substr(0, 19); //отсекаем миллисекунды
+  if ( tmp_value.size() > FormatFlightDateTime.size() ) {
+    tmp_value = tmp_value.substr(0, FormatFlightDateTime.size()); //отсекаем миллисекунды
   }
   if ( StrToDateTime( tmp_value.c_str(), FormatFlightDateTime.c_str(), est ) == EOF )
         throw Exception( "Ошибка формата расчетного времени, значение=%s", value.c_str() );
@@ -1210,14 +1210,19 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, s
       if ( d.craft.empty() ) {
         warning += " ;Не задан тип ВС, оставляем старое значение '" + owndest->craft + "'";
       }
-      else
+      else {
         if ( d.craft_fmt == efmtUnknown ) {
           warning += " ;Неизвестный тип ВС, значение '" + d.craft + "', оставляем старое значение '" + owndest->craft + "'";
         }
+      }
       d.craft = owndest->craft;
       d.craft_fmt = owndest->craft_fmt;
     }
-    if ( d.bort.empty() && !owndest->bort.empty() ) {
+    if ( !owndest->craft.empty() ) { //оставляем старое значение типа ВС
+      d.craft = owndest->craft;
+      d.craft_fmt = owndest->craft_fmt;
+    }
+    if ( !owndest->bort.empty() ) {
       warning += " ;Не задан борт ВС, оставляем старое значение '" + owndest->bort + "'";
       d.bort = owndest->bort;
     }
