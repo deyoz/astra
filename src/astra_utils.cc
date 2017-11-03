@@ -1977,3 +1977,54 @@ string get_airp_country(const string &airp)
     return base_tables.get("CITIES").get_row("code", city).AsString("country");
 }
 
+string getDocMonth(int month, bool pr_lat)
+{
+    const map<int, map<int, string> > months =
+    {
+        {0, 
+            {
+                {1, "января"},
+                {2, "февраля"},
+                {3, "марта"},
+                {4, "апреля"},
+                {5, "мая"},
+                {6, "июня"},
+                {7, "июля"},
+                {8, "августа"},
+                {9, "сентября"},
+                {10, "октября"},
+                {11, "ноября"},
+                {12, "декабря"}
+            }
+        },
+        {1, 
+            {
+                {1, "january"},
+                {2, "february"},
+                {3, "march"},
+                {4, "april"},
+                {5, "may"},
+                {6, "june"},
+                {7, "july"},
+                {8, "august"},
+                {9, "september"},
+                {10, "october"},
+                {11, "november"},
+                {12, "december"}
+            }
+        }
+    };
+
+    if(month < 1 or month > 12)
+        throw EXCEPTIONS::Exception("getDocMonth: wrong month: %d", month);
+
+    return months.at(pr_lat).at(month);
+}
+
+string getDocMonth(TDateTime claim_date, bool pr_lat)
+{
+    int Year, Month, Day;
+    DecodeDate(claim_date, Year, Month, Day);
+    return getDocMonth(Month, pr_lat);
+}
+
