@@ -19,29 +19,34 @@ struct THotelAcmdPaxItem {
     TPerson pers_type;
     int hotel_id;
     int room_type;
-    bool breakfast;
-    bool dinner;
-    bool supper;
+    int breakfast;
+    int dinner;
+    int supper;
     THotelAcmdPaxItem():
         idx(NoExists),
         pax_id(NoExists),
         pers_type(NoPerson),
         hotel_id(NoExists),
         room_type(NoExists),
-        breakfast(false),
-        dinner(false),
-        supper(false)
+        breakfast(NoExists),
+        dinner(NoExists),
+        supper(NoExists)
     {}
 };
 
 struct THotelAcmdPax
 {
-    int point_id;
-    THotelAcmdPax(): point_id(NoExists) {}
-    map<int, THotelAcmdPaxItem> items;
-    void fromDB(int point_id);
-    void fromXML(xmlNodePtr reqNode);
-    void toDB(list<pair<int, int> > &inserted_paxes);
+    private:
+        int GetBoolVar(TQuery &Qry, int idx);
+        void SetBoolVar(TQuery &Qry, const string &name, int val);
+        void SetBoolLogParam(LEvntPrms &params, const string &name, int val);
+    public:
+        int point_id;
+        THotelAcmdPax(): point_id(NoExists) {}
+        map<int, THotelAcmdPaxItem> items;
+        void fromDB(int point_id);
+        void fromXML(xmlNodePtr reqNode);
+        void toDB(list<pair<int, int> > &inserted_paxes);
 };
 
 struct TPaxListItem {
@@ -122,6 +127,30 @@ void TPaxList::fromDB(int point_id)
     }
 }
 
+
+void THotelAcmdPax::SetBoolLogParam(LEvntPrms &params, const string &name, int val)
+{
+    if(val == NoExists) {
+        params << PrmSmpl<string>(name, "N/A");
+    } else
+        params << PrmBool(name, val);
+}
+
+int THotelAcmdPax::GetBoolVar(TQuery &Qry, int idx)
+{
+    int result = NoExists;
+    if(not Qry.FieldIsNULL(idx))
+        result = Qry.FieldAsInteger(idx);
+    return result;
+}
+
+void THotelAcmdPax::SetBoolVar(TQuery &Qry, const string &name, int val)
+{
+    if(val == NoExists)
+        Qry.SetVariable(name.c_str(), FNull);
+    else
+        Qry.SetVariable(name.c_str(), val);
+}
 
 void THotelAcmdPax::toDB(list<pair<int, int> > &inserted_paxes)
 {
@@ -234,18 +263,19 @@ void THotelAcmdPax::toDB(list<pair<int, int> > &inserted_paxes)
             insQry.get().SetVariable("point_id", pax->second.point_id);
             insQry.get().SetVariable("hotel_id", pax->second.hotel_id);
             insQry.get().SetVariable("room_type", pax->second.room_type);
-            insQry.get().SetVariable("breakfast", pax->second.breakfast);
-            insQry.get().SetVariable("dinner", pax->second.dinner);
-            insQry.get().SetVariable("supper", pax->second.supper);
+            SetBoolVar(insQry.get(), "breakfast", pax->second.breakfast);
+            SetBoolVar(insQry.get(), "dinner", pax->second.dinner);
+            SetBoolVar(insQry.get(), "supper", pax->second.supper);
             insQry.get().Execute();
 
             LEvntPrms params;
             params << PrmSmpl<std::string>("full_name", pax->second.full_name);
             params << PrmSmpl<string>("hotel_name", ElemIdToNameLong(etHotel, pax->second.hotel_id));
             params << PrmSmpl<string>("room_type", ElemIdToNameLong(etHotelRoomType, pax->second.room_type));
-            params << PrmBool("breakfast", pax->second.breakfast);
-            params << PrmBool("dinner", pax->second.dinner);
-            params << PrmBool("supper", pax->second.supper);
+            SetBoolLogParam(params, "breakfast", pax->second.breakfast);
+            SetBoolLogParam(params, "dinner", pax->second.dinner);
+            SetBoolLogParam(params, "supper", pax->second.supper);
+
             TReqInfo::Instance()->LocaleToLog("EVT.HOTEL_ACMD", params, ASTRA::evtPax, point_id, reg_no, grp_id);
         }
     }
@@ -266,9 +296,9 @@ void THotelAcmdPax::fromXML(xmlNodePtr reqNode)
         item.pers_type = (TPerson)NodeAsIntegerFast("pers_type", currNode);
         item.hotel_id = NodeAsIntegerFast("hotel_id", currNode);
         item.room_type = NodeAsIntegerFast("room_type", currNode);
-        item.breakfast = NodeAsIntegerFast("breakfast", currNode);
-        item.dinner = NodeAsIntegerFast("dinner", currNode);
-        item.supper = NodeAsIntegerFast("supper", currNode);
+        item.breakfast = NodeAsIntegerFast("breakfast", currNode, NoExists);
+        item.dinner = NodeAsIntegerFast("dinner", currNode, NoExists);
+        item.supper = NodeAsIntegerFast("supper", currNode, NoExists);
         items[item.pax_id] = item;
     }
 }
@@ -293,9 +323,9 @@ void THotelAcmdPax::fromDB(int point_id)
             item.pax_id = Qry.get().FieldAsInteger(col_pax_id);
             item.hotel_id = Qry.get().FieldAsInteger(col_hotel_id);
             item.room_type = Qry.get().FieldAsInteger(col_room_type);
-            item.breakfast = Qry.get().FieldAsInteger(col_breakfast);
-            item.dinner = Qry.get().FieldAsInteger(col_dinner);
-            item.supper = Qry.get().FieldAsInteger(col_supper);
+            item.breakfast = GetBoolVar(Qry.get(), col_breakfast);
+            item.dinner = GetBoolVar(Qry.get(), col_dinner);
+            item.supper = GetBoolVar(Qry.get(), col_supper);
             items[item.pax_id] = item;
         }
     }
@@ -427,6 +457,14 @@ void HotelAcmdInterface::HotelAcmdClaim(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     TRptParams rpt_params(TReqInfo::Instance()->desk.lang);
     PaxListVars(point_id, rpt_params, formDataNode);
     NewTextChild(formDataNode, "doc_hotel_acmd_caption", getLocaleText("DOC.HOTEL_ACMD.CAPTION"));
+
+    TTripInfo info;
+    info.getByPointId(point_id);
+    TDateTime claim_date = UTCToLocal(NowUTC(),AirpTZRegion(info.airp));
+    bool pr_lat = TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU;
+    NewTextChild(formDataNode, "claim_day", DateTimeToStr(claim_date, "dd"));
+    NewTextChild(formDataNode, "claim_month", getDocMonth(claim_date, pr_lat));
+    NewTextChild(formDataNode, "claim_year", DateTimeToStr(claim_date, "yyyy"));
 }
 
 void HotelAcmdInterface::View(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -466,17 +504,17 @@ void HotelAcmdInterface::View(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         if(acmd_pax != hotel_acmd_pax.items.end()) {
             NewTextChild(paxNode, "hotel_id", acmd_pax->second.hotel_id);
             NewTextChild(paxNode, "room_type", acmd_pax->second.room_type);
-            NewTextChild(paxNode, "breakfast", acmd_pax->second.breakfast);
-            NewTextChild(paxNode, "dinner", acmd_pax->second.dinner);
-            NewTextChild(paxNode, "supper", acmd_pax->second.supper);
+            NewTextChild(paxNode, "breakfast", acmd_pax->second.breakfast, NoExists);
+            NewTextChild(paxNode, "dinner", acmd_pax->second.dinner, NoExists);
+            NewTextChild(paxNode, "supper", acmd_pax->second.supper, NoExists);
         }
     }
     xmlNodePtr defaultsNode = NewTextChild(resNode, "defaults");
     NewTextChild(defaultsNode, "hotel_id", NoExists);
     NewTextChild(defaultsNode, "room_type", 1);
-    NewTextChild(defaultsNode, "breakfast", 0);
-    NewTextChild(defaultsNode, "dinner", 0);
-    NewTextChild(defaultsNode, "supper", 0);
+    NewTextChild(defaultsNode, "breakfast", NoExists);
+    NewTextChild(defaultsNode, "dinner", NoExists);
+    NewTextChild(defaultsNode, "supper", NoExists);
 
     TAcmdDate acmd_date;
     acmd_date.fromDB(point_id);
