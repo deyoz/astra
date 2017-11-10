@@ -307,6 +307,8 @@ class TTripInfo
                                                act_out.get()!=ASTRA::NoExists?act_out.get():
                                                est_out.get()!=ASTRA::NoExists?est_out.get():
                                                                               scd_out; }
+    bool est_out_exists() const { return est_out && est_out.get()!=ASTRA::NoExists;  }
+    bool act_out_exists() const { return act_out && act_out.get()!=ASTRA::NoExists;  }
 };
 
 std::string flight_view(int grp_id, int seg_no); //начиная с 1
