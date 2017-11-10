@@ -47,6 +47,7 @@
 #include "html_pages.h"
 #include "kiosk_alias.h"
 #include "hotel_acmd.h"
+#include "self_ckin_log.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -92,6 +93,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new HtmlInterface();
     new KioskAliasInterface();
     new HotelAcmdInterface();
+    new SelfCkinLogInterface();
 
     new AstraWeb::WebRequestsIface();
 

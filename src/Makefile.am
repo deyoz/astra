@@ -177,6 +177,7 @@ astra_SOURCES = \
   kiosk_alias.cpp \
   bagmessage.cc \
   hotel_acmd.cc \
+  self_ckin_log.cc \
   bagmessage_daemon.cc
 
 
@@ -346,4 +347,6 @@ noinst_HEADERS = \
   AirportControl.h \
   md5_sum.h \
   hotel_acmd.h \
+  self_ckin_log.h \
+  report_common.h \
   kiosk_alias.h
