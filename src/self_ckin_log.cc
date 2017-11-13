@@ -5,6 +5,7 @@
 #include "date_time.h"
 #include "astra_utils.h"
 #include "report_common.h"
+#include "docs.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -199,44 +200,29 @@ void TSelfCkinLog::rowToXML(xmlNodePtr rowNode, const TSelfCkinLogItem &log_item
 {
     // Время
     NewTextChild(rowNode, "col", DateTimeToStr(log_item.time));
-    // №
-    NewTextChild(rowNode, "col", log_item.ev_order);
-    // Тип
-    NewTextChild(rowNode, "col", log_item.type);
-    // Приложение
-    NewTextChild(rowNode, "col", log_item.app);
-    // Экран
-    NewTextChild(rowNode, "col", log_item.evt_params.get_param(KIOSK_PARAM_NAME::REFERENCE).begin()->second.begin()->second);
     // Киоск
     NewTextChild(rowNode, "col", log_item.kiosk_id);
     // Ошибка
     NewTextChild(rowNode, "col", err);
+    // Экран
+    NewTextChild(rowNode, "col", log_item.evt_params.get_param(KIOSK_PARAM_NAME::REFERENCE).begin()->second.begin()->second);
+    // Приложение
+    NewTextChild(rowNode, "col", log_item.app);
+    // Тип
+    NewTextChild(rowNode, "col", log_item.type);
+    // №
+    NewTextChild(rowNode, "col", log_item.ev_order);
 }
 
 void TSelfCkinLog::toXML(xmlNodePtr resNode)
 {
+    NewTextChild(resNode, "screenCol", 3);
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
 
     xmlNodePtr headerNode = NewTextChild(grdNode, "header");
     xmlNodePtr colNode;
     colNode = NewTextChild(headerNode, "col", getLocaleText("Время"));
-    SetProp(colNode, "width", 60);
-    SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("№"));
-    SetProp(colNode, "width", 60);
-    SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Тип"));
-    SetProp(colNode, "width", 60);
-    SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Приложение"));
-    SetProp(colNode, "width", 60);
-    SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Экран"));
-    SetProp(colNode, "width", 60);
+    SetProp(colNode, "width", 110);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Киоск"));
@@ -244,6 +230,22 @@ void TSelfCkinLog::toXML(xmlNodePtr resNode)
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Ошибка"));
+    SetProp(colNode, "width", 550);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Экран"));
+    SetProp(colNode, "width", 750);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Приложение"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Тип"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("№"));
     SetProp(colNode, "width", 60);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
@@ -325,6 +327,9 @@ void TSelfCkinLog::fromDB(const TParams &params)
 
 void SelfCkinLogInterface::Run(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    get_compatible_report_form("SelfCkinLog", reqNode, resNode);
+    xmlNodePtr formDataNode = STAT::set_variables(resNode);
+
     TParams params;
     params.fromXML(reqNode);
     TSelfCkinLog log;
