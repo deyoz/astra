@@ -2576,8 +2576,8 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
   TQuery Qry( &OraSession );
   //TQuery StagesQry( &OraSession );
   Qry.SQLText =
-    "SELECT point_id,airline,flt_no,suffix,suffix_fmt,litera,airp,airp_fmt,scd_out,est_out,act_out,craft,craft_fmt,bort,trip_type "
-    " FROM points WHERE point_id=:point_id";
+    "SELECT " + TTripInfo::selectedFields() + "litera, bort, trip_type "
+    "FROM points WHERE point_id=:point_id AND pr_del>=0"; 
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
   if ( Qry.Eof ) {
@@ -2585,32 +2585,26 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
   }
 
   TTripInfo info(Qry);
+  string litera=Qry.FieldAsString("litera");
+  string bort=Qry.FieldAsString("bort");
+  string trip_type=Qry.FieldAsString("trip_type");
+
   xmlNodePtr node = NewTextChild( resNode, "tripheader" );
-  NewTextChild( node, "point_id", Qry.FieldAsInteger( "point_id" ) );
+  NewTextChild( node, "point_id", info.point_id );
 
   string &tz_region=AirpTZRegion(info.airp);
 
   NewTextChild( node, "scd_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region), "hh:nn") );
-  if (!Qry.FieldIsNULL("est_out")) {
-    NewTextChild( node, "est_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region), "hh:nn") );
-  }
-  else {
-    NewTextChild( node, "est_out" );
-  }
-  if (!Qry.FieldIsNULL("act_out")) {
-    NewTextChild( node, "act_out", DateTimeToStr(UTCToClient(info.scd_out,tz_region), "hh:nn") );
-  }
-  else {
-    NewTextChild( node, "act_out" );
-  }
-  NewTextChild( node, "craft", ElemIdToElemCtxt(ecCkin,etCraft, Qry.FieldAsString( "craft" ), (TElemFmt)Qry.FieldAsInteger( "craft_fmt" )) );
-  NewTextChild( node, "bort", Qry.FieldAsString( "bort" ) );
+  NewTextChild( node, "est_out", info.est_out_exists()?DateTimeToStr(UTCToClient(*info.est_out,tz_region), "hh:nn") : "" );
+  NewTextChild( node, "act_out", info.act_out_exists()?DateTimeToStr(UTCToClient(*info.act_out,tz_region), "hh:nn") : "" );
+  NewTextChild( node, "craft", ElemIdToElemCtxt(ecCkin,etCraft, info.craft, info.craft_fmt));
+  NewTextChild( node, "bort", bort);
   NewTextChild( node, "classes", TCFG(point_id).str() );
   string route=GetRouteAfterStr(NoExists, point_id, trtWithCurrent, trtNotCancelled);
   NewTextChild( node, "route", route );
   NewTextChild( node, "places", route );
-  NewTextChild( node, "trip_type", ElemIdToCodeNative(etTripType,Qry.FieldAsString( "trip_type" )) );
-  NewTextChild( node, "litera", Qry.FieldAsString( "litera" ) );
+  NewTextChild( node, "trip_type", ElemIdToCodeNative(etTripType,trip_type) );
+  NewTextChild( node, "litera", litera );
   //trip нужен для ChangeTrip клиента:
   NewTextChild( node, "trip", GetTripName(info,ecCkin,false,true));
 
@@ -2720,15 +2714,15 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
       << getLocaleText("Рейс") << " "
       << GetTripName(info,ecCkin,false,true) << " "
       << route << " "
-      << getLocaleText("ВС") << "/" << ElemIdToElemCtxt(ecCkin,etCraft, Qry.FieldAsString( "craft" ), (TElemFmt)Qry.FieldAsInteger( "craft_fmt" )) << " "
-      << getLocaleText("Борт") << "/" << Qry.FieldAsString( "bort" ) << " "
+      << getLocaleText("ВС") << "/" << ElemIdToElemCtxt(ecCkin,etCraft, info.craft, info.craft_fmt) << " "
+      << getLocaleText("Борт") << "/" << bort << " "
       << getLocaleText("Компоновка") << "/" << TCFG(point_id).str() << " "
       << getLocaleText("Отпр.") << "/" << DateTimeToStr(UTCToClient(info.scd_out,tz_region), "hh:nn") << " "
       << getLocaleText("Расч") << "/"
-      << (Qry.FieldIsNULL("est_out") ? "" : DateTimeToStr(UTCToClient(Qry.FieldAsDateTime("est_out"),tz_region), "hh:nn"))
+      << (info.est_out_exists()?DateTimeToStr(UTCToClient(*info.est_out,tz_region), "hh:nn") : "")
       << " "
       << getLocaleText("Факт") << "/"
-      << (Qry.FieldIsNULL("act_out") ? "" : DateTimeToStr(UTCToClient(Qry.FieldAsDateTime("act_out"),tz_region), "hh:nn"))
+      << (info.act_out_exists()?DateTimeToStr(UTCToClient(*info.act_out,tz_region), "hh:nn") : "")
       << endl
       << getLocaleText("Статус") << ": " << stagesRules->status_view( stCheckIn, tripStages.getStage( stCheckIn ) ) << endl
       << getLocaleText("Тревога") << ": " << stralarms;
