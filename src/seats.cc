@@ -2758,7 +2758,11 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
 
 bool UsedPayedPreseatForPassenger( const TPlace &seat, int pass_preseat_pax_id, TCompLayerType pass_preseat_layer ) {
 
-  if ( seat.SeatTariff.empty() ) {
+  if ( TReqInfo::Instance()->client_type == ctTerm && seat.SeatTariff.rate == 0.0 ) { // only for Term analize rates
+    tst();
+    return true;
+  }
+  if ( seat.SeatTariff.empty() ) { // for other analize color
     tst();
     return true;
   }
