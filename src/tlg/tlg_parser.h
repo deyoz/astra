@@ -621,6 +621,7 @@ class TInfList : public std::vector<TInfItem>
 {
   public:
     void removeIfExistsIn(const TInfList &infs);
+    void removeEmpty();
     void removeDup();
     void setSurnameIfEmpty(const std::string &surname);
 };

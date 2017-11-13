@@ -3364,6 +3364,19 @@ void TInfList::removeIfExistsIn(const TInfList &infs)
   };
 }
 
+void TInfList::removeEmpty()
+{
+  for(TInfList::iterator i=begin();i!=end();)
+  {
+    if (i->Empty())
+    {
+      i=erase(i);
+      continue;
+    }
+    ++i;
+  }
+}
+
 void TInfList::removeDup()
 {
   bool notEmptyExists=false;
@@ -3424,6 +3437,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
               TInfList inf;
               if (ParseINFRem(tlg,iRemItem->text,inf))
               {
+                inf.removeEmpty();
                 inf.removeIfExistsIn(iPaxItem->inf);
                 iPaxItem->inf.insert(iPaxItem->inf.end(),inf.begin(),inf.end());
                 iPaxItem->inf.removeDup();
@@ -3621,6 +3635,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
             TInfList inf;
             if (ParseINFRem(tlg,iRemItem->text,inf))
             {
+              inf.removeEmpty();
               if (ne.pax.size()==1 && ne.pax.begin()->inf.empty() &&
                   inf.size()==1)
               {
