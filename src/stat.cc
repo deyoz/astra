@@ -10025,6 +10025,7 @@ struct TTrferPaxStatItem:public TOrderStatItem {
     TSegCategories::Enum seg_category;
     string pax_name;
     string pax_doc;
+    string tags;
     int pax_amount;
     int adult;
     int child;
@@ -10076,23 +10077,24 @@ void TTrferPaxStatItem::add_header(ostringstream &buf) const
 {
     buf
         << getLocaleText("АК") << delim
-        << getLocaleText("АП") << delim
+        << getLocaleText("АПВ") << delim
         << getLocaleText("Сег.1") << delim
         << getLocaleText("Дата") << delim
-        << getLocaleText("Трансфер") << delim
+        << getLocaleText("АПТ") << delim
         << getLocaleText("Сег.2") << delim
         << getLocaleText("Дата") << delim
-        << getLocaleText("А/п прилета") << delim
+        << getLocaleText("АПП") << delim
         << getLocaleText("Категория") << delim
         << getLocaleText("ФИО пассажира") << delim
         << getLocaleText("Документ") << delim
-        << getLocaleText("Кол-во пасс.") << delim
+        << getLocaleText("П") << delim
         << getLocaleText("ВЗ") << delim
         << getLocaleText("РБ") << delim
         << getLocaleText("РМ") << delim
-        << getLocaleText("Р/кладь (вес)") << delim
+        << getLocaleText("Р/к") << delim
         << getLocaleText("БГ мест") << delim
-        << getLocaleText("БГ вес") << endl;
+        << getLocaleText("БГ вес") << delim
+        << getLocaleText("Бирки") << endl;
 }
 
 void TTrferPaxStatItem::add_data(ostringstream &buf) const
@@ -10153,7 +10155,9 @@ void TTrferPaxStatItem::add_data(ostringstream &buf) const
     //БГ мест
     buf << bag_amount << delim;
     //БГ вес
-    buf << bag_weight << endl;
+    buf << bag_weight << delim;
+    //Бирки
+    buf << tags << endl;
 }
 
 typedef list<TTrferPaxStatItem> TTrferPaxStat;
@@ -10190,7 +10194,8 @@ void RunTrferPaxStat(
     QParams QryParams;
     QryParams
         << QParam("FirstDate", otDate, params.FirstDate)
-        << QParam("LastDate", otDate, params.LastDate);
+        << QParam("LastDate", otDate, params.LastDate)
+        << QParam("pr_lat", otInteger, TReqInfo::Instance()->desk.lang!=AstraLocale::LANG_RU);
     TTrferPaxStatItem totals;
     for(int pass = 0; pass <= 2; pass++) {
         if (pass!=0)
@@ -10204,7 +10209,14 @@ void RunTrferPaxStat(
         SQLText +=
             "   trfer_pax_stat.*, "
             "   pax.surname||' '||pax.name full_name, "
-            "   pax.pers_type "
+            "   pax.pers_type, ";
+        if (pass!=0)
+            SQLText +=
+                " arch.get_birks2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags ";
+        else
+            SQLText +=
+                " ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags ";
+        SQLText +=
             "from ";
 
         if (pass!=0)
@@ -10251,6 +10263,7 @@ void RunTrferPaxStat(
             int col_segments = Qry.get().FieldIndex("segments");
             int col_full_name = Qry.get().FieldIndex("full_name");
             int col_pers_type = Qry.get().FieldIndex("pers_type");
+            int col_tags = Qry.get().FieldIndex("tags");
             for(; not Qry.get().Eof; Qry.get().Next()) {
                 TDateTime part_key = NoExists;
                 if(not Qry.get().FieldIsNULL(col_part_key))
@@ -10262,6 +10275,7 @@ void RunTrferPaxStat(
                 string segments = Qry.get().FieldAsString(col_segments);
                 string full_name = Qry.get().FieldAsString(col_full_name);
                 string pers_type = Qry.get().FieldAsString(col_pers_type);
+                string tags = Qry.get().FieldAsString(col_tags);
 
                 list<pair<TTripInfo, string> > seg_list;
                 getSegList(segments, seg_list);
@@ -10345,6 +10359,7 @@ void RunTrferPaxStat(
                     tmp_stat.begin()->rk_weight = rk_weight;
                     tmp_stat.begin()->bag_amount = bag_amount;
                     tmp_stat.begin()->bag_weight = bag_weight;
+                    tmp_stat.begin()->tags = tags;
 
                     totals.pax_amount++;
                     totals.adult += tmp_stat.begin()->adult;
@@ -10386,20 +10401,20 @@ void createXMLTrferPaxStat(
     SetProp(colNode, "width", 60);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("АП"));
-    SetProp(colNode, "width", 60);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АПВ"));
+    SetProp(colNode, "width", 30);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Сег.1"));
-    SetProp(colNode, "width", 60);
+    SetProp(colNode, "width", 50);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
-    SetProp(colNode, "width", 60);
+    SetProp(colNode, "width", 55);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Трансфер"));
-    SetProp(colNode, "width", 60);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АПТ"));
+    SetProp(colNode, "width", 30);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Сег.2"));
@@ -10407,11 +10422,11 @@ void createXMLTrferPaxStat(
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
-    SetProp(colNode, "width", 60);
+    SetProp(colNode, "width", 55);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("А/п прилета"));
-    SetProp(colNode, "width", 60);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АПП"));
+    SetProp(colNode, "width", 30);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Категория"));
@@ -10423,10 +10438,10 @@ void createXMLTrferPaxStat(
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Документ"));
-    SetProp(colNode, "width", 60);
+    SetProp(colNode, "width", 70);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("П"));
     SetProp(colNode, "width", 60);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
@@ -10442,7 +10457,7 @@ void createXMLTrferPaxStat(
     SetProp(colNode, "width", 60);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Р/кладь (вес)"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Р/к"));
     SetProp(colNode, "width", 60);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
@@ -10452,6 +10467,10 @@ void createXMLTrferPaxStat(
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("БГ вес"));
     SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Бирки"));
+    SetProp(colNode, "width", 90);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
 
@@ -10483,7 +10502,7 @@ void createXMLTrferPaxStat(
             buf << setw(3) << setfill('0') << stat->flt_no1 << ElemIdToCodeNative(etSuffix, stat->suffix1);
             NewTextChild(rowNode, "col", buf.str());
             //Дата
-            NewTextChild(rowNode, "col", DateTimeToStr(stat->date1, "dd.mm.yyyy"));
+            NewTextChild(rowNode, "col", DateTimeToStr(stat->date1, "dd.mm.yy"));
             //Трансфер
             NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, stat->trfer_airp));
             //Сег.2
@@ -10493,7 +10512,7 @@ void createXMLTrferPaxStat(
                 << setw(3) << setfill('0') << stat->flt_no2 << ElemIdToCodeNative(etSuffix, stat->suffix2);
             NewTextChild(rowNode, "col", buf.str());
             //Дата
-            NewTextChild(rowNode, "col", DateTimeToStr(stat->date2, "dd.mm.yyyy"));
+            NewTextChild(rowNode, "col", DateTimeToStr(stat->date2, "dd.mm.yy"));
             //А/п прилета
             NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, stat->airp_arv));
             //Категория
@@ -10517,6 +10536,8 @@ void createXMLTrferPaxStat(
         NewTextChild(rowNode, "col", stat->bag_amount);
         //БГ вес
         NewTextChild(rowNode, "col", stat->bag_weight);
+        //Бирки
+        NewTextChild(rowNode, "col", stat->tags);
     }
 
     xmlNodePtr variablesNode = STAT::set_variables(resNode);
