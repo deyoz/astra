@@ -1877,6 +1877,8 @@ enum TStatType {
     statPFSShort,
     statPFSFull,
     statTrferPax,
+    statHotelAcmdShort,
+    statHotelAcmdFull,
     statNum
 };
 
@@ -1902,6 +1904,8 @@ const char *TStatTypeS[statNum] = {
     "statAnnulBT",
     "statPFSShort",
     "statPFSFull",
+    "statHotelAcmdShort",
+    "statHotelAcmdFull",
     "statTrferPax"
 };
 
@@ -2440,6 +2444,13 @@ void TStatParams::get(xmlNodePtr reqNode)
             statType = statPFSFull;
         else if(name == "Общая")
             statType = statPFSShort;
+        else
+            throw Exception("Unknown stat mode " + name);
+    } else if(type == "Расселение") {
+        if(name == "Подробная")
+            statType = statHotelAcmdFull;
+        else if(name == "Общая")
+            statType = statHotelAcmdShort;
         else
             throw Exception("Unknown stat mode " + name);
     } else
@@ -9204,6 +9215,48 @@ void TOrderStatWriter::insert(const TOrderStatItem &row)
     out.flush();
 }
 
+/*------------------------------- HOTEL ACMD STAT ---------------------------------------*/
+
+struct THotelAcmdStat {
+};
+
+struct THotelAcmdShortStat {
+};
+
+void RunHotelAcmdStat(
+        const TStatParams &params,
+        THotelAcmdStat &HotelAcmdStat,
+        TPrintAirline &prn_airline
+        )
+{
+}
+
+void createXMLHotelAcmdStat(
+        const TStatParams &params,
+        const THotelAcmdStat &HotelAcmdStat,
+        const TPrintAirline &prn_airline,
+        xmlNodePtr resNode)
+{
+}
+
+void RunHotelAcmdShortStat(
+        const TStatParams &params,
+        THotelAcmdShortStat &HotelAcmdShortStat,
+        TPrintAirline &prn_airline
+        )
+{
+}
+
+void createXMLHotelAcmdShortStat(
+        const TStatParams &params,
+        THotelAcmdShortStat &HotelAcmdShortStat,
+        const TPrintAirline &prn_airline,
+        xmlNodePtr resNode)
+{
+}
+
+/*---------------------------------------------------------------------------------------*/
+
 /*------------------------------- PFS STAT ---------------------------------------*/
 struct TPFSStatRow {
     int point_id;
@@ -10589,6 +10642,8 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         case statPFSFull:
         case statPFSShort:
         case statTrferPax:
+        case statHotelAcmdShort:
+        case statHotelAcmdFull:
             get_compatible_report_form("stat", reqNode, resNode);
             break;
         default:
@@ -10708,6 +10763,20 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             TPFSShortStat PFSShortStat;
             RunPFSShortStat(params, PFSShortStat, airline);
             createXMLPFSShortStat(params, PFSShortStat, airline, resNode);
+        }
+        if(params.statType == statHotelAcmdFull)
+        {
+            TPrintAirline airline;
+            THotelAcmdStat HotelAcmdStat;
+            RunHotelAcmdStat(params, HotelAcmdStat, airline);
+            createXMLHotelAcmdStat(params, HotelAcmdStat, airline, resNode);
+        }
+        if(params.statType == statHotelAcmdShort)
+        {
+            TPrintAirline airline;
+            THotelAcmdShortStat HotelAcmdShortStat;
+            RunHotelAcmdShortStat(params, HotelAcmdShortStat, airline);
+            createXMLHotelAcmdShortStat(params, HotelAcmdShortStat, airline, resNode);
         }
         if(params.statType == statTrferPax)
         {
