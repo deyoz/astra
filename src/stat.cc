@@ -10087,7 +10087,7 @@ void TTrferPaxStatItem::add_header(ostringstream &buf) const
         << getLocaleText("Категория") << delim
         << getLocaleText("ФИО пассажира") << delim
         << getLocaleText("Документ") << delim
-        << getLocaleText("П") << delim
+        << getLocaleText("CAP.DOC.PAX") << delim
         << getLocaleText("ВЗ") << delim
         << getLocaleText("РБ") << delim
         << getLocaleText("РМ") << delim
@@ -10441,7 +10441,7 @@ void createXMLTrferPaxStat(
     SetProp(colNode, "width", 70);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("П"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("CAP.DOC.PAX"));
     SetProp(colNode, "width", 60);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
