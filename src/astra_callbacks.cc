@@ -46,7 +46,9 @@
 #include "rfisc_sirena.h"
 #include "html_pages.h"
 #include "kiosk_alias.h"
+#include "kiosk_events.h"
 #include "hotel_acmd.h"
+#include "libra.h"
 #include "self_ckin_log.h"
 
 #define NICKNAME "VLAD"
@@ -92,10 +94,12 @@ void AstraJxtCallbacks::InitInterfaces()
     new TestInterface();
     new HtmlInterface();
     new KioskAliasInterface();
+    new KioskRequestInterface();
     new HotelAcmdInterface();
     new SelfCkinLogInterface();
 
     new AstraWeb::WebRequestsIface();
+    new LibraInterface();
 
     new HTTPRequestsIface();
     new PieceConceptInterface();

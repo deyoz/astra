@@ -13,6 +13,7 @@ namespace AstraHTTP
 #define CHECKIN_JXT_INTERFACE_ID "CheckIn"
 #define TELEGRAM_JXT_INTERFACE_ID "Telegram"
 #define KIOSK_ALIAS_JXT_INTERFACE_ID "KioskAlias"
+#define KIOSK_REQUEST_JXT_INTERFACE_ID "KioskRequest"
 #define STAT_JXT_INTERFACE_ID "stat"
 #define HTML_JXT_INTERFACE_ID "html"
 #define PIECE_CONCEPT_JXT_INTERFACE_ID "PieceConcept"
@@ -57,6 +58,8 @@ struct HTTPClient
     jxt_interface["kuf_file"] =             JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      NULL);
     jxt_interface["kuf_stat"] =             JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      NULL);
     jxt_interface["kuf_stat_flts"] =        JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      NULL);
+    jxt_interface["EventToServer"] =        JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
+    jxt_interface["ViewKioskEvents"] =      JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
     jxt_interface["kiosk_alias"] =          JxtInfo(KIOSK_ALIAS_JXT_INTERFACE_ID,   NULL);
     jxt_interface["kiosk_alias_locale"] =   JxtInfo(KIOSK_ALIAS_JXT_INTERFACE_ID,   NULL);
     jxt_interface["stat_srv"] =             JxtInfo(STAT_JXT_INTERFACE_ID,          NULL);

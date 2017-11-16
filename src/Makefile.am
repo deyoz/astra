@@ -101,6 +101,7 @@ astra_SOURCES = \
   images.cc \
   load_fr.cc \
   locale.cc \
+  libra.cc \
   maindcs.cc \
   meridian.cc \
   msg_handler.cc \
@@ -175,6 +176,7 @@ astra_SOURCES = \
   AirportControl.cpp \
   md5_sum.cc \
   kiosk_alias.cpp \
+  kiosk_events.cc \
   bagmessage.cc \
   hotel_acmd.cc \
   self_ckin_log.cc \
@@ -275,6 +277,7 @@ noinst_HEADERS = \
   httpClient.h \
   images.h \
   load_fr.h \
+  libra.h \
   maindcs.h \
   meridian.h \
   msg_queue.h \
@@ -346,6 +349,7 @@ noinst_HEADERS = \
   environ.h \
   AirportControl.h \
   md5_sum.h \
+  kiosk_events.h \
   hotel_acmd.h \
   self_ckin_log.h \
   report_common.h \
