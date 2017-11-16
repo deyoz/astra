@@ -230,11 +230,11 @@ void TSelfCkinLog::toXML(xmlNodePtr resNode)
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Ошибка"));
-    SetProp(colNode, "width", 550);
+    SetProp(colNode, "width", 200);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Экран"));
-    SetProp(colNode, "width", 750);
+    SetProp(colNode, "width", 400);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Приложение"));
