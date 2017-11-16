@@ -9874,6 +9874,10 @@ void createXMLPFSShortStat(
     SetProp(colNode, "width", 50);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("OFFLK"));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
 
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
     xmlNodePtr rowNode;
@@ -9900,6 +9904,8 @@ void createXMLPFSShortStat(
                 NewTextChild(rowNode, "col", route->second["NOSHO"]);
                 // GOSHO
                 NewTextChild(rowNode, "col", route->second["GOSHO"]);
+                // OFFLK
+                NewTextChild(rowNode, "col", route->second["OFFLK"]);
             }
 
 

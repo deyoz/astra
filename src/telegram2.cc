@@ -10991,6 +10991,7 @@ namespace PFS_STAT {
                         if(
                                 category->first == "GOSHO" or
                                 category->first == "NOSHO" or
+                                category->first == "OFFLK" or
                                 category->first == "NOREC"
                           ) {
                             Qry.get().SetVariable("pax_id", pax->pax_id);
