@@ -258,7 +258,7 @@ class TTripInfo
     int point_id;
     std::string airline, suffix, airp, craft;
     TDateTime scd_out;
-    boost::optional<TDateTime> est_out, act_out;
+    boost::optional<TDateTime> est_out, act_out; //внимание!!! boost::none, если вообще не выбирается из БД; NoExists, если NULL в БД
     int flt_no, pr_del;
     bool pr_reg;
     TElemFmt airline_fmt, suffix_fmt, airp_fmt, craft_fmt;
