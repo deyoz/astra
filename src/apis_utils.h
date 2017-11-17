@@ -224,7 +224,7 @@ const long int DOC_APPS_26_FIELDS=DOC_TYPE_FIELD|
 const long int DOCO_APPS_26_FIELDS=DOCO_TYPE_FIELD|
                                    DOCO_NO_FIELD|
                                    DOCO_APPLIC_COUNTRY_FIELD|
-                                   DOCO_ISSUE_PLACE_FIELD;                                  
+                                   DOCO_ISSUE_PLACE_FIELD;
 
 //==============================================================================
 
@@ -313,6 +313,7 @@ class TAPICheckInfo
       required_fields=NO_FIELDS;
       readonly_fields=NO_FIELDS;
     }
+    bool CheckLet(const std::string &str, std::string::size_type &errorIdx) const;
     bool CheckLetDigSpace(const std::string &str, std::string::size_type &errorIdx) const;
     bool CheckLetSpaceDash(const std::string &str, std::string::size_type &errorIdx) const;
     bool CheckLetDigSpaceDash(const std::string &str, std::string::size_type &errorIdx) const;

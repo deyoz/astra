@@ -139,7 +139,38 @@ bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn);
 bool LoadPaxTkn(TDateTime part_key, int pax_id, TPaxTknItem &tkn);
 bool LoadCrsPaxTkn(int pax_id, TPaxTknItem &tkn);
 
-class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic
+class TPaxDocCompoundType
+{
+  public:
+    std::string type;
+    std::string subtype;
+  TPaxDocCompoundType()
+  {
+    clear();
+  }
+  void clear()
+  {
+    type.clear();
+    subtype.clear();
+  }
+  bool empty() const
+  {
+    return type.empty() &&
+           subtype.empty();
+  }
+  bool equalAttrs(const TPaxDocCompoundType &item) const
+  {
+    return type == item.type &&
+           subtype == item.subtype;
+  }
+
+  const TPaxDocCompoundType& toXML(xmlNodePtr node) const;
+  TPaxDocCompoundType& fromXML(xmlNodePtr node);
+  const TPaxDocCompoundType& toDB(TQuery &Qry) const;
+  TPaxDocCompoundType& fromDB(TQuery &Qry);
+};
+
+class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocCompoundType
 {
   protected:
     std::string get_rem_text(bool inf_indicator,
@@ -148,8 +179,6 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic
                              bool translit_lat,
                              bool language_lat) const;
   public:
-    std::string type;
-    std::string subtype;
     std::string issue_country;
     std::string no;
     std::string nationality;
@@ -165,11 +194,10 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic
     TPaxDocItem()
     {
       clear();
-    };
+    }
     void clear()
     {
-      type.clear();
-      subtype.clear();
+      TPaxDocCompoundType::clear();
       issue_country.clear();
       no.clear();
       nationality.clear();
@@ -182,11 +210,10 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic
       pr_multi=false;
       type_rcpt.clear();
       scanned_attrs=NO_FIELDS;
-    };
+    }
     bool empty() const
     {
-      return type.empty() &&
-             subtype.empty() &&
+      return TPaxDocCompoundType::empty() &&
              issue_country.empty() &&
              no.empty() &&
              nationality.empty() &&
@@ -198,11 +225,10 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic
              second_name.empty() &&
              pr_multi==false &&
              type_rcpt.empty();
-    };
+    }
     bool equalAttrs(const TPaxDocItem &item) const
     {
-      return type == item.type &&
-             subtype == item.subtype &&
+      return TPaxDocCompoundType::equalAttrs(item) &&
              issue_country == item.issue_country &&
              no == item.no &&
              nationality == item.nationality &&
@@ -214,12 +240,12 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic
              second_name == item.second_name &&
              pr_multi == item.pr_multi &&
              type_rcpt == item.type_rcpt;
-    };
+    }
     bool equal(const TPaxDocItem &item) const
     {
       return equalAttrs(item) &&
              scanned_attrs == item.scanned_attrs;
-    };
+    }
     const TPaxDocItem& toXML(xmlNodePtr node) const;
     TPaxDocItem& fromXML(xmlNodePtr node);
     const TPaxDocItem& toDB(TQuery &Qry) const;
@@ -238,7 +264,7 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic
 
 const std::string DOCO_PSEUDO_TYPE="-";
 
-class TPaxDocoItem : public TPaxAPIItem, public TPaxRemBasic
+class TPaxDocoItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocCompoundType
 {
   protected:
     std::string get_rem_text(bool inf_indicator,
@@ -248,7 +274,6 @@ class TPaxDocoItem : public TPaxAPIItem, public TPaxRemBasic
                              bool language_lat) const;
   public:
     std::string birth_place;
-    std::string type;
     std::string no;
     std::string issue_place;
     TDateTime issue_date;
@@ -259,11 +284,11 @@ class TPaxDocoItem : public TPaxAPIItem, public TPaxRemBasic
     TPaxDocoItem()
     {
       clear();
-    };
+    }
     void clear()
     {
+      TPaxDocCompoundType::clear();
       birth_place.clear();
-      type.clear();
       no.clear();
       issue_place.clear();
       issue_date=ASTRA::NoExists;
@@ -271,32 +296,32 @@ class TPaxDocoItem : public TPaxAPIItem, public TPaxRemBasic
       applic_country.clear();
       scanned_attrs=NO_FIELDS;
       doco_confirm=false;
-    };
+    }
     bool empty() const
     {
-      return birth_place.empty() &&
-             type.empty() &&
+      return TPaxDocCompoundType::empty() &&
+             birth_place.empty() &&
              no.empty() &&
              issue_place.empty() &&
              issue_date==ASTRA::NoExists &&
              expiry_date==ASTRA::NoExists &&
              applic_country.empty();
-    };
+    }
     bool equalAttrs(const TPaxDocoItem &item) const
     {
-      return birth_place == item.birth_place &&
-             type == item.type &&
+      return TPaxDocCompoundType::equalAttrs(item) &&
+             birth_place == item.birth_place &&
              no == item.no &&
              issue_place == item.issue_place &&
              issue_date == item.issue_date &&
              expiry_date == item.expiry_date &&
              applic_country == item.applic_country;
-    };
+    }
     bool equal(const TPaxDocoItem &item) const
     {
       return equalAttrs(item) &&
              scanned_attrs == item.scanned_attrs;
-    };
+    }
     const TPaxDocoItem& toXML(xmlNodePtr node) const;
     TPaxDocoItem& fromXML(xmlNodePtr node);
     const TPaxDocoItem& toDB(TQuery &Qry) const;
@@ -466,7 +491,7 @@ class TSimplePaxItem
     std::string full_name() const;
     bool api_doc_applied() const;
     bool upward_within_bag_pool(const TSimplePaxItem& pax) const;
-    bool HaveBaggage() const { return bag_pool_num != ASTRA::NoExists; } 
+    bool HaveBaggage() const { return bag_pool_num != ASTRA::NoExists; }
     ASTRA::TTrickyGender::Enum getTrickyGender() const { return getTrickyGender(pers_type, gender); }
     static void UpdTid(int pax_id);
 };
