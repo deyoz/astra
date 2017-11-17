@@ -1718,6 +1718,7 @@ bool TSeatPlaces::SeatsGrp( )
 /* рассадка пассажиров по местам не учитывая группу */
 bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
 {
+  //tst();
   bool OLDFindSUBCLS = FindSUBCLS;
   bool OLDcanUseSUBCLS = canUseSUBCLS;
   string OLDSUBCLS_REM = SUBCLS_REM;
@@ -1735,12 +1736,12 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
   bool isWorkINFT = AllowedAttrsSeat.pr_isWorkINFT;
 
   bool pr_seat = false;
-//  ProgTrace( TRACE5, "SeatsPassengers: pr_isWorkINFT=%d", AllowedAttrsSeat.pr_isWorkINFT );
+  //ProgTrace( TRACE5, "SeatsPassengers: pr_isWorkINFT=%d", AllowedAttrsSeat.pr_isWorkINFT );
 
   try {
     for ( int FCanUseINFT=AllowedAttrsSeat.pr_isWorkINFT; FCanUseINFT>=0; FCanUseINFT-- ) {
       for ( int ik=0; ik<=AllowedAttrsSeat.pr_isWorkINFT*2; ik++ )   { //0 -группа с детьми, 1-группа без детей, 2-группа без детей без учета мест
-        for ( int FCanUseElem_Type=1; FCanUseElem_Type>=0; FCanUseElem_Type-- ) { // вслучае автомат. рассадки 2 прохода: с учетом типа места и без учета типа места
+        for ( int FCanUseElem_Type=1/*pr_autoreseats*/; FCanUseElem_Type>=0; FCanUseElem_Type-- ) { // вслучае автомат. рассадки 2 прохода: с учетом типа места и без учета типа места
           for ( /*int i=(int)!pr_autoreseats; i<=1+(int)pr_autoreseats; i++*/ int i=0; i<=2; i++ ) {
             for ( VPassengers::iterator ipass=npass.begin(); ipass!=npass.end(); ipass++ ) {
               /* когда пассажир посажен или рассадка на бронь и у пассажира статус не бронь или нет предвар. рассадки или у пассажира указано не то место */
@@ -1758,7 +1759,6 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
 //                tst();
                 continue;
               }
-//          ProgTrace( TRACE5, "pax_id=%d,ik=%d, FCanUseINFT=%d, ipass->countPlace=%d, pass.INFT=%d", ipass->paxId,ik, FCanUseINFT, ipass->countPlace, ipass->isRemark( "INFT" ) );
               /*???31.03.11        if ( ipass->InUse || PlaceLayer == cltProtCkin && !CanUseLayer( cltProtCkin, UseLayers ) && //!!!
                                ( ipass->layer != PlaceLayer || ipass->preseat.empty() || ipass->preseat != ipass->placeName ) )
           continue;*/
@@ -1805,9 +1805,13 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
                   //       		  	canUseSUBCLS = false;
                 }
               }
+//              ProgTrace( TRACE5, "pax_id=%d,ik=%d, FCanUseINFT=%d, ipass->countPlace=%d, pass.INFT=%d, FCanUseElem_Type=%d, i=%d",
+//                         ipass->paxId,ik, FCanUseINFT, ipass->countPlace, ipass->isRemark( "INFT" ), FCanUseElem_Type, i );
+
               Passengers.Add( *ipass );
               ipass->index = old_index;
               //ProgTrace( TRACE5, "Passengers.Count=%d - go seats", Passengers.getCount() );
+  //            tst();
               if ( SeatGrpOnBasePlace( ) ||
                    ( ( CanUseRems == sNotUse_NotUseDenial ||
                        CanUseRems == sNotUse ||
@@ -1837,13 +1841,20 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
                   pr_seat = true;
                 }
               }
+//              tst();
             } // for passengers
+//            tst();
           } // end for i=0..2
+//          tst();
         } // end for FCanUseElem_Type
+//        tst();
       } // for ik - подгруппы
+//      tst();
     } // end for FCanUseINFT
+//    tst();
   }
   catch( ... ) {
+  //  tst();
     FindSUBCLS = OLDFindSUBCLS;
     canUseSUBCLS = OLDcanUseSUBCLS;
     SUBCLS_REM = OLDSUBCLS_REM;
@@ -1859,8 +1870,10 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
     Passengers.counters.Set_p_Count( OLDp_CountG, sRight );
     Passengers.counters.Set_p_Count_3( OLDp_Count_3V, sDown );
     Passengers.counters.Set_p_Count_2( OLDp_Count_2V, sDown );
+ //   tst();
     throw;
   }
+ // tst();
   FindSUBCLS = OLDFindSUBCLS;
   canUseSUBCLS = OLDcanUseSUBCLS;
   SUBCLS_REM = OLDSUBCLS_REM;
@@ -1876,6 +1889,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
   Passengers.counters.Set_p_Count( OLDp_CountG, sRight );
   Passengers.counters.Set_p_Count_3( OLDp_Count_3V, sDown );
   Passengers.counters.Set_p_Count_2( OLDp_Count_2V, sDown );
+//  tst();
 
   for ( VPassengers::iterator ipass=npass.begin(); ipass!=npass.end(); ipass++ ) {
     if ( !ipass->InUse ) {
@@ -2766,6 +2780,7 @@ bool UsedPayedPreseatForPassenger( const TPlace &seat, int pass_preseat_pax_id, 
     tst();
     return true;
   }
+
   if ( !seat.layers.empty() ) {
     if ( seat.layers.begin()->layer_type == cltProtBeforePay ||
          seat.layers.begin()->layer_type == cltProtAfterPay ||
@@ -3024,9 +3039,24 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
            AllowedAttrsSeat.pr_isWorkINFT = false;
          }
          AllowedAttrsSeat.pr_INFT = prINFT;
-         ProgTrace( TRACE5, "FCanINFT=%d,prINFT=%d,AllowedAttrsSeat.pr_isWorkINFT=%d",FCanINFT,prINFT,AllowedAttrsSeat.pr_isWorkINFT );
+         //ProgTrace( TRACE5, "FCanINFT=%d,prINFT=%d,AllowedAttrsSeat.pr_isWorkINFT=%d",FCanINFT,prINFT,AllowedAttrsSeat.pr_isWorkINFT );
          for ( int FSeatAlg=0; FSeatAlg<seatAlgLength; FSeatAlg++ ) {
            SeatAlg = (TSeatAlg)FSeatAlg;
+           switch(FSeatAlg) {
+             case 0:
+               ProgTrace(TRACE5, "start sSeatGrpOnBasePlace:SeatOnlyBasePlace=%d,FCanUserSUBCLS=%d,FCanINFT=%d,prINFT=%d,AllowedAttrsSeat.pr_isWorkINFT=%d",
+                         SeatOnlyBasePlace,FCanUserSUBCLS,FCanINFT,prINFT,AllowedAttrsSeat.pr_isWorkINFT);
+               break;
+             case 1:
+               ProgTrace(TRACE5, "start sSeatGrp:SeatOnlyBasePlace=%d,FCanUserSUBCLS=%d,FCanINFT=%d,prINFT=%d,AllowedAttrsSeat.pr_isWorkINFT=%d",
+                         SeatOnlyBasePlace,FCanUserSUBCLS,FCanINFT,prINFT,AllowedAttrsSeat.pr_isWorkINFT);
+               break;
+             case 2:
+               ProgTrace(TRACE5, "start sSeatPassengers:SeatOnlyBasePlace=%d,FCanUserSUBCLS=%d,FCanINFT=%d,prINFT=%d,AllowedAttrsSeat.pr_isWorkINFT=%d",
+                         SeatOnlyBasePlace,FCanUserSUBCLS,FCanINFT,prINFT,AllowedAttrsSeat.pr_isWorkINFT);
+               break;
+           }
+
            if ( SeatAlg == sSeatPassengers && prElemTypes && FCanUseElem_Type == 0 )
              continue;
            bool use_preseat_layer = ( CanUseLayer( cltProtCkin, preseat_layers ) ||
@@ -3203,6 +3233,9 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                                }
                                break;
                            } /* end switch SeatAlg */
+           //                ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseElem_Type=%d,FCanUseRems=%s,FCanUseAlone=%d,KeyLayers=%d,FCanUseTube=%d,FCanUseSmoke=%d,PlaceLayer=%s, MAXPLACE=%d,canUseOneRow=%d, CanUseSUBCLS=%d, SUBCLS_REM=%s",
+//                                      param1,param2,param3.c_str(),param4,param5,param6,param7,param8.c_str(),param9,param10,param11,param12.c_str());
+
                          } /* end for FCanUseSmoke */
                        } /* end for FCanUseTube */
                      } /* end for FCanUseOneRow */
@@ -3212,6 +3245,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
 
              } /* end for condRates */
            } /* end for CanUseRem */
+           ProgTrace(TRACE5, "end" );
          } /* end for FSeatAlg */
        } /* end for FCanUseRemarks */
      } /*  end for FCanUseElem_Type */
