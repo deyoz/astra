@@ -9258,6 +9258,7 @@ void createXMLHotelAcmdShortStat(
 /*---------------------------------------------------------------------------------------*/
 
 /*------------------------------- PFS STAT ---------------------------------------*/
+
 struct TPFSStatRow {
     int point_id;
     int pax_id;
@@ -9288,11 +9289,71 @@ struct TPFSStatRow {
     }
 };
 
-typedef multiset<TPFSStatRow> TPFSStat;
+struct TPFSAbstractStat {
+    virtual ~TPFSAbstractStat() {};
+    virtual void add(const TPFSStatRow &row) = 0;
+    virtual size_t RowCount() = 0;
+    virtual void dump() = 0;
+};
+
+struct TPFSStat: public  multiset<TPFSStatRow>, TPFSAbstractStat {
+    void dump() {};
+    void add(const TPFSStatRow &row)
+    {
+        this->insert(row);
+    }
+    size_t RowCount()
+    {
+        return this->size();
+    }
+};
+
+typedef map<string, int> TPFSStatusMap;
+typedef map<string, TPFSStatusMap> TPFSRouteMap;
+typedef map<string, TPFSRouteMap> TPFSFltMap;
+typedef map<TDateTime, TPFSFltMap> TPFSScdOutMap;
+
+struct TPFSShortStat: public TPFSScdOutMap, TPFSAbstractStat {
+    int FRowCount;
+    void dump();
+    void add(const TPFSStatRow &row);
+    size_t RowCount() { return FRowCount; }
+    TPFSShortStat(): FRowCount(0) {}
+};
+
+void TPFSShortStat::dump()
+{
+    for(TPFSScdOutMap::iterator scd_out = begin(); 
+            scd_out != end(); scd_out++) {
+        for(TPFSFltMap::iterator flt = scd_out->second.begin();
+                flt != scd_out->second.end(); flt++) {
+            for(TPFSRouteMap::iterator route = flt->second.begin();
+                    route != flt->second.end(); route++) {
+                for(TPFSStatusMap::iterator status = route->second.begin();
+                        status != route->second.end(); status++) {
+                    LogTrace(TRACE5)
+                        << "stat[" << DateTimeToStr(scd_out->first, "dd.mm.yyyy") << "]"
+                        << "[" << flt->first << "]"
+                        << "[" << route->first << "]"
+                        << "[" << route->first << "]"
+                        << "[" << status->first << "]"
+                        << " = " << status->second;
+                }
+            }
+        }
+    }
+}
+
+void TPFSShortStat::add(const TPFSStatRow &row)
+{
+    TPFSStatusMap &status = (*this)[row.scd_out][row.flt][row.route];
+    if(status.empty()) FRowCount++;
+    status[row.status]++;
+}
 
 void RunPFSStat(
         const TStatParams &params,
-        TPFSStat &PFSStat,
+        TPFSAbstractStat &PFSStat,
         TPrintAirline &prn_airline,
         bool full = false
         )
@@ -9427,9 +9488,9 @@ void RunPFSStat(
                     row.birth_date = NoExists;
                 else
                     row.birth_date = Qry.get().FieldAsDateTime(col_birth_date);
-                PFSStat.insert(row);
-                if ((not full) and (PFSStat.size() > (size_t)MAX_STAT_ROWS())) {
-                    LogTrace(TRACE5) << "RIGHT";
+                PFSStat.add(row);
+
+                if ((not full) and (PFSStat.RowCount() > (size_t)MAX_STAT_ROWS())) {
                     throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
                 }
             }
@@ -9530,24 +9591,6 @@ void createXMLPFSStat(
     NewTextChild(variablesNode, "stat_type", params.statType);
     NewTextChild(variablesNode, "stat_mode", "PFS");
     NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
-}
-
-typedef map<string, int> TPFSStatusMap;
-typedef map<string, TPFSStatusMap> TPFSRouteMap;
-typedef map<string, TPFSRouteMap> TPFSFltMap;
-typedef map<TDateTime, TPFSFltMap> TPFSShortStat;
-
-void RunPFSShortStat(
-        const TStatParams &params,
-        TPFSShortStat &PFSShortStat,
-        TPrintAirline &prn_airline
-        )
-{
-    TPFSStat pfs_stat;
-    RunPFSStat(params, pfs_stat, prn_airline);
-    for(TPFSStat::iterator i = pfs_stat.begin(); i != pfs_stat.end(); i++) {
-        PFSShortStat[i->scd_out][i->flt][i->route][i->status]++;
-    }
 }
 
 void createXMLPFSShortStat(
@@ -9659,6 +9702,36 @@ void createXMLPFSShortStat(
     NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Общая"));
 }
 
+struct TPFSShortStatCombo : public TOrderStatItem
+{
+    TDateTime scd_out;
+    string flt;
+    string route;
+    int norec;
+    int nosho;
+    int gosho;
+    int offlk;
+
+    TPFSShortStatCombo(
+            TDateTime _scd_out,
+            const string &_flt,
+            const string &_route,
+            int _norec,
+            int _nosho,
+            int _gosho,
+            int _offlk):
+        scd_out(_scd_out),
+        flt(_flt),
+        route(_route),
+        norec(_norec),
+        nosho(_nosho),
+        gosho(_gosho),
+        offlk(_offlk)
+    {}
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
+};
+
 struct TPFSFullStatCombo : public TOrderStatItem
 {
     const TPFSStatRow &row;
@@ -9666,6 +9739,29 @@ struct TPFSFullStatCombo : public TOrderStatItem
     void add_header(ostringstream &buf) const;
     void add_data(ostringstream &buf) const;
 };
+
+void TPFSShortStatCombo::add_data(ostringstream &buf) const
+{
+    buf << DateTimeToStr(scd_out, "dd.mm.yyyy") << delim;
+    buf << flt << delim;
+    buf << route << delim;
+    buf << norec << delim;
+    buf << nosho << delim;
+    buf << gosho << delim;
+    buf << offlk << endl;
+}
+
+void TPFSShortStatCombo::add_header(ostringstream &buf) const
+{
+    buf
+        << getLocaleText("Дата") << delim
+        << getLocaleText("Рейс") << delim
+        << getLocaleText("Маршрут") << delim
+        << "NOREC" << delim
+        << "NOSHO" << delim
+        << "GOSHO" << delim
+        << "OFFLK" << endl;
+}
 
 void TPFSFullStatCombo::add_data(ostringstream &buf) const
 {
@@ -9697,18 +9793,45 @@ void TPFSFullStatCombo::add_data(ostringstream &buf) const
 void TPFSFullStatCombo::add_header(ostringstream &buf) const
 {
     buf
-        << "Дата" << delim
-        << "Рейс" << delim
-        << "Маршрут" << delim
-        << "Статус" << delim
-        << "Мест" << delim
+        << getLocaleText("Дата") << delim
+        << getLocaleText("Рейс") << delim
+        << getLocaleText("Маршрут") << delim
+        << getLocaleText("Статус") << delim
+        << getLocaleText("Мест") << delim
         << "RBD" << delim
         << "PNR" << delim
-        << "Фамилия" << delim
-        << "Имя" << delim
-        << "Пол" << delim
-        << "Рождение"
+        << getLocaleText("Фамилия") << delim
+        << getLocaleText("Имя") << delim
+        << getLocaleText("Пол") << delim
+        << getLocaleText("Рождение")
         << endl;
+}
+
+template <class T>
+void RunPFSShortFile(const TStatParams &params, T &writer, TPrintAirline &prn_airline)
+{
+    TPFSShortStat PFSShortStat;
+    RunPFSStat(params, PFSShortStat, prn_airline, true);
+    for(TPFSShortStat::iterator
+            stat = PFSShortStat.begin();
+            stat != PFSShortStat.end(); stat++)
+        for(TPFSFltMap::iterator
+                flt = stat->second.begin();
+                flt != stat->second.end(); flt++)
+            for(TPFSRouteMap::iterator
+                    route = flt->second.begin();
+                    route != flt->second.end(); route++)
+            {
+                writer.insert(TPFSShortStatCombo(
+                            stat->first,
+                            flt->first,
+                            route->first,
+                            route->second["NOREC"],
+                            route->second["NOSHO"],
+                            route->second["GOSHO"],
+                            route->second["OFFLK"]
+                            ));
+            }
 }
 
 template <class T>
@@ -9792,11 +9915,9 @@ void create_plain_files(
         case statPFSFull:
             RunPFSFullFile(params, order_writer, airline);
             break;
-            /*
         case statPFSShort:
             RunPFSShortFile(params, order_writer, airline);
             break;
-            */
         default:
             throw Exception("unsupported statType %d", params.statType);
     }
@@ -10767,7 +10888,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         {
             TPrintAirline airline;
             TPFSShortStat PFSShortStat;
-            RunPFSShortStat(params, PFSShortStat, airline);
+            RunPFSStat(params, PFSShortStat, airline);
             createXMLPFSShortStat(params, PFSShortStat, airline, resNode);
         }
         if(params.statType == statHotelAcmdFull)
