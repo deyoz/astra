@@ -602,7 +602,7 @@ class TInfItem
     TInfItem()
     {
       Clear();
-    };
+    }
     void Clear()
     {
       surname.clear();
@@ -610,7 +610,20 @@ class TInfItem
       age=0;
       doc.clear();
       tkn.clear();
-    };
+    }
+    bool Empty() const
+    {
+      return surname.empty() && name.empty();
+    }
+};
+
+class TInfList : public std::vector<TInfItem>
+{
+  public:
+    void removeIfExistsIn(const TInfList &infs);
+    void removeEmpty();
+    void removeDup();
+    void setSurnameIfEmpty(const std::string &surname);
 };
 
 class TPaxItem
@@ -623,7 +636,7 @@ class TPaxItem
     TSeat seat; //это место, назначенное разборщиком на основе tlg_comp_layers
     char seat_rem[5];
     std::vector<TRemItem> rem;
-    std::vector<TInfItem> inf;
+    TInfList inf;
     std::vector<TDocItem> doc;
     std::map<std::string/*no*/, TDocExtraItem> doc_extra;
     std::vector<TDocoItem> doco;

@@ -98,7 +98,7 @@ void BindRemarks(TTlgParser &tlg, TNameElement &ne);
 void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
                   TTlgParser &tlg, const TDCSHeadingInfo &info, TPnrItem &pnr, TNameElement &ne);
 bool ParseCHDRem(TTlgParser &tlg,string &rem_text,vector<TChdItem> &chd);
-bool ParseINFRem(TTlgParser &tlg,string &rem_text,vector<TInfItem> &inf);
+bool ParseINFRem(TTlgParser &tlg,string &rem_text,TInfList &inf);
 bool ParseSEATRem(TTlgParser &tlg,string &rem_text,TSeatRanges &seats);
 bool ParseTKNRem(TTlgParser &tlg,string &rem_text,TTKNItem &tkn);
 bool ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fqt);
@@ -3345,6 +3345,65 @@ void BindDetailRem(TRemItem &remItem, bool isGrpRem, TPaxItem &paxItem,
 
 };
 
+void TInfList::removeIfExistsIn(const TInfList &infs)
+{
+  for(TInfList::iterator i=begin();i!=end();)
+  {
+    //проверим есть ли уже ребенок с таким именем и фамилией в infs
+    //(защита от дублирования INF и INFT)
+    TInfList::const_iterator j;
+    for(j=infs.begin();j!=infs.end();++j)
+      if (i->surname==j->surname && i->name==j->name) break;
+    if (j!=infs.end())
+    {
+      //дублирование INF. удалим из inf
+      i=erase(i);
+      continue;
+    };
+    ++i;
+  };
+}
+
+void TInfList::removeEmpty()
+{
+  for(TInfList::iterator i=begin();i!=end();)
+  {
+    if (i->Empty())
+    {
+      i=erase(i);
+      continue;
+    }
+    ++i;
+  }
+}
+
+void TInfList::removeDup()
+{
+  bool notEmptyExists=false;
+  for(const TInfItem &i : *this)
+    if (!i.Empty())
+    {
+      notEmptyExists=true;
+      break;
+    }
+
+  for(TInfList::iterator i=begin();i!=end();)
+  {
+    if (i->Empty() && notEmptyExists)
+    {
+      i=erase(i);
+      continue;
+    }
+    ++i;
+  }
+}
+
+void TInfList::setSurnameIfEmpty(const std::string &surname)
+{
+  for(TInfItem &i : *this)
+    if (i.Empty()) i.surname=surname;
+}
+
 void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
                   TTlgParser &tlg, const TDCSHeadingInfo &info, TPnrItem &pnr, TNameElement &ne)
 {
@@ -3375,26 +3434,13 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
                 strcmp(iRemItem->code,"INFT")==0)
             {
                   //отдельный массив для INF
-              vector<TInfItem> inf;
+              TInfList inf;
               if (ParseINFRem(tlg,iRemItem->text,inf))
               {
-                for(vector<TInfItem>::iterator i=inf.begin();i!=inf.end();)
-                {
-                  if (i->surname.empty()) i->surname=ne.surname;
-                  //проверим есть ли уже ребенок с таким именем и фамилией в iPaxItem->inf
-                  //(защита от дублирования INF и INFT)
-                  vector<TInfItem>::iterator j;
-                  for(j=iPaxItem->inf.begin();j!=iPaxItem->inf.end();j++)
-                    if (i->surname==j->surname && i->name==j->name) break;
-                  if (j!=iPaxItem->inf.end())
-                  {
-                    //дублирование INF. удалим из inf
-                    i=inf.erase(i);
-                    continue;
-                  };
-                  i++;
-                };
+                inf.removeEmpty();
+                inf.removeIfExistsIn(iPaxItem->inf);
                 iPaxItem->inf.insert(iPaxItem->inf.end(),inf.begin(),inf.end());
+                iPaxItem->inf.removeDup();
               };
               continue;
             };
@@ -3549,7 +3595,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
     };
   };
 
-  vector<TInfItem> infs;
+  TInfList infs;
   for(int pass=0;pass<=2;pass++)
   {
     if (pass==0||pass==1)
@@ -3586,29 +3632,10 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
               strcmp(iRemItem->code,"INFT")==0)
           {
                 //отдельный массив для INF
-            vector<TInfItem> inf;
+            TInfList inf;
             if (ParseINFRem(tlg,iRemItem->text,inf))
             {
-              for(vector<TInfItem>::iterator i=inf.begin();i!=inf.end();)
-              {
-                if (i->surname.empty()) i->surname=ne.surname;
-                if (ne.pax.size()==1 && ne.pax.begin()->inf.empty())
-                {
-                  //проверим есть ли уже ребенок с таким именем и фамилией в ne.pax.begin()->inf
-                  //(защита от дублирования INF и INFT)
-                  vector<TInfItem>::iterator j;
-                  for(j=ne.pax.begin()->inf.begin();j!=ne.pax.begin()->inf.end();j++)
-                    if (i->surname==j->surname && i->name==j->name) break;
-                  if (j!=ne.pax.begin()->inf.end())
-                  {
-                    //дублирование INF. удалим из inf
-                    i=inf.erase(i);
-                    continue;
-                  };
-                };
-                i++;
-              };
-
+              inf.removeEmpty();
               if (ne.pax.size()==1 && ne.pax.begin()->inf.empty() &&
                   inf.size()==1)
               {
@@ -3617,21 +3644,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
               }
               else
               {
-                for(vector<TInfItem>::iterator i=inf.begin();i!=inf.end();)
-                {
-                  //проверим есть ли уже ребенок с таким именем и фамилией в infs
-                  //(защита от дублирования INF и INFT)
-                  vector<TInfItem>::iterator j;
-                  for(j=infs.begin();j!=infs.end();j++)
-                    if (i->surname==j->surname && i->name==j->name) break;
-                  if (j!=infs.end())
-                  {
-                    //дублирование INF. удалим из inf
-                    i=inf.erase(i);
-                    continue;
-                  };
-                  i++;
-                };
+                inf.removeIfExistsIn(infs);
                 infs.insert(infs.end(),inf.begin(),inf.end());
               };
             };
@@ -3855,24 +3868,27 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
   //раскидаем непривязанных РМ
   for(vector<TInfItem>::iterator iInfItem=infs.begin();iInfItem!=infs.end();iInfItem++)
   {
-    for(int k=0;k<=3;k++)
+    for(int k=0;k<=1;k++)
     {
       //0. привязываем к первому ВЗ свободному от inf
       //1. привязываем к первому ВЗ
-      //2. привязываем к первому свободному от inf
-      //3. привязываем к первому
-      for(vector<TPaxItem>::iterator i=ne.pax.begin();i!=ne.pax.end();i++)
+      vector<TPaxItem>::iterator i=ne.pax.begin();
+      for(;i!=ne.pax.end();i++)
       {
         if ((k==0 && i->pers_type==adult && i->inf.empty()) ||
-            (k==1 && i->pers_type==adult) ||
-            (k==2 && i->inf.empty()) ||
-            k==3)
+            (k==1 && i->pers_type==adult))
         {
           i->inf.push_back(*iInfItem);
           break;
         };
       };
+      if (i!=ne.pax.end()) break;
     };
+  };
+  for(TPaxItem &i : ne.pax)
+  {
+    i.inf.removeDup();
+    i.inf.setSurnameIfEmpty(ne.surname);
   };
 };
 
@@ -4208,7 +4224,7 @@ bool ParseCHDRem(TTlgParser &tlg,string &rem_text,vector<TChdItem> &chd)
 };
 
 
-bool ParseINFRem(TTlgParser &tlg,string &rem_text,vector<TInfItem> &inf)
+bool ParseINFRem(TTlgParser &tlg, string &rem_text, TInfList &inf)
 {
   char c;
   int res;
@@ -5816,7 +5832,7 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
   };
 };
 
-void SavePNLADLRemarks(int pax_id, vector<TRemItem> &rem)
+void SavePNLADLRemarks(int pax_id, const vector<TRemItem> &rem)
 {
   if (rem.empty()) return;
   TQuery CrsPaxRemQry(&OraSession);
@@ -5829,12 +5845,10 @@ void SavePNLADLRemarks(int pax_id, vector<TRemItem> &rem)
   CrsPaxRemQry.DeclareVariable("rem_code",otString);
   //ремарки пассажира
   CrsPaxRemQry.SetVariable("pax_id",pax_id);
-  vector<TRemItem>::iterator iRemItem;
-  for(iRemItem=rem.begin();iRemItem!=rem.end();iRemItem++)
+  for(vector<TRemItem>::const_iterator iRemItem=rem.begin();iRemItem!=rem.end();++iRemItem)
   {
     if (iRemItem->text.empty()) continue;
-    if (iRemItem->text.size()>250) iRemItem->text.erase(250);
-    CrsPaxRemQry.SetVariable("rem",iRemItem->text);
+    CrsPaxRemQry.SetVariable("rem",iRemItem->text.substr(0,250));
     CrsPaxRemQry.SetVariable("rem_code",iRemItem->code);
     CrsPaxRemQry.Execute();
   };
@@ -5974,7 +5988,7 @@ void SaveDOCARem(int pax_id, const vector<TDocaItem> &doca)
   };
 };
 
-void SaveTKNRem(int pax_id, vector<TTKNItem> &tkn)
+void SaveTKNRem(int pax_id, const vector<TTKNItem> &tkn)
 {
   if (tkn.empty()) return;
   TQuery Qry(&OraSession);
@@ -5988,7 +6002,7 @@ void SaveTKNRem(int pax_id, vector<TTKNItem> &tkn)
   Qry.DeclareVariable("rem_code",otString);
   Qry.DeclareVariable("ticket_no",otString);
   Qry.DeclareVariable("coupon_no",otInteger);
-  for(vector<TTKNItem>::iterator i=tkn.begin();i!=tkn.end();i++)
+  for(vector<TTKNItem>::const_iterator i=tkn.begin();i!=tkn.end();++i)
   {
     Qry.SetVariable("rem_code",i->rem_code);
     Qry.SetVariable("ticket_no",i->ticket_no);
@@ -6236,7 +6250,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   vector<TPaxItem>::iterator iPaxItem;
   vector<TTransferItem>::iterator iTransfer;
   vector<TPnrAddrItem>::iterator iPnrAddr;
-  vector<TInfItem>::iterator iInfItem;
 
   int tid;
 
@@ -6855,7 +6868,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             };
 
             //создать новую группу или проапдейтить старую
-            CrsPnrInsQry.SetVariable("grp_name",pnr.grp_name);
+            CrsPnrInsQry.SetVariable("grp_name",pnr.grp_name.substr(0,64));
             CrsPnrInsQry.SetVariable("status",pnr.status);
             CrsPnrInsQry.SetVariable("priority",pnr.priority);
             if (pnr_id==0)
@@ -7021,7 +7034,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   CrsPaxInsQry.SetVariable("last_op",info.time_create);
                   //младенцы пассажира
                   CrsInfInsQry.SetVariable("pax_id",pax_id);
-                  for(iInfItem=iPaxItem->inf.begin();iInfItem!=iPaxItem->inf.end();iInfItem++)
+                  for(TInfList::const_iterator iInfItem=iPaxItem->inf.begin();iInfItem!=iPaxItem->inf.end();++iInfItem)
                   {
                     CrsPaxInsQry.SetVariable("pax_id",FNull);
                     CrsPaxInsQry.SetVariable("surname",iInfItem->surname);
