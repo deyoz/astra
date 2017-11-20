@@ -207,12 +207,32 @@ string PaxDocGenderNormalize(const string &pax_doc_gender)
     return "";
 };
 
+const TPaxDocCompoundType& TPaxDocCompoundType::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+
+  if (TReqInfo::Instance()->client_type == ASTRA::ctTerm)
+  {
+    if (!TReqInfo::Instance()->desk.compatible(DOCO_ADD_TYPES_VERSION))
+      NewTextChild(node, "type", type, "");
+    else
+      NewTextChild(node, "type", type.empty()?"":type+subtype, "");
+  }
+  else
+  {
+    NewTextChild(node, "type", type, "");
+    NewTextChild(node, "subtype", subtype, "");
+  };
+  return *this;
+}
+
 const TPaxDocItem& TPaxDocItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
   //документ
   xmlNodePtr docNode=NewTextChild(node,"document");
-  NewTextChild(docNode, "type", type, "");
+
+  TPaxDocCompoundType::toXML(docNode);
   NewTextChild(docNode, "issue_country", issue_country, "");
   NewTextChild(docNode, "no", no, "");
   NewTextChild(docNode, "nationality", nationality, "");
@@ -227,7 +247,37 @@ const TPaxDocItem& TPaxDocItem::toXML(xmlNodePtr node) const
   NewTextChild(docNode, "pr_multi", (int)pr_multi, (int)false);
   NewTextChild(docNode, "scanned_attrs", scanned_attrs, (int)NO_FIELDS);
   return *this;
-};
+}
+
+TPaxDocCompoundType& TPaxDocCompoundType::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+  if (node2==NULL) return *this;
+
+  if (TReqInfo::Instance()->client_type == ASTRA::ctTerm)
+  {
+    string compound = NodeAsStringFast("type",node2,"");
+    if (!compound.empty())
+    {
+      TElemFmt fmt;
+      ElemToElemId(etPaxDocType, compound, fmt);
+      if (fmt!=efmtUnknown) type=compound;
+      else
+      {
+        type=compound.substr(0,1);
+        subtype=compound.substr(1);
+      };
+    }
+  }
+  else
+  {
+    type=NodeAsStringFast("type",node2,"");
+    subtype=NodeAsStringFast("subtype",node2,"");
+  }
+  return *this;
+}
 
 TPaxDocItem& TPaxDocItem::fromXML(xmlNodePtr node)
 {
@@ -236,7 +286,7 @@ TPaxDocItem& TPaxDocItem::fromXML(xmlNodePtr node)
   xmlNodePtr node2=node->children;
   if (node2==NULL) return *this;
 
-  type=NodeAsStringFast("type",node2,"");
+  TPaxDocCompoundType::fromXML(node);
   issue_country=NodeAsStringFast("issue_country",node2,"");
   no=NodeAsStringFast("no",node2,"");
   nationality=NodeAsStringFast("nationality",node2,"");
@@ -251,11 +301,18 @@ TPaxDocItem& TPaxDocItem::fromXML(xmlNodePtr node)
   pr_multi=NodeAsIntegerFast("pr_multi",node2,0)!=0;
   scanned_attrs=NodeAsIntegerFast("scanned_attrs",node2,NO_FIELDS);
   return *this;
-};
+}
+
+const TPaxDocCompoundType& TPaxDocCompoundType::toDB(TQuery &Qry) const
+{
+  Qry.SetVariable("type", type);
+  Qry.SetVariable("subtype", subtype);
+  return *this;
+}
 
 const TPaxDocItem& TPaxDocItem::toDB(TQuery &Qry) const
 {
-  Qry.SetVariable("type", type);
+  TPaxDocCompoundType::toDB(Qry);
   Qry.SetVariable("issue_country", issue_country);
   Qry.SetVariable("no", no);
   Qry.SetVariable("nationality", nationality);
@@ -276,12 +333,21 @@ const TPaxDocItem& TPaxDocItem::toDB(TQuery &Qry) const
   if (Qry.GetVariableIndex("scanned_attrs")>=0)
     Qry.SetVariable("scanned_attrs", (int)scanned_attrs);
   return *this;
-};
+}
+
+TPaxDocCompoundType& TPaxDocCompoundType::fromDB(TQuery &Qry)
+{
+  clear();
+  type=Qry.FieldAsString("type");
+  if (Qry.GetFieldIndex("subtype")>=0)
+    subtype=Qry.FieldAsString("subtype");
+  return *this;
+}
 
 TPaxDocItem& TPaxDocItem::fromDB(TQuery &Qry)
 {
   clear();
-  type=Qry.FieldAsString("type");
+  TPaxDocCompoundType::fromDB(Qry);
   issue_country=Qry.FieldAsString("issue_country");
   no=Qry.FieldAsString("no");
   nationality=Qry.FieldAsString("nationality");
@@ -302,13 +368,14 @@ TPaxDocItem& TPaxDocItem::fromDB(TQuery &Qry)
   if (Qry.GetFieldIndex("scanned_attrs")>=0)
     scanned_attrs=Qry.FieldAsInteger("scanned_attrs");
   return *this;
-};
+}
 
 long int TPaxDocItem::getNotEmptyFieldsMask() const
 {
   long int result=NO_FIELDS;
 
   if (!type.empty())                result|=DOC_TYPE_FIELD;
+  // if (!subtype.empty())             result|=DOC_SUBTYPE_FIELD;
   if (!issue_country.empty())       result|=DOC_ISSUE_COUNTRY_FIELD;
   if (!no.empty())                  result|=DOC_NO_FIELD;
   if (!nationality.empty())         result|=DOC_NATIONALITY_FIELD;
@@ -326,6 +393,7 @@ long int TPaxDocItem::getEqualAttrsFieldsMask(const TPaxDocItem &item) const
   long int result=NO_FIELDS;
 
   if (type == item.type)                   result|=DOC_TYPE_FIELD;
+  // if (subtype == item.subtype)             result|=DOC_SUBTYPE_FIELD;
   if (issue_country == item.issue_country) result|=DOC_ISSUE_COUNTRY_FIELD;
   if (no == item.no)                       result|=DOC_NO_FIELD;
   if (nationality == item.nationality)     result|=DOC_NATIONALITY_FIELD;
@@ -387,7 +455,7 @@ std::string TPaxDocItem::full_name() const
   if (!second_name.empty())
     s << " " << second_name;
   return s.str();
-};
+}
 
 bool TPaxDocoItem::needPseudoType() const
 {
@@ -401,10 +469,9 @@ const TPaxDocoItem& TPaxDocoItem::toXML(xmlNodePtr node) const
   if (node==NULL) return *this;
   xmlNodePtr docNode=NewTextChild(node,"doco");
   NewTextChild(docNode, "birth_place", birth_place, "");
+  TPaxDocCompoundType::toXML(docNode);
   if (needPseudoType())
-    NewTextChild(docNode, "type", DOCO_PSEUDO_TYPE, "");
-  else
-    NewTextChild(docNode, "type", type, "");
+    ReplaceTextChild(docNode, "type", DOCO_PSEUDO_TYPE);
   NewTextChild(docNode, "no", no, "");
   NewTextChild(docNode, "issue_place", issue_place, "");
   if (issue_date!=ASTRA::NoExists)
@@ -414,7 +481,7 @@ const TPaxDocoItem& TPaxDocoItem::toXML(xmlNodePtr node) const
   NewTextChild(docNode, "applic_country", applic_country, "");
   NewTextChild(docNode, "scanned_attrs", scanned_attrs, (int)NO_FIELDS);
   return *this;
-};
+}
 
 TPaxDocoItem& TPaxDocoItem::fromXML(xmlNodePtr node)
 {
@@ -426,8 +493,8 @@ TPaxDocoItem& TPaxDocoItem::fromXML(xmlNodePtr node)
   xmlNodePtr node2=node->children;
   if (node2==NULL) return *this;
 
+  TPaxDocCompoundType::fromXML(node);
   birth_place=NodeAsStringFast("birth_place",node2,"");
-  type=NodeAsStringFast("type",node2,"");
   no=NodeAsStringFast("no",node2,"");
   issue_place=NodeAsStringFast("issue_place",node2,"");
   if (!NodeIsNULLFast("issue_date",node2,true))
@@ -446,12 +513,12 @@ TPaxDocoItem& TPaxDocoItem::fromXML(xmlNodePtr node)
   }
   else doco_confirm=true;
   return *this;
-};
+}
 
 const TPaxDocoItem& TPaxDocoItem::toDB(TQuery &Qry) const
 {
+  TPaxDocCompoundType::toDB(Qry);
   Qry.SetVariable("birth_place", birth_place);
-  Qry.SetVariable("type", type);
   Qry.SetVariable("no", no);
   Qry.SetVariable("issue_place", issue_place);
   if (issue_date!=ASTRA::NoExists)
@@ -466,13 +533,13 @@ const TPaxDocoItem& TPaxDocoItem::toDB(TQuery &Qry) const
   if (Qry.GetVariableIndex("scanned_attrs")>=0)
     Qry.SetVariable("scanned_attrs", (int)scanned_attrs);
   return *this;
-};
+}
 
 TPaxDocoItem& TPaxDocoItem::fromDB(TQuery &Qry)
 {
   clear();
+  TPaxDocCompoundType::fromDB(Qry);
   birth_place=Qry.FieldAsString("birth_place");
-  type=Qry.FieldAsString("type");
   no=Qry.FieldAsString("no");
   issue_place=Qry.FieldAsString("issue_place");
   if (!Qry.FieldIsNULL("issue_date"))
@@ -487,7 +554,7 @@ TPaxDocoItem& TPaxDocoItem::fromDB(TQuery &Qry)
   if (Qry.GetFieldIndex("scanned_attrs")>=0)
     scanned_attrs=Qry.FieldAsInteger("scanned_attrs");
   return *this;
-};
+}
 
 long int TPaxDocoItem::getNotEmptyFieldsMask() const
 {
@@ -495,6 +562,7 @@ long int TPaxDocoItem::getNotEmptyFieldsMask() const
 
   if (!birth_place.empty())         result|=DOCO_BIRTH_PLACE_FIELD;
   if (!type.empty())                result|=DOCO_TYPE_FIELD;
+  // if (!subtype.empty())             result|=DOCO_SUBTYPE_FIELD;
   if (!no.empty())                  result|=DOCO_NO_FIELD;
   if (!issue_place.empty())         result|=DOCO_ISSUE_PLACE_FIELD;
   if (issue_date!=ASTRA::NoExists)  result|=DOCO_ISSUE_DATE_FIELD;
@@ -509,6 +577,7 @@ long int TPaxDocoItem::getEqualAttrsFieldsMask(const TPaxDocoItem &item) const
 
   if (birth_place == item.birth_place)       result|=DOCO_BIRTH_PLACE_FIELD;
   if (type == item.type)                     result|=DOCO_TYPE_FIELD;
+  // if (subtype == item.subtype)               result|=DOCO_SUBTYPE_FIELD;
   if (no == item.no)                         result|=DOCO_NO_FIELD;
   if (issue_place == item.issue_place)       result|=DOCO_ISSUE_PLACE_FIELD;
   if (issue_date == item.issue_date)         result|=DOCO_ISSUE_DATE_FIELD;
@@ -892,7 +961,7 @@ bool LoadPaxDoca(TDateTime part_key, int pax_id, CheckIn::TDocaMap &doca_map)
     sql_result = sql;
   }
   QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery PaxDocQry(sql_result, QryParams);  
+  TCachedQuery PaxDocQry(sql_result, QryParams);
   for(PaxDocQry.get().Execute(); !PaxDocQry.get().Eof; PaxDocQry.get().Next())
   {
     TPaxDocaItem docaItem;
@@ -968,10 +1037,10 @@ void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry)
         "  DELETE FROM pax_doc WHERE pax_id=:pax_id; "
         "  IF :only_delete=0 THEN "
         "    INSERT INTO pax_doc "
-        "      (pax_id,type,issue_country,no,nationality,birth_date,gender,expiry_date, "
+        "      (pax_id,type,subtype,issue_country,no,nationality,birth_date,gender,expiry_date, "
         "       surname,first_name,second_name,pr_multi,type_rcpt,scanned_attrs) "
         "    VALUES "
-        "      (:pax_id,:type,:issue_country,:no,:nationality,:birth_date,:gender,:expiry_date, "
+        "      (:pax_id,:type,:subtype,:issue_country,:no,:nationality,:birth_date,:gender,:expiry_date, "
         "       :surname,:first_name,:second_name,:pr_multi,:type_rcpt,:scanned_attrs); "
         "  END IF; "
         "END;";
@@ -981,6 +1050,7 @@ void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry)
     PaxDocQry.SQLText=sql;
     PaxDocQry.DeclareVariable("pax_id",otInteger);
     PaxDocQry.DeclareVariable("type",otString);
+    PaxDocQry.DeclareVariable("subtype",otString);
     PaxDocQry.DeclareVariable("issue_country",otString);
     PaxDocQry.DeclareVariable("no",otString);
     PaxDocQry.DeclareVariable("nationality",otString);
@@ -1009,9 +1079,9 @@ void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry)
         "  DELETE FROM pax_doco WHERE pax_id=:pax_id; "
         "  IF :only_delete=0 THEN "
         "    INSERT INTO pax_doco "
-        "      (pax_id,birth_place,type,no,issue_place,issue_date,expiry_date,applic_country,scanned_attrs) "
+        "      (pax_id,birth_place,type,subtype,no,issue_place,issue_date,expiry_date,applic_country,scanned_attrs) "
         "    VALUES "
-        "      (:pax_id,:birth_place,:type,:no,:issue_place,:issue_date,:expiry_date,:applic_country,:scanned_attrs); "
+        "      (:pax_id,:birth_place,:type,:subtype,:no,:issue_place,:issue_date,:expiry_date,:applic_country,:scanned_attrs); "
         "  END IF; "
         "END;";
   if (strcmp(PaxDocQry.SQLText.SQLText(),sql)!=0)
@@ -1021,6 +1091,7 @@ void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry)
     PaxDocQry.DeclareVariable("pax_id",otInteger);
     PaxDocQry.DeclareVariable("birth_place",otString);
     PaxDocQry.DeclareVariable("type",otString);
+    PaxDocQry.DeclareVariable("subtype",otString);
     PaxDocQry.DeclareVariable("no",otString);
     PaxDocQry.DeclareVariable("issue_place",otString);
     PaxDocQry.DeclareVariable("issue_date",otDate);

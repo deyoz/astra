@@ -639,6 +639,8 @@ void TPaxDocTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
   *row = new TPaxDocTypesRow;
   mem.create(*row, STDLOG);
   ((TPaxDocTypesRow*)*row)->code_mintrans=Qry.FieldAsString("code_mintrans");
+  ((TPaxDocTypesRow*)*row)->is_docs_type=Qry.FieldAsInteger("is_docs_type")!=0;
+  ((TPaxDocTypesRow*)*row)->is_doco_type=Qry.FieldAsInteger("is_doco_type")!=0;
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 

@@ -295,6 +295,7 @@ class TAPICheckInfo
       required_fields=NO_FIELDS;
       readonly_fields=NO_FIELDS;
     }
+    bool CheckLet(const std::string &str, std::string::size_type &errorIdx) const;
     bool CheckLetDigSpace(const std::string &str, std::string::size_type &errorIdx) const;
     bool CheckLetSpaceDash(const std::string &str, std::string::size_type &errorIdx) const;
     bool CheckLetDigSpaceDash(const std::string &str, std::string::size_type &errorIdx) const;

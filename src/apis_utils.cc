@@ -23,6 +23,18 @@ const std::string PARAM_PASSWORD = "PASSWORD";
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
 
+bool TAPICheckInfo::CheckLet(const std::string &str, std::string::size_type &errorIdx) const
+{
+  errorIdx=0;
+  for(string::const_iterator i=str.begin(); i!=str.end(); ++i, errorIdx++)
+    if (!(( !is_inter || IsAscii7(*i) ) &&
+          ( IsUpperLetter(*i) )
+         ))
+      return false;
+  errorIdx=string::npos;
+  return true;
+}
+
 bool TAPICheckInfo::CheckLetDigSpace(const std::string &str, std::string::size_type &errorIdx) const
 {
   errorIdx=0;
@@ -70,7 +82,7 @@ void TAPICheckInfoList::toXML(xmlNodePtr node) const
       case apiDoco:
       {
         TReqInfo *reqInfo = TReqInfo::Instance();
-        if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(DOCO_CONFIRM_VERSION) &&
+        if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(DOCO_ADD_TYPES_VERSION) &&
             i->second.required_fields!=NO_FIELDS)
         {
           TAPICheckInfo checkInfo=i->second;
@@ -277,6 +289,14 @@ void CheckDoc(const CheckIn::TPaxDocItem &doc,
         throw UserException("MSG.CHECK_DOC.INVALID_EXPIRY_DATE", LParams()<<LParam("fieldname", "document/expiry_date" )):
         throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOC.EXPIRY_DATE")));
 
+    if (!ci.CheckLet(doc.subtype, errorIdx))
+    {
+      ProgTrace(TRACE5, ">>>> document/subtype: %s", doc.subtype.c_str());
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOC.INVALID_SUBTYPE", LParams()<<LParam("fieldname", "document/subtype" )):
+        throwInvalidSymbol("CAP.PAX_DOC.TYPE", ci, (errorIdx==string::npos?"":doc.subtype.substr(errorIdx, 1)));
+    };
+
     if (!ci.CheckLetDigSpace(doc.no, errorIdx))
     {
       ProgTrace(TRACE5, ">>>> document/no: %s", doc.no.c_str());
@@ -416,6 +436,14 @@ void CheckDoco(const CheckIn::TPaxDocoItem &doc,
       reqInfo->client_type!=ctTerm?
         throw UserException("MSG.CHECK_DOCO.INVALID_BIRTH_PLACE", LParams()<<LParam("fieldname", "doco/birth_place" )):
         throwInvalidSymbol("CAP.PAX_DOCO.BIRTH_PLACE", ci, (errorIdx==string::npos?"":doc.birth_place.substr(errorIdx, 1)));
+    };
+
+    if (!ci.CheckLet(doc.subtype, errorIdx))
+    {
+      ProgTrace(TRACE5, ">>>> doco/subtype: %s", doc.subtype.c_str());
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOCO.INVALID_SUBTYPE", LParams()<<LParam("fieldname", "doco/subtype" )):
+        throwInvalidSymbol("CAP.PAX_DOCO.TYPE", ci, (errorIdx==string::npos?"":doc.subtype.substr(errorIdx, 1)));
     };
 
     if (!ci.CheckLetDigSpace(doc.no, errorIdx))
@@ -599,11 +627,20 @@ CheckIn::TPaxDocItem NormalizeDoc(const CheckIn::TPaxDocItem &doc)
     if (!result.type.empty())
     {
       result.type=ElemToElemId(etPaxDocType, upperc(result.type), fmt);
-      if (fmt==efmtUnknown || result.type=="V")
+      bool is_docs_type=result.type.empty()?false:getBaseTable(etPaxDocType).get_row("code", result.type).AsBoolean("is_docs_type");
+      if (fmt==efmtUnknown || !is_docs_type)
         reqInfo->client_type!=ctTerm?
           throw UserException("MSG.CHECK_DOC.INVALID_TYPE", LParams()<<LParam("fieldname", "document/type" )):
           throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOC.TYPE")));
     };
+
+    result.subtype = upperc(doc.subtype);
+    result.subtype = TrimString(result.subtype);
+    if (result.subtype.size()>1)
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOC.INVALID_SUBTYPE", LParams()<<LParam("fieldname", "document/subtype" )):
+        throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOC.TYPE")));
+
     result.issue_country = doc.issue_country;
     result.issue_country = TrimString(result.issue_country);
     if (!result.issue_country.empty())
@@ -702,7 +739,8 @@ CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc)
     if (!result.type.empty())
     {
       result.type=ElemToElemId(etPaxDocType, upperc(result.type), fmt);
-      if (fmt==efmtUnknown ||
+      bool is_doco_type=result.type.empty()?false:getBaseTable(etPaxDocType).get_row("code", result.type).AsBoolean("is_doco_type");
+      if (fmt==efmtUnknown || !is_doco_type ||
           ((reqInfo->client_type == ctWeb ||
             reqInfo->client_type == ctKiosk ||
             reqInfo->client_type == ctMobile) && result.type!="V"))
@@ -710,6 +748,13 @@ CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc)
           throw UserException("MSG.CHECK_DOCO.INVALID_TYPE", LParams()<<LParam("fieldname", "doco/type" )):
           throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCO.TYPE")));
     };
+
+    result.subtype = upperc(doc.subtype);
+    result.subtype = TrimString(result.subtype);
+    if (result.subtype.size()>1)
+      reqInfo->client_type!=ctTerm?
+        throw UserException("MSG.CHECK_DOCO.INVALID_SUBTYPE", LParams()<<LParam("fieldname", "doco/subtype" )):
+        throw UserException("MSG.TABLE.INVALID_FIELD_VALUE", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCO.TYPE")));
 
     result.no = upperc(doc.no);
     result.no = TrimString(result.no);
