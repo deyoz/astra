@@ -517,4 +517,28 @@ void send_apis_tr();
 void send_apis_lt();
 void process_reply( const std::string& result, const std::string& type );
 
+// for HTTP
+
+CheckIn::TPaxDocItem NormalizeDocHttp(const CheckIn::TPaxDocItem &doc, const std::string full_name);
+CheckIn::TPaxDocoItem NormalizeDocoHttp(const CheckIn::TPaxDocoItem &doc, const std::string full_name);
+CheckIn::TPaxDocaItem NormalizeDocaHttp(const CheckIn::TPaxDocaItem &doc, const std::string full_name);
+
+void CheckDocHttp(const CheckIn::TPaxDocItem &doc,
+                  ASTRA::TPaxTypeExt pax_type_ext,
+                  const std::string &pax_surname,
+                  const TCompleteAPICheckInfo &checkInfo,
+                  TDateTime nowLocal,
+                  const std::string full_name);
+
+void CheckDocoHttp(const CheckIn::TPaxDocoItem &doc,
+               ASTRA::TPaxTypeExt pax_type_ext,
+               const TCompleteAPICheckInfo &checkInfo,
+               TDateTime nowLocal,
+               const std::string full_name);
+
+void CheckDocaHttp(const CheckIn::TPaxDocaItem &doc,
+               ASTRA::TPaxTypeExt pax_type_ext,
+               const TCompleteAPICheckInfo &checkInfo,
+               const std::string full_name);
+
 #endif // APIS_UTILS_H
