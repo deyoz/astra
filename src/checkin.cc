@@ -4529,16 +4529,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       set<int> nextTrferSegs;
 
-      TQuery CrsQry(&OraSession);
-      CrsQry.Clear();
-      CrsQry.SQLText=
-        "BEGIN "
-        "  ckin.save_pax_docs(:pax_id, :document, :full_insert); "
-        "END;";
-      CrsQry.DeclareVariable("pax_id",otInteger);
-      CrsQry.DeclareVariable("document",otString);
-      CrsQry.DeclareVariable("full_insert",otInteger);
-
       TQuery PaxDocQry(&OraSession);
       TQuery PaxDocoQry(&OraSession);
       TQuery PaxDocaQry(&OraSession);
@@ -4753,16 +4743,16 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 throw UserException("MSG.PASSENGER.IS_ADULT_WITH_AT_LEAST_ONE_SEAT");
             };
 
-          TDateTime checkDate=UTCToLocal(NowUTC(), AirpTZRegion(grp.airp_dep));
-          //документ
-          if (pax.DocExists)
-            HandleDoc(grp, pax, checkInfo, checkDate, pax.doc);
-          //виза
-          if (pax.DocoExists)
-            HandleDoco(grp, pax, checkInfo, checkDate, pax.doco);
+            TDateTime checkDate=UTCToLocal(NowUTC(), AirpTZRegion(grp.airp_dep));
+            //документ
+            if (pax.DocExists)
+              HandleDoc(grp, pax, checkInfo, checkDate, pax.doc);
+            //виза
+            if (pax.DocoExists)
+              HandleDoco(grp, pax, checkInfo, checkDate, pax.doco);
 
-          if (pax.DocaExists)
-            HandleDoca(grp, pax, checkInfo, pax.doca_map);
+            if (pax.DocaExists)
+              HandleDoca(grp, pax, checkInfo, pax.doca_map);
 
           }
           catch(CheckIn::UserException)
@@ -5516,13 +5506,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 //запись pax_doc
                 if (pax.DocExists) CheckIn::SavePaxDoc(pax_id,pax.doc,PaxDocQry);
                 if (pax.DocoExists) CheckIn::SavePaxDoco(pax_id,pax.doco,PaxDocoQry);
-                if (pax.DocExists)
-                {
-                  CrsQry.SetVariable("pax_id",pax_id);
-                  CrsQry.SetVariable("document",pax.doc.no);
-                  CrsQry.SetVariable("full_insert",(int)false); //потом убрать параметр за ненадобностью
-                  CrsQry.Execute();
-                }
 
                 if (reqInfo->api_mode ||
                         reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCA_VERSION))
@@ -5756,13 +5739,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 //запись pax_doc
                 if (pax.DocExists) CheckIn::SavePaxDoc(pax.id,pax.doc,PaxDocQry);
                 if (pax.DocoExists) CheckIn::SavePaxDoco(pax.id,pax.doco,PaxDocoQry);
-                if (pax.DocExists)
-                {
-                  CrsQry.SetVariable("pax_id",pax.id);
-                  CrsQry.SetVariable("document",pax.doc.no);
-                  CrsQry.SetVariable("full_insert",(int)false);
-                  CrsQry.Execute();
-                }
 
                 if (reqInfo->api_mode ||
                         reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCA_VERSION))
