@@ -309,13 +309,13 @@ struct TCondRate {
 
   bool CanUseRate( TPlace *place ) { /* если все возможные тарифы попробовали при рассадке и не смогли рассадить или нет тарифов на рейсе или место без тарифа, то можно использовать */
     bool res = ( pr_web || (current_rate_end() && use_rate) /*!!!|| place->SeatTariff.empty()*/ || ignore_rate );
-//    ProgTrace( TRACE5, "CanUseRate: x=%d, y=%d, place->SeatTariff=%s, res=%d,use_rate=%d",
-//               place->x, place->y, place->SeatTariff.str().c_str(), res, use_rate/*, current_rate->str().c_str() );
+//    ProgTrace( TRACE5, "CanUseRate: x=%d, y=%d, place->SeatTariff=%s, res=%d,use_rate=%d, curr rate=%s",
+//               place->x, place->y, place->SeatTariff.str().c_str(), res, use_rate, current_rate->str().c_str() );
     if ( !res ) {
       for ( set<TSeatTariff,SeatTariffCompare>::iterator i=rates.begin(); ; i++ ) { // просмотр всех тарифов, кот. сортированы в порядке возрастания приоритета использования
         if ( i != rates.end() &&
-             i->rate == place->SeatTariff.rate &&
-             i->color == place->SeatTariff.color ) {
+             ( i->rate == 0.0 ||
+             ( i->rate == place->SeatTariff.rate && i->color == place->SeatTariff.color ) )  ) {
           if ( use_rate || i->rate == 0.0 ) {
             res = true;
           }
