@@ -236,9 +236,9 @@ class TBPServiceTypes {
             static std::list< std::pair<Enum, std::string> > l;
             if (l.empty())
             {
-                l.push_back(std::make_pair(UP,      "Upgrade"));
-                l.push_back(std::make_pair(LG,      "Business Lounge"));
-                l.push_back(std::make_pair(TS_FT,    "Fast Track"));
+                l.push_back(std::make_pair(UP,      "UPGRADE"));
+                l.push_back(std::make_pair(LG,      "BUSINESS LOUNGE"));
+                l.push_back(std::make_pair(TS_FT,    "FAST TRACK"));
                 l.push_back(std::make_pair(Unknown, ""));
             }
             return l;
