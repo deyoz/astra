@@ -100,6 +100,7 @@ const
                          {etMiscSetType,           "etMiscSetType",           "misc_set_types"},
                          {etMsgTransport,          "etMsgTransport",          "msg_transports"},
                          {etPaxDocCountry,         "etPaxDocCountry",         "pax_doc_countries"},
+                         {etPaxDocSubtype,         "etPaxDocSubtype",         "pax_doc_subtypes"},
                          {etPaxDocType,            "etPaxDocType",            "pax_doc_types"},
                          {etPayType,               "etPayType",               "pay_types"},
                          {etPersType,              "etPersType",              "pers_types"},
@@ -351,14 +352,14 @@ string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, const std
       //это code/code_lat
       try
       {
-        id=((TCodeBaseTableRow&)CodeBaseTable.get_row("code",elem,with_deleted)).code;
+        id=((const TCodeBaseTableRow&)CodeBaseTable.get_row("code",elem,with_deleted)).code;
         fmt=efmtCodeNative;
         return id;
       }
       catch (EBaseTableError) {};
       try
       {
-        id=((TCodeBaseTableRow&)CodeBaseTable.get_row("code_lat",elem,with_deleted)).code;
+        id=((const TCodeBaseTableRow&)CodeBaseTable.get_row("code_lat",elem,with_deleted)).code;
         fmt=efmtCodeInter;
         return id;
       }
@@ -372,14 +373,14 @@ string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, const std
       //это code_icao,code_icao_lat
       try
       {
-        id=((TICAOBaseTableRow&)ICAOBaseTable.get_row("code_icao",elem,with_deleted)).code;
+        id=((const TICAOBaseTableRow&)ICAOBaseTable.get_row("code_icao",elem,with_deleted)).code;
         fmt=efmtCodeICAONative;
         return id;
       }
       catch (EBaseTableError) {};
       try
       {
-        id=((TICAOBaseTableRow&)ICAOBaseTable.get_row("code_icao_lat",elem,with_deleted)).code;
+        id=((const TICAOBaseTableRow&)ICAOBaseTable.get_row("code_icao_lat",elem,with_deleted)).code;
         fmt=efmtCodeICAOInter;
         return id;
       }
@@ -393,7 +394,7 @@ string ElemToElemId(TElemType type, const string &elem, TElemFmt &fmt, const std
       //это code_iso
       try
       {
-        id=((TCountriesRow&)Countries.get_row("code_iso",elem,with_deleted)).code;
+        id=((const TCountriesRow&)Countries.get_row("code_iso",elem,with_deleted)).code;
         fmt=efmtCodeISOInter;
         return id;
       }

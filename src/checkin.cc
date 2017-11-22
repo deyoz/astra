@@ -8811,6 +8811,8 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     filter.scd_out_in_utc = false;
     filter.only_with_reg = true;
 
+    TDateTime checkDate = UTCToLocal(NowUTC(), AirpTZRegion(filter.airp_dep)); // for HTTP
+
     //ищем рейс в СПП
     list<TAdvTripInfo> flts;
     SearchFlt(filter, flts);
@@ -8843,13 +8845,20 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
         int cabin = 0;
         bool is_commander = false;
 
-        for(xmlNodePtr crew_group = crew_groups->children; crew_group != NULL; crew_group = crew_group->next) {
+        for(xmlNodePtr crew_group = crew_groups->children; crew_group != NULL; crew_group = crew_group->next)
+        {
+            // for HTTP
+            string airp_arv = airp_fromXML(NodeAsNode("AIRP_ARV", crew_group), cfErrorIfEmpty, __FUNCTION__);
+            TCompleteAPICheckInfo checkInfo(flt.point_id, airp_arv);
+
             xmlNodePtr crew_members = NodeAsNode("CREW_MEMBERS", crew_group);
             TWebPnrForSave pnr;
             pnr.status = psCrew;
             pnr.paxFromReq.push_back(TWebPaxFromReq());
-            for(xmlNodePtr crew_member = crew_members->children; crew_member != NULL; crew_member = crew_member->next) {
-                if(NodeAsString("DUTY", crew_member, "") == string("PIC") && NodeAsInteger("ORDER", crew_member, ASTRA::NoExists) == 1) {
+            for(xmlNodePtr crew_member = crew_members->children; crew_member != NULL; crew_member = crew_member->next)
+            {
+                if(NodeAsString("DUTY", crew_member, "") == string("PIC") && NodeAsInteger("ORDER", crew_member, ASTRA::NoExists) == 1)
+                {
                     if (!commander.empty())
                         throw AstraLocale::UserException("MSG.CHECK_XML_COMMANDER_DUPLICATED",
                                                    LEvntPrms() << PrmSmpl<string>("fieldname", "DUTY"));
@@ -8857,6 +8866,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                 }
                 TWebPaxForCkin paxForCkin;
                 paxForCkin.crew_type = CrewTypes().decode(NodeAsString("CREW_TYPE", crew_member, ""));
+                ASTRA::TPaxTypeExt pax_type_ext(ASTRA::psCrew, paxForCkin.crew_type); // for HTTP
                 switch (paxForCkin.crew_type)
                 {
                   case ASTRA::TCrewType::Crew2:
@@ -8873,10 +8883,17 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                 }
 
                 xmlNodePtr pers_data = NodeAsNode("PERSONAL_DATA", crew_member);
-                for (xmlNodePtr document = pers_data->children; document != NULL; document = document->next) {
+
+                // for HTTP
+                xmlNodePtr docs_init = NodeAsNode("DOCS", pers_data);
+                string full_name = NodeAsString("SURNAME", docs_init, "") + string(" ") + NodeAsString("FIRST_NAME", docs_init, "");
+
+                for (xmlNodePtr document = pers_data->children; document != NULL; document = document->next)
+                {
                     xmlNodePtr doc=document->children;
                     if (doc==NULL) continue;
-                    if (strcmp((const char*)document->name,"DOCS") == 0) {
+                    if (strcmp((const char*)document->name,"DOCS") == 0)
+                    {
                         if (!paxForCkin.present_in_req.insert(apiDoc).second)
                             throw AstraLocale::UserException("MSG.SECTION_DUPLICATED",
                                                               LEvntPrms() << PrmSmpl<string>("airline", "D"));
@@ -8890,7 +8907,8 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                         if (!second_name.empty())
                             name = name + " " + second_name;
                         paxForCkin.name = upperc(name);
-                        if (is_commander) {
+                        if (is_commander)
+                        {
                             commander = paxForCkin.surname + " " + upperc(name.substr(0, 1)) + ".";
                             if (!second_name.empty())
                                 commander = commander + upperc(second_name.substr(0, 1)) + ".";
@@ -8907,9 +8925,14 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                         paxForCkin.apis.doc.gender=CheckIn::PaxDocGenderNormalize(NodeAsStringFast("GENDER",doc,""));
                         if (!NodeIsNULLFast("EXPIRY_DATE",doc, true))
                             paxForCkin.apis.doc.expiry_date = date_fromXML(NodeAsStringFast("EXPIRY_DATE",doc,""));
-                        paxForCkin.apis.doc=NormalizeDoc(paxForCkin.apis.doc);
+
+//                        paxForCkin.apis.doc=NormalizeDoc(paxForCkin.apis.doc);
+                        // for HTTP
+                        paxForCkin.apis.doc = NormalizeDocHttp(paxForCkin.apis.doc, full_name);
+                        CheckDocHttp(paxForCkin.apis.doc, pax_type_ext, paxForCkin.apis.doc.surname, checkInfo, checkDate, full_name);
                     }
-                    else if (strcmp((const char*)document->name,"DOCO") == 0) {
+                    else if (strcmp((const char*)document->name,"DOCO") == 0)
+                    {
                         if (!paxForCkin.present_in_req.insert(apiDoco).second)
                             throw AstraLocale::UserException("MSG.SECTION_DUPLICATED",
                                                               LEvntPrms() << PrmSmpl<string>("name", "doco"));
@@ -8935,9 +8958,13 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                             if (paxForCkin.apis.doco.type==CheckIn::DOCO_PSEUDO_TYPE) paxForCkin.apis.doco.type.clear();
                         }
                         else paxForCkin.apis.doco.doco_confirm=true;
-                        paxForCkin.apis.doco = NormalizeDoco(paxForCkin.apis.doco);
+//                        paxForCkin.apis.doco = NormalizeDoco(paxForCkin.apis.doco);
+                        // for HTTP
+                        paxForCkin.apis.doco = NormalizeDocoHttp(paxForCkin.apis.doco, full_name);
+                        CheckDocoHttp(paxForCkin.apis.doco, pax_type_ext, checkInfo, checkDate, full_name);
                     }
-                    else if (strcmp((const char*)document->name,"DOCA") == 0) {
+                    else if (strcmp((const char*)document->name,"DOCA") == 0)
+                    {
                         string type = upperc(NodeAsStringFast("TYPE", doc, ""));
 
                         if (!(type == "B" || type == "R" || type == "D"))
@@ -8957,7 +8984,10 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                         doca.city=NodeAsStringFast("CITY",doc,"");
                         doca.region=NodeAsStringFast("REGION",doc,"");
                         doca.postal_code=NodeAsStringFast("POSTAL_CODE",doc,"");
-                        CheckIn::TPaxDocaItem norm_doca = NormalizeDoca(doca);
+//                        CheckIn::TPaxDocaItem norm_doca = NormalizeDoca(doca);
+                        // for HTTP
+                        CheckIn::TPaxDocaItem norm_doca = NormalizeDocaHttp(doca, full_name);
+                        CheckDocaHttp(norm_doca, pax_type_ext, checkInfo, full_name);
                         if (norm_doca.apiType() != apiUnknown) paxForCkin.apis.doca_map[norm_doca.apiType()] = norm_doca;
                     }
                 }
@@ -8968,7 +8998,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
             }
 
             WebSearch::TPnrData &pnrData=*(PNRs.begin());
-            string airp_arv = airp_fromXML(NodeAsNode("AIRP_ARV", crew_group), cfErrorIfEmpty, __FUNCTION__);
+//            string airp_arv = airp_fromXML(NodeAsNode("AIRP_ARV", crew_group), cfErrorIfEmpty, __FUNCTION__);
             CompletePnrDataForCrew(airp_arv, pnrData);
             XMLDoc emulDocHeader;
             CreateEmulXMLDoc(emulDocHeader);

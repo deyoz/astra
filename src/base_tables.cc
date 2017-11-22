@@ -52,6 +52,8 @@ TBaseTable &TBaseTables::get(string name)
             base_tables[name] = new TTagColors();
         else if(name == "PAX_DOC_COUNTRIES")
             base_tables[name] = new TPaxDocCountries();
+        else if(name == "PAX_DOC_SUBTYPES")
+            base_tables[name] = new TPaxDocSubtypes();
         else if(name == "PAX_DOC_TYPES")
             base_tables[name] = new TPaxDocTypes();
         else if(name == "CITIES")
@@ -643,6 +645,15 @@ void TPaxDocTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
   ((TPaxDocTypesRow*)*row)->is_doco_type=Qry.FieldAsInteger("is_doco_type")!=0;
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
+
+void TPaxDocSubtypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TPaxDocSubtypesRow;
+  mem.create(*row, STDLOG);
+  ((TPaxDocSubtypesRow*)*row)->doc_subtype=Qry.FieldAsString("doc_subtype");
+  ((TPaxDocSubtypesRow*)*row)->doc_type=Qry.FieldAsString("doc_type");
+  TCodeBaseTable::create_row(Qry,row,replaced_row);
+}
 
 void TTypeBOptionValues::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {

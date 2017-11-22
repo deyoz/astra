@@ -300,6 +300,17 @@ class TGenderTypesRow: public TCodeBaseTableRow {
     };
 };
 
+class TGenderTypes: public TCodeBaseTable {
+  protected:
+    const char *get_table_name() { return "TGenderTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+    TGenderTypes() {
+        Init( "gender_types" );
+    }
+};
+
 class TReportTypesRow: public TCodeBaseTableRow {
   public:
     const char *get_row_name() const { return "TReportTypesRow"; };
@@ -313,17 +324,6 @@ class TReportTypes: public TCodeBaseTable {
   public:
     TReportTypes() {
         Init( "report_types" );
-    }
-};
-
-class TGenderTypes: public TCodeBaseTable {
-  protected:
-    const char *get_table_name() { return "TGenderTypes"; };
-    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
-    void Invalidate() {}; //всегда актуальна
-  public:
-    TGenderTypes() {
-        Init( "gender_types" );
     }
 };
 
@@ -396,6 +396,34 @@ class TPaxDocTypes: public TCodeBaseTable {
   public:
     TPaxDocTypes( ) {
         Init( "pax_doc_types" );
+    }
+};
+
+class TPaxDocSubtypesRow: public TCodeBaseTableRow {
+  public:
+    std::string doc_subtype, doc_type;
+    const char *get_row_name() const { return "TPaxDocSubtypesRow"; }
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
+    {
+      if (lowerc(field)=="doc_subtype") return doc_subtype;
+      if (lowerc(field)=="doc_type") return doc_type;
+      return TCodeBaseTableRow::AsString(field,lang);
+    }
+};
+
+class TPaxDocSubtypes: public TCodeBaseTable {
+  protected:
+    const char *get_table_name() { return "TPaxDocSubtypes"; }
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {} //всегда актуальна
+  public:
+    TPaxDocSubtypes( ) {
+      Init();
+      select_sql = "SELECT doc_type||'+'||code AS code, name, name_lat, code AS doc_subtype, doc_type FROM pax_doc_subtypes";
+    }
+    static std::string ConstructCode(const std::string& doc_type, const std::string& doc_subtype)
+    {
+      return doc_type+'+'+doc_subtype;
     }
 };
 

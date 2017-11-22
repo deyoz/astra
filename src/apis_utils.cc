@@ -5,6 +5,7 @@
 #include "astra_service.h"
 #include "sopp.h"
 #include <pion/http/parser.hpp>
+#include <boost/scoped_ptr.hpp>
 
 #include "apis_creator.h"
 
@@ -1287,3 +1288,399 @@ void process_reply( const std::string& result, const std::string& type )
   }
   xmlFreeDoc( doc );
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// ФУНКЦИИ ДЛЯ МЕРИДИАНА (for HTTP)
+
+void CheckDocHttp(const CheckIn::TPaxDocItem &doc,
+                  TPaxTypeExt pax_type_ext,
+                  const std::string &pax_surname,
+                  const TCompleteAPICheckInfo &checkInfo,
+                  TDateTime nowLocal,
+                  const std::string full_name)
+{
+  const TAPICheckInfo &ci=checkInfo.get(doc, pax_type_ext);
+  try
+  {
+    string::size_type errorIdx;
+    modf(nowLocal, &nowLocal);
+
+    if (doc.birth_date!=NoExists && (doc.birth_date>nowLocal || doc.birth_date<IncMonth(nowLocal, -130*12))) //до 130 лет назад
+      throw UserException("MSG.CHECK_DOC.INVALID_BIRTH_DATE", LParams()<<LParam("fieldname", "document/birth_date" ));
+
+    if (doc.expiry_date!=NoExists && (doc.expiry_date<nowLocal || doc.expiry_date>IncMonth(nowLocal, 100*12))) //до 100 лет вперед
+      throw UserException("MSG.CHECK_DOC.INVALID_EXPIRY_DATE", LParams()<<LParam("fieldname", "document/expiry_date" ));
+
+    if (!ci.CheckLetDigSpace(doc.no, errorIdx))
+      throwInvalidSymbol("CAP.PAX_DOC.NO", ci, (errorIdx==string::npos?"":doc.no.substr(errorIdx, 1)));
+
+    if (!ci.CheckLetSpaceDash(doc.surname, errorIdx))
+      throwInvalidSymbol("CAP.PAX_DOC.SURNAME", ci, (errorIdx==string::npos?"":doc.surname.substr(errorIdx, 1)));
+
+    if (!ci.CheckLetSpaceDash(doc.first_name, errorIdx))
+      throwInvalidSymbol("CAP.PAX_DOC.FIRST_NAME", ci, (errorIdx==string::npos?"":doc.first_name.substr(errorIdx, 1)));
+
+    if (!ci.CheckLetSpaceDash(doc.second_name, errorIdx))
+      throwInvalidSymbol("CAP.PAX_DOC.SECOND_NAME", ci, (errorIdx==string::npos?"":doc.second_name.substr(errorIdx, 1)));
+
+    //проверяем похожесть фамилий
+    if (!pax_surname.empty() && !doc.surname.empty() && best_transliter_similarity(pax_surname, doc.surname)<70)  //не менее 70% схожести
+      throw UserException("MSG.CHECK_DOC.INVALID_SURNAME", LParams()<<LParam("fieldname", "document/surname" ));
+
+    //проверяем пустоту
+    long int mask=doc.getNotEmptyFieldsMask();
+    for(int pass=0; pass<10; pass++)
+    {
+      long int FIELD=NO_FIELDS;
+      string CAP;
+      switch(pass)
+      {
+        case 0: FIELD=DOC_TYPE_FIELD;          CAP="document/type";           break;
+        case 1: FIELD=DOC_ISSUE_COUNTRY_FIELD; CAP="document/issue_country";  break;
+        case 2: FIELD=DOC_NO_FIELD;            CAP="document/no";             break;
+        case 3: FIELD=DOC_NATIONALITY_FIELD;   CAP="document/nationality";    break;
+        case 4: FIELD=DOC_BIRTH_DATE_FIELD;    CAP="document/birth_date";     break;
+        case 5: FIELD=DOC_GENDER_FIELD;        CAP="document/gender";         break;
+        case 6: FIELD=DOC_EXPIRY_DATE_FIELD;   CAP="document/expiry_date";    break;
+        case 7: FIELD=DOC_SURNAME_FIELD;       CAP="document/surname";        break;
+        case 8: FIELD=DOC_FIRST_NAME_FIELD;    CAP="document/first_name";     break;
+        case 9: FIELD=DOC_SECOND_NAME_FIELD;   CAP="document/second_name";    break;
+      }
+      if ((mask & FIELD) == 0 && (ci.required_fields & FIELD) != 0)
+        throw UserException("MSG.TABLE.NOT_SET_FIELD_VALUE", LParams()<<LParam("fieldname", CAP));
+    }
+  }
+  catch(UserException &e)
+  {
+    throw UserException("WRAP.PAX_ERROR.FULLNAME",
+                        LParams()<<LParam("fullname", full_name)
+                        <<LParam("doctype", "DOCS")
+                        <<LParam("text", e.getLexemaData()));
+  }
+}
+
+void CheckDocoHttp(const CheckIn::TPaxDocoItem &doc,
+               TPaxTypeExt pax_type_ext,
+               const TCompleteAPICheckInfo &checkInfo,
+               TDateTime nowLocal,
+               const std::string full_name)
+{
+  const TAPICheckInfo &ci=checkInfo.get(doc, pax_type_ext);
+  try
+  {
+    string::size_type errorIdx;
+    modf(nowLocal, &nowLocal);
+
+    if (doc.issue_date!=NoExists && (doc.issue_date>nowLocal || doc.issue_date<IncMonth(nowLocal, -70*12))) //до 70 лет назад
+      throw UserException("MSG.CHECK_DOCO.INVALID_ISSUE_DATE", LParams()<<LParam("fieldname", "doco/issue_date" ));
+
+    if (doc.expiry_date!=NoExists && (doc.expiry_date<nowLocal || doc.expiry_date>IncMonth(nowLocal, 70*12))) //до 70 лет вперед
+      throw UserException("MSG.CHECK_DOCO.INVALID_EXPIRY_DATE", LParams()<<LParam("fieldname", "doco/expiry_date" ));
+
+    if (!ci.CheckLetDigSpaceDash(doc.birth_place, errorIdx))
+      throwInvalidSymbol("CAP.PAX_DOCO.BIRTH_PLACE", ci, (errorIdx==string::npos?"":doc.birth_place.substr(errorIdx, 1)));
+
+    if (!ci.CheckLetDigSpace(doc.no, errorIdx))
+      throwInvalidSymbol("CAP.PAX_DOCO.NO", ci, (errorIdx==string::npos?"":doc.no.substr(errorIdx, 1)));
+
+    if (!ci.CheckLetDigSpaceDash(doc.issue_place, errorIdx))
+      throwInvalidSymbol("CAP.PAX_DOCO.ISSUE_PLACE", ci, (errorIdx==string::npos?"":doc.issue_place.substr(errorIdx, 1)));
+
+    //проверяем пустоту
+    long int mask=doc.getNotEmptyFieldsMask();
+    for(int pass=0; pass<7; pass++)
+    {
+      long int FIELD=NO_FIELDS;
+      string CAP;
+      switch(pass)
+      {
+        case 0: FIELD=DOCO_BIRTH_PLACE_FIELD;    CAP="doco/birth_place";     break;
+        case 1: FIELD=DOCO_TYPE_FIELD;           CAP="doco/type";            break;
+        case 2: FIELD=DOCO_NO_FIELD;             CAP="doco/no";              break;
+        case 3: FIELD=DOCO_ISSUE_PLACE_FIELD;    CAP="doco/issue_place";     break;
+        case 4: FIELD=DOCO_ISSUE_DATE_FIELD;     CAP="doco/issue_date";      break;
+        case 5: FIELD=DOCO_APPLIC_COUNTRY_FIELD; CAP="doco/applic_country";  break;
+        case 6: FIELD=DOCO_EXPIRY_DATE_FIELD;    CAP="doco/expiry_date";     break;
+      }
+      if ((mask & FIELD) == 0 && (ci.required_fields & FIELD) != 0)
+        throw UserException("MSG.TABLE.NOT_SET_FIELD_VALUE", LParams()<<LParam("fieldname", CAP));
+    }
+  }
+  catch(UserException &e)
+  {
+    throw UserException("WRAP.PAX_ERROR.FULLNAME",
+                        LParams()<<LParam("fullname", full_name)
+                        <<LParam("doctype", "DOCO")
+                        <<LParam("text", e.getLexemaData()));
+  }
+}
+
+void CheckDocaHttp(const CheckIn::TPaxDocaItem &doc,
+               TPaxTypeExt pax_type_ext,
+               const TCompleteAPICheckInfo &checkInfo,
+               const std::string full_name)
+{
+  const TAPICheckInfo &ci=checkInfo.get(doc, pax_type_ext);
+  try
+  {
+    string::size_type errorIdx;
+    if (!ci.CheckLetDigSpaceDash(doc.address, errorIdx))
+      throwInvalidSymbol("CAP.PAX_DOCA.ADDRESS", ci, (errorIdx==string::npos?"":doc.address.substr(errorIdx, 1)));
+
+    if (!ci.CheckLetDigSpaceDash(doc.city, errorIdx))
+      throwInvalidSymbol("CAP.PAX_DOCA.CITY", ci, (errorIdx==string::npos?"":doc.city.substr(errorIdx, 1)));
+
+    if (!ci.CheckLetDigSpaceDash(doc.region, errorIdx))
+      throwInvalidSymbol("CAP.PAX_DOCA.REGION", ci, (errorIdx==string::npos?"":doc.region.substr(errorIdx, 1)));
+
+    if (!ci.CheckLetDigSpaceDash(doc.postal_code, errorIdx))
+      throwInvalidSymbol("CAP.PAX_DOCA.POSTAL_CODE", ci, (errorIdx==string::npos?"":doc.postal_code.substr(errorIdx, 1)));
+
+    //проверяем пустоту
+    long int mask=doc.getNotEmptyFieldsMask();
+    for(int pass=0; pass<5; pass++)
+    {
+      long int FIELD=NO_FIELDS;
+      string CAP;
+      switch(pass)
+      {
+        case 0: FIELD=DOCA_COUNTRY_FIELD;     CAP="doca/country";     break;
+        case 1: FIELD=DOCA_ADDRESS_FIELD;     CAP="doca/address";     break;
+        case 2: FIELD=DOCA_CITY_FIELD;        CAP="doca/city";        break;
+        case 3: FIELD=DOCA_REGION_FIELD;      CAP="doca/region";      break;
+        case 4: FIELD=DOCA_POSTAL_CODE_FIELD; CAP="doca/postal_code"; break;
+      }
+      if ((mask & FIELD) == 0 && (ci.required_fields & FIELD) != 0)
+        throw UserException("MSG.TABLE.NOT_SET_FIELD_VALUE", LParams()<<LParam("fieldname", CAP));
+    }
+  }
+  catch(UserException &e)
+  {
+    string doc_type;
+    switch(doc.apiType())
+    {
+      case apiDocaB: doc_type = "DOCA_B"; break;
+      case apiDocaR: doc_type = "DOCA_R"; break;
+      case apiDocaD: doc_type = "DOCA_D"; break;
+      default: break;
+    }
+    throw UserException("WRAP.PAX_ERROR.FULLNAME",
+                        LParams()<<LParam("fullname", full_name)
+                        <<LParam("doctype", doc_type)
+                        <<LParam("text", e.getLexemaData()));
+  }
+}
+
+/////
+
+CheckIn::TPaxDocItem NormalizeDocHttp(const CheckIn::TPaxDocItem &doc, const std::string full_name)
+{
+  try
+  {
+    CheckIn::TPaxDocItem result(doc);
+    TElemFmt fmt;
+
+    result.type = doc.type;
+    result.type = TrimString(result.type);
+    if (!result.type.empty())
+    {
+      result.type=ElemToElemId(etPaxDocType, upperc(result.type), fmt);
+      if (fmt==efmtUnknown || result.type=="V")
+          throw UserException("MSG.CHECK_DOC.INVALID_TYPE", LParams()<<LParam("fieldname", "document/type" ));
+    }
+
+    result.subtype = doc.subtype;
+    result.subtype = TrimString(result.subtype);
+    if (!result.subtype.empty())
+    {
+      ElemToElemId(etPaxDocSubtype, TPaxDocSubtypes::ConstructCode(upperc(result.type), upperc(result.subtype)), fmt);
+      if (fmt==efmtUnknown)
+          throw UserException("MSG.CHECK_DOC.INVALID_SUBTYPE", LParams()<<LParam("fieldname", "document/subtype" ));
+    }
+
+    result.issue_country = doc.issue_country;
+    result.issue_country = TrimString(result.issue_country);
+    if (!result.issue_country.empty())
+    {
+      result.issue_country=ElemToPaxDocCountryId(upperc(result.issue_country), fmt);
+      if (fmt==efmtUnknown)
+          throw UserException("MSG.CHECK_DOC.INVALID_ISSUE_COUNTRY", LParams()<<LParam("fieldname", "document/issue_country" ));
+    }
+
+    result.no = upperc(doc.no);
+    result.no = TrimString(result.no);
+    if (result.no.size()>15)
+        throw UserException("MSG.CHECK_DOC.INVALID_NO", LParams()<<LParam("fieldname", "document/no" ));
+
+    result.nationality = doc.nationality;
+    result.nationality = TrimString(result.nationality);
+    if (!result.nationality.empty())
+    {
+      result.nationality=ElemToPaxDocCountryId(upperc(result.nationality), fmt);
+      if (fmt==efmtUnknown)
+          throw UserException("MSG.CHECK_DOC.INVALID_NATIONALITY", LParams()<<LParam("fieldname", "document/nationality" ));
+    }
+
+    if (doc.birth_date!=NoExists)
+      modf(doc.birth_date, &result.birth_date);
+
+    result.gender = doc.gender;
+    result.gender = TrimString(result.gender);
+    if (!result.gender.empty())
+    {
+      result.gender=ElemToElemId(etGenderType, upperc(result.gender), fmt);
+      if (fmt==efmtUnknown)
+          throw UserException("MSG.CHECK_DOC.INVALID_GENDER", LParams()<<LParam("fieldname", "document/gender" ));
+    }
+
+    if (doc.expiry_date!=NoExists)
+      modf(doc.expiry_date, &result.expiry_date);
+
+    result.surname = upperc(doc.surname);
+    result.surname = TrimString(result.surname);
+    if (result.surname.size()>64)
+        throw UserException("MSG.CHECK_DOC.INVALID_SURNAME", LParams()<<LParam("fieldname", "document/surname" ));
+
+    result.first_name = upperc(doc.first_name);
+    result.first_name = TrimString(result.first_name);
+    if (result.first_name.size()>64)
+        throw UserException("MSG.CHECK_DOC.INVALID_FIRST_NAME", LParams()<<LParam("fieldname", "document/first_name" ));
+
+    result.second_name = upperc(doc.second_name);
+    result.second_name = TrimString(result.second_name);
+    if (result.second_name.size()>64)
+        throw UserException("MSG.CHECK_DOC.INVALID_SECOND_NAME", LParams()<<LParam("fieldname", "document/second_name" ));
+
+    return result;
+  }
+  catch(UserException &e)
+  {
+    throw UserException("WRAP.PAX_ERROR.FULLNAME",
+                        LParams()<<LParam("fullname", full_name)
+                        <<LParam("doctype", "DOCS")
+                        <<LParam("text", e.getLexemaData()));
+  }
+}
+
+CheckIn::TPaxDocoItem NormalizeDocoHttp(const CheckIn::TPaxDocoItem &doc, const std::string full_name)
+{
+  try
+  {
+    CheckIn::TPaxDocoItem result(doc);
+    TElemFmt fmt;
+
+    result.birth_place = upperc(doc.birth_place);
+    result.birth_place = TrimString(result.birth_place);
+    if (result.birth_place.size()>35)
+        throw UserException("MSG.CHECK_DOCO.INVALID_BIRTH_PLACE", LParams()<<LParam("fieldname", "doco/birth_place" ));
+
+    result.type = doc.type;
+    result.type = TrimString(result.type);
+    if (!result.type.empty())
+    {
+      result.type=ElemToElemId(etPaxDocType, upperc(result.type), fmt);
+      if (fmt==efmtUnknown)
+          throw UserException("MSG.CHECK_DOCO.INVALID_TYPE", LParams()<<LParam("fieldname", "doco/type" ));
+    }
+
+    result.no = upperc(doc.no);
+    result.no = TrimString(result.no);
+    if (result.no.size()>25)
+        throw UserException("MSG.CHECK_DOCO.INVALID_NO", LParams()<<LParam("fieldname", "doco/no" ));
+
+    result.issue_place = upperc(doc.issue_place);
+    result.issue_place = TrimString(result.issue_place);
+    if (result.issue_place.size()>35)
+        throw UserException("MSG.CHECK_DOCO.INVALID_ISSUE_PLACE", LParams()<<LParam("fieldname", "doco/issue_place" ));
+
+    if (doc.issue_date!=NoExists)
+      modf(doc.issue_date, &result.issue_date);
+
+    if (doc.expiry_date!=NoExists)
+      modf(doc.expiry_date, &result.expiry_date);
+
+    result.applic_country = doc.applic_country;
+    result.applic_country = TrimString(result.applic_country);
+    if (!result.applic_country.empty())
+    {
+      result.applic_country=ElemToPaxDocCountryId(upperc(result.applic_country), fmt);
+      if (fmt==efmtUnknown)
+          throw UserException("MSG.CHECK_DOCO.INVALID_APPLIC_COUNTRY", LParams()<<LParam("fieldname", "doco/applic_country" ));
+    }
+
+    result.ReplacePunctSymbols();
+
+    return result;
+  }
+  catch(UserException &e)
+  {
+    throw UserException("WRAP.PAX_ERROR.FULLNAME",
+                        LParams()<<LParam("fullname", full_name)
+                        <<LParam("doctype", "DOCO")
+                        <<LParam("text", e.getLexemaData()));
+  }
+}
+
+CheckIn::TPaxDocaItem NormalizeDocaHttp(const CheckIn::TPaxDocaItem &doc, const std::string full_name)
+{
+  try
+  {
+    CheckIn::TPaxDocaItem result(doc);
+    TElemFmt fmt;
+
+    result.type = upperc(doc.type);
+    result.type = TrimString(result.type);
+
+    if (result.apiType()==apiUnknown)
+      throw Exception("NormalizeDoca: result.apiType()==apiUnknown!");
+
+    result.country = doc.country;
+    result.country = TrimString(result.country);
+    if (!result.country.empty())
+    {
+      result.country = ElemToPaxDocCountryId(upperc(result.country), fmt);
+      if (fmt==efmtUnknown)
+          throw UserException("MSG.CHECK_DOCA.INVALID_COUNTRY", LParams()<<LParam("fieldname", "doca/country"));
+    }
+    result.address = upperc(doc.address);
+    result.address = TrimString(result.address);
+    if (result.address.size() > 35)
+        throw UserException("MSG.CHECK_DOCA.INVALID_ADDRESS", LParams()<<LParam("fieldname", "doca/address"));
+
+    result.city = upperc(doc.city);
+    result.city = TrimString(result.city);
+    if (result.city.size() > 35)
+        throw UserException("MSG.CHECK_DOCA.INVALID_CITY", LParams()<<LParam("fieldname", "doca/city"));
+
+    result.region = upperc(doc.region);
+    result.region = TrimString(result.region);
+    if (result.region.size() > 35)
+        throw UserException("MSG.CHECK_DOCA.INVALID_REGION", LParams()<<LParam("fieldname", "doca/region"));
+
+    result.postal_code = doc.postal_code;
+    result.postal_code = TrimString(result.postal_code);
+    if (result.postal_code.size() > 17)
+        throw UserException("MSG.CHECK_DOCA.INVALID_POSTAL_CODE", LParams()<<LParam("fieldname", "doca/postal_code"));
+
+    result.ReplacePunctSymbols();
+
+    return result;
+  }
+  catch(UserException &e)
+  {
+    string doc_type;
+    switch(doc.apiType())
+    {
+      case apiDocaB: doc_type = "DOCA_B"; break;
+      case apiDocaR: doc_type = "DOCA_R"; break;
+      case apiDocaD: doc_type = "DOCA_D"; break;
+      default: break;
+    }
+    throw UserException("WRAP.PAX_ERROR.FULLNAME",
+                        LParams()<<LParam("fullname", full_name)
+                        <<LParam("doctype", doc_type)
+                        <<LParam("text", e.getLexemaData()));
+  }
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
