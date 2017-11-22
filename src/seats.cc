@@ -242,12 +242,24 @@ string SUBCLS_REM;
 
 bool canUseOneRow=true; // использовать при рассадке только один ряд - определяется на основе ф-ции getCanUseOneRow() и цикла
 
+struct RateCompare {
+  bool operator() ( const TSeatTariff &rate1, const TSeatTariff &rate2 ) const
+  {
+      if (rate1.rate != rate2.rate)
+        return rate1.rate < rate2.rate;
+      if (rate1.color != rate2.color)
+        return rate1.color < rate2.color;
+      return rate1.currency_id < rate2.currency_id;
+  }
+};
+
+
 struct TCondRate {
   bool pr_web; //признак того, что регистрируется платный пассажир
   bool use_rate; // использовать платные места для пассажиров без оплаченных мест
   bool ignore_rate; // игнорируем тариф
-  set<SALONS2::TSeatTariff,SALONS2::SeatTariffCompare> rates;
-  set<SALONS2::TSeatTariff,SALONS2::SeatTariffCompare>::iterator current_rate;
+  set<SALONS2::TSeatTariff,RateCompare> rates;
+  set<SALONS2::TSeatTariff,RateCompare>::iterator current_rate;
   TCondRate( ) {
     current_rate = rates.end();
   }
@@ -299,7 +311,7 @@ struct TCondRate {
       }
     }
     current_rate = rates.begin();
-    for ( set<TSeatTariff,SeatTariffCompare>::iterator i=rates.begin(); i!=rates.end(); i++ ) {
+    for ( set<TSeatTariff,RateCompare>::iterator i=rates.begin(); i!=rates.end(); i++ ) {
       ProgTrace( TRACE5, "rates.value=%s", i->str().c_str() );
     }
   }
@@ -311,11 +323,13 @@ struct TCondRate {
     bool res = ( pr_web || (current_rate_end() && use_rate) /*!!!|| place->SeatTariff.empty()*/ || ignore_rate );
 //    ProgTrace( TRACE5, "CanUseRate: x=%d, y=%d, place->SeatTariff=%s, res=%d,use_rate=%d, curr rate=%s",
 //               place->x, place->y, place->SeatTariff.str().c_str(), res, use_rate, current_rate->str().c_str() );
+
     if ( !res ) {
-      for ( set<TSeatTariff,SeatTariffCompare>::iterator i=rates.begin(); ; i++ ) { // просмотр всех тарифов, кот. сортированы в порядке возрастания приоритета использования
+      for ( set<TSeatTariff,RateCompare>::iterator i=rates.begin(); ; i++ ) { // просмотр всех тарифов, кот. сортированы в порядке возрастания приоритета использования
         if ( i != rates.end() &&
-             ( i->rate == 0.0 ||
-             ( i->rate == place->SeatTariff.rate && i->color == place->SeatTariff.color ) )  ) {
+             i->rate == place->SeatTariff.rate &&
+            ( i->color.empty() && !place->SeatTariff.currency_id.empty() || //цвет не задан  0.0 и у места задан тариф (не неизвестен !place->SeatTariff.currency_id.empty() )
+              i->color == place->SeatTariff.color && i->currency_id == place->SeatTariff.currency_id ) ) {
           if ( use_rate || i->rate == 0.0 ) {
             res = true;
           }
@@ -328,7 +342,7 @@ struct TCondRate {
     return res;
   }
   bool isIgnoreRates( ) {
-    set<TSeatTariff,SeatTariffCompare>::iterator i = rates.end();
+    set<TSeatTariff,RateCompare>::iterator i = rates.end();
     if ( !rates.empty() )
       i--;
     return ( (current_rate_end() && use_rate) || i == current_rate || ignore_rate);
