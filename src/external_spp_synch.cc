@@ -717,7 +717,13 @@ void parse_saveFlights( int range_hours, xmlNodePtr reqNode, xmlNodePtr resNode 
     catch( Exception &e ) {
       OraSession.Rollback();
       msg = event + ": " + "flight_number=" + IntToString( flight_number ) + ",id=" + parser.id + ", error: " + e.what();
-      ProgError( STDLOG, "%s", msg.c_str() );
+      if ( string(e.what()).find( string("missing right") ) != std::string::npos ||
+           string(e.what()).find( string("Неизвестная авиакомпания") ) != std::string::npos ) {
+        ProgTrace( TRACE5, ">>>%s", msg.c_str() );
+      }
+      else {
+         ProgError( STDLOG, "%s", msg.c_str() );
+      }
     }
     catch( std::exception &e ) {
       OraSession.Rollback();
