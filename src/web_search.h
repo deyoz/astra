@@ -220,6 +220,7 @@ struct TPNRSegInfo
   std::string cls;
     std::string subcls;
     std::vector<TPNRAddrInfo> pnr_addrs;
+    TMktFlight mktFlight;
     TPNRSegInfo() { clear(); };
 
   void clear()
