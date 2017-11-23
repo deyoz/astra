@@ -315,7 +315,7 @@ TPNRFilter& TPNRFilter::testPaxFromDB()
   if (!airlines.empty())
     sql << " AND (airline IN " << GetSQLEnum(airlines) << " OR airline IS NULL) ";
 
-    Qry.SQLText=sql.str().c_str();
+  Qry.SQLText=sql.str().c_str();
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {
@@ -543,7 +543,7 @@ bool TDestInfo::fromDB(int point_id, bool pr_throw)
     est_in_local=Qry.FieldIsNULL("est_in")?NoExists:UTCToLocal(Qry.FieldAsDateTime("est_in"), region);
     act_in_local=Qry.FieldIsNULL("act_in")?NoExists:UTCToLocal(Qry.FieldAsDateTime("act_in"), region);
 
-    city_arv = ((TAirpsRow&)base_tables.get( "airps" ).get_row( "code", airp_arv, true )).city;
+    city_arv = ((const TAirpsRow&)base_tables.get( "airps" ).get_row( "code", airp_arv, true )).city;
     if (scd_in!=NoExists && scd_in_local!=NoExists)
       arv_utc_offset = (int)round((scd_in_local - scd_in) * 1440);
     else
@@ -604,7 +604,7 @@ bool TFlightInfo::fromDB(TQuery &Qry)
   est_out_local=Qry.FieldIsNULL("est_out")?NoExists:UTCToLocal(Qry.FieldAsDateTime("est_out"), region);
   act_out_local=Qry.FieldIsNULL("act_out")?NoExists:UTCToLocal(Qry.FieldAsDateTime("act_out"), region);
 
-  city_dep = ((TAirpsRow&)base_tables.get( "airps" ).get_row( "code", oper.airp, true )).city;
+  city_dep = ((const TAirpsRow&)base_tables.get( "airps" ).get_row( "code", oper.airp, true )).city;
   if (oper.scd_out!=NoExists && scd_out_local!=NoExists)
     dep_utc_offset = (int)round((scd_out_local - oper.scd_out) * 1440);
   else
@@ -788,7 +788,7 @@ bool TPNRSegInfo::fromTestPax(int point_id, const TTripRoute &route, const TTest
   pnr_id=pax.pax_id;
   try
   {
-    cls=((TSubclsRow&)base_tables.get( "subcls" ).get_row( "code", pax.subcls, true )).cl;
+    cls=((const TSubclsRow&)base_tables.get( "subcls" ).get_row( "code", pax.subcls, true )).cl;
   }
   catch(EBaseTableError)
   {
@@ -1085,6 +1085,8 @@ bool TPNRSegInfo::fromDB(int point_id, const TTripRoute &route, TQuery &Qry)
     pnr_addrs.push_back(pnr_addr);
   };
 
+  mktFlight.getByPnrId(pnr_id);
+
   return true;
 };
 
@@ -1132,6 +1134,14 @@ void TPNRSegInfo::toXML(xmlNodePtr node, bool old_style) const
     xmlNodePtr addrNode = NewTextChild(addrsNode, "pnr_addr");
     NewTextChild(addrNode, "airline", i->airline);
     NewTextChild(addrNode, "addr", i->addr);
+  };
+
+  xmlNodePtr fltNode=NewTextChild(node, "pnr_mark_flight");
+  if (!mktFlight.empty())
+  {
+    NewTextChild( fltNode, "airline", mktFlight.airline );
+    NewTextChild( fltNode, "flt_no", mktFlight.flt_no );
+    NewTextChild( fltNode, "suffix", mktFlight.suffix );
   };
 };
 
