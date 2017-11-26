@@ -1416,6 +1416,10 @@ void PrintInterface::ConfirmPrintBP(TDevOper::Enum op_type,
                                     const std::vector<BPPax> &paxs,
                                     CheckIn::UserException &ue)
 {
+    TCachedQuery BIStatQry(
+        "update bi_stat set pr_print = 1 where pax_id = :pax_id",
+        QParams() << QParam("pax_id", otInteger));
+
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "BEGIN "
@@ -1442,6 +1446,9 @@ void PrintInterface::ConfirmPrintBP(TDevOper::Enum op_type,
     {
         try
         {
+            BIStatQry.get().SetVariable("pax_id", iPax->pax_id);
+            BIStatQry.get().Execute();
+
             Qry.SetVariable("pax_id", iPax->pax_id);
             Qry.SetVariable("time_print", iPax->time_print);
             Qry.SetVariable("voucher", iPax->voucher);
@@ -2607,6 +2614,7 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
                         PaxASVCList::ExistsPaxUnboundBagEMD(iPax->pax_id));
                 NewTextChild(paxNode, "unbound_emd_warning", (int)unbound_emd_warning, (int)false);
                 SetProp(NewTextChild(paxNode, "prn_form", iPax->prn_form),"hex",(int)iPax->hex);
+                bi_rules.toStat(iPax->grp_id, iPax->pax_id, iPax->time_print);
             }
         }
         if(error)
