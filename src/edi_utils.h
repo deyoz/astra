@@ -3,6 +3,7 @@
 
 #include "astra_misc.h"
 #include "tlg/EdifactRequest.h"
+#include "tlg/remote_results.h"
 #include <etick/tick_data.h>
 
 namespace AstraEdifact
@@ -97,6 +98,8 @@ void traceEdiSessionCtxt(int sessIda, const std::string &whence);
 void traceTermRequestCtxt(int sessIda, const std::string &whence);
 
 void cleanOldRecords(int min_ago);
+
+void HandleNotSuccessEtsResult(const edifact::RemoteResults& res);
 
 void ProcEdiError(const AstraLocale::LexemaData &error,
                   const xmlNodePtr errorCtxtNode,

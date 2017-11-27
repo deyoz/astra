@@ -28,6 +28,7 @@ using namespace std;
 using namespace Ticketing;
 using namespace BASIC::date_time;
 using namespace ASTRA;
+using namespace AstraLocale;
 
 namespace AstraEdifact
 {
@@ -570,6 +571,28 @@ void cleanOldRecords(int min_ago)
   };
 
   edifact::RemoteResults::cleanOldRecords(min_ago);
+}
+
+void HandleNotSuccessEtsResult(const edifact::RemoteResults& res)
+{
+  if (res.status() == edifact::RemoteStatus::Success) return;
+  if (res.status() == edifact::RemoteStatus::CommonError)
+  {
+    ProgTrace(TRACE1, "ETS: ERROR %s", res.ediErrCode().c_str());
+    if (res.remark().empty())
+    {
+      throw UserException("MSG.ETICK.ETS_ERROR", LParams() << LParam("msg", res.ediErrCode()));
+    }
+    else
+    {
+      ProgTrace(TRACE1, "ETS: %s", res.remark().c_str());
+      throw UserException("MSG.ETICK.ETS_ERROR", LParams() << LParam("msg", res.remark()));
+    }
+  }
+  else
+  {
+    throw UserException("Error from remote ETS");
+  }
 }
 
 void ProcEdiError(const AstraLocale::LexemaData &error,
