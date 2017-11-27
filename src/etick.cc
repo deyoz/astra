@@ -702,10 +702,15 @@ void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
     AstraContext::ClearContext("TERM_REQUEST", req_ctxt_id);
 
     edifact::pRemoteResults remRes = edifact::RemoteResults::readSingle();
+    ASSERT(remRes);
     try {
-        Pnr pnr=readDispPnr(remRes->tlgSource());
-        xmlNodePtr dataNode=getNode(astra_iface(resNode, "ETViewForm"),"data");
-        PnrDisp::doDisplay(PnrXmlView(dataNode), pnr);
+        if(remRes->status() == edifact::RemoteStatus::Success) {
+            Pnr pnr=readDispPnr(remRes->tlgSource());
+            xmlNodePtr dataNode=getNode(astra_iface(resNode, "ETViewForm"),"data");
+            PnrDisp::doDisplay(PnrXmlView(dataNode), pnr);
+        } else {
+            HandleNotSuccessEtsResult(*remRes);
+        }
     }
     catch(edilib::EdiExcept &e) {
         throw EXCEPTIONS::Exception("edilib: %s", e.what());

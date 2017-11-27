@@ -33,13 +33,13 @@ void EtCosResponseHandler::handle()
         {
         case edilib::EdiRespStatus::successfully:
         case edilib::EdiRespStatus::notProcessed:
+        case edilib::EdiRespStatus::partial:
             if(remoteResults())
             {
                 remoteResults()->setTlgSource(getTlgSrc());
                 handleEtCosResponse(*remoteResults());
             }
             break;
-        case edilib::EdiRespStatus::partial:
         case edilib::EdiRespStatus::rejected:
             tst();
             break;
