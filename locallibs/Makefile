@@ -1,4 +1,4 @@
-libs=serverlib tscriptc jxtlib edilib eticklib libtlg shared
+libs=serverlib tscriptc jxtlib edilib eticklib libtlg libtypeb shared
 #libs=edilib
 #edilib eticklib libtlg libtypeb shared 
 
@@ -20,6 +20,6 @@ tests:
 
 rebuild: clean all
 
-tscriptc edilib jxtlib shared: serverlib
+tscriptc edilib jxtlib libtypeb shared: serverlib
 eticklib: edilib serverlib
 libtlg: edilib serverlib
