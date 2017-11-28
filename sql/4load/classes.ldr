@@ -1,0 +1,17 @@
+LOAD DATA
+INFILE *
+INTO TABLE classes
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,code_lat
+,name
+,name_lat
+,priority
+)
+BEGINDATA
+""|"F"|"…‚›‰"|"FIRST"|1
+""|"C"|"ˆ‡…‘"|"BUSINESS"|2
+""|"Y"|"ŠŽŽŒ"|"ECONOMY"|3

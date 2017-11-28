@@ -1,0 +1,38 @@
+LOAD DATA
+INFILE *
+INTO TABLE subcls
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,code_lat
+,class
+)
+BEGINDATA
+"ê"|"R"|"è"
+"î"|"P"|"è"
+"è"|"F"|"è"
+"Ä"|"A"|"è"
+"à"|"J"|"Å"
+"Å"|"C"|"Å"
+"Ñ"|"D"|"Å"
+"õ"|"I"|"Å"
+"ò"|"Z"|"Å"
+"û"|"W"|"ù"
+"ë"|"S"|"ù"
+"ù"|"Y"|"ù"
+"Ü"|"B"|"ù"
+"ñ"|"H"|"ù"
+"ä"|"K"|"ù"
+"ã"|"L"|"ù"
+"å"|"M"|"ù"
+"ç"|"N"|"ù"
+"ü"|"Q"|"ù"
+"í"|"T"|"ù"
+"Ç"|"V"|"ù"
+"ï"|"X"|"ù"
+"É"|"G"|"ù"
+"ì"|"U"|"ù"
+"Ö"|"E"|"ù"
+"é"|"O"|"ù"

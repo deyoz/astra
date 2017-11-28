@@ -1,1 +1,2 @@
-LC_ALL=C ./astra ./astra.tcl -nosir ${1+"$@"}
+#!/bin/sh
+./run.sh ./astra ./astra.tcl -nosir ${1+"$@"}

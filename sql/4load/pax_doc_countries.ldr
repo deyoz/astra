@@ -1,0 +1,277 @@
+LOAD DATA
+INFILE *
+INTO TABLE pax_doc_countries
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,name_lat
+,country
+,id
+,pr_del
+,tid
+)
+BEGINDATA
+"CAF"|"Центральноафриканская Республика"|"Central African Republic"|"ЦФ"|1|0|0
+"TCD"|"Чад"|"Chad"|"ТЯ"|2|0|0
+"CHL"|"Чили"|"Chile"|"ЦЛ"|3|0|0
+"CHN"|"Китай"|"China"|"ЦН"|4|0|0
+"CXR"|"Остров Рождества"|"Christmas Island"|"ЦЬ"|5|0|0
+"CCK"|"Кокосовые острова (Килинг)"|"Cocos (Keeling) Islands"|"ЦЦ"|6|0|0
+"COL"|"Колумбия"|"Colombia"|"ЦО"|7|0|0
+"COM"|"Коморские Острова"|"Comoros"|"КМ"|8|0|0
+"COG"|"Конго"|"Congo"|"ЦГ"|9|0|0
+"COK"|"Острова Кука"|"Cook Islands"|"ЦК"|10|0|0
+"CRI"|"Коста-Рика"|"Costa Rica"|"ЦР"|11|0|0
+"CIV"|"Кот-д'Ивуар"|"Cote d'Ivoire"|"ЦИ"|12|0|0
+"HRV"|"Хорватия"|"Croatia"|"ХР"|13|0|0
+"CUB"|"Куба"|"Cuba"|"ЦЮ"|14|0|0
+"CYP"|"Кипр"|"Cyprus"|"ЦЫ"|15|0|0
+"CZE"|"Чешская Республика"|"Czech Republic"|"ЦЗ"|16|0|0
+"PRK"|"Корейская Народно-Демократическая Республика"|"Democratic People's Republic of Korea"|"КП"|17|0|0
+"COD"|"Демократическая Республика Конго"|"Democratic Republic of the Congo"|"ЦД"|18|0|0
+"DNK"|"Дания"|"Denmark"|"ДК"|19|0|0
+"DJI"|"Джибути"|"Djibouti"|"ДЙ"|20|0|0
+"DMA"|"Доминика"|"Dominica"|"ДМ"|21|0|0
+"DOM"|"Доминиканская Республика"|"Dominican Republic"|"ДО"|22|0|0
+"ECU"|"Эквадор"|"Ecuador"|"ЕЦ"|23|0|0
+"EGY"|"Египет"|"Egypt"|"ЕГ"|24|0|0
+"SLV"|"Сальвадор"|"El Salvador"|"СЖ"|25|0|0
+"GNQ"|"Экваториальная Гвинея"|"Equatorial Guinea"|"ГШ"|26|0|0
+"ERI"|"Эритрея"|"Eritrea"|"ЕР"|27|0|0
+"EST"|"Эстония"|"Estonia"|"ЕЕ"|28|0|0
+"ETH"|"Эфиопия"|"Ethiopia"|"ЕТ"|29|0|0
+"FLK"|"Фолклендские (Мальвинские) острова"|"Falkland Islands (Malvinas)"|"ФК"|30|0|0
+"FRO"|"Фарерские острова"|"Faroe Islands"|"ФО"|31|0|0
+"FJI"|"Фиджи"|"Fiji"|"ФЙ"|32|0|0
+"FIN"|"Финляндия"|"Finland"|"ФИ"|33|0|0
+"FRA"|"Франция"|"France"|"ФР"|34|0|0
+"FXX"|"Франция, метрополия"|"France, Metropolitan"||35|0|0
+"GUF"|"Французская Гвиана"|"French Guiana"|"ГФ"|36|0|0
+"PYF"|"Французская Полинезия"|"French Polynesia"|"ПФ"|37|0|0
+"ATF"|"Французские южные территории"|"French Southern Territories"|"ТФ"|38|0|0
+"GAB"|"Габон"|"Gabon"|"ГА"|39|0|0
+"GMB"|"Гамбия"|"Gambia"|"ГМ"|40|0|0
+"GEO"|"Грузия"|"Georgia"|"ГР"|41|0|0
+"D"|"Германия"|"Germany"|"ДЕ"|42|0|0
+"GHA"|"Гана"|"Ghana"|"ГХ"|43|0|0
+"GIB"|"Гибралтар"|"Gibraltar"|"ГИ"|44|0|0
+"GRC"|"Греция"|"Greece"|"ГЦ"|45|0|0
+"GRL"|"Гренландия"|"Greenland"|"ГЛ"|46|0|0
+"GRD"|"Гренада"|"Grenada"|"ГД"|47|0|0
+"GLP"|"Гваделупа"|"Guadeloupe"|"ГП"|48|0|0
+"GUM"|"Гуам"|"Guam"|"ГУ"|49|0|0
+"GTM"|"Гватемала"|"Guatemala"|"ГТ"|50|0|0
+"GGY"|"Гернси"|"Guernsey"||51|0|0
+"GIN"|"Гвинея"|"Guinea"|"ГН"|52|0|0
+"GNB"|"Гвинея-Бисау"|"Guinea-Bissau"|"ГВ"|53|0|0
+"GUY"|"Гайана"|"Guyana"|"ГЫ"|54|0|0
+"HTI"|"Гаити"|"Haiti"|"ХТ"|55|0|0
+"HMD"|"Острова Херд и Макдональд"|"Heard and McDonald Islands"|"ХМ"|56|0|0
+"HND"|"Гондурас"|"Honduras"|"ХН"|57|0|0
+"HKG"|"Гонконг, Особый административный район Китая"|"Hong Kong Special Administrative Region of China"|"ХК"|58|0|0
+"HUN"|"Венгрия"|"Hungary"|"ХУ"|59|0|0
+"ISL"|"Исландия"|"Iceland"|"ИС"|60|0|0
+"IND"|"Индия"|"India"|"ИН"|61|0|0
+"IDN"|"Индонезия"|"Indonesia"|"ИД"|62|0|0
+"IRN"|"Иран (Исламская Республика)"|"Iran (Islamic Republic of)"|"ИР"|63|0|0
+"IRQ"|"Ирак"|"Iraq"|"ИШ"|64|0|0
+"IRL"|"Ирландия"|"Ireland"|"ИЕ"|65|0|0
+"IMN"|"Остров Мэн"|"Isle of Man"||66|0|0
+"ISR"|"Израиль"|"Israel"|"ИЛ"|67|0|0
+"ITA"|"Италия"|"Italy"|"ИТ"|68|0|0
+"JAM"|"Ямайка"|"Jamaica"|"ЙМ"|69|0|0
+"JPN"|"Япония"|"Japan"|"ЙП"|70|0|0
+"JEY"|"Джерси"|"Jersey"||71|0|0
+"JOR"|"Иордания"|"Jordan"|"ЙО"|72|0|0
+"KAZ"|"Казахстан"|"Kazakhstan"|"КЗ"|73|0|0
+"KEN"|"Кения"|"Kenya"|"КЕ"|74|0|0
+"KIR"|"Кирибати"|"Kiribati"|"КИ"|75|0|0
+"KWT"|"Кувейт"|"Kuwait"|"КВ"|76|0|0
+"KGZ"|"Кыргызстан"|"Kyrgyzstan"|"КГ"|77|0|0
+"LAO"|"Лаосская Народно-Демократическая Республика"|"Lao People's Democratic Republic"|"ЛА"|78|0|0
+"LVA"|"Латвия"|"Latvia"|"ЛВ"|79|0|0
+"LBN"|"Ливан"|"Lebanon"|"ЛБ"|80|0|0
+"LSO"|"Лесото"|"Lesotho"|"ЛС"|81|0|0
+"LBR"|"Либерия"|"Liberia"|"ЛР"|82|0|0
+"LBY"|"Ливийская Арабская Джамахирия"|"Libyan Arab Jamahiriya"|"ЛЫ"|83|0|0
+"LIE"|"Лихтенштейн"|"Liechtenstein"|"ЛИ"|84|0|0
+"LTU"|"Литва"|"Lithuania"|"ЛТ"|85|0|0
+"LUX"|"Люксембург"|"Luxembourg"|"ЛУ"|86|0|0
+"MAC"|"Макао, Особый административный район Китая"|"Macau Special Administrative Region of China"|"МО"|87|0|0
+"MDG"|"Мадагаскар"|"Madagascar"|"МЭ"|88|0|0
+"MWI"|"Малави"|"Malawi"|"МВ"|89|0|0
+"MYS"|"Малайзия"|"Malaysia"|"МЫ"|90|0|0
+"MDV"|"Мальдивы"|"Maldives"|"МЖ"|91|0|0
+"MLI"|"Мали"|"Mali"|"МЛ"|92|0|0
+"MLT"|"Мальта"|"Malta"|"МТ"|93|0|0
+"MHL"|"Маршалловы Острова"|"Marshall Islands"|"МШ"|94|0|0
+"MTQ"|"Мартиника"|"Martinique"|"МЮ"|95|0|0
+"MRT"|"Мавритания"|"Mauritania"|"МЯ"|96|0|0
+"MUS"|"Маврикий"|"Mauritius"|"МУ"|97|0|0
+"MYT"|"Майотта"|"Mayotte"|"ЫТ"|98|0|0
+"MEX"|"Мексика"|"Mexico"|"МХ"|99|0|0
+"FSM"|"Федеративные Штаты Микронезии"|"Micronesia (Federated States of)"|"ФМ"|100|0|0
+"MCO"|"Монако"|"Monaco"|"МЦ"|101|0|0
+"MNG"|"Монголия"|"Mongolia"|"МГ"|102|0|0
+"MSR"|"Монтсеррат"|"Montserrat"|"МЬ"|103|0|0
+"MAR"|"Марокко"|"Morocco"|"МА"|104|0|0
+"MOZ"|"Мозамбик"|"Mozambique"|"МЗ"|105|0|0
+"MMR"|"Мьянма"|"Myanmar"|"ММ"|106|0|0
+"NAM"|"Намибия"|"Namibia"|"НА"|107|0|0
+"NRU"|"Науру"|"Nauru"|"НР"|108|0|0
+"NPL"|"Непал"|"Nepal"|"НП"|109|0|0
+"NLD"|"Нидерланды"|"Netherlands"|"НЛ"|110|0|0
+"ANT"|"Нидерландские Антильские острова"|"Netherlands Antilles"|"АН"|111|0|0
+"NTZ"|"Нейтральная зона"|"Neutral Zone"||112|0|0
+"NCL"|"Новая Каледония"|"New Caledonia"|"НЦ"|113|0|0
+"NZL"|"Новая Зеландия"|"New Zealand"|"НЗ"|114|0|0
+"NIC"|"Никарагуа"|"Nicaragua"|"НИ"|115|0|0
+"NER"|"Нигер"|"Niger"|"НЕ"|116|0|0
+"NGA"|"Нигерия"|"Nigeria"|"НГ"|117|0|0
+"NIU"|"Ниуэ"|"Niue"|"NU"|118|0|0
+"NFK"|"Остров Норфолк"|"Norfolk Island"|"НФ"|119|0|0
+"MNP"|"Северные Марианские острова"|"Northern Mariana Islands"|"МП"|120|0|0
+"NOR"|"Норвегия"|"Norway"|"НО"|121|0|0
+"OMN"|"Оман"|"Oman"|"ОМ"|122|0|0
+"PAK"|"Пакистан"|"Pakistan"|"ПК"|123|0|0
+"PLW"|"Палау"|"Palau"|"ПВ"|124|0|0
+"PAN"|"Панама"|"Panama"|"ПА"|125|0|0
+"PNG"|"Папуа-Новая Гвинея"|"Papua New Guinea"|"ПГ"|126|0|0
+"PSE"|"Палестинская территория, оккупированная"|"Palestinian Territory, Occupied"|"ПС"|127|0|0
+"PRY"|"Парагвай"|"Paraguay"|"ПЫ"|128|0|0
+"PER"|"Перу"|"Peru"|"ПЕ"|129|0|0
+"PHL"|"Филиппины"|"Philippines"|"ФХ"|130|0|0
+"PCN"|"Питкэрн"|"Pitcairn"|"ПН"|131|0|0
+"POL"|"Польша"|"Poland"|"ПЛ"|132|0|0
+"PRT"|"Португалия"|"Portugal"|"ПТ"|133|0|0
+"PRI"|"Пуэрто-Рико"|"Puerto Rico"|"ПР"|134|0|0
+"QAT"|"Катар"|"Qatar"|"ША"|135|0|0
+"KOR"|"Республика Корея"|"Republic of Korea"|"КО"|136|0|0
+"MDA"|"Республика Молдова"|"Republic of Moldova"|"МД"|137|0|0
+"REU"|"Реюньон"|"Reunion"|"РЬ"|138|0|0
+"ROU"|"Румыния"|"Romania"|"РО"|139|0|0
+"RUS"|"Российская Федерация"|"Russian Federation"|"РФ"|140|0|0
+"RWA"|"Руанда"|"Rwanda"|"РВ"|141|0|0
+"SHN"|"Остров Святой Елены"|"St. Helena"|"СЫ"|142|0|0
+"KNA"|"Сент-Китс и Невис"|"Saint Kitts and Nevis"|"КК"|143|0|0
+"LCA"|"Сент-Люсия"|"Saint Lucia"|"ЛЦ"|144|0|0
+"SPM"|"Сент-Пьер и Микелон"|"St. Pierre and Miquelon"|"ПМ"|145|0|0
+"VCT"|"Сент-Винсент и Гренадины"|"Saint Vincent and the Grenadines"|"ЖЦ"|146|0|0
+"WSM"|"Самоа"|"Samoa"|"ВС"|147|0|0
+"SMR"|"Сан-Марино"|"San Marino"|"СЮ"|148|0|0
+"STP"|"Сан-Томе и Принсипи"|"Sao Tome and Principe"|"СТ"|149|0|0
+"SAU"|"Саудовская Аравия"|"Saudi Arabia"|"СП"|150|0|0
+"SEN"|"Сенегал"|"Senegal"|"СЭ"|151|0|0
+"SCG"|"Сербия и Черногория"|"Serbia and Montenegro"|"CS"|152|0|0
+"SRB"|"Сербия"|"Serbia"|"РС"|153|0|0
+"MNE"|"Черногория"|"Montenegro"|"МЕ"|154|0|0
+"SYC"|"Сейшельские Острова"|"Seychelles"|"СЦ"|155|0|0
+"SLE"|"Сьерра-Леоне"|"Sierra Leone"|"СЛ"|156|0|0
+"SGP"|"Сингапур"|"Singapore"|"СГ"|157|0|0
+"SVK"|"Словакия"|"Slovakia"|"СЧ"|158|0|0
+"SVN"|"Словения"|"Slovenia"|"СИ"|159|0|0
+"SLB"|"Соломоновы Острова"|"Solomon Islands"|"СБ"|160|0|0
+"SOM"|"Сомали"|"Somalia"|"СЬ"|161|0|0
+"ZAF"|"Южная Африка"|"South Africa"|"ЗА"|162|0|0
+"SGS"|"Южная Георгия и Южные Сандвичевы острова"|"South Georgia and the South Sandwich Islands"||163|0|0
+"ESP"|"Испания"|"Spain"|"ЕК"|164|0|0
+"LKA"|"Шри-Ланка"|"Sri Lanka"|"ЛК"|165|0|0
+"SDN"|"Судан"|"Sudan"|"СД"|166|0|0
+"SUR"|"Суринам"|"Suriname"|"СР"|167|0|0
+"SJM"|"Острова Шпицберген и Ян-Майен"|"Svalbard and Jan Mayen Islands"|"СЙ"|168|0|0
+"SWZ"|"Свазиленд"|"Swaziland"|"СЗ"|169|0|0
+"SWE"|"Швеция"|"Sweden"|"СЕ"|170|0|0
+"CHE"|"Швейцария"|"Switzerland"|"ЦХ"|171|0|0
+"SYR"|"Сирийская Арабская Республика"|"Syrian Arab Republic"|"СЯ"|172|0|0
+"TWN"|"Тайвань, провинция Китая"|"Taiwan, Province of China"|"ТВ"|173|0|0
+"TJK"|"Таджикистан"|"Tajikistan"|"ТД"|174|0|0
+"THA"|"Таиланд"|"Thailand"|"ТХ"|175|0|0
+"MKD"|"Бывшая югославская Республика Македония"|"The former Yugoslav Republic of Macedonia"|"МК"|176|0|0
+"TLS"|"Тимор-Лесте"|"Timor-Leste"|"ТЛ"|177|0|0
+"TGO"|"Того"|"Togo"|"ТГ"|178|0|0
+"TKL"|"Токелау"|"Tokelau"|"ТК"|179|0|0
+"TON"|"Тонга"|"Tonga"|"ТО"|180|0|0
+"TTO"|"Тринидад и Тобаго"|"Trinidad and Tobago"|"ТТ"|181|0|0
+"TUN"|"Тунис"|"Tunisia"|"ТУ"|182|0|0
+"TUR"|"Турция"|"Turkey"|"ТР"|183|0|0
+"TKM"|"Туркменистан"|"Turkmenistan"|"ТМ"|184|0|0
+"TCA"|"Острова Теркс и Кайкос"|"Turks and Caicos Islands"|"TC"|185|0|0
+"TUV"|"Тувалу"|"Tuvalu"|"ТЖ"|186|0|0
+"UGA"|"Уганда"|"Uganda"|"УГ"|187|0|0
+"UKR"|"Украина"|"Ukraine"|"УА"|188|0|0
+"ARE"|"Объединенные Арабские Эмираты"|"United Arab Emirates"|"АЕ"|189|0|0
+"GBR"|"Соединенное Королевство, гражданин Великобритании"|"United Kingdom, British Citizen"|"ГБ"|190|0|0
+"GBD"|"Соединенное Королевство, гражданин зависимых территорий Великобритании"|"United Kingdom, British Dependent territories citizen"||191|0|0
+"GBN"|"Соединенное Королевство, подданный (заморские территории) Великобритании"|"United Kingdom, British National (Overseas)"||192|0|0
+"GBO"|"Соединенное Королевство, гражданин заморских территорий Великобритании"|"United Kingdom, British Overseas citizen"|"ГО"|193|0|0
+"GBP"|"Соединенное Королевство, лицо под покровительством Великобритании"|"United Kingdom, British Protected person"||194|0|0
+"GBS"|"Соединенное Королевство, подданный Великобритании"|"United Kingdom, British Subject"|"ГС"|195|0|0
+"TZA"|"Объединенная Республика Танзания"|"United Republic of Tanzania"|"ТЗ"|196|0|0
+"USA"|"Соединенные Штаты Америки"|"United States"|"ЮС"|197|0|0
+"UMI"|"Малые удаленные острова США"|"United States Minor Outlying Islands"|"ЮМ"|198|0|0
+"URY"|"Уругвай"|"Uruguay"|"УЫ"|199|0|0
+"UZB"|"Узбекистан"|"Uzbekistan"|"УЗ"|200|0|0
+"VUT"|"Вануату"|"Vanuatu"|"ЖУ"|201|0|0
+"VAT"|"Государство-город Ватикан (Святейший Престол)"|"Vatican City State (Holy See)"|"ЖА"|202|0|0
+"VEN"|"Венесуэла"|"Venezuela"|"ЖЕ"|203|0|0
+"VNM"|"Вьетнам"|"Viet Nam"|"ЖН"|204|0|0
+"VGB"|"Виргинские острова (Британские)"|"Virgin Islands (British)"|"ЖГ"|205|0|0
+"VIR"|"Виргинские острова (США)"|"Virgin Islands (U.S.)"|"ЖИ"|206|0|0
+"WLF"|"Острова Уоллис и Футуна"|"Wallis and Futuna Islands"|"ВФ"|207|0|0
+"ESH"|"Западная Сахара"|"Western Sahara"|"ЕХ"|208|0|0
+"YEM"|"Йемен"|"Yemen"|"ЫЕ"|209|0|0
+"ZMB"|"Замбия"|"Zambia"|"ЗМ"|210|0|0
+"ZWE"|"Зимбабве"|"Zimbabwe"|"ЗВ"|211|0|0
+"UNO"|"Обозначает Организацию Объединенных Наций или одно из ее должностных лиц."|"Designates the United Nations Organization or one of its officials."||212|0|0
+"UNA"|"Обозначает специализированное учреждение Организации Объединенных Наций или одно из его должностных лиц."|"Designates a specialized agency of the United Nations or one of its officials."||213|0|0
+"UNK"|"Обозначает жителя Косово, которому выдан проездной документ Миссией Организации Объединенных Наций по делам временной администрации в Косово (МООНК)."|"Designates a resident of Kosovo to whom a travel document has been issued by the United Nations Interim Administration Mission in Kosovo (UNMIK)."||214|0|0
+"XOM"|"Обозначает Суверенный военный орден Мальты или одного из его эмиссаров."|"Designates the Sovereign Military Order of Malta or one of its emissaries."||215|0|0
+"XXA"|"Лицо без гражданства согласно определению в статье 1 Конвенции 1954 года, касающейся статуса лиц без гражданства."|"Stateless person, as defined in Article 1 of the 1954 Convention Relating to the Status of Stateless Persons."||216|0|0
+"XXB"|"Беженец согласно определению в статье 1 Конвенции 1951 года, касающейся статуса беженцев, измененной Протоколом 1967 года."|"Refugee, as defined in Article 1 of the 1951 Convention Relating to the Status of Refugees as amended by the 1967 Protocol."||217|0|0
+"AFG"|"Афганистан"|"Afghanistan"|"АФ"|218|0|0
+"ALA"|"Аландские острова"|"Aland Islands"|"АИ"|219|0|0
+"ALB"|"Албания"|"Albania"|"АЛ"|220|0|0
+"DZA"|"Алжир"|"Algeria"|"ДЗ"|221|0|0
+"ASM"|"Американское Самоа"|"American Samoa"|"АС"|222|0|0
+"AND"|"Андорра"|"Andorra"|"АД"|223|0|0
+"AGO"|"Ангола"|"Angola"|"АО"|224|0|0
+"AIA"|"Ангилья"|"Anguilla"|"AI"|225|0|0
+"ATA"|"Антарктика"|"Antarctica"|"АШ"|226|0|0
+"ATG"|"Антигуа и Барбуда"|"Antigua and Barbuda"|"АГ"|227|0|0
+"ARG"|"Аргентина"|"Argentina"|"АР"|228|0|0
+"ARM"|"Армения"|"Armenia"|"АМ"|229|0|0
+"ABW"|"Аруба"|"Aruba"|"АВ"|230|0|0
+"AUS"|"Австралия"|"Australia"|"АУ"|231|0|0
+"AUT"|"Австрия"|"Austria"|"АТ"|232|0|0
+"AZE"|"Азербайджан"|"Azerbaijan"|"АЗ"|233|0|0
+"BHS"|"Багамские Острова"|"Bahamas"|"БС"|234|0|0
+"BHR"|"Бахрейн"|"Bahrain"|"БХ"|235|0|0
+"BGD"|"Бангладеш"|"Bangladesh"|"БД"|236|0|0
+"BRB"|"Барбадос"|"Barbados"|"ББ"|237|0|0
+"BLR"|"Беларусь"|"Belarus"|"БЛ"|238|0|0
+"BEL"|"Бельгия"|"Belgium"|"БЕ"|239|0|0
+"BLZ"|"Белиз"|"Belize"|"БЗ"|240|0|0
+"BEN"|"Бенин"|"Benin"|"БЙ"|241|0|0
+"BMU"|"Бермуды"|"Bermuda"|"БМ"|242|0|0
+"BTN"|"Бутан"|"Bhutan"|"БТ"|243|0|0
+"BOL"|"Боливия"|"Bolivia"|"БО"|244|0|0
+"BIH"|"Босния и Герцеговина"|"Bosnia and Herzegovina"|"БА"|245|0|0
+"BWA"|"Ботсвана"|"Botswana"|"БВ"|246|0|0
+"BVT"|"Остров Буве"|"Bouvet Island"|"БЖ"|247|0|0
+"BRA"|"Бразилия"|"Brazil"|"БР"|248|0|0
+"IOT"|"Британская территория в Индийском океане"|"British Indian Ocean Territory"|"IO"|249|0|6615347
+"BRN"|"Бруней-Даруссалам"|"Brunei Darussalam"|"БН"|250|0|0
+"BGR"|"Болгария"|"Bulgaria"|"БГ"|251|0|0
+"BFA"|"Буркина-Фасо"|"Burkina Faso"|"БФ"|252|0|0
+"BDI"|"Бурунди"|"Burundi"|"БИ"|253|0|0
+"KHM"|"Камбоджа"|"Cambodia"|"КХ"|254|0|0
+"CMR"|"Камерун"|"Cameroon"|"ЦМ"|255|0|0
+"CAN"|"Канада"|"Canada"|"ЦА"|256|0|0
+"CPV"|"Кабо-Верде"|"Cape Verde"|"ЦЖ"|257|0|0
+"CYM"|"Каймановы острова"|"Cayman Islands"|"КЫ"|258|0|0
+"XXC"|"Иной беженец, чем тот, который определяется под кодом XXB."|"Refugee, other than as defined under the code XXB above."||259|0|0
+"XXX"|"Лицо неустановленного гражданства, которому государство выдачи не считает необходимым устанавливать ни один из вышеуказанных кодов (XXA, XXB или XXC), независимо от того, каким может быть статус этого лица."|"Person of unspecified nationality, for whom the issuing State does not consider it necessary to specify any of the codes XXA, XXB or XXC above, whatever that person's status may be."||260|0|0
+"BES"|"Бонэйр, Синт-Эстатиус и Саба"|"Bonaire, Sint Eustatius and Saba"|"BQ"|261|0|6615348

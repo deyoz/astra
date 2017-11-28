@@ -26,12 +26,7 @@ namespace
 EmdCosResponseHandler::EmdCosResponseHandler(_EDI_REAL_MES_STRUCT_ *pmes,
                                              const edilib::EdiSessRdData *edisess)
     : AstraEdiResponseHandler(pmes, edisess)
-{
-}
-
-void EmdCosResponseHandler::parse()
-{
-}
+{}
 
 void EmdCosResponseHandler::handle()
 {
@@ -135,32 +130,15 @@ void EmdCosResponseHandler::handle()
          EMDocItem.toDB(TEMDocItem::ChangeOfStatus);
 
          AstraEdifact::addToEdiResponseCtxt(req_ctxt_id, node, "emdocs");
-      };
-    };
-    AstraContext::ClearContext("EDI_SESSION", ediSessId().get());
-/*
-    using namespace edifact;
-
-    switch(respStatus().status())
-    {
-    case edilib::EdiRespStatus::successfully:
-      if(remoteResults())
-      {
-        LogTrace(TRACE3) << "set tlg source: " << getTlgSrc();
-        remoteResults()->setTlgSource(getTlgSrc());
       }
-      break;
-    case edilib::EdiRespStatus::partial:
-    case edilib::EdiRespStatus::unsuccessfully:
-      break;
     }
-*/
+
+    AstraContext::ClearContext("EDI_SESSION", ediSessId().get());
   }
   catch(std::exception &e)
   {
     ProgError(STDLOG, "EmdCosResponseHandler::handle: %s", e.what());
-  };
-
+  }
 }
 
 }//namespace TlgHandling

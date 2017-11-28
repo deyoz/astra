@@ -14,36 +14,36 @@
 namespace edifact
 {
 
-EmdCOSParams::EmdCOSItem::EmdCOSItem(const Ticketing::TicketCpn_t& tickCpn,
+EmdCosParams::EmdCOSItem::EmdCOSItem(const Ticketing::TicketCpn_t& tickCpn,
                                      const Ticketing::CouponStatus& status,
                                      const boost::optional<Ticketing::Itin>& itin)
     : m_tickCpn(tickCpn), m_status(status), m_itin(itin)
 {
 }
 
-const Ticketing::TicketNum_t& EmdCOSParams::EmdCOSItem::tickNum() const
+const Ticketing::TicketNum_t& EmdCosParams::EmdCOSItem::tickNum() const
 {
     return m_tickCpn.ticket();
 }
 
-const Ticketing::CouponNum_t& EmdCOSParams::EmdCOSItem::cpnNum() const
+const Ticketing::CouponNum_t& EmdCosParams::EmdCOSItem::cpnNum() const
 {
     return m_tickCpn.cpn();
 }
 
-const Ticketing::CouponStatus& EmdCOSParams::EmdCOSItem::status() const
+const Ticketing::CouponStatus& EmdCosParams::EmdCOSItem::status() const
 {
     return m_status;
 }
 
-const boost::optional<Ticketing::Itin>& EmdCOSParams::EmdCOSItem::itinOpt() const
+const boost::optional<Ticketing::Itin>& EmdCosParams::EmdCOSItem::itinOpt() const
 {
     return m_itin;
 }
 
 //-----------------------------------------------------------------------------
 
-EmdCOSParams::EmdCOSParams(const Ticketing::OrigOfRequest& org,
+EmdCosParams::EmdCosParams(const Ticketing::OrigOfRequest& org,
                            const std::string& ctxt,
                            const edifact::KickInfo& kickInfo,
                            const std::string& airline,
@@ -54,11 +54,11 @@ EmdCOSParams::EmdCOSParams(const Ticketing::OrigOfRequest& org,
                            const boost::optional<Ticketing::Itin>& itin)
     : EmdRequestParams(org, ctxt, kickInfo, airline, flNum), m_globalItin(itin)
 {
-    m_cosItems.push_back(EmdCOSParams::EmdCOSItem(Ticketing::TicketCpn_t(tickNum, cpnNum),
+    m_cosItems.push_back(EmdCosParams::EmdCOSItem(Ticketing::TicketCpn_t(tickNum, cpnNum),
                                                   status));
 }
 
-EmdCOSParams::EmdCOSParams(const Ticketing::OrigOfRequest& org,
+EmdCosParams::EmdCosParams(const Ticketing::OrigOfRequest& org,
                            const std::string& ctxt,
                            const edifact::KickInfo& kickInfo,
                            const std::string& airline,
@@ -67,35 +67,35 @@ EmdCOSParams::EmdCOSParams(const Ticketing::OrigOfRequest& org,
 {
 }
 
-void EmdCOSParams::addCoupon(const Ticketing::TicketCpn_t& tickCpn,
+void EmdCosParams::addCoupon(const Ticketing::TicketCpn_t& tickCpn,
                              const Ticketing::CouponStatus& status)
 {
-    m_cosItems.push_back(EmdCOSParams::EmdCOSItem(tickCpn, status));
+    m_cosItems.push_back(EmdCosParams::EmdCOSItem(tickCpn, status));
 }
 
-const boost::optional<Ticketing::Itin>& EmdCOSParams::globalItinOpt() const
+const boost::optional<Ticketing::Itin>& EmdCosParams::globalItinOpt() const
 {
     return m_globalItin;
 }
 
-size_t EmdCOSParams::numberOfItems() const
+size_t EmdCosParams::numberOfItems() const
 {
     return m_cosItems.size();
 }
 
 //-----------------------------------------------------------------------------
 
-EmdCOSRequest::EmdCOSRequest(const EmdCOSParams& cosParams)
+EmdCosRequest::EmdCosRequest(const EmdCosParams& cosParams)
     : EmdRequest(cosParams), m_cosParams(cosParams)
 {
 }
 
-std::string EmdCOSRequest::mesFuncCode() const
+std::string EmdCosRequest::mesFuncCode() const
 {
     return "793";
 }
 
-static EqnElem getEqn(const EmdCOSParams& cosParams)
+static EqnElem getEqn(const EmdCosParams& cosParams)
 {
     return EqnElem(cosParams.numberOfItems(), "TD");
 }
@@ -134,7 +134,7 @@ static TvlElem getTvl(const Ticketing::Itin& itin)
     return tvl;
 }
     
-void EmdCOSRequest::collectMessage()
+void EmdCosRequest::collectMessage()
 {
     // ORG
     viewOrgElement(pMes(), m_cosParams.org());
@@ -148,7 +148,7 @@ void EmdCOSRequest::collectMessage()
     
     edilib::PushEdiPointW(pMes());
     unsigned tnum = 0;
-    BOOST_FOREACH(const EmdCOSParams::EmdCOSItem& item, m_cosParams.m_cosItems) {
+    BOOST_FOREACH(const EmdCosParams::EmdCOSItem& item, m_cosParams.m_cosItems) {
         edilib::SetEdiSegGr(pMes(), edilib::SegGrElement(1, tnum));
         edilib::SetEdiPointToSegGrW(pMes(), edilib::SegGrElement(1, tnum++));
         // TKT

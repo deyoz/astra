@@ -1,6 +1,5 @@
 create or replace PACKAGE gtimer
 AS
-PROCEDURE puttrip_stages( vpoint_id IN points.point_id%TYPE );
 FUNCTION get_stage_time( vpoint_id IN trip_stages.point_id%TYPE,
                          vstage_id IN trip_stages.stage_id%TYPE ) RETURN DATE;
 FUNCTION IsClientStage( vpoint_id IN points.point_id%TYPE,

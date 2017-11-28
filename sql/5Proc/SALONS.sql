@@ -13,6 +13,7 @@ cltProtBeforePay  CONSTANT TCompLayerType := 'PROT_BPAY';
 cltProtAfterPay   CONSTANT TCompLayerType := 'PROT_APAY';
 cltPNLBeforePay   CONSTANT TCompLayerType := 'PNL_BPAY';
 cltPNLAfterPay    CONSTANT TCompLayerType := 'PNL_APAY';
+cltProtSelfCkin   CONSTANT TCompLayerType := 'PROT_SCKIN';
 cltProtTrzt       CONSTANT TCompLayerType := 'PROT_TRZT';
 cltPNLCkin        CONSTANT TCompLayerType := 'PNL_CKIN';
 cltProtCkin       CONSTANT TCompLayerType := 'PROT_CKIN';
@@ -76,14 +77,9 @@ FUNCTION get_crs_seat_no(vpax_id     IN crs_pax.pax_id%TYPE,
                          fmt	     IN VARCHAR2,
                          row	     IN NUMBER DEFAULT 1,
                          only_lat    IN NUMBER DEFAULT 0) RETURN VARCHAR2;
-FUNCTION get_seatno(vpax_id     IN pax.pax_id%TYPE,
-                    vseats      IN pax.seats%TYPE,
-                    vpoint_id   IN trip_sets.point_id%TYPE,
-                    fmt	 IN VARCHAR2,
-                    row	 IN NUMBER DEFAULT 1,
-                    only_lat    IN NUMBER DEFAULT 0) RETURN VARCHAR2;
 FUNCTION get_seat_no(vpax_id     IN pax.pax_id%TYPE,
                      vseats      IN pax.seats%TYPE,
+                     vis_jmp     IN pax.is_jmp%TYPE,
                      vgrp_status IN pax_grp.status%TYPE,
                      vpoint_id   IN trip_sets.point_id%TYPE,
                      fmt	 IN VARCHAR2,
@@ -92,6 +88,7 @@ FUNCTION get_seat_no(vpax_id     IN pax.pax_id%TYPE,
 
 FUNCTION is_waitlist(vpax_id     IN pax.pax_id%TYPE,
                      vseats      IN pax.seats%TYPE,
+                     vis_jmp     IN pax.is_jmp%TYPE,
                      vgrp_status IN pax_grp.status%TYPE,
                      vpoint_id   IN trip_sets.point_id%TYPE,
                      row	 IN NUMBER DEFAULT 1) RETURN NUMBER;

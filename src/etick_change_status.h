@@ -1,18 +1,13 @@
-//
-// C++ Interface: etick_change_status
-//
-// Description: Функции запроса на смену статуса
-//
-// Roman
-//
-#ifndef _ETICK_CHANGE_STATUS_H_
-#define _ETICK_CHANGE_STATUS_H_
+#pragma once
+
+#include "astra_ticket.h"
+#include "tlg/EdifactRequest.h"
+
 #include <list>
 #include <string>
 #include <map>
-#include "astra_ticket.h"
-#include "tlg/EdifactRequest.h"
-#include "edilib/edi_func_cpp.h"
+
+#include <edilib/edi_func_cpp.h>
 
 namespace Ticketing
 {
@@ -40,6 +35,7 @@ namespace ChangeStatus
         }
         // Читаест данные из телеграммы
         static ChngStatAnswer readEdiTlg(EDI_REAL_MES_STRUCT *pMes);
+        static ChngStatAnswer readEdiTlg(const std::string& tlgText);
 
         bool isGlobErr() const { return !GlobalError.first.empty(); }
         std::pair<std::string, std::string> globErr() const { return GlobalError; }
@@ -64,7 +60,8 @@ namespace ChangeStatus
                         const std::list<Ticket> &lTick,
                         const std::string &ediSessCtxt,
                         const edifact::KickInfo &kickInfo,
+                        const std::string& airline,
+                        const Ticketing::FlightNum_t& flNum,
                         Ticketing::Itin* itin=NULL);
 }
 }
-#endif /*_ETICK_CHANGE_STATUS_H_*/

@@ -100,7 +100,8 @@ namespace TickReader{
     Coupon,
     CouponReader,
     Passenger,
-    FrequentPass>
+    FrequentPass,
+    MonetaryInfo>
     {
         public:
             virtual ~PnrListReader(){};

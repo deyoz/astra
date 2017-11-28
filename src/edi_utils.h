@@ -2,17 +2,16 @@
 #define _EDI_UTILS_H_
 
 #include "astra_misc.h"
-#include "tlg/CheckinBaseTypes.h"
 #include "tlg/EdifactRequest.h"
+#include "tlg/remote_results.h"
 #include <etick/tick_data.h>
-#include "ticket_types.h"
 
 namespace AstraEdifact
 {
 
 Ticketing::CouponStatus calcPaxCouponStatus(const std::string& refuse,
-                                            const bool pr_brd,
-                                            const bool in_final_status);
+                                            bool pr_brd,
+                                            bool in_final_status);
 
 class TFltParams
 {
@@ -35,17 +34,17 @@ class TFltParams
 Ticketing::TicketNum_t checkDocNum(const std::string& doc_no, bool is_et);
 
 bool checkETSInteract(const TTripInfo& info,
-                      const bool with_exception);
+                      bool with_exception);
 
 bool checkEDSInteract(const TTripInfo& info,
-                      const bool with_exception);
+                      bool with_exception);
 
-bool checkETSInteract(const int point_id,
-                      const bool with_exception,
+bool checkETSInteract(int point_id,
+                      bool with_exception,
                       TTripInfo& info);
 
-bool checkEDSInteract(const int point_id,
-                      const bool with_exception,
+bool checkEDSInteract(int point_id,
+                      bool with_exception,
                       TTripInfo& info);
 
 std::string getTripAirline(const TTripInfo& ti);
@@ -53,57 +52,75 @@ std::string getTripAirline(const TTripInfo& ti);
 Ticketing::FlightNum_t getTripFlightNum(const TTripInfo& ti);
 
 bool get_et_addr_set(const std::string &airline,
-                     const int flt_no,
+                     int flt_no,
                      std::pair<std::string,std::string> &addrs);
 
 bool get_et_addr_set(const std::string &airline,
-                     const int flt_no,
+                     int flt_no,
                      std::pair<std::string,std::string> &addrs,
                      int &id);
 
 std::string get_canon_name(const std::string& edi_addr);
 
-void copy_notify_levb(const int src_edi_sess_id,
-                      const int dest_edi_sess_id,
-                      const bool err_if_not_found);
-void confirm_notify_levb(const int edi_sess_id, const bool err_if_not_found);
+void copy_notify_levb(int src_edi_sess_id,
+                      int dest_edi_sess_id,
+                      bool err_if_not_found);
+void confirm_notify_levb(int edi_sess_id, bool err_if_not_found);
 std::string make_xml_kick(const edifact::KickInfo &kickInfo);
-edifact::KickInfo createKickInfo(const int v_reqCtxtId,
+edifact::KickInfo createKickInfo(int v_reqCtxtId,
                                  const std::string &v_iface);
 
-void addToEdiResponseCtxt(const int ctxtId,
+void addToEdiResponseCtxt(int ctxtId,
                           const xmlNodePtr srcNode,
                           const std::string &destNodeName);
 
-void getEdiResponseCtxt(const int ctxtId,
-                        const bool clear,
+void getEdiResponseCtxt(int ctxtId,
+                        bool clear,
                         const std::string &where,
-                        std::string &context);
+                        std::string &context,
+                        bool throwEmpty=true);
 
-void getEdiResponseCtxt(const int ctxtId,
-                        const bool clear,
+void getEdiResponseCtxt(int ctxtId,
+                        bool clear,
+                        const std::string &where,
+                        XMLDoc &xmlCtxt,
+                        bool throwEmpty=true);
+
+void getTermRequestCtxt(int ctxtId,
+                        bool clear,
                         const std::string &where,
                         XMLDoc &xmlCtxt);
-
-void getTermRequestCtxt(const int ctxtId,
-                        const bool clear,
-                        const std::string &where,
-                        XMLDoc &xmlCtxt);
-
-void cleanOldRecords(const int min_ago);
 
 void getHttpRequestCtxt(int ctxtId,
                         bool clear,
                         const std::string &where,
                         XMLDoc &xmlCtxt);
 
+void getEdiSessionCtxt(int sessIda,
+                       bool clear,
+                       const std::string& where,
+                       XMLDoc &xmlCtxt);
+
+std::string getEdiSessionCtxt(int sessIda,
+                              bool clear,
+                              bool throwEmpty = true);
+
+void cleanOldRecords(int min_ago);
+
+void HandleNotSuccessEtsResult(const edifact::RemoteResults& res);
+
 void ProcEdiError(const AstraLocale::LexemaData &error,
                   const xmlNodePtr errorCtxtNode,
-                  const bool isGlobal);
+                  bool isGlobal);
 typedef std::list< std::pair<AstraLocale::LexemaData, bool> > EdiErrorList;
 
-void GetEdiError(const xmlNodePtr errorCtxtNode,
-                 EdiErrorList &errors);
+void GetEdiError(const xmlNodePtr errorCtxtNode, EdiErrorList &errors);
+
+void WritePostponedContext(tlgnum_t tnum, int reqCtxtId);
+
+int ReadPostponedContext(tlgnum_t tnum, bool clear);
+
+void ClearPostponedContext(tlgnum_t tnum);
 
 bool isTermCheckinRequest(xmlNodePtr reqNode);
 bool isWebCheckinRequest(xmlNodePtr reqNode);

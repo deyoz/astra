@@ -24,14 +24,14 @@ struct UnbElem
     std::string m_senderCarrierCode;
     std::string m_recipientCarrierCode;
 
-    UnbElem( const std::string& senderCC,
-             const std::string& recipientCC )
-        : m_senderCarrierCode( senderCC ),
-          m_recipientCarrierCode( recipientCC )
+    UnbElem(const std::string& senderCC,
+             const std::string& recipientCC)
+        : m_senderCarrierCode(senderCC),
+          m_recipientCarrierCode(recipientCC)
     {}
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class UngElem - Group Header --UNG
 struct UngElem
@@ -47,7 +47,7 @@ struct UngElem
     std::string m_msgVerNum;
     std::string m_msgRelNum;
 
-    UngElem( const std::string& msgGroupName,
+    UngElem(const std::string& msgGroupName,
              const std::string& senderName,
              const std::string& senderCC,
              const std::string& recipientName,
@@ -56,21 +56,21 @@ struct UngElem
              const std::string& groupRefNum,
              const std::string& cntrlAgnCode,
              const std::string& msgVerNum,
-             const std::string& msgRelNum )
-        : m_msgGroupName( msgGroupName ),
-          m_senderName( senderName ),
-          m_senderCarrierCode( senderCC ),
-          m_recipientName( recipientName ),
-          m_recipientCarrierCode( recipientCC ),
-          m_prepareDateTime( prepareDt ),
-          m_groupRefNum( groupRefNum ),
-          m_cntrlAgnCode( cntrlAgnCode ),
-          m_msgVerNum( msgVerNum ),
-          m_msgRelNum( msgRelNum )
+             const std::string& msgRelNum)
+        : m_msgGroupName(msgGroupName),
+          m_senderName(senderName),
+          m_senderCarrierCode(senderCC),
+          m_recipientName(recipientName),
+          m_recipientCarrierCode(recipientCC),
+          m_prepareDateTime(prepareDt),
+          m_groupRefNum(groupRefNum),
+          m_cntrlAgnCode(cntrlAgnCode),
+          m_msgVerNum(msgVerNum),
+          m_msgRelNum(msgRelNum)
     {}
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class UnhElem - Message Header --UNH
 struct UnhElem
@@ -90,33 +90,33 @@ struct UnhElem
     unsigned m_seqNumber;
     SeqFlag m_seqFlag;
 
-    UnhElem( const std::string& msgTypeId,
+    UnhElem(const std::string& msgTypeId,
              const std::string& msgVerNum,
              const std::string& msgRelNum,
              const std::string& cntrlAgnCode,
              const std::string& assAccCode,
              unsigned seqNum,
-             SeqFlag seqFlag )
-        : m_msgTypeId( msgTypeId ),
-          m_msgVerNum( msgVerNum ),
-          m_msgRelNum( msgRelNum ),
-          m_cntrlAgnCode( cntrlAgnCode ),
-          m_assAccCode( assAccCode ),
-          m_seqNumber( seqNum ),
-          m_seqFlag( seqFlag )
+             SeqFlag seqFlag)
+        : m_msgTypeId(msgTypeId),
+          m_msgVerNum(msgVerNum),
+          m_msgRelNum(msgRelNum),
+          m_cntrlAgnCode(cntrlAgnCode),
+          m_assAccCode(assAccCode),
+          m_seqNumber(seqNum),
+          m_seqFlag(seqFlag)
     {}
 
-    static std::string seqFlagToStr( SeqFlag flag )
+    static std::string seqFlagToStr(SeqFlag flag)
     {
-        if( flag == First )
+        if(flag == First)
             return "C";
-        else if( flag == Last )
+        else if(flag == Last)
             return "F";
         return "";
     }
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class BgmElem - Beginning of Message --BGM
 struct BgmElem
@@ -124,14 +124,14 @@ struct BgmElem
     std::string m_docCode;
     std::string m_docId;
 
-    BgmElem( const std::string& docCode,
-             const std::string& docId )
-        : m_docCode( docCode ),
-          m_docId( docId )
+    BgmElem(const std::string& docCode,
+             const std::string& docId)
+        : m_docCode(docCode),
+          m_docId(docId)
     {}
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class NadElem - Name and Address
 struct NadElem
@@ -146,14 +146,14 @@ struct NadElem
     std::string m_postalCode;
     std::string m_country;
 
-    NadElem( const std::string& funcCode,
+    NadElem(const std::string& funcCode,
              const std::string& partyName
-           )
-        : m_funcCode( funcCode ),
-          m_partyName( partyName )
+          )
+        : m_funcCode(funcCode),
+          m_partyName(partyName)
     {}
 
-    NadElem( const std::string& funcCode,
+    NadElem(const std::string& funcCode,
              const std::string& partyName,
              const std::string& partyName2,
              const std::string& partyName3,
@@ -162,21 +162,21 @@ struct NadElem
              const std::string& countrySubEntityCode,
              const std::string& postalCode,
              const std::string& country
-           )
-        : m_funcCode( funcCode ),
-          m_partyName( partyName ),
-          m_partyName2( partyName2 ),
-          m_partyName3( partyName3 ),
-          m_street( street ),
-          m_city( city ),
-          m_countrySubEntityCode( countrySubEntityCode ),
-          m_postalCode( postalCode ),
-          m_country( country )
+          )
+        : m_funcCode(funcCode),
+          m_partyName(partyName),
+          m_partyName2(partyName2),
+          m_partyName3(partyName3),
+          m_street(street),
+          m_city(city),
+          m_countrySubEntityCode(countrySubEntityCode),
+          m_postalCode(postalCode),
+          m_country(country)
     {}
 
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class ComElem - Comminication Contact --COM
 struct ComElem
@@ -185,16 +185,16 @@ struct ComElem
     std::string m_fax;
     std::string m_email;
 
-    ComElem( const std::string& phone,
+    ComElem(const std::string& phone,
              const std::string& fax,
-             const std::string& email = "" )
-        : m_phone( phone ),
-          m_fax( fax ),
-          m_email( email )
+             const std::string& email = "")
+        : m_phone(phone),
+          m_fax(fax),
+          m_email(email)
     {}
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class TdtElem - Details of Transport --TDT
 struct TdtElem
@@ -203,16 +203,16 @@ struct TdtElem
     std::string m_journeyId;
     std::string m_carrierId;
 
-    TdtElem( const std::string& stageQualifier,
+    TdtElem(const std::string& stageQualifier,
              const std::string& journeyId,
-             const std::string& carrierId )
-        : m_stageQuailifier( stageQualifier ),
-          m_journeyId( journeyId ),
-          m_carrierId( carrierId )
+             const std::string& carrierId)
+        : m_stageQuailifier(stageQualifier),
+          m_journeyId(journeyId),
+          m_carrierId(carrierId)
     {}
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class LocElem - Place/Location Identification --LOC
 struct LocElem
@@ -234,19 +234,19 @@ struct LocElem
     std::string m_relatedLocName1;
     std::string m_relatedLocName2;
 
-    LocElem( LocQualifier locQualifier,
+    LocElem(LocQualifier locQualifier,
              const std::string& locName,
              const std::string& relatedLocName1 = "",
              const std::string& relatedLocName2 = ""
-           )
-        : m_locQualifier( locQualifier ),
-          m_locName( locName ),
-          m_relatedLocName1( relatedLocName1 ),
-          m_relatedLocName2( relatedLocName2 )
+          )
+        : m_locQualifier(locQualifier),
+          m_locName(locName),
+          m_relatedLocName1(relatedLocName1),
+          m_relatedLocName2(relatedLocName2)
     {}
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class DtmElem - Date/Time/Period --DTM
 struct DtmElem
@@ -264,16 +264,16 @@ struct DtmElem
     TDateTime m_dateTime;
     std::string m_formatCode;
 
-    DtmElem( DtmQualifier dtmQualifier,
+    DtmElem(DtmQualifier dtmQualifier,
              const TDateTime& dateTime,
-             const std::string& formatCode = "" )
-        : m_dtmQualifier( dtmQualifier ),
-          m_dateTime( dateTime ),
-          m_formatCode( formatCode )
+             const std::string& formatCode = "")
+        : m_dtmQualifier(dtmQualifier),
+          m_dateTime(dateTime),
+          m_formatCode(formatCode)
     {}
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class AttElem - Attribute --ATT
 struct AttElem
@@ -281,14 +281,14 @@ struct AttElem
     std::string m_funcCode;
     std::string m_value;
 
-    AttElem( const std::string& funcCode,
-             const std::string& value )
-        : m_funcCode( funcCode ),
-          m_value( value )
+    AttElem(const std::string& funcCode,
+             const std::string& value)
+        : m_funcCode(funcCode),
+          m_value(value)
     {}
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class MeaElem - Attribute --MEA
 struct MeaElem
@@ -316,7 +316,7 @@ struct MeaElem
     }
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class NatElem - Nationality --NAT
 struct NatElem
@@ -324,14 +324,14 @@ struct NatElem
     std::string m_natQualifier;
     std::string m_nat;
 
-    NatElem( const std::string& natQualifier,
-             const std::string& nat )
-        : m_natQualifier( natQualifier ),
-          m_nat( nat )
+    NatElem(const std::string& natQualifier,
+             const std::string& nat)
+        : m_natQualifier(natQualifier),
+          m_nat(nat)
     {}
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class RffElem - Reference --RFF
 struct RffElem
@@ -339,14 +339,14 @@ struct RffElem
     std::string m_rffQualifier;
     std::string m_ref;
 
-    RffElem( const std::string& rffQualifier,
-             const std::string& ref )
-        : m_rffQualifier( rffQualifier ),
-          m_ref( ref )
+    RffElem(const std::string& rffQualifier,
+             const std::string& ref)
+        : m_rffQualifier(rffQualifier),
+          m_ref(ref)
     {}
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class DocElem - Document/Message Details --DOC
 struct DocElem
@@ -356,18 +356,18 @@ struct DocElem
     std::string m_respAgnCode;
     std::string m_idCode;
 
-    DocElem( const std::string& docCode,
+    DocElem(const std::string& docCode,
              const std::string& docNum,
              const std::string& respAgnCode,
-             const std::string& idCode = "110" )
-        : m_docCode( docCode ),
-          m_docNum( docNum ),
-          m_respAgnCode( respAgnCode ),
-          m_idCode( idCode )
+             const std::string& idCode = "110")
+        : m_docCode(docCode),
+          m_docNum(docNum),
+          m_respAgnCode(respAgnCode),
+          m_idCode(idCode)
     {}
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class CntElem - Control Total --CNT
 struct CntElem
@@ -381,13 +381,13 @@ struct CntElem
     CntType m_cntType;
     unsigned m_cnt;
 
-    CntElem( CntType cntType, unsigned cnt )
-        : m_cntType( cntType ),
-          m_cnt( cnt )
+    CntElem(CntType cntType, unsigned cnt)
+        : m_cntType(cntType),
+          m_cnt(cnt)
     {}
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class UneElem - Group Trailer --UNE
 struct UneElem
@@ -395,14 +395,14 @@ struct UneElem
     std::string m_refNum;
     unsigned m_cntrlCnt;
 
-    UneElem( const std::string& refNum,
-             unsigned cntrlCnt = 1 )
-        : m_refNum( refNum ),
-          m_cntrlCnt( cntrlCnt )
+    UneElem(const std::string& refNum,
+             unsigned cntrlCnt = 1)
+        : m_refNum(refNum),
+          m_cntrlCnt(cntrlCnt)
     {}
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class PtkElem - Ppricing/Ticketing Details --PTK
 struct PtkElem
@@ -410,7 +410,7 @@ struct PtkElem
     Dates::date m_issueDate;
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class PtsElem - Pricing/Ticketing Subsequent --PTS
 struct PtsElem
@@ -421,11 +421,11 @@ struct PtsElem
     int         m_itemNumber;
 
     PtsElem()
-        : m_itemNumber( 0 )
+        : m_itemNumber(0)
     {}
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class RciElem - Reservation Control Information --RCI
 struct RciElem
@@ -434,15 +434,15 @@ struct RciElem
     std::string m_recloc;
     std::string m_type;
 
-    RciElem( const std::string& airline, const std::string& recloc, const std::string& type = "1" )
-        : m_airline( airline ), m_recloc( recloc ), m_type( type )
+    RciElem(const std::string& airline, const std::string& recloc, const std::string& type = "1")
+        : m_airline(airline), m_recloc(recloc), m_type(type)
     {
-        if( m_type.empty() )
+        if(m_type.empty())
             m_type = "1";
     }
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class MonElem - Monetary Information --MON
 struct MonElem
@@ -456,7 +456,7 @@ struct MonElem
     {}
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class FtiElem - Frequent Traveller Information --FTI
 struct FtiElem
@@ -466,12 +466,12 @@ struct FtiElem
     std::string m_passRefNum;
     std::string m_statusCode;
 
-    FtiElem( const std::string& airline, const std::string& fqtvIdCode )
-        : m_airline( airline ), m_fqtvIdCode( fqtvIdCode )
+    FtiElem(const std::string& airline, const std::string& fqtvIdCode)
+        : m_airline(airline), m_fqtvIdCode(fqtvIdCode)
     {}
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class EbdElem - Excess Baggage Details --EBD
 struct EbdElem {
@@ -484,7 +484,7 @@ struct EbdElem {
     {}
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class EqnElem - Number Of Units --EQN
 struct EqnElem {
@@ -496,7 +496,7 @@ struct EqnElem {
     {}
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class TvlElem - Travel Product Information --TVL
 struct TvlElem
@@ -513,12 +513,12 @@ struct TvlElem
     Ticketing::FlightNum_t m_operFlNum;
 
     TvlElem()
-        : m_depTime( Dates::not_a_date_time ),
-          m_arrTime( Dates::not_a_date_time )
+        : m_depTime(Dates::not_a_date_time),
+          m_arrTime(Dates::not_a_date_time)
     {}
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class TktElem - Ticket Number Details --TKT
 struct TktElem
@@ -531,7 +531,7 @@ struct TktElem
     boost::optional<Ticketing::TickStatAction::TickStatAction_t> m_tickStatAction;
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class CpnElem - Coupon Information --CPN
 struct CpnElem
@@ -541,11 +541,12 @@ struct CpnElem
     Ticketing::TaxAmount::Amount m_amount;
     Ticketing::CouponStatus m_status;
     std::string m_sac;
+    Ticketing::CouponStatus m_prevStatus;
     std::string m_action;
     Ticketing::CouponNum_t m_connectedNum;
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class RciElements
 struct RciElements
@@ -553,54 +554,512 @@ struct RciElements
     std::list<RciElem>  m_lReclocs;
     std::list<Ticketing::FormOfId> m_lFoid;
 
-    RciElements operator+( const RciElements &other ) const;
+    RciElements operator+(const RciElements &other) const;
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class MonElements
 struct MonElements
 {
     std::list<MonElem> m_lMon;
 
-    MonElements operator+( const MonElements &other ) const;
+    MonElements operator+(const MonElements &other) const;
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class IftElements
 struct IftElements
 {
     std::list<Ticketing::FreeTextInfo> m_lIft;
 
-    IftElements operator+( const IftElements &other ) const;
+    IftElements operator+(const IftElements &other) const;
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class TxdElements
 struct TxdElements
 {
     std::list<Ticketing::TaxDetails> m_lTax;
 
-    TxdElements operator+( const TxdElements &other ) const;
+    TxdElements operator+(const TxdElements &other) const;
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 ///@class FopElements
 struct FopElements
 {
     std::list<Ticketing::FormOfPayment> m_lFop;
 
-    FopElements operator+( const FopElements &other ) const;
+    FopElements operator+(const FopElements &other) const;
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
-std::ostream& operator<<( std::ostream &os, const TktElem &tkt );
-std::ostream& operator<<( std::ostream &os, const CpnElem &cpn );
+std::ostream& operator<<(std::ostream &os, const TktElem &tkt);
+std::ostream& operator<<(std::ostream &os, const CpnElem &cpn);
 
+//---------------------------------------------------------------------------------------
+
+///@class LorElem - Location/Originator details --LOR
+struct LorElem
+{
+    std::string m_airline;
+    std::string m_port;
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class FdqElem - Flight details query --FDQ
+struct FdqElem
+{
+    std::string m_outbAirl;
+    Ticketing::FlightNum_t m_outbFlNum;
+    Dates::Date_t m_outbDepDate;
+    Dates::time_duration m_outbDepTime;
+    std::string m_outbDepPoint;
+    std::string m_outbArrPoint;
+
+    std::string m_inbAirl;
+    Ticketing::FlightNum_t m_inbFlNum;
+    Dates::Date_t m_inbDepDate;
+    Dates::time_duration m_inbDepTime;
+    Dates::Date_t m_inbArrDate;
+    Dates::time_duration m_inbArrTime;
+    std::string m_inbDepPoint;
+    std::string m_inbArrPoint;
+
+    FdqElem()
+        : m_outbDepDate(Dates::not_a_date_time),
+          m_outbDepTime(Dates::not_a_date_time),
+          m_inbDepDate(Dates::not_a_date_time),
+          m_inbDepTime(Dates::not_a_date_time),
+          m_inbArrDate(Dates::not_a_date_time),
+          m_inbArrTime(Dates::not_a_date_time)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class PpdElem - Passenger personal details --PPD
+struct PpdElem
+{
+    std::string m_passSurname;
+    std::string m_passName;
+    std::string m_passType;
+    std::string m_withInftIndicator;
+    std::string m_passRespRef;
+    std::string m_passQryRef;
+    std::string m_inftSurname;
+    std::string m_inftName;
+    std::string m_inftRespRef;
+    std::string m_inftQryRef;
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class PrdElem - Passenger reservation details --PRD
+struct PrdElem
+{
+    std::string m_rbd;
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class PsdElem - Passenger seat request details --PSD
+struct PsdElem
+{
+    std::string m_seat;
+    std::string m_noSmokingInd;
+    std::string m_characteristic; // TODO
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class PbdElem - Passenger baggage information --PBD
+struct PbdElem
+{
+    struct Bag
+    {
+        unsigned m_numOfPieces;
+        unsigned m_weight;
+
+        Bag()
+            : m_numOfPieces(0), m_weight(0)
+        {}
+    };
+
+    boost::optional<Bag> m_bag;
+    boost::optional<Bag> m_handBag;
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class PsiElem - Passenger service information --PSI
+struct PsiElem
+{
+    struct SsrDetails
+    {
+        std::string m_ssrCode;
+        std::string m_airline;
+        std::string m_ssrText;
+        unsigned    m_age;
+        unsigned    m_numOfPieces;
+        unsigned    m_weight;
+        std::string m_freeText;
+        std::string m_qualifier;
+
+        SsrDetails()
+            : m_age(0), m_numOfPieces(0), m_weight(0)
+        {}
+    };
+
+    std::string           m_osi;
+    std::list<SsrDetails> m_lSsr;
+};
+
+
+//---------------------------------------------------------------------------------------
+
+///@class FdrElem - Flight details response --FDR
+struct FdrElem
+{
+    std::string m_airl;
+    Ticketing::FlightNum_t m_flNum;
+    Dates::Date_t m_depDate;
+    Dates::time_duration m_depTime;
+    Dates::Date_t m_arrDate;
+    Dates::time_duration m_arrTime;
+    std::string m_depPoint;
+    std::string m_arrPoint;
+
+    FdrElem()
+        : m_depDate(Dates::not_a_date_time),
+          m_depTime(Dates::not_a_date_time),
+          m_arrDate(Dates::not_a_date_time),
+          m_arrTime(Dates::not_a_date_time)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class RadElem - Response analysis details --RAD
+struct RadElem
+{
+    std::string m_respType;
+    std::string m_status;
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class PfdElem - Passenger flight details --PFD
+struct PfdElem
+{
+    std::string m_seat;
+    std::string m_noSmokingInd;
+    std::string m_cabinClass;
+    std::string m_regNo;
+    std::string m_infantRegNo;
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class ChdElem - Cascading host details --CHD
+struct ChdElem
+{
+    std::string m_origAirline;
+    std::string m_origPoint;
+    std::string m_outbAirline;
+    Ticketing::FlightNum_t m_outbFlNum;
+    boost::gregorian::date m_depDate;
+    std::string m_depPoint;
+    std::string m_arrPoint;
+    std::string m_outbFlContinIndic;
+
+    std::list<std::string> m_hostAirlines;
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class FsdElem - Flight segment details --FSD
+struct FsdElem
+{
+    boost::posix_time::time_duration m_boardingTime;
+    FsdElem()
+        : m_boardingTime(boost::posix_time::not_a_date_time)
+    {}
+    FsdElem(const boost::posix_time::time_duration& brdngTime)
+        : m_boardingTime(brdngTime)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class ErdElem - Error information --ERD
+struct ErdElem
+{
+    std::string m_level;
+    std::string m_messageNumber;
+    std::string m_messageText;
+
+    ErdElem()
+    {}
+    ErdElem(const std::string& level, const std::string& msgNum,
+            const std::string& msgText = "")
+        : m_level(level), m_messageNumber(msgNum),
+          m_messageText(msgText)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class SpdElem - Select personal details --SPD
+struct SpdElem
+{
+    std::string m_passSurname;
+    std::string m_passName;
+    std::string m_rbd;
+    std::string m_passSeat;
+    std::string m_passRespRef;
+    std::string m_passQryRef;
+    std::string m_securityId;
+    std::string m_recloc;
+    std::string m_tickNum;
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class UpdElem - Update personal details --UPD
+struct UpdElem
+{
+    std::string m_actionCode;
+    std::string m_surname;
+    std::string m_name;
+    std::string m_withInftIndicator;
+    std::string m_passQryRef;
+    std::string m_inftSurname;
+    std::string m_inftName;
+    std::string m_inftQryRef;
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class UsdElem - Update seat request details --USD
+struct UsdElem
+{
+    std::string m_actionCode;
+    std::string m_seat;
+    std::string m_noSmokingInd;
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class UbdElem - Update baggage details --UBD
+struct UbdElem
+{
+    struct Bag
+    {
+        std::string m_actionCode;
+        unsigned    m_numOfPieces;
+        unsigned    m_weight;
+
+        Bag()
+            : m_numOfPieces(0), m_weight(0)
+        {}
+    };
+
+    boost::optional<Bag> m_bag;
+    boost::optional<Bag> m_handBag;
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class WadElem - Warning information --WAD
+struct WadElem
+{
+    std::string m_level;
+    std::string m_messageNumber;
+    std::string m_messageText;
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class SrpElem - Seat request parameters --SRP
+struct SrpElem
+{
+    std::string m_cabinClass;
+    std::string m_noSmokingInd;
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class EqdElem - Equipment information --EQD
+struct EqdElem
+{
+    std::string m_equipment;
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class CbdElem - Cabin details --CBD
+struct CbdElem
+{
+    struct SeatColumn
+    {
+        std::string m_col;
+        std::string m_desc1;
+        std::string m_desc2;
+
+        SeatColumn()
+        {}
+        SeatColumn(const std::string& column,
+                   const std::string& desc1,
+                   const std::string& desc2 = "")
+            : m_col(column), m_desc1(desc1), m_desc2(desc2)
+        {}
+    };
+
+    std::string m_cabinClass;
+    unsigned m_firstClassRow;
+    unsigned m_lastClassRow;
+    std::string m_deck;
+    unsigned m_firstSmokingRow;
+    unsigned m_lastSmokingRow;
+    std::string m_seatOccupDefIndic;
+    unsigned m_firstOverwingRow;
+    unsigned m_lastOverwingRow;
+    std::list<SeatColumn> m_lSeatColumns;
+
+    CbdElem()
+        : m_firstClassRow(0), m_lastClassRow(0),
+          m_firstSmokingRow(0), m_lastSmokingRow(0),
+          m_firstOverwingRow(0), m_lastOverwingRow(0)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class RodElem - Row details --ROD
+struct RodElem
+{
+    struct SeatOccupation
+    {
+        std::string m_col;
+        std::string m_occup;
+        std::list<std::string> m_lCharacteristics;
+
+        SeatOccupation()
+        {}
+        SeatOccupation(const std::string& col,
+                       const std::string& occup,
+                       const std::list<std::string>& lCharacteristics = std::list<std::string>())
+            : m_col(col), m_occup(occup),
+              m_lCharacteristics(lCharacteristics)
+        {}
+    };
+
+    std::string m_row;
+    std::string m_characteristic;
+    std::list<SeatOccupation> m_lSeatOccupations;
+};
+
+//---------------------------------------------------------------------------------------
+
+
+///@class PapElem - Passenger API/DOT information --PAP
+struct PapElem
+{
+    std::string   m_type;
+    Dates::Date_t m_birthDate;
+    std::string   m_nationality;
+    std::string   m_docQualifier;
+    std::string   m_docNumber;
+    std::string   m_placeOfIssue;
+    Dates::Date_t m_expiryDate;
+    std::string   m_gender;
+    std::string   m_surname;
+    std::string   m_name;
+    std::string   m_otherName;
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class AddElem - Address Details --ADD
+struct AddElem
+{
+    std::string m_actionCode;
+
+    struct Address
+    {
+        std::string m_purposeCode;
+        std::string m_address;
+        std::string m_city;
+        std::string m_region;
+        std::string m_country;
+        std::string m_postalCode;
+    };
+
+    std::list<Address> m_lAddr;
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class UapElem - Update API information --UAP
+struct UapElem: public PapElem
+{
+    std::string m_actionCode;
+
+    bool isGroupHeader() const { return m_actionCode.empty(); }
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class UsiElem - Update service information --USI
+struct UsiElem
+{
+    struct UpdSsrDetails: public PsiElem::SsrDetails
+    {
+        std::string m_actionCode;
+
+        UpdSsrDetails()
+            : PsiElem::SsrDetails()
+        {}
+    };
+
+    std::list<UpdSsrDetails> m_lSsr;
+};
+
+//---------------------------------------------------------------------------------------
+
+std::ostream& operator<<(std::ostream &os, const LorElem &lor);
+std::ostream& operator<<(std::ostream &os, const FdqElem &fdq);
+std::ostream& operator<<(std::ostream &os, const PpdElem &ppd);
+std::ostream& operator<<(std::ostream &os, const PrdElem &prd);
+std::ostream& operator<<(std::ostream &os, const PsdElem &psd);
+std::ostream& operator<<(std::ostream &os, const PbdElem &pbd);
+std::ostream& operator<<(std::ostream &os, const PsiElem &psi);
+std::ostream& operator<<(std::ostream &os, const FdrElem &fdr);
+std::ostream& operator<<(std::ostream &os, const RadElem &rad);
+std::ostream& operator<<(std::ostream &os, const PfdElem &pfd);
+std::ostream& operator<<(std::ostream &os, const ChdElem &chd);
+std::ostream& operator<<(std::ostream &os, const FsdElem &fsd);
+std::ostream& operator<<(std::ostream &os, const ErdElem &erd);
+std::ostream& operator<<(std::ostream &os, const SpdElem &spd);
+std::ostream& operator<<(std::ostream &os, const UpdElem &upd);
+std::ostream& operator<<(std::ostream &os, const UsdElem &usd);
+std::ostream& operator<<(std::ostream &os, const UbdElem &ubd);
+std::ostream& operator<<(std::ostream &os, const WadElem &wad);
+std::ostream& operator<<(std::ostream &os, const SrpElem &srp);
+std::ostream& operator<<(std::ostream &os, const EqdElem &eqd);
+std::ostream& operator<<(std::ostream &os, const CbdElem &cbd);
+std::ostream& operator<<(std::ostream &os, const RodElem &rod);
+std::ostream& operator<<(std::ostream &os, const PapElem &pap);
+std::ostream& operator<<(std::ostream &os, const AddElem &add);
+std::ostream& operator<<(std::ostream &os, const UapElem &uap);
+std::ostream& operator<<(std::ostream &os, const UsiElem &usi);
 
 }//namespace edifact
 

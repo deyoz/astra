@@ -12,14 +12,20 @@ namespace edifact
 {
 using namespace Ticketing;
 
+Ticketing::RemoteSystemContext::SystemContext* EmdRequestParams::readSysCont() const
+{
+    return Ticketing::RemoteSystemContext::EdsSystemContext::read(airline(),
+                                                                  flightNum());
+}
+
+//---------------------------------------------------------------------------------------
+
 EmdRequest::EmdRequest(const EmdRequestParams& params)
     : EdifactRequest(params.org().pult(),
                      params.context(),
                      params.kickInfo(),
                      TKCREQ,
-                     RemoteSystemContext::EdsSystemContext::read(params.airline(),
-                                                                 params.flightNum()))
-{
-}
+                     params.readSysCont())
+{}
 
 }//namespace edifact

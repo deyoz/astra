@@ -1,10 +1,11 @@
+#include "date_time.h"
+#include "astra_service.h"
 #include <unistd.h>
 #include <errno.h>
 #include <tcl.h>
 #include <math.h>
 #include <iostream>
 #include "astra_main.h"
-#include "date_time.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "base_tables.h"
@@ -15,25 +16,43 @@
 #include "lci_parser.h"
 #include "ucm_parser.h"
 #include "mvt_parser.h"
+#include "ifm_parser.h"
 #include "typeb_utils.h"
 #include "telegram.h"
 #include "memory_manager.h"
+#include "astra_main.h"
 #include "qrys.h"
 #include "TypeBHelpMng.h"
-#include "serverlib/ourtime.h"
+#include "edi_handler.h"
+#include "typeb_handler.h"
+#include "tlg_source_typeb.h"
+#include "postpone_edifact.h"
+#include "remote_system_context.h"
+#include "astra_context.h"
+
+#include <serverlib/posthooks.h>
+#include <serverlib/ourtime.h>
+#include <serverlib/TlgLogger.h>
+#include <serverlib/cursctl.h>
+
+#include <unistd.h>
+#include <errno.h>
+#include <tcl.h>
+#include <math.h>
+#include <iostream>
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include <serverlib/test.h>
 
-#include "astra_service.h"
-#include "serverlib/posthooks.h"
 
 using namespace ASTRA;
 using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace std;
 using namespace TypeB;
+
+static void handle_tpb_tlg(const tlg_info &tlg);
 
 static int HANDLER_WAIT_INTERVAL()       //миллисекунды
 {
@@ -82,6 +101,18 @@ static int PARSER_PROC_COUNT()          //кол-во разбираемых телеграмм за одну и
     VAR=getTCLParam("TYPEB_PARSER_PROC_COUNT",1,NoExists,100);
   return VAR;
 };
+
+static void initRsc(int tlg_id, const std::string& tlg_body)
+{
+    using Ticketing::RemoteSystemContext::SystemContext;
+    SystemContext::initDummyContext();
+    SystemContext::Instance(STDLOG).inbTlgInfo().setTlgSrc(tlg_body);
+    tlgnum_t tlgNum = make_tlgnum(tlg_id);
+    SystemContext::Instance(STDLOG).inbTlgInfo().setTlgNum(tlgNum);
+    if(TlgHandling::isTlgPostponed(tlgNum)) {
+        SystemContext::Instance(STDLOG).inbTlgInfo().setRepeatedlyProcessed();
+    }
+}
 
 static bool handle_tlg(void);
 static bool parse_tlg(void);
@@ -313,375 +344,416 @@ bool handle_tlg(void)
 
   };
 
-  static TQuery TlgIdQry(&OraSession);
-  if (TlgIdQry.SQLText.IsEmpty())
-  {
-    TlgIdQry.Clear();
-    TlgIdQry.SQLText=
-     "BEGIN "
-     "  SELECT id INTO :id FROM tlgs_in "
-     "  WHERE type= :tlg_type AND "
-     "        time_create BETWEEN :min_time_create AND :max_time_create AND "
-     "        merge_key= :merge_key AND rownum<2; "
-     "EXCEPTION "
-     "  WHEN NO_DATA_FOUND THEN NULL; "
-     "END;";
-    TlgIdQry.DeclareVariable("id",otInteger);
-    TlgIdQry.DeclareVariable("tlg_type",otString);
-    TlgIdQry.DeclareVariable("min_time_create",otDate);
-    TlgIdQry.DeclareVariable("max_time_create",otDate);
-    TlgIdQry.DeclareVariable("merge_key",otString);
-  };
-
-  const char* ins_sql=
-    "DECLARE"
-    "  CURSOR cur(vid tlgs_in.id%TYPE) IS "
-    "    SELECT id, time_parse FROM tlgs_in "
-    "    WHERE id=vid ORDER BY num DESC; "
-    "  vtime_parse tlgs_in.time_parse%TYPE; "
-    "  vtime_receive_not_parse tlgs_in.time_receive_not_parse%TYPE; "
-    "  vnow DATE; "
-    "BEGIN "
-    "  vnow:=system.UTCSYSDATE; "
-    "  vtime_parse:=NULL; "
-    "  vtime_receive_not_parse:=vnow; "
-    "  IF :id IS NULL THEN "
-    "    SELECT tlg_in_out__seq.nextval INTO :id FROM dual; "
-    "    INSERT INTO typeb_in(id,proc_attempt) VALUES(:id,0); "
-    "  ELSE "
-    "    FOR curRow IN cur(:id) LOOP "
-    "      IF curRow.time_parse IS NOT NULL THEN "
-    "        vtime_parse:=vnow; "
-    "        vtime_receive_not_parse:=NULL; "
-    "      END IF;"
-    "    END LOOP; "
-    "  END IF; "
-    "  INSERT INTO tlgs_in(id,num,type,addr,heading,ending,is_final_part, "
-    "    merge_key,time_create,time_receive,time_parse,time_receive_not_parse) "
-    "  VALUES(:id,:part_no,:tlg_type,:addr,:heading,:ending,:is_final_part, "
-    "    :merge_key,:time_create,vnow,vtime_parse,vtime_receive_not_parse); "
-    "  UPDATE typeb_in_history SET tlg_id=:id WHERE id=:tlgs_id; "
-    "  UPDATE tlgs SET typeb_tlg_id=:id, typeb_tlg_num=:part_no WHERE id=:tlgs_id; "
-    "END;";
-  QParams QryParams;
-  QryParams << QParam("id",otInteger)
-            << QParam("part_no",otInteger)
-            << QParam("tlg_type",otString)
-            << QParam("addr",otString)
-            << QParam("heading",otString)
-            << QParam("ending",otString)
-            << QParam("is_final_part",otInteger)
-            << QParam("merge_key",otString)
-            << QParam("time_create",otDate)
-            << QParam("tlgs_id",otInteger);
-
-  TCachedQuery InsQry(ins_sql, QryParams);
-
-  TQuery Qry(&OraSession);
-
-  int count;
-  bool pr_typeb_cmd=false;
-  TTlgPartsText parts;
-  THeadingInfo *HeadingInfo=NULL;
-  TEndingInfo *EndingInfo=NULL;
-
-  count=0;
+    int count = 0;
   TlgQry.Execute();
   try
   {
-    for (;!TlgQry.Eof&&count<HANDLER_PROC_COUNT();count++,TlgQry.Next(),OraSession.Commit())
+    for (;!TlgQry.Eof&&count<HANDLER_PROC_COUNT();count++,TlgQry.Next(),ASTRA::commit()/*OraSession.Commit()*/)
     {
-      //проверим TTL
-      int tlg_id=TlgQry.FieldAsInteger("id");
-      int error_no=NoExists;
+        tlg_info tlgi = {};
+        tlgi.id           = TlgQry.FieldAsInteger("id");
+        tlgi.sender       = TlgQry.FieldAsString("sender");
+        tlgi.proc_attempt = TlgQry.FieldAsInteger("proc_attempt");
+        tlgi.text         = getTlgText(tlgi.id);
 
-      TFlightsForBind bind_flts;
-      if (HeadingInfo!=NULL)
-      {
-        mem.destroy(HeadingInfo, STDLOG);
-        delete HeadingInfo;
-        HeadingInfo = NULL;
-      };
-      if (EndingInfo!=NULL)
-      {
-        mem.destroy(EndingInfo, STDLOG);
-        delete EndingInfo;
-        EndingInfo = NULL;
-      };
-
-      if (!TlgQry.FieldIsNULL("ttl")&&
-           (NowUTC()-TlgQry.FieldAsDateTime("time"))*SecsPerDay>=TlgQry.FieldAsInteger("ttl"))
-      {
-        errorTlg(tlg_id,"TTL");
-      }
-      else
-      if (TlgQry.FieldAsInteger("proc_attempt")>=HANDLER_PROC_ATTEMPTS())
-      {
-        ProgTrace(TRACE5, "handle_tlg: tlg_id=%d proc_attempt=%d", tlg_id, TlgQry.FieldAsInteger("proc_attempt"));
-        errorTlg(tlg_id,"PROC");
-      }
-      else
-      try
-      {
-        procTlg(tlg_id);
-        OraSession.Commit();
-
-        string tlgs_text=getTlgText(tlg_id);
-        int typeb_tlg_id=NoExists;
-        int typeb_tlg_num=1;
-        ostringstream merge_key;
-
-        list<ETlgError> errors;
-
-        try
+        if (!TlgQry.FieldIsNULL("ttl")&&
+             (NowUTC()-TlgQry.FieldAsDateTime("time"))*SecsPerDay>=TlgQry.FieldAsInteger("ttl"))
         {
-          GetParts(tlgs_text.c_str(), parts, HeadingInfo, bind_flts, mem);
-          if (parts.addr.size()>255) throw ETlgError("Address too long");
-          if (parts.heading.size()>100) throw ETlgError("Header too long");
-          if (parts.ending.size()>20) throw ETlgError("End of message too long");
-
-          TTlgPartInfo part;
-          part.p=parts.heading.c_str();
-          part.EOL_count=CalcEOLCount(parts.addr.c_str());
-          part.offset=parts.addr.size();
-          ParseHeading(part,HeadingInfo,bind_flts,mem);
-
-          part.p=parts.ending.c_str();
-          part.EOL_count+=CalcEOLCount(parts.heading.c_str());
-          part.EOL_count+=CalcEOLCount(parts.body.c_str());
-          part.offset+=parts.heading.size();
-          part.offset+=parts.body.size();
-          ParseEnding(part,HeadingInfo,EndingInfo,mem);
-
-          if ((HeadingInfo->tlg_cat==tcDCS ||
-               HeadingInfo->tlg_cat==tcBSM) &&
-              HeadingInfo->time_create!=0)
-          {
-            merge_key << "." << HeadingInfo->sender;
-            bool association_number_exists=false;
-            if (HeadingInfo->tlg_cat==tcDCS)
-            {
-              TDCSHeadingInfo &info = *dynamic_cast<TDCSHeadingInfo*>(HeadingInfo);
-              typeb_tlg_num=info.part_no;
-              merge_key << " " << info.flt.airline << setw(3) << setfill('0') << info.flt.flt_no
-                               << info.flt.suffix << "/" << DateTimeToStr(info.flt.scd,"ddmmm") << " "
-                               << info.flt.airp_dep << info.flt.airp_arv;
-              if (info.association_number!=NoExists)
-              {
-                association_number_exists=true;
-                merge_key << " " << setw(6) << setfill('0') << info.association_number;
-              };
-
-              TTripInfo fltInfo;
-              TElemFmt fmt;
-              fltInfo.airline = ElemToElemId(etAirline, info.flt.airline, fmt);
-              fltInfo.airp = ElemToElemId(etAirp, info.flt.airp_dep, fmt);
-              fltInfo.flt_no = info.flt.flt_no;
-              fltInfo.suffix = ElemToElemId(etSuffix, info.flt.suffix, fmt);
-              fltInfo.scd_out = info.flt.scd;
-              map<string, string> extra;
-              putUTG(tlg_id, typeb_tlg_num, info.tlg_type, fltInfo, tlgs_text, extra);
-
-            }
-            else
-            {
-              TBSMHeadingInfo &info = *dynamic_cast<TBSMHeadingInfo*>(HeadingInfo);
-              typeb_tlg_num=info.part_no;
-              merge_key << " " << info.airp;
-              if (!info.reference_number.empty())
-                merge_key << " " << info.reference_number;
-            };
-
-            TlgIdQry.SetVariable("id",FNull);
-            TlgIdQry.SetVariable("tlg_type",HeadingInfo->tlg_type);
-            TlgIdQry.SetVariable("merge_key",merge_key.str());
-            if (strcmp(HeadingInfo->tlg_type,"PNL")==0)
-            {
-              TlgIdQry.SetVariable("min_time_create",HeadingInfo->time_create-2.0/1440);
-              TlgIdQry.SetVariable("max_time_create",HeadingInfo->time_create+2.0/1440);
-            }
-            else
-            {
-              if (strcmp(HeadingInfo->tlg_type,"ADL")==0 && association_number_exists)
-              {
-                TlgIdQry.SetVariable("min_time_create",HeadingInfo->time_create-5.0/1440);
-                TlgIdQry.SetVariable("max_time_create",HeadingInfo->time_create+5.0/1440);
-              }
-              else
-              {
-                TlgIdQry.SetVariable("min_time_create",HeadingInfo->time_create);
-                TlgIdQry.SetVariable("max_time_create",HeadingInfo->time_create);
-              };
-            };
-            TlgIdQry.Execute();
-            if (!TlgIdQry.VariableIsNULL("id"))
-              typeb_tlg_id=TlgIdQry.GetVariableAsInteger("id");
-          };
+          errorTlg(tlgi.id,"TTL");
         }
-        catch(ETlgError &E)
-        {
-          errors.push_back(E);
-          parts.clear();
-          parts.body=tlgs_text;
-        };
 
-        if (typeb_tlg_id!=NoExists)
-          InsQry.get().SetVariable("id",typeb_tlg_id);
-        else
-          InsQry.get().SetVariable("id",FNull);
-        InsQry.get().SetVariable("part_no",typeb_tlg_num);
-        InsQry.get().SetVariable("merge_key",merge_key.str());
-
-        if (HeadingInfo!=NULL)
-        {
-          InsQry.get().SetVariable("tlg_type",HeadingInfo->tlg_type);
-          if (HeadingInfo->time_create!=0)
-            InsQry.get().SetVariable("time_create",HeadingInfo->time_create);
-          else
-            InsQry.get().SetVariable("time_create",FNull);
-        }
-        else
-        {
-          InsQry.get().SetVariable("tlg_type",FNull);
-          InsQry.get().SetVariable("time_create",FNull);
-        };
-
-        InsQry.get().SetVariable("addr", parts.addr);
-        InsQry.get().SetVariable("heading", parts.heading);
-        InsQry.get().SetVariable("ending", parts.ending);
-
-        if (EndingInfo!=NULL)
-          InsQry.get().SetVariable("is_final_part", (int)EndingInfo->pr_final_part);
-        else
-          InsQry.get().SetVariable("is_final_part", (int)false);
-
-        InsQry.get().SetVariable("tlgs_id", tlg_id);
-
-        if (deleteTlg(tlg_id))
-        {
-          bool insert_typeb=false;
-          try
-          {
-            if (typeb_tlg_id!=NoExists)
-              procTypeB(typeb_tlg_id, 0); //лочка
-            InsQry.get().Execute();
-            pr_typeb_cmd=true;
-            insert_typeb=true;
-          }
-          catch(EOracleError E)
-          {
-            if (E.Code==1)
-            {
-              if (!errors.empty()) throw Exception("handle_tlg: strange situation");
-              if (typeb_tlg_id==NoExists) throw Exception("handle_tlg: strange situation");
-
-              Qry.Clear();
-              Qry.SQLText=
-                "SELECT addr,heading,ending FROM tlgs_in WHERE id=:id AND num=:num";
-              Qry.CreateVariable("id",otInteger,typeb_tlg_id);
-              Qry.CreateVariable("num",otInteger,typeb_tlg_num);
-              Qry.Execute();
-
-              ostringstream typeb_in_text;
-              if (!Qry.Eof)
-                typeb_in_text << Qry.FieldAsString("addr")
-                              << Qry.FieldAsString("heading")
-                              << getTypeBBody(typeb_tlg_id, typeb_tlg_num)
-                              << Qry.FieldAsString("ending");
-
-              InsQry.get().SetVariable("id",FNull);
-              InsQry.get().SetVariable("merge_key",FNull);
-              InsQry.get().Execute();
-              pr_typeb_cmd=true;
-              insert_typeb=true;
-
-              if (tlgs_text!=typeb_in_text.str())
-              {
-                long part_no;
-                if (HeadingInfo->tlg_cat==tcDCS)
-                  part_no=dynamic_cast<TDCSHeadingInfo*>(HeadingInfo)->part_no;
-                else
-                  part_no=dynamic_cast<TBSMHeadingInfo*>(HeadingInfo)->part_no;
-                if (!(part_no==1&&EndingInfo->pr_final_part))  //телеграмма не состоит из одной части
-                  errors.push_back(ETlgError("Duplicate part number with different text"));
-              }
-              else errors.push_back(ETlgError(tlgeNotMonitorNotAlarm, "Telegram duplicated"));
-            }
-            else throw;
-          };
-          if (insert_typeb)
-          {
-            typeb_tlg_id=InsQry.get().VariableIsNULL("id")?NoExists:InsQry.get().GetVariableAsInteger("id");
-            if (typeb_tlg_id==NoExists) throw Exception("handle_tlg: strange situation");
-            typeb_tlg_num=InsQry.get().GetVariableAsInteger("part_no");
-            string typeb_tlg_type=InsQry.get().GetVariableAsString("tlg_type");
-            putTypeBBody(typeb_tlg_id, typeb_tlg_num, parts.body);
-
-            if (!errors.empty())
-            {
-              ETlgErrorType etype=tlgeNotError;
-              ostringstream err_msg;
-              for(list<ETlgError>::const_iterator e=errors.begin(); e!=errors.end(); ++e)
-              {
-                if(not err_msg.str().empty()) err_msg << std::endl;
-                err_msg << e->what();
-                progError(typeb_tlg_id, typeb_tlg_num, error_no, *e, "", bind_flts);  //хорошо бы доделать, чтобы передавался tlg_type
-                if (etype < e->error_type()) etype=e->error_type();
-              };
-              errorTlg(tlg_id,"PARS");
-              parseTypeB(typeb_tlg_id);
-              bindTypeB(typeb_tlg_id, bind_flts, etype);
-              TypeBHelpMng::notify_msg(typeb_tlg_id, err_msg.str()); // Отвешиваем процесс, если есть.
-            }
-            else
-            {
-              bindTypeB(typeb_tlg_id, bind_flts, tlgeNotError); //привязываем чтобы потом возможно сделать forwarding
-            };
-            forwardTypeB(typeb_tlg_id, typeb_tlg_num, typeb_tlg_type);
-          };
-        };
-      }
-      catch(std::exception &E)
-      {
-        OraSession.Rollback();
-        try
-        {
-          EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-          if (orae!=NULL&&
-              (orae->Code==4061||orae->Code==4068)) continue;
-          progError(tlg_id, NoExists, error_no, E, "", bind_flts);  //хорошо бы доделать, чтобы передавался tlg_type
-          errorTlg(tlg_id,"PARS",E.what());
-        }
-        catch(...) {};
-      };
-      ProgTrace(TRACE5, "IN: PUT->DONE (sender=%s, tlg_num=%ld, time=%.10f)",
-                        TlgQry.FieldAsString("sender"),
-                        (unsigned long)TlgQry.FieldAsInteger("tlg_num"),
-                        NowUTC());
-      monitor_idle_zapr_type(1, QUEPOT_TLG_AIR);
-    };
-    queue_not_empty=!TlgQry.Eof;
-    if (pr_typeb_cmd) sendCmd("CMD_TYPEB_PARSER","H");
-    mem.destroy(HeadingInfo, STDLOG);
-    if (HeadingInfo!=NULL) delete HeadingInfo;
-    mem.destroy(EndingInfo, STDLOG);
-    if (EndingInfo!=NULL) delete EndingInfo;
+        handle_tpb_tlg(tlgi);
+    }
   }
   catch(...)
   {
-    mem.destroy(HeadingInfo, STDLOG);
-    if (HeadingInfo!=NULL) delete HeadingInfo;
-    mem.destroy(EndingInfo, STDLOG);
-    if (EndingInfo!=NULL) delete EndingInfo;
-    throw;
+      ProgError(STDLOG, "Unknown error");
+      throw;
   };
+
+  queue_not_empty=!TlgQry.Eof;
 
   time_t time_end=time(NULL);
   if (time_end-time_start>1)
     ProgTrace(TRACE5,"Attention! scan_tlg execute time: %ld secs, count=%d",
                      time_end-time_start,count);
   return queue_not_empty;
-};
+}
+
+void parse_and_handle_tpb_tlg(const tlg_info &tlg)
+{
+    handle_tpb_tlg(tlg);
+    parse_tlg();
+}
+
+void handle_tpb_tlg(const tlg_info &tlg)
+{
+    LogTlg() << "| TNUM: " << tlg.id
+             << " | DIR: " << "IN"
+             << " | ROUTER: " << tlg.sender
+             << " | TSTAMP: " << boost::posix_time::second_clock::local_time();
+    LogTlg() << tlg.text;
+
+    TMemoryManager mem(STDLOG);
+    TQuery Qry(&OraSession);
+
+    bool pr_typeb_cmd=false;
+    TTlgPartsText parts;
+    THeadingInfo *HeadingInfo=NULL;
+    TEndingInfo *EndingInfo=NULL;
+
+    ProgTrace(TRACE1,"========= %d TLG: START HANDLE =============",tlg.id);
+    ProgTrace(TRACE1,"========= (sender=%s tlg_num=%d) =============",
+              tlg.sender.c_str(), tlg.id);
+
+    static TQuery TlgIdQry(&OraSession);
+    if (TlgIdQry.SQLText.IsEmpty())
+    {
+      TlgIdQry.Clear();
+      TlgIdQry.SQLText=
+       "BEGIN "
+       "  SELECT id INTO :id FROM tlgs_in "
+       "  WHERE type= :tlg_type AND "
+       "        time_create BETWEEN :min_time_create AND :max_time_create AND "
+       "        merge_key= :merge_key AND rownum<2; "
+       "EXCEPTION "
+       "  WHEN NO_DATA_FOUND THEN NULL; "
+       "END;";
+      TlgIdQry.DeclareVariable("id",otInteger);
+      TlgIdQry.DeclareVariable("tlg_type",otString);
+      TlgIdQry.DeclareVariable("min_time_create",otDate);
+      TlgIdQry.DeclareVariable("max_time_create",otDate);
+      TlgIdQry.DeclareVariable("merge_key",otString);
+    };
+
+    const char* ins_sql=
+      "DECLARE"
+      "  CURSOR cur(vid tlgs_in.id%TYPE) IS "
+      "    SELECT id, time_parse FROM tlgs_in "
+      "    WHERE id=vid ORDER BY num DESC; "
+      "  vtime_parse tlgs_in.time_parse%TYPE; "
+      "  vtime_receive_not_parse tlgs_in.time_receive_not_parse%TYPE; "
+      "  vnow DATE; "
+      "BEGIN "
+      "  vnow:=system.UTCSYSDATE; "
+      "  vtime_parse:=NULL; "
+      "  vtime_receive_not_parse:=vnow; "
+      "  IF :id IS NULL THEN "
+      "    SELECT tlg_in_out__seq.nextval INTO :id FROM dual; "
+      "    INSERT INTO typeb_in(id,proc_attempt) VALUES(:id,0); "
+      "  ELSE "
+      "    FOR curRow IN cur(:id) LOOP "
+      "      IF curRow.time_parse IS NOT NULL THEN "
+      "        vtime_parse:=vnow; "
+      "        vtime_receive_not_parse:=NULL; "
+      "      END IF;"
+      "    END LOOP; "
+      "  END IF; "
+      "  INSERT INTO tlgs_in(id,num,type,addr,heading,ending,is_final_part, "
+      "    merge_key,time_create,time_receive,time_parse,time_receive_not_parse) "
+      "  VALUES(:id,:part_no,:tlg_type,:addr,:heading,:ending,:is_final_part, "
+      "    :merge_key,:time_create,vnow,vtime_parse,vtime_receive_not_parse); "
+      "  UPDATE typeb_in_history SET tlg_id=:id WHERE id=:tlgs_id; "
+      "  UPDATE tlgs SET typeb_tlg_id=:id, typeb_tlg_num=:part_no WHERE id=:tlgs_id; "
+      "END;";
+    QParams QryParams;
+    QryParams << QParam("id",otInteger)
+              << QParam("part_no",otInteger)
+              << QParam("tlg_type",otString)
+              << QParam("addr",otString)
+              << QParam("heading",otString)
+              << QParam("ending",otString)
+              << QParam("is_final_part",otInteger)
+              << QParam("merge_key",otString)
+              << QParam("time_create",otDate)
+              << QParam("tlgs_id",otInteger);
+
+    TCachedQuery InsQry(ins_sql, QryParams);
+
+
+  //проверим TTL
+
+  int error_no=NoExists;
+
+  TFlightsForBind bind_flts;
+  if (HeadingInfo!=NULL)
+  {
+    mem.destroy(HeadingInfo, STDLOG);
+    delete HeadingInfo;
+    HeadingInfo = NULL;
+  };
+  if (EndingInfo!=NULL)
+  {
+    mem.destroy(EndingInfo, STDLOG);
+    delete EndingInfo;
+    EndingInfo = NULL;
+  };
+
+  if (tlg.proc_attempt>=HANDLER_PROC_ATTEMPTS())
+  {
+    ProgTrace(TRACE5, "handle_tlg: tlg_id=%d proc_attempt=%d", tlg.id, tlg.proc_attempt);
+    errorTlg(tlg.id,"PROC");
+  }
+  else
+  try
+  {
+    procTlg(tlg.id);
+    ASTRA::commit(); // OraSession.commit();
+
+    string tlgs_text=getTlgText(tlg.id);
+    int typeb_tlg_id=NoExists;
+    int typeb_tlg_num=1;
+    ostringstream merge_key;
+
+    list<ETlgError> errors;
+
+    try
+    {
+      GetParts(tlgs_text.c_str(), parts, HeadingInfo, bind_flts, mem);
+      if (parts.addr.size()>255) throw ETlgError("Address too long");
+      if (parts.heading.size()>100) throw ETlgError("Header too long");
+      if (parts.ending.size()>20) throw ETlgError("End of message too long");
+
+      TTlgPartInfo part;
+      part.p=parts.heading.c_str();
+      part.EOL_count=CalcEOLCount(parts.addr.c_str());
+      part.offset=parts.addr.size();
+      ParseHeading(part,HeadingInfo,bind_flts,mem);
+
+      part.p=parts.ending.c_str();
+      part.EOL_count+=CalcEOLCount(parts.heading.c_str());
+      part.EOL_count+=CalcEOLCount(parts.body.c_str());
+      part.offset+=parts.heading.size();
+      part.offset+=parts.body.size();
+      ParseEnding(part,HeadingInfo,EndingInfo,mem);
+
+      if ((HeadingInfo->tlg_cat==tcDCS ||
+           HeadingInfo->tlg_cat==tcBSM) &&
+          HeadingInfo->time_create!=0)
+      {
+        merge_key << "." << HeadingInfo->sender;
+        bool association_number_exists=false;
+        if (HeadingInfo->tlg_cat==tcDCS)
+        {
+          TDCSHeadingInfo &info = *dynamic_cast<TDCSHeadingInfo*>(HeadingInfo);
+          typeb_tlg_num=info.part_no;
+          merge_key << " " << info.flt.airline << setw(3) << setfill('0') << info.flt.flt_no
+                           << info.flt.suffix << "/" << DateTimeToStr(info.flt.scd,"ddmmm") << " "
+                           << info.flt.airp_dep << info.flt.airp_arv;
+
+          if (info.association_number!=NoExists)
+          {
+            association_number_exists=true;
+            merge_key << " " << setw(6) << setfill('0') << info.association_number;
+          };
+
+          TTripInfo fltInfo;
+          TElemFmt fmt;
+          fltInfo.airline = ElemToElemId(etAirline, info.flt.airline, fmt);
+          fltInfo.airp = ElemToElemId(etAirp, info.flt.airp_dep, fmt);
+          fltInfo.flt_no = info.flt.flt_no;
+          fltInfo.suffix = ElemToElemId(etSuffix, info.flt.suffix, fmt);
+          fltInfo.scd_out = info.flt.scd;
+          map<string, string> extra;
+          putUTG(tlg.id, typeb_tlg_num, info.tlg_type, fltInfo, tlgs_text, extra);
+
+        }
+        else
+        {
+          TBSMHeadingInfo &info = *dynamic_cast<TBSMHeadingInfo*>(HeadingInfo);
+          typeb_tlg_num=info.part_no;
+          merge_key << " " << info.airp;
+          if (!info.reference_number.empty())
+            merge_key << " " << info.reference_number;
+        };
+
+        TlgIdQry.SetVariable("id",FNull);
+        TlgIdQry.SetVariable("tlg_type",HeadingInfo->tlg_type);
+        TlgIdQry.SetVariable("merge_key",merge_key.str());
+        if (strcmp(HeadingInfo->tlg_type,"PNL")==0)
+        {
+          TlgIdQry.SetVariable("min_time_create",HeadingInfo->time_create-2.0/1440);
+          TlgIdQry.SetVariable("max_time_create",HeadingInfo->time_create+2.0/1440);
+        }
+        else
+        {
+          if (strcmp(HeadingInfo->tlg_type,"ADL")==0 && association_number_exists)
+          {
+            TlgIdQry.SetVariable("min_time_create",HeadingInfo->time_create-5.0/1440);
+            TlgIdQry.SetVariable("max_time_create",HeadingInfo->time_create+5.0/1440);
+          }
+          else
+          {
+            TlgIdQry.SetVariable("min_time_create",HeadingInfo->time_create);
+            TlgIdQry.SetVariable("max_time_create",HeadingInfo->time_create);
+          };
+        };
+        TlgIdQry.Execute();
+        if (!TlgIdQry.VariableIsNULL("id"))
+          typeb_tlg_id=TlgIdQry.GetVariableAsInteger("id");
+      };
+    }
+    catch(ETlgError &E)
+    {
+      errors.push_back(E);
+      parts.clear();
+      parts.body=tlgs_text;
+    };
+
+    if (typeb_tlg_id!=NoExists)
+      InsQry.get().SetVariable("id",typeb_tlg_id);
+    else
+      InsQry.get().SetVariable("id",FNull);
+    InsQry.get().SetVariable("part_no",typeb_tlg_num);
+    InsQry.get().SetVariable("merge_key",merge_key.str());
+
+    if (HeadingInfo!=NULL)
+    {
+      InsQry.get().SetVariable("tlg_type",HeadingInfo->tlg_type);
+      if (HeadingInfo->time_create!=0)
+        InsQry.get().SetVariable("time_create",HeadingInfo->time_create);
+      else
+        InsQry.get().SetVariable("time_create",FNull);
+    }
+    else
+    {
+      InsQry.get().SetVariable("tlg_type",FNull);
+      InsQry.get().SetVariable("time_create",FNull);
+    };
+
+    InsQry.get().SetVariable("addr", parts.addr);
+    InsQry.get().SetVariable("heading", parts.heading);
+    InsQry.get().SetVariable("ending", parts.ending);
+
+    if (EndingInfo!=NULL)
+      InsQry.get().SetVariable("is_final_part", (int)EndingInfo->pr_final_part);
+    else
+      InsQry.get().SetVariable("is_final_part", (int)false);
+
+    InsQry.get().SetVariable("tlgs_id", tlg.id);
+
+    if (deleteTlg(tlg.id))
+    {
+      bool insert_typeb=false;
+      try
+      {
+        if (typeb_tlg_id!=NoExists)
+          procTypeB(typeb_tlg_id, 0); //лочка
+        InsQry.get().Execute();
+        pr_typeb_cmd=true;
+        insert_typeb=true;
+      }
+      catch(EOracleError E)
+      {
+        if (E.Code==1)
+        {
+          if (!errors.empty()) throw Exception("handle_tlg: strange situation");
+          if (typeb_tlg_id==NoExists) throw Exception("handle_tlg: strange situation");
+
+          Qry.Clear();
+          Qry.SQLText=
+            "SELECT addr,heading,ending FROM tlgs_in WHERE id=:id AND num=:num";
+          Qry.CreateVariable("id",otInteger,typeb_tlg_id);
+          Qry.CreateVariable("num",otInteger,typeb_tlg_num);
+          Qry.Execute();
+
+          ostringstream typeb_in_text;
+          if (!Qry.Eof)
+            typeb_in_text << Qry.FieldAsString("addr")
+                          << Qry.FieldAsString("heading")
+                          << getTypeBBody(typeb_tlg_id, typeb_tlg_num)
+                          << Qry.FieldAsString("ending");
+
+          InsQry.get().SetVariable("id",FNull);
+          InsQry.get().SetVariable("merge_key",FNull);
+          InsQry.get().Execute();
+          pr_typeb_cmd=true;
+          insert_typeb=true;
+
+          if (tlgs_text!=typeb_in_text.str())
+          {
+            long part_no;
+            if (HeadingInfo->tlg_cat==tcDCS)
+              part_no=dynamic_cast<TDCSHeadingInfo*>(HeadingInfo)->part_no;
+            else
+              part_no=dynamic_cast<TBSMHeadingInfo*>(HeadingInfo)->part_no;
+            if (!(part_no==1&&EndingInfo->pr_final_part))  //телеграмма не состоит из одной части
+              errors.push_back(ETlgError("Duplicate part number with different text"));
+          }
+          else errors.push_back(ETlgError(tlgeNotMonitorNotAlarm, "Telegram duplicated"));
+        }
+        else throw;
+      };
+      if (insert_typeb)
+      {
+        typeb_tlg_id=InsQry.get().VariableIsNULL("id")?NoExists:InsQry.get().GetVariableAsInteger("id");
+        if (typeb_tlg_id==NoExists) throw Exception("handle_tlg: strange situation");
+        typeb_tlg_num=InsQry.get().GetVariableAsInteger("part_no");
+        string typeb_tlg_type=InsQry.get().GetVariableAsString("tlg_type");
+        putTypeBBody(typeb_tlg_id, typeb_tlg_num, parts.body);
+
+        if (!errors.empty())
+        {
+          ETlgErrorType etype=tlgeNotError;
+          ostringstream err_msg;
+          for(list<ETlgError>::const_iterator e=errors.begin(); e!=errors.end(); ++e)
+          {
+            if(not err_msg.str().empty()) err_msg << std::endl;
+            err_msg << e->what();
+            progError(typeb_tlg_id, typeb_tlg_num, error_no, *e, "", bind_flts);  //хорошо бы доделать, чтобы передавался tlg_type
+            if (etype < e->error_type()) etype=e->error_type();
+          };
+          errorTlg(tlg.id,"PARS");
+          parseTypeB(typeb_tlg_id);
+          bindTypeB(typeb_tlg_id, bind_flts, etype);
+          TypeBHelpMng::notify_msg(typeb_tlg_id, err_msg.str()); // Отвешиваем процесс, если есть.
+        }
+        else
+        {
+          bindTypeB(typeb_tlg_id, bind_flts, tlgeNotError); //привязываем чтобы потом возможно сделать forwarding
+        }
+
+        forwardTypeB(typeb_tlg_id, typeb_tlg_num, typeb_tlg_type);
+      }
+    }
+  }
+  catch(std::exception &E)
+  {
+    ASTRA::rollback();//OraSession.Rollback();
+    try
+    {
+      EOracleError *orae=dynamic_cast<EOracleError*>(&E);
+      if (orae!=NULL&&
+          (orae->Code==4061||orae->Code==4068)) return;
+      progError(tlg.id, NoExists, error_no, E, "", bind_flts);  //хорошо бы доделать, чтобы передавался tlg_type
+      errorTlg(tlg.id,"PARS",E.what());
+    }
+    catch(...) {};
+  }
+  catch(...)
+  {
+      mem.destroy(HeadingInfo, STDLOG);
+      if (HeadingInfo!=NULL) delete HeadingInfo;
+      mem.destroy(EndingInfo, STDLOG);
+      if (EndingInfo!=NULL) delete EndingInfo;
+      throw;
+  }
+
+  if (pr_typeb_cmd) sendCmd("CMD_TYPEB_PARSER","H");
+  mem.destroy(HeadingInfo, STDLOG);
+  if (HeadingInfo!=NULL) delete HeadingInfo;
+  mem.destroy(EndingInfo, STDLOG);
+  if (EndingInfo!=NULL) delete EndingInfo;
+
+  ProgTrace(TRACE1,"========= %d TLG: DONE HANDLE =============",tlg.id);
+  ProgTrace(TRACE5, "IN: PUT->DONE (sender=%s, tlg_num=%d, time=%.10f)",
+                    tlg.sender.c_str(),
+                    tlg.id,
+                    NowUTC());
+
+    monitor_idle_zapr_type(1, QUEPOT_TLG_AIR);
+}
+
 
 #define PARTS_NOT_RECEIVE_TIMEOUT  30.0/1440 //30 мин
 #define PARSING_FORCE_TIMEOUT      5.0/1440  //5 мин
@@ -741,7 +813,7 @@ bool parse_tlg(void)
   TlgIdQry.Execute();
   try
   {
-    for(;!TlgIdQry.Eof&&count<PARSER_PROC_COUNT();TlgIdQry.Next(),OraSession.Rollback())
+    for(;!TlgIdQry.Eof&&count<PARSER_PROC_COUNT();TlgIdQry.Next(),/*OraSession.Rollback()*/ASTRA::rollback())
     {
       int tlg_id=TlgIdQry.FieldAsInteger("id");
       int error_no=NoExists;
@@ -751,12 +823,12 @@ bool parse_tlg(void)
         Exception E("%d attempts to parse previously failed", TlgIdQry.FieldAsInteger("proc_attempt"));
         progError(tlg_id, NoExists, error_no, E, "", TFlightsForBind());
         parseTypeB(tlg_id);
-        OraSession.Commit();
+        ASTRA::commit();//OraSession.Commit();
         count++;
         continue;
       };
       procTypeB(tlg_id, 1);
-      OraSession.Commit();
+      ASTRA::commit();//OraSession.Commit();
 
       ProgTrace(TRACE5, "tlg_id: %d", tlg_id);
       time_receive=TlgIdQry.FieldAsDateTime("time_receive");
@@ -798,7 +870,7 @@ bool parse_tlg(void)
         progError(tlg_id, tlg_num, error_no, E, tlg_type, bind_flts);
         parseTypeB(tlg_id);
         bindTypeB(tlg_id, bind_flts, E);
-        OraSession.Commit();
+        ASTRA::commit();//OraSession.Commit();
         continue;
       };
 
@@ -812,7 +884,7 @@ bool parse_tlg(void)
           if (utc_date-time_receive > PARTS_NOT_RECEIVE_TIMEOUT)
             throw ETlgError("Some parts not received");
           procTypeB(tlg_id, -1);
-          OraSession.Commit();
+          ASTRA::commit();//OraSession.Commit();
           continue;
         };
 
@@ -833,7 +905,7 @@ bool parse_tlg(void)
           if (utc_date-time_receive > PARTS_NOT_RECEIVE_TIMEOUT)
             throw ETlgError("Some parts not received");
           procTypeB(tlg_id, -1);
-          OraSession.Commit();
+          ASTRA::commit();//OraSession.Commit();
           continue;
         };
 
@@ -861,21 +933,21 @@ bool parse_tlg(void)
               {
                 parseTypeB(tlg_id);
                 callPostHooksBefore();
-                OraSession.Commit();
+                ASTRA::commit();//OraSession.Commit();
                 count++;
                 callPostHooksAfter();
                 emptyHookTables();
               }
               else
               {
-                OraSession.Rollback();
+                ASTRA::rollback();//OraSession.Rollback();
                 if (forcibly&& /*info.flt.scd<=utc_date-10*/
                       (utc_date-time_receive) > PARSING_MAX_TIMEOUT)
                   //если телеграммы не хотят принудительно разбираться
                   //по истечении некоторого времени - записать в просроченные
                   throw ETlgError(tlgeNotMonitorYesAlarm, "Time limit reached");
                 procTypeB(tlg_id, -1);
-                OraSession.Commit();
+                ASTRA::commit();//OraSession.Commit();
               };
             };
             if (strcmp(info.tlg_type,"PRL")==0)
@@ -885,7 +957,7 @@ bool parse_tlg(void)
               SavePNLADLPRLContent(tlg_id,info,con,true);
               parseTypeB(tlg_id);
               callPostHooksBefore();
-              OraSession.Commit();
+              ASTRA::commit();//OraSession.Commit();
               count++;
               callPostHooksAfter();
               emptyHookTables();
@@ -897,7 +969,7 @@ bool parse_tlg(void)
               SavePTMContent(tlg_id,info,con);
               parseTypeB(tlg_id);
               callPostHooksBefore();
-              OraSession.Commit();
+              ASTRA::commit();//OraSession.Commit();
               count++;
               callPostHooksAfter();
               emptyHookTables();
@@ -909,7 +981,7 @@ bool parse_tlg(void)
               SaveSOMContent(tlg_id,info,con);
               parseTypeB(tlg_id);
               callPostHooksBefore();
-              OraSession.Commit();
+              ASTRA::commit();//OraSession.Commit();
               count++;
               callPostHooksAfter();
               emptyHookTables();
@@ -926,7 +998,7 @@ bool parse_tlg(void)
               SaveBTMContent(tlg_id,info,con);
               parseTypeB(tlg_id);
               callPostHooksBefore();
-              OraSession.Commit();
+              ASTRA::commit();//OraSession.Commit();
               count++;
               callPostHooksAfter();
               emptyHookTables();
@@ -947,7 +1019,7 @@ bool parse_tlg(void)
             }
             parseTypeB(tlg_id);
             callPostHooksBefore();
-            OraSession.Commit();
+            ASTRA::commit();//OraSession.Commit();
             count++;
             callPostHooksAfter();
             emptyHookTables();
@@ -972,11 +1044,29 @@ bool parse_tlg(void)
           {
             TLCIHeadingInfo &info = *(dynamic_cast<TLCIHeadingInfo*>(HeadingInfo));
             TLCIContent con;
+            LogTrace(TRACE5) << "before parse lci";
             ParseLCIContent(part,info,con,mem);
+            LogTrace(TRACE5) << "after parse lci";
             SaveLCIContent(tlg_id,time_receive,info,con);
             parseTypeB(tlg_id);
             callPostHooksBefore();
-            OraSession.Commit();
+            ASTRA::commit();//OraSession.Commit();
+            count++;
+            callPostHooksAfter();
+            emptyHookTables();
+            break;
+          }
+          case tcIFM:
+          {
+            LogTrace(TRACE3) << "Enter to IFM handler";
+            std::string tlgBody = parts.addr + parts.heading + parts.body;
+            LogTrace(TRACE3) << "IFM body:\n" << tlgBody;
+
+            initRsc(tlg_id, tlgBody); // remote system context
+
+            HandleTypebIfm::handle(typeb_parser::TypeBMessage::parse(tlgBody));
+            callPostHooksBefore();
+            ASTRA::commit();
             count++;
             callPostHooksAfter();
             emptyHookTables();
@@ -1011,17 +1101,25 @@ bool parse_tlg(void)
             //телеграмму неизвестного типа сразу пишем в разобранные
             parseTypeB(tlg_id);
             callPostHooksBefore();
-            OraSession.Commit();
+            ASTRA::commit();//OraSession.Commit();
             count++;
             callPostHooksAfter();
             emptyHookTables();
           };
         };
       }
+      catch(TlgHandling::TlgToBePostponed& e)
+      {
+          LogTrace(TRACE1) << "Tlg " << e.tlgNum() << " to be postponed";
+          callPostHooksBefore();
+          ASTRA::commit();
+          callPostHooksAfter();
+          emptyHookTables();
+      }
       catch(std::exception &E)
       {
         count++;
-        OraSession.Rollback();
+        ASTRA::rollback();//OraSession.Rollback();
         try
         {
           EOracleError *orae=dynamic_cast<EOracleError*>(&E);
@@ -1031,7 +1129,7 @@ bool parse_tlg(void)
           parseTypeB(tlg_id);
           bindTypeB(tlg_id, bind_flts, E);
           TypeBHelpMng::notify_msg(tlg_id, E.what()); // Отвешиваем процесс, если есть.
-          OraSession.Commit();
+          ASTRA::commit();//OraSession.Commit();
         }
         catch(...) {};
       };
@@ -1057,7 +1155,7 @@ bool parse_tlg(void)
                      time_end-time_start,count);
 
   return queue_not_empty;
-};
+}
 
 void get_tlg_info(
         const string &tlg_text,

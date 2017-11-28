@@ -1,16 +1,21 @@
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
 #include "edi_utils.h"
-
 #include "misc.h"
 #include "date_time.h"
-#include "tlg/tlg.h"
 #include "astra_context.h"
+#include "tlg/tlg.h"
 #include "tlg/remote_results.h"
-#include "tlg/edi_msg.h"
+#include "tlg/request_params.h"
 #include <serverlib/internal_msgid.h>
 #include <serverlib/ehelpsig.h>
 #include <serverlib/posthooks.h>
+#include <serverlib/cursctl.h>
+#include <serverlib/rip_oci.h>
 #include <serverlib/EdiHelpManager.h>
 #include <serverlib/xml_stuff.h>
+#include <serverlib/testmode.h>
 #include <serverlib/internal_msgid.h>
 #include <edilib/EdiSessionTimeOut.h>
 #include <edilib/edi_session.h>
@@ -23,13 +28,14 @@ using namespace std;
 using namespace Ticketing;
 using namespace BASIC::date_time;
 using namespace ASTRA;
+using namespace AstraLocale;
 
 namespace AstraEdifact
 {
 
 CouponStatus calcPaxCouponStatus(const string& refuse,
-                                 const bool pr_brd,
-                                 const bool in_final_status)
+                                 bool pr_brd,
+                                 bool in_final_status)
 {
   CouponStatus real_status;
   if (!refuse.empty())
@@ -116,7 +122,7 @@ Ticketing::TicketNum_t checkDocNum(const std::string& doc_no, bool is_et)
 
 bool checkInteract(const TTripInfo& info,
                    const TTripSetType set_type,
-                   const bool with_exception)
+                   bool with_exception)
 {
   bool result=true;
   try
@@ -144,9 +150,9 @@ bool checkInteract(const TTripInfo& info,
   return result;
 }
 
-bool checkInteract(const int point_id,
+bool checkInteract(int point_id,
                    const TTripSetType set_type,
-                   const bool with_exception,
+                   bool with_exception,
                    TTripInfo& info)
 {
   info.Clear();
@@ -167,26 +173,26 @@ bool checkInteract(const int point_id,
 }
 
 bool checkETSInteract(const TTripInfo& info,
-                      const bool with_exception)
+                      bool with_exception)
 {
   return checkInteract(info, tsETSNoInteract, with_exception);
 }
 
 bool checkEDSInteract(const TTripInfo& info,
-                      const bool with_exception)
+                      bool with_exception)
 {
   return checkInteract(info, tsEDSNoInteract, with_exception);
 }
 
-bool checkETSInteract(const int point_id,
-                      const bool with_exception,
+bool checkETSInteract(int point_id,
+                      bool with_exception,
                       TTripInfo& info)
 {
   return checkInteract(point_id, tsETSNoInteract, with_exception, info);
 }
 
-bool checkEDSInteract(const int point_id,
-                      const bool with_exception,
+bool checkEDSInteract(int point_id,
+                      bool with_exception,
                       TTripInfo& info)
 {
   return checkInteract(point_id, tsEDSNoInteract, with_exception, info);
@@ -205,17 +211,17 @@ Ticketing::FlightNum_t getTripFlightNum(const TTripInfo& ti)
 }
 
 bool get_et_addr_set( const string &airline,
-                      const int flt_no,
+                      int flt_no,
                       pair<string,string> &addrs)
 {
   int id;
   return get_et_addr_set(airline, flt_no, addrs, id);
-};
+}
 
-bool get_et_addr_set( const string &airline,
-                      const int flt_no,
-                      pair<string,string> &addrs,
-                      int &id)
+bool get_et_addr_set(const string &airline,
+                     int flt_no,
+                     pair<string,string> &addrs,
+                     int &id)
 {
   addrs.first.clear();
   addrs.second.clear();
@@ -252,8 +258,10 @@ std::string get_canon_name(const std::string& edi_addr)
     "SELECT canon_name FROM edi_addrs WHERE addr=:addr";
   Qry.CreateVariable("addr",otString,edi_addr);
   Qry.Execute();
-  if (Qry.Eof||Qry.FieldIsNULL("canon_name"))
+  if (Qry.Eof||Qry.FieldIsNULL("canon_name")) {
+    LogTrace(TRACE3) << "get_canon_name by " << edi_addr << " return default canon_name";
     return ETS_CANON_NAME();
+  }
   return Qry.FieldAsString("canon_name");
 }
 void copy_notify_levb(const int src_edi_sess_id,
@@ -279,7 +287,7 @@ void copy_notify_levb(const int src_edi_sess_id,
   };
 }
 
-void confirm_notify_levb(const int edi_sess_id, const bool err_if_not_found)
+void confirm_notify_levb(int edi_sess_id, bool err_if_not_found)
 {
   ProgTrace(TRACE2,"confirm_notify_levb: called with edi_sess_id=%d",edi_sess_id);
 
@@ -313,7 +321,9 @@ void confirm_notify_levb(const int edi_sess_id, const bool err_if_not_found)
     if (!HexToString(hex_msg_id,str_msg_id) || str_msg_id.size()!=sizeof(int)*3)
       throw EXCEPTIONS::Exception("confirm_notify_levb: wrong intmsgid=%s", hex_msg_id.c_str());
     ProgTrace(TRACE2,"confirm_notify_levb: prepare signal %s",txt.c_str());
-    sethAfter(EdiHelpSignal((const int*)str_msg_id.c_str(),
+    std::array<uint32_t,3> a;
+    memcpy(&a, str_msg_id.c_str(), 12);
+    sethAfter(EdiHelpSignal(ServerFramework::InternalMsgId(a),
                             Qry.GetVariableAsString("address"),
                             txt.c_str()));
 #ifdef XP_TESTING
@@ -359,7 +369,7 @@ string make_xml_kick(const edifact::KickInfo &kickInfo)
   return redisplay;
 };
 
-edifact::KickInfo createKickInfo(const int v_reqCtxtId,
+edifact::KickInfo createKickInfo(int v_reqCtxtId,
                                  const std::string &v_iface)
 {
   return edifact::KickInfo(v_reqCtxtId,
@@ -368,10 +378,11 @@ edifact::KickInfo createKickInfo(const int v_reqCtxtId,
                            v_iface.empty()?"":TReqInfo::Instance()->desk.code);
 }
 
-void addToEdiResponseCtxt(const int ctxtId,
+void addToEdiResponseCtxt(int ctxtId,
                           const xmlNodePtr srcNode,
                           const string &destNodeName)
 {
+    LogTrace(TRACE3) << "addToEdiResponseCtxt ctxtId " << ctxtId;
   if (ctxtId==ASTRA::NoExists) return;
   string ctxt;
   AstraContext::GetContext("EDI_RESPONSE",
@@ -417,10 +428,11 @@ void addToEdiResponseCtxt(const int ctxtId,
   };
 };
 
-void getEdiResponseCtxt(const int ctxtId,
-                        const bool clear,
+void getEdiResponseCtxt(int ctxtId,
+                        bool clear,
                         const string &where,
-                        string &context)
+                        string &context,
+                        bool throwEmpty)
 {
   AstraContext::GetContext("EDI_RESPONSE",
                            ctxtId,
@@ -428,26 +440,32 @@ void getEdiResponseCtxt(const int ctxtId,
 
   if (clear) AstraContext::ClearContext("EDI_RESPONSE", ctxtId);
 
-  if (context.empty())
-    throw EXCEPTIONS::Exception("%s: context EDI_RESPONSE empty", where.c_str());
-};
+  if (context.empty()) {
+      if(throwEmpty)
+          throw EXCEPTIONS::Exception("%s: context EDI_RESPONSE empty", where.c_str());
+  }
+}
 
-void getEdiResponseCtxt(const int ctxtId,
-                        const bool clear,
+void getEdiResponseCtxt(int ctxtId,
+                        bool clear,
                         const string &where,
-                        XMLDoc &xmlCtxt)
+                        XMLDoc &xmlCtxt,
+                        bool throwEmpty)
 {
   string context;
-  getEdiResponseCtxt(ctxtId, clear, where, context);
-  xmlCtxt.set(ConvertCodepage(context,"CP866","UTF-8"));
-  if (xmlCtxt.docPtr()==NULL)
-    throw EXCEPTIONS::Exception("%s: context EDI_RESPONSE wrong XML format", where.c_str());
+  getEdiResponseCtxt(ctxtId, clear, where, context, throwEmpty);
+  if(!context.empty())
+  {
+      xmlCtxt.set(ConvertCodepage(context,"CP866","UTF-8"));
+      if (xmlCtxt.docPtr()==NULL)
+        throw EXCEPTIONS::Exception("%s: context EDI_RESPONSE wrong XML format", where.c_str());
 
-  xml_decode_nodelist(xmlCtxt.docPtr()->children);
-};
+      xml_decode_nodelist(xmlCtxt.docPtr()->children);
+  }
+}
 
-void getTermRequestCtxt(const int ctxtId,
-                        const bool clear,
+void getTermRequestCtxt(int ctxtId,
+                        bool clear,
                         const string &where,
                         XMLDoc &xmlCtxt)
 {
@@ -466,7 +484,7 @@ void getTermRequestCtxt(const int ctxtId,
     throw EXCEPTIONS::Exception("%s: context TERM_REQUEST wrong XML format", where.c_str());
 
   xml_decode_nodelist(xmlCtxt.docPtr()->children);
-};
+}
 
 void getHttpRequestCtxt(int ctxtId,
                         bool clear,
@@ -490,7 +508,53 @@ void getHttpRequestCtxt(int ctxtId,
     xml_decode_nodelist(xmlCtxt.docPtr()->children);
 }
 
-void cleanOldRecords(const int min_ago)
+static void getEdiSessionCtxt(const std::string& ctxtKey, int keyValue,
+                              const bool clear, const std::string& where,
+                              XMLDoc &xmlCtxt)
+{
+    std::string context;
+    AstraContext::GetContext(ctxtKey,
+                             keyValue,
+                             context);
+
+    LogTrace(TRACE3) << ctxtKey << "(" << keyValue << "):\n" << context;
+
+    if (clear) AstraContext::ClearContext(ctxtKey, keyValue);
+
+    if (context.empty()) {
+        throw EXCEPTIONS::Exception("%s: context %s empty", where.c_str(), ctxtKey.c_str());
+    }
+
+    xmlCtxt.set(ConvertCodepage(context, "CP866", "UTF-8"));
+    if(xmlCtxt.docPtr()==NULL)
+        throw EXCEPTIONS::Exception("context %s has wrong XML format", ctxtKey.c_str());
+
+    xml_decode_nodelist(xmlCtxt.docPtr()->children);
+}
+
+void getEdiSessionCtxt(int sessIda, bool clear,
+                       const std::string& where, XMLDoc &xmlCtxt)
+{
+    getEdiSessionCtxt("EDI_SESSION", sessIda, clear, where, xmlCtxt);
+}
+
+std::string getEdiSessionCtxt(int sessIda, bool clear, bool throwEmpty)
+{
+    const std::string ctxtKey = "EDI_SESSION";
+    std::string context;
+    AstraContext::GetContext(ctxtKey, sessIda, context);
+
+    if (clear) AstraContext::ClearContext(ctxtKey, sessIda);
+
+    if (context.empty()) {
+        if(throwEmpty)
+            throw EXCEPTIONS::Exception("context %s empty", ctxtKey.c_str());
+    }
+
+    return context;
+}
+
+void cleanOldRecords(int min_ago)
 {
   if (min_ago<1)
     throw EXCEPTIONS::Exception("%s: wrong min_ago=%d", __FUNCTION__, min_ago);
@@ -522,7 +586,29 @@ void cleanOldRecords(const int min_ago)
   };
 
   edifact::RemoteResults::cleanOldRecords(min_ago);
-};
+}
+
+void HandleNotSuccessEtsResult(const edifact::RemoteResults& res)
+{
+  if (res.status() == edifact::RemoteStatus::Success) return;
+  if (res.status() == edifact::RemoteStatus::CommonError)
+  {
+    ProgTrace(TRACE1, "ETS: ERROR %s", res.ediErrCode().c_str());
+    if (res.remark().empty())
+    {
+      throw UserException("MSG.ETICK.ETS_ERROR", LParams() << LParam("msg", res.ediErrCode()));
+    }
+    else
+    {
+      ProgTrace(TRACE1, "ETS: %s", res.remark().c_str());
+      throw UserException("MSG.ETICK.ETS_ERROR", LParams() << LParam("msg", res.remark()));
+    }
+  }
+  else
+  {
+    throw UserException("Error from remote ETS");
+  }
+}
 
 void ProcEdiError(const AstraLocale::LexemaData &error,
                   const xmlNodePtr errorCtxtNode,
@@ -545,7 +631,47 @@ void GetEdiError(const xmlNodePtr errorCtxtNode,
     LexemeDataFromXML(node, i->first);
     i->second=NodeAsInteger("@global", node)!=0;
   }
-};
+}
+
+void WritePostponedContext(tlgnum_t tnum, int reqCtxtId)
+{
+    LogTrace(TRACE1) << __FUNCTION__ << " ctxt_id=" << reqCtxtId << "; msg_id=" << tnum;
+    OciCpp::CursCtl cur = make_curs(
+"insert into POSTPONED_TLG_CONTEXT (MSG_ID, REQ_CTXT_ID) "
+"values (:msg_id, :req_ctxt_id)");
+
+    cur.bind(":msg_id",      tnum.num)
+       .bind(":req_ctxt_id", reqCtxtId)
+       .exec();
+}
+
+int ReadPostponedContext(tlgnum_t tnum, bool clear)
+{
+    OciCpp::CursCtl cur = make_curs(
+"select REQ_CTXT_ID from POSTPONED_TLG_CONTEXT "
+"where MSG_ID=:msg_id");
+
+    int reqCtxtId = 0;
+    cur.bind(":msg_id", tnum.num)
+       .def(reqCtxtId)
+       .exfet();
+
+    if(clear) {
+        ClearPostponedContext(tnum);
+    }
+
+    return reqCtxtId;
+}
+
+void ClearPostponedContext(tlgnum_t tnum)
+{
+    LogTrace(TRACE1) << __FUNCTION__ << ". msg_id=" << tnum;
+    make_curs(
+"delete from POSTPONED_TLG_CONTEXT "
+"where MSG_ID=:msg_id")
+       .bind(":msg_id", tnum.num)
+       .exec();
+}
 
 bool isTermCheckinRequest(xmlNodePtr reqNode)
 {

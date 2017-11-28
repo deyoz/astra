@@ -1,23 +1,28 @@
 #ifndef _ASTRA_TICK_READ_EDI_H_
 #define _ASTRA_TICK_READ_EDI_H_
 
-#include <string>
-
 #include "astra_tick_reader.h"
-#include "edilib/edi_func_cpp.h"
+#include "tlg/edi_tlg.h"
+
+#include <edilib/edi_func_cpp.h>
+
+#include <string>
 
 namespace Ticketing{
 namespace TickReader{
 
-    class REdiData : public ReaderData{
+    class REdiData : public ReaderData
+    {
         EDI_REAL_MES_STRUCT *pMes;
         pair<string, TickStatAction::TickStatAction_t> CurrTicket;
+        edifact::EdiMessageType MesType;
         unsigned CurrCoupon;
+        unsigned PassSegGr;
+        unsigned TvlSegGr;
     public:
-    	REdiData(EDI_REAL_MES_STRUCT *mes) :
-        pMes(mes), CurrCoupon(0){}
+        REdiData(EDI_REAL_MES_STRUCT *mes, edifact::EdiMessageType type);
 
-        EDI_REAL_MES_STRUCT *EdiMes() { return pMes; }
+        EDI_REAL_MES_STRUCT* EdiMes() const { return pMes; }
 
         void setTickNum(const pair<string, TickStatAction::TickStatAction_t> &tick){
             CurrTicket = tick;
@@ -25,17 +30,28 @@ namespace TickReader{
         void setCurrCoupon(unsigned num) {
             CurrCoupon=num;
         }
-        const pair<string, TickStatAction::TickStatAction_t> &currTicket() const { return CurrTicket; }
+        const std::pair<string, TickStatAction::TickStatAction_t> &currTicket() const { return CurrTicket; }
+
+        void resetTickCpn();
+
         unsigned currCoupon() const { return CurrCoupon; }
-        virtual unsigned short viewItem() const { return 0; };
-        virtual bool isSingleTickView() const { return true; };
+        unsigned passSegGrNum() const { return PassSegGr; }
+        unsigned tvlSegGrNum() const { return TvlSegGr; }
+
+        virtual unsigned short viewItem() const { return 0; }
+        virtual bool isSingleTickView() const { return true; }
     };
 
-
-    class REdiDataExch : public REdiData{
+    class REdiDataPack : public ReaderDataPack, public REdiData
+    {
     public:
-        REdiDataExch(EDI_REAL_MES_STRUCT *mes) :
-        REdiData(mes){}
+        REdiDataPack(EDI_REAL_MES_STRUCT *mes, edifact::EdiMessageType type);
+
+        virtual unsigned countExpectedTickets() const;
+        virtual bool isPackTickRead() const { return true; }
+
+        virtual void incCurrentItem();
+        virtual unsigned currentItem() const { return ReaderDataPack::currentItem(); }
     };
 
     class ResContrInfoEdiR : public ResContrInfoReader
@@ -135,7 +151,9 @@ namespace TickReader{
 
         mutable REdiData ReadData;
         public:
-            PnrEdiRead(EDI_REAL_MES_STRUCT *mes) : ReadData(mes){}
+            PnrEdiRead(EDI_REAL_MES_STRUCT *mes, edifact::EdiMessageType type)
+                : ReadData(mes, type)
+            {}
             virtual const OrigOfRequestEdiR & origOfReqRead () const { return OrigOfReqEdiR; }
             virtual const TicketEdiR &ticketRead () const { return TickEdiR; }
             virtual const CouponEdiR &couponRead () const { return CoupEdiR; }
@@ -149,7 +167,7 @@ namespace TickReader{
             virtual const FreeTextInfoEdiR &freeTextInfoRead () const { return IftEdiR; }
 
             virtual REdiData &readData () const { return ReadData; }
-            virtual ~PnrEdiRead(){};
+            virtual ~PnrEdiRead() {}
     };
 
     // read IFT from EDIFACT

@@ -109,12 +109,18 @@ class AstraApplication : public ServerFramework::ApplicationCallbacks
       AstraHTTP::http_main(rep, req);
     }
     
-    virtual int internet_proc(const char *body, int blen,
-                              const char *head, int hlen, char **res, int len)
+    virtual std::tuple<Grp2Head, std::vector<uint8_t>> internet_proc(const Grp2Head& head, const std::vector<uint8_t>& body) override
     {
       //ProgError(STDLOG, "OciCpp::mainSession()=%d", OciCpp::mainSession().mode());
       OciCpp::mainSession().set7(); //это очень плохо что где-то в serverlib постоянно идет переключение на OCI8 !
-      return AstraWeb::internet_main(body,blen,head,hlen,res,len);
+
+      std::string shead(head.begin(), head.end());
+      std::vector<uint8_t> h, abody;
+      std::tie(h,abody) = AstraWeb::internet_main(body, shead.data(), shead.size());
+
+      ApplicationCallbacks::Grp2Head ahead;
+      std::copy_n(h.begin(), ahead.size(), ahead.begin());
+      return std::make_tuple(ahead, abody);
     }
 
     virtual int message_control(int type /* 0 - request, 1 - answer */,
@@ -178,6 +184,13 @@ int AstraApplication::nosir_proc(int argc, char ** argv)
   return main_nosir_user(argc,argv);
 }
 
+#ifdef XP_TESTING
+static void init_foreign_tests()
+{
+    void init_edi_msg_tests();
+    init_edi_msg_tests();
+}
+#endif/*XP_TESTING*/
 
 int main(int argc,char **argv)
 {

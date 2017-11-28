@@ -96,7 +96,8 @@ class PnrListViewer : public BasePnrListViewer<OrigOfRequest,
                                          Coupon,
                                          CouponViewer,
                                          Passenger,
-                                         FrequentPass>
+                                         FrequentPass,
+                                         MonetaryInfo>
 {
     public:
         virtual ViewerDataList &viewData() const = 0;

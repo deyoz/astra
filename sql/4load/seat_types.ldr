@@ -1,0 +1,18 @@
+LOAD DATA
+INFILE *
+INTO TABLE seat_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+,name
+,name_lat
+)
+BEGINDATA
+"NSST"|"Место для некурящих"|"Non-smoking seat"
+"NSSA"|"Место для некурящих у прохода"|"Aisle non-smoking seat"
+"NSSW"|"Место для некурящих у окна"|"Window non-smoking seat"
+"SMST"|"Место для курящих"|"Smoking seat"
+"SMSA"|"Место для курящих у прохода"|"Aisle smoking seat"
+"SMSW"|"Место для курящих у окна"|"Window smoking seat"

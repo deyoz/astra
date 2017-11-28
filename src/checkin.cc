@@ -63,7 +63,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace ASTRA;
@@ -3310,7 +3310,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
         if (needSyncEdsEts(ediResNode) && !ChangeStatusInfo.empty())
         {
             //хотя бы один билет будет обрабатываться
-            OraSession.Rollback();  //откат
+            ASTRA::rollback();  //откат
             ChangeStatusInterface::ChangeStatus(reqNode, ChangeStatusInfo);
             SirenaExchangeList.handle(__FUNCTION__);
             return false;
@@ -3914,6 +3914,37 @@ void CheckServicePayment(int grp_id,
   };
 }
 
+static bool GetDeferEtStatusFlag(xmlNodePtr ediResNode)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    if(reqInfo->api_mode) {
+        LogTrace(TRACE3) << "defer_etstatus is false in api_mode";
+        return false;
+    }
+    if(inTestMode()) {
+        LogTrace(TRACE3) << "defer_etstatus is false in test_mode";
+        return false;
+    }
+    bool defer_etstatus=false;
+    TQuery Qry(&OraSession);
+
+    if (needSyncEdsEts(ediResNode) && reqInfo->client_type == ctTerm) //для web-регистрации нераздельное подтверждение ЭБ
+    {
+      Qry.Clear();
+      Qry.SQLText=
+          "SELECT defer_etstatus FROM desk_grp_sets WHERE grp_id=:grp_id";
+      Qry.CreateVariable("grp_id",otInteger,reqInfo->desk.grp_id);
+      Qry.Execute();
+      if (!Qry.Eof && !Qry.FieldIsNULL("defer_etstatus"))
+        defer_etstatus=Qry.FieldAsInteger("defer_etstatus")!=0;
+      else
+        defer_etstatus=true;
+    }
+
+    return defer_etstatus;
+}
+
 #ifdef XP_TESTING
 static int LastGeneratedPaxId = ASTRA::NoExists;
 
@@ -3941,21 +3972,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     //для ctPNL никакой сквозной регистрации!
     throw EXCEPTIONS::Exception("SavePax: through check-in not supported for ctPNL");
 
-  bool defer_etstatus=false;
+  bool defer_etstatus = GetDeferEtStatusFlag(ediResNode);
 
   TQuery Qry(&OraSession);
-  if (needSyncEdsEts(ediResNode) && reqInfo->client_type == ctTerm) //для web-регистрации нераздельное подтверждение ЭБ
-  {
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT defer_etstatus FROM desk_grp_sets WHERE grp_id=:grp_id";
-    Qry.CreateVariable("grp_id",otInteger,reqInfo->desk.grp_id);
-    Qry.Execute();
-    if (!Qry.Eof && !Qry.FieldIsNULL("defer_etstatus"))
-      defer_etstatus=Qry.FieldAsInteger("defer_etstatus")!=0;
-    else
-      defer_etstatus=true;   
-  };
 
   vector<int> point_ids;
   for(;segNode!=NULL;segNode=segNode->next)
@@ -8190,6 +8209,16 @@ void CheckInInterface::GetTCkinFlights(const map<int, CheckIn::TTransferItem> &t
     segs[t->first]=make_pair(t->second, seg);
   };
 };
+
+CheckInInterface* CheckInInterface::instance()
+{
+    static CheckInInterface* inst = 0;
+    if(!inst) {
+        inst = new CheckInInterface();
+    }
+    return inst;
+}
+
 
 class TCkinSegmentItem : public TCkinSegFlts
 {

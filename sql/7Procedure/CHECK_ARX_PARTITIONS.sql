@@ -38,7 +38,7 @@ BEGIN
                                               'ARX_POINTS',
                                               'ARX_STAT',
                                               'ARX_TRFER_STAT',
-                                              'ARX_KIOSK_STAT',
+                                              'ARX_SELF_CKIN_STAT',
                                               'ARX_AGENT_STAT',
                                               'ARX_TRIP_CLASSES',
                                               'ARX_TRIP_DELAYS',
@@ -46,7 +46,10 @@ BEGIN
                                               'ARX_TRIP_SETS',
                                               'ARX_TRIP_STAGES',
                                               'ARX_VALUE_BAG_TAXES',
-                                              'ARX_MARK_TRIPS'));
+                                              'ARX_MARK_TRIPS',
+                                              'ARX_ANNUL_BAG',
+                                              'ARX_ANNUL_TAGS',
+                                              'ARX_LIMITED_CAPABILITY_STAT'));
 
     /* Первый проход: Ищем названия partition и tablespace */
     /* Второй проход: Выводим строку ALTER */
@@ -105,4 +108,5 @@ BEGIN
     END LOOP; /*pass*/
   END LOOP;
 END;
+
 /

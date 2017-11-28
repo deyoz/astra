@@ -6,7 +6,7 @@
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
-#include "serverlib/slogger.h"
+#include <serverlib/slogger.h>
 
 namespace Ticketing{
 namespace TickReader{
@@ -25,6 +25,54 @@ namespace TickReader{
             return (init + ((t.actCode() == TickStatAction::oldtick)?0:t.getCoupon().size()));
         }
     };
+
+    //-----------------------------------------------------------------------------------
+
+    REdiData::REdiData(EDI_REAL_MES_STRUCT *mes, edifact::EdiMessageType type)
+        : pMes(mes), MesType(type),
+          CurrCoupon(0), PassSegGr(2), TvlSegGr(3)
+    {
+        if(MesType == edifact::EdiUacReq) {
+            PassSegGr = 1;
+            TvlSegGr  = 2;
+        } else if(MesType == edifact::EdiDisplRes) {
+            PassSegGr = 3;
+            TvlSegGr  = 4;
+        } else if(MesType == edifact::EdiRacRes) {
+            PassSegGr = 3;
+            TvlSegGr  = 4;
+        }
+    }
+
+    void REdiData::resetTickCpn()
+    {
+        CurrCoupon = 0;
+        CurrTicket = std::pair<std::string, TickStatAction::TickStatAction_t>();
+    }
+
+    //-----------------------------------------------------------------------------------
+
+    REdiDataPack::REdiDataPack(EDI_REAL_MES_STRUCT *mes, edifact::EdiMessageType type)
+        : REdiData(mes, type)
+    {}
+
+    unsigned REdiDataPack::countExpectedTickets() const
+    {
+        unsigned expticks = GetNumSegGr(EdiMes(), passSegGrNum(),
+                                        "EDI_INCOMLETE");
+        LogTrace(TRACE3) << "expticks == " << expticks;
+        return expticks;
+    }
+
+    void REdiDataPack::incCurrentItem()
+    {
+        LogTrace(TRACE3) << "currentItem() == " << currentItem();
+        resetTickCpn();
+        ResetEdiPointG(EdiMes());
+        SetEdiPointToSegGrG(EdiMes(), SegGrElement(passSegGrNum(),currentItem()),
+                            "PROG_ERR");
+        ReaderDataPack::incCurrentItem();
+    }
 
 //Проверка на эквивалентность кол-ва переданных элементов
 //реально пришедшим
@@ -123,13 +171,13 @@ Passenger::SharedPtr PassengerEdiR::operator () (ReaderData &RData) const
     REdiData &Data = dynamic_cast<REdiData &>(RData);
     EDI_REAL_MES_STRUCT *pMes = Data.EdiMes();
 
-    if(GetNumSegGr(pMes, 3, "EDI_INCOMLETE")>1)
+    if(GetNumSegGr(pMes, Data.passSegGrNum(), "EDI_INCOMLETE")>1)
     {
         ProgError(STDLOG,"Too many passengers in the ticket request [%d]",
-                                GetNumSegGr(pMes, 3));
+                                GetNumSegGr(pMes, Data.passSegGrNum()));
         throw Exception("Too many passengers in the ticket request");
     }
-    SetEdiPointToSegGrG(pMes, 3,0, "PROG_ERR");
+    SetEdiPointToSegGrG(pMes, Data.passSegGrNum(), 0, "PROG_ERR");
     //SegGr 2 (TIF) - информация по пассажиру
 
     PushEdiPointG(pMes);
@@ -349,13 +397,14 @@ void TicketEdiR::operator () (ReaderData &RData, list<Ticket> &ltick,
     PushEdiPointG(pMes);
 
     unsigned numTKT=0;
-    numTKT = GetNumSegGr(pMes, 4, "INV_TUCKNUM");
+    int segGr = Data.tvlSegGrNum();
+    numTKT = GetNumSegGr(pMes, segGr, "INV_TUCKNUM");
     unsigned numNewTickets = 0;
     for(unsigned short itick=0; itick<numTKT; itick++)
     {
         edilib::EdiPointHolder ph(pMes);
 
-        SetEdiPointToSegGrG(pMes, 4, itick, "INV_TUCKNUM");
+        SetEdiPointToSegGrG(pMes, segGr, itick, "INV_TUCKNUM");
         boost::optional<edifact::TktElem> tkt = TickReader::readEdiTkt(pMes);
         if(!tkt)
             throw Exception("TKT not found");
@@ -764,7 +813,8 @@ void CouponEdiR::operator () (ReaderData &RData, list<Coupon> &lCpn) const
     REdiData &Data = dynamic_cast<REdiData &>(RData);
     EDI_REAL_MES_STRUCT *pMes = Data.EdiMes();
 
-    int numCoup = GetNumSegGr(pMes, 5, "NO_COUPONS");
+    int segGr = Data.tvlSegGrNum()+1;
+    int numCoup = GetNumSegGr(pMes, segGr, "NO_COUPONS");
     if(numCoup>4){
         ProgError(STDLOG, "Too many coupons for the ticket %s",
                   Data.currTicket().first.c_str());
@@ -774,7 +824,7 @@ void CouponEdiR::operator () (ReaderData &RData, list<Coupon> &lCpn) const
     PushEdiPoint();
     for(int i=0; i<numCoup; i++)
     {
-        SetEdiPointToSegGrG(pMes, 5,i, "PROG_ERR");
+        SetEdiPointToSegGrG(pMes, segGr, i, "PROG_ERR");
         //Считываем купоны для текущего буклета
         //Coupon
         Coupon_info Ci = MakeCouponInfo(pMes, Data.currTicket().second);

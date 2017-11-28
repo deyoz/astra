@@ -6,17 +6,9 @@ $(init_jxt_pult åéÇêéå)
 $(login)
 $(init_eds ûí UTET UTDC)
 
+$(PREPARE_FLIGHT_1 ûí 103 ÑåÑ èãä REPIN IVAN)
 
-{<?xml version='1.0' encoding='UTF-8'?>
- <term>
-   <query handle='0' id='EMDSearch' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-     <SearchEMDByDocNo>
-       <point_id>2276899</point_id>
-       <EmdNoEdit>2982348111616</EmdNoEdit>
-     </SearchEMDByDocNo>
-   </query>
- </term>}
-
+$(SEARCH_EMD_BY_DOC_NO $(last_point_id_spp) 2982348111616)
 
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -119,9 +111,11 @@ $(lastRedisplay)
           <flight index='9'>121</flight>
           <amount index='10'>0.00</amount>
           <rfisc_code index='11'>99K</rfisc_code>
-          <rfisc_desc index='12'>BAGGAGE - EXCESS WEIGHT</rfisc_desc>
-          <sac index='13'/>
-          <coup_status index='14'>O</coup_status>
+          <service_quantity index='12'>1</service_quantity>
+          <luggage index='13'>25äÉ</luggage>
+          <rfisc_desc index='14'>BAGGAGE - EXCESS WEIGHT</rfisc_desc>
+          <sac index='15'/>
+          <coup_status index='16'>O</coup_status>
         </row>
         <row index='1'>
           <num index='0'>2</num>
@@ -136,9 +130,11 @@ $(lastRedisplay)
           <flight index='9'>212</flight>
           <amount index='10'>0.00</amount>
           <rfisc_code index='11'>99K</rfisc_code>
-          <rfisc_desc index='12'>BAGGAGE - EXCESS WEIGHT</rfisc_desc>
-          <sac index='13'/>
-          <coup_status index='14'>O</coup_status>
+          <service_quantity index='12'>1</service_quantity>
+          <luggage index='13'>25äÉ</luggage>
+          <rfisc_desc index='14'>BAGGAGE - EXCESS WEIGHT</rfisc_desc>
+          <sac index='15'/>
+          <coup_status index='16'>O</coup_status>
         </row>
       </coupon>
     </emd1>
@@ -151,16 +147,9 @@ $(init_jxt_pult åéÇêéå)
 $(login)
 $(init_eds ûí UTET UTDC)
 
+$(PREPARE_FLIGHT_1 ûí 103 ÑåÑ èãä REPIN IVAN)
 
-{<?xml version='1.0' encoding='UTF-8'?>
- <term>
-   <query handle='0' id='EMDSearch' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-     <SearchEMDByDocNo>
-       <point_id>2276899</point_id>
-       <EmdNoEdit>2982348111616</EmdNoEdit>
-     </SearchEMDByDocNo>
-   </query>
- </term>}
+$(SEARCH_EMD_BY_DOC_NO $(last_point_id_spp) 2982348111616)
 
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -190,17 +179,9 @@ $(init_jxt_pult åéÇêéå)
 $(login)
 $(init_eds ûí UTET UTDC)
 
+$(PREPARE_FLIGHT_1 ûí 103 ÑåÑ èãä REPIN IVAN)
 
-{<?xml version='1.0' encoding='UTF-8'?>
- <term>
-   <query handle='0' id='EMDSearch' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-     <SearchEMDByDocNo>
-       <point_id>2276899</point_id>
-       <EmdNoEdit>2988200000386</EmdNoEdit>
-     </SearchEMDByDocNo>
-   </query>
- </term>}
-
+$(SEARCH_EMD_BY_DOC_NO $(last_point_id_spp) 2988200000386)
 
 >>
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -237,7 +218,6 @@ UNZ+1+$(last_edifact_ref)0001"
 
 >> lines=auto
     <kick...
-
 
 !! capture=on
 $(lastRedisplay)
@@ -285,9 +265,11 @@ $(lastRedisplay)
           <flight index='6'> </flight>
           <amount index='7'>500.00</amount>
           <rfisc_code index='8'>0BW</rfisc_code>
-          <rfisc_desc index='9'>REGISTRATION</rfisc_desc>
-          <sac index='10'/>
-          <coup_status index='11'>O</coup_status>
+          <service_quantity index='9'>1</service_quantity>
+          <luggage index='10'>-</luggage>
+          <rfisc_desc index='11'>REGISTRATION</rfisc_desc>
+          <sac index='12'/>
+          <coup_status index='13'>O</coup_status>
         </row>
       </coupon>
     </emd1>
@@ -317,7 +299,7 @@ UNZ+1+$(last_edifact_ref)0001"
 
 
 <<
-UNB+SIRE:1+ETP2+ETDT+160527:1125+$(last_edifact_ref)0001+++T"
+UNB+SIRE:1+UTET+UTDC+160527:1125+$(last_edifact_ref)0001+++T"
 UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
 MSG+:791+3"
 TIF+íÖëí+íÖëí"
@@ -348,7 +330,6 @@ UNZ+1+$(last_edifact_ref)0001"
 
 >> lines=auto
     <kick...
-
 
 !! capture=on
 $(lastRedisplay)
@@ -396,9 +377,11 @@ $(lastRedisplay)
           <flight index='6'>700</flight>
           <amount index='7'>0.00</amount>
           <rfisc_code index='8'>FNA</rfisc_code>
-          <rfisc_desc index='9'>ëèêÄÇäÄ éÅ àëè. ìóÄëíäÄ(éÇ)</rfisc_desc>
-          <sac index='10'/>
-          <coup_status index='11'>F</coup_status>
+          <service_quantity index='9'>1</service_quantity>
+          <luggage index='10'>-</luggage>
+          <rfisc_desc index='11'>ëèêÄÇäÄ éÅ àëè. ìóÄëíäÄ(éÇ)</rfisc_desc>
+          <sac index='12'/>
+          <coup_status index='13'>F</coup_status>
         </row>
       </coupon>
     </emd1>

@@ -9995,6 +9995,12 @@ void getPaxSeatsWL( int point_id, std::map< bool,std::map < int,TSeatRanges > > 
   }
 }
 
+void processSalonsCfg_TestMode(int point_id, int comp_id)
+{
+    //TTripClasses tripClasses(point_id);
+    //tripClasses.processBaseCompCfg(comp_id);
+    setTRIP_CLASSES(point_id);
+}
 
 } // end namespace SALONS2
 

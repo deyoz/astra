@@ -1,7 +1,6 @@
 #pragma once
-/*
-#include "CheckinBaseTypes.h"
 
+#include "CheckinBaseTypes.h"
 #include <serverlib/cursctl.h>
 #include <serverlib/slogger_nonick.h>
 
@@ -48,12 +47,12 @@ struct OciSelector<Ticketing::Value<I,base_t> > { \
         }\
     }\
     static  buf_ptr_t conv (const this_type *p) { \
-        return DefaultConvert(p ? p->never_use_except_in_OciCpp() : 0,sizeof (base_t)); \
+        return DefaultConvert(p ? p->never_use_except_in_OciCpp() : 0, sizeof(base_t), sizeof(base_t)); \
     } \
     static buf_ptr_t convnull () \
     { \
         this_type a;\
-        return DefaultConvert(a.never_use_except_in_OciCpp(), sizeof(base_t)); \
+        return DefaultConvert(a.never_use_except_in_OciCpp(), sizeof(base_t), sizeof(base_t)); \
     } \
 }; \
 template <Ticketing::IDS I> struct OciSelector<const Ticketing::Value<I,base_t> > { \
@@ -92,14 +91,4 @@ OciSelectorParInt(short);
 OciSelectorParInt(unsigned int);
 OciSelectorParInt(unsigned long);
 OciSelectorParInt(unsigned short);
-template <> struct OciSelector <Ticketing::CouponNum_t> :
-        public OciSelector<Ticketing::Value<Ticketing::COUPON,Ticketing::CouponNum_t::BaseType> >
-{
-};
-template <> struct OciSelector <const Ticketing::CouponNum_t> :
-        public OciSelector<const Ticketing::Value<Ticketing::COUPON,Ticketing::CouponNum_t::BaseType> >
-{
-};
-
-}//namespace OciCipp
-*/
+}//namespace OciCpp

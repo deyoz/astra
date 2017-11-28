@@ -1,6 +1,3 @@
-#include <stdarg.h>
-#include <string>
-#include <string.h>
 #include "astra_utils.h"
 #include "oralib.h"
 #include "astra_locale.h"
@@ -11,19 +8,24 @@
 #include "base_tables.h"
 #include "term_version.h"
 #include "qrys.h"
-#include "serverlib/tcl_utils.h"
-#include "serverlib/monitor_ctl.h"
-#include "serverlib/sirena_queue.h"
-#include "serverlib/testmode.h"
-#include "serverlib/lwriter.h"
-#include "jxtlib/JxtInterface.h"
-#include "jxtlib/jxt_cont.h"
-#include "jxtlib/xml_stuff.h"
 #include "astra_misc.h"
 #include "dev_consts.h"
 #include "dev_utils.h"
 
+#include <serverlib/tcl_utils.h>
+#include <serverlib/monitor_ctl.h>
+#include <serverlib/sirena_queue.h>
+#include <serverlib/testmode.h>
+#include <serverlib/lwriter.h>
 #include <serverlib/cursctl.h>
+#include <serverlib/dump_table.h>
+#include <jxtlib/JxtInterface.h>
+#include <jxtlib/jxt_cont.h>
+#include <jxtlib/xml_stuff.h>
+
+#include <stdarg.h>
+#include <string>
+#include <string.h>
 
 #define NICKNAME "VLAD"
 #include <serverlib/slogger.h>
@@ -60,6 +62,8 @@ string AlignString(string str, int len, string align)
     }
     return result;
 };
+
+const std::string TDesk::system_code="SYSTEM";
 
 bool TDesk::isValidVersion(const std::string &ver)
 {
@@ -1458,7 +1462,7 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   xmlNodePtr node=reqNode->children;
   for(;node!=NULL;node=node->next)
   {
-    if (strcmp((char*)node->name,"msg")==0)
+    if (strcmp((const char*)node->name,"msg")==0)
     {
       string error_type="ERROR";
       if (TReqInfo::Instance()->desk.code.substr(0, 3)=="UFA")
@@ -1487,17 +1491,17 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   };
 }
 
-string& AirpTZRegion(string airp, bool with_exception)
+const std::string& AirpTZRegion(string airp, bool with_exception)
 {
   if (airp.empty()) throw EXCEPTIONS::Exception("Airport not specified");
-  TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",airp,true);
+  const TAirpsRow& row=(const TAirpsRow&)base_tables.get("airps").get_row("code",airp,true);
   return CityTZRegion(row.city,with_exception);
 };
 
-string& CityTZRegion(string city, bool with_exception)
+const std::string &CityTZRegion(string city, bool with_exception)
 {
   if (city.empty()) throw EXCEPTIONS::Exception("City not specified");
-  TCitiesRow& row=(TCitiesRow&)base_tables.get("cities").get_row("code",city,true);
+  const TCitiesRow& row=(const TCitiesRow&)base_tables.get("cities").get_row("code",city,true);
   if (row.tz_region.empty() && with_exception)
     throw AstraLocale::UserException("MSG.CITY.REGION_NOT_DEFINED",LParams() << LParam("city", city));
   return row.tz_region;
@@ -1526,9 +1530,9 @@ string DeskCity(string desk, bool with_exception)
 
 TCountriesRow getCountryByAirp( const std::string& airp)
 {
-  TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("airps").get_row("code",airp);
-  TCitiesRow &cityRow = (TCitiesRow&)base_tables.get("cities").get_row("code",airpRow.city);
-  return ((TCountriesRow&)base_tables.get("countries").get_row("code",cityRow.country));
+  const TAirpsRow &airpRow = (const TAirpsRow&)base_tables.get("airps").get_row("code",airp);
+  const TCitiesRow &cityRow = (const TCitiesRow&)base_tables.get("cities").get_row("code",airpRow.city);
+  return ((const TCountriesRow&)base_tables.get("countries").get_row("code",cityRow.country));
 }
 
 char ToLatPnrAddr(char c)
@@ -1715,33 +1719,72 @@ string get_internal_msgid_hex()
 namespace ASTRA
 {
 
+void dumpTable(const std::string& table,
+               int loglevel, const char* nick, const char* file, int line)
+{
+    OciCpp::DumpTable dt(table);
+    dt.exec(loglevel, nick, file, line);
+}
+
+
+static void commitInTestMode_()
+{
+    const char* sql = "SAVEPOINT SP_XP_TESTING";
+    LogTrace(TRACE3) << sql;
+    std::shared_ptr <OciCpp::OracleData> odata;
+    odata = OciCpp::mainSession().cdaCursor(sql,false);
+    if (odata->exec())
+    {
+        fprintf(stderr, "SAVEPOINT SP_XP_TESTING failed");
+        abort();
+    }
+}
+
+static void rollbackInTestMode_()
+{
+    const char* sql = "ROLLBACK TO SAVEPOINT SP_XP_TESTING";
+    LogTrace(TRACE3) << sql;
+    std::shared_ptr <OciCpp::OracleData> odata;
+    odata = OciCpp::mainSession().cdaCursor(sql,false);
+    if (odata->exec())
+    {
+        LogError (STDLOG) << odata->error_text()<<"\n" << sql;
+        fprintf(stderr, "ROLLBACK TO SAVEPOINT SP_XP_TESTING failed\n");
+        abort();
+    }
+}
+
 void commit()
 {
-    //inTestMode()?commit():OraSession.Commit();
-    if(!inTestMode())
+    LogTrace(TRACE3) << "ASTRA::commit()";
+    if(inTestMode()) {
+        commitInTestMode_();
+    } else {
         OraSession.Commit();
+    }
 }
 
 void rollback()
 {
-    //inTestMode()?rollback():OraSession.Rollback();
-    if(!inTestMode())
+    LogTrace(TRACE3) << "ASTRA::rollback()";
+    if(inTestMode()) {
+        rollbackInTestMode_();
+    } else {
         OraSession.Rollback();
+    }
 }
 
 void rollbackSavePax()
 {
     LogTrace(TRACE3) << "ASTRA::rollbackSavePax()";
     //make_curs("rollback to savepoint sp_savepax").exec();
-    rollback(); //!!!TODO когда будем ставить IATCI подумать
+    rollback();
 }
 
-/*
 tlgnum_t make_tlgnum(int n)
 {
   return tlgnum_t(boost::lexical_cast<std::string>(n));
 }
-*/
 
 XMLDoc createXmlDoc(const std::string& xml)
 {

@@ -6,16 +6,13 @@
 */
 #include "tlg_types.h"
 
-template <> BaseTypeElemHolder< TlgHandling::TlgTypesList >::TypesMap
-        BaseTypeElemHolder< TlgHandling::TlgTypesList >::VTypes =
-        BaseTypeElemHolder< TlgHandling::TlgTypesList >::TypesMap();
-template <> bool BaseTypeElemHolder<TlgHandling::TlgTypesList>::initialized = false;
-template <> void BaseTypeElemHolder<TlgHandling::TlgTypesList>::init()
+using namespace TlgHandling;
+
+DESCRIBE_CODE_SET(TlgTypesList)
 {
-    using namespace TlgHandling;
-    addElem( TlgTypesList(TlgType::unknown,   "",    "Unknown", "Неизвестный"));
-    addElem( TlgTypesList(TlgType::edifact,   "TPA", "Edifact", "Edifact"));
-    addElem( TlgTypesList(TlgType::airimp,    "TPB", "Type B" , "Type B"));
+    addElem(VTypes, TlgTypesList(TlgType::unknown,   "",    "Unknown", "Неизвестный"));
+    addElem(VTypes, TlgTypesList(TlgType::edifact,   "TPA", "Edifact", "Edifact"));
+    addElem(VTypes, TlgTypesList(TlgType::airimp,    "TPB", "Type B" , "Type B"));
 }
 
 namespace TlgHandling

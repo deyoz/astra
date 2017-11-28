@@ -1,24 +1,32 @@
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include "tlg.h"
 #include <string>
 #include "date_time.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "astra_consts.h"
+#include "astra_context.h"
 #include "astra_utils.h"
 #include "tlg_source_edifact.h"
+#include "tlg_source_typeb.h"
 #include "qrys.h"
 #include <serverlib/tcl_utils.h>
 #include <serverlib/logger.h>
 #include <serverlib/testmode.h>
 #include <serverlib/TlgLogger.h>
 #include <serverlib/posthooks.h>
+#include <serverlib/cursctl.h>
 #include <edilib/edi_user_func.h>
 #include <libtlg/tlg_outbox.h>
+#include <libtlg/hth.h>
 #include "xp_testing.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
@@ -96,7 +104,6 @@ int getNextTlgNum()
 int saveTlg(const char * receiver,
             const char * sender,
             const char * type,
-            int ttl,
             const std::string &text,
             int typeb_tlg_id, int typeb_tlg_num)
 {
@@ -154,17 +161,7 @@ void putTypeBBody(int tlg_id, int tlg_num, const string &tlg_body)
   QryParams << QParam("text", otString);
   TCachedQuery TextQry(sql, QryParams);
 
-  std::string::const_iterator ib,ie;
-  ib=tlg_body.begin();
-  for(int page_no=1;ib<tlg_body.end();page_no++)
-  {
-    ie=ib+4000;
-    if (ie>tlg_body.end()) ie=tlg_body.end();
-    TextQry.get().SetVariable("page_no", page_no);
-    TextQry.get().SetVariable("text", std::string(ib,ie));
-    TextQry.get().Execute();
-    ib=ie;
-  };
+  longToDB(TextQry.get(), "text", tlg_body);
 };
 
 string getTypeBBody(int tlg_id, int tlg_num)
@@ -179,7 +176,7 @@ string getTypeBBody(int tlg_id, int tlg_num)
   TCachedQuery TextQry(sql, QryParams);
   TextQry.get().Execute();
   for(;!TextQry.get().Eof;TextQry.get().Next())
-    result+=TextQry.get().FieldAsString("text");  
+    result+=TextQry.get().FieldAsString("text");
   return result;
 };
 
@@ -198,33 +195,30 @@ void putTlgText(int tlg_id, const string &tlg_text)
   QryParams << QParam("text", otString);
   TCachedQuery TextQry(sql, QryParams);
 
-  std::string::const_iterator ib,ie;
-  ib=tlg_text.begin();
-  for(int page_no=1;ib<tlg_text.end();page_no++)
-  {
-    ie=ib+4000;
-    if (ie>tlg_text.end()) ie=tlg_text.end();
-    TextQry.get().SetVariable("page_no", page_no);
-    TextQry.get().SetVariable("text", std::string(ib,ie));
-    TextQry.get().Execute();
-    ib=ie;
-  };
-};
+  longToDB(TextQry.get(), "text", tlg_text);
+}
 
-string getTlgText(int tlg_id)
+std::string getTlgText(int tlg_id)
 {
-  string result;
+    std::string text;
 
-  const char* sql=
+    const char* sql=
     "SELECT text FROM tlgs_text WHERE id=:id ORDER BY page_no";
-  QParams QryParams;
-  QryParams << QParam("id", otInteger, tlg_id);
-  TCachedQuery TextQry(sql, QryParams);
-  TextQry.get().Execute();
-  for(;!TextQry.get().Eof;TextQry.get().Next())
-    result+=TextQry.get().FieldAsString("text");  
-  return result;
-};
+    QParams QryParams;
+    QryParams << QParam("id", otInteger, tlg_id);
+    TCachedQuery TextQry(sql, QryParams);
+    TextQry.get().Execute();
+    for(;!TextQry.get().Eof;TextQry.get().Next())
+        text+=TextQry.get().FieldAsString("text");
+    return text;
+}
+
+std::string getTlgText2(const tlgnum_t& tnum)
+{
+    tlgnum_t tlgNum(tnum); // to avoid compiler warning treated as error (used unitialized)
+    const int tlg_id = boost::lexical_cast<int>(tlgNum.num);
+    return getTlgText(tlg_id);
+}
 
 static void logTlgTypeA(const std::string& text)
 {
@@ -247,7 +241,7 @@ static void logTlg(const std::string& type, int tlgNum, const std::string& recei
         return;
 
     LogTlg() << "| TNUM: " << tlgNum
-             << " | DIR: " << "OUT"
+             << " | DIR: " << type
              << " | ROUTER: " << receiver
              << " | TSTAMP: " << boost::posix_time::second_clock::local_time();
 
@@ -257,6 +251,25 @@ static void logTlg(const std::string& type, int tlgNum, const std::string& recei
         logTlgTypeB(text);
     else
         logTlgTypeAPP(text);
+}
+
+static void logTlg(const TlgHandling::TlgSourceEdifact& tlg)
+{
+    LogTlg() << "| TNUM: " << *tlg.tlgNum()
+             << " | DIR: " << "OUTA"
+             << " | ROUTER: " << tlg.toRot()
+             << " | TSTAMP: " << boost::posix_time::second_clock::local_time() << "\n"
+             << (tlg.h2h() ? hth::toStringOnTerm(*tlg.h2h()) + "\n" : "")
+             << tlg.text2view();
+}
+
+static void logTlg(const TlgHandling::TlgSourceTypeB& tlg)
+{
+    LogTlg() << "| TNUM: " << *tlg.tlgNum()
+             << " | DIR: " << "OUTB"
+             << " | ROUTER: " << tlg.toRot()
+             << " | TSTAMP: " << boost::posix_time::second_clock::local_time() << "\n"
+             << tlg.text2view();
 }
 
 static void putTlg2OutQueue(const std::string& receiver,
@@ -296,9 +309,47 @@ static void putTlg2OutQueue(const std::string& receiver,
         xp_testing::TlgOutbox::getInstance().push(tlgnum_t("no tlg num"), text, 0);
     }
 #endif /* #ifdef XP_TESTING */
+}
 
-    // дадим работу TlgLogger'у
-    logTlg(type, tlgNum, receiver, text);
+struct TlgTypePriority
+{
+    std::string Type;
+    int Priority;
+
+    TlgTypePriority(const std::string& t, int p)
+        : Type(t), Priority(p)
+    {}
+};
+
+static TlgTypePriority getTlgTypePriority(TTlgQueuePriority queuePriority)
+{
+    switch(queuePriority)
+    {
+    case qpOutA:
+        return TlgTypePriority("OUTA", qpOutA);
+    case qpOutAStepByStep:
+        return TlgTypePriority("OUTA", qpOutAStepByStep);
+    case qpOutApp:
+        return TlgTypePriority("OAPP", qpOutApp);
+    case qpOutB:
+        return TlgTypePriority("OUTB", qpOutB);
+    default:
+        return TlgTypePriority("OUTB", qpOutB);
+    }
+}
+
+static void putTlg2OutQueue(const TlgHandling::TlgSourceEdifact& tlg,
+                            TTlgQueuePriority queuePriority,
+                            int ttl)
+{
+    if(tlg.tlgNum()) {
+        TlgTypePriority tp = getTlgTypePriority(queuePriority);
+        tlgnum_t tlgNum = *tlg.tlgNum();
+        int tnum = boost::lexical_cast<int>(tlgNum.num);
+        putTlg2OutQueue(tlg.toRot(), tlg.fromRot(), tp.Type, tlg.text(), tp.Priority, tnum, ttl);
+    } else {
+        LogError(STDLOG) << "Invalid tlgNum!";
+    }
 }
 
 int sendTlg(const char* receiver,
@@ -311,40 +362,68 @@ int sendTlg(const char* receiver,
 {
     try
     {
-        std::string type;
-        int priority;
-        switch(queuePriority)
-        {
-          case qpOutA:
-            type = "OUTA";
-            priority = qpOutA;
-            break;
-          case qpOutAStepByStep:
-            type = "OUTA";
-            priority = qpOutAStepByStep;
-            break;
-          case qpOutApp:
-            type = "OAPP";
-            priority = qpOutApp;
-          break;
-          default:
-            type = "OUTB";
-            priority = qpOutB;
-            break;
-        };
+        TlgTypePriority tp = getTlgTypePriority(queuePriority);
 
-        int tlg_num = saveTlg(receiver, sender, type.c_str(), ttl, text,
+        int tlg_num = saveTlg(receiver, sender, tp.Type.c_str(), text,
                               typeb_tlg_id, typeb_tlg_num);
 
         // кладём тлг в очередь на отправку
-        putTlg2OutQueue(receiver, sender, type, text, priority, tlg_num, ttl);
+        putTlg2OutQueue(receiver, sender, tp.Type, text, tp.Priority, tlg_num, ttl);
 
-        if (queuePriority==qpOutAStepByStep)
-          registerHookAfter(sendCmdTlgSndStepByStep);
-        else
-          registerHookAfter(sendCmdTlgSnd);
+        logTlg(tp.Type, tlg_num, receiver, text);
+
+        registerHookAfter(queuePriority==qpOutAStepByStep?
+                            sendCmdTlgSndStepByStep:
+                            sendCmdTlgSnd);
 
         return tlg_num;
+    }
+    catch( std::exception &e)
+    {
+        ProgError(STDLOG, "%s", e.what());
+        throw;
+    }
+    catch(...)
+    {
+        ProgError(STDLOG, "sendTlg: Unknown error");
+        throw;
+    };
+}
+
+
+void sendEdiTlg(TlgHandling::TlgSourceEdifact& tlg,
+                TTlgQueuePriority queuePriority,
+                int ttl)
+{
+    try
+    {
+        tlg.write(); // сохранение телеграммы
+        putTlg2OutQueue(tlg, queuePriority, ttl);
+        logTlg(tlg);
+        registerHookAfter(queuePriority==qpOutAStepByStep?
+                            sendCmdTlgSndStepByStep:
+                            sendCmdTlgSnd);
+    }
+    catch( std::exception &e)
+    {
+        ProgError(STDLOG, "%s", e.what());
+        throw;
+    }
+    catch(...)
+    {
+        ProgError(STDLOG, "sendTlg: Unknown error");
+        throw;
+    };
+}
+
+void sendTpbTlg(TlgHandling::TlgSourceTypeB& tlg)
+{
+    try
+    {
+        tlg.write(); // сохранение телеграммы
+        putTlg2OutQueue(tlg, qpOutB, 0/*ttl*/);
+        logTlg(tlg);
+        registerHookAfter(sendCmdTlgSnd);
     }
     catch( std::exception &e)
     {
@@ -446,6 +525,7 @@ int loadTlg(const std::string &text, int prev_typeb_tlg_id, bool &hist_uniq_erro
 
 bool deleteTlg(int tlg_id)
 {
+    LogTrace(TRACE3) << "del tlg by num: " << tlg_id;
   try
   {
     TQuery TlgQry(&OraSession);
@@ -688,6 +768,32 @@ void sendCmd(const char* receiver, const char* cmd, int cmd_len)
   };
 };
 
+int bindLocalSocket(const string &sun_path)
+{
+  int sockfd=socket(AF_UNIX,SOCK_DGRAM,0);
+  if ((sockfd)==-1)
+    throw EXCEPTIONS::Exception("%s: 'socket' error %d: %s",__FUNCTION__,errno,strerror(errno));
+  try
+  {
+    ProgTrace(TRACE5, "%s: sun_path=%s sockfd=%d", __FUNCTION__, sun_path.c_str(), sockfd);
+    struct sockaddr_un sock_addr;
+    memset(&sock_addr,0,sizeof(sock_addr));
+    sock_addr.sun_family=AF_UNIX;
+    if (sun_path.empty() || sun_path.size()>sizeof (sock_addr.sun_path) - 1)
+      throw EXCEPTIONS::Exception( "%s: wrong sun_path '%s'", __FUNCTION__, sun_path.c_str() );
+    unlink(sun_path.c_str());
+    strcpy(sock_addr.sun_path,sun_path.c_str());
+    if (bind(sockfd,(struct sockaddr*)&sock_addr,sizeof(sock_addr))==-1)
+      throw EXCEPTIONS::Exception("%s: 'bind' error %d: %s", __FUNCTION__, errno, strerror(errno));
+  }
+  catch(...)
+  {
+    close(sockfd);
+    throw;
+  };
+  return sockfd;
+}
+
 int waitCmd(const char* receiver, int msecs, const char* buf, int buflen)
 {
   if (receiver==NULL || *receiver==0)
@@ -699,28 +805,7 @@ int waitCmd(const char* receiver, int msecs, const char* buf, int buflen)
   int sockfd;
   if (sockfds.find(receiver)==sockfds.end())
   {
-    if ((sockfd=socket(AF_UNIX,SOCK_DGRAM,0))==-1)
-      throw EXCEPTIONS::Exception("waitCmd: 'socket' error %d: %s",errno,strerror(errno));
-    try
-    {
-      ProgTrace(TRACE5, "waitCmd: receiver=%s sockfd=%d",receiver,sockfd);
-      struct sockaddr_un sock_addr;
-      memset(&sock_addr,0,sizeof(sock_addr));
-      sock_addr.sun_family=AF_UNIX;
-      string sun_path=readStringFromTcl( receiver, "");
-      if (sun_path.empty() || sun_path.size()>sizeof (sock_addr.sun_path) - 1)
-        throw EXCEPTIONS::Exception( "waitCmd: can't read parameter '%s'", receiver );
-      unlink(sun_path.c_str());
-      strcpy(sock_addr.sun_path,sun_path.c_str());
-      if (bind(sockfd,(struct sockaddr*)&sock_addr,sizeof(sock_addr))==-1)
-        throw EXCEPTIONS::Exception("waitCmd: 'bind' error %d: %s",errno,strerror(errno));
-      sockfds[receiver]=sockfd;
-    }
-    catch(...)
-    {
-      close(sockfd);
-      throw;
-    };
+    sockfds[receiver]=bindLocalSocket(readStringFromTcl( receiver, ""));
     ProgTrace(TRACE5,"waitCmd: receiver %s added",receiver);
   };
   sockfd=sockfds[receiver];

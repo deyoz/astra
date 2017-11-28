@@ -38,7 +38,8 @@
 #include "httpClient.h"
 #include "TypeBHelpMng.h"
 #include "sirena_exchange.h"
-#include <boost/thread/thread.hpp>
+#include <thread>
+#include <chrono>
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -55,7 +56,18 @@ using namespace std;
 
 void exec_tasks( const char *proc_name, int argc, char *argv[] );
 
-static void * watchDog(void * arg);
+static void watchDog(TDateTime* ptimer)
+{
+  while (true) {
+    std::this_thread::sleep_for(std::chrono::minutes(keep_alive_minuts));
+    if (*ptimer == 0.0) continue;
+    double minutes = (NowUTC() - *ptimer)*1440.0;
+    if(minutes > keep_alive_minuts) {
+      ProgError( STDLOG, "Timer aborted" );
+      abort();
+    }
+  }
+}
 
 int main_timer_tcl(int supervisorSocket, int argc, char *argv[])
 {
@@ -78,7 +90,7 @@ int main_timer_tcl(int supervisorSocket, int argc, char *argv[])
         ->connect_db();
     init_locale();
     TDateTime watchdog_timer;
-    boost::thread watchdog_thread(&watchDog, (void *)&watchdog_timer);
+    std::thread watchdog_thread(watchDog, &watchdog_timer);
     for( ;; )
     {
       InitLogTime(argc>0?argv[0]:NULL);
@@ -483,17 +495,3 @@ void sync_sirena_codes( void )
     ProgTrace(TRACE5,"sync_sirena_codes stopped");
 }
 
-static void * watchDog(void * arg)
-{
-  TDateTime * ptimer = static_cast<TDateTime *>(arg);
-  while (true) {
-    sleep(keep_alive_minuts * 60);
-    if (*ptimer == 0.0) continue;
-    double minutes = (NowUTC() - *ptimer)*1440.0;
-    if(minutes > keep_alive_minuts) {
-      ProgError( STDLOG, "Timer aborted" );
-      abort();
-    }
-  }
-  return NULL;
-}

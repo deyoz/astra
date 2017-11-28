@@ -90,4 +90,5 @@ BEGIN
     END LOOP;
   END LOOP;
 END check_arx_columns;
+
 /

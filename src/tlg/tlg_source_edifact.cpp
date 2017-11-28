@@ -10,8 +10,8 @@
 #include <libtlg/telegrams.h>
 #include <serverlib/cursctl.h>
 
-#define NICKNAME "ROMAN"
-#define NICKTRACE ROMAN_TRACE
+#define NICKNAME "ANTON"
+#define NICKTRACE ANTON_TRACE
 #include <serverlib/slogger.h>
 
 
@@ -35,29 +35,32 @@ bool TlgSourceEdifact::isItYours(const std::string & txt)
 
 void TlgSourceEdifact::write()
 {
+    LogTrace(TRACE1) << "TlgSourceEdifact write";
     TlgSourceTypified::writeToDb(*this);
-    if(!h2h())
-    {
+    if(!h2h()) {
         LogTrace(TRACE3) << "No h2h";
+    }
+    else if(!tlgNum()) {
+        LogTrace(TRACE3) << "No tlgNum";
     }
     else
     {
-        if (telegrams::callbacks()->writeHthInfo(tlgNum(), *H2h)) {
-            LogError(STDLOG) << "writeHthInfo failed: " << tlgNum();
+        if (telegrams::callbacks()->writeHthInfo(*tlgNum(), *H2h)) {
+            LogError(STDLOG) << "writeHthInfo failed: " << *tlgNum();
         }
     }
 }
 
 void TlgSourceEdifact::readH2H()
 {
-    if(!tlgNum().num.valid())
+    if(!tlgNum())
     {
         tst();
         return;
     }
 
     hth::HthInfo tmp;
-    if (telegrams::callbacks()->readHthInfo(tlgNum(), tmp) < 0)
+    if (telegrams::callbacks()->readHthInfo(*tlgNum(), tmp) < 0)
     {
         LogTrace(TRACE3) << "Edifact without H2H";
         H2h.reset();
@@ -93,11 +96,6 @@ const std::string &TlgSourceEdifact::text2view() const
     return Text2View;
 }
 
-void TlgSourceEdifact::setTlgSubtype(const std::string & stype)
-{
-    throw EXCEPTIONS::Exception("Not implemented yet");
-}
-
 bool TlgHandling::TlgSourceEdifact::operator ==(const TlgSourceEdifact & t) const
 {
     if(text() == t.text() &&
@@ -125,4 +123,4 @@ std::ostream & operator <<(std::ostream & os, const TlgSourceEdifact & tlg)
     return os;
 }
 
-}
+}//namespace TlgHandling

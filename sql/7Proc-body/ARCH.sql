@@ -342,6 +342,9 @@ IS
   CURSOR curAODBPax(vpoint_id       points.point_id%TYPE) IS
     SELECT pax_id,point_addr FROM aodb_pax WHERE point_id=vpoint_id;
 
+  CURSOR langCur IS
+    SELECT code AS lang FROM lang_types;
+
 n       INTEGER;
 pax_count INTEGER;
 
@@ -395,69 +398,50 @@ BEGIN
     WHERE move_id=vmove_id;
   END IF;
 
-  SELECT rowid BULK COLLECT INTO rowids
-  FROM events
-  WHERE type IN (system.evtDisp) AND id1=vmove_id FOR UPDATE;
-  IF use_move_insert THEN
+  FOR langCurRow IN langCur LOOP
+    SELECT rowid BULK COLLECT INTO rowids
+    FROM events_bilingual
+    WHERE lang=langCurRow.lang AND type IN (system.evtDisp) AND id1=vmove_id FOR UPDATE;
+
+    IF use_move_insert THEN
+      FORALL i IN 1..rowids.COUNT
+        INSERT INTO arx_events
+          (type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,part_key,part_num,lang)
+        SELECT
+           type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,vpart_key,part_num,lang
+        FROM events_bilingual
+        WHERE rowid=rowids(i);
+    END IF;
     FORALL i IN 1..rowids.COUNT
-      INSERT INTO arx_events
-        (type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,part_key)
-      SELECT
-         type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,vpart_key
-      FROM events
-      WHERE rowid=rowids(i);
-  END IF;
-  FORALL i IN 1..rowids.COUNT
-    DELETE FROM events WHERE rowid=rowids(i);
+      DELETE FROM events_bilingual WHERE rowid=rowids(i);
+  END LOOP;
 
   FOR curRow IN cur LOOP
     pax_count:=0;
     use_insert:=curRow.pr_del<>-1;
 
-    IF use_insert THEN
-      IF curRow.pr_del=0 AND curRow.pr_reg<>0 THEN
-        SELECT pr_stat INTO n FROM trip_sets WHERE point_id=curRow.point_id;
-        IF n=0 THEN
-          --соберем статистику
-          statist.get_full_stat(curRow.point_id, 1);
-        END IF;
-        system.MsgToLog('Рейс перемещен в архив',system.evtFlt,curRow.point_id);
+    FOR langCurRow IN langCur LOOP
+      SELECT rowid BULK COLLECT INTO rowids
+      FROM events_bilingual
+      WHERE lang=langCurRow.lang AND type IN (system.evtFlt,
+                                              system.evtGraph,
+                                              system.evtFltTask,
+                                              system.evtPax,
+                                              system.evtPay,
+                                              system.evtTlg,
+                                              system.evtPrn) AND id1=curRow.point_id FOR UPDATE;
+      IF use_insert THEN
+        FORALL i IN 1..rowids.COUNT
+          INSERT INTO arx_events
+            (type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,part_key,part_num,lang)
+          SELECT
+             type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,vpart_key,part_num,lang
+          FROM events_bilingual
+          WHERE rowid=rowids(i);
       END IF;
-    END IF;
-
-    SELECT rowid BULK COLLECT INTO rowids
-    FROM etickets
-    WHERE point_id=curRow.point_id FOR UPDATE;
-    IF use_insert THEN
       FORALL i IN 1..rowids.COUNT
-        INSERT INTO arx_etickets
-          (ticket_no,coupon_no,point_id,airp_dep,airp_arv,coupon_status,error,part_key)
-        SELECT
-           ticket_no,coupon_no,point_id,airp_dep,airp_arv,coupon_status,error,vpart_key
-        FROM etickets
-        WHERE rowid=rowids(i);
-    END IF;
-    FORALL i IN 1..rowids.COUNT
-      DELETE FROM etickets WHERE rowid=rowids(i);
-
-    SELECT rowid BULK COLLECT INTO rowids
-    FROM events
-    WHERE type IN (system.evtFlt,
-                   system.evtGraph,
-                   system.evtPax,
-                   system.evtPay,
-                   system.evtTlg) AND id1=curRow.point_id FOR UPDATE;
-    IF use_insert THEN
-      FORALL i IN 1..rowids.COUNT
-        INSERT INTO arx_events
-          (type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,part_key)
-        SELECT
-           type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,vpart_key
-        FROM events
-        WHERE rowid=rowids(i);
-    END IF;
-    FORALL i IN 1..rowids.COUNT
-      DELETE FROM events WHERE rowid=rowids(i);
+        DELETE FROM events_bilingual WHERE rowid=rowids(i);
+    END LOOP;
 
     SELECT rowid,grp_id BULK COLLECT INTO grprowids,grpids
     FROM pax_grp
@@ -482,28 +466,124 @@ BEGIN
       FORALL i IN 1..grprowids.COUNT
         INSERT INTO arx_pax_grp
           (grp_id,point_dep,point_arv,airp_dep,airp_arv,class,class_grp,
-           status,excess,hall,bag_refuse,user_id,client_type,point_id_mark,pr_mark_norms,tid,part_key)
+           status,excess,excess_wt,excess_pc,hall,bag_refuse,user_id,client_type,point_id_mark,pr_mark_norms,
+           piece_concept,bag_types_id,desk,time_create,tid,part_key)
         SELECT
            grp_id,point_dep,point_arv,airp_dep,airp_arv,class,class_grp,
-           status,excess,hall,bag_refuse,user_id,client_type,point_id_mark,pr_mark_norms,tid,vpart_key
+           status,excess,excess_wt,excess_pc,hall,bag_refuse,user_id,client_type,point_id_mark,pr_mark_norms,
+           piece_concept,bag_types_id,desk,time_create,tid,vpart_key
         FROM pax_grp
         WHERE rowid=grprowids(i);
     END IF;
 
     SELECT rowid BULK COLLECT INTO rowids
-    FROM kiosk_stat
+    FROM self_ckin_stat
     WHERE point_id=curRow.point_id FOR UPDATE;
     IF use_insert THEN
       FORALL i IN 1..rowids.COUNT
-        INSERT INTO arx_kiosk_stat
-          (point_id, desk, desk_airp, descr, adult, child, baby, tckin, part_key)
+        INSERT INTO arx_self_ckin_stat
+          (point_id, client_type, desk, desk_airp, descr, adult, child, baby, tckin,
+           term_bp, term_bag, term_ckin_service, part_key)
         SELECT
-           point_id, desk, desk_airp, descr, adult, child, baby, tckin, vpart_key
-        FROM kiosk_stat
+           point_id, client_type, desk, desk_airp, descr, adult, child, baby, tckin,
+           term_bp, term_bag, term_ckin_service, vpart_key
+        FROM self_ckin_stat
         WHERE rowid=rowids(i);
     END IF;
     FORALL i IN 1..rowids.COUNT
-      DELETE FROM kiosk_stat WHERE rowid=rowids(i);
+      DELETE FROM self_ckin_stat WHERE rowid=rowids(i);
+
+    SELECT rowid BULK COLLECT INTO rowids
+    FROM rfisc_stat
+    WHERE point_id=curRow.point_id FOR UPDATE;
+    IF use_insert THEN
+      FORALL i IN 1..rowids.COUNT
+        INSERT INTO arx_rfisc_stat
+           (point_id, pr_trfer, trfer_airline, trfer_flt_no, trfer_suffix, trfer_airp_arv, trfer_scd,
+            point_num, airp_arv, rfisc, excess, paid, tag_no, fqt_no, travel_time, user_login, user_descr, desk, time_create, part_key)
+        SELECT
+           point_id, pr_trfer, trfer_airline, trfer_flt_no, trfer_suffix, trfer_airp_arv, trfer_scd,
+            point_num, airp_arv, rfisc, excess, paid, tag_no, fqt_no, travel_time, user_login, user_descr, desk, time_create, vpart_key
+        FROM rfisc_stat
+        WHERE rowid=rowids(i);
+    END IF;
+    FORALL i IN 1..rowids.COUNT
+      DELETE FROM rfisc_stat WHERE rowid=rowids(i);
+
+    SELECT rowid BULK COLLECT INTO rowids
+    FROM service_stat
+    WHERE point_id=curRow.point_id FOR UPDATE;
+    IF use_insert THEN
+      FORALL i IN 1..rowids.COUNT
+        INSERT INTO arx_service_stat
+        (point_id, travel_time, rem_code, ticket_no, airp_last, user_id, desk, rfisc, rate, rate_cur, part_key)
+        SELECT
+         point_id, travel_time, rem_code, ticket_no, airp_last, user_id, desk, rfisc, rate, rate_cur, vpart_key
+        FROM service_stat
+        WHERE rowid=rowids(i);
+    END IF;
+    FORALL i IN 1..rowids.COUNT
+      DELETE FROM service_stat WHERE rowid=rowids(i);
+
+    SELECT rowid BULK COLLECT INTO rowids
+    FROM limited_capability_stat
+    WHERE point_id=curRow.point_id FOR UPDATE;
+    IF use_insert THEN
+      FORALL i IN 1..rowids.COUNT
+        INSERT INTO arx_limited_capability_stat
+        (point_id, airp_arv, rem_code, pax_amount, part_key)
+        SELECT
+         point_id, airp_arv, rem_code, pax_amount, vpart_key
+        FROM limited_capability_stat
+        WHERE rowid=rowids(i);
+    END IF;
+    FORALL i IN 1..rowids.COUNT
+      DELETE FROM limited_capability_stat WHERE rowid=rowids(i);
+
+    SELECT rowid BULK COLLECT INTO rowids
+    FROM pfs_stat
+    WHERE point_id=curRow.point_id FOR UPDATE;
+    IF use_insert THEN
+      FORALL i IN 1..rowids.COUNT
+        INSERT INTO arx_pfs_stat
+        (point_id, pax_id, status, airp_arv, seats, subcls, pnr, surname, name, gender, birth_date, part_key)
+        SELECT
+         point_id, pax_id, status, airp_arv, seats, subcls, pnr, surname, name, gender, birth_date, vpart_key
+        FROM pfs_stat
+        WHERE rowid=rowids(i);
+    END IF;
+    FORALL i IN 1..rowids.COUNT
+      DELETE FROM pfs_stat WHERE rowid=rowids(i);
+
+    SELECT rowid BULK COLLECT INTO rowids
+    FROM voucher_stat
+    WHERE point_id=curRow.point_id FOR UPDATE;
+    IF use_insert THEN
+      FORALL i IN 1..rowids.COUNT
+        INSERT INTO arx_voucher_stat
+        (id, pax_id, time_print, point_id, scd_out, surname, name, voucher, desk, part_key)
+        SELECT
+         id, pax_id, time_print, point_id, scd_out, surname, name, voucher, desk, vpart_key
+        FROM voucher_stat
+        WHERE rowid=rowids(i);
+    END IF;
+    FORALL i IN 1..rowids.COUNT
+      DELETE FROM voucher_stat WHERE rowid=rowids(i);
+
+    SELECT rowid BULK COLLECT INTO rowids
+    FROM trfer_pax_stat
+    WHERE point_id=curRow.point_id FOR UPDATE;
+    IF use_insert THEN
+      FORALL i IN 1..rowids.COUNT
+        INSERT INTO arx_trfer_pax_stat
+        (point_id, scd_out, pax_id, rk_weight, bag_weight, bag_amount, segments, part_key)
+        SELECT
+         point_id, scd_out, pax_id, rk_weight, bag_weight, bag_amount, segments, vpart_key
+        FROM trfer_pax_stat
+        WHERE rowid=rowids(i);
+    END IF;
+    FORALL i IN 1..rowids.COUNT
+      DELETE FROM trfer_pax_stat WHERE rowid=rowids(i);
 
     SELECT rowid BULK COLLECT INTO rowids
     FROM agent_stat
@@ -529,10 +609,10 @@ BEGIN
       FORALL i IN 1..rowids.COUNT
         INSERT INTO arx_stat
           (point_id,airp_arv,hall,status,client_type,f,c,y,adult,child,baby,child_wop,baby_wop,
-           pcs,weight,unchecked,excess,part_key)
+           pcs,weight,unchecked,excess,excess_pc,term_bp,term_bag,term_ckin_service,part_key)
         SELECT
            point_id,airp_arv,hall,status,client_type,f,c,y,adult,child,baby,child_wop,baby_wop,
-           pcs,weight,unchecked,excess,vpart_key
+           pcs,weight,unchecked,excess,excess_pc,term_bp,term_bag,term_ckin_service,vpart_key
         FROM stat
         WHERE rowid=rowids(i);
     END IF;
@@ -546,10 +626,10 @@ BEGIN
       FORALL i IN 1..rowids.COUNT
         INSERT INTO arx_trfer_stat
           (point_id,trfer_route,client_type,f,c,y,adult,child,baby,child_wop,baby_wop,
-           pcs,weight,unchecked,excess,part_key)
+           pcs,weight,unchecked,excess,excess_pc,part_key)
         SELECT
            point_id,trfer_route,client_type,f,c,y,adult,child,baby,child_wop,baby_wop,
-           pcs,weight,unchecked,excess,vpart_key
+           pcs,weight,unchecked,excess,excess_pc,vpart_key
         FROM trfer_stat
         WHERE rowid=rowids(i);
     END IF;
@@ -602,9 +682,9 @@ BEGIN
       WHERE point_dep=curRow.point_id;
 
       INSERT INTO arx_trip_sets
-        (point_id,max_commerce,comp_id,pr_etstatus,pr_stat,pr_tranz_reg,f,c,y,pr_airp_seance,part_key)
+        (point_id,max_commerce,comp_id,pr_etstatus,pr_stat,pr_tranz_reg,f,c,y,part_key)
       SELECT
-         point_id,max_commerce,comp_id,pr_etstatus,pr_stat,pr_tranz_reg,f,c,y,pr_airp_seance,vpart_key
+         point_id,max_commerce,comp_id,pr_etstatus,pr_stat,pr_tranz_reg,f,c,y,vpart_key
       FROM trip_sets
       WHERE point_id=curRow.point_id;
 
@@ -678,17 +758,57 @@ BEGIN
 
     FOR j IN 1..grpids.COUNT LOOP
       /* ======================цикл по группам пассажиров========================= */
+
+      SELECT id BULK COLLECT INTO miscids
+      FROM annul_bag
+      WHERE grp_id=grpids(j) FOR UPDATE;
+      IF use_insert THEN
+        FORALL i IN 1..miscids.COUNT
+          INSERT INTO arx_annul_bag
+          (id, grp_id, pax_id, bag_type, rfisc, time_create, time_annul, amount,
+          weight, user_id, part_key)
+          SELECT
+          id, grp_id, pax_id, bag_type, rfisc, time_create, time_annul, amount,
+          weight, user_id, vpart_key
+          FROM annul_bag
+          WHERE id=miscids(i);
+        forall i in 1..miscids.count
+          insert into arx_annul_tags (id, no, part_key)
+          select id, no, vpart_key from annul_tags where id = miscids(i);
+      END IF;
+      forall i in 1..miscids.count
+        delete from annul_tags where id = miscids(i);
+      FORALL i IN 1..miscids.count
+        DELETE FROM annul_bag WHERE id=miscids(i);
+
+      SELECT rowid BULK COLLECT INTO rowids
+      FROM unaccomp_bag_info
+      WHERE grp_id=grpids(j) FOR UPDATE;
+      IF use_insert THEN
+        FORALL i IN 1..rowids.COUNT
+          INSERT INTO arx_unaccomp_bag_info
+            (original_tag_no, surname, name, airline, flt_no, suffix, scd, grp_id, num, part_key)
+          select
+            original_tag_no, surname, name, airline, flt_no, suffix, scd, grp_id, num, vpart_key
+          FROM unaccomp_bag_info
+          WHERE rowid=rowids(i);
+      END IF;
+      FORALL i IN 1..rowids.COUNT
+        DELETE FROM unaccomp_bag_info WHERE rowid=rowids(i);
+
       SELECT rowid BULK COLLECT INTO rowids
       FROM bag2
       WHERE grp_id=grpids(j) FOR UPDATE;
       IF use_insert THEN
         FORALL i IN 1..rowids.COUNT
           INSERT INTO arx_bag2
-            (grp_id,num,id,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,to_ramp,
-             using_scales,bag_pool_num,hall,user_id,is_trfer,part_key)
+            (grp_id,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,to_ramp,
+             using_scales,bag_pool_num,hall,user_id,is_trfer,handmade,desk,time_create,
+             list_id, bag_type_str, service_type, airline, part_key)
           SELECT
-             grp_id,num,id,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,to_ramp,
-             using_scales,bag_pool_num,hall,user_id,is_trfer,vpart_key
+             grp_id,num,id,bag_type,rfisc,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,to_ramp,
+             using_scales,bag_pool_num,hall,user_id,is_trfer,handmade,desk,time_create,
+             list_id, bag_type_str, service_type, airline, vpart_key
           FROM bag2
           WHERE rowid=rowids(i);
       END IF;
@@ -732,9 +852,11 @@ BEGIN
       IF use_insert THEN
         FORALL i IN 1..rowids.COUNT
           INSERT INTO arx_paid_bag
-            (grp_id,bag_type,weight,rate_id,rate_trfer,part_key)
+            (grp_id,bag_type,weight,rate_id,rate_trfer,handmade,
+             list_id, bag_type_str, airline, part_key)
           SELECT
-             grp_id,bag_type,weight,rate_id,rate_trfer,vpart_key
+             grp_id,bag_type,weight,rate_id,rate_trfer,handmade,
+             list_id, bag_type_str, airline, vpart_key
           FROM paid_bag
           WHERE rowid=rowids(i);
       END IF;
@@ -747,14 +869,14 @@ BEGIN
       IF use_insert THEN
         FORALL i IN 1..paxrowids.COUNT
           INSERT INTO arx_pax
-            (pax_id,grp_id,surname,name,pers_type,is_female,seat_no,seat_type,seats,
-             pr_brd,pr_exam,wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm,
+            (pax_id,grp_id,surname,name,pers_type,is_female,seat_no,seat_type,seats,is_jmp,
+             pr_brd,pr_exam,wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm,doco_confirm,
              subclass,bag_pool_num,tid,part_key)
           SELECT
              pax_id,grp_id,surname,name,pers_type,is_female,
-             salons.get_seat_no(pax_id,seats,NULL,curRow.point_id,'one',rownum) AS seat_no, /*не оптимально. надо передавать grp_status */
-             seat_type,seats,
-             pr_brd,pr_exam,wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm,
+             salons.get_seat_no(pax_id,seats,is_jmp,NULL,curRow.point_id,'one',rownum) AS seat_no, /*не оптимально. надо передавать grp_status */
+             seat_type,seats,is_jmp,
+             pr_brd,pr_exam,wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm,doco_confirm,
              subclass,bag_pool_num,tid,vpart_key
           FROM pax
           WHERE rowid=paxrowids(i);
@@ -768,10 +890,10 @@ BEGIN
         FORALL i IN 1..rowids.COUNT
           INSERT INTO arx_transfer
             (grp_id,transfer_num,airline,airline_fmt,flt_no,suffix,suffix_fmt,scd,
-             airp_dep,airp_dep_fmt,airp_arv,airp_arv_fmt,pr_final,part_key)
+             airp_dep,airp_dep_fmt,airp_arv,airp_arv_fmt,pr_final,piece_concept,part_key)
           SELECT
              grp_id,transfer_num,airline,airline_fmt,flt_no,suffix,suffix_fmt,scd,
-             airp_dep,airp_dep_fmt,airp_arv,airp_arv_fmt,pr_final,vpart_key
+             airp_dep,airp_dep_fmt,airp_arv,airp_arv_fmt,pr_final,piece_concept,vpart_key
           FROM transfer,trfer_trips
           WHERE transfer.rowid=rowids(i) AND transfer_num>0 AND
                 trfer_trips.rowid=miscrowids(i);
@@ -835,9 +957,9 @@ BEGIN
       IF use_insert THEN
         FORALL i IN 1..rowids.COUNT
           INSERT INTO arx_grp_norms
-            (grp_id,bag_type,norm_id,norm_trfer,part_key)
+            (grp_id,bag_type,norm_id,norm_trfer,handmade,part_key)
           SELECT
-             grp_id,bag_type,norm_id,norm_trfer,vpart_key
+             grp_id,bag_type,norm_id,norm_trfer,handmade,vpart_key
           FROM grp_norms
           WHERE rowid=rowids(i);
       END IF;
@@ -852,9 +974,9 @@ BEGIN
         IF use_insert THEN
           FORALL i IN 1..rowids.COUNT
             INSERT INTO arx_pax_norms
-              (pax_id,bag_type,norm_id,norm_trfer,part_key)
+              (pax_id,bag_type,norm_id,norm_trfer,handmade,part_key)
             SELECT
-               pax_id,bag_type,norm_id,norm_trfer,vpart_key
+               pax_id,bag_type,norm_id,norm_trfer,handmade,vpart_key
             FROM pax_norms
             WHERE rowid=rowids(i);
         END IF;
@@ -898,10 +1020,10 @@ BEGIN
           FORALL i IN 1..rowids.COUNT
             INSERT INTO arx_pax_doc
               (pax_id,type,issue_country,no,nationality,birth_date,gender,expiry_date,
-               surname,first_name,second_name,pr_multi,type_rcpt,part_key)
+               surname,first_name,second_name,pr_multi,type_rcpt,scanned_attrs,part_key)
             SELECT
                pax_id,type,issue_country,no,nationality,birth_date,gender,expiry_date,
-               surname,first_name,second_name,pr_multi,type_rcpt,vpart_key
+               surname,first_name,second_name,pr_multi,type_rcpt,scanned_attrs,vpart_key
             FROM pax_doc
             WHERE rowid=rowids(i);
         END IF;
@@ -914,9 +1036,9 @@ BEGIN
         IF use_insert THEN
           FORALL i IN 1..rowids.COUNT
             INSERT INTO arx_pax_doco
-              (pax_id,birth_place,type,no,issue_place,issue_date,expiry_date,applic_country,pr_inf,part_key)
+              (pax_id,birth_place,type,no,issue_place,issue_date,expiry_date,applic_country,scanned_attrs,part_key)
             SELECT
-               pax_id,birth_place,type,no,issue_place,issue_date,expiry_date,applic_country,pr_inf,vpart_key
+               pax_id,birth_place,type,no,issue_place,issue_date,expiry_date,applic_country,scanned_attrs,vpart_key
             FROM pax_doco
             WHERE rowid=rowids(i);
         END IF;
@@ -929,25 +1051,44 @@ BEGIN
         IF use_insert THEN
           FORALL i IN 1..rowids.COUNT
             INSERT INTO arx_pax_doca
-              (pax_id,type,country,address,city,region,postal_code,pr_inf,part_key)
+              (pax_id,type,country,address,city,region,postal_code,part_key)
             SELECT
-               pax_id,type,country,address,city,region,postal_code,pr_inf,vpart_key
+               pax_id,type,country,address,city,region,postal_code,vpart_key
             FROM pax_doca
             WHERE rowid=rowids(i);
         END IF;
         FORALL i IN 1..rowids.COUNT
           DELETE FROM pax_doca WHERE rowid=rowids(i);
 
+        DELETE FROM confirm_print WHERE pax_id=paxids(k);
         DELETE FROM pax_fqt WHERE pax_id=paxids(k);
-        DELETE FROM bp_print WHERE pax_id=paxids(k);
-        DELETE FROM trip_comp_layers WHERE pax_id=paxids(k);
-        DELETE FROM rozysk WHERE pax_id=paxids(k);
+        DELETE FROM pax_asvc WHERE pax_id=paxids(k);
+        DELETE FROM pax_emd WHERE pax_id=paxids(k);
+        DELETE FROM pax_norms_pc WHERE pax_id=paxids(k);
+        DELETE FROM pax_brands WHERE pax_id=paxids(k);
+        DELETE FROM pax_rem_origin WHERE pax_id=paxids(k);
         DELETE FROM pax_seats WHERE pax_id=paxids(k);
+        DELETE FROM rozysk WHERE pax_id=paxids(k);
+        DELETE FROM trip_comp_layers WHERE pax_id=paxids(k);
+        DELETE FROM paid_bag_pc WHERE pax_id=paxids(k);
+        UPDATE paid_bag_emd SET pax_id=NULL WHERE pax_id=paxids(k);
+        UPDATE service_payment SET pax_id=NULL WHERE pax_id=paxids(k);
+        DELETE FROM pax_alarms WHERE pax_id=paxids(k);
+        DELETE FROM pax_service_lists WHERE pax_id=paxids(k);
+        DELETE FROM pax_services WHERE pax_id=paxids(k);
+        DELETE FROM pax_services_auto WHERE pax_id=paxids(k);
+        DELETE FROM paid_rfisc WHERE pax_id=paxids(k);
+        DELETE FROM pax_norms_text WHERE pax_id=paxids(k);
         pax_count:=pax_count+1;
       END LOOP;
       FORALL i IN 1..paxrowids.COUNT
         DELETE FROM pax WHERE rowid=paxrowids(i);
+      DELETE FROM paid_bag_emd WHERE grp_id=grpids(j);
+      DELETE FROM paid_bag_emd_props WHERE grp_id=grpids(j);
+      DELETE FROM service_payment WHERE grp_id=grpids(j);
       DELETE FROM tckin_pax_grp WHERE grp_id=grpids(j);
+      DELETE FROM pnr_addrs_pc WHERE grp_id=grpids(j);
+      DELETE FROM grp_service_lists WHERE grp_id=grpids(j);
     END LOOP;
     FORALL i IN 1..grprowids.COUNT
       DELETE FROM pax_grp WHERE rowid=grprowids(i);
@@ -960,8 +1101,6 @@ BEGIN
     DELETE FROM aodb_unaccomp WHERE point_id=curRow.point_id;
     DELETE FROM aodb_pax WHERE point_id=curRow.point_id;
     DELETE FROM aodb_points WHERE point_id=curRow.point_id;
-    DELETE FROM cent_pax WHERE point_id=curRow.point_id;
-    DELETE FROM cent_trips WHERE point_id=curRow.point_id;
     DELETE FROM counters2 WHERE point_dep=curRow.point_id;
     DELETE FROM crs_counters WHERE point_dep=curRow.point_id;
     DELETE FROM crs_displace2 WHERE point_id_spp=curRow.point_id;
@@ -975,6 +1114,7 @@ BEGIN
     DELETE FROM trip_classes WHERE point_id=curRow.point_id;
     DELETE FROM trip_comp_rem WHERE point_id=curRow.point_id;
     DELETE FROM trip_comp_rates WHERE point_id=curRow.point_id;
+    DELETE FROM trip_comp_rfisc WHERE point_id=curRow.point_id;
     DELETE FROM trip_comp_baselayers WHERE point_id=curRow.point_id;
     DELETE FROM trip_comp_elems WHERE point_id=curRow.point_id;
     DELETE FROM trip_comp_layers WHERE point_id=curRow.point_id;
@@ -995,6 +1135,15 @@ BEGIN
     DELETE FROM pax_seats WHERE point_id=curRow.point_id;
     DELETE FROM utg_prl WHERE point_id=curRow.point_id;
     DELETE FROM trip_tasks WHERE point_id=curRow.point_id;
+    DELETE FROM etickets WHERE point_id=curRow.point_id;
+    DELETE FROM emdocs WHERE point_id=curRow.point_id;
+    DELETE FROM trip_apis_params WHERE point_id=curRow.point_id;
+    DELETE FROM counters_by_subcls WHERE point_id=curRow.point_id;
+    DELETE FROM apps_messages WHERE point_id=curRow.point_id;
+    DELETE FROM apps_pax_data WHERE point_id=curRow.point_id;
+    DELETE FROM wb_msg_text where id in(SELECT id FROM wb_msg WHERE point_id = curRow.point_id);
+    DELETE FROM wb_msg where point_id = curRow.point_id;
+    DELETE FROM trip_vouchers WHERE point_id=curRow.point_id;
   END LOOP;
   DELETE FROM points WHERE move_id=vmove_id;
   DELETE FROM move_ref WHERE move_id=vmove_id;
@@ -1024,7 +1173,7 @@ BEGIN
     IF step=2 THEN
       OPEN cur FOR
         SELECT rowid
-        FROM events
+        FROM events_bilingual
         WHERE type LIKE '%'||system.evtTlg AND time>=arx_date-30 AND time<arx_date AND   --LIKE специально для хорошего плана разбора
               id1 IS NULL AND
               rownum<=remain_rows FOR UPDATE;
@@ -1032,14 +1181,16 @@ BEGIN
     IF step=3 THEN
       OPEN cur FOR
         SELECT rowid
-        FROM events
+        FROM events_bilingual
         WHERE type NOT IN (system.evtSeason,
                            system.evtDisp,
                            system.evtFlt,
                            system.evtGraph,
+                           system.evtFltTask,
                            system.evtPax,
                            system.evtPay,
-                           system.evtTlg) AND time>=arx_date-30 AND time<arx_date AND
+                           system.evtTlg,
+                           system.evtPrn) AND time>=arx_date-30 AND time<arx_date AND
               rownum<=remain_rows FOR UPDATE;
     END IF;
 
@@ -1068,25 +1219,25 @@ BEGIN
         FETCH cur BULK COLLECT INTO rowids LIMIT BULK_COLLECT_LIMIT;
         FORALL i IN 1..rowids.COUNT
           INSERT INTO arx_events
-            (type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,part_key)
+            (type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,part_key,part_num,lang)
           SELECT
-             type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,time
-          FROM events
+             type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,time,part_num,lang
+          FROM events_bilingual
           WHERE rowid=rowids(i);
         FORALL i IN 1..rowids.COUNT
-          DELETE FROM events WHERE rowid=rowids(i);
+          DELETE FROM events_bilingual WHERE rowid=rowids(i);
       END IF;
       IF step=3 THEN
         FETCH cur BULK COLLECT INTO rowids LIMIT BULK_COLLECT_LIMIT;
         FORALL i IN 1..rowids.COUNT
           INSERT INTO arx_events
-            (type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,part_key)
+            (type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,part_key,part_num,lang)
           SELECT
-             type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,time
-          FROM events
+             type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3,time,part_num,lang
+          FROM events_bilingual
           WHERE rowid=rowids(i);
         FORALL i IN 1..rowids.COUNT
-          DELETE FROM events WHERE rowid=rowids(i);
+          DELETE FROM events_bilingual WHERE rowid=rowids(i);
       END IF;
       remain_rows:=remain_rows-rowids.COUNT;
       EXIT WHEN rowids.COUNT<BULK_COLLECT_LIMIT;
@@ -1284,11 +1435,19 @@ ids             TIdsTable;
 remain_rows     INTEGER;
 time_finish     DATE;
 cur             TRowidCursor;
+
+TYPE aodb_spp_files_key IS RECORD
+(
+filename        aodb_spp_files.filename%TYPE,
+point_addr      aodb_spp_files.point_addr%TYPE,
+airline         aodb_spp_files.airline%TYPE
+);
+curRow	        aodb_spp_files_key;
 BEGIN
   remain_rows:=max_rows;
   time_finish:=SYSDATE+time_duration/86400;
 
-  WHILE step>=1 AND step<=3 LOOP
+  WHILE step>=1 AND step<=5 LOOP
     IF SYSDATE>time_finish THEN RETURN; END IF;
     IF step=1 THEN
       OPEN cur FOR
@@ -1356,6 +1515,31 @@ BEGIN
       DELETE FROM rozysk WHERE time<arx_date AND rownum<=remain_rows;
       remain_rows:=remain_rows-SQL%ROWCOUNT;
     END IF;
+    IF step=4 THEN
+      OPEN cur FOR
+        SELECT filename, point_addr, airline
+        FROM aodb_spp_files
+        WHERE filename<'SPP'||TO_CHAR(arx_date, 'YYMMDD')||'.txt' AND rownum<=remain_rows FOR UPDATE;
+      LOOP
+        FETCH cur INTO curRow;
+        EXIT WHEN cur%NOTFOUND;
+        DELETE FROM aodb_events
+        WHERE filename=curRow.filename AND point_addr=curRow.point_addr AND airline=curRow.airline AND
+              rownum<=remain_rows;
+        remain_rows:=remain_rows-SQL%ROWCOUNT;
+        EXIT WHEN remain_rows<=0;
+        DELETE FROM aodb_spp_files
+        WHERE filename=curRow.filename AND point_addr=curRow.point_addr AND airline=curRow.airline;
+        remain_rows:=remain_rows-SQL%ROWCOUNT;
+        EXIT WHEN remain_rows<=0;
+        IF SYSDATE>time_finish THEN CLOSE cur; RETURN; END IF;
+      END LOOP;
+      CLOSE cur;
+    END IF;
+    IF step=5 THEN
+      DELETE FROM eticks_display WHERE last_display<arx_date AND rownum<=remain_rows;
+      remain_rows:=remain_rows-SQL%ROWCOUNT;
+    END IF;
 
     IF remain_rows<=0 THEN RETURN; END IF;
     step:=step+1;
@@ -1365,21 +1549,6 @@ END;
 
 PROCEDURE move_typeb_in(vid tlgs_in.id%TYPE)
 IS
-cur       INTEGER;
-vrowid    ROWID;
-ignore    INTEGER;
-vbody     arx_tlgs_in.body%TYPE;
-vbody_len INTEGER;
-vpage_no  arx_tlgs_in.page_no%TYPE;
-rowids        TRowidsTable := TRowidsTable();
-TYPE TPageNoTable IS TABLE OF arx_tlgs_in.page_no%TYPE;
-TYPE TBodiesTable IS TABLE OF arx_tlgs_in.body%TYPE;
-page_rowids   TRowidsTable := TRowidsTable();
-page_nums     TPageNoTable := TPageNoTable();
-page_bodies   TBodiesTable := TBodiesTable();
-i             BINARY_INTEGER;
-j             BINARY_INTEGER;
-max_body_len  INTEGER := 4000;
 BEGIN
   INSERT INTO arx_tlgs_in
     (id,num,page_no,type,addr,heading,body,ending,merge_key,time_create,time_receive,time_parse,part_key)
@@ -1389,197 +1558,14 @@ BEGIN
   WHERE tlgs_in.id=typeb_in_body.id AND
         tlgs_in.num=typeb_in_body.num AND
         tlgs_in.id=vid;
-  IF SQL%NOTFOUND THEN
-    cur:=DBMS_SQL.OPEN_CURSOR;
-    DBMS_SQL.PARSE(cur,
-                   'SELECT rowid,body FROM tlgs_in WHERE id=:id FOR UPDATE',
-                   DBMS_SQL.NATIVE);
-    DBMS_SQL.DEFINE_COLUMN_ROWID(cur,1,vrowid);
-    DBMS_SQL.DEFINE_COLUMN_LONG(cur,2);
-
-    DBMS_SQL.BIND_VARIABLE(cur,':id',vid);
-    ignore:=DBMS_SQL.EXECUTE(cur);
-    i:=1;
-    j:=1;
-    WHILE (DBMS_SQL.FETCH_ROWS(cur)>0) LOOP
-      DBMS_SQL.COLUMN_VALUE_ROWID(cur,1,vrowid);
-      rowids.EXTEND;
-      rowids(i):=vrowid;
-      i:=i+1;
-      vpage_no:=1;
-      LOOP
-        vbody:=NULL;
-        vbody_len:=0;
-        DBMS_SQL.COLUMN_VALUE_LONG(cur,2,max_body_len,(vpage_no-1)*max_body_len,vbody,vbody_len);
-        IF vpage_no=1 OR vbody_len>0 THEN
-          page_rowids.EXTEND;
-          page_nums.EXTEND;
-          page_bodies.EXTEND;
-          page_rowids(j):=vrowid;
-          page_nums(j):=vpage_no;
-          page_bodies(j):=vbody;
-          j:=j+1;
-        END IF;
-        EXIT WHEN vbody_len<>max_body_len;
-        vpage_no:=vpage_no+1;
-      END LOOP;
-    END LOOP;
-
-    DBMS_SQL.CLOSE_CURSOR(cur);
-
-    FORALL i IN 1..page_rowids.COUNT
-      INSERT INTO arx_tlgs_in
-        (id,num,page_no,type,addr,heading,body,ending,merge_key,time_create,time_receive,time_parse,part_key)
-      SELECT
-         id,num,page_nums(i),type,addr,heading,page_bodies(i),ending,merge_key,time_create,time_receive,time_parse,NVL(time_parse,time_receive)
-      FROM tlgs_in
-      WHERE rowid=page_rowids(i);
-  END IF;
 
   DELETE FROM typeb_in_body WHERE id=vid;
   DELETE FROM typeb_in_errors WHERE tlg_id=vid;
   DELETE FROM typeb_in_history WHERE prev_tlg_id=vid;
   DELETE FROM typeb_in_history WHERE tlg_id=vid;
   DELETE FROM tlgs_in WHERE id=vid;
-EXCEPTION
-  WHEN OTHERS THEN
-    IF DBMS_SQL.IS_OPEN(cur) THEN
-      DBMS_SQL.CLOSE_CURSOR(cur);
-    END IF;
-    RAISE;
+  DELETE FROM typeb_in WHERE id=vid;
 END;
 
-/*
-ПРОЦЕДУРА ПРОВЕРКИ РАБОТЫ АРХИВА:
-
-CREATE OR REPLACE PROCEDURE check_arx_daily_log(vmsg VARCHAR2)
-IS
-BEGIN
-  INSERT INTO drop_check_arx_daily_log(msg,time)
-  VALUES(vmsg,SYSDATE);
-  COMMIT;
-END check_arx_daily_log;
-
-CREATE OR REPLACE PROCEDURE check_arx_daily(before IN BOOLEAN)
-IS
-  cur INTEGER;
-  i INTEGER;
-  n INTEGER;
-  ignore    INTEGER;
-  CURSOR curTab IS
-    SELECT table_name FROM user_tables WHERE table_name LIKE 'ARX_%' AND table_name NOT IN ('ARX_TLGS_IN');
-  row drop_check_arx_daily%ROWTYPE;
-BEGIN
-  DELETE FROM drop_check_arx_daily_log;
-  COMMIT;
-  FOR curTabRow IN curTab LOOP
-    check_arx_daily_log(curTabRow.table_name||' started');
-
-    IF before THEN
-      SELECT COUNT(*) INTO n FROM drop_check_arx_daily
-      WHERE arx_table_name=curTabRow.table_name AND (oper_count_before IS NOT NULL OR arx_count_before IS NOT NULL);
-    ELSE
-      SELECT COUNT(*) INTO n FROM drop_check_arx_daily
-      WHERE arx_table_name=curTabRow.table_name AND (oper_count_after IS NOT NULL OR arx_count_after IS NOT NULL);
-    END IF;
-    IF n=0 THEN
-      check_arx_daily_log(curTabRow.table_name||' n=0');
-
-      row.arx_table_name:=curTabRow.table_name;
-      row.oper_table_name:=SUBSTR(curTabRow.table_name, 5);
-      FOR i IN 1..2 LOOP
-        cur:=DBMS_SQL.OPEN_CURSOR;
-        check_arx_daily_log(curTabRow.table_name||' after open (i='||TO_CHAR(i)||')');
-        IF i=1 THEN
-          DBMS_SQL.PARSE(cur,
-                         'SELECT COUNT(*) FROM '||row.oper_table_name,
-                         DBMS_SQL.NATIVE);
-        ELSE
-          DBMS_SQL.PARSE(cur,
-                         'SELECT COUNT(*) FROM '||row.arx_table_name,
-                         DBMS_SQL.NATIVE);
-        END IF;
-        check_arx_daily_log(curTabRow.table_name||' after parse (i='||TO_CHAR(i)||')');
-        DBMS_SQL.DEFINE_COLUMN(cur,1,n);
-        check_arx_daily_log(curTabRow.table_name||' after define_column (i='||TO_CHAR(i)||')');
-        ignore:=DBMS_SQL.EXECUTE(cur);
-        check_arx_daily_log(curTabRow.table_name||' after execute (i='||TO_CHAR(i)||')');
-        ignore:=DBMS_SQL.FETCH_ROWS(cur);
-        check_arx_daily_log(curTabRow.table_name||' after fetch_rows (i='||TO_CHAR(i)||')');
-        DBMS_SQL.COLUMN_VALUE(cur,1,n);
-        check_arx_daily_log(curTabRow.table_name||' after column_value (i='||TO_CHAR(i)||')');
-        DBMS_SQL.CLOSE_CURSOR(cur);
-        check_arx_daily_log(curTabRow.table_name||' after close (i='||TO_CHAR(i)||')');
-
-        IF before THEN
-          IF i=1 THEN
-            row.oper_count_before:=n;
-          ELSE
-            row.arx_count_before:=n;
-          END IF;
-        ELSE
-          IF i=1 THEN
-            row.oper_count_after:=n;
-          ELSE
-            row.arx_count_after:=n;
-          END IF;
-        END IF;
-      END LOOP;
-      IF before THEN
-        INSERT INTO drop_check_arx_daily(oper_table_name, arx_table_name,
-                                         oper_count_before, arx_count_before)
-        VALUES(row.oper_table_name, row.arx_table_name,
-               row.oper_count_before, row.arx_count_before);
-        check_arx_daily_log(curTabRow.table_name||' after insert (i='||TO_CHAR(i)||')');
-      ELSE
-        UPDATE drop_check_arx_daily
-        SET oper_count_after=row.oper_count_after,
-            arx_count_after=row.arx_count_after
-        WHERE oper_table_name=row.oper_table_name AND
-              arx_table_name=row.arx_table_name;
-        check_arx_daily_log(curTabRow.table_name||' after update (i='||TO_CHAR(i)||')');
-      END IF;
-      COMMIT;
-      check_arx_daily_log(curTabRow.table_name||' finished');
-    END IF;
-  END LOOP;
-EXCEPTION
-  WHEN OTHERS THEN
-    IF DBMS_SQL.IS_OPEN(cur) THEN
-      DBMS_SQL.CLOSE_CURSOR(cur);
-    END IF;
-    RAISE;
-END;
-
-SELECT SUBSTR(oper_table_name,1,20) oper_table_name,
-       SUBSTR(arx_table_name,1,20) arx_table_name,
-       oper_count_before oper_before,
-       oper_count_after  oper_after,
-       arx_count_before  arx_before,
-       arx_count_after   arx_after
-FROM drop_check_arx_daily
-WHERE oper_count_before-oper_count_after<>arx_count_after-arx_count_before
-ORDER BY oper_table_name;
-
-CREATE TABLE drop_check_arx_daily
-(
-  oper_table_name   VARCHAR2(40),
-  arx_table_name    VARCHAR2(40),
-  oper_count_before NUMBER(10),
-  oper_count_after  NUMBER(10),
-  arx_count_before  NUMBER(10),
-  arx_count_after   NUMBER(10)
-);
-
-CREATE TABLE drop_check_arx_daily_log
-(
-  msg VARCHAR2(1000),
-  time DATE
-);
-
-SELECT 'ALTER TABLE '||table_name||' ENABLE CONSTRAINT '||constraint_name||';'
-FROM user_constraints
-WHERE r_constraint_name in ('TLG_TRIPS__PK','CRS_PNR__PK','CRS_PAX__PK');
-*/
 END arch;
 /

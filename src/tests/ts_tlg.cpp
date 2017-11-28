@@ -1,13 +1,19 @@
-#include <serverlib/tscript.h>
-#include <boost/scoped_ptr.hpp>
-#include <boost/algorithm/string/replace.hpp>
 #include "edilib/edi_func_cpp.h"
 #include "exceptions.h"
+#include "astra_utils.h"
 #include "xp_testing.h"
-#include "serverlib/EdiHelpManager.h"
+
+#include <serverlib/tscript.h>
+#include <serverlib/EdiHelpManager.h>
 #include <serverlib/func_placeholders.h>
+#include <libtlg/telegrams.h>
+
+#include <boost/scoped_ptr.hpp>
+#include <boost/algorithm/string/replace.hpp>
+
 #ifdef XP_TESTING
 #include "tlg/edi_handler.h"
+#include "tlg/typeb_handler.h"
 #include "tlg/tlg.h"
 
 #define NICKNAME "ROMAN"
@@ -25,21 +31,37 @@ namespace tscript {
         const std::string h2h_str = boost::algorithm::replace_all_copy(
                 tok::GetValue(params, "h2h"), "\\", "\r");
 
-        if(IsEdifactText(tlg.c_str(), tlg.length())) {
-
-            int tlg_num = saveTlg("LOOPB", "LOOPB", "OUTA", 0, tlg);
-
+        if(IsEdifactText(tlg.c_str(), tlg.length()))
+        {
+            // edifact
             tlg_info tlgi = {};
-            tlgi.id = tlg_num;
-            tlgi.sender = "LOOPB";
-            tlgi.text = tlg;
+            tlgi.id       = saveTlg("LOOPB", "LOOPB", "OUTA", tlg);
+            tlgi.sender   = "LOOPB";
+            tlgi.text     = edilib::ChangeEdiCharset(tlg, "IATA");
+
+            if(!h2h_str.empty()) {
+                hth::HthInfo hth = {};
+                if(!hth::fromString(h2h_str, hth)) {
+                    throw EXCEPTIONS::Exception("Invalid HtH info: " + h2h_str);
+                }
+                if (telegrams::callbacks()->writeHthInfo(ASTRA::make_tlgnum(tlgi.id), hth)) {
+                    LogError(STDLOG) << "writeHthInfo failed: " << tlgi.id;
+                }
+            }
             handle_edi_tlg(tlgi);
-        } else {
-            throw EXCEPTIONS::Exception("Unsopported tlg type");
+        }
+        else
+        {
+            // airimp
+            tlg_info tlgi = {};
+            tlgi.id       = loadTlg(tlg);
+            tlgi.sender   = "LOOPB";
+            tlgi.text     = tlg;
+            parse_and_handle_tpb_tlg(tlgi);
         }
     }
-
-}} /* namespace xp_testing::tscript */
+} /* namespace tscript */
+} /* namespace xp_testing */
 
 #endif /* #ifdef XP_TESTING */
 

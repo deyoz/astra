@@ -1,0 +1,16 @@
+LOAD DATA
+INFILE *
+INTO TABLE seat_algo_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+id
+,name
+,name_lat
+)
+BEGINDATA
+0|"Рассадка по линиям сверху вниз"|"Seating along the lines of top-down"
+1|"Рассадка по линиям снизу вверх"|"Seating on the lines from the bottom up"
+2|"Рассадка по рядам сверху вниз"|"Seating in rows from top to bottom"
+3|"Рассадка по рядам снизу вверх"|"Seating in rows from bottom to top"

@@ -17,6 +17,7 @@
 #include "oralib.h"
 #include "jxtlib/JxtInterface.h"
 #include "jxtlib/jxt_xml_cont.h"
+#include <libtlg/tlgnum.h>
 
 using BASIC::date_time::TDateTime;
 
@@ -366,6 +367,8 @@ class TUser {
 
 class TDesk {
   public:
+    static const std::string system_code;
+
     std::string code;
     std::string city,airp,airline;
     std::string tz_region;
@@ -448,6 +451,7 @@ class TReqInfo
     TScreen screen;
     ASTRA::TClientType client_type;
     bool duplicate;
+    bool api_mode;
     void clear()
     {
       desk.clear();
@@ -457,6 +461,7 @@ class TReqInfo
       duplicate = false;
       vtracing=true;
       vtracing_init=false;
+      api_mode = false;
     }
     virtual ~TReqInfo() {}
     static TReqInfo *Instance();
@@ -536,8 +541,8 @@ std::string EncodeOperMode(const ASTRA::TOperMode mode );
 ASTRA::TEventType DecodeEventType( const std::string ev_type );
 std::string EncodeEventType( const ASTRA::TEventType ev_type );
 
-std::string& AirpTZRegion(std::string airp, bool with_exception=true);
-std::string& CityTZRegion(std::string city, bool with_exception=true);
+const std::string& AirpTZRegion(std::string airp, bool with_exception=true);
+const std::string& CityTZRegion(std::string city, bool with_exception=true);
 std::string DeskCity(std::string desk, bool with_exception=true);
 
 TCountriesRow getCountryByAirp( const std::string& airp);
@@ -552,7 +557,7 @@ public:
      AddEvent("ClientError",evHandle);
      evHandle=JxtHandler<SysReqInterface>::CreateHandler(&SysReqInterface::GetBasicInfo);
      AddEvent("GetBasicInfo",evHandle);
-  };
+  }
 
   static void ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -614,18 +619,25 @@ void MergeSortedRanges(std::vector< std::pair<T,T> > &ranges, const std::pair<T,
   }
   else
     ranges.push_back( range );
-};
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
 
 namespace ASTRA
 {
+void dumpTable(const std::string& table,
+               int loglevel, const char* nick, const char* file, int line);
+
 void commit();
 void rollback();
 void rollbackSavePax();
 
+tlgnum_t make_tlgnum(int n);
+
 XMLDoc createXmlDoc(const std::string& xml);
 XMLDoc createXmlDoc2(const std::string& xml);
 
-};
+}//namespace ASTRA
 
 struct TRegEvents:public  std::map< std::pair<int, int>, std::pair<TDateTime, TDateTime> > {
     void fromDB(TDateTime part_key, int point_id);
