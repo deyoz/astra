@@ -49,6 +49,7 @@
 #include "rfisc.h"
 #include "ffp_sirena.h"
 #include "annul_bt.h"
+#include "counters.h"
 #include "tlg/AgentWaitsForRemote.h"
 #include "tlg/tlg_parser.h"
 #include "tlg/IatciCkiRequest.h"
@@ -2537,14 +2538,7 @@ void CheckInInterface::CheckCounters(int point_dep,
     if (Qry.Eof)
     {
       ProgTrace(TRACE0,"counters2 empty! (point_dep=%d point_arv=%d cl=%s)",point_dep,point_arv,cl.c_str());
-      TQuery RecountQry(&OraSession);
-      RecountQry.Clear();
-      RecountQry.SQLText=
-        "BEGIN "
-        "  ckin.recount(:point_dep); "
-        "END;";
-      RecountQry.CreateVariable("point_dep", otInteger, point_dep);
-      RecountQry.Execute();
+      CheckIn::TCountersCover().recount(point_dep, CheckIn::TCounters::Total);
       Qry.Execute();
     }
     if (Qry.Eof)
@@ -4482,6 +4476,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   {
     CheckIn::TPaxGrpItem &grp=iSegListItem->grp;
     CheckIn::TPaxList &paxs=iSegListItem->paxs;
+    CheckIn::TSimplePaxList priorSimplePaxList, currSimplePaxList;
 
     TAnnulBT annul_bt;
     annul_bt.get(grp.id);
@@ -4589,8 +4584,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             {
               if (!priorPax.getByPaxId(pax.id))
                 throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+              pax.seats=priorPax.seats;
               pax.crew_type=priorPax.crew_type;
               pax.is_jmp=priorPax.is_jmp;
+              priorSimplePaxList.push_back(priorPax);
             }
 
             if (pax.name.empty() && pr_mintrans_file)
@@ -4753,6 +4750,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
             if (pax.DocaExists)
               HandleDoca(grp, pax, checkInfo, pax.doca_map);
+
+            currSimplePaxList.push_back(pax);
 
           }
           catch(CheckIn::UserException)
@@ -6215,12 +6214,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       Qry.SQLText=
         "BEGIN "
         "  ckin.check_grp(:grp_id); "
-        "  ckin.recount(:point_id); "
         "END;";
-      Qry.CreateVariable("point_id",otInteger,grp.point_dep);
       Qry.CreateVariable("grp_id",otInteger,grp.id);
       Qry.Execute();
       Qry.Close();
+
+      CheckIn::TCountersCover().recount(grp, priorSimplePaxList, currSimplePaxList);
 
       TAnnulBT annul_bt_after;
       annul_bt_after.get(grp.id);

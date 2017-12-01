@@ -6,6 +6,7 @@
 #include "trip_tasks.h"
 #include "apps_interaction.h"
 #include "etick.h"
+#include "counters.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -18,14 +19,6 @@ using namespace std;
 
 void crs_recount(int point_id_tlg, int point_id_spp, bool check_comp)
 {
-  TQuery ProcQry(&OraSession);
-  ProcQry.Clear();
-  ProcQry.SQLText=
-    "BEGIN "
-    "  ckin.crs_recount(:point_id_spp); "
-    "END;";
-  ProcQry.DeclareVariable("point_id_spp", otInteger);
-
   TQuery Qry(&OraSession);
   Qry.Clear();
   if (point_id_spp!=NoExists)
@@ -44,8 +37,7 @@ void crs_recount(int point_id_tlg, int point_id_spp, bool check_comp)
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {
-    ProcQry.SetVariable("point_id_spp", Qry.FieldAsInteger("point_id_spp"));
-    ProcQry.Execute();
+    CheckIn::TCountersCover().recount(Qry.FieldAsInteger("point_id_spp"), CheckIn::TCounters::CrsCounters);
     ProgTrace(TRACE5, "crs_recount: point_id_spp=%d, check_comp=%s", Qry.FieldAsInteger("point_id_spp"), check_comp?"true":"false");
     if (check_comp)
     {

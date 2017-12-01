@@ -40,6 +40,7 @@
 #include "emdoc.h"
 #include "serverlib/perfom.h"
 #include "annul_bt.h"
+#include "counters.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
@@ -2531,18 +2532,12 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   };
 
   //пересчитаем счетчики по всем рейсам, включая сквозные сегменты
-  Qry.Clear();
-    Qry.SQLText=
-     "BEGIN "
-     "  ckin.recount(:point_id); "
-   "END;";
-  Qry.DeclareVariable("point_id",otInteger);
   std::vector<int> points_check_wait_alarm;
   std::vector<int> points_tranzit_check_wait_alarm;
   for(map<int,TAdvTripInfo>::const_iterator i=segs.begin();i!=segs.end();++i)
   {
-    Qry.SetVariable("point_id",i->first);
-    Qry.Execute();
+    CheckIn::TCountersCover().recount(i->first, CheckIn::TCounters::Total);
+
     check_overload_alarm( i->first );
     if ( SALONS2::isTranzitSalons( i->first ) ) {
       if ( find( points_tranzit_check_wait_alarm.begin(),
