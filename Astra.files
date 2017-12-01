@@ -90,6 +90,8 @@ src/comp_layers.cc
 src/comp_layers.h
 src/convert.cc
 src/convert.h
+src/counters.cc
+src/counters.h
 src/crypt.cc
 src/crypt.h
 src/Depeches.cpp

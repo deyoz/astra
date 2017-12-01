@@ -17,6 +17,7 @@
 #include "points.h"
 #include "term_version.h"
 #include "trip_tasks.h"
+#include "counters.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -381,6 +382,12 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   bool question = NodeAsInteger( "question", reqNode, 0 );
   ProgTrace(TRACE5, "TripInfoInterface::CrsDataApplyUpdates, point_id=%d", point_id );
   //TReqInfo::Instance()->user.check_access( amWrite );
+
+  //лочим рейс - весь маршрут, т.к. pr_tranzit может поменяться
+  TFlights flights;
+  flights.Get( point_id, ftAll );
+  flights.Lock(__FUNCTION__);
+
   TQuery Qry( &OraSession );
   xmlNodePtr node = GetNode( "crsdata", reqNode );
   if ( node != NULL )
@@ -409,7 +416,9 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       airp_arv = NodeAsStringFast( "target", snode );
       cl = NodeAsStringFast( "class", snode );
       resa = NodeAsIntegerFast( "resa", snode );
+      if (resa<0) resa=0;
       tranzit = NodeAsIntegerFast( "tranzit", snode );
+      if (tranzit<0) tranzit=0;
       Qry.SetVariable( "airp_arv", airp_arv );
       Qry.SetVariable( "class", cl );
       Qry.SetVariable( "resa", resa );
@@ -427,11 +436,6 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   node = GetNode( "trip_sets", reqNode );
   if ( node != NULL )
   {
-    //лочим рейс - весь маршрут, т.к. pr_tranzit может поменяться
-    TFlights flights;
-        flights.Get( point_id, ftAll );
-        flights.Lock(__FUNCTION__);
-
     Qry.Clear();
     Qry.SQLText =
       "SELECT point_num,pr_tranzit,first_point, "
@@ -612,14 +616,8 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     }
   };
 
+  CheckIn::TCountersCover().recount(point_id, CheckIn::TCounters::Total);
 
-  Qry.Clear();
-  Qry.SQLText =
-    "BEGIN "\
-    " ckin.recount(:point_id); "\
-    "END; ";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
   if ( pr_check_trip_tasks ) {
     Qry.Clear();
     Qry.SQLText =

@@ -48,6 +48,7 @@
 #include "rfisc.h"
 #include "ffp_sirena.h"
 #include "annul_bt.h"
+#include "counters.h"
 #include "tlg/AgentWaitsForRemote.h"
 #include "tlg/tlg_parser.h"
 
@@ -2482,14 +2483,7 @@ void CheckInInterface::CheckCounters(int point_dep,
     if (Qry.Eof)
     {
       ProgTrace(TRACE0,"counters2 empty! (point_dep=%d point_arv=%d cl=%s)",point_dep,point_arv,cl.c_str());
-      TQuery RecountQry(&OraSession);
-      RecountQry.Clear();
-      RecountQry.SQLText=
-        "BEGIN "
-        "  ckin.recount(:point_dep); "
-        "END;";
-      RecountQry.CreateVariable("point_dep", otInteger, point_dep);
-      RecountQry.Execute();
+      CheckIn::TCountersCover().recount(point_dep, CheckIn::TCounters::Total);
       Qry.Execute();
     };
     if (Qry.Eof)
@@ -4304,6 +4298,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   {
     CheckIn::TPaxGrpItem &grp=iSegListItem->grp;
     CheckIn::TPaxList &paxs=iSegListItem->paxs;
+    CheckIn::TSimplePaxList priorSimplePaxList, currSimplePaxList;
 
     TAnnulBT annul_bt;
     annul_bt.get(grp.id);
@@ -4350,16 +4345,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                                       BSM::IsSend(fltAdvInfo, BSMaddrs);
 
       set<int> nextTrferSegs;
-
-      TQuery CrsQry(&OraSession);
-      CrsQry.Clear();
-      CrsQry.SQLText=
-        "BEGIN "
-        "  ckin.save_pax_docs(:pax_id, :document, :full_insert); "
-        "END;";
-      CrsQry.DeclareVariable("pax_id",otInteger);
-      CrsQry.DeclareVariable("document",otString);
-      CrsQry.DeclareVariable("full_insert",otInteger);
 
       TQuery PaxDocQry(&OraSession);
       TQuery PaxDocoQry(&OraSession);
@@ -4420,8 +4405,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             {
               if (!priorPax.getByPaxId(pax.id))
                 throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+              pax.seats=priorPax.seats;
               pax.crew_type=priorPax.crew_type;
               pax.is_jmp=priorPax.is_jmp;
+              priorSimplePaxList.push_back(priorPax);
             }
 
             if (pax.name.empty() && pr_mintrans_file)
@@ -4571,16 +4558,18 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 throw UserException("MSG.PASSENGER.IS_ADULT_WITH_AT_LEAST_ONE_SEAT");
             };
 
-          TDateTime checkDate=UTCToLocal(NowUTC(), AirpTZRegion(grp.airp_dep));
-          //документ
-          if (pax.DocExists)
-            HandleDoc(grp, pax, checkInfo, checkDate, pax.doc);
-          //виза
-          if (pax.DocoExists)
-            HandleDoco(grp, pax, checkInfo, checkDate, pax.doco);
+            TDateTime checkDate=UTCToLocal(NowUTC(), AirpTZRegion(grp.airp_dep));
+            //документ
+            if (pax.DocExists)
+              HandleDoc(grp, pax, checkInfo, checkDate, pax.doc);
+            //виза
+            if (pax.DocoExists)
+              HandleDoco(grp, pax, checkInfo, checkDate, pax.doco);
 
-          if (pax.DocaExists)
-            HandleDoca(grp, pax, checkInfo, pax.doca_map);
+            if (pax.DocaExists)
+              HandleDoca(grp, pax, checkInfo, pax.doca_map);
+
+            currSimplePaxList.push_back(pax);
 
           }
           catch(CheckIn::UserException)
@@ -5334,13 +5323,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 //запись pax_doc
                 if (pax.DocExists) CheckIn::SavePaxDoc(pax_id,pax.doc,PaxDocQry);
                 if (pax.DocoExists) CheckIn::SavePaxDoco(pax_id,pax.doco,PaxDocoQry);
-                if (pax.DocExists)
-                {
-                  CrsQry.SetVariable("pax_id",pax_id);
-                  CrsQry.SetVariable("document",pax.doc.no);
-                  CrsQry.SetVariable("full_insert",(int)false); //потом убрать параметр за ненадобностью
-                  CrsQry.Execute();
-                };
 
                 if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCA_VERSION))
                 {
@@ -5573,13 +5555,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 //запись pax_doc
                 if (pax.DocExists) CheckIn::SavePaxDoc(pax.id,pax.doc,PaxDocQry);
                 if (pax.DocoExists) CheckIn::SavePaxDoco(pax.id,pax.doco,PaxDocoQry);
-                if (pax.DocExists)
-                {
-                  CrsQry.SetVariable("pax_id",pax.id);
-                  CrsQry.SetVariable("document",pax.doc.no);
-                  CrsQry.SetVariable("full_insert",(int)false);
-                  CrsQry.Execute();
-                };
 
                 if (reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCA_VERSION))
                 {
@@ -6055,12 +6030,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       Qry.SQLText=
         "BEGIN "
         "  ckin.check_grp(:grp_id); "
-        "  ckin.recount(:point_id); "
         "END;";
-      Qry.CreateVariable("point_id",otInteger,grp.point_dep);
       Qry.CreateVariable("grp_id",otInteger,grp.id);
       Qry.Execute();
       Qry.Close();
+
+      CheckIn::TCountersCover().recount(grp, priorSimplePaxList, currSimplePaxList);
 
       TAnnulBT annul_bt_after;
       annul_bt_after.get(grp.id);
