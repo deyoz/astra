@@ -15,8 +15,10 @@ const int MAXBUFLEN = 1024*10;
 void LibraInterface::Exec(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   tst();
-  std::string data_base64 = NodeAsString( "data_base64", reqNode );
-  std::string clob_in=StrUtils::b64_decode(data_base64), clob_out;
+/*  std::string data_base64 = NodeAsString( "data_base64", reqNode );
+  std::string clob_in=StrUtils::b64_decode(data_base64), clob_out;*/
+  std::string clob_in = NodeAsString( "data", reqNode );
+  std::string clob_out;
   //clob_out.resize(200000);
   ProgTrace( TRACE5, "clob_in=%s", clob_in.c_str());
   OciCpp::Oci8Session* os =  instance();
