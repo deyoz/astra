@@ -59,7 +59,6 @@ struct HTTPClient
     jxt_interface["kuf_stat"] =             JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      NULL);
     jxt_interface["kuf_stat_flts"] =        JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      NULL);
     jxt_interface["EventToServer"] =        JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
-    jxt_interface["ViewKioskEvents"] =      JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
     jxt_interface["kiosk_alias"] =          JxtInfo(KIOSK_ALIAS_JXT_INTERFACE_ID,   NULL);
     jxt_interface["kiosk_alias_locale"] =   JxtInfo(KIOSK_ALIAS_JXT_INTERFACE_ID,   NULL);
     jxt_interface["stat_srv"] =             JxtInfo(STAT_JXT_INTERFACE_ID,          NULL);

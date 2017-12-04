@@ -333,6 +333,7 @@ void KioskRequestInterface::EventToServer(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   event.toDB();
 }
 
+/*
 void KioskRequestInterface::ViewKioskEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   TDateTime user_time = BASIC::date_time::Now();
@@ -415,5 +416,6 @@ void KioskRequestInterface::ViewKioskEvents(XMLRequestCtxt *ctxt, xmlNodePtr req
     }
   }
 }
+*/
 
 

@@ -12,12 +12,9 @@ public:
      Handler *evHandle;
      evHandle=JxtHandler<KioskRequestInterface>::CreateHandler(&KioskRequestInterface::EventToServer);
      AddEvent("EventToServer",evHandle);
-     evHandle=JxtHandler<KioskRequestInterface>::CreateHandler(&KioskRequestInterface::ViewKioskEvents);
-     AddEvent("ViewKioskEvents",evHandle);
   }
 
   void EventToServer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void ViewKioskEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
 #endif
