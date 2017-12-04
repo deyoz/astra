@@ -101,6 +101,7 @@ astra_SOURCES = \
   images.cc \
   load_fr.cc \
   locale.cc \
+  libra.cc \
   maindcs.cc \
   meridian.cc \
   obrnosir.cc \
@@ -170,8 +171,8 @@ astra_SOURCES = \
   AirportControl.cpp \
   bagmessage.cc \
   hotel_acmd.cc \
-  bagmessage_daemon.cc
-
+  bagmessage_daemon.cc \
+  kiosk_events.cc
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
@@ -217,7 +218,7 @@ noinst_HEADERS = \
   astra_context.h \
   astra_elem_utils.h \
   astra_elems.h \
-  astra_locale.h \
+  astra_locale.h \  
   astra_locale_adv.h \
   astra_main.h \
   astra_misc.h \
@@ -267,6 +268,7 @@ noinst_HEADERS = \
   httpClient.h \
   images.h \
   load_fr.h \
+  libra.h\
   maindcs.h \
   meridian.h \
   obrnosir.h \
@@ -330,4 +332,5 @@ noinst_HEADERS = \
   brands.h \
   astra_pnr.h \
   AirportControl.h \
-  hotel_acmd.h
+  hotel_acmd.h \
+  kiosk_events.h
