@@ -68,6 +68,7 @@ static void saveCouponWc(const std::string& recloc,
                                                                       cpn));
     if(ac) {
         ac->writeDb();
+        pnrCallbacks()->afterReceiveAirportControl(cpn);
     }
 }
 
@@ -311,7 +312,7 @@ boost::optional<WcTicket> readWcTicket(const Ticketing::Airline_t& airline,
             .def(recloc)
             .bind(":airline", airline)
             .bind(":ticknum", tickNum.get())
-            .EXfet();
+            .exfet();
 
     if(cur.err() == NO_DATA_FOUND) {
         return boost::none;
@@ -338,7 +339,7 @@ boost::optional<WcCoupon> readWcCoupon(const Ticketing::Airline_t& airline,
             .bind(":airline", airline)
             .bind(":ticknum", tickNum.get())
             .bind(":cpnnum",  cpnNum.get())
-            .EXfet();
+            .exfet();
 
     if(cur.err() == NO_DATA_FOUND) {
         return boost::none;
@@ -380,17 +381,7 @@ bool changeOfStatusWcCoupon(const Ticketing::Airline_t& airline,
                             const Ticketing::CouponStatus& newStatus,
                             bool throwErr)
 {
-    boost::scoped_ptr<AirportControl> ac(AirportControl::readDb(airline,
-                                                                ticknum,
-                                                                cpnnum));
-    if(!ac) {
-        LogWarning(STDLOG) << "Airport control not fround: "
-                           << airline << "/" << ticknum << "/" << cpnnum;
-        if(throwErr) {
-            throw AirportControlNotFound(airline, ticknum, cpnnum);
-        }
-        return false;
-    }
+  if (!existsAirportControl(airline, ticknum, cpnnum, throwErr)) return false;
 
     boost::optional<WcCoupon> cpn = readWcCoupon(airline, ticknum, cpnnum);
     if(!cpn) {
@@ -426,11 +417,12 @@ bool returnWcCoupon(const Ticketing::Airline_t& airline,
 {
     LogTrace(TRACE3) << __FUNCTION__ << " "
                      << airline << "/" << ticknum << "/" << cpnnum;
+
     boost::scoped_ptr<AirportControl> ac(AirportControl::readDb(airline,
                                                                 ticknum,
                                                                 cpnnum));
     if(!ac) {
-        LogWarning(STDLOG) << "Airport control not fround: "
+        LogWarning(STDLOG) << "Airport control not found: "
                            << airline << "/" << ticknum << "/" << cpnnum;
         if(throwErr) {
             throw AirportControlNotFound(airline, ticknum, cpnnum);
@@ -461,6 +453,38 @@ bool returnWcCoupon(const Ticketing::Airline_t& airline,
 
     ac->deleteDb();
     return true;
+}
+
+//---------------------------------------------------------------------------------------
+
+ControlMethod::ControlMethod()
+{
+    m_cb = nullptr;
+}
+
+ControlMethod* ControlMethod::Instance()
+{
+    static ControlMethod* inst = nullptr;
+    if(!inst) {
+        inst = new ControlMethod;
+    }
+    return inst;
+}
+
+AstraPnrCallbacks* ControlMethod::pnrCallbacks()
+{
+    if(m_cb) {
+        return m_cb;
+    }
+    throw std::logic_error("PnrCallbacks not initialized");
+}
+           
+void ControlMethod::setPnrCallbacks(AstraPnrCallbacks* cb)
+{
+    if(m_cb) {
+        delete m_cb;
+    }
+    m_cb = cb;
 }
 
 }//namespace Ticketing

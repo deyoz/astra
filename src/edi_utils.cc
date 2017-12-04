@@ -60,46 +60,94 @@ CouponStatus calcPaxCouponStatus(const string& refuse,
 bool TFltParams::get(int point_id)
 {
   clear();
+  TAdvTripInfo fltInfo;
+  if (!fltInfo.getByPointId(point_id)) return false;
+  return get(fltInfo);
+}
+
+bool TFltParams::get(const TAdvTripInfo& _fltInfo)
+{
+  clear();
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT " + TAdvTripInfo::selectedFields("points") + ", "
-    "       trip_sets.pr_etstatus, trip_sets.et_final_attempt "
-    "FROM points,trip_sets "
-    "WHERE trip_sets.point_id=points.point_id AND "
-    "      points.point_id=:point_id AND points.pr_del>=0 ";
-  Qry.CreateVariable("point_id",otInteger,point_id);
+    "SELECT pr_etstatus, et_final_attempt FROM trip_sets WHERE point_id=:point_id";
+  Qry.CreateVariable("point_id", otInteger, _fltInfo.point_id);
   Qry.Execute();
   if (Qry.Eof) return false;
-  fltInfo.Init(Qry);
-  ets_no_interact=GetTripSets(tsETSNoInteract,fltInfo);
-  eds_no_interact=GetTripSets(tsEDSNoInteract,fltInfo);
-  pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
+
+  fltInfo=_fltInfo;
+  ets_no_exchange=GetTripSets(tsETSNoExchange,fltInfo);
+  eds_no_exchange=GetTripSets(tsEDSNoExchange,fltInfo);
+  ets_exchange_status=ETSExchangeStatus::fromDB(Qry);
   et_final_attempt=Qry.FieldAsInteger("et_final_attempt");
-  TTripRoute route;
-  route.GetRouteAfter(NoExists,
-                      point_id,
-                      Qry.FieldAsInteger("point_num"),
-                      Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point"),
-                      Qry.FieldAsInteger("pr_tranzit")!=0,
-                      trtNotCurrent,
-                      trtNotCancelled);
+  return get(fltInfo, control_method, in_final_status);
+}
 
-  if (route.empty()) return false;
-  //время прибытия в конечный пункт маршрута
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT NVL(act_in,NVL(est_in,scd_in)) AS real_in FROM points WHERE point_id=:point_id AND pr_del=0";
-  Qry.CreateVariable("point_id",otInteger,route.back().point_id);
-  Qry.Execute();
-  if (Qry.Eof) return false;
-  TDateTime real_in=ASTRA::NoExists;
-  if (!Qry.FieldIsNULL("real_in")) real_in=Qry.FieldAsDateTime("real_in");
+bool TFltParams::get(const TAdvTripInfo& fltInfo,
+                     bool &control_method,
+                     bool &in_final_status)
+{
+  control_method=GetTripSets(tsETSControlMethod,fltInfo);
+  in_final_status=false;
+  if (control_method)
+    in_final_status=fltInfo.act_out && fltInfo.act_out.get()!=NoExists &&
+                    fltInfo.act_out<NowUTC();
+  else
+  {
+    TTripRoute route;
+    route.GetRouteAfter(NoExists,
+                        fltInfo.point_id,
+                        fltInfo.point_num,
+                        fltInfo.first_point,
+                        fltInfo.pr_tranzit,
+                        trtNotCurrent,
+                        trtNotCancelled);
 
-  in_final_status=fltInfo.act_out && fltInfo.act_out.get()!=NoExists &&
-                  real_in!=NoExists && real_in<NowUTC();
+    if (route.empty()) return false;
+    //время прибытия в конечный пункт маршрута
+    TDateTime real_in=TTripInfo::act_est_scd_in(route.back().point_id);
+    in_final_status=fltInfo.act_out && fltInfo.act_out.get()!=NoExists &&
+                    real_in!=NoExists && real_in<NowUTC();
+  }
   return true;
 }
+
+void TFltParams::incFinalAttempts(int point_id)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="UPDATE trip_sets SET et_final_attempt=et_final_attempt+1 WHERE point_id=:point_id";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.Execute();
+}
+
+void TFltParams::finishFinalAttempts(int point_id)
+{
+  setETSExchangeStatus(point_id, ETSExchangeStatus::Finalized);
+}
+
+void TFltParams::setETSExchangeStatus(int point_id, ETSExchangeStatus::Enum status)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="UPDATE trip_sets SET pr_etstatus=:pr_etstatus WHERE point_id=:point_id";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.CreateVariable("pr_etstatus", otInteger, FNull);
+  ETSExchangeStatus::toDB(status, Qry);
+  Qry.Execute();
+}
+
+bool TFltParams::returnOnlineStatus(int point_id)
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText=
+    "UPDATE trip_sets SET pr_etstatus=0 WHERE point_id=:point_id AND pr_etstatus<0 ";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.Execute();
+  return Qry.RowsProcessed()>0;
+}
+
 
 Ticketing::TicketNum_t checkDocNum(const std::string& doc_no, bool is_et)
 {
@@ -120,22 +168,26 @@ Ticketing::TicketNum_t checkDocNum(const std::string& doc_no, bool is_et)
     }
 }
 
-bool checkInteract(const TTripInfo& info,
-                   const TTripSetType set_type,
-                   bool with_exception)
+bool inverseETSEDSSet(const TTripInfo& info,
+                      const TTripSetType set_type,
+                      bool with_exception)
 {
   bool result=true;
   try
   {
     switch(set_type)
     {
-      case tsETSNoInteract:
-        if (GetTripSets(tsETSNoInteract,info))
+      case tsETSNoExchange:
+        if (GetTripSets(tsETSNoExchange,info))
           throw AstraLocale::UserException("MSG.ETICK.INTERACTIVE_MODE_NOT_ALLOWED");
         break;
-      case tsEDSNoInteract:
-        if (GetTripSets(tsEDSNoInteract,info))
+      case tsEDSNoExchange:
+        if (GetTripSets(tsEDSNoExchange,info))
           throw AstraLocale::UserException("MSG.EMD.INTERACTIVE_MODE_NOT_ALLOWED");
+        break;
+      case tsETSControlMethod:
+        if (GetTripSets(tsETSControlMethod, info))
+          throw AstraLocale::UserException("MSG.ETICK.NOT_SUPPORTED_DUE_TO_CONTROL_METHOD");
         break;
       default:
         throw EXCEPTIONS::Exception("%s: wrong set_type=%d", __FUNCTION__, (int)set_type );
@@ -150,10 +202,10 @@ bool checkInteract(const TTripInfo& info,
   return result;
 }
 
-bool checkInteract(int point_id,
-                   const TTripSetType set_type,
-                   bool with_exception,
-                   TTripInfo& info)
+bool inverseETSEDSSet(int point_id,
+                      const TTripSetType set_type,
+                      bool with_exception,
+                      TTripInfo& info)
 {
   info.Clear();
   bool result=true;
@@ -161,7 +213,7 @@ bool checkInteract(int point_id,
   {
     if (!info.getByPointId(point_id))
       throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-    result=checkInteract(info, set_type, with_exception);
+    result=inverseETSEDSSet(info, set_type, with_exception);
   }
   catch(AstraLocale::UserException &e)
   {
@@ -172,30 +224,43 @@ bool checkInteract(int point_id,
   return result;
 }
 
+bool checkETSExchange(const TTripInfo& info,
+                      bool with_exception)
+{
+  return inverseETSEDSSet(info, tsETSNoExchange, with_exception);
+}
+
 bool checkETSInteract(const TTripInfo& info,
                       bool with_exception)
 {
-  return checkInteract(info, tsETSNoInteract, with_exception);
+  return inverseETSEDSSet(info, tsETSControlMethod, with_exception);
 }
 
-bool checkEDSInteract(const TTripInfo& info,
+bool checkEDSExchange(const TTripInfo& info,
                       bool with_exception)
 {
-  return checkInteract(info, tsEDSNoInteract, with_exception);
+  return inverseETSEDSSet(info, tsEDSNoExchange, with_exception);
+}
+
+bool checkETSExchange(int point_id,
+                      bool with_exception,
+                      TTripInfo& info)
+{
+  return inverseETSEDSSet(point_id, tsETSNoExchange, with_exception, info);
 }
 
 bool checkETSInteract(int point_id,
                       bool with_exception,
                       TTripInfo& info)
 {
-  return checkInteract(point_id, tsETSNoInteract, with_exception, info);
+  return inverseETSEDSSet(point_id, tsETSControlMethod, with_exception, info);
 }
 
-bool checkEDSInteract(int point_id,
+bool checkEDSExchange(int point_id,
                       bool with_exception,
                       TTripInfo& info)
 {
-  return checkInteract(point_id, tsEDSNoInteract, with_exception, info);
+  return inverseETSEDSSet(point_id, tsEDSNoExchange, with_exception, info);
 }
 
 std::string getTripAirline(const TTripInfo& ti)
@@ -674,5 +739,104 @@ bool isWebCheckinRequest(xmlNodePtr reqNode)
           TReqInfo::Instance()->client_type==ctKiosk) &&
          strcmp((const char*)reqNode->name, "SavePax") == 0;
 }
+
+void TOriginCtxt::toXML(xmlNodePtr node)
+{
+  if (node==NULL) return;
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  SetProp(node,"desk",reqInfo->desk.code);
+  SetProp(node,"user",reqInfo->user.descr);
+  SetProp(node,"screen",reqInfo->screen.name);
+}
+
+TOriginCtxt& TOriginCtxt::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  screen=NodeAsString("@screen", node);
+  user_descr=NodeAsString("@user", node);
+  desk_code=NodeAsString("@desk", node);
+  return *this;
+}
+
+const TPaxCtxt& TPaxCtxt::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+
+  NewTextChild(node, "flight", flight);
+  point_id       !=NoExists?NewTextChild(node, "point_id", point_id):
+                            NewTextChild(node, "point_id");
+  pax.grp_id     !=NoExists?NewTextChild(node, "grp_id", pax.grp_id):
+                            NewTextChild(node, "grp_id");
+  pax.id         !=NoExists?NewTextChild(node, "pax_id", pax.id):
+                            NewTextChild(node, "pax_id");
+  pax.reg_no     !=NoExists?NewTextChild(node, "reg_no", pax.reg_no):
+                            NewTextChild(node, "reg_no");
+  NewTextChild(node, "surname", pax.surname);
+  NewTextChild(node, "name", pax.name);
+  NewTextChild(node, "pers_type", EncodePerson(pax.pers_type));
+  return *this;
+}
+
+TPaxCtxt& TPaxCtxt::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+
+  flight=NodeAsStringFast("flight", node2);
+  point_id=NodeAsIntegerFast("point_id", node2, NoExists);
+  pax.grp_id=NodeAsIntegerFast("grp_id", node2, NoExists);
+  pax.id=NodeAsIntegerFast("pax_id", node2, NoExists);
+  pax.reg_no=NodeAsIntegerFast("reg_no", node2, NoExists);
+  pax.surname=NodeAsStringFast("surname", node2);
+  pax.name=NodeAsStringFast("name", node2);
+  pax.pers_type=DecodePerson(NodeAsStringFast("pers_type", node2));
+  return *this;
+}
+
+TPaxCtxt& TPaxCtxt::paxFromDB(TQuery &Qry)
+{
+  pax.clear();
+  pax.id=Qry.FieldAsInteger("pax_id");
+  pax.grp_id=Qry.FieldAsInteger("grp_id");
+  pax.surname=Qry.FieldAsString("surname");
+  pax.name=Qry.FieldAsString("name");
+  pax.pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
+  pax.refuse=Qry.FieldAsString("refuse");
+  pax.reg_no=Qry.FieldAsInteger("reg_no");
+  pax.pr_brd=!Qry.FieldIsNULL("pr_brd") && Qry.FieldAsInteger("pr_brd")!=0;
+  pax.tkn.fromDB(Qry);
+  return *this;
+};
+
+void ProcEvent(const TLogLocale &event,
+               const TCtxtItem &ctxt,
+               const xmlNodePtr eventCtxtNode,
+               const bool repeated)
+{
+  TLogLocale eventWithPax;
+  eventWithPax.ev_type=event.ev_type;
+  eventWithPax.id1=ctxt.point_id;
+  eventWithPax.id3=ctxt.pax.grp_id;
+  if (!ctxt.paxUnknown())
+  {
+    eventWithPax.id2=ctxt.pax.reg_no;
+
+    eventWithPax.lexema_id = "EVT.PASSENGER_DATA";
+    eventWithPax.prms << PrmSmpl<string>("pax_name", ctxt.pax.full_name())
+                      << PrmElem<string>("pers_type", etPersType, EncodePerson(ctxt.pax.pers_type))
+                      << PrmLexema("param", event.lexema_id, event.prms);
+  }
+  else
+  {
+    eventWithPax.lexema_id=event.lexema_id;
+    eventWithPax.prms=event.prms;
+  };
+
+  if (!repeated) eventWithPax.toDB(ctxt.screen, ctxt.user_descr, ctxt.desk_code);
+
+  eventWithPax.toXML(eventCtxtNode); //важно, что после toDB, потому что инициализируются ev_time и ev_order
+};
 
 } //namespace AstraEdifact

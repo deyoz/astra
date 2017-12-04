@@ -85,4 +85,14 @@ private:
 
 std::ostream& operator<<(std::ostream& s, const AirportControl& ac);
 
+bool existsAirportControl(const Ticketing::Airline_t& airline,
+                          const Ticketing::TicketNum_t& ticknum,
+                          const Ticketing::CouponNum_t& cpnnum,
+                          bool throwErr);
+
+bool existsAirportControl(const std::string& airline,
+                          const std::string& tick_no,
+                          const int& coupon_no,
+                          bool throwErr);
+
 }//namespace Ticketing

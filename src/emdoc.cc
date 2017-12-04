@@ -308,81 +308,11 @@ bool ExistsPaxUnboundBagEMD(int pax_id)
 
 }; //namespace PaxASVCList
 
-
-void TEdiOriginCtxt::toXML(xmlNodePtr node)
-{
-  if (node==NULL) return;
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  SetProp(node,"desk",reqInfo->desk.code);
-  SetProp(node,"user",reqInfo->user.descr);
-  SetProp(node,"screen",reqInfo->screen.name);
-}
-
-TEdiOriginCtxt& TEdiOriginCtxt::fromXML(xmlNodePtr node)
-{
-  clear();
-  if (node==NULL) return *this;
-  screen=NodeAsString("@screen", node);
-  user_descr=NodeAsString("@user", node);
-  desk_code=NodeAsString("@desk", node);
-  return *this;
-}
-
-const TEdiPaxCtxt& TEdiPaxCtxt::toXML(xmlNodePtr node) const
-{
-  if (node==NULL) return *this;
-
-  NewTextChild(node, "flight", flight);
-  point_id       !=NoExists?NewTextChild(node, "point_id", point_id):
-                            NewTextChild(node, "point_id");
-  grp_id         !=NoExists?NewTextChild(node, "grp_id", grp_id):
-                            NewTextChild(node, "grp_id");
-  pax.id         !=NoExists?NewTextChild(node, "pax_id", pax.id):
-                            NewTextChild(node, "pax_id");
-  pax.reg_no     !=NoExists?NewTextChild(node, "reg_no", pax.reg_no):
-                            NewTextChild(node, "reg_no");
-  NewTextChild(node, "surname", pax.surname);
-  NewTextChild(node, "name", pax.name);
-  NewTextChild(node, "pers_type", EncodePerson(pax.pers_type));
-  return *this;
-}
-
-TEdiPaxCtxt& TEdiPaxCtxt::fromXML(xmlNodePtr node)
-{
-  clear();
-  if (node==NULL) return *this;
-  xmlNodePtr node2=node->children;
-
-  flight=NodeAsStringFast("flight", node2);
-  point_id=NodeAsIntegerFast("point_id", node2, NoExists);
-  grp_id=NodeAsIntegerFast("grp_id", node2, NoExists);
-  pax.id=NodeAsIntegerFast("pax_id", node2, NoExists);
-  pax.reg_no=NodeAsIntegerFast("reg_no", node2, NoExists);
-  pax.surname=NodeAsStringFast("surname", node2);
-  pax.name=NodeAsStringFast("name", node2);
-  pax.pers_type=DecodePerson(NodeAsStringFast("pers_type", node2));
-  return *this;
-}
-
-TEdiPaxCtxt& TEdiPaxCtxt::paxFromDB(TQuery &Qry)
-{
-  pax.clear();
-  pax.id=Qry.FieldAsInteger("pax_id");
-  pax.surname=Qry.FieldAsString("surname");
-  pax.name=Qry.FieldAsString("name");
-  pax.pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
-  pax.refuse=Qry.FieldAsString("refuse");
-  pax.reg_no=Qry.FieldAsInteger("reg_no");
-  pax.pr_brd=!Qry.FieldIsNULL("pr_brd") && Qry.FieldAsInteger("pr_brd")!=0;
-  pax.tkn.fromDB(Qry);
-  return *this;
-};
-
 const TEMDCtxtItem& TEMDCtxtItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
 
-  TEdiPaxCtxt::toXML(node);
+  TPaxCtxt::toXML(node);
 
   NewTextChild(node, "doc_no", emd_no);
   emd_coupon!=NoExists?NewTextChild(node, "coupon_no", emd_coupon):
@@ -401,8 +331,8 @@ TEMDCtxtItem& TEMDCtxtItem::fromXML(xmlNodePtr node, xmlNodePtr originNode)
   clear();
   if (node==NULL) return *this;
 
-  TEdiPaxCtxt::fromXML(node);
-  if (originNode!=NULL) TEdiOriginCtxt::fromXML(originNode);
+  TPaxCtxt::fromXML(node);
+  if (originNode!=NULL) TOriginCtxt::fromXML(originNode);
 
   xmlNodePtr node2=node->children;
   emd_no=NodeAsStringFast("doc_no", node2);
@@ -452,7 +382,6 @@ void GetBagEMDDisassocList(const int point_id,
     item.emd_coupon=asvc.emd_coupon;
     item.paxFromDB(Qry);
     item.point_id=point_id;
-    item.grp_id=Qry.FieldAsInteger("grp_id");
 
     item.status=calcPaxCouponStatus(item.pax.refuse,
                                     item.pax.pr_brd,
@@ -508,7 +437,6 @@ void GetEMDStatusList(const int grp_id,
       TEMDCtxtItem item;
       item.emd_no=p1->doc_no;
       item.emd_coupon=p1->doc_coupon;
-      item.grp_id=grp_id;
 
       Qry.SetVariable("emd_no", p1->doc_no);
       Qry.SetVariable("emd_coupon", p1->doc_coupon);
@@ -633,35 +561,6 @@ TEMDocItem& TEMDocItem::fromDB(const string &_emd_no,
   return *this;
 };
 
-void ProcEdiEvent(const TLogLocale &event,
-                  const TEdiCtxtItem &ctxt,
-                  const xmlNodePtr eventCtxtNode,
-                  const bool repeated)
-{
-  TLogLocale eventWithPax;
-  eventWithPax.ev_type=event.ev_type;
-  eventWithPax.id1=ctxt.point_id;
-  eventWithPax.id3=ctxt.grp_id;
-  if (!ctxt.paxUnknown())
-  {
-    eventWithPax.id2=ctxt.pax.reg_no;
-
-    eventWithPax.lexema_id = "EVT.PASSENGER_DATA";
-    eventWithPax.prms << PrmSmpl<string>("pax_name", ctxt.pax.full_name())
-                      << PrmElem<string>("pers_type", etPersType, EncodePerson(ctxt.pax.pers_type))
-                      << PrmLexema("param", event.lexema_id, event.prms);
-  }
-  else
-  {
-    eventWithPax.lexema_id=event.lexema_id;
-    eventWithPax.prms=event.prms;
-  };
-
-  if (!repeated) eventWithPax.toDB(ctxt.screen, ctxt.user_descr, ctxt.desk_code);
-
-  eventWithPax.toXML(eventCtxtNode); //важно, что после toDB, потому что инициализируются ev_time и ev_order
-};
-
 bool ActualEMDEvent(const TEMDCtxtItem &EMDCtxt,
                     const xmlNodePtr eventCtxtNode,
                     TLogLocale &event)
@@ -687,9 +586,8 @@ bool ActualEMDEvent(const TEMDCtxtItem &EMDCtxt,
 
   TEMDCtxtItem EMDCtxtActual(EMDCtxt);
   EMDCtxtActual.paxFromDB(Qry.get());
-  EMDCtxtActual.grp_id=Qry.get().FieldAsInteger("grp_id");
 
-  if (EMDCtxtActual.grp_id==EMDCtxt.grp_id &&
+  if (EMDCtxtActual.pax.grp_id==EMDCtxt.pax.grp_id &&
       EMDCtxtActual.pax.reg_no==EMDCtxt.pax.reg_no) return false;
 
   QParams DelQryParams;
@@ -703,7 +601,7 @@ bool ActualEMDEvent(const TEMDCtxtItem &EMDCtxt,
   event.ev_type=ASTRA::evtPay;
   event.id1=EMDCtxtActual.point_id;
   event.id2=EMDCtxtActual.pax.reg_no;
-  event.id3=EMDCtxtActual.grp_id;
+  event.id3=EMDCtxtActual.pax.grp_id;
   return true;
 };
 

@@ -297,7 +297,12 @@ class TTripInfo
     virtual bool getByCRSPnrId ( const int pnr_id );
     virtual bool getByCRSPaxId ( const int pax_id );
     void get_client_dates(TDateTime &scd_out_client, TDateTime &real_out_client, bool trunc_time=true) const;
+    static void get_times_in(const int &point_arv,
+                             TDateTime &scd_in,
+                             TDateTime &est_in,
+                             TDateTime &act_in);
     static TDateTime get_scd_in(const int &point_arv);
+    static TDateTime act_est_scd_in(const int &point_arv);
     TDateTime get_scd_in(const std::string &airp_arv) const;
     std::string flight_view(TElemContext ctxt=ecNone, bool showScdOut=true, bool showAirp=true) const;
     TDateTime est_scd_out() const { return !est_out?ASTRA::NoExists:
@@ -455,8 +460,8 @@ class TLastTCkinSegInfo : public TLastTrferInfo
 //настройки рейса
 enum TTripSetType { /*не привязанные к рейсу*/
                     tsCraftInitVIP=1,               //Автоматическая разметка VIP-мест в компоновке
-                    tsEDSNoInteract=10,             //Запрет интерактива с СЭДом.
-                    tsETSNoInteract=11,             //Запрет интерактива с СЭБом. Только ETL.
+                    tsEDSNoExchange=10,             //Запрет обмена с СЭДом.
+                    tsETSNoExchange=11,             //Запрет обмена с СЭБом. Только ETL.
                     tsIgnoreTrferSet=12,            //Оформление любого трансфера без учета настроек
                     tsMixedNorms=13,                //Смешивание норм, тарифов, сборов при трансфере
                     tsNoTicketCheck=15,             //Отмена контроля номеров билетов
@@ -480,6 +485,7 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsNoCrewCkinAlarm=40,           //Отмена тревоги 'Регистрация экипажа'
                     tsNoCtrlDocsCrew=41,            //Не контролировать ввод документов для экипажа
                     tsNoCtrlDocsExtraCrew=42,       //Не контролировать ввод документов для доп. экипажа
+                    tsETSControlMethod=43,          //Контрольный метод при обмене с СЭБом
 
                     /*привязанные к рейсу (есть соответствующие поля в таблице trip_sets и CheckBox в "Подготовке к регистрации")*/
                     tsCheckLoad=2,                  //Контроль загрузки при регистрации
