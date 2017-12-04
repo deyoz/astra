@@ -66,8 +66,6 @@ src/base_tables.cc
 src/base_tables.h
 src/basel_aero.cc
 src/basel_aero.h
-src/brands.h
-src/brands.cpp
 src/brd.cc
 src/brd.h
 src/cache.cc
@@ -281,12 +279,5 @@ src/tz_test.h
 src/icu_conversion.cpp
 src/astra_date_time.cpp
 src/astra_date_time.h
-src/ffp_sirena.h
-src/ffp_sirena.h
-src/ffp_sirena.cc
-src/sirena_exchange.cc
-src/sirena_exchange.h
-src/bagmessage.cc
 src/kiosk_events.cc
 src/kiosk_events.h
-locallibs/serverlib/src/libra.h
