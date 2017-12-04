@@ -2,6 +2,7 @@
 #define _EDI_UTILS_H_
 
 #include "astra_misc.h"
+#include "passenger.h"
 #include "tlg/EdifactRequest.h"
 #include "tlg/remote_results.h"
 #include <etick/tick_data.h>
@@ -13,37 +14,94 @@ Ticketing::CouponStatus calcPaxCouponStatus(const std::string& refuse,
                                             bool pr_brd,
                                             bool in_final_status);
 
+class ETSExchangeStatus
+{
+  public:
+    enum Enum { NotConnected,
+                Online,
+                Finalized,
+                Unknown
+              };
+    static Enum fromDB(TQuery &Qry)
+    {
+      int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
+      if (pr_etstatus<0) return NotConnected;
+      if (pr_etstatus>0) return Finalized;
+      return Online;
+
+    }
+    static void toDB(const Enum value, TQuery &Qry)
+    {
+      int pr_etstatus=0;
+      switch(value)
+      {
+        case NotConnected:
+          pr_etstatus=-1;
+          break;
+        case Online:
+          pr_etstatus=0;
+          break;
+        case Finalized:
+          pr_etstatus=1;
+          break;
+        case Unknown:
+          return;
+      }
+      Qry.SetVariable("pr_etstatus", pr_etstatus);
+    }
+};
+
 class TFltParams
 {
   public:
-    TTripInfo fltInfo;
-    bool ets_no_interact, eds_no_interact, in_final_status;
-    int pr_etstatus, et_final_attempt;
+    TAdvTripInfo fltInfo;
+    bool ets_no_exchange;
+    bool eds_no_exchange;
+    bool control_method;
+    bool in_final_status;
+    ETSExchangeStatus::Enum ets_exchange_status;
+    int et_final_attempt;
     void clear()
     {
       fltInfo.Clear();
-      ets_no_interact=false;
-      eds_no_interact=false;
+      ets_no_exchange=false;
+      eds_no_exchange=false;
+      control_method=false;
       in_final_status=false;
-      pr_etstatus=ASTRA::NoExists;
+      ets_exchange_status=ETSExchangeStatus::Unknown;
       et_final_attempt=ASTRA::NoExists;
     }
     bool get(int point_id);
+    bool get(const TAdvTripInfo& _fltInfo);
+    static void incFinalAttempts(int point_id);
+    static void finishFinalAttempts(int point_id);
+    static void setETSExchangeStatus(int point_id, ETSExchangeStatus::Enum status);
+    static bool returnOnlineStatus(int point_id);
+    static bool get(const TAdvTripInfo& fltInfo,
+                    bool &control_method,
+                    bool &in_final_status);
 };
 
 Ticketing::TicketNum_t checkDocNum(const std::string& doc_no, bool is_et);
 
+bool checkETSExchange(const TTripInfo& info,
+                      bool with_exception);
+
 bool checkETSInteract(const TTripInfo& info,
                       bool with_exception);
 
-bool checkEDSInteract(const TTripInfo& info,
+bool checkEDSExchange(const TTripInfo& info,
                       bool with_exception);
+
+bool checkETSExchange(int point_id,
+                      bool with_exception,
+                      TTripInfo& info);
 
 bool checkETSInteract(int point_id,
                       bool with_exception,
                       TTripInfo& info);
 
-bool checkEDSInteract(int point_id,
+bool checkEDSExchange(int point_id,
                       bool with_exception,
                       TTripInfo& info);
 
@@ -116,6 +174,78 @@ void ClearPostponedContext(tlgnum_t tnum);
 
 bool isTermCheckinRequest(xmlNodePtr reqNode);
 bool isWebCheckinRequest(xmlNodePtr reqNode);
+
+class TOriginCtxt
+{
+  public:
+    std::string screen;
+    std::string user_descr;
+    std::string desk_code;
+    TOriginCtxt()
+    {
+      clear();
+    }
+    TOriginCtxt(const TReqInfo &reqInfo)
+    {
+      screen=reqInfo.screen.name;
+      user_descr=reqInfo.user.descr;
+      desk_code=reqInfo.desk.code;
+    }
+
+    void clear()
+    {
+      screen.clear();
+      user_descr.clear();
+      desk_code.clear();
+    }
+
+    static void toXML(xmlNodePtr node);
+    TOriginCtxt& fromXML(xmlNodePtr node);
+};
+
+class TPaxCtxt
+{
+  public:
+    CheckIn::TSimplePaxItem pax;
+    int point_id;
+    std::string flight;
+
+    TPaxCtxt()
+    {
+      clear();
+    }
+
+    void clear()
+    {
+      pax.clear();
+      point_id=ASTRA::NoExists;
+      flight.clear();
+    }
+
+    bool paxUnknown() const
+    {
+      return pax.id==ASTRA::NoExists;
+    }
+
+    const TPaxCtxt& toXML(xmlNodePtr node) const;
+    TPaxCtxt& fromXML(xmlNodePtr node);
+    TPaxCtxt& paxFromDB(TQuery &Qry);
+};
+
+class TCtxtItem : public TPaxCtxt, public TOriginCtxt
+{
+  public:
+    void clear()
+    {
+      TPaxCtxt::clear();
+      TOriginCtxt::clear();
+    }
+};
+
+void ProcEvent(const TLogLocale &event,
+               const AstraEdifact::TCtxtItem &ctxt,
+               const xmlNodePtr eventCtxtNode,
+               const bool repeated);
 
 } //namespace AstraEdifact
 

@@ -5,6 +5,8 @@ src/access.cc
 src/access.h
 src/adm.cc
 src/adm.h
+src/AirportControl.cpp
+src/AirportControl.h
 src/alarms.cc
 src/alarms.h
 src/aodb.cc
@@ -45,6 +47,8 @@ src/astra_main.cc
 src/astra_main.h
 src/astra_misc.cc
 src/astra_misc.h
+src/astra_pnr.cpp
+src/astra_pnr.h
 src/astra_service.cc
 src/astra_service.h
 src/astra_tick_read_edi.cpp

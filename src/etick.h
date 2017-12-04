@@ -27,7 +27,7 @@ class ETSearchParams
 {
   public:
     int point_id;
-    ETSearchParams(): point_id(ASTRA::NoExists) {}
+    ETSearchParams(const int& _point_id) : point_id(_point_id) {}
     virtual ~ETSearchParams() {}
     bool operator != (const ETSearchParams &params) const
     {
@@ -37,6 +37,13 @@ class ETSearchParams
     {
       return point_id<params.point_id;
     }
+    std::string traceStr() const
+    {
+      std::ostringstream s;
+      s << "point_id=" << point_id;
+      return s.str();
+    }
+
 };
 
 class ETWideSearchParams : public ETSearchParams
@@ -44,7 +51,7 @@ class ETWideSearchParams : public ETSearchParams
   public:
     std::string airline, airp_dep;
     int flt_no;
-    ETWideSearchParams() : flt_no(ASTRA::NoExists) {}
+    ETWideSearchParams(const int& _point_id) : ETSearchParams(_point_id), flt_no(ASTRA::NoExists) {}
     bool existsAdditionalFltInfo() const
     {
       return !airline.empty() &&
@@ -78,12 +85,24 @@ class ETWideSearchParams : public ETSearchParams
         return flt_no<params.flt_no;
       return airp_dep<params.airp_dep;
     }
+    std::string traceStr() const
+    {
+      std::ostringstream s;
+      s << ETSearchParams::traceStr();
+      if (existsAdditionalFltInfo())
+        s << ", airline=" << airline
+          << ", flt_no=" << flt_no;
+      return s.str();
+    }
 };
 
 class ETSearchByTickNoParams : public ETWideSearchParams
 {
   public:
     std::string tick_no;
+    ETSearchByTickNoParams(const int& _point_id,
+                           const std::string& _tick_no) :
+      ETWideSearchParams(_point_id), tick_no(_tick_no) {}
     bool operator < (const ETSearchByTickNoParams &params) const
     {
       if (ETWideSearchParams::operator !=(params))
@@ -93,11 +112,27 @@ class ETSearchByTickNoParams : public ETWideSearchParams
     std::string traceStr() const
     {
       std::ostringstream s;
-      s << "tick_no=" << tick_no
-        << ", point_id=" << point_id;
-      if (existsAdditionalFltInfo())
-        s << ", airline=" << airline
-          << ", flt_no=" << flt_no;
+      s << ETWideSearchParams::traceStr()
+        << ", tick_no=" << tick_no;
+      return s.str();
+    }
+};
+
+class ETRequestControlParams : public ETWideSearchParams
+{
+  public:
+    std::string tick_no;
+    int coupon_no;
+    ETRequestControlParams(const int& _point_id,
+                           const std::string& _tick_no,
+                           const int& _coupon_no) :
+      ETWideSearchParams(_point_id), tick_no(_tick_no), coupon_no(_coupon_no) {}
+    std::string traceStr() const
+    {
+      std::ostringstream s;
+      s << ETWideSearchParams::traceStr()
+        << ", tick_no=" << tick_no
+        << ", coupon_no=" << (coupon_no==ASTRA::NoExists?"NoExists":IntToString(coupon_no));
       return s.str();
     }
 };
@@ -106,7 +141,11 @@ namespace PaxETList
 {
 
 enum TListType {notDisplayedByPointIdTlg,
-                notDisplayedByPaxIdTlg};
+                notDisplayedByPaxIdTlg,
+                allStatusesByPointIdFromTlg,
+                allByPointIdAndTickNoFromTlg,
+                allByTickNoAndCouponNoFromTlg,
+                allNotCheckedStatusesByPointId};
 std::string GetSQL(const TListType ltype);
 void GetNotDisplayedET(int point_id_tlg, int id, bool is_pax_id, std::set<ETSearchByTickNoParams> &searchParams);
 
@@ -116,11 +155,32 @@ void TlgETDisplay(int point_id_tlg, const std::set<int> &ids, bool is_pax_id);
 void TlgETDisplay(int point_id_tlg, int id, bool is_pax_id);
 void TlgETDisplay(int point_id_spp);
 
+class TETCtxtItem : public AstraEdifact::TCtxtItem
+{
+  public:
+    TETCtxtItem()
+    {
+      clear();
+    }
+
+    TETCtxtItem(const TReqInfo &reqInfo, int _point_id)
+    {
+      clear();
+      TOriginCtxt::operator=(TOriginCtxt(reqInfo));
+      point_id=_point_id;
+    }
+
+    void clear()
+    {
+      TCtxtItem::clear();
+    }
+};
+
 class TETickItem
 {
   public:
 
-    enum TEdiAction{Display, ChangeOfStatus};
+    enum TEdiAction{Display, ChangeOfStatus, Minimum};
 
     std::string et_no;
     int et_coupon;
@@ -137,7 +197,24 @@ class TETickItem
     TETickItem()
     {
       clear();
-    };
+    }
+    TETickItem(const TETickItem &item, const Ticketing::CouponStatus &_status) :
+      TETickItem(item) { status=_status; }
+    TETickItem(const std::string &_et_no,
+               const int &_et_coupon,
+               const int &_point_id,
+               const std::string &_airp_dep,
+               const std::string &_airp_arv,
+               const Ticketing::CouponStatus &_status)
+    {
+      clear();
+      et_no=_et_no;
+      et_coupon=_et_coupon;
+      point_id=_point_id;
+      airp_dep=_airp_dep;
+      airp_arv=_airp_arv;
+      status=_status;
+    }
 
     void clear()
     {
@@ -162,6 +239,13 @@ class TETickItem
     {
       return et_no.empty() || et_coupon==ASTRA::NoExists;
     };
+
+    bool operator < (const TETickItem &item) const
+    {
+      if (et_no!=item.et_no)
+        return et_no<item.et_no;
+      return et_coupon<item.et_coupon;
+    }
 
     std::string no_str() const
     {
@@ -203,7 +287,7 @@ void ETDisplayToDB(const Ticketing::Pnr &pnr);
 class ETSearchInterface : public AstraJxtIface
 {
 public:
-  enum SearchPurpose {spETDisplay, spTlgETDisplay, spEMDDisplay, spEMDRefresh};
+  enum SearchPurpose {spETDisplay, spTlgETDisplay, spEMDDisplay, spEMDRefresh, spETRequestControl};
 
   ETSearchInterface() : AstraJxtIface("ETSearchForm")
   {
@@ -219,6 +303,30 @@ public:
                        const SearchPurpose searchPurpose,
                        const edifact::KickInfo &kickInfo);
 
+};
+
+class ETRequestControlInterface: public AstraJxtIface
+{
+public:
+    ETRequestControlInterface(): AstraJxtIface("ETRequestControl")
+    {
+        AddEvent("kick",           JXT_HANDLER(ETRequestControlInterface, KickHandler));
+    }
+
+    void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+};
+
+class ETRequestACInterface: public AstraJxtIface
+{
+public:
+    ETRequestACInterface(): AstraJxtIface("RequestAC")
+    {
+        AddEvent("RequestControl", JXT_HANDLER(ETRequestACInterface, RequestControl));
+        AddEvent("kick",           JXT_HANDLER(ETRequestACInterface, KickHandler));
+    }
+
+    void RequestControl(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+    void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
 class EMDSearchInterface : public AstraJxtIface
@@ -308,7 +416,8 @@ class TETChangeStatusList : public std::map<TETChangeStatusKey, std::vector<TETC
 {
   public:
     xmlNodePtr addTicket(const TETChangeStatusKey &key,
-                         const Ticketing::Ticket &tick);
+                         const Ticketing::Ticket &tick,
+                         bool control_method);
 };
 
 class TEMDChangeStatusKey
@@ -374,10 +483,20 @@ public:
 
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 
-  static void ETCheckStatus(int point_id,
-                            xmlDocPtr ediResDocPtr,
-                            bool check_connect,
-                            TETChangeStatusList &mtick);
+  static bool ChangeStatusLocallyOnly(const AstraEdifact::TFltParams& fltParams,
+                                      const TETickItem& item,
+                                      const TETCtxtItem &ctxt);
+
+  static bool ToDoNothingWhenChangingStatus(const AstraEdifact::TFltParams& fltParams,
+                                            const TETickItem& item);
+  static void AfterReceiveAirportControl(const Ticketing::Coupon& cpn);
+  static bool ReturnAirportControl(const AstraEdifact::TFltParams& fltParams,
+                                   const TETickItem& item);
+
+  static void ETCheckStatusForRollback(int point_id,
+                                       xmlDocPtr ediResDocPtr,
+                                       bool check_connect,
+                                       TETChangeStatusList &mtick);
   static void ETCheckStatus(int id,
                             TETCheckStatusArea area,
                             int check_point_id,
@@ -465,20 +584,6 @@ class EMDAutoBoundInterface: public AstraJxtIface
 
 void emd_refresh_task(const TTripTaskKey &task);
 void emd_try_bind_task(const TTripTaskKey &task);
-
-class ETRequestACInterface: public AstraJxtIface
-{
-public:
-    ETRequestACInterface(): AstraJxtIface("RequestAC")
-    {
-        AddEvent("RequestControl", JXT_HANDLER(ETRequestACInterface, RequestControl));
-        AddEvent("kick",           JXT_HANDLER(ETRequestACInterface, KickHandler));
-    }
-
-    void RequestControl(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-    void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-};
-
 
 inline xmlNodePtr astra_iface(xmlNodePtr resNode, const std::string &iface_id)
 {

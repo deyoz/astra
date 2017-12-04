@@ -563,7 +563,7 @@ bool is_et_not_displayed(const TTripInfo &flt,
                          const CheckIn::TPaxTknItem &tkn,
                          const TETickItem &etick)
 {
-  bool pr_etl_only=GetTripSets(tsETSNoInteract, flt);
+  bool pr_etl_only=GetTripSets(tsETSNoExchange, flt);
   if (!pr_etl_only && tkn.validET() && etick.empty()) return true;
   return false;
 }

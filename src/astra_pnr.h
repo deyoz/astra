@@ -164,4 +164,37 @@ bool returnWcCoupon(const Ticketing::Airline_t& airline,
                     const Ticketing::CouponNum_t& cpnnum,
                     bool throwErr = false);
 
+//---------------------------------------------------------------------------------------
+
+class AstraPnrCallbacks
+{
+public:
+    virtual ~AstraPnrCallbacks() {}
+
+    virtual void afterReceiveAirportControl(const Ticketing::Coupon& cpn) = 0;
+};
+
+//---------------------------------------------------------------------------------------
+
+class ControlMethod
+{
+private:
+    AstraPnrCallbacks* m_cb;
+
+protected:
+    ControlMethod();
+
+public:
+    static ControlMethod* Instance();
+    AstraPnrCallbacks* pnrCallbacks();
+    void setPnrCallbacks(AstraPnrCallbacks* cb);
+};
+
+//---------------------------------------------------------------------------------------
+
+inline AstraPnrCallbacks* pnrCallbacks()
+{
+    return ControlMethod::Instance()->pnrCallbacks();
+}
+
 }//namespace Ticketing

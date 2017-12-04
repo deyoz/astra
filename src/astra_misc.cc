@@ -159,15 +159,41 @@ void TTripInfo::get_client_dates(TDateTime &scd_out_client, TDateTime &real_out_
     real_out_client=scd_out_client;
 };
 
-TDateTime TTripInfo::get_scd_in(const int &point_arv)
+void TTripInfo::get_times_in(const int &point_arv,
+                             TDateTime &scd_in,
+                             TDateTime &est_in,
+                             TDateTime &act_in)
 {
-  TCachedQuery PointsQry("SELECT scd_in FROM points WHERE point_id=:point_arv AND pr_del>=0",
+  scd_in=ASTRA::NoExists;
+  est_in=ASTRA::NoExists;
+  act_in=ASTRA::NoExists;
+
+  TCachedQuery PointsQry("SELECT scd_in, est_in, act_in FROM points WHERE point_id=:point_arv AND pr_del>=0",
                          QParams() << QParam("point_arv", otInteger, point_arv));
   PointsQry.get().Execute();
-  if (!PointsQry.get().Eof && !PointsQry.get().FieldIsNULL("scd_in"))
-    return PointsQry.get().FieldAsDateTime("scd_in");
-  else
-    return ASTRA::NoExists;
+  if (PointsQry.get().Eof) return;
+  if (!PointsQry.get().FieldIsNULL("scd_in"))
+    scd_in=PointsQry.get().FieldAsDateTime("scd_in");
+  if (!PointsQry.get().FieldIsNULL("est_in"))
+    est_in=PointsQry.get().FieldAsDateTime("est_in");
+  if (!PointsQry.get().FieldIsNULL("act_in"))
+    act_in=PointsQry.get().FieldAsDateTime("act_in");
+}
+
+TDateTime TTripInfo::get_scd_in(const int &point_arv)
+{
+  TDateTime scd_in, est_in, act_in;
+  get_times_in(point_arv, scd_in, est_in, act_in);
+  return scd_in;
+}
+
+TDateTime TTripInfo::act_est_scd_in(const int &point_arv)
+{
+  TDateTime scd_in, est_in, act_in;
+  get_times_in(point_arv, scd_in, est_in, act_in);
+  return act_in!=ASTRA::NoExists?act_in:
+         est_in!=ASTRA::NoExists?est_in:
+                                 scd_in;
 }
 
 TDateTime TTripInfo::get_scd_in(const std::string &airp_arv) const

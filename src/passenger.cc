@@ -125,6 +125,17 @@ std::string TPaxTknItem::get_rem_text(bool inf_indicator,
   return result.str();
 }
 
+int TPaxTknItem::checkedInETCount() const
+{
+  if (!validET()) return 0;
+  TCachedQuery Qry("SELECT COUNT(*) AS num FROM pax WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no",
+                   QParams() << QParam("ticket_no", otString, no)
+                             << QParam("coupon_no", otInteger, coupon));
+  Qry.get().Execute();
+  if (Qry.get().Eof) return 0;
+  return Qry.get().FieldAsInteger("num");
+}
+
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn)
 {
   return LoadPaxTkn(ASTRA::NoExists, pax_id, tkn);

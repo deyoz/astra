@@ -1,6 +1,8 @@
 #include "oralib.h"
 #include "exceptions.h"
 #include "astra_main.h"
+#include "astra_pnr.h"
+#include "etick.h"
 #include "tlg/tlg.h"
 #include "tlg/typeb_template_init.h"
 
@@ -86,9 +88,25 @@ void AstraTlgCallbacks::readAllRouters(std::list<telegrams::RouterInfo>& routers
 
 #undef NON_IMPLEMENTED_CALL
 
+//---------------------------------------------------------------------------------------
+
+class EtickPnrCallbacks: public Ticketing::AstraPnrCallbacks
+{
+public:
+    virtual void afterReceiveAirportControl(const Ticketing::Coupon& cpn)
+    {
+        ETStatusInterface::AfterReceiveAirportControl(cpn);
+    }
+};
+
 }//namespace
 
 /////////////////////////////////////////////////////////////////////////////////////////
+
+void init_pnr_callbacks()
+{
+    Ticketing::ControlMethod::Instance()->setPnrCallbacks(new EtickPnrCallbacks);
+}
 
 int init_locale(void)
 {
@@ -98,6 +116,7 @@ int init_locale(void)
         throw EXCEPTIONS::Exception("'init_edifact' error!");
     typeb_parser::typeb_template_init();
     init_tlg_callbacks();
+    init_pnr_callbacks();
     TlgLogger::setLogging();
     return 0;
 }
@@ -106,3 +125,4 @@ void init_tlg_callbacks()
 {
     telegrams::Telegrams::Instance()->setCallbacks(new AstraTlgCallbacks);
 }
+
