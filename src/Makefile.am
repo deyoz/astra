@@ -171,8 +171,9 @@ astra_SOURCES = \
   AirportControl.cpp \
   bagmessage.cc \
   hotel_acmd.cc \
-  bagmessage_daemon.cc \
-  kiosk_events.cc
+  kiosk_events.cc \
+  self_ckin_log.cc \
+  bagmessage_daemon.cc
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
@@ -333,4 +334,6 @@ noinst_HEADERS = \
   astra_pnr.h \
   AirportControl.h \
   hotel_acmd.h \
-  kiosk_events.h
+  kiosk_events.h \
+  self_ckin_log.h \
+  report_common.h
