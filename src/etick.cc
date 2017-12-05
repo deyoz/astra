@@ -35,6 +35,7 @@
 #include "brd.h"
 #include "astra_elems.h"
 #include "baggage_calc.h"
+#include "AirportControl.h"
 #include "tlg/et_disp_request.h"
 #include "tlg/emd_disp_request.h"
 #include "tlg/emd_system_update_request.h"
@@ -86,20 +87,76 @@ std::string GetSQL(const TListType ltype)
            "      crs_pax.pnr_id=crs_pnr.pnr_id AND \n"
            "      crs_pnr.point_id=tlg_binding.point_id_tlg AND \n"
            "      crs_pnr.point_id=tlg_trips.point_id AND \n"
+           "      tlg_binding.point_id_tlg=:point_id_tlg AND \n"
            "      crs_pax_tkn.ticket_no=eticks_display.ticket_no(+) AND \n"
            "      crs_pax_tkn.coupon_no=eticks_display.coupon_no(+) AND \n"
-           "      tlg_binding.point_id_tlg=:point_id_tlg AND \n";
+           "      eticks_display.ticket_no IS NULL AND \n";
     if (ltype==notDisplayedByPointIdTlg)
       sql << "      tlg_binding.point_id_spp=:id AND \n";
     if (ltype==notDisplayedByPaxIdTlg)
       sql << "      crs_pax.pax_id=:id AND \n";
-
-    sql << "      crs_pax.pr_del=0 AND \n"
-           "      crs_pax_tkn.rem_code='TKNE' AND \n"
-           "      eticks_display.ticket_no IS NULL \n";
-
   };
 
+  if (ltype==allStatusesByPointIdFromTlg)
+  {
+    sql << "SELECT crs_pax_tkn.ticket_no, crs_pax_tkn.coupon_no, \n"
+           "       tlg_trips.airp_dep, crs_pnr.airp_arv, \n"
+           "       tlg_binding.point_id_spp AS point_id, \n"
+           "       etickets.coupon_status, etickets.error \n"
+           "FROM crs_pax_tkn, crs_pax, crs_pnr, tlg_trips, tlg_binding, etickets \n"
+           "WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND \n"
+           "      crs_pax.pnr_id=crs_pnr.pnr_id AND \n"
+           "      crs_pnr.point_id=tlg_binding.point_id_tlg AND \n"
+           "      crs_pnr.point_id=tlg_trips.point_id AND \n"
+           "      tlg_binding.point_id_spp=:point_id AND \n"
+           "      crs_pax_tkn.ticket_no=etickets.ticket_no(+) AND \n"
+           "      crs_pax_tkn.coupon_no=etickets.coupon_no(+) AND \n"
+           "      etickets.ticket_no IS NULL AND \n";  //нет записи в etickets
+  };
+
+  if (ltype==allByPointIdAndTickNoFromTlg ||
+      ltype==allByTickNoAndCouponNoFromTlg)
+  {
+    sql << "SELECT crs_pax_tkn.ticket_no, crs_pax_tkn.coupon_no, \n"
+           "       tlg_binding.point_id_spp AS point_id \n"
+           "FROM crs_pax_tkn, crs_pax, crs_pnr, tlg_binding \n"
+           "WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND \n"
+           "      crs_pax.pnr_id=crs_pnr.pnr_id AND \n"
+           "      crs_pnr.point_id=tlg_binding.point_id_tlg AND \n";
+    if (ltype==allByPointIdAndTickNoFromTlg)
+      sql <<
+           "      tlg_binding.point_id_spp=:point_id AND \n"
+           "      crs_pax_tkn.ticket_no=:ticket_no AND \n";
+    if (ltype==allByTickNoAndCouponNoFromTlg)
+      sql <<
+           "      crs_pax_tkn.ticket_no=:ticket_no AND \n"
+           "      crs_pax_tkn.coupon_no=:coupon_no AND \n";
+  }
+
+  if (ltype==notDisplayedByPointIdTlg ||
+      ltype==notDisplayedByPaxIdTlg ||
+      ltype==allStatusesByPointIdFromTlg ||
+      ltype==allByPointIdAndTickNoFromTlg ||
+      ltype==allByTickNoAndCouponNoFromTlg)
+  {
+    sql << "      crs_pnr.system='CRS' AND \n"
+           "      crs_pax.pr_del=0 AND \n"
+           "      crs_pax_tkn.rem_code='TKNE'\n";
+  };
+
+  if (ltype==allNotCheckedStatusesByPointId)
+  {
+    sql << "SELECT etickets.ticket_no, etickets.coupon_no, \n"
+           "       etickets.airp_dep, etickets.airp_arv, \n"
+           "       etickets.point_id, \n"
+           "       etickets.coupon_status, etickets.error \n"
+           "FROM etickets, pax \n"
+           "WHERE etickets.ticket_no=pax.ticket_no(+) AND \n"
+           "      etickets.coupon_no=pax.coupon_no(+) AND \n"
+           "      etickets.point_id=:point_id AND \n"
+           "      pax.pax_id IS NULL AND \n"
+           "      etickets.coupon_status IS NOT NULL \n";
+  };
   //ProgTrace(TRACE5, "%s: SQL=\n%s", __FUNCTION__, sql.str().c_str());
   return sql.str();
 }
@@ -115,9 +172,7 @@ void GetNotDisplayedET(int point_id_tlg, int id, bool is_pax_id, std::set<ETSear
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {
-    ETSearchByTickNoParams params;
-    params.point_id=Qry.FieldAsInteger("point_id");
-    params.tick_no=Qry.FieldAsString("ticket_no");
+    ETSearchByTickNoParams params(Qry.FieldAsInteger("point_id"), Qry.FieldAsString("ticket_no"));
     searchParams.insert(params);
     //добавляем телеграммный рейс
     params.airline=Qry.FieldAsString("airline");
@@ -125,6 +180,55 @@ void GetNotDisplayedET(int point_id_tlg, int id, bool is_pax_id, std::set<ETSear
     params.airp_dep=Qry.FieldAsString("airp_dep");
     searchParams.insert(params);
   };
+}
+
+void GetAllStatusesByPointId(TListType type, int point_id, std::set<TETickItem> &list, bool clear_list=true)
+{
+  if (clear_list) list.clear();
+  if (type==allStatusesByPointIdFromTlg ||
+      type==allNotCheckedStatusesByPointId)
+  {
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText = GetSQL(type);
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next())
+    {
+      TETickItem item;
+      item.fromDB(TETickItem::ChangeOfStatus, Qry);
+      list.insert(item);
+    };
+  };
+}
+
+void GetByTickNoFromTlg(int point_id, const std::string& tick_no, std::set<TETickItem> &items)
+{
+  items.clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=GetSQL(allByPointIdAndTickNoFromTlg);
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.CreateVariable("ticket_no", otString, tick_no);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    if (Qry.FieldIsNULL("coupon_no")) continue;
+    items.insert(TETickItem().fromDB(TETickItem::Minimum, Qry));
+  };
+}
+
+void GetByCouponNoFromTlg(const std::string& tick_no, int coupon_no, std::list<TETickItem> &items) //list не просто так. Один и тот жк купон может быть привязан ко многим рейсам
+{
+  items.clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=GetSQL(allByTickNoAndCouponNoFromTlg);
+  Qry.CreateVariable("ticket_no", otString, tick_no);
+  Qry.CreateVariable("coupon_no", otInteger, coupon_no);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+    items.push_back(TETickItem().fromDB(TETickItem::Minimum, Qry));
 }
 
 } //namespace PaxETList
@@ -156,14 +260,16 @@ class ETDisplayKey
 class ETDisplayProps
 {
   public:
-    bool interact;
+    bool exchange;
+    bool interactive;
     string airline;
     pair<string,string> addrs;
-    ETDisplayProps() : interact(false) {}
+    ETDisplayProps() : exchange(false), interactive(true) {}
     std::string traceStr() const
     {
       std::ostringstream s;
-      s << "interact=" << (interact?"true":"false")
+      s << "exchange=" << (exchange?"true":"false")
+        << ", interactive=" << (interactive?"true":"false")
         << ", airline=" << airline
         << ", addrs=(" << addrs.first << "; " << addrs.second << ")";
       return s.str();
@@ -197,8 +303,9 @@ void TlgETDisplay(int point_id_tlg, const set<int> &ids, bool is_pax_id)
             !flt.airp.empty())
         {
           props.airline=flt.airline;
-          props.interact=/*checkETSInteract(flt, false) && принято решение игнорировать отмену интерактива и учитывать только настройки адресов СЭБ */
+          props.exchange=/*checkETSExchange(flt, false) && принято решение игнорировать отмену интерактива и учитывать только настройки адресов СЭБ */
                          get_et_addr_set(flt.airline, flt.flt_no, props.addrs);
+          props.interactive=checkETSInteract(flt, false);
         };
 
         iETSProps=ets_props.insert(make_pair(*p, props)).first;
@@ -207,7 +314,8 @@ void TlgETDisplay(int point_id_tlg, const set<int> &ids, bool is_pax_id)
       }
       if (iETSProps==ets_props.end()) throw EXCEPTIONS::Exception("%s: iETSProps==ets_props.end()!", __FUNCTION__);
 
-      if (!iETSProps->second.interact) continue;
+      if (!iETSProps->second.exchange) continue;      //нет обмена с СЭБ
+      if (!iETSProps->second.interactive) continue;   //контрольный метод: дисплеи не запрашиваем
 
       //связь с СЭБ есть
       ETDisplayKey eticksKey;
@@ -293,6 +401,8 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
                                                       QParam("coupon_status", otString, FNull))
                 << QParam("error", otString, change_status_error.substr(0,100));
       break;
+    case Minimum:
+      throw EXCEPTIONS::Exception("TETickItem::toDB: Minimum not supported");
   };
 
   if (ediAction==Display)
@@ -489,14 +599,17 @@ void ETDisplayToDB(const Ticketing::Pnr &pnr)
   };
 }
 
-
-
 void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
                                  const SearchPurpose searchPurpose,
                                  const edifact::KickInfo& kickInfo)
 {
-  const ETSearchByTickNoParams& params = dynamic_cast<const ETSearchByTickNoParams&>(searchParams);
-  Ticketing::TicketNum_t tickNum = checkDocNum(params.tick_no, true);
+  const ETWideSearchParams& params = dynamic_cast<const ETWideSearchParams&>(searchParams);
+  Ticketing::TicketNum_t tickNum=checkDocNum(searchPurpose==spETRequestControl?
+                                             dynamic_cast<const ETRequestControlParams&>(searchParams).tick_no:
+                                             dynamic_cast<const ETSearchByTickNoParams&>(searchParams).tick_no, true);
+  Ticketing::CouponNum_t cpnNum=searchPurpose==spETRequestControl?
+                                Ticketing::CouponNum_t(dynamic_cast<const ETRequestControlParams&>(searchParams).coupon_no):
+                                Ticketing::CouponNum_t();
 
   TTripInfo info;
   if (params.existsAdditionalFltInfo())
@@ -510,10 +623,14 @@ void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
   };
 
   if (!(searchPurpose==spTlgETDisplay && kickInfo.background_mode()))
-    checkETSInteract(info, true);
+    checkETSExchange(info, true);
   if (searchPurpose==spEMDDisplay ||
       searchPurpose==spEMDRefresh)
-    checkEDSInteract(info, true);
+    checkEDSExchange(info, true);
+
+  if (searchPurpose!=spETRequestControl &&
+      searchPurpose!=spETDisplay)
+    checkETSInteract(info, true);
 
   if(!inTestMode())
   {
@@ -551,31 +668,132 @@ void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
     case spEMDRefresh:
       SetProp(rootNode,"purpose","EMDRefresh");
       break;
+    case spETRequestControl:
+      SetProp(rootNode,"purpose","ETRequestControl");
+      break;
   };
 
-  edifact::SendEtDispByNumRequest(edifact::EtDispByNumParams(org,
-                                                             XMLTreeToText(xmlCtxt.docPtr()),
-                                                             kickInfo,
-                                                             info.airline,
-                                                             Ticketing::FlightNum_t(info.flt_no),
-                                                             tickNum));
+  if (searchPurpose==spETRequestControl)
+    edifact::SendEtRacRequest(edifact::EtRacParams(org,
+                                                   "",
+                                                   kickInfo,
+                                                   info.airline,
+                                                   Ticketing::FlightNum_t(info.flt_no),
+                                                   tickNum,
+                                                   cpnNum));
+  else
+    edifact::SendEtDispByNumRequest(edifact::EtDispByNumParams(org,
+                                                               XMLTreeToText(xmlCtxt.docPtr()),
+                                                               kickInfo,
+                                                               info.airline,
+                                                               Ticketing::FlightNum_t(info.flt_no),
+                                                               tickNum));
 }
 
 void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  ETSearchByTickNoParams params;
-  params.point_id=NodeAsInteger("point_id",reqNode);
-  params.tick_no=NodeAsString("TickNoEdit",reqNode);
+  int point_id=NodeAsInteger("point_id",reqNode);
+  TicketNum_t tickNum=checkDocNum(NodeAsString("TickNoEdit",reqNode), true);
 
-  edifact::KickInfo kickInfo=createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)),
-                                            "ETSearchForm");
+  TTripInfo flt;
+  if (!checkETSInteract(point_id, false, flt))
+  {
+    LogTrace(TRACE5) << __FUNCTION__ << ": control method applies (point_id=" << point_id << ")";
 
-  SearchET(params, ETSearchInterface::spETDisplay, kickInfo);
+    CouponNum_t cpnNum;
+    xmlNodePtr paxNode=GetNode("pax", reqNode);
+    if (paxNode!=nullptr)
+    {
+      CheckIn::TPaxTknItem paxTkn;
+      paxTkn.fromXML(paxNode);
+      if (paxTkn.no==tickNum.get())
+      {
+        if (!paxTkn.validET())
+          throw UserException("MSG.ETICK.FOR_PASSENGER_NOT_SET_TICK_AND_COUPON_NO");
+        cpnNum=CouponNum_t(paxTkn.coupon);
+      }
+    }
 
-  //в лог отсутствие связи
-  xmlNodePtr errNode=NewTextChild(resNode,"ets_connect_error");
-  SetProp(errNode,"internal_msgid",get_internal_msgid_hex());
-  NewTextChild(errNode,"message",getLocaleText("MSG.ETS_CONNECT_ERROR"));
+    if (!cpnNum)
+    {
+      set<TETickItem> ETickItems;
+      PaxETList::GetByTickNoFromTlg(point_id, tickNum.get(), ETickItems);
+      if (ETickItems.empty()) throw UserException("MSG.ETICK.NOT_FOUND_IN_PNL", LParams()<<LParam("etick", tickNum.get()));
+      if (ETickItems.size()>1) throw  UserException("MSG.ETICK.DUPLICATED_IN_PNL", LParams()<<LParam("etick", tickNum.get()));
+      cpnNum=CouponNum_t(ETickItems.begin()->et_coupon);
+    }
+
+    bool existsAC=existsAirportControl(BaseTables::Company(flt.airline)->ida(), tickNum, cpnNum, false);
+
+    CheckIn::TPaxTknItem tkn(tickNum.get(), cpnNum.get());
+    TFltParams ediFltParams;
+    if (!ediFltParams.get(point_id))
+      throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
+    int ETCount=tkn.checkedInETCount();
+    LogTrace(TRACE5) << __FUNCTION__ << ": tkn.checkedInETCount()=" << ETCount
+                                     << " existsAC=" << boolalpha << existsAC
+                                     << " in_final_status=" << boolalpha << ediFltParams.in_final_status;
+    if (ETCount==0 &&
+        !existsAC &&
+        !ediFltParams.in_final_status)
+    {
+      //берем аэропортовый контроль
+      edifact::KickInfo kickInfo=createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)),
+                                                "ETRequestControl");
+
+      LogTrace(TRACE5) << __FUNCTION__ << ": SearchET(ETSearchInterface::spETRequestControl)";
+      SearchET(ETRequestControlParams(point_id, tickNum.get(), cpnNum.get()),
+               ETSearchInterface::spETRequestControl,
+               kickInfo);
+    }
+    else
+    {
+      boost::optional<WcPnr> wcPnr=loadWcPnrWithActualStatuses(BaseTables::Company(flt.airline)->ida(), tickNum);
+      if (!wcPnr) LogTrace(TRACE5) << __FUNCTION__ << ": wcPnr==boost::none";
+      if (wcPnr)
+      {
+        ETDisplayToDB(wcPnr.get().pnr());
+        xmlNodePtr dataNode=getNode(astra_iface(resNode, "ETViewForm"),"data");
+        PnrDisp::doDisplay(PnrXmlView(dataNode), wcPnr.get().pnr());
+//        if (!existsAC)
+//          showErrorMessage("Нет контроля купона. Показан образ ЭБ на момент возврата контроля из DCS"); //это выводится в xml, но не вводится внизу в терминале :(
+        return; //вывели working copy и ладно...
+      }
+      else if (existsAC)
+        throw EXCEPTIONS::Exception("%s: strange situation: existsAC && !wcPnr", __FUNCTION__);
+      else if (ediFltParams.in_final_status)
+        throw UserException("MSG.ETICK.FLIGHT_IN_FINAL_STATUS_UNABLE_RECEIVE_CONTROL",
+                            LParams()<<LParam("eticket", tickNum.get())
+                                     <<LParam("coupon", IntToString(cpnNum.get())));
+    }
+
+    if (!Ticketing::isDoomedToWait())
+    {
+      ProgError(STDLOG, "%s: !Ticketing::isDoomedToWait()", __FUNCTION__);
+      throw UserException("MSG.ETICK.UNABLE_RECEIVE_CONTROL",
+                          LParams()<<LParam("eticket", tickNum.get())
+                                   <<LParam("coupon", IntToString(cpnNum.get())));
+    }
+  }
+
+  if (!Ticketing::isDoomedToWait())
+  {
+    edifact::KickInfo kickInfo=createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)),
+                                              "ETSearchForm");
+
+    LogTrace(TRACE5) << __FUNCTION__ << ": SearchET(ETSearchInterface::spETDisplay)";
+    SearchET(ETSearchByTickNoParams(point_id, tickNum.get()),
+             ETSearchInterface::spETDisplay,
+             kickInfo);
+  }
+
+  if (Ticketing::isDoomedToWait())
+  {
+    //в лог отсутствие связи
+    xmlNodePtr errNode=NewTextChild(resNode,"ets_connect_error");
+    SetProp(errNode,"internal_msgid",get_internal_msgid_hex());
+    NewTextChild(errNode,"message",getLocaleText("MSG.ETS_CONNECT_ERROR"));
+  };
 }
 
 void EMDSearchInterface::EMDTextView(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -594,9 +812,8 @@ void EMDSearchInterface::EMDTextView(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   </term>
 */
 
-  ETSearchByTickNoParams params;
-  params.point_id=NodeAsInteger("point_id",reqNode);
-  params.tick_no=NodeAsString("ticket_no",reqNode);
+  ETSearchByTickNoParams params(NodeAsInteger("point_id",reqNode),
+                                NodeAsString("ticket_no",reqNode));
 
   edifact::KickInfo kickInfo=createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)),
                                             "EMDDisplay");
@@ -717,6 +934,64 @@ void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
     }
 }
 
+void ETRequestControlInterface::KickHandler(XMLRequestCtxt *ctxt,
+                                            xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    int req_ctxt_id=NodeAsInteger("@req_ctxt_id",reqNode);
+    AstraContext::ClearContext("TERM_REQUEST", req_ctxt_id);
+
+    edifact::pRemoteResults remRes = edifact::RemoteResults::readSingle();
+    ASSERT(remRes);
+    try {
+        if(remRes->status() == edifact::RemoteStatus::Success) {
+            Ticketing::EdiPnr ediPnr(remRes->tlgSource(), edifact::EdiRacRes);
+            Pnr pnr=readPnr(ediPnr.m_ediText, ediPnr.m_ediType);
+            xmlNodePtr dataNode=getNode(astra_iface(resNode, "ETViewForm"),"data");
+            PnrDisp::doDisplay(PnrXmlView(dataNode), pnr);
+        } else {
+            HandleNotSuccessEtsResult(*remRes);
+        }
+    }
+    catch(edilib::EdiExcept &e) {
+        throw EXCEPTIONS::Exception("edilib: %s", e.what());
+    }
+}
+
+//---------------------------------------------------------------------------------------
+
+void ETRequestACInterface::RequestControl(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+
+    int pointId  = NodeAsInteger("point_id", reqNode);
+    Ticketing::TicketNum_t tickNum(NodeAsString("TickNoEdit", reqNode));
+    CouponNum_t cpnNum(NodeAsInteger("TickCpnNo", reqNode));
+
+    LogTrace(TRACE3) << pointId << "/" << tickNum << cpnNum;
+
+    TTripInfo info;
+    info.getByPointId(pointId);
+
+    const OrigOfRequest org = OrigOfRequest(airlineToXML(info.airline, LANG_RU), *TReqInfo::Instance());
+
+
+    SendEtRacRequest(edifact::EtRacParams(org,
+                                          "",
+                                          edifact::KickInfo(),
+                                          info.airline,
+                                          Ticketing::FlightNum_t(info.flt_no),
+                                          tickNum,
+                                          cpnNum));
+
+}
+
+void ETRequestACInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    LogTrace(TRACE3) << __FUNCTION__;
+}
+
+//---------------------------------------------------------------------------------------
+
 void ETStatusInterface::SetTripETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id=NodeAsInteger("point_id",reqNode);
@@ -731,8 +1006,7 @@ void ETStatusInterface::SetTripETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   int old_pr_etstatus=sign(Qry.FieldAsInteger("pr_etstatus"));
   if (old_pr_etstatus==0 && new_pr_etstatus<0)
   {
-    Qry.SQLText="UPDATE trip_sets SET pr_etstatus=-1 WHERE point_id=:point_id";
-    Qry.Execute();
+    TFltParams::setETSExchangeStatus(point_id, ETSExchangeStatus::NotConnected);
     TReqInfo::Instance()->LocaleToLog("EVT.ETICK.CANCEL_INTERACTIVE_WITH_ETC", evtFlt, point_id);
   }
   else
@@ -783,7 +1057,7 @@ void EMDSearchInterface::SearchEMDByDocNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 
     int pointId = NodeAsInteger("point_id",reqNode);
     TTripInfo info;
-    checkEDSInteract(pointId, true, info);
+    checkEDSExchange(pointId, true, info);
 
     std::string airline = getTripAirline(info);
     Ticketing::FlightNum_t flNum = getTripFlightNum(info);
@@ -948,7 +1222,7 @@ void EMDSystemUpdateInterface::SysUpdateEmdCoupon(XMLRequestCtxt *ctxt, xmlNodeP
 
     int pointId = NodeAsInteger("point_id",reqNode);
     TTripInfo info;
-    checkEDSInteract(pointId, true, info);
+    checkEDSExchange(pointId, true, info);
 
     std::string airline = getTripAirline(info);
     Ticketing::FlightNum_t flNum = getTripFlightNum(info);
@@ -1012,7 +1286,7 @@ void EMDSystemUpdateInterface::EMDCheckDisassociation(const int point_id,
 
   string flight=GetTripName(fltParams.fltInfo,ecNone,true,false);
 
-  if (!emds.empty() && fltParams.eds_no_interact)
+  if (!emds.empty() && fltParams.eds_no_exchange)
     throw AstraLocale::UserException("MSG.EMD.INTERACTIVE_MODE_NOT_ALLOWED");
 
   for(list< TEMDCtxtItem >::iterator i=emds.begin(); i!=emds.end(); ++i)
@@ -1035,7 +1309,7 @@ void EMDSystemUpdateInterface::EMDCheckDisassociation(const int point_id,
       else
         event.prms << PrmLexema("err", "MSG.ETICK.COUPON_NOT_SET", LEvntPrms() << PrmSmpl<std::string>("etick", i->pax.tkn.no));
 
-      ProcEdiEvent(event, *i, NULL, false);
+      AstraEdifact::ProcEvent(event, *i, NULL, false);
       continue;
     };
 
@@ -1094,7 +1368,7 @@ bool EMDSystemUpdateInterface::EMDChangeDisassociation(const edifact::KickInfo &
 
       if (kickInfo.reqCtxtId!=ASTRA::NoExists)
         SetProp(rootNode,"req_ctxt_id",kickInfo.reqCtxtId);
-      TEdiOriginCtxt::toXML(rootNode);
+      TOriginCtxt::toXML(rootNode);
 
       string ediCtxt=XMLTreeToText(i->second.docPtr());
 
@@ -1321,15 +1595,16 @@ void ETStatusInterface::ETRollbackStatus(xmlDocPtr ediResDocPtr,
   for(vector<int>::iterator i=point_ids.begin();i!=point_ids.end();i++)
   {
     ProgTrace(TRACE5,"ETRollbackStatus: rollback point_id=%d",*i);
-    ETStatusInterface::ETCheckStatus(*i,ediResDocPtr,false,mtick);
+    ETStatusInterface::ETCheckStatusForRollback(*i,ediResDocPtr,false,mtick);
   }
   ETStatusInterface::ETChangeStatus(NULL,mtick);
 }
 
 xmlNodePtr TETChangeStatusList::addTicket(const TETChangeStatusKey &key,
-                                        const Ticketing::Ticket &tick)
+                                          const Ticketing::Ticket &tick,
+                                          bool control_method)
 {
-  size_t MaxTicketsInTlg = MAX_TICKETS_IN_TLG;
+  size_t MaxTicketsInTlg = control_method?1:MAX_TICKETS_IN_TLG; //плохое решение, лучше закладываться в настройках et_addr_set
 //  if(TReqInfo::Instance()->api_mode) {
 //      MaxTicketsInTlg = 99;
 //  }
@@ -1355,10 +1630,10 @@ xmlNodePtr TETChangeStatusList::addTicket(const TETChangeStatusKey &key,
   return NewTextChild(NodeAsNode("/context/tickets",ltick.second.docPtr()),"ticket");
 }
 
-void ETStatusInterface::ETCheckStatus(int point_id,
-                                      xmlDocPtr ediResDocPtr,
-                                      bool check_connect,
-                                      TETChangeStatusList &mtick)
+void ETStatusInterface::ETCheckStatusForRollback(int point_id,
+                                                 xmlDocPtr ediResDocPtr,
+                                                 bool check_connect,
+                                                 TETChangeStatusList &mtick)
 {
   //mtick.clear(); добавляем уже к заполненному
 
@@ -1370,16 +1645,12 @@ void ETStatusInterface::ETCheckStatus(int point_id,
   {
     try
     {
-      if ((fltParams.pr_etstatus>=0 || check_connect) && !fltParams.ets_no_interact)
+      if ((fltParams.ets_exchange_status!=ETSExchangeStatus::NotConnected || check_connect) && !fltParams.ets_no_exchange)
       {
         TQuery Qry(&OraSession);
         Qry.Clear();
         Qry.SQLText=
-          "SELECT pax_grp.airp_dep, pax_grp.airp_arv, pax_grp.class, "
-          "       pax.ticket_no, pax.coupon_no, "
-          "       pax.refuse, pax.pr_brd, "
-          "       pax.grp_id, pax.pax_id, pax.reg_no, "
-          "       pax.surname, pax.name, pax.pers_type "
+          "SELECT pax_grp.airp_dep, pax_grp.airp_arv, pax_grp.class, pax.* "
           "FROM pax_grp,pax "
           "WHERE pax_grp.grp_id=pax.grp_id AND pax.ticket_rem='TKNE' AND "
           "      pax.ticket_no=:ticket_no AND "
@@ -1414,13 +1685,19 @@ void ETStatusInterface::ETCheckStatus(int point_id,
           Qry.Execute();
 
           CouponStatus real_status(CouponStatus::OriginalIssue);
+          TETCtxtItem ETCtxt(*TReqInfo::Instance(), point_id);
           if (!Qry.Eof)
-            real_status=calcPaxCouponStatus(Qry.FieldAsString("refuse"),
-                                            Qry.FieldAsInteger("pr_brd")!=0,
+          {
+            ETCtxt.paxFromDB(Qry);
+            real_status=calcPaxCouponStatus(ETCtxt.pax.refuse,
+                                            ETCtxt.pax.pr_brd,
                                             fltParams.in_final_status);
+          };
 
           if (status==real_status) continue;
 
+          TETickItem ETItem(ticket_no, coupon_no, point_id, airp_dep, airp_arv, real_status);
+          if (ETStatusInterface::ChangeStatusLocallyOnly(fltParams, ETItem, ETCtxt)) continue;
           if (!init_edi_addrs)
           {
             key.airline_oper=fltParams.fltInfo.airline;
@@ -1455,7 +1732,7 @@ void ETStatusInterface::ETCheckStatus(int point_id,
 
           list<Coupon> lcpn;
           lcpn.push_back(cpn);
-          xmlNodePtr node=mtick.addTicket(key, Ticket(ticket_no, lcpn));
+          xmlNodePtr node=mtick.addTicket(key, Ticket(ticket_no, lcpn), fltParams.control_method);
 
           NewTextChild(node,"ticket_no",ticket_no);
           NewTextChild(node,"coupon_no",coupon_no);
@@ -1492,8 +1769,11 @@ void ETStatusInterface::ETCheckStatus(int point_id,
 }
 
 void TEMDChangeStatusList::addEMD(const TEMDChangeStatusKey &key,
-                                  const TEMDCtxtItem &item)
+                                  const TEMDCtxtItem &item,
+                                  bool control_method)
 {
+  if (control_method) return; //пока не изменяем статус для EMD при контрольном методе, но кто знает....
+
   TEMDChangeStatusList::iterator i=find(key);
   if (i==end()) i=insert(make_pair(key, list<TEMDChangeStatusItem>())).first;
   if (i==end()) throw EXCEPTIONS::Exception("%s: i==end()", __FUNCTION__);
@@ -1529,7 +1809,7 @@ void EMDStatusInterface::EMDCheckStatus(const int grp_id,
 
   TFltParams fltParams;
   if (!fltParams.get(point_id)) return;
-  if (fltParams.eds_no_interact) return;
+  if (fltParams.eds_no_exchange) return;
 
   list<TEMDCtxtItem> added_emds, deleted_emds;
   GetEMDStatusList(grp_id, fltParams.in_final_status, prior_payment, added_emds, deleted_emds);
@@ -1566,7 +1846,7 @@ void EMDStatusInterface::EMDCheckStatus(const int grp_id,
       key.flt_no_oper=fltParams.fltInfo.flt_no;
       key.coupon_status=e->status;
 
-      emdList.addEMD(key, *e);
+      emdList.addEMD(key, *e, fltParams.control_method);
     };
   };
 
@@ -1587,7 +1867,7 @@ bool EMDStatusInterface::EMDChangeStatus(const edifact::KickInfo &kickInfo,
 
         if (kickInfo.reqCtxtId!=ASTRA::NoExists)
           SetProp(rootNode,"req_ctxt_id",kickInfo.reqCtxtId);
-        TEdiOriginCtxt::toXML(rootNode);
+        TOriginCtxt::toXML(rootNode);
 
         string ediCtxt=XMLTreeToText(j->ctxt.docPtr());
         //ProgTrace(TRACE5, "ediCosCtxt=%s", ediCtxt.c_str());
@@ -1618,6 +1898,107 @@ bool EMDStatusInterface::EMDChangeStatus(const edifact::KickInfo &kickInfo,
   };
 
   return result;
+}
+
+bool ETStatusInterface::ChangeStatusLocallyOnly(const TFltParams& fltParams,
+                                                const TETickItem& item,
+                                                const TETCtxtItem& ctxt)
+{
+  if (!fltParams.control_method) return false;
+
+  LogTrace(TRACE5) << __FUNCTION__;
+
+  try
+  {
+    changeOfStatusWcCoupon(fltParams.fltInfo.airline, item.et_no, item.et_coupon, item.status, true);
+    if (fltParams.in_final_status &&
+        (item.status==CouponStatus::OriginalIssue ||
+         item.status==CouponStatus::Flown))
+    {
+      LogTrace(TRACE5) << __FUNCTION__ << ": try to return control for " << item.no_str()
+                                       << " in_final_status=" << boolalpha << fltParams.in_final_status
+                                       << " coupon_status=" << item.status->dispCode();
+      return false; //отдаем контроль
+    }
+    item.toDB(TETickItem::ChangeOfStatus);
+    //запишем изменение статуса в лог
+    TLogLocale event;
+    event.ev_type=ASTRA::evtPax;
+    event.lexema_id="EVT.ETICKET_CHANGE_STATUS";
+    event.prms << PrmSmpl<std::string>("ticket_no", item.et_no)
+               << PrmSmpl<int>("coupon_no", item.et_coupon)
+               << PrmSmpl<std::string>("disp_code", item.status->dispCode());
+    AstraEdifact::ProcEvent(event, ctxt, nullptr, false);
+
+  }
+  catch(AirportControlNotFound)
+  {
+    ProgTrace(TRACE5, "%s: AirportControlNotFound for %s (point_id=%d)",
+                      __FUNCTION__, item.no_str().c_str(), item.point_id);
+//    if (!readWcCoupon(BaseTables::Company(fltParams.fltInfo.airline)->ida(),
+//                      Ticketing::TicketNum_t(ticket_no),
+//                      Ticketing::CouponNum_t(coupon_no)))
+//      //скорее всего данный купон работал по интерактиву
+//      return false;
+  }
+  catch(WcCouponNotFound)
+  {
+    ProgTrace(TRACE5, "%s: WcCouponNotFound for %s (point_id=%d)",
+                      __FUNCTION__, item.no_str().c_str(), item.point_id);
+  }
+
+  return true;
+}
+
+bool ETStatusInterface::ToDoNothingWhenChangingStatus(const TFltParams& fltParams,
+                                                      const TETickItem& item)
+{
+   bool res=item.status == CouponStatus::Airport &&
+            existsAirportControl(fltParams.fltInfo.airline, item.et_no, item.et_coupon, false);
+   LogTrace(TRACE5) << __FUNCTION__ << " returned " << std::boolalpha << res;
+   return res;
+}
+
+void ETStatusInterface::AfterReceiveAirportControl(const Ticketing::Coupon& cpn)
+{
+  list<TETickItem> ETickItems;
+  PaxETList::GetByCouponNoFromTlg(cpn.ticknum(), cpn.couponInfo().num(), ETickItems);
+  for(const TETickItem& item : ETickItems)
+    TReqInfo::Instance()->LocaleToLog("EVT.ETICKET_CONTROL_RECEIVED",
+                                      LEvntPrms() << PrmSmpl<std::string>("ticket_no", item.et_no)
+                                                  << PrmSmpl<int>("coupon_no", item.et_coupon),
+                                      ASTRA::evtFlt,
+                                      item.point_id);
+}
+
+bool ETStatusInterface::ReturnAirportControl(const TFltParams& fltParams,
+                                             const TETickItem& item)
+{
+  LogTrace(TRACE5) << __FUNCTION__;
+
+  try
+  {
+    changeOfStatusWcCoupon(fltParams.fltInfo.airline, item.et_no, item.et_coupon, item.status, true);
+    LogTrace(TRACE5) << __FUNCTION__ << ": " << item.no_str()
+                                     << " in_final_status=" << boolalpha << fltParams.in_final_status
+                                     << " coupon_status=" << item.status->dispCode();
+
+    return returnWcCoupon(BaseTables::Company(fltParams.fltInfo.airline)->ida(),
+                          Ticketing::TicketNum_t(item.et_no),
+                          Ticketing::CouponNum_t(item.et_coupon),
+                          false);
+  }
+  catch(AirportControlNotFound)
+  {
+    ProgTrace(TRACE5, "%s: AirportControlNotFound for %s (point_id=%d)",
+                      __FUNCTION__, item.no_str().c_str(), item.point_id);
+  }
+  catch(WcCouponNotFound)
+  {
+    ProgTrace(TRACE5, "%s: WcCouponNotFound for %s (point_id=%d)",
+                      __FUNCTION__, item.no_str().c_str(), item.point_id);
+  }
+  return false;
 }
 
 void ETStatusInterface::ETCheckStatus(int id,
@@ -1659,20 +2040,16 @@ void ETStatusInterface::ETCheckStatus(int id,
     {
       if (check_point_id!=NoExists && check_point_id!=point_id) check_point_id=point_id;
 
-      if ((fltParams.pr_etstatus>=0 || check_connect) && !fltParams.ets_no_interact)
+      if ((fltParams.ets_exchange_status!=ETSExchangeStatus::NotConnected || check_connect) && !fltParams.ets_no_exchange)
       {
         Qry.Clear();
         ostringstream sql;
         sql <<
-          "SELECT pax_grp.airp_dep, pax_grp.airp_arv, pax_grp.class, "
-          "       pax.ticket_no, pax.coupon_no, "
-          "       pax.refuse, pax.pr_brd, "
+          "SELECT pax_grp.airp_dep, pax_grp.airp_arv, pax_grp.class, pax.*, "
           "       etickets.point_id AS tick_point_id, "
           "       etickets.airp_dep AS tick_airp_dep, "
           "       etickets.airp_arv AS tick_airp_arv, "
-          "       etickets.coupon_status AS coupon_status, "
-          "       pax.grp_id, pax.pax_id, pax.reg_no, "
-          "       pax.surname, pax.name, pax.pers_type "
+          "       etickets.coupon_status AS coupon_status "
           "FROM pax_grp,pax,etickets "
           "WHERE pax_grp.grp_id=pax.grp_id AND pax.ticket_rem='TKNE' AND "
           "      pax.ticket_no IS NOT NULL AND pax.coupon_no IS NOT NULL AND "
@@ -1707,6 +2084,9 @@ void ETStatusInterface::ETCheckStatus(int id,
           bool init_edi_addrs=false;
           for(;!Qry.Eof;Qry.Next())
           {
+            TETCtxtItem ETCtxt(*TReqInfo::Instance(), point_id);
+            ETCtxt.paxFromDB(Qry);
+
             if (ticket_no==Qry.FieldAsString("ticket_no") &&
                 coupon_no==Qry.FieldAsInteger("coupon_no")) continue; //дублирование билетов
 
@@ -1723,8 +2103,8 @@ void ETStatusInterface::ETCheckStatus(int id,
               status=CouponStatus::fromDispCode(Qry.FieldAsString("coupon_status"));
 
             CouponStatus real_status;
-            real_status=calcPaxCouponStatus(Qry.FieldAsString("refuse"),
-                                            Qry.FieldAsInteger("pr_brd")!=0,
+            real_status=calcPaxCouponStatus(ETCtxt.pax.refuse,
+                                            ETCtxt.pax.pr_brd,
                                             fltParams.in_final_status);
 
             if (status!=real_status ||
@@ -1733,6 +2113,8 @@ void ETStatusInterface::ETCheckStatus(int id,
                   Qry.FieldAsString("tick_airp_dep")!=airp_dep ||
                   Qry.FieldAsString("tick_airp_arv")!=airp_arv)))
             {
+              TETickItem ETItem(ticket_no, coupon_no, point_id, airp_dep, airp_arv, real_status);
+              if (ETStatusInterface::ChangeStatusLocallyOnly(fltParams, ETItem, ETCtxt)) continue;
               if (!init_edi_addrs)
               {
                 key.airline_oper=fltParams.fltInfo.airline;
@@ -1766,7 +2148,7 @@ void ETStatusInterface::ETCheckStatus(int id,
 
               list<Coupon> lcpn;
               lcpn.push_back(cpn);
-              xmlNodePtr node=mtick.addTicket(key, Ticket(ticket_no, lcpn));
+              xmlNodePtr node=mtick.addTicket(key, Ticket(ticket_no, lcpn), fltParams.control_method);
 
               NewTextChild(node,"ticket_no",ticket_no);
               NewTextChild(node,"coupon_no",coupon_no);
@@ -1817,22 +2199,14 @@ void ETStatusInterface::ETCheckStatus(int id,
     try
     {
       CouponStatus real_status=CouponStatus(CouponStatus::OriginalIssue);
-      if ((fltParams.pr_etstatus>=0 || check_connect) && !fltParams.ets_no_interact)
+      if ((fltParams.ets_exchange_status!=ETSExchangeStatus::NotConnected || check_connect) && !fltParams.ets_no_exchange)
       {
-        Qry.Clear();
-        Qry.SQLText=
-          "SELECT etickets.ticket_no, etickets.coupon_no, "
-          "       etickets.airp_dep, etickets.airp_arv, "
-          "       etickets.coupon_status "
-          "FROM etickets,pax "
-          "WHERE etickets.ticket_no=pax.ticket_no(+) AND "
-          "      etickets.coupon_no=pax.coupon_no(+) AND "
-          "      etickets.point_id=:point_id AND "
-          "      pax.pax_id IS NULL AND "
-          "      etickets.coupon_status IS NOT NULL";
-        Qry.CreateVariable("point_id",otInteger,check_point_id);
-        Qry.Execute();
-        if (!Qry.Eof)
+        std::set<TETickItem> ETickItems;
+        PaxETList::GetAllStatusesByPointId(PaxETList::allNotCheckedStatusesByPointId, check_point_id, ETickItems);
+        if (fltParams.control_method && fltParams.in_final_status)
+          PaxETList::GetAllStatusesByPointId(PaxETList::allStatusesByPointIdFromTlg, check_point_id, ETickItems, false);
+
+        if (!ETickItems.empty())
         {
           TETChangeStatusKey key;
           key.airline_oper=fltParams.fltInfo.airline;
@@ -1846,14 +2220,12 @@ void ETStatusInterface::ETCheckStatus(int id,
           }
           key.coupon_status=real_status->codeInt();
 
-          for(;!Qry.Eof;Qry.Next())
+          for(const TETickItem& ET : ETickItems)
           {
-            string ticket_no=Qry.FieldAsString("ticket_no");
-            int coupon_no=Qry.FieldAsInteger("coupon_no");
-
-            CouponStatus status=CouponStatus::fromDispCode(Qry.FieldAsString("coupon_status"));
-
-            Coupon_info ci (coupon_no,real_status);
+            if (ETStatusInterface::ChangeStatusLocallyOnly(fltParams,
+                                                           TETickItem(ET, real_status),
+                                                           TETCtxtItem(*TReqInfo::Instance(), ET.point_id))) continue;
+            Coupon_info ci (ET.et_coupon,real_status);
             TDateTime scd_local=UTCToLocal(fltParams.fltInfo.scd_out,
                                            AirpTZRegion(fltParams.fltInfo.airp));
             ptime scd(DateTimeToBoost(scd_local));
@@ -1863,24 +2235,24 @@ void ETStatusInterface::ETCheckStatus(int id,
                       SubClass(),
                       scd.date(),
                       time_duration(not_a_date_time), // not a date time
-                      Qry.FieldAsString("airp_dep"),
-                      Qry.FieldAsString("airp_arv"));
+                      ET.airp_dep,
+                      ET.airp_arv);
             Coupon cpn(ci,itin);
             list<Coupon> lcpn;
             lcpn.push_back(cpn);
-            xmlNodePtr node=mtick.addTicket(key, Ticket(ticket_no, lcpn));
+            xmlNodePtr node=mtick.addTicket(key, Ticket(ET.et_no, lcpn), fltParams.control_method);
 
-            NewTextChild(node,"ticket_no",ticket_no);
-            NewTextChild(node,"coupon_no",coupon_no);
-            NewTextChild(node,"point_id",check_point_id);
-            NewTextChild(node,"airp_dep",Qry.FieldAsString("airp_dep"));
-            NewTextChild(node,"airp_arv",Qry.FieldAsString("airp_arv"));
+            NewTextChild(node,"ticket_no",ET.et_no);
+            NewTextChild(node,"coupon_no",ET.et_coupon);
+            NewTextChild(node,"point_id",ET.point_id);
+            NewTextChild(node,"airp_dep",ET.airp_dep);
+            NewTextChild(node,"airp_arv",ET.airp_arv);
             NewTextChild(node,"flight",GetTripName(fltParams.fltInfo,ecNone,true,false));
-            NewTextChild(node,"prior_coupon_status",status->dispCode());
+            NewTextChild(node,"prior_coupon_status",ET.status->dispCode());
 
             ProgTrace(TRACE5,"ETCheckStatus %s/%d->%s",
-                             ticket_no.c_str(),
-                             coupon_no,
+                             ET.et_no.c_str(),
+                             ET.et_coupon,
                              real_status->dispCode());
           }
         }
@@ -1962,7 +2334,7 @@ bool ETStatusInterface::ETChangeStatus(const edifact::KickInfo &kickInfo,
 
         if (kickInfo.reqCtxtId!=ASTRA::NoExists)
           SetProp(rootNode,"req_ctxt_id",kickInfo.reqCtxtId);
-        TEdiOriginCtxt::toXML(rootNode);
+        TOriginCtxt::toXML(rootNode);
 
         string ediCtxt=XMLTreeToText(j->second.docPtr());
 
@@ -1997,7 +2369,7 @@ void EMDStatusInterface::ChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     int pointId = NodeAsInteger("point_id",reqNode);
 
     TTripInfo info;
-    checkEDSInteract(pointId, true, info);
+    checkEDSExchange(pointId, true, info);
     std::string airline = getTripAirline(info);
     Ticketing::FlightNum_t flNum = getTripFlightNum(info);
     OrigOfRequest org(airlineToXML(airline, LANG_RU), *TReqInfo::Instance());
@@ -2382,7 +2754,7 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
 
   //проверим, что нет тревоги "Нет связи с СЭБ"
   TFltParams fltParams;
-  if (!(fltParams.get(point_id) && fltParams.pr_etstatus>=0)) return;
+  if (!(fltParams.get(point_id) && fltParams.ets_exchange_status!=ETSExchangeStatus::NotConnected)) return;
 
   //услуги
   set<int> pax_ids_for_refresh;
@@ -2439,10 +2811,6 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
       if (!tkns_set.insert(i->second.no).second) continue; //чтобы не было дублирования по билетам на дисплей
       try
       {
-        ETSearchByTickNoParams params;
-        params.point_id=point_id;
-        params.tick_no=i->second.no;
-
         if (!kickInfo)
         {
           id.toXML(reqNode);
@@ -2450,9 +2818,14 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
                                                 "EMDAutoBound");
         };
 
-        ETSearchInterface::SearchET(params, ETSearchInterface::spEMDRefresh, kickInfo.get());
+        ETSearchInterface::SearchET(ETSearchByTickNoParams(point_id, i->second.no),
+                                    ETSearchInterface::spEMDRefresh,
+                                    kickInfo.get());
       }
-      catch(UserException) {};
+      catch(UserException& e)
+      {
+        LogTrace(TRACE5) << __FUNCTION__ << ": " << e.what();
+      };
     };
   }
 
@@ -2653,39 +3026,6 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
 //---------------------------------------------------------------------------------------
 
-void ETRequestACInterface::RequestControl(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    LogTrace(TRACE3) << __FUNCTION__;
-
-    int pointId  = NodeAsInteger("point_id", reqNode);
-    Ticketing::TicketNum_t tickNum(NodeAsString("TickNoEdit", reqNode));
-    CouponNum_t cpnNum(NodeAsInteger("TickCpnNo", reqNode));
-
-    LogTrace(TRACE3) << pointId << "/" << tickNum << cpnNum;
-
-    TTripInfo info;
-    info.getByPointId(pointId);
-
-    const OrigOfRequest org = OrigOfRequest(airlineToXML(info.airline, LANG_RU), *TReqInfo::Instance());
-
-
-    SendEtRacRequest(edifact::EtRacParams(org,
-                                          "",
-                                          edifact::KickInfo(),
-                                          info.airline,
-                                          Ticketing::FlightNum_t(info.flt_no),
-                                          tickNum,
-                                          cpnNum));
-
-}
-
-void ETRequestACInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    LogTrace(TRACE3) << __FUNCTION__;
-}
-
-//---------------------------------------------------------------------------------------
-
 void handleEtDispResponse(const edifact::RemoteResults& remRes)
 {
     edilib::EdiSessionId_t ediSessId = remRes.ediSession();
@@ -2726,13 +3066,7 @@ void handleEtDispResponse(const edifact::RemoteResults& remRes)
         int req_ctxt_id=NodeAsInteger("@req_ctxt_id",rootNode);
         int point_id=NodeAsInteger("point_id",rootNode);
 
-        TQuery Qry(&OraSession);
-        Qry.SQLText=
-          "UPDATE trip_sets SET pr_etstatus=0 "
-          "WHERE point_id=:point_id AND pr_etstatus<0 ";
-        Qry.CreateVariable("point_id",otInteger,point_id);
-        Qry.Execute();
-        if (Qry.RowsProcessed()>0)
+        if (TFltParams::returnOnlineStatus(point_id))
         {
             //запишем в лог
             TReqInfo::Instance()->LocaleToLog("EVT.RETURNED_INTERACTIVE_WITH_ETC", ASTRA::evtFlt, point_id );
@@ -2866,27 +3200,21 @@ void handleEtCosResponse(const edifact::RemoteResults& remRes)
       desk=NodeAsString("@desk",rootNode);
     };
 
-    TQuery Qry(&OraSession);
-    Qry.SQLText=
-      "UPDATE trip_sets SET pr_etstatus=0 "
-      "WHERE point_id=:point_id AND pr_etstatus<0 ";
-    Qry.DeclareVariable("point_id",otInteger);
-
-    int point_id=-1;
-    for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
     {
-      if (point_id!=NodeAsInteger("point_id",node))
+      int point_id=-1;
+      for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
       {
-        point_id=NodeAsInteger("point_id",node);
-        Qry.SetVariable("point_id",point_id);
-        Qry.Execute();
-        if (Qry.RowsProcessed()>0)
+        if (point_id!=NodeAsInteger("point_id",node))
         {
-          //запишем в лог
-          TReqInfo::Instance()->LocaleToLog("EVT.RETURNED_INTERACTIVE_WITH_ETC", ASTRA::evtFlt, point_id);
+          point_id=NodeAsInteger("point_id",node);
+          if (TFltParams::returnOnlineStatus(point_id))
+          {
+            //запишем в лог
+            TReqInfo::Instance()->LocaleToLog("EVT.RETURNED_INTERACTIVE_WITH_ETC", ASTRA::evtFlt, point_id);
+          };
         };
       };
-    };
+    }
 
     if(remRes.status()->type() != edifact::RemoteStatus::Timeout)
     {
@@ -3074,13 +3402,27 @@ void handleEtCosResponse(const edifact::RemoteResults& remRes)
                   else
                     ETickItem.status=CouponStatus(CouponStatus::Unavailable);
 
-                  TETickItem priorETickItem;
-                  priorETickItem.fromDB(ETickItem.et_no, ETickItem.et_coupon, TETickItem::ChangeOfStatus, true);
+                  TFltParams fltParams;
+                  if (fltParams.get(ETickItem.point_id))
+                  {
+                    if (!ETStatusInterface::ToDoNothingWhenChangingStatus(fltParams, ETickItem))
+                    {
+                      TETickItem priorETickItem;
+                      priorETickItem.fromDB(ETickItem.et_no, ETickItem.et_coupon, TETickItem::ChangeOfStatus, true);
 
-                  ETickItem.toDB(TETickItem::ChangeOfStatus);
+                      ETickItem.toDB(TETickItem::ChangeOfStatus);
 
-                  bool repeated=(priorETickItem.status==ETickItem.status);
-                  ChangeStatusToLog(statusNode, repeated, "EVT.ETICKET_CHANGE_STATUS", params, screen, user, desk);
+                      bool repeated=(priorETickItem.status==ETickItem.status);
+
+                      if (ETickItem.status==CouponStatus::Unavailable)
+                        ETickItem.status=CouponStatus(CouponStatus::OriginalIssue);
+                      if (ETStatusInterface::ReturnAirportControl(fltParams, ETickItem))
+                        //контроль отдали, изменим БД
+                        ChangeStatusToLog(statusNode, repeated, "EVT.ETICKET_CONTROL_RETURNED", params, screen, user, desk);
+                      else
+                        ChangeStatusToLog(statusNode, repeated, "EVT.ETICKET_CHANGE_STATUS", params, screen, user, desk);
+                    };
+                  }
                 };
               };
             }
@@ -3109,8 +3451,10 @@ void handleEtRacResponse(const edifact::RemoteResults& remRes)
         try {
             int readStatus = ReadEdiMessage(remRes.tlgSource().c_str());
             ASSERT(readStatus == EDI_MES_OK);
+            Ticketing::EdiPnr ediPnr(remRes.tlgSource(), EdiRacRes);
             Ticketing::saveWcPnr(SystemContext::Instance(STDLOG).airlineImpl()->ida(),
-                                 Ticketing::EdiPnr(remRes.tlgSource(), EdiRacRes));
+                                 ediPnr);
+            ETDisplayToDB(readPnr(ediPnr.m_ediText, ediPnr.m_ediType));
         }
         catch(std::exception &e) {
             ProgTrace(TRACE5, ">>>> %s: %s", __FUNCTION__, e.what());
@@ -3126,6 +3470,8 @@ void handleEtRacResponse(const edifact::RemoteResults& remRes)
 void handleEtUac(const std::string& uac)
 {
     LogTrace(TRACE3) << __FUNCTION__;
+    Ticketing::EdiPnr ediPnr(uac, edifact::EdiUacReq);
     Ticketing::saveWcPnr(SystemContext::Instance(STDLOG).airlineImpl()->ida(),
-                         Ticketing::EdiPnr(uac, edifact::EdiUacReq));
+                         ediPnr);
+    ETDisplayToDB(readPnr(ediPnr.m_ediText, ediPnr.m_ediType));
 }

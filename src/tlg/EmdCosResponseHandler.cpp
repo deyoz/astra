@@ -101,7 +101,7 @@ void EmdCosResponseHandler::handle()
            bool repeated=!prior.empty() && prior.status==EMDocItem.status;
 */
            bool repeated=false;
-           ProcEdiEvent(event, EMDCtxt, node, repeated);
+           AstraEdifact::ProcEvent(event, EMDCtxt, node, repeated);
          };
 
          if (res->status() == RemoteStatus::CommonError)
@@ -124,7 +124,7 @@ void EmdCosResponseHandler::handle()
            event.prms << PrmSmpl<std::string>("emd", EMDocItem.emd_no_str())
                       << PrmSmpl<std::string>("error", EMDocItem.change_status_error);
 
-           ProcEdiEvent(event, EMDCtxt, node, false);
+           AstraEdifact::ProcEvent(event, EMDCtxt, node, false);
          };
 
          EMDocItem.toDB(TEMDocItem::ChangeOfStatus);

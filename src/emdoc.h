@@ -7,6 +7,7 @@
 #include "remarks.h"
 #include "ticket_types.h"
 #include "qrys.h"
+#include "edi_utils.h"
 #include "etick/tick_data.h"
 #include "tlg/remote_results.h"
 
@@ -27,61 +28,7 @@ bool ExistsPaxUnboundBagEMD(int pax_id);
 
 }; //namespace PaxASVCList
 
-class TEdiOriginCtxt
-{
-  public:
-    std::string screen;
-    std::string user_descr;
-    std::string desk_code;
-    TEdiOriginCtxt()
-    {
-      clear();
-    }
-
-    void clear()
-    {
-      screen.clear();
-      user_descr.clear();
-      desk_code.clear();
-    }
-
-    static void toXML(xmlNodePtr node);
-    TEdiOriginCtxt& fromXML(xmlNodePtr node);
-};
-
-class TEdiPaxCtxt
-{
-  public:
-    CheckIn::TPaxItem pax;
-    int point_id, grp_id;
-    std::string flight;
-
-    TEdiPaxCtxt()
-    {
-      clear();
-    }
-
-    void clear()
-    {
-      pax.clear();
-      point_id=ASTRA::NoExists;
-      grp_id=ASTRA::NoExists;
-      flight.clear();
-    }
-
-    bool paxUnknown() const
-    {
-      return pax.id==ASTRA::NoExists;
-    }
-
-    const TEdiPaxCtxt& toXML(xmlNodePtr node) const;
-    TEdiPaxCtxt& fromXML(xmlNodePtr node);
-    TEdiPaxCtxt& paxFromDB(TQuery &Qry);
-};
-
-class TEdiCtxtItem : public TEdiPaxCtxt, public TEdiOriginCtxt {};
-
-class TEMDCtxtItem : public TEdiCtxtItem
+class TEMDCtxtItem : public AstraEdifact::TCtxtItem
 {
   public:
     std::string emd_no;
@@ -95,8 +42,7 @@ class TEMDCtxtItem : public TEdiCtxtItem
 
     void clear()
     {
-      TEdiPaxCtxt::clear();
-      TEdiOriginCtxt::clear();
+      TCtxtItem::clear();
       emd_no.clear();
       emd_coupon=ASTRA::NoExists;
       status=Ticketing::CouponStatus(Ticketing::CouponStatus::Unavailable);
@@ -195,11 +141,6 @@ class TPaxEMDItem : public CheckIn::TPaxASVCItem
 };
 
 void GetPaxEMD(int pax_id, std::multiset<TPaxEMDItem> &emds);
-
-void ProcEdiEvent(const TLogLocale &event,
-                  const TEdiCtxtItem &ctxt,
-                  const xmlNodePtr eventCtxtNode,
-                  const bool repeated);
 
 bool ActualEMDEvent(const TEMDCtxtItem &EMDCtxt,
                     const xmlNodePtr eventCtxtNode,

@@ -311,12 +311,13 @@ void utg(void)
   }
 }
 
+using namespace AstraEdifact;
+
 void ETCheckStatusFlt(void)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   reqInfo->user.sets.time = ustTimeUTC;
 
-  TQuery Qry(&OraSession);
   try
   {
     SirenaExchange::TLastExchangeInfo::cleanOldRecords();//!!!потом для очистки чего бы то ни было выделить отдельную процедуру
@@ -324,82 +325,60 @@ void ETCheckStatusFlt(void)
     AstraEdifact::cleanOldRecords(120);
     OraSession.Commit();
 
-    TDateTime now=NowUTC();
-
-    TQuery UpdQry(&OraSession);
-    UpdQry.SQLText=
-      "BEGIN "
-      "  IF :pr_etstatus IS NOT NULL THEN "
-      "    UPDATE trip_sets SET pr_etstatus=:pr_etstatus WHERE point_id=:point_id; "
-      "  ELSE "
-      "    UPDATE trip_sets SET et_final_attempt=et_final_attempt+1 WHERE point_id=:point_id; "
-      "  END IF; "
-      "END;";
-    UpdQry.DeclareVariable("point_id",otInteger);
-    UpdQry.DeclareVariable("pr_etstatus",otInteger);
-
+    list<TAdvTripInfo> flts;
 
     TQuery ETQry(&OraSession);
     ETQry.Clear();
     ETQry.SQLText=
-      "SELECT points.point_id,point_num, "
-      "       DECODE(pr_tranzit,0,points.point_id,first_point) AS first_point, "
-      "       pr_etstatus "
+      "SELECT " + TAdvTripInfo::selectedFields("points") + ", pr_etstatus "
       "FROM points,trip_sets "
       "WHERE points.point_id=trip_sets.point_id AND points.pr_del>=0 AND "
       "      (act_out IS NOT NULL AND pr_etstatus=0 OR pr_etstatus<0)";
-
-
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT 1 "
-      "FROM points "
-      "WHERE points.first_point=:first_point AND "
-      "      points.point_num>:point_num AND points.pr_del=0 AND "
-      "      ckin.get_pr_tranzit(points.point_id)=0 AND "
-      "      (NVL(act_in,NVL(est_in,scd_in))<:now AND :pr_etstatus=0 OR :pr_etstatus<0) ";
-    Qry.DeclareVariable("first_point", otInteger);
-    Qry.DeclareVariable("point_num", otInteger);
-    Qry.DeclareVariable("pr_etstatus", otInteger);
-    Qry.CreateVariable("now",otDate,now);
-
     ETQry.Execute();
-    for(;!ETQry.Eof;ETQry.Next(),OraSession.Rollback())
+    for(;!ETQry.Eof;ETQry.Next())
     {
-      Qry.SetVariable("first_point", ETQry.FieldAsInteger("first_point"));
-      Qry.SetVariable("point_num", ETQry.FieldAsInteger("point_num"));
-      Qry.SetVariable("pr_etstatus", ETQry.FieldAsInteger("pr_etstatus"));
-      Qry.Execute();
+      TAdvTripInfo fltInfo(ETQry);
+      ETSExchangeStatus::Enum ets_exchange_status=ETSExchangeStatus::fromDB(ETQry);
+      if (ets_exchange_status==ETSExchangeStatus::Finalized) continue;
+      if (ets_exchange_status==ETSExchangeStatus::Online)
+      {
+        bool control_method;
+        bool in_final_status;
+        if (!TFltParams::get(fltInfo, control_method, in_final_status)) continue;
+        if (!in_final_status) continue;
+      }
+      flts.push_back(fltInfo);
+      ProgTrace(TRACE5, "%s: flight=%s point_id=%d", __FUNCTION__, fltInfo.flight_view().c_str(), fltInfo.point_id);
+    }
+    ETQry.Close();
 
-      if (Qry.Eof) continue;
-
-      int point_id=ETQry.FieldAsInteger("point_id");
+    for(const TAdvTripInfo &flt : flts)
+    {
+      OraSession.Rollback();
       try
       {
-        AstraEdifact::TFltParams fltParams;
-        fltParams.get(point_id);
+        TFltParams fltParams;
+        fltParams.get(flt);
 
         if (fltParams.in_final_status &&
             (fltParams.et_final_attempt>=5 || //не менее 5 попыток подтвердить статусы интерактивом
-             fltParams.ets_no_interact))                //либо выставлен признак запрета интерактива
+             fltParams.ets_no_exchange))                //либо выставлен признак запрета интерактива
         {
           //Работа с сервером эл. билетов в интерактивном режиме запрещена
           //либо же никак не хотят подтверждаться конечные статусы
           //Отправляем ETL если настроена автоотправка
           try
           {
-            ProgTrace(TRACE5,"ETCheckStatusFlt.SendTlg: point_id=%d",point_id);
+            ProgTrace(TRACE5,"ETCheckStatusFlt.SendTlg: point_id=%d",flt.point_id);
             vector<TypeB::TCreateInfo> createInfo;
-            TypeB::TETLCreator(point_id).getInfo(createInfo);
+            TypeB::TETLCreator(flt.point_id).getInfo(createInfo);
             TelegramInterface::SendTlg(createInfo);
-            UpdQry.SetVariable("point_id",point_id);
-            UpdQry.SetVariable("pr_etstatus",1);
-            UpdQry.Execute();
+            TFltParams::finishFinalAttempts(flt.point_id);
             OraSession.Commit();
           }
           catch(std::exception &E)
           {
-            ProgError(STDLOG,"ETCheckStatusFlt.SendTlg (point_id=%d): %s",point_id,E.what());
+            ProgError(STDLOG,"ETCheckStatusFlt.SendTlg (point_id=%d): %s",flt.point_id,E.what());
           };
         }
         else
@@ -407,42 +386,38 @@ void ETCheckStatusFlt(void)
           //отправим интерактивно статусы
           try
           {
-            ProgTrace(TRACE5,"ETCheckStatusFlt.ETCheckStatus: point_id=%d",point_id);
+            ProgTrace(TRACE5,"ETCheckStatusFlt.ETCheckStatus: point_id=%d",flt.point_id);
             TETChangeStatusList mtick;
-            ETStatusInterface::ETCheckStatus(point_id,csaFlt,point_id,true,mtick);
+            ETStatusInterface::ETCheckStatus(flt.point_id,csaFlt,flt.point_id,true,mtick);
             if (!ETStatusInterface::ETChangeStatus(NULL,mtick))
             {
               if (fltParams.in_final_status)
+                TFltParams::finishFinalAttempts(flt.point_id);
+              else
               {
-                UpdQry.SetVariable("point_id",point_id);
-                UpdQry.SetVariable("pr_etstatus",1);
-                UpdQry.Execute();
+                if (fltParams.ets_exchange_status==ETSExchangeStatus::NotConnected)
+                  TFltParams::setETSExchangeStatus(flt.point_id, ETSExchangeStatus::Online);
               };
             }
             else
             {
               if (fltParams.in_final_status)
-              {
-                UpdQry.SetVariable("point_id",point_id);
-                UpdQry.SetVariable("pr_etstatus",FNull); //увеличим et_final_attempt
-                UpdQry.Execute();
-              };
+                TFltParams::incFinalAttempts(flt.point_id);
             };
             OraSession.Commit();
           }
           catch(std::exception &E)
           {
-            ProgError(STDLOG,"ETCheckStatusFlt.ETCheckStatus (point_id=%d): %s",point_id,E.what());
+            ProgError(STDLOG,"ETCheckStatusFlt.ETCheckStatus (point_id=%d): %s",flt.point_id,E.what());
           };
         };
       }
       catch(...)
       {
-        ProgError(STDLOG,"ETCheckStatusFlt (point_id=%d): unknown error",point_id);
+        ProgError(STDLOG,"ETCheckStatusFlt (point_id=%d): unknown error",flt.point_id);
       };
     };
-    ETQry.Close();
-    UpdQry.Close();
+    OraSession.Rollback();
   }
   catch(...)
   {

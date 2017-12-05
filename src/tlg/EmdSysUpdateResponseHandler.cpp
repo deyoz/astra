@@ -84,7 +84,7 @@ void EmdSysUpdateResponseHandler::handle()
         if (res->status() == RemoteStatus::CommonError)
           event.prms << PrmSmpl<std::string>("err", EMDocItem.system_update_error);
 
-        ProcEdiEvent(event, EMDCtxt, NULL, false);
+        AstraEdifact::ProcEvent(event, EMDCtxt, NULL, false);
       }
     }
 

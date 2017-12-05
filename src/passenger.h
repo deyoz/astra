@@ -81,7 +81,15 @@ class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
     TPaxTknItem()
     {
       clear();
-    };
+    }
+    TPaxTknItem(const std::string& _no, const int& _coupon)
+    {
+      clear();
+      if (_no.empty()) return;
+      no=_no;
+      coupon=_coupon;
+      rem=_coupon!=ASTRA::NoExists?"TKNE":"TKNA";
+    }
     void clear()
     {
       no.clear();
@@ -133,6 +141,7 @@ class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
     {
       return no_str();
     }
+    int checkedInETCount() const;
 };
 
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn);

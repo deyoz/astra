@@ -48,6 +48,7 @@
 #include "rfisc.h"
 #include "ffp_sirena.h"
 #include "annul_bt.h"
+#include "AirportControl.h"
 #include "tlg/AgentWaitsForRemote.h"
 #include "tlg/tlg_parser.h"
 
@@ -4367,21 +4368,23 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       Qry.Clear();
       Qry.SQLText=
-        "SELECT pr_tranz_reg, pr_etstatus "
+        "SELECT pr_tranz_reg "
         "FROM trip_sets WHERE point_id=:point_id ";
       Qry.CreateVariable("point_id",otInteger,grp.point_dep);
       Qry.Execute();
       if (Qry.Eof)
         throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA"); //WEB
+      bool pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
 
       TTripSetList setList;
       setList.fromDB(grp.point_dep);
       if (setList.empty())
         throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA"); //WEB
 
-      bool pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
-      int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
-      bool pr_etl_only=GetTripSets(tsETSNoInteract,fltInfo);
+      AstraEdifact::TFltParams ediFltParams;
+      if (!ediFltParams.get(grp.point_dep))
+        throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA"); //WEB
+
       bool pr_mintrans_file=GetTripSets(tsMintransFile,fltInfo);
       bool pr_mixed_norms=GetTripSets(tsMixedNorms,fltInfo);
       if (first_segment)
@@ -4427,7 +4430,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             if (pax.name.empty() && pr_mintrans_file)
               throw UserException("MSG.CHECKIN.PASSENGERS_NAMES_NOT_SET");
 
-            if (pax.tkn.rem=="TKNE" && !pr_etl_only && pr_etstatus>=0) //это ЭБ и есть связь с СЭБ
+            if (pax.tkn.rem=="TKNE" && !ediFltParams.ets_no_exchange &&
+                (ediFltParams.control_method || ediFltParams.ets_exchange_status!=ETSExchangeStatus::NotConnected)) //это ЭБ и есть обмен с СЭБ (есть связь с СЭБ либо контрольный метод)
             {
               if (!pax.tkn.equalAttrs(priorPax.tkn))
               {
@@ -4437,14 +4441,25 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 if (pax.tkn.coupon==NoExists)
                   throw UserException("MSG.ETICK.COUPON_NOT_SET", LParams()<<LParam("etick", pax.tkn.no ) );
 
-                if (defer_etstatus && !pax.tkn.confirm)
+                if (!ediFltParams.control_method && defer_etstatus && !pax.tkn.confirm)
                   //возможно это произошло в ситуации, когда изменился у пульта defer_etstatus в true,
                   //а пульт не успел перечитать эту настройку
                   throw UserException("MSG.ETICK.NOT_CONFIRM.NEED_RELOGIN");
 
+                if (ediFltParams.control_method && ediFltParams.in_final_status) //не позволяем заново регистрировать если находимся в финальном статусе при контрольном методе
+                  throw UserException("MSG.ETICK.FLIGHT_IN_FINAL_STATUS_CHECKIN_DENIAL",
+                                      LParams()<<LParam("etick", pax.tkn.no_str()));
+
                 TETickItem etick;
                 etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
                 if (etick.empty())
+                  throw UserException("MSG.ETICK.NEED_DISPLAY", LParams()<<LParam("etick", pax.tkn.no_str()));
+
+                if (ediFltParams.control_method &&
+                    !Ticketing::existsAirportControl(fltInfo.airline,
+                                                     pax.tkn.no,
+                                                     pax.tkn.coupon,
+                                                     false))
                   throw UserException("MSG.ETICK.NEED_DISPLAY", LParams()<<LParam("etick", pax.tkn.no_str()));
               };
             };
@@ -5865,24 +5880,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       if (!pr_unaccomp)
       {
         //проверим дублирование билетов
-        Qry.Clear();
-        Qry.SQLText=
-          "SELECT ticket_no,coupon_no FROM pax "
-          "WHERE refuse IS NULL AND ticket_no=:ticket_no AND coupon_no=:coupon_no "
-          "GROUP BY ticket_no,coupon_no HAVING COUNT(*)>1";
-        Qry.DeclareVariable("ticket_no",otString);
-        Qry.DeclareVariable("coupon_no",otInteger);
         for(CheckIn::TPaxList::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
         {
           const CheckIn::TPaxItem &pax=p->pax;
           try
           {
             if (!pax.TknExists) continue;
-            if (pax.tkn.no.empty() || pax.tkn.coupon==NoExists) continue;
-            Qry.SetVariable("ticket_no",pax.tkn.no);
-            Qry.SetVariable("coupon_no",pax.tkn.coupon);
-            Qry.Execute();
-            if (!Qry.Eof)
+            if (pax.tkn.checkedInETCount()>1)
               throw UserException("MSG.CHECKIN.DUPLICATED_ETICKET",
                                   LParams()<<LParam("eticket",pax.tkn.no)
                                            <<LParam("coupon",IntToString(pax.tkn.coupon))); //WEB
@@ -6020,7 +6024,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       //обязательно до ckin.check_grp
       if (needSyncEdsEts(ediResNode) && reqInfo->client_type!=ctPNL)
       {
-        if (!defer_etstatus)
+        if (ediFltParams.control_method || !defer_etstatus)
           ETStatusInterface::ETCheckStatus(grp.id, csaGrp, NoExists, false, ChangeStatusInfo.ET, true);
         EMDStatusInterface::EMDCheckStatus(grp.id, paymentBefore, ChangeStatusInfo.EMD);
       };
@@ -8098,7 +8102,7 @@ void CheckInInterface::readTripSets( int point_id,
     setList.fromDB(point_id);
     if (setList.empty()) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
 
-    NewTextChild( tripSetsNode, "pr_etl_only", (int)GetTripSets(tsETSNoInteract,fltInfo) );
+    NewTextChild( tripSetsNode, "pr_etl_only", (int)GetTripSets(tsETSNoExchange,fltInfo) );
     NewTextChild( tripSetsNode, "pr_etstatus", Qry.FieldAsInteger("pr_etstatus") );
     NewTextChild( tripSetsNode, "pr_no_ticket_check", (int)GetTripSets(tsNoTicketCheck,fltInfo) );
     NewTextChild( tripSetsNode, "pr_auto_pt_print", (int)GetTripSets(tsAutoPTPrint,fltInfo) );

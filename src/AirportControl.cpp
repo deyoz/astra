@@ -5,6 +5,8 @@
 #include <serverlib/cursctl.h>
 #include <serverlib/dates_oci.h>
 
+#include <boost/scoped_ptr.hpp>
+
 #define NICKNAME "ANTON"
 #define NICKTRACE ANTON_TRACE
 #include <serverlib/slogger.h>
@@ -261,6 +263,36 @@ std::ostream& operator<<(std::ostream& s, const AirportControl& ac)
             " Coupon: " << ac.cpnnum() <<
             " DateCr: " << ac.dateCr();
     return s;
+}
+
+bool existsAirportControl(const Ticketing::Airline_t& airline,
+                          const Ticketing::TicketNum_t& ticknum,
+                          const Ticketing::CouponNum_t& cpnnum,
+                          bool throwErr)
+{
+    boost::scoped_ptr<AirportControl> ac(AirportControl::readDb(airline,
+                                                                ticknum,
+                                                                cpnnum));
+    if(!ac) {
+        LogWarning(STDLOG) << "Airport control not found: "
+                           << airline << "/" << ticknum << "/" << cpnnum;
+        if(throwErr) {
+            throw AirportControlNotFound(airline, ticknum, cpnnum);
+        }
+        return false;
+    }
+    return true;
+}
+
+bool existsAirportControl(const std::string& airline,
+                          const std::string& tick_no,
+                          const int& coupon_no,
+                          bool throwErr)
+{
+  return existsAirportControl(BaseTables::Company(airline)->ida(),
+                              Ticketing::TicketNum_t(tick_no),
+                              Ticketing::CouponNum_t(coupon_no),
+                              throwErr);
 }
 
 }//namespace Ticketing
