@@ -20,7 +20,7 @@
 #include "salons.h"
 #include "seats.h"
 #include "docs.h"
-#include "stat.h"
+#include "stat_utils.h"
 #include "etick.h"
 #include "events.h"
 #include "term_version.h"

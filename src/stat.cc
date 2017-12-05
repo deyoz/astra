@@ -30,6 +30,8 @@
 #include "md5_sum.h"
 #include "payment_base.h"
 #include "report_common.h"
+#include "stat_utils.h"
+#include "bi_stat.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -38,17 +40,10 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
+using namespace STAT;
 using namespace AstraLocale;
 using namespace BASIC::date_time;
 using namespace ASTRA::date_time;
-
-int MAX_STAT_ROWS()
-{
-  static int VAR=NoExists;
-  if (VAR==NoExists)
-    VAR=getTCLParam("MAX_STAT_ROWS",NoExists,NoExists,2000);
-  return VAR;
-};
 
 const string SYSTEM_USER = "Система";
 
@@ -86,34 +81,6 @@ TOrderStatus DecodeOrderStatus( const string &os )
 const string EncodeOrderStatus(TOrderStatus s)
 {
   return TOrderStatusS[s];
-};
-
-enum TOrderSource {
-    osSTAT,
-    osUnknown,
-    osNum
-};
-
-const char *TOrderSourceS[] = {
-    "STAT",
-    "?"
-};
-
-TOrderSource DecodeOrderSource( const string &os )
-{
-  int i;
-  for( i=0; i<(int)osNum; i++ )
-    if ( os == TOrderSourceS[ i ] )
-      break;
-  if ( i == osNum )
-    return osUnknown;
-  else
-    return (TOrderSource)i;
-}
-
-const string EncodeOrderSource(TOrderSource s)
-{
-  return TOrderSourceS[s];
 };
 
 
@@ -1802,299 +1769,6 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-xmlNodePtr STAT::getVariablesNode(xmlNodePtr resNode)
-{
-    xmlNodePtr formDataNode = GetNode("form_data", resNode);
-    if(!formDataNode)
-        formDataNode = NewTextChild(resNode, "form_data");
-    xmlNodePtr variablesNode = GetNode("variables", formDataNode);
-    if(!variablesNode)
-        variablesNode = NewTextChild(formDataNode, "variables");
-    return variablesNode;
-}
-
-xmlNodePtr STAT::set_variables(xmlNodePtr resNode, string lang)
-{
-    if(lang.empty())
-        lang = TReqInfo::Instance()->desk.lang;
-
-    xmlNodePtr variablesNode = getVariablesNode(resNode);
-
-    TReqInfo *reqInfo = TReqInfo::Instance();
-    TDateTime issued = NowUTC();
-    string tz;
-    if(reqInfo->user.sets.time == ustTimeUTC)
-        tz = "(GMT)";
-    else if(
-            reqInfo->user.sets.time == ustTimeLocalDesk ||
-            reqInfo->user.sets.time == ustTimeLocalAirp
-           ) {
-        issued = UTCToLocal(issued,reqInfo->desk.tz_region);
-        tz = "(" + ElemIdToCodeNative(etCity, reqInfo->desk.city) + ")";
-    }
-
-    NewTextChild(variablesNode, "print_date",
-            DateTimeToStr(issued, "dd.mm.yyyy hh:nn:ss ") + tz);
-    NewTextChild(variablesNode, "print_oper", reqInfo->user.login);
-    NewTextChild(variablesNode, "print_term", reqInfo->desk.code);
-    NewTextChild(variablesNode, "use_seances", false); //!!!потом убрать
-    NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
-    if(bad_client_img_version())
-        NewTextChild(variablesNode, "doc_cap_test", " ");
-    NewTextChild(variablesNode, "cap_test", getLocaleText("CAP.TEST", lang));
-    NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT", lang));
-    NewTextChild(variablesNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT", lang));
-    NewTextChild(variablesNode, "oper_info", getLocaleText("CAP.DOC.OPER_INFO", LParams()
-                << LParam("date", DateTimeToStr(issued, "dd.mm.yyyy hh:nn:ss ") + tz)
-                << LParam("oper", reqInfo->user.login)
-                << LParam("term", reqInfo->desk.code),
-                lang
-                ));
-    NewTextChild(variablesNode, "skip_header", 0);
-    return variablesNode;
-}
-
-enum TStatType {
-    statTrferFull,
-    statFull,
-    statShort,
-    statDetail,
-    statSelfCkinFull,
-    statSelfCkinShort,
-    statSelfCkinDetail,
-    statAgentFull,
-    statAgentShort,
-    statAgentTotal,
-    statTlgOutFull,
-    statTlgOutShort,
-    statTlgOutDetail,
-    statPactShort,
-    statRFISC,
-    statService,
-    statLimitedCapab,
-    statUnaccBag,
-    statAnnulBT,
-    statPFSShort,
-    statPFSFull,
-    statTrferPax,
-    statHotelAcmdShort,
-    statHotelAcmdFull,
-    statNum
-};
-
-const char *TStatTypeS[statNum] = {
-    "statTrferFull",
-    "statFull",
-    "statShort",
-    "statDetail",
-    "statSelfCkinFull",
-    "statSelfCkinShort",
-    "statSelfCkinDetail",
-    "statAgentFull",
-    "statAgentShort",
-    "statAgentTotal",
-    "statTlgOutFull",
-    "statTlgOutShort",
-    "statTlgOutDetail",
-    "statPactShort",
-    "statRFISC",
-    "statService",
-    "statLimitedCapab",
-    "statUnaccBag",
-    "statAnnulBT",
-    "statPFSShort",
-    "statPFSFull",
-    "statHotelAcmdShort",
-    "statHotelAcmdFull",
-    "statTrferPax"
-};
-
-TStatType DecodeStatType( const string stat_type )
-{
-    int i;
-    for( i=0; i<(int)statNum; i++ )
-        if ( stat_type == TStatTypeS[ i ] )
-            break;
-    return (TStatType)i;
-}
-
-string EncodeStatType(const TStatType stat_type)
-{
-    return (
-            stat_type >= statNum or stat_type < 0
-            ? string() : TStatTypeS[ stat_type ]
-           );
-}
-
-enum TSeanceType { seanceAirline, seanceAirport, seanceAll };
-
-static const string PARAM_SEANCE_TYPE           = "seance_type";
-static const string PARAM_DESK_CITY             = "desk_city";
-static const string PARAM_DESK_LANG             = "desk_lang";
-static const string PARAM_NAME                  = "name";
-static const string PARAM_TYPE                  = "type";
-static const string PARAM_STAT_TYPE             = "stat_type";
-static const string PARAM_AIRLINES_PREFIX       = "airlines.";
-static const string PARAM_AIRLINES_PERMIT       = "airlines.permit";
-static const string PARAM_AIRPS_PREFIX          = "airps.";
-static const string PARAM_AIRPS_PERMIT          = "airps.permit";
-static const string PARAM_AIRP_COLUMN_FIRST     = "airp_column_first";
-static const string PARAM_FIRSTDATE             = "FirstDate";
-static const string PARAM_LASTDATE              = "LastDate";
-static const string PARAM_FLT_NO                = "flt_no";
-static const string PARAM_DESK                  = "desk";
-static const string PARAM_USER_ID               = "user_id";
-static const string PARAM_USER_LOGIN            = "user_login";
-static const string PARAM_TYPEB_TYPE            = "typeb_type";
-static const string PARAM_SENDER_ADDR           = "sender_addr";
-static const string PARAM_RECEIVER_DESCR        = "receiver_descr";
-static const string PARAM_REG_TYPE              = "reg_type";
-static const string PARAM_SKIP_ROWS             = "skip_rows";
-static const string PARAM_ORDER_SOURCE          = "order_source";
-static const string PARAM_PR_PACTS              = "pr_pacts";
-static const string PARAM_TRFER_AIRP            = "trfer_airp";
-static const string PARAM_TRFER_AIRLINE         = "trfer_airline";
-static const string PARAM_SEG_CATEGORY          = "seg_category";
-
-class TSegCategories {
-    public:
-        enum Enum
-        {
-            IntInt, // Internal - Internal
-            ForFor, // Foreign - Foreign
-            ForInt, // Foreign -Internal
-            IntFor,  // Internal - Foreign
-            Unknown
-        };
-
-        static const std::list< std::pair<Enum, std::string> >& pairsCodes()
-        {
-            static std::list< std::pair<Enum, std::string> > l;
-            if (l.empty())
-            {
-                l.push_back(std::make_pair(IntInt,  "ВВЛ-ВВЛ"));
-                l.push_back(std::make_pair(ForFor,  "МВЛ-МВЛ"));
-                l.push_back(std::make_pair(ForInt,  "МВЛ-ВВЛ"));
-                l.push_back(std::make_pair(IntFor,  "ВВЛ-МВЛ"));
-                l.push_back(std::make_pair(Unknown, ""));
-            }
-            return l;
-        }
-};
-
-class TSegCategory : public ASTRA::PairList<TSegCategories::Enum, std::string>
-{
-  private:
-    virtual std::string className() const { return "TSegCategory"; }
-  public:
-    TSegCategory() : ASTRA::PairList<TSegCategories::Enum, std::string>(TSegCategories::pairsCodes(),
-                                                                            boost::none,
-                                                                            boost::none) {}
-};
-
-struct TStatParams {
-    string desk_city; // Используется в TReqInfo::Initialize(city) в фоновой статистике
-    string desk_lang;
-    string name, type;
-    TStatType statType;
-    TAccessElems<string> airlines, airps;
-    bool airp_column_first;
-    TSeanceType seance;
-    TDateTime FirstDate, LastDate;
-    int flt_no;
-    string desk;
-    int user_id;
-    string user_login;
-    string typeb_type;
-    string sender_addr;
-    string receiver_descr;
-    string reg_type;
-    bool order;
-    bool skip_rows;
-    bool pr_pacts;
-    TSegCategories::Enum seg_category;
-    string trfer_airp;
-    string trfer_airline;
-    void get(xmlNodePtr resNode);
-    void toFileParams(map<string, string> &file_params) const;
-    void fromFileParams(map<string, string> &file_params);
-    void AccessClause(string &SQLText) const;
-};
-
-void TStatParams::fromFileParams(map<string, string> &file_params)
-{
-    trfer_airp = file_params[PARAM_TRFER_AIRP];
-    trfer_airline = file_params[PARAM_TRFER_AIRLINE];
-    seg_category = TSegCategory().decode(file_params[PARAM_SEG_CATEGORY]);
-    seance = (TSeanceType)ToInt(file_params[PARAM_SEANCE_TYPE]);
-    desk_city = file_params[PARAM_DESK_CITY];
-    desk_lang = file_params[PARAM_DESK_LANG];
-    name = file_params[PARAM_NAME];
-    type = file_params[PARAM_TYPE];
-    statType = DecodeStatType(file_params[PARAM_STAT_TYPE]);
-    for(map<string, string>::iterator i = file_params.begin(); i != file_params.end(); i++) {
-        if(i->first.substr(0, PARAM_AIRLINES_PREFIX.size()) == PARAM_AIRLINES_PREFIX)
-            airlines.add_elem(i->second);
-        if(i->first.substr(0, PARAM_AIRPS_PREFIX.size()) == PARAM_AIRPS_PREFIX)
-            airlines.add_elem(i->second);
-    }
-    airlines.set_elems_permit(ToInt(file_params[PARAM_AIRLINES_PERMIT]));
-    airps.set_elems_permit(ToInt(file_params[PARAM_AIRPS_PERMIT]));
-    airp_column_first = ToInt(file_params[PARAM_AIRP_COLUMN_FIRST]);
-    StrToDateTime(file_params[PARAM_FIRSTDATE].c_str(), ServerFormatDateTimeAsString, FirstDate);
-    StrToDateTime(file_params[PARAM_LASTDATE].c_str(), ServerFormatDateTimeAsString, LastDate);
-    flt_no = ToInt(file_params[PARAM_FLT_NO]);
-    desk = file_params[PARAM_DESK];
-    user_id = ToInt(file_params[PARAM_USER_ID]);
-    user_login = file_params[PARAM_USER_LOGIN];
-    typeb_type = file_params[PARAM_TYPEB_TYPE];
-    sender_addr = file_params[PARAM_SENDER_ADDR];
-    receiver_descr = file_params[PARAM_RECEIVER_DESCR];
-    reg_type = file_params[PARAM_REG_TYPE];
-    skip_rows = ToInt(file_params[PARAM_SKIP_ROWS]);
-    pr_pacts = ToInt(file_params[PARAM_PR_PACTS]) != 0;
-}
-
-void TStatParams::toFileParams(map<string, string> &file_params) const
-{
-    file_params[PARAM_TRFER_AIRP] = trfer_airp;
-    file_params[PARAM_TRFER_AIRLINE] = trfer_airline;
-    file_params[PARAM_SEG_CATEGORY] = TSegCategory().encode(seg_category);
-    file_params[PARAM_SEANCE_TYPE] = IntToString(seance);
-    file_params[PARAM_DESK_CITY] = TReqInfo::Instance()->desk.city;
-    file_params[PARAM_DESK_LANG] = TReqInfo::Instance()->desk.lang;
-    file_params[PARAM_NAME] = name;
-    file_params[PARAM_TYPE] = type;
-    file_params[PARAM_STAT_TYPE] = EncodeStatType(statType);
-    file_params[PARAM_STAT_TYPE] = EncodeStatType(statType);
-    int idx = 0;
-    for(set<string>::iterator i = airlines.elems().begin(); i != airlines.elems().end(); i++, idx++) {
-        file_params[PARAM_AIRLINES_PREFIX + IntToString(idx)] = *i;
-    }
-    file_params[PARAM_AIRLINES_PERMIT] = IntToString(airlines.elems_permit());
-
-    idx = 0;
-    for(set<string>::iterator i = airps.elems().begin(); i != airps.elems().end(); i++, idx++) {
-        file_params[PARAM_AIRPS_PREFIX + IntToString(idx)] = *i;
-    }
-    file_params[PARAM_AIRPS_PERMIT] = IntToString(airps.elems_permit());
-    file_params[PARAM_AIRP_COLUMN_FIRST] = IntToString(airp_column_first);
-    file_params[PARAM_FIRSTDATE] = DateTimeToStr(FirstDate, ServerFormatDateTimeAsString);
-    file_params[PARAM_LASTDATE] = DateTimeToStr(LastDate, ServerFormatDateTimeAsString);
-    file_params[PARAM_FLT_NO] = IntToString(flt_no);
-    file_params[PARAM_DESK] = desk;
-    file_params[PARAM_USER_ID] = IntToString(user_id);
-    file_params[PARAM_USER_LOGIN] = user_login;
-    file_params[PARAM_TYPEB_TYPE] = typeb_type;
-    file_params[PARAM_SENDER_ADDR] = sender_addr;
-    file_params[PARAM_RECEIVER_DESCR] = receiver_descr;
-    file_params[PARAM_REG_TYPE] = reg_type;
-    file_params[PARAM_SKIP_ROWS] = IntToString(skip_rows);
-
-    file_params[PARAM_ORDER_SOURCE] = EncodeOrderSource(osSTAT);
-    file_params[PARAM_PR_PACTS] = IntToString(pr_pacts);
-}
-
 string GetStatSQLText(const TStatParams &params, int pass)
 {
     static const string sum_pax_by_client_type =
@@ -2335,207 +2009,7 @@ string GetStatSQLText(const TStatParams &params, int pass)
   return sql.str();
 }
 
-struct TPrintAirline {
-    private:
-        string val;
-        bool multi_airlines;
-    public:
-        TPrintAirline(): multi_airlines(false) {};
-        void check(string val);
-        string get() const;
-};
-
-string TPrintAirline::get() const
-{
-    if(multi_airlines)
-        return "";
-    else
-        return val;
-}
-
-void TPrintAirline::check(string val)
-{
-    if(this->val.empty())
-        this->val = val;
-    else if(this->val != val)
-        multi_airlines = true;
-}
-
 /* GRISHA */
-void TStatParams::get(xmlNodePtr reqNode)
-{
-    name = NodeAsString("stat_mode", reqNode);
-    type = NodeAsString("stat_type", reqNode, "Общая");
-
-    if(type == "Трансфер") {
-        if(name == "Общая") statType = statTrferFull;
-        else if(name == "Подробная") statType=statTrferPax;
-        else throw Exception("Unknown stat mode " + name);
-    } else if(type == "Общая") {
-        if(name == "Подробная") statType=statFull;
-        else if(name == "Общая") statType=statShort;
-        else if(name == "Детализированная") statType=statDetail;
-        else throw Exception("Unknown stat mode " + name);
-    } else if(type ==
-            ((TReqInfo::Instance()->client_type==ctHTTP ||
-              TReqInfo::Instance()->desk.compatible(SELF_CKIN_STAT_VERSION)) ?
-             "Саморегистрация" :
-             "По киоскам"
-            )
-            ) {
-        if(name == "Подробная")
-            statType=statSelfCkinFull;
-        else if(name == "Общая")
-            statType=statSelfCkinShort;
-        else if(name == "Детализированная")
-            statType=statSelfCkinDetail;
-        else
-            throw Exception("Unknown stat mode " + name);
-    } else if(type == "По агентам") {
-        if(name == "Подробная")
-            statType=statAgentFull;
-        else if(name == "Общая")
-            statType=statAgentShort;
-        else if(name == "Итого")
-            statType=statAgentTotal;
-        else
-            throw Exception("Unknown stat mode " + name);
-    } else if(type == "Отпр. телеграммы") {
-        if(name == "Подробная")
-            statType=statTlgOutFull;
-        else if(name == "Общая")
-            statType=statTlgOutShort;
-        else if(name == "Детализированная")
-            statType=statTlgOutDetail;
-        else
-            throw Exception("Unknown stat mode " + name);
-    } else if(type == "Договор") {
-        if(name == "Общая")
-            statType=statPactShort;
-        else
-            throw Exception("Unknown stat mode " + name);
-    } else if(type == "Багажные RFISC") {
-        if(name == "Подробная")
-            statType=statRFISC;
-        else
-            throw Exception("Unknown stat mode " + name);
-    } else if(type == "Услуги") {
-        if(name == "Подробная")
-            statType=statService;
-        else
-            throw Exception("Unknown stat mode " + name);
-    } else if(type == "Огр. возмож.") {
-        if(name == "Подробная")
-            statType=statLimitedCapab;
-        else
-            throw Exception("Unknown stat mode " + name);
-    } else if(type == "Несопр. багаж") {
-        if(name == "Подробная")
-            statType=statUnaccBag;
-        else
-            throw Exception("Unknown stat mode " + name);
-    } else if(type == "Аннул. бирки") {
-        if(name == "Подробная")
-            statType=statAnnulBT;
-        else
-            throw Exception("Unknown stat mode " + name);
-    } else if(type == "PFS") {
-        if(name == "Подробная")
-            statType = statPFSFull;
-        else if(name == "Общая")
-            statType = statPFSShort;
-        else
-            throw Exception("Unknown stat mode " + name);
-    } else if(type == "Расселение") {
-        if(name == "Подробная")
-            statType = statHotelAcmdFull;
-        else if(name == "Общая")
-            statType = statHotelAcmdShort;
-        else
-            throw Exception("Unknown stat mode " + name);
-    } else
-        throw Exception("Unknown stat type " + type);
-
-    FirstDate = NodeAsDateTime("FirstDate", reqNode);
-    LastDate = NodeAsDateTime("LastDate", reqNode);
-    TReqInfo &info = *(TReqInfo::Instance());
-
-    xmlNodePtr curNode = reqNode->children;
-
-    string ak = NodeAsStringFast("ak", curNode, "");
-    string ap = NodeAsStringFast("ap", curNode, "");
-    if (!NodeIsNULLFast("flt_no", curNode, true))
-      flt_no = NodeAsIntegerFast("flt_no", curNode, NoExists);
-    else
-      flt_no = NoExists;
-    desk = NodeAsStringFast("desk", curNode, NodeAsStringFast("kiosk", curNode, ""));
-    if (!NodeIsNULLFast("user", curNode, true))
-      user_id = NodeAsIntegerFast("user", curNode, NoExists);
-    else
-      user_id = NoExists;
-    user_login = NodeAsStringFast("user_login", curNode, "");
-    typeb_type = NodeAsStringFast("typeb_type", curNode, "");
-    sender_addr = NodeAsStringFast("sender_addr", curNode, "");
-    receiver_descr = NodeAsStringFast("receiver_descr", curNode, "");
-    reg_type = NodeAsStringFast("reg_type", curNode, "");
-    order = NodeAsStringFast("Order", curNode, 0) != 0;
-    seg_category = TSegCategory().decode(NodeAsStringFast("SegCategory", curNode, ""));
-    TElemFmt fmt;
-    trfer_airp = ElemToElemId(etAirp, NodeAsStringFast("trfer_airp", curNode, ""), fmt);
-    trfer_airline = ElemToElemId(etAirline, NodeAsStringFast("trfer_airline", curNode, ""), fmt);
-
-    ProgTrace(TRACE5, "ak: %s", ak.c_str());
-    ProgTrace(TRACE5, "ap: %s", ap.c_str());
-
-    airlines=info.user.access.airlines();
-    if (!ak.empty())
-      airlines.merge(TAccessElems<string>(ak, true));
-    airps=info.user.access.airps();
-    if (!ap.empty())
-      airps.merge(TAccessElems<string>(ap, true));
-
-    if (airlines.totally_not_permitted() ||
-        airps.totally_not_permitted())
-      throw AstraLocale::UserException("MSG.NO_ACCESS");
-
-    airp_column_first = (info.user.user_type == utAirport);
-
-    //сеансы (договоры)
-    string seance_str = NodeAsStringFast("seance", curNode, "");
-    seance = seanceAll;
-    if (seance_str=="АК") seance=seanceAirline;
-    if (seance_str=="АП") seance=seanceAirport;
-
-    bool all_seances_permit = info.user.access.rights().permitted(615);
-
-    if (info.user.user_type != utSupport && !all_seances_permit)
-    {
-      if (info.user.user_type == utAirline)
-        seance=seanceAirline;
-      else
-        seance=seanceAirport;
-    };
-
-    if (seance==seanceAirline)
-    {
-        if (!airlines.elems_permit()) throw UserException("MSG.NEED_SET_CODE_AIRLINE");
-    };
-
-    if (seance==seanceAirport)
-    {
-        if (!airps.elems_permit()) throw UserException("MSG.NEED_SET_CODE_AIRP");
-    };
-
-    skip_rows =
-        info.user.user_type == utAirline and
-        statType == statTrferFull and
-        ak.empty() and
-        ap.empty() and
-        flt_no == NoExists and
-        seance == seanceAll;
-    pr_pacts = false;
-};
-
 struct TInetStat {
     int web;
     int kiosk;
@@ -2694,13 +2168,6 @@ struct TDetailCmp {
     };
 };
 typedef map<TDetailStatKey, TDetailStatRow, TDetailCmp> TDetailStat;
-
-struct TOrderStatItem {
-    static const char delim = ';';
-    virtual void add_header(ostringstream &buf) const = 0;
-    virtual void add_data(ostringstream &buf) const = 0;
-    virtual ~TOrderStatItem() {}
-};
 
 struct TRFISCStatRow:public TOrderStatItem {
     string rfisc;
@@ -3021,13 +2488,6 @@ struct TFullCmp {
     };
 };
 typedef map<TFullStatKey, TFullStatRow, TFullCmp> TFullStat;
-
-namespace AstraLocale {
-class MaxStatRowsException: public UserException
-{
-    public: MaxStatRowsException(const std::string &vlexema, const LParams &aparams): UserException(vlexema, aparams) {}
-};
-}
 
 // TODO переименовать здесь и всюду bool full в что-то типа override_MAX_STAT_ROWS()
 template <class keyClass, class rowClass, class cmpClass>
@@ -6051,6 +5511,8 @@ struct TParamItem {
     string ref;
     string ref_field;
     string tag;
+    string edit_fmt;
+    string filter;
     TParamItem():
         visible(NoExists),
         width(NoExists),
@@ -6076,6 +5538,8 @@ void TParamItem::toXML(xmlNodePtr resNode)
     NewTextChild(itemNode, "ref", ref);
     NewTextChild(itemNode, "ref_field", ref_field);
     NewTextChild(itemNode, "tag", tag);
+    NewTextChild(itemNode, "edit_fmt", edit_fmt);
+    NewTextChild(itemNode, "filter", filter);
 
     if(code == "SegCategory") {
         xmlNodePtr dataNode = NewTextChild(itemNode, "data");
@@ -6117,6 +5581,8 @@ void TParamItem::fromDB(TQuery &Qry)
     ref = Qry.FieldAsString("ref");
     ref_field = Qry.FieldAsString("ref_field");
     tag = Qry.FieldAsString("tag");
+    edit_fmt = Qry.FieldAsString("edit_fmt");
+    filter = Qry.FieldAsString("filter");
 }
 
 struct TLayout {
@@ -7275,22 +6741,6 @@ struct TUnaccBagStat {
 void TUnaccBagStat::insert(const TUnaccBagStatRow &row)
 {
     rows.push_back(row);
-}
-
-void TStatParams::AccessClause(string &SQLText) const
-{
-    if (!airps.elems().empty()) {
-        if (airps.elems_permit())
-            SQLText += " points.airp IN " + GetSQLEnum(airps.elems()) + "and ";
-        else
-            SQLText += " points.airp NOT IN " + GetSQLEnum(airps.elems()) + "and ";
-    };
-    if (!airlines.elems().empty()) {
-        if (airlines.elems_permit())
-            SQLText += " points.airline IN " + GetSQLEnum(airlines.elems()) + "and ";
-        else
-            SQLText += " points.airline NOT IN " + GetSQLEnum(airlines.elems()) + "and ";
-    };
 }
 
 template <class T>
@@ -8783,14 +8233,6 @@ struct TFileParams {
     string get_name();
 };
 
-string get_part_file_name(int file_id, TDateTime month)
-{
-    // get part file name
-    ostringstream file_name;
-    file_name << ORDERS_PATH() << file_id << '.' << DateTimeToStr(month, "yymm");
-    return file_name.str();
-}
-
 void commit_progress(TQuery &Qry, int parts, int size)
 {
     Qry.SetVariable("progress", round((double)parts / size * 100));
@@ -9088,11 +8530,6 @@ bool TStatOrders::so_data_empty(int file_id)
     return result;
 }
 
-#include <boost/iostreams/filtering_stream.hpp>
-#include <boost/iostreams/copy.hpp>
-#include <boost/iostreams/filter/zlib.hpp>
-#include <boost/iostreams/device/file.hpp>
-
 void seg_fault_emul()
 {
     // seg fault emul
@@ -9100,119 +8537,6 @@ void seg_fault_emul()
     char *b = a[0];
     LogTrace(TRACE5) << *b;
 
-}
-
-class TMD5Filter : public boost::iostreams::multichar_output_filter {
-    public:
-        template<typename Sink>
-            std::streamsize write(Sink& dest, const char* s, std::streamsize n)
-            {
-                TMD5Sum::Instance()->update(s, n);
-                boost::iostreams::copy(boost::iostreams::basic_array_source<char>(s, n), dest);
-                return n;
-            }
-
-        /* Other members */
-};
-
-// TODO перенести выше (или в header), чтобы сделать функцию RunTlgOutStatFile не шаблонной
-struct TOrderStatWriter {
-    const string enc;
-    int file_id;
-    TDateTime month;
-    string file_name;
-    double data_size = 0;
-    double data_size_zip = 0;
-    boost::iostreams::filtering_ostream out;
-    size_t rowcount;
-
-    void push_back(const TOrderStatItem &row)
-    {
-        insert(row);
-    }
-
-    void insert(const TOrderStatItem &row);
-    void finish();
-    size_t size() { return 0; }
-
-    TOrderStatWriter(int afile_id, TDateTime amonth, const string &afile_name):
-        enc("CP1251"),
-        file_id(afile_id),
-        month(amonth),
-        file_name(afile_name),
-        rowcount(0)
-    {}
-};
-
-void TOrderStatWriter::finish()
-{
-    if(rowcount == 0) return;
-    // forces all the underlying buffers to be flushed, thus TMD5Sum updates correctly
-    //
-    // from boost manual:
-    //  void reset()
-    //  Clears the underlying chain. If the chain is initially complete,
-    //  causes each Filter and Device in the chain to be closed using the function close.
-    out.reset();
-    TMD5Sum::Instance()->Final();
-    data_size_zip = TMD5Sum::Instance()->data_size;
-    TCachedQuery updDataQry(
-            "update stat_orders_data set "
-            "   file_size = :file_size, "
-            "   file_size_zip = :file_size_zip, "
-            "   md5_sum = :md5_sum "
-            "where "
-            "   file_id = :file_id and "
-            "   month = :month ",
-            QParams()
-            << QParam("file_id", otInteger, file_id)
-            << QParam("month", otDate, month)
-            << QParam("file_size", otFloat, data_size)
-            << QParam("file_size_zip", otFloat, data_size_zip)
-            << QParam("md5_sum", otString, TMD5Sum::Instance()->str())
-            );
-    updDataQry.get().Execute();
-}
-
-void TOrderStatWriter::insert(const TOrderStatItem &row)
-{
-    if(rowcount == 0) { // первый инсерт, открываем файл
-        TMD5Sum::Instance()->init();
-        out.push(boost::iostreams::zlib_compressor(), ORDERS_BLOCK_SIZE());
-        out.push(TMD5Filter(), ORDERS_BLOCK_SIZE());
-        out.push(boost::iostreams::file_sink(get_part_file_name(file_id, month)), ORDERS_BLOCK_SIZE());
-
-        TCachedQuery insDataQry(
-                "begin "
-                "   insert into stat_orders_data(file_id, month, file_name, download_times) values ( "
-                "   :file_id, :month, :file_name, 0); "
-                "exception "
-                "   when dup_val_on_index then "
-                "       update stat_orders_data set "
-                "           file_name = :file_name "
-                "       where "
-                "           file_id = :file_id and "
-                "           month = :month; "
-                "end; "
-                ,
-                QParams() << QParam("file_id", otInteger, file_id)
-                << QParam("month", otDate, month)
-                << QParam("file_name", otString, file_name)
-                );
-        insDataQry.get().Execute();
-        OraSession.Commit(); // чтобы сборщик мусора все видел и не удалял.
-
-        ostringstream buf;
-        row.add_header(buf);
-        out << ConvertCodepage(buf.str(), "CP866", enc);
-        data_size += buf.str().size();
-    }
-    ostringstream buf;
-    row.add_data(buf);
-    rowcount++;
-    out << ConvertCodepage(buf.str(), "CP866", enc);
-    data_size += buf.str().size();
-    out.flush();
 }
 
 /*------------------------------- HOTEL ACMD STAT ---------------------------------------*/
@@ -9917,6 +9241,9 @@ void create_plain_files(
             break;
         case statPFSShort:
             RunPFSShortFile(params, order_writer, airline);
+            break;
+        case statBIFull:
+            RunBIFullFile(params, order_writer);
             break;
         default:
             throw Exception("unsupported statType %d", params.statType);
@@ -10753,6 +10080,9 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         case statService:
             get_compatible_report_form("ServiceStat", reqNode, resNode);
             break;
+        case statBIFull:
+        case statBIShort:
+        case statBIDetail:
         case statSelfCkinFull:
         case statSelfCkinShort:
         case statSelfCkinDetail:
@@ -10912,6 +10242,13 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             RunTrferPaxStat(params, TrferPaxStat, airline);
             createXMLTrferPaxStat(params, TrferPaxStat, airline, resNode);
         }
+        if(params.statType == statBIFull)
+        {
+            TPrintAirline airline;
+            TBIFullStat BIFullStat;
+            RunBIStat(params, BIFullStat);
+            createXMLBIFullStat(params, BIFullStat, resNode);
+        }
     }
     /* GRISHA */
     catch (MaxStatRowsException &E)
@@ -10931,6 +10268,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         else
             throw;
     }
+    LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
 }
 
 void TStatOrders::check_integrity()

@@ -1,6 +1,6 @@
 #include <set>
 #include "docs.h"
-#include "stat.h"
+#include "stat_utils.h"
 #include "oralib.h"
 #include "xml_unit.h"
 #include "exceptions.h"
@@ -249,15 +249,10 @@ string vs_number(int number, bool pr_lat)
     return result;
 }
 
-bool bad_client_img_version()
-{
-    return TReqInfo::Instance()->desk.compatible("201101-0117116") and not TReqInfo::Instance()->desk.compatible("201101-0118748");
-}
-
 void SeasonListVars(int trip_id, int pr_lat, xmlNodePtr variablesNode, xmlNodePtr reqNode)
 {
-  NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
-  if(bad_client_img_version())
+  NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
+  if(STAT::bad_client_img_version())
       NewTextChild(variablesNode, "doc_cap_test", " ");
   vector<SEASON::TViewPeriod> viewp;
   SEASON::ReadTripInfo( trip_id, viewp, GetNode( "seasonvars", reqNode ) );
@@ -302,7 +297,7 @@ void populate_doc_cap(xmlNodePtr variablesNode, string lang)
     NewTextChild(variablesNode, "doc_cap_to", getLocaleText("CAP.DOC.TO", lang));
     NewTextChild(variablesNode, "doc_cap_ex", getLocaleText("Дс", lang));
     NewTextChild(variablesNode, "doc_cap_brd", getLocaleText("Пс", lang));
-    NewTextChild(variablesNode, "doc_cap_test", (bad_client_img_version() and not get_test_server()) ? " " : getLocaleText("CAP.TEST", lang));
+    NewTextChild(variablesNode, "doc_cap_test", (STAT::bad_client_img_version() and not get_test_server()) ? " " : getLocaleText("CAP.TEST", lang));
     NewTextChild(variablesNode, "doc_cap_user_descr", getLocaleText("Оператор", lang));
     NewTextChild(variablesNode, "doc_cap_emd_no", getLocaleText("№ EMD", lang));
     NewTextChild(variablesNode, "doc_cap_total", getLocaleText("Итого:", lang));
@@ -393,8 +388,8 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
                                                                trtNotCancelled,
                                                                rpt_params.GetLang(),
                                                                true));
-    NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
-    if(bad_client_img_version())
+    NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
+    if(STAT::bad_client_img_version())
         NewTextChild(variablesNode, "doc_cap_test", " ");
     NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT", rpt_params.GetLang()));
 }
@@ -1909,7 +1904,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 string get_test_str(int page_width, string lang)
 {
     string result;
-    for(int i=0;i<page_width/6;i++) result += " " + ( bad_client_img_version() and not get_test_server() ? " " : getLocaleText("CAP.TEST", lang)) + " ";
+    for(int i=0;i<page_width/6;i++) result += " " + ( STAT::bad_client_img_version() and not get_test_server() ? " " : getLocaleText("CAP.TEST", lang)) + " ";
     return result;
 }
 
@@ -1932,8 +1927,8 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
   //максимальная длина строки при экспорте в байтах! не должна превышать ~147 (65 рус + 15 лат)
   int max_symb_count= rpt_params.IsInter() ? page_width : 60;
   NewTextChild(variablesNode, "page_width", page_width);
-  NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
-  if(bad_client_img_version())
+  NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
+  if(STAT::bad_client_img_version())
       NewTextChild(variablesNode, "doc_cap_test", " ");
 
   s.str("");
@@ -2430,8 +2425,8 @@ void REFUSETXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     int page_width=80;
     int max_symb_count=rpt_params.IsInter()?page_width:60;
     NewTextChild(variablesNode, "page_width", page_width);
-    NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
-    if(bad_client_img_version())
+    NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
+    if(STAT::bad_client_img_version())
         NewTextChild(variablesNode, "doc_cap_test", " ");
     NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
     ostringstream s;
@@ -2557,8 +2552,8 @@ void EMDTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     int page_width=80;
     int max_symb_count=rpt_params.IsInter()?page_width:60;
     NewTextChild(variablesNode, "page_width", page_width);
-    NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
-    if(bad_client_img_version())
+    NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
+    if(STAT::bad_client_img_version())
         NewTextChild(variablesNode, "doc_cap_test", " ");
     NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
     ostringstream s;
@@ -2687,8 +2682,8 @@ void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     int page_width=80;
     int max_symb_count=rpt_params.IsInter()?page_width:60;
     NewTextChild(variablesNode, "page_width", page_width);
-    NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
-    if(bad_client_img_version())
+    NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
+    if(STAT::bad_client_img_version())
         NewTextChild(variablesNode, "doc_cap_test", " ");
     NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
     ostringstream s;
@@ -2993,8 +2988,8 @@ void REMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     int page_width=80;
     int max_symb_count=rpt_params.IsInter()?page_width:60;
     NewTextChild(variablesNode, "page_width", page_width);
-    NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
-    if(bad_client_img_version())
+    NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
+    if(STAT::bad_client_img_version())
         NewTextChild(variablesNode, "doc_cap_test", " ");
     NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
     ostringstream s;
@@ -3239,8 +3234,8 @@ void CRSTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     int page_width=80;
     int max_symb_count=rpt_params.IsInter()?page_width:60;
     NewTextChild(variablesNode, "page_width", page_width);
-    NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
-    if(bad_client_img_version())
+    NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
+    if(STAT::bad_client_img_version())
         NewTextChild(variablesNode, "doc_cap_test", " ");
     NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
     ostringstream s;
@@ -3445,8 +3440,8 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     int page_width=80;
     int max_symb_count=rpt_params.IsInter()?page_width:60;
     NewTextChild(variablesNode, "page_width", page_width);
-    NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
-    if(bad_client_img_version())
+    NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
+    if(STAT::bad_client_img_version())
         NewTextChild(variablesNode, "doc_cap_test", " ");
     string str;
     ostringstream s;
@@ -3868,8 +3863,8 @@ void SERVICESTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     int page_width=80;
     int max_symb_count=rpt_params.IsInter()?page_width:60;
     NewTextChild(variablesNode, "page_width", page_width);
-    NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
-    if(bad_client_img_version())
+    NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
+    if(STAT::bad_client_img_version())
         NewTextChild(variablesNode, "doc_cap_test", " ");
     NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
     ostringstream s;
@@ -3954,7 +3949,7 @@ void  DocsInterface::RunSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     get_new_report_form(name, reqNode, resNode);
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
-    NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
+    NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
 }
 
 void RESEAT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -4052,8 +4047,8 @@ void RESEATTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
     int page_width=80;
     NewTextChild(variablesNode, "page_width", page_width);
-    NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
-    if(bad_client_img_version())
+    NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
+    if(STAT::bad_client_img_version())
         NewTextChild(variablesNode, "doc_cap_test", " ");
     NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
     ostringstream s;

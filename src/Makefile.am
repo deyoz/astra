@@ -181,6 +181,9 @@ astra_SOURCES = \
   bagmessage.cc \
   hotel_acmd.cc \
   self_ckin_log.cc \
+  bi_stat.cc \
+  stat_utils.cc \
+  stat_common.cc \
   bagmessage_daemon.cc
 
 
@@ -354,5 +357,8 @@ noinst_HEADERS = \
   kiosk_events.h \
   hotel_acmd.h \
   self_ckin_log.h \
+  bi_stat.h \
+  stat_utils.h \
+  stat_common.h \
   report_common.h \
   kiosk_alias.h
