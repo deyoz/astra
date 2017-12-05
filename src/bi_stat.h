@@ -23,11 +23,26 @@ struct TBIStatRow {
     {}
 };
 
+struct TFltInfoCacheItem {
+    std::string airp;
+    std::string airline;
+
+    std::string view_airp;
+    std::string view_airline;
+    std::string view_flt_no;
+};
+
+struct TFltInfoCache:public std::map<int, TFltInfoCacheItem> {
+    const TFltInfoCacheItem &get(int point_id);
+};
+
 struct TBIAbstractStat {
     TPrintAirline prn_airline;
+    TFltInfoCache flt_cache;
     virtual ~TBIAbstractStat() {};
     virtual void add(const TBIStatRow &row) = 0;
-    virtual size_t RowCount() = 0;
+    int FRowCount;
+    size_t RowCount() { return FRowCount; }
 };
 
 struct TBIStatCounters {
@@ -49,27 +64,31 @@ typedef std::map<std::string, TBIScdOutMap> TBIFltMap;
 typedef std::map<std::string, TBIFltMap> TBIAirpMap;
 typedef std::map<std::string, TBIAirpMap> TBIAirlineMap;
 
-struct TFltInfoCacheItem {
-    std::string airp;
-    std::string airline;
-
-    std::string view_airp;
-    std::string view_airline;
-    std::string view_flt_no;
-};
-
-struct TFltInfoCache:public std::map<int, TFltInfoCacheItem> {
-    const TFltInfoCacheItem &get(int point_id);
-};
-
 struct TBIFullStat: public TBIAirlineMap, TBIAbstractStat  {
     TBIStatCounters totals;
-    TFltInfoCache flt_cache;
-    int FRowCount;
     void add(const TBIStatRow &row);
-    size_t RowCount() { return FRowCount; }
-    TBIFullStat(): FRowCount(0) {}
 };
+
+typedef std::map<std::string, int> TBIDetailHallMap;
+typedef std::map<std::string, TBIDetailHallMap> TBIDetailTerminalMap;
+typedef std::map<std::string, TBIDetailTerminalMap> TBIDetailAirpMap;
+typedef std::map<std::string, TBIDetailAirpMap> TBIDetailAirlineMap;
+
+struct TBIDetailStat: public TBIDetailAirlineMap, TBIAbstractStat {
+    int total;
+    void add(const TBIStatRow &row);
+    TBIDetailStat(): total(0) {}
+};
+
+typedef std::map<std::string, int> TBIShortAirpMap;
+typedef std::map<std::string, TBIShortAirpMap> TBIShortAirlineMap;
+
+struct TBIShortStat: public TBIShortAirlineMap, TBIAbstractStat {
+    int total;
+    void add(const TBIStatRow &row);
+    TBIShortStat(): total(0) {}
+};
+
 
 void RunBIStat(
         const TStatParams &params,
@@ -82,6 +101,18 @@ void createXMLBIFullStat(
         const TBIFullStat &BIFullStat,
         xmlNodePtr resNode);
 
+void createXMLBIDetailStat(
+        const TStatParams &params,
+        const TBIDetailStat &BIDetailStat,
+        xmlNodePtr resNode);
+
+void createXMLBIShortStat(
+        const TStatParams &params,
+        const TBIShortStat &BIShortStat,
+        xmlNodePtr resNode);
+
 void RunBIFullFile(const TStatParams &params, TOrderStatWriter &writer);
+void RunBIDetailFile(const TStatParams &params, TOrderStatWriter &writer);
+void RunBIShortFile(const TStatParams &params, TOrderStatWriter &writer);
 
 #endif

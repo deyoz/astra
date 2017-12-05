@@ -9242,6 +9242,12 @@ void create_plain_files(
         case statPFSShort:
             RunPFSShortFile(params, order_writer, airline);
             break;
+        case statBIShort:
+            RunBIShortFile(params, order_writer);
+            break;
+        case statBIDetail:
+            RunBIDetailFile(params, order_writer);
+            break;
         case statBIFull:
             RunBIFullFile(params, order_writer);
             break;
@@ -10242,9 +10248,20 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             RunTrferPaxStat(params, TrferPaxStat, airline);
             createXMLTrferPaxStat(params, TrferPaxStat, airline, resNode);
         }
+        if(params.statType == statBIShort)
+        {
+            TBIShortStat BIShortStat;
+            RunBIStat(params, BIShortStat);
+            createXMLBIShortStat(params, BIShortStat, resNode);
+        }
+        if(params.statType == statBIDetail)
+        {
+            TBIDetailStat BIDetailStat;
+            RunBIStat(params, BIDetailStat);
+            createXMLBIDetailStat(params, BIDetailStat, resNode);
+        }
         if(params.statType == statBIFull)
         {
-            TPrintAirline airline;
             TBIFullStat BIFullStat;
             RunBIStat(params, BIFullStat);
             createXMLBIFullStat(params, BIFullStat, resNode);

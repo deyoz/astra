@@ -50,6 +50,32 @@ void TBIStatCounters::add(BIPrintRules::TPrintType::Enum print_type)
     }
 }
 
+void TBIDetailStat::add(const TBIStatRow &row)
+{
+    TFltInfoCacheItem info = flt_cache.get(row.point_id);
+    prn_airline.check(info.airline);
+    string terminal = ElemIdToNameLong(etAirpTerminal, row.terminal);
+    string bi_hall = ElemIdToNameLong(etBIHall, row.hall);
+
+    int &curr_total = (*this)[info.view_airline][info.view_airp][terminal][bi_hall];
+    if(not curr_total) FRowCount++;
+    ++curr_total;
+    ++total;
+}
+
+void TBIShortStat::add(const TBIStatRow &row)
+{
+    TFltInfoCacheItem info = flt_cache.get(row.point_id);
+    prn_airline.check(info.airline);
+    string terminal = ElemIdToNameLong(etAirpTerminal, row.terminal);
+    string bi_hall = ElemIdToNameLong(etBIHall, row.hall);
+
+    int &curr_total = (*this)[info.view_airline][info.view_airp];
+    if(not curr_total) FRowCount++;
+    ++curr_total;
+    ++total;
+}
+
 void TBIFullStat::add(const TBIStatRow &row)
 {
     TFltInfoCacheItem info = flt_cache.get(row.point_id);
@@ -251,8 +277,6 @@ void createXMLBIFullStat(
     NewTextChild(variablesNode, "stat_type", params.statType);
     NewTextChild(variablesNode, "stat_mode", getLocaleText("Бизнес приглашения"));
     NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
-
-    LogTrace(TRACE5) << GetXMLDocText(resNode->doc);
 }
 
 struct TBIFullStatCombo : public TOrderStatItem
@@ -358,3 +382,246 @@ void RunBIFullFile(const TStatParams &params, TOrderStatWriter &writer)
         }
     }
 }
+
+void createXMLBIShortStat(
+        const TStatParams &params,
+        const TBIShortStat &BIShortStat,
+        xmlNodePtr resNode)
+{
+    if(BIShortStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
+    NewTextChild(resNode, "airline", BIShortStat.prn_airline.get(), "");
+
+    xmlNodePtr grdNode = NewTextChild(resNode, "grd");
+    xmlNodePtr headerNode = NewTextChild(grdNode, "header");
+    xmlNodePtr colNode;
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АК"));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АП"));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Всего"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+
+    xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
+    xmlNodePtr rowNode;
+    for(TBIShortStat::const_iterator airline = BIShortStat.begin();
+            airline != BIShortStat.end(); airline++) {
+        for(TBIShortAirpMap::const_iterator airp = airline->second.begin();
+                airp != airline->second.end(); airp++) {
+            rowNode = NewTextChild(rowsNode, "row");
+            // АК
+            NewTextChild(rowNode, "col", airline->first);
+            // АП
+            NewTextChild(rowNode, "col", airp->first);
+            // Всего
+            NewTextChild(rowNode, "col", airp->second);
+        }
+    }
+    rowNode = NewTextChild(rowsNode, "row");
+    NewTextChild(rowNode, "col", getLocaleText("Итого:"));
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col", BIShortStat.total);
+
+    xmlNodePtr variablesNode = STAT::set_variables(resNode);
+    NewTextChild(variablesNode, "stat_type", params.statType);
+    NewTextChild(variablesNode, "stat_mode", getLocaleText("Бизнес приглашения"));
+    NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Общая"));
+}
+
+void createXMLBIDetailStat(
+        const TStatParams &params,
+        const TBIDetailStat &BIDetailStat,
+        xmlNodePtr resNode)
+{
+    if(BIDetailStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
+    NewTextChild(resNode, "airline", BIDetailStat.prn_airline.get(), "");
+
+    xmlNodePtr grdNode = NewTextChild(resNode, "grd");
+    xmlNodePtr headerNode = NewTextChild(grdNode, "header");
+    xmlNodePtr colNode;
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АК"));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("АП"));
+    SetProp(colNode, "width", 50);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Терминал"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Бизнес зал"));
+    SetProp(colNode, "width", 120);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Всего"));
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+
+    xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
+    xmlNodePtr rowNode;
+    for(TBIDetailStat::const_iterator airline = BIDetailStat.begin();
+            airline != BIDetailStat.end(); airline++) {
+        for(TBIDetailAirpMap::const_iterator airp = airline->second.begin();
+                airp != airline->second.end(); airp++) {
+            for(TBIDetailTerminalMap::const_iterator terminal = airp->second.begin();
+                    terminal != airp->second.end(); terminal++) {
+                for(TBIDetailHallMap::const_iterator hall = terminal->second.begin();
+                        hall != terminal->second.end(); hall++) {
+                    rowNode = NewTextChild(rowsNode, "row");
+                    // АК
+                    NewTextChild(rowNode, "col", airline->first);
+                    // АП
+                    NewTextChild(rowNode, "col", airp->first);
+                    // Терминал
+                    NewTextChild(rowNode, "col", terminal->first);
+                    // Зал
+                    NewTextChild(rowNode, "col", hall->first);
+                    // Всего
+                    NewTextChild(rowNode, "col", hall->second);
+                }
+            }
+        }
+    }
+    rowNode = NewTextChild(rowsNode, "row");
+    NewTextChild(rowNode, "col", getLocaleText("Итого:"));
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col", BIDetailStat.total);
+
+    xmlNodePtr variablesNode = STAT::set_variables(resNode);
+    NewTextChild(variablesNode, "stat_type", params.statType);
+    NewTextChild(variablesNode, "stat_mode", getLocaleText("Бизнес приглашения"));
+    NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Детализированная"));
+}
+
+struct TBIShortStatCombo : public TOrderStatItem
+{
+    string airline;
+    string airp;
+    int total;
+    TBIShortStatCombo(
+            const string &_airline,
+            const string &_airp,
+            int _total
+            ):
+        airline(_airline),
+        airp(_airp),
+        total(_total)
+    {}
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
+};
+
+struct TBIDetailStatCombo : public TOrderStatItem
+{
+    string airline;
+    string airp;
+    string terminal;
+    string hall;
+    int total;
+    TBIDetailStatCombo(
+            const string &_airline,
+            const string &_airp,
+            const string &_terminal,
+            const string &_hall,
+            int _total
+            ):
+        airline(_airline),
+        airp(_airp),
+        terminal(_terminal),
+        hall(_hall),
+        total(_total)
+    {}
+    void add_header(ostringstream &buf) const;
+    void add_data(ostringstream &buf) const;
+};
+
+void TBIShortStatCombo::add_header(ostringstream &buf) const
+{
+    buf
+        << getLocaleText("АК") << delim
+        << getLocaleText("АП") << delim
+        << getLocaleText("Всего") << endl;
+}
+
+void TBIShortStatCombo::add_data(ostringstream &buf) const
+{
+    buf
+        << airline << delim
+        << airp << delim
+        << total << endl;
+}
+
+void TBIDetailStatCombo::add_header(ostringstream &buf) const
+{
+    buf
+        << getLocaleText("АК") << delim
+        << getLocaleText("АП") << delim
+        << getLocaleText("Терминал") << delim
+        << getLocaleText("Бизнес зал") << delim
+        << getLocaleText("Всего") << endl;
+}
+
+void TBIDetailStatCombo::add_data(ostringstream &buf) const
+{
+    buf
+        << airline << delim
+        << airp << delim
+        << terminal << delim
+        << hall << delim
+        << total << endl;
+}
+
+void RunBIShortFile(const TStatParams &params, TOrderStatWriter &writer)
+{
+    TBIShortStat BIShortStat;
+    RunBIStat(params, BIShortStat, true);
+
+    for(TBIShortStat::const_iterator airline = BIShortStat.begin();
+            airline != BIShortStat.end(); airline++) {
+        for(TBIShortAirpMap::const_iterator airp = airline->second.begin();
+                airp != airline->second.end(); airp++) {
+            writer.insert(TBIShortStatCombo(
+                        airline->first,
+                        airp->first,
+                        airp->second));
+        }
+    }
+}
+
+void RunBIDetailFile(const TStatParams &params, TOrderStatWriter &writer)
+{
+    TBIDetailStat BIDetailStat;
+    RunBIStat(params, BIDetailStat, true);
+
+    for(TBIDetailStat::const_iterator airline = BIDetailStat.begin();
+            airline != BIDetailStat.end(); airline++) {
+        for(TBIDetailAirpMap::const_iterator airp = airline->second.begin();
+                airp != airline->second.end(); airp++) {
+            for(TBIDetailTerminalMap::const_iterator terminal = airp->second.begin();
+                    terminal != airp->second.end(); terminal++) {
+                for(TBIDetailHallMap::const_iterator hall = terminal->second.begin();
+                        hall != terminal->second.end(); hall++) {
+                    writer.insert(TBIDetailStatCombo(
+                                airline->first,
+                                airp->first,
+                                terminal->first,
+                                hall->first,
+                                hall->second));
+                }
+            }
+        }
+    }
+}
+
