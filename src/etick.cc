@@ -1777,8 +1777,11 @@ void ETStatusInterface::ETCheckStatusForRollback(int point_id,
 }
 
 void TEMDChangeStatusList::addEMD(const TEMDChangeStatusKey &key,
-                                  const TEMDCtxtItem &item)
+                                  const TEMDCtxtItem &item,
+                                  bool control_method)
 {
+  if (control_method) return; //пока не изменяем статус для EMD при контрольном методе, но кто знает....
+
   TEMDChangeStatusList::iterator i=find(key);
   if (i==end()) i=insert(make_pair(key, list<TEMDChangeStatusItem>())).first;
   if (i==end()) throw EXCEPTIONS::Exception("%s: i==end()", __FUNCTION__);
@@ -1851,7 +1854,7 @@ void EMDStatusInterface::EMDCheckStatus(const int grp_id,
       key.flt_no_oper=fltParams.fltInfo.flt_no;
       key.coupon_status=e->status;
 
-      emdList.addEMD(key, *e);
+      emdList.addEMD(key, *e, fltParams.control_method);
     };
   };
 
@@ -2883,7 +2886,10 @@ void EMDAutoBoundInterface::EMDSearch(const EMDAutoBoundId &id,
                                     ETSearchInterface::spEMDRefresh,
                                     kickInfo.get());
       }
-      catch(UserException) {};
+      catch(UserException& e)
+      {
+        LogTrace(TRACE5) << __FUNCTION__ << ": " << e.what();
+      };
     };
   }
 }

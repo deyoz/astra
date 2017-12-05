@@ -449,7 +449,8 @@ class TEMDChangeStatusList : public std::map<TEMDChangeStatusKey, std::list<TEMD
 {
   public:
     void addEMD(const TEMDChangeStatusKey &key,
-                const TEMDCtxtItem &item);
+                const TEMDCtxtItem &item,
+                bool control_method);
 };
 
 class TChangeStatusList
