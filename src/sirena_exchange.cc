@@ -6,6 +6,8 @@
 #include <libtlg/tlg_outbox.h>
 #include <serverlib/testmode.h>
 #include <serverlib/xml_stuff.h>
+#include <serverlib/query_runner.h>
+#include <serverlib/EdiHelpManager.h>
 
 #include <boost/asio.hpp>
 
@@ -388,7 +390,8 @@ void SirenaClient::sendRequest(const std::string& reqText, const edifact::KickIn
     const httpsrv::Domain domain("ASTRA");
     const std::string kick(AstraEdifact::make_xml_kick(kickInfo));
 
-    httpsrv::DoHttpRequest req(pul, domain, m_addr, httpPost);
+    httpsrv::DoHttpRequest req(ServerFramework::getQueryRunner().getEdiHelpManager().msgId(),
+                               domain, m_addr, httpPost);
     req.setTimeout(boost::posix_time::seconds(m_timeout))
         .setMaxTryCount(1/*SIRENA_REQ_ATTEMPTS()*/)
         .setSSL(m_useSsl)
@@ -412,7 +415,9 @@ boost::optional<httpsrv::HttpResp> SirenaClient::receive(const std::string& pult
     const httpsrv::Pult pul(pult);
     const httpsrv::Domain domain("ASTRA");
 
-    const std::vector<httpsrv::HttpResp> responses = httpsrv::FetchHttpResponses(pul, domain);
+    const std::vector<httpsrv::HttpResp> responses = httpsrv::FetchHttpResponses(
+                ServerFramework::getQueryRunner().getEdiHelpManager().msgId(),
+                domain);
 
     for (const httpsrv::HttpResp& httpResp: responses)
     {
