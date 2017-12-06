@@ -67,7 +67,15 @@ static void saveCouponWc(const std::string& recloc,
                                                                       airline,
                                                                       cpn));
     if(ac) {
-        ac->writeDb();
+        try {
+            ac->writeDb();
+        } catch(const AirportControlExists&) {
+            LogWarning(STDLOG) << "Airport control under coupon " 
+                               << airline << "/" << cpn.ticknum() << "/" << cpn.couponInfo().num()
+                               << " already exists!";
+            ac->deleteDb();
+            ac->writeDb();
+        }
         pnrCallbacks()->afterReceiveAirportControl(cpn);
     }
 }
@@ -312,7 +320,7 @@ boost::optional<WcTicket> readWcTicket(const Ticketing::Airline_t& airline,
             .def(recloc)
             .bind(":airline", airline)
             .bind(":ticknum", tickNum.get())
-            .exfet();
+            .EXfet();
 
     if(cur.err() == NO_DATA_FOUND) {
         return boost::none;
@@ -339,7 +347,7 @@ boost::optional<WcCoupon> readWcCoupon(const Ticketing::Airline_t& airline,
             .bind(":airline", airline)
             .bind(":ticknum", tickNum.get())
             .bind(":cpnnum",  cpnNum.get())
-            .exfet();
+            .EXfet();
 
     if(cur.err() == NO_DATA_FOUND) {
         return boost::none;

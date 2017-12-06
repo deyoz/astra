@@ -85,7 +85,7 @@ const City_impl* City_impl::GetInstance(const char* code)
 {
     return CacheData<City_impl>::GetInstanceCode (code,
             "SELECT ID FROM CITIES "
-            "WHERE CODE=:code OR CODE_LAT=:code");
+            "WHERE PR_DEL=0 AND (CODE=:code OR CODE_LAT=:code)");
 }
 
 
@@ -109,7 +109,7 @@ const Port_impl* Port_impl::GetInstance(const char* code)
 {
     return CacheData<Port_impl>::GetInstanceCode (code,
             "SELECT ID FROM AIRPS "
-            "WHERE CODE=:code OR CODE_LAT=:code");
+            "WHERE PR_DEL=0 AND (CODE=:code OR CODE_LAT=:code)");
 }
 
 
@@ -135,7 +135,7 @@ const Company_impl* Company_impl::GetInstance(const char *code)
 {
     return CacheData<Company_impl>::GetInstanceCode (code,
             "SELECT ID FROM AIRLINES "
-            "WHERE CODE=:code OR CODE_LAT=:code");
+            "WHERE PR_DEL=0 AND (CODE=:code OR CODE_LAT=:code)");
 }
 
 

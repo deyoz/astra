@@ -34,6 +34,7 @@
 #include <serverlib/ourtime.h>
 #include <serverlib/TlgLogger.h>
 #include <serverlib/cursctl.h>
+#include <serverlib/TlgLogger.h>
 
 #include <unistd.h>
 #include <errno.h>
@@ -126,6 +127,7 @@ int main_typeb_handler_tcl(int supervisorSocket, int argc, char *argv[])
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
             ->connect_db();
+    TlgLogger::setLogging();
 
     char buf[10];
     for(;;)
