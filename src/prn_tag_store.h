@@ -295,6 +295,7 @@ class TPrnTagStore {
                 len(alen),
                 text(atext)
             {};
+            TFieldParams(): len(ASTRA::NoExists) {};
         };
 
         typedef std::string (TPrnTagStore::*TTagFunct)(TFieldParams fp);

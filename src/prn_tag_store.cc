@@ -1264,7 +1264,7 @@ bool TPrnTagStore::isBoardingPass()
     }
 #endif //XP_TESTING
 
-    return op_type == TDevOper::PrnBP and get_tag(TAG::VOUCHER_CODE).empty();
+    return op_type == TDevOper::PrnBP and VOUCHER_CODE(TFieldParams()).empty();
 }
 
 string airp_code_2D(const string &code)
