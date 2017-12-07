@@ -43,7 +43,7 @@ if [ "${ENABLE_SHARED}" = "1" ]; then
     echo not turning shared on
 fi
 
-WITH_PARAMS="$WITH_PARAMS --enable-pg"
+#WITH_PARAMS="$WITH_PARAMS --enable-pg"
 
 CONFIG_CACHE_FILE=`pwd`/config.cache
 rm -rf $CONFIG_CACHE_FILE
