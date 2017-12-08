@@ -81,7 +81,7 @@ SystemContext SystemContext::defSelData(OciCpp::CursCtl& cur)
        .defNull(airAddr, "")
        .defNull(ourAirAddr, "")
        .defNull(ediProfileName, "");
-    cur.EXfet();
+    cur.exfet();
 
     if(cur.err() == NO_DATA_FOUND)
     {
