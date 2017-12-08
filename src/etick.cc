@@ -111,7 +111,7 @@ std::string GetSQL(const TListType ltype)
            "      tlg_binding.point_id_spp=:point_id AND \n"
            "      crs_pax_tkn.ticket_no=etickets.ticket_no(+) AND \n"
            "      crs_pax_tkn.coupon_no=etickets.coupon_no(+) AND \n"
-           "      etickets.ticket_no IS NULL AND \n";  //нет записи в etickets
+           "      etickets.coupon_status IS NULL AND \n"; //нет записи в etickets или status=NULL
   };
 
   if (ltype==allByPointIdAndTickNoFromTlg ||
@@ -534,6 +534,76 @@ void TETickItem::fromDB(const std::string &_et_no,
   Qry.get().Execute();
   for(;!Qry.get().Eof; Qry.get().Next())
     eticks.push_back(TETickItem().fromDB(ediAction, Qry.get()));
+}
+
+static boost::optional<Itin> getCouponItin(const Ticketing::Airline_t& airline,
+                                           const Ticketing::TicketNum_t& ticknum,
+                                           const Ticketing::CouponNum_t& cpnnum)
+{
+  boost::optional<WcPnr> wcPnr=loadWcPnr(airline, ticknum);
+  if (!wcPnr) LogTrace(TRACE5) << __FUNCTION__ << ": wcPnr==boost::none";
+
+  if (wcPnr)
+  {
+    for(const Ticket &tick : wcPnr.get().pnr().ltick())
+    {
+      if(tick.actCode() == TickStatAction::oldtick ||
+         tick.actCode() == TickStatAction::inConnectionWith) continue;
+
+      if (tick.ticknum()!=ticknum.get()) continue;
+
+      for(const Coupon &cpn : tick.getCoupon())
+      {
+        if (cpn.couponInfo().num()!=(unsigned)cpnnum.get()) continue;
+        if (cpn.haveItin())
+          return cpn.itin();
+        else
+          return boost::none;
+      };
+    }
+  };
+
+  return boost::none;
+}
+
+Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltParams) const
+{
+  Coupon_info ci(et_coupon, status);
+  TDateTime scd_local=UTCToLocal(fltParams.fltInfo.scd_out,
+                                 AirpTZRegion(fltParams.fltInfo.airp));
+  ptime scd(DateTimeToBoost(scd_local));
+
+  boost::optional<Itin> wcItin;
+
+  if (fltParams.control_method)
+  {
+    wcItin=getCouponItin(BaseTables::Company(fltParams.fltInfo.airline)->ida(),
+                         Ticketing::TicketNum_t(et_no),
+                         Ticketing::CouponNum_t(et_coupon));
+
+    if (wcItin)
+      LogTrace(TRACE5) << __FUNCTION__ << ": wcItin.get().airCode()=" << wcItin.get().airCode()
+                       << " wcItin.get().flightnum()=" << wcItin.get().flightnum();
+    else
+      LogTrace(TRACE5) << __FUNCTION__ << ": wcItin==boost::none";
+  };
+
+  Itin itin(wcItin?wcItin.get().airCode():
+                   airlineToXML(fltParams.fltInfo.airline, LANG_RU),   //marketing carrier
+            "",                                  //operating carrier
+            wcItin?wcItin.get().flightnum():
+                   fltParams.fltInfo.flt_no,0,
+            SubClass(),
+            scd.date(),
+            time_duration(not_a_date_time), // not a date time
+            airp_dep,
+            airp_arv);
+  Coupon cpn(ci,itin);
+
+  list<Coupon> lcpn;
+  lcpn.push_back(cpn);
+
+  return Ticket(et_no, lcpn);
 }
 
 void ETDisplayToDB(const Ticketing::Pnr &pnr)
@@ -1709,6 +1779,7 @@ void ETStatusInterface::ETCheckStatusForRollback(int point_id,
           if (!init_edi_addrs)
           {
             key.airline_oper=fltParams.fltInfo.airline;
+            key.flt_no_oper=fltParams.fltInfo.flt_no;
             if (!get_et_addr_set(fltParams.fltInfo.airline,fltParams.fltInfo.flt_no,key.addrs))
             {
               ostringstream flt;
@@ -1723,24 +1794,8 @@ void ETStatusInterface::ETCheckStatusForRollback(int point_id,
 
           ProgTrace(TRACE5,"status=%s prior_status=%s real_status=%s",
                            status->dispCode(),prior_status->dispCode(),real_status->dispCode());
-          Coupon_info ci (coupon_no,real_status);
 
-          TDateTime scd_local=UTCToLocal(fltParams.fltInfo.scd_out,
-                                         AirpTZRegion(fltParams.fltInfo.airp));
-          ptime scd(DateTimeToBoost(scd_local));
-          Itin itin(airlineToXML(fltParams.fltInfo.airline, LANG_RU),   //marketing carrier
-                  "",                                  //operating carrier
-                  fltParams.fltInfo.flt_no,0,
-                  SubClass(),
-                  scd.date(),
-                  time_duration(not_a_date_time), // not a date time
-                  airp_dep,
-                  airp_arv);
-          Coupon cpn(ci,itin);
-
-          list<Coupon> lcpn;
-          lcpn.push_back(cpn);
-          xmlNodePtr node=mtick.addTicket(key, Ticket(ticket_no, lcpn), fltParams.control_method);
+          xmlNodePtr node=mtick.addTicket(key, ETItem.makeTicket(fltParams), fltParams.control_method);
 
           NewTextChild(node,"ticket_no",ticket_no);
           NewTextChild(node,"coupon_no",coupon_no);
@@ -2125,6 +2180,7 @@ void ETStatusInterface::ETCheckStatus(int id,
               if (!init_edi_addrs)
               {
                 key.airline_oper=fltParams.fltInfo.airline;
+                key.flt_no_oper=fltParams.fltInfo.flt_no;
                 if (!get_et_addr_set(fltParams.fltInfo.airline,fltParams.fltInfo.flt_no,key.addrs))
                 {
                   ostringstream flt;
@@ -2138,24 +2194,8 @@ void ETStatusInterface::ETCheckStatus(int id,
               key.coupon_status=real_status->codeInt();
 
               ProgTrace(TRACE5,"status=%s real_status=%s",status->dispCode(),real_status->dispCode());
-              Coupon_info ci (coupon_no,real_status);
 
-              TDateTime scd_local=UTCToLocal(fltParams.fltInfo.scd_out,
-                                             AirpTZRegion(fltParams.fltInfo.airp));
-              ptime scd(DateTimeToBoost(scd_local));
-              Itin itin(airlineToXML(fltParams.fltInfo.airline, LANG_RU),    //marketing carrier
-                        "",                                  //operating carrier
-                        fltParams.fltInfo.flt_no,0,
-                        SubClass(),
-                        scd.date(),
-                        time_duration(not_a_date_time), // not a date time
-                        airp_dep,
-                        airp_arv);
-              Coupon cpn(ci,itin);
-
-              list<Coupon> lcpn;
-              lcpn.push_back(cpn);
-              xmlNodePtr node=mtick.addTicket(key, Ticket(ticket_no, lcpn), fltParams.control_method);
+              xmlNodePtr node=mtick.addTicket(key, ETItem.makeTicket(fltParams), fltParams.control_method);
 
               NewTextChild(node,"ticket_no",ticket_no);
               NewTextChild(node,"coupon_no",coupon_no);
@@ -2217,6 +2257,7 @@ void ETStatusInterface::ETCheckStatus(int id,
         {
           TETChangeStatusKey key;
           key.airline_oper=fltParams.fltInfo.airline;
+          key.flt_no_oper=fltParams.fltInfo.flt_no;
           if (!get_et_addr_set(fltParams.fltInfo.airline,fltParams.fltInfo.flt_no,key.addrs))
           {
             ostringstream flt;
@@ -2229,25 +2270,12 @@ void ETStatusInterface::ETCheckStatus(int id,
 
           for(const TETickItem& ET : ETickItems)
           {
+            TETickItem ETItem(ET, real_status);
             if (ETStatusInterface::ChangeStatusLocallyOnly(fltParams,
-                                                           TETickItem(ET, real_status),
+                                                           ETItem,
                                                            TETCtxtItem(*TReqInfo::Instance(), ET.point_id))) continue;
-            Coupon_info ci (ET.et_coupon,real_status);
-            TDateTime scd_local=UTCToLocal(fltParams.fltInfo.scd_out,
-                                           AirpTZRegion(fltParams.fltInfo.airp));
-            ptime scd(DateTimeToBoost(scd_local));
-            Itin itin(airlineToXML(fltParams.fltInfo.airline, LANG_RU),   //marketing carrier
-                      "",                                  //operating carrier
-                      fltParams.fltInfo.flt_no,0,
-                      SubClass(),
-                      scd.date(),
-                      time_duration(not_a_date_time), // not a date time
-                      ET.airp_dep,
-                      ET.airp_arv);
-            Coupon cpn(ci,itin);
-            list<Coupon> lcpn;
-            lcpn.push_back(cpn);
-            xmlNodePtr node=mtick.addTicket(key, Ticket(ET.et_no, lcpn), fltParams.control_method);
+
+            xmlNodePtr node=mtick.addTicket(key, ETItem.makeTicket(fltParams), fltParams.control_method);
 
             NewTextChild(node,"ticket_no",ET.et_no);
             NewTextChild(node,"coupon_no",ET.et_coupon);
@@ -2310,7 +2338,6 @@ bool ETStatusInterface::ETChangeStatus(const edifact::KickInfo &kickInfo,
   std::list<TlgHaveSent> ths; // tlgs have sent
   if (!mtick.empty())
   {
-    string oper_carrier;
     for(TETChangeStatusList::const_iterator i=mtick.begin();i!=mtick.end();i++)
     {
       for(vector<TETChangeStatusItem>::const_iterator j=i->second.begin();j!=i->second.end();j++)
@@ -2320,7 +2347,11 @@ bool ETStatusInterface::ETChangeStatus(const edifact::KickInfo &kickInfo,
 
         if (i->first.airline_oper.empty())
           throw EXCEPTIONS::Exception("ETChangeStatus: unkown operation carrier");
-        oper_carrier=i->first.airline_oper;
+        if (i->first.flt_no_oper==ASTRA::NoExists)
+          throw EXCEPTIONS::Exception("ETChangeStatus: unkown operation flight number");
+        string oper_carrier=i->first.airline_oper;
+        int oper_flight_no=i->first.flt_no_oper;
+
         /*
       try
       {
@@ -2353,7 +2384,7 @@ bool ETStatusInterface::ETChangeStatus(const edifact::KickInfo &kickInfo,
                                      ediCtxt,
                                      kickInfo,
                                      oper_carrier,
-                                     Ticketing::FlightNum_t());
+                                     Ticketing::FlightNum_t(oper_flight_no));
         result=true;
       }
     }
@@ -3233,6 +3264,11 @@ static void ChangeStatusToLog(const xmlNodePtr statusNode,
       lexema.prms = params;
       locale.prms << lexema;
     }
+    else
+    {
+      locale.lexema_id = lexema_id;
+      locale.prms = params;
+    }
   }
   else
   {
@@ -3495,7 +3531,7 @@ void handleEtCosResponse(const edifact::RemoteResults& remRes)
                         ETickItem.status=CouponStatus(CouponStatus::OriginalIssue);
                       if (ETStatusInterface::ReturnAirportControl(fltParams, ETickItem))
                         //контроль отдали, изменим БД
-                        ChangeStatusToLog(statusNode, repeated, "EVT.ETICKET_CONTROL_RETURNED", params, screen, user, desk);
+                        ChangeStatusToLog(statusNode, false, "EVT.ETICKET_CONTROL_RETURNED", params, screen, user, desk);
                       else
                         ChangeStatusToLog(statusNode, repeated, "EVT.ETICKET_CHANGE_STATUS", params, screen, user, desk);
                     };
