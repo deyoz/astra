@@ -279,6 +279,8 @@ class TETickItem
     static void fromDB(const std::string &_et_no,
                        const TEdiAction ediAction,
                        std::list<TETickItem> &eticks);
+
+    Ticketing::Ticket makeTicket(const AstraEdifact::TFltParams& fltParams) const;
 };
 
 void ETDisplayToDB(const Ticketing::Pnr &pnr);
@@ -397,12 +399,16 @@ class TETChangeStatusKey
 {
   public:
     std::string airline_oper;
+    int flt_no_oper;
     std::pair<std::string, std::string> addrs;
     int coupon_status;
+    TETChangeStatusKey() : flt_no_oper(ASTRA::NoExists) {}
     bool operator < (const TETChangeStatusKey &key) const
     {
       if (airline_oper!=key.airline_oper)
         return airline_oper<key.airline_oper;
+      if (flt_no_oper!=key.flt_no_oper)
+        return flt_no_oper<key.flt_no_oper;
       if (addrs.first!=key.addrs.first)
         return addrs.first<key.addrs.first;
       if (addrs.second!=key.addrs.second)
