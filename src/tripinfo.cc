@@ -826,6 +826,7 @@ void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodeP
   };
   if (reqInfo->screen.name == "AIR.EXE")
   {
+    // Подклейку pr_vouchers надо вынести в TripsInterface::readTripHeader
     set<string> trip_vouchers;
     getTripVouchers(point_id, trip_vouchers);
     NewTextChild( dataNode, "pr_vouchers", !trip_vouchers.empty() );
