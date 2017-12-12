@@ -5113,6 +5113,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             }
             //определим алгоритм рассадки
             SEATS2::TSeatAlgoParams algo=SEATS2::GetSeatAlgo(Qry,fltInfo.airline,fltInfo.flt_no,fltInfo.airp);
+            boost::posix_time::ptime mst1 = boost::posix_time::microsec_clock::local_time();
             //рассадка
             if ( isTranzitSalonsVersion ) { //!!!djek
               SEATS2::SeatsPassengers( salonList, algo, reqInfo->client_type, SEATS2::Passengers, autoSeats );
@@ -5127,6 +5128,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               SEATS2::SeatsPassengers( &Salons, algo, reqInfo->client_type, SEATS2::Passengers );
               pr_lat_seat=Salons.getLatSeat();
             }
+            boost::posix_time::ptime mst2 = boost::posix_time::microsec_clock::local_time();
+            LogTrace(TRACE5) << "SeatsPassengers: " << boost::posix_time::time_duration(mst2 - mst1).total_milliseconds() << " msecs";
           } //if (wl_type.empty())
 
           if (reqInfo->client_type!=ctPNL)
