@@ -4235,16 +4235,23 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 void  DocsInterface::LogPrintEvent(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     int copies = NodeAsInteger("copies", reqNode, NoExists);
-    int printed_copies = NodeAsInteger("printed_copies", reqNode);
-    ostringstream str;
-    str << getLocaleText("Напечатано копий") << ": " << printed_copies;
-    if(copies != NoExists and copies != printed_copies)
-        str << "; " << getLocaleText("Задано копий") << ": " << copies;
-    TReqInfo::Instance()->LocaleToLog("EVT.PRINT_REPORT",
-            LEvntPrms()
-            << PrmElem<std::string>("report", etReportType, NodeAsString("rpt_type", reqNode), efmtNameLong)
-            << PrmSmpl<std::string>("copies", str.str()),
-            ASTRA::evtPrn, NodeAsInteger("point_id", reqNode));
+    int printed_copies = NodeAsInteger("printed_copies", reqNode, NoExists);
+    if(printed_copies == NoExists) { // старая версия терминала не присылает тег printed_copies
+        TReqInfo::Instance()->LocaleToLog("EVT.PRINT_REPORT", LEvntPrms()
+                << PrmElem<std::string>("report", etReportType, NodeAsString("rpt_type", reqNode), efmtNameLong)
+                << PrmSmpl<std::string>("copies", ""),
+                ASTRA::evtPrn, NodeAsInteger("point_id", reqNode));
+    } else {
+        ostringstream str;
+        str << getLocaleText("Напечатано копий") << ": " << printed_copies;
+        if(copies != NoExists and copies != printed_copies)
+            str << "; " << getLocaleText("Задано копий") << ": " << copies;
+        TReqInfo::Instance()->LocaleToLog("EVT.PRINT_REPORT",
+                LEvntPrms()
+                << PrmElem<std::string>("report", etReportType, NodeAsString("rpt_type", reqNode), efmtNameLong)
+                << PrmSmpl<std::string>("copies", str.str()),
+                ASTRA::evtPrn, NodeAsInteger("point_id", reqNode));
+    }
 }
 
 void  DocsInterface::LogExportEvent(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
