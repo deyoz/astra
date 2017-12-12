@@ -6514,6 +6514,13 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         }
         else
         {
+          // Подклейку pr_vouchers надо вынести в TripsInterface::readTripHeader
+          // а то получается тут и в TripsInterface::GetSegInfo два раза
+          // из-за того, что тут забыл подклеить, падал поиск пакса по скан-коду
+          set<string> trip_vouchers;
+          getTripVouchers(point_id, trip_vouchers);
+          NewTextChild( dataNode, "pr_vouchers", !trip_vouchers.empty() );
+
           readTripCounters( point_id, dataNode );
           readTripData( point_id, point_id, dataNode );
           readTripSets( point_id, dataNode );
