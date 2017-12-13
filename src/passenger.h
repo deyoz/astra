@@ -503,6 +503,8 @@ class TSimplePaxItem
     ASTRA::TTrickyGender::Enum getTrickyGender() const { return getTrickyGender(pers_type, gender); }
 };
 
+class TSimplePaxList : public std::list<CheckIn::TSimplePaxItem> {};
+
 class TDocaMap : public std::map<TAPIType, TPaxDocaItem>
 {
   public:

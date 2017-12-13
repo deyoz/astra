@@ -24,6 +24,7 @@
 #include "rozysk.h"
 #include "qrys.h"
 #include "etick.h"
+#include "counters.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
@@ -7489,13 +7490,7 @@ void setTRIP_CLASSES( int point_id )
     Qry.SetVariable( "prot", iclass->second.protect );
     Qry.Execute();
   }
-  Qry.Clear();
-  Qry.SQLText =
-    "BEGIN"
-    " ckin.recount( :point_id );"
-    "END;";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
+  CheckIn::TCountersCover().recount(point_id, CheckIn::TCounters::Total);
 }
 
 void CreateComps( const TCompsRoutes &routes, int comp_id )
