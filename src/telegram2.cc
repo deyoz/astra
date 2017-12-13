@@ -6372,7 +6372,11 @@ int MVT(TypeB::TDetailCreateInfo &info)
     ostringstream buf;
     buf << "MVT" << TypeB::endl;
     tlg_row.heading = buf.str();
-    tlg_row.ending = "PART " + IntToString(tlg_row.num) + " END" + TypeB::endl;
+
+    const TypeB::TMVTOptions &options = *info.optionsAs<TypeB::TMVTOptions>();
+
+    if(not options.noend)
+        tlg_row.ending = "PART " + IntToString(tlg_row.num) + " END" + TypeB::endl;
     if(info.bort.empty())
         info.vcompleted = false;
     buf.str("");
@@ -6424,7 +6428,11 @@ int LDM(TypeB::TDetailCreateInfo &info)
     ostringstream buf;
     buf << "LDM" << TypeB::endl;
     tlg_row.heading = buf.str();
-    tlg_row.ending = "PART " + IntToString(tlg_row.num) + " END" + TypeB::endl;
+
+    const TypeB::TLDMOptions &options = *info.optionsAs<TypeB::TLDMOptions>();
+
+    if(not options.noend)
+        tlg_row.ending = "PART " + IntToString(tlg_row.num) + " END" + TypeB::endl;
     vector<string> body;
     try {
         TLDMDests LDM;

@@ -492,6 +492,119 @@ class TMarkInfoOptions : public TCrsOptions
     };
 };
 
+class TMVTOptions : public TCreateOptions
+{
+  private:
+    void init()
+    {
+        noend=false;
+    };
+  public:
+    bool noend;
+    TMVTOptions() {init();};
+    virtual ~TMVTOptions() {};
+    virtual void clear()
+    {
+      TCreateOptions::clear();
+      init();
+    };
+    virtual void fromXML(xmlNodePtr node)
+    {
+      TCreateOptions::fromXML(node);
+      if (node==NULL) return;
+      xmlNodePtr node2=node->children;
+      noend=NodeAsIntegerFast("noend", node2, (int)noend) != 0;
+    };
+    virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+    {
+      TCreateOptions::fromDB(Qry, OptionsQry);
+
+      std::string basic_type;
+      std::string tlg_type = Qry.FieldAsString("tlg_type");
+      try
+      {
+          const TTypeBTypesRow& row = (const TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
+          basic_type=row.basic_type;
+      }
+      catch(EBaseTableError)
+      {
+          throw EXCEPTIONS::Exception("%s::fromDB: unknown telegram type %s", typeName().c_str(), tlg_type.c_str());
+      };
+
+      OptionsQry.SetVariable("id", Qry.FieldAsInteger("id"));
+      OptionsQry.SetVariable("tlg_type", basic_type);
+      OptionsQry.Execute();
+      for(;!OptionsQry.Eof;OptionsQry.Next())
+      {
+        std::string cat=OptionsQry.FieldAsString("category");
+        if (cat=="NOEND")
+        {
+          noend=OptionsQry.FieldAsInteger("value")!=0;
+          continue;
+        };
+      };
+    };
+    virtual localizedstream& logStr(localizedstream &s) const
+    {
+      TCreateOptions::logStr(s);
+      s << ", "
+        << "NOEND" << ": "
+        << (noend ? s.getLocaleText("да"):
+                  s.getLocaleText("нет"));
+      return s;
+    };
+    virtual localizedstream& extraStr(localizedstream &s) const
+    {
+      TCreateOptions::extraStr(s);
+      s
+        << "NOEND" << ": "
+        << (noend ? s.getLocaleText("да"):
+                     s.getLocaleText("нет"))
+        << endl;
+      return s;
+    };
+    virtual std::string typeName() const
+    {
+      return "TMVTOptions";
+    };
+    virtual bool similar(const TCreateOptions &item) const
+    {
+      if (!TCreateOptions::similar(item)) return false;
+      try
+      {
+        const TMVTOptions &opt = dynamic_cast<const TMVTOptions&>(item);
+        return noend == opt.noend;
+      }
+      catch(std::bad_cast)
+      {
+        return false;
+      };
+    };
+    virtual bool equal(const TCreateOptions &item) const
+    {
+      if (!TCreateOptions::equal(item)) return false;
+      try
+      {
+        const TMVTOptions &opt = dynamic_cast<const TMVTOptions&>(item);
+        return noend == opt.noend;
+      }
+      catch(std::bad_cast)
+      {
+        return false;
+      };
+    };
+    virtual void copy(const TCreateOptions &item)
+    {
+      TCreateOptions::copy(item);
+      try
+      {
+        const TMVTOptions &opt = dynamic_cast<const TMVTOptions&>(item);
+        noend = opt.noend;
+      }
+      catch(std::bad_cast) {};
+    };
+};
+
 class TCOMOptions : public TCreateOptions
 {
   private:
@@ -598,10 +711,11 @@ class TLDMOptions : public TCreateOptions
       cabin_baggage=false;
       gender=false;
       exb=true;
+      noend=false;
     };
   public:
     std::string version;
-    bool cabin_baggage, gender, exb;
+    bool cabin_baggage, gender, exb, noend;
     TLDMOptions() {init();};
     virtual ~TLDMOptions() {};
     virtual void clear()
@@ -618,6 +732,7 @@ class TLDMOptions : public TCreateOptions
       cabin_baggage=NodeAsIntegerFast("cabin_baggage", node2, (int)cabin_baggage) != 0;
       gender=NodeAsIntegerFast("gender", node2, (int)gender) != 0;
       exb=NodeAsIntegerFast("exb", node2, (int)exb) != 0;
+      noend=NodeAsIntegerFast("noend", node2, (int)noend) != 0;
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
@@ -648,6 +763,11 @@ class TLDMOptions : public TCreateOptions
           exb=OptionsQry.FieldAsInteger("value")!=0;
           continue;
         };
+        if (cat=="NOEND")
+        {
+          noend=OptionsQry.FieldAsInteger("value")!=0;
+          continue;
+        };
       };
     };
     virtual localizedstream& logStr(localizedstream &s) const
@@ -667,6 +787,10 @@ class TLDMOptions : public TCreateOptions
         << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.EXB") << ": "
         << (exb ? s.getLocaleText("да"):
+                  s.getLocaleText("нет"))
+        << ", "
+        << "NOEND" << ": "
+        << (noend ? s.getLocaleText("да"):
                   s.getLocaleText("нет"));
       return s;
     };
@@ -687,6 +811,10 @@ class TLDMOptions : public TCreateOptions
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.EXB") << ": "
         << (exb ? s.getLocaleText("да"):
                      s.getLocaleText("нет"))
+        << endl
+        << "NOEND" << ": "
+        << (noend ? s.getLocaleText("да"):
+                     s.getLocaleText("нет"))
         << endl;
       return s;
     };
@@ -703,6 +831,7 @@ class TLDMOptions : public TCreateOptions
         return cabin_baggage==opt.cabin_baggage &&
             gender==opt.gender &&
             exb==opt.exb &&
+            noend==opt.noend &&
             version == opt.version;
       }
       catch(std::bad_cast)
@@ -719,6 +848,7 @@ class TLDMOptions : public TCreateOptions
         return cabin_baggage==opt.cabin_baggage &&
             gender==opt.gender &&
             exb==opt.exb &&
+            noend==opt.noend &&
             version == opt.version;
       }
       catch(std::bad_cast)
@@ -735,6 +865,7 @@ class TLDMOptions : public TCreateOptions
         cabin_baggage=opt.cabin_baggage;
         gender=opt.gender;
         exb=opt.exb;
+        noend=opt.noend;
         version = opt.version;
       }
       catch(std::bad_cast) {};
