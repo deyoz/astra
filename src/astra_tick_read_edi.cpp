@@ -226,33 +226,7 @@ void TaxDetailsEdiR::operator () (ReaderData &RData, list<TaxDetails> &ltax) con
 {
     REdiData &Data = dynamic_cast<REdiData &>(RData);
     EDI_REAL_MES_STRUCT *pMes = Data.EdiMes();
-
-    PushEdiPointG(pMes);
-
-    unsigned tax_mnum=GetNumSegment(pMes, "TXD");
-    for(unsigned t=0; t<tax_mnum;t++){
-        SetEdiPointToSegmentG(pMes, "TXD", t);
-        unsigned tax_num=GetNumComposite(pMes, "C668","INV_TAX_AMOUNT");
-        PushEdiPointG(pMes);
-        TaxCategory TCat = GetDBNumCast<TaxCategory>
-                (EdiCast::TaxCategoryCast(EtErr::INV_TAX_AMOUNT, TaxCategory::Current),
-                 pMes, DataElement(5305)); //Category
-        for (unsigned i=0; i<tax_num; i++){
-            SetEdiPointToCompositeG(pMes, "C668",i, "INV_TAX_AMOUNT");
-            TaxAmount::Amount Am =
-                    GetDBNumCast<TaxAmount::Amount>
-                    (EdiCast::AmountCast("INV_TAX_AMOUNT"), pMes, 5278,0,
-                     "INV_TAX_AMOUNT"); //Amount
-            std::string Type =
-                    GetDBNum(pMes, 5153,0, "INV_TAX_CODE"); //Code
-            ltax.push_back(TaxDetails(Am, TCat, Type));
-            PopEdiPoint_wdG(pMes);
-        }
-        PopEdiPointG(pMes);
-        PopEdiPoint_wdG(pMes);
-    }
-
-    PopEdiPointG(pMes);
+    ltax = readEdiTxd(pMes).m_lTax;
 }
 
 void MonetaryInfoEdiR::operator () (ReaderData &RData, list<MonetaryInfo> &lmon) const
