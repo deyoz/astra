@@ -1300,14 +1300,16 @@ void TAnsPaxData::init( std::string source, int ver )
   else
   {
     /* PCC */
-    code = getInt(tmp[20]);         /* 21 */
-    status = *(tmp[21].begin());    /* 22 */
-    error_code1 = getInt(tmp[22]);  /* 23 */
-    error_text1 = tmp[23];          /* 24 */
-    error_code2 = getInt(tmp[24]);  /* 25 */
-    error_text2 = tmp[25];          /* 26 */
-    error_code3 = getInt(tmp[26]);  /* 27 */
-    error_text3 = tmp[27];          /* 28 */
+    int i = 20; // начальная позиция итератора (поле 21)
+    ++i; // workaround for incorrect data from SITA
+    code = getInt(tmp[i++]);         /* 21 */
+    status = *(tmp[i++].begin());    /* 22 */
+    error_code1 = getInt(tmp[i++]);  /* 23 */
+    error_text1 = tmp[i++];          /* 24 */
+    error_code2 = getInt(tmp[i++]);  /* 25 */
+    error_text2 = tmp[i++];          /* 26 */
+    error_code3 = getInt(tmp[i++]);  /* 27 */
+    error_text3 = tmp[i];            /* 28 */
   }
 }
 
