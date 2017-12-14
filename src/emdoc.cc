@@ -7,7 +7,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace std;
 using namespace BASIC::date_time;
@@ -775,6 +775,46 @@ void SyncPaxEMD(const CheckIn::TTransferItem &trfer,
   };
 }
 
+/*
+const std::string amadeus_emd=
+    "UNB+IATA:1+ETICK+ASTRA+171213:1125+ASTRA00EZ50001+++T'"
+    "UNH+1+TKCRES:06:1:IA+ASTRA00EZ5'"
+    "MSG+:791+3'"
+    "TIF+SIDOROV:A+SIDOR MR'"
+    "TAI+7906+1005RE/SU:B'"
+    "RCI+1A:S4XL4U:1+UT:6K6126:1'"
+    "MON+B:4000:RUB+T:4000:RUB'"
+    "FOP+CA:3:4000'"
+    "PTK+++131217'"
+    "ORG+1A:MUC+00040655:021648+MOW++T+RU+A1005RESU'"
+    "EQN+1:TD'"
+    "IFT+4:39+MOSCOW+VIP CORPORATE TRAVEL'"
+    "IFT+4:5+9652600172'"
+    "IFT+4:15:1+SGC UT MOW UT GOJ4000RUB4000END'"
+    "IFT+4:47+BAGGAGE'"
+    "IFT+4:733:1'"
+    "PTS+++++C'"
+    "TKT+2982903207956:J:1'"
+    "CPN+1:I::E'"
+    "TVL++SGC+VKO+UT'"
+    "PTS++++++0GP'"
+    "IFT+4:47+PIECE OF BAG UPTO23KG 203LCM'"
+    "CPN+2:I::E'"
+    "TVL++VKO+GOJ+UT'"
+    "PTS++++++0GP'"
+    "IFT+4:47+PIECE OF BAG UPTO23KG 203LCM'"
+    "TKT+2982903207956:J::4::2981085213369'"
+    "CPN+1:::::::1::702'"
+    "PTS'"
+    "CPN+2:::::::2::702'"
+    "PTS'"
+    "UNT+31+1'"
+    "UNZ+1+ASTRA00EZ50001'";
+*/
+
+boost::optional<Itin> getEtDispCouponItin(const Ticketing::TicketNum_t& ticknum,
+                                          const Ticketing::CouponNum_t& cpnnum);
+
 void handleEmdDispResponse(const edifact::RemoteResults& remRes)
 {
   std::list<Emd> emdList = EmdEdifactReader::readList(remRes.tlgSource());
@@ -836,7 +876,21 @@ void handleEmdDispResponse(const edifact::RemoteResults& remRes)
             {
               emdItem.et_no=emdCpn.associatedTickNum().get();
               if (emdCpn.associatedNum())
+              {
                 emdItem.et_coupon=emdCpn.associatedNum().get();
+
+                if (emdCpn.itin().date1().is_special())
+                {
+                  boost::optional<Itin> etDispItin=getEtDispCouponItin(emdCpn.associatedTickNum(), emdCpn.associatedNum());
+                  if (!etDispItin) LogTrace(TRACE5) << __FUNCTION__
+                                                    << ": etDispItin==boost::none"
+                                                    << ", emdCpn.associatedTickNum()=" << emdCpn.associatedTickNum()
+                                                    << ", emdCpn.associatedNum()=" << emdCpn.associatedNum();
+
+                  if (etDispItin && !etDispItin.get().date1().is_special())
+                    trferItem.operFlt.scd_out=BoostToDateTime(etDispItin.get().date1());
+                };
+              }
             };
             emdItem.emd_no_base=connected_emd_no.empty()?emdItem.emd_no:*(connected_emd_no.begin());
 

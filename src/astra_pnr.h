@@ -115,6 +115,9 @@ struct EdiPnr
         : m_ediText(ediText),
           m_ediType(ediType)
     {}
+
+    const std::string& ediText() const { return m_ediText; }
+    const edifact::EdiMessageType& ediType() const { return m_ediType; }
 };
 
 std::ostream& operator<<(std::ostream& os, const EdiPnr& ediPnr);
