@@ -377,12 +377,17 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
 
   QParams QryParams;
   QryParams << QParam("ticket_no", otString, et_no)
-            << QParam("coupon_no", otInteger, et_coupon)
-            << (point_id!=ASTRA::NoExists?QParam("point_id", otInteger, point_id):
-                                          QParam("point_id", otInteger, FNull));
+            << QParam("coupon_no", otInteger, et_coupon);
 
   switch(ediAction)
   {
+    case DisplayTlg:
+      QryParams << QParam("page_no", otInteger)
+                << QParam("tlg_text", otString)
+                << (ediPnr?QParam("tlg_type", otInteger, (int)ediPnr.get().ediType()):
+                           QParam("tlg_type", otInteger, FNull))
+                << QParam("last_display", otDate, NowUTC());
+      break;
     case Display:
       QryParams << (issue_date!=ASTRA::NoExists?QParam("issue_date", otDate, issue_date):
                                                 QParam("issue_date", otDate, FNull))
@@ -392,10 +397,13 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
                 << (bag_norm!=ASTRA::NoExists?QParam("bag_norm", otInteger, bag_norm):
                                               QParam("bag_norm", otInteger, FNull))
                 << QParam("subcls", otString, subcls)
-                << QParam("bag_norm_unit", otString, bag_norm_unit.get_db_form());
+                << QParam("bag_norm_unit", otString, bag_norm_unit.get_db_form())
+                << QParam("last_display", otDate, NowUTC());
       break;
     case ChangeOfStatus:
-      QryParams << QParam("airp_dep", otString, airp_dep)
+      QryParams << (point_id!=ASTRA::NoExists?QParam("point_id", otInteger, point_id):
+                                              QParam("point_id", otInteger, FNull))
+                << QParam("airp_dep", otString, airp_dep)
                 << QParam("airp_arv", otString, airp_arv)
                 << (status!=CouponStatus::Unavailable?QParam("coupon_status", otString, status->dispCode()):
                                                       QParam("coupon_status", otString, FNull))
@@ -405,20 +413,39 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
       throw EXCEPTIONS::Exception("TETickItem::toDB: Minimum not supported");
   };
 
+  if (ediAction==DisplayTlg)
+  {
+    if (ediPnr)
+    {
+      TCachedQuery DelQry("DELETE FROM eticks_display_tlgs "
+                          "WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no",
+                          QParams() << QParam("ticket_no", otString, et_no)
+                                    << QParam("coupon_no", otInteger, et_coupon));
+      DelQry.get().Execute();
+
+      const char* sql=
+          "INSERT INTO eticks_display_tlgs(ticket_no, coupon_no, page_no, tlg_text, tlg_type, last_display) "
+          "VALUES(:ticket_no, :coupon_no, :page_no, :tlg_text, :tlg_type, :last_display)";
+
+      TCachedQuery Qry(sql, QryParams);
+
+      longToDB(Qry.get(), "tlg_text", ediPnr.get().ediText(), false, 1000);
+    }
+  };
   if (ediAction==Display)
   {
     const char* sql=
         "BEGIN "
         "  UPDATE eticks_display "
-        "  SET point_id=:point_id, issue_date=:issue_date, surname=:surname, name=:name, "
+        "  SET issue_date=:issue_date, surname=:surname, name=:name, "
         "      fare_basis=:fare_basis, bag_norm=:bag_norm, subcls=:subcls, bag_norm_unit=:bag_norm_unit, "
-        "      last_display=SYSTEM.UTCSYSDATE "
+        "      last_display=:last_display "
         "  WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
         "  IF SQL%NOTFOUND THEN "
-        "    INSERT INTO eticks_display(ticket_no, coupon_no, point_id, issue_date, surname, name, "
+        "    INSERT INTO eticks_display(ticket_no, coupon_no, issue_date, surname, name, "
         "      fare_basis, bag_norm, subcls, bag_norm_unit, last_display) "
-        "    VALUES(:ticket_no, :coupon_no, :point_id, :issue_date, :surname, :name, "
-        "      :fare_basis, :bag_norm, :subcls, :bag_norm_unit, SYSTEM.UTCSYSDATE); "
+        "    VALUES(:ticket_no, :coupon_no, :issue_date, :surname, :name, "
+        "      :fare_basis, :bag_norm, :subcls, :bag_norm_unit, :last_display); "
         "  END IF; "
         "END;";
 
@@ -453,13 +480,18 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
 TETickItem& TETickItem::fromDB(const TEdiAction ediAction,
                                TQuery &Qry)
 {
-  clear();
+  if (ediAction!=DisplayTlg) clear();
 
   et_no=Qry.FieldAsString("ticket_no");
   et_coupon=Qry.FieldIsNULL("coupon_no")?ASTRA::NoExists:
                                          Qry.FieldAsInteger("coupon_no");
-  point_id=Qry.FieldIsNULL("point_id")?ASTRA::NoExists:
-                                       Qry.FieldAsInteger("point_id");
+
+  if (ediAction==DisplayTlg)
+  {
+    string text=ediPnr?ediPnr.get().ediText():"";
+    ediPnr=Ticketing::EdiPnr(text + Qry.FieldAsString("tlg_text"),
+                             static_cast<edifact::EdiMessageType>(Qry.FieldAsInteger("tlg_type")));
+  }
 
   if (ediAction==Display)
   {
@@ -476,6 +508,8 @@ TETickItem& TETickItem::fromDB(const TEdiAction ediAction,
 
   if (ediAction==ChangeOfStatus)
   {
+    point_id=Qry.FieldIsNULL("point_id")?ASTRA::NoExists:
+                                         Qry.FieldAsInteger("point_id");
     airp_dep=Qry.FieldAsString("airp_dep");
     airp_arv=Qry.FieldAsString("airp_arv");
     status=Qry.FieldIsNULL("coupon_status")?CouponStatus(CouponStatus::Unavailable):
@@ -501,14 +535,23 @@ TETickItem& TETickItem::fromDB(const string &_et_no,
   QryParams << QParam("coupon_no", otInteger, _et_coupon);
 
   string sql;
+  if (ediAction==DisplayTlg) sql="SELECT * FROM eticks_display_tlgs WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no ORDER BY page_no";
   if (ediAction==Display) sql="SELECT * FROM eticks_display WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no";
   if (ediAction==ChangeOfStatus) sql="SELECT * FROM etickets WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no";
 
   TCachedQuery Qry(sql+(lock?" FOR UPDATE":""), QryParams);
 
   Qry.get().Execute();
-  if (!Qry.get().Eof)
-    fromDB(ediAction, Qry.get());
+  if (ediAction==DisplayTlg)
+  {
+    for(;!Qry.get().Eof; Qry.get().Next())
+      fromDB(ediAction, Qry.get());
+  }
+  else
+  {
+    if (!Qry.get().Eof)
+      fromDB(ediAction, Qry.get());
+  }
 
   return *this;
 }
@@ -526,6 +569,8 @@ void TETickItem::fromDB(const std::string &_et_no,
   QryParams << QParam("ticket_no", otString, _et_no);
 
   string sql;
+  if (ediAction==DisplayTlg)
+    throw EXCEPTIONS::Exception("TETickItem::fromDB: DisplayTlg not supported");;
   if (ediAction==Display) sql="SELECT * FROM eticks_display WHERE ticket_no=:ticket_no";
   if (ediAction==ChangeOfStatus) sql="SELECT * FROM etickets WHERE ticket_no=:ticket_no";
 
@@ -536,32 +581,55 @@ void TETickItem::fromDB(const std::string &_et_no,
     eticks.push_back(TETickItem().fromDB(ediAction, Qry.get()));
 }
 
-static boost::optional<Itin> getCouponItin(const Ticketing::Airline_t& airline,
-                                           const Ticketing::TicketNum_t& ticknum,
-                                           const Ticketing::CouponNum_t& cpnnum)
+static boost::optional<Itin> getCouponItin(const Ticketing::TicketNum_t& ticknum,
+                                           const Ticketing::CouponNum_t& cpnnum,
+                                           const Ticketing::Pnr& pnr)
+{
+  for(const Ticket &tick : pnr.ltick())
+  {
+    if(tick.actCode() == TickStatAction::oldtick ||
+       tick.actCode() == TickStatAction::inConnectionWith) continue;
+
+    if (tick.ticknum()!=ticknum.get()) continue;
+
+    for(const Coupon &cpn : tick.getCoupon())
+    {
+      if (cpn.couponInfo().num()!=(unsigned)cpnnum.get()) continue;
+      if (cpn.haveItin())
+        return cpn.itin();
+      else
+        return boost::none;
+    };
+  }
+
+  return boost::none;
+}
+
+boost::optional<Itin> getEtDispCouponItin(const Ticketing::TicketNum_t& ticknum,
+                                          const Ticketing::CouponNum_t& cpnnum)
+{
+  TETickItem item;
+  item.fromDB(ticknum.get(), cpnnum.get(), TETickItem::DisplayTlg, false);
+  if (!item.ediPnr) LogTrace(TRACE5) << __FUNCTION__ << ": item.ediPnr==boost::none";
+
+  if (item.ediPnr)
+  {
+    const Ticketing::Pnr pnr=readPnr(item.ediPnr.get().ediText(), item.ediPnr.get().ediType());
+    return getCouponItin(ticknum, cpnnum, pnr);
+  }
+
+  return boost::none;
+}
+
+static boost::optional<Itin> getWcCouponItin(const Ticketing::Airline_t& airline,
+                                             const Ticketing::TicketNum_t& ticknum,
+                                             const Ticketing::CouponNum_t& cpnnum)
 {
   boost::optional<WcPnr> wcPnr=loadWcPnr(airline, ticknum);
-  if (!wcPnr) LogTrace(TRACE5) << __FUNCTION__ << ": wcPnr==boost::none";
+  if(!wcPnr) LogTrace(TRACE5) << __FUNCTION__ << ": wcPnr==boost::none";
 
   if (wcPnr)
-  {
-    for(const Ticket &tick : wcPnr.get().pnr().ltick())
-    {
-      if(tick.actCode() == TickStatAction::oldtick ||
-         tick.actCode() == TickStatAction::inConnectionWith) continue;
-
-      if (tick.ticknum()!=ticknum.get()) continue;
-
-      for(const Coupon &cpn : tick.getCoupon())
-      {
-        if (cpn.couponInfo().num()!=(unsigned)cpnnum.get()) continue;
-        if (cpn.haveItin())
-          return cpn.itin();
-        else
-          return boost::none;
-      };
-    }
-  };
+    return getCouponItin(ticknum, cpnnum, wcPnr.get().pnr());
 
   return boost::none;
 }
@@ -577,9 +645,9 @@ Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltPara
 
   if (fltParams.control_method)
   {
-    wcItin=getCouponItin(BaseTables::Company(fltParams.fltInfo.airline)->ida(),
-                         Ticketing::TicketNum_t(et_no),
-                         Ticketing::CouponNum_t(et_coupon));
+    wcItin=getWcCouponItin(BaseTables::Company(fltParams.fltInfo.airline)->ida(),
+                           Ticketing::TicketNum_t(et_no),
+                           Ticketing::CouponNum_t(et_coupon));
 
     if (wcItin)
       LogTrace(TRACE5) << __FUNCTION__ << ": wcItin.get().airCode()=" << wcItin.get().airCode()
@@ -606,15 +674,21 @@ Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltPara
   return Ticket(et_no, lcpn);
 }
 
-void ETDisplayToDB(const Ticketing::Pnr &pnr)
+Ticketing::Pnr readPnr(const std::string& tlg_text, edifact::EdiMessageType tlg_type);
+
+void ETDisplayToDB(const Ticketing::EdiPnr& ediPnr)
 {
+  TETickItem ETickItem;
+  ETickItem.ediPnr=ediPnr;
+
+  const Ticketing::Pnr pnr=readPnr(ediPnr.ediText(), ediPnr.ediType());
+
   for(list<Ticket>::const_iterator i=pnr.ltick().begin(); i!=pnr.ltick().end(); ++i)
   {
     const Ticket &tick = *i;
     if(tick.actCode() == TickStatAction::oldtick ||
        tick.actCode() == TickStatAction::inConnectionWith) continue;
 
-    TETickItem ETickItem;
     ETickItem.et_no=tick.ticknum();
     if (pnr.rci().dateOfIssue().is_special())
     {
@@ -664,6 +738,7 @@ void ETDisplayToDB(const Ticketing::Pnr &pnr)
       }
       ETickItem.subcls = itin.rbd()->code(RUSSIAN);
 
+      ETickItem.toDB(TETickItem::DisplayTlg);
       ETickItem.toDB(TETickItem::Display);
     }
   };
@@ -822,7 +897,6 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
       if (!wcPnr) LogTrace(TRACE5) << __FUNCTION__ << ": wcPnr==boost::none";
       if (wcPnr)
       {
-        ETDisplayToDB(wcPnr.get().pnr());
         xmlNodePtr dataNode=getNode(astra_iface(resNode, "ETViewForm"),"data");
         PnrDisp::doDisplay(PnrXmlView(dataNode), wcPnr.get().pnr());
 //        if (!existsAC)
@@ -1015,7 +1089,7 @@ void ETRequestControlInterface::KickHandler(XMLRequestCtxt *ctxt,
     try {
         if(remRes->status() == edifact::RemoteStatus::Success) {
             Ticketing::EdiPnr ediPnr(remRes->tlgSource(), edifact::EdiRacRes);
-            Pnr pnr=readPnr(ediPnr.m_ediText, ediPnr.m_ediType);
+            Pnr pnr=readPnr(ediPnr.ediText(), ediPnr.ediType());
             xmlNodePtr dataNode=getNode(astra_iface(resNode, "ETViewForm"),"data");
             PnrDisp::doDisplay(PnrXmlView(dataNode), pnr);
         } else {
@@ -3179,7 +3253,9 @@ void handleEtDispResponse(const edifact::RemoteResults& remRes)
         if (!pnr) {
             pnr = readDispPnr(remRes.tlgSource());
         }
-        ETDisplayToDB(pnr.get());
+
+        Ticketing::EdiPnr ediPnr(remRes.tlgSource(), edifact::EdiDisplRes);
+        ETDisplayToDB(ediPnr);
     }
     catch(std::exception &e)
     {
@@ -3581,7 +3657,7 @@ void handleEtRacResponse(const edifact::RemoteResults& remRes)
             Ticketing::EdiPnr ediPnr(remRes.tlgSource(), EdiRacRes);
             Ticketing::saveWcPnr(SystemContext::Instance(STDLOG).airlineImpl()->ida(),
                                  ediPnr);
-            ETDisplayToDB(readPnr(ediPnr.m_ediText, ediPnr.m_ediType));
+            ETDisplayToDB(ediPnr);
         }
         catch(std::exception &e) {
             ProgTrace(TRACE5, ">>>> %s: %s", __FUNCTION__, e.what());
@@ -3600,5 +3676,5 @@ void handleEtUac(const std::string& uac)
     Ticketing::EdiPnr ediPnr(uac, edifact::EdiUacReq);
     Ticketing::saveWcPnr(SystemContext::Instance(STDLOG).airlineImpl()->ida(),
                          ediPnr);
-    ETDisplayToDB(readPnr(ediPnr.m_ediText, ediPnr.m_ediType));
+    ETDisplayToDB(ediPnr);
 }

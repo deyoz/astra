@@ -12,6 +12,7 @@
 #include "baggage.h"
 #include "qrys.h"
 #include "trip_tasks.h"
+#include "astra_pnr.h"
 #include "tlg/EdifactRequest.h"
 
 #include <jxtlib/xmllibcpp.h>
@@ -180,7 +181,7 @@ class TETickItem
 {
   public:
 
-    enum TEdiAction{Display, ChangeOfStatus, Minimum};
+    enum TEdiAction{DisplayTlg, Display, ChangeOfStatus, Minimum};
 
     std::string et_no;
     int et_coupon;
@@ -194,6 +195,7 @@ class TETickItem
     std::string display_error, change_status_error;
     int point_id;
     std::string airp_dep, airp_arv;
+    boost::optional<Ticketing::EdiPnr> ediPnr;
     TETickItem()
     {
       clear();
@@ -233,12 +235,13 @@ class TETickItem
       point_id=ASTRA::NoExists;
       airp_dep.clear();
       airp_arv.clear();
-    };
+      ediPnr=boost::none;
+    }
 
     bool empty() const
     {
       return et_no.empty() || et_coupon==ASTRA::NoExists;
-    };
+    }
 
     bool operator < (const TETickItem &item) const
     {
@@ -254,7 +257,7 @@ class TETickItem
       if (et_coupon!=ASTRA::NoExists)
         s << "/" << et_coupon;
       return s.str();
-    };
+    }
 
     std::string bag_norm_view() const
     {
@@ -284,7 +287,7 @@ class TETickItem
     Ticketing::Ticket makeTicket(const AstraEdifact::TFltParams& fltParams) const;
 };
 
-void ETDisplayToDB(const Ticketing::Pnr &pnr);
+void ETDisplayToDB(const Ticketing::EdiPnr &ediPnr);
 
 class ETSearchInterface : public AstraJxtIface
 {
