@@ -106,26 +106,9 @@ public:
 
 //---------------------------------------------------------------------------------------
 
-struct EdiPnr
-{
-    std::string             m_ediText;
-    edifact::EdiMessageType m_ediType;
-
-    EdiPnr(const std::string& ediText, edifact::EdiMessageType ediType)
-        : m_ediText(ediText),
-          m_ediType(ediType)
-    {}
-
-    const std::string& ediText() const { return m_ediText; }
-    const edifact::EdiMessageType& ediType() const { return m_ediType; }
-};
-
-std::ostream& operator<<(std::ostream& os, const EdiPnr& ediPnr);
-
-//---------------------------------------------------------------------------------------
-
 void saveWcPnr(const Ticketing::Airline_t& airline, const EdiPnr& ediPnr);
 
+void loadWcEdiPnr(const std::string& recloc, boost::optional<EdiPnr>& ediPnr);
 boost::optional<WcPnr> loadWcPnr(const std::string& recloc);
 boost::optional<WcPnr> loadWcPnr(const Ticketing::Airline_t& airline,
                                  const Ticketing::TicketNum_t& tickNum);
