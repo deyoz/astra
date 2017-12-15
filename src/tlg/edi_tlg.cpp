@@ -790,3 +790,26 @@ int ProcEDIRES (edi_mes_head *pHead, void *udata, void *data, int *err)
     ProgTrace(TRACE4, "Proc EDIRES");
     return 0;
 }
+
+Ticketing::Pnr readPnr(const Ticketing::EdiPnr& ediPnr)
+{
+    int ret = ReadEdiMessage(ediPnr.ediText().c_str());
+    if(ret == EDI_MES_STRUCT_ERR){
+      throw EXCEPTIONS::Exception("Error in message structure: %s",EdiErrGetString());
+    } else if( ret == EDI_MES_NOT_FND){
+      throw EXCEPTIONS::Exception("No message found in template: %s",EdiErrGetString());
+    } else if( ret == EDI_MES_ERR) {
+      throw EXCEPTIONS::Exception("Edifact error ");
+    }
+
+    try {
+      Pnr pnr = PnrRdr::doRead<Pnr>(PnrEdiRead(GetEdiMesStruct(), ediPnr.ediType()));
+      Pnr::Trace(TRACE2, pnr);
+      return pnr;
+    }
+    catch(edilib::EdiExcept &e)
+    {
+      throw EXCEPTIONS::Exception("edilib: %s", e.what());
+    }
+}
+

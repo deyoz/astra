@@ -70,7 +70,7 @@ static void saveCouponWc(const std::string& recloc,
         try {
             ac->writeDb();
         } catch(const AirportControlExists&) {
-            LogWarning(STDLOG) << "Airport control under coupon " 
+            LogWarning(STDLOG) << "Airport control under coupon "
                                << airline << "/" << cpn.ticknum() << "/" << cpn.couponInfo().num()
                                << " already exists!";
             ac->deleteDb();
@@ -222,7 +222,7 @@ void saveWcPnr(const Ticketing::Airline_t& airline, const EdiPnr& ediPnr)
 {
     const std::string recloc = Recloc::GenerateRecloc();
 
-    Ticketing::Pnr pnr = readPnr(ediPnr.m_ediText, ediPnr.m_ediType);
+    Ticketing::Pnr pnr = readPnr(ediPnr);
     Pnr::Trace(TRACE2, pnr);
 
     for(const auto& ticket: pnr.ltick()) {
@@ -234,9 +234,10 @@ void saveWcPnr(const Ticketing::Airline_t& airline, const EdiPnr& ediPnr)
     saveWcPnr(recloc, airline, ediPnr);
 }
 
-boost::optional<WcPnr> loadWcPnr(const std::string& recloc)
+void loadWcEdiPnr(const std::string& recloc, boost::optional<EdiPnr>& ediPnr)
 {
-    LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; recloc=" << recloc;
+    ediPnr=boost::none;
+
     std::string res, page;
     int tlgType = 0;
     OciCpp::CursCtl cur = make_curs(
@@ -251,11 +252,22 @@ boost::optional<WcPnr> loadWcPnr(const std::string& recloc)
     }
 
     if(res.empty()) {
-        return boost::none;
+        return;
     }
 
-    return WcPnr(recloc,
-                 readPnr(res, static_cast<edifact::EdiMessageType>(tlgType)));
+    ediPnr=EdiPnr(res, static_cast<edifact::EdiMessageType>(tlgType));
+}
+
+boost::optional<WcPnr> loadWcPnr(const std::string& recloc)
+{
+  LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; recloc=" << recloc;
+
+  boost::optional<EdiPnr> ediPnr;
+  loadWcEdiPnr(recloc, ediPnr);
+
+  if (!ediPnr) return boost::none;
+
+  return WcPnr(recloc, readPnr(ediPnr.get()));
 }
 
 boost::optional<WcPnr> loadWcPnr(const Ticketing::Airline_t& airline,
@@ -486,7 +498,7 @@ AstraPnrCallbacks* ControlMethod::pnrCallbacks()
     }
     throw std::logic_error("PnrCallbacks not initialized");
 }
-           
+
 void ControlMethod::setPnrCallbacks(AstraPnrCallbacks* cb)
 {
     if(m_cb) {

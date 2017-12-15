@@ -614,7 +614,7 @@ boost::optional<Itin> getEtDispCouponItin(const Ticketing::TicketNum_t& ticknum,
 
   if (item.ediPnr)
   {
-    const Ticketing::Pnr pnr=readPnr(item.ediPnr.get().ediText(), item.ediPnr.get().ediType());
+    const Ticketing::Pnr pnr=readPnr(item.ediPnr.get());
     return getCouponItin(ticknum, cpnnum, pnr);
   }
 
@@ -674,14 +674,12 @@ Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltPara
   return Ticket(et_no, lcpn);
 }
 
-Ticketing::Pnr readPnr(const std::string& tlg_text, edifact::EdiMessageType tlg_type);
-
 void ETDisplayToDB(const Ticketing::EdiPnr& ediPnr)
 {
   TETickItem ETickItem;
   ETickItem.ediPnr=ediPnr;
 
-  const Ticketing::Pnr pnr=readPnr(ediPnr.ediText(), ediPnr.ediType());
+  const Ticketing::Pnr pnr=readPnr(ediPnr);
 
   for(list<Ticket>::const_iterator i=pnr.ltick().begin(); i!=pnr.ltick().end(); ++i)
   {
@@ -897,6 +895,10 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
       if (!wcPnr) LogTrace(TRACE5) << __FUNCTION__ << ": wcPnr==boost::none";
       if (wcPnr)
       {
+        boost::optional<EdiPnr> ediPnr;
+        loadWcEdiPnr(wcPnr.get().recloc(), ediPnr);
+        if (ediPnr) ETDisplayToDB(ediPnr.get()); //на всякий случай
+
         xmlNodePtr dataNode=getNode(astra_iface(resNode, "ETViewForm"),"data");
         PnrDisp::doDisplay(PnrXmlView(dataNode), wcPnr.get().pnr());
 //        if (!existsAC)
@@ -965,28 +967,6 @@ void EMDSearchInterface::EMDTextView(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   ETSearchInterface::SearchET(params, ETSearchInterface::spEMDDisplay, kickInfo);
 
   AstraLocale::showProgError("MSG.ETS_EDS_CONNECT_ERROR");
-}
-
-Ticketing::Pnr readPnr(const std::string& tlg_text, edifact::EdiMessageType tlg_type)
-{
-    int ret = ReadEdiMessage(tlg_text.c_str());
-    if(ret == EDI_MES_STRUCT_ERR){
-      throw EXCEPTIONS::Exception("Error in message structure: %s",EdiErrGetString());
-    } else if( ret == EDI_MES_NOT_FND){
-      throw EXCEPTIONS::Exception("No message found in template: %s",EdiErrGetString());
-    } else if( ret == EDI_MES_ERR) {
-      throw EXCEPTIONS::Exception("Edifact error ");
-    }
-
-    try {
-      Pnr pnr = PnrRdr::doRead<Pnr>(PnrEdiRead(GetEdiMesStruct(), tlg_type));
-      Pnr::Trace(TRACE2, pnr);
-      return pnr;
-    }
-    catch(edilib::EdiExcept &e)
-    {
-      throw EXCEPTIONS::Exception("edilib: %s", e.what());
-    }
 }
 
 Pnr readDispPnr(const string &tlg_text)
@@ -1089,7 +1069,7 @@ void ETRequestControlInterface::KickHandler(XMLRequestCtxt *ctxt,
     try {
         if(remRes->status() == edifact::RemoteStatus::Success) {
             Ticketing::EdiPnr ediPnr(remRes->tlgSource(), edifact::EdiRacRes);
-            Pnr pnr=readPnr(ediPnr.ediText(), ediPnr.ediType());
+            Pnr pnr=readPnr(ediPnr);
             xmlNodePtr dataNode=getNode(astra_iface(resNode, "ETViewForm"),"data");
             PnrDisp::doDisplay(PnrXmlView(dataNode), pnr);
         } else {
@@ -3259,11 +3239,17 @@ void handleEtDispResponse(const edifact::RemoteResults& remRes)
     }
     catch(std::exception &e)
     {
-        ProgTrace(TRACE5, ">>>> %s: %s", __FUNCTION__, e.what());
+        if (remRes.isSystemPult())
+          ProgTrace(TRACE5, ">>>> %s: %s", __FUNCTION__, e.what());
+        else
+          ProgError(STDLOG, "%s: %s", __FUNCTION__, e.what());
     }
     catch(...)
     {
-        ProgTrace(TRACE5, ">>>> %s: unknown error", __FUNCTION__);
+        if (remRes.isSystemPult())
+          ProgTrace(TRACE5, ">>>> %s: unknown error", __FUNCTION__);
+        else
+          ProgError(STDLOG, "%s: unknown error", __FUNCTION__);
     }
 
     XMLDoc ediSessCtxt;
