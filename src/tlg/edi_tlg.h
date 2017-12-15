@@ -160,12 +160,32 @@ public:
     const std::string tlgText() const { return TlgText; }
 };
 
+//---------------------------------------------------------------------------------------
+namespace Ticketing {
 
+struct EdiPnr
+{
+    std::string             m_ediText;
+    edifact::EdiMessageType m_ediType;
+
+    EdiPnr(const std::string& ediText, edifact::EdiMessageType ediType)
+        : m_ediText(ediText),
+          m_ediType(ediType)
+    {}
+
+    const std::string& ediText() const { return m_ediText; }
+    const edifact::EdiMessageType& ediType() const { return m_ediType; }
+};
+
+std::ostream& operator<<(std::ostream& os, const EdiPnr& ediPnr);
+
+} //namespace Ticketing
+//---------------------------------------------------------------------------------------
 
 // Обработка EDIFACT
 boost::optional<TlgHandling::TlgSourceEdifact> proc_new_edifact(boost::shared_ptr<TlgHandling::TlgSourceEdifact> tlg);
 
-Ticketing::Pnr readPnr(const std::string& tlg_text, edifact::EdiMessageType tlg_type);
+Ticketing::Pnr readPnr(const Ticketing::EdiPnr& ediPnr);
 Ticketing::Pnr readDispPnr(const std::string &tlg_text);
 Ticketing::Pnr readDispPnr(EDI_REAL_MES_STRUCT *pMes);
 Ticketing::Pnr readUacPnr(EDI_REAL_MES_STRUCT *pMes);
