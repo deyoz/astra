@@ -157,7 +157,8 @@ class AstraPnrCallbacks
 public:
     virtual ~AstraPnrCallbacks() {}
 
-    virtual void afterReceiveAirportControl(const Ticketing::Coupon& cpn) = 0;
+    virtual void afterReceiveAirportControl(const Ticketing::WcCoupon& cpn) = 0;
+    virtual void afterReturnAirportControl(const Ticketing::WcCoupon& cpn) = 0;
 };
 
 //---------------------------------------------------------------------------------------

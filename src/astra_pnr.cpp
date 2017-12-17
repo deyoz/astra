@@ -76,7 +76,14 @@ static void saveCouponWc(const std::string& recloc,
             ac->deleteDb();
             ac->writeDb();
         }
-        pnrCallbacks()->afterReceiveAirportControl(cpn);
+
+        WcCoupon wcCpn(recloc,
+                       airline,
+                       Ticketing::TicketNum_t(cpn.ticknum()),
+                       Ticketing::CouponNum_t(cpn.couponInfo().num()),
+                       cpn.couponInfo().status());
+
+        pnrCallbacks()->afterReceiveAirportControl(wcCpn);
     }
 }
 
@@ -472,6 +479,7 @@ bool returnWcCoupon(const Ticketing::Airline_t& airline,
     }
 
     ac->deleteDb();
+    pnrCallbacks()->afterReturnAirportControl(*cpn);
     return true;
 }
 

@@ -498,7 +498,8 @@ public:
 
   static bool ToDoNothingWhenChangingStatus(const AstraEdifact::TFltParams& fltParams,
                                             const TETickItem& item);
-  static void AfterReceiveAirportControl(const Ticketing::Coupon& cpn);
+  static void AfterReceiveAirportControl(const Ticketing::WcCoupon& cpn);
+  static void AfterReturnAirportControl(const Ticketing::WcCoupon& cpn);
   static bool ReturnAirportControl(const AstraEdifact::TFltParams& fltParams,
                                    const TETickItem& item);
 

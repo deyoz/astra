@@ -94,9 +94,13 @@ void AstraTlgCallbacks::readAllRouters(std::list<telegrams::RouterInfo>& routers
 class EtickPnrCallbacks: public Ticketing::AstraPnrCallbacks
 {
 public:
-    virtual void afterReceiveAirportControl(const Ticketing::Coupon& cpn)
+    virtual void afterReceiveAirportControl(const Ticketing::WcCoupon& cpn)
     {
         ETStatusInterface::AfterReceiveAirportControl(cpn);
+    }
+    virtual void afterReturnAirportControl(const Ticketing::WcCoupon& cpn)
+    {
+        ETStatusInterface::AfterReturnAirportControl(cpn);
     }
 };
 
