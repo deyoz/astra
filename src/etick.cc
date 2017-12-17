@@ -413,66 +413,75 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
       throw EXCEPTIONS::Exception("TETickItem::toDB: Minimum not supported");
   };
 
-  if (ediAction==DisplayTlg)
+  switch(ediAction)
   {
-    if (ediPnr)
-    {
-      TCachedQuery DelQry("DELETE FROM eticks_display_tlgs "
-                          "WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no",
-                          QParams() << QParam("ticket_no", otString, et_no)
-                                    << QParam("coupon_no", otInteger, et_coupon));
-      DelQry.get().Execute();
+    case DisplayTlg:
+      if (ediPnr)
+      {
+        TCachedQuery DelQry("DELETE FROM eticks_display_tlgs "
+                            "WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no",
+                            QParams() << QParam("ticket_no", otString, et_no)
+                                      << QParam("coupon_no", otInteger, et_coupon));
+        DelQry.get().Execute();
 
-      const char* sql=
-          "INSERT INTO eticks_display_tlgs(ticket_no, coupon_no, page_no, tlg_text, tlg_type, last_display) "
-          "VALUES(:ticket_no, :coupon_no, :page_no, :tlg_text, :tlg_type, :last_display)";
+        const char* sql=
+            "INSERT INTO eticks_display_tlgs(ticket_no, coupon_no, page_no, tlg_text, tlg_type, last_display) "
+            "VALUES(:ticket_no, :coupon_no, :page_no, :tlg_text, :tlg_type, :last_display)";
 
-      TCachedQuery Qry(sql, QryParams);
+        TCachedQuery Qry(sql, QryParams);
 
-      longToDB(Qry.get(), "tlg_text", ediPnr.get().ediText(), false, 1000);
-    }
-  };
-  if (ediAction==Display)
-  {
-    const char* sql=
-        "BEGIN "
-        "  UPDATE eticks_display "
-        "  SET issue_date=:issue_date, surname=:surname, name=:name, "
-        "      fare_basis=:fare_basis, bag_norm=:bag_norm, subcls=:subcls, bag_norm_unit=:bag_norm_unit, "
-        "      last_display=:last_display "
-        "  WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
-        "  IF SQL%NOTFOUND THEN "
-        "    INSERT INTO eticks_display(ticket_no, coupon_no, issue_date, surname, name, "
-        "      fare_basis, bag_norm, subcls, bag_norm_unit, last_display) "
-        "    VALUES(:ticket_no, :coupon_no, :issue_date, :surname, :name, "
-        "      :fare_basis, :bag_norm, :subcls, :bag_norm_unit, :last_display); "
-        "  END IF; "
-        "END;";
+        longToDB(Qry.get(), "tlg_text", ediPnr.get().ediText(), false, 1000);
+      }
+      break;
 
-    TCachedQuery Qry(sql, QryParams);
-    Qry.get().Execute();
-  };
-  if (ediAction==ChangeOfStatus)
-  {
-    const char* sql=
-        "BEGIN "
-        "  IF :error IS NULL THEN "
-        "    UPDATE etickets "
-        "    SET point_id=:point_id, airp_dep=:airp_dep, airp_arv=:airp_arv, "
-        "        coupon_status=:coupon_status, error=:error "
-        "    WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
-        "  ELSE "
-        "    UPDATE etickets "
-        "    SET error=:error "
-        "    WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
-        "  END IF; "
-        "  IF SQL%NOTFOUND THEN "
-        "    INSERT INTO etickets(ticket_no, coupon_no, point_id, airp_dep, airp_arv, coupon_status, error) "
-        "    VALUES(:ticket_no, :coupon_no, :point_id, :airp_dep, :airp_arv, :coupon_status, :error); "
-        "  END IF; "
-        "END;";
-    TCachedQuery Qry(sql, QryParams);
-    Qry.get().Execute();
+    case Display:
+      {
+        const char* sql=
+            "BEGIN "
+            "  UPDATE eticks_display "
+            "  SET issue_date=:issue_date, surname=:surname, name=:name, "
+            "      fare_basis=:fare_basis, bag_norm=:bag_norm, subcls=:subcls, bag_norm_unit=:bag_norm_unit, "
+            "      last_display=:last_display "
+            "  WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
+            "  IF SQL%NOTFOUND THEN "
+            "    INSERT INTO eticks_display(ticket_no, coupon_no, issue_date, surname, name, "
+            "      fare_basis, bag_norm, subcls, bag_norm_unit, last_display) "
+            "    VALUES(:ticket_no, :coupon_no, :issue_date, :surname, :name, "
+            "      :fare_basis, :bag_norm, :subcls, :bag_norm_unit, :last_display); "
+            "  END IF; "
+            "END;";
+
+        TCachedQuery Qry(sql, QryParams);
+        Qry.get().Execute();
+      }
+      break;
+
+    case ChangeOfStatus:
+      {
+        const char* sql=
+            "BEGIN "
+            "  IF :error IS NULL THEN "
+            "    UPDATE etickets "
+            "    SET point_id=:point_id, airp_dep=:airp_dep, airp_arv=:airp_arv, "
+            "        coupon_status=:coupon_status, error=:error "
+            "    WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
+            "  ELSE "
+            "    UPDATE etickets "
+            "    SET error=:error "
+            "    WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
+            "  END IF; "
+            "  IF SQL%NOTFOUND THEN "
+            "    INSERT INTO etickets(ticket_no, coupon_no, point_id, airp_dep, airp_arv, coupon_status, error) "
+            "    VALUES(:ticket_no, :coupon_no, :point_id, :airp_dep, :airp_arv, :coupon_status, :error); "
+            "  END IF; "
+            "END;";
+        TCachedQuery Qry(sql, QryParams);
+        Qry.get().Execute();
+      }
+      break;
+
+    case Minimum:
+      throw EXCEPTIONS::Exception("TETickItem::toDB: Minimum not supported");
   };
   return *this;
 };
@@ -486,35 +495,48 @@ TETickItem& TETickItem::fromDB(const TEdiAction ediAction,
   et_coupon=Qry.FieldIsNULL("coupon_no")?ASTRA::NoExists:
                                          Qry.FieldAsInteger("coupon_no");
 
-  if (ediAction==DisplayTlg)
+  switch(ediAction)
   {
-    string text=ediPnr?ediPnr.get().ediText():"";
-    ediPnr=Ticketing::EdiPnr(text + Qry.FieldAsString("tlg_text"),
-                             static_cast<edifact::EdiMessageType>(Qry.FieldAsInteger("tlg_type")));
-  }
+    case DisplayTlg:
+      {
+        string text=ediPnr?ediPnr.get().ediText():"";
+        ediPnr=Ticketing::EdiPnr(text + Qry.FieldAsString("tlg_text"),
+                                 static_cast<edifact::EdiMessageType>(Qry.FieldAsInteger("tlg_type")));
+      }
+      break;
 
-  if (ediAction==Display)
-  {
-    issue_date=Qry.FieldIsNULL("issue_date")?ASTRA::NoExists:
-                                             Qry.FieldAsDateTime("issue_date");
-    surname=Qry.FieldAsString("surname");
-    name=Qry.FieldAsString("name");
-    fare_basis=Qry.FieldAsString("fare_basis");
-    subcls=Qry.FieldAsString("subcls");
-    bag_norm=Qry.FieldIsNULL("bag_norm")?ASTRA::NoExists:
-                                         Qry.FieldAsInteger("bag_norm");
-    bag_norm_unit.set(Qry.FieldAsString("bag_norm_unit"));
-  }
+    case Display:
+      {
+        issue_date=Qry.FieldIsNULL("issue_date")?ASTRA::NoExists:
+                                                 Qry.FieldAsDateTime("issue_date");
+        surname=Qry.FieldAsString("surname");
+        name=Qry.FieldAsString("name");
+        fare_basis=Qry.FieldAsString("fare_basis");
+        subcls=Qry.FieldAsString("subcls");
+        bag_norm=Qry.FieldIsNULL("bag_norm")?ASTRA::NoExists:
+                                             Qry.FieldAsInteger("bag_norm");
+        bag_norm_unit.set(Qry.FieldAsString("bag_norm_unit"));
+      }
+      break;
 
-  if (ediAction==ChangeOfStatus)
-  {
-    point_id=Qry.FieldIsNULL("point_id")?ASTRA::NoExists:
-                                         Qry.FieldAsInteger("point_id");
-    airp_dep=Qry.FieldAsString("airp_dep");
-    airp_arv=Qry.FieldAsString("airp_arv");
-    status=Qry.FieldIsNULL("coupon_status")?CouponStatus(CouponStatus::Unavailable):
-                                            CouponStatus(CouponStatus::fromDispCode(Qry.FieldAsString("coupon_status")));
-    change_status_error=Qry.FieldAsString("error");
+    case ChangeOfStatus:
+      {
+        point_id=Qry.FieldIsNULL("point_id")?ASTRA::NoExists:
+                                             Qry.FieldAsInteger("point_id");
+        airp_dep=Qry.FieldAsString("airp_dep");
+        airp_arv=Qry.FieldAsString("airp_arv");
+        status=Qry.FieldIsNULL("coupon_status")?CouponStatus(CouponStatus::Unavailable):
+                                                CouponStatus(CouponStatus::fromDispCode(Qry.FieldAsString("coupon_status")));
+        change_status_error=Qry.FieldAsString("error");
+      }
+      break;
+
+    case Minimum:
+      {
+        point_id=Qry.FieldIsNULL("point_id")?ASTRA::NoExists:
+                                             Qry.FieldAsInteger("point_id");
+      }
+      break;
   }
 
   return *this;
@@ -2075,16 +2097,21 @@ bool ETStatusInterface::ToDoNothingWhenChangingStatus(const TFltParams& fltParam
    return res;
 }
 
-void ETStatusInterface::AfterReceiveAirportControl(const Ticketing::Coupon& cpn)
+void ETStatusInterface::AfterReceiveAirportControl(const Ticketing::WcCoupon& cpn)
 {
   list<TETickItem> ETickItems;
-  PaxETList::GetByCouponNoFromTlg(cpn.ticknum(), cpn.couponInfo().num(), ETickItems);
+  PaxETList::GetByCouponNoFromTlg(cpn.tickNum().get(), cpn.cpnNum().get(), ETickItems);
   for(const TETickItem& item : ETickItems)
     TReqInfo::Instance()->LocaleToLog("EVT.ETICKET_CONTROL_RECEIVED",
                                       LEvntPrms() << PrmSmpl<std::string>("ticket_no", item.et_no)
                                                   << PrmSmpl<int>("coupon_no", item.et_coupon),
                                       ASTRA::evtFlt,
                                       item.point_id);
+}
+
+void ETStatusInterface::AfterReturnAirportControl(const Ticketing::WcCoupon& cpn)
+{
+  //!!!vlad
 }
 
 bool ETStatusInterface::ReturnAirportControl(const TFltParams& fltParams,
