@@ -19,20 +19,27 @@ using namespace AstraLocale;
 namespace KIOSK_PARAM_NAME {
     const string REFERENCE = "__REFERENCE__";
     const string ERROR = "__ERROR__";
+    const string FLIGHT = "flight";
+    const string DATE = "date";
+    const string LAST_NAME = "lastName";
+    const string TICKET = "ticket";
+    const string DOC = "document";
+    const string SESSION = "sessionId";
 }
 
 struct TKiosksGrp {
     vector<string> items;
-    void fromDB(int kiosks_grp);
+    void fromDB(int kiosk_addr);
 };
 
 struct TParams {
     TDateTime time_from;
     TDateTime time_to;
-    int kiosk_grp;
+    int kiosk_addr;
     string app;
 
     string flt;
+    string date;
     string pax_name;
     string tkt;
     string doc;
@@ -48,26 +55,27 @@ struct TParams {
     void fromXML(xmlNodePtr reqNode);
 };
 
-void TKiosksGrp::fromDB(int kiosks_grp)
+void TKiosksGrp::fromDB(int kiosk_addr)
 {
     items.clear();
-    if(kiosks_grp == NoExists) return;
-    TCachedQuery Qry("select code from kiosks where grp_id = :grp_id",
-            QParams() << QParam("grp_id", otInteger, kiosks_grp));
+    if(kiosk_addr == NoExists) return;
+    TCachedQuery Qry("select kiosk_id from web_clients where kiosk_addr = :kiosk_addr",
+            QParams() << QParam("kiosk_addr", otInteger, kiosk_addr));
     Qry.get().Execute();
     for(; not Qry.get().Eof; Qry.get().Next())
-        items.push_back(Qry.get().FieldAsString("code"));
+        items.push_back(Qry.get().FieldAsString("kiosk_id"));
 }
 
 void TParams::fromXML(xmlNodePtr reqNode)
 {
     time_from = NodeAsDateTime("time_from", reqNode);
     time_to = NodeAsDateTime("time_to", reqNode);
-    kiosk_grp = NodeAsInteger("kiosk_grp", reqNode, NoExists);
-    kiosks_grp.fromDB(kiosk_grp);
+    kiosk_addr = NodeAsInteger("kiosk_addr", reqNode, NoExists);
+    kiosks_grp.fromDB(kiosk_addr);
     app = NodeAsString("app", reqNode, "");
 
     flt = NodeAsString("flt", reqNode, "");
+    date = NodeAsString("date", reqNode, "");
     pax_name = NodeAsString("pax_name", reqNode, "");
     tkt = NodeAsString("tkt", reqNode, "");
     doc = NodeAsString("doc", reqNode, "");
@@ -81,7 +89,7 @@ void TParams::clear()
 {
     time_from = NoExists;
     time_to = NoExists;
-    kiosk_grp = NoExists;
+    kiosk_addr = NoExists;
     app.clear();
     flt.clear();
     pax_name.clear();
@@ -92,12 +100,28 @@ void TParams::clear()
 }
 
 struct TKioskEventParams {
+    // items[kep.num, kep.name] = value - поля таблицы kiosk_event_params (сокр. kep)
     typedef map<string, string> TItemNameMap;
     typedef map<int, TItemNameMap> TItemsMap;
     TItemsMap items;
     void fromDB(int event_id);
     TItemsMap get_param(const string &name) const;
+    string get_param_value(const string &name) const;
 };
+
+string TKioskEventParams::get_param_value(const string &name) const
+{
+    string result;
+    for(TItemsMap::const_iterator num = items.begin();
+            num != items.end(); num++) {
+        TItemNameMap::const_iterator i_name = num->second.find(name);
+        if(i_name != num->second.end()) {
+            result = i_name->second;
+            break;
+        }
+    }
+    return result;
+}
 
 TKioskEventParams::TItemsMap TKioskEventParams::get_param(const string &name) const
 {
@@ -213,6 +237,8 @@ void TSelfCkinLog::rowToXML(xmlNodePtr rowNode, const TSelfCkinLogItem &log_item
     NewTextChild(rowNode, "col", log_item.type);
     // №
     NewTextChild(rowNode, "col", log_item.ev_order);
+    // Сессия
+    NewTextChild(rowNode, "col", log_item.evt_params.get_param_value(KIOSK_PARAM_NAME::SESSION));
 }
 
 void TSelfCkinLog::toXML(xmlNodePtr resNode)
@@ -248,6 +274,10 @@ void TSelfCkinLog::toXML(xmlNodePtr resNode)
     SetProp(colNode, "sort", sortString);
     colNode = NewTextChild(headerNode, "col", getLocaleText("№"));
     SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Сессия"));
+    SetProp(colNode, "width", 210);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
 
@@ -314,6 +344,21 @@ void TSelfCkinLog::fromDB(const TParams &params)
             logItem.ev_order = Qry.get().FieldAsInteger(col_ev_order);
             logItem.evt_params.fromDB(logItem.id);
 
+            if(
+                    (params.flt.empty() or
+                    logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::FLIGHT) == params.flt) and
+                    (params.date.empty() or
+                    logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::DATE) == params.date) and
+                    (params.pax_name.empty() or
+                    upperc(logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::LAST_NAME)).find(params.pax_name) != string::npos) and
+                    (params.tkt.empty() or
+                    upperc(logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::TICKET)).find(params.tkt) != string::npos) and
+                    (params.doc.empty() or
+                    upperc(logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::DOC)).find(params.doc) != string::npos)
+              )
+                items[logItem.time][logItem.ev_order] = logItem;
+
+            /*
             const string &value = upperc(logItem.evt_params.get_param(KIOSK_PARAM_NAME::REFERENCE).begin()->second.begin()->second);
             if(
                     found(value, params.flt) and
@@ -322,6 +367,7 @@ void TSelfCkinLog::fromDB(const TParams &params)
                     found(value, params.doc)
               )
                 items[logItem.time][logItem.ev_order] = logItem;
+                */
         }
     }
 }
