@@ -5,6 +5,7 @@
 #include "date_time.h"
 #include "astra_utils.h"
 #include "report_common.h"
+#include "stat_utils.h"
 #include "docs.h"
 
 #define NICKNAME "DENIS"
