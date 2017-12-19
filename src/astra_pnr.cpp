@@ -83,7 +83,11 @@ static void saveCouponWc(const std::string& recloc,
                        Ticketing::CouponNum_t(cpn.couponInfo().num()),
                        cpn.couponInfo().status());
 
-        pnrCallbacks()->afterReceiveAirportControl(wcCpn);
+        try {
+          pnrCallbacks()->afterReceiveAirportControl(wcCpn);
+        } catch(...) {
+          LogError(STDLOG) << __FUNCTION__ << ": something wrong in pnrCallbacks()->afterReceiveAirportControl(wcCpn)";
+        }
     }
 }
 
@@ -479,7 +483,11 @@ bool returnWcCoupon(const Ticketing::Airline_t& airline,
     }
 
     ac->deleteDb();
-    pnrCallbacks()->afterReturnAirportControl(*cpn);
+    try {
+      pnrCallbacks()->afterReturnAirportControl(*cpn);
+    } catch(...) {
+      LogError(STDLOG) << __FUNCTION__ << ": something wrong in pnrCallbacks()->afterReturnAirportControl(*cpn)";
+    }
     return true;
 }
 
