@@ -2484,7 +2484,7 @@ void CheckInInterface::CheckCounters(int point_dep,
     if (Qry.Eof)
     {
       ProgTrace(TRACE0,"counters2 empty! (point_dep=%d point_arv=%d cl=%s)",point_dep,point_arv,cl.c_str());
-      CheckIn::TCountersCover().recount(point_dep, CheckIn::TCounters::Total);
+      CheckIn::TCountersCover().recount(point_dep, CheckIn::TCounters::Total, __FUNCTION__);
       Qry.Execute();
     };
     if (Qry.Eof)
@@ -6042,7 +6042,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       Qry.Execute();
       Qry.Close();
 
-      CheckIn::TCountersCover().recount(grp, priorSimplePaxList, currSimplePaxList);
+      CheckIn::TCountersCover().recount(grp, priorSimplePaxList, currSimplePaxList, __FUNCTION__);
 
       TAnnulBT annul_bt_after;
       annul_bt_after.get(grp.id);

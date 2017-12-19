@@ -616,7 +616,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     }
   };
 
-  CheckIn::TCountersCover().recount(point_id, CheckIn::TCounters::Total);
+  CheckIn::TCountersCover().recount(point_id, CheckIn::TCounters::Total, __FUNCTION__);
 
   if ( pr_check_trip_tasks ) {
     Qry.Clear();

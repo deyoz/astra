@@ -196,6 +196,7 @@ class TCounters
     const bool& pr_tranz_reg();
     const bool& cfg_exists();
 
+    void deleteInitially(int point_id);
     void recountInitially();
     void recountFinally();
     void recountCrsFields();
@@ -216,13 +217,14 @@ class TCountersCover
     void recountCrsCounters(int point_id);
     bool equalWithCrsCounters(int point_id, bool detailedTracing=false);
     void syncWithCrsCounters(int point_id);
-    void errorToDB(const std::string& s);
+    void errorToDB(const std::string& error, const int point_id, const std::string &whence);
 
   public:
-    const TCountersCover& recount(int point_id, TCounters::RecountType type);
+    const TCountersCover& recount(int point_id, TCounters::RecountType type, const std::string &whence);
     const TCountersCover& recount(const CheckIn::TPaxGrpItem &grp,
                                   const CheckIn::TSimplePaxList &prior_paxs,
-                                  const CheckIn::TSimplePaxList &curr_paxs);
+                                  const CheckIn::TSimplePaxList &curr_paxs,
+                                  const std::string &whence);
 };
 
 } //namespace CheckIn
