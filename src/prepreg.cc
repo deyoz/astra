@@ -614,7 +614,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     }
   };
 
-  CheckIn::TCountersCover().recount(point_id, CheckIn::TCounters::Total);
+  CheckIn::TCountersCover().recount(point_id, CheckIn::TCounters::Total, __FUNCTION__);
 
   on_change_trip( CALL_POINT, point_id );
 

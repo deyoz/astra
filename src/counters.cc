@@ -405,13 +405,20 @@ const bool& TCounters::cfg_exists()
   return _cfg_exists.get();
 }
 
+void TCounters::deleteInitially(int point_id)
+{
+  LogTrace(TRACE5) << __FUNCTION__;
+
+  TCachedQuery Qry("DELETE FROM counters3 WHERE point_dep=:point_dep",
+                      QParams() << QParam("point_dep", otInteger, point_id));
+  Qry.get().Execute();
+}
+
 void TCounters::recountInitially()
 {
   LogTrace(TRACE5) << __FUNCTION__;
 
-  TCachedQuery DelQry("DELETE FROM counters3 WHERE point_dep=:point_dep",
-                      QParams() << QParam("point_dep", otInteger, flt().point_id));
-  DelQry.get().Execute();
+  deleteInitially(flt().point_id);
 
   TCachedQuery Qry(
         "INSERT INTO counters3 "
@@ -557,7 +564,7 @@ const TCounters &TCounters::recount(const CheckIn::TPaxGrpItem &grp,
   return *this;
 }
 
-const TCountersCover& TCountersCover::recount(int point_id, TCounters::RecountType type)
+const TCountersCover& TCountersCover::recount(int point_id, TCounters::RecountType type, const std::string& whence)
 {
   LogTrace(TRACE5) << "TCountersCover::" << __FUNCTION__;
 
@@ -576,13 +583,17 @@ const TCountersCover& TCountersCover::recount(int point_id, TCounters::RecountTy
     TCounters().recount(point_id, type);
 
     if (!equalWithCrsCounters(point_id, true))
-      throw EXCEPTIONS::Exception("!equalWithCrsCounters (point_id=%d, type=%d)", point_id, type);
+      throw EXCEPTIONS::Exception("!equalWithCrsCounters (type=%d)", type);
     if (!equalWithCounters2(point_id, true))
-      throw EXCEPTIONS::Exception("!equalWithCounters2 (point_id=%d, type=%d)", point_id, type);
+      throw EXCEPTIONS::Exception("!equalWithCounters2 (type=%d)", type);
   }
   catch(std::exception &e)
   {
-    errorToDB(e.what());
+    try
+    {
+      errorToDB(e.what(), point_id, whence);
+    }
+    catch(...) {}
   }
 
   return *this;
@@ -590,7 +601,8 @@ const TCountersCover& TCountersCover::recount(int point_id, TCounters::RecountTy
 
 const TCountersCover& TCountersCover::recount(const CheckIn::TPaxGrpItem &grp,
                                               const TSimplePaxList &prior_paxs,
-                                              const TSimplePaxList &curr_paxs)
+                                              const TSimplePaxList &curr_paxs,
+                                              const std::string &whence)
 {
   LogTrace(TRACE5) << "TCountersCover::" << __FUNCTION__;
 
@@ -612,14 +624,18 @@ const TCountersCover& TCountersCover::recount(const CheckIn::TPaxGrpItem &grp,
     TCounters().recount(grp, prior_paxs, curr_paxs);
 
     if (!equalWithCrsCounters(point_id, true))
-      throw EXCEPTIONS::Exception("!equalWithCrsCounters (grp.point_dep=%d)", grp.point_dep);
+      throw EXCEPTIONS::Exception("!equalWithCrsCounters");
     if (!equalWithCounters2(point_id, true))
-      throw EXCEPTIONS::Exception("!equalWithCounters2 (grp.point_dep=%d)", grp.point_dep);
+      throw EXCEPTIONS::Exception("!equalWithCounters2");
   }
   catch(std::exception &e)
   {
-    TRegDifferenceMap::trace(grp, prior_paxs, curr_paxs);
-    errorToDB(e.what());
+    try
+    {
+      TRegDifferenceMap::trace(grp, prior_paxs, curr_paxs);
+      errorToDB(e.what(), grp.point_dep, whence);
+    }
+    catch(...) {}
   }
 
   return *this;
@@ -769,12 +785,16 @@ void TCountersCover::syncWithCrsCounters(int point_id)
   Qry.get().Execute();
 }
 
-void TCountersCover::errorToDB(const std::string& s)
+void TCountersCover::errorToDB(const std::string& error,
+                               const int point_id,
+                               const std::string& whence)
 {
-  LogError(STDLOG) << s;
+  LogTrace(TRACE5) << ">>>> " << error << "(point_id=" << point_id << ", whence=" << whence << ")";
 
-  TCachedQuery Qry("INSERT INTO drop_counters_errors(error, time_msk) VALUES(:error, SYSDATE)",
-                   QParams() << QParam("error", otString, s.substr(0,4000)));
+  TCachedQuery Qry("INSERT INTO drop_counters_errors(error, time_msk, point_id, whence) VALUES(:error, SYSDATE, :point_id, :whence)",
+                   QParams() << QParam("error", otString, error.substr(0,4000))
+                             << QParam("point_id", otInteger, point_id)
+                             << QParam("whence", otString, whence.substr(0,30)));
   Qry.get().Execute();
 }
 
