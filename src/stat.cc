@@ -5601,8 +5601,12 @@ void TLayout::get_params()
             TParamItem item;
             item.fromDB(Qry.get());
             if(
-                    item.ctype != "CkBox" or
-                    TReqInfo::Instance()->desk.compatible(STAT_CKBOX_VERSION)
+                    (item.ctype != "CkBox" or
+                     TReqInfo::Instance()->desk.compatible(STAT_CKBOX_VERSION)) and
+
+                    (TReqInfo::Instance()->desk.compatible(BI_STAT_VERSION) or
+                     (Qry.get().FieldIsNULL("edit_fmt") and
+                      Qry.get().FieldIsNULL("filter")))
               )
                 params.insert(make_pair(item.visible, item));
         }
