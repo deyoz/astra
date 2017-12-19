@@ -28,13 +28,27 @@ bool ExistsPaxUnboundBagEMD(int pax_id);
 
 }; //namespace PaxASVCList
 
+class TEMDCoupon : public AstraEdifact::TCoupon
+{
+  public:
+    Ticketing::CpnStatAction::CpnStatAction_t action;
+
+    TEMDCoupon()
+    {
+      clear();
+    }
+
+    void clear()
+    {
+      AstraEdifact::TCoupon::clear();
+      action=Ticketing::CpnStatAction::associate;
+    }
+};
+
 class TEMDCtxtItem : public AstraEdifact::TCtxtItem
 {
   public:
-    std::string emd_no;
-    int emd_coupon;
-    Ticketing::CouponStatus status;
-    Ticketing::CpnStatAction::CpnStatAction_t action;
+    TEMDCoupon emd;
     TEMDCtxtItem()
     {
       clear();
@@ -43,10 +57,7 @@ class TEMDCtxtItem : public AstraEdifact::TCtxtItem
     void clear()
     {
       TCtxtItem::clear();
-      emd_no.clear();
-      emd_coupon=ASTRA::NoExists;
-      status=Ticketing::CouponStatus(Ticketing::CouponStatus::Unavailable);
-      action=Ticketing::CpnStatAction::associate;
+      emd.clear();
     }
 
     const TEMDCtxtItem& toXML(xmlNodePtr node) const;
@@ -70,43 +81,28 @@ class TEMDocItem
 
     enum TEdiAction{ChangeOfStatus, SystemUpdate};
 
-    std::string emd_no, et_no;
-    int emd_coupon, et_coupon;
-    Ticketing::CouponStatus status;
-    Ticketing::CpnStatAction::CpnStatAction_t action;
+    TEMDCoupon emd;
+    AstraEdifact::TCoupon et;
     std::string change_status_error, system_update_error;
     int point_id;
     TEMDocItem()
     {
       clear();
-    };
+    }
 
     void clear()
     {
-      emd_no.clear();
-      et_no.clear();
-      emd_coupon=ASTRA::NoExists;
-      et_coupon=ASTRA::NoExists;
-      status=Ticketing::CouponStatus(Ticketing::CouponStatus::Unavailable);
-      action=Ticketing::CpnStatAction::associate;
+      emd.clear();
+      et.clear();
       change_status_error.clear();
       system_update_error.clear();
       point_id=ASTRA::NoExists;
-    };
+    }
 
     bool empty() const
     {
-      return emd_no.empty() || emd_coupon==ASTRA::NoExists;
-    };
-
-    std::string emd_no_str() const
-    {
-      std::ostringstream s;
-      s << emd_no;
-      if (emd_coupon!=ASTRA::NoExists)
-        s << "/" << emd_coupon;
-      return s.str();
-    };
+      return emd.empty();
+    }
 
     const TEMDocItem& toDB(const TEdiAction ediAction) const;
     TEMDocItem& fromDB(const std::string &_emd_no,

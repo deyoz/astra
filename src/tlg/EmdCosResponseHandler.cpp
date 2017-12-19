@@ -51,11 +51,11 @@ void EmdCosResponseHandler::handle()
       EMDCtxt.fromXML(node, rootNode);
 
       TEMDocItem EMDocItem;
-      EMDocItem.emd_no=EMDCtxt.emd_no;
-      EMDocItem.emd_coupon=EMDCtxt.emd_coupon;
-      EMDocItem.et_no=EMDCtxt.pax.tkn.no;
-      EMDocItem.et_coupon=EMDCtxt.pax.tkn.coupon;
-      EMDocItem.action=EMDCtxt.action;
+      EMDocItem.emd.no=EMDCtxt.emd.no;
+      EMDocItem.emd.coupon=EMDCtxt.emd.coupon;
+      EMDocItem.et.no=EMDCtxt.pax.tkn.no;
+      EMDocItem.et.coupon=EMDCtxt.pax.tkn.coupon;
+      EMDocItem.emd.action=EMDCtxt.emd.action;
       EMDocItem.point_id=EMDCtxt.point_id;
 
       using namespace edifact;
@@ -65,7 +65,7 @@ void EmdCosResponseHandler::handle()
 
 
       if (res->status() == RemoteStatus::Success)
-        EMDocItem.status=EMDCtxt.status;
+        EMDocItem.emd.status=EMDCtxt.emd.status;
 
       if (res->status() == RemoteStatus::CommonError)
       {
@@ -84,12 +84,12 @@ void EmdCosResponseHandler::handle()
          if (res->status() == RemoteStatus::Success)
          {
            ProgTrace(TRACE5, "emd_no=%s emd_coupon=%d status=%s",
-                     EMDocItem.emd_no.c_str(), EMDocItem.emd_coupon, EMDocItem.status->dispCode());
+                     EMDocItem.emd.no.c_str(), EMDocItem.emd.coupon, EMDocItem.emd.status->dispCode());
 
            event.lexema_id="EVT.EMD_CHANGE_STATUS";
-           event.prms << PrmSmpl<std::string>("doc_no", EMDocItem.emd_no)
-                      << PrmSmpl<int>("coupon_no", EMDocItem.emd_coupon)
-                      << PrmSmpl<std::string>("coupon_status", EMDocItem.status->dispCode());
+           event.prms << PrmSmpl<std::string>("doc_no", EMDocItem.emd.no)
+                      << PrmSmpl<int>("coupon_no", EMDocItem.emd.coupon)
+                      << PrmSmpl<std::string>("coupon_status", EMDocItem.emd.status->dispCode());
 /*         нельзя сравнивать с предыдущим статусом так как не контролируем смену статуса EMD вместе со сменой статуса ЭБ
            TEMDocItem prior;
            prior.fromDB(EMDocItem.emd_no, EMDocItem.emd_coupon, true);
@@ -102,21 +102,21 @@ void EmdCosResponseHandler::handle()
          if (res->status() == RemoteStatus::CommonError)
          {
            ProgTrace(TRACE5, "emd_no=%s emd_coupon=%d error=%s",
-                     EMDocItem.emd_no.c_str(), EMDocItem.emd_coupon, EMDocItem.change_status_error.c_str());
+                     EMDocItem.emd.no.c_str(), EMDocItem.emd.coupon, EMDocItem.change_status_error.c_str());
 
            //записываем в контекст для последующего вывода на экран терминала
            using namespace AstraLocale;
            bool isGlobal=false; //!!!потом научимся различать
            LexemaData error;
            error.lexema_id="MSG.EMD_CHANGE_STATUS_ERROR";
-           error.lparams << LParam("emd", EMDocItem.emd_no_str())
+           error.lparams << LParam("emd", EMDocItem.emd.no_str())
                          << LParam("error", EMDocItem.change_status_error);
 
            AstraEdifact::ProcEdiError(error, node, isGlobal);
 
            //записываем в контекст для вывода в журнал операций
            event.lexema_id="EVT.EMD_CHANGE_STATUS_MISTAKE";
-           event.prms << PrmSmpl<std::string>("emd", EMDocItem.emd_no_str())
+           event.prms << PrmSmpl<std::string>("emd", EMDocItem.emd.no_str())
                       << PrmSmpl<std::string>("error", EMDocItem.change_status_error);
 
            AstraEdifact::ProcEvent(event, EMDCtxt, node, false);

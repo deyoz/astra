@@ -229,7 +229,7 @@ class TPaxCtxt
 
     const TPaxCtxt& toXML(xmlNodePtr node) const;
     TPaxCtxt& fromXML(xmlNodePtr node);
-    TPaxCtxt& paxFromDB(TQuery &Qry);
+    TPaxCtxt& paxFromDB(TQuery &Qry, bool from_crs);
 };
 
 class TCtxtItem : public TPaxCtxt, public TOriginCtxt
@@ -239,6 +239,47 @@ class TCtxtItem : public TPaxCtxt, public TOriginCtxt
     {
       TPaxCtxt::clear();
       TOriginCtxt::clear();
+    }
+};
+
+class TCoupon
+{
+  public:
+    std::string no;
+    int coupon;
+    Ticketing::CouponStatus status;
+
+    TCoupon()
+    {
+      clear();
+    }
+
+    void clear()
+    {
+      no.clear();
+      coupon=ASTRA::NoExists;
+      status=Ticketing::CouponStatus(Ticketing::CouponStatus::Unavailable);
+    }
+
+    bool empty() const
+    {
+      return no.empty() || coupon==ASTRA::NoExists;
+    }
+
+    std::string no_str() const
+    {
+      std::ostringstream s;
+      s << no;
+      if (coupon!=ASTRA::NoExists)
+        s << "/" << coupon;
+      return s.str();
+    }
+
+    bool operator < (const TCoupon &item) const
+    {
+      if (no!=item.no)
+        return no < item.no;
+      return coupon < item.coupon;
     }
 };
 

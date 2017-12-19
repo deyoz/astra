@@ -2432,8 +2432,8 @@ bool Confirmed(const CheckIn::TServicePaymentItem &emd,
   if (!confirmed_emd) return true;
   if (emd.trfer_num!=0) return true;
   for(list<TEMDCtxtItem>::const_iterator i=confirmed_emd.get().begin(); i!=confirmed_emd.get().end(); ++i)
-    if (emd.doc_no==i->emd_no &&
-        emd.doc_coupon==i->emd_coupon &&
+    if (emd.doc_no==i->emd.no &&
+        emd.doc_coupon==i->emd.coupon &&
         emd.pax_id==i->pax.id) return true;
   return false;
 }
