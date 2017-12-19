@@ -810,18 +810,21 @@ TPaxCtxt& TPaxCtxt::fromXML(xmlNodePtr node)
   return *this;
 }
 
-TPaxCtxt& TPaxCtxt::paxFromDB(TQuery &Qry)
+TPaxCtxt& TPaxCtxt::paxFromDB(TQuery &Qry, bool from_crs)
 {
   pax.clear();
   pax.id=Qry.FieldAsInteger("pax_id");
-  pax.grp_id=Qry.FieldAsInteger("grp_id");
   pax.surname=Qry.FieldAsString("surname");
   pax.name=Qry.FieldAsString("name");
   pax.pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
-  pax.refuse=Qry.FieldAsString("refuse");
-  pax.reg_no=Qry.FieldAsInteger("reg_no");
-  pax.pr_brd=!Qry.FieldIsNULL("pr_brd") && Qry.FieldAsInteger("pr_brd")!=0;
-  pax.tkn.fromDB(Qry);
+  if (!from_crs)
+  {
+    pax.grp_id=Qry.FieldAsInteger("grp_id");
+    pax.refuse=Qry.FieldAsString("refuse");
+    pax.reg_no=Qry.FieldAsInteger("reg_no");
+    pax.pr_brd=!Qry.FieldIsNULL("pr_brd") && Qry.FieldAsInteger("pr_brd")!=0;
+    pax.tkn.fromDB(Qry);
+  }
   return *this;
 };
 

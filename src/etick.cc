@@ -118,7 +118,8 @@ std::string GetSQL(const TListType ltype)
       ltype==allByTickNoAndCouponNoFromTlg)
   {
     sql << "SELECT crs_pax_tkn.ticket_no, crs_pax_tkn.coupon_no, \n"
-           "       tlg_binding.point_id_spp AS point_id \n"
+           "       tlg_binding.point_id_spp AS point_id, \n"
+           "       crs_pax.* \n"
            "FROM crs_pax_tkn, crs_pax, crs_pnr, tlg_binding \n"
            "WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND \n"
            "      crs_pax.pnr_id=crs_pnr.pnr_id AND \n"
@@ -157,6 +158,17 @@ std::string GetSQL(const TListType ltype)
            "      pax.pax_id IS NULL AND \n"
            "      etickets.coupon_status IS NOT NULL \n";
   };
+
+  if (ltype==allCheckedByTickNoAndCouponNo)
+  {
+    sql << "SELECT pax_grp.point_dep AS point_id, \n"
+           "       pax_grp.airp_dep, pax_grp.airp_arv, pax_grp.class, \n"
+           "       pax.* \n"
+           "FROM pax_grp,pax \n"
+           "WHERE pax_grp.grp_id=pax.grp_id AND pax.ticket_rem='TKNE' AND \n"
+           "      pax.ticket_no=:ticket_no AND \n"
+           "      pax.coupon_no=:coupon_no \n";
+  }
   //ProgTrace(TRACE5, "%s: SQL=\n%s", __FUNCTION__, sql.str().c_str());
   return sql.str();
 }
@@ -202,7 +214,7 @@ void GetAllStatusesByPointId(TListType type, int point_id, std::set<TETickItem> 
   };
 }
 
-void GetByTickNoFromTlg(int point_id, const std::string& tick_no, std::set<TETickItem> &items)
+void GetByTickNoFromTlg(int point_id, const std::string& tick_no, std::set<TETCtxtItem> &items)
 {
   items.clear();
   TQuery Qry(&OraSession);
@@ -214,11 +226,11 @@ void GetByTickNoFromTlg(int point_id, const std::string& tick_no, std::set<TETic
   for(;!Qry.Eof;Qry.Next())
   {
     if (Qry.FieldIsNULL("coupon_no")) continue;
-    items.insert(TETickItem().fromDB(TETickItem::Minimum, Qry));
+    items.insert(TETCtxtItem().fromDB(Qry, true));
   };
 }
 
-void GetByCouponNoFromTlg(const std::string& tick_no, int coupon_no, std::list<TETickItem> &items) //list не просто так. Один и тот жк купон может быть привязан ко многим рейсам
+void GetByCouponNoFromTlg(const std::string& tick_no, int coupon_no, std::list<TETCtxtItem> &items) //list не просто так. Один и тот же купон может быть привязан ко многим рейсам
 {
   items.clear();
   TQuery Qry(&OraSession);
@@ -228,8 +240,27 @@ void GetByCouponNoFromTlg(const std::string& tick_no, int coupon_no, std::list<T
   Qry.CreateVariable("coupon_no", otInteger, coupon_no);
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
-    items.push_back(TETickItem().fromDB(TETickItem::Minimum, Qry));
+    items.push_back(TETCtxtItem().fromDB(Qry, true));
 }
+
+void GetCheckedByCouponNo(const std::string& tick_no, int coupon_no, std::list<TETCtxtItem> &items)
+{
+  items.clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=GetSQL(allCheckedByTickNoAndCouponNo);
+  Qry.CreateVariable("ticket_no", otString, tick_no);
+  Qry.CreateVariable("coupon_no", otInteger, coupon_no);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    TETCtxtItem ctxt;
+    ctxt.fromDB(Qry, false);
+    if (!ctxt.pax.refuse.empty()) continue;
+    items.push_back(ctxt);
+  }
+}
+
 
 } //namespace PaxETList
 
@@ -372,12 +403,13 @@ void TlgETDisplay(int point_id_spp)
 
 const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
 {
-  if (empty())
+  if (et.empty())
     throw EXCEPTIONS::Exception("TETickItem::toDB: empty eticket");
 
   QParams QryParams;
-  QryParams << QParam("ticket_no", otString, et_no)
-            << QParam("coupon_no", otInteger, et_coupon);
+  QryParams << QParam("ticket_no", otString, et.no)
+            << (et.coupon!=ASTRA::NoExists?QParam("coupon_no", otInteger, et.coupon):
+                                           QParam("coupon_no", otInteger, FNull));
 
   switch(ediAction)
   {
@@ -405,12 +437,10 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
                                               QParam("point_id", otInteger, FNull))
                 << QParam("airp_dep", otString, airp_dep)
                 << QParam("airp_arv", otString, airp_arv)
-                << (status!=CouponStatus::Unavailable?QParam("coupon_status", otString, status->dispCode()):
-                                                      QParam("coupon_status", otString, FNull))
+                << (et.status!=CouponStatus::Unavailable?QParam("coupon_status", otString, et.status->dispCode()):
+                                                         QParam("coupon_status", otString, FNull))
                 << QParam("error", otString, change_status_error.substr(0,100));
       break;
-    case Minimum:
-      throw EXCEPTIONS::Exception("TETickItem::toDB: Minimum not supported");
   };
 
   switch(ediAction)
@@ -420,8 +450,9 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
       {
         TCachedQuery DelQry("DELETE FROM eticks_display_tlgs "
                             "WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no",
-                            QParams() << QParam("ticket_no", otString, et_no)
-                                      << QParam("coupon_no", otInteger, et_coupon));
+                            QParams() << QParam("ticket_no", otString, et.no)
+                                      << (et.coupon!=ASTRA::NoExists?QParam("coupon_no", otInteger, et.coupon):
+                                                                     QParam("coupon_no", otInteger, FNull)));
         DelQry.get().Execute();
 
         const char* sql=
@@ -479,21 +510,36 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
         Qry.get().Execute();
       }
       break;
-
-    case Minimum:
-      throw EXCEPTIONS::Exception("TETickItem::toDB: Minimum not supported");
   };
   return *this;
 };
+
+TETCoupon& TETCoupon::fromDB(TQuery &Qry)
+{
+  clear();
+  no=Qry.FieldAsString("ticket_no");
+  coupon=Qry.FieldIsNULL("coupon_no")?ASTRA::NoExists:
+                                      Qry.FieldAsInteger("coupon_no");
+  return *this;
+}
+
+TETCtxtItem& TETCtxtItem::fromDB(TQuery &Qry, bool from_crs)
+{
+  clear();
+  et.fromDB(Qry);
+  point_id=Qry.FieldIsNULL("point_id")?ASTRA::NoExists:
+                                       Qry.FieldAsInteger("point_id");
+  paxFromDB(Qry, from_crs);
+
+  return *this;
+}
 
 TETickItem& TETickItem::fromDB(const TEdiAction ediAction,
                                TQuery &Qry)
 {
   if (ediAction!=DisplayTlg) clear();
 
-  et_no=Qry.FieldAsString("ticket_no");
-  et_coupon=Qry.FieldIsNULL("coupon_no")?ASTRA::NoExists:
-                                         Qry.FieldAsInteger("coupon_no");
+  et.fromDB(Qry);
 
   switch(ediAction)
   {
@@ -525,16 +571,9 @@ TETickItem& TETickItem::fromDB(const TEdiAction ediAction,
                                              Qry.FieldAsInteger("point_id");
         airp_dep=Qry.FieldAsString("airp_dep");
         airp_arv=Qry.FieldAsString("airp_arv");
-        status=Qry.FieldIsNULL("coupon_status")?CouponStatus(CouponStatus::Unavailable):
-                                                CouponStatus(CouponStatus::fromDispCode(Qry.FieldAsString("coupon_status")));
+        et.status=Qry.FieldIsNULL("coupon_status")?CouponStatus(CouponStatus::Unavailable):
+                                                   CouponStatus(CouponStatus::fromDispCode(Qry.FieldAsString("coupon_status")));
         change_status_error=Qry.FieldAsString("error");
-      }
-      break;
-
-    case Minimum:
-      {
-        point_id=Qry.FieldIsNULL("point_id")?ASTRA::NoExists:
-                                             Qry.FieldAsInteger("point_id");
       }
       break;
   }
@@ -658,7 +697,7 @@ static boost::optional<Itin> getWcCouponItin(const Ticketing::Airline_t& airline
 
 Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltParams) const
 {
-  Coupon_info ci(et_coupon, status);
+  Coupon_info ci(et.coupon, et.status);
   TDateTime scd_local=UTCToLocal(fltParams.fltInfo.scd_out,
                                  AirpTZRegion(fltParams.fltInfo.airp));
   ptime scd(DateTimeToBoost(scd_local));
@@ -668,8 +707,8 @@ Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltPara
   if (fltParams.control_method)
   {
     wcItin=getWcCouponItin(BaseTables::Company(fltParams.fltInfo.airline)->ida(),
-                           Ticketing::TicketNum_t(et_no),
-                           Ticketing::CouponNum_t(et_coupon));
+                           Ticketing::TicketNum_t(et.no),
+                           Ticketing::CouponNum_t(et.coupon));
 
     if (wcItin)
       LogTrace(TRACE5) << __FUNCTION__ << ": wcItin.get().airCode()=" << wcItin.get().airCode()
@@ -693,7 +732,7 @@ Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltPara
   list<Coupon> lcpn;
   lcpn.push_back(cpn);
 
-  return Ticket(et_no, lcpn);
+  return Ticket(et.no, lcpn);
 }
 
 void ETDisplayToDB(const Ticketing::EdiPnr& ediPnr)
@@ -709,18 +748,18 @@ void ETDisplayToDB(const Ticketing::EdiPnr& ediPnr)
     if(tick.actCode() == TickStatAction::oldtick ||
        tick.actCode() == TickStatAction::inConnectionWith) continue;
 
-    ETickItem.et_no=tick.ticknum();
+    ETickItem.et.no=tick.ticknum();
     if (pnr.rci().dateOfIssue().is_special())
     {
       ProgError(STDLOG, "%s: pnr.rci().dateOfIssue().is_special()! (ticket=%s)",
-                        __FUNCTION__, ETickItem.no_str().c_str());
+                        __FUNCTION__, ETickItem.et.no_str().c_str());
       continue;
     };
     ETickItem.issue_date=BoostToDateTime(pnr.rci().dateOfIssue());
     if (pnr.pass().surname().empty())
     {
       ProgError(STDLOG, "%s: pnr.pass().surname().empty()! (ticket=%s)",
-                        __FUNCTION__, ETickItem.no_str().c_str());
+                        __FUNCTION__, ETickItem.et.no_str().c_str());
       continue;
     }
     ETickItem.surname=pnr.pass().surname();
@@ -730,11 +769,11 @@ void ETDisplayToDB(const Ticketing::EdiPnr& ediPnr)
     for(list<Coupon>::const_iterator j=tick.getCoupon().begin(); j!=tick.getCoupon().end(); ++j)
     {
       const Coupon &cpn = *j;
-      ETickItem.et_coupon=cpn.couponInfo().num();
+      ETickItem.et.coupon=cpn.couponInfo().num();
       if(!cpn.haveItin())
       {
         ProgError(STDLOG, "%s: !cpn.haveItin()! (ticket=%s)",
-                          __FUNCTION__, ETickItem.no_str().c_str());
+                          __FUNCTION__, ETickItem.et.no_str().c_str());
         continue;
       };
 
@@ -742,7 +781,7 @@ void ETDisplayToDB(const Ticketing::EdiPnr& ediPnr)
       if (itin.fareBasis().empty())
       {
         ProgError(STDLOG, "%s: itin.fareBasis().empty()! (ticket=%s)",
-                          __FUNCTION__, ETickItem.no_str().c_str());
+                          __FUNCTION__, ETickItem.et.no_str().c_str());
         continue;
       }
       ETickItem.fare_basis=itin.fareBasis();
@@ -881,11 +920,11 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 
     if (!cpnNum)
     {
-      set<TETickItem> ETickItems;
-      PaxETList::GetByTickNoFromTlg(point_id, tickNum.get(), ETickItems);
-      if (ETickItems.empty()) throw UserException("MSG.ETICK.NOT_FOUND_IN_PNL", LParams()<<LParam("etick", tickNum.get()));
-      if (ETickItems.size()>1) throw  UserException("MSG.ETICK.DUPLICATED_IN_PNL", LParams()<<LParam("etick", tickNum.get()));
-      cpnNum=CouponNum_t(ETickItems.begin()->et_coupon);
+      set<TETCtxtItem> ETCtxtItems;
+      PaxETList::GetByTickNoFromTlg(point_id, tickNum.get(), ETCtxtItems);
+      if (ETCtxtItems.empty()) throw UserException("MSG.ETICK.NOT_FOUND_IN_PNL", LParams()<<LParam("etick", tickNum.get()));
+      if (ETCtxtItems.size()>1) throw  UserException("MSG.ETICK.DUPLICATED_IN_PNL", LParams()<<LParam("etick", tickNum.get()));
+      cpnNum=CouponNum_t(ETCtxtItems.begin()->et.coupon);
     }
 
     bool existsAC=existsAirportControl(BaseTables::Company(flt.airline)->ida(), tickNum, cpnNum, false);
@@ -1445,10 +1484,10 @@ void EMDSystemUpdateInterface::EMDCheckDisassociation(const int point_id,
       //  возможно надо более тонко
       TLogLocale event;
       event.ev_type=ASTRA::evtPay;
-      event.lexema_id= i->action==CpnStatAction::associate?"EVT.EMD_ASSOCIATION_MISTAKE":
-                                                           "EVT.EMD_DISASSOCIATION_MISTAKE";
-      event.prms << PrmSmpl<std::string>("emd_no", i->emd_no)
-                 << PrmSmpl<int>("emd_coupon", i->emd_coupon);
+      event.lexema_id= i->emd.action==CpnStatAction::associate?"EVT.EMD_ASSOCIATION_MISTAKE":
+                                                               "EVT.EMD_DISASSOCIATION_MISTAKE";
+      event.prms << PrmSmpl<std::string>("emd_no", i->emd.no)
+                 << PrmSmpl<int>("emd_coupon", i->emd.coupon);
 
       if (i->pax.tkn.rem!="TKNE" || i->pax.tkn.no.empty())
         event.prms << PrmLexema("err", "MSG.ETICK.NUMBER_NOT_SET");
@@ -1460,21 +1499,21 @@ void EMDSystemUpdateInterface::EMDCheckDisassociation(const int point_id,
     };
 
     TEMDocItem EMDocItem;
-    EMDocItem.fromDB(i->emd_no, i->emd_coupon, false);
+    EMDocItem.fromDB(i->emd.no, i->emd.coupon, false);
     if (!EMDocItem.empty())
     {
-      if (EMDocItem.action==i->action) continue;
+      if (EMDocItem.emd.action==i->emd.action) continue;
       if (i->pax.tkn.empty())
       {
-        i->pax.tkn.no=EMDocItem.et_no;
-        i->pax.tkn.coupon=EMDocItem.et_coupon;
+        i->pax.tkn.no=EMDocItem.et.no;
+        i->pax.tkn.coupon=EMDocItem.et.coupon;
         i->pax.tkn.rem="TKNE";
       }
     }
     else
     {
       //в emdocs нет ничего
-      if (i->action==CpnStatAction::associate) continue; //считаем что ассоциация сделана по умолчанию
+      if (i->emd.action==CpnStatAction::associate) continue; //считаем что ассоциация сделана по умолчанию
     }
 
     emdList.push_back(make_pair(TEMDSystemUpdateItem(), XMLDoc()));
@@ -1483,8 +1522,8 @@ void EMDSystemUpdateInterface::EMDCheckDisassociation(const int point_id,
     item.airline_oper=getTripAirline(fltParams.fltInfo);
     item.flt_no_oper=getTripFlightNum(fltParams.fltInfo);
     item.et=Ticketing::TicketCpn_t(i->pax.tkn.no, i->pax.tkn.coupon);
-    item.emd=Ticketing::TicketCpn_t(i->emd_no, i->emd_coupon);
-    item.action=i->action;
+    item.emd=Ticketing::TicketCpn_t(i->emd.no, i->emd.coupon);
+    item.action=i->emd.action;
 
     XMLDoc &ctxt=emdList.back().second;
     if (ctxt.docPtr()==NULL)
@@ -1795,12 +1834,7 @@ void ETStatusInterface::ETCheckStatusForRollback(int point_id,
       {
         TQuery Qry(&OraSession);
         Qry.Clear();
-        Qry.SQLText=
-          "SELECT pax_grp.airp_dep, pax_grp.airp_arv, pax_grp.class, pax.* "
-          "FROM pax_grp,pax "
-          "WHERE pax_grp.grp_id=pax.grp_id AND pax.ticket_rem='TKNE' AND "
-          "      pax.ticket_no=:ticket_no AND "
-          "      pax.coupon_no=:coupon_no";
+        Qry.SQLText=PaxETList::GetSQL(PaxETList::allCheckedByTickNoAndCouponNo);
         Qry.DeclareVariable("ticket_no",otString);
         Qry.DeclareVariable("coupon_no",otInteger);
 
@@ -1834,7 +1868,7 @@ void ETStatusInterface::ETCheckStatusForRollback(int point_id,
           TETCtxtItem ETCtxt(*TReqInfo::Instance(), point_id);
           if (!Qry.Eof)
           {
-            ETCtxt.paxFromDB(Qry);
+            ETCtxt.paxFromDB(Qry, false);
             real_status=calcPaxCouponStatus(ETCtxt.pax.refuse,
                                             ETCtxt.pax.pr_brd,
                                             fltParams.in_final_status);
@@ -1910,7 +1944,7 @@ void TEMDChangeStatusList::addEMD(const TEMDChangeStatusKey &key,
   if (i==end()) throw EXCEPTIONS::Exception("%s: i==end()", __FUNCTION__);
 
   list<TEMDChangeStatusItem>::iterator j=i->second.insert(i->second.end(), TEMDChangeStatusItem());
-  j->emd=Ticketing::TicketCpn_t(item.emd_no, item.emd_coupon);
+  j->emd=Ticketing::TicketCpn_t(item.emd.no, item.emd.coupon);
   xmlNodePtr emdocsNode=NULL;
   if (j->ctxt.docPtr()==NULL)
   {
@@ -1970,12 +2004,12 @@ void EMDStatusInterface::EMDCheckStatus(const int grp_id,
 
       e->point_id=point_id;
       e->flight=flight;
-      e->status = pass==0?CouponStatus(paxStatus):CouponStatus(CouponStatus::OriginalIssue);
+      e->emd.status = pass==0?CouponStatus(paxStatus):CouponStatus(CouponStatus::OriginalIssue);
 
       TEMDChangeStatusKey key;
       key.airline_oper=fltParams.fltInfo.airline;
       key.flt_no_oper=fltParams.fltInfo.flt_no;
-      key.coupon_status=e->status;
+      key.coupon_status=e->emd.status;
 
       emdList.addEMD(key, *e, fltParams.control_method);
     };
@@ -2041,14 +2075,14 @@ bool ETStatusInterface::ChangeStatusLocallyOnly(const TFltParams& fltParams,
 
   try
   {
-    changeOfStatusWcCoupon(fltParams.fltInfo.airline, item.et_no, item.et_coupon, item.status, true);
+    changeOfStatusWcCoupon(fltParams.fltInfo.airline, item.et.no, item.et.coupon, item.et.status, true);
     if (fltParams.in_final_status &&
-        (item.status==CouponStatus::OriginalIssue ||
-         item.status==CouponStatus::Flown))
+        (item.et.status==CouponStatus::OriginalIssue ||
+         item.et.status==CouponStatus::Flown))
     {
-      LogTrace(TRACE5) << __FUNCTION__ << ": try to return control for " << item.no_str()
+      LogTrace(TRACE5) << __FUNCTION__ << ": try to return control for " << item.et.no_str()
                                        << " in_final_status=" << boolalpha << fltParams.in_final_status
-                                       << " coupon_status=" << item.status->dispCode();
+                                       << " coupon_status=" << item.et.status->dispCode();
       return false; //отдаем контроль
     }
     item.toDB(TETickItem::ChangeOfStatus);
@@ -2056,16 +2090,16 @@ bool ETStatusInterface::ChangeStatusLocallyOnly(const TFltParams& fltParams,
     TLogLocale event;
     event.ev_type=ASTRA::evtPax;
     event.lexema_id="EVT.ETICKET_CHANGE_STATUS";
-    event.prms << PrmSmpl<std::string>("ticket_no", item.et_no)
-               << PrmSmpl<int>("coupon_no", item.et_coupon)
-               << PrmSmpl<std::string>("disp_code", item.status->dispCode());
+    event.prms << PrmSmpl<std::string>("ticket_no", item.et.no)
+               << PrmSmpl<int>("coupon_no", item.et.coupon)
+               << PrmSmpl<std::string>("disp_code", item.et.status->dispCode());
     AstraEdifact::ProcEvent(event, ctxt, nullptr, false);
 
   }
   catch(AirportControlNotFound)
   {
     ProgTrace(TRACE5, "%s: AirportControlNotFound for %s (point_id=%d)",
-                      __FUNCTION__, item.no_str().c_str(), item.point_id);
+                      __FUNCTION__, item.et.no_str().c_str(), item.point_id);
 //    if (!readWcCoupon(BaseTables::Company(fltParams.fltInfo.airline)->ida(),
 //                      Ticketing::TicketNum_t(ticket_no),
 //                      Ticketing::CouponNum_t(coupon_no)))
@@ -2075,7 +2109,7 @@ bool ETStatusInterface::ChangeStatusLocallyOnly(const TFltParams& fltParams,
   catch(WcCouponNotFound)
   {
     ProgTrace(TRACE5, "%s: WcCouponNotFound for %s (point_id=%d)",
-                      __FUNCTION__, item.no_str().c_str(), item.point_id);
+                      __FUNCTION__, item.et.no_str().c_str(), item.point_id);
   }
 
   return true;
@@ -2084,27 +2118,47 @@ bool ETStatusInterface::ChangeStatusLocallyOnly(const TFltParams& fltParams,
 bool ETStatusInterface::ToDoNothingWhenChangingStatus(const TFltParams& fltParams,
                                                       const TETickItem& item)
 {
-   bool res=item.status == CouponStatus::Airport &&
-            existsAirportControl(fltParams.fltInfo.airline, item.et_no, item.et_coupon, false);
+   bool res=item.et.status == CouponStatus::Airport &&
+            existsAirportControl(fltParams.fltInfo.airline, item.et.no, item.et.coupon, false);
    LogTrace(TRACE5) << __FUNCTION__ << " returned " << std::boolalpha << res;
    return res;
 }
 
 void ETStatusInterface::AfterReceiveAirportControl(const Ticketing::WcCoupon& cpn)
 {
-  list<TETickItem> ETickItems;
-  PaxETList::GetByCouponNoFromTlg(cpn.tickNum().get(), cpn.cpnNum().get(), ETickItems);
-  for(const TETickItem& item : ETickItems)
-    TReqInfo::Instance()->LocaleToLog("EVT.ETICKET_CONTROL_RECEIVED",
-                                      LEvntPrms() << PrmSmpl<std::string>("ticket_no", item.et_no)
-                                                  << PrmSmpl<int>("coupon_no", item.et_coupon),
-                                      ASTRA::evtFlt,
-                                      item.point_id);
+  list<TETCtxtItem> ETCtxtItems;
+  PaxETList::GetByCouponNoFromTlg(cpn.tickNum().get(), cpn.cpnNum().get(), ETCtxtItems);
+  if (ETCtxtItems.empty())
+    PaxETList::GetCheckedByCouponNo(cpn.tickNum().get(), cpn.cpnNum().get(), ETCtxtItems);
+  for(const TETCtxtItem& ctxt : ETCtxtItems)
+  {
+    TLogLocale event;
+    event.ev_type=ASTRA::evtFlt;
+    event.lexema_id="EVT.ETICKET_CONTROL_RECEIVED";
+    event.prms << PrmSmpl<std::string>("ticket_no", ctxt.et.no)
+               << PrmSmpl<int>("coupon_no", ctxt.et.coupon);
+
+    AstraEdifact::ProcEvent(event, ctxt, NULL, false);
+  }
 }
 
 void ETStatusInterface::AfterReturnAirportControl(const Ticketing::WcCoupon& cpn)
 {
-  //!!!vlad
+  list<TETCtxtItem> ETCtxtItems;
+  PaxETList::GetCheckedByCouponNo(cpn.tickNum().get(), cpn.cpnNum().get(), ETCtxtItems);
+  if (ETCtxtItems.empty())
+    PaxETList::GetByCouponNoFromTlg(cpn.tickNum().get(), cpn.cpnNum().get(), ETCtxtItems);
+  for(const TETCtxtItem& ctxt : ETCtxtItems)
+  {
+    TLogLocale event;
+    event.ev_type=ASTRA::evtFlt;
+    event.lexema_id="EVT.ETICKET_CONTROL_RETURNED";
+    event.prms << PrmSmpl<std::string>("ticket_no", ctxt.et.no)
+               << PrmSmpl<int>("coupon_no", ctxt.et.coupon)
+               << PrmSmpl<std::string>("disp_code", cpn.status()->dispCode());
+
+    AstraEdifact::ProcEvent(event, ctxt, NULL, false);
+  }
 }
 
 bool ETStatusInterface::ReturnAirportControl(const TFltParams& fltParams,
@@ -2114,25 +2168,25 @@ bool ETStatusInterface::ReturnAirportControl(const TFltParams& fltParams,
 
   try
   {
-    changeOfStatusWcCoupon(fltParams.fltInfo.airline, item.et_no, item.et_coupon, item.status, true);
-    LogTrace(TRACE5) << __FUNCTION__ << ": " << item.no_str()
+    changeOfStatusWcCoupon(fltParams.fltInfo.airline, item.et.no, item.et.coupon, item.et.status, true);
+    LogTrace(TRACE5) << __FUNCTION__ << ": " << item.et.no_str()
                                      << " in_final_status=" << boolalpha << fltParams.in_final_status
-                                     << " coupon_status=" << item.status->dispCode();
+                                     << " coupon_status=" << item.et.status->dispCode();
 
     return returnWcCoupon(BaseTables::Company(fltParams.fltInfo.airline)->ida(),
-                          Ticketing::TicketNum_t(item.et_no),
-                          Ticketing::CouponNum_t(item.et_coupon),
+                          Ticketing::TicketNum_t(item.et.no),
+                          Ticketing::CouponNum_t(item.et.coupon),
                           false);
   }
   catch(AirportControlNotFound)
   {
     ProgTrace(TRACE5, "%s: AirportControlNotFound for %s (point_id=%d)",
-                      __FUNCTION__, item.no_str().c_str(), item.point_id);
+                      __FUNCTION__, item.et.no_str().c_str(), item.point_id);
   }
   catch(WcCouponNotFound)
   {
     ProgTrace(TRACE5, "%s: WcCouponNotFound for %s (point_id=%d)",
-                      __FUNCTION__, item.no_str().c_str(), item.point_id);
+                      __FUNCTION__, item.et.no_str().c_str(), item.point_id);
   }
   return false;
 }
@@ -2221,7 +2275,7 @@ void ETStatusInterface::ETCheckStatus(int id,
           for(;!Qry.Eof;Qry.Next())
           {
             TETCtxtItem ETCtxt(*TReqInfo::Instance(), point_id);
-            ETCtxt.paxFromDB(Qry);
+            ETCtxt.paxFromDB(Qry, false);
 
             if (ticket_no==Qry.FieldAsString("ticket_no") &&
                 coupon_no==Qry.FieldAsInteger("coupon_no")) continue; //дублирование билетов
@@ -2251,6 +2305,7 @@ void ETStatusInterface::ETCheckStatus(int id,
             {
               TETickItem ETItem(ticket_no, coupon_no, point_id, airp_dep, airp_arv, real_status);
               if (ETStatusInterface::ChangeStatusLocallyOnly(fltParams, ETItem, ETCtxt)) continue;
+
               if (!init_edi_addrs)
               {
                 key.airline_oper=fltParams.fltInfo.airline;
@@ -2351,17 +2406,17 @@ void ETStatusInterface::ETCheckStatus(int id,
 
             xmlNodePtr node=mtick.addTicket(key, ETItem.makeTicket(fltParams), fltParams.control_method);
 
-            NewTextChild(node,"ticket_no",ET.et_no);
-            NewTextChild(node,"coupon_no",ET.et_coupon);
+            NewTextChild(node,"ticket_no",ET.et.no);
+            NewTextChild(node,"coupon_no",ET.et.coupon);
             NewTextChild(node,"point_id",ET.point_id);
             NewTextChild(node,"airp_dep",ET.airp_dep);
             NewTextChild(node,"airp_arv",ET.airp_arv);
             NewTextChild(node,"flight",GetTripName(fltParams.fltInfo,ecNone,true,false));
-            NewTextChild(node,"prior_coupon_status",ET.status->dispCode());
+            NewTextChild(node,"prior_coupon_status",ET.et.status->dispCode());
 
             ProgTrace(TRACE5,"ETCheckStatus %s/%d->%s",
-                             ET.et_no.c_str(),
-                             ET.et_coupon,
+                             ET.et.no.c_str(),
+                             ET.et.coupon,
                              real_status->dispCode());
           }
         }
@@ -3152,6 +3207,10 @@ void handleEtDispResponse(const edifact::RemoteResults& remRes)
         Ticketing::EdiPnr ediPnr(remRes.tlgSource(), edifact::EdiDisplRes);
         ETDisplayToDB(ediPnr);
     }
+    catch(UserException &e)
+    {
+      ProgTrace(TRACE5, ">>>> %s: %s", __FUNCTION__, e.what());
+    }
     catch(std::exception &e)
     {
         if (remRes.isSystemPult())
@@ -3373,8 +3432,8 @@ void handleEtCosResponse(const edifact::RemoteResults& remRes)
               LexemeDataToXML(err_lexeme, errNode);
 
               TETickItem ETickItem;
-              ETickItem.et_no=NodeAsStringFast("ticket_no",node2);
-              ETickItem.et_coupon=NodeAsIntegerFast("coupon_no",node2);
+              ETickItem.et.no=NodeAsStringFast("ticket_no",node2);
+              ETickItem.et.coupon=NodeAsIntegerFast("coupon_no",node2);
               ETickItem.point_id=NodeAsIntegerFast("point_id",node2);
               ETickItem.airp_dep=NodeAsStringFast("airp_dep",node2);
               ETickItem.airp_arv=NodeAsStringFast("airp_arv",node2);
@@ -3417,8 +3476,8 @@ void handleEtCosResponse(const edifact::RemoteResults& remRes)
                     LexemeDataToXML(err_lexeme, errNode);
                     //нашли билет
                     TETickItem ETickItem;
-                    ETickItem.et_no=NodeAsStringFast("ticket_no",node2);
-                    ETickItem.et_coupon=NodeAsIntegerFast("coupon_no",node2);
+                    ETickItem.et.no=NodeAsStringFast("ticket_no",node2);
+                    ETickItem.et.coupon=NodeAsIntegerFast("coupon_no",node2);
                     ETickItem.point_id=NodeAsIntegerFast("point_id",node2);
                     ETickItem.airp_dep=NodeAsStringFast("airp_dep",node2);
                     ETickItem.airp_arv=NodeAsStringFast("airp_arv",node2);
@@ -3471,8 +3530,8 @@ void handleEtCosResponse(const edifact::RemoteResults& remRes)
                     LexemeDataToXML(err_lexeme, errNode);
                     //нашли билет
                     TETickItem ETickItem;
-                    ETickItem.et_no=NodeAsStringFast("ticket_no",node2);
-                    ETickItem.et_coupon=NodeAsIntegerFast("coupon_no",node2);
+                    ETickItem.et.no=NodeAsStringFast("ticket_no",node2);
+                    ETickItem.et.coupon=NodeAsIntegerFast("coupon_no",node2);
                     ETickItem.point_id=NodeAsIntegerFast("point_id",node2);
                     ETickItem.airp_dep=NodeAsStringFast("airp_dep",node2);
                     ETickItem.airp_arv=NodeAsStringFast("airp_arv",node2);
@@ -3517,15 +3576,15 @@ void handleEtCosResponse(const edifact::RemoteResults& remRes)
                   xmlNodePtr statusNode=NewTextChild(node,"coupon_status",status->dispCode());
 
                   TETickItem ETickItem;
-                  ETickItem.et_no=NodeAsStringFast("ticket_no",node2);
-                  ETickItem.et_coupon=NodeAsIntegerFast("coupon_no",node2);
+                  ETickItem.et.no=NodeAsStringFast("ticket_no",node2);
+                  ETickItem.et.coupon=NodeAsIntegerFast("coupon_no",node2);
                   ETickItem.point_id=NodeAsIntegerFast("point_id",node2);
                   ETickItem.airp_dep=NodeAsStringFast("airp_dep",node2);
                   ETickItem.airp_arv=NodeAsStringFast("airp_arv",node2);
                   if (status->codeInt()!=CouponStatus::OriginalIssue)
-                    ETickItem.status=CouponStatus(status);
+                    ETickItem.et.status=CouponStatus(status);
                   else
-                    ETickItem.status=CouponStatus(CouponStatus::Unavailable);
+                    ETickItem.et.status=CouponStatus(CouponStatus::Unavailable);
 
                   TFltParams fltParams;
                   if (fltParams.get(ETickItem.point_id))
@@ -3533,18 +3592,15 @@ void handleEtCosResponse(const edifact::RemoteResults& remRes)
                     if (!ETStatusInterface::ToDoNothingWhenChangingStatus(fltParams, ETickItem))
                     {
                       TETickItem priorETickItem;
-                      priorETickItem.fromDB(ETickItem.et_no, ETickItem.et_coupon, TETickItem::ChangeOfStatus, true);
+                      priorETickItem.fromDB(ETickItem.et.no, ETickItem.et.coupon, TETickItem::ChangeOfStatus, true);
 
                       ETickItem.toDB(TETickItem::ChangeOfStatus);
 
-                      bool repeated=(priorETickItem.status==ETickItem.status);
+                      bool repeated=(priorETickItem.et.status==ETickItem.et.status);
 
-                      if (ETickItem.status==CouponStatus::Unavailable)
-                        ETickItem.status=CouponStatus(CouponStatus::OriginalIssue);
-                      if (ETStatusInterface::ReturnAirportControl(fltParams, ETickItem))
-                        //контроль отдали, изменим БД
-                        ChangeStatusToLog(statusNode, false, "EVT.ETICKET_CONTROL_RETURNED", params, screen, user, desk);
-                      else
+                      if (ETickItem.et.status==CouponStatus::Unavailable)
+                        ETickItem.et.status=CouponStatus(CouponStatus::OriginalIssue);
+                      if (!ETStatusInterface::ReturnAirportControl(fltParams, ETickItem))
                         ChangeStatusToLog(statusNode, repeated, "EVT.ETICKET_CHANGE_STATUS", params, screen, user, desk);
                     };
                   }

@@ -314,12 +314,12 @@ const TEMDCtxtItem& TEMDCtxtItem::toXML(xmlNodePtr node) const
 
   TPaxCtxt::toXML(node);
 
-  NewTextChild(node, "doc_no", emd_no);
-  emd_coupon!=NoExists?NewTextChild(node, "coupon_no", emd_coupon):
+  NewTextChild(node, "doc_no", emd.no);
+  emd.coupon!=NoExists?NewTextChild(node, "coupon_no", emd.coupon):
                        NewTextChild(node, "coupon_no");
-  status!=CouponStatus::Unavailable?NewTextChild(node, "coupon_status", status->dispCode()):
-                                    NewTextChild(node, "coupon_status", FNull);
-  NewTextChild(node, "associated", (int)(action==CpnStatAction::associate));
+  emd.status!=CouponStatus::Unavailable?NewTextChild(node, "coupon_status", emd.status->dispCode()):
+                                        NewTextChild(node, "coupon_status", FNull);
+  NewTextChild(node, "associated", (int)(emd.action==CpnStatAction::associate));
   NewTextChild(node, "associated_no", pax.tkn.no);
   pax.tkn.coupon !=NoExists?NewTextChild(node, "associated_coupon", pax.tkn.coupon):
                             NewTextChild(node, "associated_coupon");
@@ -335,12 +335,12 @@ TEMDCtxtItem& TEMDCtxtItem::fromXML(xmlNodePtr node, xmlNodePtr originNode)
   if (originNode!=NULL) TOriginCtxt::fromXML(originNode);
 
   xmlNodePtr node2=node->children;
-  emd_no=NodeAsStringFast("doc_no", node2);
-  emd_coupon=NodeAsIntegerFast("coupon_no", node2, NoExists);
-  action=NodeAsIntegerFast("associated", node2)!=0?CpnStatAction::associate:
-                                                   CpnStatAction::disassociate;
-  status=NodeIsNULLFast("coupon_status", node2)?CouponStatus(CouponStatus::Unavailable):
-                                                CouponStatus(CouponStatus::fromDispCode(NodeAsStringFast("coupon_status", node2)));
+  emd.no=NodeAsStringFast("doc_no", node2);
+  emd.coupon=NodeAsIntegerFast("coupon_no", node2, NoExists);
+  emd.action=NodeAsIntegerFast("associated", node2)!=0?CpnStatAction::associate:
+                                                       CpnStatAction::disassociate;
+  emd.status=NodeIsNULLFast("coupon_status", node2)?CouponStatus(CouponStatus::Unavailable):
+                                                    CouponStatus(CouponStatus::fromDispCode(NodeAsStringFast("coupon_status", node2)));
   pax.tkn.no=NodeAsStringFast("associated_no", node2);
   pax.tkn.coupon=NodeAsIntegerFast("associated_coupon", node2, NoExists);
   return *this;
@@ -349,9 +349,9 @@ TEMDCtxtItem& TEMDCtxtItem::fromXML(xmlNodePtr node, xmlNodePtr originNode)
 std::string TEMDCtxtItem::no_str() const
 {
   ostringstream s;
-  s << emd_no;
-  if (emd_coupon!=ASTRA::NoExists)
-    s << "/" << emd_coupon;
+  s << emd.no;
+  if (emd.coupon!=ASTRA::NoExists)
+    s << "/" << emd.coupon;
   else
     s << "/?";
   return s.str();
@@ -378,21 +378,21 @@ void GetBagEMDDisassocList(const int point_id,
         service_types.find(ASTRA::rstPaid)==service_types.end()) continue; //когда это уберется, тогда переименовать процедуру в GetEMDDisassocList
 
     TEMDCtxtItem item;
-    item.emd_no=asvc.emd_no;
-    item.emd_coupon=asvc.emd_coupon;
-    item.paxFromDB(Qry);
+    item.emd.no=asvc.emd_no;
+    item.emd.coupon=asvc.emd_coupon;
+    item.paxFromDB(Qry, false);
     item.point_id=point_id;
 
-    item.status=calcPaxCouponStatus(item.pax.refuse,
-                                    item.pax.pr_brd,
-                                    in_final_status);
-    if (item.status==CouponStatus::Flown) continue; //если финальный статус, то никаких ассоциаций
+    item.emd.status=calcPaxCouponStatus(item.pax.refuse,
+                                        item.pax.pr_brd,
+                                        in_final_status);
+    if (item.emd.status==CouponStatus::Flown) continue; //если финальный статус, то никаких ассоциаций
 
-    if (item.status==CouponStatus::Boarded &&
+    if (item.emd.status==CouponStatus::Boarded &&
         Qry.FieldIsNULL("paid_bag_emd_grp_id"))
-      item.action=CpnStatAction::disassociate;
+      item.emd.action=CpnStatAction::disassociate;
     else
-      item.action=CpnStatAction::associate;
+      item.emd.action=CpnStatAction::associate;
     emds.push_back(item);
   };
 };
@@ -435,8 +435,8 @@ void GetEMDStatusList(const int grp_id,
       if (p1->trfer_num!=0) continue; //работаем только со статусом 'нашего' сегмента
 
       TEMDCtxtItem item;
-      item.emd_no=p1->doc_no;
-      item.emd_coupon=p1->doc_coupon;
+      item.emd.no=p1->doc_no;
+      item.emd.coupon=p1->doc_coupon;
 
       Qry.SetVariable("emd_no", p1->doc_no);
       Qry.SetVariable("emd_coupon", p1->doc_coupon);
@@ -445,7 +445,7 @@ void GetEMDStatusList(const int grp_id,
       {
         //вообще когда одинаковые EMD принадлежат разным пассажиром - это плохо и наверное надо что-то с этим делать
         //пока выбираем пассажира с более ранним регистрационным номером
-        item.paxFromDB(Qry);
+        item.paxFromDB(Qry, false);
       };
 
       emds.push_back(item);
@@ -455,25 +455,25 @@ void GetEMDStatusList(const int grp_id,
 
 const TEMDocItem& TEMDocItem::toDB(const TEdiAction ediAction) const
 {
-  if (empty())
+  if (emd.empty())
     throw EXCEPTIONS::Exception("TEMDocItem::toDB: empty emd");
 
   QParams QryParams;
-  QryParams << QParam("doc_no", otString, emd_no)
-            << QParam("coupon_no", otInteger, emd_coupon)
+  QryParams << QParam("doc_no", otString, emd.no)
+            << QParam("coupon_no", otInteger, emd.coupon)
             << (point_id!=ASTRA::NoExists?QParam("point_id", otInteger, point_id):
                                           QParam("point_id", otInteger, FNull));
   switch(ediAction)
   {
     case ChangeOfStatus:
-      QryParams << (status!=CouponStatus::Unavailable?QParam("coupon_status", otString, status->dispCode()):
-                                                      QParam("coupon_status", otString, FNull))
+      QryParams << (emd.status!=CouponStatus::Unavailable?QParam("coupon_status", otString, emd.status->dispCode()):
+                                                          QParam("coupon_status", otString, FNull))
                 << QParam("change_status_error", otString, change_status_error.substr(0,100));
       break;
     case SystemUpdate:
-      QryParams << QParam("associated", otInteger, (int)(action==CpnStatAction::associate))
-                << QParam("associated_no", otString, et_no)
-                << QParam("associated_coupon", otInteger, et_coupon)
+      QryParams << QParam("associated", otInteger, (int)(emd.action==CpnStatAction::associate))
+                << QParam("associated_no", otString, et.no)
+                << QParam("associated_coupon", otInteger, et.coupon)
                 << QParam("system_update_error", otString, system_update_error.substr(0,100));
       break;
   };
@@ -539,17 +539,17 @@ TEMDocItem& TEMDocItem::fromDB(const string &_emd_no,
   Qry.get().Execute();
   if (!Qry.get().Eof)
   {
-    emd_no=_emd_no;
-    emd_coupon=_emd_coupon;
+    emd.no=_emd_no;
+    emd.coupon=_emd_coupon;
 
-    et_no=Qry.get().FieldAsString("associated_no");
-    et_coupon=Qry.get().FieldIsNULL("associated_coupon")?ASTRA::NoExists:
+    et.no=Qry.get().FieldAsString("associated_no");
+    et.coupon=Qry.get().FieldIsNULL("associated_coupon")?ASTRA::NoExists:
                                                          Qry.get().FieldAsInteger("associated_coupon");
 
-    status=Qry.get().FieldIsNULL("coupon_status")?CouponStatus(CouponStatus::Unavailable):
-                                                  CouponStatus(CouponStatus::fromDispCode(Qry.get().FieldAsString("coupon_status")));
-    action=Qry.get().FieldAsInteger("associated")!=0?CpnStatAction::associate:
-                                                     CpnStatAction::disassociate;
+    emd.status=Qry.get().FieldIsNULL("coupon_status")?CouponStatus(CouponStatus::Unavailable):
+                                                      CouponStatus(CouponStatus::fromDispCode(Qry.get().FieldAsString("coupon_status")));
+    emd.action=Qry.get().FieldAsInteger("associated")!=0?CpnStatAction::associate:
+                                                         CpnStatAction::disassociate;
 
     change_status_error=Qry.get().FieldAsString("change_status_error");
     system_update_error=Qry.get().FieldAsString("system_update_error");
@@ -577,15 +577,15 @@ bool ActualEMDEvent(const TEMDCtxtItem &EMDCtxt,
 
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, EMDCtxt.pax.id)
-            << QParam("emd_no", otString, EMDCtxt.emd_no)
-            << QParam("emd_coupon", otInteger, EMDCtxt.emd_coupon);
+            << QParam("emd_no", otString, EMDCtxt.emd.no)
+            << QParam("emd_coupon", otInteger, EMDCtxt.emd.coupon);
 
   TCachedQuery Qry(PaxASVCList::GetSQL(PaxASVCList::oneWithTknByPaxId), QryParams);
   Qry.get().Execute();
   if (Qry.get().Eof) return false;
 
   TEMDCtxtItem EMDCtxtActual(EMDCtxt);
-  EMDCtxtActual.paxFromDB(Qry.get());
+  EMDCtxtActual.paxFromDB(Qry.get(), false);
 
   if (EMDCtxtActual.pax.grp_id==EMDCtxt.pax.grp_id &&
       EMDCtxtActual.pax.reg_no==EMDCtxt.pax.reg_no) return false;

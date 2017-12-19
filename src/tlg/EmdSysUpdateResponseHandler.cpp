@@ -44,11 +44,11 @@ void EmdSysUpdateResponseHandler::handle()
       EMDCtxt.fromXML(node);
 
       TEMDocItem EMDocItem;
-      EMDocItem.emd_no=EMDCtxt.emd_no;
-      EMDocItem.emd_coupon=EMDCtxt.emd_coupon;
-      EMDocItem.et_no=EMDCtxt.pax.tkn.no;
-      EMDocItem.et_coupon=EMDCtxt.pax.tkn.coupon;
-      EMDocItem.action=EMDCtxt.action;
+      EMDocItem.emd.no=EMDCtxt.emd.no;
+      EMDocItem.emd.coupon=EMDCtxt.emd.coupon;
+      EMDocItem.et.no=EMDCtxt.pax.tkn.no;
+      EMDocItem.et.coupon=EMDCtxt.pax.tkn.coupon;
+      EMDocItem.emd.action=EMDCtxt.emd.action;
       EMDocItem.point_id=EMDCtxt.point_id;
 
       using namespace edifact;
@@ -72,14 +72,14 @@ void EmdSysUpdateResponseHandler::handle()
         TLogLocale event;
         event.ev_type=ASTRA::evtPay;
         event.lexema_id=res->status() == RemoteStatus::Success?
-              (EMDocItem.action==CpnStatAction::associate?"EVT.ETICK_EMD_ASSOCIATION":
-                                                          "EVT.ETICK_EMD_DISASSOCIATION"):
-              (EMDocItem.action==CpnStatAction::associate?"EVT.ETICK_EMD_ASSOCIATION_MISTAKE":
-                                                          "EVT.ETICK_EMD_DISASSOCIATION_MISTAKE");
-        event.prms << PrmSmpl<std::string>("et_no", EMDocItem.et_no)
-                   << PrmSmpl<int>("et_coupon", EMDocItem.et_coupon)
-                   << PrmSmpl<std::string>("emd_no", EMDocItem.emd_no)
-                   << PrmSmpl<int>("emd_coupon", EMDocItem.emd_coupon);
+              (EMDocItem.emd.action==CpnStatAction::associate?"EVT.ETICK_EMD_ASSOCIATION":
+                                                              "EVT.ETICK_EMD_DISASSOCIATION"):
+              (EMDocItem.emd.action==CpnStatAction::associate?"EVT.ETICK_EMD_ASSOCIATION_MISTAKE":
+                                                              "EVT.ETICK_EMD_DISASSOCIATION_MISTAKE");
+        event.prms << PrmSmpl<std::string>("et_no", EMDocItem.et.no)
+                   << PrmSmpl<int>("et_coupon", EMDocItem.et.coupon)
+                   << PrmSmpl<std::string>("emd_no", EMDocItem.emd.no)
+                   << PrmSmpl<int>("emd_coupon", EMDocItem.emd.coupon);
 
         if (res->status() == RemoteStatus::CommonError)
           event.prms << PrmSmpl<std::string>("err", EMDocItem.system_update_error);

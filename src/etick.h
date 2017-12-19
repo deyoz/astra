@@ -145,7 +145,8 @@ enum TListType {notDisplayedByPointIdTlg,
                 allStatusesByPointIdFromTlg,
                 allByPointIdAndTickNoFromTlg,
                 allByTickNoAndCouponNoFromTlg,
-                allNotCheckedStatusesByPointId};
+                allNotCheckedStatusesByPointId,
+                allCheckedByTickNoAndCouponNo};
 std::string GetSQL(const TListType ltype);
 void GetNotDisplayedET(int point_id_tlg, int id, bool is_pax_id, std::set<ETSearchByTickNoParams> &searchParams);
 
@@ -155,9 +156,16 @@ void TlgETDisplay(int point_id_tlg, const std::set<int> &ids, bool is_pax_id);
 void TlgETDisplay(int point_id_tlg, int id, bool is_pax_id);
 void TlgETDisplay(int point_id_spp);
 
+class TETCoupon : public AstraEdifact::TCoupon
+{
+  public:
+    TETCoupon& fromDB(TQuery &Qry);
+};
+
 class TETCtxtItem : public AstraEdifact::TCtxtItem
 {
   public:
+    TETCoupon et;
     TETCtxtItem()
     {
       clear();
@@ -173,24 +181,30 @@ class TETCtxtItem : public AstraEdifact::TCtxtItem
     void clear()
     {
       TCtxtItem::clear();
+      et.clear();
     }
+
+    bool operator < (const TETCtxtItem &ctxt) const
+    {
+      return et < ctxt.et;
+    }
+
+    TETCtxtItem& fromDB(TQuery &Qry, bool from_crs);
 };
 
 class TETickItem
 {
   public:
 
-    enum TEdiAction{DisplayTlg, Display, ChangeOfStatus, Minimum};
+    enum TEdiAction{DisplayTlg, Display, ChangeOfStatus};
 
-    std::string et_no;
-    int et_coupon;
+    TETCoupon et;
     TDateTime issue_date;
     std::string surname, name;
     std::string fare_basis;
     std::string subcls;
     int bag_norm;
     TBagNormUnit bag_norm_unit;
-    Ticketing::CouponStatus status;
     std::string display_error, change_status_error;
     int point_id;
     std::string airp_dep, airp_arv;
@@ -200,7 +214,7 @@ class TETickItem
       clear();
     }
     TETickItem(const TETickItem &item, const Ticketing::CouponStatus &_status) :
-      TETickItem(item) { status=_status; }
+      TETickItem(item) { et.status=_status; }
     TETickItem(const std::string &_et_no,
                const int &_et_coupon,
                const int &_point_id,
@@ -209,18 +223,17 @@ class TETickItem
                const Ticketing::CouponStatus &_status)
     {
       clear();
-      et_no=_et_no;
-      et_coupon=_et_coupon;
+      et.no=_et_no;
+      et.coupon=_et_coupon;
       point_id=_point_id;
       airp_dep=_airp_dep;
       airp_arv=_airp_arv;
-      status=_status;
+      et.status=_status;
     }
 
     void clear()
     {
-      et_no.clear();
-      et_coupon=ASTRA::NoExists;
+      et.clear();
       issue_date=ASTRA::NoExists;
       surname.clear();
       name.clear();
@@ -228,7 +241,6 @@ class TETickItem
       subcls.clear();
       bag_norm=ASTRA::NoExists;
       bag_norm_unit.clear();
-      status=Ticketing::CouponStatus(Ticketing::CouponStatus::Unavailable);
       display_error.clear();
       change_status_error.clear();
       point_id=ASTRA::NoExists;
@@ -239,23 +251,12 @@ class TETickItem
 
     bool empty() const
     {
-      return et_no.empty() || et_coupon==ASTRA::NoExists;
+      return et.empty();
     }
 
     bool operator < (const TETickItem &item) const
     {
-      if (et_no!=item.et_no)
-        return et_no<item.et_no;
-      return et_coupon<item.et_coupon;
-    }
-
-    std::string no_str() const
-    {
-      std::ostringstream s;
-      s << et_no;
-      if (et_coupon!=ASTRA::NoExists)
-        s << "/" << et_coupon;
-      return s.str();
+      return et < item.et;
     }
 
     std::string bag_norm_view() const
