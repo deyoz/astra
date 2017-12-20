@@ -276,59 +276,6 @@ namespace BIPrintRules {
         LogTrace(TRACE5) << "------------------------------------";
     }
 
-    void Holder::toStat(int grp_id, int pax_id, TDateTime time_print)
-    {
-        const BIPrintRules::TRule &bi_rule = get(grp_id, pax_id);
-        if(bi_rule.exists() and not bi_rule.halls.empty()) {
-            TTripInfo info;
-            if(info.getByGrpId(grp_id)) {
-                QParams QryParams;
-                QryParams
-                    << QParam("point_id", otInteger, info.point_id)
-                    << QParam("scd_out", otDate, info.scd_out)
-                    << QParam("pax_id", otInteger, pax_id)
-                    << QParam("print_type", otString, TPrintTypes().encode(bi_rule.print_type))
-                    << QParam("op_type", otString, DevOperTypes().encode(op_type))
-                    << QParam("hall", otInteger, bi_rule.halls.begin()->first)
-                    << QParam("time_print", otDate, time_print)
-                    << QParam("desk", otString, TReqInfo::Instance()->desk.code);
-                if(bi_rule.halls.begin()->second != 0)
-                    QryParams << QParam("terminal", otInteger, bi_rule.halls.begin()->second);
-                else
-                    QryParams << QParam("terminal", otInteger, FNull);
-                TCachedQuery Qry(
-                        "insert into bi_stat ( "
-                        "   point_id, "
-                        "   scd_out, "
-                        "   pax_id, "
-                        "   print_type, "
-                        "   terminal, "
-                        "   hall, "
-                        "   op_type, "
-                        "   pr_print, "
-                        "   time_print, "
-                        "   desk "
-                        ") values ( "
-                        "   :point_id, "
-                        "   :scd_out, "
-                        "   :pax_id, "
-                        "   :print_type, "
-                        "   :terminal, "
-                        "   :hall, "
-                        "   :op_type, "
-                        "   0, "
-                        "   :time_print, "
-                        "   :desk "
-                        ") ", QryParams);
-                try {
-                    Qry.get().Execute();
-                } catch( EOracleError E ) {
-                    if(E.Code != 1) throw; // ignore unique constraint violated
-                }
-            }
-        }
-    }
-
     const TRule &Holder::get(int grp_id, int pax_id)
     {
         TPaxList::iterator iPax = items.find(pax_id);

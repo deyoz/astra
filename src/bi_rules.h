@@ -117,7 +117,6 @@ const TPrintTypesView& PrintTypesView();
             ASTRA::TDevOper::Enum op_type;
         public:
             const TRule &get(int grp_id, int pax_id);
-            void toStat(int grp_id, int pax_id, TDateTime time_print); // запись в статистику
             void dump(const std::string &file, int line) const;
             bool complete() const;
             bool select(xmlNodePtr reqNode);

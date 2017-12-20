@@ -167,12 +167,8 @@ astra_SOURCES = \
   recloc.cc \
   environ.cc \
   AirportControl.cpp \
-  md5_sum.cc \
   bagmessage.cc \
   hotel_acmd.cc \
-  bi_stat.cc \
-  stat_utils.cc \
-  stat_common.cc \
   bagmessage_daemon.cc
 
 
@@ -332,8 +328,4 @@ noinst_HEADERS = \
   brands.h \
   astra_pnr.h \
   AirportControl.h \
-  md5_sum.h \
-  hotel_acmd.h \
-  bi_stat.h \
-  stat_utils.h \
-  stat_common.h
+  hotel_acmd.h

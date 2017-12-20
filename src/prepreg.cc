@@ -11,7 +11,7 @@
 #include "stl_utils.h"
 #include "tripinfo.h"
 #include "docs.h"
-#include "stat_utils.h"
+#include "stat.h"
 #include "salons.h"
 #include "sopp.h"
 #include "points.h"

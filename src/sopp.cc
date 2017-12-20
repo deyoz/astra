@@ -25,7 +25,7 @@
 #include <boost/enable_shared_from_this.hpp>
 #include "base_tables.h"
 #include "docs.h"
-#include "stat_utils.h"
+#include "stat.h"
 #include "salons.h"
 #include "seats.h"
 #include "term_version.h"

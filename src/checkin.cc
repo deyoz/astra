@@ -20,7 +20,7 @@
 #include "seats.h"
 #include "tlg/tlg_parser.h"
 #include "docs.h"
-#include "stat_utils.h"
+#include "stat.h"
 #include "etick.h"
 #include "events.h"
 #include "term_version.h"
