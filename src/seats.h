@@ -351,7 +351,7 @@ class TSeatPlaces {
     bool SeatsGrp_On( SALONS2::TPoint FP );
     bool SeatsPassenger_OnBasePlace( std::string &placeName, TSeatStep Step );
   public:
-        ASTRA::TCompLayerType grp_status;
+    ASTRA::TCompLayerType grp_status;
     TCounters counters;
     TSeatPlaces( /*ASTRA::TCompLayerType layer_type*/ );
     ~TSeatPlaces();
@@ -378,8 +378,6 @@ struct TSublsRems {
     TSublsRems( const std::string &airline );
     bool IsSubClsRem( const std::string &subclass, std::string &rem );
 };
-
-bool isREM_SUBCLS( std::string rem );
 
 typedef std::map<ASTRA::TCompLayerType,bool> TUseLayers;
 

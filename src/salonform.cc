@@ -1171,7 +1171,7 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
 {
   bool changedOrNotPay = true;
   if ( flags.isFlag( flSetPayLayer ) &&
-       ( seat_type != stSeat || ( layer_type != cltProtBeforePay && layer_type != cltProtAfterPay ) ) ) {
+       ( seat_type != stSeat || ( layer_type != cltProtBeforePay && layer_type != cltProtAfterPay && layer_type != cltProtSelfCkin ) ) ) {
     throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
   }
   TFlights flights;
@@ -1229,7 +1229,7 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
     // 1. пересадка зарегистрированного пассажира
     // 2. предварительная пересадка/рассадка
     // старое место может иметь след. слои:
-    // cltProtCkin, cltProtBeforePay, cltProtAfterPay, cltPNLBeforePay, cltPNLAfterPay
+    // cltProtCkin, cltProtSelfCkin, cltProtBeforePay, cltProtAfterPay, cltPNLBeforePay, cltPNLAfterPay
 
     // вычисляем занятое место
     SALONS2::TSeatLayer seatLayer;
@@ -1248,7 +1248,7 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
         "SELECT first_yname||first_xname pre_seat_no, layer_type, priority "
         " FROM trip_comp_layers, comp_layer_types "
         " WHERE point_id=:point_id AND "
-        "       trip_comp_layers.layer_type IN (:protckin_layer,:prot_pay1,:prot_pay2) AND "
+        "       trip_comp_layers.layer_type IN (:protckin_layer,:prot_pay1,:prot_pay2,:prot_selfckin) AND "
         "       crs_pax_id=:pax_id AND "
         "       comp_layer_types.code=trip_comp_layers.layer_type "
         "ORDER BY priority";
@@ -1257,6 +1257,7 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
       Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType( cltProtCkin ) );
       Qry.CreateVariable( "prot_pay1", otString, EncodeCompLayerType( cltPNLAfterPay ) );
       Qry.CreateVariable( "prot_pay2", otString, EncodeCompLayerType( cltProtAfterPay ) );
+      Qry.CreateVariable( "prot_selfckin", otString, EncodeCompLayerType( cltProtSelfCkin ) );
       Qry.Execute();
       int priority = -1;
       for ( ;!Qry.Eof; Qry.Next() ) {
@@ -1269,10 +1270,13 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
         if ( used_seat_no == Qry.FieldAsString( "pre_seat_no" ) ) {
           ProgTrace( TRACE5, "pax_id=%d,point_id=%d,used_seat_no=%s,pre_seat_no=%s",
                       pax_id, point_id, used_seat_no.c_str(), Qry.FieldAsString( "pre_seat_no" ) );
-          if ( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) == cltProtCkin )
+          if ( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) == cltProtCkin ) {
             NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PRESEAT_SEATS.RESEAT") );
+          }
           else
-            NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PAID_SEATS.RESEAT"));
+            if ( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) != cltProtSelfCkin ) { //pay layers
+              NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PAID_SEATS.RESEAT"));
+            }
           return changedOrNotPay;
         }
       }
@@ -1289,6 +1293,7 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
       layerFlag = clPaySeatCheck;
     }
   try {
+    tst();
     changedOrNotPay = SEATS2::ChangeLayer( salonList, layer_type, point_id, pax_id, tid, xname, yname, seat_type, layerFlag );
     if ( TReqInfo::Instance()->client_type != ctTerm || resNode == NULL || layerFlag == clPaySeatCheck )
         return changedOrNotPay; // web-регистрация
@@ -1303,7 +1308,7 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
     SALONS2::getSalonChanges( salonList, salonList.isCraftLat(), NewSalonList, NewSalonList.isCraftLat(), NewSalonList.getRFISCMode(), seats );
     ProgTrace( TRACE5, "salon changes seats.size()=%zu", seats.size() );
     string seat_no, slayer_type;
-    if ( layer_type == cltProtCkin || layer_type == cltProtAfterPay || layer_type == cltPNLAfterPay )
+    if ( layer_type == cltProtCkin || layer_type == cltProtAfterPay || layer_type == cltPNLAfterPay || layer_type == cltProtSelfCkin )
       getSeat_no( pax_id, true, string("_seats"), seat_no, slayer_type, tid );
     else
       getSeat_no( pax_id, false, string("one"), seat_no, slayer_type, tid );
@@ -1375,7 +1380,7 @@ bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
 {
   bool changedOrNotPay = true;
   if ( flags.isFlag( flSetPayLayer ) &&
-       ( seat_type != stSeat || ( layer_type != cltProtBeforePay && layer_type != cltProtAfterPay ) ) ) {
+       ( seat_type != stSeat || ( layer_type != cltProtBeforePay && layer_type != cltProtAfterPay && layer_type != cltProtSelfCkin ) ) ) {
     throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
   }
   if ( SALONS2::isFreeSeating( point_id ) ) {
@@ -1425,7 +1430,7 @@ bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
     // 1. пересадка зарегистрированного пассажира
     // 2. предварительная пересадка/рассадка
     // старое место может иметь след. слои:
-    // cltProtCkin, cltProtBeforePay, cltProtAfterPay, cltPNLBeforePay, cltPNLAfterPay
+    // cltProtCkin, cltProtBeforePay, cltProtAfterPay, cltPNLBeforePay, cltPNLAfterPay, cltProtSelfCkin
 
     // вычисляем занятое место
     Qry.Clear();
@@ -1449,7 +1454,7 @@ bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
         "SELECT first_yname||first_xname pre_seat_no, layer_type, priority "
         " FROM trip_comp_layers, comp_layer_types "
         " WHERE point_id=:point_id AND "
-        "       trip_comp_layers.layer_type IN (:protckin_layer,:prot_pay1,:prot_pay2) AND "
+        "       trip_comp_layers.layer_type IN (:protckin_layer,:prot_pay1,:prot_pay2,:prot_selfckin) AND "
         "       crs_pax_id=:pax_id AND "
         "       comp_layer_types.code=trip_comp_layers.layer_type "
         "ORDER BY priority";
@@ -1458,6 +1463,7 @@ bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
       Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType( cltProtCkin ) );
       Qry.CreateVariable( "prot_pay1", otString, EncodeCompLayerType( cltPNLAfterPay ) );
       Qry.CreateVariable( "prot_pay2", otString, EncodeCompLayerType( cltProtAfterPay ) );
+      Qry.CreateVariable( "prot_selfckin", otString, EncodeCompLayerType( cltProtSelfCkin ) );
       Qry.Execute();
       int priority = -1;
       for ( ;!Qry.Eof; Qry.Next() ) {
@@ -1470,10 +1476,13 @@ bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
         if ( used_seat_no == Qry.FieldAsString( "pre_seat_no" ) ) {
           ProgTrace( TRACE5, "pax_id=%d,point_id=%d,used_seat_no=%s,pre_seat_no=%s",
                       pax_id, point_id, used_seat_no.c_str(), Qry.FieldAsString( "pre_seat_no" ) );
-          if ( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) == cltProtCkin )
+          if ( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) == cltProtCkin ) {
             NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PRESEAT_SEATS.RESEAT") );
+          }
           else
-            NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PAID_SEATS.RESEAT"));
+            if ( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) != cltProtSelfCkin ) { //pay layers
+              NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PAID_SEATS.RESEAT"));
+            }
           return changedOrNotPay;
         }
       }
@@ -1643,7 +1652,7 @@ void SalonFormInterface::DropSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
 void SalonFormInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  ChangeSeats( reqNode, resNode, SEATS2::stReseat );
+  ChangeSeats( reqNode, resNode, SEATS2::stReseat);
 }
 
 void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1769,13 +1778,13 @@ void SalonFormInterface::WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
     SALONS2::TSalonList salonList;
     if ( isTranzitSalonsVersion ) {
-    salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "", NoExists );
-    SALONS2::TSalonPassengers passengers;
-    SALONS2::TGetPassFlags flags;
-    flags.setFlag( SALONS2::gpPassenger );
-    flags.setFlag( SALONS2::gpWaitList );
-    salonList.getPassengers( passengers, flags );
-    passengers.BuildWaitList( point_id, dataNode );
+      salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "", NoExists );
+      SALONS2::TSalonPassengers passengers;
+      SALONS2::TGetPassFlags flags;
+      flags.setFlag( SALONS2::gpPassenger );
+      flags.setFlag( SALONS2::gpWaitList );
+      salonList.getPassengers( passengers, flags );
+      passengers.BuildWaitList( point_id, dataNode );
     }
     else {
       SEATS2::TPassengers p;

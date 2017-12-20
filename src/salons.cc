@@ -47,6 +47,12 @@ bool selfckin_client() {
            TReqInfo::Instance()->client_type == ctMobile );
 }
 
+bool isREM_SUBCLS( std::string rem )
+{
+    return ( rem.size() == 4 && rem.substr(1,3) == "CLS" &&
+               *(rem.c_str()) >= 'A' && *(rem.c_str()) <= 'Z' );
+}
+
 void TSelfCkinSalonTariff::setTariffMap( int point_id,
                                          TSeatTariffMap &tariffMap ) {
   TQuery Qry( &OraSession );
@@ -509,8 +515,9 @@ void getMenuLayers( bool isTripCraft,
 
     if ( FilterLayers.isFlag( cltProtBeforePay ) ||
          FilterLayers.isFlag( cltProtAfterPay ) ||
-         FilterLayers.isFlag( cltPNLBeforePay ) )
-      menuLayers[ cltProtBeforePay ].name_view = AstraLocale::getLocaleText("Резервирование платного места");
+         FilterLayers.isFlag( cltPNLBeforePay ) ||
+         FilterLayers.isFlag( cltProtSelfCkin ) )
+      menuLayers[ cltProtBeforePay ].name_view = AstraLocale::getLocaleText("Резервирование места пассажира");
 
     if ( FilterLayers.isFlag( cltProtect ) )
       menuLayers[ cltProtect ].func_key = "Shift+F4";
@@ -625,6 +632,9 @@ bool compatibleLayer( ASTRA::TCompLayerType layer_type )
 {
   if ( layer_type == cltDisable &&
        !TReqInfo::Instance()->desk.compatible( DISABLE_LAYERS ) )
+    return false;
+  if ( layer_type == cltProtSelfCkin &&
+       !TReqInfo::Instance()->desk.compatible( LAYER_PROT_SELF_CKIN ) )
     return false;
   return true;
 }
@@ -858,6 +868,7 @@ bool TFilterLayers::CanUseLayer( ASTRA::TCompLayerType layer_type,
          layer_type == cltProtAfterPay ||
          layer_type == cltPNLBeforePay ||
          layer_type == cltPNLAfterPay ||
+         layer_type == cltProtSelfCkin ||
          layer_type == cltPNLCkin ||
          layer_type == cltBlockCent ||
          layer_type == cltProtect ||
@@ -886,6 +897,8 @@ void TSalons::Clear( )
     }
   }
   placelists.clear();
+  ExistSubcls = boost::none;
+  ExistBaseLayers = boost::none;
 }
 
 bool TPlace::CompareRems( const TPlace &seat ) const
@@ -1258,6 +1271,10 @@ void TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
          if ( uniqueLayers.find( tmp_layer ) != uniqueLayers.end() ) {
            continue;
          }
+         if ( tmp_layer.layer_type == ASTRA::cltProtSelfCkin &&
+              !TReqInfo::Instance()->desk.compatible( LAYER_PROT_SELF_CKIN ) ) {
+            tmp_layer.layer_type = ASTRA::cltProtBeforePay;
+         }
          uniqueLayers.insert( tmp_layer );
          if ( propsNode == NULL ) {
              propsNode = NewTextChild( node, "layers" );
@@ -1302,7 +1319,14 @@ void TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
            if ( ilayer->time_create != ASTRA::NoExists ) {
              NewTextChild( propNode, "time_create", DateTimeToStr( ilayer->time_create ) );
            }
+           ProgTrace( TRACE5, "TReqInfo::Instance()->desk.compatible( LAYER_PROT_SELF_CKIN )=%d", TReqInfo::Instance()->desk.compatible( LAYER_PROT_SELF_CKIN ) );
+           if ( ilayer->layer_type == cltProtSelfCkin &&
+                !TReqInfo::Instance()->desk.compatible( LAYER_PROT_SELF_CKIN ) ) {
+              NewTextChild( propNode, "layer_type", EncodeCompLayerType( cltProtBeforePay ) );
+           }
+           else {
              NewTextChild( propNode, "layer_type", EncodeCompLayerType( ilayer->layer_type ) );
+         }
          }
          else { //prior version
            //показать слои, которые принадлежат point_dep или не принадлежат point_dep и не базовые
@@ -1315,10 +1339,16 @@ void TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
              continue;
            }
            propNode = NewTextChild( propsNode, "layer" );
+           if ( ilayer->layer_type == cltProtSelfCkin &&
+                !TReqInfo::Instance()->desk.compatible( LAYER_PROT_SELF_CKIN ) ) {
+              NewTextChild( propNode, "layer_type", EncodeCompLayerType( cltProtBeforePay ) );
+           }
+           else {
            NewTextChild( propNode, "layer_type", EncodeCompLayerType( ilayer->layer_type ) );
          }
        }
      }
+   }
    }
    if ( RFISCMode != rRFISC ||
         !TReqInfo::Instance()->desk.compatible( RFISC_VERSION ) ) {
@@ -1693,8 +1723,14 @@ void TPlace::Build( xmlNodePtr node, bool pr_lat_seat, bool pr_update ) const
         continue;
        }
        remNode = NewTextChild( layersNode, "layer" );
+       if ( l->layer_type == cltProtSelfCkin &&
+            !TReqInfo::Instance()->desk.compatible( LAYER_PROT_SELF_CKIN ) ) {
+          NewTextChild( remNode, "layer_type", EncodeCompLayerType( cltProtBeforePay ) );
+       }
+       else {
        NewTextChild( remNode, "layer_type", EncodeCompLayerType( l->layer_type ) );
      }
+   }
    }
    if ( !SeatTariff.empty() ) {
      xmlNodePtr n = NewTextChild( node, "tariff", SeatTariff.rate );
@@ -5849,8 +5885,11 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
           rem.rem = irem->value;
           rem.pr_denial = irem->pr_denial;
           iseat->rems.push_back( rem );
+          salons.AddExistSubcls( rem );
         }
       }
+      // заполнение подклассов
+
       //заполнение тарифов
 //      tariffs.clear();
 //      iseat->GetTariffs( tariffs );
@@ -5987,11 +6026,18 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
           //logProgTrace( TRACE5, "CreateSalonsForAutoSeats: %s add %s",
           //log           string(iseat->yname+iseat->xname).c_str(), ilayer->toString().c_str() );
           iseat->AddLayerToPlace( ilayer->layer_type, ilayer->time_create, ilayer->getPaxId(),
-                                    ilayer->point_dep, ilayer->point_arv,
+                                  ilayer->point_dep, ilayer->point_arv,
                                   BASIC_SALONS::TCompLayerTypes::Instance()->priority( ilayer->layer_type ) );
+          if ( isBaseLayer( tmp_layer.layer_type, false ) ) {
+            salons.AddExistBaseLayer( tmp_layer.layer_type );
+          }
         }
       }
-    }
+      if ( !salons.placeIsFree( &(*iseat) ) || !iseat->isplace || !iseat->visible ) {
+        //ProgTrace(TRACE5, "AddOccupySeat %d", salons.AddOccupySeat( (*iseatlist)->num, iseat->x, iseat->y ) );
+        salons.AddOccupySeat( (*iseatlist)->num, iseat->x, iseat->y );
+      }
+    } // end for iseat
   }
   bool res = ( filterRoutes.point_arv != filterRoutes.point_dep );
   bool pr_lastRoute = points.getLastPropRouteDeparture( point );
@@ -6213,6 +6259,7 @@ void CheckWaitListToLog( TQuery &QryAirp,
           getStrWaitListReason(fullname, new_seat_no, airp_dep, airp_arv, regNo, params);
           break;
         case cltProtect:
+        case cltProtSelfCkin:
           params << PrmLexema("reason", "EVT.REASON_PROTECT");
           getStrWaitListReason(fullname, airp_dep, new_seat_no, airp_arv, regNo, params);
           break;
@@ -6760,14 +6807,19 @@ void TSalons::Read( bool drop_not_used_pax_layers )
         rem.rem = RQry.FieldAsString( rem_col_rem );
         rem.pr_denial = RQry.FieldAsInteger( rem_col_pr_denial );
         place.rems.push_back( rem );
+        AddExistSubcls( rem );
         RQry.Next();
       }
       while ( !LQry.Eof && LQry.FieldAsInteger( baselayer_col_num ) == num &&
               LQry.FieldAsInteger( baselayer_col_x ) == place.x &&
               LQry.FieldAsInteger( baselayer_col_y ) == place.y ) {
-        place.AddLayerToPlace( DecodeCompLayerType( LQry.FieldAsString( baselayer_col_layer_type ) ),
+        ASTRA::TCompLayerType layer_type = DecodeCompLayerType( LQry.FieldAsString( baselayer_col_layer_type ) );
+        place.AddLayerToPlace( layer_type,
                                0, 0, NoExists, NoExists,
                                BASIC_SALONS::TCompLayerTypes::Instance()->priority( DecodeCompLayerType( LQry.FieldAsString( baselayer_col_layer_type ) ) ) );
+        if ( isBaseLayer( layer_type, false ) ) {
+          AddExistBaseLayer( layer_type );
+        }
         LQry.Next();
       }
       if ( readStyle != rTripSalons ||
@@ -6861,6 +6913,9 @@ void TSalons::Read( bool drop_not_used_pax_layers )
       placeList != placelists.end(); placeList++ ) {
       for ( TPlaces::iterator place = (*placeList)->places.begin();
             place != (*placeList)->places.end(); place++ ) {
+        if ( !placeIsFree( &(*place) ) || !place->isplace || !place->visible ) {
+          AddOccupySeat( (*placeList)->num, place->x, place->y );
+        }
         if ( !place->visible || !place->isplace ||
              place->layers.empty() || place->layers.begin()->pax_id == NoExists )
          continue;
@@ -10036,7 +10091,8 @@ bool isUserProtectLayer( ASTRA::TCompLayerType layer_type )
            layer_type == ASTRA::cltProtBeforePay ||
            layer_type == ASTRA::cltPNLBeforePay ||
            layer_type == ASTRA::cltProtAfterPay ||
-           layer_type == ASTRA::cltPNLAfterPay );
+           layer_type == ASTRA::cltPNLAfterPay ||
+           layer_type == ASTRA::cltProtSelfCkin );
 };
 
 void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
