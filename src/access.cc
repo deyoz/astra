@@ -3,7 +3,7 @@
 #include "oralib.h"
 #include "astra_utils.h"
 #define NICKNAME "DENIS"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 #include "cache.h"
 #include <set>
 #include "misc.h"
@@ -1302,8 +1302,7 @@ void AccessInterface::ApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                 case usModified:
                     user_data.initXML(node->children, false);
                     user_data.update();
-                    if(not user_data.view_access)
-                        inserted[NodeAsInteger("@index", node)] = user_data;
+                    inserted[NodeAsInteger("@index", node)] = user_data;
                     break;
                 case usDeleted:
                     user_data.initXML(node->children, false);

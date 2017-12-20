@@ -1,6 +1,7 @@
 #include "hotel_acmd.h"
 #include "tripinfo.h"
 #include "brd.h"
+#include "stat_utils.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"

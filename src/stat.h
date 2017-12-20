@@ -23,7 +23,6 @@ namespace STAT {
             dec += item.dec;
         };
     };
-    xmlNodePtr set_variables(xmlNodePtr resNode, std::string lang = "");
     void agent_stat_delta(
             int point_id,
             int user_id,
@@ -40,8 +39,6 @@ namespace STAT {
             );
     int agent_stat_delta(int argc,char **argv);
     int ovb(int argc,char **argv);
-
-    xmlNodePtr getVariablesNode(xmlNodePtr resNode);
 
     class TMoveIds : public std::set< std::pair<TDateTime, int> >
     {

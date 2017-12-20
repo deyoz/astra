@@ -1,5 +1,5 @@
 #include "date_time.h"
-#include "stat.h"
+#include "stat_utils.h"
 #include "docs.h"
 #include "brd.h"
 #include "xml_unit.h"
@@ -1725,8 +1725,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
     variablesNode = GetNode("form_data/variables", resNode);
     if(variablesNode) SetProp(variablesNode, "update");
-    NewTextChild(variablesNode, "test_server", bad_client_img_version() ? 2 : get_test_server());
-    if(bad_client_img_version())
+    NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
+    if(STAT::bad_client_img_version())
         NewTextChild(variablesNode, "doc_cap_test", " ");
 };
 
