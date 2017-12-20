@@ -40,6 +40,7 @@ struct TBIAbstractStat {
     TPrintAirline prn_airline;
     TFltInfoCache flt_cache;
     virtual ~TBIAbstractStat() {};
+    TBIAbstractStat(): FRowCount(0) {};
     virtual void add(const TBIStatRow &row) = 0;
     int FRowCount;
     size_t RowCount() { return FRowCount; }
