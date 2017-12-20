@@ -118,6 +118,7 @@ void RunBIStat(
         SQLText +=
             "where "
             "   bi_stat.point_id = points.point_id and "
+            "   bi_stat.pr_print <> 0 and "
             "   points.pr_del >= 0 and ";
         params.AccessClause(SQLText);
         if(params.flt_no != NoExists) {
