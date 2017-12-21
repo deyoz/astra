@@ -476,7 +476,6 @@ void DeleteTripSeatRanges(const vector<int> range_ids,
   Qry.DeclareVariable("range_id", otInteger);
   for(vector<int>::const_iterator i=range_ids.begin(); i!=range_ids.end(); i++)
   {
-      ProgTrace( TRACE5, "delete trip_comp_layers where range_id=%d", *i);
     Qry.SetVariable("range_id", *i);
     Qry.Execute();
   };
@@ -527,7 +526,6 @@ void DeleteTlgSeatRanges(vector<int> range_ids,
   Qry.DeclareVariable("range_id", otInteger);
   for(vector<int>::const_iterator i=range_ids.begin(); i!=range_ids.end(); i++)
   {
-    ProgTrace( TRACE5, "delete tlg_comp_ranges range_id=%d", *i);
     Qry.SetVariable("range_id", *i);
     Qry.Execute();
   };

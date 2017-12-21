@@ -1293,7 +1293,6 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
       layerFlag = clPaySeatCheck;
     }
   try {
-    tst();
     changedOrNotPay = SEATS2::ChangeLayer( salonList, layer_type, point_id, pax_id, tid, xname, yname, seat_type, layerFlag );
     if ( TReqInfo::Instance()->client_type != ctTerm || resNode == NULL || layerFlag == clPaySeatCheck )
         return changedOrNotPay; // web-регистрация
