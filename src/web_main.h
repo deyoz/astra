@@ -65,9 +65,15 @@ public:
      // Разметка слоя "Резервирование оплачиваемого места"
      evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::AddProtPaidLayer);
      AddEvent("AddProtPaidLayer",evHandle);
+     // Разметка слоя "Резервирование места с указанием слоя. По умолчанию cltProtSelfCkin"
+     evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::AddProtLayer);
+     AddEvent("AddProtLayer",evHandle);
      // Удаление слоя "Резервирование оплачиваемого места"
      evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::RemoveProtPaidLayer);
      AddEvent("RemoveProtPaidLayer",evHandle);
+     // Удаление резервного слоя с указанием слоя. По умолчанию cltProtSelfCkin"
+     evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::RemoveProtLayer);
+     AddEvent("RemoveProtLayer",evHandle);
      // Сообщение о любой ошибке в Астру (например, после неудачной печати)
      evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::ClientError);
      AddEvent("ClientError",evHandle);
@@ -95,7 +101,9 @@ public:
   void ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void AddProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void AddProtLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void RemoveProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void RemoveProtLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);

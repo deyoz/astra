@@ -7013,6 +7013,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   if (ne.indicator==DEL)
                   {
                     DeleteTlgSeatRanges(cltProtCkin, pax_id, tid, point_ids_spp);
+                    DeleteTlgSeatRanges(cltProtSelfCkin, pax_id, tid, point_ids_spp);
                     DeleteTlgSeatRanges(cltProtBeforePay, pax_id, tid, point_ids_spp);
                     DeleteTlgSeatRanges(cltProtAfterPay, pax_id, tid, point_ids_spp);
                     if(is_need_apps) {

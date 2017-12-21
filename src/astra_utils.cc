@@ -12,6 +12,7 @@
 #include "dev_consts.h"
 #include "dev_utils.h"
 
+
 #include <serverlib/tcl_utils.h>
 #include <serverlib/monitor_ctl.h>
 #include <serverlib/sirena_queue.h>
@@ -1981,7 +1982,7 @@ string getDocMonth(int month, bool pr_lat)
 {
     const map<int, map<int, string> > months =
     {
-        {0, 
+        {0,
             {
                 {1, "января"},
                 {2, "февраля"},
@@ -1997,7 +1998,7 @@ string getDocMonth(int month, bool pr_lat)
                 {12, "декабря"}
             }
         },
-        {1, 
+        {1,
             {
                 {1, "january"},
                 {2, "february"},

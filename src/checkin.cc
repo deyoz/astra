@@ -49,6 +49,7 @@
 #include "ffp_sirena.h"
 #include "annul_bt.h"
 #include "counters.h"
+#include "comp_layers.h"
 #include "AirportControl.h"
 #include "tlg/AgentWaitsForRemote.h"
 #include "tlg/tlg_parser.h"
@@ -5322,6 +5323,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                         throw EXCEPTIONS::Exception("SavePax: Not applied for crew");
                     }
                     SEATS2::SaveTripSeatRanges( grp.point_dep, layer_type, ranges, pax_id, grp.point_dep, grp.point_arv, NowUTC() );
+                    TPointIdsForCheck point_ids_spp; //!!!DJEK
+                    point_ids_spp.insert( make_pair( grp.point_dep, ASTRA::cltProtSelfCkin ) ); //!!!DJEK
+                    DeleteTlgSeatRanges( ASTRA::cltProtSelfCkin , pax_id, pas.tid, point_ids_spp ); //!!!DJEK
+                    point_ids_spp.clear();
+                    point_ids_spp.insert( make_pair( grp.point_dep, ASTRA::cltProtBeforePay ) ); //!!!DJEK
+                    DeleteTlgSeatRanges( ASTRA::cltProtBeforePay , pax_id, pas.tid, point_ids_spp ); //!!!DJEK
+
                     if ( isTranzitSalonsVersion &&
                          !pr_do_check_wait_list_alarm ) {
                       autoSeats.WritePaxSeats( grp.point_dep, pax_id );
@@ -5558,7 +5566,17 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 {
                   LayerQry.SetVariable("pax_id",pax.id);
                   LayerQry.Execute();
-                };
+                  TPointIdsForCheck point_ids_spp; //!!!DJEK
+                  int tid = pax.tid;
+                  point_ids_spp.insert( make_pair( grp.point_dep, ASTRA::cltProtSelfCkin ) ); //!!!DJEK
+                  DeleteTlgSeatRanges( ASTRA::cltProtSelfCkin , pax.id, tid, point_ids_spp ); //!!!DJEK
+                  point_ids_spp.clear();
+                  point_ids_spp.insert( make_pair( grp.point_dep, ASTRA::cltProtBeforePay ) ); //!!!DJEK
+                  DeleteTlgSeatRanges( ASTRA::cltProtBeforePay , pax.id, tid, point_ids_spp ); //!!!DJEK
+                  point_ids_spp.clear();
+                  point_ids_spp.insert( make_pair( grp.point_dep, ASTRA::cltProtAfterPay ) ); //!!!DJEK
+                  DeleteTlgSeatRanges( ASTRA::cltProtAfterPay , pax.id, tid, point_ids_spp ); //!!!DJEK
+                }
                 pax.toDB(PaxQry);
                 PaxQry.SetVariable("doc_exists", (int)pax.DocExists);
                 int is_female=pax.is_female();
