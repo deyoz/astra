@@ -173,7 +173,7 @@ struct TPaxAddData // Passenger Additional Data
   std::string country_for_data; // Country for Additional Data // 4
   std::string doco_type; // Document Type // 5
   std::string doco_no; // Document Number X(20) // 6
-  std::string country_issuance; // Country of Issuance // 7 // omit
+  std::string country_issuance; // Country of Issuance // 7
   std::string doco_expiry_date; // Expiration Date CCYYMMDD // 8
   std::string num_street; // Address: Number and Street // 9
   std::string city; // Address: City // 10

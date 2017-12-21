@@ -22,16 +22,7 @@ using namespace EXCEPTIONS;
 using namespace BASIC::date_time;
 using namespace ASTRA;
 
-/*
-СПЕЦИФИКАЦИЯ
-iBorders Advance Passenger Processing System
-Airline/GG Interface Specification
-V6.82
-21 December 2016
-? SITA 2016
-Commercial-in-Confidence
-реализованы версии сообщений 21 и 26
-*/
+// реализованы версии сообщений 21 и 26
 
 // static const std::string ReqTypeCirq = "CIRQ";
 // static const std::string ReqTypeCicx = "CICX";
@@ -65,6 +56,17 @@ const std::string FORMAT_26 = "APPS_26";
 const int VERSION_21 = 21;
 const int VERSION_26 = 26;
 const int VERSION_27 = 27;
+
+// версия спецификации документа
+enum ESpecVer { SPEC_6_76, SPEC_6_83 };
+
+ESpecVer GetSpecVer(int msg_ver)
+{
+  if (msg_ver == VERSION_21)
+    return SPEC_6_76;
+  else
+    return SPEC_6_83;
+}
 
 const int pax_seq_num = 1;
 
@@ -266,7 +268,7 @@ bool checkAPPSSets( const int point_dep, const int point_arv )
     bool not_eof = sets.get_inbound_outbound(inbound, outbound);
     if (not_eof &&
       !( r->point_id == point_dep && !outbound ) &&
-      !( r->point_id == point_arv && !inbound ) )  
+      !( r->point_id == point_arv && !inbound ) )
       result = true;
     if ( r->point_id == point_arv )
       return result;
@@ -295,7 +297,7 @@ bool checkAPPSSets( const int point_dep, const std::string& airp_arv, bool& tran
     return false;
   }
 
-  for ( TAdvTripRoute::const_iterator r = route.begin(); r != route.end(); r++ ) 
+  for ( TAdvTripRoute::const_iterator r = route.begin(); r != route.end(); r++ )
   {
     TAppsSets sets(route.front().airline, getCountryByAirp( r->airp ).code);
     int inbound, outbound;
@@ -516,7 +518,23 @@ void TPaxData::init( const int pax_ident, const std::string& surname, const std:
   nationality = doc.nationality;
   issuing_state = doc.issue_country;
   passport = doc.no.substr(0, 14);
-  doc_type = (doc.type == "P" || doc.type.empty())?"P":"O";
+  switch (GetSpecVer(ver))
+  {
+  case SPEC_6_76:
+    doc_type = (doc.type == "P" || doc.type.empty())?"P":"O";
+    break;
+  case SPEC_6_83:
+    if (doc.type == "P" || doc.type == "I")
+      doc_type = doc.type;
+    else if (doc.type.empty())
+      doc_type = "P";
+    else
+      doc_type = "O";
+    break;
+  default:
+    throw Exception( "Unknown specification version" );
+    break;
+  }
   doc_subtype = doc.subtype;
   if ( doc.expiry_date != ASTRA::NoExists )
     expiry_date = DateTimeToStr( doc.expiry_date, "yyyymmdd" );
@@ -741,7 +759,8 @@ void TPaxAddData::init( const int pax_id, const int ver )
   }
   doco_type = doco.type;
   doco_no = doco.no.substr(0, 20); // в БД doco.no VARCHAR2(25 BYTE)
-  country_issuance = "";
+  country_issuance = doco.issue_place;
+
   if (doco.expiry_date != ASTRA::NoExists)
     doco_expiry_date = DateTimeToStr( doco.expiry_date, "yyyymmdd" );
 
@@ -805,7 +824,7 @@ std::string TPaxAddData::msg() const
   /* 3  */ msg << pax_seq_num << '/'; // Passenger Sequence Number
   /* 4  */ msg << country_for_data << '/';
   /* 5  */ msg << doco_type << '/';
-  /* 6  */ msg << '/'; // TODO subtype // пока не используется
+  /* 6  */ msg << '/'; // subtype пока не используется
   /* 7  */ msg << doco_no << '/';
   /* 8  */ msg << country_issuance << '/';
   /* 9  */ msg << doco_expiry_date << '/';
@@ -868,7 +887,7 @@ bool TPaxRequest::getByPaxId( const int pax_id, const std::string& override_type
   // проверим исходящий трансфер
   TCkinRouteItem next;
   TCkinRoute().GetNextSeg(grp_id, crtIgnoreDependent, next );
-  if ( !next.airp_arv.empty() ) 
+  if ( !next.airp_arv.empty() )
   {
     string country_arv = getCountryByAirp( airp_arv ).code;
     if ( isAPPSCountry( country_arv, airline.code ) &&
@@ -876,13 +895,13 @@ bool TPaxRequest::getByPaxId( const int pax_id, const std::string& override_type
       transfer = Dest;
   }
   tckin_route.GetRouteBefore( grp_id, crtNotCurrent, crtIgnoreDependent );
-  if ( !tckin_route.empty() ) 
+  if ( !tckin_route.empty() )
   {
     ckin_flt.init( tckin_route.front().point_dep, "CHK", version );
     TCkinRouteItem prior;
     // проверим входящий трансфер
     prior = tckin_route.back();
-    if ( !prior.airp_dep.empty() ) 
+    if ( !prior.airp_dep.empty() )
     {
       string country_dep = getCountryByAirp(Qry.FieldAsString("airp_dep")).code;
       if ( isAPPSCountry( country_dep, airline.code ) &&
@@ -941,7 +960,7 @@ bool TPaxRequest::getByCrsPaxId( const int pax_id, const std::string& override_t
 
   int transfer = transit?Dest:None;
 
-  if ( !trfer.empty() && !trfer[1].airp_arv.empty() ) 
+  if ( !trfer.empty() && !trfer[1].airp_arv.empty() )
   {
     // сквозная регистрация
     string country_arv = getCountryByAirp(airp_arv).code;
@@ -1064,7 +1083,7 @@ void TPaxRequest::saveData() const
 {
   TQuery Qry(&OraSession);
 
-  if( trans.code == "CICX" ) 
+  if( trans.code == "CICX" )
   {
     Qry.SQLText = "UPDATE apps_pax_data SET cicx_msg_id = :cicx_msg_id "
                   "WHERE apps_pax_id = :apps_pax_id";
@@ -1224,7 +1243,7 @@ std::string TMftData::msg() const
   return msg.str();
 }
 
-void TManifestRequest::init( const int point_id, const std::string& country_lat, const std::string& country_code ) 
+void TManifestRequest::init( const int point_id, const std::string& country_lat, const std::string& country_code )
 {
   TTripInfo info;
   info.getByPointId( point_id );
@@ -1240,8 +1259,8 @@ void TManifestRequest::init( const int point_id, const std::string& country_lat,
 
 std::string TManifestRequest::msg() const
 {
-  string msg  = trans.msg() + "/" 
-              + int_flt.msg() + "/" 
+  string msg  = trans.msg() + "/"
+              + int_flt.msg() + "/"
               + mft_req.msg() + "/";
   return string(header + "\x02" + msg + "\x03");
 }
@@ -1265,7 +1284,7 @@ void TAnsPaxData::init( std::string source, int ver )
   /* PRS PCC */
   vector<string> tmp;
   boost::split( tmp, source, boost::is_any_of( "/" ) );
-  
+
   string grp_id = tmp[0]; /* 1 */
   if ( grp_id != "PRS" && grp_id != "PCC" )
     throw Exception( "Incorrect grp_id: %s", grp_id.c_str() );
@@ -1391,12 +1410,12 @@ bool TAPPSAns::init( const std::string& trans_type, const std::string& source )
   send_attempts = Qry.FieldAsInteger("send_attempts");
   version = Qry.FieldIsNULL("version")? VERSION_21: Qry.FieldAsInteger("version");
 
-  if( *(it++) == "ERR" ) 
+  if( *(it++) == "ERR" )
   {
     size_t fld_count = getInt( *(it++) );
     if ( fld_count != ( tmp.size() - 3) )
       throw Exception( "Incorrect fld_count: %d", fld_count );
-    while(it < tmp.end()) 
+    while(it < tmp.end())
     {
       TError error;
       error.country = *(it++);
@@ -1473,7 +1492,7 @@ bool TPaxReqAnswer::init( const std::string& code, const std::string& source )
   string delim = (code == "CIRS")?"PRS":"PCC";
   delim = string("/") + delim + string("/");
   std::size_t pos1 = source.find( delim );
-  while ( pos1 != string::npos ) 
+  while ( pos1 != string::npos )
   {
     std::size_t pos2 = source.find( delim, pos1 + delim.size() );
     TAnsPaxData data;
@@ -1746,10 +1765,10 @@ std::set<std::string> needFltCloseout( const std::set<std::string>& countries, c
 {
   set<string> countries_need_req;
 
-  if(countries.size() > 1) 
+  if(countries.size() > 1)
   {
     // не отправляем для местных рейсов
-    for (set<string>::const_iterator it = countries.begin(); it != countries.end(); it++) 
+    for (set<string>::const_iterator it = countries.begin(); it != countries.end(); it++)
     {
       TAppsSets sets(airline, *it);
       int flt_closeout;
@@ -1772,7 +1791,7 @@ void APPSFlightCloseout( const int point_id )
   TAdvTripRoute::const_iterator r=route.begin();
   set<string> countries;
   countries.insert( getCountryByAirp(r->airp).code );
-  for(r++; r!=route.end(); r++) 
+  for(r++; r!=route.end(); r++)
   {
     // определим, нужно ли отправлять данные
     if( !checkAPPSSets( point_id, r->point_id ) )
@@ -1804,7 +1823,7 @@ void APPSFlightCloseout( const int point_id )
     }
   }
   set<string> countries_need_req = needFltCloseout( countries, route.front().airline );
-  for( set<string>::const_iterator it = countries_need_req.begin(); it != countries_need_req.end(); it++ ) 
+  for( set<string>::const_iterator it = countries_need_req.begin(); it != countries_need_req.end(); it++ )
   {
     string country_lat = ((TCountriesRow&)base_tables.get("countries").get_row("code",*it)).code_lat;
     TManifestRequest close_flt;
