@@ -5756,6 +5756,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   point_ids_spp.clear();
                   point_ids_spp.insert( make_pair( grp.point_dep, ASTRA::cltProtBeforePay ) ); //!!!DJEK
                   DeleteTlgSeatRanges( ASTRA::cltProtBeforePay , pax.id, tid, point_ids_spp ); //!!!DJEK
+                  point_ids_spp.clear();
+                  point_ids_spp.insert( make_pair( grp.point_dep, ASTRA::cltProtAfterPay ) ); //!!!DJEK
+                  DeleteTlgSeatRanges( ASTRA::cltProtAfterPay , pax.id, tid, point_ids_spp ); //!!!DJEK
                 }
                 pax.toDB(PaxQry);
                 PaxQry.SetVariable("doc_exists", (int)pax.DocExists);
