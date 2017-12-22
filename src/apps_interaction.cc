@@ -629,7 +629,7 @@ void TPaxData::check_data() const
     throw Exception( "Incorrect pax_crew %s", pax_crew.c_str() );
   if( passport.size() > 14)
     throw Exception( "Passport number too long: %s", passport.c_str() );
-  if( !doc_type.empty() && doc_type != "P" && doc_type != "O" && doc_type != "N" )
+  if( !doc_type.empty() && doc_type != "P" && doc_type != "O" && doc_type != "N" && doc_type != "I" )
     throw Exception( "Incorrect doc_type: %s", doc_type.c_str() );
   if( family_name.empty() || family_name.size() < 2 || family_name.size() > 40 )
     throw Exception( "Incorrect family_name: %s", family_name.c_str() );
@@ -1320,7 +1320,7 @@ void TAnsPaxData::init( std::string source, int ver )
   {
     /* PCC */
     int i = 20; // начальная позиция итератора (поле 21)
-    ++i; // workaround for incorrect data from SITA
+    // ++i; // workaround for incorrect data from SITA
     code = getInt(tmp[i++]);         /* 21 */
     status = *(tmp[i++].begin());    /* 22 */
     error_code1 = getInt(tmp[i++]);  /* 23 */
