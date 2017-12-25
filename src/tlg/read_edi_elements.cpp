@@ -373,8 +373,29 @@ MonElements readEdiMonCurrAnd0(_EDI_REAL_MES_STRUCT_ *pMes)
 
 void readEdiMonetaryInfo(const std::list<MonElem> &mons, std::list<MonetaryInfo> &lmon)
 {
-    BOOST_FOREACH(const MonElem &mon, mons) {
-        lmon.push_back(MonetaryInfo(mon.m_code, TaxAmount::Amount(mon.m_value), mon.m_currency));
+    BOOST_FOREACH(const auto &mon, mons)
+    {
+        if(MonetaryType::checkExistence(mon.m_value)) {
+
+            lmon.push_back(MonetaryInfo(mon.m_code,
+                                        MonetaryType(mon.m_value),
+                                        mon.m_currency));
+        }
+        else
+        {
+            TaxAmount::Amount::AmountType_e type = mon.m_code->codeInt() == AmountCode::CommissionRate ?
+                    TaxAmount::Amount::Percents : TaxAmount::Amount::Ordinary;
+            TaxAmount::Amount Am;
+
+            if(mon.m_value.empty())
+                continue;
+            if(mon.m_code == AmountCode::Equivalent && !ISDIGIT(mon.m_value[0]))
+                continue;
+
+            Am = EdiCast::amountFromString(mon.m_value, type);
+            lmon.push_back(MonetaryInfo(mon.m_code, Am, mon.m_currency));
+            lmon.back().setAddCollect(mon.m_addCollect);
+        }
     }
 }
 
