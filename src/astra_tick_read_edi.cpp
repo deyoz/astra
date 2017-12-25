@@ -232,50 +232,7 @@ void TaxDetailsEdiR::operator () (ReaderData &RData, list<TaxDetails> &ltax) con
 void MonetaryInfoEdiR::operator () (ReaderData &RData, list<MonetaryInfo> &lmon) const
 {
     REdiData &Data = dynamic_cast<REdiData &>(RData);
-    EDI_REAL_MES_STRUCT *pMes = Data.EdiMes();
-
-    PushEdiPointG(pMes);
-
-    if(!SetEdiPointToSegmentG(pMes, "MON",0,"MISS_MONETARY_INF"))
-    {
-        tst();
-        return;
-    }
-    unsigned MonNum = GetNumComposite(pMes, "C663", "MISS_MONETARY_INF");
-
-    PushEdiPointG(pMes);
-    for(unsigned i=0;i<MonNum;i++)
-    {
-        SetEdiPointToCompositeG(pMes, "C663",i, "PROG_ERR");
-        AmountCode Ac = GetDBNumCast<AmountCode>
-                (EdiCast::AmountCodeCast("MISS_MONETARY_INF"), pMes, 5025,0,
-                 "MISS_MONETARY_INF");
-
-        std::string AmStr = GetDBNum(pMes, DataElement(1230)); //Amount
-
-        if(MonetaryType::checkExistence(AmStr))
-        {
-            lmon.push_back(MonetaryInfo(Ac, MonetaryType(AmStr)));
-        }
-        else
-        {
-            TaxAmount::Amount::AmountType_e type = Ac->codeInt() == AmountCode::CommissionRate?
-                    TaxAmount::Amount::Percents : TaxAmount::Amount::Ordinary;
-            TaxAmount::Amount Am = GetDBNumCast<TaxAmount::Amount>
-                    (EdiCast::AmountCast("INV_AMOUNT", type),
-                     pMes, DataElement(1230)); //Amount
-
-            std::string curr;
-            if (!Am.isPercents() && Ac->codeInt() != AmountCode::ExchRate)
-            {
-                curr = GetDBNum(pMes, DataElement(6345)); //Currency
-            }
-            lmon.push_back(MonetaryInfo(Ac, Am, curr));
-        }
-        PopEdiPoint_wdG(pMes);
-    }
-    PopEdiPointG(pMes);
-    PopEdiPointG(pMes);
+    readEdiMonetaryInfo(readEdiMon(Data.EdiMes()).m_lMon, lmon);
 }
 
 void FormOfPaymentEdiR::operator () (ReaderData &RData, list<FormOfPayment> &lfop) const
