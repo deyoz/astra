@@ -593,6 +593,7 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         Qry.CreateVariable("pax_id",otInteger,pax_id);
     };
     switch(sort) {
+        case stServiceCode:
         case stRegNo:
             sql << " ORDER BY pax.reg_no, pax.seats DESC ";
             break;
