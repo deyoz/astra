@@ -410,8 +410,8 @@ struct TCondRate {
       for ( set<TSeatTariff,RateCompare>::iterator i=rates.begin(); ; i++ ) { // просмотр всех тарифов, кот. сортированы в порядке возрастания приоритета использования
         if ( i != rates.end() &&
              i->rate == place->SeatTariff.rate &&
-            ( i->color.empty() && !place->SeatTariff.currency_id.empty() || //цвет не задан  0.0 и у места задан тариф (не неизвестен !place->SeatTariff.currency_id.empty() )
-              i->color == place->SeatTariff.color && i->currency_id == place->SeatTariff.currency_id ) ) {
+            ( (i->color.empty() && !place->SeatTariff.currency_id.empty()) || //цвет не задан  0.0 и у места задан тариф (не неизвестен !place->SeatTariff.currency_id.empty() )
+              (i->color == place->SeatTariff.color && i->currency_id == place->SeatTariff.currency_id) ) ) {
           if ( use_rate || i->rate == 0.0 ) {
             res = true;
           }
@@ -667,6 +667,12 @@ void TSeatPlaces::RollBack( int Begin, int End )
       SALONS2::TPlace *pl = seatPlace.placeList->place( idx );
       /* отмена всех изменений места */
       *pl = *place;
+      if ( CurrSalon->canAddOccupy( pl ) ) {
+        CurrSalon->AddOccupySeat( seatPlace.placeList->num, pl->x, pl->y );
+      }
+      else {
+        CurrSalon->RemoveOccupySeat( seatPlace.placeList->num, pl->x, pl->y );
+      }
       switch( seatPlace.Step ) {
         case sRight: seatPlace.Pos.x++;
                      break;
@@ -856,10 +862,14 @@ int TSeatPlaces::Put_Find_Places( SALONS2::TPoint FP, SALONS2::TPoint EP, int fo
       SALONS2::TPlace place;
       SALONS2::TPlace *pl = placeList->place( EP );
       place = *pl;
-      if ( !CurrSalon->placeIsFree( &place ) || !place.isplace )
+      if ( !CurrSalon->placeIsFree( &place ) || !place.isplace ) {
         throw EXCEPTIONS::Exception( "Рассадка выполнила недопустимую операцию: использование уже занятого места" );
+      }
       seatplace.oldPlaces.push_back( place );
       pl->AddLayerToPlace( grp_status, 0, 0, NoExists, NoExists, CurrSalon->getPriority( grp_status ) );
+      if ( CurrSalon->canAddOccupy( pl ) ) {
+        CurrSalon->AddOccupySeat( placeList->num, pl->x, pl->y );
+      }
       switch( Step ) {
         case sRight:
            EP.x++;
@@ -1931,7 +1941,6 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
               if (!( (ik == 0 && ((!AllowedAttrsSeat.pr_isWorkINFT) || (FCanUseINFT == 1 && ipass->countPlace > 0 && ipass->isRemark( "INFT" )))) ||
                      (ik == 1 && FCanUseINFT == 1 && !(ipass->countPlace > 0 && ipass->isRemark( "INFT" ))) ||
                      (ik == 2 && FCanUseINFT == 0 && !(ipass->countPlace > 0 && ipass->isRemark( "INFT" ))) )) {
-//                tst();
                 continue;
               }
 //              ProgTrace( TRACE5, "pax_id=%d,ik=%d, FCanUseINFT=%d, ipass->countPlace=%d, pass.INFT=%d", ipass->paxId,ik, FCanUseINFT, ipass->countPlace, ipass->isRemark( "INFT" ) );
@@ -1949,25 +1958,27 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
               }
               AllowedAttrsSeat.pr_isWorkINFT = ( FCanUseINFT == 1 );
               AllowedAttrsSeat.pr_INFT = ( ipass->countPlace > 0 && ipass->isRemark( "INFT" ) );
-
               if ( pr_autoreseats ) {
                 if ( i == 0 ) {
-                  if ( ipass->SUBCLS_REM.empty() )
+                  if ( ipass->SUBCLS_REM.empty() ) {
                     continue;
+                  }
                   FindSUBCLS = true;
                   canUseSUBCLS = true;
                   SUBCLS_REM = ipass->SUBCLS_REM;
                 }
-                else
+                else {
                   if ( i == 1 ) {
-                    if ( !ipass->SUBCLS_REM.empty() )
+                    if ( !ipass->SUBCLS_REM.empty() ) {
                       continue;
+                    }
                     FindSUBCLS = false;
                     canUseSUBCLS = true;
                   }
                   else {
                     canUseSUBCLS = false;
                   }
+                }
               }
               else { // первый проход: если используется поиск по подклассу, то сажаем всех пассажиров с нужным подклассом
                 if ( i == 2 || ( i == 0 && canUseSUBCLS && ipass->SUBCLS_REM != SUBCLS_REM ) )
@@ -1986,8 +1997,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
 
               Passengers.Add( *ipass );
               ipass->index = old_index;
-              //ProgTrace( TRACE5, "Passengers.Count=%d - go seats", Passengers.getCount() );
-  //            tst();
+//              ProgTrace( TRACE5, "Passengers.Count=%d - go seats", Passengers.getCount() );
               if ( SeatGrpOnBasePlace( ) ||
                    ( ( CanUseRems == sNotUse_NotUseDenial ||
                        CanUseRems == sNotUse ||
@@ -2678,6 +2688,9 @@ bool ExistsBasePlace( SALONS2::TSalons &Salons, TPassenger &pass )
             pass.set_seat_no();
           }
           (*ipl)->AddLayerToPlace( pass.grp_status, 0, pass.paxId, NoExists, NoExists, Salons.getPriority( pass.grp_status ) );
+          if ( CurrSalon->canAddOccupy( *ipl ) ) {
+            CurrSalon->AddOccupySeat( placeList->num, (*ipl)->x, (*ipl)->y );
+          }
         }
         return true;
       }
@@ -3075,6 +3088,9 @@ class AnomalisticConditionsPayment
                 break;
               SALONS2::TPlace *place = placeList->place( FP );
               place->AddLayerToPlace( cltProtAfterPay, NowUTC(), pass.paxId, Salons->trip_id, pass.point_arv, BASIC_SALONS::TCompLayerTypes::Instance()->priority( cltProtAfterPay ) );
+              if ( CurrSalon->canAddOccupy( place ) ) {
+                CurrSalon->AddOccupySeat( placeList->num, place->x, place->y );
+              }
               pass.preseat_pax_id = pass.paxId;
               pass.preseat_layer = cltProtAfterPay;
               switch( (int)pass.Step ) {
@@ -3584,7 +3600,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p )
     pass.bag_weight = Qry.FieldAsInteger( "bag_weight" );
     pass.bag_amount = Qry.FieldAsInteger( "bag_amount" );
     pass.excess = Qry.FieldAsInteger( "excess" );
-    pass.grp_status = DecodeCompLayerType(((TGrpStatusTypesRow&)grp_status_types.get_row("code",Qry.FieldAsString( "status" ))).layer_type.c_str());
+    pass.grp_status = DecodeCompLayerType(((const TGrpStatusTypesRow&)grp_status_types.get_row("code",Qry.FieldAsString( "status" ))).layer_type.c_str());
     pass.pers_type = Qry.FieldAsString( "pers_type" );
     pass.wl_type = Qry.FieldAsString( "wl_type" );
     pass.point_arv = Qry.FieldAsInteger( "point_arv" );
@@ -4999,7 +5015,7 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
             ipass_status!=ipass_class->second.end(); ipass_status++ ) {
         //заполняем пассажирами с одними характеристиками
         vector<ASTRA::TCompLayerType> grp_layers;
-        const TGrpStatusTypesRow &grp_status_row = (TGrpStatusTypesRow&)grp_status_types.get_row( "code", ipass_status->first );
+        const TGrpStatusTypesRow &grp_status_row = (const TGrpStatusTypesRow&)grp_status_types.get_row( "code", ipass_status->first );
         if ( DecodePaxStatus(ipass_status->first.c_str()) == psCrew )
           throw EXCEPTIONS::Exception("AutoReSeatsPassengers: DecodePaxStatus(ipass_status->first) == psCrew");
         ASTRA::TCompLayerType grp_layer_type = DecodeCompLayerType( grp_status_row.layer_type.c_str() );
@@ -5045,7 +5061,9 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
             place->AddLayerToPlace( cltCheckin, NowUTC(), pass.paxId,
                                     salonList.getDepartureId(), pass.point_arv,
                                     BASIC_SALONS::TCompLayerTypes::Instance()->priority( cltCheckin ) );
-            tst();
+            if ( CurrSalon->canAddOccupy( place ) ) {
+              CurrSalon->AddOccupySeat( pass.placeList->num, place->x, place->y );
+            }
           }
           tst();
         }
