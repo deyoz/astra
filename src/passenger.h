@@ -364,6 +364,7 @@ class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
     std::string city;
     std::string region;
     std::string postal_code;
+    long int scanned_attrs; // … ‘‹‡“…’‘ (¤«ο α®Ά¬¥αβ¨¬®αβ¨ α getDocsFlag)
     TPaxDocaItem()
     {
       clear();
@@ -376,6 +377,7 @@ class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
       city.clear();
       region.clear();
       postal_code.clear();
+      scanned_attrs=NO_FIELDS;
     };
     bool empty() const
     {
