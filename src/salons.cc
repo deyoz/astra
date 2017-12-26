@@ -575,7 +575,7 @@ void buildMenuLayers( bool isTripCraft,
            !r->user.access.check_profile(point_id, 410) )
         pr_edit = false;
       if ( ilayer->first == cltDisable &&
-           !r->user.access.check_profile(point_id, 425) )
+           (!r->user.access.check_profile(point_id, 425)) )
         pr_edit = false;
         if ( pr_edit ) {
           SetProp( n, "edit", 1 );
@@ -899,6 +899,7 @@ void TSalons::Clear( )
   placelists.clear();
   ExistSubcls = boost::none;
   ExistBaseLayers = boost::none;
+  OccupySeats = boost::none;
 }
 
 bool TPlace::CompareRems( const TPlace &seat ) const
@@ -6033,9 +6034,9 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
           }
         }
       }
-      if ( !salons.placeIsFree( &(*iseat) ) || !iseat->isplace || !iseat->visible ) {
-        //ProgTrace(TRACE5, "AddOccupySeat %d", salons.AddOccupySeat( (*iseatlist)->num, iseat->x, iseat->y ) );
+      if ( salons.canAddOccupy( &(*iseat) ) ) {
         salons.AddOccupySeat( (*iseatlist)->num, iseat->x, iseat->y );
+        //ProgTrace(TRACE5, "AddOccupySeat %d, %d, %d, %d",(*iseatlist)->num, iseat->x, iseat->y, salons.c() );
       }
     } // end for iseat
   }
@@ -6383,13 +6384,13 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
         }
         //изменились места - удаляем старые, записываем новые
         DelQry.SetVariable( "pax_id", inew->first );
-        DelQry.SetVariable( "pr_update", 0 );
+        DelQry.SetVariable( "pr_update", 1 );
         DelQry.Execute();
         change_pax_seats.insert( make_pair( inew->first, DelQry.GetVariableAsInteger( "pr_update") ) );
       }
       else { //пассажир не найден в новом списке - разрегистрация по ошибке агента или ЛО
         DelQry.SetVariable( "pax_id", iold->first );
-        DelQry.SetVariable( "pr_update", 1 );
+        DelQry.SetVariable( "pr_update", 0 );
         DelQry.Execute();
         bool pr_exists = DelQry.GetVariableAsInteger( "pr_update") != 0;
         if ( pr_exists ) {
@@ -6913,7 +6914,7 @@ void TSalons::Read( bool drop_not_used_pax_layers )
       placeList != placelists.end(); placeList++ ) {
       for ( TPlaces::iterator place = (*placeList)->places.begin();
             place != (*placeList)->places.end(); place++ ) {
-        if ( !placeIsFree( &(*place) ) || !place->isplace || !place->visible ) {
+        if ( canAddOccupy( &(*place) ) ) {
           AddOccupySeat( (*placeList)->num, place->x, place->y );
         }
         if ( !place->visible || !place->isplace ||
@@ -7072,6 +7073,9 @@ void TSalons::SetTariffsByRFISC( int point_dep )
     for ( TPlaces::iterator place = (*placeList)->places.begin();
           place != (*placeList)->places.end(); place++ ) {
       place->SetTariffsByRFISC( point_dep );
+      if ( canAddOccupy( &(*place) ) ) {
+        AddOccupySeat( (*placeList)->num, place->x, place->y );
+      }
     }
   }
 }

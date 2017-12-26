@@ -1199,6 +1199,17 @@ class TSalons {
     bool isExistBaseLayer( const ASTRA::TCompLayerType &layer_type ) const {
       return ExistBaseLayers != boost::none && ExistBaseLayers.get().find( layer_type ) != ExistBaseLayers.get().end();
     }
+    bool canAddOccupy( TPlace* p ) {
+      return ( !p->isplace || !p->visible || !placeIsFree( p ) );
+    }
+
+    int OccupySeatsCount() {
+      if ( OccupySeats != boost::none ) {
+        return (int)OccupySeats.get().size();
+      }
+      return 0;
+    }
+
     int AddOccupySeat( int num, int x, int y ) {
       if ( OccupySeats == boost::none ) {
         OccupySeats = std::set<int>();
@@ -1206,6 +1217,14 @@ class TSalons {
       int res = num*100000 + y*1000 + x;
       OccupySeats.get().insert( res );
       return res;
+    }
+    void RemoveOccupySeat( int num, int x, int y ) {
+      if ( OccupySeats == boost::none ) {
+        return;
+      }
+      int res = num*100000 + y*1000 + x;
+      OccupySeats.get().erase( res );
+      return;
     }
     bool isExistsOccupySeat( int num, int x, int y ) const {
       return OccupySeats != boost::none && OccupySeats.get().find( num*100000 + y*1000 + x ) != OccupySeats.get().end();
