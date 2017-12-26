@@ -6299,9 +6299,9 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
     " IF :pr_update = 1 THEN "
     " DELETE pax_seats WHERE point_id=:point_id AND pax_id=:pax_id AND pr_wl=1; "
     " UPDATE pax_seats SET pr_wl=1 WHERE point_id=:point_id AND pax_id=:pax_id AND NVL(pr_wl,0)=0; "
+    " :pr_update := SQL%ROWCOUNT;"
     " END IF;"
     " DELETE pax_seats WHERE point_id=:point_id AND pax_id=:pax_id AND NVL(pr_wl,0)=0; "
-    " :pr_update := SQL%ROWCOUNT;"
     "END;";
   DelQry.DeclareVariable( "point_id", otInteger );
   DelQry.DeclareVariable( "pax_id", otInteger );
@@ -6375,7 +6375,7 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
       }
     }
     //пробег по старым пассажирам-местам
-    std::map<int,bool> change_pax_seats;
+    std::set<int> change_pax_seats;
     for ( std::map<int,TPassSeats>::iterator iold=old_seats.begin(); iold!=old_seats.end(); iold++ ) {
       std::map<int,TPassSeats>::iterator inew = new_seats.find( iold->first );
       if ( inew != new_seats.end() ) { //пассажир найден
@@ -6384,13 +6384,13 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
         }
         //изменились места - удаляем старые, записываем новые
         DelQry.SetVariable( "pax_id", inew->first );
-        DelQry.SetVariable( "pr_update", 1 );
+        DelQry.SetVariable( "pr_update", 0 );
         DelQry.Execute();
-        change_pax_seats.insert( make_pair( inew->first, DelQry.GetVariableAsInteger( "pr_update") ) );
+        change_pax_seats.insert( inew->first );
       }
       else { //пассажир не найден в новом списке - разрегистрация по ошибке агента или ЛО
         DelQry.SetVariable( "pax_id", iold->first );
-        DelQry.SetVariable( "pr_update", 0 );
+        DelQry.SetVariable( "pr_update", 1 );
         DelQry.Execute();
         bool pr_exists = DelQry.GetVariableAsInteger( "pr_update") != 0;
         if ( pr_exists ) {
