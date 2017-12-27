@@ -8,7 +8,7 @@
 #include "remarks.h"
 #include "print.h"
 
-enum TSortType {stRegNo, stSurname, stSeatNo};
+enum TSortType {stRegNo, stSurname, stSeatNo, stServiceCode};
 
 struct TRptParams {
     private:

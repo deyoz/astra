@@ -303,6 +303,9 @@ void populate_doc_cap(xmlNodePtr variablesNode, string lang)
     NewTextChild(variablesNode, "doc_cap_total", getLocaleText("Итого:", lang));
     NewTextChild(variablesNode, "doc_cap_overall", getLocaleText("Всего:", lang));
     NewTextChild(variablesNode, "doc_cap_vou_quantity", getLocaleText("Кол-во ваучеров", lang));
+    NewTextChild(variablesNode, "doc_cap_descr", getLocaleText("Описание", lang));
+    NewTextChild(variablesNode, "doc_cap_rcpt_no", getLocaleText("№ квитанции", lang));
+    NewTextChild(variablesNode, "doc_cap_service_code", getLocaleText("Код услуги", lang));
 }
 
 void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode, TDateTime part_key)
@@ -1138,6 +1141,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "    cls_grp.priority, \n"
         "    cls_grp.class, \n";
     switch(rpt_params.sort) {
+        case stServiceCode:
         case stRegNo:
             SQLText +=
                 "    pax.reg_no ASC, \n"
@@ -2380,6 +2384,7 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "       point_dep = :point_id "
         "order by ";
     switch(rpt_params.sort) {
+        case stServiceCode:
         case stSeatNo:
         case stRegNo:
             SQLText += " pax.reg_no, pax.seats DESC ";
@@ -2631,6 +2636,7 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "       pax_grp.status NOT IN ('E') "
         "order by ";
     switch(rpt_params.sort) {
+        case stServiceCode:
         case stRegNo:
             SQLText += " pax.reg_no, pax.seats DESC ";
             break;
@@ -2920,6 +2926,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "       pax_grp.status NOT IN ('E') "
         "order by ";
     switch(rpt_params.sort) {
+        case stServiceCode:
         case stRegNo:
             SQLText += " pax.reg_no, pax.seats DESC ";
             break;
@@ -3124,6 +3131,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     SQLText +=
         "order by ";
     switch(rpt_params.sort) {
+        case stServiceCode:
         case stRegNo:
         case stSurname:
             SQLText += " family ";
@@ -3675,7 +3683,8 @@ enum EServiceSortOrder
 {
     by_reg_no,
     by_family,
-    by_seat_no
+    by_seat_no,
+    by_service_code
 };
 
 struct TServiceRow
@@ -3700,6 +3709,7 @@ struct TServiceRow
             case by_reg_no: return reg_no < other.reg_no;
             case by_family: return family < other.family;
             case by_seat_no: return seat_no < other.seat_no;
+            case by_service_code: return RFISC < other.RFISC;
             default: throw Exception("TServiceRow::operator < : unexpected value");
         }
     }
@@ -3748,13 +3758,6 @@ void SERVICES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "caption",
         getLocaleText("CAP.DOC.SERVICES", LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
     populate_doc_cap(variablesNode, rpt_params.GetLang());
-    NewTextChild(variablesNode, "cap_srv_seat_no", "Место в салоне");
-    NewTextChild(variablesNode, "cap_srv_family", "ФИО пассажира");
-    NewTextChild(variablesNode, "cap_srv_reg_no", "Рег. №");
-    NewTextChild(variablesNode, "cap_srv_RFIC", "RFIC");
-    NewTextChild(variablesNode, "cap_srv_RFISC", "Код услуги");
-    NewTextChild(variablesNode, "cap_srv_desc", "Описание");
-    NewTextChild(variablesNode, "cap_srv_num", "Номер квитанции");
     // строки отчёта
     TQuery Qry(&OraSession);
     string SQLText =
@@ -3781,6 +3784,7 @@ void SERVICES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         case stRegNo: sortOrder = by_reg_no; break;
         case stSurname: sortOrder = by_family; break;
         case stSeatNo: sortOrder = by_seat_no; break;
+        case stServiceCode: sortOrder = by_service_code; break;
     }
     //  инициализация фильтра
     TServiceFilter filter;
