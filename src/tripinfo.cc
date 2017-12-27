@@ -3211,10 +3211,10 @@ std::string getDocsFlag( const TDOC &crs_pax_doc, const TDOC &pax_doc, bool pr_c
     }
     else
     {
-      if (pax_doc.scanned_attrs == NO_FIELDS)
-        res << "+";
+      if ((pax_doc.scanned_attrs & pax_doc.getNotEmptyFieldsMask()) != pax_doc.getNotEmptyFieldsMask())
+        res << "+"; // Добавили при регистрации в ручную
       else
-        res << "*";
+        res << "*"; // Добавили при регистрации с помощью сканирования
     }
   }
   else // !crs_pax_doc.empty()
@@ -3222,14 +3222,14 @@ std::string getDocsFlag( const TDOC &crs_pax_doc, const TDOC &pax_doc, bool pr_c
     if (pax_doc.empty())
     {
       if (pr_checkin)
-        res << "-";
+        res << "-"; // Удалили
     }
     else if (!crs_pax_doc.equalAttrs( pax_doc ))
     {
-      if (pax_doc.scanned_attrs == NO_FIELDS)
-        res << "#";
+      if ((pax_doc.scanned_attrs & pax_doc.getNotEmptyFieldsMask()) != pax_doc.getNotEmptyFieldsMask())
+        res << "#"; // Изменили в ручную
       else
-        res << "=";
+        res << "="; // Изменение данных через сканирование
     }
   }
   res << flagStr;
