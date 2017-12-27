@@ -303,6 +303,9 @@ void populate_doc_cap(xmlNodePtr variablesNode, string lang)
     NewTextChild(variablesNode, "doc_cap_total", getLocaleText("Итого:", lang));
     NewTextChild(variablesNode, "doc_cap_overall", getLocaleText("Всего:", lang));
     NewTextChild(variablesNode, "doc_cap_vou_quantity", getLocaleText("Кол-во ваучеров", lang));
+    NewTextChild(variablesNode, "doc_cap_descr", getLocaleText("Описание", lang));
+    NewTextChild(variablesNode, "doc_cap_rcpt_no", getLocaleText("№ квитанции", lang));
+    NewTextChild(variablesNode, "doc_cap_service_code", getLocaleText("Код услуги", lang));
 }
 
 void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode, TDateTime part_key)
@@ -3755,13 +3758,6 @@ void SERVICES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "caption",
         getLocaleText("CAP.DOC.SERVICES", LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
     populate_doc_cap(variablesNode, rpt_params.GetLang());
-    NewTextChild(variablesNode, "cap_srv_seat_no", "Место в салоне");
-    NewTextChild(variablesNode, "cap_srv_family", "ФИО пассажира");
-    NewTextChild(variablesNode, "cap_srv_reg_no", "Рег. №");
-    NewTextChild(variablesNode, "cap_srv_RFIC", "RFIC");
-    NewTextChild(variablesNode, "cap_srv_RFISC", "Код услуги");
-    NewTextChild(variablesNode, "cap_srv_desc", "Описание");
-    NewTextChild(variablesNode, "cap_srv_num", "Номер квитанции");
     // строки отчёта
     TQuery Qry(&OraSession);
     string SQLText =
