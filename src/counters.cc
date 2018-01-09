@@ -163,13 +163,20 @@ void TCrsCountersMap::loadCrsCountersOnly()
     insert(make_pair(TCrsCountersKey().fromDB(Qry.get()), TCrsCountersData().fromDB(Qry.get())));
 }
 
+void TCrsCountersMap::deleteCrsCountersOnly(int point_id)
+{
+  LogTrace(TRACE5) << __FUNCTION__;
+
+  TCachedQuery Qry("DELETE FROM crs_counters3 WHERE point_dep=:point_dep",
+                   QParams() << QParam("point_dep", otInteger, point_id));
+  Qry.get().Execute();
+}
+
 void TCrsCountersMap::saveCrsCountersOnly() const
 {
   LogTrace(TRACE5) << __FUNCTION__;
 
-  TCachedQuery DelQry("DELETE FROM crs_counters3 WHERE point_dep=:point_dep",
-                      QParams() << QParam("point_dep", otInteger, _flt.point_id));
-  DelQry.get().Execute();
+  deleteCrsCountersOnly(_flt.point_id);
 
   if (!empty())
   {
@@ -410,7 +417,7 @@ void TCounters::deleteInitially(int point_id)
   LogTrace(TRACE5) << __FUNCTION__;
 
   TCachedQuery Qry("DELETE FROM counters3 WHERE point_dep=:point_dep",
-                      QParams() << QParam("point_dep", otInteger, point_id));
+                   QParams() << QParam("point_dep", otInteger, point_id));
   Qry.get().Execute();
 }
 
@@ -524,7 +531,14 @@ const TCounters &TCounters::recount(int point_id, RecountType type)
 {
   LogTrace(TRACE5) << __FUNCTION__;
 
-  if (!setFlt(point_id)) return *this;
+  if (!setFlt(point_id))
+  {
+    if (type==Total)
+      TCounters::deleteInitially(point_id);
+    if (type==CrsCounters)
+      TCrsCountersMap::deleteCrsCountersOnly(point_id);
+    return *this;
+  }
 
   if (type==Total)
     recountInitially();
@@ -555,7 +569,11 @@ const TCounters &TCounters::recount(const CheckIn::TPaxGrpItem &grp,
   regDifferenceMap.getDifference(grp, prior_paxs, curr_paxs);
   if (regDifferenceMap.empty()) return *this;
 
-  if (!setFlt(grp.point_dep)) return *this;
+  if (!setFlt(grp.point_dep))
+  {
+    TCounters::deleteInitially(grp.point_dep);
+    return *this;
+  }
 
   regDifferenceMap.apply(flt(), pr_tranz_reg());
 
