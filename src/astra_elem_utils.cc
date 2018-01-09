@@ -5,6 +5,7 @@
 #include "date_time.h"
 #include "misc.h"
 #include "xml_unit.h"
+#include "code_convert.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -48,13 +49,14 @@ string airl_fromXML(const string &value, TCheckFieldFromXML check_type, const st
   return airline;
 }
 
-string airp_fromXML(xmlNodePtr node, TCheckFieldFromXML check_type, const string &trace_info)
+string airp_fromXML(xmlNodePtr node, TCheckFieldFromXML check_type, const string &trace_info, const std::string& system_name)
 {
   if (node==NULL) throw EXCEPTIONS::Exception("%s: airp_fromXML(node==NULL)!", trace_info.c_str());
-  return airp_fromXML(NodeAsString(node), check_type, trace_info, (char*)(node->name));
+  return airp_fromXML(NodeAsString(node), check_type, trace_info, (char*)(node->name), system_name);
 }
 
-string airp_fromXML(const string &value, TCheckFieldFromXML check_type, const string &trace_info, const string &node_name)
+string airp_fromXML(const string &value, TCheckFieldFromXML check_type, const string &trace_info, const string &node_name,
+                    const std::string& system_name)
 {
   string str(value);
   string airp;
@@ -62,6 +64,8 @@ string airp_fromXML(const string &value, TCheckFieldFromXML check_type, const st
   TrimString(str);
   if (!str.empty())
   {
+    if (!system_name.empty())
+      str = AirportToInternal(upperc(str), system_name);
     airp = ElemToElemId( etAirp, upperc(str), fmt );
     if (fmt==efmtUnknown)
     {
