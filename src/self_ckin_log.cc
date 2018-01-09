@@ -33,6 +33,7 @@ struct TKiosksGrp {
 };
 
 struct TParams {
+    string sessionId;
     TDateTime time_from;
     TDateTime time_to;
     int kiosk_addr;
@@ -68,25 +69,29 @@ void TKiosksGrp::fromDB(int kiosk_addr)
 
 void TParams::fromXML(xmlNodePtr reqNode)
 {
-    time_from = NodeAsDateTime("time_from", reqNode);
-    time_to = NodeAsDateTime("time_to", reqNode);
-    kiosk_addr = NodeAsInteger("kiosk_addr", reqNode, NoExists);
-    kiosks_grp.fromDB(kiosk_addr);
-    app = NodeAsString("app", reqNode, "");
+    sessionId = NodeAsString("sessionId", reqNode, "");
+    if(sessionId.empty()) {
+        time_from = NodeAsDateTime("time_from", reqNode);
+        time_to = NodeAsDateTime("time_to", reqNode);
+        kiosk_addr = NodeAsInteger("kiosk_addr", reqNode, NoExists);
+        kiosks_grp.fromDB(kiosk_addr);
+        app = NodeAsString("app", reqNode, "");
 
-    flt = NodeAsString("flt", reqNode, "");
-    date = NodeAsString("date", reqNode, "");
-    pax_name = NodeAsString("pax_name", reqNode, "");
-    tkt = NodeAsString("tkt", reqNode, "");
-    doc = NodeAsString("doc", reqNode, "");
+        flt = NodeAsString("flt", reqNode, "");
+        date = NodeAsString("date", reqNode, "");
+        pax_name = NodeAsString("pax_name", reqNode, "");
+        tkt = NodeAsString("tkt", reqNode, "");
+        doc = NodeAsString("doc", reqNode, "");
 
-    ext_src = NodeAsInteger("ext_src", reqNode, 0) != 0;
+        ext_src = NodeAsInteger("ext_src", reqNode, 0) != 0;
 
-    kiosk = NodeAsString("kiosk", reqNode, "");
+        kiosk = NodeAsString("kiosk", reqNode, "");
+    }
 }
 
 void TParams::clear()
 {
+    sessionId.clear();
     time_from = NoExists;
     time_to = NoExists;
     kiosk_addr = NoExists;
@@ -244,6 +249,7 @@ void TSelfCkinLog::rowToXML(xmlNodePtr rowNode, const TSelfCkinLogItem &log_item
 void TSelfCkinLog::toXML(xmlNodePtr resNode)
 {
     NewTextChild(resNode, "screenCol", 3);
+    NewTextChild(resNode, "sessionCol", 7);
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
 
     xmlNodePtr headerNode = NewTextChild(grdNode, "header");
@@ -309,19 +315,25 @@ void TSelfCkinLog::toXML(xmlNodePtr resNode)
 void TSelfCkinLog::fromDB(const TParams &params)
 {
     QParams QryParams;
-    QryParams
-        << QParam("time_from", otDate, params.time_from)
-        << QParam("time_to", otDate, params.time_to);
-    string SQLText = "select * from kiosk_events where time > :time_from and time <= :time_to";
-    if(not params.kiosks_grp.items.empty())
-        SQLText += " and kioskid in " + GetSQLEnum(params.kiosks_grp.items);
-    else if(not params.kiosk.empty()) {
-        SQLText += " and kioskid = :kiosk_id ";
-        QryParams << QParam("kiosk_id", otString, params.kiosk);
-    }
-    if(not params.app.empty()) {
-        SQLText += " and application = :app ";
-        QryParams << QParam("app", otString, params.app);
+    string SQLText = "select * from kiosk_events where ";
+    if(params.sessionId.empty()) {
+        SQLText += "time > :time_from and time <= :time_to";
+        QryParams
+            << QParam("time_from", otDate, params.time_from)
+            << QParam("time_to", otDate, params.time_to);
+        if(not params.kiosks_grp.items.empty())
+            SQLText += " and kioskid in " + GetSQLEnum(params.kiosks_grp.items);
+        else if(not params.kiosk.empty()) {
+            SQLText += " and kioskid = :kiosk_id ";
+            QryParams << QParam("kiosk_id", otString, params.kiosk);
+        }
+        if(not params.app.empty()) {
+            SQLText += " and application = :app ";
+            QryParams << QParam("app", otString, params.app);
+        }
+    } else {
+        SQLText += " session_id = :sessionId ";
+        QryParams << QParam("sessionId", otString, params.sessionId);
     }
     TCachedQuery Qry(SQLText, QryParams);
     Qry.get().Execute();
@@ -345,29 +357,31 @@ void TSelfCkinLog::fromDB(const TParams &params)
             logItem.evt_params.fromDB(logItem.id);
 
             if(
-                    (params.flt.empty() or
-                    logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::FLIGHT) == params.flt) and
-                    (params.date.empty() or
-                    logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::DATE) == params.date) and
-                    (params.pax_name.empty() or
-                    upperc(logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::LAST_NAME)).find(params.pax_name) != string::npos) and
-                    (params.tkt.empty() or
-                    upperc(logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::TICKET)).find(params.tkt) != string::npos) and
-                    (params.doc.empty() or
-                    upperc(logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::DOC)).find(params.doc) != string::npos)
+                    not params.sessionId.empty() or (
+                        (params.flt.empty() or
+                         logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::FLIGHT) == params.flt) and
+                        (params.date.empty() or
+                         logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::DATE) == params.date) and
+                        (params.pax_name.empty() or
+                         upperc(logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::LAST_NAME)).find(params.pax_name) != string::npos) and
+                        (params.tkt.empty() or
+                         upperc(logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::TICKET)).find(params.tkt) != string::npos) and
+                        (params.doc.empty() or
+                         upperc(logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::DOC)).find(params.doc) != string::npos)
+                        )
               )
                 items[logItem.time][logItem.ev_order] = logItem;
 
             /*
-            const string &value = upperc(logItem.evt_params.get_param(KIOSK_PARAM_NAME::REFERENCE).begin()->second.begin()->second);
-            if(
-                    found(value, params.flt) and
-                    found(value, params.pax_name) and
-                    found(value, params.tkt) and
-                    found(value, params.doc)
-              )
-                items[logItem.time][logItem.ev_order] = logItem;
-                */
+               const string &value = upperc(logItem.evt_params.get_param(KIOSK_PARAM_NAME::REFERENCE).begin()->second.begin()->second);
+               if(
+               found(value, params.flt) and
+               found(value, params.pax_name) and
+               found(value, params.tkt) and
+               found(value, params.doc)
+               )
+               items[logItem.time][logItem.ev_order] = logItem;
+               */
         }
     }
 }
