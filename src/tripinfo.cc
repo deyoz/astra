@@ -2591,7 +2591,7 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
   //TQuery StagesQry( &OraSession );
   Qry.SQLText =
     "SELECT " + TTripInfo::selectedFields() + "litera, bort, trip_type "
-    "FROM points WHERE point_id=:point_id AND pr_del>=0"; 
+    "FROM points WHERE point_id=:point_id AND pr_del>=0";
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
   if ( Qry.Eof ) {
@@ -3167,7 +3167,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
 
 
 template <class T1>
-std::string getDocsFlag( const T1 &crs_pax_doc, const T1 &pax_doc, bool pr_checkin, std::string flagStr, bool firstFlag )
+std::string getDocsFlag_OLD( const T1 &crs_pax_doc, const T1 &pax_doc, bool pr_checkin, std::string flagStr, bool firstFlag )
 {
   std::string res;
   if ( (crs_pax_doc.empty() && !pax_doc.empty()) ||
@@ -3184,6 +3184,44 @@ std::string getDocsFlag( const T1 &crs_pax_doc, const T1 &pax_doc, bool pr_check
     res += string("-") + flagStr;
   }
   return res;
+}
+
+template <class TDOC>
+std::string getDocsFlag( const TDOC &crs_pax_doc, const TDOC &pax_doc, bool pr_checkin, std::string flagStr, bool firstFlag )
+{
+  ostringstream res;
+  if (!firstFlag) res << "/";
+  if (crs_pax_doc.empty())
+  {
+    if (pax_doc.empty())
+    {
+      return "";
+    }
+    else
+    {
+      if ((pax_doc.scanned_attrs & pax_doc.getNotEmptyFieldsMask()) != pax_doc.getNotEmptyFieldsMask())
+        res << "+"; // Добавили при регистрации в ручную
+      else
+        res << "*"; // Добавили при регистрации с помощью сканирования
+    }
+  }
+  else // !crs_pax_doc.empty()
+  {
+    if (pax_doc.empty())
+    {
+      if (pr_checkin)
+        res << "-"; // Удалили
+    }
+    else if (!crs_pax_doc.equalAttrs( pax_doc ))
+    {
+      if ((pax_doc.scanned_attrs & pax_doc.getNotEmptyFieldsMask()) != pax_doc.getNotEmptyFieldsMask())
+        res << "#"; // Изменили в ручную
+      else
+        res << "="; // Изменение данных через сканирование
+    }
+  }
+  res << flagStr;
+  return res.str();
 }
 
 std::string getDocsFlags( int pax_id, bool pr_checkin )
