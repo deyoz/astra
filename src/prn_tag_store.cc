@@ -2325,6 +2325,10 @@ string TPrnTagStore::TRfiscDescr::get(const string &crs_cls, TBPServiceTypes::En
 {
     string bi_rule = pts.get_tag(TAG::BI_HALL);
     if(
+            not (
+                found_services.find(TBPServiceTypes::UP) != found_services.end() and
+                crs_cls == "Å")
+            and
             (code == TBPServiceTypes::LG or code == TBPServiceTypes::TS_FT) and
             (crs_cls == "Å" or crs_cls == "è" or not bi_rule.empty())
       )
