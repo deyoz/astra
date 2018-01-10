@@ -384,6 +384,12 @@ string GetTermInfo( TQuery &Qry, int pax_id, int reg_no, bool pr_tcheckin, const
   return info.str();
 }
 
+std::string toAODBCode( std::string code )
+{
+  std::string new_code = AirportToExternal(code, "AODBO");
+  if (new_code.empty()) return code; else return new_code;
+}
+
 bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::string &point_addr,
                                 TAODBFormat format, TFileDatas &fds )
 {
@@ -566,7 +572,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
       if ( format == afNewUrengoy )
         record<<setw(3)<<row->code.substr(0,3);
       else
-        record<<setw(20)<<AirportToExternal(row->code, "AODBO").substr(0,20); //§´Ô Ççä
+        record<<setw(20)<<toAODBCode(row->code).substr(0,20); //§´Ô Ççä
       record<<setw(1);
       switch ( DecodeClass(Qry.FieldAsString( "class")) ) {
         case ASTRA::F:
