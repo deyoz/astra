@@ -45,6 +45,8 @@ enum TRFISCMode { rTariff, rRFISC, rAll };
 
 typedef BitSet<TCompareComps> TCompareCompsFlags;
 
+bool isREM_SUBCLS( std::string rem );
+
 struct TSetsCraftPoints: public std::vector<int> {
    int comp_id;
    void Clear() {
@@ -1126,6 +1128,9 @@ class TSalons {
     TPlaceList* FCurrPlaceList;
     bool pr_lat_seat;
     bool pr_owner;
+    boost::optional<std::set<std::string>> ExistSubcls; //for passernger seats with subcls rem
+    boost::optional<std::set<ASTRA::TCompLayerType>> ExistBaseLayers; // for auto seats
+    boost::optional<std::set<int>> OccupySeats; // for auto seats
   public:
     int trip_id;
     int comp_id;
@@ -1173,6 +1178,57 @@ class TSalons {
     void Parse( xmlNodePtr salonsNode );
     void SetTariffsByRFISCColor( int point_dep, const TSeatTariffMapType &tariffs, const TSeatTariffMap::TStatus &status );
     void SetTariffsByRFISC( int point_dep );
+    void AddExistSubcls( const TRem &rem ) {
+      if ( rem.pr_denial || isREM_SUBCLS( rem.rem ) ) { //не разрешенная или не подкласс
+        return;
+      }
+      if ( ExistSubcls == boost::none ) {
+        ExistSubcls = std::set<std::string>();
+      }
+      ExistSubcls.get().insert( rem.rem );
+    }
+    bool isExistSubcls( const std::string &rem ) const {
+      return ExistSubcls != boost::none && ExistSubcls.get().find( rem ) != ExistSubcls.get().end();
+    }
+    void AddExistBaseLayer( const ASTRA::TCompLayerType &layer_type ) {
+      if ( ExistBaseLayers == boost::none ) {
+        ExistBaseLayers = std::set<ASTRA::TCompLayerType>();
+      }
+      ExistBaseLayers.get().insert( layer_type );
+    }
+    bool isExistBaseLayer( const ASTRA::TCompLayerType &layer_type ) const {
+      return ExistBaseLayers != boost::none && ExistBaseLayers.get().find( layer_type ) != ExistBaseLayers.get().end();
+    }
+    bool canAddOccupy( TPlace* p ) {
+      return ( !p->isplace || !p->visible || !placeIsFree( p ) );
+    }
+
+    int OccupySeatsCount() {
+      if ( OccupySeats != boost::none ) {
+        return (int)OccupySeats.get().size();
+      }
+      return 0;
+    }
+
+    int AddOccupySeat( int num, int x, int y ) {
+      if ( OccupySeats == boost::none ) {
+        OccupySeats = std::set<int>();
+      }
+      int res = num*100000 + y*1000 + x;
+      OccupySeats.get().insert( res );
+      return res;
+    }
+    void RemoveOccupySeat( int num, int x, int y ) {
+      if ( OccupySeats == boost::none ) {
+        return;
+      }
+      int res = num*100000 + y*1000 + x;
+      OccupySeats.get().erase( res );
+      return;
+    }
+    bool isExistsOccupySeat( int num, int x, int y ) const {
+      return OccupySeats != boost::none && OccupySeats.get().find( num*100000 + y*1000 + x ) != OccupySeats.get().end();
+    }
 };
 
 struct ComparePassenger {

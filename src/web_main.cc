@@ -1,7 +1,3 @@
-#include <arpa/inet.h>
-#include <memory.h>
-#include <string>
-
 #include "oralib.h"
 #include "exceptions.h"
 #include "stages.h"
@@ -1443,7 +1439,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
           //вычисляем подкласс места
           string seat_subcls;
           for ( vector<TRem>::iterator i=place->rems.begin(); i!=place->rems.end(); i++ ) {
-            if ( isREM_SUBCLS( i->rem ) && !i->pr_denial ) {
+            if ( SALONS2::isREM_SUBCLS( i->rem ) && !i->pr_denial ) {
               seat_subcls = i->rem;
               break;
             }
@@ -2885,9 +2881,9 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     NewTextChild( node, "gate", gate );
 }
 
-void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
-                         bool pr_del, int time_limit,
-                         int &curr_tid, CheckIn::UserException &ue)
+void ChangeProtLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
+                     bool pr_del, ASTRA::TCompLayerType layer_type, int time_limit,
+                     int &curr_tid, CheckIn::UserException &ue)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
 
@@ -2901,6 +2897,7 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
     if (!pr_del)
     {
       point_id=NodeAsInteger("point_id", reqNode);
+      if ( layer_type == cltProtBeforePay ) {
       //проверим признак платной регистрации и
       Qry.Clear();
       Qry.SQLText =
@@ -2909,6 +2906,12 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
         Qry.Execute();
         if ( Qry.Eof || Qry.FieldAsInteger("pr_permit")==0 )
           throw UserException( "MSG.CHECKIN.NOT_PAID_CHECKIN_MODE" );
+      }
+      else { //!!!djek
+        Qry.SQLText =
+          "SELECT 15 AS prot_timeout FROM dual";
+        Qry.Execute();
+      }
 
         if (time_limit==NoExists)
         {
@@ -2964,10 +2967,10 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
           for(vector<TWebPax>::const_iterator iPax=pnr.begin();iPax!=pnr.end();iPax++)
           {
             if (iPax->crs_pax_id==pax.crs_pax_id)
-              throw EXCEPTIONS::Exception("ChangeProtPaidLayer: crs_pax_id duplicated (crs_pax_id=%d)",
+              throw EXCEPTIONS::Exception("ChangeProtdLayer: crs_pax_id duplicated (crs_pax_id=%d)",
                                           pax.crs_pax_id);
             if (!pax.crs_seat_no.empty() && iPax->crs_seat_no==pax.crs_seat_no)
-              throw EXCEPTIONS::Exception("ChangeProtPaidLayer: seat_no duplicated (crs_pax_id=%d, seat_no=%s)",
+              throw EXCEPTIONS::Exception("ChangeProtLayer: seat_no duplicated (crs_pax_id=%d, seat_no=%s)",
                                           pax.crs_pax_id, pax.crs_seat_no.c_str());
           };
         };
@@ -3004,16 +3007,16 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
           else
           {
             if (pnr_id!=Qry.FieldAsInteger("pnr_id"))
-              throw EXCEPTIONS::Exception("ChangeProtPaidLayer: passengers from different PNR (crs_pax_id=%d)", pax.crs_pax_id);
+              throw EXCEPTIONS::Exception("ChangeProtLayer: passengers from different PNR (crs_pax_id=%d)", pax.crs_pax_id);
           };
         };
         pax.pass_class=Qry.FieldAsString("class");
         pax.pass_subclass=Qry.FieldAsString("subclass");
         pax.seats=Qry.FieldAsInteger("seats");
-        if (!pr_del && pax.crs_seat_no.empty())
+        if (!pr_del && pax.crs_seat_no.empty()) // если удаление слоя "перед оплатой", то место не задано
         {
           if (pax.seats>0)
-            throw EXCEPTIONS::Exception("ChangeProtPaidLayer: empty seat_no (crs_pax_id=%d)", pax.crs_pax_id);
+            throw EXCEPTIONS::Exception("ChangeProtLayer: empty seat_no (crs_pax_id=%d)", pax.crs_pax_id);
           continue;
         };
         pnr.push_back(pax);
@@ -3059,7 +3062,7 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
               if (iSeat->first.pax_id==iPax->crs_pax_id &&
                   iSeat->first.seat_no==iPax->crs_seat_no) break;
             if (iSeat==pax_seats.end())
-              throw EXCEPTIONS::Exception("ChangeProtPaidLayer: passenger not found in pax_seats (crs_pax_id=%d, crs_seat_no=%s)",
+              throw EXCEPTIONS::Exception("ChangeProtLayer: passenger not found in pax_seats (crs_pax_id=%d, crs_seat_no=%s)",
                                           iPax->crs_pax_id, iPax->crs_seat_no.c_str());
             if (!iSeat->second.lexema_id.empty())
               throw UserException(iSeat->second.lexema_id, iSeat->second.lparams);
@@ -3078,7 +3081,7 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
                                iSeat->first.xname,
                                iSeat->first.yname,
                                stSeat,
-                               cltProtBeforePay,
+                               layer_type,
                                change_layer_flags,
                                0,
                                NoExists,
@@ -3091,12 +3094,12 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
                               iSeat->first.xname,
                               iSeat->first.yname,
                               stSeat,
-                              cltProtBeforePay,
+                              layer_type,
                               change_layer_flags,
                               NULL );
             }
             //в любом случае устанавливаем tlg_comp_layers.time_remove
-            LayerQry.SetVariable("layer_type", EncodeCompLayerType(cltProtBeforePay));
+            LayerQry.SetVariable("layer_type", EncodeCompLayerType(layer_type));
             LayerQry.SetVariable("crs_pax_id", iPax->crs_pax_id);
             LayerQry.Execute();
 
@@ -3110,13 +3113,13 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
       }
       else
       {
-        //RemoveProtPaidLayer
+        //RemoveProtLayer
         for(vector<TWebPax>::const_iterator iPax=pnr.begin();iPax!=pnr.end();iPax++)
         {
           try
           {
             if (isTestPaxId(iPax->crs_pax_id)) continue;
-            DeleteTlgSeatRanges(cltProtBeforePay, iPax->crs_pax_id, curr_tid, point_ids_spp);
+            DeleteTlgSeatRanges(layer_type, iPax->crs_pax_id, curr_tid, point_ids_spp);
           }
           catch(UserException &e)
           {
@@ -3181,13 +3184,13 @@ void ChangeProtPaidLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
   {
     ue.addError(e.getLexemaData(), point_id);
   };
-};
+}
 
-void WebRequestsIface::AddProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void IntAddProtLayer(xmlNodePtr reqNode, xmlNodePtr resNode, bool prAddProtPaidLayerRequest )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
-  resNode=NewTextChild(resNode,"AddProtPaidLayer");
+  resNode=NewTextChild(resNode,prAddProtPaidLayerRequest?"AddProtPaidLayer":"AddProtLayer");
   int time_limit=NoExists;
   int curr_tid=NoExists;
   CheckIn::UserException ue;
@@ -3196,9 +3199,25 @@ void WebRequestsIface::AddProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   {
     time_limit=NodeAsInteger(node);
     if (time_limit<=0 || time_limit>999)
-      throw EXCEPTIONS::Exception("AddProtPaidLayer: wrong time_limit %d min", time_limit);
+      throw EXCEPTIONS::Exception("AddProtLayer: wrong time_limit %d min", time_limit);
   };
-
+  ASTRA::TCompLayerType layer_type;
+  node=GetNode("layer_type",reqNode);
+  if (node!=NULL && !NodeIsNULL(node))
+  {
+    layer_type = DecodeCompLayerType(NodeAsString(node));
+    if ( layer_type == ASTRA::cltUnknown)
+      throw EXCEPTIONS::Exception("AddProtLayer: wrong layer_type %s ", NodeAsString(node) );
+  }
+  else {
+    if ( prAddProtPaidLayerRequest ) {
+      layer_type = cltProtBeforePay;
+    }
+    else {
+      layer_type = cltProtSelfCkin;
+    }
+  }
+  NewTextChild( resNode, "layer_type", EncodeCompLayerType(layer_type) );
   //здесь лочка рейсов в порядке сортировки point_id
   vector<int> point_ids;
   node=NodeAsNode("segments", reqNode)->children;
@@ -3244,19 +3263,53 @@ void WebRequestsIface::AddProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   for(;node!=NULL;node=node->next)
   {
     xmlNodePtr segNode=NewTextChild(segsNode, "segment");
-    ChangeProtPaidLayer(node, segNode, false, time_limit, curr_tid, ue );
+    ChangeProtLayer(node, segNode, false, layer_type, time_limit, curr_tid, ue );
   };
   if (!ue.empty()) throw ue;
-};
+}
+
+void WebRequestsIface::AddProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  IntAddProtLayer( reqNode, resNode, true );
+}
+
+void WebRequestsIface::AddProtLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  IntAddProtLayer( reqNode, resNode, false );
+}
+
 
 void WebRequestsIface::RemoveProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   resNode=NewTextChild(resNode,"RemoveProtPaidLayer");
   int curr_tid=NoExists;
   CheckIn::UserException ue;
-  ChangeProtPaidLayer(reqNode, resNode, true, NoExists, curr_tid, ue);
+  ChangeProtLayer(reqNode, resNode, true, cltProtBeforePay, NoExists, curr_tid, ue);
   if (!ue.empty()) throw ue;
-};
+}
+
+void WebRequestsIface::RemoveProtLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  resNode=NewTextChild(resNode,"RemoveProtLayer");
+  ASTRA::TCompLayerType layer_type;
+  xmlNodePtr node=GetNode("layer_type",reqNode);
+  if (node!=NULL && !NodeIsNULL(node))
+  {
+    layer_type = DecodeCompLayerType(NodeAsString(node));
+    if ( layer_type == ASTRA::cltUnknown)
+      throw EXCEPTIONS::Exception("AddProtLayer: wrong layer_type %s ", NodeAsString(node) );
+  }
+  else {
+    layer_type = cltProtSelfCkin;
+  }
+
+  int curr_tid=NoExists;
+  CheckIn::UserException ue;
+  ChangeProtLayer(reqNode, resNode, true, layer_type, NoExists, curr_tid, ue);
+  if (!ue.empty()) throw ue;
+  NewTextChild( resNode, "layer_type", EncodeCompLayerType(layer_type) );
+}
+
 
 void WebRequestsIface::ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -3338,8 +3391,9 @@ void WebRequestsIface::PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                               ranges,
                               crs_pax_id,
                               NoExists,NoExists,false,curr_tid,point_ids_spp);
+          DeleteTlgSeatRanges(cltProtBeforePay, crs_pax_id, curr_tid, point_ids_spp);
+          DeleteTlgSeatRanges(cltProtSelfCkin, crs_pax_id, curr_tid, point_ids_spp);
         }
-        DeleteTlgSeatRanges(cltProtBeforePay, crs_pax_id, curr_tid, point_ids_spp);
       }
       msg.id1=Qry.FieldAsInteger("point_dep");
       msg.id2=Qry.FieldIsNULL("reg_no")?NoExists:

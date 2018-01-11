@@ -38,7 +38,8 @@ bool IsTlgCompLayer(TCompLayerType layer_type)
           layer_type==cltProtAfterPay||
           layer_type==cltPNLBeforePay||
           layer_type==cltPNLAfterPay||
-          layer_type==cltProtCkin);
+          layer_type==cltProtCkin ||
+          layer_type==cltProtSelfCkin);
 };
 
 void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //вектор пар range_id и TSeatRange
@@ -205,7 +206,8 @@ void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //векто
          layer_type==cltProtAfterPay||
          layer_type==cltPNLBeforePay||
          layer_type==cltPNLAfterPay||
-         layer_type==cltProtCkin))
+         layer_type==cltProtCkin||
+         layer_type==cltProtSelfCkin))
     {
       TLogLocale tlocale;
       tlocale.ev_type=ASTRA::evtPax;
@@ -225,6 +227,8 @@ void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //векто
         case cltProtAfterPay:  tlocale.lexema_id = "EVT.SEATS_RESERVATION_AFTER_WEB";
                                break;
         case cltProtCkin:      tlocale.lexema_id = "EVT.PRELIMINARY_ASSIGNED_SEATS";
+                               break;
+        case cltProtSelfCkin:  tlocale.lexema_id = "EVT.SEATS_RESERVATION_SELFCKIN";
                                break;
         default: break;
       };
@@ -396,7 +400,8 @@ void DeleteTripSeatRanges(const vector<int> range_ids,
           layer_type==cltProtAfterPay||
           layer_type==cltPNLBeforePay||
           layer_type==cltPNLAfterPay||
-          layer_type==cltProtCkin)
+          layer_type==cltProtCkin ||
+          layer_type==cltProtSelfCkin)
       {
         int point_id=r->first.second;
         bool pr_lat_seat=r->second.second;
@@ -420,6 +425,8 @@ void DeleteTripSeatRanges(const vector<int> range_ids,
           case cltProtAfterPay:  tlocale.lexema_id = "EVT.CANCEL_SEATS_RESERVATION_AFTER_WEB";
                                  break;
           case cltProtCkin:      tlocale.lexema_id = "EVT.CANCEL_PRELIMINARY_ASSIGNED_SEATS";
+                                 break;
+          case cltProtSelfCkin:  tlocale.lexema_id = "EVT.CANCEL_SEATS_RESERVATION_SELFCKIN";
                                  break;
           default: break;
         };
