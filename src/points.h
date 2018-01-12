@@ -306,11 +306,6 @@ struct TElemStruct {
     code.clear();
     fmt = efmtUnknown;
   }
-  bool operator==(const TElemStruct& other)
-  {
-    return  code == other.code &&
-            fmt == other.fmt;
-  }
 };
 
 struct TFltNo {
@@ -325,12 +320,6 @@ struct TFltNo {
     flt_no = ASTRA::NoExists;
     suffix.clear();
   }
-  bool operator==(const TFltNo& other)
-  {
-    return  airline == other.airline &&
-            flt_no == other.flt_no &&
-            suffix == other.suffix;
-  }
 };
 
 class TCheckerFlt {
@@ -339,13 +328,19 @@ class TCheckerFlt {
     enum CheckMode { etNormal, etExtAODB };
     void parseFltNo( const std::string &value, TFltNo &fltNo );
     void checkFltNo( CheckMode mode, TFltNo &fltNo );
+    void checkFltNo( CheckMode mode, TFltNo &fltNo, TQuery &Qry );
+
     TFltNo parse_checkFltNo( const std::string &value, CheckMode mode );
+    TFltNo parse_checkFltNo( const std::string &value, CheckMode mode, TQuery &Qry );
     std::string checkLitera( const std::string &value, CheckMode mode );
+    std::string checkLitera( const std::string &value, CheckMode mode, TQuery &Qry );
     int checkTerminalNo( const std::string &value );
     int checkMaxCommerce( const std::string &value );
     int checkPointNum( const std::string &value );
     TElemStruct checkCraft( const std::string &value, CheckMode mode, bool with_exception );
+    TElemStruct checkCraft( const std::string &value, CheckMode mode, bool with_exception, TQuery &Qry );
     TElemStruct checkAirp( const std::string &value, CheckMode mode, bool with_exception );
+    TElemStruct checkAirp( const std::string &value, CheckMode mode, bool with_exception, TQuery &Qry );
     BASIC::date_time::TDateTime checkLocalTime( const std::string &value, const std::string format,
                                                 const std::string &region, const std::string stage,
                                                 bool empty_value_exception );

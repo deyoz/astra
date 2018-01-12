@@ -859,7 +859,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TP
   TQuery Qry(&OraSession);
   TElemStruct elem;
   ProgTrace(TRACE5,"check fltNo");
-  TFltNo fltNo = checkerFlt.parse_checkFltNo( prop, TCheckerFlt::etExtAODB );
+  TFltNo fltNo = checkerFlt.parse_checkFltNo( prop, TCheckerFlt::etExtAODB, Qry );
   dest.airline = fltNo.airline.code;
   dest.airline_fmt = fltNo.airline.fmt;
   dest.flt_no = fltNo.flt_no;
@@ -890,7 +890,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TP
   }
   //litera
   ProgTrace(TRACE5,"check litera");
-  dest.litera = checkerFlt.checkLitera( NodeAsStringFast( "litera", flightNode, "" ), TCheckerFlt::etExtAODB );
+  dest.litera = checkerFlt.checkLitera( NodeAsStringFast( "litera", flightNode, "" ), TCheckerFlt::etExtAODB, Qry );
   //terminal
   ProgTrace(TRACE5,"check terminal");
   int terminal = checkerFlt.checkTerminalNo( NodeAsStringFast( "terminal", flightNode ) );
@@ -902,7 +902,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TP
   dest.max_commerce.SetValue( checkerFlt.checkMaxCommerce( string(NodeAsStringFast( "max_commerce", flightNode, "" )) ) );
   //craft
   ProgTrace(TRACE5,"check craft");
-  elem = checkerFlt.checkCraft( NodeAsStringFast( "craft", flightNode, "" ), TCheckerFlt::etExtAODB, false );
+  elem = checkerFlt.checkCraft( NodeAsStringFast( "craft", flightNode, "" ), TCheckerFlt::etExtAODB, false, Qry );
   dest.craft = elem.code;
   dest.craft_fmt = elem.fmt;
   ProgTrace( TRACE5, "craft=%s, fmt=%d", dest.craft.c_str(), dest.craft_fmt );
@@ -967,7 +967,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TP
     TPointsDest p;
     TPointsDest *ppoint;
     ProgTrace(TRACE5,"check airp");
-    elem = checkerFlt.checkAirp( NodeAsStringFast( "airp", propNode, "" ), TCheckerFlt::etExtAODB, true );
+    elem = checkerFlt.checkAirp( NodeAsStringFast( "airp", propNode, "" ), TCheckerFlt::etExtAODB, true, Qry );
     if ( elem.code == dest.airp ) {
       ppoint = &dest;
     }

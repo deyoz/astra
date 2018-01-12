@@ -39,7 +39,6 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "astra_main.h"
 #include "astra_misc.h"
 #include "trip_tasks.h"
-#include "code_convert.h"
 
 #define NICKNAME "DJEK"
 #define NICKTRACE DJEK_TRACE
@@ -384,10 +383,19 @@ string GetTermInfo( TQuery &Qry, int pax_id, int reg_no, bool pr_tcheckin, const
   return info.str();
 }
 
-std::string toAODBCode( std::string code )
+std::string toAODBCode( std::string code, std::string name )
 {
-  std::string new_code = AirportToExternal(code, "AODBO");
-  if (new_code.empty()) return code; else return new_code;
+  TQuery Qry(&OraSession);
+  if ( name == "AIRPS") {
+    Qry.SQLText =
+      "SELECT aodb_code AS code FROM aodb_airps WHERE airp=:code";
+    Qry.CreateVariable( "code", otString, code );
+    Qry.Execute();
+    if ( !Qry.Eof ) {
+      return Qry.FieldAsString( "code" );
+    }
+  }
+  return code;
 }
 
 bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::string &point_addr,
@@ -568,11 +576,11 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
       else {
         record<<setw(1)<<" ";
       }
-      const TAirpsRow *row=(const TAirpsRow*)&base_tables.get("airps").get_row("code",Qry.FieldAsString("airp_arv"));
+      TAirpsRow *row=(TAirpsRow*)&base_tables.get("airps").get_row("code",Qry.FieldAsString("airp_arv"));
       if ( format == afNewUrengoy )
         record<<setw(3)<<row->code.substr(0,3);
       else
-        record<<setw(20)<<toAODBCode(row->code).substr(0,20); //для ВНК
+        record<<setw(20)<<toAODBCode( row->code, "AIRPS" ).substr(0,20); //для ВНК
       record<<setw(1);
       switch ( DecodeClass(Qry.FieldAsString( "class")) ) {
         case ASTRA::F:
@@ -1066,7 +1074,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     err++;
     TCheckerFlt checkerFlt;
     TElemStruct elem;
-    TFltNo fltNo = checkerFlt.parse_checkFltNo( tmp, TCheckerFlt::etExtAODB );
+    TFltNo fltNo = checkerFlt.parse_checkFltNo( tmp, TCheckerFlt::etExtAODB, Qry );
     fl.airline = fltNo.airline;
     fl.flt_no = fltNo.flt_no;
     fl.suffix = fltNo.suffix;
@@ -1077,7 +1085,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
 
     err++;
     tmp = linestr.substr( LITERA_IDX, LITERA_LEN );
-    fl.litera = checkerFlt.checkLitera( tmp, TCheckerFlt::etExtAODB );
+    fl.litera = checkerFlt.checkLitera( tmp, TCheckerFlt::etExtAODB, Qry );
     err++;
     fl.scd = checkerFlt.checkLocalTime( linestr.substr( SCD_IDX, SCD_LEN ), region, "Плановое время вылета", true );
     TDateTime local_scd_out = UTCToLocal( fl.scd, region );
@@ -1103,7 +1111,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     err++;
     fl.max_load = checkerFlt.checkMaxCommerce( linestr.substr( MAX_LOAD_IDX, MAX_LOAD_LEN ) );
     err++;
-    fl.craft = checkerFlt.checkCraft( linestr.substr( CRAFT_IDX, CRAFT_LEN ), TCheckerFlt::etExtAODB, false );
+    fl.craft = checkerFlt.checkCraft( linestr.substr( CRAFT_IDX, CRAFT_LEN ), TCheckerFlt::etExtAODB, false, Qry );
     ProgTrace( TRACE5, "fl.craft=%s, fmt=%d", fl.craft.code.c_str(), fl.craft.fmt );
     err++;
     tmp = linestr.substr( BORT_IDX, BORT_LEN );
@@ -1161,7 +1169,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
         else {
           i++;
           tmp = linestr.substr( i, 3 );
-          dest.airp = checkerFlt.checkAirp( tmp, TCheckerFlt::etExtAODB, true ).code;
+          dest.airp = checkerFlt.checkAirp( tmp, TCheckerFlt::etExtAODB, true, Qry ).code;
           err++;
           i += 3;
           tmp = linestr.substr( i, 1 );

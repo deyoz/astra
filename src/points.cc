@@ -29,7 +29,6 @@
 #include "misc.h"
 #include "term_version.h"
 #include "trip_tasks.h"
-#include "code_convert.h"
 
 #include "serverlib/perfom.h"
 
@@ -89,6 +88,12 @@ void TCheckerFlt::parseFltNo( const string &value, TFltNo &fltNo )
 
 void TCheckerFlt::checkFltNo( CheckMode mode, TFltNo &fltNo )
 {
+  TQuery Qry(&OraSession);
+  checkFltNo( mode, fltNo, Qry );
+}
+
+void TCheckerFlt::checkFltNo( CheckMode mode, TFltNo &fltNo, TQuery &Qry )
+{
   string tmp = fltNo.airline.code;
   try {
     fltNo.airline.code = ElemToElemId( etAirline, fltNo.airline.code, fltNo.airline.fmt, false );
@@ -99,10 +104,14 @@ void TCheckerFlt::checkFltNo( CheckMode mode, TFltNo &fltNo )
     if ( mode != etExtAODB ) {
       throw;
     }
-    std::string converted = AirlineToInternal(tmp, "AODBO");
-    if ( converted.empty() )
+    Qry.Clear();
+    Qry.SQLText =
+        "SELECT airline as code FROM aodb_airlines WHERE aodb_code=:code";
+    Qry.CreateVariable( "code", otString, tmp );
+    Qry.Execute();
+    if ( !Qry.RowCount() )
       throw EConvertError( "Неизвестная авиакомпания, значение=%s", tmp.c_str() );
-    fltNo.airline.code = ElemToElemId( etAirline, converted, fltNo.airline.fmt, false );
+    fltNo.airline.code = ElemToElemId( etAirline, Qry.FieldAsString( "code" ), fltNo.airline.fmt, false );
   }
   if ( fltNo.flt_no <= 0 || fltNo.flt_no > 99999 ) {
     throw EConvertError( "Ошибка в номере рейса, значение=%d", fltNo.flt_no );
@@ -117,31 +126,42 @@ void TCheckerFlt::checkFltNo( CheckMode mode, TFltNo &fltNo )
 
 TFltNo TCheckerFlt::parse_checkFltNo( const std::string &value, CheckMode mode )
 {
+  TQuery Qry(&OraSession);
+  return parse_checkFltNo( value, mode, Qry );
+}
+
+TFltNo TCheckerFlt::parse_checkFltNo( const std::string &value, CheckMode mode, TQuery &Qry )
+{
   std::string tmp = value;
   TFltNo fltNo;
   parseFltNo(  TrimString( tmp ), fltNo );
-  checkFltNo( mode, fltNo );
+  checkFltNo( mode, fltNo, Qry );
   return fltNo;
 }
 
 std::string TCheckerFlt::checkLitera( const std::string &value, CheckMode mode )
 {
+  TQuery Qry(&OraSession);
+  return checkLitera( value, mode, Qry );
+}
+
+std::string TCheckerFlt::checkLitera( const std::string &value, CheckMode mode, TQuery &Qry )
+{
   string litera;
   std::string tmp = value;
   tmp =  TrimString( tmp );
   if ( !tmp.empty() ) {
-    TQuery Qry(&OraSession);
     Qry.Clear();
-    Qry.SQLText = "SELECT code FROM trip_liters WHERE code=:code AND pr_del=0";
+    Qry.SQLText =
+        "SELECT code, 1 as lvl FROM trip_liters WHERE code=:code AND pr_del=0"
+        " UNION "
+        "SELECT litera as code,2 FROM aodb_liters WHERE aodb_code=:code "
+        " ORDER BY lvl";
     Qry.CreateVariable( "code", otString, tmp );
     Qry.Execute();
-    std::string tmp2;
-    if (!Qry.Eof) tmp2 = Qry.FieldAsString( "code" );
-    if (tmp2.empty() && mode != etNormal)
-      tmp2 = LiteraToInternal( tmp, "AODBO" );
-    if (tmp2.empty())
+    if ( !Qry.RowCount() || (mode == etNormal && Qry.FieldAsInteger( "lvl" ) == 2) )
       throw EConvertError( "Неизвестная литера, значение=%s", tmp.c_str() );
-    litera = tmp2;
+    litera = Qry.FieldAsString( "code" );
   }
   return litera;
 }
@@ -182,7 +202,14 @@ int TCheckerFlt::checkPointNum( const std::string &value )
   return num;
 }
 
-TElemStruct TCheckerFlt::checkCraft( const std::string &value, CheckMode mode, bool with_exception )
+TElemStruct TCheckerFlt::checkCraft( const::string &value, CheckMode mode, bool with_exception )
+{
+  TQuery Qry(&OraSession);
+  return checkCraft( value, mode, with_exception, Qry );
+
+}
+
+TElemStruct TCheckerFlt::checkCraft( const::string &value, CheckMode mode, bool with_exception, TQuery &Qry )
 {
   TElemStruct craft;
   std::string tmp = value;
@@ -195,18 +222,18 @@ TElemStruct TCheckerFlt::checkCraft( const std::string &value, CheckMode mode, b
         craft.code = tmp;
       }
       catch( EConvertError &e ) {
-        TQuery Qry(&OraSession);
         Qry.Clear();
-        Qry.SQLText = "SELECT code FROM crafts WHERE ( name=:code OR name_lat=:code ) AND pr_del=0 ";
+        Qry.SQLText =
+            "SELECT code, 1 as lvl FROM crafts WHERE ( name=:code OR name_lat=:code ) AND pr_del=0 "
+            " UNION "
+            "SELECT craft as code, 2 FROM aodb_crafts WHERE aodb_code=:code "
+            " ORDER BY lvl";
         Qry.CreateVariable( "code", otString, craft.code );
         Qry.Execute();
-        std::string tmp2;
-        if (!Qry.Eof) tmp2 = Qry.FieldAsString( "code" );
-        if (tmp2.empty() && mode != etNormal)
-          tmp2 = CraftToInternal( craft.code, "AODBO" );
-        if (tmp2.empty())
+        if ( !Qry.RowCount() || (mode == etNormal && Qry.FieldAsInteger( "lvl" ) == 2) )
           throw EConvertError( "Неизвестный тип ВС, значение=%s", value.c_str() );
-        tmp = ElemCtxtToElemId( ecDisp, etCraft, tmp2, craft.fmt, false );
+        tmp = Qry.FieldAsString( "code" );
+        tmp = ElemCtxtToElemId( ecDisp, etCraft, tmp, craft.fmt, false );
         craft.code = tmp;
       }
     }
@@ -227,6 +254,12 @@ TElemStruct TCheckerFlt::checkCraft( const std::string &value, CheckMode mode, b
 
 TElemStruct TCheckerFlt::checkAirp( const std::string &value, CheckMode mode, bool with_exception )
 {
+  TQuery Qry(&OraSession);
+  return checkAirp( value, mode, with_exception, Qry );
+}
+
+TElemStruct TCheckerFlt::checkAirp( const std::string &value, CheckMode mode, bool with_exception, TQuery &Qry )
+{
   TElemStruct airp;
   std::string tmp = value;
   tmp =  TrimString( tmp );
@@ -238,18 +271,18 @@ TElemStruct TCheckerFlt::checkAirp( const std::string &value, CheckMode mode, bo
         airp.code = tmp;
       }
       catch( EConvertError &e ) {
-        TQuery Qry(&OraSession);
         Qry.Clear();
-        Qry.SQLText = "SELECT code FROM airps WHERE ( name=:code OR name_lat=:code ) AND pr_del=0 ";
+        Qry.SQLText =
+          "SELECT code, 1 as lvl FROM airps WHERE ( name=:code OR name_lat=:code ) AND pr_del=0 "
+          " UNION "
+          "SELECT airp as code, 2 FROM aodb_airps WHERE aodb_code=:code "
+          " ORDER BY lvl";
         Qry.CreateVariable( "code", otString, airp.code );
         Qry.Execute();
-        std::string tmp2;
-        if (!Qry.Eof) tmp2 = Qry.FieldAsString( "code" );
-        if (tmp2.empty() && mode != etNormal)
-          tmp2 = AirportToInternal( airp.code, "AODBO" );
-        if (tmp2.empty())
+        if ( !Qry.RowCount() || (mode == etNormal && Qry.FieldAsInteger( "lvl" ) == 2) )
           throw EConvertError( "Неизвестный код аэропорта, значение=%s", value.c_str() );
-        tmp = ElemCtxtToElemId( ecDisp, etAirp, tmp2, airp.fmt, false );
+        tmp = Qry.FieldAsString( "code" );
+        tmp = ElemCtxtToElemId( ecDisp, etAirp, tmp, airp.fmt, false );
         airp.code = tmp;
       }
     }
