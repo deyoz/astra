@@ -11,6 +11,7 @@
 #include "jxtlib/jxt_cont.h"
 #include "astra_elem_utils.h"
 #include "apis_utils.h"
+#include "base_tables.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -296,7 +297,7 @@ TPaxDocItem& TPaxDocItem::fromXML(xmlNodePtr node)
   if (node==NULL) return *this;
   xmlNodePtr node2=node->children;
   if (node2==NULL) return *this;
-
+  
   TPaxDocCompoundType::fromXML(node);
   issue_country=NodeAsStringFast("issue_country",node2,"");
   no=NodeAsStringFast("no",node2,"");

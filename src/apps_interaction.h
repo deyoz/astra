@@ -21,8 +21,8 @@ void APPSFlightCloseout( const int point_id );
 std::string getAnsText( const std::string& tlg );
 bool processReply( const std::string& source );
 bool checkAPPSSets(const int point_dep, const int point_arv );
-bool checkAPPSSets( const int point_dep, const std::string& airp_arv );
-bool checkAPPSSets( const int point_dep, const std::string& airp_arv, bool& tansit );
+bool checkAPPSSets( const int point_dep, const std::string& airp_arv, std::set<std::string>* pFormats = nullptr );
+bool checkAPPSSets( const int point_dep, const std::string& airp_arv, bool& transit, std::set<std::string>* pFormats = nullptr );
 bool checkTime( const int point_id );
 bool checkTime( const int point_id, TDateTime& start_time );
 std::string emulateAnswer( const std::string& request );
@@ -42,6 +42,7 @@ struct TAppsSets
   bool get_country();
   bool get_inbound_outbound(int& inbound, int& outbound);
   bool get_flt_closeout(int& flt_closeout);
+  std::string get_format();
   int get_version();
 private:
   TAppsSets();
@@ -111,6 +112,7 @@ struct TPaxData
   std::string passport;
   std::string check_char; // optional
   std::string doc_type; // optional, 'P' - пасспорт, 'O' - другой документ, 'N' - нет документа
+  std::string doc_subtype;
   std::string expiry_date; //CCYYMMDD
   std::string sup_doc_type; // в настоящее время не используется
   std::string sup_passport; // в настоящее время не используется
@@ -171,7 +173,7 @@ struct TPaxAddData // Passenger Additional Data
   std::string country_for_data; // Country for Additional Data // 4
   std::string doco_type; // Document Type // 5
   std::string doco_no; // Document Number X(20) // 6
-  std::string country_issuance; // Country of Issuance // 7 // omit
+  std::string country_issuance; // Country of Issuance // 7
   std::string doco_expiry_date; // Expiration Date CCYYMMDD // 8
   std::string num_street; // Address: Number and Street // 9
   std::string city; // Address: City // 10
