@@ -1179,7 +1179,7 @@ class TSalons {
     void SetTariffsByRFISCColor( int point_dep, const TSeatTariffMapType &tariffs, const TSeatTariffMap::TStatus &status );
     void SetTariffsByRFISC( int point_dep );
     void AddExistSubcls( const TRem &rem ) {
-      if ( rem.pr_denial || isREM_SUBCLS( rem.rem ) ) { //не разрешенная или не подкласс
+      if ( rem.pr_denial || !isREM_SUBCLS( rem.rem ) ) { //не разрешенная или не подкласс
         return;
       }
       if ( ExistSubcls == boost::none ) {
