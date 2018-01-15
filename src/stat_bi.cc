@@ -1,4 +1,4 @@
-#include "bi_stat.h"
+#include "stat_bi.h"
 #include "qrys.h"
 #include "report_common.h"
 #include "stat_utils.h"

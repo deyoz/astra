@@ -31,7 +31,7 @@
 #include "payment_base.h"
 #include "report_common.h"
 #include "stat_utils.h"
-#include "bi_stat.h"
+#include "stat_bi.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
