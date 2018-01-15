@@ -154,6 +154,9 @@ class PrintInterface: public JxtInterface
                                         const std::string& data,
                                         const BPParams &params,
                                         std::vector<BPPax> &paxs);
+        static void ConfirmPrintUnregVO(
+                const std::vector<BPPax> &paxs,
+                CheckIn::UserException &ue);
         static void ConfirmPrintBP(ASTRA::TDevOper::Enum op_type,
                                    const std::vector<BPPax> &paxs,
                                    CheckIn::UserException &ue);
