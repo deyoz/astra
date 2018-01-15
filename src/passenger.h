@@ -443,16 +443,16 @@ class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
 class TSimplePaxItem
 {
   public:
-    int id;
+    int id; //crs
     int grp_id;
-    std::string surname;
-    std::string name;
-    ASTRA::TPerson pers_type;
+    std::string surname; //crs
+    std::string name; //crs
+    ASTRA::TPerson pers_type; //crs
     ASTRA::TCrewType::Enum crew_type;
     bool is_jmp;
     std::string seat_no;
-    std::string seat_type;
-    int seats;
+    std::string seat_type; //crs
+    int seats; //crs
     std::string refuse;
     bool pr_brd;
     bool pr_exam;
@@ -497,11 +497,12 @@ class TSimplePaxItem
     static ASTRA::TTrickyGender::Enum getTrickyGender(ASTRA::TPerson pers_type, ASTRA::TGender::Enum gender);
 
     TSimplePaxItem& fromDB(TQuery &Qry);
+    TSimplePaxItem& fromDBCrs(TQuery &Qry);
     bool getByPaxId(int pax_id);
     std::string full_name() const;
     bool api_doc_applied() const;
     bool upward_within_bag_pool(const TSimplePaxItem& pax) const;
-    bool HaveBaggage() const { return bag_pool_num != ASTRA::NoExists; }
+    bool HaveBaggage() const { return bag_pool_num != ASTRA::NoExists; } 
     ASTRA::TTrickyGender::Enum getTrickyGender() const { return getTrickyGender(pers_type, gender); }
 };
 

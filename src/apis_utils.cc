@@ -169,12 +169,18 @@ void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv
     }
     catch(EBaseTableError) {};
 
+    // if(checkAPPSSets(point_dep, airp_arv))
+    // {
+    //   _apis_formats.insert("APPS_SITA");
+    //   is_inter=true;
+    // };
 
-    if(checkAPPSSets(point_dep, airp_arv))
+    std::set<std::string> apps_formats;
+    if (checkAPPSSets(point_dep, airp_arv, &apps_formats))
     {
-      _apis_formats.insert("APPS_SITA");
+      _apis_formats.insert(apps_formats.begin(), apps_formats.end());
       is_inter=true;
-    };
+    }
 
     if (!_apis_formats.empty())
     {
@@ -183,15 +189,14 @@ void TCompleteAPICheckInfo::set(const int point_dep, const std::string& airp_arv
       set_not_apis(false);
       for(std::set<std::string>::const_iterator f=_apis_formats.begin(); f!=_apis_formats.end(); ++f)
       {
-        TAPISFormat* pAPISFormat = SpawnAPISFormat(*f);
+        boost::scoped_ptr<TAPISFormat> pAPISFormat(SpawnAPISFormat(*f));
         for (std::set<TAPIType>::const_iterator api = get_apis_doc_set().begin(); api != get_apis_doc_set().end(); ++api)
         {
           _pass.get(*api).required_fields |= pAPISFormat->required_fields(TAPISFormat::pass, *api);
           _crew.get(*api).required_fields |= pAPISFormat->required_fields(TAPISFormat::crew, *api);
         }
-        delete pAPISFormat;
-      };
-    };
+      }
+    }
     _extra_crew = _pass;
     // применение настроек "не контролировать документ"
     if (GetTripSets(tsNoCtrlDocsCrew, fltInfo))
@@ -1079,7 +1084,7 @@ void HandleDoc(const CheckIn::TPaxGrpItem &grp,
         throw UserException("MSG.PASSENGER.INVALID_GENDER_FOR_APIS",
                             LParams() << LParam("surname", pax.full_name())
                             << LParam("code", ElemIdToCodeNative(etGenderType, doc.gender)));
-    };
+    };    
   };
 };
 
@@ -1097,6 +1102,16 @@ void HandleDoco(const CheckIn::TPaxGrpItem &grp,
 
     if (checkInfo.incomplete(doco, pax_type_ext))
       throw UserException("MSG.CHECKIN.PASSENGERS_COMPLETE_DOCO_INFO_NOT_SET");
+
+    for (auto fmt : checkInfo.apis_formats())
+    {
+      boost::scoped_ptr<TAPISFormat> pFormat(SpawnAPISFormat(fmt));
+      if (!pFormat->CheckDocoIssueCountry(doco.issue_place))
+        TReqInfo::Instance()->client_type!=ctTerm?
+          throw UserException("MSG.CHECK_DOCO.INVALID_ISSUE_PLACE", LParams()<<LParam("fieldname", "doco/issue_place" )):
+          throw UserException("MSG.CHECK_DOCO.INVALID_ISSUE_COUNTRY", LParams()<<LParam("fieldname", getLocaleText("CAP.PAX_DOCO.ISSUE_PLACE")));
+
+    }
   };
 };
 

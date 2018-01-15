@@ -1529,6 +1529,16 @@ string DeskCity(string desk, bool with_exception)
   return Qry.FieldAsString("city");
 };
 
+// std::string getAirlineId((TAirlinesRow&))
+// {
+//   return row.code
+// }  
+
+// std::string getCountryIdByAirp( const std::string& airp )
+// {  
+//   return getCountryByAirp().code;
+// };  
+
 TCountriesRow getCountryByAirp( const std::string& airp)
 {
   const TAirpsRow &airpRow = (const TAirpsRow&)base_tables.get("airps").get_row("code",airp);
