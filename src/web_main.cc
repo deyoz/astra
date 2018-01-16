@@ -77,6 +77,7 @@ namespace AstraWeb
 
 const string PARTITION_ELEM_TYPE = "П";
 const string ARMCHAIR_ELEM_TYPE = "К";
+const string ARMCHAIR_EMERGENCY_EXIT_TYPE = "А";
 
 int readInetClientId(const char *head)
 {
@@ -1388,10 +1389,14 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
         web_place_list.ycount = place->y;
       wp.seat_no = place->denorm_view(Salons->getLatSeat());
       if ( !place->elem_type.empty() ) {
-        if ( place->elem_type != PARTITION_ELEM_TYPE )
+        if ( place->elem_type != PARTITION_ELEM_TYPE ) {
+          if ( place->elem_type != ARMCHAIR_EMERGENCY_EXIT_TYPE )
             wp.elem_type = ARMCHAIR_ELEM_TYPE;
           else
-            wp.elem_type = PARTITION_ELEM_TYPE;
+            wp.elem_type = ARMCHAIR_EMERGENCY_EXIT_TYPE;
+        }
+        else
+          wp.elem_type = PARTITION_ELEM_TYPE;
       }
       wp.rems = place->rems;
       wp.pr_free = 0;
@@ -1468,7 +1473,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
           }
         }
         if ( pr_CHIN ) { // встречаются в группе пассажиры с детьми
-            if ( place->elem_type == "А" ) { // место у аварийного выхода
+            if ( place->elem_type == ARMCHAIR_EMERGENCY_EXIT_TYPE ) { // место у аварийного выхода
                 wp.pr_CHIN = true;
           }
           else {
