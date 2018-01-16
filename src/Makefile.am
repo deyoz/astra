@@ -183,6 +183,7 @@ astra_SOURCES = \
   hotel_acmd.cc \
   self_ckin_log.cc \
   stat_bi.cc \
+  stat_vo.cc \
   stat_utils.cc \
   stat_common.cc \
   bagmessage_daemon.cc
@@ -360,6 +361,7 @@ noinst_HEADERS = \
   hotel_acmd.h \
   self_ckin_log.h \
   stat_bi.h \
+  stat_vo.h \
   stat_utils.h \
   stat_common.h \
   report_common.h \

@@ -32,6 +32,7 @@
 #include "report_common.h"
 #include "stat_utils.h"
 #include "stat_bi.h"
+#include "stat_vo.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -11709,6 +11710,9 @@ void get_flight_stat(map<string, long> &stat_times, int point_id, bool final_col
      tm.Init();
      get_trfer_pax_stat(point_id);
      add_stat_time(stat_times, "pfs_stat", tm.Print());
+     tm.Init();
+     get_stat_vo(point_id);
+     add_stat_time(stat_times, "stat_vo", tm.Print());
    };
 
    TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);
