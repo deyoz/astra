@@ -8839,7 +8839,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 {
     xmlNodePtr flightNode = NodeAsNode("FLIGHT", reqNode);
     TSearchFltInfo filter;
-    filter.airline = airl_fromXML(NodeAsNode("AIRLINE", flightNode), cfErrorIfEmpty, __FUNCTION__);
+    filter.airline = airl_fromXML(NodeAsNode("AIRLINE", flightNode), cfErrorIfEmpty, __FUNCTION__, "MERIDIAN");
     filter.flt_no = flt_no_fromXML(NodeAsString("FLT_NO", flightNode));
     filter.suffix = suffix_fromXML(NodeAsString("SUFFIX", flightNode,""));
     filter.airp_dep = airp_fromXML(NodeAsNode("AIRP_DEP", flightNode), cfErrorIfEmpty, __FUNCTION__, "MERIDIAN");
