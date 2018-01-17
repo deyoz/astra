@@ -5,6 +5,7 @@
 #include "date_time.h"
 #include "misc.h"
 #include "xml_unit.h"
+#include "code_convert.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -14,13 +15,13 @@ using namespace std;
 using namespace AstraLocale;
 using namespace BASIC::date_time;
 
-string airl_fromXML(xmlNodePtr node, TCheckFieldFromXML check_type, const string &trace_info)
+string airl_fromXML(xmlNodePtr node, TCheckFieldFromXML check_type, const string &trace_info, const string &system_name)
 {
   if (node==NULL) throw EXCEPTIONS::Exception("%s: airl_fromXML(node==NULL)!", trace_info.c_str());
   return airl_fromXML(NodeAsString(node), check_type, trace_info, (char*)(node->name));
 }
 
-string airl_fromXML(const string &value, TCheckFieldFromXML check_type, const string &trace_info, const string &node_name)
+string airl_fromXML(const string &value, TCheckFieldFromXML check_type, const string &trace_info, const string &node_name, const string &system_name)
 {
   string str(value);
   string airline;
@@ -28,13 +29,18 @@ string airl_fromXML(const string &value, TCheckFieldFromXML check_type, const st
   TrimString(str);
   if (!str.empty())
   {
-    airline = ElemToElemId( etAirline, upperc(str), fmt );
-    if (fmt==efmtUnknown)
+    if (!system_name.empty())
+      airline = AirlineToInternal(upperc(str), system_name);
+    if (airline.empty())
     {
-      TReqInfo::Instance()->traceToMonitor(TRACE5, "%s: unknown <%s> %s", trace_info.c_str(), node_name.c_str(), str.c_str());
-      throw UserException( "MSG.AIRLINE.INVALID",
-                           LEvntPrms() << PrmSmpl<string>("airline", str ) );
-    };
+      airline = ElemToElemId( etAirline, upperc(str), fmt );
+      if (fmt==efmtUnknown)
+      {
+        TReqInfo::Instance()->traceToMonitor(TRACE5, "%s: unknown <%s> %s", trace_info.c_str(), node_name.c_str(), str.c_str());
+        throw UserException( "MSG.AIRLINE.INVALID",
+                             LEvntPrms() << PrmSmpl<string>("airline", str ) );
+      };
+    }
   }
   else
   {
@@ -48,13 +54,14 @@ string airl_fromXML(const string &value, TCheckFieldFromXML check_type, const st
   return airline;
 }
 
-string airp_fromXML(xmlNodePtr node, TCheckFieldFromXML check_type, const string &trace_info)
+string airp_fromXML(xmlNodePtr node, TCheckFieldFromXML check_type, const string &trace_info, const std::string& system_name)
 {
   if (node==NULL) throw EXCEPTIONS::Exception("%s: airp_fromXML(node==NULL)!", trace_info.c_str());
-  return airp_fromXML(NodeAsString(node), check_type, trace_info, (char*)(node->name));
+  return airp_fromXML(NodeAsString(node), check_type, trace_info, (char*)(node->name), system_name);
 }
 
-string airp_fromXML(const string &value, TCheckFieldFromXML check_type, const string &trace_info, const string &node_name)
+string airp_fromXML(const string &value, TCheckFieldFromXML check_type, const string &trace_info, const string &node_name,
+                    const std::string& system_name)
 {
   string str(value);
   string airp;
@@ -62,13 +69,18 @@ string airp_fromXML(const string &value, TCheckFieldFromXML check_type, const st
   TrimString(str);
   if (!str.empty())
   {
-    airp = ElemToElemId( etAirp, upperc(str), fmt );
-    if (fmt==efmtUnknown)
+    if (!system_name.empty())
+      airp = AirportToInternal(upperc(str), system_name);
+    if (airp.empty())
     {
-      TReqInfo::Instance()->traceToMonitor(TRACE5, "%s: unknown <%s> %s", trace_info.c_str(), node_name.c_str(), str.c_str());
-      throw UserException( "MSG.AIRPORT.INVALID",
-                           LEvntPrms() << PrmSmpl<string>("airp", str ) );
-    };
+      airp = ElemToElemId( etAirp, upperc(str), fmt );
+      if (fmt==efmtUnknown)
+      {
+        TReqInfo::Instance()->traceToMonitor(TRACE5, "%s: unknown <%s> %s", trace_info.c_str(), node_name.c_str(), str.c_str());
+        throw UserException( "MSG.AIRPORT.INVALID",
+                             LEvntPrms() << PrmSmpl<string>("airp", str ) );
+      };
+    }
   }
   else
   {

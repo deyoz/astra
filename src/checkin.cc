@@ -8839,10 +8839,10 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 {
     xmlNodePtr flightNode = NodeAsNode("FLIGHT", reqNode);
     TSearchFltInfo filter;
-    filter.airline = airl_fromXML(NodeAsNode("AIRLINE", flightNode), cfErrorIfEmpty, __FUNCTION__);
+    filter.airline = airl_fromXML(NodeAsNode("AIRLINE", flightNode), cfErrorIfEmpty, __FUNCTION__, "MERIDIAN");
     filter.flt_no = flt_no_fromXML(NodeAsString("FLT_NO", flightNode));
     filter.suffix = suffix_fromXML(NodeAsString("SUFFIX", flightNode,""));
-    filter.airp_dep = airp_fromXML(NodeAsNode("AIRP_DEP", flightNode), cfErrorIfEmpty, __FUNCTION__);
+    filter.airp_dep = airp_fromXML(NodeAsNode("AIRP_DEP", flightNode), cfErrorIfEmpty, __FUNCTION__, "MERIDIAN");
     filter.scd_out = scd_out_fromXML(NodeAsString("SCD", flightNode), "dd.mm.yyyy");
     filter.scd_out_in_utc = false;
     filter.only_with_reg = true;
@@ -8884,7 +8884,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
         for(xmlNodePtr crew_group = crew_groups->children; crew_group != NULL; crew_group = crew_group->next)
         {
             // for HTTP
-            string airp_arv = airp_fromXML(NodeAsNode("AIRP_ARV", crew_group), cfErrorIfEmpty, __FUNCTION__);
+            string airp_arv = airp_fromXML(NodeAsNode("AIRP_ARV", crew_group), cfErrorIfEmpty, __FUNCTION__, "MERIDIAN");
             TCompleteAPICheckInfo checkInfo(flt.point_id, airp_arv);
 
             xmlNodePtr crew_members = NodeAsNode("CREW_MEMBERS", crew_group);
