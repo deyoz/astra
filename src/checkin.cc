@@ -5248,7 +5248,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           "        END; "
           "    END; "
           "  END LOOP; "
-          "  SELECT pax_grp__seq.nextval INTO :grp_id FROM dual; "
+          "  IF :grp_id IS NULL THEN "
+          "    SELECT pax_grp__seq.nextval INTO :grp_id FROM dual; "
+          "  END IF; "
           "  INSERT INTO pax_grp(grp_id,point_dep,point_arv,airp_dep,airp_arv,class, "
           "    status,excess,excess_wt,excess_pc,hall,bag_refuse,trfer_confirm,user_id,desk,time_create,client_type, "
           "    point_id_mark,pr_mark_norms,trfer_conflict,inbound_confirm,tid) "
@@ -5349,11 +5351,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,crew_type,is_jmp,is_female,seat_type,seats,pr_brd, "
             "                  wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm,doco_confirm, "
             "                  pr_exam,subclass,bag_pool_num,tid) "
-            "  VALUES(:pax_id,pax_grp__seq.currval,:surname,:name,:pers_type,:crew_type,:is_jmp,:is_female,:seat_type,:seats,:pr_brd, "
+            "  VALUES(:pax_id,:grp_id,:surname,:name,:pers_type,:crew_type,:is_jmp,:is_female,:seat_type,:seats,:pr_brd, "
             "         :wl_type,NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:ticket_confirm,0, "
             "         :pr_exam,:subclass,:bag_pool_num,cycle_tid__seq.currval); "
             "END;";
           Qry.DeclareVariable("pax_id",otInteger);
+          Qry.DeclareVariable("grp_id",otInteger);
           Qry.DeclareVariable("surname",otString);
           Qry.DeclareVariable("name",otString);
           Qry.DeclareVariable("pers_type",otString);
@@ -5409,6 +5412,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   if (GetNodeFast("generated_pax_id",node2)!=NULL)
                     Qry.SetVariable("pax_id",NodeAsIntegerFast("generated_pax_id",node2));
                 }
+                Qry.SetVariable("grp_id", grp.id);
 
                 try
                 {

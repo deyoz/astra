@@ -985,10 +985,10 @@ void GetWidePaxInfo(const TAirlines &airlines,
 {
   paxs.clear();
 
-  string target=((TAirpsRow&)base_tables.get("airps").get_row("code",grp.airp_arv,true)).city;
+  string target=((const TAirpsRow&)base_tables.get("airps").get_row("code",grp.airp_arv,true)).city;
   string final_target;
   if (!trfer.empty())
-    final_target=((TAirpsRow&)base_tables.get("airps").get_row("code",trfer.back().airp_arv,true)).city;
+    final_target=((const TAirpsRow&)base_tables.get("airps").get_row("code",trfer.back().airp_arv,true)).city;
 
   if (!pr_unaccomp)
   {
@@ -2712,7 +2712,29 @@ bool TryEnlargeServicePayment(TPaidRFISCList &paid_rfisc,
 
 } //namespace PieceConcept
 
-
+string GetBagRcptStr(const vector<string> &rcpts)
+{
+  ostringstream result;
+  string prior_no;
+  for(vector<string>::const_iterator no=rcpts.begin(); no!=rcpts.end(); ++no)
+  {
+    int no_len=no->size();
+    if (no!=rcpts.begin() &&
+        no_len>2 &&
+        no_len==(int)prior_no.size() &&
+        no->substr(0,no_len-2)==prior_no.substr(0,no_len-2))
+    {
+      result << "/" << no->substr(no_len-2);
+    }
+    else
+    {
+      if (no!=rcpts.begin()) result << "/";
+      result << *no;
+    };
+    prior_no=*no;
+  };
+  return result.str();
+}
 
 
 

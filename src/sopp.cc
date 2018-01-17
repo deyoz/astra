@@ -41,6 +41,7 @@
 #include "serverlib/perfom.h"
 #include "annul_bt.h"
 #include "counters.h"
+#include "baggage_tags.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
