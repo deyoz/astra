@@ -1130,6 +1130,7 @@ void IntLoadPnr( const vector<TIdsPnrData> &ids,
             case cltPNLAfterPay:   seat_status="PNLAfterPay";   break;
             case cltProtBeforePay: seat_status="ProtBeforePay"; break;
             case cltProtAfterPay:  seat_status="ProtAfterPay";  break;
+            case cltProtSelfCkin:  seat_status="ProtSelfCkin";  break;
             default: break;
           };
         };
