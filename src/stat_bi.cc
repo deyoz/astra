@@ -1,4 +1,4 @@
-#include "bi_stat.h"
+#include "stat_bi.h"
 #include "qrys.h"
 #include "report_common.h"
 #include "stat_utils.h"
@@ -11,27 +11,6 @@ using namespace AstraLocale;
 using namespace EXCEPTIONS;
 using namespace std;
 using namespace BASIC::date_time;
-
-const TFltInfoCacheItem &TFltInfoCache::get(int point_id)
-{
-    TFltInfoCache::iterator i = this->find(point_id);
-    if(i == this->end()) {
-        TTripInfo info;
-        info.getByPointId(point_id);
-        TFltInfoCacheItem item;
-        item.airp = info.airp;
-        item.airline = info.airline;
-        item.view_airp = ElemIdToCodeNative(etAirp, info.airp);
-        item.view_airline = ElemIdToCodeNative(etAirline, info.airline);
-        ostringstream flt_no_str;
-        flt_no_str << setw(3) << setfill('0') << info.flt_no << ElemIdToCodeNative(etSuffix, info.suffix);
-        item.view_flt_no = flt_no_str.str();
-        pair<TFltInfoCache::iterator, bool> ret;
-        ret = this->insert(make_pair(point_id, item));
-        i = ret.first;
-    }
-    return i->second;
-}
 
 void TBIStatCounters::add(BIPrintRules::TPrintType::Enum print_type)
 {

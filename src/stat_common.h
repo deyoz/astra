@@ -68,6 +68,8 @@ enum TStatType {
     statBIFull,
     statBIShort,
     statBIDetail,
+    statVOFull,
+    statVOShort,
     statNum
 };
 
@@ -211,5 +213,18 @@ struct TOrderStatWriter {
 };
 
 std::string get_part_file_name(int file_id, TDateTime month);
+
+struct TFltInfoCacheItem {
+    std::string airp;
+    std::string airline;
+
+    std::string view_airp;
+    std::string view_airline;
+    std::string view_flt_no;
+};
+
+struct TFltInfoCache:public std::map<int, TFltInfoCacheItem> {
+    const TFltInfoCacheItem &get(int point_id);
+};
 
 #endif

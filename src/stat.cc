@@ -30,7 +30,8 @@
 #include "payment_base.h"
 #include "report_common.h"
 #include "stat_utils.h"
-#include "bi_stat.h"
+#include "stat_bi.h"
+#include "stat_vo.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -9251,6 +9252,12 @@ void create_plain_files(
         case statBIFull:
             RunBIFullFile(params, order_writer);
             break;
+        case statVOShort:
+            RunVOShortFile(params, order_writer);
+            break;
+        case statVOFull:
+            RunVOFullFile(params, order_writer);
+            break;
         default:
             throw Exception("unsupported statType %d", params.statType);
     }
@@ -10086,6 +10093,8 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         case statService:
             get_compatible_report_form("ServiceStat", reqNode, resNode);
             break;
+        case statVOFull:
+        case statVOShort:
         case statBIFull:
         case statBIShort:
         case statBIDetail:
@@ -10249,6 +10258,18 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             TBIFullStat BIFullStat;
             RunBIStat(params, BIFullStat);
             createXMLBIFullStat(params, BIFullStat, resNode);
+        }
+        if(params.statType == statVOShort)
+        {
+            TVOShortStat VOShortStat;
+            RunVOStat(params, VOShortStat);
+            createXMLVOShortStat(params, VOShortStat, resNode);
+        }
+        if(params.statType == statVOFull)
+        {
+            TVOFullStat VOFullStat;
+            RunVOStat(params, VOFullStat);
+            createXMLVOFullStat(params, VOFullStat, resNode);
         }
     }
     /* GRISHA */
@@ -11373,6 +11394,9 @@ void get_flight_stat(map<string, long> &stat_times, int point_id, bool final_col
      tm.Init();
      get_trfer_pax_stat(point_id);
      add_stat_time(stat_times, "pfs_stat", tm.Print());
+     tm.Init();
+     get_stat_vo(point_id);
+     add_stat_time(stat_times, "stat_vo", tm.Print());
    };
 
    TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);
