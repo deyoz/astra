@@ -1130,10 +1130,12 @@ void IntLoadPnr( const vector<TIdsPnrData> &ids,
             case cltPNLAfterPay:   seat_status="PNLAfterPay";   break;
             case cltProtBeforePay: seat_status="ProtBeforePay"; break;
             case cltProtAfterPay:  seat_status="ProtAfterPay";  break;
-            case cltProtSelfCkin:  seat_status="ProtSelfCkin";  break;
             default: break;
           };
-        };
+        }
+        if ( seat_status.empty() && iPax->crs_seat_layer == cltProtSelfCkin ) {
+           seat_status="ProtSelfCkin";
+        }
         NewTextChild( paxNode, "seat_status", seat_status );
         NewTextChild( paxNode, "seats", iPax->seats );
         NewTextChild( paxNode, "checkin_status", iPax->checkin_status );

@@ -1345,8 +1345,8 @@ void TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
               NewTextChild( propNode, "layer_type", EncodeCompLayerType( cltProtBeforePay ) );
            }
            else {
-           NewTextChild( propNode, "layer_type", EncodeCompLayerType( ilayer->layer_type ) );
-         }
+             NewTextChild( propNode, "layer_type", EncodeCompLayerType( ilayer->layer_type ) );
+           }
        }
      }
    }
