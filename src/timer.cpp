@@ -38,6 +38,7 @@
 #include "httpClient.h"
 #include "TypeBHelpMng.h"
 #include "sirena_exchange.h"
+#include "baggage_tags.h"
 #include <thread>
 #include <chrono>
 
@@ -323,6 +324,7 @@ void ETCheckStatusFlt(void)
     SirenaExchange::TLastExchangeInfo::cleanOldRecords();//!!!потом для очистки чего бы то ни было выделить отдельную процедуру
     ServerFramework::EdiHelpManager::cleanOldRecords();
     AstraEdifact::cleanOldRecords(120);
+    TGeneratedTags::cleanOldRecords(2*24*60); //2 суток
     OraSession.Commit();
 
     list<TAdvTripInfo> flts;

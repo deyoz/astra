@@ -8,6 +8,7 @@
 #include "astra_consts.h"
 #include "astra_misc.h"
 #include "astra_utils.h"
+#include "baggage_tags.h"
 
 namespace CheckIn
 {

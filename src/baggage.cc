@@ -5,10 +5,11 @@
 #include "term_version.h"
 #include "astra_misc.h"
 #include "qrys.h"
+#include "baggage_tags.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 //какая-то фигня с определением кодировки этого файла, поэтому я вставил эту фразу
 
@@ -576,6 +577,8 @@ const TUnaccompRuleItem& TUnaccompRuleItem::toXML(xmlNodePtr node) const
 
 void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges)
 {
+  LogTrace(TRACE5) << __FUNCTION__;
+
   tag_ranges.clear();
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -1034,20 +1037,39 @@ void TGroupBagItem::checkAndGenerateTags(int point_id, int grp_id)
         if (Qry.Eof) throw UserException("MSG.CHECKIN.LUGGAGE_BLANK_NOT_SET");
         string tag_type = Qry.FieldAsString("tag_type");
         //получим номера печатаемых бирок
-        vector< pair<int,int> > tag_ranges;
-        GetNextTagNo(grp_id, bagAmount-tagCount, tag_ranges);
-        num=tagCount+1;
-        for(vector< pair<int,int> >::iterator r=tag_ranges.begin();r!=tag_ranges.end();++r)
+        if (useNewTagGeneratingAlgo(point_id))
         {
-          for(int i=r->first;i<=r->second;i++,num++)
+          TGeneratedTags generated;
+          generated.generateUsingDeferred(grp_id, bagAmount-tagCount);
+          generated.trace("after generateUsingDeferred");
+          num=tagCount+1;
+          for(const TBagTagNumber& genTag : generated.tags())
           {
             TTagItem tag;
             tag.num=num;
             tag.tag_type=tag_type;
-            tag.no=i;
+            tag.no=genTag.numeric_part;
             generated_tags[tag.num]=tag;
+            num++;
+          }
+        }
+        else
+        {
+          vector< pair<int,int> > tag_ranges;
+          GetNextTagNo(grp_id, bagAmount-tagCount, tag_ranges);
+          num=tagCount+1;
+          for(vector< pair<int,int> >::iterator r=tag_ranges.begin();r!=tag_ranges.end();++r)
+          {
+            for(int i=r->first;i<=r->second;i++,num++)
+            {
+              TTagItem tag;
+              tag.num=num;
+              tag.tag_type=tag_type;
+              tag.no=i;
+              generated_tags[tag.num]=tag;
+            };
           };
-        };
+        }
         //привязываем к багажу
         map<int, TTagItem>::iterator t=generated_tags.begin();
         for(TBagMap::const_iterator b=bags.begin();b!=bags.end();)

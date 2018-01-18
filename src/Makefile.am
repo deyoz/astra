@@ -65,6 +65,7 @@ astra_SOURCES = \
   baggage.cc \
   baggage_base.cc \
   baggage_calc.cc \
+  baggage_tags.cc \
   baggage_wt.cc \
   base_tables.cc \
   basel_aero.cc \
@@ -241,6 +242,7 @@ noinst_HEADERS = \
   baggage.h \
   baggage_base.h \
   baggage_calc.h \
+  baggage_tags.h \
   baggage_wt.h \
   base_tables.h \
   basel_aero.h \
