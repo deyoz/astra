@@ -3824,6 +3824,7 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   /* разметка и проверка возможна только для платных слоев */
   if ( seatFlag != clNotPaySeat &&
        ( seat_type != stSeat || ( layer_type != cltProtBeforePay && layer_type != cltProtAfterPay && layer_type != cltProtSelfCkin  ) ) ) {
+    tst();
     throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
   }
   UseLayers[ cltProtCkin ] = false;
@@ -3996,22 +3997,28 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     strcpy( r.first.line, first_xname.c_str() );
     strcpy( r.first.row, first_yname.c_str() );
     r.second = r.first;
-    if ( !getCurrSeat( Salons, r, p ) )
+    if ( !getCurrSeat( Salons, r, p ) ) {
+      tst();
         throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
+    }
     vector<TPlaceList*>::iterator placeList = Salons.placelists.end();
     for( placeList = Salons.placelists.begin();placeList != Salons.placelists.end(); placeList++ ) {
         if ( (*placeList)->num == p.num )
             break;
     }
-    if ( placeList == Salons.placelists.end() )
+    if ( placeList == Salons.placelists.end() ) {
+      tst();
         throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
+    }
     std::vector<SALONS2::TPlace> verifyPlaces;
     TCompLayerType old_pax_layer = cltUnknown;
     for ( int i=0; i<seats_count; i++ ) { // пробег по кол-ву мест и по местам
         SALONS2::TPoint coord( p.x, p.y );
         place = (*placeList)->place( coord );
-        if ( !place->visible || !place->isplace || place->clname != strclass )
+        if ( !place->visible || !place->isplace || place->clname != strclass ) {
+            tst();
             throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
+        }
         // проверка на то, что пассажир не "ВЗ" а место у аварийного выхода
       verifyPlaces.push_back( *place );
         // проверка на то, что мы имеем право назначить слой на эти места по пассажиру
@@ -4047,9 +4054,11 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     //INFT
     bool pr_INFT = ( TReqInfo::Instance()->client_type != ctTerm &&
                      TReqInfo::Instance()->client_type != ctPNL &&
-                     AllowedAttrsSeat.isWorkINFT( point_id ) &&
+                     seatFlag == clNotPaySeat &&
+                     AllowedAttrsSeat.isWorkINFT( point_id ) &&                     
                      isINFT( point_id, pax_id ) ); //расчитаем prINFT
     if ( pr_INFT || !AllowedAttrsSeat.passSeats( pers_type, pr_INFT, verifyPlaces ) ) { //web-пересдка INFT запрещена
+      tst();
       throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
     }
     if ( seatFlag != clNotPaySeat &&
@@ -4508,6 +4517,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
   bool changedOrNotPay = true;
   if ( seatFlag != clNotPaySeat &&
        ( seat_type != stSeat || ( layer_type != cltProtBeforePay && layer_type != cltProtAfterPay && layer_type != cltProtSelfCkin ) ) ) {
+    tst();
     throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
   }
   UseLayers[ cltProtCkin ] = false;
@@ -4667,13 +4677,17 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
     strcpy( r.first.line, first_xname.c_str() );
     strcpy( r.first.row, first_yname.c_str() );
     r.second = r.first;
-    if ( !getCurrSeat( salonList, r, coord, isalonList ) )
+    if ( !getCurrSeat( salonList, r, coord, isalonList ) ) {
+      tst();
         throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
+    }
     std::vector<SALONS2::TPlace> verifyPlaces;
     for ( int i=0; i<seats_count; i++ ) { // пробег по кол-ву мест и по местам
       seat = (*isalonList)->place( coord );
-      if ( !seat->visible || !seat->isplace || seat->clname != strclass )
+      if ( !seat->visible || !seat->isplace || seat->clname != strclass ) {
+        tst();
         throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
+      }
       //назначим тарифы для пассажира
       //TPropsPoints points( salonList.filterSets.filterRoutes, salonList.filterRoutes.point_dep, salonList.filterRoutes.point_arv );
       //bool pr_departure_tariff_only = true;
@@ -4770,9 +4784,11 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
     }
     bool pr_INFT = ( TReqInfo::Instance()->client_type != ctTerm &&
                      TReqInfo::Instance()->client_type != ctPNL &&
+                     seatFlag == clNotPaySeat &&
                      AllowedAttrsSeat.isWorkINFT( point_id ) &&
                      isINFT( point_id, pax_id ) );
     if ( pr_INFT || !AllowedAttrsSeat.passSeats( pers_type, pr_INFT, verifyPlaces ) ) { //web-пересадка INFT запрещена
+      tst();
       throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
     }
     if ( seatFlag != clNotPaySeat &&
