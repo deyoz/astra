@@ -246,7 +246,8 @@ struct TAllowedAttributesSeat {
     if ( Qry.Eof ) {
       ProgError( STDLOG, "isWorkINFT: flight not found!!!, point_id=%d", point_id );
     }
-    pr_isWorkINFT = ( !Qry.Eof && (string("РГ") == Qry.FieldAsString( "airline") /*|| string("ЮТ") == Qry.FieldAsString( "airline")*/));
+    pr_isWorkINFT = ( !Qry.Eof &&
+                      (string("РГ") == Qry.FieldAsString( "airline")/* || string("ЮТ") == Qry.FieldAsString( "airline")*/));
     SeatsStat.stop(__FUNCTION__);
     return pr_isWorkINFT;
   }
@@ -3274,7 +3275,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
            switch(FSeatAlg) {
              case 0:
                ProgTrace(TRACE5, "start sSeatGrpOnBasePlace:SeatOnlyBasePlace=%d,FCanUserSUBCLS=%d,FCanINFT=%d,prINFT=%d,AllowedAttrsSeat.pr_isWorkINFT=%d",
-                         SeatOnlyBasePlace,FCanUserSUBCLS,FCanINFT,prINFT,AllowedAttrsSeat.pr_isWorkINFT);
+                         SeatOnlyBasePlace,FCanUserSUBCLS,FCanINFT,prINFT,AllowedAttrsSeat.pr_isWorkINFT); //!!! в этом алгоритме тормозит
                break;
              case 1:
                ProgTrace(TRACE5, "start sSeatGrp:SeatOnlyBasePlace=%d,FCanUserSUBCLS=%d,FCanINFT=%d,prINFT=%d,AllowedAttrsSeat.pr_isWorkINFT=%d",
@@ -3816,7 +3817,7 @@ bool isINFT( int point_id, int pax_id ) {
   return false;
 }
 
-bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
+bool ChangeLayer( TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
                   string first_xname, string first_yname, TSeatsType seat_type,
                   bool pr_lat_seat, TChangeLayerProcFlag seatFlag )
 {
@@ -4055,7 +4056,7 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     bool pr_INFT = ( TReqInfo::Instance()->client_type != ctTerm &&
                      TReqInfo::Instance()->client_type != ctPNL &&
                      seatFlag == clNotPaySeat &&
-                     AllowedAttrsSeat.isWorkINFT( point_id ) &&                     
+                     AllowedAttrsSeat.isWorkINFT( point_id ) &&
                      isINFT( point_id, pax_id ) ); //расчитаем prINFT
     if ( pr_INFT || !AllowedAttrsSeat.passSeats( pers_type, pr_INFT, verifyPlaces ) ) { //web-пересдка INFT запрещена
       tst();
@@ -4072,7 +4073,11 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
         throw UserException( "MSG.SEATS.SEAT_NO.NOT_COINCIDE_WITH_PREPAID" );
       }
       changedOrNotPay = false;
-      return changedOrNotPay;
+      if ( !( seatFlag == clPaySeatSet && //надо разметить слоем
+            ( TReqInfo::Instance()->client_type == ctWeb ||
+              TReqInfo::Instance()->client_type == ctMobile ) ) ) {
+        return changedOrNotPay;
+      }
     }
     tst();
     if ( seatFlag == clPaySeatCheck ) {
@@ -4162,7 +4167,10 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
       case cltProtAfterPay:
       case cltPNLAfterPay:
       case cltProtSelfCkin:
-        InsertTlgSeatRanges( point_id_tlg, airp_arv, layer_type, seats, pax_id, NoExists, NoExists, false, curr_tid, point_ids_spp );
+        if ( layer_type != cltProtCkin ) { //требуется удалить старые платные слои, иначе их кол-во будет увеличиваться, отдельно вынес cltProtCkin для того, чтобы ничего по этому слою не менялось
+          DeleteTlgSeatRanges( layer_type, pax_id, curr_tid, point_ids_spp );
+        }
+        InsertTlgSeatRanges( point_id_tlg, airp_arv, layer_type, seats, pax_id, NoExists, time_limit, false, curr_tid, point_ids_spp );
         break;
       default:
         ProgTrace( TRACE5, "!!! Unuseable layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
@@ -4511,7 +4519,7 @@ void SyncPRSA( const string &airline_oper,
 }
 
 #warning 6 ChangeLayer: передавать TSalonList, чтобы не делать очередную начитку + определение приоритета слоя (layer_type,time_create,point_dep, point_arv)
-bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int point_id, int pax_id, int &tid,
+bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
                   string first_xname, string first_yname, TSeatsType seat_type, TChangeLayerProcFlag seatFlag )
 {
   bool changedOrNotPay = true;
@@ -4784,7 +4792,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
     }
     bool pr_INFT = ( TReqInfo::Instance()->client_type != ctTerm &&
                      TReqInfo::Instance()->client_type != ctPNL &&
-                     seatFlag == clNotPaySeat &&
+                     seatFlag == clNotPaySeat && // разметка платным слоем через
                      AllowedAttrsSeat.isWorkINFT( point_id ) &&
                      isINFT( point_id, pax_id ) );
     if ( pr_INFT || !AllowedAttrsSeat.passSeats( pers_type, pr_INFT, verifyPlaces ) ) { //web-пересадка INFT запрещена
@@ -4802,7 +4810,11 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
         throw  UserException( "MSG.SEATS.SEAT_NO.NOT_COINCIDE_WITH_PREPAID" );
       }
       changedOrNotPay = false;
-      return changedOrNotPay;
+      if ( !( seatFlag == clPaySeatSet &&
+             ( TReqInfo::Instance()->client_type == ctWeb ||
+               TReqInfo::Instance()->client_type == ctMobile ) ) ) {
+        return changedOrNotPay;
+      }
     }
     tst();
   }
@@ -4887,7 +4899,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
       case cltPNLAfterPay:
       case cltProtSelfCkin:
         tst();
-        InsertTlgSeatRanges( point_id_tlg, airp_arv, layer_type, seatRanges, pax_id, NoExists, NoExists, false, curr_tid, point_ids_spp );
+        InsertTlgSeatRanges( point_id_tlg, airp_arv, layer_type, seatRanges, pax_id, NoExists, time_limit, false, curr_tid, point_ids_spp );
         break;
       default:
         ProgTrace( TRACE5, "!!! Unuseable layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
