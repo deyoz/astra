@@ -4167,7 +4167,7 @@ bool ChangeLayer( TCompLayerType layer_type, int time_limit, int point_id, int p
       case cltProtAfterPay:
       case cltPNLAfterPay:
       case cltProtSelfCkin:
-        if ( layer_type != cltProtCkin ) { //требуется удалить старые платные слои, иначе их кол-во будет увеличиваться
+        if ( layer_type != cltProtCkin ) { //требуется удалить старые платные слои, иначе их кол-во будет увеличиваться, отдельно вынес cltProtCkin для того, чтобы ничего по этому слою не менялось
           DeleteTlgSeatRanges( layer_type, pax_id, curr_tid, point_ids_spp );
         }
         InsertTlgSeatRanges( point_id_tlg, airp_arv, layer_type, seats, pax_id, NoExists, time_limit, false, curr_tid, point_ids_spp );
