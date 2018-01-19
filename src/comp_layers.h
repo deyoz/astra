@@ -36,6 +36,9 @@ void DeleteTlgSeatRanges(std::vector<int> range_ids,
 void GetTlgSeatRanges(ASTRA::TCompLayerType layer_type,
                       int crs_pax_id,
                       TSeatRanges &ranges);
+/*void GetTlgSeatIdsRanges(ASTRA::TCompLayerType layer_type,
+                         int crs_pax_id,
+                         std::set<int> ranges);*/
 
 void InsertTripCompLayers(int point_id_tlg, //point_id_tlg либо point_id_spp м.б. NoExists
                           int point_id_spp,
@@ -65,6 +68,6 @@ void check_layer_change(const TPointIdsForCheck &point_ids_spp);
 void check_layer_change(const TPointIdsForCheck &point_ids_spp,
                         const std::set<int> &paxs_external_logged);
 
-
+//void update_timeout( std::vector<int> range_ids, int time_limit );
 #endif
 

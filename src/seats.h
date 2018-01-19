@@ -396,9 +396,9 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                       TSeatAlgoParams ASeatAlgoParams /* sdUpDown_Line - умолчание */,
                       ASTRA::TClientType client_type,
                       TPassengers &passengers );
-bool ChangeLayer( const SALONS2::TSalonList &salonList, ASTRA::TCompLayerType layer_type, int point_id, int pax_id, int &tid,
+bool ChangeLayer( const SALONS2::TSalonList &salonList, ASTRA::TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
                   std::string first_xname, std::string first_yname, TSeatsType seat_type, TChangeLayerProcFlag seatFlag );
-bool ChangeLayer( ASTRA::TCompLayerType layer_type, int point_id, int pax_id, int &tid,
+bool ChangeLayer( ASTRA::TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
                   std::string first_xname, std::string first_yname, TSeatsType seat_type,
                   bool pr_lat_seat, TChangeLayerProcFlag seatFlag );
 void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, TSeatRanges &seats,

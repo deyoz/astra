@@ -77,11 +77,13 @@ bool IntChangeSeats( int point_id, int pax_id,
                      int &tid, std::string xname, std::string yname,
                      SEATS2::TSeatsType seat_type,
                      ASTRA::TCompLayerType layer_type,
+                     int time_limit,
                      const BitSet<SEATS2::TChangeLayerFlags> &flags,
                      xmlNodePtr resNode );
 bool IntChangeSeatsN( int point_id, int pax_id, int &tid, std::string xname, std::string yname,
                       SEATS2::TSeatsType seat_type,
                       ASTRA::TCompLayerType layer_type,
+                      int time_limit,
                       const BitSet<SEATS2::TChangeLayerFlags> &flags,
                       int comp_crc, int tariff_pax_id,
                       xmlNodePtr resNode );

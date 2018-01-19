@@ -1165,6 +1165,7 @@ void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no,
 bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string yname,
                       SEATS2::TSeatsType seat_type,
                       TCompLayerType layer_type,
+                      int time_limit,
                       const BitSet<TChangeLayerFlags> &flags,
                       int comp_crc, int tariff_pax_id,
                       xmlNodePtr resNode )
@@ -1293,7 +1294,7 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
       layerFlag = clPaySeatCheck;
     }
   try {
-    changedOrNotPay = SEATS2::ChangeLayer( salonList, layer_type, point_id, pax_id, tid, xname, yname, seat_type, layerFlag );
+    changedOrNotPay = SEATS2::ChangeLayer( salonList, layer_type, time_limit, point_id, pax_id, tid, xname, yname, seat_type, layerFlag );
     if ( TReqInfo::Instance()->client_type != ctTerm || resNode == NULL || layerFlag == clPaySeatCheck )
         return changedOrNotPay; // web-регистрация
     salonList.JumpToLeg( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ) );
@@ -1374,6 +1375,7 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
 bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yname,
                      SEATS2::TSeatsType seat_type,
                      TCompLayerType layer_type,
+                     int time_limit,
                      const BitSet<SEATS2::TChangeLayerFlags> &flags,
                      xmlNodePtr resNode )
 {
@@ -1498,7 +1500,7 @@ bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
       layerFlag = clPaySeatCheck;
     }
   try {
-    changedOrNotPay = SEATS2::ChangeLayer( layer_type, point_id, pax_id, tid, xname, yname, seat_type, pr_lat_seat, layerFlag );
+    changedOrNotPay = SEATS2::ChangeLayer( layer_type, time_limit, point_id, pax_id, tid, xname, yname, seat_type, pr_lat_seat, layerFlag );
     if ( TReqInfo::Instance()->client_type != ctTerm || resNode == NULL || layerFlag == clPaySeatCheck )
         return changedOrNotPay; // web-регистрация
     SALONS2::getSalonChanges( Salons, rTariff, seats );
@@ -1630,6 +1632,7 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
     IntChangeSeatsN( point_id, pax_id, tid, xname, yname,
                     seat_type,
                     layer_type,
+                    NoExists,
                     change_layer_flags,
                     comp_crc, tariff_pax_id,
                     resNode );
@@ -1638,6 +1641,7 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
     IntChangeSeats( point_id, pax_id, tid, xname, yname,
                     seat_type,
                     layer_type,
+                    NoExists,
                     change_layer_flags,
                     resNode );
   }
@@ -1683,10 +1687,10 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
 
   try {
     if ( isTranzitSalonsVersion ) {
-      SEATS2::ChangeLayer( salonList, cltProtCkin, point_id, pax_id, tid, "", "", SEATS2::stDropseat, clNotPaySeat );
+      SEATS2::ChangeLayer( salonList, cltProtCkin, NoExists, point_id, pax_id, tid, "", "", SEATS2::stDropseat, clNotPaySeat );
     }
     else {
-      SEATS2::ChangeLayer( cltProtCkin, point_id, pax_id, tid, "", "", SEATS2::stDropseat, Salons.getLatSeat(), clNotPaySeat );
+      SEATS2::ChangeLayer( cltProtCkin, NoExists, point_id, pax_id, tid, "", "", SEATS2::stDropseat, Salons.getLatSeat(), clNotPaySeat );
     }
     if ( pr_update_salons ) {
       if ( isTranzitSalonsVersion ) {
