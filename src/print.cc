@@ -1410,6 +1410,29 @@ void PrintInterface::GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     GetPrintDataBT(dataNode, tag_key);
 }
 
+void PrintInterface::ConfirmPrintUnregVO(
+        const std::vector<BPPax> &paxs,
+        CheckIn::UserException &ue)
+{
+    TCachedQuery unregVOConfirmQry("update confirm_print_vo_unreg set pr_print = 1 where id = :pax_id ",
+            QParams() << QParam("pax_id", otInteger));
+    for (std::vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
+        try
+        {
+            unregVOConfirmQry.get().SetVariable("pax_id", iPax->pax_id);
+            unregVOConfirmQry.get().Execute();
+            LEvntPrms params;
+            params << PrmSmpl<std::string>("full_name", iPax->full_name);
+            params << PrmSmpl<string>("voucher", ElemIdToNameLong(etVoucherType, iPax->voucher));
+            TReqInfo::Instance()->LocaleToLog("EVT.PRINT_VOUCHER", params, ASTRA::evtPax, iPax->point_dep);
+        }
+        catch(AstraLocale::UserException &e)
+        {
+            ue.addError(e.getLexemaData(), iPax->point_dep, iPax->pax_id);
+        };
+    }
+}
+
 void PrintInterface::ConfirmPrintBP(TDevOper::Enum op_type,
                                     const std::vector<BPPax> &paxs,
                                     CheckIn::UserException &ue)
@@ -1511,17 +1534,36 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         "FROM pax, pax_grp  "
         "WHERE pax.grp_id = pax_grp.grp_id AND pax_id=:pax_id";
     PaxQry.DeclareVariable("pax_id",otInteger);
-    std::vector<BPPax> paxs;
+
+    TCachedQuery unregVOConfirmQry("   select point_id, surname||' '||name full_name from confirm_print_vo_unreg where id = :pax_id ",
+            QParams() << QParam("pax_id", otInteger));
+
+    std::vector<BPPax> paxs, unreg_vo;
     xmlNodePtr curNode = NodeAsNode("passengers/pax", reqNode);
     set<int> ids_set;
     for(; curNode != NULL; curNode = curNode->next)
     {
         BPPax pax;
         pax.pax_id=NodeAsInteger("@pax_id", curNode);
+
         pax.time_print=NodeAsDateTime("@time_print", curNode);
         // Св-во print_code на данный момент передается только при печати ваучера
         // в остальных случаях pax.voucher пустой.
         pax.voucher = getVoucherCode(GetNode("@print_code", curNode));
+
+        int id = NodeAsInteger("@id", curNode, NoExists);
+        if(id != NoExists) {
+            // ваучер для незарег. пакса
+            unregVOConfirmQry.get().SetVariable("pax_id", pax.pax_id);
+            unregVOConfirmQry.get().Execute();
+            if(not unregVOConfirmQry.get().Eof) {
+                pax.point_dep = unregVOConfirmQry.get().FieldAsInteger("point_id");
+                pax.full_name = unregVOConfirmQry.get().FieldAsString("full_name");
+                unreg_vo.push_back(pax);
+            }
+            continue;
+        }
+
 
         PaxQry.SetVariable("pax_id", pax.pax_id);
         PaxQry.Execute();
@@ -1543,6 +1585,7 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
     CheckIn::UserException ue;
     ConfirmPrintBP(op_type, paxs, ue); //не надо прокидывать ue в терминал - подтверждаем все что можем!
+    ConfirmPrintUnregVO(unreg_vo, ue);
 };
 
 void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2226,29 +2269,35 @@ void PrintInterface::GetPrintDataVOUnregistered(
             << QParam("surname", otString)
             << QParam("name", otString)
             << QParam("voucher", otString)
-            << QParam("desk", otString, TReqInfo::Instance()->desk.code);
+            << QParam("id", otInteger)
+            << QParam("desk", otString, TReqInfo::Instance()->desk.code)
+            // В версиях ранее VO_STAT_VERSION печать подтверждается сразу
+            << QParam("pr_print", otInteger, not TReqInfo::Instance()->desk.compatible(VO_STAT_VERSION));
         TCachedQuery confirmQry(
-                "insert into voucher_stat ( "
-                "   id, "
-                "   pax_id, "
-                "   time_print, "
-                "   point_id, "
-                "   scd_out, "
-                "   surname, "
-                "   name, "
-                "   voucher, "
-                "   desk "
-                ") values ( "
-                "   id__seq.nextval, "
-                "   null, "
-                "   :time_print, "
-                "   :point_id, "
-                "   :scd_out, "
-                "   :surname, "
-                "   :name, "
-                "   :voucher, "
-                "   :desk "
-                ")", qryParams);
+                "begin "
+                "  insert into confirm_print_vo_unreg ( "
+                "     id, "
+                "     time_print, "
+                "     point_id, "
+                "     scd_out, "
+                "     surname, "
+                "     name, "
+                "     voucher, "
+                "     desk, "
+                "     pr_print "
+                "  ) values ( "
+                "     id__seq.nextval, "
+                "     :time_print, "
+                "     :point_id, "
+                "     :scd_out, "
+                "     :surname, "
+                "     :name, "
+                "     :voucher, "
+                "     :desk, "
+                "     :pr_print "
+                "  ) returning id into :id; "
+                "end; ",
+            qryParams);
         for(TPaxList::iterator
                 pax = pax_list.begin();
                 pax != pax_list.end();
@@ -2287,15 +2336,17 @@ void PrintInterface::GetPrintDataVOUnregistered(
                 confirmQry.get().SetVariable("voucher", v->first);
                 confirmQry.get().Execute();
 
-                LEvntPrms params;
-                params << PrmSmpl<std::string>("full_name", fullName.str());
-                params << PrmSmpl<string>("voucher", ElemIdToNameLong(etVoucherType, v->first));
-                TReqInfo::Instance()->LocaleToLog("EVT.PRINT_VOUCHER", params, ASTRA::evtPax, point_id);
+                if(not TReqInfo::Instance()->desk.compatible(VO_STAT_VERSION)) {
+                    LEvntPrms params;
+                    params << PrmSmpl<std::string>("full_name", fullName.str());
+                    params << PrmSmpl<string>("voucher", ElemIdToNameLong(etVoucherType, v->first));
+                    TReqInfo::Instance()->LocaleToLog("EVT.PRINT_VOUCHER", params, ASTRA::evtPax, point_id);
+                }
 
 
 
                 xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
-                SetProp(paxNode, "pax_id", 0);
+                SetProp(paxNode, "pax_id", confirmQry.get().GetVariableAsInteger("id"));
                 SetProp(paxNode, "id", pax->first.id);
                 SetProp(paxNode, "reg_no", 0);
                 SetProp(paxNode, "pr_print", true);
@@ -2305,6 +2356,7 @@ void PrintInterface::GetPrintDataVOUnregistered(
             }
         }
     }
+    LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
 }
 
 void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

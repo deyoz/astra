@@ -47,7 +47,9 @@ const char *TStatTypeS[statNum] = {
     "statHotelAcmdFull",
     "statBIFull",
     "statBIShort",
-    "statBIDetail"
+    "statBIDetail",
+    "statVOFull",
+    "statVOShort"
 };
 
 void TStatParams::fromFileParams(map<string, string> &file_params)
@@ -223,6 +225,10 @@ void TStatParams::get(xmlNodePtr reqNode)
         if(name == "Подробная") statType=statBIFull;
         else if(name == "Общая") statType=statBIShort;
         else if(name == "Детализированная") statType=statBIDetail;
+        else throw Exception("Unknown stat mode " + name);
+    } else if(type == "Ваучеры") {
+        if(name == "Подробная") statType=statVOFull;
+        else if(name == "Общая") statType=statVOShort;
         else throw Exception("Unknown stat mode " + name);
     } else
         throw Exception("Unknown stat type " + type);
@@ -479,3 +485,23 @@ void TOrderStatWriter::insert(const TOrderStatItem &row)
     out.flush();
 }
 
+const TFltInfoCacheItem &TFltInfoCache::get(int point_id)
+{
+    TFltInfoCache::iterator i = this->find(point_id);
+    if(i == this->end()) {
+        TTripInfo info;
+        info.getByPointId(point_id);
+        TFltInfoCacheItem item;
+        item.airp = info.airp;
+        item.airline = info.airline;
+        item.view_airp = ElemIdToCodeNative(etAirp, info.airp);
+        item.view_airline = ElemIdToCodeNative(etAirline, info.airline);
+        ostringstream flt_no_str;
+        flt_no_str << setw(3) << setfill('0') << info.flt_no << ElemIdToCodeNative(etSuffix, info.suffix);
+        item.view_flt_no = flt_no_str.str();
+        pair<TFltInfoCache::iterator, bool> ret;
+        ret = this->insert(make_pair(point_id, item));
+        i = ret.first;
+    }
+    return i->second;
+}

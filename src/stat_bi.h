@@ -23,19 +23,6 @@ struct TBIStatRow {
     {}
 };
 
-struct TFltInfoCacheItem {
-    std::string airp;
-    std::string airline;
-
-    std::string view_airp;
-    std::string view_airline;
-    std::string view_flt_no;
-};
-
-struct TFltInfoCache:public std::map<int, TFltInfoCacheItem> {
-    const TFltInfoCacheItem &get(int point_id);
-};
-
 struct TBIAbstractStat {
     TPrintAirline prn_airline;
     TFltInfoCache flt_cache;

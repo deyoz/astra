@@ -171,7 +171,8 @@ astra_SOURCES = \
   md5_sum.cc \
   bagmessage.cc \
   hotel_acmd.cc \
-  bi_stat.cc \
+  stat_bi.cc \
+  stat_vo.cc \
   stat_utils.cc \
   stat_common.cc \
   bagmessage_daemon.cc
@@ -336,7 +337,8 @@ noinst_HEADERS = \
   AirportControl.h \
   md5_sum.h \
   hotel_acmd.h \
-  bi_stat.h \
+  stat_bi.h \
+  stat_vo.h \
   stat_utils.h \
   stat_common.h \
   report_common.h

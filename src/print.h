@@ -148,6 +148,9 @@ class PrintInterface: public JxtInterface
                                    BIPrintRules::Holder &bi_rules,
                                    std::vector<BPPax> &paxs,
                                    boost::optional<AstraLocale::LexemaData> &error);
+        static void ConfirmPrintUnregVO(
+                const std::vector<BPPax> &paxs,
+                CheckIn::UserException &ue);
         static void ConfirmPrintBP(ASTRA::TDevOper::Enum op_type,
                                    const std::vector<BPPax> &paxs,
                                    CheckIn::UserException &ue);
