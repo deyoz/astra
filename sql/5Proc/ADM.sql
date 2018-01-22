@@ -409,12 +409,19 @@ PROCEDURE sync_COM_options(vid            typeb_addrs.id%TYPE,
                            vsetting_user  history_events.open_user%TYPE,
                            vstation       history_events.open_desk%TYPE);
 
+PROCEDURE sync_MVT_options(vid            typeb_addrs.id%TYPE,
+                           vbasic_type    typeb_addr_options.tlg_type%TYPE,
+                           vnoend         typeb_addr_options.value%TYPE,
+                           vsetting_user  history_events.open_user%TYPE,
+                           vstation       history_events.open_desk%TYPE);
+
 PROCEDURE sync_LDM_options(vid            typeb_addrs.id%TYPE,
                            vbasic_type    typeb_addr_options.tlg_type%TYPE,
                            vversion       typeb_addr_options.value%TYPE,
                            vcabin_baggage typeb_addr_options.value%TYPE,
                            vgender        typeb_addr_options.value%TYPE,
                            vexb           typeb_addr_options.value%TYPE,
+                           vnoend         typeb_addr_options.value%TYPE,
                            vsetting_user  history_events.open_user%TYPE,
                            vstation       history_events.open_desk%TYPE);
 
