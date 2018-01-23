@@ -32,6 +32,7 @@
 #include "stat_utils.h"
 #include "stat_bi.h"
 #include "stat_vo.h"
+#include "stat_ha.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -9258,6 +9259,12 @@ void create_plain_files(
         case statVOFull:
             RunVOFullFile(params, order_writer);
             break;
+        case statHAShort:
+            RunHAShortFile(params, order_writer);
+            break;
+        case statHAFull:
+            RunHAFullFile(params, order_writer);
+            break;
         default:
             throw Exception("unsupported statType %d", params.statType);
     }
@@ -10093,6 +10100,8 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         case statService:
             get_compatible_report_form("ServiceStat", reqNode, resNode);
             break;
+        case statHAFull:
+        case statHAShort:
         case statVOFull:
         case statVOShort:
         case statBIFull:
@@ -10258,6 +10267,18 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             TBIFullStat BIFullStat;
             RunBIStat(params, BIFullStat);
             createXMLBIFullStat(params, BIFullStat, resNode);
+        }
+        if(params.statType == statHAShort)
+        {
+            THAShortStat HAShortStat;
+            RunHAStat(params, HAShortStat);
+            createXMLHAShortStat(params, HAShortStat, resNode);
+        }
+        if(params.statType == statHAFull)
+        {
+            THAFullStat HAFullStat;
+            RunHAStat(params, HAFullStat);
+            createXMLHAFullStat(params, HAFullStat, resNode);
         }
         if(params.statType == statVOShort)
         {
@@ -11397,6 +11418,9 @@ void get_flight_stat(map<string, long> &stat_times, int point_id, bool final_col
      tm.Init();
      get_stat_vo(point_id);
      add_stat_time(stat_times, "stat_vo", tm.Print());
+     tm.Init();
+     get_stat_ha(point_id);
+     add_stat_time(stat_times, "stat_ha", tm.Print());
    };
 
    TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);

@@ -4,11 +4,13 @@
 #include "stat_common.h"
 
 struct TVOStatRow {
+    TDateTime part_key;
     int point_id;
     std::string voucher;
     TDateTime scd_out;
     int amount;
     TVOStatRow():
+        part_key(ASTRA::NoExists),
         point_id(ASTRA::NoExists),
         scd_out(ASTRA::NoExists),
         amount(ASTRA::NoExists)

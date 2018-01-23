@@ -57,12 +57,15 @@ void RunVOStat(
         TCachedQuery Qry(SQLText, QryParams);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
+            int col_part_key = Qry.get().GetFieldIndex("part_key");
             int col_point_id = Qry.get().FieldIndex("point_id");
             int col_voucher = Qry.get().FieldIndex("voucher");
             int col_scd_out = Qry.get().FieldIndex("scd_out");
             int col_amount = Qry.get().FieldIndex("amount");
             for(; not Qry.get().Eof; Qry.get().Next()) {
                 TVOStatRow row;
+                if(col_part_key >= 0)
+                    row.part_key = Qry.get().FieldAsDateTime(col_part_key);
                 row.point_id = Qry.get().FieldAsInteger(col_point_id);
                 row.voucher = Qry.get().FieldAsString(col_voucher);
                 row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
@@ -77,7 +80,7 @@ void RunVOStat(
 
 void TVOShortStat::add(const TVOStatRow &row)
 {
-    TFltInfoCacheItem info = flt_cache.get(row.point_id);
+    TFltInfoCacheItem info = flt_cache.get(row.point_id, row.part_key);
     prn_airline.check(info.airline);
     string voucher = ElemIdToNameLong(etVoucherType, row.voucher);
 
@@ -89,7 +92,7 @@ void TVOShortStat::add(const TVOStatRow &row)
 
 void TVOFullStat::add(const TVOStatRow &row)
 {
-    TFltInfoCacheItem info = flt_cache.get(row.point_id);
+    TFltInfoCacheItem info = flt_cache.get(row.point_id, row.part_key);
     prn_airline.check(info.airline);
     string voucher = ElemIdToNameLong(etVoucherType, row.voucher);
     int &curr_total = (*this)[info.view_airline][info.view_airp][info.view_flt_no][row.scd_out][voucher];

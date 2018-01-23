@@ -12,61 +12,6 @@ using namespace AstraLocale;
 
 const string HotelAcmdDateFormat = "dd.mm.yyyy hh:nn";
 
-struct THotelAcmdPaxItem {
-    int idx;
-    int point_id;
-    int pax_id;
-    string full_name;
-    TPerson pers_type;
-    int hotel_id;
-    int room_type;
-    int breakfast;
-    int dinner;
-    int supper;
-    THotelAcmdPaxItem():
-        idx(NoExists),
-        pax_id(NoExists),
-        pers_type(NoPerson),
-        hotel_id(NoExists),
-        room_type(NoExists),
-        breakfast(NoExists),
-        dinner(NoExists),
-        supper(NoExists)
-    {}
-};
-
-struct THotelAcmdPax
-{
-    private:
-        int GetVar(TQuery &Qry, int idx);
-        void SetVar(TQuery &Qry, const string &name, int val);
-        void SetBoolLogParam(LEvntPrms &params, const string &name, int val);
-    public:
-        int point_id;
-        THotelAcmdPax(): point_id(NoExists) {}
-        map<int, THotelAcmdPaxItem> items;
-        void fromDB(int point_id);
-        void fromXML(xmlNodePtr reqNode);
-        void toDB(list<pair<int, int> > &inserted_paxes);
-};
-
-struct TPaxListItem {
-    int pax_id;
-    int reg_no;
-    TPerson pers_type;
-    string full_name;
-    TPaxListItem():
-        pax_id(NoExists),
-        reg_no(NoExists),
-        pers_type(NoPerson)
-    {}
-};
-
-struct TPaxList {
-    map<int, TPaxListItem> items;
-    void fromDB(int point_id);
-};
-
 void TPaxList::fromDB(int point_id)
 {
     // из PNL
