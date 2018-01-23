@@ -3076,7 +3076,7 @@ class AnomalisticConditionsPayment
       for ( int i=0; i<passengers.getCount(); i++ ) {
         TPassenger &pass = passengers.Get( i );
       //  ProgTrace( TRACE5, "pass %s", pass.toString().c_str() );
-        if ( !pass.dont_check_payment || pass.preseat_no.empty() ) {
+        if ( pass.preseat_no.empty() ) {
           continue;
         }
         for ( vector<SALONS2::TPlaceList*>::iterator plList=Salons->placelists.begin();
@@ -3090,16 +3090,17 @@ class AnomalisticConditionsPayment
               SALONS2::TPlace *place = placeList->place( FP );
               TSeatLayer layer = place->getCurrLayer( Salons->trip_id );
               if ( //place->isLayer( cltProtAfterPay, pass.paxId ) ) {
-                   layer.layer_type == cltProtAfterPay &&
+                   (layer.layer_type == cltProtAfterPay ||
+                    layer.layer_type == cltProtSelfCkin) &&
                    layer.crs_pax_id == pass.paxId ) {
                 tst();
                 for ( std::vector<TRem>::iterator irem=place->rems.begin(); irem!=place->rems.end(); ) {
-                  ProgTrace( TRACE5, "rem=%s", irem->rem.c_str() );
                   if ( isREM_SUBCLS( irem->rem ) ) {
                     ++irem;
                     continue;
                   }
                   else {
+                    ProgTrace( TRACE5, "removeRemarksOnPaymentLayer: remove rem=%s", irem->rem.c_str() );
                     irem = place->rems.erase(irem);
                   }
                 }
@@ -3117,7 +3118,6 @@ class AnomalisticConditionsPayment
           }
         }
       }
-
     }
     static void setPayementOnWebSignal( SALONS2::TSalons *Salons, TPassengers &passengers ) {
       for ( int i=0; i<passengers.getCount(); i++ ) {
