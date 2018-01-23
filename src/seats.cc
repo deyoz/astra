@@ -3072,6 +3072,53 @@ class AnomalisticConditionsPayment
         pass.preseatPlaces.clear();
       }
     }
+    static void removeRemarksOnPaymentLayer( SALONS2::TSalons *Salons, TPassengers &passengers ) {
+      for ( int i=0; i<passengers.getCount(); i++ ) {
+        TPassenger &pass = passengers.Get( i );
+      //  ProgTrace( TRACE5, "pass %s", pass.toString().c_str() );
+        if ( !pass.dont_check_payment || pass.preseat_no.empty() ) {
+          continue;
+        }
+        for ( vector<SALONS2::TPlaceList*>::iterator plList=Salons->placelists.begin();
+              plList!=Salons->placelists.end(); plList++ ) {
+          TPlaceList* placeList = *plList;
+          TPoint FP;
+          if ( placeList->GetisPlaceXY( pass.preseat_no, FP ) ) {
+            for ( int j=0; j<pass.countPlace; j++ ) {
+              if ( !placeList->ValidPlace( FP ) )
+                break;
+              SALONS2::TPlace *place = placeList->place( FP );
+              TSeatLayer layer = place->getCurrLayer( Salons->trip_id );
+              if ( //place->isLayer( cltProtAfterPay, pass.paxId ) ) {
+                   layer.layer_type == cltProtAfterPay &&
+                   layer.crs_pax_id == pass.paxId ) {
+                tst();
+                for ( std::vector<TRem>::iterator irem=place->rems.begin(); irem!=place->rems.end(); ) {
+                  ProgTrace( TRACE5, "rem=%s", irem->rem.c_str() );
+                  if ( isREM_SUBCLS( irem->rem ) ) {
+                    ++irem;
+                    continue;
+                  }
+                  else {
+                    irem = place->rems.erase(irem);
+                  }
+                }
+              }
+              switch( (int)pass.Step ) {
+                case sRight:
+                   FP.x++;
+                   break;
+                case sDown:
+                   FP.y++;
+                   break;
+              }
+            }
+            break;
+          }
+        }
+      }
+
+    }
     static void setPayementOnWebSignal( SALONS2::TSalons *Salons, TPassengers &passengers ) {
       for ( int i=0; i<passengers.getCount(); i++ ) {
         TPassenger &pass = passengers.Get( i );
@@ -3169,6 +3216,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
   AnomalisticConditionsPayment::clearPreseatPaymentLayers( Salons, passengers );
   //AnomalisticConditionsPayment::clearTariffsOnWebSignal( Salons, passengers );
   AnomalisticConditionsPayment::setPayementOnWebSignal( Salons, passengers );
+  AnomalisticConditionsPayment::removeRemarksOnPaymentLayer( Salons, passengers );
 
   GetUseLayers( UseLayers );
   TUseLayers preseat_layers, curr_preseat_layers;
