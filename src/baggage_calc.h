@@ -190,5 +190,7 @@ bool TryEnlargeServicePayment(TPaidRFISCList &paid_bag,
 
 } //namespace PieceConcept
 
+std::string GetBagRcptStr(const std::vector<std::string> &rcpts);
+
 #endif
 

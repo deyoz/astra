@@ -68,8 +68,8 @@ src/baggage_base.cc
 src/baggage_base.h
 src/baggage_calc.cc
 src/baggage_calc.h
-src/baggage_pc.cc
-src/baggage_pc.h
+src/baggage_tags.cc
+src/baggage_tags.h
 src/baggage_wt.cc
 src/baggage_wt.h
 src/base_tables.cc
