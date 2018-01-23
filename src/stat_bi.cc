@@ -31,7 +31,7 @@ void TBIStatCounters::add(BIPrintRules::TPrintType::Enum print_type)
 
 void TBIDetailStat::add(const TBIStatRow &row)
 {
-    TFltInfoCacheItem info = flt_cache.get(row.point_id);
+    TFltInfoCacheItem info = flt_cache.get(row.point_id, row.part_key);
     prn_airline.check(info.airline);
     string terminal = ElemIdToNameLong(etAirpTerminal, row.terminal);
     string bi_hall = ElemIdToNameLong(etBIHall, row.hall);
@@ -44,7 +44,7 @@ void TBIDetailStat::add(const TBIStatRow &row)
 
 void TBIShortStat::add(const TBIStatRow &row)
 {
-    TFltInfoCacheItem info = flt_cache.get(row.point_id);
+    TFltInfoCacheItem info = flt_cache.get(row.point_id, row.part_key);
     prn_airline.check(info.airline);
     string terminal = ElemIdToNameLong(etAirpTerminal, row.terminal);
     string bi_hall = ElemIdToNameLong(etBIHall, row.hall);
@@ -57,7 +57,7 @@ void TBIShortStat::add(const TBIStatRow &row)
 
 void TBIFullStat::add(const TBIStatRow &row)
 {
-    TFltInfoCacheItem info = flt_cache.get(row.point_id);
+    TFltInfoCacheItem info = flt_cache.get(row.point_id, row.part_key);
     prn_airline.check(info.airline);
     string terminal = ElemIdToNameLong(etAirpTerminal, row.terminal);
     string bi_hall = ElemIdToNameLong(etBIHall, row.hall);
@@ -123,6 +123,7 @@ void RunBIStat(
         TCachedQuery Qry(SQLText, QryParams);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
+            int col_part_key = Qry.get().GetFieldIndex("part_key");
             int col_point_id = Qry.get().FieldIndex("point_id");
             int col_scd_out = Qry.get().FieldIndex("scd_out");
             int col_pax_id = Qry.get().FieldIndex("pax_id");
@@ -132,6 +133,8 @@ void RunBIStat(
             int col_op_type = Qry.get().FieldIndex("op_type");
             for(; not Qry.get().Eof; Qry.get().Next()) {
                 TBIStatRow row;
+                if(col_part_key >= 0)
+                    row.part_key = Qry.get().FieldAsDateTime(col_part_key);
                 row.point_id = Qry.get().FieldAsInteger(col_point_id);
                 row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
                 row.pax_id = Qry.get().FieldAsInteger(col_pax_id);

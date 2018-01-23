@@ -59,6 +59,7 @@ void RunHAStat(
         TCachedQuery Qry(SQLText, QryParams);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
+            int col_part_key = Qry.get().GetFieldIndex("part_key");
             int col_point_id = Qry.get().FieldIndex("point_id");
             int col_hotel_id = Qry.get().FieldIndex("hotel_id");
             int col_room_type = Qry.get().FieldIndex("room_type");
@@ -68,6 +69,8 @@ void RunHAStat(
             int col_inf = Qry.get().FieldIndex("inf");
             for(; not Qry.get().Eof; Qry.get().Next()) {
                 THAStatRow row;
+                if(col_part_key >= 0)
+                    row.part_key = Qry.get().FieldAsDateTime(col_part_key);
                 row.point_id = Qry.get().FieldAsInteger(col_point_id);
                 row.hotel_id = Qry.get().FieldAsInteger(col_hotel_id);
                 if(not Qry.get().FieldIsNULL(col_room_type))
@@ -102,7 +105,7 @@ THAFullCounters &THAFullCounters::operator +=(const THAStatRow &rhs)
 
 void THAShortStat::add(const THAStatRow &row)
 {
-    TFltInfoCacheItem info = flt_cache.get(row.point_id);
+    TFltInfoCacheItem info = flt_cache.get(row.point_id, row.part_key);
     prn_airline.check(info.airline);
     string hotel = ElemIdToNameLong(etHotel, row.hotel_id);
     int &curr_total = (*this)[info.view_airline][info.view_airp][hotel];
@@ -113,7 +116,7 @@ void THAShortStat::add(const THAStatRow &row)
 
 void THAFullStat::add(const THAStatRow &row)
 {
-    TFltInfoCacheItem info = flt_cache.get(row.point_id);
+    TFltInfoCacheItem info = flt_cache.get(row.point_id, row.part_key);
     prn_airline.check(info.airline);
     string hotel = ElemIdToNameLong(etHotel, row.hotel_id);
     THAFullCounters &curr_total = (*this)[info.view_airline][info.view_airp][info.view_flt_no][row.scd_out][hotel];

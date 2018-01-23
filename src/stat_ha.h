@@ -4,6 +4,7 @@
 #include "stat_common.h"
 
 struct THAStatRow {
+    TDateTime part_key;
     int point_id;
     int hotel_id;
     int room_type;
@@ -13,6 +14,7 @@ struct THAStatRow {
     int inf;
     int total() const { return adt + chd + inf; }
     THAStatRow():
+        part_key(ASTRA::NoExists),
         point_id(ASTRA::NoExists),
         hotel_id(ASTRA::NoExists),
         room_type(ASTRA::NoExists),

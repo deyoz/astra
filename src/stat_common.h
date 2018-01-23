@@ -224,7 +224,7 @@ struct TFltInfoCacheItem {
 };
 
 struct TFltInfoCache:public std::map<int, TFltInfoCacheItem> {
-    const TFltInfoCacheItem &get(int point_id);
+    const TFltInfoCacheItem &get(int point_id, TDateTime part_key);
 };
 
 #endif

@@ -5,6 +5,7 @@
 #include "bi_rules.h"
 
 struct TBIStatRow {
+    TDateTime part_key;
     int point_id;
     TDateTime scd_out;
     int pax_id;
@@ -13,6 +14,7 @@ struct TBIStatRow {
     int hall;
     ASTRA::TDevOper::Enum op_type;
     TBIStatRow():
+        part_key(ASTRA::NoExists),
         point_id(ASTRA::NoExists),
         scd_out(ASTRA::NoExists),
         pax_id(ASTRA::NoExists),

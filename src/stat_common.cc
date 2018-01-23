@@ -485,12 +485,15 @@ void TOrderStatWriter::insert(const TOrderStatItem &row)
     out.flush();
 }
 
-const TFltInfoCacheItem &TFltInfoCache::get(int point_id)
+const TFltInfoCacheItem &TFltInfoCache::get(int point_id, TDateTime part_key)
 {
     TFltInfoCache::iterator i = this->find(point_id);
     if(i == this->end()) {
         TTripInfo info;
-        info.getByPointId(point_id);
+        if(part_key != NoExists)
+            info.getByPointId(part_key, point_id);
+        else
+            info.getByPointId(point_id);
         TFltInfoCacheItem item;
         item.airp = info.airp;
         item.airline = info.airline;
