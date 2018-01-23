@@ -43,8 +43,8 @@ const char *TStatTypeS[statNum] = {
     "statPFSShort",
     "statPFSFull",
     "statTrferPax",
-    "statHotelAcmdShort",
-    "statHotelAcmdFull",
+    "statHAShort",
+    "statHAFull",
     "statBIFull",
     "statBIShort",
     "statBIDetail",
@@ -216,9 +216,9 @@ void TStatParams::get(xmlNodePtr reqNode)
             throw Exception("Unknown stat mode " + name);
     } else if(type == "Расселение") {
         if(name == "Подробная")
-            statType = statHotelAcmdFull;
+            statType = statHAFull;
         else if(name == "Общая")
-            statType = statHotelAcmdShort;
+            statType = statHAShort;
         else
             throw Exception("Unknown stat mode " + name);
     } else if(type == "Бизнес приглашения") {
