@@ -111,7 +111,7 @@ void THAShortStat::add(const THAStatRow &row)
     int &curr_total = (*this)[info.view_airline][info.view_airp][hotel];
     if(not curr_total) FRowCount++;
     curr_total += row.total();
-    total += curr_total;
+    total += row.total();
 }
 
 void THAFullStat::add(const THAStatRow &row)
@@ -122,7 +122,7 @@ void THAFullStat::add(const THAStatRow &row)
     THAFullCounters &curr_total = (*this)[info.view_airline][info.view_airp][info.view_flt_no][row.scd_out][hotel];
     if(not curr_total.total()) FRowCount++;
     curr_total += row;
-    total += curr_total;
+    total += row;
 }
 
 
