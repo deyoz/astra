@@ -94,10 +94,10 @@ THAFullCounters &THAFullCounters::operator +=(const THAStatRow &rhs)
     inf += rhs.inf;
     switch(rhs.room_type) {
         case 1:
-            room_single++;
+            room_single += rhs.total();
             break;
         case 2:
-            room_double++;
+            room_double += rhs.total();
             break;
     }
     return *this;
