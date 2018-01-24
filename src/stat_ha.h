@@ -50,15 +50,6 @@ struct THAFullCounters {
         inf(0)
     {}
     THAFullCounters &operator +=(const THAStatRow &rhs);
-    THAFullCounters &operator +=(const THAFullCounters &rhs)
-    {
-        room_single += rhs.room_single;
-        room_double += rhs.room_double;
-        adt += rhs.adt;
-        chd += rhs.chd;
-        inf += rhs.inf;
-        return *this;
-    }
 };
 
 typedef std::map<std::string, THAFullCounters> THAFullHotelMap;
