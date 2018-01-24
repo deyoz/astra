@@ -6,6 +6,59 @@
 #include "web_search.h"
 #include "apis_utils.h"
 
+namespace CheckIn
+{
+
+class OverloadException: public AstraLocale::UserException
+{
+  public:
+    OverloadException(const std::string &msg):AstraLocale::UserException(msg) {}
+    virtual ~OverloadException() throw(){}
+};
+
+class UserException:public AstraLocale::UserException
+{
+    public:
+      std::map<int, std::map <int, AstraLocale::LexemaData> > segs;
+
+      UserException(const AstraLocale::LexemaData &lexemeData,
+                  int point_id,
+                  int pax_id = ASTRA::NoExists):AstraLocale::UserException(lexemeData.lexema_id, lexemeData.lparams)
+    {
+      addError(lexemeData, point_id, pax_id);
+    };
+    UserException():AstraLocale::UserException("Empty CheckIn::UserException!", AstraLocale::LParams()) {};
+    ~UserException() throw(){};
+    void addError(const AstraLocale::LexemaData &lexemeData,
+                  int point_id,
+                  int pax_id = ASTRA::NoExists)
+    {
+      if (segs.empty()) setLexemaData(lexemeData);
+      segs[point_id][pax_id]=lexemeData;
+    }
+/*  если кто-то надумает раскомментарить этот кусок, обратитесь сначала к Владу
+    void addError(const std::string &lexema_id, const AstraLocale::LParams &lparams,
+                  int point_id,
+                  int pax_id = ASTRA::NoExists)
+    {
+      AstraLocale::LexemaData data;
+      data.lexema_id = lexema_id;
+        data.lparams = lparams;
+        addError(data, point_id, pax_id);
+    };
+    void addError(const std::string &lexema_id,
+                  int point_id,
+                  int pax_id = ASTRA::NoExists)
+    {
+        addError(lexema_id, AstraLocale::LParams(), point_id, pax_id);
+    };*/
+    bool empty() { return segs.empty(); }
+};
+
+void showError(const std::map<int, std::map <int, AstraLocale::LexemaData> > &segs);
+
+} //namespace CheckIn
+
 struct TWebPaxFromReq
 {
   int crs_pax_id;
@@ -133,5 +186,7 @@ void CreateEmulDocs(const std::vector< std::pair<int/*point_id*/, TWebPnrForSave
                     const std::vector<WebSearch::TPnrData> &PNRs,
                     const XMLDoc &emulDocHeader,
                     XMLDoc &emulCkinDoc, std::map<int,XMLDoc> &emulChngDocs );
+
+void tryGenerateBagTags(xmlNodePtr reqNode);
 
 #endif // PNR_INFORM_H

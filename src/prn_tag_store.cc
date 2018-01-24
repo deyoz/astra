@@ -10,6 +10,7 @@
 #include "tripinfo.h"
 #include "passenger.h"
 #include "qrys.h"
+#include "seats_utils.h"
 #include <serverlib/str_utils.h>
 #include <serverlib/testmode.h>
 #include <boost/algorithm/string/split.hpp>

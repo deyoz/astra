@@ -424,17 +424,20 @@ const TTagItem& TTagItem::toXML(xmlNodePtr node) const
   if (node==NULL) return *this;
   NewTextChild(node,"num",num);
   NewTextChild(node,"tag_type",tag_type);
-  NewTextChild(node,"no_len",no_len);
-  NewTextChild(node,"no",no);
+  NewTextChild(node,"no",FloatToString(no, 0));
   NewTextChild(node,"color",color);
   if (bag_num!=ASTRA::NoExists)
     NewTextChild(node,"bag_num",bag_num);
   else
     NewTextChild(node,"bag_num");
-  NewTextChild(node,"printable",(int)printable);
   NewTextChild(node,"pr_print",(int)pr_print);
+  if (no_len!=ASTRA::NoExists)
+  {
+    NewTextChild(node,"no_len",no_len);
+    NewTextChild(node,"printable",(int)printable);
+  }
   return *this;
-};
+}
 
 TTagItem& TTagItem::fromXML(xmlNodePtr node)
 {
@@ -859,7 +862,23 @@ bool TGroupBagItem::trferExists() const
   return false;
 }
 
-bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool is_unaccomp, bool baggage_pc, bool trfer_confirm)
+bool TGroupBagItem::completeXMLForIatci(int grp_id, xmlNodePtr bagtagNode, xmlNodePtr firstSegNode)
+{
+  TTrferRoute trfer;
+  trfer.GetRoute(grp_id, trtWithFirstSeg);
+  if (trfer.empty()) return false;
+
+  NewTextChild(firstSegNode, "airline", trfer.front().operFlt.airline);
+
+  xmlNodePtr bagNode=GetNode("bags", bagtagNode);
+  if (bagNode!=nullptr)
+    for(xmlNodePtr node=bagNode->children; node!=nullptr; node=node->next)
+      NewTextChild(node, "airp_arv_final", trfer.back().airp_arv);
+
+  return true;
+}
+
+bool TGroupBagItem::fromXMLsimple(xmlNodePtr bagtagNode, bool baggage_pc)
 {
   clear();
   if (bagtagNode==NULL) return false;
@@ -940,13 +959,22 @@ bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool is
   };
   pr_tag_print=NodeAsInteger("@pr_print",tagNode)!=0;
 
+  return true;
+}
+
+bool TGroupBagItem::fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool is_unaccomp, bool baggage_pc, bool trfer_confirm)
+{
+  if (!fromXMLsimple(bagtagNode, baggage_pc)) return false;
+
   fromXMLcompletion(grp_id, hall, is_unaccomp, trfer_confirm);
 
   return true;
 }
 
-void TGroupBagItem::checkAndGenerateTags(int point_id, int grp_id)
+void TGroupBagItem::checkAndGenerateTags(int point_id, int grp_id, bool generateAndDefer)
 {
+  generated_tags.clear();
+
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool is_payment=reqInfo->client_type == ASTRA::ctTerm && reqInfo->screen.name != "AIR.EXE";
 
@@ -1028,7 +1056,6 @@ void TGroupBagItem::checkAndGenerateTags(int point_id, int grp_id)
       ProgTrace(TRACE5,"bagAmount=%d tagCount=%d",bagAmount,tagCount);
       if (pr_tag_print && tagCount<bagAmount )
       {
-        map<int /*num*/, TTagItem> generated_tags;
         Qry.Clear();
         Qry.SQLText=
           "SELECT tag_type FROM trip_bt WHERE point_id=:point_id";
@@ -1052,6 +1079,8 @@ void TGroupBagItem::checkAndGenerateTags(int point_id, int grp_id)
             generated_tags[tag.num]=tag;
             num++;
           }
+
+          if (generateAndDefer) generated.defer();
         }
         else
         {
@@ -1588,6 +1617,15 @@ void TGroupBagItem::fromDB(int grp_id, int bag_pool_num, bool without_refused)
   };
 };
 
+void TGroupBagItem::generatedToXML(xmlNodePtr bagtagNode) const
+{
+  if (bagtagNode==NULL) return;
+  if (generated_tags.empty()) return;
+
+  xmlNodePtr node=NewTextChild(bagtagNode,"generated_tags");
+  for(const auto& i : generated_tags) i.second.toXML(NewTextChild(node,"tag"));
+}
+
 void TGroupBagItem::toXML(xmlNodePtr bagtagNode) const
 {
   if (bagtagNode==NULL) return;
@@ -1604,6 +1642,7 @@ void TGroupBagItem::toXML(xmlNodePtr bagtagNode) const
   node=NewTextChild(bagtagNode,"tags");
   for(map<int /*num*/, TTagItem>::const_iterator i=tags.begin();i!=tags.end();++i)
     i->second.toXML(NewTextChild(node,"tag"));
+
   node=NewTextChild(bagtagNode,"unaccomps_rules");
   for(set<TUnaccompRuleItem>::const_iterator i=unaccomp_rules.begin();i!=unaccomp_rules.end();++i)
     i->toXML(NewTextChild(node,"rule"));

@@ -5497,7 +5497,7 @@ void convertStatParam(xmlNodePtr paramNode)
     map<string, string>::const_iterator idx = ST_to_Astra.find(val);
     if(idx == ST_to_Astra.end())
         throw Exception("wrong param value '%s'", val.c_str());
-    xmlNodeSetContent(paramNode, idx->second.c_str());
+    NodeSetContent(paramNode, idx->second.c_str());
 }
 
 struct TParamItem {
@@ -8611,7 +8611,7 @@ struct TPFSShortStat: public TPFSScdOutMap, TPFSAbstractStat {
 
 void TPFSShortStat::dump()
 {
-    for(TPFSScdOutMap::iterator scd_out = begin(); 
+    for(TPFSScdOutMap::iterator scd_out = begin();
             scd_out != end(); scd_out++) {
         for(TPFSFltMap::iterator flt = scd_out->second.begin();
                 flt != scd_out->second.end(); flt++) {

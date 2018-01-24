@@ -3436,6 +3436,12 @@ static bool needSyncEdsEts(xmlNodePtr answerResNode)
 // или в случае iatci-регистрации
 bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode)
 {
+    if(ediResNode == NULL && IatciInterface::MayNeedSendIatci(reqNode))
+    {
+      tryGenerateBagTags(reqNode);
+      ASTRA::commit();
+    }
+
     OciCpp::Savepoint sp("sp_savepax");
     if(ediResNode == NULL && IatciInterface::MayNeedSendIatci(reqNode))
     {
@@ -9513,47 +9519,6 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
         throw;
     }
 }
-
-namespace CheckIn
-{
-
-void showError(const std::map<int, std::map<int, AstraLocale::LexemaData> > &segs)
-{
-  if (segs.empty()) throw EXCEPTIONS::Exception("CheckIn::showError: empty segs!");
-  XMLRequestCtxt *xmlRC = getXmlCtxt();
-  if (xmlRC->resDoc==NULL) return;
-  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  xmlNodePtr cmdNode = GetNode( "command", resNode );
-  if (cmdNode==NULL) cmdNode=NewTextChild( resNode, "command" );
-  resNode = ReplaceTextChild( cmdNode, "checkin_user_error" );
-  xmlNodePtr segsNode = NewTextChild(resNode, "segments");
-  for(std::map<int, std::map<int, AstraLocale::LexemaData> >::const_iterator s=segs.begin(); s!=segs.end(); s++)
-  {
-    xmlNodePtr segNode = NewTextChild(segsNode, "segment");
-    if (s->first!=NoExists)
-      NewTextChild(segNode, "point_id", s->first);
-    xmlNodePtr paxsNode=NewTextChild(segNode, "passengers");
-    for(std::map<int, AstraLocale::LexemaData>::const_iterator pax=s->second.begin(); pax!=s->second.end(); pax++)
-    {
-      string text, master_lexema_id;
-      getLexemaText( pax->second, text, master_lexema_id );
-      if (pax->first!=NoExists)
-      {
-        xmlNodePtr paxNode=NewTextChild(paxsNode, "pax");
-        NewTextChild(paxNode, "crs_pax_id", pax->first);
-        NewTextChild(paxNode, "error_code", master_lexema_id);
-        NewTextChild(paxNode, "error_message", text);
-      }
-      else
-      {
-        NewTextChild(segNode, "error_code", master_lexema_id);
-        NewTextChild(segNode, "error_message", text);
-      }
-    }
-  }
-}
-
-} //namespace CheckIn
 
 void CheckInInterface::GetFQTTierLevel(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {

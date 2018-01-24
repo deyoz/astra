@@ -11,6 +11,7 @@
 #include "aodb.h"
 #include "stat.h"
 #include "sopp.h"
+#include "qrys.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"

@@ -2,6 +2,7 @@
 #include "tripinfo.h"
 #include "brd.h"
 #include "stat_utils.h"
+#include "qrys.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
