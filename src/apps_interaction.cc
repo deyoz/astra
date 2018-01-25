@@ -1269,7 +1269,7 @@ void TManifestRequest::sendReq() const
   sendNewReq( msg(), trans.msg_id, int_flt.point_id, version );
 }
 
-// APPS ANSWER ================================================================================================
+// APPS ANSWER ---------------------------------------------------------
 
 static int getInt( const std::string& val )
 {
@@ -1319,7 +1319,7 @@ void TAnsPaxData::init( std::string source, int ver )
   {
     /* PCC */
     int i = 20; // начальная позиция итератора (поле 21)
-    // ++i; // workaround for incorrect data from SITA
+    if (tmp.size() == 29) ++i; // workaround for incorrect data (excess field)
     code = getInt(tmp[i++]);         /* 21 */
     status = *(tmp[i++].begin());    /* 22 */
     error_code1 = getInt(tmp[i++]);  /* 23 */
@@ -1719,28 +1719,46 @@ std::string getAnsText( const std::string& tlg )
   return tlg.substr( pos1 + 1, pos2 - pos1 - 1 );
 }
 
-bool processReply( const std::string& source )
+bool processReply( const std::string& source_raw )
 {
-  if(source.empty())
-    throw Exception("Answer is empty");
+  try
+  {
+    string source = getAnsText(source_raw);
 
-  string code = source.substr(0, 4);
-  string answer = source.substr(5, source.size() - 6); // отрезаем код транзакции и замыкающий '/' (XXXX:text_to_parse/)
-  boost::scoped_ptr<TAPPSAns> res;
-  if ( code == "CIRS" || code == "CICC" )
-    res.reset( new TPaxReqAnswer() );
-  else if ( code == "CIMA" )
-    res.reset( new TMftAnswer() );
-  else
-    throw Exception( std::string( "Unknown transaction code: " + code ) );
+    if(source.empty())
+      throw Exception("Answer is empty");
 
-  if (!res->init( code, answer ))
-    return false;
-  ProgTrace( TRACE5, "Result: %s", res->toString().c_str() );
-  res->beforeProcessAnswer();
-  res->processErrors();
-  res->processAnswer();
-  return true;
+    string code = source.substr(0, 4);
+    string answer = source.substr(5, source.size() - 6); // отрезаем код транзакции и замыкающий '/' (XXXX:text_to_parse/)
+    boost::scoped_ptr<TAPPSAns> res;
+    if ( code == "CIRS" || code == "CICC" )
+      res.reset( new TPaxReqAnswer() );
+    else if ( code == "CIMA" )
+      res.reset( new TMftAnswer() );
+    else
+      throw Exception( std::string( "Unknown transaction code: " + code ) );
+
+    if (!res->init( code, answer ))
+      return false;
+    ProgTrace( TRACE5, "Result: %s", res->toString().c_str() );
+    res->beforeProcessAnswer();
+    res->processErrors();
+    res->processAnswer();
+    return true;
+  }
+  catch(EOracleError &E)
+  {
+    ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"std::exception: %s",E.what());
+  }
+  catch(...)
+  {
+    ProgError(STDLOG, "Unknown exception");
+  }
+  return false;
 }
 
 void processPax( const int pax_id, const std::string& override_type, const bool is_forced )
@@ -2041,3 +2059,27 @@ void sendNewAPPSInfo( const int point_id, const std::string& task_name, const st
     Qry.get().Execute();
   }
 }
+
+int test_apps_tlg(int argc, char **argv)
+{
+  for (string text :
+  {
+    /* correct */
+    "VDCICC:6225330/PCC/26/001/AE/P/RUS/RUS/715961901//P/20210830////KRASNOBORODKIN/DMITRY/19860613/M///8505/C///////",
+    /* correct with excess field */
+    "VDCICC:6225330/PCC/26/001/AE/P/RUS/RUS/715961901//P//20210830////KRASNOBORODKIN/DMITRY/19860613/M///8505/C///////",
+    /* incorrect */
+    "VDZZZZ:6225330/PCC/26/001/AE/P/RUS/RUS/715961901//P//20210830////KRASNOBORODKIN/DMITRY/19860613/M///8505/C///////",
+    "VDCICC:6225330/ZZZ/26/001/AE/P/RUS/RUS/715961901//P//20210830////KRASNOBORODKIN/DMITRY/19860613/M///8505/C///////",
+    "VDCICC:6225330/PCC/99/001/AE/P/RUS/RUS/715961901//P//20210830////KRASNOBORODKIN/DMITRY/19860613/M///8505/C///////",
+  })
+  {
+    int tlg_num = saveTlg(OWN_CANON_NAME(), "zzzzz", "IAPP", text);
+    putTlg2OutQueue_wrap(OWN_CANON_NAME(), "zzzzz", "IAPP", text, 0, tlg_num, 0);
+    sendCmd("CMD_APPS_HANDLER", "H");
+  }
+  return 0;
+}
+
+
+

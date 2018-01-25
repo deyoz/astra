@@ -130,4 +130,12 @@ struct tlg_info
   int proc_attempt;
 };
 
+void putTlg2OutQueue_wrap(const std::string& receiver,
+                          const std::string& sender,
+                          const std::string& type,
+                          const std::string& text,
+                          int priority,
+                          int tlgNum,
+                          int ttl);
+
 #endif

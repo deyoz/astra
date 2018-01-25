@@ -311,6 +311,17 @@ static void putTlg2OutQueue(const std::string& receiver,
 #endif /* #ifdef XP_TESTING */
 }
 
+void putTlg2OutQueue_wrap(const std::string& receiver,
+                          const std::string& sender,
+                          const std::string& type,
+                          const std::string& text,
+                          int priority,
+                          int tlgNum,
+                          int ttl)
+{
+  putTlg2OutQueue(receiver, sender, type, text, priority, tlgNum, ttl);
+}
+
 struct TlgTypePriority
 {
     std::string Type;
