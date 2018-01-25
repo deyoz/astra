@@ -132,7 +132,7 @@ bool handle_tlg(void)
     int id = TlgQry.FieldAsInteger("id");
     std::string text = getTlgText(id);
     ProgTrace(TRACE5,"TLG_IN: <%s>", text.c_str());
-    if ( !processReply( getAnsText( text ) ) )
+    if ( !processReply( text ) )
       ProgTrace(TRACE5, "Message was not found");
     deleteTlg(id);
     callPostHooksBefore();
