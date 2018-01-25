@@ -19,7 +19,7 @@ enum APPSAction { NoAction, NeedUpdate, NeedNew, NeedCancel };
 void processPax( const int pax_id, const std::string& override_type = "", const bool is_forced = false );
 void APPSFlightCloseout( const int point_id );
 std::string getAnsText( const std::string& tlg );
-bool processReply( const std::string& source );
+bool processReply( const std::string& source_raw );
 bool checkAPPSSets(const int point_dep, const int point_arv );
 bool checkAPPSSets( const int point_dep, const std::string& airp_arv, std::set<std::string>* pFormats = nullptr );
 bool checkAPPSSets( const int point_dep, const std::string& airp_arv, bool& transit, std::set<std::string>* pFormats = nullptr );
@@ -35,6 +35,8 @@ void deleteMsg( const int msg_id );
 void deleteAPPSData( const int pax_id );
 void deleteAPPSAlarms( const int pax_id );
 const char* getAPPSRotName();
+
+int test_apps_tlg(int argc, char **argv);
 
 struct TAppsSets
 {
