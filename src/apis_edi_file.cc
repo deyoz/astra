@@ -568,7 +568,7 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
         {
           xmlNodePtr memberNode = NewTextChild(fqtsNode, "ProgramMember");
           NewTextChild(memberNode, "Number", i->no);
-          TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code",i->airline);
+          const TAirlinesRow &airline = (const TAirlinesRow&)base_tables.get("airlines").get_row("code",i->airline);
           if (airline.code_lat.empty()) throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
           NewTextChild(memberNode, "Sponsor", airline.code_lat);
         }

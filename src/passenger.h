@@ -641,7 +641,6 @@ class TPaxGrpItem
     int tid;
     int bag_types_id;     //!!!потом удалить
     bool baggage_pc;      //!!!потом удалить
-    bool need_upgrade_db; //!!!потом удалить
 
     boost::optional< std::list<WeightConcept::TPaxNormItem> > norms;
     boost::optional< WeightConcept::TPaidBagList > paid;
@@ -674,7 +673,6 @@ class TPaxGrpItem
 
       bag_types_id=ASTRA::NoExists;
       baggage_pc=false;
-      need_upgrade_db=false;
 
       norms=boost::none;
       paid=boost::none;

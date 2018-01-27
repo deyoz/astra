@@ -67,12 +67,12 @@ namespace RCPT_PAX_DOC {
     {
         try {
             from_code = pax_doc.substr(0, 3);
-            TRcptDocTypesRow &row=(TRcptDocTypesRow&)(base_tables.get("rcpt_doc_types").get_row("code/code_lat",from_code));
+            const TRcptDocTypesRow &row=(const TRcptDocTypesRow&)(base_tables.get("rcpt_doc_types").get_row("code/code_lat",from_code));
             to_code = (lang != AstraLocale::LANG_RU ? row.code_lat : row.code);
         } catch(EBaseTableError &E) {
             try {
                 from_code = pax_doc.substr(0, 2);
-                TRcptDocTypesRow &row=(TRcptDocTypesRow&)(base_tables.get("rcpt_doc_types").get_row("code/code_lat",from_code));
+                const TRcptDocTypesRow &row=(const TRcptDocTypesRow&)(base_tables.get("rcpt_doc_types").get_row("code/code_lat",from_code));
                 to_code = (lang != AstraLocale::LANG_RU ? row.code_lat : row.code);
             } catch(EBaseTableError &E) {
                 from_code.erase();
@@ -255,15 +255,15 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                     searchByScanData};
 
   TSearchType search_type;
-  if( strcmp((char *)reqNode->name, "PaxByPaxId") == 0) search_type=searchByPaxId;
+  if( strcmp((const char*)reqNode->name, "PaxByPaxId") == 0) search_type=searchByPaxId;
   else
-    if( strcmp((char *)reqNode->name, "PaxByGrpId") == 0) search_type=searchByGrpId;
+    if( strcmp((const char*)reqNode->name, "PaxByGrpId") == 0) search_type=searchByGrpId;
     else
-      if( strcmp((char *)reqNode->name, "PaxByRegNo") == 0) search_type=searchByRegNo;
+      if( strcmp((const char*)reqNode->name, "PaxByRegNo") == 0) search_type=searchByRegNo;
       else
-        if( strcmp((char *)reqNode->name, "PaxByReceiptNo") == 0) search_type=searchByReceiptNo;
+        if( strcmp((const char*)reqNode->name, "PaxByReceiptNo") == 0) search_type=searchByReceiptNo;
         else
-          if( strcmp((char *)reqNode->name, "PaxByScanData") == 0) search_type=searchByScanData;
+          if( strcmp((const char*)reqNode->name, "PaxByScanData") == 0) search_type=searchByScanData;
           else return;
 
   int point_id=NodeAsInteger("point_id",reqNode);
@@ -725,8 +725,6 @@ int PaymentInterface::LockAndUpdTid(int point_dep, int grp_id, int tid)
   return new_tid;
 };
 
-#include "rfisc_sirena.h" //!!!только ради UpgradeDBForServices, потом удалить
-
 void PaymentInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   if (TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
@@ -738,9 +736,6 @@ void PaymentInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   CheckIn::TPaxGrpItem grp;
   if (!grp.fromDB(grp_id)) return;
-
-  if (grp.need_upgrade_db)
-    UpgradeDBForServices(grp.id);
 
   CheckIn::TGroupBagItem group_bag;
   if (group_bag.fromXML(reqNode, grp_id, ASTRA::NoExists,

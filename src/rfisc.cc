@@ -472,51 +472,6 @@ bool TRFISCKey::getPseudoListIdForInboundTrfer(int grp_id)
   return false;
 }
 
-
-void TRFISCKey::getListItemInboundTrferTmp(const std::string &where) //!!! потом удалить
-{
-  if (list_item) return;
-  if (list_id!=ASTRA::NoExists)
-  {
-    getListItem();
-    return;
-  };
-
-  if (airline.empty())
-    throw Exception("%s: %s: airline.empty() (%s)",
-                    where.c_str(),
-                    __FUNCTION__,
-                    traceStr().c_str());
-
-  TCachedQuery Qry("SELECT MAX(list_id) AS list_id "
-                   "FROM grp_rfisc_lists, bag_types_lists "
-                   "WHERE grp_rfisc_lists.list_id=bag_types_lists.id AND "
-                   "      grp_rfisc_lists.rfisc=:rfisc AND "
-                   "      grp_rfisc_lists.service_type=:service_type AND "
-                   "      bag_types_lists.airline=:airline",
-                   QParams() << QParam("rfisc", otString)
-                             << QParam("service_type", otString)
-                             << QParam("airline", otString));
-  TRFISCListKey::toDB(Qry.get());
-  Qry.get().Execute();
-  if (!Qry.get().Eof && !Qry.get().FieldIsNULL("list_id"))
-  {
-    TRFISCList list;
-    list.fromDB(Qry.get().FieldAsInteger("list_id"), true);
-    list_id=list.toDBAdv(false);
-    getListItem();
-  };
-
-  if (list_id==ASTRA::NoExists)
-  {
-    ProgTrace(TRACE5, "\n%s", Qry.get().SQLText.SQLText());
-    throw EConvertError("%s: %s: list_id not found (%s)",
-                        where.c_str(),
-                        __FUNCTION__,
-                        traceStr().c_str());
-  };
-}
-
 void TRFISCKey::getListItem(GetItemWay way, int id, int transfer_num, int bag_pool_num,
                             boost::optional<TServiceCategory::Enum> category,
                             const std::string &where)
@@ -653,38 +608,12 @@ void TRFISCKey::getListItem()
   list_item=boost::none;
   if (list_id==ASTRA::NoExists) return;
 
-  string sql="SELECT * "
-             "FROM rfisc_list_items "
-             "WHERE rfisc_list_items.list_id=:list_id AND "
-             "      rfisc_list_items.rfisc=:rfisc AND "
-             "      rfisc_list_items.service_type=:service_type AND "
-             "      rfisc_list_items.airline=:airline";
-
-  if (list_id<0) //!!! потом удалить
-  {
-    sql="SELECT :list_id AS list_id, "
-        "       grp_rfisc_lists.rfisc, "
-        "       grp_rfisc_lists.service_type, "
-        "       bag_types_lists.airline, "
-        "       grp_rfisc_lists.rfic, "
-        "       grp_rfisc_lists.emd_type, "
-        "       DECODE(grp_rfisc_lists.pr_cabin, NULL, NULL, 0, NULL, 'BG') AS grp, "
-        "       DECODE(grp_rfisc_lists.pr_cabin, NULL, NULL, 0, NULL, 'CY') AS subgrp, "
-        "       grp_rfisc_lists.name, "
-        "       grp_rfisc_lists.name_lat, "
-        "       NULL AS descr1, NULL AS descr2, "
-        "       DECODE(grp_rfisc_lists.pr_cabin, NULL, 0, 0, 1, 2) AS category, "
-        "       1 AS visible "
-        "FROM grp_rfisc_lists, bag_types_lists, pax_grp "
-        "WHERE grp_rfisc_lists.list_id=pax_grp.bag_types_id AND "
-        "      bag_types_lists.id=pax_grp.bag_types_id AND "
-        "      grp_rfisc_lists.rfisc=:rfisc AND "
-        "      grp_rfisc_lists.service_type=:service_type AND "
-        "      bag_types_lists.airline=:airline AND "
-        "      pax_grp.grp_id=-(:list_id) ";
-  }
-
-  TCachedQuery Qry(sql,
+  TCachedQuery Qry("SELECT * "
+                   "FROM rfisc_list_items "
+                   "WHERE rfisc_list_items.list_id=:list_id AND "
+                   "      rfisc_list_items.rfisc=:rfisc AND "
+                   "      rfisc_list_items.service_type=:service_type AND "
+                   "      rfisc_list_items.airline=:airline",
                    QParams() << QParam("list_id", otInteger, list_id)
                              << QParam("rfisc", otString)
                              << QParam("service_type", otString)
@@ -1210,7 +1139,7 @@ std::string TPaxServiceListsItem::traceStr() const
   return s.str();
 }
 
-void TPaxServiceLists::fromDB(int id, bool is_unaccomp, bool emul_nonexistent_lists)
+void TPaxServiceLists::fromDB(int id, bool is_unaccomp)
 {
   clear();
   TCachedQuery Qry(is_unaccomp?"SELECT grp_service_lists.*, grp_id AS pax_id FROM grp_service_lists WHERE grp_id=:id":
@@ -1219,37 +1148,6 @@ void TPaxServiceLists::fromDB(int id, bool is_unaccomp, bool emul_nonexistent_li
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
     insert(TPaxServiceListsItem().fromDB(Qry.get()));
-
-  if (empty() && emul_nonexistent_lists) //!!!потом удалить
-  {
-    int grp_id;
-    if (!is_unaccomp)
-    {
-      TCachedQuery Qry("SELECT grp_id FROM pax WHERE pax_id=:id",
-                       QParams() << QParam("id", otInteger, id));
-      Qry.get().Execute();
-      if (Qry.get().Eof) return;
-      grp_id=Qry.get().FieldAsInteger("grp_id");
-    }
-    else
-      grp_id=id;
-    bool pc=false, wt=false;
-    int bag_types_id=ASTRA::NoExists;
-    GetBagConceptsCompatible(grp_id, pc, wt, bag_types_id);
-    if (pc || wt)
-    {
-      int max_trfer_num=get_max_tckin_num(grp_id);
-      for(int pass=0; pass<2; pass++)
-      {
-        TPaxServiceListsItem item;
-        item.pax_id=id;
-        item.category=pass==0?TServiceCategory::Baggage:TServiceCategory::CarryOn;
-        item.list_id=-grp_id;
-        for(item.trfer_num=0; item.trfer_num<=max_trfer_num; item.trfer_num++)
-          insert(item);
-      };
-    }
-  }
 }
 
 void TPaxServiceLists::toDB(bool is_unaccomp) const
@@ -1272,7 +1170,7 @@ void TPaxServiceLists::toDB(bool is_unaccomp) const
 void TPaxServiceLists::toXML(int id, bool is_unaccomp, int tckin_seg_count, xmlNodePtr node)
 {
   if (node==NULL) return;
-  fromDB(id, is_unaccomp, true);
+  fromDB(id, is_unaccomp);
   for(TPaxServiceLists::const_iterator i=begin(); i!=end(); ++i)
   {
     if (i->trfer_num>=tckin_seg_count) continue; //не передаем дополнительные сегменты трансфера
@@ -1577,54 +1475,6 @@ void TPaidRFISCList::fromDB(int id, bool is_grp_id)
     item.fromDB(Qry.get());
     insert( make_pair(item, item) );
   }
-
-  if (empty()) //!!!потом удалить
-  {
-    ostringstream sql;
-    sql << "SELECT paid_bag_pc.pax_id, "
-           "       paid_bag_pc.transfer_num, "
-           "       paid_bag_pc.rfisc, "
-           "       rfisc_list_items.airline, "
-           "       rfisc_list_items.service_type, "
-           "       DECODE(rfisc_list_items.airline, NULL, TO_NUMBER(NULL), -pax.grp_id) AS list_id, "
-           "       SUM(1) AS service_quantity, "
-           "       SUM(DECODE(paid_bag_pc.status,'free',0,1)) AS paid, "
-           "       SUM(DECODE(paid_bag_pc.status,'free',0,'paid',0,1)) AS need "
-           "FROM paid_bag_pc, pax, "
-           "     (SELECT bag_types_lists.airline, grp_rfisc_lists.service_type, grp_rfisc_lists.rfisc "
-        << (is_grp_id?
-           "      FROM pax_grp, bag_types_lists, grp_rfisc_lists "
-           "      WHERE pax_grp.grp_id=:id AND ":
-           "      FROM pax, pax_grp, bag_types_lists, grp_rfisc_lists "
-           "      WHERE pax.grp_id=pax_grp.grp_id AND "
-           "            pax.pax_id=:id AND ")
-        << "            pax_grp.bag_types_id=bag_types_lists.id AND "
-           "            bag_types_lists.id=grp_rfisc_lists.list_id) rfisc_list_items "
-           "WHERE paid_bag_pc.pax_id=pax.pax_id AND "
-           "      paid_bag_pc.rfisc=rfisc_list_items.rfisc(+) AND "
-        << (is_grp_id?
-           "      pax.grp_id=:id ":
-           "      pax.pax_id=:id ")
-        << "GROUP BY pax.grp_id, "
-           "         paid_bag_pc.pax_id, "
-           "         paid_bag_pc.transfer_num, "
-           "         paid_bag_pc.rfisc, "
-           "         rfisc_list_items.airline, "
-           "         rfisc_list_items.service_type ";
-    TCachedQuery Qry(sql.str(),
-                     QParams() << QParam("id", otInteger, id));
-    Qry.get().Execute();
-    for(; !Qry.get().Eof; Qry.get().Next())
-    {
-      if (!Qry.get().FieldIsNULL("rfisc") &&
-          (Qry.get().FieldIsNULL("airline") || Qry.get().FieldIsNULL("service_type")))
-        throw Exception("TPaidRFISCList::fromDB: wrong data (id=%d, is_grp_id=%d, rfisc=%s)",
-                        id, (int)is_grp_id, Qry.get().FieldAsString("rfisc"));
-      TPaidRFISCItem item;
-      item.fromDB(Qry.get());
-      insert( make_pair(item, item) );
-    };
-  };
 }
 
 void TPaidRFISCListWithAuto::fromDB(int id, bool is_grp_id)
@@ -1860,17 +1710,24 @@ void TPaidRFISCList::updateExcess(int grp_id)
   TCachedQuery Qry(
     "BEGIN "
     "  SELECT NVL(SUM(paid_rfisc.paid),0) INTO :excess "
-    "  FROM paid_rfisc, pax "
+    "  FROM paid_rfisc, pax, rfisc_list_items "
     "  WHERE paid_rfisc.pax_id=pax.pax_id AND "
+    "        paid_rfisc.list_id=rfisc_list_items.list_id AND "
+    "        paid_rfisc.rfisc=rfisc_list_items.rfisc AND "
+    "        paid_rfisc.service_type=rfisc_list_items.service_type AND "
+    "        paid_rfisc.airline=rfisc_list_items.airline AND "
     "        pax.grp_id=:grp_id AND "
     "        paid_rfisc.transfer_num=0 AND "
-    "        paid_rfisc.paid>0; "
+    "        paid_rfisc.paid>0 AND "
+    "        rfisc_list_items.category IN (:baggage, :carry_on); "
     "  UPDATE pax_grp "
     "  SET excess_pc=:excess, excess=DECODE(NVL(piece_concept,0), 0, excess, :excess) "
     "  WHERE grp_id=:grp_id; "
     "END; ",
     QParams() << QParam("grp_id", otInteger, grp_id)
-              << QParam("excess", otInteger, FNull));
+              << QParam("excess", otInteger, FNull)
+              << QParam("baggage", otInteger, (int)TServiceCategory::Baggage)
+              << QParam("carry_on", otInteger, (int)TServiceCategory::CarryOn));
   Qry.get().Execute();
 }
 
@@ -2340,48 +2197,17 @@ void GetBagConcepts(int grp_id, bool &pc, bool &wt, bool &rfisc_used)
     "      grp_service_lists.grp_id=:grp_id AND transfer_num=0";
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.Execute();
-  if (!Qry.Eof)
+  for(;!Qry.Eof;Qry.Next())
   {
-    for(;!Qry.Eof;Qry.Next())
+    bool _rfisc_used=Qry.FieldAsInteger("rfisc_used");
+    int category=Qry.FieldAsInteger("category");
+    if (_rfisc_used) rfisc_used=true;
+    if (category==(int)TServiceCategory::Baggage ||
+        category==(int)TServiceCategory::CarryOn)
     {
-      bool _rfisc_used=Qry.FieldAsInteger("rfisc_used");
-      int category=Qry.FieldAsInteger("category");
-      if (_rfisc_used) rfisc_used=true;
-      if (category==(int)TServiceCategory::Baggage ||
-          category==(int)TServiceCategory::CarryOn)
-      {
-        _rfisc_used?pc=true:wt=true;
-      };
-    }
+      _rfisc_used?pc=true:wt=true;
+    };
   }
-  else
-  {
-    //!!! потом удалить!
-    int bag_types_id=ASTRA::NoExists;
-    GetBagConceptsCompatible(grp_id, pc, wt, bag_types_id);
-    rfisc_used=bag_types_id!=ASTRA::NoExists;
-  };
-}
-
-void GetBagConceptsCompatible(int grp_id, bool &pc, bool &wt, int &bag_types_id) //!!! потом удалить!
-{
-  pc=false;
-  wt=false;
-  bag_types_id=ASTRA::NoExists;
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT excess_wt, excess_pc, NVL(piece_concept,0) AS piece_concept, bag_types_id "
-    "FROM pax_grp WHERE grp_id=:grp_id AND trfer_confirm<>0";
-  Qry.CreateVariable("grp_id", otInteger, grp_id);
-  Qry.Execute();
-  if (Qry.Eof ||
-      !Qry.FieldIsNULL("excess_wt") ||
-      !Qry.FieldIsNULL("excess_pc") ||
-      Qry.FieldIsNULL("piece_concept")) return;
-  Qry.FieldAsInteger("piece_concept")!=0?pc=true:wt=true;
-  bag_types_id=Qry.FieldIsNULL("bag_types_id")?ASTRA::NoExists:
-                                               Qry.FieldAsInteger("bag_types_id");
 }
 
 

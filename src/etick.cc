@@ -3061,8 +3061,6 @@ void EMDAutoBoundInterface::EMDSearch(const EMDAutoBoundId &id,
   }
 }
 
-#include "rfisc_sirena.h" //!!!только ради UpgradeDBForServices, потом удалить
-
 void EMDAutoBoundInterface::EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
                                        const boost::optional< std::list<TEMDCtxtItem> > &confirmed_emd,
                                        TEMDChangeStatusList &emdList)
@@ -3071,19 +3069,15 @@ void EMDAutoBoundInterface::EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
 
   if (tckin_grp_ids.empty()) return;
 
-  CheckIn::TPaxGrpItem grp; //!!!потом удалить вместе с UpgradeDBForServices
-  if (!grp.fromDB(tckin_grp_ids.front())) return;
-
-  if (grp.need_upgrade_db)
-    UpgradeDBForServices(grp.id);
+  int first_grp_id=tckin_grp_ids.front();
 
   TPaidRFISCList paid_rfisc;
-  paid_rfisc.fromDB(grp.id, true);
+  paid_rfisc.fromDB(first_grp_id, true);
   if (paid_rfisc.empty()) return; //не к чему пытаться привязывать
   CheckIn::TServicePaymentList payment;
-  payment.fromDB(grp.id);
+  payment.fromDB(first_grp_id);
   CheckIn::TPaidBagEMDProps paid_bag_emd_props;
-  CheckIn::PaidBagEMDPropsFromDB(grp.id, paid_bag_emd_props);
+  CheckIn::PaidBagEMDPropsFromDB(first_grp_id, paid_bag_emd_props);
 
   if (PieceConcept::TryEnlargeServicePayment(paid_rfisc, payment, paid_bag_emd_props, confirmed_emd))
   {

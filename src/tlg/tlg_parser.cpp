@@ -6073,7 +6073,8 @@ void SaveASVCRem(int pax_id, const vector<TASVCItem> &asvc, bool &sync_pax_asvc)
     Qry.SetVariable("rem_status",i->rem_status);
     Qry.SetVariable("rfic",i->RFIC);
     Qry.SetVariable("rfisc",i->RFISC);
-    Qry.SetVariable("service_quantity",i->service_quantity);
+    i->service_quantity!=NoExists?Qry.SetVariable("service_quantity",i->service_quantity):
+                                  Qry.SetVariable("service_quantity",FNull);
     Qry.SetVariable("ssr_code",i->ssr_code);
     Qry.SetVariable("service_name",i->service_name);
     Qry.SetVariable("emd_type",i->emd_type);
