@@ -578,13 +578,13 @@ public:
     void setSeats(const std::vector< std::pair<int, std::string> >& values) {
       pax_seats = values;
     }
-    const int bagCount() const {
+    int bagCount() const {
         return m_bagCount;
     }
     void setBagCount( const int value ) {
       m_bagCount = value;
     }
-    const int bagWeight() const {
+    int bagWeight() const {
         return m_bagWeight;
     }
     void setBagWeight( const int value ) {

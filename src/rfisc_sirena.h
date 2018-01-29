@@ -563,7 +563,6 @@ void fillProtBeforePaySvcs(const TAdvTripInfo &operFlt,
 
 void unaccBagTypesToDB(int grp_id, bool ignore_unaccomp_sets=false);
 void CopyPaxServiceLists(int grp_id_src, int grp_id_dest, bool is_grp_id, bool rfisc_used);
-void UpgradeDBForServices(int grp_id); //!!!потом удалить
 
 class PieceConceptInterface : public JxtInterface
 {

@@ -133,7 +133,6 @@ class TBagTypeKey : public TBagTypeListKey
     TBagTypeKey& fromDBcompatible(TQuery &Qry);
     void getListItemIfNone();
     void getListItem();
-    void getListItemInboundTrferTmp(const std::string &where); //!!! потом удалить
     void getListItemUnaccomp (int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)
     {
       getListItem(Unaccomp, grp_id, transfer_num, ASTRA::NoExists, category, where);

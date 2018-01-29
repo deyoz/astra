@@ -542,10 +542,7 @@ const TPaxASVCItem& TPaxASVCItem::toDB(TQuery &Qry) const
 {
   Qry.SetVariable("rfic", RFIC);
   Qry.SetVariable("rfisc", RFISC);
-  if (service_quantity!=ASTRA::NoExists)
-    Qry.SetVariable("service_quantity", service_quantity);
-  else
-    Qry.SetVariable("service_quantity", FNull); //!!! потом удалить
+  Qry.SetVariable("service_quantity", service_quantity);
   Qry.SetVariable("ssr_code", ssr_code);
   Qry.SetVariable("service_name", service_name);
   Qry.SetVariable("emd_type", emd_type);
@@ -559,10 +556,7 @@ TPaxASVCItem& TPaxASVCItem::fromDB(TQuery &Qry)
   clear();
   RFIC=Qry.FieldAsString("rfic");
   RFISC=Qry.FieldAsString("rfisc");
-  if (!Qry.FieldIsNULL("service_quantity"))
-    service_quantity=Qry.FieldAsInteger("service_quantity");
-  else
-    service_quantity=1;  //!!! потом удалить
+  service_quantity=Qry.FieldAsInteger("service_quantity");
   ssr_code=Qry.FieldAsString("ssr_code");
   service_name=Qry.FieldAsString("service_name");
   emd_type=Qry.FieldAsString("emd_type");
@@ -695,6 +689,7 @@ bool SyncPaxASVC(int id, bool is_grp_id)
     "      rem_status='HI' AND "
     "      rfic IS NOT NULL AND "
     "      rfisc IS NOT NULL AND "
+    "      service_quantity IS NOT NULL AND "
     "      service_name IS NOT NULL AND "
     "      emd_type IS NOT NULL AND "
     "      emd_no IS NOT NULL AND "
@@ -722,6 +717,7 @@ bool LoadPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
     "      rem_status='HI' AND "
     "      rfic IS NOT NULL AND "
     "      rfisc IS NOT NULL AND "
+    "      service_quantity IS NOT NULL AND "
     "      service_name IS NOT NULL AND "
     "      emd_type IS NOT NULL AND "
     "      emd_no IS NOT NULL AND "

@@ -1901,7 +1901,6 @@ TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
   if (!Qry.FieldIsNULL("bag_types_id"))
     bag_types_id=Qry.FieldAsInteger("bag_types_id");
   baggage_pc=Qry.FieldAsInteger("piece_concept")!=0;
-  need_upgrade_db=Qry.FieldIsNULL("excess_wt") && Qry.FieldIsNULL("excess_pc");
   return *this;
 };
 
@@ -1942,6 +1941,7 @@ void TPaxGrpItem::SyncServiceAuto(const TTripInfo& flt)
     "      rem_status='HI' AND "
     "      rfic IS NOT NULL AND "
     "      rfisc IS NOT NULL AND "
+    "      service_quantity IS NOT NULL AND "
     "      service_name IS NOT NULL AND "
     "      emd_type IS NOT NULL AND "
     "      emd_no IS NOT NULL AND "

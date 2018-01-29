@@ -1425,7 +1425,7 @@ void TBagMap::fromDB(int grp_id)
 
   TQuery BagQry(&OraSession);
   BagQry.Clear();
-  BagQry.SQLText="SELECT * FROM bag2 WHERE grp_id=:grp_id AND list_id IS NOT NULL"; //!!!list_id IS NOT NULL потом удалить
+  BagQry.SQLText="SELECT * FROM bag2 WHERE grp_id=:grp_id";
   BagQry.CreateVariable("grp_id",otInteger,grp_id);
   BagQry.Execute();
   for(;!BagQry.Eof;BagQry.Next())
@@ -1433,57 +1433,6 @@ void TBagMap::fromDB(int grp_id)
     TBagItem bag;
     bag.fromDB(BagQry);
     insert(make_pair(bag.num, bag));
-  };
-
-  if (empty()) //!!!потом удалить
-  {
-    string airline_wt=WeightConcept::GetCurrSegBagAirline(grp_id); //TBagMap::fromDB - checked!
-
-    TCachedQuery Qry("SELECT bag2.grp_id, bag2.num, bag2.bag_type, bag2.pr_cabin, bag2.amount, bag2.weight, "
-                     "       bag2.value_bag_num, bag2.pr_liab_limit, bag2.bag_pool_num, bag2.id, bag2.hall, "
-                     "       bag2.user_id, bag2.to_ramp, bag2.using_scales, bag2.is_trfer, bag2.handmade, "
-                     "       bag2.rfisc, bag2.desk, bag2.time_create, "
-                     "       -bag2.grp_id AS list_id, "
-                     "       bag2.bag_type_str, "
-                     "       :airline_wt AS airline, "
-                     "       NULL AS service_type "
-                     "FROM bag2 "
-                     "WHERE bag2.grp_id=:grp_id AND bag2.rfisc IS NULL "
-                     "UNION "
-                     "SELECT bag2.grp_id, bag2.num, bag2.bag_type, bag2.pr_cabin, bag2.amount, bag2.weight, "
-                     "       bag2.value_bag_num, bag2.pr_liab_limit, bag2.bag_pool_num, bag2.id, bag2.hall, "
-                     "       bag2.user_id, bag2.to_ramp, bag2.using_scales, bag2.is_trfer, bag2.handmade, "
-                     "       bag2.rfisc, bag2.desk, bag2.time_create, "
-                     "       DECODE(rfisc_list_items.airline, NULL, TO_NUMBER(NULL), -bag2.grp_id) AS list_id, "
-                     "       bag2.bag_type_str, "
-                     "       rfisc_list_items.airline, "
-                     "       rfisc_list_items.service_type "
-                     "FROM bag2, "
-                     "     (SELECT bag_types_lists.airline, grp_rfisc_lists.service_type, grp_rfisc_lists.rfisc "
-                     "      FROM pax_grp, bag_types_lists, grp_rfisc_lists "
-                     "      WHERE pax_grp.bag_types_id=bag_types_lists.id AND "
-                     "            bag_types_lists.id=grp_rfisc_lists.list_id AND "
-                     "            pax_grp.grp_id=:grp_id) rfisc_list_items "
-                     "WHERE bag2.grp_id=:grp_id AND bag2.rfisc IS NOT NULL AND "
-                     "      bag2.rfisc=rfisc_list_items.rfisc(+) ",
-                     QParams() << QParam("grp_id", otInteger, grp_id)
-                               << QParam("airline_wt", otString, airline_wt));
-    Qry.get().Execute();
-    for(; !Qry.get().Eof; Qry.get().Next())
-    {
-      if (!Qry.get().FieldIsNULL("rfisc") && Qry.get().FieldAsInteger("is_trfer")==0 &&
-          (Qry.get().FieldIsNULL("airline") || Qry.get().FieldIsNULL("service_type")))
-        throw Exception("TGroupBagItem::fromDB: wrong data (grp_id=%d, rfisc=%s)",
-                        grp_id, Qry.get().FieldAsString("rfisc"));
-      if (Qry.get().FieldIsNULL("rfisc") && Qry.get().FieldIsNULL("airline"))
-        throw Exception("TGroupBagItem::fromDB: wrong data (grp_id=%d, bag_type=%s)",
-                        grp_id, Qry.get().FieldAsString("bag_type_str"));
-      TBagItem bag;
-      bag.fromDB(Qry.get());
-      if (bag.pc && bag.is_trfer && bag.pc.get().airline.empty())
-        bag.pc.get().getPseudoListIdForInboundTrfer(grp_id);
-      insert(make_pair(bag.num, bag));
-    };
   };
 }
 
@@ -1711,32 +1660,21 @@ void TGroupBagItem::getAllListItems(const int grp_id, const bool is_unaccomp, co
     }
     catch(EConvertError &e)
     {
-      if (!bag.is_trfer)
-      {
-        ProgError(STDLOG, "Warning: %s", e.what());
+      ProgError(STDLOG, "Warning: %s", e.what());
 
-        string flight=flight_view(grp_id, transfer_num+1);
-        if (flight.empty()) flight=IntToString(transfer_num+1);
+      string flight=flight_view(grp_id, transfer_num+1);
+      if (flight.empty()) flight=IntToString(transfer_num+1);
 
-        if (is_unaccomp)
-          throw UserException("MSG.UNACCOMP_BAGGAGE_NOT_AVAIL_ON_SEG",
-                              LParams() << LParam("svc_key_view", bag.key_str())
-                                        << LParam("flight", flight));
-        else
-          throw UserException(bag.pr_cabin?"MSG.CARRY_ON_NOT_AVAIL_FOR_PASSENGER_ON_SEG":
-                                           "MSG.BAGGAGE_NOT_AVAIL_FOR_PASSENGER_ON_SEG",
-                              LParams() << LParam("svc_key_view", bag.key_str())
-                                        << LParam("pax_name", "") //!!!потом выводить фамилию/имя
-                                        << LParam("flight", flight));
-      }
-      if (bag.pc)
-      {
-        bag.pc.get().getListItemInboundTrferTmp("TGroupBagItem");
-      }
-      else if (bag.wt)
-      {
-        bag.wt.get().getListItemInboundTrferTmp("TGroupBagItem");
-      };
+      if (is_unaccomp)
+        throw UserException("MSG.UNACCOMP_BAGGAGE_NOT_AVAIL_ON_SEG",
+                            LParams() << LParam("svc_key_view", bag.key_str())
+                                      << LParam("flight", flight));
+      else
+        throw UserException(bag.pr_cabin?"MSG.CARRY_ON_NOT_AVAIL_FOR_PASSENGER_ON_SEG":
+                                         "MSG.BAGGAGE_NOT_AVAIL_FOR_PASSENGER_ON_SEG",
+                            LParams() << LParam("svc_key_view", bag.key_str())
+                                      << LParam("pax_name", "") //!!!потом выводить фамилию/имя
+                                      << LParam("flight", flight));
     };
   }
 }

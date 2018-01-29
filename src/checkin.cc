@@ -62,8 +62,6 @@
 #include <serverlib/dump_table.h>
 #include <etick/tick_data.h>
 
-#include <boost/algorithm/string.hpp>
-
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/slogger.h"
@@ -4047,9 +4045,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
     if (!grp.fromXML(segNode))
       throw UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA"); //WEB
-
-    if (grp.id!=NoExists && grp.need_upgrade_db)
-      UpgradeDBForServices(grp.id);
 
     if (first_segment)
     {
