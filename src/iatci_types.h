@@ -516,48 +516,42 @@ struct BaggageDetails
     protected:
         std::string m_carrierCode;
         std::string m_dest;
-        std::string m_accode;
-        unsigned    m_tagSerial;
+        uint64_t    m_fullTag;
         unsigned    m_qtty;
 
     public:
         BagTagInfo(const std::string& carrierCode,
                    const std::string& dest,
-                   const std::string& accode,
-                   unsigned tagSerial = 0,
-                   unsigned qtty = 0)
-            : m_carrierCode(carrierCode),
-              m_dest(dest),
-              m_accode(accode),
-              m_tagSerial(tagSerial),
-              m_qtty(qtty)
-        {}
+                   uint64_t fullTag = 0,
+                   unsigned qtty = 0);
 
         const std::string& carrierCode() const { return m_carrierCode; }
         const std::string&        dest() const { return m_dest;        }
-        const std::string&      accode() const { return m_accode;      }
-        unsigned             tagSerial() const { return m_tagSerial;   }
+        uint64_t               fullTag() const { return m_fullTag;     }
         unsigned                  qtty() const { return m_qtty;        }
+
+        unsigned             tagAccode() const;
+        unsigned                tagNum() const;
 
     protected:
         BagTagInfo()
-            : m_tagSerial(0), m_qtty(0)
+            : m_fullTag(0), m_qtty(0)
         {} // for boost serialization only
     };
 
 protected:
     boost::optional<BagInfo>    m_bag;
     boost::optional<BagInfo>    m_handBag;
-    boost::optional<BagTagInfo> m_bagTag;
+    std::list<BagTagInfo>       m_bagTags;
 
 public:
     BaggageDetails(const boost::optional<BagInfo>& bag,
                    const boost::optional<BagInfo>& handBag = boost::none,
-                   const boost::optional<BagTagInfo>& bagTag = boost::none);
+                   const std::list<BagTagInfo>& bagTags = std::list<BagTagInfo>());
 
     const boost::optional<BagInfo>&       bag() const { return m_bag;     }
     const boost::optional<BagInfo>&   handBag() const { return m_handBag; }
-    const boost::optional<BagTagInfo>& bagTag() const { return m_bagTag;  }
+    const std::list<BagTagInfo>&      bagTags() const { return m_bagTags; }
 
 protected:
     BaggageDetails()
@@ -572,7 +566,7 @@ public:
     UpdateBaggageDetails(UpdateActionCode_e actionCode,
                          const boost::optional<BagInfo>& bag,
                          const boost::optional<BagInfo>& handBag,
-                         const boost::optional<BagTagInfo>& bagTag);
+                         const std::list<BagTagInfo>& bagTags);
 };
 
 //---------------------------------------------------------------------------------------

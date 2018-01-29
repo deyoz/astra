@@ -497,7 +497,7 @@ iatci::UpdateSeatDetails makeUpdSeat(const edifact::UsdElem& usd)
 iatci::UpdateBaggageDetails makeUpdBaggage(const edifact::UbdElem& ubd)
 {
     boost::optional<iatci::UpdateBaggageDetails::BagInfo> updBag, updHandBag;
-    boost::optional<iatci::UpdateBaggageDetails::BagTagInfo> updBagTag; // TODO
+    std::list<iatci::UpdateBaggageDetails::BagTagInfo> updBagTags; // TODO
     if(ubd.m_bag) {
         updBag = iatci::UpdateBaggageDetails::BagInfo(ubd.m_bag->m_numOfPieces,
                                                       ubd.m_bag->m_weight);
@@ -507,7 +507,7 @@ iatci::UpdateBaggageDetails makeUpdBaggage(const edifact::UbdElem& ubd)
                                                           ubd.m_handBag->m_weight);
     }
     return iatci::UpdateBaggageDetails(iatci::UpdateDetails::Replace,
-                                       updBag, updHandBag, updBagTag);
+                                       updBag, updHandBag, updBagTags);
 }
 
 iatci::UpdateServiceDetails makeUpdService(const edifact::UsiElem& usi)
@@ -801,24 +801,24 @@ iatci::UpdateDocDetails makeUpdDoc(const astra_api::astra_entities::DocInfo& new
                                    newDoc.m_expiryDate);
 }
 
-iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::SegmentInfo& depSeg,
-                                           const astra_api::astra_entities::BagPool& bagPool,
-                                           const astra_api::astra_entities::BagPool& handBagPool)
+iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::BagPool& bagPool,
+                                           const astra_api::astra_entities::BagPool& handBagPool,
+                                           const std::list<astra_api::astra_entities::BaggageTag>& bagTags)
 {
-    TTripInfo info = {};
-    ASSERT(info.getByPointId(depSeg.m_pointDep));
-    BaseTables::Company firstAirl(info.airline);
+    std::list<iatci::UpdateBaggageDetails::BagTagInfo> lBagTags;
+    for(const auto& bagTag: bagTags) {
+        lBagTags.push_back(iatci::UpdateBaggageDetails::BagTagInfo(bagTag.carrierCode(),
+                                                                   BaseTables::Port(bagTag.destination())->lcode(),
+                                                                   bagTag.fullTag(),
+                                                                   bagTag.numOfConsecSerial()));
+    }
 
     return iatci::UpdateBaggageDetails(iatci::UpdateDetails::Replace,
                                        iatci::UpdateBaggageDetails::BagInfo(bagPool.amount(),
                                                                             bagPool.weight()),
                                        iatci::UpdateBaggageDetails::BagInfo(handBagPool.amount(),
                                                                             handBagPool.weight()),
-                                       iatci::UpdateBaggageDetails::BagTagInfo(firstAirl->lcode(),
-                                                                               BaseTables::Port(depSeg.m_airpDep)->lcode(),
-                                                                               firstAirl->accode(),
-                                                                               1,
-                                                                               bagPool.amount()));
+                                       lBagTags);
 }
 
 //---------------------------------------------------------------------------------------

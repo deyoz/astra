@@ -629,6 +629,19 @@ void viewPbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::BaggageDetails& ba
             pbd << ":" << baggage.handBag()->weight();
         }
     }
+
+    //pbd << "+" << "NP";
+    pbd << "+";
+
+    for(const auto& bagTag: baggage.bagTags()) {
+        pbd << "+"
+            << BaseTables::Company(bagTag.carrierCode())->code(/*lang*/) << ":"
+            << bagTag.tagNum() << ":"
+            << bagTag.qtty() << ":"
+            << bagTag.dest() << ":"
+            << bagTag.tagAccode();
+    }
+
     SetEdiFullSegment(pMes, SegmElement("PBD"), pbd.str());
 }
 
@@ -766,15 +779,15 @@ void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateBaggageDetai
     ubd << "+";
 
     ubd << updBaggage.actionCodeAsString() << ":" << "NP";
-    ubd << "+";
 
-    if(updBaggage.bagTag()) {
-        ubd << updBaggage.actionCodeAsString() << ":";
-        ubd << updBaggage.bagTag()->carrierCode() << ":";
-        ubd << updBaggage.bagTag()->tagSerial() << ":";
-        ubd << updBaggage.bagTag()->qtty() << ":";
-        ubd << updBaggage.bagTag()->dest() << ":";
-        ubd << updBaggage.bagTag()->accode();
+    for(const auto& bagTag: updBaggage.bagTags()) {
+        ubd << "+"
+            << updBaggage.actionCodeAsString() << ":"
+            << BaseTables::Company(bagTag.carrierCode())->code(/*lang*/) << ":"
+            << bagTag.tagNum() << ":"
+            << bagTag.qtty() << ":"
+            << bagTag.dest() << ":"
+            << bagTag.tagAccode();
     }
 
     SetEdiFullSegment(pMes, SegmElement("UBD"), ubd.str());

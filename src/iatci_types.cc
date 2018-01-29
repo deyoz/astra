@@ -655,10 +655,32 @@ const std::string& SelectPersonalDetails::tickNum() const
 
 //---------------------------------------------------------------------------------------
 
+BaggageDetails::BagTagInfo::BagTagInfo(const std::string& carrierCode,
+                                       const std::string& dest,
+                                       uint64_t fullTag,
+                                       unsigned qtty)
+    : m_carrierCode(carrierCode),
+      m_dest(dest),
+      m_fullTag(fullTag),
+      m_qtty(qtty)
+{}
+
+unsigned BaggageDetails::BagTagInfo::tagAccode() const
+{
+    return (m_fullTag / 1000000) % 1000;
+}
+
+unsigned BaggageDetails::BagTagInfo::tagNum() const
+{
+    return (m_fullTag % 1000000);
+}
+
+//---------------------------------------------------------------------------------------
+
 BaggageDetails::BaggageDetails(const boost::optional<BagInfo>& bag,
                                const boost::optional<BagInfo>& handBag,
-                               const boost::optional<BagTagInfo>& bagTag)
-    : m_bag(bag), m_handBag(handBag), m_bagTag(bagTag)
+                               const std::list<BagTagInfo>& bagTags)
+    : m_bag(bag), m_handBag(handBag), m_bagTags(bagTags)
 {}
 
 //---------------------------------------------------------------------------------------
@@ -666,8 +688,8 @@ BaggageDetails::BaggageDetails(const boost::optional<BagInfo>& bag,
 UpdateBaggageDetails::UpdateBaggageDetails(UpdateActionCode_e actionCode,
                                            const boost::optional<BagInfo>& bag,
                                            const boost::optional<BagInfo>& handBag,
-                                           const boost::optional<BagTagInfo>& bagTag)
-    : UpdateDetails(actionCode), BaggageDetails(bag, handBag, bagTag)
+                                           const std::list<BagTagInfo>& bagTags)
+    : UpdateDetails(actionCode), BaggageDetails(bag, handBag, bagTags)
 {}
 
 //---------------------------------------------------------------------------------------

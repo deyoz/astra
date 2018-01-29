@@ -4564,7 +4564,7 @@ $(KICK_IN_SILENT)
 
 %%
 #########################################################################################
-# №22 младенец
+# №22 младенец и багаж
 ###
 
 $(init)
@@ -5061,7 +5061,8 @@ $(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
 
 $(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
 
-$(sql "insert into TRIP_BT(POINT_ID, TAG_TYPE) values($(get point_dep), 'ВНКС')")
+$(sql "insert into TRIP_BT(POINT_ID, TAG_TYPE) values($(get point_dep), 'ЮТ')")
+$(sql "insert into NEW_TAG_GENERATING_ALGO values (null)")
 
 $(SAVE_GRP_BAGGAGE $(get grp_id) $(get tid_new)
                    $(get point_dep) $(get point_arv)
@@ -5069,7 +5070,7 @@ $(SAVE_GRP_BAGGAGE $(get grp_id) $(get tid_new)
                    $(get pax_1_id) $(get tid) REPIN ADULT ВЗ 2982401841689
                    P 987654321 RUS
                    "01.05.1976 00:00:00" "31.12.2049 00:00:00"
-                   REPIN ADULT PETROVICH)
+                   REPIN ADULT PETROVICH)                   
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -5077,7 +5078,7 @@ UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
-UBD+R:1:13+R:1:5+R:NP+R:UT:1:1:DME:298"
+UBD+R:1:13+R:1:5+R:NP+R:UT:1:1:LED:298"
 UNT+6+1"
 UNZ+1+$(last_edifact_ref)0001"
 

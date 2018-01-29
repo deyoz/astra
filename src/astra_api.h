@@ -273,6 +273,31 @@ struct BagPool
 
 //---------------------------------------------------------------------------------------
 
+struct BaggageTag
+{
+    std::string m_carrierCode;
+    uint64_t    m_fullTag;
+    unsigned    m_numOfConsecSerial;
+    std::string m_destination;
+
+    BaggageTag(const std::string& carrierCode,
+               uint64_t fullTag,
+               unsigned numOfConsecSerial,
+               const std::string& dest)
+        : m_carrierCode(carrierCode),
+          m_fullTag(fullTag),
+          m_numOfConsecSerial(numOfConsecSerial),
+          m_destination(dest)
+    {}
+
+    const std::string&   carrierCode() const { return m_carrierCode;       }
+    uint64_t                 fullTag() const { return m_fullTag;           }
+    unsigned       numOfConsecSerial() const { return m_numOfConsecSerial; }
+    const std::string&   destination() const { return m_destination;       }
+};
+
+//---------------------------------------------------------------------------------------
+
 class Baggage
 {
 private:
@@ -615,6 +640,7 @@ struct XmlSegmentInfo
     std::string   bag_refuse;
     int           tid;
     std::string   city_arv;
+    std::string   airline;
 
     XmlSegmentInfo()
         : grp_id(ASTRA::NoExists),
@@ -658,6 +684,7 @@ struct XmlBag
     int         amount;
     int         weight;
     int         bag_pool_num;
+    std::string airp_arv_final;
 
     // доп инфа
     int         pax_id;
@@ -686,6 +713,37 @@ struct XmlBags
     {}
 
     boost::optional<XmlBag> findBag(int paxId, int prCabin) const;
+};
+
+//---------------------------------------------------------------------------------------
+
+struct XmlBagTag
+{
+    int         num;
+    std::string tag_type;
+    uint64_t    no;
+    int         bag_num;
+    bool        pr_print;
+
+    XmlBagTag()
+        : num(ASTRA::NoExists),
+          no(ASTRA::NoExists),
+          bag_num(ASTRA::NoExists),
+          pr_print(false)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
+struct XmlBagTags
+{
+    std::list<XmlBagTag> bagTags;
+
+    XmlBagTags()
+    {}
+    XmlBagTags(const std::list<XmlBagTag>& bt)
+        : bagTags(bt)
+    {}
 };
 
 //---------------------------------------------------------------------------------------
@@ -911,6 +969,9 @@ public:
     static XmlBag                        readBag(xmlNodePtr bagNode);
     static std::list<XmlBag>             readBags(xmlNodePtr bagsNode);
 
+    static XmlBagTag                     readBagTag(xmlNodePtr bagTagNode);
+    static std::list<XmlBagTag>          readBagTags(xmlNodePtr bagTagsNode);
+
     static XmlPlaceLayer                 readPlaceLayer(xmlNodePtr layerNode);
     static std::list<XmlPlaceLayer>      readPlaceLayers(xmlNodePtr layersNode);
 
@@ -952,6 +1013,9 @@ public:
 
     static xmlNodePtr viewBag(xmlNodePtr node, const XmlBag& bag);
     static xmlNodePtr viewBags(xmlNodePtr node, const XmlBags& bags);
+
+    static xmlNodePtr viewBagTag(xmlNodePtr node, const XmlBagTag& tag);
+    static xmlNodePtr viewBagTags(xmlNodePtr node, const XmlBagTags& tags);
 
     static xmlNodePtr viewServiveList(xmlNodePtr node, const XmlServiceList& svcList);
 };
@@ -1136,7 +1200,8 @@ public:
     // сохранение информации о пассажире
     xml_entities::LoadPaxXmlResult SavePax(int pointDep, const xml_entities::XmlTrip& paxTrip);
     xml_entities::LoadPaxXmlResult SavePax(const xml_entities::XmlSegment& paxSeg,
-                                           boost::optional<xml_entities::XmlBags> bags = boost::none);
+                                           boost::optional<xml_entities::XmlBags> bags = boost::none,
+                                           boost::optional<xml_entities::XmlBagTags> tags = boost::none);
     xml_entities::LoadPaxXmlResult SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
     // изменение места пассажира

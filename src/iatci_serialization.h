@@ -334,8 +334,7 @@ public:
 
     using iatci::BaggageDetails::BagTagInfo::m_carrierCode;
     using iatci::BaggageDetails::BagTagInfo::m_dest;
-    using iatci::BaggageDetails::BagTagInfo::m_accode;
-    using iatci::BaggageDetails::BagTagInfo::m_tagSerial;
+    using iatci::BaggageDetails::BagTagInfo::m_fullTag;
     using iatci::BaggageDetails::BagTagInfo::m_qtty;
 };
 
@@ -348,16 +347,16 @@ template<class Archive>
 inline void save(Archive& ar, const iatci::BaggageDetails::BagTagInfo& par, const unsigned int version)
 {
     BagTagInfoAccessor acc(par);
-    ar & acc.m_carrierCode & acc.m_dest & acc.m_accode;
-    ar & acc.m_tagSerial & acc.m_qtty;
+    ar & acc.m_carrierCode & acc.m_dest;
+    ar & acc.m_fullTag & acc.m_qtty;
 }
 
 template<class Archive>
 inline void load(Archive& ar, iatci::BaggageDetails::BagTagInfo& par, const unsigned int version)
 {
     BagTagInfoAccessor acc;
-    ar & acc.m_carrierCode & acc.m_dest & acc.m_accode;
-    ar & acc.m_tagSerial & acc.m_qtty;
+    ar & acc.m_carrierCode & acc.m_dest;
+    ar & acc.m_fullTag & acc.m_qtty;
     par = acc.get();
 }
 
@@ -387,7 +386,7 @@ public:
 
     using iatci::BaggageDetails::m_bag;
     using iatci::BaggageDetails::m_handBag;
-    using iatci::BaggageDetails::m_bagTag;
+    using iatci::BaggageDetails::m_bagTags;
 };
 
 }//namespace
@@ -399,14 +398,14 @@ template<class Archive>
 inline void save(Archive& ar, const iatci::BaggageDetails& par, const unsigned int version)
 {
     BaggageDetailsAccessor acc(par);
-    ar & acc.m_bag & acc.m_handBag & acc.m_bagTag;
+    ar & acc.m_bag & acc.m_handBag & acc.m_bagTags;
 }
 
 template<class Archive>
 inline void load(Archive& ar, iatci::BaggageDetails& par, const unsigned int version)
 {
     BaggageDetailsAccessor acc;
-    ar & acc.m_bag & acc.m_handBag & acc.m_bagTag;
+    ar & acc.m_bag & acc.m_handBag & acc.m_bagTags;
     par = acc.get();
 }
 

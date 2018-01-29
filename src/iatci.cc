@@ -1151,11 +1151,23 @@ static iatci::CkxParams getCkxParams(xmlNodePtr reqNode)
                                                        lPaxGrp));
 }
 
-static boost::optional<PaxChange> findPaxChange(const std::vector<PaxChange>& allChanges, int paxId)
+static boost::optional<PaxChange> findPaxChange(const std::vector<PaxChange>& allChanges,
+                                                int paxId)
 {
     for(const auto& change: allChanges) {
         if(change.paxId() == paxId) {
             return change;
+        }
+    }
+
+    return boost::none;
+}
+
+static boost::optional<XmlBag> findBag(const std::list<XmlBag>& bags, int bagNum)
+{
+    for(const auto& bag: bags) {
+        if(bag.num == bagNum) {
+            return bag;
         }
     }
 
@@ -1245,6 +1257,11 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
 
     std::list<XmlBag> reqBags = XmlEntityReader::readBags(findNodeR(reqNode, "bags"));
 
+    std::list<XmlBagTag> oldBagTags = XmlEntityReader::readBagTags(findNodeR(reqNode, "tags"));
+    std::list<XmlBagTag> reqBagTags = XmlEntityReader::readBagTags(findNodeR(reqNode, "generated_tags"));
+
+    const auto allBagTags = algo::combine(oldBagTags, reqBagTags);
+
     // что имеем
     const std::list<astra_entities::PaxInfo> lPax = firstOldTab.lPax();
 
@@ -1276,7 +1293,8 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
     const std::list<astra_entities::PaxInfo> lModNonInfants = filterNotInfants(lModPax);
     const std::list<astra_entities::PaxInfo> lModInfants = filterInfants(lModPax);
 
-
+    std::string firstSegOperAirline = firstOwnTab.xmlSeg().seg_info.airline;
+    ASSERT(!firstSegOperAirline.empty());
 
     std::set<int> processedPaxIds;
     for(const auto& pax: lModPax) {
@@ -1307,7 +1325,7 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
         }
 
         astra_api::astra_entities::BagPool total(poolNum),
-                                       handTotal(poolNum);
+                                       handTotal(poolNum);       
 
         if(poolNumInft) {
             ASSERT(algo::contains(bagPoolNums, poolNumInft));
@@ -1328,6 +1346,19 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
             infant = iatci::makeQryPax(*inft);
         }
 
+        std::list<astra_entities::BaggageTag> bagTags;
+        for(const XmlBagTag& xmlBagTag: allBagTags) {
+            auto xmlBag = findBag(reqBags, xmlBagTag.bag_num);
+            if(xmlBag) {
+                bagTags.push_back(astra_entities::BaggageTag(firstSegOperAirline,
+                                                             xmlBagTag.no,
+                                                             xmlBagTag.num,
+                                                             xmlBag->airp_arv_final));
+            } else {
+                LogError(STDLOG) << "Bag not found by num " << xmlBagTag.bag_num;
+            }
+        }
+
         lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makeQryPax(adult.get(), inft),
                                                   boost::none, // Reserv
                                                   boost::none, // Baggage
@@ -1335,7 +1366,9 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
                                                   infant,
                                                   boost::none,
                                                   boost::none,
-                                                  iatci::makeUpdBaggage(firstOwnTab.seg(), total, handTotal),
+                                                  iatci::makeUpdBaggage(total,
+                                                                        handTotal,
+                                                                        bagTags),
                                                   boost::none,
                                                   boost::none,
                                                   boost::none));

@@ -337,7 +337,8 @@ LoadPaxXmlResult AstraEngine::SavePax(int pointDep, const XmlTrip& paxTrip)
 }
 
 LoadPaxXmlResult AstraEngine::SavePax(const xml_entities::XmlSegment& paxSeg,
-                                      boost::optional<xml_entities::XmlBags> bags)
+                                      boost::optional<xml_entities::XmlBags> bags,
+                                      boost::optional<xml_entities::XmlBagTags> tags)
 {
     xmlNodePtr reqNode = getQueryNode(),
                resNode = getAnswerNode();
@@ -380,9 +381,9 @@ LoadPaxXmlResult AstraEngine::SavePax(const xml_entities::XmlSegment& paxSeg,
         NewTextChild(savePaxNode, "value_bags");
 
         XmlEntityViewer::viewBags(savePaxNode, *bags);
-
-        xmlNodePtr tagsNode = NewTextChild(savePaxNode, "tags");
-        xmlSetProp(tagsNode, "pr_print", 1);
+        if(tags) {
+            XmlEntityViewer::viewBagTags(savePaxNode, *tags);
+        }
     }
 
     initReqInfo();
@@ -2633,6 +2634,7 @@ XmlSegmentInfo XmlEntityReader::readSegInfo(xmlNodePtr segNode)
     seg_info.bag_refuse= getStrFromXml(segNode, "bag_refuse");
     seg_info.tid       = getIntFromXml(segNode, "tid",       ASTRA::NoExists);
     seg_info.city_arv  = getStrFromXml(segNode, "city_arv");
+    seg_info.airline   = getStrFromXml(segNode, "airline");
     return seg_info;
 }
 
@@ -2702,14 +2704,15 @@ XmlBag XmlEntityReader::readBag(xmlNodePtr bagNode)
     ASSERT(bagNode);
 
     XmlBag bag;
-    bag.bag_type     = getStrFromXml(bagNode, "bag_type");
-    bag.airline      = getStrFromXml(bagNode, "airline");
-    bag.id           = getIntFromXml(bagNode, "id",           ASTRA::NoExists);
-    bag.num          = getIntFromXml(bagNode, "num",          ASTRA::NoExists);
-    bag.pr_cabin     = getBoolFromXml(bagNode,"pr_cabin",     false);
-    bag.amount       = getIntFromXml(bagNode, "amount",       ASTRA::NoExists);
-    bag.weight       = getIntFromXml(bagNode, "weight",       ASTRA::NoExists);
-    bag.bag_pool_num = getIntFromXml(bagNode, "bag_pool_num", ASTRA::NoExists);
+    bag.bag_type       = getStrFromXml(bagNode, "bag_type");
+    bag.airline        = getStrFromXml(bagNode, "airline");
+    bag.id             = getIntFromXml(bagNode, "id",           ASTRA::NoExists);
+    bag.num            = getIntFromXml(bagNode, "num",          ASTRA::NoExists);
+    bag.pr_cabin       = getBoolFromXml(bagNode,"pr_cabin",     false);
+    bag.amount         = getIntFromXml(bagNode, "amount",       ASTRA::NoExists);
+    bag.weight         = getIntFromXml(bagNode, "weight",       ASTRA::NoExists);
+    bag.bag_pool_num   = getIntFromXml(bagNode, "bag_pool_num", ASTRA::NoExists);
+    bag.airp_arv_final = getStrFromXml(bagNode, "airp_arv_final");
     return bag;
 }
 
@@ -2724,6 +2727,34 @@ std::list<XmlBag> XmlEntityReader::readBags(xmlNodePtr bagsNode)
         bags.push_back(XmlEntityReader::readBag(bagNode));
     }
     return bags;
+}
+
+XmlBagTag XmlEntityReader::readBagTag(xmlNodePtr bagTagNode)
+{
+    ASSERT(bagTagNode);
+
+    XmlBagTag bagTag;
+
+    bagTag.num           = getIntFromXml(bagTagNode, "num",      ASTRA::NoExists);
+    bagTag.tag_type      = getStrFromXml(bagTagNode, "tag_type");
+    std::string bagTagNo = getStrFromXml(bagTagNode, "no");
+    bagTag.no            = std::strtoull(bagTagNo.c_str(), NULL, 10);
+    bagTag.bag_num       = getIntFromXml(bagTagNode, "bag_num",  ASTRA::NoExists);
+    bagTag.pr_print      = getBoolFromXml(bagTagNode,"pr_print", false);
+    return bagTag;
+}
+
+std::list<XmlBagTag> XmlEntityReader::readBagTags(xmlNodePtr bagTagsNode)
+{
+    ASSERT(bagTagsNode);
+
+    std::list<XmlBagTag> bagTags;
+    for(xmlNodePtr bagTagNode = bagTagsNode->children;
+        bagTagNode != NULL; bagTagNode = bagTagNode->next)
+    {
+        bagTags.push_back(XmlEntityReader::readBagTag(bagTagNode));
+    }
+    return bagTags;
 }
 
 XmlPlaceLayer XmlEntityReader::readPlaceLayer(xmlNodePtr layerNode)
@@ -2998,14 +3029,14 @@ xmlNodePtr XmlEntityViewer::viewBag(xmlNodePtr node, const XmlBag& bag)
     NewTextChild(bagNode, "bag_type",      bag.bag_type);
     NewTextChild(bagNode, "airline",       bag.airline);
     NewTextChild(bagNode, "num",           bag.num);
-    NewTextChild(bagNode, "pr_cabin",      bag.pr_cabin);
+    NewTextChild(bagNode, "pr_cabin",      bag.pr_cabin ? 1 : 0);
     NewTextChild(bagNode, "amount",        bag.amount);
     NewTextChild(bagNode, "weight",        bag.weight);
     NewTextChild(bagNode, "value_bag_num");
     NewTextChild(bagNode, "pr_liab_limit", 0);
     NewTextChild(bagNode, "to_ramp",       0);
     NewTextChild(bagNode, "using_scales",  0);
-    NewTextChild(bagNode, "is_trfer",      0);
+    NewTextChild(bagNode, "is_trfer",      0); // TODO
     NewTextChild(bagNode, "bag_pool_num",  bag.bag_pool_num);
     return bagNode;
 }
@@ -3018,6 +3049,29 @@ xmlNodePtr XmlEntityViewer::viewBags(xmlNodePtr node, const XmlBags& bags)
     }
 
     return bagsNode;
+}
+
+xmlNodePtr XmlEntityViewer::viewBagTag(xmlNodePtr node, const XmlBagTag& tag)
+{
+    xmlNodePtr bagTagNode = NewTextChild(node, "tag");
+    NewTextChild(bagTagNode, "num",      tag.num);
+    NewTextChild(bagTagNode, "tag_type", tag.tag_type);
+    NewTextChild(bagTagNode, "no",       static_cast<double>(tag.no));
+    NewTextChild(bagTagNode, "color");
+    NewTextChild(bagTagNode, "bag_num",  tag.bag_num);
+    NewTextChild(bagTagNode, "pr_print", tag.pr_print ? 1 : 0);
+    return bagTagNode;
+}
+
+xmlNodePtr XmlEntityViewer::viewBagTags(xmlNodePtr node, const XmlBagTags& tags)
+{
+    xmlNodePtr bagTagsNode = NewTextChild(node, "tags");
+    xmlSetProp(bagTagsNode, "pr_print", "0");
+    for(const XmlBagTag& tag: tags.bagTags) {
+        XmlEntityViewer::viewBagTag(node, tag);
+    }
+
+    return bagTagsNode;
 }
 
 xmlNodePtr XmlEntityViewer::viewServiveList(xmlNodePtr node, const XmlServiceList& svcList)
