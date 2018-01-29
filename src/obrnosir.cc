@@ -23,6 +23,7 @@
 #include "html_pages.h"
 #include "web_main.h"
 #include "kiosk_alias.h"
+#include "db_pkg.h"
 
 int nosir_test(int argc,char **argv);
 void nosir_test_help(const char *name);
@@ -124,6 +125,7 @@ const
     {"-stat_belgorod",          stat_belgorod,          NULL,                       NULL},
     {"-apis_test",              apis_test,              NULL,                       NULL},
     {"-alias_to_db",            KIOSK::alias_to_db,     NULL,                       NULL},
+    {"-db_pkg",                 db_pkg,                 NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)

@@ -52,6 +52,7 @@
 #include "counters.h"
 #include "comp_layers.h"
 #include "AirportControl.h"
+#include "pax_events.h"
 #include "tlg/AgentWaitsForRemote.h"
 #include "tlg/tlg_parser.h"
 #include "tlg/IatciCkiRequest.h"
@@ -5569,6 +5570,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   // Для новых пассадиров ремарки APPS не проверяем
                   processPax( pax_id );
                 }
+
+                // Запись в pax_events
+                if(pax.pr_brd)
+                    TPaxEvent().toDB(pax_id, TPaxEventTypes::BRD);
               }
               catch(CheckIn::UserException)
               {

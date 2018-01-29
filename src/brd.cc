@@ -27,6 +27,7 @@
 #include "rfisc.h"
 #include "tlg/AgentWaitsForRemote.h"
 #include "dev_utils.h"
+#include "pax_events.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
@@ -311,6 +312,7 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       int pax_id=PaxQry.FieldAsInteger("pax_id");
       Qry.SetVariable("pax_id", pax_id);
       Qry.Execute();
+      TPaxEvent().toDB(pax_id, (boarding ? TPaxEventTypes::BRD : TPaxEventTypes::UNBRD));
       if (Qry.RowsProcessed()>0)
         rozysk::sync_pax(pax_id, reqInfo->desk.code, reqInfo->user.descr);
       if (reqInfo->screen.name == "BRDBUS.EXE")
@@ -364,6 +366,7 @@ bool PaxUpdate(int point_id, int pax_id, int tid, bool mark, bool pr_exam_with_b
       "    tid=cycle_tid__seq.currval "
       "WHERE pax_id=:pax_id AND tid=:tid";
     Qry.CreateVariable("pr_exam_with_brd",otInteger,(int)pr_exam_with_brd);
+    TPaxEvent().toDB(pax_id, (mark ? TPaxEventTypes::BRD : TPaxEventTypes::UNBRD));
   }
   else
     Qry.SQLText=
