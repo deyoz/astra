@@ -112,7 +112,7 @@ bool procTlg(int tlg_id);
 void sendCmd(const char* receiver, const char* cmd);
 void sendCmd(const char* receiver, const char* cmd, int cmd_len);
 int bindLocalSocket(const std::string &sun_path);
-int waitCmd(const char* receiver, int msecs, const char* buf, int buflen);
+int waitCmd(const char* receiver, int msecs, char* buf, int buflen);
 
 void sendCmdTlgHttpSnd();
 void sendCmdTlgSnd();
@@ -122,12 +122,19 @@ void sendCmdTypeBHandler();
 
 struct tlg_info
 {
-#warning tlg id is not integer!
-  int id;
-  std::string text;
-  std::string sender;
+  private:
+    boost::optional<double> tlg_num;
+  public:
+    int id;
+    std::string text;
+    std::string sender;
+    int proc_attempt;
+    boost::optional<int> ttl;
+    BASIC::date_time::TDateTime time;
 
-  int proc_attempt;
+    void fromDB(TQuery &Qry);
+    std::string tlgNumStr() const;
+    bool ttlExpired() const;
 };
 
 void putTlg2OutQueue_wrap(const std::string& receiver,

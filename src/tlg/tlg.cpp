@@ -805,7 +805,7 @@ int bindLocalSocket(const string &sun_path)
   return sockfd;
 }
 
-int waitCmd(const char* receiver, int msecs, const char* buf, int buflen)
+int waitCmd(const char* receiver, int msecs, char* buf, int buflen)
 {
   if (receiver==NULL || *receiver==0)
     throw EXCEPTIONS::Exception( "waitCmd: receiver not defined");
@@ -860,5 +860,30 @@ int waitCmd(const char* receiver, int msecs, const char* buf, int buflen)
   };
   return 0;
 };
+
+void tlg_info::fromDB(TQuery &Qry)
+{
+  id           = Qry.FieldAsInteger("id");
+  text         = getTlgText(id);
+  sender       = Qry.FieldAsString("sender");
+  tlg_num      = Qry.FieldAsFloat("tlg_num");
+  proc_attempt = Qry.FieldAsInteger("proc_attempt");
+  time         = Qry.FieldAsDateTime("time");
+  if (!Qry.FieldIsNULL("ttl"))
+    ttl=Qry.FieldAsFloat("ttl");
+  else
+    ttl=boost::none;
+}
+
+std::string tlg_info::tlgNumStr() const
+{
+  if (!tlg_num) return "unknown";
+  return FloatToString(tlg_num.get(), 0);
+}
+
+bool tlg_info::ttlExpired() const
+{
+  return ttl && (NowUTC()-time)*SecsPerDay>=ttl.get();
+}
 
 
