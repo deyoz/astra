@@ -1361,7 +1361,7 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
             if(xmlBag) {
                 bagTags.push_back(astra_entities::BaggageTag(firstSegOperAirline,
                                                              xmlBagTag.no,
-                                                             xmlBagTag.num,
+                                                             1,
                                                              xmlBag->airp_arv_final));
             } else {
                 LogError(STDLOG) << "Bag not found by num " << xmlBagTag.bag_num;
