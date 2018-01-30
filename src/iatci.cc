@@ -444,7 +444,6 @@ namespace
                  const XmlCheckInTabs& newTabs);
 
         const Map_t& tabsDiff() const { return m_tabsDiff; }
-        TabDiff::Optional_t at(size_t i) const;
     };
 
     //
@@ -459,16 +458,6 @@ namespace
                                                               newTabs.tabs().at(i))));
         }
     }
-
-    TabDiff::Optional_t TabsDiff::at(size_t i) const
-    {
-        ASSERT(i < m_tabsDiff.size());
-        return m_tabsDiff.at(i);
-    }
-
-    //-----------------------------------------------------------------------------------
-
-
 
     //-----------------------------------------------------------------------------------
 
@@ -822,16 +811,6 @@ static std::string getIatciPult()
     return TReqInfo::Instance()->desk.code;
 }
 
-static boost::optional<iatci::UpdatePaxDetails> getUpdPersonal(const PaxChange& paxChange)
-{
-    if(!paxChange.persChange()) {
-        return boost::none;
-    }
-
-    return iatci::makeUpdPax(paxChange.newPax(),
-                             iatci::UpdateDetails::Replace);
-}
-
 static boost::optional<iatci::UpdateServiceDetails> getUpdService(const PaxChange& paxChange)
 {
     boost::optional<iatci::UpdateServiceDetails> updService;
@@ -1005,28 +984,6 @@ static boost::optional<astra_entities::PaxInfo> findInfantByParentId(const std::
 
     return boost::none;
 }
-
-static boost::optional<astra_entities::PaxInfo> findPaxByBagPoolNum(const std::list<astra_entities::PaxInfo>& lPax,
-                                                                    int bagPoolNum)
-{
-    for(const auto& pax: lPax) {
-        if(pax.bagPoolNum() == bagPoolNum) {
-            return pax;
-        }
-    }
-    return boost::none;
-}
-
-//static boost::optional<astra_entities::PaxInfo> findPaxByBagPoolNum(const std::list<astra_entities::PaxInfo>& lOldPax,
-//                                                                    const std::list<astra_entities::PaxInfo>& lReqPax,
-//                                                                    int bagPoolNum)
-//{
-//    boost::optional<astra_entities::PaxInfo> reqPax = findPaxByBagPoolNum(lReqPax, bagPoolNum);
-//    if(reqPax) {
-//        return findPax(lOldPax, reqPax->id());
-//    }
-//    return findPaxByBagPoolNum(lOldPax, bagPoolNum);
-//}
 
 static void checkInfants(const std::list<astra_entities::PaxInfo>& lReqInfants,
                          const std::list<astra_entities::PaxInfo>& lReqNonInfants,
@@ -1359,10 +1316,20 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
         for(const XmlBagTag& xmlBagTag: allBagTags) {
             auto xmlBag = findBag(reqBags, xmlBagTag.bag_num);
             if(xmlBag) {
-                bagTags.push_back(astra_entities::BaggageTag(firstSegOperAirline,
-                                                             xmlBagTag.no,
-                                                             1,
-                                                             xmlBag->airp_arv_final));
+                bool saveTagFlag = false;
+                if(poolNumInft && xmlBag->bag_pool_num == poolNumInft) {
+                    saveTagFlag = true;
+                }
+                if(poolNumAdult && xmlBag->bag_pool_num == poolNumAdult) {
+                    saveTagFlag = true;
+                }
+
+                if(saveTagFlag) {
+                    bagTags.push_back(astra_entities::BaggageTag(firstSegOperAirline,
+                                                                 xmlBagTag.no,
+                                                                 1,
+                                                                 xmlBag->airp_arv_final));
+                }
             } else {
                 LogError(STDLOG) << "Bag not found by num " << xmlBagTag.bag_num;
             }
