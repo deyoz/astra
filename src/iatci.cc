@@ -1257,8 +1257,17 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
 
     std::list<XmlBag> reqBags = XmlEntityReader::readBags(findNodeR(reqNode, "bags"));
 
-    std::list<XmlBagTag> oldBagTags = XmlEntityReader::readBagTags(findNodeR(reqNode, "tags"));
-    std::list<XmlBagTag> reqBagTags = XmlEntityReader::readBagTags(findNodeR(reqNode, "generated_tags"));
+    std::list<XmlBagTag> oldBagTags;
+    xmlNodePtr tagsNode = findNodeR(reqNode, "tags");
+    if(tagsNode) {
+        oldBagTags = XmlEntityReader::readBagTags(tagsNode);
+    }
+
+    std::list<XmlBagTag> reqBagTags;
+    xmlNodePtr reqBagsNode = findNodeR(reqNode, "generated_tags");
+    if(reqBagsNode) {
+        reqBagTags = XmlEntityReader::readBagTags(reqBagsNode);
+    }
 
     const auto allBagTags = algo::combine(oldBagTags, reqBagTags);
 
