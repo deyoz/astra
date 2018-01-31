@@ -143,7 +143,8 @@ const TRFISCListItem& TRFISCListItem::toSirenaXML(xmlNodePtr node, const std::st
   TRFISCListKey::toSirenaXML(node, lang);
   SetProp(node, "rfic", RFIC, "");
   SetProp(node, "emd_type", emd_type, "");
-
+  SetProp(NewTextChild(node, "name", name_lat), "language", "en");
+  SetProp(NewTextChild(node, "name", name    ), "language", "ru");
   return *this;
 }
 
@@ -470,6 +471,36 @@ bool TRFISCKey::getPseudoListIdForInboundTrfer(int grp_id)
   };
   ProgError(STDLOG, "%s: %s", __FUNCTION__, tmp_key.str(LANG_EN).c_str());
   return false;
+}
+
+void TRFISCKey::getListItemLastSimilar()
+{
+  if (list_item) return;
+  if (list_id!=ASTRA::NoExists)
+  {
+    getListItem();
+    return;
+  };
+
+  TCachedQuery Qry("SELECT rfisc_list_items.* \n"
+                   "FROM rfisc_list_items \n"
+                   "WHERE rfisc_list_items.rfisc=:rfisc AND \n"
+                   "      rfisc_list_items.service_type=:service_type AND \n"
+                   "      rfisc_list_items.airline=:airline AND \n"
+                   "      rownum<2 \n"
+                   "ORDER BY list_id DESC",
+                   QParams() << QParam("rfisc", otString)
+                             << QParam("service_type", otString)
+                             << QParam("airline", otString));
+
+  TRFISCListKey::toDB(Qry.get());
+  Qry.get().Execute();
+  if (!Qry.get().Eof && !Qry.get().FieldIsNULL("list_id"))
+  {
+    list_id=Qry.get().FieldAsInteger("list_id");
+    list_item=TRFISCListItem();
+    list_item.get().fromDB(Qry.get(), false);
+  }
 }
 
 void TRFISCKey::getListItem(GetItemWay way, int id, int transfer_num, int bag_pool_num,
@@ -904,7 +935,7 @@ int TRFISCList::toDBAdv(bool old_version) const
     Qry.SQLText =
         "BEGIN "
         "  SELECT bag_types_lists__seq.nextval INTO :id FROM dual; "
-        "  INSERT INTO bag_types_lists(id, airline, crc) VALUES(:id, :airline, :crc); "
+        "  INSERT INTO bag_types_lists(id, airline, crc, time_create) VALUES(:id, :airline, :crc, SYSTEM.UTCSYSDATE); "
         "END;";
     Qry.CreateVariable("airline", otString, baggage_airline);
   }
@@ -913,7 +944,7 @@ int TRFISCList::toDBAdv(bool old_version) const
     Qry.SQLText =
         "BEGIN "
         "  SELECT service_lists__seq.nextval INTO :id FROM dual; "
-        "  INSERT INTO service_lists(id, crc, rfisc_used) VALUES(:id, :crc, :rfisc_used); "
+        "  INSERT INTO service_lists(id, crc, rfisc_used, time_create) VALUES(:id, :crc, :rfisc_used, SYSTEM.UTCSYSDATE); "
         "END;";
     Qry.CreateVariable("rfisc_used", otInteger, (int)true);
   };
