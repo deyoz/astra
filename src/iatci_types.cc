@@ -706,8 +706,9 @@ std::list<BaggageDetails::BagTagInfo> BaggageDetails::bagTagsReduced() const
     for(auto curr = std::next(m_bagTags.begin()); curr != m_bagTags.end(); ++curr)
     {
         auto prev = std::prev(curr);
+        bool lastIter = (curr == std::prev(m_bagTags.end()));
 
-        if(!curr->consistentWith(*prev) || curr == std::prev(m_bagTags.end())) {
+        if(!curr->consistentWith(*prev)) {
             res.push_back(BaggageDetails::BagTagInfo(prev->carrierCode(),
                                                      prev->dest(),
                                                      firstFullTagOfTheRange,
@@ -717,6 +718,13 @@ std::list<BaggageDetails::BagTagInfo> BaggageDetails::bagTagsReduced() const
         }
         else {
             currRangeQtty++;
+        }
+
+        if(lastIter) {
+            res.push_back(BaggageDetails::BagTagInfo(curr->carrierCode(),
+                                                     curr->dest(),
+                                                     firstFullTagOfTheRange,
+                                                     currRangeQtty));
         }
     }
 
