@@ -374,9 +374,9 @@ int get_sirena_rozysk_stat(int argc,char **argv)
           string city_dep, country_dep;
           try
           {
-            TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("airps").get_row("code",r1->airp);
+            const TAirpsRow &airpRow = (const TAirpsRow&)base_tables.get("airps").get_row("code",r1->airp);
             city_dep=airpRow.city;
-            TCitiesRow &cityRow = (TCitiesRow&)base_tables.get("cities").get_row("code",airpRow.city);
+            const TCitiesRow &cityRow = (const TCitiesRow&)base_tables.get("cities").get_row("code",airpRow.city);
             country_dep=cityRow.country;
           }
           catch(EBaseTableError) {};
@@ -388,9 +388,9 @@ int get_sirena_rozysk_stat(int argc,char **argv)
             string city_arv, country_arv;
             try
             {
-              TAirpsRow &airpRow = (TAirpsRow&)base_tables.get("airps").get_row("code",r2->airp);
+              const TAirpsRow &airpRow = (const TAirpsRow&)base_tables.get("airps").get_row("code",r2->airp);
               city_arv=airpRow.city;
-              TCitiesRow &cityRow = (TCitiesRow&)base_tables.get("cities").get_row("code",airpRow.city);
+              const TCitiesRow &cityRow = (const TCitiesRow&)base_tables.get("cities").get_row("code",airpRow.city);
               country_arv=cityRow.country;
             }
             catch(EBaseTableError) {};
@@ -2821,154 +2821,6 @@ int tst_vo(int, char**)
     return 1; // 0 - изменения коммитятся, 1 - rollback
 }
 
-/*
-CREATE TABLE drop_paid_bag_pc AS SELECT * FROM paid_bag_pc WHERE pax_id IS NULL;
-CREATE TABLE drop_paid_bag_emd AS SELECT * FROM paid_bag_emd WHERE grp_id IS NULL;
-DROP TABLE drop_paid_bag_pc;
-DROP TABLE drop_paid_bag_emd;
-
-    SELECT MIN(pax_grp.grp_id) FROM pax_grp, points
-    WHERE pax_grp.point_dep=points.point_id AND
-          points.scd_out BETWEEN TO_DATE('01.01.2015', 'DD.MM.YYYY') AND
-                                 TO_DATE('01.02.2015', 'DD.MM.YYYY')
-*/
-
-#include "rfisc_sirena.h"
-#include "points.h"
-
-int pc_wt_test(int argc,char **argv)
-{
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT grp_id, point_dep FROM pax_grp "
-    "WHERE "
-    " grp_id in (132827995, 132821341)";
- //   "  grp_id BETWEEN 132816281 AND 132840000 ";
-//    "WHERE grp_id>32588640 "; //stand
-//    "WHERE grp_id>34405 AND grp_id<36000 AND " //beta
-//    "WHERE time_create IS NOT NULL AND rownum<=1000 AND "
-//    "      NOT EXISTS(SELECT * FROM paid_rfisc, pax WHERE paid_rfisc.pax_id=pax.pax_id AND pax.grp_id=pax_grp.grp_id AND rownum<2) AND "
-//    "      NOT EXISTS(SELECT * FROM service_payment WHERE service_payment.grp_id=pax_grp.grp_id AND rownum<2) AND "
-//    "      NOT EXISTS(SELECT * FROM bag2 WHERE bag2.grp_id=pax_grp.grp_id AND bag2.list_id IS NOT NULL AND rownum<2) AND "
-//    "      NOT EXISTS(SELECT * FROM paid_bag WHERE paid_bag.grp_id=pax_grp.grp_id AND paid_bag.list_id IS NOT NULL AND rownum<2) AND "
-//    "      NOT EXISTS(SELECT * FROM grp_service_lists WHERE grp_service_lists.grp_id=pax_grp.grp_id AND rownum<2) AND "
-//    "      NOT EXISTS(SELECT * FROM pax_service_lists, pax WHERE pax_service_lists.pax_id=pax.pax_id AND pax.grp_id=pax_grp.grp_id AND rownum<2)";
-  Qry.Execute();
-  list< pair<int, int> > grp_ids;
-  for(;!Qry.Eof;Qry.Next())
-    grp_ids.push_back(make_pair(Qry.FieldAsInteger("grp_id"),
-                                Qry.FieldAsInteger("point_dep")));
-
-  TQuery Qry2(&OraSession);
-  Qry2.Clear();
-  Qry2.SQLText=
-    "BEGIN "
-    "  INSERT INTO drop_paid_bag_pc "
-    "  SELECT paid_bag_pc.* "
-    "  FROM paid_bag_pc, pax "
-    "  WHERE paid_bag_pc.pax_id=pax.pax_id AND pax.grp_id=:grp_id; "
-    "  INSERT INTO drop_paid_bag_emd "
-    "  SELECT * FROM paid_bag_emd WHERE grp_id=:grp_id; "
-    "END;";
-  Qry2.DeclareVariable("grp_id", otInteger);
-
-  TQuery Qry3(&OraSession);
-  Qry3.Clear();
-  Qry3.SQLText=
-    "(SELECT paid_bag_pc.* "
-    " FROM paid_bag_pc, pax "
-    " WHERE paid_bag_pc.pax_id=pax.pax_id AND pax.grp_id=:grp_id "
-    " MINUS "
-    " SELECT * FROM drop_paid_bag_pc) "
-    "UNION "
-    "(SELECT * FROM drop_paid_bag_pc "
-    " MINUS "
-    " SELECT paid_bag_pc.* "
-    " FROM paid_bag_pc, pax "
-    " WHERE paid_bag_pc.pax_id=pax.pax_id AND pax.grp_id=:grp_id) ";
-  Qry3.DeclareVariable("grp_id", otInteger);
-
-  TQuery Qry32(&OraSession);
-  Qry32.Clear();
-  Qry32.SQLText=
-    "SELECT COUNT(*) "
-    "FROM paid_bag_pc, pax "
-    "WHERE paid_bag_pc.pax_id=pax.pax_id AND pax.grp_id=:grp_id "
-    "MINUS "
-    "SELECT COUNT(*) FROM drop_paid_bag_pc ";
-  Qry32.DeclareVariable("grp_id", otInteger);
-
-  TQuery Qry4(&OraSession);
-  Qry4.Clear();
-  Qry4.SQLText=
-    "(SELECT * FROM paid_bag_emd WHERE grp_id=:grp_id "
-    " MINUS "
-    " SELECT * FROM drop_paid_bag_emd) "
-    "UNION "
-    "(SELECT * FROM drop_paid_bag_emd "
-    " MINUS "
-    " SELECT * FROM paid_bag_emd WHERE grp_id=:grp_id) ";
-  Qry4.DeclareVariable("grp_id", otInteger);
-
-  TQuery Qry42(&OraSession);
-  Qry42.Clear();
-  Qry42.SQLText=
-    "SELECT COUNT(*) FROM paid_bag_emd WHERE grp_id=:grp_id "
-    "MINUS "
-    "SELECT COUNT(*) FROM drop_paid_bag_emd ";
-  Qry42.DeclareVariable("grp_id", otInteger);
-
-  printf("total %zu iterations\n", grp_ids.size());
-
-  int processed=0;
-  for(list< pair<int, int> >::const_iterator i=grp_ids.begin(); i!=grp_ids.end(); ++i)
-  {
-    nosir_wait(processed, false, 10, 1);
-    int grp_id=i->first;
-    int point_id=i->second;
-    try
-    {
-      TFlights flightsForLock;
-      flightsForLock.Get( point_id, ftTranzit );
-
-      Qry2.SetVariable("grp_id", grp_id);
-      Qry2.Execute();
-
-      UpgradeDBForServices(grp_id);
-
-      Qry32.SetVariable("grp_id", grp_id);
-      Qry32.Execute();
-      if (!Qry32.Eof)
-        throw EXCEPTIONS::Exception("paid_bag_pc different sizes!");
-      Qry42.SetVariable("grp_id", grp_id);
-      Qry42.Execute();
-      if (!Qry42.Eof)
-        throw EXCEPTIONS::Exception("paid_bag_emd different sizes!");
-
-      Qry3.SetVariable("grp_id", grp_id);
-      Qry3.Execute();
-      if (!Qry3.Eof)
-        throw EXCEPTIONS::Exception("paid_bag_pc difference!");
-      Qry4.SetVariable("grp_id", grp_id);
-      Qry4.Execute();
-      if (!Qry4.Eof)
-        throw EXCEPTIONS::Exception("paid_bag_emd difference!");
-    }
-    catch(EXCEPTIONS::Exception &e)
-    {
-      ProgError(STDLOG, "%s: grp_id=%d: %s", __FUNCTION__, grp_id, e.what());
-    }
-    catch(...)
-    {
-      ProgError(STDLOG, "%s: grp_id=%d: unknown error", __FUNCTION__, grp_id);
-    }
-    OraSession.Rollback();
-    processed++;
-  }
-  return 1;
-}
-
 int rfisc_test(int argc,char **argv)
 {
   TQuery Qry(&OraSession);
@@ -3044,8 +2896,6 @@ int prn_tags(int argc, char **argv)
     Qry.Execute();
     ofstream prn_tags("prn_tags");
     int ypos = 20;
-    int xpos = 0;
-    int file_idx = 0;
     for(; not Qry.Eof; Qry.Next(), ypos += 5) {
         string code = Qry.FieldAsString("code");
         string date_format;
@@ -3212,10 +3062,10 @@ struct P {
 };
 
 void getPeriods( string filter_tz_region, vector<P> &periods ) {
-  ptime utcd = second_clock::universal_time();
+  /*ptime utcd = second_clock::universal_time();
   int year = utcd.date().year();
 
-  /*tz_database &tz_db = get_tz_database();
+  tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region( filter_tz_region );
   if (tz==NULL) throw EXCEPTIONS::Exception("Region '%s' not found",filter_tz_region.c_str());
   local_date_time ld( utcd, tz ); // определяем текущее время локальное
@@ -3879,8 +3729,8 @@ int seasons_dst_format(int argc,char **argv)
         prior_delta_in = RQry.FieldAsInteger( "delta_in" );
 
         int route_num = RQry.FieldAsInteger( "num" );
-        string city = ((TAirpsRow&)baseairps.get_row( "code", RQry.FieldAsString( "airp" )  , true )).city;
-        TCitiesRow& row=(TCitiesRow&)base_tables.get("cities").get_row("code",city,true);
+        string city = ((const TAirpsRow&)baseairps.get_row( "code", RQry.FieldAsString( "airp" )  , true )).city;
+        const TCitiesRow& row=(const TCitiesRow&)base_tables.get("cities").get_row("code",city,true);
         string city_region;
         try {
           city_region = CityTZRegion( city );

@@ -347,8 +347,7 @@ void GetBagToLogInfo(int grp_id, map<int/*id*/, TEventsBagItem> &bag)
     "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) AS refused, "
     "       ckin.get_bag_pool_pax_id(bag2.grp_id,bag2.bag_pool_num) AS pax_id "
     "FROM pax_grp,bag2 "
-    "WHERE pax_grp.grp_id=bag2.grp_id AND "
-    "      pax_grp.grp_id=:grp_id AND bag2.list_id IS NOT NULL"; //!!!list_id IS NOT NULL потом удалить;
+    "WHERE pax_grp.grp_id=bag2.grp_id AND pax_grp.grp_id=:grp_id";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.Execute();
   //багаж есть
@@ -358,62 +357,6 @@ void GetBagToLogInfo(int grp_id, map<int/*id*/, TEventsBagItem> &bag)
     bagInfo.fromDB(Qry);
     bag[bagInfo.id]=bagInfo;
   }
-  if (bag.empty()) //!!!потом удалить
-  {
-    string airline_wt=WeightConcept::GetCurrSegBagAirline(grp_id); //GetBagToLogInfo - checked!
-
-    TCachedQuery Qry("SELECT bag2.grp_id, bag2.num, bag2.bag_type, bag2.pr_cabin, bag2.amount, bag2.weight, "
-                     "       bag2.value_bag_num, bag2.pr_liab_limit, bag2.bag_pool_num, bag2.id, bag2.hall, "
-                     "       bag2.user_id, bag2.to_ramp, bag2.using_scales, bag2.is_trfer, bag2.handmade, "
-                     "       bag2.rfisc, bag2.desk, bag2.time_create, "
-                     "       -bag2.grp_id AS list_id, "
-                     "       bag2.bag_type_str, "
-                     "       :airline_wt AS airline, "
-                     "       NULL AS service_type, "
-                     "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) AS refused, "
-                     "       ckin.get_bag_pool_pax_id(bag2.grp_id,bag2.bag_pool_num) AS pax_id "
-                     "FROM pax_grp, bag2 "
-                     "WHERE pax_grp.grp_id=bag2.grp_id AND "
-                     "      pax_grp.grp_id=:grp_id AND bag2.rfisc IS NULL "
-                     "UNION "
-                     "SELECT bag2.grp_id, bag2.num, bag2.bag_type, bag2.pr_cabin, bag2.amount, bag2.weight, "
-                     "       bag2.value_bag_num, bag2.pr_liab_limit, bag2.bag_pool_num, bag2.id, bag2.hall, "
-                     "       bag2.user_id, bag2.to_ramp, bag2.using_scales, bag2.is_trfer, bag2.handmade, "
-                     "       bag2.rfisc, bag2.desk, bag2.time_create, "
-                     "       DECODE(rfisc_list_items.airline, NULL, TO_NUMBER(NULL), -bag2.grp_id) AS list_id, "
-                     "       bag2.bag_type_str, "
-                     "       rfisc_list_items.airline, "
-                     "       rfisc_list_items.service_type, "
-                     "       ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) AS refused, "
-                     "       ckin.get_bag_pool_pax_id(bag2.grp_id,bag2.bag_pool_num) AS pax_id "
-                     "FROM bag2, pax_grp, "
-                     "     (SELECT bag_types_lists.airline, grp_rfisc_lists.service_type, grp_rfisc_lists.rfisc "
-                     "      FROM pax_grp, bag_types_lists, grp_rfisc_lists "
-                     "      WHERE pax_grp.bag_types_id=bag_types_lists.id AND "
-                     "            bag_types_lists.id=grp_rfisc_lists.list_id AND "
-                     "            pax_grp.grp_id=:grp_id) rfisc_list_items "
-                     "WHERE pax_grp.grp_id=bag2.grp_id AND "
-                     "      pax_grp.grp_id=:grp_id AND bag2.rfisc IS NOT NULL AND "
-                     "      bag2.rfisc=rfisc_list_items.rfisc(+) ",
-                     QParams() << QParam("grp_id", otInteger, grp_id)
-                               << QParam("airline_wt", otString, airline_wt));
-    Qry.get().Execute();
-    for(; !Qry.get().Eof; Qry.get().Next())
-    {
-      if (!Qry.get().FieldIsNULL("rfisc") && Qry.get().FieldAsInteger("is_trfer")==0 &&
-          (Qry.get().FieldIsNULL("airline") || Qry.get().FieldIsNULL("service_type")))
-        throw Exception("TGroupBagItem::fromDB: wrong data (grp_id=%d, rfisc=%s)",
-                        grp_id, Qry.get().FieldAsString("rfisc"));
-      if (Qry.get().FieldIsNULL("rfisc") && Qry.get().FieldIsNULL("airline"))
-        throw Exception("TGroupBagItem::fromDB: wrong data (grp_id=%d, bag_type=%s)",
-                        grp_id, Qry.get().FieldAsString("bag_type_str"));
-      TEventsBagItem bagInfo;
-      bagInfo.fromDB(Qry.get());
-      if (bagInfo.pc && bagInfo.is_trfer && bagInfo.pc.get().airline.empty())
-        bagInfo.pc.get().getPseudoListIdForInboundTrfer(grp_id);
-      bag[bagInfo.id]=bagInfo;
-    };
-  };
 }
 
 void TGrpToLogInfo::clearExcess()

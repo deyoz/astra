@@ -316,7 +316,6 @@ class TRFISCKey : public TRFISCListKey
     TRFISCKey& fromDB(TQuery &Qry);
     void getListItemIfNone();
     void getListItem();
-    void getListItemInboundTrferTmp(const std::string &where); //!!! потом удалить
     bool getPseudoListIdForInboundTrfer(int grp_id);
     void getListItemUnaccomp (int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)
     {
@@ -494,7 +493,7 @@ class TPaxServiceListsItem : public TPaxServiceListsKey
 class TPaxServiceLists : public std::set<TPaxServiceListsItem>
 {
   public:
-    void fromDB(int id, bool is_unaccomp, bool emul_nonexistent_lists);
+    void fromDB(int id, bool is_unaccomp);
     void toDB(bool is_unaccomp) const;
     void toXML(int id, bool is_unaccomp, int tckin_seg_count, xmlNodePtr node);
 };
@@ -754,6 +753,5 @@ void PaidRFISCViewToXML(const TPaidRFISCViewMap &paid_view, xmlNodePtr node);
 bool RFISCPaymentCompleted(int grp_id, int pax_id, bool only_tckin_segs);
 
 void GetBagConcepts(int grp_id, bool &pc, bool &wt, bool &rfisc_used);
-void GetBagConceptsCompatible(int grp_id, bool &pc, bool &wt, int &bag_types_id); //!!! потом удалить
 
 #endif

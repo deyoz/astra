@@ -950,7 +950,7 @@ void TAvailabilityReq::bagTypesToDB(const TCkinGrpIds &tckin_grp_ids, bool copy_
   for(list<TPaxItem>::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
   {
     TPaxServiceLists paxServiceLists;
-    paxServiceLists.fromDB(p->id, false, false);
+    paxServiceLists.fromDB(p->id, false);
 
     TPaxServiceListsItem serviceItem;
     serviceItem.pax_id=p->id;
@@ -1098,159 +1098,6 @@ void CopyPaxServiceLists(int grp_id_src, int grp_id_dest, bool is_grp_id, bool r
   Qry.Execute();
 }
 
-void UpgradeDBForServices(int grp_id)
-{
-  using namespace SirenaExchange;
-
-  ProgTrace(TRACE5, "UpgradeDBForServices started (grp_id=%d)", grp_id);
-
-  string progress="fillPaxsBags";
-  try
-  {
-    CheckIn::TPaxGrpCategory::Enum grp_cat;
-    TCkinGrpIds tckin_grp_ids;
-    SirenaExchange::TAvailabilityReq req;
-    SirenaExchange::fillPaxsBags(grp_id, req, grp_cat, tckin_grp_ids, true);
-
-    progress="serviceLists.toDB";
-
-    if (grp_cat!=CheckIn::TPaxGrpCategory::UnnacompBag)
-    {
-      bool pc=false, wt=false;
-      int bag_types_id=ASTRA::NoExists;
-      GetBagConceptsCompatible(grp_id, pc, wt, bag_types_id);
-      if (pc && bag_types_id!=ASTRA::NoExists)
-      {
-        TRFISCList list;
-        list.fromDB(bag_types_id, true, false);
-        int list_id=list.toDBAdv(false);
-
-        TTrferRoute trfer;
-        trfer.GetRoute(grp_id, trtNotFirstSeg);
-        int max_pc_seg_id=0;
-        for(TTrferRoute::const_iterator t=trfer.begin(); t!=trfer.end(); ++t, max_pc_seg_id++)
-          if (!t->piece_concept || !t->piece_concept.get()) break;
-
-        TPaxServiceLists serviceLists;
-        for(std::list<TPaxItem>::const_iterator p=req.paxs.begin(); p!=req.paxs.end(); ++p)
-        {
-          TPaxServiceListsItem serviceItem;
-          serviceItem.pax_id=p->id;
-          for(TPaxSegMap::const_iterator s=p->segs.begin(); s!=p->segs.end(); ++s)
-          {
-            if (s->second.id>max_pc_seg_id) continue;
-            serviceItem.trfer_num=s->second.id;
-            for(int pass=0; pass<2; pass++)
-            {
-              serviceItem.category=(pass==0?TServiceCategory::Baggage:TServiceCategory::CarryOn);
-              serviceItem.list_id=list_id;
-              serviceLists.insert(serviceItem);
-            };
-          }
-        }
-        serviceLists.toDB(false);
-      }
-      else if (wt)
-      {
-        req.bagTypesToDB(tckin_grp_ids, false);  //дополняем весовыми типами багажа
-      };
-    }
-    else unaccBagTypesToDB(grp_id, true);
-
-    progress="TGroupBagItem";
-
-    CheckIn::TGroupBagItem group_bag;
-    group_bag.bagFromDB(grp_id);
-    for(CheckIn::TBagMap::iterator i=group_bag.bags.begin(); i!=group_bag.bags.end(); ++i)
-    {
-      CheckIn::TBagItem &item=i->second;
-      if (item.pc)
-      {
-        if (!item.is_trfer && item.pc.get().list_id!=-grp_id)
-          throw Exception("%s: list_id!=-grp_id! (grp_id=%d, %s)", __FUNCTION__,
-                          grp_id, item.pc.get().traceStr().c_str());
-        item.pc.get().list_id=ASTRA::NoExists;
-        item.pc.get().list_item=boost::none;
-      }
-      if (item.wt)
-      {
-        if (item.wt.get().list_id!=-grp_id)
-          throw Exception("%s: list_id!=-grp_id! (grp_id=%d, %s)", __FUNCTION__,
-                          grp_id, item.wt.get().traceStr().c_str());
-        item.wt.get().list_id=ASTRA::NoExists;
-        item.wt.get().list_item=boost::none;
-      }
-    }
-    group_bag.getAllListItems(grp_id, grp_cat==CheckIn::TPaxGrpCategory::UnnacompBag, 0);
-    group_bag.bagToDB(grp_id);
-
-    progress="TPaidRFISCList";
-
-    TPaidRFISCList paid_rfisc_old, paid_rfisc_new;
-    paid_rfisc_old.fromDB(grp_id, true);
-    for(TPaidRFISCList::const_iterator i=paid_rfisc_old.begin(); i!=paid_rfisc_old.end(); ++i)
-    {
-      TPaidRFISCItem item=i->second;
-      if (item.list_id!=-grp_id)
-        throw Exception("%s: list_id!=-grp_id! (grp_id=%d, %s)", __FUNCTION__,
-                        grp_id, item.traceStr().c_str());
-      item.list_id=ASTRA::NoExists;
-      item.list_item=boost::none;
-      paid_rfisc_new.insert(make_pair(item, item));
-    }
-    paid_rfisc_new.getAllListItems();
-    paid_rfisc_new.toDB(grp_id);
-
-    progress="PaidBagToDB";
-
-    WeightConcept::TPaidBagList paid_bag;
-    WeightConcept::PaidBagFromDB(ASTRA::NoExists, grp_id, paid_bag);
-    for(WeightConcept::TPaidBagList::iterator i=paid_bag.begin(); i!=paid_bag.end(); ++i)
-    {
-      WeightConcept::TPaidBagItem &item=*i;
-      if (item.list_id!=-grp_id)
-        throw Exception("%s: list_id!=-grp_id! (grp_id=%d, %s)", __FUNCTION__,
-                        grp_id, item.traceStr().c_str());
-      item.list_id=ASTRA::NoExists;
-      item.list_item=boost::none;
-    };
-    WeightConcept::PaidBagToDB(grp_id, grp_cat==CheckIn::TPaxGrpCategory::UnnacompBag, paid_bag);
-
-    progress="TServicePaymentList";
-
-    CheckIn::TServicePaymentList payment;
-    payment.fromDB(grp_id);
-    for(CheckIn::TServicePaymentList::iterator i=payment.begin(); i!=payment.end(); ++i)
-    {
-      CheckIn::TServicePaymentItem &item=*i;
-      if (item.pc)
-      {
-        if (item.pc.get().list_id!=-grp_id)
-          throw Exception("%s: list_id!=-grp_id! (grp_id=%d, %s)", __FUNCTION__,
-                          grp_id, item.pc.get().traceStr().c_str());
-        item.pc.get().list_id=ASTRA::NoExists;
-        item.pc.get().list_item=boost::none;
-      }
-      if (item.wt)
-      {
-        if (item.wt.get().list_id!=-grp_id)
-          throw Exception("%s: list_id!=-grp_id! (grp_id=%d, %s)", __FUNCTION__,
-                          grp_id, item.wt.get().traceStr().c_str());
-        item.wt.get().list_id=ASTRA::NoExists;
-        item.wt.get().list_item=boost::none;
-      }
-    }
-    payment.getAllListItems(grp_id, grp_cat==CheckIn::TPaxGrpCategory::UnnacompBag);
-    payment.toDB(grp_id);
-  }
-  catch(Exception &e)
-  {
-    throw Exception("%s: %s", progress.c_str(), e.what());
-  }
-
-  ProgTrace(TRACE5, "UpgradeDBForServices finished (grp_id=%d)", grp_id);
-}
-
 void ServicePaymentInterface::LoadServiceLists(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   TQuery Qry(&OraSession);
@@ -1262,47 +1109,23 @@ void ServicePaymentInterface::LoadServiceLists(XMLRequestCtxt *ctxt, xmlNodePtr 
   {
     if (string((const char*)node->name)!="list_id") continue;
     int list_id=NodeAsInteger(node);
-    if (list_id>=0)
+
+    Qry.SetVariable("id", list_id);
+    Qry.Execute();
+    if (Qry.Eof) continue;
+    if (Qry.FieldAsInteger("rfisc_used")!=0)
     {
-      Qry.SetVariable("id", list_id);
-      Qry.Execute();
-      if (Qry.Eof) continue;
-      if (Qry.FieldAsInteger("rfisc_used")!=0)
-      {
-        TRFISCListWithProps list;
-        list.fromDB(list_id, false, true);
-        list.getBagProps();
-        list.setPriority();
-        list.toXML(list_id, NewTextChild(svcNode, "service_list"));
-      }
-      else
-      {
-        TBagTypeList list;
-        list.fromDB(list_id, true);
-        list.toXML(list_id, NewTextChild(svcNode, "service_list"));
-      };
+      TRFISCListWithProps list;
+      list.fromDB(list_id, false, true);
+      list.getBagProps();
+      list.setPriority();
+      list.toXML(list_id, NewTextChild(svcNode, "service_list"));
     }
     else
     {
-      //!!!потом удалить
-      int grp_id=-list_id;
-      bool pc=false, wt=false;
-      int bag_types_id=ASTRA::NoExists;
-      GetBagConceptsCompatible(grp_id, pc, wt, bag_types_id);
-      if (pc && bag_types_id!=ASTRA::NoExists)
-      {
-        TRFISCListWithProps list;
-        list.fromDB(bag_types_id, true, true);
-        list.getBagProps();
-        list.setPriority();
-        list.toXML(list_id, NewTextChild(svcNode, "service_list"));
-      }
-      else if (wt)
-      {
-        TBagTypeList list;
-        list.createWithCurrSegBagAirline(grp_id); //ServicePaymentInterface::LoadServiceLists - checked!
-        list.toXML(list_id, NewTextChild(svcNode, "service_list"));
-      }
-    }
+      TBagTypeList list;
+      list.fromDB(list_id, true);
+      list.toXML(list_id, NewTextChild(svcNode, "service_list"));
+    };
   }
 }

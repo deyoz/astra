@@ -79,7 +79,7 @@ TLocaleTextMap& TLocaleTextMap::fromSirenaXML(xmlNodePtr node)
     xmlNodePtr textNode=node->children;
     for(; textNode!=NULL; textNode=textNode->next)
     {
-      if (string((char*)textNode->name)!="text") continue;
+      if (string((const char*)textNode->name)!="text") continue;
       string lang=NodeAsString("@language", textNode, "");
       if (lang.empty()) throw Exception("Empty @language");
       if (lang!="ru" && lang!="en") continue;
@@ -188,7 +188,7 @@ TPaxNormListKey& TPaxNormListKey::fromSirenaXML(xmlNodePtr node)
   {
     if (node==NULL) throw Exception("node not defined");
 
-    carry_on=(string((char*)node->name)=="free_carry_on_norm");
+    carry_on=(string((const char*)node->name)=="free_carry_on_norm");
 
     TPaxSegKey::fromSirenaXML(node);
   }
@@ -222,7 +222,7 @@ TSimplePaxNormItem &TSimplePaxNormItem::fromSirenaXML(xmlNodePtr node)
   {
     if (node==NULL) throw Exception("node not defined");
 
-    carry_on=(string((char*)node->name)=="free_carry_on_norm");
+    carry_on=(string((const char*)node->name)=="free_carry_on_norm");
 
     string str = NodeAsString("@type", node);
     if (str.empty()) throw Exception("Empty @type");
@@ -260,7 +260,7 @@ void TSimplePaxNormItem::fromSirenaXMLAdv(xmlNodePtr node, bool carry_on)
     string tagName=carry_on?"free_carry_on_norm":"free_baggage_norm";
     for(node=node->children; node!=NULL; node=node->next)
     {
-      string nodeName=(char*)node->name;
+      string nodeName=(const char*)node->name;
       if (nodeName!=tagName) continue;
 
       if (!empty()) throw Exception("<%s> tag duplicated", tagName.c_str());
@@ -301,7 +301,7 @@ void TSimplePaxBrandItem::fromSirenaXMLAdv(xmlNodePtr node)
     if (node==NULL) throw Exception("node not defined");
     for(node=node->children; node!=NULL; node=node->next)
     {
-      if (string((char*)node->name)!="brand_info") continue;
+      if (string((const char*)node->name)!="brand_info") continue;
 
       if (!empty()) throw Exception("<brand_info> tag duplicated" );
 
@@ -477,39 +477,26 @@ void PaxNormsFromDB(int pax_id, TPaxNormList &norms)
 {
   norms.clear();
   TQuery Qry(&OraSession);
-  for(int pass=0; pass<2; pass++)
+  Qry.Clear();
+  Qry.SQLText="SELECT * FROM pax_norms_text WHERE pax_id=:id ORDER BY page_no";
+  Qry.CreateVariable("id", otInteger, pax_id);
+  Qry.Execute();
+  for(; !Qry.Eof; Qry.Next())
   {
-    if (!norms.empty()) break; //!!! потом удалить второй проход
-    Qry.Clear();
-    Qry.SQLText=pass==0?"SELECT * FROM pax_norms_text WHERE pax_id=:id ORDER BY page_no":
-                        "SELECT pax_norms_pc.*, 0 AS carry_on, "
-                        "       bag_types_lists.airline, "
-                        "       DECODE(NVL(pax_grp.piece_concept,0), 0, 'weight', 'piece') AS concept "
-                        "FROM pax_grp, pax, pax_norms_pc, bag_types_lists "
-                        "WHERE pax_grp.grp_id=pax.grp_id AND "
-                        "      pax.pax_id=pax_norms_pc.pax_id AND "
-                        "      pax_grp.bag_types_id=bag_types_lists.id(+) AND "
-                        "      pax_norms_pc.pax_id=:id "
-                        "ORDER BY page_no";
-    Qry.CreateVariable("id", otInteger, pax_id);
-    Qry.Execute();
-    for(; !Qry.Eof; Qry.Next())
-    {
-      TPaxNormItem item;
-      item.fromDB(Qry);
-      TPaxNormListKey key;
-      key.fromDB(Qry);
-      TPaxNormList::iterator n=norms.insert(make_pair(key, item)).first;
+    TPaxNormItem item;
+    item.fromDB(Qry);
+    TPaxNormListKey key;
+    key.fromDB(Qry);
+    TPaxNormList::iterator n=norms.insert(make_pair(key, item)).first;
 
-      TLocaleTextItem textItem;
-      textItem.lang=Qry.FieldAsString("lang");
-      textItem.text=Qry.FieldAsString("text");
-      TPaxNormItem::iterator i=n->second.find(textItem.lang);
-      if (i!=n->second.end())
-        i->second.text+=textItem.text;
-      else
-        n->second.insert(make_pair(textItem.lang, textItem));
-    }
+    TLocaleTextItem textItem;
+    textItem.lang=Qry.FieldAsString("lang");
+    textItem.text=Qry.FieldAsString("text");
+    TPaxNormItem::iterator i=n->second.find(textItem.lang);
+    if (i!=n->second.end())
+      i->second.text+=textItem.text;
+    else
+      n->second.insert(make_pair(textItem.lang, textItem));
   }
 }
 

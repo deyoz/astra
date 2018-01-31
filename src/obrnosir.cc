@@ -32,7 +32,6 @@ int nosir_tscript(int argc, char** argv);
 int tz2db(int argc,char **argv);
 int verifyHTTP(int argc,char **argv);
 int pc_wt_stat(int argc,char **argv);
-int pc_wt_test(int argc,char **argv);
 int rfisc_test(int argc,char **argv);
 int test_reprint(int argc,char **argv);
 int get_events_stat(int argc,char **argv);
@@ -99,7 +98,6 @@ const
     {"-nat_stat",               NatStat::nat_stat,      NULL,                       NULL},
     {"-ego_stat",               ego_stat,               NULL,                       NULL},
     {"-pc_wt_stat",             pc_wt_stat,             NULL,                       NULL},
-    {"-pc_wt_test",             pc_wt_test,             NULL,                       NULL},
     {"-rfisc_test",             rfisc_test,             NULL,                       NULL},
     {"-rfisc_stat",             nosir_rfisc_stat,       NULL,                       NULL},
     {"-test_reprint",           test_reprint,    NULL,                       NULL},

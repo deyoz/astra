@@ -286,65 +286,6 @@ void TServicePaymentList::fromDB(int grp_id)
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
     push_back(TServicePaymentItem().fromDB(Qry.get()));
-
-  if (empty()) //!!!потом удалить
-  {
-    string airline_wt=WeightConcept::GetCurrSegBagAirline(grp_id); //TServicePaymentList::fromDB - checked!
-
-    TCachedQuery Qry("SELECT paid_bag_emd.grp_id, "
-                     "       paid_bag_emd.pax_id, "
-                     "       paid_bag_emd.transfer_num, "
-                     "       -paid_bag_emd.grp_id AS list_id, "
-                     "       DECODE(paid_bag_emd.bag_type, NULL, NULL, LPAD(paid_bag_emd.bag_type,2,'0')) AS bag_type, "
-                     "       paid_bag_emd.rfisc, "
-                     "       :airline_wt AS airline, "
-                     "       NULL AS service_type, "
-                     "       1 AS service_quantity, "
-                     "       'EMDA' AS doc_type, "
-                     "       emd_no AS doc_no, "
-                     "       emd_coupon AS doc_coupon, "
-                     "       NULL AS doc_aircode, "
-                     "       weight AS doc_weight "
-                     "FROM paid_bag_emd "
-                     "WHERE paid_bag_emd.grp_id=:grp_id AND paid_bag_emd.rfisc IS NULL "
-                     "UNION "
-                     "SELECT paid_bag_emd.grp_id, "
-                     "       paid_bag_emd.pax_id, "
-                     "       paid_bag_emd.transfer_num, "
-                     "       -paid_bag_emd.grp_id AS list_id, "
-                     "       DECODE(paid_bag_emd.bag_type, NULL, NULL, LPAD(paid_bag_emd.bag_type,2,'0')) AS bag_type, "
-                     "       paid_bag_emd.rfisc, "
-                     "       rfisc_list_items.airline, "
-                     "       rfisc_list_items.service_type, "
-                     "       1 AS service_quantity, "
-                     "       'EMDA' AS doc_type, "
-                     "       emd_no AS doc_no, "
-                     "       emd_coupon AS doc_coupon, "
-                     "       NULL AS doc_aircode, "
-                     "       NULL AS doc_weight "
-                     "FROM paid_bag_emd, "
-                     "     (SELECT bag_types_lists.airline, grp_rfisc_lists.service_type, grp_rfisc_lists.rfisc "
-                     "      FROM pax_grp, bag_types_lists, grp_rfisc_lists "
-                     "      WHERE pax_grp.bag_types_id=bag_types_lists.id AND "
-                     "            bag_types_lists.id=grp_rfisc_lists.list_id AND "
-                     "            pax_grp.grp_id=:grp_id) rfisc_list_items "
-                     "WHERE paid_bag_emd.grp_id=:grp_id AND paid_bag_emd.rfisc IS NOT NULL AND "
-                     "      paid_bag_emd.rfisc=rfisc_list_items.rfisc(+) ",
-                     QParams() << QParam("grp_id", otInteger, grp_id)
-                               << QParam("airline_wt", otString, airline_wt));
-    Qry.get().Execute();
-    for(; !Qry.get().Eof; Qry.get().Next())
-    {
-      if (!Qry.get().FieldIsNULL("rfisc") &&
-          (Qry.get().FieldIsNULL("airline") || Qry.get().FieldIsNULL("service_type")))
-        throw Exception("TServicePaymentList::fromDB: wrong data (grp_id=%d, rfisc=%s)",
-                        grp_id, Qry.get().FieldAsString("rfisc"));
-      if (Qry.get().FieldIsNULL("rfisc") && Qry.get().FieldIsNULL("airline"))
-        throw Exception("TServicePaymentList::fromDB: wrong data (grp_id=%d, bag_type=%s)",
-                        grp_id, Qry.get().FieldAsString("bag_type"));
-      push_back(TServicePaymentItem().fromDB(Qry.get()));
-    };
-  };
 }
 
 void TServicePaymentListWithAuto::dump(const string &file, int line) const
