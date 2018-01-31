@@ -522,8 +522,8 @@ struct BaggageDetails
     public:
         BagTagInfo(const std::string& carrierCode,
                    const std::string& dest,
-                   uint64_t fullTag = 0,
-                   unsigned qtty = 0);
+                   uint64_t fullTag,
+                   unsigned qtty);
 
         const std::string& carrierCode() const { return m_carrierCode; }
         const std::string&        dest() const { return m_dest;        }
@@ -532,6 +532,8 @@ struct BaggageDetails
 
         unsigned             tagAccode() const;
         unsigned                tagNum() const;
+
+        bool            consistentWith(const BagTagInfo& bt) const;
 
     protected:
         BagTagInfo()
@@ -552,6 +554,8 @@ public:
     const boost::optional<BagInfo>&       bag() const { return m_bag;     }
     const boost::optional<BagInfo>&   handBag() const { return m_handBag; }
     const std::list<BagTagInfo>&      bagTags() const { return m_bagTags; }
+
+    std::list<BagTagInfo>     bagTagsReduced() const;
 
 protected:
     BaggageDetails()

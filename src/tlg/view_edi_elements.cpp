@@ -633,7 +633,7 @@ void viewPbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::BaggageDetails& ba
     //pbd << "+" << "NP";
     pbd << "+";
 
-    for(const auto& bagTag: baggage.bagTags()) {
+    for(const auto& bagTag: baggage.bagTagsReduced()) {
         pbd << "+"
             << BaseTables::Company(bagTag.carrierCode())->code(/*lang*/) << ":"
             << bagTag.tagNum() << ":"
@@ -780,7 +780,7 @@ void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateBaggageDetai
 
     ubd << updBaggage.actionCodeAsString() << ":" << "NP";
 
-    for(const auto& bagTag: updBaggage.bagTags()) {
+    for(const auto& bagTag: updBaggage.bagTagsReduced()) {
         ubd << "+"
             << updBaggage.actionCodeAsString() << ":"
             << BaseTables::Company(bagTag.carrierCode())->code(/*lang*/) << ":"

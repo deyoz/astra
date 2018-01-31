@@ -675,6 +675,18 @@ unsigned BaggageDetails::BagTagInfo::tagNum() const
     return (m_fullTag % 1000000);
 }
 
+bool BaggageDetails::BagTagInfo::consistentWith(const BagTagInfo& bt) const
+{
+    if(carrierCode() == bt.carrierCode() &&
+       dest()        == bt.dest() &&
+       tagAccode()   == bt.tagAccode())
+    {
+       return abs(tagNum() - bt.tagNum()) == 1;
+    }
+
+    return false;
+}
+
 //---------------------------------------------------------------------------------------
 
 BaggageDetails::BaggageDetails(const boost::optional<BagInfo>& bag,
@@ -682,6 +694,34 @@ BaggageDetails::BaggageDetails(const boost::optional<BagInfo>& bag,
                                const std::list<BagTagInfo>& bagTags)
     : m_bag(bag), m_handBag(handBag), m_bagTags(bagTags)
 {}
+
+std::list<BaggageDetails::BagTagInfo> BaggageDetails::bagTagsReduced() const
+{
+    if(m_bagTags.size() < 2) return m_bagTags;
+
+    std::list<BaggageDetails::BagTagInfo> res;
+    unsigned currRangeQtty = 1;
+    uint64_t firstFullTagOfTheRange = m_bagTags.begin()->fullTag();
+
+    for(auto curr = std::next(m_bagTags.begin()); curr != m_bagTags.end(); ++curr)
+    {
+        auto prev = std::prev(curr);
+
+        if(!curr->consistentWith(*prev) || curr == std::prev(m_bagTags.end())) {
+            res.push_back(BaggageDetails::BagTagInfo(prev->carrierCode(),
+                                                     prev->dest(),
+                                                     firstFullTagOfTheRange,
+                                                     currRangeQtty));
+            firstFullTagOfTheRange = curr->fullTag();
+            currRangeQtty = 1;
+        }
+        else {
+            currRangeQtty++;
+        }
+    }
+
+    return res;
+}
 
 //---------------------------------------------------------------------------------------
 
