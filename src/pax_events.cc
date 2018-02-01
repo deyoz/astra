@@ -8,6 +8,31 @@
 using namespace std;
 using namespace BASIC::date_time;
 
+bool TPaxEvent::fromDB(int pax_id, TPaxEventTypes::Enum pax_event)
+{
+    clear();
+    TCachedQuery Qry(
+            "select * from pax_events where "
+            "   pax_id = :pax_id and "
+            "   pax_event = :pax_event "
+            "order by "
+            "   ev_order desc ",
+            QParams()
+            << QParam("pax_id", otInteger, pax_id)
+            << QParam("pax_event", otString, TPaxEventTypesCode().encode(pax_event)));
+    bool result = false;
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        result = true;
+        this->pax_id = pax_id;
+        this->pax_event = pax_event;
+        time = Qry.get().FieldAsDateTime("time");
+        desk = Qry.get().FieldAsString("desk");
+        station = Qry.get().FieldAsString("station");
+    }
+    return result;
+}
+
 void TPaxEvent::toDB(int pax_id, TPaxEventTypes::Enum pax_event)
 {
     TCachedQuery gateQry(

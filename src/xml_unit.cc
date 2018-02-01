@@ -476,6 +476,13 @@ xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const std::string &
   return NewTextChild(parent, name, content.c_str());
 };
 
+xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const size_t content)
+{
+  ostringstream buf;
+  buf << content;
+  return NewTextChild(parent, name, buf.str());
+};
+
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const int content)
 {
   return NewTextChild(parent, name, IntToString(content).c_str());

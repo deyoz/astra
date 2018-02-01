@@ -4,6 +4,7 @@
 #include <list>
 #include <string>
 #include "astra_consts.h"
+#include "date_time.h"
 
 class TPaxEventTypes {
     public:
@@ -37,7 +38,23 @@ class TPaxEventTypesCode: public ASTRA::PairList<TPaxEventTypes::Enum, std::stri
 };
 
 struct TPaxEvent {
+    int pax_id;
+    TPaxEventTypes::Enum pax_event;
+    BASIC::date_time::TDateTime time;
+    std::string desk;
+    std::string station;
     void toDB(int pax_id, TPaxEventTypes::Enum pax_event);
+    bool fromDB(int pax_id, TPaxEventTypes::Enum pax_event);
+    TPaxEvent() {
+        clear();
+    }
+    void clear() {
+        pax_id = ASTRA::NoExists;
+        pax_event = TPaxEventTypes::Unknown;
+        time = ASTRA::NoExists;
+        desk.clear();
+        station.clear();
+    }
 };
 
 #endif

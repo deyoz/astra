@@ -80,6 +80,7 @@ void NodeSetContent(xmlNodePtr cur, const int content);
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const char *content = NULL);
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const std::string &content);
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const int content);
+xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const size_t content);
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const double content);
 
 xmlNodePtr ReplaceTextChild(xmlNodePtr parent, const char *name, const char *content = NULL);
