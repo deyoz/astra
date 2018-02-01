@@ -474,6 +474,19 @@ static std::string FP_getSingleTid(const std::vector<std::string>& p)
     return boost::lexical_cast<std::string>(paxSeg.seg_info.tid);
 }
 
+static std::string FP_getPointTid(const std::vector<std::string>& p)
+{
+    assert(p.size() == 1);
+    int pointId = atoi(p.at(0).c_str());
+    int tid = 0;
+    OciCpp::CursCtl cur = make_curs(
+"select TID from POINTS where POINT_ID=:point_id");
+    cur.def(tid)
+       .bind(":point_id", pointId)
+       .EXfet();
+    return boost::lexical_cast<std::string>(tid);
+}
+
 static std::string FP_get_lat_code(const std::vector<std::string>& p)
 {
     assert(p.size() == 2);
@@ -575,6 +588,7 @@ FP_REGISTER("create_random_trip_comp", FP_create_random_trip_comp);
 FP_REGISTER("get_single_pax_id", FP_getSinglePaxId);
 FP_REGISTER("get_single_grp_id", FP_getSingleGrpId);
 FP_REGISTER("get_single_tid", FP_getSingleTid);
+FP_REGISTER("get_point_tid", FP_getPointTid);
 FP_REGISTER("get_lat_code", FP_get_lat_code);
 FP_REGISTER("prepare_bp_printing", FP_prepare_bp_printing);
 FP_REGISTER("deny_ets_interactive", FP_deny_ets_interactive);

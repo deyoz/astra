@@ -633,7 +633,10 @@ namespace
         xmlNodePtr iatciSegsNode = findNodeR(m_iatciNode, "segments");
         ASSERT(iatciSegsNode != NULL);
         xmlNodePtr reqSegsNode = findNodeR(m_reqNode, "iatci_segments");
-        ASSERT(reqSegsNode != NULL);
+        if(reqSegsNode == NULL) {
+            tst();
+            return;
+        }
         std::list<xmlNodePtr> reqPaxNodes = findPaxNodes(reqSegsNode, pax);
         if(reqPaxNodes.empty()) {
             tst();
@@ -1203,14 +1206,21 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
     XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
 
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
-    XmlCheckInTabs reqIatciTabs(findNodeR(reqNode, "iatci_segments"));
+    xmlNodePtr iatciSegsNode = findNodeR(reqNode, "iatci_segments");
+    boost::optional<XmlCheckInTabs> reqIatciTabs; // must be!
+    if(iatciSegsNode) {
+        reqIatciTabs = XmlCheckInTabs(iatciSegsNode);
+    } else {
+        reqIatciTabs = oldIatciTabs;
+    }
+    ASSERT(reqIatciTabs);
 
     XmlCheckInTabs ownTabs(findNodeR(reqNode, "segments"));
     ASSERT(!ownTabs.empty());
     const XmlCheckInTab& firstOwnTab = ownTabs.tabs().front();
 
     const XmlCheckInTab& firstOldTab = oldIatciTabs.tabs().front();
-    const XmlCheckInTab& firstReqTab = reqIatciTabs.tabs().front();
+    const XmlCheckInTab& firstReqTab = reqIatciTabs->tabs().front();
 
     std::list<XmlBag> reqBags = XmlEntityReader::readBags(findNodeR(reqNode, "bags"));
 
@@ -1370,11 +1380,19 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
     XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
 
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
-    XmlCheckInTabs reqIatciTabs(findNodeR(reqNode, "iatci_segments"));
+    xmlNodePtr iatciSegsNode = findNodeR(reqNode, "iatci_segments");
+
+    boost::optional<XmlCheckInTabs> reqIatciTabs; // optional only for compilation - must be!
+    if(iatciSegsNode) {
+        reqIatciTabs = XmlCheckInTabs(iatciSegsNode);
+    } else {
+        reqIatciTabs = oldIatciTabs;
+    }
+    ASSERT(reqIatciTabs);
 
     const XmlCheckInTab& firstOldTab = oldIatciTabs.tabs().front();
 
-    TabsDiff diff(oldIatciTabs, reqIatciTabs);
+    TabsDiff diff(oldIatciTabs, *reqIatciTabs);
     if(diff.tabsDiff().empty()) {
         LogTrace(TRACE1) << "Empty iatci tabs diff";
         return boost::none;
@@ -1780,8 +1798,14 @@ bool IatciInterface::WillBeSentCheckInRequest(xmlNodePtr reqNode, xmlNodePtr edi
 
 bool IatciInterface::MayNeedSendIatci(xmlNodePtr reqNode)
 {
-    XmlCheckInTabs tabs(findNodeR(reqNode, "segments"));
-    return tabs.containsEdiTab();
+    xmlNodePtr segsNode = findNodeR(reqNode, "segments");
+    if(!segsNode) return false;
+
+    XmlCheckInTabs tabs(segsNode);
+    if(tabs.empty()) return false;
+    if(tabs.containsEdiTab()) return true;
+
+    return IatciXmlDb::exists(tabs.tabs().back().seg().m_grpId);
 }
 
 bool IatciInterface::InitialRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)

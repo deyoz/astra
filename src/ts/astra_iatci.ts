@@ -1184,6 +1184,92 @@ $(defmacro SAVE_GRP_BAGGAGE
           <bag_type/>
           <airline>S7</airline>
           <num>2</num>
+          <pr_cabin>0</pr_cabin>
+          <amount>1</amount>
+          <weight>12</weight>
+          <value_bag_num/>
+          <pr_liab_limit>0</pr_liab_limit>
+          <to_ramp>0</to_ramp>
+          <using_scales>0</using_scales>
+          <is_trfer>0</is_trfer>
+          <bag_pool_num>1</bag_pool_num>
+        </bag>
+        <bag>
+          <bag_type/>
+          <airline>S7</airline>
+          <num>3</num>
+          <pr_cabin>1</pr_cabin>
+          <amount>1</amount>
+          <weight>5</weight>
+          <value_bag_num/>
+          <pr_liab_limit>0</pr_liab_limit>
+          <to_ramp>0</to_ramp>
+          <using_scales>0</using_scales>
+          <is_trfer>0</is_trfer>
+          <bag_pool_num>1</bag_pool_num>
+        </bag>
+      </bags>
+      <tags pr_print='1'/>
+      <unaccomps/>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+}) #end-of-macro
+
+
+$(defmacro REMOVE_ONE_BAG
+    grp_id
+    tid
+    point_dep1
+    point_arv1
+    airp_dep1
+    airp_arv1
+    airp_dep2
+    airp_arv2
+    pax_id1
+    tid1
+{
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <segments>
+        <segment>
+          <point_dep>$(point_dep1)</point_dep>
+          <point_arv>$(point_arv1)</point_arv>
+          <airp_dep>$(airp_dep1)</airp_dep>
+          <airp_arv>$(airp_arv1)</airp_arv>
+          <class>ù</class>
+          <grp_id>$(grp_id)</grp_id>
+          <tid>$(tid)</tid>
+          <passengers/>
+        </segment>
+      </segments>
+      <hall>1</hall>
+      <bag_refuse/>
+      <value_bags/>
+      <bags>
+        <bag>
+          <bag_type/>
+          <airline>S7</airline>
+          <num>1</num>
+          <pr_cabin>0</pr_cabin>
+          <amount>1</amount>
+          <weight>13</weight>
+          <value_bag_num/>
+          <pr_liab_limit>0</pr_liab_limit>
+          <to_ramp>0</to_ramp>
+          <using_scales>0</using_scales>
+          <is_trfer>0</is_trfer>
+          <bag_pool_num>1</bag_pool_num>
+        </bag>
+        <bag>
+          <bag_type/>
+          <airline>S7</airline>
+          <num>2</num>
           <pr_cabin>1</pr_cabin>
           <amount>1</amount>
           <weight>5</weight>
@@ -5060,6 +5146,8 @@ $(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
 </term>}
 
 $(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
+$(set tid_adult $(get_single_tid $(get point_dep) REPIN ADULT))
+$(set tid_infant $(get_single_tid $(get point_dep) REPIN INFANT))
 
 $(sql "insert into TRIP_BT(POINT_ID, TAG_TYPE) values($(get point_dep), 'ûí')")
 $(sql "insert into NEW_TAG_GENERATING_ALGO values (null)")
@@ -5078,7 +5166,34 @@ UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
-UBD+R:1:13+R:1:5+R:NP+R:UT:1:1:LED:298"
+UBD+R:2:25+R:1:5+R:NP+R:UT:1:2:LED:298"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+150217:0745+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+S7+1027+$(yymmdd)+LED+AER++T"
+RAD+U+P"
+UNT+4+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(KICK_IN_SILENT)
+
+$(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
+
+
+$(REMOVE_ONE_BAG $(get grp_id) $(get tid_new)
+                 $(get point_dep) $(get point_arv)
+                 ÑåÑ èãä èãä ëéó)
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)+LED+AER"
+PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
+UBD+R:1:13+R:1:5+R:NP+R:UT:3:1:LED:298"
 UNT+6+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -5137,7 +5252,7 @@ $(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
               <addresses/>
               <bag_pool_num/>
               <subclass>ù</subclass>
-              <tid>$(get tid_new)</tid>
+              <tid>$(get tid_adult)</tid>
             </pax>
             <pax>
               <pax_id>$(get pax_2_id)</pax_id>
@@ -5163,7 +5278,7 @@ $(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
               <addresses/>
               <bag_pool_num/>
               <subclass>ù</subclass>
-              <tid>$(get tid)</tid>
+              <tid>$(get tid_infant)</tid>
             </pax>
           </passengers>
           <paid_bag_emd/>

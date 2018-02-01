@@ -35,6 +35,7 @@ public:
     static void del(int grpId);
     static void upd(int grpId, const std::string& xmlText);
     static std::string load(int grpId);
+    static bool exists(int grpId);
 
 private:
     static void saveXml(int grpId, const std::string& xmlText);

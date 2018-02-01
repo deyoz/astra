@@ -90,10 +90,55 @@ XmlPaxAddresses createCheckInAddrs(const iatci::AddressDetails& addrs)
     return ckiAddrs;
 }
 
+XmlRem createCheckInRem(const iatci::ServiceDetails::SsrInfo& ssr)
+{
+    XmlRem rem;
+    rem.rem_code = ssr.ssrCode();
+    rem.rem_text = ssr.freeText();
+
+    // 堪
+    if(rem.rem_text.empty()) {
+        rem.rem_text = rem.rem_code;
+    }
+
+    return rem;
+}
+
+XmlFqtRem createCheckInFqtRem(const iatci::ServiceDetails::SsrInfo& ssr)
+{
+    XmlFqtRem fqtRem;
+    fqtRem.rem_code = ssr.ssrCode();
+    fqtRem.airline  = ssr.airline();
+    fqtRem.no       = ssr.ssrText();
+    if(ssr.quantity()) {
+        fqtRem.tier_level = std::to_string(ssr.quantity());
+    }
+
+    return fqtRem;
+}
+
+void addCheckInRems(XmlPax& pax, const iatci::ServiceDetails& service)
+{
+    for(const auto& ssr: service.lSsr()) {
+        if(ssr.isTkne()) continue;
+
+        if(ssr.isFqt()) {
+            if(!pax.fqt_rems)
+                pax.fqt_rems = XmlFqtRems();
+            pax.fqt_rems->rems.push_back(createCheckInFqtRem(ssr));
+        } else {
+            if(!pax.rems)
+                pax.rems = XmlRems();
+            pax.rems->rems.push_back(createCheckInRem(ssr));
+        }
+    }
+}
+
 XmlPax createCheckInPax(const XmlPax& basePax,
                         const iatci::PaxDetails& pax,
                         const boost::optional<iatci::SeatDetails>& seat,
                         const boost::optional<iatci::ReservationDetails>& reserv,
+                        const boost::optional<iatci::ServiceDetails>& service,
                         const boost::optional<iatci::DocDetails>& doc,
                         const boost::optional<iatci::AddressDetails>& addrs)
 {
@@ -107,6 +152,9 @@ XmlPax createCheckInPax(const XmlPax& basePax,
     }
     if(addrs) {
         ckiPax.addrs = createCheckInAddrs(*addrs);
+    }
+    if(service) {
+        addCheckInRems(ckiPax, *service);
     }
     return ckiPax;
 }
@@ -318,9 +366,8 @@ LoadPaxXmlResult AstraEngine::SavePax(int pointDep, const XmlTrip& paxTrip)
         if(pax.rems) {
             XmlEntityViewer::viewRems(paxNode, *pax.rems);
         }
-        if(pax.fqt_rems) {
-            XmlEntityViewer::viewFqtRems(paxNode, *pax.fqt_rems);
-        }
+
+        XmlEntityViewer::viewFqtRems(paxNode, pax.fqt_rems);
     }
 
     NewTextChild(savePaxNode, "excess");
@@ -366,9 +413,7 @@ LoadPaxXmlResult AstraEngine::SavePax(const xml_entities::XmlSegment& paxSeg,
         if(pax.rems) {
             XmlEntityViewer::viewRems(paxNode, *pax.rems);
         }
-        if(pax.fqt_rems) {
-            XmlEntityViewer::viewFqtRems(paxNode, *pax.fqt_rems);
-        }
+        XmlEntityViewer::viewFqtRems(paxNode, pax.fqt_rems);
     }
 
     NewTextChild(segNode, "paid_bag_emd");
@@ -1136,6 +1181,7 @@ static void handleIatciCkiPax(int pointDep,
                                                  pax,
                                                  seat,
                                                  reserv,
+                                                 service,
                                                  doc,
                                                  addr));
 }
@@ -2912,10 +2958,12 @@ xmlNodePtr XmlEntityViewer::viewFqtRem(xmlNodePtr node, const XmlFqtRem& rem)
     return remNode;
 }
 
-xmlNodePtr XmlEntityViewer::viewFqtRems(xmlNodePtr node, const XmlFqtRems& rems)
+xmlNodePtr XmlEntityViewer::viewFqtRems(xmlNodePtr node, const boost::optional<XmlFqtRems>& rems)
 {
     xmlNodePtr remsNode = NewTextChild(node, "fqt_rems");
-    for(const XmlFqtRem& rem: rems.rems) {
+    if(!rems) return remsNode;
+
+    for(const XmlFqtRem& rem: rems->rems) {
         XmlEntityViewer::viewFqtRem(remsNode, rem);
     }
     return remsNode;

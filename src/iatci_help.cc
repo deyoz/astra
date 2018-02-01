@@ -263,6 +263,17 @@ std::string IatciXmlDb::load(int grpId)
     return res;
 }
 
+bool IatciXmlDb::exists(int grpId)
+{
+    LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
+    OciCpp::CursCtl cur = make_curs(
+"select 1 from GRP_IATCI_XML where GRP_ID=:grp_id");
+    cur.bind(":grp_id", grpId)
+       .exfet();
+
+    return cur.err() != NO_DATA_FOUND;
+}
+
 //---------------------------------------------------------------------------------------
 
 iatci::PaxDetails makePax(const edifact::PpdElem& ppd)
