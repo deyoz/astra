@@ -1286,8 +1286,7 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
     {
       tkn.fromXML(node);
       TknExists=true;
-      if (reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS) &&
-          !NodeIsNULLFast("bag_pool_num",node2))
+      if (!NodeIsNULLFast("bag_pool_num",node2))
         bag_pool_num=NodeAsIntegerFast("bag_pool_num",node2);
     };
 
