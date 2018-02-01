@@ -334,7 +334,6 @@ void GrpsToGrpsView(TTrferType type,
                     std::vector<TGrpViewItem> &grps);
 
 void TrferToXML(TTrferType type,
-                bool bag_pool_compatible,
                 const std::vector<TGrpViewItem> &grps,
                 xmlNodePtr trferNode);
 

@@ -542,11 +542,8 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   {
     mktFlight.toXML(dataNode);
     xmlNodePtr markFltNode=NodeAsNode("mark_flight", dataNode);
-    if (!reqInfo->desk.compatible(AIRCODE_BUGFIX_VERSION))
-      NewTextChild(markFltNode,"aircode",mktFlight.airline);
-    else
-      NewTextChild(markFltNode,"aircode",
-                   base_tables.get("airlines").get_row("code",mktFlight.airline).AsString("aircode"));
+    NewTextChild(markFltNode,"aircode",
+                 base_tables.get("airlines").get_row("code",mktFlight.airline).AsString("aircode"));
     NewTextChild(markFltNode,"pr_mark_rates",(int)mktFlight.pr_mark_norms);
   }
 
@@ -576,7 +573,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   };
 
   CheckIn::TGroupBagItem group_bag;
-  group_bag.fromDB(grp_id, ASTRA::NoExists, !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS));
+  group_bag.fromDB(grp_id, ASTRA::NoExists, false);
   group_bag.toXML(dataNode);
   WeightConcept::TPaidBagList paid;
   WeightConcept::PaidBagFromDB(NoExists, grp_id, paid);

@@ -1113,7 +1113,7 @@ protected:
     xmlNodePtr      getQueryNode() const;
     xmlNodePtr      getAnswerNode() const;
 
-    void initReqInfo(const std::string& deskVersion = VERSION_WITH_BAG_POOLS) const;
+    void initReqInfo(const std::string& deskVersion = OLDEST_SUPPORTED_VERSION) const;
 
     AstraEngine();
 
