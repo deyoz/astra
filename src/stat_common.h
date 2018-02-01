@@ -70,6 +70,7 @@ enum TStatType {
     statBIDetail,
     statVOFull,
     statVOShort,
+    statADFull,
     statNum
 };
 

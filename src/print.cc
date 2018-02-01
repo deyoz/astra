@@ -1282,7 +1282,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         }
 
         u_int64_t tag_no = (u_int64_t)Qry.FieldAsFloat("no");
-        int aircode = tag_no / 1000000;
+        int aircode = (tag_no / 1000000) % 1000;
         int no = tag_no % 1000000;
 
         xmlNodePtr tagNode = NewTextChild(tagsNode, "tag");

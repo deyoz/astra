@@ -179,8 +179,11 @@ astra_SOURCES = \
   stat_bi.cc \
   stat_vo.cc \
   stat_ha.cc \
+  stat_ad.cc \
+  pax_events.cc \
   stat_utils.cc \
   stat_common.cc \
+  db_pkg.cc \
   bagmessage_daemon.cc
 
 astra_LDADD = $(all_libraries) \
@@ -350,6 +353,9 @@ noinst_HEADERS = \
   stat_bi.h \
   stat_vo.h \
   stat_ha.h \
+  stat_ad.h \
+  pax_events.h \
   stat_utils.h \
   stat_common.h \
+  db_pkg.h \
   report_common.h

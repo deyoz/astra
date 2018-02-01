@@ -33,6 +33,7 @@
 #include "stat_bi.h"
 #include "stat_vo.h"
 #include "stat_ha.h"
+#include "stat_ad.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -9259,6 +9260,9 @@ void create_plain_files(
         case statVOFull:
             RunVOFullFile(params, order_writer);
             break;
+        case statADFull:
+            RunADFullFile(params, order_writer);
+            break;
         case statHAShort:
             RunHAShortFile(params, order_writer);
             break;
@@ -10104,6 +10108,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         case statHAShort:
         case statVOFull:
         case statVOShort:
+        case statADFull:
         case statBIFull:
         case statBIShort:
         case statBIDetail:
@@ -10291,6 +10296,12 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             TVOFullStat VOFullStat;
             RunVOStat(params, VOFullStat);
             createXMLVOFullStat(params, VOFullStat, resNode);
+        }
+        if(params.statType == statADFull)
+        {
+            TADFullStat ADFullStat;
+            RunADStat(params, ADFullStat);
+            createXMLADFullStat(params, ADFullStat, resNode);
         }
     }
     /* GRISHA */
@@ -11421,6 +11432,9 @@ void get_flight_stat(map<string, long> &stat_times, int point_id, bool final_col
      tm.Init();
      get_stat_ha(point_id);
      add_stat_time(stat_times, "stat_ha", tm.Print());
+     tm.Init();
+     get_stat_ad(point_id);
+     add_stat_time(stat_times, "stat_ad", tm.Print());
    };
 
    TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);
