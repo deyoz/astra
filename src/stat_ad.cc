@@ -25,7 +25,7 @@ void TADFullStat::add(const TADStatRow &row)
     prn_airline.check(info.airline);
 
     CheckIn::TSimplePaxItem pax;
-    pax.getByPaxId(row.pax_id);
+    pax.getByPaxId(row.pax_id, row.part_key);
     string name = transliter(pax.surname + " " + pax.name,1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
 
     TADFullData &data = (*this)[info.view_airline][info.view_airp][info.view_flt_no][row.scd_out][name][pax.id];
@@ -39,6 +39,8 @@ void TADFullStat::add(const TADStatRow &row)
         ostringstream buf;
         buf << row.bag_amount << "/" << row.bag_weight;
         data.baggage = buf.str();
+        bag_amount += row.bag_amount;
+        bag_weight += row.bag_weight;
     }
 
     data.seat_no =
@@ -47,8 +49,6 @@ void TADFullStat::add(const TADStatRow &row)
 
 
     data.gate = (row.station.empty() ? row.desk : row.station);
-    bag_amount += row.bag_amount;
-    bag_weight += row.bag_weight;
 }
 
 void RunADStat(
