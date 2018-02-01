@@ -274,7 +274,7 @@ struct KioskServerEventContainer {
           Qry.CreateVariable( "kioskid", otString, event.get().kioskId==boost::none?string(""):event.get().kioskId.get() );
           Qry.CreateVariable( "time", otDate, time );
           Qry.CreateVariable( "ev_order", otInteger, event.get().id );
-          Qry.CreateVariable( "ev_order", otInteger, event.get().session_id() );
+          Qry.CreateVariable( "session_id", otInteger, event.get().session_id() );
           Qry.Execute();
           if ( event.get().inputParams != boost::none ) {
             Qry.Clear();
