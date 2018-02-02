@@ -995,7 +995,7 @@ void TPointsDest::DoEvents( int move_id, const TPointsDest &dest )
          events.isFlag( dmSetDelete ) ) ) {
     SetTripStages_IgnoreAuto( point_id, act_out != NoExists || pr_del != 0 );
   }
-  on_change_trip( CALL_POINT, point_id );
+  on_change_trip( CALL_POINT, point_id, ChangeTrip::PointsDestDoEvents );
   if ( events.isFlag( dmChangeDelays ) ) {
     try {
           vector<TypeB::TCreateInfo> createInfo;
@@ -2018,7 +2018,7 @@ void TPoints::Save( bool isShowMsg )
     //ProgTrace( TRACE5, "id->pr_tranzit=%d, pid->suffix=|%s|, id->suffix=|%s|", id->pr_tranzit, pid->suffix.c_str(), id->suffix.c_str() );
 
     id->pr_reg = ( id->scd_out > NoExists &&
-                   ((TTripTypesRow&)base_tables.get("trip_types").get_row( "code", id->trip_type, true )).pr_reg!=0 &&
+                   ((const TTripTypesRow&)base_tables.get("trip_types").get_row( "code", id->trip_type, true )).pr_reg!=0 &&
                    id != last_dest );
     if ( id == last_dest ) { // последний пункт
       id->trip_type.clear();
@@ -2254,7 +2254,7 @@ bool TPoints::isDouble( int move_id, std::string airline, int flt_no,
   airline = ElemToElemId( etAirline, airline, fmt );
   double local_scd_in,local_scd_out,d1;
   TBaseTable &baseairps = base_tables.get( "airps" );
-  string region = CityTZRegion( ((TAirpsRow&)baseairps.get_row( "code", airp, true )).city );
+  string region = CityTZRegion( ((const TAirpsRow&)baseairps.get_row( "code", airp, true )).city );
   if ( scd_in > NoExists ) {
     d1 = UTCToLocal( scd_in, region );
     modf( d1, &local_scd_in );
@@ -2732,7 +2732,7 @@ void TFlightStages::Save( int point_id )
     }
   }
   TTripStages::WriteStagesUTC( point_id, forSaveStages );
-  on_change_trip( CALL_POINT, point_id );
+  on_change_trip( CALL_POINT, point_id, ChangeTrip::FlightStagesSave );
 }
 
 /////////////////////////////////////TFlightStations////////////////////////////
@@ -3234,6 +3234,6 @@ void TFlights::Lock(const std::string &from)
 
 std::string getRegion( const std::string &airp )
 {
-  string city =((TAirpsRow&)base_tables.get("airps").get_row( "code", airp, true )).city;
-  return ((TCitiesRow&)base_tables.get("cities").get_row( "code", city, true )).tz_region;
+  string city =((const TAirpsRow&)base_tables.get("airps").get_row( "code", airp, true )).city;
+  return ((const TCitiesRow&)base_tables.get("cities").get_row( "code", city, true )).tz_region;
 }

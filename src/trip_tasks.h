@@ -52,7 +52,26 @@ void remove_trip_task(const TTripTaskKey &task);
 
 void check_trip_tasks();
 #define CALL_POINT (string)__FILE__ + ":" +  IntToString(__LINE__)
-void on_change_trip(const std::string &descr, int point_id);
+
+class ChangeTrip
+{
+  public:
+    enum Whence
+    {
+      ExecStages,
+      SoppWriteTrips,
+      SoppWriteDests,
+      DropFlightFact,
+      DeleteISGTrips,
+      CrsDataApplyUpdates,
+      SeasonCreateSPP,
+      PointsDestDoEvents,
+      FlightStagesSave,
+      AODBParseFlight
+    };
+};
+
+void on_change_trip(const std::string &descr, int point_id, ChangeTrip::Whence whence);
 
 struct TSimpleFltInfo {
     std::string airline;
