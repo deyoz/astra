@@ -851,7 +851,16 @@ $(defmacro SAVE_GRP
   <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <TCkinSavePax>
       <agent_stat_period>3</agent_stat_period>
-      <transfer/>
+      <transfer>
+        <segment>
+          <airline>$(airl2)</airline>
+          <flt_no>$(flt2)</flt_no>
+          <suffix/>
+          <local_date>$(dd +0 en)</local_date>
+          <airp_dep>$(get_lat_code aer $(airp_dep2))</airp_dep>
+          <airp_arv>$(get_lat_code aer $(airp_arv2))</airp_arv>
+        </segment>
+      </transfer>
       <segments>
         <segment>
           <point_dep>$(point_dep1)</point_dep>
@@ -895,9 +904,13 @@ $(defmacro SAVE_GRP
               </document>
               <doco/>
               <addresses/>
-              <subclass>ù</subclass>
-              <bag_pool_num/>
-              <transfer/>
+              <subclass>ù</subclass>              
+              <bag_pool_num/>              
+              <transfer>
+                <segment>
+                  <subclass>L</subclass>
+                </segment>
+              </transfer>
               <rems>
                 <rem>
                   <rem_code>DOCS</rem_code>
@@ -949,7 +962,11 @@ $(defmacro SAVE_GRP
               <addresses/>
               <subclass>ù</subclass>
               <bag_pool_num/>
-              <transfer/>
+              <transfer>
+                <segment>
+                  <subclass>L</subclass>
+                </segment>
+              </transfer>
               <rems>
                 <rem>
                   <rem_code>DOCS</rem_code>
@@ -4286,6 +4303,11 @@ $(KICK_IN)
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
             <pr_bi_print>0</pr_bi_print>
+            <transfer>
+              <segment>
+                <subclass>L</subclass>
+              </segment>
+            </transfer>
             <service_lists>
               <service_list seg_no='0' category='1'...
               <service_list seg_no='0' category='2'...
@@ -4350,6 +4372,11 @@ $(KICK_IN)
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
             <pr_bi_print>0</pr_bi_print>
+            <transfer>
+              <segment>
+                <subclass>L</subclass>
+              </segment>
+            </transfer>
             <service_lists>
               <service_list seg_no='0' category='1'...
               <service_list seg_no='0' category='2'...
@@ -4683,9 +4710,9 @@ $(CHECK_TCKIN_ROUTE_GRP_2 $(get point_dep) $(get point_arv) ë7 1027 èãä ëéó REPI
 $(deny_ets_interactive ûí 103 ÑåÑ)
 
 $(SAVE_GRP $(get pax_1_id) $(get pax_2_id) $(get point_dep) $(get point_arv)
-                ûí 103 ÑåÑ èãä ë7 1027 èãä ëéó
-                REPIN ADULT 2982401841689 Çá
-                REPIN INFANT 2982401841612 êå)
+           ûí 103 ÑåÑ èãä ë7 1027 èãä ëéó
+           REPIN ADULT 2982401841689 Çá
+           REPIN INFANT 2982401841612 êå)
 
 
 >>
@@ -5166,7 +5193,7 @@ UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
-UBD+R:2:25+R:1:5+R:NP+R:UT:1:2:LED:298"
+UBD+R:2:25+R:1:5+R:NP+R:UT:1:2:AER:298"
 UNT+6+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -5193,7 +5220,7 @@ UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
-UBD+R:1:13+R:1:5+R:NP+R:UT:3:1:LED:298"
+UBD+R:1:13+R:1:5+R:NP+R:UT:3:1:AER:298"
 UNT+6+1"
 UNZ+1+$(last_edifact_ref)0001"
 

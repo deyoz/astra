@@ -7972,8 +7972,11 @@ void CheckInInterface::SaveTransfer(int grp_id,
     if (s==trfer_segs.end())
       throw EXCEPTIONS::Exception("CheckInInterface::SaveTransfer: wrong trfer_segs");
     if (!s->second.second.trfer_permit)
-      throw UserException("MSG.TRANSFER_FLIGHT.NOT_MADE_TRANSFER",
-                          LParams()<<LParam("flight",t->flight_view));
+#ifdef XP_TESTING
+        if(!inTestMode())
+#endif//XP_TESTING
+            throw UserException("MSG.TRANSFER_FLIGHT.NOT_MADE_TRANSFER",
+                              LParams()<<LParam("flight",t->flight_view));
     s++;
 
     TrferQry.SetVariable("transfer_num",trfer_num);

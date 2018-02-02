@@ -1200,7 +1200,19 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
                                                        lPaxGrp));
 }
 
-static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
+static bool ediTabsContainsDestination(const XmlCheckInTabs& tabs, const std::string& dest)
+{
+    LogTrace(TRACE3) << "check destination for " << dest;
+    for(const auto tab: tabs.ediTabs()) {
+        if(BaseTables::Port(tab.seg().m_airpArv)->ida() == BaseTables::Port(dest)->ida()) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static boost::optional<iatci::CkuParams> getUpdateBaggageParams(xmlNodePtr reqNode)
 {
     int ownGrpId = getGrpId(reqNode, NULL, IatciInterface::Cku);
     XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
@@ -1345,23 +1357,34 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
             }
         }
 
-        lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makeQryPax(adult.get(), inft),
-                                                  boost::none, // Reserv
-                                                  boost::none, // Baggage
-                                                  boost::none, // Service
-                                                  infant,
-                                                  boost::none,
-                                                  boost::none,
-                                                  iatci::makeUpdBaggage(total,
-                                                                        handTotal,
-                                                                        bagTags),
-                                                  boost::none,
-                                                  boost::none,
-                                                  boost::none));
+        boost::optional<astra_entities::BaggageTag> firstBagTag;
+        if(!bagTags.empty()) {
+            firstBagTag = bagTags.front();
+        }
+
+        if(firstBagTag && ediTabsContainsDestination(oldIatciTabs, firstBagTag->destination()))
+        {
+            lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makeQryPax(adult.get(), inft),
+                                                      boost::none, // Reserv
+                                                      boost::none, // Baggage
+                                                      boost::none, // Service
+                                                      infant,
+                                                      boost::none,
+                                                      boost::none,
+                                                      iatci::makeUpdBaggage(total,
+                                                                            handTotal,
+                                                                            bagTags),
+                                                      boost::none,
+                                                      boost::none,
+                                                      boost::none));
+        }
     }
 
 
-    ASSERT(!lPaxGrp.empty());
+    if(lPaxGrp.empty()) {
+        LogTrace(TRACE0) << "Non-iatci pax bag change!";
+        return boost::none;
+    }
 
     return iatci::CkuParams(makeOrg(ownGrpId),
                             boost::none,
