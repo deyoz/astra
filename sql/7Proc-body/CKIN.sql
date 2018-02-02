@@ -264,19 +264,10 @@ BEGIN
     IF vexcess>0 THEN RETURN 1; END IF;
   ELSE
     IF vpax_id IS NOT NULL THEN
-      IF vexcess_wt IS NULL AND vexcess_pc IS NULL THEN
-        SELECT COUNT(*)
-        INTO res
-        FROM paid_bag_pc
-        WHERE pax_id=vpax_id AND
-              status IN ('unknown', 'paid', 'need') AND
-              rownum<2;
-      ELSE
-        SELECT COUNT(*)
-        INTO res
-        FROM paid_rfisc
-        WHERE pax_id=vpax_id AND paid>0 AND rownum<2;
-      END IF;
+      SELECT COUNT(*)
+      INTO res
+      FROM paid_rfisc
+      WHERE pax_id=vpax_id AND paid>0 AND rownum<2;
 
       IF res>0 THEN RETURN 1; END IF;
     END IF;
@@ -324,26 +315,13 @@ BEGIN
     END IF;
   ELSE
     IF vpax_id IS NOT NULL THEN
-      IF vexcess_wt IS NULL AND vexcess_pc IS NULL THEN
-        IF include_all_svc=0 THEN
-          NULL;
-        ELSE
-          SELECT COUNT(*)
-          INTO vexcess
-          FROM paid_bag_pc
-          WHERE pax_id=vpax_id AND
-                transfer_num=0 AND
-                status IN ('unknown', 'paid', 'need');
-        END IF;
+      IF include_all_svc=0 THEN
+        vexcess:=vexcess_pc;
       ELSE
-        IF include_all_svc=0 THEN
-          vexcess:=vexcess_pc;
-        ELSE
-          SELECT NVL(SUM(paid), 0)
-          INTO vexcess
-          FROM paid_rfisc
-          WHERE pax_id=vpax_id AND paid>0 AND transfer_num=0;
-        END IF;
+        SELECT NVL(SUM(paid), 0)
+        INTO vexcess
+        FROM paid_rfisc
+        WHERE pax_id=vpax_id AND paid>0 AND transfer_num=0;
       END IF;
     END IF;
   END IF;
@@ -847,6 +825,8 @@ BEGIN
       END IF;
       IF curRow.refuse='€' THEN
         deleted:=deleted+1;
+        DELETE FROM pax_events WHERE pax_id=curRow.pax_id;
+        DELETE FROM stat_ad WHERE pax_id=curRow.pax_id;
         DELETE FROM confirm_print WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_doc WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_doco WHERE pax_id=curRow.pax_id;
@@ -855,7 +835,6 @@ BEGIN
         DELETE FROM pax_asvc WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_emd WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_norms WHERE pax_id=curRow.pax_id;
-        DELETE FROM pax_norms_pc WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_brands WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_rem WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_rem_origin WHERE pax_id=curRow.pax_id;
@@ -863,8 +842,6 @@ BEGIN
         DELETE FROM rozysk WHERE pax_id=curRow.pax_id;
         DELETE FROM transfer_subcls WHERE pax_id=curRow.pax_id;
         DELETE FROM trip_comp_layers WHERE pax_id=curRow.pax_id;
-        DELETE FROM paid_bag_pc WHERE pax_id=curRow.pax_id;
-        UPDATE paid_bag_emd SET pax_id=NULL WHERE pax_id=curRow.pax_id;
         UPDATE service_payment SET pax_id=NULL WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_alarms WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_service_lists WHERE pax_id=curRow.pax_id;
@@ -956,7 +933,6 @@ BEGIN
     DELETE FROM bag2 WHERE grp_id=vgrp_id;
     DELETE FROM grp_norms WHERE grp_id=vgrp_id;
     DELETE FROM paid_bag WHERE grp_id=vgrp_id;
-    DELETE FROM paid_bag_emd WHERE grp_id=vgrp_id;
     DELETE FROM paid_bag_emd_props WHERE grp_id=vgrp_id;
     DELETE FROM service_payment WHERE grp_id=vgrp_id;
     DELETE FROM tckin_pax_grp WHERE grp_id=vgrp_id;

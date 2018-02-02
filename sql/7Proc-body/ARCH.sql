@@ -556,19 +556,49 @@ BEGIN
       DELETE FROM pfs_stat WHERE rowid=rowids(i);
 
     SELECT rowid BULK COLLECT INTO rowids
-    FROM voucher_stat
+    FROM stat_ad
     WHERE point_id=curRow.point_id FOR UPDATE;
     IF use_insert THEN
       FORALL i IN 1..rowids.COUNT
-        INSERT INTO arx_voucher_stat
-        (id, pax_id, time_print, point_id, scd_out, surname, name, voucher, desk, part_key)
+        INSERT INTO arx_stat_ad
+        (scd_out, point_id, pax_id, pnr, class, client_type, bag_amount, bag_weight, seat_no, seat_no_lat, desk, station, part_key)
         SELECT
-         id, pax_id, time_print, point_id, scd_out, surname, name, voucher, desk, vpart_key
-        FROM voucher_stat
+        scd_out, point_id, pax_id, pnr, class, client_type, bag_amount, bag_weight, seat_no, seat_no_lat, desk, station, vpart_key
+        FROM stat_ad
         WHERE rowid=rowids(i);
     END IF;
     FORALL i IN 1..rowids.COUNT
-      DELETE FROM voucher_stat WHERE rowid=rowids(i);
+      DELETE FROM stat_ad WHERE rowid=rowids(i);
+
+    SELECT rowid BULK COLLECT INTO rowids
+    FROM stat_ha
+    WHERE point_id=curRow.point_id FOR UPDATE;
+    IF use_insert THEN
+      FORALL i IN 1..rowids.COUNT
+        INSERT INTO arx_stat_ha
+        (point_id, hotel_id, room_type, scd_out, adt, chd, inf, part_key)
+        SELECT
+         point_id, hotel_id, room_type, scd_out, adt, chd, inf, vpart_key
+        FROM stat_ha
+        WHERE rowid=rowids(i);
+    END IF;
+    FORALL i IN 1..rowids.COUNT
+      DELETE FROM stat_ha WHERE rowid=rowids(i);
+
+    SELECT rowid BULK COLLECT INTO rowids
+    FROM stat_vo
+    WHERE point_id=curRow.point_id FOR UPDATE;
+    IF use_insert THEN
+      FORALL i IN 1..rowids.COUNT
+        INSERT INTO arx_stat_vo
+        (point_id, voucher, scd_out, amount, part_key)
+        SELECT
+         point_id, voucher, scd_out, amount, vpart_key
+        FROM stat_vo
+        WHERE rowid=rowids(i);
+    END IF;
+    FORALL i IN 1..rowids.COUNT
+      DELETE FROM stat_vo WHERE rowid=rowids(i);
 
     SELECT rowid BULK COLLECT INTO rowids
     FROM trfer_pax_stat
@@ -584,6 +614,21 @@ BEGIN
     END IF;
     FORALL i IN 1..rowids.COUNT
       DELETE FROM trfer_pax_stat WHERE rowid=rowids(i);
+
+    SELECT rowid BULK COLLECT INTO rowids
+    FROM bi_stat
+    WHERE point_id=curRow.point_id FOR UPDATE;
+    IF use_insert THEN
+      FORALL i IN 1..rowids.COUNT
+        INSERT INTO arx_bi_stat
+        (point_id, scd_out, pax_id, print_type, terminal, hall, op_type, pr_print, time_print, desk, part_key)
+        SELECT
+         point_id, scd_out, pax_id, print_type, terminal, hall, op_type, pr_print, time_print, desk, vpart_key
+        FROM bi_stat
+        WHERE rowid=rowids(i);
+    END IF;
+    FORALL i IN 1..rowids.COUNT
+      DELETE FROM bi_stat WHERE rowid=rowids(i);
 
     SELECT rowid BULK COLLECT INTO rowids
     FROM agent_stat
@@ -1019,10 +1064,10 @@ BEGIN
         IF use_insert THEN
           FORALL i IN 1..rowids.COUNT
             INSERT INTO arx_pax_doc
-              (pax_id,type,issue_country,no,nationality,birth_date,gender,expiry_date,
+              (pax_id,type,subtype,issue_country,no,nationality,birth_date,gender,expiry_date,
                surname,first_name,second_name,pr_multi,type_rcpt,scanned_attrs,part_key)
             SELECT
-               pax_id,type,issue_country,no,nationality,birth_date,gender,expiry_date,
+               pax_id,type,subtype,issue_country,no,nationality,birth_date,gender,expiry_date,
                surname,first_name,second_name,pr_multi,type_rcpt,scanned_attrs,vpart_key
             FROM pax_doc
             WHERE rowid=rowids(i);
@@ -1036,9 +1081,9 @@ BEGIN
         IF use_insert THEN
           FORALL i IN 1..rowids.COUNT
             INSERT INTO arx_pax_doco
-              (pax_id,birth_place,type,no,issue_place,issue_date,expiry_date,applic_country,scanned_attrs,part_key)
+              (pax_id,birth_place,type,subtype,no,issue_place,issue_date,expiry_date,applic_country,scanned_attrs,part_key)
             SELECT
-               pax_id,birth_place,type,no,issue_place,issue_date,expiry_date,applic_country,scanned_attrs,vpart_key
+               pax_id,birth_place,type,subtype,no,issue_place,issue_date,expiry_date,applic_country,scanned_attrs,vpart_key
             FROM pax_doco
             WHERE rowid=rowids(i);
         END IF;
@@ -1060,18 +1105,17 @@ BEGIN
         FORALL i IN 1..rowids.COUNT
           DELETE FROM pax_doca WHERE rowid=rowids(i);
 
+        DELETE FROM pax_events WHERE pax_id=paxids(k);
+        DELETE FROM stat_ad WHERE pax_id=paxids(k);
         DELETE FROM confirm_print WHERE pax_id=paxids(k);
         DELETE FROM pax_fqt WHERE pax_id=paxids(k);
         DELETE FROM pax_asvc WHERE pax_id=paxids(k);
         DELETE FROM pax_emd WHERE pax_id=paxids(k);
-        DELETE FROM pax_norms_pc WHERE pax_id=paxids(k);
         DELETE FROM pax_brands WHERE pax_id=paxids(k);
         DELETE FROM pax_rem_origin WHERE pax_id=paxids(k);
         DELETE FROM pax_seats WHERE pax_id=paxids(k);
         DELETE FROM rozysk WHERE pax_id=paxids(k);
         DELETE FROM trip_comp_layers WHERE pax_id=paxids(k);
-        DELETE FROM paid_bag_pc WHERE pax_id=paxids(k);
-        UPDATE paid_bag_emd SET pax_id=NULL WHERE pax_id=paxids(k);
         UPDATE service_payment SET pax_id=NULL WHERE pax_id=paxids(k);
         DELETE FROM pax_alarms WHERE pax_id=paxids(k);
         DELETE FROM pax_service_lists WHERE pax_id=paxids(k);
@@ -1083,7 +1127,6 @@ BEGIN
       END LOOP;
       FORALL i IN 1..paxrowids.COUNT
         DELETE FROM pax WHERE rowid=paxrowids(i);
-      DELETE FROM paid_bag_emd WHERE grp_id=grpids(j);
       DELETE FROM paid_bag_emd_props WHERE grp_id=grpids(j);
       DELETE FROM service_payment WHERE grp_id=grpids(j);
       DELETE FROM tckin_pax_grp WHERE grp_id=grpids(j);
@@ -1144,6 +1187,10 @@ BEGIN
     DELETE FROM wb_msg_text where id in(SELECT id FROM wb_msg WHERE point_id = curRow.point_id);
     DELETE FROM wb_msg where point_id = curRow.point_id;
     DELETE FROM trip_vouchers WHERE point_id=curRow.point_id;
+    DELETE FROM confirm_print_vo_unreg WHERE point_id = curRow.point_id;
+    DELETE FROM hotel_acmd_pax WHERE point_id = curRow.point_id;
+    DELETE FROM hotel_acmd_free_pax WHERE point_id = curRow.point_id;
+    DELETE FROM hotel_acmd_dates WHERE point_id = curRow.point_id;
   END LOOP;
   DELETE FROM points WHERE move_id=vmove_id;
   DELETE FROM move_ref WHERE move_id=vmove_id;
@@ -1447,7 +1494,7 @@ BEGIN
   remain_rows:=max_rows;
   time_finish:=SYSDATE+time_duration/86400;
 
-  WHILE step>=1 AND step<=5 LOOP
+  WHILE step>=1 AND step<=6 LOOP
     IF SYSDATE>time_finish THEN RETURN; END IF;
     IF step=1 THEN
       OPEN cur FOR
@@ -1538,6 +1585,10 @@ BEGIN
     END IF;
     IF step=5 THEN
       DELETE FROM eticks_display WHERE last_display<arx_date AND rownum<=remain_rows;
+      remain_rows:=remain_rows-SQL%ROWCOUNT;
+    END IF;
+    IF step=6 THEN
+      DELETE FROM eticks_display_tlgs WHERE last_display<arx_date AND rownum<=remain_rows;
       remain_rows:=remain_rows-SQL%ROWCOUNT;
     END IF;
 
