@@ -800,7 +800,7 @@ void TFilter::Parse( xmlNodePtr filterNode )
   string sairpcity = city;
   if ( !airp.empty() ) {
     /* проверка на совпадение города с аэропортом */
-    sairpcity = ((TAirpsRow&)baseairps.get_row( "code", airp )).city;
+    sairpcity = ((const TAirpsRow&)baseairps.get_row( "code", airp )).city;
     if ( !city.empty() && sairpcity != city )
       throw AstraLocale::UserException( "MSG.GIVEN_AIRP_NOT_BELONGS_TO_GIVEN_CITY" );
   }
@@ -1048,7 +1048,7 @@ void CreateSPP( TDateTime localdate )
         PQry.SetVariable( "pr_del", d->pr_del );
 
         int pr_reg = ( d->scd_out > NoExists &&
-                       ((TTripTypesRow&)TripTypes.get_row("code", d->triptype )).pr_reg != 0 &&
+                       ((const TTripTypesRow&)TripTypes.get_row("code", d->triptype )).pr_reg != 0 &&
                        d->pr_del == 0 && d != im->second.dests.end() - 1 );
         if ( pr_reg ) {
           TDests::iterator r=d;
@@ -1090,7 +1090,7 @@ void CreateSPP( TDateTime localdate )
       TTlgBinding(true).bind_flt_oper(flts);
       TTrferBinding().bind_flt_oper(flts);
       for ( vector<int>::const_iterator i = points.begin(); i != points.end(); i++) {
-        on_change_trip( CALL_POINT, *i );
+        on_change_trip( CALL_POINT, *i, ChangeTrip::SeasonCreateSPP );
       };
     }
   }
@@ -1702,7 +1702,7 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
         }
         if ( dest.airp.empty() )
           throw AstraLocale::UserException( "MSG.AIRP.INVALID_GIVEN_CODE" );
-        dest.city = ((TAirpsRow&)baseairps.get_row( "code", dest.airp )).city;
+        dest.city = ((const TAirpsRow&)baseairps.get_row( "code", dest.airp )).city;
         dest.region = CityTZRegion( dest.city );
         node = GetNodeFast( "cancel", curNode );
         if ( node )

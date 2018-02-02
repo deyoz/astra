@@ -1688,7 +1688,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     if ( old_act != fl.act ) {
       ChangeACT_OUT( point_id, old_act, fl.act );
     }
-    on_change_trip( CALL_POINT, point_id );
+    on_change_trip( CALL_POINT, point_id, ChangeTrip::AODBParseFlight );
   }
   catch(EOracleError &E)
   {

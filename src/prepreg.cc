@@ -17,7 +17,6 @@
 #include "points.h"
 #include "term_version.h"
 #include "trip_tasks.h"
-#include "counters.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -614,9 +613,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     }
   };
 
-  CheckIn::TCountersCover().recount(point_id, CheckIn::TCounters::Total, __FUNCTION__);
-
-  on_change_trip( CALL_POINT, point_id );
+  on_change_trip( CALL_POINT, point_id, ChangeTrip::CrsDataApplyUpdates );
 
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   if ( GetNode( "tripcounters", reqNode ) ) {

@@ -350,6 +350,7 @@ bool TCounters::setFlt(int point_id)
   {
     clear();
     if (!_flt.getByPointId(point_id)) return false;
+    if (_flt.airline.empty()) return false;
   }
 
   return _flt.point_id!=ASTRA::NoExists;
