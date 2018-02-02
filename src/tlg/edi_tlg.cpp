@@ -519,6 +519,7 @@ class AstraEdiHandlerManager : public edilib::EdiHandlerManager
 {
     boost::shared_ptr<TlgSourceEdifact> TlgSrc;
     boost::optional<TlgSourceEdifact> AnswerTlg;
+    AstraEdiSessRD *AstraSessionHandler;
     bool NeedNoAnswer;
     bool ProcSavePoint;
 
@@ -527,7 +528,7 @@ class AstraEdiHandlerManager : public edilib::EdiHandlerManager
 public:
     AstraEdiHandlerManager(boost::shared_ptr<TlgSourceEdifact> tlg) :
         edilib::EdiHandlerManager(tlg->h2h(), tlg->text().c_str()),
-        TlgSrc(tlg), NeedNoAnswer(false), ProcSavePoint(false)
+        TlgSrc(tlg), AstraSessionHandler(0), NeedNoAnswer(false), ProcSavePoint(false)
     {
     }
 
@@ -549,7 +550,7 @@ public:
     virtual edilib::EdiSessRdData * makeSessionHandler(const hth::HthInfo *hth,
                                                        const edi_mes_head &Head)
     {
-        return new AstraEdiSessRD(hth, Head);
+        return AstraSessionHandler = new AstraEdiSessRD(hth, Head);
     }
 
     bool needNoAnswer() const { return NeedNoAnswer; }
@@ -666,10 +667,10 @@ void AstraEdiHandlerManager::beforeProc()
 //                                     TlgSrc->tlgNum());
 //    }
 
-//    ProgTrace(TRACE1,"Check edifact session - Ok");
-//    /* ВСЕ ХОРОШО, ПРОДОЛЖАЕМ ... */
-//    Utils::BeforeSoftError();
-//    ProcSavePoint = true;
+    ProgTrace(TRACE1,"Check edifact session - Ok");
+    /* ВСЕ ХОРОШО, ПРОДОЛЖАЕМ ... */
+    ASTRA::beforeSoftError();
+    ProcSavePoint = true;
 }
 
 void AstraEdiHandlerManager::afterProc()
@@ -690,34 +691,21 @@ void AstraEdiHandlerManager::afterProc()
 
 void AstraEdiHandlerManager::afterProcFailed(const std::exception *e, const edilib::EdiRequestHandler *rh)
 {
-//    if(dynamic_cast<const PostponedTlgExcpt *>(e)) {
-//        NeedNoAnswer = true;
-//        TlgSrc->setPostponed();
-//    } else {
-//        if(ProcSavePoint)
-//            Utils::AfterSoftError();
-
-//        const EtsEdifactRequestHandler *reqHandler = dynamic_cast<const EtsEdifactRequestHandler *>(rh);
-
-//        if(!reqHandler->needPutErrToQueue()) {
-//            // no error to queue
-//            return;
-//        }
-
-//        this->put2queue(e);
-//    }
+    LogTrace(TRACE1) << __FUNCTION__;
+    if(ProcSavePoint) {
+        ASTRA::afterSoftError();
+    }
 }
 
 void AstraEdiHandlerManager::afterProcFailed(const std::exception *e, const edilib::EdiResponseHandler *rh)
 {
-//    LogTrace(TRACE1) << "EtsEdiHandlerManager::afterProcFailed";
-//    if(ProcSavePoint)
-//        Utils::AfterSoftError();
+    LogTrace(TRACE1) << __FUNCTION__;
+    if(ProcSavePoint) {
+        ASTRA::afterSoftError();
+    }
 //    // оставляем сессию в прежнем состоянии, даем отработать тайм ауту.
 //    // ситуация с ошибкой обработки ответа приравниваем к неответу
-//    etsSessionHandler->ediSession()->EdiSessNotUpdate();
-
-//    this->put2queue(e);
+    AstraSessionHandler->ediSession()->EdiSessNotUpdate();
 }
 
 void AstraEdiHandlerManager::afterMakeAnswer()

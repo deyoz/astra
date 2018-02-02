@@ -1791,6 +1791,20 @@ void rollbackSavePax()
     make_curs("rollback to savepoint sp_savepax").exec();
 }
 
+void beforeSoftError()
+{
+    const std::string sp_name("SavePointNum1");
+    make_curs(("savepoint " + sp_name)).exec();
+    ProgTrace(TRACE1, "Making savepoint - %s", sp_name.c_str());
+}
+
+void afterSoftError()
+{
+    std::string sp_name("SavePointNum1");
+    make_curs(("ROLLBACK TO SAVEPOINT " + sp_name)).exec();
+    ProgTrace(TRACE1, "RollBacking to savepoint - %s", sp_name.c_str());
+}
+
 tlgnum_t make_tlgnum(int n)
 {
   return tlgnum_t(boost::lexical_cast<std::string>(n));

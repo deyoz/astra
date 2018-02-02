@@ -632,6 +632,9 @@ void commit();
 void rollback();
 void rollbackSavePax();
 
+void beforeSoftError();
+void afterSoftError();
+
 tlgnum_t make_tlgnum(int n);
 
 XMLDoc createXmlDoc(const std::string& xml);

@@ -712,6 +712,8 @@ struct XmlBags
         : bags(b)
     {}
 
+    bool empty() const { return bags.empty(); }
+
     boost::optional<XmlBag> findBag(int paxId, int prCabin) const;
 };
 

@@ -426,9 +426,8 @@ LoadPaxXmlResult AstraEngine::SavePax(const xml_entities::XmlSegment& paxSeg,
         NewTextChild(savePaxNode, "value_bags");
 
         XmlEntityViewer::viewBags(savePaxNode, *bags);
-        if(tags) {
-            XmlEntityViewer::viewBagTags(savePaxNode, *tags);
-        }
+        ASSERT(tags); // есть сумки - ожидаем и бирки
+        XmlEntityViewer::viewBagTags(savePaxNode, *tags);
     }
 
     initReqInfo();
@@ -1114,6 +1113,7 @@ static void handleIatciCkiPax(int pointDep,
     std::list<XmlTrip> tripsFiltered = searchPaxXmlRes.applyNameFilter(PaxSurname,
                                                                        PaxName);
     if(tripsFiltered.empty()) {
+        tst();
         throw tick_soft_except(STDLOG, AstraErr::PAX_SURNAME_NF);
     }
 
@@ -1266,10 +1266,14 @@ static XmlBags readOldBags(int pointDep, const iatci::PaxDetails& pax)
     return bags;
 }
 
-static XmlBags makeBags(const XmlBags& oldBags,
-                        const XmlBags& delBags,
-                        const XmlBags& newBags)
+static boost::optional<XmlBags> makeBags(const XmlBags& oldBags,
+                                         const XmlBags& delBags,
+                                         const XmlBags& newBags)
 {
+    if(oldBags.empty() && delBags.empty() && newBags.empty()) {
+        return boost::none;
+    }
+
     XmlBags ret;
 
     LogTrace(TRACE3) << "new_bags.size = " << newBags.bags.size();

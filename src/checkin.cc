@@ -3545,7 +3545,7 @@ void CheckIn::TAfterSaveInfo::toLog(const string& where)
     //собираем агентскую статистику
     STAT::agent_stat_delta(segs.front().point_dep,
                            TReqInfo::Instance()->user.user_id,
-                           TReqInfo::Instance()->desk.code,
+                           TReqInfo::Instance()->api_mode ? "IATCIP" : TReqInfo::Instance()->desk.code,
                            agent_stat_ondate,
                            first_segment?(agent_stat_period<1?1:agent_stat_period):0,
                            agentStat.pax_amount,
