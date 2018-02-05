@@ -248,13 +248,13 @@ void createXMLADFullStat(
     NewTextChild(rowNode, "col");
     NewTextChild(rowNode, "col");
     NewTextChild(rowNode, "col");
-    NewTextChild(rowNode, "col");
+    NewTextChild(rowNode, "col", ADFullStat.RowCount());
     NewTextChild(rowNode, "col");
     NewTextChild(rowNode, "col");
     NewTextChild(rowNode, "col");
     NewTextChild(rowNode, "col", ADFullStat.baggage());
     NewTextChild(rowNode, "col");
-    NewTextChild(rowNode, "col", ADFullStat.RowCount());
+    NewTextChild(rowNode, "col");
 
     xmlNodePtr variablesNode = STAT::set_variables(resNode);
     NewTextChild(variablesNode, "stat_type", params.statType);
