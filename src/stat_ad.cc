@@ -169,10 +169,10 @@ void createXMLADFullStat(
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortDate);
     colNode = NewTextChild(headerNode, "col", getLocaleText("Ф.И.О."));
-    SetProp(colNode, "width", 50);
+    SetProp(colNode, "width", 150);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortDate);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Тип пассажира"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Тип"));
     SetProp(colNode, "width", 50);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortDate);
@@ -180,7 +180,7 @@ void createXMLADFullStat(
     SetProp(colNode, "width", 50);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortDate);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Тип регистрации"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Тип рег."));
     SetProp(colNode, "width", 50);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortDate);
@@ -228,7 +228,7 @@ void createXMLADFullStat(
                             NewTextChild(rowNode, "col", ElemIdToCodeNative(etPersType,EncodePerson(pax_id->second.pers_type)));
                             // Класс
                             NewTextChild(rowNode, "col", ElemIdToCodeNative(etClass, pax_id->second.cls));
-                            // Тип регистрации
+                            // Тип рег.
                             NewTextChild(rowNode, "col", EncodeClientType(pax_id->second.client_type));
                             // Багаж
                             NewTextChild(rowNode, "col", pax_id->second.baggage);
@@ -315,9 +315,9 @@ void TADFullStatCombo::add_header(ostringstream &buf) const
         << getLocaleText("Дата") << delim
         << "PNR" << delim
         << getLocaleText("Ф.И.О.") << delim
-        << getLocaleText("Тип пассажира") << delim
+        << getLocaleText("Тип") << delim
         << getLocaleText("Класс") << delim
-        << getLocaleText("Тип регистрации") << delim
+        << getLocaleText("Тип рег.") << delim
         << getLocaleText("Багаж") << delim
         << getLocaleText("Вых. на посадку") << delim
         << getLocaleText("№ м") << endl;
