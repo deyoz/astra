@@ -145,6 +145,8 @@ class TCrsCountersMap : public std::map<TCrsCountersKey, TCrsCountersData>
     void loadCrsCountersOnly();
     void saveCrsCountersOnly() const;
 
+    static void deleteCrsCountersOnly(int point_id);
+
   private:
     TAdvTripInfo _flt;
 };
@@ -196,10 +198,11 @@ class TCounters
     const bool& pr_tranz_reg();
     const bool& cfg_exists();
 
-    void deleteInitially(int point_id);
     void recountInitially();
     void recountFinally();
     void recountCrsFields();
+
+    static void deleteInitially(int point_id);
 
   public:
     const TCounters& recount(int point_id, RecountType type);

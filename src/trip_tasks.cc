@@ -9,6 +9,7 @@
 #include "etick.h"
 #include "tlg/remote_system_context.h"
 #include "apps_interaction.h"
+#include "counters.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -782,10 +783,18 @@ void sync_trip_tasks(int point_id)
     }
 }
 
-void on_change_trip(const string &descr, int point_id)
+void on_change_trip(const string &descr, int point_id, ChangeTrip::Whence whence)
 {
     ProgTrace(TRACE5, "%s: %s; point_id: %d", __FUNCTION__, descr.c_str(), point_id);
     try {
+        if (whence==ChangeTrip::SoppWriteDests ||
+            whence==ChangeTrip::DeleteISGTrips ||
+            whence==ChangeTrip::CrsDataApplyUpdates ||
+            whence==ChangeTrip::SeasonCreateSPP ||
+            whence==ChangeTrip::PointsDestDoEvents ||
+            whence==ChangeTrip::AODBParseFlight)
+          CheckIn::TCountersCover().recount(point_id, CheckIn::TCounters::Total, descr.c_str());
+
         TSyncTlgOutMng::Instance()->sync_all(point_id);
     } catch(std::exception &E) {
         ProgError(STDLOG,"%s: %s (point_id=%d): %s", __FUNCTION__, descr.c_str(), point_id,E.what());

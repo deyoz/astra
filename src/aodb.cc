@@ -1702,7 +1702,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
         ProgError(STDLOG,"aodb write check_trip_tasks (move_id=%d): %s",move_id,E.what());
       };
     }
-    on_change_trip( CALL_POINT, point_id );
+    on_change_trip( CALL_POINT, point_id, ChangeTrip::AODBParseFlight );
   }
   catch(EOracleError &E)
   {

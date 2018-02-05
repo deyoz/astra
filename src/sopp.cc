@@ -2861,7 +2861,7 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 check_overload_alarm( point_id );
             }
         }
-        on_change_trip( CALL_POINT, point_id );
+        on_change_trip( CALL_POINT, point_id, ChangeTrip::SoppWriteTrips );
         node = node->next;
     }
     AstraLocale::showMessage( "MSG.DATA_SAVED" );
@@ -4550,7 +4550,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     };
   }
   for( TSOPPDests::iterator i=dests.begin(); i!=dests.end(); i++ ) {
-    on_change_trip( CALL_POINT, i->point_id );
+    on_change_trip( CALL_POINT, i->point_id, ChangeTrip::SoppWriteDests );
   }
 }
 
@@ -4889,7 +4889,7 @@ void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   catch(std::exception &E) {
     ProgError(STDLOG,"DropFlightFact.check_trip_tasks (move_id=%d): %s",move_id,E.what());
   };
-  on_change_trip( CALL_POINT, point_id );
+    on_change_trip( CALL_POINT, point_id, ChangeTrip::DropFlightFact );
     SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id );
     ReadTrips( ctxt, reqNode, resNode );
 }
@@ -5526,7 +5526,7 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     ProgError(STDLOG,"DeleteISGTrips.check_trip_tasks (move_id=%d): %s",move_id,E.what());
   };
   for (TSOPPDests::iterator i=dests_del.begin(); i!=dests_del.end(); i++ ) {
-    on_change_trip( CALL_POINT, i->point_id );
+    on_change_trip( CALL_POINT, i->point_id, ChangeTrip::DeleteISGTrips );
   }
   ReBindTlgs( move_id, priorPointIds );
   TReqInfo::Instance()->LocaleToLog("EVT.FLIGHT.DELETE", LEvntPrms() << name << dests, evtDisp, move_id);
@@ -6912,6 +6912,4 @@ void set_flight_sets(int point_id, int f, int c, int y)
   };
   set_trip_sets(flt);
   puttrip_stages(point_id);
-
-  CheckIn::TCountersCover().recount(point_id, CheckIn::TCounters::Total, __FUNCTION__);
 }

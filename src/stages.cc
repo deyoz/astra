@@ -789,7 +789,7 @@ void exec_stage( int point_id, int stage_id )
            Takeoff( point_id );
            break;
   }
-  on_change_trip( CALL_POINT, point_id );
+  on_change_trip( CALL_POINT, point_id, ChangeTrip::ExecStages );
 }
 
 void astra_timer( TDateTime utcdate )
