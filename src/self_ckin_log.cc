@@ -216,6 +216,7 @@ struct TSelfCkinLog {
 
     TItemsMap items;
     void fromDB(const TParams &params);
+    void fromDB(const TParams &params, TCachedQuery &Qry);
     void toXML(xmlNodePtr resNode);
     void rowToXML(xmlNodePtr rowNodek, const TSelfCkinLogItem &log_item, const string &err = "");
     bool found(const string &value, const string &param);
@@ -312,30 +313,8 @@ void TSelfCkinLog::toXML(xmlNodePtr resNode)
     LogTrace(TRACE5) << GetXMLDocText(resNode->doc);
 }
 
-void TSelfCkinLog::fromDB(const TParams &params)
+void TSelfCkinLog::fromDB(const TParams &params, TCachedQuery &Qry)
 {
-    QParams QryParams;
-    string SQLText = "select * from kiosk_events where ";
-    if(params.sessionId.empty()) {
-        SQLText += "time > :time_from and time <= :time_to";
-        QryParams
-            << QParam("time_from", otDate, params.time_from)
-            << QParam("time_to", otDate, params.time_to);
-        if(not params.kiosks_grp.items.empty())
-            SQLText += " and kioskid in " + GetSQLEnum(params.kiosks_grp.items);
-        else if(not params.kiosk.empty()) {
-            SQLText += " and kioskid = :kiosk_id ";
-            QryParams << QParam("kiosk_id", otString, params.kiosk);
-        }
-        if(not params.app.empty()) {
-            SQLText += " and application = :app ";
-            QryParams << QParam("app", otString, params.app);
-        }
-    } else {
-        SQLText += " session_id = :sessionId ";
-        QryParams << QParam("sessionId", otString, params.sessionId);
-    }
-    TCachedQuery Qry(SQLText, QryParams);
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         int col_id = Qry.get().FieldIndex("id");
@@ -383,6 +362,46 @@ void TSelfCkinLog::fromDB(const TParams &params)
                items[logItem.time][logItem.ev_order] = logItem;
                */
         }
+    }
+}
+
+void TSelfCkinLog::fromDB(const TParams &params)
+{
+    QParams QryParams;
+    string SQLText = "select * from kiosk_events where kioskid is not null and ";
+    if(params.sessionId.empty()) {
+        SQLText += "time > :time_from and time <= :time_to";
+        QryParams
+            << QParam("time_from", otDate, params.time_from)
+            << QParam("time_to", otDate, params.time_to);
+        if(not params.kiosks_grp.items.empty())
+            SQLText += " and kioskid in " + GetSQLEnum(params.kiosks_grp.items);
+        else if(not params.kiosk.empty()) {
+            SQLText += " and kioskid = :kiosk_id ";
+            QryParams << QParam("kiosk_id", otString, params.kiosk);
+        }
+        if(not params.app.empty()) {
+            SQLText += " and application = :app ";
+            QryParams << QParam("app", otString, params.app);
+        }
+    } else {
+        SQLText += " session_id = :sessionId ";
+        QryParams << QParam("sessionId", otString, params.sessionId);
+    }
+    TCachedQuery Qry(SQLText, QryParams);
+    fromDB(params, Qry);
+    if(not params.sessionId.empty() and not items.empty()) {
+        TCachedQuery devQry(
+        "select * from kiosk_events where "
+        "   kioskid = :kiosk_id and "
+        "   type in('statusDevices', 'statusOperation') and "
+        "   time > :time_from - 5/1440 and time <= :time_to + 5/1440 ",
+        QParams()
+        << QParam("kiosk_id", otString, items.begin()->second.begin()->second.kiosk_id)
+        << QParam("time_from", otDate, items.begin()->first)
+        << QParam("time_to", otDate, items.rbegin()->first));
+
+        fromDB(params, devQry);
     }
 }
 
