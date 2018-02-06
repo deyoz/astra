@@ -780,18 +780,18 @@ void TFilterLayers::getIntFilterLayers( int point_id,
     clearFlags();
     for ( int l=0; l!=cltTypeNum; l++ ) {
     ASTRA::TCompLayerType layer_type = (ASTRA::TCompLayerType)l;
-        if ( layer_type == cltTranzit ||
-               layer_type == cltProtTrzt ||
-               layer_type == cltBlockTrzt ||
-               layer_type == cltTranzit ||
-               layer_type == cltSOMTrzt ||
-               layer_type == cltPRLTrzt ||
+    if ( layer_type == cltTranzit ||
+         layer_type == cltProtTrzt ||
+         layer_type == cltBlockTrzt ||
+         layer_type == cltTranzit ||
+         layer_type == cltSOMTrzt ||
+         layer_type == cltPRLTrzt ||
          layer_type == cltProtBeforePay ||
          layer_type == cltProtAfterPay ||
          layer_type == cltPNLBeforePay ||
          layer_type == cltPNLAfterPay ||
          layer_type == cltUnknown )
-            continue;
+      continue;
     if ( only_compon_props && !isEditableMenuLayers( layer_type, menuLayers ) ) {
       continue;
     }
