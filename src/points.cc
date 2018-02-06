@@ -3034,7 +3034,7 @@ void TPointDests::sychDests( TPointDests &new_dests, bool pr_change_dests, sychD
     else {
       prior_find_dest = j + 1;
       j->point_id = i->point_id;
-      ProgTrace( TRACE5, "find i->point_id=%d", i->point_id );
+      ProgTrace( TRACE5, "i->point_id=%d", i->point_id );
     }
   }
   if ( !pr_change_dests )
@@ -3053,8 +3053,6 @@ void TPointDests::sychDests( TPointDests &new_dests, bool pr_change_dests, sychD
          continue;
        if ( j->point_id == i->point_id ) {
          prior_find_dest = j + 1;
-         j->scd_in = i->scd_in; //???
-         j->est_in = i->est_in; //???
          break;
        }
      }

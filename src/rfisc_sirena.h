@@ -273,7 +273,7 @@ class TSvcItem : public TPaxSegRFISCKey
 {
   public:
     TServiceStatus::Enum status;
-    std::string ssr_code, ssr_text;
+    std::string ssr_text;
     TSvcItem() { clear(); }
     TSvcItem(const TPaxSegRFISCKey& _item, const TServiceStatus::Enum _status) :
       TPaxSegRFISCKey(_item), status(_status) {}
@@ -281,7 +281,6 @@ class TSvcItem : public TPaxSegRFISCKey
     {
       TPaxSegRFISCKey::clear();
       status=TServiceStatus::Unknown;
-      ssr_code.clear();
       ssr_text.clear();
     }
     const TSvcItem& toSirenaXML(xmlNodePtr node, const std::string &lang) const;

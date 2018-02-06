@@ -359,8 +359,6 @@ class TRFISCKey : public TRFISCListKey
 
     void getListItemsAuto(int pax_id, int transfer_num, const std::string& rfic,
                           TRFISCListItems& items) const;
-
-    void getListItemLastSimilar();
 };
 
 typedef std::map<TRFISCListKey, TRFISCListItem> TRFISCListMap;

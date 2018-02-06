@@ -500,7 +500,7 @@ int TBagTypeList::toDBAdv() const
   Qry.SQLText =
       "BEGIN "
       "  SELECT service_lists__seq.nextval INTO :id FROM dual; "
-      "  INSERT INTO service_lists(id, crc, rfisc_used, time_create) VALUES(:id, :crc, :rfisc_used, SYSTEM.UTCSYSDATE); "
+      "  INSERT INTO service_lists(id, crc, rfisc_used) VALUES(:id, :crc, :rfisc_used); "
       "END;";
   Qry.CreateVariable("rfisc_used", otInteger, (int)false);
   Qry.CreateVariable("id", otInteger, FNull);
