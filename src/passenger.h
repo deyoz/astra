@@ -498,7 +498,7 @@ class TSimplePaxItem
 
     TSimplePaxItem& fromDB(TQuery &Qry);
     TSimplePaxItem& fromDBCrs(TQuery &Qry);
-    bool getByPaxId(int pax_id);
+    bool getByPaxId(int pax_id, TDateTime part_key = ASTRA::NoExists);
     std::string full_name() const;
     bool api_doc_applied() const;
     bool upward_within_bag_pool(const TSimplePaxItem& pax) const;

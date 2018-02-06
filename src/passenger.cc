@@ -1425,7 +1425,8 @@ TSimplePaxItem& TSimplePaxItem::fromDB(TQuery &Qry)
   surname=Qry.FieldAsString("surname");
   name=Qry.FieldAsString("name");
   pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
-  crew_type = CrewTypes().decode(Qry.FieldAsString("crew_type"));
+  if(Qry.GetFieldIndex("crew_type") >= 0)
+      crew_type = CrewTypes().decode(Qry.FieldAsString("crew_type"));
   is_jmp=Qry.FieldAsInteger("is_jmp")!=0;
   if (Qry.GetFieldIndex("seat_no") >= 0)
     seat_no=Qry.FieldAsString("seat_no");
@@ -1456,11 +1457,21 @@ TSimplePaxItem& TSimplePaxItem::fromDBCrs(TQuery &Qry)
   return *this;
 }
 
-bool TSimplePaxItem::getByPaxId(int pax_id)
+bool TSimplePaxItem::getByPaxId(int pax_id, TDateTime part_key)
 {
   clear();
-  TCachedQuery PaxQry("SELECT pax.* FROM pax WHERE pax_id=:pax_id",
-                      QParams() << QParam("pax_id", otInteger, pax_id));
+  QParams QryParams;
+  string SQLText;
+  if(part_key == ASTRA::NoExists) {
+      SQLText = "SELECT * FROM pax WHERE pax_id=:pax_id";
+      QryParams << QParam("pax_id", otInteger, pax_id);
+  } else {
+      SQLText = "SELECT * FROM arx_pax WHERE part_key = :part_key and pax_id=:pax_id";
+      QryParams
+          << QParam("pax_id", otInteger, pax_id)
+          << QParam("part_key", otDate, part_key);
+  }
+  TCachedQuery PaxQry(SQLText, QryParams);
   PaxQry.get().Execute();
   if (PaxQry.get().Eof) return false;
   fromDB(PaxQry.get());

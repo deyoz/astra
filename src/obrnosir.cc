@@ -22,6 +22,7 @@
 #include "collect.h"
 #include "html_pages.h"
 #include "web_main.h"
+#include "db_pkg.h"
 
 int nosir_test(int argc,char **argv);
 void nosir_test_help(const char *name);
@@ -118,6 +119,7 @@ const
     {"-kuf_fix",                KUF_STAT::fix,          NULL,                       NULL},
     {"-stat_belgorod",          stat_belgorod,          NULL,                       NULL},
     {"-apis_test",              apis_test,              NULL,                       NULL},
+    {"-db_pkg",                 db_pkg,                 NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
