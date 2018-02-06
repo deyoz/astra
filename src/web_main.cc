@@ -4178,7 +4178,9 @@ void fillProtBeforePaySvcs(const TAdvTripInfo &operFlt,
             RFISCKey.service_type=TServiceType::FlightRelated;
             RFISCKey.airline=operFlt.airline;
             TSvcItem item(TPaxSegRFISCKey(Sirena::TPaxSegKey(pax_id, 0), RFISCKey), TServiceStatus::Need);
+            item.ssr_code="SEAT";
             item.ssr_text=seat.denorm_view(salonList.isCraftLat());
+            item.getListItemLastSimilar();
             pseudoGroupInfoRes->svcs.push_back(item);
           }
         }

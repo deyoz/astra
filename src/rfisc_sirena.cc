@@ -135,6 +135,7 @@ const TSvcItem& TSvcItem::toSirenaXML(xmlNodePtr node, const std::string &lang) 
 
   TPaxSegRFISCKey::toSirenaXML(node, lang);
   SetProp(node, "paid", status==TServiceStatus::Paid?"true":"false", "false");
+  SetProp(node, "ssr_code", ssr_code, "");
   SetProp(node, "ssr_text", ssr_text, "");
   return *this;
 }
