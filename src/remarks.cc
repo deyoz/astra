@@ -275,6 +275,8 @@ string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const string &lang, cons
         "UNION "
         "SELECT 'ASVC', NULL FROM pax_asvc WHERE pax_id=:pax_id "
         "UNION "
+        "SELECT TRIM(rem_code), NULL FROM pax_fqt where pax_id = :pax_id "
+        "UNION "
         "SELECT TRIM(rem_code), NULL FROM pax_rem "
         "WHERE pax_id=:pax_id AND "
         "      rem_code NOT IN (SELECT rem_code FROM rem_cats WHERE category IN ('DOC','DOCO','DOCA','TKN','ASVC'))";
