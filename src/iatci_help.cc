@@ -508,7 +508,6 @@ iatci::UpdateSeatDetails makeUpdSeat(const edifact::UsdElem& usd)
 iatci::UpdateBaggageDetails makeUpdBaggage(const edifact::UbdElem& ubd)
 {
     boost::optional<iatci::UpdateBaggageDetails::BagInfo> updBag, updHandBag;
-    std::list<iatci::UpdateBaggageDetails::BagTagInfo> updBagTags; // TODO
     if(ubd.m_bag) {
         updBag = iatci::UpdateBaggageDetails::BagInfo(ubd.m_bag->m_numOfPieces,
                                                       ubd.m_bag->m_weight);
@@ -516,6 +515,15 @@ iatci::UpdateBaggageDetails makeUpdBaggage(const edifact::UbdElem& ubd)
     if(ubd.m_handBag) {
         updHandBag = iatci::UpdateBaggageDetails::BagInfo(ubd.m_handBag->m_numOfPieces,
                                                           ubd.m_handBag->m_weight);
+    }
+    std::list<iatci::UpdateBaggageDetails::BagTagInfo> updBagTags;
+    for(const auto& tag: ubd.m_tags) {
+        uint64_t fullTag = iatci::UpdateBaggageDetails::BagTagInfo::makeFullTag(tag.m_accode,
+                                                                                tag.m_tagNum);
+        updBagTags.push_back(iatci::UpdateBaggageDetails::BagTagInfo(tag.m_carrierCode,
+                                                                     tag.m_dest,
+                                                                     fullTag,
+                                                                     tag.m_qtty));
     }
     return iatci::UpdateBaggageDetails(iatci::UpdateDetails::Replace,
                                        updBag, updHandBag, updBagTags);
@@ -698,7 +706,8 @@ boost::optional<iatci::BaggageDetails> makeBaggage(const astra_api::astra_entiti
 
 boost::optional<iatci::BaggageDetails> makeBaggage(const astra_api::astra_entities::PaxInfo& pax,
                                                    const std::list<astra_api::astra_entities::BagPool>& bags,
-                                                   const std::list<astra_api::astra_entities::BagPool>& handBags)
+                                                   const std::list<astra_api::astra_entities::BagPool>& handBags,
+                                                   const std::list<astra_api::astra_entities::BaggageTag>& bagTags)
 {
     if(!pax.bagPoolNum()) {
         return boost::none;
@@ -717,7 +726,15 @@ boost::optional<iatci::BaggageDetails> makeBaggage(const astra_api::astra_entiti
         }
     }
 
-    return iatci::BaggageDetails(bag, handBag);
+    std::list<iatci::BaggageDetails::BagTagInfo> tags;
+    for(const auto& bt: bagTags) {
+        tags.push_back(iatci::BaggageDetails::BagTagInfo(bt.carrierCode(),
+                                                         bt.destination(),
+                                                         bt.fullTag(),
+                                                         bt.numOfConsecSerial()));
+    }
+
+    return iatci::BaggageDetails(bag, handBag, tags);
 }
 
 boost::optional<iatci::DocDetails> makeDoc(const astra_api::astra_entities::PaxInfo& pax)
@@ -819,7 +836,7 @@ iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::BagP
     std::list<iatci::UpdateBaggageDetails::BagTagInfo> lBagTags;
     for(const auto& bagTag: bagTags) {
         lBagTags.push_back(iatci::UpdateBaggageDetails::BagTagInfo(bagTag.carrierCode(),
-                                                                   BaseTables::Port(bagTag.destination())->lcode(),
+                                                                   bagTag.destination(),
                                                                    bagTag.fullTag(),
                                                                    bagTag.numOfConsecSerial()));
     }

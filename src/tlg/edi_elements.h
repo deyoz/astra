@@ -871,8 +871,23 @@ struct UbdElem
         {}
     };
 
+    struct Tag
+    {
+        std::string m_actionCode;
+        std::string m_carrierCode;
+        unsigned    m_tagNum;
+        unsigned    m_qtty;
+        std::string m_dest;
+        unsigned    m_accode;
+
+        Tag()
+            : m_tagNum(0), m_qtty(0), m_accode(0)
+        {}
+    };
+
     boost::optional<Bag> m_bag;
     boost::optional<Bag> m_handBag;
+    std::list<Tag>       m_tags;
 };
 
 //---------------------------------------------------------------------------------------

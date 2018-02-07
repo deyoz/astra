@@ -2521,7 +2521,11 @@ bool ETStatusInterface::ETChangeStatus(const edifact::KickInfo &kickInfo,
                                                                      kickInfo,
                                                                      oper_carrier,
                                                                      Ticketing::FlightNum_t(oper_flight_no));
-        ths.push_back(TlgHaveSent(sessId, kickInfo.reqCtxtId));
+        if(kickInfo.reqCtxtId != ASTRA::NoExists) {
+            ths.push_back(TlgHaveSent(sessId, kickInfo.reqCtxtId));
+        } else {
+            LogTrace(TRACE0) << "kickInfo has uninitialized reqCtxtId!";
+        }
 
         result=true;
       }

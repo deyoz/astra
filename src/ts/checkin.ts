@@ -266,7 +266,10 @@ $(http_forecast content=$(get_svc_payment_status_invalid_resp))
         <recloc crs=\"1H\">09T1B3</recloc>
       </segment>
     </passenger>
-    <svc passenger-id=\"...\" segment-id=\"0\" company=\"UT\" service_type=\"C\" rfisc=\"0L1\" rfic=\"C\" emd_type=\"EMD-A\"/>
+    <svc passenger-id=\"...\" segment-id=\"0\" company=\"UT\" service_type=\"C\" rfisc=\"0L1\" rfic=\"C\" emd_type=\"EMD-A\">
+      <name language=\"en\">FISHING EQUIPMENT UPTO44LB20KG</name>
+      <name language=\"ru\">›‹‚›… ‘€‘’ˆ „ 44” 20Šƒ</name>
+    </svc>
   </svc_payment_status>
 </query>
 
@@ -377,7 +380,10 @@ $(http_forecast content=$(get_svc_payment_status_resp))
         <recloc crs=\"1H\">09T1B3</recloc>
       </segment>
     </passenger>
-    <svc passenger-id=\"...\" segment-id=\"0\" company=\"UT\" service_type=\"C\" rfisc=\"0L1\" rfic=\"C\" emd_type=\"EMD-A\"/>
+    <svc passenger-id=\"...\" segment-id=\"0\" company=\"UT\" service_type=\"C\" rfisc=\"0L1\" rfic=\"C\" emd_type=\"EMD-A\">
+      <name language=\"en\">FISHING EQUIPMENT UPTO44LB20KG</name>
+      <name language=\"ru\">›‹‚›… ‘€‘’ˆ „ 44” 20Šƒ</name>
+    </svc>
   </svc_payment_status>
 </query>
 

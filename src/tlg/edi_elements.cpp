@@ -329,6 +329,15 @@ std::ostream& operator<<(std::ostream &os, const UbdElem &ubd)
         os << "num of pieces: " << ubd.m_handBag->m_numOfPieces << "; ";
         os << "weight: " << ubd.m_handBag->m_weight;
     }
+    os << "\nUpdate tag ";
+    for(const auto& tag: ubd.m_tags) {
+        os << "action code: " << tag.m_actionCode << "; ";
+        os << "carrier code: " << tag.m_carrierCode << "; ";
+        os << "tag num: " << tag.m_tagNum << "; ";
+        os << "num consec: " << tag.m_qtty << "; ";
+        os << "dest: " << tag.m_dest << "; ";
+        os << "account code: " << tag.m_accode << "\n";
+    }
     return os;
 }
 

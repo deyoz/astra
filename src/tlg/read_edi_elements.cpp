@@ -1069,6 +1069,22 @@ boost::optional<UbdElem> readEdiUbd(_EDI_REAL_MES_STRUCT_ *pMes)
                                                            CompElement("C036"));
     }
 
+    unsigned num_c037 = GetNumComposite(pMes, "C037");
+    EdiPointHolder c037_holder(pMes);
+    for(unsigned i = 0; i < num_c037; ++i)
+    {
+        SetEdiPointToCompositeG(pMes, "C037", i, "EtErr::ProgErr");
+
+        UbdElem::Tag tag;
+        tag.m_actionCode  = GetDBFName(pMes, 9858);
+        tag.m_carrierCode = GetDBFName(pMes, 3127);
+        tag.m_tagNum      = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes, 9835);
+        tag.m_qtty        = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes, 9836);
+        tag.m_dest        = GetDBFName(pMes, 3259);
+        tag.m_accode      = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes, 3810);
+        ubd.m_tags.push_back(tag);
+    }
+
     LogTrace(TRACE3) << ubd;
 
     return ubd;

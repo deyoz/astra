@@ -704,7 +704,7 @@ void AstraEdiHandlerManager::afterProcFailed(const std::exception *e, const edil
         ASTRA::afterSoftError();
     }
 //    // оставляем сессию в прежнем состоянии, даем отработать тайм ауту.
-//    // ситуация с ошибкой обработки ответа приравниваем к неответу
+//    // ситуацию с ошибкой обработки ответа приравниваем к неответу
     AstraSessionHandler->ediSession()->EdiSessNotUpdate();
 }
 

@@ -638,7 +638,7 @@ void viewPbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::BaggageDetails& ba
             << BaseTables::Company(bagTag.carrierCode())->code(/*lang*/) << ":"
             << bagTag.tagNum() << ":"
             << bagTag.qtty() << ":"
-            << bagTag.dest() << ":"
+            << BaseTables::Port(bagTag.dest())->code(/*lang*/) << ":"
             << bagTag.tagAccode();
     }
 
@@ -786,7 +786,7 @@ void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateBaggageDetai
             << BaseTables::Company(bagTag.carrierCode())->code(/*lang*/) << ":"
             << bagTag.tagNum() << ":"
             << bagTag.qtty() << ":"
-            << bagTag.dest() << ":"
+            << BaseTables::Port(bagTag.dest())->code(/*lang*/) << ":"
             << bagTag.tagAccode();
     }
 

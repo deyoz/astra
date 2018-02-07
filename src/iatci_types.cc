@@ -1,5 +1,6 @@
 #include "iatci_types.h"
 #include "iatci_help.h"
+#include "basetables.h"
 #include "xml_unit.h"
 #include "date_time.h"
 #include "astra_locale_adv.h"
@@ -667,12 +668,12 @@ BaggageDetails::BagTagInfo::BagTagInfo(const std::string& carrierCode,
 
 unsigned BaggageDetails::BagTagInfo::tagAccode() const
 {
-    return (m_fullTag / 1000000) % 1000;
+    return getTagAccodeByTag(m_fullTag);
 }
 
 unsigned BaggageDetails::BagTagInfo::tagNum() const
 {
-    return (m_fullTag % 1000000);
+    return getTagNumByTag(m_fullTag);
 }
 
 bool BaggageDetails::BagTagInfo::consistentWith(const BagTagInfo& bt) const
@@ -685,6 +686,14 @@ bool BaggageDetails::BagTagInfo::consistentWith(const BagTagInfo& bt) const
     }
 
     return false;
+}
+
+uint64_t BaggageDetails::BagTagInfo::makeFullTag(unsigned tagAccode, unsigned tagNum)
+{
+    uint64_t fullTag = tagAccode;
+    fullTag *= 1000000;
+    fullTag += tagNum;
+    return fullTag;
 }
 
 //---------------------------------------------------------------------------------------
@@ -728,6 +737,22 @@ std::list<BaggageDetails::BagTagInfo> BaggageDetails::bagTagsReduced() const
         }
     }
 
+    return res;
+}
+
+std::list<BaggageDetails::BagTagInfo> BaggageDetails::bagTagsExpanded() const
+{
+    std::list<BaggageDetails::BagTagInfo> res;
+    for(const auto& bagTag: m_bagTags)
+    {
+        for(unsigned i = 0; i < bagTag.qtty(); ++i)
+        {
+            res.push_back(BaggageDetails::BagTagInfo(bagTag.carrierCode(),
+                                                     bagTag.dest(),
+                                                     bagTag.fullTag() + i,
+                                                     1));
+        }
+    }
     return res;
 }
 

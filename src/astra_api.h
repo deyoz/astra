@@ -280,15 +280,14 @@ struct BaggageTag
     unsigned    m_numOfConsecSerial;
     std::string m_destination;
 
+    BaggageTag(uint64_t fullTag,
+               unsigned numOfConsecSerial,
+               const std::string& dest);
+
     BaggageTag(const std::string& carrierCode,
                uint64_t fullTag,
                unsigned numOfConsecSerial,
-               const std::string& dest)
-        : m_carrierCode(carrierCode),
-          m_fullTag(fullTag),
-          m_numOfConsecSerial(numOfConsecSerial),
-          m_destination(dest)
-    {}
+               const std::string& dest);
 
     const std::string&   carrierCode() const { return m_carrierCode;       }
     uint64_t                 fullTag() const { return m_fullTag;           }
@@ -666,10 +665,10 @@ struct XmlSegment
 
     astra_entities::SegmentInfo toSeg() const;
 
-    std::list<XmlPax> nameFilter(const std::string& surname,
-                                 const std::string& name) const;
+    std::list<XmlPax> paxNameFilter(const std::string& surname,
+                                    const std::string& name) const;
 
-    boost::optional<XmlPax> idFilter(int paxId) const;
+    boost::optional<XmlPax> paxIdFilter(int paxId) const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -713,8 +712,11 @@ struct XmlBags
     {}
 
     bool empty() const { return bags.empty(); }
+    bool haveNotCabinBags() const;
 
     boost::optional<XmlBag> findBag(int paxId, int prCabin) const;
+
+    size_t totalAmount() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -727,11 +729,15 @@ struct XmlBagTag
     int         bag_num;
     bool        pr_print;
 
+    // доп инфа
+    int         pax_id;
+
     XmlBagTag()
         : num(ASTRA::NoExists),
           no(ASTRA::NoExists),
           bag_num(ASTRA::NoExists),
-          pr_print(false)
+          pr_print(false),
+          pax_id(ASTRA::NoExists)
     {}
 };
 
@@ -746,6 +752,9 @@ struct XmlBagTags
     XmlBagTags(const std::list<XmlBagTag>& bt)
         : bagTags(bt)
     {}
+
+    bool empty() const { return bagTags.empty(); }
+    bool containsTagForPax(int paxId) const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -1014,9 +1023,11 @@ public:
     static xmlNodePtr viewSeg(xmlNodePtr node, const XmlSegment& seg);
 
     static xmlNodePtr viewBag(xmlNodePtr node, const XmlBag& bag);
+    static xmlNodePtr viewBagsHeader(xmlNodePtr node);
     static xmlNodePtr viewBags(xmlNodePtr node, const XmlBags& bags);
 
     static xmlNodePtr viewBagTag(xmlNodePtr node, const XmlBagTag& tag);
+    static xmlNodePtr viewBagTagsHeader(xmlNodePtr node);
     static xmlNodePtr viewBagTags(xmlNodePtr node, const XmlBagTags& tags);
 
     static xmlNodePtr viewServiveList(xmlNodePtr node, const XmlServiceList& svcList);
@@ -1105,7 +1116,8 @@ struct LoadPaxXmlResult
 {
     std::list<XmlSegment> lSeg;
 
-    std::list<XmlBag> lBag;
+    std::list<XmlBag>     lBag;
+    std::list<XmlBagTag>  lBagTag;
 
     std::vector<iatci::dcrcka::Result> toIatci(iatci::dcrcka::Result::Action_e action,
                                                iatci::dcrcka::Result::Status_e status) const;
@@ -1118,7 +1130,12 @@ struct LoadPaxXmlResult
 
     LoadPaxXmlResult(xmlNodePtr node);
     LoadPaxXmlResult(const std::list<XmlSegment>& lSeg,
-                     const std::list<XmlBag>& lBag = std::list<XmlBag>());
+                     const std::list<XmlBag>& lBag = std::list<XmlBag>(),
+                     const std::list<XmlBagTag>& lBagTag = std::list<XmlBagTag>());
+
+private:
+    void finalizeBags();
+    void finalizeBagTags();
 };
 
 //---------------------------------------------------------------------------------------

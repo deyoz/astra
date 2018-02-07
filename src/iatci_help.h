@@ -91,7 +91,8 @@ boost::optional<iatci::ServiceDetails>     makeService(const astra_api::astra_en
 boost::optional<iatci::BaggageDetails>     makeBaggage(const astra_api::astra_entities::PaxInfo& pax);
 boost::optional<iatci::BaggageDetails>     makeBaggage(const astra_api::astra_entities::PaxInfo& pax,
                                                        const std::list<astra_api::astra_entities::BagPool>& bags,
-                                                       const std::list<astra_api::astra_entities::BagPool>& handBags);
+                                                       const std::list<astra_api::astra_entities::BagPool>& handBags,
+                                                       const std::list<astra_api::astra_entities::BaggageTag> &bagTags);
 boost::optional<iatci::DocDetails>         makeDoc(const astra_api::astra_entities::PaxInfo& pax);
 boost::optional<iatci::AddressDetails>     makeAddress(const astra_api::astra_entities::PaxInfo& pax);
 boost::optional<iatci::CascadeHostDetails> makeCascade();
@@ -156,5 +157,17 @@ void iatci2xml(xmlNodePtr node, const std::list<dcrcka::Result>& lRes,
 void iatci2xmlSmp(xmlNodePtr node, const dcrcka::Result& res);
 void iatci2xmlSmpUpd(xmlNodePtr node, const dcrcka::Result& res,
                      const Seat& oldSeat, const Seat& newSeat);
+
+//---------------------------------------------------------------------------------------
+
+inline unsigned getTagAccodeByTag(const uint64_t& tag)
+{
+    return (tag / 1000000) % 1000;
+}
+
+inline unsigned getTagNumByTag(const uint64_t& tag)
+{
+    return (tag % 1000000);
+}
 
 }//namespace iatci

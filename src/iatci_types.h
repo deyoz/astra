@@ -535,6 +535,8 @@ struct BaggageDetails
 
         bool            consistentWith(const BagTagInfo& bt) const;
 
+        static uint64_t makeFullTag(unsigned tagAccode, unsigned tagNum);
+
     protected:
         BagTagInfo()
             : m_fullTag(0), m_qtty(0)
@@ -556,6 +558,7 @@ public:
     const std::list<BagTagInfo>&      bagTags() const { return m_bagTags; }
 
     std::list<BagTagInfo>     bagTagsReduced() const;
+    std::list<BagTagInfo>    bagTagsExpanded() const;
 
 protected:
     BaggageDetails()

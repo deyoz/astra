@@ -685,6 +685,7 @@ void GetEdiError(const xmlNodePtr errorCtxtNode,
 
 void WritePostponedContext(tlgnum_t tnum, int reqCtxtId)
 {
+    ASSERT(reqCtxtId != ASTRA::NoExists);
     LogTrace(TRACE1) << __FUNCTION__ << " ctxt_id=" << reqCtxtId << "; msg_id=" << tnum;
     OciCpp::CursCtl cur = make_curs(
 "insert into POSTPONED_TLG_CONTEXT (MSG_ID, REQ_CTXT_ID) "
