@@ -7,6 +7,7 @@
 #include "report_common.h"
 #include "stat_utils.h"
 #include "docs.h"
+#include "cr_lf.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -15,6 +16,43 @@ using namespace ASTRA;
 using namespace std;
 using namespace BASIC::date_time;
 using namespace AstraLocale;
+
+class TKioskEventTypes {
+    public:
+        enum Enum {
+            postScreen,
+            getScreen,
+            statusOperation,
+            statusDevices,
+            Unknown
+        };
+
+        static const std::list< std::pair<Enum, std::string> >& pairsCodes()
+        {
+            static std::list< std::pair<Enum, std::string> > l;
+            if (l.empty())
+            {
+                l.push_back(std::make_pair(postScreen,      "postScreen"));
+                l.push_back(std::make_pair(getScreen,       "getScreen"));
+                l.push_back(std::make_pair(statusOperation, "statusOperation"));
+                l.push_back(std::make_pair(statusDevices,   "statusDevices"));
+                l.push_back(std::make_pair(Unknown, ""));
+            }
+            return l;
+        }
+};
+
+class TKioskEventTypesCode: public ASTRA::PairList<TKioskEventTypes::Enum, std::string>
+{
+    private:
+        virtual std::string className() const { return "TKioskEventTypesCode"; }
+    public:
+        TKioskEventTypesCode() : ASTRA::PairList<TKioskEventTypes::Enum, std::string>(TKioskEventTypes::pairsCodes(),
+                boost::none,
+                boost::none) {}
+};
+
+
 
 namespace KIOSK_PARAM_NAME {
     const string REFERENCE = "__REFERENCE__";
@@ -51,6 +89,9 @@ struct TParams {
 
     TKiosksGrp kiosks_grp;
 
+    bool dev_log;
+    bool screen_log;
+
     TParams() { clear(); }
     void clear();
     void fromXML(xmlNodePtr reqNode);
@@ -86,6 +127,8 @@ void TParams::fromXML(xmlNodePtr reqNode)
         ext_src = NodeAsInteger("ext_src", reqNode, 0) != 0;
 
         kiosk = NodeAsString("kiosk", reqNode, "");
+        dev_log = NodeAsInteger("dev_log", reqNode, 0) != 0;
+        screen_log = NodeAsInteger("screen_log", reqNode, 0) != 0;
     }
 }
 
@@ -102,6 +145,10 @@ void TParams::clear()
     doc.clear();
     ext_src = false;
     kiosk.clear();
+    kiosks_grp.items.clear();
+
+    dev_log = false;
+    screen_log = false;
 }
 
 struct TKioskEventParams {
@@ -178,14 +225,14 @@ void TKioskEventParams::fromDB(int event_id)
                     page_idx != name_idx->second.end(); page_idx++) {
                 value += page_idx->second;
             }
-            items[num_idx->first][name_idx->first] = value;
+            items[num_idx->first][name_idx->first] = place_CR_LF(value);
         }
     }
 }
 
 struct TSelfCkinLogItem {
     int id;
-    string type;
+    TKioskEventTypes::Enum type;
     string app;
     string screen;
     string kiosk_id;
@@ -201,7 +248,7 @@ struct TSelfCkinLogItem {
     void clear()
     {
         id = NoExists;
-        type.clear();
+        type = TKioskEventTypes::Unknown;
         app.clear();
         screen.clear();
         kiosk_id.clear();
@@ -229,6 +276,7 @@ bool TSelfCkinLog::found(const string &value, const string &param)
 
 void TSelfCkinLog::rowToXML(xmlNodePtr rowNode, const TSelfCkinLogItem &log_item, const string &err)
 {
+    SetProp(rowNode, "id", log_item.id);
     // Время
     NewTextChild(rowNode, "col", DateTimeToStr(log_item.time));
     // Киоск
@@ -327,7 +375,7 @@ void TSelfCkinLog::fromDB(const TParams &params, TCachedQuery &Qry)
         for(; not Qry.get().Eof; Qry.get().Next()) {
             TSelfCkinLogItem logItem;
             logItem.id = Qry.get().FieldAsInteger(col_id);
-            logItem.type = Qry.get().FieldAsString(col_type);
+            logItem.type = TKioskEventTypesCode().decode(Qry.get().FieldAsString(col_type));
             logItem.app = Qry.get().FieldAsString(col_app);
             logItem.screen = Qry.get().FieldAsString(col_screen);
             logItem.kiosk_id = Qry.get().FieldAsString(col_kiosk_id);
@@ -336,18 +384,21 @@ void TSelfCkinLog::fromDB(const TParams &params, TCachedQuery &Qry)
             logItem.evt_params.fromDB(logItem.id);
 
             if(
-                    not params.sessionId.empty() or (
-                        (params.flt.empty() or
-                         logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::FLIGHT) == params.flt) and
-                        (params.date.empty() or
-                         logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::DATE) == params.date) and
-                        (params.pax_name.empty() or
-                         upperc(logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::LAST_NAME)).find(params.pax_name) != string::npos) and
-                        (params.tkt.empty() or
-                         upperc(logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::TICKET)).find(params.tkt) != string::npos) and
-                        (params.doc.empty() or
-                         upperc(logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::DOC)).find(params.doc) != string::npos)
-                        )
+                    not params.sessionId.empty() or
+                    logItem.type == TKioskEventTypes::statusOperation or
+                    logItem.type == TKioskEventTypes::statusDevices or
+                    (
+                     (params.flt.empty() or
+                      logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::FLIGHT) == params.flt) and
+                     (params.date.empty() or
+                      logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::DATE) == params.date) and
+                     (params.pax_name.empty() or
+                      upperc(logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::LAST_NAME)).find(params.pax_name) != string::npos) and
+                     (params.tkt.empty() or
+                      upperc(logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::TICKET)).find(params.tkt) != string::npos) and
+                     (params.doc.empty() or
+                      upperc(logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::DOC)).find(params.doc) != string::npos)
+                    )
               )
                 items[logItem.time][logItem.ev_order] = logItem;
 
@@ -384,6 +435,15 @@ void TSelfCkinLog::fromDB(const TParams &params)
             SQLText += " and application = :app ";
             QryParams << QParam("app", otString, params.app);
         }
+        if(params.dev_log or params.screen_log) {
+            QryParams
+                << QParam("statusDevices", otString, TKioskEventTypesCode().encode(TKioskEventTypes::statusDevices))
+                << QParam("statusOperation", otString, TKioskEventTypesCode().encode(TKioskEventTypes::statusOperation));
+            if(params.dev_log)
+                SQLText += " and type in(:statusDevices, :statusOperation) ";
+            else if(params.screen_log)
+                SQLText += " and type not in(:statusDevices, :statusOperation) ";
+        }
     } else {
         SQLText += " session_id = :sessionId ";
         QryParams << QParam("sessionId", otString, params.sessionId);
@@ -392,14 +452,16 @@ void TSelfCkinLog::fromDB(const TParams &params)
     fromDB(params, Qry);
     if(not params.sessionId.empty() and not items.empty()) {
         TCachedQuery devQry(
-        "select * from kiosk_events where "
-        "   kioskid = :kiosk_id and "
-        "   type in('statusDevices', 'statusOperation') and "
-        "   time > :time_from - 5/1440 and time <= :time_to + 5/1440 ",
-        QParams()
-        << QParam("kiosk_id", otString, items.begin()->second.begin()->second.kiosk_id)
-        << QParam("time_from", otDate, items.begin()->first)
-        << QParam("time_to", otDate, items.rbegin()->first));
+                "select * from kiosk_events where "
+                "   kioskid = :kiosk_id and "
+                "   type in(:statusDevices, :statusOperation) and "
+                "   time > :time_from - 5/1440 and time <= :time_to + 5/1440 ",
+                QParams()
+                << QParam("kiosk_id", otString, items.begin()->second.begin()->second.kiosk_id)
+                << QParam("time_from", otDate, items.begin()->first)
+                << QParam("time_to", otDate, items.rbegin()->first)
+                << QParam("statusDevices", otString, TKioskEventTypesCode().encode(TKioskEventTypes::statusDevices))
+                << QParam("statusOperation", otString, TKioskEventTypesCode().encode(TKioskEventTypes::statusOperation)));
 
         fromDB(params, devQry);
     }

@@ -191,6 +191,7 @@ astra_SOURCES = \
   stat_utils.cc \
   stat_common.cc \
   db_pkg.cc \
+  cr_lf.cc \
   bagmessage_daemon.cc
 
 
@@ -374,5 +375,6 @@ noinst_HEADERS = \
   stat_utils.h \
   stat_common.h \
   db_pkg.h \
+  cr_lf.h \
   report_common.h \
   kiosk_alias.h
