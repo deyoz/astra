@@ -128,8 +128,8 @@ string KioskServerEvent::session_id()
             break;
         }
     }
-    if(result.empty())
-        throw EXCEPTIONS::Exception("KioskServerEvent::session_id(): not defined");
+/*    if(result.empty())
+        throw EXCEPTIONS::Exception("KioskServerEvent::session_id(): not defined");*/
     return result;
 }
 
@@ -235,7 +235,6 @@ struct KioskServerEventContainer {
          ProgTrace(TRACE5, "name=%s", (char*)node->name );
          while ( node != NULL && string((char*)node->name ) == string( "param" ) ) {
            xmlNodePtr n = node;
-           ProgTrace(TRACE5, "p=%p", n);
            ProgTrace(TRACE5, "name=%s", NodeAsString( "name", n ) );
            ProgTrace(TRACE5, "value=%s", NodeAsString( "value", n ) );
            headers[ NodeAsString( "name", n ) ] = NodeAsString( "value", n );
@@ -273,8 +272,9 @@ struct KioskServerEventContainer {
           Qry.CreateVariable( "screen", otString, event.get().screen == boost::none?string(""):event.get().screen.get() );
           Qry.CreateVariable( "kioskid", otString, event.get().kioskId==boost::none?string(""):event.get().kioskId.get() );
           Qry.CreateVariable( "time", otDate, time );
+          ProgTrace( TRACE5, "id=%d", event.get().id );
           Qry.CreateVariable( "ev_order", otInteger, event.get().id );
-          Qry.CreateVariable( "session_id", otInteger, event.get().session_id() );
+          Qry.CreateVariable( "session_id", otString, event.get().session_id() );
           Qry.Execute();
           if ( event.get().inputParams != boost::none ) {
             Qry.Clear();
