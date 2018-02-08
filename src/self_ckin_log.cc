@@ -225,7 +225,7 @@ void TKioskEventParams::fromDB(int event_id)
                     page_idx != name_idx->second.end(); page_idx++) {
                 value += page_idx->second;
             }
-            items[num_idx->first][name_idx->first] = place_CR_LF(value);
+            items[num_idx->first][name_idx->first] = value;
         }
     }
 }
@@ -284,11 +284,11 @@ void TSelfCkinLog::rowToXML(xmlNodePtr rowNode, const TSelfCkinLogItem &log_item
     // Ошибка
     NewTextChild(rowNode, "col", err);
     // Экран
-    NewTextChild(rowNode, "col", log_item.evt_params.get_param(KIOSK_PARAM_NAME::REFERENCE).begin()->second.begin()->second);
+    NewTextChild(rowNode, "col", place_CR_LF(log_item.evt_params.get_param(KIOSK_PARAM_NAME::REFERENCE).begin()->second.begin()->second));
     // Приложение
     NewTextChild(rowNode, "col", log_item.app);
     // Тип
-    NewTextChild(rowNode, "col", log_item.type);
+    NewTextChild(rowNode, "col", TKioskEventTypesCode().encode(log_item.type));
     // №
     NewTextChild(rowNode, "col", log_item.ev_order);
     // Сессия
