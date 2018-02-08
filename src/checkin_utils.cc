@@ -546,6 +546,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
                                  curr_xname, curr_yname,
                                  SEATS2::stReseat,
                                  cltUnknown,
+                                 NoExists,
                                  change_layer_flags,
                                  0, NoExists,
                                  NULL );
@@ -557,6 +558,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
                                 curr_xname, curr_yname,
                                 SEATS2::stReseat,
                                 cltUnknown,
+                                NoExists,
                                 change_layer_flags,
                                 NULL );
               }

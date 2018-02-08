@@ -580,6 +580,26 @@ void GetTlgSeatRanges(TCompLayerType layer_type,
   };
 }
 
+/*void GetTlgSeatIdsRanges(TCompLayerType layer_type,
+                         int crs_pax_id,
+                         std::set<int> ranges)
+{
+  ranges.clear();
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT range_id FROM tlg_comp_layers "
+    "WHERE crs_pax_id=:crs_pax_id AND layer_type=:layer_type";
+  Qry.CreateVariable("crs_pax_id", otInteger, crs_pax_id);
+  Qry.CreateVariable("layer_type", otString, EncodeCompLayerType(layer_type));
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    ranges.insert(Qry.FieldAsInteger("range_id"));
+  };
+}*/
+
 void SyncTripCompLayers(int point_id_tlg,
                         int point_id_spp,
                         TCompLayerType layer_type,
@@ -874,5 +894,23 @@ void check_layer_change(const TPointIdsForCheck &point_ids_spp,
     check_waitlist_alarm(*i);
   }
   SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, paxs_external_logged );
-};
+}
 
+/*void update_timeout( std::vector<int> range_ids, int time_limit )
+{
+  TQuery LayerQry(&OraSession);
+  LayerQry.Clear();
+  LayerQry.SQLText=
+  "UPDATE tlg_comp_layers "
+  "SET time_remove=SYSTEM.UTCSYSDATE+:timeout/1440 "
+  "WHERE range_id=:range_id ";
+  LayerQry.DeclareVariable("range_id", otInteger);
+  if (time_limit!=NoExists)
+    LayerQry.CreateVariable("timeout", otInteger, time_limit);
+  else
+    LayerQry.CreateVariable("timeout", otInteger, FNull);
+  for ( std::vector<int>::const_iterator irange=range_ids.begin(); irange!=range_ids.end(); irange++ ) {
+     LayerQry.SetVariable( "range_id", *irange );
+     LayerQry.Execute();
+  }
+}*/

@@ -174,7 +174,7 @@ struct TFlightInfo
 
   std::map<TStage, TTripStageTimes> stage_times;
   std::map<TStage_Type, TStage> stage_statuses;
-  bool pr_paid_ckin, free_seating;
+  bool pr_paid_ckin, free_seating, have_to_select_seats;
   TFlightInfo() { clear(); };
   TFlightInfo(int point_id)
   {
@@ -199,6 +199,7 @@ struct TFlightInfo
     stage_statuses.clear();
     pr_paid_ckin=false;
     free_seating=false;
+    have_to_select_seats=false;
   };
 
   bool operator < (const TFlightInfo &item) const

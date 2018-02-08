@@ -246,7 +246,8 @@ struct TAllowedAttributesSeat {
     if ( Qry.Eof ) {
       ProgError( STDLOG, "isWorkINFT: flight not found!!!, point_id=%d", point_id );
     }
-    pr_isWorkINFT = ( !Qry.Eof && (string("РГ") == Qry.FieldAsString( "airline") /*|| string("ЮТ") == Qry.FieldAsString( "airline")*/));
+    pr_isWorkINFT = ( !Qry.Eof &&
+                      (string("РГ") == Qry.FieldAsString( "airline")/* || string("ЮТ") == Qry.FieldAsString( "airline")*/));
     SeatsStat.stop(__FUNCTION__);
     return pr_isWorkINFT;
   }
@@ -3071,6 +3072,53 @@ class AnomalisticConditionsPayment
         pass.preseatPlaces.clear();
       }
     }
+    static void removeRemarksOnPaymentLayer( SALONS2::TSalons *Salons, TPassengers &passengers ) {
+      for ( int i=0; i<passengers.getCount(); i++ ) {
+        TPassenger &pass = passengers.Get( i );
+      //  ProgTrace( TRACE5, "pass %s", pass.toString().c_str() );
+        if ( pass.preseat_no.empty() ) {
+          continue;
+        }
+        for ( vector<SALONS2::TPlaceList*>::iterator plList=Salons->placelists.begin();
+              plList!=Salons->placelists.end(); plList++ ) {
+          TPlaceList* placeList = *plList;
+          TPoint FP;
+          if ( placeList->GetisPlaceXY( pass.preseat_no, FP ) ) {
+            for ( int j=0; j<pass.countPlace; j++ ) {
+              if ( !placeList->ValidPlace( FP ) )
+                break;
+              SALONS2::TPlace *place = placeList->place( FP );
+              TSeatLayer layer = place->getCurrLayer( Salons->trip_id );
+              if ( //place->isLayer( cltProtAfterPay, pass.paxId ) ) {
+                   (layer.layer_type == cltProtAfterPay ||
+                    layer.layer_type == cltProtSelfCkin) &&
+                   layer.crs_pax_id == pass.paxId ) {
+                tst();
+                for ( std::vector<TRem>::iterator irem=place->rems.begin(); irem!=place->rems.end(); ) {
+                  if ( isREM_SUBCLS( irem->rem ) ) {
+                    ++irem;
+                    continue;
+                  }
+                  else {
+                    ProgTrace( TRACE5, "removeRemarksOnPaymentLayer: remove rem=%s", irem->rem.c_str() );
+                    irem = place->rems.erase(irem);
+                  }
+                }
+              }
+              switch( (int)pass.Step ) {
+                case sRight:
+                   FP.x++;
+                   break;
+                case sDown:
+                   FP.y++;
+                   break;
+              }
+            }
+            break;
+          }
+        }
+      }
+    }
     static void setPayementOnWebSignal( SALONS2::TSalons *Salons, TPassengers &passengers ) {
       for ( int i=0; i<passengers.getCount(); i++ ) {
         TPassenger &pass = passengers.Get( i );
@@ -3168,6 +3216,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
   AnomalisticConditionsPayment::clearPreseatPaymentLayers( Salons, passengers );
   //AnomalisticConditionsPayment::clearTariffsOnWebSignal( Salons, passengers );
   AnomalisticConditionsPayment::setPayementOnWebSignal( Salons, passengers );
+  AnomalisticConditionsPayment::removeRemarksOnPaymentLayer( Salons, passengers );
 
   GetUseLayers( UseLayers );
   TUseLayers preseat_layers, curr_preseat_layers;
@@ -3274,7 +3323,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
            switch(FSeatAlg) {
              case 0:
                ProgTrace(TRACE5, "start sSeatGrpOnBasePlace:SeatOnlyBasePlace=%d,FCanUserSUBCLS=%d,FCanINFT=%d,prINFT=%d,AllowedAttrsSeat.pr_isWorkINFT=%d",
-                         SeatOnlyBasePlace,FCanUserSUBCLS,FCanINFT,prINFT,AllowedAttrsSeat.pr_isWorkINFT);
+                         SeatOnlyBasePlace,FCanUserSUBCLS,FCanINFT,prINFT,AllowedAttrsSeat.pr_isWorkINFT); //!!! в этом алгоритме тормозит
                break;
              case 1:
                ProgTrace(TRACE5, "start sSeatGrp:SeatOnlyBasePlace=%d,FCanUserSUBCLS=%d,FCanINFT=%d,prINFT=%d,AllowedAttrsSeat.pr_isWorkINFT=%d",
@@ -3816,7 +3865,7 @@ bool isINFT( int point_id, int pax_id ) {
   return false;
 }
 
-bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
+bool ChangeLayer( TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
                   string first_xname, string first_yname, TSeatsType seat_type,
                   bool pr_lat_seat, TChangeLayerProcFlag seatFlag )
 {
@@ -3824,6 +3873,7 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   /* разметка и проверка возможна только для платных слоев */
   if ( seatFlag != clNotPaySeat &&
        ( seat_type != stSeat || ( layer_type != cltProtBeforePay && layer_type != cltProtAfterPay && layer_type != cltProtSelfCkin  ) ) ) {
+    tst();
     throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
   }
   UseLayers[ cltProtCkin ] = false;
@@ -3996,22 +4046,28 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     strcpy( r.first.line, first_xname.c_str() );
     strcpy( r.first.row, first_yname.c_str() );
     r.second = r.first;
-    if ( !getCurrSeat( Salons, r, p ) )
+    if ( !getCurrSeat( Salons, r, p ) ) {
+      tst();
         throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
+    }
     vector<TPlaceList*>::iterator placeList = Salons.placelists.end();
     for( placeList = Salons.placelists.begin();placeList != Salons.placelists.end(); placeList++ ) {
         if ( (*placeList)->num == p.num )
             break;
     }
-    if ( placeList == Salons.placelists.end() )
+    if ( placeList == Salons.placelists.end() ) {
+      tst();
         throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
+    }
     std::vector<SALONS2::TPlace> verifyPlaces;
     TCompLayerType old_pax_layer = cltUnknown;
     for ( int i=0; i<seats_count; i++ ) { // пробег по кол-ву мест и по местам
         SALONS2::TPoint coord( p.x, p.y );
         place = (*placeList)->place( coord );
-        if ( !place->visible || !place->isplace || place->clname != strclass )
+        if ( !place->visible || !place->isplace || place->clname != strclass ) {
+            tst();
             throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
+        }
         // проверка на то, что пассажир не "ВЗ" а место у аварийного выхода
       verifyPlaces.push_back( *place );
         // проверка на то, что мы имеем право назначить слой на эти места по пассажиру
@@ -4047,9 +4103,11 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     //INFT
     bool pr_INFT = ( TReqInfo::Instance()->client_type != ctTerm &&
                      TReqInfo::Instance()->client_type != ctPNL &&
+                     seatFlag == clNotPaySeat &&
                      AllowedAttrsSeat.isWorkINFT( point_id ) &&
                      isINFT( point_id, pax_id ) ); //расчитаем prINFT
     if ( pr_INFT || !AllowedAttrsSeat.passSeats( pers_type, pr_INFT, verifyPlaces ) ) { //web-пересдка INFT запрещена
+      tst();
       throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
     }
     if ( seatFlag != clNotPaySeat &&
@@ -4063,7 +4121,11 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
         throw UserException( "MSG.SEATS.SEAT_NO.NOT_COINCIDE_WITH_PREPAID" );
       }
       changedOrNotPay = false;
-      return changedOrNotPay;
+      if ( !( seatFlag == clPaySeatSet && //надо разметить слоем
+            ( TReqInfo::Instance()->client_type == ctWeb ||
+              TReqInfo::Instance()->client_type == ctMobile ) ) ) {
+        return changedOrNotPay;
+      }
     }
     tst();
     if ( seatFlag == clPaySeatCheck ) {
@@ -4153,7 +4215,10 @@ bool ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
       case cltProtAfterPay:
       case cltPNLAfterPay:
       case cltProtSelfCkin:
-        InsertTlgSeatRanges( point_id_tlg, airp_arv, layer_type, seats, pax_id, NoExists, NoExists, false, curr_tid, point_ids_spp );
+        if ( layer_type != cltProtCkin ) { //требуется удалить старые платные слои, иначе их кол-во будет увеличиваться, отдельно вынес cltProtCkin для того, чтобы ничего по этому слою не менялось
+          DeleteTlgSeatRanges( layer_type, pax_id, curr_tid, point_ids_spp );
+        }
+        InsertTlgSeatRanges( point_id_tlg, airp_arv, layer_type, seats, pax_id, NoExists, time_limit, false, curr_tid, point_ids_spp );
         break;
       default:
         ProgTrace( TRACE5, "!!! Unuseable layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
@@ -4502,12 +4567,13 @@ void SyncPRSA( const string &airline_oper,
 }
 
 #warning 6 ChangeLayer: передавать TSalonList, чтобы не делать очередную начитку + определение приоритета слоя (layer_type,time_create,point_dep, point_arv)
-bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int point_id, int pax_id, int &tid,
+bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
                   string first_xname, string first_yname, TSeatsType seat_type, TChangeLayerProcFlag seatFlag )
 {
   bool changedOrNotPay = true;
   if ( seatFlag != clNotPaySeat &&
        ( seat_type != stSeat || ( layer_type != cltProtBeforePay && layer_type != cltProtAfterPay && layer_type != cltProtSelfCkin ) ) ) {
+    tst();
     throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
   }
   UseLayers[ cltProtCkin ] = false;
@@ -4667,13 +4733,17 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
     strcpy( r.first.line, first_xname.c_str() );
     strcpy( r.first.row, first_yname.c_str() );
     r.second = r.first;
-    if ( !getCurrSeat( salonList, r, coord, isalonList ) )
+    if ( !getCurrSeat( salonList, r, coord, isalonList ) ) {
+      tst();
         throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
+    }
     std::vector<SALONS2::TPlace> verifyPlaces;
     for ( int i=0; i<seats_count; i++ ) { // пробег по кол-ву мест и по местам
       seat = (*isalonList)->place( coord );
-      if ( !seat->visible || !seat->isplace || seat->clname != strclass )
+      if ( !seat->visible || !seat->isplace || seat->clname != strclass ) {
+        tst();
         throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
+      }
       //назначим тарифы для пассажира
       //TPropsPoints points( salonList.filterSets.filterRoutes, salonList.filterRoutes.point_dep, salonList.filterRoutes.point_arv );
       //bool pr_departure_tariff_only = true;
@@ -4770,9 +4840,11 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
     }
     bool pr_INFT = ( TReqInfo::Instance()->client_type != ctTerm &&
                      TReqInfo::Instance()->client_type != ctPNL &&
+                     seatFlag == clNotPaySeat && // разметка платным слоем через
                      AllowedAttrsSeat.isWorkINFT( point_id ) &&
                      isINFT( point_id, pax_id ) );
     if ( pr_INFT || !AllowedAttrsSeat.passSeats( pers_type, pr_INFT, verifyPlaces ) ) { //web-пересадка INFT запрещена
+      tst();
       throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
     }
     if ( seatFlag != clNotPaySeat &&
@@ -4786,7 +4858,11 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
         throw  UserException( "MSG.SEATS.SEAT_NO.NOT_COINCIDE_WITH_PREPAID" );
       }
       changedOrNotPay = false;
-      return changedOrNotPay;
+      if ( !( seatFlag == clPaySeatSet &&
+             ( TReqInfo::Instance()->client_type == ctWeb ||
+               TReqInfo::Instance()->client_type == ctMobile ) ) ) {
+        return changedOrNotPay;
+      }
     }
     tst();
   }
@@ -4871,7 +4947,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int po
       case cltPNLAfterPay:
       case cltProtSelfCkin:
         tst();
-        InsertTlgSeatRanges( point_id_tlg, airp_arv, layer_type, seatRanges, pax_id, NoExists, NoExists, false, curr_tid, point_ids_spp );
+        InsertTlgSeatRanges( point_id_tlg, airp_arv, layer_type, seatRanges, pax_id, NoExists, time_limit, false, curr_tid, point_ids_spp );
         break;
       default:
         ProgTrace( TRACE5, "!!! Unuseable layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );

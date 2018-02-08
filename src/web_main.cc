@@ -1131,7 +1131,10 @@ void IntLoadPnr( const vector<TIdsPnrData> &ids,
             case cltProtAfterPay:  seat_status="ProtAfterPay";  break;
             default: break;
           };
-        };
+        }
+        if ( seat_status.empty() && iPax->crs_seat_layer == cltProtSelfCkin ) {
+           seat_status="ProtSelfCkin";
+        }
         NewTextChild( paxNode, "seat_status", seat_status );
         NewTextChild( paxNode, "seats", iPax->seats );
         NewTextChild( paxNode, "checkin_status", iPax->checkin_status );
@@ -3040,18 +3043,18 @@ void ChangeProtLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
       TPointIdsForCheck point_ids_spp;
       if (!pr_del)
       {
-        TQuery LayerQry(&OraSession);
+/*        TQuery LayerQry(&OraSession);
         LayerQry.Clear();
         LayerQry.SQLText=
           "UPDATE tlg_comp_layers "
           "SET time_remove=SYSTEM.UTCSYSDATE+:timeout/1440 "
-          "WHERE crs_pax_id=:crs_pax_id AND layer_type=:layer_type ";
+          "WHERE range_id=:range_id ";
         LayerQry.DeclareVariable("layer_type", otString);
         LayerQry.DeclareVariable("crs_pax_id", otInteger);
         if (time_limit!=NoExists)
           LayerQry.CreateVariable("timeout", otInteger, time_limit);
         else
-          LayerQry.CreateVariable("timeout", otInteger, FNull);
+          LayerQry.CreateVariable("timeout", otInteger, FNull);*/
         VerifyPNRByPnrId(point_id, pnr_id);
         GetCrsPaxSeats(point_id, pnr, pax_seats );
         //bool UsePriorContext=false;
@@ -3087,6 +3090,7 @@ void ChangeProtLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
                                iSeat->first.yname,
                                stSeat,
                                layer_type,
+                               time_limit,
                                change_layer_flags,
                                0,
                                NoExists,
@@ -3100,13 +3104,14 @@ void ChangeProtLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
                               iSeat->first.yname,
                               stSeat,
                               layer_type,
+                              time_limit,
                               change_layer_flags,
                               NULL );
             }
             //в любом случае устанавливаем tlg_comp_layers.time_remove
-            LayerQry.SetVariable("layer_type", EncodeCompLayerType(layer_type));
+            /*LayerQry.SetVariable("layer_type", EncodeCompLayerType(layer_type));
             LayerQry.SetVariable("crs_pax_id", iPax->crs_pax_id);
-            LayerQry.Execute();
+            LayerQry.Execute();*/
 
           }
           catch(UserException &e)
@@ -3320,7 +3325,9 @@ void WebRequestsIface::ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 {
   SysReqInterface::ErrorToLog(ctxt, reqNode, resNode);
   NewTextChild(resNode, "ClientError");
-};
+}
+
+//INSERT INTO locale_messages(id,lang,text,pr_del,tid,pr_term) VALUES('EVT.PAYMENT_AFTERPAY_ERROR','RU','Ошибка разметки компоновки слоем ''После оплаты (WEB)''',0,0,0);
 
 void WebRequestsIface::PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -3348,6 +3355,8 @@ void WebRequestsIface::PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   msg.ev_type=ASTRA::evtPax;
   msg.lexema_id = "EVT.PASSENGER_DATA";
 
+  xmlNodePtr pnode = NewTextChild( resNode, "PaymentStatus" );
+  pnode = NewTextChild( pnode, "passengers" );
   xmlNodePtr paxNode=GetNode("passengers", reqNode);
   if (paxNode!=NULL) paxNode=paxNode->children;
   TPointIdsForCheck point_ids_spp; // изменения сохраняются здесь
@@ -3375,7 +3384,9 @@ void WebRequestsIface::PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
       if (isTestPaxId(crs_pax_id)) continue;
       int curr_tid = Qry.FieldAsInteger( "tid" );
       ProgTrace( TRACE5, "curr_tid=%d", curr_tid );
+      bool prAvailable;
       //удаляем слой оплаты
+      prAvailable = true;
       if ( pass==0 ) {
         if ( status=="PAID" ) { // изменяем слой оплаты с cltProtBeforePay на cltProtAfterPay
           //определяем координаты мест пасса перед оплатой
@@ -3388,18 +3399,25 @@ void WebRequestsIface::PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
             if ( seat_no == seatRange.first.denorm_view(true) ||
                  seat_no == seatRange.first.denorm_view(false) ) break;
           };
-          if (r==ranges.end())
+          prAvailable = (r!=ranges.end());
+/*          if (r==ranges.end()) {
             throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
-          InsertTlgSeatRanges(Qry.FieldAsInteger("point_id_tlg"),
-                              Qry.FieldAsString("airp_arv"),
-                              cltProtAfterPay,
-                              ranges,
-                              crs_pax_id,
-                              NoExists,NoExists,false,curr_tid,point_ids_spp);
-          DeleteTlgSeatRanges(cltProtBeforePay, crs_pax_id, curr_tid, point_ids_spp);
-          DeleteTlgSeatRanges(cltProtSelfCkin, crs_pax_id, curr_tid, point_ids_spp);
+          }*/
+          if ( prAvailable ) {
+            InsertTlgSeatRanges(Qry.FieldAsInteger("point_id_tlg"),
+                                Qry.FieldAsString("airp_arv"),
+                                cltProtAfterPay,
+                                ranges,
+                                crs_pax_id,
+                                NoExists,NoExists,false,curr_tid,point_ids_spp);
+            DeleteTlgSeatRanges(cltProtBeforePay, crs_pax_id, curr_tid, point_ids_spp);
+            DeleteTlgSeatRanges(cltProtSelfCkin, crs_pax_id, curr_tid, point_ids_spp);
+          }
         }
       }
+      xmlNodePtr n = NewTextChild( pnode, "pax" );
+      NewTextChild( n, "pax_id", crs_pax_id );
+      NewTextChild( n, "status", prAvailable?string("ok"):string("error") );
       msg.id1=Qry.FieldAsInteger("point_dep");
       msg.id2=Qry.FieldIsNULL("reg_no")?NoExists:
                                         Qry.FieldAsInteger("reg_no");
@@ -3419,11 +3437,17 @@ void WebRequestsIface::PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                << PrmLexema("param", "EVT.PAYMENT_SYSTEM_STATUS_" + status);
 
       TReqInfo::Instance()->LocaleToLog(msg);
+      if ( (!prAvailable) && status=="PAID" ) {
+          msg.prms.clearPrms();
+          msg.prms << PrmSmpl<string>("pax_name", full_name)
+                   << PrmElem<string>("pers_type", etPersType, pers_type)
+                   << PrmLexema("param", "EVT.PAYMENT_AFTERPAY_ERROR" );
+          TReqInfo::Instance()->LocaleToLog(msg);
+      }
       break;
     };
   }
   check_layer_change(point_ids_spp);
-  NewTextChild( resNode, "PaymentStatus" );
 }
 
 void RevertWebResDoc()
