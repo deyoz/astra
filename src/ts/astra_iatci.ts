@@ -1307,6 +1307,131 @@ $(defmacro REMOVE_ONE_BAG
 }) #end-of-macro
 
 
+$(defmacro REMOVE_ALL_BAGS
+    grp_id
+    tid
+    point_dep1
+    point_arv1
+    airp_dep1
+    airp_arv1
+    airp_dep2
+    airp_arv2
+    pax_id1
+    tid1
+    surname1
+    name1
+    pers_type1
+    tickno1
+    doc_type1
+    doc_no1
+    doc_nationality1
+    doc_birthdate1
+    doc_expirydate1
+    doc_surname1
+    doc_name1
+    doc_secname1
+{
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <segments>
+        <segment>
+          <point_dep>$(point_dep1)</point_dep>
+          <point_arv>$(point_arv1)</point_arv>
+          <airp_dep>$(airp_dep1)</airp_dep>
+          <airp_arv>$(airp_arv1)</airp_arv>
+          <class>Э</class>
+          <grp_id>$(grp_id)</grp_id>
+          <tid>$(tid)</tid>
+          <passengers>
+            <pax>
+              <pax_id>$(pax_id1)</pax_id>
+              <surname>$(surname1)</surname>
+              <name>$(name1)</name>
+              <pers_type>$(pers_type1)</pers_type>
+              <refuse/>
+              <ticket_no>$(tickno1)</ticket_no>
+              <coupon_no>1</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>0</ticket_confirm>
+              <document>
+                <type>$(doc_type1)</type>
+                <no>$(doc_no1)</no>
+                <nationality>$(doc_nationality1)</nationality>
+                <birth_date>$(doc_birthdate1)</birth_date>
+                <expiry_date>$(doc_expirydate1)</expiry_date>
+                <surname>$(doc_surname1)</surname>
+                <first_name>$(doc_name1)</first_name>
+                <second_name>$(doc_secname1)</second_name>
+              </document>
+              <doco/>
+              <addresses>
+                <doca>
+                  <type>B</type>
+                </doca>
+                <doca>
+                  <type>R</type>
+                </doca>
+                <doca>
+                  <type>D</type>
+                </doca>
+              </addresses>
+              <subclass>Э</subclass>
+              <bag_pool_num/>
+              <subclass>Э</subclass>
+              <tid>$(tid1)</tid>
+            </pax>
+          </passengers>
+          <service_payment/>
+        </segment>
+        <segment>
+          <point_dep>-1</point_dep>
+          <point_arv>-1</point_arv>
+          <airp_dep>$(airp_dep2)</airp_dep>
+          <airp_arv>$(airp_arv2)</airp_arv>
+          <class>Э</class>
+          <grp_id>-1</grp_id>
+          <tid>0</tid>
+          <passengers>
+            <pax>
+              <pax_id>-1</pax_id>
+              <surname>$(surname1)</surname>
+              <name>$(name1)</name>
+              <pers_type>$(pers_type1)</pers_type>
+              <refuse/>
+              <ticket_no>$(tickno1)</ticket_no>
+              <coupon_no>2</coupon_no>
+              <ticket_rem/>
+              <ticket_confirm>0</ticket_confirm>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>1</ticket_confirm>
+              <document/>
+              <doco/>
+              <addresses/>
+              <bag_pool_num/>
+              <subclass>Э</subclass>
+              <tid>0</tid>
+            </pax>
+          </passengers>
+          <service_payment/>
+        </segment>
+      </segments>
+      <hall>1</hall>
+      <bag_refuse/>
+      <value_bags/>
+      <bags/>
+      <tags pr_print='1'/>
+      <unaccomps/>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+}) #end-of-macro
+
+
 $(defmacro CANCEL_PAX
     pax_id
     grp_id
@@ -5172,17 +5297,18 @@ $(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
   </query>
 </term>}
 
-$(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
-$(set tid_adult $(get_single_tid $(get point_dep) REPIN ADULT))
-$(set tid_infant $(get_single_tid $(get point_dep) REPIN INFANT))
+
 
 $(sql "insert into TRIP_BT(POINT_ID, TAG_TYPE) values($(get point_dep), 'ЮТ')")
 $(sql "insert into NEW_TAG_GENERATING_ALGO values (null)")
 
-$(SAVE_GRP_BAGGAGE $(get grp_id) $(get tid_new)
+$(set pax_tid $(get_single_pax_tid $(get point_dep) REPIN ADULT))
+$(set tid $(get_single_tid $(get point_dep) REPIN ADULT))
+
+$(SAVE_GRP_BAGGAGE $(get grp_id) $(get tid)
                    $(get point_dep) $(get point_arv)
                    ДМД ПЛК ПЛК СОЧ
-                   $(get pax_1_id) $(get tid) REPIN ADULT ВЗ 2982401841689
+                   $(get pax_1_id) $(get pax_tid) REPIN ADULT ВЗ 2982401841689
                    P 987654321 RUS
                    "01.05.1976 00:00:00" "31.12.2049 00:00:00"
                    REPIN ADULT PETROVICH)                   
@@ -5235,7 +5361,41 @@ UNZ+1+$(last_edifact_ref)0001"
 $(KICK_IN_SILENT)
 
 $(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
+$(set pax_tid $(get_single_pax_tid $(get point_dep) REPIN ADULT))
 
+$(REMOVE_ALL_BAGS $(get grp_id) $(get tid_new)
+                  $(get point_dep) $(get point_arv)
+                  ДМД ПЛК ПЛК СОЧ
+                  $(get pax_1_id) $(get pax_tid) REPIN ADULT ВЗ 2982401841689
+                  P 987654321 RUS
+                  "01.05.1976 00:00:00" "31.12.2049 00:00:00"
+                  REPIN ADULT PETROVICH)
+
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+180208+LED+AER"
+PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
+UBD+R:0+R:0+R:NP"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+150217:0745+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+S7+1027+$(yymmdd)+LED+AER++T"
+RAD+U+P"
+UNT+4+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(KICK_IN_SILENT)
+
+
+$(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
+$(set adult_tid $(get_single_pax_tid $(get point_dep) REPIN ADULT))
+$(set infant_tid $(get_single_pax_tid $(get point_dep) REPIN INFANT))
 
 # отмена
 
@@ -5279,7 +5439,7 @@ $(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
               <addresses/>
               <bag_pool_num/>
               <subclass>Э</subclass>
-              <tid>$(get tid_adult)</tid>
+              <tid>$(get adult_tid)</tid>
             </pax>
             <pax>
               <pax_id>$(get pax_2_id)</pax_id>
@@ -5305,7 +5465,7 @@ $(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
               <addresses/>
               <bag_pool_num/>
               <subclass>Э</subclass>
-              <tid>$(get tid_infant)</tid>
+              <tid>$(get infant_tid)</tid>
             </pax>
           </passengers>
           <paid_bag_emd/>
@@ -5358,6 +5518,10 @@ $(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
       </segments>
       <hall>1</hall>
       <bag_refuse/>
+      <value_bags/>
+      <bags/>
+      <tags pr_print='1'/>
+      <unaccomps/>
     </TCkinSavePax>
   </query>
 </term>}
@@ -5371,3 +5535,4 @@ FDQ+S7+1027+$(yymmdd)+LED+AER"
 PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
 UNT+5+1"
 UNZ+1+$(last_edifact_ref)0001"
+

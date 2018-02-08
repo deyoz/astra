@@ -474,6 +474,26 @@ static std::string FP_getSingleTid(const std::vector<std::string>& p)
     return boost::lexical_cast<std::string>(paxSeg.seg_info.tid);
 }
 
+static std::string FP_getSinglePaxTid(const std::vector<std::string>& p)
+{
+    using namespace astra_api::xml_entities;
+    assert(p.size() == 3);
+    int pointDep = atoi(p.at(0).c_str());
+    std::string paxSurname = p.at(1);
+    std::string paxName = p.at(2);
+
+    PaxListXmlResult plRes = astra_api::AstraEngine::singletone().PaxList(pointDep);
+    std::list<XmlPax> lPax = plRes.applyNameFilter(paxSurname, paxName);
+    assert(!plRes.lPax.empty());
+    const XmlPax& pax = lPax.front();
+    assert(pax.reg_no != ASTRA::NoExists);
+    LoadPaxXmlResult lpRes = astra_api::AstraEngine::singletone().LoadPax(pointDep, pax.reg_no);
+    lpRes.applyPaxFilter(PaxFilter(NameFilter(paxSurname, paxName), {}, {}));
+    assert(!lpRes.lSeg.empty());
+    const XmlSegment& paxSeg = lpRes.lSeg.front();
+    return boost::lexical_cast<std::string>(paxSeg.passengers.front().tid);
+}
+
 static std::string FP_getPointTid(const std::vector<std::string>& p)
 {
     assert(p.size() == 1);
@@ -588,6 +608,7 @@ FP_REGISTER("create_random_trip_comp", FP_create_random_trip_comp);
 FP_REGISTER("get_single_pax_id", FP_getSinglePaxId);
 FP_REGISTER("get_single_grp_id", FP_getSingleGrpId);
 FP_REGISTER("get_single_tid", FP_getSingleTid);
+FP_REGISTER("get_single_pax_tid",FP_getSinglePaxTid);
 FP_REGISTER("get_point_tid", FP_getPointTid);
 FP_REGISTER("get_lat_code", FP_get_lat_code);
 FP_REGISTER("prepare_bp_printing", FP_prepare_bp_printing);

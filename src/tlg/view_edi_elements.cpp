@@ -630,8 +630,12 @@ void viewPbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::BaggageDetails& ba
         }
     }
 
-    //pbd << "+" << "NP";
     pbd << "+";
+    if((baggage.bag() && baggage.bag()->numOfPieces()) ||
+       (baggage.handBag() && baggage.handBag()->numOfPieces()))
+    {
+         pbd << "NP";
+    }
 
     for(const auto& bagTag: baggage.bagTagsReduced()) {
         pbd << "+"

@@ -1357,12 +1357,18 @@ static boost::optional<iatci::CkuParams> getUpdateBaggageParams(xmlNodePtr reqNo
             }
         }
 
-        boost::optional<astra_entities::BaggageTag> firstBagTag;
+
         if(!bagTags.empty()) {
-            firstBagTag = bagTags.front();
+
         }
 
-        if(firstBagTag && ediTabsContainsDestination(oldIatciTabs, firstBagTag->destination()))
+        bool skipUpdate = false;
+        if(!bagTags.empty()) {
+            skipUpdate = !ediTabsContainsDestination(oldIatciTabs,
+                                                     bagTags.front().destination());
+        }
+
+        if(!skipUpdate)
         {
             lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makeQryPax(adult.get(), inft),
                                                       boost::none, // Reserv

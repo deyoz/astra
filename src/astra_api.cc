@@ -1399,14 +1399,26 @@ static void handleIatciCkuPax(int pointDep,
     paxSeg.passengers.push_back(newPax);
 }
 
+static void checkBagsAndBagTagsCollation(const XmlBags& bags,
+                                         const XmlBagTags& bagTags)
+{
+    LogTrace(TRACE3) << "bags.totalAmount() = " << bags.totalAmount();
+    LogTrace(TRACE3) << "bagTags.bagTags.size() = " << bagTags.bagTags.size();
+    ASSERT(bags.totalAmount() == bagTags.bagTags.size());
+}
+
 static void fixSaveBaggageQuery(XmlSegment& seg, XmlBags& bags, XmlBagTags& bagTags)
 {
+    LogTrace(TRACE3) << "fixSaveBaggageQuery";
     std::set<int> paxIds;
     std::multimap<int, XmlBag*> paxBags;
     for(auto& bag: bags.bags)
     {
         paxIds.emplace(bag.pax_id);
         paxBags.emplace(bag.pax_id, &bag);
+        LogTrace(TRACE3) << "associate pax " << bag.pax_id
+                         << " with bag " << bag.amount << ":" << bag.weight
+                         << "(" << (bag.pr_cabin ? "cabin" : "") << ")";
     }
 
     std::set<int> tagPaxIds;
@@ -1415,6 +1427,8 @@ static void fixSaveBaggageQuery(XmlSegment& seg, XmlBags& bags, XmlBagTags& bagT
     {
         tagPaxIds.emplace(bagTag.pax_id);
         paxBagTags.emplace(bagTag.pax_id, &bagTag);
+        LogTrace(TRACE3) << "associate pax " << bagTag.pax_id
+                         << " with bag tag " << bagTag.no;
     }
 
     LoadPaxXmlResult loadGrpXmlRes = AstraEngine::singletone().LoadGrp(seg.seg_info.point_dep,
@@ -1457,16 +1471,19 @@ static void fixSaveBaggageQuery(XmlSegment& seg, XmlBags& bags, XmlBagTags& bagT
     // бирки
     if(!bagTags.empty())
     {
+        unsigned bagTagNum = 0;
         for(int paxId: tagPaxIds)
         {
             auto bagsRange = paxBags.equal_range(paxId);
             auto bagTagsRange = paxBagTags.equal_range(paxId);
 
+            size_t bagsTotalAmount = 0;
             std::list<XmlBag*> paxBags;
             for(auto it = bagsRange.first; it != bagsRange.second; ++it)
             {
                 if(!it->second->pr_cabin) {
                     paxBags.push_back(it->second);
+                    bagsTotalAmount += it->second->amount;
                 }
             }
 
@@ -1476,26 +1493,33 @@ static void fixSaveBaggageQuery(XmlSegment& seg, XmlBags& bags, XmlBagTags& bagT
                 paxBagTags.push_back(it->second);
             }
 
+            for(auto b: paxBags) {
+                LogTrace(TRACE3) << "b: " << b->amount << ":" << b->weight;
+            }
+
+            for(auto bt: paxBagTags) {
+                LogTrace(TRACE3) << "bt: " << bt->no;
+            }
+
             // в этом месте количество сумок багажа равно количеству бирок
-            ASSERT(paxBags.size() == paxBagTags.size());
+            LogTrace(TRACE3) << "paxId = " << paxId;
+            LogTrace(TRACE3) << "paxBags.totalAmount = " << bagsTotalAmount;
+            LogTrace(TRACE3) << "paxBagTags.size() = " << paxBagTags.size();
+            ASSERT(bagsTotalAmount == paxBagTags.size());
 
             auto bagIt = paxBags.begin();
             auto bagTagIt = paxBagTags.begin();
-            unsigned bagTagNum = 0;
             // биркам пассажира проставим bag_num
-            for(; bagIt != paxBags.end(); ++bagIt, ++bagTagIt)
+            for(; bagIt != paxBags.end(); ++bagIt)
             {
-                (*bagTagIt)->num = ++bagTagNum;
-                (*bagTagIt)->bag_num = (*bagIt)->num;
+                for(int i = 0; i < (*bagIt)->amount; ++i) {
+                    (*bagTagIt)->num = ++bagTagNum;
+                    (*bagTagIt)->bag_num = (*bagIt)->num;
+                     ++bagTagIt;
+                }
             }
         }
     }
-}
-
-static void checkBagsAndBagTagsCollation(const XmlBags& bags,
-                                         const XmlBagTags& bagTags)
-{
-    ASSERT(bags.totalAmount() == bagTags.bagTags.size());
 }
 
 //---------------------------------------------------------------------------------------
@@ -1577,7 +1601,9 @@ iatci::dcrcka::Result updateIatciPaxes(const iatci::CkuParams& ckuParams)
         if(bags && !bags->empty()) {
             bagTags = makeBagTags(oldBagTags, newBagTags, delBags);
             ASSERT(bagTags);
+            tst();
             checkBagsAndBagTagsCollation(bags.get(), bagTags.get());
+            tst();
             fixSaveBaggageQuery(paxSeg, bags.get(), bagTags.get());
         }
 
@@ -3227,7 +3253,7 @@ xmlNodePtr XmlEntityViewer::viewBag(xmlNodePtr node, const XmlBag& bag)
     NewTextChild(bagNode, "pr_liab_limit", 0);
     NewTextChild(bagNode, "to_ramp",       0);
     NewTextChild(bagNode, "using_scales",  0);
-    NewTextChild(bagNode, "is_trfer",      0); // TODO
+    NewTextChild(bagNode, "is_trfer",      1);
     NewTextChild(bagNode, "bag_pool_num",  bag.bag_pool_num);
     return bagNode;
 }
