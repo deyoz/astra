@@ -116,7 +116,22 @@ namespace json_spirit
       time = vtime;
       id = vid;
     }
+    string session_id();
   };
+
+string KioskServerEvent::session_id()
+{
+    string result;
+    for ( property_map<std::vector<boost::optional<std::string>>>::const_iterator i=inputParams.get().begin(); i!=inputParams.get().end(); i++ ) {
+        if(i->first == "sessionId" and not i->second.empty()) {
+            result = i->second.begin()->get();
+            break;
+        }
+    }
+/*    if(result.empty())
+        throw EXCEPTIONS::Exception("KioskServerEvent::session_id(): not defined");*/
+    return result;
+}
 
 JSON_DESC_TYPE_DECL(KioskServerEvent);
 JSON_BEGIN_DESC_TYPE(KioskServerEvent)
@@ -220,7 +235,6 @@ struct KioskServerEventContainer {
          ProgTrace(TRACE5, "name=%s", (char*)node->name );
          while ( node != NULL && string((char*)node->name ) == string( "param" ) ) {
            xmlNodePtr n = node;
-           ProgTrace(TRACE5, "p=%p", n);
            ProgTrace(TRACE5, "name=%s", NodeAsString( "name", n ) );
            ProgTrace(TRACE5, "value=%s", NodeAsString( "value", n ) );
            headers[ NodeAsString( "name", n ) ] = NodeAsString( "value", n );
@@ -250,15 +264,17 @@ struct KioskServerEventContainer {
           int event_id = Qry.FieldAsInteger( "event_id" );
           Qry.Clear();
           Qry.SQLText =
-            "INSERT INTO kiosk_events(id,type,application,screen,kioskid,time,ev_order) "
-            "VALUES(:event_id,:type,:application,:screen,:kioskid,:time,:ev_order) ";
+            "INSERT INTO kiosk_events(id,type,application,screen,kioskid,time,ev_order,session_id) "
+            "VALUES(:event_id,:type,:application,:screen,:kioskid,:time,:ev_order,:session_id) ";
           Qry.CreateVariable( "event_id", otString, event_id );
           Qry.CreateVariable( "type", otString, event.get().typeRequest == boost::none?string("unknown"):event.get().typeRequest.get() );
           Qry.CreateVariable( "application", otString, event.get().application == boost::none?string(""):event.get().application.get() );
           Qry.CreateVariable( "screen", otString, event.get().screen == boost::none?string(""):event.get().screen.get() );
           Qry.CreateVariable( "kioskid", otString, event.get().kioskId==boost::none?string(""):event.get().kioskId.get() );
           Qry.CreateVariable( "time", otDate, time );
+          ProgTrace( TRACE5, "id=%d", event.get().id );
           Qry.CreateVariable( "ev_order", otInteger, event.get().id );
+          Qry.CreateVariable( "session_id", otString, event.get().session_id() );
           Qry.Execute();
           if ( event.get().inputParams != boost::none ) {
             Qry.Clear();
