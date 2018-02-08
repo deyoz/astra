@@ -471,7 +471,7 @@ void TCounters::recountInitially()
                   << QParam("pr_tranzit", otInteger, flt().pr_tranzit)
                   << QParam("pr_tranz_reg", otInteger, pr_tranz_reg())
                   << QParam("cfg_exists", otInteger, cfg_exists())
-                  << QParam("pr_free_seating", otInteger, (int)fltSettings().value<bool>(tsFreeSeating)));
+                  << QParam("pr_free_seating", otInteger, (int)fltSettings().value<bool>(tsFreeSeating, false)));
   Qry.get().Execute();
 }
 
@@ -509,8 +509,8 @@ void TCounters::recountFinally()
         "  UPDATE counters3 SET jmp_nooccupy=DECODE(:use_jmp, 0, 0, :jmp_cfg)-jmp WHERE point_dep=:point_dep; "
         "END;",
         QParams() << QParam("point_dep", otInteger, flt().point_id)
-                  << QParam("use_jmp", otInteger, (int)fltSettings().value<bool>(tsUseJmp))
-                  << QParam("jmp_cfg", otInteger, fltSettings().value<int>(tsJmpCfg))
+                  << QParam("use_jmp", otInteger, (int)fltSettings().value<bool>(tsUseJmp, false))
+                  << QParam("jmp_cfg", otInteger, fltSettings().value<int>(tsJmpCfg, 0))
         );
   Qry.get().Execute();
 }

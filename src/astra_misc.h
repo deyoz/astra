@@ -314,6 +314,13 @@ class TTripInfo
                                                                               scd_out; }
     bool est_out_exists() const { return est_out && est_out.get()!=ASTRA::NoExists;  }
     bool act_out_exists() const { return act_out && act_out.get()!=ASTRA::NoExists;  }
+
+    bool match(const FlightProps& props) const
+    {
+      if (props.cancellation()==FlightProps::NotCancelled && pr_del!=0) return false;
+      if (props.checkin_ability()==FlightProps::WithCheckIn && !pr_reg) return false;
+      return true;
+    }
 };
 
 std::string flight_view(int grp_id, int seg_no); //начиная с 1
