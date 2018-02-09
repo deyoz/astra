@@ -1441,7 +1441,7 @@ void xmlViewIatciPaxes_asisOrder(xmlNodePtr paxesNode,
                                  const std::list<dcrcka::PaxGroup>& paxGroups)
 {
     int currPax = 0;
-    for(const auto& pxg: paxGroups) {
+    for(const auto& pxg: paxGroups) {        
         xmlViewIatciPax(paxesNode,
                         pxg.pax(),
                         pxg.reserv(),
@@ -1450,6 +1450,7 @@ void xmlViewIatciPaxes_asisOrder(xmlNodePtr paxesNode,
                         pxg.doc(),
                         0,
                         currPax);
+        int currParent = currPax;
         if(pxg.infant()) {
             xmlViewIatciPax(paxesNode,
                             pxg.infant().get(),
@@ -1457,7 +1458,7 @@ void xmlViewIatciPaxes_asisOrder(xmlNodePtr paxesNode,
                             pxg.infantSeat(),
                             pxg.service(),
                             pxg.infantDoc(),
-                            currPax-1,
+                            currParent,
                             currPax);
         }
     }

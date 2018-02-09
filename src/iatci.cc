@@ -1357,11 +1357,6 @@ static boost::optional<iatci::CkuParams> getUpdateBaggageParams(xmlNodePtr reqNo
             }
         }
 
-
-        if(!bagTags.empty()) {
-
-        }
-
         bool skipUpdate = false;
         if(!bagTags.empty()) {
             skipUpdate = !ediTabsContainsDestination(oldIatciTabs,

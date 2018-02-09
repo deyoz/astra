@@ -5376,7 +5376,7 @@ $(REMOVE_ALL_BAGS $(get grp_id) $(get tid_new)
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
 UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
-FDQ+S7+1027+180208+LED+AER"
+FDQ+S7+1027+$(yymmdd)+LED+AER"
 PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
 UBD+R:0+R:0+R:NP"
 UNT+6+1"

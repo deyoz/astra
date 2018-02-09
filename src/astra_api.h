@@ -665,10 +665,10 @@ struct XmlSegment
 
     astra_entities::SegmentInfo toSeg() const;
 
-    std::list<XmlPax> paxNameFilter(const std::string& surname,
-                                    const std::string& name) const;
+    std::list<XmlPax> findPaxesByName(const std::string& surname,
+                                      const std::string& name) const;
 
-    boost::optional<XmlPax> paxIdFilter(int paxId) const;
+    boost::optional<XmlPax> findPaxById(int paxId) const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -698,6 +698,8 @@ struct XmlBag
           pax_id(ASTRA::NoExists)
     {}
 };
+
+std::ostream& operator<<(std::ostream& os, const XmlBag& bag);
 
 //---------------------------------------------------------------------------------------
 
@@ -740,6 +742,8 @@ struct XmlBagTag
           pax_id(ASTRA::NoExists)
     {}
 };
+
+std::ostream& operator<<(std::ostream& os, const XmlBagTag& tag);
 
 //---------------------------------------------------------------------------------------
 
