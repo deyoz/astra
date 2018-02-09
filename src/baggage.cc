@@ -126,8 +126,7 @@ const TBagItem& TBagItem::toXML(xmlNodePtr node) const
     if (is_trfer) ReplaceTextChild(node,"bag_type",WeightConcept::OLD_TRFER_BAG_TYPE);
     NewTextChild(node,"is_trfer",(int)(is_trfer && !handmade));
   };
-  if (TReqInfo::Instance()->desk.compatible(VERSION_WITH_BAG_POOLS))
-    NewTextChild(node,"bag_pool_num",bag_pool_num);
+  NewTextChild(node,"bag_pool_num",bag_pool_num);
   return *this;
 };
 
@@ -193,10 +192,7 @@ TBagItem& TBagItem::fromXML(xmlNodePtr node, bool baggage_pc)
   if (TReqInfo::Instance()->desk.compatible(USING_SCALES_VERSION))
     using_scales=NodeAsIntegerFast("using_scales",node2)!=0;
 
-  if (TReqInfo::Instance()->desk.compatible(VERSION_WITH_BAG_POOLS))
-    bag_pool_num=NodeAsIntegerFast("bag_pool_num",node2);
-  else
-    bag_pool_num=1;
+  bag_pool_num=NodeAsIntegerFast("bag_pool_num",node2);
   return *this;
 };
 
@@ -575,232 +571,6 @@ const TUnaccompRuleItem& TUnaccompRuleItem::toXML(xmlNodePtr node) const
   return *this;
 }
 
-void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges)
-{
-  LogTrace(TRACE5) << __FUNCTION__;
-
-  tag_ranges.clear();
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT points.airline, "
-    "       pax_grp.point_dep,pax_grp.airp_dep,pax_grp.class, "
-    "       NVL(transfer.airp_arv,pax_grp.airp_arv) AS airp_arv "
-    "FROM points, pax_grp, transfer "
-    "WHERE points.point_id=pax_grp.point_dep AND "
-    "      pax_grp.grp_id=transfer.grp_id(+) AND transfer.pr_final(+)<>0 AND "
-    "      pax_grp.grp_id=:grp_id";
-  Qry.CreateVariable("grp_id",otInteger,grp_id);
-  Qry.Execute();
-  if (Qry.Eof) throw EXCEPTIONS::Exception("%s: group not found (grp_id=%d)", __FUNCTION__, grp_id);
-
-  int point_id=Qry.FieldAsInteger("point_dep");
-  string airp_dep=Qry.FieldAsString("airp_dep");
-  string airp_arv=Qry.FieldAsString("airp_arv");
-  string cl=Qry.FieldAsString("class");
-  int aircode=-1;
-  try
-  {
-    aircode=ToInt(base_tables.get("airlines").get_row("code",Qry.FieldAsString("airline")).AsString("aircode"));
-    if (aircode<=0 || aircode>999) throw EXCEPTIONS::EConvertError("");
-  }
-  catch(EBaseTableError) { aircode=-1; }
-  catch(EXCEPTIONS::EConvertError)   { aircode=-1; };
-
-  if (aircode==-1) aircode=954;
-
-  int range = 0;
-  int no = 0;
-  bool use_new_range=false;
-  int last_range=ASTRA::NoExists;
-  while (tag_count>0)
-  {
-    if (!use_new_range)
-    {
-      int k;
-      for(k=1;k<=5;k++)
-      {
-        Qry.Clear();
-        Qry.CreateVariable("aircode",otInteger,aircode);
-        ostringstream sql;
-
-        sql << "SELECT range,no FROM tag_ranges2 ";
-        if (k>=2) sql << ",points ";
-        sql << "WHERE aircode=:aircode AND ";
-
-
-        if (k==1)
-        {
-          sql <<
-            "      point_id=:point_id AND airp_dep=:airp_dep AND airp_arv=:airp_arv AND "
-            "      (class IS NULL AND :class IS NULL OR class=:class) ";
-          Qry.CreateVariable("point_id",otInteger,point_id);
-          Qry.CreateVariable("airp_dep",otString,airp_dep);
-          Qry.CreateVariable("airp_arv",otString,airp_arv);
-          Qry.CreateVariable("class",otString,cl);
-        };
-
-        if (k>=2)
-        {
-          sql <<
-            "      tag_ranges2.point_id=points.point_id(+) AND "
-            "      (points.point_id IS NULL OR "
-            "       points.pr_del<>0 OR "
-            "       NVL(points.act_out,NVL(points.est_out,points.scd_out))<:now_utc AND last_access<:now_utc-2/24 OR "
-            "       NVL(points.act_out,NVL(points.est_out,NVL(points.scd_out,:now_utc+1)))>=:now_utc AND last_access<:now_utc-2) AND ";
-          Qry.CreateVariable("now_utc",otDate, NowUTC());
-          if (k==2)
-          {
-            sql <<
-              "      airp_dep=:airp_dep AND airp_arv=:airp_arv AND "
-              "      (class IS NULL AND :class IS NULL OR class=:class) ";
-            Qry.CreateVariable("airp_dep",otString,airp_dep);
-            Qry.CreateVariable("airp_arv",otString,airp_arv);
-            Qry.CreateVariable("class",otString,cl);
-          };
-          if (k==3)
-          {
-            sql <<
-              "      airp_dep=:airp_dep AND airp_arv=:airp_arv ";
-            Qry.CreateVariable("airp_dep",otString,airp_dep);
-            Qry.CreateVariable("airp_arv",otString,airp_arv);
-          };
-          if (k==4)
-          {
-            sql <<
-              "      airp_dep=:airp_dep ";
-            Qry.CreateVariable("airp_dep",otString,airp_dep);
-          };
-          if (k==5)
-          {
-            sql <<
-              "      last_access<:now_utc-1 ";
-          };
-        };
-        sql << "ORDER BY last_access FOR UPDATE";
-
-
-        Qry.SQLText=sql.str().c_str();
-        Qry.Execute();
-        if (!Qry.Eof)
-        {
-          range=Qry.FieldAsInteger("range");
-          no=Qry.FieldAsInteger("no");
-          break;
-        };
-      };
-      if (k>5) //среди уже существующих диапазонов нет подходящего - берем новый
-      {
-        use_new_range=true;
-
-        if (last_range==ASTRA::NoExists)
-        {
-          Qry.Clear();
-          Qry.SQLText=
-              "BEGIN "
-              "  SELECT range INTO :range FROM last_tag_ranges2 WHERE aircode=:aircode FOR UPDATE; "
-              "EXCEPTION "
-              "  WHEN NO_DATA_FOUND THEN "
-              "  BEGIN "
-              "    :range:=9999; "
-              "    INSERT INTO last_tag_ranges2(aircode,range) VALUES(:aircode,:range); "
-              "  EXCEPTION "
-              "    WHEN DUP_VAL_ON_INDEX THEN "
-              "      SELECT range INTO :range FROM last_tag_ranges2 WHERE aircode=:aircode FOR UPDATE; "
-              "  END; "
-              "END;";
-          Qry.CreateVariable("aircode",otInteger,aircode);
-          Qry.CreateVariable("range",otInteger,FNull);
-          Qry.Execute();
-          //получим последний использованный диапазон (+лочка):
-          last_range=Qry.GetVariableAsInteger("range");
-        };
-
-        range=last_range;
-      };
-    };
-    if (use_new_range)
-    {
-      range++;
-      no=-1;
-      if (range>9999)
-      {
-        range=0;
-        no=0; //нулевая бирка 000000 запрещена IATA
-      };
-
-      if (last_range==ASTRA::NoExists)
-        throw EXCEPTIONS::Exception("%s: last_range==ASTRA::NoExists! (aircode=%d)", __FUNCTION__, aircode);
-      if (range==last_range)
-        throw EXCEPTIONS::Exception("%s: free range not found (aircode=%d)", __FUNCTION__, aircode);
-
-      Qry.Clear();
-      Qry.SQLText="SELECT range FROM tag_ranges2 WHERE aircode=:aircode AND range=:range";
-      Qry.CreateVariable("aircode",otInteger,aircode);
-      Qry.CreateVariable("range",otInteger,range);
-      Qry.Execute();
-      if (!Qry.Eof) continue; //этот диапазон используется
-    };
-
-    pair<int,int> tag_range;
-    tag_range.first=aircode*1000000+range*100+no+1; //первая неиспользовання бирка от старого диапазона
-
-    if (tag_count>=99-no)
-    {
-      tag_count-=99-no;
-      no=99;
-    }
-    else
-    {
-      no+=tag_count;
-      tag_count=0;
-    };
-
-    tag_range.second=aircode*1000000+range*100+no; //последняя использовання бирка нового диапазона
-    if (tag_range.first<=tag_range.second) tag_ranges.push_back(tag_range);
-
-    Qry.Clear();
-    Qry.CreateVariable("aircode",otInteger,aircode);
-    Qry.CreateVariable("range",otInteger,range);
-    if (no>=99)
-      Qry.SQLText="DELETE FROM tag_ranges2 WHERE aircode=:aircode AND range=:range";
-    else
-    {
-      Qry.SQLText=
-        "BEGIN "
-        "  UPDATE tag_ranges2 "
-        "  SET no=:no, airp_dep=:airp_dep, airp_arv=:airp_arv, class=:class, point_id=:point_id, "
-        "      last_access=system.UTCSYSDATE "
-        "  WHERE aircode=:aircode AND range=:range; "
-        "  IF SQL%NOTFOUND THEN "
-        "    INSERT INTO tag_ranges2(aircode,range,no,airp_dep,airp_arv,class,point_id,last_access) "
-        "    VALUES(:aircode,:range,:no,:airp_dep,:airp_arv,:class,:point_id,system.UTCSYSDATE); "
-        "  END IF; "
-        "END;";
-      Qry.CreateVariable("no",otInteger,no);
-      Qry.CreateVariable("airp_dep",otString,airp_dep);
-      Qry.CreateVariable("airp_arv",otString,airp_arv);
-      Qry.CreateVariable("class",otString,cl);
-      Qry.CreateVariable("point_id",otInteger,point_id);
-    };
-    Qry.Execute();
-  };
-  if (use_new_range)
-  {
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  UPDATE last_tag_ranges2 SET range=:range WHERE aircode=:aircode; "
-      "  IF SQL%NOTFOUND THEN "
-      "    INSERT INTO last_tag_ranges2(aircode,range) VALUES(:aircode,:range); "
-      "  END IF; "
-      "END;";
-    Qry.CreateVariable("aircode",otInteger,aircode);
-    Qry.CreateVariable("range",otInteger,range);
-    Qry.Execute();
-  };
-};
-
 void TGroupBagItem::setInboundTrfer(const TrferList::TGrpItem &grp)
 {
   clear();
@@ -965,25 +735,6 @@ void TGroupBagItem::checkAndGenerateTags(int point_id, int grp_id)
   if (!is_payment)
   {
     //в кассе не можем привязывать бирки и добавлять багаж поэтому делаем это только для регистрации
-    if (unbound_tags>0 && !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
-    {
-      //автоматическая привязка бирок для старых терминалов
-      for(map<int, TTagItem>::iterator t=tags.begin();t!=tags.end();++t)
-      {
-        if (t->second.bag_num!=ASTRA::NoExists) continue;
-        for(TBagMap::const_iterator b=bags.begin();b!=bags.end();b++)
-        {
-          if (!b->second.pr_cabin && bound_tags[b->second.num]<b->second.amount)
-          {
-            t->second.bag_num=b->second.num;
-            ++bound_tags[b->second.num];
-            --unbound_tags;
-            break;
-          };
-        };
-      };
-    };
-
     if (unbound_tags>0)
     {
       if (unbound_tags==1)
@@ -1036,39 +787,20 @@ void TGroupBagItem::checkAndGenerateTags(int point_id, int grp_id)
         Qry.Execute();
         if (Qry.Eof) throw UserException("MSG.CHECKIN.LUGGAGE_BLANK_NOT_SET");
         string tag_type = Qry.FieldAsString("tag_type");
+
         //получим номера печатаемых бирок
-        if (useNewTagGeneratingAlgo(point_id))
+        TGeneratedTags generated;
+        generated.generateUsingDeferred(grp_id, bagAmount-tagCount);
+        generated.trace("after generateUsingDeferred");
+        num=tagCount+1;
+        for(const TBagTagNumber& genTag : generated.tags())
         {
-          TGeneratedTags generated;
-          generated.generateUsingDeferred(grp_id, bagAmount-tagCount);
-          generated.trace("after generateUsingDeferred");
-          num=tagCount+1;
-          for(const TBagTagNumber& genTag : generated.tags())
-          {
-            TTagItem tag;
-            tag.num=num;
-            tag.tag_type=tag_type;
-            tag.no=genTag.numeric_part;
-            generated_tags[tag.num]=tag;
-            num++;
-          }
-        }
-        else
-        {
-          vector< pair<int,int> > tag_ranges;
-          GetNextTagNo(grp_id, bagAmount-tagCount, tag_ranges);
-          num=tagCount+1;
-          for(vector< pair<int,int> >::iterator r=tag_ranges.begin();r!=tag_ranges.end();++r)
-          {
-            for(int i=r->first;i<=r->second;i++,num++)
-            {
-              TTagItem tag;
-              tag.num=num;
-              tag.tag_type=tag_type;
-              tag.no=i;
-              generated_tags[tag.num]=tag;
-            };
-          };
+          TTagItem tag;
+          tag.num=num;
+          tag.tag_type=tag_type;
+          tag.no=genTag.numeric_part;
+          generated_tags[tag.num]=tag;
+          num++;
         }
         //привязываем к багажу
         map<int, TTagItem>::iterator t=generated_tags.begin();
@@ -1094,7 +826,6 @@ void TGroupBagItem::checkAndGenerateTags(int point_id, int grp_id)
 void TGroupBagItem::fromXMLcompletion(int grp_id, int hall, bool is_unaccomp, bool trfer_confirm)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
-  bool is_payment=reqInfo->client_type == ASTRA::ctTerm && reqInfo->screen.name != "AIR.EXE";
 
   TBagMap old_bags;
   if (grp_id!=ASTRA::NoExists) old_bags.fromDB(grp_id);
@@ -1102,66 +833,46 @@ void TGroupBagItem::fromXMLcompletion(int grp_id, int hall, bool is_unaccomp, bo
 //  bags.dump("TGroupBagItem::fromXMLcompletion: new_bags:");
 //  old_bags.dump("TGroupBagItem::fromXMLcompletion: old_bags:");
 
-  if (is_payment && !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
+  //пробегаемся по сортированным массивам с целью заполнения старых hall и user_id в массиве нового багажа
+  for(TBagMap::iterator nb=bags.begin();nb!=bags.end();++nb)
   {
-    //для кассы используем old_bags, но с очисткой и переустановлением всех value_bag_num
-    //работаем по идентификаторам
-    for(TBagMap::iterator ob=old_bags.begin();ob!=old_bags.end();++ob)
+    if (nb->second.id==ASTRA::NoExists)
     {
-      TBagMap::const_iterator nb=bags.begin();
-      for(;nb!=bags.end();++nb)
-        if (nb->second.id==ob->second.id) break;
-      if (nb!=bags.end())
-        ob->second.value_bag_num=nb->second.value_bag_num;
-      else
-        ob->second.value_bag_num=ASTRA::NoExists;
-    };
+      //вновь введенный багаж
+      nb->second.hall=hall;
+      nb->second.user_id=reqInfo->user.user_id;
+      nb->second.desk=reqInfo->desk.code;
+      nb->second.time_create= NowUTC();
+    }
+    else
+    {
+      //старый багаж
+      TBagMap::const_iterator ob=old_bags.begin();
+      for(;ob!=old_bags.end();++ob)
+        if (ob->second.id==nb->second.id) break;
+      if (ob!=old_bags.end())
+      {
+        nb->second.pc=ob->second.pc;
+        nb->second.wt=ob->second.wt;
+        nb->second.is_trfer=ob->second.is_trfer;
 
-    bags=old_bags;
-  }
-  else
-  {
-    //пробегаемся по сортированным массивам с целью заполнения старых hall и user_id в массиве нового багажа
-    for(TBagMap::iterator nb=bags.begin();nb!=bags.end();++nb)
-    {
-      if (nb->second.id==ASTRA::NoExists)
-      {
-        //вновь введенный багаж
-        nb->second.hall=hall;
-        nb->second.user_id=reqInfo->user.user_id;
-        nb->second.desk=reqInfo->desk.code;
-        nb->second.time_create= NowUTC();
-      }
-      else
-      {
-        //старый багаж
-        TBagMap::const_iterator ob=old_bags.begin();
-        for(;ob!=old_bags.end();++ob)
-          if (ob->second.id==nb->second.id) break;
-        if (ob!=old_bags.end())
+        nb->second.hall=ob->second.hall;
+        nb->second.user_id=ob->second.user_id;
+        nb->second.desk=ob->second.desk;
+        nb->second.time_create=ob->second.time_create;
+        if (!reqInfo->desk.compatible(BAG_TO_RAMP_VERSION))
+          nb->second.to_ramp=ob->second.to_ramp;
+        if (!reqInfo->desk.compatible(USING_SCALES_VERSION))
         {
-          nb->second.pc=ob->second.pc;
-          nb->second.wt=ob->second.wt;
-          nb->second.is_trfer=ob->second.is_trfer;
-
-          nb->second.hall=ob->second.hall;
-          nb->second.user_id=ob->second.user_id;
-          nb->second.desk=ob->second.desk;
-          nb->second.time_create=ob->second.time_create;
-          if (!reqInfo->desk.compatible(BAG_TO_RAMP_VERSION))
-            nb->second.to_ramp=ob->second.to_ramp;
-          if (!reqInfo->desk.compatible(USING_SCALES_VERSION))
-          {
-            //сохраняем старый using_scales только если ob->second.weight==nb->second.weight
-            if (ob->second.weight==nb->second.weight)
-              nb->second.using_scales=ob->second.using_scales;
-            else
-              nb->second.using_scales=false;
-          };
-          nb->second.handmade=ob->second.handmade;
-        }
-        else throw Exception("%s: strange situation ob==old_bags.end()! (id=%d)", __FUNCTION__, nb->second.id);
-      };
+          //сохраняем старый using_scales только если ob->second.weight==nb->second.weight
+          if (ob->second.weight==nb->second.weight)
+            nb->second.using_scales=ob->second.using_scales;
+          else
+            nb->second.using_scales=false;
+        };
+        nb->second.handmade=ob->second.handmade;
+      }
+      else throw Exception("%s: strange situation ob==old_bags.end()! (id=%d)", __FUNCTION__, nb->second.id);
     };
   };
 
@@ -1638,24 +1349,14 @@ void TGroupBagItem::getAllListItems(const int grp_id, const bool is_unaccomp, co
         if (is_unaccomp)
           bag.pc.get().getListItemUnaccomp(grp_id, transfer_num, category, "TGroupBagItem");
         else
-        {
-          if (TReqInfo::Instance()->desk.compatible(VERSION_WITH_BAG_POOLS))
-            bag.pc.get().getListItemByBagPool(grp_id, transfer_num, bag.bag_pool_num, category, "TGroupBagItem");
-          else
-            bag.pc.get().getListItemByGrpId(grp_id, transfer_num, category, "TGroupBagItem");
-        };
+          bag.pc.get().getListItemByBagPool(grp_id, transfer_num, bag.bag_pool_num, category, "TGroupBagItem");
       }
       else if (bag.wt)
       {
         if (is_unaccomp)
           bag.wt.get().getListItemUnaccomp(grp_id, transfer_num, category, "TGroupBagItem");
         else
-        {
-          if (TReqInfo::Instance()->desk.compatible(VERSION_WITH_BAG_POOLS))
-            bag.wt.get().getListItemByBagPool(grp_id, transfer_num, bag.bag_pool_num, category, "TGroupBagItem");
-          else
-            bag.wt.get().getListItemByGrpId(grp_id, transfer_num, category, "TGroupBagItem");
-        };
+          bag.wt.get().getListItemByBagPool(grp_id, transfer_num, bag.bag_pool_num, category, "TGroupBagItem");
       };
     }
     catch(EConvertError &e)

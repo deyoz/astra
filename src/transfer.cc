@@ -668,7 +668,6 @@ string EncodeAlarmType(const TAlarmType alarm )
 
 
 void TrferToXML(TTrferType type,
-                bool bag_pool_compatible,
                 const vector<TGrpViewItem> &grps,
                 xmlNodePtr trferNode)
 {
@@ -711,7 +710,6 @@ void TrferToXML(TTrferType type,
     else
     {
       if (type==trferIn || type==trferOut || type==trferOutForCkin ||
-          !bag_pool_compatible ||
           iGrpPrior==grps.end() || iGrpPrior->grp_id!=iGrp->grp_id)
       {
         grpNode=NewTextChild(grpsNode,"grp");
@@ -719,8 +717,7 @@ void TrferToXML(TTrferType type,
       };
     };
 
-    if (type==trferIn || type==trferOut || type==trferOutForCkin ||
-        !bag_pool_compatible)
+    if (type==trferIn || type==trferOut || type==trferOutForCkin)
     {
       if (type==trferOutForCkin)
       {
@@ -783,8 +780,7 @@ void TrferToXML(TTrferType type,
         xmlNodePtr paxNode=NewTextChild(paxsNode,"pax");
         NewTextChild(paxNode,"surname",iPax->surname);
         NewTextChild(paxNode,"name",iPax->name+iPax->name_extra,"");
-        if (!(type==trferIn || type==trferOut || type==trferOutForCkin ||
-              !bag_pool_compatible))
+        if (!(type==trferIn || type==trferOut || type==trferOutForCkin))
 
         {
           if (iPax==iGrp->paxs.begin())
@@ -995,7 +991,6 @@ void TrferToXML(TTrferType type,
   xmlNodePtr trferNode=NewTextChild(resNode,"transfer");
 
   TrferToXML(type,
-             TReqInfo::Instance()->desk.compatible(VERSION_WITH_BAG_POOLS),
              grps,
              trferNode);
 };

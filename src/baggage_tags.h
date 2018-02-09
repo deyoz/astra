@@ -121,5 +121,3 @@ class TGeneratedTags
     boost::optional<int> _grp_id;
     std::set<TBagTagNumber> _tags;
 };
-
-bool useNewTagGeneratingAlgo(int point_id); //!!!потом удалить

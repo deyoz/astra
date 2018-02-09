@@ -4246,7 +4246,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           NewGrpInfoToGrpsView(info, grps);
           sort(grps.begin(), grps.end(), CompareGrpViewItem);
           TrferToXML(TrferList::trferOutForCkin,
-                     reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS),
                      grps,
                      NewTextChild(resNode, "inbound_confirmation"));
           throw; //это важно, чтобы с одной стороны делать откат ЭБ а с другой стороны не затирать в xml inbound_confirmation
@@ -4309,8 +4308,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
     if (first_segment &&
         grp.status!=psCrew &&
-        reqInfo->client_type==ctTerm &&
-        reqInfo->desk.compatible(AGENT_STAT_VERSION))
+        reqInfo->client_type==ctTerm)
       AfterSaveInfo.agent_stat_period=NodeAsInteger("agent_stat_period",reqNode);
     AfterSaveInfo.segs.push_back(CheckIn::TAfterSaveSegInfo());
     AfterSaveInfo.segs.back().point_dep=grp.point_dep;
@@ -5852,30 +5850,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             CheckIn::TServicePaymentList::copyDB(AfterSaveInfo.segs.front().grp_id, grp.id);
         }
       };
-      if (reqInfo->client_type==ctTerm && !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS))
-      {
-        if (!pr_unaccomp)
-        {
-          Qry.Clear();
-          Qry.SQLText=
-            "DECLARE "
-            "  new_main_pax_id pax.pax_id%TYPE; "
-            "BEGIN "
-            "  UPDATE bag2 SET bag_pool_num=1 WHERE grp_id=:grp_id; "
-            "  IF SQL%FOUND THEN "
-            "    SELECT ckin.get_main_pax_id(:grp_id) INTO new_main_pax_id FROM dual; "
-            "  ELSE "
-            "    new_main_pax_id:=NULL; "
-            "  END IF; "
-            "  UPDATE pax "
-            "  SET bag_pool_num=DECODE(pax_id,new_main_pax_id,1,NULL), "
-            "      tid=DECODE(bag_pool_num,DECODE(pax_id,new_main_pax_id,1,NULL),tid,cycle_tid__seq.currval) "
-            "  WHERE grp_id=:grp_id; "
-            "END;";
-          Qry.CreateVariable("grp_id",otInteger,grp.id);
-          Qry.Execute();
-        };
-      };
 
       if (!pr_unaccomp)
       {
@@ -6509,8 +6483,6 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       int point_dep=Qry.FieldAsInteger("point_dep");
       if (point_dep!=point_id)
       {
-        if (!TReqInfo::Instance()->desk.compatible(CKIN_SCAN_BP_VERSION))
-          throw UserException("MSG.PASSENGER.OTHER_FLIGHT");
         point_id=point_dep;
         xmlNodePtr dataNode=NewTextChild( resNode, "data" );
         NewTextChild( dataNode, "point_id", point_id );
@@ -7095,7 +7067,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax
     TGrpServiceListWithAuto svc;
     if (grp_id==tckin_grp_ids.begin())
     {
-      group_bag.fromDB(grp.id, ASTRA::NoExists, !reqInfo->desk.compatible(VERSION_WITH_BAG_POOLS));
+      group_bag.fromDB(grp.id, ASTRA::NoExists, false);
       svc.fromDB(grp.id);
     };
 
