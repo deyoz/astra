@@ -3272,7 +3272,7 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
     try
     {
-      CheckInInterface::LoadPax(grp_id, NULL, resNode, afterSavePax);
+      CheckInInterface::LoadPax(grp_id, termReqNode, resNode, afterSavePax);
     }
     catch(...)
     {
