@@ -6864,7 +6864,7 @@ void RunUnaccBagStat(
             SQLText +=
                 "   and transfer.point_id_trfer = trfer_trips.point_id(+) \n";
         SQLText +=
-            "order by points.point_id, time_create \n";
+            "order by points.point_id, bag2.grp_id, bag2.num, bag_tags.no, time_create \n";
 
         TCachedQuery Qry(SQLText, QryParams);
         Qry.get().Execute();
@@ -7027,6 +7027,10 @@ void createXMLUnaccBagStat(
     SetProp(colNode, "width", 75);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Вес"));
+    SetProp(colNode, "width", 35);
+    SetProp(colNode, "align", TAlignment::LeftJustify);
+    SetProp(colNode, "sort", sortInteger);
     colNode = NewTextChild(headerNode, "col", getLocaleText("ФИО пассажира"));
     SetProp(colNode, "width", 85);
     SetProp(colNode, "align", TAlignment::LeftJustify);
@@ -7050,6 +7054,8 @@ void createXMLUnaccBagStat(
 
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
     xmlNodePtr rowNode;
+    int grp_id = NoExists;
+    int bag_num = NoExists;
     for(list<TUnaccBagStatRow>::const_iterator i = UnaccBagStat.rows.begin(); i != UnaccBagStat.rows.end(); i++) {
         rowNode = NewTextChild(rowsNode, "row");
         // АП рег. багажа
@@ -7109,6 +7115,15 @@ void createXMLUnaccBagStat(
         //№ баг. бирки
         buf.str("");
         buf << fixed << setprecision(0) << setw(10) << setfill('0') << i->no;
+        NewTextChild(rowNode, "col", buf.str());
+        // Вес багажа
+        buf.str("");
+        LogTrace(TRACE5) << "grp_id: " << i->grp_id << "; bag_num: " << i->num;
+        if(not (grp_id == i->grp_id and bag_num == i->num)) {
+            grp_id = i->grp_id;
+            bag_num = i->num;
+            buf << i->weight;
+        }
         NewTextChild(rowNode, "col", buf.str());
         //ФИО пассажира
         buf.str("");
