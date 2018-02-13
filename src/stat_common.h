@@ -228,4 +228,9 @@ struct TFltInfoCache:public std::map<int, TFltInfoCacheItem> {
     const TFltInfoCacheItem &get(int point_id, TDateTime part_key);
 };
 
+struct TAirpArvInfo {
+    std::map<int, std::string> items;
+    std::string get(TQuery &Qry);
+};
+
 #endif
