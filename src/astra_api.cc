@@ -267,7 +267,7 @@ PaxListXmlResult AstraEngine::PaxList(int pointId)
     xmlNodePtr paxListNode = NewTextChild(reqNode, "PaxList");
     NewTextChild(paxListNode, "point_id", pointId);
 
-    initReqInfo(JMP_VERSION);
+    initReqInfo();
 
     LogTrace(TRACE3) << "pax list query:\n" << XMLTreeToText(reqNode->doc);
     CheckInInterface::instance()->PaxList(getRequestCtxt(), paxListNode, resNode);
@@ -286,7 +286,7 @@ LoadPaxXmlResult AstraEngine::LoadPax(int pointId, int paxRegNo)
     NewTextChild(loadPaxNode, "point_id", pointId);
     NewTextChild(loadPaxNode, "reg_no", paxRegNo);
 
-    initReqInfo(JMP_VERSION);
+    initReqInfo();
 
     LogTrace(TRACE3) << "load pax query:\n" << XMLTreeToText(reqNode->doc);
     CheckInInterface::instance()->LoadPax(getRequestCtxt(), loadPaxNode, resNode);
@@ -327,7 +327,7 @@ SearchPaxXmlResult AstraEngine::SearchCheckInPax(int pointDep,
     NewTextChild(searchPaxNode, "pax_status", "K"); // "K" - CheckIn status
     NewTextChild(searchPaxNode, "query", query);
 
-    initReqInfo(JMP_VERSION);
+    initReqInfo();
 
     LogTrace(TRACE3) << "search pax query:\n" << XMLTreeToText(reqNode->doc);
     CheckInInterface::instance()->SearchPax(getRequestCtxt(), searchPaxNode, resNode);

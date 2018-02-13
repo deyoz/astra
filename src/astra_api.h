@@ -1200,7 +1200,7 @@ protected:
     xmlNodePtr      getQueryNode() const;
     xmlNodePtr      getAnswerNode() const;
 
-    void initReqInfo(const std::string& deskVersion = OLDEST_SUPPORTED_VERSION) const;
+    void initReqInfo(const std::string& deskVersion = PIECE_CONCEPT_VERSION) const;
 
     AstraEngine();
 
