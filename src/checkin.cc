@@ -1544,7 +1544,8 @@ struct TCkinPaxInfo
 };
 
 static void CreateEdiTCkinResponse(const CheckIn::TTransferItem &ti,
-                                   const TCkinPaxInfo& pax)
+                                   const TCkinPaxInfo& pax,
+                                   int paxId)
 {
     xmlNodePtr tripsNode = GetNode("trips", pax.node);
     if(!tripsNode) {
@@ -1571,7 +1572,7 @@ static void CreateEdiTCkinResponse(const CheckIn::TTransferItem &ti,
 
     xmlNodePtr paxesNode = NewTextChild(pnrNode, "passengers");
     xmlNodePtr paxNode = NewTextChild(paxesNode, "pax");
-    NewTextChild(paxNode, "pax_id",    -1);
+    NewTextChild(paxNode, "pax_id",    paxId);
     NewTextChild(paxNode, "surname",   pax.surname);
     NewTextChild(paxNode, "name",      pax.name);
     NewTextChild(paxNode, "seats",     pax.seats);
@@ -8621,25 +8622,22 @@ static void FillEdiTCkinPaxesNode(xmlNodePtr reqNode, xmlNodePtr tckinPaxesNode,
     crsQry.SetVariable("airp_arv", NodeAsString("airp_arv", reqNode));
 
     std::vector<TCkinPaxInfo>::iterator iPax = vPax.begin();
+    int paxId = 0;
     for(iPax=vPax.begin(); iPax != vPax.end(); iPax++)
-    {
-        /*crsQry.SetVariable("subclass", iPax->subclass);
-        crsQry.SetVariable("pers_type",iPax->pers_type);
-        crsQry.SetVariable("seats",    iPax->seats);
-        crsQry.SetVariable("surname",  iPax->surname);
-        crsQry.SetVariable("name",     iPax->name);
-        crsQry.Execute();*/
-
-        iPax->node = NewTextChild(tckinPaxesNode,"tckin_pax");
-        CreateEdiTCkinResponse(f, *iPax);
+    {        
+        for(int i=0; i < iPax->reqCount; ++i)
+        {
+            iPax->node = NewTextChild(tckinPaxesNode,"tckin_pax");
+            CreateEdiTCkinResponse(f, *iPax, --paxId);
 
 
-        ProgTrace(TRACE5,"<<<<< subclass=%s pers_type=%s surname=%s name=%s seats=%d",
-                        iPax->subclass.c_str(),
-                        iPax->pers_type.c_str(),
-                        iPax->surname.c_str(),
-                        iPax->name.c_str(),
-                        iPax->seats);
+            ProgTrace(TRACE5,"<<<<< subclass=%s pers_type=%s surname=%s name=%s seats=%d",
+                             iPax->subclass.c_str(),
+                             iPax->pers_type.c_str(),
+                             iPax->surname.c_str(),
+                             iPax->name.c_str(),
+                             iPax->seats);
+        }
     }
     //int pnrId = FindPnrIdByPointId
 }

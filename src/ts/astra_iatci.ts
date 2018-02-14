@@ -642,7 +642,7 @@ $(defmacro CHECK_TCKIN_ROUTE_GRP_2
                     <class>ù</class>
                     <passengers>
                       <pax>
-                        <pax_id>-1</pax_id>
+                        <pax_id>-2</pax_id>
                         <surname>$(surname2)</surname>
                         <name>$(name2)</name>
                         <seats>1</seats>
