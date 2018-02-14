@@ -422,6 +422,15 @@ void TCounters::deleteInitially(int point_id)
   Qry.get().Execute();
 }
 
+void TCounters::lockInitially(int point_id)
+{
+  LogTrace(TRACE5) << __FUNCTION__;
+
+  TCachedQuery Qry("SELECT point_dep FROM counters3 WHERE point_dep=:point_dep FOR UPDATE",
+                   QParams() << QParam("point_dep", otInteger, point_id));
+  Qry.get().Execute();
+}
+
 void TCounters::recountInitially()
 {
   LogTrace(TRACE5) << __FUNCTION__;
@@ -551,6 +560,7 @@ const TCounters &TCounters::recount(int point_id, RecountType type)
     currCrsCounters.loadCrsDataOnly();
     if (priorCrsCounters==currCrsCounters) return *this;  //счетчики брони не изменились
 
+    lockInitially(point_id);
     currCrsCounters.saveCrsCountersOnly();
   }
 
@@ -576,6 +586,7 @@ const TCounters &TCounters::recount(const CheckIn::TPaxGrpItem &grp,
     return *this;
   }
 
+  lockInitially(grp.point_dep);
   regDifferenceMap.apply(flt(), pr_tranz_reg());
 
   recountFinally();

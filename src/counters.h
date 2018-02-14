@@ -203,6 +203,7 @@ class TCounters
     void recountCrsFields();
 
     static void deleteInitially(int point_id);
+    static void lockInitially(int point_id);
 
   public:
     const TCounters& recount(int point_id, RecountType type);

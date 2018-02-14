@@ -4406,6 +4406,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               pax.seats=priorPax.seats;
               pax.crew_type=priorPax.crew_type;
               pax.is_jmp=priorPax.is_jmp;
+              if (!new_checkin && !pax.PaxUpdatesPending)
+                pax.refuse=priorPax.refuse;
               priorSimplePaxList.push_back(priorPax);
             }
 
