@@ -259,7 +259,8 @@ struct TSelfCkinLogItem {
 
 struct TSelfCkinLog {
     typedef map<int, TSelfCkinLogItem> TEVMap;
-    typedef map<TDateTime, TEVMap> TItemsMap;
+    typedef map<TDateTime, TEVMap> TTimeMap;
+    typedef map<int, TTimeMap> TItemsMap;
 
     TItemsMap items;
     void fromDB(const TParams &params);
@@ -339,23 +340,26 @@ void TSelfCkinLog::toXML(xmlNodePtr resNode)
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
     xmlNodePtr rowNode;
 
-    for(TItemsMap::iterator time_idx = items.begin();
-            time_idx != items.end(); time_idx++) {
-        for(TEVMap::iterator ev_idx = time_idx->second.begin();
-                ev_idx != time_idx->second.end(); ev_idx++) {
-            rowNode = NewTextChild(rowsNode, "row");
-            TKioskEventParams::TItemsMap errors = ev_idx->second.evt_params.get_param(KIOSK_PARAM_NAME::ERROR);
-            if(errors.empty())
-                rowToXML(rowNode, ev_idx->second);
-            else
-                for(TKioskEventParams::TItemsMap::iterator idx = errors.begin();
-                        idx != errors.end(); idx++) {
-                    for(TKioskEventParams::TItemNameMap::iterator name_idx = idx->second.begin();
-                            name_idx != idx->second.end(); name_idx++)
-                    {
-                        rowToXML(rowNode, ev_idx->second, name_idx->second);
+    for(TItemsMap::iterator id = items.begin();
+            id != items.end(); id++) {
+        for(TTimeMap::iterator time_idx = id->second.begin();
+                time_idx != id->second.end(); time_idx++) {
+            for(TEVMap::iterator ev_idx = time_idx->second.begin();
+                    ev_idx != time_idx->second.end(); ev_idx++) {
+                rowNode = NewTextChild(rowsNode, "row");
+                TKioskEventParams::TItemsMap errors = ev_idx->second.evt_params.get_param(KIOSK_PARAM_NAME::ERROR);
+                if(errors.empty())
+                    rowToXML(rowNode, ev_idx->second);
+                else
+                    for(TKioskEventParams::TItemsMap::iterator idx = errors.begin();
+                            idx != errors.end(); idx++) {
+                        for(TKioskEventParams::TItemNameMap::iterator name_idx = idx->second.begin();
+                                name_idx != idx->second.end(); name_idx++)
+                        {
+                            rowToXML(rowNode, ev_idx->second, name_idx->second);
+                        }
                     }
-                }
+            }
         }
     }
     LogTrace(TRACE5) << GetXMLDocText(resNode->doc);
@@ -400,7 +404,7 @@ void TSelfCkinLog::fromDB(const TParams &params, TCachedQuery &Qry)
                       upperc(logItem.evt_params.get_param_value(KIOSK_PARAM_NAME::DOC)).find(params.doc) != string::npos)
                     )
               )
-                items[logItem.time][logItem.ev_order] = logItem;
+                items[logItem.id][logItem.time][logItem.ev_order] = logItem;
 
             /*
                const string &value = upperc(logItem.evt_params.get_param(KIOSK_PARAM_NAME::REFERENCE).begin()->second.begin()->second);
@@ -457,9 +461,9 @@ void TSelfCkinLog::fromDB(const TParams &params)
                 "   type in(:statusDevices, :statusOperation) and "
                 "   time > :time_from - 5/1440 and time <= :time_to + 5/1440 ",
                 QParams()
-                << QParam("kiosk_id", otString, items.begin()->second.begin()->second.kiosk_id)
-                << QParam("time_from", otDate, items.begin()->first)
-                << QParam("time_to", otDate, items.rbegin()->first)
+                << QParam("kiosk_id", otString, items.begin()->second.begin()->second.begin()->second.kiosk_id)
+                << QParam("time_from", otDate, items.begin()->second.begin()->first)
+                << QParam("time_to", otDate, items.rbegin()->second.begin()->first)
                 << QParam("statusDevices", otString, TKioskEventTypesCode().encode(TKioskEventTypes::statusDevices))
                 << QParam("statusOperation", otString, TKioskEventTypesCode().encode(TKioskEventTypes::statusOperation)));
 
