@@ -66,15 +66,25 @@ namespace KIOSK_PARAM_NAME {
 }
 
 struct TKiosksGrp {
+    int kiosk_addr;
     vector<string> items;
-    void fromDB(int kiosk_addr);
+    void fromDB(int _kiosk_addr);
+    TKiosksGrp() { clear(); }
+    void clear()
+    {
+        kiosk_addr = NoExists;
+        items.clear();
+    }
+    bool no_data() const
+    {
+        return kiosk_addr != NoExists and items.empty();
+    }
 };
 
 struct TParams {
     string sessionId;
     TDateTime time_from;
     TDateTime time_to;
-    int kiosk_addr;
     string app;
 
     string flt;
@@ -97,9 +107,10 @@ struct TParams {
     void fromXML(xmlNodePtr reqNode);
 };
 
-void TKiosksGrp::fromDB(int kiosk_addr)
+void TKiosksGrp::fromDB(int _kiosk_addr)
 {
-    items.clear();
+    clear();
+    kiosk_addr = _kiosk_addr;
     if(kiosk_addr == NoExists) return;
     TCachedQuery Qry("select kiosk_id from web_clients where kiosk_addr = :kiosk_addr",
             QParams() << QParam("kiosk_addr", otInteger, kiosk_addr));
@@ -114,8 +125,7 @@ void TParams::fromXML(xmlNodePtr reqNode)
     if(sessionId.empty()) {
         time_from = NodeAsDateTime("time_from", reqNode);
         time_to = NodeAsDateTime("time_to", reqNode);
-        kiosk_addr = NodeAsInteger("kiosk_addr", reqNode, NoExists);
-        kiosks_grp.fromDB(kiosk_addr);
+        kiosks_grp.fromDB(NodeAsInteger("kiosk_addr", reqNode, NoExists));
         app = NodeAsString("app", reqNode, "");
 
         flt = NodeAsString("flt", reqNode, "");
@@ -137,7 +147,6 @@ void TParams::clear()
     sessionId.clear();
     time_from = NoExists;
     time_to = NoExists;
-    kiosk_addr = NoExists;
     app.clear();
     flt.clear();
     pax_name.clear();
@@ -145,7 +154,7 @@ void TParams::clear()
     doc.clear();
     ext_src = false;
     kiosk.clear();
-    kiosks_grp.items.clear();
+    kiosks_grp.clear();
 
     dev_log = false;
     screen_log = false;
@@ -422,6 +431,7 @@ void TSelfCkinLog::fromDB(const TParams &params, TCachedQuery &Qry)
 
 void TSelfCkinLog::fromDB(const TParams &params)
 {
+    if(params.kiosks_grp.no_data()) return;
     QParams QryParams;
     string SQLText = "select * from kiosk_events where kioskid is not null and ";
     if(params.sessionId.empty()) {
@@ -429,7 +439,7 @@ void TSelfCkinLog::fromDB(const TParams &params)
         QryParams
             << QParam("time_from", otDate, params.time_from)
             << QParam("time_to", otDate, params.time_to);
-        if(not params.kiosks_grp.items.empty())
+        if(params.kiosks_grp.kiosk_addr != NoExists)
             SQLText += " and kioskid in " + GetSQLEnum(params.kiosks_grp.items);
         else if(not params.kiosk.empty()) {
             SQLText += " and kioskid = :kiosk_id ";
