@@ -512,3 +512,21 @@ const TFltInfoCacheItem &TFltInfoCache::get(int point_id, TDateTime part_key)
     }
     return i->second;
 }
+
+string TAirpArvInfo::get(TQuery &Qry)
+{
+    int grp_id = Qry.FieldAsInteger("grp_id");
+    map<int, string>::iterator im = items.find(grp_id);
+    if(im == items.end()) {
+        TCkinRoute tckin_route;
+        tckin_route.GetRouteAfter(grp_id, crtWithCurrent, crtIgnoreDependent);
+        string airp_arv;
+        if(tckin_route.empty())
+            airp_arv = Qry.FieldAsString("airp_arv");
+        else
+            airp_arv = tckin_route.back().airp_arv;
+        pair<map<int, string>::iterator, bool> res = items.insert(make_pair(grp_id, airp_arv));
+        im = res.first;
+    }
+    return im->second;
+}
