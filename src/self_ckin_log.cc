@@ -58,7 +58,7 @@ namespace KIOSK_PARAM_NAME {
     const string REFERENCE = "__REFERENCE__";
     const string ERROR = "__ERROR__";
     const string FLIGHT = "flight";
-    const string DATE = "date";
+    const string DATE = "selectedDate";
     const string LAST_NAME = "lastName";
     const string TICKET = "ticket";
     const string DOC = "document";
