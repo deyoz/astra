@@ -45,7 +45,10 @@
 #include "external_spp_synch.h"
 #include "rfisc_sirena.h"
 #include "html_pages.h"
+#include "kiosk_events.h"
 #include "hotel_acmd.h"
+#include "libra.h"
+#include "self_ckin_log.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -93,9 +96,12 @@ void AstraJxtCallbacks::InitInterfaces()
     new CryptInterface();
     new TestInterface();
     new HtmlInterface();
+    new KioskRequestInterface();
     new HotelAcmdInterface();
+    new SelfCkinLogInterface();
 
     new AstraWeb::WebRequestsIface();
+    new LibraInterface();
 
     new HTTPRequestsIface();
     new PieceConceptInterface();

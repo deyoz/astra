@@ -79,6 +79,7 @@ const
                          {"GRAPH_STAGES_WO_INACTIVE",etGraphStageWOInactive},
                          {"HALLS",                   etHall},
                          {"KIOSK_CKIN_DESK_GRP",     etDeskGrp},
+                         {"KIOSKS_GRP",              etKiosksGrp},
                          {"MISC_SET_TYPES",          etMiscSetType},
                          {"NO_TXT_REPORT_TYPES",     etReportType},
                          {"RATE_COLORS",             etRateColor},

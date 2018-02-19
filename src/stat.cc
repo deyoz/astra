@@ -34,6 +34,7 @@
 #include "stat_ha.h"
 #include "stat_ad.h"
 #include "stat_unacc.h"
+#include "report_common.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -145,15 +146,6 @@ void GetSystemLogStationSQL(TQuery &Qry);
 void GetSystemLogModuleSQL(TQuery &Qry);
 
 enum TScreenState {ssNone,ssLog,ssPaxList,ssFltLog,ssFltTaskLog,ssSystemLog,ssPaxSrc};
-enum TColumnSortType {sortString,
-                      sortInteger,
-                      sortFloat,
-                      sortDate,
-                      sortDateTime,
-                      sortTime,
-                      sortIntegerSlashInteger,
-                      sortSlashedInt}; // любая последовательность, вида N.../N.../N...
-
 void GetSystemLogAgentSQL(TQuery &Qry)
 {
     string SQLText =

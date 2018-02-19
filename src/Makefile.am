@@ -103,6 +103,7 @@ astra_SOURCES = \
   images.cc \
   load_fr.cc \
   locale.cc \
+  libra.cc \
   maindcs.cc \
   meridian.cc \
   obrnosir.cc \
@@ -181,8 +182,10 @@ astra_SOURCES = \
   stat_utils.cc \
   stat_common.cc \
   db_pkg.cc \
-  bagmessage_daemon.cc
-
+  bagmessage_daemon.cc \
+  kiosk_events.cc \
+  self_ckin_log.cc \
+  cr_lf.cc
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
@@ -228,7 +231,7 @@ noinst_HEADERS = \
   astra_context.h \
   astra_elem_utils.h \
   astra_elems.h \
-  astra_locale.h \
+  astra_locale.h \  
   astra_locale_adv.h \
   astra_main.h \
   astra_misc.h \
@@ -280,6 +283,7 @@ noinst_HEADERS = \
   httpClient.h \
   images.h \
   load_fr.h \
+  libra.h \
   maindcs.h \
   meridian.h \
   obrnosir.h \
@@ -353,4 +357,7 @@ noinst_HEADERS = \
   stat_utils.h \
   stat_common.h \
   db_pkg.h \
-  report_common.h
+  report_common.h \
+  kiosk_events.h \
+  self_ckin_log.h \
+  cr_lf.h
