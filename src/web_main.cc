@@ -3082,6 +3082,11 @@ void ChangeProtLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
 
             if (isTestPaxId(iPax->crs_pax_id)) continue;
 
+            std::vector<int> ranges;
+            GetTlgSeatIdsRanges( layer_type, iPax->crs_pax_id, ranges );
+            TPointIdsForCheck point_ids_spp;
+            point_ids_spp.insert( make_pair(point_id, layer_type) );
+
             //проверки + запись!!!
             int tid = iPax->crs_pax_tid;
             if ( isTranzitSalonsVersion ) {
@@ -3110,6 +3115,7 @@ void ChangeProtLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
                               change_layer_flags,
                               NULL );
             }
+            DeleteTlgSeatRanges( ranges, iPax->crs_pax_id, tid, point_ids_spp );
             //в любом случае устанавливаем tlg_comp_layers.time_remove
             /*LayerQry.SetVariable("layer_type", EncodeCompLayerType(layer_type));
             LayerQry.SetVariable("crs_pax_id", iPax->crs_pax_id);
@@ -3392,6 +3398,7 @@ void WebRequestsIface::PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
       if ( pass==0 ) {
         if ( status=="PAID" ) { // изменяем слой оплаты с cltProtBeforePay на cltProtAfterPay || cltProtSelfCkin на cltProtAfterPa
           //определяем координаты мест пасса перед оплатой
+          //!!!prAvailable = false;
           TSeatRanges ranges;
           for ( int i=0; i<2; i++ ) {
             TCompLayerType layer_type;
@@ -3413,12 +3420,14 @@ void WebRequestsIface::PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
             };
             prAvailable = (r!=ranges.end());
             if ( prAvailable ) {
+              tst();
               break;
             }
           }
 /*          if (r==ranges.end()) {
             throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
           }*/
+          ProgTrace( TRACE5, "prAvailable=%d, ranges.empty=%d, crs_pax_id=%d", prAvailable,ranges.empty(), crs_pax_id );
           if ( prAvailable ) {
             InsertTlgSeatRanges(Qry.FieldAsInteger("point_id_tlg"),
                                 Qry.FieldAsString("airp_arv"),
