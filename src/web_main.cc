@@ -1355,6 +1355,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
     grp_layers.push_back( cltProtAfterPay );
     grp_layers.push_back( cltPNLBeforePay );
     grp_layers.push_back( cltPNLAfterPay );
+    grp_layers.push_back( cltProtSelfCkin );
     TFilterRoutesSets filterRoutes = salonList.getFilterRoutes();
     bool pr_departure_tariff_only = true;
     TDropLayersFlags dropLayersFlags;
@@ -3080,6 +3081,11 @@ void ChangeProtLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
 
             if (isTestPaxId(iPax->crs_pax_id)) continue;
 
+            std::vector<int> ranges;
+            GetTlgSeatIdsRanges( layer_type, iPax->crs_pax_id, ranges );
+            TPointIdsForCheck point_ids_spp;
+            point_ids_spp.insert( make_pair(point_id, layer_type) );
+
             //проверки + запись!!!
             int tid = iPax->crs_pax_tid;
             if ( isTranzitSalonsVersion ) {
@@ -3108,6 +3114,7 @@ void ChangeProtLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
                               change_layer_flags,
                               NULL );
             }
+            DeleteTlgSeatRanges( ranges, iPax->crs_pax_id, tid, point_ids_spp );
             //в любом случае устанавливаем tlg_comp_layers.time_remove
             /*LayerQry.SetVariable("layer_type", EncodeCompLayerType(layer_type));
             LayerQry.SetVariable("crs_pax_id", iPax->crs_pax_id);
@@ -3388,21 +3395,38 @@ void WebRequestsIface::PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
       //удаляем слой оплаты
       prAvailable = true;
       if ( pass==0 ) {
-        if ( status=="PAID" ) { // изменяем слой оплаты с cltProtBeforePay на cltProtAfterPay
+        if ( status=="PAID" ) { // изменяем слой оплаты с cltProtBeforePay на cltProtAfterPay || cltProtSelfCkin на cltProtAfterPa
           //определяем координаты мест пасса перед оплатой
+          //!!!prAvailable = false;
           TSeatRanges ranges;
-          GetTlgSeatRanges(ASTRA::cltProtBeforePay, crs_pax_id, ranges);
-          TSeatRanges::const_iterator r=ranges.begin();
-          for(; r!=ranges.end(); ++r)
-          {
-            const TSeatRange& seatRange=*r;
-            if ( seat_no == seatRange.first.denorm_view(true) ||
-                 seat_no == seatRange.first.denorm_view(false) ) break;
-          };
-          prAvailable = (r!=ranges.end());
+          for ( int i=0; i<2; i++ ) {
+            TCompLayerType layer_type;
+            switch( i ) {
+              case 0:
+                layer_type = ASTRA::cltProtBeforePay;
+                break;
+              case 1:
+                layer_type = ASTRA::cltProtSelfCkin;
+                break;
+            }
+            GetTlgSeatRanges(layer_type, crs_pax_id, ranges);
+            TSeatRanges::const_iterator r=ranges.begin();
+            for(; r!=ranges.end(); ++r)
+            {
+              const TSeatRange& seatRange=*r;
+              if ( seat_no == seatRange.first.denorm_view(true) ||
+                   seat_no == seatRange.first.denorm_view(false) ) break;
+            };
+            prAvailable = (r!=ranges.end());
+            if ( prAvailable ) {
+              tst();
+              break;
+            }
+          }
 /*          if (r==ranges.end()) {
             throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
           }*/
+          ProgTrace( TRACE5, "prAvailable=%d, ranges.empty=%d, crs_pax_id=%d", prAvailable,ranges.empty(), crs_pax_id );
           if ( prAvailable ) {
             InsertTlgSeatRanges(Qry.FieldAsInteger("point_id_tlg"),
                                 Qry.FieldAsString("airp_arv"),

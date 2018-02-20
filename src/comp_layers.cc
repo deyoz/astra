@@ -580,9 +580,9 @@ void GetTlgSeatRanges(TCompLayerType layer_type,
   };
 }
 
-/*void GetTlgSeatIdsRanges(TCompLayerType layer_type,
+void GetTlgSeatIdsRanges(TCompLayerType layer_type,
                          int crs_pax_id,
-                         std::set<int> ranges)
+                         std::vector<int> ranges)
 {
   ranges.clear();
 
@@ -596,9 +596,9 @@ void GetTlgSeatRanges(TCompLayerType layer_type,
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {
-    ranges.insert(Qry.FieldAsInteger("range_id"));
+    ranges.push_back(Qry.FieldAsInteger("range_id"));
   };
-}*/
+}
 
 void SyncTripCompLayers(int point_id_tlg,
                         int point_id_spp,

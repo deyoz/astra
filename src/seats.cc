@@ -246,7 +246,7 @@ struct TAllowedAttributesSeat {
     if ( Qry.Eof ) {
       ProgError( STDLOG, "isWorkINFT: flight not found!!!, point_id=%d", point_id );
     }
-    pr_isWorkINFT = ( !Qry.Eof &&
+    pr_isWorkINFT = ( !Qry.Eof && 
                       (string("РГ") == Qry.FieldAsString( "airline")/* || string("ЮТ") == Qry.FieldAsString( "airline")*/));
     SeatsStat.stop(__FUNCTION__);
     return pr_isWorkINFT;
@@ -2992,7 +2992,6 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
 
 
 bool UsedPayedPreseatForPassenger( const TPlace &seat, int pass_preseat_pax_id, TCompLayerType pass_preseat_layer ) {
-
   if ( TReqInfo::Instance()->client_type == ctTerm && seat.SeatTariff.rate == 0.0 ) { // only for Term analize rates
     tst();
     return true;
@@ -3006,7 +3005,8 @@ bool UsedPayedPreseatForPassenger( const TPlace &seat, int pass_preseat_pax_id, 
     if ( seat.layers.begin()->layer_type == cltProtBeforePay ||
          seat.layers.begin()->layer_type == cltProtAfterPay ||
          seat.layers.begin()->layer_type == cltPNLBeforePay ||
-         seat.layers.begin()->layer_type == cltPNLAfterPay ) {
+         seat.layers.begin()->layer_type == cltPNLAfterPay ||
+         seat.layers.begin()->layer_type == cltProtSelfCkin ) {
       ProgTrace( TRACE5, "seat->pax_id=%d, pass.preseat_pax_id=%d",
                  seat.layers.begin()->pax_id, pass_preseat_pax_id );
       return seat.layers.begin()->pax_id == pass_preseat_pax_id; //принадлежит пассажиру
@@ -3018,7 +3018,8 @@ bool UsedPayedPreseatForPassenger( const TPlace &seat, int pass_preseat_pax_id, 
   if ( priority > compTypes->priority( cltProtBeforePay )&&
        priority > compTypes->priority( cltProtAfterPay )&&
        priority > compTypes->priority( cltPNLBeforePay )&&
-       priority > compTypes->priority( cltPNLAfterPay ) ) {
+       priority > compTypes->priority( cltPNLAfterPay ) &&
+       priority > compTypes->priority( cltProtSelfCkin )) {
     tst();
     return false;
   }
@@ -3046,12 +3047,12 @@ class AnomalisticConditionsPayment
           for ( std::vector<TPlaceList*>::iterator item=Salons->placelists.begin(); item!=Salons->placelists.end(); item++ ) {
             if ( iseat->placeListIdx == (*item)->num ) {
               TPlace *p = (*item)->place( iseat->p );
-              pls.push_back( p );
-              if ( !prClear &&
-                   ( pass.preseat_layer == cltProtBeforePay || // не оплатили - удаляем из компоновки разметку слоем и пассажира делаем обычным
-                     pass.preseat_layer == cltPNLBeforePay ||
-                     !UsedPayedPreseatForPassenger( *p, pass.preseat_pax_id, pass.preseat_layer ) ) ) { //очистка предварительно назначенных мест
+              if ( pass.preseat_layer == cltProtBeforePay || // не оплатили - удаляем из компоновки разметку слоем и пассажира делаем обычным
+                   pass.preseat_layer == cltPNLBeforePay ||
+                   (pass.preseat_layer == cltProtSelfCkin && !p->SeatTariff.empty()) || //резерв, но не оплачен
+                   !UsedPayedPreseatForPassenger( *p, pass.preseat_pax_id, pass.preseat_layer ) ) { //очистка предварительно назначенных мест
                 prClear = true;
+                pls.push_back( p );
               }
             }
           }
