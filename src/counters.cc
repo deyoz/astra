@@ -598,10 +598,10 @@ const TCountersCover& TCountersCover::recount(int point_id, TCounters::RecountTy
 {
   LogTrace(TRACE5) << "TCountersCover::" << __FUNCTION__;
 
-  if (!equalWithCounters2(point_id))
-    syncWithCounters2(point_id);
-  if (!equalWithCrsCounters(point_id))
-    syncWithCrsCounters(point_id);
+//  if (!equalWithCounters2(point_id))
+//    syncWithCounters2(point_id);
+//  if (!equalWithCrsCounters(point_id))
+//    syncWithCrsCounters(point_id);
 
   if (type==TCounters::CrsCounters)
     recountCrsCounters(point_id);
@@ -636,16 +636,12 @@ const TCountersCover& TCountersCover::recount(const CheckIn::TPaxGrpItem &grp,
 {
   LogTrace(TRACE5) << "TCountersCover::" << __FUNCTION__;
 
-//  TRegDifferenceMap regDifferenceMap;
-//  regDifferenceMap.getDifference(grp, prior_paxs, curr_paxs);
-//  if (regDifferenceMap.empty()) return *this;
-
   int point_id=grp.point_dep;
 
-  if (!equalWithCounters2(point_id))
-    syncWithCounters2(point_id);
-  if (!equalWithCrsCounters(point_id))
-    syncWithCrsCounters(point_id);
+//  if (!equalWithCounters2(point_id))
+//    syncWithCounters2(point_id);
+//  if (!equalWithCrsCounters(point_id))
+//    syncWithCrsCounters(point_id);
 
   recountCounters2(point_id);
 
