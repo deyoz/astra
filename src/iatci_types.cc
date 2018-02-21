@@ -682,7 +682,7 @@ bool BaggageDetails::BagTagInfo::consistentWith(const BagTagInfo& bt) const
        dest()        == bt.dest() &&
        tagAccode()   == bt.tagAccode())
     {
-       return abs(tagNum() - bt.tagNum()) == 1;
+       return abs((int)tagNum() - (int)bt.tagNum()) == 1;
     }
 
     return false;

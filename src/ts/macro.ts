@@ -100,7 +100,7 @@ $(defmacro PREPARE_SEASON_SCD
               <company>$(airl)</company>
               <trip>$(fltno)</trip>
               <bc>$(craft)</bc>
-              <takeoff>30.12.1899 10:00:00</takeoff>
+              <takeoff>30.12.1899 10:15:00</takeoff>
               <y>-1</y>
             </dest>
             <dest>

@@ -973,11 +973,11 @@ public:
         {}
 
         unsigned width() const {
-            return std::abs(m_bottomRight.m_x - m_topLeft.m_x);
+            return std::abs((int)m_bottomRight.m_x - (int)m_topLeft.m_x);
         }
 
         unsigned height() const {
-            return std::abs(m_bottomRight.m_y - m_topLeft.m_y);
+            return std::abs((int)m_bottomRight.m_y - (int)m_topLeft.m_y);
         }
     };
 

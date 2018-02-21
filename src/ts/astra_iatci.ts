@@ -154,9 +154,9 @@ $(defmacro CHECK_FLIGHT
         <flt_no>$(flt)</flt_no>
         <suffix/>
         <airp>$(airp_dep)</airp>
-        <scd_out_local>$(date_format %d.%m.%Y +0) 10:00:00</scd_out_local>
-        <scd_out>$(date_format %d.%m.%Y +0) 10:00:00</scd_out>
-        <real_out>10:00</real_out>
+        <scd_out_local>$(date_format %d.%m.%Y +0) 10:15:00</scd_out_local>
+        <scd_out>$(date_format %d.%m.%Y +0) 10:15:00</scd_out>
+        <real_out>10:15</real_out>
         <act_out/>
         <craft>’“5</craft>
         <bort/>
@@ -170,7 +170,7 @@ $(defmacro CHECK_FLIGHT
         <pr_tranzit>0</pr_tranzit>
         <trip>$(airl)$(flt)...
         <status>¥£¨αβΰ ζ¨ο</status>
-        <stage_time>09:20</stage_time>
+        <stage_time>09:35</stage_time>
         <ckin_stage>20</ckin_stage>
         <tranzitable>0</tranzitable>
         <pr_tranz_reg>0</pr_tranz_reg>
@@ -2107,7 +2107,6 @@ RAD+I+O"
 PPD+REPIN+C:N+0013929620+IVAN"
 PFD+xx+:Y+1"
 PSI++TKNE::29861200302972"
-PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -2125,7 +2124,7 @@ $(KICK_IN)
           <flt_no>103</flt_no>
           <suffix/>
           <airp>„„</airp>
-          <scd_out_local>$(date_format %d.%m.%Y +0) 10:00:00</scd_out_local>
+          <scd_out_local>$(date_format %d.%m.%Y +0) 10:15:00</scd_out_local>
           <pr_etl_only>0</pr_etl_only>
           <pr_etstatus>0</pr_etstatus>
           <pr_no_ticket_check>0</pr_no_ticket_check>
@@ -2180,7 +2179,7 @@ $(KICK_IN)
               <airline>’</airline>
               <flt_no>103</flt_no>
               <suffix/>
-              <scd>$(date_format %d.%m.%Y +0) 10:00:00</scd>
+              <scd>$(date_format %d.%m.%Y +0) 10:15:00</scd>
               <airp_dep>„„</airp_dep>
               <pr_mark_norms>0</pr_mark_norms>
             </flight>
@@ -2336,17 +2335,6 @@ $(KICK_IN)
             <coupon_no>2</coupon_no>
             <ticket_rem>TKNE</ticket_rem>
             <ticket_confirm>1</ticket_confirm>
-            <document>
-              <type>PP</type>
-              <issue_country>RUS</issue_country>
-              <no>5408123432</no>
-              <nationality>RUS</nationality>
-              <birth_date>10.03.1986 00:00:00</birth_date>
-              <gender>M</gender>
-              <surname>REPIN</surname>
-              <first_name>IVAN</first_name>
-              <expiry_date>31.12.2049 00:00:00</expiry_date>
-            </document>
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
             <pr_bi_print>0</pr_bi_print>
@@ -2354,6 +2342,16 @@ $(KICK_IN)
             <fqt_rems/>
             <iatci_pax_id>0013929620</iatci_pax_id>
             <iatci_parent_pax_id/>
+            <document>
+              <type>P</type>
+              <issue_country>RUS</issue_country>
+              <no>7774441110</no>
+              <nationality>RUS</nationality>
+              <birth_date>01.05.1976 00:00:00</birth_date>
+              <gender>M</gender>
+              <surname>REPIN</surname>
+              <first_name>IVAN</first_name>
+            </document>
           </pax>
         </passengers>
         <paid_bag_emd/>
@@ -2422,7 +2420,6 @@ UNZ+1+$(last_edifact_ref)0001"
 >> lines=auto
     <kick req_ctxt_id...
 
-!!
 $(lastRedisplay)
 
 $(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
@@ -2771,7 +2768,7 @@ $(KICK_IN)
           <flt_no>103</flt_no>
           <suffix/>
           <airp>„„</airp>
-          <scd_out_local>$(date_format %d.%m.%Y) 10:00:00</scd_out_local>
+          <scd_out_local>$(date_format %d.%m.%Y) 10:15:00</scd_out_local>
           <pr_etl_only>0</pr_etl_only>
           <pr_etstatus>0</pr_etstatus>
           <pr_no_ticket_check>0</pr_no_ticket_check>
@@ -2826,7 +2823,7 @@ $(KICK_IN)
               <airline>’</airline>
               <flt_no>103</flt_no>
               <suffix/>
-              <scd>$(date_format %d.%m.%Y) 10:00:00</scd>
+              <scd>$(date_format %d.%m.%Y) 10:15:00</scd>
               <airp_dep>„„</airp_dep>
               <pr_mark_norms>0</pr_mark_norms>
             </flight>
@@ -4312,7 +4309,7 @@ $(KICK_IN)
           <flt_no>103</flt_no>
           <suffix/>
           <airp>„„</airp>
-          <scd_out_local>$(date_format %d.%m.%Y +0) 10:00:00</scd_out_local>
+          <scd_out_local>$(date_format %d.%m.%Y +0) 10:15:00</scd_out_local>
           <pr_etl_only>0</pr_etl_only>
           <pr_etstatus>0</pr_etstatus>
           <pr_no_ticket_check>0</pr_no_ticket_check>
@@ -4367,7 +4364,7 @@ $(KICK_IN)
               <airline>’</airline>
               <flt_no>103</flt_no>
               <suffix/>
-              <scd>$(date_format %d.%m.%Y +0) 10:00:00</scd>
+              <scd>$(date_format %d.%m.%Y +0) 10:15:00</scd>
               <airp_dep>„„</airp_dep>
               <pr_mark_norms>0</pr_mark_norms>
             </flight>

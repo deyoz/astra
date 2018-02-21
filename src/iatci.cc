@@ -518,7 +518,8 @@ namespace
     class IatciUpdater
     {
     public:
-        IatciUpdater(xmlNodePtr iatciNode, xmlNodePtr reqNode);
+        IatciUpdater(xmlNodePtr iatciNode, const std::string& iatciRootSegsNodeName,
+                     xmlNodePtr reqNode,   const std::string& reqRootSegsNodeName);
 
         void updatePaxDoc(const iatci::PaxDetails& pax);
         void updatePaxRems(const iatci::PaxDetails& pax);
@@ -529,13 +530,15 @@ namespace
         void updatePaxSeat(const iatci::UpdateSeatDetails& updSeat);
 
         xmlNodePtr iatciNode() const { return m_iatciNode; }
+        
+        bool tryUpdatePaxDoc(const iatci::PaxDetails& pax);
 
     protected:
         std::list<xmlNodePtr> findPaxNodes(xmlNodePtr parentNode,
                                            const iatci::PaxDetails& pax) const;
 
-        void copyNodeFromReqToIatci(const iatci::PaxDetails& pax,
-                                    const std::string& nodeName);
+        void copyNodeToIatci(const iatci::PaxDetails& pax,
+                             const std::string& nodeName);
 
         void updateNode(xmlNodePtr parentNode,
                         const std::string& newVal,
@@ -545,13 +548,20 @@ namespace
     private:
         xmlNodePtr        m_iatciNode;
         xmlNodePtr        m_reqNode;
+        std::string       m_iatciRootSegsNodeName;
+        std::string       m_reqRootSegsNodeName;
     };
 
     //
 
-    IatciUpdater::IatciUpdater(xmlNodePtr iatciNode, xmlNodePtr reqNode)
+    IatciUpdater::IatciUpdater(xmlNodePtr iatciNode,
+                               const std::string& iatciRootSegsNodeName,
+                               xmlNodePtr reqNode,
+                               const std::string& reqRootSegsNodeName)
         : m_iatciNode(iatciNode),
-          m_reqNode(reqNode)
+          m_reqNode(reqNode),
+          m_iatciRootSegsNodeName(iatciRootSegsNodeName),
+          m_reqRootSegsNodeName(reqRootSegsNodeName)
     {
         ASSERT(m_iatciNode != NULL);
         ASSERT(m_reqNode != NULL);
@@ -559,22 +569,22 @@ namespace
 
     void IatciUpdater::updatePaxDoc(const iatci::PaxDetails& pax)
     {
-        copyNodeFromReqToIatci(pax, "document");
+        copyNodeToIatci(pax, "document");
     }
 
     void IatciUpdater::updatePaxRems(const iatci::PaxDetails& pax)
     {
-        copyNodeFromReqToIatci(pax, "rems");
+        copyNodeToIatci(pax, "rems");
     }
 
     void IatciUpdater::updatePaxFqtRems(const iatci::PaxDetails& pax)
     {
-        copyNodeFromReqToIatci(pax, "fqt_rems");
+        copyNodeToIatci(pax, "fqt_rems");
     }
 
     void IatciUpdater::updateBagPoolNums(const iatci::PaxDetails& pax)
     {
-        copyNodeFromReqToIatci(pax, "bag_pool_num");
+        copyNodeToIatci(pax, "bag_pool_num");
     }
 
     void IatciUpdater::updatePersonal(const iatci::PaxDetails& pax,
@@ -600,6 +610,26 @@ namespace
         ASSERT(paxId != ASTRA::NoExists);
 
         updateSeatNode(tripId, paxId, updSeat.seat());
+    }
+    
+    bool IatciUpdater::tryUpdatePaxDoc(const iatci::PaxDetails& pax)
+    {
+        xmlNodePtr reqSegsNode = findNodeR(m_reqNode, m_reqRootSegsNodeName);
+        if(reqSegsNode == NULL) {
+            tst();
+            return false;
+        }
+        std::list<xmlNodePtr> paxNodes = findPaxNodes(reqSegsNode, pax);
+        if(paxNodes.empty()) {
+            return false;
+        }
+        XmlPax xmlPax = XmlEntityReader::readPax(paxNodes.front());
+        if(xmlPax.doc) {
+            updatePaxDoc(pax);
+            return true;
+        }
+        
+        return false;
     }
 
     std::list<xmlNodePtr> IatciUpdater::findPaxNodes(xmlNodePtr parentNode,
@@ -627,12 +657,12 @@ namespace
         return paxNodes;
     }
 
-    void IatciUpdater::copyNodeFromReqToIatci(const iatci::PaxDetails& pax,
-                                              const std::string& nodeName)
+    void IatciUpdater::copyNodeToIatci(const iatci::PaxDetails& pax,
+                                       const std::string& nodeName)
     {
-        xmlNodePtr iatciSegsNode = findNodeR(m_iatciNode, "segments");
+        xmlNodePtr iatciSegsNode = findNodeR(m_iatciNode, m_iatciRootSegsNodeName);
         ASSERT(iatciSegsNode != NULL);
-        xmlNodePtr reqSegsNode = findNodeR(m_reqNode, "iatci_segments");
+        xmlNodePtr reqSegsNode = findNodeR(m_reqNode, m_reqRootSegsNodeName);
         if(reqSegsNode == NULL) {
             tst();
             return;
@@ -1712,7 +1742,8 @@ static void UpdateIatciGrp(int grpId, IatciInterface::RequestType reqType,
     }
     ASSERT(ckuParams);
 
-    IatciUpdater updater(loadedDoc.docPtr()->children, termReqNode);
+    IatciUpdater updater(loadedDoc.docPtr()->children, "segments",
+                         termReqNode, "iatci_segments");
 
     dcqcku::FlightGroup fltGrp = ckuParams->fltGroup();
     for(const dcqcku::PaxGroup& paxGrp: fltGrp.paxGroups()) {
@@ -2196,6 +2227,23 @@ static IatciViewXmlParams getIatciViewXmlParams(int grpId)
     return getIatciViewXmlParams(oldXml.docPtr()->children);
 }
 
+static void normalizeIatciPaxDocs(xmlNodePtr iatciResNode,
+                                  xmlNodePtr reqNode,
+                                  const std::list<Result>& lRes)
+{
+    IatciUpdater updateByOwnSeg(iatciResNode, "segments", reqNode, "segments");
+    IatciUpdater updateByIatciSeg(iatciResNode, "segments", reqNode, "iatci_segments");
+    for(const Result& res: lRes) {
+        for(const iatci::dcrcka::PaxGroup& pxg: res.paxGroups()) {
+            if(!pxg.doc()) {
+                if(!updateByIatciSeg.tryUpdatePaxDoc(pxg.pax())) {
+                    updateByOwnSeg.updatePaxDoc(pxg.pax());
+                }
+            }
+        }
+    }
+}
+
 void IatciInterface::DoKickAction(int ctxtId,
                                   xmlNodePtr reqNode,
                                   xmlNodePtr resNode,
@@ -2224,6 +2272,7 @@ void IatciInterface::DoKickAction(int ctxtId,
             CopyNode(segmentsNode, findNodeR(reqNode, "iatci_segments"));
         } else if(reqType == Cki) {
             iatci::iatci2xml(segmentsNode, lRes, getIatciViewXmlParams(resNode));
+            normalizeIatciPaxDocs(iatciResNode, reqNode, lRes);
         }
 
         if(reqType == Cku) {
