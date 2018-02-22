@@ -313,13 +313,13 @@ std::string TPaxRemBasic::RemoveTrailingChars(const std::string &str, const std:
     return "";
 }
 
-std::string TPaxRemBasic::rem_text(bool inf_indicator, const std::string& lang, TLangApplying fmt) const
+std::string TPaxRemBasic::rem_text(bool inf_indicator, const std::string& lang, TLangApplying fmt, TOutPufFmt output_fmt) const
 {
   if (empty()) return "";
   bool strictly_lat=lang!=AstraLocale::LANG_RU && fmt==applyLangForAll;
   bool translit_lat=lang!=AstraLocale::LANG_RU && (fmt==applyLangForAll || fmt==applyLangForTranslit);
   bool language_lat=lang!=AstraLocale::LANG_RU && (fmt==applyLangForAll || fmt==applyLangForTranslit || fmt==applyLang);
-  return get_rem_text(inf_indicator, lang, strictly_lat, translit_lat, language_lat);
+  return get_rem_text(inf_indicator, lang, strictly_lat, translit_lat, language_lat, output_fmt);
 }
 
 std::string TPaxRemBasic::rem_text(bool inf_indicator) const
@@ -348,11 +348,14 @@ TPaxRemItem::TPaxRemItem(const std::string &rem_code,
 }
 
 TPaxRemItem::TPaxRemItem(const TPaxRemBasic &basic,
-                         bool inf_indicator, const std::string &lang, TLangApplying fmt)
+                         bool inf_indicator,
+                         const std::string &lang,
+                         TLangApplying fmt,
+                         TOutPufFmt output_fmt)
 {
   clear();
   code=basic.rem_code();
-  text=basic.rem_text(inf_indicator, lang, fmt);
+  text=basic.rem_text(inf_indicator, lang, fmt, output_fmt);
   calcPriority();
 }
 
@@ -415,7 +418,8 @@ std::string TPaxRemItem::get_rem_text(bool inf_indicator,
                                       const std::string& lang,
                                       bool strictly_lat,
                                       bool translit_lat,
-                                      bool language_lat) const
+                                      bool language_lat,
+                                      TOutPufFmt output_fmt) const
 {
   if (!code.empty() && text.substr(0,code.size())==code)
   {
@@ -486,7 +490,8 @@ std::string TPaxFQTItem::get_rem_text(bool inf_indicator,
                                       const std::string& lang,
                                       bool strictly_lat,
                                       bool translit_lat,
-                                      bool language_lat) const
+                                      bool language_lat,
+                                      TOutPufFmt output_fmt) const
 {
   ostringstream result;
   result << ElemIdToPrefferedElem(etCkinRemType, rem, efmtCodeNative, lang)
@@ -494,6 +499,8 @@ std::string TPaxFQTItem::get_rem_text(bool inf_indicator,
          << " " << (strictly_lat?transliter(convert_char_view(no, strictly_lat), 1, strictly_lat):no);
   if (!extra.empty())
     result << "/" << transliter(extra, 1, translit_lat);
+  if (output_fmt == ofReport and !tier_level.empty())
+    result << "/" << transliter(tier_level, 1, translit_lat);
 
   return RemoveTrailingChars(result.str(), " ");
 }
@@ -571,7 +578,8 @@ std::string TPaxASVCItem::get_rem_text(bool inf_indicator,
                                        const std::string& lang,
                                        bool strictly_lat,
                                        bool translit_lat,
-                                       bool language_lat) const
+                                       bool language_lat,
+                                       TOutPufFmt output_fmt) const
 {
   ostringstream result;
   result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)

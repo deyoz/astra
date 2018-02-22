@@ -114,7 +114,8 @@ std::string TPaxTknItem::get_rem_text(bool inf_indicator,
                                       const std::string& lang,
                                       bool strictly_lat,
                                       bool translit_lat,
-                                      bool language_lat) const
+                                      bool language_lat,
+                                      TOutPufFmt output_fmt) const
 {
   ostringstream result;
   result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)
@@ -422,7 +423,8 @@ std::string TPaxDocItem::get_rem_text(bool inf_indicator,
                                       const std::string& lang,
                                       bool strictly_lat,
                                       bool translit_lat,
-                                      bool language_lat) const
+                                      bool language_lat,
+                                      TOutPufFmt output_fmt) const
 {
   ostringstream result;
   result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)
@@ -608,7 +610,8 @@ std::string TPaxDocoItem::get_rem_text(bool inf_indicator,
                                        const std::string& lang,
                                        bool strictly_lat,
                                        bool translit_lat,
-                                       bool language_lat) const
+                                       bool language_lat,
+                                       TOutPufFmt output_fmt) const
 {
   ostringstream result;
   result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)
@@ -741,7 +744,8 @@ std::string TPaxDocaItem::get_rem_text(bool inf_indicator,
                                        const std::string& lang,
                                        bool strictly_lat,
                                        bool translit_lat,
-                                       bool language_lat) const
+                                       bool language_lat,
+                                       TOutPufFmt output_fmt) const
 {
   ostringstream result;
   result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)

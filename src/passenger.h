@@ -72,7 +72,8 @@ class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
                              const std::string& lang,
                              bool strictly_lat,
                              bool translit_lat,
-                             bool language_lat) const;
+                             bool language_lat,
+                             TOutPufFmt output_fmt) const;
   public:
     std::string no;
     int coupon;
@@ -186,7 +187,8 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocCompo
                              const std::string& lang,
                              bool strictly_lat,
                              bool translit_lat,
-                             bool language_lat) const;
+                             bool language_lat,
+                             TOutPufFmt output_fmt) const;
   public:
     std::string issue_country;
     std::string no;
@@ -280,7 +282,8 @@ class TPaxDocoItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocComp
                              const std::string& lang,
                              bool strictly_lat,
                              bool translit_lat,
-                             bool language_lat) const;
+                             bool language_lat,
+                             TOutPufFmt output_fmt) const;
   public:
     std::string birth_place;
     std::string no;
@@ -356,7 +359,8 @@ class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
                              const std::string& lang,
                              bool strictly_lat,
                              bool translit_lat,
-                             bool language_lat) const;
+                             bool language_lat,
+                             TOutPufFmt output_fmt) const;
   public:
     std::string type;
     std::string country;
