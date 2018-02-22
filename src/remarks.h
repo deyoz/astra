@@ -47,16 +47,24 @@ namespace CheckIn
 
 class TPaxRemBasic
 {
+  public:
+    enum TOutPufFmt {ofTlg, ofReport};
   protected:
     std::string RemoveTrailingChars(const std::string &str, const std::string &chars) const;
     virtual std::string get_rem_text(bool inf_indicator,
                                      const std::string& lang,
                                      bool strictly_lat,
                                      bool translit_lat,
-                                     bool language_lat) const=0;
+                                     bool language_lat,
+                                     TOutPufFmt output_fmt
+                                     ) const=0;
   public:
     virtual bool empty() const=0;
-    std::string rem_text(bool inf_indicator, const std::string& lang, TLangApplying fmt) const;
+    std::string rem_text(
+            bool inf_indicator,
+            const std::string& lang,
+            TLangApplying fmt,
+            TOutPufFmt output_fmt = ofTlg) const;
     std::string rem_text(bool inf_indicator) const;
     virtual std::string rem_code() const=0;
     int get_priority() const;
@@ -70,8 +78,10 @@ class TPaxRemItem : public TPaxRemBasic
                              const std::string& lang,
                              bool strictly_lat,
                              bool translit_lat,
-                             bool language_lat) const;
+                             bool language_lat,
+                             TOutPufFmt output_fmt) const;
   public:
+
     std::string code;
     std::string text;
     int priority;
@@ -82,7 +92,10 @@ class TPaxRemItem : public TPaxRemBasic
     TPaxRemItem(const std::string &rem_code,
                 const std::string &rem_text);
     TPaxRemItem(const TPaxRemBasic &basic,
-                bool inf_indicator, const std::string& lang, TLangApplying fmt);
+                bool inf_indicator,
+                const std::string& lang,
+                TLangApplying fmt,
+                TOutPufFmt output_fmt = ofTlg);
     TPaxRemItem(const TPaxRemBasic &basic,
                 bool inf_indicator);
     void clear()
@@ -161,7 +174,8 @@ class TPaxFQTItem : public TPaxRemBasic, public TPaxFQTCard
                              const std::string& lang,
                              bool strictly_lat,
                              bool translit_lat,
-                             bool language_lat) const;
+                             bool language_lat,
+                             TOutPufFmt output_fmt) const;
   public:
     std::string rem;
     std::string extra;
@@ -235,7 +249,8 @@ class TPaxASVCItem : public TPaxRemBasic
                              const std::string& lang,
                              bool strictly_lat,
                              bool translit_lat,
-                             bool language_lat) const;
+                             bool language_lat,
+                             TOutPufFmt output_fmt) const;
   public:
     std::string RFIC;
     std::string RFISC;
