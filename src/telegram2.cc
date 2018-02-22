@@ -1650,7 +1650,7 @@ namespace PRL_SPACE {
         seats.add_seats(pax.pax_id, complayers);
         string seat_list = seats.get_seat_list(info.is_lat() or info.pr_lat_seat);
         if(!seat_list.empty())
-            items.push_back("SEAT " + seat_list);
+            items.push_back("SEAT HK" + IntToString(seats.get_seat_vector(false).size()) + " " + seat_list);
         internal_get(info, pax.pax_id, pax.subcls);
 
         QParams QryParams;
