@@ -7,7 +7,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 #include <cxxabi.h>
 
 using namespace std;
@@ -811,7 +811,6 @@ tr1::shared_ptr<TCreateOptions> make_options(const string &tlg_type)
            basic_type=="BTM")
     return tr1::shared_ptr<TCreateOptions>(new TAirpTrferOptions);
   else if (basic_type=="PFS" ||
-           basic_type=="ETL" ||
            basic_type=="ASL" ||
            basic_type=="FTL")
     return tr1::shared_ptr<TCreateOptions>(new TMarkInfoOptions);
@@ -821,6 +820,8 @@ tr1::shared_ptr<TCreateOptions> make_options(const string &tlg_type)
     return tr1::shared_ptr<TCreateOptions>(new TCOMOptions);
   else if (basic_type=="LDM")
     return tr1::shared_ptr<TCreateOptions>(new TLDMOptions);
+  else if (basic_type=="ETL")
+    return tr1::shared_ptr<TCreateOptions>(new TETLOptions);
   else if (basic_type=="MVT")
     return tr1::shared_ptr<TCreateOptions>(new TMVTOptions);
   else if (basic_type=="LCI")

@@ -111,6 +111,7 @@ const
                          {"TYPEB_TYPES_PNL",         etTypeBType},
                          {"TYPEB_TYPES_PRL",         etTypeBType},
                          {"TYPEB_TYPES_MVT",         etTypeBType},
+                         {"TYPEB_TYPES_ETL",         etTypeBType},
                          {"TYPEB_TYPES_FORWARDING",  etTypeBType},
                          {"USER_TYPES",              etUserType},
                          {"VALIDATOR_TYPES",         etValidatorType}
