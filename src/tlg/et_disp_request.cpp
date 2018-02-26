@@ -21,7 +21,8 @@ std::string EtDispByNumRequest::mesFuncCode() const
 
 void EtDispByNumRequest::collectMessage()
 {
-    viewOrgElement(pMes(), m_dispParams.org());
+    BaseTables::Router rot(sysCont()->routerCanonName());
+    viewOrgElement2(pMes(), m_dispParams.org(), rot->translit());
     edilib::SetEdiSegGr(pMes(), 1);
     edilib::SetEdiPointToSegGrW(pMes(), 1);
     TktElem tkt;
