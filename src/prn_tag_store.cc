@@ -1729,8 +1729,7 @@ string TPrnTagStore::BRAND(TFieldParams fp)
 string TPrnTagStore::BRD_FROM(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
-        TDateTime dt = boost::any_cast<TDateTime>(fp.TagInfo);
-        return dt != ASTRA::NoExists ? DateTimeToStr(dt, fp.date_format) : "";
+        return boost::any_cast<std::string>(fp.TagInfo);
     } else {
         if(scan_data != NULL)
             return string();
@@ -1742,8 +1741,7 @@ string TPrnTagStore::BRD_FROM(TFieldParams fp)
 string TPrnTagStore::BRD_TO(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
-        TDateTime dt = boost::any_cast<TDateTime>(fp.TagInfo);
-        return dt != ASTRA::NoExists ? DateTimeToStr(dt, fp.date_format) : "";
+        return boost::any_cast<std::string>(fp.TagInfo);
     } else {
         if(scan_data != NULL)
             return string();
@@ -1857,7 +1855,7 @@ string TPrnTagStore::CLASS_NAME(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
         const std::string cls = boost::any_cast<std::string>(fp.TagInfo);
-        return !cls.empty() ? tag_lang.ElemIdToTagElem(etClsGrp, grpInfo.class_grp, efmtNameLong) : "";
+        return !cls.empty() ? tag_lang.ElemIdToTagElem(etClass, cls, efmtNameLong) : "";
     }
     if(scan_data != NULL) {
         string buf = string(1, scan_data->compartment_code(0));

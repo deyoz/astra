@@ -1637,7 +1637,7 @@ static void SaveIatciCkiXmlRes(xmlNodePtr iatciResNode, int grpId)
     iatci::IatciXmlDb::add(grpId, XMLTreeToText(iatciResNode->doc));
 }
 
-static void SaveIatciCkuPlfXmlRes(xmlNodePtr iatciResNode, int grpId)
+static void SaveIatciCkuPlfBprXmlRes(xmlNodePtr iatciResNode, int grpId)
 {
     LogTrace(TRACE3) << __FUNCTION__;
     iatci::IatciXmlDb::upd(grpId, XMLTreeToText(iatciResNode->doc));
@@ -1700,7 +1700,8 @@ static void SaveIatciXmlResByReqType(xmlNodePtr iatciResNode, int grpId,
 
     case IatciInterface::Cku:
     case IatciInterface::Plf:
-        SaveIatciCkuPlfXmlRes(iatciResNode, grpId);
+    case IatciInterface::Bpr:
+        SaveIatciCkuPlfBprXmlRes(iatciResNode, grpId);
         break;
 
     case IatciInterface::Ckx:

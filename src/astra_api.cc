@@ -2352,6 +2352,9 @@ XmlTripHeader XmlEntityReader::readTripHeader(xmlNodePtr thNode)
     th.pr_etl_only        = getIntFromXml(thNode, "pr_etl_only",        ASTRA::NoExists);
     th.pr_etstatus        = getIntFromXml(thNode, "pr_etstatus",        ASTRA::NoExists);
 
+    // вспомогательные iatci поля
+    th.scd_brd_to_local   = getStrFromXml(thNode, "scd_brd_to_local");
+
     return th;
 }
 

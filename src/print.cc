@@ -1924,13 +1924,15 @@ void PrintInterface::GetPrintDataBP(
             parser->pts.set_tag("gate", iPax->gate.first);
 
         if(TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION)) {
-            const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
-            if(bi_rule.tags_enabled(op_type, not iPax->gate.second)) {
-                parser->pts.set_tag(TAG::BI_HALL, bi_rule);
-                parser->pts.set_tag(TAG::BI_HALL_CAPTION, bi_rule);
-                parser->pts.set_tag(TAG::BI_RULE, bi_rule);
-                parser->pts.set_tag(TAG::BI_RULE_GUEST, bi_rule);
-                parser->pts.set_tag(TAG::BI_AIRP_TERMINAL, bi_rule);
+            if(iPax->grp_id > 0 && iPax->pax_id > 0) {
+                const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
+                if(bi_rule.tags_enabled(op_type, not iPax->gate.second)) {
+                    parser->pts.set_tag(TAG::BI_HALL, bi_rule);
+                    parser->pts.set_tag(TAG::BI_HALL_CAPTION, bi_rule);
+                    parser->pts.set_tag(TAG::BI_RULE, bi_rule);
+                    parser->pts.set_tag(TAG::BI_RULE_GUEST, bi_rule);
+                    parser->pts.set_tag(TAG::BI_AIRP_TERMINAL, bi_rule);
+                }
             }
         }
 
@@ -1965,7 +1967,7 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
 
     LogTrace(TRACE3) << __FUNCTION__ << " for grpId: " << grpId;
 
-    std::string loaded = iatci::IatciXmlDb::load(grpId);
+    std::string loaded = iatci::IatciXmlDb::load(grpId);    
     if(!loaded.empty())
     {
         tst();
@@ -1984,7 +1986,8 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
                 std::string data(data_in);
                 boost::shared_ptr<PrintDataParser> parser;
                 parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(xmlSeg.seg_info.airp_dep,
-                                                                                xmlSeg.seg_info.airp_arv, params.prnParams.pr_lat));
+                                                                                xmlSeg.seg_info.airp_arv,
+                                                                                params.prnParams.pr_lat));
 
                 // билет/купон
                 std::ostringstream tickCpn;
@@ -2008,13 +2011,13 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
                 parser->pts.set_tag(TAG::BAGGAGE,       ""); // TODO get it
                 parser->pts.set_tag(TAG::BAG_WEIGHT,    0); // TODO get it
                 parser->pts.set_tag(TAG::BCBP_M_2,      " "); // TODO get it
-                parser->pts.set_tag(TAG::BRD_FROM,      NowUTC()); // TODO get it
-                parser->pts.set_tag(TAG::BRD_TO,        NowUTC()); // TODO get it
+                parser->pts.set_tag(TAG::BRD_FROM,      "");
+                parser->pts.set_tag(TAG::BRD_TO,        xmlSeg.trip_header.scd_brd_to_local);
                 parser->pts.set_tag(TAG::CHD,           ""); // TODO get it
                 parser->pts.set_tag(TAG::CITY_ARV_NAME, xmlSeg.seg_info.airp_arv);
                 parser->pts.set_tag(TAG::CITY_DEP_NAME, xmlSeg.seg_info.airp_dep);
-                parser->pts.set_tag(TAG::CLASS,         xmlSeg.seg_info.cls);
-                parser->pts.set_tag(TAG::CLASS_NAME,    xmlSeg.seg_info.cls);
+                parser->pts.set_tag(TAG::CLASS,         xmlPax.subclass);
+                parser->pts.set_tag(TAG::CLASS_NAME,    xmlPax.subclass);
                 parser->pts.set_tag(TAG::DOCUMENT,      xmlPax.doc ? xmlPax.doc->no : "");
                 parser->pts.set_tag(TAG::DUPLICATE,     0); // TODO get it
                 parser->pts.set_tag(TAG::EST,           xmlSeg.trip_header.scd_out_local);

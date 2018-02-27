@@ -2104,6 +2104,7 @@ UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+S7+1027+$(yymmdd)1000+LED+AER++T"
 RAD+I+O"
+FSD+1155"
 PPD+REPIN+C:N+0013929620+IVAN"
 PFD+xx+:Y+1"
 PSI++TKNE::29861200302972"
@@ -2281,6 +2282,7 @@ $(KICK_IN)
           <suffix/>
           <airp>èãä</airp>
           <scd_out_local>$(date_format %d.%m.%Y +0) 10:00:00</scd_out_local>
+          <scd_brd_to_local>11:55</scd_brd_to_local>
           <pr_etl_only>0</pr_etl_only>
           <pr_etstatus>0</pr_etstatus>
           <pr_no_ticket_check>0</pr_no_ticket_check>
@@ -2715,6 +2717,7 @@ UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+ë7+1027+$(yymmdd)1000+èãä+ëéó++T"
 RAD+I+O"
+FSD+1155"
 PPD+REPIN+A:N++IVAN"
 PFD+xx+:ù+22"
 PSI++TKNE::29861200302972"
@@ -2925,6 +2928,7 @@ $(KICK_IN)
           <suffix/>
           <airp>èãä</airp>
           <scd_out_local>$(date_format %d.%m.%Y) 10:00:00</scd_out_local>
+          <scd_brd_to_local>11:55</scd_brd_to_local>
           <pr_etl_only>0</pr_etl_only>
           <pr_etstatus>0</pr_etstatus>
           <pr_no_ticket_check>0</pr_no_ticket_check>
@@ -3432,6 +3436,7 @@ UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+ë7+1027+$(yymmdd)1000+èãä+ëéó++T"
 RAD+B+O"
+FSD+1155"
 PPD+REPIN+A:N++IVAN"
 PFD+7A+:ù+32"
 PSI++TKNE::29861200302972+FOID::::::FOID PP7774441110"
@@ -3449,10 +3454,10 @@ $(KICK_IN)
         <pectab>PT{##}?K1Z{#}@;{#}TICK{#}&gt;&gt;/{#}BOARD{#}0101{#}0250E01W{#}0311H01W{#}0411L01W{#}0508H13W{#}0705H40{#}0906L27W{#}0A05M12R{#}0B01H30W{#}0C06L38W{#}0D16O02W{#}0E21Q01Q52W{#}0F15R01R53W{#}2020C53W{#}2120E53W{#}2220H53W{#}2508O53W{#}2705L53O{#}2B01L67W{#}2C06O64W{#}3FB1R30B601031{#}F104D41A54{#}FF72M01W{#}</pectab>
         <passengers>
           <pax pax_id...
-            <prn_form hex='0'>0,20,0,ACT:             '$(date_format %d.%m.%Y) 10:00:00                     ' 0,25,0,AGENT:           'PIKE                                    ' 0,30,0,AIRLINE:         'ûí                                      ' 0,35,0,AIRLINE_NAME:    'éÄé ÄÇàÄäéåèÄçàü ûíùâê                  ' 0,40,0,AIRLINE_SHORT:   'ûíùâê                                   ' 0,45,0,AIRP_ARV:        'èãä                                     ' 0,50,0,AIRP_ARV_NAME:   'èìãäéÇé                                 ' 0,55,0,AIRP_DEP:        'ÑåÑ                                     ' 0,60,0,AIRP_DEP_NAME:   'ÑéåéÑÖÑéÇé                              ' 0,65,0,BAG_AMOUNT:      '0                                       ' 0,70,0,BAGGAGE:         '                                        ' 0,75,0,BAG_WEIGHT:      '0                                       ' 0,80,0,BCBP_M_2:        'M1REPIN/IVAN          E0840Z6 DMELEDUT 0103 xxxY001A0001 128&gt;2180OO    B                0000000$(get pax_id)' 0,85,0,BRD_FROM:        '$(date_format %d.%m.%Y) 09:15:00                     ' 0,90,0,BRD_TO:          '$(date_format %d.%m.%Y) 09:35:00                     ' 0,95,0,CHD:             '                                        ' 0,100,0,CITY_ARV_NAME:  'ëÄçäí-èÖíÖêÅìêÉ                         ' 0,105,0,CITY_DEP_NAME:  'åéëäÇÄ                                  ' 0,110,0,CLASS:          'ù                                       ' 0,115,0,CLASS_NAME:     'ùäéçéå                                  ' 0,120,0,DESK:           'åéÇêéå                                  ' 0,125,0,DOCUMENT:       '7774441110                              ' 0,130,0,DUPLICATE:      '                                        ' 0,135,0,EST:            '$(date_format %d.%m.%Y) 10:00:00                     ' 0,140,0,ETICKET_NO:     '2986120030297/1                         ' 0,145,0,ETKT:           'ETKT2986120030297/1                     ' 0,150,0,EXCESS:         '0                                       ' 0,155,0,FLT_NO:         '103                                     ' 0,160,0,FQT:            '                                        ' 0,165,0,FULLNAME:       'REPIN IVAN                              ' 0,170,0,FULL_PLACE_ARV: 'ëÄçäí-èÖíÖêÅìêÉ èìãäéÇé                 ' 0,175,0,FULL_PLACE_DEP: 'åéëäÇÄ ÑéåéÑÖÑéÇé                       ' 0,180,0,GATE:           '1                                       ' 0,185,0,GATES:          '                                        ' 0,190,0,HALL:           'á†´ 1                                   ' 0,195,0,INF:            '                                        ' 0,200,0,LIST_SEAT_NO:   'xx                                      ' 0,205,0,LONG_ARV:       'ëÄçäí-èÖíÖêÅìêÉ(èãä)/ST PETERSBURG(LED) ' 0,210,0,LONG_DEP:       'åéëäÇÄ(ÑåÑ)/MOSCOW(DME)                 ' 0,215,0,NAME:           'IVAN                                    ' 0,220,0,NO_SMOKE:       'X                                       ' 0,225,0,ONE_SEAT_NO:    'xx                                      ' 0,230,0,PAX_ID:         '00000$(get pax_id)                              ' 0,235,0,PAX_TITLE:      'É-ç                                     ' 0,240,0,PLACE_ARV:      'ëÄçäí-èÖíÖêÅìêÉ(èãä)                    ' 0,245,0,PLACE_DEP:      'åéëäÇÄ(ÑåÑ)                             ' 0,250,0,PNR:            '0840Z6                                  ' 0,255,0,REG_NO:         '001                                     ' 0,260,0,REM:            '                                        ' 0,265,0,RK_AMOUNT:      '0                                       ' 0,270,0,RK_WEIGHT:      '0                                       ' 0,275,0,RSTATION:       '                                        ' 0,280,0,SCD:            '$(date_format %d.%m.%Y) 10:00:00                     ' 0,285,0,SEAT_NO:        'xx                                      ' 0,290,0,STR_SEAT_NO:    'xx                                      ' 0,295,0,SUBCLS:         'ù                                       ' 0,300,0,SURNAME:        'REPIN                                   ' 0,305,0,TAGS:           '                                        ' 0,310,0,TEST_SERVER:    '                                        ' 0,315,0,TIME_PRINT:     '$(date_format %d.%m.%Y) xx:xx:xx                     '</prn_form>
+            <prn_form hex='0'>CP{#}1C01{#}01K{#}02{#}02REPIN IVAN                                        {#}03ÑéåéÑÖÑéÇé {#}04èìãäéÇé    {#}05 ûí103  {#}07$(date_format %d.%m +0){#}091     {#}0A09:50{#}0Bù{#}0C    1A{#}0DKGS{#}0EETKT2986120030297/1  {#}0F7774441110     {#}20REPIN IVAN          {#}21ÑéåéÑÖÑéÇé          {#}22èìãäéÇé             {#}25 ûí103  {#}27$(date_format %d.%m +0){#}2Bù{#}2C  1A  {#}3Fxxxxxxxxxx{#}F1001{#}FF                                                                        {#}</prn_form>
           </pax>
           <pax pax_id...
-            <prn_form hex='0'>0,20,0,ACT:             '$(date_format %d.%m.%Y) 10:00:00                     ' 0,25,0,AGENT:           'PIKE                                    ' 0,30,0,AIRLINE:         'ë7                                      ' 0,35,0,AIRLINE_NAME:    'ÄÇàÄäéåèÄçàü ëàÅàêú                     ' 0,40,0,AIRLINE_SHORT:   'ëàÅàêú                                  ' 0,45,0,AIRP_ARV:        'ëéó                                     ' 0,50,0,AIRP_ARV_NAME:   'ëéóà                                    ' 0,55,0,AIRP_DEP:        'èãä                                     ' 0,60,0,AIRP_DEP_NAME:   'èìãäéÇé                                 ' 0,65,0,BAG_AMOUNT:      '0                                       ' 0,70,0,BAGGAGE:         '                                        ' 0,75,0,BAG_WEIGHT:      '0                                       ' 0,80,0,BCBP_M_2:        ' ' 0,85,0,BRD_FROM:        'xx.xx.xxxx xx:xx:xx                     ' 0,90,0,BRD_TO:          'xx.xx.xxxx xx:xx:xx                     ' 0,95,0,CHD:             '                                        ' 0,100,0,CITY_ARV_NAME:  'ëéóà                                    ' 0,105,0,CITY_DEP_NAME:  'ëÄçäí-èÖíÖêÅìêÉ                         ' 0,110,0,CLASS:          '                                        ' 0,115,0,CLASS_NAME:     '                                        ' 0,120,0,DESK:           'åéÇêéå                                  ' 0,125,0,DOCUMENT:       '5408123432                              ' 0,130,0,DUPLICATE:      '                                        ' 0,135,0,EST:            '$(date_format %d.%m.%Y) 10:00:00                     ' 0,140,0,ETICKET_NO:     '2986120030297/2                         ' 0,145,0,ETKT:           'ETKT2986120030297/2                     ' 0,150,0,EXCESS:         '0                                       ' 0,155,0,FLT_NO:         '1027                                    ' 0,160,0,FQT:            '                                        ' 0,165,0,FULLNAME:       'REPIN IVAN                              ' 0,170,0,FULL_PLACE_ARV: 'ëéóà                                    ' 0,175,0,FULL_PLACE_DEP: 'ëÄçäí-èÖíÖêÅìêÉ èìãäéÇé                 ' 0,180,0,GATE:           '                                        ' 0,185,0,GATES:          '                                        ' 0,190,0,HALL:           '                                        ' 0,195,0,INF:            '                                        ' 0,200,0,LIST_SEAT_NO:   '7A                                      ' 0,205,0,LONG_ARV:       'ëéóà(ëéó)/SOCHI(AER)                    ' 0,210,0,LONG_DEP:       'ëÄçäí-èÖíÖêÅìêÉ(èãä)/ST PETERSBURG(LED) ' 0,215,0,NAME:           'IVAN                                    ' 0,220,0,NO_SMOKE:       'X                                       ' 0,225,0,ONE_SEAT_NO:    '7A                                      ' 0,230,0,PAX_ID:         '2000000000                              ' 0,235,0,PAX_TITLE:      '                                        ' 0,240,0,PLACE_ARV:      'ëéóà(ëéó)                               ' 0,245,0,PLACE_DEP:      'ëÄçäí-èÖíÖêÅìêÉ(èãä)                    ' 0,250,0,PNR:            '                                        ' 0,255,0,REG_NO:         '032                                     ' 0,260,0,REM:            '                                        ' 0,265,0,RK_AMOUNT:      '0                                       ' 0,270,0,RK_WEIGHT:      '0                                       ' 0,275,0,RSTATION:       '                                        ' 0,280,0,SCD:            '$(date_format %d.%m.%Y) 10:00:00                     ' 0,285,0,SEAT_NO:        '7A                                      ' 0,290,0,STR_SEAT_NO:    '7A                                      ' 0,295,0,SUBCLS:         'ù                                       ' 0,300,0,SURNAME:        'REPIN                                   ' 0,305,0,TAGS:           '                                        ' 0,310,0,TEST_SERVER:    '                                        ' 0,315,0,TIME_PRINT:     '$(date_format %d.%m.%Y) xx:xx:xx                     '</prn_form>
+            <prn_form hex='0'>CP{#}1C01{#}01K{#}02{#}02REPIN IVAN                                        {#}03èìãäéÇé    {#}04ëéóà       {#}05 ë71027 {#}07$(date_format %d.%m +0){#}09      {#}0A11:55{#}0B {#}0C    7A{#}0DKGS{#}0EETKT2986120030297/2  {#}0F5408123432     {#}20REPIN IVAN          {#}21èìãäéÇé             {#}22ëéóà                {#}25 ë71027 {#}27$(date_format %d.%m +0){#}2B {#}2C  7A  {#}3F2000000000{#}F1032{#}FF                                                                        {#}</prn_form>
           </pax>
         </passengers>
       </printBP>
@@ -3508,6 +3513,7 @@ UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+ë7+1027+$(yymmdd)1000+èãä+ëéó++T"
 RAD+I+O"
+FSD+1155"
 PPD+REPIN+A:N++IVAN"
 PFD+3B+:ù"
 PSI++TKNE::29861200302972+FOID::::::FOID PP7774441110"
@@ -3525,7 +3531,7 @@ $(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
 <term>
   <query handle='0' id='salonform' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <Show>
-      <trip_id>-$(get grp_id)1</trip_id>
+      <trip_id>-$(get grp_id)</trip_id>
     </Show>
   </query>
 </term>}
@@ -3714,7 +3720,7 @@ $(KICK_IN)
 <term>
   <query handle='0' id='salonform' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <Reseat>
-      <trip_id>-$(get grp_id)1</trip_id>
+      <trip_id>-$(get grp_id)</trip_id>
       <pax_id>-1</pax_id>
       <xname>A</xname>
       <yname>6</yname>
@@ -3739,6 +3745,7 @@ UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+ë7+1027+$(yymmdd)1000+èãä+ëéó++T"
 RAD+U+O"
+FSD+1155"
 PPD+REPIN+A:N++IVAN"
 PFD+6A+:ù"
 PSI++TKNE::29861200302972+FOID::::::FOID PP7774441110"
@@ -4037,6 +4044,7 @@ UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+S7+1027+$(yymmdd)1000+LED+AER++T"
 RAD+I+O"
+FSD+1155"
 PPD+REPIN+A:N++IVAN"
 PFD+xx+:ù"
 PSI++TKNE::29861200302972"
@@ -4284,6 +4292,7 @@ UNB+SIRE:1+TA+OA+150217:0747+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+S7+1027+$(yymmdd)+LED+AER++T"
 RAD+I+O"
+FSD+1155"
 PPD+REPIN+A:N++IVAN"
 PFD+7A++1"
 PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
@@ -4552,6 +4561,7 @@ $(KICK_IN)
           <suffix/>
           <airp>èãä</airp>
           <scd_out_local>$(date_format %d.%m.%Y +0) 00:00:00</scd_out_local>
+          <scd_brd_to_local>11:55</scd_brd_to_local>
           <pr_etl_only>0</pr_etl_only>
           <pr_etstatus>0</pr_etstatus>
           <pr_no_ticket_check>0</pr_no_ticket_check>
@@ -4707,7 +4717,7 @@ $(dump_table GRP_IATCI_XML)
 <term>
   <query handle='0' id='salonform' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <Reseat>
-      <trip_id>-$(get grp_id)1</trip_id>
+      <trip_id>-$(get grp_id)</trip_id>
       <pax_id>-2</pax_id>
       <xname>A</xname>
       <yname>6</yname>
@@ -4854,6 +4864,7 @@ UNB+SIRE:1+TA+OA+150217:0745+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+S7+1027+$(yymmdd)+LED+AER++T"
 RAD+I+O"
+FSD+1155"
 PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
 PRD+Y"
 PFD+001A+:Y+001:002"

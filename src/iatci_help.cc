@@ -99,6 +99,16 @@ std::string depTimeString(const FlightDetails& flight)
     return os.str();
 }
 
+std::string brdTimeString(const FlightDetails& flight)
+{
+    std::ostringstream os;
+    if(!flight.boardingTime().is_not_a_date_time()) {
+        os << HelpCpp::string_cast(flight.boardingTime(), "%H:%M");
+    }
+
+    return os.str();
+}
+
 std::string fullAirportString(const std::string& airport)
 {
     const TAirpsRow& airpsRow = dynamic_cast<const TAirpsRow&>(base_tables.get("airps").get_row("code", airport));
@@ -870,8 +880,11 @@ iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg)
     }
 
     boost::gregorian::date scd_dep_date, scd_arr_date;
+    boost::posix_time::time_duration scd_dep_time, scd_arr_time;
     if(scd_local != ASTRA::NoExists) {
-        scd_dep_date = DateTimeToBoost(scd_local).date();
+        auto boost_ddt = DateTimeToBoost(scd_local);
+        scd_dep_date = boost_ddt.date();
+        scd_dep_time = boost_ddt.time_of_day();
     }
 
     return iatci::FlightDetails(BaseTables::Company(airl)->rcode(),
@@ -881,7 +894,8 @@ iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg)
                                 scd_dep_date,
                                 scd_arr_date,
                                 boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
-                                boost::posix_time::time_duration(boost::posix_time::not_a_date_time));
+                                boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
+                                scd_dep_time);
 }
 
 //---------------------------------------------------------------------------------------
@@ -1180,6 +1194,7 @@ static xmlNodePtr xmlViewIatciFlight(xmlNodePtr node, const iatci::FlightDetails
     NewTextChild(tripHeaderNode, "suffix",  "");
     NewTextChild(tripHeaderNode, "airp",    flight.depPort());
     NewTextChild(tripHeaderNode, "scd_out_local", depDateTimeString(flight));
+    NewTextChild(tripHeaderNode, "scd_brd_to_local", brdTimeString(flight));
     NewTextChild(tripHeaderNode, "pr_etl_only", "0"); // TODO
     NewTextChild(tripHeaderNode, "pr_etstatus", "0"); // TODO
     NewTextChild(tripHeaderNode, "pr_no_ticket_check", "0"); // TODO)

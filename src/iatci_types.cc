@@ -23,25 +23,29 @@ using namespace Ticketing::TickExceptions;
 MagicTab MagicTab::fromNeg(int gt)
 {
     ASSERT(gt < 0);
-    const std::string pts = std::to_string(std::abs(gt));
+    /*const std::string pts = std::to_string(std::abs(gt));
     std::string p = pts.substr(0, pts.length() - 1);
     std::string t = pts.substr(pts.length() - 1);
     LogTrace(TRACE5) << "gt: " << gt;
     LogTrace(TRACE5) << "p: " << p;
     LogTrace(TRACE5) << "t: " << t;
-    return MagicTab(std::atoi(p.c_str()), std::atoi(t.c_str()));
+    return MagicTab(std::atoi(p.c_str()), std::atoi(t.c_str()));*/
+
+    return MagicTab(std::abs(gt), 1); // Hard Code до обновления терминала
 }
 
 int MagicTab::toNeg() const
 {
-    std::ostringstream s;
+    /*std::ostringstream s;
     s << "-";
     s << m_grpId;
     s << m_tabInd;
     LogTrace(TRACE5) << "P: " << m_grpId;
     LogTrace(TRACE5) << "T: " << m_tabInd;
     LogTrace(TRACE5) << "GT: " << std::atoi(s.str().c_str());
-    return std::atoi(s.str().c_str());
+    return std::atoi(s.str().c_str());*/
+
+    return -m_grpId;
 }
 
 //---------------------------------------------------------------------------------------
