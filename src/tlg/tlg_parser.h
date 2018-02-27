@@ -775,6 +775,18 @@ class TNameElement
     };
 };
 
+class TPnrAddrItem
+{
+  public:
+    char airline[4];
+    char addr[21];
+    TPnrAddrItem()
+    {
+      *airline=0;
+      *addr=0;
+    }
+};
+
 class TPnrItem
 {
   public:

@@ -81,6 +81,7 @@ struct TWebPaxForCkin
   std::string subclass;
   int reg_no;
   bool dont_check_payment;
+  TPnrAddrs pnr_addrs;
 
   TWebPaxForCkin()
   {
@@ -96,7 +97,19 @@ struct TWebPaxForCkin
     return transliter_equal(surname,pax.surname) &&
            transliter_equal(name,pax.name) &&
            pers_type == pax.pers_type &&
-           ((seats == 0 && pax.seats == 0) || (seats != 0 && pax.seats != 0));
+           ((seats == 0 && pax.seats == 0) || (seats != 0 && pax.seats != 0)) &&
+           pnr_addrs.equalPnrExists(pax.pnr_addrs);
+  }
+
+  const std::string traceStr() const
+  {
+    std::ostringstream s;
+    s << "pnr_addrs=" << pnr_addrs.traceStr() << ", "
+         "surname=" << surname << ", "
+         "name=" << name << ", "
+         "pers_type=" << pers_type << ", "
+         "seats=" << seats;
+    return s.str();
   }
 };
 

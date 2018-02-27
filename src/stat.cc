@@ -11142,19 +11142,7 @@ void departed_flt(TQuery &Qry, TEncodedFileStream &of)
             " and pax.part_key = :part_key and \n"
             " pax_grp.part_key = :part_key \n";
 
-    TQuery pnrQry(&OraSession);
-    pnrQry.SQLText =
-        "select crs_pnr.pnr_id from "
-        "  crs_pnr, crs_pax "
-        "where "
-        "   crs_pax.pax_id = :pax_id and "
-        "   crs_pax.pr_del = 0 and "
-        "   crs_pax.pnr_id = crs_pnr.pnr_id ";
-    pnrQry.DeclareVariable("pax_id", otInteger);
-
     string delim = ";";
-
-    vector<TPnrAddrItem> pnrs;
 
     paxQry.SQLText = SQLText;
     paxQry.Execute();
@@ -11183,16 +11171,8 @@ void departed_flt(TQuery &Qry, TEncodedFileStream &of)
             ticket << ticket_no << (coupon_no.empty() ? "" : "/") << coupon_no;
 
         string pnr_addr;
-        if(part_key == NoExists) {
-            pnrQry.SetVariable("pax_id", paxQry.FieldAsInteger("pax_id"));
-            pnrQry.Execute();
-            if(not pnrQry.Eof) {
-                GetPnrAddr(pnrQry.FieldAsInteger("pnr_id"), pnrs);
-                if (!pnrs.empty())
-                    pnr_addr.append(pnrs.begin()->addr).append("/").append(pnrs.begin()->airline);
-            }
-        }
-
+        if(part_key == NoExists)
+          pnr_addr=TPnrAddrs().firstAddrByPaxId(paxQry.FieldAsInteger("pax_id"), TPnrAddrInfo::AddrAndAirline);
 
         CheckIn::TPaxDocItem doc;
         LoadPaxDoc(part_key, paxQry.FieldAsInteger("pax_id"), doc);
@@ -11394,7 +11374,6 @@ int nosir_departed_pax(int argc, char **argv)
     string delim = ";";
     ofstream of;
     TTripRoute route;
-    vector<TPnrAddrItem> pnrs;
     for(; not Qry.Eof; Qry.Next()) {
         int point_id = Qry.FieldAsInteger("point_id");
         route.GetRouteAfter(NoExists, point_id, trtNotCurrent, trtNotCancelled);
@@ -11438,10 +11417,7 @@ int nosir_departed_pax(int argc, char **argv)
             if(not ticket_no.empty())
                 ticket << ticket_no << (coupon_no.empty() ? "" : "/") << coupon_no;
 
-            GetPnrAddr(paxQry.FieldAsInteger("pnr_id"), pnrs);
-            string pnr_addr;
-            if (!pnrs.empty())
-                pnr_addr.append(pnrs.begin()->addr).append("/").append(pnrs.begin()->airline);
+            string pnr_addr=TPnrAddrs().firstAddrByPnrId(paxQry.FieldAsInteger("pnr_id"), TPnrAddrInfo::AddrAndAirline);
 
             CheckIn::TPaxDocItem doc;
             LoadPaxDoc(paxQry.FieldAsInteger("pax_id"), doc);

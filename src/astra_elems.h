@@ -143,8 +143,11 @@ void getElemFmts(TElemFmt fmt, std::string basic_lang, std::vector< std::pair<TE
 
 TBaseTable& getBaseTable(TElemType type);
 
+std::string ElemToPaxDocCountryId(const std::string &elem, TElemFmt &fmt);
+
 std::string airlineToXML(const std::string &code, const std::string &lang);
 std::string airpToXML(const std::string &code, const std::string &lang);
 std::string craftToXML(const std::string &code, const std::string &lang);
+std::string paxDocCountryToXML(const std::string &code);
 
 #endif /*_ASTRA_ELEMS_H_*/

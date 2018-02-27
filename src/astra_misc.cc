@@ -430,15 +430,42 @@ bool GetSelfCkinSets(const TTripSetType setType,
   return Qry.FieldAsInteger("value")!=0;
 };
 
-std::string GetPnrAddr(int pnr_id, std::vector<TPnrAddrItem> &pnrs)
+const TPnrAddrInfo& TPnrAddrInfo::toXML(xmlNodePtr addrParentNode) const
 {
-    string airline;
-    return GetPnrAddr(pnr_id, pnrs, airline);
+  if (addrParentNode==nullptr) return *this;
+
+  xmlNodePtr addrNode=NewTextChild(addrParentNode, "pnr_addr");
+  NewTextChild(addrNode, "airline", airline);
+  NewTextChild(addrNode, "addr", addr);
+
+  return *this;
 }
 
-string GetPnrAddr(int pnr_id, vector<TPnrAddrItem> &pnrs, string &airline)
+const TPnrAddrs& TPnrAddrs::toXML(xmlNodePtr addrsParentNode) const
 {
-  pnrs.clear();
+  if (addrsParentNode==nullptr) return *this;
+
+  xmlNodePtr addrsNode=NewTextChild(addrsParentNode, "pnr_addrs");
+  for(const TPnrAddrInfo& addr : *this) addr.toXML(addrsNode);
+
+  return *this;
+}
+
+std::string TPnrAddrs::getByPnrId(int pnr_id)
+{
+  string airline;
+  return getByPnrId(pnr_id, airline);
+}
+
+void TPnrAddrs::getByPnrIdFast(int pnr_id)
+{
+  string airline("No matter");
+  getByPnrId(pnr_id, airline);
+}
+
+std::string TPnrAddrs::getByPnrId(int pnr_id, string &airline)
+{
+  clear();
   if (airline.empty())
   {
     QParams QryParams;
@@ -464,27 +491,30 @@ string GetPnrAddr(int pnr_id, vector<TPnrAddrItem> &pnrs, string &airline)
   TQuery &Qry=CachedQry.get();
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
-  {
-    TPnrAddrItem pnr;
-    strcpy(pnr.airline,Qry.FieldAsString("airline"));
-    strcpy(pnr.addr,Qry.FieldAsString("addr"));
-    pnrs.push_back(pnr);
-  };
-  if (!pnrs.empty() && pnrs.begin()->airline==airline)
-    return pnrs.begin()->addr;
+    emplace_back(Qry.FieldAsString("airline"),
+                 Qry.FieldAsString("addr"));
+
+  if (!empty() && begin()->airline==airline)
+    return begin()->addr;
   else
     return "";
-};
-
-string GetPaxPnrAddr(int pax_id, vector<TPnrAddrItem> &pnrs)
-{
-    string airline;
-    return GetPaxPnrAddr(pax_id, pnrs, airline);
 }
 
-string GetPaxPnrAddr(int pax_id, vector<TPnrAddrItem> &pnrs, string &airline)
+std::string TPnrAddrs::getByPaxId(int pax_id)
 {
-  pnrs.clear();
+  string airline;
+  return getByPaxId(pax_id, airline);
+}
+
+void TPnrAddrs::getByPaxIdFast(int pax_id)
+{
+  string airline("No matter");
+  getByPaxId(pax_id, airline);
+}
+
+std::string TPnrAddrs::getByPaxId(int pax_id, string &airline)
+{
+  clear();
   QParams QryParams;
   QryParams << QParam("pax_id", otInteger, pax_id);
 
@@ -494,7 +524,7 @@ string GetPaxPnrAddr(int pax_id, vector<TPnrAddrItem> &pnrs, string &airline)
   TQuery &Qry=CachedQry.get();
   Qry.Execute();
   if (!Qry.Eof)
-    return GetPnrAddr(Qry.FieldAsInteger("pnr_id"),pnrs,airline);
+    return getByPnrId(Qry.FieldAsInteger("pnr_id"), airline);
   else
     return "";
 };

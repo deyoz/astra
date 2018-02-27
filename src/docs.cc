@@ -3156,7 +3156,6 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     TRemGrp rem_grp;
     if(rpt_params.rpt_type != rtBDOCS)
       rem_grp.Load(retPNL_SEL, rpt_params.point_id);
-    vector<TPnrAddrItem> pnrs;
     for(; !Qry.Eof; Qry.Next()) {
         int pax_id=Qry.FieldAsInteger("pax_id");
         if(rpt_params.rpt_type == rtBDOCS) {
@@ -3199,10 +3198,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
             NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
             NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
-            GetPnrAddr(Qry.FieldAsInteger("pnr_id"), pnrs);
-            string pnr_addr;
-            if (!pnrs.empty())
-              pnr_addr.append(pnrs.begin()->addr)/*.append("/").append(pnrs.begin()->airline)*/; //пока не надо выводить компанию, может быть потом...
+            string pnr_addr=TPnrAddrs().firstAddrByPnrId(Qry.FieldAsInteger("pnr_id"), TPnrAddrInfo::AddrOnly); //пока не надо выводить компанию, может быть потом...
             NewTextChild(rowNode, "pnr_ref", pnr_addr);
             NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
             NewTextChild(rowNode, "class", rpt_params.ElemIdToReportElem(etClass, Qry.FieldAsString("class"), efmtCodeNative));

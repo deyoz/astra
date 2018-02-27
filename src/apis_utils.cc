@@ -100,6 +100,60 @@ void TAPICheckInfoList::toXML(xmlNodePtr node) const
     };
 }
 
+void TAPICheckInfoList::toWebXML(xmlNodePtr node) const
+{
+  if (node==NULL) return;
+
+  for(TAPICheckInfoList::const_iterator i=begin(); i!=end(); ++i)
+  {
+    if (i->first==apiDoc)
+    {
+      xmlNodePtr fieldsNode=NewTextChild(node, "doc_required_fields");
+      SetProp(fieldsNode, "is_inter", i->second.is_inter);
+      if ((i->second.required_fields&DOC_TYPE_FIELD) != 0x0000)
+        NewTextChild(fieldsNode, "field", "type");
+      if ((i->second.required_fields&DOC_ISSUE_COUNTRY_FIELD) != 0x0000)
+        NewTextChild(fieldsNode, "field", "issue_country");
+      if ((i->second.required_fields&DOC_NO_FIELD) != 0x0000)
+        NewTextChild(fieldsNode, "field", "no");
+      if ((i->second.required_fields&DOC_NATIONALITY_FIELD) != 0x0000)
+        NewTextChild(fieldsNode, "field", "nationality");
+      if ((i->second.required_fields&DOC_BIRTH_DATE_FIELD) != 0x0000)
+        NewTextChild(fieldsNode, "field", "birth_date");
+      if ((i->second.required_fields&DOC_GENDER_FIELD) != 0x0000)
+        NewTextChild(fieldsNode, "field", "gender");
+      if ((i->second.required_fields&DOC_EXPIRY_DATE_FIELD) != 0x0000)
+        NewTextChild(fieldsNode, "field", "expiry_date");
+      if ((i->second.required_fields&DOC_SURNAME_FIELD) != 0x0000)
+        NewTextChild(fieldsNode, "field", "surname");
+      if ((i->second.required_fields&DOC_FIRST_NAME_FIELD) != 0x0000)
+        NewTextChild(fieldsNode, "field", "first_name");
+      if ((i->second.required_fields&DOC_SECOND_NAME_FIELD) != 0x0000)
+        NewTextChild(fieldsNode, "field", "second_name");
+    }
+    if (i->first==apiDoco)
+    {
+      xmlNodePtr fieldsNode=NewTextChild(node, "doco_required_fields");
+      SetProp(fieldsNode, "is_inter", i->second.is_inter);
+      if ((i->second.required_fields&DOCO_BIRTH_PLACE_FIELD) != 0x0000)
+        NewTextChild(fieldsNode, "field", "birth_place");
+      if ((i->second.required_fields&DOCO_TYPE_FIELD) != 0x0000)
+        NewTextChild(fieldsNode, "field", "type");
+      if ((i->second.required_fields&DOCO_NO_FIELD) != 0x0000)
+        NewTextChild(fieldsNode, "field", "no");
+      if ((i->second.required_fields&DOCO_ISSUE_PLACE_FIELD) != 0x0000)
+        NewTextChild(fieldsNode, "field", "issue_place");
+      if ((i->second.required_fields&DOCO_ISSUE_DATE_FIELD) != 0x0000)
+        NewTextChild(fieldsNode, "field", "issue_date");
+      if ((i->second.required_fields&DOCO_EXPIRY_DATE_FIELD) != 0x0000)
+        NewTextChild(fieldsNode, "field", "expiry_date");
+      if ((i->second.required_fields&DOCO_APPLIC_COUNTRY_FIELD) != 0x0000)
+        NewTextChild(fieldsNode, "field", "applic_country");
+    }
+  }
+
+}
+
 const TAPICheckInfo& TAPICheckInfoList::get(TAPIType apiType) const
 {
   TAPICheckInfoList::const_iterator i=find(apiType);
@@ -229,29 +283,6 @@ boost::optional<const TCompleteAPICheckInfo &> TRouteAPICheckInfo::get(const std
   TRouteAPICheckInfo::const_iterator i=find(airp_arv);
   if (i!=end()) return i->second;
   return boost::none;
-}
-
-string ElemToPaxDocCountryId(const string &elem, TElemFmt &fmt)
-{
-  string result=ElemToElemId(etPaxDocCountry,elem,fmt);
-  if (fmt==efmtUnknown)
-  {
-    //проверим countries
-    string country=ElemToElemId(etCountry,elem,fmt);
-    if (fmt!=efmtUnknown)
-    {
-      fmt=efmtUnknown;
-      //найдем в pax_doc_countries.country
-      try
-      {
-        result=ElemToElemId(etPaxDocCountry,
-                            getBaseTable(etPaxDocCountry).get_row("country",country).AsString("code"),
-                            fmt);
-      }
-      catch (EBaseTableError) {};
-    };
-  };
-  return result;
 }
 
 void throwInvalidSymbol(const string &fieldname,

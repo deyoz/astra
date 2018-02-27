@@ -89,7 +89,7 @@ struct TRow {
     };
     TRow& fltFromDB(TQuery &Qry);
     TRow& paxFromDB(TQuery &Qry);
-    TRow& setPnr(const vector<TPnrAddrItem> &pnrs);
+    TRow& setPnr(const TPnrAddrs &pnrs);
     TRow& setDoc(const CheckIn::TPaxDocItem &_doc);
     TRow& setVisa(const CheckIn::TPaxDocoItem &_visa);
     const TRow& toDB(TRowType type, TQuery &Qry, bool check_sql=true) const;
@@ -156,7 +156,7 @@ TRow& TRow::paxFromDB(TQuery &Qry)
 };
 
 
-TRow& TRow::setPnr(const vector<TPnrAddrItem> &pnrs)
+TRow& TRow::setPnr(const TPnrAddrs &pnrs)
 {
   pnr.clear();
   if (!pnrs.empty()) pnr=pnrs.begin()->addr;
@@ -546,8 +546,8 @@ void sync_pax_internal(int id,
       check_pax(Qry, pax_id);
       row.paxFromDB(Qry);
       //pnr
-      vector<TPnrAddrItem> pnrs;
-      GetPaxPnrAddr(pax_id, pnrs);
+      TPnrAddrs pnrs;
+      pnrs.getByPaxId(pax_id);
       row.setPnr(pnrs);
       //документ
       CheckIn::TPaxDocItem doc;
@@ -629,8 +629,8 @@ void sync_crs_pax_internal(int id,
   int point_id=Qry.FieldAsInteger("point_id");
   get_crs_flight(point_id, row);
   //pnr
-  vector<TPnrAddrItem> pnrs;
-  GetPnrAddr(Qry.FieldAsInteger("pnr_id"), pnrs);
+  TPnrAddrs pnrs;
+  pnrs.getByPnrId(Qry.FieldAsInteger("pnr_id"));
   row.setPnr(pnrs);
 
   bool check_sql=true;
@@ -1029,7 +1029,7 @@ void get_pax_list(int point_id,
       {
         try
         {
-          TRcptDocTypesRow &doc_type_rcpt_row = (TRcptDocTypesRow&)base_tables.get("rcpt_doc_types").get_row("code",Qry.FieldAsString( idx_doc_type_rcpt ));
+          const TRcptDocTypesRow &doc_type_rcpt_row = (const TRcptDocTypesRow&)base_tables.get("rcpt_doc_types").get_row("code",Qry.FieldAsString( idx_doc_type_rcpt ));
           pax.docType = doc_type_rcpt_row.code_mintrans;
           if (strcmp(Qry.FieldAsString( idx_doc_issue_country ),"RUS")!=0)
           {
@@ -1049,7 +1049,7 @@ void get_pax_list(int point_id,
       {
         try
         {
-          TPaxDocTypesRow &doc_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",Qry.FieldAsString( idx_doc_type ));
+          const TPaxDocTypesRow &doc_type_row = (const TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",Qry.FieldAsString( idx_doc_type ));
           pax.docType = doc_type_row.code_mintrans;
         }
         catch(EBaseTableError) {};
