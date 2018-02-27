@@ -8,8 +8,8 @@ TRAILING NULLCOLS
 id
 ,version
 ,descr
-,form
-,data
+,form char(4000)
+,data char(4000)
 ,read_only
 )
 BEGINDATA
