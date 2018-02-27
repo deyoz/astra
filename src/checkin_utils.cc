@@ -296,10 +296,8 @@ void CompletePnrData(bool is_test, int pnr_id, WebSearch::TPnrData &pnrData)
       pnrData.seg.pnr_id=pnr_id;
       pnrData.seg.cls=Qry.FieldAsString("class");
       pnrData.seg.subcls=Qry.FieldAsString("subclass");
-      WebSearch::TPNRAddrInfo pnr_addr;
-      pnr_addr.airline=Qry.FieldAsString("pnr_airline");
-      pnr_addr.addr=Qry.FieldAsString("pnr_addr");
-      pnrData.seg.pnr_addrs.push_back(pnr_addr);
+      pnrData.seg.pnr_addrs.emplace_back(Qry.FieldAsString("pnr_airline"),
+                                         Qry.FieldAsString("pnr_addr"));
     };
 
     pnrData.dest.fromDB(pnrData.seg.point_arv, true);

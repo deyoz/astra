@@ -239,6 +239,14 @@ const TPaxDocCompoundType& TPaxDocCompoundType::toXML(xmlNodePtr node) const
   return *this;
 }
 
+const TPaxDocCompoundType& TPaxDocCompoundType::toWebXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+
+  NewTextChild(node, "type", type);
+  return *this;
+}
+
 const TPaxDocItem& TPaxDocItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
@@ -259,6 +267,31 @@ const TPaxDocItem& TPaxDocItem::toXML(xmlNodePtr node) const
   NewTextChild(docNode, "second_name", second_name, "");
   NewTextChild(docNode, "pr_multi", (int)pr_multi, (int)false);
   NewTextChild(docNode, "scanned_attrs", scanned_attrs, (int)NO_FIELDS);
+  return *this;
+}
+
+const TPaxDocItem& TPaxDocItem::toWebXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+  //документ
+  xmlNodePtr docNode=NewTextChild(node,"document");
+
+  TPaxDocCompoundType::toWebXML(docNode);
+  NewTextChild(docNode, "issue_country", paxDocCountryToXML(issue_country));
+  NewTextChild(docNode, "no", no);
+  NewTextChild(docNode, "nationality", paxDocCountryToXML(nationality));
+  if (birth_date!=ASTRA::NoExists)
+    NewTextChild(docNode, "birth_date", DateTimeToStr(birth_date, ServerFormatDateTimeAsString));
+  else
+    NewTextChild(docNode, "birth_date");
+  NewTextChild(docNode, "gender", gender);
+  if (expiry_date!=ASTRA::NoExists)
+    NewTextChild(docNode, "expiry_date", DateTimeToStr(expiry_date, ServerFormatDateTimeAsString));
+  else
+    NewTextChild(docNode, "expiry_date");
+  NewTextChild(docNode, "surname", surname);
+  NewTextChild(docNode, "first_name", first_name);
+  NewTextChild(docNode, "second_name", second_name);
   return *this;
 }
 
@@ -292,6 +325,16 @@ TPaxDocCompoundType& TPaxDocCompoundType::fromXML(xmlNodePtr node)
   return *this;
 }
 
+TPaxDocCompoundType& TPaxDocCompoundType::fromWebXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=NodeAsNode("type", node);
+
+  type=NodeAsStringFast("type",node2);
+  return *this;
+}
+
 TPaxDocItem& TPaxDocItem::fromXML(xmlNodePtr node)
 {
   clear();
@@ -313,6 +356,28 @@ TPaxDocItem& TPaxDocItem::fromXML(xmlNodePtr node)
   second_name=NodeAsStringFast("second_name",node2,"");
   pr_multi=NodeAsIntegerFast("pr_multi",node2,0)!=0;
   scanned_attrs=NodeAsIntegerFast("scanned_attrs",node2,NO_FIELDS);
+  return *this;
+}
+
+TPaxDocItem& TPaxDocItem::fromWebXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+
+  TPaxDocCompoundType::fromWebXML(node);
+
+  xmlNodePtr node2=NodeAsNode("issue_country", node);
+  issue_country=NodeAsStringFast("issue_country",node2);
+  no=NodeAsStringFast("no",node2);
+  nationality=NodeAsStringFast("nationality",node2);
+  if (!NodeIsNULLFast("birth_date",node2))
+    birth_date=NodeAsDateTimeFast("birth_date",node2);
+  gender=NodeAsStringFast("gender",node2);
+  if (!NodeIsNULLFast("expiry_date",node2))
+    expiry_date=NodeAsDateTimeFast("expiry_date",node2);
+  surname=NodeAsStringFast("surname",node2);
+  first_name=NodeAsStringFast("first_name",node2);
+  second_name=NodeAsStringFast("second_name",node2);
   return *this;
 }
 
@@ -497,6 +562,27 @@ const TPaxDocoItem& TPaxDocoItem::toXML(xmlNodePtr node) const
   return *this;
 }
 
+const TPaxDocoItem& TPaxDocoItem::toWebXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+
+  xmlNodePtr docNode=NewTextChild(node,"doco");
+  NewTextChild(docNode, "birth_place", birth_place);
+  TPaxDocCompoundType::toWebXML(docNode);
+  NewTextChild(docNode, "no", no);
+  NewTextChild(docNode, "issue_place", issue_place);
+  if (issue_date!=ASTRA::NoExists)
+    NewTextChild(docNode, "issue_date", DateTimeToStr(issue_date, ServerFormatDateTimeAsString));
+  else
+    NewTextChild(docNode, "issue_date");
+  if (expiry_date!=ASTRA::NoExists)
+    NewTextChild(docNode, "expiry_date", DateTimeToStr(expiry_date, ServerFormatDateTimeAsString));
+  else
+    NewTextChild(docNode, "expiry_date");
+  NewTextChild(docNode, "applic_country", paxDocCountryToXML(applic_country));
+  return *this;
+}
+
 TPaxDocoItem& TPaxDocoItem::fromXML(xmlNodePtr node)
 {
   clear();
@@ -528,6 +614,25 @@ TPaxDocoItem& TPaxDocoItem::fromXML(xmlNodePtr node)
   else doco_confirm=true;
   return *this;
 }
+
+TPaxDocoItem& TPaxDocoItem::fromWebXML(const xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+
+  TPaxDocCompoundType::fromWebXML(node);
+
+  xmlNodePtr node2=NodeAsNode("birth_place", node);
+  birth_place=NodeAsStringFast("birth_place",node2);
+  no=NodeAsStringFast("no",node2);
+  issue_place=NodeAsStringFast("issue_place",node2);
+  if (!NodeIsNULLFast("issue_date",node2))
+    issue_date=NodeAsDateTimeFast("issue_date",node2);
+  if (!NodeIsNULLFast("expiry_date",node2))
+    expiry_date=NodeAsDateTimeFast("expiry_date",node2);
+  applic_country=NodeAsStringFast("applic_country",node2);
+  return *this;
+};
 
 const TPaxDocoItem& TPaxDocoItem::toDB(TQuery &Qry) const
 {

@@ -44,9 +44,11 @@ public:
      // Информация о рейсе
      evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::SearchFlt);
      AddEvent("SearchFlt",evHandle);
+     AddEvent("SearchFltMulti",evHandle);
      // Загрузка PNR
      evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::LoadPnr);
      AddEvent("LoadPnr",evHandle);
+     AddEvent("LoadPnrMulti",evHandle);
      // Загрузка компоновки
      evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::ViewCraft);
      AddEvent("ViewCraft",evHandle);
@@ -114,10 +116,10 @@ public:
   void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   void ParseMessage(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void GetCacheTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);\
+  void GetCacheTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void CheckFFP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){}
 };
 
 /*
@@ -133,7 +135,7 @@ struct TWebPax {
     std::string surname;
     std::string name;
     std::string pers_type_extended; //может содержать БГ (CBBG)
-    ASTRA::TCompLayerType crs_seat_layer;
+    std::string seat_status;
     std::string crs_seat_no;
     std::string seat_no;
     std::string pass_class;
@@ -154,6 +156,7 @@ struct TWebPax {
     CheckIn::TDocaMap doca_map;
     std::set<CheckIn::TPaxFQTItem> fqts;
     std::multiset<CheckIn::TPaxRemItem> rems;
+    TPnrAddrs pnr_addrs;
     TWebPax() {
       pax_no = ASTRA::NoExists;
       crs_pax_id = ASTRA::NoExists;
@@ -172,10 +175,12 @@ struct TWebPax {
       return transliter_equal(surname,pax.surname) &&
              transliter_equal(name,pax.name) &&
              pers_type_extended==pax.pers_type_extended &&
-             ((seats==0 && pax.seats==0) || (seats!=0 && pax.seats!=0));
+             ((seats==0 && pax.seats==0) || (seats!=0 && pax.seats!=0)) &&
+             pnr_addrs.equalPnrExists(pax.pnr_addrs);
     };
 
     bool suitable(const WebSearch::TPNRFilter &filter) const;
+    void toXML(xmlNodePtr paxParentNode) const;
 };
 bool isOwnerFreePlace( int pax_id, const std::vector<TWebPax> &pnr );
 int bcbp_test(int argc,char **argv);

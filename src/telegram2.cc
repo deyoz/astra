@@ -3391,8 +3391,8 @@ struct TClsCmp {
     bool operator() (const string &l, const string &r) const
     {
         TClasses &classes = (TClasses &)base_tables.get("classes");
-        int l_prior = ((TClassesRow &)classes.get_row("code", l)).priority;
-        int r_prior = ((TClassesRow &)classes.get_row("code", r)).priority;
+        int l_prior = ((const TClassesRow &)classes.get_row("code", l)).priority;
+        int r_prior = ((const TClassesRow &)classes.get_row("code", r)).priority;
         return l_prior < r_prior;
     }
 };
@@ -7035,9 +7035,9 @@ void TLCIPaxTotals::process()
                 TBaseTable &baseairps = base_tables.get( "airps" );
                 TBaseTable &basecities = base_tables.get( "cities" );
                 bool internal_flight =
-                    ((TCitiesRow&)basecities.get_row("code", ((TAirpsRow&)baseairps.get_row("code", airp_arv)).city)).country == "”";
+                    ((const TCitiesRow&)basecities.get_row("code", ((const TAirpsRow&)baseairps.get_row("code", airp_arv)).city)).country == "”";
                 internal_flight = internal_flight and
-                    ((TCitiesRow&)basecities.get_row("code", ((TAirpsRow&)baseairps.get_row("code", trfer_airp_arv)).city)).country == "”";
+                    ((const TCitiesRow&)basecities.get_row("code", ((const TAirpsRow&)baseairps.get_row("code", trfer_airp_arv)).city)).country == "”";
 
                 if(internal_flight) {
                     category = BCAT_BD;
@@ -8754,11 +8754,11 @@ struct TSubClsCmp {
     bool operator() (const string &l, const string &r) const
     {
         TSubcls &subcls = (TSubcls &)base_tables.get("subcls");
-        string l_cls = ((TSubclsRow&)subcls.get_row("code", l)).cl;
-        string r_cls = ((TSubclsRow&)subcls.get_row("code", r)).cl;
+        string l_cls = ((const TSubclsRow&)subcls.get_row("code", l)).cl;
+        string r_cls = ((const TSubclsRow&)subcls.get_row("code", r)).cl;
         TClasses &classes = (TClasses &)base_tables.get("classes");
-        int l_prior = ((TClassesRow &)classes.get_row("code", l_cls)).priority;
-        int r_prior = ((TClassesRow &)classes.get_row("code", r_cls)).priority;
+        int l_prior = ((const TClassesRow &)classes.get_row("code", l_cls)).priority;
+        int r_prior = ((const TClassesRow &)classes.get_row("code", r_cls)).priority;
         if(l_prior == r_prior)
             return l < r;
         else
@@ -9283,7 +9283,7 @@ int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
         throw AstraLocale::UserException("MSG.TLG.UNSPECIFY_TYPE");
     try
     {
-      const TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",createInfo.get_tlg_type()));
+      const TTypeBTypesRow& row = (const TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",createInfo.get_tlg_type()));
       tlgTypeInfo=row;
     }
     catch(EBaseTableError)
@@ -10418,7 +10418,7 @@ namespace CKIN_REPORT {
     {
         xmlNodePtr airlineNode = NewTextChild(rootNode, "airline");
         SetProp(airlineNode, "code_zrt", airline);
-        TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code",airline));
+        const TAirlinesRow &row=(const TAirlinesRow&)(base_tables.get("airlines").get_row("code",airline));
         SetProp(airlineNode, "code_iata", row.code_lat);
         NewTextChild(rootNode, "flt_no",  IntToString(flt_no) + suffix);
         NewTextChild(rootNode, "date_scd", DateTimeToStr(scd_out, "dd.mm.yyyy hh:nn:ss"));
@@ -10470,8 +10470,7 @@ namespace CKIN_REPORT {
             int bag_pool_num = get_bag_pool_num(iPax->pax_id);
 
             xmlNodePtr itemNode = NewTextChild(paxNode, "passenger");
-            vector<TPnrAddrItem> pnrs;
-            NewTextChild(itemNode, "pnr", GetPaxPnrAddr(iPax->pax_id, pnrs));
+            NewTextChild(itemNode, "pnr", TPnrAddrs().getByPaxId(iPax->pax_id));
             NewTextChild(itemNode, "name", iPax->name + " " + iPax->surname);
             NewTextChild(itemNode, "del");
             NewTextChild(itemNode, "grp");
@@ -10519,7 +10518,7 @@ namespace CKIN_REPORT {
 
             NewTextChild(itemNode, "passnum", iPax->reg_no);
 
-            TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code",grp->second.airp_arv));
+            const TAirpsRow &row=(const TAirpsRow&)(base_tables.get("airps").get_row("code",grp->second.airp_arv));
             NewTextChild(itemNode, "dest", row.code_lat);
             NewTextChild(itemNode, "sb");
             NewTextChild(itemNode, "nrec", get_norec(pfs, iPax->pax_id));
@@ -10542,7 +10541,7 @@ namespace CKIN_REPORT {
     {
         xmlNodePtr airlineNode = NewTextChild(rootNode, "airline");
         SetProp(airlineNode, "code_zrt", airline);
-        TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code",airline));
+        const TAirlinesRow &row=(const TAirlinesRow&)(base_tables.get("airlines").get_row("code",airline));
         SetProp(airlineNode, "code_iata", row.code_lat);
         NewTextChild(rootNode, "flt_no",  IntToString(flt_no) + suffix);
         NewTextChild(rootNode, "date_scd", DateTimeToStr(scd_out, "dd.mm.yyyy hh:nn:ss"));
@@ -10561,7 +10560,7 @@ namespace CKIN_REPORT {
             for(TAirpRoute::iterator iAirp = idx->second.begin(); iAirp != idx->second.end(); iAirp++) {
                 xmlNodePtr airpNode = NewTextChild(routeNode, "airp");
                 SetProp(airpNode, "code_zrt", iAirp->first);
-                TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code",iAirp->first));
+                const TAirpsRow &row=(const TAirpsRow&)(base_tables.get("airps").get_row("code",iAirp->first));
                 SetProp(airpNode, "code_iata", row.code_lat);
                 if(not iAirp->second.empty()) {
                     for(TClsRoute::iterator iCls = iAirp->second.begin(); iCls != iAirp->second.end(); iCls++) {
@@ -11022,8 +11021,7 @@ namespace PFS_STAT {
                             Qry.get().SetVariable("airp_arv", pax->target);
                             Qry.get().SetVariable("seats", pax->seats);
                             Qry.get().SetVariable("subcls", pax->subcls);
-                            vector<TPnrAddrItem> pnrs;
-                            Qry.get().SetVariable("pnr", GetPaxPnrAddr(pax->pax_id, pnrs));
+                            Qry.get().SetVariable("pnr", TPnrAddrs().getByPaxId(pax->pax_id));
                             Qry.get().SetVariable("surname", pax->surname);
                             Qry.get().SetVariable("name", pax->name);
 

@@ -2986,7 +2986,6 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   int col_is_jmp=Qry.FieldIndex("is_jmp");
   int mode; // режим для поиска мест 0 - регистрация иначе список pnl
   int crs_row=1, pax_row=1;
-  vector<TPnrAddrItem> pnrs;
   for(;!Qry.Eof;Qry.Next())
   {
     mode = -1; // не надо искать место
@@ -3016,10 +3015,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     };
     node = NewTextChild(paxNode,"pax");
 
-    GetPnrAddr(Qry.FieldAsInteger( col_pnr_id ), pnrs);
-    string pnr_addr;
-    if (!pnrs.empty())
-      pnr_addr.append(pnrs.begin()->addr).append("/").append(pnrs.begin()->airline);
+    string pnr_addr=TPnrAddrs().firstAddrByPnrId(Qry.FieldAsInteger( col_pnr_id ), TPnrAddrInfo::AddrAndAirline);
     NewTextChild( node, "pnr_ref", pnr_addr, "" );
     NewTextChild( node, "pnr_status", Qry.FieldAsString( col_pnr_status ), "" );
     NewTextChild( node, "pnr_priority", Qry.FieldAsString( col_pnr_priority ), "" );

@@ -853,6 +853,29 @@ TElemFmt prLatToElemFmt(TElemFmt fmt, bool pr_lat)
   return res;
 };
 
+string ElemToPaxDocCountryId(const string &elem, TElemFmt &fmt)
+{
+  string result=ElemToElemId(etPaxDocCountry,elem,fmt);
+  if (fmt==efmtUnknown)
+  {
+    //проверим countries
+    string country=ElemToElemId(etCountry,elem,fmt);
+    if (fmt!=efmtUnknown)
+    {
+      fmt=efmtUnknown;
+      //найдем в pax_doc_countries.country
+      try
+      {
+        result=ElemToElemId(etPaxDocCountry,
+                            getBaseTable(etPaxDocCountry).get_row("country",country).AsString("code"),
+                            fmt);
+      }
+      catch (EBaseTableError) {};
+    };
+  };
+  return result;
+}
+
 string airlineToXML(const std::string &code, const std::string &lang)
 {
   string result;
@@ -880,6 +903,23 @@ string craftToXML(const std::string &code, const std::string &lang)
   if (result.size()==4) //типа ИКАО
     result=ElemIdToPrefferedElem(etCraft, code, efmtCodeNative, lang==AstraLocale::LANG_EN?AstraLocale::LANG_RU:
                                                                                            AstraLocale::LANG_EN);
+  return result;
+}
+
+string paxDocCountryToXML(const std::string &code)
+{
+  string result;
+  if (!code.empty())
+  {
+    try
+    {
+      if (TReqInfo::Instance()->client_type == ASTRA::ctWeb ||
+          TReqInfo::Instance()->client_type == ASTRA::ctMobile)
+        result=getBaseTable(etPaxDocCountry).get_row("code",code).AsString("country");
+    }
+    catch (EBaseTableError) {};
+    if (result.empty()) result=code;
+  };
   return result;
 }
 

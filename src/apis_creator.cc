@@ -531,9 +531,9 @@ void CreateEdi( const TApisRouteData& route,
     if (iPax->status!=psCrew)
     {
       //PNR
-      vector<TPnrAddrItem> pnrs;
-      GetPaxPnrAddr(iPax->id,pnrs);
-      if (!pnrs.empty()) paxInfo.setReservNum(convert_pnr_addr(pnrs.begin()->addr, 1));
+      string pnr_addr=TPnrAddrs().firstAddrByPaxId(iPax->id, TPnrAddrInfo::AddrOnly);
+      if (!pnr_addr.empty())
+        paxInfo.setReservNum(convert_pnr_addr(pnr_addr, 1));
     }
 
     string doc_type = iPax->doc_type_lat(); // throws

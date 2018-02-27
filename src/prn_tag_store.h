@@ -486,7 +486,7 @@ class TPrnTagStore {
         struct TPnrInfo {
             bool pr_init;
             std::string airline;
-            std::vector<TPnrAddrItem> pnrs;
+            TPnrAddrs pnrs;
             TPnrInfo(): pr_init(false) {};
             void Init(int pax_id);
         };
