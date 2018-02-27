@@ -5229,12 +5229,18 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
 void TETLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &complayers)
 {
     const TypeB::TMarkInfoOptions &markOptions=*(info.optionsAs<TypeB::TMarkInfoOptions>());
+    const TypeB::TETLOptions *ETLOptions=NULL;
+    if(info.optionsIs<TypeB::TETLOptions>())
+        ETLOptions=info.optionsAs<TypeB::TETLOptions>();
 
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
+    string SQLText =
         "select "
-        "    pax_grp.airp_arv target, "
-        "    cls_grp.id cls, "
+        "    pax_grp.airp_arv target, ";
+    if(ETLOptions and ETLOptions->rbd)
+        SQLText += "    NULL cls, ";
+    else
+        SQLText += "    cls_grp.id cls, ";
+    SQLText +=
         "    system.transliter(pax.surname, 1, :pr_lat) surname, "
         "    system.transliter(pax.name, 1, :pr_lat) name, "
         "    crs_pnr.pnr_id, "
@@ -5246,17 +5252,26 @@ void TETLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
         "    pax.bag_pool_num "
         "from "
         "    pax, "
-        "    pax_grp, "
-        "    cls_grp, "
+        "    pax_grp, ";
+    if(not(ETLOptions and ETLOptions->rbd))
+        SQLText += "    cls_grp, ";
+    SQLText +=
         "    crs_pax, "
         "    crs_pnr "
         "WHERE "
         "    pax_grp.point_dep = :point_id and "
         "    pax_grp.status NOT IN ('E') AND "
         "    pax_grp.airp_arv = :airp and "
-        "    pax_grp.grp_id=pax.grp_id AND "
-        "    pax_grp.class_grp = cls_grp.id(+) AND "
-        "    cls_grp.code = :class and "
+        "    pax_grp.grp_id=pax.grp_id AND ";
+    if(ETLOptions and ETLOptions->rbd) {
+        SQLText +=
+            "   NVL(pax.subclass,pax_grp.class) = :class and ";
+    } else {
+        SQLText +=
+            "    pax_grp.class_grp = cls_grp.id(+) AND "
+            "    cls_grp.code = :class and ";
+    }
+    SQLText +=
         "    pax.pr_brd = 1 and "
         "    pax.seats>0 and "
         "    pax.pax_id = crs_pax.pax_id(+) and "
@@ -5270,6 +5285,8 @@ void TETLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
         "    surname, "
         "    name nulls first, "
         "    pax.pax_id ";
+    TQuery Qry(&OraSession);
+    Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.CreateVariable("airp", otString, airp);
     Qry.CreateVariable("class", otString, cls);
@@ -5410,12 +5427,20 @@ void TDestList<T>::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
             const TypeB::TPRLOptions *PRLOptions=NULL;
             if(info.optionsIs<TypeB::TPRLOptions>())
                 PRLOptions=info.optionsAs<TypeB::TPRLOptions>();
+
+            const TypeB::TETLOptions *ETLOptions=NULL;
+            if(info.optionsIs<TypeB::TETLOptions>())
+                ETLOptions=info.optionsAs<TypeB::TETLOptions>();
+
             pr_empty = false;
             line.str("");
             line
                 << "-" << info.TlgElemIdToElem(etAirp, iv->airp)
                 << setw(2) << setfill('0') << iv->PaxList.size();
-            if(PRLOptions and PRLOptions->rbd)
+            if(
+                    PRLOptions and PRLOptions->rbd or
+                    ETLOptions and ETLOptions->rbd
+                    )
                 line << info.TlgElemIdToElem(etSubcls, iv->cls, prLatToElemFmt(efmtCodeNative,true)); //всегда на латинице - так надо
             else
                 line << info.TlgElemIdToElem(etClsGrp, iv->PaxList[0].cls_grp_id, prLatToElemFmt(efmtCodeNative,true)); //всегда на латинице - так надо
@@ -8075,10 +8100,16 @@ void TDestList<T>::get_subcls_lst(TypeB::TDetailCreateInfo &info, list<string> &
     const TypeB::TPRLOptions *PRLOptions=NULL;
     if(info.optionsIs<TypeB::TPRLOptions>())
         PRLOptions=info.optionsAs<TypeB::TPRLOptions>();
+    const TypeB::TETLOptions *ETLOptions=NULL;
+    if(info.optionsIs<TypeB::TETLOptions>())
+        ETLOptions=info.optionsAs<TypeB::TETLOptions>();
 
     set<TSubclsItem> subcls_set;
 
-    if(PRLOptions and PRLOptions->rbd) {
+    if(
+            PRLOptions and PRLOptions->rbd or
+            ETLOptions and ETLOptions->rbd
+            ) {
         QParams QryParams;
         QryParams << QParam("point_id", otInteger, info.point_id);
         TCachedQuery Qry(

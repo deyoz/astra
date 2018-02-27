@@ -492,6 +492,122 @@ class TMarkInfoOptions : public TCrsOptions
     };
 };
 
+class TETLOptions : public TMarkInfoOptions
+{
+    private:
+        void init()
+        {
+            rbd = false;
+        }
+    public:
+        bool rbd;
+        TETLOptions() { init(); }
+        virtual ~TETLOptions() {};
+        virtual void clear()
+        {
+            TMarkInfoOptions::clear();
+            init();
+        };
+        virtual void fromXML(xmlNodePtr node)
+        {
+            TMarkInfoOptions::fromXML(node);
+            if(node == NULL) return;
+            xmlNodePtr node2=node->children;
+            rbd = NodeAsIntegerFast("rbd", node2, rbd) != 0;
+        }
+        virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+        {
+            TMarkInfoOptions::fromDB(Qry, OptionsQry);
+
+            std::string basic_type;
+            std::string tlg_type = Qry.FieldAsString("tlg_type");
+            try
+            {
+                const TTypeBTypesRow& row = (const TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
+                basic_type=row.basic_type;
+            }
+            catch(EBaseTableError)
+            {
+                throw EXCEPTIONS::Exception("%s::fromDB: unknown telegram type %s", typeName().c_str(), tlg_type.c_str());
+            };
+
+            OptionsQry.SetVariable("id", Qry.FieldAsInteger("id"));
+            OptionsQry.SetVariable("tlg_type", basic_type);
+            OptionsQry.Execute();
+            for(;!OptionsQry.Eof;OptionsQry.Next())
+            {
+                std::string cat=OptionsQry.FieldAsString("category");
+                if (cat=="RBD")
+                {
+                    rbd = OptionsQry.FieldAsInteger("value") != 0;
+                    continue;
+                };
+            }
+        }
+        virtual localizedstream& logStr(localizedstream &s) const
+        {
+            TMarkInfoOptions::logStr(s);
+            s
+                << ", "
+                << "RBD: "
+                << (rbd ? s.getLocaleText("да"):
+                        s.getLocaleText("нет"));
+            return s;
+        }
+        virtual localizedstream& extraStr(localizedstream &s) const
+        {
+            TMarkInfoOptions::extraStr(s);
+            s
+                << "RBD: "
+                << (rbd ? s.getLocaleText("да"):
+                        s.getLocaleText("нет"))
+                << endl;
+            return s;
+        };
+        virtual std::string typeName() const
+        {
+            return "TETLOptions";
+        };
+        virtual bool similar(const TCreateOptions &item) const
+        {
+            if (!TMarkInfoOptions::similar(item)) return false;
+            try
+            {
+                const TETLOptions &opt = dynamic_cast<const TETLOptions&>(item);
+                return
+                    rbd == opt.rbd;
+            }
+            catch(std::bad_cast)
+            {
+                return false;
+            };
+        }
+        virtual bool equal(const TCreateOptions &item) const
+        {
+            if (!TMarkInfoOptions::equal(item)) return false;
+            try
+            {
+                const TETLOptions &opt = dynamic_cast<const TETLOptions&>(item);
+                return
+                    rbd == opt.rbd;
+            }
+            catch(std::bad_cast)
+            {
+                return false;
+            };
+        };
+        virtual void copy(const TCreateOptions &item)
+        {
+            TMarkInfoOptions::copy(item);
+            try
+            {
+                const TETLOptions &opt = dynamic_cast<const TETLOptions&>(item);
+                rbd = opt.rbd;
+            }
+            catch(std::bad_cast) {};
+        };
+};
+
 class TMVTOptions : public TCreateOptions
 {
   private:
