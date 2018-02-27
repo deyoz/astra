@@ -126,6 +126,7 @@ void handle_edi_tlg(const tlg_info &tlg)
     }
 
     LogTlg() << "| TNUM: " << tlg.id
+             << " | GATEWAYNUM: " << tlg.tlgNumStr()
              << " | DIR: " << "IN"
              << " | ROUTER: " << tlg.sender
              << " | TSTAMP: " << boost::posix_time::second_clock::local_time()
@@ -135,8 +136,8 @@ void handle_edi_tlg(const tlg_info &tlg)
 
     const int tlg_id = tlg.id;
     ProgTrace(TRACE1,"========= %d TLG: START HANDLE =============",tlg_id);
-    ProgTrace(TRACE1,"========= (sender=%s tlg_num=%d) =============",
-      tlg.sender.c_str(), tlg.id);
+    ProgTrace(TRACE1,"========= (sender=%s tlg_num=%s) =============",
+      tlg.sender.c_str(), tlg.tlgNumStr().c_str());
     if (tlg.proc_attempt>=HANDLER_PROC_ATTEMPTS())
     {
       ProgTrace(TRACE5, "handle_tlg: tlg_id=%d proc_attempt=%d", tlg_id, tlg.proc_attempt);
@@ -260,12 +261,9 @@ bool handle_tlg(void)
       for(;!TlgQry.Eof && (count++)<PROC_COUNT(); TlgQry.Next(), ASTRA::rollback())
       {
         tlg_info tlgi = {};
-        tlgi.id = TlgQry.FieldAsInteger("id");
+        tlgi.fromDB(TlgQry);
 
-        tlgi.text = getTlgText(tlgi.id);
         ProgTrace(TRACE5,"TLG_IN: <%s>", tlgi.text.c_str());
-        tlgi.sender = TlgQry.FieldAsString("sender");
-        tlgi.proc_attempt = TlgQry.FieldAsInteger("proc_attempt");
 
         handle_edi_tlg(tlgi);
       };

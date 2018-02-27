@@ -353,16 +353,8 @@ bool handle_tlg(void)
     for (;!TlgQry.Eof&&count<HANDLER_PROC_COUNT();count++,TlgQry.Next(),ASTRA::commit()/*OraSession.Commit()*/)
     {
         tlg_info tlgi = {};
-        tlgi.id           = TlgQry.FieldAsInteger("id");
-        tlgi.sender       = TlgQry.FieldAsString("sender");
-        tlgi.proc_attempt = TlgQry.FieldAsInteger("proc_attempt");
-        tlgi.text         = getTlgText(tlgi.id);
-
-        if (!TlgQry.FieldIsNULL("ttl")&&
-             (NowUTC()-TlgQry.FieldAsDateTime("time"))*SecsPerDay>=TlgQry.FieldAsInteger("ttl"))
-        {
-          errorTlg(tlgi.id,"TTL");
-        }
+        tlgi.fromDB(TlgQry);
+        if (tlgi.ttlExpired()) errorTlg(tlgi.id,"TTL");
 
         handle_tpb_tlg(tlgi);
     }
@@ -391,6 +383,7 @@ void parse_and_handle_tpb_tlg(const tlg_info &tlg)
 void handle_tpb_tlg(const tlg_info &tlg)
 {
     LogTlg() << "| TNUM: " << tlg.id
+             << " | GATEWAYNUM: " << tlg.tlgNumStr()
              << " | DIR: " << "IN"
              << " | ROUTER: " << tlg.sender
              << " | TSTAMP: " << boost::posix_time::second_clock::local_time();
@@ -405,8 +398,8 @@ void handle_tpb_tlg(const tlg_info &tlg)
     TEndingInfo *EndingInfo=NULL;
 
     ProgTrace(TRACE1,"========= %d TLG: START HANDLE =============",tlg.id);
-    ProgTrace(TRACE1,"========= (sender=%s tlg_num=%d) =============",
-              tlg.sender.c_str(), tlg.id);
+    ProgTrace(TRACE1,"========= (sender=%s tlg_num=%s) =============",
+              tlg.sender.c_str(), tlg.tlgNumStr().c_str());
 
     static TQuery TlgIdQry(&OraSession);
     if (TlgIdQry.SQLText.IsEmpty())
@@ -748,9 +741,9 @@ void handle_tpb_tlg(const tlg_info &tlg)
   if (EndingInfo!=NULL) delete EndingInfo;
 
   ProgTrace(TRACE1,"========= %d TLG: DONE HANDLE =============",tlg.id);
-  ProgTrace(TRACE5, "IN: PUT->DONE (sender=%s, tlg_num=%d, time=%.10f)",
+  ProgTrace(TRACE5, "IN: PUT->DONE (sender=%s, tlg_num=%s, time=%.10f)",
                     tlg.sender.c_str(),
-                    tlg.id,
+                    tlg.tlgNumStr().c_str(),
                     NowUTC());
 
     monitor_idle_zapr_type(1, QUEPOT_TLG_AIR);
