@@ -3511,7 +3511,7 @@ std::vector<iatci::dcrcka::Result> LoadPaxXmlResult::toIatci(iatci::dcrcka::Resu
     std::vector<iatci::dcrcka::Result> lRes;
     for(auto& seg: lSeg)
     {
-        iatci::FlightDetails flight = iatci::makeFlight(seg);
+        iatci::FlightDetails flight = iatci::makeFlight(seg, true/*readAdditional*/);
         std::list<iatci::dcrcka::PaxGroup> paxGroups;
         std::list<astra_entities::PaxInfo> lNonInfants = convertNotInfants(seg.passengers);
         std::list<astra_entities::PaxInfo> lInfants = convertInfants(seg.passengers);

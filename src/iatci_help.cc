@@ -3,10 +3,12 @@
 #include "base_tables.h"
 #include "astra_elems.h"
 #include "astra_consts.h"
+#include "astra_date_time.h"
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "basetables.h"
 #include "convert.h"
+#include "tripinfo.h"
 #include "tlg/edi_msg.h"
 
 #include <serverlib/dates_io.h>
@@ -871,13 +873,15 @@ iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::BagP
 
 //---------------------------------------------------------------------------------------
 
-iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg)
+iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
+                                bool readAdditional)
 {
     std::string airl      = seg.trip_header.airline;
     int         flNum     = seg.trip_header.flt_no;
     TDateTime   scd_local = seg.trip_header.scd_out_local;
     std::string airp_dep  = seg.seg_info.airp_dep;
     std::string airp_arv  = seg.seg_info.airp_arv;
+    int         point_dep = seg.seg_info.point_dep;
 
     if(airl.empty()) {
         airl = seg.mark_flight.airline;
@@ -890,11 +894,23 @@ iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg)
     }
 
     boost::gregorian::date scd_dep_date, scd_arr_date;
-    boost::posix_time::time_duration scd_dep_time, scd_arr_time;
     if(scd_local != ASTRA::NoExists) {
         auto boost_ddt = DateTimeToBoost(scd_local);
         scd_dep_date = boost_ddt.date();
-        scd_dep_time = boost_ddt.time_of_day();
+    }
+
+    boost::posix_time::time_duration scd_brd_to_time(boost::posix_time::not_a_date_time);
+
+
+    if(readAdditional) {
+        const std::string tz_region = AirpTZRegion(airp_dep);
+        TTripStages trip_stages(point_dep);
+        TDateTime brd_to = ASTRA::date_time::UTCToClient(trip_stages.time(sCloseCheckIn),
+                                                         tz_region);
+
+        if(brd_to != ASTRA::NoExists) {
+            scd_brd_to_time = DateTimeToBoost(brd_to).time_of_day();
+        }
     }
 
     return iatci::FlightDetails(BaseTables::Company(airl)->rcode(),
@@ -905,7 +921,7 @@ iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg)
                                 scd_arr_date,
                                 boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
                                 boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
-                                scd_dep_time);
+                                scd_brd_to_time);
 }
 
 //---------------------------------------------------------------------------------------
