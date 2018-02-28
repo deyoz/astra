@@ -34,6 +34,7 @@ public:
     using iatci::FlightDetails::m_flightNum;
     using iatci::FlightDetails::m_depPort;
     using iatci::FlightDetails::m_arrPort;
+    using iatci::FlightDetails::m_gate;
     using iatci::FlightDetails::m_depDate;
     using iatci::FlightDetails::m_arrDate;
     using iatci::FlightDetails::m_depTime;
@@ -51,7 +52,7 @@ inline void save(Archive& ar, const iatci::FlightDetails& par, const unsigned in
 {
     FlightDetailsAccessor acc(par);
     ar & acc.m_airline;
-    ar & acc.m_depPort & acc.m_arrPort;
+    ar & acc.m_depPort & acc.m_arrPort & acc.m_gate;
     std::string depDate = Dates::ddmmyyyy(acc.m_depDate),
                 arrDate = Dates::ddmmyyyy(acc.m_arrDate);
     std::string depTime = Dates::hh24mi(acc.m_depTime),
@@ -70,7 +71,7 @@ inline void load(Archive& ar, iatci::FlightDetails& par, const unsigned int vers
 {
     FlightDetailsAccessor acc;
     ar & acc.m_airline;
-    ar & acc.m_depPort & acc.m_arrPort;
+    ar & acc.m_depPort & acc.m_arrPort & acc.m_gate;
     std::string depDate, arrDate;
     std::string depTime, arrTime;
     std::string brdTime;

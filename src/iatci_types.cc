@@ -145,6 +145,11 @@ const std::string& FlightDetails::arrPort() const
     return m_arrPort;
 }
 
+const std::string& FlightDetails::gate() const
+{
+    return m_gate;
+}
+
 const boost::gregorian::date& FlightDetails::depDate() const
 {
     return m_depDate;

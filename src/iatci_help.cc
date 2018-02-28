@@ -357,7 +357,16 @@ iatci::BaggageDetails makeBaggage(const edifact::PbdElem& pbd)
         handBag = iatci::BaggageDetails::BagInfo(pbd.m_handBag->m_numOfPieces,
                                                  pbd.m_handBag->m_weight);
     }
-    return iatci::BaggageDetails(bag, handBag);
+    std::list<iatci::BaggageDetails::BagTagInfo> bagTags;
+    for(const auto& tag: pbd.m_tags) {
+        uint64_t fullTag = iatci::BaggageDetails::BagTagInfo::makeFullTag(tag.m_accode,
+                                                                          tag.m_tagNum);
+        bagTags.push_back(iatci::BaggageDetails::BagTagInfo(tag.m_carrierCode,
+                                                            tag.m_dest,
+                                                            fullTag,
+                                                            tag.m_qtty));
+    }
+    return iatci::BaggageDetails(bag, handBag, bagTags);
 }
 
 iatci::ServiceDetails makeService(const edifact::PsiElem& psi)

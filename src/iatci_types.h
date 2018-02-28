@@ -92,11 +92,12 @@ protected:
     Ticketing::FlightNum_t           m_flightNum;
     std::string                      m_depPort;
     std::string                      m_arrPort;
+    std::string                      m_gate;
     boost::gregorian::date           m_depDate;
     boost::gregorian::date           m_arrDate;
     boost::posix_time::time_duration m_depTime;
     boost::posix_time::time_duration m_arrTime;
-    boost::posix_time::time_duration m_boardingTime;
+    boost::posix_time::time_duration m_boardingTime;    
 
 public:
     FlightDetails(const std::string& airl,
@@ -113,6 +114,7 @@ public:
     Ticketing::FlightNum_t                  flightNum() const;
     const std::string&                      depPort() const;
     const std::string&                      arrPort() const;
+    const std::string&                      gate() const;
     const boost::gregorian::date&           depDate() const;
     const boost::gregorian::date&           arrDate() const;
     const boost::posix_time::time_duration& depTime() const;

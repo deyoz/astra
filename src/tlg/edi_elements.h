@@ -692,8 +692,22 @@ struct PbdElem
         {}
     };
 
+    struct Tag
+    {
+        std::string m_carrierCode;
+        unsigned    m_tagNum;
+        unsigned    m_qtty;
+        std::string m_dest;
+        unsigned    m_accode;
+
+        Tag()
+            : m_tagNum(0), m_qtty(0), m_accode(0)
+        {}
+    };
+
     boost::optional<Bag> m_bag;
     boost::optional<Bag> m_handBag;
+    std::list<Tag>       m_tags;
 };
 
 //---------------------------------------------------------------------------------------
@@ -788,11 +802,10 @@ struct ChdElem
 struct FsdElem
 {
     boost::posix_time::time_duration m_boardingTime;
+    std::string                      m_gate;
+
     FsdElem()
         : m_boardingTime(boost::posix_time::not_a_date_time)
-    {}
-    FsdElem(const boost::posix_time::time_duration& brdngTime)
-        : m_boardingTime(brdngTime)
     {}
 };
 

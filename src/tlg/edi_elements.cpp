@@ -183,6 +183,14 @@ std::ostream& operator<<(std::ostream &os, const PbdElem &pbd)
         os << "num of pieces: " << pbd.m_handBag->m_numOfPieces << "; ";
         os << "weight: " << pbd.m_handBag->m_weight;
     }
+    os << "\nTags ";
+    for(const auto& tag: pbd.m_tags) {
+        os << "carrier code: " << tag.m_carrierCode << "; ";
+        os << "tag num: " << tag.m_tagNum << "; ";
+        os << "num consec: " << tag.m_qtty << "; ";
+        os << "dest: " << tag.m_dest << "; ";
+        os << "account code: " << tag.m_accode << "\n";
+    }
     return os;
 }
 
@@ -262,7 +270,8 @@ std::ostream& operator<<(std::ostream &os, const ChdElem &chd)
 std::ostream& operator<<(std::ostream &os, const FsdElem &fsd)
 {
     os << "FSD: ";
-    os << "boarding time: " << Dates::hh24mi(fsd.m_boardingTime);
+    os << "boarding time: " << Dates::hh24mi(fsd.m_boardingTime) << "; ";
+    os << "gate: " << fsd.m_gate;
     return os;
 }
 

@@ -775,6 +775,23 @@ boost::optional<PbdElem> readEdiPbd(_EDI_REAL_MES_STRUCT_ *pMes)
                                                            CompElement("C028"));
     }
 
+    unsigned num_c029 = GetNumComposite(pMes, "C029");
+    EdiPointHolder c029_holder(pMes);
+    for(unsigned i = 0; i < num_c029; ++i)
+    {
+        SetEdiPointToCompositeG(pMes, "C029", i, "EtErr::ProgErr");
+
+        PbdElem::Tag tag;
+        tag.m_carrierCode = GetDBFName(pMes, 3127);
+        tag.m_tagNum      = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes, 9835);
+        tag.m_qtty        = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes, 9836);
+        tag.m_dest        = GetDBFName(pMes, 3259);
+        tag.m_accode      = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes, 3810);
+        pbd.m_tags.push_back(tag);
+
+        PopEdiPoint_wdG(pMes);
+    }
+
     LogTrace(TRACE3) << pbd;
 
     return pbd;
@@ -929,18 +946,15 @@ boost::optional<FsdElem> readEdiFsd(_EDI_REAL_MES_STRUCT_ *pMes)
         return boost::optional<FsdElem>();
     }
 
-    std::string boardingTime = GetDBFName(pMes, DataElement(2804), CompElement());
-    if(boardingTime.empty()) {
-        return boost::optional<FsdElem>();
-    }
-
     FsdElem fsd;
+    std::string boardingTime = GetDBFName(pMes, DataElement(2804), CompElement());
+    fsd.m_gate = GetDBFName(pMes, DataElement(9870), CompElement());
+
     if(boardingTime.length() == 4) {
         fsd.m_boardingTime = Dates::hh24mi(boardingTime);
     } else {
-        LogError(STDLOG) << "Invalid boarding time string [" << boardingTime << "]";
+        LogWarning(STDLOG) << "Invalid boarding time string [" << boardingTime << "]";
     }
-
 
     LogTrace(TRACE3) << fsd;
 
@@ -1083,6 +1097,8 @@ boost::optional<UbdElem> readEdiUbd(_EDI_REAL_MES_STRUCT_ *pMes)
         tag.m_dest        = GetDBFName(pMes, 3259);
         tag.m_accode      = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes, 3810);
         ubd.m_tags.push_back(tag);
+
+        PopEdiPoint_wdG(pMes);
     }
 
     LogTrace(TRACE3) << ubd;

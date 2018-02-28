@@ -3435,6 +3435,53 @@ UNZ+1+$(last_edifact_ref)0001"
 UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
+RAD+B+X"
+ERD+1:35"
+UNT+5+1"
+UNZ+1+1"
+
+$(KICK_IN)
+
+>> lines=auto
+      <message lexema_id='AstraErr::FLIGHT_CLOSED' code='0'>AstraErr::FLIGHT_CLOSED</message>
+
+
+
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='print' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <GetGRPPrintDataBP>
+      <grp_id>$(get grp_id)</grp_id>
+      <pr_all>1</pr_all>
+      <dev_model>506</dev_model>
+      <fmt_type>ATB</fmt_type>
+      <prnParams>
+        <pr_lat>0</pr_lat>
+        <encoding>CP866</encoding>
+        <offset>20</offset>
+        <top>0</top>
+      </prnParams>
+      <clientData>
+        <gate>1</gate>
+      </clientData>
+    </GetGRPPrintDataBP>
+  </query>
+</term>}
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQBPR:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)+LED+AER"
+PPD+REPIN+A:N++IVAN"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+B+O"
 FSD+1155"
 PPD+REPIN+A:N++IVAN"

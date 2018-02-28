@@ -677,16 +677,23 @@ void viewRadElement(_EDI_REAL_MES_STRUCT_* pMes, const std::string& respType,
 
 void viewFsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& flight)
 {
-    FsdElem fsd(flight.boardingTime());
+    FsdElem fsd;
+    fsd.m_boardingTime = flight.boardingTime();
     viewFsdElement(pMes, fsd);
 }
 
 void viewFsdElement(_EDI_REAL_MES_STRUCT_* pMes, const FsdElem& elem)
 {
-    if(!elem.m_boardingTime.is_not_a_date_time())
-    {
-        std::ostringstream fsd;
+    std::ostringstream fsd;
+    if(!elem.m_boardingTime.is_not_a_date_time()) {
         fsd << Dates::hh24mi(elem.m_boardingTime, false);
+    }
+
+    if(!elem.m_gate.empty()) {
+        fsd << "++" << elem.m_gate;
+    }
+
+    if(!fsd.str().empty()) {
         SetEdiFullSegment(pMes, SegmElement("FSD"), fsd.str());
     }
 }
