@@ -679,12 +679,12 @@ BaggageDetails::BagTagInfo::BagTagInfo(const std::string& carrierCode,
 
 unsigned BaggageDetails::BagTagInfo::tagAccode() const
 {
-    return getTagAccodeByTag(m_fullTag);
+    return getTagAccode(m_fullTag);
 }
 
 unsigned BaggageDetails::BagTagInfo::tagNum() const
 {
-    return getTagNumByTag(m_fullTag);
+    return getTagNum(m_fullTag);
 }
 
 bool BaggageDetails::BagTagInfo::consistentWith(const BagTagInfo& bt) const

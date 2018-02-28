@@ -679,6 +679,7 @@ void viewFsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& fli
 {
     FsdElem fsd;
     fsd.m_boardingTime = flight.boardingTime();
+    fsd.m_gate         = flight.gate();
     viewFsdElement(pMes, fsd);
 }
 
@@ -693,9 +694,7 @@ void viewFsdElement(_EDI_REAL_MES_STRUCT_* pMes, const FsdElem& elem)
         fsd << "++" << elem.m_gate;
     }
 
-    if(!fsd.str().empty()) {
-        SetEdiFullSegment(pMes, SegmElement("FSD"), fsd.str());
-    }
+    SetEdiFullSegment(pMes, SegmElement("FSD"), fsd.str());
 }
 
 void viewPfdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightSeatDetails& seat,

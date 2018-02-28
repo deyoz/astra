@@ -900,7 +900,7 @@ iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
     }
 
     boost::posix_time::time_duration scd_brd_to_time(boost::posix_time::not_a_date_time);
-
+    std::string gate;
 
     if(readAdditional) {
         const std::string tz_region = AirpTZRegion(airp_dep);
@@ -911,6 +911,8 @@ iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
         if(brd_to != ASTRA::NoExists) {
             scd_brd_to_time = DateTimeToBoost(brd_to).time_of_day();
         }
+
+        gate = readBPGate(point_dep);
     }
 
     return iatci::FlightDetails(BaseTables::Company(airl)->rcode(),
@@ -921,7 +923,8 @@ iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
                                 scd_arr_date,
                                 boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
                                 boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
-                                scd_brd_to_time);
+                                scd_brd_to_time,
+                                gate);
 }
 
 //---------------------------------------------------------------------------------------
@@ -1194,6 +1197,26 @@ std::string denormSeatNum(const std::string& seatNum)
     std::ostringstream denorm;
     denorm << denorm_iata_row(row) << denorm_iata_line(std::string(1, letter), true);
     return denorm.str();
+}
+
+//---------------------------------------------------------------------------------------
+
+std::string readBPGate(int pointId)
+{
+    std::string gate;
+    make_curs(
+"select STATIONS.NAME from STATIONS, TRIP_STATIONS "
+"where POINT_ID=:point_id "
+"and STATIONS.DESK=TRIP_STATIONS.DESK "
+"and STATIONS.WORK_MODE=TRIP_STATIONS.WORK_MODE "
+"and STATIONS.WORK_MODE=:work_mode")
+            .def(gate)
+            .bind(":point_id",  pointId)
+            .bind(":work_mode", "")
+            .exfet();
+
+    LogTrace(TRACE3) << __FUNCTION__ << " by point_id=" << pointId << " returns " << gate;
+    return gate;
 }
 
 //---------------------------------------------------------------------------------------

@@ -4039,7 +4039,7 @@ BaggageTag::BaggageTag(uint64_t fullTag,
       m_numOfConsecSerial(numOfConsecSerial),
       m_destination(dest)
 {
-    m_carrierCode = awkByAccode(std::to_string(iatci::getTagAccodeByTag(fullTag)))->code(/*lang*/);
+    m_carrierCode = awkByAccode(std::to_string(iatci::getTagAccode(fullTag)))->code(/*lang*/);
 }
 
 BaggageTag::BaggageTag(const std::string& carrierCode,

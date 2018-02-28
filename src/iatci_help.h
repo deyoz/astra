@@ -137,6 +137,10 @@ std::string denormSeatNum(const std::string& seatNum);
 
 //---------------------------------------------------------------------------------------
 
+std::string readBPGate(int pointId);
+
+//---------------------------------------------------------------------------------------
+
 class IatciViewXmlParams
 {
 public:
@@ -160,12 +164,12 @@ void iatci2xmlSmpUpd(xmlNodePtr node, const dcrcka::Result& res,
 
 //---------------------------------------------------------------------------------------
 
-inline unsigned getTagAccodeByTag(const uint64_t& tag)
+inline unsigned getTagAccode(const uint64_t& tag)
 {
     return (tag / 1000000) % 1000;
 }
 
-inline unsigned getTagNumByTag(const uint64_t& tag)
+inline unsigned getTagNum(const uint64_t& tag)
 {
     return (tag % 1000000);
 }
