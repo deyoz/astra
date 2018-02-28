@@ -2029,7 +2029,7 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
                 parser->pts.set_tag(TAG::FULLNAME,      fullName.str());
                 parser->pts.set_tag(TAG::FULL_PLACE_ARV,xmlSeg.seg_info.airp_arv);
                 parser->pts.set_tag(TAG::FULL_PLACE_DEP,xmlSeg.seg_info.airp_dep);
-                parser->pts.set_tag(TAG::GATE,          ""); // TODO get it
+                parser->pts.set_tag(TAG::GATE,          xmlSeg.trip_header.remote_gate);
                 parser->pts.set_tag(TAG::GATES,         ""); // TODO get it
                 parser->pts.set_tag(TAG::HALL,          ""); // TODO get it
                 parser->pts.set_tag(TAG::INF,           xmlPax.pers_type);

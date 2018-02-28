@@ -2104,7 +2104,7 @@ UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+S7+1027+$(yymmdd)1000+LED+AER++T"
 RAD+I+O"
-FSD+1155"
+FSD+1155++GATE1"
 PPD+REPIN+C:N+0013929620+IVAN"
 PFD+xx+:Y+1"
 PSI++TKNE::29861200302972"
@@ -2283,6 +2283,7 @@ $(KICK_IN)
           <airp>èãä</airp>
           <scd_out_local>$(date_format %d.%m.%Y +0) 10:00:00</scd_out_local>
           <scd_brd_to_local>11:55</scd_brd_to_local>
+          <remote_gate>GATE1</remote_gate>
           <pr_etl_only>0</pr_etl_only>
           <pr_etstatus>0</pr_etstatus>
           <pr_no_ticket_check>0</pr_no_ticket_check>
@@ -2929,6 +2930,7 @@ $(KICK_IN)
           <airp>èãä</airp>
           <scd_out_local>$(date_format %d.%m.%Y) 10:00:00</scd_out_local>
           <scd_brd_to_local>11:55</scd_brd_to_local>
+          <remote_gate/>
           <pr_etl_only>0</pr_etl_only>
           <pr_etstatus>0</pr_etstatus>
           <pr_no_ticket_check>0</pr_no_ticket_check>
@@ -3483,7 +3485,7 @@ UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+ë7+1027+$(yymmdd)1000+èãä+ëéó++T"
 RAD+B+O"
-FSD+1155"
+FSD+1155++GATE7"
 PPD+REPIN+A:N++IVAN"
 PFD+7A+:ù+32"
 PSI++TKNE::29861200302972+FOID::::::FOID PP7774441110"
@@ -3504,7 +3506,7 @@ $(KICK_IN)
             <prn_form hex='0'>CP{#}1C01{#}01K{#}02{#}02REPIN IVAN                                        {#}03ÑéåéÑÖÑéÇé {#}04èìãäéÇé    {#}05 ûí103  {#}07$(date_format %d.%m +0){#}091     {#}0A09:50{#}0Bù{#}0C    1A{#}0DKGS{#}0EETKT2986120030297/1  {#}0F7774441110     {#}20REPIN IVAN          {#}21ÑéåéÑÖÑéÇé          {#}22èìãäéÇé             {#}25 ûí103  {#}27$(date_format %d.%m +0){#}2Bù{#}2C  1A  {#}3Fxxxxxxxxxx{#}F1001{#}FF                                                                        {#}</prn_form>
           </pax>
           <pax pax_id...
-            <prn_form hex='0'>CP{#}1C01{#}01K{#}02{#}02REPIN IVAN                                        {#}03èìãäéÇé    {#}04ëéóà       {#}05 ë71027 {#}07$(date_format %d.%m +0){#}09      {#}0A11:55{#}0B {#}0C    7A{#}0DKGS{#}0EETKT2986120030297/2  {#}0F5408123432     {#}20REPIN IVAN          {#}21èìãäéÇé             {#}22ëéóà                {#}25 ë71027 {#}27$(date_format %d.%m +0){#}2B {#}2C  7A  {#}3F2000000000{#}F1032{#}FF                                                                        {#}</prn_form>
+            <prn_form hex='0'>CP{#}1C01{#}01K{#}02{#}02REPIN IVAN                                        {#}03èìãäéÇé    {#}04ëéóà       {#}05 ë71027 {#}07$(date_format %d.%m +0){#}09GATE7 {#}0A11:55{#}0B {#}0C    7A{#}0DKGS{#}0EETKT2986120030297/2  {#}0F5408123432     {#}20REPIN IVAN          {#}21èìãäéÇé             {#}22ëéóà                {#}25 ë71027 {#}27$(date_format %d.%m +0){#}2B {#}2C  7A  {#}3F2000000000{#}F1032{#}FF                                                                        {#}</prn_form>
           </pax>
         </passengers>
       </printBP>
@@ -4609,6 +4611,7 @@ $(KICK_IN)
           <airp>èãä</airp>
           <scd_out_local>$(date_format %d.%m.%Y +0) 00:00:00</scd_out_local>
           <scd_brd_to_local>11:55</scd_brd_to_local>
+          <remote_gate/>
           <pr_etl_only>0</pr_etl_only>
           <pr_etstatus>0</pr_etstatus>
           <pr_no_ticket_check>0</pr_no_ticket_check>

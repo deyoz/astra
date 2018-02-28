@@ -500,7 +500,8 @@ iatci::FlightDetails makeFlight(const edifact::FdrElem& fdr,
                                 fdr.m_arrDate,
                                 fdr.m_depTime,
                                 fdr.m_arrTime,
-                                fsd ? fsd->m_boardingTime : Dates::not_a_date_time);
+                                fsd ? fsd->m_boardingTime : Dates::not_a_date_time,
+                                fsd ? fsd->m_gate : "");
 }
 
 iatci::SeatRequestDetails makeSeatReq(const edifact::SrpElem& srp)
@@ -1204,6 +1205,7 @@ static xmlNodePtr xmlViewIatciFlight(xmlNodePtr node, const iatci::FlightDetails
     NewTextChild(tripHeaderNode, "airp",    flight.depPort());
     NewTextChild(tripHeaderNode, "scd_out_local", depDateTimeString(flight));
     NewTextChild(tripHeaderNode, "scd_brd_to_local", brdTimeString(flight));
+    NewTextChild(tripHeaderNode, "remote_gate", flight.gate());
     NewTextChild(tripHeaderNode, "pr_etl_only", "0"); // TODO
     NewTextChild(tripHeaderNode, "pr_etstatus", "0"); // TODO
     NewTextChild(tripHeaderNode, "pr_no_ticket_check", "0"); // TODO)

@@ -113,7 +113,8 @@ FlightDetails::FlightDetails(const std::string& airl,
                              const boost::gregorian::date& arrDate,
                              const boost::posix_time::time_duration& depTime,
                              const boost::posix_time::time_duration& arrTime,
-                             const boost::posix_time::time_duration& brdTime)
+                             const boost::posix_time::time_duration& brdTime,
+                             const std::string& gate)
     : m_airline(airl),
       m_flightNum(flNum),
       m_depPort(depPoint),
@@ -122,7 +123,8 @@ FlightDetails::FlightDetails(const std::string& airl,
       m_arrDate(arrDate),
       m_depTime(depTime),
       m_arrTime(arrTime),
-      m_boardingTime(brdTime)
+      m_boardingTime(brdTime),
+      m_gate(gate)
 {}
 
 const std::string& FlightDetails::airline() const
@@ -143,11 +145,6 @@ const std::string& FlightDetails::depPort() const
 const std::string& FlightDetails::arrPort() const
 {
     return m_arrPort;
-}
-
-const std::string& FlightDetails::gate() const
-{
-    return m_gate;
 }
 
 const boost::gregorian::date& FlightDetails::depDate() const
@@ -173,6 +170,11 @@ const boost::posix_time::time_duration& FlightDetails::arrTime() const
 const boost::posix_time::time_duration& FlightDetails::boardingTime() const
 {
     return m_boardingTime;
+}
+
+const std::string& FlightDetails::gate() const
+{
+    return m_gate;
 }
 
 std::string FlightDetails::toShortKeyString() const

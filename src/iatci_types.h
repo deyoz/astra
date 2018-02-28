@@ -92,12 +92,12 @@ protected:
     Ticketing::FlightNum_t           m_flightNum;
     std::string                      m_depPort;
     std::string                      m_arrPort;
-    std::string                      m_gate;
     boost::gregorian::date           m_depDate;
     boost::gregorian::date           m_arrDate;
     boost::posix_time::time_duration m_depTime;
     boost::posix_time::time_duration m_arrTime;
     boost::posix_time::time_duration m_boardingTime;    
+    std::string                      m_gate;
 
 public:
     FlightDetails(const std::string& airl,
@@ -108,18 +108,19 @@ public:
                   const boost::gregorian::date& arrDate = boost::gregorian::date(),
                   const boost::posix_time::time_duration& depTime = boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
                   const boost::posix_time::time_duration& arrTime = boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
-                  const boost::posix_time::time_duration& brdTime = boost::posix_time::time_duration(boost::posix_time::not_a_date_time));
+                  const boost::posix_time::time_duration& brdTime = boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
+                  const std::string& gate = "");
 
     const std::string&                      airline() const;
     Ticketing::FlightNum_t                  flightNum() const;
     const std::string&                      depPort() const;
     const std::string&                      arrPort() const;
-    const std::string&                      gate() const;
     const boost::gregorian::date&           depDate() const;
     const boost::gregorian::date&           arrDate() const;
     const boost::posix_time::time_duration& depTime() const;
     const boost::posix_time::time_duration& arrTime() const;
     const boost::posix_time::time_duration& boardingTime() const;
+    const std::string&                      gate() const;
     std::string                             toShortKeyString() const;
 
 protected:

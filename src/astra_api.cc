@@ -2345,7 +2345,7 @@ XmlTripHeader XmlEntityReader::readTripHeader(xmlNodePtr thNode)
     th.flight             = getStrFromXml(thNode, "flight");
     th.airline            = getStrFromXml(thNode, "airline");
     th.aircode            = getStrFromXml(thNode, "aircode");
-    th.flt_no             = getIntFromXml(thNode, "flt_no", 		ASTRA::NoExists);
+    th.flt_no             = getIntFromXml(thNode, "flt_no", 		    ASTRA::NoExists);
     th.suffix             = getStrFromXml(thNode, "suffix");
     th.airp               = getStrFromXml(thNode, "airp");
     th.scd_out_local      = getDateTimeFromXml(thNode, "scd_out_local", ASTRA::NoExists);
@@ -2354,6 +2354,7 @@ XmlTripHeader XmlEntityReader::readTripHeader(xmlNodePtr thNode)
 
     // вспомогательные iatci поля
     th.scd_brd_to_local   = getStrFromXml(thNode, "scd_brd_to_local");
+    th.remote_gate        = getStrFromXml(thNode, "remote_gate");
 
     return th;
 }

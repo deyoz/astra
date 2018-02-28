@@ -525,6 +525,7 @@ struct XmlTripHeader
     std::string      airp;
     BASIC::date_time::TDateTime scd_out_local;
     std::string      scd_brd_to_local;
+    std::string      remote_gate;
     int              pr_etl_only;
     int              pr_etstatus;
     int              pr_no_ticket_check;

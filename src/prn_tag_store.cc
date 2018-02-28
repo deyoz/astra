@@ -2055,12 +2055,16 @@ string TPrnTagStore::FULLNAME(TFieldParams fp)
 
 string TPrnTagStore::GATE(TFieldParams fp)
 {
-    if(scan_data != NULL) {
-        return string();
+    if(!fp.TagInfo.empty()) {
+        return boost::any_cast<std::string>(fp.TagInfo);
     } else {
-        if(fp.TagInfo.empty() && TReqInfo::Instance()->client_type == ctTerm)
-            throw AstraLocale::UserException("MSG.GATE_NOT_SPECIFIED");
-        return boost::any_cast<string>(fp.TagInfo);
+        if(scan_data != NULL) {
+            return string();
+        } else {
+            if(fp.TagInfo.empty() && TReqInfo::Instance()->client_type == ctTerm)
+                throw AstraLocale::UserException("MSG.GATE_NOT_SPECIFIED");
+            return boost::any_cast<string>(fp.TagInfo);
+        }
     }
 }
 
