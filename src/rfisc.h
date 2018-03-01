@@ -316,7 +316,6 @@ class TRFISCKey : public TRFISCListKey
     TRFISCKey& fromDB(TQuery &Qry);
     void getListItemIfNone();
     void getListItem();
-    bool getPseudoListIdForInboundTrfer(int grp_id);
     void getListItemUnaccomp (int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)
     {
       getListItem(Unaccomp, grp_id, transfer_num, ASTRA::NoExists, category, where);

@@ -1879,7 +1879,7 @@ const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
   {
     bag_types_id!=ASTRA::NoExists?
           NewTextChild(grpNode, "bag_types_id", bag_types_id):
-          NewTextChild(grpNode, "bag_types_id");
+          NewTextChild(grpNode, "bag_types_id", 0); //0 важен для терминала
     NewTextChild(grpNode, "piece_concept", (int)baggage_pc);
   };
   NewTextChild(grpNode, "tid", tid);
@@ -2029,12 +2029,7 @@ TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
 bool TPaxGrpItem::fromDB(int grp_id)
 {
   clear();
-  TCachedQuery Qry("SELECT pax_grp.grp_id,pax_grp.point_dep,pax_grp.airp_dep,pax_grp.point_arv,pax_grp.airp_arv, "
-                   "       pax_grp.class,pax_grp.status,pax_grp.hall,pax_grp.bag_refuse,pax_grp.excess, "
-                   "       pax_grp.excess_wt, pax_grp.excess_pc, pax_grp.pr_mark_norms, "
-                   "       pax_grp.trfer_confirm, piece_concept, NVL(bag_types_id, 0) AS bag_types_id, pax_grp.tid "
-                   "FROM pax_grp "
-                   "WHERE pax_grp.grp_id=:grp_id",
+  TCachedQuery Qry("SELECT * FROM pax_grp WHERE grp_id=:grp_id",
                    QParams() << QParam("grp_id", otInteger, grp_id));
   Qry.get().Execute();
   if (Qry.get().Eof) return false;

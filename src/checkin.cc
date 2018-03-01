@@ -3658,7 +3658,6 @@ void GetInboundGroupBag(const InboundTrfer::TNewGrpInfo &inbound_trfer,
         {
           gbag.fromDB(iTagMap->second.first.grp_id,
                       iTagMap->second.first.bag_pool_num, true);
-          gbag.bags.procInboundTrferFromDBTmp();
         }
         else
         {

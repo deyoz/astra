@@ -5542,63 +5542,52 @@ void TBagRems::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     }
 }
 
-void TBagRems::get(TypeB::TDetailCreateInfo &info)  //лучше бы переделать
+void TBagRems::get(TypeB::TDetailCreateInfo &info)
 {
-    TRFISCListWithProps rfisc_list;
-    QParams QryParams;
-    QryParams << QParam("point_id", otInteger, info.point_id);
     TCachedQuery Qry(
-            "select "
-            "   airp_arv, "
-            "   bag2.rfisc, "
-            "   pax_grp.bag_types_id, "
-            "   bag_types.rem_code, "
-            "   sum(amount) amount, "
-            "   sum(weight) weight "
-            "from "
-            "   pax_grp, "
-            "   bag2, "
-            "   bag_types "
-            "where "
-            "   pax_grp.grp_id = bag2.grp_id and "
-            "   pax_grp.point_dep = :point_id and "
-            "   pax_grp.status NOT IN ('E') AND "
-            "   bag2.pr_cabin=0 AND "
-            "   ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) = 0 and "
-            "   bag2.bag_type = bag_types.code(+) "
-            "group by "
-            "   airp_arv, "
-            "   rfisc, "
-            "   bag_types_id, "
-            "   rem_code ",
-            QryParams
-            );
+      "SELECT pax_grp.airp_arv, "
+      "       bag2.list_id, "
+      "       bag2.rfisc, "
+      "       bag2.bag_type, "
+      "       bag2.bag_type_str, "
+      "       bag2.service_type, "
+      "       bag2.airline, "
+      "       bag_types.rem_code, "
+      "       SUM(bag2.amount) AS amount, "
+      "       SUM(bag2.weight) AS weight "
+      "FROM pax_grp, bag2, bag_types "
+      "WHERE pax_grp.grp_id = bag2.grp_id AND "
+      "      pax_grp.point_dep = :point_id AND "
+      "      pax_grp.status NOT IN ('E') AND "
+      "      bag2.pr_cabin=0 AND "
+      "      ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) = 0 AND "
+      "      bag2.bag_type = bag_types.code(+) "
+      "GROUP BY pax_grp.airp_arv, "
+      "         bag2.list_id, "
+      "         bag2.rfisc, "
+      "         bag2.bag_type, "
+      "         bag2.bag_type_str, "
+      "         bag2.service_type, "
+      "         bag2.airline, "
+      "         bag_types.rem_code",
+      QParams() << QParam("point_id", otInteger, info.point_id));
+
     Qry.get().Execute();
-    if(not Qry.get().Eof) {
-        int col_airp_arv = Qry.get().FieldIndex("airp_arv");
-        int col_rfisc = Qry.get().FieldIndex("rfisc");
-        int col_bag_types_id = Qry.get().FieldIndex("bag_types_id");
-        int col_rem_code = Qry.get().FieldIndex("rem_code");
-        int col_amount = Qry.get().FieldIndex("amount");
-        int col_weight = Qry.get().FieldIndex("weight");
-        for(; not Qry.get().Eof; Qry.get().Next()) {
-            string airp_arv = Qry.get().FieldAsString(col_airp_arv);
-            string rfisc = Qry.get().FieldAsString(col_rfisc);
-            int bag_types_id = Qry.get().FieldAsInteger(col_bag_types_id);
-            string rem_code = Qry.get().FieldAsString(col_rem_code);
-            int amount = Qry.get().FieldAsInteger(col_amount);
-            int weight = Qry.get().FieldAsInteger(col_weight);
 
-            if(not rfisc.empty()) { // piece concept
-                rfisc_list.fromDB(bag_types_id, true);
-                rem_code = rfisc_list.get_rem_code(rfisc, false); //что делать в будущем если ручная кладь тоже попадает?
-            }
+    TRFISCListWithPropsCache lists;
+    for(; not Qry.get().Eof; Qry.get().Next()) //не попадает ручная кладь!
+    {
+      string airp_arv = Qry.get().FieldAsString("airp_arv");
+      string rem_code = Qry.get().FieldAsString("rem_code");
+      CheckIn::TSimpleBagItem bagItem;
+      bagItem.fromDB(Qry.get());
+      if (bagItem.pc)
+        rem_code=bagItem.get_rem_code(lists);
 
-            if(not rem_code.empty()) {
-                items[airp_arv][rem_code].first += amount;
-                items[airp_arv][rem_code].second += weight;
-            }
-        }
+      if(not rem_code.empty()) {
+          items[airp_arv][rem_code].first += bagItem.amount;
+          items[airp_arv][rem_code].second += bagItem.weight;
+      }
     }
 }
 

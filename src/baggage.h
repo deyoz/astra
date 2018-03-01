@@ -109,17 +109,44 @@ class TUnaccompRuleItem
     const TUnaccompRuleItem& toXML(xmlNodePtr node) const;
 };
 
-class TBagItem
+class TSimpleBagItem
+{
+  public:
+    boost::optional<TRFISCKey> pc;
+    boost::optional<TBagTypeKey> wt;
+    int amount;
+    int weight;
+
+    TSimpleBagItem()
+    {
+      clear();
+    }
+
+    void clear()
+    {
+      pc=boost::none;
+      wt=boost::none;
+      amount=ASTRA::NoExists;
+      weight=ASTRA::NoExists;
+    }
+
+    bool operator == (const TSimpleBagItem &item) const
+    {
+      return pc==item.pc &&
+             wt==item.wt &&
+             amount==item.amount &&
+             weight==item.weight;
+    }
+
+    TSimpleBagItem& fromDB(TQuery &Qry);
+    std::string get_rem_code(TRFISCListWithPropsCache &lists) const;
+};
+
+class TBagItem : public TSimpleBagItem
 {
   public:
     int id,num;
-
-    boost::optional<TRFISCKey> pc;
-    boost::optional<TBagTypeKey> wt;
-
     bool pr_cabin;
-    int amount;
-    int weight;
     int hall,user_id; //для old_bag
     std::string desk;
     TDateTime time_create;
@@ -131,16 +158,13 @@ class TBagItem
     TBagItem()
     {
       clear();
-    };
+    }
     void clear()
     {
+      TSimpleBagItem::clear();
       id=ASTRA::NoExists;
       num=ASTRA::NoExists;
-      pc=boost::none;
-      wt=boost::none;
       pr_cabin=false;
-      amount=ASTRA::NoExists;
-      weight=ASTRA::NoExists;
       hall=ASTRA::NoExists;
       user_id=ASTRA::NoExists;
       desk.clear();
@@ -152,18 +176,15 @@ class TBagItem
       using_scales=false;
       is_trfer=false;
       handmade=true;
-    };
+    }
     const TBagItem& toXML(xmlNodePtr node) const;
     TBagItem& fromXML(xmlNodePtr node, bool baggage_pc);
     const TBagItem& toDB(TQuery &Qry) const;
     TBagItem& fromDB(TQuery &Qry);
     bool basicallyEqual(const TBagItem& item) const
     {
-      return pc==item.pc &&
-             wt==item.wt &&
+      return TSimpleBagItem::operator ==(item) &&
              pr_cabin==item.pr_cabin &&
-             amount==item.amount &&
-             weight==item.weight &&
              is_trfer==item.is_trfer &&
              handmade==item.handmade;
     }
@@ -213,7 +234,6 @@ class TBagMap : public std::map<int /*num*/, TBagItem>
   public:
     void toDB(int grp_id) const;
     void fromDB(int grp_id);
-    void procInboundTrferFromDBTmp();
     void procInboundTrferFromBTM(const TrferList::TGrpItem &grp);
     void dump(const std::string &where);
 };
