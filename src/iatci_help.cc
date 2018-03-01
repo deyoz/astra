@@ -874,7 +874,7 @@ iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::BagP
 //---------------------------------------------------------------------------------------
 
 iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
-                                bool readAdditional)
+                                bool readAdditionals)
 {
     std::string airl      = seg.trip_header.airline;
     int         flNum     = seg.trip_header.flt_no;
@@ -902,17 +902,9 @@ iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
     boost::posix_time::time_duration scd_brd_to_time(boost::posix_time::not_a_date_time);
     std::string gate;
 
-    if(readAdditional) {
-        const std::string tz_region = AirpTZRegion(airp_dep);
-        TTripStages trip_stages(point_dep);
-        TDateTime brd_to = ASTRA::date_time::UTCToClient(trip_stages.time(sCloseCheckIn),
-                                                         tz_region);
-
-        if(brd_to != ASTRA::NoExists) {
-            scd_brd_to_time = DateTimeToBoost(brd_to).time_of_day();
-        }
-
-        gate = readBPGate(point_dep);
+    if(readAdditionals) {
+        scd_brd_to_time = readBPBoardedTo(point_dep, airp_dep);
+        gate            = readBPGate(point_dep);
     }
 
     return iatci::FlightDetails(BaseTables::Company(airl)->rcode(),
@@ -1217,6 +1209,20 @@ std::string readBPGate(int pointId)
 
     LogTrace(TRACE3) << __FUNCTION__ << " by point_id=" << pointId << " returns " << gate;
     return gate;
+}
+
+boost::posix_time::time_duration readBPBoardedTo(int pointId, const std::string& airp)
+{
+    const std::string tz_region = AirpTZRegion(airp);
+    TTripStages trip_stages(pointId);
+    TDateTime brd_to = ASTRA::date_time::UTCToClient(trip_stages.time(sCloseCheckIn),
+                                                     tz_region);
+
+    if(brd_to != ASTRA::NoExists) {
+        return DateTimeToBoost(brd_to).time_of_day();
+    }
+
+    return boost::posix_time::time_duration(boost::posix_time::not_a_date_time);
 }
 
 //---------------------------------------------------------------------------------------

@@ -111,7 +111,8 @@ iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::BagP
 
 //---------------------------------------------------------------------------------------
 
-iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg, bool readAdditional = false);
+iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
+                                bool readAdditionals = false);
 boost::optional<iatci::SeatRequestDetails> makeSeatReq(const astra_api::xml_entities::XmlSegment& seg);
 //---------------------------------------------------------------------------------------
 
@@ -138,6 +139,7 @@ std::string denormSeatNum(const std::string& seatNum);
 //---------------------------------------------------------------------------------------
 
 std::string readBPGate(int pointId);
+boost::posix_time::time_duration readBPBoardedTo(int pointId, const std::string& airp);
 
 //---------------------------------------------------------------------------------------
 
