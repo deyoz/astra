@@ -2043,14 +2043,16 @@ void IatciInterface::KickHandler(XMLRequestCtxt* ctxt,
             if(remRes->status() == RemoteStatus::Success) {
                 KickHandler_onSuccess(reqCtxtId, termReqCtxt.node(), resNode, lRes);
             } else {
-                Ticketing::AstraMsg_t errCode = getInnerErrByErd(remRes->ediErrCode());
+                const Ticketing::AstraMsg_t RemDcsErr = "MSG.ERROR_IN_REMOTE_DCS";
+                Ticketing::AstraMsg_t errCode = getInnerErrByErd(remRes->ediErrCode(),
+                                                                 RemDcsErr);
                 if(!remRes->remark().empty()) {
                     AstraLocale::showProgError(remRes->remark());
                 } else {
                     if(!remRes->ediErrCode().empty()) {
-                        AstraLocale::showMessage(errCode);
+                        AstraLocale::showProgError(errCode);
                     } else {
-                        AstraLocale::showProgError("Ошибка обработки в удалённой DCS"); // TODO #25409
+                        AstraLocale::showProgError(RemDcsErr);
                     }
                 }
                 KickHandler_onFailure(reqCtxtId, termReqCtxt.node(), resNode, lRes, errCode);
@@ -2106,7 +2108,7 @@ void IatciInterface::KickHandler_onTimeout(int ctxtId,
                                            xmlNodePtr resNode)
 {
     FuncIn(KickHandler_onTimeout);
-    AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO #25409
+    AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR");
     RollbackChangeOfStatus(initialReqNode, ctxtId); // откат ранее смененного статуса в СЭБ(если менялся)
     FallbackMessage(initialReqNode); // send IFM
     FuncOut(KickHandler_onTimeout);

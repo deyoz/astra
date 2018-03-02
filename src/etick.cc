@@ -3706,7 +3706,6 @@ void handleEtCosResponse(const edifact::RemoteResults& remRes)
         }
     }
 
-    LogTrace(TRACE3) << "before addToEdiResponseCtxt " << req_ctxt_id;
     addToEdiResponseCtxt(req_ctxt_id, ticketNode, "tickets");
 }
 

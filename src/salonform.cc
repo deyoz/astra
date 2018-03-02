@@ -522,7 +522,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   {
       ProgTrace(TRACE3, "Query iatci seat map");
       IatciInterface::SeatmapRequest(reqNode);
-      return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO #25409
+      return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR");
   }
   bool isTranzitSalonsVersion = SALONS2::isTranzitSalons( point_id );
   ProgTrace(TRACE5, "SalonFormInterface::Show point_id=%d, isTranzitSalonsVersion=%d", point_id, isTranzitSalonsVersion );
@@ -1558,7 +1558,7 @@ static void ChangeIatciSeats(xmlNodePtr reqNode)
 {
     ProgTrace(TRACE3, "Query iatci seat change");
     IatciInterface::UpdateSeatRequest(reqNode);
-    return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO #25409
+    return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR");
 }
 
 void CheckResetLayer( TCompLayerType &layer_type, int crs_pax_id )

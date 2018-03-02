@@ -458,7 +458,7 @@ void addToEdiResponseCtxt(int ctxtId,
                           const xmlNodePtr srcNode,
                           const string &destNodeName)
 {
-    LogTrace(TRACE3) << "addToEdiResponseCtxt ctxtId " << ctxtId;
+  LogTrace(TRACE3) << __FUNCTION__ << " ctxtId=" << ctxtId;
   if (ctxtId==ASTRA::NoExists) return;
   string ctxt;
   AstraContext::GetContext("EDI_RESPONSE",

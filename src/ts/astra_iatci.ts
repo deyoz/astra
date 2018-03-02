@@ -2545,15 +2545,15 @@ UNZ+1+$(last_edifact_ref)0001"
 UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
-RAD+I+F"
-ERD+1:102:UNABLE TO PROCESS - SYSTEM ERROR"
+RAD+I+X"
+ERD+1:194"
 UNT+6+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 >> lines=auto
     <kick req_ctxt_id...
 
-!! err="UNABLE TO PROCESS - SYSTEM ERROR"
+!! err=$(utf8 "Пассажир не зарегистрирован")
 $(lastRedisplay)
 
 $(ETS_COS_EXCHANGE 2986120030297 1 I SYSTEM)
@@ -2657,7 +2657,7 @@ UNZ+1+$(last_edifact_ref)0001"
 UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
-RAD+X+F"
+RAD+X+X"
 ERD+1:102:UNABLE TO PROCESS - SYSTEM ERROR"
 UNT+6+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -3442,11 +3442,11 @@ ERD+1:35"
 UNT+5+1"
 UNZ+1+1"
 
-$(KICK_IN)
-
 >> lines=auto
-      <message lexema_id='AstraErr::FLIGHT_CLOSED' code='0'>AstraErr::FLIGHT_CLOSED</message>
+    <kick req_ctxt_id...
 
+!! err=$(utf8 "Рейс закрыт")
+$(lastRedisplay)
 
 
 !! err=ignore
@@ -4008,7 +4008,7 @@ $(run_daemon edi_timeout)
 >> lines=auto
     <kick req_ctxt_id...
 
-!! err="MSG.DCS_CONNECT_ERROR"
+!! err=$(utf8 "Нет связи с удаленной DCS")
 $(lastRedisplay)
 
 
@@ -4138,7 +4138,7 @@ $(run_daemon edi_timeout)
 >> lines=auto
     <kick req_ctxt_id...
 
-!! err="MSG.DCS_CONNECT_ERROR"
+!! err=$(utf8 "Нет связи с удаленной DCS")
 $(lastRedisplay)
 
 
@@ -4186,7 +4186,7 @@ UNZ+1+$(last_edifact_ref)0001"
 UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
-RAD+X+F"
+RAD+X+X"
 ERD+1:102:UNABLE TO PROCESS - SYSTEM ERROR"
 UNT+6+1"
 UNZ+1+$(last_edifact_ref)0001"

@@ -6,18 +6,7 @@
 #define DEFERR(x) static const Ticketing::ErrMsg_t x
 #define DEFMSG(x) static const Ticketing::EtsMsg_t x
 
-#define ADDERR(s,x,e,r) const Ticketing::ErrMsg_t s::x=#s"::"#x;\
-    namespace {\
-    Ticketing::ErrMsgs x (s::x, e,r);\
-}
-#define ADDMSG(s,x,e,r) const Ticketing::AstraMsg_t s::x=#s"::"#x;\
-    namespace {\
-    Ticketing::ErrMsgs x (s::x, e,r);\
-}
-
-
-namespace Ticketing
-{
+namespace Ticketing {
     typedef ErrMsg_t AstraMsg_t;
 
     struct AstraErr {

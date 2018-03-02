@@ -1251,12 +1251,12 @@ static xmlNodePtr xmlViewIatciFlight(xmlNodePtr node, const iatci::FlightDetails
     NewTextChild(tripHeaderNode, "scd_out_local", depDateTimeString(flight));
     NewTextChild(tripHeaderNode, "scd_brd_to_local", brdTimeString(flight));
     NewTextChild(tripHeaderNode, "remote_gate", flight.gate());
-    NewTextChild(tripHeaderNode, "pr_etl_only", "0"); // TODO
-    NewTextChild(tripHeaderNode, "pr_etstatus", "0"); // TODO
-    NewTextChild(tripHeaderNode, "pr_no_ticket_check", "0"); // TODO)
-    NewTextChild(tripHeaderNode, "pr_auto_pt_print", 0); // TODO
-    NewTextChild(tripHeaderNode, "pr_auto_pt_print_reseat", 0); // TODO
-    NewTextChild(tripHeaderNode, "use_jmp", 0); // TODO
+    NewTextChild(tripHeaderNode, "pr_etl_only", "0");
+    NewTextChild(tripHeaderNode, "pr_etstatus", "0");
+    NewTextChild(tripHeaderNode, "pr_no_ticket_check", "0");
+    NewTextChild(tripHeaderNode, "pr_auto_pt_print", 0);
+    NewTextChild(tripHeaderNode, "pr_auto_pt_print_reseat", 0);
+    NewTextChild(tripHeaderNode, "use_jmp", 0);
 
     xmlNodePtr tripDataNode = newChild(segNode, "tripdata");
     xmlNodePtr airpsNode = newChild(tripDataNode, "airps");
@@ -1266,12 +1266,12 @@ static xmlNodePtr xmlViewIatciFlight(xmlNodePtr node, const iatci::FlightDetails
     NewTextChild(airpNode, "city_code", airportCityCode(flight.arrPort()));
     NewTextChild(airpNode, "target_view", fullAirportString(flight.arrPort()));
     xmlNodePtr checkInfoNode = newChild(airpNode, "check_info");
-    xmlNodePtr passNode = newChild(checkInfoNode, "pass"); // TODO
-    xmlNodePtr crewNode = newChild(checkInfoNode, "crew"); // TODO
-    xmlNodePtr classesNode = newChild(tripDataNode, "classes"); // TODO
-    xmlNodePtr gatesNode = newChild(tripDataNode, "gates"); // TODO
-    xmlNodePtr hallsNode = newChild(tripDataNode, "halls"); // TODO
-    xmlNodePtr markFltsNode = newChild(tripDataNode, "mark_flights"); // TODO
+    /*xmlNodePtr passNode = */newChild(checkInfoNode, "pass");
+    /*xmlNodePtr crewNode = */newChild(checkInfoNode, "crew");
+    /*xmlNodePtr classesNode = */newChild(tripDataNode, "classes");
+    /*xmlNodePtr gatesNode = */newChild(tripDataNode, "gates");
+    /*xmlNodePtr hallsNode = */newChild(tripDataNode, "halls");
+    /*xmlNodePtr markFltsNode = */newChild(tripDataNode, "mark_flights");
 
     NewTextChild(segNode, "grp_id", -1);
     NewTextChild(segNode, "point_dep", -1);
@@ -1548,7 +1548,7 @@ void iatci2xml(xmlNodePtr node, const iatci::dcrcka::Result& res,
     }
 
     NewTextChild(segNode, "paid_bag_emd", ""); // TODO
-    xmlNodePtr tripCountersNode = newChild(segNode, "tripcounters"); // TODO
+    /*xmlNodePtr tripCountersNode = */newChild(segNode, "tripcounters"); // TODO
     NewTextChild(segNode, "load_residue", ""); // TODO
 }
 

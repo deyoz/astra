@@ -2600,7 +2600,7 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
 
         if(!GetIatciPrintDataBP(reqNode, first_seg_grp_id, data, params, paxs)) {
             tst();
-            return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO #25409
+            return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR");
         }
 
         xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"),

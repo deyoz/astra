@@ -1,14 +1,22 @@
 #include "astra_msg.h"
 
+#define ADDERR(s,x,e,r) const Ticketing::ErrMsg_t s::x="MSG."#x;\
+    namespace {\
+    Ticketing::ErrMsgs x (s::x, e,r);\
+}
+#define ADDMSG(s,x,e,r) const Ticketing::AstraMsg_t s::x="MSG."#x;\
+    namespace {\
+    Ticketing::ErrMsgs x (s::x, e,r);\
+}
+
 #define REGERR(x,e,r) ADDERR(AstraErr,x,e,r)
 #define REGMSG(x,e,r) ADDMSG(AstraMsg,x,e,r)
 
-namespace Ticketing
-{
+namespace Ticketing {
 
 REGERR(TIMEOUT_ON_HOST_3,
-       "Timeout occured on host 3",
-       "’ ©¬ ãâ")
+       "TIMEOUT OCCURED ON HOST 3",
+       "’€‰Œ€“’")
 REGERR(EDI_PROC_ERR,
        "UNABLE TO PROCESS - SYSTEM ERROR",
        "…‚‡Œ† €’€’œ - ‘ˆ‘’…Œ€Ÿ ˜ˆŠ€")
@@ -23,7 +31,7 @@ REGERR(EDI_SYNTAX_ERR,
        "‘ˆ’€Š‘ˆ—…‘Š€Ÿ ˜ˆŠ€ ‚ ‘™…ˆˆ EDIFACT")
 REGERR(PAX_SURNAME_NF,
        "PASSENGER SURNAME NOT FOUND",
-       "”€Œˆ‹ˆŸ €‘‘€†ˆ€ … €‰„…€")
+       "€‘‘€†ˆ … €‰„…")
 REGERR(INV_FLIGHT_DATE,
        "INVALID FLIGHT/DATE",
        "…‚…›‰ …‰‘/„€’€")
@@ -89,3 +97,9 @@ REGERR(INV_COUPON_STATUS,
        "…‚…›‰ ‘’€’“‘ Š“€ ˆ‹…’€/„Š“Œ…’€")
 
 }//namespace Ticketing
+
+
+#undef ADDERR
+#undef ADDMSG
+#undef REGERR
+#undef REGMSG

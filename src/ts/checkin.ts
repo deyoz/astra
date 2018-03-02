@@ -142,7 +142,7 @@ $(KICK_IN_SILENT)
   <svc_availability show_brand_info=\"true\" show_all_svc=\"true\" show_free_carry_on_norm=\"true\">
     <passenger id=\"...\" surname=\"…ˆ\" name=\"ˆ‚€\" category=\"ADT\" birthdate=\"1976-05-01\" sex=\"male\">
       <document number=\"7774441110\" country=\"RUS\"/>
-      <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"xxxx-xx-xxT10:00:00\" arrival_time=\"xxxx-xx-xxT12:00:00\" equipment=\"xxx\" subclass=\"Y\">
+      <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"xxxx-xx-xxT10:15:00\" arrival_time=\"xxxx-xx-xxT12:00:00\" equipment=\"xxx\" subclass=\"Y\">
         <ticket number=\"2981212121212\" coupon_num=\"1\"/>
         <recloc crs=\"UT\">0840Z6</recloc>
         <recloc crs=\"1H\">09T1B3</recloc>
@@ -607,7 +607,7 @@ $(KICK_IN)
           <flt_no>103</flt_no>
           <suffix/>
           <airp>„Œ„</airp>
-          <scd_out_local>$(date_format %d.%m.%Y) 10:00:00</scd_out_local>
+          <scd_out_local>$(date_format %d.%m.%Y) 10:15:00</scd_out_local>
           <pr_etl_only>0</pr_etl_only>
           <pr_etstatus>0</pr_etstatus>
           <pr_no_ticket_check>0</pr_no_ticket_check>
@@ -662,7 +662,7 @@ $(KICK_IN)
               <airline>ž’</airline>
               <flt_no>103</flt_no>
               <suffix/>
-              <scd>$(date_format %d.%m.%Y) 10:00:00</scd>
+              <scd>$(date_format %d.%m.%Y) 10:15:00</scd>
               <airp_dep>„Œ„</airp_dep>
               <pr_mark_norms>0</pr_mark_norms>
             </flight>
@@ -941,7 +941,7 @@ $(KICK_IN_SILENT)
   <svc_availability show_brand_info=\"true\" show_all_svc=\"true\" show_free_carry_on_norm=\"true\">
     <passenger id=\"...\" surname=\"…ˆ\" name=\"ˆ‚€\" category=\"ADT\" birthdate=\"1976-05-01\" sex=\"male\">
       <document number=\"7774441110\" country=\"RUS\"/>
-      <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"xxxx-xx-xxT10:00:00\" arrival_time=\"xxxx-xx-xxT12:00:00\" equipment=\"xxx\" subclass=\"Y\">
+      <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"xxxx-xx-xxT10:15:00\" arrival_time=\"xxxx-xx-xxT12:00:00\" equipment=\"xxx\" subclass=\"Y\">
         <ticket number=\"2981212121212\" coupon_num=\"1\"/>
         <recloc crs=\"UT\">0840Z6</recloc>
         <recloc crs=\"1H\">09T1B3</recloc>
