@@ -1017,22 +1017,6 @@ void TRFISCBagPropsList::fromDB(const set<string> &airlines)
   }
 }
 
-string TRFISCBagPropsList::get_rem_code(const std::string &airline, const std::string &rfisc) const
-{
-  if (rfisc.empty()) return "";
-  TRFISCBagPropsList::const_iterator i=find(TRFISCListKey(rfisc, TServiceType::BaggageCharge, airline));
-  if (i==end()) return "";
-  return i->second.rem_code;
-}
-
-string TRFISCListWithProps::get_rem_code(const std::string &rfisc, const bool pr_cabin)
-{
-  if (rfisc.empty()) return "";
-  boost::optional<TRFISCListKey> key=getBagRFISCListKey(rfisc, pr_cabin);
-  if (!key) return "";
-  return getBagProps().get_rem_code(key.get().airline, rfisc);
-}
-
 const TRFISCBagPropsList& TRFISCListWithProps::getBagProps()
 {
   if (!bagProps)

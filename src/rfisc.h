@@ -422,8 +422,6 @@ class TRFISCBagPropsList : public std::map<TRFISCListKey, TRFISCBagProps>
     }
 
     void fromDB(const std::set<std::string> &airlines);
-    std::string get_rem_code(const std::string &airline,
-                             const std::string &rfisc) const;
 };
 
 class TRFISCListWithProps : public TRFISCList
@@ -440,7 +438,6 @@ class TRFISCListWithProps : public TRFISCList
       TRFISCList::clear();
       bagProps=boost::none;
     }
-    std::string get_rem_code(const std::string &rfisc, const bool pr_cabin);
     const TRFISCBagPropsList& getBagProps();
     void setPriority();
 };
