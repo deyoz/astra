@@ -850,7 +850,7 @@ static XmlBag createPaxHandBag(int paxId, int amount, int weight)
 static XmlBagTag createPaxBagTag(int paxId, uint64_t tagNo)
 {
     XmlBagTag bagTag;
-    bagTag.tag_type = "RUCH";// TODO ITCI ?!!
+    bagTag.tag_type = "ITCI";
     bagTag.pr_print = 0;
     bagTag.no       = tagNo;
     bagTag.pax_id   = paxId;
