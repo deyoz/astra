@@ -914,7 +914,7 @@ static boost::optional<iatci::UpdateDocDetails> getUpdDoc(const PaxChange& paxCh
         return boost::none;
     }
 
-    // считаем, что может быть один документа на пассажира
+    // считаем, что может быть один документ на пассажира
 
     // удаленный
     // удаления в Астре пока нет
@@ -933,6 +933,31 @@ static boost::optional<iatci::UpdateDocDetails> getUpdDoc(const PaxChange& paxCh
 
     ASSERT(false); // не должны сюда попадать
     return boost::none;
+}
+
+static boost::optional<iatci::UpdateAddressDetails> getUpdAddress(const PaxChange& paxChange)
+{
+    if(!paxChange.addressChange()) {
+        return boost::none;
+    }
+
+    if(paxChange.addressChange()->empty()) {
+        return boost::none;
+    }
+
+    UpdateAddressDetails result(UpdateDetails::Replace);
+
+    // добавленные адреса
+    for(const auto& addedAddr: paxChange.addressChange()->added()) {
+        result.addAddr(iatci::makeAddrInfo(addedAddr));
+    }
+
+    // измененные адреса
+    for(const auto& modifiedAddr: paxChange.addressChange()->modified()) {
+        result.addAddr(iatci::makeAddrInfo(modifiedAddr.newEntity()));
+    }
+
+    return result;
 }
 
 static edifact::KickInfo getIatciKickInfo(xmlNodePtr reqNode, xmlNodePtr ediResNode)
@@ -1062,11 +1087,13 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
 
         boost::optional<iatci::PaxDetails> infant;
         boost::optional<iatci::DocDetails> infantDoc;
+        boost::optional<iatci::AddressDetails> infantAddress;
         if(ssrInft) {
             inft = findInfant(lInfants, *ssrInft);
             if(inft) {
-                infant = iatci::makeQryPax(*inft);
-                infantDoc = iatci::makeDoc(*inft);
+                infant        = iatci::makeQryPax(*inft);
+                infantDoc     = iatci::makeDoc(*inft);
+                infantAddress = iatci::makeAddress(*inft);
             }
         }
         lPaxGrp.push_back(iatci::dcqcki::PaxGroup(iatci::makeQryPax(pax, inft),
@@ -1077,7 +1104,8 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
                                                   iatci::makeDoc(pax),
                                                   iatci::makeAddress(pax),
                                                   infant,
-                                                  infantDoc));
+                                                  infantDoc,
+                                                  infantAddress));
     }
 
     return iatci::CkiParams(iatci::makeOrg(ownSeg),
@@ -1516,11 +1544,13 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
             adultUpdPersonal = boost::none;//getUpdPersonal(*adultChange);
             adultUpdService  = getUpdService(*adultChange);
             adultUpdDoc      = getUpdDoc(*adultChange);
+            adultUpdAddress  = getUpdAddress(*adultChange);
         }
 
         if(inftChange) {
             inftUpdPersonal = boost::none; //getUpdPersonal(*inftChange);
             inftUpdDoc      = getUpdDoc(*inftChange);
+            inftUpdAddress  = getUpdAddress(*inftChange);
         }
 
         lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makeQryPax(adult.get(), inft),

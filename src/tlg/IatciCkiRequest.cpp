@@ -70,29 +70,45 @@ void CkiRequest::collectMessage()
             viewPsiElement(pMes(), *pxg.service());
         }
 
-        int curSg3 = 0;
-        if(pxg.doc()) {
+        int curApg = 0;
+        if(pxg.doc() || pxg.address()) {
             PushEdiPointW(pMes());
-            edilib::SetEdiSegGr(pMes(), SegGrElement(3, curSg3));
-            edilib::SetEdiPointToSegGrW(pMes(), SegGrElement(3, curSg3), "SegGr3(apg) not found");
+            edilib::SetEdiSegGr(pMes(), SegGrElement(3, curApg));
+            edilib::SetEdiPointToSegGrW(pMes(), SegGrElement(3, curApg), "SegGr3(apg) not found");
 
-            viewPapElement(pMes(), *pxg.doc(), pxg.pax());
+            if(pxg.doc()) {
+                viewPapElement(pMes(), *pxg.doc(), pxg.pax());
+            } else {
+                viewPapElement(pMes(), false/*not-infant*/);
+            }
+
+            if(pxg.address()) {
+                viewAddElement(pMes(), *pxg.address());
+            }
 
             PopEdiPointW(pMes());
-            curSg3++;
+            curApg++;
         }
 
-        if(pxg.infantDoc()) {
+        if(pxg.infantDoc() || pxg.infantAddress()) {
             ASSERT(pxg.infant());
 
             PushEdiPointW(pMes());
-            edilib::SetEdiSegGr(pMes(), SegGrElement(3, curSg3));
-            edilib::SetEdiPointToSegGrW(pMes(), SegGrElement(3, curSg3), "SegGr3(apg) not found");
+            edilib::SetEdiSegGr(pMes(), SegGrElement(3, curApg));
+            edilib::SetEdiPointToSegGrW(pMes(), SegGrElement(3, curApg), "SegGr3(apg) not found");
 
-            viewPapElement(pMes(), *pxg.infantDoc(), *pxg.infant());
+            if(pxg.infantAddress()) {
+                viewPapElement(pMes(), *pxg.infantDoc(), *pxg.infant());
+            } else {
+                viewPapElement(pMes(), true/*infant*/);
+            }
+
+            if(pxg.infantAddress()) {
+                viewAddElement(pMes(), *pxg.infantAddress());
+            }
 
             PopEdiPointW(pMes());
-            curSg3++;
+            curApg++;
         }
 
         PopEdiPointW(pMes());

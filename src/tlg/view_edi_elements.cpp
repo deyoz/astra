@@ -824,6 +824,16 @@ void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes,
     SetEdiFullSegment(pMes, SegmElement("UAP"), uap.str());
 }
 
+void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes, bool infant)
+{
+    std::ostringstream uap;
+    uap << "+";
+    if(infant) {
+        uap << "IN";
+    }
+    SetEdiFullSegment(pMes, SegmElement("UAP"), uap.str());
+}
+
 void viewUsiElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateServiceDetails& updService)
 {
     std::ostringstream usi;
@@ -921,9 +931,13 @@ void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes, bool infant)
 }
 
 void viewAddElement(_EDI_REAL_MES_STRUCT_* pMes,
-                    const iatci::AddressDetails& addr)
+                    const iatci::AddressDetails& addr,
+                    boost::optional<iatci::UpdateDetails> updDetails)
 {
     std::ostringstream add;
+    if(updDetails) {
+        add << updDetails->actionCodeAsString();
+    }
     add << "+";
     for(const auto& addrInfo: addr.lAddr()) {
         add << addrInfo.type() << ":"

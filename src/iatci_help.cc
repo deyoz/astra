@@ -777,6 +777,16 @@ boost::optional<iatci::DocDetails> makeDoc(const astra_api::astra_entities::PaxI
     return boost::none;
 }
 
+iatci::AddressDetails::AddrInfo makeAddrInfo(const astra_api::astra_entities::AddressInfo& addr)
+{
+    return iatci::AddressDetails::AddrInfo(getIatciAddrType(addr.m_type),
+                                           addr.m_country,
+                                           addr.m_address,
+                                           addr.m_city,
+                                           addr.m_region,
+                                           addr.m_postalCode);
+}
+
 boost::optional<iatci::AddressDetails> makeAddress(const astra_api::astra_entities::PaxInfo& pax)
 {
     if(pax.m_addrs) {
@@ -786,12 +796,7 @@ boost::optional<iatci::AddressDetails> makeAddress(const astra_api::astra_entiti
                 if(!addrs) {
                     addrs = iatci::AddressDetails();
                 }
-                addrs->addAddr(iatci::AddressDetails::AddrInfo(getIatciAddrType(addr.m_type),
-                                                               addr.m_country,
-                                                               addr.m_address,
-                                                               addr.m_city,
-                                                               addr.m_region,
-                                                               addr.m_postalCode));
+                addrs->addAddr(iatci::AddressDetails::AddrInfo(makeAddrInfo(addr)));
             }
         }
         return addrs;

@@ -94,6 +94,7 @@ boost::optional<iatci::BaggageDetails>     makeBaggage(const astra_api::astra_en
                                                        const std::list<astra_api::astra_entities::BagPool>& handBags,
                                                        const std::list<astra_api::astra_entities::BaggageTag> &bagTags);
 boost::optional<iatci::DocDetails>         makeDoc(const astra_api::astra_entities::PaxInfo& pax);
+iatci::AddressDetails::AddrInfo            makeAddrInfo(const astra_api::astra_entities::AddressInfo& address);
 boost::optional<iatci::AddressDetails>     makeAddress(const astra_api::astra_entities::PaxInfo& pax);
 boost::optional<iatci::CascadeHostDetails> makeCascade();
 

@@ -5455,6 +5455,168 @@ $(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
 $(set adult_tid $(get_single_pax_tid $(get point_dep) REPIN ADULT))
 $(set infant_tid $(get_single_pax_tid $(get point_dep) REPIN INFANT))
 
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <segments>
+        <segment>
+          <point_dep>$(get point_dep)</point_dep>
+          <point_arv>$(get point_arv)</point_arv>
+          <airp_dep>ДМД</airp_dep>
+          <airp_arv>ПЛК</airp_arv>
+          <class>Э</class>
+          <grp_id>$(get grp_id)</grp_id>
+          <tid>$(get tid_new)</tid>
+          <passengers>
+            <pax>
+              <pax_id>$(get pax_1_id)</pax_id>
+              <surname>REPIN</surname>
+              <name>ADULT</name>
+              <pers_type>ВЗ</pers_type>
+              <ticket_no>2982401841689</ticket_no>
+              <coupon_no>1</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>1</ticket_confirm>
+              <document>
+                <type>P</type>
+                <issue_country>RUS</issue_country>
+                <no>7774441110</no>
+                <nationality>RUS</nationality>
+                <birth_date>01.05.1976 00:00:00</birth_date>
+                <gender>M</gender>
+                <surname>REPIN</surname>
+                <first_name>ADULT</first_name>
+              </document>
+              <doco/>
+              <addresses/>
+              <bag_pool_num/>
+              <subclass>Э</subclass>
+              <tid>$(get adult_tid)</tid>
+            </pax>
+            <pax>
+              <pax_id>$(get pax_2_id)</pax_id>
+              <surname>REPIN</surname>
+              <name>INFANT</name>
+              <pers_type>РМ</pers_type>
+              <ticket_no>2982401841612</ticket_no>
+              <coupon_no>1</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>1</ticket_confirm>
+              <document>
+                <type>P</type>
+                <issue_country>RUS</issue_country>
+                <no>7774441110</no>
+                <nationality>RUS</nationality>
+                <birth_date>01.05.1976 00:00:00</birth_date>
+                <gender>M</gender>
+                <surname>REPIN</surname>
+                <first_name>INFANT</first_name>
+              </document>
+              <doco/>
+              <addresses/>
+              <bag_pool_num/>
+              <subclass>Э</subclass>
+              <tid>$(get infant_tid)</tid>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+        <segment>
+          <point_dep>-1</point_dep>
+          <point_arv>-1</point_arv>
+          <airp_dep>ПЛК</airp_dep>
+          <airp_arv>СОЧ</airp_arv>
+          <grp_id>-1</grp_id>
+          <tid>0</tid>
+          <passengers>
+            <pax>
+              <pax_id>-1</pax_id>
+              <surname>REPIN</surname>
+              <name>ADULT</name>
+              <pers_type>ВЗ</pers_type>
+              <ticket_no>2982401841689</ticket_no>
+              <coupon_no/>
+              <ticket_rem/>
+              <ticket_confirm>1</ticket_confirm>
+              <document/>
+              <doco/>
+              <addresses>
+                <doca>
+                  <type>D</type>
+                  <country>USA</country>
+                  <region>REGION</region>
+                  <address>ADDRESS</address>
+                  <city>CITY</city>
+                  <postal_code>112233</postal_code>
+                </doca>
+                <doca>
+                  <type>R</type>
+                  <country>BLR</country>
+                  <region>RESIDENCE REGION</region>
+                  <address>RESIDENCE ADDRESS</address>
+                  <city>RESIDENCE CITY</city>
+                  <postal_code>001122</postal_code>
+                </doca>
+              </addresses>
+              <bag_pool_num/>
+              <subclass>Э</subclass>
+              <tid>0</tid>
+            </pax>
+            <pax>
+              <pax_id>-2</pax_id>
+              <surname>REPIN</surname>
+              <name>INFANT</name>
+              <pers_type>РМ</pers_type>
+              <ticket_no>2982401841612</ticket_no>
+              <coupon_no/>
+              <ticket_rem/>
+              <ticket_confirm>1</ticket_confirm>
+              <document/>
+              <doco/>
+              <addresses>
+                <doca>
+                  <type>B</type>
+                  <country>RUS</country>
+                  <city>MOSCOW</city>
+                  <postal_code>127650</postal_code>
+                </doca>
+              </addresses>
+              <bag_pool_num/>
+              <subclass>Э</subclass>
+              <tid>0</tid>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+      </segments>
+      <hall>1</hall>
+      <bag_refuse/>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)+LED+AER"
+PPD+REPIN+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+REPIN:INFANT"
+UAP"
+ADD+R+703:ADDRESS:CITY::REGION:USA:112233+700:RESIDENCE ADDRESS:RESIDENCE CITY::RESIDENCE REGION:BLR:001122"
+UAP++IN"
+ADD+R+701::MOSCOW:::RUS:127650"
+UNT+9+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+$(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
+$(set adult_tid $(get_single_pax_tid $(get point_dep) REPIN ADULT))
+$(set infant_tid $(get_single_pax_tid $(get point_dep) REPIN INFANT))
+
+
 # отмена
 
 !! err=ignore
@@ -5583,7 +5745,6 @@ $(set infant_tid $(get_single_pax_tid $(get point_dep) REPIN INFANT))
     </TCkinSavePax>
   </query>
 </term>}
-
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
