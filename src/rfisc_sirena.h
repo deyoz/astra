@@ -132,12 +132,14 @@ class TSegItem
     static std::string flight(const TTripInfo &flt, const std::string &lang);
 };
 
+class TPaxSection;
+
 class TPaxSegItem : public TSegItem
 {
   public:
     std::string subcl;
     CheckIn::TPaxTknItem tkn;
-    boost::optional<Ticketing::EdiPnr> ediPnr;
+    int display_id;
     std::list<CheckIn::TPnrAddrItem> pnrs;
     std::set<CheckIn::TPaxFQTItem> fqts;
     TPaxSegItem()
@@ -149,12 +151,12 @@ class TPaxSegItem : public TSegItem
     {
       subcl.clear();
       tkn.clear();
-      ediPnr=boost::none;
+      display_id=ASTRA::NoExists;
       pnrs.clear();
       fqts.clear();
     }
     using TSegItem::set;
-    void set(const CheckIn::TPaxTknItem& _tkn);
+    void set(const CheckIn::TPaxTknItem& _tkn, TPaxSection* paxSection);
 
     const TPaxSegItem& toSirenaXML(xmlNodePtr node, const std::string &lang) const;
 };
@@ -293,6 +295,29 @@ class TSvcItem : public TPaxSegRFISCKey
     TSvcItem& fromSirenaXML(xmlNodePtr node);
 };
 
+class TDisplayItem : public Ticketing::EdiPnr
+{
+  public:
+    int id;
+    TDisplayItem(const Ticketing::EdiPnr& ediPnr, int _id) : Ticketing::EdiPnr(ediPnr), id(_id) {}
+    bool operator < (const TDisplayItem &item) const
+    {
+      return ediText() < item.ediText();
+    }
+    const TDisplayItem& toSirenaXML(xmlNodePtr displayParentNode) const;
+};
+
+class TDisplayList : public std::set<TDisplayItem>
+{
+  public:
+    int add(const boost::optional<Ticketing::EdiPnr>& ediPnr)
+    {
+      if (!ediPnr) return ASTRA::NoExists;
+      return emplace(ediPnr.get(), size()+1).first->id;
+    }
+};
+
+
 class TPaxSection
 {
   private:
@@ -300,6 +325,7 @@ class TPaxSection
   public:
     TPaxSection(bool _throw_if_empty) : throw_if_empty(_throw_if_empty) {}
     std::list<TPaxItem> paxs;
+    TDisplayList displays;
     void clear()
     {
       paxs.clear();
