@@ -6,6 +6,75 @@
 #include "web_search.h"
 #include "apis_utils.h"
 
+namespace CheckIn
+{
+
+class RegNoRange
+{
+  public:
+    int first_no;
+    int count;
+    RegNoRange(int _first_no, int _last_no)
+    {
+      first_no=_first_no;
+      count=_last_no>=_first_no?_last_no-_first_no+1:0;
+    }
+
+    bool operator < (const RegNoRange& range) const
+    {
+      if (count!=range.count)
+        return count<range.count;
+      return first_no<range.first_no;
+    }
+};
+
+class UsedRegNo
+{
+  public:
+    int value;
+    int grp_id;
+    UsedRegNo(int _value, int _grp_id) :
+      value(_value), grp_id(_grp_id) {}
+
+    bool hasGap(const UsedRegNo& usedRegNo) const
+    {
+      return grp_id!=usedRegNo.grp_id &&
+             abs(value-usedRegNo.value)>1;
+    }
+
+    bool operator < (const UsedRegNo& usedRegNo) const
+    {
+      return value<usedRegNo.value;
+    }
+};
+
+class RegNoGenerator
+{
+  public:
+    enum Type {Negative, Positive};
+    enum Strategy {AbsoluteDefragAnytime, //это баловство :)
+                   AbsoluteDefragAtLast,  //это тоже баловство ;)
+                   DefragAnytime,
+                   DefragAtLast};
+
+  private:
+    int _point_id;
+    Type _type;
+    int _maxAbsRegNo;
+    std::set<RegNoRange> unusedRanges;
+    boost::optional<RegNoRange> lastUnusedRange;
+    void getUsedRegNo(std::set<UsedRegNo>& usedRegNo) const;
+    void fillUnusedRanges(const std::set<UsedRegNo>& usedRegNo);
+  public:
+    RegNoGenerator(int point_id, Type type, int maxAbsRegNo=999);
+    RegNoGenerator(const std::set<UsedRegNo>& usedRegNo, Type type, int maxAbsRegNo=999);
+    boost::optional<RegNoRange> getRange(int count, Strategy strategy) const;
+    void traceUnusedRanges() const;
+    static std::string traceStr(const boost::optional<RegNoRange>& range);
+};
+
+} //namespace CheckIn
+
 struct TWebPaxFromReq
 {
   int crs_pax_id;

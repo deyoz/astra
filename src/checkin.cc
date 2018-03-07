@@ -4951,18 +4951,16 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           if (reqInfo->client_type!=ctPNL)
           {
             //получим первый рег. номер
-            Qry.Clear();
-            if (grp.status!=psCrew)
-              Qry.SQLText=
-                "SELECT NVL(MAX(reg_no)+1,1) AS reg_no FROM pax_grp,pax "
-                "WHERE pax_grp.grp_id=pax.grp_id AND reg_no>0 AND point_dep=:point_dep ";
-            else
-              Qry.SQLText=
-                "SELECT NVL(MIN(reg_no)-1,-1) AS reg_no FROM pax_grp,pax "
-                "WHERE pax_grp.grp_id=pax.grp_id AND reg_no<0 AND point_dep=:point_dep ";
-            Qry.CreateVariable("point_dep",otInteger,grp.point_dep);
-            Qry.Execute();
-            first_reg_no = Qry.FieldAsInteger("reg_no");
+            boost::optional<CheckIn::RegNoRange> regNoRange=
+              CheckIn::RegNoGenerator(grp.point_dep,
+                                      grp.status!=psCrew?
+                                        CheckIn::RegNoGenerator::Positive:
+                                        CheckIn::RegNoGenerator::Negative).getRange(paxs.size(), CheckIn::RegNoGenerator::DefragAtLast);
+            if (!regNoRange)
+              throw UserException(paxs.size()>1?"MSG.REG_NUMBERS_ENDED_FOR_GROUP":
+                                                "MSG.REG_NUMBERS_ENDED_FOR_PASSENGER");
+
+            first_reg_no=regNoRange.get().first_no;
             first_pax_on_flight = first_reg_no==1;
             //заполним pax.reg_no регистрационными номерами по порядку
             int reg_no=first_reg_no;
@@ -4973,7 +4971,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 CheckIn::TPaxItem &pax=p->pax;
                 if ((pax.seats<=0&&k==0)||(pax.seats>0&&k==1)) continue;
                 pax.reg_no=reg_no;
-                if (grp.status!=psCrew)
+                if (regNoRange.get().first_no>0)
                   reg_no++;
                 else
                   reg_no--;
