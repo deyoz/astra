@@ -6252,8 +6252,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   vector<TTransferItem>::iterator iTransfer;
   vector<TPnrAddrItem>::iterator iPnrAddr;
 
-  int tid;
-
   TQuery Qry(&OraSession);
 
   if (info.time_create==0) throw ETlgError("Creation time not defined");
@@ -6581,7 +6579,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         Qry.Clear();
         Qry.SQLText="SELECT cycle_tid__seq.nextval AS tid FROM dual";
         Qry.Execute();
-        tid=Qry.FieldAsInteger("tid");
+        int tid=Qry.FieldAsInteger("tid");
 
         TQuery CrsPnrQry(&OraSession);
         CrsPnrQry.Clear();
@@ -6628,16 +6626,20 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         TQuery CrsPaxQry(&OraSession);
         CrsPaxQry.Clear();
         CrsPaxQry.SQLText=
-          "SELECT pax_id,pr_del,last_op FROM crs_pax "
-          "WHERE pnr_id= :pnr_id AND "
-          "      surname= :surname AND (name= :name OR :name IS NULL AND name IS NULL) AND "
-          "      DECODE(seats,0,0,1)=:seats AND tid<>:tid "
-          "ORDER BY last_op DESC,pax_id DESC";
+          "SELECT crs_pax.pax_id, crs_pax.pr_del, crs_pax.last_op, "
+          "       crs_inf_deleted.pax_id AS parent_pax_id "
+          "FROM crs_pax, crs_inf_deleted "
+          "WHERE crs_pax.pax_id=crs_inf_deleted.inf_id(+) AND "
+          "      crs_pax.pnr_id= :pnr_id AND "
+          "      crs_pax.surname= :surname AND "
+          "      (crs_pax.name= :name OR :name IS NULL AND crs_pax.name IS NULL) AND "
+          "      DECODE(crs_pax.seats,0,0,1)=:seats AND (:tid IS NULL OR crs_pax.tid<>:tid) "
+          "ORDER BY crs_pax.last_op DESC, crs_pax.pax_id DESC";
         CrsPaxQry.DeclareVariable("pnr_id",otInteger);
         CrsPaxQry.DeclareVariable("surname",otString);
         CrsPaxQry.DeclareVariable("name",otString);
         CrsPaxQry.DeclareVariable("seats",otInteger);
-        CrsPaxQry.CreateVariable("tid",otInteger,tid);
+        CrsPaxQry.DeclareVariable("tid",otInteger);
 
         TQuery CrsPaxInsQry(&OraSession);
         CrsPaxInsQry.Clear();
@@ -6672,7 +6674,10 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         TQuery CrsInfInsQry(&OraSession);
         CrsInfInsQry.Clear();
         CrsInfInsQry.SQLText=
-          "INSERT INTO crs_inf(inf_id,pax_id) VALUES(:inf_id,:pax_id)";
+          "BEGIN"
+          "  INSERT INTO crs_inf(inf_id, pax_id) VALUES(:inf_id, :pax_id); "
+          "  DELETE FROM crs_inf_deleted WHERE inf_id=:inf_id AND pax_id=:pax_id; "
+          "END;";
         CrsInfInsQry.DeclareVariable("pax_id",otInteger);
         CrsInfInsQry.DeclareVariable("inf_id",otInteger);
 
@@ -6878,7 +6883,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
               CrsPnrInsQry.SetVariable("pnr_id",pnr_id);
             CrsPnrInsQry.Execute();
             pnr_id=CrsPnrInsQry.GetVariableAsInteger("pnr_id");
-            CrsPaxQry.SetVariable("pnr_id",pnr_id);
             CrsPaxInsQry.SetVariable("pnr_id",pnr_id);
             PnrAddrsQry.SetVariable("pnr_id",pnr_id);
 
@@ -6895,17 +6899,19 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             {
               TNameElement& ne=*iNameElement;
               if (ne.indicator!=DEL) onlyDEL=false;
-              CrsPaxQry.SetVariable("surname",ne.surname);
-              CrsPaxQry.SetVariable("seats",1);
               for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
               {
                 CrsPaxInsQry.SetVariable("pax_id",FNull);
                 CrsPaxInsQry.SetVariable("surname",ne.surname);
                 if (ne.indicator==ADD||ne.indicator==CHG||ne.indicator==DEL)
                 {
-                  CrsPaxQry.SetVariable("name",iPaxItem->name);
+                  CrsPaxQry.SetVariable("pnr_id", pnr_id);
+                  CrsPaxQry.SetVariable("surname", ne.surname);
+                  CrsPaxQry.SetVariable("name", iPaxItem->name);
+                  CrsPaxQry.SetVariable("seats", 1);
+                  CrsPaxQry.SetVariable("tid", tid);
                   CrsPaxQry.Execute();
-                  if (CrsPaxQry.RowCount()>0)
+                  if (!CrsPaxQry.Eof)
                   {
                     if (info.time_create<CrsPaxQry.FieldAsDateTime("last_op")) continue;
                     if (ne.indicator==CHG||ne.indicator==DEL)
@@ -6976,6 +6982,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     "    SELECT inf_id FROM crs_inf WHERE pax_id=:pax_id FOR UPDATE; "
                     "BEGIN "
                     "  FOR curRow IN cur LOOP "
+                    "    INSERT INTO crs_inf_deleted(inf_id, pax_id) "
+                    "    SELECT inf_id, pax_id FROM crs_inf WHERE inf_id=curRow.inf_id; "
                     "    DELETE FROM crs_inf WHERE inf_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_rem WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_doc WHERE pax_id=curRow.inf_id; "
@@ -6989,7 +6997,9 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     "    :sync_pax_asvc_rows:=:sync_pax_asvc_rows+SQL%ROWCOUNT; "
                     "    DELETE FROM crs_pax_refuse WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_alarms WHERE pax_id=curRow.inf_id; "
-                    "    DELETE FROM crs_pax WHERE pax_id=curRow.inf_id; "
+                    "    UPDATE crs_pax "
+                    "    SET pr_del=1, last_op=:last_op, tid=cycle_tid__seq.currval "
+                    "    WHERE pax_id=curRow.inf_id AND pr_del=0; "
                     "  END LOOP; "
                     "  DELETE FROM crs_pax_rem WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_doc WHERE pax_id=:pax_id; "
@@ -7004,6 +7014,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     "END;";
                   Qry.CreateVariable("pax_id", otInteger, pax_id);
                   Qry.CreateVariable("sync_pax_asvc_rows", otInteger, 0);
+                  Qry.CreateVariable("last_op", otDate, info.time_create);
                   Qry.Execute();
                   if (Qry.GetVariableAsInteger("sync_pax_asvc_rows")>0)
                     TPaxAlarmHook::set(Alarm::UnboundEMD, pax_id);
@@ -7026,8 +7037,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                 if (ne.indicator!=DEL)
                 {
                   //обработка младенцев
-                  int inf_id;
-
                   CrsPaxInsQry.SetVariable("pers_type",EncodePerson(baby));
                   CrsPaxInsQry.SetVariable("seat_xname",FNull);
                   CrsPaxInsQry.SetVariable("seat_yname",FNull);
@@ -7038,7 +7047,27 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   CrsInfInsQry.SetVariable("pax_id",pax_id);
                   for(TInfList::const_iterator iInfItem=iPaxItem->inf.begin();iInfItem!=iPaxItem->inf.end();++iInfItem)
                   {
-                    CrsPaxInsQry.SetVariable("pax_id",FNull);
+                    CrsPaxQry.SetVariable("pnr_id", pnr_id);
+                    CrsPaxQry.SetVariable("surname", iInfItem->surname);
+                    CrsPaxQry.SetVariable("name", iInfItem->name);
+                    CrsPaxQry.SetVariable("seats", 0);
+                    CrsPaxQry.SetVariable("tid", FNull);
+                    CrsPaxQry.Execute();
+                    int inf_id=ASTRA::NoExists;
+                    for(; !CrsPaxQry.Eof; CrsPaxQry.Next())
+                    {
+                      if (!CrsPaxQry.FieldIsNULL("parent_pax_id") &&
+                          pax_id==CrsPaxQry.FieldAsInteger("parent_pax_id") &&
+                          CrsPaxQry.FieldAsInteger("pr_del")!=0)
+                      {
+                        inf_id=CrsPaxQry.FieldAsInteger("pax_id");
+                        break;
+                      }
+                    }
+                    if (inf_id==ASTRA::NoExists)
+                      CrsPaxInsQry.SetVariable("pax_id",FNull);
+                    else
+                      CrsPaxInsQry.SetVariable("pax_id",inf_id);
                     CrsPaxInsQry.SetVariable("surname",iInfItem->surname);
                     CrsPaxInsQry.SetVariable("name",iInfItem->name);
                     CrsPaxInsQry.Execute();
