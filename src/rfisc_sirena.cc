@@ -55,6 +55,14 @@ const TSegItem& TSegItem::toSirenaXML(xmlNodePtr node, const std::string &lang) 
   return *this;
 }
 
+void TPaxSegItem::set(const CheckIn::TPaxTknItem& _tkn)
+{
+  tkn=_tkn;
+  ediPnr=boost::none;
+  if (tkn.validET())
+    ediPnr=TETickItem().fromDB(tkn.no, tkn.coupon, TETickItem::DisplayTlg, false).ediPnr;
+}
+
 const TPaxSegItem& TPaxSegItem::toSirenaXML(xmlNodePtr node, const std::string &lang) const
 {
   if (node==NULL) return *this;
@@ -63,7 +71,7 @@ const TPaxSegItem& TPaxSegItem::toSirenaXML(xmlNodePtr node, const std::string &
   SetProp(node, "subclass", ElemIdToPrefferedElem(etSubcls, subcl, efmtCodeNative, lang));
   if (!tkn.no.empty())
   {
-    xmlNodePtr tknNode=NewTextChild(node, "ticket");
+    xmlNodePtr tknNode=NewTextChild(node, "ticket", ediPnr?ediPnr.get().ediText():"");
     SetProp(tknNode, "number", tkn.no);
     SetProp(tknNode, "coupon_num", tkn.coupon, ASTRA::NoExists);
   }
