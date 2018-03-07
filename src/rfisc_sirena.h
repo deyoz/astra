@@ -137,6 +137,7 @@ class TPaxSegItem : public TSegItem
   public:
     std::string subcl;
     CheckIn::TPaxTknItem tkn;
+    boost::optional<Ticketing::EdiPnr> ediPnr;
     std::list<CheckIn::TPnrAddrItem> pnrs;
     std::set<CheckIn::TPaxFQTItem> fqts;
     TPaxSegItem()
@@ -148,9 +149,13 @@ class TPaxSegItem : public TSegItem
     {
       subcl.clear();
       tkn.clear();
+      ediPnr=boost::none;
       pnrs.clear();
       fqts.clear();
     }
+    using TSegItem::set;
+    void set(const CheckIn::TPaxTknItem& _tkn);
+
     const TPaxSegItem& toSirenaXML(xmlNodePtr node, const std::string &lang) const;
 };
 
