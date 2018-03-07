@@ -6657,7 +6657,7 @@ void fillPaxsBags(const TCheckedReqPassengers &req_grps, TExchange &exch, TCheck
             SirenaExchange::TPaxSegItem &reqSeg=res.first->second;
             reqSeg.set(seg_no, operFlt, grp.airp_arv, mktFlight, scd_in);
             reqSeg.subcl=pax.subcl;
-            reqSeg.set(pax.tkn);
+            reqSeg.set(pax.tkn, paxSection);
             CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);
             CheckIn::LoadCrsPaxPNRs(pax.id, reqSeg.pnrs);
             ++iReqPax;
