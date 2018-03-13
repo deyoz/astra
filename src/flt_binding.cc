@@ -37,7 +37,7 @@ void crs_recount(int point_id_tlg, int point_id_spp, bool check_comp)
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {
-    CheckIn::TCountersCover().recount(Qry.FieldAsInteger("point_id_spp"), CheckIn::TCounters::CrsCounters, __FUNCTION__);
+    CheckIn::TCounters().recount(Qry.FieldAsInteger("point_id_spp"), CheckIn::TCounters::CrsCounters, __FUNCTION__);
     ProgTrace(TRACE5, "crs_recount: point_id_spp=%d, check_comp=%s", Qry.FieldAsInteger("point_id_spp"), check_comp?"true":"false");
     if (check_comp)
     {

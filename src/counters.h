@@ -206,29 +206,11 @@ class TCounters
     static void lockInitially(int point_id);
 
   public:
-    const TCounters& recount(int point_id, RecountType type);
-    const TCounters& recount(const CheckIn::TPaxGrpItem &grp,
-                             const TSimplePaxList &prior_paxs,
-                             const TSimplePaxList &curr_paxs);
-};
-
-class TCountersCover
-{
-  private:
-    void recountCounters2(int point_id);
-    bool equalWithCounters2(int point_id, bool detailedTracing=false);
-    void syncWithCounters2(int point_id);
-    void recountCrsCounters(int point_id);
-    bool equalWithCrsCounters(int point_id, bool detailedTracing=false);
-    void syncWithCrsCounters(int point_id);
-    void errorToDB(const std::string& error, const int point_id, const std::string &whence);
-
-  public:
-    const TCountersCover& recount(int point_id, TCounters::RecountType type, const std::string &whence);
-    const TCountersCover& recount(const CheckIn::TPaxGrpItem &grp,
-                                  const CheckIn::TSimplePaxList &prior_paxs,
-                                  const CheckIn::TSimplePaxList &curr_paxs,
-                                  const std::string &whence);
+    const TCounters& recount(int point_id, RecountType type, const std::string& whence);
+    const TCounters& recount(const CheckIn::TPaxGrpItem& grp,
+                             const TSimplePaxList& prior_paxs,
+                             const TSimplePaxList& curr_paxs,
+                             const std::string& whence);
 };
 
 } //namespace CheckIn

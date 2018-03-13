@@ -7549,7 +7549,7 @@ void setTRIP_CLASSES( int point_id )
     Qry.SetVariable( "prot", iclass->second.protect );
     Qry.Execute();
   }
-  CheckIn::TCountersCover().recount(point_id, CheckIn::TCounters::Total, __FUNCTION__);
+  CheckIn::TCounters().recount(point_id, CheckIn::TCounters::Total, __FUNCTION__);
 }
 
 void CreateComps( const TCompsRoutes &routes, int comp_id )

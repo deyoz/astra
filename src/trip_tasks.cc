@@ -814,7 +814,7 @@ void on_change_trip(const string &descr, int point_id, ChangeTrip::Whence whence
             whence==ChangeTrip::SeasonCreateSPP ||
             whence==ChangeTrip::PointsDestDoEvents ||
             whence==ChangeTrip::AODBParseFlight)
-          CheckIn::TCountersCover().recount(point_id, CheckIn::TCounters::Total, descr.c_str());
+          CheckIn::TCounters().recount(point_id, CheckIn::TCounters::Total, descr.c_str());
 
         TSyncTlgOutMng::Instance()->sync_all(point_id);
         sync_trip_tasks<TEmdRefreshTripTask>(point_id);
