@@ -136,7 +136,7 @@ void TCrsCountersMap::loadSummary()
 
   clear();
   TCachedQuery Qry("SELECT point_dep, airp_arv, class, crs_tranzit, crs_ok, 0 AS priority "
-                   "FROM crs_counters3 "
+                   "FROM crs_counters "
                    "WHERE point_dep=:point_dep "
                    "UNION "
                    "SELECT point_id AS point_dep, airp_arv, class, tranzit AS crs_tranzit, resa AS crs_ok, 1 AS priority "
@@ -155,7 +155,7 @@ void TCrsCountersMap::loadCrsCountersOnly()
   LogTrace(TRACE5) << __FUNCTION__;
 
   clear();
-  TCachedQuery Qry("SELECT * FROM crs_counters3 WHERE point_dep=:point_dep",
+  TCachedQuery Qry("SELECT * FROM crs_counters WHERE point_dep=:point_dep",
                    QParams() << QParam("point_dep", otInteger, _flt.point_id));
   Qry.get().Execute();
 
@@ -167,7 +167,7 @@ void TCrsCountersMap::deleteCrsCountersOnly(int point_id)
 {
   LogTrace(TRACE5) << __FUNCTION__;
 
-  TCachedQuery Qry("DELETE FROM crs_counters3 WHERE point_dep=:point_dep",
+  TCachedQuery Qry("DELETE FROM crs_counters WHERE point_dep=:point_dep",
                    QParams() << QParam("point_dep", otInteger, point_id));
   Qry.get().Execute();
 }
@@ -180,7 +180,7 @@ void TCrsCountersMap::saveCrsCountersOnly() const
 
   if (!empty())
   {
-    TCachedQuery InsQry("INSERT INTO crs_counters3(point_dep, airp_arv, class, crs_tranzit, crs_ok) "
+    TCachedQuery InsQry("INSERT INTO crs_counters(point_dep, airp_arv, class, crs_tranzit, crs_ok) "
                         "VALUES(:point_dep, :airp_arv, :class, :crs_tranzit, :crs_ok)",
                         QParams() << QParam("point_dep", otInteger)
                                   << QParam("airp_arv", otString)
@@ -221,13 +221,13 @@ void TCrsFieldsMap::apply(const TAdvTripInfo &flt, const bool pr_tranz_reg) cons
 {
   LogTrace(TRACE5) << __FUNCTION__;
 
-  TCachedQuery DelQry("UPDATE counters3 SET crs_tranzit=0, crs_ok=0 WHERE point_dep=:point_dep",
+  TCachedQuery DelQry("UPDATE counters2 SET crs_tranzit=0, crs_ok=0 WHERE point_dep=:point_dep",
                       QParams() << QParam("point_dep", otInteger, flt.point_id));
   DelQry.get().Execute();
 
   if (!empty())
   {
-    TCachedQuery UpdQry("UPDATE counters3 "
+    TCachedQuery UpdQry("UPDATE counters2 "
                         "SET crs_tranzit=DECODE(:pr_tranzit, 0, 0, :crs_tranzit), "
                         "    crs_ok=:crs_ok, "
                         "    tranzit=    DECODE(:pr_tranzit, 0, 0, "
@@ -314,7 +314,7 @@ void TRegDifferenceMap::apply(const TAdvTripInfo &flt, const bool pr_tranz_reg) 
 
   if (!empty())
   {
-    TCachedQuery UpdQry("UPDATE counters3 "
+    TCachedQuery UpdQry("UPDATE counters2 "
                         "SET tranzit=    DECODE(:pr_tranzit, 0, 0, "
                         "                       DECODE(:pr_tranz_reg, 0, crs_tranzit, tranzit+:tranzit)), "
                         "    ok=ok+:ok, "
@@ -417,7 +417,7 @@ void TCounters::deleteInitially(int point_id)
 {
   LogTrace(TRACE5) << __FUNCTION__;
 
-  TCachedQuery Qry("DELETE FROM counters3 WHERE point_dep=:point_dep",
+  TCachedQuery Qry("DELETE FROM counters2 WHERE point_dep=:point_dep",
                    QParams() << QParam("point_dep", otInteger, point_id));
   Qry.get().Execute();
 }
@@ -426,7 +426,7 @@ void TCounters::lockInitially(int point_id)
 {
   LogTrace(TRACE5) << __FUNCTION__;
 
-  TCachedQuery Qry("SELECT point_dep FROM counters3 WHERE point_dep=:point_dep FOR UPDATE",
+  TCachedQuery Qry("SELECT point_dep FROM counters2 WHERE point_dep=:point_dep FOR UPDATE",
                    QParams() << QParam("point_dep", otInteger, point_id));
   Qry.get().Execute();
 }
@@ -438,7 +438,7 @@ void TCounters::recountInitially()
   deleteInitially(flt().point_id);
 
   TCachedQuery Qry(
-        "INSERT INTO counters3 "
+        "INSERT INTO counters2 "
         "  (point_dep, point_arv, class, crs_tranzit, crs_ok, "
         "   tranzit, ok, goshow, "
         "   jmp_tranzit, jmp_ok, jmp_goshow, "
@@ -491,23 +491,23 @@ void TCounters::recountFinally()
   TCachedQuery Qry(
         "DECLARE "
         "  CURSOR cur IS "
-        "    SELECT counters3.point_dep, "
-        "           counters3.class, "
+        "    SELECT counters2.point_dep, "
+        "           counters2.class, "
         "           MAX(NVL(cfg,0))-MAX(NVL(block,0))-SUM(crs_tranzit)-SUM(crs_ok) AS avail, "
         "           MAX(NVL(cfg,0))-MAX(NVL(block,0))-SUM(GREATEST(crs_tranzit, tranzit))-SUM(ok)-SUM(goshow) AS free_ok, "
         "           MAX(NVL(cfg,0))-MAX(NVL(block,0))-SUM(GREATEST(crs_tranzit, tranzit))-SUM(GREATEST(crs_ok, ok))-SUM(goshow) AS free_goshow, "
         "           MAX(NVL(cfg,0))-MAX(NVL(block,0))-SUM(tranzit)-SUM(ok)-SUM(goshow) AS nooccupy, "
         "           SUM(NVL(jmp_tranzit,0))+SUM(NVL(jmp_ok,0))+SUM(NVL(jmp_goshow,0)) AS jmp "
-        "    FROM counters3, trip_classes "
-        "    WHERE counters3.point_dep=trip_classes.point_id(+) AND "
-        "          counters3.class=trip_classes.class(+) AND "
-        "          counters3.point_dep=:point_dep "
-        "    GROUP BY counters3.point_dep, counters3.class; "
+        "    FROM counters2, trip_classes "
+        "    WHERE counters2.point_dep=trip_classes.point_id(+) AND "
+        "          counters2.class=trip_classes.class(+) AND "
+        "          counters2.point_dep=:point_dep "
+        "    GROUP BY counters2.point_dep, counters2.class; "
         "jmp  NUMBER(6); "
         "BEGIN "
         "  jmp:=0; "
         "  FOR curRow IN cur LOOP "
-        "    UPDATE counters3 "
+        "    UPDATE counters2 "
         "    SET avail=curRow.avail, "
         "        free_ok=curRow.free_ok, "
         "        free_goshow=curRow.free_goshow, "
@@ -515,7 +515,7 @@ void TCounters::recountFinally()
         "    WHERE point_dep=curRow.point_dep AND class=curRow.class; "
         "    jmp:=jmp+curRow.jmp; "
         "  END LOOP; "
-        "  UPDATE counters3 SET jmp_nooccupy=DECODE(:use_jmp, 0, 0, :jmp_cfg)-jmp WHERE point_dep=:point_dep; "
+        "  UPDATE counters2 SET jmp_nooccupy=DECODE(:use_jmp, 0, 0, :jmp_cfg)-jmp WHERE point_dep=:point_dep; "
         "END;",
         QParams() << QParam("point_dep", otInteger, flt().point_id)
                   << QParam("use_jmp", otInteger, (int)fltSettings().value<bool>(tsUseJmp, false))
@@ -537,9 +537,9 @@ void TCounters::recountCrsFields()
   crsFields.apply(flt(), pr_tranz_reg());
 }
 
-const TCounters &TCounters::recount(int point_id, RecountType type)
+const TCounters &TCounters::recount(int point_id, RecountType type, const std::string& whence)
 {
-  LogTrace(TRACE5) << __FUNCTION__;
+  LogTrace(TRACE5) << __FUNCTION__ << ": point_id=" << point_id << ", whence=" << whence;
 
   if (!setFlt(point_id))
   {
@@ -570,11 +570,12 @@ const TCounters &TCounters::recount(int point_id, RecountType type)
   return *this;
 }
 
-const TCounters &TCounters::recount(const CheckIn::TPaxGrpItem &grp,
-                                    const CheckIn::TSimplePaxList &prior_paxs,
-                                    const CheckIn::TSimplePaxList &curr_paxs)
+const TCounters &TCounters::recount(const CheckIn::TPaxGrpItem& grp,
+                                    const CheckIn::TSimplePaxList& prior_paxs,
+                                    const CheckIn::TSimplePaxList& curr_paxs,
+                                    const std::string& whence)
 {
-  LogTrace(TRACE5) << __FUNCTION__;
+  LogTrace(TRACE5) << __FUNCTION__ << ": point_id=" << grp.point_dep << ", whence=" << whence;
 
   TRegDifferenceMap regDifferenceMap;
   regDifferenceMap.getDifference(grp, prior_paxs, curr_paxs);
@@ -592,236 +593,6 @@ const TCounters &TCounters::recount(const CheckIn::TPaxGrpItem &grp,
   recountFinally();
 
   return *this;
-}
-
-const TCountersCover& TCountersCover::recount(int point_id, TCounters::RecountType type, const std::string& whence)
-{
-  LogTrace(TRACE5) << "TCountersCover::" << __FUNCTION__;
-
-//  if (!equalWithCounters2(point_id))
-//    syncWithCounters2(point_id);
-//  if (!equalWithCrsCounters(point_id))
-//    syncWithCrsCounters(point_id);
-
-  if (type==TCounters::CrsCounters)
-    recountCrsCounters(point_id);
-  else
-    recountCounters2(point_id);
-
-  try
-  {
-    TCounters().recount(point_id, type);
-
-    if (!equalWithCrsCounters(point_id, true))
-      throw EXCEPTIONS::Exception("!equalWithCrsCounters (type=%d)", type);
-    if (!equalWithCounters2(point_id, true))
-      throw EXCEPTIONS::Exception("!equalWithCounters2 (type=%d)", type);
-  }
-  catch(std::exception &e)
-  {
-    try
-    {
-      errorToDB(e.what(), point_id, whence);
-    }
-    catch(...) {}
-  }
-
-  return *this;
-}
-
-const TCountersCover& TCountersCover::recount(const CheckIn::TPaxGrpItem &grp,
-                                              const TSimplePaxList &prior_paxs,
-                                              const TSimplePaxList &curr_paxs,
-                                              const std::string &whence)
-{
-  LogTrace(TRACE5) << "TCountersCover::" << __FUNCTION__;
-
-  int point_id=grp.point_dep;
-
-//  if (!equalWithCounters2(point_id))
-//    syncWithCounters2(point_id);
-//  if (!equalWithCrsCounters(point_id))
-//    syncWithCrsCounters(point_id);
-
-  recountCounters2(point_id);
-
-  try
-  {
-    TCounters().recount(grp, prior_paxs, curr_paxs);
-
-    if (!equalWithCrsCounters(point_id, true))
-      throw EXCEPTIONS::Exception("!equalWithCrsCounters");
-    if (!equalWithCounters2(point_id, true))
-      throw EXCEPTIONS::Exception("!equalWithCounters2");
-  }
-  catch(std::exception &e)
-  {
-    try
-    {
-      TRegDifferenceMap::trace(grp, prior_paxs, curr_paxs);
-      errorToDB(e.what(), grp.point_dep, whence);
-    }
-    catch(...) {}
-  }
-
-  return *this;
-}
-
-void TCountersCover::recountCounters2(int point_id)
-{
-  LogTrace(TRACE5) << __FUNCTION__;
-
-  TCachedQuery Qry("BEGIN "
-                   "  ckin.recount( :point_id ); "
-                   "END;",
-                   QParams() << QParam("point_id", otInteger, point_id));
-  Qry.get().Execute();
-}
-
-void TCountersCover::recountCrsCounters(int point_id)
-{
-  LogTrace(TRACE5) << __FUNCTION__;
-
-  TCachedQuery Qry("BEGIN "
-                   "  ckin.crs_recount( :point_id ); "
-                   "END;",
-                   QParams() << QParam("point_id", otInteger, point_id));
-  Qry.get().Execute();
-}
-
-bool TCountersCover::equalWithCounters2(int point_id, bool detailedTracing)
-{
-  LogTrace(TRACE5) << __FUNCTION__;
-
-  TCachedQuery Qry("(SELECT counters2.*, 'counters2:' AS table_name FROM counters2 WHERE point_dep=:point_id "
-                   " MINUS "
-                   " SELECT counters3.*, 'counters2:' AS table_name FROM counters3 WHERE point_dep=:point_id) "
-                   "UNION "
-                   "(SELECT counters3.*, 'counters3:' AS table_name FROM counters3 WHERE point_dep=:point_id "
-                   " MINUS "
-                   " SELECT counters2.*, 'counters3:' AS table_name FROM counters2 WHERE point_dep=:point_id) "
-                   "ORDER BY table_name, 1, 2, 3",
-                   QParams() << QParam("point_id", otInteger, point_id));
-  Qry.get().Execute();
-  if (!Qry.get().Eof)
-  {
-    if (detailedTracing)
-    {
-      LogTrace(TRACE5) << setw(13) << ""
-                       << setw(13) << "POINT_DEP"
-                       << setw(13) << "POINT_ARV"
-                       << setw(13) << "CLASS"
-                       << setw(13) << "CRS_TRANZIT"
-                       << setw(13) << "CRS_OK"
-                       << setw(13) << "AVAIL"
-                       << setw(13) << "TRANZIT"
-                       << setw(13) << "OK"
-                       << setw(13) << "GOSHOW"
-                       << setw(13) << "FREE_OK"
-                       << setw(13) << "FREE_GOSHOW"
-                       << setw(13) << "NOOCCUPY"
-                       << setw(13) << "JMP_TRANZIT"
-                       << setw(13) << "JMP_OK"
-                       << setw(13) << "JMP_GOSHOW"
-                       << setw(13) << "JMP_NOOCCUPY";
-
-      for(; !Qry.get().Eof; Qry.get().Next())
-        LogTrace(TRACE5) << setw(13) << Qry.get().FieldAsString("table_name")
-                         << setw(13) << Qry.get().FieldAsInteger("POINT_DEP")
-                         << setw(13) << Qry.get().FieldAsInteger("POINT_ARV")
-                         << setw(13) << Qry.get().FieldAsString("CLASS")
-                         << setw(13) << Qry.get().FieldAsInteger("CRS_TRANZIT")
-                         << setw(13) << Qry.get().FieldAsInteger("CRS_OK")
-                         << setw(13) << Qry.get().FieldAsInteger("AVAIL")
-                         << setw(13) << Qry.get().FieldAsInteger("TRANZIT")
-                         << setw(13) << Qry.get().FieldAsInteger("OK")
-                         << setw(13) << Qry.get().FieldAsInteger("GOSHOW")
-                         << setw(13) << Qry.get().FieldAsInteger("FREE_OK")
-                         << setw(13) << Qry.get().FieldAsInteger("FREE_GOSHOW")
-                         << setw(13) << Qry.get().FieldAsInteger("NOOCCUPY")
-                         << setw(13) << Qry.get().FieldAsInteger("JMP_TRANZIT")
-                         << setw(13) << Qry.get().FieldAsInteger("JMP_OK")
-                         << setw(13) << Qry.get().FieldAsInteger("JMP_GOSHOW")
-                         << setw(13) << Qry.get().FieldAsInteger("JMP_NOOCCUPY");
-    }
-    return false;
-  }
-  return true;
-}
-
-bool TCountersCover::equalWithCrsCounters(int point_id, bool detailedTracing)
-{
-  LogTrace(TRACE5) << __FUNCTION__;
-
-  TCachedQuery Qry("(SELECT crs_counters.*, 'crs_counters:' AS table_name FROM crs_counters WHERE point_dep=:point_id "
-                   " MINUS "
-                   " SELECT crs_counters3.*, 'crs_counters:' AS table_name FROM crs_counters3 WHERE point_dep=:point_id) "
-                   "UNION "
-                   "(SELECT crs_counters3.*, 'crs_counters3:' AS table_name FROM crs_counters3 WHERE point_dep=:point_id "
-                   " MINUS "
-                   " SELECT crs_counters.*, 'crs_counters3:' AS table_name FROM crs_counters WHERE point_dep=:point_id) "
-                   "ORDER BY table_name, 1, 2, 3",
-                   QParams() << QParam("point_id", otInteger, point_id));
-  Qry.get().Execute();
-  if (!Qry.get().Eof)
-  {
-    if (detailedTracing)
-    {
-      LogTrace(TRACE5) << setw(13) << ""
-                       << setw(13) << "POINT_DEP"
-                       << setw(13) << "AIRP_ARV"
-                       << setw(13) << "CLASS"
-                       << setw(13) << "CRS_TRANZIT"
-                       << setw(13) << "CRS_OK";
-
-      for(; !Qry.get().Eof; Qry.get().Next())
-        LogTrace(TRACE5) << setw(13) << Qry.get().FieldAsString("table_name")
-                         << setw(13) << Qry.get().FieldAsInteger("POINT_DEP")
-                         << setw(13) << Qry.get().FieldAsString("AIRP_ARV")
-                         << setw(13) << Qry.get().FieldAsString("CLASS")
-                         << setw(13) << Qry.get().FieldAsInteger("CRS_TRANZIT")
-                         << setw(13) << Qry.get().FieldAsInteger("CRS_OK");
-    }
-    return false;
-  }
-  return true;
-}
-
-void TCountersCover::syncWithCounters2(int point_id)
-{
-  LogTrace(TRACE5) << __FUNCTION__;
-
-  TCachedQuery Qry("BEGIN"
-                   " DELETE FROM counters3 WHERE point_dep=:point_id; "
-                   " INSERT INTO counters3 SELECT * FROM counters2 WHERE point_dep=:point_id; "
-                   "END;",
-                   QParams() << QParam("point_id", otInteger, point_id));
-  Qry.get().Execute();
-}
-
-void TCountersCover::syncWithCrsCounters(int point_id)
-{
-  LogTrace(TRACE5) << __FUNCTION__;
-
-  TCachedQuery Qry("BEGIN"
-                   " DELETE FROM crs_counters3 WHERE point_dep=:point_id; "
-                   " INSERT INTO crs_counters3 SELECT * FROM crs_counters WHERE point_dep=:point_id; "
-                   "END;",
-                   QParams() << QParam("point_id", otInteger, point_id));
-  Qry.get().Execute();
-}
-
-void TCountersCover::errorToDB(const std::string& error,
-                               const int point_id,
-                               const std::string& whence)
-{
-  LogTrace(TRACE5) << ">>>> " << error << "(point_id=" << point_id << ", whence=" << whence << ")";
-
-  TCachedQuery Qry("INSERT INTO drop_counters_errors(error, time_msk, point_id, whence) VALUES(:error, SYSDATE, :point_id, :whence)",
-                   QParams() << QParam("error", otString, error.substr(0,4000))
-                             << QParam("point_id", otInteger, point_id)
-                             << QParam("whence", otString, whence.substr(0,30)));
-  Qry.get().Execute();
 }
 
 } //namespace CheckIn

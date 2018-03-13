@@ -2537,7 +2537,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
   std::vector<int> points_tranzit_check_wait_alarm;
   for(map<int,TAdvTripInfo>::const_iterator i=segs.begin();i!=segs.end();++i)
   {
-    CheckIn::TCountersCover().recount(i->first, CheckIn::TCounters::Total, __FUNCTION__);
+    CheckIn::TCounters().recount(i->first, CheckIn::TCounters::Total, __FUNCTION__);
 
     check_overload_alarm( i->first );
     if ( SALONS2::isTranzitSalons( i->first ) ) {

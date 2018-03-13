@@ -7634,7 +7634,7 @@ class TTripClasses: private std::map<string,TTripClass> {
       Qry.Execute();
     }
 
-    CheckIn::TCountersCover().recount(point_id, CheckIn::TCounters::Total, __FUNCTION__);
+    CheckIn::TCounters().recount(point_id, CheckIn::TCounters::Total, __FUNCTION__);
   }
   void processBaseCompCfg( int id ) {
     deleteCfg( );
