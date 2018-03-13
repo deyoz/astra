@@ -225,7 +225,7 @@ namespace
         AddressChangeOpt_t      m_addressChange;
         VisaChangeOpt_t         m_visaChange;
         RemChangeOpt_t          m_remChange;
-        FqtRemChangeOpt_t	m_fqtRemChange;
+        FqtRemChangeOpt_t       m_fqtRemChange;
         bool                    m_persChange;
 
     public:
@@ -522,6 +522,8 @@ namespace
                      xmlNodePtr reqNode,   const std::string& reqRootSegsNodeName);
 
         void updatePaxDoc(const iatci::PaxDetails& pax);
+        void updatePaxAddresses(const iatci::PaxDetails& pax);
+        void updatePaxVisa(const iatci::PaxDetails& pax);
         void updatePaxRems(const iatci::PaxDetails& pax);
         void updatePaxFqtRems(const iatci::PaxDetails& pax);
         void updateBagPoolNums(const iatci::PaxDetails& pax);
@@ -575,6 +577,16 @@ namespace
     void IatciUpdater::updatePaxRems(const iatci::PaxDetails& pax)
     {
         copyNodeToIatci(pax, "rems");
+    }
+
+    void IatciUpdater::updatePaxAddresses(const iatci::PaxDetails& pax)
+    {
+        copyNodeToIatci(pax, "addresses");
+    }
+
+    void IatciUpdater::updatePaxVisa(const iatci::PaxDetails& pax)
+    {
+        copyNodeToIatci(pax, "doco");
     }
 
     void IatciUpdater::updatePaxFqtRems(const iatci::PaxDetails& pax)
@@ -914,10 +926,13 @@ static boost::optional<iatci::UpdateDocDetails> getUpdDoc(const PaxChange& paxCh
         return boost::none;
     }
 
-    // считаем, что может быть один документ на пассажира
+    // знаем, что может быть один документ на пассажира
 
     // удаленный
-    // удаления в Астре пока нет
+//    if(!paxChange.docChange()->removed().empty()) {
+//        return iatci::makeUpdDoc(paxChange.docChange()->removed().at(0),
+//                                 iatci::UpdateDetails::Cancel);
+//    }
 
     // добавленный
     if(!paxChange.docChange()->added().empty()) {
@@ -958,6 +973,37 @@ static boost::optional<iatci::UpdateAddressDetails> getUpdAddress(const PaxChang
     }
 
     return result;
+}
+
+static boost::optional<iatci::UpdateVisaDetails> getUpdVisa(const PaxChange& paxChange)
+{
+    if(!paxChange.visaChange()) {
+        return boost::none;
+    }
+
+    // знаем, что может быть один документ на пассажира
+
+    // удаленная виза
+//    if(!paxChange.visaChange()->removed().empty()) {
+//        return iatci::makeUpdVisa(paxChange.visaChange()->removed().at(0),
+//                                  iatci::UpdateDetails::Cancel);
+//    }
+
+
+    // добавленная виза
+    if(!paxChange.visaChange()->added().empty()) {
+        return iatci::makeUpdVisa(paxChange.visaChange()->added().at(0),
+                                  iatci::UpdateDetails::Add);
+    }
+
+    // изменённая виза
+    if(!paxChange.visaChange()->modified().empty()) {
+        return iatci::makeUpdVisa(paxChange.visaChange()->modified().at(0).newEntity(),
+                                  iatci::UpdateDetails::Replace);
+    }
+
+    ASSERT(false); // не должны сюда попадать
+    return boost::none;
 }
 
 static edifact::KickInfo getIatciKickInfo(xmlNodePtr reqNode, xmlNodePtr ediResNode)
@@ -1088,12 +1134,14 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
         boost::optional<iatci::PaxDetails> infant;
         boost::optional<iatci::DocDetails> infantDoc;
         boost::optional<iatci::AddressDetails> infantAddress;
+        boost::optional<iatci::VisaDetails> infantVisa;
         if(ssrInft) {
             inft = findInfant(lInfants, *ssrInft);
             if(inft) {
                 infant        = iatci::makeQryPax(*inft);
                 infantDoc     = iatci::makeDoc(*inft);
                 infantAddress = iatci::makeAddress(*inft);
+                infantVisa    = iatci::makeVisa(*inft);
             }
         }
         lPaxGrp.push_back(iatci::dcqcki::PaxGroup(iatci::makeQryPax(pax, inft),
@@ -1103,9 +1151,11 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
                                                   iatci::makeService(pax, inft),
                                                   iatci::makeDoc(pax),
                                                   iatci::makeAddress(pax),
+                                                  iatci::makeVisa(pax),
                                                   infant,
                                                   infantDoc,
-                                                  infantAddress));
+                                                  infantAddress,
+                                                  infantVisa));
     }
 
     return iatci::CkiParams(iatci::makeOrg(ownSeg),
@@ -1248,7 +1298,8 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
                                               boost::none, // Update baggage
                                               boost::none, // Update service
                                               boost::none, // Update doc
-                                              boost::none  // Updatr address
+                                              boost::none, // Update address
+                                              boost::none  // Update visa
                                               ));
 
     return iatci::CkuParams(makeOrg(ownGrpId),
@@ -1435,6 +1486,7 @@ static boost::optional<iatci::CkuParams> getUpdateBaggageParams(xmlNodePtr reqNo
                                                                             bagTags),
                                                       boost::none,
                                                       boost::none,
+                                                      boost::none,
                                                       boost::none));
         }
     }
@@ -1539,18 +1591,21 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
         boost::optional<iatci::UpdateServiceDetails> adultUpdService;
         boost::optional<iatci::UpdateDocDetails>     adultUpdDoc, inftUpdDoc;
         boost::optional<iatci::UpdateAddressDetails> adultUpdAddress, inftUpdAddress;
+        boost::optional<iatci::UpdateVisaDetails>    adultUpdVisa, inftUpdVisa;
 
         if(adultChange) {
             adultUpdPersonal = boost::none;//getUpdPersonal(*adultChange);
             adultUpdService  = getUpdService(*adultChange);
             adultUpdDoc      = getUpdDoc(*adultChange);
             adultUpdAddress  = getUpdAddress(*adultChange);
+            adultUpdVisa     = getUpdVisa(*adultChange);
         }
 
         if(inftChange) {
             inftUpdPersonal = boost::none; //getUpdPersonal(*inftChange);
             inftUpdDoc      = getUpdDoc(*inftChange);
             inftUpdAddress  = getUpdAddress(*inftChange);
+            inftUpdVisa     = getUpdVisa(*inftChange);
         }
 
         lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makeQryPax(adult.get(), inft),
@@ -1561,12 +1616,14 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
                                                   adultUpdPersonal,
                                                   boost::none, // Seat
                                                   boost::none, // Baggage
-                                                  adultUpdService,
-                                                  adultUpdDoc,
+                                                  adultUpdService, // SSRs
+                                                  adultUpdDoc, // Doc
                                                   adultUpdAddress, // Address
+                                                  adultUpdVisa, // Visa
                                                   inftUpdPersonal,
                                                   inftUpdDoc,
-                                                  inftUpdAddress));
+                                                  inftUpdAddress,
+                                                  inftUpdVisa));
     }
 
     if(lPaxGrp.empty()) {
@@ -1787,6 +1844,12 @@ static void UpdateIatciGrp(int grpId, IatciInterface::RequestType reqType,
         if(paxGrp.updDoc()) {
             updater.updatePaxDoc(paxGrp.pax());
         }
+        if(paxGrp.updAddress()) {
+            updater.updatePaxAddresses(paxGrp.pax());
+        }
+        if(paxGrp.updVisa()) {
+            updater.updatePaxVisa(paxGrp.pax());
+        }
         if(paxGrp.updService()) {
             if(paxGrp.updService()->containsNonFqt()) {
                 updater.updatePaxRems(paxGrp.pax());
@@ -1808,6 +1871,14 @@ static void UpdateIatciGrp(int grpId, IatciInterface::RequestType reqType,
         if(paxGrp.updInfantDoc()) {
             ASSERT(paxGrp.infant());
             updater.updatePaxDoc(paxGrp.infant().get());
+        }
+        if(paxGrp.updInfantAddress()) {
+            ASSERT(paxGrp.infant());
+            updater.updatePaxAddresses(paxGrp.infant().get());
+        }
+        if(paxGrp.updInfantVisa()) {
+            ASSERT(paxGrp.infant());
+            updater.updatePaxVisa(paxGrp.infant().get());
         }
     }
 

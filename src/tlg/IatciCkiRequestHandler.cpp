@@ -66,9 +66,11 @@ public:
         boost::optional<iatci::ServiceDetails>     makeService() const;
         boost::optional<iatci::DocDetails>         makeDoc() const;
         boost::optional<iatci::AddressDetails>     makeAddress() const;
+        boost::optional<iatci::VisaDetails>        makeVisa() const;
         boost::optional<iatci::PaxDetails>         makeInfant() const;
         boost::optional<iatci::DocDetails>         makeInfantDoc() const;
         boost::optional<iatci::AddressDetails>     makeInfantAddress() const;
+        boost::optional<iatci::VisaDetails>        makeInfantVisa() const;
     };
 
     //-----------------------------------------------------------------------------------
@@ -232,9 +234,11 @@ iatci::dcqcki::PaxGroup IatciCkiParamsMaker::Pxg::makePaxGroup() const
                                    makeService(),
                                    makeDoc(),
                                    makeAddress(),
+                                   makeVisa(),
                                    makeInfant(),
                                    makeInfantDoc(),
-                                   makeInfantAddress());
+                                   makeInfantAddress(),
+                                   makeInfantVisa());
 }
 
 boost::optional<iatci::ReservationDetails> IatciCkiParamsMaker::Pxg::makeReserv() const
@@ -275,7 +279,7 @@ boost::optional<iatci::ServiceDetails> IatciCkiParamsMaker::Pxg::makeService() c
 
 boost::optional<iatci::DocDetails> IatciCkiParamsMaker::Pxg::makeDoc() const
 {
-    if(m_pap) {
+    if(m_pap && m_pap->findDoc()) {
         return iatci::makeDoc(*m_pap);
     }
 
@@ -286,6 +290,15 @@ boost::optional<iatci::AddressDetails> IatciCkiParamsMaker::Pxg::makeAddress() c
 {
     if(m_add) {
         return iatci::makeAddress(*m_add);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::VisaDetails> IatciCkiParamsMaker::Pxg::makeVisa() const
+{
+    if(m_pap && m_pap->findVisa()) {
+        return iatci::makeVisa(*m_pap);
     }
 
     return boost::none;
@@ -302,7 +315,7 @@ boost::optional<iatci::PaxDetails> IatciCkiParamsMaker::Pxg::makeInfant() const
 
 boost::optional<iatci::DocDetails> IatciCkiParamsMaker::Pxg::makeInfantDoc() const
 {
-    if(m_papInfant) {
+    if(m_papInfant && m_papInfant->findDoc()) {
         return iatci::makeDoc(*m_papInfant);
     }
 
@@ -313,6 +326,15 @@ boost::optional<iatci::AddressDetails> IatciCkiParamsMaker::Pxg::makeInfantAddre
 {
     if(m_addInfant) {
         return iatci::makeAddress(*m_addInfant);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::VisaDetails> IatciCkiParamsMaker::Pxg::makeInfantVisa() const
+{
+    if(m_papInfant && m_papInfant->findVisa()) {
+        return iatci::makeVisa(*m_papInfant);
     }
 
     return boost::none;

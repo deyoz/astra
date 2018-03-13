@@ -1021,7 +1021,15 @@ $(defmacro SAVE_GRP
               <ticket_rem/>
               <ticket_confirm>0</ticket_confirm>
               <document/>
-              <doco/>
+              <doco>
+                <birth_place/>
+                <type>V</type>
+                <no>4538926</no>
+                <issue_place>MOSCOW</issue_place>
+                <issue_date>09.01.2011 00:00:00</issue_date>
+                <expiry_date>09.01.2021 00:00:00</expiry_date>
+                <applic_country>UKR</applic_country>
+              </doco>
               <addresses/>
               <subclass>ù</subclass>
               <bag_pool_num/>
@@ -1041,7 +1049,15 @@ $(defmacro SAVE_GRP
               <ticket_rem/>
               <ticket_confirm>0</ticket_confirm>
               <document/>
-              <doco/>
+              <doco>
+                <birth_place>MADRID</birth_place>
+                <type>VI</type>
+                <no>13452</no>
+                <issue_place>MINSK</issue_place>
+                <issue_date>20.03.2009 00:00:00</issue_date>
+                <expiry_date>20.03.2019 00:00:00</expiry_date>
+                <applic_country>ESP</applic_country>
+              </doco>
               <addresses/>
               <subclass>ù</subclass>
               <bag_pool_num/>
@@ -2326,23 +2342,25 @@ $(KICK_IN)
             <surname>REPIN</surname>
             <name>IVAN</name>
             <pers_type>êÅ</pers_type>
-            <seat_no>xx</seat_no>
-            <seat_type/>
-            <seats>1</seats>
             <refuse/>
-            <reg_no>1</reg_no>
-            <subclass>ù</subclass>
             <bag_pool_num/>
             <tid>0</tid>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <seat_no>xx</seat_no>
+            <reg_no>1</reg_no>
+            <seat_type/>
+            <seats>1</seats>
+            <subclass>ù</subclass>
             <ticket_no>2986120030297</ticket_no>
             <coupon_no>2</coupon_no>
             <ticket_rem>TKNE</ticket_rem>
             <ticket_confirm>1</ticket_confirm>
-            <pr_norec>0</pr_norec>
-            <pr_bp_print>0</pr_bp_print>
-            <pr_bi_print>0</pr_bi_print>
             <rems/>
             <fqt_rems/>
+            <addresses/>
+            <doco/>
             <iatci_pax_id>0013929620</iatci_pax_id>
             <iatci_parent_pax_id/>
             <document>
@@ -2973,23 +2991,25 @@ $(KICK_IN)
             <surname>REPIN</surname>
             <name>IVAN</name>
             <pers_type>Çá</pers_type>
-            <seat_no>xx</seat_no>
-            <seat_type/>
-            <seats>1</seats>
             <refuse/>
-            <reg_no>22</reg_no>
-            <subclass>ù</subclass>
             <bag_pool_num/>
             <tid>0</tid>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <seat_no>xx</seat_no>
+            <reg_no>22</reg_no>
+            <seat_type/>
+            <seats>1</seats>
+            <subclass>ù</subclass>
             <ticket_no>2986120030297</ticket_no>
             <coupon_no>2</coupon_no>
             <ticket_rem>TKNE</ticket_rem>
             <ticket_confirm>1</ticket_confirm>
-            <pr_norec>0</pr_norec>
-            <pr_bp_print>0</pr_bp_print>
-            <pr_bi_print>0</pr_bi_print>
             <rems/>
             <fqt_rems/>
+            <addresses/>
+            <doco/>
             <iatci_pax_id/>
             <iatci_parent_pax_id/>
             <document>
@@ -3241,14 +3261,17 @@ $(KICK_IN)
             <surname>REPIN</surname>
             <name>IVAN</name>
             <pers_type>Çá</pers_type>
-            <seat_no>xx</seat_no>
-            <seat_type/>
-            <seats>1</seats>
             <refuse/>
-            <reg_no/>
-            <subclass>ù</subclass>
             <bag_pool_num/>
             <tid>0</tid>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <seat_no>xx</seat_no>
+            <reg_no/>
+            <seat_type/>
+            <seats>1</seats>
+            <subclass>ù</subclass>
             <ticket_no>2986120030297</ticket_no>
             <coupon_no>2</coupon_no>
             <ticket_rem>TKNE</ticket_rem>
@@ -3264,9 +3287,8 @@ $(KICK_IN)
               <first_name>IVAN</first_name>
               <expiry_date>31.12.2049 00:00:00</expiry_date>
             </document>
-            <pr_norec>0</pr_norec>
-            <pr_bp_print>0</pr_bp_print>
-            <pr_bi_print>0</pr_bi_print>
+            <addresses/>
+            <doco/>
             <iatci_pax_id/>
             <iatci_parent_pax_id/>
             <rems/>
@@ -4329,11 +4351,13 @@ PPD+REPIN+A:N++IVAN"
 PRD+Y"
 PSD++007A"
 PBD+0"
+PAP+A:REPIN:IVAN++V:4538926:UKR:::210109::::MOSCOW::110109"
 PPD+PETROV+C:N++PETR"
 PRD+Y"
 PSD++008A"
 PBD+0"
-UNT+12+1"
+PAP+A:PETROV:PETR++VI:13452:ESP:::190320::::MINSK::090320"
+UNT+14+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -4345,11 +4369,11 @@ FSD+1155"
 PPD+REPIN+A:N++IVAN"
 PFD+7A++1"
 PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
-PAP+:::850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+PAP+:::850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN+V:00000:RUS:::210321::::SPT::010311"
 PPD+PETROV+C:N++PETR"
 PFD+8A++2"
 PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/PETROV/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/PETROV/PETR/M"
-PAP+:::850724:::TJK++P:400522510:TJK:::250205:M::::::PETROV:PETR"
+PAP+:::850724:::TJK++P:400522510:TJK:::250205:M::::::PETROV:PETR+V:13452:USA:::210320::::NY::010310"
 UNT+12+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -4654,32 +4678,21 @@ $(KICK_IN)
             <surname>REPIN</surname>
             <name>IVAN</name>
             <pers_type>Çá</pers_type>
-            <seat_no>7A</seat_no>
-            <seat_type/>
-            <seats>1</seats>
             <refuse/>
-            <reg_no>1</reg_no>
-            <subclass>ù</subclass>
             <bag_pool_num/>
             <tid>0</tid>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <seat_no>7A</seat_no>
+            <reg_no>1</reg_no>
+            <seat_type/>
+            <seats>1</seats>
+            <subclass>ù</subclass>
             <ticket_no>2982401841689</ticket_no>
             <coupon_no>1</coupon_no>
             <ticket_rem>TKNE</ticket_rem>
             <ticket_confirm>1</ticket_confirm>
-            <document>
-              <type>P</type>
-              <issue_country>TJK</issue_country>
-              <no>400522509</no>
-              <nationality>TJK</nationality>
-              <birth_date>24.07.1985 00:00:00</birth_date>
-              <gender>M</gender>
-              <surname>REPIN</surname>
-              <first_name>IVAN</first_name>
-              <expiry_date>05.02.2025 00:00:00</expiry_date>
-            </document>
-            <pr_norec>0</pr_norec>
-            <pr_bp_print>0</pr_bp_print>
-            <pr_bi_print>0</pr_bi_print>
             <rems>
               <rem>
                 <rem_code>DOCS</rem_code>
@@ -4695,6 +4708,26 @@ $(KICK_IN)
               </rem>
             </rems>
             <fqt_rems/>
+            <document>
+              <type>P</type>
+              <issue_country>TJK</issue_country>
+              <no>400522509</no>
+              <nationality>TJK</nationality>
+              <birth_date>24.07.1985 00:00:00</birth_date>
+              <gender>M</gender>
+              <surname>REPIN</surname>
+              <first_name>IVAN</first_name>
+              <expiry_date>05.02.2025 00:00:00</expiry_date>
+            </document>
+            <addresses/>
+            <doco>
+              <type>V</type>
+              <no>00000</no>
+              <issue_place>SPT</issue_place>
+              <applic_country>RUS</applic_country>
+              <issue_date>11.03.2001 00:00:00</issue_date>
+              <expiry_date>21.03.2021 00:00:00</expiry_date>
+            </doco>
             <iatci_pax_id/>
             <iatci_parent_pax_id/>
           </pax>
@@ -4703,32 +4736,21 @@ $(KICK_IN)
             <surname>PETROV</surname>
             <name>PETR</name>
             <pers_type>êÅ</pers_type>
-            <seat_no>8A</seat_no>
-            <seat_type/>
-            <seats>1</seats>
             <refuse/>
-            <reg_no>2</reg_no>
-            <subclass>ù</subclass>
             <bag_pool_num/>
             <tid>0</tid>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <seat_no>8A</seat_no>
+            <reg_no>2</reg_no>
+            <seat_type/>
+            <seats>1</seats>
+            <subclass>ù</subclass>
             <ticket_no>2982401841612</ticket_no>
             <coupon_no>1</coupon_no>
             <ticket_rem>TKNE</ticket_rem>
             <ticket_confirm>1</ticket_confirm>
-            <document>
-              <type>P</type>
-              <issue_country>TJK</issue_country>
-              <no>400522510</no>
-              <nationality>TJK</nationality>
-              <birth_date>24.07.1985 00:00:00</birth_date>
-              <gender>M</gender>
-              <surname>PETROV</surname>
-              <first_name>PETR</first_name>
-              <expiry_date>05.02.2025 00:00:00</expiry_date>
-            </document>
-            <pr_norec>0</pr_norec>
-            <pr_bp_print>0</pr_bp_print>
-            <pr_bi_print>0</pr_bi_print>
             <rems>
               <rem>
                 <rem_code>DOCS</rem_code>
@@ -4744,6 +4766,26 @@ $(KICK_IN)
               </rem>
             </rems>
             <fqt_rems/>
+            <document>
+              <type>P</type>
+              <issue_country>TJK</issue_country>
+              <no>400522510</no>
+              <nationality>TJK</nationality>
+              <birth_date>24.07.1985 00:00:00</birth_date>
+              <gender>M</gender>
+              <surname>PETROV</surname>
+              <first_name>PETR</first_name>
+              <expiry_date>05.02.2025 00:00:00</expiry_date>
+            </document>
+            <addresses/>
+            <doco>
+              <type>V</type>
+              <no>13452</no>
+              <issue_place>NY</issue_place>
+              <applic_country>USA</applic_country>
+              <issue_date>10.03.2001 00:00:00</issue_date>
+              <expiry_date>20.03.2021 00:00:00</expiry_date>
+            </doco>
             <iatci_pax_id/>
             <iatci_parent_pax_id/>
           </pax>
@@ -4906,7 +4948,9 @@ PPD+REPIN+A:Y++ADULT+REPIN:INFANT"
 PRD+Y"
 PSD++007A"
 PBD+0"
-UNT+8+1"
+PAP+A:REPIN:ADULT++V:4538926:UKR:::210109::::MOSCOW::110109"
+PAP+IN:REPIN:INFANT++VI:13452:ESP:::190320::::MINSK::090320"
+UNT+10+1"
 UNZ+1+$(last_edifact_ref)0001"
 
 <<
@@ -4919,8 +4963,8 @@ PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
 PRD+Y"
 PFD+001A+:Y+001:002"
 PSI++TKNE::29824018416891+TKNE::INF29824018416121+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M+TKNE::::::TKNE HK1 2982401841689/1+INFT::::::INFT HK1 01JAN17 REPIN/INFANT"
-PAP+A:REPIN:ADULT:760501:::RUS++P:7774441110:RUS::::M::::::REPIN:ADULT"
-PAP+IN:REPIN:INFANT:760501:::RUS++P:7774441112:RUS::::M::::::REPIN:INFANT"
+PAP+A:REPIN:ADULT:760501:::RUS++P:7774441110:RUS::::M::::::REPIN:ADULT+V:4538926:UKR:::210109::::MOSCOW::110109"
+PAP+IN:REPIN:INFANT:760501:::RUS++P:7774441112:RUS::::M::::::REPIN:INFANT+VI:13452:ESP:::190320::::MINSK::090320"
 UNT+10+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -4933,18 +4977,40 @@ $(KICK_IN)
             <surname>REPIN</surname>
             <name>ADULT</name>
             <pers_type>Çá</pers_type>
-            <seat_no>1A</seat_no>
-            <seat_type/>
-            <seats>1</seats>
             <refuse/>
-            <reg_no>001</reg_no>
-            <subclass>ù</subclass>
             <bag_pool_num/>
             <tid>0</tid>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <seat_no>1A</seat_no>
+            <reg_no>001</reg_no>
+            <seat_type/>
+            <seats>1</seats>
+            <subclass>ù</subclass>
             <ticket_no>2982401841689</ticket_no>
             <coupon_no>1</coupon_no>
             <ticket_rem>TKNE</ticket_rem>
             <ticket_confirm>1</ticket_confirm>
+            <rems>
+              <rem>
+                <rem_code>DOCS</rem_code>
+                <rem_text>DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN</rem_text>
+              </rem>
+              <rem>
+                <rem_code>FOID</rem_code>
+                <rem_text>FOID PPZB400522509</rem_text>
+              </rem>
+              <rem>
+                <rem_code>PSPT</rem_code>
+                <rem_text>PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M</rem_text>
+              </rem>
+              <rem>
+                <rem_code>INFT</rem_code>
+                <rem_text>INFT HK1 01JAN17 REPIN/INFANT</rem_text>
+              </rem>
+            </rems>
+            <fqt_rems/>
             <document>
               <type>P</type>
               <issue_country>RUS</issue_country>
@@ -4955,9 +5021,38 @@ $(KICK_IN)
               <surname>REPIN</surname>
               <first_name>ADULT</first_name>
             </document>
+            <addresses/>
+            <doco>
+              <type>V</type>
+              <no>4538926</no>
+              <issue_place>MOSCOW</issue_place>
+              <applic_country>UKR</applic_country>
+              <issue_date>09.01.2011 00:00:00</issue_date>
+              <expiry_date>09.01.2021 00:00:00</expiry_date>
+            </doco>
+            <iatci_pax_id>0013949613</iatci_pax_id>
+            <iatci_parent_pax_id/>
+          </pax>
+          <pax>
+            <pax_id>-2</pax_id>
+            <surname>REPIN</surname>
+            <name>INFANT</name>
+            <pers_type>êå</pers_type>
+            <refuse/>
+            <bag_pool_num/>
+            <tid>0</tid>
             <pr_norec>0</pr_norec>
             <pr_bp_print>0</pr_bp_print>
             <pr_bi_print>0</pr_bi_print>
+            <seat_no/>
+            <reg_no>002</reg_no>
+            <seat_type/>
+            <seats>0</seats>
+            <subclass>ù</subclass>
+            <ticket_no>2982401841612</ticket_no>
+            <coupon_no>1</coupon_no>
+            <ticket_rem>TKNE</ticket_rem>
+            <ticket_confirm>1</ticket_confirm>
             <rems>
               <rem>
                 <rem_code>DOCS</rem_code>
@@ -4977,26 +5072,6 @@ $(KICK_IN)
               </rem>
             </rems>
             <fqt_rems/>
-            <iatci_pax_id>0013949613</iatci_pax_id>
-            <iatci_parent_pax_id/>
-          </pax>
-          <pax>
-            <pax_id>-2</pax_id>
-            <surname>REPIN</surname>
-            <name>INFANT</name>
-            <pers_type>êå</pers_type>
-            <seat_no/>
-            <seat_type/>
-            <seats>0</seats>
-            <refuse/>
-            <reg_no>002</reg_no>
-            <subclass>ù</subclass>
-            <bag_pool_num/>
-            <tid>0</tid>
-            <ticket_no>2982401841612</ticket_no>
-            <coupon_no>1</coupon_no>
-            <ticket_rem>TKNE</ticket_rem>
-            <ticket_confirm>1</ticket_confirm>
             <document>
               <type>P</type>
               <issue_country>RUS</issue_country>
@@ -5007,28 +5082,15 @@ $(KICK_IN)
               <surname>REPIN</surname>
               <first_name>INFANT</first_name>
             </document>
-            <pr_norec>0</pr_norec>
-            <pr_bp_print>0</pr_bp_print>
-            <pr_bi_print>0</pr_bi_print>
-            <rems>
-              <rem>
-                <rem_code>DOCS</rem_code>
-                <rem_text>DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN</rem_text>
-              </rem>
-              <rem>
-                <rem_code>FOID</rem_code>
-                <rem_text>FOID PPZB400522509</rem_text>
-              </rem>
-              <rem>
-                <rem_code>PSPT</rem_code>
-                <rem_text>PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M</rem_text>
-              </rem>
-              <rem>
-                <rem_code>INFT</rem_code>
-                <rem_text>INFT HK1 01JAN17 REPIN/INFANT</rem_text>
-              </rem>
-            </rems>
-            <fqt_rems/>
+            <addresses/>
+            <doco>
+              <type>V</type>
+              <no>13452</no>
+              <issue_place>MINSK</issue_place>
+              <applic_country>ESP</applic_country>
+              <issue_date>20.03.2009 00:00:00</issue_date>
+              <expiry_date>20.03.2019 00:00:00</expiry_date>
+            </doco>
             <iatci_pax_id>0013949614</iatci_pax_id>
             <iatci_parent_pax_id>-1</iatci_parent_pax_id>
           </pax>
@@ -5086,7 +5148,15 @@ $(set tid $(get_single_tid $(get point_dep) REPIN ADULT))
                   <first_name>ADULT</first_name>
                   <second_name>PETROVICH</second_name>
               </document>
-              <doco/>
+              <doco>
+                <birth_place/>
+                <type>V</type>
+                <no>88888888</no>
+                <issue_place>MOSCOW</issue_place>
+                <issue_date>01.01.2011 00:00:00</issue_date>
+                <expiry_date>02.01.2031 00:00:00</expiry_date>
+                <applic_country>RUS</applic_country>
+              </doco>
               <addresses/>
               <bag_pool_num/>
               <subclass>ù</subclass>
@@ -5134,8 +5204,8 @@ UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)+LED+AER"
 PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
-UAP+A+A:REPIN:ADULT:760501:::RUS++P:987654321::::491231:::::::REPIN:ADULT:PETROVICH"
-UAP+A+IN:REPIN:INFANT:160501:::RUS++P:123456789::::491231:::::::REPIN:INFANT:IVANOVICH"
+UAP+R+A:REPIN:ADULT:760501:::RUS++P:987654321::::491231:::::::REPIN:ADULT:PETROVICH+V:88888888:RUS:::310102::::MOSCOW::110101"
+UAP+R+IN:REPIN:INFANT:160501:::RUS++P:123456789::::491231:::::::REPIN:INFANT:IVANOVICH"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -5163,21 +5233,21 @@ $(KICK_IN)
             <surname>REPIN</surname>
             <name>ADULT</name>
             <pers_type>Çá</pers_type>
-            <seat_no>1A</seat_no>
-            <seat_type/>
-            <seats>1</seats>
             <refuse/>
-            <reg_no>001</reg_no>
-            <subclass>ù</subclass>
             <bag_pool_num/>
             <tid>0</tid>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <seat_no>1A</seat_no>
+            <reg_no>001</reg_no>
+            <seat_type/>
+            <seats>1</seats>
+            <subclass>ù</subclass>
             <ticket_no>2982401841689</ticket_no>
             <coupon_no>1</coupon_no>
             <ticket_rem>TKNE</ticket_rem>
             <ticket_confirm>1</ticket_confirm>
-            <pr_norec>0</pr_norec>
-            <pr_bp_print>0</pr_bp_print>
-            <pr_bi_print>0</pr_bi_print>
             <rems>
               <rem>
                 <rem_code>DOCS</rem_code>
@@ -5197,6 +5267,7 @@ $(KICK_IN)
               </rem>
             </rems>
             <fqt_rems/>
+            <addresses/>            
             <iatci_pax_id>0013949613</iatci_pax_id>
             <iatci_parent_pax_id/>
             <document>
@@ -5209,27 +5280,36 @@ $(KICK_IN)
               <first_name>ADULT</first_name>
               <second_name>PETROVICH</second_name>
             </document>
+            <doco>
+              <birth_place/>
+              <type>V</type>
+              <no>88888888</no>
+              <issue_place>MOSCOW</issue_place>
+              <issue_date>01.01.2011 00:00:00</issue_date>
+              <expiry_date>02.01.2031 00:00:00</expiry_date>
+              <applic_country>RUS</applic_country>
+            </doco>
           </pax>
           <pax>
             <pax_id>-2</pax_id>
             <surname>REPIN</surname>
             <name>INFANT</name>
             <pers_type>êå</pers_type>
-            <seat_no/>
-            <seat_type/>
-            <seats>0</seats>
             <refuse/>
-            <reg_no>002</reg_no>
-            <subclass>ù</subclass>
             <bag_pool_num/>
             <tid>0</tid>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <seat_no/>
+            <reg_no>002</reg_no>
+            <seat_type/>
+            <seats>0</seats>
+            <subclass>ù</subclass>
             <ticket_no>2982401841612</ticket_no>
             <coupon_no>1</coupon_no>
             <ticket_rem>TKNE</ticket_rem>
             <ticket_confirm>1</ticket_confirm>
-            <pr_norec>0</pr_norec>
-            <pr_bp_print>0</pr_bp_print>
-            <pr_bi_print>0</pr_bi_print>
             <rems>
               <rem>
                 <rem_code>DOCS</rem_code>
@@ -5249,6 +5329,15 @@ $(KICK_IN)
               </rem>
             </rems>
             <fqt_rems/>
+            <addresses/>
+            <doco>
+              <type>V</type>
+              <no>13452</no>
+              <issue_place>MINSK</issue_place>
+              <applic_country>ESP</applic_country>
+              <issue_date>20.03.2009 00:00:00</issue_date>
+              <expiry_date>20.03.2019 00:00:00</expiry_date>
+            </doco>
             <iatci_pax_id>0013949614</iatci_pax_id>
             <iatci_parent_pax_id>-1</iatci_parent_pax_id>
             <document>
@@ -5611,11 +5700,178 @@ ADD+R+701::MOSCOW:::RUS:127650"
 UNT+9+1"
 UNZ+1+$(last_edifact_ref)0001"
 
+<<
+UNB+SIRE:1+TA+OA+150217:0745+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+S7+1027+$(yymmdd)+LED+AER++T"
+RAD+U+O"
+PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
+PRD+Y"
+PFD+001A+:Y+001:002"
+PSI++TKNE::29824018416891+TKNE::INF29824018416121+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M+TKNE::::::TKNE HK1 2982401841689/1+INFT::::::INFT HK1 01JAN17 REPIN/INFANT"
+PAP+A:REPIN:ADULT:760501:::RUS++P:987654321::::491231:::::::REPIN:ADULT:PETROVICH"
+PAP+IN:REPIN:INFANT:160501:::RUS++P:123456789::::491231:::::::REPIN:INFANT:IVANOVICH"
+ADD++703:ADDRESS:CITY::REGION:USA:112233+700:RESIDENCE ADDRESS:RESIDENCE CITY::RESIDENCE REGION:BLR:001122"
+UNT+10+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(KICK_IN)
+
+>> lines=auto
+        <passengers>
+          <pax>
+            <pax_id>-1</pax_id>
+            <surname>REPIN</surname>
+            <name>ADULT</name>
+            <pers_type>Çá</pers_type>
+            <refuse/>
+            <tid>0</tid>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <seat_no>1A</seat_no>
+            <reg_no>001</reg_no>
+            <seat_type/>
+            <seats>1</seats>
+            <subclass>ù</subclass>
+            <ticket_no>2982401841689</ticket_no>
+            <coupon_no>1</coupon_no>
+            <ticket_rem>TKNE</ticket_rem>
+            <ticket_confirm>1</ticket_confirm>
+            <rems>
+              <rem>
+                <rem_code>DOCS</rem_code>
+                <rem_text>DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN</rem_text>
+              </rem>
+              <rem>
+                <rem_code>FOID</rem_code>
+                <rem_text>FOID PPZB400522509</rem_text>
+              </rem>
+              <rem>
+                <rem_code>PSPT</rem_code>
+                <rem_text>PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M</rem_text>
+              </rem>
+              <rem>
+                <rem_code>INFT</rem_code>
+                <rem_text>INFT HK1 01JAN17 REPIN/INFANT</rem_text>
+              </rem>
+            </rems>
+            <fqt_rems/>
+            <iatci_pax_id>0013949613</iatci_pax_id>
+            <iatci_parent_pax_id/>
+            <document>
+              <type>P</type>
+              <no>987654321</no>
+              <nationality>RUS</nationality>
+              <birth_date>01.05.1976 00:00:00</birth_date>
+              <expiry_date>31.12.2049 00:00:00</expiry_date>
+              <surname>REPIN</surname>
+              <first_name>ADULT</first_name>
+              <second_name>PETROVICH</second_name>
+            </document>
+            <doco>
+              <birth_place/>
+              <type>V</type>
+              <no>88888888</no>
+              <issue_place>MOSCOW</issue_place>
+              <issue_date>01.01.2011 00:00:00</issue_date>
+              <expiry_date>02.01.2031 00:00:00</expiry_date>
+              <applic_country>RUS</applic_country>
+            </doco>
+            <bag_pool_num/>
+            <addresses>
+              <doca>
+                <type>D</type>
+                <country>USA</country>
+                <region>REGION</region>
+                <address>ADDRESS</address>
+                <city>CITY</city>
+                <postal_code>112233</postal_code>
+              </doca>
+              <doca>
+                <type>R</type>
+                <country>BLR</country>
+                <region>RESIDENCE REGION</region>
+                <address>RESIDENCE ADDRESS</address>
+                <city>RESIDENCE CITY</city>
+                <postal_code>001122</postal_code>
+              </doca>
+            </addresses>
+          </pax>
+          <pax>
+            <pax_id>-2</pax_id>
+            <surname>REPIN</surname>
+            <name>INFANT</name>
+            <pers_type>êå</pers_type>
+            <refuse/>
+            <bag_pool_num/>
+            <tid>0</tid>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <seat_no/>
+            <reg_no>002</reg_no>
+            <seat_type/>
+            <seats>0</seats>
+            <subclass>ù</subclass>
+            <ticket_no>2982401841612</ticket_no>
+            <coupon_no>1</coupon_no>
+            <ticket_rem>TKNE</ticket_rem>
+            <ticket_confirm>1</ticket_confirm>
+            <rems>
+              <rem>
+                <rem_code>DOCS</rem_code>
+                <rem_text>DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN</rem_text>
+              </rem>
+              <rem>
+                <rem_code>FOID</rem_code>
+                <rem_text>FOID PPZB400522509</rem_text>
+              </rem>
+              <rem>
+                <rem_code>PSPT</rem_code>
+                <rem_text>PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M</rem_text>
+              </rem>
+              <rem>
+                <rem_code>INFT</rem_code>
+                <rem_text>INFT HK1 01JAN17 REPIN/INFANT</rem_text>
+              </rem>
+            </rems>
+            <fqt_rems/>
+            <doco>
+              <type>V</type>
+              <no>13452</no>
+              <issue_place>MINSK</issue_place>
+              <applic_country>ESP</applic_country>
+              <issue_date>20.03.2009 00:00:00</issue_date>
+              <expiry_date>20.03.2019 00:00:00</expiry_date>
+            </doco>
+            <iatci_pax_id>xxxxxxxxxx</iatci_pax_id>
+            <iatci_parent_pax_id>-1</iatci_parent_pax_id>
+            <document>
+              <type>P</type>
+              <no>123456789</no>
+              <nationality>RUS</nationality>
+              <birth_date>01.05.2016 00:00:00</birth_date>
+              <expiry_date>31.12.2049 00:00:00</expiry_date>
+              <surname>REPIN</surname>
+              <first_name>INFANT</first_name>
+              <second_name>IVANOVICH</second_name>
+            </document>
+            <addresses>
+              <doca>
+                <type>B</type>
+                <country>RUS</country>
+                <city>MOSCOW</city>
+                <postal_code>127650</postal_code>
+              </doca>
+            </addresses>
+          </pax>
+        </passengers>
+
 
 $(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
 $(set adult_tid $(get_single_pax_tid $(get point_dep) REPIN ADULT))
 $(set infant_tid $(get_single_pax_tid $(get point_dep) REPIN INFANT))
-
 
 # Æ‚¨•≠†
 

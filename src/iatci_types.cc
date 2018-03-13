@@ -255,6 +255,52 @@ const boost::gregorian::date& DocDetails::expiryDate() const
 
 //---------------------------------------------------------------------------------------
 
+VisaDetails::VisaDetails(const std::string& visaType,
+                         const std::string& issueCountry,
+                         const std::string& no,
+                         const std::string& placeOfIssue,
+                         const boost::gregorian::date& issueDate,
+                         const boost::gregorian::date& expiryDate)
+    : m_visaType(visaType),
+      m_issueCountry(issueCountry),
+      m_no(no),
+      m_placeOfIssue(placeOfIssue),
+      m_issueDate(issueDate),
+      m_expiryDate(expiryDate)
+{}
+
+const std::string& VisaDetails::visaType() const
+{
+    return m_visaType;
+}
+
+const std::string& VisaDetails::issueCountry() const
+{
+    return m_issueCountry;
+}
+
+const std::string& VisaDetails::no() const
+{
+    return m_no;
+}
+
+const std::string& VisaDetails::placeOfIssue() const
+{
+    return m_placeOfIssue;
+}
+
+const boost::gregorian::date& VisaDetails::issueDate() const
+{
+    return m_issueDate;
+}
+
+const boost::gregorian::date& VisaDetails::expiryDate() const
+{
+    return m_expiryDate;
+}
+
+//---------------------------------------------------------------------------------------
+
 AddressDetails::AddrInfo::AddrInfo(const std::string& type,
                                    const std::string& country,
                                    const std::string& address,
@@ -587,6 +633,20 @@ UpdateAddressDetails::UpdateAddressDetails(UpdateActionCode_e actionCode,
                                            const std::list<AddrInfo> &lAddr)
     : UpdateDetails(actionCode),
       AddressDetails(lAddr)
+{}
+
+//---------------------------------------------------------------------------------------
+
+UpdateVisaDetails::UpdateVisaDetails(UpdateActionCode_e actionCode,
+                                     const std::string& visaType,
+                                     const std::string& issueCountry,
+                                     const std::string& no,
+                                     const std::string& placeOfIssue,
+                                     const boost::gregorian::date& issueDate,
+                                     const boost::gregorian::date& expiryDate)
+    : UpdateDetails(actionCode),
+      VisaDetails(visaType, issueCountry, no,
+                  placeOfIssue, issueDate, expiryDate)
 {}
 
 //---------------------------------------------------------------------------------------
@@ -1236,12 +1296,14 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<ServiceDetails>& service,
                    const boost::optional<DocDetails>& doc,
                    const boost::optional<AddressDetails>& address,
+                   const boost::optional<VisaDetails>& visa,
                    const boost::optional<PaxDetails>& infant,
                    const boost::optional<DocDetails>& infantDoc,
                    const boost::optional<AddressDetails>& infantAddress,
+                   const boost::optional<VisaDetails>& infantVisa,
                    const boost::optional<FlightSeatDetails>& infantSeat)
-    : iatci::PaxGroup(pax, reserv, baggage, service, doc, address,
-                      infant, infantDoc, infantAddress),
+    : iatci::PaxGroup(pax, reserv, baggage, service, doc, address, visa,
+                      infant, infantDoc, infantAddress, infantVisa),
       m_seat(seat), m_infantSeat(infantSeat)
 {}
 
@@ -1588,18 +1650,22 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<ServiceDetails>& service,
                    const boost::optional<DocDetails>& doc,
                    const boost::optional<AddressDetails>& address,
+                   const boost::optional<VisaDetails>& visa,
                    const boost::optional<PaxDetails>& infant,
                    const boost::optional<DocDetails>& infantDoc,
-                   const boost::optional<AddressDetails>& infantAddress)
+                   const boost::optional<AddressDetails>& infantAddress,
+                   const boost::optional<VisaDetails>& infantVisa)
     : m_pax(pax),
       m_reserv(reserv),
       m_baggage(baggage),
       m_service(service),
       m_doc(doc),
       m_address(address),
+      m_visa(visa),
       m_infant(infant),
       m_infantDoc(infantDoc),
-      m_infantAddress(infantAddress)
+      m_infantAddress(infantAddress),
+      m_infantVisa(infantVisa)
 {}
 
 const PaxDetails& PaxGroup::pax() const
@@ -1632,6 +1698,11 @@ const boost::optional<AddressDetails>& PaxGroup::address() const
     return m_address;
 }
 
+const boost::optional<VisaDetails>& PaxGroup::visa() const
+{
+    return m_visa;
+}
+
 const boost::optional<PaxDetails>& PaxGroup::infant() const
 {
     return m_infant;
@@ -1645,6 +1716,11 @@ const boost::optional<DocDetails>& PaxGroup::infantDoc() const
 const boost::optional<AddressDetails>& PaxGroup::infantAddress() const
 {
     return m_infantAddress;
+}
+
+const boost::optional<VisaDetails>& PaxGroup::infantVisa() const
+{
+    return m_infantVisa;
 }
 
 //---------------------------------------------------------------------------------------
@@ -1676,11 +1752,13 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<ServiceDetails>& service,
                    const boost::optional<DocDetails>& doc,
                    const boost::optional<AddressDetails>& address,
+                   const boost::optional<VisaDetails>& visa,
                    const boost::optional<PaxDetails>& infant,
                    const boost::optional<DocDetails>& infantDoc,
-                   const boost::optional<AddressDetails>& infantAddress)
-    : iatci::PaxGroup(pax, reserv, baggage, service, doc, address,
-                      infant, infantDoc, infantAddress),
+                   const boost::optional<AddressDetails>& infantAddress,
+                   const boost::optional<VisaDetails>& infantVisa)
+    : iatci::PaxGroup(pax, reserv, baggage, service, doc, address, visa,
+                      infant, infantDoc, infantAddress, infantVisa),
       m_seat(seat)
 {}
 
@@ -1720,13 +1798,17 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<UpdateServiceDetails>& updService,
                    const boost::optional<UpdateDocDetails>& updDoc,
                    const boost::optional<UpdateAddressDetails>& updAddress,
+                   const boost::optional<UpdateVisaDetails>& updVisa,
                    const boost::optional<UpdatePaxDetails>& updInfant,
                    const boost::optional<UpdateDocDetails>& updInfantDoc,
-                   const boost::optional<UpdateAddressDetails>& updInfantAddress)
-    : iatci::PaxGroup(pax, reserv, baggage, service, boost::none, boost::none, infant),
+                   const boost::optional<UpdateAddressDetails>& updInfantAddress,
+                   const boost::optional<UpdateVisaDetails>& updInfantVisa)
+    : iatci::PaxGroup(pax, reserv, baggage, service, boost::none, boost::none, boost::none, infant),
       m_updPax(updPax), m_updSeat(updSeat), m_updBaggage(updBaggage),
-      m_updService(updService), m_updDoc(updDoc), m_updAddress(updAddress),
-      m_updInfant(updInfant), m_updInfantDoc(updInfantDoc), m_updInfantAddress(updInfantAddress)
+      m_updService(updService), m_updDoc(updDoc),
+      m_updAddress(updAddress), m_updVisa(updVisa),
+      m_updInfant(updInfant), m_updInfantDoc(updInfantDoc),
+      m_updInfantAddress(updInfantAddress), m_updInfantVisa(updInfantVisa)
 {}
 
 const boost::optional<UpdatePaxDetails>& PaxGroup::updPax() const
@@ -1759,6 +1841,11 @@ const boost::optional<UpdateAddressDetails>& PaxGroup::updAddress() const
     return m_updAddress;
 }
 
+const boost::optional<UpdateVisaDetails>& PaxGroup::updVisa() const
+{
+    return m_updVisa;
+}
+
 const boost::optional<UpdatePaxDetails>& PaxGroup::updInfant() const
 {
     return m_updInfant;
@@ -1772,6 +1859,11 @@ const boost::optional<UpdateDocDetails>& PaxGroup::updInfantDoc() const
 const boost::optional<UpdateAddressDetails>& PaxGroup::updInfantAddress() const
 {
     return m_updInfantAddress;
+}
+
+const boost::optional<UpdateVisaDetails>& PaxGroup::updInfantVisa() const
+{
+    return m_updInfantVisa;
 }
 
 //---------------------------------------------------------------------------------------
@@ -1800,7 +1892,8 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<BaggageDetails>& baggage,
                    const boost::optional<ServiceDetails>& service,
                    const boost::optional<PaxDetails>& infant)
-    : iatci::PaxGroup(pax, reserv, baggage, service, boost::none, boost::none, infant),
+    : iatci::PaxGroup(pax, reserv, baggage, service,
+                      boost::none, boost::none, boost::none, infant),
       m_seat(seat)
 {}
 
@@ -1834,7 +1927,8 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<BaggageDetails>& baggage,
                    const boost::optional<ServiceDetails>& service,
                    const boost::optional<PaxDetails>& infant)
-    : iatci::PaxGroup(pax, reserv, baggage, service, boost::none, boost::none, infant)
+    : iatci::PaxGroup(pax, reserv, baggage, service,
+                      boost::none, boost::none, boost::none, infant)
 {}
 
 //---------------------------------------------------------------------------------------

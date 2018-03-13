@@ -133,43 +133,78 @@ struct DocDetails
 {
     friend class boost::serialization::access;
 
-    protected:
-        std::string m_docType;
-        std::string m_issueCountry;
-        std::string m_no;
-        std::string m_surname;
-        std::string m_name;
-        std::string m_secondName;
-        std::string m_gender;
-        std::string m_nationality;
-        boost::gregorian::date m_birthDate;
-        boost::gregorian::date m_expiryDate;
+protected:
+    std::string m_docType;
+    std::string m_issueCountry;
+    std::string m_no;
+    std::string m_surname;
+    std::string m_name;
+    std::string m_secondName;
+    std::string m_gender;
+    std::string m_nationality;
+    boost::gregorian::date m_birthDate;
+    boost::gregorian::date m_expiryDate;
 
-    public:
-        DocDetails(const std::string& docType,
-                   const std::string& issueCountry,
-                   const std::string& no,
-                   const std::string& surname,
-                   const std::string& name,
-                   const std::string& secondName,
-                   const std::string& gender,
-                   const std::string& nationality,
-                   const boost::gregorian::date& birthDate = boost::gregorian::date(),
-                   const boost::gregorian::date& expiryDate = boost::gregorian::date());
+    //std::string
 
-        const std::string& docType() const;
-        const std::string& issueCountry() const;
-        const std::string& no() const;
-        const std::string& surname() const;
-        const std::string& name() const;
-        const std::string& secondName() const;
-        const std::string& gender() const;
-        const std::string& nationality() const;
-        const boost::gregorian::date& birthDate() const;
-        const boost::gregorian::date& expiryDate() const;
+public:
+    DocDetails(const std::string& docType,
+               const std::string& issueCountry,
+               const std::string& no,
+               const std::string& surname,
+               const std::string& name,
+               const std::string& secondName,
+               const std::string& gender,
+               const std::string& nationality,
+               const boost::gregorian::date& birthDate = boost::gregorian::date(),
+               const boost::gregorian::date& expiryDate = boost::gregorian::date());
 
-    protected:
-        DocDetails() {} // for boost serialization only
+    const std::string& docType() const;
+    const std::string& issueCountry() const;
+    const std::string& no() const;
+    const std::string& surname() const;
+    const std::string& name() const;
+    const std::string& secondName() const;
+    const std::string& gender() const;
+    const std::string& nationality() const;
+    const boost::gregorian::date& birthDate() const;
+    const boost::gregorian::date& expiryDate() const;
+
+protected:
+    DocDetails() {} // for boost serialization only
+};
+
+//---------------------------------------------------------------------------------------
+
+struct VisaDetails
+{
+    friend class boost::serialization::access;
+
+protected:
+    std::string m_visaType;
+    std::string m_issueCountry;
+    std::string m_no;
+    std::string m_placeOfIssue;
+    boost::gregorian::date m_issueDate;
+    boost::gregorian::date m_expiryDate;
+
+public:
+    VisaDetails(const std::string& visaType,
+                const std::string& issueCountry,
+                const std::string& no,
+                const std::string& placeOfIssue,
+                const boost::gregorian::date& issueDate = boost::gregorian::date(),
+                const boost::gregorian::date& expiryDate = boost::gregorian::date());
+
+    const std::string& visaType() const;
+    const std::string& issueCountry() const;
+    const std::string& no() const;
+    const std::string& placeOfIssue() const;
+    const boost::gregorian::date& issueDate() const;
+    const boost::gregorian::date& expiryDate() const;
+
+protected:
+    VisaDetails() {} // for boost serialization only
 };
 
 //---------------------------------------------------------------------------------------
@@ -329,6 +364,19 @@ struct UpdateAddressDetails: public UpdateDetails, public AddressDetails
 
     UpdateAddressDetails(UpdateActionCode_e actionCode,
                          const std::list<AddrInfo>& lAddr);
+};
+
+//---------------------------------------------------------------------------------------
+
+struct UpdateVisaDetails: public UpdateDetails, public VisaDetails
+{
+    UpdateVisaDetails(UpdateActionCode_e actionCode,
+                      const std::string& visaType,
+                      const std::string& issueCountry,
+                      const std::string& no,
+                      const std::string& placeOfIssue,
+                      const boost::gregorian::date& issueDate = boost::gregorian::date(),
+                      const boost::gregorian::date& expiryDate = boost::gregorian::date());
 };
 
 //---------------------------------------------------------------------------------------
@@ -1112,9 +1160,11 @@ protected:
     boost::optional<ServiceDetails>     m_service;
     boost::optional<DocDetails>         m_doc;
     boost::optional<AddressDetails>     m_address;
+    boost::optional<VisaDetails>        m_visa;
     boost::optional<PaxDetails>         m_infant;
     boost::optional<DocDetails>         m_infantDoc;
     boost::optional<AddressDetails>     m_infantAddress;
+    boost::optional<VisaDetails>        m_infantVisa;
 
 public:
     PaxGroup(const PaxDetails& pax,
@@ -1123,9 +1173,11 @@ public:
              const boost::optional<ServiceDetails>& service,
              const boost::optional<DocDetails>& doc,
              const boost::optional<AddressDetails>& address,
+             const boost::optional<VisaDetails>& visa,
              const boost::optional<PaxDetails>& infant = boost::none,
              const boost::optional<DocDetails>& infantDoc = boost::none,
-             const boost::optional<AddressDetails>& infantAddress = boost::none);
+             const boost::optional<AddressDetails>& infantAddress = boost::none,
+             const boost::optional<VisaDetails>& infantVisa = boost::none);
 
     const PaxDetails&                          pax() const;
     const boost::optional<ReservationDetails>& reserv() const;
@@ -1133,9 +1185,11 @@ public:
     const boost::optional<ServiceDetails>&     service() const;
     const boost::optional<DocDetails>&         doc() const;
     const boost::optional<AddressDetails>&     address() const;
+    const boost::optional<VisaDetails>&        visa() const;
     const boost::optional<PaxDetails>&         infant() const;
     const boost::optional<DocDetails>&         infantDoc() const;
     const boost::optional<AddressDetails>&     infantAddress() const;
+    const boost::optional<VisaDetails>&        infantVisa() const;
 
 protected:
     PaxGroup() {} // for boost serialization only
@@ -1174,9 +1228,11 @@ public:
              const boost::optional<ServiceDetails>& service,
              const boost::optional<DocDetails>& doc,
              const boost::optional<AddressDetails>& address,
+             const boost::optional<VisaDetails>& visa,
              const boost::optional<PaxDetails>& infant = boost::none,
              const boost::optional<DocDetails>& infantDoc = boost::none,
-             const boost::optional<AddressDetails>& infantAddress = boost::none);
+             const boost::optional<AddressDetails>& infantAddress = boost::none,
+             const boost::optional<VisaDetails>& infantVisa = boost::none);
 
     const boost::optional<SeatDetails>& seat() const;
 };
@@ -1211,11 +1267,13 @@ protected:
     boost::optional<UpdateServiceDetails> m_updService;
     boost::optional<UpdateDocDetails>     m_updDoc;
     boost::optional<UpdateAddressDetails> m_updAddress;
+    boost::optional<UpdateVisaDetails>    m_updVisa;
     boost::optional<UpdatePaxDetails>     m_updInfant;
     boost::optional<UpdateSeatDetails>    m_updInfantSeat;
     boost::optional<UpdateServiceDetails> m_updInfantService;
     boost::optional<UpdateDocDetails>     m_updInfantDoc;
     boost::optional<UpdateAddressDetails> m_updInfantAddress;
+    boost::optional<UpdateVisaDetails>    m_updInfantVisa;
 
 public:
     PaxGroup(const PaxDetails& pax,
@@ -1229,9 +1287,11 @@ public:
              const boost::optional<UpdateServiceDetails>& updService,
              const boost::optional<UpdateDocDetails>& updDoc,
              const boost::optional<UpdateAddressDetails>& updAddress,
+             const boost::optional<UpdateVisaDetails>& updVisa,
              const boost::optional<UpdatePaxDetails>& updInfant = boost::none,
              const boost::optional<UpdateDocDetails>& updInfantDoc = boost::none,
-             const boost::optional<UpdateAddressDetails>& updInfantAddress = boost::none);
+             const boost::optional<UpdateAddressDetails>& updInfantAddress = boost::none,
+             const boost::optional<UpdateVisaDetails>& updInfantVisa = boost::none);
 
     const boost::optional<UpdatePaxDetails>&     updPax() const;
     const boost::optional<UpdateSeatDetails>&    updSeat() const;
@@ -1239,9 +1299,11 @@ public:
     const boost::optional<UpdateServiceDetails>& updService() const;
     const boost::optional<UpdateDocDetails>&     updDoc() const;
     const boost::optional<UpdateAddressDetails>& updAddress() const;
+    const boost::optional<UpdateVisaDetails>&    updVisa() const;
     const boost::optional<UpdatePaxDetails>&     updInfant() const;
     const boost::optional<UpdateDocDetails>&     updInfantDoc() const;
     const boost::optional<UpdateAddressDetails>& updInfantAddress() const;
+    const boost::optional<UpdateVisaDetails>&    updInfantVisa() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -1576,9 +1638,11 @@ public:
              const boost::optional<ServiceDetails>& service,
              const boost::optional<DocDetails>& doc,
              const boost::optional<AddressDetails>& address,
+             const boost::optional<VisaDetails>& visa,
              const boost::optional<PaxDetails>& infant = boost::none,
              const boost::optional<DocDetails>& infantDoc = boost::none,
              const boost::optional<AddressDetails>& infantAddress = boost::none,
+             const boost::optional<VisaDetails>& infantVisa = boost::none,
              const boost::optional<FlightSeatDetails>& infantSeat = boost::none);
 
     const boost::optional<FlightSeatDetails>& seat() const;

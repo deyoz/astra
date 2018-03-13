@@ -54,6 +54,7 @@ iatci::BaggageDetails          makeBaggage(const edifact::PbdElem& pbd);
 iatci::ServiceDetails          makeService(const edifact::PsiElem& psi);
 iatci::DocDetails              makeDoc(const edifact::PapElem& pap);
 iatci::AddressDetails          makeAddress(const edifact::AddElem& add);
+iatci::VisaDetails             makeVisa(const edifact::PapElem& pap);
 iatci::OriginatorDetails       makeOrg(const edifact::LorElem& lor);
 iatci::CascadeHostDetails      makeCascade(const edifact::ChdElem& chd);
 iatci::FlightDetails           makeOutboundFlight(const edifact::FdqElem& fdq);
@@ -74,6 +75,7 @@ iatci::UpdateBaggageDetails    makeUpdBaggage(const edifact::UbdElem& ubd);
 iatci::UpdateServiceDetails    makeUpdService(const edifact::UsiElem& usi);
 iatci::UpdateDocDetails        makeUpdDoc(const edifact::UapElem& uap);
 iatci::UpdateAddressDetails    makeUpdAddress(const edifact::AddElem& add);
+iatci::UpdateVisaDetails       makeUpdVisa(const edifact::UapElem& uap);
 
 //---------------------------------------------------------------------------------------
 
@@ -96,6 +98,7 @@ boost::optional<iatci::BaggageDetails>     makeBaggage(const astra_api::astra_en
 boost::optional<iatci::DocDetails>         makeDoc(const astra_api::astra_entities::PaxInfo& pax);
 iatci::AddressDetails::AddrInfo            makeAddrInfo(const astra_api::astra_entities::AddressInfo& address);
 boost::optional<iatci::AddressDetails>     makeAddress(const astra_api::astra_entities::PaxInfo& pax);
+boost::optional<iatci::VisaDetails>        makeVisa(const astra_api::astra_entities::PaxInfo& pax);
 boost::optional<iatci::CascadeHostDetails> makeCascade();
 
 iatci::UpdatePaxDetails makeUpdPax(const astra_api::astra_entities::PaxInfo& newPax,
@@ -106,6 +109,8 @@ iatci::UpdateServiceDetails::UpdSsrInfo makeUpdSsrFqt(const astra_api::astra_ent
                                                       iatci::UpdateDetails::UpdateActionCode_e act);
 iatci::UpdateDocDetails makeUpdDoc(const astra_api::astra_entities::DocInfo& doc,
                                    iatci::UpdateDetails::UpdateActionCode_e act);
+iatci::UpdateVisaDetails makeUpdVisa(const astra_api::astra_entities::VisaInfo& visa,
+                                     iatci::UpdateDetails::UpdateActionCode_e act);
 iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::BagPool& bagPool,
                                            const astra_api::astra_entities::BagPool& handBagPool,
                                            const std::list<astra_api::astra_entities::BaggageTag>& bagTags);

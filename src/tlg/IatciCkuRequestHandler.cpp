@@ -83,9 +83,11 @@ public:
         boost::optional<iatci::UpdateServiceDetails> makeUpdService() const;
         boost::optional<iatci::UpdateDocDetails>     makeUpdDoc() const;
         boost::optional<iatci::UpdateAddressDetails> makeUpdAddress() const;
+        boost::optional<iatci::UpdateVisaDetails>    makeUpdVisa() const;
         boost::optional<iatci::UpdatePaxDetails>     makeUpdInfant() const;
         boost::optional<iatci::UpdateDocDetails>     makeUpdInfantDoc() const;
         boost::optional<iatci::UpdateAddressDetails> makeUpdInfantAddress() const;
+        boost::optional<iatci::UpdateVisaDetails>    makeUpdInfantVisa() const;
     };
 
     //-----------------------------------------------------------------------------------
@@ -282,9 +284,11 @@ iatci::dcqcku::PaxGroup IatciCkuParamsMaker::Pxg::makePaxGroup() const
                                    makeUpdService(),
                                    makeUpdDoc(),
                                    makeUpdAddress(),
+                                   makeUpdVisa(),
                                    makeUpdInfant(),
                                    makeUpdInfantDoc(),
-                                   makeUpdInfantAddress());
+                                   makeUpdInfantAddress(),
+                                   makeUpdInfantVisa());
 }
 
 boost::optional<iatci::ReservationDetails> IatciCkuParamsMaker::Pxg::makeReserv() const
@@ -361,7 +365,7 @@ boost::optional<iatci::UpdateServiceDetails> IatciCkuParamsMaker::Pxg::makeUpdSe
 
 boost::optional<iatci::UpdateDocDetails> IatciCkuParamsMaker::Pxg::makeUpdDoc() const
 {
-    if(m_uap && !m_uap->isGroupHeader()) {
+    if(m_uap && !m_uap->isGroupHeader() && m_uap->findDoc()) {
         return iatci::makeUpdDoc(*m_uap);
     }
 
@@ -372,6 +376,15 @@ boost::optional<iatci::UpdateAddressDetails> IatciCkuParamsMaker::Pxg::makeUpdAd
 {
     if(m_add) {
         return iatci::makeUpdAddress(*m_add);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::UpdateVisaDetails> IatciCkuParamsMaker::Pxg::makeUpdVisa() const
+{
+    if(m_uap && !m_uap->isGroupHeader() && m_uap->findVisa()) {
+        return iatci::makeUpdVisa(*m_uap);
     }
 
     return boost::none;
@@ -388,7 +401,7 @@ boost::optional<iatci::UpdatePaxDetails> IatciCkuParamsMaker::Pxg::makeUpdInfant
 
 boost::optional<iatci::UpdateDocDetails> IatciCkuParamsMaker::Pxg::makeUpdInfantDoc() const
 {
-    if(m_uapInfant && !m_uapInfant->isGroupHeader()) {
+    if(m_uapInfant && !m_uapInfant->isGroupHeader() && m_uapInfant->findDoc()) {
         return iatci::makeUpdDoc(*m_uapInfant);
     }
 
@@ -399,6 +412,15 @@ boost::optional<iatci::UpdateAddressDetails> IatciCkuParamsMaker::Pxg::makeUpdIn
 {
     if(m_addInfant) {
         return iatci::makeUpdAddress(*m_addInfant);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::UpdateVisaDetails> IatciCkuParamsMaker::Pxg::makeUpdInfantVisa() const
+{
+    if(m_uapInfant && !m_uapInfant->isGroupHeader() && m_uapInfant->findVisa()) {
+        return iatci::makeUpdVisa(*m_uapInfant);
     }
 
     return boost::none;

@@ -81,13 +81,13 @@ void CkuRequest::collectMessage()
         }
 
         int curApg = 0;
-        if(pxg.updDoc() || pxg.updAddress()) {
+        if(pxg.updDoc() || pxg.updVisa() || pxg.updAddress()) {
             PushEdiPointW(pMes());
             edilib::SetEdiSegGr(pMes(), SegGrElement(3, curApg));
             SetEdiPointToSegGrW(pMes(), SegGrElement(3, curApg), "SegGr3(apg) not found");
 
-            if(pxg.updDoc()) {
-                viewUapElement(pMes(), *pxg.updDoc(), pxg.pax());
+            if(pxg.updDoc() || pxg.updVisa()) {
+                viewUapElement(pMes(), pxg.pax(), pxg.updDoc(), pxg.updVisa());
             } else {
                 viewUapElement(pMes(), false/*not-infant*/);
             }
@@ -100,14 +100,14 @@ void CkuRequest::collectMessage()
             curApg++;
         }
 
-        if(pxg.updInfantDoc() || pxg.updInfantAddress()) {
+        if(pxg.updInfantDoc() || pxg.updInfantVisa() || pxg.updInfantAddress()) {
             ASSERT(pxg.infant());
             PushEdiPointW(pMes());
             SetEdiSegGr(pMes(), SegGrElement(3, curApg));
             SetEdiPointToSegGrW(pMes(), SegGrElement(3, curApg), "SegGr3(apg) not found");
 
-            if(pxg.updInfantDoc()) {
-                viewUapElement(pMes(), *pxg.updInfantDoc(), *pxg.infant());
+            if(pxg.updInfantDoc() || pxg.updInfantVisa()) {
+                viewUapElement(pMes(), *pxg.infant(), pxg.updInfantDoc(), pxg.updInfantVisa());
             } else {
                 viewUapElement(pMes(), true/*infant*/);
             }

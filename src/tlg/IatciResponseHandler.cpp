@@ -56,9 +56,11 @@ public:
         boost::optional<iatci::BaggageDetails>     makeBaggage() const;
         boost::optional<iatci::DocDetails>         makeDoc() const;
         boost::optional<iatci::AddressDetails>     makeAddress() const;
+        boost::optional<iatci::VisaDetails>        makeVisa() const;
         boost::optional<iatci::PaxDetails>         makeInfant() const;
         boost::optional<iatci::DocDetails>         makeInfantDoc() const;
         boost::optional<iatci::AddressDetails>     makeInfantAddress() const;
+        boost::optional<iatci::VisaDetails>        makeInfantVisa() const;
         boost::optional<iatci::FlightSeatDetails>  makeInfantSeat() const;
     };
 
@@ -282,9 +284,11 @@ iatci::dcrcka::PaxGroup IatciResultMaker::Pxg::makePaxGroup() const
                                    makeService(),
                                    makeDoc(),
                                    makeAddress(),
+                                   makeVisa(),
                                    makeInfant(),
                                    makeInfantDoc(),
                                    makeInfantAddress(),
+                                   makeInfantVisa(),
                                    makeInfantSeat());
 }
 
@@ -323,7 +327,7 @@ boost::optional<iatci::BaggageDetails> IatciResultMaker::Pxg::makeBaggage() cons
 
 boost::optional<iatci::DocDetails> IatciResultMaker::Pxg::makeDoc() const
 {
-    if(m_pap) {
+    if(m_pap && m_pap->findDoc()) {
         return iatci::makeDoc(*m_pap);
     }
 
@@ -334,6 +338,15 @@ boost::optional<iatci::AddressDetails> IatciResultMaker::Pxg::makeAddress() cons
 {
     if(m_add) {
         return iatci::makeAddress(*m_add);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::VisaDetails> IatciResultMaker::Pxg::makeVisa() const
+{
+    if(m_pap && m_pap->findVisa()) {
+        return iatci::makeVisa(*m_pap);
     }
 
     return boost::none;
@@ -350,7 +363,7 @@ boost::optional<iatci::PaxDetails> IatciResultMaker::Pxg::makeInfant() const
 
 boost::optional<iatci::DocDetails> IatciResultMaker::Pxg::makeInfantDoc() const
 {
-    if(m_papInfant) {
+    if(m_papInfant && m_papInfant->findDoc()) {
         return iatci::makeDoc(*m_papInfant);
     }
 
@@ -361,6 +374,15 @@ boost::optional<iatci::AddressDetails> IatciResultMaker::Pxg::makeInfantAddress(
 {
     if(m_addInfant) {
         return iatci::makeAddress(*m_addInfant);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::VisaDetails> IatciResultMaker::Pxg::makeInfantVisa() const
+{
+    if(m_papInfant && m_papInfant->findVisa()) {
+        return iatci::makeVisa(*m_papInfant);
     }
 
     return boost::none;

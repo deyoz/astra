@@ -122,7 +122,7 @@ struct DocInfo
             const boost::gregorian::date& birthDate,
             const std::string& gender);
 
-    std::string id() const { return m_type + m_num; }
+    std::string id() const { return m_type; }
 };
 
 bool operator==(const DocInfo& left, const DocInfo& right);
@@ -168,8 +168,21 @@ bool operator!=(const Addresses& left, const Addresses& right);
 
 struct VisaInfo
 {
-    // TODO
-    std::string id() const { return "visa_id"; }
+    std::string            m_type;
+    std::string            m_country;
+    std::string            m_num;
+    std::string            m_placeOfIssue;
+    boost::gregorian::date m_issueDate;
+    boost::gregorian::date m_expiryDate;
+
+    VisaInfo(const std::string& type,
+             const std::string& country,
+             const std::string& num,
+             const std::string& placeOfIssue,
+             const boost::gregorian::date& issueDate,
+             const boost::gregorian::date& expiryDate);
+
+    std::string id() const { return m_type; }
 };
 
 bool operator==(const VisaInfo& left, const VisaInfo& right);
@@ -231,6 +244,7 @@ struct PaxInfo
             const Ticketing::SubClass& subclass,
             const boost::optional<DocInfo>& doc,
             const boost::optional<Addresses>& addrs,
+            const boost::optional<VisaInfo>& visa,
             const boost::optional<Remarks>& rems = boost::none,
             const boost::optional<FqtRemarks>& fqtRems = boost::none,
             int bagPoolNum = 0,
@@ -377,6 +391,20 @@ struct XmlPaxAddresses
 
 //---------------------------------------------------------------------------------------
 
+struct XmlPaxVisa
+{
+    std::string type;
+    std::string no;
+    std::string issue_place;
+    std::string issue_date;
+    std::string expiry_date;
+    std::string applic_country;
+
+    astra_entities::VisaInfo toVisa() const;
+};
+
+//---------------------------------------------------------------------------------------
+
 struct XmlRem
 {
     std::string rem_code;
@@ -450,6 +478,7 @@ struct XmlPax
     int         iatci_parent_id;
     boost::optional<XmlPaxDoc> doc;
     boost::optional<XmlPaxAddresses> addrs;
+    boost::optional<XmlPaxVisa> visa;
     boost::optional<XmlRems> rems;
     boost::optional<XmlFqtRems> fqt_rems;
 
@@ -960,6 +989,8 @@ public:
     static XmlPaxAddress                 readAddress(xmlNodePtr addrNode);
     static XmlPaxAddresses               readAddresses(xmlNodePtr addrsNode);
 
+    static XmlPaxVisa                    readVisa(xmlNodePtr visaNode);
+
     static XmlPax                        readPax(xmlNodePtr paxNode);
     static std::list<XmlPax>             readPaxes(xmlNodePtr paxesNode);
 
@@ -1021,6 +1052,8 @@ public:
 
     static xmlNodePtr viewAddress(xmlNodePtr node, const XmlPaxAddress& addr);
     static xmlNodePtr viewAddresses(xmlNodePtr node, const XmlPaxAddresses& addrs);
+
+    static xmlNodePtr viewVisa(xmlNodePtr node, const XmlPaxVisa& visa);
 
     static xmlNodePtr viewPax(xmlNodePtr node, const XmlPax& pax);
 

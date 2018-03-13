@@ -71,13 +71,13 @@ void CkiRequest::collectMessage()
         }
 
         int curApg = 0;
-        if(pxg.doc() || pxg.address()) {
+        if(pxg.doc() || pxg.visa() || pxg.address()) {
             PushEdiPointW(pMes());
             edilib::SetEdiSegGr(pMes(), SegGrElement(3, curApg));
             edilib::SetEdiPointToSegGrW(pMes(), SegGrElement(3, curApg), "SegGr3(apg) not found");
 
-            if(pxg.doc()) {
-                viewPapElement(pMes(), *pxg.doc(), pxg.pax());
+            if(pxg.doc() || pxg.visa()) {
+                viewPapElement(pMes(), pxg.pax(), pxg.doc(), pxg.visa());
             } else {
                 viewPapElement(pMes(), false/*not-infant*/);
             }
@@ -90,15 +90,15 @@ void CkiRequest::collectMessage()
             curApg++;
         }
 
-        if(pxg.infantDoc() || pxg.infantAddress()) {
+        if(pxg.infantDoc() || pxg.infantVisa() || pxg.infantAddress()) {
             ASSERT(pxg.infant());
 
             PushEdiPointW(pMes());
             edilib::SetEdiSegGr(pMes(), SegGrElement(3, curApg));
             edilib::SetEdiPointToSegGrW(pMes(), SegGrElement(3, curApg), "SegGr3(apg) not found");
 
-            if(pxg.infantAddress()) {
-                viewPapElement(pMes(), *pxg.infantDoc(), *pxg.infant());
+            if(pxg.infantAddress() || pxg.infantVisa()) {
+                viewPapElement(pMes(), *pxg.infant(), pxg.infantDoc(), pxg.infantVisa());
             } else {
                 viewPapElement(pMes(), true/*infant*/);
             }

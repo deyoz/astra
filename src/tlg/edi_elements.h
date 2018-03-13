@@ -1000,17 +1000,28 @@ struct RodElem
 ///@class PapElem - Passenger API/DOT information --PAP
 struct PapElem
 {
-    std::string   m_type;
-    Dates::Date_t m_birthDate;
-    std::string   m_nationality;
-    std::string   m_docQualifier;
-    std::string   m_docNumber;
-    std::string   m_placeOfIssue;
-    Dates::Date_t m_expiryDate;
-    std::string   m_gender;
-    std::string   m_surname;
-    std::string   m_name;
-    std::string   m_otherName;
+    struct PapDoc
+    {
+        std::string   m_docQualifier;
+        std::string   m_docNumber;
+        std::string   m_placeOfIssue;
+        std::string   m_freeText;
+        Dates::Date_t m_expiryDate;
+        std::string   m_gender;
+        std::string   m_cityOfIssue;
+        Dates::Date_t m_issueDate;
+        std::string   m_surname;
+        std::string   m_name;
+        std::string   m_otherName;
+    };
+
+    std::string       m_type;
+    Dates::Date_t     m_birthDate;
+    std::string       m_nationality;
+    std::list<PapDoc> m_docs;
+
+    boost::optional<PapDoc> findVisa() const;
+    boost::optional<PapDoc> findDoc() const;
 };
 
 //---------------------------------------------------------------------------------------

@@ -8,6 +8,9 @@
 #include <boost/serialization/split_free.hpp>
 #include <boost/serialization/list.hpp>
 #include <boost/serialization/optional.hpp>
+#include <boost/date_time/gregorian/greg_serialize.hpp>
+#include <boost/date_time/posix_time/time_serialize.hpp>
+
 
 namespace boost
 {
@@ -53,15 +56,9 @@ inline void save(Archive& ar, const iatci::FlightDetails& par, const unsigned in
     FlightDetailsAccessor acc(par);
     ar & acc.m_airline;
     ar & acc.m_depPort & acc.m_arrPort & acc.m_gate;
-    std::string depDate = Dates::ddmmyyyy(acc.m_depDate),
-                arrDate = Dates::ddmmyyyy(acc.m_arrDate);
-    std::string depTime = Dates::hh24mi(acc.m_depTime),
-                arrTime = Dates::hh24mi(acc.m_arrTime),
-                brdTime = Dates::hh24mi(acc.m_boardingTime);
+    ar & acc.m_depDate & acc.m_arrDate;
+    ar & acc.m_depTime & acc.m_arrTime & acc.m_boardingTime;
 
-    ar & depDate & depTime;
-    ar & arrDate & arrTime;
-    ar & brdTime;
     unsigned flNum = acc.m_flightNum.get();
     ar & flNum;
 }
@@ -72,18 +69,9 @@ inline void load(Archive& ar, iatci::FlightDetails& par, const unsigned int vers
     FlightDetailsAccessor acc;
     ar & acc.m_airline;
     ar & acc.m_depPort & acc.m_arrPort & acc.m_gate;
-    std::string depDate, arrDate;
-    std::string depTime, arrTime;
-    std::string brdTime;
-    ar & depDate & depTime;
-    ar & arrDate & arrTime;
-    ar & brdTime;
+    ar & acc.m_depDate & acc.m_arrDate;
+    ar & acc.m_depTime & acc.m_arrTime & acc.m_boardingTime;
 
-    acc.m_depDate = Dates::ddmmyyyy(depDate);
-    acc.m_arrDate = Dates::ddmmyyyy(arrDate);
-    acc.m_depTime = Dates::hh24mi(depTime);
-    acc.m_arrTime = Dates::hh24mi(arrTime);
-    acc.m_boardingTime = Dates::hh24mi(brdTime);
     unsigned flNum = 0;
     ar & flNum;
     acc.m_flightNum = Ticketing::FlightNum_t(flNum);
@@ -160,10 +148,7 @@ template<class Archive>
 inline void save(Archive& ar, const iatci::DocDetails& par, const unsigned int version)
 {
     DocDetailsAccessor acc(par);
-    std::string bd = Dates::ddmmyyyy(acc.m_birthDate),
-                ed = Dates::ddmmyyyy(acc.m_expiryDate);
-
-    ar & bd & ed & acc.m_docType;
+    ar & acc.m_birthDate & acc.m_expiryDate & acc.m_docType;
     ar & acc.m_gender & acc.m_issueCountry & acc.m_name;
     ar & acc.m_nationality & acc.m_no & acc.m_surname;
     ar & acc.m_secondName;
@@ -175,12 +160,10 @@ inline void load(Archive& ar, iatci::DocDetails& par, const unsigned int version
     DocDetailsAccessor acc;
     std::string bd, ed;
 
-    ar & bd & ed & acc.m_docType;
+    ar & acc.m_birthDate & acc.m_expiryDate & acc.m_docType;
     ar & acc.m_gender & acc.m_issueCountry & acc.m_name;
     ar & acc.m_nationality & acc.m_no & acc.m_surname;
     ar & acc.m_secondName;
-    acc.m_birthDate  = Dates::ddmmyyyy(bd);
-    acc.m_expiryDate = Dates::ddmmyyyy(ed);
     par = acc.get();
 }
 
@@ -420,6 +403,35 @@ inline void serialize(Archive& ar, iatci::BaggageDetails& par, const unsigned in
 
 namespace {
 
+/*****
+ * AddrInfoAccessor
+ *****/
+class AddrInfoAccessor: private iatci::AddressDetails::AddrInfo
+{
+public:
+    // for save
+    explicit AddrInfoAccessor(const iatci::AddressDetails::AddrInfo& r)
+        : iatci::AddressDetails::AddrInfo(r)
+    {}
+
+    // for load
+    AddrInfoAccessor()
+    {}
+
+    const iatci::AddressDetails::AddrInfo& get() const { return *this; }
+
+    using iatci::AddressDetails::AddrInfo::m_type;
+    using iatci::AddressDetails::AddrInfo::m_country;
+    using iatci::AddressDetails::AddrInfo::m_address;
+    using iatci::AddressDetails::AddrInfo::m_city;
+    using iatci::AddressDetails::AddrInfo::m_region;
+    using iatci::AddressDetails::AddrInfo::m_postalCode;
+
+};
+
+/*****
+ * AddressDetailsAccessor
+ *****/
 class AddressDetailsAccessor: private iatci::AddressDetails
 {
 public:
@@ -434,10 +446,37 @@ public:
 
     const iatci::AddressDetails& get() const { return *this; }
 
-    // TODO
+    using iatci::AddressDetails::m_lAddr;
 };
 
 }//namespace
+
+/*****
+ * AddrInfo
+ *****/
+template<class Archive>
+inline void save(Archive& ar, const iatci::AddressDetails::AddrInfo& par, const unsigned int version)
+{
+    AddrInfoAccessor acc(par);
+    ar & acc.m_type & acc.m_country & acc.m_address;
+    ar & acc.m_city & acc.m_region & acc.m_postalCode;
+}
+
+template<class Archive>
+inline void load(Archive& ar, iatci::AddressDetails::AddrInfo& par, const unsigned int version)
+{
+    AddrInfoAccessor acc;
+    ar & acc.m_type & acc.m_country & acc.m_address;
+    ar & acc.m_city & acc.m_region & acc.m_postalCode;
+    par = acc.get();
+}
+
+template<class Archive>
+inline void serialize(Archive& ar, iatci::AddressDetails::AddrInfo& par, const unsigned int version)
+{
+    boost::serialization::split_free(ar, par, version);
+}
+
 
 /*****
  * AddressDetails
@@ -446,17 +485,73 @@ template<class Archive>
 inline void save(Archive& ar, const iatci::AddressDetails& par, const unsigned int version)
 {
     AddressDetailsAccessor acc(par);
+    ar & acc.m_lAddr;
 }
 
 template<class Archive>
 inline void load(Archive& ar, iatci::AddressDetails& par, const unsigned int version)
 {
     AddressDetailsAccessor acc;
+    ar & acc.m_lAddr;
     par = acc.get();
 }
 
 template<class Archive>
 inline void serialize(Archive& ar, iatci::AddressDetails& par, const unsigned int version)
+{
+    boost::serialization::split_free(ar, par, version);
+}
+
+//---------------------------------------------------------------------------------------
+
+namespace {
+
+class VisaDetailsAccessor: private iatci::VisaDetails
+{
+public:
+    // for save
+    explicit VisaDetailsAccessor(const iatci::VisaDetails& r)
+        : iatci::VisaDetails(r)
+    {}
+
+    // for load
+    VisaDetailsAccessor()
+    {}
+
+    const iatci::VisaDetails& get() const { return *this; }
+
+    using iatci::VisaDetails::m_visaType;
+    using iatci::VisaDetails::m_issueCountry;
+    using iatci::VisaDetails::m_no;
+    using iatci::VisaDetails::m_placeOfIssue;
+    using iatci::VisaDetails::m_expiryDate;
+    using iatci::VisaDetails::m_issueDate;
+};
+
+}//namespace
+
+/*****
+ * VisaDetails
+ *****/
+template<class Archive>
+inline void save(Archive& ar, const iatci::VisaDetails& par, const unsigned int version)
+{
+    VisaDetailsAccessor acc(par);
+    ar & acc.m_visaType & acc.m_issueCountry & acc.m_no;
+    ar & acc.m_placeOfIssue & acc.m_expiryDate & acc.m_issueDate;
+}
+
+template<class Archive>
+inline void load(Archive& ar, iatci::VisaDetails& par, const unsigned int version)
+{
+    VisaDetailsAccessor acc;
+    ar & acc.m_visaType & acc.m_issueCountry & acc.m_no;
+    ar & acc.m_placeOfIssue & acc.m_expiryDate & acc.m_issueDate;
+    par = acc.get();
+}
+
+template<class Archive>
+inline void serialize(Archive& ar, iatci::VisaDetails& par, const unsigned int version)
 {
     boost::serialization::split_free(ar, par, version);
 }
@@ -486,8 +581,11 @@ public:
     using iatci::dcrcka::PaxGroup::m_service;
     using iatci::dcrcka::PaxGroup::m_doc;
     using iatci::dcrcka::PaxGroup::m_address;
+    using iatci::dcrcka::PaxGroup::m_visa;
     using iatci::dcrcka::PaxGroup::m_infant;
     using iatci::dcrcka::PaxGroup::m_infantDoc;
+    using iatci::dcrcka::PaxGroup::m_infantAddress;
+    using iatci::dcrcka::PaxGroup::m_infantVisa;
     using iatci::dcrcka::PaxGroup::m_infantSeat;
 };
 
@@ -501,8 +599,9 @@ inline void save(Archive& ar, const iatci::dcrcka::PaxGroup& par, const unsigned
 {
     PaxGroupAccessor acc(par);
     ar & acc.m_pax & acc.m_reserv & acc.m_seat & acc.m_baggage;
-    ar & acc.m_service & acc.m_doc & acc.m_address & acc.m_infant;
-    ar & acc.m_infantDoc & acc.m_infantSeat;
+    ar & acc.m_service & acc.m_doc & acc.m_address & acc.m_visa & acc.m_infant;
+    ar & acc.m_infantDoc & acc.m_infantAddress & acc.m_infantVisa;
+    ar & acc.m_infantSeat;
 }
 
 template<class Archive>
@@ -510,8 +609,9 @@ inline void load(Archive& ar, iatci::dcrcka::PaxGroup& par, const unsigned int v
 {
     PaxGroupAccessor acc;
     ar & acc.m_pax & acc.m_reserv & acc.m_seat & acc.m_baggage;
-    ar & acc.m_service & acc.m_doc & acc.m_address & acc.m_infant;
-    ar & acc.m_infantDoc & acc.m_infantSeat;
+    ar & acc.m_service & acc.m_doc & acc.m_address & acc.m_visa & acc.m_infant;
+    ar & acc.m_infantDoc & acc.m_infantAddress & acc.m_infantVisa;
+    ar & acc.m_infantSeat;
     par = acc.get();
 }
 
