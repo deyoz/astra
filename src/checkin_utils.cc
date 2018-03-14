@@ -8,6 +8,7 @@
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "ANNA"
+#include <serverlib/slogger.h>
 
 #include "serverlib/test.h"
 
@@ -16,6 +17,131 @@ using namespace ASTRA;
 using namespace AstraLocale;
 using namespace BASIC::date_time;
 using namespace SALONS2;
+
+namespace CheckIn
+{
+
+void RegNoGenerator::getUsedRegNo(std::set<UsedRegNo> &usedRegNo) const
+{
+  usedRegNo.clear();
+
+  TQuery Qry(&OraSession);
+  if (_type==Negative)
+    Qry.SQLText=
+        "SELECT pax.reg_no, pax.grp_id FROM pax_grp, pax "
+        "WHERE pax_grp.grp_id=pax.grp_id AND reg_no<0 AND point_dep=:point_id ";
+  else
+    Qry.SQLText=
+        "SELECT pax.reg_no, pax.grp_id FROM pax_grp, pax "
+        "WHERE pax_grp.grp_id=pax.grp_id AND reg_no>0 AND point_dep=:point_id ";
+  Qry.CreateVariable("point_id", otInteger, _point_id);
+  Qry.Execute();
+
+  for(; !Qry.Eof; Qry.Next())
+  {
+    int reg_no=Qry.FieldAsInteger("reg_no");
+    int grp_id=Qry.FieldAsInteger("grp_id");
+    if ((_type==Negative && (reg_no<-_maxAbsRegNo || reg_no>=0))||
+        (_type==Positive && (reg_no<=0 || reg_no>_maxAbsRegNo)))
+    {
+      LogError(STDLOG) << __FUNCTION__ << ": wrong reg_no=" << reg_no << "!";
+      continue;
+    }
+    if (!usedRegNo.emplace(_type==Negative?-reg_no:reg_no, grp_id).second)
+      LogError(STDLOG) << __FUNCTION__ << ": reg_no=" << reg_no << " duplicated!";
+  }
+}
+
+void RegNoGenerator::fillUnusedRanges(const std::set<UsedRegNo> &usedRegNo)
+{
+  unusedRanges.clear();
+  lastUnusedRange=boost::none;
+
+  UsedRegNo prior(0, ASTRA::NoExists);
+  for(const UsedRegNo& curr : usedRegNo)
+  {
+    if (prior.hasGap(curr) && curr.value!=prior.value+1)
+      unusedRanges.emplace(prior.value+1, curr.value-1);
+    prior=curr;
+  }
+
+  if (prior.value<_maxAbsRegNo)
+  {
+    lastUnusedRange=RegNoRange(prior.value+1, _maxAbsRegNo);
+    unusedRanges.insert(lastUnusedRange.get());
+  }
+}
+
+void RegNoGenerator::traceUnusedRanges() const
+{
+  ostringstream s;
+  for(const RegNoRange& range : unusedRanges)
+    s << traceStr(range) << " ";
+  LogTrace(TRACE5) << s.str();
+}
+
+RegNoGenerator::RegNoGenerator(int point_id, Type type, int maxAbsRegNo) :
+  _point_id(point_id), _type(type), _maxAbsRegNo(abs(maxAbsRegNo))
+{
+  set<UsedRegNo> usedRegNo;
+  getUsedRegNo(usedRegNo);
+  fillUnusedRanges(usedRegNo);
+}
+
+RegNoGenerator::RegNoGenerator(const std::set<UsedRegNo> &usedRegNo, Type type, int maxAbsRegNo) :
+  _point_id(ASTRA::NoExists), _type(type), _maxAbsRegNo(abs(maxAbsRegNo))
+{
+  fillUnusedRanges(usedRegNo);
+}
+
+boost::optional<RegNoRange> RegNoGenerator::getRange(int count, Strategy strategy) const
+{
+  if (count<=0 || unusedRanges.empty()) return boost::none;
+  try
+  {
+    if (strategy==AbsoluteDefragAtLast ||
+        strategy==DefragAtLast)
+    {
+      if (lastUnusedRange && lastUnusedRange.get().count>=count)
+        throw lastUnusedRange.get();
+    }
+
+    std::set<RegNoRange>::const_iterator r=unusedRanges.lower_bound(RegNoRange(1,count));
+    for(; r!=unusedRanges.end(); ++r)
+    {
+      const RegNoRange& range=*r;
+      if ((strategy==AbsoluteDefragAnytime ||
+           strategy==AbsoluteDefragAtLast) && range.count!=count) break;
+      if (range.count>=count) throw range;
+    }
+
+    if (strategy==AbsoluteDefragAnytime)
+    {
+      if (lastUnusedRange && lastUnusedRange.get().count>=count)
+        throw lastUnusedRange.get();
+    }
+  }
+  catch(RegNoRange &result)
+  {
+    if (_type==Negative) result.first_no=-result.first_no;
+    return result;
+  }
+
+  return boost::none;
+}
+
+std::string RegNoGenerator::traceStr(const boost::optional<RegNoRange>& range)
+{
+  ostringstream s;
+  if (!range)
+    s << "[boost::none]";
+  else
+    s << "[" << range.get().first_no << ":"
+      << range.get().first_no+(range.get().first_no<0?-1:1)*(range.get().count-1) << "]";
+  return s.str();
+}
+
+} //namespace CheckIn
 
 bool TWebPaxFromReq::mergePaxFQT(set<CheckIn::TPaxFQTItem> &fqts) const
 {
