@@ -3421,6 +3421,45 @@ static void transformSavePaxRequestByIatci(xmlNodePtr reqNode, int grpId)
     }
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////
+
+namespace iatci {
+
+TSegInfo makeSegInfo(const astra_api::xml_entities::XmlCheckInTab& tab)
+{
+    TSegInfo seg = {};
+    seg.point_dep       = tab.xmlSeg().seg_info.point_dep;
+    seg.point_arv       = tab.xmlSeg().seg_info.point_arv;
+    seg.airp_dep        = tab.xmlSeg().seg_info.airp_dep;
+    seg.airp_arv        = tab.xmlSeg().seg_info.airp_arv;
+
+    seg.fltInfo.airline = tab.xmlSeg().trip_header.airline;
+    seg.fltInfo.flt_no  = tab.xmlSeg().trip_header.flt_no;
+    seg.fltInfo.suffix  = tab.xmlSeg().trip_header.suffix;
+    seg.fltInfo.airp    = tab.xmlSeg().trip_header.airp;
+    seg.fltInfo.scd_out = tab.xmlSeg().trip_header.scd_out_local;
+    return seg;
+}
+
+std::vector<TSegInfo> readIatciSegs(int grpId)
+{
+    using namespace astra_api::xml_entities;
+    LogTrace(TRACE3) << __FUNCTION__ << " by grp_id:" << grpId;
+    std::string loaded = iatci::IatciXmlDb::load(grpId);
+    if(loaded.empty()) return {};
+    XMLDoc loadedDoc = ASTRA::createXmlDoc(loaded);
+    XmlCheckInTabs tabs(findNodeR(loadedDoc.docPtr()->children, "segments"));
+    std::vector<TSegInfo> iatciSegs;
+    for(const XmlCheckInTab& tab: tabs.tabs()) {
+        iatciSegs.push_back(makeSegInfo(tab));
+    }
+    return iatciSegs;
+}
+
+}//namespace iatci
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
 void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     SavePax(reqNode, NULL, resNode);
@@ -5610,7 +5649,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           SaveTransfer(grp.id,trfer,trfer_segs,pr_unaccomp,seg_no, tlocale);
           if (!tlocale.lexema_id.empty()) reqInfo->LocaleToLog(tlocale);
         }
-        SaveTCkinSegs(grp.id,reqNode,segs,seg_no, tlocale);
+        std::vector<TSegInfo> iatciSegs = iatci::readIatciSegs(grp.id);
+        SaveTCkinSegs(grp.id,reqNode,segs,seg_no, iatciSegs, tlocale);
         if (!tlocale.lexema_id.empty()) reqInfo->LocaleToLog(tlocale);
         if (!inbound_trfer_conflicts.empty())
           ConflictReasonsToLog(inbound_trfer_conflicts, tlocale);
@@ -7498,7 +7538,30 @@ void CheckInInterface::SavePaxTransfer(int pax_id, int pax_no, const vector<Chec
   TrferQry.Close();
 }
 
-void CheckInInterface::SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const map<int,TSegInfo> &segs, int seg_no, TLogLocale& tlocale)
+static void FormatTCkinSeg(PrmEnum& routeFmt, const TSegInfo& seg)
+{
+    TDateTime local_scd = seg.fltInfo.scd_out;
+    bool utc2local = (seg.point_dep > 0); /*true for non-iatci seg*/
+    if(utc2local) {
+        local_scd = UTCToLocal(seg.fltInfo.scd_out, AirpTZRegion(seg.fltInfo.airp));
+        modf(local_scd, &local_scd);
+    }
+
+    routeFmt.prms << PrmSmpl<string>("", " -> ")
+                  << PrmFlight("", seg.fltInfo.airline, seg.fltInfo.flt_no, seg.fltInfo.suffix)
+                  << PrmSmpl<string>("", "/")
+                  << PrmDate("", local_scd, "dd") << PrmSmpl<string>("", ":")
+                  << PrmElem<string>("",  etAirp, seg.fltInfo.airp)
+                  << PrmSmpl<string>("", "-")
+                  << PrmElem<string>("", etAirp, seg.airp_arv);
+}
+
+void CheckInInterface::SaveTCkinSegs(int grp_id,
+                                     xmlNodePtr segsNode,
+                                     const map<int,TSegInfo>&segs,
+                                     int seg_no,
+                                     const vector<TSegInfo>& iatciSegs,
+                                     TLogLocale& tlocale)
 {
   tlocale.lexema_id.clear();
   tlocale.prms.clearPrms();
@@ -7530,83 +7593,93 @@ void CheckInInterface::SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const map<
 
   for(;segNode!=NULL&&seg_no>1;segNode=segNode->next,seg_no--);
   if (segNode==NULL) return;
+
   segNode=segNode->next;
-  if (segNode==NULL) return;
 
-  Qry.Clear();
-  Qry.SQLText=
-    "DECLARE "
-    "  pass BINARY_INTEGER; "
-    "BEGIN "
-    "  :bind_flt:=0; "
-    "  FOR pass IN 1..2 LOOP "
-    "    BEGIN "
-    "      SELECT point_id INTO :point_id_trfer FROM trfer_trips "
-    "      WHERE scd=:scd AND airline=:airline AND flt_no=:flt_no AND airp_dep=:airp_dep AND "
-    "            (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) FOR UPDATE; "
-    "      EXIT; "
-    "    EXCEPTION "
-    "      WHEN NO_DATA_FOUND THEN "
-    "        SELECT cycle_id__seq.nextval INTO :point_id_trfer FROM dual; "
-    "        BEGIN "
-    "          INSERT INTO trfer_trips(point_id,airline,flt_no,suffix,scd,airp_dep,point_id_spp) "
-    "          VALUES (:point_id_trfer,:airline,:flt_no,:suffix,:scd,:airp_dep,NULL); "
-    "          :bind_flt:=1; "
-    "          EXIT; "
-    "        EXCEPTION "
-    "          WHEN DUP_VAL_ON_INDEX THEN "
-    "            IF pass=1 THEN NULL; ELSE RAISE; END IF; "
-    "        END; "
-    "    END; "
-    "  END LOOP; "
-    "  INSERT INTO tckin_segments(grp_id,seg_no,point_id_trfer,airp_arv,pr_final) "
-    "  VALUES(:grp_id,:seg_no,:point_id_trfer,:airp_arv,:pr_final); "
-    "END;";
-  Qry.DeclareVariable("bind_flt",otInteger);
-  Qry.DeclareVariable("point_id_trfer",otInteger);
-  Qry.CreateVariable("grp_id",otInteger,grp_id);
-  Qry.DeclareVariable("seg_no",otInteger);
-  Qry.DeclareVariable("airline",otString);
-  Qry.DeclareVariable("flt_no",otInteger);
-  Qry.DeclareVariable("suffix",otString);
-  Qry.DeclareVariable("scd",otDate);
-  Qry.DeclareVariable("airp_dep",otString);
-  Qry.DeclareVariable("airp_arv",otString);
-  Qry.DeclareVariable("pr_final",otInteger);
-
-  tlocale.lexema_id = "EVT.THROUGH_CHECKIN_PERFORMED";
-  PrmEnum route("route", "");
-  for(seg_no=1;segNode!=NULL;segNode=segNode->next,seg_no++)
+  if (segNode!=NULL || !iatciSegs.empty())
   {
-    map<int,TSegInfo>::const_iterator s=segs.find(NodeAsInteger("point_dep",segNode));
-    if (s==segs.end())
-      throw EXCEPTIONS::Exception("CheckInInterface::SaveTCkinSegs: point_id not found in map segs");
+      tst();
+      tlocale.lexema_id = "EVT.THROUGH_CHECKIN_PERFORMED";
+      PrmEnum route("route", "");
 
-    const TTripInfo &fltInfo=s->second.fltInfo;
-    TDateTime local_scd=UTCToLocal(fltInfo.scd_out,AirpTZRegion(fltInfo.airp));
-    modf(local_scd,&local_scd);
+      if(segNode!=NULL)
+      {
+          Qry.Clear();
+          Qry.SQLText=
+            "DECLARE "
+            "  pass BINARY_INTEGER; "
+            "BEGIN "
+            "  :bind_flt:=0; "
+            "  FOR pass IN 1..2 LOOP "
+            "    BEGIN "
+            "      SELECT point_id INTO :point_id_trfer FROM trfer_trips "
+            "      WHERE scd=:scd AND airline=:airline AND flt_no=:flt_no AND airp_dep=:airp_dep AND "
+            "            (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) FOR UPDATE; "
+            "      EXIT; "
+            "    EXCEPTION "
+            "      WHEN NO_DATA_FOUND THEN "
+            "        SELECT cycle_id__seq.nextval INTO :point_id_trfer FROM dual; "
+            "        BEGIN "
+            "          INSERT INTO trfer_trips(point_id,airline,flt_no,suffix,scd,airp_dep,point_id_spp) "
+            "          VALUES (:point_id_trfer,:airline,:flt_no,:suffix,:scd,:airp_dep,NULL); "
+            "          :bind_flt:=1; "
+            "          EXIT; "
+            "        EXCEPTION "
+            "          WHEN DUP_VAL_ON_INDEX THEN "
+            "            IF pass=1 THEN NULL; ELSE RAISE; END IF; "
+            "        END; "
+            "    END; "
+            "  END LOOP; "
+            "  INSERT INTO tckin_segments(grp_id,seg_no,point_id_trfer,airp_arv,pr_final) "
+            "  VALUES(:grp_id,:seg_no,:point_id_trfer,:airp_arv,:pr_final); "
+            "END;";
+          Qry.DeclareVariable("bind_flt",otInteger);
+          Qry.DeclareVariable("point_id_trfer",otInteger);
+          Qry.CreateVariable("grp_id",otInteger,grp_id);
+          Qry.DeclareVariable("seg_no",otInteger);
+          Qry.DeclareVariable("airline",otString);
+          Qry.DeclareVariable("flt_no",otInteger);
+          Qry.DeclareVariable("suffix",otString);
+          Qry.DeclareVariable("scd",otDate);
+          Qry.DeclareVariable("airp_dep",otString);
+          Qry.DeclareVariable("airp_arv",otString);
+          Qry.DeclareVariable("pr_final",otInteger);
 
-    Qry.SetVariable("seg_no",seg_no);
-    Qry.SetVariable("airline",fltInfo.airline);
-    Qry.SetVariable("flt_no",fltInfo.flt_no);
-    Qry.SetVariable("suffix",fltInfo.suffix);
-    Qry.SetVariable("scd",local_scd);
-    Qry.SetVariable("airp_dep",fltInfo.airp);
-    Qry.SetVariable("airp_arv",s->second.airp_arv);
-    Qry.SetVariable("pr_final",(int)(segNode->next==NULL));
-    Qry.Execute();
-    if (Qry.GetVariableAsInteger("bind_flt")!=0)
-    {
-      int point_id_trfer=Qry.GetVariableAsInteger("point_id_trfer");
-      TTrferBinding().bind_flt(point_id_trfer);
-    }
+          for(int seg_no=1;segNode!=NULL;segNode=segNode->next,seg_no++)
+          {
+            map<int,TSegInfo>::const_iterator s=segs.find(NodeAsInteger("point_dep",segNode));
+            if (s==segs.end())
+              throw EXCEPTIONS::Exception("CheckInInterface::SaveTCkinSegs: point_id not found in map segs");
 
-    route.prms << PrmSmpl<string>("", " -> ") << PrmFlight("", fltInfo.airline, fltInfo.flt_no, fltInfo.suffix)
-               << PrmSmpl<string>("", "/") << PrmDate("", local_scd,"dd") << PrmSmpl<string>("", ":")
-               << PrmElem<string>("",  etAirp, fltInfo.airp) << PrmSmpl<string>("", "-")
-               << PrmElem<string>("", etAirp, s->second.airp_arv);
+            const TTripInfo &fltInfo=s->second.fltInfo;
+            TDateTime local_scd=UTCToLocal(fltInfo.scd_out,AirpTZRegion(fltInfo.airp));
+            modf(local_scd,&local_scd);
+
+            Qry.SetVariable("seg_no",seg_no);
+            Qry.SetVariable("airline",fltInfo.airline);
+            Qry.SetVariable("flt_no",fltInfo.flt_no);
+            Qry.SetVariable("suffix",fltInfo.suffix);
+            Qry.SetVariable("scd",local_scd);
+            Qry.SetVariable("airp_dep",fltInfo.airp);
+            Qry.SetVariable("airp_arv",s->second.airp_arv);
+            Qry.SetVariable("pr_final",(int)(segNode->next==NULL));
+            Qry.Execute();
+            if (Qry.GetVariableAsInteger("bind_flt")!=0)
+            {
+              int point_id_trfer=Qry.GetVariableAsInteger("point_id_trfer");
+              TTrferBinding().bind_flt(point_id_trfer);
+            }
+
+            FormatTCkinSeg(route, s->second);
+          }
+      }
+
+      for(auto iatciSeg: iatciSegs) {
+          FormatTCkinSeg(route, iatciSeg);
+      }
+
+      tlocale.prms << route;
   }
-  tlocale.prms << route;
 }
 
 void CheckInInterface::ParseTransfer(xmlNodePtr trferNode,

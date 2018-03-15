@@ -233,7 +233,12 @@ public:
   static void SaveTransfer(int grp_id, const std::vector<CheckIn::TTransferItem> &trfer,
                            const std::map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > &trfer_segs,
                            bool pr_unaccomp, int seg_no, TLogLocale& tlocale);
-  static void SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const std::map<int,TSegInfo> &segs, int seg_no, TLogLocale& tlocale);
+  static void SaveTCkinSegs(int grp_id,
+                            xmlNodePtr segsNode,
+                            const std::map<int,TSegInfo> &segs,
+                            int seg_no,
+                            const std::vector<TSegInfo>& iatciSegs,
+                            TLogLocale& tlocale);
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                       TChangeStatusList &ChangeStatusInfo,
