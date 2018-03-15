@@ -2359,8 +2359,6 @@ $(KICK_IN)
             <ticket_confirm>1</ticket_confirm>
             <rems/>
             <fqt_rems/>
-            <addresses/>
-            <doco/>
             <iatci_pax_id>0013929620</iatci_pax_id>
             <iatci_parent_pax_id/>
             <document>
@@ -2373,6 +2371,8 @@ $(KICK_IN)
               <surname>REPIN</surname>
               <first_name>IVAN</first_name>
             </document>
+            <doco/>
+            <addresses/>
           </pax>
         </passengers>
         <paid_bag_emd/>

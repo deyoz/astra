@@ -182,7 +182,7 @@ XmlPax createCheckInPax(const XmlPax& basePax,
 XmlPax createCancelPax(const XmlPax& basePax)
 {
     XmlPax ckxPax = basePax;
-    ckxPax.refuse = ASTRA::refuseAgentError; // TODO пока причина отмены всегда "А - Ошибка агента"
+    ckxPax.refuse = ASTRA::refuseAgentError; // пока причина отмены всегда "А - Ошибка агента"
     return ckxPax;
 }
 
@@ -524,10 +524,10 @@ GetAdvTripListXmlResult AstraEngine::GetAdvTripList(const boost::gregorian::date
     NewTextChild(advTripListNode, "date", HelpCpp::string_cast(depDate,
                                                                "%d.%m.%Y 00:00:00"));
     xmlNodePtr filterNode = NewTextChild(advTripListNode, "filter");
-    NewTextChild(filterNode, "pr_takeoff", 1); // TODO what is it?
+    NewTextChild(filterNode, "pr_takeoff", 1); // what is it?
 
     xmlNodePtr viewNode = NewTextChild(advTripListNode, "codes_fmt");
-    NewTextChild(viewNode, "codes_fmt", 5); // TODO what is it?
+    NewTextChild(viewNode, "codes_fmt", 5); // what is it?
 
     initReqInfo();
 
@@ -3664,7 +3664,7 @@ std::vector<iatci::dcrcka::Result> LoadPaxXmlResult::toIatci(iatci::dcrcka::Resu
                 if(bt.pax_id == paxInfo.id() || (inft && bt.pax_id == inft->id())) {
                     bagTags.push_back(astra_entities::BaggageTag(bt.no,
                                                                  1,
-                                                                 flight.arrPort())); //TODO
+                                                                 flight.arrPort()));
                 }
             }
 

@@ -534,6 +534,8 @@ namespace
         xmlNodePtr iatciNode() const { return m_iatciNode; }
         
         bool tryUpdatePaxDoc(const iatci::PaxDetails& pax);
+        bool tryUpdatePaxVisa(const iatci::PaxDetails& pax);
+        bool tryUpdatePaxAddresses(const iatci::PaxDetails& pax);
 
     protected:
         std::list<xmlNodePtr> findPaxNodes(xmlNodePtr parentNode,
@@ -641,6 +643,46 @@ namespace
             return true;
         }
         
+        return false;
+    }
+
+    bool IatciUpdater::tryUpdatePaxVisa(const iatci::PaxDetails& pax)
+    {
+        xmlNodePtr reqSegsNode = findNodeR(m_reqNode, m_reqRootSegsNodeName);
+        if(reqSegsNode == NULL) {
+            tst();
+            return false;
+        }
+        std::list<xmlNodePtr> paxNodes = findPaxNodes(reqSegsNode, pax);
+        if(paxNodes.empty()) {
+            return false;
+        }
+        XmlPax xmlPax = XmlEntityReader::readPax(paxNodes.front());
+        if(xmlPax.visa) {
+            updatePaxVisa(pax);
+            return true;
+        }
+
+        return false;
+    }
+
+    bool IatciUpdater::tryUpdatePaxAddresses(const iatci::PaxDetails& pax)
+    {
+        xmlNodePtr reqSegsNode = findNodeR(m_reqNode, m_reqRootSegsNodeName);
+        if(reqSegsNode == NULL) {
+            tst();
+            return false;
+        }
+        std::list<xmlNodePtr> paxNodes = findPaxNodes(reqSegsNode, pax);
+        if(paxNodes.empty()) {
+            return false;
+        }
+        XmlPax xmlPax = XmlEntityReader::readPax(paxNodes.front());
+        if(xmlPax.addrs) {
+            updatePaxAddresses(pax);
+            return true;
+        }
+
         return false;
     }
 
@@ -788,7 +830,6 @@ static PointInfo readPointInfo(int grpId)
 
 static std::string getIatciRequestContext(const edifact::KickInfo& kickInfo = edifact::KickInfo())
 {
-    // TODO fill whole context
     XMLDoc xmlCtxt = ASTRA::createXmlDoc("<context/>");
     xmlNodePtr rootNode = NodeAsNode("/context", xmlCtxt.docPtr());
     kickInfo.toXML(rootNode);
@@ -1594,7 +1635,7 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
         boost::optional<iatci::UpdateVisaDetails>    adultUpdVisa, inftUpdVisa;
 
         if(adultChange) {
-            adultUpdPersonal = boost::none;//getUpdPersonal(*adultChange);
+            adultUpdPersonal = boost::none; //getUpdPersonal(*adultChange);
             adultUpdService  = getUpdService(*adultChange);
             adultUpdDoc      = getUpdDoc(*adultChange);
             adultUpdAddress  = getUpdAddress(*adultChange);
@@ -1684,7 +1725,7 @@ static iatci::SmfParams getSmfParams(int magicId)
 {
     ASSERT(magicId < 0);
     if(magicId == -1) {
-        throw AstraLocale::UserException("MSG.UNABLE_TO_SHOW_SEATMAP_BEFORE_CHECKIN"); // TODO #25409
+        throw AstraLocale::UserException("MSG.UNABLE_TO_SHOW_SEATMAP_BEFORE_CHECKIN");
     }
 
     iatci::MagicTab magicTab = iatci::MagicTab::fromNeg(magicId);
@@ -2342,6 +2383,12 @@ static void normalizeIatciPaxDocs(xmlNodePtr iatciResNode,
             if(!pxg.doc()) {
                 if(!updateByIatciSeg.tryUpdatePaxDoc(pxg.pax())) {
                     updateByOwnSeg.updatePaxDoc(pxg.pax());
+                }
+                if(!updateByIatciSeg.tryUpdatePaxVisa(pxg.pax())) {
+                    updateByOwnSeg.updatePaxVisa(pxg.pax());
+                }
+                if(!updateByIatciSeg.tryUpdatePaxAddresses(pxg.pax())) {
+                    updateByOwnSeg.updatePaxAddresses(pxg.pax());
                 }
             }
         }
