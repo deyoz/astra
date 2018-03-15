@@ -2564,7 +2564,7 @@ UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
 UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
 FDR+ë7+1027+$(yymmdd)1000+èãä+ëéó++T"
 RAD+I+X"
-ERD+1:194"
+WAD+1:194"
 UNT+6+1"
 UNZ+1+$(last_edifact_ref)0001"
 

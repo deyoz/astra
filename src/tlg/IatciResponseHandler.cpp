@@ -157,19 +157,27 @@ void IatciResponseHandler::fillErrorDetails()
         PushEdiPointG(pMes());
         if(SetEdiPointToSegGrG(pMes(), 1))
         {
-            PushEdiPointG(pMes());
-            if(SetEdiPointToSegmentG(pMes(), SegmElement("ERD")))
-            {
-                PushEdiPointG(pMes());
-                SetEdiPointToCompositeG(pMes(), CompElement("C056"));
+            auto erd = readEdiErd(pMes());
+            auto wad = readEdiWad(pMes());
 
-                setEdiErrCode(GetDBFName(pMes(), DataElement(9845), ""));
-                setEdiErrText(GetDBFName(pMes(), DataElement(4440), ""));
+            std::string errCode, errText;
 
-                PopEdiPointG(pMes());
+            if(erd) {
+                // если есть ERD - берём ошибку из ERD
+                errCode = erd->m_messageNumber;
+                errText = erd->m_messageText;
+                LogTrace(TRACE0) << "Get error from ERD"
+                                 << "(" << errCode << "-" << errText << ")";
+            } else if(wad) {
+                // иначе, если есть WAD - берём ошибку из WAD
+                errCode = wad->m_messageNumber;
+                errText = wad->m_messageText;
+                LogTrace(TRACE0) << "Get error from WAD"
+                                 << "(" << errCode << "-" << errText << ")";
             }
 
-            PopEdiPointG(pMes());
+            setEdiErrCode(errCode);
+            setEdiErrText(errText);
         }
         PopEdiPointG(pMes());
     }
