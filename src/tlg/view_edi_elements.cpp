@@ -451,8 +451,8 @@ static std::string fullDateTimeString(const boost::gregorian::date& d,
 {
     std::ostringstream str;
     str << Dates::rrmmdd(d);
-//    if(!t.is_not_a_date_time())
-//        str << Dates::hh24mi(t, false /*delimeter*/);
+    if(!t.is_special())
+        str << Dates::hh24mi(t, false /*delimeter*/);
     return str.str();
 }
 
@@ -687,7 +687,7 @@ void viewFsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& fli
 void viewFsdElement(_EDI_REAL_MES_STRUCT_* pMes, const FsdElem& elem)
 {
     std::ostringstream fsd;
-    if(!elem.m_boardingTime.is_not_a_date_time()) {
+    if(!elem.m_boardingTime.is_special()) {
         fsd << Dates::hh24mi(elem.m_boardingTime, false);
     }
 

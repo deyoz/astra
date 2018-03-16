@@ -950,14 +950,21 @@ iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
     if(flNum == ASTRA::NoExists) {
         flNum = seg.mark_flight.flt_no;
     }
+
+    bool bad_scd_dep_time = false;
     if(scd_local == ASTRA::NoExists) {
         scd_local = seg.mark_flight.scd;
+        bad_scd_dep_time = true;
     }
 
     boost::gregorian::date scd_dep_date, scd_arr_date;
-    if(scd_local != ASTRA::NoExists) {
+    boost::posix_time::time_duration scd_dep_time(boost::posix_time::not_a_date_time);
+    if(scd_local != ASTRA::NoExists) {       
         auto boost_ddt = DateTimeToBoost(scd_local);
         scd_dep_date = boost_ddt.date();
+        if(!bad_scd_dep_time) {
+            scd_dep_time = boost_ddt.time_of_day();
+        }
     }
 
     boost::posix_time::time_duration scd_brd_to_time(boost::posix_time::not_a_date_time);
@@ -974,7 +981,7 @@ iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
                                 BaseTables::Port(airp_arv)->rcode(),
                                 scd_dep_date,
                                 scd_arr_date,
-                                boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
+                                scd_dep_time,
                                 boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
                                 scd_brd_to_time,
                                 gate);
