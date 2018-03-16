@@ -2408,13 +2408,22 @@ void IatciInterface::DoKickAction(int ctxtId,
     XMLDoc iatciResCtxt = ASTRA::createXmlDoc("<iatci_result/>");
     xmlNodePtr iatciResNode = NodeAsNode(std::string("/iatci_result").c_str(), iatciResCtxt.docPtr());
     xmlNodePtr segmentsNode = newChild(iatciResNode, "segments");
+    newChild(iatciResNode, "segments_for_log");
 
+    LogTrace(TRACE3) << "iatci res 1:\n" << XMLTreeToText(iatciResNode->doc);
     EdiResCtxtWrapper ediResCtxt(ctxtId, iatciResNode, "context", __FUNCTION__);
+    xmlNodePtr logSegmentsNode = findNodeR(ediResCtxt.node(), "segments_for_log");
+    ASSERT(logSegmentsNode);
 
     switch(act)
     {
     case ActSavePax:
     {
+        if(reqType == Cki) {
+            // сохраняем edifact-сегменты для записи в журнал.
+            iatci::iatci2xml(logSegmentsNode, lRes, IatciViewXmlParams());
+        }
+
         ASSERT(CheckInInterface::SavePax(reqNode, ediResCtxt.node(), resNode));
         int grpId = getGrpId(reqNode, resNode, reqType);
 

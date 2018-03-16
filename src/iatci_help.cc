@@ -1268,16 +1268,17 @@ std::string readBPGate(int pointId)
             .bind(":work_mode", "è")
             .exfet();
 
-    LogTrace(TRACE3) << __FUNCTION__ << " by point_id=" << pointId << " returns " << gate;
+    LogTrace(TRACE3) << __FUNCTION__ << " by point_id:" << pointId << " returns " << gate;
     return gate;
 }
 
 boost::posix_time::time_duration readBPBoardedTo(int pointId, const std::string& airp)
 {
     const std::string tz_region = AirpTZRegion(airp);
+    LogTrace(TRACE3) << __FUNCTION__ << " by pointId:" << pointId << " and airp:" << airp;
     TTripStages trip_stages(pointId);
-    TDateTime brd_to = ASTRA::date_time::UTCToClient(trip_stages.time(sCloseCheckIn),
-                                                     tz_region);
+    TDateTime brd_to = BASIC::date_time::UTCToLocal(trip_stages.time(sCloseBoarding),
+                                                    tz_region);
 
     if(brd_to != ASTRA::NoExists) {
         return DateTimeToBoost(brd_to).time_of_day();
@@ -1705,7 +1706,9 @@ void iatci2xml(xmlNodePtr node, const iatci::dcrcka::Result& res,
     if(!viewParams.tickNumOrder().empty() && checkTickNums(res, viewParams.tickNumOrder())) {
         xmlViewIatciPaxes_tickNumOrder(paxesNode, res.paxGroups(), viewParams.tickNumOrder());
     } else {
-        LogError(STDLOG) << "Warning! Unable to perform ticknums order!";
+        if(!viewParams.tickNumOrder().empty()) {
+            LogError(STDLOG) << "Warning! Unable to perform ticknums order!";
+        }
         xmlViewIatciPaxes_asisOrder(paxesNode, res.paxGroups());
     }
 

@@ -3441,16 +3441,24 @@ TSegInfo makeSegInfo(const astra_api::xml_entities::XmlCheckInTab& tab)
     return seg;
 }
 
-std::vector<TSegInfo> readIatciSegs(int grpId)
+std::vector<TSegInfo> readIatciSegs(int grpId, xmlNodePtr ediResNode)
 {
     using namespace astra_api::xml_entities;
-    LogTrace(TRACE3) << __FUNCTION__ << " by grp_id:" << grpId;
-    std::string loaded = iatci::IatciXmlDb::load(grpId);
-    if(loaded.empty()) return {};
-    XMLDoc loadedDoc = ASTRA::createXmlDoc(loaded);
-    XmlCheckInTabs tabs(findNodeR(loadedDoc.docPtr()->children, "segments"));
+    LogTrace(TRACE3) << __FUNCTION__ << " by grp_id:" << grpId;    
+    if(ediResNode == NULL) {
+        tst();
+        return {};
+    }
+    xmlNodePtr iatciSegsNode = findNodeR(ediResNode, "segments_for_log");
+    if(iatciSegsNode == NULL) {
+        tst();
+        return {};
+    }
+
+    XmlCheckInTabs tabs(iatciSegsNode);
+
     std::vector<TSegInfo> iatciSegs;
-    for(const XmlCheckInTab& tab: tabs.tabs()) {
+    for(const XmlCheckInTab& tab: tabs.ediTabs()) {
         iatciSegs.push_back(makeSegInfo(tab));
     }
     return iatciSegs;
@@ -5649,7 +5657,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           SaveTransfer(grp.id,trfer,trfer_segs,pr_unaccomp,seg_no, tlocale);
           if (!tlocale.lexema_id.empty()) reqInfo->LocaleToLog(tlocale);
         }
-        std::vector<TSegInfo> iatciSegs = iatci::readIatciSegs(grp.id);
+        std::vector<TSegInfo> iatciSegs = iatci::readIatciSegs(grp.id, ediResNode);
         SaveTCkinSegs(grp.id,reqNode,segs,seg_no, iatciSegs, tlocale);
         if (!tlocale.lexema_id.empty()) reqInfo->LocaleToLog(tlocale);
         if (!inbound_trfer_conflicts.empty())

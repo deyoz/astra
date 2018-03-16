@@ -152,7 +152,7 @@ boost::posix_time::time_duration readBPBoardedTo(int pointId, const std::string&
 class IatciViewXmlParams
 {
 public:
-    IatciViewXmlParams(const std::list<Ticketing::TicketNum_t>& tickNumOrder);
+    IatciViewXmlParams(const std::list<Ticketing::TicketNum_t>& tickNumOrder = {});
 
     const std::list<Ticketing::TicketNum_t>& tickNumOrder() const;
 

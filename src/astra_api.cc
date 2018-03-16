@@ -596,13 +596,14 @@ xmlNodePtr AstraEngine::getAnswerNode() const
 void AstraEngine::initReqInfo(const std::string& deskVersion) const
 {
     TReqInfo::Instance()->Initialize("ŒŽ‚");
-    TReqInfo::Instance()->screen.name  = "AIR.EXE";
-    TReqInfo::Instance()->client_type  = ASTRA::ctTerm;
-    //TReqInfo::Instance()->desk.code = "IATCIP";
-    TReqInfo::Instance()->desk.version = deskVersion;
-    TReqInfo::Instance()->desk.lang    = AstraLocale::LANG_EN;
-    TReqInfo::Instance()->api_mode     = true;
-    TReqInfo::Instance()->user.user_id = m_userId;
+    TReqInfo::Instance()->screen.name    = "AIR.EXE";
+    TReqInfo::Instance()->client_type    = ASTRA::ctTerm;
+    //TReqInfo::Instance()->desk.code      = "IATCIP";
+    TReqInfo::Instance()->desk.version   = deskVersion;
+    TReqInfo::Instance()->desk.lang      = AstraLocale::LANG_EN;
+    TReqInfo::Instance()->api_mode       = true;
+    TReqInfo::Instance()->user.user_id   = m_userId;
+    TReqInfo::Instance()->user.sets.time = ustTimeLocalAirp;
     JxtContext::JxtContHolder::Instance()
             ->setHandler(new JxtContext::JxtContHandlerSir(""));
 }
@@ -3580,8 +3581,8 @@ static boost::optional<astra_entities::PaxInfo> findInfant(const std::list<astra
 //---------------------------------------------------------------------------------------
 
 PaxFilter::PaxFilter(const boost::optional<NameFilter>& nameFilter,
-                                 const boost::optional<TicknumFilter>& ticknumFilter,
-                                 const boost::optional<IdFilter>& idFilter)
+                     const boost::optional<TicknumFilter>& ticknumFilter,
+                     const boost::optional<IdFilter>& idFilter)
     : m_nameFilter(nameFilter),
       m_ticknumFilter(ticknumFilter),
       m_idFilter(idFilter)
