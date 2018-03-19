@@ -3415,6 +3415,10 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                    //tst();
                    continue;
                  }
+                 if ( KeyLayers <= -2 &&
+                      ( CanUseRems != sNotUseDenial || CanUseRems != sIgnoreUse ) ) {
+                   continue;
+                 }
                  if ( KeyLayers == -2 ) {
                    if ( CanUseLayer( cltProtBeforePay, curr_preseat_layers ) &&
                         CanUseLayer( cltPNLBeforePay, curr_preseat_layers ) &&
