@@ -552,6 +552,7 @@ class FlightPoints:public std::vector<TTripRouteItem> {
 
 class TFlights:public std::vector<FlightPoints> {
   public:
+    void Get( const std::set<int> &point_ids, TFlightType flightType );
     void Get( const std::vector<int> &points, TFlightType flightType );
     void Get( int point_dep, TFlightType flightType ) {
       std::vector<int> points( 1, point_dep );

@@ -171,11 +171,21 @@ struct TIdsPnrData {
     pnr_id=NoExists;
     pr_paid_ckin=false;
   };
+
+  static int getPointIdsSppByPaxId(int pax_id, set<int>& point_ids_spp); //возвращает pnr_id
+  static int getPointIdsSppByPnrId(int pnr_id, set<int>& point_ids_spp); //возвращает pnr_id
+  static int VerifyPNRByPaxId( int point_id, int pax_id ); //возвращает pnr_id
+  static int VerifyPNRByPnrId( int point_id, int pnr_id ); //возвращает pnr_id
+
+  private:
+    static int getPointIdsSpp(int id, bool is_pnr_id, set<int>& point_ids_spp);
+    static int VerifyPNR( int point_id, int id, bool is_pnr_id );
 };
 
-int VerifyPNR( int point_id, int id, bool is_pnr_id )
+int TIdsPnrData::getPointIdsSpp(int id, bool is_pnr_id, set<int>& point_ids_spp)
 {
-    TQuery Qry(&OraSession);
+  point_ids_spp.clear();
+  TQuery Qry(&OraSession);
   if (!isTestPaxId(id))
   {
     ostringstream sql;
@@ -187,18 +197,22 @@ int VerifyPNR( int point_id, int id, bool is_pnr_id )
       sql << "      crs_pnr.pnr_id=:id AND ";
     else
       sql << "      crs_pax.pax_id=:id AND ";
-    sql << "      crs_pax.pr_del=0 AND "
-           "      tlg_binding.point_id_spp(+)=:point_id AND rownum<2";
+    sql << "      crs_pax.pr_del=0";
 
     Qry.SQLText = sql.str().c_str();
-    Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.CreateVariable( "id", otInteger, id );
     Qry.Execute();
     if ( Qry.Eof )
         throw UserException( "MSG.PASSENGERS.INFO_NOT_FOUND" );
     if ( Qry.FieldIsNULL( "point_id_spp" ) )
         throw UserException( "MSG.PASSENGERS.OTHER_FLIGHT" );
-    return Qry.FieldAsInteger("pnr_id");
+    int result=ASTRA::NoExists;
+    for(; !Qry.Eof; Qry.Next())
+    {
+      point_ids_spp.insert(Qry.FieldAsInteger("point_id_spp"));
+      result=Qry.FieldAsInteger("pnr_id");
+    }
+    return result;
   }
   else
   {
@@ -212,14 +226,35 @@ int VerifyPNR( int point_id, int id, bool is_pnr_id )
   };
 }
 
-int VerifyPNRByPaxId( int point_id, int pax_id ) //возвращает pnr_id
+int TIdsPnrData::getPointIdsSppByPaxId(int pax_id, set<int>& point_ids_spp)
+{
+  return getPointIdsSpp(pax_id, false, point_ids_spp);
+}
+
+int TIdsPnrData::getPointIdsSppByPnrId(int pnr_id, set<int>& point_ids_spp)
+{
+  return getPointIdsSpp(pnr_id, true, point_ids_spp);
+}
+
+int TIdsPnrData::VerifyPNR( int point_id, int id, bool is_pnr_id )
+{
+  set<int> point_ids_spp;
+  int result=getPointIdsSpp(id, is_pnr_id, point_ids_spp);
+  if (isTestPaxId(id)) point_ids_spp.insert(point_id);
+  if (point_ids_spp.find(point_id)==point_ids_spp.end())
+    throw UserException( "MSG.PASSENGERS.OTHER_FLIGHT" );
+
+  return result;
+}
+
+int TIdsPnrData::VerifyPNRByPaxId( int point_id, int pax_id )
 {
   return VerifyPNR(point_id, pax_id, false);
 }
 
-void VerifyPNRByPnrId( int point_id, int pnr_id )
+int TIdsPnrData::VerifyPNRByPnrId( int point_id, int pnr_id )
 {
-  VerifyPNR(point_id, pnr_id, true);
+  return VerifyPNR(point_id, pnr_id, true);
 }
 
 int VerifyPNRById( int point_id, xmlNodePtr node ) //возвращает pnr_id
@@ -228,11 +263,11 @@ int VerifyPNRById( int point_id, xmlNodePtr node ) //возвращает pnr_id
   if (GetNode( "pnr_id", node )!=NULL)
   {
     pnr_id = NodeAsInteger( "pnr_id", node );
-    VerifyPNRByPnrId( point_id, pnr_id );
+    TIdsPnrData::VerifyPNRByPnrId( point_id, pnr_id );
   }
   else
   {
-    pnr_id = VerifyPNRByPaxId( point_id, NodeAsInteger( "crs_pax_id", node ) );
+    pnr_id = TIdsPnrData::VerifyPNRByPaxId( point_id, NodeAsInteger( "crs_pax_id", node ) );
   };
   return pnr_id;
 }
@@ -2020,7 +2055,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
               //первый пассажир
               pnr_id=Qry.FieldAsInteger("pnr_id");
               //проверим, что данное PNR привязано к рейсу
-              VerifyPNRByPnrId(point_id,pnr_id);
+              TIdsPnrData::VerifyPNRByPnrId(point_id,pnr_id);
             }
             else
             {
@@ -2130,7 +2165,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
       else
       {
         //проверим лишь соответствие point_id и pnr_id
-        VerifyPNRByPnrId(point_id,s->second.pnr_id);
+        TIdsPnrData::VerifyPNRByPnrId(point_id,s->second.pnr_id);
       };
     }
     catch(CheckIn::UserException)
@@ -2894,6 +2929,10 @@ void ChangeProtLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
                      bool pr_del, ASTRA::TCompLayerType layer_type, int time_limit,
                      int &curr_tid, CheckIn::UserException &ue)
 {
+  if (!(layer_type==cltProtBeforePay || layer_type==cltProtSelfCkin))
+    throw EXCEPTIONS::Exception("%s: wrong layer_type param (layer_type=%s)",
+                                __FUNCTION__, EncodeCompLayerType(layer_type));
+
   TReqInfo *reqInfo = TReqInfo::Instance();
 
   TQuery Qry(&OraSession);
@@ -2903,9 +2942,12 @@ void ChangeProtLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
   {
     if (NodeAsNode("passengers", reqNode)->children==NULL) return;
 
+    TFlights flights;
+
     if (!pr_del)
     {
       point_id=NodeAsInteger("point_id", reqNode);
+      flights.Get(point_id, ftTranzit);
       if ( layer_type == cltProtBeforePay ) {
       //проверим признак платной регистрации и
       Qry.Clear();
@@ -2918,7 +2960,7 @@ void ChangeProtLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
       }
       else { //!!!djek
         Qry.SQLText =
-          "SELECT 15 AS prot_timeout FROM dual";
+          "SELECT 10 AS prot_timeout FROM dual";
         Qry.Execute();
       }
 
@@ -2931,6 +2973,20 @@ void ChangeProtLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
         if (time_limit==NoExists)
           throw UserException( "MSG.PROT_TIMEOUT_NOT_DEFINED" );
     };
+
+    { //!!! потом переделать
+      xmlNodePtr node=NodeAsNode("passengers", reqNode)->children;
+      for(; node!=nullptr; node=node->next)
+      {
+        xmlNodePtr node2=node->children;
+        int crs_pax_id=NodeAsIntegerFast("crs_pax_id", node2);
+        set<int> point_ids_spp;
+        TIdsPnrData::getPointIdsSppByPaxId(crs_pax_id, point_ids_spp);
+        flights.Get(point_ids_spp, ftTranzit);
+      }
+    }
+
+    flights.Lock(__FUNCTION__);
 
     Qry.Clear();
     Qry.DeclareVariable("crs_pax_id", otInteger);
@@ -3044,19 +3100,7 @@ void ChangeProtLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
       TPointIdsForCheck point_ids_spp;
       if (!pr_del)
       {
-/*        TQuery LayerQry(&OraSession);
-        LayerQry.Clear();
-        LayerQry.SQLText=
-          "UPDATE tlg_comp_layers "
-          "SET time_remove=SYSTEM.UTCSYSDATE+:timeout/1440 "
-          "WHERE range_id=:range_id ";
-        LayerQry.DeclareVariable("layer_type", otString);
-        LayerQry.DeclareVariable("crs_pax_id", otInteger);
-        if (time_limit!=NoExists)
-          LayerQry.CreateVariable("timeout", otInteger, time_limit);
-        else
-          LayerQry.CreateVariable("timeout", otInteger, FNull);*/
-        VerifyPNRByPnrId(point_id, pnr_id);
+        TIdsPnrData::VerifyPNRByPnrId(point_id, pnr_id);
         GetCrsPaxSeats(point_id, pnr, pax_seats );
         //bool UsePriorContext=false;
         bool isTranzitSalonsVersion = isTranzitSalons( point_id );
@@ -3081,8 +3125,8 @@ void ChangeProtLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
 
             if (isTestPaxId(iPax->crs_pax_id)) continue;
 
-            std::vector<int> ranges;
-            GetTlgSeatIdsRanges( layer_type, iPax->crs_pax_id, ranges );
+            std::vector<int> range_ids;
+            GetTlgSeatRangeIds( layer_type, iPax->crs_pax_id, range_ids );
             TPointIdsForCheck point_ids_spp;
             point_ids_spp.insert( make_pair(point_id, layer_type) );
 
@@ -3114,11 +3158,7 @@ void ChangeProtLayer(xmlNodePtr reqNode, xmlNodePtr resNode,
                               change_layer_flags,
                               NULL );
             }
-            DeleteTlgSeatRanges( ranges, iPax->crs_pax_id, tid, point_ids_spp );
-            //в любом случае устанавливаем tlg_comp_layers.time_remove
-            /*LayerQry.SetVariable("layer_type", EncodeCompLayerType(layer_type));
-            LayerQry.SetVariable("crs_pax_id", iPax->crs_pax_id);
-            LayerQry.Execute();*/
+            DeleteTlgSeatRanges( range_ids, iPax->crs_pax_id, tid, point_ids_spp );
 
           }
           catch(UserException &e)
