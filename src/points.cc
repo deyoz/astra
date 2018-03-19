@@ -3074,6 +3074,11 @@ void FlightPoints::Get( int vpoint_dep )
              vpoint_dep, point_dep, point_arv );
 };
 
+void TFlights::Get( const std::set<int> &point_ids, TFlightType flightType )
+{
+  vector<int> tmp(point_ids.begin(), point_ids.end());
+  Get(tmp, flightType);
+}
 
 void TFlights::Get( const std::vector<int> &points, TFlightType flightType )
 {
