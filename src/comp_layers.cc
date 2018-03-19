@@ -342,7 +342,7 @@ void InsertTlgSeatRanges(int point_id_tlg,
                        point_ids_spp);
 };
 
-void DeleteTripSeatRanges(const vector<int> range_ids,
+void DeleteTripSeatRanges(const vector<int>& range_ids,
                           int point_id_spp, //может быть NoExists
                           int crs_pax_id,   //может быть NoExists
                           const string& crs_pax_name,
@@ -481,7 +481,7 @@ void DeleteTripSeatRanges(const vector<int> range_ids,
   };
 };
 
-void DeleteTlgSeatRanges(vector<int> range_ids,
+void DeleteTlgSeatRanges(const vector<int>& range_ids,
                          int crs_pax_id,
                          int &curr_tid,
                          TPointIdsForCheck &point_ids_spp) //вектор point_id_spp по которым были изменения
@@ -539,22 +539,11 @@ void DeleteTlgSeatRanges(TCompLayerType layer_type,
   if (!IsTlgCompLayer(layer_type)) return;
   if (crs_pax_id==NoExists) return;
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT range_id FROM tlg_comp_layers "
-    "WHERE crs_pax_id=:crs_pax_id AND layer_type=:layer_type";
-  Qry.CreateVariable("crs_pax_id", otInteger, crs_pax_id);
-  Qry.CreateVariable("layer_type", otString, EncodeCompLayerType(layer_type));
-  Qry.Execute();
   vector<int> range_ids;
-  for(;!Qry.Eof;Qry.Next())
-  {
-    range_ids.push_back(Qry.FieldAsInteger("range_id"));
-  };
+  GetTlgSeatRangeIds(layer_type, crs_pax_id, range_ids);
 
   DeleteTlgSeatRanges(range_ids, crs_pax_id, curr_tid, point_ids_spp);
-};
+}
 
 void GetTlgSeatRanges(TCompLayerType layer_type,
                       int crs_pax_id,
@@ -580,11 +569,11 @@ void GetTlgSeatRanges(TCompLayerType layer_type,
   };
 }
 
-void GetTlgSeatIdsRanges(TCompLayerType layer_type,
-                         int crs_pax_id,
-                         std::vector<int> ranges)
+void GetTlgSeatRangeIds(TCompLayerType layer_type,
+                        int crs_pax_id,
+                        std::vector<int>& range_ids)
 {
-  ranges.clear();
+  range_ids.clear();
 
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -595,9 +584,7 @@ void GetTlgSeatIdsRanges(TCompLayerType layer_type,
   Qry.CreateVariable("layer_type", otString, EncodeCompLayerType(layer_type));
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
-  {
-    ranges.push_back(Qry.FieldAsInteger("range_id"));
-  };
+    range_ids.push_back(Qry.FieldAsInteger("range_id"));
 }
 
 void SyncTripCompLayers(int point_id_tlg,
@@ -846,8 +833,8 @@ void GetSeatRemPriority(const string &airline_mark, TSeatRemPriority &rems)
     if (rem_layer==cltUnknown) continue;
     try
     {
-      const TCompLayerTypesRow &row=(TCompLayerTypesRow&)base_tables.get("comp_layer_types").
-                                                                     get_row("code",EncodeCompLayerType(rem_layer));
+      const TCompLayerTypesRow &row=(const TCompLayerTypesRow&)base_tables.get("comp_layer_types")
+                                                                          .get_row("code",EncodeCompLayerType(rem_layer));
       r->second=row.priority;
     }
     catch(EBaseTableError) {};

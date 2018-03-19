@@ -28,7 +28,7 @@ void DeleteTlgSeatRanges(ASTRA::TCompLayerType layer_type,
                          int &curr_tid,            //если NoExists, то инициализируется в процедуре, служит для обновления crs_pax.tid
                          TPointIdsForCheck &point_ids_spp); //вектор point_id_spp по которым были изменения
 //вызывается из описанной выше DeleteTlgSeatRanges либо из astra_timer
-void DeleteTlgSeatRanges(std::vector<int> range_ids,
+void DeleteTlgSeatRanges(const std::vector<int> &range_ids,
                          int crs_pax_id,           //может быть NoExists
                          int &curr_tid,            //если NoExists, то инициализируется в процедуре, служит для обновления crs_pax.tid
                          TPointIdsForCheck &point_ids_spp); //вектор point_id_spp по которым были изменения
@@ -36,9 +36,10 @@ void DeleteTlgSeatRanges(std::vector<int> range_ids,
 void GetTlgSeatRanges(ASTRA::TCompLayerType layer_type,
                       int crs_pax_id,
                       TSeatRanges &ranges);
-void GetTlgSeatIdsRanges(ASTRA::TCompLayerType layer_type,
-                         int crs_pax_id,
-                         std::vector<int> ranges);
+
+void GetTlgSeatRangeIds(ASTRA::TCompLayerType layer_type,
+                        int crs_pax_id,
+                        std::vector<int>& range_ids);
 
 void InsertTripCompLayers(int point_id_tlg, //point_id_tlg либо point_id_spp м.б. NoExists
                           int point_id_spp,
