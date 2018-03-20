@@ -99,7 +99,7 @@ class componPropCodes {
     }
   public:
     componPropCodes() {
-      codes = { make_pair(TAIL,CodeNames("•Ά®αβ","Tail","$00FF8080")),
+      codes = { make_pair(TAIL,CodeNames("•Ά®αβ","Tail","$00400080")),
                 make_pair(NOSE,CodeNames("®α","Nose","$00FF8000")),
                 make_pair(SECTION,CodeNames("‘¥ªζ¨ο","Section","clGray")),
                 make_pair(WING,CodeNames("ΰλ«®","Wing","clOlive")) };
@@ -163,7 +163,7 @@ class componPropCodes {
        }
        return "";
     }
-    void buildSections( int comp_id, const std::string &lang, xmlNodePtr dataNode );
+    void buildSections( int comp_id, const std::string &lang, xmlNodePtr dataNode, bool buildEmptySection = true );
 };
 
 /*template <typename T> class CompProps {
@@ -207,6 +207,8 @@ class simpleProps:public std::vector<SimpleProp> {
       }
     }
 };
+
+void checkBuildSections( int point_id, int comp_id, xmlNodePtr dataNode, bool buildEmptySection = true );
 
 } //end namespace
 

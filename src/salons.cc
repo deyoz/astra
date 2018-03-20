@@ -9763,17 +9763,7 @@ bool isTranzitSalons( int point_id )
     " ORDER BY priority DESC";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  if ( !Qry.Eof && Qry.FieldAsInteger( "pr_new" ) != 0 ) { //!!!убрать после конца конвертации - месяц
-    Qry.Clear();
-    Qry.SQLText =
-      "SELECT point_id from tranzit_algo_seats_points "
-      " WHERE point_id=:point_id ";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.Execute();
-    return Qry.Eof;
-  }
-  else
-   return false;
+  return ( !Qry.Eof && Qry.FieldAsInteger( "pr_new" ) != 0 );
 }
 
 void TSalonPax::int_get_seats( TWaitListReason &waitListReason,

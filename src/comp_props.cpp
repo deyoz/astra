@@ -155,23 +155,49 @@ simpleProps& simpleProps::build( xmlNodePtr sectionsNode ) {
   return *this;
 }
 
-void componPropCodes::buildSections( int comp_id, const std::string &lang, xmlNodePtr dataNode ) {
-  simpleProps sections( SECTION );
-  sections.read( comp_id ).build( NewTextChild( dataNode, "CompSections" ) );
+void componPropCodes::buildSections( int comp_id, const std::string &lang, xmlNodePtr dataNode, bool buildEmptySection ) {
+
   xmlNodePtr n = NewTextChild( dataNode, "sections" );
   std::vector<std::string> codes = getCodes();
-  xmlNodePtr nodeCodes = NewTextChild( n, "codes" );
+  xmlNodePtr nodeCodes = NULL;
+  if ( TReqInfo::Instance()->client_type == ctTerm ) {
+    simpleProps sections( SECTION );
+    sections.read( comp_id ).build( NewTextChild( dataNode, "CompSections" ) );
+    nodeCodes = NewTextChild( n, "codes" );
+  }
   for ( std::vector<std::string>::const_iterator icode=codes.begin(); icode!=codes.end(); icode++ ) {
-    xmlNodePtr nodeCode = NewTextChild( nodeCodes, "item" );
-    SetProp( nodeCode, "code", *icode );
-    SetProp( nodeCode, "name", getName( lang, *icode ) );
-    SetProp( nodeCode, "color", getColor( *icode ) );
+    if ( nodeCodes ) {
+      xmlNodePtr nodeCode = NewTextChild( nodeCodes, "item" );
+      SetProp( nodeCode, "code", *icode );
+      SetProp( nodeCode, "name", getName( lang, *icode ) );
+      SetProp( nodeCode, "color", getColor( *icode ) );
+    }
     if ( SECTION == *icode ) {
       continue;
     }
     simpleProps sections( *icode );
-    sections.read( comp_id ).build( NewTextChild( n, "sections" ) );
+    sections.read( comp_id );
+    if ( buildEmptySection || !sections.empty() ) {
+      sections.build( NewTextChild( n, "sections" ) );
+    }
   }
 }
+
+void checkBuildSections( int point_id, int comp_id, xmlNodePtr dataNode, bool buildEmptySection ) {
+  if ( comp_id <= 0 ) { //строго завязать базовые компоновки с назначенными на рейс
+    tst();
+    return;
+  }
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  TTripInfo info( Qry );
+  if ( GetTripSets( tsCraftNoChangeSections, info ) ) {
+    componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode, buildEmptySection );
+  }
+}
+
 }
 //end namespace
