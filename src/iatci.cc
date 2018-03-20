@@ -1748,7 +1748,7 @@ static iatci::SmfParams getSmfParams(xmlNodePtr reqNode)
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-static void MagicUpdate(xmlNodePtr resNode, int grpId)
+static void MagicUpdate(xmlNodePtr resNode, int grpId, IatciInterface::RequestType reqType)
 {
     xmlNodePtr segsNode = findNodeR(resNode, "segments");
     unsigned segInd = 0;
@@ -1756,6 +1756,16 @@ static void MagicUpdate(xmlNodePtr resNode, int grpId)
     {
         iatci::MagicTab magicTab(grpId, ++segInd);
         xmlNodeSetContent(findNode(segNode, "point_dep"), magicTab.toNeg());
+
+        xmlNodePtr paxesNode = findNodeR(segNode, "passengers");
+        if(paxesNode != NULL && reqType == IatciInterface::Bpr) {
+            for(xmlNodePtr paxNode = paxesNode->children; paxNode != NULL; paxNode = paxNode->next) {
+                xmlNodePtr bpPrintNode = findNode(paxNode, "pr_bp_print");
+                if(bpPrintNode != NULL) {
+                    xmlNodeSetContent(bpPrintNode, 1);
+                }
+            }
+        }
     }
 }
 
@@ -1828,7 +1838,7 @@ static void SaveIatciXmlResByReqType(xmlNodePtr iatciResNode, int grpId,
 
     case IatciInterface::Cku:
     case IatciInterface::Plf:
-    case IatciInterface::Bpr:
+    case IatciInterface::Bpr:        
         SaveIatciCkuPlfBprXmlRes(iatciResNode, grpId);
         break;
 
@@ -1845,7 +1855,7 @@ static void SaveIatciXmlRes(xmlNodePtr iatciResNode, xmlNodePtr termReqNode, int
                             IatciInterface::RequestType reqType)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__;
-    MagicUpdate(iatciResNode, grpId);
+    MagicUpdate(iatciResNode, grpId, reqType);
     SaveIatciXmlResByReqType(iatciResNode, grpId, reqType);
 }
 
