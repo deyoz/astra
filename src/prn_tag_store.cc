@@ -1491,7 +1491,7 @@ string TPrnTagStore::ACT(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
         TDateTime dt = boost::any_cast<TDateTime>(fp.TagInfo);
-        return dt != ASTRA::NoExists ? get_date_from_bcbp(dt, fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU) : "";
+        return dt != ASTRA::NoExists ? DateTimeToStr(dt, fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU): "";
     } else {
         if(scan_data != NULL)
             return get_date_from_bcbp(scan_data->date_of_flight(0), fp.date_format,  tag_lang.GetLang() != AstraLocale::LANG_RU);
@@ -1909,7 +1909,7 @@ string TPrnTagStore::EST(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
         TDateTime est = boost::any_cast<TDateTime>(fp.TagInfo);
-        return est != ASTRA::NoExists ? get_date_from_bcbp(est, fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU) : "";
+        return est != ASTRA::NoExists ? DateTimeToStr(est, fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU) : "";
     } else {
         if(scan_data != NULL) {
             return get_date_from_bcbp(scan_data->date_of_flight(0), fp.date_format,  tag_lang.GetLang() != AstraLocale::LANG_RU);
@@ -2452,7 +2452,7 @@ string TPrnTagStore::SCD(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
         TDateTime dt = boost::any_cast<TDateTime>(fp.TagInfo);
-        return dt != ASTRA::NoExists ? get_date_from_bcbp(dt, fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU) : "";
+        return dt != ASTRA::NoExists ? DateTimeToStr(dt, fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU) : "";
     } else {
         if(scan_data != NULL)
             return get_date_from_bcbp(scan_data->date_of_flight(0), fp.date_format,  tag_lang.GetLang() != AstraLocale::LANG_RU);

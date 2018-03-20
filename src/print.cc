@@ -2064,6 +2064,7 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
                 if(DevFmtTypes().decode(params.fmt_type) == TDevFmt::EPSON) {
                     to_esc::TConvertParams ConvertParams;
                     ConvertParams.init(params.dev_model);
+                    ProgTrace(TRACE5, "iatci prn_form: %s", pax.prn_form.c_str());
                     to_esc::convert(pax.prn_form, ConvertParams, params.prnParams);
                     StringToHex(string(pax.prn_form), pax.prn_form);
                     pax.hex = true;
