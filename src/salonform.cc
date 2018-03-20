@@ -18,6 +18,7 @@
 #include "tlg/tlg_parser.h" // only for convert_salons
 #include "term_version.h"
 #include "alarms.h"
+#include "comp_props.h"
 #include "serverlib/str_utils.h"
 
 #define NICKNAME "DJEK"
@@ -27,39 +28,6 @@ using namespace std;
 using namespace AstraLocale;
 using namespace ASTRA;
 using namespace SEATS2;
-
-//new terminal
-
-void BuildCompSections( xmlNodePtr dataNode, const vector<SALONS2::TCompSection> &CompSections )
-{
-  if ( !CompSections.empty() ) {
-    xmlNodePtr n = NewTextChild( dataNode, "CompSections" );
-    for ( vector<SALONS2::TCompSection>::const_iterator i=CompSections.begin(); i!=CompSections.end(); i++ ) {
-      xmlNodePtr cnode = NewTextChild( n, "section", i->name );
-      SetProp( cnode, "FirstRowIdx", i->getFirstRow() );
-      SetProp( cnode, "LastRowIdx", i->getLastRow() );
-    }
-  }
-}
-
-void ReadCompSections( int comp_id, vector<SALONS2::TCompSection> &CompSections )
-{
-  CompSections.clear();
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT name, first_rownum, last_rownum FROM comp_sections WHERE comp_id=:comp_id "
-    "ORDER BY first_rownum";
-  Qry.CreateVariable( "comp_id", otInteger, comp_id );
-  Qry.Execute();
-  while ( !Qry.Eof ) {
-    SALONS2::TCompSection cs;
-    cs.name = Qry.FieldAsString( "name" );
-    cs.setSectionRows( Qry.FieldAsInteger( "first_rownum" ),
-                       Qry.FieldAsInteger( "last_rownum" ) );
-    CompSections.push_back( cs );
-    Qry.Next();
-  }
-}
 
 void ZoneLoads(int point_id, map<string, int> &zones, bool occupied)
 {
@@ -82,6 +50,14 @@ void ZoneLoads(int point_id,
              zones, CompSectionsLayers, compSections );
 }
 
+void bagSectionTocompSection( const simpleProps &sections, vector<SALONS2::TCompSection> &compSections ) {
+  compSections.clear();
+  for ( simpleProps::const_iterator i=sections.begin(); i!=sections.end(); i++ ) {
+    TCompSection section;
+    section = *i;
+    compSections.push_back( section );
+  }
+}
 
 void ZoneLoadsTranzitSalons(int point_id,
                             bool only_checkin_layers,
@@ -104,7 +80,9 @@ void ZoneLoadsTranzitSalons(int point_id,
     if ( !(salonList.getCompId() > 0 && GetTripSets( tsCraftNoChangeSections, info )) ) {
       return;
     }
-    ReadCompSections( salonList.getCompId(), compSections );
+    simpleProps sections( SECTION );
+    sections.read( salonList.getCompId() );
+    bagSectionTocompSection( sections, compSections );
     Qry.Clear();
     Qry.SQLText =
       "select layer_type from grp_status_types WHERE layer_type IS NOT NULL";
@@ -127,7 +105,7 @@ void ZoneLoadsTranzitSalons(int point_id,
       getLayerPlacesCompSection( salonList, *i, compSectionLayers.layersSeats, i->seats );
       compSectionLayers.compSection = *i;
       TZoneOccupiedSeats zs;
-      zs.name = i->name;
+      zs.name = i->getName();
       zs.total_seats = i->seats;
       for(std::map<ASTRA::TCompLayerType, SALONS2::TPlaces>::iterator im = compSectionLayers.layersSeats.begin(); im != compSectionLayers.layersSeats.end(); im++) {
         ProgTrace( TRACE5, "im->first=%s, im->second=%zu", EncodeCompLayerType( im->first ), im->second.size() );
@@ -176,7 +154,9 @@ void ZoneLoads(int point_id,
         SalonsTmp.Read( drop_not_used_pax_layers ); //!!!
         if ( SalonsTmp.comp_id > 0 && GetTripSets( tsCraftNoChangeSections, info ) ) { //!!!строго завязать базовые компоновки с назначенными на рейс
             tst();
-            ReadCompSections( SalonsTmp.comp_id, compSections );
+            simpleProps sections( SECTION );
+            sections.read( SalonsTmp.comp_id );
+            bagSectionTocompSection( sections, compSections );
             TQuery Qry(&OraSession);
             Qry.SQLText = "select layer_type from grp_status_types WHERE layer_type IS NOT NULL";
             Qry.Execute();
@@ -195,7 +175,7 @@ void ZoneLoads(int point_id,
                 getLayerPlacesCompSection( SalonsTmp, *i, only_high_layer, compSectionLayers.layersSeats, i->seats );
                 compSectionLayers.compSection = *i;
                 TZoneOccupiedSeats zs;
-                zs.name = i->name;
+                zs.name = i->getName();
                 zs.total_seats = i->seats;
                 for(std::map<ASTRA::TCompLayerType, SALONS2::TPlaces>::iterator im = compSectionLayers.layersSeats.begin(); im != compSectionLayers.layersSeats.end(); im++) {
                   ProgTrace( TRACE5, "im->first=%s, im->second=%zu", EncodeCompLayerType( im->first ), im->second.size() );
@@ -212,44 +192,6 @@ void ZoneLoads(int point_id,
     } catch(...) {
         ProgTrace(TRACE5, "ZoneLoads failed, so result would be empty");
     }
-}
-
-void WriteCompSections( int id, const vector<SALONS2::TCompSection> &CompSections )
-{
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "DELETE comp_sections WHERE comp_id=:id";
-  Qry.CreateVariable( "id", otInteger, id );
-  Qry.Execute();
-  ProgTrace( TRACE5, "RowCount=%d", Qry.RowCount() );
-  bool pr_exists = Qry.RowCount();
-  Qry.Clear();
-  Qry.SQLText =
-    "INSERT INTO comp_sections(comp_id,name,first_rownum,last_rownum) VALUES(:id,:name,:first_rownum,:last_rownum)";
-  Qry.CreateVariable( "id", otInteger, id );
-  Qry.DeclareVariable( "name", otString );
-  Qry.DeclareVariable( "first_rownum", otInteger );
-  Qry.DeclareVariable( "last_rownum", otInteger );
-  PrmLexema lexema("is_sect_del", "");
-  if ( CompSections.empty() && pr_exists )
-    lexema.ChangeLexemaId("EVT.DELETE_LUGGAGE_SECTIONS");
-  PrmEnum prmenum("sect", " ");
-  bool empty = true;
-  for ( vector<SALONS2::TCompSection>::const_iterator i=CompSections.begin(); i!=CompSections.end(); i++ ) {
-    PrmLexema new_lexema("", "EVT.SECTIONS");
-    new_lexema.prms << PrmSmpl<std::string>("name", i->name) << PrmSmpl<int>("FirstRow", i->getFirstRow()+1)
-                    << PrmSmpl<int>("LastRow", i->getLastRow()+1);//!!!ANNA ряды выводятся неправильно - это индекс ряда, т.к. названия номера ряда может меняться
-    prmenum.prms << new_lexema;
-    Qry.SetVariable( "name", i->name );
-    Qry.SetVariable( "first_rownum", i->getFirstRow() );
-    Qry.SetVariable( "last_rownum", i->getLastRow() );
-    Qry.Execute();
-    empty = false;
-  }
-  if (CompSections.empty() && pr_exists && empty)
-    TReqInfo::Instance()->LocaleToLog("EVT.DELETE_LUGGAGE_SECTIONS", evtComp, id);
-  else
-    TReqInfo::Instance()->LocaleToLog("EVT.ASSIGNE_LUGGAGE_SECTIONS", LEvntPrms() << lexema << prmenum, evtComp, id);
 }
 
 enum TCompType { ctBase = 0, ctBaseBort = 1, ctPrior = 2, ctCurrent = 3 };
@@ -503,9 +445,7 @@ void SalonFormInterface::RefreshPaxSalons(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
       Qry.Execute();
       TTripInfo info( Qry );
       if ( GetTripSets( tsCraftNoChangeSections, info ) ) {
-        vector<SALONS2::TCompSection> CompSections;
-        ReadCompSections( comp_id, CompSections );
-        BuildCompSections( dataNode, CompSections );
+        componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode );
       }
     }
   }
@@ -677,9 +617,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     Qry.Execute();
       TTripInfo info( Qry );
       if ( GetTripSets( tsCraftNoChangeSections, info ) ) {
-        vector<SALONS2::TCompSection> CompSections;
-      ReadCompSections( comp_id, CompSections );
-      BuildCompSections( dataNode, CompSections );
+        componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode );
     }
   }
 }
@@ -732,9 +670,17 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.Execute();
 
   bool pr_base_change = false;
+  bool saveContructivePlaces = false;
   if ( !Qry.Eof ) { // была старая компоновка
     priorsalonList.ReadFlight( SALONS2::TFilterRoutesSets( trip_id ), SALONS2::rfTranzitVersion, "", NoExists );
-    pr_base_change = ChangeCfg( priorsalonList, salonList );
+    pr_base_change = SALONS2::CRC32_Comp( salonList ) != SALONS2::CRC32_Comp( priorsalonList );
+    if ( !TReqInfo::Instance()->desk.compatible( SALON_SECTION_VERSION ) &&
+         SALONS2::haveConstructiveCompon( trip_id, rTripSalons ) ) {
+      saveContructivePlaces = true;
+      if ( pr_base_change ) {
+        throw UserException( "MSG.CHANGE_COMPON_NOT_AVAILABLE_UPDATE_TERM" );
+      }
+    }
   }
   Qry.Clear();
   Qry.SQLText = "UPDATE trip_sets SET comp_id=:comp_id WHERE point_id=:point_id";
@@ -765,8 +711,9 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     }
     Qry.Execute();
   }
+
   if ( isTranzitSalonsVersion ) {
-    salonList.WriteFlight( trip_id );
+    salonList.WriteFlight( trip_id, saveContructivePlaces );
   }
   else {
     SALONS2::TComponSets compSets;
@@ -846,9 +793,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   }
 
   if ( comp_id > 0 && pr_notchangecraft ) { //строго завязать базовые компоновки с назначенными на рейс
-      vector<SALONS2::TCompSection> CompSections;
-    ReadCompSections( comp_id, CompSections );
-    BuildCompSections( dataNode, CompSections );
+    componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode );
   }
   if ( get_alarm( trip_id, Alarm::Waitlist ) ) {
     AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
@@ -857,6 +802,8 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   else
     AstraLocale::showMessage( "MSG.DATA_SAVED" );
 }
+
+
 
 void SalonFormInterface::ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -949,12 +896,9 @@ void SalonFormInterface::ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     SALONS2::CreateSalonMenu( point_id, salonsNode );
   }
   if ( pr_notchangecraft && comp_id >= 0 ) {
-    vector<SALONS2::TCompSection> CompSections;
-    ReadCompSections( comp_id, CompSections );
-    BuildCompSections( dataNode, CompSections );
+    componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode );
   }
 }
-
 
 void getEditabeLayers( BitSet<ASTRA::TCompLayerType> &editabeLayers, bool isComponCraft )
 {
@@ -979,11 +923,20 @@ void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   getEditabeLayers( editabeLayers, true );
   componSets.Parse( reqNode );
   salonList.Parse( ASTRA::NoExists, componSets.airline, GetNode( "salons", reqNode ) );
+  bool saveContructivePlaces = false;
   if ( componSets.modify != SALONS2::mNone &&
        componSets.modify != SALONS2::mAdd ) {
     priorsalonList.ReadCompon( comp_id, ASTRA::NoExists );
+    if (  componSets.modify == SALONS2::mChange &&
+         !TReqInfo::Instance()->desk.compatible( SALON_SECTION_VERSION ) &&
+         SALONS2::haveConstructiveCompon( comp_id, rComponSalons ) ) {
+      if ( SALONS2::CRC32_Comp( salonList ) != SALONS2::CRC32_Comp( priorsalonList ) ) {
+         throw UserException( "MSG.CHANGE_COMPON_NOT_AVAILABLE_UPDATE_TERM" );
+      }
+      saveContructivePlaces = true;
+    }
   }
-  salonList.WriteCompon( comp_id, componSets );
+  salonList.WriteCompon( comp_id, componSets, saveContructivePlaces );
   LEvntPrms salon_changes;
   salonChangesToText( NoExists, priorsalonList, priorsalonList.isCraftLat(),
                       salonList, salonList.isCraftLat(),
@@ -1032,12 +985,17 @@ void SalonFormInterface::ComponWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
         r->LocaleToLog("EVT.SALON_CHANGES", LEvntPrms() << *(dynamic_cast<PrmEnum*>(*iter)), evtComp, comp_id);
     }
   }
-  //bagsections
-  vector<SALONS2::TCompSection> CompSections;
-  xmlNodePtr sectionsNode = GetNode( "CompSections", reqNode );
-  if ( sectionsNode && componSets.modify != SALONS2::mDelete ) {
-    ParseCompSections( sectionsNode, CompSections );
-    WriteCompSections( comp_id, CompSections );
+  if ( componSets.modify != SALONS2::mDelete ) {
+    //bagsections new terminal not exists node CompSections
+    simpleProps( SECTION ).parseANDwrite( GetNode( "CompSections", reqNode ), comp_id );
+    xmlNodePtr n = GetNode( "sections", reqNode );
+    if ( n ) {
+      n = n->children;
+    }
+    while ( n && string("sections") == (const char*)n->name ) {
+      simpleProps( NodeAsString( "@code", n ) ).parseANDwrite( n, comp_id );
+      n = n->next;
+    }
   }
   if ( componSets.modify == SALONS2::mDelete ) {
     comp_id = -1;
@@ -1355,9 +1313,7 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
     }
     if ( comp_id > 0 && GetTripSets( tsCraftNoChangeSections, fltInfo ) &&
          TReqInfo::Instance()->client_type == ctTerm ) { //строго завязать базовые компоновки с назначенными на рейс
-      vector<SALONS2::TCompSection> CompSections;
-      ReadCompSections( comp_id, CompSections );
-      BuildCompSections( dataNode, CompSections );
+      componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode );
     }
     showErrorMessageAndRollback( ue.getLexemaData( ) );
   }
@@ -1537,9 +1493,7 @@ bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yn
     }
     if ( Salons.comp_id > 0 && GetTripSets( tsCraftNoChangeSections, fltInfo ) &&
          TReqInfo::Instance()->client_type == ctTerm ) { //строго завязать базовые компоновки с назначенными на рейс
-      vector<SALONS2::TCompSection> CompSections;
-      ReadCompSections( Salons.comp_id, CompSections );
-      BuildCompSections( dataNode, CompSections );
+      componPropCodes::Instance()->buildSections( Salons.comp_id, TReqInfo::Instance()->desk.lang, dataNode );
     }
     showErrorMessageAndRollback( ue.getLexemaData( ) );
   }
@@ -1739,9 +1693,7 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
         Qry.Execute();
           TTripInfo info( Qry );
         if ( GetTripSets( tsCraftNoChangeSections, info ) ) {
-          vector<SALONS2::TCompSection> CompSections;
-          ReadCompSections( comp_id, CompSections );
-          BuildCompSections( dataNode, CompSections );
+          componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode );
         }
       }
     }
@@ -1814,9 +1766,7 @@ void SalonFormInterface::WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
       Qry.Execute();
       TTripInfo info( Qry );
       if ( GetTripSets( tsCraftNoChangeSections, info ) ) { //строго завязать базовые компоновки с назначенными на рейс
-          vector<SALONS2::TCompSection> CompSections;
-        ReadCompSections( comp_id, CompSections );
-        BuildCompSections( dataNode, CompSections );
+        componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode );
       }
     }
   }
@@ -1911,12 +1861,8 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
         p.Build( dataNode );
       }
     }
-    tst();
     if ( comp_id > 0 && pr_notchangecraft ) { //строго завязать базовые компоновки с назначенными на рейс
-      tst();
-      vector<SALONS2::TCompSection> CompSections;
-      ReadCompSections( comp_id, CompSections );
-      BuildCompSections( dataNode, CompSections );
+      componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode );
     }
   }
   catch( UserException ue ) {
@@ -1961,9 +1907,7 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
       }
     }
     if ( comp_id > 0 && pr_notchangecraft ) { //строго завязать базовые компоновки с назначенными на рейс
-        vector<SALONS2::TCompSection> CompSections;
-      ReadCompSections( comp_id, CompSections );
-      BuildCompSections( dataNode, CompSections );
+      componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode );
     }
     showErrorMessageAndRollback( ue.getLexemaData( ) );
   }

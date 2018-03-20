@@ -10,6 +10,7 @@
 #include "salons.h"
 #include "astra_misc.h"
 #include "astra_consts.h"
+#include "comp_props.h"
 
 
 class SalonFormInterface : public JxtInterface

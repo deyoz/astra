@@ -17,6 +17,7 @@
 #include "checkin.h"
 #include "astra_locale.h"
 #include "comp_layers.h"
+#include "comp_props.h"
 #include "passenger.h"
 #include "remarks.h"
 #include "sopp.h"
@@ -1235,7 +1236,6 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
   string crs_class, crs_subclass;
   web_salons.clear();
   bool pr_CHIN = false;
-  /*TSeatTariffMap passTariffs, firstTariffs;*/
 
   for ( vector<TWebPax>::iterator i=pnr.begin(); i!=pnr.end(); i++ ) {
     if ( !i->pass_class.empty() )
@@ -1248,12 +1248,6 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
       if ( point_arv == ASTRA::NoExists ) {
         point_arv = SALONS2::getCrsPaxPointArv( i->crs_pax_id, point_id );
       }
-/*      TMktFlight flight;
-      flight.getByCrsPaxId( i->crs_pax_id );
-      TTripInfo markFlt;
-      markFlt.airline = flight.airline;
-      CheckIn::TPaxTknItem tkn;
-      CheckIn::LoadCrsPaxTkn( i->crs_pax_id, tkn);*/
     }
   }
   ProgTrace( TRACE5, "ReadWebSalons: point_dep=%d, point_arv=%d, pr_CHIN=%d",
@@ -1328,7 +1322,8 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
       if ( place->y > web_place_list.ycount )
         web_place_list.ycount = place->y;
       wp.seat_no = place->denorm_view(Salons->getLatSeat());
-      if ( !place->elem_type.empty() ) {
+      wp.elem_type = place->elem_type;
+/*      if ( !place->elem_type.empty() ) {
         if ( place->elem_type != PARTITION_ELEM_TYPE ) {
           if ( place->elem_type != ARMCHAIR_EMERGENCY_EXIT_TYPE )
             wp.elem_type = ARMCHAIR_ELEM_TYPE;
@@ -1337,7 +1332,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
         }
         else
           wp.elem_type = PARTITION_ELEM_TYPE;
-      }
+      }*/
       wp.rems = place->rems;
       wp.pr_free = 0;
       wp.pr_CHIN = false;
@@ -1579,23 +1574,26 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       }
     }
   }
-  //salon_descriptions
-  TSalonDesrcs descrs;
-  getSalonDesrcs( point_id, descrs );
-  if ( !descrs.empty() ) {
-    xmlNodePtr salonDescrsNode = NULL;
-    for ( TSalonDesrcs::iterator idescr=descrs.begin(); idescr!=descrs.end(); idescr++ ) {
-       if ( !idescr->second.empty() ) {
-         if ( salonDescrsNode == NULL ) {
-           salonDescrsNode = NewTextChild( nodeViewCraft, "salon_properties" );
+  if ( !web_salons.empty() ) {
+    //salon_descriptions
+    TSalonDesrcs descrs;
+    getSalonDesrcs( point_id, descrs );
+    if ( !descrs.empty() ) {
+      xmlNodePtr salonDescrsNode = NULL;
+      for ( TSalonDesrcs::iterator idescr=descrs.begin(); idescr!=descrs.end(); idescr++ ) {
+         if ( !idescr->second.empty() ) {
+           if ( salonDescrsNode == NULL ) {
+             salonDescrsNode = NewTextChild( nodeViewCraft, "salon_properties" );
+           }
+           xmlNodePtr salonListNode = NewTextChild( salonDescrsNode, "placelist" );
+           SetProp( salonListNode, "num", idescr->first );
+           for ( std::set<std::string>::iterator icompart=idescr->second.begin(); icompart!=idescr->second.end(); icompart++ ) {
+             NewTextChild( salonListNode, "property", *icompart );
+           }
          }
-         xmlNodePtr salonListNode = NewTextChild( salonDescrsNode, "placelist" );
-         SetProp( salonListNode, "num", idescr->first );
-         for ( std::set<std::string>::iterator icompart=idescr->second.begin(); icompart!=idescr->second.end(); icompart++ ) {
-           NewTextChild( salonListNode, "property", *icompart );
-         }
-       }
+      }
     }
+    SALONS2::checkBuildSections( point_id, salonList.getCompId(), nodeViewCraft, false );
   }
   ProgTrace( TRACE5, "isTranzitSalonsVersion %d, flagsNode %d", isTranzitSalonsVersion, flagsNode != NULL );
   if ( isTranzitSalonsVersion && flagsNode != NULL ) {

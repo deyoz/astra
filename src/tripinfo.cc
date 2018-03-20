@@ -31,6 +31,7 @@
 #include "apps_interaction.h"
 #include "brands.h"
 #include "passenger.h"
+#include "comp_props.h"
 
 #include <serverlib/testmode.h>
 
@@ -1600,7 +1601,7 @@ void readPaxZoneLoad( int point_id, const string &crew_filter, list<TPaxLoadItem
   for(vector<SALONS2::TCompSection>::const_iterator i=compSections.begin();i!=compSections.end();i++)
   {
     TPaxLoadItem item;
-    item.section = i->name;
+    item.section = i->getName();
     for(vector<TZonePaxItem>::const_iterator p=zonePaxs.begin();p!=zonePaxs.end();p++)
     {
       if (item.section!=p->zone) continue;

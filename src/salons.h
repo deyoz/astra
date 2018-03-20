@@ -13,6 +13,7 @@
 #include "web_main.h"
 #include "base_tables.h"
 #include "seats_utils.h"
+#include "comp_props.h"
 
 using BASIC::date_time::TDateTime;
 
@@ -492,17 +493,15 @@ class TSalonPointNames {
 
 class TLayersSeats:public std::map<TSeatLayer,TPassSeats,SeatLayerCompare > {};
 
-class TSectionInfo {
+class TSectionInfo:public SimpleProp {
   private:
-    int firstRowIdx;
-    int lastRowIdx;
     std::map<ASTRA::TCompLayerType,std::vector<TPlace*> > totalLayerSeats; //слой
     std::map<ASTRA::TCompLayerType,std::vector<std::pair<TSeatLayer,TPassSeats> > > currentLayerSeats;
     std::vector<TSalonPointNames> salonPoints;
     TLayersSeats layersPaxs; //seatLayer->pax_id список пассажиров с местами
     std::map<int,TSalonPax> paxs;
   public:
-    TSectionInfo() {
+    TSectionInfo():SimpleProp() {
       clearProps();
     }
     void clearProps();
@@ -511,9 +510,6 @@ class TSectionInfo {
     bool inSection( const TSeat &aseat ) const;
     bool inSection( int row ) const;
     bool inSectionPaxId( int pax_id );
-    int getFirstRow() const;
-    int getLastRow() const;
-    void setSectionRows( int ffirstRow, int flastRow );
     void AddSalonPoints( const TSalonPoint &asalonPoint, const TSeat &aseat ) {
       salonPoints.push_back( TSalonPointNames( asalonPoint, aseat ) );
     }
@@ -535,15 +531,16 @@ class TSectionInfo {
 
 class TCompSection: public TSectionInfo {
   public:
-    std::string name;
     int seats;
     TCompSection():TSectionInfo() {
       seats = -1;
-    };
+    }
     void operator = (const TCompSection &compSection) {
       TSectionInfo::operator = ( compSection );
-      name = compSection.name;
       seats = compSection.seats;
+    }
+    void operator = (const SimpleProp &simpleProp) {
+       SimpleProp::operator = ( simpleProp );
     }
 };
 
@@ -1461,8 +1458,8 @@ class TSalonList: public std::vector<TPlaceList*> {
     void Build( bool with_pax,
                 xmlNodePtr salonsNode );
     void Parse( int vpoint_id, const std::string &airline, xmlNodePtr salonsNode );
-    void WriteFlight( int vpoint_id );
-    void WriteCompon( int &vcomp_id, const TComponSets &componSets );
+    void WriteFlight( int vpoint_id, bool saveContructivePlaces );
+    void WriteCompon( int &vcomp_id, const TComponSets &componSets, bool saveContructivePlaces );
     void convertSeatTariffs( TPlace &iseat, bool pr_departure_tariff_only, int point_dep, int point_arv ) const;
     bool CreateSalonsForAutoSeats( TSalons &salons,
                                    TFilterRoutesSets &filterRoutes,
@@ -1541,7 +1538,6 @@ class TSalonList: public std::vector<TPlaceList*> {
                            const std::vector<TPlaceList*> &newlist, bool newpr_craft_lat,
                            const BitSet<ASTRA::TCompLayerType> &editabeLayers,
                            LEvntPrms &params, bool pr_set_base );
-  void ParseCompSections( xmlNodePtr sectionsNode, std::vector<TCompSection> &CompSections );
   void getLayerPlacesCompSection( TSalons &NSalons, TCompSection &compSection,
                                   bool only_high_layer,
                                   std::map<ASTRA::TCompLayerType, TPlaces> &uselayers_places,
@@ -1551,11 +1547,15 @@ class TSalonList: public std::vector<TPlaceList*> {
                                   std::map<ASTRA::TCompLayerType, TPlaces> &uselayers_places,
                                   int &seats_count );
   bool ChangeCfg( const std::vector<TPlaceList*> &list1,
+                  const std::vector<TPlaceList*> &list2,
+                  const TCompareCompsFlags &compareFlags );
+  bool ChangeCfg( const std::vector<TPlaceList*> &list1,
                   const std::vector<TPlaceList*> &list2 );
   bool IsMiscSet( int point_id, int misc_type );
   void check_diffcomp_alarm( int point_id );
   std::string getDiffCompsAlarmRoutes( int point_id );
   int CRC32_Comp( int point_id );
+  int CRC32_Comp( const SALONS2::TSalonList &comp );
   bool compatibleLayer( ASTRA::TCompLayerType layer_type );
   void verifyValidRem( const std::string &className, const std::string &remCode );
   bool isBaseLayer( ASTRA::TCompLayerType layer_type, bool isComponCraft );
@@ -1575,7 +1575,8 @@ class TSalonList: public std::vector<TPlaceList*> {
   void getSalonDesrcs( int point_id, TSalonDesrcs &descrs );
   void getPaxSeatsWL( int point_id, std::map< bool,std::map < int,TSeatRanges > > &seats );
   void processSalonsCfg_TestMode(int point_id, int comp_id);
-
+  bool haveConstructiveCompon( int id, TReadStyle style );
+  bool isConstructivePlace( const std::string &elem_type );
 } // END namespace SALONS2
 int testsalons(int argc,char **argv);
 #endif /*_SALONS2_H_*/

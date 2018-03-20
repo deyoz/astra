@@ -907,7 +907,7 @@ void TPointsDest::DoEvents( int move_id, const TPointsDest &dest )
                           << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmSetACTOUT ) )
     reqInfo->LocaleToLog("EVT.DISP.SET_TAKEOFF_ACT", LEvntPrms() << PrmDate("time", act_out, "hh:nn dd.mm.yy (UTC)")
-                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
+                          <<  PrmLexema("owner","") << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmChangeACTOUT ) )
     reqInfo->LocaleToLog("EVT.DISP.MODIFY_TAKEOFF_ACT", LEvntPrms() << PrmDate("time", act_out, "hh:nn dd.mm.yy (UTC)")
                           << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );

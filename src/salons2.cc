@@ -21,6 +21,15 @@ using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace ASTRA;
 
+bool forBuild( const TPlace &place ) {
+  return ( !(!place.visible ||
+             (!TReqInfo::Instance()->desk.compatible( SALON_SECTION_VERSION ) &&
+              ( place.elem_type == "B" ||
+                place.elem_type == "R" ||
+                place.elem_type == "L" ||
+                place.elem_type == "W" ))) );
+}
+
 void TFilterLayers::getFilterLayers( int point_id )
 {
     clearFlags();
@@ -77,7 +86,7 @@ bool TFilterLayers::CanUseLayer( TCompLayerType layer_type, int point_id )
 
 string DecodeLayer( const std::string &layer )
 {
-    switch( DecodeCompLayerType( (char*)layer.c_str() ) ) {
+    switch( DecodeCompLayerType( (const char*)layer.c_str() ) ) {
         case cltProtCkin:
             return "PS";
     case cltPNLCkin:
@@ -183,10 +192,11 @@ void TSalons::Build( xmlNodePtr salonsNode )
     xmlNodePtr placeListNode = NewTextChild( salonsNode, "placelist" );
     SetProp( placeListNode, "num", (*placeList)->num );
     int xcount=0, ycount=0;
-    for ( TPlaces::iterator place = (*placeList)->places.begin();
+    for ( TPlaces::const_iterator place = (*placeList)->places.begin();
           place != (*placeList)->places.end(); place++ ) {
-      if ( !place->visible )
-       continue;
+      if ( !forBuild( *place ) ) {
+          continue;
+      }
       xmlNodePtr placeNode = NewTextChild( placeListNode, "place" );
       NewTextChild( placeNode, "x", place->x );
       NewTextChild( placeNode, "y", place->y );
@@ -218,7 +228,7 @@ void TSalons::Build( xmlNodePtr salonsNode )
         NewTextChild( placeNode, "block" );
       xmlNodePtr remsNode = NULL;
       xmlNodePtr remNode;
-      for ( vector<SALONS2::TRem>::iterator rem = place->rems.begin(); rem != place->rems.end(); rem++ ) {
+      for ( vector<SALONS2::TRem>::const_iterator rem = place->rems.begin(); rem != place->rems.end(); rem++ ) {
         if ( !remsNode ) {
           remsNode = NewTextChild( placeNode, "rems" );
         }
@@ -229,7 +239,7 @@ void TSalons::Build( xmlNodePtr salonsNode )
       }
       if ( place->layers.size() > 0 ) {
         xmlNodePtr layersNode = NewTextChild( placeNode, "layers" );
-        for( std::vector<std::string>::iterator l=place->layers.begin(); l!=place->layers.end(); l++ ) {
+        for( std::vector<std::string>::const_iterator l=place->layers.begin(); l!=place->layers.end(); l++ ) {
           ProgTrace( TRACE5, "layer_type=%s", l->c_str() );
             if ( string(EncodeCompLayerType( cltDisable )) == *l && !SALONS2::compatibleLayer( cltDisable ) ) {
             if ( !remsNode ) {
@@ -1084,7 +1094,7 @@ void ClearLayer( const std::map<std::string,int> &status_priority, const std::st
 
 void SetFree( const std::string &layer, TPlace &pl )
 {
-    TCompLayerType layer_type = DecodeCompLayerType( (char*)layer.c_str() );
+    TCompLayerType layer_type = DecodeCompLayerType( (const char*)layer.c_str() );
     if ( layer_type == cltCheckin ||
          layer_type == cltTCheckin ||
            layer_type == cltTranzit ||
@@ -1096,7 +1106,7 @@ void SetFree( const std::string &layer, TPlace &pl )
 
 void SetBlock( const std::string &layer, TPlace &pl )
 {
-    if ( DecodeCompLayerType( (char*)layer.c_str() ) == cltBlockCent )
+    if ( DecodeCompLayerType( (const char*)layer.c_str() ) == cltBlockCent )
         pl.block = true;
 }
 

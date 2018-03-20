@@ -53,6 +53,48 @@ bool isREM_SUBCLS( std::string rem )
                *(rem.c_str()) >= 'A' && *(rem.c_str()) <= 'Z' );
 }
 
+void constructiveElemTypes( std::vector<std::string> &elem_types ) {
+  elem_types.clear();
+  elem_types.push_back( "B" );
+  elem_types.push_back( "R" );
+  elem_types.push_back( "L" );
+  elem_types.push_back( "W" );
+}
+
+bool isConstructivePlace( const std::string &elem_type, const std::vector<std::string> &elem_types ) {
+  return ( std::find( elem_types.begin(), elem_types.end(), elem_type ) != elem_types.end() );
+}
+
+bool isConstructivePlace( const std::string &elem_type ) {
+  std::vector<std::string> elem_types;
+  constructiveElemTypes( elem_types );
+  return isConstructivePlace( elem_type, elem_types );
+}
+
+bool haveConstructiveCompon( int id, TReadStyle style ) {
+  std::vector<std::string> elem_types;
+  constructiveElemTypes( elem_types );
+  TQuery Qry( &OraSession );
+  if ( style == rComponSalons ) {
+    Qry.SQLText =
+      "SELECT 1 FROM comp_elems WHERE comp_id=:comp_id AND elem_type IN " + GetSQLEnum( elem_types );
+    Qry.CreateVariable( "comp_id", otInteger, id );
+  }
+  else {
+      Qry.SQLText =
+        "SELECT 1 FROM trip_comp_elems WHERE point_id=:point_id AND elem_type IN " + GetSQLEnum( elem_types );
+      Qry.CreateVariable( "point_id", otInteger, id );
+  }
+  Qry.Execute();
+  return !Qry.Eof;
+}
+
+bool forBuild( const TPlace &place, const std::vector<std::string> &elem_types ) {
+  return ( !(!place.visible ||
+             (!TReqInfo::Instance()->desk.compatible( SALON_SECTION_VERSION ) &&
+              isConstructivePlace( place.elem_type, elem_types ) ) ) );
+}
+
 void TSelfCkinSalonTariff::setTariffMap( int point_id,
                                          TSeatTariffMap &tariffMap ) {
   TQuery Qry( &OraSession );
@@ -575,13 +617,14 @@ void buildMenuLayers( bool isTripCraft,
            !r->user.access.check_profile(point_id, 410) )
         pr_edit = false;
       if ( ilayer->first == cltDisable &&
-           (!r->user.access.check_profile(point_id, 425)) )
+           (!r->user.access.check_profile(point_id, 425)) ) {
         pr_edit = false;
-        if ( pr_edit ) {
-          SetProp( n, "edit", 1 );
-          if ( isBaseLayer( ilayer->first, !isTripCraft ) )
-            SetProp( n, "base_edit", 1 );
-        }
+      }
+      if ( pr_edit ) {
+        SetProp( n, "edit", 1 );
+        if ( isBaseLayer( ilayer->first, !isTripCraft ) )
+          SetProp( n, "base_edit", 1 );
+      }
     }
     if ( ilayer->second.notfree )
         SetProp( n, "notfree", 1 );
@@ -1061,6 +1104,7 @@ bool TPlace::isChange( const TPlace &seat, BitSet<TCompareComps> &compare ) cons
           return true;
     }
   }
+
   if ( compare.isFlag( ccClass ) ) {
     if ( visible != seat.visible ||
          ( visible &&
@@ -1816,13 +1860,14 @@ void TSalons::BuildLayersInfo( xmlNodePtr salonsNode,
            !r->user.access.check_profile(trip_id, 410) )
         pr_edit = false;
       if ( i->first == cltDisable &&
-           !r->user.access.check_profile(trip_id, 425) )
+           !r->user.access.check_profile(trip_id, 425) ) {
         pr_edit = false;
-        if ( pr_edit ) {
-          SetProp( n, "edit", 1 );
-          if ( isBaseLayer( i->first, readStyle == rComponSalons ) )
-            SetProp( n, "base_edit", 1 );
-        }
+      }
+      if ( pr_edit ) {
+        SetProp( n, "edit", 1 );
+        if ( isBaseLayer( i->first, readStyle == rComponSalons ) )
+          SetProp( n, "base_edit", 1 );
+      }
     }
     if ( i->second.notfree )
         SetProp( n, "notfree", 1 );
@@ -1904,6 +1949,8 @@ void TSalons::SetCurrPlaceList( TPlaceList *newPlaceList )
 
 void TSalons::Build( xmlNodePtr salonsNode )
 {
+  std::vector<std::string> elem_types;
+  constructiveElemTypes( elem_types );
   BitSet<TDrawPropsType> props;
     SetProp( salonsNode, "pr_lat_seat", pr_lat_seat );
   for( vector<TPlaceList*>::iterator placeList = placelists.begin();
@@ -1913,8 +1960,9 @@ void TSalons::Build( xmlNodePtr salonsNode )
     int xcount=0, ycount=0;
     for ( TPlaces::iterator place = (*placeList)->places.begin();
           place != (*placeList)->places.end(); place++ ) {
-      if ( !place->visible )
-       continue;
+      if ( !forBuild( *place, elem_types ) ) {
+        continue;
+      }
       if ( place->x > xcount )
         xcount = place->x;
       if ( place->y > ycount )
@@ -2270,23 +2318,24 @@ void SetValidPaxLayer( TPaxLayers::iterator ipax, vector<TPaxLayer>::iterator iv
 void ClearInvalidPaxLayers( TSalons *CSalon, TPaxLayers::iterator ipax )
 {
   for ( vector<TPaxLayer>::iterator ipax_layer=ipax->second.paxLayers.begin(); ipax_layer!=ipax->second.paxLayers.end(); ipax_layer++ ) { // пробег по слоям пассажира
-    if ( ipax_layer->valid != -1 )
+    if ( ipax_layer->valid != -1 ) {
       continue;
-      for( vector<TSalonPoint>::iterator icoord=ipax_layer->places.begin(); icoord!=ipax_layer->places.end(); icoord++ ) { // пробег по местам
-        for (vector<TPlaceList*>::iterator it=CSalon->placelists.begin(); it!=CSalon->placelists.end(); it++ ) {  // пробег по салонам
-            if ( (*it)->num == icoord->num ) {
-                TPlace* place = (*it)->place( (*it)->GetPlaceIndex( icoord->x, icoord->y ) );
-                for ( vector<TPlaceLayer>::iterator iplace_layer=place->layers.begin(); iplace_layer!=place->layers.end(); iplace_layer++ ) { // пробег по слоям места
-            if ( iplace_layer->layer_type == ipax_layer->layer_type &&
-                   iplace_layer->time_create == ipax_layer->time_create &&
-                 iplace_layer->pax_id == ipax->first ) {
-              place->layers.erase( iplace_layer );
-              break;
-            }
-          }
-          break;
+    }
+    for( vector<TSalonPoint>::iterator icoord=ipax_layer->places.begin(); icoord!=ipax_layer->places.end(); icoord++ ) { // пробег по местам
+      for (vector<TPlaceList*>::iterator it=CSalon->placelists.begin(); it!=CSalon->placelists.end(); it++ ) {  // пробег по салонам
+          if ( (*it)->num == icoord->num ) {
+              TPlace* place = (*it)->place( (*it)->GetPlaceIndex( icoord->x, icoord->y ) );
+              for ( vector<TPlaceLayer>::iterator iplace_layer=place->layers.begin(); iplace_layer!=place->layers.end(); iplace_layer++ ) { // пробег по слоям места
+          if ( iplace_layer->layer_type == ipax_layer->layer_type &&
+                 iplace_layer->time_create == ipax_layer->time_create &&
+               iplace_layer->pax_id == ipax->first ) {
+            place->layers.erase( iplace_layer );
+            break;
           }
         }
+        break;
+          }
+      }
     }
   }
 }
@@ -2307,7 +2356,7 @@ void GetValidPaxLayer( TSalons *CSalon, TPaxLayers &pax_layers, TPaxLayers::iter
       continue;
     }
     for( vector<TSalonPoint>::iterator icoord=ipax_layer->places.begin(); icoord!=ipax_layer->places.end(); icoord++ ) { // пробег по местам слоя
-        for (vector<TPlaceList*>::iterator it=CSalon->placelists.begin(); it!=CSalon->placelists.end(); it++ ) {
+      for (vector<TPlaceList*>::iterator it=CSalon->placelists.begin(); it!=CSalon->placelists.end(); it++ ) {
             if ( (*it)->num == icoord->num ) {
                 place = (*it)->place( (*it)->GetPlaceIndex( icoord->x, icoord->y ) );
           if ( ipax->second.cl != place->clname || !place->isplace || ipax_layer->places.begin()->num != place->num ) {
@@ -3124,6 +3173,7 @@ FilterRoutesProperty::FilterRoutesProperty( const std::string &airline ) {
 /* зачитка маршрута */
 void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
 {
+  //ProgTrace(TRACE5, "FilterRoutesProperty::Read::filterRoutesSets.point_dep=%d", filterRoutesSets.point_dep );
   clear();
   pointNum.clear();
   point_dep = filterRoutesSets.point_dep;
@@ -3197,6 +3247,7 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
                              point_dep,
                              trtNotCurrent,
                              trtNotCancelled ) ) {
+    //ProgTrace(TRACE5, "FilterRoutesProperty::Read::point_dep=%d", point_dep );
     for ( std::vector<TTripRouteItem>::iterator iroute=routes.begin();
           iroute!=routes.end(); iroute++ ) {
       if ( iroute!=routes.end() - 1 ) {
@@ -3220,6 +3271,9 @@ void FilterRoutesProperty::Read( const TFilterRoutesSets &filterRoutesSets )
     if ( point_arv == ASTRA::NoExists && !routes.empty() ) {
       point_arv = routes.begin()->point_id;
     }
+  }
+  if ( routes.empty() && point_arv == ASTRA::NoExists ) { //нет вылета
+      point_arv = point_dep;
   }
   if ( point_arv != ASTRA::NoExists ) {
     readNum( point_arv, true );
@@ -3433,7 +3487,6 @@ void TSalonList::ReadCompon( int vcomp_id, int point_id )
   Qry.Execute();
   ReadRFISCColors( Qry, filterRoutes, NoExists );
   RFISCMode = rAll;
-
   if ( !airline.empty() ) {
     TSeatTariffMap tariffMap;
     tariffMap.get_rfisc_colors( airline );
@@ -4164,12 +4217,12 @@ void TSalonList::getPassengers( TSalonPassengers &passengers, const TGetPassFlag
   try {
     for ( FilterRoutesProperty::const_reverse_iterator iroute=filterRoutesPrior.rbegin();
           iroute!=filterRoutesPrior.rend(); iroute++ ) {
-      //!logProgTrace( TRACE5, "TSalonList::getPassenger: point_id=%d, filterRoutesPrior.getDepartureId()=%d, filterRoutesPrior.getArrivalId()=%d",
-      //!log           iroute->point_id, filterRoutesPrior.getDepartureId(), filterRoutesPrior.getArrivalId() );
+//      ProgTrace( TRACE5, "TSalonList::getPassenger: point_id=%d, filterRoutesPrior.getDepartureId()=%d, filterRoutesPrior.getArrivalId()=%d",
+//               iroute->point_id, filterRoutesPrior.getDepartureId(), filterRoutesPrior.getArrivalId() );
       _TSalonPassengers passes( iroute->point_id, filterSets.filterRoutes.isCraftLat() );  //!!!filterSets.filterRoutes.isCraftLat() - у салона может быть другой
       JumpToLeg( TFilterRoutesSets( iroute->point_id ) );
-      //!logProgTrace( TRACE5, "TSalonList::getPassenger: point_id=%d, filterRoutes.getDepartureId()=%d, filterRoutes.getArrivalId()=%d",
-      //!log           iroute->point_id, filterRoutes.getDepartureId(), filterRoutes.getArrivalId() );
+//      ProgTrace( TRACE5, "TSalonList::getPassenger: point_id=%d, filterRoutes.getDepartureId()=%d, filterRoutes.getArrivalId()=%d",
+//                 iroute->point_id, filterRoutes.getDepartureId(), filterRoutes.getArrivalId() );
       bool pr_find = false;
       for ( FilterRoutesProperty::const_reverse_iterator jroute=filterRoutes.rbegin();
             jroute!=filterRoutes.rend(); jroute++ ) {
@@ -4269,8 +4322,7 @@ void TSalonList::getPaxLayer( int point_dep, int pax_id,
 }
 
 void TSectionInfo::clearProps() {
-    firstRowIdx = ASTRA::NoExists;
-    lastRowIdx = ASTRA::NoExists;
+    clear();
     salonPoints.clear();
     totalLayerSeats.clear();
     currentLayerSeats.clear();
@@ -4279,8 +4331,8 @@ void TSectionInfo::clearProps() {
 }
 
 void TSectionInfo::operator = (const TSectionInfo &sectionInfo) {
-    firstRowIdx = sectionInfo.firstRowIdx;
-    lastRowIdx = sectionInfo.lastRowIdx;
+    SimpleProp::operator = ( sectionInfo );
+//    ProgTrace( TRACE5, "section=%s", sectionInfo.str().c_str() );
     salonPoints = sectionInfo.salonPoints;
     totalLayerSeats = sectionInfo.totalLayerSeats;
     currentLayerSeats = sectionInfo.currentLayerSeats;
@@ -4309,21 +4361,8 @@ bool TSectionInfo::inSection( const TSeat &aseat ) const {
 }
 
 bool TSectionInfo::inSection( int row ) const {
-    return ( (row >= firstRowIdx || firstRowIdx == ASTRA::NoExists) &&
-            (row <= lastRowIdx || lastRowIdx == ASTRA::NoExists) ); // внутри секции или нет границ секции
-}
-
-int TSectionInfo::getFirstRow() const {
-    return firstRowIdx;
-}
-
-int TSectionInfo::getLastRow() const {
-    return lastRowIdx;
-}
-
-void TSectionInfo::setSectionRows( int ffirstRow, int flastRow ) {
-    firstRowIdx = ffirstRow;
-    lastRowIdx = flastRow;
+    return ( (row >= getFirstRow() || getFirstRow() == ASTRA::NoExists) &&
+            (row <= getLastRow() || getLastRow() == ASTRA::NoExists) ); // внутри секции или нет границ секции
 }
 
 void TSectionInfo::AddLayerSeats( const TSeatLayer &seatLayer, const TSeat &seats ) {
@@ -4804,6 +4843,8 @@ void TSalonList::Build( bool with_pax,
                         xmlNodePtr salonsNode )
 {         //compon
   BitSet<TDrawPropsType> props;
+  std::vector<std::string> elem_types;
+  constructiveElemTypes( elem_types );
   SetProp( salonsNode, "pr_lat_seat", isCraftLat() );
   int comp_crc = 0;
   ProgTrace( TRACE5, "getDepartureId=%d", getDepartureId() );
@@ -4823,8 +4864,9 @@ void TSalonList::Build( bool with_pax,
     int xcount=0, ycount=0;
     for ( TPlaces::iterator place = (*placeList)->places.begin();
           place != (*placeList)->places.end(); place++ ) {
-      if ( !place->visible )
-       continue;
+      if ( !forBuild( *place, elem_types ) ) {
+        continue;
+      }
       if ( place->x > xcount )
         xcount = place->x;
       if ( place->y > ycount )
@@ -5198,9 +5240,9 @@ void TSalonList::getEditableFlightLayers( BitSet<ASTRA::TCompLayerType> &editabe
   getEditableFlightLayers1( filterSets.filtersLayers[ getDepartureId() ], editabeLayers );
 }
 
-void TSalonList::WriteFlight( int vpoint_id )
+void TSalonList::WriteFlight( int vpoint_id, bool saveContructivePlaces )
 {
-  ProgTrace( TRACE5, "TSalonList::WriteFlight: point_id=%d, RFISCMode=%d", vpoint_id, getRFISCMode() );
+  ProgTrace( TRACE5, "TSalonList::WriteFlight: point_id=%d, RFISCMode=%d, saveContructivePlaces=%d", vpoint_id, getRFISCMode(), saveContructivePlaces );
   TFlights flights;
   flights.Get( vpoint_id, ftTranzit );
   flights.Lock(__FUNCTION__);
@@ -5251,16 +5293,28 @@ void TSalonList::WriteFlight( int vpoint_id )
     QryReadX.Execute();
     ReadRFISCColors( QryReadX, filterRoutes, ASTRA::NoExists );
   }
-  Qry.SQLText =
+  std::vector<std::string> elem_types;
+  constructiveElemTypes( elem_types );
+  string sqlStr =
       "BEGIN "
       " UPDATE trip_sets SET pr_lat_seat=:pr_lat_seat WHERE point_id=:point_id; "
       " DELETE trip_comp_rem WHERE point_id=:point_id; "
       " DELETE trip_comp_rfisc WHERE point_id=:point_id; "
       " DELETE trip_comp_baselayers WHERE point_id=:point_id; "
       " DELETE trip_comp_rates WHERE point_id=:point_id; "
-      " DELETE trip_comp_rfisc WHERE point_id=:point_id; "
-      " DELETE trip_comp_elems WHERE point_id=:point_id; "
-      "END;";
+      " DELETE trip_comp_rfisc WHERE point_id=:point_id; ";
+  if ( saveContructivePlaces ) {
+      sqlStr +=
+      " DELETE trip_comp_elems WHERE point_id=:point_id AND elem_type NOT IN ";
+      sqlStr += GetSQLEnum( elem_types );
+  }
+  else {
+    sqlStr +=
+      " DELETE trip_comp_elems WHERE point_id=:point_id ";
+  }
+  sqlStr += ";";
+  sqlStr += "END;";
+  Qry.SQLText = sqlStr;
   Qry.CreateVariable( "point_id", otInteger, vpoint_id );
   Qry.CreateVariable( "pr_lat_seat", otInteger, isCraftLat() );
   Qry.Execute();
@@ -5355,6 +5409,10 @@ void TSalonList::WriteFlight( int vpoint_id )
     for ( TPlaces::iterator iseat = (*plist)->places.begin(); iseat != (*plist)->places.end(); iseat++ ) {
       if ( !iseat->visible )
         continue;
+      if ( saveContructivePlaces &&
+           isConstructivePlace( iseat->elem_type, elem_types ) ) {
+        continue;
+      }
       Qry.SetVariable( "x", iseat->x );
       Qry.SetVariable( "y", iseat->y );
       Qry.SetVariable( "elem_type", iseat->elem_type );
@@ -5486,7 +5544,7 @@ void TSalonList::WriteFlight( int vpoint_id )
   }
 }
 
-void TSalonList::WriteCompon( int &vcomp_id, const TComponSets &componSets )
+void TSalonList::WriteCompon( int &vcomp_id, const TComponSets &componSets, bool saveContructivePlaces )
 {
   ProgTrace( TRACE5, "TSalonList::WriteCompon: comp_id=%d, modify=%d", vcomp_id, (int)componSets.modify );
   if ( componSets.modify == mNone ) {
@@ -5500,9 +5558,12 @@ void TSalonList::WriteCompon( int &vcomp_id, const TComponSets &componSets )
     vcomp_id = Qry.FieldAsInteger( "comp_id" );
   }
   Qry.Clear();
+  std::vector<std::string> elem_types;
+  constructiveElemTypes( elem_types );
+  string sqlStr;
   switch ( (int)componSets.modify ) {
     case mChange:
-      Qry.SQLText =
+      sqlStr =
         "BEGIN "
         " UPDATE comps SET airline=:airline,airp=:airp,craft=:craft,bort=:bort,descr=:descr, "
         "        time_create=system.UTCSYSDATE,classes=:classes,pr_lat_seat=:pr_lat_seat "
@@ -5510,10 +5571,22 @@ void TSalonList::WriteCompon( int &vcomp_id, const TComponSets &componSets )
         " DELETE comp_rem WHERE comp_id=:comp_id; "
         " DELETE comp_baselayers WHERE comp_id=:comp_id; "
         " DELETE comp_rfisc WHERE comp_id=:comp_id; "
-        " DELETE comp_rates WHERE comp_id=:comp_id; "
-        " DELETE comp_elems WHERE comp_id=:comp_id; "
+        " DELETE comp_rates WHERE comp_id=:comp_id; ";
+      if ( saveContructivePlaces ) {
+        sqlStr +=
+        " DELETE comp_elems WHERE comp_id=:comp_id AND elem_type NOT IN ";
+        sqlStr += GetSQLEnum( elem_types );
+      }
+      else {
+        sqlStr +=
+        " DELETE comp_elems WHERE comp_id=:comp_id ";
+      }
+      sqlStr += ";";
+      sqlStr +=
         " DELETE comp_classes WHERE comp_id=:comp_id; "
         "END; ";
+      ProgTrace( TRACE5, "sql=%s", sqlStr.c_str() );
+      Qry.SQLText = sqlStr;
       break;
     case mAdd:
       Qry.SQLText =
@@ -5623,6 +5696,11 @@ void TSalonList::WriteCompon( int &vcomp_id, const TComponSets &componSets )
     QryRFISC.SetVariable( "num", (*plist)->num );
     for ( TPlaces::iterator iseat=(*plist)->places.begin(); iseat!=(*plist)->places.end(); iseat++ ) {
       if ( !iseat->visible ) {
+        continue;
+      }
+      if ( componSets.modify == mChange &&
+           saveContructivePlaces &&
+           isConstructivePlace( iseat->elem_type, elem_types ) ) {
         continue;
       }
       Qry.SetVariable( "x", iseat->x );
@@ -6113,16 +6191,16 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
         continue;
       }
       if ( filterRoutes.getMaxRoute() != filterRoutesTmp.getMaxRoute() ) { //макс. плечо не равно предыдущему
-//        ProgTrace( TRACE5, "check_waitlist_alarm_on_tranzit_routes: point_id=%d, filterRoutesSets.point_dep=%d,%d, filterRoutesTmp.getMaxRoute()=%d,%d",
+//        ProgTrace( TRACE5, "check_waitlist_alarm_on_tranzit_routes: point_id=%d, filterRoutesSets.point_dep=%d,%d, filterRoutesTmp.getMaxRoute()=%d,%d, filterRoutesTmp.getArrivalId()=%d",
 //                   iroute->point_id, filterRoutes.getMaxRoute().point_dep, filterRoutes.getMaxRoute().point_arv,
-//                   filterRoutesTmp.getMaxRoute().point_dep, filterRoutesTmp.getMaxRoute().point_arv );
+//                   filterRoutesTmp.getMaxRoute().point_dep, filterRoutesTmp.getMaxRoute().point_arv,filterRoutesTmp.getArrivalId()  );
         filterRoutes = filterRoutesTmp;
         if ( iroute->point_id == filterRoutes.getArrivalId() ) { //нет вылета
           //pr_exists_salons = false;
-          tst();
+//          tst();
           continue;
         }
-        tst();
+//        ProgTrace( TRACE5, "iroute->point_id=%d", iroute->point_id );
         salonList.ReadFlight( TFilterRoutesSets( iroute->point_id, filterRoutes.getArrivalId() ), rfTranzitVersion, "", ASTRA::NoExists, true );
         salonList.check_waitlist_alarm_on_tranzit_routes( paxs_external_logged );
       }
@@ -7911,6 +7989,28 @@ void getSeasonData( const vector<int> &points, map<int,TCounters> &crs_data )
   //!log           crs_data[ -1 ].point_id, crs_data[ -1 ].f, crs_data[ -1 ].c, crs_data[ -1 ].y );
 }
 
+int CRC32_Comp( const SALONS2::TSalonList &comp )
+{
+  std::vector<std::string> elem_types;
+  constructiveElemTypes( elem_types );
+  ostringstream buf;
+  for ( std::vector<TPlaceList*>::const_iterator isalon=comp.begin(); isalon!=comp.end(); isalon++ ) {
+    for ( TPlaces::const_iterator iseat=(*isalon)->places.begin(); iseat!=(*isalon)->places.end(); iseat++ ) {
+      if ( !iseat->visible || isConstructivePlace( iseat->elem_type, elem_types ) ) {
+        continue;
+      }
+      buf << (*isalon)->num << iseat->x << iseat->y << iseat->clname << iseat->xname << iseat->yname << TCompElemTypes::Instance()->isSeat( iseat->elem_type );
+    }
+  }
+  boost::crc_basic<32> crc32( 0x04C11DB7, 0xFFFFFFFF, 0xFFFFFFFF, true, true );
+  crc32.reset();
+  crc32.process_bytes( buf.str().c_str(), buf.str().size() );
+  int comp_crc = crc32.checksum();
+  //!logProgTrace( TRACE5, "CRC32_Comp: point_id=%d, crc_comp=%d", point_id, comp_id );
+  return comp_crc;
+
+}
+
 int CRC32_Comp( int point_id )
 {
   vector<TSalonPoint> cltDisables;
@@ -8283,13 +8383,14 @@ bool EqualSalon( TPlaceList* oldsalon, TPlaceList* newsalon,
 {
     //возможно более тонко оценивать салон: удаление мест из ряда/линии - это места становятся невидимые, но при этом теряется само название ряда/линии
     bool res = ( oldsalon->places.size() == newsalon->places.size() &&
-                   oldsalon->GetXsCount() == newsalon->GetXsCount() &&
-                   oldsalon->GetYsCount() == newsalon->GetYsCount() );
-  if ( !res )
+                 oldsalon->GetXsCount() == newsalon->GetXsCount() &&
+                 oldsalon->GetYsCount() == newsalon->GetYsCount() );
+  if ( !res ) {
     return false;
+  }
 
   for ( TPlaces::iterator po = oldsalon->places.begin(),
-                            pn = newsalon->places.begin();
+                          pn = newsalon->places.begin();
         po != oldsalon->places.end(),
         pn != newsalon->places.end();
         po++, pn++ ) {
@@ -8306,7 +8407,13 @@ bool ChangeCfg( const vector<TPlaceList*> &list1,
   TCompareCompsFlags compareFlags;
   compareFlags.setFlag( SALONS2::ccXY );
   compareFlags.setFlag( SALONS2::ccElemType );
+  return ChangeCfg( list1, list2, compareFlags );
+}
 
+bool ChangeCfg( const vector<TPlaceList*> &list1,
+                const vector<TPlaceList*> &list2,
+                const TCompareCompsFlags &compareFlags )
+{
   if ( list1.size() != list2.size() ) {
     return true;
   }
@@ -8634,15 +8741,16 @@ void getStrSeats( const RowsRef &rows, PrmEnum &params, bool pr_lat )
                ( prior_isr != isr && !(pr_rr=RightRows( prior_isr->second.yname, isr->second.yname )) ) ||
                ( i == 0 && first_isr->second.xnames != isr->second.xnames ) || //описание блока мест с одинаковыми линиями
                ( i != 0 && first_isr->second.xnames.find_first_of( isr->second.xnames ) != string::npos ) ) { //описание блока мест с пересекающимися линиями
-        if ( !pr_rr )
+          if ( !pr_rr ) {
             pr_right_rows = false;
-            for ( string::const_iterator sp=prior_isr->second.xnames.begin(); sp!=prior_isr->second.xnames.end(); sp++ ) {
-              if ( max_lines.find( *sp ) == string::npos ) {
-                  max_lines += *sp;
-                  denorm_max_lines += denorm_iata_line( string(1,*sp), pr_lat );
-                }
           }
-            if ( i == 0 ) {
+          for ( string::const_iterator sp=prior_isr->second.xnames.begin(); sp!=prior_isr->second.xnames.end(); sp++ ) {
+            if ( max_lines.find( *sp ) == string::npos ) {
+              max_lines += *sp;
+              denorm_max_lines += denorm_iata_line( string(1,*sp), pr_lat );
+            }
+          }
+          if ( i == 0 ) {
             str += denorm_iata_row( first_isr->second.yname );
               if ( prior_isr->first != first_isr->first )
                 str += "-" + denorm_iata_row( prior_isr->second.yname );
@@ -9067,10 +9175,11 @@ void salonChangesToText( int point_id,
   //!logProgTrace( TRACE5, "NewSalons->placelists.size()=%zu", newlist.size() );
   for ( vector<TPlaceList*>::const_iterator sn=newlist.begin(); sn!=newlist.end(); sn++ ) {
     //!logProgTrace( TRACE5, "(*sn)->num=%d", (*sn)->num );
-    if ( find( salonNums.begin(), salonNums.end(), (*sn)->num ) != salonNums.end() )
-        continue; // этот салон уже описан
-        bool pr_equal_salon_and_seats=true;
-        string clname, elem_type;
+    if ( find( salonNums.begin(), salonNums.end(), (*sn)->num ) != salonNums.end() ) {
+      continue; // этот салон уже описан
+    }
+    bool pr_equal_salon_and_seats=true;
+    string clname, elem_type;
       for ( TPlaces::iterator pn = (*sn)->places.begin(); pn != (*sn)->places.end(); pn++ ) {
         if ( pn->visible ) {
             if ( clname.empty() ) {
@@ -9156,26 +9265,6 @@ void getXYName( int point_id, std::string seat_no, std::string &xname, std::stri
         xname = Qry.FieldAsString( "xname" );
         yname = Qry.FieldAsString( "yname" );
     }
-}
-
-void ParseCompSections( xmlNodePtr sectionsNode, std::vector<TCompSection> &CompSections )
-{
-  CompSections.clear();
-  if ( !sectionsNode )
-    return;
-  sectionsNode = sectionsNode->children;
-  while ( sectionsNode && string((const char*)sectionsNode->name) == "section" ) {
-    TCompSection cs;
-    cs.name = NodeAsString( sectionsNode );
-    if ( !IsAscii7( cs.name ) ) {
-      throw UserException( "MSG.INVALID_COMPSECTIONS_NAME" );
-    }
-    cs.setSectionRows( NodeAsInteger( "@FirstRowIdx", sectionsNode ),
-                       NodeAsInteger( "@LastRowIdx", sectionsNode ) );
-    CompSections.push_back( cs );
-    sectionsNode = sectionsNode->next;
-  }
-  //!logProgTrace( TRACE5, "CompSections.size()=%zu", CompSections.size() );
 }
 
 void getLayerPlacesCompSection( const TSalonList &salonList,
@@ -9505,17 +9594,7 @@ bool isTranzitSalons( int point_id )
     " ORDER BY priority DESC";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  if ( !Qry.Eof && Qry.FieldAsInteger( "pr_new" ) != 0 ) { //!!!убрать после конца конвертации - месяц
-    Qry.Clear();
-    Qry.SQLText =
-      "SELECT point_id from tranzit_algo_seats_points "
-      " WHERE point_id=:point_id ";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.Execute();
-    return Qry.Eof;
-  }
-  else
-   return false;
+  return ( !Qry.Eof && Qry.FieldAsInteger( "pr_new" ) != 0 );
 }
 
 void TSalonPax::int_get_seats( TWaitListReason &waitListReason,
@@ -9985,7 +10064,7 @@ void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
       }
     }
   }
-  salonList.WriteFlight( point_id );
+  salonList.WriteFlight( point_id, false );
   SALONS2::setTRIP_CLASSES( point_id );
 
   BitSet<ASTRA::TCompLayerType> editabeLayers;

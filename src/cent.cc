@@ -1063,7 +1063,7 @@ void importDBF( int external_point_id, string &dbf_file )
           total_goshow_man_seats -= i->layersSeats[ cltTCheckin ].size();
         if ( i->layersSeats.find( cltGoShow ) != i->layersSeats.end() )
           total_goshow_man_seats -= i->layersSeats[ cltGoShow ].size();
-        dbf.SetFieldValue( irow, string("ZONENAME")+IntToString( idx ), i->compSection.name );
+        dbf.SetFieldValue( irow, string("ZONENAME")+IntToString( idx ), i->compSection.getName() );
         dbf.SetFieldValue( irow, string("CAPACITY")+IntToString( idx ), IntToString( i->compSection.seats ) );
         int occupy=0;
         for ( std::map<ASTRA::TCompLayerType,SALONS2::TPlaces>::iterator ilayer=i->layersSeats.begin(); ilayer!=i->layersSeats.end(); ilayer++ ) {
@@ -1071,7 +1071,7 @@ void importDBF( int external_point_id, string &dbf_file )
         };
         dbf.SetFieldValue( irow, string("OCCUPIED")+IntToString( idx ), IntToString( occupy ) );
         ProgTrace( TRACE5, "i->compSection.name=%s, i->compSection.seats=%d, zones[ i->compSection.name ]=%d",
-                   i->compSection.name.c_str(), i->compSection.seats, occupy );
+                   i->compSection.getName().c_str(), i->compSection.seats, occupy );
         tst();
         idx++;
       }
