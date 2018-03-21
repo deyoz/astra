@@ -1324,11 +1324,11 @@ string TBCBPData::toString(const TTagLang &tag_lang)
     else if(pnr.size() <= 7)
         result << setw(7) << convert_pnr_addr(pnr, tag_lang.GetLang() != AstraLocale::LANG_RU);
     // From City Airport Code
-    result << setw(3) << airp_code_2D(airp_dep);
+    result << setw(3) << airp_code_2D(tag_lang.ElemIdToTagElem(etAirp, airp_dep, efmtCodeNative));
     // To City Airport Code
-    result << setw(3) << airp_code_2D(airp_arv);
+    result << setw(3) << airp_code_2D(tag_lang.ElemIdToTagElem(etAirp, airp_arv, efmtCodeNative));
     // Operating Carrier Designator
-    result << left << setw(3) << airline;
+    result << left << setw(3) << tag_lang.ElemIdToTagElem(etAirline, airline, efmtCodeNative);
     // Flight Number
     result
         << right
@@ -1340,7 +1340,7 @@ string TBCBPData::toString(const TTagLang &tag_lang)
     // Date of flight(Julian Date)
     result << right << setw(3) << setfill('0') << _scd.getJulianDate();
     // Compartment Code
-    result << cls;
+    result << tag_lang.ElemIdToTagElem(etClass, cls, efmtCodeNative);
     // Seat Number
     result << setw(4) << right << seat_no;
     // Check-In Sequence Number
