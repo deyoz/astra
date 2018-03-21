@@ -1971,11 +1971,13 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
     if(!loaded.empty())
     {
         tst();
+        /*
         if(!ReqParams(reqNode).getBoolParam("after_kick", false)) {
             tst();
             IatciInterface::ReprintRequest(reqNode);
             return false;
         }
+        */
         XMLDoc xml = ASTRA::createXmlDoc(loaded);
         std::list<XmlSegment> lSeg = XmlEntityReader::readSegs(findNodeR(xml.docPtr()->children, "segments"));
 
@@ -2010,7 +2012,9 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
                 parser->pts.set_tag(TAG::BAG_AMOUNT,    0); // TODO get it
                 parser->pts.set_tag(TAG::BAGGAGE,       ""); // TODO get it
                 parser->pts.set_tag(TAG::BAG_WEIGHT,    0); // TODO get it
-                parser->pts.set_tag(TAG::BCBP_M_2,      " "); // TODO get it
+                TBCBPData bcbp;
+                // fill bcbp
+                parser->pts.set_tag(TAG::BCBP_M_2,      bcbp); // TODO get it
                 parser->pts.set_tag(TAG::BRD_FROM,      "");
                 parser->pts.set_tag(TAG::BRD_TO,        xmlSeg.trip_header.scd_brd_to_local);
                 parser->pts.set_tag(TAG::CHD,           ""); // TODO get it
