@@ -1953,6 +1953,26 @@ void PrintInterface::GetPrintDataBP(
     paxs.erase(remove_if(paxs.begin(), paxs.end(), IsErrPax), paxs.end());
 }
 
+static TBCBPData makeIatciTBCBPData(const astra_api::xml_entities::XmlSegment& seg,
+                                    const astra_api::xml_entities::XmlPax& pax)
+{
+    TBCBPData bcbp;
+    bcbp.surname     = pax.surname;
+    bcbp.name        = pax.name;
+    bcbp.etkt        = pax.ticket_rem == "TKNE";
+    bcbp.cls         = pax.subclass;
+    bcbp.seat_no     = pax.seat_no;
+    bcbp.reg_no      = pax.reg_no;
+    bcbp.pers_type   = pax.pers_type;
+    bcbp.airp_dep    = seg.seg_info.airp_dep;
+    bcbp.airp_arv    = seg.seg_info.airp_arv;
+    bcbp.airline     = seg.trip_header.airline;
+    bcbp.flt_no      = seg.trip_header.flt_no;
+    bcbp.suffix      = seg.trip_header.suffix;
+    bcbp.scd         = seg.trip_header.scd_out_local;
+    return bcbp;
+}
+
 /**
  *  возвращает false - если послана тлг DCQBPR,
  *              true - в остальных случаях
@@ -1969,15 +1989,13 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
 
     std::string loaded = iatci::IatciXmlDb::load(grpId);    
     if(!loaded.empty())
-    {
-        tst();
-        /*
+    {        
         if(!ReqParams(reqNode).getBoolParam("after_kick", false)) {
             tst();
             IatciInterface::ReprintRequest(reqNode);
             return false;
         }
-        */
+
         XMLDoc xml = ASTRA::createXmlDoc(loaded);
         std::list<XmlSegment> lSeg = XmlEntityReader::readSegs(findNodeR(xml.docPtr()->children, "segments"));
 
@@ -2012,9 +2030,7 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
                 parser->pts.set_tag(TAG::BAG_AMOUNT,    0); // TODO get it
                 parser->pts.set_tag(TAG::BAGGAGE,       ""); // TODO get it
                 parser->pts.set_tag(TAG::BAG_WEIGHT,    0); // TODO get it
-                TBCBPData bcbp;
-                // fill bcbp
-                parser->pts.set_tag(TAG::BCBP_M_2,      bcbp); // TODO get it
+                parser->pts.set_tag(TAG::BCBP_M_2,      makeIatciTBCBPData(xmlSeg, xmlPax));
                 parser->pts.set_tag(TAG::BRD_FROM,      "");
                 parser->pts.set_tag(TAG::BRD_TO,        xmlSeg.trip_header.scd_brd_to_local);
                 parser->pts.set_tag(TAG::CHD,           ""); // TODO get it
