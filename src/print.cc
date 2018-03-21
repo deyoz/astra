@@ -2570,7 +2570,7 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
         if ( !pr_all && paxs.empty() ) //все посадочные отпечатаны, но при этом надо было напечатать те, которые были не напечатанны
             throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
     }
-    else { // печать конкретного пассажира
+    else if(pax_id != -1) { // печать конкретного пассажира. Если -1, то это пакс iatci, его начитывает GetIatciPrintDataBP ниже
         Qry.SQLText =
             "SELECT grp_id, pax_id, reg_no FROM pax where pax_id = :pax_id";
         Qry.CreateVariable("pax_id", otInteger, pax_id);
@@ -2619,7 +2619,7 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
         boost::optional<AstraLocale::LexemaData> error;
         GetPrintDataBP(op_type, params, data, pectab, bi_rules, paxs, error);
 
-        if(!GetIatciPrintDataBP(reqNode, first_seg_grp_id, data, params, paxs)) {
+        if(pax_id < 0 and !GetIatciPrintDataBP(reqNode, first_seg_grp_id, data, params, paxs)) {
             tst();
             return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR");
         }
