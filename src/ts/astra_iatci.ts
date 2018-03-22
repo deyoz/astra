@@ -3179,6 +3179,15 @@ $(KICK_IN)
               <second_name>IVANICH</second_name>
             </document>
 
+$(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
+$(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
+
+# нет изменений - тлг недолжна пойти
+
+$(UPDATE_PAX_DOC $(get point_dep) $(get point_arv) ДМД ПЛК
+                 $(get grp_id) $(get pax_id) $(get tid) ПЛК СОЧ
+                 REPIN IVAN IVANICH 2986120030297 2)
+
 
 %%
 #########################################################################################

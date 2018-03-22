@@ -180,7 +180,9 @@ namespace
                 } else if(newEntity->isEmpty()) {
                     m_removed = oldEntity;
                 } else { // if(!newEntity->isEmpty() && !oldEntity->isEmpty()) {
-                    m_modified = ModifiedEntity<EntityT>(*oldEntity, *newEntity);
+                    if(*oldEntity != *newEntity) {
+                        m_modified = ModifiedEntity<EntityT>(*oldEntity, *newEntity);
+                    }
                 }
             }
         }
@@ -277,12 +279,19 @@ namespace
         const astra_entities::PaxInfo& oldPax() const { return m_oldPax; }
         const astra_entities::PaxInfo& newPax() const { return m_newPax; }
 
-        const DocChangeOpt_t&     docChange() const { return m_docChange; }
+        const DocChangeOpt_t&         docChange() const { return m_docChange; }
         const AddressChangeOpt_t& addressChange() const { return m_addressChange; }
-        const VisaChangeOpt_t&    visaChange() const { return m_visaChange; }
-        const RemChangeOpt_t&     remChange() const { return m_remChange; }
-        const FqtRemChangeOpt_t&  fqtRemChange() const { return m_fqtRemChange; }
-        bool                      persChange() const { return m_persChange; }
+        const VisaChangeOpt_t&       visaChange() const { return m_visaChange; }
+        const RemChangeOpt_t&         remChange() const { return m_remChange; }
+        const FqtRemChangeOpt_t&   fqtRemChange() const { return m_fqtRemChange; }
+        bool                         persChange() const { return m_persChange; }
+
+        bool empty() const { return !m_docChange &&
+                                    !m_addressChange &&
+                                    !m_visaChange &&
+                                    !m_remChange &&
+                                    !m_fqtRemChange &&
+                                    !m_persChange; }
     };
 
     //
@@ -403,7 +412,10 @@ namespace
         : Base_t(lPaxOld, lPaxNew)
     {
         for(const auto& re: modified()) {
-            m_paxChanges.push_back(PaxChange(re.oldEntity(), re.newEntity()));
+            PaxChange paxChange(re.oldEntity(), re.newEntity());
+            if(!paxChange.empty()) {
+                m_paxChanges.push_back(paxChange);
+            }
         }
     }
 
