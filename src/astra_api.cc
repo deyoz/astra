@@ -4013,7 +4013,7 @@ VisaInfo::VisaInfo(const std::string& type,
 
 bool VisaInfo::isEmpty() const
 {
-    return m_type.empty();
+    return m_type.empty() || m_type == "-";
 }
 
 bool operator==(const VisaInfo& left, const VisaInfo& right)
