@@ -2719,10 +2719,10 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
   if ( !passes.getCount() )
     return;
   SeatsStat.start("SeatsPassengers(SalonList)");
-  vector<AstraWeb::TWebPax> pnr;
   /* надо подготовить переменную CurrSalon на основе salonList */
   TFilterRoutesSets filterRoutes = salonList.getFilterRoutes();
   bool pr_grp_pay = false;
+  TPaxsCover paxs;
   for ( int i=0; i<passes.getCount(); i++ ) {
     TPassenger &pass = passes.Get( i );
     if ( SALONS2::isUserProtectLayer( pass.preseat_layer ) ) {
@@ -2735,10 +2735,8 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
     }
     if ( client_type != ASTRA::ctTerm &&
          client_type != ASTRA::ctPNL ) {
-      AstraWeb::TWebPax webPax;
-      webPax.crs_pax_id = pass.paxId;
-      ProgTrace( TRACE5, "webPax.crs_pax_id=%d", webPax.crs_pax_id );
-      pnr.push_back( webPax );
+      ProgTrace( TRACE5, "webPax.crs_pax_id=%d", pass.paxId );
+      paxs.push_back( SALONS2::TPaxCover( pass.paxId, ASTRA::NoExists ) );
     }
   }
   VPassengers rollbackPasses;
@@ -2748,12 +2746,13 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
   grp_layers.push_back( passes.Get( 0 ).grp_status );
   TSalons SalonsN;
   TDropLayersFlags dropLayersFlags;
-  while ( salonList.CreateSalonsForAutoSeats( SalonsN,
-                                              filterRoutes,
-                                              pr_grp_pay,
-                                              grp_layers,
-                                              pnr,
-                                              dropLayersFlags ) ) {
+
+  while (salonList.CreateSalonsForAutoSeats( SalonsN,
+                                             filterRoutes,
+                                             pr_grp_pay,
+                                             grp_layers,
+                                             paxs,
+                                             dropLayersFlags ) ) {
     CurrSalon = &SalonsN;
     countP++;
     if ( countP == 20 ) {  //маленькая защитка

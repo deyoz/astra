@@ -1171,33 +1171,6 @@ void WebRequestsIface::LoadPnr(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   grpSegs.toXML(NewTextChild(resNode, (const char*)reqNode->name));
 }
 
-bool isOwnerFreePlace( int pax_id, const vector<TWebPax> &pnr )
-{
-  bool res = false;
-  for ( vector<TWebPax>::const_iterator i=pnr.begin(); i!=pnr.end(); i++ ) {
-    if ( i->pax_id != NoExists )
-        continue;
-    if ( i->crs_pax_id == pax_id ) {
-        res = true;
-        break;
-    }
-  }
-  return res;
-}
-
-bool isOwnerPlace( int pax_id, const vector<TWebPax> &pnr )
-{
-  bool res = false;
-  for ( vector<TWebPax>::const_iterator i=pnr.begin(); i!=pnr.end(); i++ ) {
-    if ( i->pax_id != NoExists && pax_id == i->pax_id ) {
-        res = true;
-        break;
-    }
-  }
-  return res;
-}
-
-
 struct TWebPlace {
     int x, y;
     string xname;
@@ -1230,7 +1203,7 @@ struct TWebPlaceList {
     int xcount, ycount;
 };
 
-void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &web_salons, bool &pr_find_free_subcls_place,
+void ReadWebSalons( int point_id, const std::vector<AstraWeb::TWebPax> &pnr, map<int, TWebPlaceList> &web_salons, bool &pr_find_free_subcls_place,
                     bool isTranzitSalonsVersion, SALONS2::TSalonList &salonList )
 {
   int point_arv = NoExists;
@@ -1238,7 +1211,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
   web_salons.clear();
   bool pr_CHIN = false;
 
-  for ( vector<TWebPax>::iterator i=pnr.begin(); i!=pnr.end(); i++ ) {
+  for ( vector<TWebPax>::const_iterator i=pnr.begin(); i!=pnr.end(); i++ ) {
     if ( !i->pass_class.empty() )
       crs_class = i->pass_class;
     if ( !i->pass_subclass.empty() )
@@ -1290,7 +1263,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
     TFilterRoutesSets filterRoutes = salonList.getFilterRoutes();
     bool pr_departure_tariff_only = true;
     TDropLayersFlags dropLayersFlags;
-    salonList.CreateSalonsForAutoSeats( SalonsN,
+    salonList.CreateSalonsForAutoSeats<TWebPax>( SalonsN,
                                         filterRoutes,
                                         pr_departure_tariff_only,
                                         grp_layers,
@@ -1354,9 +1327,9 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
                ilayer->layer_type != cltUnknown ) {
             pr_first = false;
             wp.pr_free = false;//( ilayer->layer_type != cltPNLCkin && !SALONS2::isUserProtectLayer( ilayer->layer_type ) );
-            wp.reserv_owner =  ( ( ilayer->layer_type == cltPNLCkin || SALONS2::isUserProtectLayer( ilayer->layer_type ) ) && isOwnerFreePlace( ilayer->pax_id, pnr ) );
-              ProgTrace( TRACE5, "l->layer_type=%s, l->pax_id=%d, isOwnerFreePlace( l->pax_id, pnr )=%d, pr_first=%d",
-                         EncodeCompLayerType(ilayer->layer_type), ilayer->pax_id, isOwnerFreePlace( ilayer->pax_id, pnr ), pr_first );
+            wp.reserv_owner =  ( ( ilayer->layer_type == cltPNLCkin || SALONS2::isUserProtectLayer( ilayer->layer_type ) ) && SALONS2::isOwnerFreePlace<TWebPax>( ilayer->pax_id, pnr ) );
+            ProgTrace( TRACE5, "l->layer_type=%s, l->pax_id=%d, SALONS2::isOwnerFreePlace( l->pax_id, pnr )=%d, pr_first=%d",
+                       EncodeCompLayerType(ilayer->layer_type), ilayer->pax_id, SALONS2::isOwnerFreePlace<TWebPax>( ilayer->pax_id, pnr ), pr_first );
               if ( wp.pr_free )
                   break;
             }
@@ -1366,7 +1339,7 @@ void ReadWebSalons( int point_id, vector<TWebPax> pnr, map<int, TWebPlaceList> &
                  ilayer->layer_type == cltGoShow ||
                  ilayer->layer_type == cltTranzit ) {
               pr_first = false;
-              if ( isOwnerPlace( ilayer->pax_id, pnr ) ) {
+              if ( SALONS2::isOwnerPlace<TWebPax>( ilayer->pax_id, pnr ) ) {
                 wp.pax_id = ilayer->pax_id;
               }
             }

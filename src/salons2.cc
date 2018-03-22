@@ -8,6 +8,7 @@
 #include "astra_consts.h"
 #include "astra_misc.h"
 #include "oralib.h"
+#include "term_version.h"
 #include "images.h"
 #include "convert.h"
 #include "alarms.h"

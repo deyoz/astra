@@ -8,9 +8,9 @@
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "astra_consts.h"
+#include "etick.h"
 #include "date_time.h"
 #include "images.h"
-#include "web_main.h"
 #include "base_tables.h"
 #include "seats_utils.h"
 #include "comp_props.h"
@@ -1384,6 +1384,22 @@ class TSalonChanges: public std::vector<TSalonSeat> {
     }
 };
 
+struct TPaxCover {
+  public:
+    int crs_pax_id;
+    int pax_id;
+    TPaxCover() {
+      crs_pax_id = ASTRA::NoExists;
+      pax_id = ASTRA::NoExists;
+    }
+    TPaxCover( int vcrs_pax_id, int vpax_id ) {
+      crs_pax_id = vcrs_pax_id;
+      pax_id = vpax_id;
+    }
+};
+
+typedef std::vector<TPaxCover> TPaxsCover;
+
 class TSalonList: public std::vector<TPlaceList*> {
   private:
     TFilterSets filterSets;
@@ -1465,12 +1481,38 @@ class TSalonList: public std::vector<TPlaceList*> {
                                    TFilterRoutesSets &filterRoutes,
                                    bool pr_departure_tariff_only,
                                    const std::vector<ASTRA::TCompLayerType> &grp_layers,
-                                   TDropLayersFlags &dropLayersFlags );
+                                   TDropLayersFlags &dropLayersFlags ) {
+      TPaxsCover paxs;
+      return CreateSalonsForAutoSeats<TPaxCover>( salons,
+                                                  filterRoutes,
+                                                  pr_departure_tariff_only,
+                                                  grp_layers,
+                                                  paxs,
+                                                  dropLayersFlags );
+    }
+    template <typename T1>
+    bool CreateSalonsForAutoSeats(TSalons &Salons,
+                                   TFilterRoutesSets &filterRoutes,
+                                   bool pr_departure_tariff_only,
+                                   const std::vector<ASTRA::TCompLayerType> &grp_layers,
+                                   const vector<T1> &paxs,
+                                   TDropLayersFlags &dropLayersFlags ) {
+      TPaxsCover paxs1;
+      for ( typename std::vector<T1>::const_iterator ip=paxs.begin(); ip!=paxs.end(); ip++ ) {
+         paxs1.push_back( TPaxCover( ip->crs_pax_id, ip->pax_id ) );
+      }
+      return CreateSalonsForAutoSeats<TPaxCover>( Salons,
+                                       filterRoutes,
+                                       pr_departure_tariff_only,
+                                       grp_layers,
+                                       paxs1,
+                                       dropLayersFlags );
+    }
     bool CreateSalonsForAutoSeats( TSalons &Salons,
                                    TFilterRoutesSets &filterRoutes,
                                    bool pr_departure_tariff_only,
                                    const std::vector<ASTRA::TCompLayerType> &grp_layers,
-                                   const std::vector<AstraWeb::TWebPax> &pnr,
+                                   const TPaxsCover &paxs,
                                    TDropLayersFlags &dropLayersFlags );
     void JumpToLeg( const FilterRoutesProperty &filterRoutesNew );
     void JumpToLeg( const TFilterRoutesSets &routesSets );
@@ -1578,6 +1620,34 @@ class TSalonList: public std::vector<TPlaceList*> {
   void getPaxSeatsWL( int point_id, std::map< bool,std::map < int,TSeatRanges > > &seats );
   bool haveConstructiveCompon( int id, TReadStyle style );
   bool isConstructivePlace( const std::string &elem_type );
+
+  template <typename T1>
+  bool isOwnerFreePlace( int pax_id, const std::vector<T1> &paxs )
+  {
+    bool res = false;
+    for ( typename std::vector<T1>::const_iterator i=paxs.begin(); i!=paxs.end(); i++ ) {
+      if ( i->pax_id != ASTRA::NoExists )
+          continue;
+      if ( i->crs_pax_id == pax_id ) {
+          res = true;
+          break;
+      }
+    }
+    return res;
+  }
+
+  template <class T1>
+  bool isOwnerPlace( int pax_id, const std::vector<T1> &paxs )
+  {
+    bool res = false;
+    for ( typename std::vector<T1>::const_iterator i=paxs.begin(); i!=paxs.end(); i++ ) {
+      if ( i->pax_id != ASTRA::NoExists && pax_id == i->pax_id ) {
+          res = true;
+          break;
+      }
+    }
+    return res;
+  }
 } // END namespace SALONS2
 int testsalons(int argc,char **argv);
 #endif /*_SALONS2_H_*/
