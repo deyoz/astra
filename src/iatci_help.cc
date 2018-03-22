@@ -902,7 +902,7 @@ iatci::UpdateDocDetails makeUpdDoc(const astra_api::astra_entities::DocInfo& new
 boost::optional<iatci::UpdateVisaDetails> makeUpdVisa(const astra_api::astra_entities::VisaInfo& newVisa,
                                                       iatci::UpdateDetails::UpdateActionCode_e act)
 {
-    if(!newVisa.isEmpty()) {
+    if(!newVisa.isEmpty() && newVisa.m_type != "-") {
         return iatci::UpdateVisaDetails(act,
                                         newVisa.m_type,
                                         newVisa.m_country,
