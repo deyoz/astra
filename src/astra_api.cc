@@ -2761,8 +2761,12 @@ XmlPax XmlEntityReader::readPax(xmlNodePtr paxNode)
 
     // doc
     xmlNodePtr docNode = findNode(paxNode, "document");
-    if(docNode != NULL && !isempty(docNode)) {
-        pax.doc = XmlEntityReader::readDoc(docNode);
+    if(docNode != NULL) {
+        if(!isempty(docNode)) {
+            pax.doc = XmlEntityReader::readDoc(docNode);
+        } else {
+            pax.doc = XmlPaxDoc();
+        }
     }
 
     // addresses
@@ -2773,8 +2777,12 @@ XmlPax XmlEntityReader::readPax(xmlNodePtr paxNode)
 
     // visa
     xmlNodePtr visaNode = findNode(paxNode, "doco");
-    if(visaNode != NULL && !isempty(visaNode)) {
-        pax.visa = XmlEntityReader::readVisa(visaNode);
+    if(visaNode != NULL) {
+        if(!isempty(visaNode)) {
+            pax.visa = XmlEntityReader::readVisa(visaNode);
+        } else {
+            pax.visa = XmlPaxVisa();
+        }
     }
 
     // remarks
@@ -3911,6 +3919,11 @@ DocInfo::DocInfo(const std::string& type,
       m_gender(gender)
 {}
 
+bool DocInfo::isEmpty() const
+{
+    return m_type.empty();
+}
+
 bool operator==(const DocInfo& left, const DocInfo& right)
 {
     return (left.m_type        == right.m_type &&
@@ -3997,6 +4010,11 @@ VisaInfo::VisaInfo(const std::string& type,
       m_issueDate(issueDate),
       m_expiryDate(expiryDate)
 {}
+
+bool VisaInfo::isEmpty() const
+{
+    return m_type.empty();
+}
 
 bool operator==(const VisaInfo& left, const VisaInfo& right)
 {

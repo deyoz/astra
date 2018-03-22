@@ -790,7 +790,7 @@ boost::optional<iatci::BaggageDetails> makeBaggage(const astra_api::astra_entiti
 
 boost::optional<iatci::DocDetails> makeDoc(const astra_api::astra_entities::PaxInfo& pax)
 {
-    if(pax.m_doc) {
+    if(pax.m_doc && !pax.m_doc->isEmpty()) {
         return iatci::DocDetails(pax.m_doc->m_type,
                                  pax.m_doc->m_country,
                                  pax.m_doc->m_num,
@@ -836,7 +836,7 @@ boost::optional<iatci::AddressDetails> makeAddress(const astra_api::astra_entiti
 
 boost::optional<iatci::VisaDetails> makeVisa(const astra_api::astra_entities::PaxInfo& pax)
 {
-    if(pax.m_visa) {
+    if(pax.m_visa && !pax.m_visa->isEmpty()) {
         return iatci::VisaDetails(pax.m_visa->m_type,
                                   pax.m_visa->m_country,
                                   pax.m_visa->m_num,
@@ -845,7 +845,6 @@ boost::optional<iatci::VisaDetails> makeVisa(const astra_api::astra_entities::Pa
                                   pax.m_visa->m_expiryDate);
     }
 
-    tst();
     return boost::none;
 }
 

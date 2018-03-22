@@ -1604,14 +1604,87 @@ $(defmacro UPDATE_PAX_DOC
               <ticket_confirm>1</ticket_confirm>
               <document>
                   <type>P</type>
-                  <no>99999999999</no>
+                  <no>7878787899</no>
                   <nationality>RUS</nationality>
-                  <birth_date>01.05.1976 00:00:00</birth_date>
+                  <birth_date>01.05.1975 00:00:00</birth_date>
                   <expiry_date>31.12.2049 00:00:00</expiry_date>
                   <surname>$(surname)</surname>
                   <first_name>$(name)</first_name>
                   <second_name>$(second_name)</second_name>
               </document>
+              <doco/>
+              <addresses/>
+              <bag_pool_num/>
+              <subclass>ù</subclass>
+              <tid>0</tid>
+            </pax>
+          </passengers>
+          <paid_bag_emd/>
+        </segment>
+      </segments>
+      <hall>1</hall>
+      <bag_refuse/>
+    </TCkinSavePax>
+  </query>
+</term>}
+
+}) #end-of-macro
+
+
+$(defmacro REMOVE_PAX_DOC
+    point_dep
+    point_arv
+    airp_dep
+    airp_arv
+    grp_id
+    pax_id
+    tid
+    airp_dep2
+    airp_arv2
+    surname
+    name
+    second_name
+    tickno
+    cpnno
+{
+!!
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='CheckIn' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <TCkinSavePax>
+      <agent_stat_period>3</agent_stat_period>
+      <segments>
+        <segment>
+          <point_dep>$(point_dep)</point_dep>
+          <point_arv>$(point_arv)</point_arv>
+          <airp_dep>$(airp_dep)</airp_dep>
+          <airp_arv>$(airp_arv)</airp_arv>
+          <class>ù</class>
+          <grp_id>$(grp_id)</grp_id>
+          <tid>$(tid)</tid>
+          <passengers/>
+          <paid_bag_emd/>
+        </segment>
+        <segment>
+          <point_dep>-1</point_dep>
+          <point_arv>-1</point_arv>
+          <airp_dep>$(airp_dep2)</airp_dep>
+          <airp_arv>$(airp_arv2)</airp_arv>
+          <class>ù</class>
+          <grp_id>-1</grp_id>
+          <tid>0</tid>
+          <passengers>
+            <pax>
+              <pax_id>-1</pax_id>
+              <surname>$(surname)</surname>
+              <name>$(name)</name>
+              <pers_type>Çá</pers_type>
+              <refuse/>
+              <ticket_no>$(tickno)</ticket_no>
+              <coupon_no>$(cpnno)</coupon_no>
+              <ticket_rem>TKNE</ticket_rem>
+              <ticket_confirm>1</ticket_confirm>
+              <document/>
               <doco/>
               <addresses/>
               <bag_pool_num/>
@@ -1818,7 +1891,7 @@ $(defmacro UPDATE_PAX_DOC_NON_IATCI
               <ticket_confirm>1</ticket_confirm>
               <document>
                 <type>P</type>
-                <no>99999999999</no>
+                <no>123424124</no>
                 <nationality>RUS</nationality>
                 <birth_date>01.05.1976 00:00:00</birth_date>
                 <expiry_date>31.12.2049 00:00:00</expiry_date>
@@ -2764,7 +2837,7 @@ UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)1000+LED+AER"
 PPD+REPIN+A:N++IVAN"
-UAP+A+A:REPIN:IVAN:760501:::RUS++P:99999999999::::491231:::::::REPIN:IVAN:IVANICH"
+UAP+R+A:REPIN:IVAN:750501:::RUS++P:7878787899::::491231:::::::REPIN:IVAN:IVANICH"
 UNT+6+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -3014,9 +3087,9 @@ $(KICK_IN)
             <iatci_parent_pax_id/>
             <document>
               <type>P</type>
-              <no>99999999999</no>
+              <no>7878787899</no>
               <nationality>RUS</nationality>
-              <birth_date>01.05.1976 00:00:00</birth_date>
+              <birth_date>01.05.1975 00:00:00</birth_date>
               <expiry_date>31.12.2049 00:00:00</expiry_date>
               <surname>REPIN</surname>
               <first_name>IVAN</first_name>
@@ -3029,6 +3102,83 @@ $(KICK_IN)
         <load_residue/>
       </segment>
     </segments>
+
+
+$(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
+$(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
+
+$(REMOVE_PAX_DOC $(get point_dep) $(get point_arv) ÑåÑ èãä
+                 $(get grp_id) $(get pax_id) $(get tid) èãä ëéó
+                 REPIN IVAN IVANICH 2986120030297 2)
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)1000+LED+AER"
+PPD+REPIN+A:N++IVAN"
+UAP+C+A:REPIN:IVAN:750501:::RUS++P:7878787899::::491231:::::::REPIN:IVAN:IVANICH"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+S7+1027+$(yymmdd)1000+LED+AER++T"
+RAD+U+O"
+PPD+REPIN+A:N++IVAN"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(KICK_IN)
+
+>> lines=auto
+            <iatci_pax_id/>
+            <iatci_parent_pax_id/>
+            <document/>
+
+$(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
+$(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
+
+# „ Ø†··†¶®‡† §Æ™„¨•≠‚† ≠•‚, ØÆÌ‚Æ¨„ ¢ ‚´£ §Æ´¶≠Æ ØÆ©‚® §Æ°†¢´•≠®•
+
+$(UPDATE_PAX_DOC $(get point_dep) $(get point_arv) ÑåÑ èãä
+                 $(get grp_id) $(get pax_id) $(get tid) èãä ëéó
+                 REPIN IVAN IVANICH 2986120030297 2)
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+1803221000+LED+AER"
+PPD+REPIN+A:N++IVAN"
+UAP+A+A:REPIN:IVAN:750501:::RUS++P:7878787899::::491231:::::::REPIN:IVAN:IVANICH"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+S7+1027+$(yymmdd)1000+LED+AER++T"
+RAD+U+O"
+PPD+REPIN+A:N++IVAN"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(KICK_IN)
+
+>> lines=auto
+            <document>
+              <type>P</type>
+              <no>7878787899</no>
+              <nationality>RUS</nationality>
+              <birth_date>01.05.1975 00:00:00</birth_date>
+              <expiry_date>31.12.2049 00:00:00</expiry_date>
+              <surname>REPIN</surname>
+              <first_name>IVAN</first_name>
+              <second_name>IVANICH</second_name>
+            </document>
+
 
 %%
 #########################################################################################
@@ -3107,7 +3257,7 @@ $(UPDATE_PAX_DOC_NON_IATCI $(get point_dep) $(get point_arv) ÑåÑ èãä
 >> lines=auto
             <document>
               <type>P</type>
-              <no>99999999999</no>
+              <no>123424124</no>
               <nationality>RUS</nationality>
               <birth_date>01.05.1976 00:00:00</birth_date>
               <expiry_date>31.12.2049 00:00:00</expiry_date>
@@ -5182,7 +5332,6 @@ $(set tid $(get_single_tid $(get point_dep) REPIN ADULT))
                   <first_name>INFANT</first_name>
                   <second_name>IVANOVICH</second_name>
               </document>
-              <doco/>
               <addresses/>
               <bag_pool_num/>
               <subclass>ù</subclass>
@@ -5630,8 +5779,6 @@ $(set infant_tid $(get_single_pax_tid $(get point_dep) REPIN INFANT))
               <coupon_no/>
               <ticket_rem/>
               <ticket_confirm>1</ticket_confirm>
-              <document/>
-              <doco/>
               <addresses>
                 <doca>
                   <type>D</type>
@@ -5663,8 +5810,6 @@ $(set infant_tid $(get_single_pax_tid $(get point_dep) REPIN INFANT))
               <coupon_no/>
               <ticket_rem/>
               <ticket_confirm>1</ticket_confirm>
-              <document/>
-              <doco/>
               <addresses>
                 <doca>
                   <type>B</type>

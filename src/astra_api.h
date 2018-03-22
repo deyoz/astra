@@ -122,7 +122,7 @@ struct DocInfo
             const boost::gregorian::date& birthDate,
             const std::string& gender);
 
-    std::string id() const { return m_type; }
+    bool isEmpty() const;
 };
 
 bool operator==(const DocInfo& left, const DocInfo& right);
@@ -182,7 +182,7 @@ struct VisaInfo
              const boost::gregorian::date& issueDate,
              const boost::gregorian::date& expiryDate);
 
-    std::string id() const { return m_type; }
+    bool isEmpty() const;
 };
 
 bool operator==(const VisaInfo& left, const VisaInfo& right);

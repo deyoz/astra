@@ -157,19 +157,56 @@ namespace
         const EntityT& newEntity() const { return m_newEntity; }
     };
 
-    //---------------------------------------------------------------------------------------
+    //-----------------------------------------------------------------------------------
 
     template<class EntityT>
-    class CheckInEntityDiff
+    class CheckInSingleEntityDiff
+    {
+        boost::optional<EntityT> m_added;
+        boost::optional<EntityT> m_removed;
+        boost::optional<ModifiedEntity<EntityT> > m_modified;
+
+    public:
+        typedef boost::optional<CheckInSingleEntityDiff<EntityT> > Optional_t;
+
+        CheckInSingleEntityDiff(const boost::optional<EntityT>& oldEntity,
+                                const boost::optional<EntityT>& newEntity)
+        {
+            if(newEntity && oldEntity) {
+                if(newEntity->isEmpty() && oldEntity->isEmpty()) {
+                    ; // nop
+                } else if(oldEntity->isEmpty()) {
+                    m_added = newEntity;
+                } else if(newEntity->isEmpty()) {
+                    m_removed = oldEntity;
+                } else { // if(!newEntity->isEmpty() && !oldEntity->isEmpty()) {
+                    m_modified = ModifiedEntity<EntityT>(*oldEntity, *newEntity);
+                }
+            }
+        }
+
+        const boost::optional<EntityT>&                     added() const { return m_added; }
+        const boost::optional<EntityT>&                   removed() const { return m_removed; }
+        const boost::optional<ModifiedEntity<EntityT> >& modified() const { return m_modified; }
+
+        bool empty() const { return !m_added &&
+                                    !m_removed &&
+                                    !m_modified; }
+    };
+
+    //-----------------------------------------------------------------------------------
+
+    template<class EntityT>
+    class CheckInMultiEntityDiff
     {
         std::vector<EntityT> m_added;
         std::vector<EntityT> m_removed;
         std::vector<ModifiedEntity<EntityT> > m_modified;
 
     public:
-        typedef boost::optional<CheckInEntityDiff<EntityT> > Optional_t;
+        typedef boost::optional<CheckInMultiEntityDiff<EntityT> > Optional_t;
 
-        CheckInEntityDiff(const std::list<EntityT>& lOld, const std::list<EntityT>& lNew)
+        CheckInMultiEntityDiff(const std::list<EntityT>& lOld, const std::list<EntityT>& lNew)
         {
             for(const EntityT& oldEntity: lOld) {
                 const auto newEntityOpt = algo::find_opt_if<boost::optional>(lNew,
@@ -178,7 +215,7 @@ namespace
                     if(*newEntityOpt != oldEntity) {
                         m_modified.push_back(ModifiedEntity<EntityT>(oldEntity, *newEntityOpt));
                     }
-                } else { // если не найдена в новых-> помещаем в cancelled
+                } else { // если не найдена в новых -> помещаем в cancelled
                     m_removed.push_back(oldEntity);
                 }
             }
@@ -192,24 +229,26 @@ namespace
             }
         }
 
-        const std::vector<ModifiedEntity<EntityT> >& modified() const { return m_modified;  }
-        const std::vector<EntityT>& added()    const { return m_added;     }
-        const std::vector<EntityT>& removed()const { return m_removed; }
+        const std::vector<ModifiedEntity<EntityT> >& modified() const { return m_modified; }
+        const std::vector<EntityT>&                     added() const { return m_added; }
+        const std::vector<EntityT>&                   removed() const { return m_removed; }
+
         bool empty() const { return m_modified.empty() &&
                                     m_added.empty() &&
                                     m_removed.empty(); }
     };
 
-    //---------------------------------------------------------------------------------------
+    //-----------------------------------------------------------------------------------
 
     class PaxChange
     {
     public:
-        typedef CheckInEntityDiff<astra_entities::DocInfo>      DocChange_t;
-        typedef CheckInEntityDiff<astra_entities::AddressInfo>  AddressChange_t;
-        typedef CheckInEntityDiff<astra_entities::VisaInfo>     VisaChange_t;
-        typedef CheckInEntityDiff<astra_entities::Remark>       RemChange_t;
-        typedef CheckInEntityDiff<astra_entities::FqtRemark>    FqtRemChange_t;
+        typedef CheckInSingleEntityDiff<astra_entities::DocInfo>     DocChange_t;
+        typedef CheckInSingleEntityDiff<astra_entities::VisaInfo>    VisaChange_t;
+
+        typedef CheckInMultiEntityDiff<astra_entities::AddressInfo>  AddressChange_t;
+        typedef CheckInMultiEntityDiff<astra_entities::Remark>       RemChange_t;
+        typedef CheckInMultiEntityDiff<astra_entities::FqtRemark>    FqtRemChange_t;
 
         typedef DocChange_t::Optional_t     DocChangeOpt_t;
         typedef AddressChange_t::Optional_t AddressChangeOpt_t;
@@ -222,8 +261,9 @@ namespace
         astra_entities::PaxInfo m_newPax;
 
         DocChangeOpt_t          m_docChange;
-        AddressChangeOpt_t      m_addressChange;
         VisaChangeOpt_t         m_visaChange;
+
+        AddressChangeOpt_t      m_addressChange;
         RemChangeOpt_t          m_remChange;
         FqtRemChangeOpt_t       m_fqtRemChange;
         bool                    m_persChange;
@@ -252,18 +292,15 @@ namespace
         : m_oldPax(oldPax), m_newPax(newPax), m_persChange(false)
     {
         // документ
-        std::list<astra_entities::DocInfo> lOldDocs;
-        if(oldPax.m_doc) {
-            lOldDocs.push_back(oldPax.m_doc.get());
+        DocChange_t docChng(oldPax.m_doc, newPax.m_doc);
+        if(!docChng.empty()) {
+            m_docChange = docChng;
         }
-        std::list<astra_entities::DocInfo> lNewDocs;
-        if(newPax.m_doc) {
-            lNewDocs.push_back(newPax.m_doc.get());
 
-            DocChange_t docChng(lOldDocs, lNewDocs);
-            if(!docChng.empty()) {
-                m_docChange = docChng;
-            }
+        // виза
+        VisaChange_t visaChng(oldPax.m_visa, newPax.m_visa);
+        if(!visaChng.empty()) {
+            m_visaChange = visaChng;
         }
 
         // адреса
@@ -278,21 +315,6 @@ namespace
             AddressChange_t addrsChng(lOldAddrs, lNewAddrs);
             if(!addrsChng.empty()) {
                 m_addressChange = addrsChng;
-            }
-        }
-
-        // виза
-        std::list<astra_entities::VisaInfo> lOldVisas;
-        if(oldPax.m_visa) {
-            lOldVisas.push_back(oldPax.m_visa.get());
-        }
-        std::list<astra_entities::VisaInfo> lNewVisas;
-        if(newPax.m_visa) {
-            lNewVisas.push_back(newPax.m_visa.get());
-
-            VisaChange_t visaChng(lOldVisas, lNewVisas);
-            if(!visaChng.empty()) {
-                m_visaChange = visaChng;
             }
         }
 
@@ -357,10 +379,10 @@ namespace
 
     //---------------------------------------------------------------------------------------
 
-    class PaxDiff: public CheckInEntityDiff<astra_entities::PaxInfo>
+    class PaxDiff: public CheckInMultiEntityDiff<astra_entities::PaxInfo>
     {
     public:
-        typedef CheckInEntityDiff<astra_entities::PaxInfo> Base_t;
+        typedef CheckInMultiEntityDiff<astra_entities::PaxInfo> Base_t;
         typedef std::vector<PaxChange> PaxChanges_t;
 
     private:
@@ -638,7 +660,7 @@ namespace
             return false;
         }
         XmlPax xmlPax = XmlEntityReader::readPax(paxNodes.front());
-        if(xmlPax.doc) {
+        if(xmlPax.doc && !xmlPax.doc->toDoc().isEmpty()) {
             updatePaxDoc(pax);
             return true;
         }
@@ -658,7 +680,7 @@ namespace
             return false;
         }
         XmlPax xmlPax = XmlEntityReader::readPax(paxNodes.front());
-        if(xmlPax.visa) {
+        if(xmlPax.visa && !xmlPax.visa->toVisa().isEmpty()) {
             updatePaxVisa(pax);
             return true;
         }
@@ -970,20 +992,20 @@ static boost::optional<iatci::UpdateDocDetails> getUpdDoc(const PaxChange& paxCh
     // знаем, что может быть один документ на пассажира
 
     // удаленный
-//    if(!paxChange.docChange()->removed().empty()) {
-//        return iatci::makeUpdDoc(paxChange.docChange()->removed().at(0),
-//                                 iatci::UpdateDetails::Cancel);
-//    }
+    if(paxChange.docChange()->removed()) {
+        return iatci::makeUpdDoc(*paxChange.docChange()->removed(),
+                                 iatci::UpdateDetails::Cancel);
+    }
 
     // добавленный
-    if(!paxChange.docChange()->added().empty()) {
-        return iatci::makeUpdDoc(paxChange.docChange()->added().at(0),
+    if(paxChange.docChange()->added()) {
+        return iatci::makeUpdDoc(*paxChange.docChange()->added(),
                                  iatci::UpdateDetails::Add);
     }
 
     // изменённый
-    if(!paxChange.docChange()->modified().empty()) {
-        return iatci::makeUpdDoc(paxChange.docChange()->modified().at(0).newEntity(),
+    if(paxChange.docChange()->modified()) {
+        return iatci::makeUpdDoc(paxChange.docChange()->modified()->newEntity(),
                                  iatci::UpdateDetails::Replace);
     }
 
@@ -1022,24 +1044,24 @@ static boost::optional<iatci::UpdateVisaDetails> getUpdVisa(const PaxChange& pax
         return boost::none;
     }
 
-    // знаем, что может быть один документ на пассажира
+    // знаем, что может быть одна виза на пассажира
 
     // удаленная виза
-//    if(!paxChange.visaChange()->removed().empty()) {
-//        return iatci::makeUpdVisa(paxChange.visaChange()->removed().at(0),
-//                                  iatci::UpdateDetails::Cancel);
-//    }
+    if(paxChange.visaChange()->removed()) {
+        return iatci::makeUpdVisa(*paxChange.visaChange()->removed(),
+                                  iatci::UpdateDetails::Cancel);
+    }
 
 
     // добавленная виза
-    if(!paxChange.visaChange()->added().empty()) {
-        return iatci::makeUpdVisa(paxChange.visaChange()->added().at(0),
+    if(paxChange.visaChange()->added()) {
+        return iatci::makeUpdVisa(*paxChange.visaChange()->added(),
                                   iatci::UpdateDetails::Add);
     }
 
     // изменённая виза
-    if(!paxChange.visaChange()->modified().empty()) {
-        return iatci::makeUpdVisa(paxChange.visaChange()->modified().at(0).newEntity(),
+    if(paxChange.visaChange()->modified()) {
+        return iatci::makeUpdVisa(paxChange.visaChange()->modified()->newEntity(),
                                   iatci::UpdateDetails::Replace);
     }
 
