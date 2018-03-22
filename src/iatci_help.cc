@@ -899,16 +899,20 @@ iatci::UpdateDocDetails makeUpdDoc(const astra_api::astra_entities::DocInfo& new
                                    newDoc.m_expiryDate);
 }
 
-iatci::UpdateVisaDetails makeUpdVisa(const astra_api::astra_entities::VisaInfo& newVisa,
-                                     iatci::UpdateDetails::UpdateActionCode_e act)
+boost::optional<iatci::UpdateVisaDetails> makeUpdVisa(const astra_api::astra_entities::VisaInfo& newVisa,
+                                                      iatci::UpdateDetails::UpdateActionCode_e act)
 {
-    return iatci::UpdateVisaDetails(act,
-                                    newVisa.m_type,
-                                    newVisa.m_country,
-                                    newVisa.m_num,
-                                    newVisa.m_placeOfIssue,
-                                    newVisa.m_issueDate,
-                                    newVisa.m_expiryDate);
+    if(!newVisa.isEmpty()) {
+        return iatci::UpdateVisaDetails(act,
+                                        newVisa.m_type,
+                                        newVisa.m_country,
+                                        newVisa.m_num,
+                                        newVisa.m_placeOfIssue,
+                                        newVisa.m_issueDate,
+                                        newVisa.m_expiryDate);
+    }
+
+    return boost::none;
 }
 
 iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::BagPool& bagPool,
