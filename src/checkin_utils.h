@@ -123,6 +123,45 @@ class RegNoGenerator
 
 } //namespace CheckIn
 
+class TWebTids
+{
+  public:
+    int crs_pnr_tid;
+    int crs_pax_tid;
+    int pax_grp_tid;
+    int pax_tid;
+
+    TWebTids() { clear(); }
+
+    void clear()
+    {
+      crs_pnr_tid = ASTRA::NoExists;
+      crs_pax_tid = ASTRA::NoExists;
+      pax_grp_tid = ASTRA::NoExists;
+      pax_tid     = ASTRA::NoExists;
+    }
+
+    TWebTids& fromDB(TQuery &Qry);
+    TWebTids& fromXML(xmlNodePtr node);
+    const TWebTids& toXML(xmlNodePtr node) const;
+
+    bool checked() const
+    {
+      return !(pax_grp_tid==ASTRA::NoExists && pax_tid==ASTRA::NoExists);
+    }
+    bool norec() const
+    {
+      return crs_pnr_tid==ASTRA::NoExists && crs_pax_tid==ASTRA::NoExists;
+    }
+    bool tidsEqual(const TWebTids& tids)
+    {
+      return crs_pnr_tid==tids.crs_pnr_tid &&
+             crs_pax_tid==tids.crs_pax_tid &&
+             pax_grp_tid==tids.pax_grp_tid &&
+             pax_tid==tids.pax_tid;
+    }
+};
+
 struct TWebPaxFromReq
 {
   int crs_pax_id;

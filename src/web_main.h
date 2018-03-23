@@ -10,6 +10,7 @@
 #include "brands.h"
 #include "etick.h"
 #include "trip_tasks.h"
+#include "web_exchange.h"
 #include <tuple>
 #include <vector>
 #include <cstdint>
@@ -64,18 +65,13 @@ public:
      // Получение тегов для пос. талона
      evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::GetBPTags);
      AddEvent("GetBPTags",evHandle);
-     // Разметка слоя "Резервирование оплачиваемого места"
-     evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::AddProtPaidLayer);
+
+     evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::ChangeProtLayer);
      AddEvent("AddProtPaidLayer",evHandle);
-     // Разметка слоя "Резервирование места с указанием слоя. По умолчанию cltProtSelfCkin"
-     evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::AddProtLayer);
      AddEvent("AddProtLayer",evHandle);
-     // Удаление слоя "Резервирование оплачиваемого места"
-     evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::RemoveProtPaidLayer);
      AddEvent("RemoveProtPaidLayer",evHandle);
-     // Удаление резервного слоя с указанием слоя. По умолчанию cltProtSelfCkin"
-     evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::RemoveProtLayer);
      AddEvent("RemoveProtLayer",evHandle);
+
      // Сообщение о любой ошибке в Астру (например, после неудачной печати)
      evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::ClientError);
      AddEvent("ClientError",evHandle);
@@ -104,10 +100,7 @@ public:
   void GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void AddProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void AddProtLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void RemoveProtPaidLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void RemoveProtLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void ChangeProtLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);
@@ -118,6 +111,8 @@ public:
   void ParseMessage(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetCacheTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void CheckFFP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+
+  void emulateClientType();
 
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){}
 };
@@ -158,6 +153,25 @@ struct TWebPax {
     std::multiset<CheckIn::TPaxRemItem> rems;
     TPnrAddrs pnr_addrs;
     TWebPax() {
+      clear();
+    }
+
+    TWebPax(const ProtLayerResponse::Pax& pax)
+    {
+      clear();
+      crs_pax_id=pax.id;
+      crs_seat_no=pax.seat_no;
+      crs_pnr_tid=pax.crs_pnr_tid;
+      crs_pax_tid=pax.crs_pax_tid;
+      pax_grp_tid=pax.pax_grp_tid;
+      pax_tid=pax.pax_tid;
+      pass_class=pax.pnr_class;
+      pass_subclass=pax.pnr_subclass;
+      seats=pax.seats;
+    }
+
+    void clear()
+    {
       pax_no = ASTRA::NoExists;
       crs_pax_id = ASTRA::NoExists;
       crs_pax_id_parent = ASTRA::NoExists;
@@ -168,7 +182,7 @@ struct TWebPax {
       crs_pax_tid	= ASTRA::NoExists;
       pax_grp_tid = ASTRA::NoExists;
       pax_tid = ASTRA::NoExists;
-    };
+    }
 
     bool operator == (const TWebPax &pax) const
     {

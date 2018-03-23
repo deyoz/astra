@@ -292,6 +292,8 @@ src/tripinfo.h
 src/tscript_callbacks.cc
 src/typeb_utils.cc
 src/typeb_utils.h
+src/web_exchange.cc
+src/web_exchange.h
 src/web_main.cc
 src/web_main.h
 src/web_search.cc

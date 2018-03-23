@@ -178,6 +178,51 @@ std::string RegNoGenerator::traceStr(const boost::optional<RegNoRange>& range)
 
 } //namespace CheckIn
 
+TWebTids& TWebTids::fromDB(TQuery &Qry)
+{
+  clear();
+  if (Qry.GetFieldIndex("crs_pnr_tid")>=0 && !Qry.FieldIsNULL("crs_pnr_tid"))
+    crs_pnr_tid = Qry.FieldAsInteger("crs_pnr_tid");
+  if (Qry.GetFieldIndex("crs_pax_tid")>=0 && !Qry.FieldIsNULL("crs_pax_tid"))
+    crs_pax_tid = Qry.FieldAsInteger("crs_pax_tid");
+  if (Qry.GetFieldIndex("pax_grp_tid")>=0 && !Qry.FieldIsNULL("pax_grp_tid"))
+    pax_grp_tid = Qry.FieldAsInteger("pax_grp_tid");
+  if (Qry.GetFieldIndex("pax_tid")>=0 && !Qry.FieldIsNULL("pax_tid"))
+    pax_tid = Qry.FieldAsInteger("pax_tid");
+  return *this;
+}
+
+TWebTids& TWebTids::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==nullptr) return *this;
+  xmlNodePtr node2=NodeAsNode("tids", node)->children;
+
+  crs_pnr_tid=NodeAsIntegerFast("crs_pnr_tid", node2);
+  crs_pax_tid=NodeAsIntegerFast("crs_pax_tid", node2);
+  xmlNodePtr tidNode;
+  tidNode=GetNodeFast("pax_grp_tid", node2);
+  if (tidNode!=nullptr && !NodeIsNULL(tidNode)) pax_grp_tid=NodeAsInteger(tidNode);
+  tidNode=GetNodeFast("pax_tid", node2);
+  if (tidNode!=nullptr && !NodeIsNULL(tidNode)) pax_tid=NodeAsInteger(tidNode);
+
+  return *this;
+}
+
+const TWebTids& TWebTids::toXML(xmlNodePtr node) const
+{
+  if (node==nullptr) return *this;
+
+  xmlNodePtr tidsNode=NewTextChild(node, "tids");
+
+  NewTextChild(tidsNode, "crs_pnr_tid" , crs_pnr_tid, ASTRA::NoExists);
+  NewTextChild(tidsNode, "crs_pax_tid" , crs_pax_tid, ASTRA::NoExists);
+  NewTextChild(tidsNode, "pax_grp_tid" , pax_grp_tid, ASTRA::NoExists);
+  NewTextChild(tidsNode, "pax_tid"     , pax_tid    , ASTRA::NoExists);
+
+  return *this;
+}
+
 bool TWebPaxFromReq::mergePaxFQT(set<CheckIn::TPaxFQTItem> &fqts) const
 {
   if (!fqtv_rems_present) return false;

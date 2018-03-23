@@ -333,7 +333,11 @@ void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
             default:
               ProgError(STDLOG,"EOracleError %d: %s",orae->Code,orae->what());
               ProgError(STDLOG,"SQL: %s",orae->SQLText());
-              AstraLocale::showProgError("MSG.QRY_HANDLER_ERR.CALL_ADMIN");
+              if (TReqInfo::Instance()->isSelfCkinClientType())
+                AstraLocale::showProgError("WRAP.QRY_HANDLER_ERR",
+                                           AstraLocale::LParams() << AstraLocale::LParam("text", orae->what()));
+              else
+                AstraLocale::showProgError("MSG.QRY_HANDLER_ERR.CALL_ADMIN");
           }
           throw 1;
       };
@@ -359,7 +363,11 @@ void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
       else
           ProgError(STDLOG,"ServerFramework::Exception: %s",e->what());
 
-      AstraLocale::showProgError("MSG.QRY_HANDLER_ERR.CALL_ADMIN");
+      if (TReqInfo::Instance()->isSelfCkinClientType())
+        AstraLocale::showProgError("WRAP.QRY_HANDLER_ERR",
+                                   AstraLocale::LParams() << AstraLocale::LParam("text", e->what()));
+      else
+        AstraLocale::showProgError("MSG.QRY_HANDLER_ERR.CALL_ADMIN");
       try
       {
         traceXML(ctxt->reqDoc);
