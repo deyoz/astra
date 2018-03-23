@@ -1501,7 +1501,7 @@ class TSalonList: public std::vector<TPlaceList*> {
       for ( typename std::vector<T1>::const_iterator ip=paxs.begin(); ip!=paxs.end(); ip++ ) {
          paxs1.push_back( TPaxCover( ip->crs_pax_id, ip->pax_id ) );
       }
-      return CreateSalonsForAutoSeats<TPaxCover>( Salons,
+      return CreateSalonsForAutoSeats( Salons,
                                        filterRoutes,
                                        pr_departure_tariff_only,
                                        grp_layers,
