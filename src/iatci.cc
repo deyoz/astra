@@ -931,6 +931,11 @@ static std::string getIatciPult()
     return TReqInfo::Instance()->desk.code;
 }
 
+static boost::optional<iatci::UpdatePaxDetails> getUpdPersonal(const PaxChange& paxChange)
+{
+    return boost::none; // TODO
+}
+
 static boost::optional<iatci::UpdateServiceDetails> getUpdService(const PaxChange& paxChange)
 {
     boost::optional<iatci::UpdateServiceDetails> updService;
@@ -1579,6 +1584,14 @@ static boost::optional<iatci::CkuParams> getUpdateBaggageParams(xmlNodePtr reqNo
                                                        lPaxGrp));
 }
 
+static void checkDocAndVisaUpdate(const boost::optional<UpdateDocDetails>& updDoc,
+                                  const boost::optional<UpdateVisaDetails>& updVisa)
+{
+    if(updDoc && updVisa) {
+       throw AstraLocale::UserException("MSG.UPD_DOC_AND_VISA_SEPARATELY");
+    }
+}
+
 static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
 {
     if(findNodeR(reqNode, "bags")) {
@@ -1669,7 +1682,7 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
         boost::optional<iatci::UpdateVisaDetails>    adultUpdVisa, inftUpdVisa;
 
         if(adultChange) {
-            adultUpdPersonal = boost::none; //getUpdPersonal(*adultChange);
+            adultUpdPersonal = getUpdPersonal(*adultChange);
             adultUpdService  = getUpdService(*adultChange);
             adultUpdDoc      = getUpdDoc(*adultChange);
             adultUpdAddress  = getUpdAddress(*adultChange);
@@ -1677,11 +1690,14 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
         }
 
         if(inftChange) {
-            inftUpdPersonal = boost::none; //getUpdPersonal(*inftChange);
+            inftUpdPersonal = getUpdPersonal(*inftChange);
             inftUpdDoc      = getUpdDoc(*inftChange);
             inftUpdAddress  = getUpdAddress(*inftChange);
             inftUpdVisa     = getUpdVisa(*inftChange);
         }
+
+        checkDocAndVisaUpdate(adultUpdDoc, adultUpdVisa);
+        checkDocAndVisaUpdate(inftUpdDoc, inftUpdVisa);
 
         lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makeQryPax(adult.get(), inft),
                                                   boost::none, // Reserv

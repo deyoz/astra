@@ -3150,7 +3150,7 @@ $(UPDATE_PAX_DOC $(get point_dep) $(get point_arv) ÑåÑ èãä
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
 UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
-FDQ+S7+1027+1803221000+LED+AER"
+FDQ+S7+1027+$(yymmdd)1000+LED+AER"
 PPD+REPIN+A:N++IVAN"
 UAP+A+A:REPIN:IVAN:750501:::RUS++P:7878787899::::491231:::::::REPIN:IVAN:IVANICH"
 UNT+6+1"
@@ -5298,14 +5298,14 @@ $(set tid $(get_single_tid $(get point_dep) REPIN ADULT))
               <ticket_rem>TKNE</ticket_rem>
               <ticket_confirm>1</ticket_confirm>
               <document>
-                  <type>P</type>
-                  <no>987654321</no>
-                  <nationality>RUS</nationality>
-                  <birth_date>01.05.1976 00:00:00</birth_date>
-                  <expiry_date>31.12.2049 00:00:00</expiry_date>
-                  <surname>REPIN</surname>
-                  <first_name>ADULT</first_name>
-                  <second_name>PETROVICH</second_name>
+                <type>P</type>
+                <issue_country>RUS</issue_country>
+                <no>7774441110</no>
+                <nationality>RUS</nationality>
+                <birth_date>01.05.1976 00:00:00</birth_date>
+                <gender>M</gender>
+                <surname>REPIN</surname>
+                <first_name>ADULT</first_name>
               </document>
               <doco>
                 <birth_place/>
@@ -5362,7 +5362,7 @@ UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
 LOR+UT:DME"
 FDQ+S7+1027+$(yymmdd)1000+LED+AER"
 PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
-UAP+R+A:REPIN:ADULT:760501:::RUS++P:987654321::::491231:::::::REPIN:ADULT:PETROVICH+V:88888888:RUS:::310102::::MOSCOW::110101"
+UAP+R+A:REPIN:ADULT++V:88888888:RUS:::310102::::MOSCOW::110101"
 UAP+R+IN:REPIN:INFANT:160501:::RUS++P:123456789::::491231:::::::REPIN:INFANT:IVANOVICH"
 UNT+7+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -5376,7 +5376,7 @@ PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
 PRD+Y"
 PFD+001A+:Y+001:002"
 PSI++TKNE::29824018416891+TKNE::INF29824018416121+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M+TKNE::::::TKNE HK1 2982401841689/1+INFT::::::INFT HK1 01JAN17 REPIN/INFANT"
-PAP+A:REPIN:ADULT:760501:::RUS++P:987654321::::491231:::::::REPIN:ADULT:PETROVICH"
+PAP+A:REPIN:ADULT:760501:::RUS++P:987654321::::491231:::::::REPIN:ADULT:PETROVICH+V:88888888:RUS:::310102::::MOSCOW::110101"
 PAP+IN:REPIN:INFANT:160501:::RUS++P:123456789::::491231:::::::REPIN:INFANT:IVANOVICH"
 UNT+10+1"
 UNZ+1+$(last_edifact_ref)0001"
@@ -5425,19 +5425,19 @@ $(KICK_IN)
               </rem>
             </rems>
             <fqt_rems/>
-            <addresses/>            
-            <iatci_pax_id>0013949613</iatci_pax_id>
-            <iatci_parent_pax_id/>
             <document>
               <type>P</type>
-              <no>987654321</no>
+              <issue_country>RUS</issue_country>
+              <no>7774441110</no>
               <nationality>RUS</nationality>
               <birth_date>01.05.1976 00:00:00</birth_date>
-              <expiry_date>31.12.2049 00:00:00</expiry_date>
+              <gender>M</gender>
               <surname>REPIN</surname>
               <first_name>ADULT</first_name>
-              <second_name>PETROVICH</second_name>
             </document>
+            <addresses/>
+            <iatci_pax_id>0013949613</iatci_pax_id>
+            <iatci_parent_pax_id/>
             <doco>
               <birth_place/>
               <type>V</type>
@@ -5616,7 +5616,7 @@ $(SAVE_GRP_BAGGAGE $(get grp_id) $(get tid)
                    $(get pax_1_id) $(get pax_tid) REPIN ADULT Çá 2982401841689
                    P 987654321 RUS
                    "01.05.1976 00:00:00" "31.12.2049 00:00:00"
-                   REPIN ADULT PETROVICH)                   
+                   REPIN ADULT PETROVICH)
 
 >>
 UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
@@ -5911,18 +5911,18 @@ $(KICK_IN)
               </rem>
             </rems>
             <fqt_rems/>
-            <iatci_pax_id>0013949613</iatci_pax_id>
-            <iatci_parent_pax_id/>
             <document>
               <type>P</type>
-              <no>987654321</no>
+              <issue_country>RUS</issue_country>
+              <no>7774441110</no>
               <nationality>RUS</nationality>
               <birth_date>01.05.1976 00:00:00</birth_date>
-              <expiry_date>31.12.2049 00:00:00</expiry_date>
+              <gender>M</gender>
               <surname>REPIN</surname>
               <first_name>ADULT</first_name>
-              <second_name>PETROVICH</second_name>
             </document>
+            <iatci_pax_id>0013949613</iatci_pax_id>
+            <iatci_parent_pax_id/>
             <doco>
               <birth_place/>
               <type>V</type>
@@ -6164,4 +6164,3 @@ FDQ+S7+1027+$(yymmdd)+LED+AER"
 PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
 UNT+5+1"
 UNZ+1+$(last_edifact_ref)0001"
-
