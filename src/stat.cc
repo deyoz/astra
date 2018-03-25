@@ -5497,7 +5497,7 @@ void convertStatParam(xmlNodePtr paramNode)
     map<string, string>::const_iterator idx = ST_to_Astra.find(val);
     if(idx == ST_to_Astra.end())
         throw Exception("wrong param value '%s'", val.c_str());
-    xmlNodeSetContent(paramNode, idx->second.c_str());
+    NodeSetContent(paramNode, idx->second.c_str());
 }
 
 struct TParamItem {

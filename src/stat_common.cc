@@ -4,6 +4,7 @@
 #include "term_version.h"
 #include "docs.h"
 #include "md5_sum.h"
+#include "qrys.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"

@@ -1,5 +1,4 @@
 #include "apis_utils.h"
-#include "checkin.h"
 #include "checkin_utils.h"
 #include "salons.h"
 #include "seats.h"
@@ -20,6 +19,42 @@ using namespace SALONS2;
 
 namespace CheckIn
 {
+
+void showError(const std::map<int, std::map<int, AstraLocale::LexemaData> > &segs)
+{
+  if (segs.empty()) throw EXCEPTIONS::Exception("CheckIn::showError: empty segs!");
+  XMLRequestCtxt *xmlRC = getXmlCtxt();
+  if (xmlRC->resDoc==NULL) return;
+  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+  xmlNodePtr cmdNode = GetNode( "command", resNode );
+  if (cmdNode==NULL) cmdNode=NewTextChild( resNode, "command" );
+  resNode = ReplaceTextChild( cmdNode, "checkin_user_error" );
+  xmlNodePtr segsNode = NewTextChild(resNode, "segments");
+  for(std::map<int, std::map<int, AstraLocale::LexemaData> >::const_iterator s=segs.begin(); s!=segs.end(); s++)
+  {
+    xmlNodePtr segNode = NewTextChild(segsNode, "segment");
+    if (s->first!=NoExists)
+      NewTextChild(segNode, "point_id", s->first);
+    xmlNodePtr paxsNode=NewTextChild(segNode, "passengers");
+    for(std::map<int, AstraLocale::LexemaData>::const_iterator pax=s->second.begin(); pax!=s->second.end(); pax++)
+    {
+      string text, master_lexema_id;
+      getLexemaText( pax->second, text, master_lexema_id );
+      if (pax->first!=NoExists)
+      {
+        xmlNodePtr paxNode=NewTextChild(paxsNode, "pax");
+        NewTextChild(paxNode, "crs_pax_id", pax->first);
+        NewTextChild(paxNode, "error_code", master_lexema_id);
+        NewTextChild(paxNode, "error_message", text);
+      }
+      else
+      {
+        NewTextChild(segNode, "error_code", master_lexema_id);
+        NewTextChild(segNode, "error_message", text);
+      }
+    }
+  }
+}
 
 void RegNoGenerator::getUsedRegNo(std::set<UsedRegNo> &usedRegNo) const
 {
@@ -142,6 +177,51 @@ std::string RegNoGenerator::traceStr(const boost::optional<RegNoRange>& range)
 }
 
 } //namespace CheckIn
+
+TWebTids& TWebTids::fromDB(TQuery &Qry)
+{
+  clear();
+  if (Qry.GetFieldIndex("crs_pnr_tid")>=0 && !Qry.FieldIsNULL("crs_pnr_tid"))
+    crs_pnr_tid = Qry.FieldAsInteger("crs_pnr_tid");
+  if (Qry.GetFieldIndex("crs_pax_tid")>=0 && !Qry.FieldIsNULL("crs_pax_tid"))
+    crs_pax_tid = Qry.FieldAsInteger("crs_pax_tid");
+  if (Qry.GetFieldIndex("pax_grp_tid")>=0 && !Qry.FieldIsNULL("pax_grp_tid"))
+    pax_grp_tid = Qry.FieldAsInteger("pax_grp_tid");
+  if (Qry.GetFieldIndex("pax_tid")>=0 && !Qry.FieldIsNULL("pax_tid"))
+    pax_tid = Qry.FieldAsInteger("pax_tid");
+  return *this;
+}
+
+TWebTids& TWebTids::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==nullptr) return *this;
+  xmlNodePtr node2=NodeAsNode("tids", node)->children;
+
+  crs_pnr_tid=NodeAsIntegerFast("crs_pnr_tid", node2);
+  crs_pax_tid=NodeAsIntegerFast("crs_pax_tid", node2);
+  xmlNodePtr tidNode;
+  tidNode=GetNodeFast("pax_grp_tid", node2);
+  if (tidNode!=nullptr && !NodeIsNULL(tidNode)) pax_grp_tid=NodeAsInteger(tidNode);
+  tidNode=GetNodeFast("pax_tid", node2);
+  if (tidNode!=nullptr && !NodeIsNULL(tidNode)) pax_tid=NodeAsInteger(tidNode);
+
+  return *this;
+}
+
+const TWebTids& TWebTids::toXML(xmlNodePtr node) const
+{
+  if (node==nullptr) return *this;
+
+  xmlNodePtr tidsNode=NewTextChild(node, "tids");
+
+  NewTextChild(tidsNode, "crs_pnr_tid" , crs_pnr_tid, ASTRA::NoExists);
+  NewTextChild(tidsNode, "crs_pax_tid" , crs_pax_tid, ASTRA::NoExists);
+  NewTextChild(tidsNode, "pax_grp_tid" , pax_grp_tid, ASTRA::NoExists);
+  NewTextChild(tidsNode, "pax_tid"     , pax_tid    , ASTRA::NoExists);
+
+  return *this;
+}
 
 bool TWebPaxFromReq::mergePaxFQT(set<CheckIn::TPaxFQTItem> &fqts) const
 {
@@ -648,7 +728,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
           if (iPaxFromReq==currPnr.paxFromReq.end())
             throw EXCEPTIONS::Exception("CreateEmulDocs: iPaxFromReq==currPnr.paxFromReq.end() (seg_no=%d, crs_pax_id=%d)", seg_no, iPaxForChng->crs_pax_id);
 
-          int pax_tid=iPaxFromReq->pax_tid;
+          int pax_tid=iPaxForChng->pax_tid;
           //пассажир зарегистрирован
           if (!iPaxFromReq->refuse &&!iPaxFromReq->seat_no.empty() && iPaxForChng->seats > 0)
           {
@@ -738,7 +818,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
               NewTextChild(segNode,"airp_arv",iPaxForChng->airp_arv);
               NewTextChild(segNode,"class",iPaxForChng->cl);
               NewTextChild(segNode,"grp_id",iPaxForChng->grp_id);
-              NewTextChild(segNode,"tid",iPaxFromReq->pax_grp_tid);
+              NewTextChild(segNode,"tid",iPaxForChng->pax_grp_tid);
               NewTextChild(segNode,"passengers");
 
               NewTextChild(emulChngNode,"excess",iPaxForChng->excess);

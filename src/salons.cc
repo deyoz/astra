@@ -5860,21 +5860,6 @@ bool TPropsPoints::getLastPropRouteDeparture( TPointInRoute &point )
   return false;
 }
 
-bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
-                                           TFilterRoutesSets &filterRoutes,
-                                           bool pr_departure_tariff_only,
-                                           const vector<ASTRA::TCompLayerType> &grp_layers,
-                                           TDropLayersFlags &dropLayersFlags )
-{
-  std::vector<AstraWeb::TWebPax> pnr;
-  return CreateSalonsForAutoSeats( salons,
-                                   filterRoutes,
-                                   pr_departure_tariff_only,
-                                   grp_layers,
-                                   pnr,
-                                   dropLayersFlags );
-}
-
 void TSalonList::convertSeatTariffs( TPlace &iseat, bool pr_departure_tariff_only, int point_dep, int point_arv ) const
 {
   TPropsPoints points( filterSets.filterRoutes, point_dep, point_arv );
@@ -5885,17 +5870,17 @@ void TSalonList::convertSeatTariffs( TPlace &iseat, bool pr_departure_tariff_onl
   iseat.convertSeatTariffs( pr_departure_tariff_only, point_dep, pnts );
 }
 
-bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
+bool TSalonList::CreateSalonsForAutoSeats( TSalons &Salons,
                                            TFilterRoutesSets &filterRoutes,
                                            bool pr_departure_tariff_only,
-                                           const vector<ASTRA::TCompLayerType> &grp_layers,
-                                           const std::vector<AstraWeb::TWebPax> &pnr,
+                                           const std::vector<ASTRA::TCompLayerType> &grp_layers,
+                                           const TPaxsCover &paxs,
                                            TDropLayersFlags &dropLayersFlags )
 {
   bool pr_web_terminal = ( TReqInfo::Instance()->client_type != ASTRA::ctTerm &&
                            TReqInfo::Instance()->client_type != ASTRA::ctPNL );
 
-  salons.Clear();
+  Salons.Clear();
   if ( filterRoutes.point_arv == filterRoutes.point_dep ) {
     tst();
     return false;
@@ -5903,21 +5888,21 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
   ProgTrace( TRACE5, "filterRoutes.point_dep=%d, filterRoutes.point_arv=%d, drop_not_web_passes=%d, pr_web_terminal=%d",
              filterRoutes.point_dep, filterRoutes.point_arv, dropLayersFlags.isFlag( clDropNotWeb ), pr_web_terminal );
   TPropsPoints points( filterSets.filterRoutes, filterRoutes.point_dep, filterRoutes.point_arv );
-  salons.Clear();
-  salons.trip_id = getDepartureId();
-  salons.comp_id = getCompId();
+  Salons.Clear();
+  Salons.trip_id = getDepartureId();
+  Salons.comp_id = getCompId();
   std::map<ASTRA::TCompLayerType,TMenuLayer> menuLayers;
   getMenuLayers( true,
                  filterSets.filtersLayers[ getDepartureId() ],
                  menuLayers );
-  salons.SetProps( filterSets.filtersLayers[ getDepartureId() ],
+  Salons.SetProps( filterSets.filtersLayers[ getDepartureId() ],
                    rTripSalons,
                    isCraftLat(),
                    filterSets.filterClass,
                    menuLayers );
   //надо создать салон на основе filterRoutes.point_dep, filterRoutes.point_arv
   for ( std::vector<TPlaceList*>::iterator iseatlist=begin(); iseatlist!=end(); iseatlist++ ) {
-    salons.placelists.push_back( *iseatlist );
+    Salons.placelists.push_back( *iseatlist );
   }
   //теперь фильтр по лишним свойствам и сохранение их в полях TPlace
   std::map<int, std::vector<TSeatRemark>,classcomp > remarks;
@@ -5940,8 +5925,8 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
   }
   TRem rem;
   TPointInRoute point;
-  for ( std::vector<TPlaceList*>::iterator iseatlist=salons.placelists.begin();
-        iseatlist!=salons.placelists.end(); iseatlist++ ) {
+  for ( std::vector<TPlaceList*>::iterator iseatlist=Salons.placelists.begin();
+        iseatlist!=Salons.placelists.end(); iseatlist++ ) {
     for ( IPlace iseat=(*iseatlist)->places.begin(); iseat!=(*iseatlist)->places.end(); iseat++ ) {
       //заполнение ремарок
       iseat->rems.clear();
@@ -5964,7 +5949,7 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
           rem.rem = irem->value;
           rem.pr_denial = irem->pr_denial;
           iseat->rems.push_back( rem );
-          salons.AddExistSubcls( rem );
+          Salons.AddExistSubcls( rem );
         }
       }
       // заполнение подклассов
@@ -6055,12 +6040,12 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
               }
             }
           }
-                if ( pr_web_terminal && !pnr.empty() ) { //требуем заполнение списка пассажиров
-                  //!logProgTrace( TRACE5, "CreateSalonsForAutoSeats: %s %s, pnr.empty=%d, isOwnerFreePlace=%d",
-            //!log           ilayer->toString().c_str(), tmp_layer.toString().c_str(), pnr.empty(),
-            //!log           AstraWeb::isOwnerFreePlace( tmp_layer.getPaxId(), pnr ) );
+                if ( pr_web_terminal && !paxs.empty() ) { //требуем заполнение списка пассажиров
+                  //!logProgTrace( TRACE5, "CreateSalonsForAutoSeats: %s %s, paxs.empty=%d, isOwnerFreePlace=%d",
+            //!log           ilayer->toString().c_str(), tmp_layer.toString().c_str(), paxs.empty(),
+            //!log           AstraWeb::isOwnerFreePlace( tmp_layer.getPaxId(), paxs ) );
                     if ( ( tmp_layer.layer_type == cltPNLCkin ||
-                   isUserProtectLayer( tmp_layer.layer_type ) ) && !AstraWeb::isOwnerFreePlace( tmp_layer.getPaxId(), pnr ) ) {
+                   isUserProtectLayer( tmp_layer.layer_type ) )  && !isOwnerFreePlace<TPaxCover>( tmp_layer.getPaxId(), paxs ) ) {
                 iseat->AddLayerToPlace( cltDisable, tmp_layer.time_create, tmp_layer.getPaxId(),
                                           tmp_layer.point_dep, NoExists,
                                         BASIC_SALONS::TCompLayerTypes::Instance()->priority( cltDisable ) );
@@ -6108,12 +6093,12 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &salons,
                                   ilayer->point_dep, ilayer->point_arv,
                                   BASIC_SALONS::TCompLayerTypes::Instance()->priority( ilayer->layer_type ) );
           if ( isBaseLayer( tmp_layer.layer_type, false ) ) {
-            salons.AddExistBaseLayer( tmp_layer.layer_type );
+            Salons.AddExistBaseLayer( tmp_layer.layer_type );
           }
         }
       }
-      if ( salons.canAddOccupy( &(*iseat) ) ) {
-        salons.AddOccupySeat( (*iseatlist)->num, iseat->x, iseat->y );
+      if ( Salons.canAddOccupy( &(*iseat) ) ) {
+        Salons.AddOccupySeat( (*iseatlist)->num, iseat->x, iseat->y );
         //ProgTrace(TRACE5, "AddOccupySeat %d, %d, %d, %d",(*iseatlist)->num, iseat->x, iseat->y, salons.c() );
       }
     } // end for iseat

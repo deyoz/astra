@@ -2,6 +2,7 @@
 #include "misc.h"
 #include "salons.h"
 #include "telegram.h"
+#include "date_time.h"
 #include "TypeBHelpMng.h"
 #include "points.h" // for TFlightMaxCommerce
 #include "pers_weights.h"
@@ -1115,7 +1116,7 @@ void TClsTotal::parse(const string &val)
         f = ToInt(items[0]);
         c = ToInt(items[1]);
         y = ToInt(items[2]);
-    } else 
+    } else
         throw ETlgError("wrong class count %zu", items.size());
     } catch(EConvertError &E) {
         throw ETlgError(E.what());
@@ -1481,7 +1482,7 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
     if ( Qry.Eof )
         throw ETlgError(tlgeNotMonitorYesAlarm, "Flight not found");
 
-    LogTrace(TRACE5) << "time_receive: " << DateTimeToStr(time_receive);
+    LogTrace(TRACE5) << "time_receive: " << BASIC::date_time::DateTimeToStr(time_receive);
 
     TNearestDate nd(time_receive);
     for(; not Qry.Eof; Qry.Next()) {

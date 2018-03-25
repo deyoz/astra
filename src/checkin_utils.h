@@ -9,6 +9,54 @@
 namespace CheckIn
 {
 
+class OverloadException: public AstraLocale::UserException
+{
+  public:
+    OverloadException(const std::string &msg):AstraLocale::UserException(msg) {}
+    virtual ~OverloadException() throw(){}
+};
+
+class UserException:public AstraLocale::UserException
+{
+    public:
+      std::map<int, std::map <int, AstraLocale::LexemaData> > segs;
+
+      UserException(const AstraLocale::LexemaData &lexemeData,
+                  int point_id,
+                  int pax_id = ASTRA::NoExists):AstraLocale::UserException(lexemeData.lexema_id, lexemeData.lparams)
+    {
+      addError(lexemeData, point_id, pax_id);
+    };
+    UserException():AstraLocale::UserException("Empty CheckIn::UserException!", AstraLocale::LParams()) {};
+    ~UserException() throw(){};
+    void addError(const AstraLocale::LexemaData &lexemeData,
+                  int point_id,
+                  int pax_id = ASTRA::NoExists)
+    {
+      if (segs.empty()) setLexemaData(lexemeData);
+      segs[point_id][pax_id]=lexemeData;
+    }
+/*  если кто-то надумает раскомментарить этот кусок, обратитесь сначала к Владу
+    void addError(const std::string &lexema_id, const AstraLocale::LParams &lparams,
+                  int point_id,
+                  int pax_id = ASTRA::NoExists)
+    {
+      AstraLocale::LexemaData data;
+      data.lexema_id = lexema_id;
+        data.lparams = lparams;
+        addError(data, point_id, pax_id);
+    };
+    void addError(const std::string &lexema_id,
+                  int point_id,
+                  int pax_id = ASTRA::NoExists)
+    {
+        addError(lexema_id, AstraLocale::LParams(), point_id, pax_id);
+    };*/
+    bool empty() { return segs.empty(); }
+};
+
+void showError(const std::map<int, std::map <int, AstraLocale::LexemaData> > &segs);
+
 class RegNoRange
 {
   public:
@@ -75,6 +123,45 @@ class RegNoGenerator
 
 } //namespace CheckIn
 
+class TWebTids
+{
+  public:
+    int crs_pnr_tid;
+    int crs_pax_tid;
+    int pax_grp_tid;
+    int pax_tid;
+
+    TWebTids() { clear(); }
+
+    void clear()
+    {
+      crs_pnr_tid = ASTRA::NoExists;
+      crs_pax_tid = ASTRA::NoExists;
+      pax_grp_tid = ASTRA::NoExists;
+      pax_tid     = ASTRA::NoExists;
+    }
+
+    TWebTids& fromDB(TQuery &Qry);
+    TWebTids& fromXML(xmlNodePtr node);
+    const TWebTids& toXML(xmlNodePtr node) const;
+
+    bool checked() const
+    {
+      return !(pax_grp_tid==ASTRA::NoExists && pax_tid==ASTRA::NoExists);
+    }
+    bool norec() const
+    {
+      return crs_pnr_tid==ASTRA::NoExists && crs_pax_tid==ASTRA::NoExists;
+    }
+    bool tidsEqual(const TWebTids& tids)
+    {
+      return crs_pnr_tid==tids.crs_pnr_tid &&
+             crs_pax_tid==tids.crs_pax_tid &&
+             pax_grp_tid==tids.pax_grp_tid &&
+             pax_tid==tids.pax_tid;
+    }
+};
+
 struct TWebPaxFromReq
 {
   int crs_pax_id;
@@ -86,24 +173,18 @@ struct TWebPaxFromReq
   bool fqtv_rems_present;
   std::set<TAPIType> present_in_req;
   bool refuse;
-  int crs_pnr_tid;
-  int crs_pax_tid;
-  int pax_grp_tid;
-  int pax_tid;
-  TWebPaxFromReq() {
+  bool checked;
+  TWebPaxFromReq(bool _checked) {
         crs_pax_id = ASTRA::NoExists;
         dont_check_payment = false;
         fqtv_rems_present = false;
         refuse = false;
-        crs_pnr_tid = ASTRA::NoExists;
-        crs_pax_tid	= ASTRA::NoExists;
-        pax_grp_tid = ASTRA::NoExists;
-        pax_tid = ASTRA::NoExists;
+        checked = _checked;
     };
   bool mergePaxFQT(std::set<CheckIn::TPaxFQTItem> &fqts) const;
 };
 
-struct TWebPaxForChng
+struct TWebPaxForChng : public TWebTids
 {
   int crs_pax_id;
   int grp_id;
@@ -132,7 +213,7 @@ struct TWebPaxForChng
   }
 };
 
-struct TWebPaxForCkin
+struct TWebPaxForCkin : public TWebTids
 {
   int crs_pax_id;
 
