@@ -173,24 +173,18 @@ struct TWebPaxFromReq
   bool fqtv_rems_present;
   std::set<TAPIType> present_in_req;
   bool refuse;
-  int crs_pnr_tid;
-  int crs_pax_tid;
-  int pax_grp_tid;
-  int pax_tid;
-  TWebPaxFromReq() {
+  bool checked;
+  TWebPaxFromReq(bool _checked) {
         crs_pax_id = ASTRA::NoExists;
         dont_check_payment = false;
         fqtv_rems_present = false;
         refuse = false;
-        crs_pnr_tid = ASTRA::NoExists;
-        crs_pax_tid	= ASTRA::NoExists;
-        pax_grp_tid = ASTRA::NoExists;
-        pax_tid = ASTRA::NoExists;
+        checked = _checked;
     };
   bool mergePaxFQT(std::set<CheckIn::TPaxFQTItem> &fqts) const;
 };
 
-struct TWebPaxForChng
+struct TWebPaxForChng : public TWebTids
 {
   int crs_pax_id;
   int grp_id;
@@ -219,7 +213,7 @@ struct TWebPaxForChng
   }
 };
 
-struct TWebPaxForCkin
+struct TWebPaxForCkin : public TWebTids
 {
   int crs_pax_id;
 

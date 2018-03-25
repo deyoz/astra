@@ -296,11 +296,11 @@ int TIdsPnrData::getStrictlySinglePnrId() const
 
 void WebRequestsIface::SearchPNRs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
+  emulateClientType();
 
   resNode=NewTextChild(resNode,"SearchPNRs");
 
+  TReqInfo *reqInfo = TReqInfo::Instance();
   if (reqInfo->user.access.airlines().totally_not_permitted() ||
       reqInfo->user.access.airps().totally_not_permitted() )
   {
@@ -386,11 +386,11 @@ void GetPNRsList(WebSearch::TPNRFilters &filters,
 
 void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
+  emulateClientType();
 
   resNode=NewTextChild(resNode, (const char*)reqNode->name);
 
+  TReqInfo *reqInfo = TReqInfo::Instance();
   if (reqInfo->user.access.airlines().totally_not_permitted() ||
       reqInfo->user.access.airps().totally_not_permitted())
   {
@@ -483,48 +483,6 @@ struct TWebGrpSegs : public list<TWebGrp>
 {
   void toXML(xmlNodePtr segsParentNode) const;
 };
-
-void verifyPaxTids( int pax_id, int crs_pnr_tid, int crs_pax_tid, int pax_grp_tid, int pax_tid )
-{
-  TQuery Qry(&OraSession);
-  if (!isTestPaxId(pax_id))
-  {
-    if (pax_grp_tid==NoExists || pax_tid==NoExists)
-      throw UserException( "MSG.PASSENGERS.GROUP_CHANGED.REFRESH_DATA" ); //это бывает когда перед печатью произошла разрегистрация
-    Qry.SQLText =
-      "SELECT crs_pnr.tid AS crs_pnr_tid, "
-      "       crs_pax.tid AS crs_pax_tid, "
-      "       pax_grp.tid AS pax_grp_tid, "
-      "       pax.tid AS pax_tid, "
-      "       pax.pax_id "
-      " FROM crs_pnr,crs_pax,pax,pax_grp "
-      "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-      "      crs_pax.pax_id=pax.pax_id(+) AND "
-      "      pax.grp_id=pax_grp.grp_id(+) AND "
-      "      crs_pax.pax_id=:pax_id AND "
-      "      crs_pax.pr_del=0";
-    Qry.CreateVariable( "pax_id", otInteger, pax_id );
-    Qry.Execute();
-    if ( Qry.Eof ||
-           crs_pnr_tid != Qry.FieldAsInteger( "crs_pnr_tid" ) ||
-           crs_pax_tid != Qry.FieldAsInteger( "crs_pax_tid" ) ||
-           pax_grp_tid != Qry.FieldAsInteger( "pax_grp_tid" ) ||
-           pax_tid != Qry.FieldAsInteger( "pax_tid" ) )
-        throw UserException( "MSG.PASSENGERS.GROUP_CHANGED.REFRESH_DATA" );
-  }
-  else
-  {
-    Qry.SQLText =
-      "SELECT id FROM test_pax WHERE id=:pax_id";
-    Qry.CreateVariable( "pax_id", otInteger, pax_id );
-    Qry.Execute();
-    if ( Qry.Eof ||
-         crs_pnr_tid != Qry.FieldAsInteger( "id" ) ||
-           crs_pax_tid != Qry.FieldAsInteger( "id" ) ||
-         pax_grp_tid != pax_tid)
-      throw UserException( "MSG.PASSENGERS.GROUP_CHANGED.REFRESH_DATA" );
-  };
-}
 
 bool is_valid_pnr_status(const string &pnr_status)
 {
@@ -1086,8 +1044,7 @@ void TWebPax::toXML(xmlNodePtr paxParentNode) const
 
 void WebRequestsIface::LoadPnr(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
+  emulateClientType();
 
   ProgTrace(TRACE1,"WebRequestsIface::LoadPnr");
   xmlNodePtr segsNode = NodeAsNode( "segments", reqNode );
@@ -1440,8 +1397,7 @@ void GetCrsPaxSeats( int point_id, const vector<TWebPax> &pnr,
 */
 void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
+  emulateClientType();
 
   ProgTrace(TRACE1,"WebRequestsIface::ViewCraft");
   int point_id = NodeAsInteger( "point_id", reqNode );
@@ -1486,7 +1442,7 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         xmlNodePtr rateNode = NewTextChild( placeNode, "rate" );
         NewTextChild( rateNode, "color", wp->SeatTariff.color );
         NewTextChild( rateNode, "value", wp->SeatTariff.rateView() );
-        NewTextChild( rateNode, "currency", wp->SeatTariff.currencyView(reqInfo->desk.lang) );
+        NewTextChild( rateNode, "currency", wp->SeatTariff.currencyView(TReqInfo::Instance()->desk.lang) );
       }
       if ( !wp->rfisc.empty() ) {
         NewTextChild( placeNode, "rfisc", wp->rfisc.code );
@@ -1662,12 +1618,8 @@ bool CreateEmulCkinDocForCHKD(int crs_pax_id,
         throw EXCEPTIONS::Exception("CreateEmulCkinDocForCHKD: different pnr_id");
     };
 
-    TWebPaxFromReq paxFromReq;
-    paxFromReq.crs_pax_id=Qry.FieldAsInteger("pax_id");
-    paxFromReq.crs_pnr_tid=Qry.FieldAsInteger("crs_pnr_tid");
-    paxFromReq.crs_pax_tid=Qry.FieldAsInteger("crs_pax_tid");
-
     TWebPaxForCkin paxForCkin;
+    paxForCkin.fromDB(Qry); //читаем TWebTids
     paxForCkin.crs_pax_id=Qry.FieldAsInteger("pax_id");
     paxForCkin.surname = Qry.FieldAsString("surname");
     paxForCkin.name = Qry.FieldAsString("name");
@@ -1698,7 +1650,7 @@ bool CreateEmulCkinDocForCHKD(int crs_pax_id,
         throw UserException("MSG.CHECKIN.DUPLICATE_CHKD_REG_NO");
     };
 
-    pnr.paxFromReq.push_back(paxFromReq);
+    pnr.paxFromReq.push_back(TWebPaxFromReq(paxForCkin.checked()));
     pnr.paxForCkin.push_back(paxForCkin);
 
     TPerson p=DecodePerson(paxForCkin.pers_type.c_str());
@@ -1752,7 +1704,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
     int currNotCheckedCount=0;
     for(vector<TWebPaxFromReq>::const_iterator iPax=s->second.paxFromReq.begin(); iPax!=s->second.paxFromReq.end(); iPax++)
     {
-      if (iPax->pax_grp_tid==NoExists || iPax->pax_tid==NoExists)
+      if (!iPax->checked)
         //пассажир не зарегистрирован
         currNotCheckedCount++;
     };
@@ -1774,12 +1726,14 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
         "SELECT point_dep,point_arv,airp_dep,airp_arv,class,excess,bag_refuse, "
         "       pax_grp.grp_id,pax.surname,pax.name,pax.pers_type,pax.seats, pax.crew_type, "
         "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
+        "       crs_pax.tid AS crs_pax_tid, "
         "       pax_grp.tid AS pax_grp_tid, "
         "       pax.tid AS pax_tid, "
-        "       crs_pax.pnr_id, crs_pax.pr_del "
+        "       crs_pax.pnr_id "
         "FROM pax_grp,pax,crs_pax "
         "WHERE pax_grp.grp_id=pax.grp_id AND "
         "      pax.pax_id=crs_pax.pax_id(+) AND "
+        "      crs_pax.pr_del(+)=0 AND "
         "      pax.pax_id=:pax_id";
 
   const char* CrsPaxQrySQL=
@@ -1796,7 +1750,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
       "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket, "
       "       crs_pnr.tid AS crs_pnr_tid, "
       "       crs_pax.tid AS crs_pax_tid, "
-      "       DECODE(pax.pax_id,NULL,0,1) AS checked "
+      "       pax.tid AS pax_tid "
       "FROM tlg_trips,crs_pnr,crs_pax,pax "
       "WHERE tlg_trips.point_id=crs_pnr.point_id AND "
       "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
@@ -1810,7 +1764,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
       "       NULL AS seat_no, NULL AS seat_type, 1 AS seats, "
       "       id AS pnr_id, "
       "       NULL AS ticket, tkn_no AS eticket, doc_no, "
-      "       id AS crs_pnr_tid, id AS crs_pax_tid, 0 AS checked "
+      "       id AS crs_pnr_tid, id AS crs_pax_tid "
       "FROM test_pax "
       "WHERE id=:crs_pax_id";
 
@@ -1832,8 +1786,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
         {
           try
           {
-            bool not_checked=isTestPaxId(iPax->crs_pax_id) ||
-                             iPax->pax_grp_tid==NoExists || iPax->pax_tid==NoExists;
+            bool not_checked=isTestPaxId(iPax->crs_pax_id) || !iPax->checked;
 
             Qry.Clear();
             try
@@ -1852,10 +1805,12 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
                 Qry.Execute();
                 if (Qry.Eof)
                   throw UserException("MSG.PASSENGER.NOT_FOUND.REFRESH_DATA");
-                if (Qry.FieldAsInteger("checked")!=0)
+
+                TWebTids paxTids;
+                paxTids.fromDB(Qry);
+                if (paxTids.checked())
                   throw UserException("MSG.PASSENGER.CHECKED.REFRESH_DATA");
-                if (iPax->crs_pnr_tid!=Qry.FieldAsInteger("crs_pnr_tid") ||
-                    iPax->crs_pax_tid!=Qry.FieldAsInteger("crs_pax_tid"))
+                if (paxTids.norec())
                   throw UserException("MSG.PASSENGER.CHANGED.REFRESH_DATA");
 
                 if (!is_valid_pnr_status(Qry.FieldAsString("pnr_status")) ||
@@ -1870,10 +1825,10 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
                 Qry.Execute();
                 if (Qry.Eof)
                   throw UserException("MSG.PASSENGER.CHANGED.REFRESH_DATA");
-                if (Qry.FieldIsNULL("pnr_id") || Qry.FieldAsInteger("pr_del")!=0)
-                  throw UserException("MSG.PASSENGER.NOT_FOUND.REFRESH_DATA");
-                if (iPax->pax_grp_tid!=Qry.FieldAsInteger("pax_grp_tid") ||
-                    iPax->pax_tid!=Qry.FieldAsInteger("pax_tid"))
+
+                TWebTids paxTids;
+                paxTids.fromDB(Qry);
+                if (!paxTids.checked() || paxTids.norec())
                   throw UserException("MSG.PASSENGER.CHANGED.REFRESH_DATA");
               };
             }
@@ -1900,6 +1855,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
             if (!not_checked)
             {
               TWebPaxForChng pax;
+              pax.fromDB(Qry); //TWebTids
               pax.crs_pax_id = iPax->crs_pax_id;
               pax.grp_id = Qry.FieldAsInteger("grp_id");
               pax.point_dep = Qry.FieldAsInteger("point_dep");
@@ -1933,6 +1889,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
             else
             {
               TWebPaxForCkin pax;
+              pax.fromDB(Qry); //TWebTids
               pax.pnr_addrs.getByPaxId(iPax->crs_pax_id);
               pax.crs_pax_id = iPax->crs_pax_id;
               pax.surname = Qry.FieldAsString("surname");
@@ -2138,9 +2095,8 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
 
 void WebRequestsIface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
-    SavePax(reqNode, NULL, resNode);
+  emulateClientType();
+  SavePax(reqNode, NULL, resNode);
 };
 
 bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode)
@@ -2159,7 +2115,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       for(;paxNode!=NULL;paxNode=paxNode->next)
       {
         xmlNodePtr node2=paxNode->children;
-        TWebPaxFromReq pax;
+        TWebPaxFromReq pax(TWebTids().fromXML(paxNode).checked());
 
         pax.crs_pax_id=NodeAsIntegerFast("crs_pax_id", node2);
         pax.dont_check_payment=NodeAsIntegerFast("dont_check_payment", node2, 0)!=0;
@@ -2197,15 +2153,6 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
 
         pax.refuse=NodeAsIntegerFast("refuse", node2, 0)!=0;
         if (pax.refuse) pnr.refusalCountFromReq++;
-
-        xmlNodePtr tidsNode=NodeAsNode("tids", paxNode);
-        pax.crs_pnr_tid=NodeAsInteger("crs_pnr_tid",tidsNode);
-        pax.crs_pax_tid=NodeAsInteger("crs_pax_tid",tidsNode);
-        xmlNodePtr node;
-        node=GetNode("pax_grp_tid",tidsNode);
-        if (node!=NULL && !NodeIsNULL(node)) pax.pax_grp_tid=NodeAsInteger(node);
-        node=GetNode("pax_tid",tidsNode);
-        if (node!=NULL && !NodeIsNULL(node)) pax.pax_tid=NodeAsInteger(node);
 
         pnr.paxFromReq.push_back(pax);
       };
@@ -2346,7 +2293,7 @@ void GetBPPax(int point_dep, int pax_id, bool is_test, PrintInterface::BPPax &pa
   };
 }
 
-void GetBPPax(xmlNodePtr paxNode, bool is_test, bool check_tids, PrintInterface::BPPax &pax)
+void GetBPPax(xmlNodePtr paxNode, bool is_test, PrintInterface::BPPax &pax)
 {
   pax.clear();
   if (paxNode==NULL) throw EXCEPTIONS::Exception("GetBPPax: paxNode==NULL");
@@ -2355,19 +2302,8 @@ void GetBPPax(xmlNodePtr paxNode, bool is_test, bool check_tids, PrintInterface:
         NoExists:
         NodeAsIntegerFast( "point_id", node2 );
   int pax_id = NodeAsIntegerFast( "pax_id", node2 );
-  xmlNodePtr node = NodeAsNodeFast( "tids", node2 );
-  node2=node->children;
-  int crs_pnr_tid = NodeAsIntegerFast( "crs_pnr_tid", node2 );
-  int crs_pax_tid = NodeAsIntegerFast( "crs_pax_tid", node2 );
-  int pax_grp_tid = NodeIsNULLFast( "pax_grp_tid", node2, true )?
-        NoExists:
-        NodeAsIntegerFast( "pax_grp_tid", node2 );
-  int pax_tid =     NodeIsNULLFast( "pax_tid", node2, true )?
-        NoExists:
-        NodeAsIntegerFast( "pax_tid", node2 ) ;
-  if (check_tids) verifyPaxTids( pax_id, crs_pnr_tid, crs_pax_tid, pax_grp_tid, pax_tid );
 
-  GetBPPax(is_test && point_dep==NoExists?pax_grp_tid:point_dep, pax_id, is_test, pax);
+  GetBPPax(point_dep, pax_id, is_test, pax);
 };
 
 class BPReprintOptions
@@ -2524,8 +2460,7 @@ string GetBPGate(int point_id)
 
 void WebRequestsIface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
+  emulateClientType();
 
   ProgTrace(TRACE1,"WebRequestsIface::ConfirmPrintBP");
   CheckIn::UserException ue;
@@ -2538,7 +2473,7 @@ void WebRequestsIface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     PrintInterface::BPPax pax;
     try
     {
-      GetBPPax( paxNode, false, false, pax );
+      GetBPPax( paxNode, false, pax );
       pax.time_print=NodeAsDateTime("prn_form_key", paxNode);
       paxs.push_back(pax);
     }
@@ -2556,8 +2491,7 @@ void WebRequestsIface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
 void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
+  emulateClientType();
 
   ProgTrace(TRACE1,"WebRequestsIface::GetPrintDataBP");
   PrintInterface::BPParams params;
@@ -2566,6 +2500,7 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   params.prnParams.get_prn_params(reqNode);
   params.clientDataNode = NULL;
 
+  TReqInfo *reqInfo = TReqInfo::Instance();
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
@@ -2619,7 +2554,7 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
       PrintInterface::BPPax pax;
       try
       {
-        GetBPPax( paxNode, is_test, true, pax );
+        GetBPPax( paxNode, is_test, pax );
         if (gates.find(pax.point_dep)==gates.end()) gates[pax.point_dep]=GetBPGate(pax.point_dep);
         pax.gate=make_pair(gates[pax.point_dep], true);
         paxs.push_back(pax);
@@ -2719,8 +2654,7 @@ int bcbp_test(int argc,char **argv)
 
 void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
+  emulateClientType();
 
   ProgTrace(TRACE1,"WebRequestsIface::GetBPTags");
 
@@ -2740,7 +2674,7 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   else
   {
     bool is_test=isTestPaxId(NodeAsInteger("pax_id", reqNode));
-    GetBPPax( reqNode, is_test, true, pax );
+    GetBPPax( reqNode, is_test, pax );
     parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(TDevOper::PrnBP, pax.grp_id, pax.pax_id, 0, NULL));
   };
   vector<string> tags;
@@ -2957,8 +2891,7 @@ void WebRequestsIface::ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
 void WebRequestsIface::PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
+  emulateClientType();
 
   const char* pax_sql=
     "SELECT pax_grp.point_dep, NULL AS point_id_tlg, pax_grp.grp_id, pax_grp.airp_arv, "

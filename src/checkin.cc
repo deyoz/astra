@@ -9354,7 +9354,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
             xmlNodePtr crew_members = NodeAsNode("CREW_MEMBERS", crew_group);
             TWebPnrForSave pnr;
             pnr.status = psCrew;
-            pnr.paxFromReq.push_back(TWebPaxFromReq());
+            pnr.paxFromReq.push_back(TWebPaxFromReq(false));
             for(xmlNodePtr crew_member = crew_members->children; crew_member != NULL; crew_member = crew_member->next)
             {
                 if(NodeAsString("DUTY", crew_member, "") == string("PIC") && NodeAsInteger("ORDER", crew_member, ASTRA::NoExists) == 1)

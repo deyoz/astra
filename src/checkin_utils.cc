@@ -728,7 +728,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
           if (iPaxFromReq==currPnr.paxFromReq.end())
             throw EXCEPTIONS::Exception("CreateEmulDocs: iPaxFromReq==currPnr.paxFromReq.end() (seg_no=%d, crs_pax_id=%d)", seg_no, iPaxForChng->crs_pax_id);
 
-          int pax_tid=iPaxFromReq->pax_tid;
+          int pax_tid=iPaxForChng->pax_tid;
           //пассажир зарегистрирован
           if (!iPaxFromReq->refuse &&!iPaxFromReq->seat_no.empty() && iPaxForChng->seats > 0)
           {
@@ -818,7 +818,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
               NewTextChild(segNode,"airp_arv",iPaxForChng->airp_arv);
               NewTextChild(segNode,"class",iPaxForChng->cl);
               NewTextChild(segNode,"grp_id",iPaxForChng->grp_id);
-              NewTextChild(segNode,"tid",iPaxFromReq->pax_grp_tid);
+              NewTextChild(segNode,"tid",iPaxForChng->pax_grp_tid);
               NewTextChild(segNode,"passengers");
 
               NewTextChild(emulChngNode,"excess",iPaxForChng->excess);
