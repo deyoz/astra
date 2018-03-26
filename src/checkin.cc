@@ -3225,53 +3225,78 @@ bool CheckInInterface::CheckAPPSRems(const std::multiset<CheckIn::TPaxRemItem> &
   return is_forced;
 }
 
-bool CheckRefusability(int point_dep, int pax_id)
+boost::optional<std::string> CheckRefusability(const TAdvTripInfo& fltInfo, int pax_id)
 {
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  if (!(reqInfo->client_type==ctWeb ||
+  class UnregDenial {};
+  class UnregDenialTerm {};
+  class UnregAllowed {};
+  try
+  {
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    if (reqInfo->client_type==ctWeb ||
         reqInfo->client_type==ctKiosk ||
-        reqInfo->client_type==ctMobile)) return true;
-  //отмена регистрации с сайта, киоска или мобильного
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT pax_grp.grp_id, pax_grp.client_type, pax.* "
-    "FROM pax_grp, pax "
-    "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id";
-  Qry.CreateVariable("pax_id", otInteger, pax_id);
-  Qry.Execute();
-  if (Qry.Eof ||
-      Qry.FieldIsNULL("pr_brd") ||     //отмена регистрации
-      Qry.FieldAsInteger("pr_brd")!=0) return false;
-  int grp_id=Qry.FieldAsInteger("grp_id");
-  TClientType ckinClientType=DecodeClientType(Qry.FieldAsString("client_type"));
-  if (!(ckinClientType==ctWeb ||
-        ckinClientType==ctKiosk ||
-        ckinClientType==ctMobile)) return false; //регистрации не с сайта, киоска или мобильного
+        reqInfo->client_type==ctMobile)
+    {
+      //отмена регистрации с сайта, киоска или мобильного
+      TQuery Qry(&OraSession);
+      Qry.Clear();
+      Qry.SQLText=
+          "SELECT pax_grp.grp_id, pax_grp.client_type, pax.* "
+          "FROM pax_grp, pax "
+          "WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id";
+      Qry.CreateVariable("pax_id", otInteger, pax_id);
+      Qry.Execute();
+      if (Qry.Eof) throw UnregDenial();
 
-  CheckIn::TSimplePaxItem pax;
-  pax.fromDB(Qry);
-  if (pax.HaveBaggage()) return false;
+      CheckIn::TSimplePaxItem pax;
+      pax.fromDB(Qry);
+      if (!pax.refuse.empty() || //отмена регистрации
+          pax.pr_brd) throw UnregDenial();
+      int grp_id=Qry.FieldAsInteger("grp_id");
+      TClientType ckinClientType=DecodeClientType(Qry.FieldAsString("client_type"));
+      if (!(ckinClientType==ctWeb ||
+            ckinClientType==ctKiosk ||
+            ckinClientType==ctMobile)) throw UnregDenial(); //регистрации не с сайта, киоска или мобильного
 
-  if (GetSelfCkinSets(tsAllowCancelSelfCkin, point_dep, reqInfo->client_type)) return true;
+      if (pax.HaveBaggage()) throw UnregDenial();
 
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT events_bilingual.station "
-    "FROM "
-    "  (SELECT station FROM events_bilingual "
-    "   WHERE lang=:lang AND type=:evtPax AND id1=:point_dep AND id3=:grp_id) events_bilingual, "
-    "  web_clients "
-    "WHERE events_bilingual.station=web_clients.desk(+) AND "
-    "      web_clients.desk IS NULL AND rownum<2";
-  Qry.CreateVariable("lang", otString, AstraLocale::LANG_RU);
-  Qry.CreateVariable("evtPax", otString, EncodeEventType(ASTRA::evtPax));
-  Qry.CreateVariable("point_dep", otInteger, point_dep);
-  Qry.CreateVariable("grp_id", otInteger, grp_id);
-  Qry.Execute();
-  if (!Qry.Eof) return false;
+      if (GetSelfCkinSets(tsAllowCancelSelfCkin, fltInfo, reqInfo->client_type)) throw UnregAllowed();
 
-  return true;
+      Qry.Clear();
+      Qry.SQLText=
+          "SELECT events_bilingual.station "
+          "FROM "
+          "  (SELECT station FROM events_bilingual "
+          "   WHERE lang=:lang AND type=:evtPax AND id1=:point_dep AND id3=:grp_id) events_bilingual, "
+          "  web_clients "
+          "WHERE events_bilingual.station=web_clients.desk(+) AND "
+          "      web_clients.desk IS NULL AND rownum<2";
+      Qry.CreateVariable("lang", otString, AstraLocale::LANG_RU);
+      Qry.CreateVariable("evtPax", otString, EncodeEventType(ASTRA::evtPax));
+      Qry.CreateVariable("point_dep", otInteger, fltInfo.point_id);
+      Qry.CreateVariable("grp_id", otInteger, grp_id);
+      Qry.Execute();
+      if (!Qry.Eof) throw UnregDenial();
+    }
+    if (reqInfo->client_type==ctTerm)
+    {
+      CheckIn::TSimplePaxItem pax;
+      pax.getByPaxId(pax_id);
+      if (!pax.refuse.empty()) throw UnregAllowed();
+      if (GetTripSets(tsNoRefuseIfBrd, fltInfo) && pax.pr_brd) throw UnregDenialTerm();
+    }
+  }
+  catch(UnregDenial)
+  {
+    return std::string("MSG.PASSENGER.UNREGISTRATION_DENIAL");
+  }
+  catch(UnregDenialTerm)
+  {
+    return std::string("MSG.PASSENGER.UNREGISTRATION_DENIAL_BRD");
+  }
+  catch(UnregAllowed) {}
+
+  return boost::none;
 };
 
 void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -4447,11 +4472,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   throw UserException("MSG.ETICK.NEED_DISPLAY", LParams()<<LParam("etick", pax.tkn.no_str()));
               };
             };
-            //проверка refusability для киосков и веба
-            if (!new_checkin && pax.PaxUpdatesPending &&
-                !pax.refuse.empty() &&
-                !CheckRefusability(grp.point_dep, pax.id))
-              throw UserException("MSG.PASSENGER.UNREGISTRATION_DENIAL");
+            //проверка refusability для киосков и веба, а теперь и для терминала
+            if (!new_checkin && pax.PaxUpdatesPending && !pax.refuse.empty())
+            {
+              boost::optional<std::string> unreg_denial = CheckRefusability(fltAdvInfo, pax.id);
+              if (unreg_denial) throw UserException(*unreg_denial);
+            }
 
             //билет
             if (pax.TknExists)
