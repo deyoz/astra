@@ -681,7 +681,7 @@ string PrintDataParser::parse_field0(int offset, string field)
     return pts.get_field(FieldName, FieldLen, FieldText, FieldAlign, DateFormat, tag_lang);
 }
 
-string PrintDataParser::parse(string &form)
+string PrintDataParser::parse(const string &form)
 {
     string result;
     char Mode = 'S';
@@ -1888,8 +1888,7 @@ bool IsErrPax(const PrintInterface::BPPax &pax)
 void PrintInterface::GetPrintDataBP(
                                     TDevOper::Enum op_type,
                                     BPParams &params,
-                                    std::string &data,
-                                    string &pectab,
+                                    const std::string &data,
                                     BIPrintRules::Holder &bi_rules,
                                     std::vector<BPPax> &paxs,
                                     boost::optional<AstraLocale::LexemaData> &error
@@ -1897,8 +1896,6 @@ void PrintInterface::GetPrintDataBP(
 {
     if(paxs.empty()) return;
     error = boost::none;
-
-    get_pectab(op_type, params, data, pectab);
 
     for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
 
@@ -1979,7 +1976,7 @@ static TBCBPData makeIatciTBCBPData(const astra_api::xml_entities::XmlSegment& s
  */
 bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
                                          int grpId,
-                                         const std::string& data_in,
+                                         const std::string& data,
                                          const BPParams &params,
                                          std::vector<BPPax> &paxs)
 {
@@ -2003,7 +2000,6 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
         {
             for(const XmlPax& xmlPax: xmlSeg.passengers)
             {
-                std::string data(data_in);
                 boost::shared_ptr<PrintDataParser> parser;
                 parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(xmlSeg.seg_info.airp_dep,
                                                                                 xmlSeg.seg_info.airp_arv,
@@ -2585,8 +2581,6 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
     for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
       if(first_seg_grp_id != iPax->grp_id) iPax->gate=make_pair("", true);
 
-    string pectab, data;
-
     // Начитываем правила БП для всех паксов
     BIPrintRules::Holder bi_rules(op_type);
     if(TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION)) {
@@ -2616,8 +2610,10 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
 
         LogTrace(TRACE5) << "complete true";
 
+        string pectab, data;
+        get_pectab(op_type, params, data, pectab);
         boost::optional<AstraLocale::LexemaData> error;
-        GetPrintDataBP(op_type, params, data, pectab, bi_rules, paxs, error);
+        GetPrintDataBP(op_type, params, data, bi_rules, paxs, error);
 
         if(pax_id < 0 and !GetIatciPrintDataBP(reqNode, first_seg_grp_id, data, params, paxs)) {
             tst();

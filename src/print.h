@@ -40,7 +40,7 @@ class PrintDataParser {
         PrintDataParser(const std::string& airp_dep, const std::string& airp_arv, bool pr_lat)
             : pectab_format(0), pts(airp_dep, airp_arv, pr_lat) {}
 
-        std::string parse(std::string &form);
+        std::string parse(const std::string &form);
 };
 
 
@@ -144,8 +144,7 @@ class PrintInterface: public JxtInterface
         static void GetPrintDataBP(
                                    ASTRA::TDevOper::Enum op_type,
                                    BPParams &params,
-                                   std::string &data,
-                                   std::string &pectab,
+                                   const std::string &data,
                                    BIPrintRules::Holder &bi_rules,
                                    std::vector<BPPax> &paxs,
                                    boost::optional<AstraLocale::LexemaData> &error);
