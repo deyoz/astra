@@ -1245,6 +1245,194 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
                                                        lPaxGrp));
 }
 
+static void checkLatOnly(const std::string& field)
+{
+    if(StrUtils::containsRus(field)) {
+        LogWarning(STDLOG) << "Field containing rus characters is found: "
+                           << "'" << field << "'";
+        throw AstraLocale::UserException("MSG.UNEXPECTED_RUS_FIELD");
+    }
+}
+
+static void checkLatOnly(const boost::optional<iatci::PaxDetails>& pax)
+{
+    if(pax) {
+        checkLatOnly(pax->surname());
+        checkLatOnly(pax->name());
+        checkLatOnly(pax->qryRef());
+        checkLatOnly(pax->respRef());
+    }
+}
+
+static void checkLatOnly(const boost::optional<iatci::UpdatePaxDetails>& updPax)
+{
+    if(updPax) {
+        checkLatOnly(updPax->surname());
+        checkLatOnly(updPax->name());
+        checkLatOnly(updPax->qryRef());
+    }
+}
+
+static void checkLatOnly(const boost::optional<iatci::ReservationDetails>& reserv)
+{
+    if(reserv) {
+        checkLatOnly(reserv->rbd());
+    }
+}
+
+static void checkLatOnly(const boost::optional<iatci::DocDetails>& doc)
+{
+    if(doc) {
+        checkLatOnly(doc->docType());
+        checkLatOnly(doc->issueCountry());
+        checkLatOnly(doc->no());
+        checkLatOnly(doc->surname());
+        checkLatOnly(doc->name());
+        checkLatOnly(doc->secondName());
+        checkLatOnly(doc->gender());
+        checkLatOnly(doc->nationality());
+    }
+}
+
+static void checkLatOnly(const boost::optional<iatci::UpdateDocDetails>& updDoc)
+{
+    if(updDoc) {
+        DocDetails dd = updDoc.get();
+        checkLatOnly(dd);
+    }
+}
+
+static void checkLatOnly(const ServiceDetails::SsrInfo& ssr)
+{
+    checkLatOnly(ssr.ssrCode());
+    checkLatOnly(ssr.ssrText());
+    checkLatOnly(ssr.freeText());
+}
+
+static void checkLatOnly(const boost::optional<ServiceDetails>& service)
+{
+    if(service) {
+        checkLatOnly(service->osi());
+        for(auto ssr: service->lSsr()) {
+            checkLatOnly(ssr);
+        }
+    }
+}
+
+static void checkLatOnly(const boost::optional<UpdateServiceDetails>& updService)
+{
+    if(updService) {
+        for(auto ssr: updService->lSsr()) {
+            checkLatOnly(ssr);
+        }
+    }
+}
+
+static void checkLatOnly(const boost::optional<AddressDetails>& address)
+{
+    if(address) {
+        for(auto addr: address->lAddr())
+        {
+            checkLatOnly(addr.type());
+            checkLatOnly(addr.country());
+            checkLatOnly(addr.address());
+            checkLatOnly(addr.city());
+            checkLatOnly(addr.region());
+            checkLatOnly(addr.postalCode());
+        }
+    }
+}
+
+static void checkLatOnly(const boost::optional<UpdateAddressDetails>& updAddress)
+{
+    if(updAddress) {
+        AddressDetails ad = updAddress.get();
+        checkLatOnly(ad);
+    }
+}
+
+static void checkLatOnly(const boost::optional<VisaDetails>& visa)
+{
+    if(visa) {
+        checkLatOnly(visa->visaType());
+        checkLatOnly(visa->issueCountry());
+        checkLatOnly(visa->no());
+        checkLatOnly(visa->placeOfIssue());
+    }
+}
+
+static void checkLatOnly(const boost::optional<UpdateVisaDetails>& updVisa)
+{
+    if(updVisa) {
+        VisaDetails vd = updVisa.get();
+        checkLatOnly(vd);
+    }
+}
+
+static void checkLatOnly(const boost::optional<SeatDetails>& seat)
+{
+    if(seat) {
+        checkLatOnly(seat->seat());
+    }
+}
+
+static void checkLatOnly(const boost::optional<UpdateSeatDetails>& updSeat)
+{
+    if(updSeat) {
+        SeatDetails sd = updSeat.get();
+        checkLatOnly(sd);
+    }
+}
+
+static void checkLatOnly(const iatci::PaxGroup& paxGrp)
+{
+    checkLatOnly(paxGrp.pax());
+    checkLatOnly(paxGrp.reserv());
+    checkLatOnly(paxGrp.service());
+    checkLatOnly(paxGrp.doc());
+    checkLatOnly(paxGrp.address());
+    checkLatOnly(paxGrp.visa());
+    checkLatOnly(paxGrp.infant());
+    checkLatOnly(paxGrp.infantDoc());
+    checkLatOnly(paxGrp.infantAddress());
+    checkLatOnly(paxGrp.infantVisa());
+}
+
+static void checkCkiPaxGroup(const iatci::dcqcki::PaxGroup& paxGrp)
+{
+    checkLatOnly(paxGrp);
+    checkLatOnly(paxGrp.seat());
+}
+
+static void checkCkiParams(const iatci::CkiParams& params)
+{
+    for(auto paxGrp: params.fltGroup().paxGroups()) {
+        checkCkiPaxGroup(paxGrp);
+    }
+}
+
+static void checkCkuPaxGroup(const iatci::dcqcku::PaxGroup& paxGrp)
+{
+    checkLatOnly(paxGrp);
+    checkLatOnly(paxGrp.updPax());
+    checkLatOnly(paxGrp.updSeat());
+    checkLatOnly(paxGrp.updService());
+    checkLatOnly(paxGrp.updDoc());
+    checkLatOnly(paxGrp.updAddress());
+    checkLatOnly(paxGrp.updVisa());
+    checkLatOnly(paxGrp.updInfant());
+    checkLatOnly(paxGrp.updInfantDoc());
+    checkLatOnly(paxGrp.updInfantAddress());
+    checkLatOnly(paxGrp.updInfantVisa());
+}
+
+static void checkCkuParams(const iatci::CkuParams& params)
+{
+    for(auto paxGrp: params.fltGroup().paxGroups()) {
+        checkCkuPaxGroup(paxGrp);
+    }
+}
+
 static iatci::OriginatorDetails makeOrg(int grpId)
 {
     PointInfo pointInfo = readPointInfo(grpId);
@@ -2069,7 +2257,10 @@ bool IatciInterface::MayNeedSendIatci(xmlNodePtr reqNode)
 bool IatciInterface::InitialRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
 {
     edifact::KickInfo kickInfo = getIatciKickInfo(reqNode, ediResNode);
-    edifact::SendCkiRequest(getCkiParams(reqNode),
+    auto ckiParams = getCkiParams(reqNode);
+    // пока проверяем без какого-либо условия
+    checkCkiParams(ckiParams);
+    edifact::SendCkiRequest(ckiParams,
                             getIatciPult(),
                             getIatciRequestContext(kickInfo),
                             kickInfo);
@@ -2085,6 +2276,7 @@ bool IatciInterface::UpdateRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
     if(ckuParams)
     {
         edifact::KickInfo kickInfo = getIatciKickInfo(reqNode, ediResNode);
+        checkCkuParams(*ckuParams);
         edifact::SendCkuRequest(ckuParams.get(),
                                 getIatciPult(),
                                 getIatciRequestContext(kickInfo),

@@ -1622,28 +1622,6 @@ const boost::optional<iatci::CascadeHostDetails>& BaseParams::cascadeDetails() c
 
 //---------------------------------------------------------------------------------------
 
-Params::Params(const OriginatorDetails& origin,
-               const PaxDetails& pax,
-               const FlightDetails& flight,
-               boost::optional<FlightDetails> flightFromPrevHost,
-               boost::optional<CascadeHostDetails> cascadeDetails,
-               boost::optional<ServiceDetails> serviceDetails)
-    : BaseParams(origin, flight, flightFromPrevHost, cascadeDetails),
-      m_pax(pax), m_service(serviceDetails)
-{}
-
-const iatci::PaxDetails& Params::pax() const
-{
-    return m_pax;
-}
-
-const boost::optional<ServiceDetails>& Params::service() const
-{
-    return m_service;
-}
-
-//---------------------------------------------------------------------------------------
-
 PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<ReservationDetails>& reserv,
                    const boost::optional<BaggageDetails>& baggage,
@@ -1984,36 +1962,6 @@ const dcqcki::FlightGroup& CkiParams::fltGroup() const
 
 //---------------------------------------------------------------------------------------
 
-CkiParamsOld::CkiParamsOld(const OriginatorDetails& origin,
-                           const PaxDetails& pax,
-                           const FlightDetails& flight,
-                           boost::optional<FlightDetails> flightFromPrevHost,
-                           boost::optional<SeatDetails> seat,
-                           boost::optional<BaggageDetails> baggage,
-                           boost::optional<ReservationDetails> reserv,
-                           boost::optional<CascadeHostDetails> cascadeDetails,
-                           boost::optional<ServiceDetails> serviceDetails)
-    : Params(origin, pax, flight, flightFromPrevHost, cascadeDetails, serviceDetails),
-      m_seat(seat), m_baggage(baggage), m_reserv(reserv)
-{}
-
-const boost::optional<iatci::SeatDetails>& CkiParamsOld::seat() const
-{
-    return m_seat;
-}
-
-const boost::optional<iatci::BaggageDetails>& CkiParamsOld::baggage() const
-{
-    return m_baggage;
-}
-
-const boost::optional<ReservationDetails>& CkiParamsOld::reserv() const
-{
-    return m_reserv;
-}
-
-//---------------------------------------------------------------------------------------
-
 CkuParams::CkuParams(const OriginatorDetails& org,
                      const boost::optional<CascadeHostDetails>& cascade,
                      const dcqcku::FlightGroup& flg)
@@ -2045,53 +1993,6 @@ const boost::optional<CascadeHostDetails>& CkuParams::cascade() const
 const dcqcku::FlightGroup& CkuParams::fltGroup() const
 {
     return m_fltGroup;
-}
-
-//---------------------------------------------------------------------------------------
-
-CkuParamsOld::CkuParamsOld(const OriginatorDetails& origin,
-                           const PaxDetails& pax,
-                           const FlightDetails& flight,
-                           boost::optional<FlightDetails> flightFromPrevHost,
-                           boost::optional<UpdatePaxDetails> updPax,
-                           boost::optional<UpdateServiceDetails> updService,
-                           boost::optional<UpdateSeatDetails> updSeat,
-                           boost::optional<UpdateBaggageDetails> updBaggage,
-                           boost::optional<UpdateDocDetails> updDoc,
-                           boost::optional<CascadeHostDetails> cascadeDetails,
-                           boost::optional<ServiceDetails> serviceDetails)
-    : Params(origin, pax, flight, flightFromPrevHost, cascadeDetails, serviceDetails),
-      m_updPax(updPax), m_updService(updService), m_updSeat(updSeat),
-      m_updBaggage(updBaggage), m_updDoc(updDoc)
-{
-    if(!m_updPax && !m_updService && !m_updSeat && !m_updBaggage && !m_updDoc) {
-        LogError(STDLOG) << "CkuParams without update information!";
-    }
-}
-
-const boost::optional<UpdatePaxDetails>& CkuParamsOld::updPax() const
-{
-    return m_updPax;
-}
-
-const boost::optional<UpdateServiceDetails>& CkuParamsOld::updService() const
-{
-    return m_updService;
-}
-
-const boost::optional<UpdateSeatDetails>& CkuParamsOld::updSeat() const
-{
-    return m_updSeat;
-}
-
-const boost::optional<UpdateBaggageDetails>& CkuParamsOld::updBaggage() const
-{
-    return m_updBaggage;
-}
-
-const boost::optional<UpdateDocDetails>& CkuParamsOld::updDoc() const
-{
-    return m_updDoc;
 }
 
 //---------------------------------------------------------------------------------------
@@ -2128,17 +2029,6 @@ const dcqckx::FlightGroup& CkxParams::fltGroup() const
 {
     return m_fltGroup;
 }
-
-//---------------------------------------------------------------------------------------
-
-CkxParamsOld::CkxParamsOld(const OriginatorDetails& origin,
-                           const PaxDetails& pax,
-                           const FlightDetails& flight,
-                           boost::optional<FlightDetails> flightFromPrevHost,
-                           boost::optional<CascadeHostDetails> cascadeDetails,
-                           boost::optional<ServiceDetails> serviceDetails)
-    : Params(origin, pax, flight, flightFromPrevHost, cascadeDetails, serviceDetails)
-{}
 
 //---------------------------------------------------------------------------------------
 
@@ -2248,16 +2138,5 @@ const dcqbpr::FlightGroup& BprParams::fltGroup() const
 {
     return m_fltGroup;
 }
-
-//---------------------------------------------------------------------------------------
-
-BprParamsOld::BprParamsOld(const OriginatorDetails& origin,
-                           const PaxDetails& pax,
-                           const FlightDetails& flight,
-                           boost::optional<FlightDetails> flightFromPrevHost,
-                           boost::optional<CascadeHostDetails> cascadeDetails)
-    : CkiParamsOld(origin, pax, flight, flightFromPrevHost, boost::none,
-                   boost::none, boost::none, cascadeDetails)
-{}
 
 }//namespace iatci

@@ -1131,26 +1131,6 @@ public:
 
 //---------------------------------------------------------------------------------------
 
-struct Params: public BaseParams
-{
-protected:
-    PaxDetails                      m_pax;
-    boost::optional<ServiceDetails> m_service;
-
-public:
-    Params(const OriginatorDetails& origin,
-           const PaxDetails& pax,
-           const FlightDetails& flight,
-           boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-           boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-           boost::optional<ServiceDetails> serviceDetails = boost::none);
-
-    const PaxDetails&                      pax() const;
-    const boost::optional<ServiceDetails>& service() const;
-};
-
-//---------------------------------------------------------------------------------------
-
 class PaxGroup
 {
 protected:
@@ -1408,34 +1388,9 @@ public:
     virtual const OriginatorDetails&                   org() const;
     virtual const FlightDetails&                       outboundFlight() const;
     virtual const boost::optional<FlightDetails>&      inboundFlight() const;
-    virtual const boost::optional<CascadeHostDetails>& cascade() const;
+    virtual const boost::optional<CascadeHostDetails>& cascade() const;    
 
     const dcqcki::FlightGroup&                         fltGroup() const;
-};
-
-//---------------------------------------------------------------------------------------
-
-struct CkiParamsOld: public Params
-{
-protected:
-    boost::optional<SeatDetails>        m_seat;
-    boost::optional<BaggageDetails>     m_baggage;
-    boost::optional<ReservationDetails> m_reserv;
-
-public:
-    CkiParamsOld(const OriginatorDetails& origin,
-                 const PaxDetails& pax,
-                 const FlightDetails& flight,
-                 boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-                 boost::optional<SeatDetails> seat = boost::none,
-                 boost::optional<BaggageDetails> baggage = boost::none,
-                 boost::optional<ReservationDetails> reserv = boost::none,
-                 boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-                 boost::optional<ServiceDetails> serviceDetails = boost::none);
-
-    const boost::optional<SeatDetails>&        seat() const;
-    const boost::optional<BaggageDetails>&     baggage() const;
-    const boost::optional<ReservationDetails>& reserv() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -1463,37 +1418,6 @@ public:
 
 //---------------------------------------------------------------------------------------
 
-struct CkuParamsOld: public Params
-{
-protected:
-    boost::optional<UpdatePaxDetails>     m_updPax;
-    boost::optional<UpdateServiceDetails> m_updService;
-    boost::optional<UpdateSeatDetails>    m_updSeat;
-    boost::optional<UpdateBaggageDetails> m_updBaggage;
-    boost::optional<UpdateDocDetails>     m_updDoc;
-
-public:
-    CkuParamsOld(const OriginatorDetails& origin,
-                 const PaxDetails& pax,
-                 const FlightDetails& flight,
-                 boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-                 boost::optional<UpdatePaxDetails> updPax = boost::none,
-                 boost::optional<UpdateServiceDetails> updService = boost::none,
-                 boost::optional<UpdateSeatDetails> updSeat = boost::none,
-                 boost::optional<UpdateBaggageDetails> updBaggage = boost::none,
-                 boost::optional<UpdateDocDetails> updDoc = boost::none,
-                 boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-                 boost::optional<ServiceDetails> serviceDetails = boost::none);
-
-    const boost::optional<UpdatePaxDetails>&     updPax() const;
-    const boost::optional<UpdateServiceDetails>& updService() const;
-    const boost::optional<UpdateSeatDetails>&    updSeat() const;
-    const boost::optional<UpdateBaggageDetails>& updBaggage() const;
-    const boost::optional<UpdateDocDetails>&     updDoc() const;
-};
-
-//---------------------------------------------------------------------------------------
-
 struct CkxParams: public IBaseParams
 {
     OriginatorDetails                   m_org;
@@ -1511,25 +1435,6 @@ public:
     virtual const boost::optional<CascadeHostDetails>& cascade() const;
 
     const dcqckx::FlightGroup&                         fltGroup() const;
-};
-
-//---------------------------------------------------------------------------------------
-
-struct CkxParamsOld: public Params
-{
-protected:
-    boost::optional<ReservationDetails> m_reserv;
-    boost::optional<SeatDetails>        m_seat;
-    boost::optional<BaggageDetails>     m_baggage;
-
-public:
-    CkxParamsOld(const OriginatorDetails& origin,
-                 const PaxDetails& pax,
-                 const FlightDetails& flight,
-                 boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-                 boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-                 boost::optional<ServiceDetails> serviceDetails = boost::none);
-
 };
 
 //---------------------------------------------------------------------------------------
@@ -1603,18 +1508,6 @@ public:
     virtual const boost::optional<CascadeHostDetails>& cascade() const;
 
     const dcqbpr::FlightGroup&                         fltGroup() const;
-};
-
-//---------------------------------------------------------------------------------------
-
-struct BprParamsOld: public CkiParamsOld
-{
-public:
-    BprParamsOld(const OriginatorDetails& origin,
-                 const PaxDetails& pax,
-                 const FlightDetails& flight,
-                 boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-                 boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
 };
 
 /////////////////////////////////////////////////////////////////////////////////////////
