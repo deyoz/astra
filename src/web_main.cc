@@ -2114,10 +2114,12 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       for(;paxNode!=NULL;paxNode=paxNode->next)
       {
         xmlNodePtr node2=paxNode->children;
-        TWebPaxFromReq pax(TWebTids().fromXML(paxNode).checked());
+        TWebPaxFromReq pax(GetNodeFast("passengerAlreadyChecked", node2)!=nullptr?
+                           NodeAsBooleanFast("passengerAlreadyChecked", node2):
+                           TWebTids().fromXML(paxNode).checked());
 
         pax.crs_pax_id=NodeAsIntegerFast("crs_pax_id", node2);
-        pax.dont_check_payment=NodeAsIntegerFast("dont_check_payment", node2, 0)!=0;
+        pax.dont_check_payment=NodeAsBooleanFast("dont_check_payment", node2, false);
         pax.seat_no=NodeAsStringFast("seat_no", node2, "");
 
         xmlNodePtr docNode = GetNode("document", paxNode);
@@ -2150,7 +2152,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
           };
         };
 
-        pax.refuse=NodeAsIntegerFast("refuse", node2, 0)!=0;
+        pax.refuse=NodeAsBooleanFast("refuse", node2, false);
         if (pax.refuse) pnr.refusalCountFromReq++;
 
         pnr.paxFromReq.push_back(pax);
@@ -2298,9 +2300,18 @@ void GetBPPax(xmlNodePtr paxNode, bool is_test, PrintInterface::BPPax &pax)
   if (paxNode==NULL) throw EXCEPTIONS::Exception("GetBPPax: paxNode==NULL");
   xmlNodePtr node2=paxNode->children;
   int point_dep = NodeIsNULLFast( "point_id", node2, true)?
-        NoExists:
-        NodeAsIntegerFast( "point_id", node2 );
+                  NoExists:
+                  NodeAsIntegerFast( "point_id", node2 );
   int pax_id = NodeAsIntegerFast( "pax_id", node2 );
+
+  if (is_test && point_dep==NoExists)
+  {
+    xmlNodePtr tidsNode = NodeAsNodeFast( "tids", node2 );
+    node2=tidsNode->children;
+    point_dep = NodeIsNULLFast( "pax_grp_tid", node2, true )?
+                NoExists:
+                NodeAsIntegerFast( "pax_grp_tid", node2 );
+  }
 
   GetBPPax(point_dep, pax_id, is_test, pax);
 };
