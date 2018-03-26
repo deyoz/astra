@@ -1340,7 +1340,10 @@ string TBCBPData::toString(const TTagLang &tag_lang)
     // Date of flight(Julian Date)
     result << right << setw(3) << setfill('0') << _scd.getJulianDate();
     // Compartment Code
-    result << tag_lang.ElemIdToTagElem(etClass, cls, efmtCodeNative);
+    if(class_grp != NoExists)
+        result << tag_lang.ElemIdToTagElem(etClsGrp, class_grp, efmtCodeNative);
+    else
+        result << tag_lang.ElemIdToTagElem(etClass, cls, efmtCodeNative);
     // Seat Number
     result << setw(4) << right << seat_no;
     // Check-In Sequence Number
@@ -1451,13 +1454,13 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
                 }
             if(iv != pnrInfo.pnrs.end())
                 bcbp_data.pnr = iv->addr;
-            bcbp_data.airp_dep = AIRP_DEP(fp);
-            bcbp_data.airp_arv = AIRP_ARV(fp);
-            bcbp_data.airline = AIRLINE(fp);
+            bcbp_data.airp_dep = grpInfo.airp_dep;
+            bcbp_data.airp_arv = grpInfo.airp_arv;
+            bcbp_data.airline = pointInfo.airline;
             bcbp_data.flt_no = pointInfo.flt_no;
             bcbp_data.suffix = pointInfo.suffix;
             bcbp_data.scd = UTCToLocal(pointInfo.scd, AirpTZRegion(grpInfo.airp_dep));
-            bcbp_data.cls = CLASS(fp);
+            bcbp_data.class_grp = grpInfo.class_grp;
             bcbp_data.seat_no = ONE_SEAT_NO(fp);
             bcbp_data.reg_no = paxInfo.reg_no;
             bcbp_data.pers_type = paxInfo.pers_type;

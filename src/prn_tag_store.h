@@ -276,7 +276,11 @@ struct TBCBPData {
     int flt_no;
     std::string suffix;
     TDateTime scd;
+
+    // Если class_grp = NoExists, в баркод попадает cls
     std::string cls;
+    int class_grp;
+
     std::string seat_no;
     int reg_no;
     std::string pers_type; // ВЗ, РБ, РМ
@@ -296,6 +300,7 @@ struct TBCBPData {
         suffix.clear();
         scd = ASTRA::NoExists;
         cls.clear();
+        class_grp = ASTRA::NoExists;
         seat_no.clear();
         reg_no = ASTRA::NoExists;
         pers_type.clear();
