@@ -65,11 +65,23 @@ edifact::pRemoteResults AstraEdiResponseHandler::remoteResults() const
 
 AstraEdiResponseHandler::~AstraEdiResponseHandler()
 {
+  //перехватываем любые исключения в деструкторе, иначе abort процесса, что недопустимо
+  try
+  {
     if(RemoteResults)
     {
         LogTrace(TRACE3) << "next MeetAgentExpectations";
         Ticketing::MeetAgentExpectations(*RemoteResults);
     }
+  }
+  catch(std::exception &e)
+  {
+    LogError(STDLOG) << __FUNCTION__ << ": " << e.what();
+  }
+  catch(...)
+  {
+    LogError(STDLOG) << __FUNCTION__ << ": unknown error";
+  }
 }
 
 void AstraEdiResponseHandler::fillFuncCodeRespStatus()
