@@ -65,11 +65,6 @@ static std::string executeAstraRequest(const std::string &request,
     return answer;
 }
 
-static std::string pretty_xml(const std::string &xml)
-{
-    return StrUtils::replaceSubstrCopy(XMLTreeToText( TextToXMLTree(xml) ), "\"", "'");
-}
-
 static std::string removeVersionRecursive(const std::string answer, bool &removed) {
     std::string::size_type ver_pos = answer.find("ver=\"");
     if(ver_pos != std::string::npos) {
@@ -292,7 +287,7 @@ std::string FP_create_spp(const std::vector<std::string> &p) {
     }
 
     BASIC::date_time::TDateTime dt;
-    StrToDateTime(p.at(0).c_str(), fmt.c_str(), dt);
+    BASIC::date_time::StrToDateTime(p.at(0).c_str(), fmt.c_str(), dt);
     CreateSPP(dt);
 
     return "";
