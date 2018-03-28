@@ -896,12 +896,18 @@ bool ServiceDetails::SsrInfo::isTkne() const
     return m_ssrCode == "TKNE";
 }
 
-Ticketing::TicketCpn_t ServiceDetails::SsrInfo::toTicketCpn() const
+boost::optional<Ticketing::TicketCpn_t> ServiceDetails::SsrInfo::toTicketCpn() const
 {
-    ASSERT(m_ssrCode == "TKNE");
-    ASSERT(m_ssrText.length() == 14); // ticknum(13)+cpnnum(1)
-    return Ticketing::TicketCpn_t(m_ssrText.substr(0, 13),
-                                  boost::lexical_cast<int>(m_ssrText.substr(13, 1)));
+    LogTrace(TRACE3) << __FUNCTION__ 
+                     << " ssr_code=" << m_ssrCode << "; "
+                     << " ssr_text=" << m_ssrText;
+           
+    if(m_ssrCode == "TKNE" && m_ssrText.length() == 14/*ticknum(13)+cpnnum(1)*/) {
+        return Ticketing::TicketCpn_t(m_ssrText.substr(0, 13),
+                                      boost::lexical_cast<int>(m_ssrText.substr(13, 1)));
+    }
+    
+    return boost::none;    
 }
 
 //

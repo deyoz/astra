@@ -660,7 +660,7 @@ struct ServiceDetails
 
         bool isTkne() const;
 
-        Ticketing::TicketCpn_t toTicketCpn() const;
+        boost::optional<Ticketing::TicketCpn_t> toTicketCpn() const;
 
     protected:
         SsrInfo()

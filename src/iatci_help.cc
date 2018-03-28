@@ -1570,8 +1570,8 @@ static boost::optional<dcrcka::PaxGroup> findPaxGroup(const std::list<dcrcka::Pa
     for(const auto& pxg: lPxg) {
         if(pxg.service()) {
             for(const auto& ssr: pxg.service()->lSsr()) {
-                if(ssr.isTkne()) {
-                    if(ssr.toTicketCpn().ticket() == tickNum) {
+                if(ssr.isTkne() && ssr.toTicketCpn()) {
+                    if(ssr.toTicketCpn()->ticket() == tickNum) {
                         isInfant = ssr.isInfantTicket();
                         return pxg;
                     }
