@@ -167,7 +167,7 @@ astra_SOURCES = \
   Depeches.cpp \
   AsyncNet.cpp \
   img.cpp \
-  astra_api.cpp \
+  astra_api.cc \
   astra_date_time.cpp \
   basetables.cc \
   collect.cc \
