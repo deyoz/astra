@@ -1868,7 +1868,7 @@ string TPrnTagStore::CLASS(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
         const std::string cls = boost::any_cast<std::string>(fp.TagInfo);
-        return !cls.empty() ? tag_lang.ElemIdToTagElem(etClsGrp, cls, efmtCodeNative) : "";
+        return !cls.empty() ? tag_lang.ElemIdToTagElem(etClass, cls, efmtCodeNative) : "";
     } else {
         if(scan_data != NULL) {
             string buf = string(1, scan_data->compartment_code(0));
