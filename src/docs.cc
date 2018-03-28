@@ -421,7 +421,8 @@ void TRptParams::Init(xmlNodePtr node)
             rpt_type != rtNOTOC and
             rpt_type != rtLIR and
             rpt_type != rtANNUL_TAGS and
-            rpt_type != rtVOUCHERS
+            rpt_type != rtVOUCHERS and
+            rpt_type != rtKOMPLEKT
             )
         rpt_type = TRptType((int)rpt_type + 1);
     string route_country;
@@ -4109,6 +4110,68 @@ void RESEATTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     }
 }
 
+void KOMPLEKT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TTripInfo info;
+  info.getByPointId(rpt_params.point_id);
+  TQuery Qry( &OraSession );
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT report_type, "
+    "       num, "
+    "    DECODE(airline,NULL,0,8)+ "
+    "    DECODE(flt_no,NULL,0,2)+ "
+    "    DECODE(airp_dep,NULL,0,4) AS priority "
+    "FROM doc_num_copies "
+    "WHERE (airline IS NULL OR airline=:airline) AND "
+    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+    "      (airp_dep IS NULL OR airp_dep=:airp_dep) ";
+  Qry.CreateVariable("airline",otString,info.airline);
+  Qry.CreateVariable("flt_no",otInteger,info.flt_no);
+  Qry.CreateVariable("airp_dep",otString,info.airp);
+  Qry.Execute();
+  // получаем для каждого типа отчёта все варианты количества
+  map< string, map<int, int> > temp;
+  while (!Qry.Eof)
+  {
+    string report_type = Qry.FieldAsString("report_type");
+    int priority = Qry.FieldAsInteger("priority");
+    int num = Qry.FieldAsInteger("num");
+//    LogTrace(TRACE5) << "report_type=" << report_type
+//                     << " priority=" << priority
+//                     << " num=" << num;
+    temp[report_type].insert(make_pair(priority, num));
+    Qry.Next();
+  }
+  // выбираем для каждого типа отчёта количество с наивысшим приоритетом
+  map< string, int > nums;
+  for (auto r : temp) nums[r.first] = r.second.rbegin()->second;
+  // формирование отчёта
+  get_compatible_report_form("komplekt", reqNode, resNode);
+  xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
+  xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+  xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_komplekt");
+  // переменные отчёта
+  xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+  PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
+  // заголовки отчёта
+  NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.KOMPLEKT", rpt_params.GetLang()));
+  populate_doc_cap(variablesNode, rpt_params.GetLang());
+  NewTextChild(variablesNode, "doc_cap_komplekt",
+      getLocaleText("CAP.DOC.KOMPLEKT_HEADER",
+                    LParams() << LParam("airline", NodeAsString("airline_name", variablesNode))
+                              << LParam("flight", get_flight(variablesNode))
+                              << LParam("route", NodeAsString("long_route", variablesNode)),
+                    rpt_params.GetLang()));
+  for (auto r : nums)
+  {
+    xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+    NewTextChild(rowNode, "code", r.first);
+    NewTextChild(rowNode, "name", ElemIdToNameLong(etReportType, r.first));
+    NewTextChild(rowNode, "num", r.second);
+  }
+}
+
 int GetNumCopies(TRptParams rpt_params)
 {
   TTripInfo info;
@@ -4225,6 +4288,9 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             break;
         case rtRESEATTXT:
             RESEATTXT(rpt_params, reqNode, resNode);
+            break;
+        case rtKOMPLEKT:
+            KOMPLEKT(rpt_params, reqNode, resNode);
             break;
         default:
             throw AstraLocale::UserException("MSG.TEMPORARILY_NOT_SUPPORTED");
