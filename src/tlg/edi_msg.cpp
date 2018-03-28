@@ -135,6 +135,7 @@ void EdiErrMsg::init()
     ADD_MSG2(TOO_MANY_INFANTS,                   "61");
     ADD_MSG2(SMOKING_ZONE_UNAVAILABLE,           "62");
     ADD_MSG2(NON_SMOKING_ZONE_UNAVAILABLE,       "63");
+    ADD_MSG3("MSG.MODIFICATION_NOT_POSSIBLE",    "70");
     ADD_MSG2(UNABLE_TO_GIVE_SEAT,                "72");
     ADD_MSG3("MSG.TOO_MANY_BAGS",                "82");
     ADD_MSG2(FUNC_NOT_SUPPORTED,                 "84");
