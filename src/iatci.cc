@@ -2682,9 +2682,8 @@ void IatciInterface::DoKickAction(int ctxtId,
         if(reqType == Ckx) {
             // ответ на отмену, не содержащий данных, дополним информацией о пассажирах
             CopyNode(segmentsNode, findNodeR(reqNode, "iatci_segments"));
-        } else if(reqType == Cki || reqType == Bpr) {
+        } else if(reqType == Cki) {
             iatci::iatci2xml(segmentsNode, lRes, getIatciViewXmlParams(resNode));
-            normalizeIatciPaxDocs(iatciResNode, reqNode, lRes);
         }
 
         if(reqType == Cku) {
