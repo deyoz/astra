@@ -56,7 +56,6 @@
 #include "rbd.h"
 #include "tlg/AgentWaitsForRemote.h"
 #include "tlg/tlg_parser.h"
-#include "tlg/IatciCkiRequest.h"
 
 #include <jxtlib/jxt_cont.h>
 #include <serverlib/cursctl.h>

@@ -2328,8 +2328,8 @@ void PrintInterface::GetPrintDataVOUnregistered(
         parser.pts.set_tag(TAG::BAGGAGE,       ""); // TODO get it
         parser.pts.set_tag(TAG::BAG_WEIGHT,    0); // TODO get it
         parser.pts.set_tag(TAG::BCBP_M_2,      " "); // TODO get it
-        parser.pts.set_tag(TAG::BRD_FROM,      TDateTime(NoExists)); // TODO get it
-        parser.pts.set_tag(TAG::BRD_TO,        TDateTime(NoExists)); // TODO get it
+        parser.pts.set_tag(TAG::BRD_FROM,      ""); // TODO get it
+        parser.pts.set_tag(TAG::BRD_TO,        ""); // TODO get it
         parser.pts.set_tag(TAG::CHD,           ""); // TODO get it
         parser.pts.set_tag(TAG::CITY_ARV_NAME, airp_arv);
         parser.pts.set_tag(TAG::CITY_DEP_NAME, airp_dep);
@@ -2566,7 +2566,7 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
         if ( !pr_all && paxs.empty() ) //все посадочные отпечатаны, но при этом надо было напечатать те, которые были не напечатанны
             throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
     }
-    else if(pax_id != -1) { // печать конкретного пассажира. Если -1, то это пакс iatci, его начитывает GetIatciPrintDataBP ниже
+    else if(pax_id > 0) { // печать конкретного пассажира. Если < 0, то это пакс iatci, его начитывает GetIatciPrintDataBP ниже
         Qry.SQLText =
             "SELECT grp_id, pax_id, reg_no FROM pax where pax_id = :pax_id";
         Qry.CreateVariable("pax_id", otInteger, pax_id);

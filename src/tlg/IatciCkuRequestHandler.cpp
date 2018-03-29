@@ -320,7 +320,7 @@ boost::optional<iatci::ServiceDetails> IatciCkuParamsMaker::Pxg::makeService() c
 
 boost::optional<iatci::PaxDetails> IatciCkuParamsMaker::Pxg::makeInfant() const
 {
-    if(m_ppd.m_withInftIndicator == "Y") {
+    if(m_ppd.m_withInftIndicator == "Y" && !m_ppd.m_inftName.empty()) {
         return iatci::makeInfant(m_ppd);
     }
 
