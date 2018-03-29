@@ -835,8 +835,10 @@ struct TCkinRouteItem
   int grp_id;
   int point_dep, point_arv;
   std::string airp_dep, airp_arv;
-  int seg_no;
+  int seg_no;   // заполняется при поиске по сквозняку
+  int coupon_no; // заполняется при поиске по ET
   TTripInfo operFlt;
+  TCkinRouteItem& fromDB(TQuery &Qry);
   TCkinRouteItem()
   {
     Clear();
@@ -847,6 +849,7 @@ struct TCkinRouteItem
     point_dep = ASTRA::NoExists;
     point_arv = ASTRA::NoExists;
     seg_no = ASTRA::NoExists;
+    coupon_no = ASTRA::NoExists;
     operFlt.Clear();
   };
 };
@@ -873,6 +876,18 @@ class TCkinRoute : public std::vector<TCkinRouteItem>
                   TCkinRouteType1 route_type1,
                   TCkinRouteType2 route_type2);
 
+    void GetRouteByET(
+            const std::string &tick_no,
+            int coupon_no,
+            bool after_current,
+            TCkinRouteType1 route_type1,
+            TQuery& Qry
+            );
+    bool GetRouteByET(
+            int pax_id,
+            bool after_current,
+            TCkinRouteType1 route_type1
+            );
   public:
     //сквозной маршрут после стыковки grp_id
     bool GetRouteAfter(int grp_id,
@@ -890,6 +905,20 @@ class TCkinRoute : public std::vector<TCkinRouteItem>
                         int seg_no,
                         TCkinRouteType1 route_type1,
                         TCkinRouteType2 route_type2);
+
+    // Сквозной маршрут после ЭБ coupon_no
+    bool GetRouteAfterByET(int pax_id,
+            TCkinRouteType1 route_type1);
+    void GetRouteAfterByET(const std::string &tick_no,
+            int coupon_no,
+            TCkinRouteType1 route_type1);
+
+    // Сквозной маршрут до ЭБ coupon_no
+    bool GetRouteBeforeByET(int pax_id,
+            TCkinRouteType1 route_type1);
+    void GetRouteBeforeByET(const std::string &tick_no,
+            int coupon_no,
+            TCkinRouteType1 route_type1);
 
     //возвращает следующий сегмент стыковки
     void GetNextSeg(int tckin_id,

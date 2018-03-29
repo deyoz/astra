@@ -10,6 +10,7 @@
 #include "tlg/remote_system_context.h"
 #include "apps_interaction.h"
 #include "counters.h"
+#include "stat_fv.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -85,6 +86,7 @@ TTripTasks::TTripTasks()
     items.insert(make_pair(SYNC_NEW_CHKD, TypeB::SyncNewCHKD ));
     items.insert(make_pair(SYNC_ALL_CHKD, TypeB::SyncAllCHKD ));
     items.insert(make_pair(EMD_REFRESH, emd_refresh_task ));
+    items.insert(make_pair(STAT_FV, stat_fv ));
     items.insert(make_pair(EMD_TRY_BIND, emd_try_bind_task ));
     items.insert(make_pair(EMD_SYS_UPDATE, emd_sys_update ));
     items.insert(make_pair(SEND_NEW_APPS_INFO, sendNewAPPSInfo));
@@ -531,6 +533,47 @@ struct TCreatePointTripTask:public TTripTask {
         }
 };
 
+class TStatFVTripTask: public TCreatePointTripTask
+{
+  public:
+    TStatFVTripTask(int vpoint_id): TCreatePointTripTask(vpoint_id, STAT_FV) {}
+    TDateTime actual_next_exec(TDateTime curr_next_exec) const;
+    void get_actual_create_points(set<TypeB::TCreatePoint> &cps) const
+    {
+      cps.clear();
+      TCachedQuery Qry(
+              "select * from points where "
+              " point_id = :point_id and pr_del = 0 and pr_reg <> 0 and "
+              " airline = 'ФВ'",
+              QParams() << QParam("point_id", otInteger, point_id));
+      Qry.get().Execute();
+      if(not Qry.get().Eof) {
+          cps.insert(TypeB::TCreatePoint(sTakeoff, -80));
+          cps.insert(TypeB::TCreatePoint(sTakeoff, -50));
+          cps.insert(TypeB::TCreatePoint(sTakeoff, -10));
+      }
+    }
+};
+
+TDateTime TStatFVTripTask::actual_next_exec(TDateTime curr_next_exec) const
+{
+    TTripStage ts;
+    TTripStages::LoadStage(point_id, (TStage)create_point.stage_id, ts);
+    TDateTime result=ASTRA::NoExists;
+    if (ts.act == ASTRA::NoExists)
+      result = ts.est != ASTRA::NoExists ? ts.est : ts.scd;
+
+    if (result != ASTRA::NoExists) {
+        result = result + create_point.time_offset / 1440.;
+        TDateTime now_utc = NowUTC();
+        // если все сроки вышли, то планируем только один файл, который должен был сформироваться за 10 мин. до вылета.
+        if(result < now_utc and create_point.time_offset != -10)
+            result = ASTRA::NoExists;
+    }
+
+    return result;
+}
+
 class TEmdRefreshTripTask: public TCreatePointTripTask
 {
   public:
@@ -761,18 +804,21 @@ void get_actual_trip_tasks(const T &pattern, set<T> &tasks)
 template <typename T>
 void sync_trip_tasks(int point_id)
 {
-    map<T, TTripTaskTimes> curr_tasks;
-    set<T> actual_tasks;
+    map<T, TTripTaskTimes> curr_tasks; // Выполняющиеся задачи объекта T. С каждой задачей связаны last_exec и next_exec
+    set<T> actual_tasks; // Список задач, взятый из настроек T
     T pattern(point_id);
-    get_curr_trip_tasks<T>(pattern, curr_tasks);
-    get_actual_trip_tasks<T>(pattern, actual_tasks);
+    get_curr_trip_tasks<T>(pattern, curr_tasks); // текущие задачи. Те, к-рые лежат в табл. trip_tasks и выполняются
+    get_actual_trip_tasks<T>(pattern, actual_tasks); // актуальные задачи. Берутся из настроек объекта T, они должны стать текущими.
+    // Далее идет синхронизация актуальных задач с текущими. Текущие (выполняющиеся) задачи должны стать как актуальные.
     typename map<T, TTripTaskTimes>::const_iterator curr_task=curr_tasks.begin();
     typename set<T>::const_iterator actual_task = actual_tasks.begin();
     for(;curr_task!=curr_tasks.end() || actual_task!=actual_tasks.end();)
     {
+        // признак того, что для тек. задачи нет соотв. актуальной
         bool proc_curr=   actual_task==actual_tasks.end() ||
                           (curr_task!=curr_tasks.end() &&  curr_task->first < *actual_task);
 
+        // признак того, что для актуальной задачи нет соотв. текущей
         bool proc_actual= curr_task==curr_tasks.end() ||
                           (actual_task!=actual_tasks.end() &&  *actual_task < curr_task->first);
         bool proc_curr_and_actual =
@@ -825,6 +871,7 @@ void on_change_trip(const string &descr, int point_id, ChangeTrip::Whence whence
 
         TSyncTlgOutMng::Instance()->sync_all(point_id);
         sync_trip_tasks<TEmdRefreshTripTask>(point_id);
+        sync_trip_tasks<TStatFVTripTask>(point_id);
 //        sync_trip_tasks<TAPISTripTask>(point_id);
 //        sync_trip_tasks<TCrewAlarmsTripTask>(point_id);
     } catch(std::exception &E) {

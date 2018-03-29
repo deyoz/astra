@@ -1033,6 +1033,77 @@ std::string flight_view(int grp_id, int seg_no)
   return "";
 }
 
+/*
+GetRouteAfterByET() {}
+
+GetRouteByET(int pax_id)
+{
+  "SELECT ticket_no, coupon_no FROM pax WHERE pax_id=  "
+}    
+*/
+    
+bool TCkinRoute::GetRouteByET(
+        int pax_id,
+        bool after_current,
+        TCkinRouteType1 route_type1
+        )
+{
+    clear();
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText="SELECT ticket_no, coupon_no FROM pax WHERE pax_id=:pax_id";
+    Qry.CreateVariable("pax_id", otInteger, pax_id);
+    Qry.Execute();
+    if (Qry.Eof) return false;
+    GetRouteByET(Qry.FieldAsString("ticket_no"),
+            Qry.FieldAsInteger("coupon_no"),
+            after_current,route_type1,Qry);
+    return true;
+}
+
+void TCkinRoute::GetRouteByET(
+        const string &tick_no,
+        int coupon_no,
+        bool after_current,
+        TCkinRouteType1 route_type1,
+        TQuery& Qry
+        )
+{
+    ostringstream sql;
+    sql << "SELECT " + TTripInfo::selectedFields("points") + ", "
+        "       pax_grp.grp_id, pax_grp.point_dep, pax_grp.point_arv, "
+        "       pax_grp.airp_dep, pax_grp.airp_arv "
+        "FROM points, pax_grp, pax "
+        "WHERE points.point_id=pax_grp.point_dep AND "
+        "      pax_grp.grp_id=pax.grp_id AND "
+        "      pax.ticket_no=:tick_no ";
+    if (after_current)
+        sql << "AND coupon_no>=:coupon_no "
+            << "ORDER BY coupon_no ASC ";
+    else
+        sql << "AND coupon_no<=:coupon_no "
+            << "ORDER BY coupon_no DESC ";
+    Qry.Clear();
+    Qry.SQLText = sql.str().c_str();
+    Qry.CreateVariable("tick_no", otString, tick_no);
+    Qry.CreateVariable("coupon_no", otInteger, coupon_no);
+    Qry.Execute();
+    if (!Qry.Eof && Qry.FieldAsInteger("coupon_no")==coupon_no)
+    {
+        for(;!Qry.Eof;)
+        {
+            TCkinRouteItem item;
+            item.fromDB(Qry);
+
+            Qry.Next();
+
+            if (route_type1==crtNotCurrent && item.coupon_no==coupon_no) continue;
+            push_back(item);
+        };
+        if (!after_current) reverse(begin(),end());
+    };
+}
+
 void TCkinRoute::GetRoute(int tckin_id,
                           int seg_no,
                           bool after_current,
@@ -1074,13 +1145,7 @@ void TCkinRoute::GetRoute(int tckin_id,
       if (route_type2==crtOnlyDependent && !pr_depend) break;
 
       TCkinRouteItem item;
-      item.grp_id=Qry.FieldAsInteger("grp_id");
-      item.point_dep=Qry.FieldAsInteger("point_dep");
-      item.point_arv=Qry.FieldAsInteger("point_arv");
-      item.airp_dep=Qry.FieldAsString("airp_dep");
-      item.airp_arv=Qry.FieldAsString("airp_arv");
-      item.seg_no=Qry.FieldAsInteger("seg_no");
-      item.operFlt.Init(Qry);
+      item.fromDB(Qry);
 
       if (!after_current) pr_depend=Qry.FieldAsInteger("pr_depend")!=0;
 
@@ -1115,6 +1180,37 @@ bool TCkinRoute::GetRoute(int grp_id,
            after_current,route_type1,route_type2,Qry);
   return true;
 };
+
+bool TCkinRoute::GetRouteAfterByET(int pax_id,
+                               TCkinRouteType1 route_type1)
+{
+  return GetRouteByET(pax_id,true,route_type1);
+};
+
+bool TCkinRoute::GetRouteBeforeByET(int pax_id,
+                               TCkinRouteType1 route_type1)
+{
+  return GetRouteByET(pax_id,false,route_type1);
+};
+
+void TCkinRoute::GetRouteAfterByET(const string &tick_no,
+                               int coupon_no,
+                               TCkinRouteType1 route_type1)
+{
+  clear();
+  TQuery Qry(&OraSession);
+  return GetRouteByET(tick_no,coupon_no,true,route_type1,Qry);
+};
+
+void TCkinRoute::GetRouteBeforeByET(const string &tick_no,
+                               int coupon_no,
+                               TCkinRouteType1 route_type1)
+{
+  clear();
+  TQuery Qry(&OraSession);
+  return GetRouteByET(tick_no,coupon_no,false,route_type1,Qry);
+};
+
 
 bool TCkinRoute::GetRouteAfter(int grp_id,
                                TCkinRouteType1 route_type1,
@@ -1389,6 +1485,22 @@ const TGrpMktFlight& TGrpMktFlight::toDB(TQuery &Qry) const
   Qry.CreateVariable("mark_airp_dep", otString, airp_dep);
   Qry.CreateVariable("pr_mark_norms", otInteger,(int)pr_mark_norms);
   return *this;
+}
+
+TCkinRouteItem& TCkinRouteItem::fromDB(TQuery &Qry)
+{
+    Clear();
+    grp_id=Qry.FieldAsInteger("grp_id");
+    point_dep=Qry.FieldAsInteger("point_dep");
+    point_arv=Qry.FieldAsInteger("point_arv");
+    airp_dep=Qry.FieldAsString("airp_dep");
+    airp_arv=Qry.FieldAsString("airp_arv");
+    if(Qry.GetFieldIndex("seg_no") >= 0)
+        coupon_no=Qry.FieldAsInteger("seg_no");
+    if(Qry.GetFieldIndex("coupon_no") >= 0)
+        coupon_no=Qry.FieldAsInteger("coupon_no");
+    operFlt.Init(Qry);
+    return *this;
 }
 
 TGrpMktFlight& TGrpMktFlight::fromDB(TQuery &Qry)

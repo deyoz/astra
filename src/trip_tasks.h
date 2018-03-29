@@ -21,6 +21,7 @@ const std::string CHECK_CREW_ALARMS="CREW_ALARMS";
 
 const std::string SYNC_NEW_CHKD="SYNC_NEW_CHKD";
 const std::string SYNC_ALL_CHKD="SYNC_ALL_CHKD";
+const std::string STAT_FV="STAT_FV";
 const std::string EMD_REFRESH="EMD_REFRESH";
 const std::string EMD_TRY_BIND="EMD_TRY_BIND";
 const std::string EMD_SYS_UPDATE="EMD_SYS_UPDATE";
