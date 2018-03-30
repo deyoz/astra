@@ -55,6 +55,14 @@ const TSegItem& TSegItem::toSirenaXML(xmlNodePtr node, const std::string &lang) 
   return *this;
 }
 
+void TPaxSegItem::set(const CheckIn::TPaxTknItem& _tkn, TPaxSection* paxSection)
+{
+  tkn=_tkn;
+  display_id=ASTRA::NoExists;
+  if (paxSection!=nullptr && tkn.validET())
+    display_id=paxSection->displays.add(TETickItem().fromDB(tkn.no, tkn.coupon, TETickItem::DisplayTlg, false).ediPnr);
+}
+
 const TPaxSegItem& TPaxSegItem::toSirenaXML(xmlNodePtr node, const std::string &lang) const
 {
   if (node==NULL) return *this;
@@ -66,6 +74,7 @@ const TPaxSegItem& TPaxSegItem::toSirenaXML(xmlNodePtr node, const std::string &
     xmlNodePtr tknNode=NewTextChild(node, "ticket");
     SetProp(tknNode, "number", tkn.no);
     SetProp(tknNode, "coupon_num", tkn.coupon, ASTRA::NoExists);
+    SetProp(tknNode, "display_id", display_id, ASTRA::NoExists);
   }
   for(list<CheckIn::TPnrAddrItem>::const_iterator i=pnrs.begin(); i!=pnrs.end(); ++i)
     SetProp(NewTextChild(node, "recloc", i->addr), "crs", airlineToXML(i->airline, lang));
@@ -167,12 +176,24 @@ TSvcItem& TSvcItem::fromSirenaXML(xmlNodePtr node)
   return *this;
 }
 
+const TDisplayItem& TDisplayItem::toSirenaXML(xmlNodePtr displayParentNode) const
+{
+  if (displayParentNode==nullptr) return *this;
+
+  xmlNodePtr displayNode=NewTextChild(displayParentNode, "display", ediText());
+  SetProp(displayNode, "id", id, ASTRA::NoExists);
+  return *this;
+}
+
 void TPaxSection::toXML(xmlNodePtr node) const
 {
   if (paxs.empty() && throw_if_empty) throw Exception("TPaxSection::toXML: paxs.empty()");
 
-  for(list<TPaxItem>::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
-    p->toSirenaXML(NewTextChild(node, "passenger"), LANG_EN);
+  for(const TPaxItem& pax : paxs)
+    pax.toSirenaXML(NewTextChild(node, "passenger"), LANG_EN);
+
+  for(const TDisplayItem& display : displays)
+    display.toSirenaXML(node);
 }
 
 void TPaxSection::updateSeg(const Sirena::TPaxSegKey &key)
@@ -916,6 +937,11 @@ int verifyHTTP(int argc,char **argv)
       "    <entity passenger-id=\"33085392\" segment-id=\"9\"/> "
       "    <entity passenger-id=\"33085393\" segment-id=\"10\"/> "
       "    <entity passenger-id=\"33085871\" segment-id=\"11\"/> "
+      "    <entity passenger-id=\"33176905\" segment-id=\"12\"/> "
+      "    <entity passenger-id=\"33176906\" segment-id=\"13\"/> "
+      "    <entity passenger-id=\"33176956\" segment-id=\"14\"/> "
+      "    <entity passenger-id=\"33167631\" segment-id=\"15\"/> "
+      "    <entity passenger-id=\"33167642\" segment-id=\"16\"/> "
       "  </pseudogroup_svc_info>"
       "</query>");
     reqText = ConvertCodepage( reqText, "CP866", "UTF-8" );
