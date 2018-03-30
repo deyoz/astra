@@ -8,6 +8,7 @@
 #include "astra_locale.h"
 #include "qrys.h"
 #include "passenger.h"
+#include "docs.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -18,11 +19,54 @@ using namespace BASIC::date_time;
 using namespace ASTRA;
 
 struct TGrpInfo {
-    typedef map<int, string> TGrpInfoMap;
+    private:
+        string airline;
+    public:
+        struct TGrpInfoItem {
+            string cls;
+            vector<CheckIn::TTransferItem> trfer;
+            bool pr_weapon;
+            bool get_pr_weapon(const CheckIn::TPaxGrpItem &grp, const string &airline);
+            void clear()
+            {
+                cls.clear();
+                trfer.clear();
+                pr_weapon = false;
+            }
+            TGrpInfoItem() { clear(); }
+        };
 
-    TGrpInfoMap items;
-    TGrpInfoMap::iterator get(int grp_id);
+        typedef map<int, TGrpInfoItem> TGrpInfoMap;
+
+        TGrpInfoMap items;
+        TGrpInfoMap::iterator get(int grp_id);
+        TGrpInfo(const string _airline): airline(_airline) {}
 };
+
+bool TGrpInfo::TGrpInfoItem::get_pr_weapon(const CheckIn::TPaxGrpItem &grp, const string &airline)
+{
+    TCachedQuery Qry("select * from bag2 where grp_id = :grp_id",
+            QParams() << QParam("grp_id", otInteger, grp.id));
+    Qry.get().Execute();
+    pr_weapon = false;
+    if(not Qry.get().Eof) {
+        t_rpt_bm_bag_name bag_names;
+        bag_names.init("", airline);
+        TRptParams rpt_params(AstraLocale::LANG_EN);
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            TBagTagRow row;
+            row.rfisc = Qry.get().FieldAsString("rfisc");
+            if(not Qry.get().FieldIsNULL("bag_type"))
+                row.bag_type = Qry.get().FieldAsInteger("bag_type");
+            bag_names.get(grp.cl, row, rpt_params);
+            if(row.bag_name == "WEAPON") {
+                pr_weapon = true;
+                break;
+            }
+        }
+    }
+    return pr_weapon;
+}
 
 TGrpInfo::TGrpInfoMap::iterator TGrpInfo::get(int grp_id)
 {
@@ -30,9 +74,12 @@ TGrpInfo::TGrpInfoMap::iterator TGrpInfo::get(int grp_id)
     if(result == items.end()) {
         CheckIn::TPaxGrpItem grp;
         grp.fromDB(grp_id);
-        pair<TGrpInfoMap::iterator, bool> ret = items.insert(make_pair(grp_id, grp.cl));
+        TGrpInfoItem item;
+        item.cls = grp.cl;
+        CheckIn::LoadTransfer(grp_id, item.trfer);
+        item.get_pr_weapon(grp, airline);
+        pair<TGrpInfoMap::iterator, bool> ret = items.insert(make_pair(grp_id, item));
         result = ret.first;
-
     }
     return result;
 }
@@ -48,24 +95,56 @@ struct TTrferInfo {
         airp_arv.clear();
     }
     TTrferInfo() { clear(); }
-    void get(int pax_id, const TTripRoute &route);
+    void get(int pax_id, const TTripRoute &route, const vector<CheckIn::TTransferItem> &trfer);
 };
 
-void TTrferInfo::get(int pax_id, const TTripRoute &route)
+void TTrferInfo::get(int pax_id, const TTripRoute &route, const vector<CheckIn::TTransferItem> &trfer)
 {
     map<int, CheckIn::TCkinPaxTknItem> tkns;
+
     GetTCkinTicketsBefore(pax_id, tkns);
     pr_trfer_dep = not tkns.empty();
+
     GetTCkinTicketsAfter(pax_id, tkns);
     pr_trfer_arv = not tkns.empty();
+
     if(pr_trfer_arv) {
+        LogTrace(TRACE5) << "pax_id: " << pax_id << "; trfer by GetTCkinTickets";
         CheckIn::TSimplePaxItem pax;
         pax.getByPaxId(tkns.rbegin()->second.pax_id);
         CheckIn::TPaxGrpItem grp;
         grp.fromDB(pax.grp_id);
         airp_arv = grp.airp_arv;
-    } else
-        airp_arv = route.begin()->airp;
+    } else {
+        pr_trfer_arv = not trfer.empty();
+        if(pr_trfer_arv) {
+            LogTrace(TRACE5) << "pax_id: " << pax_id << "; trfer by TTransferItem";
+            airp_arv = trfer.back().airp_arv;
+        } else {
+            airp_arv = route.begin()->airp;
+        }
+    }
+
+    /* 
+    pr_trfer_arv = not trfer.empty();
+    if(pr_trfer_arv) {
+        LogTrace(TRACE5) << "pax_id: " << pax_id << "; trfer by TTransferItem";
+        airp_arv = trfer.back().airp_arv;
+    } else {
+        GetTCkinTicketsAfter(pax_id, tkns);
+        pr_trfer_arv = not tkns.empty();
+        if(pr_trfer_arv) {
+            LogTrace(TRACE5) << "pax_id: " << pax_id << "; trfer by GetTCkinTickets";
+            CheckIn::TSimplePaxItem pax;
+            pax.getByPaxId(tkns.rbegin()->second.pax_id);
+            CheckIn::TPaxGrpItem grp;
+            grp.fromDB(pax.grp_id);
+            airp_arv = grp.airp_arv;
+        } else {
+            airp_arv = route.begin()->airp;
+        }
+    }
+    */
 }
 
 void get_trfer_info(
@@ -98,6 +177,8 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
     route.GetRouteAfter(NoExists, info.point_id, trtNotCurrent, trtNotCancelled);
     NewTextChild(flightInfoNode, "ArrivalAirportIATACode", ElemIdToCodeNative(etAirp, route.begin()->airp));
     NewTextChild(flightInfoNode, "AirlineIATACode", ElemIdToCodeNative(etAirline, info.airline));
+    if(not info.bort.empty())
+        NewTextChild(flightInfoNode, "AirplaneRegNumber", info.bort);
 
     xmlNodePtr GeneralDeclarationNode = NewTextChild(rootNode, "GeneralDeclaration");
     xmlNodePtr PassengerInfoNode = NewTextChild(GeneralDeclarationNode, "PassengerInfo");
@@ -131,7 +212,7 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
         xmlNodePtr PassengerManifestNode = NewTextChild(rootNode, "PassengerManifest");
         xmlNodePtr PassengerInfoNode = NewTextChild(PassengerManifestNode, "PassengerInfo");
 
-        TGrpInfo grp_info_map;
+        TGrpInfo grp_info_map(info.airline);
 
         int DeparturePass = 0;
         int TransferDepartPass = 0;
@@ -159,29 +240,27 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
             NewTextChild(PassengerNode, "PersonName", transliter(pax.name, 1, true), "");
             NewTextChild(PassengerNode, "Sex", pax.is_female() == NoExists or not pax.is_female() ? "MR" : "MS");
             NewTextChild(PassengerNode, "SeatNumber", pax.seat_no);
-            TGrpInfo::TGrpInfoMap::iterator grp_info = grp_info_map.get(pax.grp_id);
+            auto grp_info = grp_info_map.get(pax.grp_id);
 
             TTrferInfo trfer_info;
-            trfer_info.get(pax.id, route);
+            trfer_info.get(pax.id, route, grp_info->second.trfer);
 
             if(trfer_info.pr_trfer_dep)
                 TransferDepartPass++;
             if(trfer_info.pr_trfer_arv)
                 TransferDestinationPass++;
-            if(
-                    not trfer_info.pr_trfer_dep and 
-                    not trfer_info.pr_trfer_dep)
-            {
+            if(not trfer_info.pr_trfer_dep)
                 DeparturePass++;
+            if(not trfer_info.pr_trfer_arv)
                 DestinationPass++;
-            }
-            NewTextChild(PassengerNode, "PassClass", ElemIdToCodeNative(etClass, grp_info->second));
+
+            NewTextChild(PassengerNode, "PassClass", ElemIdToCodeNative(etClass, grp_info->second.cls));
             // Вес багажа брутто
             NewTextChild(PassengerNode, "GrossWeightQuantity", Qry.get().FieldAsInteger("bag_weight"));
             // Код измерения веса багажа (килограммы или фунты, K/F)
             NewTextChild(PassengerNode, "WeightUnitQualifierCode", "K");
             NewTextChild(PassengerNode, "DestinationAirportIATACode", ElemIdToCodeNative(etAirp, trfer_info.airp_arv));
-//            NewTextChild(PassengerNode, "WeaponSign");
+            NewTextChild(PassengerNode, "WeaponSign", grp_info->second.pr_weapon);
             NewTextChild(PassengerNode, "PsychotropicAgentSign", 0);
         }
         NodeSetContent(DeparturePassNode, DeparturePass);
