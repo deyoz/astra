@@ -6853,7 +6853,8 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
           bag_types_id=ASTRA::NoExists;
           if (res.error() &&
               (res.error_code=="1" || res.error_message=="Incorrect format") &&
-              res.error_reference.path=="passenger/ticket/number" &&
+              (res.error_reference.path=="passenger/ticket/number" ||
+               res.error_reference.path=="passenger/segment/ticket/number") &&
               !res.error_reference.value.empty())
           {
             event.lexema_id="EVT.DUE_TO_TICKET_NUMBER_WEIGHT_CONCEPT_APPLIED";
