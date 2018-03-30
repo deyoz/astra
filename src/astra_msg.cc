@@ -95,6 +95,9 @@ REGERR(FUNC_NOT_SUPPORTED,
 REGERR(INV_COUPON_STATUS,
        "INVALID TICKET/DOCUMENT COUPON STATUS",
        "…‚…›‰ ‘’€’“‘ Š“Ž€ ˆ‹…’€/„ŽŠ“Œ…’€")
+REGERR(TOO_MANY_BAGS,
+       "TOO MANY BAGS",
+       "‘‹ˆ˜ŠŽŒ ŒŽƒŽ ‘“ŒŽŠ")
 
 }//namespace Ticketing
 

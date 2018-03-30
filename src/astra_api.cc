@@ -1181,7 +1181,8 @@ static void handleIatciCkiPax(int pointDep,
                               const boost::optional<iatci::ServiceDetails>& service,
                               const boost::optional<iatci::DocDetails>& doc,
                               const boost::optional<iatci::AddressDetails>& addr,
-                              const boost::optional<iatci::VisaDetails>& visa)
+                              const boost::optional<iatci::VisaDetails>& visa,
+                              const boost::optional<iatci::BaggageDetails>& baggage)
 {
     const std::string PaxSurname = pax.surname();
     const std::string PaxName    = pax.name();
@@ -1189,6 +1190,10 @@ static void handleIatciCkiPax(int pointDep,
 
     if(PaxAlreadyCheckedIn(pointDep, pax, service)) {
         throw tick_soft_except(STDLOG, AstraErr::PAX_ALREADY_CHECKED_IN);
+    }
+
+    if(baggage && baggage->bag() && baggage->bag()->numOfPieces()) {
+        throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_BAGS);
     }
 
     SearchPaxXmlResult searchPaxXmlRes =
@@ -1294,7 +1299,8 @@ iatci::dcrcka::Result checkinIatciPaxes(const iatci::CkiParams& ckiParams)
                           paxGroup.service(),
                           paxGroup.doc(),
                           paxGroup.address(),
-                          paxGroup.visa());
+                          paxGroup.visa(),
+                          paxGroup.baggage());
         if(paxGroup.infant()) {
             // докинем инфанта
             handleIatciCkiPax(pointDep, tripHeader, paxSeg,
@@ -1304,7 +1310,8 @@ iatci::dcrcka::Result checkinIatciPaxes(const iatci::CkiParams& ckiParams)
                               paxGroup.service(),
                               paxGroup.infantDoc(),
                               paxGroup.infantAddress(),
-                              paxGroup.infantVisa());
+                              paxGroup.infantVisa(),
+                              boost::none/*baggage*/);
         }
     }
 
