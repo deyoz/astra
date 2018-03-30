@@ -205,45 +205,41 @@ void createXMLBIFullStat(
 
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
     xmlNodePtr rowNode;
-    for(TBIFullStat::const_iterator airline = BIFullStat.begin();
-            airline != BIFullStat.end(); airline++) {
-        for(TBIAirpMap::const_iterator airp = airline->second.begin();
-                airp != airline->second.end(); airp++) {
-            for(TBIFltMap::const_iterator flt = airp->second.begin();
-                    flt != airp->second.end(); flt++) {
-                for(TBIScdOutMap::const_iterator scd = flt->second.begin();
-                        scd != flt->second.end(); scd++) {
-                    for(TBITerminalMap::const_iterator terminal = scd->second.begin();
-                            terminal != scd->second.end(); terminal++) {
-                        for(TBIHallMap::const_iterator hall = terminal->second.begin();
-                                hall != terminal->second.end(); hall++) {
+
+    for(const auto &airline: BIFullStat) {
+        for(const auto &airp: airline.second) {
+            for(const auto &flt: airp.second) {
+                for(const auto &scd: flt.second) {
+                    for(const auto &terminal: scd.second) {
+                        for(const auto &hall: terminal.second) {
                             rowNode = NewTextChild(rowsNode, "row");
                             // АК
-                            NewTextChild(rowNode, "col", airline->first);
+                            NewTextChild(rowNode, "col", airline.first);
                             // АП
-                            NewTextChild(rowNode, "col", airp->first);
+                            NewTextChild(rowNode, "col", airp.first);
                             // Номер рейса
-                            NewTextChild(rowNode, "col", flt->first);
+                            NewTextChild(rowNode, "col", flt.first);
                             // Дата
-                            NewTextChild(rowNode, "col", DateTimeToStr(scd->first, "dd.mm.yy"));
+                            NewTextChild(rowNode, "col", DateTimeToStr(scd.first, "dd.mm.yy"));
                             // Терминал
-                            NewTextChild(rowNode, "col", terminal->first);
+                            NewTextChild(rowNode, "col", terminal.first);
                             // Зал
-                            NewTextChild(rowNode, "col", hall->first);
+                            NewTextChild(rowNode, "col", hall.first);
                             // Всего
-                            NewTextChild(rowNode, "col", hall->second.total());
+                            NewTextChild(rowNode, "col", hall.second.total());
                             // 1 пас
-                            NewTextChild(rowNode, "col", hall->second.one);
+                            NewTextChild(rowNode, "col", hall.second.one);
                             // Плюс 1
-                            NewTextChild(rowNode, "col", hall->second.two);
+                            NewTextChild(rowNode, "col", hall.second.two);
                             // Группа
-                            NewTextChild(rowNode, "col", hall->second.all);
+                            NewTextChild(rowNode, "col", hall.second.all);
                         }
                     }
                 }
             }
         }
     }
+
     rowNode = NewTextChild(rowsNode, "row");
     NewTextChild(rowNode, "col", getLocaleText("Итого:"));
     NewTextChild(rowNode, "col");
@@ -335,29 +331,23 @@ void RunBIFullFile(const TStatParams &params, TOrderStatWriter &writer)
 {
     TBIFullStat BIFullStat;
     RunBIStat(params, BIFullStat, true);
-    for(TBIFullStat::const_iterator airline = BIFullStat.begin();
-            airline != BIFullStat.end(); airline++) {
-        for(TBIAirpMap::const_iterator airp = airline->second.begin();
-                airp != airline->second.end(); airp++) {
-            for(TBIFltMap::const_iterator flt = airp->second.begin();
-                    flt != airp->second.end(); flt++) {
-                for(TBIScdOutMap::const_iterator scd = flt->second.begin();
-                        scd != flt->second.end(); scd++) {
-                    for(TBITerminalMap::const_iterator terminal = scd->second.begin();
-                            terminal != scd->second.end(); terminal++) {
-                        for(TBIHallMap::const_iterator hall = terminal->second.begin();
-                                hall != terminal->second.end(); hall++) {
+    for(const auto &airline: BIFullStat) {
+        for(const auto &airp: airline.second) {
+            for(const auto &flt: airp.second) {
+                for(const auto &scd: flt.second) {
+                    for(const auto &terminal: scd.second) {
+                        for(const auto &hall: terminal.second) {
                             writer.insert(TBIFullStatCombo(
-                                        airline->first,
-                                        airp->first,
-                                        flt->first,
-                                        scd->first,
-                                        terminal->first,
-                                        hall->first,
-                                        hall->second.total(),
-                                        hall->second.one,
-                                        hall->second.two,
-                                        hall->second.all));
+                                        airline.first,
+                                        airp.first,
+                                        flt.first,
+                                        scd.first,
+                                        terminal.first,
+                                        hall.first,
+                                        hall.second.total(),
+                                        hall.second.one,
+                                        hall.second.two,
+                                        hall.second.all));
                         }
                     }
                 }
@@ -393,17 +383,15 @@ void createXMLBIShortStat(
 
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
     xmlNodePtr rowNode;
-    for(TBIShortStat::const_iterator airline = BIShortStat.begin();
-            airline != BIShortStat.end(); airline++) {
-        for(TBIShortAirpMap::const_iterator airp = airline->second.begin();
-                airp != airline->second.end(); airp++) {
+    for(const auto &airline: BIShortStat) {
+        for(const auto &airp: airline.second) {
             rowNode = NewTextChild(rowsNode, "row");
             // АК
-            NewTextChild(rowNode, "col", airline->first);
+            NewTextChild(rowNode, "col", airline.first);
             // АП
-            NewTextChild(rowNode, "col", airp->first);
+            NewTextChild(rowNode, "col", airp.first);
             // Всего
-            NewTextChild(rowNode, "col", airp->second);
+            NewTextChild(rowNode, "col", airp.second);
         }
     }
     rowNode = NewTextChild(rowsNode, "row");
@@ -452,25 +440,21 @@ void createXMLBIDetailStat(
 
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
     xmlNodePtr rowNode;
-    for(TBIDetailStat::const_iterator airline = BIDetailStat.begin();
-            airline != BIDetailStat.end(); airline++) {
-        for(TBIDetailAirpMap::const_iterator airp = airline->second.begin();
-                airp != airline->second.end(); airp++) {
-            for(TBIDetailTerminalMap::const_iterator terminal = airp->second.begin();
-                    terminal != airp->second.end(); terminal++) {
-                for(TBIDetailHallMap::const_iterator hall = terminal->second.begin();
-                        hall != terminal->second.end(); hall++) {
+    for(const auto &airline: BIDetailStat) {
+        for(const auto &airp: airline.second) {
+            for(const auto &terminal: airp.second) {
+                for(const auto &hall: terminal.second) {
                     rowNode = NewTextChild(rowsNode, "row");
                     // АК
-                    NewTextChild(rowNode, "col", airline->first);
+                    NewTextChild(rowNode, "col", airline.first);
                     // АП
-                    NewTextChild(rowNode, "col", airp->first);
+                    NewTextChild(rowNode, "col", airp.first);
                     // Терминал
-                    NewTextChild(rowNode, "col", terminal->first);
+                    NewTextChild(rowNode, "col", terminal.first);
                     // Зал
-                    NewTextChild(rowNode, "col", hall->first);
+                    NewTextChild(rowNode, "col", hall.first);
                     // Всего
-                    NewTextChild(rowNode, "col", hall->second);
+                    NewTextChild(rowNode, "col", hall.second);
                 }
             }
         }
@@ -571,14 +555,12 @@ void RunBIShortFile(const TStatParams &params, TOrderStatWriter &writer)
     TBIShortStat BIShortStat;
     RunBIStat(params, BIShortStat, true);
 
-    for(TBIShortStat::const_iterator airline = BIShortStat.begin();
-            airline != BIShortStat.end(); airline++) {
-        for(TBIShortAirpMap::const_iterator airp = airline->second.begin();
-                airp != airline->second.end(); airp++) {
+    for(const auto &airline: BIShortStat) {
+        for(const auto &airp: airline.second) {
             writer.insert(TBIShortStatCombo(
-                        airline->first,
-                        airp->first,
-                        airp->second));
+                        airline.first,
+                        airp.first,
+                        airp.second));
         }
     }
 }
@@ -588,20 +570,16 @@ void RunBIDetailFile(const TStatParams &params, TOrderStatWriter &writer)
     TBIDetailStat BIDetailStat;
     RunBIStat(params, BIDetailStat, true);
 
-    for(TBIDetailStat::const_iterator airline = BIDetailStat.begin();
-            airline != BIDetailStat.end(); airline++) {
-        for(TBIDetailAirpMap::const_iterator airp = airline->second.begin();
-                airp != airline->second.end(); airp++) {
-            for(TBIDetailTerminalMap::const_iterator terminal = airp->second.begin();
-                    terminal != airp->second.end(); terminal++) {
-                for(TBIDetailHallMap::const_iterator hall = terminal->second.begin();
-                        hall != terminal->second.end(); hall++) {
+    for(const auto &airline: BIDetailStat) {
+        for(const auto &airp: airline.second) {
+            for(const auto &terminal: airp.second) {
+                for(const auto &hall: terminal.second) {
                     writer.insert(TBIDetailStatCombo(
-                                airline->first,
-                                airp->first,
-                                terminal->first,
-                                hall->first,
-                                hall->second));
+                                airline.first,
+                                airp.first,
+                                terminal.first,
+                                hall.first,
+                                hall.second));
                 }
             }
         }

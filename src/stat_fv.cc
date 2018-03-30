@@ -18,63 +18,62 @@ using namespace BASIC::date_time;
 using namespace ASTRA;
 
 struct TGrpInfo {
-    struct TGrpInfoItem {
-        string cls;
-        string airp_arv;
-
-        bool pr_trfer_dep;
-        bool pr_trfer_arv;
-        void clear() {
-            cls.clear();
-            airp_arv.clear();
-            pr_trfer_dep = false;
-            pr_trfer_arv = false;
-        }
-        TGrpInfoItem() { clear(); }
-    };
-
-    typedef map<int, TGrpInfoItem> TGrpInfoMap;
+    typedef map<int, string> TGrpInfoMap;
 
     TGrpInfoMap items;
-    TGrpInfoMap::iterator get(const TTripRoute &route, int grp_id);
+    TGrpInfoMap::iterator get(int grp_id);
 };
 
-TGrpInfo::TGrpInfoMap::iterator TGrpInfo::get(const TTripRoute &route, int grp_id)
+TGrpInfo::TGrpInfoMap::iterator TGrpInfo::get(int grp_id)
 {
     TGrpInfoMap::iterator result = items.find(grp_id);
     if(result == items.end()) {
         CheckIn::TPaxGrpItem grp;
         grp.fromDB(grp_id);
-        TGrpInfoItem _grp_info;
-        _grp_info.cls = grp.cl;
-
-
-
-        /*
-        TCkinRoute ckin_route;
-        ckin_route.GetRouteBefore(grp_id, crtNotCurrent, crtIgnoreDependent);
-        _grp_info.pr_trfer_dep=!ckin_route.empty();
-        if(not _grp_info.pr_trfer) {
-        }
-        */
-
-
-        TCkinRoute ckin_route;
-        ckin_route.GetRouteBefore(grp_id, crtNotCurrent, crtIgnoreDependent);
-        _grp_info.pr_trfer_dep=!ckin_route.empty();
-        ckin_route.GetRouteAfter(grp_id, crtNotCurrent, crtIgnoreDependent);
-        _grp_info.pr_trfer_arv = not ckin_route.empty();
-
-        if(_grp_info.pr_trfer_arv) {
-            _grp_info.airp_arv = ckin_route.back().airp_arv;
-        } else {
-            _grp_info.airp_arv = route.begin()->airp;
-        }
-        pair<map<int, TGrpInfoItem>::iterator, bool> ret = items.insert(make_pair(grp_id, _grp_info));
+        pair<TGrpInfoMap::iterator, bool> ret = items.insert(make_pair(grp_id, grp.cl));
         result = ret.first;
 
     }
     return result;
+}
+
+struct TTrferInfo {
+    bool pr_trfer_dep;
+    bool pr_trfer_arv;
+    string airp_arv;
+    void clear()
+    {
+        pr_trfer_dep = false;
+        pr_trfer_arv = false;
+        airp_arv.clear();
+    }
+    TTrferInfo() { clear(); }
+    void get(int pax_id, const TTripRoute &route);
+};
+
+void TTrferInfo::get(int pax_id, const TTripRoute &route)
+{
+    map<int, CheckIn::TCkinPaxTknItem> tkns;
+    GetTCkinTicketsBefore(pax_id, tkns);
+    pr_trfer_dep = not tkns.empty();
+    GetTCkinTicketsAfter(pax_id, tkns);
+    pr_trfer_arv = not tkns.empty();
+    if(pr_trfer_arv) {
+        CheckIn::TSimplePaxItem pax;
+        pax.getByPaxId(tkns.rbegin()->second.pax_id);
+        CheckIn::TPaxGrpItem grp;
+        grp.fromDB(pax.grp_id);
+        airp_arv = grp.airp_arv;
+    } else
+        airp_arv = route.begin()->airp;
+}
+
+void get_trfer_info(
+        int pax_id,
+        bool &pr_trfer_dep,
+        bool &pr_trfer_arv,
+        string &airp_arv
+        ) {
 }
 
 void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
@@ -160,24 +159,28 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
             NewTextChild(PassengerNode, "PersonName", transliter(pax.name, 1, true), "");
             NewTextChild(PassengerNode, "Sex", pax.is_female() == NoExists or not pax.is_female() ? "MR" : "MS");
             NewTextChild(PassengerNode, "SeatNumber", pax.seat_no);
-            TGrpInfo::TGrpInfoMap::iterator grp_info = grp_info_map.get(route, pax.grp_id);
-            if(grp_info->second.pr_trfer_dep)
+            TGrpInfo::TGrpInfoMap::iterator grp_info = grp_info_map.get(pax.grp_id);
+
+            TTrferInfo trfer_info;
+            trfer_info.get(pax.id, route);
+
+            if(trfer_info.pr_trfer_dep)
                 TransferDepartPass++;
-            if(grp_info->second.pr_trfer_arv)
+            if(trfer_info.pr_trfer_arv)
                 TransferDestinationPass++;
             if(
-                    not grp_info->second.pr_trfer_dep and 
-                    not grp_info->second.pr_trfer_dep)
+                    not trfer_info.pr_trfer_dep and 
+                    not trfer_info.pr_trfer_dep)
             {
                 DeparturePass++;
                 DestinationPass++;
             }
-            NewTextChild(PassengerNode, "PassClass", ElemIdToCodeNative(etClass, grp_info->second.cls));
+            NewTextChild(PassengerNode, "PassClass", ElemIdToCodeNative(etClass, grp_info->second));
             // Вес багажа брутто
             NewTextChild(PassengerNode, "GrossWeightQuantity", Qry.get().FieldAsInteger("bag_weight"));
             // Код измерения веса багажа (килограммы или фунты, K/F)
             NewTextChild(PassengerNode, "WeightUnitQualifierCode", "K");
-            NewTextChild(PassengerNode, "DestinationAirportIATACode", ElemIdToCodeNative(etAirp, grp_info->second.airp_arv));
+            NewTextChild(PassengerNode, "DestinationAirportIATACode", ElemIdToCodeNative(etAirp, trfer_info.airp_arv));
 //            NewTextChild(PassengerNode, "WeaponSign");
             NewTextChild(PassengerNode, "PsychotropicAgentSign", 0);
         }

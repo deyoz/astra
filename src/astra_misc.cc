@@ -1496,7 +1496,7 @@ TCkinRouteItem& TCkinRouteItem::fromDB(TQuery &Qry)
     airp_dep=Qry.FieldAsString("airp_dep");
     airp_arv=Qry.FieldAsString("airp_arv");
     if(Qry.GetFieldIndex("seg_no") >= 0)
-        coupon_no=Qry.FieldAsInteger("seg_no");
+        seg_no=Qry.FieldAsInteger("seg_no");
     if(Qry.GetFieldIndex("coupon_no") >= 0)
         coupon_no=Qry.FieldAsInteger("coupon_no");
     operFlt.Init(Qry);
