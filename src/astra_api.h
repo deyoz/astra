@@ -1085,8 +1085,7 @@ struct NameFilter
 
     inline bool operator()(const XmlPax& pax) const
     {
-        return pax.surname == m_surname &&
-               pax.name    == m_name;
+        return pax.equalName(m_surname, m_name);
     }
 };
 

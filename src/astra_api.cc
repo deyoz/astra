@@ -2065,9 +2065,9 @@ XmlPax::XmlPax()
 
 bool XmlPax::equalName(const std::string& surname, const std::string& name) const
 {
-    // возможно следует усложнить функцию сравнения (trim, translit)
     return (this->surname == surname &&
-            this->name == name);
+           (this->name == name
+            || StrUtils::delSpaces(this->name) == StrUtils::delSpaces(name)));
 }
 
 astra_entities::PaxInfo XmlPax::toPax() const
