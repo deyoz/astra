@@ -700,6 +700,8 @@ struct XmlSegment
                                       const std::string& name) const;
 
     boost::optional<XmlPax> findPaxById(int paxId) const;
+
+    XmlPax firstAdult() const;
 };
 
 //---------------------------------------------------------------------------------------

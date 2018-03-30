@@ -493,9 +493,14 @@ LoadPaxXmlResult AstraEngine::ReseatPax(const xml_entities::XmlSegment& paxSeg)
     xmlNodePtr reqNode = getQueryNode(),
                resNode = getAnswerNode();
 
-    // пока работаем с одним пассажиром
-    ASSERT(paxSeg.passengers.size() == 1);
-    const XmlPax& pax = paxSeg.passengers.front();
+    ASSERT(!paxSeg.passengers.empty());
+
+    XmlPax pax = paxSeg.passengers.front();
+    if(paxSeg.passengers.size() > 1) {
+        // если пассажиров найдено несколько, значит нашли пакса с младенцем
+        // у младенца места быть не может, значит ищем взрослого
+        pax = paxSeg.firstAdult();
+    }
 
     iatci::Seat seat = iatci::Seat::fromStr(pax.seat_no);
     xmlNodePtr reseatNode = NewTextChild(reqNode, "Reseat");
@@ -2133,6 +2138,20 @@ boost::optional<XmlPax> XmlSegment::findPaxById(int paxId) const
         }
     }
     return boost::none;
+}
+
+XmlPax XmlSegment::firstAdult() const
+{
+    ASSERT(!passengers.empty());
+    for(const XmlPax& pax: passengers) {
+        ASTRA::TPerson pers = DecodePerson(pax.pers_type.c_str());
+        if(pers == ASTRA::adult) {
+            return pax;
+        }
+    }
+
+    ASSERT(false);
+    return XmlPax();
 }
 
 //---------------------------------------------------------------------------------------
