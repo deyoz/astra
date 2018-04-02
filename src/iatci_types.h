@@ -304,6 +304,7 @@ public:
     const std::string&  respRef() const;
 
     bool                isInfant() const;
+    bool                withInfant() const;
 
     static PaxType_e strToType(const std::string& s);
     static WithInftIndicator_e strToWithInftIndicator(const std::string& s);

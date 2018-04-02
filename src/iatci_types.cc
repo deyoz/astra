@@ -438,6 +438,11 @@ bool PaxDetails::isInfant() const
     return m_type == Infant;
 }
 
+bool PaxDetails::withInfant() const
+{
+    return m_withInftIndic == WithInfant;
+}
+
 PaxDetails::PaxType_e PaxDetails::strToType(const std::string& s)
 {
     if(s == "C")      return Child;

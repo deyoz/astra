@@ -615,6 +615,43 @@ void AstraEngine::initReqInfo(const std::string& deskVersion) const
 
 //---------------------------------------------------------------------------------------
 
+static std::list<astra_entities::PaxInfo> convertNotInfants(const std::list<XmlPax>& lPax)
+{
+    std::list<astra_entities::PaxInfo> lNotInfants;
+    for(const XmlPax& xmlPax: lPax) {
+        astra_entities::PaxInfo paxInfo = xmlPax.toPax();
+        if(!paxInfo.isInfant()) {
+            lNotInfants.push_back(paxInfo);
+        }
+    }
+    return lNotInfants;
+}
+
+static std::list<astra_entities::PaxInfo> convertInfants(const std::list<XmlPax>& lPax)
+{
+    std::list<astra_entities::PaxInfo> lInfants;
+    for(const XmlPax& xmlPax: lPax) {
+        astra_entities::PaxInfo paxInfo = xmlPax.toPax();
+        if(paxInfo.isInfant()) {
+            lInfants.push_back(paxInfo);
+        }
+    }
+    return lInfants;
+}
+
+static boost::optional<astra_entities::PaxInfo> findInfant(const std::list<astra_entities::PaxInfo>& lInfants,
+                                                           const astra_entities::Remark& ssrInft)
+{
+    for(const auto& infant: lInfants) {
+        if(ssrInft.containsText(infant.fullName())) {
+            return infant;
+        }
+    }
+    return boost::none;
+}
+
+//---------------------------------------------------------------------------------------
+
 static boost::optional<XmlPlaceLayer> findLayer(const XmlPlace& place, const std::string& layerType)
 {
     for(const XmlPlaceLayer& layer: place.layers) {
@@ -719,7 +756,7 @@ static TSearchFltInfo MakeSearchFltFilter(const std::string& depPort,
 }
 
 static PaxFilter getSearchPaxFilter(const iatci::PaxDetails& pax,
-                                          const boost::optional<iatci::ServiceDetails>& service = boost::none)
+                                    const boost::optional<iatci::ServiceDetails>& service = boost::none)
 {
     NameFilter nmf(pax.surname(), pax.name());
     boost::optional<TicknumFilter> tnf;
@@ -746,7 +783,8 @@ static bool PaxAlreadyCheckedIn(int pointDep,
     return !paxListXmlRes.applyFilters(filter).empty();
 }
 
-static LoadPaxXmlResult LoadPax__(int pointDep, const iatci::PaxDetails& pax)
+static LoadPaxXmlResult LoadPax__(int pointDep, const iatci::PaxDetails& pax,
+                                  bool loadWholeGrp = false)
 {
     PaxListXmlResult paxListXmlRes = AstraEngine::singletone().PaxList(pointDep);
     PaxFilter filter = getSearchPaxFilter(pax);
@@ -777,7 +815,9 @@ static LoadPaxXmlResult LoadPax__(int pointDep, const iatci::PaxDetails& pax)
         throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR);
     }
 
-    loadPaxXmlRes.applyPaxFilter(filter);
+    if(!loadWholeGrp) {
+        loadPaxXmlRes.applyPaxFilter(filter);
+    }
 
     return loadPaxXmlRes;
 }
@@ -1413,6 +1453,31 @@ static boost::optional<XmlBagTags> makeBagTags(const XmlBagTags& oldBagTags,
     return ret;
 }
 
+static boost::optional<iatci::PaxDetails> findInfant(int pointDep,
+                                                     const iatci::PaxDetails& pax)
+{
+    // ищем инфанта, привязанного к пассажиру
+    ASSERT(pax.withInfant());
+    LoadPaxXmlResult loadPaxXmlResult = LoadPax__(pointDep, pax, true/*load_whole_grp*/);
+    std::list<astra_entities::PaxInfo> lInfants = convertInfants(loadPaxXmlResult.lSeg.front().passengers);
+
+    loadPaxXmlResult.applyPaxFilter(getSearchPaxFilter(pax));
+    ASSERT(!loadPaxXmlResult.lSeg.empty());
+    const XmlSegment& currXmlSeg = loadPaxXmlResult.lSeg.front();
+    ASSERT(!currXmlSeg.passengers.empty());
+    astra_entities::PaxInfo currPax = currXmlSeg.passengers.front().toPax();
+
+    boost::optional<astra_entities::Remark> ssrInft = currPax.ssrInft();
+    if(ssrInft) {
+        boost::optional<astra_entities::PaxInfo> inft = findInfant(lInfants, *ssrInft);
+        if(inft) {
+            return iatci::makeRespPax(*inft);
+        }
+    }
+
+    return boost::none;
+}
+
 static void handleIatciCkuPax(int pointDep,
                               bool& needMakeSeg,
                               XmlSegment& paxSeg,
@@ -1474,7 +1539,7 @@ static void handleIatciCkuPax(int pointDep,
     if(currSeg.seg_info.grp_id != paxSeg.seg_info.grp_id) {
         LogWarning(STDLOG) << "Attempt to update paxes from different groups at single request! "
                            << currSeg.seg_info.grp_id << "<>" << paxSeg.seg_info.grp_id;
-        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR);
+        throw tick_soft_except(STDLOG, AstraErr::UPDATE_SEPARATELY);
     }
 
     paxSeg.passengers.push_back(newPax);
@@ -1647,18 +1712,26 @@ iatci::dcrcka::Result updateIatciPaxes(const iatci::CkuParams& ckuParams)
                           paxGroup.updSeat(),
                           paxGroup.updService(),
                           paxGroup.updBaggage());
-        if(paxGroup.infant()) {
-            handleIatciCkuPax(pointDep,
-                              first, paxSeg, newBags, delBags,
-                              newBagTags,
-                              paxGroup.infant().get(),
-                              paxGroup.updInfant(),
-                              paxGroup.updInfantDoc(),
-                              paxGroup.updInfantAddress(),
-                              paxGroup.updInfantVisa(),
-                              boost::none,  // infant seat
-                              boost::none,  // infant service
-                              boost::none); // infant baggage
+        if(paxGroup.pax().withInfant()) {
+            boost::optional<iatci::PaxDetails> inft = paxGroup.infant();
+            if(!inft) {
+                inft = findInfant(pointDep, paxGroup.pax());
+            }
+            if(inft) {
+                handleIatciCkuPax(pointDep,
+                                  first, paxSeg, newBags, delBags,
+                                  newBagTags,
+                                  *inft,
+                                  paxGroup.updInfant(),
+                                  paxGroup.updInfantDoc(),
+                                  paxGroup.updInfantAddress(),
+                                  paxGroup.updInfantVisa(),
+                                  boost::none,  // infant seat
+                                  boost::none,  // infant service
+                                  boost::none); // infant baggage
+            } else {
+                LogWarning(STDLOG) << "Pax for update with infant but infant not has been detected!";
+            }
         }
     }
 
@@ -1759,9 +1832,17 @@ iatci::dcrcka::Result cancelCheckinIatciPaxes(const iatci::CkxParams& ckxParams)
         handleIatciCkxPax(pointDep, first, paxSeg,
                           paxGroup.pax());
 
-        if(paxGroup.infant()) {
-            handleIatciCkxPax(pointDep, first, paxSeg,
-                              paxGroup.infant().get());
+        if(paxGroup.pax().withInfant()) {
+            boost::optional<iatci::PaxDetails> inft = paxGroup.infant();
+            if(!inft) {
+                inft = findInfant(pointDep, paxGroup.pax());
+            }
+            if(inft) {
+                handleIatciCkxPax(pointDep, first, paxSeg,
+                                  *inft);
+            } else {
+                LogWarning(STDLOG) << "Pax for cancel with infant but infant not has been detected!";
+            }
         }
     }
 
@@ -1872,9 +1953,17 @@ iatci::dcrcka::Result printBoardingPass(const iatci::BprParams& bprParams)
         handleIatciBprPax(pointDep, first, paxSeg,
                           paxGroup.pax());
 
-        if(paxGroup.infant()) {
-            handleIatciBprPax(pointDep, first, paxSeg,
-                              paxGroup.infant().get());
+        if(paxGroup.pax().withInfant()) {
+            boost::optional<iatci::PaxDetails> inft = paxGroup.infant();
+            if(!inft) {
+                inft = findInfant(pointDep, paxGroup.pax());
+            }
+            if(inft) {
+                handleIatciBprPax(pointDep, first, paxSeg,
+                                  *inft);
+            } else {
+                LogWarning(STDLOG) << "Pax for printing with infant but infant not has been detected!";
+            }
         }
     }
 
@@ -3575,41 +3664,6 @@ void LoadPaxXmlResult::finalizeBagTags()
             }
         }
     }
-}
-
-static std::list<astra_entities::PaxInfo> convertNotInfants(const std::list<XmlPax>& lPax)
-{
-    std::list<astra_entities::PaxInfo> lNotInfants;
-    for(const XmlPax& xmlPax: lPax) {
-        astra_entities::PaxInfo paxInfo = xmlPax.toPax();
-        if(!paxInfo.isInfant()) {
-            lNotInfants.push_back(paxInfo);
-        }
-    }
-    return lNotInfants;
-}
-
-static std::list<astra_entities::PaxInfo> convertInfants(const std::list<XmlPax>& lPax)
-{
-    std::list<astra_entities::PaxInfo> lInfants;
-    for(const XmlPax& xmlPax: lPax) {
-        astra_entities::PaxInfo paxInfo = xmlPax.toPax();
-        if(paxInfo.isInfant()) {
-            lInfants.push_back(paxInfo);
-        }
-    }
-    return lInfants;
-}
-
-static boost::optional<astra_entities::PaxInfo> findInfant(const std::list<astra_entities::PaxInfo>& lInfants,
-                                                           const astra_entities::Remark& ssrInft)
-{
-    for(const auto& infant: lInfants) {
-        if(ssrInft.containsText(infant.fullName())) {
-            return infant;
-        }
-    }
-    return boost::none;
 }
 
 //---------------------------------------------------------------------------------------
