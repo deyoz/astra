@@ -14,6 +14,97 @@ int getPointIdsSppByPaxId(int pax_id, std::set<int>& point_ids_spp); //возвращае
 int getPointIdsSppByPnrId(int pnr_id, std::set<int>& point_ids_spp); //возвращает pnr_id
 int getPointIdsSpp(int id, bool is_pnr_id, std::set<int>& point_ids_spp);
 
+namespace PaymentStatusRequest
+{
+
+enum Status {Paid, NotPaid, Unknown};
+
+class Pax
+{
+  public:
+    int id;
+    std::string seat_no;
+    Status status;
+
+    Pax() { clear(); }
+
+    void clear()
+    {
+      id=ASTRA::NoExists;
+      seat_no.clear();
+      status=Unknown;
+    }
+
+    Status setStatus(const std::string& s);
+    std::string getStatus() const;
+    Pax& fromXML(xmlNodePtr node);
+};
+
+class PaxList : public std::list<Pax>
+{
+  public:
+    std::string getRequestName() const;
+
+    PaxList& fromXML(xmlNodePtr paxsParentNode);
+    void lockFlights() const;
+};
+
+} //namespace PaymentStatusRequest
+
+namespace PaymentStatusResponse
+{
+
+class Pax : public TWebTids
+{
+  public:
+    int id;
+    std::string seat_no;
+    bool okStatus;
+
+    int point_dep;
+    int point_id_tlg;
+    int grp_id;
+    std::string airp_arv;
+    std::string full_name;
+    std::string pers_type;
+    int reg_no;
+
+    Pax(const PaymentStatusRequest::Pax& paxReq)
+    {
+      clear();
+      id=paxReq.id;
+      seat_no=paxReq.seat_no;
+    }
+
+    void clear()
+    {
+      TWebTids::clear();
+      id=ASTRA::NoExists;
+      seat_no.clear();
+      okStatus=false;
+
+      point_dep=ASTRA::NoExists;
+      point_id_tlg=ASTRA::NoExists;
+      grp_id=ASTRA::NoExists;
+      airp_arv.clear();
+      full_name.clear();
+      pers_type.clear();
+      reg_no=ASTRA::NoExists;
+    }
+
+    bool fromDB();
+    const Pax& toXML(xmlNodePtr node) const;
+    void toLog(const PaymentStatusRequest::Status& reqStatus) const;
+};
+
+class PaxList : public std::list<Pax>
+{
+  public:
+    const PaxList& toXML(xmlNodePtr paxsParentNode) const;
+};
+
+} //namespace PaymentStatusResponse
+
 namespace ProtLayerRequest
 {
 

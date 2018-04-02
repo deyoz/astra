@@ -808,7 +808,8 @@ bool TFlightInfo::fromDBadditional(bool first_segment, bool pr_throw)
     if (!Qry.Eof)
       pr_paid_ckin = Qry.FieldAsInteger("pr_paid_ckin")!=0;
     free_seating=SALONS2::isFreeSeating(point_dep);
-    have_to_select_seats = GetSelfCkinSets(tsRegWithSeatChoice, oper, reqInfo->client_type);
+    if (reqInfo->isSelfCkinClientType())
+      have_to_select_seats = GetSelfCkinSets(tsRegWithSeatChoice, oper, reqInfo->client_type);
   }
   catch(UserException &E)
   {

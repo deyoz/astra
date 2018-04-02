@@ -398,7 +398,7 @@ bool GetSelfCkinSets(const TTripSetType setType,
   if (!(client_type==ctWeb ||
         client_type==ctKiosk ||
         client_type==ctMobile))
-    throw Exception("%s: wrong client_type=%s", __FUNCTION__, EncodeClientType(client_type));
+    throw Exception("%s: wrong client_type=%s (setType=%d)", __FUNCTION__, EncodeClientType(client_type), (int)setType);
   TQuery Qry( &OraSession );
   Qry.Clear();
   Qry.SQLText=
@@ -1039,9 +1039,9 @@ GetRouteAfterByET() {}
 GetRouteByET(int pax_id)
 {
   "SELECT ticket_no, coupon_no FROM pax WHERE pax_id=  "
-}    
+}
 */
-    
+
 bool TCkinRoute::GetRouteByET(
         int pax_id,
         bool after_current,
