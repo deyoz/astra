@@ -252,7 +252,7 @@ bool create_apis_file(int point_id, const string& task_name)
       return result;
     }
 
-    TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code",Qry.FieldAsString("airline"));
+    const TAirlinesRow &airline = (const TAirlinesRow&)base_tables.get("airlines").get_row("code",Qry.FieldAsString("airline"));
     string country_dep = Qry.FieldAsString("country");
 
     TTripRoute route;
@@ -321,7 +321,7 @@ bool create_apis_file(int point_id, const string& task_name)
       RouteQry.Execute();
       if (RouteQry.Eof) continue;
 
-      TCountriesRow &country_arv = (TCountriesRow&)base_tables.get("countries").get_row("code",RouteQry.FieldAsString("country"));
+      const TCountriesRow &country_arv = (const TCountriesRow&)base_tables.get("countries").get_row("code",RouteQry.FieldAsString("country"));
 
       string country_regul_dep=APIS::GetCustomsRegulCountry(country_dep, CustomsQry);
       string country_regul_arv=APIS::GetCustomsRegulCountry(country_arv.code, CustomsQry);
@@ -353,11 +353,11 @@ bool create_apis_file(int point_id, const string& task_name)
         string suffix;
         if (!Qry.FieldIsNULL("suffix"))
         {
-          TTripSuffixesRow &suffixRow = (TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code",Qry.FieldAsString("suffix"));
+          const TTripSuffixesRow &suffixRow = (const TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code",Qry.FieldAsString("suffix"));
           if (suffixRow.code_lat.empty()) throw Exception("suffixRow.code_lat empty (code=%s)",suffixRow.code.c_str());
           suffix=suffixRow.code_lat;
         };
-        TAirpsRow &airp_dep = (TAirpsRow&)base_tables.get("airps").get_row("code",Qry.FieldAsString("airp"));
+        const TAirpsRow &airp_dep = (const TAirpsRow&)base_tables.get("airps").get_row("code",Qry.FieldAsString("airp"));
         if (airp_dep.code_lat.empty()) throw Exception("airp_dep.code_lat empty (code=%s)",airp_dep.code.c_str());
         string tz_region=AirpTZRegion(airp_dep.code);
         if (Qry.FieldIsNULL("scd_out")) throw Exception("scd_out empty (airp_dep=%s)",airp_dep.code.c_str());
@@ -367,13 +367,13 @@ bool create_apis_file(int point_id, const string& task_name)
                           task_name==ON_CLOSE_BOARDING ||
                          (task_name.empty() && !Qry.FieldIsNULL("act_out")) );
 
-        TAirpsRow &airp_arv = (TAirpsRow&)base_tables.get("airps").get_row("code",RouteQry.FieldAsString("airp"));
+        const TAirpsRow &airp_arv = (const TAirpsRow&)base_tables.get("airps").get_row("code",RouteQry.FieldAsString("airp"));
         if (airp_arv.code_lat.empty()) throw Exception("airp_arv.code_lat empty (code=%s)",airp_arv.code.c_str());
         tz_region=AirpTZRegion(airp_arv.code);
         if (RouteQry.FieldIsNULL("scd_in")) throw Exception("scd_in empty (airp_arv=%s)",airp_arv.code.c_str());
         TDateTime scd_in_local = UTCToLocal(RouteQry.FieldAsDateTime("scd_in"),tz_region);
 
-        TAirpsRow &airp_cbp = (TAirpsRow&)base_tables.get("airps").get_row("code",iCBPAirp->second);
+        const TAirpsRow &airp_cbp = (const TAirpsRow&)base_tables.get("airps").get_row("code",iCBPAirp->second);
         if (airp_cbp.code_lat.empty()) throw Exception("airp_cbp.code_lat empty (code=%s)",airp_cbp.code.c_str());
 
         for(;!ApisSetsQry.Eof;ApisSetsQry.Next())
@@ -395,8 +395,8 @@ bool create_apis_file(int point_id, const string& task_name)
           if (fmt=="TXT_EE")
           {
             if (airline.city.empty()) throw Exception("airline.city empty (code=%s)",airline.code.c_str());
-            TCitiesRow &airlineCityRow = (TCitiesRow&)base_tables.get("cities").get_row("code",airline.city);
-            TCountriesRow &airlineCountryRow = (TCountriesRow&)base_tables.get("countries").get_row("code",airlineCityRow.country);
+            const TCitiesRow &airlineCityRow = (const TCitiesRow&)base_tables.get("cities").get_row("code",airline.city);
+            const TCountriesRow &airlineCountryRow = (const TCountriesRow&)base_tables.get("countries").get_row("code",airlineCityRow.country);
               if (airlineCountryRow.code_iso.empty()) throw Exception("airlineCountryRow.code_iso empty (code=%s)",airlineCityRow.country.c_str());
               airline_country = airlineCountryRow.code_iso;
           };
@@ -512,7 +512,7 @@ bool create_apis_file(int point_id, const string& task_name)
                   RouteQry.SetVariable("point_id",r->point_id);
                   RouteQry.Execute();
                   if (RouteQry.Eof) continue;
-                  TAirpsRow &airp = (TAirpsRow&)base_tables.get("airps").get_row("code",RouteQry.FieldAsString("airp"));
+                  const TAirpsRow &airp = (const TAirpsRow&)base_tables.get("airps").get_row("code",RouteQry.FieldAsString("airp"));
                   if (airp.code_lat.empty()) throw EXCEPTIONS::Exception("airp.code_lat empty (code=%s)",airp.code.c_str());
                   std::string tz_region=AirpTZRegion(airp.code);
                   TDateTime scd_in_local,scd_out_local;
@@ -521,7 +521,7 @@ bool create_apis_file(int point_id, const string& task_name)
                     scd_out_local	= UTCToLocal(RouteQry.FieldAsDateTime("scd_out"),tz_region);
                   if (!RouteQry.FieldIsNULL("scd_in"))
                     scd_in_local = UTCToLocal(RouteQry.FieldAsDateTime("scd_in"),tz_region);
-                  TCountriesRow &countryRow = (TCountriesRow&)base_tables.get("countries").get_row("code",RouteQry.FieldAsString("country"));
+                  const TCountriesRow &countryRow = (const TCountriesRow&)base_tables.get("countries").get_row("code",RouteQry.FieldAsString("country"));
                   if (countryRow.code_iso.empty()) throw EXCEPTIONS::Exception("countryRow.code_iso empty (code=%s)",countryRow.code.c_str());
                   legs.push_back(FlightLeg(airp.code_lat, countryRow.code_iso, scd_in_local, scd_out_local));
                   legs.FillLocQualifier();
@@ -560,7 +560,7 @@ bool create_apis_file(int point_id, const string& task_name)
             {
               if (!PaxQry.FieldIsNULL("airp_final"))
               {
-                TAirpsRow &airp_final = (TAirpsRow&)base_tables.get("airps").get_row("code",PaxQry.FieldAsString("airp_final"));
+                const TAirpsRow &airp_final = (const TAirpsRow&)base_tables.get("airps").get_row("code",PaxQry.FieldAsString("airp_final"));
                 if (airp_final.code_lat.empty()) throw Exception("airp_final.code_lat empty (code=%s)",airp_final.code.c_str());
                 airp_final_lat=airp_final.code_lat;
               }
@@ -568,19 +568,19 @@ bool create_apis_file(int point_id, const string& task_name)
                 airp_final_lat=airp_arv.code_lat;
             };
 
-            const CheckIn::TPaxDocItem doc;
-            const CheckIn::TPaxDocoItem doco;
-            const CheckIn::TPaxDocaItem docaD, docaR, docaB;
-            LoadPaxDoc(pax_id, (CheckIn::TPaxDocItem&)doc);
-            bool doco_exists=LoadPaxDoco(pax_id, (CheckIn::TPaxDocoItem&)doco);
+            CheckIn::TPaxDocItem doc;
+            CheckIn::TPaxDocoItem doco;
+            CheckIn::TPaxDocaItem docaD, docaR, docaB;
+            LoadPaxDoc(pax_id, doc);
+            bool doco_exists=LoadPaxDoco(pax_id, doco);
             bool docaD_exists=false;
             bool docaR_exists=false;
             bool docaB_exists=false;
             if (fmt=="EDI_US" || fmt=="EDI_USBACK" || fmt=="XML_TR" || fmt=="CSV_AE" || fmt=="CSV_TH")
             {
-              docaD_exists=LoadPaxDoca(pax_id, CheckIn::docaDestination, (CheckIn::TPaxDocaItem&)docaD);
-              docaR_exists=LoadPaxDoca(pax_id, CheckIn::docaResidence, (CheckIn::TPaxDocaItem&)docaR);
-              docaB_exists=LoadPaxDoca(pax_id, CheckIn::docaBirth, (CheckIn::TPaxDocaItem&)docaB);
+              docaD_exists=LoadPaxDoca(pax_id, CheckIn::docaDestination, docaD);
+              docaR_exists=LoadPaxDoca(pax_id, CheckIn::docaResidence, docaR);
+              docaB_exists=LoadPaxDoca(pax_id, CheckIn::docaBirth, docaB);
             };
 
             // OMIT INCOMPLETE APIS
@@ -675,7 +675,7 @@ bool create_apis_file(int point_id, const string& task_name)
             string doc_type;
             if (!doc.type.empty())
             {
-              TPaxDocTypesRow &doc_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",doc.type);
+              const TPaxDocTypesRow &doc_type_row = (const TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",doc.type);
               if (doc_type_row.code_lat.empty()) throw Exception("doc_type.code_lat empty (code=%s)",doc.type.c_str());
               doc_type=doc_type_row.code_lat;
 
@@ -756,12 +756,12 @@ bool create_apis_file(int point_id, const string& task_name)
               mktflt.getByPaxId(pax_id);
               if (!mktflt.empty()) 
               {
-                TAirlinesRow &mkt_airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code",mktflt.airline);
+                const TAirlinesRow &mkt_airline = (const TAirlinesRow&)base_tables.get("airlines").get_row("code",mktflt.airline);
                 if (mkt_airline.code_lat.empty()) throw Exception("mkt_airline.code_lat empty (code=%s)",mkt_airline.code.c_str());
                 std::string mkt_flt = IntToString(mktflt.flt_no);
                 if (!mktflt.suffix.empty()) 
                 {
-                  TTripSuffixesRow &mkt_suffix = (TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code",mktflt.suffix);
+                  const TTripSuffixesRow &mkt_suffix = (const TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code",mktflt.suffix);
                   if (mkt_suffix.code_lat.empty()) throw Exception("mkt_suffix.code_lat empty (code=%s)",mkt_suffix.code.c_str());
                   mkt_flt = mkt_flt + mkt_suffix.code_lat;
                 }
@@ -820,10 +820,9 @@ bool create_apis_file(int point_id, const string& task_name)
               if (status!=psCrew)
               {
                 //PNR
-                vector<TPnrAddrItem> pnrs;
-                GetPaxPnrAddr(pax_id,pnrs);
-                if (!pnrs.empty())
-                  paxInfo.setReservNum(convert_pnr_addr(pnrs.begin()->addr, 1));
+                string pnr_addr=TPnrAddrs().firstAddrByPaxId(pax_id, TPnrAddrInfo::AddrOnly);
+                if (!pnr_addr.empty())
+                  paxInfo.setReservNum(convert_pnr_addr(pnr_addr, 1));
               };
 
 
@@ -941,7 +940,7 @@ bool create_apis_file(int point_id, const string& task_name)
               string doco_type;
               if (!doco.type.empty())
               {
-                TPaxDocTypesRow &doco_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",doco.type);
+                const TPaxDocTypesRow &doco_type_row = (const TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",doco.type);
                 if (doco_type_row.code_lat.empty()) throw Exception("doco_type.code_lat empty (code=%s)",doco.type.c_str());
                 doco_type=doco_type_row.code_lat;
               };
@@ -1191,7 +1190,7 @@ bool create_apis_file(int point_id, const string& task_name)
                          << airp_dep.code_lat << ";" << DateTimeToStr(scd_out_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
                          << airp_arv.code_lat << ";" << DateTimeToStr(scd_in_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
                          << count << ";" << ENDL;
-                if (fmt=="CSV_DE")
+              if (fmt=="CSV_DE")
                 header << airline.code_lat << ";"
                          << airline.code_lat << setw(3) << setfill('0') << flt_no << ";"
                          << airp_dep.code_lat << ";" << DateTimeToStr(scd_out_local,"yymmddhhnn") << ";"

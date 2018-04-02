@@ -168,6 +168,8 @@ src/prn_tag_store.cc
 src/prn_tag_store.h
 src/qrys.cpp
 src/qrys.h
+src/rbd.cc
+src/rbd.h
 src/remarks.cc
 src/remarks.h
 src/request_dup.cc
@@ -288,6 +290,8 @@ src/tripinfo.h
 src/tscript_callbacks.cc
 src/typeb_utils.cc
 src/typeb_utils.h
+src/web_exchange.cc
+src/web_exchange.h
 src/web_main.cc
 src/web_main.h
 src/web_search.cc

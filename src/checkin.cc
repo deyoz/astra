@@ -52,6 +52,7 @@
 #include "comp_layers.h"
 #include "AirportControl.h"
 #include "pax_events.h"
+#include "rbd.h"
 #include "tlg/AgentWaitsForRemote.h"
 #include "tlg/tlg_parser.h"
 
@@ -6153,97 +6154,32 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         PaxQry.Execute();
         if (!PaxQry.Eof)
         {
-          Qry.Clear();
-          Qry.SQLText=
-            "SELECT MAX(DECODE(airline,NULL,0,4)+ "
-            "           DECODE(airp,NULL,0,2)) AS priority "
-            "FROM cls_grp "
-            "WHERE (airline IS NULL OR airline=:airline) AND "
-            "      (airp IS NULL OR airp=:airp) AND "
-            "      pr_del=0";
-          Qry.CreateVariable("airline",otString,fltInfo.airline);
-          Qry.CreateVariable("airp",otString,fltInfo.airp);
-          Qry.Execute();
-          if (Qry.Eof||Qry.FieldIsNULL("priority"))
-          {
-            ProgError(STDLOG,"Class group not found (airline=%s, airp=%s)",fltInfo.airline.c_str(),fltInfo.airp.c_str());
+          TFlightRbd rbds(fltInfo);
+          if (rbds.empty())
             throw UserException("MSG.CHECKIN.NOT_MADE_IN_ONE_CLASSES"); //WEB
 
-          };
-          int priority=Qry.FieldAsInteger("priority");
-
-
-          int class_grp=-1;
+          boost::optional<TSubclassGroup> subclass_grp=TSubclassGroup(0);
+          subclass_grp=boost::none;
           for(;!PaxQry.Eof;PaxQry.Next())
           {
-            if (!PaxQry.FieldIsNULL("subclass"))
-            {
-              Qry.Clear();
-              Qry.SQLText=
-                "SELECT cls_grp.id "
-                "FROM cls_grp,subcls_grp "
-                "WHERE cls_grp.id=subcls_grp.id AND "
-                "      (airline IS NULL OR airline=:airline) AND "
-                "      (airp IS NULL OR airp=:airp) AND "
-                "      DECODE(airline,NULL,0,4)+ "
-                "      DECODE(airp,NULL,0,2) = :priority AND "
-                "      subcls_grp.subclass=:subclass AND "
-                "      cls_grp.pr_del=0";
-              Qry.CreateVariable("airline",otString,fltInfo.airline);
-              Qry.CreateVariable("airp",otString,fltInfo.airp);
-              Qry.CreateVariable("priority",otInteger,priority);
-              Qry.CreateVariable("subclass",otString,PaxQry.FieldAsString("subclass"));
-              Qry.Execute();
-              if (!Qry.Eof)
-              {
-                if (class_grp==-1) class_grp=Qry.FieldAsInteger("id");
-                else
-                  if (class_grp!=Qry.FieldAsInteger("id"))
-                    throw UserException("MSG.CHECKIN.INPOSSIBLE_SUBCLASS_IN_GROUP");
-                Qry.Next();
-                if (!Qry.Eof)
-                  throw EXCEPTIONS::Exception("More than one class group found (airline=%s, airp=%s, subclass=%s)",
-                                              fltInfo.airline.c_str(),fltInfo.airp.c_str(),PaxQry.FieldAsString("subclass"));
-                continue;
-              };
-            };
+            boost::optional<TSubclassGroup> pax_subclass_grp=rbds.getSubclassGroup(PaxQry.FieldAsString("subclass"),
+                                                                                   PaxQry.FieldAsString("class"));
+            if (!pax_subclass_grp)
+              throw UserException("MSG.CHECKIN.NOT_MADE_IN_CLASS",
+                                  LParams()<<LParam("class",ElemIdToCodeNative(etClass,PaxQry.FieldAsString("class"))));
+            if (!subclass_grp)
+              subclass_grp=pax_subclass_grp;
+            else if (!(subclass_grp==pax_subclass_grp))
+              throw UserException("MSG.CHECKIN.INPOSSIBLE_SUBCLASS_IN_GROUP");
+          }
 
-            Qry.Clear();
-            Qry.SQLText=
-              "SELECT cls_grp.id "
-              "FROM cls_grp "
-              "WHERE (airline IS NULL OR airline=:airline) AND "
-              "      (airp IS NULL OR airp=:airp) AND "
-              "      DECODE(airline,NULL,0,4)+ "
-              "      DECODE(airp,NULL,0,2) = :priority AND "
-              "      class=:class AND pr_del=0";
-            Qry.CreateVariable("airline",otString,fltInfo.airline);
-            Qry.CreateVariable("airp",otString,fltInfo.airp);
-            Qry.CreateVariable("priority",otInteger,priority);
-            Qry.CreateVariable("class",otString,PaxQry.FieldAsString("class"));
-            Qry.Execute();
-            if (Qry.Eof)
-            {
-              if (!PaxQry.FieldIsNULL("subclass"))
-                throw UserException("MSG.CHECKIN.NOT_MADE_IN_SUBCLASS",
-                                    LParams()<<LParam("subclass",ElemIdToCodeNative(etSubcls,PaxQry.FieldAsString("subclass"))));
-              else
-                throw UserException("MSG.CHECKIN.NOT_MADE_IN_CLASS",
-                                    LParams()<<LParam("class",ElemIdToCodeNative(etClass,PaxQry.FieldAsString("class"))));
-            };
-            if (class_grp==-1) class_grp=Qry.FieldAsInteger("id");
-            else
-              if (class_grp!=Qry.FieldAsInteger("id"))
-                throw UserException("MSG.CHECKIN.INPOSSIBLE_SUBCLASS_IN_GROUP");
-            Qry.Next();
-            if (!Qry.Eof)
-              throw EXCEPTIONS::Exception("More than one class group found (airline=%s, airp=%s, class=%s)",
-                                          fltInfo.airline.c_str(),fltInfo.airp.c_str(),PaxQry.FieldAsString("class"));
-          };
+          if (!subclass_grp)
+            throw EXCEPTIONS::Exception("%s: !subclass_grp!!!", __FUNCTION__);
+
           Qry.Clear();
           Qry.SQLText="UPDATE pax_grp SET class_grp=:class_grp WHERE grp_id=:grp_id";
           Qry.CreateVariable("grp_id",otInteger,grp.id);
-          Qry.CreateVariable("class_grp",otInteger,class_grp);
+          Qry.CreateVariable("class_grp",otInteger,subclass_grp.get().value());
           Qry.Execute();
         };
         //вычисляем и записываем признак waitlist_alarm и brd_alarm и spec_service_alarm
@@ -8893,7 +8829,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
             xmlNodePtr crew_members = NodeAsNode("CREW_MEMBERS", crew_group);
             TWebPnrForSave pnr;
             pnr.status = psCrew;
-            pnr.paxFromReq.push_back(TWebPaxFromReq());
+            pnr.paxFromReq.push_back(TWebPaxFromReq(false));
             for(xmlNodePtr crew_member = crew_members->children; crew_member != NULL; crew_member = crew_member->next)
             {
                 if(NodeAsString("DUTY", crew_member, "") == string("PIC") && NodeAsInteger("ORDER", crew_member, ASTRA::NoExists) == 1)
@@ -9073,48 +9009,6 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
         throw;
     }
 }
-
-
-namespace CheckIn
-{
-
-void showError(const std::map<int, std::map<int, AstraLocale::LexemaData> > &segs)
-{
-  if (segs.empty()) throw EXCEPTIONS::Exception("CheckIn::showError: empty segs!");
-  XMLRequestCtxt *xmlRC = getXmlCtxt();
-  if (xmlRC->resDoc==NULL) return;
-  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  xmlNodePtr cmdNode = GetNode( "command", resNode );
-  if (cmdNode==NULL) cmdNode=NewTextChild( resNode, "command" );
-  resNode = ReplaceTextChild( cmdNode, "checkin_user_error" );
-  xmlNodePtr segsNode = NewTextChild(resNode, "segments");
-  for(std::map<int, std::map<int, AstraLocale::LexemaData> >::const_iterator s=segs.begin(); s!=segs.end(); s++)
-  {
-    xmlNodePtr segNode = NewTextChild(segsNode, "segment");
-    if (s->first!=NoExists)
-      NewTextChild(segNode, "point_id", s->first);
-    xmlNodePtr paxsNode=NewTextChild(segNode, "passengers");
-    for(std::map<int, AstraLocale::LexemaData>::const_iterator pax=s->second.begin(); pax!=s->second.end(); pax++)
-    {
-      string text, master_lexema_id;
-      getLexemaText( pax->second, text, master_lexema_id );
-      if (pax->first!=NoExists)
-      {
-        xmlNodePtr paxNode=NewTextChild(paxsNode, "pax");
-        NewTextChild(paxNode, "crs_pax_id", pax->first);
-        NewTextChild(paxNode, "error_code", master_lexema_id);
-        NewTextChild(paxNode, "error_message", text);
-      }
-      else
-      {
-        NewTextChild(segNode, "error_code", master_lexema_id);
-        NewTextChild(segNode, "error_message", text);
-      };
-    };
-  };
-};
-
-} //namespace CheckIn
 
 void CheckInInterface::GetFQTTierLevel(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {

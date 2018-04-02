@@ -175,7 +175,9 @@ class TPaxDocCompoundType
   }
 
   const TPaxDocCompoundType& toXML(xmlNodePtr node) const;
+  const TPaxDocCompoundType& toWebXML(xmlNodePtr node) const;
   TPaxDocCompoundType& fromXML(xmlNodePtr node);
+  TPaxDocCompoundType& fromWebXML(xmlNodePtr node);
   const TPaxDocCompoundType& toDB(TQuery &Qry) const;
   TPaxDocCompoundType& fromDB(TQuery &Qry);
 };
@@ -258,7 +260,9 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocCompo
              scanned_attrs == item.scanned_attrs;
     }
     const TPaxDocItem& toXML(xmlNodePtr node) const;
+    const TPaxDocItem& toWebXML(xmlNodePtr node) const;
     TPaxDocItem& fromXML(xmlNodePtr node);
+    TPaxDocItem& fromWebXML(xmlNodePtr node);
     const TPaxDocItem& toDB(TQuery &Qry) const;
     TPaxDocItem& fromDB(TQuery &Qry);
 
@@ -335,7 +339,9 @@ class TPaxDocoItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocComp
              scanned_attrs == item.scanned_attrs;
     }
     const TPaxDocoItem& toXML(xmlNodePtr node) const;
+    const TPaxDocoItem& toWebXML(xmlNodePtr node) const;
     TPaxDocoItem& fromXML(xmlNodePtr node);
+    TPaxDocoItem& fromWebXML(xmlNodePtr node);
     const TPaxDocoItem& toDB(TQuery &Qry) const;
     TPaxDocoItem& fromDB(TQuery &Qry);
 

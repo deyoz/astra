@@ -332,6 +332,7 @@ class TAPICheckInfoList : private std::map<TAPIType, TAPICheckInfo>
         i->second.clear();
     }
     void toXML(xmlNodePtr node) const;
+    void toWebXML(xmlNodePtr node) const;
     const TAPICheckInfo& get(TAPIType apiType) const;
     TAPICheckInfo& get(TAPIType apiType);
     void set_is_inter(bool _is_inter)
@@ -454,8 +455,6 @@ class TRouteAPICheckInfo : private std::map<std::string/*airp_arv*/, TCompleteAP
 
     boost::optional<const TCompleteAPICheckInfo&> get(const std::string &airp_arv) const;
 };
-
-std::string ElemToPaxDocCountryId(const std::string &elem, TElemFmt &fmt);
 
 CheckIn::TPaxDocItem NormalizeDoc(const CheckIn::TPaxDocItem &doc);
 CheckIn::TPaxDocoItem NormalizeDoco(const CheckIn::TPaxDocoItem &doc);

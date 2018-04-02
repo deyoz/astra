@@ -536,22 +536,81 @@ bool GetSelfCkinSets( const TTripSetType setType,
                       const TTripInfo &info,
                       const ASTRA::TClientType client_type );
 
-class TPnrAddrItem
+class TPnrAddrInfo
 {
   public:
-    char airline[4];
-    char addr[21];
-    TPnrAddrItem()
+    enum Format { AddrOnly,
+                  AddrAndAirline };
+
+    std::string airline, addr;
+
+    TPnrAddrInfo() {}
+
+    TPnrAddrInfo(const std::string& _airline,
+                 const std::string& _addr) :
+      airline(_airline), addr(_addr) {}
+
+    void clear()
     {
-      *airline=0;
-      *addr=0;
-    };
+      airline.clear();
+      addr.clear();
+    }
+
+    bool operator == (const TPnrAddrInfo &item) const
+    {
+      return airline==item.airline &&
+             convert_pnr_addr(addr, true)==convert_pnr_addr(item.addr, true);
+    }
+
+    std::string str(TPnrAddrInfo::Format format) const
+    {
+      std::ostringstream s;
+      s << addr;
+      if (format==AddrAndAirline)
+        s << "/" << airline;
+      return s.str();
+    }
+
+    const TPnrAddrInfo& toXML(xmlNodePtr addrParentNode) const;
 };
 
-std::string GetPnrAddr(int pnr_id, std::vector<TPnrAddrItem> &pnrs);
-std::string GetPnrAddr(int pnr_id, std::vector<TPnrAddrItem> &pnrs, std::string &airline);
-std::string GetPaxPnrAddr(int pax_id, std::vector<TPnrAddrItem> &pnrs);
-std::string GetPaxPnrAddr(int pax_id, std::vector<TPnrAddrItem> &pnrs, std::string &airline);
+class TPnrAddrs : public std::vector<TPnrAddrInfo>
+{
+  public:
+    std::string getByPnrId(int pnr_id, std::string &airline);
+    std::string getByPaxId(int pax_id, std::string &airline);
+
+    std::string getByPnrId(int pnr_id);
+    std::string getByPaxId(int pax_id);
+
+    void getByPnrIdFast(int pnr_id);
+    void getByPaxIdFast(int pax_id);
+
+    std::string firstAddrByPnrId(int pnr_id, TPnrAddrInfo::Format format)
+    {
+      getByPnrId(pnr_id);
+      return empty()?"":front().str(format);
+    }
+    std::string firstAddrByPaxId(int pax_id, TPnrAddrInfo::Format format)
+    {
+      getByPaxId(pax_id);
+      return empty()?"":front().str(format);
+    }
+    bool equalPnrExists(const TPnrAddrs& pnrAddrs) const
+    {
+      for(const TPnrAddrInfo& addr : pnrAddrs)
+        if (find(begin(), end(), addr)!=end()) return true;
+      return false;
+    }
+    const TPnrAddrs &toXML(xmlNodePtr addrsParentNode) const;
+    const std::string traceStr() const
+    {
+      std::ostringstream s;
+      for(const TPnrAddrInfo& addr : *this)
+        s << addr.str(TPnrAddrInfo::AddrAndAirline) << " ";
+      return s.str();
+    }
+};
 
 //процедура перевода отдельного дня (без месяца и года) в полноценный TDateTime
 //ищет ближайшую или совпадающую дату по отношению к base_date

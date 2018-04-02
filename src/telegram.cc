@@ -910,7 +910,7 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   {
     node = NewTextChild( tlgsNode, "tlg" );
 
-    TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",iv->tlg_type));
+    const TTypeBTypesRow& row = (const TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",iv->tlg_type));
     string basic_type = row.basic_type;
 
     bool is_first_part = iv == tlgs.begin() or (iv - 1)->id != iv->id;
@@ -1188,7 +1188,7 @@ void TelegramInterface::SendTlg(int tlg_id, bool forwarded)
     string tlg_basic_type;
     try
     {
-      const TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg.tlg_type));
+      const TTypeBTypesRow& row = (const TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg.tlg_type));
       tlg_basic_type=row.basic_type;
     }
     catch(EBaseTableError)
@@ -1677,8 +1677,7 @@ void LoadContent(int grp_id, TTlgContent& con)
       pax.name=Qry.FieldAsString("name");
       pax.status=Qry.FieldAsString("status");
       pax.seat_no.add_seats(pax_id, complayers);
-      vector<TPnrAddrItem> pnrs;
-      pax.pnr_addr=GetPaxPnrAddr(pax_id,pnrs);
+      pax.pnr_addr=TPnrAddrs().getByPaxId(pax_id);
       pax.bag_pool_num=Qry.FieldAsInteger("bag_pool_num");
       con.pax[pax.bag_pool_num]=pax;
     };

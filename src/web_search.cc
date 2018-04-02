@@ -24,11 +24,11 @@ using namespace AstraLocale;
 namespace WebSearch
 {
 
-TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
+TPNRFilter& TPNRFilter::fromXML(xmlNodePtr fltParentNode, xmlNodePtr paxParentNode)
 {
   clear();
-  if (node==NULL) return *this;
-  xmlNodePtr node2=node->children;
+  if (fltParentNode==nullptr || paxParentNode==nullptr) return *this;
+  xmlNodePtr node2=fltParentNode->children;
   string str;
 
   for(int pass=0; pass<2; pass++)
@@ -155,6 +155,8 @@ TPNRFilter& TPNRFilter::fromXML(xmlNodePtr node)
     throw UserException("MSG.NOT_SET_RANGE");
   };
 
+  node2=paxParentNode->children;
+
   surname=NodeAsStringFast("surname", node2, "");
   TrimString(surname);
   if (surname.empty())
@@ -213,12 +215,12 @@ string TPNRFilter::getSurnameSQLFilter(const string &field_name, TQuery &Qry) co
   return sql.str();
 };
 
-bool TPNRFilter::isEqualPnrAddr(const vector<TPNRAddrInfo> &pnr_addrs) const
+bool TPNRFilter::isEqualPnrAddr(const TPnrAddrs &pnr_addrs) const
 {
   if (!pnr_addr_normal.empty())
   {
     //найдем есть ли среди адресов искомый
-    vector<TPNRAddrInfo>::const_iterator a=pnr_addrs.begin();
+    TPnrAddrs::const_iterator a=pnr_addrs.begin();
     for(; a!=pnr_addrs.end(); ++a)
       if (convert_pnr_addr(a->addr, true)==pnr_addr_normal) break;
     if (a==pnr_addrs.end()) return false;
@@ -341,7 +343,9 @@ TPNRFilter& TPNRFilter::testPaxFromDB()
     if (!isEqualName(pax.name)) continue;
     if (!isEqualTkn(pax.ticket_no)) continue;
     if (!isEqualDoc(pax.document)) continue;
-    if (!isEqualPnrAddr(vector<TPNRAddrInfo>(1, pax.pnr_addr))) continue;
+    TPnrAddrs pnrAddrs;
+    pnrAddrs.emplace_back(pax.pnr_addr);
+    if (!isEqualPnrAddr(pnrAddrs)) continue;
     if (!isEqualRegNo(pax.reg_no)) continue;
     test_paxs.push_back(pax);
   };
@@ -514,12 +518,51 @@ TPNRFilters& TPNRFilters::fromBCBP_M(const std::string &bcbp)
   return *this;
 };
 
-TPNRFilters& TPNRFilters::fromXML(xmlNodePtr node)
+TPNRFilters& TPNRFilters::fromXML(xmlNodePtr fltParentNode, xmlNodePtr paxParentNode)
 {
   clear();
-  segs.push_back(TPNRFilter().fromXML(node));
+  if (fltParentNode==nullptr || paxParentNode==nullptr) return *this;
+  segs.push_back(TPNRFilter().fromXML(fltParentNode, paxParentNode));
   return *this;
 };
+
+TMultiPNRFilters& TMultiPNRFilters::fromXML(xmlNodePtr fltParentNode, xmlNodePtr paxParentNode)
+{
+  clear();
+  if (fltParentNode==nullptr || paxParentNode==nullptr) return *this;
+  if (string((const char*)paxParentNode->name)=="group")
+  {
+    group_id=NodeAsInteger("@id", paxParentNode);
+    is_main=NodeAsBoolean("@main", paxParentNode, false);
+  }
+
+  xmlNodePtr scanCodeNode=GetNode("scan_code", paxParentNode);
+  if (scanCodeNode!=NULL)
+    TPNRFilters::fromBCBP_M(NodeAsString(scanCodeNode));
+  else
+    TPNRFilters::fromXML(fltParentNode, paxParentNode);
+
+  return *this;
+}
+
+TMultiPNRFiltersList& TMultiPNRFiltersList::fromXML(xmlNodePtr reqNode)
+{
+  clear();
+
+  if (reqNode==nullptr) return *this;
+
+  xmlNodePtr fltParentNode=reqNode;
+
+  if (trueMultiRequest(reqNode))
+  {
+    for(xmlNodePtr grpNode=NodeAsNode("groups/group", reqNode); grpNode!=nullptr; grpNode=grpNode->next)
+      if (string((const char*)grpNode->name)=="group")
+        push_back(WebSearch::TMultiPNRFilters().fromXML(fltParentNode, grpNode));
+  }
+  else push_back(WebSearch::TMultiPNRFilters().fromXML(fltParentNode, fltParentNode));
+
+  return *this;
+}
 
 bool TDestInfo::fromDB(int point_id, bool pr_throw)
 {
@@ -560,7 +603,7 @@ bool TDestInfo::fromDB(int point_id, bool pr_throw)
   return true;
 };
 
-void TDestInfo::toXML(xmlNodePtr node, bool old_style) const
+void TDestInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
 {
 /*
   <dest>
@@ -574,7 +617,7 @@ void TDestInfo::toXML(xmlNodePtr node, bool old_style) const
   </dest>
 */
   if (node==NULL) return;
-  if (!old_style)
+  if (xmlStyle==xmlSearchPNRs)
   {
     point_arv==NoExists?NewTextChild(node, "point_arv"):
                         NewTextChild(node, "point_arv", point_arv);
@@ -765,7 +808,8 @@ bool TFlightInfo::fromDBadditional(bool first_segment, bool pr_throw)
     if (!Qry.Eof)
       pr_paid_ckin = Qry.FieldAsInteger("pr_paid_ckin")!=0;
     free_seating=SALONS2::isFreeSeating(point_dep);
-    have_to_select_seats = GetSelfCkinSets(tsRegWithSeatChoice, oper, reqInfo->client_type);
+    if (reqInfo->isSelfCkinClientType())
+      have_to_select_seats = GetSelfCkinSets(tsRegWithSeatChoice, oper, reqInfo->client_type);
   }
   catch(UserException &E)
   {
@@ -807,6 +851,14 @@ void TFlightInfo::add(const TDestInfo &dest)
   dests.insert(dest);
 };
 
+const TDestInfo& TFlightInfo::getDestInfo(int point_arv) const
+{
+  set<WebSearch::TDestInfo>::const_iterator iDest=dests.find(WebSearch::TDestInfo(point_arv));
+  if (iDest==dests.end())
+    throw EXCEPTIONS::Exception("TFlightInfo::getDestInfo: dest not found (point_arv=%d)", point_arv);
+  return *iDest;
+}
+
 boost::optional<TStage> TFlightInfo::stage() const
 {
   boost::optional<TStage> result;
@@ -827,7 +879,18 @@ boost::optional<TStage> TFlightInfo::stage() const
   return result;
 };
 
-void TFlightInfo::toXML(xmlNodePtr node, bool old_style) const
+void TFlightInfo::toXMLsimple(xmlNodePtr node, XMLStyle xmlStyle) const
+{
+  if (node==NULL) return;
+  point_dep==NoExists?NewTextChild(node, xmlStyle==xmlSearchPNRs?"point_dep":"point_id"):
+                      NewTextChild(node, xmlStyle==xmlSearchPNRs?"point_dep":"point_id", point_dep);
+  NewTextChild(node, "airline", oper.airline);
+  oper.flt_no==NoExists?NewTextChild(node, "flt_no"):
+                        NewTextChild(node, "flt_no", oper.flt_no);
+  NewTextChild(node, "suffix", oper.suffix);
+}
+
+void TFlightInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
 {
 /*
   <point_dep> ид. пункта вылета = ид. рейса
@@ -885,12 +948,7 @@ void TFlightInfo::toXML(xmlNodePtr node, bool old_style) const
   </mark_flights>
 */
   if (node==NULL) return;
-  point_dep==NoExists?NewTextChild(node, old_style?"point_id":"point_dep"):
-                      NewTextChild(node, old_style?"point_id":"point_dep", point_dep);
-  NewTextChild(node, "airline", oper.airline);
-  oper.flt_no==NoExists?NewTextChild(node, "flt_no"):
-                        NewTextChild(node, "flt_no", oper.flt_no);
-  NewTextChild(node, "suffix", oper.suffix);
+  toXMLsimple(node, xmlStyle);
   NewTextChild(node, "craft", craft);
   NewTextChild(node, "scd_out", scd_out_local==NoExists?"":DateTimeToStr(scd_out_local, ServerFormatDateTimeAsString));
   NewTextChild(node, "est_out", est_out_local==NoExists?"":DateTimeToStr(est_out_local, ServerFormatDateTimeAsString));
@@ -899,11 +957,11 @@ void TFlightInfo::toXML(xmlNodePtr node, bool old_style) const
   NewTextChild(node, "city_dep", city_dep);
   dep_utc_offset==NoExists?NewTextChild(node, "dep_utc_offset"):
                            NewTextChild(node, "dep_utc_offset", dep_utc_offset);
-  if (!old_style)
+  if (xmlStyle==xmlSearchPNRs)
   {
     xmlNodePtr destsNode=NewTextChild(node, "dests");
     for(set<TDestInfo>::const_iterator i=dests.begin();i!=dests.end();++i)
-      i->toXML(NewTextChild(destsNode, "dest"));
+      i->toXML(NewTextChild(destsNode, "dest"), xmlStyle);
   };
 
   if (boost::optional<TStage> opt_stage=stage())
@@ -1075,18 +1133,7 @@ bool TPNRSegInfo::fromDB(int point_id, const TTripRoute &route, TQuery &Qry)
   cls=Qry.FieldAsString("class");
   subcls=Qry.FieldAsString("subclass");
 
-  TQuery AddrQry(&OraSession);
-  AddrQry.Clear();
-  AddrQry.SQLText="SELECT airline, addr FROM pnr_addrs WHERE pnr_id=:pnr_id";
-  AddrQry.CreateVariable( "pnr_id", otInteger, pnr_id );
-  AddrQry.Execute();
-  for(;!AddrQry.Eof;AddrQry.Next())
-  {
-    TPNRAddrInfo pnr_addr;
-    pnr_addr.airline=AddrQry.FieldAsString("airline");
-    pnr_addr.addr=AddrQry.FieldAsString("addr");
-    pnr_addrs.push_back(pnr_addr);
-  };
+  pnr_addrs.getByPnrIdFast(pnr_id);
 
   mktFlight.getByPnrId(pnr_id);
 
@@ -1098,14 +1145,7 @@ bool TPNRSegInfo::filterFromDB(const TPNRFilter &filter)
   return filter.isEqualPnrAddr(pnr_addrs);
 };
 
-bool TPNRSegInfo::filterFromDB(const std::vector<TPNRAddrInfo> &filter)
-{
-  for(vector<TPNRAddrInfo>::const_iterator i=filter.begin(); i!=filter.end(); ++i)
-    if (find(pnr_addrs.begin(), pnr_addrs.end(), *i)!=pnr_addrs.end()) return true;
-  return false;
-};
-
-void TPNRSegInfo::toXML(xmlNodePtr node, bool old_style) const
+void TPNRSegInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
 {
 /*
   <point_dep>   ид пункта вылета из секции oper_flights/flight
@@ -1121,32 +1161,48 @@ void TPNRSegInfo::toXML(xmlNodePtr node, bool old_style) const
   </pnr_addrs>
 */
   if (node==NULL) return;
-  if (!old_style)
+  if (xmlStyle==xmlSearchPNRs)
   {
     point_dep==NoExists?NewTextChild(node, "point_dep"):
                         NewTextChild(node, "point_dep", point_dep);
     point_arv==NoExists?NewTextChild(node, "point_arv"):
                         NewTextChild(node, "point_arv", point_arv);
   };
-  pnr_id==NoExists?NewTextChild(node, "pnr_id"):
-                   NewTextChild(node, "pnr_id", pnr_id);
-  NewTextChild(node, "subclass", subcls);
-  xmlNodePtr addrsNode=NewTextChild(node, "pnr_addrs");
-  for(vector<TPNRAddrInfo>::const_iterator i=pnr_addrs.begin(); i!=pnr_addrs.end(); ++i)
+
+  if (xmlStyle!=xmlSearchFltMulti)
   {
-    xmlNodePtr addrNode = NewTextChild(addrsNode, "pnr_addr");
-    NewTextChild(addrNode, "airline", i->airline);
-    NewTextChild(addrNode, "addr", i->addr);
+    pnr_id==NoExists?NewTextChild(node, "pnr_id"):
+                     NewTextChild(node, "pnr_id", pnr_id);
+    NewTextChild(node, "subclass", subcls);
+    pnr_addrs.toXML(node);
+  }
+
+  xmlNodePtr fltNode=GetNode("pnr_mark_flight", node);
+  if (fltNode==nullptr)
+  {
+    fltNode=NewTextChild(node, "pnr_mark_flight");
+    if (!mktFlight.empty())
+    {
+      NewTextChild( fltNode, "airline", mktFlight.airline );
+      NewTextChild( fltNode, "flt_no", mktFlight.flt_no );
+      NewTextChild( fltNode, "suffix", mktFlight.suffix );
+    };
   };
 
-  xmlNodePtr fltNode=NewTextChild(node, "pnr_mark_flight");
-  if (!mktFlight.empty())
+  if (xmlStyle==xmlSearchFltMulti)
   {
-    NewTextChild( fltNode, "airline", mktFlight.airline );
-    NewTextChild( fltNode, "flt_no", mktFlight.flt_no );
-    NewTextChild( fltNode, "suffix", mktFlight.suffix );
+    xmlNodePtr idsNode=GetNode("crs_pnr_ids", node);
+    if (idsNode!=nullptr)
+    {
+      set<int> crs_pnr_ids;
+      for(xmlNodePtr idNode=idsNode->children; idNode!=nullptr; idNode=idNode->next)
+        if (string((const char*)idNode->name)=="crs_pnr_id") crs_pnr_ids.insert(NodeAsInteger(idNode));
+
+      if (crs_pnr_ids.insert(pnr_id).second)
+        NewTextChild(idsNode, "crs_pnr_id", pnr_id);
+    }
   };
-};
+}
 
 bool TPaxInfo::fromTestPax(const TTestPaxInfo &pax)
 {
@@ -1291,7 +1347,7 @@ void TPNRInfo::add(const TPaxInfo &pax)
   paxs.insert(pax);
 };
 
-void TPNRInfo::toXML(xmlNodePtr node, bool old_style) const
+void TPNRInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
 {
 /*
   <pnr>
@@ -1312,15 +1368,37 @@ void TPNRInfo::toXML(xmlNodePtr node, bool old_style) const
 */
 
   if (node==NULL) return;
-  if (!old_style)
+  if (xmlStyle==xmlSearchPNRs)
   {
     xmlNodePtr segsNode=NewTextChild(node, "segments");
     for(map< int/*num*/, TPNRSegInfo >::const_iterator i=segs.begin(); i!=segs.end(); ++i)
-      i->second.toXML(NewTextChild(segsNode, "segment"));
+    {
+      xmlNodePtr segNode=NewTextChild(segsNode, "segment");
+      i->second.toXML(segNode, xmlStyle);
+    }
   };
-  bag_norm==NoExists?NewTextChild(node, "bag_norm"):
-                     NewTextChild(node, "bag_norm", bag_norm);
-  if (!old_style)
+
+  if (xmlStyle!=xmlSearchFltMulti)
+  {
+    bag_norm==NoExists?NewTextChild(node, "bag_norm"):
+                       NewTextChild(node, "bag_norm", bag_norm);
+  }
+  else
+  {
+    xmlNodePtr idsNode=GetNode("crs_pax_ids", node);
+    if (idsNode!=nullptr)
+    {
+      set<int> crs_pax_ids;
+      for(xmlNodePtr idNode=idsNode->children; idNode!=nullptr; idNode=idNode->next)
+        if (string((const char*)idNode->name)=="crs_pax_id") crs_pax_ids.insert(NodeAsInteger(idNode));
+
+      for(const TPaxInfo& pax : paxs)
+        if (crs_pax_ids.insert(pax.pax_id).second)
+          NewTextChild(idsNode, "crs_pax_id", pax.pax_id);
+    };
+  }
+
+  if (xmlStyle==xmlSearchPNRs)
   {
     xmlNodePtr paxsNode=NewTextChild(node, "passengers");
     for(set<TPaxInfo>::const_iterator i=paxs.begin(); i!=paxs.end(); ++i)
@@ -1394,7 +1472,53 @@ bool TPNRs::add(const TFlightInfo &flt, const TPNRSegInfo &seg, const TPaxInfo &
   return true;
 };
 
-void TPNRs::toXML(xmlNodePtr node) const
+const TFlightInfo& TPNRs::getFlightInfo(int point_dep) const
+{
+  set<WebSearch::TFlightInfo>::const_iterator iFlt=flights.find(WebSearch::TFlightInfo(point_dep));
+  if (iFlt==flights.end())
+    throw EXCEPTIONS::Exception("TPNRs::getFlightInfo: flight not found (point_dep=%d)", point_dep);
+  return *iFlt;
+}
+
+const TPNRInfo& TPNRs::getPNRInfo(int pnr_id) const
+{
+  map< int/*pnr_id*/, TPNRInfo >::const_iterator iPnr=pnrs.find(pnr_id);
+  if (iPnr==pnrs.end())
+    throw EXCEPTIONS::Exception("TPNRs::getPNRInfo: pnr not found (pnr_id=%d)", pnr_id);
+  return iPnr->second;
+}
+
+int TPNRs::calcStagePriority(int pnr_id) const
+{
+  int priority=5;
+  const auto& segs=getPNRInfo(pnr_id).segs;
+  if (segs.empty()) return priority;
+  if (boost::optional<TStage> opt_stage=getFlightInfo(segs.begin()->second.point_dep).stage())
+  {
+    switch ( opt_stage.get() )
+    {
+      case sNoActive:
+        priority=2;
+        break;
+      case sOpenWEBCheckIn:
+      case sOpenKIOSKCheckIn:
+        priority=1;
+        break;
+      case sCloseWEBCheckIn:
+      case sCloseKIOSKCheckIn:
+        priority=3;
+        break;
+      case sTakeoff:
+        priority=4;
+        break;
+      default:
+        break;
+    }
+  }
+  return priority;
+}
+
+void TPNRs::toXML(xmlNodePtr node, bool is_primary, XMLStyle xmlStyle) const
 {
 /*
   секция оперирующих рейсов:
@@ -1415,13 +1539,245 @@ void TPNRs::toXML(xmlNodePtr node) const
   if (node==NULL) return;
   if (flights.empty() && pnrs.empty()) return;
 
-  xmlNodePtr fltsNode=NewTextChild(node, "oper_flights");
-  for(set<TFlightInfo>::const_iterator i=flights.begin(); i!=flights.end(); ++i)
-    i->toXML(NewTextChild(fltsNode, "flight"));
-  xmlNodePtr pnrsNode=NewTextChild(node, "pnrs");
-  for(map< int/*pnr_id*/, TPNRInfo >::const_iterator i=pnrs.begin(); i!=pnrs.end(); ++i)
-    i->second.toXML(NewTextChild(pnrsNode, "pnr"));
-};
+  if (xmlStyle==xmlSearchPNRs)
+  {
+    xmlNodePtr fltsNode=NewTextChild(node, "oper_flights");
+    for(set<TFlightInfo>::const_iterator i=flights.begin(); i!=flights.end(); ++i)
+      i->toXML(NewTextChild(fltsNode, "flight"), xmlStyle);
+    xmlNodePtr pnrsNode=NewTextChild(node, "pnrs");
+    for(map< int/*pnr_id*/, TPNRInfo >::const_iterator i=pnrs.begin(); i!=pnrs.end(); ++i)
+      i->second.toXML(NewTextChild(pnrsNode, "pnr"), xmlStyle);
+  }
+  else
+  {
+    if (pnrs.size()!=1) return;
+    int pnr_id=pnrs.begin()->first;
+    const TPNRInfo& pnrInfo=getPNRInfo(pnr_id);
+
+    xmlNodePtr segsNode=GetNode("segments", node);
+    if (is_primary)
+    {
+      if (segsNode!=nullptr)
+        throw EXCEPTIONS::Exception("TPNRs::toXML: segsNode!=nullptr!");
+      xmlNodePtr segsNode=NewTextChild(node, "segments");
+      for(map< int/*num*/, TPNRSegInfo >::const_iterator iSeg=pnrInfo.segs.begin(); iSeg!=pnrInfo.segs.end(); ++iSeg)
+      {
+        const TPNRSegInfo& pnrSegInfo=iSeg->second;
+
+        xmlNodePtr segNode=NewTextChild(segsNode, "segment");
+        getFlightInfo(pnrSegInfo.point_dep).toXML(segNode, xmlStyle);
+        getFlightInfo(pnrSegInfo.point_dep).getDestInfo(pnrSegInfo.point_arv).toXML(segNode, xmlStyle);
+
+        if (xmlStyle==xmlSearchFltMulti)
+        {
+          if (iSeg==pnrInfo.segs.begin())
+            NewTextChild(segNode, "crs_pax_ids");
+          else
+            NewTextChild(segNode, "crs_pnr_ids");
+        }
+
+        pnrSegInfo.toXML(segNode, xmlStyle);
+        pnrInfo.toXML(segNode, xmlStyle);
+      }
+    }
+    else
+    {
+      if (segsNode!=nullptr)
+      {
+        map< int/*num*/, TPNRSegInfo >::const_iterator iSeg=pnrInfo.segs.begin();
+        for(xmlNodePtr segNode=segsNode->children; segNode!=nullptr && iSeg!=pnrInfo.segs.end(); segNode=segNode->next, ++iSeg)
+        {
+          const TPNRSegInfo& pnrSegInfo=iSeg->second;
+
+          pnrSegInfo.toXML(segNode, xmlStyle);
+          pnrInfo.toXML(segNode, xmlStyle);
+        }
+      }
+    }
+  }
+}
+
+void TMultiPNRs::toXML(xmlNodePtr segsParentNode, xmlNodePtr grpsParentNode, bool is_primary, XMLStyle xmlStyle) const
+{
+  if (segsParentNode==nullptr || grpsParentNode==nullptr) return;
+
+  if (errors.empty())
+    TPNRs::toXML(segsParentNode, is_primary, xmlStyle);
+
+  if (!errors.empty() || !warnings.empty())
+  {
+    for(int pass=0; pass<2; pass++)
+    {
+      if (!(is_primary && !errors.empty()) && pass==0) continue;
+      xmlNodePtr grpNode=grpsParentNode;
+      if (group_id && pass!=0)
+      {
+        xmlNodePtr grpsNode=GetNode("groups", grpsParentNode);
+        if (grpsNode==nullptr)
+          grpsNode=NewTextChild(grpsParentNode, "groups");
+        grpNode=NewTextChild(grpsNode, "group");
+        SetProp(grpNode, "id", group_id.get());
+      };
+
+      string text, master_lexema_id;
+      if (!errors.empty())
+      {
+        getLexemaText( errors.front(), text, master_lexema_id );
+        ReplaceTextChild(grpNode, "error_code", master_lexema_id);
+        ReplaceTextChild(grpNode, "error_message", text);
+      }
+      else if (!warnings.empty())
+      {
+        getLexemaText( warnings.front(), text, master_lexema_id );
+        ReplaceTextChild(grpNode, "warning_code", master_lexema_id);
+        ReplaceTextChild(grpNode, "warning_message", text);
+      }
+    }
+  }
+}
+
+void TMultiPNRsList::toXML(xmlNodePtr resNode) const
+{
+  if (primary.empty())
+    throw EXCEPTIONS::Exception("TMultiPNRsList::toXML: primary.empty()!");
+  const TMultiPNRs& primaryPNRs=primary.front();
+
+  xmlNodePtr segsParentNode=resNode;
+  xmlNodePtr grpsParentNode=resNode;
+
+  if (trueMultiResponse(resNode))
+  {
+    primaryPNRs.toXML(segsParentNode, grpsParentNode, true, xmlSearchFltMulti);
+    for(const TMultiPNRs& secondaryPNRs : secondary)
+      secondaryPNRs.toXML(segsParentNode, grpsParentNode, false, xmlSearchFltMulti);
+  }
+  else
+    primaryPNRs.toXML(segsParentNode, grpsParentNode, true, xmlSearchFlt);
+}
+
+void TMultiPNRsList::checkGroups()
+{
+  if (primary.empty() && secondary.size()==1)
+  {
+    primary.emplace_back(secondary.front());
+    secondary.pop_front();
+  }
+
+  if (primary.empty())
+    throw EXCEPTIONS::Exception("%s: main group not defined", __FUNCTION__);
+
+  if (primary.size()>1)
+    throw EXCEPTIONS::Exception("%s: more than one main group found", __FUNCTION__);
+
+  //проверим на уникальность group_id
+  set<int> group_ids;
+  for(int pass=0; pass<2; pass++)
+    for(TMultiPNRs& multiPNRs : (pass==0?primary:secondary))
+      if (multiPNRs.group_id && !group_ids.insert(multiPNRs.group_id.get()).second)
+        throw EXCEPTIONS::Exception("%s: duplicate group id=%d", __FUNCTION__, multiPNRs.group_id.get());
+}
+
+bool TPNRSegInfo::isJointCheckInPossible(const TPNRSegInfo& seg1,
+                                         const TPNRSegInfo& seg2,
+                                         const TFlightRbd& rbds,
+                                         std::list<AstraLocale::LexemaData>& errors)
+{
+  errors.clear();
+  if (seg1.point_dep!=seg2.point_dep ||
+      seg1.point_arv!=seg2.point_arv)
+    errors.emplace_back("MSG.INCOMPATIBLE_SEGMENTS");
+  if (seg1.cls!=seg2.cls)
+    errors.emplace_back("MSG.DIFFERENT_CLASS");
+  if (!(seg1.mktFlight==seg2.mktFlight))
+    errors.emplace_back("MSG.DIFFERENT_MARK_FLIGHT");
+  boost::optional<TSubclassGroup> subclass_grp1=rbds.getSubclassGroup(seg1.subcls, seg1.cls);
+  boost::optional<TSubclassGroup> subclass_grp2=rbds.getSubclassGroup(seg1.subcls, seg1.cls);
+  if (subclass_grp1!=subclass_grp2)
+    errors.emplace_back("MSG.INCOMPATIBLE_FARE_CLASS");
+
+  return errors.empty();
+}
+
+void TMultiPNRs::truncateSegments(int numOfSegs)
+{
+  if (pnrs.empty()) return;
+  auto& segs=pnrs.begin()->second.segs;
+  auto s=segs.begin();
+  for(int i=0; s!=segs.end() && i<numOfSegs; ++s, i++);
+  if (s!=segs.end())
+  {
+    warnings.emplace_back("MSG.SEGMENTS_TRUNCATED");
+    segs.erase(s, segs.end());
+  }
+}
+
+int TMultiPNRs::numberOfCompatibleSegments(const TMultiPNRs& PNRs1,
+                                           const TMultiPNRs& PNRs2,
+                                           std::map<int/*point_id*/, TFlightRbd>& flightRbdMap,
+                                           std::list<AstraLocale::LexemaData>& errors)
+{
+  errors.clear();
+
+  int result=0;
+  if (PNRs1.pnrs.empty() || PNRs2.pnrs.empty())
+  {
+    errors.emplace_back("MSG.INCOMPATIBLE_SEGMENTS");
+    return result;
+  }
+
+  const auto& segs1=PNRs1.pnrs.begin()->second.segs;
+  const auto& segs2=PNRs2.pnrs.begin()->second.segs;
+
+  auto s1=segs1.begin();
+  auto s2=segs2.begin();
+  for(; s1!=segs1.end() && s2!=segs2.end(); ++s1, ++s2, result++)
+  {
+    auto iRbds=flightRbdMap.find(s1->second.point_dep);
+    if (iRbds==flightRbdMap.end())
+      iRbds=flightRbdMap.emplace(s1->second.point_dep, PNRs1.getFlightInfo(s1->second.point_dep).oper).first;
+    if (iRbds==flightRbdMap.end())
+      throw EXCEPTIONS::Exception("TMultiPNRs::numberOfCompatibleSegments: iRbds==flightRbdMap.end()");
+
+    if (!TPNRSegInfo::isJointCheckInPossible(s1->second, s2->second, iRbds->second, errors)) break;
+  }
+
+  return result;
+}
+
+void TMultiPNRsList::checkSegmentCompatibility()
+{
+  if (primary.empty())
+    throw EXCEPTIONS::Exception("TMultiPNRsList::checkSegmentCompatibility: primary.empty()!");
+
+  TMultiPNRs& primaryPNRs=primary.front();
+  if (!primaryPNRs.errors.empty()) return; //есть ошибка главной группы
+
+  std::map<int/*point_id*/, TFlightRbd> flightRbdMap;
+  std::list<AstraLocale::LexemaData> errors;
+  int numOfSegsMin=ASTRA::NoExists;
+
+  for(TMultiPNRs& secondaryPNRs : secondary)
+  {
+    if (!secondaryPNRs.errors.empty()) continue;
+    int numOfSegs=TMultiPNRs::numberOfCompatibleSegments(primaryPNRs, secondaryPNRs, flightRbdMap, errors);
+    if (numOfSegs==0)
+    {
+      //вообще даже первый сегмент не подходит
+      secondaryPNRs.errors.insert(secondaryPNRs.errors.end(), errors.begin(), errors.end());
+      continue;
+    };
+    if (numOfSegsMin==ASTRA::NoExists || numOfSegsMin>numOfSegs) numOfSegsMin=numOfSegs;
+  }
+
+  if (numOfSegsMin==ASTRA::NoExists) return; //нет обрезания сегментов
+
+  primaryPNRs.truncateSegments(numOfSegsMin);
+  for(TMultiPNRs& secondaryPNRs : secondary)
+  {
+    if (!secondaryPNRs.errors.empty()) continue;
+    secondaryPNRs.truncateSegments(numOfSegsMin);
+  }
+}
 
 void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass, bool ignore_reg_no)
 {
@@ -1927,7 +2283,7 @@ void getTCkinData( const TPnrData &first,
           {
             TPNRSegInfo seg;
             if (!seg.fromDB(pnrData.flt.point_dep, route, Qry)) continue;
-            if (!seg.filterFromDB(first.seg.pnr_addrs)) continue;
+            if (!seg.pnr_addrs.equalPnrExists(first.seg.pnr_addrs)) continue;
             if (pnrData.seg.pnr_id!=NoExists) //дубль PNR
               throw "More than one PNR found";
             pnrData.seg=seg;

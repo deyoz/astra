@@ -115,6 +115,7 @@ astra_SOURCES = \
   prepreg.cc \
   print.cc \
   prn_tag_store.cc \
+  rbd.cc \
   remarks.cc \
   request_dup.cc \
   rfisc.cc \
@@ -142,6 +143,7 @@ astra_SOURCES = \
   trip_tasks.cc \
   tripinfo.cc \
   typeb_utils.cc \
+  web_exchange.cc \
   web_main.cc \
   web_search.cc \
   xml_unit.cc \
@@ -295,6 +297,7 @@ noinst_HEADERS = \
   prepreg.h \
   print.h \
   prn_tag_store.h \
+  rbd.h \
   remarks.h \
   request_dup.h \
   rfisc.h \
@@ -319,6 +322,7 @@ noinst_HEADERS = \
   trip_tasks.h \
   tripinfo.h \
   typeb_utils.h \
+  web_exchange.h \
   web_main.h \
   web_search.h \
   xml_unit.h \

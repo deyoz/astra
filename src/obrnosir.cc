@@ -53,6 +53,7 @@ int ego_stat(int argc,char **argv);
 int tst_vo(int, char**);
 int prn_tags(int argc, char **argv);
 int stat_belgorod(int argc, char **argv);
+int rbd_test(int argc, char **argv);
 
 const
   struct {
@@ -120,6 +121,7 @@ const
     {"-stat_belgorod",          stat_belgorod,          NULL,                       NULL},
     {"-apis_test",              apis_test,              NULL,                       NULL},
     {"-db_pkg",                 db_pkg,                 NULL,                       NULL},
+    {"-rbd_test",               rbd_test,                 NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)

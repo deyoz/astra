@@ -473,6 +473,12 @@ class TReqInfo
     void setPerform();
     void clearPerform();
     long getExecuteMSec();
+    bool isSelfCkinClientType() const
+    {
+      return client_type==ASTRA::ctWeb ||
+             client_type==ASTRA::ctKiosk ||
+             client_type==ASTRA::ctMobile;
+    }
 
     void traceToMonitor( TRACE_SIGNATURE, const char *format,  ...);
 };
