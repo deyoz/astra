@@ -64,6 +64,212 @@ int getPointIdsSppByPnrId(int pnr_id, set<int>& point_ids_spp)
   return getPointIdsSpp(pnr_id, true, point_ids_spp);
 }
 
+namespace PaymentStatusRequest
+{
+
+static const std::map<Status, std::string>& statuses()
+{
+  static std::map<Status, std::string> m={ {Paid,    "PAID"},
+                                           {NotPaid, "NOT_PAID"} };
+  return m;
+}
+
+Status Pax::setStatus(const std::string& s)
+{
+  status=Unknown;
+
+  for( const auto& statusPair: statuses())
+    if (statusPair.second==s)
+    {
+      status=statusPair.first;
+      break;
+    }
+
+  return status;
+}
+
+std::string Pax::getStatus() const
+{
+  std::map<Status, std::string>::const_iterator i=statuses().find(status);
+  if (i==statuses().end()) return "";
+  return i->second;
+}
+
+Pax& Pax::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==nullptr) return *this;
+  xmlNodePtr node2=node->children;
+
+  id=NodeAsIntegerFast("crs_pax_id", node2);
+  seat_no=NodeAsStringFast("seat_no", node2);
+  string statusFromReq=NodeAsStringFast("status", node2);
+  setStatus(statusFromReq);
+
+  if (status==Unknown)
+    throw EXCEPTIONS::Exception("%s: wrong payment status '%s'", __FUNCTION__, statusFromReq.c_str());
+  if (seat_no.empty())
+    throw EXCEPTIONS::Exception("%s: empty seat_no", __FUNCTION__);
+
+  return *this;
+}
+
+std::string PaxList::getRequestName() const
+{
+  return "PaymentStatus";
+}
+
+PaxList& PaxList::fromXML(xmlNodePtr paxsParentNode)
+{
+  clear();
+  if (paxsParentNode==nullptr) return *this;
+
+  xmlNodePtr paxsNode=NodeAsNode("passengers", paxsParentNode);
+  for(xmlNodePtr paxNode=paxsNode->children; paxNode!=nullptr; paxNode=paxNode->next)
+  {
+    if (string((const char*)paxNode->name)!="pax") continue;
+    Pax pax;
+    pax.fromXML(paxNode);
+
+    //проверим на дублирование
+    for(const Pax& existingPax : *this)
+    {
+      if (existingPax.id==pax.id)
+        throw EXCEPTIONS::Exception("%s: crs_pax_id duplicated (crs_pax_id=%d)",
+                                    __FUNCTION__, pax.id);
+    }
+
+    this->push_back(pax);
+  }
+
+  return *this;
+}
+
+void PaxList::lockFlights() const
+{
+  TFlights flights;
+
+  for(const Pax& pax : *this)
+  {
+    set<int> point_ids_spp;
+    getPointIdsSppByPaxId(pax.id, point_ids_spp);
+    flights.Get(point_ids_spp, ftTranzit);
+  }
+
+  flights.Lock(getRequestName()+"::"+__FUNCTION__);
+}
+
+} //namespace PaymentStatusRequest
+
+namespace PaymentStatusResponse
+{
+
+bool Pax::fromDB()
+{
+  if (isTestPaxId(id)) return false;
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+      "SELECT tlg_binding.point_id_spp AS point_dep, tlg_binding.point_id_tlg, "
+      "       crs_pnr.airp_arv, crs_pax.surname, crs_pax.name, crs_pax.pers_type, "
+      "       pax.grp_id, pax.reg_no, "
+      "       crs_pnr.tid AS crs_pnr_tid, "
+      "       crs_pax.tid AS crs_pax_tid, "
+      "       pax.tid AS pax_tid "
+      "FROM crs_pax, crs_pnr, tlg_binding, pax "
+      "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
+      "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+      "      crs_pax.pax_id=:pax_id AND "
+      "      crs_pax.pax_id=pax.pax_id(+) AND "
+      "      crs_pax.pr_del=0";
+  Qry.CreateVariable("pax_id", otInteger, id);
+  Qry.Execute();
+  if (Qry.Eof) return false;
+
+  TWebTids::fromDB(Qry);
+  point_dep=Qry.FieldIsNULL("point_dep")?ASTRA::NoExists:
+                                         Qry.FieldAsInteger("point_dep");
+  point_id_tlg=Qry.FieldIsNULL("point_id_tlg")?ASTRA::NoExists:
+                                               Qry.FieldAsInteger("point_id_tlg");
+  grp_id=Qry.FieldIsNULL("grp_id")?ASTRA::NoExists:
+                                   Qry.FieldAsInteger("grp_id");
+  airp_arv=Qry.FieldAsString("airp_arv");
+
+  full_name=Qry.FieldAsString("surname");
+  if (!Qry.FieldIsNULL("name"))
+  {
+    full_name+=" ";
+    full_name+=Qry.FieldAsString("name");
+  };
+
+  pers_type=Qry.FieldAsString("pers_type");
+
+  reg_no=Qry.FieldIsNULL("reg_no")?ASTRA::NoExists:
+                                   Qry.FieldAsInteger("reg_no");
+  return true;
+}
+
+const Pax& Pax::toXML(xmlNodePtr node) const
+{
+  if (node==nullptr) return *this;
+
+  NewTextChild(node, "pax_id", id);
+  NewTextChild(node, "status", okStatus?"ok":"error");
+
+  return *this;
+}
+
+void Pax::toLog(const PaymentStatusRequest::Status& reqStatus) const
+{
+  TLogLocale msg;
+  msg.ev_type=ASTRA::evtPax;
+  msg.lexema_id = "EVT.PASSENGER_DATA";
+  msg.id1=point_dep;
+  msg.id2=reg_no;
+  msg.id3=grp_id;
+
+  PrmLexema param("param", reqStatus==PaymentStatusRequest::Paid?"EVT.PAYMENT_SYSTEM_STATUS_PAID":
+                                                                 "EVT.PAYMENT_SYSTEM_STATUS_NOT_PAID");
+  if (!seat_no.empty())
+    param.prms << PrmSmpl<string>("seat_view", seat_no);
+  else
+    param.prms << PrmBool("seat_view", false);
+
+
+  msg.prms.clearPrms();
+  msg.prms << PrmSmpl<string>("pax_name", full_name)
+           << PrmElem<string>("pers_type", etPersType, pers_type)
+           << param;
+
+  TReqInfo::Instance()->LocaleToLog(msg);
+
+  if (!okStatus)
+  {
+    msg.prms.clearPrms();
+    PrmLexema param("param", "EVT.PAYMENT_AFTERPAY_ERROR");
+    param.prms << PrmSmpl<string>("seat_view", seat_no);
+
+    msg.prms << PrmSmpl<string>("pax_name", full_name)
+             << PrmElem<string>("pers_type", etPersType, pers_type)
+             << param;
+
+    TReqInfo::Instance()->LocaleToLog(msg);
+  }
+}
+
+const PaxList& PaxList::toXML(xmlNodePtr paxsParentNode) const
+{
+  if (paxsParentNode==nullptr) return *this;
+
+  xmlNodePtr paxsNode=NewTextChild(paxsParentNode, "passengers");
+  for(const Pax& pax : *this)
+    pax.toXML(NewTextChild(paxsNode, "pax"));
+
+  return *this;
+}
+
+} //namespace PaymentStatusResponse
 
 namespace ProtLayerRequest
 {
@@ -108,7 +314,7 @@ PaxList& PaxList::fromXML(const bool& isLayerAdded, xmlNodePtr paxsParentNode)
     if (isLayerAdded)
     {
       //проверим на дублирование
-      for(const ProtLayerRequest::Pax& existingPax : *this)
+      for(const Pax& existingPax : *this)
       {
         if (existingPax.id==pax.id)
           throw EXCEPTIONS::Exception("%s: crs_pax_id duplicated (crs_pax_id=%d)",

@@ -398,7 +398,7 @@ bool GetSelfCkinSets(const TTripSetType setType,
   if (!(client_type==ctWeb ||
         client_type==ctKiosk ||
         client_type==ctMobile))
-    throw Exception("%s: wrong client_type=%s", __FUNCTION__, EncodeClientType(client_type));
+    throw Exception("%s: wrong client_type=%s (setType=%d)", __FUNCTION__, EncodeClientType(client_type), (int)setType);
   TQuery Qry( &OraSession );
   Qry.Clear();
   Qry.SQLText=
