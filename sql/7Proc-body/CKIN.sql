@@ -264,19 +264,10 @@ BEGIN
     IF vexcess>0 THEN RETURN 1; END IF;
   ELSE
     IF vpax_id IS NOT NULL THEN
-      IF vexcess_wt IS NULL AND vexcess_pc IS NULL THEN
-        SELECT COUNT(*)
-        INTO res
-        FROM paid_bag_pc
-        WHERE pax_id=vpax_id AND
-              status IN ('unknown', 'paid', 'need') AND
-              rownum<2;
-      ELSE
-        SELECT COUNT(*)
-        INTO res
-        FROM paid_rfisc
-        WHERE pax_id=vpax_id AND paid>0 AND rownum<2;
-      END IF;
+      SELECT COUNT(*)
+      INTO res
+      FROM paid_rfisc
+      WHERE pax_id=vpax_id AND paid>0 AND rownum<2;
 
       IF res>0 THEN RETURN 1; END IF;
     END IF;
@@ -293,8 +284,9 @@ BEGIN
   RETURN res;
 END need_for_payment;
 
-FUNCTION get_excess(vgrp_id       IN pax.grp_id%TYPE,
-                    vpax_id       IN pax.pax_id%TYPE) RETURN NUMBER
+FUNCTION get_excess(vgrp_id         IN pax.grp_id%TYPE,
+                    vpax_id         IN pax.pax_id%TYPE,
+                    include_all_svc IN NUMBER DEFAULT 0) RETURN NUMBER
 IS
 vexcess         pax_grp.excess%TYPE;
 vexcess_wt      pax_grp.excess_wt%TYPE;
@@ -323,13 +315,18 @@ BEGIN
     END IF;
   ELSE
     IF vpax_id IS NOT NULL THEN
-      IF vexcess_wt IS NULL AND vexcess_pc IS NULL THEN
-        SELECT COUNT(*)
+      IF include_all_svc=0 THEN
+        SELECT NVL(SUM(paid_rfisc.paid), 0)
         INTO vexcess
-        FROM paid_bag_pc
-        WHERE pax_id=vpax_id AND
-              transfer_num=0 AND
-              status IN ('unknown', 'paid', 'need');
+        FROM paid_rfisc, rfisc_list_items
+        WHERE paid_rfisc.list_id=rfisc_list_items.list_id AND
+              paid_rfisc.rfisc=rfisc_list_items.rfisc AND
+              paid_rfisc.service_type=rfisc_list_items.service_type AND
+              paid_rfisc.airline=rfisc_list_items.airline AND
+              paid_rfisc.pax_id=vpax_id AND
+              paid_rfisc.transfer_num=0 AND
+              paid_rfisc.paid>0 AND
+              rfisc_list_items.category IN (1/*baggage*/, 2/*carry_on*/);
       ELSE
         SELECT NVL(SUM(paid), 0)
         INTO vexcess
@@ -838,6 +835,8 @@ BEGIN
       END IF;
       IF curRow.refuse='€' THEN
         deleted:=deleted+1;
+        DELETE FROM pax_events WHERE pax_id=curRow.pax_id;
+        DELETE FROM stat_ad WHERE pax_id=curRow.pax_id;
         DELETE FROM confirm_print WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_doc WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_doco WHERE pax_id=curRow.pax_id;
@@ -846,7 +845,6 @@ BEGIN
         DELETE FROM pax_asvc WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_emd WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_norms WHERE pax_id=curRow.pax_id;
-        DELETE FROM pax_norms_pc WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_brands WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_rem WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_rem_origin WHERE pax_id=curRow.pax_id;
@@ -854,8 +852,6 @@ BEGIN
         DELETE FROM rozysk WHERE pax_id=curRow.pax_id;
         DELETE FROM transfer_subcls WHERE pax_id=curRow.pax_id;
         DELETE FROM trip_comp_layers WHERE pax_id=curRow.pax_id;
-        DELETE FROM paid_bag_pc WHERE pax_id=curRow.pax_id;
-        UPDATE paid_bag_emd SET pax_id=NULL WHERE pax_id=curRow.pax_id;
         UPDATE service_payment SET pax_id=NULL WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_alarms WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_service_lists WHERE pax_id=curRow.pax_id;
@@ -864,6 +860,7 @@ BEGIN
         DELETE FROM paid_rfisc WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_norms_text WHERE pax_id=curRow.pax_id;
         DELETE FROM trfer_pax_stat WHERE pax_id=curRow.pax_id;
+        DELETE FROM bi_stat WHERE pax_id=curRow.pax_id;
         DELETE FROM pax WHERE pax_id=curRow.pax_id;
         FOR langCurRow IN langCur LOOP
           UPDATE events_bilingual SET id2=NULL
@@ -946,7 +943,6 @@ BEGIN
     DELETE FROM bag2 WHERE grp_id=vgrp_id;
     DELETE FROM grp_norms WHERE grp_id=vgrp_id;
     DELETE FROM paid_bag WHERE grp_id=vgrp_id;
-    DELETE FROM paid_bag_emd WHERE grp_id=vgrp_id;
     DELETE FROM paid_bag_emd_props WHERE grp_id=vgrp_id;
     DELETE FROM service_payment WHERE grp_id=vgrp_id;
     DELETE FROM tckin_pax_grp WHERE grp_id=vgrp_id;
@@ -1173,70 +1169,6 @@ BEGIN
         (vsystem IS NULL OR system=vsystem) AND
         (vsender IS NULL OR sender=vsender);
 END delete_typeb_data;
-
-PROCEDURE save_pax_docs(vpax_id     IN pax.pax_id%TYPE,
-                        vdocument   IN VARCHAR2,
-                        full_insert IN NUMBER DEFAULT 1)
-IS
-  CURSOR cur1 IS
-    SELECT type,issue_country,no,nationality,
-           birth_date,gender,expiry_date,surname,first_name,second_name,pr_multi,
-           type_rcpt
-    FROM crs_pax_doc
-    WHERE pax_id=vpax_id AND no=vdocument
-    ORDER BY DECODE(type,'P',0,NULL,2,1), DECODE(rem_code,'DOCS',0,1), no;
-  row1 cur1%ROWTYPE;
-  CURSOR cur2 IS
-    SELECT birth_place,type,no,issue_place,issue_date,applic_country
-    FROM crs_pax_doco
-    WHERE pax_id=vpax_id AND rem_code='DOCO' AND type='V'
-    ORDER BY no;
-  row2 cur2%ROWTYPE;
-BEGIN
-  IF full_insert IS NULL THEN RETURN; END IF;
-  IF full_insert<>0 THEN
-    DELETE FROM pax_doc WHERE pax_id=vpax_id;
-    DELETE FROM pax_doco WHERE pax_id=vpax_id;
-    IF vdocument IS NOT NULL THEN
-      OPEN cur1;
-      FETCH cur1 INTO row1;
-      IF cur1%FOUND THEN
-        INSERT INTO pax_doc
-          (pax_id,type,issue_country,no,nationality,
-           birth_date,gender,expiry_date,surname,first_name,second_name,pr_multi,
-           type_rcpt,scanned_attrs)
-        VALUES
-          (vpax_id,row1.type,row1.issue_country,row1.no,row1.nationality,
-           row1.birth_date,row1.gender,row1.expiry_date,row1.surname,row1.first_name,row1.second_name,row1.pr_multi,
-           row1.type_rcpt,0);
-      ELSE
-        INSERT INTO pax_doc
-          (pax_id,no,pr_multi,scanned_attrs)
-        VALUES
-          (vpax_id,vdocument,0,0);
-      END IF;
-      CLOSE cur1;
-    END IF;
-    OPEN cur2;
-    FETCH cur2 INTO row2;
-    IF cur2%FOUND THEN
-      INSERT INTO pax_doco
-        (pax_id,birth_place,type,no,issue_place,issue_date,applic_country,scanned_attrs)
-      VALUES
-        (vpax_id,row2.birth_place,row2.type,row2.no,row2.issue_place,row2.issue_date,row2.applic_country,0);
-    END IF;
-    CLOSE cur2;
-  ELSE
-    IF vdocument IS NOT NULL THEN
-      OPEN cur1;
-      FETCH cur1 INTO row1;
-      IF cur1%FOUND THEN
-        UPDATE pax_doc SET type_rcpt=row1.type_rcpt WHERE pax_id=vpax_id;
-      END IF;
-      CLOSE cur1;
-    END IF;
-  END IF;
-END;
 
 END ckin;
 /

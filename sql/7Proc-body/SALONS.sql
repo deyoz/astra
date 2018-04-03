@@ -951,4 +951,5 @@ BEGIN
 END is_waitlist;
 
 END salons;
+
 /

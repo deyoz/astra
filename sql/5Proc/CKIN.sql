@@ -39,8 +39,9 @@ FUNCTION need_for_payment(vgrp_id        IN pax_grp.grp_id%TYPE,
                           vexcess_pc     IN pax_grp.excess_pc%TYPE,
                           vpax_id        IN pax.pax_id%TYPE) RETURN NUMBER;
 
-FUNCTION get_excess(vgrp_id       IN pax.grp_id%TYPE,
-                    vpax_id       IN pax.pax_id%TYPE) RETURN NUMBER;
+FUNCTION get_excess(vgrp_id         IN pax.grp_id%TYPE,
+                    vpax_id         IN pax.pax_id%TYPE,
+                    include_all_svc IN NUMBER DEFAULT 0) RETURN NUMBER;
 
 FUNCTION get_bagInfo2(vgrp_id       IN pax.grp_id%TYPE,
                       vpax_id  	    IN pax.pax_id%TYPE,
@@ -102,10 +103,6 @@ PROCEDURE delete_typeb_data(vpoint_id  tlg_trips.point_id%TYPE,
                             vsystem    typeb_sender_systems.system%TYPE,
                             vsender    typeb_sender_systems.sender%TYPE,
                             delete_trip_comp_layers BOOLEAN);
-
-PROCEDURE save_pax_docs(vpax_id     IN pax.pax_id%TYPE,
-                        vdocument   IN VARCHAR2,
-                        full_insert IN NUMBER DEFAULT 1);
 
 TYPE birks_cursor_ref IS REF CURSOR;
 

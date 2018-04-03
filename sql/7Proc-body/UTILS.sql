@@ -192,6 +192,56 @@ BEGIN
   COMMIT;
 END airline_update_oper;
 
+PROCEDURE airp_update_oper(old_airp_code airps.code%TYPE,
+                           new_airp_code airps.code%TYPE,
+                           max_rows user_tables.num_rows%TYPE)
+IS
+vid airps.id%TYPE;
+BEGIN
+  IF old_airp_code=new_airp_code THEN RETURN; END IF;
+
+  vid:=NULL;
+  DELETE FROM airps WHERE code=new_airp_code AND pr_del<>0 RETURNING id INTO vid;
+  IF vid IS NULL THEN
+    SELECT id__seq.nextval INTO vid FROM dual;
+  END IF;
+
+  INSERT INTO airps
+    (code,code_lat,code_icao,code_icao_lat,name,name_lat,city,
+     id,tid,tid_sync,pr_del)
+  SELECT new_airp_code,code_lat,code_icao,code_icao_lat,name,name_lat,city,
+     vid,tid__seq.nextval,NULL,0
+  FROM airps
+  WHERE code=old_airp_code;
+  hist.synchronize_history('airps',vid,NULL,NULL);
+
+  vid:=NULL;
+  UPDATE airps
+  SET code_lat=NULL, code_icao=NULL, code_icao_lat=NULL, tid=tid__seq.currval, pr_del=1
+  WHERE code=old_airp_code RETURNING id INTO vid;
+  hist.synchronize_history('airps',vid,NULL,NULL);
+  COMMIT;
+
+  DBMS_OUTPUT.PUT_LINE('Оперативные таблицы:');
+
+  FOR curRow IN oper_cur LOOP
+    other_constraints(curRow, FALSE);
+  END LOOP;
+
+  FOR curRow IN oper_cur LOOP
+    update_code(curRow, old_airp_code, new_airp_code, max_rows, 1);
+  END LOOP;
+
+  FOR curRow IN oper_cur LOOP
+    other_constraints(curRow, TRUE);
+  END LOOP;
+
+  DBMS_OUTPUT.PUT_LINE('==========================================================================');
+
+  UPDATE aodb_airps SET aodb_code=old_airp_code WHERE airp=new_airp_code AND aodb_code=new_airp_code;
+  COMMIT;
+END airp_update_oper;
+
 PROCEDURE airline_update_arx(old_airline_code airlines.code%TYPE,
                              new_airline_code airlines.code%TYPE,
                              max_rows user_tables.num_rows%TYPE)
@@ -223,6 +273,14 @@ BEGIN
   COMMIT;
 END airline_update_arx;
 
+PROCEDURE airp_update_arx(old_airp_code airps.code%TYPE,
+                          new_airp_code airps.code%TYPE,
+                          max_rows user_tables.num_rows%TYPE)
+IS
+BEGIN
+  airline_update_arx(old_airp_code, new_airp_code, max_rows);
+END airp_update_arx;
+
 PROCEDURE view_update_progress
 IS
 BEGIN
@@ -233,7 +291,7 @@ BEGIN
   END LOOP;
 END view_update_progress;
 
-PROCEDURE users_logoff(new_airline_code airlines.code%TYPE)
+PROCEDURE users_logoff_al(new_airline_code airlines.code%TYPE)
 IS
   CURSOR cur(code airlines.code%TYPE) IS
     SELECT user_id
@@ -245,7 +303,21 @@ BEGIN
     UPDATE users2 SET desk = NULL WHERE user_id = curRow.user_id;
   END LOOP;
   COMMIT;
-END users_logoff;
+END users_logoff_al;
+
+PROCEDURE users_logoff_ap(new_airp_code airps.code%TYPE)
+IS
+  CURSOR cur(code airps.code%TYPE) IS
+    SELECT user_id
+    FROM users2
+    WHERE desk IS NOT NULL AND
+          adm.check_airp_access(code, user_id)<>0;
+BEGIN
+  FOR curRow IN cur(new_airp_code) LOOP
+    UPDATE users2 SET desk = NULL WHERE user_id = curRow.user_id;
+  END LOOP;
+  COMMIT;
+END users_logoff_ap;
 
 /*
 DROP TABLE masking_cards_progress;
@@ -276,10 +348,10 @@ INSERT INTO masking_cards_progress(table_name, last_part_key, last_id, step_part
 SELECT 'pax_fqt', NULL, MIN(pax_id), NULL, 50000, 0
 FROM pax_fqt;
 INSERT INTO masking_cards_progress(table_name, last_part_key, last_id, step_part_key, step_id, updated)
-SELECT 'typeb_in_body', NULL, MIN(id), NULL, 20000, 0
+SELECT 'typeb_in_body', NULL, MIN(id), NULL, 10000, 0
 FROM typeb_in_body;
 INSERT INTO masking_cards_progress(table_name, last_part_key, last_id, step_part_key, step_id, updated)
-SELECT 'tlg_out', NULL, MIN(id), NULL, 20000, 0
+SELECT 'tlg_out', NULL, MIN(id), NULL, 10000, 0
 FROM tlg_out;
 
 INSERT INTO masking_cards_progress(table_name, last_part_key, last_id, step_part_key, step_id, updated)
@@ -292,8 +364,6 @@ INSERT INTO masking_cards_progress(table_name, last_part_key, last_id, step_part
 SELECT 'arx_tlg_out', MIN(part_key), NULL, 720, NULL, 0
 FROM arx_tlg_out;
 COMMIT;
-
-RENAME masking_cards_progress TO masking_cards_progress2;
 
 */
 
@@ -393,7 +463,7 @@ BEGIN
 
       sets.updated:=SQL%ROWCOUNT;
       sets.last_id:=curr_id;
-      ROLLBACK;
+--      ROLLBACK;
       UPDATE masking_cards_progress
       SET last_id=sets.last_id, updated=updated+sets.updated
       WHERE table_name=sets.table_name;
