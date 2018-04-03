@@ -56,9 +56,11 @@ public:
         boost::optional<iatci::BaggageDetails>     makeBaggage() const;
         boost::optional<iatci::DocDetails>         makeDoc() const;
         boost::optional<iatci::AddressDetails>     makeAddress() const;
+        boost::optional<iatci::VisaDetails>        makeVisa() const;
         boost::optional<iatci::PaxDetails>         makeInfant() const;
         boost::optional<iatci::DocDetails>         makeInfantDoc() const;
         boost::optional<iatci::AddressDetails>     makeInfantAddress() const;
+        boost::optional<iatci::VisaDetails>        makeInfantVisa() const;
         boost::optional<iatci::FlightSeatDetails>  makeInfantSeat() const;
     };
 
@@ -155,19 +157,27 @@ void IatciResponseHandler::fillErrorDetails()
         PushEdiPointG(pMes());
         if(SetEdiPointToSegGrG(pMes(), 1))
         {
-            PushEdiPointG(pMes());
-            if(SetEdiPointToSegmentG(pMes(), SegmElement("ERD")))
-            {
-                PushEdiPointG(pMes());
-                SetEdiPointToCompositeG(pMes(), CompElement("C056"));
+            auto erd = readEdiErd(pMes());
+            auto wad = readEdiWad(pMes());
 
-                setEdiErrCode(GetDBFName(pMes(), DataElement(9845), ""));
-                setEdiErrText(GetDBFName(pMes(), DataElement(4440), ""));
+            std::string errCode, errText;
 
-                PopEdiPointG(pMes());
+            if(erd) {
+                // если есть ERD - берём ошибку из ERD
+                errCode = erd->m_messageNumber;
+                errText = erd->m_messageText;
+                LogTrace(TRACE0) << "Get error from ERD"
+                                 << "(" << errCode << "-" << errText << ")";
+            } else if(wad) {
+                // иначе, если есть WAD - берём ошибку из WAD
+                errCode = wad->m_messageNumber;
+                errText = wad->m_messageText;
+                LogTrace(TRACE0) << "Get error from WAD"
+                                 << "(" << errCode << "-" << errText << ")";
             }
 
-            PopEdiPointG(pMes());
+            setEdiErrCode(errCode);
+            setEdiErrText(errText);
         }
         PopEdiPointG(pMes());
     }
@@ -282,9 +292,11 @@ iatci::dcrcka::PaxGroup IatciResultMaker::Pxg::makePaxGroup() const
                                    makeService(),
                                    makeDoc(),
                                    makeAddress(),
+                                   makeVisa(),
                                    makeInfant(),
                                    makeInfantDoc(),
                                    makeInfantAddress(),
+                                   makeInfantVisa(),
                                    makeInfantSeat());
 }
 
@@ -323,7 +335,7 @@ boost::optional<iatci::BaggageDetails> IatciResultMaker::Pxg::makeBaggage() cons
 
 boost::optional<iatci::DocDetails> IatciResultMaker::Pxg::makeDoc() const
 {
-    if(m_pap) {
+    if(m_pap && m_pap->findDoc()) {
         return iatci::makeDoc(*m_pap);
     }
 
@@ -334,6 +346,15 @@ boost::optional<iatci::AddressDetails> IatciResultMaker::Pxg::makeAddress() cons
 {
     if(m_add) {
         return iatci::makeAddress(*m_add);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::VisaDetails> IatciResultMaker::Pxg::makeVisa() const
+{
+    if(m_pap && m_pap->findVisa()) {
+        return iatci::makeVisa(*m_pap);
     }
 
     return boost::none;
@@ -350,7 +371,7 @@ boost::optional<iatci::PaxDetails> IatciResultMaker::Pxg::makeInfant() const
 
 boost::optional<iatci::DocDetails> IatciResultMaker::Pxg::makeInfantDoc() const
 {
-    if(m_papInfant) {
+    if(m_papInfant && m_papInfant->findDoc()) {
         return iatci::makeDoc(*m_papInfant);
     }
 
@@ -361,6 +382,15 @@ boost::optional<iatci::AddressDetails> IatciResultMaker::Pxg::makeInfantAddress(
 {
     if(m_addInfant) {
         return iatci::makeAddress(*m_addInfant);
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::VisaDetails> IatciResultMaker::Pxg::makeInfantVisa() const
+{
+    if(m_papInfant && m_papInfant->findVisa()) {
+        return iatci::makeVisa(*m_papInfant);
     }
 
     return boost::none;

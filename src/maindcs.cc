@@ -1,6 +1,3 @@
-#include <string>
-#include <map>
-#include <fstream>
 #include "maindcs.h"
 #include "date_time.h"
 #include "astra_elems.h"
@@ -10,7 +7,6 @@
 #include "oralib.h"
 #include "exceptions.h"
 #include "misc.h"
-#include <fstream>
 #include "xml_unit.h"
 #include "print.h"
 #include "crypt.h"
@@ -19,10 +15,18 @@
 #include "term_version.h"
 #include "dev_utils.h"
 #include "qrys.h"
-#include "jxtlib/jxt_cont.h"
+
+#include <jxtlib/jxt_cont.h>
+#include <serverlib/testmode.h>
+
+#include <fstream>
+#include <string>
+#include <map>
+#include <fstream>
+
 
 #define NICKNAME "VLAD"
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace ASTRA;
 using namespace BASIC::date_time;
@@ -303,8 +307,13 @@ void GetModuleList(xmlNodePtr resNode)
       NewTextChild(moduleNode, "exe", exe);
     };
   }
-  else AstraLocale::showErrorMessage("MSG.ALL_MODULES_DENIED_FOR_USER");
-};
+  else {
+      if(!inTestMode()) {
+          // закрываем глаза на систему прав в тестах
+          AstraLocale::showErrorMessage("MSG.ALL_MODULES_DENIED_FOR_USER");
+      }
+  }
+}
 
 struct TDevParam {
   string param_name;
@@ -1526,8 +1535,13 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     else
      if (reqInfo->desk.code != Qry.FieldAsString("desk"))
        AstraLocale::showMessage("MSG.PULT_SWAP");
-    if (Qry.FieldAsString("passwd")==(string)Qry.FieldAsString("login") )
-      AstraLocale::showErrorMessage("MSG.USER_NEED_TO_CHANGE_PASSWD");
+    if (Qry.FieldAsString("passwd")==(string)Qry.FieldAsString("login") ) {
+       if(!inTestMode()) {
+         // не просим поменять пароль в тестах
+         AstraLocale::showErrorMessage("MSG.USER_NEED_TO_CHANGE_PASSWD");
+       }
+    }
+
 
     Qry.Clear();
     Qry.SQLText =
@@ -1550,6 +1564,16 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       Qry.CreateVariable("term_id", otFloat, FNull);
     Qry.CreateVariable("term_mode", otString, EncodeOperMode(reqInfo->desk.mode));
     Qry.Execute();
+
+    if(inTestMode())
+    {
+        // добавляем немного привелегий юзеру
+        Qry.Clear();
+        Qry.SQLText =
+          "INSERT INTO user_roles VALUES(1, 1, :user_id)";
+        Qry.CreateVariable("user_id", otInteger, reqInfo->user.user_id);
+        Qry.Execute();
+    }
 
     vector<string> run_params;
     SessionParamsFromXML(reqNode, run_params);

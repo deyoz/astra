@@ -12,6 +12,9 @@
 #include "astra_consts.h"
 #include "comp_props.h"
 
+namespace iatci { namespace dcrcka { class Result; } }
+namespace iatci { class Seat; }
+
 
 class SalonFormInterface : public JxtInterface
 {
@@ -19,30 +22,18 @@ private:
 public:
   SalonFormInterface() : JxtInterface("","salonform")
   {
-     Handler *evHandle;
-     evHandle=JxtHandler<SalonFormInterface>::CreateHandler(&SalonFormInterface::Show);
-     AddEvent("Show",evHandle);
-     evHandle=JxtHandler<SalonFormInterface>::CreateHandler(&SalonFormInterface::ComponShow);
-     AddEvent("ComponShow",evHandle);
-     evHandle=JxtHandler<SalonFormInterface>::CreateHandler(&SalonFormInterface::Write);
-     AddEvent("Write",evHandle);
-     evHandle=JxtHandler<SalonFormInterface>::CreateHandler(&SalonFormInterface::ComponWrite);
-     AddEvent("ComponWrite",evHandle);
-     evHandle=JxtHandler<SalonFormInterface>::CreateHandler(&SalonFormInterface::Reseat);
-     AddEvent("Reseat",evHandle);
-     evHandle=JxtHandler<SalonFormInterface>::CreateHandler(&SalonFormInterface::DropSeats);
-     AddEvent("DropSeats",evHandle);
-     evHandle=JxtHandler<SalonFormInterface>::CreateHandler(&SalonFormInterface::DeleteProtCkinSeat);
-     AddEvent("DeleteProtCkinSeat",evHandle);
-     evHandle=JxtHandler<SalonFormInterface>::CreateHandler(&SalonFormInterface::WaitList);
-     AddEvent("WaitList",evHandle);
-     evHandle=JxtHandler<SalonFormInterface>::CreateHandler(&SalonFormInterface::AutoSeats);
-     AddEvent("AutoSeats",evHandle);
-     evHandle=JxtHandler<SalonFormInterface>::CreateHandler(&SalonFormInterface::Tranzit);
-     AddEvent("Tranzit",evHandle);
-     evHandle=JxtHandler<SalonFormInterface>::CreateHandler(&SalonFormInterface::RefreshPaxSalons);
-     AddEvent("RefreshPaxSalons",evHandle);
-  };
+     AddEvent("Show",                 JXT_HANDLER(SalonFormInterface, Show));
+     AddEvent("ComponShow",           JXT_HANDLER(SalonFormInterface, ComponShow));
+     AddEvent("Write",                JXT_HANDLER(SalonFormInterface, Write));
+     AddEvent("ComponWrite",          JXT_HANDLER(SalonFormInterface, ComponWrite));
+     AddEvent("Reseat",               JXT_HANDLER(SalonFormInterface, Reseat));
+     AddEvent("DropSeats",            JXT_HANDLER(SalonFormInterface, DropSeats));
+     AddEvent("DeleteProtCkinSeat",   JXT_HANDLER(SalonFormInterface, DeleteProtCkinSeat));
+     AddEvent("WaitList",             JXT_HANDLER(SalonFormInterface, WaitList));
+     AddEvent("AutoSeats",            JXT_HANDLER(SalonFormInterface, AutoSeats));
+     AddEvent("Tranzit",              JXT_HANDLER(SalonFormInterface, Tranzit));
+     AddEvent("RefreshPaxSalons",     JXT_HANDLER(SalonFormInterface, RefreshPaxSalons));
+  }
   void Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void RefreshPaxSalons(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ComponShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -54,13 +45,22 @@ public:
   void WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Tranzit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+
+  // iatci
+  static void ShowRemote(xmlNodePtr resNode, const iatci::dcrcka::Result& res);
+  static void ReseatRemote(xmlNodePtr resNode,
+                           const iatci::Seat& oldSeat,
+                           const iatci::Seat& newSeat,
+                           const iatci::dcrcka::Result& res);
+
+  static SalonFormInterface* instance();
 };
 
 struct TZoneOccupiedSeats {
   std::string name;
   int total_seats;
   SALONS2::TPlaces seats;
-  TZoneOccupiedSeats(): total_seats(0) {};
+  TZoneOccupiedSeats(): total_seats(0) {}
 };
 
 void SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -143,9 +143,6 @@ void ZonePax( int point_id, std::vector<T1> &PaxItems, std::vector<SALONS2::TCom
         break;
     }
   }
-};
-
-
+}
 
 #endif /*_SALONFORM_H_*/
-

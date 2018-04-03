@@ -60,10 +60,10 @@ XmlPaxDoc createCheckInDoc(const iatci::DocDetails& doc)
     XmlPaxDoc ckiDoc;
     ckiDoc.no         = doc.no();
     ckiDoc.type       = doc.docType();
-    if(!doc.birthDate().is_not_a_date()) {
+    if(!doc.birthDate().is_special()) {
         ckiDoc.birth_date = BASIC::date_time::boostDateToAstraFormatStr(doc.birthDate());
     }
-    if(!doc.expiryDate().is_not_a_date()) {
+    if(!doc.expiryDate().is_special()) {
         ckiDoc.expiry_date = BASIC::date_time::boostDateToAstraFormatStr(doc.expiryDate());
     }
     ckiDoc.surname       = doc.surname();
@@ -90,12 +90,74 @@ XmlPaxAddresses createCheckInAddrs(const iatci::AddressDetails& addrs)
     return ckiAddrs;
 }
 
+XmlPaxVisa createCheckInVisa(const iatci::VisaDetails& visa)
+{
+    XmlPaxVisa ckiVisa;
+    ckiVisa.no             = visa.no();
+    ckiVisa.type           = visa.visaType();
+    ckiVisa.applic_country = visa.issueCountry();
+    ckiVisa.issue_place    = visa.placeOfIssue();
+    if(!visa.expiryDate().is_special()) {
+        ckiVisa.expiry_date = BASIC::date_time::boostDateToAstraFormatStr(visa.expiryDate());
+    }
+    if(!visa.issueDate().is_special()) {
+        ckiVisa.issue_date = BASIC::date_time::boostDateToAstraFormatStr(visa.issueDate());
+    }
+    return ckiVisa;
+}
+
+XmlRem createCheckInRem(const iatci::ServiceDetails::SsrInfo& ssr)
+{
+    XmlRem rem;
+    rem.rem_code = ssr.ssrCode();
+    rem.rem_text = ssr.freeText();
+
+    // хак
+    if(rem.rem_text.empty()) {
+        rem.rem_text = rem.rem_code;
+    }
+
+    return rem;
+}
+
+XmlFqtRem createCheckInFqtRem(const iatci::ServiceDetails::SsrInfo& ssr)
+{
+    XmlFqtRem fqtRem;
+    fqtRem.rem_code = ssr.ssrCode();
+    fqtRem.airline  = ssr.airline();
+    fqtRem.no       = ssr.ssrText();
+    if(ssr.quantity()) {
+        fqtRem.tier_level = std::to_string(ssr.quantity());
+    }
+
+    return fqtRem;
+}
+
+void addCheckInRems(XmlPax& pax, const iatci::ServiceDetails& service)
+{
+    for(const auto& ssr: service.lSsr()) {
+        if(ssr.isTkne()) continue;
+
+        if(ssr.isFqt()) {
+            if(!pax.fqt_rems)
+                pax.fqt_rems = XmlFqtRems();
+            pax.fqt_rems->rems.push_back(createCheckInFqtRem(ssr));
+        } else {
+            if(!pax.rems)
+                pax.rems = XmlRems();
+            pax.rems->rems.push_back(createCheckInRem(ssr));
+        }
+    }
+}
+
 XmlPax createCheckInPax(const XmlPax& basePax,
                         const iatci::PaxDetails& pax,
                         const boost::optional<iatci::SeatDetails>& seat,
                         const boost::optional<iatci::ReservationDetails>& reserv,
+                        const boost::optional<iatci::ServiceDetails>& service,
                         const boost::optional<iatci::DocDetails>& doc,
-                        const boost::optional<iatci::AddressDetails>& addrs)
+                        const boost::optional<iatci::AddressDetails>& addrs,
+                        const boost::optional<iatci::VisaDetails>& visa)
 {
     XmlPax ckiPax = basePax;
     ckiPax.seats     = pax.isInfant() ? 0 : 1;
@@ -108,13 +170,19 @@ XmlPax createCheckInPax(const XmlPax& basePax,
     if(addrs) {
         ckiPax.addrs = createCheckInAddrs(*addrs);
     }
+    if(visa) {
+        ckiPax.visa = createCheckInVisa(*visa);
+    }
+    if(service) {
+        addCheckInRems(ckiPax, *service);
+    }
     return ckiPax;
 }
 
 XmlPax createCancelPax(const XmlPax& basePax)
 {
     XmlPax ckxPax = basePax;
-    ckxPax.refuse = ASTRA::refuseAgentError; // TODO пока причина отмены всегда "А - Ошибка агента"
+    ckxPax.refuse = ASTRA::refuseAgentError; // пока причина отмены всегда "А - Ошибка агента"
     return ckxPax;
 }
 
@@ -212,13 +280,14 @@ AstraEngine& AstraEngine::singletone()
 
 PaxListXmlResult AstraEngine::PaxList(int pointId)
 {
+    LogTrace(TRACE3) << __FUNCTION__ << " by point_id=" << pointId;
     xmlNodePtr reqNode = getQueryNode(),
                resNode = getAnswerNode();
 
     xmlNodePtr paxListNode = NewTextChild(reqNode, "PaxList");
     NewTextChild(paxListNode, "point_id", pointId);
 
-    initReqInfo(JMP_VERSION);
+    initReqInfo();
 
     LogTrace(TRACE3) << "pax list query:\n" << XMLTreeToText(reqNode->doc);
     CheckInInterface::instance()->PaxList(getRequestCtxt(), paxListNode, resNode);
@@ -228,6 +297,8 @@ PaxListXmlResult AstraEngine::PaxList(int pointId)
 
 LoadPaxXmlResult AstraEngine::LoadPax(int pointId, int paxRegNo)
 {
+    LogTrace(TRACE3) << __FUNCTION__ << " by point_id=" << pointId
+                                     << " and reg_no=" << paxRegNo;
     xmlNodePtr reqNode = getQueryNode(),
                resNode = getAnswerNode();
 
@@ -235,7 +306,7 @@ LoadPaxXmlResult AstraEngine::LoadPax(int pointId, int paxRegNo)
     NewTextChild(loadPaxNode, "point_id", pointId);
     NewTextChild(loadPaxNode, "reg_no", paxRegNo);
 
-    initReqInfo(JMP_VERSION);
+    initReqInfo();
 
     LogTrace(TRACE3) << "load pax query:\n" << XMLTreeToText(reqNode->doc);
     CheckInInterface::instance()->LoadPax(getRequestCtxt(), loadPaxNode, resNode);
@@ -245,6 +316,8 @@ LoadPaxXmlResult AstraEngine::LoadPax(int pointId, int paxRegNo)
 
 xml_entities::LoadPaxXmlResult AstraEngine::LoadGrp(int pointId, int grpId)
 {
+    LogTrace(TRACE3) << __FUNCTION__ << " by point_id=" << pointId
+                                     << " and grp_id=" << grpId;
     xmlNodePtr reqNode = getQueryNode(),
                resNode = getAnswerNode();
 
@@ -255,7 +328,7 @@ xml_entities::LoadPaxXmlResult AstraEngine::LoadGrp(int pointId, int grpId)
     initReqInfo();
 
     LogTrace(TRACE3) << "load pax query:\n" << XMLTreeToText(reqNode->doc);
-//    CheckInInterface::instance()->LoadPax(getRequestCtxt(), loadPaxNode, resNode);
+    CheckInInterface::instance()->LoadPax(getRequestCtxt(), loadPaxNode, resNode);
     LogTrace(TRACE3) << "load pax answer:\n" << XMLTreeToText(resNode->doc);
     return LoadPaxXmlResult(resNode);
 }
@@ -274,7 +347,7 @@ SearchPaxXmlResult AstraEngine::SearchCheckInPax(int pointDep,
     NewTextChild(searchPaxNode, "pax_status", "K"); // "K" - CheckIn status
     NewTextChild(searchPaxNode, "query", query);
 
-    initReqInfo(JMP_VERSION);
+    initReqInfo();
 
     LogTrace(TRACE3) << "search pax query:\n" << XMLTreeToText(reqNode->doc);
     CheckInInterface::instance()->SearchPax(getRequestCtxt(), searchPaxNode, resNode);
@@ -315,12 +388,17 @@ LoadPaxXmlResult AstraEngine::SavePax(int pointDep, const XmlTrip& paxTrip)
         if(pax.doc) {
             XmlEntityViewer::viewDoc(paxNode, *pax.doc);
         }
+        if(pax.visa) {
+            XmlEntityViewer::viewVisa(paxNode, *pax.visa);
+        }
+        if(pax.addrs) {
+            XmlEntityViewer::viewAddresses(paxNode, *pax.addrs);
+        }
         if(pax.rems) {
             XmlEntityViewer::viewRems(paxNode, *pax.rems);
         }
-        if(pax.fqt_rems) {
-            XmlEntityViewer::viewFqtRems(paxNode, *pax.fqt_rems);
-        }
+
+        XmlEntityViewer::viewFqtRems(paxNode, pax.fqt_rems);
     }
 
     NewTextChild(savePaxNode, "excess");
@@ -331,13 +409,14 @@ LoadPaxXmlResult AstraEngine::SavePax(int pointDep, const XmlTrip& paxTrip)
     initReqInfo();
 
     LogTrace(TRACE3) << "save pax query:\n" << XMLTreeToText(reqNode->doc);
-//    CheckInInterface::instance()->SavePax(getRequestCtxt(), savePaxNode, resNode);
+    CheckInInterface::instance()->SavePax(getRequestCtxt(), savePaxNode, resNode);
     LogTrace(TRACE3) << "save pax answer:\n" << XMLTreeToText(resNode->doc);
     return LoadPaxXmlResult(resNode);
 }
 
 LoadPaxXmlResult AstraEngine::SavePax(const xml_entities::XmlSegment& paxSeg,
-                                      boost::optional<xml_entities::XmlBags> bags)
+                                      boost::optional<xml_entities::XmlBags> bags,
+                                      boost::optional<xml_entities::XmlBagTags> tags)
 {
     xmlNodePtr reqNode = getQueryNode(),
                resNode = getAnswerNode();
@@ -358,6 +437,9 @@ LoadPaxXmlResult AstraEngine::SavePax(const xml_entities::XmlSegment& paxSeg,
         if(pax.doc) {
             XmlEntityViewer::viewDoc(paxNode, *pax.doc);
         }
+        if(pax.visa) {
+            XmlEntityViewer::viewVisa(paxNode, *pax.visa);
+        }
         NewTextChild(paxNode, "doco");
         if(pax.addrs) {
             XmlEntityViewer::viewAddresses(paxNode, *pax.addrs);
@@ -365,9 +447,7 @@ LoadPaxXmlResult AstraEngine::SavePax(const xml_entities::XmlSegment& paxSeg,
         if(pax.rems) {
             XmlEntityViewer::viewRems(paxNode, *pax.rems);
         }
-        if(pax.fqt_rems) {
-            XmlEntityViewer::viewFqtRems(paxNode, *pax.fqt_rems);
-        }
+        XmlEntityViewer::viewFqtRems(paxNode, pax.fqt_rems);
     }
 
     NewTextChild(segNode, "paid_bag_emd");
@@ -375,20 +455,26 @@ LoadPaxXmlResult AstraEngine::SavePax(const xml_entities::XmlSegment& paxSeg,
     NewTextChild(savePaxNode, "excess");
     NewTextChild(savePaxNode, "hall", 1);
     NewTextChild(savePaxNode, "bag_refuse");
+    NewTextChild(savePaxNode, "value_bags");
 
     if(bags) {
-        NewTextChild(savePaxNode, "value_bags");
 
         XmlEntityViewer::viewBags(savePaxNode, *bags);
-
-        xmlNodePtr tagsNode = NewTextChild(savePaxNode, "tags");
-        xmlSetProp(tagsNode, "pr_print", 1);
+        if(bags->haveNotCabinBags()) {
+            ASSERT(tags); // есть сумки (не р.кладь) - ожидаем и бирки*/
+            XmlEntityViewer::viewBagTags(savePaxNode, *tags);
+        } else {
+            XmlEntityViewer::viewBagTagsHeader(savePaxNode);
+        }
+    } else {
+        XmlEntityViewer::viewBagsHeader(savePaxNode);
+        XmlEntityViewer::viewBagTagsHeader(savePaxNode);
     }
 
     initReqInfo();
 
     LogTrace(TRACE3) << "save pax query:\n" << XMLTreeToText(reqNode->doc);
-//    CheckInInterface::instance()->SavePax(getRequestCtxt(), savePaxNode, resNode);
+    CheckInInterface::instance()->SavePax(getRequestCtxt(), savePaxNode, resNode);
     LogTrace(TRACE3) << "save pax answer:\n" << XMLTreeToText(resNode->doc);
     return LoadPaxXmlResult(resNode);
 }
@@ -397,7 +483,7 @@ LoadPaxXmlResult AstraEngine::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode)
 {
     xmlNodePtr resNode = getAnswerNode();
     LogTrace(TRACE3) << "save pax query:\n" << XMLTreeToText(reqNode->doc);
-//    CheckInInterface::instance()->SavePax(reqNode, ediResNode, resNode);
+    CheckInInterface::instance()->SavePax(reqNode, ediResNode, resNode);
     LogTrace(TRACE3) << "save pax answer:\n" << XMLTreeToText(resNode->doc);
     return LoadPaxXmlResult(resNode);
 }
@@ -407,9 +493,14 @@ LoadPaxXmlResult AstraEngine::ReseatPax(const xml_entities::XmlSegment& paxSeg)
     xmlNodePtr reqNode = getQueryNode(),
                resNode = getAnswerNode();
 
-    // пока работаем с одним пассажиром
-    ASSERT(paxSeg.passengers.size() == 1);
-    const XmlPax& pax = paxSeg.passengers.front();
+    ASSERT(!paxSeg.passengers.empty());
+
+    XmlPax pax = paxSeg.passengers.front();
+    if(paxSeg.passengers.size() > 1) {
+        // если пассажиров найдено несколько, значит нашли пакса с младенцем
+        // у младенца места быть не может, значит ищем взрослого
+        pax = paxSeg.firstAdult();
+    }
 
     iatci::Seat seat = iatci::Seat::fromStr(pax.seat_no);
     xmlNodePtr reseatNode = NewTextChild(reqNode, "Reseat");
@@ -423,7 +514,7 @@ LoadPaxXmlResult AstraEngine::ReseatPax(const xml_entities::XmlSegment& paxSeg)
     initReqInfo();
 
     LogTrace(TRACE3) << "reseat pax query:\n" << XMLTreeToText(reqNode->doc);
-//    SalonFormInterface::instance()->Reseat(getRequestCtxt(), reseatNode, resNode);
+    SalonFormInterface::instance()->Reseat(getRequestCtxt(), reseatNode, resNode);
     LogTrace(TRACE3) << "reseat pax answer:\n" << XMLTreeToText(resNode->doc);
     return LoadPax(paxSeg.seg_info.point_dep, pax.reg_no);
 }
@@ -438,15 +529,15 @@ GetAdvTripListXmlResult AstraEngine::GetAdvTripList(const boost::gregorian::date
     NewTextChild(advTripListNode, "date", HelpCpp::string_cast(depDate,
                                                                "%d.%m.%Y 00:00:00"));
     xmlNodePtr filterNode = NewTextChild(advTripListNode, "filter");
-    NewTextChild(filterNode, "pr_takeoff", 1); // TODO what is it?
+    NewTextChild(filterNode, "pr_takeoff", 1); // what is it?
 
     xmlNodePtr viewNode = NewTextChild(advTripListNode, "codes_fmt");
-    NewTextChild(viewNode, "codes_fmt", 5); // TODO what is it?
+    NewTextChild(viewNode, "codes_fmt", 5); // what is it?
 
     initReqInfo();
 
     LogTrace(TRACE3) << "adv trip list query:\n" << XMLTreeToText(reqNode->doc);
-//    TripsInterface::instance()->GetTripList(getRequestCtxt(), advTripListNode, resNode);
+    TripsInterface::instance()->GetTripList(getRequestCtxt(), advTripListNode, resNode);
     LogTrace(TRACE3) << "adv trip list answer:\n" << XMLTreeToText(resNode->doc);
     return GetAdvTripListXmlResult(resNode);
 }
@@ -462,7 +553,7 @@ GetSeatmapXmlResult AstraEngine::GetSeatmap(int depPointId)
     initReqInfo();
 
     LogTrace(TRACE3) << "show seatmap query:\n" << XMLTreeToText(reqNode->doc);
-//    SalonFormInterface::instance()->Show(getRequestCtxt(), showNode, resNode);
+    SalonFormInterface::instance()->Show(getRequestCtxt(), showNode, resNode);
     LogTrace(TRACE3) << "show seatmap answer:\n" << XMLTreeToText(resNode->doc);
 
     return GetSeatmapXmlResult(resNode);
@@ -510,14 +601,53 @@ xmlNodePtr AstraEngine::getAnswerNode() const
 void AstraEngine::initReqInfo(const std::string& deskVersion) const
 {
     TReqInfo::Instance()->Initialize("МОВ");
-    TReqInfo::Instance()->client_type  = ASTRA::ctTerm;
-    //TReqInfo::Instance()->desk.code = "IATCIP";
-    TReqInfo::Instance()->desk.version = deskVersion;
-    TReqInfo::Instance()->desk.lang    = AstraLocale::LANG_EN;
-    TReqInfo::Instance()->api_mode     = true;
-    TReqInfo::Instance()->user.user_id = m_userId;
+    TReqInfo::Instance()->screen.name    = "AIR.EXE";
+    TReqInfo::Instance()->client_type    = ASTRA::ctTerm;
+    //TReqInfo::Instance()->desk.code      = "IATCIP";
+    TReqInfo::Instance()->desk.version   = deskVersion;
+    TReqInfo::Instance()->desk.lang      = AstraLocale::LANG_EN;
+    TReqInfo::Instance()->api_mode       = true;
+    TReqInfo::Instance()->user.user_id   = m_userId;
+    TReqInfo::Instance()->user.sets.time = ustTimeLocalAirp;
     JxtContext::JxtContHolder::Instance()
             ->setHandler(new JxtContext::JxtContHandlerSir(""));
+}
+
+//---------------------------------------------------------------------------------------
+
+static std::list<astra_entities::PaxInfo> convertNotInfants(const std::list<XmlPax>& lPax)
+{
+    std::list<astra_entities::PaxInfo> lNotInfants;
+    for(const XmlPax& xmlPax: lPax) {
+        astra_entities::PaxInfo paxInfo = xmlPax.toPax();
+        if(!paxInfo.isInfant()) {
+            lNotInfants.push_back(paxInfo);
+        }
+    }
+    return lNotInfants;
+}
+
+static std::list<astra_entities::PaxInfo> convertInfants(const std::list<XmlPax>& lPax)
+{
+    std::list<astra_entities::PaxInfo> lInfants;
+    for(const XmlPax& xmlPax: lPax) {
+        astra_entities::PaxInfo paxInfo = xmlPax.toPax();
+        if(paxInfo.isInfant()) {
+            lInfants.push_back(paxInfo);
+        }
+    }
+    return lInfants;
+}
+
+static boost::optional<astra_entities::PaxInfo> findInfant(const std::list<astra_entities::PaxInfo>& lInfants,
+                                                           const astra_entities::Remark& ssrInft)
+{
+    for(const auto& infant: lInfants) {
+        if(ssrInft.containsText(infant.fullName())) {
+            return infant;
+        }
+    }
+    return boost::none;
 }
 
 //---------------------------------------------------------------------------------------
@@ -626,7 +756,7 @@ static TSearchFltInfo MakeSearchFltFilter(const std::string& depPort,
 }
 
 static PaxFilter getSearchPaxFilter(const iatci::PaxDetails& pax,
-                                          const boost::optional<iatci::ServiceDetails>& service = boost::none)
+                                    const boost::optional<iatci::ServiceDetails>& service = boost::none)
 {
     NameFilter nmf(pax.surname(), pax.name());
     boost::optional<TicknumFilter> tnf;
@@ -653,7 +783,8 @@ static bool PaxAlreadyCheckedIn(int pointDep,
     return !paxListXmlRes.applyFilters(filter).empty();
 }
 
-static LoadPaxXmlResult LoadPax__(int pointDep, const iatci::PaxDetails& pax)
+static LoadPaxXmlResult LoadPax__(int pointDep, const iatci::PaxDetails& pax,
+                                  bool loadWholeGrp = false)
 {
     PaxListXmlResult paxListXmlRes = AstraEngine::singletone().PaxList(pointDep);
     PaxFilter filter = getSearchPaxFilter(pax);
@@ -684,7 +815,9 @@ static LoadPaxXmlResult LoadPax__(int pointDep, const iatci::PaxDetails& pax)
         throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR);
     }
 
-    loadPaxXmlRes.applyPaxFilter(filter);
+    if(!loadWholeGrp) {
+        loadPaxXmlRes.applyPaxFilter(filter);
+    }
 
     return loadPaxXmlRes;
 }
@@ -708,18 +841,22 @@ static LoadPaxXmlResult LoadGrp__(int pointDep, int grpId)
 static void applyDocUpdate(XmlPax& pax, const iatci::UpdateDocDetails& updDoc)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " with act code: " << updDoc.actionCodeAsString();
-    XmlPaxDoc newDoc;
-    newDoc.no            = updDoc.no();
-    newDoc.type          = updDoc.docType();
-    newDoc.birth_date    = boostDateToAstraFormatStr(updDoc.birthDate());
-    newDoc.expiry_date   = boostDateToAstraFormatStr(updDoc.expiryDate());
-    newDoc.surname       = updDoc.surname();
-    newDoc.first_name    = updDoc.name();
-    newDoc.second_name   = updDoc.secondName();
-    newDoc.nationality   = updDoc.nationality();
-    newDoc.issue_country = updDoc.issueCountry();
-    newDoc.gender        = updDoc.gender();
-    pax.doc              = newDoc;
+    if(updDoc.actionCode() == iatci::UpdateDetails::Cancel) {
+        pax.doc = {};
+    } else {
+        XmlPaxDoc newDoc;
+        newDoc.no            = updDoc.no();
+        newDoc.type          = updDoc.docType();
+        newDoc.birth_date    = boostDateToAstraFormatStr(updDoc.birthDate());
+        newDoc.expiry_date   = boostDateToAstraFormatStr(updDoc.expiryDate());
+        newDoc.surname       = updDoc.surname();
+        newDoc.first_name    = updDoc.name();
+        newDoc.second_name   = updDoc.secondName();
+        newDoc.nationality   = updDoc.nationality();
+        newDoc.issue_country = updDoc.issueCountry();
+        newDoc.gender        = updDoc.gender();
+        pax.doc              = newDoc;
+    }
 }
 
 //---------------------------------------------------------------------------------------
@@ -761,12 +898,34 @@ static void applyAddressUpdate(XmlPax& pax,
     }
 }
 
+//---------------------------------------------------------------------------------------
+
 static void applyAddressesUpdate(XmlPax& pax, const iatci::UpdateAddressDetails& updAddress)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " with act code: " << updAddress.actionCodeAsString();
     XmlPaxAddresses newAddrs;
     for(const auto& addr: updAddress.lAddr()) {
         applyAddressUpdate(pax, updAddress.actionCode(), addr);
+    }
+}
+
+//---------------------------------------------------------------------------------------
+
+static void applyVisaUpdate(XmlPax& pax, const iatci::UpdateVisaDetails& updVisa)
+{
+    LogTrace(TRACE3) << __FUNCTION__ << " with act code: " << updVisa.actionCodeAsString();
+
+    if(updVisa.actionCode() == iatci::UpdateDetails::Cancel) {
+        pax.visa = {};
+    } else {
+        XmlPaxVisa newVisa;
+        newVisa.type           = updVisa.visaType();
+        newVisa.no             = updVisa.no();
+        newVisa.issue_place    = updVisa.placeOfIssue();
+        newVisa.applic_country = updVisa.issueCountry();
+        newVisa.expiry_date    = boostDateToAstraFormatStr(updVisa.expiryDate());
+        newVisa.issue_date     = boostDateToAstraFormatStr(updVisa.issueDate());
+        pax.visa = newVisa;
     }
 }
 
@@ -789,9 +948,20 @@ static XmlBag createPaxHandBag(int paxId, int amount, int weight)
     return bag;
 }
 
+static XmlBagTag createPaxBagTag(int paxId, uint64_t tagNo)
+{
+    XmlBagTag bagTag;
+    bagTag.tag_type = "ITCI";
+    bagTag.pr_print = 0;
+    bagTag.no       = tagNo;
+    bagTag.pax_id   = paxId;
+    return bagTag;
+}
+
 //---------------------------------------------------------------------------------------
 
 static void applyBaggageUpdate(XmlBags& newBags, XmlBags& delBags,
+                               XmlBagTags& newBagTags,
                                XmlPax& pax, const iatci::UpdateBaggageDetails& updBaggage)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " with act code: " << updBaggage.actionCodeAsString();
@@ -820,6 +990,12 @@ static void applyBaggageUpdate(XmlBags& newBags, XmlBags& delBags,
         }
     }
 
+    // бирки
+    for(const auto& updBagTag: updBaggage.bagTagsExpanded()) {
+        XmlBagTag bagTag = createPaxBagTag(pax.pax_id,
+                                           updBagTag.fullTag());
+        newBagTags.bagTags.push_back(bagTag);
+    }
 }
 
 //---------------------------------------------------------------------------------------
@@ -873,7 +1049,7 @@ static void applyFqtXmlRem(XmlPax& pax, const iatci::UpdateServiceDetails::UpdSs
 
     XmlFqtRem rem;
     rem.rem_code = updSsr.ssrCode();
-    rem.airline  = updSsr.airline();
+    rem.airline  = BaseTables::Company(updSsr.airline())->rcode();
     rem.no       = updSsr.ssrText();
     if(updSsr.quantity()) {
         rem.tier_level = std::to_string(updSsr.quantity());
@@ -1049,8 +1225,9 @@ static void handleIatciCkiPax(int pointDep,
                               const boost::optional<iatci::ReservationDetails>& reserv,
                               const boost::optional<iatci::ServiceDetails>& service,
                               const boost::optional<iatci::DocDetails>& doc,
-                              const boost::optional<iatci::AddressDetails>& addr
-                              )
+                              const boost::optional<iatci::AddressDetails>& addr,
+                              const boost::optional<iatci::VisaDetails>& visa,
+                              const boost::optional<iatci::BaggageDetails>& baggage)
 {
     const std::string PaxSurname = pax.surname();
     const std::string PaxName    = pax.name();
@@ -1058,6 +1235,10 @@ static void handleIatciCkiPax(int pointDep,
 
     if(PaxAlreadyCheckedIn(pointDep, pax, service)) {
         throw tick_soft_except(STDLOG, AstraErr::PAX_ALREADY_CHECKED_IN);
+    }
+
+    if(baggage && baggage->bag() && baggage->bag()->numOfPieces()) {
+        throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_BAGS);
     }
 
     SearchPaxXmlResult searchPaxXmlRes =
@@ -1068,6 +1249,7 @@ static void handleIatciCkiPax(int pointDep,
     std::list<XmlTrip> tripsFiltered = searchPaxXmlRes.applyNameFilter(PaxSurname,
                                                                        PaxName);
     if(tripsFiltered.empty()) {
+        tst();
         throw tick_soft_except(STDLOG, AstraErr::PAX_SURNAME_NF);
     }
 
@@ -1135,8 +1317,10 @@ static void handleIatciCkiPax(int pointDep,
                                                  pax,
                                                  seat,
                                                  reserv,
+                                                 service,
                                                  doc,
-                                                 addr));
+                                                 addr,
+                                                 visa));
 }
 
 iatci::dcrcka::Result checkinIatciPaxes(const iatci::CkiParams& ckiParams)
@@ -1159,7 +1343,9 @@ iatci::dcrcka::Result checkinIatciPaxes(const iatci::CkiParams& ckiParams)
                           paxGroup.reserv(),
                           paxGroup.service(),
                           paxGroup.doc(),
-                          paxGroup.address());
+                          paxGroup.address(),
+                          paxGroup.visa(),
+                          paxGroup.baggage());
         if(paxGroup.infant()) {
             // докинем инфанта
             handleIatciCkiPax(pointDep, tripHeader, paxSeg,
@@ -1168,7 +1354,9 @@ iatci::dcrcka::Result checkinIatciPaxes(const iatci::CkiParams& ckiParams)
                               paxGroup.reserv(),
                               paxGroup.service(),
                               paxGroup.infantDoc(),
-                              paxGroup.infantAddress());
+                              paxGroup.infantAddress(),
+                              paxGroup.infantVisa(),
+                              boost::none/*baggage*/);
         }
     }
 
@@ -1187,42 +1375,15 @@ iatci::dcrcka::Result checkinIatciPaxes(const iatci::CkiParams& ckiParams)
                                       iatci::dcrcka::Result::Ok);
 }
 
-static XmlBags readOldBags(int pointDep, const iatci::PaxDetails& pax)
+static boost::optional<XmlBags> makeBags(const XmlBags& oldBags,
+                                         const XmlBags& delBags,
+                                         const XmlBags& newBags)
 {
-    PaxListXmlResult paxListXmlRes = AstraEngine::singletone().PaxList(pointDep);
-    PaxFilter filter = getSearchPaxFilter(pax);
-
-    std::list<XmlPax> wantedPaxes = paxListXmlRes.applyFilters(filter);
-    if(wantedPaxes.empty()) {
-        // не нашли пассажира в списке зарегистрированных
-        throw tick_soft_except(STDLOG, AstraErr::PAX_SURNAME_NOT_CHECKED_IN);
+    if(oldBags.empty() && delBags.empty() && newBags.empty()) {
+        tst();
+        return boost::none;
     }
 
-    if(wantedPaxes.size() > 1) {
-        // нашли слишком много пассажиров
-        throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_PAX_WITH_SAME_SURNAME);
-    }
-    const XmlPax& wantedPax = wantedPaxes.front();
-
-    LoadPaxXmlResult loadGrpXmlRes = LoadGrp__(pointDep, wantedPax.grp_id);
-    XmlBags bags(loadGrpXmlRes.lBag);
-    for(auto& bag: bags.bags) {
-        if(bag.bag_pool_num != ASTRA::NoExists) {
-            for(const auto& p: loadGrpXmlRes.lSeg.front().passengers) {
-                if(p.bag_pool_num == bag.bag_pool_num) {
-                    bag.pax_id = p.pax_id;
-                }
-            }
-        }
-    }
-
-    return bags;
-}
-
-static XmlBags makeBags(const XmlBags& oldBags,
-                        const XmlBags& delBags,
-                        const XmlBags& newBags)
-{
     XmlBags ret;
 
     LogTrace(TRACE3) << "new_bags.size = " << newBags.bags.size();
@@ -1253,12 +1414,68 @@ static XmlBags makeBags(const XmlBags& oldBags,
         }
     }
 
-    LogTrace(TRACE1) << "res_bags.size = " << ret.bags.size();
-    for(const auto& b: ret.bags) {
-        LogTrace(TRACE1) << b.amount << ":" << b.weight << " [" << b.pax_id << "]";
-    }
+    LogTrace(TRACE2) << "res_bags.size = " << ret.bags.size();
 
     return ret;
+}
+
+static boost::optional<XmlBagTags> makeBagTags(const XmlBagTags& oldBagTags,
+                                               const XmlBagTags& newBagTags,
+                                               const XmlBags& delBags)
+{
+    if(oldBagTags.empty() && newBagTags.empty()) {
+        tst();
+        return boost::none;
+    }
+
+    XmlBagTags ret;
+
+    LogTrace(TRACE3) << "new_bag_tags.size = " << newBagTags.bagTags.size();
+    for(const auto& newBagTag: newBagTags.bagTags) {
+        ASSERT(newBagTag.pax_id != ASTRA::NoExists);
+
+        ret.bagTags.push_back(newBagTag);
+    }
+
+    LogTrace(TRACE3) << "old_bag_tags.size = " << oldBagTags.bagTags.size();
+    for(const auto& oldBagTag: oldBagTags.bagTags) {
+        ASSERT(oldBagTag.pax_id != ASTRA::NoExists);
+
+        if(!newBagTags.containsTagForPax(oldBagTag.pax_id)) {
+            if(!delBags.findBag(oldBagTag.pax_id, 0)) {
+                ret.bagTags.push_back(oldBagTag);
+            }
+        }
+    }
+
+    LogTrace(TRACE2) << "res_bag_tags.size = " << ret.bagTags.size();
+
+    return ret;
+}
+
+static boost::optional<iatci::PaxDetails> findInfant(int pointDep,
+                                                     const iatci::PaxDetails& pax)
+{
+    // ищем инфанта, привязанного к пассажиру
+    ASSERT(pax.withInfant());
+    LoadPaxXmlResult loadPaxXmlResult = LoadPax__(pointDep, pax, true/*load_whole_grp*/);
+    std::list<astra_entities::PaxInfo> lInfants = convertInfants(loadPaxXmlResult.lSeg.front().passengers);
+
+    loadPaxXmlResult.applyPaxFilter(getSearchPaxFilter(pax));
+    ASSERT(!loadPaxXmlResult.lSeg.empty());
+    const XmlSegment& currXmlSeg = loadPaxXmlResult.lSeg.front();
+    ASSERT(!currXmlSeg.passengers.empty());
+    astra_entities::PaxInfo currPax = currXmlSeg.passengers.front().toPax();
+
+    boost::optional<astra_entities::Remark> ssrInft = currPax.ssrInft();
+    if(ssrInft) {
+        boost::optional<astra_entities::PaxInfo> inft = findInfant(lInfants, *ssrInft);
+        if(inft) {
+            return iatci::makeRespPax(*inft);
+        }
+    }
+
+    return boost::none;
 }
 
 static void handleIatciCkuPax(int pointDep,
@@ -1266,10 +1483,12 @@ static void handleIatciCkuPax(int pointDep,
                               XmlSegment& paxSeg,
                               XmlBags& newBags,
                               XmlBags& delBags,
+                              XmlBagTags& newBagTags,
                               const iatci::PaxDetails& pax,
                               const boost::optional<iatci::UpdatePaxDetails>& updPax,
                               const boost::optional<iatci::UpdateDocDetails>& updDoc,
                               const boost::optional<iatci::UpdateAddressDetails>& updAddress,
+                              const boost::optional<iatci::UpdateVisaDetails>& updVisa,
                               const boost::optional<iatci::UpdateSeatDetails>& updSeat,
                               const boost::optional<iatci::UpdateServiceDetails>& updService,
                               const boost::optional<iatci::UpdateBaggageDetails>& updBaggage)
@@ -1305,31 +1524,47 @@ static void handleIatciCkuPax(int pointDep,
         applyAddressesUpdate(newPax, *updAddress);
     }
 
+    if(updVisa) {
+        applyVisaUpdate(newPax, *updVisa);
+    }
+
     if(updService) {
         applyRemsUpdate(newPax, *updService);
     }
 
     if(updBaggage) {
-        applyBaggageUpdate(newBags, delBags, newPax, *updBaggage);
+        applyBaggageUpdate(newBags, delBags, newBagTags, newPax, *updBaggage);
     }
 
     if(currSeg.seg_info.grp_id != paxSeg.seg_info.grp_id) {
         LogWarning(STDLOG) << "Attempt to update paxes from different groups at single request! "
                            << currSeg.seg_info.grp_id << "<>" << paxSeg.seg_info.grp_id;
-        throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR);
+        throw tick_soft_except(STDLOG, AstraErr::UPDATE_SEPARATELY);
     }
 
     paxSeg.passengers.push_back(newPax);
 }
 
-static void fixSaveBaggageQuery(XmlSegment& seg, XmlBags& bags)
+static void updateBaggageQuery(XmlSegment& seg, XmlBags& bags, XmlBagTags& bagTags)
 {
-    std::set<int> paxIds;
+    LogTrace(TRACE3) << __FUNCTION__;
+
+    std::set<int> bagPaxIds;
     std::multimap<int, XmlBag*> paxBags;
     for(auto& bag: bags.bags)
     {
-        paxIds.emplace(bag.pax_id);
+        bagPaxIds.emplace(bag.pax_id);
         paxBags.emplace(bag.pax_id, &bag);
+        LogTrace(TRACE3) << "associate pax " << bag.pax_id << " with " << bag;
+    }
+
+    std::set<int> tagPaxIds;
+    std::multimap<int, XmlBagTag*> paxBagTags;
+    for(auto& bagTag: bagTags.bagTags)
+    {
+        tagPaxIds.emplace(bagTag.pax_id);
+        paxBagTags.emplace(bagTag.pax_id, &bagTag);
+        LogTrace(TRACE3) << "associate pax " << bagTag.pax_id << " with " << bagTag;
     }
 
     LoadPaxXmlResult loadGrpXmlRes = AstraEngine::singletone().LoadGrp(seg.seg_info.point_dep,
@@ -1338,13 +1573,13 @@ static void fixSaveBaggageQuery(XmlSegment& seg, XmlBags& bags)
     ASSERT(loadGrpXmlRes.lSeg.size());
     std::list<XmlPax> grpPaxes = loadGrpXmlRes.lSeg.front().passengers;
     for(const auto& pax: grpPaxes) {
-        if(pax.bag_pool_num != ASTRA::NoExists && !seg.idFilter(pax.pax_id)) {
+        if(pax.bag_pool_num != ASTRA::NoExists && !seg.findPaxById(pax.pax_id)) {
             seg.passengers.push_back(pax);
         }
     }
 
     int curBagNum = 0, curBagPoolNum = 0;
-    for(int paxId: paxIds)
+    for(int paxId: bagPaxIds)
     {
         auto range = paxBags.equal_range(paxId);
         ++curBagPoolNum;
@@ -1364,11 +1599,83 @@ static void fixSaveBaggageQuery(XmlSegment& seg, XmlBags& bags)
 
     // контрольный выстрел по bag_pool_num
     for(auto& pax: seg.passengers) {
-        if(!algo::contains(paxIds, pax.pax_id)) {
+        if(!algo::contains(bagPaxIds, pax.pax_id)) {
             pax.bag_pool_num = ASTRA::NoExists;
         }
     }
+
+    // бирки
+    if(bagTags.empty()) {
+        LogTrace(TRACE3) << "Bag tags are empty!";
+        return;
+    }
+
+
+    unsigned bagTagNum = 0;
+    for(int paxId: tagPaxIds)
+    {
+        LogTrace(TRACE3) << "handle bag tag for pax_id=" << paxId;
+        auto bagsRange = paxBags.equal_range(paxId);
+        auto bagTagsRange = paxBagTags.equal_range(paxId);
+
+        size_t bagsTotalAmount = 0;
+        std::list<XmlBag*> paxBags;
+        LogTrace(TRACE3) << "pax bags:";
+        for(auto it = bagsRange.first; it != bagsRange.second; ++it)
+        {
+            if(!it->second->pr_cabin)
+            {
+                paxBags.push_back(it->second);
+                bagsTotalAmount += it->second->amount;
+                LogTrace(TRACE3) << *(it->second);
+            }
+        }
+        LogTrace(TRACE3) << "pax bags total amount=" << bagsTotalAmount;
+
+        std::list<XmlBagTag*> paxBagTags;
+        LogTrace(TRACE3) << "pax bag tags:";
+        for(auto it = bagTagsRange.first; it != bagTagsRange.second; ++it)
+        {
+            paxBagTags.push_back(it->second);
+            LogTrace(TRACE3) << *(it->second);
+        }
+        LogTrace(TRACE3) << "pax bag tags total count=" << paxBagTags.size();
+
+        // в этом месте количество сумок багажа равно количеству бирок
+        ASSERT(bagsTotalAmount == paxBagTags.size());
+
+        auto bagIt = paxBags.begin();
+        auto bagTagIt = paxBagTags.begin();
+        // биркам пассажира проставим bag_num
+        for(; bagIt != paxBags.end(); ++bagIt)
+        {
+            for(int i = 0; i < (*bagIt)->amount; ++i, ++bagTagIt) {
+                (*bagTagIt)->num = ++bagTagNum;
+                (*bagTagIt)->bag_num = (*bagIt)->num;
+                LogTrace(TRACE3) << "set num=" << (*bagTagIt)->num
+                                 << ", bag_num=" << (*bagTagIt)->bag_num
+                                 << " for " << *(*bagTagIt);
+            }
+        }
+    }
 }
+
+//---------------------------------------------------------------------------------------
+
+static BaseTables::Company awkByAccode(const std::string& accode)
+{
+    int awk_ida;
+    OciCpp::CursCtl cur = make_curs(
+"select ID from AIRLINES where AIRCODE=:accode and PR_DEL=0");
+    cur.def(awk_ida)
+       .bind(":accode", accode)
+       .EXfet();
+
+    ASSERT(cur.err() != NO_DATA_FOUND);
+    return BaseTables::Company(Ticketing::Airline_t(awk_ida));
+}
+
+//---------------------------------------------------------------------------------------
 
 iatci::dcrcka::Result updateIatciPaxes(const iatci::CkuParams& ckuParams)
 {
@@ -1388,31 +1695,43 @@ iatci::dcrcka::Result updateIatciPaxes(const iatci::CkuParams& ckuParams)
     //    }
     bool Reseat = paxGroups.front().updSeat();
 
-    XmlBags newBags, delBags,
-            oldBags = readOldBags(pointDep, paxGroups.front().pax());
+    XmlBags newBags, delBags;
+    XmlBagTags newBagTags;
 
     XmlSegment paxSeg;
     bool first = true;
     for(const auto& paxGroup: paxGroups) {
         handleIatciCkuPax(pointDep,
                           first, paxSeg, newBags, delBags,
+                          newBagTags,
                           paxGroup.pax(),
                           paxGroup.updPax(),
                           paxGroup.updDoc(),
                           paxGroup.updAddress(),
+                          paxGroup.updVisa(),
                           paxGroup.updSeat(),
                           paxGroup.updService(),
                           paxGroup.updBaggage());
-        if(paxGroup.infant()) {
-            handleIatciCkuPax(pointDep,
-                              first, paxSeg, newBags, delBags,
-                              paxGroup.infant().get(),
-                              paxGroup.updInfant(),
-                              paxGroup.updInfantDoc(),
-                              paxGroup.updInfantAddress(),
-                              boost::none,  // infant seat
-                              boost::none,  // infant service
-                              boost::none); // infant baggage
+        if(paxGroup.pax().withInfant()) {
+            boost::optional<iatci::PaxDetails> inft = paxGroup.infant();
+            if(!inft) {
+                inft = findInfant(pointDep, paxGroup.pax());
+            }
+            if(inft) {
+                handleIatciCkuPax(pointDep,
+                                  first, paxSeg, newBags, delBags,
+                                  newBagTags,
+                                  *inft,
+                                  paxGroup.updInfant(),
+                                  paxGroup.updInfantDoc(),
+                                  paxGroup.updInfantAddress(),
+                                  paxGroup.updInfantVisa(),
+                                  boost::none,  // infant seat
+                                  boost::none,  // infant service
+                                  boost::none); // infant baggage
+            } else {
+                LogWarning(STDLOG) << "Pax for update with infant but infant not has been detected!";
+            }
         }
     }
 
@@ -1421,15 +1740,28 @@ iatci::dcrcka::Result updateIatciPaxes(const iatci::CkuParams& ckuParams)
         return loadPaxXmlRes.toIatciFirst(iatci::dcrcka::Result::Update,
                                           iatci::dcrcka::Result::Ok);
     } else {
-        boost::optional<XmlBags> bags = makeBags(oldBags, delBags, newBags);
-        if(bags) {
-            fixSaveBaggageQuery(paxSeg, bags.get());
+        LoadPaxXmlResult oldLoadPaxXmlRes = LoadPax__(pointDep, paxGroups.front().pax());
+
+        boost::optional<XmlBags> bags = makeBags(oldLoadPaxXmlRes.lBag,
+                                                 delBags,
+                                                 newBags);
+        boost::optional<XmlBagTags> bagTags;
+        if(bags && !bags->empty()) {
+            bagTags = makeBagTags(oldLoadPaxXmlRes.lBagTag,
+                                  newBagTags,
+                                  delBags);
+            ASSERT(bagTags);
+            ASSERT(bags->totalAmount() == bagTags->bagTags.size());
+            updateBaggageQuery(paxSeg, bags.get(), bagTags.get());
         }
 
-        LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(paxSeg, bags);
+        LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(paxSeg,
+                                                                           bags,
+                                                                           bagTags);
         if(loadPaxXmlRes.lSeg.empty()) {
             // не смогли сохранить
-            throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR, "Unable to update pax grp");
+            throw tick_soft_except(STDLOG, AstraErr::EDI_PROC_ERR,
+                                   "Unable to update pax grp");
         }
 
         return loadPaxXmlRes.toIatciFirst(iatci::dcrcka::Result::Update,
@@ -1500,9 +1832,17 @@ iatci::dcrcka::Result cancelCheckinIatciPaxes(const iatci::CkxParams& ckxParams)
         handleIatciCkxPax(pointDep, first, paxSeg,
                           paxGroup.pax());
 
-        if(paxGroup.infant()) {
-            handleIatciCkxPax(pointDep, first, paxSeg,
-                              paxGroup.infant().get());
+        if(paxGroup.pax().withInfant()) {
+            boost::optional<iatci::PaxDetails> inft = paxGroup.infant();
+            if(!inft) {
+                inft = findInfant(pointDep, paxGroup.pax());
+            }
+            if(inft) {
+                handleIatciCkxPax(pointDep, first, paxSeg,
+                                  *inft);
+            } else {
+                LogWarning(STDLOG) << "Pax for cancel with infant but infant not has been detected!";
+            }
         }
     }
 
@@ -1613,9 +1953,17 @@ iatci::dcrcka::Result printBoardingPass(const iatci::BprParams& bprParams)
         handleIatciBprPax(pointDep, first, paxSeg,
                           paxGroup.pax());
 
-        if(paxGroup.infant()) {
-            handleIatciBprPax(pointDep, first, paxSeg,
-                              paxGroup.infant().get());
+        if(paxGroup.pax().withInfant()) {
+            boost::optional<iatci::PaxDetails> inft = paxGroup.infant();
+            if(!inft) {
+                inft = findInfant(pointDep, paxGroup.pax());
+            }
+            if(inft) {
+                handleIatciBprPax(pointDep, first, paxSeg,
+                                  *inft);
+            } else {
+                LogWarning(STDLOG) << "Pax for printing with infant but infant not has been detected!";
+            }
         }
     }
 
@@ -1786,6 +2134,18 @@ astra_entities::Addresses XmlPaxAddresses::toAddresses() const
 
 //---------------------------------------------------------------------------------------
 
+astra_entities::VisaInfo XmlPaxVisa::toVisa() const
+{
+    return astra_entities::VisaInfo(type,
+                                    applic_country,
+                                    no,
+                                    issue_place,
+                                    boostDateTimeFromAstraFormatStr(issue_date).date(),
+                                    boostDateTimeFromAstraFormatStr(expiry_date).date());
+}
+
+//---------------------------------------------------------------------------------------
+
 XmlPax::XmlPax()
     : pax_id(ASTRA::NoExists),
       seats(ASTRA::NoExists),
@@ -1806,9 +2166,9 @@ XmlPax::XmlPax()
 
 bool XmlPax::equalName(const std::string& surname, const std::string& name) const
 {
-    // возможно следует усложнить функцию сравнения (trim, translit)
     return (this->surname == surname &&
-            this->name == name);
+           (this->name == name
+            || StrUtils::delSpaces(this->name) == StrUtils::delSpaces(name)));
 }
 
 astra_entities::PaxInfo XmlPax::toPax() const
@@ -1827,6 +2187,7 @@ astra_entities::PaxInfo XmlPax::toPax() const
                                                      : Ticketing::SubClass(),
                                    doc ? doc->toDoc() : boost::optional<astra_entities::DocInfo>(),
                                    addrs ? addrs->toAddresses() : boost::optional<astra_entities::Addresses>(),
+                                   visa ? visa->toVisa() : boost::optional<astra_entities::VisaInfo>(),
                                    rems ? rems->toRems() : boost::optional<astra_entities::Remarks>(),
                                    fqt_rems ? fqt_rems->toFqtRems() : boost::optional<astra_entities::FqtRemarks>(),
                                    bag_pool_num != ASTRA::NoExists ? bag_pool_num : 0,
@@ -1846,8 +2207,8 @@ astra_entities::SegmentInfo XmlSegment::toSeg() const
                                        mark_flight.toMarkFlight());
 }
 
-std::list<XmlPax> XmlSegment::nameFilter(const std::string& surname,
-                                         const std::string& name) const
+std::list<XmlPax> XmlSegment::findPaxesByName(const std::string& surname,
+                                              const std::string& name) const
 {
     std::list<XmlPax> res;
     for(const XmlPax& pax: passengers) {
@@ -1858,7 +2219,7 @@ std::list<XmlPax> XmlSegment::nameFilter(const std::string& surname,
     return res;
 }
 
-boost::optional<XmlPax> XmlSegment::idFilter(int paxId) const
+boost::optional<XmlPax> XmlSegment::findPaxById(int paxId) const
 {
     for(const XmlPax& pax: passengers) {
         if(pax.pax_id == paxId){
@@ -1866,6 +2227,30 @@ boost::optional<XmlPax> XmlSegment::idFilter(int paxId) const
         }
     }
     return boost::none;
+}
+
+XmlPax XmlSegment::firstAdult() const
+{
+    ASSERT(!passengers.empty());
+    for(const XmlPax& pax: passengers) {
+        ASTRA::TPerson pers = DecodePerson(pax.pers_type.c_str());
+        if(pers == ASTRA::adult) {
+            return pax;
+        }
+    }
+
+    ASSERT(false);
+    return XmlPax();
+}
+
+//---------------------------------------------------------------------------------------
+
+std::ostream& operator<<(std::ostream& os, const XmlBag& bag)
+{
+    os << "bag: "
+       << bag.amount << ":" << bag.weight
+       << (bag.pr_cabin ? "(cabin)" : "");
+    return os;
 }
 
 //---------------------------------------------------------------------------------------
@@ -1878,6 +2263,49 @@ boost::optional<XmlBag> XmlBags::findBag(int paxId, int prCabin) const
         }
     }
     return boost::none;
+}
+
+bool XmlBags::haveNotCabinBags() const
+{
+    for(const auto& bag: bags) {
+        if(!bag.pr_cabin) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+size_t XmlBags::totalAmount() const
+{
+    size_t total = 0;
+    for(const auto& bag: bags) {
+        if(!bag.pr_cabin) {
+            ASSERT(bag.amount != ASTRA::NoExists);
+            total += (size_t)bag.amount;
+        }
+    }
+    return total;
+}
+
+//---------------------------------------------------------------------------------------
+
+std::ostream& operator<<(std::ostream& os, const XmlBagTag& tag)
+{
+    os << "bag tag: " << tag.no;
+    return os;
+}
+
+//---------------------------------------------------------------------------------------
+
+bool XmlBagTags::containsTagForPax(int paxId) const
+{
+    for(const auto& bagTag: bagTags) {
+        if(bagTag.pax_id == paxId) {
+            return true;
+        }
+    }
+    return false;
 }
 
 //---------------------------------------------------------------------------------------
@@ -2111,12 +2539,16 @@ XmlTripHeader XmlEntityReader::readTripHeader(xmlNodePtr thNode)
     th.flight             = getStrFromXml(thNode, "flight");
     th.airline            = getStrFromXml(thNode, "airline");
     th.aircode            = getStrFromXml(thNode, "aircode");
-    th.flt_no             = getIntFromXml(thNode, "flt_no", 		ASTRA::NoExists);
+    th.flt_no             = getIntFromXml(thNode, "flt_no", 		    ASTRA::NoExists);
     th.suffix             = getStrFromXml(thNode, "suffix");
     th.airp               = getStrFromXml(thNode, "airp");
     th.scd_out_local      = getDateTimeFromXml(thNode, "scd_out_local", ASTRA::NoExists);
     th.pr_etl_only        = getIntFromXml(thNode, "pr_etl_only",        ASTRA::NoExists);
     th.pr_etstatus        = getIntFromXml(thNode, "pr_etstatus",        ASTRA::NoExists);
+
+    // вспомогательные iatci поля
+    th.scd_brd_to_local   = getStrFromXml(thNode, "scd_brd_to_local");
+    th.remote_gate        = getStrFromXml(thNode, "remote_gate");
 
     return th;
 }
@@ -2396,6 +2828,20 @@ XmlPaxAddresses XmlEntityReader::readAddresses(xmlNodePtr addrsNode)
     return addrs;
 }
 
+XmlPaxVisa XmlEntityReader::readVisa(xmlNodePtr visaNode)
+{
+    ASSERT(visaNode);
+
+    XmlPaxVisa visa;
+    visa.type           = getStrFromXml(visaNode, "type");
+    visa.no             = getStrFromXml(visaNode, "no");
+    visa.issue_place    = getStrFromXml(visaNode, "issue_place");
+    visa.issue_date     = getStrFromXml(visaNode, "issue_date");
+    visa.expiry_date    = getStrFromXml(visaNode, "expiry_date");
+    visa.applic_country = getStrFromXml(visaNode, "applic_country");
+    return visa;
+}
+
 XmlPax XmlEntityReader::readPax(xmlNodePtr paxNode)
 {
     ASSERT(paxNode);
@@ -2430,13 +2876,28 @@ XmlPax XmlEntityReader::readPax(xmlNodePtr paxNode)
 
     // doc
     xmlNodePtr docNode = findNode(paxNode, "document");
-    if(docNode != NULL && !isempty(docNode)) {
-        pax.doc = XmlEntityReader::readDoc(docNode);
+    if(docNode != NULL) {
+        if(!isempty(docNode)) {
+            pax.doc = XmlEntityReader::readDoc(docNode);
+        } else {
+            pax.doc = XmlPaxDoc();
+        }
     }
 
+    // addresses
     xmlNodePtr addrsNode = findNode(paxNode, "addresses");
     if(addrsNode != NULL) {
         pax.addrs = XmlEntityReader::readAddresses(addrsNode);
+    }
+
+    // visa
+    xmlNodePtr visaNode = findNode(paxNode, "doco");
+    if(visaNode != NULL) {
+        if(!isempty(visaNode)) {
+            pax.visa = XmlEntityReader::readVisa(visaNode);
+        } else {
+            pax.visa = XmlPaxVisa();
+        }
     }
 
     // remarks
@@ -2633,6 +3094,7 @@ XmlSegmentInfo XmlEntityReader::readSegInfo(xmlNodePtr segNode)
     seg_info.bag_refuse= getStrFromXml(segNode, "bag_refuse");
     seg_info.tid       = getIntFromXml(segNode, "tid",       ASTRA::NoExists);
     seg_info.city_arv  = getStrFromXml(segNode, "city_arv");
+    seg_info.airline   = getStrFromXml(segNode, "airline");
     return seg_info;
 }
 
@@ -2702,14 +3164,15 @@ XmlBag XmlEntityReader::readBag(xmlNodePtr bagNode)
     ASSERT(bagNode);
 
     XmlBag bag;
-    bag.bag_type     = getStrFromXml(bagNode, "bag_type");
-    bag.airline      = getStrFromXml(bagNode, "airline");
-    bag.id           = getIntFromXml(bagNode, "id",           ASTRA::NoExists);
-    bag.num          = getIntFromXml(bagNode, "num",          ASTRA::NoExists);
-    bag.pr_cabin     = getBoolFromXml(bagNode,"pr_cabin",     false);
-    bag.amount       = getIntFromXml(bagNode, "amount",       ASTRA::NoExists);
-    bag.weight       = getIntFromXml(bagNode, "weight",       ASTRA::NoExists);
-    bag.bag_pool_num = getIntFromXml(bagNode, "bag_pool_num", ASTRA::NoExists);
+    bag.bag_type       = getStrFromXml(bagNode, "bag_type");
+    bag.airline        = getStrFromXml(bagNode, "airline");
+    bag.id             = getIntFromXml(bagNode, "id",           ASTRA::NoExists);
+    bag.num            = getIntFromXml(bagNode, "num",          ASTRA::NoExists);
+    bag.pr_cabin       = getBoolFromXml(bagNode,"pr_cabin",     false);
+    bag.amount         = getIntFromXml(bagNode, "amount",       ASTRA::NoExists);
+    bag.weight         = getIntFromXml(bagNode, "weight",       ASTRA::NoExists);
+    bag.bag_pool_num   = getIntFromXml(bagNode, "bag_pool_num", ASTRA::NoExists);
+    bag.airp_arv_final = getStrFromXml(bagNode, "airp_arv_final");
     return bag;
 }
 
@@ -2724,6 +3187,34 @@ std::list<XmlBag> XmlEntityReader::readBags(xmlNodePtr bagsNode)
         bags.push_back(XmlEntityReader::readBag(bagNode));
     }
     return bags;
+}
+
+XmlBagTag XmlEntityReader::readBagTag(xmlNodePtr bagTagNode)
+{
+    ASSERT(bagTagNode);
+
+    XmlBagTag bagTag;
+
+    bagTag.num           = getIntFromXml(bagTagNode, "num",      ASTRA::NoExists);
+    bagTag.tag_type      = getStrFromXml(bagTagNode, "tag_type");
+    std::string bagTagNo = getStrFromXml(bagTagNode, "no");
+    bagTag.no            = std::strtoull(bagTagNo.c_str(), NULL, 10);
+    bagTag.bag_num       = getIntFromXml(bagTagNode, "bag_num",  ASTRA::NoExists);
+    bagTag.pr_print      = getBoolFromXml(bagTagNode,"pr_print", false);
+    return bagTag;
+}
+
+std::list<XmlBagTag> XmlEntityReader::readBagTags(xmlNodePtr bagTagsNode)
+{
+    ASSERT(bagTagsNode);
+
+    std::list<XmlBagTag> bagTags;
+    for(xmlNodePtr bagTagNode = bagTagsNode->children;
+        bagTagNode != NULL; bagTagNode = bagTagNode->next)
+    {
+        bagTags.push_back(XmlEntityReader::readBagTag(bagTagNode));
+    }
+    return bagTags;
 }
 
 XmlPlaceLayer XmlEntityReader::readPlaceLayer(xmlNodePtr layerNode)
@@ -2881,10 +3372,12 @@ xmlNodePtr XmlEntityViewer::viewFqtRem(xmlNodePtr node, const XmlFqtRem& rem)
     return remNode;
 }
 
-xmlNodePtr XmlEntityViewer::viewFqtRems(xmlNodePtr node, const XmlFqtRems& rems)
+xmlNodePtr XmlEntityViewer::viewFqtRems(xmlNodePtr node, const boost::optional<XmlFqtRems>& rems)
 {
     xmlNodePtr remsNode = NewTextChild(node, "fqt_rems");
-    for(const XmlFqtRem& rem: rems.rems) {
+    if(!rems) return remsNode;
+
+    for(const XmlFqtRem& rem: rems->rems) {
         XmlEntityViewer::viewFqtRem(remsNode, rem);
     }
     return remsNode;
@@ -2916,6 +3409,18 @@ xmlNodePtr XmlEntityViewer::viewAddress(xmlNodePtr node, const XmlPaxAddress& ad
     NewTextChild(addrNode, "region",      addr.region);
     NewTextChild(addrNode, "postal_code", addr.postal_code);
     return addrNode;
+}
+
+xmlNodePtr XmlEntityViewer::viewVisa(xmlNodePtr node, const XmlPaxVisa& visa)
+{
+    xmlNodePtr visaNode = NewTextChild(node, "doco");
+    NewTextChild(visaNode, "type",           visa.type);
+    NewTextChild(visaNode, "no",             visa.no);
+    NewTextChild(visaNode, "issue_place",    visa.issue_place);
+    NewTextChild(visaNode, "issue_date",     visa.issue_date);
+    NewTextChild(visaNode, "expiry_date",    visa.expiry_date);
+    NewTextChild(visaNode, "applic_country", visa.applic_country);
+    return visaNode;
 }
 
 xmlNodePtr XmlEntityViewer::viewAddresses(xmlNodePtr node, const XmlPaxAddresses& addrs)
@@ -2961,9 +3466,6 @@ xmlNodePtr XmlEntityViewer::viewPax(xmlNodePtr node, const XmlPax& pax)
         NewTextChild(paxNode, "tid",      pax.tid);
     }
 
-    NewTextChild(paxNode, "doco");      // TODO отрисовать визы
-    NewTextChild(paxNode, "addresses"); // TODO отрисовать адреса
-
     return paxNode;
 }
 
@@ -2998,26 +3500,61 @@ xmlNodePtr XmlEntityViewer::viewBag(xmlNodePtr node, const XmlBag& bag)
     NewTextChild(bagNode, "bag_type",      bag.bag_type);
     NewTextChild(bagNode, "airline",       bag.airline);
     NewTextChild(bagNode, "num",           bag.num);
-    NewTextChild(bagNode, "pr_cabin",      bag.pr_cabin);
+    NewTextChild(bagNode, "pr_cabin",      bag.pr_cabin ? 1 : 0);
     NewTextChild(bagNode, "amount",        bag.amount);
     NewTextChild(bagNode, "weight",        bag.weight);
     NewTextChild(bagNode, "value_bag_num");
     NewTextChild(bagNode, "pr_liab_limit", 0);
     NewTextChild(bagNode, "to_ramp",       0);
     NewTextChild(bagNode, "using_scales",  0);
-    NewTextChild(bagNode, "is_trfer",      0);
+    NewTextChild(bagNode, "is_trfer",      1);
     NewTextChild(bagNode, "bag_pool_num",  bag.bag_pool_num);
     return bagNode;
 }
 
-xmlNodePtr XmlEntityViewer::viewBags(xmlNodePtr node, const XmlBags& bags)
+xmlNodePtr XmlEntityViewer::viewBagsHeader(xmlNodePtr node)
 {
     xmlNodePtr bagsNode = NewTextChild(node, "bags");
+    return bagsNode;
+}
+
+xmlNodePtr XmlEntityViewer::viewBags(xmlNodePtr node, const XmlBags& bags)
+{
+    xmlNodePtr bagsNode = viewBagsHeader(node);
     for(const XmlBag& bag: bags.bags) {
         XmlEntityViewer::viewBag(bagsNode, bag);
     }
 
     return bagsNode;
+}
+
+xmlNodePtr XmlEntityViewer::viewBagTag(xmlNodePtr node, const XmlBagTag& tag)
+{
+    xmlNodePtr bagTagNode = NewTextChild(node, "tag");
+    NewTextChild(bagTagNode, "num",      tag.num);
+    NewTextChild(bagTagNode, "tag_type", tag.tag_type);
+    NewTextChild(bagTagNode, "no",       FloatToString(tag.no, 0));
+    NewTextChild(bagTagNode, "color");
+    NewTextChild(bagTagNode, "bag_num",  tag.bag_num);
+    NewTextChild(bagTagNode, "pr_print", tag.pr_print ? 1 : 0);
+    return bagTagNode;
+}
+
+xmlNodePtr XmlEntityViewer::viewBagTagsHeader(xmlNodePtr node)
+{
+    xmlNodePtr bagTagsNode = NewTextChild(node, "tags");
+    xmlSetProp(bagTagsNode, "pr_print", "0");
+    return bagTagsNode;
+}
+
+xmlNodePtr XmlEntityViewer::viewBagTags(xmlNodePtr node, const XmlBagTags& tags)
+{
+    xmlNodePtr bagTagsNode = viewBagTagsHeader(node);
+    for(const XmlBagTag& tag: tags.bagTags) {
+        XmlEntityViewer::viewBagTag(bagTagsNode, tag);
+    }
+
+    return bagTagsNode;
 }
 
 xmlNodePtr XmlEntityViewer::viewServiveList(xmlNodePtr node, const XmlServiceList& svcList)
@@ -3082,55 +3619,58 @@ LoadPaxXmlResult::LoadPaxXmlResult(xmlNodePtr node)
     if(bagsNode != NULL) {
         this->lBag = XmlEntityReader::readBags(bagsNode);
     }
+
+    xmlNodePtr bagTagsNode = findNode(node, "tags");
+    if(bagTagsNode != NULL) {
+        this->lBagTag = XmlEntityReader::readBagTags(bagTagsNode);
+    }
+
+    finalizeBags();
+    finalizeBagTags();
 }
 
 LoadPaxXmlResult::LoadPaxXmlResult(const std::list<XmlSegment>& lSeg,
-                                   const std::list<XmlBag>& lBag)
+                                   const std::list<XmlBag>& lBag,
+                                   const std::list<XmlBagTag>& lBagTag)
 {
-    this->lSeg = lSeg;
-    this->lBag = lBag;
+    this->lSeg    = lSeg;
+    this->lBag    = lBag;
+    this->lBagTag = lBagTag;
 }
 
-static std::list<astra_entities::PaxInfo> convertNotInfants(const std::list<XmlPax>& lPax)
+void LoadPaxXmlResult::finalizeBags()
 {
-    std::list<astra_entities::PaxInfo> lNotInfants;
-    for(const XmlPax& xmlPax: lPax) {
-        astra_entities::PaxInfo paxInfo = xmlPax.toPax();
-        if(!paxInfo.isInfant()) {
-            lNotInfants.push_back(paxInfo);
+    for(auto& bag: lBag) {
+        if(bag.bag_pool_num != ASTRA::NoExists) {
+            for(const auto& p: lSeg.front().passengers) {
+                if(p.bag_pool_num == bag.bag_pool_num) {
+                    bag.pax_id = p.pax_id;
+                }
+            }
         }
     }
-    return lNotInfants;
 }
 
-static std::list<astra_entities::PaxInfo> convertInfants(const std::list<XmlPax>& lPax)
+void LoadPaxXmlResult::finalizeBagTags()
 {
-    std::list<astra_entities::PaxInfo> lInfants;
-    for(const XmlPax& xmlPax: lPax) {
-        astra_entities::PaxInfo paxInfo = xmlPax.toPax();
-        if(paxInfo.isInfant()) {
-            lInfants.push_back(paxInfo);
+    for(auto& bagTag: lBagTag) {
+        for(const auto& p: lSeg.front().passengers) {
+            for(const XmlBag& bag: lBag) {
+                if(bagTag.bag_num == bag.num) {
+                    if(bag.pax_id == p.pax_id) {
+                        bagTag.pax_id = bag.pax_id;
+                    }
+                }
+            }
         }
     }
-    return lInfants;
-}
-
-static boost::optional<astra_entities::PaxInfo> findInfant(const std::list<astra_entities::PaxInfo>& lInfants,
-                                                           const astra_entities::Remark& ssrInft)
-{
-    for(const auto& infant: lInfants) {
-        if(ssrInft.containsText(infant.fullName())) {
-            return infant;
-        }
-    }
-    return boost::none;
 }
 
 //---------------------------------------------------------------------------------------
 
 PaxFilter::PaxFilter(const boost::optional<NameFilter>& nameFilter,
-                                 const boost::optional<TicknumFilter>& ticknumFilter,
-                                 const boost::optional<IdFilter>& idFilter)
+                     const boost::optional<TicknumFilter>& ticknumFilter,
+                     const boost::optional<IdFilter>& idFilter)
     : m_nameFilter(nameFilter),
       m_ticknumFilter(ticknumFilter),
       m_idFilter(idFilter)
@@ -3168,6 +3708,7 @@ std::vector<iatci::dcrcka::Result> LoadPaxXmlResult::toIatci(iatci::dcrcka::Resu
     std::vector<iatci::dcrcka::Result> lRes;
     for(auto& seg: lSeg)
     {
+        iatci::FlightDetails flight = iatci::makeFlight(seg, true/*readAdditional*/);
         std::list<iatci::dcrcka::PaxGroup> paxGroups;
         std::list<astra_entities::PaxInfo> lNonInfants = convertNotInfants(seg.passengers);
         std::list<astra_entities::PaxInfo> lInfants = convertInfants(seg.passengers);
@@ -3180,6 +3721,7 @@ std::vector<iatci::dcrcka::Result> LoadPaxXmlResult::toIatci(iatci::dcrcka::Resu
             boost::optional<iatci::PaxDetails> infant;
             boost::optional<iatci::DocDetails> infantDoc;
             boost::optional<iatci::AddressDetails> infantAddress;
+            boost::optional<iatci::VisaDetails> infantVisa;
             boost::optional<iatci::FlightSeatDetails> infantSeat;
             boost::optional<astra_entities::Remark> ssrInft = paxInfo.ssrInft();
             if(ssrInft) {
@@ -3188,6 +3730,7 @@ std::vector<iatci::dcrcka::Result> LoadPaxXmlResult::toIatci(iatci::dcrcka::Resu
                     infant = iatci::makeRespPax(*inft);
                     infantDoc = iatci::makeDoc(*inft);
                     infantAddress = iatci::makeAddress(*inft);
+                    infantVisa = iatci::makeVisa(*inft);
                     infantSeat = iatci::makeFlightSeat(*inft);
                 }
             }
@@ -3205,22 +3748,33 @@ std::vector<iatci::dcrcka::Result> LoadPaxXmlResult::toIatci(iatci::dcrcka::Resu
                 }
             }
 
+            std::list<astra_entities::BaggageTag> bagTags;
+            for(const auto& bt: lBagTag) {
+                if(bt.pax_id == paxInfo.id() || (inft && bt.pax_id == inft->id())) {
+                    bagTags.push_back(astra_entities::BaggageTag(bt.no,
+                                                                 1,
+                                                                 flight.arrPort()));
+                }
+            }
+
             paxGroups.push_back(iatci::dcrcka::PaxGroup(iatci::makeRespPax(paxInfo, inft),
                                                         iatci::makeReserv(paxInfo),
                                                         iatci::makeFlightSeat(paxInfo),
-                                                        iatci::makeBaggage(paxInfo, bags, handBags),
+                                                        iatci::makeBaggage(paxInfo, bags, handBags, bagTags),
                                                         iatci::makeService(paxInfo, inft),
                                                         iatci::makeDoc(paxInfo),
                                                         iatci::makeAddress(paxInfo),
+                                                        iatci::makeVisa(paxInfo),
                                                         infant,
                                                         infantDoc,
                                                         infantAddress,
+                                                        infantVisa,
                                                         infantSeat));
         }
 
         lRes.push_back(iatci::dcrcka::Result::makeResult(action,
                                                          status,
-                                                         iatci::makeFlight(seg),
+                                                         flight,
                                                          paxGroups,
                                                          boost::none,
                                                          boost::none,
@@ -3445,6 +3999,11 @@ DocInfo::DocInfo(const std::string& type,
       m_gender(gender)
 {}
 
+bool DocInfo::isEmpty() const
+{
+    return m_type.empty();
+}
+
 bool operator==(const DocInfo& left, const DocInfo& right)
 {
     return (left.m_type        == right.m_type &&
@@ -3518,9 +4077,33 @@ bool operator!=(const Addresses& left, const Addresses& right)
 
 //---------------------------------------------------------------------------------------
 
+VisaInfo::VisaInfo(const std::string& type,
+                   const std::string& country,
+                   const std::string& num,
+                   const std::string& placeOfIssue,
+                   const boost::gregorian::date& issueDate,
+                   const boost::gregorian::date& expiryDate)
+    : m_type(type),
+      m_country(country),
+      m_num(num),
+      m_placeOfIssue(placeOfIssue),
+      m_issueDate(issueDate),
+      m_expiryDate(expiryDate)
+{}
+
+bool VisaInfo::isEmpty() const
+{
+    return m_type.empty() || m_type == "-";
+}
+
 bool operator==(const VisaInfo& left, const VisaInfo& right)
 {
-    return true; // TODO
+    return (left.m_type         == right.m_type &&
+            left.m_country      == right.m_country &&
+            left.m_num          == right.m_num &&
+            left.m_placeOfIssue == right.m_placeOfIssue &&
+            left.m_issueDate    == right.m_issueDate &&
+            left.m_expiryDate   == right.m_expiryDate);
 }
 
 bool operator!=(const VisaInfo& left, const VisaInfo& right)
@@ -3567,6 +4150,7 @@ PaxInfo::PaxInfo(int paxId,
                  const Ticketing::SubClass& subclass,
                  const boost::optional<DocInfo>& doc,
                  const boost::optional<Addresses>& addrs,
+                 const boost::optional<VisaInfo>& visa,
                  const boost::optional<Remarks>& rems,
                  const boost::optional<FqtRemarks>& fqtRems,
                  int bagPoolNum,
@@ -3584,6 +4168,7 @@ PaxInfo::PaxInfo(int paxId,
       m_subclass(subclass),
       m_doc(doc),
       m_addrs(addrs),
+      m_visa(visa),
       m_rems(rems),
       m_fqtRems(fqtRems),
       m_bagPoolNum(bagPoolNum),
@@ -3676,6 +4261,28 @@ BagPool& BagPool::operator+=(const BagPool& pool)
     this->m_weight += pool.m_weight;
     return *this;
 }
+
+//---------------------------------------------------------------------------------------
+
+BaggageTag::BaggageTag(uint64_t fullTag,
+                       unsigned numOfConsecSerial,
+                       const std::string& dest)
+    : m_fullTag(fullTag),
+      m_numOfConsecSerial(numOfConsecSerial),
+      m_destination(dest)
+{
+    m_carrierCode = awkByAccode(std::to_string(iatci::getTagAccode(fullTag)))->code(/*lang*/);
+}
+
+BaggageTag::BaggageTag(const std::string& carrierCode,
+                       uint64_t fullTag,
+                       unsigned numOfConsecSerial,
+                       const std::string& dest)
+    : m_carrierCode(carrierCode),
+      m_fullTag(fullTag),
+      m_numOfConsecSerial(numOfConsecSerial),
+      m_destination(dest)
+{}
 
 //---------------------------------------------------------------------------------------
 

@@ -157,19 +157,58 @@ namespace
         const EntityT& newEntity() const { return m_newEntity; }
     };
 
-    //---------------------------------------------------------------------------------------
+    //-----------------------------------------------------------------------------------
 
     template<class EntityT>
-    class CheckInEntityDiff
+    class CheckInSingleEntityDiff
+    {
+        boost::optional<EntityT> m_added;
+        boost::optional<EntityT> m_removed;
+        boost::optional<ModifiedEntity<EntityT> > m_modified;
+
+    public:
+        typedef boost::optional<CheckInSingleEntityDiff<EntityT> > Optional_t;
+
+        CheckInSingleEntityDiff(const boost::optional<EntityT>& oldEntity,
+                                const boost::optional<EntityT>& newEntity)
+        {
+            if(newEntity && oldEntity) {
+                if(newEntity->isEmpty() && oldEntity->isEmpty()) {
+                    ; // nop
+                } else if(oldEntity->isEmpty()) {
+                    m_added = newEntity;
+                } else if(newEntity->isEmpty()) {
+                    m_removed = oldEntity;
+                } else { // if(!newEntity->isEmpty() && !oldEntity->isEmpty()) {
+                    if(*oldEntity != *newEntity) {
+                        m_modified = ModifiedEntity<EntityT>(*oldEntity, *newEntity);
+                    }
+                }
+            }
+        }
+
+        const boost::optional<EntityT>&                     added() const { return m_added; }
+        const boost::optional<EntityT>&                   removed() const { return m_removed; }
+        const boost::optional<ModifiedEntity<EntityT> >& modified() const { return m_modified; }
+
+        bool empty() const { return !m_added &&
+                                    !m_removed &&
+                                    !m_modified; }
+    };
+
+    //-----------------------------------------------------------------------------------
+
+    template<class EntityT>
+    class CheckInMultiEntityDiff
     {
         std::vector<EntityT> m_added;
         std::vector<EntityT> m_removed;
         std::vector<ModifiedEntity<EntityT> > m_modified;
 
     public:
-        typedef boost::optional<CheckInEntityDiff<EntityT> > Optional_t;
+        typedef boost::optional<CheckInMultiEntityDiff<EntityT> > Optional_t;
 
-        CheckInEntityDiff(const std::list<EntityT>& lOld, const std::list<EntityT>& lNew)
+        CheckInMultiEntityDiff(const std::list<EntityT>& lOld, const std::list<EntityT>& lNew)
         {
             for(const EntityT& oldEntity: lOld) {
                 const auto newEntityOpt = algo::find_opt_if<boost::optional>(lNew,
@@ -178,7 +217,7 @@ namespace
                     if(*newEntityOpt != oldEntity) {
                         m_modified.push_back(ModifiedEntity<EntityT>(oldEntity, *newEntityOpt));
                     }
-                } else { // если не найдена в новых-> помещаем в cancelled
+                } else { // если не найдена в новых -> помещаем в cancelled
                     m_removed.push_back(oldEntity);
                 }
             }
@@ -192,24 +231,26 @@ namespace
             }
         }
 
-        const std::vector<ModifiedEntity<EntityT> >& modified() const { return m_modified;  }
-        const std::vector<EntityT>& added()    const { return m_added;     }
-        const std::vector<EntityT>& removed()const { return m_removed; }
+        const std::vector<ModifiedEntity<EntityT> >& modified() const { return m_modified; }
+        const std::vector<EntityT>&                     added() const { return m_added; }
+        const std::vector<EntityT>&                   removed() const { return m_removed; }
+
         bool empty() const { return m_modified.empty() &&
                                     m_added.empty() &&
                                     m_removed.empty(); }
     };
 
-    //---------------------------------------------------------------------------------------
+    //-----------------------------------------------------------------------------------
 
     class PaxChange
     {
     public:
-        typedef CheckInEntityDiff<astra_entities::DocInfo>      DocChange_t;
-        typedef CheckInEntityDiff<astra_entities::AddressInfo>  AddressChange_t;
-        typedef CheckInEntityDiff<astra_entities::VisaInfo>     VisaChange_t;
-        typedef CheckInEntityDiff<astra_entities::Remark>       RemChange_t;
-        typedef CheckInEntityDiff<astra_entities::FqtRemark>    FqtRemChange_t;
+        typedef CheckInSingleEntityDiff<astra_entities::DocInfo>     DocChange_t;
+        typedef CheckInSingleEntityDiff<astra_entities::VisaInfo>    VisaChange_t;
+
+        typedef CheckInMultiEntityDiff<astra_entities::AddressInfo>  AddressChange_t;
+        typedef CheckInMultiEntityDiff<astra_entities::Remark>       RemChange_t;
+        typedef CheckInMultiEntityDiff<astra_entities::FqtRemark>    FqtRemChange_t;
 
         typedef DocChange_t::Optional_t     DocChangeOpt_t;
         typedef AddressChange_t::Optional_t AddressChangeOpt_t;
@@ -222,10 +263,11 @@ namespace
         astra_entities::PaxInfo m_newPax;
 
         DocChangeOpt_t          m_docChange;
-        AddressChangeOpt_t      m_addressChange;
         VisaChangeOpt_t         m_visaChange;
+
+        AddressChangeOpt_t      m_addressChange;
         RemChangeOpt_t          m_remChange;
-        FqtRemChangeOpt_t	m_fqtRemChange;
+        FqtRemChangeOpt_t       m_fqtRemChange;
         bool                    m_persChange;
 
     public:
@@ -237,12 +279,19 @@ namespace
         const astra_entities::PaxInfo& oldPax() const { return m_oldPax; }
         const astra_entities::PaxInfo& newPax() const { return m_newPax; }
 
-        const DocChangeOpt_t&     docChange() const { return m_docChange; }
+        const DocChangeOpt_t&         docChange() const { return m_docChange; }
         const AddressChangeOpt_t& addressChange() const { return m_addressChange; }
-        const VisaChangeOpt_t&    visaChange() const { return m_visaChange; }
-        const RemChangeOpt_t&     remChange() const { return m_remChange; }
-        const FqtRemChangeOpt_t&  fqtRemChange() const { return m_fqtRemChange; }
-        bool                      persChange() const { return m_persChange; }
+        const VisaChangeOpt_t&       visaChange() const { return m_visaChange; }
+        const RemChangeOpt_t&         remChange() const { return m_remChange; }
+        const FqtRemChangeOpt_t&   fqtRemChange() const { return m_fqtRemChange; }
+        bool                         persChange() const { return m_persChange; }
+
+        bool empty() const { return !m_docChange &&
+                                    !m_addressChange &&
+                                    !m_visaChange &&
+                                    !m_remChange &&
+                                    !m_fqtRemChange &&
+                                    !m_persChange; }
     };
 
     //
@@ -252,18 +301,15 @@ namespace
         : m_oldPax(oldPax), m_newPax(newPax), m_persChange(false)
     {
         // документ
-        std::list<astra_entities::DocInfo> lOldDocs;
-        if(oldPax.m_doc) {
-            lOldDocs.push_back(oldPax.m_doc.get());
+        DocChange_t docChng(oldPax.m_doc, newPax.m_doc);
+        if(!docChng.empty()) {
+            m_docChange = docChng;
         }
-        std::list<astra_entities::DocInfo> lNewDocs;
-        if(newPax.m_doc) {
-            lNewDocs.push_back(newPax.m_doc.get());
 
-            DocChange_t docChng(lOldDocs, lNewDocs);
-            if(!docChng.empty()) {
-                m_docChange = docChng;
-            }
+        // виза
+        VisaChange_t visaChng(oldPax.m_visa, newPax.m_visa);
+        if(!visaChng.empty()) {
+            m_visaChange = visaChng;
         }
 
         // адреса
@@ -278,21 +324,6 @@ namespace
             AddressChange_t addrsChng(lOldAddrs, lNewAddrs);
             if(!addrsChng.empty()) {
                 m_addressChange = addrsChng;
-            }
-        }
-
-        // виза
-        std::list<astra_entities::VisaInfo> lOldVisas;
-        if(oldPax.m_visa) {
-            lOldVisas.push_back(oldPax.m_visa.get());
-        }
-        std::list<astra_entities::VisaInfo> lNewVisas;
-        if(newPax.m_visa) {
-            lNewVisas.push_back(newPax.m_visa.get());
-
-            VisaChange_t visaChng(lOldVisas, lNewVisas);
-            if(!visaChng.empty()) {
-                m_visaChange = visaChng;
             }
         }
 
@@ -357,10 +388,10 @@ namespace
 
     //---------------------------------------------------------------------------------------
 
-    class PaxDiff: public CheckInEntityDiff<astra_entities::PaxInfo>
+    class PaxDiff: public CheckInMultiEntityDiff<astra_entities::PaxInfo>
     {
     public:
-        typedef CheckInEntityDiff<astra_entities::PaxInfo> Base_t;
+        typedef CheckInMultiEntityDiff<astra_entities::PaxInfo> Base_t;
         typedef std::vector<PaxChange> PaxChanges_t;
 
     private:
@@ -381,7 +412,10 @@ namespace
         : Base_t(lPaxOld, lPaxNew)
     {
         for(const auto& re: modified()) {
-            m_paxChanges.push_back(PaxChange(re.oldEntity(), re.newEntity()));
+            PaxChange paxChange(re.oldEntity(), re.newEntity());
+            if(!paxChange.empty()) {
+                m_paxChanges.push_back(paxChange);
+            }
         }
     }
 
@@ -444,7 +478,6 @@ namespace
                  const XmlCheckInTabs& newTabs);
 
         const Map_t& tabsDiff() const { return m_tabsDiff; }
-        TabDiff::Optional_t at(size_t i) const;
     };
 
     //
@@ -459,16 +492,6 @@ namespace
                                                               newTabs.tabs().at(i))));
         }
     }
-
-    TabDiff::Optional_t TabsDiff::at(size_t i) const
-    {
-        ASSERT(i < m_tabsDiff.size());
-        return m_tabsDiff.at(i);
-    }
-
-    //-----------------------------------------------------------------------------------
-
-
 
     //-----------------------------------------------------------------------------------
 
@@ -529,9 +552,12 @@ namespace
     class IatciUpdater
     {
     public:
-        IatciUpdater(xmlNodePtr iatciNode, xmlNodePtr reqNode);
+        IatciUpdater(xmlNodePtr iatciNode, const std::string& iatciRootSegsNodeName,
+                     xmlNodePtr reqNode,   const std::string& reqRootSegsNodeName);
 
         void updatePaxDoc(const iatci::PaxDetails& pax);
+        void updatePaxAddresses(const iatci::PaxDetails& pax);
+        void updatePaxVisa(const iatci::PaxDetails& pax);
         void updatePaxRems(const iatci::PaxDetails& pax);
         void updatePaxFqtRems(const iatci::PaxDetails& pax);
         void updateBagPoolNums(const iatci::PaxDetails& pax);
@@ -540,13 +566,17 @@ namespace
         void updatePaxSeat(const iatci::UpdateSeatDetails& updSeat);
 
         xmlNodePtr iatciNode() const { return m_iatciNode; }
+        
+        bool tryUpdatePaxDoc(const iatci::PaxDetails& pax);
+        bool tryUpdatePaxVisa(const iatci::PaxDetails& pax);
+        bool tryUpdatePaxAddresses(const iatci::PaxDetails& pax);
 
     protected:
         std::list<xmlNodePtr> findPaxNodes(xmlNodePtr parentNode,
                                            const iatci::PaxDetails& pax) const;
 
-        void copyNodeFromReqToIatci(const iatci::PaxDetails& pax,
-                                    const std::string& nodeName);
+        void copyNodeToIatci(const iatci::PaxDetails& pax,
+                             const std::string& nodeName);
 
         void updateNode(xmlNodePtr parentNode,
                         const std::string& newVal,
@@ -556,13 +586,20 @@ namespace
     private:
         xmlNodePtr        m_iatciNode;
         xmlNodePtr        m_reqNode;
+        std::string       m_iatciRootSegsNodeName;
+        std::string       m_reqRootSegsNodeName;
     };
 
     //
 
-    IatciUpdater::IatciUpdater(xmlNodePtr iatciNode, xmlNodePtr reqNode)
+    IatciUpdater::IatciUpdater(xmlNodePtr iatciNode,
+                               const std::string& iatciRootSegsNodeName,
+                               xmlNodePtr reqNode,
+                               const std::string& reqRootSegsNodeName)
         : m_iatciNode(iatciNode),
-          m_reqNode(reqNode)
+          m_reqNode(reqNode),
+          m_iatciRootSegsNodeName(iatciRootSegsNodeName),
+          m_reqRootSegsNodeName(reqRootSegsNodeName)
     {
         ASSERT(m_iatciNode != NULL);
         ASSERT(m_reqNode != NULL);
@@ -570,22 +607,32 @@ namespace
 
     void IatciUpdater::updatePaxDoc(const iatci::PaxDetails& pax)
     {
-        copyNodeFromReqToIatci(pax, "document");
+        copyNodeToIatci(pax, "document");
     }
 
     void IatciUpdater::updatePaxRems(const iatci::PaxDetails& pax)
     {
-        copyNodeFromReqToIatci(pax, "rems");
+        copyNodeToIatci(pax, "rems");
+    }
+
+    void IatciUpdater::updatePaxAddresses(const iatci::PaxDetails& pax)
+    {
+        copyNodeToIatci(pax, "addresses");
+    }
+
+    void IatciUpdater::updatePaxVisa(const iatci::PaxDetails& pax)
+    {
+        copyNodeToIatci(pax, "doco");
     }
 
     void IatciUpdater::updatePaxFqtRems(const iatci::PaxDetails& pax)
     {
-        copyNodeFromReqToIatci(pax, "fqt_rems");
+        copyNodeToIatci(pax, "fqt_rems");
     }
 
     void IatciUpdater::updateBagPoolNums(const iatci::PaxDetails& pax)
     {
-        copyNodeFromReqToIatci(pax, "bag_pool_num");
+        copyNodeToIatci(pax, "bag_pool_num");
     }
 
     void IatciUpdater::updatePersonal(const iatci::PaxDetails& pax,
@@ -611,6 +658,66 @@ namespace
         ASSERT(paxId != ASTRA::NoExists);
 
         updateSeatNode(tripId, paxId, updSeat.seat());
+    }
+    
+    bool IatciUpdater::tryUpdatePaxDoc(const iatci::PaxDetails& pax)
+    {
+        xmlNodePtr reqSegsNode = findNodeR(m_reqNode, m_reqRootSegsNodeName);
+        if(reqSegsNode == NULL) {
+            tst();
+            return false;
+        }
+        std::list<xmlNodePtr> paxNodes = findPaxNodes(reqSegsNode, pax);
+        if(paxNodes.empty()) {
+            return false;
+        }
+        XmlPax xmlPax = XmlEntityReader::readPax(paxNodes.front());
+        if(xmlPax.doc && !xmlPax.doc->toDoc().isEmpty()) {
+            updatePaxDoc(pax);
+            return true;
+        }
+        
+        return false;
+    }
+
+    bool IatciUpdater::tryUpdatePaxVisa(const iatci::PaxDetails& pax)
+    {
+        xmlNodePtr reqSegsNode = findNodeR(m_reqNode, m_reqRootSegsNodeName);
+        if(reqSegsNode == NULL) {
+            tst();
+            return false;
+        }
+        std::list<xmlNodePtr> paxNodes = findPaxNodes(reqSegsNode, pax);
+        if(paxNodes.empty()) {
+            return false;
+        }
+        XmlPax xmlPax = XmlEntityReader::readPax(paxNodes.front());
+        if(xmlPax.visa && !xmlPax.visa->toVisa().isEmpty()) {
+            updatePaxVisa(pax);
+            return true;
+        }
+
+        return false;
+    }
+
+    bool IatciUpdater::tryUpdatePaxAddresses(const iatci::PaxDetails& pax)
+    {
+        xmlNodePtr reqSegsNode = findNodeR(m_reqNode, m_reqRootSegsNodeName);
+        if(reqSegsNode == NULL) {
+            tst();
+            return false;
+        }
+        std::list<xmlNodePtr> paxNodes = findPaxNodes(reqSegsNode, pax);
+        if(paxNodes.empty()) {
+            return false;
+        }
+        XmlPax xmlPax = XmlEntityReader::readPax(paxNodes.front());
+        if(xmlPax.addrs) {
+            updatePaxAddresses(pax);
+            return true;
+        }
+
+        return false;
     }
 
     std::list<xmlNodePtr> IatciUpdater::findPaxNodes(xmlNodePtr parentNode,
@@ -638,13 +745,16 @@ namespace
         return paxNodes;
     }
 
-    void IatciUpdater::copyNodeFromReqToIatci(const iatci::PaxDetails& pax,
-                                              const std::string& nodeName)
+    void IatciUpdater::copyNodeToIatci(const iatci::PaxDetails& pax,
+                                       const std::string& nodeName)
     {
-        xmlNodePtr iatciSegsNode = findNodeR(m_iatciNode, "segments");
+        xmlNodePtr iatciSegsNode = findNodeR(m_iatciNode, m_iatciRootSegsNodeName);
         ASSERT(iatciSegsNode != NULL);
-        xmlNodePtr reqSegsNode = findNodeR(m_reqNode, "iatci_segments");
-        ASSERT(reqSegsNode != NULL);
+        xmlNodePtr reqSegsNode = findNodeR(m_reqNode, m_reqRootSegsNodeName);
+        if(reqSegsNode == NULL) {
+            tst();
+            return;
+        }
         std::list<xmlNodePtr> reqPaxNodes = findPaxNodes(reqSegsNode, pax);
         if(reqPaxNodes.empty()) {
             tst();
@@ -754,7 +864,6 @@ static PointInfo readPointInfo(int grpId)
 
 static std::string getIatciRequestContext(const edifact::KickInfo& kickInfo = edifact::KickInfo())
 {
-    // TODO fill whole context
     XMLDoc xmlCtxt = ASTRA::createXmlDoc("<context/>");
     xmlNodePtr rootNode = NodeAsNode("/context", xmlCtxt.docPtr());
     kickInfo.toXML(rootNode);
@@ -824,12 +933,7 @@ static std::string getIatciPult()
 
 static boost::optional<iatci::UpdatePaxDetails> getUpdPersonal(const PaxChange& paxChange)
 {
-    if(!paxChange.persChange()) {
-        return boost::none;
-    }
-
-    return iatci::makeUpdPax(paxChange.newPax(),
-                             iatci::UpdateDetails::Replace);
+    return boost::none; // TODO
 }
 
 static boost::optional<iatci::UpdateServiceDetails> getUpdService(const PaxChange& paxChange)
@@ -902,21 +1006,80 @@ static boost::optional<iatci::UpdateDocDetails> getUpdDoc(const PaxChange& paxCh
         return boost::none;
     }
 
-    // считаем, что может быть один документа на пассажира
+    // знаем, что может быть один документ на пассажира
 
     // удаленный
-    // удаления в Астре пока нет
+    if(paxChange.docChange()->removed()) {
+        return iatci::makeUpdDoc(*paxChange.docChange()->removed(),
+                                 iatci::UpdateDetails::Cancel);
+    }
 
     // добавленный
-    if(!paxChange.docChange()->added().empty()) {
-        return iatci::makeUpdDoc(paxChange.docChange()->added().at(0),
+    if(paxChange.docChange()->added()) {
+        return iatci::makeUpdDoc(*paxChange.docChange()->added(),
                                  iatci::UpdateDetails::Add);
     }
 
     // изменённый
-    if(!paxChange.docChange()->modified().empty()) {
-        return iatci::makeUpdDoc(paxChange.docChange()->modified().at(0).newEntity(),
+    if(paxChange.docChange()->modified()) {
+        return iatci::makeUpdDoc(paxChange.docChange()->modified()->newEntity(),
                                  iatci::UpdateDetails::Replace);
+    }
+
+    ASSERT(false); // не должны сюда попадать
+    return boost::none;
+}
+
+static boost::optional<iatci::UpdateAddressDetails> getUpdAddress(const PaxChange& paxChange)
+{
+    if(!paxChange.addressChange()) {
+        return boost::none;
+    }
+
+    if(paxChange.addressChange()->empty()) {
+        return boost::none;
+    }
+
+    UpdateAddressDetails result(UpdateDetails::Replace);
+
+    // добавленные адреса
+    for(const auto& addedAddr: paxChange.addressChange()->added()) {
+        result.addAddr(iatci::makeAddrInfo(addedAddr));
+    }
+
+    // измененные адреса
+    for(const auto& modifiedAddr: paxChange.addressChange()->modified()) {
+        result.addAddr(iatci::makeAddrInfo(modifiedAddr.newEntity()));
+    }
+
+    return result;
+}
+
+static boost::optional<iatci::UpdateVisaDetails> getUpdVisa(const PaxChange& paxChange)
+{
+    if(!paxChange.visaChange()) {
+        return boost::none;
+    }
+
+    // знаем, что может быть одна виза на пассажира
+
+    // удаленная виза
+    if(paxChange.visaChange()->removed()) {
+        return iatci::makeUpdVisa(*paxChange.visaChange()->removed(),
+                                  iatci::UpdateDetails::Cancel);
+    }
+
+
+    // добавленная виза
+    if(paxChange.visaChange()->added()) {
+        return iatci::makeUpdVisa(*paxChange.visaChange()->added(),
+                                  iatci::UpdateDetails::Add);
+    }
+
+    // изменённая виза
+    if(paxChange.visaChange()->modified()) {
+        return iatci::makeUpdVisa(paxChange.visaChange()->modified()->newEntity(),
+                                  iatci::UpdateDetails::Replace);
     }
 
     ASSERT(false); // не должны сюда попадать
@@ -1006,28 +1169,6 @@ static boost::optional<astra_entities::PaxInfo> findInfantByParentId(const std::
     return boost::none;
 }
 
-static boost::optional<astra_entities::PaxInfo> findPaxByBagPoolNum(const std::list<astra_entities::PaxInfo>& lPax,
-                                                                    int bagPoolNum)
-{
-    for(const auto& pax: lPax) {
-        if(pax.bagPoolNum() == bagPoolNum) {
-            return pax;
-        }
-    }
-    return boost::none;
-}
-
-//static boost::optional<astra_entities::PaxInfo> findPaxByBagPoolNum(const std::list<astra_entities::PaxInfo>& lOldPax,
-//                                                                    const std::list<astra_entities::PaxInfo>& lReqPax,
-//                                                                    int bagPoolNum)
-//{
-//    boost::optional<astra_entities::PaxInfo> reqPax = findPaxByBagPoolNum(lReqPax, bagPoolNum);
-//    if(reqPax) {
-//        return findPax(lOldPax, reqPax->id());
-//    }
-//    return findPaxByBagPoolNum(lOldPax, bagPoolNum);
-//}
-
 static void checkInfants(const std::list<astra_entities::PaxInfo>& lReqInfants,
                          const std::list<astra_entities::PaxInfo>& lReqNonInfants,
                          const std::list<astra_entities::PaxInfo>& lPax)
@@ -1072,11 +1213,15 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
 
         boost::optional<iatci::PaxDetails> infant;
         boost::optional<iatci::DocDetails> infantDoc;
+        boost::optional<iatci::AddressDetails> infantAddress;
+        boost::optional<iatci::VisaDetails> infantVisa;
         if(ssrInft) {
             inft = findInfant(lInfants, *ssrInft);
             if(inft) {
-                infant = iatci::makeQryPax(*inft);
-                infantDoc = iatci::makeDoc(*inft);
+                infant        = iatci::makeQryPax(*inft);
+                infantDoc     = iatci::makeDoc(*inft);
+                infantAddress = iatci::makeAddress(*inft);
+                infantVisa    = iatci::makeVisa(*inft);
             }
         }
         lPaxGrp.push_back(iatci::dcqcki::PaxGroup(iatci::makeQryPax(pax, inft),
@@ -1086,8 +1231,11 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
                                                   iatci::makeService(pax, inft),
                                                   iatci::makeDoc(pax),
                                                   iatci::makeAddress(pax),
+                                                  iatci::makeVisa(pax),
                                                   infant,
-                                                  infantDoc));
+                                                  infantDoc,
+                                                  infantAddress,
+                                                  infantVisa));
     }
 
     return iatci::CkiParams(iatci::makeOrg(ownSeg),
@@ -1095,6 +1243,194 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
                             iatci::dcqcki::FlightGroup(iatci::makeFlight(firstEdiTab.seg()),
                                                        iatci::makeFlight(ownSeg),
                                                        lPaxGrp));
+}
+
+static void checkLatOnly(const std::string& field)
+{
+    if(StrUtils::containsRus(field)) {
+        LogWarning(STDLOG) << "Field containing rus characters is found: "
+                           << "'" << field << "'";
+        throw AstraLocale::UserException("MSG.UNEXPECTED_RUS_FIELD");
+    }
+}
+
+static void checkLatOnly(const boost::optional<iatci::PaxDetails>& pax)
+{
+    if(pax) {
+        checkLatOnly(pax->surname());
+        checkLatOnly(pax->name());
+        checkLatOnly(pax->qryRef());
+        checkLatOnly(pax->respRef());
+    }
+}
+
+static void checkLatOnly(const boost::optional<iatci::UpdatePaxDetails>& updPax)
+{
+    if(updPax) {
+        checkLatOnly(updPax->surname());
+        checkLatOnly(updPax->name());
+        checkLatOnly(updPax->qryRef());
+    }
+}
+
+static void checkLatOnly(const boost::optional<iatci::ReservationDetails>& reserv)
+{
+    if(reserv) {
+        checkLatOnly(reserv->rbd());
+    }
+}
+
+static void checkLatOnly(const boost::optional<iatci::DocDetails>& doc)
+{
+    if(doc) {
+        checkLatOnly(doc->docType());
+        checkLatOnly(doc->issueCountry());
+        checkLatOnly(doc->no());
+        checkLatOnly(doc->surname());
+        checkLatOnly(doc->name());
+        checkLatOnly(doc->secondName());
+        checkLatOnly(doc->gender());
+        checkLatOnly(doc->nationality());
+    }
+}
+
+static void checkLatOnly(const boost::optional<iatci::UpdateDocDetails>& updDoc)
+{
+    if(updDoc) {
+        DocDetails dd = updDoc.get();
+        checkLatOnly(dd);
+    }
+}
+
+static void checkLatOnly(const ServiceDetails::SsrInfo& ssr)
+{
+    checkLatOnly(ssr.ssrCode());
+    checkLatOnly(ssr.ssrText());
+    checkLatOnly(ssr.freeText());
+}
+
+static void checkLatOnly(const boost::optional<ServiceDetails>& service)
+{
+    if(service) {
+        checkLatOnly(service->osi());
+        for(auto ssr: service->lSsr()) {
+            checkLatOnly(ssr);
+        }
+    }
+}
+
+static void checkLatOnly(const boost::optional<UpdateServiceDetails>& updService)
+{
+    if(updService) {
+        for(auto ssr: updService->lSsr()) {
+            checkLatOnly(ssr);
+        }
+    }
+}
+
+static void checkLatOnly(const boost::optional<AddressDetails>& address)
+{
+    if(address) {
+        for(auto addr: address->lAddr())
+        {
+            checkLatOnly(addr.type());
+            checkLatOnly(addr.country());
+            checkLatOnly(addr.address());
+            checkLatOnly(addr.city());
+            checkLatOnly(addr.region());
+            checkLatOnly(addr.postalCode());
+        }
+    }
+}
+
+static void checkLatOnly(const boost::optional<UpdateAddressDetails>& updAddress)
+{
+    if(updAddress) {
+        AddressDetails ad = updAddress.get();
+        checkLatOnly(ad);
+    }
+}
+
+static void checkLatOnly(const boost::optional<VisaDetails>& visa)
+{
+    if(visa) {
+        checkLatOnly(visa->visaType());
+        checkLatOnly(visa->issueCountry());
+        checkLatOnly(visa->no());
+        checkLatOnly(visa->placeOfIssue());
+    }
+}
+
+static void checkLatOnly(const boost::optional<UpdateVisaDetails>& updVisa)
+{
+    if(updVisa) {
+        VisaDetails vd = updVisa.get();
+        checkLatOnly(vd);
+    }
+}
+
+static void checkLatOnly(const boost::optional<SeatDetails>& seat)
+{
+    if(seat) {
+        checkLatOnly(seat->seat());
+    }
+}
+
+static void checkLatOnly(const boost::optional<UpdateSeatDetails>& updSeat)
+{
+    if(updSeat) {
+        SeatDetails sd = updSeat.get();
+        checkLatOnly(sd);
+    }
+}
+
+static void checkLatOnly(const iatci::PaxGroup& paxGrp)
+{
+    checkLatOnly(paxGrp.pax());
+    checkLatOnly(paxGrp.reserv());
+    checkLatOnly(paxGrp.service());
+    checkLatOnly(paxGrp.doc());
+    checkLatOnly(paxGrp.address());
+    checkLatOnly(paxGrp.visa());
+    checkLatOnly(paxGrp.infant());
+    checkLatOnly(paxGrp.infantDoc());
+    checkLatOnly(paxGrp.infantAddress());
+    checkLatOnly(paxGrp.infantVisa());
+}
+
+static void checkCkiPaxGroup(const iatci::dcqcki::PaxGroup& paxGrp)
+{
+    checkLatOnly(paxGrp);
+    checkLatOnly(paxGrp.seat());
+}
+
+static void checkCkiParams(const iatci::CkiParams& params)
+{
+    for(auto paxGrp: params.fltGroup().paxGroups()) {
+        checkCkiPaxGroup(paxGrp);
+    }
+}
+
+static void checkCkuPaxGroup(const iatci::dcqcku::PaxGroup& paxGrp)
+{
+    checkLatOnly(paxGrp);
+    checkLatOnly(paxGrp.updPax());
+    checkLatOnly(paxGrp.updSeat());
+    checkLatOnly(paxGrp.updService());
+    checkLatOnly(paxGrp.updDoc());
+    checkLatOnly(paxGrp.updAddress());
+    checkLatOnly(paxGrp.updVisa());
+    checkLatOnly(paxGrp.updInfant());
+    checkLatOnly(paxGrp.updInfantDoc());
+    checkLatOnly(paxGrp.updInfantAddress());
+    checkLatOnly(paxGrp.updInfantVisa());
+}
+
+static void checkCkuParams(const iatci::CkuParams& params)
+{
+    for(auto paxGrp: params.fltGroup().paxGroups()) {
+        checkCkuPaxGroup(paxGrp);
+    }
 }
 
 static iatci::OriginatorDetails makeOrg(int grpId)
@@ -1151,11 +1487,23 @@ static iatci::CkxParams getCkxParams(xmlNodePtr reqNode)
                                                        lPaxGrp));
 }
 
-static boost::optional<PaxChange> findPaxChange(const std::vector<PaxChange>& allChanges, int paxId)
+static boost::optional<PaxChange> findPaxChange(const std::vector<PaxChange>& allChanges,
+                                                int paxId)
 {
     for(const auto& change: allChanges) {
         if(change.paxId() == paxId) {
             return change;
+        }
+    }
+
+    return boost::none;
+}
+
+static boost::optional<XmlBag> findBag(const std::list<XmlBag>& bags, int bagNum)
+{
+    for(const auto& bag: bags) {
+        if(bag.num == bagNum) {
+            return bag;
         }
     }
 
@@ -1218,7 +1566,8 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
                                               boost::none, // Update baggage
                                               boost::none, // Update service
                                               boost::none, // Update doc
-                                              boost::none  // Updatr address
+                                              boost::none, // Update address
+                                              boost::none  // Update visa
                                               ));
 
     return iatci::CkuParams(makeOrg(ownGrpId),
@@ -1228,22 +1577,55 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
                                                        lPaxGrp));
 }
 
-static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
+static bool ediTabsContainsDestination(const XmlCheckInTabs& tabs, const std::string& dest)
+{
+    LogTrace(TRACE3) << "check destination for " << dest;
+    for(const auto tab: tabs.ediTabs()) {
+        if(BaseTables::Port(tab.seg().m_airpArv)->ida() == BaseTables::Port(dest)->ida()) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static boost::optional<iatci::CkuParams> getUpdateBaggageParams(xmlNodePtr reqNode)
 {
     int ownGrpId = getGrpId(reqNode, NULL, IatciInterface::Cku);
     XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
 
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
-    XmlCheckInTabs reqIatciTabs(findNodeR(reqNode, "iatci_segments"));
+    xmlNodePtr iatciSegsNode = findNodeR(reqNode, "iatci_segments");
+    boost::optional<XmlCheckInTabs> reqIatciTabs; // must be!
+    if(iatciSegsNode) {
+        reqIatciTabs = XmlCheckInTabs(iatciSegsNode);
+    } else {
+        reqIatciTabs = oldIatciTabs;
+    }
+    ASSERT(reqIatciTabs);
 
     XmlCheckInTabs ownTabs(findNodeR(reqNode, "segments"));
     ASSERT(!ownTabs.empty());
     const XmlCheckInTab& firstOwnTab = ownTabs.tabs().front();
 
     const XmlCheckInTab& firstOldTab = oldIatciTabs.tabs().front();
-    const XmlCheckInTab& firstReqTab = reqIatciTabs.tabs().front();
+    const XmlCheckInTab& firstReqTab = reqIatciTabs->tabs().front();
 
     std::list<XmlBag> reqBags = XmlEntityReader::readBags(findNodeR(reqNode, "bags"));
+
+    std::list<XmlBagTag> oldBagTags;
+    xmlNodePtr tagsNode = findNodeR(reqNode, "tags");
+    if(tagsNode) {
+        oldBagTags = XmlEntityReader::readBagTags(tagsNode);
+    }
+
+    std::list<XmlBagTag> reqBagTags;
+    xmlNodePtr reqBagsNode = findNodeR(reqNode, "generated_tags");
+    if(reqBagsNode) {
+        reqBagTags = XmlEntityReader::readBagTags(reqBagsNode);
+    }
+
+    const auto allBagTags = algo::combine(oldBagTags, reqBagTags);
 
     // что имеем
     const std::list<astra_entities::PaxInfo> lPax = firstOldTab.lPax();
@@ -1276,7 +1658,8 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
     const std::list<astra_entities::PaxInfo> lModNonInfants = filterNotInfants(lModPax);
     const std::list<astra_entities::PaxInfo> lModInfants = filterInfants(lModPax);
 
-
+    std::string firstSegOperAirline = firstOwnTab.xmlSeg().seg_info.airline;
+    ASSERT(!firstSegOperAirline.empty());
 
     std::set<int> processedPaxIds;
     for(const auto& pax: lModPax) {
@@ -1307,7 +1690,7 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
         }
 
         astra_api::astra_entities::BagPool total(poolNum),
-                                       handTotal(poolNum);
+                                       handTotal(poolNum);       
 
         if(poolNumInft) {
             ASSERT(algo::contains(bagPoolNums, poolNumInft));
@@ -1328,27 +1711,73 @@ static iatci::CkuParams getUpdateBaggageParams(xmlNodePtr reqNode)
             infant = iatci::makeQryPax(*inft);
         }
 
-        lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makeQryPax(adult.get(), inft),
-                                                  boost::none, // Reserv
-                                                  boost::none, // Baggage
-                                                  boost::none, // Service
-                                                  infant,
-                                                  boost::none,
-                                                  boost::none,
-                                                  iatci::makeUpdBaggage(firstOwnTab.seg(), total, handTotal),
-                                                  boost::none,
-                                                  boost::none,
-                                                  boost::none));
+        std::list<astra_entities::BaggageTag> bagTags;
+        for(const XmlBagTag& xmlBagTag: allBagTags) {
+            auto xmlBag = findBag(reqBags, xmlBagTag.bag_num);
+            if(xmlBag) {
+                bool saveTagFlag = false;
+                if(poolNumInft && xmlBag->bag_pool_num == poolNumInft) {
+                    saveTagFlag = true;
+                }
+                if(poolNumAdult && xmlBag->bag_pool_num == poolNumAdult) {
+                    saveTagFlag = true;
+                }
+
+                if(saveTagFlag) {
+                    bagTags.push_back(astra_entities::BaggageTag(firstSegOperAirline,
+                                                                 xmlBagTag.no,
+                                                                 1,
+                                                                 xmlBag->airp_arv_final));
+                }
+            } else {
+                LogError(STDLOG) << "Bag not found by num " << xmlBagTag.bag_num;
+            }
+        }
+
+        bool skipUpdate = false;
+        if(!bagTags.empty()) {
+            skipUpdate = !ediTabsContainsDestination(oldIatciTabs,
+                                                     bagTags.front().destination());
+        }
+
+        if(!skipUpdate)
+        {
+            lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makeQryPax(adult.get(), inft),
+                                                      boost::none, // Reserv
+                                                      boost::none, // Baggage
+                                                      boost::none, // Service
+                                                      infant,
+                                                      boost::none,
+                                                      boost::none,
+                                                      iatci::makeUpdBaggage(total,
+                                                                            handTotal,
+                                                                            bagTags),
+                                                      boost::none,
+                                                      boost::none,
+                                                      boost::none,
+                                                      boost::none));
+        }
     }
 
 
-    ASSERT(!lPaxGrp.empty());
+    if(lPaxGrp.empty()) {
+        LogTrace(TRACE0) << "Non-iatci pax bag change!";
+        return boost::none;
+    }
 
     return iatci::CkuParams(makeOrg(ownGrpId),
                             boost::none,
                             iatci::dcqcku::FlightGroup(iatci::makeFlight(oldIatciTabs.tabs().front().xmlSeg()),
                                                        boost::none,
                                                        lPaxGrp));
+}
+
+static void checkDocAndVisaUpdate(const boost::optional<UpdateDocDetails>& updDoc,
+                                  const boost::optional<UpdateVisaDetails>& updVisa)
+{
+    if(updDoc && updVisa) {
+       throw AstraLocale::UserException("MSG.UPD_DOC_AND_VISA_SEPARATELY");
+    }
 }
 
 static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
@@ -1361,11 +1790,19 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
     XMLDoc oldXmlDoc = ASTRA::createXmlDoc(iatci::IatciXmlDb::load(ownGrpId));
 
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
-    XmlCheckInTabs reqIatciTabs(findNodeR(reqNode, "iatci_segments"));
+    xmlNodePtr iatciSegsNode = findNodeR(reqNode, "iatci_segments");
+
+    boost::optional<XmlCheckInTabs> reqIatciTabs; // optional only for compilation - must be!
+    if(iatciSegsNode) {
+        reqIatciTabs = XmlCheckInTabs(iatciSegsNode);
+    } else {
+        reqIatciTabs = oldIatciTabs;
+    }
+    ASSERT(reqIatciTabs);
 
     const XmlCheckInTab& firstOldTab = oldIatciTabs.tabs().front();
 
-    TabsDiff diff(oldIatciTabs, reqIatciTabs);
+    TabsDiff diff(oldIatciTabs, *reqIatciTabs);
     if(diff.tabsDiff().empty()) {
         LogTrace(TRACE1) << "Empty iatci tabs diff";
         return boost::none;
@@ -1430,17 +1867,25 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
         boost::optional<iatci::UpdateServiceDetails> adultUpdService;
         boost::optional<iatci::UpdateDocDetails>     adultUpdDoc, inftUpdDoc;
         boost::optional<iatci::UpdateAddressDetails> adultUpdAddress, inftUpdAddress;
+        boost::optional<iatci::UpdateVisaDetails>    adultUpdVisa, inftUpdVisa;
 
         if(adultChange) {
-            adultUpdPersonal = boost::none;//getUpdPersonal(*adultChange);
+            adultUpdPersonal = getUpdPersonal(*adultChange);
             adultUpdService  = getUpdService(*adultChange);
             adultUpdDoc      = getUpdDoc(*adultChange);
+            adultUpdAddress  = getUpdAddress(*adultChange);
+            adultUpdVisa     = getUpdVisa(*adultChange);
         }
 
         if(inftChange) {
-            inftUpdPersonal = boost::none; //getUpdPersonal(*inftChange);
+            inftUpdPersonal = getUpdPersonal(*inftChange);
             inftUpdDoc      = getUpdDoc(*inftChange);
+            inftUpdAddress  = getUpdAddress(*inftChange);
+            inftUpdVisa     = getUpdVisa(*inftChange);
         }
+
+        checkDocAndVisaUpdate(adultUpdDoc, adultUpdVisa);
+        checkDocAndVisaUpdate(inftUpdDoc, inftUpdVisa);
 
         lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makeQryPax(adult.get(), inft),
                                                   boost::none, // Reserv
@@ -1450,12 +1895,14 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
                                                   adultUpdPersonal,
                                                   boost::none, // Seat
                                                   boost::none, // Baggage
-                                                  adultUpdService,
-                                                  adultUpdDoc,
+                                                  adultUpdService, // SSRs
+                                                  adultUpdDoc, // Doc
                                                   adultUpdAddress, // Address
+                                                  adultUpdVisa, // Visa
                                                   inftUpdPersonal,
                                                   inftUpdDoc,
-                                                  inftUpdAddress));
+                                                  inftUpdAddress,
+                                                  inftUpdVisa));
     }
 
     if(lPaxGrp.empty()) {
@@ -1516,7 +1963,7 @@ static iatci::SmfParams getSmfParams(int magicId)
 {
     ASSERT(magicId < 0);
     if(magicId == -1) {
-        throw AstraLocale::UserException("MSG.UNABLE_TO_SHOW_SEATMAP_BEFORE_CHECKIN"); // TODO #25409
+        throw AstraLocale::UserException("MSG.UNABLE_TO_SHOW_SEATMAP_BEFORE_CHECKIN");
     }
 
     iatci::MagicTab magicTab = iatci::MagicTab::fromNeg(magicId);
@@ -1539,7 +1986,7 @@ static iatci::SmfParams getSmfParams(xmlNodePtr reqNode)
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-static void MagicUpdate(xmlNodePtr resNode, int grpId)
+static void MagicUpdate(xmlNodePtr resNode, int grpId, IatciInterface::RequestType reqType)
 {
     xmlNodePtr segsNode = findNodeR(resNode, "segments");
     unsigned segInd = 0;
@@ -1547,6 +1994,16 @@ static void MagicUpdate(xmlNodePtr resNode, int grpId)
     {
         iatci::MagicTab magicTab(grpId, ++segInd);
         xmlNodeSetContent(findNode(segNode, "point_dep"), magicTab.toNeg());
+
+        xmlNodePtr paxesNode = findNodeR(segNode, "passengers");
+        if(paxesNode != NULL && reqType == IatciInterface::Bpr) {
+            for(xmlNodePtr paxNode = paxesNode->children; paxNode != NULL; paxNode = paxNode->next) {
+                xmlNodePtr bpPrintNode = findNode(paxNode, "pr_bp_print");
+                if(bpPrintNode != NULL) {
+                    xmlNodeSetContent(bpPrintNode, 1);
+                }
+            }
+        }
     }
 }
 
@@ -1556,7 +2013,7 @@ static void SaveIatciCkiXmlRes(xmlNodePtr iatciResNode, int grpId)
     iatci::IatciXmlDb::add(grpId, XMLTreeToText(iatciResNode->doc));
 }
 
-static void SaveIatciCkuPlfXmlRes(xmlNodePtr iatciResNode, int grpId)
+static void SaveIatciCkuPlfBprXmlRes(xmlNodePtr iatciResNode, int grpId)
 {
     LogTrace(TRACE3) << __FUNCTION__;
     iatci::IatciXmlDb::upd(grpId, XMLTreeToText(iatciResNode->doc));
@@ -1619,7 +2076,8 @@ static void SaveIatciXmlResByReqType(xmlNodePtr iatciResNode, int grpId,
 
     case IatciInterface::Cku:
     case IatciInterface::Plf:
-        SaveIatciCkuPlfXmlRes(iatciResNode, grpId);
+    case IatciInterface::Bpr:        
+        SaveIatciCkuPlfBprXmlRes(iatciResNode, grpId);
         break;
 
     case IatciInterface::Ckx:
@@ -1635,7 +2093,7 @@ static void SaveIatciXmlRes(xmlNodePtr iatciResNode, xmlNodePtr termReqNode, int
                             IatciInterface::RequestType reqType)
 {
     LogTrace(TRACE3) << "Enter to " << __FUNCTION__;
-    MagicUpdate(iatciResNode, grpId);
+    MagicUpdate(iatciResNode, grpId, reqType);
     SaveIatciXmlResByReqType(iatciResNode, grpId, reqType);
 }
 
@@ -1661,7 +2119,8 @@ static void UpdateIatciGrp(int grpId, IatciInterface::RequestType reqType,
     }
     ASSERT(ckuParams);
 
-    IatciUpdater updater(loadedDoc.docPtr()->children, termReqNode);
+    IatciUpdater updater(loadedDoc.docPtr()->children, "segments",
+                         termReqNode, "iatci_segments");
 
     dcqcku::FlightGroup fltGrp = ckuParams->fltGroup();
     for(const dcqcku::PaxGroup& paxGrp: fltGrp.paxGroups()) {
@@ -1673,6 +2132,12 @@ static void UpdateIatciGrp(int grpId, IatciInterface::RequestType reqType,
         }
         if(paxGrp.updDoc()) {
             updater.updatePaxDoc(paxGrp.pax());
+        }
+        if(paxGrp.updAddress()) {
+            updater.updatePaxAddresses(paxGrp.pax());
+        }
+        if(paxGrp.updVisa()) {
+            updater.updatePaxVisa(paxGrp.pax());
         }
         if(paxGrp.updService()) {
             if(paxGrp.updService()->containsNonFqt()) {
@@ -1695,6 +2160,14 @@ static void UpdateIatciGrp(int grpId, IatciInterface::RequestType reqType,
         if(paxGrp.updInfantDoc()) {
             ASSERT(paxGrp.infant());
             updater.updatePaxDoc(paxGrp.infant().get());
+        }
+        if(paxGrp.updInfantAddress()) {
+            ASSERT(paxGrp.infant());
+            updater.updatePaxAddresses(paxGrp.infant().get());
+        }
+        if(paxGrp.updInfantVisa()) {
+            ASSERT(paxGrp.infant());
+            updater.updatePaxVisa(paxGrp.infant().get());
         }
     }
 
@@ -1771,14 +2244,23 @@ bool IatciInterface::WillBeSentCheckInRequest(xmlNodePtr reqNode, xmlNodePtr edi
 
 bool IatciInterface::MayNeedSendIatci(xmlNodePtr reqNode)
 {
-    XmlCheckInTabs tabs(findNodeR(reqNode, "segments"));
-    return tabs.containsEdiTab();
+    xmlNodePtr segsNode = findNodeR(reqNode, "segments");
+    if(!segsNode) return false;
+
+    XmlCheckInTabs tabs(segsNode);
+    if(tabs.empty()) return false;
+    if(tabs.containsEdiTab()) return true;
+
+    return IatciXmlDb::exists(tabs.tabs().back().seg().m_grpId);
 }
 
 bool IatciInterface::InitialRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
 {
     edifact::KickInfo kickInfo = getIatciKickInfo(reqNode, ediResNode);
-    edifact::SendCkiRequest(getCkiParams(reqNode),
+    auto ckiParams = getCkiParams(reqNode);
+    // пока проверяем без какого-либо условия
+    checkCkiParams(ckiParams);
+    edifact::SendCkiRequest(ckiParams,
                             getIatciPult(),
                             getIatciRequestContext(kickInfo),
                             kickInfo);
@@ -1794,6 +2276,7 @@ bool IatciInterface::UpdateRequest(xmlNodePtr reqNode, xmlNodePtr ediResNode)
     if(ckuParams)
     {
         edifact::KickInfo kickInfo = getIatciKickInfo(reqNode, ediResNode);
+        checkCkuParams(*ckuParams);
         edifact::SendCkuRequest(ckuParams.get(),
                                 getIatciPult(),
                                 getIatciRequestContext(kickInfo),
@@ -1954,14 +2437,16 @@ void IatciInterface::KickHandler(XMLRequestCtxt* ctxt,
             if(remRes->status() == RemoteStatus::Success) {
                 KickHandler_onSuccess(reqCtxtId, termReqCtxt.node(), resNode, lRes);
             } else {
-                Ticketing::AstraMsg_t errCode = getInnerErrByErd(remRes->ediErrCode());
+                const Ticketing::AstraMsg_t RemDcsErr = "MSG.ERROR_IN_REMOTE_DCS";
+                Ticketing::AstraMsg_t errCode = getInnerErrByErd(remRes->ediErrCode(),
+                                                                 RemDcsErr);
                 if(!remRes->remark().empty()) {
                     AstraLocale::showProgError(remRes->remark());
                 } else {
                     if(!remRes->ediErrCode().empty()) {
-                        AstraLocale::showMessage(errCode);
+                        AstraLocale::showProgError(errCode);
                     } else {
-                        AstraLocale::showProgError("Ошибка обработки в удалённой DCS"); // TODO #25409
+                        AstraLocale::showProgError(RemDcsErr);
                     }
                 }
                 KickHandler_onFailure(reqCtxtId, termReqCtxt.node(), resNode, lRes, errCode);
@@ -2017,7 +2502,7 @@ void IatciInterface::KickHandler_onTimeout(int ctxtId,
                                            xmlNodePtr resNode)
 {
     FuncIn(KickHandler_onTimeout);
-    AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR"); // TODO #25409
+    AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR");
     RollbackChangeOfStatus(initialReqNode, ctxtId); // откат ранее смененного статуса в СЭБ(если менялся)
     FallbackMessage(initialReqNode); // send IFM
     FuncOut(KickHandler_onTimeout);
@@ -2139,6 +2624,29 @@ static IatciViewXmlParams getIatciViewXmlParams(int grpId)
     return getIatciViewXmlParams(oldXml.docPtr()->children);
 }
 
+static void normalizeIatciPaxDocs(xmlNodePtr iatciResNode,
+                                  xmlNodePtr reqNode,
+                                  const std::list<Result>& lRes)
+{
+    IatciUpdater updateByOwnSeg(iatciResNode, "segments", reqNode, "segments");
+    IatciUpdater updateByIatciSeg(iatciResNode, "segments", reqNode, "iatci_segments");
+    for(const Result& res: lRes) {
+        for(const iatci::dcrcka::PaxGroup& pxg: res.paxGroups()) {
+            if(!pxg.doc()) {
+                if(!updateByIatciSeg.tryUpdatePaxDoc(pxg.pax())) {
+                    updateByOwnSeg.updatePaxDoc(pxg.pax());
+                }
+                if(!updateByIatciSeg.tryUpdatePaxVisa(pxg.pax())) {
+                    updateByOwnSeg.updatePaxVisa(pxg.pax());
+                }
+                if(!updateByIatciSeg.tryUpdatePaxAddresses(pxg.pax())) {
+                    updateByOwnSeg.updatePaxAddresses(pxg.pax());
+                }
+            }
+        }
+    }
+}
+
 void IatciInterface::DoKickAction(int ctxtId,
                                   xmlNodePtr reqNode,
                                   xmlNodePtr resNode,
@@ -2152,13 +2660,22 @@ void IatciInterface::DoKickAction(int ctxtId,
     XMLDoc iatciResCtxt = ASTRA::createXmlDoc("<iatci_result/>");
     xmlNodePtr iatciResNode = NodeAsNode(std::string("/iatci_result").c_str(), iatciResCtxt.docPtr());
     xmlNodePtr segmentsNode = newChild(iatciResNode, "segments");
+    newChild(iatciResNode, "segments_for_log");
 
+    LogTrace(TRACE3) << "iatci res 1:\n" << XMLTreeToText(iatciResNode->doc);
     EdiResCtxtWrapper ediResCtxt(ctxtId, iatciResNode, "context", __FUNCTION__);
+    xmlNodePtr logSegmentsNode = findNodeR(ediResCtxt.node(), "segments_for_log");
+    ASSERT(logSegmentsNode);
 
     switch(act)
     {
     case ActSavePax:
     {
+        if(reqType == Cki) {
+            // сохраняем edifact-сегменты для записи в журнал.
+            iatci::iatci2xml(logSegmentsNode, lRes, IatciViewXmlParams());
+        }
+
         ASSERT(CheckInInterface::SavePax(reqNode, ediResCtxt.node(), resNode));
         int grpId = getGrpId(reqNode, resNode, reqType);
 

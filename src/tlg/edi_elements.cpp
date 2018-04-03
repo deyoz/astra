@@ -62,6 +62,30 @@ IftElements IftElements::operator +(const IftElements &other) const
 
 //-----------------------------------------------------------------------------
 
+boost::optional<PapElem::PapDoc> PapElem::findVisa() const
+{
+    for(const auto& doc: m_docs) {
+        if(doc.m_docQualifier == "V" || doc.m_docQualifier == "VI") {
+            return doc;
+        }
+    }
+
+    return boost::none;
+}
+
+boost::optional<PapElem::PapDoc> PapElem::findDoc() const
+{
+    for(const auto& doc: m_docs) {
+        if(doc.m_docQualifier != "V" && doc.m_docQualifier != "VI") {
+            return doc;
+        }
+    }
+
+    return boost::none;
+}
+
+//-----------------------------------------------------------------------------
+
 std::ostream& operator<<(std::ostream &os, const TktElem &tkt)
 {
     os << "TKT: ";
@@ -183,6 +207,14 @@ std::ostream& operator<<(std::ostream &os, const PbdElem &pbd)
         os << "num of pieces: " << pbd.m_handBag->m_numOfPieces << "; ";
         os << "weight: " << pbd.m_handBag->m_weight;
     }
+    os << "\nTags ";
+    for(const auto& tag: pbd.m_tags) {
+        os << "carrier code: " << tag.m_carrierCode << "; ";
+        os << "tag num: " << tag.m_tagNum << "; ";
+        os << "num consec: " << tag.m_qtty << "; ";
+        os << "dest: " << tag.m_dest << "; ";
+        os << "account code: " << tag.m_accode << "\n";
+    }
     return os;
 }
 
@@ -262,7 +294,8 @@ std::ostream& operator<<(std::ostream &os, const ChdElem &chd)
 std::ostream& operator<<(std::ostream &os, const FsdElem &fsd)
 {
     os << "FSD: ";
-    os << "boarding time: " << Dates::hh24mi(fsd.m_boardingTime);
+    os << "boarding time: " << Dates::hh24mi(fsd.m_boardingTime) << "; ";
+    os << "gate: " << fsd.m_gate;
     return os;
 }
 
@@ -329,6 +362,15 @@ std::ostream& operator<<(std::ostream &os, const UbdElem &ubd)
         os << "num of pieces: " << ubd.m_handBag->m_numOfPieces << "; ";
         os << "weight: " << ubd.m_handBag->m_weight;
     }
+    os << "\nUpdate tag ";
+    for(const auto& tag: ubd.m_tags) {
+        os << "action code: " << tag.m_actionCode << "; ";
+        os << "carrier code: " << tag.m_carrierCode << "; ";
+        os << "tag num: " << tag.m_tagNum << "; ";
+        os << "num consec: " << tag.m_qtty << "; ";
+        os << "dest: " << tag.m_dest << "; ";
+        os << "account code: " << tag.m_accode << "\n";
+    }
     return os;
 }
 
@@ -392,15 +434,21 @@ std::ostream& operator<<(std::ostream &os, const PapElem &pap)
     os << "PAP: ";
     os << "type: " << pap.m_type << "; ";
     os << "birth date: " << pap.m_birthDate << "; ";
-    os << "nationality: " << pap.m_nationality << "; ";
-    os << "doc qualifier: " << pap.m_docQualifier << "; ";
-    os << "doc number: " << pap.m_docNumber << "; ";
-    os << "place of issue: " << pap.m_placeOfIssue << "; ";
-    os << "expiry date: " << pap.m_expiryDate << "; ";
-    os << "gender: " << pap.m_gender << "; ";
-    os << "surname: " << pap.m_surname << "; ";
-    os << "name: " << pap.m_name << "; ";
-    os << "other name: " << pap.m_otherName << "; ";
+    os << "nationality: " << pap.m_nationality << ";\n";
+    for(const auto& papDoc: pap.m_docs) {
+        os << "Doc: ";
+        os << "qualifier: " << papDoc.m_docQualifier << "; ";
+        os << "doc number: " << papDoc.m_docNumber << "; ";
+        os << "place of issue: " << papDoc.m_placeOfIssue << "; ";
+        os << "free text: " << papDoc.m_freeText << "; ";
+        os << "expiry date: " << papDoc.m_expiryDate << "; ";
+        os << "gender: " << papDoc.m_gender << "; ";
+        os << "city of issue: " << papDoc.m_cityOfIssue << "; ";
+        os << "issue date: " << papDoc.m_issueDate << "; ";
+        os << "surname: " << papDoc.m_surname << "; ";
+        os << "name: " << papDoc.m_name << "; ";
+        os << "other name: " << papDoc.m_otherName << "; ";
+    }
     return os;
 }
 
@@ -426,14 +474,20 @@ std::ostream& operator<<(std::ostream &os, const UapElem &uap)
     os << "type: " << uap.m_type << "; ";
     os << "birth date: " << uap.m_birthDate << "; ";
     os << "nationality: " << uap.m_nationality << "; ";
-    os << "doc qualifier: " << uap.m_docQualifier << "; ";
-    os << "doc number: " << uap.m_docNumber << "; ";
-    os << "place of issue: " << uap.m_placeOfIssue << "; ";
-    os << "expiry date: " << uap.m_expiryDate << "; ";
-    os << "gender: " << uap.m_gender << "; ";
-    os << "surname: " << uap.m_surname << "; ";
-    os << "name: " << uap.m_name << "; ";
-    os << "other name: " << uap.m_otherName << "; ";
+    for(const auto& uapDoc: uap.m_docs) {
+        os << "Doc: ";
+        os << "qualifier: " << uapDoc.m_docQualifier << "; ";
+        os << "doc number: " << uapDoc.m_docNumber << "; ";
+        os << "place of issue: " << uapDoc.m_placeOfIssue << "; ";
+        os << "free text: " << uapDoc.m_freeText << "; ";
+        os << "expiry date: " << uapDoc.m_expiryDate << "; ";
+        os << "gender: " << uapDoc.m_gender << "; ";
+        os << "city of issue: " << uapDoc.m_cityOfIssue << "; ";
+        os << "issue date: " << uapDoc.m_issueDate << "; ";
+        os << "surname: " << uapDoc.m_surname << "; ";
+        os << "name: " << uapDoc.m_name << "; ";
+        os << "other name: " << uapDoc.m_otherName << "; ";
+    }
     return os;
 }
 

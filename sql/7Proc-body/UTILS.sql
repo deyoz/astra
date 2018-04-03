@@ -45,6 +45,52 @@ BEGIN
   DBMS_OUTPUT.PUT_LINE('==========================================================================');
 END airline_tab_num_rows;
 
+FUNCTION get_where_text(curRow oper_cur%ROWTYPE,
+                        old_airline_code airlines.code%TYPE,
+                        prefix VARCHAR2) RETURN VARCHAR2
+IS
+where_text VARCHAR2(4000);
+BEGIN
+  --WHERE condition
+  IF curRow.table_name like '%TRFER_PAX_STAT' THEN
+    where_text:='WHERE '||prefix||curRow.column_name||' LIKE ''%'||old_airline_code||'%''';
+  ELSE
+    where_text:='WHERE '||prefix||curRow.column_name||'='''||old_airline_code||'''';
+  END IF;
+
+  IF curRow.table_name='ROZYSK' THEN
+    where_text:=where_text||' AND time>SYSDATE-2';
+  END IF;
+  RETURN where_text;
+END get_where_text;
+
+FUNCTION get_sql_text(curRow oper_cur%ROWTYPE,
+                      old_airline_code airlines.code%TYPE,
+                      new_airline_code airlines.code%TYPE,
+                      max_rows INTEGER) RETURN VARCHAR2
+IS
+update_text VARCHAR2(4000);
+set_text VARCHAR2(4000);
+prefix VARCHAR2(2);
+BEGIN
+  --UPDATE table
+  update_text:='UPDATE '||curRow.table_name||' ';
+  prefix:=NULL;
+  IF curRow.partition_name IS NOT NULL THEN
+    update_text:=update_text||'PARTITION ('||curRow.partition_name||') p ';
+    prefix:='p.';
+  END IF;
+
+  --SET fields
+  IF curRow.table_name like '%TRFER_PAX_STAT' THEN
+    set_text:='SET '||prefix||curRow.column_name||'=REPLACE('||prefix||curRow.column_name||', '''||old_airline_code||''', '''||new_airline_code||''') ';
+  ELSE
+    set_text:='SET '||prefix||curRow.column_name||'='''||new_airline_code||''' ';
+  END IF;
+
+  RETURN update_text||set_text||get_where_text(curRow, old_airline_code, prefix)||' AND rownum<='||max_rows;
+END get_sql_text;
+
 PROCEDURE print_count(curRow oper_cur%ROWTYPE,
                       airline_code airlines.code%TYPE,
                       max_num_rows user_tables.num_rows%TYPE)
@@ -55,9 +101,9 @@ ignore INTEGER;
 sql_text VARCHAR2(4000);
 BEGIN
   IF curRow.partition_name IS NOT NULL THEN
-    sql_text:='SELECT COUNT(*) FROM '||curRow.table_name||' PARTITION ('||curRow.partition_name||') p WHERE p.'||curRow.column_name||'='''||airline_code||'''';
+    sql_text:='SELECT COUNT(*) FROM '||curRow.table_name||' PARTITION ('||curRow.partition_name||') p '||get_where_text(curRow, airline_code, 'p.');
   ELSE
-    sql_text:='SELECT COUNT(*) FROM '||curRow.table_name||' WHERE '||curRow.column_name||'='''||airline_code||'''';
+    sql_text:='SELECT COUNT(*) FROM '||curRow.table_name||' '||get_where_text(curRow, airline_code, NULL);
   END IF;
   IF curRow.num_rows IS NULL OR curRow.num_rows<=max_num_rows THEN
     cur:=DBMS_SQL.OPEN_CURSOR;
@@ -84,20 +130,10 @@ IS
 cur INTEGER;
 n INTEGER;
 rows_processed INTEGER;
-sql_text VARCHAR2(4000);
 BEGIN
-  IF curRow.partition_name IS NOT NULL THEN
-    sql_text:='UPDATE '||curRow.table_name||' PARTITION ('||curRow.partition_name||') p '||
-              'SET p.'||curRow.column_name||'='''||new_airline_code||''' '||
-              'WHERE p.'||curRow.column_name||'='''||old_airline_code||''' AND rownum<='||max_rows;
-  ELSE
-    sql_text:='UPDATE '||curRow.table_name||' '||
-              'SET '||curRow.column_name||'='''||new_airline_code||''' '||
-              'WHERE '||curRow.column_name||'='''||old_airline_code||''' AND rownum<='||max_rows;
-  END IF;
   n:=0;
   cur:=DBMS_SQL.OPEN_CURSOR;
-  DBMS_SQL.PARSE(cur, sql_text, DBMS_SQL.NATIVE);
+  DBMS_SQL.PARSE(cur, get_sql_text(curRow, old_airline_code, new_airline_code, max_rows), DBMS_SQL.NATIVE);
   LOOP
     rows_processed:=DBMS_SQL.EXECUTE(cur);
     n:=n+rows_processed;
@@ -141,6 +177,28 @@ BEGIN
   END LOOP;
   DBMS_OUTPUT.PUT_LINE('==========================================================================');
 END airline_count;
+
+PROCEDURE print_updates(old_airline_code airlines.code%TYPE,
+                        new_airline_code airlines.code%TYPE,
+                        max_rows user_tables.num_rows%TYPE)
+IS
+BEGIN
+  DBMS_OUTPUT.PUT_LINE('Оперативные таблицы:');
+  FOR curRow IN oper_cur LOOP
+    DBMS_OUTPUT.PUT_LINE(get_sql_text(curRow, old_airline_code, new_airline_code, max_rows)||';');
+  END LOOP;
+  DBMS_OUTPUT.PUT_LINE('==========================================================================');
+  DBMS_OUTPUT.PUT_LINE('Таблицы истории и статистики:');
+  FOR curRow IN hist_cur LOOP
+    DBMS_OUTPUT.PUT_LINE(get_sql_text(curRow, old_airline_code, new_airline_code, max_rows)||';');
+  END LOOP;
+  DBMS_OUTPUT.PUT_LINE('==========================================================================');
+  DBMS_OUTPUT.PUT_LINE('Таблицы архива:');
+  FOR curRow IN arx_cur LOOP
+    DBMS_OUTPUT.PUT_LINE(get_sql_text(curRow, old_airline_code, new_airline_code, max_rows)||';');
+  END LOOP;
+  DBMS_OUTPUT.PUT_LINE('==========================================================================');
+END print_updates;
 
 PROCEDURE airline_update_oper(old_airline_code airlines.code%TYPE,
                               new_airline_code airlines.code%TYPE,
@@ -201,24 +259,32 @@ BEGIN
   IF old_airp_code=new_airp_code THEN RETURN; END IF;
 
   vid:=NULL;
-  DELETE FROM airps WHERE code=new_airp_code AND pr_del<>0 RETURNING id INTO vid;
-  IF vid IS NULL THEN
-    SELECT id__seq.nextval INTO vid FROM dual;
-  END IF;
+--  DELETE FROM airps WHERE code=new_airp_code AND pr_del<>0 RETURNING id INTO vid;
+--  IF vid IS NULL THEN
+--    SELECT id__seq.nextval INTO vid FROM dual;
+--  END IF;
 
-  INSERT INTO airps
-    (code,code_lat,code_icao,code_icao_lat,name,name_lat,city,
-     id,tid,tid_sync,pr_del)
-  SELECT new_airp_code,code_lat,code_icao,code_icao_lat,name,name_lat,city,
-     vid,tid__seq.nextval,NULL,0
-  FROM airps
-  WHERE code=old_airp_code;
-  hist.synchronize_history('airps',vid,NULL,NULL);
+--  INSERT INTO airps
+--    (code,code_lat,code_icao,code_icao_lat,name,name_lat,city,
+--     id,tid,tid_sync,pr_del)
+--  SELECT new_airp_code,code_lat,code_icao,code_icao_lat,name,name_lat,city,
+--     vid,tid__seq.nextval,NULL,0
+--  FROM airps
+--  WHERE code=old_airp_code;
+--  hist.synchronize_history('airps',vid,NULL,NULL);
 
-  vid:=NULL;
+--  vid:=NULL;
+--  UPDATE airps
+--  SET code_lat=NULL, code_icao=NULL, code_icao_lat=NULL, tid=tid__seq.currval, pr_del=1
+--  WHERE code=old_airp_code RETURNING id INTO vid;
+--  hist.synchronize_history('airps',vid,NULL,NULL);
+--  COMMIT;
+
+  SELECT id INTO vid FROM airps WHERE code=new_airp_code AND pr_del<>0;
+
   UPDATE airps
-  SET code_lat=NULL, code_icao=NULL, code_icao_lat=NULL, tid=tid__seq.currval, pr_del=1
-  WHERE code=old_airp_code RETURNING id INTO vid;
+  SET tid=tid__seq.nextval, pr_del=0
+  WHERE id=vid;
   hist.synchronize_history('airps',vid,NULL,NULL);
   COMMIT;
 
@@ -310,8 +376,7 @@ IS
   CURSOR cur(code airps.code%TYPE) IS
     SELECT user_id
     FROM users2
-    WHERE desk IS NOT NULL AND
-          adm.check_airp_access(code, user_id)<>0;
+    WHERE desk IS NOT NULL;
 BEGIN
   FOR curRow IN cur(new_airp_code) LOOP
     UPDATE users2 SET desk = NULL WHERE user_id = curRow.user_id;

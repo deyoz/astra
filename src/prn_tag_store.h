@@ -190,10 +190,10 @@ class TTagLang {
         bool IsInter(const TTrferRoute &aroute, std::string &country);
     public:
         std::string getRouteCountry() { return route_country; }
-        bool get_pr_lat() { return pr_lat; };
+        bool get_pr_lat() const { return pr_lat; };
         bool english_tag() const { return tag_lang == "E"; }
         bool IsInter() const;
-        std::string GetLang();
+        std::string GetLang() const;
         std::string dup_lang() { return GetLang()==AstraLocale::LANG_EN ? AstraLocale::LANG_RU : GetLang(); }; // lang for duplicated captions
         void set_tag_lang(std::string val) { tag_lang = val; };
         std::string get_tag_lang() { return tag_lang; }
@@ -265,8 +265,58 @@ class TBPServiceTypesDescr : public ASTRA::PairList<TBPServiceTypes::Enum, std::
                                                                             boost::none) {}
 };
 
+struct TBCBPData {
+    std::string surname;
+    std::string name;
+    bool etkt;
+    std::string pnr;
+    std::string airp_dep;
+    std::string airp_arv;
+    std::string airline;
+    int flt_no;
+    std::string suffix;
+    TDateTime scd;
+
+    // Если class_grp = NoExists, в баркод попадает cls
+    std::string cls;
+    int class_grp;
+
+    std::string seat_no;
+    int reg_no;
+    std::string pers_type; // ВЗ, РБ, РМ
+    bool is_boarding_pass;
+    int pax_id;
+
+    void clear()
+    {
+        surname.clear();
+        name.clear();
+        etkt = false;
+        pnr.clear();
+        airp_dep.clear();
+        airp_arv.clear();
+        airline.clear();
+        flt_no = ASTRA::NoExists;
+        suffix.clear();
+        scd = ASTRA::NoExists;
+        cls.clear();
+        class_grp = ASTRA::NoExists;
+        seat_no.clear();
+        reg_no = ASTRA::NoExists;
+        pers_type.clear();
+        is_boarding_pass = true;
+        pax_id = ASTRA::NoExists;
+    }
+
+    TBCBPData() { clear(); }
+    std::string toString(const TTagLang &tag_lang);
+};
+
 class TPrnTagStore {
     private:
+
+        friend class TBCBPData;
+
 
         struct TImgMng {
             static TImgMng *Instance()
@@ -704,6 +754,7 @@ class TPrnTagStore {
         TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat);
         TPrnTagStore(const std::string& airp_dep, const std::string& airp_arv, bool apr_lat);
 
+        void set_tag(std::string name, const TBCBPData &value);
         void set_tag(std::string name, const BIPrintRules::TRule &value);
         void set_tag(std::string name, std::string value);
         void set_tag(std::string name, int value);

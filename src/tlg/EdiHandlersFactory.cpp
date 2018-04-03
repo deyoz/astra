@@ -71,12 +71,12 @@ TlgHandling::AstraEdiResponseHandler* EdiResHandlersFactory(EDI_REAL_MES_STRUCT 
     __DECLARE_HANDLER__(EmdCosResponseHandler,       TKCRES, "793");
     __DECLARE_HANDLER__(EmdSysUpdateResponseHandler, TKCRES, "794");
     // IATCI
-//    __DECLARE_HANDLER__(IatciCkiResponseHandler,     DCRCKA, "I");
-//    __DECLARE_HANDLER__(IatciCkuResponseHandler,     DCRCKA, "U");
-//    __DECLARE_HANDLER__(IatciCkxResponseHandler,     DCRCKA, "X");
-//    __DECLARE_HANDLER__(IatciBprResponseHandler,     DCRCKA, "B");
-//    __DECLARE_HANDLER__(IatciPlfResponseHandler,     DCRCKA, "P");
-//    __DECLARE_HANDLER__(IatciSmfResponseHandler,     DCRSMF, "S");
+    __DECLARE_HANDLER__(IatciCkiResponseHandler,     DCRCKA, "I");
+    __DECLARE_HANDLER__(IatciCkuResponseHandler,     DCRCKA, "U");
+    __DECLARE_HANDLER__(IatciCkxResponseHandler,     DCRCKA, "X");
+    __DECLARE_HANDLER__(IatciBprResponseHandler,     DCRCKA, "B");
+    __DECLARE_HANDLER__(IatciPlfResponseHandler,     DCRCKA, "P");
+    __DECLARE_HANDLER__(IatciSmfResponseHandler,     DCRSMF, "S");
 
     LogError(STDLOG) <<
             "There is no factory for message " << msgid <<
@@ -91,12 +91,12 @@ TlgHandling::AstraEdiRequestHandler* EdiReqHandlersFactory(EDI_REAL_MES_STRUCT *
 {
     // здесь будут регистрироваться обработчики edifact-запросов
     using namespace TlgHandling;
-//    __DECLARE_HANDLER__(IatciCkiRequestHandler,     DCQCKI, "");
-//    __DECLARE_HANDLER__(IatciCkuRequestHandler,     DCQCKU, "");
-//    __DECLARE_HANDLER__(IatciCkxRequestHandler,     DCQCKX, "");
-//    __DECLARE_HANDLER__(IatciBprRequestHandler,     DCQBPR, "");
-//    __DECLARE_HANDLER__(IatciPlfRequestHandler,     DCQPLF, "");
-//    __DECLARE_HANDLER__(IatciSmfRequestHandler,     DCQSMF, "");
+    __DECLARE_HANDLER__(IatciCkiRequestHandler,     DCQCKI, "");
+    __DECLARE_HANDLER__(IatciCkuRequestHandler,     DCQCKU, "");
+    __DECLARE_HANDLER__(IatciCkxRequestHandler,     DCQCKX, "");
+    __DECLARE_HANDLER__(IatciBprRequestHandler,     DCQBPR, "");
+    __DECLARE_HANDLER__(IatciPlfRequestHandler,     DCQPLF, "");
+    __DECLARE_HANDLER__(IatciSmfRequestHandler,     DCQSMF, "");
     // control method
     __DECLARE_HANDLER__(UacRequestHandler,          TKCUAC, "733");
     __DECLARE_HANDLER__(CosRequestHandler,          TKCREQ, "142");

@@ -3,10 +3,12 @@
 #include "base_tables.h"
 #include "astra_elems.h"
 #include "astra_consts.h"
+#include "astra_date_time.h"
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "basetables.h"
 #include "convert.h"
+#include "tripinfo.h"
 #include "tlg/edi_msg.h"
 
 #include <serverlib/dates_io.h>
@@ -90,10 +92,20 @@ std::string depDateTimeString(const FlightDetails& flight)
 std::string depTimeString(const FlightDetails& flight)
 {
     std::ostringstream os;
-    if(!flight.depTime().is_not_a_date_time()) {
+    if(!flight.depTime().is_special()) {
         os << HelpCpp::string_cast(flight.depTime(), "%H:%M:%S");
     } else {
         os << "00:00:00";
+    }
+
+    return os.str();
+}
+
+std::string brdTimeString(const FlightDetails& flight)
+{
+    std::ostringstream os;
+    if(!flight.boardingTime().is_special()) {
+        os << HelpCpp::string_cast(flight.boardingTime(), "%H:%M");
     }
 
     return os.str();
@@ -263,6 +275,17 @@ std::string IatciXmlDb::load(int grpId)
     return res;
 }
 
+bool IatciXmlDb::exists(int grpId)
+{
+    LogTrace(TRACE3) << "Enter to " << __FUNCTION__ << "; grpId=" << grpId;
+    OciCpp::CursCtl cur = make_curs(
+"select 1 from GRP_IATCI_XML where GRP_ID=:grp_id");
+    cur.bind(":grp_id", grpId)
+       .exfet();
+
+    return cur.err() != NO_DATA_FOUND;
+}
+
 //---------------------------------------------------------------------------------------
 
 iatci::PaxDetails makePax(const edifact::PpdElem& ppd)
@@ -336,7 +359,16 @@ iatci::BaggageDetails makeBaggage(const edifact::PbdElem& pbd)
         handBag = iatci::BaggageDetails::BagInfo(pbd.m_handBag->m_numOfPieces,
                                                  pbd.m_handBag->m_weight);
     }
-    return iatci::BaggageDetails(bag, handBag);
+    std::list<iatci::BaggageDetails::BagTagInfo> bagTags;
+    for(const auto& tag: pbd.m_tags) {
+        uint64_t fullTag = iatci::BaggageDetails::BagTagInfo::makeFullTag(tag.m_accode,
+                                                                          tag.m_tagNum);
+        bagTags.push_back(iatci::BaggageDetails::BagTagInfo(tag.m_carrierCode,
+                                                            tag.m_dest,
+                                                            fullTag,
+                                                            tag.m_qtty));
+    }
+    return iatci::BaggageDetails(bag, handBag, bagTags);
 }
 
 iatci::ServiceDetails makeService(const edifact::PsiElem& psi)
@@ -365,16 +397,18 @@ iatci::ServiceDetails makeService(const edifact::PsiElem& psi)
 
 iatci::DocDetails makeDoc(const edifact::PapElem& pap)
 {
-    return iatci::DocDetails(getAstraDocType(pap.m_docQualifier),
-                             pap.m_placeOfIssue,
-                             pap.m_docNumber,
-                             pap.m_surname,
-                             pap.m_name,
-                             pap.m_otherName,
-                             pap.m_gender,
+    auto papDoc = pap.findDoc();
+    ASSERT(papDoc);
+    return iatci::DocDetails(getAstraDocType(papDoc->m_docQualifier),
+                             papDoc->m_placeOfIssue,
+                             papDoc->m_docNumber,
+                             papDoc->m_surname,
+                             papDoc->m_name,
+                             papDoc->m_otherName,
+                             papDoc->m_gender,
                              pap.m_nationality,
                              pap.m_birthDate,
-                             pap.m_expiryDate);
+                             papDoc->m_expiryDate);
 }
 
 iatci::AddressDetails makeAddress(const edifact::AddElem& add)
@@ -389,6 +423,18 @@ iatci::AddressDetails makeAddress(const edifact::AddElem& add)
                                                       ediAddr.m_postalCode));
     }
     return addrs;
+}
+
+iatci::VisaDetails makeVisa(const edifact::PapElem& pap)
+{
+    auto papVisa = pap.findVisa();
+    ASSERT(papVisa);
+    return iatci::VisaDetails(getAstraDocType(papVisa->m_docQualifier),
+                              papVisa->m_placeOfIssue,
+                              papVisa->m_docNumber,
+                              papVisa->m_cityOfIssue,
+                              papVisa->m_issueDate,
+                              papVisa->m_expiryDate);
 }
 
 iatci::OriginatorDetails makeOrg(const edifact::LorElem& lor)
@@ -470,7 +516,8 @@ iatci::FlightDetails makeFlight(const edifact::FdrElem& fdr,
                                 fdr.m_arrDate,
                                 fdr.m_depTime,
                                 fdr.m_arrTime,
-                                fsd ? fsd->m_boardingTime : Dates::not_a_date_time);
+                                fsd ? fsd->m_boardingTime : Dates::not_a_date_time,
+                                fsd ? fsd->m_gate : "");
 }
 
 iatci::SeatRequestDetails makeSeatReq(const edifact::SrpElem& srp)
@@ -497,7 +544,6 @@ iatci::UpdateSeatDetails makeUpdSeat(const edifact::UsdElem& usd)
 iatci::UpdateBaggageDetails makeUpdBaggage(const edifact::UbdElem& ubd)
 {
     boost::optional<iatci::UpdateBaggageDetails::BagInfo> updBag, updHandBag;
-    boost::optional<iatci::UpdateBaggageDetails::BagTagInfo> updBagTag; // TODO
     if(ubd.m_bag) {
         updBag = iatci::UpdateBaggageDetails::BagInfo(ubd.m_bag->m_numOfPieces,
                                                       ubd.m_bag->m_weight);
@@ -506,8 +552,17 @@ iatci::UpdateBaggageDetails makeUpdBaggage(const edifact::UbdElem& ubd)
         updHandBag = iatci::UpdateBaggageDetails::BagInfo(ubd.m_handBag->m_numOfPieces,
                                                           ubd.m_handBag->m_weight);
     }
+    std::list<iatci::UpdateBaggageDetails::BagTagInfo> updBagTags;
+    for(const auto& tag: ubd.m_tags) {
+        uint64_t fullTag = iatci::UpdateBaggageDetails::BagTagInfo::makeFullTag(tag.m_accode,
+                                                                                tag.m_tagNum);
+        updBagTags.push_back(iatci::UpdateBaggageDetails::BagTagInfo(tag.m_carrierCode,
+                                                                     tag.m_dest,
+                                                                     fullTag,
+                                                                     tag.m_qtty));
+    }
     return iatci::UpdateBaggageDetails(iatci::UpdateDetails::Replace,
-                                       updBag, updHandBag, updBagTag);
+                                       updBag, updHandBag, updBagTags);
 }
 
 iatci::UpdateServiceDetails makeUpdService(const edifact::UsiElem& usi)
@@ -529,17 +584,19 @@ iatci::UpdateServiceDetails makeUpdService(const edifact::UsiElem& usi)
 
 iatci::UpdateDocDetails makeUpdDoc(const edifact::UapElem& uap)
 {
+    auto uapDoc = uap.findDoc();
+    ASSERT(uapDoc);
     return iatci::UpdateDocDetails(iatci::UpdateDetails::strToActionCode(uap.m_actionCode),
-                                   getAstraDocType(uap.m_docQualifier),
-                                   uap.m_placeOfIssue,
-                                   uap.m_docNumber,
-                                   uap.m_surname,
-                                   uap.m_name,
-                                   uap.m_otherName,
-                                   uap.m_gender,
+                                   getAstraDocType(uapDoc->m_docQualifier),
+                                   uapDoc->m_placeOfIssue,
+                                   uapDoc->m_docNumber,
+                                   uapDoc->m_surname,
+                                   uapDoc->m_name,
+                                   uapDoc->m_otherName,
+                                   uapDoc->m_gender,
                                    uap.m_nationality,
                                    uap.m_birthDate,
-                                   uap.m_expiryDate);
+                                   uapDoc->m_expiryDate);
 }
 
 iatci::UpdateAddressDetails makeUpdAddress(const edifact::AddElem& add)
@@ -554,6 +611,19 @@ iatci::UpdateAddressDetails makeUpdAddress(const edifact::AddElem& add)
                                                            ediAddr.m_postalCode));
     }
     return updAddress;
+}
+
+iatci::UpdateVisaDetails makeUpdVisa(const edifact::UapElem& uap)
+{
+    auto uapVisa = uap.findVisa();
+    ASSERT(uapVisa);
+    return iatci::UpdateVisaDetails(iatci::UpdateDetails::strToActionCode(uap.m_actionCode),
+                                    getAstraDocType(uapVisa->m_docQualifier),
+                                    uapVisa->m_placeOfIssue,
+                                    uapVisa->m_docNumber,
+                                    uapVisa->m_cityOfIssue,
+                                    uapVisa->m_issueDate,
+                                    uapVisa->m_expiryDate);
 }
 
 //---------------------------------------------------------------------------------------
@@ -687,7 +757,8 @@ boost::optional<iatci::BaggageDetails> makeBaggage(const astra_api::astra_entiti
 
 boost::optional<iatci::BaggageDetails> makeBaggage(const astra_api::astra_entities::PaxInfo& pax,
                                                    const std::list<astra_api::astra_entities::BagPool>& bags,
-                                                   const std::list<astra_api::astra_entities::BagPool>& handBags)
+                                                   const std::list<astra_api::astra_entities::BagPool>& handBags,
+                                                   const std::list<astra_api::astra_entities::BaggageTag>& bagTags)
 {
     if(!pax.bagPoolNum()) {
         return boost::none;
@@ -706,12 +777,20 @@ boost::optional<iatci::BaggageDetails> makeBaggage(const astra_api::astra_entiti
         }
     }
 
-    return iatci::BaggageDetails(bag, handBag);
+    std::list<iatci::BaggageDetails::BagTagInfo> tags;
+    for(const auto& bt: bagTags) {
+        tags.push_back(iatci::BaggageDetails::BagTagInfo(bt.carrierCode(),
+                                                         bt.destination(),
+                                                         bt.fullTag(),
+                                                         bt.numOfConsecSerial()));
+    }
+
+    return iatci::BaggageDetails(bag, handBag, tags);
 }
 
 boost::optional<iatci::DocDetails> makeDoc(const astra_api::astra_entities::PaxInfo& pax)
 {
-    if(pax.m_doc) {
+    if(pax.m_doc && !pax.m_doc->isEmpty()) {
         return iatci::DocDetails(pax.m_doc->m_type,
                                  pax.m_doc->m_country,
                                  pax.m_doc->m_num,
@@ -727,6 +806,16 @@ boost::optional<iatci::DocDetails> makeDoc(const astra_api::astra_entities::PaxI
     return boost::none;
 }
 
+iatci::AddressDetails::AddrInfo makeAddrInfo(const astra_api::astra_entities::AddressInfo& addr)
+{
+    return iatci::AddressDetails::AddrInfo(getIatciAddrType(addr.m_type),
+                                           addr.m_country,
+                                           addr.m_address,
+                                           addr.m_city,
+                                           addr.m_region,
+                                           addr.m_postalCode);
+}
+
 boost::optional<iatci::AddressDetails> makeAddress(const astra_api::astra_entities::PaxInfo& pax)
 {
     if(pax.m_addrs) {
@@ -736,15 +825,24 @@ boost::optional<iatci::AddressDetails> makeAddress(const astra_api::astra_entiti
                 if(!addrs) {
                     addrs = iatci::AddressDetails();
                 }
-                addrs->addAddr(iatci::AddressDetails::AddrInfo(getIatciAddrType(addr.m_type),
-                                                               addr.m_country,
-                                                               addr.m_address,
-                                                               addr.m_city,
-                                                               addr.m_region,
-                                                               addr.m_postalCode));
+                addrs->addAddr(iatci::AddressDetails::AddrInfo(makeAddrInfo(addr)));
             }
         }
         return addrs;
+    }
+
+    return boost::none;
+}
+
+boost::optional<iatci::VisaDetails> makeVisa(const astra_api::astra_entities::PaxInfo& pax)
+{
+    if(pax.m_visa && !pax.m_visa->isEmpty()) {
+        return iatci::VisaDetails(pax.m_visa->m_type,
+                                  pax.m_visa->m_country,
+                                  pax.m_visa->m_num,
+                                  pax.m_visa->m_placeOfIssue,
+                                  pax.m_visa->m_issueDate,
+                                  pax.m_visa->m_expiryDate);
     }
 
     return boost::none;
@@ -801,35 +899,49 @@ iatci::UpdateDocDetails makeUpdDoc(const astra_api::astra_entities::DocInfo& new
                                    newDoc.m_expiryDate);
 }
 
-iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::SegmentInfo& depSeg,
-                                           const astra_api::astra_entities::BagPool& bagPool,
-                                           const astra_api::astra_entities::BagPool& handBagPool)
+iatci::UpdateVisaDetails makeUpdVisa(const astra_api::astra_entities::VisaInfo& newVisa,
+                                     iatci::UpdateDetails::UpdateActionCode_e act)
 {
-    TTripInfo info = {};
-    ASSERT(info.getByPointId(depSeg.m_pointDep));
-    BaseTables::Company firstAirl(info.airline);
+    return iatci::UpdateVisaDetails(act,
+                                    newVisa.m_type,
+                                    newVisa.m_country,
+                                    newVisa.m_num,
+                                    newVisa.m_placeOfIssue,
+                                    newVisa.m_issueDate,
+                                    newVisa.m_expiryDate);
+}
+
+iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::BagPool& bagPool,
+                                           const astra_api::astra_entities::BagPool& handBagPool,
+                                           const std::list<astra_api::astra_entities::BaggageTag>& bagTags)
+{
+    std::list<iatci::UpdateBaggageDetails::BagTagInfo> lBagTags;
+    for(const auto& bagTag: bagTags) {
+        lBagTags.push_back(iatci::UpdateBaggageDetails::BagTagInfo(bagTag.carrierCode(),
+                                                                   bagTag.destination(),
+                                                                   bagTag.fullTag(),
+                                                                   bagTag.numOfConsecSerial()));
+    }
 
     return iatci::UpdateBaggageDetails(iatci::UpdateDetails::Replace,
                                        iatci::UpdateBaggageDetails::BagInfo(bagPool.amount(),
                                                                             bagPool.weight()),
                                        iatci::UpdateBaggageDetails::BagInfo(handBagPool.amount(),
                                                                             handBagPool.weight()),
-                                       iatci::UpdateBaggageDetails::BagTagInfo(firstAirl->lcode(),
-                                                                               BaseTables::Port(depSeg.m_airpDep)->lcode(),
-                                                                               firstAirl->accode(),
-                                                                               1,
-                                                                               bagPool.amount()));
+                                       lBagTags);
 }
 
 //---------------------------------------------------------------------------------------
 
-iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg)
+iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
+                                bool readAdditionals)
 {
     std::string airl      = seg.trip_header.airline;
     int         flNum     = seg.trip_header.flt_no;
     TDateTime   scd_local = seg.trip_header.scd_out_local;
     std::string airp_dep  = seg.seg_info.airp_dep;
     std::string airp_arv  = seg.seg_info.airp_arv;
+    int         point_dep = seg.seg_info.point_dep;
 
     if(airl.empty()) {
         airl = seg.mark_flight.airline;
@@ -837,13 +949,29 @@ iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg)
     if(flNum == ASTRA::NoExists) {
         flNum = seg.mark_flight.flt_no;
     }
+
+    bool bad_scd_dep_time = false;
     if(scd_local == ASTRA::NoExists) {
         scd_local = seg.mark_flight.scd;
+        bad_scd_dep_time = true;
     }
 
     boost::gregorian::date scd_dep_date, scd_arr_date;
-    if(scd_local != ASTRA::NoExists) {
-        scd_dep_date = DateTimeToBoost(scd_local).date();
+    boost::posix_time::time_duration scd_dep_time(boost::posix_time::not_a_date_time);
+    if(scd_local != ASTRA::NoExists) {       
+        auto boost_ddt = DateTimeToBoost(scd_local);
+        scd_dep_date = boost_ddt.date();
+        if(!bad_scd_dep_time) {
+            scd_dep_time = boost_ddt.time_of_day();
+        }
+    }
+
+    boost::posix_time::time_duration scd_brd_to_time(boost::posix_time::not_a_date_time);
+    std::string gate;
+
+    if(readAdditionals) {
+        scd_brd_to_time = readBPBoardedTo(point_dep, airp_dep);
+        gate            = readBPGate(point_dep);
     }
 
     return iatci::FlightDetails(BaseTables::Company(airl)->rcode(),
@@ -852,8 +980,10 @@ iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg)
                                 BaseTables::Port(airp_arv)->rcode(),
                                 scd_dep_date,
                                 scd_arr_date,
+                                scd_dep_time,
                                 boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
-                                boost::posix_time::time_duration(boost::posix_time::not_a_date_time));
+                                scd_brd_to_time,
+                                gate);
 }
 
 //---------------------------------------------------------------------------------------
@@ -1130,6 +1260,41 @@ std::string denormSeatNum(const std::string& seatNum)
 
 //---------------------------------------------------------------------------------------
 
+std::string readBPGate(int pointId)
+{
+    std::string gate;
+    make_curs(
+"select STATIONS.NAME from STATIONS, TRIP_STATIONS "
+"where POINT_ID=:point_id "
+"and STATIONS.DESK=TRIP_STATIONS.DESK "
+"and STATIONS.WORK_MODE=TRIP_STATIONS.WORK_MODE "
+"and STATIONS.WORK_MODE=:work_mode")
+            .def(gate)
+            .bind(":point_id",  pointId)
+            .bind(":work_mode", "П")
+            .exfet();
+
+    LogTrace(TRACE3) << __FUNCTION__ << " by point_id:" << pointId << " returns " << gate;
+    return gate;
+}
+
+boost::posix_time::time_duration readBPBoardedTo(int pointId, const std::string& airp)
+{
+    const std::string tz_region = AirpTZRegion(airp);
+    LogTrace(TRACE3) << __FUNCTION__ << " by pointId:" << pointId << " and airp:" << airp;
+    TTripStages trip_stages(pointId);
+    TDateTime brd_to = BASIC::date_time::UTCToLocal(trip_stages.time(sCloseBoarding),
+                                                    tz_region);
+
+    if(brd_to != ASTRA::NoExists) {
+        return DateTimeToBoost(brd_to).time_of_day();
+    }
+
+    return boost::posix_time::time_duration(boost::posix_time::not_a_date_time);
+}
+
+//---------------------------------------------------------------------------------------
+
 IatciViewXmlParams::IatciViewXmlParams(const std::list<Ticketing::TicketNum_t>& tnOrder)
     : m_tnOrder(tnOrder)
 {}
@@ -1137,6 +1302,171 @@ IatciViewXmlParams::IatciViewXmlParams(const std::list<Ticketing::TicketNum_t>& 
 const std::list<Ticketing::TicketNum_t>& IatciViewXmlParams::tickNumOrder() const
 {
     return m_tnOrder;
+}
+
+//---------------------------------------------------------------------------------------
+
+static void xmlViewIatciPaxDoc(xmlNodePtr paxNode,
+                               const boost::optional<iatci::DocDetails>& doc)
+{
+    xmlNodePtr docNode = newChild(paxNode, "document");
+    if(doc)
+    {
+        NewTextChild(docNode, "type", doc->docType());
+        NewTextChild(docNode, "issue_country", doc->issueCountry());
+        NewTextChild(docNode, "no", doc->no());
+        NewTextChild(docNode, "nationality", doc->nationality());
+        if(!doc->birthDate().is_special()) {
+            NewTextChild(docNode, "birth_date",
+                         BASIC::date_time::boostDateToAstraFormatStr(doc->birthDate()));
+        }
+        NewTextChild(docNode, "gender", doc->gender());
+        NewTextChild(docNode, "surname", doc->surname());
+        NewTextChild(docNode, "first_name", doc->name());
+        if(!doc->secondName().empty()) {
+            NewTextChild(docNode, "second_name", doc->secondName());
+        }
+        if(!doc->expiryDate().is_special()) {
+            NewTextChild(docNode, "expiry_date",
+                         BASIC::date_time::boostDateToAstraFormatStr(doc->expiryDate()));
+        }
+    }
+}
+
+//---------------------------------------------------------------------------------------
+
+static void xmlViewIatciPaxAddresses(xmlNodePtr paxNode,
+                                     const boost::optional<iatci::AddressDetails>& addresses)
+{
+    xmlNodePtr addressesNode = newChild(paxNode, "addresses");
+    if(addresses)
+    {
+        for(const auto& addr: addresses->lAddr()) {
+            xmlNodePtr addressNode = newChild(addressesNode, "doca");
+
+            NewTextChild(addressNode, "type",        addr.type());
+            NewTextChild(addressNode, "country",     addr.country());
+            NewTextChild(addressNode, "address",     addr.address());
+            NewTextChild(addressNode, "city",        addr.city());
+            NewTextChild(addressNode, "region",      addr.region());
+            NewTextChild(addressNode, "postal_code", addr.postalCode());
+        }
+    }
+}
+
+//---------------------------------------------------------------------------------------
+
+static void xmlViewIatciPaxVisa(xmlNodePtr paxNode,
+                                const boost::optional<iatci::VisaDetails>& visa)
+{
+    xmlNodePtr visaNode = newChild(paxNode, "doco");
+    if(visa)
+    {
+        NewTextChild(visaNode, "type",           visa->visaType());
+        NewTextChild(visaNode, "no",             visa->no());
+        NewTextChild(visaNode, "issue_place",    visa->placeOfIssue());
+        NewTextChild(visaNode, "applic_country", visa->issueCountry());
+        if(!visa->issueDate().is_special()) {
+            NewTextChild(visaNode, "issue_date",
+                         BASIC::date_time::boostDateToAstraFormatStr(visa->issueDate()));
+        }
+        if(!visa->expiryDate().is_special()) {
+            NewTextChild(visaNode, "expiry_date",
+                         BASIC::date_time::boostDateToAstraFormatStr(visa->expiryDate()));
+        }
+    }
+
+}
+
+//---------------------------------------------------------------------------------------
+
+static void xmlViewIatciPaxReserv(xmlNodePtr paxNode,
+                                  const boost::optional<iatci::ReservationDetails>& reserv)
+{
+    std::string subcls = "Э";
+    if(reserv && reserv->subclass()) {
+        subcls = reserv->subclass()->code(RUSSIAN);
+    } else {
+        LogWarning(STDLOG) << "use default subclass [Э]";
+    }
+    NewTextChild(paxNode, "subclass", subcls);
+}
+
+//---------------------------------------------------------------------------------------
+
+static void xmlViewIatciPaxTicket(xmlNodePtr paxNode,
+                                  const boost::optional<iatci::ServiceDetails>& service,
+                                  bool infantTicket)
+{
+    boost::optional<Ticketing::TicketCpn_t> tickCpn;
+    std::string tickRem;
+    if(service) {
+        tickCpn = service->findTicketCpn(infantTicket);
+        tickRem = "TKNE";
+    }
+    if(tickCpn) {
+        NewTextChild(paxNode, "ticket_no", tickCpn->ticket().get());
+        NewTextChild(paxNode, "coupon_no", tickCpn->cpn().get());
+    }
+    else {
+        NewTextChild(paxNode, "ticket_no");
+        NewTextChild(paxNode, "coupon_no");
+    }
+
+    NewTextChild(paxNode, "ticket_rem", tickRem);
+    NewTextChild(paxNode, "ticket_confirm", "1"); // TODO
+}
+
+//---------------------------------------------------------------------------------------
+
+static void xmlViewIatciPaxSeat(xmlNodePtr paxNode,
+                                const boost::optional<iatci::FlightSeatDetails>& seat,
+                                bool isInfant)
+{
+    NewTextChild(paxNode, "seat_no", seat ? seat->seat() : "");
+    NewTextChild(paxNode, "reg_no", seat ? seat->regNo() : "");
+    NewTextChild(paxNode, "seat_type", "");
+    NewTextChild(paxNode, "seats", isInfant ? 0 : 1);
+}
+
+//---------------------------------------------------------------------------------------
+
+static void xmlViewIatciPaxRems(xmlNodePtr paxNode,
+                                const boost::optional<iatci::ServiceDetails>& service)
+{
+    xmlNodePtr paxRemsNode = newChild(paxNode, "rems");
+    if(service)
+    {
+        for(const ServiceDetails::SsrInfo& ssr: service->lSsr())
+        {
+            if(ssr.isTkn()) continue;
+            if(ssr.isFqt()) continue;
+
+            xmlNodePtr paxRemNode = newChild(paxRemsNode, "rem");
+            NewTextChild(paxRemNode, "rem_code", ssr.ssrCode());
+            NewTextChild(paxRemNode, "rem_text", ssr.freeText());
+        }
+    }
+}
+
+//---------------------------------------------------------------------------------------
+
+static void xmlViewIatciPaxFqtRems(xmlNodePtr paxNode,
+                                   const boost::optional<iatci::ServiceDetails>& service)
+{
+    xmlNodePtr paxFqtRemsNode = newChild(paxNode, "fqt_rems");
+    if(service)
+    {
+        for(const ServiceDetails::SsrInfo& ssr: service->lSsr())
+        {
+            if(!ssr.isFqt()) continue;
+
+            xmlNodePtr paxFqtRemNode = newChild(paxFqtRemsNode, "fqt_rem");
+            NewTextChild(paxFqtRemNode, "rem_code", ssr.ssrCode());
+            NewTextChild(paxFqtRemNode, "airline",  ssr.airline());
+            NewTextChild(paxFqtRemNode, "no",       ssr.ssrText());
+        }
+    }
 }
 
 //---------------------------------------------------------------------------------------
@@ -1152,12 +1482,14 @@ static xmlNodePtr xmlViewIatciFlight(xmlNodePtr node, const iatci::FlightDetails
     NewTextChild(tripHeaderNode, "suffix",  "");
     NewTextChild(tripHeaderNode, "airp",    flight.depPort());
     NewTextChild(tripHeaderNode, "scd_out_local", depDateTimeString(flight));
-    NewTextChild(tripHeaderNode, "pr_etl_only", "0"); // TODO
-    NewTextChild(tripHeaderNode, "pr_etstatus", "0"); // TODO
-    NewTextChild(tripHeaderNode, "pr_no_ticket_check", "0"); // TODO)
-    NewTextChild(tripHeaderNode, "pr_auto_pt_print", 0); // TODO
-    NewTextChild(tripHeaderNode, "pr_auto_pt_print_reseat", 0); // TODO
-    NewTextChild(tripHeaderNode, "use_jmp", 0); // TODO
+    NewTextChild(tripHeaderNode, "scd_brd_to_local", brdTimeString(flight));
+    NewTextChild(tripHeaderNode, "remote_gate", flight.gate());
+    NewTextChild(tripHeaderNode, "pr_etl_only", "0");
+    NewTextChild(tripHeaderNode, "pr_etstatus", "0");
+    NewTextChild(tripHeaderNode, "pr_no_ticket_check", "0");
+    NewTextChild(tripHeaderNode, "pr_auto_pt_print", 0);
+    NewTextChild(tripHeaderNode, "pr_auto_pt_print_reseat", 0);
+    NewTextChild(tripHeaderNode, "use_jmp", 0);
 
     xmlNodePtr tripDataNode = newChild(segNode, "tripdata");
     xmlNodePtr airpsNode = newChild(tripDataNode, "airps");
@@ -1167,12 +1499,12 @@ static xmlNodePtr xmlViewIatciFlight(xmlNodePtr node, const iatci::FlightDetails
     NewTextChild(airpNode, "city_code", airportCityCode(flight.arrPort()));
     NewTextChild(airpNode, "target_view", fullAirportString(flight.arrPort()));
     xmlNodePtr checkInfoNode = newChild(airpNode, "check_info");
-    xmlNodePtr passNode = newChild(checkInfoNode, "pass"); // TODO
-    xmlNodePtr crewNode = newChild(checkInfoNode, "crew"); // TODO
-    xmlNodePtr classesNode = newChild(tripDataNode, "classes"); // TODO
-    xmlNodePtr gatesNode = newChild(tripDataNode, "gates"); // TODO
-    xmlNodePtr hallsNode = newChild(tripDataNode, "halls"); // TODO
-    xmlNodePtr markFltsNode = newChild(tripDataNode, "mark_flights"); // TODO
+    /*xmlNodePtr passNode = */newChild(checkInfoNode, "pass");
+    /*xmlNodePtr crewNode = */newChild(checkInfoNode, "crew");
+    /*xmlNodePtr classesNode = */newChild(tripDataNode, "classes");
+    /*xmlNodePtr gatesNode = */newChild(tripDataNode, "gates");
+    /*xmlNodePtr hallsNode = */newChild(tripDataNode, "halls");
+    /*xmlNodePtr markFltsNode = */newChild(tripDataNode, "mark_flights");
 
     NewTextChild(segNode, "grp_id", -1);
     NewTextChild(segNode, "point_dep", -1);
@@ -1195,6 +1527,8 @@ static xmlNodePtr xmlViewIatciPax(xmlNodePtr paxesNode,
                                   const boost::optional<FlightSeatDetails>& seat,
                                   const boost::optional<ServiceDetails>& service,
                                   const boost::optional<DocDetails>& doc,
+                                  const boost::optional<AddressDetails>& addresses,
+                                  const boost::optional<VisaDetails>& visa,
                                   int parentPaxId,
                                   int& currPax)
 {
@@ -1203,95 +1537,21 @@ static xmlNodePtr xmlViewIatciPax(xmlNodePtr paxesNode,
     NewTextChild(paxNode, "surname", pax.surname());
     NewTextChild(paxNode, "name", pax.name());
     NewTextChild(paxNode, "pers_type", paxTypeString(pax));
-    NewTextChild(paxNode, "seat_no", seat ? seat->seat() : "");
-    NewTextChild(paxNode, "seat_type", "");
-    NewTextChild(paxNode, "seats", pax.isInfant() ? 0 : 1);
     NewTextChild(paxNode, "refuse", "");
-    NewTextChild(paxNode, "reg_no", seat ? seat->regNo() : "");
-    std::string subcls = "Э";
-    if(reserv && reserv->subclass()) {
-        subcls = reserv->subclass()->code(RUSSIAN);
-    } else {
-        LogWarning(STDLOG) << "use default subclass [Э]";
-    }
-    NewTextChild(paxNode, "subclass", subcls); // TODO
-    NewTextChild(paxNode, "bag_pool_num", ""); // здесь не может заполнить - нет контекста
-    NewTextChild(paxNode, "tid", 0); // TODO
+    NewTextChild(paxNode, "bag_pool_num", "");
+    NewTextChild(paxNode, "tid", 0);
+    NewTextChild(paxNode, "pr_norec", 0);
+    NewTextChild(paxNode, "pr_bp_print", 0);
+    NewTextChild(paxNode, "pr_bi_print", 0);
 
-    boost::optional<Ticketing::TicketCpn_t> tickCpn;
-    std::string tickRem;
-    if(service) {
-        tickCpn = service->findTicketCpn(pax.isInfant());
-        tickRem = "TKNE";
-    }
-    if(tickCpn) {
-        NewTextChild(paxNode, "ticket_no", tickCpn->ticket().get());
-        NewTextChild(paxNode, "coupon_no", tickCpn->cpn().get());
-    }
-    else {
-        NewTextChild(paxNode, "ticket_no");
-        NewTextChild(paxNode, "coupon_no");
-    }
-
-    NewTextChild(paxNode, "ticket_rem", tickRem);
-    NewTextChild(paxNode, "ticket_confirm", "1"); // TODO
-
-    xmlNodePtr docNode = newChild(paxNode, "document");
-    if(doc)
-    {
-        tst();
-        NewTextChild(docNode, "type", doc->docType());
-        NewTextChild(docNode, "issue_country", doc->issueCountry());
-        NewTextChild(docNode, "no", doc->no());
-        NewTextChild(docNode, "nationality", doc->nationality());
-        if(!doc->birthDate().is_not_a_date()) {
-            NewTextChild(docNode, "birth_date",
-                         BASIC::date_time::boostDateToAstraFormatStr(doc->birthDate()));
-        }
-        NewTextChild(docNode, "gender", doc->gender());
-        NewTextChild(docNode, "surname", doc->surname());
-        NewTextChild(docNode, "first_name", doc->name());
-        if(!doc->secondName().empty()) {
-            NewTextChild(docNode, "second_name", doc->secondName());
-        }
-        if(!doc->expiryDate().is_not_a_date()) {
-            NewTextChild(docNode, "expiry_date",
-                         BASIC::date_time::boostDateToAstraFormatStr(doc->expiryDate()));
-        }
-    }
-
-    NewTextChild(paxNode, "pr_norec", 0); // TODO
-    NewTextChild(paxNode, "pr_bp_print", 0); // TODO
-    NewTextChild(paxNode, "pr_bi_print", 0); // TODO
-
-
-    xmlNodePtr paxRemsNode = newChild(paxNode, "rems");
-    if(service)
-    {
-        for(const ServiceDetails::SsrInfo& ssr: service->lSsr())
-        {
-            if(ssr.isTkn()) continue;
-            if(ssr.isFqt()) continue;
-
-            xmlNodePtr paxRemNode = newChild(paxRemsNode, "rem");
-            NewTextChild(paxRemNode, "rem_code", ssr.ssrCode());
-            NewTextChild(paxRemNode, "rem_text", ssr.freeText());
-        }
-    }
-
-    xmlNodePtr paxFqtRemsNode = newChild(paxNode, "fqt_rems");
-    if(service)
-    {
-        for(const ServiceDetails::SsrInfo& ssr: service->lSsr())
-        {
-            if(!ssr.isFqt()) continue;
-
-            xmlNodePtr paxFqtRemNode = newChild(paxFqtRemsNode, "fqt_rem");
-            NewTextChild(paxFqtRemNode, "rem_code", ssr.ssrCode());
-            NewTextChild(paxFqtRemNode, "airline",  ssr.airline());
-            NewTextChild(paxFqtRemNode, "no",       ssr.ssrText());
-        }
-    }
+    xmlViewIatciPaxSeat(paxNode, seat, pax.isInfant());
+    xmlViewIatciPaxReserv(paxNode, reserv);
+    xmlViewIatciPaxTicket(paxNode, service, pax.isInfant());
+    xmlViewIatciPaxRems(paxNode, service);
+    xmlViewIatciPaxFqtRems(paxNode, service);
+    xmlViewIatciPaxDoc(paxNode, doc);
+    xmlViewIatciPaxAddresses(paxNode, addresses);
+    xmlViewIatciPaxVisa(paxNode, visa);
 
     NewTextChild(paxNode, "iatci_pax_id", pax.respRef());
     if(parentPaxId) {
@@ -1310,8 +1570,8 @@ static boost::optional<dcrcka::PaxGroup> findPaxGroup(const std::list<dcrcka::Pa
     for(const auto& pxg: lPxg) {
         if(pxg.service()) {
             for(const auto& ssr: pxg.service()->lSsr()) {
-                if(ssr.isTkne()) {
-                    if(ssr.toTicketCpn().ticket() == tickNum) {
+                if(ssr.isTkne() && ssr.toTicketCpn()) {
+                    if(ssr.toTicketCpn()->ticket() == tickNum) {
                         isInfant = ssr.isInfantTicket();
                         return pxg;
                     }
@@ -1383,6 +1643,8 @@ void xmlViewIatciPaxes_tickNumOrder(xmlNodePtr paxesNode,
                             pxg.seat(),
                             pxg.service(),
                             pxg.doc(),
+                            pxg.address(),
+                            pxg.visa(),
                             parentPaxId,
                             currPax);
             if(pxg.infant()) {
@@ -1403,6 +1665,8 @@ void xmlViewIatciPaxes_tickNumOrder(xmlNodePtr paxesNode,
                             pxg.infantSeat(),
                             pxg.service(),
                             pxg.infantDoc(),
+                            pxg.infantAddress(),
+                            pxg.infantVisa(),
                             parentPaxId,
                             currPax);
         }
@@ -1413,15 +1677,18 @@ void xmlViewIatciPaxes_asisOrder(xmlNodePtr paxesNode,
                                  const std::list<dcrcka::PaxGroup>& paxGroups)
 {
     int currPax = 0;
-    for(const auto& pxg: paxGroups) {
+    for(const auto& pxg: paxGroups) {        
         xmlViewIatciPax(paxesNode,
                         pxg.pax(),
                         pxg.reserv(),
                         pxg.seat(),
                         pxg.service(),
                         pxg.doc(),
+                        pxg.address(),
+                        pxg.visa(),
                         0,
                         currPax);
+        int currParent = currPax;
         if(pxg.infant()) {
             xmlViewIatciPax(paxesNode,
                             pxg.infant().get(),
@@ -1429,7 +1696,9 @@ void xmlViewIatciPaxes_asisOrder(xmlNodePtr paxesNode,
                             pxg.infantSeat(),
                             pxg.service(),
                             pxg.infantDoc(),
-                            currPax-1,
+                            pxg.infantAddress(),
+                            pxg.infantVisa(),
+                            currParent,
                             currPax);
         }
     }
@@ -1443,12 +1712,14 @@ void iatci2xml(xmlNodePtr node, const iatci::dcrcka::Result& res,
     if(!viewParams.tickNumOrder().empty() && checkTickNums(res, viewParams.tickNumOrder())) {
         xmlViewIatciPaxes_tickNumOrder(paxesNode, res.paxGroups(), viewParams.tickNumOrder());
     } else {
-        LogError(STDLOG) << "Warning! Unable to perform ticknums order!";
+        if(!viewParams.tickNumOrder().empty()) {
+            LogError(STDLOG) << "Warning! Unable to perform ticknums order!";
+        }
         xmlViewIatciPaxes_asisOrder(paxesNode, res.paxGroups());
     }
 
     NewTextChild(segNode, "paid_bag_emd", ""); // TODO
-    xmlNodePtr tripCountersNode = newChild(segNode, "tripcounters"); // TODO
+    /*xmlNodePtr tripCountersNode = */newChild(segNode, "tripcounters"); // TODO
     NewTextChild(segNode, "load_residue", ""); // TODO
 }
 

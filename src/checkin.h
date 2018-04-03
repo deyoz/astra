@@ -169,36 +169,22 @@ class CheckInInterface : public JxtInterface
 public:
   CheckInInterface() : JxtInterface("","CheckIn")
   {
-     Handler *evHandle;
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::LoadTagPacks);
-     AddEvent("LoadTagPacks",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::SearchGrp);
-     AddEvent("SearchGrp",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::SearchPax);
-     AddEvent("SearchPax",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::SavePax);
-     AddEvent("TCkinSavePax",evHandle);
-     AddEvent("TCkinSaveUnaccompBag",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::LoadPax);
-     AddEvent("TCkinLoadPax",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::PaxList);
-     AddEvent("PaxList",evHandle);
-     AddEvent("BagPaxList",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::ArrivalPaxList);
-     AddEvent("ArrivalPaxList",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::GetTripCounters);
-     AddEvent("GetTripCounters",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::OpenCheckInInfo);
-     AddEvent("OpenCheckInInfo",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::CheckTCkinRoute);
-     AddEvent("CheckTCkinRoute",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::ParseScanDocData);
-     AddEvent("ParseScanDocData",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::CrewCheckin);
-     AddEvent("CREWCHECKIN",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::GetFQTTierLevel);
-     AddEvent("GetFQTTierLevel",evHandle);
-  };
+     AddEvent("LoadTagPacks",         JXT_HANDLER(CheckInInterface, LoadTagPacks));
+     AddEvent("SearchGrp",            JXT_HANDLER(CheckInInterface, SearchGrp));
+     AddEvent("SearchPax",            JXT_HANDLER(CheckInInterface, SearchPax));
+     AddEvent("TCkinSavePax",         JXT_HANDLER(CheckInInterface, SavePax));
+     AddEvent("TCkinSaveUnaccompBag", JXT_HANDLER(CheckInInterface, SavePax));
+     AddEvent("TCkinLoadPax",         JXT_HANDLER(CheckInInterface, LoadPax));
+     AddEvent("PaxList",              JXT_HANDLER(CheckInInterface, PaxList));
+     AddEvent("BagPaxList",           JXT_HANDLER(CheckInInterface, PaxList));
+     AddEvent("ArrivalPaxList",       JXT_HANDLER(CheckInInterface, ArrivalPaxList));
+     AddEvent("GetTripCounters",      JXT_HANDLER(CheckInInterface, GetTripCounters));
+     AddEvent("OpenCheckInInfo",      JXT_HANDLER(CheckInInterface, OpenCheckInInfo));
+     AddEvent("CheckTCkinRoute",      JXT_HANDLER(CheckInInterface, CheckTCkinRoute));
+     AddEvent("ParseScanDocData",     JXT_HANDLER(CheckInInterface, ParseScanDocData));
+     AddEvent("CREWCHECKIN",          JXT_HANDLER(CheckInInterface, CrewCheckin));
+     AddEvent("GetFQTTierLevel",      JXT_HANDLER(CheckInInterface, GetFQTTierLevel));
+  }
 
   void LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -216,7 +202,7 @@ public:
 
   void TestDateTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 
   static std::string GetSearchPaxSubquery(ASTRA::TPaxStatus pax_status,
                                           bool return_pnr_ids,
@@ -247,7 +233,12 @@ public:
   static void SaveTransfer(int grp_id, const std::vector<CheckIn::TTransferItem> &trfer,
                            const std::map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > &trfer_segs,
                            bool pr_unaccomp, int seg_no, TLogLocale& tlocale);
-  static void SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const std::map<int,TSegInfo> &segs, int seg_no, TLogLocale& tlocale);
+  static void SaveTCkinSegs(int grp_id,
+                            xmlNodePtr segsNode,
+                            const std::map<int,TSegInfo> &segs,
+                            int seg_no,
+                            const std::vector<TSegInfo>& iatciSegs,
+                            TLogLocale& tlocale);
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                       TChangeStatusList &ChangeStatusInfo,
@@ -258,7 +249,9 @@ public:
   static void SaveTagPacks(xmlNodePtr node);
 
   static void AfterSaveAction(CheckIn::TAfterSaveInfoData& data);
-  static void LoadPax(int grp_id, xmlNodePtr resNode, bool afterSavePax);
+  static void LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNode, bool afterSavePax);
+  static void LoadPax(xmlNodePtr reqNode, xmlNodePtr resNode);
+  static void LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int grpId, bool needSync);
   static void LoadPaxRem(xmlNodePtr paxNode);
   static void BuildTransfer(const TTrferRoute &trfer, TTrferRouteType route_type, xmlNodePtr transferNode);
   static void BuildTCkinSegments(int grp_id, xmlNodePtr tckinNode);

@@ -240,6 +240,7 @@ class TGroupBagItem
     std::map<int /*num*/, TValueBagItem> vals;
     TBagMap bags;
     std::map<int /*num*/, TTagItem> tags;
+    std::map<int /*num*/, TTagItem> generated_tags;
     std::map<int /*num*/, TUnaccompInfoItem> unaccomps;
     std::set<TUnaccompRuleItem> unaccomp_rules;
     bool pr_tag_print;
@@ -252,6 +253,7 @@ class TGroupBagItem
       vals.clear();
       bags.clear();
       tags.clear();
+      generated_tags.clear();
       unaccomps.clear();
       unaccomp_rules.clear();
       pr_tag_print=false;
@@ -262,12 +264,14 @@ class TGroupBagItem
              bags.empty() &&
              tags.empty();
     };
+    bool fromXMLsimple(xmlNodePtr bagtagNode, bool baggage_pc);
     bool fromXML(xmlNodePtr bagtagNode, int grp_id, int hall, bool is_unaccomp, bool baggage_pc, bool trfer_confirm);
-    void checkAndGenerateTags(int point_id, int grp_id);
+    void checkAndGenerateTags(int point_id, int grp_id, bool generateAndDefer=false);
     void toDB(int grp_id) const;
     void bagToDB(int grp_id) const;
     void fromDB(int grp_id, int bag_pool_num, bool without_refused);
     void bagFromDB(int grp_id);
+    void generatedToXML(xmlNodePtr bagtagNode) const;
     void toXML(xmlNodePtr bagtagNode) const;
     void add(const TGroupBagItem &item);
     void setInboundTrfer(const TrferList::TGrpItem &grp);
@@ -277,6 +281,8 @@ class TGroupBagItem
     void fillUnaccompRules();
     void getAllListKeys(const int grp_id, const bool is_unaccomp, const int transfer_num);
     void getAllListItems(const int grp_id, const bool is_unaccomp, const int transfer_num);
+
+    static bool completeXMLForIatci(int grp_id, xmlNodePtr bagtagNode, xmlNodePtr firstSegNode);
 };
 
 } //namespace CheckIn

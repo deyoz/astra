@@ -3,6 +3,7 @@
 #include "exceptions.h"
 #include "astra_utils.h"
 #include <serverlib/cursctl.h>
+#include <serverlib/testmode.h>
 
 #define NICKNAME "ANTON"
 #define NICKTRACE ANTON_TRACE
@@ -25,10 +26,21 @@ IatciSettings::IatciSettings(const Ticketing::SystemAddrs_t& dcsId,
 
 IatciSettings IatciSettings::defaultSettings(const Ticketing::SystemAddrs_t& dcsId)
 {
+    bool ifm = false;
+#ifdef XP_TESTING
+    if(inTestMode()) {
+        LogWarning(STDLOG) << "Force enable IFM support in testmode";
+        ifm = true;
+    }
+#endif/*XP_TESTING*/
     return IatciSettings(dcsId,
-                         true/*cki*/, true/*ckx*/, true/*cku*/,
-                         true/*bpr*/, true/*plf*/, true/*smf*/, 
-                         true/*ifm*/);
+                         true /*cki*/,
+                         true /*ckx*/,
+                         true /*cku*/,
+                         true /*bpr*/,
+                         false/*plf*/,
+                         true /*smf*/,
+                         ifm);
 }
 
 //---------------------------------------------------------------------------------------
@@ -36,6 +48,7 @@ IatciSettings IatciSettings::defaultSettings(const Ticketing::SystemAddrs_t& dcs
 static void addIatciSettings(const IatciSettings& sett)
 {
     LogTrace(TRACE3) << "add iatci settings for dcs_id: " << sett.DcsId;
+    LogTrace(TRACE3) << "ifm:" << sett.Ifm;
     make_curs(
 "insert into IATCI_SETTINGS(DCS_ID, CKI, CKX, CKU, BPR, PLF, SMF, IFM) "
 "values (:dcs_id, :cki, :ckx, :cku, :bpr, :plf, :smf, :ifm)")

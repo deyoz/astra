@@ -1,0 +1,2984 @@
+include(ts/macro.ts)
+
+# meta: suite iatci
+
+$(defmacro ETS_COS_EXCHANGE
+    tickno
+    cpnno
+    status
+    pult=МОВРОМ
+{
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+$(pult)"
+EQN+1:TD"
+TKT+$(tickno):T"
+CPN+$(cpnno):$(status)"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+# ответ от СЭБ
+<<
+UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
+MSG+:142+3"
+EQN+1:TD"
+TKT+$(tickno):T::3"
+CPN+$(cpnno):$(status)::E"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+}) #end-of-macro
+
+#########################################################################################
+# №1
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_2 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ REPIN IVAN)
+
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN"
+PRD+Y"
+PSD+N"
+PBD+0"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+$(ETS_COS_EXCHANGE 2982401841689 1 CK SYSTEM)
+
+# ответ от Астры
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+# №2
+
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+$(PREPARE_FLIGHT_2 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ REPIN IVAN)
+
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN++S71027"
+PRD+Y"
+PSD++1A"
+PBD+0"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+
+# пошёл запрос в СЭБ на смену статуса из астры
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2982401841689:T"
+CPN+1:CK"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+# TODO здесь нужно сэмулировать таймаут ответа СЭБ
+$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(run_daemon edi_timeout)
+
+
+# ответ от Астры
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+I+X"
+ERD+1:102:UNABLE TO PROCESS - SYSTEM ERROR"
+UNT+5+1"
+UNZ+1+ASTRA000660001"
+
+
+
+# ещё запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000670001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00067"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN++S71027"
+PRD+Y"
+PSD++1A"
+PBD+0"
+UNT+8+1"
+UNZ+1+ASTRA000670001"
+
+
+
+# пошёл запрос в СЭБ на смену статуса из астры
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2982401841689:T"
+CPN+1:CK"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+# ответ от СЭБ
+<<
+UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
+MSG+:142+3"
+EQN+1:TD"
+TKT+2982401841689:T::3"
+CPN+1:CK::E"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000670001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00067"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+UNT+10+1"
+UNZ+1+ASTRA000670001"
+
+
+
+# отмена регистрации в Астру
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000680001+++O"
+UNH+1+DCQCKX:03:1:IA+ASTRA00068"
+LOR+S7:SVO"
+FDQ+ЮТ+103+$(yymmdd)+ДМД+ПЛК"
+PPD+REPIN+M++IVAN++S71027"
+UNT+5+1"
+UNZ+1+ASTRA000680001"
+
+
+# пошли в СЭБ откатывать статус купона
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2982401841689:T"
+CPN+1:I"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+# ответ от СЭБ
+<<
+UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
+MSG+:142+3"
+EQN+1:TD"
+TKT+2982401841689:T::3"
+CPN+1:I::E"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+# ответ на отмену из Астры
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000680001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00068"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+X+P"
+UNT+4+1"
+UNZ+1+ASTRA000680001"
+
+
+# ещё одна отмена регистрации в Астру
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000690001+++O"
+UNH+1+DCQCKX:03:1:IA+ASTRA00069"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+REPIN+M++IVAN++S71027"
+UNT+5+1"
+UNZ+1+ASTRA000690001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000690001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00069"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+X+X"
+ERD+1:194:PASSENGER SURNAME NOT CHECKED-IN"
+UNT+5+1"
+UNZ+1+ASTRA000690001"
+
+
+%%
+#########################################################################################
+# №3
+
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+$(PREPARE_FLIGHT_2 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ REPIN IVAN)
+
+# PLF до регистрации
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000700001+++O"
+UNH+1+DCQPLF:03:1:IA+ASTRA00070"
+LOR+UT:SVO"
+FDQ+ЮТ+103+$(yymmdd)+ДМД+ПЛК"
+SPD+REPIN:IVAN::1"
+UNT+5+1"
+UNZ+1+ASTRA000700001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000700001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00070"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+P+X"
+ERD+1:84:FUNCTION NOT SUPPORTED"
+UNT+5+1"
+UNZ+1+ASTRA000700001"
+
+
+# регистрация
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN"
+PRD+Y"
+PSD+N"
+PBD+0"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+$(ETS_COS_EXCHANGE 2982401841689 1 CK SYSTEM)
+
+# ответ от Астры
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+
+# PLF после регистрации
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000710001+++O"
+UNH+1+DCQPLF:03:1:IA+ASTRA00071"
+LOR+UT:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+SPD+REPIN:IVAN::1"
+UNT+5+1"
+UNZ+1+ASTRA000710001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000710001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00071"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+P+X"
+ERD+1:84:FUNCTION NOT SUPPORTED"
+UNT+5+1"
+UNZ+1+ASTRA000710001"
+
+# >>
+#UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000710001+++T"
+#UNH+1+DCRCKA:03:1:IA+ASTRA00071"
+#FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+#RAD+P+O"
+#PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+#PRD+Y"
+#PFD...
+#PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+#PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+#UNT+9+1"
+#UNZ+1+ASTRA000710001"
+
+
+%%
+#########################################################################################
+# №4
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_2 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ REPIN IVAN)
+
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN"
+PRD+Y"
+PSD+N"
+PBD+0"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+
+$(ETS_COS_EXCHANGE 2982401841689 1 CK SYSTEM)
+
+
+# ответ от Астры
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+UT:DME"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+REPIN+A:N++IVAN"
+UPD+A+DOBRENIC++BERI"
+UNT+7+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+U+X"
+ERD+1:84:FUNCTION NOT SUPPORTED"
+UNT+5+1"
+UNZ+1+ASTRA000660001"
+
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+UT:DME"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+REPIN+A:N++IVAN"
+USI++A:OTHS::::::OTHS FREE TEXT"
+UAP+R+:::760501:::RUS++P:99999999999:USA:::491231:M::::::REPIN:IVAN:ABRAMOVICH"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+OTHS::::::OTHS FREE TEXT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:760501:::RUS++P:99999999999:USA:::491231:M::::::REPIN:IVAN:ABRAMOVICH"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+
+# ещё запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+UT:DME"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+REPIN+A:N++IVAN"
+USI++C:OTHS::::::OTHS FREE TEXT+A:FQTV:UT:1230012345"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M+FQTV:UT:1230012345"
+PAP+A:REPIN:IVAN:760501:::RUS++P:99999999999:USA:::491231:M::::::REPIN:IVAN:ABRAMOVICH"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+# №5
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_2 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ REPIN IVAN)
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQSMF:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRSMF:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+S+O"
+CBD+Y+001:013+++F++A+B:A+C:A+D"
+UNT+5+1"
+UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+# №6
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_2 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ REPIN IVAN)
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN"
+PRD+Y"
+PSD++3А"
+PBD+0"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+$(ETS_COS_EXCHANGE 2982401841689 1 CK SYSTEM)
+
+# ответ от Астры
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+UT:DME"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+REPIN+A:N++IVAN"
+USD++4А"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+%%
+#########################################################################################
+# №7
+
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_2 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ REPIN IVAN)
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN"
+PRD+Y"
+PSD++3А"
+PBD+0"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+$(ETS_COS_EXCHANGE 2982401841689 1 CK SYSTEM)
+
+# ответ от Астры
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQBPR:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN"
+UNT+5+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+B+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+
+
+%%
+#########################################################################################
+# №8 левый запрос
+
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UU+103+$(yymmdd)+LAL+LOL++OO+1027+$(yymmdd)0530+$(yymmdd)0940+AAA+BBB"
+PPD+REPIN+M++IVAN"
+PRD+Y"
+PSD++3А"
+PBD+0"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UU+103+$(yymmdd)+LAL+LOL++T"
+RAD+I+X"
+ERD+1:5:INVALID FLIGHT/DATE"
+UNT+5+1"
+UNZ+1+ASTRA000660001"
+
+# считаем, что DCRCKA не дошёл до адресата, и эмулируем посылку им IFM
+<<
+IFMDCS2
+.IFMDCS1
+IFM
+OO1027/$(ddmon +0 en) AAA PART1
+-UU103/$(ddmon +0 en) LALLOL
+DEL
+1REPIN/IVAN
+ENDIFM
+
+
+%%
+#########################################################################################
+# №9 host to host
+
+
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_dcs У6 U6 UT)
+
+
+# запрос к Астре
+<< h2h=V.\VHLG.WA/E11ADCS1/I11HDCS2/P015ZK3\VGYA\$()
+UNB+SIRE:1+U6+UT+161019:0436+1"
+UNH+1+DCQSMF:03:1:IA+GUZ2TQPGKY0025"
+LOR+U6:LCG"
+FDQ+U6+537+$(yymmdd)+SAW+MAD"
+SRP+Y"
+UNT+5+1"
+UNZ+1+1"
+
+>>
+UNB+SIRE:1+UT+U6+xxxxxx:xxxx+1"
+UNH+1+DCRSMF:03:1:IA+GUZ2TQPGKY0025"
+FDR+U6+537+$(yymmdd)+SAW+MAD++T"
+RAD+S+X"
+ERD+1:5:INVALID FLIGHT/DATE"
+UNT+5+1"
+UNZ+1+1"
+
+
+%%
+#########################################################################################
+# №10
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_2 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ REPIN IVAN)
+
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN"
+PRD+Y"
+PSD+N"
+PBD+0"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+
+$(ETS_COS_EXCHANGE 2982401841689 1 CK SYSTEM)
+
+
+# ответ от Астры
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+
+# но ответ потерялся и нам прислали IFM DEL
+<<
+IFMDCS2
+.IFMDCS1
+IFM
+S71027/$(ddmon +0 en) AER PART1
+-UT103/$(ddmon +0 en) DMELED
+DEL
+1REPIN/IVAN
+ENDIFM
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2982401841689:T"
+CPN+1:I"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+# ответ от СЭБ
+<<
+UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
+MSG+:142+3"
+EQN+1:TD"
+TKT+2982401841689:T::3"
+CPN+1:I::E"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+%%
+#########################################################################################
+# №11
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_5 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ
+                   REPIN IVAN 2982401841689 1
+                   PETROV PETR 2982401841612 1)
+
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN"
+PRD+Y"
+PSD+N"
+PBD+0"
+PPD+PETROV+M++PETR"
+PRD+Y"
+PSD+N"
+PBD+0"
+UNT+12+1"
+UNZ+1+ASTRA000660001"
+
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2982401841612:T"
+CPN+1:CK"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref 1)0001"
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2982401841689:T"
+CPN+1:CK"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+# один ответ пришёл, другой затаймаутился
+<<
+UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
+MSG+:142+3"
+EQN+1:TD"
+TKT+2982401841689:T::3"
+CPN+1:CK::E"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(run_daemon edi_timeout)
+
+
+# окат успешной смены статуса
+>> lines=auto
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2982401841689:T"
+CPN+1:I"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+
+$(dump_table EDISESSION fields="OURREF")
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+I+X"
+ERD+1:102:UNABLE TO PROCESS - SYSTEM ERROR"
+UNT+5+1"
+UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+# №12
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_5 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ
+                   REPIN IVAN 2982401841689 1
+                   REPIN PETR 2982401841612 1)
+
+
+$(deny_ets_interactive ЮТ 103 ДМД)
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++PETR"
+PRD+Y"
+PSD+N"
+PBD+0"
+PSI++TKNE"
+UNT+9+1"
+UNZ+1+ASTRA000660001"
+
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+PETR"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/REPIN/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/REPIN/PETR/M"
+PAP+A:REPIN:PETR:850724:::TJK++P:400522510:TJK:::250205:M::::::REPIN:PETR"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+# №13
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_5 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ
+                   REPIN IVAN 2982401841689 1
+                   REPIN IVAN 2982401841612 1)
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++PETR"
+PRD+Y"
+PSD+N"
+PBD+0"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+I+X"
+ERD+1:1:PASSENGER SURNAME NOT FOUND"
+UNT+5+1"
+UNZ+1+ASTRA000660001"
+
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN"
+PRD+Y"
+PSD+N"
+PBD+0"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+I+X"
+ERD+1:6:TOO MANY PASSENGERS WITH SAME SURNAME"
+UNT+5+1"
+UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+# №14
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_5 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ
+                   REPIN IVAN 2982401841689 1
+                   PETROV PETR 2982401841612 1)
+
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN"
+PRD+Y"
+PSD+N"
+PBD+0"
+PPD+PETROV+M++PETR"
+PRD+Y"
+PSD+N"
+PBD+0"
+UNT+12+1"
+UNZ+1+ASTRA000660001"
+
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2982401841612:T"
+CPN+1:CK"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref 1)0001"
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2982401841689:T"
+CPN+1:CK"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+# не получили ни одного ответа от СЭБ
+
+$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(run_daemon edi_timeout)
+
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+I+X"
+ERD+1:102:UNABLE TO PROCESS - SYSTEM ERROR"
+UNT+5+1"
+UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+# №15
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_5 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ
+                   REPIN IVAN 2982401841689 1
+                   PETROV PETR 2982401841612 1)
+
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN"
+PRD+Y"
+PSD+N"
+PBD+0"
+PPD+PETROV+M++PETR"
+PRD+Y"
+PSD+N"
+PBD+0"
+UNT+12+1"
+UNZ+1+ASTRA000660001"
+
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2982401841612:T"
+CPN+1:CK"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref 1)0001"
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2982401841689:T"
+CPN+1:CK"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+# ответ раз
+<<
+UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
+MSG+:142+3"
+EQN+1:TD"
+TKT+2982401841689:T::3"
+CPN+1:CK::E"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+# ответ два
+<<
+UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
+MSG+:142+3"
+EQN+1:TD"
+TKT+2982401841612:T::3"
+CPN+1:CK::E"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+PPD+PETROV+A:N+xxxxxxxxxx+PETR"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/PETROV/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/PETROV/PETR/M"
+PAP+A:PETROV:PETR:850724:::TJK++P:400522510:TJK:::250205:M::::::PETROV:PETR"
+UNT+15+1"
+UNZ+1+ASTRA000660001"
+
+
+# ешё один запрос к Астре на регистрацию
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN"
+PRD+Y"
+PSD+N"
+PBD+0"
+PPD+PETROV+M++PETR"
+PRD+Y"
+PSD+N"
+PBD+0"
+UNT+12+1"
+UNZ+1+ASTRA000660001"
+
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+I+X"
+ERD+1:17:PASSENGER SURNAME ALREADY CHECKED IN"
+UNT+5+1"
+UNZ+1+ASTRA000660001"
+
+
+
+# отмена регистрации
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000680001+++O"
+UNH+1+DCQCKX:03:1:IA+ASTRA00068"
+LOR+S7:SVO"
+FDQ+ЮТ+103+$(yymmdd)+ДМД+ПЛК"
+PPD+REPIN+A:N++IVAN"
+PPD+PETROV+A:N++PETR"
+UNT+6+1"
+UNZ+1+ASTRA000680001"
+
+
+
+# пошли откатывать статусы
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2982401841612:T"
+CPN+1:I"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref 1)0001"
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2982401841689:T"
+CPN+1:I"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+# не получили ни одного ответа от СЭБ
+
+$(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
+$(run_daemon edi_timeout)
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000680001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00068"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+X+X"
+ERD+1:102:UNABLE TO PROCESS - SYSTEM ERROR"
+UNT+5+1"
+UNZ+1+ASTRA000680001"
+
+
+# отмена регистрации с "левым"(незарегистрированным) пассажиром
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000680001+++O"
+UNH+1+DCQCKX:03:1:IA+ASTRA00068"
+LOR+S7:SVO"
+FDQ+ЮТ+103+$(yymmdd)+ДМД+ПЛК"
+PPD+REPIN+A:N++IVAN"
+PPD+PETROV+A:N++PETR"
+PPD+BOKOV+A:N++ANTON"
+UNT+7+1"
+UNZ+1+ASTRA000680001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000680001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00068"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+X+X"
+ERD+1:194:PASSENGER SURNAME NOT CHECKED-IN"
+UNT+5+1"
+UNZ+1+ASTRA000680001"
+
+
+
+# отмена регистрации
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000680001+++O"
+UNH+1+DCQCKX:03:1:IA+ASTRA00068"
+LOR+S7:SVO"
+FDQ+ЮТ+103+$(yymmdd)+ДМД+ПЛК"
+PPD+REPIN+A:N++IVAN"
+PPD+PETROV+A:N++PETR"
+UNT+6+1"
+UNZ+1+ASTRA000680001"
+
+
+# пошли откатывать статусы
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2982401841612:T"
+CPN+1:I"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref 1)0001"
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2982401841689:T"
+CPN+1:I"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+# ответ раз
+<<
+UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
+MSG+:142+3"
+EQN+1:TD"
+TKT+2982401841689:T::3"
+CPN+1:I::E"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+# ответ два
+<<
+UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
+MSG+:142+3"
+EQN+1:TD"
+TKT+2982401841612:T::3"
+CPN+1:I::E"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000680001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00068"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+X+P"
+UNT+4+1"
+UNZ+1+ASTRA000680001"
+
+
+
+# и ещё раз отмена регистрации
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000680001+++O"
+UNH+1+DCQCKX:03:1:IA+ASTRA00068"
+LOR+S7:SVO"
+FDQ+ЮТ+103+$(yymmdd)+ДМД+ПЛК"
+PPD+REPIN+A:N++IVAN"
+PPD+PETROV+A:N++PETR"
+UNT+6+1"
+UNZ+1+ASTRA000680001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000680001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00068"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+X+X"
+ERD+1:194:PASSENGER SURNAME NOT CHECKED-IN"
+UNT+5+1"
+UNZ+1+ASTRA000680001"
+
+
+%%
+#########################################################################################
+# №16
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_5 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ
+                   REPIN IVAN 2982401841689 1
+                   PETROV PETR 2982401841612 1)
+
+$(deny_ets_interactive ЮТ 103 ДМД)
+
+
+# запрос к Астре на регистрацию одного пакса
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN"
+PRD+Y"
+PSD+N"
+PBD+0"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+
+# запрос к Астре на регистрацию второго пакса
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+PETROV+M++PETR"
+PRD+Y"
+PSD+N"
+PBD+0"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+PETROV+A:N+xxxxxxxxxx+PETR"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/PETROV/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/PETROV/PETR/M"
+PAP+A:PETROV:PETR:850724:::TJK++P:400522510:TJK:::250205:M::::::PETROV:PETR"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+
+# отмена регистрации обоих
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000680001+++O"
+UNH+1+DCQCKX:03:1:IA+ASTRA00068"
+LOR+S7:SVO"
+FDQ+ЮТ+103+$(yymmdd)+ДМД+ПЛК"
+PPD+REPIN+A:N++IVAN"
+PPD+PETROV+A:N++PETR"
+UNT+6+1"
+UNZ+1+ASTRA000680001"
+
+# так нельзя
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000680001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00068"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+X+X"
+ERD+1:102:UNABLE TO PROCESS - SYSTEM ERROR"
+UNT+5+1"
+UNZ+1+ASTRA000680001"
+
+
+# печать обоих
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQBPR:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+A:N++IVAN"
+PPD+PETROV+A:N++PETR"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+# так тоже нельзя
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+B+X"
+ERD+1:102:UNABLE TO PROCESS - SYSTEM ERROR"
+UNT+5+1"
+UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+# №17
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_5 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ
+                   REPIN IVAN 2982401841689 1
+                   PETROV PETR 2982401841612 1)
+
+$(deny_ets_interactive ЮТ 103 ДМД)
+
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN"
+PRD+Y"
+PSD+N"
+PBD+0"
+PPD+PETROV+M++PETR"
+PRD+Y"
+PSD+N"
+PBD+0"
+UNT+12+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+PPD+PETROV+A:N+xxxxxxxxxx+PETR"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/PETROV/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/PETROV/PETR/M"
+PAP+A:PETROV:PETR:850724:::TJK++P:400522510:TJK:::250205:M::::::PETROV:PETR"
+UNT+15+1"
+UNZ+1+ASTRA000660001"
+
+
+# печать обоих
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQBPR:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+A:N++IVAN"
+PPD+PETROV+A:N++PETR"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+B+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+PPD+PETROV+A:N+xxxxxxxxxx+PETR"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/PETROV/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/PETROV/PETR/M"
+PAP+A:PETROV:PETR:850724:::TJK++P:400522510:TJK:::250205:M::::::PETROV:PETR"
+UNT+15+1"
+UNZ+1+ASTRA000660001"
+
+
+# отмена обоих
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000680001+++O"
+UNH+1+DCQCKX:03:1:IA+ASTRA00068"
+LOR+S7:SVO"
+FDQ+ЮТ+103+$(yymmdd)+ДМД+ПЛК"
+PPD+REPIN+A:N++IVAN"
+PPD+PETROV+A:N++PETR"
+UNT+6+1"
+UNZ+1+ASTRA000680001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000680001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00068"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+X+P"
+UNT+4+1"
+UNZ+1+ASTRA000680001"
+
+
+%%
+#########################################################################################
+# №18
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_5 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ
+                   ONE CHILD 2982401841689 1
+                   PETROV PETR 2982401841612 1)
+
+$(deny_ets_interactive ЮТ 103 ДМД)
+
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+U6:SVX:RU"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+ONE+C:N++CHILD++0013949607"
+PRD+Y+OK++KKKNKZ"
+PSD+N"
+PBD+0"
+PSI++TKNE::29824018416891+WCHR::::1::911"
+CRI+PP:12345678"
+PAP+A:ONE:CHILD H:080101:::RUS++P:1234566:RUS:::200101:M:701:::::ONE:CHILD H"
+UNT+11+1"
+UNZ+1+1"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+ONE+C:N+xxxxxxxxxx+CHILD"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001+Y"
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/CHILD+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/CHILD/M+WCHR::::::911"
+PAP+A:ONE:CHILD:080101:::RUS++P:1234566:RUS:::200101:::::::ONE:CHILD H"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+# №19
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_6 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ
+                   ONE ADULT 2982401841612 1
+                   ONE INFANT 2982401841689 1)
+
+
+# регистрация пакса с младенцем
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+U6:SVX:RU"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+ONE+M:Y++ADULT+ONE:INFANT+0013949613:0013949614"
+PRD+Y+OK++KKKNKZ"
+PSD+N"
+PBD+0"
+PSI++TKNE::29824018416121+TKNE::INF29824018416891"
+CRI+PP:12345678"
+PAP+A:ONE:ADULT H:500101:::RUS++P:1234566:RUS:::200101:M:701:::::ONE:ADULT H"
+PAP+IN:ONE:INFANT H:170101:::RUS++P:1234566:RUS:::210101:M:701:::::ONE:INFANT H"
+UNT+12+1"
+UNZ+1+1"
+
+
+# общение с СЭБ (смена статуса на CK)
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2982401841612:T"
+CPN+1:CK"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref 1)0001"
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2982401841689:T"
+CPN+1:CK"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+# ответ раз
+<<
+UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
+MSG+:142+3"
+EQN+1:TD"
+TKT+2982401841689:T::3"
+CPN+1:CK::E"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+# ответ два
+<<
+UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
+MSG+:142+3"
+EQN+1:TD"
+TKT+2982401841612:T::3"
+CPN+1:CK::E"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001:002+Y"
+PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
+PAP+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::200101:::::::ONE:ADULT H"
+PAP+IN:ONE:INFANT:170101:::RUS++P:1234566:RUS:::210101:::::::ONE:INFANT H"
+UNT+11+1"
+UNZ+1+ASTRA000660001"
+
+
+# обновление
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+UT:DME"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+ONE+A:Y++ADULT+ONE:INFANT"
+UAP+R+A:::760501:::USA++P:99999999999:USA:::491231:M::::::ONE:ADULT:ABRAMOVICH"
+UAP+R+IN:::170202:::RUS++P:88888888888:USA:::220202:M::::::ONE:INFANT:ADULTOVICH"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001:002+Y"
+PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
+PAP+A:ONE:ADULT:760501:::USA++P:99999999999:USA:::491231:M::::::ONE:ADULT:ABRAMOVICH"
+PAP+IN:ONE:INFANT:170202:::RUS++P:88888888888:USA:::220202:M::::::ONE:INFANT:ADULTOVICH"
+UNT+11+1"
+UNZ+1+ASTRA000660001"
+
+
+# пересадка
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+UT:DME"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+ONE+A:Y++ADULT+ONE:INFANT"
+USD++4А"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
+PRD+Y"
+PFD+004A+N:Y:3:::::Y:N+001:002+Y"
+PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
+PAP+A:ONE:ADULT:760501:::USA++P:99999999999:USA:::491231:M::::::ONE:ADULT:ABRAMOVICH"
+PAP+IN:ONE:INFANT:170202:::RUS++P:88888888888:USA:::220202:M::::::ONE:INFANT:ADULTOVICH"
+UNT+11+1"
+UNZ+1+ASTRA000660001"
+
+
+# печать
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQBPR:03:1:IA+ASTRA00066"
+LOR+UT:DME"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+ONE+A:Y++ADULT+ONE:INFANT"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+B+O"
+FSD+0950"
+PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
+PRD+Y"
+PFD+004A+N:Y:3:::::Y:N+001:002+Y"
+PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
+PAP+A:ONE:ADULT:760501:::USA++P:99999999999:USA:::491231:M::::::ONE:ADULT:ABRAMOVICH"
+PAP+IN:ONE:INFANT:170202:::RUS++P:88888888888:USA:::220202:M::::::ONE:INFANT:ADULTOVICH"
+UNT+11+1"
+UNZ+1+ASTRA000660001"
+
+
+# отмена регистрации пакса с младенцем
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000680001+++O"
+UNH+1+DCQCKX:03:1:IA+ASTRA00068"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+ONE+A:Y++ADULT+ONE:INFANT"
+UNT+5+1"
+UNZ+1+ASTRA000680001"
+
+
+# общение с СЭБ (откат статуса)
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2982401841612:T"
+CPN+1:I"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref 1)0001"
+
+
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:142"
+ORG+ЮТ:МОВ++++Y+::RU+SYSTEM"
+EQN+1:TD"
+TKT+2982401841689:T"
+CPN+1:I"
+TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+# ответ раз
+<<
+UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
+MSG+:142+3"
+EQN+1:TD"
+TKT+2982401841689:T::3"
+CPN+1:I::E"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+# ответ два
+<<
+UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
+MSG+:142+3"
+EQN+1:TD"
+TKT+2982401841612:T::3"
+CPN+1:I::E"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000680001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00068"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+X+P"
+UNT+4+1"
+UNZ+1+ASTRA000680001"
+
+
+%%
+#########################################################################################
+# №20
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_5 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ
+                   REPIN IVAN 2982401841689 1
+                   REPIN PETR 2982401841612 1)
+
+
+$(deny_ets_interactive ЮТ 103 ДМД)
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++PETR"
+PRD+Y"
+PSD+N"
+PBD+0"
+PPD+REPIN+M++IVAN"
+PRD+Y"
+PSD+N"
+PBD+0"
+UNT+12+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+PETR"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/REPIN/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/REPIN/PETR/M"
+PAP+A:REPIN:PETR:850724:::TJK++P:400522510:TJK:::250205:M::::::REPIN:PETR"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+UNT+15+1"
+UNZ+1+ASTRA000660001"
+
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+UT:DME"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+REPIN+A:N++PETR"
+UBD+R:1:13+R:1:5+R:NP+R:U6:241:1:LED:262"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+PETR"
+PRD+Y"
+PFD...
+PBD+1:13+1:5+NP+U6:241:1:LED:262"
+PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/REPIN/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/REPIN/PETR/M"
+PAP+A:REPIN:PETR:850724:::TJK++P:400522510:TJK:::250205:M::::::REPIN:PETR"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+UNT+16+1"
+UNZ+1+ASTRA000660001"
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+UT:DME"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+REPIN+A:N++IVAN"
+UBD+R:1:12+R:2:8+R:NP+R:U6:260:1:LED:262"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+PETR"
+PRD+Y"
+PFD...
+PBD+1:13+1:5+NP+U6:241:1:LED:262"
+PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/REPIN/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/REPIN/PETR/M"
+PAP+A:REPIN:PETR:850724:::TJK++P:400522510:TJK:::250205:M::::::REPIN:PETR"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PBD+1:12+2:8+NP+U6:260:1:LED:262"
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+UNT+17+1"
+UNZ+1+ASTRA000660001"
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+UT:DME"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+REPIN+A:N++PETR"
+UBD+R:3:15++R:NP+R:U6:245:2:LED:262+R:U6:248:1:LED:262"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+PETR"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001+Y"
+PBD+3:15+1:5+NP+U6:245:2:LED:262+U6:248:1:LED:262"
+PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/REPIN/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/REPIN/PETR/M"
+PAP+A:REPIN:PETR:850724:::TJK++P:400522510:TJK:::250205:M::::::REPIN:PETR"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD+001B+N:Y:3:::::Y:N+002+Y"
+PBD+1:12+2:8+NP+U6:260:1:LED:262"
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+UNT+17+1"
+UNZ+1+ASTRA000660001"
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+UT:DME"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+REPIN+A:N++PETR"
+UBD+R:0:0++R:NP"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+PETR"
+PRD+Y"
+PFD...
+PBD+0+1:5+NP"
+PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/REPIN/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/REPIN/PETR/M"
+PAP+A:REPIN:PETR:850724:::TJK++P:400522510:TJK:::250205:M::::::REPIN:PETR"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PBD+1:12+2:8+NP+U6:260:1:LED:262"
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+UNT+17+1"
+UNZ+1+ASTRA000660001"
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+UT:DME"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+REPIN+A:N++IVAN"
+UBD+R:1:12++R:NP+R:U6:277:1:LED:262"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+PETR"
+PRD+Y"
+PFD...
+PBD+0+1:5+NP"
+PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/REPIN/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/REPIN/PETR/M"
+PAP+A:REPIN:PETR:850724:::TJK++P:400522510:TJK:::250205:M::::::REPIN:PETR"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PBD+1:12+2:8+NP+U6:277:1:LED:262"
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+UNT+17+1"
+UNZ+1+ASTRA000660001"
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+UT:DME"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+REPIN+A:N++PETR"
+UBD+R:0:0+R:0:0+R:NP"
+PPD+REPIN+A:N++IVAN"
+UBD+R:0:0+R:0:0+R:NP"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+PETR"
+PRD+Y"
+PFD...
+PBD+0"
+PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/REPIN/PETR+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/REPIN/PETR/M"
+PAP+A:REPIN:PETR:850724:::TJK++P:400522510:TJK:::250205:M::::::REPIN:PETR"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PBD+0"
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+UNT+17+1"
+UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+# №21
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса с однофамильцами
+$(PREPARE_FLIGHT_5 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ
+                   REPIN IVAN 2982401841689 1
+                   REPIN IVAN 2982401841612 1)
+
+
+$(deny_ets_interactive ЮТ 103 ДМД)
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN"
+PRD+Y"
+PSD+N"
+PBD+0"
+UNT+9+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+I+X"
+ERD+1:6:TOO MANY PASSENGERS WITH SAME SURNAME"
+UNT+5+1"
+UNZ+1+ASTRA000660001"
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN"
+PRD+Y"
+PSD+N"
+PBD+0"
+PSI++TKNE::29824018416891"
+UNT+9+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+$(set point_dep $(last_point_id_spp))
+$(set repin1_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN"
+PRD+Y"
+PSD+N"
+PBD+0"
+PSI++TKNE::29824018416121"
+UNT+9+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522510:TJK:::250205:M::::::REPIN:IVAN"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+REPIN+A:N++IVAN"
+USD++4А"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+U+X"
+ERD+1:6:TOO MANY PASSENGERS WITH SAME SURNAME"
+UNT+5+1"
+UNZ+1+ASTRA000660001"
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+REPIN+A:N+$(lpad $(get repin1_id) 10 "0")+IVAN"
+USD++4А"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+REPIN+A:N+$(lpad $(get repin1_id) 10 "0")+IVAN"
+PRD+Y"
+PFD+004A+N:Y:3:::::Y:N+002+Y"
+PSI++TKNE::29824018416121+DOCS::::::DOCS HK1/P/TJK/400522510/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522510+PSPT::::::PSPT HK1 ZB400522510/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522510:TJK:::250205:M::::::REPIN:IVAN"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKX:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+REPIN+A:N+$(lpad $(get repin1_id) 10 "0")+IVAN"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+X+P"
+UNT+4+1"
+UNZ+1+ASTRA000660001"
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+REPIN+A:N+$(lpad $(get repin1_id) 10 "0")+IVAN"
+USD++5А"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+U+X"
+ERD+1:194:PASSENGER SURNAME NOT CHECKED-IN"
+UNT+5+1"
+UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+# №22
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_2 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ REPIN IVAN)
+
+$(deny_ets_interactive ЮТ 103 ДМД)
+
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN"
+PRD+Y"
+PSD+N"
+PBD+0"
+PAP+A:REPIN:IVAN:880624:::TJK++PT:4005123456:TJK:::250205:M::::::REPIN:IVAN"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001+Y"
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:880624:::TJK++P:4005123456:TJK:::250205:::::::REPIN:IVAN"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+# №23
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQSMF:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRSMF:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+S+X"
+ERD+1:5:INVALID FLIGHT/DATE"
+UNT+5+1"
+UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+# 24
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_2 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ REPIN IVAN)
+
+$(deny_ets_interactive ЮТ 103 ДМД)
+
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+U6:SVX:RU"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M:N++IVAN++0013949607"
+PRD+Y+OK++KKKNKZ"
+PSD+N"
+PBD+0"
+PSI++TKNE::29824018416891"
+CRI+PP:12345678"
+PAP+A:REPIN:IVAN H:080101:::RUS++P:1234566:RUS:::200101:M:701:::::REPIN:IVAN H"
+ADD++700:::::USA"
+UNT+11+1"
+UNZ+1+1"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001+Y"
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:080101:::RUS++P:1234566:RUS:::200101:::::::REPIN:IVAN H"
+ADD++700:::::USA"
+UNT+11+1"
+UNZ+1+ASTRA000660001"
+
+
+# отмена регистрации в Астру
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000680001+++O"
+UNH+1+DCQCKX:03:1:IA+ASTRA00068"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+REPIN+M++IVAN++S71027"
+UNT+5+1"
+UNZ+1+ASTRA000680001"
+
+>> lines=auto
+RAD+X+P"
+
+
+# ADD без PAP
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+U6:SVX:RU"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M:N++IVAN++0013949607"
+PRD+Y+OK++KKKNKZ"
+PSD+N"
+PBD+0"
+PSI++TKNE::29824018416891"
+CRI+PP:12345678"
+PAP"
+ADD++700:::::USA"
+UNT+11+1"
+UNZ+1+1"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001+Y"
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
+ADD++700:::::USA"
+UNT+11+1"
+UNZ+1+ASTRA000660001"
+
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+U6:SVX:RU"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+REPIN+A:N++IVAN"
+UAP+R+:::760501:::RUS++P:99999999999:USA:::491231:M::::::REPIN:IVAN:ABRAMOVICH"
+ADD+R+700:::::RUS:10001+701:::::USA"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001+Y"
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:760501:::RUS++P:99999999999:USA:::491231:M::::::REPIN:IVAN:ABRAMOVICH"
+ADD++701:::::USA+700:::::RUS:10001"
+UNT+11+1"
+UNZ+1+ASTRA000660001"
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+U6:SVX:RU"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+REPIN+A:N++IVAN"
+UAP"
+ADD+C+701"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001+Y"
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN/M"
+PAP+A:REPIN:IVAN:760501:::RUS++P:99999999999:USA:::491231:M::::::REPIN:IVAN:ABRAMOVICH"
+ADD++700:::::RUS:10001"
+UNT+11+1"
+UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+# 25
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_6 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ
+                   ONE ADULT 2982401841612 1
+                   ONE INFANT 2982401841689 1)
+
+$(deny_ets_interactive ЮТ 103 ДМД)
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+U6:SVX:RU"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+ONE+M:Y++ADULT+ONE:INFANT+0013949613:0013949614"
+PRD+Y+OK++KKKNKZ"
+PSD+N"
+PBD+0"
+PSI++TKNE::29824018416121+TKNE::INF29824018416891"
+CRI+PP:12345678"
+PAP+A:ONE:ADULT H:500101:::RUS++P:1234566:RUS:::200101:M:701:::::ONE:ADULT H"
+ADD++700:::::USA"
+PAP+IN:ONE:INFANT H:170101:::RUS++P:1234566:RUS:::210101:M:701:::::ONE:INFANT H"
+ADD++701:::::RUS"
+UNT+12+1"
+UNZ+1+1"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001:002+Y"
+PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
+PAP+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::200101:::::::ONE:ADULT H"
+ADD++700:::::USA"
+PAP+IN:ONE:INFANT:170101:::RUS++P:1234566:RUS:::210101:::::::ONE:INFANT H"
+ADD++701:::::RUS"
+UNT+13+1"
+UNZ+1+ASTRA000660001"
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+U6:SVX:RU"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+ONE+A:N++ADULT"
+UAP"
+ADD+C+700"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001:002+Y"
+PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
+PAP+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::200101:::::::ONE:ADULT H"
+PAP+IN:ONE:INFANT:170101:::RUS++P:1234566:RUS:::210101:::::::ONE:INFANT H"
+ADD++701:::::RUS"
+UNT+12+1"
+UNZ+1+ASTRA000660001"
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+U6:SVX:RU"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+ONE+M:Y++ADULT+ONE:INFANT"
+UAP++IN"
+ADD+C+701"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001:002+Y"
+PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
+PAP+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::200101:::::::ONE:ADULT H"
+PAP+IN:ONE:INFANT:170101:::RUS++P:1234566:RUS:::210101:::::::ONE:INFANT H"
+UNT+11+1"
+UNZ+1+ASTRA000660001"
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+U6:SVX:RU"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+ONE+M:Y++ADULT"
+UAP"
+ADD++701:::::RUS"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001:002+Y"
+PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
+PAP+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::200101:::::::ONE:ADULT H"
+ADD++701:::::RUS"
+PAP+IN:ONE:INFANT:170101:::RUS++P:1234566:RUS:::210101:::::::ONE:INFANT H"
+UNT+12+1"
+UNZ+1+ASTRA000660001"
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+U6:SVX:RU"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+ONE+M:Y++ADULT"
+UAP++IN"
+ADD++701:::::USA"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001:002+Y"
+PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
+PAP+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::200101:::::::ONE:ADULT H"
+ADD++701:::::RUS"
+PAP+IN:ONE:INFANT:170101:::RUS++P:1234566:RUS:::210101:::::::ONE:INFANT H"
+ADD++701:::::USA"
+UNT+13+1"
+UNZ+1+ASTRA000660001"
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+U6:SVX:RU"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+ONE+M:Y++ADULT"
+UAP+A+IN:ONE:INFANT:180111:::BY++P:123456733:BY:::220101:M:702"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001:002+Y"
+PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
+PAP+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::200101:::::::ONE:ADULT H"
+ADD++701:::::RUS"
+PAP+IN:ONE:INFANT:180111:::BLR++P:123456733:BLR:::220101:M"
+ADD++701:::::USA"
+UNT+13+1"
+UNZ+1+ASTRA000660001"
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQBPR:03:1:IA+ASTRA00066"
+LOR+U6:SVX:RU"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+ONE+M:Y++ADULT"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+B+O"
+FSD+0950"
+PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001:002+Y"
+PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
+PAP+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::200101:::::::ONE:ADULT H"
+ADD++701:::::RUS"
+PAP+IN:ONE:INFANT:180111:::BLR++P:123456733:BLR:::220101:M"
+ADD++701:::::USA"
+UNT+13+1"
+UNZ+1+ASTRA000660001"
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKX:03:1:IA+ASTRA00066"
+LOR+U6:SVX:RU"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+ONE+M:Y++ADULT"
+UNT+5+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+X+P"
+UNT+4+1"
+UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+# 26
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_6 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ
+                   ONE ADULT 2982401841612 1
+                   ONE INFANT 2982401841689 1)
+
+$(deny_ets_interactive ЮТ 103 ДМД)
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+U6:SVX:RU"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+ONE+M:Y++ADULT+ONE:INFANT+0013949613:0013949614"
+PRD+Y+OK++KKKNKZ"
+PSD+N"
+PBD+0"
+PSI++TKNE::29824018416121+TKNE::INF29824018416891"
+CRI+PP:12345678"
+PAP+A:ONE:ADULT H:500101:::RUS++P:1234566:RUS:::200101:M:701:::::ONE:ADULT H"
+ADD++701:::::RUS"
+PAP+IN:ONE:INFANT H:170101:::RUS++P:1234566:RUS:::210101:M:701:::::ONE:INFANT H+VI:525747:USA"
+ADD++701:::::RUS"
+UNT+13+1"
+UNZ+1+1"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001:002+Y"
+PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
+PAP+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::200101:::::::ONE:ADULT H"
+ADD++701:::::RUS"
+PAP+IN:ONE:INFANT:170101:::RUS++P:1234566:RUS:::210101:::::::ONE:INFANT H+V:525747:USA"
+ADD++701:::::RUS"
+UNT+13+1"
+UNZ+1+ASTRA000660001"
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+U6:SVX:RU"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+ONE+M:Y++ADULT+ONE:INFANT"
+UAP"
+ADD+C+701"
+UAP+C+IN:ONE:INFANT:170101:::RUS++V:525747:USA"
+ADD+C+701"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001:002+Y"
+PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
+PAP+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::200101:::::::ONE:ADULT H"
+PAP+IN:ONE:INFANT:170101:::RUS++P:1234566:RUS:::210101:::::::ONE:INFANT H"
+UNT+11+1"
+UNZ+1+ASTRA000660001"
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+U6:SVX:RU"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+ONE+M:Y++ADULT+ONE:INFANT"
+UAP+C+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::200101:::::::ONE:ADULT H"
+UAP+C+IN:ONE:INFANT:170101:::RUS++P:1234566:RUS:::210101:::::::ONE:INFANT H"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001:002+Y"
+PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
+UNT+9+1"
+UNZ+1+ASTRA000660001"
+
+
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+U6:SVX:RU"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+ONE+M:Y++ADULT+ONE:INFANT"
+UAP+A+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::200101:::::::ONE:ADULT H+VI:777888:USA"
+ADD+A+701:::::RUS"
+UAP+A+IN:ONE:INFANT:170101:::RUS++P:1234566:RUS:::210101:::::::ONE:INFANT H+VI:888777:RUS"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+ONE+A:Y+xxxxxxxxxx:xxxxxxxxxx+ADULT+ONE:INFANT"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001:002+Y"
+PSI++TKNE::29824018416121+TKNE::INF29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/ONE/ADULT+FOID::::::FOID PPZB400522509+INFT::::::INFT HK1 01JAN17 ONE/INFANT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/ONE/ADULT/M"
+PAP+A:ONE:ADULT:500101:::RUS++P:1234566:RUS:::200101:::::::ONE:ADULT H+V:777888:USA"
+ADD++701:::::RUS"
+PAP+IN:ONE:INFANT:170101:::RUS++P:1234566:RUS:::210101:::::::ONE:INFANT H+V:888777:RUS"
+UNT+12+1"
+UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+# №27
+$(init)
+$(init_jxt_pult МОВРОМ)
+$(login)
+$(init_eds ЮТ UTET UTDC)
+$(init_dcs СУ DCS1 DCS2)
+
+# подготовка рейса
+$(PREPARE_FLIGHT_5 ЮТ 103 ДМД ПЛК СУ 2278 ПЛК СОЧ
+                   REPIN {IVAN MR} 2982401841689 1
+                   PETROV PETR 2982401841612 1)
+
+$(deny_ets_interactive ЮТ 103 ДМД)
+
+
+# запрос к Астре на регистрацию одного пакса
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVANMR"
+PRD+Y"
+PSD+N"
+PBD+0"
+UNT+8+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+I+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN MR"
+PRD+Y"
+PFD...
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN MR+FOID::::::FOID PPZB400522509+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN MR/M"
+PAP+A:REPIN:IVAN MR:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN MR"
+UNT+10+1"
+UNZ+1+ASTRA000660001"
+
+
+# запрос к Астре
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000660001+++O"
+UNH+1+DCQCKU:03:1:IA+ASTRA00066"
+LOR+UT:DME"
+FDQ+UT+103+$(yymmdd)+DME+LED"
+PPD+REPIN+A:N++IVANMR"
+USI++A:OTHS::::::OTHS FREE TEXT"
+UAP+R+:::760501:::RUS++P:99999999999:USA:::491231:M::::::REPIN:IVAN:ABRAMOVICH"
+UNT+6+1"
+UNZ+1+ASTRA000660001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00066"
+FDR+UT+103+$(yymmdd)1015+DME+LED++T"
+RAD+U+O"
+FSD+0950"
+PPD+REPIN+A:N+xxxxxxxxxx+IVAN MR"
+PRD+Y"
+PFD+001A+N:Y:3:::::Y:N+001+Y"
+PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/REPIN/IVAN MR+FOID::::::FOID PPZB400522509+OTHS::::::OTHS FREE TEXT+PSPT::::::PSPT HK1 ZB400522509/TJK/24JUL85/REPIN/IVAN MR/M"
+PAP+A:REPIN:IVAN MR:760501:::RUS++P:99999999999:USA:::491231:M::::::REPIN:IVAN:ABRAMOVICH"
+UNT+10+1"
+UNZ+1+ASTRA000660001"

@@ -96,7 +96,8 @@ protected:
     boost::gregorian::date           m_arrDate;
     boost::posix_time::time_duration m_depTime;
     boost::posix_time::time_duration m_arrTime;
-    boost::posix_time::time_duration m_boardingTime;
+    boost::posix_time::time_duration m_boardingTime;    
+    std::string                      m_gate;
 
 public:
     FlightDetails(const std::string& airl,
@@ -107,7 +108,8 @@ public:
                   const boost::gregorian::date& arrDate = boost::gregorian::date(),
                   const boost::posix_time::time_duration& depTime = boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
                   const boost::posix_time::time_duration& arrTime = boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
-                  const boost::posix_time::time_duration& brdTime = boost::posix_time::time_duration(boost::posix_time::not_a_date_time));
+                  const boost::posix_time::time_duration& brdTime = boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
+                  const std::string& gate = "");
 
     const std::string&                      airline() const;
     Ticketing::FlightNum_t                  flightNum() const;
@@ -118,6 +120,7 @@ public:
     const boost::posix_time::time_duration& depTime() const;
     const boost::posix_time::time_duration& arrTime() const;
     const boost::posix_time::time_duration& boardingTime() const;
+    const std::string&                      gate() const;
     std::string                             toShortKeyString() const;
 
 protected:
@@ -130,43 +133,78 @@ struct DocDetails
 {
     friend class boost::serialization::access;
 
-    protected:
-        std::string m_docType;
-        std::string m_issueCountry;
-        std::string m_no;
-        std::string m_surname;
-        std::string m_name;
-        std::string m_secondName;
-        std::string m_gender;
-        std::string m_nationality;
-        boost::gregorian::date m_birthDate;
-        boost::gregorian::date m_expiryDate;
+protected:
+    std::string m_docType;
+    std::string m_issueCountry;
+    std::string m_no;
+    std::string m_surname;
+    std::string m_name;
+    std::string m_secondName;
+    std::string m_gender;
+    std::string m_nationality;
+    boost::gregorian::date m_birthDate;
+    boost::gregorian::date m_expiryDate;
 
-    public:
-        DocDetails(const std::string& docType,
-                   const std::string& issueCountry,
-                   const std::string& no,
-                   const std::string& surname,
-                   const std::string& name,
-                   const std::string& secondName,
-                   const std::string& gender,
-                   const std::string& nationality,
-                   const boost::gregorian::date& birthDate = boost::gregorian::date(),
-                   const boost::gregorian::date& expiryDate = boost::gregorian::date());
+    //std::string
 
-        const std::string& docType() const;
-        const std::string& issueCountry() const;
-        const std::string& no() const;
-        const std::string& surname() const;
-        const std::string& name() const;
-        const std::string& secondName() const;
-        const std::string& gender() const;
-        const std::string& nationality() const;
-        const boost::gregorian::date& birthDate() const;
-        const boost::gregorian::date& expiryDate() const;
+public:
+    DocDetails(const std::string& docType,
+               const std::string& issueCountry,
+               const std::string& no,
+               const std::string& surname,
+               const std::string& name,
+               const std::string& secondName,
+               const std::string& gender,
+               const std::string& nationality,
+               const boost::gregorian::date& birthDate = boost::gregorian::date(),
+               const boost::gregorian::date& expiryDate = boost::gregorian::date());
 
-    protected:
-        DocDetails() {} // for boost serialization only
+    const std::string& docType() const;
+    const std::string& issueCountry() const;
+    const std::string& no() const;
+    const std::string& surname() const;
+    const std::string& name() const;
+    const std::string& secondName() const;
+    const std::string& gender() const;
+    const std::string& nationality() const;
+    const boost::gregorian::date& birthDate() const;
+    const boost::gregorian::date& expiryDate() const;
+
+protected:
+    DocDetails() {} // for boost serialization only
+};
+
+//---------------------------------------------------------------------------------------
+
+struct VisaDetails
+{
+    friend class boost::serialization::access;
+
+protected:
+    std::string m_visaType;
+    std::string m_issueCountry;
+    std::string m_no;
+    std::string m_placeOfIssue;
+    boost::gregorian::date m_issueDate;
+    boost::gregorian::date m_expiryDate;
+
+public:
+    VisaDetails(const std::string& visaType,
+                const std::string& issueCountry,
+                const std::string& no,
+                const std::string& placeOfIssue,
+                const boost::gregorian::date& issueDate = boost::gregorian::date(),
+                const boost::gregorian::date& expiryDate = boost::gregorian::date());
+
+    const std::string& visaType() const;
+    const std::string& issueCountry() const;
+    const std::string& no() const;
+    const std::string& placeOfIssue() const;
+    const boost::gregorian::date& issueDate() const;
+    const boost::gregorian::date& expiryDate() const;
+
+protected:
+    VisaDetails() {} // for boost serialization only
 };
 
 //---------------------------------------------------------------------------------------
@@ -266,6 +304,7 @@ public:
     const std::string&  respRef() const;
 
     bool                isInfant() const;
+    bool                withInfant() const;
 
     static PaxType_e strToType(const std::string& s);
     static WithInftIndicator_e strToWithInftIndicator(const std::string& s);
@@ -326,6 +365,19 @@ struct UpdateAddressDetails: public UpdateDetails, public AddressDetails
 
     UpdateAddressDetails(UpdateActionCode_e actionCode,
                          const std::list<AddrInfo>& lAddr);
+};
+
+//---------------------------------------------------------------------------------------
+
+struct UpdateVisaDetails: public UpdateDetails, public VisaDetails
+{
+    UpdateVisaDetails(UpdateActionCode_e actionCode,
+                      const std::string& visaType,
+                      const std::string& issueCountry,
+                      const std::string& no,
+                      const std::string& placeOfIssue,
+                      const boost::gregorian::date& issueDate = boost::gregorian::date(),
+                      const boost::gregorian::date& expiryDate = boost::gregorian::date());
 };
 
 //---------------------------------------------------------------------------------------
@@ -516,48 +568,49 @@ struct BaggageDetails
     protected:
         std::string m_carrierCode;
         std::string m_dest;
-        std::string m_accode;
-        unsigned    m_tagSerial;
+        uint64_t    m_fullTag;
         unsigned    m_qtty;
 
     public:
         BagTagInfo(const std::string& carrierCode,
                    const std::string& dest,
-                   const std::string& accode,
-                   unsigned tagSerial = 0,
-                   unsigned qtty = 0)
-            : m_carrierCode(carrierCode),
-              m_dest(dest),
-              m_accode(accode),
-              m_tagSerial(tagSerial),
-              m_qtty(qtty)
-        {}
+                   uint64_t fullTag,
+                   unsigned qtty);
 
         const std::string& carrierCode() const { return m_carrierCode; }
         const std::string&        dest() const { return m_dest;        }
-        const std::string&      accode() const { return m_accode;      }
-        unsigned             tagSerial() const { return m_tagSerial;   }
+        uint64_t               fullTag() const { return m_fullTag;     }
         unsigned                  qtty() const { return m_qtty;        }
+
+        unsigned             tagAccode() const;
+        unsigned                tagNum() const;
+
+        bool            consistentWith(const BagTagInfo& bt) const;
+
+        static uint64_t makeFullTag(unsigned tagAccode, unsigned tagNum);
 
     protected:
         BagTagInfo()
-            : m_tagSerial(0), m_qtty(0)
+            : m_fullTag(0), m_qtty(0)
         {} // for boost serialization only
     };
 
 protected:
     boost::optional<BagInfo>    m_bag;
     boost::optional<BagInfo>    m_handBag;
-    boost::optional<BagTagInfo> m_bagTag;
+    std::list<BagTagInfo>       m_bagTags;
 
 public:
     BaggageDetails(const boost::optional<BagInfo>& bag,
                    const boost::optional<BagInfo>& handBag = boost::none,
-                   const boost::optional<BagTagInfo>& bagTag = boost::none);
+                   const std::list<BagTagInfo>& bagTags = std::list<BagTagInfo>());
 
     const boost::optional<BagInfo>&       bag() const { return m_bag;     }
     const boost::optional<BagInfo>&   handBag() const { return m_handBag; }
-    const boost::optional<BagTagInfo>& bagTag() const { return m_bagTag;  }
+    const std::list<BagTagInfo>&      bagTags() const { return m_bagTags; }
+
+    std::list<BagTagInfo>     bagTagsReduced() const;
+    std::list<BagTagInfo>    bagTagsExpanded() const;
 
 protected:
     BaggageDetails()
@@ -572,7 +625,7 @@ public:
     UpdateBaggageDetails(UpdateActionCode_e actionCode,
                          const boost::optional<BagInfo>& bag,
                          const boost::optional<BagInfo>& handBag,
-                         const boost::optional<BagTagInfo>& bagTag);
+                         const std::list<BagTagInfo>& bagTags);
 };
 
 //---------------------------------------------------------------------------------------
@@ -608,7 +661,7 @@ struct ServiceDetails
 
         bool isTkne() const;
 
-        Ticketing::TicketCpn_t toTicketCpn() const;
+        boost::optional<Ticketing::TicketCpn_t> toTicketCpn() const;
 
     protected:
         SsrInfo()
@@ -972,11 +1025,11 @@ public:
         {}
 
         unsigned width() const {
-            return std::abs(m_bottomRight.m_x - m_topLeft.m_x);
+            return std::abs((int)m_bottomRight.m_x - (int)m_topLeft.m_x);
         }
 
         unsigned height() const {
-            return std::abs(m_bottomRight.m_y - m_topLeft.m_y);
+            return std::abs((int)m_bottomRight.m_y - (int)m_topLeft.m_y);
         }
     };
 
@@ -1079,26 +1132,6 @@ public:
 
 //---------------------------------------------------------------------------------------
 
-struct Params: public BaseParams
-{
-protected:
-    PaxDetails                      m_pax;
-    boost::optional<ServiceDetails> m_service;
-
-public:
-    Params(const OriginatorDetails& origin,
-           const PaxDetails& pax,
-           const FlightDetails& flight,
-           boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-           boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-           boost::optional<ServiceDetails> serviceDetails = boost::none);
-
-    const PaxDetails&                      pax() const;
-    const boost::optional<ServiceDetails>& service() const;
-};
-
-//---------------------------------------------------------------------------------------
-
 class PaxGroup
 {
 protected:
@@ -1108,9 +1141,11 @@ protected:
     boost::optional<ServiceDetails>     m_service;
     boost::optional<DocDetails>         m_doc;
     boost::optional<AddressDetails>     m_address;
+    boost::optional<VisaDetails>        m_visa;
     boost::optional<PaxDetails>         m_infant;
     boost::optional<DocDetails>         m_infantDoc;
     boost::optional<AddressDetails>     m_infantAddress;
+    boost::optional<VisaDetails>        m_infantVisa;
 
 public:
     PaxGroup(const PaxDetails& pax,
@@ -1119,9 +1154,11 @@ public:
              const boost::optional<ServiceDetails>& service,
              const boost::optional<DocDetails>& doc,
              const boost::optional<AddressDetails>& address,
+             const boost::optional<VisaDetails>& visa,
              const boost::optional<PaxDetails>& infant = boost::none,
              const boost::optional<DocDetails>& infantDoc = boost::none,
-             const boost::optional<AddressDetails>& infantAddress = boost::none);
+             const boost::optional<AddressDetails>& infantAddress = boost::none,
+             const boost::optional<VisaDetails>& infantVisa = boost::none);
 
     const PaxDetails&                          pax() const;
     const boost::optional<ReservationDetails>& reserv() const;
@@ -1129,9 +1166,11 @@ public:
     const boost::optional<ServiceDetails>&     service() const;
     const boost::optional<DocDetails>&         doc() const;
     const boost::optional<AddressDetails>&     address() const;
+    const boost::optional<VisaDetails>&        visa() const;
     const boost::optional<PaxDetails>&         infant() const;
     const boost::optional<DocDetails>&         infantDoc() const;
     const boost::optional<AddressDetails>&     infantAddress() const;
+    const boost::optional<VisaDetails>&        infantVisa() const;
 
 protected:
     PaxGroup() {} // for boost serialization only
@@ -1170,9 +1209,11 @@ public:
              const boost::optional<ServiceDetails>& service,
              const boost::optional<DocDetails>& doc,
              const boost::optional<AddressDetails>& address,
+             const boost::optional<VisaDetails>& visa,
              const boost::optional<PaxDetails>& infant = boost::none,
              const boost::optional<DocDetails>& infantDoc = boost::none,
-             const boost::optional<AddressDetails>& infantAddress = boost::none);
+             const boost::optional<AddressDetails>& infantAddress = boost::none,
+             const boost::optional<VisaDetails>& infantVisa = boost::none);
 
     const boost::optional<SeatDetails>& seat() const;
 };
@@ -1207,11 +1248,13 @@ protected:
     boost::optional<UpdateServiceDetails> m_updService;
     boost::optional<UpdateDocDetails>     m_updDoc;
     boost::optional<UpdateAddressDetails> m_updAddress;
+    boost::optional<UpdateVisaDetails>    m_updVisa;
     boost::optional<UpdatePaxDetails>     m_updInfant;
     boost::optional<UpdateSeatDetails>    m_updInfantSeat;
     boost::optional<UpdateServiceDetails> m_updInfantService;
     boost::optional<UpdateDocDetails>     m_updInfantDoc;
     boost::optional<UpdateAddressDetails> m_updInfantAddress;
+    boost::optional<UpdateVisaDetails>    m_updInfantVisa;
 
 public:
     PaxGroup(const PaxDetails& pax,
@@ -1225,9 +1268,11 @@ public:
              const boost::optional<UpdateServiceDetails>& updService,
              const boost::optional<UpdateDocDetails>& updDoc,
              const boost::optional<UpdateAddressDetails>& updAddress,
+             const boost::optional<UpdateVisaDetails>& updVisa,
              const boost::optional<UpdatePaxDetails>& updInfant = boost::none,
              const boost::optional<UpdateDocDetails>& updInfantDoc = boost::none,
-             const boost::optional<UpdateAddressDetails>& updInfantAddress = boost::none);
+             const boost::optional<UpdateAddressDetails>& updInfantAddress = boost::none,
+             const boost::optional<UpdateVisaDetails>& updInfantVisa = boost::none);
 
     const boost::optional<UpdatePaxDetails>&     updPax() const;
     const boost::optional<UpdateSeatDetails>&    updSeat() const;
@@ -1235,9 +1280,11 @@ public:
     const boost::optional<UpdateServiceDetails>& updService() const;
     const boost::optional<UpdateDocDetails>&     updDoc() const;
     const boost::optional<UpdateAddressDetails>& updAddress() const;
+    const boost::optional<UpdateVisaDetails>&    updVisa() const;
     const boost::optional<UpdatePaxDetails>&     updInfant() const;
     const boost::optional<UpdateDocDetails>&     updInfantDoc() const;
     const boost::optional<UpdateAddressDetails>& updInfantAddress() const;
+    const boost::optional<UpdateVisaDetails>&    updInfantVisa() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -1342,34 +1389,9 @@ public:
     virtual const OriginatorDetails&                   org() const;
     virtual const FlightDetails&                       outboundFlight() const;
     virtual const boost::optional<FlightDetails>&      inboundFlight() const;
-    virtual const boost::optional<CascadeHostDetails>& cascade() const;
+    virtual const boost::optional<CascadeHostDetails>& cascade() const;    
 
     const dcqcki::FlightGroup&                         fltGroup() const;
-};
-
-//---------------------------------------------------------------------------------------
-
-struct CkiParamsOld: public Params
-{
-protected:
-    boost::optional<SeatDetails>        m_seat;
-    boost::optional<BaggageDetails>     m_baggage;
-    boost::optional<ReservationDetails> m_reserv;
-
-public:
-    CkiParamsOld(const OriginatorDetails& origin,
-                 const PaxDetails& pax,
-                 const FlightDetails& flight,
-                 boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-                 boost::optional<SeatDetails> seat = boost::none,
-                 boost::optional<BaggageDetails> baggage = boost::none,
-                 boost::optional<ReservationDetails> reserv = boost::none,
-                 boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-                 boost::optional<ServiceDetails> serviceDetails = boost::none);
-
-    const boost::optional<SeatDetails>&        seat() const;
-    const boost::optional<BaggageDetails>&     baggage() const;
-    const boost::optional<ReservationDetails>& reserv() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -1397,37 +1419,6 @@ public:
 
 //---------------------------------------------------------------------------------------
 
-struct CkuParamsOld: public Params
-{
-protected:
-    boost::optional<UpdatePaxDetails>     m_updPax;
-    boost::optional<UpdateServiceDetails> m_updService;
-    boost::optional<UpdateSeatDetails>    m_updSeat;
-    boost::optional<UpdateBaggageDetails> m_updBaggage;
-    boost::optional<UpdateDocDetails>     m_updDoc;
-
-public:
-    CkuParamsOld(const OriginatorDetails& origin,
-                 const PaxDetails& pax,
-                 const FlightDetails& flight,
-                 boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-                 boost::optional<UpdatePaxDetails> updPax = boost::none,
-                 boost::optional<UpdateServiceDetails> updService = boost::none,
-                 boost::optional<UpdateSeatDetails> updSeat = boost::none,
-                 boost::optional<UpdateBaggageDetails> updBaggage = boost::none,
-                 boost::optional<UpdateDocDetails> updDoc = boost::none,
-                 boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-                 boost::optional<ServiceDetails> serviceDetails = boost::none);
-
-    const boost::optional<UpdatePaxDetails>&     updPax() const;
-    const boost::optional<UpdateServiceDetails>& updService() const;
-    const boost::optional<UpdateSeatDetails>&    updSeat() const;
-    const boost::optional<UpdateBaggageDetails>& updBaggage() const;
-    const boost::optional<UpdateDocDetails>&     updDoc() const;
-};
-
-//---------------------------------------------------------------------------------------
-
 struct CkxParams: public IBaseParams
 {
     OriginatorDetails                   m_org;
@@ -1445,25 +1436,6 @@ public:
     virtual const boost::optional<CascadeHostDetails>& cascade() const;
 
     const dcqckx::FlightGroup&                         fltGroup() const;
-};
-
-//---------------------------------------------------------------------------------------
-
-struct CkxParamsOld: public Params
-{
-protected:
-    boost::optional<ReservationDetails> m_reserv;
-    boost::optional<SeatDetails>        m_seat;
-    boost::optional<BaggageDetails>     m_baggage;
-
-public:
-    CkxParamsOld(const OriginatorDetails& origin,
-                 const PaxDetails& pax,
-                 const FlightDetails& flight,
-                 boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-                 boost::optional<CascadeHostDetails> cascadeDetails = boost::none,
-                 boost::optional<ServiceDetails> serviceDetails = boost::none);
-
 };
 
 //---------------------------------------------------------------------------------------
@@ -1539,18 +1511,6 @@ public:
     const dcqbpr::FlightGroup&                         fltGroup() const;
 };
 
-//---------------------------------------------------------------------------------------
-
-struct BprParamsOld: public CkiParamsOld
-{
-public:
-    BprParamsOld(const OriginatorDetails& origin,
-                 const PaxDetails& pax,
-                 const FlightDetails& flight,
-                 boost::optional<FlightDetails> flightFromPrevHost = boost::none,
-                 boost::optional<CascadeHostDetails> cascadeDetails = boost::none);
-};
-
 /////////////////////////////////////////////////////////////////////////////////////////
 
 namespace dcrcka {
@@ -1572,9 +1532,11 @@ public:
              const boost::optional<ServiceDetails>& service,
              const boost::optional<DocDetails>& doc,
              const boost::optional<AddressDetails>& address,
+             const boost::optional<VisaDetails>& visa,
              const boost::optional<PaxDetails>& infant = boost::none,
              const boost::optional<DocDetails>& infantDoc = boost::none,
              const boost::optional<AddressDetails>& infantAddress = boost::none,
+             const boost::optional<VisaDetails>& infantVisa = boost::none,
              const boost::optional<FlightSeatDetails>& infantSeat = boost::none);
 
     const boost::optional<FlightSeatDetails>& seat() const;

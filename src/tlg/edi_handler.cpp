@@ -110,8 +110,7 @@ int main_edi_handler_tcl(int supervisorSocket, int argc, char *argv[])
 static bool isTlgPostponed(const tlg_info& tlg)
 {
     // в идеале признак postponed должен уже храниться в структуре (tlg_info, tlg_source...)
-    tlgnum_t tnum(boost::lexical_cast<std::string>(tlg.id));
-    return TlgHandling::isTlgPostponed(tnum);
+    return TlgHandling::isTlgPostponed(ASTRA::make_tlgnum(tlg.id));
 }
 
 

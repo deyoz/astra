@@ -7,7 +7,7 @@
 #include "brd.h"
 #include "season.h"
 #include "etick.h"
-//#include "iatci.h"
+#include "iatci.h"
 #include "images.h"
 #include "tripinfo.h"
 #include "cent.h"
@@ -74,14 +74,11 @@ void AstraJxtCallbacks::InitInterfaces()
     new EMDSystemUpdateInterface();
     new EMDStatusInterface();
     new EMDAutoBoundInterface();
-//    new IactiInterface();
+    new IatciInterface();
     new ChangeStatusInterface();
     new ImagesInterface();
-    new CheckInInterface();
     new EventsInterface();
-    new TripsInterface();
     new SalonsInterface();
-    new SalonFormInterface();
     new CentInterface();
     new PrepRegInterface();
     new SoppInterface();
@@ -108,7 +105,10 @@ void AstraJxtCallbacks::InitInterfaces()
     new ServicePaymentInterface();
     new SirenaExchangeInterface();
 
-};
+    CheckInInterface::instance();
+    TripsInterface::instance();
+    SalonFormInterface::instance();
+}
 
 void AstraJxtCallbacks::UserBefore(const std::string &head, const std::string &body)
 {

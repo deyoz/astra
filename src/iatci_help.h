@@ -35,6 +35,7 @@ public:
     static void del(int grpId);
     static void upd(int grpId, const std::string& xmlText);
     static std::string load(int grpId);
+    static bool exists(int grpId);
 
 private:
     static void saveXml(int grpId, const std::string& xmlText);
@@ -53,6 +54,7 @@ iatci::BaggageDetails          makeBaggage(const edifact::PbdElem& pbd);
 iatci::ServiceDetails          makeService(const edifact::PsiElem& psi);
 iatci::DocDetails              makeDoc(const edifact::PapElem& pap);
 iatci::AddressDetails          makeAddress(const edifact::AddElem& add);
+iatci::VisaDetails             makeVisa(const edifact::PapElem& pap);
 iatci::OriginatorDetails       makeOrg(const edifact::LorElem& lor);
 iatci::CascadeHostDetails      makeCascade(const edifact::ChdElem& chd);
 iatci::FlightDetails           makeOutboundFlight(const edifact::FdqElem& fdq);
@@ -73,6 +75,7 @@ iatci::UpdateBaggageDetails    makeUpdBaggage(const edifact::UbdElem& ubd);
 iatci::UpdateServiceDetails    makeUpdService(const edifact::UsiElem& usi);
 iatci::UpdateDocDetails        makeUpdDoc(const edifact::UapElem& uap);
 iatci::UpdateAddressDetails    makeUpdAddress(const edifact::AddElem& add);
+iatci::UpdateVisaDetails       makeUpdVisa(const edifact::UapElem& uap);
 
 //---------------------------------------------------------------------------------------
 
@@ -90,9 +93,12 @@ boost::optional<iatci::ServiceDetails>     makeService(const astra_api::astra_en
 boost::optional<iatci::BaggageDetails>     makeBaggage(const astra_api::astra_entities::PaxInfo& pax);
 boost::optional<iatci::BaggageDetails>     makeBaggage(const astra_api::astra_entities::PaxInfo& pax,
                                                        const std::list<astra_api::astra_entities::BagPool>& bags,
-                                                       const std::list<astra_api::astra_entities::BagPool>& handBags);
+                                                       const std::list<astra_api::astra_entities::BagPool>& handBags,
+                                                       const std::list<astra_api::astra_entities::BaggageTag> &bagTags);
 boost::optional<iatci::DocDetails>         makeDoc(const astra_api::astra_entities::PaxInfo& pax);
+iatci::AddressDetails::AddrInfo            makeAddrInfo(const astra_api::astra_entities::AddressInfo& address);
 boost::optional<iatci::AddressDetails>     makeAddress(const astra_api::astra_entities::PaxInfo& pax);
+boost::optional<iatci::VisaDetails>        makeVisa(const astra_api::astra_entities::PaxInfo& pax);
 boost::optional<iatci::CascadeHostDetails> makeCascade();
 
 iatci::UpdatePaxDetails makeUpdPax(const astra_api::astra_entities::PaxInfo& newPax,
@@ -103,13 +109,16 @@ iatci::UpdateServiceDetails::UpdSsrInfo makeUpdSsrFqt(const astra_api::astra_ent
                                                       iatci::UpdateDetails::UpdateActionCode_e act);
 iatci::UpdateDocDetails makeUpdDoc(const astra_api::astra_entities::DocInfo& doc,
                                    iatci::UpdateDetails::UpdateActionCode_e act);
-iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::SegmentInfo& depSeg,
-                                           const astra_api::astra_entities::BagPool& bagPool,
-                                           const astra_api::astra_entities::BagPool& handBagPool);
+iatci::UpdateVisaDetails makeUpdVisa(const astra_api::astra_entities::VisaInfo& visa,
+                                     iatci::UpdateDetails::UpdateActionCode_e act);
+iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::BagPool& bagPool,
+                                           const astra_api::astra_entities::BagPool& handBagPool,
+                                           const std::list<astra_api::astra_entities::BaggageTag>& bagTags);
 
 //---------------------------------------------------------------------------------------
 
-iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg);
+iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
+                                bool readAdditionals = false);
 boost::optional<iatci::SeatRequestDetails> makeSeatReq(const astra_api::xml_entities::XmlSegment& seg);
 //---------------------------------------------------------------------------------------
 
@@ -135,10 +144,15 @@ std::string denormSeatNum(const std::string& seatNum);
 
 //---------------------------------------------------------------------------------------
 
+std::string readBPGate(int pointId);
+boost::posix_time::time_duration readBPBoardedTo(int pointId, const std::string& airp);
+
+//---------------------------------------------------------------------------------------
+
 class IatciViewXmlParams
 {
 public:
-    IatciViewXmlParams(const std::list<Ticketing::TicketNum_t>& tickNumOrder);
+    IatciViewXmlParams(const std::list<Ticketing::TicketNum_t>& tickNumOrder = {});
 
     const std::list<Ticketing::TicketNum_t>& tickNumOrder() const;
 
@@ -155,5 +169,17 @@ void iatci2xml(xmlNodePtr node, const std::list<dcrcka::Result>& lRes,
 void iatci2xmlSmp(xmlNodePtr node, const dcrcka::Result& res);
 void iatci2xmlSmpUpd(xmlNodePtr node, const dcrcka::Result& res,
                      const Seat& oldSeat, const Seat& newSeat);
+
+//---------------------------------------------------------------------------------------
+
+inline unsigned getTagAccode(const uint64_t& tag)
+{
+    return (tag / 1000000) % 1000;
+}
+
+inline unsigned getTagNum(const uint64_t& tag)
+{
+    return (tag % 1000000);
+}
 
 }//namespace iatci

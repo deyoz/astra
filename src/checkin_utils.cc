@@ -879,3 +879,31 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
     };
   };
 }
+
+#include "baggage.h"
+
+void tryGenerateBagTags(xmlNodePtr reqNode)
+{
+  LogTrace(TRACE5) << __FUNCTION__;
+
+  xmlNodePtr segNode=NodeAsNode("segments/segment",reqNode);
+
+  CheckIn::TPaxGrpItem grp;
+  if (!grp.fromXML(segNode))
+    throw UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA"); //WEB
+  if (grp.id==ASTRA::NoExists) return;
+
+  if (!CheckIn::TGroupBagItem::completeXMLForIatci(grp.id, reqNode, segNode))
+    throw UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA"); //WEB
+
+  CheckIn::TGroupBagItem group_bag;
+  if (!group_bag.fromXMLsimple(reqNode, grp.baggage_pc)) return;
+
+  group_bag.checkAndGenerateTags(grp.point_dep, grp.id, true);
+
+  group_bag.generatedToXML(reqNode);
+
+
+  //LogTrace(TRACE5) << XMLTreeToText(reqNode->doc);
+}
+

@@ -8059,7 +8059,7 @@ struct TPFSShortStat: public TPFSScdOutMap, TPFSAbstractStat {
 
 void TPFSShortStat::dump()
 {
-    for(TPFSScdOutMap::iterator scd_out = begin(); 
+    for(TPFSScdOutMap::iterator scd_out = begin();
             scd_out != end(); scd_out++) {
         for(TPFSFltMap::iterator flt = scd_out->second.begin();
                 flt != scd_out->second.end(); flt++) {

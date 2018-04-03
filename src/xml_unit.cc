@@ -7,6 +7,8 @@
 #include "stl_utils.h"
 #include "misc.h"
 
+#include <serverlib/xml_tools.h>
+
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
 
@@ -172,8 +174,9 @@ int NodeAsInteger(xmlNodePtr node)
 {
   int Value;
   if (node==NULL) throw EXMLError("Node not defined (NULL)");
-  if ( StrToInt( NodeContent(node), Value ) == EOF )
-    throw EXMLError("Cannot convert node to an Integer");
+  if ( StrToInt( NodeContent(node), Value ) == EOF ) {
+    throw EXMLError("Cannot convert node '" + std::string((char*)node->name) + "' to an Integer");
+  }
   return Value;
 };
 
@@ -605,6 +608,20 @@ void RemoveChildNodes(xmlNodePtr node)
     }
 }
 
+void RemoveNode(xmlNodePtr node)
+{
+    // удалим всё содержимое тэга
+    xmlClearNode(node);
+    // и сам тэг
+    xmlUnlinkNode(node);
+    xmlFreeNode(node);
+}
+
+void RenameNode(xmlNodePtr node, const char* name)
+{
+    xmlNodeSetName(node, reinterpret_cast<const xmlChar*>(name));
+}
+
 xmlNodePtr CopyNode(xmlNodePtr dest, xmlNodePtr src, bool recursive)
 {
   xmlNodePtr node,res;
@@ -654,9 +671,9 @@ string URIUnescapeString(const string &val)
 string EncodeSpecialChars(const string &val)
 {
     string result;
-    xmlChar *xchar = NULL;
+    xmlChar *xchar = nullptr;
     try {
-        xchar = xmlEncodeSpecialChars(NULL, BAD_CAST val.c_str());
+        xchar = xmlEncodeSpecialChars(nullptr, BAD_CAST val.c_str());
         if(xchar) {
             result = (char *)xchar;
             xmlFree(xchar);

@@ -130,7 +130,7 @@ string TTagLang::ElemIdToTagElem(TElemType type, const string &id, TElemFmt fmt,
   return ElemIdToPrefferedElem(type, id, fmt, lang, true);
 };
 
-string TTagLang::GetLang()
+string TTagLang::GetLang() const
 {
     if(tag_lang.empty()) {
         string lang = TReqInfo::Instance()->desk.lang;
@@ -410,7 +410,7 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::VOUCHER_TEXT7,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
     tag_list.insert(make_pair(TAG::VOUCHER_TEXT8,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
     tag_list.insert(make_pair(TAG::VOUCHER_TEXT9,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
-    tag_list.insert(make_pair(TAG::VOUCHER_TEXT10,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT10,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));        
 }
 
 // BP && BT
@@ -472,6 +472,15 @@ void TPrnTagStore::clear()
 {
     for(map<const string, TTagListItem>::iterator im = tag_list.begin(); im != tag_list.end(); im++)
         im->second.english_only = true;
+}
+
+void TPrnTagStore::set_tag(string name, const TBCBPData &value)
+{
+    name = upperc(name);
+    map<const string, TTagListItem>::iterator im = tag_list.find(name);
+    if(im == tag_list.end())
+        throw Exception("TPrnTagStore::set_tag: tag '%s' not implemented", name.c_str());
+    im->second.TagInfo = value;
 }
 
 void TPrnTagStore::set_tag(string name, const BIPrintRules::TRule &value)
@@ -1271,161 +1280,189 @@ string airp_code_2D(const string &code)
     return result;
 }
 
+string TBCBPData::toString(const TTagLang &tag_lang)
+{
+    ostringstream result;
+    result
+        << "M"
+        << 1;
+    // Passenger Name
+    result << left;
+    string _surname = transliter(surname, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    string _name = transliter(name, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    string pax_name = _surname;
+    if(!_name.empty())
+        pax_name += "/" + _name;
+    if(pax_name.size() > 20){
+        size_t diff = pax_name.size() - 20;
+        if(_name.empty()) {
+            result << _surname.substr(0, _surname.size() - diff);
+        } else {
+            if(_name.size() > diff) {
+                _name = _name.substr(0, _name.size() - diff);
+            } else {
+                diff -= _name.size() - 1;
+                _name = _name[0];
+                _surname = _surname.substr(0, _surname.size() - diff);
+            }
+            result << _surname + "/" + _name;
+        }
+    } else
+        result << setw(20) << left << pax_name;
+
+    // Electronic Ticket Indicator
+    result << (not etkt ? " " : "E");
+    // Operating carrier PNR code
+    result << left;
+    if(pnr.empty())
+        result << setw(7) << " ";
+    else if(pnr.size() <= 7)
+        result << setw(7) << convert_pnr_addr(pnr, tag_lang.GetLang() != AstraLocale::LANG_RU);
+    // From City Airport Code
+    result << setw(3) << airp_code_2D(tag_lang.ElemIdToTagElem(etAirp, airp_dep, efmtCodeNative));
+    // To City Airport Code
+    result << setw(3) << airp_code_2D(tag_lang.ElemIdToTagElem(etAirp, airp_arv, efmtCodeNative));
+    // Operating Carrier Designator
+    result << left << setw(3) << tag_lang.ElemIdToTagElem(etAirline, airline, efmtCodeNative);
+    // Flight Number
+    result
+        << right
+        << setw(4) << right << setfill('0') << flt_no
+        << setw(1) << setfill(' ') << tag_lang.ElemIdToTagElem(etSuffix, suffix, efmtCodeNative);
+    // Date of Flight
+    JulianDate _scd(scd);
+    _scd.trace(__FUNCTION__);
+    // Date of flight(Julian Date)
+    result << right << setw(3) << setfill('0') << _scd.getJulianDate();
+    // Compartment Code
+    if(class_grp != NoExists)
+        result << tag_lang.ElemIdToTagElem(etClsGrp, class_grp, efmtCodeNative);
+    else
+        result << tag_lang.ElemIdToTagElem(etClass, cls, efmtCodeNative);
+    // Seat Number
+    result << setw(4) << right << seat_no;
+    // Check-In Sequence Number
+    result
+        << right << setw(4) <<  setfill('0') << reg_no
+        << " ";
+    // Passenger Status
+    // Я так понимаю что к этому моменту (т.е. вывод пос. талона на печать)
+    // статус пассажира "1": passenger checked in
+    result << 1;
+
+    ostringstream cond1; // first conditional field
+    { // filling up cond1
+        cond1
+            << ">"
+            << 2;
+        // field size of following structured message
+        // постоянное значение равное сумме зарезервированных длин последующих 7-и полей
+        // в данной версии эта длина равна 24 (двадцать четыре)
+        cond1 << "18";
+        // Passenger Description
+        TPerson _pers_type = DecodePerson(pers_type.c_str());
+        int result_pers_type = 0;
+        switch(_pers_type) {
+            case adult:
+                result_pers_type = 0;
+                break;
+            case child:
+                result_pers_type = 3;
+                break;
+            case baby:
+                result_pers_type = 4;
+                break;
+            case NoPerson:
+                throw Exception("BCBP_M_2: something wrong with pers_type");
+        }
+        cond1 << result_pers_type;
+        // Source of Check-In
+        cond1 << "O";
+        // Source of Boarding Pass Issuance
+        cond1 << "O";
+        // Date of Issue of Boarding Pass (not used)
+        cond1 << setw(4) << " ";
+        // Document type (B - Boarding Pass, I - Itinerary Receipt)
+        cond1 << (is_boarding_pass ? "B" : "I");
+        // Airline Designator of Boarding Pass Issuer (not used)
+        cond1 << setw(3) << " ";
+        // Baggage Tag License Plate Number(s) (not used  because dont know how)
+        cond1 << setw(13) << " ";
+        // end of 11-length structured message
+
+        // field size of following structured message (41, hex 29)
+        cond1 << "00";
+
+        /*  We'll discuss it later
+
+        // field size of following structured message (41, hex 29)
+        cond1 << "29";
+        // Airline Numeric Code (not used)
+        cond1 << setw(3) << " ";
+        // Document Form/Serial Number (not used)
+        cond1 << setw(10) << " ";
+        // Selectee Indicator (not used)
+        cond1 << " ";
+        // International Documentation Verification (0 - not required)
+        cond1 << 0;
+        // Marketing carrier designator
+        cond1 << setw(3) << setfill(' ') << left << mkt_airline(pax_id);
+
+        //......
+        */
+
+        // For individual airline use
+        if(pax_id != NoExists)
+            cond1 << setw(10) << right << setfill('0') << pax_id;
+
+    }
+
+    // Field size of following varible size field
+    result << setw(2) << right << setfill('0') << hex << uppercase << cond1.str().size();
+    result << cond1.str();
+
+    string buf = result.str();
+    if((tag_lang.get_pr_lat() or tag_lang.english_tag()) and not IsAscii7(buf))
+        for(string::iterator si = buf.begin(); si != buf.end(); si++)
+            if(not IsAscii7(*si)) *si = 'X';
+    return buf;
+};
+
 string TPrnTagStore::BCBP_M_2(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
-        return boost::any_cast<std::string>(fp.TagInfo);
+        return boost::any_cast<TBCBPData>(fp.TagInfo).toString(tag_lang);
     } else {
         if(scan_data != NULL) {
             return scan;
         } else {
-            ostringstream result;
-            result
-                << "M"
-                << 1;
-            // Passenger Name
-            result << left;
-            string surname = transliter(paxInfo.surname_2d, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
-            string name = transliter(paxInfo.name_2d, 1, tag_lang.GetLang() != AstraLocale::LANG_RU);
-            string pax_name = surname;
-            if(!name.empty())
-                pax_name += "/" + name;
-            if(pax_name.size() > 20){
-                size_t diff = pax_name.size() - 20;
-                if(name.empty()) {
-                    result << surname.substr(0, surname.size() - diff);
-                } else {
-                    if(name.size() > diff) {
-                        name = name.substr(0, name.size() - diff);
-                    } else {
-                        diff -= name.size() - 1;
-                        name = name[0];
-                        surname = surname.substr(0, surname.size() - diff);
-                    }
-                    result << surname + "/" + name;
-                }
-            } else
-                result << setw(20) << left << pax_name;
+            TBCBPData bcbp_data;
+            bcbp_data.surname = paxInfo.surname_2d;
+            bcbp_data.name = paxInfo.name_2d;
+            bcbp_data.etkt = not ETKT(fp).empty();
 
-            // Electronic Ticket Indicator
-            result << (ETKT(fp).empty() ? " " : "E");
-            // Operating carrier PNR code
-            result << left;
             TPnrAddrs::const_iterator iv = pnrInfo.pnrs.begin();
             for(; iv != pnrInfo.pnrs.end(); iv++)
                 if(pointInfo.airline == iv->airline) {
                     ProgTrace(TRACE5, "PNR found: %s", iv->addr.c_str());
                     break;
                 }
-            if(iv == pnrInfo.pnrs.end())
-                result << setw(7) << " ";
-            else if(iv->addr.size() <= 7)
-                result << setw(7) << convert_pnr_addr(iv->addr, tag_lang.GetLang() != AstraLocale::LANG_RU);
-            // From City Airport Code
-            result << setw(3) << airp_code_2D(AIRP_DEP(fp));
-            // To City Airport Code
-            result << setw(3) << airp_code_2D(AIRP_ARV(fp));
-            // Operating Carrier Designator
-            result << left << setw(3) << AIRLINE(fp);
-            // Flight Number
-            result
-                << right
-                << setw(4) << right << setfill('0') << pointInfo.flt_no
-                << setw(1) << setfill(' ') << tag_lang.ElemIdToTagElem(etSuffix, pointInfo.suffix, efmtCodeNative);
-            // Date of Flight
-            JulianDate scd(UTCToLocal(pointInfo.scd, AirpTZRegion(grpInfo.airp_dep)));
-            scd.trace(__FUNCTION__);
-            // Date of flight(Julian Date)
-            result << right << setw(3) << setfill('0') << scd.getJulianDate();
-            // Compartment Code
-            result << CLASS(fp);
-            // Seat Number
-            result << setw(4) << right << ONE_SEAT_NO(fp);
-            // Check-In Sequence Number
-            result
-                << right << setw(4) <<  setfill('0') << paxInfo.reg_no
-                << " ";
-            // Passenger Status
-            // Я так понимаю что к этому моменту (т.е. вывод пос. талона на печать)
-            // статус пассажира "1": passenger checked in
-            result << 1;
-
-            ostringstream cond1; // first conditional field
-            { // filling up cond1
-                cond1
-                    << ">"
-                    << 2;
-                // field size of following structured message
-                // постоянное значение равное сумме зарезервированных длин последующих 7-и полей
-                // в данной версии эта длина равна 24 (двадцать четыре)
-                cond1 << "18";
-                // Passenger Description
-                TPerson pers_type = DecodePerson(paxInfo.pers_type.c_str());
-                int result_pers_type = 0;
-                switch(pers_type) {
-                    case adult:
-                        result_pers_type = 0;
-                        break;
-                    case child:
-                        result_pers_type = 3;
-                        break;
-                    case baby:
-                        result_pers_type = 4;
-                        break;
-                    case NoPerson:
-                        throw Exception("BCBP_M_2: something wrong with pers_type");
-                }
-                cond1 << result_pers_type;
-                // Source of Check-In
-                cond1 << "O";
-                // Source of Boarding Pass Issuance
-                cond1 << "O";
-                // Date of Issue of Boarding Pass (not used)
-                cond1 << setw(4) << " ";
-                // Document type (B - Boarding Pass, I - Itinerary Receipt)
-                cond1 << (isBoardingPass() ? "B" : "I");
-                // Airline Designator of Boarding Pass Issuer (not used)
-                cond1 << setw(3) << " ";
-                // Baggage Tag License Plate Number(s) (not used  because dont know how)
-                cond1 << setw(13) << " ";
-                // end of 11-length structured message
-
-                // field size of following structured message (41, hex 29)
-                cond1 << "00";
-
-                /*  We'll discuss it later
-
-                // field size of following structured message (41, hex 29)
-                cond1 << "29";
-                // Airline Numeric Code (not used)
-                cond1 << setw(3) << " ";
-                // Document Form/Serial Number (not used)
-                cond1 << setw(10) << " ";
-                // Selectee Indicator (not used)
-                cond1 << " ";
-                // International Documentation Verification (0 - not required)
-                cond1 << 0;
-                // Marketing carrier designator
-                cond1 << setw(3) << setfill(' ') << left << mkt_airline(pax_id);
-
-                //......
-                */
-
-                // For individual airline use
-                if(isBoardingPass())
-                    cond1 << setw(10) << right << setfill('0') << paxInfo.pax_id;
-
-            }
-
-            // Field size of following varible size field
-            result << setw(2) << right << setfill('0') << hex << uppercase << cond1.str().size();
-            result << cond1.str();
-
-            string buf = result.str();
-            if((tag_lang.get_pr_lat() or tag_lang.english_tag()) and not IsAscii7(buf))
-                for(string::iterator si = buf.begin(); si != buf.end(); si++)
-                    if(not IsAscii7(*si)) *si = 'X';
-            return buf;
+            if(iv != pnrInfo.pnrs.end())
+                bcbp_data.pnr = iv->addr;
+            bcbp_data.airp_dep = grpInfo.airp_dep;
+            bcbp_data.airp_arv = grpInfo.airp_arv;
+            bcbp_data.airline = pointInfo.airline;
+            bcbp_data.flt_no = pointInfo.flt_no;
+            bcbp_data.suffix = pointInfo.suffix;
+            bcbp_data.scd = UTCToLocal(pointInfo.scd, AirpTZRegion(grpInfo.airp_dep));
+            bcbp_data.class_grp = grpInfo.class_grp;
+            bcbp_data.seat_no = ONE_SEAT_NO(fp);
+            bcbp_data.reg_no = paxInfo.reg_no;
+            bcbp_data.pers_type = paxInfo.pers_type;
+            bcbp_data.is_boarding_pass = isBoardingPass();
+            if(isBoardingPass())
+                bcbp_data.pax_id = pax_id;
+            return bcbp_data.toString(tag_lang);
         }
     }
 }
@@ -1486,7 +1523,7 @@ string TPrnTagStore::ACT(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
         TDateTime dt = boost::any_cast<TDateTime>(fp.TagInfo);
-        return dt != ASTRA::NoExists ? get_date_from_bcbp(dt, fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU) : "";
+        return dt != ASTRA::NoExists ? DateTimeToStr(dt, fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU): "";
     } else {
         if(scan_data != NULL)
             return get_date_from_bcbp(scan_data->date_of_flight(0), fp.date_format,  tag_lang.GetLang() != AstraLocale::LANG_RU);
@@ -1724,8 +1761,7 @@ string TPrnTagStore::BRAND(TFieldParams fp)
 string TPrnTagStore::BRD_FROM(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
-        TDateTime dt = boost::any_cast<TDateTime>(fp.TagInfo);
-        return dt != ASTRA::NoExists ? DateTimeToStr(dt, fp.date_format) : "";
+        return boost::any_cast<std::string>(fp.TagInfo);
     } else {
         if(scan_data != NULL)
             return string();
@@ -1737,8 +1773,7 @@ string TPrnTagStore::BRD_FROM(TFieldParams fp)
 string TPrnTagStore::BRD_TO(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
-        TDateTime dt = boost::any_cast<TDateTime>(fp.TagInfo);
-        return dt != ASTRA::NoExists ? DateTimeToStr(dt, fp.date_format) : "";
+        return boost::any_cast<std::string>(fp.TagInfo);
     } else {
         if(scan_data != NULL)
             return string();
@@ -1828,7 +1863,7 @@ string TPrnTagStore::CLASS(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
         const std::string cls = boost::any_cast<std::string>(fp.TagInfo);
-        return !cls.empty() ? tag_lang.ElemIdToTagElem(etClsGrp, cls, efmtCodeNative) : "";
+        return !cls.empty() ? tag_lang.ElemIdToTagElem(etClass, cls, efmtCodeNative) : "";
     } else {
         if(scan_data != NULL) {
             string buf = string(1, scan_data->compartment_code(0));
@@ -1852,7 +1887,7 @@ string TPrnTagStore::CLASS_NAME(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
         const std::string cls = boost::any_cast<std::string>(fp.TagInfo);
-        return !cls.empty() ? tag_lang.ElemIdToTagElem(etClsGrp, grpInfo.class_grp, efmtNameLong) : "";
+        return !cls.empty() ? tag_lang.ElemIdToTagElem(etClass, cls, efmtNameLong) : "";
     }
     if(scan_data != NULL) {
         string buf = string(1, scan_data->compartment_code(0));
@@ -1906,7 +1941,7 @@ string TPrnTagStore::EST(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
         TDateTime est = boost::any_cast<TDateTime>(fp.TagInfo);
-        return est != ASTRA::NoExists ? get_date_from_bcbp(est, fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU) : "";
+        return est != ASTRA::NoExists ? DateTimeToStr(est, fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU) : "";
     } else {
         if(scan_data != NULL) {
             return get_date_from_bcbp(scan_data->date_of_flight(0), fp.date_format,  tag_lang.GetLang() != AstraLocale::LANG_RU);
@@ -2052,12 +2087,16 @@ string TPrnTagStore::FULLNAME(TFieldParams fp)
 
 string TPrnTagStore::GATE(TFieldParams fp)
 {
-    if(scan_data != NULL) {
-        return string();
+    if(!fp.TagInfo.empty()) {
+        return boost::any_cast<std::string>(fp.TagInfo);
     } else {
-        if(fp.TagInfo.empty() && TReqInfo::Instance()->client_type == ctTerm)
-            throw AstraLocale::UserException("MSG.GATE_NOT_SPECIFIED");
-        return boost::any_cast<string>(fp.TagInfo);
+        if(scan_data != NULL) {
+            return string();
+        } else {
+            if(fp.TagInfo.empty() && TReqInfo::Instance()->client_type == ctTerm)
+                throw AstraLocale::UserException("MSG.GATE_NOT_SPECIFIED");
+            return boost::any_cast<string>(fp.TagInfo);
+        }
     }
 }
 
@@ -2445,7 +2484,7 @@ string TPrnTagStore::SCD(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
         TDateTime dt = boost::any_cast<TDateTime>(fp.TagInfo);
-        return dt != ASTRA::NoExists ? get_date_from_bcbp(dt, fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU) : "";
+        return dt != ASTRA::NoExists ? DateTimeToStr(dt, fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU) : "";
     } else {
         if(scan_data != NULL)
             return get_date_from_bcbp(scan_data->date_of_flight(0), fp.date_format,  tag_lang.GetLang() != AstraLocale::LANG_RU);
