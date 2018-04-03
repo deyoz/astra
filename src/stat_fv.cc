@@ -25,13 +25,19 @@ struct TGrpInfo {
         struct TGrpInfoItem {
             string cls;
             vector<CheckIn::TTransferItem> trfer;
-            bool pr_weapon;
-            bool get_pr_weapon(const CheckIn::TPaxGrpItem &grp, const string &airline);
+
+            struct TPrWeapon {
+                map<int, bool> items; // <bag_pool_num, pr_weapon>
+                void fromDB(const CheckIn::TPaxGrpItem &grp, const string &airline);
+                bool get(int bag_pool_num);
+            };
+
+            TPrWeapon pr_weapon;
+
             void clear()
             {
                 cls.clear();
                 trfer.clear();
-                pr_weapon = false;
             }
             TGrpInfoItem() { clear(); }
         };
@@ -43,12 +49,16 @@ struct TGrpInfo {
         TGrpInfo(const string _airline): airline(_airline) {}
 };
 
-bool TGrpInfo::TGrpInfoItem::get_pr_weapon(const CheckIn::TPaxGrpItem &grp, const string &airline)
+bool TGrpInfo::TGrpInfoItem::TPrWeapon::get(int bag_pool_num)
+{
+    return items.find(bag_pool_num) != items.end();
+}
+
+void TGrpInfo::TGrpInfoItem::TPrWeapon::fromDB(const CheckIn::TPaxGrpItem &grp, const string &airline)
 {
     TCachedQuery Qry("select * from bag2 where grp_id = :grp_id",
             QParams() << QParam("grp_id", otInteger, grp.id));
     Qry.get().Execute();
-    pr_weapon = false;
     if(not Qry.get().Eof) {
         t_rpt_bm_bag_name bag_names;
         bag_names.init("", airline);
@@ -59,13 +69,10 @@ bool TGrpInfo::TGrpInfoItem::get_pr_weapon(const CheckIn::TPaxGrpItem &grp, cons
             if(not Qry.get().FieldIsNULL("bag_type"))
                 row.bag_type = Qry.get().FieldAsInteger("bag_type");
             bag_names.get(grp.cl, row, rpt_params);
-            if(row.bag_name == "WEAPON") {
-                pr_weapon = true;
-                break;
-            }
+            if(row.bag_name == "WEAPON")
+                items.insert(make_pair(Qry.get().FieldAsInteger("bag_pool_num"), true));
         }
     }
-    return pr_weapon;
 }
 
 TGrpInfo::TGrpInfoMap::iterator TGrpInfo::get(int grp_id)
@@ -77,7 +84,7 @@ TGrpInfo::TGrpInfoMap::iterator TGrpInfo::get(int grp_id)
         TGrpInfoItem item;
         item.cls = grp.cl;
         CheckIn::LoadTransfer(grp_id, item.trfer);
-        item.get_pr_weapon(grp, airline);
+        item.pr_weapon.fromDB(grp, airline);
         pair<TGrpInfoMap::iterator, bool> ret = items.insert(make_pair(grp_id, item));
         result = ret.first;
     }
@@ -210,7 +217,6 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         xmlNodePtr PassengerManifestNode = NewTextChild(rootNode, "PassengerManifest");
-        xmlNodePtr PassengerInfoNode = NewTextChild(PassengerManifestNode, "PassengerInfo");
 
         TGrpInfo grp_info_map(info.airline);
 
@@ -220,6 +226,7 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
         int TransferDestinationPass = 0;
 
         for(; not Qry.get().Eof; Qry.get().Next()) {
+            xmlNodePtr PassengerInfoNode = NewTextChild(PassengerManifestNode, "PassengerInfo");
             CheckIn::TPaxItem pax;
             pax.fromDB(Qry.get());
             if(
@@ -260,8 +267,16 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
             // Код измерения веса багажа (килограммы или фунты, K/F)
             NewTextChild(PassengerNode, "WeightUnitQualifierCode", "K");
             NewTextChild(PassengerNode, "DestinationAirportIATACode", ElemIdToCodeNative(etAirp, trfer_info.airp_arv));
-            NewTextChild(PassengerNode, "WeaponSign", grp_info->second.pr_weapon);
+            NewTextChild(PassengerNode, "WeaponSign", grp_info->second.pr_weapon.get(pax.bag_pool_num));
             NewTextChild(PassengerNode, "PsychotropicAgentSign", 0);
+
+            multiset<TBagTagNumber> tags;
+            GetTagsByPool(pax.grp_id, pax.bag_pool_num, tags);
+            if(not tags.empty()) {
+                xmlNodePtr LuggageTagNode = NewTextChild(PassengerNode, "LuggageTag");
+                for(const auto &tag : tags)
+                    NewTextChild(LuggageTagNode, "LuggageNumber", tag.str());
+            }
         }
         NodeSetContent(DeparturePassNode, DeparturePass);
         NodeSetContent(TransferDepartPassNode, TransferDepartPass);
@@ -275,6 +290,7 @@ void stat_fv(const TTripTaskKey &task)
     LogTrace(TRACE5) << __FUNCTION__ << ": " << task;
     XMLDoc doc("DATAPACKET");
     xmlNodePtr rootNode = doc.docPtr()->children;
+    SetProp(rootNode, "xmlns", "http://tempuri.org/XMLSchema.xsd");
     stat_fv_toXML(rootNode, task.point_id);
     fs::path full_path = fs::system_complete(fs::path("STAT_FV"));
     fs::create_directories(full_path);
