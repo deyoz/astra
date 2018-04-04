@@ -877,7 +877,7 @@ void IntLoadPnr( const TIdsPnrDataSegs &ids,
         for(const TWebPax& pax : grp.paxs)
         {
           if ((filter && pax.suitable(filter.get())) ||
-              idsSeg.paxIdExists(pax.crs_pax_id))
+              (!filter && idsSeg.paxIdExists(pax.crs_pax_id)))
             suitable_ids.insert(pax.crs_pax_id_parent!=NoExists?pax.crs_pax_id_parent:pax.crs_pax_id);
         }
 
