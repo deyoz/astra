@@ -542,6 +542,7 @@ class TStatFVTripTask: public TCreatePointTripTask
     void get_actual_create_points(set<TypeB::TCreatePoint> &cps) const
     {
       cps.clear();
+      if(strlen(STAT_FV_PATH()) == 0) return;
       TCachedQuery Qry(
               "select * from points where "
               " point_id = :point_id and pr_del = 0 and pr_reg <> 0 and "
@@ -594,7 +595,6 @@ struct TTlgOutTripTask:public TCreatePointTripTask {
         void get_actual_create_points(set<TypeB::TCreatePoint> &cps) const
         {
             cps.clear();
-            if(strlen(STAT_FV_PATH()) == 0) return;
             QParams QryParams;
             QryParams.clear();
             QryParams << QParam("point_id", otInteger, point_id);
