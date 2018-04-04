@@ -15,8 +15,10 @@
 #include "tlg.h"
 #include "apps_interaction.h"
 #include <edilib/edi_user_func.h>
+#include <edilib/edi_tables.h>
 #include <serverlib/ourtime.h>
 #include <libtlg/telegrams.h>
+
 
 
 #define NICKNAME "VLAD"
@@ -28,6 +30,7 @@ using namespace EXCEPTIONS;
 using namespace std;
 
 enum { tEdi, tAPPS, tTYPEB, tNone };
+enum { stItciReq, stItciRes, stNone };
 
 static int WAIT_INTERVAL()       //миллисекунды
 {
@@ -117,6 +120,35 @@ int main_srv_tcl(int supervisorSocket, int argc, char *argv[])
   return 0;
 };
 
+int specifyEdiHandlerSubtype(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    int ret = stNone;
+    LogTrace(TRACE3) << "Specify handler for edi_message with type: " << pMes->pTempMes->Type.type;
+    switch(pMes->pTempMes->Type.type)
+    {
+    case DCQCKI:
+    case DCQCKU:
+    case DCQCKX:
+    case DCQPLF:
+    case DCQBPR:
+    case DCQSMF:
+    {
+        ret = stItciReq;
+        break;
+    }
+    case DCRCKA:
+    case DCRSMF:
+    {
+        ret = stItciRes;
+        break;
+    }
+    default:
+        break;
+    }
+
+    return ret;
+}
+
 void process_tlg(void)
 {
   struct sockaddr_in to_addr,from_addr;
@@ -128,6 +160,7 @@ void process_tlg(void)
   char *tlg_body;
 
   int type = tNone;
+  int subtype = tNone;
   time_t start_time=time(NULL);
 
   try
@@ -217,12 +250,17 @@ void process_tlg(void)
 
         tlg_len = strlen(tlg_body);
 
-        if(IsEdifactText(tlg_body,tlg_len))
+        if(IsEdifactText(tlg_body,tlg_len)) {
           type = tEdi;
-        else if (IsAPPSAnswText(tlg_body))
+          if(ReadEdiMessage(tlg_body) == EDI_MES_OK) {
+              subtype = specifyEdiHandlerSubtype(GetEdiMesStruct());
+          }
+        } else if (IsAPPSAnswText(tlg_body)) {
           type = tAPPS;
-        else
+        } else {
           type = tTYPEB;
+        }
+
         if (tlg_in.TTL==1) return; //по-хорошему надо бы if (type == tEdi) SendEdiTlgCONTRL
 
         //сначала ищем id телеграммы, если таковая уже была
@@ -414,12 +452,19 @@ void process_tlg(void)
     {
       case TLG_IN:
       case TLG_OUT:
-        if ( type == tEdi )
-          sendCmd("CMD_EDI_HANDLER","H");
-        else if ( type == tAPPS )
+        if ( type == tEdi ) {
+          if ( subtype == stItciReq ) {
+            sendCmd("CMD_ITCI_REQ_HANDLER","H");
+          } else if( subtype == stItciRes ) {
+            sendCmd("CMD_ITCI_RES_HANDLER","H");
+          } else {
+            sendCmd("CMD_EDI_HANDLER","H");
+          }
+        } else if ( type == tAPPS ) {
           sendCmd("CMD_APPS_HANDLER","H");
-        else if ( type == tTYPEB )
+        } else if ( type == tTYPEB ) {
           sendCmd("CMD_TYPEB_HANDLER","H");
+        }
         break;
       case TLG_F_ACK:
         ProgTrace(TRACE5,"OUT: SEND->DONE (sender=%s, tlg_num=%d, time=%.10f)", tlg_in.Receiver, tlg_in.num, NowUTC());

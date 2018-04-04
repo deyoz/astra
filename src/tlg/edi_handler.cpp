@@ -62,49 +62,64 @@ static int PROC_COUNT()          //кол-во разбираемых телеграмм за одну итерацию
 
 static bool handle_tlg(void);
 
+int base_edi_handler_tcl(const char* cmd, int argc, char *argv[])
+{
+    try
+    {
+      sleep(2);
+      InitLogTime(argc>0?argv[0]:NULL);
+
+      ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
+              ->connect_db();
+      init_locale();
+
+      char buf[10];
+      for(;;)
+      {
+        InitLogTime(argc>0?argv[0]:NULL);
+        base_tables.Invalidate();
+        bool queue_not_empty=handle_tlg();
+
+        waitCmd(cmd,queue_not_empty?PROC_INTERVAL():WAIT_INTERVAL(),buf,sizeof(buf));
+      }; // end of loop
+    }
+    catch(EOracleError &E)
+    {
+      ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
+    }
+    catch(std::exception &E)
+    {
+      ProgError(STDLOG,"std::exception: %s",E.what());
+    }
+    catch(...)
+    {
+      ProgError(STDLOG, "Unknown exception");
+    };
+    try
+    {
+      ASTRA::rollback();
+      OraSession.LogOff();
+    }
+    catch(...)
+    {
+      ProgError(STDLOG, "Unknown exception");
+    };
+    return 0;
+}
+
 int main_edi_handler_tcl(int supervisorSocket, int argc, char *argv[])
 {
-  try
-  {
-    sleep(2);
-    InitLogTime(argc>0?argv[0]:NULL);
+    return base_edi_handler_tcl("CMD_EDI_HANDLER", argc, argv);
+}
 
-    ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
-            ->connect_db();
-    init_locale();
+int main_itci_req_handler_tcl(int supervisorSocket, int argc, char *argv[])
+{
+    return base_edi_handler_tcl("CMD_ITCI_REQ_HANDLER", argc, argv);
+}
 
-    char buf[10];
-    for(;;)
-    {
-      InitLogTime(argc>0?argv[0]:NULL);
-      base_tables.Invalidate();
-      bool queue_not_empty=handle_tlg();
-
-      waitCmd("CMD_EDI_HANDLER",queue_not_empty?PROC_INTERVAL():WAIT_INTERVAL(),buf,sizeof(buf));
-    }; // end of loop
-  }
-  catch(EOracleError &E)
-  {
-    ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
-  }
-  catch(std::exception &E)
-  {
-    ProgError(STDLOG,"std::exception: %s",E.what());
-  }
-  catch(...)
-  {
-    ProgError(STDLOG, "Unknown exception");
-  };
-  try
-  {
-    ASTRA::rollback();
-    OraSession.LogOff();
-  }
-  catch(...)
-  {
-    ProgError(STDLOG, "Unknown exception");
-  };
-  return 0;
+int main_itci_res_handler_tcl(int supervisorSocket, int argc, char *argv[])
+{
+    return base_edi_handler_tcl("CMD_ITCI_RES_HANDLER", argc, argv);
 }
 
 static bool isTlgPostponed(const tlg_info& tlg)
