@@ -75,6 +75,8 @@ public:
      AddEvent("run_report2",evHandle);
      evHandle=JxtHandler<DocsInterface>::CreateHandler(&DocsInterface::GetFonts);
      AddEvent("GetFonts",evHandle);
+     evHandle=JxtHandler<DocsInterface>::CreateHandler(&DocsInterface::print_komplekt);
+     AddEvent("print_komplekt",evHandle);
 
      evHandle=JxtHandler<DocsInterface>::CreateHandler(&DocsInterface::GetSegList);
      AddEvent("GetSegList2",evHandle);
@@ -92,6 +94,7 @@ public:
   void SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetFonts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void print_komplekt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   void GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

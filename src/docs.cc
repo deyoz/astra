@@ -348,8 +348,10 @@ void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode,
 
     string airline_name;
     if(airline.size()) {
-        airline = rpt_params.ElemIdToReportElem(etAirline, airline, efmtCodeNative);
+        // сначала airline_name, потом airline
+        // иначе в лат варианте будет конвертится уже сконверченный airline
         airline_name = rpt_params.ElemIdToReportElem(etAirline, airline, efmtNameLong);
+        airline = rpt_params.ElemIdToReportElem(etAirline, airline, efmtCodeNative);
     }
 
     ostringstream trip;
@@ -4115,6 +4117,7 @@ void KOMPLEKT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(rowNode, "name", ElemIdToNameLong(etReportType, r.first));
     NewTextChild(rowNode, "num", r.second);
   }
+  LogTrace(TRACE5) << GetXMLDocText(resNode->doc); //!!!
 }
 
 int GetNumCopies(TRptParams rpt_params)
@@ -4338,6 +4341,10 @@ void DocsInterface::GetZoneList(int point_id, xmlNodePtr dataNode)
             NewTextChild(itemNode, "name", *iv);
         }
     }
+}
+
+void DocsInterface::print_komplekt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
 }
 
 void DocsInterface::GetFonts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
