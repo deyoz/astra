@@ -18,6 +18,14 @@ namespace fs = boost::filesystem;
 using namespace BASIC::date_time;
 using namespace ASTRA;
 
+const char* STAT_FV_PATH()
+{
+  static string VAR;
+  if ( VAR.empty() )
+    VAR=getTCLParam("STAT_FV_PATH","");
+  return VAR.c_str();
+};
+
 struct TGrpInfo {
     private:
         string airline;
@@ -288,11 +296,15 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
 void stat_fv(const TTripTaskKey &task)
 {
     LogTrace(TRACE5) << __FUNCTION__ << ": " << task;
+    if(strlen(STAT_FV_PATH()) == 0) {
+        LogTrace(TRACE5) << __FUNCTION__ << "STAT_FV_PATH is empty";
+        return;
+    }
     XMLDoc doc("DATAPACKET");
     xmlNodePtr rootNode = doc.docPtr()->children;
     SetProp(rootNode, "xmlns", "http://tempuri.org/XMLSchema.xsd");
     stat_fv_toXML(rootNode, task.point_id);
-    fs::path full_path = fs::system_complete(fs::path("STAT_FV"));
+    fs::path full_path = fs::system_complete(fs::path(STAT_FV_PATH()));
     fs::create_directories(full_path);
     /*
        if ( !fs::exists( full_path ) ) {

@@ -593,6 +593,7 @@ struct TTlgOutTripTask:public TCreatePointTripTask {
         void get_actual_create_points(set<TypeB::TCreatePoint> &cps) const
         {
             cps.clear();
+            if(strlen(STAT_FV_PATH()) == 0) return;
             QParams QryParams;
             QryParams.clear();
             QryParams << QParam("point_id", otInteger, point_id);
