@@ -165,6 +165,7 @@ class TTripInfo
       suffix.clear();
       airp.clear();
       craft.clear();
+      bort.clear();
       scd_out=ASTRA::NoExists;
       est_out=boost::none;
       act_out=boost::none;
@@ -184,6 +185,8 @@ class TTripInfo
       airp=Qry.FieldAsString("airp");
       if (Qry.GetFieldIndex("craft")>=0)
         craft=Qry.FieldAsString("craft");
+      if (Qry.GetFieldIndex("bort")>=0)
+        bort=Qry.FieldAsString("bort");
       if (!Qry.FieldIsNULL("scd_out"))
         scd_out = Qry.FieldAsDateTime("scd_out");
       if (Qry.GetFieldIndex("est_out")>=0)
@@ -243,6 +246,7 @@ class TTripInfo
         << " " << prefix << "suffix,"
         << " " << prefix << "airp,"
         << " " << prefix << "craft,"
+        << " " << prefix << "bort,"
         << " " << prefix << "scd_out,"
         << " " << prefix << "est_out,"
         << " " << prefix << "act_out,"
@@ -256,7 +260,7 @@ class TTripInfo
     }
 
     int point_id;
-    std::string airline, suffix, airp, craft;
+    std::string airline, suffix, airp, craft, bort;
     TDateTime scd_out;
     boost::optional<TDateTime> est_out, act_out; //внимание!!! boost::none, если вообще не выбирается из БД; NoExists, если NULL в БД
     int flt_no, pr_del;
@@ -835,8 +839,10 @@ struct TCkinRouteItem
   int grp_id;
   int point_dep, point_arv;
   std::string airp_dep, airp_arv;
-  int seg_no;
+  int seg_no;   // заполняется при поиске по сквозняку
+  int coupon_no; // заполняется при поиске по ET
   TTripInfo operFlt;
+  TCkinRouteItem& fromDB(TQuery &Qry);
   TCkinRouteItem()
   {
     Clear();
@@ -847,6 +853,7 @@ struct TCkinRouteItem
     point_dep = ASTRA::NoExists;
     point_arv = ASTRA::NoExists;
     seg_no = ASTRA::NoExists;
+    coupon_no = ASTRA::NoExists;
     operFlt.Clear();
   };
 };
@@ -873,6 +880,18 @@ class TCkinRoute : public std::vector<TCkinRouteItem>
                   TCkinRouteType1 route_type1,
                   TCkinRouteType2 route_type2);
 
+    void GetRouteByET(
+            const std::string &tick_no,
+            int coupon_no,
+            bool after_current,
+            TCkinRouteType1 route_type1,
+            TQuery& Qry
+            );
+    bool GetRouteByET(
+            int pax_id,
+            bool after_current,
+            TCkinRouteType1 route_type1
+            );
   public:
     //сквозной маршрут после стыковки grp_id
     bool GetRouteAfter(int grp_id,
@@ -890,6 +909,20 @@ class TCkinRoute : public std::vector<TCkinRouteItem>
                         int seg_no,
                         TCkinRouteType1 route_type1,
                         TCkinRouteType2 route_type2);
+
+    // Сквозной маршрут после ЭБ coupon_no
+    bool GetRouteAfterByET(int pax_id,
+            TCkinRouteType1 route_type1);
+    void GetRouteAfterByET(const std::string &tick_no,
+            int coupon_no,
+            TCkinRouteType1 route_type1);
+
+    // Сквозной маршрут до ЭБ coupon_no
+    bool GetRouteBeforeByET(int pax_id,
+            TCkinRouteType1 route_type1);
+    void GetRouteBeforeByET(const std::string &tick_no,
+            int coupon_no,
+            TCkinRouteType1 route_type1);
 
     //возвращает следующий сегмент стыковки
     void GetNextSeg(int tckin_id,
