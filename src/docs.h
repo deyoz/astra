@@ -177,7 +177,7 @@ class t_rpt_bm_bag_name {
     private:
         std::vector<TBagNameRow> bag_names;
     public:
-        void init(const std::string &airp, const std::string &airline);
+        void init(const std::string &airp, const std::string &airline, bool pr_stat_fv = false);
         void get(std::string class_code, TBagTagRow &bag_tag_row, TRptParams &rpt_params);
 };
 

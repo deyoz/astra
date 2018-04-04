@@ -69,7 +69,7 @@ void TGrpInfo::TGrpInfoItem::TPrWeapon::fromDB(const CheckIn::TPaxGrpItem &grp, 
     Qry.get().Execute();
     if(not Qry.get().Eof) {
         t_rpt_bm_bag_name bag_names;
-        bag_names.init("", airline);
+        bag_names.init("", airline, true);
         TRptParams rpt_params(AstraLocale::LANG_EN);
         for(; not Qry.get().Eof; Qry.get().Next()) {
             TBagTagRow row;

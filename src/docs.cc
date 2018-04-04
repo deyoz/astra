@@ -654,11 +654,11 @@ void t_rpt_bm_bag_name::get(string class_code, TBagTagRow &bag_tag_row, TRptPara
         bag_tag_row.bag_name_priority = bag_tag_row.bag_type;
 }
 
-void t_rpt_bm_bag_name::init(const string &airp, const string &airline)
+void t_rpt_bm_bag_name::init(const string &airp, const string &airline, bool pr_stat_fv)
 {
     bag_names.clear();
     TQuery Qry(&OraSession);
-    Qry.SQLText =
+    string SQLText = (string)
         "select "
         "   bag_type, "
         "   rfisc, "
@@ -667,9 +667,9 @@ void t_rpt_bm_bag_name::init(const string &airp, const string &airline)
         "   airline, "
         "   name, "
         "   name_lat "
-        "from "
-        "   rpt_bm_bag_names "
-        "where "
+        "from " +
+        (pr_stat_fv ? "stat_fv_bag_names" : "rpt_bm_bag_names ") +
+        " where "
         "   (airp is null or "
         "   airp = :airp) and "
         "   (airline is null or "
@@ -678,6 +678,7 @@ void t_rpt_bm_bag_name::init(const string &airp, const string &airline)
         "   airline nulls last, "
         "   airp nulls last, "
         "   name, name_lat ";
+    Qry.SQLText = SQLText;
     Qry.CreateVariable("airp", otString, airp);
     Qry.CreateVariable("airline", otString, airline);
     Qry.Execute();
