@@ -5596,7 +5596,6 @@ $(set tid_new $(get_single_tid $(get point_dep) REPIN ADULT))
 
 
 $(sql "insert into TRIP_BT(POINT_ID, TAG_TYPE) values($(get point_dep), 'ž’')")
-$(sql "insert into NEW_TAG_GENERATING_ALGO values (null)")
 
 $(set pax_tid $(get_single_pax_tid $(get point_dep) REPIN ADULT))
 $(set tid $(get_single_tid $(get point_dep) REPIN ADULT))
