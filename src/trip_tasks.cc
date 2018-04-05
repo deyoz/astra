@@ -550,9 +550,16 @@ class TStatFVTripTask: public TCreatePointTripTask
               QParams() << QParam("point_id", otInteger, point_id));
       Qry.get().Execute();
       if(not Qry.get().Eof) {
-          cps.insert(TypeB::TCreatePoint(sTakeoff, -80));
-          cps.insert(TypeB::TCreatePoint(sTakeoff, -50));
-          cps.insert(TypeB::TCreatePoint(sTakeoff, -10));
+          TTripInfo flt(Qry.get());
+          if(not flt.act_out_exists()) {
+              TDateTime now = NowUTC();
+              if(flt.est_scd_out() - 80./1440. >= now)
+                  cps.insert(TypeB::TCreatePoint(sTakeoff, -80));
+              if(flt.est_scd_out() - 50./1440. >= now)
+                  cps.insert(TypeB::TCreatePoint(sTakeoff, -50));
+              // один файл в любом случае
+              cps.insert(TypeB::TCreatePoint(sTakeoff, -10));
+          }
       }
     }
 };
@@ -565,13 +572,8 @@ TDateTime TStatFVTripTask::actual_next_exec(TDateTime curr_next_exec) const
     if (ts.act == ASTRA::NoExists)
       result = ts.est != ASTRA::NoExists ? ts.est : ts.scd;
 
-    if (result != ASTRA::NoExists) {
+    if (result != ASTRA::NoExists)
         result = result + create_point.time_offset / 1440.;
-        TDateTime now_utc = NowUTC();
-        // если все сроки вышли, то планируем только один файл, который должен был сформироваться за 10 мин. до вылета.
-        if(result < now_utc and create_point.time_offset != -10)
-            result = ASTRA::NoExists;
-    }
 
     return result;
 }

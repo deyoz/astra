@@ -195,17 +195,6 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
     if(not info.bort.empty())
         NewTextChild(flightInfoNode, "AirplaneRegNumber", info.bort);
 
-    xmlNodePtr GeneralDeclarationNode = NewTextChild(rootNode, "GeneralDeclaration");
-    xmlNodePtr PassengerInfoNode = NewTextChild(GeneralDeclarationNode, "PassengerInfo");
-    // Кол-во пассажиров, принятых в пункте отправления
-    xmlNodePtr DeparturePassNode = NewTextChild(PassengerInfoNode, "DeparturePass");
-    // Кол-во трансфертных пассажиров в аэропорту убытия
-    xmlNodePtr TransferDepartPassNode = NewTextChild(PassengerInfoNode, "TransferDepartPass");
-    // Кол-во пассажиров, выходящих  в аэропорту назначения
-    xmlNodePtr DestinationPassNode = NewTextChild(PassengerInfoNode, "DestinationPass");
-    // Кол-во трансфертных пассажиров в аэропорту назначения
-    xmlNodePtr TransferDestinationPassNode = NewTextChild(PassengerInfoNode, "TransferDestinationPass");
-
     TCachedQuery Qry(
             "select "
             "   pax.*, "
@@ -224,6 +213,17 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
 
     Qry.get().Execute();
     if(not Qry.get().Eof) {
+        xmlNodePtr GeneralDeclarationNode = NewTextChild(rootNode, "GeneralDeclaration");
+        xmlNodePtr PassengerInfoNode = NewTextChild(GeneralDeclarationNode, "PassengerInfo");
+        // Кол-во пассажиров, принятых в пункте отправления
+        xmlNodePtr DeparturePassNode = NewTextChild(PassengerInfoNode, "DeparturePass");
+        // Кол-во трансфертных пассажиров в аэропорту убытия
+        xmlNodePtr TransferDepartPassNode = NewTextChild(PassengerInfoNode, "TransferDepartPass");
+        // Кол-во пассажиров, выходящих  в аэропорту назначения
+        xmlNodePtr DestinationPassNode = NewTextChild(PassengerInfoNode, "DestinationPass");
+        // Кол-во трансфертных пассажиров в аэропорту назначения
+        xmlNodePtr TransferDestinationPassNode = NewTextChild(PassengerInfoNode, "TransferDestinationPass");
+
         xmlNodePtr PassengerManifestNode = NewTextChild(rootNode, "PassengerManifest");
 
         TGrpInfo grp_info_map(info.airline);
