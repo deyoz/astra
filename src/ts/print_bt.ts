@@ -151,3 +151,7 @@ $(set tid $(get_single_tid $(get point_dep) …ˆ ˆ‚€))
     </GetPrintDataBT>
   </query>
 </term>}
+
+
+>> lines=auto
+  </answer>
