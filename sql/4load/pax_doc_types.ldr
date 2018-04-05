@@ -9,16 +9,19 @@ code
 ,name
 ,name_lat
 ,code_mintrans
+,is_docs_type
+,is_doco_type
 )
 BEGINDATA
-"T"|"Миграционная карта и виза на повторный въезд, перевозочный документ U.S."|"Re-entry permit or refugee travel document"|"99"
-"M"|"Военный билет"|"Military ID"|"08"
-"N"|"Документ, подтверждающий гражданство"|"Naturalization certificate"|"99"
-"V"|"Пассажирская виза"|"Passenger Visa"|"99"
-"F"|"Вспомогательные документы (свидетельство о рождении, права и прочее)"|"Facilitation documents (examples: driver's license, birth certificate, etc.)"|"99"
-"A"|"Удостоверение иностранца, проживающего в стране"|"Alien resident card"|"09"
-"C"|"Удостоверение постоянного резидента"|"Permanent resident card"|"99"
-"I"|"Удостоверение личности"|"ID card"|"99"
-"IP"|"Паспортная карта"|"Passport card"|"99"
-"P"|"Пассажирский паспорт"|"Passenger passport"|"99"
-"AC"|"Удостоверение члена экипажа"|"Crew member certificate"|"99"
+"AC"|"Удостоверение члена экипажа"|"Crew member certificate"|"99"|0|1
+"L"|"Удостоверение пилота"|"Pilots license"|"99"|0|1
+"V"|"Пассажирская виза"|"Passenger Visa"|"99"|0|1
+"F"|"Вспомогательные документы (свидетельство о рождении, права и прочее)"|"Facilitation documents (examples: driver's license, birth certificate, etc.)"|"99"|1|0
+"A"|"Удостоверение иностранца, проживающего в стране"|"Alien resident card"|"09"|1|1
+"C"|"Удостоверение постоянного резидента"|"Permanent resident card"|"99"|1|1
+"I"|"Удостоверение личности"|"ID card"|"99"|1|1
+"IP"|"Паспортная карта"|"Passport card"|"99"|1|0
+"P"|"Пассажирский паспорт"|"Passenger passport"|"99"|1|0
+"T"|"Миграционная карта и виза на повторный въезд, перевозочный документ U.S."|"Re-entry permit or refugee travel document"|"99"|1|0
+"M"|"Военный билет"|"Military ID"|"08"|1|0
+"N"|"Документ, подтверждающий гражданство"|"Naturalization certificate"|"99"|1|0
