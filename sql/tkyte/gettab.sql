@@ -20,6 +20,7 @@ DECLARE
              data_length,
              data_precision,
              data_scale,
+             char_length,
              nullable,
              data_default
         FROM user_tab_columns
@@ -32,6 +33,7 @@ DECLARE
    lv_data_length                user_tab_columns.data_length%TYPE;
    lv_data_precision             user_tab_columns.data_precision%TYPE;
    lv_data_scale                 user_tab_columns.data_scale%TYPE;
+   lv_char_length                user_tab_columns.char_length%TYPE;
    lv_nullable                   user_tab_columns.nullable%TYPE;
    lv_default                    user_tab_columns.data_default%TYPE;
    lv_lineno                     NUMBER := 0;
@@ -84,27 +86,38 @@ BEGIN
                                lv_data_length,
                                lv_data_precision,
                                lv_data_scale,
+                               lv_char_length,
                                lv_nullable,
                                lv_default;
          EXIT WHEN col_cursor%notfound;
 
          lv_string :=  UPPER (lv_column_name) || ' ' || lv_data_type;
+         
 
-         IF  ( (lv_data_type = 'CHAR')
-            OR  (lv_data_type = 'VARCHAR2')
-            OR  (lv_data_type = 'RAW'))
-            OR  (lv_data_type = 'NVARCHAR2')
+         IF  (lv_data_type = 'RAW')
          THEN
             lv_string := lv_string || '(' || lv_data_length || ')';
          END IF;
 
+         IF  ( (lv_data_type = 'CHAR')
+            OR  (lv_data_type = 'VARCHAR2')
+            OR  (lv_data_type = 'NVARCHAR2'))
+         THEN
+            lv_string := lv_string || '(' || lv_char_length || ')';
+         END IF;
+
          IF   (lv_data_type = 'NUMBER' and lv_data_precision is not null)
          THEN
-            lv_string := lv_string || '(' || lv_data_precision || ')';
+            IF ( lv_data_scale > 0 )
+            THEN
+               lv_string := lv_string || '(' || lv_data_precision || ',' || lv_data_scale || ')';
+            ELSE
+               lv_string := lv_string || '(' || lv_data_precision || ')';
+            END IF;
          END IF;
          IF (lv_default is not null)
-    	 THEN
-	        lv_string := lv_string ||' DEFAULT '|| lv_default;
+         THEN
+            lv_string := lv_string ||' DEFAULT '|| lv_default;
          END IF;
 
          IF  (lv_nullable = 'N')
