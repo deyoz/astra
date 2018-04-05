@@ -2572,6 +2572,7 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
         for(vector<TNameElement>::iterator i=iPnrItem->ne.begin();i!=iPnrItem->ne.end();++i)
         {
           ParseRemarks(seat_rem_priority,tlg,info,*iPnrItem,*i);
+          i->removeNotConfimedSSRs();
         };
       };
     };
@@ -3549,6 +3550,7 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
           for(iRemItem=iPaxItem->rem.begin();iRemItem!=iPaxItem->rem.end();iRemItem++)
           {
             if (iRemItem->text.empty()) continue;
+            if (iPaxItem->emdRequired(iRemItem->code)) continue;
 
             if (iRemItem->code!=r->first) continue;
             TSeatRanges seats;
@@ -3817,8 +3819,9 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
                   if (strcmp(iRemItem->code,"EXST")==0)
                   {
                     for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
-                      if (iPaxItem2->seat.Empty()&&
-                          iPaxItem2->name=="EXST")
+                      if (iPaxItem2->seat.Empty() &&
+                          iPaxItem2->name=="EXST" &&
+                          !iPaxItem2->emdRequired(iRemItem->code))
                       {
                         iPaxItem2->seat=seat;
                         break;
@@ -3828,7 +3831,8 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
 
                   //в первую очередь распределяем места текущему NameElement
                   for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
-                    if (iPaxItem2->seat.Empty())
+                    if (iPaxItem2->seat.Empty() &&
+                        !iPaxItem2->emdRequired(iRemItem->code))
                     {
                       iPaxItem2->seat=seat;
                       strcpy(iPaxItem2->seat_rem,i->rem);
@@ -3840,7 +3844,8 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
                   for(iNameElement=pnr.ne.begin();iNameElement!=pnr.ne.end();iNameElement++)
                   {
                     for(iPaxItem2=iNameElement->pax.begin();iPaxItem2!=iNameElement->pax.end();iPaxItem2++)
-                      if (iPaxItem2->seat.Empty())
+                      if (iPaxItem2->seat.Empty() &&
+                          !iPaxItem2->emdRequired(iRemItem->code))
                       {
                         iPaxItem2->seat=seat;
                         strcpy(iPaxItem2->seat_rem,i->rem);
@@ -3891,6 +3896,32 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
     i.inf.setSurnameIfEmpty(ne.surname);
   };
 };
+
+bool TPaxItem::emdRequired(const std::string& ssr_code) const
+{
+  if (ssr_code.empty()) return false;
+  for(const TASVCItem& i : asvc)
+    if (i.emdRequired() && ssr_code==i.ssr_code) return true;
+
+  return false;
+}
+
+void TPaxItem::removeNotConfimedSSRs()
+{
+  for(vector<TRemItem>::const_iterator iRemItem=rem.begin(); iRemItem!=rem.end(); )
+    if (emdRequired(iRemItem->code))
+    {
+      LogError(STDLOG) << __FUNCTION__ << ": " << iRemItem->text;
+      iRemItem=rem.erase(iRemItem);
+    }
+    else
+      ++iRemItem;
+}
+
+void TNameElement::removeNotConfimedSSRs()
+{
+  for(TPaxItem& p : pax) p.removeNotConfimedSSRs();
+}
 
 void ParseSeatRange(string str, TSeatRanges &ranges, bool usePriorContext)
 {
