@@ -180,11 +180,8 @@ UNZ+1+xxxxxxxxxx0001"
 >> lines=auto
     <kick req_ctxt_id...
 
-!! capture=on
+!!
 $(lastRedisplay)
-
->> lines=auto
-Для багажа применяется норма а/к ЮТ
 
 $(set grp_id $(get_single_grp_id $(get point_dep) РЕПИН ИВАН))
 $(set tid $(get_single_tid $(get point_dep) РЕПИН ИВАН))
