@@ -17,7 +17,7 @@ DECLARE
 
    CURSOR ind_cursor (c_tab VARCHAR2)
    IS
-      SELECT table_name,uniqueness,index_type,funcidx_status,partitioned,table_owner FROM user_indexes WHERE index_name = c_tab;
+      SELECT table_name,uniqueness,index_type,funcidx_status,partitioned,visibility,compression,table_owner FROM user_indexes WHERE index_name = c_tab;
 
    CURSOR icol_cursor (c_ind VARCHAR2)
    IS
@@ -28,24 +28,26 @@ DECLARE
      SELECT column_expression FROM user_ind_expressions where index_name=c_ind ORDER BY column_position;
 
    lv_string                     VARCHAR2(2000);
-   lv_index_name user_indexes.index_name%TYPE := UPPER('&1');
+   lv_index_name                 user_indexes.index_name%TYPE := UPPER('&1');
    lv_table_name                 user_tables.table_name%TYPE;
    lv_icolumn_name               user_ind_columns.column_name%TYPE;
    lv_uniqueness                 user_indexes.uniqueness%TYPE;
    lv_index_type                 user_indexes.index_type%TYPE;
    lv_funcidx_status             user_indexes.funcidx_status%TYPE;
    lv_partitioned                user_indexes.partitioned%TYPE;
+   lv_visibility                 user_indexes.visibility%TYPE;
+   lv_compression                user_indexes.compression%TYPE;
    lv_table_owner                user_indexes.table_owner%TYPE; 
    lv_first_rec                  BOOLEAN;
    lv_column_name                user_ind_columns.column_name%TYPE;
    lv_descend                    user_ind_columns.descend%TYPE;
    lv_column_expression          user_ind_expressions.column_expression%TYPE;
-
+   lv_no_newline                 BOOLEAN;
 BEGIN
 
       OPEN ind_cursor(lv_index_name);
       FETCH ind_cursor INTO lv_table_name,lv_uniqueness,lv_index_type,
-                            lv_funcidx_status,lv_partitioned,lv_table_owner;
+                            lv_funcidx_status,lv_partitioned,lv_visibility,lv_compression,lv_table_owner;
       
       IF (lv_index_type='LOB')
       THEN
@@ -92,11 +94,38 @@ BEGIN
          CLOSE iexp_cursor;
 
          lv_string := lv_string || ')';
+
+         lv_no_newline := TRUE;
          
          if (lv_partitioned='YES')
-         THEN
-            lv_string := lv_string ||CHR(10)|| '-- LOCAL'||CHR(10);
+         THEN         
+            if (lv_no_newline)
+            THEN
+              lv_string := lv_string || CHR(10);
+              lv_no_newline := FALSE;
+            END IF;  
+            lv_string := lv_string || '-- LOCAL' || CHR(10);
          END IF; --lv_partitioned='YES'
+         
+         IF (lv_compression='ENABLED')
+         THEN
+            if (lv_no_newline)
+            THEN
+              lv_string := lv_string || CHR(10);
+              lv_no_newline := FALSE;
+            END IF;  
+            lv_string := lv_string || '-- COMPRESS' || CHR(10);
+         END IF; --lv_compression='ENABLED'            
+
+         IF (lv_visibility='INVISIBLE')
+         THEN
+            if (lv_no_newline)
+            THEN
+              lv_string := lv_string || CHR(10);
+              lv_no_newline := FALSE;
+            END IF;  
+            lv_string := lv_string || lv_visibility || CHR(10);
+         END IF; --lv_visibility='INVISIBLE'            
          
          lv_string := lv_string || ';';
          dbms_output.put_line(lv_string);

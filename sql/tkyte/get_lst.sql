@@ -1,11 +1,8 @@
 set pages 
-set line 200
+set line 2000
 set trims on
 set trim on
 set echo off;
-spool data_types.lst
-select type_name from sys.user_types order by type_name;
-spool off
 spool tables.lst
 select table_name from user_tables where table_name not in (select mview_name from user_mviews where mview_name=table_name) and iot_type is null and table_name not like '%$%' order by table_name;
 spool off
