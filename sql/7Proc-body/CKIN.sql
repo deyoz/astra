@@ -316,7 +316,17 @@ BEGIN
   ELSE
     IF vpax_id IS NOT NULL THEN
       IF include_all_svc=0 THEN
-        vexcess:=vexcess_pc;
+        SELECT NVL(SUM(paid_rfisc.paid), 0)
+        INTO vexcess
+        FROM paid_rfisc, rfisc_list_items
+        WHERE paid_rfisc.list_id=rfisc_list_items.list_id AND
+              paid_rfisc.rfisc=rfisc_list_items.rfisc AND
+              paid_rfisc.service_type=rfisc_list_items.service_type AND
+              paid_rfisc.airline=rfisc_list_items.airline AND
+              paid_rfisc.pax_id=vpax_id AND
+              paid_rfisc.transfer_num=0 AND
+              paid_rfisc.paid>0 AND
+              rfisc_list_items.category IN (1/*baggage*/, 2/*carry_on*/);
       ELSE
         SELECT NVL(SUM(paid), 0)
         INTO vexcess

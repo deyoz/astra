@@ -2939,6 +2939,29 @@ BEGIN
   CLOSE cur;
 END sync_COM_options;
 
+PROCEDURE sync_ETL_options(vid            typeb_addrs.id%TYPE,
+                           vbasic_type    typeb_addr_options.tlg_type%TYPE,
+                           vrbd           typeb_addr_options.value%TYPE,
+                           vsetting_user  history_events.open_user%TYPE,
+                           vstation       history_events.open_desk%TYPE)
+IS
+cur sync_typeb_options_cur;
+BEGIN
+  --лочим настройку
+  UPDATE typeb_addrs SET id=id WHERE id=vid;
+  OPEN cur FOR
+    SELECT vid AS typeb_addrs_id, src.tlg_type, src.category, dest.id,
+           DECODE(src.category,
+                                'RBD',         vrbd,
+                                                 default_value) AS value
+    FROM (SELECT * FROM typeb_addr_options WHERE typeb_addrs_id=vid) dest
+         FULL OUTER JOIN
+         (SELECT * FROM typeb_options WHERE tlg_type=vbasic_type) src
+    ON (dest.tlg_type=src.tlg_type AND dest.category=src.category);
+  sync_typeb_options(cur, vsetting_user, vstation);
+  CLOSE cur;
+END sync_ETL_options;
+
 PROCEDURE sync_MVT_options(vid            typeb_addrs.id%TYPE,
                            vbasic_type    typeb_addr_options.tlg_type%TYPE,
                            vnoend         typeb_addr_options.value%TYPE,
