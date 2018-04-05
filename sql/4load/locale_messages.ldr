@@ -831,7 +831,7 @@ BEGINDATA
 "MSG.FLIGHT_CANCELING_TAKEOFF"|"RU"|"Идет отмена вылета рейса"|0|0|1
 "MSG.FLIGHT_CANCELING_TAKEOFF"|"EN"|"Flight departure is being canceled"|0|0|1
 "MSG.FLIGHT.CHANGED_NAME.REFRESH_DATA"|"RU"|"Рейс [flight%s] изменен. Обновите данные"|0|0|0
-"MSG.FLIGHT_CLOSED"|"RU"|"Рейс закрыт"|0|0|1
+"MSG.FLIGHT_CLOSED"|"RU"|"Рейс закрыт"|0|0|0
 "MSG.SALONS.MATCH_PLACES"|"RU"|"Кол-во мест в классе не должно превышать 999"|0|4550942|
 "Суффикс"|"EN"|"Suffix"|0|0|1
 "Дисп."|"EN"|"Disp."|0|0|1
@@ -840,7 +840,7 @@ BEGINDATA
 "MSG.FLIGHT.CHANGED.REFRESH_DATA"|"EN"|"Flight has been changed. Refresh data"|0|0|0
 "MSG.FLIGHT.CHECKIN_CANCELED"|"RU"|"Отменена регистрация на рейс"|0|0|0
 "MSG.FLIGHT.CHECKIN_CANCELED"|"EN"|"Flight check-in is cancelled"|0|0|0
-"MSG.FLIGHT_CLOSED"|"EN"|"The flight is closed"|0|0|1
+"MSG.FLIGHT_CLOSED"|"EN"|"The flight is closed"|0|0|0
 "MSG.FLIGHT_DATE.INVALID"|"RU"|"Неправильно задано плановое время вылета рейса, значение=[scd_out%s]"|0|0|0
 "MSG.FLIGHT_DATE.INVALID"|"EN"|"Scheduled flight departure time, value=[scd_out%s] is specified incorrectly"|0|0|0
 "MSG.FLIGHT_DATE.NOT_SET"|"RU"|"Не задано плановое время вылета рейса"|0|0|0

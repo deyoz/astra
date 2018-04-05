@@ -144,8 +144,8 @@ $(KICK_IN_SILENT)
       <document number=\"7774441110\" country=\"RUS\"/>
       <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"xxxx-xx-xxT10:15:00\" arrival_time=\"xxxx-xx-xxT12:00:00\" equipment=\"xxx\" subclass=\"Y\">
         <ticket number=\"2981212121212\" coupon_num=\"1\" display_id=\"1\"/>
-        <recloc crs=\"UT\">0840Z6</recloc>
         <recloc crs=\"1H\">09T1B3</recloc>
+        <recloc crs=\"UT\">0840Z6</recloc>
       </segment>
     </passenger>
     <display id=\"1\">UNB+SIRE:1+UTET+UTDC+xxxxxx:xxxx+xxxxxxxxxx0001+++T"
@@ -184,7 +184,7 @@ UNZ+1+xxxxxxxxxx0001"
 $(lastRedisplay)
 
 >> lines=auto
-...MSG.BAGGAGE_NORM_OF_THE_AIRLINE_APPLIES...
+Для багажа применяется норма а/к ЮТ
 
 $(set grp_id $(get_single_grp_id $(get point_dep) РЕПИН ИВАН))
 $(set tid $(get_single_tid $(get point_dep) РЕПИН ИВАН))
@@ -287,8 +287,8 @@ $(http_forecast content=$(get_svc_payment_status_invalid_resp))
       <document number=\"7774441110\" country=\"RUS\"/>
       <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"xxxx-xx-xxTxx:xx:xx\" arrival_time=\"xxxx-xx-xxTxx:xx:xx\" equipment=\"xxx\" subclass=\"Y\">
         <ticket number=\"2981212121212\" coupon_num=\"1\" display_id=\"1\"/>
-        <recloc crs=\"UT\">0840Z6</recloc>
         <recloc crs=\"1H\">09T1B3</recloc>
+        <recloc crs=\"UT\">0840Z6</recloc>
       </segment>
     </passenger>
     <display id=\"1\">UNB+SIRE:1+UTET+UTDC+xxxxxx:xxxx+xxxxxxxxxx0001+++T"
@@ -426,8 +426,8 @@ $(http_forecast content=$(get_svc_payment_status_resp))
       <document number=\"7774441110\" country=\"RUS\"/>
       <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"xxxx-xx-xxTxx:xx:xx\" arrival_time=\"xxxx-xx-xxTxx:xx:xx\" equipment=\"xxx\" subclass=\"Y\">
         <ticket number=\"2981212121212\" coupon_num=\"1\" display_id=\"1\"/>
-        <recloc crs=\"UT\">0840Z6</recloc>
         <recloc crs=\"1H\">09T1B3</recloc>
+        <recloc crs=\"UT\">0840Z6</recloc>
       </segment>
     </passenger>
     <display id=\"1\">UNB+SIRE:1+UTET+UTDC+xxxxxx:xxxx+xxxxxxxxxx0001+++T"
@@ -1018,8 +1018,8 @@ $(KICK_IN_SILENT)
       <document number=\"7774441110\" country=\"RUS\"/>
       <segment id=\"0\" company=\"UT\" flight=\"103\" operating_company=\"UT\" operating_flight=\"103\" departure=\"DME\" arrival=\"LED\" departure_time=\"xxxx-xx-xxT10:15:00\" arrival_time=\"xxxx-xx-xxT12:00:00\" equipment=\"xxx\" subclass=\"Y\">
         <ticket number=\"2981212121212\" coupon_num=\"1\" display_id=\"1\"/>
-        <recloc crs=\"UT\">0840Z6</recloc>
         <recloc crs=\"1H\">09T1B3</recloc>
+        <recloc crs=\"UT\">0840Z6</recloc>
       </segment>
     </passenger>
     <display id=\"1\">UNB+SIRE:1+UTET+UTDC+xxxxxx:xxxx+xxxxxxxxxx0001+++T"

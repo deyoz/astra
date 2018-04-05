@@ -43,9 +43,10 @@ if echo $CXX | fgrep -w clang ; then
 elif [ $($CXX -dumpversion | sed 's/\./0/' | sed 's/\..*//') -ge 408 ]; then
     export MY_LOCAL_CFLAGS="-Wno-unused-local-typedefs $MY_LOCAL_CFLAGS"
 fi
-#if [ "$BUILD_TESTS" == "1" ]; then
-#    export MY_LOCAL_CFLAGS="-DXP_TESTING ${MY_LOCAL_CFLAGS}"
-#fi
+
+if [ "$BUILD_TESTS" == "1" ]; then
+    export MY_LOCAL_CFLAGS="-DXP_TESTING ${MY_LOCAL_CFLAGS}"
+fi
 
 #. ./bin/config_bases.sh
 
