@@ -54,8 +54,7 @@ BEGIN
                                                          'TRIP_SETS.PR_REG_WITH_DOC',
                                                          'TRIP_SETS.PR_REG_WITH_TKN',
                                                          'TRIP_SETS.WAITLIST_ALARM',
-                                                         'TRIP_STAGES.TIME_AUTO_NOT_ACT',
-                                                         'TRIP_STAGES.IGNORE_AUTO') THEN
+                                                         'TRIP_STAGES.TIME_AUTO_NOT_ACT') THEN
         NULL;
       ELSE
         DBMS_OUTPUT.PUT_LINE('+ '||curRow.table_name||'.'||cur2Row.column_name);
@@ -81,8 +80,7 @@ BEGIN
                                                          'TRANSFER.AIRP_DEP',
                                                          'TRANSFER.FLT_NO',
                                                          'TRANSFER.SCD',
-                                                         'TRANSFER.SUFFIX',
-                                                         'AGENT_STAT.POINT_PART_KEY') THEN
+                                                         'TRANSFER.SUFFIX') THEN
         NULL;
       ELSE
         DBMS_OUTPUT.PUT_LINE('- '||curRow.table_name||'.'||cur4Row.column_name);

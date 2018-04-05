@@ -1,0 +1,13 @@
+create or replace trigger TR_SFE_AFTER
+AFTER
+INSERT OR UPDATE OR DELETE
+ON SFE
+BEGIN
+    SFEAERPACK.FILLSFEAER(SFEAERPACK.sfes);
+END;
+
+
+
+
+
+/
