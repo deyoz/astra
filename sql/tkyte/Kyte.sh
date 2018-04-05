@@ -10,10 +10,10 @@ if [ ! -d "1Tab" ] ; then
     echo "SQL directories (1Tab,...) is not found. Check pwd"
     echo "  (to create new: `basename $0` ouser/opass --force)"
     exit 1;
-  fi
+  fi  
 fi
 
-DIRS="0DataTypes 1Tab 1Tind 2Constr 1Tiot 1Tmview 1Tmview_ind \
+DIRS="1Tab 1Tind 2Constr 1Tiot 1Tmview 1Tmview_ind \
 2Comment 3Seq 5Proc 7Proc-body 7Function \
 7Procedure 2View 8Find 8Trig"
 for i in $DIRS ; do
@@ -21,18 +21,12 @@ for i in $DIRS ; do
     for f in  $i/*.sql  ; do echo $f ; done |  xargs rm -f
 done
 
-if [ -z "$1" ]; then
+if [ -z "$1" ]; then 
 echo "Usage: `basename $0` ouser/opass";
 exit;
 fi
 
 sqlplus $1 @$SCRIPTS/get_lst.sql
-
-cat data_types.lst| awk 'NF==1 {print $1}'| \
-while read i; do
-    echo @$SCRIPTS/getdatatypes $i;
-done >$$-work.sql
-sqlplus $1 @$$-work.sql </dev/null
 
 cat tables.lst|  awk 'NF==1 {print $1}'| \
 while read i; do
@@ -131,4 +125,4 @@ while read i; do
 echo @$SCRIPTS/getseq.sql $i
 done>$$-work.sql
 sqlplus $1 @$$-work.sql < /dev/null
-rm $$-work.sql
+rm $$-work.sql 

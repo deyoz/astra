@@ -1,7 +1,7 @@
 set feedback off
 set heading off
 set termout off
-set linesize 1000
+set linesize 9000
 set trimspool on
 SET sqlprompt --==
 set pages
