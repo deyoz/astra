@@ -10,6 +10,7 @@
 #include "tlg/remote_system_context.h"
 #include "apps_interaction.h"
 #include "counters.h"
+#include "stat_fv.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -37,6 +38,7 @@ TTripTasks::TTripTasks()
     items.insert(make_pair(BEFORE_TAKEOFF_70_US_CUSTOMS_ARRIVAL, check_crew_alarms_task));
     items.insert(make_pair(SYNC_NEW_CHKD, TypeB::SyncNewCHKD ));
     items.insert(make_pair(SYNC_ALL_CHKD, TypeB::SyncAllCHKD ));
+    items.insert(make_pair(STAT_FV, stat_fv ));
     items.insert(make_pair(EMD_SYS_UPDATE, emd_sys_update ));
     items.insert(make_pair(SEND_NEW_APPS_INFO, sendNewAPPSInfo));
     items.insert(make_pair(SEND_ALL_APPS_INFO, sendAllAPPSInfo));
@@ -503,6 +505,50 @@ struct TCreatePointTripTask:public TTripTask {
         }
 };
 
+class TStatFVTripTask: public TCreatePointTripTask
+{
+  public:
+    TStatFVTripTask(int vpoint_id): TCreatePointTripTask(vpoint_id, STAT_FV) {}
+    TDateTime actual_next_exec(TDateTime curr_next_exec) const;
+    void get_actual_create_points(set<TypeB::TCreatePoint> &cps) const
+    {
+      cps.clear();
+      if(strlen(STAT_FV_PATH()) == 0) return;
+      TCachedQuery Qry(
+              "select * from points where "
+              " point_id = :point_id and pr_del = 0 and pr_reg <> 0 and "
+              " airline = 'ФВ'",
+              QParams() << QParam("point_id", otInteger, point_id));
+      Qry.get().Execute();
+      if(not Qry.get().Eof) {
+          TTripInfo flt(Qry.get());
+          if(not flt.act_out_exists()) {
+              TDateTime now = NowUTC();
+              if(flt.est_scd_out() - 80./1440. >= now)
+                  cps.insert(TypeB::TCreatePoint(sTakeoff, -80));
+              if(flt.est_scd_out() - 50./1440. >= now)
+                  cps.insert(TypeB::TCreatePoint(sTakeoff, -50));
+              // один файл в любом случае
+              cps.insert(TypeB::TCreatePoint(sTakeoff, -10));
+          }
+      }
+    }
+};
+
+TDateTime TStatFVTripTask::actual_next_exec(TDateTime curr_next_exec) const
+{
+    TTripStage ts;
+    TTripStages::LoadStage(point_id, (TStage)create_point.stage_id, ts);
+    TDateTime result=ASTRA::NoExists;
+    if (ts.act == ASTRA::NoExists)
+      result = ts.est != ASTRA::NoExists ? ts.est : ts.scd;
+
+    if (result != ASTRA::NoExists)
+        result = result + create_point.time_offset / 1440.;
+
+    return result;
+}
+
 struct TTlgOutTripTask:public TCreatePointTripTask {
     public:
         TTlgOutTripTask(int vpoint_id, const string &vtype): TCreatePointTripTask(vpoint_id, vtype) {}
@@ -733,18 +779,21 @@ void get_actual_trip_tasks(const T &pattern, set<T> &tasks)
 template <typename T>
 void sync_trip_tasks(int point_id)
 {
-    map<T, TTripTaskTimes> curr_tasks;
-    set<T> actual_tasks;
+    map<T, TTripTaskTimes> curr_tasks; // Выполняющиеся задачи объекта T. С каждой задачей связаны last_exec и next_exec
+    set<T> actual_tasks; // Список задач, взятый из настроек T
     T pattern(point_id);
-    get_curr_trip_tasks<T>(pattern, curr_tasks);
-    TypeB::get_actual_trip_tasks<T>(pattern, actual_tasks);
+    get_curr_trip_tasks<T>(pattern, curr_tasks); // текущие задачи. Те, к-рые лежат в табл. trip_tasks и выполняются
+    TypeB::get_actual_trip_tasks<T>(pattern, actual_tasks); // актуальные задачи. Берутся из настроек объекта T, они должны стать текущими.
+    // Далее идет синхронизация актуальных задач с текущими. Текущие (выполняющиеся) задачи должны стать как актуальные.
     typename map<T, TTripTaskTimes>::const_iterator curr_task=curr_tasks.begin();
     typename set<T>::const_iterator actual_task = actual_tasks.begin();
     for(;curr_task!=curr_tasks.end() || actual_task!=actual_tasks.end();)
     {
+        // признак того, что для тек. задачи нет соотв. актуальной
         bool proc_curr=   actual_task==actual_tasks.end() ||
                           (curr_task!=curr_tasks.end() &&  curr_task->first < *actual_task);
 
+        // признак того, что для актуальной задачи нет соотв. текущей
         bool proc_actual= curr_task==curr_tasks.end() ||
                           (actual_task!=actual_tasks.end() &&  *actual_task < curr_task->first);
         bool proc_curr_and_actual =
@@ -796,6 +845,7 @@ void on_change_trip(const string &descr, int point_id, ChangeTrip::Whence whence
           CheckIn::TCounters().recount(point_id, CheckIn::TCounters::Total, descr.c_str());
 
         TSyncTlgOutMng::Instance()->sync_all(point_id);
+        sync_trip_tasks<TStatFVTripTask>(point_id);
     } catch(std::exception &E) {
         ProgError(STDLOG,"%s: %s (point_id=%d): %s", __FUNCTION__, descr.c_str(), point_id,E.what());
     };

@@ -27,6 +27,7 @@ const std::string SLS_FWD = "SLS" + FWD_POSTFIX;
 
 const std::string SYNC_NEW_CHKD="SYNC_NEW_CHKD";
 const std::string SYNC_ALL_CHKD="SYNC_ALL_CHKD";
+const std::string STAT_FV="STAT_FV";
 const std::string EMD_SYS_UPDATE="EMD_SYS_UPDATE";
 const std::string SEND_NEW_APPS_INFO="SEND_NEW_APPS_INFO";
 const std::string SEND_ALL_APPS_INFO="SEND_ALL_APPS_INFO";

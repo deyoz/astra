@@ -786,6 +786,8 @@ class TCkinPaxTknItem : public TPaxTknItem
 };
 
 void GetTCkinTickets(int pax_id, std::map<int, TCkinPaxTknItem> &tkns);
+void GetTCkinTicketsBefore(int pax_id, std::map<int, TCkinPaxTknItem> &tkns);
+void GetTCkinTicketsAfter(int pax_id, std::map<int, TCkinPaxTknItem> &tkns);
 
 std::string isFemaleStr( int is_female );
 
