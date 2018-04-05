@@ -3911,7 +3911,7 @@ void TPaxItem::removeNotConfimedSSRs()
   for(vector<TRemItem>::const_iterator iRemItem=rem.begin(); iRemItem!=rem.end(); )
     if (emdRequired(iRemItem->code))
     {
-      LogError(STDLOG) << __FUNCTION__ << ": " << iRemItem->text;
+      LogTrace(TRACE5) << __FUNCTION__ << ": " << iRemItem->text;
       iRemItem=rem.erase(iRemItem);
     }
     else
