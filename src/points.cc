@@ -3172,6 +3172,28 @@ void TFlights::Get( const std::vector<int> &points, TFlightType flightType )
   }
 }
 
+void TFlights::GetForTCkinRouteDependent(const int grp_id, const TFlightType flightType, TCkinGrpIds &tckin_grp_ids)
+{
+  tckin_grp_ids.clear();
+
+  TCkinRoute route;
+  route.GetRouteAfter(grp_id, crtWithCurrent, crtOnlyDependent);
+  if (!route.empty())
+  {
+    for(const TCkinRouteItem& i : route)
+    {
+      Get(i.point_dep, flightType);
+      tckin_grp_ids.push_back(i.grp_id);
+    }
+  }
+  else
+  {
+    TAdvTripInfo flt;
+    if (flt.getByGrpId(grp_id)) Get(flt.point_id, flightType);
+    tckin_grp_ids.push_back(grp_id);
+  }
+}
+
 const boost::posix_time::ptime start_abs(boost::posix_time::time_from_string("2017-01-01 00:00:00.000"));
 
 void TFlights::Lock(const std::string &from)

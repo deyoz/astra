@@ -112,6 +112,7 @@ astra_SOURCES = \
   payment_base.cc \
   pers_weights.cc \
   points.cc \
+  postpone_trip_task.cc \
   prepreg.cc \
   print.cc \
   prn_tag_store.cc \
@@ -294,6 +295,7 @@ noinst_HEADERS = \
   payment_base.h \
   pers_weights.h \
   points.h \
+  postpone_trip_task.h \
   prepreg.h \
   print.h \
   prn_tag_store.h \

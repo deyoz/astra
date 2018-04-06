@@ -1,7 +1,6 @@
 #include "EmdCosResponseHandler.h"
 #include "remote_system_context.h"
 #include "emdoc.h"
-#include "astra_context.h"
 #include "edi_utils.h"
 #include <jxtlib/xml_stuff.h>
 
@@ -33,16 +32,12 @@ void EmdCosResponseHandler::handle()
   try
   {
     ProgTrace(TRACE5, "EmdCosResponseHandler::handle");
-    string ctxt;
-    AstraContext::GetContext("EDI_SESSION", ediSessId().get(), ctxt);
-    ctxt=ConvertCodepage(ctxt,"CP866","UTF-8");
 
-    XMLDoc ediSessCtxt(ctxt);
+    XMLDoc ediSessCtxt;
+    AstraEdifact::getEdiSessionCtxt(ediSessId().get(), true, "EmdCosResponseHandler::handle", ediSessCtxt, false);
     if (ediSessCtxt.docPtr()!=NULL)
     {
       using namespace Ticketing;
-      //для нормальной работы надо все дерево перевести в CP866:
-      xml_decode_nodelist(ediSessCtxt.docPtr()->children);
 
       xmlNodePtr rootNode=NodeAsNode("/context",ediSessCtxt.docPtr());
       int req_ctxt_id=ASTRA::NoExists;
@@ -132,8 +127,6 @@ void EmdCosResponseHandler::handle()
          AstraEdifact::addToEdiResponseCtxt(req_ctxt_id, node, "emdocs");
       }
     }
-
-    AstraContext::ClearContext("EDI_SESSION", ediSessId().get());
   }
   catch(std::exception &e)
   {

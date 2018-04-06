@@ -405,24 +405,24 @@ void confirm_notify_levb(int edi_sess_id, bool err_if_not_found)
 
 string make_xml_kick(const edifact::KickInfo &kickInfo)
 {
+  if (!kickInfo.jxt)
+    throw EXCEPTIONS::Exception("%s: kickInfo.jxt not initialized", __FUNCTION__);
+
   XMLDoc kickDoc("term");
   if (kickDoc.docPtr()==NULL)
     throw EXCEPTIONS::Exception("%s: kickDoc.docPtr()==NULL", __FUNCTION__);
   TReqInfo *reqInfo = TReqInfo::Instance();
   xmlNodePtr node=NodeAsNode("/term",kickDoc.docPtr());
   node=NewTextChild(node,"query");
-  SetProp(node,"handle","0");
-  SetProp(node,"id",kickInfo.iface);
+  SetProp(node,"handle",kickInfo.jxt.get().handle);
+  SetProp(node,"id",kickInfo.jxt.get().iface);
   SetProp(node,"ver","1");
   SetProp(node,"opr",reqInfo->user.login);
   SetProp(node,"screen",reqInfo->screen.name);
   SetProp(node,"lang",reqInfo->desk.lang);
   if (reqInfo->desk.term_id!=ASTRA::NoExists)
     SetProp(node,"term_id",FloatToString(reqInfo->desk.term_id,0));
-  if (kickInfo.reqCtxtId!=ASTRA::NoExists)
-    SetProp(NewTextChild(node,"kick"),"req_ctxt_id",kickInfo.reqCtxtId);
-  else
-    NewTextChild(node,"kick");
+  SetProp(NewTextChild(node,"kick"), "req_ctxt_id", kickInfo.reqCtxtId, ASTRA::NoExists);
   std::string redisplay = ConvertCodepage(XMLTreeToText(kickDoc.docPtr()),"CP866","UTF-8");
 #ifdef XP_TESTING
   if(inTestMode()) {
@@ -434,13 +434,24 @@ string make_xml_kick(const edifact::KickInfo &kickInfo)
   return redisplay;
 };
 
-edifact::KickInfo createKickInfo(int v_reqCtxtId,
+edifact::KickInfo createKickInfo(const int v_reqCtxtId,
                                  const std::string &v_iface)
 {
   return edifact::KickInfo(v_reqCtxtId,
                            v_iface,
                            v_iface.empty()?"":ServerFramework::getQueryRunner().getEdiHelpManager().msgId().asString(),
                            v_iface.empty()?"":TReqInfo::Instance()->desk.code);
+}
+
+edifact::KickInfo createKickInfo(const int v_reqCtxtId,
+                                 const int v_point_id,
+                                 const std::string &v_task_name)
+{
+  return edifact::KickInfo(v_reqCtxtId,
+                           v_point_id,
+                           v_task_name,
+                           "",
+                           "");
 }
 
 void addToEdiResponseCtxt(int ctxtId,
@@ -493,40 +504,61 @@ void addToEdiResponseCtxt(int ctxtId,
   };
 };
 
-void getEdiResponseCtxt(int ctxtId,
-                        bool clear,
-                        const string &where,
-                        string &context,
-                        bool throwEmpty)
+static void getCtxt(const std::string& ctxtName,
+                    const int ctxtId,
+                    const bool clear,
+                    const string &where,
+                    const bool throwIfEmpty,
+                    string &context)
 {
-  AstraContext::GetContext("EDI_RESPONSE",
+  AstraContext::GetContext(ctxtName,
                            ctxtId,
                            context);
 
-  if (clear) AstraContext::ClearContext("EDI_RESPONSE", ctxtId);
+  if (clear) AstraContext::ClearContext(ctxtName, ctxtId);
 
   if (context.empty()) {
-      if(throwEmpty)
-          throw EXCEPTIONS::Exception("%s: context EDI_RESPONSE empty", where.c_str());
+    if(throwIfEmpty)
+      throw EXCEPTIONS::Exception("%s: context %s empty", where.c_str(), ctxtName.c_str());
   }
+}
+
+static void getCtxt(const std::string& ctxtName,
+                    const int ctxtId,
+                    const bool clear,
+                    const std::string& where,
+                    const bool throwIfEmpty,
+                    XMLDoc &xmlCtxt)
+{
+  std::string context;
+  getCtxt(ctxtName, ctxtId, clear, where, throwIfEmpty, context);
+
+  if (!context.empty())
+  {
+    xmlCtxt.set(ConvertCodepage(context, "CP866", "UTF-8"));
+    if(xmlCtxt.docPtr()==NULL)
+      throw EXCEPTIONS::Exception("%s: context %s has wrong XML format", where.c_str(), ctxtName.c_str());
+
+    xml_decode_nodelist(xmlCtxt.docPtr()->children);
+  };
+}
+
+static void traceCtxt(const std::string& ctxtName,
+                      const int ctxtId,
+                      const std::string& where)
+{
+  std::string ctxt;
+  getCtxt(ctxtName, ctxtId, false, where, false, ctxt);
+  LogTrace(TRACE5) << where << (where.empty()?"":": ") << ctxtName << "(" << ctxtId << ") context: \n" << ctxt;
 }
 
 void getEdiResponseCtxt(int ctxtId,
                         bool clear,
                         const string &where,
                         XMLDoc &xmlCtxt,
-                        bool throwEmpty)
+                        bool throwIfEmpty)
 {
-  string context;
-  getEdiResponseCtxt(ctxtId, clear, where, context, throwEmpty);
-  if(!context.empty())
-  {
-      xmlCtxt.set(ConvertCodepage(context,"CP866","UTF-8"));
-      if (xmlCtxt.docPtr()==NULL)
-        throw EXCEPTIONS::Exception("%s: context EDI_RESPONSE wrong XML format", where.c_str());
-
-      xml_decode_nodelist(xmlCtxt.docPtr()->children);
-  }
+  getCtxt("EDI_RESPONSE", ctxtId, clear, where, throwIfEmpty, xmlCtxt);
 }
 
 void getTermRequestCtxt(int ctxtId,
@@ -534,89 +566,42 @@ void getTermRequestCtxt(int ctxtId,
                         const string &where,
                         XMLDoc &xmlCtxt)
 {
-  string context;
-  AstraContext::GetContext("TERM_REQUEST",
-                           ctxtId,
-                           context);
-
-  if (clear) AstraContext::ClearContext("TERM_REQUEST", ctxtId);
-
-  if (context.empty())
-    throw EXCEPTIONS::Exception("%s: context TERM_REQUEST empty", where.c_str());
-
-  xmlCtxt.set(ConvertCodepage(context,"CP866","UTF-8"));
-  if (xmlCtxt.docPtr()==NULL)
-    throw EXCEPTIONS::Exception("%s: context TERM_REQUEST wrong XML format", where.c_str());
-
-  xml_decode_nodelist(xmlCtxt.docPtr()->children);
+  getCtxt("TERM_REQUEST", ctxtId, clear, where, true, xmlCtxt);
 }
 
-void getHttpRequestCtxt(int ctxtId,
-                        bool clear,
-                        const std::string &where,
-                        XMLDoc &xmlCtxt)
+void getEdiSessionCtxt(int sessIda,
+                       bool clear,
+                       const std::string& where,
+                       XMLDoc &xmlCtxt,
+                       bool throwIfEmpty)
 {
-    string context;
-    AstraContext::GetContext("HTTP_REQUEST",
-                             ctxtId,
-                             context);
-
-    if (clear) AstraContext::ClearContext("HTTP_REQUEST", ctxtId);
-
-    if (context.empty())
-      throw EXCEPTIONS::Exception("%s: context HTTP_REQUEST empty", where.c_str());
-
-    xmlCtxt.set(ConvertCodepage(context,"CP866","UTF-8"));
-    if (xmlCtxt.docPtr()==NULL)
-      throw EXCEPTIONS::Exception("%s: context HTTP_REQUEST wrong XML format", where.c_str());
-
-    xml_decode_nodelist(xmlCtxt.docPtr()->children);
+  getCtxt("EDI_SESSION", sessIda, clear, where, throwIfEmpty, xmlCtxt);
 }
 
-static void getEdiSessionCtxt(const std::string& ctxtKey, int keyValue,
-                              const bool clear, const std::string& where,
-                              XMLDoc &xmlCtxt)
+void traceEdiSessionCtxt(int sessIda, const std::string &whence)
 {
-    std::string context;
-    AstraContext::GetContext(ctxtKey,
-                             keyValue,
-                             context);
-
-    LogTrace(TRACE3) << ctxtKey << "(" << keyValue << "):\n" << context;
-
-    if (clear) AstraContext::ClearContext(ctxtKey, keyValue);
-
-    if (context.empty()) {
-        throw EXCEPTIONS::Exception("%s: context %s empty", where.c_str(), ctxtKey.c_str());
-    }
-
-    xmlCtxt.set(ConvertCodepage(context, "CP866", "UTF-8"));
-    if(xmlCtxt.docPtr()==NULL)
-        throw EXCEPTIONS::Exception("context %s has wrong XML format", ctxtKey.c_str());
-
-    xml_decode_nodelist(xmlCtxt.docPtr()->children);
+  traceCtxt("EDI_SESSION", sessIda, whence);
 }
 
-void getEdiSessionCtxt(int sessIda, bool clear,
-                       const std::string& where, XMLDoc &xmlCtxt)
+void traceTermRequestCtxt(int sessIda, const std::string &whence)
 {
-    getEdiSessionCtxt("EDI_SESSION", sessIda, clear, where, xmlCtxt);
-}
+  XMLDoc ediSessCtxt;
+  getCtxt("EDI_SESSION", sessIda, false, whence, false, ediSessCtxt);
 
-std::string getEdiSessionCtxt(int sessIda, bool clear, bool throwEmpty)
-{
-    const std::string ctxtKey = "EDI_SESSION";
-    std::string context;
-    AstraContext::GetContext(ctxtKey, sessIda, context);
-
-    if (clear) AstraContext::ClearContext(ctxtKey, sessIda);
-
-    if (context.empty()) {
-        if(throwEmpty)
-            throw EXCEPTIONS::Exception("context %s empty", ctxtKey.c_str());
-    }
-
-    return context;
+  if(ediSessCtxt.docPtr()!=NULL)
+  {
+    xmlNodePtr rootNode=NodeAsNode("/context",ediSessCtxt.docPtr());
+    int req_ctxt_id=NodeAsInteger("@req_ctxt_id",rootNode,ASTRA::NoExists);
+    if (req_ctxt_id!=ASTRA::NoExists)
+      traceCtxt("TERM_REQUEST", req_ctxt_id, whence);
+    else
+      LogTrace(TRACE5) << whence << ": req_ctxt_id==ASTRA::NoExists";
+  }
+  else
+  {
+    LogTrace(TRACE5) << whence << ": EDI_SESSION has wrong XML format";
+    traceCtxt("EDI_SESSION", sessIda, whence);
+  };
 }
 
 void cleanOldRecords(int min_ago)

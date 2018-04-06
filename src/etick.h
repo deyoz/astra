@@ -11,6 +11,7 @@
 #include "emdoc.h"
 #include "baggage.h"
 #include "qrys.h"
+#include "trip_tasks.h"
 #include "astra_pnr.h"
 #include "tlg/EdifactRequest.h"
 
@@ -567,7 +568,7 @@ void ContinueCheckin(xmlNodePtr termReqNode, xmlNodePtr externalSysResNode, xmlN
 class EMDAutoBoundInterface: public AstraJxtIface
 {
   private:
-    static bool BeforeLock(const EMDAutoBoundId &id, int &point_id, int &grp_id);
+    static bool BeforeLock(const EMDAutoBoundId &id, int &point_id, TGrpIds &grp_ids);
   public:
     EMDAutoBoundInterface(): AstraJxtIface("EMDAutoBound")
     {
@@ -577,11 +578,24 @@ class EMDAutoBoundInterface: public AstraJxtIface
     void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
     virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 
-    static bool Lock(const EMDAutoBoundId &id, int &point_id, int &grp_id);
-    static bool Lock(const EMDAutoBoundId &id, int &point_id, TCkinGrpIds &tckin_grp_ids);
+    static bool Lock(const EMDAutoBoundId &id, int &point_id, TGrpIds &grp_ids, const std::string &whence);
+    static bool Lock(const EMDAutoBoundId &id, int &point_id, TCkinGrpIds &tckin_grp_ids, const std::string &whence);
     static void EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqNode);
-    static void EMDTryBind(const TCkinGrpIds &tckin_grp_ids, xmlNodePtr termReqNode, xmlNodePtr ediResNode);
+    static void EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
+                           xmlNodePtr termReqNode,
+                           xmlNodePtr ediResNode,
+                           const boost::optional<edifact::TripTaskForPostpone> &task=boost::none);
+    static void EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
+                           const boost::optional< std::list<TEMDCtxtItem> > &confirmed_emd,
+                           TEMDChangeStatusList &emdList);
+    static void EMDSearch(const EMDAutoBoundId &id,
+                          xmlNodePtr reqNode,
+                          int point_id,
+                          const boost::optional< std::set<int> > &pax_ids);
 };
+
+void emd_refresh_task(const TTripTaskKey &task);
+void emd_try_bind_task(const TTripTaskKey &task);
 
 inline xmlNodePtr astra_iface(xmlNodePtr resNode, const std::string &iface_id)
 {

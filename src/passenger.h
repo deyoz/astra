@@ -514,6 +514,7 @@ class TSimplePaxItem
     bool upward_within_bag_pool(const TSimplePaxItem& pax) const;
     bool HaveBaggage() const { return bag_pool_num != ASTRA::NoExists; } 
     ASTRA::TTrickyGender::Enum getTrickyGender() const { return getTrickyGender(pers_type, gender); }
+    static void UpdTid(int pax_id);
 };
 
 class TSimplePaxList : public std::list<CheckIn::TSimplePaxItem> {};
@@ -703,6 +704,7 @@ class TPaxGrpItem
       return grpCategory()==TPaxGrpCategory::UnnacompBag;
     }
     void SyncServiceAuto(const TTripInfo &flt);
+    static void UpdTid(int grp_id);
 };
 
 class TPnrAddrItem

@@ -261,6 +261,57 @@ class EMDAutoBoundRegNo : public EMDAutoBoundId
     }
 };
 
+class EMDAutoBoundPointId : public EMDAutoBoundId
+{
+  public:
+    int point_id;
+    EMDAutoBoundPointId(int _point_id) : point_id(_point_id) {}
+    EMDAutoBoundPointId(xmlNodePtr node) { fromXML(node); }
+    void clear()
+    {
+      point_id=ASTRA::NoExists;
+    }
+    virtual const char* grpSQL() const
+    {
+      return "SELECT pax_grp.point_dep, pax_grp.grp_id "
+             "FROM pax_grp, pax "
+             "WHERE pax_grp.grp_id=pax.grp_id AND "
+             "      pax_grp.point_dep=:point_id";
+    }
+    virtual const char* paxSQL() const
+    {
+      return "SELECT pax.grp_id, pax.pax_id, pax.refuse, "
+             "       pax.ticket_no, pax.coupon_no, pax.ticket_rem, pax.ticket_confirm "
+             "FROM pax_grp, pax "
+             "WHERE pax_grp.grp_id=pax.grp_id AND "
+             "      pax_grp.point_dep=:point_id";
+    }
+    virtual void setSQLParams(QParams &params) const
+    {
+      params.clear();
+      params << (point_id!=ASTRA::NoExists?QParam("point_id", otInteger, point_id):
+                                           QParam("point_id", otInteger, FNull));
+    }
+    virtual void fromXML(xmlNodePtr node)
+    {
+      clear();
+      if (node==NULL) return;
+      if (!NodeIsNULL("emd_auto_bound_point_id", node))
+        point_id=NodeAsInteger("emd_auto_bound_point_id", node);
+    }
+    virtual void toXML(xmlNodePtr node) const
+    {
+      if (node==NULL) return;
+      point_id!=ASTRA::NoExists?NewTextChild(node, "emd_auto_bound_point_id", point_id):
+                                NewTextChild(node, "emd_auto_bound_point_id");
+    }
+    static bool exists(xmlNodePtr node)
+    {
+      if (node==NULL) return false;
+      return GetNode("emd_auto_bound_point_id", node)!=NULL;
+    }
+};
+
 void handleEmdDispResponse(const edifact::RemoteResults &remRes);
 
 #endif

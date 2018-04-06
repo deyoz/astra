@@ -139,13 +139,13 @@ struct TApisPaxData : public CheckIn::TSimplePaxItem
   vector< pair<int, string> > seats;
   int amount;
   int weight;
-  
+
   string doc_type_lat() const
   {
     if (doc.type.empty())
       return "";
 
-    TPaxDocTypesRow doc_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",doc.type);
+    const TPaxDocTypesRow &doc_type_row = (const TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",doc.type);
     if (doc_type_row.code_lat.empty())
       throw Exception("doc_type.code_lat empty (code=%s)",doc.type.c_str());
 
@@ -157,7 +157,7 @@ struct TApisPaxData : public CheckIn::TSimplePaxItem
     if (!doco)
       throw Exception("doco empty");
 
-    TPaxDocTypesRow &doco_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",doco.get().type);
+    const TPaxDocTypesRow &doco_type_row = (const TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",doco.get().type);
     if (doco_type_row.code_lat.empty())
       throw Exception("doco_type.code_lat empty (code=%s)",doco.get().type.c_str());
 
@@ -204,13 +204,13 @@ struct TApisRouteData
   list<TApisPaxData> lstPaxData;
   list<TApisSetsData> lstSetsData;
   list<FlightlegDataset> lstLegs;
-  
+
   // getters
 
   string airline_code_qry;
-  TAirlinesRow& airline() const
+  const TAirlinesRow& airline() const
   {
-    return (TAirlinesRow&)base_tables.get("airlines").get_row("code",airline_code_qry);
+    return (const TAirlinesRow&)base_tables.get("airlines").get_row("code",airline_code_qry);
   }
   string airline_code() const
   {
@@ -232,9 +232,9 @@ struct TApisRouteData
   }
 
   string airp_dep_qry;
-  TAirpsRow& airp_dep() const
+  const TAirpsRow& airp_dep() const
   {
-    return (TAirpsRow&)base_tables.get("airps").get_row("code",airp_dep_qry);
+    return (const TAirpsRow&)base_tables.get("airps").get_row("code",airp_dep_qry);
   }
   string airp_dep_code() const
   {
@@ -250,9 +250,9 @@ struct TApisRouteData
   }
 
   string airp_arv_qry;
-  TAirpsRow& airp_arv() const
+  const TAirpsRow& airp_arv() const
   {
-    return (TAirpsRow&)base_tables.get("airps").get_row("code",airp_arv_qry);
+    return (const TAirpsRow&)base_tables.get("airps").get_row("code",airp_arv_qry);
   }
   string airp_arv_code() const
   {
@@ -268,9 +268,9 @@ struct TApisRouteData
   }
 
   string airp_cbp_qry;
-  TAirpsRow& airp_cbp() const
+  const TAirpsRow& airp_cbp() const
   {
-    return (TAirpsRow&)base_tables.get("airps").get_row("code",airp_cbp_qry);
+    return (const TAirpsRow&)base_tables.get("airps").get_row("code",airp_cbp_qry);
   }
   string airp_cbp_code() const
   {
@@ -294,13 +294,13 @@ struct TApisDataset
   bool FromDB(int point_id, const string& task_name);
 #endif
   list<TApisRouteData> lstRouteData;
-  
+
   // getters
 
   string airline_code_qry;
-  TAirlinesRow& airline() const
+  const TAirlinesRow& airline() const
   {
-    return (TAirlinesRow&)base_tables.get("airlines").get_row("code",airline_code_qry);
+    return (const TAirlinesRow&)base_tables.get("airlines").get_row("code",airline_code_qry);
   }
   string airline_code() const
   {
@@ -345,7 +345,7 @@ enum TApisRule
   _docaR_US, // edi
   _setBirthCountry, // edi
   _docaB_US, // edi
-  
+
   // creation
   _create_ON_CLOSE_CHECKIN,
   _create_ON_CLOSE_BOARDING,
@@ -392,7 +392,7 @@ enum TIataCodeType
   iata_code_default,
   iata_code_UK,
   iata_code_TR,
-  iata_code_DE,    
+  iata_code_DE,
 };
 
 struct TPaxDataFormatted
@@ -436,8 +436,8 @@ struct TAPISFormat
 {
   enum TPaxType { pass, crew };
   string fmt;
-  string edi_own_addr; 
-  string edi_addr; 
+  string edi_own_addr;
+  string edi_addr;
   string dir;
   set<TApisRule> rules;
   TApisFileRule file_rule;
@@ -501,7 +501,7 @@ struct TAPISFormat
                               ostringstream& crew_header,
                               ostringstream& crew_body,
                               int count_overall) const {}
-  
+
   virtual void CreatePaxHeader_AE_TH(ostringstream& pax_header) const
   { throw Exception("CreatePaxHeader_AE_TH base class function called"); }
   // TODO сделать получше
@@ -559,7 +559,7 @@ protected:
     // virtual apis_country()
     getTBTripItem( route.dataset_point_id, route.route_point_id, apis_country(), tb_date, tb_time, tb_airp );
     header << "*DIRECTION," << direction(route.country_dep) << ",,,,,,,,,,," << ENDL
-            << "*FLIGHT," << route.airline_code_lat() << setw(3) << setfill('0') 
+            << "*FLIGHT," << route.airline_code_lat() << setw(3) << setfill('0')
                           << route.flt_no << route.suffix << ",,,,,,,,,,," << ENDL
             << "*DEP PORT," << route.airp_dep_code_lat() << ",,,,,,,,,,," << ENDL
             << "*DEP DATE," << DateTimeToStr(route.scd_out_local,"dd-mmm-yyyy", true) << ",,,,,,,,,,," << ENDL
@@ -592,13 +592,13 @@ struct TEdiAPISFormat : public TAPISFormat
   {
     format_type = _format_edi;
   }
-  bool check_doc_type_no(const string& doc_type, const string& doc_no) const 
+  bool check_doc_type_no(const string& doc_type, const string& doc_no) const
   {
     return !doc_type.empty() && !doc_no.empty();
   }
   virtual bool viewUNGandUNE() const
-  { 
-    return true; 
+  {
+    return true;
   }
 };
 
@@ -669,9 +669,9 @@ struct TAPISFormat_CSV_CZ : public TTxtApisFormat
     header << "csv;"
       << route.airline_name << ";"
       << route.airline_code_lat() << setw(3) << setfill('0') << route.flt_no << route.suffix << ";"
-      << route.airp_dep_code_lat() << ";" 
+      << route.airp_dep_code_lat() << ";"
       << DateTimeToStr(route.scd_out_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
-      << route.airp_arv_code_lat() << ";" 
+      << route.airp_arv_code_lat() << ";"
       << DateTimeToStr(route.scd_in_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
       << count_overall << ";" << ENDL;
   }
@@ -710,7 +710,7 @@ struct TAPISFormat_EDI_CN : public TEdiAPISFormat
     if (pax == crew && api == apiDoc) return DOC_EDI_CN_FIELDS;
     return NO_FIELDS;
   }
-  void convert_pax_names(string& first_name, string& second_name) const 
+  void convert_pax_names(string& first_name, string& second_name) const
   {
     ConvertPaxNamesConcat(first_name, second_name);
   }
@@ -881,8 +881,8 @@ struct TAPISFormat_EDI_DE : public TEdiAPISFormat
 
   // уточнить
   string process_doc_no(const string& no) const
-  { 
-    return NormalizeDocNo(no, false); 
+  {
+    return NormalizeDocNo(no, false);
   }
 };
 ///////////////////////////////////////////////////
@@ -990,7 +990,7 @@ struct TAPISFormat_TXT_EE : public TTxtApisFormat
     ConvertPaxNamesConcat(first_name, second_name);
   }
   string unknown_gender() const { return "N"; }
-  string process_doc_type(const string& doc_type) const 
+  string process_doc_type(const string& doc_type) const
   {
     if (doc_type!="P") return ""; else return "2";
   }
@@ -1032,7 +1032,7 @@ struct TAPISFormat_TXT_EE : public TTxtApisFormat
               << "/"
               << "LL-" << route.airline_code_lat() << setw(3) << setfill('0') << route.flt_no << route.suffix
               << "-" << DateTimeToStr(route.scd_in_local,"ddmmyyyy-hhnn") << "-S.TXT";
-    return file_name.str();  
+    return file_name.str();
   }
   virtual void CreateHeaders( const TApisRouteData& route,
                               ostringstream& header,
@@ -1041,8 +1041,8 @@ struct TAPISFormat_TXT_EE : public TTxtApisFormat
                               ostringstream& crew_body,
                               int count_overall) const
   {
-    TCitiesRow airlineCityRow = (TCitiesRow&)base_tables.get("cities").get_row("code",route.airline_city());
-    TCountriesRow airlineCountryRow = (TCountriesRow&)base_tables.get("countries").get_row("code",airlineCityRow.country);
+    const TCitiesRow& airlineCityRow = (const TCitiesRow&)base_tables.get("cities").get_row("code",route.airline_city());
+    const TCountriesRow& airlineCountryRow = (const TCountriesRow&)base_tables.get("countries").get_row("code",airlineCityRow.country);
     if (airlineCountryRow.code_iso.empty())
       throw Exception("airlineCountryRow.code_iso empty (code=%s)",airlineCityRow.country.c_str());
     string airline_country = airlineCountryRow.code_iso;
@@ -1437,6 +1437,6 @@ inline TAPISFormat* SpawnAPISFormat(const TApisSetsData& sd)
 // EDI_AZ     // 11
 
 // other
-// APPS_SITA  //  1                          
+// APPS_SITA  //  1
 
 #endif // APIS_CREATOR_H

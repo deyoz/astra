@@ -9,6 +9,7 @@
 #include "points.h"
 #include "date_time.h"
 #include "qrys.h"
+#include "trip_tasks.h"
 
 const int NumSendAttempts = 5; // количество попыток до включения тревоги "Нет связи с APPS"
 const int MaxSendAttempts = 99; // максимальное количество попыток
@@ -27,8 +28,8 @@ bool checkTime( const int point_id, TDateTime& start_time );
 std::string emulateAnswer( const std::string& request );
 bool IsAPPSAnswText( const std::string& tlg_body );
 std::set<std::string> needFltCloseout( const std::set<std::string>& countries, const std::string airline );
-void sendAllAPPSInfo( const int point_id, const std::string& task_name, const std::string& params );
-void sendNewAPPSInfo( const int point_id, const std::string& task_name, const std::string& params );
+void sendAllAPPSInfo(const TTripTaskKey &task);
+void sendNewAPPSInfo(const TTripTaskKey &task);
 void reSendMsg( const int send_attempts, const std::string& msg_text, const int msg_id );
 void deleteMsg( const int msg_id );
 void deleteAPPSData( const int pax_id );
