@@ -6132,30 +6132,36 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &Salons,
   return res;
 }
 
-void check_waitlist_alarm_on_tranzit_routes( int point_dep )
+void check_waitlist_alarm_on_tranzit_routes( int point_dep,
+                                             const std::string& whence )
 {
   std::set<int> paxs_external_logged;
-  check_waitlist_alarm_on_tranzit_routes( point_dep, paxs_external_logged );
-}
-
-void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm )
-{
-  std::set<int> paxs_external_logged;
-  check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, paxs_external_logged );
-}
-
-void check_waitlist_alarm_on_tranzit_routes( int point_dep, const std::set<int> &paxs_external_logged )
-{
-  std::vector<int> points_tranzit_check_wait_alarm( 1, point_dep );
-  check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, paxs_external_logged );
+  check_waitlist_alarm_on_tranzit_routes( point_dep, paxs_external_logged, whence );
 }
 
 void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm,
-                                             const std::set<int> &paxs_external_logged )
+                                             const std::string& whence )
+{
+  std::set<int> paxs_external_logged;
+  check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, paxs_external_logged, whence );
+}
+
+void check_waitlist_alarm_on_tranzit_routes( int point_dep, const std::set<int> &paxs_external_logged,
+                                             const std::string& whence )
+{
+  std::vector<int> points_tranzit_check_wait_alarm( 1, point_dep );
+  check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, paxs_external_logged, whence );
+}
+
+void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm,
+                                             const std::set<int> &paxs_external_logged,
+                                             const std::string& whence )
 {
   TFlights flights;
   flights.Get( points_tranzit_check_wait_alarm, ftAll );
-  flights.Lock(__FUNCTION__);
+  flights.Lock( whence + "::check_waitlist_alarm" );
+
+  boost::posix_time::ptime mst1 = boost::posix_time::microsec_clock::local_time();
 
   TSalonList salonList;
   TSalonPassengers passengers;
@@ -6191,6 +6197,11 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
       }
     }
   }
+
+  boost::posix_time::ptime mst2 = boost::posix_time::microsec_clock::local_time();
+  LogTrace(TRACE5) << "WaitlistAlarm: " << boost::posix_time::time_duration(mst2 - mst1).total_milliseconds() << " msecs (" << whence << ")";
+  for(int point_id : points_tranzit_check_wait_alarm)
+    LogTrace(TRACE5) << "WaitlistAlarm: point_id=" <<  point_id;
 }
 
 void getStrWaitListReason( const std::string &fullname,
@@ -6343,7 +6354,7 @@ void CheckWaitListToLog( TQuery &QryAirp,
                                   point_dep, ipass->second.reg_no, ipass->second.grp_id );
 }
 
-void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &paxs_external_logged )
+void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &paxs_external_logged  )
 {
   ProgTrace( TRACE5, "TSalonPassengers::check_waitlist_alarm" );
   TSalonPassengers passengers;
@@ -7739,7 +7750,7 @@ void CreateComps( const TCompsRoutes &routes, int comp_id )
         i!=points_check_wait_alarm.end(); i++ ) {
     check_waitlist_alarm(*i);
   }
-  check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm );
+  check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, __FUNCTION__ );
 }
 
 bool CompRouteinRoutes( const CompRoute &item1, const CompRoute &item2 )
@@ -10064,7 +10075,7 @@ void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
   // конец перечитки
   SALONS2::check_diffcomp_alarm( point_id );
   if ( SALONS2::isTranzitSalons( point_id ) ) {
-    SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id );
+    SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id, __FUNCTION__ );
   }
   else {
     check_waitlist_alarm( point_id );
