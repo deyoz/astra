@@ -2156,68 +2156,6 @@ void GetTCkinTickets(int pax_id, map<int, TCkinPaxTknItem> &tkns)
     tkns.insert(make_pair(Qry.FieldAsInteger("seg_no"), TCkinPaxTknItem().fromDB(Qry)));
 }
 
-// Ф-я возвращает непрерывный список сегментов до или после pax_id, в зав-ти от after_current
-// Если встречается номер сегмента, не идущий подряд, он и следующие за ним элементы отсекаются.
-// Напр. если список такой 1, 2, 4, 5, 7, 8
-// То в случае after_current = true вернется 7, 8 (непрерывность с конца)
-// При after_current = false вернется 1, 2 (с начала)
-void GetTCkinTickets(int pax_id, map<int, TCkinPaxTknItem> &tkns, bool after_current)
-{
-    tkns.clear();
-    map<int, TCkinPaxTknItem> _tkns;
-    GetTCkinTickets(pax_id, _tkns);
-
-    // Находим в мепе элемент с тек. pax_id
-    auto current = _tkns.begin();
-    for(; current != _tkns.end(); current++) {
-        if(current->second.pax_id == pax_id) break;
-    }
-
-    if(current != _tkns.end()) {
-        auto curr_idx = current->first;
-        // в зав-ти от after_current в result помещаем часть слева или справа от pax_id
-        if(after_current) {
-            current++;
-            tkns.insert(current, _tkns.end());
-        } else {
-            tkns.insert(_tkns.begin(), current);
-        }
- 
-        // а здесь происходит удаление элементов, seg_no которых не подряд
-        // Напр.:
-        // (1,2,3,5,6,10) -> (1,2,3)
-        if(after_current) {
-            auto ri = tkns.begin();
-            curr_idx++;
-            for(; ri != tkns.end(); ri++, curr_idx++) {
-                if(ri->first != curr_idx) break;
-            }
-            if(ri != tkns.end())
-                tkns.erase(ri, tkns.end());
-        } else {
-            auto ri = tkns.rbegin();
-            curr_idx--;
-            for(; ri != tkns.rend(); ri++, curr_idx--) {
-                if(ri->first != curr_idx) break;
-            }
-            if(ri != tkns.rend()) {
-                auto i = ri.base();
-                tkns.erase(tkns.begin(), i);
-            }
-        }
-    }
-}
-
-void GetTCkinTicketsBefore(int pax_id, map<int, TCkinPaxTknItem> &tkns)
-{
-    GetTCkinTickets(pax_id, tkns, false);
-}
-
-void GetTCkinTicketsAfter(int pax_id, map<int, TCkinPaxTknItem> &tkns)
-{
-    GetTCkinTickets(pax_id, tkns, true);
-}
-
 std::string isFemaleStr( int is_female )
 {
   switch (is_female) {

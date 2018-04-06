@@ -187,7 +187,6 @@ astra_SOURCES = \
   bagmessage_daemon.cc \
   kiosk_events.cc \
   self_ckin_log.cc \
-  stat_fv.cc \
   cr_lf.cc
 
 astra_LDADD = $(all_libraries) \
@@ -365,5 +364,4 @@ noinst_HEADERS = \
   report_common.h \
   kiosk_events.h \
   self_ckin_log.h \
-  stat_fv.h \
   cr_lf.h

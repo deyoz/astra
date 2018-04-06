@@ -2,8 +2,6 @@
 
 #include "astra_consts.h"
 #include "base_tables.h"
-#include "qrys.h"
-#include "passenger.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -426,40 +424,4 @@ void TGeneratedTags::trace(const std::string& where) const
   LogTrace(TRACE5) << where << ": TGeneratedTags dump" << (_tags.empty()?": EMPTY!":"");
   for(const TBagTagNumber& tag : _tags)
     LogTrace(TRACE5) << tag.str();
-}
-
-void GetTagsByBagNum(int grp_id, int bag_num, std::multiset<TBagTagNumber> &tags)
-{
-    tags.clear();
-    TCachedQuery Qry("select color, no  from bag_tags where grp_id = :grp_id and bag_num = :bag_num",
-            QParams() << QParam("grp_id", otInteger, grp_id) << QParam("bag_num", otInteger, bag_num));
-    Qry.get().Execute();
-    for(; not Qry.get().Eof; Qry.get().Next())
-        tags.insert(
-                TBagTagNumber(
-                    ElemIdToCodeNative(etTagColor, Qry.get().FieldAsString("color")),
-                    Qry.get().FieldAsFloat("no")));
-}
-
-void GetTagsByPool(int grp_id, int bag_pool_num , std::multiset<TBagTagNumber> &tags)
-{
-    tags.clear();
-    TCachedQuery Qry("select num from bag2 where grp_id = :grp_id and bag_pool_num = :bag_pool_num",
-            QParams() << QParam("grp_id", otInteger, grp_id) << QParam("bag_pool_num", otInteger, bag_pool_num));
-    Qry.get().Execute();
-    for(; not Qry.get().Eof; Qry.get().Next()) {
-        int bag_num = Qry.get().FieldAsInteger("num");
-        multiset<TBagTagNumber> _tags;
-        GetTagsByBagNum(grp_id, bag_num, _tags);
-        tags.insert(_tags.begin(), _tags.end());
-    }
-}
-
-void GetTagsByPaxId(int pax_id, std::multiset<TBagTagNumber> &tags)
-{
-    tags.clear();
-    CheckIn::TSimplePaxItem pax;
-    pax.getByPaxId(pax_id);
-    if(pax.bag_pool_num != ASTRA::NoExists)
-        GetTagsByPool(pax.grp_id, pax.bag_pool_num, tags);
 }
