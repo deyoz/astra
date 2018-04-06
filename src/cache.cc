@@ -1952,7 +1952,7 @@ void AfterApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCa
                 DeleteTripCompLayers(NoExists, point_id, cltProtBeforePay, point_ids_spp);
                 DeleteTripCompLayers(NoExists, point_id, cltProtAfterPay, point_ids_spp);
             };
-            check_layer_change( point_ids_spp );
+            check_layer_change( point_ids_spp, __FUNCTION__ );
         };
     };
 

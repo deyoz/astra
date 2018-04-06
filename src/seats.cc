@@ -4298,7 +4298,7 @@ bool ChangeLayer( TCompLayerType layer_type, int time_limit, int point_id, int p
         }
         break;
   }
-  check_layer_change( point_ids_spp );
+  check_layer_change( point_ids_spp, __FUNCTION__ );
   return changedOrNotPay;
 }
 
@@ -5048,7 +5048,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
   }
   std::set<int> paxs_external_logged;
   paxs_external_logged.insert( pax_id );
-  check_layer_change( point_ids_spp, paxs_external_logged );
+  check_layer_change( point_ids_spp, paxs_external_logged, __FUNCTION__ );
   return changedOrNotPay;
 }
 
@@ -5290,7 +5290,7 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
       QryUpd.Execute();
     }
   }
-  check_waitlist_alarm_on_tranzit_routes( salonList.getDepartureId() );
+  check_waitlist_alarm_on_tranzit_routes( salonList.getDepartureId(), __FUNCTION__ );
 /*  if ( pr_is_sync_paxs ) {
     for ( vector<TPassenger>::iterator ipass=paxs.begin(); ipass!=paxs.end(); ipass++ ) {
       update_pax_change( salonList.getDepartureId(), ipass->paxId, ipass->regNo, "ê" );

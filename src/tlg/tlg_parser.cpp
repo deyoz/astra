@@ -6175,7 +6175,7 @@ void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con)
     //здесь надо удалить все слои телеграмм SOM из более ранних пунктов из trip_comp_layers
     TPointIdsForCheck point_ids_spp;
     InsertTlgSeatRanges(point_id,i->airp_arv,cltSOMTrzt,i->ranges,NoExists,tlg_id,NoExists,usePriorContext,curr_tid,point_ids_spp);
-    check_layer_change(point_ids_spp);
+    check_layer_change(point_ids_spp, __FUNCTION__);
     usePriorContext=true;
   };
 };
@@ -7199,7 +7199,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             };
           };//for(iPnrItem=iTotals->pnr.begin()
         };
-        check_layer_change(point_ids_spp);
+        check_layer_change(point_ids_spp, __FUNCTION__);
         TlgETDisplay(point_id, et_display_pax_ids, true);
         if (!isPRL && chkd_exists)
         {

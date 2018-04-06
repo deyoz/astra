@@ -64,10 +64,12 @@ typedef std::vector< std::pair<std::string, int> > TSeatRemPriority;
 //возвращает сортированный! по приоритетам список ремарок
 void GetSeatRemPriority(const std::string &airline_mark, TSeatRemPriority &rems);
 
-void check_layer_change(const TPointIdsForCheck &point_ids_spp);
+void check_layer_change(const TPointIdsForCheck &point_ids_spp,
+                        const std::string& whence);
 
 void check_layer_change(const TPointIdsForCheck &point_ids_spp,
-                        const std::set<int> &paxs_external_logged);
+                        const std::set<int> &paxs_external_logged,
+                        const std::string& whence);
 
 //void update_timeout( std::vector<int> range_ids, int time_limit );
 #endif

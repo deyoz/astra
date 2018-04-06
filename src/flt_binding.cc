@@ -61,7 +61,7 @@ void TTlgBinding::after_bind_or_unbind_flt(int point_id_tlg, int point_id_spp, b
     {
       TPointIdsForCheck point_ids_spp;
       SyncTripCompLayers(point_id_tlg, point_id_spp, (TCompLayerType)layer, point_ids_spp);
-      check_layer_change(point_ids_spp);
+      check_layer_change(point_ids_spp, __FUNCTION__);
     };
   if (!unbind) {
     add_trip_task(point_id_spp, SYNC_ALL_CHKD, "");

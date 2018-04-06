@@ -2865,7 +2865,7 @@ static void changeLayer(const ProtLayerRequest::SegList& segListReq,
               paxErrorExists=true;
             };
           };
-          check_layer_change(point_ids_spp);
+          check_layer_change(point_ids_spp, segListReq.getRequestName() + "::" + __FUNCTION__);
         };
       }; //!paxListRes.empty()
 
@@ -2987,7 +2987,7 @@ static void changeStatus(const PaymentStatusRequest::PaxList& paxListReq,
 
     paxListRes.push_back(paxRes);
   }
-  check_layer_change(point_ids_spp);
+  check_layer_change(point_ids_spp, __FUNCTION__);
 }
 
 void RevertWebResDoc()
