@@ -121,3 +121,7 @@ class TGeneratedTags
     boost::optional<int> _grp_id;
     std::set<TBagTagNumber> _tags;
 };
+
+void GetTagsByBagNum(int grp_id, int bag_num, std::multiset<TBagTagNumber> &tags);
+void GetTagsByPool(int grp_id, int bag_pool_num , std::multiset<TBagTagNumber> &tags);
+void GetTagsByPaxId(int pax_id, std::multiset<TBagTagNumber> &tags);
