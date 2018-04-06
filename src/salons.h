@@ -1540,11 +1540,15 @@ class TSalonList: public std::vector<TPlaceList*> {
                          TSeatTariffMap &tariffMap );
   };
 
-    void check_waitlist_alarm_on_tranzit_routes( int point_dep, const std::set<int> &paxs_external_logged );
+    void check_waitlist_alarm_on_tranzit_routes( int point_dep, const std::set<int> &paxs_external_logged,
+                                                 const std::string &whence );
     void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm,
-                                                 const std::set<int> &paxs_external_logged );
-    void check_waitlist_alarm_on_tranzit_routes( int point_dep );
-    void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm );
+                                                 const std::set<int> &paxs_external_logged,
+                                                 const std::string& whence );
+    void check_waitlist_alarm_on_tranzit_routes( int point_dep,
+                                                 const std::string& whence );
+    void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tranzit_check_wait_alarm ,
+                                                 const std::string& whence );
     void WritePaxSeats( int point_dep, int pax_id, const TSeatRanges &ranges );
 
 

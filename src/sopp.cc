@@ -2568,7 +2568,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
         i!=points_check_wait_alarm.end(); i++ ) {
     check_waitlist_alarm(*i);
   }
-  SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm );
+  SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, __FUNCTION__ );
   check_unattached_trfer_alarm(nextTrferSegs);
 
   if ( filter.inbound_point_dep==NoExists )
@@ -4298,7 +4298,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         i!=points_check_wait_alarm.end(); i++ ) {
     check_waitlist_alarm(*i);
   }
-  SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm );
+  SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, __FUNCTION__ );
 
   for( vector<change_act>::iterator i=vchangeAct.begin(); i!=vchangeAct.end(); i++ ){
     if ( i->pr_land ) {
@@ -4742,7 +4742,7 @@ void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     ChangeACT_OUT( point_id, act_out, NoExists );
     SetTripStages_IgnoreAuto( point_id, pr_del != 0 );
     on_change_trip( CALL_POINT, point_id, ChangeTrip::DropFlightFact );
-    SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id );
+    SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id, __FUNCTION__ );
     ReadTrips( ctxt, reqNode, resNode );
 }
 

@@ -923,7 +923,7 @@ void astra_timer( TDateTime utcdate )
       {
         TPointIdsForCheck point_ids_spp;
         DeleteTlgSeatRanges(range_ids, crs_pax_id, curr_tid, point_ids_spp);
-        check_layer_change(point_ids_spp);
+        check_layer_change(point_ids_spp, __FUNCTION__);
       }
       catch(Exception &E)
       {

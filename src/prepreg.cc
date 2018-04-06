@@ -592,7 +592,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     }
     if ( !check_waitlist_alarms.empty() ) {
       if ( pr_isTranzitSalons ) {
-        SALONS2::check_waitlist_alarm_on_tranzit_routes( check_waitlist_alarms );
+        SALONS2::check_waitlist_alarm_on_tranzit_routes( check_waitlist_alarms, __FUNCTION__ );
       }
       else {
         for ( vector<int>::iterator ipoint_id=check_waitlist_alarms.begin();
