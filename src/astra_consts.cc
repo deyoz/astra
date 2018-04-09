@@ -63,6 +63,7 @@ const char *RptTypeS[] = {
     "SERVICESTXT",
     "RESEAT",
     "RESEATTXT",
+    "KOMPLEKT",
     "?"
 };
 

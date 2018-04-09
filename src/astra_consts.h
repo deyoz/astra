@@ -172,6 +172,7 @@ enum TRptType {
     rtSERVICESTXT,
     rtRESEAT,
     rtRESEATTXT,
+    rtKOMPLEKT,
     rtUnknown,
     rtTypeNum
 };
