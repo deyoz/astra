@@ -4129,7 +4129,6 @@ void KOMPLEKT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
   xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
   xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
   xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_komplekt");
-  xmlNodePtr dataSetEmptyNode = NewTextChild(dataSetsNode, "v_komplekt_empty");
   // переменные отчёта
   xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
   PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
@@ -4142,11 +4141,7 @@ void KOMPLEKT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                               << LParam("flight", get_flight(variablesNode))
                               << LParam("route", NodeAsString("long_route", variablesNode)),
                     rpt_params.GetLang()));
-  if (nums.empty())
-  {
-    xmlNodePtr rowNode = NewTextChild(dataSetEmptyNode, "row");
-    NewTextChild(rowNode, "name", getLocaleText("MSG.KOMPLEKT_EMPTY", rpt_params.GetLang()));
-  }
+  NewTextChild(variablesNode, "komplekt_empty", (nums.empty() ? getLocaleText("MSG.KOMPLEKT_EMPTY", rpt_params.GetLang()) : ""));
   for (auto r : nums)
   {
     xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
