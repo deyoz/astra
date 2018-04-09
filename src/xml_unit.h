@@ -97,6 +97,7 @@ xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const int value, const int
 xmlNodePtr CopyNodeList(xmlNodePtr dest, xmlNodePtr src); //Функция с ошибкой libxml2! Не изменяет указатели xmlDocPtr
 xmlNodePtr CopyNode(xmlNodePtr dest, xmlNodePtr src, bool recursive=true);
 void RemoveChildNodes(xmlNodePtr node);
+void RemoveNode(xmlNodePtr node);
 
 void SetXMLDocEncoding(xmlDocPtr doc, const char *encoding);
 xmlDocPtr CreateXMLDoc(const char *root);

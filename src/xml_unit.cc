@@ -7,6 +7,8 @@
 #include "stl_utils.h"
 #include "misc.h"
 
+#include <serverlib/xml_tools.h>
+
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
 
@@ -603,6 +605,15 @@ void RemoveChildNodes(xmlNodePtr node)
         xmlUnlinkNode(rmNode);
         xmlFreeNode(rmNode);
     }
+}
+
+void RemoveNode(xmlNodePtr node)
+{
+    // удалим всё содержимое тэга
+    xmlClearNode(node);
+    // и сам тэг
+    xmlUnlinkNode(node);
+    xmlFreeNode(node);
 }
 
 xmlNodePtr CopyNode(xmlNodePtr dest, xmlNodePtr src, bool recursive)
