@@ -573,6 +573,10 @@ class TASVCItem : public TDetailRemAncestor
              *emd_no==0 &&
              emd_coupon==ASTRA::NoExists;
     };
+    bool emdRequired() const
+    {
+      return strncmp(rem_status, "HD", 2)==0;
+    }
 };
 
 class TRemItem
@@ -652,6 +656,8 @@ class TPaxItem
       seats=1;
       *seat_rem=0;
     };
+    bool emdRequired(const std::string& ssr_code) const;
+    void removeNotConfimedSSRs();
 };
 
 class TSegmentItem : public TFltInfo
@@ -773,6 +779,8 @@ class TNameElement
       tags.clear();
       bag_pool=ASTRA::NoExists;
     };
+
+    void removeNotConfimedSSRs();
 };
 
 class TPnrAddrItem
