@@ -17,6 +17,7 @@ using namespace std;
 namespace fs = boost::filesystem;
 using namespace BASIC::date_time;
 using namespace ASTRA;
+using namespace EXCEPTIONS;
 
 const char* STAT_FV_PATH()
 {
@@ -173,7 +174,6 @@ void get_trfer_info(
 void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
 {
     TReqInfo::Instance()->desk.lang = AstraLocale::LANG_EN;
-//    xmlNodePtr airlineNode = NewTextChild(rootNode, "airline", "ФВ");
     xmlNodePtr flightInfoNode = NewTextChild(rootNode, "FlightInfo");
 
     TTripInfo info;
@@ -212,8 +212,11 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
             );
 
     Qry.get().Execute();
+
+    xmlNodePtr GeneralDeclarationNode = NewTextChild(rootNode, "GeneralDeclaration");
+    xmlNodePtr PassengerManifestNode = NewTextChild(rootNode, "PassengerManifest");
+
     if(not Qry.get().Eof) {
-        xmlNodePtr GeneralDeclarationNode = NewTextChild(rootNode, "GeneralDeclaration");
         xmlNodePtr PassengerInfoNode = NewTextChild(GeneralDeclarationNode, "PassengerInfo");
         // Кол-во пассажиров, принятых в пункте отправления
         xmlNodePtr DeparturePassNode = NewTextChild(PassengerInfoNode, "DeparturePass");
@@ -224,7 +227,6 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
         // Кол-во трансфертных пассажиров в аэропорту назначения
         xmlNodePtr TransferDestinationPassNode = NewTextChild(PassengerInfoNode, "TransferDestinationPass");
 
-        xmlNodePtr PassengerManifestNode = NewTextChild(rootNode, "PassengerManifest");
 
         TGrpInfo grp_info_map(info.airline);
 
@@ -325,5 +327,5 @@ void stat_fv(const TTripTaskKey &task)
         LogTrace(TRACE5) << __FUNCTION__ << ": Cannot open file " << apath.string();
         return;
     }
-    out << ConvertCodepage(GetXMLDocText(doc.docPtr()), "CP866", "UTF-8");
+    out << ConvertCodepage(GetXMLDocTextOptions(doc.docPtr(), xmlSaveOption(XML_SAVE_FORMAT + XML_SAVE_NO_EMPTY)), "CP866", "UTF-8");
 }
