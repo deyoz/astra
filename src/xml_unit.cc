@@ -675,6 +675,48 @@ xmlDocPtr TextToXMLTree( const string& str )
   return res;
 };
 
+// options may be logical OR:
+// XML_SAVE_NO_DECL + XML_SAVE_NO_EMPTY
+string GetXMLDocTextOptions( xmlDocPtr doc, xmlSaveOption options)
+{
+    string result;
+    xmlBufferPtr buffer = NULL;
+    xmlSaveCtxtPtr saveCtxtPtr = NULL;
+    try {
+        buffer = xmlBufferCreate();
+        saveCtxtPtr = xmlSaveToBuffer(buffer,NULL, options);
+        if(not saveCtxtPtr) throw EXCEPTIONS::Exception("saveCtxtPtr is NULL");
+        if(xmlSaveDoc(saveCtxtPtr, doc) < 0) throw EXCEPTIONS::Exception("xmlSaveDoc failed");
+        if(xmlSaveFlush(saveCtxtPtr) < 0) throw EXCEPTIONS::Exception("xmlSaveFlush failed");
+        result = (const char *)xmlBufferContent(buffer);
+        xmlSaveClose(saveCtxtPtr);
+        xmlBufferFree(buffer);
+    } catch(...) {
+        xmlSaveClose(saveCtxtPtr);
+        xmlBufferFree(buffer);
+        throw;
+    }
+    return result;
+
+    /*
+    xmlBufferPtr buffer = xmlBufferCreate();
+    if (buffer ==  NULL)
+        return 1;  // Add error handling...
+
+    xmlSaveCtxtPtr saveCtxtPtr = xmlSaveToBuffer(buffer,NULL, XML_SAVE_NO_DECL);
+    if (xmlSaveDoc(saveCtxtPtr, doc) < 0)
+        return 1;  // Add error handling
+
+    xmlSaveClose(saveCtxtPtr);
+
+    const xmlChar *xmlCharBuffer = xmlBufferContent(buffer);
+
+    printf("%s", xmlCharBuffer);
+
+    xmlBufferFree(buffer);
+    */
+}
+
 string XMLTreeToText( xmlDocPtr doc, bool formatting_spaces )
 {
   char *data2=NULL;

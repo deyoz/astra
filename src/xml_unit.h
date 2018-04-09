@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <libxml/parser.h>
+#include <libxml/xmlsave.h>
 #include "date_time.h"
 #include "exceptions.h"
 
@@ -102,6 +103,7 @@ xmlDocPtr CreateXMLDoc(const char *root);
 xmlDocPtr TextToXMLTree( const std::string& str );
 std::string XMLTreeToText( xmlDocPtr doc, bool formatting_spaces=true);
 std::string GetXMLDocText( xmlDocPtr doc);
+std::string GetXMLDocTextOptions( xmlDocPtr doc, xmlSaveOption options);
 std::string EncodeSpecialChars(const std::string &val);
 std::string URIUnescapeString(const std::string &val);
 
