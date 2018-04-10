@@ -371,7 +371,7 @@ SegList& SegList::fromXML(xmlNodePtr reqNode)
     if (node!=NULL && !NodeIsNULL(node))
     {
       time_limit=NodeAsInteger(node);
-      if (time_limit<=0 || time_limit>999)
+      if (time_limit<=0 || time_limit>99999)
         throw EXCEPTIONS::Exception("%s: wrong time_limit %d min", getRequestName().c_str(), time_limit);
     }
   }
@@ -390,7 +390,6 @@ SegList& SegList::fromXML(xmlNodePtr reqNode)
     {
       layer_type = DecodeCompLayerType(NodeAsString(node));
       if (!(layer_type == ASTRA::cltProtBeforePay ||
-            layer_type == ASTRA::cltProtAfterPay ||
             layer_type == ASTRA::cltProtSelfCkin))
         throw EXCEPTIONS::Exception("%s: wrong layer_type %s ", getRequestName().c_str(), NodeAsString(node) );
     }
@@ -511,8 +510,7 @@ void PaxList::complete(const ProtLayerRequest::SegList& segListReq)
 {
   if (time_limit==ASTRA::NoExists) time_limit=segListReq.time_limit;
 
-  if (segListReq.layer_type==cltProtBeforePay ||
-      segListReq.layer_type==cltProtAfterPay)
+  if (segListReq.layer_type==cltProtBeforePay)
   {
     //разметка платными слоями
     TCachedQuery Qry("SELECT pr_permit, prot_timeout FROM trip_paid_ckin WHERE point_id=:point_id",
@@ -545,7 +543,10 @@ const PaxList& PaxList::toXML(const bool& isLayerAdded, xmlNodePtr paxsParentNod
 
   xmlNodePtr paxsNode=NewTextChild(paxsParentNode, "passengers");
   for(const Pax& pax : *this)
+  {
+    if (pax.userException) continue;
     pax.toXML(NewTextChild(paxsNode, "pax"));
+  }
 
   return *this;
 }

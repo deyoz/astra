@@ -188,6 +188,7 @@ class Pax : public TWebTids
     std::string pnr_class;
     std::string pnr_subclass;
     SALONS2::TSeatTariff seatTariff;
+    boost::optional<AstraLocale::UserException> userException;
 
     Pax(const ProtLayerRequest::Pax& paxReq)
     {
@@ -207,6 +208,7 @@ class Pax : public TWebTids
       pnr_class.clear();
       pnr_subclass.clear();
       seatTariff.clear();
+      userException=boost::none;
     }
 
     bool fromDB();
