@@ -1203,6 +1203,15 @@ void ReadWebSalons( int point_id, const std::vector<AstraWeb::TWebPax> &pnr, map
           place != (*placeList)->places.end(); place++ ) { // пробег по салонам
       if ( !place->visible )
        continue;
+      if ( !place->isplace &&
+           ((!place->yname.empty() &&
+              place->yname.find("=") != std::string::npos) ||
+             (!place->xname.empty() &&
+               place->xname.find("=") != std::string::npos)) ) {
+        place->xname.clear();
+        place->yname.clear();
+        tst();
+      };       
       TWebPlace wp;
       wp.x = place->x;
       wp.y = place->y;
@@ -1212,19 +1221,9 @@ void ReadWebSalons( int point_id, const std::vector<AstraWeb::TWebPax> &pnr, map
         web_place_list.xcount = place->x;
       if ( place->y > web_place_list.ycount )
         web_place_list.ycount = place->y;
-      if (  place->visible &&
-           !place->isplace &&
-           ((!place->yname.empty() &&
-              place->yname.find("=") != std::string::npos) ||
-             (!place->xname.empty() &&
-               place->xname.find("=") != std::string::npos)) ) {
-        wp.seat_no = "";
-      }
-      else {
-        wp.seat_no = place->denorm_view(Salons->getLatSeat());
-      }
 
       wp.seat_no = place->denorm_view(Salons->getLatSeat());
+
       wp.elem_type = place->elem_type;
 /*      if ( !place->elem_type.empty() ) {
         if ( place->elem_type != PARTITION_ELEM_TYPE ) {
