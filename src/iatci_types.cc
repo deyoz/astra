@@ -1410,7 +1410,7 @@ Result Result::makeCancelResult(Status_e status,
 
 Result Result::makeSeatmapResult(Status_e status,
                                  const FlightDetails& flight,
-                                 const SeatmapDetails& seatmap,
+                                 boost::optional<SeatmapDetails> seatmap,
                                  boost::optional<CascadeHostDetails> cascade,
                                  boost::optional<ErrorDetails> error,
                                  boost::optional<WarningDetails> warning,

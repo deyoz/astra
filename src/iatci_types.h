@@ -1616,7 +1616,7 @@ public:
 
     static Result makeSeatmapResult(Status_e status,
                                     const FlightDetails& flight,
-                                    const SeatmapDetails& seatmap,
+                                    boost::optional<SeatmapDetails> seatmap,
                                     boost::optional<CascadeHostDetails> cascade = boost::none,
                                     boost::optional<ErrorDetails> error = boost::none,
                                     boost::optional<WarningDetails> warning = boost::none,
