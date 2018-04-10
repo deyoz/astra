@@ -2547,6 +2547,7 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   xmlNodePtr scanCodeNode=GetNode("scan_code", reqNode);
   if (scanCodeNode!=NULL)
   {
+    reqInfo->user.access.set_total_permit();
     string scanCode=NodeAsString(scanCodeNode);
     PrintInterface::BPPax pax;
     try
@@ -2678,12 +2679,15 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   emulateClientType();
 
   ProgTrace(TRACE1,"WebRequestsIface::GetBPTags");
+  
+  TReqInfo *reqInfo = TReqInfo::Instance();
 
   PrintInterface::BPPax pax;
   xmlNodePtr scanCodeNode=GetNode("scan_code", reqNode);
   boost::shared_ptr<PrintDataParser> parser;
   if (scanCodeNode!=NULL)
   {
+    reqInfo->user.access.set_total_permit();
     string scanCode=NodeAsString(scanCodeNode);
     GetBPPaxFromScanCode(scanCode, pax);
 
