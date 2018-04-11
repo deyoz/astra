@@ -1208,8 +1208,8 @@ void ReadWebSalons( int point_id, const std::vector<AstraWeb::TWebPax> &pnr, map
              (!place->xname.empty() &&
                place->xname.find("=") != std::string::npos)) ) {
         place->xname.clear();
-        place->yname.clear();        
-      };       
+        place->yname.clear();
+      };
       TWebPlace wp;
       wp.x = place->x;
       wp.y = place->y;
@@ -2679,7 +2679,7 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   emulateClientType();
 
   ProgTrace(TRACE1,"WebRequestsIface::GetBPTags");
-  
+
   TReqInfo *reqInfo = TReqInfo::Instance();
 
   PrintInterface::BPPax pax;
