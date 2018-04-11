@@ -38,6 +38,8 @@ struct TTestPaxInfo
     document.clear();
     reg_no=ASTRA::NoExists;
   };
+
+  void trace( TRACE_SIGNATURE ) const;
 };
 
 class TPNRFilter

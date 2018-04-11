@@ -24,6 +24,21 @@ using namespace AstraLocale;
 namespace WebSearch
 {
 
+void TTestPaxInfo::trace( TRACE_SIGNATURE ) const
+{
+  ProgTrace(TRACE_PARAMS, "============ TTestPaxInfo ============");
+  ProgTrace(TRACE_PARAMS, "airlines: %s", airline.c_str());
+  ProgTrace(TRACE_PARAMS, "subcls: %s", subcls.c_str());
+  ProgTrace(TRACE_PARAMS, "pnr_addr: %s", pnr_addr.str(TPnrAddrInfo::AddrAndAirline).c_str());
+  ProgTrace(TRACE_PARAMS, "pax_id: %d", pax_id);
+  ProgTrace(TRACE_PARAMS, "surname: %s", surname.c_str());
+  ProgTrace(TRACE_PARAMS, "name: %s", name.c_str());
+  ProgTrace(TRACE_PARAMS, "ticket_no: %s", ticket_no.c_str());
+  ProgTrace(TRACE_PARAMS, "document: %s", document.c_str());
+  ProgTrace(TRACE_PARAMS, "reg_no: %d", reg_no);
+  ProgTrace(TRACE_PARAMS, "^^^^^^^^^^^^ TTestPaxInfo ^^^^^^^^^^^^");
+}
+
 TPNRFilter& TPNRFilter::fromXML(xmlNodePtr fltParentNode, xmlNodePtr paxParentNode)
 {
   clear();
@@ -1550,7 +1565,7 @@ void TPNRs::toXML(xmlNodePtr node, bool is_primary, XMLStyle xmlStyle) const
   }
   else
   {
-    if (pnrs.size()!=1) return;
+    if (pnrs.empty()) return;
     int pnr_id=pnrs.begin()->first;
     const TPNRInfo& pnrInfo=getPNRInfo(pnr_id);
 

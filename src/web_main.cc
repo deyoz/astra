@@ -1208,6 +1208,14 @@ void ReadWebSalons( int point_id, const std::vector<AstraWeb::TWebPax> &pnr, map
           place != (*placeList)->places.end(); place++ ) { // пробег по салонам
       if ( !place->visible )
        continue;
+      if ( !place->isplace &&
+           ((!place->yname.empty() &&
+              place->yname.find("=") != std::string::npos) ||
+             (!place->xname.empty() &&
+               place->xname.find("=") != std::string::npos)) ) {
+        place->xname.clear();
+        place->yname.clear();
+      };
       TWebPlace wp;
       wp.x = place->x;
       wp.y = place->y;
@@ -1217,7 +1225,9 @@ void ReadWebSalons( int point_id, const std::vector<AstraWeb::TWebPax> &pnr, map
         web_place_list.xcount = place->x;
       if ( place->y > web_place_list.ycount )
         web_place_list.ycount = place->y;
+
       wp.seat_no = place->denorm_view(Salons->getLatSeat());
+
       if ( !place->elem_type.empty() ) {
         if ( place->elem_type != PARTITION_ELEM_TYPE ) {
           if ( place->elem_type != ARMCHAIR_EMERGENCY_EXIT_TYPE )
@@ -2539,6 +2549,7 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   xmlNodePtr scanCodeNode=GetNode("scan_code", reqNode);
   if (scanCodeNode!=NULL)
   {
+    reqInfo->user.access.set_total_permit();
     string scanCode=NodeAsString(scanCodeNode);
     PrintInterface::BPPax pax;
     try
@@ -2670,11 +2681,14 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   ProgTrace(TRACE1,"WebRequestsIface::GetBPTags");
 
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
   PrintInterface::BPPax pax;
   xmlNodePtr scanCodeNode=GetNode("scan_code", reqNode);
   boost::shared_ptr<PrintDataParser> parser;
   if (scanCodeNode!=NULL)
   {
+    reqInfo->user.access.set_total_permit();
     string scanCode=NodeAsString(scanCodeNode);
     GetBPPaxFromScanCode(scanCode, pax);
 
