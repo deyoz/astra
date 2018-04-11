@@ -2729,9 +2729,9 @@ static void changeLayer(const ProtLayerRequest::SegList& segListReq,
   for(const ProtLayerRequest::PaxList& paxListReq : segListReq)
   {
     segListRes.emplace_back();
+    ProtLayerResponse::PaxList& paxListRes=segListRes.back();
     try
     {
-      ProtLayerResponse::PaxList& paxListRes=segListRes.back();
       paxListRes.point_id=paxListReq.point_id;
       if (segListReq.isLayerAdded())
       {
@@ -2739,11 +2739,10 @@ static void changeLayer(const ProtLayerRequest::SegList& segListReq,
         paxListRes.complete(segListReq);
       }
 
-      bool paxErrorExists=false;
-
       for(const ProtLayerRequest::Pax& paxReq : paxListReq)
       {
-        ProtLayerResponse::Pax paxRes(paxReq);
+        paxListRes.emplace_back(paxReq);
+        ProtLayerResponse::Pax& paxRes=paxListRes.back();
         try
         {
           if (!paxRes.fromDB())
@@ -2769,16 +2768,15 @@ static void changeLayer(const ProtLayerRequest::SegList& segListReq,
             {
               if (paxRes.seats>0)
                 throw EXCEPTIONS::Exception("%s: empty seat_no (crs_pax_id=%d)", __FUNCTION__, paxRes.id);
+              paxListRes.pop_back(); //младенцев без мест выкидываем, не обрабатываем
               continue;
             }
           }
-
-          paxListRes.push_back(paxRes);
         }
         catch(UserException &e)
         {
           segListRes.ue.addError(e.getLexemaData(), paxListRes.point_id, paxRes.id);
-          paxErrorExists=true;
+          paxRes.userException=e;
         };
       };
 
@@ -2789,81 +2787,107 @@ static void changeLayer(const ProtLayerRequest::SegList& segListReq,
         if (segListReq.isLayerAdded())
         {
           vector<TWebPax> webPaxs;
-          for(const ProtLayerResponse::Pax& paxRes : paxListRes) webPaxs.emplace_back(paxRes);
+          for(const ProtLayerResponse::Pax& paxRes : paxListRes)
+          {
+            if (paxRes.userException) continue;
+            webPaxs.emplace_back(paxRes);
+          }
           GetCrsPaxSeats(paxListRes.point_id, webPaxs, pax_seats );
           bool isTranzitSalonsVersion = isTranzitSalons( paxListRes.point_id );
           BitSet<TChangeLayerFlags> change_layer_flags;
           change_layer_flags.setFlag(flSetPayLayer);
-          for(ProtLayerResponse::Pax& paxRes : paxListRes)
-          {
-            try
+          for(int pass=0; pass<2; pass++)
+            for(ProtLayerResponse::Pax& paxRes : paxListRes)
             {
-              vector< pair<TWebPlace, LexemaData> >::const_iterator iSeat=pax_seats.begin();
-              for(;iSeat!=pax_seats.end();iSeat++)
-                if (iSeat->first.pax_id==paxRes.id &&
-                    iSeat->first.seat_no==paxRes.seat_no) break;
-              if (iSeat==pax_seats.end())
-                throw EXCEPTIONS::Exception("%s: passenger not found in pax_seats (crs_pax_id=%d, crs_seat_no=%s)",
-                                            __FUNCTION__, paxRes.id, paxRes.seat_no.c_str());
-              if (!iSeat->second.lexema_id.empty())
-                throw UserException(iSeat->second.lexema_id, iSeat->second.lparams);
+              if (paxRes.userException) continue;
+              try
+              {
+                int tid = paxRes.crs_pax_tid;
 
-              paxRes.seatTariff=iSeat->first.SeatTariff;
+                if (pass==0)
+                {
+                  if (isTestPaxId(paxRes.id)) continue;
 
-  /*            if ( iSeat->first.SeatTariff.empty() )  //нет тарифа
-                throw UserException("MSG.SEATS.NOT_SET_RATE");*/
+                  for ( int i=0; i<2; i++ )
+                  {
+                    TCompLayerType layerTypeForRemoving;
+                    switch( i ) {
+                      case 0:
+                        layerTypeForRemoving = ASTRA::cltProtBeforePay;
+                        break;
+                      case 1:
+                        layerTypeForRemoving = ASTRA::cltProtSelfCkin;
+                        break;
+                    }
 
-              if (isTestPaxId(paxRes.id)) continue;
+                    std::vector<int> range_ids;
+                    GetTlgSeatRangeIds( layerTypeForRemoving, paxRes.id, range_ids );
 
-              std::vector<int> range_ids;
-              GetTlgSeatRangeIds( segListRes.layer_type, paxRes.id, range_ids );
-              TPointIdsForCheck point_ids_spp;
-              point_ids_spp.insert( make_pair(paxListRes.point_id, segListRes.layer_type) );
+                    point_ids_spp.insert( make_pair(paxListRes.point_id, layerTypeForRemoving) );
 
-              //проверки + запись!!!
-              int tid = paxRes.crs_pax_tid;
-              DeleteTlgSeatRanges( range_ids, paxRes.id, tid, point_ids_spp );
+                    DeleteTlgSeatRanges( range_ids, paxRes.id, tid, point_ids_spp );
+                  }
+                }
+                else
+                {
+                  vector< pair<TWebPlace, LexemaData> >::const_iterator iSeat=pax_seats.begin();
+                  for(;iSeat!=pax_seats.end();iSeat++)
+                    if (iSeat->first.pax_id==paxRes.id &&
+                        iSeat->first.seat_no==paxRes.seat_no) break;
+                  if (iSeat==pax_seats.end())
+                    throw EXCEPTIONS::Exception("%s: passenger not found in pax_seats (crs_pax_id=%d, crs_seat_no=%s)",
+                                                __FUNCTION__, paxRes.id, paxRes.seat_no.c_str());
+                  if (!iSeat->second.lexema_id.empty())
+                    throw UserException(iSeat->second.lexema_id, iSeat->second.lparams);
 
-              if ( isTranzitSalonsVersion ) {
-                IntChangeSeatsN( paxListRes.point_id,
-                                 paxRes.id,
-                                 tid,
-                                 iSeat->first.xname,
-                                 iSeat->first.yname,
-                                 stSeat,
-                                 segListRes.layer_type,
-                                 paxListRes.time_limit,
-                                 change_layer_flags,
-                                 0,
-                                 NoExists,
-                                 NULL );
+                  paxRes.seatTariff=iSeat->first.SeatTariff;
+
+//                  if ( iSeat->first.SeatTariff.empty() )  //нет тарифа
+//                    throw UserException("MSG.SEATS.NOT_SET_RATE");
+
+                  if (isTestPaxId(paxRes.id)) continue;
+
+                  if ( isTranzitSalonsVersion ) {
+                    IntChangeSeatsN( paxListRes.point_id,
+                                     paxRes.id,
+                                     tid,
+                                     iSeat->first.xname,
+                                     iSeat->first.yname,
+                                     stSeat,
+                                     segListRes.layer_type,
+                                     paxListRes.time_limit,
+                                     change_layer_flags,
+                                     0,
+                                     NoExists,
+                                     NULL );
+                  }
+                  else {
+                    IntChangeSeats( paxListRes.point_id,
+                                    paxRes.id,
+                                    tid,
+                                    iSeat->first.xname,
+                                    iSeat->first.yname,
+                                    stSeat,
+                                    segListRes.layer_type,
+                                    paxListRes.time_limit,
+                                    change_layer_flags,
+                                    NULL );
+                  }
+                }
               }
-              else {
-                IntChangeSeats( paxListRes.point_id,
-                                paxRes.id,
-                                tid,
-                                iSeat->first.xname,
-                                iSeat->first.yname,
-                                stSeat,
-                                segListRes.layer_type,
-                                paxListRes.time_limit,
-                                change_layer_flags,
-                                NULL );
-              }
-
-            }
-            catch(UserException &e)
-            {
-              segListRes.ue.addError(e.getLexemaData(), paxListRes.point_id, paxRes.id);
-              paxErrorExists=true;
+              catch(UserException &e)
+              {
+                segListRes.ue.addError(e.getLexemaData(), paxListRes.point_id, paxRes.id);
+                paxRes.userException=e;
+              };
             };
-          };
         }
         else
         {
           //RemoveProtLayer
-          for(const ProtLayerResponse::Pax& paxRes : paxListRes)
+          for(ProtLayerResponse::Pax& paxRes : paxListRes)
           {
+            if (paxRes.userException) continue;
             try
             {
               if (isTestPaxId(paxRes.id)) continue;
@@ -2876,14 +2900,12 @@ static void changeLayer(const ProtLayerRequest::SegList& segListReq,
             catch(UserException &e)
             {
               segListRes.ue.addError(e.getLexemaData(), paxListRes.point_id, paxRes.id);
-              paxErrorExists=true;
+              paxRes.userException=e;
             };
           };
           check_layer_change(point_ids_spp, segListReq.getRequestName() + "::" + __FUNCTION__);
         };
       }; //!paxListRes.empty()
-
-      if (paxErrorExists) segListRes.pop_back();
     }
     catch(UserException &e)
     {
@@ -2906,10 +2928,10 @@ void WebRequestsIface::ChangeProtLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
   changeLayer(segListReq, segListRes);
 
+  if (!segListRes.ue.empty()) throw segListRes.ue;
+
   segListRes.toXML(segListReq.isLayerAdded(),
                    NewTextChild(resNode, segListReq.getRequestName().c_str()));
-
-  if (!segListRes.ue.empty()) throw segListRes.ue;
 }
 
 void WebRequestsIface::ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
