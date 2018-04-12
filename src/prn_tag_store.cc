@@ -391,6 +391,7 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::LIST_SEAT_NO,            TTagListItem(&TPrnTagStore::LIST_SEAT_NO, PAX_INFO)));
     tag_list.insert(make_pair(TAG::SURNAME,                 TTagListItem(&TPrnTagStore::SURNAME, PAX_INFO)));
     tag_list.insert(make_pair(TAG::TEST_SERVER,             TTagListItem(&TPrnTagStore::TEST_SERVER)));
+    tag_list.insert(make_pair(TAG::TICKET_NO,               TTagListItem(&TPrnTagStore::TICKET_NO, PAX_INFO))); // !!!
     tag_list.insert(make_pair(TAG::TIME_PRINT,              TTagListItem(&TPrnTagStore::TIME_PRINT)));
     tag_list.insert(make_pair(TAG::PAX_TITLE,               TTagListItem(&TPrnTagStore::PAX_TITLE, PAX_INFO)));
     tag_list.insert(make_pair(TAG::PNR,                     TTagListItem(&TPrnTagStore::PNR, PNR_INFO)));
@@ -401,16 +402,16 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::BI_AIRP_TERMINAL,        TTagListItem(&TPrnTagStore::BI_AIRP_TERMINAL)));
     tag_list.insert(make_pair(TAG::VOUCHER_CODE,            TTagListItem(&TPrnTagStore::VOUCHER_CODE)));
     tag_list.insert(make_pair(TAG::VOUCHER_TEXT,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT)));
-    tag_list.insert(make_pair(TAG::VOUCHER_TEXT1,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
-    tag_list.insert(make_pair(TAG::VOUCHER_TEXT2,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
-    tag_list.insert(make_pair(TAG::VOUCHER_TEXT3,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
-    tag_list.insert(make_pair(TAG::VOUCHER_TEXT4,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
-    tag_list.insert(make_pair(TAG::VOUCHER_TEXT5,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
-    tag_list.insert(make_pair(TAG::VOUCHER_TEXT6,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
-    tag_list.insert(make_pair(TAG::VOUCHER_TEXT7,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
-    tag_list.insert(make_pair(TAG::VOUCHER_TEXT8,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
-    tag_list.insert(make_pair(TAG::VOUCHER_TEXT9,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
-    tag_list.insert(make_pair(TAG::VOUCHER_TEXT10,            TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT1,           TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT2,           TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT3,           TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT4,           TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT5,           TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT6,           TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT7,           TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT8,           TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT9,           TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
+    tag_list.insert(make_pair(TAG::VOUCHER_TEXT10,          TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
 }
 
 void TPrnTagStore::tagsFromXML(xmlNodePtr tagsNode)
@@ -1975,6 +1976,14 @@ string TPrnTagStore::ETICKET_NO(TFieldParams fp) // !!! lat ???
             return result.str();
         }
     }
+}
+
+string TPrnTagStore::TICKET_NO(TFieldParams fp)
+{
+    string result = ETICKET_NO(fp);
+    if(result.empty())
+        result = paxInfo.ticket_no;
+    return result;
 }
 
 string TPrnTagStore::ETKT(TFieldParams fp)
