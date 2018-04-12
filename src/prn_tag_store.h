@@ -86,6 +86,7 @@ namespace TAG {
     const std::string SUBCLS = "SUBCLS";
     const std::string SURNAME = "SURNAME";
     const std::string TEST_SERVER = "TEST_SERVER";
+    const std::string TICKET_NO = "TICKET_NO";
     const std::string TIME_PRINT = "TIME_PRINT";
     const std::string PAX_TITLE = "PAX_TITLE";
     const std::string BI_HALL = "BI_HALL";
@@ -634,6 +635,7 @@ class TPrnTagStore {
         std::string LIST_SEAT_NO(TFieldParams fp);
         std::string SURNAME(TFieldParams fp);
         std::string TEST_SERVER(TFieldParams fp);
+        std::string TICKET_NO(TFieldParams fp);
         std::string TIME_PRINT(TFieldParams fp);
         std::string PAX_TITLE(TFieldParams fp);
         std::string BI_HALL(TFieldParams fp);
