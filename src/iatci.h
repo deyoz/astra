@@ -11,7 +11,7 @@ namespace iatci {
 namespace dcrcka {
 class Result; 
 }//namespace dcrcka
-}//namesoace iatci
+}//namespace iatci
 
 
 class IatciInterface: public JxtInterface

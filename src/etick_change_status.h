@@ -56,12 +56,12 @@ namespace ChangeStatus
         }
     };
 
-    void ETChangeStatus(const OrigOfRequest &org,
-                        const std::list<Ticket> &lTick,
-                        const std::string &ediSessCtxt,
-                        const edifact::KickInfo &kickInfo,
-                        const std::string& airline,
-                        const Ticketing::FlightNum_t& flNum,
-                        Ticketing::Itin* itin=NULL);
+    edilib::EdiSessionId_t ETChangeStatus(const OrigOfRequest &org,
+                                          const std::list<Ticket> &lTick,
+                                          const std::string &ediSessCtxt,
+                                          const edifact::KickInfo &kickInfo,
+                                          const std::string& airline,
+                                          const Ticketing::FlightNum_t& flNum,
+                                          Ticketing::Itin* itin=NULL);
 }
 }

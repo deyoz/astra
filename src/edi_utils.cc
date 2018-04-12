@@ -458,7 +458,7 @@ void addToEdiResponseCtxt(int ctxtId,
                           const xmlNodePtr srcNode,
                           const string &destNodeName)
 {
-    LogTrace(TRACE3) << "addToEdiResponseCtxt ctxtId " << ctxtId;
+  LogTrace(TRACE3) << __FUNCTION__ << " ctxtId=" << ctxtId;
   if (ctxtId==ASTRA::NoExists) return;
   string ctxt;
   AstraContext::GetContext("EDI_RESPONSE",
@@ -685,6 +685,7 @@ void GetEdiError(const xmlNodePtr errorCtxtNode,
 
 void WritePostponedContext(tlgnum_t tnum, int reqCtxtId)
 {
+    ASSERT(reqCtxtId != ASTRA::NoExists);
     LogTrace(TRACE1) << __FUNCTION__ << " ctxt_id=" << reqCtxtId << "; msg_id=" << tnum;
     OciCpp::CursCtl cur = make_curs(
 "insert into POSTPONED_TLG_CONTEXT (MSG_ID, REQ_CTXT_ID) "

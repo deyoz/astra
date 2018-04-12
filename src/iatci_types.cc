@@ -1,5 +1,6 @@
 #include "iatci_types.h"
 #include "iatci_help.h"
+#include "basetables.h"
 #include "xml_unit.h"
 #include "date_time.h"
 #include "astra_locale_adv.h"
@@ -22,25 +23,29 @@ using namespace Ticketing::TickExceptions;
 MagicTab MagicTab::fromNeg(int gt)
 {
     ASSERT(gt < 0);
-    const std::string pts = std::to_string(std::abs(gt));
+    /*const std::string pts = std::to_string(std::abs(gt));
     std::string p = pts.substr(0, pts.length() - 1);
     std::string t = pts.substr(pts.length() - 1);
     LogTrace(TRACE5) << "gt: " << gt;
     LogTrace(TRACE5) << "p: " << p;
     LogTrace(TRACE5) << "t: " << t;
-    return MagicTab(std::atoi(p.c_str()), std::atoi(t.c_str()));
+    return MagicTab(std::atoi(p.c_str()), std::atoi(t.c_str()));*/
+
+    return MagicTab(std::abs(gt), 1); // Hard Code до обновления терминала
 }
 
 int MagicTab::toNeg() const
 {
-    std::ostringstream s;
+    /*std::ostringstream s;
     s << "-";
     s << m_grpId;
     s << m_tabInd;
     LogTrace(TRACE5) << "P: " << m_grpId;
     LogTrace(TRACE5) << "T: " << m_tabInd;
     LogTrace(TRACE5) << "GT: " << std::atoi(s.str().c_str());
-    return std::atoi(s.str().c_str());
+    return std::atoi(s.str().c_str());*/
+
+    return -m_grpId;
 }
 
 //---------------------------------------------------------------------------------------
@@ -108,7 +113,8 @@ FlightDetails::FlightDetails(const std::string& airl,
                              const boost::gregorian::date& arrDate,
                              const boost::posix_time::time_duration& depTime,
                              const boost::posix_time::time_duration& arrTime,
-                             const boost::posix_time::time_duration& brdTime)
+                             const boost::posix_time::time_duration& brdTime,
+                             const std::string& gate)
     : m_airline(airl),
       m_flightNum(flNum),
       m_depPort(depPoint),
@@ -117,7 +123,8 @@ FlightDetails::FlightDetails(const std::string& airl,
       m_arrDate(arrDate),
       m_depTime(depTime),
       m_arrTime(arrTime),
-      m_boardingTime(brdTime)
+      m_boardingTime(brdTime),
+      m_gate(gate)
 {}
 
 const std::string& FlightDetails::airline() const
@@ -163,6 +170,11 @@ const boost::posix_time::time_duration& FlightDetails::arrTime() const
 const boost::posix_time::time_duration& FlightDetails::boardingTime() const
 {
     return m_boardingTime;
+}
+
+const std::string& FlightDetails::gate() const
+{
+    return m_gate;
 }
 
 std::string FlightDetails::toShortKeyString() const
@@ -237,6 +249,52 @@ const boost::gregorian::date& DocDetails::birthDate() const
 }
 
 const boost::gregorian::date& DocDetails::expiryDate() const
+{
+    return m_expiryDate;
+}
+
+//---------------------------------------------------------------------------------------
+
+VisaDetails::VisaDetails(const std::string& visaType,
+                         const std::string& issueCountry,
+                         const std::string& no,
+                         const std::string& placeOfIssue,
+                         const boost::gregorian::date& issueDate,
+                         const boost::gregorian::date& expiryDate)
+    : m_visaType(visaType),
+      m_issueCountry(issueCountry),
+      m_no(no),
+      m_placeOfIssue(placeOfIssue),
+      m_issueDate(issueDate),
+      m_expiryDate(expiryDate)
+{}
+
+const std::string& VisaDetails::visaType() const
+{
+    return m_visaType;
+}
+
+const std::string& VisaDetails::issueCountry() const
+{
+    return m_issueCountry;
+}
+
+const std::string& VisaDetails::no() const
+{
+    return m_no;
+}
+
+const std::string& VisaDetails::placeOfIssue() const
+{
+    return m_placeOfIssue;
+}
+
+const boost::gregorian::date& VisaDetails::issueDate() const
+{
+    return m_issueDate;
+}
+
+const boost::gregorian::date& VisaDetails::expiryDate() const
 {
     return m_expiryDate;
 }
@@ -378,6 +436,11 @@ const std::string& PaxDetails::respRef() const
 bool PaxDetails::isInfant() const
 {
     return m_type == Infant;
+}
+
+bool PaxDetails::withInfant() const
+{
+    return m_withInftIndic == WithInfant;
 }
 
 PaxDetails::PaxType_e PaxDetails::strToType(const std::string& s)
@@ -579,6 +642,20 @@ UpdateAddressDetails::UpdateAddressDetails(UpdateActionCode_e actionCode,
 
 //---------------------------------------------------------------------------------------
 
+UpdateVisaDetails::UpdateVisaDetails(UpdateActionCode_e actionCode,
+                                     const std::string& visaType,
+                                     const std::string& issueCountry,
+                                     const std::string& no,
+                                     const std::string& placeOfIssue,
+                                     const boost::gregorian::date& issueDate,
+                                     const boost::gregorian::date& expiryDate)
+    : UpdateDetails(actionCode),
+      VisaDetails(visaType, issueCountry, no,
+                  placeOfIssue, issueDate, expiryDate)
+{}
+
+//---------------------------------------------------------------------------------------
+
 UpdateSeatDetails::UpdateSeatDetails(UpdateActionCode_e actionCode,
                                      const std::string& seat,
                                      SmokeIndicator_e smokeInd)
@@ -655,19 +732,113 @@ const std::string& SelectPersonalDetails::tickNum() const
 
 //---------------------------------------------------------------------------------------
 
+BaggageDetails::BagTagInfo::BagTagInfo(const std::string& carrierCode,
+                                       const std::string& dest,
+                                       uint64_t fullTag,
+                                       unsigned qtty)
+    : m_carrierCode(carrierCode),
+      m_dest(dest),
+      m_fullTag(fullTag),
+      m_qtty(qtty)
+{}
+
+unsigned BaggageDetails::BagTagInfo::tagAccode() const
+{
+    return getTagAccode(m_fullTag);
+}
+
+unsigned BaggageDetails::BagTagInfo::tagNum() const
+{
+    return getTagNum(m_fullTag);
+}
+
+bool BaggageDetails::BagTagInfo::consistentWith(const BagTagInfo& bt) const
+{
+    if(carrierCode() == bt.carrierCode() &&
+       dest()        == bt.dest() &&
+       tagAccode()   == bt.tagAccode())
+    {
+       return abs((int)tagNum() - (int)bt.tagNum()) == 1;
+    }
+
+    return false;
+}
+
+uint64_t BaggageDetails::BagTagInfo::makeFullTag(unsigned tagAccode, unsigned tagNum)
+{
+    uint64_t fullTag = tagAccode;
+    fullTag *= 1000000;
+    fullTag += tagNum;
+    return fullTag;
+}
+
+//---------------------------------------------------------------------------------------
+
 BaggageDetails::BaggageDetails(const boost::optional<BagInfo>& bag,
                                const boost::optional<BagInfo>& handBag,
-                               const boost::optional<BagTagInfo>& bagTag)
-    : m_bag(bag), m_handBag(handBag), m_bagTag(bagTag)
+                               const std::list<BagTagInfo>& bagTags)
+    : m_bag(bag), m_handBag(handBag), m_bagTags(bagTags)
 {}
+
+std::list<BaggageDetails::BagTagInfo> BaggageDetails::bagTagsReduced() const
+{
+    if(m_bagTags.size() < 2) return m_bagTags;
+
+    std::list<BaggageDetails::BagTagInfo> res;
+    unsigned currRangeQtty = 1;
+    uint64_t firstFullTagOfTheRange = m_bagTags.begin()->fullTag();
+
+    for(auto curr = std::next(m_bagTags.begin()); curr != m_bagTags.end(); ++curr)
+    {
+        auto prev = std::prev(curr);
+        bool lastIter = (curr == std::prev(m_bagTags.end()));
+
+        if(!curr->consistentWith(*prev)) {
+            res.push_back(BaggageDetails::BagTagInfo(prev->carrierCode(),
+                                                     prev->dest(),
+                                                     firstFullTagOfTheRange,
+                                                     currRangeQtty));
+            firstFullTagOfTheRange = curr->fullTag();
+            currRangeQtty = 1;
+        }
+        else {
+            currRangeQtty++;
+        }
+
+        if(lastIter) {
+            res.push_back(BaggageDetails::BagTagInfo(curr->carrierCode(),
+                                                     curr->dest(),
+                                                     firstFullTagOfTheRange,
+                                                     currRangeQtty));
+        }
+    }
+
+    return res;
+}
+
+std::list<BaggageDetails::BagTagInfo> BaggageDetails::bagTagsExpanded() const
+{
+    std::list<BaggageDetails::BagTagInfo> res;
+    for(const auto& bagTag: m_bagTags)
+    {
+        for(unsigned i = 0; i < bagTag.qtty(); ++i)
+        {
+            res.push_back(BaggageDetails::BagTagInfo(bagTag.carrierCode(),
+                                                     bagTag.dest(),
+                                                     bagTag.fullTag() + i,
+                                                     1));
+        }
+    }
+    return res;
+}
 
 //---------------------------------------------------------------------------------------
 
 UpdateBaggageDetails::UpdateBaggageDetails(UpdateActionCode_e actionCode,
                                            const boost::optional<BagInfo>& bag,
                                            const boost::optional<BagInfo>& handBag,
-                                           const boost::optional<BagTagInfo>& bagTag)
-    : UpdateDetails(actionCode), BaggageDetails(bag, handBag, bagTag)
+                                           const std::list<BagTagInfo>& bagTags)
+    : UpdateDetails(actionCode), BaggageDetails(bag, handBag, bagTags)
 {}
 
 //---------------------------------------------------------------------------------------
@@ -730,12 +901,18 @@ bool ServiceDetails::SsrInfo::isTkne() const
     return m_ssrCode == "TKNE";
 }
 
-Ticketing::TicketCpn_t ServiceDetails::SsrInfo::toTicketCpn() const
+boost::optional<Ticketing::TicketCpn_t> ServiceDetails::SsrInfo::toTicketCpn() const
 {
-    ASSERT(m_ssrCode == "TKNE");
-    ASSERT(m_ssrText.length() == 14); // ticknum(13)+cpnnum(1)
-    return Ticketing::TicketCpn_t(m_ssrText.substr(0, 13),
-                                  boost::lexical_cast<int>(m_ssrText.substr(13, 1)));
+    LogTrace(TRACE3) << __FUNCTION__ 
+                     << " ssr_code=" << m_ssrCode << "; "
+                     << " ssr_text=" << m_ssrText;
+           
+    if(m_ssrCode == "TKNE" && m_ssrText.length() == 14/*ticknum(13)+cpnnum(1)*/) {
+        return Ticketing::TicketCpn_t(m_ssrText.substr(0, 13),
+                                      boost::lexical_cast<int>(m_ssrText.substr(13, 1)));
+    }
+    
+    return boost::none;    
 }
 
 //
@@ -1130,12 +1307,14 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<ServiceDetails>& service,
                    const boost::optional<DocDetails>& doc,
                    const boost::optional<AddressDetails>& address,
+                   const boost::optional<VisaDetails>& visa,
                    const boost::optional<PaxDetails>& infant,
                    const boost::optional<DocDetails>& infantDoc,
                    const boost::optional<AddressDetails>& infantAddress,
+                   const boost::optional<VisaDetails>& infantVisa,
                    const boost::optional<FlightSeatDetails>& infantSeat)
-    : iatci::PaxGroup(pax, reserv, baggage, service, doc, address,
-                      infant, infantDoc, infantAddress),
+    : iatci::PaxGroup(pax, reserv, baggage, service, doc, address, visa,
+                      infant, infantDoc, infantAddress, infantVisa),
       m_seat(seat), m_infantSeat(infantSeat)
 {}
 
@@ -1231,7 +1410,7 @@ Result Result::makeCancelResult(Status_e status,
 
 Result Result::makeSeatmapResult(Status_e status,
                                  const FlightDetails& flight,
-                                 const SeatmapDetails& seatmap,
+                                 boost::optional<SeatmapDetails> seatmap,
                                  boost::optional<CascadeHostDetails> cascade,
                                  boost::optional<ErrorDetails> error,
                                  boost::optional<WarningDetails> warning,
@@ -1454,46 +1633,28 @@ const boost::optional<iatci::CascadeHostDetails>& BaseParams::cascadeDetails() c
 
 //---------------------------------------------------------------------------------------
 
-Params::Params(const OriginatorDetails& origin,
-               const PaxDetails& pax,
-               const FlightDetails& flight,
-               boost::optional<FlightDetails> flightFromPrevHost,
-               boost::optional<CascadeHostDetails> cascadeDetails,
-               boost::optional<ServiceDetails> serviceDetails)
-    : BaseParams(origin, flight, flightFromPrevHost, cascadeDetails),
-      m_pax(pax), m_service(serviceDetails)
-{}
-
-const iatci::PaxDetails& Params::pax() const
-{
-    return m_pax;
-}
-
-const boost::optional<ServiceDetails>& Params::service() const
-{
-    return m_service;
-}
-
-//---------------------------------------------------------------------------------------
-
 PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<ReservationDetails>& reserv,
                    const boost::optional<BaggageDetails>& baggage,
                    const boost::optional<ServiceDetails>& service,
                    const boost::optional<DocDetails>& doc,
                    const boost::optional<AddressDetails>& address,
+                   const boost::optional<VisaDetails>& visa,
                    const boost::optional<PaxDetails>& infant,
                    const boost::optional<DocDetails>& infantDoc,
-                   const boost::optional<AddressDetails>& infantAddress)
+                   const boost::optional<AddressDetails>& infantAddress,
+                   const boost::optional<VisaDetails>& infantVisa)
     : m_pax(pax),
       m_reserv(reserv),
       m_baggage(baggage),
       m_service(service),
       m_doc(doc),
       m_address(address),
+      m_visa(visa),
       m_infant(infant),
       m_infantDoc(infantDoc),
-      m_infantAddress(infantAddress)
+      m_infantAddress(infantAddress),
+      m_infantVisa(infantVisa)
 {}
 
 const PaxDetails& PaxGroup::pax() const
@@ -1526,6 +1687,11 @@ const boost::optional<AddressDetails>& PaxGroup::address() const
     return m_address;
 }
 
+const boost::optional<VisaDetails>& PaxGroup::visa() const
+{
+    return m_visa;
+}
+
 const boost::optional<PaxDetails>& PaxGroup::infant() const
 {
     return m_infant;
@@ -1539,6 +1705,11 @@ const boost::optional<DocDetails>& PaxGroup::infantDoc() const
 const boost::optional<AddressDetails>& PaxGroup::infantAddress() const
 {
     return m_infantAddress;
+}
+
+const boost::optional<VisaDetails>& PaxGroup::infantVisa() const
+{
+    return m_infantVisa;
 }
 
 //---------------------------------------------------------------------------------------
@@ -1570,11 +1741,13 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<ServiceDetails>& service,
                    const boost::optional<DocDetails>& doc,
                    const boost::optional<AddressDetails>& address,
+                   const boost::optional<VisaDetails>& visa,
                    const boost::optional<PaxDetails>& infant,
                    const boost::optional<DocDetails>& infantDoc,
-                   const boost::optional<AddressDetails>& infantAddress)
-    : iatci::PaxGroup(pax, reserv, baggage, service, doc, address,
-                      infant, infantDoc, infantAddress),
+                   const boost::optional<AddressDetails>& infantAddress,
+                   const boost::optional<VisaDetails>& infantVisa)
+    : iatci::PaxGroup(pax, reserv, baggage, service, doc, address, visa,
+                      infant, infantDoc, infantAddress, infantVisa),
       m_seat(seat)
 {}
 
@@ -1614,13 +1787,17 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<UpdateServiceDetails>& updService,
                    const boost::optional<UpdateDocDetails>& updDoc,
                    const boost::optional<UpdateAddressDetails>& updAddress,
+                   const boost::optional<UpdateVisaDetails>& updVisa,
                    const boost::optional<UpdatePaxDetails>& updInfant,
                    const boost::optional<UpdateDocDetails>& updInfantDoc,
-                   const boost::optional<UpdateAddressDetails>& updInfantAddress)
-    : iatci::PaxGroup(pax, reserv, baggage, service, boost::none, boost::none, infant),
+                   const boost::optional<UpdateAddressDetails>& updInfantAddress,
+                   const boost::optional<UpdateVisaDetails>& updInfantVisa)
+    : iatci::PaxGroup(pax, reserv, baggage, service, boost::none, boost::none, boost::none, infant),
       m_updPax(updPax), m_updSeat(updSeat), m_updBaggage(updBaggage),
-      m_updService(updService), m_updDoc(updDoc), m_updAddress(updAddress),
-      m_updInfant(updInfant), m_updInfantDoc(updInfantDoc), m_updInfantAddress(updInfantAddress)
+      m_updService(updService), m_updDoc(updDoc),
+      m_updAddress(updAddress), m_updVisa(updVisa),
+      m_updInfant(updInfant), m_updInfantDoc(updInfantDoc),
+      m_updInfantAddress(updInfantAddress), m_updInfantVisa(updInfantVisa)
 {}
 
 const boost::optional<UpdatePaxDetails>& PaxGroup::updPax() const
@@ -1653,6 +1830,11 @@ const boost::optional<UpdateAddressDetails>& PaxGroup::updAddress() const
     return m_updAddress;
 }
 
+const boost::optional<UpdateVisaDetails>& PaxGroup::updVisa() const
+{
+    return m_updVisa;
+}
+
 const boost::optional<UpdatePaxDetails>& PaxGroup::updInfant() const
 {
     return m_updInfant;
@@ -1666,6 +1848,11 @@ const boost::optional<UpdateDocDetails>& PaxGroup::updInfantDoc() const
 const boost::optional<UpdateAddressDetails>& PaxGroup::updInfantAddress() const
 {
     return m_updInfantAddress;
+}
+
+const boost::optional<UpdateVisaDetails>& PaxGroup::updInfantVisa() const
+{
+    return m_updInfantVisa;
 }
 
 //---------------------------------------------------------------------------------------
@@ -1694,7 +1881,8 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<BaggageDetails>& baggage,
                    const boost::optional<ServiceDetails>& service,
                    const boost::optional<PaxDetails>& infant)
-    : iatci::PaxGroup(pax, reserv, baggage, service, boost::none, boost::none, infant),
+    : iatci::PaxGroup(pax, reserv, baggage, service,
+                      boost::none, boost::none, boost::none, infant),
       m_seat(seat)
 {}
 
@@ -1728,7 +1916,8 @@ PaxGroup::PaxGroup(const PaxDetails& pax,
                    const boost::optional<BaggageDetails>& baggage,
                    const boost::optional<ServiceDetails>& service,
                    const boost::optional<PaxDetails>& infant)
-    : iatci::PaxGroup(pax, reserv, baggage, service, boost::none, boost::none, infant)
+    : iatci::PaxGroup(pax, reserv, baggage, service,
+                      boost::none, boost::none, boost::none, infant)
 {}
 
 //---------------------------------------------------------------------------------------
@@ -1784,36 +1973,6 @@ const dcqcki::FlightGroup& CkiParams::fltGroup() const
 
 //---------------------------------------------------------------------------------------
 
-CkiParamsOld::CkiParamsOld(const OriginatorDetails& origin,
-                           const PaxDetails& pax,
-                           const FlightDetails& flight,
-                           boost::optional<FlightDetails> flightFromPrevHost,
-                           boost::optional<SeatDetails> seat,
-                           boost::optional<BaggageDetails> baggage,
-                           boost::optional<ReservationDetails> reserv,
-                           boost::optional<CascadeHostDetails> cascadeDetails,
-                           boost::optional<ServiceDetails> serviceDetails)
-    : Params(origin, pax, flight, flightFromPrevHost, cascadeDetails, serviceDetails),
-      m_seat(seat), m_baggage(baggage), m_reserv(reserv)
-{}
-
-const boost::optional<iatci::SeatDetails>& CkiParamsOld::seat() const
-{
-    return m_seat;
-}
-
-const boost::optional<iatci::BaggageDetails>& CkiParamsOld::baggage() const
-{
-    return m_baggage;
-}
-
-const boost::optional<ReservationDetails>& CkiParamsOld::reserv() const
-{
-    return m_reserv;
-}
-
-//---------------------------------------------------------------------------------------
-
 CkuParams::CkuParams(const OriginatorDetails& org,
                      const boost::optional<CascadeHostDetails>& cascade,
                      const dcqcku::FlightGroup& flg)
@@ -1845,53 +2004,6 @@ const boost::optional<CascadeHostDetails>& CkuParams::cascade() const
 const dcqcku::FlightGroup& CkuParams::fltGroup() const
 {
     return m_fltGroup;
-}
-
-//---------------------------------------------------------------------------------------
-
-CkuParamsOld::CkuParamsOld(const OriginatorDetails& origin,
-                           const PaxDetails& pax,
-                           const FlightDetails& flight,
-                           boost::optional<FlightDetails> flightFromPrevHost,
-                           boost::optional<UpdatePaxDetails> updPax,
-                           boost::optional<UpdateServiceDetails> updService,
-                           boost::optional<UpdateSeatDetails> updSeat,
-                           boost::optional<UpdateBaggageDetails> updBaggage,
-                           boost::optional<UpdateDocDetails> updDoc,
-                           boost::optional<CascadeHostDetails> cascadeDetails,
-                           boost::optional<ServiceDetails> serviceDetails)
-    : Params(origin, pax, flight, flightFromPrevHost, cascadeDetails, serviceDetails),
-      m_updPax(updPax), m_updService(updService), m_updSeat(updSeat),
-      m_updBaggage(updBaggage), m_updDoc(updDoc)
-{
-    if(!m_updPax && !m_updService && !m_updSeat && !m_updBaggage && !m_updDoc) {
-        LogError(STDLOG) << "CkuParams without update information!";
-    }
-}
-
-const boost::optional<UpdatePaxDetails>& CkuParamsOld::updPax() const
-{
-    return m_updPax;
-}
-
-const boost::optional<UpdateServiceDetails>& CkuParamsOld::updService() const
-{
-    return m_updService;
-}
-
-const boost::optional<UpdateSeatDetails>& CkuParamsOld::updSeat() const
-{
-    return m_updSeat;
-}
-
-const boost::optional<UpdateBaggageDetails>& CkuParamsOld::updBaggage() const
-{
-    return m_updBaggage;
-}
-
-const boost::optional<UpdateDocDetails>& CkuParamsOld::updDoc() const
-{
-    return m_updDoc;
 }
 
 //---------------------------------------------------------------------------------------
@@ -1928,17 +2040,6 @@ const dcqckx::FlightGroup& CkxParams::fltGroup() const
 {
     return m_fltGroup;
 }
-
-//---------------------------------------------------------------------------------------
-
-CkxParamsOld::CkxParamsOld(const OriginatorDetails& origin,
-                           const PaxDetails& pax,
-                           const FlightDetails& flight,
-                           boost::optional<FlightDetails> flightFromPrevHost,
-                           boost::optional<CascadeHostDetails> cascadeDetails,
-                           boost::optional<ServiceDetails> serviceDetails)
-    : Params(origin, pax, flight, flightFromPrevHost, cascadeDetails, serviceDetails)
-{}
 
 //---------------------------------------------------------------------------------------
 
@@ -2048,16 +2149,5 @@ const dcqbpr::FlightGroup& BprParams::fltGroup() const
 {
     return m_fltGroup;
 }
-
-//---------------------------------------------------------------------------------------
-
-BprParamsOld::BprParamsOld(const OriginatorDetails& origin,
-                           const PaxDetails& pax,
-                           const FlightDetails& flight,
-                           boost::optional<FlightDetails> flightFromPrevHost,
-                           boost::optional<CascadeHostDetails> cascadeDetails)
-    : CkiParamsOld(origin, pax, flight, flightFromPrevHost, boost::none,
-                   boost::none, boost::none, cascadeDetails)
-{}
 
 }//namespace iatci

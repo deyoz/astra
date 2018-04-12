@@ -230,7 +230,7 @@ boost::optional<iatci::ServiceDetails> IatciBprParamsNewMaker::Pxg::makeService(
 
 boost::optional<iatci::PaxDetails> IatciBprParamsNewMaker::Pxg::makeInfant() const
 {
-    if(m_ppd.m_withInftIndicator == "Y") {
+    if(m_ppd.m_withInftIndicator == "Y" && !m_ppd.m_inftName.empty()) {
         return iatci::makeInfant(m_ppd);
     }
 

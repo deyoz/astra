@@ -278,6 +278,7 @@ namespace BIPrintRules {
 
     void Holder::toStat(int grp_id, int pax_id, TDateTime time_print)
     {
+        if(grp_id < 0 || pax_id < 0) return;
         const BIPrintRules::TRule &bi_rule = get(grp_id, pax_id);
         if(bi_rule.exists() and not bi_rule.halls.empty()) {
             TTripInfo info;

@@ -223,7 +223,11 @@ void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateBaggageDetai
  * @brief make an UAP element
 */
 void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes,
-                    const iatci::UpdateDocDetails& updDoc, const iatci::PaxDetails& pax);
+                    const iatci::PaxDetails& pax,
+                    const boost::optional<iatci::UpdateDocDetails>& updDoc,
+                    const boost::optional<iatci::UpdateVisaDetails>& updVisa);
+
+void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes, bool infant);
 
 /**
  * @brief make an USI element
@@ -249,7 +253,9 @@ void viewRodElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::RowDetails& rowDet
  * @brief makes a PAP element
 */
 void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes,
-                    const iatci::DocDetails& doc, const iatci::PaxDetails& pax);
+                    const iatci::PaxDetails& pax,
+                    const boost::optional<iatci::DocDetails>& doc,
+                    const boost::optional<iatci::VisaDetails>& visa);
 
 void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes, bool infant);
 
@@ -257,7 +263,8 @@ void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes, bool infant);
  * @brief makes an ADD element
 */
 void viewAddElement(_EDI_REAL_MES_STRUCT_* pMes,
-                    const iatci::AddressDetails& addr);
+                    const iatci::AddressDetails& addr,
+                    boost::optional<iatci::UpdateDetails> updDetails = boost::none);
 
 }//namespace edifact
 

@@ -4,6 +4,7 @@
 #include "exceptions.h"
 #include "tlg/edi_tlg.h"
 #include "tlg/et_cos_request.h"
+#include "tlg/postpone_edifact.h"
 
 #include <edilib/edi_func_cpp.h>
 
@@ -17,13 +18,13 @@ namespace ChangeStatus
     using namespace std;
     using namespace edilib;
 
-    void ETChangeStatus(const OrigOfRequest &org,
-                        const std::list<Ticket> &lTick,
-                        const std::string &ediSessCtxt,
-                        const edifact::KickInfo &kickInfo,
-                        const std::string& airline,
-                        const Ticketing::FlightNum_t& flNum,
-                        Ticketing::Itin* itin)
+    edilib::EdiSessionId_t ETChangeStatus(const OrigOfRequest &org,
+                                          const std::list<Ticket> &lTick,
+                                          const std::string &ediSessCtxt,
+                                          const edifact::KickInfo &kickInfo,
+                                          const std::string& airline,
+                                          const Ticketing::FlightNum_t& flNum,
+                                          Ticketing::Itin* itin)
     {
         ProgTrace(TRACE2,"request for change of status from:");
         org.Trace(TRACE2);
@@ -35,16 +36,13 @@ namespace ChangeStatus
             itin->Trace(TRACE2);
         }
 
-        edifact::EtCosParams chngData(org,
-                                      ediSessCtxt,
-                                      kickInfo,
-                                      airline,
-                                      flNum,
-                                      lTick,
-                                      itin);
-
-        edifact::EtCosRequest cosReq(chngData);
-        cosReq.sendTlg();
+        return edifact::SendEtCosRequest(edifact::EtCosParams(org,
+                                                              ediSessCtxt,
+                                                              kickInfo,
+                                                              airline,
+                                                              flNum,
+                                                              lTick,
+                                                              itin));
     }
 
     ChngStatAnswer ChngStatAnswer::readEdiTlg(EDI_REAL_MES_STRUCT *pMes)

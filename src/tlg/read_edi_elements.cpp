@@ -775,6 +775,23 @@ boost::optional<PbdElem> readEdiPbd(_EDI_REAL_MES_STRUCT_ *pMes)
                                                            CompElement("C028"));
     }
 
+    unsigned num_c029 = GetNumComposite(pMes, "C029");
+    EdiPointHolder c029_holder(pMes);
+    for(unsigned i = 0; i < num_c029; ++i)
+    {
+        SetEdiPointToCompositeG(pMes, "C029", i, "EtErr::ProgErr");
+
+        PbdElem::Tag tag;
+        tag.m_carrierCode = GetDBFName(pMes, 3127);
+        tag.m_tagNum      = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes, 9835);
+        tag.m_qtty        = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes, 9836);
+        tag.m_dest        = GetDBFName(pMes, 3259);
+        tag.m_accode      = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes, 3810);
+        pbd.m_tags.push_back(tag);
+
+        PopEdiPoint_wdG(pMes);
+    }
+
     LogTrace(TRACE3) << pbd;
 
     return pbd;
@@ -929,18 +946,15 @@ boost::optional<FsdElem> readEdiFsd(_EDI_REAL_MES_STRUCT_ *pMes)
         return boost::optional<FsdElem>();
     }
 
-    std::string boardingTime = GetDBFName(pMes, DataElement(2804), CompElement());
-    if(boardingTime.empty()) {
-        return boost::optional<FsdElem>();
-    }
-
     FsdElem fsd;
+    std::string boardingTime = GetDBFName(pMes, DataElement(2804), CompElement());
+    fsd.m_gate = GetDBFName(pMes, DataElement(9870), CompElement());
+
     if(boardingTime.length() == 4) {
         fsd.m_boardingTime = Dates::hh24mi(boardingTime);
     } else {
-        LogError(STDLOG) << "Invalid boarding time string [" << boardingTime << "]";
+        LogWarning(STDLOG) << "Invalid boarding time string [" << boardingTime << "]";
     }
-
 
     LogTrace(TRACE3) << fsd;
 
@@ -1067,6 +1081,24 @@ boost::optional<UbdElem> readEdiUbd(_EDI_REAL_MES_STRUCT_ *pMes)
                                                            DataElement(6803),
                                                            "",
                                                            CompElement("C036"));
+    }
+
+    unsigned num_c037 = GetNumComposite(pMes, "C037");
+    EdiPointHolder c037_holder(pMes);
+    for(unsigned i = 0; i < num_c037; ++i)
+    {
+        SetEdiPointToCompositeG(pMes, "C037", i, "EtErr::ProgErr");
+
+        UbdElem::Tag tag;
+        tag.m_actionCode  = GetDBFName(pMes, 9858);
+        tag.m_carrierCode = GetDBFName(pMes, 3127);
+        tag.m_tagNum      = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes, 9835);
+        tag.m_qtty        = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes, 9836);
+        tag.m_dest        = GetDBFName(pMes, 3259);
+        tag.m_accode      = GetDBFNameCast<unsigned>(EdiDigitCast<unsigned>(), pMes, 3810);
+        ubd.m_tags.push_back(tag);
+
+        PopEdiPoint_wdG(pMes);
     }
 
     LogTrace(TRACE3) << ubd;
@@ -1221,24 +1253,44 @@ boost::optional<edifact::PapElem> readEdiPap(_EDI_REAL_MES_STRUCT_ *pMes)
     PapElem pap;
     pap.m_type         = GetDBFName(pMes, DataElement(6353), CompElement("C060"));
     pap.m_nationality  = GetDBFName(pMes, DataElement(3207), CompElement("C060"));
-    pap.m_docQualifier = GetDBFName(pMes, DataElement(7365), CompElement("C700"));
-    pap.m_docNumber    = GetDBFName(pMes, DataElement(1004), CompElement("C700"));
-    pap.m_placeOfIssue = GetDBFName(pMes, DataElement(3207), CompElement("C700"));
-    pap.m_gender       = GetDBFName(pMes, DataElement(6353), CompElement("C700"));
-    pap.m_surname      = GetDBFName(pMes, DataElement(3808), CompElement("C700"));
-    pap.m_name         = GetDBFName(pMes, DataElement(3809), CompElement("C700"));
-    pap.m_otherName    = GetDBFName(pMes, DataElement(9754), CompElement("C700"));
-
-    std::string expiryDate = GetDBFName(pMes, DataElement(2380), CompElement("C700"));
-    if(!expiryDate.empty()) {
-        pap.m_expiryDate = Dates::rrmmdd(expiryDate);
-    }
 
     std::string birthDate  = GetDBFName(pMes, DataElement(9916), CompElement("C060"));
     if(!birthDate.empty()) {
         pap.m_birthDate = Dates::DateFromYYMMDD(birthDate,
                                                 Dates::YY2YYYY_WraparoundFutureDate,
                                                 Dates::currentDate());
+    }
+
+    EdiPointHolder c700_holder(pMes);
+    unsigned numDocs = GetNumComposite(pMes, "C700");
+    for(unsigned i = 0; i < numDocs; ++i)
+    {
+        SetEdiPointToCompositeG(pMes, "C700", i, "EtErr::ProgErr");
+
+        PapElem::PapDoc papDoc;
+        papDoc.m_docQualifier = GetDBNum(pMes, DataElement(7365));
+        papDoc.m_docNumber    = GetDBNum(pMes, DataElement(1004));
+        papDoc.m_placeOfIssue = GetDBNum(pMes, DataElement(3207));
+        papDoc.m_freeText     = GetDBNum(pMes, DataElement(4440));
+        papDoc.m_gender       = GetDBNum(pMes, DataElement(6353));
+        papDoc.m_cityOfIssue  = GetDBNum(pMes, DataElement(3164));
+        papDoc.m_surname      = GetDBNum(pMes, DataElement(3808));
+        papDoc.m_name         = GetDBNum(pMes, DataElement(3809));
+        papDoc.m_otherName    = GetDBNum(pMes, DataElement(9754));
+
+        std::string expiryDate = GetDBNum(pMes, DataElement(2380, 0));
+        if(!expiryDate.empty()) {
+            papDoc.m_expiryDate = Dates::rrmmdd(expiryDate);
+        }
+
+        std::string issueDate = GetDBNum(pMes, DataElement(2380, 1));
+        if(!issueDate.empty()) {
+            papDoc.m_issueDate = Dates::rrmmdd(issueDate);
+        }
+
+        pap.m_docs.push_back(papDoc);
+
+        PopEdiPoint_wdG(pMes);
     }
 
     LogTrace(TRACE3) << pap;
@@ -1291,24 +1343,44 @@ boost::optional<edifact::UapElem> readEdiUap(_EDI_REAL_MES_STRUCT_ *pMes)
     uap.m_actionCode   = GetDBFName(pMes, DataElement(9858), CompElement("C031"));
     uap.m_type         = GetDBFName(pMes, DataElement(6353), CompElement("C060"));
     uap.m_nationality  = GetDBFName(pMes, DataElement(3207), CompElement("C060"));
-    uap.m_docQualifier = GetDBFName(pMes, DataElement(7365), CompElement("C700"));
-    uap.m_docNumber    = GetDBFName(pMes, DataElement(1004), CompElement("C700"));
-    uap.m_placeOfIssue = GetDBFName(pMes, DataElement(3207), CompElement("C700"));
-    uap.m_gender       = GetDBFName(pMes, DataElement(6353), CompElement("C700"));
-    uap.m_surname      = GetDBFName(pMes, DataElement(3808), CompElement("C700"));
-    uap.m_name         = GetDBFName(pMes, DataElement(3809), CompElement("C700"));
-    uap.m_otherName    = GetDBFName(pMes, DataElement(9754), CompElement("C700"));
-
-    std::string expiryDate = GetDBFName(pMes, DataElement(2380), CompElement("C700"));
-    if(!expiryDate.empty()) {
-        uap.m_expiryDate = Dates::rrmmdd(expiryDate);
-    }
 
     std::string birthDate  = GetDBFName(pMes, DataElement(9916), CompElement("C060"));
     if(!birthDate.empty()) {
         uap.m_birthDate = Dates::DateFromYYMMDD(birthDate,
                                                 Dates::YY2YYYY_WraparoundFutureDate,
                                                 Dates::currentDate());
+    }
+
+    EdiPointHolder c700_holder(pMes);
+    unsigned numDocs = GetNumComposite(pMes, "C700");
+    for(unsigned i = 0; i < numDocs; ++i)
+    {
+        SetEdiPointToCompositeG(pMes, "C700", i, "EtErr::ProgErr");
+
+        UapElem::PapDoc uapDoc;
+        uapDoc.m_docQualifier = GetDBNum(pMes, DataElement(7365));
+        uapDoc.m_docNumber    = GetDBNum(pMes, DataElement(1004));
+        uapDoc.m_placeOfIssue = GetDBNum(pMes, DataElement(3207));
+        uapDoc.m_freeText     = GetDBNum(pMes, DataElement(4440));
+        uapDoc.m_gender       = GetDBNum(pMes, DataElement(6353));
+        uapDoc.m_cityOfIssue  = GetDBNum(pMes, DataElement(3164));
+        uapDoc.m_surname      = GetDBNum(pMes, DataElement(3808));
+        uapDoc.m_name         = GetDBNum(pMes, DataElement(3809));
+        uapDoc.m_otherName    = GetDBNum(pMes, DataElement(9754));
+
+        std::string expiryDate = GetDBNum(pMes, DataElement(2380, 0));
+        if(!expiryDate.empty()) {
+            uapDoc.m_expiryDate = Dates::rrmmdd(expiryDate);
+        }
+
+        std::string issueDate = GetDBNum(pMes, DataElement(2380, 1));
+        if(!issueDate.empty()) {
+            uapDoc.m_issueDate = Dates::rrmmdd(issueDate);
+        }
+
+        uap.m_docs.push_back(uapDoc);
+
+        PopEdiPoint_wdG(pMes);
     }
 
     LogTrace(TRACE3) << uap;

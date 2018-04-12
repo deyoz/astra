@@ -297,4 +297,6 @@ void CreateEmulDocs(const std::vector< std::pair<int/*point_id*/, TWebPnrForSave
                     const XMLDoc &emulDocHeader,
                     XMLDoc &emulCkinDoc, std::map<int,XMLDoc> &emulChngDocs );
 
+void tryGenerateBagTags(xmlNodePtr reqNode);
+
 #endif // PNR_INFORM_H

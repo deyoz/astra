@@ -52,6 +52,8 @@ int main_srv_tcl(int supervisorSocket, int argc, char *argv[]);
 int main_typeb_handler_tcl(int supervisorSocket, int argc, char *argv[]);
 int main_typeb_parser_tcl(int supervisorSocket, int argc, char *argv[]);
 int main_edi_handler_tcl(int supervisorSocket, int argc, char *argv[]);
+int main_itci_req_handler_tcl(int supervisorSocket, int argc, char *argv[]);
+int main_itci_res_handler_tcl(int supervisorSocket, int argc, char *argv[]);
 int main_apps_handler_tcl(int supervisorSocket, int argc, char *argv[]);
 int main_apps_answer_emul_tcl(int supervisorSocket, int argc, char *argv[]);
 

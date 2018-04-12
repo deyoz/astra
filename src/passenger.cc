@@ -1345,7 +1345,8 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node) const
   if (DocExists) doc.toXML(paxNode);
   if (DocoExists || doco.needPseudoType()) doco.toXML(paxNode);
 
-  if (reqInfo->desk.compatible(DOCA_VERSION))
+  if (reqInfo->api_mode ||
+          reqInfo->desk.compatible(DOCA_VERSION))
   {
     if (DocaExists)
     {
@@ -1408,7 +1409,8 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
         DocExists=true;
         DocoExists=true;
 
-        if (reqInfo->desk.compatible(DOCA_VERSION))
+        if (reqInfo->api_mode ||
+                reqInfo->desk.compatible(DOCA_VERSION))
         {
           xmlNodePtr docaNode=GetNodeFast("addresses",node2);
           if (docaNode!=NULL)
@@ -1700,7 +1702,8 @@ TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode)
       if (cat==remASVC) continue; //пропускаем переданные ASVC
       rems.insert(rem);
     };
-    if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(FQT_TIER_LEVEL_VERSION))
+    if (reqInfo->api_mode ||
+            (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(FQT_TIER_LEVEL_VERSION)))
     {
       //ремарки FQT
       for(remNode=NodeAsNodeFast("fqt_rems",node2)->children; remNode!=NULL; remNode=remNode->next)

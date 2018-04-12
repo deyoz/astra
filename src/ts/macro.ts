@@ -100,7 +100,7 @@ $(defmacro PREPARE_SEASON_SCD
               <company>$(airl)</company>
               <trip>$(fltno)</trip>
               <bc>$(craft)</bc>
-              <takeoff>30.12.1899 10:00:00</takeoff>
+              <takeoff>30.12.1899 10:15:00</takeoff>
               <y>-1</y>
             </dest>
             <dest>
@@ -877,7 +877,7 @@ $(defmacro SAVE_ET_DISP
 UNB+SIRE:1+$(dcs_addr)+$(ets_addr)+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
 UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
 MSG+:131"
-ORG+$(airl):åéÇ++++Y+::RU+åéÇêéå"
+ORG+$(airl):xxx++++Y+::RU+xxxxxx"
 TKT+$(tickno)"
 UNT+5+1"
 UNZ+1+$(last_edifact_ref)0001"

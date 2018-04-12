@@ -28,7 +28,8 @@ public:
     EdiErrMsgDataElem(int de, const std::string& defCode);
     void addElement(const Ticketing::ErrMsg_t& innerErr, const std::string& ediErr);
     const std::string& getEdiErrByInner(const Ticketing::ErrMsg_t& innerErr);
-    Ticketing::ErrMsg_t getInnerErrByEdi(const std::string& ediErr);
+    Ticketing::ErrMsg_t getInnerErrByEdi(const std::string& ediErr,
+                                         const Ticketing::ErrMsg_t& defaultErr = Ticketing::AstraErr::EDI_PROC_ERR );
 };
 
 //-----------------------------------------------------------------------------
@@ -56,7 +57,8 @@ class EdiErrMsgERC: public EdiErrMsg
 public:
     static const std::string DefaultEdiErr;
     static std::string getEdiErrByInner(const Ticketing::ErrMsg_t& innerErr);
-    static Ticketing::ErrMsg_t getInnerErrByEdi(const std::string& ediErr);
+    static Ticketing::ErrMsg_t getInnerErrByEdi(const std::string& ediErr,
+                                                const Ticketing::ErrMsg_t& defaultErr = Ticketing::AstraErr::EDI_PROC_ERR);
 };
 
 //-------------------------------------------------------------------
@@ -66,16 +68,19 @@ class EdiErrMsgERD: public EdiErrMsg
 public:
     static const std::string DefaultEdiErr;
     static std::string getEdiErrByInner(const Ticketing::ErrMsg_t& innerErr);
-    static Ticketing::ErrMsg_t getInnerErrByEdi(const std::string& ediErr);
+    static Ticketing::ErrMsg_t getInnerErrByEdi(const std::string& ediErr,
+                                                const Ticketing::ErrMsg_t& defaultErr = Ticketing::AstraErr::EDI_PROC_ERR);
 };
 
 //-----------------------------------------------------------------------------
 
 std::string getErdErrByInner(const Ticketing::ErrMsg_t& innerErr);
-Ticketing::ErrMsg_t getInnerErrByErd(const std::string& erdErr);
+Ticketing::ErrMsg_t getInnerErrByErd(const std::string& erdErr,
+                                     const Ticketing::ErrMsg_t& defaultErr = Ticketing::AstraErr::EDI_PROC_ERR);
 
 std::string getErcErrByInner(const Ticketing::ErrMsg_t& innerErr);
-Ticketing::ErrMsg_t getInnerErrByErc(const std::string& ercErr);
+Ticketing::ErrMsg_t getInnerErrByErc(const std::string& ercErr,
+                                     const Ticketing::ErrMsg_t& defaultErr = Ticketing::AstraErr::EDI_PROC_ERR);
 
 }//namespace edifact
 

@@ -2515,17 +2515,37 @@ bool ETStatusInterface::ETChangeStatus(const edifact::KickInfo &kickInfo,
                                                             OrigOfRequest(airlineToXML(oper_carrier, LANG_RU), *TReqInfo::Instance());
 
         //throw_if_request_dup("ETStatusInterface::ETChangeStatus");
-        ChangeStatus::ETChangeStatus(org,
-                                     ltick,
-                                     ediCtxt,
-                                     kickInfo,
-                                     oper_carrier,
-                                     Ticketing::FlightNum_t(oper_flight_no));
+        edilib::EdiSessionId_t sessId = ChangeStatus::ETChangeStatus(org,
+                                                                     ltick,
+                                                                     ediCtxt,
+                                                                     kickInfo,
+                                                                     oper_carrier,
+                                                                     Ticketing::FlightNum_t(oper_flight_no));
+        if(kickInfo.reqCtxtId != ASTRA::NoExists) {
+            ths.push_back(TlgHaveSent(sessId, kickInfo.reqCtxtId));
+        } else {
+            LogTrace(TRACE0) << "kickInfo has uninitialized reqCtxtId!";
+        }
+
         result=true;
       }
     }
   }
 
+  if(result)
+  {
+      if(TReqInfo::Instance()->api_mode)
+      {
+          tlgnum_t tnum = *RemoteSystemContext::SystemContext::Instance(STDLOG).inbTlgInfo().tlgNum();
+          if(!ths.empty()) {
+              for(const auto& t: ths) {
+                  AstraEdifact::WritePostponedContext(tnum, t.m_reqCtxtId);
+                  TlgHandling::PostponeEdiHandling::postpone(tnum, t.m_sessId);
+            }
+            throw TlgHandling::TlgToBePostponed(tnum);
+          }
+      }
+  }
   return result;
 }
 
@@ -3252,7 +3272,7 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
     try
     {
-      CheckInInterface::LoadPax(grp_id, resNode, afterSavePax);
+      CheckInInterface::LoadPax(grp_id, termReqNode, resNode, afterSavePax);
     }
     catch(...)
     {
@@ -3686,7 +3706,6 @@ void handleEtCosResponse(const edifact::RemoteResults& remRes)
         }
     }
 
-    LogTrace(TRACE3) << "before addToEdiResponseCtxt " << req_ctxt_id;
     addToEdiResponseCtxt(req_ctxt_id, ticketNode, "tickets");
 }
 

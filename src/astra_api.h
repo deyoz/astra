@@ -122,7 +122,7 @@ struct DocInfo
             const boost::gregorian::date& birthDate,
             const std::string& gender);
 
-    std::string id() const { return m_type + m_num; }
+    bool isEmpty() const;
 };
 
 bool operator==(const DocInfo& left, const DocInfo& right);
@@ -168,8 +168,21 @@ bool operator!=(const Addresses& left, const Addresses& right);
 
 struct VisaInfo
 {
-    // TODO
-    std::string id() const { return "visa_id"; }
+    std::string            m_type;
+    std::string            m_country;
+    std::string            m_num;
+    std::string            m_placeOfIssue;
+    boost::gregorian::date m_issueDate;
+    boost::gregorian::date m_expiryDate;
+
+    VisaInfo(const std::string& type,
+             const std::string& country,
+             const std::string& num,
+             const std::string& placeOfIssue,
+             const boost::gregorian::date& issueDate,
+             const boost::gregorian::date& expiryDate);
+
+    bool isEmpty() const;
 };
 
 bool operator==(const VisaInfo& left, const VisaInfo& right);
@@ -231,6 +244,7 @@ struct PaxInfo
             const Ticketing::SubClass& subclass,
             const boost::optional<DocInfo>& doc,
             const boost::optional<Addresses>& addrs,
+            const boost::optional<VisaInfo>& visa,
             const boost::optional<Remarks>& rems = boost::none,
             const boost::optional<FqtRemarks>& fqtRems = boost::none,
             int bagPoolNum = 0,
@@ -269,6 +283,30 @@ struct BagPool
 
     BagPool  operator+ (const BagPool& pool);
     BagPool& operator+=(const BagPool& pool);
+};
+
+//---------------------------------------------------------------------------------------
+
+struct BaggageTag
+{
+    std::string m_carrierCode;
+    uint64_t    m_fullTag;
+    unsigned    m_numOfConsecSerial;
+    std::string m_destination;
+
+    BaggageTag(uint64_t fullTag,
+               unsigned numOfConsecSerial,
+               const std::string& dest);
+
+    BaggageTag(const std::string& carrierCode,
+               uint64_t fullTag,
+               unsigned numOfConsecSerial,
+               const std::string& dest);
+
+    const std::string&   carrierCode() const { return m_carrierCode;       }
+    uint64_t                 fullTag() const { return m_fullTag;           }
+    unsigned       numOfConsecSerial() const { return m_numOfConsecSerial; }
+    const std::string&   destination() const { return m_destination;       }
 };
 
 //---------------------------------------------------------------------------------------
@@ -353,6 +391,20 @@ struct XmlPaxAddresses
 
 //---------------------------------------------------------------------------------------
 
+struct XmlPaxVisa
+{
+    std::string type;
+    std::string no;
+    std::string issue_place;
+    std::string issue_date;
+    std::string expiry_date;
+    std::string applic_country;
+
+    astra_entities::VisaInfo toVisa() const;
+};
+
+//---------------------------------------------------------------------------------------
+
 struct XmlRem
 {
     std::string rem_code;
@@ -426,6 +478,7 @@ struct XmlPax
     int         iatci_parent_id;
     boost::optional<XmlPaxDoc> doc;
     boost::optional<XmlPaxAddresses> addrs;
+    boost::optional<XmlPaxVisa> visa;
     boost::optional<XmlRems> rems;
     boost::optional<XmlFqtRems> fqt_rems;
 
@@ -500,6 +553,8 @@ struct XmlTripHeader
     std::string      suffix;
     std::string      airp;
     BASIC::date_time::TDateTime scd_out_local;
+    std::string      scd_brd_to_local;
+    std::string      remote_gate;
     int              pr_etl_only;
     int              pr_etstatus;
     int              pr_no_ticket_check;
@@ -615,6 +670,7 @@ struct XmlSegmentInfo
     std::string   bag_refuse;
     int           tid;
     std::string   city_arv;
+    std::string   airline;
 
     XmlSegmentInfo()
         : grp_id(ASTRA::NoExists),
@@ -640,10 +696,12 @@ struct XmlSegment
 
     astra_entities::SegmentInfo toSeg() const;
 
-    std::list<XmlPax> nameFilter(const std::string& surname,
-                                 const std::string& name) const;
+    std::list<XmlPax> findPaxesByName(const std::string& surname,
+                                      const std::string& name) const;
 
-    boost::optional<XmlPax> idFilter(int paxId) const;
+    boost::optional<XmlPax> findPaxById(int paxId) const;
+
+    XmlPax firstAdult() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -658,6 +716,7 @@ struct XmlBag
     int         amount;
     int         weight;
     int         bag_pool_num;
+    std::string airp_arv_final;
 
     // доп инфа
     int         pax_id;
@@ -673,6 +732,8 @@ struct XmlBag
     {}
 };
 
+std::ostream& operator<<(std::ostream& os, const XmlBag& bag);
+
 //---------------------------------------------------------------------------------------
 
 struct XmlBags
@@ -685,7 +746,52 @@ struct XmlBags
         : bags(b)
     {}
 
+    bool empty() const { return bags.empty(); }
+    bool haveNotCabinBags() const;
+
     boost::optional<XmlBag> findBag(int paxId, int prCabin) const;
+
+    size_t totalAmount() const;
+};
+
+//---------------------------------------------------------------------------------------
+
+struct XmlBagTag
+{
+    int         num;
+    std::string tag_type;
+    uint64_t    no;
+    int         bag_num;
+    bool        pr_print;
+
+    // доп инфа
+    int         pax_id;
+
+    XmlBagTag()
+        : num(ASTRA::NoExists),
+          no(ASTRA::NoExists),
+          bag_num(ASTRA::NoExists),
+          pr_print(false),
+          pax_id(ASTRA::NoExists)
+    {}
+};
+
+std::ostream& operator<<(std::ostream& os, const XmlBagTag& tag);
+
+//---------------------------------------------------------------------------------------
+
+struct XmlBagTags
+{
+    std::list<XmlBagTag> bagTags;
+
+    XmlBagTags()
+    {}
+    XmlBagTags(const std::list<XmlBagTag>& bt)
+        : bagTags(bt)
+    {}
+
+    bool empty() const { return bagTags.empty(); }
+    bool containsTagForPax(int paxId) const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -885,6 +991,8 @@ public:
     static XmlPaxAddress                 readAddress(xmlNodePtr addrNode);
     static XmlPaxAddresses               readAddresses(xmlNodePtr addrsNode);
 
+    static XmlPaxVisa                    readVisa(xmlNodePtr visaNode);
+
     static XmlPax                        readPax(xmlNodePtr paxNode);
     static std::list<XmlPax>             readPaxes(xmlNodePtr paxesNode);
 
@@ -910,6 +1018,9 @@ public:
 
     static XmlBag                        readBag(xmlNodePtr bagNode);
     static std::list<XmlBag>             readBags(xmlNodePtr bagsNode);
+
+    static XmlBagTag                     readBagTag(xmlNodePtr bagTagNode);
+    static std::list<XmlBagTag>          readBagTags(xmlNodePtr bagTagsNode);
 
     static XmlPlaceLayer                 readPlaceLayer(xmlNodePtr layerNode);
     static std::list<XmlPlaceLayer>      readPlaceLayers(xmlNodePtr layersNode);
@@ -937,12 +1048,14 @@ public:
     static xmlNodePtr viewRems(xmlNodePtr node, const XmlRems& rems);
 
     static xmlNodePtr viewFqtRem(xmlNodePtr node, const XmlFqtRem& rem);
-    static xmlNodePtr viewFqtRems(xmlNodePtr node, const XmlFqtRems& rems);
+    static xmlNodePtr viewFqtRems(xmlNodePtr node, const boost::optional<XmlFqtRems>& rems);
 
     static xmlNodePtr viewDoc(xmlNodePtr node, const XmlPaxDoc& doc);
 
     static xmlNodePtr viewAddress(xmlNodePtr node, const XmlPaxAddress& addr);
     static xmlNodePtr viewAddresses(xmlNodePtr node, const XmlPaxAddresses& addrs);
+
+    static xmlNodePtr viewVisa(xmlNodePtr node, const XmlPaxVisa& visa);
 
     static xmlNodePtr viewPax(xmlNodePtr node, const XmlPax& pax);
 
@@ -951,7 +1064,12 @@ public:
     static xmlNodePtr viewSeg(xmlNodePtr node, const XmlSegment& seg);
 
     static xmlNodePtr viewBag(xmlNodePtr node, const XmlBag& bag);
+    static xmlNodePtr viewBagsHeader(xmlNodePtr node);
     static xmlNodePtr viewBags(xmlNodePtr node, const XmlBags& bags);
+
+    static xmlNodePtr viewBagTag(xmlNodePtr node, const XmlBagTag& tag);
+    static xmlNodePtr viewBagTagsHeader(xmlNodePtr node);
+    static xmlNodePtr viewBagTags(xmlNodePtr node, const XmlBagTags& tags);
 
     static xmlNodePtr viewServiveList(xmlNodePtr node, const XmlServiceList& svcList);
 };
@@ -969,8 +1087,7 @@ struct NameFilter
 
     inline bool operator()(const XmlPax& pax) const
     {
-        return pax.surname == m_surname &&
-               pax.name    == m_name;
+        return pax.equalName(m_surname, m_name);
     }
 };
 
@@ -1039,7 +1156,8 @@ struct LoadPaxXmlResult
 {
     std::list<XmlSegment> lSeg;
 
-    std::list<XmlBag> lBag;
+    std::list<XmlBag>     lBag;
+    std::list<XmlBagTag>  lBagTag;
 
     std::vector<iatci::dcrcka::Result> toIatci(iatci::dcrcka::Result::Action_e action,
                                                iatci::dcrcka::Result::Status_e status) const;
@@ -1052,7 +1170,12 @@ struct LoadPaxXmlResult
 
     LoadPaxXmlResult(xmlNodePtr node);
     LoadPaxXmlResult(const std::list<XmlSegment>& lSeg,
-                     const std::list<XmlBag>& lBag = std::list<XmlBag>());
+                     const std::list<XmlBag>& lBag = std::list<XmlBag>(),
+                     const std::list<XmlBagTag>& lBagTag = std::list<XmlBagTag>());
+
+private:
+    void finalizeBags();
+    void finalizeBagTags();
 };
 
 //---------------------------------------------------------------------------------------
@@ -1113,7 +1236,7 @@ protected:
     xmlNodePtr      getQueryNode() const;
     xmlNodePtr      getAnswerNode() const;
 
-    void initReqInfo(const std::string& deskVersion = OLDEST_SUPPORTED_VERSION) const;
+    void initReqInfo(const std::string& deskVersion = PIECE_CONCEPT_VERSION) const;
 
     AstraEngine();
 
@@ -1136,7 +1259,8 @@ public:
     // сохранение информации о пассажире
     xml_entities::LoadPaxXmlResult SavePax(int pointDep, const xml_entities::XmlTrip& paxTrip);
     xml_entities::LoadPaxXmlResult SavePax(const xml_entities::XmlSegment& paxSeg,
-                                           boost::optional<xml_entities::XmlBags> bags = boost::none);
+                                           boost::optional<xml_entities::XmlBags> bags = boost::none,
+                                           boost::optional<xml_entities::XmlBagTags> tags = boost::none);
     xml_entities::LoadPaxXmlResult SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
     // изменение места пассажира

@@ -394,8 +394,9 @@ void viewEqnElement(_EDI_REAL_MES_STRUCT_* pMes, const EqnElem& elem)
 
 void viewEqnElement(_EDI_REAL_MES_STRUCT_* pMes, const std::list<EqnElem>& lElem)
 {
-    if(lElem.empty())
+    if(lElem.empty()) {
         return;
+    }
 
     std::ostringstream eqn;
     BOOST_FOREACH(const EqnElem& elem, lElem)
@@ -450,8 +451,8 @@ static std::string fullDateTimeString(const boost::gregorian::date& d,
 {
     std::ostringstream str;
     str << Dates::rrmmdd(d);
-//    if(!t.is_not_a_date_time())
-//        str << Dates::hh24mi(t, false /*delimeter*/);
+    if(!t.is_special())
+        str << Dates::hh24mi(t, false /*delimeter*/);
     return str.str();
 }
 
@@ -629,6 +630,23 @@ void viewPbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::BaggageDetails& ba
             pbd << ":" << baggage.handBag()->weight();
         }
     }
+
+    pbd << "+";
+    if((baggage.bag() && baggage.bag()->numOfPieces()) ||
+       (baggage.handBag() && baggage.handBag()->numOfPieces()))
+    {
+         pbd << "NP";
+    }
+
+    for(const auto& bagTag: baggage.bagTagsReduced()) {
+        pbd << "+"
+            << BaseTables::Company(bagTag.carrierCode())->code(/*lang*/) << ":"
+            << bagTag.tagNum() << ":"
+            << bagTag.qtty() << ":"
+            << BaseTables::Port(bagTag.dest())->code(/*lang*/) << ":"
+            << bagTag.tagAccode();
+    }
+
     SetEdiFullSegment(pMes, SegmElement("PBD"), pbd.str());
 }
 
@@ -660,18 +678,24 @@ void viewRadElement(_EDI_REAL_MES_STRUCT_* pMes, const std::string& respType,
 
 void viewFsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& flight)
 {
-    FsdElem fsd(flight.boardingTime());
+    FsdElem fsd;
+    fsd.m_boardingTime = flight.boardingTime();
+    fsd.m_gate         = flight.gate();
     viewFsdElement(pMes, fsd);
 }
 
 void viewFsdElement(_EDI_REAL_MES_STRUCT_* pMes, const FsdElem& elem)
 {
-    if(!elem.m_boardingTime.is_not_a_date_time())
-    {
-        std::ostringstream fsd;
+    std::ostringstream fsd;
+    if(!elem.m_boardingTime.is_special()) {
         fsd << Dates::hh24mi(elem.m_boardingTime, false);
-        SetEdiFullSegment(pMes, SegmElement("FSD"), fsd.str());
     }
+
+    if(!elem.m_gate.empty()) {
+        fsd << "++" << elem.m_gate;
+    }
+
+    SetEdiFullSegment(pMes, SegmElement("FSD"), fsd.str());
 }
 
 void viewPfdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightSeatDetails& seat,
@@ -766,38 +790,73 @@ void viewUbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateBaggageDetai
     ubd << "+";
 
     ubd << updBaggage.actionCodeAsString() << ":" << "NP";
-    ubd << "+";
 
-    if(updBaggage.bagTag()) {
-        ubd << updBaggage.actionCodeAsString() << ":";
-        ubd << updBaggage.bagTag()->carrierCode() << ":";
-        ubd << updBaggage.bagTag()->tagSerial() << ":";
-        ubd << updBaggage.bagTag()->qtty() << ":";
-        ubd << updBaggage.bagTag()->dest() << ":";
-        ubd << updBaggage.bagTag()->accode();
+    for(const auto& bagTag: updBaggage.bagTagsReduced()) {
+        ubd << "+"
+            << updBaggage.actionCodeAsString() << ":"
+            << BaseTables::Company(bagTag.carrierCode())->code(/*lang*/) << ":"
+            << bagTag.tagNum() << ":"
+            << bagTag.qtty() << ":"
+            << BaseTables::Port(bagTag.dest())->code(/*lang*/) << ":"
+            << bagTag.tagAccode();
     }
 
     SetEdiFullSegment(pMes, SegmElement("UBD"), ubd.str());
 }
 
 void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes,
-                    const iatci::UpdateDocDetails& updDoc, const iatci::PaxDetails& pax)
+                    const iatci::PaxDetails& pax,
+                    const boost::optional<iatci::UpdateDocDetails>& updDoc,
+                    const boost::optional<iatci::UpdateVisaDetails>& updVisa)
 {
+    ASSERT(updDoc || updVisa);
     std::ostringstream uap;
-    uap << updDoc.actionCodeAsString() << "+";
+    if(updDoc) {
+        uap << updDoc->actionCodeAsString();
+    } else {
+        ASSERT(updVisa);
+        uap << updVisa->actionCodeAsString();
+    }
+    uap << "+";
     uap << (pax.type() == iatci::PaxDetails::Infant ? "IN" : "A") << ":"
         << pax.surname() << ":"
-        << pax.name() << ":"
-        << Dates::rrmmdd(updDoc.birthDate())
-        << ":::" << updDoc.nationality() << "++";
-    uap << updDoc.docType() << ":"
-        << updDoc.no() << ":"
-        << updDoc.issueCountry() << ":::"
-        << Dates::rrmmdd(updDoc.expiryDate()) << ":"
-        << updDoc.gender() << "::::::"
-        << updDoc.surname() << ":"
-        << updDoc.name() << ":"
-        << updDoc.secondName();
+        << pax.name() << ":";
+    if(updDoc) {
+        uap << Dates::rrmmdd(updDoc->birthDate()) << ":::"
+            << updDoc->nationality();
+    }
+    uap << "+";
+    if(updDoc) {
+        uap << "+"
+            << updDoc->docType() << ":"
+            << updDoc->no() << ":"
+            << updDoc->issueCountry() << ":::"
+            << Dates::rrmmdd(updDoc->expiryDate()) << ":"
+            << updDoc->gender() << "::::::"
+            << updDoc->surname() << ":"
+            << updDoc->name() << ":"
+            << updDoc->secondName();
+    }
+    if(updVisa) {
+        uap << "+"
+            << updVisa->visaType() << ":"
+            << updVisa->no() << ":"
+            << updVisa->issueCountry() << ":::"
+            << Dates::rrmmdd(updVisa->expiryDate()) << "::::"
+            << updVisa->placeOfIssue() << "::"
+            << Dates::rrmmdd(updVisa->issueDate());
+    }
+
+    SetEdiFullSegment(pMes, SegmElement("UAP"), uap.str());
+}
+
+void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes, bool infant)
+{
+    std::ostringstream uap;
+    uap << "+";
+    if(infant) {
+        uap << "IN";
+    }
     SetEdiFullSegment(pMes, SegmElement("UAP"), uap.str());
 }
 
@@ -872,22 +931,40 @@ void viewRodElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::RowDetails& rowDet
 }
 
 void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes,
-                    const iatci::DocDetails& doc, const iatci::PaxDetails& pax)
+                    const iatci::PaxDetails& pax,
+                    const boost::optional<iatci::DocDetails>& doc,
+                    const boost::optional<iatci::VisaDetails>& visa)
 {
+    ASSERT(doc || visa);
     std::ostringstream pap;
     pap << (pax.type() == iatci::PaxDetails::Infant ? "IN" : "A") << ":"
         << pax.surname() << ":"
-        << pax.name() << ":"
-        << Dates::rrmmdd(doc.birthDate())
-        << ":::" << doc.nationality() << "++";
-    pap << doc.docType() << ":"
-        << doc.no() << ":"
-        << doc.issueCountry() << ":::"
-        << Dates::rrmmdd(doc.expiryDate()) << ":"
-        << doc.gender() << "::::::"
-        << doc.surname() << ":"
-        << doc.name() << ":"
-        << doc.secondName();
+        << pax.name() << ":";
+    if(doc) {
+        pap << Dates::rrmmdd(doc->birthDate()) << ":::"
+            << doc->nationality();
+    }
+    pap << "+";
+    if(doc) {
+        pap << "+"
+            << doc->docType() << ":"
+            << doc->no() << ":"
+            << doc->issueCountry() << ":::"
+            << Dates::rrmmdd(doc->expiryDate()) << ":"
+            << doc->gender() << "::::::"
+            << doc->surname() << ":"
+            << doc->name() << ":"
+            << doc->secondName();
+    }
+    if(visa) {
+        pap << "+"
+            << visa->visaType() << ":"
+            << visa->no() << ":"
+            << visa->issueCountry() << ":::"
+            << Dates::rrmmdd(visa->expiryDate()) << "::::"
+            << visa->placeOfIssue() << "::"
+            << Dates::rrmmdd(visa->issueDate());
+    }
 
     SetEdiFullSegment(pMes, SegmElement("PAP"), pap.str());
 }
@@ -898,9 +975,17 @@ void viewPapElement(_EDI_REAL_MES_STRUCT_* pMes, bool infant)
 }
 
 void viewAddElement(_EDI_REAL_MES_STRUCT_* pMes,
-                    const iatci::AddressDetails& addr)
+                    const iatci::AddressDetails& addr,
+                    boost::optional<iatci::UpdateDetails> updDetails)
 {
+    if(addr.lAddr().empty()) {
+        return;
+    }
+
     std::ostringstream add;
+    if(updDetails) {
+        add << updDetails->actionCodeAsString();
+    }
     add << "+";
     for(const auto& addrInfo: addr.lAddr()) {
         add << addrInfo.type() << ":"

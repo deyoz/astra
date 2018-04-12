@@ -98,6 +98,7 @@ xmlNodePtr CopyNodeList(xmlNodePtr dest, xmlNodePtr src); //Функция с ошибкой li
 xmlNodePtr CopyNode(xmlNodePtr dest, xmlNodePtr src, bool recursive=true);
 void RemoveChildNodes(xmlNodePtr node);
 void RemoveNode(xmlNodePtr node);
+void RenameNode(xmlNodePtr node, const char* name);
 
 void SetXMLDocEncoding(xmlDocPtr doc, const char *encoding);
 xmlDocPtr CreateXMLDoc(const char *root);

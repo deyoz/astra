@@ -10,6 +10,7 @@
 
 
 #include "tlg/EdiSessionTimeOut.h"
+#include "tlg/postpone_edifact.h"
 #include "exceptions.h"
 #include "astra_main.h" // init_locale()
 
@@ -83,9 +84,8 @@ void run_edi_timeout_handler()
         HandleEdiSessTimeOut(*iter);
 
         // Если кто ждал эту телеграмму, проснись мать твою! (пожалуйста, а?)
-        // TODO
-        //TlgHandling::PostponedTlgHandling::deleteWaiting(iter->ediSessionId());
-        //iter->deleteEdiSession();
+        TlgHandling::PostponeEdiHandling::deleteWaiting(iter->ediSessionId());
+        iter->deleteEdiSession();
     }
 
     monitor_idle_zapr_type(lExpired.size(), QUEPOT_NULL);

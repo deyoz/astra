@@ -5,6 +5,9 @@
 #include "xml_unit.h"
 #include "stl_utils.h"
 #include "astra_utils.h"
+#include "astra_api.h"
+#include "iatci_help.h"
+#include "iatci.h"
 #include "misc.h"
 #include "stages.h"
 #include "docs.h"
@@ -25,7 +28,6 @@
 
 #define NICKNAME "DENIS"
 #include <serverlib/slogger.h>
-
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
 
@@ -207,7 +209,7 @@ namespace to_esc {
         try {
             mso_form = ConvertCodepage( mso_form, "CP866", prnParams.encoding );
         } catch(EConvertError &E) {
-            ProgError(STDLOG, E.what());
+            ProgError(STDLOG, "%s", E.what());
             throw AstraLocale::UserException("MSG.CONVERT_INTO_ERR", LParams() << LParam("enc", prnParams.encoding));
         }
 
@@ -679,7 +681,7 @@ string PrintDataParser::parse_field0(int offset, string field)
     return pts.get_field(FieldName, FieldLen, FieldText, FieldAlign, DateFormat, tag_lang);
 }
 
-string PrintDataParser::parse(string &form)
+string PrintDataParser::parse(const string &form)
 {
     string result;
     char Mode = 'S';
@@ -1886,8 +1888,7 @@ bool IsErrPax(const PrintInterface::BPPax &pax)
 void PrintInterface::GetPrintDataBP(
                                     TDevOper::Enum op_type,
                                     BPParams &params,
-                                    std::string &data,
-                                    string &pectab,
+                                    const std::string &data,
                                     BIPrintRules::Holder &bi_rules,
                                     std::vector<BPPax> &paxs,
                                     boost::optional<AstraLocale::LexemaData> &error
@@ -1896,10 +1897,8 @@ void PrintInterface::GetPrintDataBP(
     if(paxs.empty()) return;
     error = boost::none;
 
-    get_pectab(op_type, params, data, pectab);
-
     for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
-        //        tst_dump(iPax->pax_id, iPax->grp_id, prnParams.pr_lat);
+
         boost::shared_ptr<PrintDataParser> parser;
         if(iPax->pax_id!=NoExists)
             try {
@@ -1922,13 +1921,15 @@ void PrintInterface::GetPrintDataBP(
             parser->pts.set_tag("gate", iPax->gate.first);
 
         if(TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION)) {
-            const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
-            if(bi_rule.tags_enabled(op_type, not iPax->gate.second)) {
-                parser->pts.set_tag(TAG::BI_HALL, bi_rule);
-                parser->pts.set_tag(TAG::BI_HALL_CAPTION, bi_rule);
-                parser->pts.set_tag(TAG::BI_RULE, bi_rule);
-                parser->pts.set_tag(TAG::BI_RULE_GUEST, bi_rule);
-                parser->pts.set_tag(TAG::BI_AIRP_TERMINAL, bi_rule);
+            if(iPax->grp_id > 0 && iPax->pax_id > 0) {
+                const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
+                if(bi_rule.tags_enabled(op_type, not iPax->gate.second)) {
+                    parser->pts.set_tag(TAG::BI_HALL, bi_rule);
+                    parser->pts.set_tag(TAG::BI_HALL_CAPTION, bi_rule);
+                    parser->pts.set_tag(TAG::BI_RULE, bi_rule);
+                    parser->pts.set_tag(TAG::BI_RULE_GUEST, bi_rule);
+                    parser->pts.set_tag(TAG::BI_AIRP_TERMINAL, bi_rule);
+                }
             }
         }
 
@@ -1947,6 +1948,155 @@ void PrintInterface::GetPrintDataBP(
         iPax->time_print=parser->pts.get_time_print();
     }
     paxs.erase(remove_if(paxs.begin(), paxs.end(), IsErrPax), paxs.end());
+}
+
+static TBCBPData makeIatciTBCBPData(const astra_api::xml_entities::XmlSegment& seg,
+                                    const astra_api::xml_entities::XmlPax& pax)
+{
+    TBCBPData bcbp;
+    bcbp.surname     = pax.surname;
+    bcbp.name        = pax.name;
+    bcbp.etkt        = pax.ticket_rem == "TKNE";
+    bcbp.cls         = pax.subclass;
+    bcbp.seat_no     = pax.seat_no;
+    bcbp.reg_no      = pax.reg_no;
+    bcbp.pers_type   = pax.pers_type;
+    bcbp.airp_dep    = seg.seg_info.airp_dep;
+    bcbp.airp_arv    = seg.seg_info.airp_arv;
+    bcbp.airline     = seg.trip_header.airline;
+    bcbp.flt_no      = seg.trip_header.flt_no;
+    bcbp.suffix      = seg.trip_header.suffix;
+    bcbp.scd         = seg.trip_header.scd_out_local;
+    return bcbp;
+}
+
+/**
+ *  возвращает false - если послана тлг DCQBPR,
+ *              true - в остальных случаях
+ */
+bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
+                                         int grpId,
+                                         const std::string& data,
+                                         const BPParams &params,
+                                         std::vector<BPPax> &paxs)
+{
+    using namespace astra_api::xml_entities;
+
+    LogTrace(TRACE3) << __FUNCTION__ << " for grpId: " << grpId;
+
+    std::string loaded = iatci::IatciXmlDb::load(grpId);    
+    if(!loaded.empty())
+    {        
+        if(!ReqParams(reqNode).getBoolParam("after_kick", false)) {
+            tst();
+            IatciInterface::ReprintRequest(reqNode);
+            return false;
+        }
+
+        XMLDoc xml = ASTRA::createXmlDoc(loaded);
+        std::list<XmlSegment> lSeg = XmlEntityReader::readSegs(findNodeR(xml.docPtr()->children, "segments"));
+
+        for(const XmlSegment& xmlSeg: lSeg)
+        {
+            for(const XmlPax& xmlPax: xmlSeg.passengers)
+            {
+                boost::shared_ptr<PrintDataParser> parser;
+                parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(xmlSeg.seg_info.airp_dep,
+                                                                                xmlSeg.seg_info.airp_arv,
+                                                                                params.prnParams.pr_lat));
+
+                // билет/купон
+                std::ostringstream tickCpn;
+                if(xmlPax.ticket_rem == "TKNE") {
+                    tickCpn << xmlPax.ticket_no << "/" << xmlPax.coupon_no;
+                }
+
+                // полное имя
+                std::ostringstream fullName;
+                fullName << xmlPax.surname << " " << xmlPax.name;
+
+                parser->pts.set_tag(TAG::ACT,           xmlSeg.trip_header.scd_out_local);
+                parser->pts.set_tag(TAG::AIRLINE,       xmlSeg.trip_header.airline);
+                parser->pts.set_tag(TAG::AIRLINE_NAME,  xmlSeg.trip_header.airline);
+                parser->pts.set_tag(TAG::AIRLINE_SHORT, xmlSeg.trip_header.airline);
+                parser->pts.set_tag(TAG::AIRP_ARV,      xmlSeg.seg_info.airp_arv);
+                parser->pts.set_tag(TAG::AIRP_ARV_NAME, xmlSeg.seg_info.airp_arv);
+                parser->pts.set_tag(TAG::AIRP_DEP,      xmlSeg.seg_info.airp_dep);
+                parser->pts.set_tag(TAG::AIRP_DEP_NAME, xmlSeg.seg_info.airp_dep);
+                parser->pts.set_tag(TAG::BAG_AMOUNT,    0); // TODO get it
+                parser->pts.set_tag(TAG::BAGGAGE,       ""); // TODO get it
+                parser->pts.set_tag(TAG::BAG_WEIGHT,    0); // TODO get it
+                parser->pts.set_tag(TAG::BCBP_M_2,      makeIatciTBCBPData(xmlSeg, xmlPax));
+                parser->pts.set_tag(TAG::BRD_FROM,      "");
+                parser->pts.set_tag(TAG::BRD_TO,        xmlSeg.trip_header.scd_brd_to_local);
+                parser->pts.set_tag(TAG::CHD,           ""); // TODO get it
+                parser->pts.set_tag(TAG::CITY_ARV_NAME, xmlSeg.seg_info.airp_arv);
+                parser->pts.set_tag(TAG::CITY_DEP_NAME, xmlSeg.seg_info.airp_dep);
+                parser->pts.set_tag(TAG::CLASS,         xmlPax.subclass);
+                parser->pts.set_tag(TAG::CLASS_NAME,    xmlPax.subclass);
+                parser->pts.set_tag(TAG::DOCUMENT,      xmlPax.doc ? xmlPax.doc->no : "");
+                parser->pts.set_tag(TAG::DUPLICATE,     0); // TODO get it
+                parser->pts.set_tag(TAG::EST,           xmlSeg.trip_header.scd_out_local);
+                parser->pts.set_tag(TAG::ETICKET_NO,    tickCpn.str());
+                parser->pts.set_tag(TAG::ETKT,          tickCpn.str());
+                parser->pts.set_tag(TAG::EXCESS,        0); // TODO get it
+                parser->pts.set_tag(TAG::FLT_NO,        xmlSeg.trip_header.flt_no);
+                parser->pts.set_tag(TAG::FQT,           ""); // TODO get it
+                parser->pts.set_tag(TAG::FULLNAME,      fullName.str());
+                parser->pts.set_tag(TAG::FULL_PLACE_ARV,xmlSeg.seg_info.airp_arv);
+                parser->pts.set_tag(TAG::FULL_PLACE_DEP,xmlSeg.seg_info.airp_dep);
+                parser->pts.set_tag(TAG::GATE,          xmlSeg.trip_header.remote_gate);
+                parser->pts.set_tag(TAG::GATES,         ""); // TODO get it
+                parser->pts.set_tag(TAG::HALL,          ""); // TODO get it
+                parser->pts.set_tag(TAG::INF,           xmlPax.pers_type);
+                parser->pts.set_tag(TAG::LIST_SEAT_NO,  xmlPax.seat_no);
+                parser->pts.set_tag(TAG::LONG_ARV,      xmlSeg.seg_info.airp_arv);
+                parser->pts.set_tag(TAG::LONG_DEP,      xmlSeg.seg_info.airp_dep);
+                parser->pts.set_tag(TAG::NAME,          xmlPax.name);
+                parser->pts.set_tag(TAG::NO_SMOKE,      0); // TODO get it
+                parser->pts.set_tag(TAG::ONE_SEAT_NO,   xmlPax.seat_no);
+                parser->pts.set_tag(TAG::PAX_ID,        xmlPax.pax_id);
+                parser->pts.set_tag(TAG::PAX_TITLE,     ""); // TODO get it
+                parser->pts.set_tag(TAG::PLACE_ARV,     xmlSeg.seg_info.airp_arv);
+                parser->pts.set_tag(TAG::PLACE_DEP,     xmlSeg.seg_info.airp_dep);
+                parser->pts.set_tag(TAG::PNR,           ""); // TODO get it
+                parser->pts.set_tag(TAG::REG_NO,        xmlPax.reg_no);
+                parser->pts.set_tag(TAG::REM,           ""); // TODO get it
+                parser->pts.set_tag(TAG::RK_AMOUNT,      0); // TODO get it
+                parser->pts.set_tag(TAG::RK_WEIGHT,      0); // TODO get it
+                parser->pts.set_tag(TAG::SCD,           xmlSeg.trip_header.scd_out_local);
+                parser->pts.set_tag(TAG::SEAT_NO,       xmlPax.seat_no);
+                parser->pts.set_tag(TAG::STR_SEAT_NO,   xmlPax.seat_no);
+                parser->pts.set_tag(TAG::SUBCLS,        xmlPax.subclass);
+                parser->pts.set_tag(TAG::SURNAME,       xmlPax.surname);
+                parser->pts.set_tag(TAG::TAGS,          ""); // TODO get it
+
+
+                BPPax pax;
+                pax.pax_id = -1;
+                pax.reg_no = xmlPax.reg_no; // Зачем?
+                pax.prn_form = parser->parse(data);
+                pax.hex = false;
+                if(DevFmtTypes().decode(params.fmt_type) == TDevFmt::EPSON) {
+                    to_esc::TConvertParams ConvertParams;
+                    ConvertParams.init(params.dev_model);
+                    ProgTrace(TRACE5, "iatci prn_form: %s", pax.prn_form.c_str());
+                    to_esc::convert(pax.prn_form, ConvertParams, params.prnParams);
+                    StringToHex(string(pax.prn_form), pax.prn_form);
+                    pax.hex = true;
+                }
+                pax.time_print = parser->pts.get_time_print();
+                paxs.push_back(pax);
+            }
+        }
+    }
+
+    return true;
+}
+
+void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    GetPrintDataBP(reqNode, resNode);
 }
 
 void tripVOToXML(list<int> &pax_ids, int point_id, xmlNodePtr resNode, bool pr_paxes)
@@ -2178,8 +2328,8 @@ void PrintInterface::GetPrintDataVOUnregistered(
         parser.pts.set_tag(TAG::BAGGAGE,       ""); // TODO get it
         parser.pts.set_tag(TAG::BAG_WEIGHT,    0); // TODO get it
         parser.pts.set_tag(TAG::BCBP_M_2,      " "); // TODO get it
-        parser.pts.set_tag(TAG::BRD_FROM,      TDateTime(NoExists)); // TODO get it
-        parser.pts.set_tag(TAG::BRD_TO,        TDateTime(NoExists)); // TODO get it
+        parser.pts.set_tag(TAG::BRD_FROM,      ""); // TODO get it
+        parser.pts.set_tag(TAG::BRD_TO,        ""); // TODO get it
         parser.pts.set_tag(TAG::CHD,           ""); // TODO get it
         parser.pts.set_tag(TAG::CITY_ARV_NAME, airp_arv);
         parser.pts.set_tag(TAG::CITY_DEP_NAME, airp_dep);
@@ -2195,7 +2345,7 @@ void PrintInterface::GetPrintDataVOUnregistered(
         parser.pts.set_tag(TAG::FQT,           ""); // TODO get it
         parser.pts.set_tag(TAG::FULL_PLACE_ARV,airp_arv);
         parser.pts.set_tag(TAG::FULL_PLACE_DEP,airp_dep);
-        parser.pts.set_tag(TAG::GATE,          ""); // TODO get it
+        // parser.pts.set_tag(TAG::GATE,          ""); // приходит с клиента см. tagsFromXML ниже
         parser.pts.set_tag(TAG::GATES,         ""); // TODO get it
         parser.pts.set_tag(TAG::HALL,          ""); // TODO get it
         parser.pts.set_tag(TAG::INF,           "");
@@ -2218,7 +2368,6 @@ void PrintInterface::GetPrintDataVOUnregistered(
         parser.pts.set_tag(TAG::STR_SEAT_NO,   "");
         parser.pts.set_tag(TAG::SUBCLS,        "");
         parser.pts.set_tag(TAG::TAGS,          ""); // TODO get it
-
 
         QParams qryParams;
         qryParams
@@ -2318,7 +2467,7 @@ void PrintInterface::GetPrintDataVOUnregistered(
     LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
 }
 
-void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr currNode = reqNode->children;
     BPParams params;
@@ -2415,7 +2564,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         if ( !pr_all && paxs.empty() ) //все посадочные отпечатаны, но при этом надо было напечатать те, которые были не напечатанны
             throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
     }
-    else { // печать конкретного пассажира
+    else if(pax_id > 0) { // печать конкретного пассажира. Если < 0, то это пакс iatci, его начитывает GetIatciPrintDataBP ниже
         Qry.SQLText =
             "SELECT grp_id, pax_id, reg_no FROM pax where pax_id = :pax_id";
         Qry.CreateVariable("pax_id", otInteger, pax_id);
@@ -2429,8 +2578,6 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
     for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
       if(first_seg_grp_id != iPax->grp_id) iPax->gate=make_pair("", true);
-
-    string pectab, data;
 
     // Начитываем правила БП для всех паксов
     BIPrintRules::Holder bi_rules(op_type);
@@ -2461,8 +2608,15 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
         LogTrace(TRACE5) << "complete true";
 
+        string pectab, data;
+        get_pectab(op_type, params, data, pectab);
         boost::optional<AstraLocale::LexemaData> error;
-        GetPrintDataBP(op_type, params, data, pectab, bi_rules, paxs, error);
+        GetPrintDataBP(op_type, params, data, bi_rules, paxs, error);
+
+        if(pax_id < 0 and !GetIatciPrintDataBP(reqNode, first_seg_grp_id, data, params, paxs)) {
+            tst();
+            return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR");
+        }
 
         xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"),
                 (TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION) ? "print" : "printBP")
@@ -2470,12 +2624,13 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         NewTextChild(BPNode, "pectab", pectab);
         xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
         for (std::vector<BPPax>::const_iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
+            bool pr_print = (op_type == TDevOper::PrnBP);
 
-            // В режиме приглашений выводим только тех, у кого есть правила.
-            const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
-            bool pr_print =
-                op_type == TDevOper::PrnBP or
-                (op_type == TDevOper::PrnBI and bi_rule.exists() and first_seg_grp_id == iPax->grp_id);
+            if(iPax->grp_id > 0 && iPax->pax_id > 0) {
+                // В режиме приглашений выводим только тех, у кого есть правила.
+                const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
+                pr_print |= (op_type == TDevOper::PrnBI and bi_rule.exists() and first_seg_grp_id == iPax->grp_id);
+            }
 
             xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
             SetProp(paxNode, "pax_id", iPax->pax_id);
@@ -2706,7 +2861,7 @@ void PrintInterface::GetImg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     if(result.empty())
         throw Exception("image %s not found", name.c_str());
     xmlNodePtr kioskImgNode = NewTextChild(resNode, "kiosk_img");
-    xmlNodePtr dataNode = NewTextChild(kioskImgNode, "data", result);
+    NewTextChild(kioskImgNode, "data", result);
 }
 
 void PrintInterface::GetTripVouchersSet(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

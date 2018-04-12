@@ -692,8 +692,22 @@ struct PbdElem
         {}
     };
 
+    struct Tag
+    {
+        std::string m_carrierCode;
+        unsigned    m_tagNum;
+        unsigned    m_qtty;
+        std::string m_dest;
+        unsigned    m_accode;
+
+        Tag()
+            : m_tagNum(0), m_qtty(0), m_accode(0)
+        {}
+    };
+
     boost::optional<Bag> m_bag;
     boost::optional<Bag> m_handBag;
+    std::list<Tag>       m_tags;
 };
 
 //---------------------------------------------------------------------------------------
@@ -788,11 +802,10 @@ struct ChdElem
 struct FsdElem
 {
     boost::posix_time::time_duration m_boardingTime;
+    std::string                      m_gate;
+
     FsdElem()
         : m_boardingTime(boost::posix_time::not_a_date_time)
-    {}
-    FsdElem(const boost::posix_time::time_duration& brdngTime)
-        : m_boardingTime(brdngTime)
     {}
 };
 
@@ -871,8 +884,23 @@ struct UbdElem
         {}
     };
 
+    struct Tag
+    {
+        std::string m_actionCode;
+        std::string m_carrierCode;
+        unsigned    m_tagNum;
+        unsigned    m_qtty;
+        std::string m_dest;
+        unsigned    m_accode;
+
+        Tag()
+            : m_tagNum(0), m_qtty(0), m_accode(0)
+        {}
+    };
+
     boost::optional<Bag> m_bag;
     boost::optional<Bag> m_handBag;
+    std::list<Tag>       m_tags;
 };
 
 //---------------------------------------------------------------------------------------
@@ -972,17 +1000,28 @@ struct RodElem
 ///@class PapElem - Passenger API/DOT information --PAP
 struct PapElem
 {
-    std::string   m_type;
-    Dates::Date_t m_birthDate;
-    std::string   m_nationality;
-    std::string   m_docQualifier;
-    std::string   m_docNumber;
-    std::string   m_placeOfIssue;
-    Dates::Date_t m_expiryDate;
-    std::string   m_gender;
-    std::string   m_surname;
-    std::string   m_name;
-    std::string   m_otherName;
+    struct PapDoc
+    {
+        std::string   m_docQualifier;
+        std::string   m_docNumber;
+        std::string   m_placeOfIssue;
+        std::string   m_freeText;
+        Dates::Date_t m_expiryDate;
+        std::string   m_gender;
+        std::string   m_cityOfIssue;
+        Dates::Date_t m_issueDate;
+        std::string   m_surname;
+        std::string   m_name;
+        std::string   m_otherName;
+    };
+
+    std::string       m_type;
+    Dates::Date_t     m_birthDate;
+    std::string       m_nationality;
+    std::list<PapDoc> m_docs;
+
+    boost::optional<PapDoc> findVisa() const;
+    boost::optional<PapDoc> findDoc() const;
 };
 
 //---------------------------------------------------------------------------------------

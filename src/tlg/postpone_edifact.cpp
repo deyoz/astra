@@ -13,6 +13,8 @@
 #include <serverlib/int_parameters_oci.h>
 #include <serverlib/testmode.h>
 #include <serverlib/rip_oci.h>
+#include <edilib/edi_user_func.h>
+#include <edilib/edi_tables.h>
 
 #include <boost/lexical_cast.hpp>
 #include <boost/optional/optional_io.hpp>
@@ -88,6 +90,35 @@ boost::optional<tlgnum_t> PostponeEdiHandling::deleteDb(edilib::EdiSessionId_t s
     return boost::none;
 }
 
+void sendCmdToHandler(const std::string& ediText)
+{
+    if(ReadEdiMessage(ediText.c_str()) == EDI_MES_OK) {
+        _EDI_REAL_MES_STRUCT_ *pMes = GetEdiMesStruct();
+        switch(pMes->pTempMes->Type.type)
+        {
+        case DCQCKI:
+        case DCQCKU:
+        case DCQCKX:
+        case DCQPLF:
+        case DCQBPR:
+        case DCQSMF:
+        {
+            sendCmd("CMD_ITCI_REQ_HANDLER","H");
+            break;
+        }
+        case DCRCKA:
+        case DCRSMF:
+        {
+            sendCmd("CMD_ITCI_RES_HANDLER","H");
+            break;
+        }
+        default:
+            sendCmd("CMD_EDI_HANDLER","H");
+            break;
+        }
+    }
+}
+
 void PostponeEdiHandling::addToQueue(const tlgnum_t& tnum)
 {
     LogTrace(TRACE1) << "putTlg2InputQueue postponed tlg with num: " << tnum;
@@ -117,7 +148,7 @@ void PostponeEdiHandling::addToQueue(const tlgnum_t& tnum)
         handle_edi_tlg(tlgi);
     }
 #else
-    sendCmd("CMD_EDI_HANDLER","H");
+    sendCmdToHandler(tlg.text());
 #endif//XP_TESTING
 }
 

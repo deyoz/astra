@@ -65,11 +65,6 @@ static std::string executeAstraRequest(const std::string &request,
     return answer;
 }
 
-static std::string pretty_xml(const std::string &xml)
-{
-    return StrUtils::replaceSubstrCopy(XMLTreeToText( TextToXMLTree(xml) ), "\"", "'");
-}
-
 static std::string removeVersionRecursive(const std::string answer, bool &removed) {
     std::string::size_type ver_pos = answer.find("ver=\"");
     if(ver_pos != std::string::npos) {
@@ -292,7 +287,7 @@ std::string FP_create_spp(const std::vector<std::string> &p) {
     }
 
     BASIC::date_time::TDateTime dt;
-    StrToDateTime(p.at(0).c_str(), fmt.c_str(), dt);
+    BASIC::date_time::StrToDateTime(p.at(0).c_str(), fmt.c_str(), dt);
     CreateSPP(dt);
 
     return "";
@@ -474,6 +469,39 @@ static std::string FP_getSingleTid(const std::vector<std::string>& p)
     return boost::lexical_cast<std::string>(paxSeg.seg_info.tid);
 }
 
+static std::string FP_getSinglePaxTid(const std::vector<std::string>& p)
+{
+    using namespace astra_api::xml_entities;
+    assert(p.size() == 3);
+    int pointDep = atoi(p.at(0).c_str());
+    std::string paxSurname = p.at(1);
+    std::string paxName = p.at(2);
+
+    PaxListXmlResult plRes = astra_api::AstraEngine::singletone().PaxList(pointDep);
+    std::list<XmlPax> lPax = plRes.applyNameFilter(paxSurname, paxName);
+    assert(!plRes.lPax.empty());
+    const XmlPax& pax = lPax.front();
+    assert(pax.reg_no != ASTRA::NoExists);
+    LoadPaxXmlResult lpRes = astra_api::AstraEngine::singletone().LoadPax(pointDep, pax.reg_no);
+    lpRes.applyPaxFilter(PaxFilter(NameFilter(paxSurname, paxName), {}, {}));
+    assert(!lpRes.lSeg.empty());
+    const XmlSegment& paxSeg = lpRes.lSeg.front();
+    return boost::lexical_cast<std::string>(paxSeg.passengers.front().tid);
+}
+
+static std::string FP_getPointTid(const std::vector<std::string>& p)
+{
+    assert(p.size() == 1);
+    int pointId = atoi(p.at(0).c_str());
+    int tid = 0;
+    OciCpp::CursCtl cur = make_curs(
+"select TID from POINTS where POINT_ID=:point_id");
+    cur.def(tid)
+       .bind(":point_id", pointId)
+       .EXfet();
+    return boost::lexical_cast<std::string>(tid);
+}
+
 static std::string FP_get_lat_code(const std::vector<std::string>& p)
 {
     assert(p.size() == 2);
@@ -575,6 +603,8 @@ FP_REGISTER("create_random_trip_comp", FP_create_random_trip_comp);
 FP_REGISTER("get_single_pax_id", FP_getSinglePaxId);
 FP_REGISTER("get_single_grp_id", FP_getSingleGrpId);
 FP_REGISTER("get_single_tid", FP_getSingleTid);
+FP_REGISTER("get_single_pax_tid",FP_getSinglePaxTid);
+FP_REGISTER("get_point_tid", FP_getPointTid);
 FP_REGISTER("get_lat_code", FP_get_lat_code);
 FP_REGISTER("prepare_bp_printing", FP_prepare_bp_printing);
 FP_REGISTER("deny_ets_interactive", FP_deny_ets_interactive);
