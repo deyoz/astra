@@ -3769,6 +3769,41 @@ UNZ+1+$(last_edifact_ref)0001"
 <<
 UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
 UNH+1+DCRSMF:96:2:IA+$(last_edifact_ref)"
+FDR+S7+1027+$(yymmdd)1000+LED+AER++T"
+RAD+S+X"
+ERD+1:5"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+>> lines=auto
+    <kick req_ctxt_id...
+
+!! err=$(utf8 "Неверный рейс/дата")
+$(lastRedisplay)
+
+
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='salonform' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <Show>
+      <trip_id>-$(get grp_id)</trip_id>
+    </Show>
+  </query>
+</term>}
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQSMF:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)1000+LED+AER"
+SRP+Y"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRSMF:96:2:IA+$(last_edifact_ref)"
 FDR+С7+1027+$(yymmdd)1000+ПЛК+СОЧ++T"
 RAD+S+O"
 EQD++++++D09"
@@ -4565,7 +4600,7 @@ $(KICK_IN)
             <class>
               <code>Э</code>
               <class_view>ЭКОНОМ</class_view>
-              <cfg>52</cfg>
+              <cfg>...
             </class>
           </classes>
           <gates/>

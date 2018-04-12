@@ -262,10 +262,9 @@ Result IatciSeatmapResultMaker::makeResult() const
                                                seatRequestDetails);
     }
 
-    ASSERT(seatmapDetails);
     return Result::makeSeatmapResult(Result::strToStatus(m_rad.m_status),
                                      flightDetails,
-                                     *seatmapDetails,
+                                     seatmapDetails,
                                      cascadeDetails,
                                      errorDetails,
                                      warningDetails,
