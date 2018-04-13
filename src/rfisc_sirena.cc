@@ -1,6 +1,7 @@
 #include "rfisc_sirena.h"
 #include "baggage_calc.h"
 #include "payment_base.h"
+#include <regex>
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -180,7 +181,8 @@ const TDisplayItem& TDisplayItem::toSirenaXML(xmlNodePtr displayParentNode) cons
 {
   if (displayParentNode==nullptr) return *this;
 
-  xmlNodePtr displayNode=NewTextChild(displayParentNode, "display", ediText());
+  xmlNodePtr displayNode=NewTextChild(displayParentNode, "display",
+                                      regex_replace(ediText(), regex(regexInvalidXMLChars), "#"));
   SetProp(displayNode, "id", id, ASTRA::NoExists);
   return *this;
 }
