@@ -411,6 +411,7 @@ bool TReqInfo::tracing()
 {
   if (vtracing_init) return vtracing;
   vtracing_init=true;
+  vtracing=isSelfCkinClientType();
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText="SELECT tracing_search FROM web_clients WHERE desk=:desk";

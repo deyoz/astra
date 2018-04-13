@@ -133,6 +133,7 @@ class XMLDoc
     std::string text() const;
 };
 
+const std::string regexInvalidXMLChars="[\x01-\x08\x0B-\x0C\x0E-\x1F]";
 bool ValidXMLChar( const char c );
 bool ValidXMLString( const std::string& str );
 
