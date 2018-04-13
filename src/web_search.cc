@@ -430,6 +430,7 @@ TPNRFilters& TPNRFilters::getBCBPSections(const std::string &bcbp, BCBPSections 
   }
   catch(EXCEPTIONS::EConvertError &e)
   {
+    LogTrace(TRACE5) << __FUNCTION__ << ": bcbp=" << bcbp;
     LogTrace(TRACE5) << '\n' << sections;
     TReqInfo::Instance()->traceToMonitor(TRACE5, "TPNRFilters::getBCBPSections: %s", e.what());
     throw UserException("MSG.SCAN_CODE.UNKNOWN_FORMAT");
