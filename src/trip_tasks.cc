@@ -866,7 +866,7 @@ void on_change_trip(const string &descr, int point_id, ChangeTrip::Whence whence
           CheckIn::TCounters().recount(point_id, CheckIn::TCounters::Total, descr.c_str());
 
         TSyncTlgOutMng::Instance()->sync_all(point_id);
-//        sync_trip_tasks<TEmdRefreshTripTask>(point_id);
+        sync_trip_tasks<TEmdRefreshTripTask>(point_id);
         sync_trip_tasks<TStatFVTripTask>(point_id);
     } catch(std::exception &E) {
         ProgError(STDLOG,"%s: %s (point_id=%d): %s", __FUNCTION__, descr.c_str(), point_id,E.what());
