@@ -223,6 +223,15 @@ class TCompLayerType {
     std::string getNameLat() {
       return name_lat;
     }
+    std::string getFigure() {
+      return figure;
+    }
+    ASTRA::TCompLayerType getLayerType() {
+      return layer_type;
+    }
+    std::string getColor() {
+      return color;
+    }
 };
 
 class TCompLayerTypes {

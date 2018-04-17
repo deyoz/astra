@@ -91,6 +91,12 @@ struct TDefaults {
 struct TCoordSeat {
     int placeListIdx;
     TPoint p;
+    TCoordSeat() {}
+    TCoordSeat( int vnum, int x, int y ) {
+      placeListIdx = vnum;
+      p.x = x;
+      p.y = y;
+    }
 };
 
 struct TPassenger {
@@ -319,6 +325,7 @@ class TPassengers {
     void Build( xmlNodePtr passNode );
     void sortByIndex();
     void operator = (TPassengers &items);
+    bool withBaby();
 };
 
 struct TSeatPlace {
@@ -352,6 +359,7 @@ class TSeatPlaces {
     bool SeatsPassenger_OnBasePlace( std::string &placeName, TSeatStep Step );
   public:
     ASTRA::TCompLayerType grp_status;
+    int separately_seats_adults_crs_pax_id;
     TCounters counters;
     TSeatPlaces( /*ASTRA::TCompLayerType layer_type*/ );
     ~TSeatPlaces();
@@ -392,10 +400,6 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
                       ASTRA::TClientType client_type,
                       TPassengers &passengers,
                       SALONS2::TAutoSeats &seats );
-void SeatsPassengers( SALONS2::TSalons *Salons,
-                      TSeatAlgoParams ASeatAlgoParams /* sdUpDown_Line - умолчание */,
-                      ASTRA::TClientType client_type,
-                      TPassengers &passengers );
 bool ChangeLayer( const SALONS2::TSalonList &salonList, ASTRA::TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
                   std::string first_xname, std::string first_yname, TSeatsType seat_type, TChangeLayerProcFlag seatFlag );
 bool ChangeLayer( ASTRA::TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,

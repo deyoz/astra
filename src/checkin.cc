@@ -5137,13 +5137,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   }
                   string pass_rem;
                   if ( subcls_rems.IsSubClsRem( pax.subcl, pass_rem ) )  pas.add_rem(pass_rem);
-                  for ( vector<TInfantAdults>::iterator infItem=InfItems.begin(); infItem!= InfItems.end(); infItem++ ) {
-                    if ( infItem->parent_pax_id == pax_id ) {
-                      //ProgTrace( TRACE5, "infItem->parent_pax_id=%d", infItem->parent_pax_id );
-                      flagCHIN = true;
-                      flagINFT = true;
-                      break;
-                    }
+                  if ( AdultsWithBaby( pax_id, InfItems ) ) {
+                    flagCHIN = true;
+                    flagINFT = true;
                   }
                   if ( flagCHIN ) {
                     pas.add_rem("CHIN");
@@ -5191,19 +5187,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             SEATS2::TSeatAlgoParams algo=SEATS2::GetSeatAlgo(Qry,fltInfo.airline,fltInfo.flt_no,fltInfo.airp);
             boost::posix_time::ptime mst1 = boost::posix_time::microsec_clock::local_time();
             //рассадка
-            if ( isTranzitSalonsVersion ) { //!!!djek
-              SEATS2::SeatsPassengers( salonList, algo, reqInfo->client_type, SEATS2::Passengers, autoSeats );
-              pr_do_check_wait_list_alarm = salonList.check_waitlist_alarm_on_tranzit_routes( autoSeats );
-              //!!! иногда True - возможна рассадка на забронированные места, когда
-              // есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места
-              pr_lat_seat=salonList.isCraftLat();
-            }
-            else {
+            SEATS2::SeatsPassengers( salonList, algo, reqInfo->client_type, SEATS2::Passengers, autoSeats );
+            pr_do_check_wait_list_alarm = salonList.check_waitlist_alarm_on_tranzit_routes( autoSeats );
             //!!! иногда True - возможна рассадка на забронированные места, когда
             // есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места
-              SEATS2::SeatsPassengers( &Salons, algo, reqInfo->client_type, SEATS2::Passengers );
-              pr_lat_seat=Salons.getLatSeat();
-            }
+            pr_lat_seat=salonList.isCraftLat();
             boost::posix_time::ptime mst2 = boost::posix_time::microsec_clock::local_time();
             LogTrace(TRACE5) << "SeatsPassengers: " << /*boost::posix_time::time_duration*/(mst2 - mst1).total_milliseconds() << " msecs";
           } //if (wl_type.empty())

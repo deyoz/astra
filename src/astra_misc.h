@@ -498,6 +498,8 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsNoCtrlDocsExtraCrew=42,       //Не контролировать ввод документов для доп. экипажа
                     tsETSControlMethod=43,          //Контрольный метод при обмене с СЭБом
                     tsNoRefuseIfBrd=44,             //Запрет отмены регистрации если пассажир статус "посажен"
+                    tsBanAdultsWithBabyInOneZone=54,//Запрет регистрации пассажиров с младецами в одном блоке мест
+                    tsAdultsWithBabyInOneZoneWL=55, //Регистрация на ЛО взрослого с ребенком, если нет больше блоков без младенцев
 
                     /*привязанные к рейсу (есть соответствующие поля в таблице trip_sets и CheckBox в "Подготовке к регистрации")*/
                     tsCheckLoad=2,                  //Контроль загрузки при регистрации
@@ -1067,7 +1069,18 @@ void SetInfantsToAdults( std::vector<T1> &InfItems, std::vector<T2> AdultItems )
       }
     }
   }
-};
+}
+
+template <class T1>
+bool AdultsWithBaby( int adult_id, const std::vector<T1> &InfItems )
+{
+  for(typename std::vector<T1>::const_iterator infRow = InfItems.begin(); infRow != InfItems.end(); infRow++) {
+    if ( infRow->parent_pax_id == adult_id ) {
+      return true;
+    }
+  }
+  return false;
+}
 
 bool is_sync_paxs( int point_id );
 void update_pax_change( int point_id, int pax_id, int reg_no, const std::string &work_mode );
