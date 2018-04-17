@@ -20,6 +20,7 @@
 #include <serverlib/posthooks.h>
 #include <serverlib/cursctl.h>
 #include <edilib/edi_user_func.h>
+#include <edilib/edi_tables.h>
 #include <libtlg/tlg_outbox.h>
 #include <libtlg/hth.h>
 #include "xp_testing.h"
@@ -82,9 +83,88 @@ void sendCmdTlgSndStepByStep()
   sendCmd("CMD_TLG_SND","S");
 }
 
+void sendCmdAppsHandler()
+{
+  sendCmd("CMD_APPS_HANDLER","H");
+}
+
 void sendCmdTypeBHandler()
 {
   sendCmd("CMD_TYPEB_HANDLER","H");
+}
+
+void sendCmdEdiHandler(TEdiTlgSubtype st)
+{
+    if(st == stItciReq) {
+        sendCmd("CMD_ITCI_REQ_HANDLER","H");
+    } else if(st == stItciRes) {
+        sendCmd("CMD_ITCI_RES_HANDLER","H");
+    } else {
+        sendCmd("CMD_EDI_HANDLER","H");
+    }
+}
+
+TEdiTlgSubtype specifyEdiTlgSubtype(const std::string& ediText)
+{
+    TEdiTlgSubtype ret = stCommon;
+
+    if(ReadEdiMessage(ediText.c_str()) == EDI_MES_OK)
+    {
+        switch(GetEdiMesStruct()->pTempMes->Type.type)
+        {
+        case DCQCKI:
+        case DCQCKU:
+        case DCQCKX:
+        case DCQPLF:
+        case DCQBPR:
+        case DCQSMF:
+        {
+            ret = stItciReq;
+            break;
+        }
+        case DCRCKA:
+        case DCRSMF:
+        {
+            ret = stItciRes;
+            break;
+        }
+        default:
+            break;
+        }
+    }
+
+    LogTrace(TRACE3) << "TlgSubtype " << ret << " detected for edi_message: "
+                     << "'" << ediText.substr(0, 100) << "...'";
+
+    return ret;
+}
+
+std::string getEdiTlgSubtypeName(TEdiTlgSubtype st)
+{
+    std::string str = "";
+    switch(st)
+    {
+    case stItciReq:
+    {
+        str = "itci_req";
+        break;
+    }
+    case stItciRes:
+    {
+        str = "itci_res";
+        break;
+    }
+    case stCommon:
+    {
+        str = "common";
+        break;
+    }
+    default:
+        LogError(STDLOG) << "Unknown edi_handler: " << st;
+        break;
+    }
+
+    return str;
 }
 
 int getNextTlgNum()
@@ -777,7 +857,7 @@ void sendCmd(const char* receiver, const char* cmd, int cmd_len)
   {
     ProgTrace(TRACE0,"Exception: %s",E.what());
   };
-};
+}
 
 int bindLocalSocket(const string &sun_path)
 {

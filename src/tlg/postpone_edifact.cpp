@@ -125,14 +125,17 @@ void PostponeEdiHandling::addToQueue(const tlgnum_t& tnum)
 
     TlgHandling::TlgSourceEdifact tlg = TlgSource::readFromDb(tnum);
 
+    TEdiTlgSubtype tlgSubtype = specifyEdiTlgSubtype(tlg.text());
+
     OciCpp::CursCtl cur = make_curs(
-"insert into TLG_QUEUE(ID, SENDER, TLG_NUM, RECEIVER, TYPE, PRIORITY, STATUS, TIME, TTL, TIME_MSEC) "
-"values(:id, :sender, :tlg_num, :receiver, 'INA', 1, 'PUT', :time, 10, 0)");
+"insert into TLG_QUEUE(ID, SENDER, TLG_NUM, RECEIVER, TYPE, SUBTYPE, PRIORITY, STATUS, TIME, TTL, TIME_MSEC) "
+"values(:id, :sender, :tlg_num, :receiver, 'INA', :subtype, 1, 'PUT', :time, 10, 0)");
 
     cur.bind(":id", tnum.num)
        .bind(":sender", tlg.fromRot())
        .bind(":tlg_num", tlg.gatewayNum())
        .bind(":receiver", tlg.toRot())
+       .bind(":subtype", getEdiTlgSubtypeName(tlgSubtype))
        .bind(":time", Dates::currentDate())
        .exec();
 
@@ -148,7 +151,7 @@ void PostponeEdiHandling::addToQueue(const tlgnum_t& tnum)
         handle_edi_tlg(tlgi);
     }
 #else
-    sendCmdToHandler(tlg.text());
+    sendCmdEdiHandler(tlgSubtype);
 #endif//XP_TESTING
 }
 
