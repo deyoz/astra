@@ -1178,15 +1178,16 @@ void ReadWebSalons( int point_id, const std::vector<AstraWeb::TWebPax> &pnr, map
     grp_layers.push_back( cltPNLAfterPay );
     grp_layers.push_back( cltProtSelfCkin );
     TFilterRoutesSets filterRoutes = salonList.getFilterRoutes();
-    bool pr_departure_tariff_only = true;
     TDropLayersFlags dropLayersFlags;
+    TCreateSalonPropFlags propFlags;
+    propFlags.setFlag( clDepOnlyTariff );
     salonList.CreateSalonsForAutoSeats<TWebPax>( SalonsN,
                                         filterRoutes,
-                                        pr_departure_tariff_only,
+                                        propFlags,
                                         grp_layers,
                                         pnr,
                                         dropLayersFlags );
-   Salons = &SalonsN;
+       Salons = &SalonsN;
    if ( salonList.getRFISCMode() != rTariff  ) {
      Salons->SetTariffsByRFISC(point_id);
    }
@@ -2793,7 +2794,6 @@ static void changeLayer(const ProtLayerRequest::SegList& segListReq,
             webPaxs.emplace_back(paxRes);
           }
           GetCrsPaxSeats(paxListRes.point_id, webPaxs, pax_seats );
-          bool isTranzitSalonsVersion = isTranzitSalons( paxListRes.point_id );
           BitSet<TChangeLayerFlags> change_layer_flags;
           change_layer_flags.setFlag(flSetPayLayer);
           for(int pass=0; pass<2; pass++)
@@ -2847,32 +2847,18 @@ static void changeLayer(const ProtLayerRequest::SegList& segListReq,
 
                   if (isTestPaxId(paxRes.id)) continue;
 
-                  if ( isTranzitSalonsVersion ) {
-                    IntChangeSeatsN( paxListRes.point_id,
-                                     paxRes.id,
-                                     tid,
-                                     iSeat->first.xname,
-                                     iSeat->first.yname,
-                                     stSeat,
-                                     segListRes.layer_type,
-                                     paxListRes.time_limit,
-                                     change_layer_flags,
-                                     0,
-                                     NoExists,
-                                     NULL );
-                  }
-                  else {
-                    IntChangeSeats( paxListRes.point_id,
-                                    paxRes.id,
-                                    tid,
-                                    iSeat->first.xname,
-                                    iSeat->first.yname,
-                                    stSeat,
-                                    segListRes.layer_type,
-                                    paxListRes.time_limit,
-                                    change_layer_flags,
-                                    NULL );
-                  }
+                  IntChangeSeatsN( paxListRes.point_id,
+                                   paxRes.id,
+                                   tid,
+                                   iSeat->first.xname,
+                                   iSeat->first.yname,
+                                   stSeat,
+                                   segListRes.layer_type,
+                                   paxListRes.time_limit,
+                                   change_layer_flags,
+                                   0,
+                                   NoExists,
+                                   NULL );
                 }
               }
               catch(UserException &e)

@@ -134,67 +134,14 @@ void ZoneLoads(int point_id,
                std::vector<SALONS2::TCompSectionLayers> &CompSectionsLayers,
                vector<SALONS2::TCompSection> &compSections )
 {
-    compSections.clear();
-    CompSectionsLayers.clear();
-    zones.clear();
-  if ( SALONS2::isTranzitSalons( point_id ) ) {
-    ZoneLoadsTranzitSalons( point_id,
-                            only_checkin_layers,
-                            zones,
-                            CompSectionsLayers,
-                            compSections );
-    return;
-  }
-    SALONS2::TSalons SalonsTmp( point_id, SALONS2::rTripSalons );
-    TQuery Qry(&OraSession);
-    try {
-          Qry.SQLText =
-            "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
-        Qry.CreateVariable( "point_id", otInteger, point_id );
-        Qry.Execute();
-          TTripInfo info( Qry );
-          tst();
-        SalonsTmp.Read( drop_not_used_pax_layers ); //!!!
-        if ( SalonsTmp.comp_id > 0 && GetTripSets( tsCraftNoChangeSections, info ) ) { //!!!строго завязать базовые компоновки с назначенными на рейс
-            tst();
-            simpleProps sections( SECTION );
-            sections.read( SalonsTmp.comp_id );
-            bagSectionTocompSection( sections, compSections );
-            TQuery Qry(&OraSession);
-            Qry.SQLText = "select layer_type from grp_status_types WHERE layer_type IS NOT NULL";
-            Qry.Execute();
-            std::map<ASTRA::TCompLayerType,SALONS2::TPlaces> layersSeats, checkinLayersSeats;
-            for(; not Qry.Eof; Qry.Next())
-                checkinLayersSeats[DecodeCompLayerType(Qry.FieldAsString("layer_type"))].clear();
-            Qry.Clear();
-            Qry.SQLText =
-              "SELECT code from comp_layer_types WHERE pr_occupy = 1";
-            Qry.Execute();
-            for(; not Qry.Eof; Qry.Next())
-              layersSeats[DecodeCompLayerType(Qry.FieldAsString("code"))].clear();
-            for ( vector<SALONS2::TCompSection>::iterator i=compSections.begin(); i!=compSections.end(); i++ ) {
-                SALONS2::TCompSectionLayers compSectionLayers;
-                compSectionLayers.layersSeats = layersSeats;
-                getLayerPlacesCompSection( SalonsTmp, *i, only_high_layer, compSectionLayers.layersSeats, i->seats );
-                compSectionLayers.compSection = *i;
-                TZoneOccupiedSeats zs;
-                zs.name = i->getName();
-                zs.total_seats = i->seats;
-                for(std::map<ASTRA::TCompLayerType, SALONS2::TPlaces>::iterator im = compSectionLayers.layersSeats.begin(); im != compSectionLayers.layersSeats.end(); im++) {
-                  ProgTrace( TRACE5, "im->first=%s, im->second=%zu", EncodeCompLayerType( im->first ), im->second.size() );
-                  if ( !only_checkin_layers || checkinLayersSeats.find( im->first ) != checkinLayersSeats.end() ) { // работаем только со слоями регистрации??? ДЕН!!!
-                    zs.seats.insert( zs.seats.end(), im->second.begin(), im->second.end() );
-                  }
-                }
-                zones.push_back( zs );
-                CompSectionsLayers.push_back( compSectionLayers );
-            }
-        }
-    } catch(exception &E) {
-        ProgTrace(TRACE5, "ZoneLoads failed, so result would be empty: %s", E.what());
-    } catch(...) {
-        ProgTrace(TRACE5, "ZoneLoads failed, so result would be empty");
-    }
+  compSections.clear();
+  CompSectionsLayers.clear();
+  zones.clear();
+  ZoneLoadsTranzitSalons( point_id,
+                          only_checkin_layers,
+                          zones,
+                          CompSectionsLayers,
+                          compSections );
 }
 
 enum TCompType { ctBase = 0, ctBaseBort = 1, ctPrior = 2, ctCurrent = 3 };
@@ -1648,7 +1595,9 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
     }
     if ( pr_update_salons ) {
       if ( isTranzitSalonsVersion ) {
-        salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), SALONS2::rfTranzitVersion, "", tariff_pax_id );
+        if ( tariff_pax_id != ASTRA::NoExists ) {
+          salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), SALONS2::rfTranzitVersion, "", tariff_pax_id );
+        }
         int ncomp_crc = CRC32_Comp( point_id );
         if ( (comp_crc != 0 && ncomp_crc != 0 && comp_crc != ncomp_crc) ) { //update
           throw UserException( "MSG.SALONS.CHANGE_CONFIGURE_CRAFT_ALL_DATA_REFRESH" );
@@ -1838,7 +1787,8 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     if ( isTranzitSalonsVersion ) {
       SALONS2::TSalonPassengers::const_iterator ipasses = passengers.find( point_id );
       if ( ipasses != passengers.end() ) {
-        SEATS2::AutoReSeatsPassengers( salonList, ipasses->second, SEATS2::GetSeatAlgo( Qry, info.airline, info.flt_no, info.airp ) );
+        SEATS2::AutoReSeatsPassengers( salonList, ipasses->second,
+                                       SEATS2::GetSeatAlgo( Qry, info.airline, info.flt_no, info.airp ) );
       }
     }
     else {

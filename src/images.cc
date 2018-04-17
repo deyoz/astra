@@ -292,17 +292,18 @@ void GetDrawSalonProp( xmlNodePtr reqNode, xmlNodePtr resNode )
   if ( !layersNode )
     layersNode = NewTextChild( imagesNode, "layers_color" );
   while ( !Qry.Eof ) {
-      ASTRA::TCompLayerType l = DecodeCompLayerType( Qry.FieldAsString( "code" ) );
-      if ( !SALONS2::compatibleLayer( l ) ) {
-        Qry.Next();
-        continue;
-      }
-
-  xmlNodePtr n = NewTextChild( layersNode, "layer", Qry.FieldAsString( "code" ) );
-  if ( !Qry.FieldIsNULL( "color" ) )
-    SetProp( n, "color", Qry.FieldAsString( "color" ) );
-    if ( !Qry.FieldIsNULL( "figure" ) )
+    ASTRA::TCompLayerType l = DecodeCompLayerType( Qry.FieldAsString( "code" ) );
+    if ( !SALONS2::compatibleLayer( l ) ) {
+      Qry.Next();
+      continue;
+    }
+    xmlNodePtr n = NewTextChild( layersNode, "layer", Qry.FieldAsString( "code" ) );
+    if ( !Qry.FieldIsNULL( "color" ) ) {
+      SetProp( n, "color", Qry.FieldAsString( "color" ) );
+    }
+    if ( !Qry.FieldIsNULL( "figure" ) ) {
       SetProp( n, "figure", Qry.FieldAsString( "figure" ) );
+    }
     Qry.Next();
   }
 }

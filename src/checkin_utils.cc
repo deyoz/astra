@@ -715,7 +715,6 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
         };
       };
 
-      bool isTranzitSalonsVersion = isTranzitSalons( iPnrData->flt.point_dep );
       BitSet<SEATS2::TChangeLayerFlags> change_layer_flags;
       //пассажиры для изменения
       for(list<TWebPaxForChng>::const_iterator iPaxForChng=currPnr.paxForChng.begin();iPaxForChng!=currPnr.paxForChng.end();iPaxForChng++)
@@ -743,7 +742,6 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
                                changed);
             if (changed)
             {
-              if ( isTranzitSalonsVersion ) {
                 IntChangeSeatsN( iPnrData->flt.point_dep,
                                  iPaxForChng->crs_pax_id,
                                  pax_tid,
@@ -754,21 +752,8 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
                                  change_layer_flags,
                                  0, NoExists,
                                  NULL );
-              }
-              else {
-                IntChangeSeats( iPnrData->flt.point_dep,
-                                iPaxForChng->crs_pax_id,
-                                pax_tid,
-                                curr_xname, curr_yname,
-                                SEATS2::stReseat,
-                                cltUnknown,
-                                NoExists,
-                                change_layer_flags,
-                                NULL );
-              }
             };
-          };
-
+          }
           ASTRA::TPaxTypeExt pax_ext(currPnr.status, iPaxForChng->crew_type);
 
           bool DocUpdatesPending=false;

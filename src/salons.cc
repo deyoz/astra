@@ -424,7 +424,7 @@ TDrawPropInfo getDrawProps( TDrawPropsType proptype )
 {
   TDrawPropInfo res;
   if ( proptype == dpInfantWoSeats ) {
-    res.figure = "framework";
+    res.figure = "rdrect";
     res.color = "$0005A5FA";
     res.name = "Взрослый с младенцем";
   }
@@ -434,7 +434,7 @@ TDrawPropInfo getDrawProps( TDrawPropsType proptype )
     res.name = "Транзитный пассажир";
   }
   return res;
-};
+}
 
 struct CompRoute {
   int point_id;
@@ -637,9 +637,9 @@ void buildMenuLayers( bool isTripCraft,
   }
   xmlNodePtr n = NewTextChild( editNode, "layer",  EncodeCompLayerType( cltUnknown ) );
   SetProp( n, "id", id );
-    SetProp( n, "name", "LAYER_CLEAR_ALL" );
-    SetProp( n, "priority", 10000 );
-    SetProp( n, "edit", 1 );
+  SetProp( n, "name", "LAYER_CLEAR_ALL" );
+  SetProp( n, "priority", 10000 );
+  SetProp( n, "edit", 1 );
   SetProp( n, "name_view_help", AstraLocale::getLocaleText("Очистить все статусы мест") );
   SetProp( n, "func_key", "Shift+F8" );
   xmlNodePtr propNode = NewTextChild( salonsNode, "draw_props" );
@@ -974,8 +974,6 @@ bool TPlace::CompareRems( const TPlace &seat ) const
 bool TPlace::CompareLayers( const TPlace &seat ) const
 {
   if ( lrss.size() != seat.lrss.size() ) {
-//!log    ProgTrace( TRACE5, "TPlace::CompareLayers: lrss1.size()=%zu, lrss2.size()=%zu",
-//!log               lrss.size(), seat.lrss.size() );
     return false;
   }
   for ( std::map<int, std::set<TSeatLayer,SeatLayerCompare> >::const_iterator l1=lrss.begin(),
@@ -992,8 +990,8 @@ bool TPlace::CompareLayers( const TPlace &seat ) const
           lp2!=l2->second.end();
           lp1++, lp2++ ) {
       if ( *lp1 != *lp2 ) {
-        //!logProgTrace( TRACE5, "TPlace::CompareLayers: %s!=%s",
-//!log                   lp1->toString().c_str(), lp2->toString().c_str() );
+//        ProgTrace( TRACE5, "TPlace::CompareLayers: %s!=%s",
+//                   lp1->toString().c_str(), lp2->toString().c_str() );
         return false;
       }
     }
@@ -3131,6 +3129,7 @@ void TSalonList::ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list )
   int idx_name = Qry.FieldIndex( "name" );
   int idx_surname = Qry.FieldIndex( "surname" );
   int idx_class = Qry.FieldIndex( "class" );
+  int idx_parent_pax_id = Qry.FieldIndex( "parent_pax_id" );
   for ( ; !Qry.Eof; Qry.Next() ) {
     int id = Qry.FieldAsInteger( idx_pax_id );
     if ( pax_list.find( id ) != pax_list.end() ) {
@@ -3143,7 +3142,10 @@ void TSalonList::ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list )
     pax.cl = Qry.FieldAsString( idx_class );
     pax.name = Qry.FieldAsString( idx_name );
     pax.surname = Qry.FieldAsString( idx_surname );
-    pax.pr_infant = ASTRA::NoExists;
+    if ( !Qry.FieldIsNULL( idx_parent_pax_id ) ) {
+      pax.pr_infant = 1;
+      //ProgTrace( TRACE5, "ReadCrsPaxs: with baby pax_id=%d", id );
+    }
     pax.pr_web = false;
     pax_list.insert( make_pair( id, pax ) );
   }
@@ -4067,7 +4069,7 @@ void TSalonList::validateLayersSeats( )
 
   for ( std::vector<TTripRouteItem>::const_iterator iseg=filterSets.filterRoutes.begin();
         iseg!=filterSets.filterRoutes.end(); iseg++ ) {
-    //пометим детей
+    //пометим детей, транзит
     pax_lists[ iseg->point_id ].InfantToSeatDrawProps();
     pax_lists[ iseg->point_id ].TranzitToSeatDrawProps( filterSets.filterRoutes.getDepartureId() );
     pax_lists[ iseg->point_id ].dumpValidLayers();
@@ -4713,12 +4715,14 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     // начитываем список забронированных пассажиров по рейсу  pax_list
     Qry.Clear();
     Qry.SQLText =
-      "SELECT pax_id, seats, pers_type, name, surname, class "
-      "    FROM crs_pax, crs_pnr, tlg_binding "
+      "SELECT crs_pax.pax_id, seats, pers_type, name, surname, class, "
+      "       crs_inf.pax_id AS parent_pax_id "
+      "    FROM crs_pax, crs_pnr, tlg_binding, crs_inf "
       "   WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
       "         crs_pnr.point_id=tlg_binding.point_id_tlg AND "
       "         tlg_binding.point_id_spp=:point_dep AND "
       "         crs_pnr.system='CRS' AND "
+      "         crs_pax.pax_id=crs_inf.pax_id(+) AND "
       "         crs_pax.pr_del=0 ";
     Qry.DeclareVariable( "point_dep", otInteger );
     for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
@@ -5872,7 +5876,7 @@ void TSalonList::convertSeatTariffs( TPlace &iseat, bool pr_departure_tariff_onl
 
 bool TSalonList::CreateSalonsForAutoSeats( TSalons &Salons,
                                            TFilterRoutesSets &filterRoutes,
-                                           bool pr_departure_tariff_only,
+                                           TCreateSalonPropFlags propFlags,
                                            const std::vector<ASTRA::TCompLayerType> &grp_layers,
                                            const TPaxsCover &paxs,
                                            TDropLayersFlags &dropLayersFlags )
@@ -5959,7 +5963,7 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &Salons,
 //      iseat->GetTariffs( tariffs );
 //      uniqueTariffs.clear();
       if ( getRFISCMode() != rRFISC ) { // старый режим работы с тарифами
-        convertSeatTariffs( *iseat, pr_departure_tariff_only, filterRoutes.point_dep, filterRoutes.point_arv );
+        convertSeatTariffs( *iseat, propFlags.isFlag( clDepOnlyTariff ), filterRoutes.point_dep, filterRoutes.point_arv );
       }
 
       //если пассажир хочет получить платное место, то надо искать его только в нашем пункте
@@ -6040,23 +6044,24 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &Salons,
               }
             }
           }
-                if ( pr_web_terminal && !paxs.empty() ) { //требуем заполнение списка пассажиров
+          if ( pr_web_terminal && !paxs.empty() ) { //требуем заполнение списка пассажиров
                   //!logProgTrace( TRACE5, "CreateSalonsForAutoSeats: %s %s, paxs.empty=%d, isOwnerFreePlace=%d",
             //!log           ilayer->toString().c_str(), tmp_layer.toString().c_str(), paxs.empty(),
             //!log           AstraWeb::isOwnerFreePlace( tmp_layer.getPaxId(), paxs ) );
                     if ( ( tmp_layer.layer_type == cltPNLCkin ||
-                   isUserProtectLayer( tmp_layer.layer_type ) )  && !isOwnerFreePlace<TPaxCover>( tmp_layer.getPaxId(), paxs ) ) {
-                iseat->AddLayerToPlace( cltDisable, tmp_layer.time_create, tmp_layer.getPaxId(),
-                                          tmp_layer.point_dep, NoExists,
-                                        BASIC_SALONS::TCompLayerTypes::Instance()->priority( cltDisable ) );
-                ProgTrace( TRACE5, "CreateSalonsForAutoSeats: %s add cltDisable because %s", string(iseat->yname+iseat->xname).c_str(),
-                           ilayer->toString().c_str() );
-                pr_blocked_layer = true;
-            }
+                           isUserProtectLayer( tmp_layer.layer_type ) )  && !isOwnerFreePlace<TPaxCover>( tmp_layer.getPaxId(), paxs ) ) {
+                      iseat->AddLayerToPlace( cltDisable, tmp_layer.time_create, tmp_layer.getPaxId(),
+                                              tmp_layer.point_dep, NoExists,
+                                              BASIC_SALONS::TCompLayerTypes::Instance()->priority( cltDisable ) );
+                      ProgTrace( TRACE5, "CreateSalonsForAutoSeats: %s add cltDisable because %s", string(iseat->yname+iseat->xname).c_str(),
+                                 ilayer->toString().c_str() );
+                      pr_blocked_layer = true;
+                    }
           }
           if ( pr_blocked_layer ) {
             break;
           }
+          // если у пассажиров есть дети, то надо пометить все блоки мест, где сидят дети как недоступные
           if ( !points.getPropRoute( ilayers->first, point ) ||
                !point.inRoute ) { //вылет слоя после отрезания пункта
             ProgTrace( TRACE5, "CreateSalonsForAutoSeats: %s, not add %s", string(iseat->yname+iseat->xname).c_str(),
@@ -6066,7 +6071,7 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &Salons,
           TPointInRoute point;
           if ( dropLayersFlags.isFlag( clDropBlockCentLayers ) &&
                ilayer->point_id != getDepartureId() &&
-               ilayer->layer_type == cltBlockCent ) { //удаляем слой блокировки центровки во всех ненаших пунктах
+               ilayer->layer_type == cltBlockCent ) { //удаляем слой блокировки центровки во всех не наших пунктах
             //!logProgTrace( TRACE5, "drop not web pass %s", ilayer->toString().c_str() );
             continue;
           }
@@ -6099,7 +6104,7 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &Salons,
       }
       if ( Salons.canAddOccupy( &(*iseat) ) ) {
         Salons.AddOccupySeat( (*iseatlist)->num, iseat->x, iseat->y );
-        //ProgTrace(TRACE5, "AddOccupySeat %d, %d, %d, %d",(*iseatlist)->num, iseat->x, iseat->y, salons.c() );
+        //ProgTrace(TRACE5, "AddOccupySeat %d, %d, %d",(*iseatlist)->num, iseat->x, iseat->y );
       }
     } // end for iseat
   }
@@ -6591,6 +6596,180 @@ bool TSalonList::check_waitlist_alarm_on_tranzit_routes( const TAutoSeats &autoS
   }
   ProgTrace( TRACE5, "check_waitlist_alarm_on_tranzit_routes: return false" );
   return false;
+}
+
+std::string TZoneBL::toString() {
+  ostringstream buf;
+  for ( std::vector<TPlace*>::const_iterator iseat=begin(); iseat!=end(); iseat++ ) {
+    if ( iseat != begin() ) {
+      buf << ".";
+    }
+    buf << (*iseat)->denorm_view(true);
+  }
+  return buf.str();
+}
+
+
+void TZoneBL::setDisabled( int point_id, TSalons* salons )
+{
+  savePlaces.clear();
+  for ( TZoneBL::iterator iseat=begin(); iseat!=end(); iseat++ ) {
+    TPlace* pseat = *iseat;
+    savePlaces.push_back( *pseat );
+    pseat->AddLayerToPlace( cltDisable, NowUTC(), NoExists, point_id, NoExists,
+                            BASIC_SALONS::TCompLayerTypes::Instance()->priority( cltDisable ) );
+    if ( salons != nullptr ) {
+      if ( salons->canAddOccupy( pseat ) ) {
+        salons->AddOccupySeat( salon_num, pseat->x, pseat->y );
+      }
+      else {
+        salons->RemoveOccupySeat( salon_num, pseat->x, pseat->y );
+      }
+    }
+  }
+}
+
+void TZoneBL::rollback( TSalons* salons )
+{
+  for ( TZoneBL::iterator iseat=begin(); iseat!=end(); iseat++ ) {
+    for ( std::vector<TPlace>::const_iterator pseat=savePlaces.begin(); pseat!=savePlaces.end(); ++pseat ) {
+      if ( getSeatKey::get( salon_num, (*iseat)->x, (*iseat)->y ) == getSeatKey::get( salon_num, pseat->x, pseat->y ) ) {
+        //ProgTrace( TRACE5, "curr seat=%s, layers.empty=%d", (*iseat)->denorm_view(true).c_str(), (*iseat)->layers.empty() );
+        **iseat = *pseat;
+        //ProgTrace( TRACE5, "saved seat=%s, layers.empty=%d", (*iseat)->denorm_view(true).c_str(), (*iseat)->layers.empty() );
+        if ( salons != nullptr ) {
+          if ( salons->canAddOccupy( *iseat ) ) {
+          //  ProgTrace( TRACE5, "add occupy" );
+            salons->AddOccupySeat( salon_num, (*iseat)->x, (*iseat)->y );
+          }
+          else {
+            salons->RemoveOccupySeat( salon_num, (*iseat)->x, (*iseat)->y );
+//            ProgTrace( TRACE5, "remove occupy" );
+          }
+        }
+        break;
+      }
+    }
+  }
+}
+
+void TZonesBetweenLines::getInfantSection( int point_id ) {
+  if ( FUseInfantSection == boost::none ) {
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+      "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.Execute();
+    TTripInfo info( Qry );
+    FUseInfantSection = GetTripSets( tsBanAdultsWithBabyInOneZone, info );
+    ProgTrace( TRACE5, "FUseInfantSection=%d", FUseInfantSection.get() );
+  }
+}
+
+int TZonesBetweenLines::getFirstSeatLine( SALONS2::TPlaceList *placeList, const TPlace &seat ) {
+  int res = ASTRA::NoExists;
+  TPoint p( seat.x, seat.y );
+  TPlace *pseat;
+  while ( placeList->ValidPlace( p ) &&
+         (pseat = placeList->place( p ))->visible &&
+          pseat->isplace ) {
+   res = p.x;
+   p.x--;
+  }
+  return res;
+}
+
+TZonesBetweenLines::iterator TZonesBetweenLines::getZoneBL( SALONS2::TPlaceList *placeList, const TPlace &seat ) {
+  if ( !FUseInfantSection.get() ) {
+    return this->end();
+  }
+  int key_x = getFirstSeatLine( placeList, seat );
+  //ProgTrace( TRACE5, "key_x=%d", key_x );
+  if ( key_x == ASTRA::NoExists ) {
+    return this->end();
+  }
+  TZonesBetweenLines::iterator izbl;
+  int key = getSeatKey::get( placeList->num, key_x, seat.y );
+  if ( (izbl=find( key )) != end() ) {
+//    tst();
+    return izbl;
+  }
+//  tst();
+  TPoint p( key_x, seat.y );
+  TPlace *pseat;
+  boost::optional<TZoneBL> zoneBL = boost::none;
+  while ( placeList->ValidPlace( p ) &&
+         (pseat = placeList->place( p ))->visible &&
+          pseat->isplace ) {
+   if ( zoneBL == boost::none ) {
+     zoneBL = TZoneBL(placeList->num);
+   }
+   zoneBL.get().push_back( pseat );
+   p.x++;
+  }
+  if ( zoneBL == boost::none || zoneBL.get().empty() ) {
+     return this->end();
+  }
+  return insert( make_pair( key, zoneBL ) ).first;
+}
+
+void TZonesBetweenLines::setDisabled( TSalons* Salons, const TPaxsCover &grpPaxs, const std::set<int> &pax_lists )
+{
+  clear();
+  if ( !FUseInfantSection ) {
+    return;
+  }
+  for ( std::vector<TPlaceList*>::iterator ilist=Salons->placelists.begin(); ilist!=Salons->placelists.end(); ++ilist ) {
+    setDisabled( Salons->trip_id, Salons, *ilist, grpPaxs, pax_lists, DisableMode::dlayers );
+  }
+}
+
+void TZonesBetweenLines::setDisabled( int point_id, TSalons* Salons, TPlaceList* placeList, const TPaxsCover &grpPaxs, const std::set<int> &pax_lists, DisableMode mode )
+{
+  if ( !FUseInfantSection ) {
+    return;
+  }
+  for ( IPlace iseat=placeList->places.begin(); iseat!=placeList->places.end(); iseat++ ) {
+    if ( !iseat->visible || !iseat->isplace ) {
+       continue;
+    }
+    int pax_id = ASTRA::NoExists;
+    if ( mode == DisableMode::dlayers &&
+         (iseat->layers.empty() ||
+          (pax_id = iseat->layers.begin()->pax_id) == NoExists ) ) {
+      continue;
+    }
+    if ( mode == DisableMode::dlrss &&
+         (pax_id = iseat->getCurrLayer( point_id ).getPaxId()) == ASTRA::NoExists ) {
+      continue;
+    }
+  //  ProgTrace( TRACE5, "layer->pax_id=%d", pax_id );
+    if ( pax_lists.find( pax_id ) != pax_lists.end() ) {
+//      ProgTrace(TRACE5, "isOwnerFreePlace=%d", isOwnerFreePlace<TPaxCover>( pax_id, grpPaxs ));
+      if ( isOwnerFreePlace<TPaxCover>( pax_id, grpPaxs ) ) {
+//        ProgTrace( TRACE5, "isOwnerFreePlace iseat->layer->pax_id=%d", pax_id );
+        continue;
+      }
+      TZonesBetweenLines::iterator zone = getZoneBL( placeList, *iseat );
+      if ( zone == this->end() ) {
+        continue;
+      }
+  //    ProgTrace(TRACE5, "zone=%s set disabled", zone->second.get().toString().c_str() );
+      zone->second.get().setDisabled( point_id, Salons );
+    }
+  }
+}
+
+void TZonesBetweenLines::rollbackDisabled( TSalons* salons )
+{
+   for ( TZonesBetweenLines::iterator izone=begin(); izone!=end(); ++izone ) {
+     if ( izone->second == boost::none ||
+          izone->second.get().empty() ) {
+       continue;
+     }
+    // ProgTrace( TRACE5, "rollback zone %s", izone->second.get().toString().c_str() );
+     izone->second.get().rollback( salons );
+   }
 }
 
 /////////////////////////////////////////////////////////
@@ -8480,8 +8659,8 @@ void InitVIP( int point_id )
     TQuery Qry(&OraSession);
     Qry.SQLText =
       "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.Execute();
     TTripInfo info( Qry );
     if ( !GetTripSets( tsCraftInitVIP, info ) )
     return;
@@ -8601,12 +8780,12 @@ bool getSalonChanges( const vector<TPlaceList*> &list1, bool pr_craft_lat1,
                       TRFISCMode RFISCMode,
                       TSalonChanges &seats )
 {
-  //!logProgTrace( TRACE5, "getSalonChanges" );
-    seats.clear();
-    seats.RFISCMode = RFISCMode;
-    if ( pr_craft_lat1 != pr_craft_lat2 ||
-           list1.size() != list2.size() )
-        return false;
+  seats.clear();
+  seats.RFISCMode = RFISCMode;
+  if ( pr_craft_lat1 != pr_craft_lat2 ||
+         list1.size() != list2.size() ) {
+    return false;
+  }
   TCompareCompsFlags compareNotChangeFlags, comparePropChangeFlag;
   compareNotChangeFlags.setFlag( ccXY );
   compareNotChangeFlags.setFlag( ccElemType );
@@ -10172,7 +10351,7 @@ bool isUserProtectLayer( ASTRA::TCompLayerType layer_type )
            layer_type == ASTRA::cltProtAfterPay ||
            layer_type == ASTRA::cltPNLAfterPay ||
            layer_type == ASTRA::cltProtSelfCkin );
-};
+}
 
 void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
                   const TSeatRanges &seatRanges,
@@ -10470,7 +10649,6 @@ int testsalons(int argc,char **argv)
   vpointNum[ 2 ] = 2;
   vpointNum[ 3 ] = 3;
   vpointNum[ 4 ] = 4;
-  //!log tst();
   /*SALONS2::FilterRoutesProperty filterProp( 1, 3, vpointNum );
   TTripRouteItem item;
   item.point_id = 1;
@@ -10498,6 +10676,3 @@ int testsalons(int argc,char **argv)
     */
   return 0;
 }
-
-
-
