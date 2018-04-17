@@ -134,7 +134,7 @@ TEdiTlgSubtype specifyEdiTlgSubtype(const std::string& ediText)
     }
 
     LogTrace(TRACE3) << "TlgSubtype " << ret << " detected for edi_message: "
-                     << "'" << ediText.substr(0, 60) << "'";
+                     << "'" << ediText.substr(0, 100) << "...'";
 
     return ret;
 }
