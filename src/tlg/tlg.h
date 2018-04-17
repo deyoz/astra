@@ -65,6 +65,11 @@ int HANDLER_PROC_ATTEMPTS();
 
 enum TTlgQueuePriority { qpOutA=1, qpOutAStepByStep=4, qpOutB=3, qpOutApp=2 };
 
+enum TEdiTlgSubtype { stCommon, stItciReq, stItciRes };
+
+TEdiTlgSubtype specifyEdiTlgSubtype(const std::string& ediText);
+std::string getEdiTlgSubtypeName(TEdiTlgSubtype st);
+
 int getNextTlgNum();
 void putTypeBBody(int tlg_id, int tlg_num, const std::string &tlg_body);
 std::string getTypeBBody(int tlg_id, int tlg_num);
@@ -120,6 +125,8 @@ void sendCmdTlgHttpSnd();
 void sendCmdTlgSnd();
 void sendCmdTlgSndStepByStep();
 void sendCmdTypeBHandler();
+void sendCmdAppsHandler();
+void sendCmdEdiHandler(TEdiTlgSubtype st);
 
 
 struct tlg_info
