@@ -60,7 +60,7 @@ static int PROC_COUNT()          //кол-во разбираемых телеграмм за одну итерацию
   return VAR;
 };
 
-static bool handle_tlg(void);
+static bool handle_tlg(const std::string& handler_id);
 
 int base_edi_handler_tcl(const char* cmd, int argc, char *argv[])
 {
@@ -68,6 +68,15 @@ int base_edi_handler_tcl(const char* cmd, int argc, char *argv[])
     {
       sleep(2);
       InitLogTime(argc>0?argv[0]:NULL);
+
+      std::string handler_id;
+      if(argc!=2) {
+          ProgError(STDLOG,
+                    "ERROR:base_edi_handler_tcl wrong number of parameters:%d",
+                    argc);
+      } else {
+          handler_id = argv[1];
+      }
 
       ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
               ->connect_db();
@@ -78,7 +87,7 @@ int base_edi_handler_tcl(const char* cmd, int argc, char *argv[])
       {
         InitLogTime(argc>0?argv[0]:NULL);
         base_tables.Invalidate();
-        bool queue_not_empty=handle_tlg();
+        bool queue_not_empty=handle_tlg(handler_id);
 
         waitCmd(cmd,queue_not_empty?PROC_INTERVAL():WAIT_INTERVAL(),buf,sizeof(buf));
       }; // end of loop
@@ -243,7 +252,7 @@ void handle_edi_tlg(const tlg_info &tlg)
     monitor_idle_zapr_type(1, QUEPOT_TLG_EDI);
 }
 
-bool handle_tlg(void)
+bool handle_tlg(const std::string& handler_id)
 {
   bool queue_not_empty=false;
 
@@ -260,9 +269,11 @@ bool handle_tlg(void)
       "       NVL(tlg_queue.proc_attempt,0) AS proc_attempt "
       "FROM tlg_queue "
       "WHERE tlg_queue.receiver=:receiver AND "
-      "      tlg_queue.type='INA' AND tlg_queue.status='PUT' "
+      "      tlg_queue.type='INA' AND tlg_queue.status='PUT' AND "
+      "      tlg_queue.subtype=:handler_id "
       "ORDER BY tlg_queue.time,tlg_queue.id";
     TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME());
+    TlgQry.CreateVariable("handler_id",otString,handler_id);
   };
 
   int count;

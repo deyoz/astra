@@ -30,7 +30,6 @@ using namespace EXCEPTIONS;
 using namespace std;
 
 enum { tEdi, tAPPS, tTYPEB, tNone };
-enum { stItciReq, stItciRes, stNone };
 
 static int WAIT_INTERVAL()       //миллисекунды
 {
@@ -120,35 +119,6 @@ int main_srv_tcl(int supervisorSocket, int argc, char *argv[])
   return 0;
 };
 
-int specifyEdiHandlerSubtype(_EDI_REAL_MES_STRUCT_ *pMes)
-{
-    int ret = stNone;
-    LogTrace(TRACE3) << "Specify handler for edi_message with type: " << pMes->pTempMes->Type.type;
-    switch(pMes->pTempMes->Type.type)
-    {
-    case DCQCKI:
-    case DCQCKU:
-    case DCQCKX:
-    case DCQPLF:
-    case DCQBPR:
-    case DCQSMF:
-    {
-        ret = stItciReq;
-        break;
-    }
-    case DCRCKA:
-    case DCRSMF:
-    {
-        ret = stItciRes;
-        break;
-    }
-    default:
-        break;
-    }
-
-    return ret;
-}
-
 void process_tlg(void)
 {
   struct sockaddr_in to_addr,from_addr;
@@ -160,7 +130,7 @@ void process_tlg(void)
   char *tlg_body;
 
   int type = tNone;
-  int subtype = tNone;
+  TEdiTlgSubtype subtype = stCommon;
   time_t start_time=time(NULL);
 
   try
@@ -252,9 +222,7 @@ void process_tlg(void)
 
         if(IsEdifactText(tlg_body,tlg_len)) {
           type = tEdi;
-          if(ReadEdiMessage(tlg_body) == EDI_MES_OK) {
-              subtype = specifyEdiHandlerSubtype(GetEdiMesStruct());
-          }
+          subtype = specifyEdiTlgSubtype(tlg_body);
         } else if (IsAPPSAnswText(tlg_body)) {
           type = tAPPS;
         } else {
@@ -293,7 +261,6 @@ void process_tlg(void)
             TlgInsQry.CreateVariable("sender",otString,tlg_in.Sender);
             TlgInsQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
             TlgInsQry.CreateVariable("receiver",otString,tlg_in.Receiver);
-            TlgInsQry.DeclareVariable("type",otInteger);
             if ( type == tEdi )
               TlgInsQry.CreateVariable("type",otString,"INA");
             else if ( type == tTYPEB )
@@ -312,13 +279,17 @@ void process_tlg(void)
 
             // tlg_queue
             TlgInsQry.SQLText=
-              "INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,priority,status,time,ttl,time_msec,last_send) "
-              "VALUES(:id,:sender,:tlg_num,:receiver,:type,1,'PUT',:time,:ttl,:time_msec,NULL)";
+              "INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,subtype,priority,status,time,ttl,time_msec,last_send) "
+              "VALUES(:id,:sender,:tlg_num,:receiver,:type,:subtype,1,'PUT',:time,:ttl,:time_msec,NULL)";
             if (tlg_in.TTL>0)
               TlgInsQry.CreateVariable("ttl",otInteger,(int)(tlg_in.TTL-(time(NULL)-start_time)));
             else
               TlgInsQry.CreateVariable("ttl",otInteger,FNull);
             TlgInsQry.CreateVariable("time_msec",otFloat,nowUTC);
+            if ( type == tEdi )
+              TlgInsQry.CreateVariable("subtype", otString, getEdiTlgSubtypeName(subtype));
+            else
+              TlgInsQry.CreateVariable("subtype", otString, FNull);
             TlgInsQry.Execute();
             if(is_hth)
             {
@@ -453,17 +424,11 @@ void process_tlg(void)
       case TLG_IN:
       case TLG_OUT:
         if ( type == tEdi ) {
-          if ( subtype == stItciReq ) {
-            sendCmd("CMD_ITCI_REQ_HANDLER","H");
-          } else if( subtype == stItciRes ) {
-            sendCmd("CMD_ITCI_RES_HANDLER","H");
-          } else {
-            sendCmd("CMD_EDI_HANDLER","H");
-          }
+            sendCmdEdiHandler(subtype);
         } else if ( type == tAPPS ) {
-          sendCmd("CMD_APPS_HANDLER","H");
+            sendCmdAppsHandler();
         } else if ( type == tTYPEB ) {
-          sendCmd("CMD_TYPEB_HANDLER","H");
+            sendCmdTypeBHandler();
         }
         break;
       case TLG_F_ACK:
