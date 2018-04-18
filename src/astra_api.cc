@@ -603,7 +603,7 @@ void AstraEngine::initReqInfo(const std::string& deskVersion) const
     TReqInfo::Instance()->Initialize("ŒŽ‚");
     TReqInfo::Instance()->screen.name    = "AIR.EXE";
     TReqInfo::Instance()->client_type    = ASTRA::ctTerm;
-    //TReqInfo::Instance()->desk.code      = "IATCIP";
+    TReqInfo::Instance()->desk.code      = "IATCIP";
     TReqInfo::Instance()->desk.version   = deskVersion;
     TReqInfo::Instance()->desk.lang      = AstraLocale::LANG_EN;
     TReqInfo::Instance()->api_mode       = true;
