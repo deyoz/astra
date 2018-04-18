@@ -30,6 +30,7 @@
 #include "serverlib/perfom.h"
 #include "serverlib/ourtime.h"
 #include "serverlib/query_runner.h"
+#include "serverlib/savepoint.h"
 #include "jxtlib/xmllibcpp.h"
 #include "jxtlib/xml_stuff.h"
 #include "checkin_utils.h"
@@ -2113,6 +2114,8 @@ void WebRequestsIface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode)
 {
   ProgTrace(TRACE1,"WebRequestsIface::SavePax");
+
+  OciCpp::Savepoint sp("sp_savepax");
   vector< pair<int, TWebPnrForSave > > segs;
   TFlights flightsForLock;
   xmlNodePtr segNode=NodeAsNode("segments", reqNode)->children;
@@ -2231,7 +2234,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
     if (ediResNode==NULL && !ChangeStatusInfo.empty()) // needSyncEdsEts
     {
       //хотя бы один билет будет обрабатываться
-      ASTRA::rollback();  //откат
+      sp.rollback();  //откат
       ChangeStatusInterface::ChangeStatus(reqNode, ChangeStatusInfo);
       SirenaExchangeList.handle(__FUNCTION__);
       return false;
