@@ -1531,7 +1531,11 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       TPaxSeats priorSeats(point_id);
       TRemGrp rem_grp;
       if(not Qry.Eof) rem_grp.Load(retBRD_VIEW, point_id);
+
+      int col_excess_type = NodeAsInteger("col_excess_type", reqNode, NoExists);
       TExcessNodeList excessNodeList;
+      excessNodeList.concept = (col_excess_type == NoExists ? TExcessNodeList::ctInitial : (TExcessNodeList::ConceptType)col_excess_type);
+
       for(;!Qry.Eof;Qry.Next())
       {
           int grp_id=Qry.FieldAsInteger(col_grp_id);
@@ -1722,6 +1726,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             };
           };
       };//for(;!Qry.Eof;Qry.Next())
+      NewTextChild(dataNode, "col_excess_type", excessNodeList.concept);
 
     };
     TRptParams rpt_params(reqInfo->desk.lang);
