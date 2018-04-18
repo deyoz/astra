@@ -6028,7 +6028,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             }
           }
 
-          if (grp.rfisc_used && AfterSaveInfo.action==CheckIn::actionNone)
+          if (grp.rfisc_used && AfterSaveInfo.action==CheckIn::actionNone
+                && TReqInfo::Instance()->client_type==ctTerm)
           {
             if (TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION) || grp.pc)
               AfterSaveInfo.action=CheckIn::actionRefreshPaidBagPC;
