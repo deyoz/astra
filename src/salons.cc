@@ -1893,26 +1893,6 @@ TSalons::TSalons()
   FCurrPlaceList = NULL;
 }
 
-/*TSalons::TSalons( int id, TReadStyle vreadStyle )
-{
-  pr_owner = false;
-    readStyle = vreadStyle;
-    if ( readStyle == rComponSalons )
-        comp_id = id;
-    else
-      trip_id = id;
-    pr_lat_seat = false;
-  FCurrPlaceList = NULL;
-
-  if ( readStyle == rTripSalons ) {
-    std::vector<TTripRouteItem> routes;
-    FilterLayers.getFilterLayersOnTranzitRoutes( trip_id, false, routes ); //prior version
-  }
-  getMenuLayers( readStyle == rTripSalons,
-                 FilterLayers,
-                 menuLayers );
-}*/
-
 TSalons::~TSalons()
 {
   Clear( );
@@ -8902,18 +8882,6 @@ bool getSalonChanges( TSalons &OldSalons, TSalons &NewSalons,
     }
     return true;
 }
-
-/*!!!void getSalonChanges( TSalons &OldSalons, TRFISCMode RFISCMode, TSalonChanges &seats )
-{
-    seats.clear();
-    seats.RFISCMode = RFISCMode;
-    TSalons Salons( OldSalons.trip_id, rTripSalons );
-    Salons.Read();
-    if ( !getSalonChanges( OldSalons, Salons, RFISCMode, seats ) )
-        throw UserException( "MSG.SALONS.COMPON_CHANGED.REFRESH_DATA" );
-}
-
-*/
 
 void BuildSalonChanges( xmlNodePtr dataNode, const TSalonChanges &seats )
 {

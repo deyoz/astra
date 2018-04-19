@@ -1160,7 +1160,6 @@ class TSalons {
     std::string FilterClass;
     std::vector<TPlaceList*> placelists;
     ~TSalons( );
-    //TSalons( int id, TReadStyle vreadStyle );
     TSalons( );
     void SetProps( const TFilterLayers &vfilterLayers,
                    TReadStyle vreadStyle,
