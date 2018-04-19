@@ -1054,7 +1054,6 @@ struct TSalonPax {
 };
                                 //pax_id,TSalonPax
 class TPaxList: public std::map<int,TSalonPax> {
-  private:
   public:
     std::map<int,TSalonPax> infants;
     void InfantToSeatDrawProps();
@@ -1087,13 +1086,12 @@ class TPaxList: public std::map<int,TSalonPax> {
     }
 };
 
-enum TSalonReadVersion { rfNoTranzitVersion, rfTranzitVersion };
+//enum TSalonReadVersion { rfNoTranzitVersion, rfTranzitVersion };
 
 bool filterComponsForView( const std::string &airline, const std::string &airp );
 bool filterComponsForEdit( const std::string &airline, const std::string &airp );
 
 struct TFilterSets {
-  TSalonReadVersion version;
   std::string filterClass;
   FilterRoutesProperty filterRoutes;
   std::map<int,TFilterLayers> filtersLayers;
@@ -1510,7 +1508,6 @@ class TSalonList: public std::vector<TPlaceList*> {
     }
     void ReadCompon( int vcomp_id, int point_id );
     void ReadFlight( const TFilterRoutesSets &filterRoutesSets,
-                     TSalonReadVersion version,
                      const std::string &filterClass,
                      int tariff_pax_id,
                      bool for_calc_waitlist = false,  //!!!

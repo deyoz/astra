@@ -29,7 +29,6 @@ namespace SalonPaxList {
     {
         TSalonList salonList;
         salonList.ReadFlight( TFilterRoutesSets( point_id, ASTRA::NoExists ),
-                              rfTranzitVersion,
                               "", NoExists );
         pax_list.clear();
         salonList.getPassengers( pax_list, flags );

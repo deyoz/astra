@@ -1448,7 +1448,7 @@ void ParseLCIContent(TTlgPartInfo body, TLCIHeadingInfo& info, TLCIContent& con,
 void set_seats_option(TPassSeats &seats, const TSeatRanges &seatRanges, int point_id_spp)
 {
     SALONS2::TSalonList salonList;
-    salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id_spp ), SALONS2::rfTranzitVersion, "", NoExists );
+    salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id_spp ), "", NoExists );
     for ( std::vector<SALONS2::TPlaceList*>::iterator isalonList=salonList.begin();
             isalonList!=salonList.end(); isalonList++ ) {
         for ( SALONS2::TPlaces::iterator iseat=(*isalonList)->places.begin(); iseat!=(*isalonList)->places.end(); iseat++ ) {

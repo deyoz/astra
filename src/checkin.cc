@@ -5071,7 +5071,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             SetInfantsToAdults( InfItems, AdultItems );
             SEATS2::Passengers.Clear();
             SEATS2::TSublsRems subcls_rems( fltInfo.airline );
-            salonList.ReadFlight( SALONS2::TFilterRoutesSets( grp.point_dep, grp.point_arv ), SALONS2::rfTranzitVersion, grp.cl, ASTRA::NoExists );
+            salonList.ReadFlight( SALONS2::TFilterRoutesSets( grp.point_dep, grp.point_arv ), grp.cl, ASTRA::NoExists );
             //заполним массив для рассадки
             for(int k=0;k<=1;k++)
             {
