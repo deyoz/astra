@@ -18,6 +18,11 @@ tests:
 
 rebuild: clean all
 
-tscriptc edilib jxtlib shared libtypeb: serverlib
-eticklib: edilib serverlib
-libtlg: edilib serverlib
+serverlib:
+tscriptc: serverlib
+jxtlib: serverlib
+edilib: serverlib
+shared: serverlib
+eticklib: serverlib edilib
+libtlg: serverlib edilib
+libtypeb: serverlib eticklib
