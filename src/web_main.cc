@@ -1121,8 +1121,8 @@ struct TWebPlaceList {
     int xcount, ycount;
 };
 
-void ReadWebSalons( int point_id, const std::vector<AstraWeb::TWebPax> &pnr, map<int, TWebPlaceList> &web_salons, bool &pr_find_free_subcls_place,
-                    bool isTranzitSalonsVersion, SALONS2::TSalonList &salonList )
+void ReadWebSalons( int point_id, const std::vector<AstraWeb::TWebPax> &pnr, map<int, TWebPlaceList> &web_salons,
+                    bool &pr_find_free_subcls_place, SALONS2::TSalonList &salonList )
 {
   int point_arv = NoExists;
   string crs_class, crs_subclass;
@@ -1136,10 +1136,8 @@ void ReadWebSalons( int point_id, const std::vector<AstraWeb::TWebPax> &pnr, map
       crs_subclass = i->pass_subclass;
     TPerson p=DecodePerson(i->pers_type_extended.c_str());
     pr_CHIN=(pr_CHIN || p==ASTRA::child || p==ASTRA::baby); //среди типов может быть БГ (CBBG) который приравнивается к взрослому
-    if ( isTranzitSalonsVersion ) {
-      if ( point_arv == ASTRA::NoExists ) {
-        point_arv = SALONS2::getCrsPaxPointArv( i->crs_pax_id, point_id );
-      }
+    if ( point_arv == ASTRA::NoExists ) {
+      point_arv = SALONS2::getCrsPaxPointArv( i->crs_pax_id, point_id );
     }
   }
   ProgTrace( TRACE5, "ReadWebSalons: point_dep=%d, point_arv=%d, pr_CHIN=%d",
@@ -1152,14 +1150,7 @@ void ReadWebSalons( int point_id, const std::vector<AstraWeb::TWebPax> &pnr, map
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   TSublsRems subcls_rems( Qry.FieldAsString("airline") );
-  SALONS2::TSalons SalonsO( point_id, SALONS2::rTripSalons );
-  if ( isTranzitSalonsVersion ) {
-    salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), SALONS2::rfTranzitVersion, crs_class, NoExists );
-  }
-  else {
-    SalonsO.FilterClass = crs_class;
-    SalonsO.Read();
-  }
+  salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), SALONS2::rfTranzitVersion, crs_class, NoExists );
   // получим признак того, что в салоне есть свободные места с данным подклассом
   pr_find_free_subcls_place=false;
   string pass_rem;
@@ -1167,34 +1158,29 @@ void ReadWebSalons( int point_id, const std::vector<AstraWeb::TWebPax> &pnr, map
   subcls_rems.IsSubClsRem( crs_subclass, pass_rem );
   TSalons *Salons;
   TSalons SalonsN;
-  if ( isTranzitSalonsVersion ) {
-    //задаем все возможные статусы для разметки группы
-    vector<ASTRA::TCompLayerType> grp_layers;
-    grp_layers.push_back( cltCheckin );
-    grp_layers.push_back( cltTCheckin );
-    grp_layers.push_back( cltTranzit );
-    grp_layers.push_back( cltProtBeforePay );
-    grp_layers.push_back( cltProtAfterPay );
-    grp_layers.push_back( cltPNLBeforePay );
-    grp_layers.push_back( cltPNLAfterPay );
-    grp_layers.push_back( cltProtSelfCkin );
-    TFilterRoutesSets filterRoutes = salonList.getFilterRoutes();
-    TDropLayersFlags dropLayersFlags;
-    TCreateSalonPropFlags propFlags;
-    propFlags.setFlag( clDepOnlyTariff );
-    salonList.CreateSalonsForAutoSeats<TWebPax>( SalonsN,
-                                        filterRoutes,
-                                        propFlags,
-                                        grp_layers,
-                                        pnr,
-                                        dropLayersFlags );
-       Salons = &SalonsN;
-   if ( salonList.getRFISCMode() != rTariff  ) {
-     Salons->SetTariffsByRFISC(point_id);
-   }
-  }
-  else {
-    Salons = &SalonsO;
+  //задаем все возможные статусы для разметки группы
+  vector<ASTRA::TCompLayerType> grp_layers;
+  grp_layers.push_back( cltCheckin );
+  grp_layers.push_back( cltTCheckin );
+  grp_layers.push_back( cltTranzit );
+  grp_layers.push_back( cltProtBeforePay );
+  grp_layers.push_back( cltProtAfterPay );
+  grp_layers.push_back( cltPNLBeforePay );
+  grp_layers.push_back( cltPNLAfterPay );
+  grp_layers.push_back( cltProtSelfCkin );
+  TFilterRoutesSets filterRoutes = salonList.getFilterRoutes();
+  TDropLayersFlags dropLayersFlags;
+  TCreateSalonPropFlags propFlags;
+  propFlags.setFlag( clDepOnlyTariff );
+  salonList.CreateSalonsForAutoSeats<TWebPax>( SalonsN,
+                                      filterRoutes,
+                                      propFlags,
+                                      grp_layers,
+                                      pnr,
+                                      dropLayersFlags );
+  Salons = &SalonsN;
+  if ( salonList.getRFISCMode() != rTariff  ) {
+    Salons->SetTariffsByRFISC(point_id);
   }
   for( vector<TPlaceList*>::iterator placeList = Salons->placelists.begin();
        placeList != Salons->placelists.end(); placeList++ ) {
@@ -1372,8 +1358,7 @@ void GetCrsPaxSeats( int point_id, const vector<TWebPax> &pnr,
   map<int, TWebPlaceList> web_salons;
   bool pr_find_free_subcls_place=false;
   SALONS2::TSalonList salonList; //не используется
-  bool isTranzitSalonsVersion = isTranzitSalons( point_id );
-  ReadWebSalons( point_id, pnr, web_salons, pr_find_free_subcls_place, isTranzitSalonsVersion, salonList );
+  ReadWebSalons( point_id, pnr, web_salons, pr_find_free_subcls_place, salonList );
   for ( vector<TWebPax>::const_iterator i=pnr.begin(); i!=pnr.end(); i++ ) { // пробег по пассажирам
     LexemaData ld;
     bool pr_find = false;
@@ -1430,8 +1415,7 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   map<int, TWebPlaceList> web_salons;
   bool pr_find_free_subcls_place=false;
   SALONS2::TSalonList salonList; //используется
-  bool isTranzitSalonsVersion = isTranzitSalons( point_id );
-  ReadWebSalons( point_id, grp.paxs, web_salons, pr_find_free_subcls_place, isTranzitSalonsVersion, salonList );
+  ReadWebSalons( point_id, grp.paxs, web_salons, pr_find_free_subcls_place, salonList );
 
   xmlNodePtr nodeViewCraft = NewTextChild( resNode, "ViewCraft" );
   xmlNodePtr node = NewTextChild( nodeViewCraft, "salons" );
@@ -1497,73 +1481,71 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     }
     SALONS2::checkBuildSections( point_id, salonList.getCompId(), nodeViewCraft, false );
   }
-  ProgTrace( TRACE5, "isTranzitSalonsVersion %d, flagsNode %d", isTranzitSalonsVersion, flagsNode != NULL );
-  if ( isTranzitSalonsVersion && flagsNode != NULL ) {
-    xmlNodePtr passesNode = NULL;
-    TSalonPassengers passengers;
-    TGetPassFlags flags;
-  /*  flagsNode = flagsNode->children;
-    while ( flagsNode != NULL && string("flag") == (char*)flagsNode->name ) {
-      string mode = NodeAsString( flagsNode );
-      if ( "Passengers" == mode ) {
-        flags.setFlag( gpPassenger );
-      }
-      if ( "Tranzits" == mode ) {
-        flags.setFlag( gpTranzits );
-      }
-      if ( "Infants" == mode ) {
-        flags.setFlag( gpInfants );
-      }
-      if ( "WaitList" == mode ) {
-        flags.setFlag( gpWaitList );
-      }
-      flagsNode = flagsNode->next;
-    }*/
-    flags.setFlag( gpPassenger );
-    salonList.getPassengers( passengers, flags );
-    ProgTrace( TRACE5, "salon list passengers is empty %d", passengers.empty() );
-    for ( SALONS2::TSalonPassengers::iterator ipass_dep=passengers.begin(); //point_dep
-          ipass_dep!=passengers.end(); ipass_dep++ ) {
-      tst();
-      if ( ipass_dep->first != point_id ) {
-        continue;
-      }
-      for ( SALONS2::TIntArvSalonPassengers::iterator ipass_arv=ipass_dep->second.begin();
-            ipass_arv!=ipass_dep->second.end(); ipass_arv++ ) { // point_arv
-        for ( SALONS2::TIntClassSalonPassengers::iterator ipass_class=ipass_arv->second.begin(); //class,grp_status,TSalonPax
-              ipass_class!=ipass_arv->second.end(); ipass_class++ ) {
-          for ( SALONS2::TIntStatusSalonPassengers::iterator ipass_status=ipass_class->second.begin(); //grp_status,TSalonPax
-                ipass_status!=ipass_class->second.end(); ipass_status++ ) { //
-            for ( std::set<SALONS2::TSalonPax,SALONS2::ComparePassenger>::iterator ipass=ipass_status->second.begin();
-                  ipass!=ipass_status->second.end(); ipass++ ) {
-              TWaitListReason waitListReason;
-              TPassSeats seats;
-              ipass->get_seats( waitListReason, seats );
-              if ( !passesNode ) {
-                passesNode = NewTextChild( nodeViewCraft, "passengers" );
-              }
-              xmlNodePtr pNode = NewTextChild( passesNode, "passenger" );
-              //NewTextChild( pNode, "grp_id", ipass->grp_id );
-              NewTextChild( pNode, "pax_id", ipass->pax_id );
-              //NewTextChild( pNode, "point_dep", ipass_dep->first );
-              //NewTextChild( pNode, "point_arv", ipass_arv->first );
-              //NewTextChild( pNode, "pr_tranzit", ipass_dep->first != point_id );
-              //NewTextChild( pNode, "class", ipass_class->first );
-              //NewTextChild( pNode, "grp_status", ipass_status->first );
-              //NewTextChild( pNode, "pr_infant", ipass->pr_infant );
-              //NewTextChild( pNode, "parent_pax_id", ipass->parent_pax_id );
-              //NewTextChild( pNode, "reg_no", ipass->reg_no );
-              NewTextChild( pNode, "gender", CheckIn::isFemaleStr( ipass->is_female ) );
-//              NewTextChild( pNode, "pers_type", EncodePerson( ipass->pers_type ) );
-              CheckIn::TPaxDocItem doc;
-              CheckIn::LoadPaxDoc( ipass->pax_id, doc);
-              NewTextChild( pNode, "birth_date", doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "dd.mm.yyyy"):string("") );
-  //            xmlNodePtr seatsNode = NewTextChild( pNode, "seats" );
-    //          SetProp( seatsNode, "count", ipass->seats );
-      //        for (TPassSeats::const_iterator iseat=seats.begin(); iseat!=seats.end(); iseat++) {
-        //        NewTextChild( seatsNode, "seat", GetSeatView(*iseat, "one", salonList.isCraftLat()) );
-          //    }
+  ProgTrace( TRACE5, "flagsNode %d", flagsNode != NULL );
+  xmlNodePtr passesNode = NULL;
+  TSalonPassengers passengers;
+  TGetPassFlags flags;
+/*  flagsNode = flagsNode->children;
+  while ( flagsNode != NULL && string("flag") == (char*)flagsNode->name ) {
+    string mode = NodeAsString( flagsNode );
+    if ( "Passengers" == mode ) {
+      flags.setFlag( gpPassenger );
+    }
+    if ( "Tranzits" == mode ) {
+      flags.setFlag( gpTranzits );
+    }
+    if ( "Infants" == mode ) {
+      flags.setFlag( gpInfants );
+    }
+    if ( "WaitList" == mode ) {
+      flags.setFlag( gpWaitList );
+    }
+    flagsNode = flagsNode->next;
+  }*/
+  flags.setFlag( gpPassenger );
+  salonList.getPassengers( passengers, flags );
+  ProgTrace( TRACE5, "salon list passengers is empty %d", passengers.empty() );
+  for ( SALONS2::TSalonPassengers::iterator ipass_dep=passengers.begin(); //point_dep
+        ipass_dep!=passengers.end(); ipass_dep++ ) {
+    tst();
+    if ( ipass_dep->first != point_id ) {
+      continue;
+    }
+    for ( SALONS2::TIntArvSalonPassengers::iterator ipass_arv=ipass_dep->second.begin();
+          ipass_arv!=ipass_dep->second.end(); ipass_arv++ ) { // point_arv
+      for ( SALONS2::TIntClassSalonPassengers::iterator ipass_class=ipass_arv->second.begin(); //class,grp_status,TSalonPax
+            ipass_class!=ipass_arv->second.end(); ipass_class++ ) {
+        for ( SALONS2::TIntStatusSalonPassengers::iterator ipass_status=ipass_class->second.begin(); //grp_status,TSalonPax
+              ipass_status!=ipass_class->second.end(); ipass_status++ ) { //
+          for ( std::set<SALONS2::TSalonPax,SALONS2::ComparePassenger>::iterator ipass=ipass_status->second.begin();
+                ipass!=ipass_status->second.end(); ipass++ ) {
+            TWaitListReason waitListReason;
+            TPassSeats seats;
+            ipass->get_seats( waitListReason, seats );
+            if ( !passesNode ) {
+              passesNode = NewTextChild( nodeViewCraft, "passengers" );
             }
+            xmlNodePtr pNode = NewTextChild( passesNode, "passenger" );
+            //NewTextChild( pNode, "grp_id", ipass->grp_id );
+            NewTextChild( pNode, "pax_id", ipass->pax_id );
+            //NewTextChild( pNode, "point_dep", ipass_dep->first );
+            //NewTextChild( pNode, "point_arv", ipass_arv->first );
+            //NewTextChild( pNode, "pr_tranzit", ipass_dep->first != point_id );
+            //NewTextChild( pNode, "class", ipass_class->first );
+            //NewTextChild( pNode, "grp_status", ipass_status->first );
+            //NewTextChild( pNode, "pr_infant", ipass->pr_infant );
+            //NewTextChild( pNode, "parent_pax_id", ipass->parent_pax_id );
+            //NewTextChild( pNode, "reg_no", ipass->reg_no );
+            NewTextChild( pNode, "gender", CheckIn::isFemaleStr( ipass->is_female ) );
+//            NewTextChild( pNode, "pers_type", EncodePerson( ipass->pers_type ) );
+            CheckIn::TPaxDocItem doc;
+            CheckIn::LoadPaxDoc( ipass->pax_id, doc);
+            NewTextChild( pNode, "birth_date", doc.birth_date!=ASTRA::NoExists?DateTimeToStr(doc.birth_date, "dd.mm.yyyy"):string("") );
+  //        xmlNodePtr seatsNode = NewTextChild( pNode, "seats" );
+    //      SetProp( seatsNode, "count", ipass->seats );
+      //    for (TPassSeats::const_iterator iseat=seats.begin(); iseat!=seats.end(); iseat++) {
+        //    NewTextChild( seatsNode, "seat", GetSeatView(*iseat, "one", salonList.isCraftLat()) );
+          //}
           }
         }
       }

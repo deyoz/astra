@@ -487,10 +487,11 @@ bool filter_time( TDateTime time, TSOPPTrip &tr, TDateTime first_date, TDateTime
       time = UTCToClient( time, tr.region );
     }
     catch( Exception &e ) {
-     if ( errcity.empty() )
+     if ( errcity.empty() ) {
        errcity = tr.city;
-       ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
-       return false;
+     }
+     ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
+     return false;
     }
   }
     return ( time >= first_date && time < next_date );
@@ -2016,15 +2017,17 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
         NewTextChild( destNode, "scd_out", DateTimeToStr( sairp->scd_out, ServerFormatDateTimeAsString ) );
       if ( sairp->est_out > NoExists )
         NewTextChild( destNode, "est_out", DateTimeToStr( sairp->est_out, ServerFormatDateTimeAsString ) );
-      if ( sairp->act_out > NoExists )
+      if ( sairp->act_out > NoExists ) {
         NewTextChild( destNode, "act_out", DateTimeToStr( sairp->act_out, ServerFormatDateTimeAsString ) );
-        dnode = NULL;
-        for ( vector<TSOPPDelay>::iterator delay=sairp->delays.begin(); delay!=sairp->delays.end(); delay++ ) {
-        if ( !dnode )
-            dnode = NewTextChild( destNode, "delays" );
-          xmlNodePtr fnode = NewTextChild( dnode, "delay" );
-          NewTextChild( fnode, "delay_code", ElemIdToCodeNative(etDelayType,delay->code) );
-          NewTextChild( fnode, "time", DateTimeToStr( delay->time, ServerFormatDateTimeAsString ) );
+      }
+      dnode = NULL;
+      for ( vector<TSOPPDelay>::iterator delay=sairp->delays.begin(); delay!=sairp->delays.end(); delay++ ) {
+        if ( !dnode ) {
+          dnode = NewTextChild( destNode, "delays" );
+        }
+        xmlNodePtr fnode = NewTextChild( dnode, "delay" );
+        NewTextChild( fnode, "delay_code", ElemIdToCodeNative(etDelayType,delay->code) );
+        NewTextChild( fnode, "time", DateTimeToStr( delay->time, ServerFormatDateTimeAsString ) );
       }
     }
 
@@ -2109,10 +2112,11 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
         NewTextChild( destNode, "est_out", DateTimeToStr( sairp->est_out, ServerFormatDateTimeAsString ) );
       if ( sairp->act_out > NoExists )
         NewTextChild( destNode, "act_out", DateTimeToStr( sairp->act_out, ServerFormatDateTimeAsString ) );
-      if ( sairp->pr_del )
+      if ( sairp->pr_del ) {
         NewTextChild( destNode, "pr_del", sairp->pr_del );
-        dnode = NULL;
-        for ( vector<TSOPPDelay>::iterator delay=sairp->delays.begin(); delay!=sairp->delays.end(); delay++ ) {
+      }
+      dnode = NULL;
+      for ( vector<TSOPPDelay>::iterator delay=sairp->delays.begin(); delay!=sairp->delays.end(); delay++ ) {
         if ( !dnode )
             dnode = NewTextChild( destNode, "delays" );
           xmlNodePtr fnode = NewTextChild( dnode, "delay" );
@@ -2540,19 +2544,10 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
     CheckIn::TCounters().recount(i->first, CheckIn::TCounters::Total, __FUNCTION__);
 
     check_overload_alarm( i->first );
-    if ( SALONS2::isTranzitSalons( i->first ) ) {
-      if ( find( points_tranzit_check_wait_alarm.begin(),
-                 points_tranzit_check_wait_alarm.end(),
-                 i->first ) == points_tranzit_check_wait_alarm.end() ) {
-        points_tranzit_check_wait_alarm.push_back( i->first );
-      }
-    }
-    else {
-      if ( find( points_check_wait_alarm.begin(),
-                 points_check_wait_alarm.end(),
-                 i->first ) == points_check_wait_alarm.end() ) {
-        points_check_wait_alarm.push_back( i->first );
-      }
+    if ( find( points_tranzit_check_wait_alarm.begin(),
+               points_tranzit_check_wait_alarm.end(),
+               i->first ) == points_tranzit_check_wait_alarm.end() ) {
+      points_tranzit_check_wait_alarm.push_back( i->first );
     }
     TTripAlarmHook::set(Alarm::Brd, i->first);
     check_spec_service_alarm( i->first );
@@ -3062,15 +3057,15 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   long int exec_time;
   string errcity = internal_ReadData( trips, NoExists, NoExists, false, tSOPP, exec_time, point_id );
 
-  if ( !errcity.empty() )
+  if ( !errcity.empty() ) {
     AstraLocale::showErrorMessage( "MSG.CITY.REGION_NOT_DEFINED.NOT_ALL_FLIGHTS_ARE_SHOWN",
                                      LParams() << LParam("city", ElemIdToCodeNative(etCity,errcity)));
-
-    TQuery Qry(&OraSession );
-    Qry.SQLText = "SELECT airp FROM points WHERE point_id=:point_id";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.Execute();
-    string airp = Qry.FieldAsString( "airp" );
+  }
+  TQuery Qry(&OraSession );
+  Qry.SQLText = "SELECT airp FROM points WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  string airp = Qry.FieldAsString( "airp" );
 
   if ( GetNode( "stages", reqNode ) ) {
     if ( !Qry.Eof ) {
@@ -3420,10 +3415,12 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     bool pr_time=false;
     TDoubleTrip doubletrip;
     for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
-      if ( id->scd_in > NoExists || id->scd_out > NoExists )
+      if ( id->scd_in > NoExists || id->scd_out > NoExists ) {
         pr_time = true;
-        if ( id->pr_del )
+      }
+      if ( id->pr_del ) {
         continue;
+      }
       if ( id->scd_in > NoExists && id->act_in == NoExists ) {
         oldtime = curtime;
         curtime = id->scd_in;
@@ -3502,10 +3499,11 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         id->pr_tranzit = 0;
     else {
       ProgTrace( TRACE5, "id->point_id=%d, ch_point_num=%d", id->point_id, ch_point_num );
-      if ( id->point_id == NoExists || ch_point_num ) //???
+      if ( id->point_id == NoExists || ch_point_num ) { //???
         id->pr_tranzit=( pid->airline + IntToString( pid->flt_no ) + pid->suffix /*+ p->triptype ???*/ ==
                          id->airline + IntToString( id->flt_no ) + id->suffix /*+ id->triptype*/ );
-        id->modify = true;
+      }
+      id->modify = true;
     }
 
     id->pr_reg = ( id->scd_out > NoExists &&
@@ -3567,7 +3565,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   PrmEnum prmenum("flt", "");
   TBaseTable &baseairps = base_tables.get( "airps" );
   vector<int> points_MVTdelays;
-  std::vector<int> points_check_wait_alarm;
   std::vector<int> points_tranzit_check_wait_alarm;
   std::vector<int> points_check_diffcomp_alarm;
   for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
@@ -3633,18 +3630,22 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     bool pr_check_diffcomp_alarm = false;
     TSOPPDest old_dest;
     if ( id->pr_del != -1 ) {
-      if (lexema_id.empty())
-        if (insert)
+      if (lexema_id.empty()) {
+        if (insert) {
           lexema_id = "EVT.FLIGHT.NEW";
-        else
+        }
+        else {
           lexema_id = "EVT.FLIGHT.MODIFY_ROUTE";
-      else
+        }
+      }
+      else {
         prmenum.prms << PrmSmpl<string>("", "-");
-        if ( id->flt_no != NoExists )
-          prmenum.prms << PrmFlight("", id->airline, id->flt_no, id->suffix) << PrmSmpl<string>("", " ")
-                       << PrmElem<std::string>("", etAirp, id->airp);
-        else
-          prmenum.prms << PrmElem<std::string>("", etAirp, id->airp);
+      }
+      if ( id->flt_no != NoExists )
+        prmenum.prms << PrmFlight("", id->airline, id->flt_no, id->suffix) << PrmSmpl<string>("", " ")
+                     << PrmElem<std::string>("", etAirp, id->airp);
+      else
+        prmenum.prms << PrmElem<std::string>("", etAirp, id->airp);
     }
 
     if ( insert_point ) {
@@ -3959,12 +3960,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
 
     if ( pr_check_wait_list_alarm ) {
       ProgTrace( TRACE5, "pr_check_wait_list_alarm set point_id=%d", id->point_id );
-      if ( SALONS2::isTranzitSalons( id->point_id ) ) {
-        points_tranzit_check_wait_alarm.push_back( id->point_id );
-      }
-      else {
-        points_check_wait_alarm.push_back( id->point_id );
-      }
+      points_tranzit_check_wait_alarm.push_back( id->point_id );
     }
 
     if ( pr_check_diffcomp_alarm ) {
@@ -4294,10 +4290,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     SALONS2::check_diffcomp_alarm(*i);
   }
   //тревога ЛО
-  for ( std::vector<int>::iterator i=points_check_wait_alarm.begin();
-        i!=points_check_wait_alarm.end(); i++ ) {
-    check_waitlist_alarm(*i);
-  }
   SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, __FUNCTION__ );
 
   for( vector<change_act>::iterator i=vchangeAct.begin(); i!=vchangeAct.end(); i++ ){
@@ -4471,187 +4463,211 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         else
             d.airline.clear();
       fnode = GetNodeFast( "flt_no", snode );
-      if ( fnode )
+      if ( fnode ) {
         d.flt_no = NodeAsInteger( fnode );
-      else
+      }
+      else {
         d.flt_no = NoExists;
-        fnode = GetNodeFast( "suffix", snode );
-        if ( fnode ) {
-        try {
-        d.suffix = ElemCtxtToElemId( ecDisp, etSuffix, NodeAsString( fnode ), d.suffix_fmt, false );
       }
-      catch( EConvertError &e ) {
+      fnode = GetNodeFast( "suffix", snode );
+      if ( fnode ) {
+        try {
+          d.suffix = ElemCtxtToElemId( ecDisp, etSuffix, NodeAsString( fnode ), d.suffix_fmt, false );
+        }
+        catch( EConvertError &e ) {
           throw AstraLocale::UserException( "MSG.SUFFIX.INVALID.NO_PARAM" );
+        }
       }
+      else {
+        d.suffix.clear();
       }
-        else
-            d.suffix.clear();
-        fnode = GetNodeFast( "craft", snode );
-        if ( fnode ) {
+      fnode = GetNodeFast( "craft", snode );
+      if ( fnode ) {
         try {
-        d.craft = ElemCtxtToElemId( ecDisp, etCraft, NodeAsString( fnode ), d.craft_fmt, false );
+          d.craft = ElemCtxtToElemId( ecDisp, etCraft, NodeAsString( fnode ), d.craft_fmt, false );
+        }
+        catch( EConvertError &e ) {
+            throw AstraLocale::UserException( "MSG.CRAFT.WRONG_SPECIFIED" );
+        }
       }
-      catch( EConvertError &e ) {
-          throw AstraLocale::UserException( "MSG.CRAFT.WRONG_SPECIFIED" );
+      else {
+        d.craft.clear();
       }
-      }
-        else
-            d.craft.clear();
-        fnode = GetNodeFast( "bort", snode );
-        if ( fnode ) {
-            d.bort = NodeAsString( fnode );
-            d.bort = TrimString( d.bort );
-            //удаляем все невидимые смиволы
-      for ( string::iterator istr=d.bort.begin(); istr!=d.bort.end(); istr++ ) {
-        if ( *istr >= 0 && *istr < ' ' )
-          *istr = ' ';
-      }
-      char prior_char = 0;
-      string::iterator istr=d.bort.begin();
-      while ( istr != d.bort.end() ) {
-        if ( !IsDigitIsLetter( *istr ) ) {
-          if ( *istr != '-' && *istr != ' ' )
-            throw AstraLocale::UserException( "MSG.INVALID_CHARS_IN_BOARD_NUM",
-                                              LParams() << LParam("symbol", string(1,*istr)) );
-          if ( *istr == prior_char && prior_char == ' ' ) {
-            istr = d.bort.erase( istr );
-            continue;
+      fnode = GetNodeFast( "bort", snode );
+      if ( fnode ) {
+        d.bort = NodeAsString( fnode );
+        d.bort = TrimString( d.bort );
+        //удаляем все невидимые смиволы
+        for ( string::iterator istr=d.bort.begin(); istr!=d.bort.end(); istr++ ) {
+          if ( *istr >= 0 && *istr < ' ' )
+            *istr = ' ';
+        }
+        char prior_char = 0;
+        string::iterator istr=d.bort.begin();
+        while ( istr != d.bort.end() ) {
+          if ( !IsDigitIsLetter( *istr ) ) {
+            if ( *istr != '-' && *istr != ' ' )
+              throw AstraLocale::UserException( "MSG.INVALID_CHARS_IN_BOARD_NUM",
+                                                LParams() << LParam("symbol", string(1,*istr)) );
+            if ( *istr == prior_char && prior_char == ' ' ) {
+              istr = d.bort.erase( istr );
+              continue;
+            }
           }
+          prior_char = *istr;
+          istr++;
         }
-        prior_char = *istr;
-        istr++;
       }
-    }
-        else
-            d.bort.clear();
-        fnode = GetNodeFast( "scd_in", snode );
-        if ( fnode )
-            try {
-              d.scd_in = ClientToUTC( NodeAsDateTime( fnode ), region );
-            }
-      catch( boost::local_time::ambiguous_result ) {
-        //throw UserException( "Плановое время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
-        d.scd_in = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
+      else {
+        d.bort.clear();
       }
-        else
-            d.scd_in = NoExists;
-        fnode = GetNodeFast( "est_in", snode );
-        if ( fnode )
-            try {
-              d.est_in = ClientToUTC( NodeAsDateTime( fnode ), region );
-            }
-      catch( boost::local_time::ambiguous_result ) {
-        //throw UserException( "Расчетное время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
-        d.est_in = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
-      }
-        else
-            d.est_in = NoExists;
-        fnode = GetNodeFast( "act_in", snode );
-        if ( fnode )
-            try {
-              d.act_in = ClientToUTC( NodeAsDateTime( fnode ), region );
-            }
-      catch( boost::local_time::ambiguous_result ) {
-//        throw UserException( "Фактическое время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
-        d.act_in = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
-      }
-        else
-            d.act_in = NoExists;
-        fnode = GetNodeFast( "scd_out", snode );
-        if ( fnode )
-            try {
-              d.scd_out = ClientToUTC( NodeAsDateTime( fnode ), region );
-            }
-      catch( boost::local_time::ambiguous_result ) {
-        //throw UserException( "Плановое время вылета в пункте %s не определено однозначно", d.airp.c_str() );
-        d.scd_out = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
-      }
-        else
-            d.scd_out = NoExists;
-        fnode = GetNodeFast( "est_out", snode );
-        if ( fnode )
-            try {
-              d.est_out = ClientToUTC( NodeAsDateTime( fnode ), region );
-            }
-      catch( boost::local_time::ambiguous_result ) {
-        //throw UserException( "Расчетное время вылета в пункте %s не определено однозначно", d.airp.c_str() );
-        d.est_out = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
-      }
-        else
-            d.est_out = NoExists;
-        fnode = GetNodeFast( "act_out", snode );
-        if ( fnode ) {
-            try {
-              d.act_out = ClientToUTC( NodeAsDateTime( fnode ), region );
-            }
-      catch( boost::local_time::ambiguous_result ) {
-        //throw UserException( "Фактическое время вылета в пункте %s не определено однозначно", d.airp.c_str() );
-        d.act_out = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
-      }
+      fnode = GetNodeFast( "scd_in", snode );
+      if ( fnode ) {
+        try {
+          d.scd_in = ClientToUTC( NodeAsDateTime( fnode ), region );
         }
-        else
-            d.act_out = NoExists;
-        fnode = GetNodeFast( "delays", snode );
-        d.delays.clear();
-        if ( fnode ) {
-            fnode = fnode->children;
-            xmlNodePtr dnode;
-            TElemFmt fmt;
-            while ( fnode ) {
-                dnode = fnode->children;
-                TSOPPDelay delay;
-                delay.code = ElemToElemId( etDelayType, NodeAsStringFast( "delay_code", dnode ), fmt );
-                if ( fmt == efmtUnknown )
-                    throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_DELAY" );
-                try {
-                  delay.time = ClientToUTC( NodeAsDateTimeFast( "time", dnode ), region );
-                }
         catch( boost::local_time::ambiguous_result ) {
-          //throw UserException( "Время задержки в пункте %s не определено однозначно", d.airp.c_str() );
-          delay.time = ClientToUTC( NodeAsDateTimeFast( "time", dnode ) - 1 , region ) + 1;
+        //throw UserException( "Плановое время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
+          d.scd_in = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
         }
-                d.delays.push_back( delay );
-                fnode = fnode->next;
+      }
+      else {
+        d.scd_in = NoExists;
+      }
+      fnode = GetNodeFast( "est_in", snode );
+      if ( fnode ) {
+        try {
+          d.est_in = ClientToUTC( NodeAsDateTime( fnode ), region );
+        }
+        catch( boost::local_time::ambiguous_result ) {
+          //throw UserException( "Расчетное время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
+          d.est_in = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
+        }
+      }
+      else {
+        d.est_in = NoExists;
+      }
+      fnode = GetNodeFast( "act_in", snode );
+      if ( fnode ) {
+        try {
+          d.act_in = ClientToUTC( NodeAsDateTime( fnode ), region );
+        }
+        catch( boost::local_time::ambiguous_result ) {
+  //        throw UserException( "Фактическое время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
+          d.act_in = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
+        }
+      }
+      else {
+        d.act_in = NoExists;
+      }
+      fnode = GetNodeFast( "scd_out", snode );
+      if ( fnode ) {
+        try {
+          d.scd_out = ClientToUTC( NodeAsDateTime( fnode ), region );
+        }
+        catch( boost::local_time::ambiguous_result ) {
+          //throw UserException( "Плановое время вылета в пункте %s не определено однозначно", d.airp.c_str() );
+          d.scd_out = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
+        }
+      }
+      else {
+        d.scd_out = NoExists;
+      }
+      fnode = GetNodeFast( "est_out", snode );
+      if ( fnode ) {
+        try {
+          d.est_out = ClientToUTC( NodeAsDateTime( fnode ), region );
+        }
+        catch( boost::local_time::ambiguous_result ) {
+          //throw UserException( "Расчетное время вылета в пункте %s не определено однозначно", d.airp.c_str() );
+          d.est_out = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
+        }
+      }
+      else {
+        d.est_out = NoExists;
+      }
+      fnode = GetNodeFast( "act_out", snode );
+      if ( fnode ) {
+          try {
+            d.act_out = ClientToUTC( NodeAsDateTime( fnode ), region );
           }
-        }
-        fnode = GetNodeFast( "trip_type", snode );
+          catch( boost::local_time::ambiguous_result ) {
+            //throw UserException( "Фактическое время вылета в пункте %s не определено однозначно", d.airp.c_str() );
+            d.act_out = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
+          }
+      }
+      else {
+        d.act_out = NoExists;
+      }
+      fnode = GetNodeFast( "delays", snode );
+      d.delays.clear();
+      if ( fnode ) {
+        fnode = fnode->children;
+        xmlNodePtr dnode;
         TElemFmt fmt;
-        if ( fnode ) {
-            d.triptype = ElemToElemId(etTripType,NodeAsString( fnode ),fmt);
-            if ( fmt == efmtUnknown )
-                throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_TYPE" );
+        while ( fnode ) {
+          dnode = fnode->children;
+          TSOPPDelay delay;
+          delay.code = ElemToElemId( etDelayType, NodeAsStringFast( "delay_code", dnode ), fmt );
+          if ( fmt == efmtUnknown ) {
+             throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_DELAY" );
+          }
+          try {
+            delay.time = ClientToUTC( NodeAsDateTimeFast( "time", dnode ), region );
+          }
+          catch( boost::local_time::ambiguous_result ) {
+            //throw UserException( "Время задержки в пункте %s не определено однозначно", d.airp.c_str() );
+            delay.time = ClientToUTC( NodeAsDateTimeFast( "time", dnode ) - 1 , region ) + 1;
+          }
+          d.delays.push_back( delay );
+          fnode = fnode->next;
         }
-        else
-            d.triptype.clear();
-
-        fnode = GetNodeFast( "litera", snode );
-        if ( fnode ) {
-            d.litera = ElemToElemId(etTripLiter,NodeAsString( fnode ),fmt);
-            if ( fmt == efmtUnknown )
-                throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_LITERA" );
-        }
-        else
-            d.litera.clear();
-        fnode = GetNodeFast( "park_in", snode );
-        if ( fnode )
-            d.park_in = NodeAsString( fnode );
-        else
-            d.park_in.clear();
-        fnode = GetNodeFast( "park_out", snode );
-        if ( fnode )
-            d.park_out = NodeAsString( fnode );
-        else
-            d.park_out.clear();
-        d.pr_tranzit = NodeAsIntegerFast( "pr_tranzit", snode );
+      }
+      fnode = GetNodeFast( "trip_type", snode );
+      TElemFmt fmt;
+      if ( fnode ) {
+          d.triptype = ElemToElemId(etTripType,NodeAsString( fnode ),fmt);
+          if ( fmt == efmtUnknown )
+            throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_TYPE" );
+      }
+      else {
+        d.triptype.clear();
+      }
+      fnode = GetNodeFast( "litera", snode );
+      if ( fnode ) {
+        d.litera = ElemToElemId(etTripLiter,NodeAsString( fnode ),fmt);
+        if ( fmt == efmtUnknown )
+          throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_LITERA" );
+      }
+      else {
+        d.litera.clear();
+      }
+      fnode = GetNodeFast( "park_in", snode );
+      if ( fnode ) {
+          d.park_in = NodeAsString( fnode );
+      }
+      else {
+        d.park_in.clear();
+      }
+      fnode = GetNodeFast( "park_out", snode );
+      if ( fnode ) {
+        d.park_out = NodeAsString( fnode );
+      }
+      else {
+        d.park_out.clear();
+      }
+      d.pr_tranzit = NodeAsIntegerFast( "pr_tranzit", snode );
 //		d.pr_reg = NodeAsIntegerFast( "pr_reg", snode );
-    d.pr_reg = 0;
-        fnode = GetNodeFast( "pr_del", snode );
-        if ( fnode )
-            d.pr_del = NodeAsInteger( fnode );
-        else
-            d.pr_del = 0;
-        dests.push_back( d );
-        node = node->next;
+      d.pr_reg = 0;
+      fnode = GetNodeFast( "pr_del", snode );
+      if ( fnode ) {
+        d.pr_del = NodeAsInteger( fnode );
+      }
+      else {
+        d.pr_del = 0;
+      }
+      dests.push_back( d );
+      node = node->next;
   } // end while
   internal_WriteDests( move_id, dests, reference, canExcept, resNode, ownerDisp );
   if ( GetNode( "data/notvalid", resNode ) ) {
@@ -4873,11 +4889,13 @@ string getCrsDisplace( int point_id, TDateTime local_time, bool to_local, TQuery
     }
     Qry.Next();
   }
-  if ( ch_class )
+  if ( ch_class ) {
     str_to = AstraLocale::getLocaleText("Изм. класса") + " " + str_to;
-  if ( ch_dest )
+  }
+  if ( ch_dest ) {
     str_to = AstraLocale::getLocaleText("Изм. пункта") + " " + str_to;
-    return str_to;
+  }
+  return str_to;
 }
 
 void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

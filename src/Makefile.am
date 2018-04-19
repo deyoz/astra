@@ -129,7 +129,6 @@ astra_SOURCES = \
   salonform.cc \
   salonform2.cc \
   salons.cc \
-  salons2.cc \
   season.cc \
   seats_utils.cc \
   seats.cc \
@@ -321,7 +320,6 @@ noinst_HEADERS = \
   salonform.h \
   salonform2.h \
   salons.h \
-  salons2.h \
   season.h \
   seats_utils.h \
   seats.h \

@@ -476,7 +476,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         old_pr_tranz_reg!=new_pr_tranz_reg ||
         old_pr_block_trzt!=new_pr_block_trzt ||
         oldSetList.value<bool>(tsFreeSeating)!=newSetList.value<bool>(tsFreeSeating)) {
-      pr_isTranzitSalons = SALONS2::isTranzitSalons( point_id );
+      pr_isTranzitSalons = true;
     }
 
     if (old_pr_tranzit!=new_pr_tranzit ||

@@ -696,10 +696,10 @@ bool isBaseLayer( ASTRA::TCompLayerType layer_type, bool isComponCraft )
            ( ( layer_type == cltDisable || layer_type == cltProtect ) && isComponCraft ) );
 }
 
-void TFilterLayer_SOM_PRL::IntRead( int point_id, bool pr_tranzit_salons, const std::vector<TTripRouteItem> &routes )
+void TFilterLayer_SOM_PRL::IntRead( int point_id, const std::vector<TTripRouteItem> &routes )
 {
   Clear();
-    TQuery Qry( &OraSession );
+  TQuery Qry( &OraSession );
   Qry.SQLText=
   "SELECT move_id, point_num, "
   "       DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
@@ -733,53 +733,49 @@ void TFilterLayer_SOM_PRL::IntRead( int point_id, bool pr_tranzit_salons, const 
   Qry.CreateVariable( "som_layer", otString, EncodeCompLayerType( cltSOMTrzt ) );
   Qry.CreateVariable( "prl_layer", otString, EncodeCompLayerType( cltPRLTrzt ) );
   Qry.Execute();
-  if ( pr_tranzit_salons ) {
-    TQuery PaxQry( &OraSession );
-    PaxQry.SQLText =
-      "SELECT pax_grp.point_dep FROM pax_grp "
-      " WHERE pax_grp.point_dep=:point_id AND "
-      "       pax_grp.status NOT IN ('E') AND "
-      "       rownum<2";
-    PaxQry.DeclareVariable( "point_id", otInteger );
-    TQuery TranzQry( &OraSession );
-    TranzQry.SQLText =
-      "SELECT NVL(pr_tranz_reg,0) pr_tranz_reg FROM points, trip_sets "
-       " WHERE move_id=:move_id AND "
-       "      point_num BETWEEN :point_num_dep+1 AND :point_num AND "
-       "      points.point_id=trip_sets.point_id AND pr_del=0 AND pr_reg<>0 "
-       " ORDER BY 1 DESC";
-    TranzQry.CreateVariable( "move_id", otInteger, move_id );
-    TranzQry.CreateVariable( "point_num", otInteger, point_num );
-    TranzQry.DeclareVariable( "point_num_dep", otInteger );
-    for ( ; !Qry.Eof; Qry.Next() ) {
-      if ( pr_tranzit_salons ) {
-        TranzQry.SetVariable( "point_num_dep", Qry.FieldAsInteger( "point_num_dep" ) );
-        TranzQry.Execute();
-        ProgTrace( TRACE5, "move_id=%d, point_num=%d, point_num_dep=%d",
-                   move_id, point_num, Qry.FieldAsInteger( "point_num_dep" ) );
-        if ( !TranzQry.Eof && TranzQry.FieldAsInteger( "pr_tranz_reg" ) ) { //есть перерегистрация транзита по маршруту - не используем телеграмму
-          tst();
-          continue;
-        }
-        bool pr_find = false;
-        int point_dep1 = Qry.FieldAsInteger( "point_dep" );
-        //пробег по маршруту, если в пункте есть зарегистр. пассажиры то ищем далее
-        for ( std::vector<TTripRouteItem>::const_iterator item=routes.begin();
-              item!=routes.end(); item++ ) {
-          if ( item->point_id == point_dep1 ) {
-            PaxQry.SetVariable( "point_id", point_dep1 );
-            PaxQry.Execute();
-            pr_find = !PaxQry.Eof;
-            ProgTrace( TRACE5, "point_dep1=%d, pr_find=%d", point_dep1, pr_find );
-            break;
-          }
-        }
-        if ( pr_find ) {
-          continue;
-        }
-      }
-      break;
+  TQuery PaxQry( &OraSession );
+  PaxQry.SQLText =
+    "SELECT pax_grp.point_dep FROM pax_grp "
+    " WHERE pax_grp.point_dep=:point_id AND "
+    "       pax_grp.status NOT IN ('E') AND "
+    "       rownum<2";
+  PaxQry.DeclareVariable( "point_id", otInteger );
+  TQuery TranzQry( &OraSession );
+  TranzQry.SQLText =
+    "SELECT NVL(pr_tranz_reg,0) pr_tranz_reg FROM points, trip_sets "
+     " WHERE move_id=:move_id AND "
+     "      point_num BETWEEN :point_num_dep+1 AND :point_num AND "
+     "      points.point_id=trip_sets.point_id AND pr_del=0 AND pr_reg<>0 "
+     " ORDER BY 1 DESC";
+  TranzQry.CreateVariable( "move_id", otInteger, move_id );
+  TranzQry.CreateVariable( "point_num", otInteger, point_num );
+  TranzQry.DeclareVariable( "point_num_dep", otInteger );
+  for ( ; !Qry.Eof; Qry.Next() ) {
+    TranzQry.SetVariable( "point_num_dep", Qry.FieldAsInteger( "point_num_dep" ) );
+    TranzQry.Execute();
+    ProgTrace( TRACE5, "move_id=%d, point_num=%d, point_num_dep=%d",
+               move_id, point_num, Qry.FieldAsInteger( "point_num_dep" ) );
+    if ( !TranzQry.Eof && TranzQry.FieldAsInteger( "pr_tranz_reg" ) ) { //есть перерегистрация транзита по маршруту - не используем телеграмму
+      tst();
+      continue;
     }
+    bool pr_find = false;
+    int point_dep1 = Qry.FieldAsInteger( "point_dep" );
+    //пробег по маршруту, если в пункте есть зарегистр. пассажиры то ищем далее
+    for ( std::vector<TTripRouteItem>::const_iterator item=routes.begin();
+          item!=routes.end(); item++ ) {
+      if ( item->point_id == point_dep1 ) {
+        PaxQry.SetVariable( "point_id", point_dep1 );
+        PaxQry.Execute();
+        pr_find = !PaxQry.Eof;
+        ProgTrace( TRACE5, "point_dep1=%d, pr_find=%d", point_dep1, pr_find );
+        break;
+      }
+    }
+    if ( pr_find ) {
+      continue;
+    }
+    break;
   }
   if ( Qry.Eof ) {
     ProgTrace( TRACE5, "TFilterLayer_SOM_PRL::Read point_id=%d, layer not found", point_id );
@@ -792,26 +788,16 @@ void TFilterLayer_SOM_PRL::IntRead( int point_id, bool pr_tranzit_salons, const 
   return;
 }
 
-void TFilterLayer_SOM_PRL::ReadOnTranzitRoutes( int point_id,
-                                                const std::vector<TTripRouteItem> &routes )
-{
-  IntRead( point_id, SALONS2::isTranzitSalons( point_id ), routes );
-}
-
 void TFilterLayer_SOM_PRL::Read( int point_id )
 {
   std::vector<TTripRouteItem> routes;
-  bool pr_tranzit_salons = SALONS2::isTranzitSalons( point_id );
-  if ( pr_tranzit_salons ) {
-    FilterRoutesProperty filterRoutes;
-    filterRoutes.Read( TFilterRoutesSets( point_id ) );
-    routes.insert( routes.end(), filterRoutes.begin(), filterRoutes.end() );
-  }
-  IntRead( point_id, pr_tranzit_salons, routes );
+  FilterRoutesProperty filterRoutes;
+  filterRoutes.Read( TFilterRoutesSets( point_id ) );
+  routes.insert( routes.end(), filterRoutes.begin(), filterRoutes.end() );
+  IntRead( point_id, routes );
 }
 
 void TFilterLayers::getIntFilterLayers( int point_id,
-                                        bool pr_tranzit_salons,
                                         const std::vector<TTripRouteItem> &routes,
                                         bool only_compon_props=false )
 {
@@ -874,7 +860,7 @@ void TFilterLayers::getIntFilterLayers( int point_id,
             else {
                  ASTRA::TCompLayerType layer_tlg;
          TFilterLayer_SOM_PRL FilterLayer_SOM_PRL;
-         FilterLayer_SOM_PRL.ReadOnTranzitRoutes( point_id, pr_tranzit_salons, routes );
+         FilterLayer_SOM_PRL.ReadOnTranzitRoutes( point_id, routes );
          if ( FilterLayer_SOM_PRL.Get( point_dep, layer_tlg ) ) {
                    setFlag( layer_tlg );
                  }
@@ -892,13 +878,10 @@ void TFilterLayers::getIntFilterLayers( int point_id,
 void TFilterLayers::getFilterLayers( int point_id, bool only_compon_props )
 {
   std::vector<TTripRouteItem> routes;
-  bool pr_tranzit_salons = SALONS2::isTranzitSalons( point_id );
-  if ( pr_tranzit_salons ) {
-    FilterRoutesProperty filterRoutes;
-    filterRoutes.Read( TFilterRoutesSets( point_id ) );
-    routes.insert( routes.end(), filterRoutes.begin(), filterRoutes.end() );
-  }
-  getIntFilterLayers( point_id, pr_tranzit_salons, routes, only_compon_props );
+  FilterRoutesProperty filterRoutes;
+  filterRoutes.Read( TFilterRoutesSets( point_id ) );
+  routes.insert( routes.end(), filterRoutes.begin(), filterRoutes.end() );
+  getIntFilterLayers( point_id, routes, only_compon_props );
 }
 
 bool TFilterLayers::CanUseLayer( ASTRA::TCompLayerType layer_type,
@@ -1910,7 +1893,7 @@ TSalons::TSalons()
   FCurrPlaceList = NULL;
 }
 
-TSalons::TSalons( int id, TReadStyle vreadStyle )
+/*TSalons::TSalons( int id, TReadStyle vreadStyle )
 {
   pr_owner = false;
     readStyle = vreadStyle;
@@ -1928,7 +1911,7 @@ TSalons::TSalons( int id, TReadStyle vreadStyle )
   getMenuLayers( readStyle == rTripSalons,
                  FilterLayers,
                  menuLayers );
-}
+}*/
 
 TSalons::~TSalons()
 {
@@ -4596,7 +4579,6 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
       continue;
     }
     filtersLayers[ iseg->point_id ].getFilterLayersOnTranzitRoutes( iseg->point_id,
-                                                                    SALONS2::isTranzitSalons( iseg->point_id ),
                                                                     routes,
                                                                     only_compon_props );
     if ( filtersLayers[ iseg->point_id ].isFlag( cltSOMTrzt ) ||
@@ -6729,6 +6711,7 @@ void TZonesBetweenLines::setDisabled( int point_id, TSalons* Salons, TPlaceList*
   if ( !FUseInfantSection ) {
     return;
   }
+  int ownerFirstSeatLine = ASTRA::NoExists;
   for ( IPlace iseat=placeList->places.begin(); iseat!=placeList->places.end(); iseat++ ) {
     if ( !iseat->visible || !iseat->isplace ) {
        continue;
@@ -6743,18 +6726,28 @@ void TZonesBetweenLines::setDisabled( int point_id, TSalons* Salons, TPlaceList*
          (pax_id = iseat->getCurrLayer( point_id ).getPaxId()) == ASTRA::NoExists ) {
       continue;
     }
-  //  ProgTrace( TRACE5, "layer->pax_id=%d", pax_id );
+    ProgTrace( TRACE5, "layer->pax_id=%d", pax_id );
     if ( pax_lists.find( pax_id ) != pax_lists.end() ) {
-//      ProgTrace(TRACE5, "isOwnerFreePlace=%d", isOwnerFreePlace<TPaxCover>( pax_id, grpPaxs ));
-      if ( isOwnerFreePlace<TPaxCover>( pax_id, grpPaxs ) ) {
-//        ProgTrace( TRACE5, "isOwnerFreePlace iseat->layer->pax_id=%d", pax_id );
+      bool pr_owner = isOwnerFreePlace<TPaxCover>( pax_id, grpPaxs );
+      ProgTrace(TRACE5, "isOwnerFreePlace=%d", pr_owner );
+      if ( pr_owner ) {
+        ownerFirstSeatLine = getSeatKey::get( placeList->num, getFirstSeatLine( placeList, *iseat ), iseat->y );
+        ProgTrace( TRACE5, "isOwnerFreePlace iseat->layer->pax_id=%d, ownerFirstSeatLine=%d", pax_id, ownerFirstSeatLine );
+        continue;
+      }
+      else
+        ProgTrace( TRACE5, "getFirstSeatLine( placeList, *iseat )=%d", getFirstSeatLine( placeList, *iseat ) );
+      //кто-то еще претендует с ребенком на это место
+      if ( ownerFirstSeatLine != ASTRA::NoExists &&
+           getSeatKey::get( placeList->num, getFirstSeatLine( placeList, *iseat ), iseat->y ) == ownerFirstSeatLine ) {
+        ProgTrace( TRACE5, "ownerFirstSeatLine=%d, not set disabled", ownerFirstSeatLine );
         continue;
       }
       TZonesBetweenLines::iterator zone = getZoneBL( placeList, *iseat );
       if ( zone == this->end() ) {
         continue;
       }
-  //    ProgTrace(TRACE5, "zone=%s set disabled", zone->second.get().toString().c_str() );
+      ProgTrace(TRACE5, "zone=%s set disabled", zone->second.get().toString().c_str() );
       zone->second.get().setDisabled( point_id, Salons );
     }
   }
@@ -6767,7 +6760,7 @@ void TZonesBetweenLines::rollbackDisabled( TSalons* salons )
           izone->second.get().empty() ) {
        continue;
      }
-    // ProgTrace( TRACE5, "rollback zone %s", izone->second.get().toString().c_str() );
+     ProgTrace( TRACE5, "rollback zone %s", izone->second.get().toString().c_str() );
      izone->second.get().rollback( salons );
    }
 }
@@ -8019,19 +8012,10 @@ void CreateComps( const TCompsRoutes &routes, int comp_id )
       TCFG(i->point_id).param(prms);
       prms << PrmSmpl<int>("id", comp_id);
       TReqInfo::Instance()->LocaleToLog("EVT.ASSIGNE_BASE_LAYOUT", prms, evtFlt, i->point_id);
-      if ( SALONS2::isTranzitSalons( i->point_id ) ) {
-        if ( find( points_tranzit_check_wait_alarm.begin(),
-                   points_tranzit_check_wait_alarm.end(),
-                   i->point_id) == points_tranzit_check_wait_alarm.end() ) {
-          points_tranzit_check_wait_alarm.push_back( i->point_id );
-        }
-      }
-      else {
-        if ( find( points_check_wait_alarm.begin(),
-                   points_check_wait_alarm.end(),
-                   i->point_id ) == points_check_wait_alarm.end() ) {
-          points_check_wait_alarm.push_back( i->point_id );
-        }
+      if ( find( points_tranzit_check_wait_alarm.begin(),
+                 points_tranzit_check_wait_alarm.end(),
+                 i->point_id) == points_tranzit_check_wait_alarm.end() ) {
+        points_tranzit_check_wait_alarm.push_back( i->point_id );
       }
     }
   }
@@ -8919,7 +8903,7 @@ bool getSalonChanges( TSalons &OldSalons, TSalons &NewSalons,
     return true;
 }
 
-void getSalonChanges( TSalons &OldSalons, TRFISCMode RFISCMode, TSalonChanges &seats )
+/*!!!void getSalonChanges( TSalons &OldSalons, TRFISCMode RFISCMode, TSalonChanges &seats )
 {
     seats.clear();
     seats.RFISCMode = RFISCMode;
@@ -8929,7 +8913,7 @@ void getSalonChanges( TSalons &OldSalons, TRFISCMode RFISCMode, TSalonChanges &s
         throw UserException( "MSG.SALONS.COMPON_CHANGED.REFRESH_DATA" );
 }
 
-
+*/
 
 void BuildSalonChanges( xmlNodePtr dataNode, const TSalonChanges &seats )
 {
@@ -9922,25 +9906,6 @@ bool isFreeSeating( int point_id )
   return TTripSetList().fromDB(point_id).value(tsFreeSeating, false);
 }
 
-bool isTranzitSalons( int point_id )
-{
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT pr_new, "
-    "       DECODE( tranzit_algo_seats.airp, NULL, 0, 4 ) + "
-    "       DECODE( tranzit_algo_seats.airline, NULL, 0, 2 ) + "
-    "       DECODE( tranzit_algo_seats.flt_no, NULL, 0, 1 ) AS priority "
-    " FROM tranzit_algo_seats, points "
-    " WHERE point_id=:point_id AND "
-    "       ( tranzit_algo_seats.airp IS NULL OR tranzit_algo_seats.airp=points.airp ) AND "
-    "       ( tranzit_algo_seats.airline IS NULL OR tranzit_algo_seats.airline=points.airline ) AND "
-    "       ( tranzit_algo_seats.flt_no IS NULL OR tranzit_algo_seats.flt_no=points.flt_no ) "
-    " ORDER BY priority DESC";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  return ( !Qry.Eof && Qry.FieldAsInteger( "pr_new" ) != 0 );
-}
-
 void TSalonPax::int_get_seats( TWaitListReason &waitListReason,
                                vector<TPlace*> &seats ) const {
   waitListReason = TWaitListReason();
@@ -10422,12 +10387,7 @@ void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
   }
   // конец перечитки
   SALONS2::check_diffcomp_alarm( point_id );
-  if ( SALONS2::isTranzitSalons( point_id ) ) {
-    SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id, __FUNCTION__ );
-  }
-  else {
-    check_waitlist_alarm( point_id );
-  }
+  SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id, __FUNCTION__ );
 }
 
 void processSalonsCfg_TestMode(int point_id, int comp_id)
