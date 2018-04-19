@@ -1149,7 +1149,7 @@ void ReadWebSalons( int point_id, const std::vector<AstraWeb::TWebPax> &pnr, map
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   TSublsRems subcls_rems( Qry.FieldAsString("airline") );  
-  salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), SALONS2::rfTranzitVersion, crs_class, NoExists );
+  salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), crs_class, NoExists );
   // получим признак того, что в салоне есть свободные места с данным подклассом
   pr_find_free_subcls_place=false;
   string pass_rem;
@@ -3671,7 +3671,7 @@ void fillProtBeforePaySvcs(const TAdvTripInfo &operFlt,
       reqInfo->client_type=ctWeb;
       int point_arv = SALONS2::getCrsPaxPointArv( pax_id, point_id );
       TSalonList salonList;
-      salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), SALONS2::rfTranzitVersion, "", ASTRA::NoExists );
+      salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), "", ASTRA::NoExists );
       ProgTrace(TRACE5, "%s: salonList.ReadFlight (point_dep=%d, point_arv=%d)", __FUNCTION__, point_id, point_arv);
       if (salonList.getRFISCMode()==rRFISC)
       {
