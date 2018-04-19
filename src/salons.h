@@ -371,7 +371,7 @@ class TFilterLayer_SOM_PRL {
   private:
     int point_dep;
     ASTRA::TCompLayerType layer_type;
-    void IntRead( int point_id, bool pr_tranzit_salons, const std::vector<TTripRouteItem> &routes );
+    void IntRead( int point_id, const std::vector<TTripRouteItem> &routes );
     void Clear() {
       point_dep = ASTRA::NoExists;
       layer_type = ASTRA::cltUnknown;
@@ -381,11 +381,8 @@ class TFilterLayer_SOM_PRL {
       Clear();
     }
     void Read( int point_id );
-    void ReadOnTranzitRoutes( int point_id, const std::vector<TTripRouteItem> &routes );
-    void ReadOnTranzitRoutes( int point_id,
-                              bool pr_tranzit_salons,
-                              const std::vector<TTripRouteItem> &routes ) {
-      IntRead( point_id, pr_tranzit_salons, routes );
+    void ReadOnTranzitRoutes( int point_id, const std::vector<TTripRouteItem> &routes ) {
+      IntRead( point_id, routes );
     }
     bool Get( int &vpoint_dep, ASTRA::TCompLayerType &vlayer_type ) {
       vpoint_dep = point_dep;
@@ -398,23 +395,21 @@ class TFilterLayers:public BitSet<ASTRA::TCompLayerType> {
     private:
       int point_dep;
     void getIntFilterLayers( int point_id,
-                             bool pr_tranzit_salons,
                              const std::vector<TTripRouteItem> &routes,
                              bool only_compon_props );
     public:
     TFilterLayers() {
       point_dep = ASTRA::NoExists;
     }
-        bool CanUseLayer( ASTRA::TCompLayerType layer_type,
-                          int layer_point_dep, // пункт вылета слоя
+    bool CanUseLayer( ASTRA::TCompLayerType layer_type,
+                      int layer_point_dep, // пункт вылета слоя
                       int point_salon_departure, // пункт отображения компоновки
                       bool pr_takeoff /*признак факта вылета*/ );
-        void getFilterLayers( int point_id, bool only_compon_props=false );
+    void getFilterLayers( int point_id, bool only_compon_props=false );
     void getFilterLayersOnTranzitRoutes( int point_id,
-                                         bool pr_tranzit_salons,
                                          const std::vector<TTripRouteItem> &routes,
                                          bool only_compon_props=false ) {
-      getIntFilterLayers( point_id, pr_tranzit_salons, routes, only_compon_props );
+      getIntFilterLayers( point_id, routes, only_compon_props );
     }
     int getSOM_PRL_Dep( ) {
       return point_dep;
@@ -1165,7 +1160,6 @@ class TSalons {
     std::string FilterClass;
     std::vector<TPlaceList*> placelists;
     ~TSalons( );
-    TSalons( int id, TReadStyle vreadStyle );
     TSalons( );
     void SetProps( const TFilterLayers &vfilterLayers,
                    TReadStyle vreadStyle,
@@ -1274,7 +1268,6 @@ struct TZonesBetweenLines: public std::map<int,boost::optional<TZoneBL> >{
   private:
     boost::optional<bool> FUseInfantSection = boost::none;
     void getInfantSection( int point_id );
-    int getFirstSeatLine( SALONS2::TPlaceList *placeList, const TPlace &seat );
     TZonesBetweenLines::iterator getZoneBL( SALONS2::TPlaceList *placeList, const TPlace &seat );
   public:
     enum DisableMode { dlayers, dlrss };
@@ -1284,6 +1277,7 @@ struct TZonesBetweenLines: public std::map<int,boost::optional<TZoneBL> >{
     bool useInfantSection() {
      return FUseInfantSection.get();
     }
+    int getFirstSeatLine( SALONS2::TPlaceList *placeList, const TPlace &seat );
     void setDisabled( TSalons* Salons, const TPaxsCover &grpPaxs, const std::set<int> &pax_lists );
     void setDisabled( int point_id, TSalons* Salons, TPlaceList* placeList, const TPaxsCover &grpPaxs, const std::set<int> &pax_lists, DisableMode mode );
     void rollbackDisabled( TSalons* salons = nullptr );
@@ -1657,7 +1651,6 @@ class TSalonList: public std::vector<TPlaceList*> {
   bool isBaseLayer( ASTRA::TCompLayerType layer_type, bool isComponCraft );
   int getCrsPaxPointArv( int crs_pax_id, int point_id_spp );
   void CreateSalonMenu( int point_dep, xmlNodePtr salonsNode );
-  bool isTranzitSalons( int point_id );
   bool isFreeSeating( int point_id );
   bool isEmptySalons( int point_id );
   void DeleteSalons( int point_id );

@@ -411,26 +411,23 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       IatciInterface::SeatmapRequest(reqNode);
       return AstraLocale::showProgError("MSG.DCS_CONNECT_ERROR");
   }
-  bool isTranzitSalonsVersion = SALONS2::isTranzitSalons( point_id );
-  ProgTrace(TRACE5, "SalonFormInterface::Show point_id=%d, isTranzitSalonsVersion=%d", point_id, isTranzitSalonsVersion );
+  ProgTrace(TRACE5, "SalonFormInterface::Show point_id=%d", point_id );
 
   int point_arv = NoExists;
   int pax_id = NoExists;
   int tariff_pax_id = NoExists;
-  if ( isTranzitSalonsVersion ) {
-    xmlNodePtr tmpNode;
-    tmpNode = GetNode( "point_arv", reqNode );
-    if ( tmpNode ) {
-      point_arv = NodeAsInteger( tmpNode );
-    }
-    tmpNode = GetNode( "pax_id", reqNode );
-    if ( tmpNode ) {
-      pax_id = NodeAsInteger( tmpNode );
-    }
-    tmpNode = GetNode( "tariff_pax_id", reqNode );
-    if ( tmpNode ) {
-      tariff_pax_id = NodeAsInteger( tmpNode );
-    }
+  xmlNodePtr tmpNode;
+  tmpNode = GetNode( "point_arv", reqNode );
+  if ( tmpNode ) {
+    point_arv = NodeAsInteger( tmpNode );
+  }
+  tmpNode = GetNode( "pax_id", reqNode );
+  if ( tmpNode ) {
+    pax_id = NodeAsInteger( tmpNode );
+  }
+  tmpNode = GetNode( "tariff_pax_id", reqNode );
+  if ( tmpNode ) {
+    tariff_pax_id = NodeAsInteger( tmpNode );
   }
   TQuery Qry( &OraSession );
   SALONS2::GetTripParams( point_id, dataNode );
@@ -529,32 +526,15 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     throw UserException( "MSG.SALONS.FREE_SEATING" );
   }
 
-  if ( isTranzitSalonsVersion ) {
-    SALONS2::TSalonList salonList;
-    try {
-      salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), SALONS2::rfTranzitVersion, filterClass, tariff_pax_id );
-    }
-    catch( AstraLocale::UserException ue ) {
-      AstraLocale::showErrorMessage( ue.getLexemaData() );
-    }
-    salonList.Build( true, NewTextChild( dataNode, "salons" ) );
-    comp_id = salonList.getCompId();
+  SALONS2::TSalonList salonList;
+  try {
+    salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), SALONS2::rfTranzitVersion, filterClass, tariff_pax_id );
   }
-  else {
-    SALONS2::TSalons Salons( point_id, SALONS2::rTripSalons );
-    Salons.FilterClass = filterClass;
-    try {
-      Salons.Read();
-    }
-    catch( AstraLocale::UserException ue ) {
-      AstraLocale::showErrorMessage( ue.getLexemaData() );
-    }
-    xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
-    Salons.Build( salonsNode );
-    comp_id = Salons.comp_id;
+  catch( AstraLocale::UserException ue ) {
+    AstraLocale::showErrorMessage( ue.getLexemaData() );
   }
-
-
+  salonList.Build( true, NewTextChild( dataNode, "salons" ) );
+  comp_id = salonList.getCompId();
   if ( pr_comps ) {
     if ( get_alarm( point_id, Alarm::Waitlist ) ) {
         AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
@@ -585,8 +565,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     throw UserException( "MSG.SALONS.FREE_SEATING" );
   }
   int comp_id = NodeAsInteger( "comp_id", reqNode );
-  bool isTranzitSalonsVersion = SALONS2::isTranzitSalons( trip_id );
-  ProgTrace(TRACE5, "SalonFormInterface::Write point_id=%d, isTranzitSalonsVersion=%d", trip_id, isTranzitSalonsVersion );
+  ProgTrace(TRACE5, "SalonFormInterface::Write point_id=%d", trip_id );
   xmlNodePtr refcompNode = NodeAsNode( "refcompon", reqNode );
   bool cBase = false;
   bool cChange = false;
@@ -611,12 +590,8 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.Execute();
   TTripInfo info( Qry );
-  SALONS2::TSalons Salons( trip_id, SALONS2::rTripSalons ), OldSalons( trip_id, SALONS2::rTripSalons );;
   SALONS2::TSalonList salonList, priorsalonList;
   salonList.Parse( trip_id, info.airline, NodeAsNode( "salons", reqNode ) );
-  if ( !isTranzitSalonsVersion ) {
-    Salons.Parse( NodeAsNode( "salons", reqNode ) );
-  }
   //была ли до этого момента компоновка
   Qry.Clear();
   Qry.SQLText =
@@ -667,13 +642,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.Execute();
   }
 
-  if ( isTranzitSalonsVersion ) {
-    salonList.WriteFlight( trip_id, saveContructivePlaces );
-  }
-  else {
-    SALONS2::TComponSets compSets;
-    Salons.Write( compSets );
-  }
+  salonList.WriteFlight( trip_id, saveContructivePlaces );
   bool pr_initcomp = NodeAsInteger( "initcomp", reqNode );
   /* инициализация VIP */
   SALONS2::InitVIP( trip_id );
@@ -728,25 +697,11 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   }
   // конец перечитки
   SALONS2::check_diffcomp_alarm( trip_id );
-  if ( SALONS2::isTranzitSalons( trip_id ) ) {
-    SALONS2::check_waitlist_alarm_on_tranzit_routes( trip_id, "SalonFormInterface::Write" );
-  }
-  else {
-    check_waitlist_alarm( trip_id );
-  }
+  SALONS2::check_waitlist_alarm_on_tranzit_routes( trip_id, "SalonFormInterface::Write" );
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
 //  #warning 8. new parse + salonChangesToText
-  if ( isTranzitSalonsVersion ) {
-    salonList.Build( true, salonsNode );
-    comp_id = salonList.getCompId();
-  }
-  else {
-    Salons.Clear();
-    Salons.Read();
-    Salons.Build( salonsNode );
-    comp_id = Salons.comp_id;
-  }
-
+  salonList.Build( true, salonsNode );
+  comp_id = salonList.getCompId();
   if ( comp_id > 0 && pr_notchangecraft ) { //строго завязать базовые компоновки с назначенными на рейс
     componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode );
   }
@@ -1275,186 +1230,6 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
   return changedOrNotPay;
 }
 
-bool IntChangeSeats( int point_id, int pax_id, int &tid, string xname, string yname,
-                     SEATS2::TSeatsType seat_type,
-                     TCompLayerType layer_type,
-                     int time_limit,
-                     const BitSet<SEATS2::TChangeLayerFlags> &flags,
-                     xmlNodePtr resNode )
-{
-  bool changedOrNotPay = true;
-  if ( flags.isFlag( flSetPayLayer ) &&
-       ( seat_type != stSeat || ( layer_type != cltProtBeforePay && layer_type != cltProtAfterPay && layer_type != cltProtSelfCkin ) ) ) {
-    throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
-  }
-  if ( SALONS2::isFreeSeating( point_id ) ) {
-    throw UserException( "MSG.SALONS.FREE_SEATING" );
-  }
-  TFlights flights;
-  flights.Get( point_id, ftTranzit );
-  flights.Lock(__FUNCTION__);
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT airline, flt_no, suffix, airp, scd_out, pr_lat_seat "
-    "FROM points, trip_sets "
-    "WHERE points.point_id=trip_sets.point_id AND points.point_id=:point_id";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  if ( Qry.Eof ) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
-  TTripInfo fltInfo( Qry );
-  bool pr_lat_seat = Qry.FieldAsInteger( "pr_lat_seat" );
-
-  if ( seat_type != SEATS2::stDropseat ) {
-    xname = norm_iata_line( xname );
-    yname = norm_iata_row( yname );
-  }
-  Qry.Clear();
-  Qry.SQLText =
-   "SELECT layer_type, pax_grp.status FROM grp_status_types, pax, pax_grp "
-   " WHERE pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND pax_grp.status=grp_status_types.code ";
-  Qry.CreateVariable( "pax_id", otInteger, pax_id );
-  Qry.Execute();
-  if ( !Qry.Eof ) {
-    if (DecodePaxStatus(Qry.FieldAsString("status"))==psCrew)
-      throw UserException("MSG.CREW.IMPOSSIBLE_CHANGE_SEAT");
-    layer_type = DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) );
-    if ( flags.isFlag( flSetPayLayer ) ) {
-      throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
-    }
-  }
-
-  ProgTrace(TRACE5, "SalonsInterface::Reseat, point_id=%d, pax_id=%d, tid=%d, layer=%s", point_id, pax_id, tid, EncodeCompLayerType( layer_type ) );
-
-  SALONS2::TSalons Salons( point_id, SALONS2::rTripSalons );
-  Salons.Read();
-
-  // если место у пассажира имеет предварительную рассадку для этого пассажира, и мы еще не спрашивали, то спросить!
-  if ( seat_type != SEATS2::stDropseat && !flags.isFlag( flWaitList ) && flags.isFlag( flQuestionReseat ) ) {
-    // возможны следующие варианты:
-    // 1. пересадка зарегистрированного пассажира
-    // 2. предварительная пересадка/рассадка
-    // старое место может иметь след. слои:
-    // cltProtCkin, cltProtBeforePay, cltProtAfterPay, cltPNLBeforePay, cltPNLAfterPay, cltProtSelfCkin
-
-    // вычисляем занятое место
-    Qry.Clear();
-    Qry.SQLText =
-      "SELECT first_yname||first_xname seat_no1 FROM trip_comp_layers "
-      " WHERE point_id=:point_id AND layer_type = :layer_type AND pax_id=:pax_id";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.CreateVariable( "pax_id", otInteger, pax_id );
-    Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType(layer_type) );
-    Qry.Execute();
-    string used_seat_no;
-    if ( !Qry.Eof ) {
-      used_seat_no = Qry.FieldAsString( "seat_no1" );
-      ProgTrace( TRACE5, "Qry.Eof=%d, pax_id=%d,point_id=%d,prot_layer=%s,seat_no1=%s",
-                 Qry.Eof,pax_id,point_id,EncodeCompLayerType( cltProtCkin ), used_seat_no.c_str() );
-    }
-    // вычисляем предв. места по слоям, для того чтобы предупредить о том, что есть предв. рассадка на тек. месте
-    if ( !used_seat_no.empty() ) {
-      Qry.Clear();
-      Qry.SQLText =
-        "SELECT first_yname||first_xname pre_seat_no, layer_type, priority "
-        " FROM trip_comp_layers, comp_layer_types "
-        " WHERE point_id=:point_id AND "
-        "       trip_comp_layers.layer_type IN (:protckin_layer,:prot_pay1,:prot_pay2,:prot_selfckin) AND "
-        "       crs_pax_id=:pax_id AND "
-        "       comp_layer_types.code=trip_comp_layers.layer_type "
-        "ORDER BY priority";
-      Qry.CreateVariable( "point_id", otInteger, point_id );
-      Qry.CreateVariable( "pax_id", otInteger, pax_id );
-      Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType( cltProtCkin ) );
-      Qry.CreateVariable( "prot_pay1", otString, EncodeCompLayerType( cltPNLAfterPay ) );
-      Qry.CreateVariable( "prot_pay2", otString, EncodeCompLayerType( cltProtAfterPay ) );
-      Qry.CreateVariable( "prot_selfckin", otString, EncodeCompLayerType( cltProtSelfCkin ) );
-      Qry.Execute();
-      int priority = -1;
-      for ( ;!Qry.Eof; Qry.Next() ) {
-        if ( priority == -1 ) {
-          priority = Qry.FieldAsInteger( "priority" );
-        }
-        if ( priority != Qry.FieldAsInteger( "priority" ) ) {
-          break;
-        }
-        if ( used_seat_no == Qry.FieldAsString( "pre_seat_no" ) ) {
-          ProgTrace( TRACE5, "pax_id=%d,point_id=%d,used_seat_no=%s,pre_seat_no=%s",
-                      pax_id, point_id, used_seat_no.c_str(), Qry.FieldAsString( "pre_seat_no" ) );
-          if ( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) == cltProtCkin ) {
-            NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PRESEAT_SEATS.RESEAT") );
-          }
-          else
-            if ( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) != cltProtSelfCkin ) { //pay layers
-              NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PAID_SEATS.RESEAT"));
-            }
-          return changedOrNotPay;
-        }
-      }
-    }
-  }
-
-  TSalonChanges seats;
-  TChangeLayerProcFlag layerFlag = clNotPaySeat;
-  if ( flags.isFlag( flSetPayLayer ) ) {
-    layerFlag = clPaySeatSet;
-  }
-  else
-    if ( flags.isFlag( flCheckPayLayer ) ) {
-      layerFlag = clPaySeatCheck;
-    }
-  try {
-    changedOrNotPay = SEATS2::ChangeLayer( layer_type, time_limit, point_id, pax_id, tid, xname, yname, seat_type, pr_lat_seat, layerFlag );
-    if ( TReqInfo::Instance()->client_type != ctTerm || resNode == NULL || layerFlag == clPaySeatCheck )
-        return changedOrNotPay; // web-регистрация
-    SALONS2::getSalonChanges( Salons, rTariff, seats );
-    ProgTrace( TRACE5, "salon changes seats.size()=%zu", seats.size() );
-    string seat_no, slayer_type;
-    if ( layer_type == cltProtCkin || layer_type == cltProtAfterPay || layer_type == cltPNLAfterPay )
-      getSeat_no( pax_id, true, string("_seats"), seat_no, slayer_type, tid );
-    else
-        getSeat_no( pax_id, false, string("one"), seat_no, slayer_type, tid );
-
-    /* надо передать назад новый tid */
-    xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-    NewTextChild( dataNode, "tid", tid );
-    if ( !seat_no.empty() ) {
-      NewTextChild( dataNode, "seat_no", seat_no );
-      NewTextChild( dataNode, "layer_type", slayer_type );
-    }
-    SALONS2::BuildSalonChanges( dataNode, seats );
-    if ( flags.isFlag( flWaitList ) ) {
-        SEATS2::TPassengers p;
-        if ( !SEATS2::GetPassengersForWaitList( point_id, p ) )
-        AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
-      p.Build( dataNode );
-    }
-  }
-  catch( UserException ue ) {
-    if ( TReqInfo::Instance()->client_type != ctTerm || resNode == NULL )
-        throw;
-    xmlNodePtr dataNode = GetNode( "data", resNode );
-    if ( dataNode ) { // удаление всей инфы, т.к. случилась ошибка
-      xmlUnlinkNode( dataNode );
-      xmlFreeNode( dataNode );
-    }
-    dataNode = NewTextChild( resNode, "data" );
-    xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
-    SALONS2::GetTripParams( point_id, dataNode );
-    Salons.Build( salonsNode );
-    if ( flags.isFlag( flWaitList ) ) {
-      SEATS2::TPassengers p;
-        SEATS2::GetPassengersForWaitList( point_id, p );
-      p.Build( dataNode );
-    }
-    if ( Salons.comp_id > 0 && GetTripSets( tsCraftNoChangeSections, fltInfo ) &&
-         TReqInfo::Instance()->client_type == ctTerm ) { //строго завязать базовые компоновки с назначенными на рейс
-      componPropCodes::Instance()->buildSections( Salons.comp_id, TReqInfo::Instance()->desk.lang, dataNode );
-    }
-    showErrorMessageAndRollback( ue.getLexemaData( ) );
-  }
-  return changedOrNotPay;
-}
-
 static void ChangeIatciSeats(xmlNodePtr reqNode)
 {
     ProgTrace(TRACE3, "Query iatci seat change");
@@ -1508,11 +1283,10 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
   }
   int pax_id = NodeAsInteger( "pax_id", reqNode );
   int tid = NodeAsInteger( "tid", reqNode );
-  bool isTranzitSalonsVersion = SALONS2::isTranzitSalons( point_id );
   int comp_crc = NodeAsInteger( "comp_crc", reqNode, 0 );
   int tariff_pax_id = NodeAsInteger( "tariff_pax_id", reqNode, NoExists );
-  ProgTrace( TRACE5, "ChangeSeats: point_id=%d, isTranzitSalonsVersion=%d, comp_crc=%d, pax_id=%d, tariff_pax_id=%d",
-             point_id, isTranzitSalonsVersion, comp_crc, pax_id, tariff_pax_id );
+  ProgTrace( TRACE5, "ChangeSeats: point_id=%d, comp_crc=%d, pax_id=%d, tariff_pax_id=%d",
+             point_id, comp_crc, pax_id, tariff_pax_id );
   string xname;
   string yname;
   if ( seat_type != SEATS2::stDropseat ) {
@@ -1529,24 +1303,14 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
   // если пришел слой cltProtCkin а есть более приоритетный clt..AfterPay то надо подменить слой
   TCompLayerType layer_type = DecodeCompLayerType( NodeAsString( "layer", reqNode, "" ) );
   CheckResetLayer( layer_type, pax_id );
-  if ( isTranzitSalonsVersion ) {
-    IntChangeSeatsN( point_id, pax_id, tid, xname, yname,
-                    seat_type,
-                    layer_type,
-                    NoExists,
-                    change_layer_flags,
-                    comp_crc, tariff_pax_id,
-                    resNode );
-  }
-  else {
-    IntChangeSeats( point_id, pax_id, tid, xname, yname,
-                    seat_type,
-                    layer_type,
-                    NoExists,
-                    change_layer_flags,
-                    resNode );
-  }
-};
+  IntChangeSeatsN( point_id, pax_id, tid, xname, yname,
+                   seat_type,
+                   layer_type,
+                   NoExists,
+                   change_layer_flags,
+                   comp_crc, tariff_pax_id,
+                   resNode );
+}
 
 void SalonFormInterface::DropSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -1566,47 +1330,30 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
   int pax_id = NodeAsInteger( "pax_id", reqNode );
   int tid = NodeAsInteger( "tid", reqNode );
   bool pr_update_salons = GetNode( "update_salons", reqNode );
-  bool isTranzitSalonsVersion = SALONS2::isTranzitSalons( point_id );
   int comp_crc = NodeAsInteger( "comp_crc", reqNode, 0 );
   int tariff_pax_id = NodeAsInteger( "tariff_pax_id", reqNode, NoExists );
   TQuery Qry( &OraSession );
-  ProgTrace( TRACE5, "SalonsInterface::DeleteProtCkinSeat, point_id=%d, pax_id=%d, tid=%d, pr_update_salons=%d, isTranzitSalonsVersion=%d, tariff_pax_id=%d, crc=%d",
-             point_id, pax_id, tid, pr_update_salons, isTranzitSalonsVersion, tariff_pax_id, comp_crc );
+  ProgTrace( TRACE5, "SalonsInterface::DeleteProtCkinSeat, point_id=%d, pax_id=%d, tid=%d, pr_update_salons=%d, tariff_pax_id=%d, crc=%d",
+             point_id, pax_id, tid, pr_update_salons, tariff_pax_id, comp_crc );
 
   if ( SALONS2::isFreeSeating( point_id ) ) {
     throw UserException( "MSG.SALONS.FREE_SEATING" );
   }
-  SALONS2::TSalons Salons( point_id, SALONS2::rTripSalons );  //!!! плохо, т.к. обращения к БД
   SALONS2::TSalonList salonList;
-  if ( isTranzitSalonsVersion ) {
-    salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), SALONS2::rfTranzitVersion, "", pax_id );
-  }
-  else {
-    Salons.Read();
-  }
+  salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), SALONS2::rfTranzitVersion, "", pax_id );
   TSalonChanges seats;
 
   try {
-    if ( isTranzitSalonsVersion ) {
-      SEATS2::ChangeLayer( salonList, cltProtCkin, NoExists, point_id, pax_id, tid, "", "", SEATS2::stDropseat, clNotPaySeat );
-    }
-    else {
-      SEATS2::ChangeLayer( cltProtCkin, NoExists, point_id, pax_id, tid, "", "", SEATS2::stDropseat, Salons.getLatSeat(), clNotPaySeat );
-    }
+    SEATS2::ChangeLayer( salonList, cltProtCkin, NoExists, point_id, pax_id, tid, "", "", SEATS2::stDropseat, clNotPaySeat );
     if ( pr_update_salons ) {
-      if ( isTranzitSalonsVersion ) {
-        if ( tariff_pax_id != ASTRA::NoExists ) {
-          salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), SALONS2::rfTranzitVersion, "", tariff_pax_id );
-        }
-        int ncomp_crc = CRC32_Comp( point_id );
-        if ( (comp_crc != 0 && ncomp_crc != 0 && comp_crc != ncomp_crc) ) { //update
-          throw UserException( "MSG.SALONS.CHANGE_CONFIGURE_CRAFT_ALL_DATA_REFRESH" );
-        }
-        SALONS2::getSalonChanges( salonList, pax_id, seats );
+      if ( tariff_pax_id != ASTRA::NoExists ) {
+        salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), SALONS2::rfTranzitVersion, "", tariff_pax_id );
       }
-      else {
-        SALONS2::getSalonChanges( Salons, rTariff, seats );
+      int ncomp_crc = CRC32_Comp( point_id );
+      if ( (comp_crc != 0 && ncomp_crc != 0 && comp_crc != ncomp_crc) ) { //update
+        throw UserException( "MSG.SALONS.CHANGE_CONFIGURE_CRAFT_ALL_DATA_REFRESH" );
       }
+      SALONS2::getSalonChanges( salonList, pax_id, seats );
     }
     string seat_no, slayer_type;
     getSeat_no( pax_id, true, string("_seats"), seat_no, slayer_type, tid );
@@ -1618,13 +1365,8 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
       NewTextChild( dataNode, "layer_type", slayer_type );
     }
     if ( pr_update_salons ) {
-      if ( isTranzitSalonsVersion ) {
-        std::map<int,SALONS2::TPaxList> pax_lists;
-        SALONS2::BuildSalonChanges( dataNode, point_id, seats, false, pax_lists );
-      }
-      else {
-        SALONS2::BuildSalonChanges( dataNode, seats );
-      }
+      std::map<int,SALONS2::TPaxList> pax_lists;
+      SALONS2::BuildSalonChanges( dataNode, point_id, seats, false, pax_lists );
     }
   }
   catch( UserException ue ) {
@@ -1641,17 +1383,11 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
       xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
       SALONS2::GetTripParams( point_id, dataNode );
       int comp_id;
-      if ( isTranzitSalonsVersion ) {
-        if ( !TReqInfo::Instance()->desk.compatible(RFISC_VERSION) ) {
-          salonList.ReadFlight( salonList.getFilterRoutes(), SALONS2::rfTranzitVersion, salonList.getFilterClass(), tariff_pax_id );
-        }
-        salonList.Build( true, salonsNode );
-        comp_id = salonList.getCompId();
+      if ( !TReqInfo::Instance()->desk.compatible(RFISC_VERSION) ) {
+        salonList.ReadFlight( salonList.getFilterRoutes(), SALONS2::rfTranzitVersion, salonList.getFilterClass(), tariff_pax_id );
       }
-      else {
-        Salons.Build( salonsNode );
-        comp_id = Salons.comp_id;
-      }
+      salonList.Build( true, salonsNode );
+      comp_id = salonList.getCompId();
       if ( comp_id > 0 ) { //строго завязать базовые компоновки с назначенными на рейс
         Qry.Clear();
           Qry.SQLText =
@@ -1674,27 +1410,19 @@ void SalonFormInterface::WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   if ( SALONS2::isFreeSeating( point_id ) ) {
     throw UserException( "MSG.SALONS.FREE_SEATING" );
   }
-    bool pr_filter = GetNode( "filter", reqNode );
-    bool pr_salons = GetNode( "salons", reqNode );
-    bool isTranzitSalonsVersion = SALONS2::isTranzitSalons( point_id );
-    ProgTrace( TRACE5, "SalonsInterface::WaitList, point_id=%d, isTranzitSalonsVersion=%d", point_id, isTranzitSalonsVersion );
-    TQuery Qry( &OraSession );
-    xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-    SALONS2::TSalonList salonList;
-    if ( isTranzitSalonsVersion ) {
-      salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "", NoExists );
-      SALONS2::TSalonPassengers passengers;
-      SALONS2::TGetPassFlags flags;
-      flags.setFlag( SALONS2::gpPassenger );
-      flags.setFlag( SALONS2::gpWaitList );
-      salonList.getPassengers( passengers, flags );
-      passengers.BuildWaitList( point_id, dataNode );
-    }
-    else {
-      SEATS2::TPassengers p;
-      SEATS2::GetPassengersForWaitList( point_id, p );
-      p.Build( dataNode );
-    }
+  bool pr_filter = GetNode( "filter", reqNode );
+  bool pr_salons = GetNode( "salons", reqNode );
+  ProgTrace( TRACE5, "SalonsInterface::WaitList, point_id=%d", point_id );
+  TQuery Qry( &OraSession );
+  xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+  SALONS2::TSalonList salonList;
+  salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "", NoExists );
+  SALONS2::TSalonPassengers passengers;
+  SALONS2::TGetPassFlags flags;
+  flags.setFlag( SALONS2::gpPassenger );
+  flags.setFlag( SALONS2::gpWaitList );
+  salonList.getPassengers( passengers, flags );
+  passengers.BuildWaitList( point_id, dataNode );
   if ( pr_filter ) {
     Qry.SQLText =
       "SELECT code, layer_type FROM grp_status_types WHERE layer_type IS NOT NULL";
@@ -1714,16 +1442,8 @@ void SalonFormInterface::WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
       dataNode = NewTextChild( resNode, "data" );
     }
     int comp_id;
-    if ( isTranzitSalonsVersion ) {
-      salonList.Build( true, NewTextChild( dataNode, "salons" ) );
-      comp_id = salonList.getCompId();
-    }
-    else {
-      SALONS2::TSalons Salons( point_id, SALONS2::rTripSalons );
-      Salons.Read();
-      Salons.Build( NewTextChild( dataNode, "salons" ) );
-      comp_id = Salons.comp_id;
-    }
+    salonList.Build( true, NewTextChild( dataNode, "salons" ) );
+    comp_id = salonList.getCompId();
     SALONS2::GetTripParams( point_id, dataNode );
     if ( comp_id > 0 ) {
       Qry.Clear();
@@ -1745,10 +1465,9 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   if ( SALONS2::isFreeSeating( point_id ) ) {
     throw UserException( "MSG.SALONS.FREE_SEATING" );
   }
-  bool isTranzitSalonsVersion = SALONS2::isTranzitSalons( point_id );
-    ProgTrace( TRACE5, "AutoSeats: point_id=%d, isTranzitSalonsVersion=%d", point_id, isTranzitSalonsVersion );
-    bool pr_waitlist = GetNode( "waitlist", reqNode );
-    TFlights flights;
+  ProgTrace( TRACE5, "AutoSeats: point_id=%d", point_id );
+  bool pr_waitlist = GetNode( "waitlist", reqNode );
+  TFlights flights;
   flights.Get( point_id, ftTranzit );
   flights.Lock(__FUNCTION__);
     TQuery Qry( &OraSession );
@@ -1761,73 +1480,42 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   SEATS2::TPassengers p;
   SALONS2::TSalonList salonList;
   SALONS2::TSalonPassengers passengers;
-  if ( isTranzitSalonsVersion ) {
-    salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "", NoExists );
-    SALONS2::TGetPassFlags flags;
-    flags.setFlag( SALONS2::gpPassenger );
-    flags.setFlag( SALONS2::gpWaitList );
-    salonList.getPassengers( passengers, flags );
-    if ( !passengers.isWaitList( point_id ) ) {
-      throw UserException( "MSG.SEATS.ALL_PASSENGERS_PLANED" );
-    }
-  }
-  else {
-    if ( !SEATS2::GetPassengersForWaitList( point_id, p ) )
-        throw UserException( "MSG.SEATS.ALL_PASSENGERS_PLANED" );
-  }
-  SALONS2::TSalons Salons( point_id, SALONS2::rTripSalons );
-  //vector<SALONS2::TSalonSeat> seats;
-  if ( !isTranzitSalonsVersion ) {
-    Salons.Read();
+  salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ), SALONS2::rfTranzitVersion, "", NoExists );
+  SALONS2::TGetPassFlags flags;
+  flags.setFlag( SALONS2::gpPassenger );
+  flags.setFlag( SALONS2::gpWaitList );
+  salonList.getPassengers( passengers, flags );
+  if ( !passengers.isWaitList( point_id ) ) {
+    throw UserException( "MSG.SEATS.ALL_PASSENGERS_PLANED" );
   }
   int comp_id;
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   bool pr_notchangecraft = GetTripSets( tsCraftNoChangeSections, info );
   try {
-    if ( isTranzitSalonsVersion ) {
-      SALONS2::TSalonPassengers::const_iterator ipasses = passengers.find( point_id );
-      if ( ipasses != passengers.end() ) {
-        SEATS2::AutoReSeatsPassengers( salonList, ipasses->second,
-                                       SEATS2::GetSeatAlgo( Qry, info.airline, info.flt_no, info.airp ) );
-      }
+    SALONS2::TSalonPassengers::const_iterator ipasses = passengers.find( point_id );
+    if ( ipasses != passengers.end() ) {
+      SEATS2::AutoReSeatsPassengers( salonList, ipasses->second,
+                                     SEATS2::GetSeatAlgo( Qry, info.airline, info.flt_no, info.airp ) );
     }
-    else {
-      SEATS2::AutoReSeatsPassengers( Salons, p, SEATS2::GetSeatAlgo( Qry, info.airline, info.flt_no, info.airp ) );
-    }
-    tst();
     xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
     SALONS2::GetTripParams( point_id, dataNode );
     int comp_id;
-    if ( isTranzitSalonsVersion ) {
-      SALONS2::TSalonList salonList;
-      salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, NoExists ), SALONS2::rfTranzitVersion, "", NoExists );
-      salonList.Build( true, salonsNode );
-      comp_id = salonList.getCompId();
-      if ( pr_waitlist ) {
-        SALONS2::TGetPassFlags flags;
-        flags.setFlag( SALONS2::gpPassenger );
-        flags.setFlag( SALONS2::gpWaitList );
-        salonList.getPassengers( passengers, flags );
-        if ( passengers.isWaitList( point_id ) ) {
-          AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
-        }
-        else {
-          AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
-        }
-        passengers.BuildWaitList( point_id, dataNode );
+    SALONS2::TSalonList salonList;
+    salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, NoExists ), SALONS2::rfTranzitVersion, "", NoExists );
+    salonList.Build( true, salonsNode );
+    comp_id = salonList.getCompId();
+    if ( pr_waitlist ) {
+      SALONS2::TGetPassFlags flags;
+      flags.setFlag( SALONS2::gpPassenger );
+      flags.setFlag( SALONS2::gpWaitList );
+      salonList.getPassengers( passengers, flags );
+      if ( passengers.isWaitList( point_id ) ) {
+        AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
       }
-    }
-    else {
-      Salons.Build( salonsNode );
-      comp_id = Salons.comp_id;
-      if ( pr_waitlist ) {
-          p.Clear();
-          if ( SEATS2::GetPassengersForWaitList( point_id, p ) )
-            AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
-        else
-            AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
-        p.Build( dataNode );
+      else {
+        AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
       }
+      passengers.BuildWaitList( point_id, dataNode );
     }
     if ( comp_id > 0 && pr_notchangecraft ) { //строго завязать базовые компоновки с назначенными на рейс
       componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode );
@@ -1843,36 +1531,22 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     dataNode = NewTextChild( resNode, "data" );
     xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
     SALONS2::GetTripParams( point_id, dataNode );
-    if ( isTranzitSalonsVersion ) {
-      SALONS2::TSalonList salonList;
-      salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, NoExists ), SALONS2::rfTranzitVersion, "", NoExists );
-      salonList.Build( true, salonsNode );
-      comp_id = salonList.getCompId();
-      if ( pr_waitlist ) {
-        SALONS2::TGetPassFlags flags;
-        flags.setFlag( SALONS2::gpPassenger );
-        flags.setFlag( SALONS2::gpWaitList );
-        salonList.getPassengers( passengers, flags );
-        if ( passengers.isWaitList( point_id ) ) {
-          AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
-        }
-        else {
-          AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
-        }
-        passengers.BuildWaitList( point_id, dataNode );
+    SALONS2::TSalonList salonList;
+    salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, NoExists ), SALONS2::rfTranzitVersion, "", NoExists );
+    salonList.Build( true, salonsNode );
+    comp_id = salonList.getCompId();
+    if ( pr_waitlist ) {
+      SALONS2::TGetPassFlags flags;
+      flags.setFlag( SALONS2::gpPassenger );
+      flags.setFlag( SALONS2::gpWaitList );
+      salonList.getPassengers( passengers, flags );
+      if ( passengers.isWaitList( point_id ) ) {
+        AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
       }
-    }
-    else {
-      Salons.Build( salonsNode );
-      comp_id = Salons.comp_id;
-      if ( pr_waitlist ) {
-        p.Clear();
-          if ( SEATS2::GetPassengersForWaitList( point_id, p ) )
-          AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
-        else
-          AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
-        p.Build( dataNode );
+      else {
+        AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
       }
+      passengers.BuildWaitList( point_id, dataNode );
     }
     if ( comp_id > 0 && pr_notchangecraft ) { //строго завязать базовые компоновки с назначенными на рейс
       componPropCodes::Instance()->buildSections( comp_id, TReqInfo::Instance()->desk.lang, dataNode );

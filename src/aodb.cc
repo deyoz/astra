@@ -1478,13 +1478,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
       check_overload_alarm( point_id );
     } // end update
     SALONS2::check_diffcomp_alarm( point_id );
-    if ( SALONS2::isTranzitSalons( point_id ) ) {
-      SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id, __FUNCTION__ );
-    }
-    else {
-      check_waitlist_alarm( point_id );
-    }
-    tst();
+    SALONS2::check_waitlist_alarm_on_tranzit_routes( point_id, __FUNCTION__ );
     if ( old_est != fl.est ) {
       pr_check_USA_apis = true; //т.к. я не знаю маршрута
       if ( fl.est != NoExists ) {

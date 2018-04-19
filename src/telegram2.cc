@@ -207,7 +207,7 @@ void getSalonPaxsSeats( int point_dep, std::map<int,TCheckinPaxSeats> &checkinPa
 //  if ( SALONS2::isTranzitSalons( point_dep ) ) {     //!!!удалить при установке без новых салонов
     SALONS2::TSalonList salonList;
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_dep, ASTRA::NoExists ),
-                          SALONS2::isTranzitSalons( point_dep )?SALONS2::rfTranzitVersion:SALONS2::rfNoTranzitVersion,
+                          SALONS2::rfTranzitVersion,
                           "", NoExists );
     TSalonPassengers passengers;
     SALONS2::TGetPassFlags flags;
@@ -363,7 +363,7 @@ void getSalonLayers( int point_id,
   complayers.clear();
   SALONS2::TSalonList salonList;
   salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ),
-                        SALONS2::isTranzitSalons( point_id )?SALONS2::rfTranzitVersion:SALONS2::rfNoTranzitVersion,
+                        SALONS2::rfTranzitVersion,
                         "", NoExists );
   SALONS2::TGetPassFlags flags;
   TSectionInfo sectionInfo;
@@ -7880,8 +7880,8 @@ void TIDM::get()
 
     try {
         salonList.ReadFlight( SALONS2::TFilterRoutesSets( info.point_id, ASTRA::NoExists ),
-                SALONS2::isTranzitSalons( info.point_id )?SALONS2::rfTranzitVersion:SALONS2::rfNoTranzitVersion,
-                "", NoExists );
+                              SALONS2::rfTranzitVersion,
+                              "", NoExists );
     } catch(const Exception &E) {
         LogTrace(TRACE5) << "TIDM::get: salonList.ReadFlight failed: " << E.what();
     } catch(...) {
@@ -10033,7 +10033,7 @@ namespace CKIN_REPORT {
     {
         SALONS2::TSalonList salonList;
         salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ),
-                SALONS2::isTranzitSalons( point_id )?SALONS2::rfTranzitVersion:SALONS2::rfNoTranzitVersion,
+                SALONS2::rfTranzitVersion,
                 "", NoExists );
         TSalonPassengers passengers;
         SALONS2::TGetPassFlags flags;
@@ -10130,8 +10130,8 @@ namespace CKIN_REPORT {
 
         try {
             salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ),
-                    SALONS2::isTranzitSalons( point_id )?SALONS2::rfTranzitVersion:SALONS2::rfNoTranzitVersion,
-                    "", NoExists );
+                                  SALONS2::rfTranzitVersion,
+                                  "", NoExists );
         } catch(const Exception &E) {
             LogTrace(TRACE5) << "TReportData::get: salonList.ReadFlight failed: " << E.what();
         } catch(...) {

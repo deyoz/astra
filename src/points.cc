@@ -375,26 +375,31 @@ TSOPPStation TCheckerFlt::checkStation( const std::string airp, int terminal,
 //////////////////////////////////////////////////////////////////////////////
 void TPointsDest::getDestData( TQuery &Qry )
 {
-  if ( Qry.GetFieldIndex( "point_id" ) >= 0 )
+  if ( Qry.GetFieldIndex( "point_id" ) >= 0 ) {
     point_id = Qry.FieldAsInteger( "point_id" );
-    point_num = Qry.FieldAsInteger( "point_num" );
-  if ( !Qry.FieldIsNULL( "first_point" ) )
+  }
+  point_num = Qry.FieldAsInteger( "point_num" );
+  if ( !Qry.FieldIsNULL( "first_point" ) ) {
     first_point = Qry.FieldAsInteger( "first_point" );
-  else
+  }
+  else {
     first_point = NoExists;
+  }
   airp = Qry.FieldAsString( "airp" );
   airp_fmt = (TElemFmt)Qry.FieldAsInteger( "airp_fmt" );
   airline = Qry.FieldAsString( "airline" );
   airline_fmt = (TElemFmt)Qry.FieldAsInteger( "airline_fmt" );
-  if ( !Qry.FieldIsNULL( "flt_no" ) )
+  if ( !Qry.FieldIsNULL( "flt_no" ) ) {
     flt_no = Qry.FieldAsInteger( "flt_no" );
-  else
+  }
+  else {
     flt_no = NoExists;
-    suffix = Qry.FieldAsString( "suffix" );
-    suffix_fmt = (TElemFmt)Qry.FieldAsInteger( "suffix_fmt" );
-    craft = Qry.FieldAsString( "craft" );
-    craft_fmt = (TElemFmt)Qry.FieldAsInteger( "craft_fmt" );
-    bort = Qry.FieldAsString( "bort" );
+  }
+  suffix = Qry.FieldAsString( "suffix" );
+  suffix_fmt = (TElemFmt)Qry.FieldAsInteger( "suffix_fmt" );
+  craft = Qry.FieldAsString( "craft" );
+  craft_fmt = (TElemFmt)Qry.FieldAsInteger( "craft_fmt" );
+  bort = Qry.FieldAsString( "bort" );
   if ( !Qry.FieldIsNULL( "scd_in" ) )
       scd_in = Qry.FieldAsDateTime( "scd_in" );
     else
@@ -546,9 +551,10 @@ void TPoints::Verify( bool ignoreException, LexemaData &lexemaData )
     TDateTime oldtime, curtime = NoExists;
     bool pr_time=false;
     for( vector<TPointsDest>::iterator id=dests.items.begin(); id!=dests.items.end(); id++ ) {
-      if ( id->pr_del != -1 &&(id->scd_in > NoExists || id->scd_out > NoExists) )
+      if ( id->pr_del != -1 &&(id->scd_in > NoExists || id->scd_out > NoExists) ) {
         pr_time = true;
-        if ( id->pr_del )
+      }
+      if ( id->pr_del )
         continue;
       if ( id->scd_in > NoExists && id->act_in == NoExists ) {
         oldtime = curtime;
@@ -1746,12 +1752,7 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
        this->events.isFlag( teChangeBortTakeoff ) ||
        this->events.isFlag( teSetBortTakeoff ) ) {
     SALONS2::check_diffcomp_alarm( this->key.point_id );
-    if ( SALONS2::isTranzitSalons( this->key.point_id ) ) {
-      SALONS2:: check_waitlist_alarm_on_tranzit_routes( this->key.point_id, __FUNCTION__ );
-    }
-    else {
-      check_waitlist_alarm( this->key.point_id );
-    }
+    SALONS2:: check_waitlist_alarm_on_tranzit_routes( this->key.point_id, __FUNCTION__ );
   }
   if ( this->events.isFlag( teSetACTIN ) ||
        this->events.isFlag( teChangeACTIN ) ) {
@@ -1957,14 +1958,15 @@ void TPoints::Save( bool isShowMsg )
 {
  //  #warning points.cc. usa apis
   events.clearFlags();
-  if ( move_id == NoExists )
+  if ( move_id == NoExists ) {
     events.setFlag( peInsert );
-    vector<TPointsDest>::iterator last_dest = dests.items.end() - 1;
+  }
+  vector<TPointsDest>::iterator last_dest = dests.items.end() - 1;
   for( vector<TPointsDest>::iterator id=dests.items.begin(); id!=dests.items.end(); id++ ) {
     if ( id->point_id == NoExists || id->pr_del == -1 ) { // вставка или удаление пункта посадки
       events.setFlag( pePointNum );
       ProgTrace( TRACE5, "events: pePointNum" );
-        break;
+      break;
     }
   }
   if ( events.isFlag( pePointNum ) ) {
@@ -2645,21 +2647,23 @@ void TFlightMaxCommerce::Save( int point_id )
     "UPDATE trip_sets SET max_commerce=:max_commerce "
     " WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
-  if ( value == NoExists )
+  if ( value == NoExists ) {
     Qry.CreateVariable( "max_commerce", otInteger, FNull );
-  else
+  }
+  else {
     Qry.CreateVariable( "max_commerce", otInteger, value );
-    Qry.Execute();
-    if ( value == NoExists )
-      TReqInfo::Instance()->LocaleToLog(
-              (lci ? "EVT.LCI.MAX_COMMERCE_LOAD_UNKNOWN" :
-              "EVT.MAX_COMMERCE_LOAD_UNKNOWN"),
-              evtFlt, point_id);
-    else
-      TReqInfo::Instance()->LocaleToLog(
-              (lci ? "EVT.LCI.MAX_COMMERCE_LOAD" :
-              "EVT.MAX_COMMERCE_LOAD"),
-              LEvntPrms() << PrmSmpl<int>("weight", value), evtFlt, point_id);
+  }
+  Qry.Execute();
+  if ( value == NoExists )
+    TReqInfo::Instance()->LocaleToLog(
+            (lci ? "EVT.LCI.MAX_COMMERCE_LOAD_UNKNOWN" :
+            "EVT.MAX_COMMERCE_LOAD_UNKNOWN"),
+            evtFlt, point_id);
+  else
+    TReqInfo::Instance()->LocaleToLog(
+            (lci ? "EVT.LCI.MAX_COMMERCE_LOAD" :
+            "EVT.MAX_COMMERCE_LOAD"),
+            LEvntPrms() << PrmSmpl<int>("weight", value), evtFlt, point_id);
   Set_AODB_overload_alarm( point_id, pr_overload_alarm );
 }
 ////////////////////////////////////TFlightDelays///////////////////////////////

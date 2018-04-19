@@ -4939,7 +4939,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       map<InboundTrfer::TGrpId, InboundTrfer::TGrpItem> grpTagsBefore;
       CheckIn::TServicePaymentList paymentBefore;
       bool first_pax_on_flight = false;
-      bool isTranzitSalonsVersion = SALONS2::isTranzitSalons( grp.point_dep );
       bool pr_do_check_wait_list_alarm = true;
       std::set<int> paxs_external_logged;
 
@@ -5072,15 +5071,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             SetInfantsToAdults( InfItems, AdultItems );
             SEATS2::Passengers.Clear();
             SEATS2::TSublsRems subcls_rems( fltInfo.airline );
-            // начитка салона
-            SALONS2::TSalons Salons( grp.point_dep, SALONS2::rTripSalons );
-            if ( isTranzitSalonsVersion ) {
-              salonList.ReadFlight( SALONS2::TFilterRoutesSets( grp.point_dep, grp.point_arv ), SALONS2::rfTranzitVersion, grp.cl, ASTRA::NoExists );
-            }
-            else {
-              Salons.FilterClass = grp.cl;
-              Salons.Read();
-            }
+            salonList.ReadFlight( SALONS2::TFilterRoutesSets( grp.point_dep, grp.point_arv ), SALONS2::rfTranzitVersion, grp.cl, ASTRA::NoExists );
             //заполним массив для рассадки
             for(int k=0;k<=1;k++)
             {
@@ -5163,12 +5154,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
                   pas.dont_check_payment = pax.dont_check_payment;
 
-                  if ( isTranzitSalonsVersion ) {
-                    SEATS2::Passengers.Add(salonList,pas);
-                  }
-                  else {
-                    SEATS2::Passengers.Add(Salons,pas);
-                  }
+                  SEATS2::Passengers.Add(salonList,pas);
                 }
                 catch(CheckIn::UserException)
                 {
@@ -5505,18 +5491,16 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   {
                     SEATS2::TPassenger pas = SEATS2::Passengers.Get(i);
                     ProgTrace( TRACE5, "pas.pax_id=%d, pax.id=%d, pax_id=%d", pas.paxId, pax.id, pax_id );
-                    if ( isTranzitSalonsVersion ) {
-                      for ( SALONS2::TAutoSeats::iterator iseat=autoSeats.begin();
-                            iseat!=autoSeats.end(); iseat++ ) {
-                        ProgTrace( TRACE5, "pas.paxId=%d, iseat->pax_id=%d, pax_id=%d",
-                                   pas.paxId, iseat->pax_id, pax_id );
-                        if ( pas.paxId == iseat->pax_id ) {
-                          iseat->pax_id = pax_id;
-                          break;
-                        }
+                    for ( SALONS2::TAutoSeats::iterator iseat=autoSeats.begin();
+                          iseat!=autoSeats.end(); iseat++ ) {
+                      ProgTrace( TRACE5, "pas.paxId=%d, iseat->pax_id=%d, pax_id=%d",
+                                 pas.paxId, iseat->pax_id, pax_id );
+                      if ( pas.paxId == iseat->pax_id ) {
+                        iseat->pax_id = pax_id;
+                        break;
                       }
-                      paxs_external_logged.insert( pax_id );
                     }
+                    paxs_external_logged.insert( pax_id );
 
                     if ( pas.preseat_pax_id > 0 )
                       exists_preseats = true;
@@ -5577,8 +5561,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                     point_ids_spp.insert( make_pair( grp.point_dep, ASTRA::cltProtBeforePay ) ); //!!!DJEK
                     DeleteTlgSeatRanges( ASTRA::cltProtBeforePay , pax_id, pas.tid, point_ids_spp ); //!!!DJEK
 
-                    if ( isTranzitSalonsVersion &&
-                         !pr_do_check_wait_list_alarm ) {
+                    if ( !pr_do_check_wait_list_alarm ) {
                       autoSeats.WritePaxSeats( grp.point_dep, pax_id );
                     }
                     i++;
@@ -6260,16 +6243,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       if (!pr_unaccomp && grp.status!=psCrew)
       {
-        if ( isTranzitSalonsVersion ) {
-          //!!!только для регистрации пассажиров
-          //определяет по местам пассажиров нужно ли делать перерасчет тревоги ЛО и
-          //если нужно делает перерасчет
-          if ( pr_do_check_wait_list_alarm ) {
-            SALONS2::check_waitlist_alarm_on_tranzit_routes( grp.point_dep, paxs_external_logged, __FUNCTION__ );
-          }
-        }
-        else {
-          check_waitlist_alarm( grp.point_dep );
+        //!!!только для регистрации пассажиров
+        //определяет по местам пассажиров нужно ли делать перерасчет тревоги ЛО и
+        //если нужно делает перерасчет
+        if ( pr_do_check_wait_list_alarm ) {
+          SALONS2::check_waitlist_alarm_on_tranzit_routes( grp.point_dep, paxs_external_logged, __FUNCTION__ );
         }
       }
 

@@ -3078,7 +3078,8 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
       if ( separately_seats_adult_with_baby ) {
         TPaxsCover paxs;
         for ( int i=0; i<passengers.getCount(); i++ ) {
-            paxs.push_back( TPaxCover( passengers.Get(i).paxId, ASTRA::NoExists ) );
+          ProgTrace( TRACE5, "pax(%i).pax_id=%d", i, passengers.Get(i).paxId );
+          paxs.push_back( TPaxCover( passengers.Get(i).paxId, ASTRA::NoExists ) );
         }
         zonesBetweenLines.setDisabled( Salons, paxs, pax_lists_with_baby );
       }
@@ -4061,12 +4062,12 @@ bool isINFT( int point_id, int pax_id ) {
   return false;
 }
 
-bool ChangeLayer( TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
+/*!!!bool ChangeLayer( TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
                   string first_xname, string first_yname, TSeatsType seat_type,
                   bool pr_lat_seat, TChangeLayerProcFlag seatFlag )
 {
   bool changedOrNotPay = true;
-  /* разметка и проверка возможна только для платных слоев */
+  // разметка и проверка возможна только для платных слоев
   if ( seatFlag != clNotPaySeat &&
        ( seat_type != stSeat || ( layer_type != cltProtBeforePay && layer_type != cltProtAfterPay && layer_type != cltProtSelfCkin  ) ) ) {
     tst();
@@ -4083,12 +4084,12 @@ bool ChangeLayer( TCompLayerType layer_type, int time_limit, int point_id, int p
   ProgTrace( TRACE5, "layer=%s, point_id=%d, pax_id=%d, first_xname=%s, first_yname=%s",
              EncodeCompLayerType( layer_type ), point_id, pax_id, first_xname.c_str(), first_yname.c_str() );
   TQuery Qry( &OraSession );
-  /* лочим рейс */
+  // лочим рейс
   TFlights flights;
   flights.Get( point_id, ftTranzit );
   flights.Lock(__FUNCTION__);
 
-  /* считываем инфу по пассажиру */
+  / считываем инфу по пассажиру
   switch ( layer_type ) {
     case cltGoShow:
     case cltTranzit:
@@ -4330,10 +4331,10 @@ bool ChangeLayer( TCompLayerType layer_type, int time_limit, int point_id, int p
     }
     //проверка мест с разметкой нашего слоя
 
-/*???	  if ( Qry.Eof ) {
-        ProgError( STDLOG, "CanChangeLayer: error xname=%s, yname=%s", first_xname.c_str(), first_yname.c_str() );
-        throw UserException( "MSG.SEATS.SEAT_NO.SEATS_NOT_AVAIL" );
-      } */
+//	  if ( Qry.Eof ) {
+//        ProgError( STDLOG, "CanChangeLayer: error xname=%s, yname=%s", first_xname.c_str(), first_yname.c_str() );
+//        throw UserException( "MSG.SEATS.SEAT_NO.SEATS_NOT_AVAIL" );
+//      }
   }
 
   int curr_tid = NoExists;
@@ -4497,7 +4498,7 @@ bool ChangeLayer( TCompLayerType layer_type, int time_limit, int point_id, int p
   check_layer_change( point_ids_spp, __FUNCTION__ );
   return changedOrNotPay;
 }
-
+!!!*/
 void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatAlgoParams ASeatAlgoParams )
 {
   // салон содержит все нормальные места (нет инвалидных мест, например с разрывами
