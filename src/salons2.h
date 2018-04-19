@@ -48,7 +48,7 @@ class TPlace {
 typedef std::vector<TPlace> TPlaces;
 typedef TPlaces::iterator IPlace;
 
-class TPlaceList {
+/*class TPlaceList {
   private:
     std::vector<std::string> xs, ys;
   public:
@@ -66,67 +66,13 @@ class TPlaceList {
     std::string GetYsName( int y );
     bool GetisPlaceXY( std::string placeName, SALONS2::TPoint &p );
     void Add( TPlace &pl );
-};
+};*/
 
 struct TLayerPriority {
     std::string code;
     std::string layer;
     int priority;
 };
-
-class TFilterLayers:public BitSet<ASTRA::TCompLayerType> {
-    private:
-      int point_dep;
-    public:
-        bool CanUseLayer( ASTRA::TCompLayerType layer_type, int point_dep );
-        void getFilterLayers( int point_id );
-
-};
-
-class TSalons {
-  private:
-    SALONS2::TReadStyle readStyle;
-    TFilterLayers FilterLayers;
-    std::map<std::string,int> status_priority;
-    std::vector<TLayerPriority> layer_priority;
-    TPlaceList* FCurrPlaceList;
-    bool pr_lat_seat;
-  public:
-    int trip_id;
-    int comp_id;
-    std::string airline;
-    std::string airp;
-    std::string craft;
-    std::string bort;
-    std::string descr;
-    std::string classes;
-    SALONS2::TModify modify;
-    std::string ClName;
-    std::vector<TPlaceList*> placelists;
-    ~TSalons( );
-    TSalons( int id, SALONS2::TReadStyle vreadStyle );
-    TPlaceList *CurrPlaceList();
-    void SetCurrPlaceList( TPlaceList *newPlaceList );
-
-    void Clear( );
-
-    bool getLatSeat() { return pr_lat_seat; };
-    void Build( xmlNodePtr salonsNode );
-    void Read( bool wo_invalid_seat_no = false );
-    void Write( );
-    void Parse( xmlNodePtr salonsNode );
-    void verifyValidRem( std::string rem_name, std::string class_name );
-};
-
-namespace SALONS
-{
-  typedef std::pair<int,TPlace> TSalonSeat;
-  void GetCompParams( int comp_id, xmlNodePtr dataNode );
-  void SetLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl );
-  void ClearLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl );
-  void SetFree( const std::string &layer, TPlace &pl );
-  void SetBlock( const std::string &layer, TPlace &pl );
-}
 
 #endif /*_SALONS2_H_*/
 
