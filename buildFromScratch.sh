@@ -44,9 +44,9 @@ elif [ $($CXX -dumpversion | sed 's/\./0/' | sed 's/\..*//') -ge 408 ]; then
     export MY_LOCAL_CFLAGS="-Wno-unused-local-typedefs $MY_LOCAL_CFLAGS"
 fi
 
-if [ "$BUILD_TESTS" == "1" ]; then
-    export MY_LOCAL_CFLAGS="-DXP_TESTING ${MY_LOCAL_CFLAGS}"
-fi
+#if [ "$BUILD_TESTS" == "1" ]; then
+#    export MY_LOCAL_CFLAGS="-DXP_TESTING ${MY_LOCAL_CFLAGS}"
+#fi
 
 #. ./bin/config_bases.sh
 
@@ -194,7 +194,7 @@ if [ "$quiet" = "1" ]; then make_silent="-s"; else make_silent=""; fi
 if [ "$build_external_libs" = "1" ]; then
     cat <<EOF > locallibs/external_env_file
 if [ -n "\$BOOST_LIB" ] || [ -n "\$BOOST_LIBS_SUFFIX" ] || [ -n "\$PION_LIB" ] ; then echo "unset BOOST_LIB BOOST_LIBS_SUFFIX PION_LIB, then $0 --build_external_libs" 1>&2; exit 2; fi
-export readonly CPP_STD_VERSION="c++11"
+export readonly CPP_STD_VERSION="c++14"
 export readonly BOOST=$EXTERNALLIBS_DIR/boost
 export MY_LOCAL_CFLAGS="\$MY_LOCAL_CFLAGS -DBOOST_NO_CXX11_SCOPED_ENUMS -DBOOST_NO_CXX11_EXPLICIT_CONVERSION_OPERATORS -DBOOST_FILESYSTEM_DEPRECATED -DBOOST_NO_AUTO_PTR"
 EOF

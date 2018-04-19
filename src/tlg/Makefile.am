@@ -1,6 +1,6 @@
 #include $(TCLMON_PATH)/tclconfig
 
-INCLUDES = -I$(top_srcdir)/src $(all_includes) $(TCLINCLUDE)
+AM_CPPFLAGS = -I$(top_srcdir)/src $(all_includes) $(TCLINCLUDE)
 METASOURCES = AUTO
 lib_LIBRARIES = libtlg.a
 libtlg_a_SOURCES = apps_handler.cc apps_answer_emul.cc edi_handler.cpp edi_msg.cpp edi_tlg.cpp main_snd.cpp \
