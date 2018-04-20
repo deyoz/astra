@@ -41,6 +41,7 @@
 #define BI_STAT_VERSION               "201712-0202363"
 #define VO_STAT_VERSION               "201801-0202940"
 #define SALON_SECTION_VERSION         "201803-0205350"
+#define KOMPLEKT_VERSION              "201804-0206181"
 
 #define TRANSIT_CRAFT_VERSION         "204000-0000000"
 #define EMDA_VERSION                  "202000-0000000"

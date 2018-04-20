@@ -4054,6 +4054,11 @@ void RESEATTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
 void KOMPLEKT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    if(not TReqInfo::Instance()->desk.compatible(KOMPLEKT_VERSION))
+        throw UserException("MSG.KOMPLEKT_SUPPORT",
+                LParams()
+                << LParam("rpt", ElemIdToNameLong(etReportType, EncodeRptType(rpt_params.rpt_type)))
+                << LParam("vers", KOMPLEKT_VERSION));
   struct TReportItem {
       string code;
       int num;
