@@ -167,7 +167,7 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
      if ( codeNode && !sendImages ) {
        codeNode = GetNode( "code", codeNode );
        std::vector<std::string> client_elem_codes;
-       while ( codeNode && string((char*)codeNode->name) == "code" ) {
+       while ( codeNode && string((const char*)codeNode->name) == "code" ) {
          client_elem_codes.push_back( NodeAsString( codeNode ) );
            codeNode = codeNode->next;
        }
@@ -186,7 +186,7 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
      if ( codeNode && !sendImages ) {
        codeNode = GetNode( "filename", codeNode );
        std::vector<std::string> client_elem_files;
-       while ( codeNode && string((char*)codeNode->name) == "filename" ) {
+       while ( codeNode && string((const char*)codeNode->name) == "filename" ) {
          client_elem_files.push_back( NodeAsString( codeNode ) );
            codeNode = codeNode->next;
        }
@@ -208,6 +208,10 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
    for ( std::vector<std::string>::iterator icode=server_elem_types.begin();
          icode!=server_elem_types.end(); icode++ ) {
      if ( TCompElemTypes::Instance()->getElem( *icode, elem_type ) ) {
+       if ( SALONS2::isConstructivePlace( elem_type.getCode() ) &&
+            !TReqInfo::Instance()->desk.compatible( SALON_SECTION_VERSION ) ) {
+         continue;
+       }
        xmlNodePtr imageNode = NewTextChild( imagesNode, "image" );
        NewTextChild( imageNode, "code", elem_type.getCode() );
        NewTextChild( imageNode, "filename", elem_type.getFilename() );
@@ -233,11 +237,12 @@ void ImagesInterface::SetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
                    "   SET name=:name,pr_seat=:pr_seat,time_create=:time_create,image=:image, pr_del=0 "\
                    "  WHERE code=:code; "\
                    " IF SQL%NOTFOUND THEN "\
-                   "  INSERT INTO comp_elem_types(code,name,pr_seat,time_create,image,pr_del) "\
-                   "   VALUES(:code,:name,:pr_seat,:time_create,:image,0); "\
+                   "  INSERT INTO comp_elem_types(code,name,pr_seat,time_create,image,pr_del,filename) "\
+                   "   VALUES(:code,:name,:pr_seat,:time_create,:image,0,:filename); "\
                    " END IF; "\
                    "END;";
     Qry->DeclareVariable( "code", otString );
+    Qry->DeclareVariable( "filename", otString );
     Qry->DeclareVariable( "name", otString );
     Qry->DeclareVariable( "pr_seat", otInteger );
     Qry->DeclareVariable( "time_create", otDate );
@@ -250,6 +255,7 @@ void ImagesInterface::SetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
       string StrDec;
       while ( node ) {
         Qry->SetVariable( "code", NodeAsString( "code", node ) );
+        Qry->SetVariable( "filename", NodeAsString( "code", node ) );
         Qry->SetVariable( "name", NodeAsString( "name", node ) );
         Qry->SetVariable( "pr_seat", NodeAsString( "pr_seat", node ) );
         StrDec = NodeAsString( "image", node );
@@ -286,17 +292,18 @@ void GetDrawSalonProp( xmlNodePtr reqNode, xmlNodePtr resNode )
   if ( !layersNode )
     layersNode = NewTextChild( imagesNode, "layers_color" );
   while ( !Qry.Eof ) {
-      ASTRA::TCompLayerType l = DecodeCompLayerType( Qry.FieldAsString( "code" ) );
-      if ( !SALONS2::compatibleLayer( l ) ) {
-        Qry.Next();
-        continue;
-      }
-
-  xmlNodePtr n = NewTextChild( layersNode, "layer", Qry.FieldAsString( "code" ) );
-  if ( !Qry.FieldIsNULL( "color" ) )
-    SetProp( n, "color", Qry.FieldAsString( "color" ) );
-    if ( !Qry.FieldIsNULL( "figure" ) )
+    ASTRA::TCompLayerType l = DecodeCompLayerType( Qry.FieldAsString( "code" ) );
+    if ( !SALONS2::compatibleLayer( l ) ) {
+      Qry.Next();
+      continue;
+    }
+    xmlNodePtr n = NewTextChild( layersNode, "layer", Qry.FieldAsString( "code" ) );
+    if ( !Qry.FieldIsNULL( "color" ) ) {
+      SetProp( n, "color", Qry.FieldAsString( "color" ) );
+    }
+    if ( !Qry.FieldIsNULL( "figure" ) ) {
       SetProp( n, "figure", Qry.FieldAsString( "figure" ) );
+    }
     Qry.Next();
   }
 }

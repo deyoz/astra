@@ -1277,6 +1277,7 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, s
     dests.items.rbegin()->airline.clear();
     dests.items.rbegin()->flt_no = ASTRA::NoExists;
     dests.items.rbegin()->suffix.clear();
+    dests.items.rbegin()->trip_type.clear(); // удаление типа рейса для Синхрона, иначе выводится в журнал "изменение типа рейса с "п"  на "" в последнем пункте посадки
   }
   if ( d.status == tdDelete ) {
     dests.items.clear();

@@ -28,13 +28,13 @@
 #include <boost/shared_array.hpp>
 #include <boost/crc.hpp>
 #include "payment_base.h"
+#include "report_common.h"
 #include "stat_utils.h"
 #include "stat_bi.h"
 #include "stat_vo.h"
 #include "stat_ha.h"
 #include "stat_ad.h"
 #include "stat_unacc.h"
-#include "report_common.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"

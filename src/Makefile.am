@@ -79,6 +79,7 @@ astra_SOURCES = \
   comp_layers.cc \
   convert.cc \
   counters.cc \
+  comp_props.cpp \
   crypt.cc \
   dev_consts.cc \
   dev_tuning.cc \
@@ -125,7 +126,6 @@ astra_SOURCES = \
   salonform.cc \
   salonform2.cc \
   salons.cc \
-  salons2.cc \
   season.cc \
   seats_utils.cc \
   seats.cc \
@@ -177,6 +177,8 @@ astra_SOURCES = \
   md5_sum.cc \
   bagmessage.cc \
   hotel_acmd.cc \
+  kiosk_events.cc \
+  self_ckin_log.cc \
   stat_bi.cc \
   stat_vo.cc \
   stat_ha.cc \
@@ -186,11 +188,9 @@ astra_SOURCES = \
   stat_utils.cc \
   stat_common.cc \
   db_pkg.cc \
-  bagmessage_daemon.cc \
-  kiosk_events.cc \
-  self_ckin_log.cc \
+  cr_lf.cc \
   stat_fv.cc \
-  cr_lf.cc
+  bagmessage_daemon.cc
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
@@ -266,6 +266,7 @@ noinst_HEADERS = \
   comp_layers.h \
   convert.h \
   counters.h \
+  comp_props.h \
   crypt.h \
   dev_consts.h \
   dev_tuning.h \
@@ -310,7 +311,6 @@ noinst_HEADERS = \
   salonform.h \
   salonform2.h \
   salons.h \
-  salons2.h \
   season.h \
   seats_utils.h \
   seats.h \
@@ -356,6 +356,8 @@ noinst_HEADERS = \
   AirportControl.h \
   md5_sum.h \
   hotel_acmd.h \
+  kiosk_events.h \
+  self_ckin_log.h \  
   stat_bi.h \
   stat_vo.h \
   stat_ha.h \
@@ -365,8 +367,6 @@ noinst_HEADERS = \
   stat_utils.h \
   stat_common.h \
   db_pkg.h \
-  report_common.h \
-  kiosk_events.h \
-  self_ckin_log.h \
+  cr_lf.h \
   stat_fv.h \
-  cr_lf.h
+  report_common.h 

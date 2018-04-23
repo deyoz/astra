@@ -594,7 +594,7 @@ void SyncTripCompLayers(int point_id_tlg,
 {
   DeleteTripCompLayers(point_id_tlg, point_id_spp, layer_type, point_ids_spp);
   InsertTripCompLayers(point_id_tlg, point_id_spp, layer_type, point_ids_spp);
-};
+}
 
 void InsertTripCompLayers(int point_id_tlg,
                           int point_id_spp,
@@ -854,7 +854,6 @@ void check_layer_change(const TPointIdsForCheck &point_ids_spp,
                         const std::set<int> &paxs_external_logged,
                         const std::string& whence)
 {
-  std::vector<int> points_check_wait_alarm;
   std::vector<int> points_tranzit_check_wait_alarm;
 
   //убираем повторения
@@ -863,24 +862,11 @@ void check_layer_change(const TPointIdsForCheck &point_ids_spp,
     if ( SALONS2::isBaseLayer( i->second, false ) ) {
       continue;
     }
-    if ( SALONS2::isTranzitSalons( i->first ) ) {
-      if ( find( points_tranzit_check_wait_alarm.begin(),
-                 points_tranzit_check_wait_alarm.end(),
-                 i->first ) == points_tranzit_check_wait_alarm.end() ) {
-        points_tranzit_check_wait_alarm.push_back( i->first );
-      }
+    if ( find( points_tranzit_check_wait_alarm.begin(),
+               points_tranzit_check_wait_alarm.end(),
+               i->first ) == points_tranzit_check_wait_alarm.end() ) {
+      points_tranzit_check_wait_alarm.push_back( i->first );
     }
-    else {
-      if ( find( points_check_wait_alarm.begin(),
-                 points_check_wait_alarm.end(),
-                 i->first ) == points_check_wait_alarm.end() ) {
-        points_check_wait_alarm.push_back( i->first );
-      }
-    }
-  }
-  for ( std::vector<int>::iterator i=points_check_wait_alarm.begin();
-        i!=points_check_wait_alarm.end(); i++ ) {
-    check_waitlist_alarm(*i);
   }
   SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, paxs_external_logged, whence );
 }

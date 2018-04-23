@@ -10,6 +10,7 @@
 #include "salons.h"
 #include "astra_misc.h"
 #include "astra_consts.h"
+#include "comp_props.h"
 
 namespace iatci { namespace dcrcka { class Result; } }
 namespace iatci { class Seat; }
@@ -73,13 +74,6 @@ void ZoneLoads(int point_id,
                std::vector<TZoneOccupiedSeats> &zones,
                std::vector<SALONS2::TCompSectionLayers> &CompSectionsLayers,
                std::vector<SALONS2::TCompSection> &compSections );
-bool IntChangeSeats( int point_id, int pax_id,
-                     int &tid, std::string xname, std::string yname,
-                     SEATS2::TSeatsType seat_type,
-                     ASTRA::TCompLayerType layer_type,
-                     int time_limit,
-                     const BitSet<SEATS2::TChangeLayerFlags> &flags,
-                     xmlNodePtr resNode );
 bool IntChangeSeatsN( int point_id, int pax_id, int &tid, std::string xname, std::string yname,
                       SEATS2::TSeatsType seat_type,
                       ASTRA::TCompLayerType layer_type,
@@ -106,7 +100,6 @@ void ZonePax( int point_id, std::vector<T1> &PaxItems, std::vector<SALONS2::TCom
   }
   //привязали детей к взрослым
   SetInfantsToAdults<T1,T1>( InfItems, AdultItems );
-  bool pr_tranzit_salons = ( SALONS2::isTranzitSalons( point_id ) );
   for ( typename std::vector<T1>::iterator i=InfItems.begin(); i!=InfItems.end(); i++ ) {
     trace( i->pax_id, i->grp_id, i->parent_pax_id, i->temp_parent_id, i->pers_type, i->seats );
   }
@@ -123,19 +116,9 @@ void ZonePax( int point_id, std::vector<T1> &PaxItems, std::vector<SALONS2::TCom
     }
     for ( std::vector<TZoneOccupiedSeats>::iterator z=zones.begin(); z!=zones.end(); z++ ) {
       for ( SALONS2::TPlaces::iterator p=z->seats.begin(); p!=z->seats.end(); p++ ) {
-        if ( pr_tranzit_salons ) {
-          if ( p->getCurrLayer( point_id ).getPaxId() == pax_id ) {
-            i->zone = z->name;
-            break;
-          }
-        }
-        else {
-          if ( p->layers.empty() )
-            throw EXCEPTIONS::Exception( "ZonePax: p->layers.empty()" );
-          if ( p->layers.begin()->pax_id == pax_id ) {
-            i->zone = z->name;
-            break;
-          }
+        if ( p->getCurrLayer( point_id ).getPaxId() == pax_id ) {
+          i->zone = z->name;
+          break;
         }
       }
       if ( !i->zone.empty() )

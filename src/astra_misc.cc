@@ -865,6 +865,7 @@ bool TTripBase::GetRouteBefore(TDateTime part_key,
   return GetRoute(part_key,point_id,false,route_type1,route_type2);
 };
 
+//возвращает истину, когда рейс найден, но не факт, что есть маршрут
 void TTripBase::GetRouteAfter(TDateTime part_key,
                                int point_id,
                                int point_num,
