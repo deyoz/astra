@@ -2841,6 +2841,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      pax.reg_no, "
      "      pax.seats pax_seats, "
      "      pax_grp.status grp_status, "
+     "      pax_grp.client_type, "
      "      pax.refuse, "
      "      pax.grp_id, "
      "      pax.wl_type, "
@@ -2921,6 +2922,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   NewTextChild(defNode, "class", def_class);
   NewTextChild(defNode, "seats", 1);
   NewTextChild(defNode, "last_target", "");
+  NewTextChild(defNode, "client_type");
   NewTextChild(defNode, "ticket", "");
   NewTextChild(defNode, "document", "");
   NewTextChild(defNode, "status", def_status);
@@ -2969,6 +2971,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   int col_refuse=Qry.FieldIndex("refuse");
   int col_grp_id=Qry.FieldIndex("grp_id");
   int col_grp_status=Qry.FieldIndex("grp_status");
+  int col_client_type=Qry.FieldIndex("client_type");
   int col_pax_seats=Qry.FieldIndex("pax_seats");
   int col_wl_type=Qry.FieldIndex("wl_type");
   int col_is_jmp=Qry.FieldIndex("is_jmp");
@@ -3026,6 +3029,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
       };
     };
 
+    NewTextChild( node, "client_type", ElemIdToNameShort(etClientType, Qry.FieldAsString(col_client_type)), "" );
     NewTextChild( node, "ticket", Qry.FieldAsString( col_ticket ), "" );
     NewTextChild( node, "document", Qry.FieldAsString( col_document ), "" );
     NewTextChild( node, "status", Qry.FieldAsString( col_status ), def_status );

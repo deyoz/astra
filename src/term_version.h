@@ -40,6 +40,7 @@
 #define DOCO_ADD_TYPES_VERSION        "201711-0201112"
 #define BI_STAT_VERSION               "201712-0202363"
 #define VO_STAT_VERSION               "201801-0202940"
+#define KOMPLEKT_VERSION              "201804-0206181"
 
 #define TRANSIT_CRAFT_VERSION         "202000-0000000"
 #define EMDA_VERSION                  "202000-0000000"
