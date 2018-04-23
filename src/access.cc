@@ -177,7 +177,9 @@ void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
         try {
             Qry.Execute();
         } catch(EOracleError &E) {
-            if ( E.Code >= 20000 ) {
+            if(E.Code == 1) // unique constraint violated
+                throw UserException("MSG.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+            else if ( E.Code >= 20000 ) {
                 string str = E.what();
                 EOracleError2UserException(str);
                 throw UserException( str );
