@@ -311,14 +311,17 @@ bool TFltBinding::bind_flt_or_bind_check(TQuery &Qry, int point_id_spp)
     TQuery CodeShareQry(&OraSession);
     CodeShareQry.Clear();
     CodeShareQry.SQLText=
-        "SELECT airline_oper,flt_no_oper FROM codeshare_sets "
+        "SELECT airline_oper, flt_no_oper, suffix_oper "
+        "FROM codeshare_sets "
         "WHERE airline_mark=:airline AND flt_no_mark=:flt_no AND "
+        "      (suffix_mark IS NULL AND :suffix IS NULL OR suffix_mark=:suffix) AND "
         "      airp_dep=:airp_dep AND "
         "      first_date<=:scd_local AND "
         "      (last_date IS NULL OR last_date>:scd_local) AND "
         "      (days IS NULL OR INSTR(days,TO_CHAR(:wday))<>0) AND pr_del=0";
     CodeShareQry.CreateVariable("airline",otString,flt.airline);
     CodeShareQry.CreateVariable("flt_no",otInteger,(int)flt.flt_no);
+    CodeShareQry.CreateVariable("suffix",otString,flt.suffix);
     CodeShareQry.CreateVariable("airp_dep",otString,flt.airp_dep);
     CodeShareQry.CreateVariable("scd_local",otDate,flt.scd);
     CodeShareQry.CreateVariable("wday",otInteger,DayOfWeek(flt.scd));
@@ -327,6 +330,7 @@ bool TFltBinding::bind_flt_or_bind_check(TQuery &Qry, int point_id_spp)
     {
       strcpy(flt.airline,CodeShareQry.FieldAsString("airline_oper"));
       flt.flt_no=CodeShareQry.FieldAsInteger("flt_no_oper");
+      strcpy(flt.suffix,CodeShareQry.FieldAsString("suffix_oper"));
       bind_flt(flt,bind_type,spp_point_ids);
       if (point_id_spp==NoExists)
       {

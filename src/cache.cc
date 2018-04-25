@@ -1972,12 +1972,14 @@ void AfterApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCa
         {
             markFlt.airline=cache.FieldValue( "airline_mark", row );
             markFlt.flt_no=ToInt(cache.FieldValue( "flt_no_mark", row ));
+            markFlt.suffix=cache.FieldValue( "suffix_mark", row );
             markFlt.airp=cache.FieldValue( "airp_dep", row );
         }
         else
         {
             markFlt.airline=cache.FieldOldValue( "airline_mark", row );
             markFlt.flt_no=ToInt(cache.FieldOldValue( "flt_no_mark", row ));
+            markFlt.suffix=cache.FieldOldValue( "suffix_mark", row );
             markFlt.airp=cache.FieldOldValue( "airp_dep", row );
         };
         for(markFlt.scd_out=now-5;markFlt.scd_out<=now+CREATE_SPP_DAYS()+1;markFlt.scd_out+=1.0) flts.push_back(markFlt);
