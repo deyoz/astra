@@ -1780,15 +1780,17 @@ void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFlt
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT airline_mark,flt_no_mark "
+    "SELECT airline_mark, flt_no_mark, suffix_mark "
     "FROM codeshare_sets "
     "WHERE airline_oper=:airline AND flt_no_oper=:flt_no AND airp_dep=:airp_dep AND "
+    "      (suffix_oper IS NULL AND :suffix IS NULL OR suffix_oper=:suffix) AND "
     "      first_date<=:scd_local AND "
     "      (last_date IS NULL OR last_date>:scd_local) AND "
     "      (days IS NULL OR INSTR(days,TO_CHAR(:wday))<>0) AND pr_del=0 "
-    "ORDER BY flt_no_mark,airline_mark";
+    "ORDER BY flt_no_mark, suffix_mark, airline_mark";
   Qry.CreateVariable("airline",otString,operFltInfo.airline);
   Qry.CreateVariable("flt_no",otInteger,operFltInfo.flt_no);
+  Qry.CreateVariable("suffix",otString,operFltInfo.suffix);
   Qry.CreateVariable("airp_dep",otString,operFltInfo.airp);
   Qry.CreateVariable("scd_local",otDate,scd_local);
   Qry.CreateVariable("wday",otInteger,DayOfWeek(scd_local));
@@ -1798,14 +1800,15 @@ void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFlt
     TTripInfo flt;
     flt.airline=Qry.FieldAsString("airline_mark");
     flt.flt_no=Qry.FieldAsInteger("flt_no_mark");
+    flt.suffix=Qry.FieldAsString("suffix_mark");
     if (return_scd_utc)
       flt.scd_out=operFltInfo.scd_out;
     else
       flt.scd_out=scd_local;
     flt.airp=operFltInfo.airp;
     markFltInfo.push_back(flt);
-  };
-};
+  }
+}
 
 TCodeShareSets::TCodeShareSets()
 {
@@ -1816,36 +1819,43 @@ TCodeShareSets::TCodeShareSets()
     "FROM codeshare_sets "
     "WHERE airline_oper=:airline_oper AND flt_no_oper=:flt_no_oper AND airp_dep=:airp_dep AND "
     "      airline_mark=:airline_mark AND flt_no_mark=:flt_no_mark AND "
+    "      (suffix_oper IS NULL AND :suffix_oper IS NULL OR suffix_oper=:suffix_oper) AND "
+    "      (suffix_mark IS NULL AND :suffix_mark IS NULL OR suffix_mark=:suffix_mark) AND "
     "      first_date<=:scd_local AND "
     "      (last_date IS NULL OR last_date>:scd_local) AND "
     "      (days IS NULL OR INSTR(days,TO_CHAR(:wday))<>0) AND pr_del=0 ";
   Qry->DeclareVariable("airline_oper",otString);
   Qry->DeclareVariable("flt_no_oper",otInteger);
+  Qry->DeclareVariable("suffix_oper",otString);
   Qry->DeclareVariable("airp_dep",otString);
   Qry->DeclareVariable("airline_mark",otString);
   Qry->DeclareVariable("flt_no_mark",otInteger);
+  Qry->DeclareVariable("suffix_mark",otString);
   Qry->DeclareVariable("scd_local",otDate);
   Qry->DeclareVariable("wday",otInteger);
-};
+}
 
 TCodeShareSets::~TCodeShareSets()
 {
   delete Qry;
-};
+}
 
 void TCodeShareSets::get(const TTripInfo &operFlt, const TTripInfo &markFlt, bool is_local_scd_out)
 {
   clear();
   if (operFlt.airline==markFlt.airline &&
-      operFlt.flt_no==markFlt.flt_no) return;
+      operFlt.flt_no==markFlt.flt_no &&
+      operFlt.suffix==markFlt.suffix) return;
 
   TDateTime scd_local=is_local_scd_out?operFlt.scd_out:UTCToLocal(operFlt.scd_out, AirpTZRegion(operFlt.airp));
 
   Qry->SetVariable("airline_oper",operFlt.airline);
   Qry->SetVariable("flt_no_oper",operFlt.flt_no);
+  Qry->SetVariable("suffix_oper",operFlt.suffix);
   Qry->SetVariable("airp_dep",operFlt.airp);
   Qry->SetVariable("airline_mark",markFlt.airline);
   Qry->SetVariable("flt_no_mark",markFlt.flt_no);
+  Qry->SetVariable("suffix_mark",markFlt.suffix);
   Qry->SetVariable("scd_local",scd_local);
   Qry->SetVariable("wday",DayOfWeek(scd_local));
   Qry->Execute();
@@ -1854,8 +1864,8 @@ void TCodeShareSets::get(const TTripInfo &operFlt, const TTripInfo &markFlt, boo
     pr_mark_norms=Qry->FieldAsInteger("pr_mark_norms")!=0;
     pr_mark_bp=Qry->FieldAsInteger("pr_mark_bp")!=0;
     pr_mark_rpt=Qry->FieldAsInteger("pr_mark_rpt")!=0;
-  };
-};
+  }
+}
 
 string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt, bool &equal )
 {
@@ -1879,7 +1889,7 @@ string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt, bool
   if (operFlt.airp!=markFlt.airp)
     trip << " " << ElemIdToCodeNative(etAirp, markFlt.airp);
   return trip.str();
-};
+}
 
 bool IsMarkEqualOper( const TTripInfo &operFlt, const TTripInfo &markFlt )
 {
@@ -1892,7 +1902,7 @@ bool IsMarkEqualOper( const TTripInfo &operFlt, const TTripInfo &markFlt )
          operFlt.suffix==markFlt.suffix &&
          scd_local_oper==scd_local_mark &&
          operFlt.airp==markFlt.airp;
-};
+}
 
 void GetCrsList(int point_id, std::vector<std::string> &crs)
 {
