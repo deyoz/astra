@@ -93,6 +93,7 @@ const
                          {"STATION_MODES",           etStationMode},
                          {"SUBCLS",                  etSubcls},
                          {"TIME_FMT",                etUserSetType},
+                         {"TRIP_SUFFIXES",           etSuffix},
                          {"TRIP_TYPES",              etTripType},
                          {"TYPEB_LCI_ACTION_CODE",   etTypeBOptionValue},
                          {"TYPEB_LCI_SEAT_PLAN",     etTypeBOptionValue},
