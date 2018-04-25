@@ -6707,6 +6707,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         CrsInfInsQry.SQLText=
           "BEGIN"
           "  INSERT INTO crs_inf(inf_id, pax_id) VALUES(:inf_id, :pax_id); "
+          "  UPDATE crs_pax SET inf_id=:inf_id WHERE pax_id=:pax_id; "
           "  DELETE FROM crs_inf_deleted WHERE inf_id=:inf_id AND pax_id=:pax_id; "
           "END;";
         CrsInfInsQry.DeclareVariable("pax_id",otInteger);
@@ -7041,6 +7042,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     "  DELETE FROM crs_pax_chkd WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_asvc WHERE pax_id=:pax_id; "
                     "  DELETE FROM pax_asvc WHERE pax_id=:pax_id; "
+                    "  UPDATE crs_pax SET inf_id=NULL WHERE pax_id=:pax_id; "
                     "  :sync_pax_asvc_rows:=:sync_pax_asvc_rows+SQL%ROWCOUNT; "
                     "END;";
                   Qry.CreateVariable("pax_id", otInteger, pax_id);
