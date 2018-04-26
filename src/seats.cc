@@ -4003,7 +4003,7 @@ bool isINFT( int point_id, int pax_id ) {
   PaxQry.SQLText =
     "SELECT grp_id, 0 inf_id, 0 priority FROM pax WHERE pax_id=:pax_id "
     "UNION "
-    "SELECT crs_pnr.pnr_id, inf_id, 1 priority FROM crs_pax, crs_inf, crs_pnr "
+    "SELECT crs_pnr.pnr_id, crs_inf.inf_id, 1 priority FROM crs_pax, crs_inf, crs_pnr "
     " WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
     "       crs_pax.pax_id=:pax_id AND "
     "       crs_pax.pax_id=crs_inf.inf_id(+) AND"
