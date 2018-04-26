@@ -2990,6 +2990,7 @@ void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passG
       grp_variant << pr_pay << (ignoreINFT || pass.isRemark( "INFT" ));
       //тариф
       grp_variant << pass.tariffs.key() << EncodeCompLayerType(pass.preseat_layer) << pass.dont_check_payment;
+//      ProgTrace( TRACE5, "grp_variant=%s, pax=%s", grp_variant.str().c_str(), pass.toString().c_str() );
       v[ grp_variant.str() ].Add( pass, pass.index );
 /*      if (
            (icond == 0 && pr_pay && (ignoreINFT || pass.isRemark( "INFT" ))) ||
@@ -3110,7 +3111,7 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
                 ProgTrace( TRACE5, "pass1 = %s", pass1.toString().c_str() );
                 if ( pass1.isSeat ) {
                   paxsSeats.push_back( TCoordSeat( pass1.placeList->num, pass1.Pos.x, pass1.Pos.y ) );
-                  ProgTrace( TRACE5, "paxsSeats add xnum=%d, =%d, y=%d", pass1.placeList->num, pass1.Pos.x, pass1.Pos.y );
+                  ProgTrace( TRACE5, "paxsSeats add num=%d, x=%d, y=%d", pass1.placeList->num, pass1.Pos.x, pass1.Pos.y );
                 }
                 if ( separately_seats_adult_with_baby ) {
                   pax_lists_with_baby.insert( pass1.paxId );
@@ -3155,12 +3156,14 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
       }
       SeatPlaces = seatsGrps; //достаем места
       SeatPlaces.RollBack(); //откатываем
+      paxsSeats.clear();
       continue;
     }
   }
 //  ProgTrace( TRACE5, "seatsGrps.size()=%zu", seatsGrps.size() );
   SeatPlaces = seatsGrps; //достаем места
   SeatPlaces.RollBack(); //откатываем
+  paxsSeats.clear();
   passengers.sortByIndex();
   SeatsStat.stop(__FUNCTION__);
   tst();
@@ -3211,7 +3214,7 @@ class AnomalisticConditionsPayment
       //удаляем предварительно назначенное платное место
       for ( int i=0; i<passengers.getCount(); i++ ) {
         TPassenger &pass = passengers.Get( i );
-        ProgTrace( TRACE5, "pass.preseatPlaces.size()=%zu", pass.preseatPlaces.size() );
+        ProgTrace( TRACE5, "pass.preseatPlaces.size()=%zu, pax_id=%d", pass.preseatPlaces.size(), pass.paxId );
         if ( pass.preseatPlaces.empty() || pass.dont_check_payment ) {
           tst();
           continue;
@@ -3245,8 +3248,8 @@ class AnomalisticConditionsPayment
           pass.preseat_layer = cltUnknown;
           pass.preseat_no.clear();
           pass.preseat_pax_id = 0;
+          pass.preseatPlaces.clear();
         }
-        pass.preseatPlaces.clear();
       }
     }
     static void removeRemarksOnPaymentLayer( SALONS2::TSalons *Salons, TPassengers &passengers ) {
@@ -3574,7 +3577,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
 //               ProgTrace( TRACE5, "current_rate=condRates.rates.current_rate=%s", condRates.current_rate->str().c_str() );
                if ( ( condRates.current_rate->rate != 0.0   &&
                       SeatAlg != sSeatPassengers ) ) { //рассадка на платные места только по одному SeatAlg=1
-  //               ProgTrace( TRACE5, "condRates.current_rate=%f continue", condRates.current_rate->rate );
+//                 ProgTrace( TRACE5, "condRates.current_rate=%f continue", condRates.current_rate->rate );
                  continue;
                }
                if ( use_preseat_layer && SeatAlg == sSeatPassengers ) { // если предварительно размеченный слой, то игнорируем платные места
@@ -3583,7 +3586,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                else {
                  condRates.ignore_rate = ignore_rate;
                }
-               //ProgTrace( TRACE5, "condRates.current_rate=%s, condRates.ignore_rate=%d, SeatAlg=%d", condRates.current_rate->str().c_str(), condRates.ignore_rate, SeatAlg );
+//               ProgTrace( TRACE5, "condRates.current_rate=%s, condRates.ignore_rate=%d, SeatAlg=%d", condRates.current_rate->str().c_str(), condRates.ignore_rate, SeatAlg );
                //ProgTrace( TRACE5, "SeatAlg == %d, condRates.current_rate.first=%d, condRates.current_rate->second.value=%f",
                //                        SeatAlg, condRates.current_rate->first, condRates.current_rate->second.value );
                /* использование статусов мест */
@@ -3598,7 +3601,6 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                  curr_preseat_layers.insert( preseat_layers.begin(), preseat_layers.end() );
                  //ProgTrace(TRACE5, "SeatOnlyBasePlace=%d, KeyLayers=%d", SeatOnlyBasePlace, KeyLayers );
                  if ( SeatOnlyBasePlace && KeyLayers <= -2 ) { //если указано место, которое оплатил другой, то нельзя его забирать
-                   //tst();
                    continue;
                  }
                  if ( KeyLayers <= -2 &&
@@ -3627,7 +3629,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                    curr_preseat_layers[ cltPNLAfterPay ] = true;
                    curr_preseat_layers[ cltProtSelfCkin ] = true;
                  }
-                 //ProgTrace(TRACE5, "KeyLayers=%d", KeyLayers);
+//                 ProgTrace(TRACE5, "KeyLayers=%d", KeyLayers);
                  /* задаем массив статусов мест */
                  SetLayers( Salons,
                             SeatsLayers,
@@ -3665,9 +3667,10 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                          if ( !FCanUseTube && !paxsSeats.empty() && !separately_seats_adult_with_baby  ) {
                            continue;
                          }
+/*                         tst();
                          if ( FCanUseTube && SeatAlg == sSeatPassengers ) {
                            continue;
-                         }
+                         }*/
                          if ( FCanUseTube && CanUseAlone == uFalse3 && !canUseOneRow ) {
                            continue;
                          }
@@ -3709,7 +3712,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                                }
                                break;
                            } /* end switch SeatAlg */
-           //                ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseElem_Type=%d,FCanUseRems=%s,FCanUseAlone=%d,KeyLayers=%d,FCanUseTube=%d,FCanUseSmoke=%d,PlaceLayer=%s, MAXPLACE=%d,canUseOneRow=%d, CanUseSUBCLS=%d, SUBCLS_REM=%s",
+//                           ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseElem_Type=%d,FCanUseRems=%s,FCanUseAlone=%d,KeyLayers=%d,FCanUseTube=%d,FCanUseSmoke=%d,PlaceLayer=%s, MAXPLACE=%d,canUseOneRow=%d, CanUseSUBCLS=%d, SUBCLS_REM=%s",
 //                                      param1,param2,param3.c_str(),param4,param5,param6,param7,param8.c_str(),param9,param10,param11,param12.c_str());
 
                          } /* end for FCanUseSmoke */
@@ -4003,10 +4006,9 @@ bool isINFT( int point_id, int pax_id ) {
   PaxQry.SQLText =
     "SELECT grp_id, 0 inf_id, 0 priority FROM pax WHERE pax_id=:pax_id "
     "UNION "
-    "SELECT crs_pnr.pnr_id, crs_inf.inf_id, 1 priority FROM crs_pax, crs_inf, crs_pnr "
+    "SELECT crs_pnr.pnr_id, crs_pax.inf_id, 1 priority FROM crs_pax, crs_pnr "
     " WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
     "       crs_pax.pax_id=:pax_id AND "
-    "       crs_pax.pax_id=crs_inf.inf_id(+) AND"
     "       crs_pax.pr_del=0 AND "
     "       crs_pnr.system='CRS' "
     "ORDER BY priority";

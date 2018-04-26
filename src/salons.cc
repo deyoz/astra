@@ -1524,7 +1524,6 @@ void TPlace::SetTariffsByRFISCColor( int point_dep, const TSeatTariffMapType &sa
   }
   tariffs.clear();
   TSeatTariffMapType::const_iterator colorItem;
-  std::map<int, TRFISC,classcomp>::iterator dep_rfisc = rfiscs.end();
   for ( std::map<int, TRFISC,classcomp>::iterator irfisc=rfiscs.begin();
         irfisc!=rfiscs.end();  ) {
     if ( irfisc->second.color.empty() ) {
@@ -4678,13 +4677,12 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     Qry.Clear();
     Qry.SQLText =
       "SELECT crs_pax.pax_id, seats, pers_type, name, surname, class, "
-      "       crs_inf.pax_id AS parent_pax_id "
-      "    FROM crs_pax, crs_pnr, tlg_binding, crs_inf "
+      "       DECODE( crs_pax.inf_id, NULL, NULL, crs_pax.pax_id ) AS parent_pax_id "
+      "    FROM crs_pax, crs_pnr, tlg_binding "
       "   WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
       "         crs_pnr.point_id=tlg_binding.point_id_tlg AND "
       "         tlg_binding.point_id_spp=:point_dep AND "
       "         crs_pnr.system='CRS' AND "
-      "         crs_pax.pax_id=crs_inf.pax_id(+) AND "
       "         crs_pax.pr_del=0 ";
     Qry.DeclareVariable( "point_dep", otInteger );
     for ( std::vector<TTripRouteItem>::const_iterator iseg=filterRoutes.begin();
