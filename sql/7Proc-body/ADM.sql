@@ -2354,9 +2354,11 @@ PROCEDURE add_codeshare_set(
        vid       IN OUT codeshare_sets.id%TYPE,
        vairline_oper    codeshare_sets.airline_oper%TYPE,
        vflt_no_oper     codeshare_sets.flt_no_oper%TYPE,
+       vsuffix_oper     codeshare_sets.suffix_oper%TYPE,
        vairp_dep        codeshare_sets.airp_dep%TYPE,
        vairline_mark    codeshare_sets.airline_mark%TYPE,
        vflt_no_mark     codeshare_sets.flt_no_mark%TYPE,
+       vsuffix_mark     codeshare_sets.suffix_mark%TYPE,
        vpr_mark_norms   codeshare_sets.pr_mark_norms%TYPE,
        vpr_mark_bp      codeshare_sets.pr_mark_bp%TYPE,
        vpr_mark_rpt     codeshare_sets.pr_mark_rpt%TYPE,
@@ -2378,9 +2380,11 @@ CURSOR cur IS
   FROM codeshare_sets
   WHERE airline_oper=vairline_oper AND
         flt_no_oper=vflt_no_oper AND
+        (suffix_oper IS NULL AND vsuffix_oper IS NULL OR suffix_oper=vsuffix_oper) AND
         airp_dep=vairp_dep AND
         airline_mark=vairline_mark AND
         flt_no_mark=vflt_no_mark AND
+        (suffix_mark IS NULL AND vsuffix_mark IS NULL OR suffix_mark=vsuffix_mark) AND
         ( last_date IS NULL OR last_date>first) AND
         ( last IS NULL OR last>first_date) AND
         pr_del=0
@@ -2397,7 +2401,10 @@ first2  DATE;
 last2   DATE;
 lparams system.TLexemeParams;
 BEGIN
-  IF vairline_oper=vairline_mark AND vflt_no_oper=vflt_no_mark THEN
+  IF vairline_oper=vairline_mark AND 
+     vflt_no_oper=vflt_no_mark AND 
+     (vsuffix_oper IS NULL AND vsuffix_mark IS NULL OR
+      vsuffix_oper IS NOT NULL AND vsuffix_mark IS NOT NULL AND vsuffix_oper=vsuffix_mark) THEN
     system.raise_user_exception('MSG.OPER_AND_MARK_FLIGHTS_MUST_DIFFER');
   END IF;
 
@@ -2428,9 +2435,9 @@ BEGIN
           idh:=NULL;
         ELSE
           SELECT id__seq.nextval INTO idh FROM dual;
-          INSERT INTO codeshare_sets(id,airline_oper,flt_no_oper,airp_dep,airline_mark,flt_no_mark,
+          INSERT INTO codeshare_sets(id,airline_oper,flt_no_oper,suffix_oper,airp_dep,airline_mark,flt_no_mark,suffix_mark,
                                      pr_mark_norms,pr_mark_bp,pr_mark_rpt,days,first_date,last_date,pr_del,tid)
-          SELECT idh,airline_oper,flt_no_oper,airp_dep,airline_mark,flt_no_mark,
+          SELECT idh,airline_oper,flt_no_oper,suffix_oper,airp_dep,airline_mark,flt_no_mark,suffix_mark,
                                      pr_mark_norms,pr_mark_bp,pr_mark_rpt,days,curRow.first_date,first,0,tidh
           FROM codeshare_sets WHERE id=curRow.id;
           hist.synchronize_history('codeshare_sets',idh,vsetting_user,vstation);
@@ -2449,9 +2456,9 @@ BEGIN
           idh:=NULL;
         ELSE
           SELECT id__seq.nextval INTO idh FROM dual;
-          INSERT INTO codeshare_sets(id,airline_oper,flt_no_oper,airp_dep,airline_mark,flt_no_mark,
+          INSERT INTO codeshare_sets(id,airline_oper,flt_no_oper,suffix_oper,airp_dep,airline_mark,flt_no_mark,suffix_mark,
                                      pr_mark_norms,pr_mark_bp,pr_mark_rpt,days,first_date,last_date,pr_del,tid)
-          SELECT idh,airline_oper,flt_no_oper,airp_dep,airline_mark,flt_no_mark,
+          SELECT idh,airline_oper,flt_no_oper,suffix_oper,airp_dep,airline_mark,flt_no_mark,suffix_mark,
                                      pr_mark_norms,pr_mark_bp,pr_mark_rpt,days,last,curRow.last_date,0,tidh
           FROM codeshare_sets WHERE id=curRow.id;
           hist.synchronize_history('codeshare_sets',idh,vsetting_user,vstation);
@@ -2476,9 +2483,9 @@ BEGIN
         IF vdays_rest IS NOT NULL THEN /*что-то из дней осталось*/
           /* вставим новую строку */
           SELECT id__seq.nextval INTO idh FROM dual;
-          INSERT INTO codeshare_sets(id,airline_oper,flt_no_oper,airp_dep,airline_mark,flt_no_mark,
+          INSERT INTO codeshare_sets(id,airline_oper,flt_no_oper,suffix_oper,airp_dep,airline_mark,flt_no_mark,suffix_mark,
                                      pr_mark_norms,pr_mark_bp,pr_mark_rpt,days,first_date,last_date,pr_del,tid)
-          SELECT idh,airline_oper,flt_no_oper,airp_dep,airline_mark,flt_no_mark,
+          SELECT idh,airline_oper,flt_no_oper,suffix_oper,airp_dep,airline_mark,flt_no_mark,suffix_mark,
                                      pr_mark_norms,pr_mark_bp,pr_mark_rpt,vdays_rest,first2,last2,0,tidh
           FROM codeshare_sets WHERE id=curRow.id;
           hist.synchronize_history('codeshare_sets',idh,vsetting_user,vstation);
@@ -2491,9 +2498,9 @@ BEGIN
     IF NOT pr_opd AND vpr_denial=0 THEN
       /*новый отрезок [first,last) */
       SELECT id__seq.nextval INTO vid FROM dual;
-      INSERT INTO codeshare_sets(id,airline_oper,flt_no_oper,airp_dep,airline_mark,flt_no_mark,
+      INSERT INTO codeshare_sets(id,airline_oper,flt_no_oper,suffix_oper,airp_dep,airline_mark,flt_no_mark,suffix_mark,
                                  pr_mark_norms,pr_mark_bp,pr_mark_rpt,days,first_date,last_date,pr_del,tid)
-      VALUES(vid,vairline_oper,vflt_no_oper,vairp_dep,vairline_mark,vflt_no_mark,
+      VALUES(vid,vairline_oper,vflt_no_oper,vsuffix_oper,vairp_dep,vairline_mark,vflt_no_mark,vsuffix_mark,
                                  vpr_mark_norms,vpr_mark_bp,vpr_mark_rpt,vdaysh,first,last,0,tidh);
       hist.synchronize_history('codeshare_sets',vid,vsetting_user,vstation);
     END IF;
@@ -2519,7 +2526,7 @@ BEGIN
   INTO   r.id,r.airline_oper,r.flt_no_oper,r.airp_dep,r.airline_mark,r.flt_no_mark,
          r.pr_mark_norms,r.pr_mark_bp,r.pr_mark_rpt,r.days,r.first_date
   FROM codeshare_sets WHERE id=vid AND pr_del=0 FOR UPDATE;
-  add_codeshare_set(r.id,r.airline_oper,r.flt_no_oper,r.airp_dep,r.airline_mark,r.flt_no_mark,
+  add_codeshare_set(r.id,r.airline_oper,r.flt_no_oper,r.suffix_oper,r.airp_dep,r.airline_mark,r.flt_no_mark,r.suffix_mark,
                     r.pr_mark_norms,r.pr_mark_bp,r.pr_mark_rpt,r.days,r.first_date,vlast_date,vnow,vtid,0,vsetting_user,vstation);
 EXCEPTION
   WHEN NO_DATA_FOUND THEN NULL;
