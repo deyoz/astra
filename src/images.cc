@@ -152,16 +152,17 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
   SetProp( imagesNode, "default_comp_elem", TCompElemTypes::Instance()->getDefaultElemType() );
   SetProp( imagesNode, "lastUpdDate", DateTimeToStr( TCompElemTypes::Instance()->getLastUpdateDate() ) );
 
-   bool sendImages = ( fabs( TCompElemTypes::Instance()->getLastUpdateDate() - NodeAsDateTime( "@lastUpdDate", reqNode ) ) > 5.0/(24.0*60.0*60.0) );
+  bool sendImages = ( fabs( TCompElemTypes::Instance()->getLastUpdateDate() - NodeAsDateTime( "@lastUpdDate", reqNode ) ) > 5.0/(24.0*60.0*60.0) );
 
-   std::vector<std::string> server_elem_types, server_elem_files;
-   TCompElemTypes::Instance()->getElemTypes( server_elem_types );
-   for ( std::vector<std::string>::iterator icode=server_elem_types.begin();
-         icode!=server_elem_types.end(); icode++ ) {
-      TCompElemType comp_elem;
-      TCompElemTypes::Instance()->getElem( *icode, comp_elem );
-      server_elem_files.push_back( comp_elem.getFilename() );
-   }
+  std::vector<std::string> server_elem_types;
+  std::map<std::string,std::string> server_elem_files;
+  TCompElemTypes::Instance()->getElemTypes( server_elem_types );
+  for ( std::vector<std::string>::iterator icode=server_elem_types.begin();
+        icode!=server_elem_types.end(); icode++ ) {
+     TCompElemType comp_elem;
+     TCompElemTypes::Instance()->getElem( *icode, comp_elem );
+     server_elem_files.insert( make_pair(*icode, comp_elem.getFilename()) );
+  }
    xmlNodePtr codeNode = GetNode( "codes", reqNode );
    if ( codeNode != NULL ) {
      if ( codeNode && !sendImages ) {
@@ -169,12 +170,17 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
        std::vector<std::string> client_elem_codes;
        while ( codeNode && string((const char*)codeNode->name) == "code" ) {
          client_elem_codes.push_back( NodeAsString( codeNode ) );
-           codeNode = codeNode->next;
+         codeNode = codeNode->next;
        }
        // надо убедиться что на клиенте есть все элементы сервера
        for ( std::vector<std::string>::iterator icode=server_elem_types.begin();
              icode!=server_elem_types.end(); icode++ ) {
+         if ( SALONS2::isConstructivePlace( *icode ) &&
+              !TReqInfo::Instance()->desk.compatible( SALON_SECTION_VERSION ) ) {
+           continue;
+         }
          if ( find( client_elem_codes.begin(), client_elem_codes.end(), *icode ) == client_elem_codes.end() ) {
+           ProgTrace( TRACE5, "code=%s", icode->c_str() );
            sendImages = true;
            break;
          }
@@ -188,12 +194,17 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
        std::vector<std::string> client_elem_files;
        while ( codeNode && string((const char*)codeNode->name) == "filename" ) {
          client_elem_files.push_back( NodeAsString( codeNode ) );
-           codeNode = codeNode->next;
+         codeNode = codeNode->next;
        }
        // надо убедиться что на клиенте есть все элементы сервера
-       for ( std::vector<std::string>::iterator icode=server_elem_files.begin();
+       for ( std::map<std::string,std::string>::iterator icode=server_elem_files.begin();
              icode!=server_elem_files.end(); icode++ ) {
-         if ( find( client_elem_files.begin(), client_elem_files.end(), *icode ) == client_elem_files.end() ) {
+         if ( SALONS2::isConstructivePlace( icode->first ) &&
+              !TReqInfo::Instance()->desk.compatible( SALON_SECTION_VERSION ) ) {
+           continue;
+         }
+         if ( find( client_elem_files.begin(), client_elem_files.end(), icode->second ) == client_elem_files.end() ) {
+           ProgTrace( TRACE5, "code=%s", icode->first.c_str() );
            sendImages = true;
            break;
          }
