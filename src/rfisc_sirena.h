@@ -336,12 +336,21 @@ class TPaxSection
 
 class TSvcList : public std::list<TSvcItem>
 {
+  private:
+    std::list<TSvcItem> _autoChecked;
   public:
+    void clear()
+    {
+      std::list<TSvcItem>::clear();
+      _autoChecked.clear();
+    }
+
     void addChecked(const TCheckedReqPassengers &req_grps, int grp_id, int tckin_seg_count, int trfer_seg_count);
     void addASVCs(int pax_id, const std::vector<CheckIn::TPaxASVCItem> &asvc);
     void addUnbound(const TCheckedReqPassengers &req_grps, int grp_id, int pax_id);
     void addFromCrs(const TNotCheckedReqPassengers &req_pnrs, int pnr_id, int pax_id);
-    void get(TPaidRFISCList &paid) const;
+    void get(const std::list<TSvcItem> &svcsAuto, TPaidRFISCList &paid) const;
+    const std::list<TSvcItem>& autoChecked() { return _autoChecked; }
 };
 
 class TSvcSection

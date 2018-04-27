@@ -1706,10 +1706,10 @@ void LoadPaxRemAndASVC(int pax_id, xmlNodePtr node, bool from_crs)
    rems_and_asvc.insert( apps_satus_rem );
   CheckIn::PaxRemAndASVCToXML(rems_and_asvc, node);
 
-  multiset<TPaxEMDItem> emds;
   if (!from_crs)
   {
-    GetPaxEMD(pax_id, emds);
+    TPaxEMDList emds;
+    emds.getAllPaxEMD(pax_id, false);
     xmlNodePtr asvcNode=NewTextChild(node,"asvc_rems");
     for(multiset<TPaxEMDItem>::const_iterator e=emds.begin(); e!=emds.end(); ++e)
       e->toXML(asvcNode);
@@ -4155,9 +4155,9 @@ void CheckServicePayment(int grp_id,
       if (Qry.Eof)
         throw UserException("MSG.EMD_MANUAL_INPUT_TEMPORARILY_UNAVAILABLE",
                             LParams() << LParam("emd", item.no_str()));
-      item.pax_id=Qry.FieldAsInteger("pax_id");
       TPaxEMDItem asvc;
       asvc.fromDB(Qry);
+      item.pax_id=asvc.pax_id;
       if (item.trfer_num!=asvc.trfer_num)
         throw UserException("MSG.EMD_WRONG_ATTACHMENT_DIFFERENT_SEG",
                             LParams() << LParam("emd", item.no_str()));
@@ -4570,7 +4570,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     AfterSaveInfo.segs.back().point_dep=grp.point_dep;
     TGrpToLogInfo &grpInfoBefore=AfterSaveInfo.segs.back().grpInfoBefore;
     TGrpToLogInfo &grpInfoAfter=AfterSaveInfo.segs.back().grpInfoAfter;
-    CheckIn::TPaidBagEMDProps &handmadeEMDDiff=AfterSaveInfo.handmadeEMDDiff;
+    CheckIn::TGrpEMDProps &handmadeEMDDiff=AfterSaveInfo.handmadeEMDDiff;
     TTripInfo markFltInfo=fltInfo;
     markFltInfo.scd_out=UTCToLocal(markFltInfo.scd_out,AirpTZRegion(markFltInfo.airp));
     modf(markFltInfo.scd_out,&markFltInfo.scd_out);
@@ -4938,6 +4938,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       bool needCheckUnattachedTrferAlarm=need_check_u_trfer_alarm_for_grp(grp.point_dep);
       map<InboundTrfer::TGrpId, InboundTrfer::TGrpItem> grpTagsBefore;
       CheckIn::TServicePaymentList paymentBefore;
+      CheckIn::TServicePaymentListWithAuto paymentBeforeWithAuto;
       bool first_pax_on_flight = false;
       bool pr_do_check_wait_list_alarm = true;
       std::set<int> paxs_external_logged;
@@ -5397,10 +5398,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             "  END IF; "
             "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,crew_type,is_jmp,is_female,seat_type,seats,pr_brd, "
             "                  wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm,doco_confirm, "
-            "                  pr_exam,subclass,bag_pool_num,tid) "
+            "                  pr_exam,subclass,bag_pool_num,sync_emds,tid) "
             "  VALUES(:pax_id,:grp_id,:surname,:name,:pers_type,:crew_type,:is_jmp,:is_female,:seat_type,:seats,:pr_brd, "
             "         :wl_type,NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:ticket_confirm,0, "
-            "         :pr_exam,:subclass,:bag_pool_num,cycle_tid__seq.currval); "
+            "         :pr_exam,:subclass,:bag_pool_num,0,cycle_tid__seq.currval); "
             "END;";
           Qry.DeclareVariable("pax_id",otInteger);
           Qry.DeclareVariable("grp_id",otInteger);
@@ -5631,7 +5632,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
             } // end for paxs
           } //end for k
-          CheckIn::SyncPaxASVC(grp.id, true); //синхронизируем ASVC только при первой регистрации
+          CheckIn::AddPaxASVC(grp.id, true); //синхронизируем ASVC только при первой регистрации
           grp.SyncServiceAuto(fltInfo);
         }
         else
@@ -5669,6 +5670,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         if (needCheckUnattachedTrferAlarm)
           InboundTrfer::GetCheckedTags(grp.id, idGrp, grpTagsBefore); //для всех сегментов
         paymentBefore.fromDB(grp.id);
+        paymentBeforeWithAuto.fromDB(grp.id);
         //BSM
         if (BSMsend)
           BSM::LoadContent(grp.id,BSMContentBefore);
@@ -5963,19 +5965,28 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           }
 
           CheckServicePayment(grp.id, paymentBefore, grp.payment);
-          CheckIn::TPaidBagEMDProps paid_bag_emd_props;
-          CheckIn::CalcPaidBagEMDProps(paymentBefore, grp.payment, handmadeEMDDiff, paid_bag_emd_props);
-          CheckIn::PaidBagEMDPropsToDB(grp.id, paid_bag_emd_props);
+          CheckIn::TGrpEMDProps emdProps;
+          CheckIn::CalcGrpEMDProps<CheckIn::TServicePaymentList>(paymentBefore, grp.payment, handmadeEMDDiff, emdProps);
+          CheckIn::TGrpEMDProps::toDB(grp.id, emdProps);
 
           if (grp.svc)
           {
             grp.svc.get().getAllListItems();
-            if (grp.svc_auto)
-              grp.svc.get().moveFrom(grp.svc_auto.get());
             grp.svc.get().toDB(grp.id);
           }
           if (grp.svc_auto)
+          {
+            TGrpServiceAutoList svcsAutoBefore;
+            svcsAutoBefore.fromDB(grp.id, true);
+            CheckIn::TGrpEMDProps handmadeAutoEMDDiff;
+            CheckIn::TGrpEMDProps emdProps;
+            CheckIn::CalcGrpEMDProps<TGrpServiceAutoList>(svcsAutoBefore, grp.svc_auto,  handmadeAutoEMDDiff, emdProps);
+            CheckIn::TGrpEMDProps::toDB(grp.id, emdProps);
+
+            handmadeEMDDiff.insert(handmadeAutoEMDDiff.begin(), handmadeAutoEMDDiff.end());
+
             grp.svc_auto.get().toDB(grp.id);
+          }
 
           if (grp.wt)
           {
@@ -6236,7 +6247,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       {
         if (ediFltParams.control_method || !defer_etstatus)
           ETStatusInterface::ETCheckStatus(grp.id, csaGrp, NoExists, false, ChangeStatusInfo.ET, true);
-        EMDStatusInterface::EMDCheckStatus(grp.id, paymentBefore, ChangeStatusInfo.EMD);
+        EMDStatusInterface::EMDCheckStatus(grp.id, paymentBeforeWithAuto, ChangeStatusInfo.EMD);
       }
 
       if (!pr_unaccomp && grp.status!=psCrew)
@@ -6559,7 +6570,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             throw EXCEPTIONS::Exception("%s: strange situation: TServiceStatus::Unknown for trfer_num=%d", __FUNCTION__, i->trfer_num);
 
         res.normsToDB(tckin_grp_ids);
-        res.svcs.get(paid);
+        res.svcs.get(req.svcs.autoChecked(), paid);
       }
       catch(UserException &e)
       {
@@ -6578,17 +6589,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     for(TCkinGrpIds::const_iterator i=tckin_grp_ids.begin(); i!=tckin_grp_ids.end(); ++i)
     {
       int grp_id=*i;
-      CheckIn::TServicePaymentList paymentBefore;
+      CheckIn::TServicePaymentListWithAuto paymentBeforeWithAuto;
       if (check_emd_status)
-        paymentBefore.fromDB(grp_id);
+        paymentBeforeWithAuto.fromDB(grp_id);
       if (i==tckin_grp_ids.begin())
       {
         paid.toDB(grp_id);
         CheckIn::TServicePaymentList payment;
-        if (check_emd_status)
-          payment=paymentBefore;
-        else
-          payment.fromDB(grp_id);
+        payment.fromDB(grp_id);
         update_payment=CheckIn::TryCleanServicePayment(paid, payment);
         if (update_payment)
           payment.toDB(grp_id);
@@ -6600,7 +6608,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           CheckIn::TServicePaymentList::copyDB(tckin_grp_ids.front(), grp_id);
       };
       if (check_emd_status)
-        EMDStatusInterface::EMDCheckStatus(grp_id, paymentBefore, ChangeStatusInfo.EMD);
+        EMDStatusInterface::EMDCheckStatus(grp_id, paymentBeforeWithAuto, ChangeStatusInfo.EMD);
     }
   }
   catch(int) {}
@@ -7428,11 +7436,16 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
       {
         //услуги + pc
         svc.toXML(resNode);
-        TPaidRFISCListWithAuto PaidRFISCList;
+        TPaidRFISCList PaidRFISCList;
         PaidRFISCList.fromDB(grp.id, true);
-        CalcPaidRFISCView(PaidRFISCList, PaidRFISCViewMap);
+        TGrpServiceAutoList svcsAuto;
+        svcsAuto.fromDB(grp.id, true);
+
+        CalcPaidRFISCView(TPaidRFISCListWithAuto().set(PaidRFISCList, svcsAuto), PaidRFISCViewMap);
         PaidRFISCViewToXML(PaidRFISCViewMap, resNode);
         NewTextChild(resNode, "norms_view", norms_view.str());
+
+        CalcPaidRFISCView(TPaidRFISCListWithAuto().set(PaidRFISCList, svcsAuto, true), PaidRFISCViewMap);
       };
 
       //wt

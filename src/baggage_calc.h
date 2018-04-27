@@ -185,8 +185,16 @@ std::string GetBagRcptStr(int grp_id, int pax_id);
 
 bool TryEnlargeServicePayment(TPaidRFISCList &paid_bag,
                               CheckIn::TServicePaymentList &payment,
-                              const CheckIn::TPaidBagEMDProps &paid_bag_emd_props,
+                              const TGrpServiceAutoList &svcsAuto,
+                              const TCkinGrpIds &tckin_grp_ids,
+                              const CheckIn::TGrpEMDProps &grp_emd_props,
                               const boost::optional< std::list<TEMDCtxtItem> > &confirmed_emd);
+
+bool TryCheckinServicesAuto(TGrpServiceAutoList &svcsAuto,
+                            const CheckIn::TServicePaymentList &payment,
+                            const TCkinGrpIds &tckin_grp_ids,
+                            const CheckIn::TGrpEMDProps &emdProps,
+                            const boost::optional< std::list<TEMDCtxtItem> > &confirmed_emd);
 
 } //namespace PieceConcept
 

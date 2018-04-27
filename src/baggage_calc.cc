@@ -11,7 +11,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace std;
 using namespace ASTRA;
@@ -2438,6 +2438,20 @@ bool Confirmed(const CheckIn::TServicePaymentItem &emd,
   return false;
 }
 
+bool Confirmed(const TGrpServiceAutoItem &emd,
+               const boost::optional< list<TEMDCtxtItem> > &confirmed_emd)
+{
+  if (!emd.isEMD() ||
+      !emd.service_quantity_valid()) return false;
+  if (!confirmed_emd) return true;
+  if (emd.trfer_num!=0) return true;
+  for(list<TEMDCtxtItem>::const_iterator i=confirmed_emd.get().begin(); i!=confirmed_emd.get().end(); ++i)
+    if (emd.emd_no==i->emd.no &&
+        emd.emd_coupon==i->emd.coupon &&
+        emd.pax_id==i->pax.id) return true;
+  return false;
+}
+
 class TQuantityPerSeg : public map<int/*trfer_num*/, int/*кол-во*/>
 {
   public:
@@ -2470,7 +2484,9 @@ class TQuantityPerSeg : public map<int/*trfer_num*/, int/*кол-во*/>
 
 bool TryEnlargeServicePayment(TPaidRFISCList &paid_rfisc,
                               CheckIn::TServicePaymentList &payment,
-                              const CheckIn::TPaidBagEMDProps &paid_bag_emd_props,
+                              const TGrpServiceAutoList &svcsAuto,
+                              const TCkinGrpIds &tckin_grp_ids,
+                              const CheckIn::TGrpEMDProps &emdProps,
                               const boost::optional< std::list<TEMDCtxtItem> > &confirmed_emd)
 {
   ProgTrace(TRACE5, "%s started", __FUNCTION__);
@@ -2606,8 +2622,10 @@ bool TryEnlargeServicePayment(TPaidRFISCList &paid_rfisc,
 
   for(TNeedMap::iterator i=need.begin(); i!=need.end(); ++i)
   {
-    multiset<TPaxEMDItem> emds;
-    GetPaxEMD(i->first, emds);
+    TPaxEMDList emds;
+    emds.getAllPaxEMD(i->first, tckin_grp_ids.size()==1);
+    for(const TGrpServiceAutoItem& svcAuto : svcsAuto) emds.erase(TPaxEMDItem(svcAuto)); //удаляем уже автопривязанные
+
     if (emds.empty()) continue; //по пассажиру нет ничего
     for(map<TRFISCListKey, TQuantityPerSeg>::iterator irfisc=i->second.begin(); irfisc!=i->second.end(); ++irfisc)
     {
@@ -2672,7 +2690,7 @@ bool TryEnlargeServicePayment(TPaidRFISCList &paid_rfisc,
                   if (Confirmed(item, confirmed_emd) &&
                       UpdatePaidBag(item, paid_rfisc, true))
                   {
-                    if (paid_bag_emd_props.get(e->emd_no, e->emd_coupon).manual_bind)
+                    if (emdProps.get(e->emd_no, e->emd_coupon).get_manual_bind())
                       curr_added.manual_bind=true;
                     else
                     {
@@ -2705,6 +2723,49 @@ bool TryEnlargeServicePayment(TPaidRFISCList &paid_rfisc,
         }
       }; //initial_trfer_num
     } //rfisc
+  }
+
+  return result;
+}
+
+bool TryCheckinServicesAuto(TGrpServiceAutoList &svcsAuto,
+                            const CheckIn::TServicePaymentList &payment,
+                            const TCkinGrpIds &tckin_grp_ids,
+                            const CheckIn::TGrpEMDProps &emdProps,
+                            const boost::optional< std::list<TEMDCtxtItem> > &confirmed_emd)
+{
+
+  ProgTrace(TRACE5, "%s started", __FUNCTION__);
+
+  bool result=false;
+
+  TPaxEMDList emds;
+  emds.getAllEMD(tckin_grp_ids);
+
+  vector< pair< int/*grp_id*/, boost::optional<TTripInfo> > > flts;
+  for(const int& grp_id : tckin_grp_ids)
+    flts.emplace_back(grp_id, boost::none);
+
+  //попробуем автоматически зарегистрировать
+  for(const TPaxEMDItem& emd : emds)
+  {
+    TGrpServiceAutoItem svcAuto(Sirena::TPaxSegKey(emd.pax_id, emd.trfer_num), emd);
+
+    if (!svcAuto.isSuitableForAutoCheckin()) continue;
+    if (svcsAuto.sameDocExists(svcAuto)) continue;
+    if (payment.sameDocExists(svcAuto)) continue;
+    if (emdProps.get(emd.emd_no, emd.emd_coupon).get_not_auto_checkin()) continue;
+    if (!Confirmed(svcAuto, confirmed_emd)) continue;
+    if (svcAuto.trfer_num<0 || svcAuto.trfer_num>=(int)flts.size()) continue;
+    auto& flt=flts.at(svcAuto.trfer_num);
+    if (!flt.second)
+    {
+      flt.second=TTripInfo();
+      flt.second.get().getByGrpId(flt.first);
+    }
+    if (!svcAuto.permittedForAutoCheckin(flt.second.get())) continue;
+    svcsAuto.push_back(svcAuto);
+    result=true;
   }
 
   return result;

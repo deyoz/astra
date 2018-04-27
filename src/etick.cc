@@ -1508,7 +1508,7 @@ void EMDSystemUpdateInterface::EMDCheckDisassociation(const int point_id,
     };
 
     TEMDocItem EMDocItem;
-    EMDocItem.fromDB(i->emd.no, i->emd.coupon, false);
+    EMDocItem.fromDB(TEMDocItem::SystemUpdate, i->emd.no, i->emd.coupon, false);
     if (!EMDocItem.empty())
     {
       if (EMDocItem.emd.action==i->emd.action) continue;
@@ -1968,7 +1968,7 @@ void TEMDChangeStatusList::addEMD(const TEMDChangeStatusKey &key,
 
 
 void EMDStatusInterface::EMDCheckStatus(const int grp_id,
-                                        const CheckIn::TServicePaymentList &prior_payment,
+                                        const CheckIn::TServicePaymentListWithAuto &prior_payment,
                                         TEMDChangeStatusList &emdList)
 {
   if (TReqInfo::Instance()->duplicate) return;
@@ -2965,8 +2965,8 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
   //багаж wt
   if (reqNode!=nullptr)
   {
-    string reqName=(const char*)(reqNode->name);
-    if (reqName=="TCkinLoadPax")
+    string termReqName=(const char*)(reqNode->name);
+    if (termReqName=="TCkinLoadPax")
     {
       //для местовой системы делаем refresh только при загрузке группы
       for(auto grp_id : grp_ids)
@@ -2991,7 +2991,37 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
   EMDSearch(id, reqNode, point_id, pax_ids_for_refresh);
 
   if (Ticketing::isDoomedToWait())
+  {
     AstraLocale::showErrorMessage("MSG.ETS_EDS_CONNECT_ERROR"); //потом переделать на MSG.ETS_CONNECT_ERROR, когда дисплей будет возвращать RFISC
+    return;
+  }
+
+  //но может быть можно попробовать просто автоматически зарегистрировать EMD?
+  if (reqNode==nullptr) return;
+  string termReqName=(const char*)(reqNode->name);
+
+  {
+    TCkinGrpIds tckin_grp_ids;
+    int point_id=NoExists;
+    if (Lock(id, point_id, tckin_grp_ids, string(__FUNCTION__)+"("+termReqName+")"))
+    {
+      bool need=false;
+      for(auto grp_id : tckin_grp_ids)
+        if (CheckIn::needTryCheckinServicesAuto(grp_id, true))
+        {
+          need=true;
+          break;
+        }
+      if (need)
+      {
+        id.toXML(reqNode);
+        EMDTryBind(tckin_grp_ids, reqNode, NULL);
+      }
+    }
+  }
+
+  if (Ticketing::isDoomedToWait())
+    AstraLocale::showErrorMessage("MSG.EDS_CONNECT_ERROR");
 }
 
 void EMDAutoBoundInterface::EMDSearch(const EMDAutoBoundId &id,
@@ -3073,47 +3103,72 @@ void EMDAutoBoundInterface::EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
 
   if (tckin_grp_ids.empty()) return;
 
+  bool check_emd_status=!confirmed_emd;
+
   int first_grp_id=tckin_grp_ids.front();
 
+  //оценка услуг
   TPaidRFISCList paid_rfisc;
   paid_rfisc.fromDB(first_grp_id, true);
-  if (paid_rfisc.empty()) return; //не к чему пытаться привязывать
+  //оплаченные услуги
   CheckIn::TServicePaymentList payment;
   payment.fromDB(first_grp_id);
-  CheckIn::TPaidBagEMDProps paid_bag_emd_props;
-  CheckIn::PaidBagEMDPropsFromDB(first_grp_id, paid_bag_emd_props);
+  //св-ва EMD (удаленные и отвязанные вручную EMD)
+  CheckIn::TGrpEMDProps emdProps;
+  CheckIn::TGrpEMDProps::fromDB(first_grp_id, emdProps);
+  //автоматически зарегистрированные услуги
+  TGrpServiceAutoList svcsAuto;
+  svcsAuto.fromDB(first_grp_id, true);
 
-  if (PieceConcept::TryEnlargeServicePayment(paid_rfisc, payment, paid_bag_emd_props, confirmed_emd))
+  bool enlargedServicePayment=PieceConcept::TryEnlargeServicePayment(paid_rfisc, payment, svcsAuto, tckin_grp_ids, emdProps, confirmed_emd);
+  bool checkinServicesAuto=PieceConcept::TryCheckinServicesAuto(svcsAuto, payment, tckin_grp_ids, emdProps, confirmed_emd);
+
+  for(const int& grp_id : tckin_grp_ids)
+    CheckIn::setSyncEmdsFlag(grp_id, true, false);
+
+  if (enlargedServicePayment || checkinServicesAuto)
   {
-    bool check_emd_status=!confirmed_emd;
     list<CheckIn::TAfterSaveSegInfo> segs;
-    for(TCkinGrpIds::const_iterator i=tckin_grp_ids.begin(); i!=tckin_grp_ids.end(); ++i)
+    for(const int& grp_id : tckin_grp_ids)
     {
-      int grp_id=*i;
       segs.push_back(CheckIn::TAfterSaveSegInfo());
       segs.back().grp_id=grp_id;
       TGrpToLogInfo &grpInfoBefore=segs.back().grpInfoBefore;
 
       GetGrpToLogInfo(grp_id, grpInfoBefore);
-      CheckIn::TServicePaymentList paymentBefore;
+      CheckIn::TServicePaymentListWithAuto paymentBeforeWithAuto;
       if (check_emd_status)
-        paymentBefore.fromDB(grp_id);
+        paymentBeforeWithAuto.fromDB(grp_id);
 
       CheckIn::TPaxGrpItem::UpdTid(grp_id);
 
-      if (i==tckin_grp_ids.begin())
+      if (grp_id==tckin_grp_ids.front())
       {
-        paid_rfisc.toDB(grp_id);
-        payment.toDB(grp_id);
+        if (enlargedServicePayment)
+        {
+          paid_rfisc.toDB(grp_id);
+          payment.toDB(grp_id);
+        }
+        if (checkinServicesAuto)
+        {
+          svcsAuto.toDB(grp_id);
+        }
       }
       else
       {
-        TPaidRFISCList::copyDB(tckin_grp_ids.front(), grp_id);
-        CheckIn::TServicePaymentList::copyDB(tckin_grp_ids.front(), grp_id);
+        if (enlargedServicePayment)
+        {
+          TPaidRFISCList::copyDB(tckin_grp_ids.front(), grp_id);
+          CheckIn::TServicePaymentList::copyDB(tckin_grp_ids.front(), grp_id);
+        }
+        if (checkinServicesAuto)
+        {
+          TGrpServiceAutoList::copyDB(tckin_grp_ids.front(), grp_id);
+        }
       };
 
       if (check_emd_status)
-        EMDStatusInterface::EMDCheckStatus(grp_id, paymentBefore, emdList);
+        EMDStatusInterface::EMDCheckStatus(grp_id, paymentBeforeWithAuto, emdList);
     };
 
     if (emdList.empty())
@@ -3126,7 +3181,7 @@ void EMDAutoBoundInterface::EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
         TGrpToLogInfo &grpInfoAfter=s->grpInfoAfter;
         GetGrpToLogInfo(grp_id, grpInfoAfter);
         TAgentStatInfo agentStat;
-        SaveGrpToLog(grpInfoBefore, grpInfoAfter, CheckIn::TPaidBagEMDProps(), agentStat);
+        SaveGrpToLog(grpInfoBefore, grpInfoAfter, CheckIn::TGrpEMDProps(), agentStat);
       };
     };
   };
@@ -3265,14 +3320,13 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     {
       EMDTryBind(tckin_grp_ids, termReqNode, ediResNode);
     };
-    int grp_id=tckin_grp_ids.empty()?id.grp_id:tckin_grp_ids.front();
 
     if (Ticketing::isDoomedToWait())  //специально в этом месте, потому что LoadPax может вывести более важное сообщение
       AstraLocale::showErrorMessage("MSG.EDS_CONNECT_ERROR");
 
     try
     {
-      CheckInInterface::LoadPax(grp_id, termReqNode, resNode, afterSavePax);
+      CheckInInterface::LoadPax(id.grp_id, termReqNode, resNode, afterSavePax);
     }
     catch(...)
     {

@@ -4582,8 +4582,8 @@ void TRemList::get(TypeB::TDetailCreateInfo &info, TASLPax &pax)
 {
     CheckIn::TPaxRemItem rem;
 
-    multiset<TPaxEMDItem> emds;
-    GetPaxEMD(pax.pax_id, emds);
+    TPaxEMDList emds;
+    emds.getPaxEMD(pax.pax_id, PaxASVCList::allByPaxId);
 
     CheckIn::TServicePaymentListWithAuto &payment = (*pax.grpEmds)[pax.grp_id];
 

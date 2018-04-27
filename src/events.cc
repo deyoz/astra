@@ -333,6 +333,7 @@ void TPaidToLogInfo::trace( TRACE_SIGNATURE, const std::string &descr) const
     if (!p->key_str(LANG_EN).empty())
       str << p->key_str(LANG_EN) << ":";
     str << p->no_str();
+    str << ":" << p->doc_weight << "kg";
     ProgTrace(TRACE_PARAMS, "%s", str.str().c_str());
   }
   ProgTrace(TRACE_PARAMS, "^^^^^^^^^^^^ %s ^^^^^^^^^^^^", descr.c_str());
@@ -727,7 +728,7 @@ void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
 
 void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
                   const TGrpToLogInfo &grpInfoAfter,
-                  const CheckIn::TPaidBagEMDProps &handmadeEMDDiff,
+                  const CheckIn::TGrpEMDProps &handmadeEMDDiff,
                   TAgentStatInfo &agentStat)
 {
   int point_id=       grpInfoAfter.grp_id==NoExists?grpInfoBefore.point_dep:grpInfoAfter.point_dep;
@@ -1237,10 +1238,10 @@ void SavePaidToLog(const TPaidToLogInfo &paidBefore,
                    const TLogLocale &msgPattern,
                    bool piece_concept,
                    bool onlyEMD,
-                   const CheckIn::TPaidBagEMDProps &handmadeEMDDiff)
+                   const CheckIn::TGrpEMDProps &handmadeEMDDiff)
 {
-  //paidBefore.trace(TRACE5, "SavePaidToLog: paidBefore");
-  //paidAfter.trace(TRACE5, "SavePaidToLog: paidAfter");
+//  paidBefore.trace(TRACE5, "SavePaidToLog: paidBefore");
+//  paidAfter.trace(TRACE5, "SavePaidToLog: paidAfter");
 
   TReqInfo* reqInfo = TReqInfo::Instance();
   for(int pass=0; pass<2; pass++)
@@ -1258,7 +1259,7 @@ void SavePaidToLog(const TPaidToLogInfo &paidBefore,
     for(multiset<CheckIn::TServicePaymentItem>::const_iterator p=payment.begin(); p!=payment.end(); ++p)
       if (p->isEMD())
       {
-        if (handmadeEMDDiff.find(CheckIn::TPaidBagEMDPropsItem(*p))==handmadeEMDDiff.end())
+        if (handmadeEMDDiff.find(CheckIn::TGrpEMDPropsItem(*p))==handmadeEMDDiff.end())
           paymentByType[0].insert(*p); //автоматические EMD
         else
           paymentByType[1].insert(*p);

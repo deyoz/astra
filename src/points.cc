@@ -3140,7 +3140,11 @@ void TFlights::GetForTCkinRouteDependent(const int grp_id, const TFlightType fli
   tckin_grp_ids.clear();
 
   TCkinRoute route;
-  route.GetRouteAfter(grp_id, crtWithCurrent, crtOnlyDependent);
+  route.GetRouteBefore(grp_id, crtNotCurrent, crtOnlyDependent);
+  TCkinRoute routeAfter;
+  routeAfter.GetRouteAfter(grp_id, crtWithCurrent, crtOnlyDependent);
+  route.insert(route.end(), routeAfter.begin(), routeAfter.end());
+
   if (!route.empty())
   {
     for(const TCkinRouteItem& i : route)

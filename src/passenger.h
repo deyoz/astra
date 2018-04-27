@@ -73,7 +73,7 @@ class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
                              bool strictly_lat,
                              bool translit_lat,
                              bool language_lat,
-                             TOutPufFmt output_fmt) const;
+                             TOutput output) const;
   public:
     std::string no;
     int coupon;
@@ -190,7 +190,7 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocCompo
                              bool strictly_lat,
                              bool translit_lat,
                              bool language_lat,
-                             TOutPufFmt output_fmt) const;
+                             TOutput output) const;
   public:
     std::string issue_country;
     std::string no;
@@ -287,7 +287,7 @@ class TPaxDocoItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocComp
                              bool strictly_lat,
                              bool translit_lat,
                              bool language_lat,
-                             TOutPufFmt output_fmt) const;
+                             TOutput output) const;
   public:
     std::string birth_place;
     std::string no;
@@ -366,7 +366,7 @@ class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
                              bool strictly_lat,
                              bool translit_lat,
                              bool language_lat,
-                             TOutPufFmt output_fmt) const;
+                             TOutput output) const;
   public:
     std::string type;
     std::string country;
@@ -763,10 +763,30 @@ std::string PaxDocGenderNormalize(const std::string &pax_doc_gender);
 
 bool LoadCrsPaxPNRs(int pax_id, std::list<TPnrAddrItem> &pnrs);
 
-void CalcPaidBagEMDProps(const CheckIn::TServicePaymentList &prior_payment,
-                         const boost::optional< CheckIn::TServicePaymentList > &curr_payment,
-                         CheckIn::TPaidBagEMDProps &diff,
-                         CheckIn::TPaidBagEMDProps &props);
+template<class T>
+void CalcGrpEMDProps(const T &prior,
+                     const boost::optional< T > &curr,
+                     CheckIn::TGrpEMDProps &diff,
+                     CheckIn::TGrpEMDProps &props)
+{
+  diff.clear();
+  props.clear();
+  if (!curr) return;  //ничего не изменялось
+  CheckIn::TGrpEMDProps props1, props2;
+  for(const auto& i : prior)
+    if (i.isEMD()) props1.emplace(i);
+  for(const auto& i : curr.get())
+    if (i.isEMD()) props2.emplace(i);
+
+  //в различия попадают и добавленные, и удаленные
+  set_symmetric_difference(props1.begin(), props1.end(),
+                           props2.begin(), props2.end(),
+                           inserter(diff, diff.end()));
+  //конструируем props только для удаленных
+  set_difference(props1.begin(), props1.end(),
+                 props2.begin(), props2.end(),
+                 inserter(props, props.end()));
+}
 
 class TCkinPaxTknItem : public TPaxTknItem
 {

@@ -2698,7 +2698,7 @@ void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 bool getPaxRem(const string &lang, const CheckIn::TPaxRemBasic &basic, bool inf_indicator, CheckIn::TPaxRemItem &rem)
 {
   if (basic.empty()) return false;
-  rem=CheckIn::TPaxRemItem(basic, inf_indicator, lang, applyLangForTranslit, CheckIn::TPaxRemBasic::ofReport);
+  rem=CheckIn::TPaxRemItem(basic, inf_indicator, lang, applyLangForTranslit, CheckIn::TPaxRemBasic::outputReport);
   return true;
 }
 
