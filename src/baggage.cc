@@ -236,11 +236,9 @@ const TBagItem& TBagItem::toDB(TQuery &Qry) const
   return *this;
 };
 
-TBagItem& TBagItem::fromDB(TQuery &Qry)
+TSimpleBagItem& TSimpleBagItem::fromDB(TQuery &Qry)
 {
   clear();
-  id=Qry.FieldAsInteger("id");
-  num=Qry.FieldAsInteger("num");
   if (!Qry.FieldIsNULL("rfisc"))
   {
     pc=TRFISCKey();
@@ -253,9 +251,18 @@ TBagItem& TBagItem::fromDB(TQuery &Qry)
     wt.get().fromDBcompatible(Qry);
     wt.get().getListItem();
   }
-  pr_cabin=Qry.FieldAsInteger("pr_cabin")!=0;
   amount=Qry.FieldAsInteger("amount");
   weight=Qry.FieldAsInteger("weight");
+  return *this;
+}
+
+TBagItem& TBagItem::fromDB(TQuery &Qry)
+{
+  clear();
+  TSimpleBagItem::fromDB(Qry);
+  id=Qry.FieldAsInteger("id");
+  num=Qry.FieldAsInteger("num");
+  pr_cabin=Qry.FieldAsInteger("pr_cabin")!=0;
   if (!Qry.FieldIsNULL("value_bag_num"))
     value_bag_num=Qry.FieldAsInteger("value_bag_num");
   pr_liab_limit=Qry.FieldAsInteger("pr_liab_limit")!=0;
@@ -316,6 +323,15 @@ void TBagItem::check(TRFISCListWithPropsCache &lists) const
   check(lists.getBagProps(pc.get().list_id));
 }
 
+std::string TSimpleBagItem::get_rem_code(TRFISCListWithPropsCache &lists) const
+{
+  if (!pc) throw Exception("%s: !pc", __FUNCTION__);
+  const TRFISCBagPropsList &list=lists.getBagProps(pc.get().list_id);
+  TRFISCBagPropsList::const_iterator i=list.find(pc.get().key());
+  if (i==list.end()) return "";
+  return i->second.rem_code;
+}
+
 std::string TBagItem::key_str(const std::string& lang) const
 {
   if (pc)
@@ -347,37 +363,6 @@ std::string TBagItem::tag_printer_id(bool is_lat) const
   }
   else
     return "XXXXXX";
-}
-
-void TBagMap::procInboundTrferFromDBTmp()
-{
-  for(TBagMap::iterator i=begin(); i!=end(); i++)
-  {
-    TBagItem &bag=i->second;
-    if (bag.pc && bag.pc.get().list_id<0)
-    {
-      int grp_id=-bag.pc.get().list_id;
-      bag.pc.get().list_id=ASTRA::NoExists;
-      TQuery Qry(&OraSession);
-      Qry.Clear();
-      Qry.SQLText=
-          "SELECT bag_types_id FROM pax_grp WHERE grp_id=:grp_id";
-      Qry.CreateVariable("grp_id", otInteger, grp_id);
-      Qry.Execute();
-      if (Qry.Eof || Qry.FieldIsNULL("bag_types_id")) return;
-      TRFISCList list;
-      list.fromDB(Qry.FieldAsInteger("bag_types_id"), true);
-      bag.pc.get().list_id=list.toDBAdv(false);
-    }
-    if (bag.wt && bag.wt.get().list_id<0)
-    {
-      int grp_id=-bag.wt.get().list_id;
-      bag.wt.get().list_id=ASTRA::NoExists;
-      TBagTypeList list;
-      list.createWithCurrSegBagAirline(grp_id); //procInboundTrferFromDBTmp - checked!
-      bag.wt.get().list_id=list.toDBAdv();
-    }
-  };
 }
 
 void TBagMap::procInboundTrferFromBTM(const TrferList::TGrpItem &grp)
