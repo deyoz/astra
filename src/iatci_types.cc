@@ -1500,11 +1500,13 @@ std::list<Ticketing::TicketNum_t> Result::tickNums() const
 {
     std::list<Ticketing::TicketNum_t> tnums;
     for(const auto& pxg: paxGroups()) {
-        tnums.push_back(pxg.tickNum());
-        if(pxg.infant()) {
-            boost::optional<Ticketing::TicketNum_t> inftTickNum = pxg.tickNumInfant();
-            ASSERT(inftTickNum);
-            tnums.push_back(inftTickNum.get());
+        if(pxg.service()) {
+            tnums.push_back(pxg.tickNum());
+            if(pxg.infant()) {
+                boost::optional<Ticketing::TicketNum_t> inftTickNum = pxg.tickNumInfant();
+                ASSERT(inftTickNum);
+                tnums.push_back(inftTickNum.get());
+            }
         }
     }
     return tnums;

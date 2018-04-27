@@ -6189,3 +6189,67 @@ FDQ+S7+1027+$(yymmdd)+LED+AER"
 PPD+REPIN+A:Y+0013949613:0013949614+ADULT+REPIN:INFANT"
 UNT+5+1"
 UNZ+1+$(last_edifact_ref)0001"
+
+
+
+%%
+#########################################################################################
+# ü23 DCRCKA ¡¥§ TKNE
+###
+
+
+$(init)
+$(init_jxt_pult ŒŽ‚ŽŒ)
+$(login)
+$(init_dcs ‘7 TA OA)
+$(init_eds ž’ UTET UTDC)
+
+
+$(PREPARE_FLIGHT_3 ž’ 103 „Œ„ ‹Š ‘7 1027 ‹Š ‘Ž— REPIN IVAN)
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
+
+$(deny_ets_interactive ž’ 103 „Œ„)
+
+$(OPEN_CHECKIN $(get point_dep))
+#!! $(SAVE_ET_DISP $(get point_dep) 2986120030297)
+$(CHECK_ADV_TRIPS_LIST $(get point_dep) ž’ 103 „Œ„)
+#!! $(CHECK_FLIGHT $(get point_dep) ž’ 103 „Œ„ ‹Š)
+$(CHECK_SEARCH_PAX $(get point_dep) ž’ 103 „Œ„ ‹Š REPIN IVAN Š)
+$(CHECK_TCKIN_ROUTE_1 $(get point_dep) $(get point_arv) ‘7 1027 ‹Š ‘Ž— REPIN IVAN ‚‡)
+$(CHECK_TCKIN_ROUTE_2 $(get point_dep) $(get point_arv) ‘7 1027 ‹Š ‘Ž— REPIN IVAN ‚‡)
+$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ž’ 103 „Œ„ ‹Š
+                                                           ‘7 1027 ‹Š ‘Ž—
+                                                           REPIN IVAN
+                                                           2986120030297 ‚‡)
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
+PPD+REPIN+A:N++IVAN"
+PRD+Y"
+PSD++007A"
+PBD+0"
+PSI++FOID::::::FOID PP7774441110+FQTV:S7:7788990011"
+UNT+9+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+S7+1027+$(yymmdd)1000+LED+AER++T"
+RAD+I+O"
+WAD+1:65+1:193"
+FSD+1255+1+GATE++N"
+PPD+KROTOVSA+M:N+DA79B93001+DINA"
+PRD+Y+OK+++FXDIJI"
+PFD+004C+N:Y:::LED:AER:733:Y+00001+Y"
+WAD+1:258:API OK"
+UNT+10+8180"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(KICK_IN_SILENT)
