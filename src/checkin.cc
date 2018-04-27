@@ -8150,11 +8150,11 @@ void CheckInInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
   TQuery Qry( &OraSession );
   Qry.SQLText =
      "SELECT point_arv, class, "
-     "       crs_ok-ok-NVL(jmp_ok,0) AS noshow, "
-     "       crs_tranzit-tranzit-NVL(jmp_tranzit,0) AS trnoshow, "
+     "       crs_ok-ok-jmp_ok AS noshow, "
+     "       crs_tranzit-tranzit-jmp_tranzit AS trnoshow, "
      "       tranzit+ok+goshow AS show, "
-     "       NVL(jmp_tranzit,0)+NVL(jmp_ok,0)+NVL(jmp_goshow,0) AS jmp_show, "
-     "       NVL(jmp_nooccupy,0) AS jmp_nooccupy "
+     "       jmp_tranzit+jmp_ok+jmp_goshow AS jmp_show, "
+     "       jmp_nooccupy "
      "FROM counters2 "
      "WHERE point_dep=:point_id";
   Qry.CreateVariable("point_id",otInteger,point_id);

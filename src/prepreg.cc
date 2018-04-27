@@ -94,15 +94,15 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
      "UNION "
      "SELECT 1, "
      "       'JMP', "
-     "       NVL(jmp_cfg, 0), "
+     "       jmp_cfg, "
      "       TO_NUMBER(NULL), "
      "       TO_NUMBER(NULL), "
      "       TO_NUMBER(NULL), "
-     "       NVL(jmp_nooccupy, 0), "
+     "       jmp_nooccupy, "
      "       TO_NUMBER(NULL) "
      "FROM counters2 c, trip_sets "
      "WHERE c.point_dep=trip_sets.point_id AND "
-     "      c.point_dep=:point_id AND NVL(trip_sets.use_jmp, 0)<>0 AND "
+     "      c.point_dep=:point_id AND trip_sets.use_jmp<>0 AND "
      "      rownum<2 "
      "ORDER BY 1";
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -359,7 +359,7 @@ void CheckJMPCount(int point_id, int jmp_cfg)
 {
   TQuery Qry( &OraSession );
   Qry.Clear();
-  Qry.SQLText="SELECT SUM(NVL(jmp_tranzit, 0))+SUM(NVL(jmp_ok, 0))+SUM(NVL(jmp_goshow, 0)) AS jmp_show "
+  Qry.SQLText="SELECT SUM(jmp_tranzit)+SUM(jmp_ok)+SUM(jmp_goshow) AS jmp_show "
               "FROM counters2 "
               "WHERE point_dep=:point_id";
   Qry.CreateVariable("point_id", otInteger, point_id);
