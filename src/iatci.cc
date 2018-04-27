@@ -2662,7 +2662,6 @@ void IatciInterface::DoKickAction(int ctxtId,
     xmlNodePtr segmentsNode = newChild(iatciResNode, "segments");
     newChild(iatciResNode, "segments_for_log");
 
-    LogTrace(TRACE3) << "iatci res 1:\n" << XMLTreeToText(iatciResNode->doc);
     EdiResCtxtWrapper ediResCtxt(ctxtId, iatciResNode, "context", __FUNCTION__);
     xmlNodePtr logSegmentsNode = findNodeR(ediResCtxt.node(), "segments_for_log");
     ASSERT(logSegmentsNode);
