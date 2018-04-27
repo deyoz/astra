@@ -55,6 +55,55 @@ int prn_tags(int argc, char **argv);
 int stat_belgorod(int argc, char **argv);
 int rbd_test(int argc, char **argv);
 
+#include "checkin_utils.h"
+
+int gen_test(int argc, char **argv)
+{
+  for(int max=70; max<100; max++)
+  {
+    for(int type=0; type<4; type++)
+    {
+      set<CheckIn::UsedRegNo> usedRegNo;//={6,11,15, 16,17, 18,20,26,31,35, 36,37, 38,40};
+      //CheckIn::RegNoGenerator generator({2,5,9,12,13,17}, CheckIn::RegNoGenerator::Positive, 20);
+      for(int count=10; count>=1; count--)
+        for(int pass=0; pass<4; pass++)
+        {
+          for(int i=0; i<4; i++)
+            if (!usedRegNo.empty()) usedRegNo.erase(usedRegNo.begin());
+
+          CheckIn::RegNoGenerator generator1(usedRegNo, CheckIn::RegNoGenerator::Positive, max);
+          CheckIn::RegNoGenerator generator2(usedRegNo, CheckIn::RegNoGenerator::Positive, max);
+
+          string type_str;
+          switch (type)
+          {
+            case CheckIn::RegNoGenerator::AbsoluteDefragAnytime: type_str="AbsoluteDefragAnytime"; break;
+            case CheckIn::RegNoGenerator::AbsoluteDefragAtLast:  type_str="AbsoluteDefragAtLast"; break;
+            case CheckIn::RegNoGenerator::DefragAnytime:         type_str="DefragAnytime"; break;
+            case CheckIn::RegNoGenerator::DefragAtLast:          type_str="DefragAtLast"; break;
+          }
+          LogTrace(TRACE5) << "type=" << type_str << " count=" << count;
+          boost::optional<CheckIn::RegNoRange> range=generator1.getRange(count, (CheckIn::RegNoGenerator::Strategy)type);
+          boost::optional<CheckIn::RegNoRange> range2=generator2.getRange(count, (CheckIn::RegNoGenerator::Strategy)type);
+          generator1.traceUnusedRanges();
+          LogTrace(TRACE5) << "range=" << CheckIn::RegNoGenerator::traceStr(range);
+
+          if (CheckIn::RegNoGenerator::traceStr(range)!=CheckIn::RegNoGenerator::traceStr(range2))
+            throw EXCEPTIONS::Exception("not equal range1=%s range2=%s",
+                                        CheckIn::RegNoGenerator::traceStr(range).c_str(),
+                                        CheckIn::RegNoGenerator::traceStr(range2).c_str());
+
+          if (range)
+            for(int diff=0; diff<count; diff++)
+              if (!usedRegNo.emplace(abs(range.get().first_no)+diff, abs(range.get().first_no)+diff /*777*/).second)
+                throw EXCEPTIONS::Exception("duplicate reg_no=%d", abs(range.get().first_no)+diff);
+        }
+    }
+  }
+
+  return 0;
+}
+
 const
   struct {
     const char *name;
@@ -122,6 +171,8 @@ const
     {"-apis_test",              apis_test,              NULL,                       NULL},
     {"-db_pkg",                 db_pkg,                 NULL,                       NULL},
     {"-rbd_test",               rbd_test,                 NULL,                       NULL},
+    {"-gen_test",               gen_test,                 NULL,                       NULL},
+    {"-asvc_list_print_sql",    PaxASVCList::print_sql, NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)

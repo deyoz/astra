@@ -536,12 +536,15 @@ class TGrpServiceAutoItem : public Sirena::TPaxSegKey, public CheckIn::TPaxASVCI
       TPaxSegKey::clear();
       TPaxASVCItem::clear();
     }
+    TGrpServiceAutoItem() { clear(); }
+    TGrpServiceAutoItem(const TPaxSegKey &key, const TPaxASVCItem &item) : TPaxSegKey(key), TPaxASVCItem(item) {}
     TGrpServiceAutoItem& fromDB(TQuery &Qry);
     const TGrpServiceAutoItem& toDB(TQuery &Qry) const;
     bool isSuitableForAutoCheckin() const
     {
       return RFIC!="C";
     }
+    bool isEMD() const { return true; }
     bool permittedForAutoCheckin(const TTripInfo &flt) const;
 };
 
@@ -577,10 +580,11 @@ class TGrpServiceItem : public TPaxSegRFISCKey
 class TGrpServiceAutoList : public std::list<TGrpServiceAutoItem>
 {
   public:
-    void fromDB(int id, bool is_grp_id, bool without_refused=false);
+    TGrpServiceAutoList& fromDB(int id, bool is_grp_id, bool without_refused=false);
     void toDB(int grp_id) const;
     static void clearDB(int grp_id);
     static void copyDB(int grp_id_src, int grp_id_dest, bool not_clear=false);
+    bool sameDocExists(const CheckIn::TPaxASVCItem& asvc) const;
 };
 
 class TGrpServiceList : public std::list<TGrpServiceItem>
@@ -593,20 +597,17 @@ class TGrpServiceList : public std::list<TGrpServiceItem>
                     int tckin_seg_count,
                     int trfer_seg_count,
                     bool include_refused);
-    void prepareForSirena(int grp_id,
-                          int tckin_seg_count,
-                          int trfer_seg_count,
-                          bool include_refused);
     void getAllListItems();
     static void clearDB(int grp_id);
     static void copyDB(int grp_id_src, int grp_id_dest);
+    void mergeWith(const TGrpServiceAutoList& list);
     void moveFrom(TGrpServiceAutoList& list);
 };
 
 class TGrpServiceListWithAuto : public std::list<TGrpServiceItem>
 {
   public:
-    void addItem(const TGrpServiceItem& item);
+    void addItem(const TGrpServiceAutoItem& svcAuto);
     void fromDB(int grp_id, bool without_refused=false);
     bool fromXML(xmlNodePtr node);
     void toXML(xmlNodePtr node) const;
@@ -688,8 +689,11 @@ class TRFISCListItemsCache
 class TPaidRFISCListWithAuto : public std::map<TPaxSegRFISCKey, TPaidRFISCItem>, public TRFISCListItemsCache
 {
   public:
-    void addItem(const TPaidRFISCItem& item);
-    void fromDB(int id, bool is_grp_id);
+    void addItem(const TGrpServiceAutoItem& svcAuto, bool squeeze);
+    TPaidRFISCListWithAuto &set(const TPaidRFISCList& list1,
+                                const TGrpServiceAutoList& list2,
+                                bool squeeze=false);
+    void fromDB(int id, bool is_grp_id, bool squeeze=false);
     bool isRFISCGrpExists(int pax_id, const std::string &grp, const std::string &subgrp) const;
 };
 

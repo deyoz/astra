@@ -538,7 +538,7 @@ public:
     virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
 
     static void EMDCheckStatus(const int grp_id,
-                               const CheckIn::TServicePaymentList &prior_payment,
+                               const CheckIn::TServicePaymentListWithAuto &prior_payment,
                                TEMDChangeStatusList &emdList);
     static bool EMDChangeStatus(const edifact::KickInfo &kickInfo,
                                 const TEMDChangeStatusList &emdList);

@@ -8,6 +8,7 @@
 #include "ticket_types.h"
 #include "qrys.h"
 #include "edi_utils.h"
+#include "astra_emd.h"
 #include "etick/tick_data.h"
 #include "tlg/remote_results.h"
 
@@ -17,16 +18,21 @@ namespace PaxASVCList
 enum TListType {unboundByPointId,
                 unboundByPaxId,
                 allByPaxId,
+                allByGrpId,
+                asvcByPaxId,
+                asvcByGrpId,
                 allWithTknByPointId,
                 oneWithTknByGrpId,
                 oneWithTknByPaxId};
 std::string GetSQL(const TListType ltype);
+std::string getPaxsSQL(const TListType ltype);
 void printSQLs();
+int print_sql(int argc, char **argv);
 void GetUnboundBagEMD(int point_id, std::multiset<CheckIn::TPaxASVCItem> &asvc);
 bool ExistsUnboundBagEMD(int point_id);
 bool ExistsPaxUnboundBagEMD(int pax_id);
 
-}; //namespace PaxASVCList
+} //namespace PaxASVCList
 
 class TEMDCoupon : public AstraEdifact::TCoupon
 {
@@ -43,6 +49,9 @@ class TEMDCoupon : public AstraEdifact::TCoupon
       AstraEdifact::TCoupon::clear();
       action=Ticketing::CpnStatAction::associate;
     }
+
+    TEMDCoupon& fromDB(TQuery &Qry);
+    const TEMDCoupon& toDB(TQuery &Qry) const;
 };
 
 class TEMDCtxtItem : public AstraEdifact::TCtxtItem
@@ -71,17 +80,18 @@ void GetBagEMDDisassocList(const int point_id,
 
 void GetEMDStatusList(const int grp_id,
                       const bool in_final_status,
-                      const CheckIn::TServicePaymentList &prior_payment,
+                      const CheckIn::TServicePaymentListWithAuto &prior_payment,
                       std::list<TEMDCtxtItem> &added_emds,
                       std::list<TEMDCtxtItem> &deleted_emds);
 
-class TEMDocItem
+class TEMDocItem : public CheckIn::TServiceBasic
 {
   public:
 
-    enum TEdiAction{ChangeOfStatus, SystemUpdate};
+    enum TEdiAction{Display, ChangeOfStatus, SystemUpdate};
 
     TEMDCoupon emd;
+    std::string emd_no_base;
     AstraEdifact::TCoupon et;
     std::string change_status_error, system_update_error;
     int point_id;
@@ -90,9 +100,15 @@ class TEMDocItem
       clear();
     }
 
+    TEMDocItem(const Ticketing::Emd& _emd,
+               const Ticketing::EmdCoupon& _emdCpn,
+               const std::set<std::string>& connected_emd_no);
+
     void clear()
     {
+      CheckIn::TServiceBasic::clear();
       emd.clear();
+      emd_no_base.clear();
       et.clear();
       change_status_error.clear();
       system_update_error.clear();
@@ -104,17 +120,33 @@ class TEMDocItem
       return emd.empty();
     }
 
+    bool validDisplay() const
+    {
+      return !RFIC.empty() &&
+             !RFISC.empty() &&
+             !service_name.empty() &&
+             !emd_type.empty() &&
+             !emd.empty() &&
+             !emd_no_base.empty();
+    }
+
     const TEMDocItem& toDB(const TEdiAction ediAction) const;
-    TEMDocItem& fromDB(const std::string &_emd_no,
+    TEMDocItem& fromDB(const TEdiAction ediAction, TQuery &Qry);
+    TEMDocItem& fromDB(const TEdiAction ediAction,
+                       const std::string &_emd_no,
                        const int _emd_coupon,
                        const bool lock);
+    void deleteDisplay() const;
+};
+
+class TEMDocList : public std::list<TEMDocItem>
+{
 };
 
 class TPaxEMDItem : public CheckIn::TPaxASVCItem
 {
   public:
-    std::string et_no;
-    int et_coupon;
+    int pax_id;
     int trfer_num;
     std::string emd_no_base;
 
@@ -122,11 +154,26 @@ class TPaxEMDItem : public CheckIn::TPaxASVCItem
     {
       clear();
     }
+
+    TPaxEMDItem(const TEMDocItem& emdItem)
+    {
+      clear();
+      TServiceBasic::operator = (emdItem);
+      emd_no=emdItem.emd.no;
+      emd_coupon=emdItem.emd.coupon;
+      emd_no_base=emdItem.emd_no_base;
+    }
+
+    TPaxEMDItem(const CheckIn::TPaxASVCItem& asvcItem)
+    {
+      clear();
+      CheckIn::TPaxASVCItem::operator = (asvcItem);
+    }
+
     void clear()
     {
       CheckIn::TPaxASVCItem::clear();
-      et_no.clear();
-      et_coupon=ASTRA::NoExists;
+      pax_id=ASTRA::NoExists;
       trfer_num=ASTRA::NoExists;
       emd_no_base.clear();
     }
@@ -134,6 +181,18 @@ class TPaxEMDItem : public CheckIn::TPaxASVCItem
     TPaxEMDItem& fromDB(TQuery &Qry);
     std::string traceStr() const;
     bool valid() const;
+};
+
+class TPaxEMDList : public std::set<TPaxEMDItem>
+{
+  public:
+    TPaxEMDList() {}
+    TPaxEMDList(const TPaxEMDItem& emd) { insert(emd); }
+    void getPaxEMD(int id, PaxASVCList::TListType listType, bool doNotClear=false);
+    void getAllPaxEMD(int pax_id, bool singleSegment);
+    void getAllEMD(const TCkinGrpIds &tckin_grp_ids);
+    void toDB() const;
+
 };
 
 void GetPaxEMD(int pax_id, std::multiset<TPaxEMDItem> &emds);

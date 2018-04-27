@@ -95,7 +95,7 @@ class TAfterSaveInfo
     int tckin_id;
     CheckIn::TAfterSaveActionType action;
     int agent_stat_period;
-    CheckIn::TPaidBagEMDProps handmadeEMDDiff;
+    CheckIn::TGrpEMDProps handmadeEMDDiff;
     void clear()
     {
       segs.clear();

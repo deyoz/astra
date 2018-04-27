@@ -444,40 +444,70 @@ void TAvailabilityRes::brandsToDB(const TCkinGrpIds &tckin_grp_ids) const
   Sirena::PaxBrandsToDB(tckin_grp_ids, brandsList);
 }
 
-void TSvcList::get(TPaidRFISCList &paid) const
+void TSvcList::get(const std::list<TSvcItem>& svcsAuto, TPaidRFISCList &paid) const
 {
   paid.clear();
-  for(TSvcList::const_iterator i=begin(); i!=end(); ++i)
-    paid.inc(*i, i->status);
+
+  std::list<TSvcItem> tmpAuto(svcsAuto);
+  for(const TSvcItem& svc : *this)
+  {
+    std::list<TSvcItem>::iterator i=tmpAuto.begin();
+    for(; i!=tmpAuto.end(); ++i)
+      if (svc==*i && svc.status==i->status) break;
+    if (i!=tmpAuto.end())
+    {
+      tmpAuto.erase(i);
+      continue;
+    }
+    paid.inc(svc, svc.status);
+  }
 }
 
 void TSvcList::addChecked(const TCheckedReqPassengers &req_grps, int grp_id, int tckin_seg_count, int trfer_seg_count)
 {
-  TGrpServiceList list;
-  list.prepareForSirena(grp_id, tckin_seg_count, trfer_seg_count, req_grps.include_refused);
+  //вручную введенные на стойке
+  TGrpServiceList svcs;
+  svcs.fromDB(grp_id, !req_grps.include_refused);
+  svcs.addBagInfo(grp_id, tckin_seg_count, trfer_seg_count, req_grps.include_refused);
+
+  CheckIn::TServicePaymentList payment;
+  payment.fromDB(grp_id);
+  for(TGrpServiceList::const_iterator i=svcs.begin(); i!=svcs.end(); ++i)
+  {
+    for(int j=i->service_quantity; j>0; j--)
+      emplace_back(*i, payment.dec(*i)?TServiceStatus::Paid:TServiceStatus::Need);
+  };
+
+  //автоматически зарегистрированные
+  TGrpServiceAutoList svcsAuto;
+  svcsAuto.fromDB(grp_id, true, !req_grps.include_refused);
+  for(const TGrpServiceAutoItem& svcAuto : svcsAuto)
+    for(TGrpServiceItem& svc : svcs)
+      if (svc.similar(svcAuto))
+      {
+        for(int j=svcAuto.service_quantity; j>0; j--)
+        {
+          emplace_back(svc, TServiceStatus::Paid);
+          _autoChecked.emplace_back(svc, TServiceStatus::Paid);
+        }
+        break;
+      }
+
   //отфильтруем ненужные
-  for(TGrpServiceList::iterator i=list.begin(); i!=list.end();)
+  for(TSvcList::iterator i=begin(); i!=end();)
   {
     if (req_grps.only_first_segment && i->trfer_num!=0)
     {
-      i=list.erase(i);
+      i=erase(i);
       continue;
     }
     if (!req_grps.pax_included(grp_id, i->pax_id))
     {
-      i=list.erase(i);
+      i=erase(i);
       continue;
     }
     ++i;
   }
-
-  CheckIn::TServicePaymentList payment;
-  payment.fromDB(grp_id);
-  for(TGrpServiceList::const_iterator i=list.begin(); i!=list.end(); ++i)
-  {
-    for(int j=i->service_quantity; j>0; j--)
-      push_back(TSvcItem(*i, payment.dec(*i)?TServiceStatus::Paid:TServiceStatus::Need));
-  };
 }
 
 void TSvcList::addASVCs(int pax_id, const std::vector<CheckIn::TPaxASVCItem> &asvc)
