@@ -176,7 +176,8 @@ const
     {"-apis_test",              apis_test,              NULL,                       NULL},
     {"-alias_to_db",            KIOSK::alias_to_db,     NULL,                       NULL},
     {"-db_pkg",                 db_pkg,                 NULL,                       NULL},
-    {"-rbd_test",               rbd_test,                 NULL,                       NULL},
+    {"-rbd_test",               rbd_test,               NULL,                       NULL},
+    {"-lci_data",               TypeB::lci_data,               NULL,                       NULL},
     {"-gen_test",               gen_test,                 NULL,                       NULL},
     {"-asvc_list_print_sql",    PaxASVCList::print_sql, NULL,                       NULL},
   };

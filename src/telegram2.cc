@@ -6512,7 +6512,12 @@ struct TLCICFG:TCFG {
 
 struct TWA {
     int payload, underload;
-    TWA(): payload(NoExists), underload(NoExists) {};
+    TWA() { clear(); }
+    void clear()
+    {
+        payload = NoExists;
+        underload = NoExists;
+    }
     void get(TypeB::TDetailCreateInfo &info)
     {
         payload = getCommerceWeight(info.point_id, onlyCheckin, CWTotal);
@@ -9444,15 +9449,15 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     NewTextChild( resNode, "tlg_id", tlg_id);
 };
 
-void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void TelegramInterface::kick_old(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    xmlNodePtr curNode = reqNode->children;
-    curNode = NodeAsNodeFast("content", curNode);
     // tlg_id is a tlg_out.id
     int tlg_id = NoExists;
     string res;
     try {
-        tlg_id =  NodeAsInteger("content", reqNode);
+        xmlNodePtr curNode = NodeAsNode("content", reqNode);
+        curNode = NodeAsNode("LCIData", curNode);
+        tlg_id =  NodeAsInteger("typeb_out_id", curNode);
     } catch(...) {
         res = NodeAsString("content", reqNode);
     }
@@ -9492,6 +9497,17 @@ void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
             markTlgAsSent(tlg_id);
         }
     }
+    NewTextChild(resNode, "content", res);
+}
+
+#include "tlg/lci_parser.h"
+
+void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TypeB::TLCIContent con;
+    con.fromDB(NodeAsInteger("content", reqNode));
+    con.dump();
+    string res;
     NewTextChild(resNode, "content", res);
 }
 
