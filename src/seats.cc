@@ -3599,12 +3599,12 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                  }
                  curr_preseat_layers.clear();
                  curr_preseat_layers.insert( preseat_layers.begin(), preseat_layers.end() );
-                 //ProgTrace(TRACE5, "SeatOnlyBasePlace=%d, KeyLayers=%d", SeatOnlyBasePlace, KeyLayers );
+//                 ProgTrace(TRACE5, "SeatOnlyBasePlace=%d, KeyLayers=%d", SeatOnlyBasePlace, KeyLayers );
                  if ( SeatOnlyBasePlace && KeyLayers <= -2 ) { //если указано место, которое оплатил другой, то нельзя его забирать
                    continue;
                  }
                  if ( KeyLayers <= -2 &&
-                      ( CanUseRems != sNotUseDenial || CanUseRems != sIgnoreUse ) ) {
+                      ( CanUseRems != sNotUseDenial && CanUseRems != sIgnoreUse ) ) {
                    continue;
                  }
                  if ( KeyLayers == -2 ) {
@@ -3629,7 +3629,6 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                    curr_preseat_layers[ cltPNLAfterPay ] = true;
                    curr_preseat_layers[ cltProtSelfCkin ] = true;
                  }
-//                 ProgTrace(TRACE5, "KeyLayers=%d", KeyLayers);
                  /* задаем массив статусов мест */
                  SetLayers( Salons,
                             SeatsLayers,
@@ -3665,6 +3664,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                        for ( int FCanUseTube=0; FCanUseTube<=1; FCanUseTube++ ) {
                          /* для рассадки отдельных пассажиров не надо учитывать проходы */
                          if ( !FCanUseTube && !paxsSeats.empty() && !separately_seats_adult_with_baby  ) {
+                           ProgTrace( TRACE5, "separately_seats_adult_with_baby");
                            continue;
                          }
 /*                         tst();

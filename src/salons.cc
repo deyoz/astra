@@ -7843,7 +7843,6 @@ void CreateComps( const TCompsRoutes &routes, int comp_id )
   QryLayers.DeclareVariable( "point_id", otInteger );
   QryLayers.DeclareVariable( "layer_type", otString );
   int crc_comp = 0;
-  std::vector<int> points_check_wait_alarm;
   std::vector<int> points_tranzit_check_wait_alarm;
   for (TCompsRoutes::const_iterator i=routes.begin(); i!=routes.end(); i++ ) {
     if ( i->inRoutes && i->auto_comp_chg && i->pr_reg ) {
@@ -7884,10 +7883,6 @@ void CreateComps( const TCompsRoutes &routes, int comp_id )
   }
   TCompsRoutes r(routes);
   check_diffcomp_alarm( r );
-  for ( std::vector<int>::iterator i=points_check_wait_alarm.begin();
-        i!=points_check_wait_alarm.end(); i++ ) {
-    check_waitlist_alarm(*i);
-  }
   check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, __FUNCTION__ );
 }
 
