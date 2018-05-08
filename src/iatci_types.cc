@@ -1501,12 +1501,22 @@ std::list<Ticketing::TicketNum_t> Result::tickNums() const
     std::list<Ticketing::TicketNum_t> tnums;
     for(const auto& pxg: paxGroups()) {
         if(pxg.service()) {
-            tnums.push_back(pxg.tickNum());
-            if(pxg.infant()) {
-                boost::optional<Ticketing::TicketNum_t> inftTickNum = pxg.tickNumInfant();
-                ASSERT(inftTickNum);
-                tnums.push_back(inftTickNum.get());
+            if(pxg.service()->findTicketCpn(false/*inft ticket*/)) {
+                tnums.push_back(pxg.tickNum());
+            } else {
+                LogError(STDLOG) << "IATCI message doesnt't contains ETKT number";
             }
+            if(pxg.infant()) {
+                if(pxg.service()->findTicketCpn(true/*inft ticket*/)) {
+                    boost::optional<Ticketing::TicketNum_t> inftTickNum = pxg.tickNumInfant();
+                    ASSERT(inftTickNum);
+                    tnums.push_back(inftTickNum.get());
+                } else {
+                    LogError(STDLOG) << "IATCI message doesn't contains infant's ETKT number";
+                }
+            }
+        } else {
+            LogError(STDLOG) << "IATCI message doesn't contains service information with ETKT number(s)";
         }
     }
     return tnums;
