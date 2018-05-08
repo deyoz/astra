@@ -14,7 +14,7 @@ CREATE TABLE update_code_progress
 );
 */
 
-CURSOR oper_cur_al IS
+CURSOR oper_cur IS
   SELECT user_cons_columns.table_name, user_cons_columns.column_name,
          DECODE(user_tab_partitions.table_name, NULL, user_tables.num_rows, user_tab_partitions.num_rows) AS num_rows,
          user_tab_partitions.partition_name
@@ -51,12 +51,11 @@ CURSOR oper_cur_al IS
                                         'PAID_RFISC',
                                         'PAX_SERVICES',
                                         'RFISC_RATES',
---                                        'ROZYSK',
                                         'TLG_OUT',
                                         'UNACCOMP_BAG_INFO')
   ORDER BY num_rows, table_name;
 
-CURSOR oper_cur IS
+CURSOR oper_cur_ap IS
   SELECT user_cons_columns.table_name, user_cons_columns.column_name,
          DECODE(user_tab_partitions.table_name, NULL, user_tables.num_rows, user_tab_partitions.num_rows) AS num_rows,
          user_tab_partitions.partition_name
@@ -93,12 +92,11 @@ CURSOR oper_cur IS
                                         'CRS_PNR',
                                         'CRS_TRANSFER',
                                         'DCS_TAGS',
---                                      'ROZYSK',
                                         'STATION_HALLS')
   ORDER BY num_rows, table_name;
 
 
-CURSOR hist_cur_al IS
+CURSOR hist_cur IS
   SELECT user_tab_columns.table_name, user_tab_columns.column_name,
          DECODE(user_tab_partitions.table_name, NULL, user_tables.num_rows, user_tab_partitions.num_rows) AS num_rows,
          user_tab_partitions.partition_name
@@ -112,10 +110,13 @@ CURSOR hist_cur_al IS
         user_tab_columns.column_name not like 'DROP%' AND
         (user_tab_columns.table_name like 'HIST%' OR
          user_tab_columns.table_name IN ('TLG_STAT',
+--                                       'ROZYSK', надо делать апдейт airline хотя бы на 2 суток назад !!!
+--                                                 а также апдейт trfer_pax_stat.segments: REGEXP_REPLACE(segments, '([,;]|^)(КЛЦ)([,;]|$)', '\1ЕКБ\3')
+--                                                 а также апдейт arx_trfer_pax_stat.segments: REGEXP_REPLACE(segments, '([,;]|^)(КЛЦ)([,;]|$)', '\1ЕКБ\3')
                                          'RFISC_STAT'))
   ORDER BY num_rows, table_name;
 
-CURSOR hist_cur IS
+CURSOR hist_cur_ap IS
   SELECT user_tab_columns.table_name, user_tab_columns.column_name,
          DECODE(user_tab_partitions.table_name, NULL, user_tables.num_rows, user_tab_partitions.num_rows) AS num_rows,
          user_tab_partitions.partition_name
@@ -123,7 +124,8 @@ CURSOR hist_cur IS
   WHERE user_tab_columns.table_name=user_tables.table_name AND
         user_tables.table_name=user_tab_partitions.table_name(+) AND
         (user_tab_columns.column_name like '%AIRP%' OR
-         user_tab_columns.column_name like '%PORT%') AND
+         user_tab_columns.column_name like '%PORT%' OR
+         (user_tab_columns.column_name='SEGMENTS' AND user_tab_columns.table_name='TRFER_PAX_STAT')) AND
         user_tab_columns.data_type='VARCHAR2' AND
         user_tab_columns.table_name not like 'DROP%' AND
         user_tab_columns.column_name not like 'DROP%' AND
@@ -131,6 +133,8 @@ CURSOR hist_cur IS
         (user_tab_columns.table_name like 'HIST%' OR
          user_tab_columns.table_name IN ('TLG_STAT',
                                          'RFISC_STAT',
+                                         'ROZYSK',
+                                         'TRFER_PAX_STAT',
                                          'PFS_STAT'))
   ORDER BY num_rows, table_name;
 
@@ -141,7 +145,7 @@ CURSOR progress_cur IS
            update_code_progress.num_rows,
            update_code_progress.table_name;
 
-CURSOR arx_cur_al IS
+CURSOR arx_cur IS
   SELECT user_tab_columns.table_name, user_tab_columns.column_name,
          DECODE(user_tab_partitions.table_name, NULL, user_tables.num_rows, user_tab_partitions.num_rows) AS num_rows,
          user_tab_partitions.partition_name
@@ -156,7 +160,7 @@ CURSOR arx_cur_al IS
         user_tab_columns.table_name like 'ARX%'
   ORDER BY num_rows, table_name;
 
-CURSOR arx_cur IS
+CURSOR arx_cur_ap IS
   SELECT user_tab_columns.table_name, user_tab_columns.column_name,
          DECODE(user_tab_partitions.table_name, NULL, user_tables.num_rows, user_tab_partitions.num_rows) AS num_rows,
          user_tab_partitions.partition_name
@@ -164,14 +168,15 @@ CURSOR arx_cur IS
   WHERE user_tab_columns.table_name=user_tables.table_name AND
         user_tables.table_name=user_tab_partitions.table_name(+) AND
         (user_tab_columns.column_name like '%AIRP%' OR
-         user_tab_columns.column_name like '%PORT%') AND
+         user_tab_columns.column_name like '%PORT%' OR
+         (user_tab_columns.column_name='SEGMENTS' AND user_tab_columns.table_name='ARX_TRFER_PAX_STAT')) AND
         user_tab_columns.data_type='VARCHAR2' AND
         user_tab_columns.table_name not like 'DROP%' AND
         user_tab_columns.column_name not like 'DROP%' AND
         user_tab_columns.table_name like 'ARX%'
   ORDER BY num_rows, table_name;
 
-CURSOR other_cons_cur_al(curRow oper_cur_al%ROWTYPE) IS
+CURSOR other_cons_cur(curRow oper_cur%ROWTYPE) IS
     SELECT user_constraints.table_name, user_constraints.constraint_name, user_constraints.r_constraint_name
     FROM user_constraints, user_cons_columns
     WHERE user_constraints.constraint_name=user_cons_columns.constraint_name AND
@@ -180,7 +185,7 @@ CURSOR other_cons_cur_al(curRow oper_cur_al%ROWTYPE) IS
           user_constraints.r_constraint_name IS NOT NULL AND
           user_constraints.r_constraint_name<>'AIRLINES__PK';
 
-CURSOR other_cons_cur(curRow oper_cur%ROWTYPE) IS
+CURSOR other_cons_cur_ap(curRow oper_cur_ap%ROWTYPE) IS
     SELECT user_constraints.table_name, user_constraints.constraint_name, user_constraints.r_constraint_name
     FROM user_constraints, user_cons_columns
     WHERE user_constraints.constraint_name=user_cons_columns.constraint_name AND
@@ -192,6 +197,9 @@ CURSOR other_cons_cur(curRow oper_cur%ROWTYPE) IS
 PROCEDURE airline_tab_num_rows;
 PROCEDURE airline_count(airline_code airlines.code%TYPE,
                         max_num_rows user_tables.num_rows%TYPE);
+PROCEDURE print_updates(old_airline_code airlines.code%TYPE,
+                        new_airline_code airlines.code%TYPE,
+                        max_rows user_tables.num_rows%TYPE);
 PROCEDURE airline_update_oper(old_airline_code airlines.code%TYPE,
                               new_airline_code airlines.code%TYPE,
                               max_rows user_tables.num_rows%TYPE);

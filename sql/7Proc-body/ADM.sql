@@ -2401,8 +2401,8 @@ first2  DATE;
 last2   DATE;
 lparams system.TLexemeParams;
 BEGIN
-  IF vairline_oper=vairline_mark AND 
-     vflt_no_oper=vflt_no_mark AND 
+  IF vairline_oper=vairline_mark AND
+     vflt_no_oper=vflt_no_mark AND
      (vsuffix_oper IS NULL AND vsuffix_mark IS NULL OR
       vsuffix_oper IS NOT NULL AND vsuffix_mark IS NOT NULL AND vsuffix_oper=vsuffix_mark) THEN
     system.raise_user_exception('MSG.OPER_AND_MARK_FLIGHTS_MUST_DIFFER');

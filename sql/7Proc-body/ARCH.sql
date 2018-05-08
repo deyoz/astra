@@ -1132,6 +1132,7 @@ BEGIN
       DELETE FROM tckin_pax_grp WHERE grp_id=grpids(j);
       DELETE FROM pnr_addrs_pc WHERE grp_id=grpids(j);
       DELETE FROM grp_service_lists WHERE grp_id=grpids(j);
+      DELETE FROM bag_tags_generated WHERE grp_id=grpids(j);
     END LOOP;
     FORALL i IN 1..grprowids.COUNT
       DELETE FROM pax_grp WHERE rowid=grprowids(i);
