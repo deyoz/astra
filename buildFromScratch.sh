@@ -192,9 +192,9 @@ function reportChecksum() {
 
 ############################################################################
 
-if [ "$BUILD_TESTS" == "1" ]; then
-    export CXXFLAGS="-DXP_TESTING ${CXXFLAGS}"
-fi
+#if [ "$BUILD_TESTS" == "1" ]; then
+#    export CXXFLAGS="-DXP_TESTING ${CXXFLAGS}"
+#fi
 
 #. ./bin/config_bases.sh
 

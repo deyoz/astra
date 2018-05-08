@@ -2,6 +2,7 @@
 #include "astra_msg.h"
 #include "exceptions.h"
 #include "astra_utils.h"
+#include "config.h"
 #include <serverlib/cursctl.h>
 #include <serverlib/testmode.h>
 
