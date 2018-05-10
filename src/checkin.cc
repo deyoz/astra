@@ -3588,7 +3588,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
 
             if (AfterSaveInfoList.front().action==CheckIn::actionRefreshPaidBagPC)
             {
-                EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
+                if(!ReqParams(reqNode).getBoolParam("was_sent_iatci")) {
+                    EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
+                }
             }
 
             LoadPax(grp_id, reqNode, resNode, true);
@@ -6537,10 +6539,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             res.parseResponse(answerNode);
 
             curr.grp_id=first_grp_id;
-            xml_encode_nodelist(answerNode->doc->children);
 
             XMLDoc answerDoc("answer");
             CopyNodeList(NodeAsNode("/answer", answerDoc.docPtr()), answerNode);
+            xml_encode_nodelist(answerDoc.docPtr()->children);
 
             curr.pc_payment_res=XMLTreeToText(answerDoc.docPtr());
 

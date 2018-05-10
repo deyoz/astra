@@ -1092,7 +1092,7 @@ static edifact::KickInfo getIatciKickInfo(xmlNodePtr reqNode, xmlNodePtr ediResN
     {
         int termReqCtxtId = AstraContext::SetContext("TERM_REQUEST", XMLTreeToText(reqNode->doc));
         if(ediResNode != NULL) {
-            AstraContext::SetContext("EDI_RESPONSE", termReqCtxtId, XMLTreeToText(ediResNode->doc));
+            AstraEdifact::addToEdiResponseCtxt(termReqCtxtId, ediResNode->children, "");
         }
         return AstraEdifact::createKickInfo(termReqCtxtId, "IactiInterface");
     }
