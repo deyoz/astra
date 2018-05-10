@@ -78,10 +78,15 @@ void EdifactRequest::sendTlg()
                              context());
 
     // Записать информацию о timeout отправленной телеграммы
-    edilib::EdiSessionTimeOut::add(ediSess()->edih()->msg_type,
-                                   funcCode(),
-                                   ediSessId(),
-                                   sysCont()->edifactResponseTimeOut());
+    if(!kickInfo().background_mode()) {
+        LogTrace(TRACE1) << "Save EdiSessionTimeOut for session " << ediSessId();
+        edilib::EdiSessionTimeOut::add(ediSess()->edih()->msg_type,
+                                       funcCode(),
+                                       ediSessId(),
+                                       sysCont()->edifactResponseTimeOut());
+    } else {
+        LogTrace(TRACE1) << "No need to save EdiSessionTimeOut in background_mode";
+    }
 
     RemoteResults::add(kickInfo().msgId,
                        kickInfo().desk,

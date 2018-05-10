@@ -743,6 +743,15 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   };
 };
 
+static bool skipSeg(xmlNodePtr segNode)
+{
+    xmlNodePtr pointIdNode = findNode(segNode, "point_id");
+    if(pointIdNode != NULL && NodeAsInteger(pointIdNode) < 0) {
+        return true;
+    }
+    return false;
+}
+
 void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   xmlNodePtr dataNode=NewTextChild( resNode, "data" );
@@ -756,7 +765,9 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   {
     xmlNodePtr segsNode=NewTextChild(dataNode,"segments");
     for(node=node->children;node!=NULL;node=node->next)
-      GetSegInfo(node, NULL, NewTextChild(segsNode,"segment"), first_point_id);
+      if(!skipSeg(node)) { 
+        GetSegInfo(node, NULL, NewTextChild(segsNode,"segment"), first_point_id);
+      }
   };
   TProfiledRights(first_point_id).toXML(dataNode);
 };
