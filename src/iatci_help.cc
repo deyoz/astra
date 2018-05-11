@@ -680,7 +680,7 @@ boost::optional<iatci::FlightSeatDetails> makeFlightSeat(const astra_api::astra_
 {
     if(!pax.m_seatNo.empty() || pax.isInfant()) {
         return iatci::FlightSeatDetails(pax.m_seatNo,
-                                        pax.m_subclass ? pax.m_subclass->code(ENGLISH) : "",
+                                        pax.m_subclass ? pax.m_subclass->baseClass()->code(ENGLISH) : "",
                                         pax.m_regNo,
                                         iatci::SeatDetails::NonSmoking); // пока курить нельзя!
     }
