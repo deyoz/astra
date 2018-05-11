@@ -1642,7 +1642,10 @@ bool CreateEmulCkinDocForCHKD(int crs_pax_id,
         throw UserException("MSG.CHECKIN.DUPLICATE_CHKD_REG_NO");
     };
 
-    pnr.paxFromReq.push_back(TWebPaxFromReq(paxForCkin.checked()));
+    TWebPaxFromReq paxFromReq(paxForCkin.checked());
+    paxFromReq.crs_pax_id=paxForCkin.crs_pax_id;
+
+    pnr.paxFromReq.push_back(paxFromReq);
     pnr.paxForCkin.push_back(paxForCkin);
 
     TPerson p=DecodePerson(paxForCkin.pers_type.c_str());
