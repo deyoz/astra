@@ -466,7 +466,13 @@ struct TSI {
 class TLCIContent
 {
     public:
-        int point_id_tlg; // Используется для передачи в http обработчик
+        // Используется для передачи в http обработчик
+        int point_id_tlg;
+        TDateTime time_receive;
+        std::string sender;
+        int typeb_in_id;
+
+        void answer();
 
         TActionCode action_code;
         TRequest req;
@@ -485,7 +491,6 @@ class TLCIContent
         std::string toXML();
         void fromXML(const std::string &content);
 
-        int toDB();
         void fromDB(int id);
 };
 

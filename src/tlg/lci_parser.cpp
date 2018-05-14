@@ -6,6 +6,7 @@
 #include "TypeBHelpMng.h"
 #include "points.h" // for TFlightMaxCommerce
 #include "pers_weights.h"
+#include "astra_context.h"
 #include <sstream>
 
 
@@ -330,6 +331,9 @@ char EncodeAction(TAction p)
 void TLCIContent::clear()
 {
     point_id_tlg = NoExists;
+    time_receive = NoExists;
+    sender.clear();
+    typeb_in_id = NoExists;
     action_code.clear();
     req.clear();
     dst.clear();
@@ -392,35 +396,10 @@ int lci_data(int argc, char **argv)
 
 void TLCIContent::fromDB(int id)
 {
-    TCachedQuery Qry("select text from lci_content where id = :id order by page_no",
-            QParams() << QParam("id", otInteger, id));
-    Qry.get().Execute();
     string content;
-    if(not Qry.get().Eof) {
-        for(; not Qry.get().Eof; Qry.get().Next())
-            content += Qry.get().FieldAsString("text");
-        fromXML(content);
-        TCachedQuery delQry("delete from lci_content where id = :id",
-                QParams() << QParam("id", otInteger, id));
-        // delQry.get().Execute();
-    }
-}
-
-int TLCIContent::toDB()
-{
-    TCachedQuery idQry("select tid__seq.nextval from dual");
-    idQry.get().Execute();
-    int id = idQry.get().FieldAsInteger(0);
-    TDateTime timeout = BASIC::date_time::NowUTC() + 40./(24*60*60);
-    TCachedQuery Qry(
-            "insert into lci_content(id, page_no, text, timeout) values(:id, :page_no, :text, :timeout)",
-            QParams()
-            << QParam("id", otInteger, id)
-            << QParam("page_no", otInteger)
-            << QParam("text", otString)
-            << QParam("timeout", otDate, timeout));
-    longToDB(Qry.get(), "text", toXML());
-    return id;
+    AstraContext::GetContext("LCI", id, content);
+    AstraContext::ClearContext("LCI", id);
+    fromXML(content);
 }
 
 void TLCIContent::fromXML(const string &content)
@@ -431,6 +410,9 @@ void TLCIContent::fromXML(const string &content)
     xmlNodePtr rootNode = lci_data.docPtr()->children;
 
     point_id_tlg = NodeAsInteger("point_id_tlg", rootNode);
+    time_receive = NodeAsDateTime("time_receive", rootNode);
+    sender = NodeAsString("sender", rootNode);
+    typeb_in_id = NodeAsInteger("typeb_in_id", rootNode);
     action_code.fromXML(rootNode);
 }
 
@@ -439,6 +421,9 @@ string TLCIContent::toXML()
     XMLDoc doc("LCIData");
     xmlNodePtr rootNode = doc.docPtr()->children;
     NewTextChild(rootNode, "point_id_tlg", point_id_tlg);
+    NewTextChild(rootNode, "time_receive", BASIC::date_time::DateTimeToStr(time_receive));
+    NewTextChild(rootNode, "sender", sender);
+    NewTextChild(rootNode, "typeb_in_id", typeb_in_id);
     action_code.toXML(rootNode);
     req.toXML(rootNode);
     dst.toXML(rootNode);
@@ -1929,18 +1914,156 @@ void set_seats_option(TPassSeats &seats, const TSeatRanges &seatRanges, int poin
     if(seats.empty()) seats.insert(TSeat());
 }
 
+void TLCIContent::answer()
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "SELECT point_id_spp, nvl(points.est_out, points.scd_out) scd_out FROM tlg_binding, points WHERE point_id_tlg=:point_id and point_id_spp = point_id";
+    Qry.CreateVariable("point_id", otInteger, point_id_tlg);
+    Qry.Execute();
+    if ( Qry.Eof )
+        throw ETlgError(tlgeNotMonitorYesAlarm, "Flight not found");
+
+    TNearestDate nd(time_receive);
+    for(; not Qry.Eof; Qry.Next()) {
+        nd.sorted_points[Qry.FieldAsDateTime( "scd_out" )] =
+            Qry.FieldAsInteger( "point_id_spp" );
+    }
+    int point_id_spp = nd.get();
+
+    TSeatRanges ranges_tmp, seatRanges;
+
+    TCreateInfo createInfo("LCI", TCreatePoint());
+    // !!! приведение константной ссылки к неконстантной. Не хорошо.
+    TypeB::TLCIOptions &options = (TypeB::TLCIOptions&)(*createInfo.optionsAs<TypeB::TLCIOptions>());
+
+    options.is_lat = false;
+    options.equipment=false;
+    options.weight_avail="N";
+    options.seating=false;
+    options.weight_mode=false;
+    options.seat_restrict="S";
+    options.pas_totals = false;
+    options.bag_totals = false;
+    options.pas_distrib = false;
+    options.seat_plan = true;
+    options.version = "WB";
+
+    if(action_code.action == aRequest) {
+
+        for(TRequest::iterator i = req.begin(); i != req.end(); i++) {
+            switch(i->first) {
+                case rtSR:
+                    if ( !seatRanges.empty() ) {
+                        throw Exception( "SaveLCIContent second rtSR" );
+                    }
+                    for(TSRItems::iterator sr_i = i->second.sr.s.begin(); sr_i != i->second.sr.s.end(); sr_i++) {
+                        ParseSeatRange(*sr_i, ranges_tmp, false);
+                        seatRanges.insert( seatRanges.end(), ranges_tmp.begin(), ranges_tmp.end() );
+                    }
+                    switch(i->second.sr.type) {
+                        case TSR::srWB:
+                            {
+                                if(not seatRanges.empty()) { // Пришел запрос вида LR SR.WB.S.1A/1B....
+                                    set_seats_option(options.seats, seatRanges, point_id_spp);
+                                    options.seat_plan = false;
+                                }
+                                if(not i->second.sr.c.empty()) {  // Пришел запрос вида LR SR.WB.C.C12Y116
+                                    for(TCFG::iterator
+                                            cfg_item = i->second.sr.c.begin();
+                                            cfg_item != i->second.sr.c.end();
+                                            ++cfg_item) {
+                                        options.cfg.push_back(TCFGItem());
+                                        // options.cfg.back().cls = cfg_item->first; // игнорим классы
+                                        options.cfg.back().cfg = cfg_item->second;
+                                    }
+                                    options.seat_restrict.clear();
+                                    options.seat_plan = false;
+                                }
+                            }
+                            break;
+                        case TSR::srStd:
+                            SALONS2::resetLayers( point_id_spp, cltProtect, seatRanges, "EVT.LAYOUT_MODIFIED_LCI.SEAT_PLAN" );
+                            break;
+                        default:
+                            break;
+                    }
+                    break;
+                case rtWB:
+                    options.is_lat = i->second.lang == AstraLocale::LANG_EN;
+                    if(i->second.max_commerce != NoExists)
+                        LogTrace(TRACE5) << "max_commerce: " << i->second.max_commerce;
+                    break;
+                case rtBT:
+                    options.bag_totals = true;
+                    break;
+                case rtWM:
+                    options.weight_mode = true;
+                    break;
+                default:
+                    break;
+            }
+        }
+        createInfo.point_id = point_id_spp;
+        createInfo.set_addrs(sender);
+        TelegramInterface::SendTlg(vector<TCreateInfo>(1, createInfo), typeb_in_id);
+    } else if(action_code.action == aOpen) {
+        options.seat_plan = true;
+        options.version = "WB";
+        createInfo.point_id = point_id_spp;
+        createInfo.set_addrs(sender);
+        TelegramInterface::SendTlg(vector<TCreateInfo>(1, createInfo));
+    } else if(action_code.action == aUpdate) {
+        std::tr1::shared_ptr<TSubTypeHolder> sth = wm[wmdWB][wmtWBTotalWeight];
+        if(sth) {
+            const TSimpleWeight &mc = *dynamic_cast<TSimpleWeight *>(sth.get());
+            if(mc.measur != mN) {
+                TFlightMaxCommerce maxCommerce(true);
+                if ( mc.weight == 0 )
+                    maxCommerce.SetValue( ASTRA::NoExists );
+                else
+                    maxCommerce.SetValue( mc.weight );
+                maxCommerce.Save( point_id_spp );
+            }
+        }
+        sth = wm[wmdStandard][wmtPax];
+        if(sth and sth->sub_type == wmsGender) {
+            const TGenderCount &gc = *dynamic_cast<TGenderCount *>(sth.get());
+            ClassesPersWeight cpw;
+            cpw.male = gc.m;
+            cpw.female = gc.f;
+            cpw.child = gc.c;
+            cpw.infant = gc.i;
+            PersWeightRules lci_pwr(true);
+            lci_pwr.Add(cpw);
+
+            PersWeightRules db_pwr;
+            db_pwr.read(point_id_spp);
+            if(not lci_pwr.equal(&db_pwr))
+                lci_pwr.write(point_id_spp);
+        }
+        TypeBHelpMng::notify_ok(typeb_in_id, NoExists); // Отвешиваем процесс, если есть.
+    } else {
+        // Здесь нет SendTlg, поэтому отвешиваем ручками
+        TypeBHelpMng::notify_ok(typeb_in_id, NoExists); // Отвешиваем процесс, если есть.
+    }
+}
+
 void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, TLCIContent& con)
 {
     int point_id_tlg=SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg,TSearchFltInfoPtr(new TLCISearchParams()));
 
     con.point_id_tlg = point_id_tlg;
+    con.time_receive = time_receive;
+    con.sender = info.sender;
+    con.typeb_in_id = tlg_id;
 
-    TypeBHelpMng::notify_ok(tlg_id, con.toDB()); // Отвешиваем процесс, если есть.
+    TypeBHelpMng::notify_ok(tlg_id, AstraContext::SetContext("LCI", con.toXML())); // Отвешиваем процесс, если есть.
     return;
 
     TQuery Qry(&OraSession);
     Qry.SQLText =
-      "SELECT point_id_spp, nvl(points.est_out, points.scd_out) scd_out FROM tlg_binding, points WHERE point_id_tlg=:point_id and point_id_spp = point_id",
+      "SELECT point_id_spp, nvl(points.est_out, points.scd_out) scd_out FROM tlg_binding, points WHERE point_id_tlg=:point_id and point_id_spp = point_id";
     Qry.CreateVariable("point_id", otInteger, point_id_tlg);
     Qry.Execute();
     if ( Qry.Eof )
