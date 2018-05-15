@@ -121,6 +121,7 @@ public:
 
 struct TWebPax {
     int pax_no; //виртуальный ид. для связи одного и того же пассажира разных сегментов
+    int crs_pnr_id;
     int crs_pax_id;
     int crs_pax_id_parent;
     int reg_no;
@@ -170,6 +171,7 @@ struct TWebPax {
     void clear()
     {
       pax_no = ASTRA::NoExists;
+      crs_pnr_id = ASTRA::NoExists;
       crs_pax_id = ASTRA::NoExists;
       crs_pax_id_parent = ASTRA::NoExists;
       reg_no = ASTRA::NoExists;

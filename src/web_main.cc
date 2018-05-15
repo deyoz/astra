@@ -658,6 +658,7 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
         {
           TWebPax pax;
           pax.pnr_addrs=pnr_addrs;
+          pax.crs_pnr_id = pnr_id;
           pax.crs_pax_id = Qry.FieldAsInteger( "crs_pax_id" );
           if ( !Qry.FieldIsNULL( "crs_pax_id_parent" ) )
             pax.crs_pax_id_parent = Qry.FieldAsInteger( "crs_pax_id_parent" );
@@ -794,6 +795,7 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
           pax.pnr_addrs.emplace_back(Qry.FieldAsString("pnr_airline"),
                                      Qry.FieldAsString("pnr_addr"));
         }
+        pax.crs_pnr_id = pnr_id;
         pax.crs_pax_id = pnr_id;
         pax.surname = Qry.FieldAsString("surname");
         pax.name = Qry.FieldAsString("name");
@@ -990,6 +992,7 @@ void TWebPax::toXML(xmlNodePtr paxParentNode) const
   pnr_addrs.toXML(paxNode);
 
   NewTextChild( paxNode, "pax_no", pax_no, NoExists );
+  NewTextChild( paxNode, "crs_pnr_id", crs_pnr_id );
   NewTextChild( paxNode, "crs_pax_id", crs_pax_id );
   NewTextChild( paxNode, "crs_pax_id_parent", crs_pax_id_parent, NoExists );
   NewTextChild( paxNode, "reg_no", reg_no, NoExists );
