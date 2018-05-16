@@ -332,6 +332,7 @@ public:
   void DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void tlg_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void kick_old(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void kuf_file(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void kuf_stat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void kuf_stat_flts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -347,7 +348,7 @@ public:
 
   static void readTripData( int point_id, xmlNodePtr dataNode );
   static void SendTlg(int tlg_id, bool forwarded);
-  static void SendTlg(const std::vector<TypeB::TCreateInfo> &info,
+  static std::string SendTlg(const std::vector<TypeB::TCreateInfo> &info,
                       int tlg_id = ASTRA::NoExists,
                       bool forwarded = false);
 
