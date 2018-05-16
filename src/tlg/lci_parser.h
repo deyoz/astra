@@ -58,6 +58,7 @@ struct TCFG:public std::map<std::string, int> {
     void parse(const std::string &val, const TElemType el);
     void dump();
     void toXML(xmlNodePtr node) const;
+    void fromXML(xmlNodePtr node);
 };
 
 struct TEQT {
@@ -68,6 +69,7 @@ struct TEQT {
     void clear();
     bool empty() { return bort.empty() and craft.empty() and cfg.empty(); }
     void toXML(xmlNodePtr node);
+    void fromXML(xmlNodePtr node);
 };
 
 enum TMeasur {
@@ -85,6 +87,7 @@ struct TWeight {
     TMeasur measur;
     TWeight() { clear(); }
     void toXML(xmlNodePtr node, const std::string &tag) const;
+    void fromXML(xmlNodePtr node, const std::string &tag);
     bool empty() const { return amount == ASTRA::NoExists and measur == mUnknown; }
     void clear()
     {
@@ -100,6 +103,7 @@ struct TWA {
     void clear();
     bool empty() const { return payload.empty() and underload.empty(); }
     void toXML(xmlNodePtr node) const;
+    void fromXML(xmlNodePtr node);
 };
 
 enum TSeatingMethod {
@@ -117,6 +121,7 @@ struct TSM {
     void dump();
     TSM() { clear(); }
     void toXML(xmlNodePtr node) const;
+    void fromXML(xmlNodePtr node);
     void clear()
     {
         value = smUnknown;
@@ -125,12 +130,14 @@ struct TSM {
 
 struct TSRZones:public std::map<std::string, int> {
     void toXML(xmlNodePtr node) const;
+    void fromXML(xmlNodePtr node);
     void parse(const std::string &val);
     void dump();
 };
 
 struct TSRItems:public std::vector<std::string> {
     void toXML(xmlNodePtr node, const std::string &tag) const;
+    void fromXML(xmlNodePtr node, const std::string &tag);
     void parse(const std::string &val);
     void dump();
 };
@@ -144,6 +151,7 @@ struct TSRJump {
     void dump();
     void clear();
     void toXML(xmlNodePtr node) const;
+    void fromXML(xmlNodePtr node);
     bool empty() const;
 };
 
@@ -168,6 +176,7 @@ struct TSR {
     void clear();
     bool empty() const;
     void toXML(xmlNodePtr node) const;
+    void fromXML(xmlNodePtr node);
 };
 
 enum TWMDesignator {
@@ -216,14 +225,13 @@ struct TSubTypeHolder {
     virtual void parse(const std::vector<std::string> &val) = 0;
     virtual void dump();
     virtual xmlNodePtr toXML(xmlNodePtr node) const;
+    virtual xmlNodePtr fromXML(xmlNodePtr node);
+    virtual void clear();
+    virtual bool empty() const;
 
     TMeasur measur;
 
-    TSubTypeHolder():
-        sub_type(wmsUnknown),
-//        weight(ASTRA::NoExists),
-        measur(mUnknown)
-    {}
+    TSubTypeHolder(){ clear(); }
 
     virtual ~TSubTypeHolder() {};
 };
@@ -233,6 +241,9 @@ struct TGenderCount:public TSubTypeHolder {
     void parse(const std::vector<std::string> &val);
     void dump();
     xmlNodePtr toXML(xmlNodePtr node) const;
+    xmlNodePtr fromXML(xmlNodePtr node);
+    void clear();
+    bool empty() const;
     TGenderCount():
         m(ASTRA::NoExists),
         f(ASTRA::NoExists),
@@ -244,25 +255,32 @@ struct TGenderCount:public TSubTypeHolder {
 struct TClsWeight:public TSubTypeHolder {
     int f, c, y;
     void parse(const std::vector<std::string> &val);
+    bool empty() const;
     void dump();
     xmlNodePtr toXML(xmlNodePtr node) const;
-    TClsWeight():
-        f(ASTRA::NoExists),
-        c(ASTRA::NoExists),
-        y(ASTRA::NoExists)
-    {}
+    xmlNodePtr fromXML(xmlNodePtr node);
+    void clear();
+    TClsWeight(){ clear(); }
 };
 
 struct TClsGenderWeight:public std::map<std::string, TGenderCount>, public TSubTypeHolder {
     xmlNodePtr toXML(xmlNodePtr node) const;
+    xmlNodePtr fromXML(xmlNodePtr node);
+    bool empty() const;
+    void clear();
     void parse(const std::vector<std::string> &val);
     void dump();
+    TClsGenderWeight() { clear(); }
 };
 
 struct TClsBagWeight:public std::map<std::string, int>, public TSubTypeHolder {
     xmlNodePtr toXML(xmlNodePtr node) const;
+    xmlNodePtr fromXML(xmlNodePtr node);
+    bool empty() const;
+    void clear();
     void parse(const std::vector<std::string> &val);
     void dump();
+    TClsBagWeight() { clear(); }
 };
 
 struct TSimpleWeight:public TSubTypeHolder {
@@ -270,7 +288,10 @@ struct TSimpleWeight:public TSubTypeHolder {
     void parse(const std::vector<std::string> &val);
     void dump();
     xmlNodePtr toXML(xmlNodePtr node) const;
-    TSimpleWeight(): weight(ASTRA::NoExists) {};
+    xmlNodePtr fromXML(xmlNodePtr node);
+    bool empty() const;
+    void clear();
+    TSimpleWeight(){ clear(); };
 };
 
 typedef std::map<TWMType, std::tr1::shared_ptr<TSubTypeHolder> > TWMTypeMap;
@@ -284,6 +305,7 @@ struct TWM:public TWMMap {
         bool parse_wb(const char *val);
         void dump();
         void toXML(xmlNodePtr node) const;
+        void fromXML(xmlNodePtr node);
 };
 
 enum TPDType {
@@ -297,18 +319,22 @@ enum TPDType {
 struct TPDItem {
     TWeight actual; // actual weight
     TGenderCount standard; // standard weights
+    bool empty() const;
+    void toXML(xmlNodePtr node) const;
     void dump();
 };
 
 struct TPDParser:public std::map<std::string, TPDItem> {
     TPDType type;
     TPDParser(): type(pdtUnknown) {};
+    void toXML(xmlNodePtr node) const;
     void parse(TPDType atype, const std::vector<std::string> &val);
     void dump();
     std::string getKey(const std::string &val, TPDType type);
 };
 
 struct TPD:public std::map<TPDType, TPDParser> {
+    void toXML(xmlNodePtr node) const;
     void parse(const char *val);
     void dump();
 };
@@ -378,27 +404,22 @@ enum TDestInfoType {
 
 struct TClsTotal {
     int f, c, y;
-    TClsTotal():
-        f(ASTRA::NoExists),
-        c(ASTRA::NoExists),
-        y(ASTRA::NoExists)
-    {}
+    TClsTotal(){ clear(); }
+    void clear();
     void parse(const std::string &val);
     void dump(const std::string &caption);
     void toXML(xmlNodePtr node, const std::string &tag) const;
+    void fromXML(xmlNodePtr node, const std::string &tag);
 };
 
 struct TGenderTotal {
     int m, f, c, i;
-    TGenderTotal():
-        m(ASTRA::NoExists),
-        f(ASTRA::NoExists),
-        c(ASTRA::NoExists),
-        i(ASTRA::NoExists)
-    {}
+    void clear();
+    TGenderTotal(){ clear(); }
     void parse(const std::string &val);
     void dump();
     void toXML(xmlNodePtr node) const;
+    void fromXML(xmlNodePtr node);
 };
 
 struct TDestInfo
@@ -407,14 +428,11 @@ struct TDestInfo
     TMeasur measur;
     TClsTotal cls_total, actual_total;
     TGenderTotal gender_total;
+    void clear();
     void dump();
     void toXML(xmlNodePtr node) const;
-    TDestInfo():
-        total(ASTRA::NoExists),
-        weight(ASTRA::NoExists),
-        j(ASTRA::NoExists),
-        measur(mUnknown)
-    {};
+    void fromXML(xmlNodePtr node);
+    TDestInfo() { clear(); };
 };
 
 typedef std::map<TDestInfoKey, TDestInfo> TDestInfoMap;
@@ -424,6 +442,7 @@ struct TDest:public std::map<std::string, TDestInfoMap> {
     void parse(const char *val);
     void dump();
     void toXML(xmlNodePtr node) const;
+    void fromXML(xmlNodePtr node);
 };
 
 enum TSPType {
@@ -443,12 +462,14 @@ struct TLCIReqInfo {
     void clear();
     bool empty() const;
     void toXML(xmlNodePtr node) const;
+    void fromXML(xmlNodePtr node);
 };
 
 struct TRequest:public std::map<TReqType, TLCIReqInfo> {
     void parse(const char *val);
     void dump();
     void toXML(xmlNodePtr node);
+    void fromXML(xmlNodePtr node);
 };
 
 typedef const char* TLinePtr;
@@ -472,7 +493,7 @@ class TLCIContent
         std::string sender;
         int typeb_in_id;
 
-        void answer();
+        std::string answer();
 
         TActionCode action_code;
         TRequest req;

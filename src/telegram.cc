@@ -1456,8 +1456,11 @@ void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     GetTlgOut(ctxt,reqNode,resNode);
 };
 
-void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info, int typeb_in_id, bool forwarded)
+// В ответ кладется id созданной тлг или текст ошибки
+// Используется при формировании ответа по HTTP
+string TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info, int typeb_in_id, bool forwarded)
 {
+  string result;
   for(vector<TypeB::TCreateInfo>::const_iterator i=info.begin(); i!=info.end(); ++i)
   {
     try
@@ -1496,13 +1499,15 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info, int type
             params << PrmElem<std::string>("name", etTypeBType, i->get_tlg_type(), efmtNameShort)
                    << PrmBool("lat", i->get_options().is_lat) << PrmLexema("what", err_id, err_prms);
             TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtTlg, i->point_id, typeb_out_id);
-            TypeBHelpMng::notify_msg(typeb_in_id, E.what());
+            result = E.what();
         }
 
         if (typeb_out_id!=NoExists)
         {
             time_t time_start=time(NULL);
-            if(not TypeBHelpMng::notify_ok(typeb_in_id, typeb_out_id)) // Если небыло процесса для отвисания, действуем как обычно
+            if(typeb_in_id != NoExists)
+                result = IntToString(typeb_out_id);
+            else
                 try
                 {
                     SendTlg(typeb_out_id, forwarded);
@@ -1527,14 +1532,15 @@ void TelegramInterface::SendTlg(const vector<TypeB::TCreateInfo> &info, int type
     catch( Exception &E )
     {
       ProgError(STDLOG,"SendTlg (point_id=%d, type=%s): %s",i->point_id,i->get_tlg_type().c_str(),E.what());
-      TypeBHelpMng::notify_msg(typeb_in_id, E.what());
+      result = E.what();
     }
     catch(...)
     {
       ProgError(STDLOG,"SendTlg (point_id=%d, type=%s): unknown error",i->point_id,i->get_tlg_type().c_str());
-      TypeBHelpMng::notify_msg(typeb_in_id, "unknown error");
+      result = "unknown error";
     };
   };
+  return result;
 };
 
 namespace BSM

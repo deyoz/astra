@@ -9506,8 +9506,49 @@ void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
 {
     TypeB::TLCIContent con;
     con.fromDB(NodeAsInteger("content", reqNode));
-    con.dump();
     string res;
+    string answer = con.answer();
+    int tlg_id = NoExists;
+    try {
+        tlg_id = ToInt(answer);
+    } catch(...) {
+        res = answer;
+    }
+    if(tlg_id != ASTRA::NoExists) {
+        QParams QryParams;
+        QryParams << QParam("id", otInteger, tlg_id);
+        TCachedQuery Qry(
+                "SELECT heading, body, ending, has_errors FROM tlg_out WHERE id=:id ORDER BY num",
+                QryParams
+                );
+        Qry.get().Execute();
+        string heading, ending;
+        bool has_errors = false;
+        for(; not Qry.get().Eof; Qry.get().Next()) {
+            has_errors |= Qry.get().FieldAsInteger("has_errors") != 0;
+            if(heading.empty()) heading = Qry.get().FieldAsString("heading");
+            if(ending.empty()) ending = Qry.get().FieldAsString("ending");
+            res += Qry.get().FieldAsString("body");
+        }
+        if(has_errors) {
+            TCachedQuery errQry("select text from typeb_out_errors where tlg_id = :tlg_id and lang = :lang order by part_no",
+                    QParams()
+                    << QParam("tlg_id", otInteger, tlg_id)
+                    << QParam("lang", otString, AstraLocale::LANG_EN)
+                    );
+            errQry.get().Execute();
+            ostringstream err_text;
+            for(; not errQry.get().Eof; errQry.get().Next()) {
+                err_text << errQry.get().FieldAsString("text") << endl;
+            }
+            res = err_text.str();;
+            LogTrace(TRACE5) << "tlg_srv kick: tlg out (tlg_id: " << tlg_id << ") has errors: " << res;
+        } else {
+            res = heading + res + ending;
+            markTlgAsSent(tlg_id);
+        }
+
+    }
     NewTextChild(resNode, "content", res);
 }
 
