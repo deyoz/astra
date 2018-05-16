@@ -9506,14 +9506,16 @@ void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
 {
     TypeB::TLCIContent con;
     con.fromDB(NodeAsInteger("content", reqNode));
+    LogTrace(TRACE5) << "kick parsed: " << con.toXML();
     string res;
     string answer = con.answer();
     int tlg_id = NoExists;
-    try {
-        tlg_id = ToInt(answer);
-    } catch(...) {
-        res = answer;
-    }
+    if(not answer.empty())
+        try {
+            tlg_id = ToInt(answer);
+        } catch(...) {
+            res = answer;
+        }
     if(tlg_id != ASTRA::NoExists) {
         QParams QryParams;
         QryParams << QParam("id", otInteger, tlg_id);
