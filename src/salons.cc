@@ -6610,7 +6610,7 @@ void TZoneBL::rollback( TSalons* salons )
   }
 }
 
-void TZonesBetweenLines::getInfantSection( int point_id ) {
+void TBabyZones::getTuneSection( int point_id ) {
   if ( FUseInfantSection == boost::none ) {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -6623,7 +6623,7 @@ void TZonesBetweenLines::getInfantSection( int point_id ) {
   }
 }
 
-int TZonesBetweenLines::getFirstSeatLine( SALONS2::TPlaceList *placeList, const TPlace &seat ) {
+int TBabyZones::getFirstSeatLine( SALONS2::TPlaceList *placeList, const TPlace &seat ) {
   int res = ASTRA::NoExists;
   TPoint p( seat.x, seat.y );
   TPlace *pseat;
@@ -6636,7 +6636,7 @@ int TZonesBetweenLines::getFirstSeatLine( SALONS2::TPlaceList *placeList, const 
   return res;
 }
 
-TZonesBetweenLines::iterator TZonesBetweenLines::getZoneBL( SALONS2::TPlaceList *placeList, const TPlace &seat ) {
+TBabyZones::iterator TBabyZones::getZoneBL( SALONS2::TPlaceList *placeList, const TPlace &seat ) {
   if ( !FUseInfantSection.get() ) {
     return this->end();
   }
@@ -6645,7 +6645,7 @@ TZonesBetweenLines::iterator TZonesBetweenLines::getZoneBL( SALONS2::TPlaceList 
   if ( key_x == ASTRA::NoExists ) {
     return this->end();
   }
-  TZonesBetweenLines::iterator izbl;
+  TBabyZones::iterator izbl;
   int key = getSeatKey::get( placeList->num, key_x, seat.y );
   if ( (izbl=find( key )) != end() ) {
 //    tst();
@@ -6670,18 +6670,18 @@ TZonesBetweenLines::iterator TZonesBetweenLines::getZoneBL( SALONS2::TPlaceList 
   return insert( make_pair( key, zoneBL ) ).first;
 }
 
-void TZonesBetweenLines::setDisabled( TSalons* Salons, const TPaxsCover &grpPaxs, const std::set<int> &pax_lists )
+void TBabyZones::setDisabledBabySection( TSalons* Salons, const TPaxsCover &grpPaxs, const std::set<int> &pax_lists )
 {
   clear();
   if ( !FUseInfantSection ) {
     return;
   }
   for ( std::vector<TPlaceList*>::iterator ilist=Salons->placelists.begin(); ilist!=Salons->placelists.end(); ++ilist ) {
-    setDisabled( Salons->trip_id, Salons, *ilist, grpPaxs, pax_lists, DisableMode::dlayers );
+    setDisabledBabySection( Salons->trip_id, Salons, *ilist, grpPaxs, pax_lists, DisableMode::dlayers );
   }
 }
 
-void TZonesBetweenLines::setDisabled( int point_id, TSalons* Salons, TPlaceList* placeList, const TPaxsCover &grpPaxs, const std::set<int> &pax_lists, DisableMode mode )
+void TBabyZones::setDisabledBabySection( int point_id, TSalons* Salons, TPlaceList* placeList, const TPaxsCover &grpPaxs, const std::set<int> &pax_lists, DisableMode mode )
 {
   if ( !FUseInfantSection ) {
     return;
@@ -6718,7 +6718,7 @@ void TZonesBetweenLines::setDisabled( int point_id, TSalons* Salons, TPlaceList*
         ProgTrace( TRACE5, "ownerFirstSeatLine=%d, not set disabled", ownerFirstSeatLine );
         continue;
       }
-      TZonesBetweenLines::iterator zone = getZoneBL( placeList, *iseat );
+      TBabyZones::iterator zone = getZoneBL( placeList, *iseat );
       if ( zone == this->end() ) {
         continue;
       }
@@ -6728,9 +6728,9 @@ void TZonesBetweenLines::setDisabled( int point_id, TSalons* Salons, TPlaceList*
   }
 }
 
-void TZonesBetweenLines::rollbackDisabled( TSalons* salons )
+void TBabyZones::rollbackDisabledBabySection( TSalons* salons )
 {
-   for ( TZonesBetweenLines::iterator izone=begin(); izone!=end(); ++izone ) {
+   for ( TBabyZones::iterator izone=begin(); izone!=end(); ++izone ) {
      if ( izone->second == boost::none ||
           izone->second.get().empty() ) {
        continue;
@@ -6740,6 +6740,69 @@ void TZonesBetweenLines::rollbackDisabled( TSalons* salons )
    }
 }
 
+void TEmergencySeats::getTuneSection( int point_id ) {
+  if ( FDeniedEmergencySeats == boost::none ) {
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+      "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.Execute();
+    TTripInfo info( Qry );
+    FDeniedEmergencySeats = GetTripSets( tsDeniedSeatCHINEmergencyExit, info );
+    ProgTrace( TRACE5, "FDeniedEmergencySeats=%d", FDeniedEmergencySeats.get() );
+  }
+}
+
+void TEmergencySeats::setDisabledEmergencySeats( TSalons* Salons )
+{
+  clear();
+  if ( !FDeniedEmergencySeats ) {
+    return;
+  }
+  for ( std::vector<TPlaceList*>::iterator ilist=Salons->placelists.begin(); ilist!=Salons->placelists.end(); ++ilist ) {
+    setDisabledEmergencySeats( Salons->trip_id, Salons, *ilist );
+  }
+
+}
+void TEmergencySeats::setDisabledEmergencySeats( int point_id, TSalons* Salons, TPlaceList* placeList )
+{
+  if ( !FDeniedEmergencySeats ) {
+    return;
+  }
+  boost::optional<TZoneBL> zoneBL = TZoneBL(placeList->num);
+  int key = placeList->num;
+  for ( IPlace iseat=placeList->places.begin(); iseat!=placeList->places.end(); iseat++ ) {
+    if ( !iseat->visible ||
+         !iseat->isplace ||
+         iseat->elem_type != ARMCHAIR_EMERGENCY_EXIT_TYPE ) {
+       continue;
+    }
+    if ( find( key ) != end() ) {
+      continue;
+    }
+  //  tst();
+    TPoint p( iseat->x, iseat->y );
+    zoneBL.get().push_back( placeList->place( p ) );
+  }
+  if ( zoneBL != boost::none &&
+       !zoneBL.get().empty() ) {
+    TEmergencySeats::iterator izone = insert( make_pair( key, zoneBL ) ).first;
+    ProgTrace(TRACE5, "zone=%s set disabled", izone->second.get().toString().c_str() );
+    izone->second.get().setDisabled( point_id, Salons );
+  }
+}
+
+void TEmergencySeats::rollbackDisabledEmergencySeats( TSalons* salons )
+{
+  for ( TEmergencySeats::iterator izone=begin(); izone!=end(); ++izone ) {
+    if ( izone->second == boost::none ||
+         izone->second.get().empty() ) {
+      continue;
+    }
+    ProgTrace( TRACE5, "rollback zone %s", izone->second.get().toString().c_str() );
+    izone->second.get().rollback( salons );
+  }
+}
 /////////////////////////////////////////////////////////
 void TSalons::Read( bool drop_not_used_pax_layers )
 {

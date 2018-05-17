@@ -22,6 +22,7 @@
 #include "points.h"
 #include "web_main.h"
 #include "passenger.h"
+#include "remarks.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -2246,14 +2247,29 @@ bool TSublsRems::IsSubClsRem( const string &subclass, string &vrem )
   return !vrem.empty();
 }
 
-void TPassenger::add_rem( std::string code )
+void TPassenger::add_rem( const std::string &code )
 {
     if ( isREM_SUBCLS( code ) )
         SUBCLS_REM = code;
     rems.push_back( code );
 }
 
-void TPassenger::calc_priority( std::map<std::string, int> &remarks )
+void TPassenger::remove_rem( const std::string &code, const std::map<std::string, int> &remarks )
+{
+  if ( isREM_SUBCLS( code ) ) {
+    SUBCLS_REM.clear();
+  }
+  if ( code == maxRem ) {
+    maxRem.clear();
+  }
+  std::vector<std::string>::iterator irem = std::find( rems.begin(), rems.end(), code );
+  if ( irem != rems.end() ) {
+    rems.erase( irem );
+  }
+  calc_priority( remarks );
+}
+
+void TPassenger::calc_priority( const std::map<std::string, int> &remarks )
 {
   for (vector<string>::iterator ir=rems.begin(); ir!=rems.end(); ) {
     if ( remarks.find( *ir ) == remarks.end() )
@@ -2270,22 +2286,22 @@ void TPassenger::calc_priority( std::map<std::string, int> &remarks )
     priority += PR_SMOKE;
   int vpriority = 0;
   maxRem.clear();
-  for ( std::vector<string>::iterator irem = rems.begin(); irem != rems.end(); irem++ ) {
-    if ( remarks[ *irem ] > vpriority ) {
-      vpriority = remarks[ *irem ];
-      maxRem = *irem;
+  for ( std::vector<string>::const_iterator irem = rems.begin(); irem != rems.end(); irem++ ) {
+    std::map<std::string, int>::const_iterator iremark_prior = remarks.find( *irem );
+    if ( iremark_prior != remarks.end() ) {
+      if ( iremark_prior->second > vpriority ) {
+        vpriority = iremark_prior->second;
+        maxRem = *irem;
+      }
+      priority += iremark_prior->second*countPlace; //???
     }
-    priority += remarks[ *irem ]*countPlace; //???
   }
   //???  priority += priority*countPlace;
 }
 
 void TPassenger::get_remarks( std::vector<std::string> &vrems )
 {
-    vrems.clear();
-  for (std::vector<string>::iterator irem=rems.begin(); irem!=rems.end(); irem++ ) {
-    vrems.push_back( *irem );
-  }
+  vrems = rems;
 }
 
 bool TPassenger::isRemark( std::string code )
@@ -2419,6 +2435,18 @@ bool TPassengers::withBaby()
   }
   return false;
 }
+
+bool TPassengers::withCHIN()
+{
+  for ( int i=0; i<getCount(); i++ ) {
+    TPassenger &pass = Get( i );
+    if ( pass.isRemark( "CHIN" ) ) {
+       return true;
+    }
+  }
+  return false;
+}
+
 
 void TPassengers::Add( TPassenger &pass )
 {
@@ -2957,8 +2985,21 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
   throw UserException( "MSG.SEATS.NOT_AVAIL_AUTO_SEATS" );
 }
 
+std::string separatelyRem( const std::string &rem, const std::vector<std::string> &rems, int idx )
+{
+  ostringstream rem_variant;
+  if ( std::find( rems.begin(), rems.end(), rem ) != rems.end() ) {
+    rem_variant << rem <<  setw(3) << idx;
+  }
+  else {
+    rem_variant << "ZZZZ" << "999";
+  }
+  return rem_variant.str();
+}
 
-void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passGrps, bool separately_seat_adult_with_baby )
+void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passGrps,
+                             bool separately_seat_adult_with_baby,
+                             bool separately_seat_chin_emergency )
 {
   SeatsStat.start(__FUNCTION__);
   passGrps.clear();
@@ -2979,13 +3020,10 @@ void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passG
       }
       //взрослые и взрослые с младенцами
       ostringstream grp_variant;
-      if ( separately_seat_adult_with_baby &&
-           pass.isRemark( "INFT" ) ) { //отдельно каждого пассажира
-        grp_variant << "INFT" << setw(3) << pass.index;
-      }
-      else {
-        grp_variant << "ZZZZ" << "999";
-      }
+      std::vector<std::string> vrems;
+      pass.get_remarks( vrems );
+      grp_variant << separatelyRem( separately_seat_adult_with_baby?"INFT":"", vrems, pass.index );
+      grp_variant << separatelyRem( separately_seat_chin_emergency?"CHIN":"", vrems, pass.index );
       //дети и оплата
       grp_variant << pr_pay << (ignoreINFT || pass.isRemark( "INFT" ));
       //тариф
@@ -3063,26 +3101,35 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
     ipaxs->second.setPaxWithInfant( pax_lists_with_baby );
   }
   AllowedAttrsSeat.isWorkINFT( Salons->trip_id ); //нужно для инициализации переменной pr_INFT
-  TZonesBetweenLines zonesBetweenLines( CurrSalon->trip_id );
-  dividePassengersToGrps( passengers, passGrps, zonesBetweenLines.useInfantSection() );
+  TBabyZones babyZoness( CurrSalon->trip_id );
+  TEmergencySeats emergencySeats( CurrSalon->trip_id );
+  dividePassengersToGrps( passengers, passGrps,
+                          babyZoness.useInfantSection(),
+                          emergencySeats.deniedEmergencySection()
+                          );
   // passengers - скорее всего это глобальная переменная, надо ее запомнить, использовать, а потом восстановить
   //в последнем элементе вектора - вся группа до разбивки
   std::vector<TCoordSeat> paxsSeats;
   VSeatPlaces seatsGrps;
   for ( std::vector<TPassengers>::iterator ipassGrp=passGrps.begin(); ipassGrp!=passGrps.end(); ) {
     passengers = *ipassGrp;
-    zonesBetweenLines.clear();
-    bool separately_seats_adult_with_baby = zonesBetweenLines.useInfantSection() && passengers.withBaby();
+    babyZoness.clear();
+    emergencySeats.clear();
+    bool separately_seats_adult_with_baby = babyZoness.useInfantSection() && passengers.withBaby();
+    bool denial_emergency_seats = emergencySeats.deniedEmergencySection() && passengers.withCHIN();
     try {
       bool pr_rollback = ( !passGrps.empty() && ipassGrp == passGrps.end() - 1 ); //вся группа
       ProgTrace( TRACE5, "pr_rollback=%d, separately_seats_adult_with_baby=%d, passengers.getCount=%d", pr_rollback, separately_seats_adult_with_baby, passengers.getCount() );
+      if ( denial_emergency_seats ) {
+        emergencySeats.setDisabledEmergencySeats( Salons );
+      }
       if ( separately_seats_adult_with_baby ) {
         TPaxsCover paxs;
         for ( int i=0; i<passengers.getCount(); i++ ) {
           ProgTrace( TRACE5, "pax(%i).pax_id=%d", i, passengers.Get(i).paxId );
           paxs.push_back( TPaxCover( passengers.Get(i).paxId, ASTRA::NoExists ) );
         }
-        zonesBetweenLines.setDisabled( Salons, paxs, pax_lists_with_baby );
+        babyZoness.setDisabledBabySection( Salons, paxs, pax_lists_with_baby );
       }
       SeatsPassengers( Salons,
                        ASeatAlgoParams /* sdUpDown_Line - умолчание */,
@@ -3091,7 +3138,8 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
                        separately_seats_adult_with_baby,
                        passengers,
                        paxsSeats );
-      zonesBetweenLines.rollbackDisabled( Salons );
+      babyZoness.rollbackDisabledBabySection( Salons );
+      emergencySeats.rollbackDisabledEmergencySeats( Salons );
       //указать, что найденные места принадлежат пассажирам с детьми!!!
       ipassGrp++;
       SeatPlaces >> seatsGrps; //сохраняем места
@@ -3141,8 +3189,14 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
       }
     }
     catch(...) {
-      if ( separately_seats_adult_with_baby ) {
-        zonesBetweenLines.rollbackDisabled( Salons );
+      if ( denial_emergency_seats ||
+           separately_seats_adult_with_baby ) {
+        if ( denial_emergency_seats ) {
+          emergencySeats.rollbackDisabledEmergencySeats( Salons );
+        }
+        if ( separately_seats_adult_with_baby ) {
+          babyZoness.rollbackDisabledBabySection( Salons );
+        }
         SeatsStat.stop(__FUNCTION__);
         throw;
       }
@@ -3462,7 +3516,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
       prINFT = true;
     }
     if ( !pass.SUBCLS_REM.empty() && !Salons->isExistSubcls( pass.SUBCLS_REM ) ) {
-      pass.SUBCLS_REM.clear();
+      pass.remove_rem( pass.SUBCLS_REM, passengers.remarks );
     }
 
     if ( !pass.SUBCLS_REM.empty() ) {
@@ -4942,20 +4996,50 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
     r.second = r.first;
     if ( !getCurrSeat( salonList, r, coord, isalonList ) ) {
       tst();
-        throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
+      throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
     }
-    TZonesBetweenLines  zonesBetweenLines( point_id );
+    TBabyZones  babyZones( point_id );
+    TEmergencySeats emergencySeats( point_id );
     TPaxsCover grpPaxs;
     grpPaxs.push_back( TPaxCover( pax_id, ASTRA::NoExists ) );
     std::set<int> pax_with_baby_lists;
     std::map<int,TPaxList>::const_iterator ipaxs = salonList.pax_lists.find( point_id );
-    if ( zonesBetweenLines.useInfantSection() ) {
+    if ( emergencySeats.deniedEmergencySection() ||
+         babyZones.useInfantSection() ) {
       if ( ipaxs != salonList.pax_lists.end() ) {
-        //tst();
         ipaxs->second.setPaxWithInfant( pax_with_baby_lists );
       }
+    }
+    //calc CHIN REM
+    if ( emergencySeats.deniedEmergencySection() ) {
+      bool flagCHIN = ( DecodePerson( pers_type.c_str() ) != ASTRA::adult || pax_with_baby_lists.find( pax_id ) != pax_with_baby_lists.end() );
+      if ( !flagCHIN ) {
+        multiset<CheckIn::TPaxRemItem> rems;
+        if ( prCheckin ) {
+          CheckIn::LoadPaxRem(pax_id, rems);
+        }
+        else {
+          CheckIn::LoadCrsPaxRem(pax_id, rems);
+        }
+        for(multiset<CheckIn::TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
+        {
+          if (r->code=="BLND" ||
+              r->code=="STCR" ||
+              r->code=="UMNR" ||
+              r->code=="WCHS" ||
+              r->code=="MEDA") {
+           flagCHIN=true;
+           break;
+         }
+        }
+      }
+      if ( flagCHIN ) {
+        emergencySeats.setDisabledEmergencySeats( point_id, nullptr, *isalonList );
+      }
+    }
+    if ( babyZones.useInfantSection() ) {
       if ( pax_with_baby_lists.find( pax_id ) != pax_with_baby_lists.end() ) {
-        zonesBetweenLines.setDisabled( point_id, nullptr, *isalonList, grpPaxs, pax_with_baby_lists, TZonesBetweenLines::DisableMode::dlrss );
+        babyZones.setDisabledBabySection( point_id, nullptr, *isalonList, grpPaxs, pax_with_baby_lists, TBabyZones::DisableMode::dlrss );
       }
     }
     std::vector<SALONS2::TPlace> verifyPlaces;
@@ -4967,8 +5051,16 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
       }
       //проверка на то, что блок мест принадлежит пассажиру с ребенком и у нас пассажир с ребенком
       if ( seat->isLayer( cltDisable ) ) {
-        zonesBetweenLines.rollbackDisabled();
-        throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL_WITH_INFT" );
+        if ( emergencySeats.in( (*isalonList)->num, seat ) ) {
+          tst();
+          throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
+        }
+        else {
+          tst();
+          throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL_WITH_INFT" );
+        }
+        babyZones.rollbackDisabledBabySection();
+        emergencySeats.rollbackDisabledEmergencySeats();
       }
       //назначим тарифы для пассажира
       //TPropsPoints points( salonList.filterSets.filterRoutes, salonList.filterRoutes.point_dep, salonList.filterRoutes.point_arv );
@@ -5288,14 +5380,8 @@ void dividePassengersToGrpsAutoSeats( TIntStatusSalonPassengers::const_iterator 
 {
   TClsGrp &cls_grp = (TClsGrp &)base_tables.get("CLS_GRP");    //cls_grp.code subclass,
   SEATS2::TSublsRems subcls_rems( salonList.getAirline() );
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT rem, rem_code, comp_rem_types.pr_comp "
-    " FROM pax_rem, comp_rem_types "
-    "WHERE pax_rem.pax_id=:pax_id AND "
-    "      rem_code=comp_rem_types.code AND pr_comp<>0"
-    " ORDER BY pr_comp, code ";
-  Qry.DeclareVariable( "pax_id", otInteger );
+  std::map<std::string, int> comp_rems;
+  LoadCompRemarksPriority( comp_rems );
 
   TPassengers PassWoBaby;
   passGrps.clear();
@@ -5317,7 +5403,7 @@ void dividePassengersToGrpsAutoSeats( TIntStatusSalonPassengers::const_iterator 
     vpass.regNo = ipass->reg_no;
     vpass.fullName = ipass->surname;
     vpass.fullName = TrimString( vpass.fullName ) + string(" ") + ipass->name;
-    vpass.pers_type = ipass->pers_type;
+    vpass.pers_type = EncodePerson( ipass->pers_type );
     vpass.paxId = ipass->pax_id;
     vpass.point_arv = ipass->point_arv;
     vpass.foundSeats = string("(") + ipass->prior_seat_no( "one", salonList.isCraftLat() ) + string(")");
@@ -5329,23 +5415,39 @@ void dividePassengersToGrpsAutoSeats( TIntStatusSalonPassengers::const_iterator 
       ProgTrace( TRACE5, "AutoReSeatsPassengers: pax_id=%d add INFT", vpass.paxId );
       vpass.add_rem( "INFT" );
     }
-    Qry.SetVariable( "pax_id", ipass->pax_id );
-    Qry.Execute();
     vpass.Step = sRight;
-    for ( ; !Qry.Eof; Qry.Next() ) {
-      vpass.add_rem( Qry.FieldAsString( "rem_code" ) );
-      if ( string(Qry.FieldAsString( "rem_code" )) == "STCR" ) {
+    bool flagCHIN = ( ipass->pr_infant != ASTRA::NoExists ||
+                      DecodePerson( vpass.pers_type.c_str() ) != ASTRA::adult ||
+                      pax_lists_with_baby.find( vpass.paxId ) != pax_lists_with_baby.end() );
+    ProgTrace( TRACE5, "pax_id=%d, flagCHIN=%d,ipass->pr_infant=%d,vpass.pers_type.c_str()=%s, baby=%d", ipass->pax_id, flagCHIN, ipass->pr_infant, vpass.pers_type.c_str(), pax_lists_with_baby.find( vpass.paxId ) != pax_lists_with_baby.end() );
+    multiset<CheckIn::TPaxRemItem> rems;
+    CheckIn::LoadPaxRem( vpass.paxId, rems);
+    for(multiset<CheckIn::TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
+    {
+      if (r->code=="BLND" ||
+          r->code=="STCR" ||
+          r->code=="UMNR" ||
+          r->code=="WCHS" ||
+          r->code=="MEDA") {
+        flagCHIN=true;
+      }
+      if ( comp_rems.find( r->code ) != comp_rems.end() &&
+           r->code == "STCR" ) {
         vpass.Step = sDown;
       }
+    }
+    if ( flagCHIN ) {
+      vpass.add_rem( "CHIN" );
     }
     string rem;
     const TBaseTableRow &row=cls_grp.get_row( "id", ipass->class_grp );
     if ( subcls_rems.IsSubClsRem( row.AsString( "code" ), rem ) ) {
       vpass.add_rem( rem );
     }
-    ProgTrace( TRACE5, "pass add pax_id=%d", vpass.paxId );
-    if ( !pax_lists_with_baby.empty() &&
-         pax_lists_with_baby.find( vpass.paxId ) != pax_lists_with_baby.end() ) {
+    ProgTrace( TRACE5, "pass add pax_id=%d, add CHIN=%d", vpass.paxId, flagCHIN );
+    //по одному
+    if ( pax_lists_with_baby.find( vpass.paxId ) != pax_lists_with_baby.end() ||
+         vpass.isRemark( "CHIN" ) ) {
       TPassengers p;
       p.Add( salonList, vpass );
       passGrps.push_back( p );
@@ -5362,29 +5464,14 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
                             TSeatAlgoParams ASeatAlgoParams )
 {
   ProgTrace( TRACE5, "AutoReSeatsPassengers: point_id=%d", salonList.getDepartureId() );
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT airline FROM points WHERE point_id=:point_id";
-  Qry.CreateVariable( "point_id", otInteger, salonList.getDepartureId() );
-  Qry.Execute();
-  if ( Qry.Eof )
-    throw UserException( "MSG.FLIGHT.NOT_FOUND" );
-  string airline = Qry.FieldAsString( "airline" );
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT rem, rem_code, comp_rem_types.pr_comp "
-    " FROM pax_rem, comp_rem_types "
-    "WHERE pax_rem.pax_id=:pax_id AND "
-    "      rem_code=comp_rem_types.code AND pr_comp<>0"
-    " ORDER BY pr_comp, code ";
-  Qry.DeclareVariable( "pax_id", otInteger );
-
   std::vector<TCoordSeat> paxsSeats;
   TPassengers Passes;
   TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
-  TZonesBetweenLines zonesBetweenLines( salonList.getDepartureId() );
+  TBabyZones babyZones( salonList.getDepartureId() );
+  TEmergencySeats emergencySeats( salonList.getDepartureId() );
   std::set<int> pax_lists_with_baby;
-  if ( zonesBetweenLines.useInfantSection() ) {
+  if ( babyZones.useInfantSection() ||
+       emergencySeats.deniedEmergencySection() ) {
     //находим всех младенцев
     std::map<int,TPaxList>::const_iterator ipaxs = salonList.pax_lists.find( salonList.getDepartureId() );
     if ( ipaxs != salonList.pax_lists.end() ) {
@@ -5507,23 +5594,29 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
               ProgTrace( TRACE5, "AutoReSeatsPassengers: Passengers.getCount()=%d, layer_type=%s",
                          Passengers.getCount(), grp_status_row.layer_type.c_str()  );
               SeatPlaces.grp_status = Passengers.Get( 0 ).grp_status;
-              bool separately_seats_adult_with_baby = zonesBetweenLines.useInfantSection() && Passengers.withBaby();
+              bool separately_seats_adult_with_baby = babyZones.useInfantSection() && Passengers.withBaby();
+              bool denial_emergency_seats = emergencySeats.deniedEmergencySection() && Passengers.withCHIN();
               if ( separately_seats_adult_with_baby ) {
                 SeatPlaces.separately_seats_adults_crs_pax_id = Passengers.Get( 0 ).paxId;
               }
               else {
                 SeatPlaces.separately_seats_adults_crs_pax_id = ASTRA::NoExists;
               }
-              zonesBetweenLines.clear();
+              babyZones.clear();
+              emergencySeats.clear();
+              if ( denial_emergency_seats ) {
+                emergencySeats.setDisabledEmergencySeats( CurrSalon );
+              }
               if ( separately_seats_adult_with_baby ) {
                 TPaxsCover paxs;
                 for ( int i=0; i<Passengers.getCount(); i++ ) {
                     paxs.push_back( TPaxCover( Passengers.Get(i).paxId, ASTRA::NoExists ) );
                 }
-                zonesBetweenLines.setDisabled( CurrSalon, paxs, pax_lists_with_baby );
+                babyZones.setDisabledBabySection( CurrSalon, paxs, pax_lists_with_baby );
               }
               SeatPlaces.SeatsPassengers( true );
-              zonesBetweenLines.rollbackDisabled( CurrSalon );
+              emergencySeats.rollbackDisabledEmergencySeats( CurrSalon );
+              babyZones.rollbackDisabledBabySection( CurrSalon );
               SeatPlaces.RollBack( );
               int s = Passengers.getCount();
               for ( int i=0; i<s; i++ ) {

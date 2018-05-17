@@ -19,6 +19,11 @@ using BASIC::date_time::TDateTime;
 
 namespace SALONS2
 {
+
+const std::string PARTITION_ELEM_TYPE = "è";
+const std::string ARMCHAIR_ELEM_TYPE = "ä";
+const std::string ARMCHAIR_EMERGENCY_EXIT_TYPE = "Ä";
+
 enum TReadStyle { rTripSalons, rComponSalons };
 
 enum TModify { mNone, mDelete, mAdd, mChange };
@@ -1262,23 +1267,53 @@ struct TZoneBL:public std::vector<TPlace*> {
     std::string toString();
 };
 
-struct TZonesBetweenLines: public std::map<int,boost::optional<TZoneBL> >{
+struct TEmergencySeats: public std::map<int,boost::optional<TZoneBL> >{
+private:
+  boost::optional<bool> FDeniedEmergencySeats = boost::none;
+  void getTuneSection( int point_id );
+public:
+  enum DisableMode { dlayers, dlrss };
+  void setDisabledEmergencySeats( TSalons* Salons );
+  void setDisabledEmergencySeats( int point_id, TSalons* Salons, TPlaceList* placeList );
+  void rollbackDisabledEmergencySeats( TSalons* salons = nullptr );
+  TEmergencySeats( int point_id ) {
+     getTuneSection( point_id );
+  }
+  bool deniedEmergencySection() {
+   return FDeniedEmergencySeats.get();
+  }
+  bool in( int num, TPlace *seat ) {
+    bool res = false;
+    for ( TEmergencySeats::const_iterator izone=begin(); izone!=end(); izone++ ) {
+      if ( izone->first != num ) {
+        continue;
+      }
+      if ( izone->second != boost::none && !izone->second.get().empty() ) {
+        res = std::find( izone->second.get().begin(), izone->second.get().end(), seat ) != izone->second.get().end();
+      }
+      break;
+    }
+    return res;
+  }
+};
+
+struct TBabyZones: public std::map<int,boost::optional<TZoneBL> >{
   private:
     boost::optional<bool> FUseInfantSection = boost::none;
-    void getInfantSection( int point_id );
-    TZonesBetweenLines::iterator getZoneBL( SALONS2::TPlaceList *placeList, const TPlace &seat );
+    void getTuneSection( int point_id );
+    TBabyZones::iterator getZoneBL( SALONS2::TPlaceList *placeList, const TPlace &seat );
   public:
     enum DisableMode { dlayers, dlrss };
-    TZonesBetweenLines( int point_id ) {
-       getInfantSection( point_id );
+    TBabyZones( int point_id ) {
+       getTuneSection( point_id );
     }
     bool useInfantSection() {
      return FUseInfantSection.get();
     }
     int getFirstSeatLine( SALONS2::TPlaceList *placeList, const TPlace &seat );
-    void setDisabled( TSalons* Salons, const TPaxsCover &grpPaxs, const std::set<int> &pax_lists );
-    void setDisabled( int point_id, TSalons* Salons, TPlaceList* placeList, const TPaxsCover &grpPaxs, const std::set<int> &pax_lists, DisableMode mode );
-    void rollbackDisabled( TSalons* salons = nullptr );
+    void setDisabledBabySection( TSalons* Salons, const TPaxsCover &grpPaxs, const std::set<int> &pax_lists );
+    void setDisabledBabySection( int point_id, TSalons* Salons, TPlaceList* placeList, const TPaxsCover &grpPaxs, const std::set<int> &pax_lists, DisableMode mode );
+    void rollbackDisabledBabySection( TSalons* salons = nullptr );
 };
 
 
