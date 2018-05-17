@@ -79,10 +79,6 @@ InetClient getInetClient(string client_id)
 namespace AstraWeb
 {
 
-const string PARTITION_ELEM_TYPE = "è";
-const string ARMCHAIR_ELEM_TYPE = "ä";
-const string ARMCHAIR_EMERGENCY_EXIT_TYPE = "Ä";
-
 int readInetClientId(const char *head)
 {
   short grp;

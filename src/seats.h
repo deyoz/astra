@@ -170,8 +170,9 @@ struct TPassenger {
       point_arv = ASTRA::NoExists;
     }
     void set_seat_no();
-    void add_rem( std::string code );
-    void calc_priority(std::map<std::string, int> &remarks);
+    void add_rem( const std::string &code );
+    void remove_rem( const std::string &code, const std::map<std::string, int> &remarks );
+    void calc_priority( const std::map<std::string, int> &remarks );
     void get_remarks( std::vector<std::string> &vrems );
     bool isRemark( std::string code );
     bool is_valid_seats( const std::vector<SALONS2::TPlace> &places );
@@ -301,9 +302,9 @@ typedef std::vector<TPassenger> VPassengers;
 
 class TPassengers {
   private:
-    std::map<std::string, int> remarks;
     VPassengers FPassengers;
   public:
+    std::map<std::string, int> remarks;
     TCounters counters;
     std::string clname;   // класс с которым мы работаем
     bool KTube;
@@ -326,6 +327,7 @@ class TPassengers {
     void sortByIndex();
     void operator = (TPassengers &items);
     bool withBaby();
+    bool withCHIN();
 };
 
 struct TSeatPlace {
