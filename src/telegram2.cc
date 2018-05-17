@@ -9449,73 +9449,32 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     NewTextChild( resNode, "tlg_id", tlg_id);
 };
 
-void TelegramInterface::kick_old(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    // tlg_id is a tlg_out.id
-    int tlg_id = NoExists;
-    string res;
-    try {
-        xmlNodePtr curNode = NodeAsNode("content", reqNode);
-        curNode = NodeAsNode("LCIData", curNode);
-        tlg_id =  NodeAsInteger("typeb_out_id", curNode);
-    } catch(...) {
-        res = NodeAsString("content", reqNode);
-    }
-    if(tlg_id == ASTRA::NoExists) {
-        LogTrace(TRACE5) << "tlg_srv kick: " << res;
-    } else {
-        QParams QryParams;
-        QryParams << QParam("id", otInteger, tlg_id);
-        TCachedQuery Qry(
-                "SELECT heading, body, ending, has_errors FROM tlg_out WHERE id=:id ORDER BY num",
-                QryParams
-                );
-        Qry.get().Execute();
-        string heading, ending;
-        bool has_errors = false;
-        for(; not Qry.get().Eof; Qry.get().Next()) {
-            has_errors |= Qry.get().FieldAsInteger("has_errors") != 0;
-            if(heading.empty()) heading = Qry.get().FieldAsString("heading");
-            if(ending.empty()) ending = Qry.get().FieldAsString("ending");
-            res += Qry.get().FieldAsString("body");
-        }
-        if(has_errors) {
-            TCachedQuery errQry("select text from typeb_out_errors where tlg_id = :tlg_id and lang = :lang order by part_no",
-                    QParams()
-                    << QParam("tlg_id", otInteger, tlg_id)
-                    << QParam("lang", otString, AstraLocale::LANG_EN)
-                    );
-            errQry.get().Execute();
-            ostringstream err_text;
-            for(; not errQry.get().Eof; errQry.get().Next()) {
-                err_text << errQry.get().FieldAsString("text") << endl;
-            }
-            res = err_text.str();;
-            LogTrace(TRACE5) << "tlg_srv kick: tlg out (tlg_id: " << tlg_id << ") has errors: " << res;
-        } else {
-            res = heading + res + ending;
-            markTlgAsSent(tlg_id);
-        }
-    }
-    NewTextChild(resNode, "content", res);
-}
-
 #include "tlg/lci_parser.h"
 
 void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    TypeB::TLCIContent con;
-    con.fromDB(NodeAsInteger("content", reqNode));
-    LogTrace(TRACE5) << "kick parsed: " << con.toXML();
     string res;
-    string answer = con.answer();
     int tlg_id = NoExists;
-    if(not answer.empty())
-        try {
-            tlg_id = ToInt(answer);
-        } catch(...) {
-            res = answer;
-        }
+    int lci_data_id = NoExists;
+
+    try {
+        lci_data_id = NodeAsInteger("content", reqNode);
+    } catch(...) {
+        res = NodeAsString("content", reqNode);
+    }
+
+    if(lci_data_id != NoExists) {
+        TypeB::TLCIContent con;
+        con.fromDB(lci_data_id);
+        string answer = con.answer();
+        if(not answer.empty())
+            try {
+                tlg_id = ToInt(answer);
+            } catch(...) {
+                res = answer;
+            }
+    }
+
     if(tlg_id != ASTRA::NoExists) {
         QParams QryParams;
         QryParams << QParam("id", otInteger, tlg_id);

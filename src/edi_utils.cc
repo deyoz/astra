@@ -615,6 +615,7 @@ void cleanOldRecords(int min_ago)
   AstraContext::ClearContext("EDI_SESSION", min_time);
   AstraContext::ClearContext("TERM_REQUEST",min_time);
   AstraContext::ClearContext("EDI_RESPONSE",min_time);
+  AstraContext::ClearContext("LCI",min_time);
 
   TQuery Qry(&OraSession);
 
