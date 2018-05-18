@@ -214,3 +214,41 @@ class TCounters
 };
 
 } //namespace CheckIn
+
+namespace Timing
+{
+
+class Point
+{
+  public:
+    std::string what;
+    boost::optional<int> seg_no;
+
+    Point(const std::string& _what, const boost::optional<int>& _seg_no=boost::none) : what(_what), seg_no(_seg_no) {}
+
+    bool operator < (const Point &point) const
+    {
+      if (what!=point.what)
+        return what<point.what;
+      if (seg_no && point.seg_no)
+        return seg_no.get() < point.seg_no.get();
+      else
+        return seg_no<point.seg_no;
+    }
+
+};
+
+class Intervals : public std::list< std::pair<boost::posix_time::ptime, boost::posix_time::ptime> > {};
+
+class Points : public std::map<Point, Intervals>
+{
+  public:
+    void start(const std::string& _what, const boost::optional<int>& _seg_no=boost::none);
+    void finish(const std::string& _what, const boost::optional<int>& _seg_no=boost::none);
+    ~Points();
+};
+
+} //namespace Timing
+
+
+
