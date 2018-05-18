@@ -4215,6 +4215,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                                CheckIn::TAfterSaveInfoList &AfterSaveInfoList,
                                bool& httpWasSent)
 {
+  Timing::Points timing;
+
+  timing.start("SavePax");
+
+  timing.start("BeforeLock");
+
   AfterSaveInfoList.push_back(CheckIn::TAfterSaveInfo());
   CheckIn::TAfterSaveInfo &AfterSaveInfo=AfterSaveInfoList.back();
 
@@ -4248,10 +4254,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     point_ids.push_back(segInfo.point_dep);
   }
 
+  timing.finish("BeforeLock");
+
   TFlights flightsForLock;
   flightsForLock.Get( point_ids, ftTranzit );
   //лочить рейсы надо по возрастанию poind_dep иначе может быть deadlock
   flightsForLock.Lock(__FUNCTION__);
+
+  timing.start("AfterLock");
 
   for(map<int,TSegInfo>::iterator s=segs.begin();s!=segs.end();++s)
   {
@@ -4540,6 +4550,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     }
   }
 
+  timing.finish("AfterLock");
+
   segNode=NodeAsNode("segments/segment",reqNode);
   int seg_no=1;
   bool first_segment=true;
@@ -4555,8 +4567,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     CheckIn::TPaxList &paxs=iSegListItem->paxs;
     CheckIn::TSimplePaxList priorSimplePaxList, currSimplePaxList;
 
+    timing.start("annul_bt_before", grp.point_dep);
+
     TAnnulBT annul_bt;
     annul_bt.get(grp.id);
+
+    timing.finish("annul_bt_before", grp.point_dep);
+
+    timing.start("BeforeCheck", grp.point_dep);
 
     map<int,TSegInfo>::const_iterator s=segs.find(grp.point_dep);
     if (s==segs.end())
@@ -4585,8 +4603,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         throw UserException( "MSG.PASSENGER.CHANGES_NOT_PERMITTED" );
     }
 
+    timing.finish("BeforeCheck", grp.point_dep);
+
     try
     {
+      timing.start("Check", grp.point_dep);
+
       TAdvTripInfo fltAdvInfo(fltInfo,
                               s->second.point_dep,
                               s->second.point_num,
@@ -4945,6 +4967,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       bool pr_do_check_wait_list_alarm = true;
       std::set<int> paxs_external_logged;
 
+      timing.finish("Check", grp.point_dep);
 
       if (new_checkin)
       {
@@ -4957,6 +4980,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         bool pr_lat_seat=false;
         if (!pr_unaccomp)
         {
+          timing.start("CheckCounters", grp.point_dep);
+
           //проверка счетчиков
           if (wl_type.empty() && grp.status!=psCrew)
           {
@@ -5027,6 +5052,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             }
           }
 
+          timing.finish("CheckCounters", grp.point_dep);
+
+          timing.start("SeatsPassengers", grp.point_dep);
           if (wl_type.empty() && grp.status!=psCrew)
           {
             //группа регистрируется не на лист ожидания
@@ -5069,6 +5097,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 }
               }
             }
+
             SALONS2::TSeatTariffMap tariffMap;
             //ProgTrace( TRACE5, "InfItems.size()=%zu, AdultItems.size()=%zu", InfItems.size(), AdultItems.size() );
             SetInfantsToAdults( InfItems, AdultItems );
@@ -5172,6 +5201,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 }
               }
             }
+
             //определим алгоритм рассадки
             SEATS2::TSeatAlgoParams algo=SEATS2::GetSeatAlgo(Qry,fltInfo.airline,fltInfo.flt_no,fltInfo.airp);
             boost::posix_time::ptime mst1 = boost::posix_time::microsec_clock::local_time();
@@ -5184,6 +5214,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             boost::posix_time::ptime mst2 = boost::posix_time::microsec_clock::local_time();
             LogTrace(TRACE5) << "SeatsPassengers: " << boost::posix_time::time_duration(mst2 - mst1).total_milliseconds() << " msecs";
           } //if (wl_type.empty())
+
+          timing.finish("SeatsPassengers", grp.point_dep);
+
+          timing.start("RegNoGenerator", grp.point_dep);
 
           if (reqInfo->client_type!=ctPNL)
           {
@@ -5270,7 +5304,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             else
               throw UserException("MSG.CREW.CANT_CONSIST_OF_BOOKED_PASSENGERS");
           }
+
+          timing.finish("RegNoGenerator", grp.point_dep);
         } //if (!pr_unaccomp)
+
+
+        timing.start("CheckInPassengers", grp.point_dep);
 
         Qry.Clear();
         Qry.SQLText=
@@ -5661,9 +5700,13 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         if (!tlocale.lexema_id.empty()) reqInfo->LocaleToLog(tlocale);
         if (!inbound_trfer_conflicts.empty())
           ConflictReasonsToLog(inbound_trfer_conflicts, tlocale);
+
+        timing.finish("CheckInPassengers", grp.point_dep);
       } //new_checkin
       else
       {
+        timing.start("ChangePassengers", grp.point_dep);
+
         if (reqInfo->client_type == ctPNL)
           throw EXCEPTIONS::Exception("SavePax: changes not supported for ctPNL");
 
@@ -5926,7 +5969,11 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           SaveTransfer(grp.id,trfer,trfer_segs,pr_unaccomp,seg_no, tlocale);
           if (!tlocale.lexema_id.empty()) reqInfo->LocaleToLog(tlocale);
         }
+
+        timing.finish("ChangePassengers", grp.point_dep);
       }
+
+      timing.start("ChangeBaggage", grp.point_dep);
 
       if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION) &&
           AfterSaveInfo.action==CheckIn::actionCheckPieceConcept && setList.value<bool>(tsPieceConcept))
@@ -6101,6 +6148,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         }
       }
 
+      timing.finish("ChangeBaggage", grp.point_dep);
+
+      timing.start("ETProcessing", grp.point_dep);
+
       if (!pr_unaccomp)
       {
         //проверим дублирование билетов
@@ -6253,6 +6304,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         EMDStatusInterface::EMDCheckStatus(grp.id, paymentBeforeWithAuto, ChangeStatusInfo.EMD);
       }
 
+      timing.finish("ETProcessing", grp.point_dep);
+
+      timing.start("check_waitlist_alarm_on_tranzit_routes", grp.point_dep);
+
       if (!pr_unaccomp && grp.status!=psCrew)
       {
         //!!!только для регистрации пассажиров
@@ -6263,16 +6318,28 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         }
       }
 
+      timing.finish("check_waitlist_alarm_on_tranzit_routes", grp.point_dep);
+
+      timing.start("GetGrpToLogInfo", grp.point_dep);
+
       if (ChangeStatusInfo.empty())
       {
         //записываем в лог только если не будет отката транзакции из-за обращения к СЭБ
         GetGrpToLogInfo(grp.id, grpInfoAfter);
       }
 
+      timing.finish("GetGrpToLogInfo", grp.point_dep);
+
+      timing.start("sync_pax_grp", grp.point_dep);
+
       if (!pr_unaccomp)
       {
         rozysk::sync_pax_grp(grp.id, reqInfo->desk.code, reqInfo->user.descr);
       }
+
+      timing.finish("sync_pax_grp", grp.point_dep);
+
+      timing.start("check_grp", grp.point_dep);
 
       Qry.Clear();
       Qry.SQLText=
@@ -6283,13 +6350,25 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       Qry.Execute();
       Qry.Close();
 
+      timing.finish("check_grp", grp.point_dep);
+
+      timing.start("recount", grp.point_dep);
+
       CheckIn::TCounters().recount(grp, priorSimplePaxList, currSimplePaxList, __FUNCTION__);
+
+      timing.finish("recount", grp.point_dep);
+
+      timing.start("annul_bt_after", grp.point_dep);
 
       TAnnulBT annul_bt_after;
       annul_bt_after.get(grp.id);
       annul_bt.minus(annul_bt_after);
 
       annul_bt.toDB();
+
+      timing.finish("annul_bt_after", grp.point_dep);
+
+      timing.start("overload_alarm", grp.point_dep);
 
       //проверим максимальную загрузку
       bool overload_alarm = calc_overload_alarm( grp.point_dep ); // вычислили признак перегрузки
@@ -6353,6 +6432,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       }
 
       set_alarm( grp.point_dep, Alarm::Overload, overload_alarm ); // установили признак перегрузки
+
+      timing.finish("overload_alarm", grp.point_dep);
+
+      timing.start("other_alarms", grp.point_dep);
 
       if (!pr_unaccomp && grp.status!=psCrew)
       {
@@ -6420,8 +6503,16 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         InboundTrfer::GetNextTrferCheckedFlts(grp.id, idGrp, nextTrferSegs);
       check_unattached_trfer_alarm(nextTrferSegs);
 
+      timing.finish("other_alarms", grp.point_dep);
+
+      timing.start("BSM", grp.point_dep);
+
       //BSM
       if (BSMsend) BSM::Send(grp.point_dep,grp.id,BSMContentBefore,BSMaddrs);
+
+      timing.finish("BSM", grp.point_dep);
+
+      timing.start("utg_prl", grp.point_dep);
 
       if (grp.status!=psCrew)
       {
@@ -6437,6 +6528,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         Qry.CreateVariable("point_id", otInteger, grp.point_dep);
         Qry.Execute();
       }
+
+      timing.finish("utg_prl", grp.point_dep);
     }
     catch(UserException &e)
     {
@@ -6468,6 +6561,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
   } //цикл по сегментам
 
+  timing.start("svc_auto");
+
   if (new_checkin)
   {
     TSegList::reverse_iterator iNextSegListItem=segList.rend();
@@ -6481,9 +6576,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     }
   };
 
+  timing.finish("svc_auto");
+
   if (AfterSaveInfo.action==CheckIn::actionRefreshPaidBagPC)
   try
   {
+    timing.start("svc_payment_status");
 
     if (reqInfo->client_type==ASTRA::ctTerm &&
         !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
@@ -6613,8 +6711,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       if (check_emd_status)
         EMDStatusInterface::EMDCheckStatus(grp_id, paymentBeforeWithAuto, ChangeStatusInfo.EMD);
     }
+
+    timing.finish("svc_payment_status");
   }
   catch(int) {}
+
+  timing.finish("SavePax");
 
   return true;
 }

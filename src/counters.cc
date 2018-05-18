@@ -597,3 +597,66 @@ const TCounters &TCounters::recount(const CheckIn::TPaxGrpItem& grp,
 
 } //namespace CheckIn
 
+#include <serverlib/EdiHelpManager.h>
+#include <serverlib/query_runner.h>
+#include <tclmon/internal_msgid.h>
+
+namespace Timing
+{
+
+void Points::start(const std::string& _what, const boost::optional<int>& _seg_no)
+{
+  try
+  {
+    Intervals& intervals=emplace(Point(_what, _seg_no), Intervals()).first->second;
+    intervals.emplace_back(boost::posix_time::microsec_clock::local_time(), boost::posix_time::ptime());
+  }
+  catch(...) {}
+}
+
+void Points::finish(const std::string& _what, const boost::optional<int>& _seg_no)
+{
+  try
+  {
+    Intervals& intervals=emplace(Point(_what, _seg_no), Intervals()).first->second;
+    if (!intervals.empty() && intervals.back().second.is_not_a_date_time())
+      intervals.back().second=boost::posix_time::microsec_clock::local_time();
+    else
+      intervals.emplace_back(boost::posix_time::ptime(), boost::posix_time::microsec_clock::local_time());
+  }
+  catch(...) {}
+}
+
+Points::~Points()
+{
+  try
+  {
+    TDateTime now=BASIC::date_time::NowUTC();
+    for(const auto& p : *this)
+    {
+      boost::optional<long> msecs;
+      msecs=0;
+      msecs=boost::none;
+      for(const auto& i : p.second)
+        if (!i.first.is_not_a_date_time() && !i.second.is_not_a_date_time())
+        {
+          if (!msecs) msecs=0;
+          msecs.get()+=(i.second - i.first).total_milliseconds();
+        }
+        else
+        {
+          msecs=boost::none;
+          break;
+        }
+      LogTrace(TRACE5) << "Timing::Points: " << ServerFramework::getQueryRunner().getEdiHelpManager().msgId().asString()
+                       << "|" << p.first.what
+                       << "|" << (p.first.seg_no?IntToString(p.first.seg_no.get()):"")
+                       << "|" << (msecs?IntToString(msecs.get()):"")
+                       << "|" << std::fixed << now;
+    }
+  }
+  catch(...) {}
+}
+
+} //namespace Timing
+
