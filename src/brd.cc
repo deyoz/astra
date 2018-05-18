@@ -980,6 +980,15 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     bool pr_etl_only=GetTripSets(tsETSNoExchange, fltInfo);
     bool check_pay_on_tckin_segs=GetTripSets(tsCheckPayOnTCkinSegs, fltInfo);
 
+    Qry.Clear();
+    Qry.SQLText=
+        "SELECT pr_etstatus FROM trip_sets WHERE point_id=:point_id";
+    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.Execute();
+    if (Qry.Eof)
+      throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
+    int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
+
     //проверяем настройки APIS по каждому направлению
     TRouteAPICheckInfo route_check_info(point_id);
 
@@ -1112,7 +1121,20 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       if (!paxWithSeat.exists() && !paxWithoutSeat.exists())
         throw EXCEPTIONS::Exception("!paxWithSeat.exists() && !paxWithoutSeat.exists()"); //не обязательно, на всякий случай
 
-      try  //catch(int)
+      bool without_monitor=false;
+      Qry.Clear();
+      Qry.SQLText=
+          "SELECT without_monitor FROM stations "
+          "WHERE desk=:desk AND work_mode=:work_mode";
+      Qry.CreateVariable("desk", otString, reqInfo->desk.code);
+      Qry.CreateVariable("work_mode", otString, "П");
+      Qry.Execute();
+      if (!Qry.Eof) without_monitor=Qry.FieldAsInteger("without_monitor")!=0;
+
+      class CompleteWithError {};
+      class CompleteWithSuccess {};
+
+      try  //catch(CompleteWithError / CompleteWithSuccess)
       {
         //============================ проверка совпадения tid ============================
         if (tid!=NoExists)
@@ -1133,19 +1155,46 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         {
           if (screen==sBoarding)
           {
-              if (set_mark)
-                  AstraLocale::showErrorMessage("MSG.PASSENGER.BOARDED_ALREADY",120);
-              else
-                  AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_BOARDING",120);
+            ModelParams modelParams(scanDevice.dev_model());
+            int dup_scan_timeout=modelParams.getAsInteger("dup_scan_timeout", 0);
+            LogTrace(TRACE5) << "dev_model=" << scanDevice.dev_model() << ", dup_scan_timeout=" << dup_scan_timeout;
+            for(int pass=0;pass<2;pass++)
+            {
+              TPaxItem &pax=(pass==0?paxWithSeat:paxWithoutSeat);
+              if (!pax.exists()) continue;
+              if (dup_scan_timeout<=0) continue;
+
+              TPaxEvent paxEvent;
+              paxEvent.fromDB(pax.pax_id, set_mark?TPaxEventTypes::BRD:
+                                                   TPaxEventTypes::UNBRD);
+
+              double interval=(NowUTC()-paxEvent.time)*MSecsPerDay;
+              LogTrace(TRACE5) << "pax_id=" << pax.pax_id
+                               << ", paxEvent.desk=" << paxEvent.desk
+                               << ", interval=" << interval
+                               << ", dup_scan_timeout=" << dup_scan_timeout;
+              if (paxEvent.desk==TReqInfo::Instance()->desk.code &&
+                  interval<=dup_scan_timeout)
+              {
+                pax.updated=true;
+                throw CompleteWithSuccess();
+              }
+            }
+
+            if (set_mark)
+              AstraLocale::showErrorMessage("MSG.PASSENGER.BOARDED_ALREADY",120);
+            else
+              AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_BOARDING",120);
           }
           else
           {
-              if (set_mark)
-                  AstraLocale::showErrorMessage("MSG.PASSENGER.EXAMED_ALREADY",120);
-              else
-                  AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_EXAM",120);
+            if (set_mark)
+              AstraLocale::showErrorMessage("MSG.PASSENGER.EXAMED_ALREADY",120);
+            else
+              AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_EXAM",120);
           };
-          throw 1;
+
+          throw CompleteWithError();
         };
 
         //============================ зал посадки ============================
@@ -1176,7 +1225,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                 AstraLocale::showErrorMessage("MSG.NOT_SET_BOARDING_HALL");
             else
                 AstraLocale::showErrorMessage("MSG.NOT_SET_EXAM_HALL");
-            throw 1;
+            throw CompleteWithError();
         };
 
         //============================ настройки рейса ============================
@@ -1195,22 +1244,13 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             if (!Qry.Eof) pr_exam_with_brd=Qry.FieldAsInteger("pr_misc")!=0;
         };
 
-        Qry.Clear();
-        Qry.SQLText=
-            "SELECT pr_etstatus FROM trip_sets WHERE point_id=:point_id";
-        Qry.CreateVariable("point_id",otInteger,point_id);
-        Qry.Execute();
-        if (Qry.Eof)
-          throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-        int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
-
         //============================ проверка листа ожидания ============================
         if (set_mark && !setList.value<bool>(tsFreeSeating) &&
             ((paxWithSeat.exists() && !paxWithSeat.wl_type.empty()) ||
              (paxWithoutSeat.exists() && !paxWithoutSeat.wl_type.empty())))   //!!vlad младенцы без мест и ЛО?
         {
             AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_CONFIRM_FROM_WAIT_LIST");
-            throw 1;
+            throw CompleteWithError();
         };
 
         //============================ проверка прохождения досмотра ============================
@@ -1219,7 +1259,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
              (paxWithoutSeat.exists() && !paxWithoutSeat.pr_exam)))
         {
             AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_EXAM");
-            throw 1;
+            throw CompleteWithError();
         };
 
         //============================ проверка оплаты багажа ============================
@@ -1230,18 +1270,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
              !RFISCPaymentCompleted(grp_id, paxWithoutSeat.pax_id, check_pay_on_tckin_segs)))
         {
             AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_BAG_PAID");
-            throw 1;
+            throw CompleteWithError();
         };
-
-        bool without_monitor=false;
-        Qry.Clear();
-        Qry.SQLText=
-            "SELECT without_monitor FROM stations "
-            "WHERE desk=:desk AND work_mode=:work_mode";
-        Qry.CreateVariable("desk", otString, reqInfo->desk.code);
-        Qry.CreateVariable("work_mode", otString, "П");
-        Qry.Execute();
-        if (!Qry.Eof) without_monitor=Qry.FieldAsInteger("without_monitor")!=0;
 
         //============================ проверим APIS alarms ============================
         if (screen==sBoarding && set_mark)
@@ -1264,12 +1294,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
               if (alarms.find(APIS::atIncomplete)!=alarms.end())
               {
                 AstraLocale::showErrorMessage("MSG.PASSENGER.APIS_INCOMPLETE", without_monitor?0:DOCUMENT_ALARM_ERRCODE);
-                throw 1;
+                throw CompleteWithError();
               };
               if (alarms.find(APIS::atManualInput)!=alarms.end())
               {
                 AstraLocale::showErrorMessage("MSG.PASSENGER.APIS_MANUAL_INPUT", without_monitor?0:DOCUMENT_ALARM_ERRCODE);
-                throw 1;
+                throw CompleteWithError();
               };
             };
           };
@@ -1312,7 +1342,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                         msg << getLocaleText("MSG.PASSENGER.NEEDS_SPECIAL_SERVICE") << endl
                             << getLocaleText("QST.CONTINUE_BRD");
                         NewTextChild(confirmNode,"message",msg.str());
-                        throw 1;
+                        throw CompleteWithError();
                       };
                       break;
               case 2: if (screen==sBoarding && set_mark &&
@@ -1337,7 +1367,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                         msg << getLocaleText("MSG.PASSENGER.INVALID_BP_SEAT_NO") << endl
                             << getLocaleText("QST.CONTINUE_BRD");
                         NewTextChild(confirmNode,"message",msg.str());
-                        throw 1;
+                        throw CompleteWithError();
                       };
                       break;
               case 3: if (screen==sSecurity && !set_mark &&
@@ -1352,7 +1382,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                         msg << getLocaleText("MSG.PASSENGER.BOARDED_ALREADY") << endl
                             << getLocaleText("QST.PASSENGER.RETURN_FOR_EXAM");
                         NewTextChild(confirmNode,"message",msg.str());
-                        throw 1;
+                        throw CompleteWithError();
                       };
                       break;
               case 4: if (screen==sBoarding && set_mark &&
@@ -1371,7 +1401,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                           }
                           msg  << getLocaleText("QST.CONTINUE_BRD");
                           NewTextChild(confirmNode,"message",msg.str());
-                          throw 1;
+                          throw CompleteWithError();
                         }
                       };
                       break;
@@ -1393,6 +1423,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           pax.updated=true;
         };
 
+        throw CompleteWithSuccess();
+      }
+      catch(CompleteWithSuccess)
+      {
         if (reqInfo->desk.compatible(MULTI_BOARDING_VERSION))
         {
           xmlNodePtr node=NewTextChild(dataNode,"updated");
@@ -1417,7 +1451,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         xmlNodePtr node=NewTextChild(dataNode,"trip_sets");
         NewTextChild( node, "pr_etl_only", (int)pr_etl_only );
         NewTextChild( node, "pr_etstatus", pr_etstatus );
-
 
         if (screen==sBoarding)
         {
@@ -1446,7 +1479,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                 AstraLocale::showMessage("MSG.PASSENGER.RETURNED_EXAM");
         };
       }
-      catch(int) {};
+      catch(CompleteWithError) {}
     }
     else
     {
