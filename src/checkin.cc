@@ -5978,7 +5978,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             grp.svc.get().getAllListItems();
             grp.svc.get().toDB(grp.id);
           }
-          if (grp.svc_auto)
+
+          if (grp.svc_auto && !new_checkin)
           {
             TGrpServiceAutoList svcsAutoBefore;
             svcsAutoBefore.fromDB(grp.id, true);
