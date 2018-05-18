@@ -664,8 +664,10 @@ string TPrnTagStore::get_field(std::string name, size_t len, const std::string &
         } else {
             if(StrUtils::trim(result).empty())
                 result.clear();
-            else
+            else {
                 result = AlignString(result, len, align);
+                result = StrUtils::rtrim(result);
+            }
         }
         if(this->tag_lang.get_pr_lat() and not IsAscii7(result)) {
             bool replace_good = false;
