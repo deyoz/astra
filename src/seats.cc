@@ -3120,16 +3120,15 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
     try {
       bool pr_rollback = ( !passGrps.empty() && ipassGrp == passGrps.end() - 1 ); //вся группа
       ProgTrace( TRACE5, "pr_rollback=%d, separately_seats_adult_with_baby=%d, passengers.getCount=%d", pr_rollback, separately_seats_adult_with_baby, passengers.getCount() );
-      if ( denial_emergency_seats ) {
-        emergencySeats.setDisabledEmergencySeats( Salons );
-      }
-      if ( separately_seats_adult_with_baby ) {
+      if ( separately_seats_adult_with_baby ||
+           denial_emergency_seats ) {
         TPaxsCover paxs;
         for ( int i=0; i<passengers.getCount(); i++ ) {
           ProgTrace( TRACE5, "pax(%i).pax_id=%d", i, passengers.Get(i).paxId );
           paxs.push_back( TPaxCover( passengers.Get(i).paxId, ASTRA::NoExists ) );
         }
         babyZoness.setDisabledBabySection( Salons, paxs, pax_lists_with_baby );
+        emergencySeats.setDisabledEmergencySeats( Salons, paxs );
       }
       SeatsPassengers( Salons,
                        ASeatAlgoParams /* sdUpDown_Line - умолчание */,
@@ -5034,7 +5033,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
         }
       }
       if ( flagCHIN ) {
-        emergencySeats.setDisabledEmergencySeats( point_id, nullptr, *isalonList );
+        emergencySeats.setDisabledEmergencySeats( point_id, nullptr, *isalonList, grpPaxs, TEmergencySeats::DisableMode::dlrss );
       }
     }
     if ( babyZones.useInfantSection() ) {
@@ -5604,15 +5603,14 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
               }
               babyZones.clear();
               emergencySeats.clear();
-              if ( denial_emergency_seats ) {
-                emergencySeats.setDisabledEmergencySeats( CurrSalon );
-              }
-              if ( separately_seats_adult_with_baby ) {
+              if ( separately_seats_adult_with_baby ||
+                   denial_emergency_seats ) {
                 TPaxsCover paxs;
                 for ( int i=0; i<Passengers.getCount(); i++ ) {
                     paxs.push_back( TPaxCover( Passengers.Get(i).paxId, ASTRA::NoExists ) );
                 }
                 babyZones.setDisabledBabySection( CurrSalon, paxs, pax_lists_with_baby );
+                emergencySeats.setDisabledEmergencySeats( CurrSalon, paxs );
               }
               SeatPlaces.SeatsPassengers( true );
               emergencySeats.rollbackDisabledEmergencySeats( CurrSalon );

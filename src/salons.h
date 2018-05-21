@@ -1273,8 +1273,8 @@ private:
   void getTuneSection( int point_id );
 public:
   enum DisableMode { dlayers, dlrss };
-  void setDisabledEmergencySeats( TSalons* Salons );
-  void setDisabledEmergencySeats( int point_id, TSalons* Salons, TPlaceList* placeList );
+  void setDisabledEmergencySeats( TSalons* Salons, const TPaxsCover &grpPaxs );
+  void setDisabledEmergencySeats( int point_id, TSalons* Salons, TPlaceList* placeList, const TPaxsCover &grpPaxs, DisableMode mode );
   void rollbackDisabledEmergencySeats( TSalons* salons = nullptr );
   TEmergencySeats( int point_id ) {
      getTuneSection( point_id );
