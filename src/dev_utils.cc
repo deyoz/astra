@@ -1637,6 +1637,262 @@ std::string BCBPSections::test_bcbp_build()
 
 }
 
+std::ostream& operator<<(std::ostream& os, const DeviceParamKey& key)
+{
+  os << "name=" << key.name << ", subname=" << key.subname;
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const DeviceParam& param)
+{
+  os << (const DeviceParamKey&)param << ", value=" << param.value << ", editable=" << param.editable;
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const DeviceParams& params)
+{
+  for(const auto& i : params) os << i.second << endl;
+  return os;
+}
+
+void DeviceParams::add(const DeviceParam& param)
+{
+  emplace(param, param);
+}
+
+void DeviceParams::replaceValue(const DeviceParam& param, bool onlyIfEditable)
+{
+  DeviceParams::iterator i=find(param);
+  if (i==end()) return;
+
+  DeviceParam& p=i->second;
+  if (!onlyIfEditable || p.editable)
+  {
+    p.value=param.value;
+    LogTrace(TRACE5) << __FUNCTION__ << ": " << p;
+  }
+}
+
+void DeviceParams::replaceValue(const std::string& name, const std::string& value, bool onlyIfEditable)
+{
+  replaceValue( DeviceParam(DeviceParamKey(name),
+                            value,
+                            true),
+                onlyIfEditable );
+}
+
+void DeviceParams::fromDB(TQuery &Qry)
+{
+  clear();
+  for(; !Qry.Eof; Qry.Next())
+  {
+    DeviceParam param( DeviceParamKey(Qry.FieldAsString("param_name"),
+                                      Qry.FieldAsString("subparam_name")),
+                       Qry.FieldAsString("param_value"),
+                       Qry.FieldAsInteger("editable")!=0 );
+
+    add(param);
+  }
+}
+
+void DeviceParams::fromXML(xmlNodePtr paramsNode)
+{
+  if ( paramsNode == nullptr ) return;
+
+  for ( xmlNodePtr pNode=paramsNode->children; pNode!=nullptr && pNode->type == XML_ELEMENT_NODE; pNode=pNode->next )
+  {
+    // пробег по параметрам
+    if ( pNode->children == nullptr || pNode->children->type != XML_ELEMENT_NODE )
+    {
+      //нет subparams
+      DeviceParam param( DeviceParamKey((const char*)pNode->name),
+                         NodeAsString( pNode ),
+                         true );
+      LogTrace(TRACE5) << param;
+      replaceValue(param, true);
+      continue;
+    }
+    for (xmlNodePtr subparamNode=pNode->children; subparamNode!=nullptr && subparamNode->type == XML_ELEMENT_NODE; subparamNode=subparamNode->next)
+    {
+      // пробег по subparams
+      DeviceParam param( DeviceParamKey((const char*)pNode->name,
+                                        (const char*)subparamNode->name),
+                         NodeAsString( subparamNode ),
+                         true );
+      LogTrace(TRACE5) << param;
+      replaceValue(param, true);
+    }
+  }
+}
+
+void DeviceParams::toXML(xmlNodePtr paramsNode, bool editable) const
+{
+  if ( paramsNode == nullptr ) return;
+
+  xmlNodePtr paramNode=nullptr;
+  for(const auto& i : *this)
+  {
+    const DeviceParam& param=i.second;
+
+    if ( paramNode==nullptr || (const char*)paramNode->name!=param.name )
+    {
+      if (param.subname.empty())
+      {
+        paramNode = NewTextChild( paramsNode, param.name.c_str(), param.value );
+        SetProp( paramNode, "editable", (int)(param.editable && editable) );
+      }
+      else
+        paramNode = NewTextChild( paramsNode, param.name.c_str());
+
+    }
+
+    if (!param.subname.empty())
+    {
+      xmlNodePtr subparamNode=NewTextChild( paramNode, param.subname.c_str(), param.value );
+      SetProp( subparamNode, "editable", (int)(param.editable && editable) );
+    }
+  }
+}
+
+bool DeviceParams::getAsBoolean(const std::string& name, const bool& def) const
+{
+  DeviceParams::const_iterator i=find(DeviceParamKey(name));
+  if (i==end()) return def;
+
+  return ToInt(i->second.value)!=0;
+}
+
+int DeviceParams::getAsInteger(const std::string& name, const int& def) const
+{
+  DeviceParams::const_iterator i=find(DeviceParamKey(name));
+  if (i==end()) return def;
+
+  return ToInt(i->second.value);
+}
+
+void CategorizedParams::compareXML(xmlNodePtr operNode, bool editable)
+{
+  if (operNode==nullptr) return;
+
+  xmlNodePtr rootNode1, rootNode2;
+  XMLDoc doc1("text", rootNode1, __FUNCTION__);
+  XMLDoc doc2("text", rootNode2, __FUNCTION__);
+
+  CopyNode(rootNode1, GetNode(xmlSectionName().c_str(), operNode), true);
+
+  toXML(rootNode2, editable);
+
+  diffToDB(doc1.text(), doc2.text());
+}
+
+void CategorizedParams::diffToDB(const std::string& text1,
+                                 const std::string& text2)
+{
+  if (text1==text2) return;
+
+//  CREATE TABLE device_params_testing
+//  (
+//    desk      VARCHAR2(6),
+//    term_mode VARCHAR2(10),
+//    text1     VARCHAR2(4000),
+//    text2     VARCHAR2(4000)
+//  );
+  try
+  {
+    TQuery Qry( &OraSession );
+    Qry.SQLText=
+        "INSERT INTO device_params_testing(desk, term_mode, text1, text2) "
+        "VALUES(:desk, :term_mode, :text1, :text2) ";
+    Qry.CreateVariable("term_mode", otString, EncodeOperMode(TReqInfo::Instance()->desk.mode));
+    Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
+    Qry.CreateVariable("text1", otString, text1.substr(0,4000));
+    Qry.CreateVariable("text2", otString, text2.substr(0,4000));
+    Qry.Execute();
+  }
+  catch(...)
+  {
+    LogError(STDLOG) << __FUNCTION__ << ": ERROR!";
+  }
+}
+
+SessParams::SessParams(const std::string& dev_model,
+                       const std::string& sess_type,
+                       const std::string& fmt_type) : CategorizedParams(sess_type)
+{
+  TQuery SessParamsQry( &OraSession );
+  SessParamsQry.SQLText=
+    "SELECT dev_model_params.sess_type AS param_type, "
+    "       param_name,subparam_name,param_value,editable "
+    "FROM dev_model_params,dev_sess_modes "
+    "WHERE (dev_model_params.dev_model=:dev_model OR dev_model_params.dev_model IS NULL) AND "
+    "      dev_model_params.sess_type=dev_sess_modes.sess_type AND "
+    "      dev_sess_modes.term_mode=:term_mode AND dev_sess_modes.sess_type=:sess_type AND "
+    "      (dev_model_params.fmt_type=:fmt_type OR dev_model_params.fmt_type IS NULL) AND "
+    "      (desk_grp_id=:desk_grp_id OR desk_grp_id IS NULL) AND "
+    "      (pr_sess_param<>0 OR pr_sess_param IS NULL) "
+    "ORDER BY param_type, param_name, subparam_name NULLS FIRST, "
+    "         dev_model_params.dev_model NULLS LAST, desk_grp_id NULLS LAST, "
+    "         dev_model_params.fmt_type NULLS LAST";
+
+  SessParamsQry.CreateVariable("term_mode", otString, EncodeOperMode(TReqInfo::Instance()->desk.mode));
+  SessParamsQry.CreateVariable("desk_grp_id", otInteger, TReqInfo::Instance()->desk.grp_id);
+  SessParamsQry.CreateVariable("dev_model", otString, dev_model);
+  SessParamsQry.CreateVariable("sess_type", otString, sess_type);
+  SessParamsQry.CreateVariable("fmt_type", otString, fmt_type);
+
+  SessParamsQry.Execute();
+  fromDB( SessParamsQry );
+}
+
+
+FmtParams::FmtParams(const std::string& operation,
+                     const std::string& dev_model,
+                     const std::string& sess_type,
+                     const std::string& fmt_type) : CategorizedParams(fmt_type)
+{
+  TQuery FmtParamsQry( &OraSession );
+  FmtParamsQry.SQLText=
+      "SELECT dev_model_params.fmt_type AS param_type, "
+      "       param_name,subparam_name,param_value,editable "
+      "FROM dev_model_params,dev_fmt_opers "
+      "WHERE (dev_model_params.dev_model=:dev_model OR dev_model_params.dev_model IS NULL) AND "
+      "      dev_model_params.fmt_type=dev_fmt_opers.fmt_type AND "
+      "      dev_fmt_opers.op_type=:op_type AND dev_fmt_opers.fmt_type=:fmt_type AND "
+      "      (dev_model_params.sess_type=:sess_type OR dev_model_params.sess_type IS NULL) AND "
+      "      (desk_grp_id=:desk_grp_id OR desk_grp_id IS NULL) AND "
+      "      (pr_sess_param=0 OR pr_sess_param IS NULL) "
+      "ORDER BY param_type, param_name, subparam_name NULLS FIRST, "
+      "         dev_model_params.dev_model NULLS LAST, desk_grp_id NULLS LAST, "
+      "         dev_model_params.sess_type NULLS LAST";
+
+  FmtParamsQry.CreateVariable("desk_grp_id", otInteger, TReqInfo::Instance()->desk.grp_id);
+  FmtParamsQry.CreateVariable("op_type", otString, operation);
+  FmtParamsQry.CreateVariable("dev_model", otString, dev_model);
+  FmtParamsQry.CreateVariable("sess_type", otString, sess_type);
+  FmtParamsQry.CreateVariable("fmt_type", otString, fmt_type);
+
+  FmtParamsQry.Execute();
+  fromDB( FmtParamsQry );
+}
+
+ModelParams::ModelParams(const std::string& dev_model) : CategorizedParams(dev_model)
+{
+  TQuery ModelParamsQry( &OraSession );
+  ModelParamsQry.SQLText=
+    "SELECT NULL AS param_type, "
+    "       param_name,subparam_name,param_value,editable "
+    "FROM dev_model_params "
+    "WHERE dev_model_params.dev_model=:dev_model AND sess_type IS NULL AND fmt_type IS NULL AND "
+    "      (desk_grp_id=:desk_grp_id OR desk_grp_id IS NULL) "
+    "ORDER BY param_type, param_name, subparam_name NULLS FIRST, desk_grp_id NULLS LAST";
+
+  ModelParamsQry.CreateVariable("desk_grp_id", otInteger, TReqInfo::Instance()->desk.grp_id);
+  ModelParamsQry.CreateVariable("dev_model", otString, dev_model);
+
+  ModelParamsQry.Execute();
+  fromDB( ModelParamsQry );
+}
+
 DeviceInfo::DeviceInfo(xmlNodePtr node) : _fmt_type(TDevFmt::Unknown)
 {
   if (node==nullptr) return;

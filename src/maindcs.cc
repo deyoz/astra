@@ -386,9 +386,11 @@ void GetEventCmd( const vector<string> &event_names,
                   const string &dev_model,
                   const string &sess_type,
                   const string &fmt_type,
-                  TCategoryDevParams &serverParams )
+                  TCategoryDevParams &serverParams,
+                  DeviceEvents &events)
 {
   serverParams.clear();
+  events.clear();
 
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -520,6 +522,9 @@ void GetEventCmd( const vector<string> &event_names,
     serverParams.push_back( TDevParam("cmd_"+event_name,"",
                                       XMLTreeToText(cmdDoc.docPtr()),
                                       (int)false) );
+    events.add(DeviceParam( DeviceParamKey("cmd_"+event_name),
+                            XMLTreeToText(cmdDoc.docPtr()),
+                            false ));
   };
 }
 
@@ -764,6 +769,7 @@ void MainDCSInterface::GetEventCmd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   xmlNodePtr devNode,node,node2;
   vector<string> event_names;
   TCategoryDevParams params;
+  DeviceEvents events;
   for(devNode=devsNode->children;devNode!=NULL;devNode=devNode->next)
   {
     node2=devNode->children;
@@ -778,7 +784,8 @@ void MainDCSInterface::GetEventCmd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                      NodeAsStringFast("dev_model",node2),
                      NodeAsStringFast("sess_type",node2),
                      NodeAsStringFast("fmt_type",node2),
-                     params );
+                     params,
+                     events );
       node=NodeAsNodeFast("events",node2);
       xmlUnlinkNode(node);
       xmlFreeNode(node);
@@ -792,9 +799,11 @@ void MainDCSInterface::GetEventCmd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                      NodeAsStringFast("dev_model",node2),
                      NodeAsStringFast("sess_type",node2),
                      NodeAsStringFast("fmt_type",node2),
-                     params );
+                     params,
+                     events );
     };
     BuildParams( NewTextChild(devNode,"events"), params, false );
+    events.compareXML( devNode, false );
   };
   CopyNodeList(resNode,reqNode);
 };
@@ -1184,7 +1193,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
     "      (dev_model_params.fmt_type=:fmt_type OR dev_model_params.fmt_type IS NULL) AND "
     "      (desk_grp_id=:desk_grp_id OR desk_grp_id IS NULL) AND "
     "      (pr_sess_param<>0 OR pr_sess_param IS NULL) "
-    "ORDER BY param_type, param_name, subparam_name NULLS FIRST, "
+    "ORDER BY param_type, LOWER(param_name), LOWER(subparam_name) NULLS FIRST, "
     "         dev_model_params.dev_model NULLS LAST, desk_grp_id NULLS LAST, "
     "         dev_model_params.fmt_type NULLS LAST";
 
@@ -1206,7 +1215,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
     "      (dev_model_params.sess_type=:sess_type OR dev_model_params.sess_type IS NULL) AND "
     "      (desk_grp_id=:desk_grp_id OR desk_grp_id IS NULL) AND "
     "      (pr_sess_param=0 OR pr_sess_param IS NULL) "
-    "ORDER BY param_type, param_name, subparam_name NULLS FIRST, "
+    "ORDER BY param_type, LOWER(param_name), LOWER(subparam_name) NULLS FIRST, "
     "         dev_model_params.dev_model NULLS LAST, desk_grp_id NULLS LAST, "
     "         dev_model_params.sess_type NULLS LAST";
   FmtParamsQry.CreateVariable("desk_grp_id",otInteger,reqInfo->desk.grp_id);
@@ -1222,7 +1231,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
     "FROM dev_model_params "
     "WHERE dev_model_params.dev_model=:dev_model AND sess_type IS NULL AND fmt_type IS NULL AND "
     "      (desk_grp_id=:desk_grp_id OR desk_grp_id IS NULL) "
-    "ORDER BY param_type, param_name, subparam_name NULLS FIRST, desk_grp_id NULLS LAST";
+    "ORDER BY param_type, LOWER(param_name), LOWER(subparam_name) NULLS FIRST, desk_grp_id NULLS LAST";
   ModelParamsQry.CreateVariable("desk_grp_id",otInteger,reqInfo->desk.grp_id);
   ModelParamsQry.DeclareVariable("dev_model",otString);
   // разбираем параметры пришедшие с клиента
@@ -1489,7 +1498,8 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
         vector<string> event_names;
         event_names.push_back("magic_btn_click");
         event_names.push_back("first_fmt_magic_btn_click");
-        ::GetEventCmd( event_names, true, dev_model, sess_type, fmt_type, params );
+        DeviceEvents events;
+        ::GetEventCmd( event_names, true, dev_model, sess_type, fmt_type, params, events );
         pNode = NewTextChild( newoperNode, "events" );
         BuildParams( pNode, params, false );
       };
@@ -1502,6 +1512,57 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       pNode = NewTextChild( newoperNode, "model_params" );
       SetProp( pNode, "type", dev_model );
       BuildParams( pNode, params, pr_editable );
+
+      //SessParams:
+      SessParams sessParams(dev_model, sess_type, fmt_type);
+
+      if ( reqInfo->desk.mode==omRESA ||
+           reqInfo->desk.mode==omCUSE ||
+           (reqInfo->desk.mode==omMUSE && reqInfo->desk.compatible(MUSE_DEV_VARIABLES)) )
+      {
+        TDevOper::Enum oper=DevOperTypes().decode(operation);
+        if (!opers[oper].dev_model.empty() && opers[oper].dev_model==dev_model)
+        {
+          sessParams.replaceValue("addr", opers[oper].addr);
+          sessParams.replaceValue("pool_key", opers[oper].pool_key);
+        };
+      };
+      if ( pr_parse_client_params )
+        sessParams.fromXML(operNode);
+
+      sessParams.compareXML(newoperNode, pr_editable);
+
+      //FmtParams:
+      FmtParams fmtParams(operation, dev_model, sess_type, fmt_type);
+
+      if ( pr_parse_client_params )
+        fmtParams.fromXML(operNode);
+
+      fmtParams.compareXML(newoperNode, pr_editable);
+
+      //ищем параметр posted_events
+      bool posted_events2=fmtParams.getAsBoolean("posted_events", false);
+      if (posted_events!=posted_events2)
+        FmtParams::diffToDB("posted_events="+IntToString(posted_events),
+                            "posted_events="+IntToString(posted_events2));
+      if (!fmtParams.getAsBoolean("posted_events", false))
+      {
+        vector<string> event_names;
+        event_names.push_back("magic_btn_click");
+        event_names.push_back("first_fmt_magic_btn_click");
+        DeviceEvents events;
+        TCategoryDevParams params2;
+        ::GetEventCmd( event_names, true, dev_model, sess_type, fmt_type, params2, events );
+        events.compareXML(newoperNode, false);
+      };
+
+      //ModelParams:
+      ModelParams modelParams(dev_model);
+
+      if ( pr_parse_client_params )
+        modelParams.fromXML(operNode);
+
+      modelParams.compareXML(newoperNode, pr_editable);
       break;
     }
   }

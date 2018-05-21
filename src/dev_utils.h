@@ -484,6 +484,141 @@ class BCBPSections : public  BCBPInternalWork
 
 std::ostream& operator<<(std::ostream& os, const BCBPSections&);
 
+class DeviceParamKey
+{
+  public:
+    std::string name, subname;
+
+    DeviceParamKey(const std::string& _name,
+                   const std::string& _subname="")
+    {
+      name = lowerc(_name);
+      subname = lowerc(_subname);
+    }
+
+    bool operator == (const DeviceParamKey& key) const
+    {
+      return name==key.name &&
+             subname==key.subname;
+    }
+
+    bool operator < (const DeviceParamKey& key) const
+    {
+      if (name!=key.name)
+        return name<key.name;
+      return subname<key.subname;
+    }
+};
+
+std::ostream& operator<<(std::ostream& os, const DeviceParamKey& key);
+
+class DeviceParam : public DeviceParamKey
+{
+  public:
+    std::string value;
+    bool editable;
+
+    DeviceParam(const DeviceParamKey& key,
+                const std::string& _value,
+                const int& _editable) : DeviceParamKey(key)
+    {
+      value = _value;
+      editable = _editable;
+    }
+};
+
+std::ostream& operator<<(std::ostream& os, const DeviceParam& param);
+
+class DeviceParams : public std::map<DeviceParamKey, DeviceParam>
+{
+  public:
+    void add(const DeviceParam& param);
+    void replaceValue(const DeviceParam& param, bool onlyIfEditable=false);
+    void replaceValue(const std::string& name, const std::string& value, bool onlyIfEditable=false);
+    void fromDB(TQuery &Qry);
+    void fromXML(xmlNodePtr paramsNode);
+    void toXML(xmlNodePtr paramsNode, bool editable) const;
+    bool getAsBoolean(const std::string& name, const bool& def) const;
+    int  getAsInteger(const std::string& name, const int& def) const;
+};
+
+std::ostream& operator<<(std::ostream& os, const DeviceParams& params);
+
+class CategorizedParams : public DeviceParams
+{
+  protected:
+    virtual std::string xmlSectionName() const=0;
+
+    void toXML(xmlNodePtr operNode, bool editable)
+    {
+      if (operNode==nullptr) return;
+
+      xmlNodePtr pNode = NewTextChild( operNode, xmlSectionName().c_str() );
+      if (!type.empty())
+        SetProp( pNode, "type", type );
+      DeviceParams::toXML(pNode, editable);
+    }
+  public:
+    std::string type;
+
+    CategorizedParams(const std::string& _type) : type(_type) {}
+    virtual ~CategorizedParams() {}
+
+    void fromXML(xmlNodePtr operNode)
+    {
+      if (operNode==nullptr) return;
+
+      DeviceParams::fromXML(GetNode( xmlSectionName().c_str(), operNode ));
+    }
+
+    void compareXML(xmlNodePtr operNode, bool editable); //!!!потом удалить
+    static void diffToDB(const std::string& text1,       //!!!потом удалить
+                         const std::string& text2);
+};
+
+class DeviceEvents : public CategorizedParams
+{
+  protected:
+    std::string xmlSectionName() const { return "events"; }
+
+  public:
+    DeviceEvents() : CategorizedParams("") {}
+};
+
+class SessParams : public CategorizedParams
+{
+  protected:
+    std::string xmlSectionName() const { return "sess_params"; }
+
+  public:
+    SessParams(const std::string& dev_model,
+               const std::string& sess_type,
+               const std::string& fmt_type);
+
+
+};
+
+class FmtParams : public CategorizedParams
+{
+  protected:
+    std::string xmlSectionName() const { return "fmt_params"; }
+
+  public:
+    FmtParams(const std::string& operation,
+              const std::string& dev_model,
+              const std::string& sess_type,
+              const std::string& fmt_type);
+};
+
+class ModelParams : public CategorizedParams
+{
+  protected:
+    std::string xmlSectionName() const { return "model_params"; }
+
+  public:
+    ModelParams(const std::string& dev_model);
+};
+
 class DeviceInfo
 {
   typedef std::map<std::string, std::string> ParamsList;
@@ -494,6 +629,7 @@ class DeviceInfo
     ParamsList _params;
   public:
     DeviceInfo(xmlNodePtr node);
+    const std::string& dev_model() { return _dev_model; }
     std::string ParamAsString(const std::string &name, const std::string &def) const;
     int ParamAsInteger(const std::string &name, const int &def) const;
     bool ParamAsBoolean(const std::string &name, const bool &def) const;
