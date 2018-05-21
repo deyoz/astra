@@ -6522,7 +6522,12 @@ struct TLCICFG:TCFG {
 
 struct TWA {
     int payload, underload;
-    TWA(): payload(NoExists), underload(NoExists) {};
+    TWA() { clear(); }
+    void clear()
+    {
+        payload = NoExists;
+        underload = NoExists;
+    }
     void get(TypeB::TDetailCreateInfo &info)
     {
         payload = getCommerceWeight(info.point_id, onlyCheckin, CWTotal);
@@ -9454,19 +9459,33 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     NewTextChild( resNode, "tlg_id", tlg_id);
 };
 
+#include "tlg/lci_parser.h"
+
 void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    // tlg_id is a tlg_out.id
-    int tlg_id = NoExists;
     string res;
+    int tlg_id = NoExists;
+    int lci_data_id = NoExists;
+
     try {
-        tlg_id =  NodeAsInteger("content", reqNode);
+        lci_data_id = NodeAsInteger("content", reqNode);
     } catch(...) {
         res = NodeAsString("content", reqNode);
     }
-    if(tlg_id == ASTRA::NoExists) {
-        LogTrace(TRACE5) << "tlg_srv kick: " << res;
-    } else {
+
+    if(lci_data_id != NoExists) {
+        TypeB::TLCIContent con;
+        con.fromDB(lci_data_id);
+        string answer = con.answer();
+        if(not answer.empty())
+            try {
+                tlg_id = ToInt(answer);
+            } catch(...) {
+                res = answer;
+            }
+    }
+
+    if(tlg_id != ASTRA::NoExists) {
         QParams QryParams;
         QryParams << QParam("id", otInteger, tlg_id);
         TCachedQuery Qry(
@@ -9499,6 +9518,7 @@ void TelegramInterface::kick(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
             res = heading + res + ending;
             markTlgAsSent(tlg_id);
         }
+
     }
     NewTextChild(resNode, "content", res);
 }

@@ -121,7 +121,8 @@ const
     {"-stat_belgorod",          stat_belgorod,          NULL,                       NULL},
     {"-apis_test",              apis_test,              NULL,                       NULL},
     {"-db_pkg",                 db_pkg,                 NULL,                       NULL},
-    {"-rbd_test",               rbd_test,                 NULL,                       NULL},
+    {"-rbd_test",               rbd_test,               NULL,                       NULL},
+    {"-lci_data",               TypeB::lci_data,               NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
