@@ -6753,18 +6753,18 @@ void TEmergencySeats::getTuneSection( int point_id ) {
   }
 }
 
-void TEmergencySeats::setDisabledEmergencySeats( TSalons* Salons )
+void TEmergencySeats::setDisabledEmergencySeats( TSalons* Salons, const TPaxsCover &grpPaxs )
 {
   clear();
   if ( !FDeniedEmergencySeats ) {
     return;
   }
   for ( std::vector<TPlaceList*>::iterator ilist=Salons->placelists.begin(); ilist!=Salons->placelists.end(); ++ilist ) {
-    setDisabledEmergencySeats( Salons->trip_id, Salons, *ilist );
+    setDisabledEmergencySeats( Salons->trip_id, Salons, *ilist, grpPaxs, DisableMode::dlayers );
   }
 
 }
-void TEmergencySeats::setDisabledEmergencySeats( int point_id, TSalons* Salons, TPlaceList* placeList )
+void TEmergencySeats::setDisabledEmergencySeats( int point_id, TSalons* Salons, TPlaceList* placeList, const TPaxsCover &grpPaxs, DisableMode mode )
 {
   if ( !FDeniedEmergencySeats ) {
     return;
@@ -6777,6 +6777,23 @@ void TEmergencySeats::setDisabledEmergencySeats( int point_id, TSalons* Salons, 
          iseat->elem_type != ARMCHAIR_EMERGENCY_EXIT_TYPE ) {
        continue;
     }
+    int pax_id = ASTRA::NoExists;
+    if ( mode == DisableMode::dlayers &&
+         (iseat->layers.empty() ||
+          (pax_id = iseat->layers.begin()->pax_id) == NoExists ) ) {
+      continue;
+    }
+    if ( mode == DisableMode::dlrss &&
+         (pax_id = iseat->getCurrLayer( point_id ).getPaxId()) == ASTRA::NoExists ) {
+      continue;
+    }
+    ProgTrace( TRACE5, "layer->pax_id=%d", pax_id );
+    bool pr_owner = isOwnerFreePlace<TPaxCover>( pax_id, grpPaxs );
+    ProgTrace(TRACE5, "isOwnerFreePlace=%d", pr_owner );
+    if ( pr_owner ) {
+      continue;
+    }
+
     if ( find( key ) != end() ) {
       continue;
     }
