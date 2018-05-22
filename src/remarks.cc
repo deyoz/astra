@@ -703,8 +703,8 @@ bool LoadPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts)
 
 bool needTryCheckinServicesAuto(int id, bool is_grp_id)
 {
-  TCachedQuery Qry(is_grp_id?"SELECT 1 FROM pax WHERE grp_id=:id AND sync_emds<>0 AND rownum<2":
-                             "SELECT 1 FROM pax WHERE pax_id=:id AND sync_emds<>0",
+  TCachedQuery Qry(is_grp_id?"SELECT 1 FROM pax WHERE grp_id=:id AND NVL(sync_emds, 0)<>0 AND rownum<2":
+                             "SELECT 1 FROM pax WHERE pax_id=:id AND NVL(sync_emds, 0)<>0",
                    QParams() << QParam("id", otInteger, id));
   Qry.get().Execute();
   return (!Qry.get().Eof);
@@ -712,8 +712,8 @@ bool needTryCheckinServicesAuto(int id, bool is_grp_id)
 
 void setSyncEmdsFlag(int id, bool is_grp_id, bool flag)
 {
-  TCachedQuery Qry(is_grp_id?"UPDATE pax SET sync_emds=:flag WHERE grp_id=:id AND sync_emds<>:flag":
-                             "UPDATE pax SET sync_emds=:flag WHERE pax_id=:id AND sync_emds<>:flag",
+  TCachedQuery Qry(is_grp_id?"UPDATE pax SET sync_emds=:flag WHERE grp_id=:id AND NVL(sync_emds, 0)<>:flag":
+                             "UPDATE pax SET sync_emds=:flag WHERE pax_id=:id AND NVL(sync_emds, 0)<>:flag",
                    QParams() << QParam("id", otInteger, id)
                              << QParam("flag", otInteger, (int)flag));
   Qry.get().Execute();
