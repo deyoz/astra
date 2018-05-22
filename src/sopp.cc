@@ -287,7 +287,7 @@ const char * arx_points_ISG_SQL =
     "ORDER BY arx_points.move_id,point_num,point_id";
 const char* regSQL =
     "SELECT SUM(tranzit)+SUM(ok)+SUM(goshow)+ "
-    "       SUM(NVL(jmp_tranzit, 0))+SUM(NVL(jmp_ok, 0))+SUM(NVL(jmp_goshow, 0)) AS reg FROM counters2 "
+    "       SUM(jmp_tranzit)+SUM(jmp_ok)+SUM(jmp_goshow) AS reg FROM counters2 "
     "WHERE point_dep=:point_id";
 const char* arx_regSQL =
     "SELECT SUM(arx_pax.seats) as reg "
