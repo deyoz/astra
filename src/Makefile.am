@@ -357,7 +357,7 @@ noinst_HEADERS = \
   md5_sum.h \
   hotel_acmd.h \
   kiosk_events.h \
-  self_ckin_log.h \  
+  self_ckin_log.h \
   stat_bi.h \
   stat_vo.h \
   stat_ha.h \
@@ -369,4 +369,4 @@ noinst_HEADERS = \
   db_pkg.h \
   cr_lf.h \
   stat_fv.h \
-  report_common.h 
+  report_common.h

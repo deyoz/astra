@@ -1533,12 +1533,12 @@ string DeskCity(string desk, bool with_exception)
 // std::string getAirlineId((TAirlinesRow&))
 // {
 //   return row.code
-// }  
+// }
 
 // std::string getCountryIdByAirp( const std::string& airp )
-// {  
+// {
 //   return getCountryByAirp().code;
-// };  
+// };
 
 TCountriesRow getCountryByAirp( const std::string& airp)
 {

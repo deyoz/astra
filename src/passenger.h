@@ -512,7 +512,7 @@ class TSimplePaxItem
     std::string full_name() const;
     bool api_doc_applied() const;
     bool upward_within_bag_pool(const TSimplePaxItem& pax) const;
-    bool HaveBaggage() const { return bag_pool_num != ASTRA::NoExists; } 
+    bool HaveBaggage() const { return bag_pool_num != ASTRA::NoExists; }
     ASTRA::TTrickyGender::Enum getTrickyGender() const { return getTrickyGender(pers_type, gender); }
     static void UpdTid(int pax_id);
 };
