@@ -96,6 +96,7 @@ class TServicePaymentItem : public TPaymentDoc
   }
   TServicePaymentItem(const TGrpServiceAutoItem& item) : TPaymentDoc(item)
   {
+    clear();
     pax_id=item.pax_id;
     trfer_num=item.trfer_num;
     pc=TRFISCKey();
@@ -198,6 +199,7 @@ class TServicePaymentList : public std::list<TServicePaymentItem>
     void getAllListItems(int grp_id, bool is_unaccomp);
     bool dec(const TPaxSegRFISCKey &key);
     bool equal(const TServicePaymentList &list) const;
+    bool sameDocExists(const CheckIn::TPaxASVCItem& asvc) const;
     void dump(const std::string &where) const;
     static void clearDB(int grp_id);
     static void copyDB(int grp_id_src, int grp_id_dest);
@@ -233,48 +235,65 @@ void TryCleanServicePayment(const WeightConcept::TPaidBagList &curr_paid,
 bool TryCleanServicePayment(const TPaidRFISCList &curr_paid,
                             CheckIn::TServicePaymentList &curr_payment);
 
-class TPaidBagEMDPropsItem
+class TGrpEMDProps;
+
+class TGrpEMDPropsItem
 {
+  friend class TGrpEMDProps;
+
+  private:
+    boost::optional<bool> manual_bind;
+    boost::optional<bool> not_auto_checkin;
   public:
     std::string emd_no;
     int emd_coupon;
-    bool manual_bind;
-  TPaidBagEMDPropsItem(const std::string &_emd_no,
-                       const int &_emd_coupon,
-                       bool _manual_bind=false)
-  {
-    emd_no=_emd_no;
-    emd_coupon=_emd_coupon;
-    manual_bind=_manual_bind;
-  }
-  TPaidBagEMDPropsItem(const TPaymentDoc &doc, bool _manual_bind=false)
-  {
-    emd_no=doc.doc_no;
-    emd_coupon=doc.doc_coupon;
-    manual_bind=_manual_bind;
-  }
-  bool operator < (const TPaidBagEMDPropsItem &item) const
-  {
-    if(emd_no != item.emd_no)
-      return emd_no < item.emd_no;
-    return emd_coupon < item.emd_coupon;
-  }
-};
-
-class TPaidBagEMDProps : public std::set<TPaidBagEMDPropsItem>
-{
-  public:
-    TPaidBagEMDPropsItem get(const std::string &_emd_no,
-                             const int &_emd_coupon) const
+    bool get_manual_bind() const { return manual_bind?manual_bind.get():false; }
+    bool get_not_auto_checkin() const { return not_auto_checkin?not_auto_checkin.get():false; }
+    TGrpEMDPropsItem(const std::string &_emd_no,
+                     const int &_emd_coupon,
+                     bool _manual_bind,
+                     bool _not_auto_checkin)
     {
-      TPaidBagEMDPropsItem item(_emd_no, _emd_coupon);
-      TPaidBagEMDProps::const_iterator i=find(item);
-      return i!=end()?*i:item;
+      emd_no=_emd_no;
+      emd_coupon=_emd_coupon;
+      manual_bind=_manual_bind;
+      not_auto_checkin=_not_auto_checkin;
+    }
+    TGrpEMDPropsItem(const TServicePaymentItem &doc)
+    {
+      emd_no=doc.doc_no;
+      emd_coupon=doc.doc_coupon;
+      manual_bind=true;
+      not_auto_checkin=boost::none;
+    }
+    TGrpEMDPropsItem(const TGrpServiceAutoItem &svc)
+    {
+      emd_no=svc.emd_no;
+      emd_coupon=svc.emd_coupon;
+      manual_bind=true;
+      not_auto_checkin=true;
+    }
+    bool operator < (const TGrpEMDPropsItem &item) const
+    {
+      if(emd_no != item.emd_no)
+        return emd_no < item.emd_no;
+      return emd_coupon < item.emd_coupon;
     }
 };
 
-void PaidBagEMDPropsFromDB(int grp_id, TPaidBagEMDProps &props);
-void PaidBagEMDPropsToDB(int grp_id, const TPaidBagEMDProps &props);
+class TGrpEMDProps : public std::set<TGrpEMDPropsItem>
+{
+  public:
+    TGrpEMDPropsItem get(const std::string &_emd_no,
+                         const int &_emd_coupon) const
+    {
+      TGrpEMDPropsItem item(_emd_no, _emd_coupon, boost::none, boost::none);
+      TGrpEMDProps::const_iterator i=find(item);
+      return i!=end()?*i:item;
+    }
+    static TGrpEMDProps& fromDB(int grp_id, TGrpEMDProps &props);
+    static void toDB(int grp_id, const TGrpEMDProps &props);
+};
 
 } //namespace CheckIn
 

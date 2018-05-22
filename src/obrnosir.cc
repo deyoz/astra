@@ -123,6 +123,7 @@ const
     {"-db_pkg",                 db_pkg,                 NULL,                       NULL},
     {"-rbd_test",               rbd_test,               NULL,                       NULL},
     {"-lci_data",               TypeB::lci_data,               NULL,                       NULL},
+    {"-asvc_list_print_sql",    PaxASVCList::print_sql, NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)

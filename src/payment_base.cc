@@ -649,6 +649,13 @@ bool TServicePaymentList::equal(const TServicePaymentList &list) const
   return tmp.empty();
 }
 
+bool TServicePaymentList::sameDocExists(const CheckIn::TPaxASVCItem& asvc) const
+{
+  for(const TServicePaymentItem item : *this)
+    if (item.sameDoc(asvc)) return true;
+  return false;
+}
+
 void TServicePaymentList::dump(const std::string &where) const
 {
   for(TServicePaymentList::const_iterator i=begin(); i!=end(); ++i)
@@ -783,7 +790,7 @@ bool TryCleanServicePayment(const TPaidRFISCList &curr_paid,
   return modified;
 }
 
-void PaidBagEMDPropsFromDB(int grp_id, TPaidBagEMDProps &props)
+TGrpEMDProps& TGrpEMDProps::fromDB(int grp_id, TGrpEMDProps &props)
 {
   props.clear();
   TQuery Qry(&OraSession);
@@ -793,34 +800,42 @@ void PaidBagEMDPropsFromDB(int grp_id, TPaidBagEMDProps &props)
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.Execute();
   for(; !Qry.Eof; Qry.Next())
-    props.insert(TPaidBagEMDPropsItem(Qry.FieldAsString("emd_no"),
-                                      Qry.FieldAsInteger("emd_coupon"),
-                                      Qry.FieldAsInteger("manual_bind")!=0));
+    props.insert(TGrpEMDPropsItem(Qry.FieldAsString("emd_no"),
+                                  Qry.FieldAsInteger("emd_coupon"),
+                                  Qry.FieldAsInteger("manual_bind")!=0,
+                                  Qry.FieldAsInteger("not_auto_checkin")!=0));
+  return props;
 }
 
-void PaidBagEMDPropsToDB(int grp_id, const TPaidBagEMDProps &props)
+void TGrpEMDProps::toDB(int grp_id, const TGrpEMDProps &props)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
     "BEGIN "
     "  UPDATE paid_bag_emd_props "
-    "  SET grp_id=:grp_id, manual_bind=:manual_bind "
+    "  SET grp_id=:grp_id, "
+    "      manual_bind=NVL(:manual_bind, manual_bind), "
+    "      not_auto_checkin=NVL(:not_auto_checkin, not_auto_checkin) "
     "  WHERE emd_no=:emd_no AND emd_coupon=:emd_coupon; "
     "  IF SQL%NOTFOUND THEN "
-    "    INSERT INTO paid_bag_emd_props(grp_id, emd_no, emd_coupon, manual_bind) "
-    "    VALUES(:grp_id, :emd_no, :emd_coupon, :manual_bind); "
+    "    INSERT INTO paid_bag_emd_props(grp_id, emd_no, emd_coupon, manual_bind, not_auto_checkin) "
+    "    VALUES(:grp_id, :emd_no, :emd_coupon, NVL(:manual_bind, 0), NVL(:not_auto_checkin,0)); "
     "  END IF; "
     "END;";
   Qry.CreateVariable("grp_id", otInteger, grp_id);
   Qry.DeclareVariable("emd_no", otString);
   Qry.DeclareVariable("emd_coupon", otInteger);
   Qry.DeclareVariable("manual_bind" ,otInteger);
-  for(TPaidBagEMDProps::const_iterator i=props.begin(); i!=props.end(); ++i)
+  Qry.DeclareVariable("not_auto_checkin" ,otInteger);
+  for(TGrpEMDProps::const_iterator i=props.begin(); i!=props.end(); ++i)
   {
     Qry.SetVariable("emd_no", i->emd_no);
     Qry.SetVariable("emd_coupon", i->emd_coupon);
-    Qry.SetVariable("manual_bind" ,(int)i->manual_bind);
+    i->manual_bind?Qry.SetVariable("manual_bind", (int)i->manual_bind.get()):
+                   Qry.SetVariable("manual_bind", FNull);
+    i->not_auto_checkin?Qry.SetVariable("not_auto_checkin", (int)i->not_auto_checkin.get()):
+                        Qry.SetVariable("not_auto_checkin", FNull);
     Qry.Execute();
   };
 }

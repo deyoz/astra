@@ -6077,9 +6077,8 @@ bool SaveCHKDRem(int pax_id, const vector<TCHKDItem> &chkd)
   return result;
 };
 
-void SaveASVCRem(int pax_id, const vector<TASVCItem> &asvc, bool &sync_pax_asvc)
+void SaveASVCRem(int pax_id, const vector<TASVCItem> &asvc)
 {
-  sync_pax_asvc=false;
   if (asvc.empty()) return;
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -6114,8 +6113,6 @@ void SaveASVCRem(int pax_id, const vector<TASVCItem> &asvc, bool &sync_pax_asvc)
                             Qry.SetVariable("emd_coupon",FNull);
     Qry.Execute();
   };
-
-  sync_pax_asvc=CheckIn::SyncPaxASVC(pax_id, false);
 };
 
 void SaveFQTRem(int pax_id, const vector<TFQTItem> &fqt, const set<TFQTExtraItem> &fqt_extra)
@@ -7025,10 +7022,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     "    DELETE FROM crs_pax_fqt WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_chkd WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_asvc WHERE pax_id=curRow.inf_id; "
-                    "    DELETE FROM pax_asvc WHERE pax_id=curRow.inf_id; "
-                    "    :sync_pax_asvc_rows:=:sync_pax_asvc_rows+SQL%ROWCOUNT; "
-                    "    DELETE FROM crs_pax_refuse WHERE pax_id=curRow.inf_id; "
-                    "    DELETE FROM crs_pax_alarms WHERE pax_id=curRow.inf_id; "
                     "    UPDATE crs_pax "
                     "    SET pr_del=1, last_op=:last_op, tid=cycle_tid__seq.currval "
                     "    WHERE pax_id=curRow.inf_id AND pr_del=0; "
@@ -7041,16 +7034,11 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     "  DELETE FROM crs_pax_fqt WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_chkd WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_asvc WHERE pax_id=:pax_id; "
-                    "  DELETE FROM pax_asvc WHERE pax_id=:pax_id; "
-                    "  :sync_pax_asvc_rows:=:sync_pax_asvc_rows+SQL%ROWCOUNT; "
                     "  UPDATE crs_pax SET inf_id=NULL WHERE pax_id=:pax_id; "
                     "END;";
                   Qry.CreateVariable("pax_id", otInteger, pax_id);
-                  Qry.CreateVariable("sync_pax_asvc_rows", otInteger, 0);
                   Qry.CreateVariable("last_op", otDate, info.time_create);
                   Qry.Execute();
-                  if (Qry.GetVariableAsInteger("sync_pax_asvc_rows")>0)
-                    TPaxAlarmHook::set(Alarm::UnboundEMD, pax_id);
 
                   DeleteTlgSeatRanges(cltPNLCkin, pax_id, tid, point_ids_spp);
                   DeleteTlgSeatRanges(cltPNLBeforePay, pax_id, tid, point_ids_spp);
@@ -7126,9 +7114,9 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   if (SaveCHKDRem(pax_id,iPaxItem->chkd)) chkd_exists=true;
                   et_display_pax_ids.insert(pax_id);
 
-                  bool sync_pax_asvc;
-                  SaveASVCRem(pax_id,iPaxItem->asvc,sync_pax_asvc);
-                  if (sync_pax_asvc) TPaxAlarmHook::set(Alarm::UnboundEMD, pax_id);
+                  SaveASVCRem(pax_id, iPaxItem->asvc);
+                  if (CheckIn::SyncPaxASVC(pax_id))
+                    TPaxAlarmHook::set(Alarm::UnboundEMD, pax_id);
                   //разметка слоев
                   InsertTlgSeatRanges(point_id,iTotals->dest,isPRL?cltPRLTrzt:cltPNLCkin,iPaxItem->seatRanges,
                                       pax_id,tlg_id,NoExists,UsePriorContext,tid,point_ids_spp);

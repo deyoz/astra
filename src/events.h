@@ -121,6 +121,7 @@ class TPaidToLogInfo
     int excess;
     std::map<TEventsSumBagKey, TEventsSumBagItem> bag;
     std::multiset<CheckIn::TServicePaymentItem> payment;
+    TPaidToLogInfo() { clear(); }
     void clear()
     {
       excess=0;
@@ -309,14 +310,14 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo);
 void UpdGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo);
 void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
                   const TGrpToLogInfo &grpInfoAfter,
-                  const CheckIn::TPaidBagEMDProps &handmadeEMDDiff,
+                  const CheckIn::TGrpEMDProps &handmadeEMDDiff,
                   TAgentStatInfo &agentStat);
 void SavePaidToLog(const TPaidToLogInfo &paidBefore,
                    const TPaidToLogInfo &paidAfter,
                    const TLogLocale &msgPattern,
                    bool piece_concept,
                    bool onlyEMD,
-                   const CheckIn::TPaidBagEMDProps &handmadeEMDDiff);
+                   const CheckIn::TGrpEMDProps &handmadeEMDDiff);
 //функция не только возвращает auto_weighing для пульта,
 //но и пишет в лог, если для данного пульта изменилась настройка
 bool GetAutoWeighing(int point_id, const std::string &work_mode);

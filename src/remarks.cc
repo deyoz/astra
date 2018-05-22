@@ -313,13 +313,13 @@ std::string TPaxRemBasic::RemoveTrailingChars(const std::string &str, const std:
     return "";
 }
 
-std::string TPaxRemBasic::rem_text(bool inf_indicator, const std::string& lang, TLangApplying fmt, TOutPufFmt output_fmt) const
+std::string TPaxRemBasic::rem_text(bool inf_indicator, const std::string& lang, TLangApplying fmt, TOutput output) const
 {
   if (empty()) return "";
   bool strictly_lat=lang!=AstraLocale::LANG_RU && fmt==applyLangForAll;
   bool translit_lat=lang!=AstraLocale::LANG_RU && (fmt==applyLangForAll || fmt==applyLangForTranslit);
   bool language_lat=lang!=AstraLocale::LANG_RU && (fmt==applyLangForAll || fmt==applyLangForTranslit || fmt==applyLang);
-  return get_rem_text(inf_indicator, lang, strictly_lat, translit_lat, language_lat, output_fmt);
+  return get_rem_text(inf_indicator, lang, strictly_lat, translit_lat, language_lat, output);
 }
 
 std::string TPaxRemBasic::rem_text(bool inf_indicator) const
@@ -351,11 +351,11 @@ TPaxRemItem::TPaxRemItem(const TPaxRemBasic &basic,
                          bool inf_indicator,
                          const std::string &lang,
                          TLangApplying fmt,
-                         TOutPufFmt output_fmt)
+                         TOutput output)
 {
   clear();
   code=basic.rem_code();
-  text=basic.rem_text(inf_indicator, lang, fmt, output_fmt);
+  text=basic.rem_text(inf_indicator, lang, fmt, output);
   calcPriority();
 }
 
@@ -419,7 +419,7 @@ std::string TPaxRemItem::get_rem_text(bool inf_indicator,
                                       bool strictly_lat,
                                       bool translit_lat,
                                       bool language_lat,
-                                      TOutPufFmt output_fmt) const
+                                      TOutput output) const
 {
   if (!code.empty() && text.substr(0,code.size())==code)
   {
@@ -491,7 +491,7 @@ std::string TPaxFQTItem::get_rem_text(bool inf_indicator,
                                       bool strictly_lat,
                                       bool translit_lat,
                                       bool language_lat,
-                                      TOutPufFmt output_fmt) const
+                                      TOutput output) const
 {
   ostringstream result;
   result << ElemIdToPrefferedElem(etCkinRemType, rem, efmtCodeNative, lang)
@@ -499,7 +499,7 @@ std::string TPaxFQTItem::get_rem_text(bool inf_indicator,
          << " " << (strictly_lat?transliter(convert_char_view(no, strictly_lat), 1, strictly_lat):no);
   if (!extra.empty())
     result << "/" << transliter(extra, 1, translit_lat);
-  if (output_fmt == ofReport and !tier_level.empty())
+  if (output == outputReport and !tier_level.empty())
     result << "/" << transliter(tier_level, 1, translit_lat);
 
   return RemoveTrailingChars(result.str(), " ");
@@ -547,7 +547,7 @@ const TPaxASVCItem& TPaxASVCItem::toXML(xmlNodePtr node) const
   return *this;
 };
 
-const TPaxASVCItem& TPaxASVCItem::toDB(TQuery &Qry) const
+const TServiceBasic& TServiceBasic::toDB(TQuery &Qry) const
 {
   Qry.SetVariable("rfic", RFIC);
   Qry.SetVariable("rfisc", RFISC);
@@ -555,12 +555,18 @@ const TPaxASVCItem& TPaxASVCItem::toDB(TQuery &Qry) const
   Qry.SetVariable("ssr_code", ssr_code);
   Qry.SetVariable("service_name", service_name);
   Qry.SetVariable("emd_type", emd_type);
+  return *this;
+}
+
+const TPaxASVCItem& TPaxASVCItem::toDB(TQuery &Qry) const
+{
+  TServiceBasic::toDB(Qry);
   Qry.SetVariable("emd_no", emd_no);
   Qry.SetVariable("emd_coupon", emd_coupon);
   return *this;
-};
+}
 
-TPaxASVCItem& TPaxASVCItem::fromDB(TQuery &Qry)
+TServiceBasic& TServiceBasic::fromDB(TQuery &Qry)
 {
   clear();
   RFIC=Qry.FieldAsString("rfic");
@@ -569,6 +575,13 @@ TPaxASVCItem& TPaxASVCItem::fromDB(TQuery &Qry)
   ssr_code=Qry.FieldAsString("ssr_code");
   service_name=Qry.FieldAsString("service_name");
   emd_type=Qry.FieldAsString("emd_type");
+  return *this;
+}
+
+TPaxASVCItem& TPaxASVCItem::fromDB(TQuery &Qry)
+{
+  clear();
+  TServiceBasic::fromDB(Qry);
   emd_no=Qry.FieldAsString("emd_no");
   emd_coupon=Qry.FieldAsInteger("emd_coupon");
   return *this;
@@ -579,7 +592,7 @@ std::string TPaxASVCItem::get_rem_text(bool inf_indicator,
                                        bool strictly_lat,
                                        bool translit_lat,
                                        bool language_lat,
-                                       TOutPufFmt output_fmt) const
+                                       TOutput output) const
 {
   ostringstream result;
   result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)
@@ -607,7 +620,7 @@ std::string TPaxASVCItem::no_str() const
   return s.str();
 };
 
-void TPaxASVCItem::rcpt_service_types(set<ASTRA::TRcptServiceType> &service_types) const
+void TServiceBasic::rcpt_service_types(set<ASTRA::TRcptServiceType> &service_types) const
 {
   service_types.clear();
   if (RFIC=="C")
@@ -688,7 +701,43 @@ bool LoadPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts)
   return !fqts.empty();
 };
 
-bool SyncPaxASVC(int id, bool is_grp_id)
+bool needTryCheckinServicesAuto(int id, bool is_grp_id)
+{
+  TCachedQuery Qry(is_grp_id?"SELECT 1 FROM pax WHERE grp_id=:id AND NVL(sync_emds, 0)<>0 AND rownum<2":
+                             "SELECT 1 FROM pax WHERE pax_id=:id AND NVL(sync_emds, 0)<>0",
+                   QParams() << QParam("id", otInteger, id));
+  Qry.get().Execute();
+  return (!Qry.get().Eof);
+}
+
+void setSyncEmdsFlag(int id, bool is_grp_id, bool flag)
+{
+  TCachedQuery Qry(is_grp_id?"UPDATE pax SET sync_emds=:flag WHERE grp_id=:id AND NVL(sync_emds, 0)<>:flag":
+                             "UPDATE pax SET sync_emds=:flag WHERE pax_id=:id AND NVL(sync_emds, 0)<>:flag",
+                   QParams() << QParam("id", otInteger, id)
+                             << QParam("flag", otInteger, (int)flag));
+  Qry.get().Execute();
+}
+
+bool SyncPaxASVC(int pax_id)
+{
+  bool result=false;
+  if (DeletePaxASVC(pax_id)) result=true;
+  if (AddPaxASVC(pax_id, false)) result=true;
+  if (result)
+    CheckIn::setSyncEmdsFlag(pax_id, false, true);
+  return result;
+}
+
+bool DeletePaxASVC(int pax_id)
+{
+  TCachedQuery Qry("DELETE FROM pax_asvc WHERE pax_id=:id",
+                   QParams() << QParam("id", otInteger, pax_id));
+  Qry.get().Execute();
+  return (Qry.get().RowsProcessed()>0);
+}
+
+bool AddPaxASVC(int id, bool is_grp_id)
 {
   ostringstream sql;
   sql <<
@@ -714,7 +763,7 @@ bool SyncPaxASVC(int id, bool is_grp_id)
   TCachedQuery Qry(sql.str().c_str(), QryParams);
   Qry.get().Execute();
   return (Qry.get().RowsProcessed()>0);
-};
+}
 
 bool LoadPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
 {

@@ -1296,7 +1296,7 @@ void TGrpServiceList::fromDB(int grp_id, bool without_refused)
     push_back(TGrpServiceItem().fromDB(Qry.get()));
 }
 
-void TGrpServiceAutoList::fromDB(int id, bool is_grp_id, bool without_refused)
+TGrpServiceAutoList& TGrpServiceAutoList::fromDB(int id, bool is_grp_id, bool without_refused)
 {
   clear();
   TCachedQuery Qry(is_grp_id?
@@ -1318,6 +1318,7 @@ void TGrpServiceAutoList::fromDB(int id, bool is_grp_id, bool without_refused)
     if (!item.isSuitableForAutoCheckin()) continue;
     push_back(item);
   }
+  return *this;
 }
 
 void TGrpServiceListWithAuto::fromDB(int grp_id, bool without_refused)
@@ -1332,11 +1333,13 @@ void TGrpServiceListWithAuto::fromDB(int grp_id, bool without_refused)
   TGrpServiceAutoList list2;
   list2.fromDB(grp_id, true, without_refused);
   for(TGrpServiceAutoList::const_iterator i=list2.begin(); i!=list2.end(); ++i)
-    addItem(TGrpServiceItem(*i));
+    addItem(*i);
 }
 
-void TGrpServiceListWithAuto::addItem(const TGrpServiceItem& item)
+void TGrpServiceListWithAuto::addItem(const TGrpServiceAutoItem &svcAuto)
 {
+  TGrpServiceItem item(svcAuto);
+
   TGrpServiceList::iterator i=begin();
   for(; i!=end(); ++i)
   {
@@ -1407,9 +1410,15 @@ bool TPaidRFISCListWithAuto::isRFISCGrpExists(int pax_id, const std::string &grp
   return false;
 }
 
-void TPaidRFISCListWithAuto::addItem(const TPaidRFISCItem& item)
+void TPaidRFISCListWithAuto::addItem(const TGrpServiceAutoItem &svcAuto, bool squeeze)
 {
-  TPaidRFISCList::iterator i=find(item);
+  TPaidRFISCItem item(svcAuto);
+
+  TPaidRFISCList::iterator i=squeeze?begin():end();
+  for(; i!=end(); ++i)
+    if (i->second.similar(svcAuto)) break;
+
+  if (i==end()) i=find(item);
   if (i!=end())
   {
     TPaidRFISCItem& dest=i->second;
@@ -1444,20 +1453,28 @@ void TPaidRFISCList::fromDB(int id, bool is_grp_id)
   }
 }
 
-void TPaidRFISCListWithAuto::fromDB(int id, bool is_grp_id)
+TPaidRFISCListWithAuto& TPaidRFISCListWithAuto::set(const TPaidRFISCList& list1,
+                                                    const TGrpServiceAutoList& list2,
+                                                    bool squeeze)
 {
   clear();
   clearCache();
 
+  for(const auto& i : list1) insert(i);
+  for(const auto& i : list2) addItem(i, squeeze);
+
+  return *this;
+}
+
+void TPaidRFISCListWithAuto::fromDB(int id, bool is_grp_id, bool squeeze)
+{
   TPaidRFISCList list1;
   list1.fromDB(id, is_grp_id);
-  for(TPaidRFISCList::const_iterator i=list1.begin(); i!=list1.end(); ++i)
-    insert(*i);
 
   TGrpServiceAutoList list2;
   list2.fromDB(id, is_grp_id);
-  for(TGrpServiceAutoList::const_iterator i=list2.begin(); i!=list2.end(); ++i)
-    addItem(TPaidRFISCItem(*i));
+
+  set(list1, list2, squeeze);
 }
 
 void TGrpServiceList::clearDB(int grp_id)
@@ -1508,9 +1525,9 @@ void TGrpServiceAutoList::toDB(int grp_id) const
                              << QParam("emd_type", otString)
                              << QParam("emd_no", otString)
                              << QParam("emd_coupon", otInteger));
-  for(TGrpServiceAutoList::const_iterator i=begin(); i!=end(); ++i)
+  for(const TGrpServiceAutoItem& item : *this)
   {
-    i->toDB(Qry.get());
+    item.toDB(Qry.get());
     Qry.get().Execute();
   }
 }
@@ -1586,6 +1603,13 @@ void TGrpServiceAutoList::copyDB(int grp_id_src, int grp_id_dest, bool not_clear
   Qry.get().Execute();
 }
 
+bool TGrpServiceAutoList::sameDocExists(const CheckIn::TPaxASVCItem& asvc) const
+{
+  for(const TGrpServiceAutoItem item : *this)
+    if (item.sameDoc(asvc)) return true;
+  return false;
+}
+
 void TGrpServiceListWithAuto::split(int grp_id, TGrpServiceList& list1, TGrpServiceAutoList& list2) const
 {
   list1.clear();
@@ -1614,6 +1638,23 @@ void TGrpServiceListWithAuto::split(int grp_id, TGrpServiceList& list1, TGrpServ
     }
     else list1.push_back(*i);
   };
+}
+
+void TGrpServiceList::mergeWith(const TGrpServiceAutoList& list)
+{
+  for(const TGrpServiceAutoItem& autoItem : list)
+    for(TGrpServiceItem& item : *this)
+      if (item.similar(autoItem))
+      {
+        if (autoItem.service_quantity_valid())
+        {
+          if (item.service_quantity_valid())
+            item.service_quantity+=autoItem.service_quantity;
+          else
+            item.service_quantity=autoItem.service_quantity;
+          break;
+        }
+      }
 }
 
 void TGrpServiceList::moveFrom(TGrpServiceAutoList& list)
@@ -1767,16 +1808,6 @@ void TGrpServiceList::addBagInfo(int grp_id,
       push_back(item);
     };
   }
-}
-
-void TGrpServiceList::prepareForSirena(int grp_id,
-                                       int tckin_seg_count,
-                                       int trfer_seg_count,
-                                       bool include_refused)
-{
-  clear();
-  fromDB(grp_id, !include_refused);
-  addBagInfo(grp_id, tckin_seg_count, trfer_seg_count, include_refused);
 }
 
 void TGrpServiceList::getAllListItems()

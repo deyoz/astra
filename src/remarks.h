@@ -48,7 +48,7 @@ namespace CheckIn
 class TPaxRemBasic
 {
   public:
-    enum TOutPufFmt {ofTlg, ofReport};
+    enum TOutput {outputTlg, outputReport};
   protected:
     std::string RemoveTrailingChars(const std::string &str, const std::string &chars) const;
     virtual std::string get_rem_text(bool inf_indicator,
@@ -56,7 +56,7 @@ class TPaxRemBasic
                                      bool strictly_lat,
                                      bool translit_lat,
                                      bool language_lat,
-                                     TOutPufFmt output_fmt
+                                     TOutput output
                                      ) const=0;
   public:
     virtual bool empty() const=0;
@@ -64,7 +64,7 @@ class TPaxRemBasic
             bool inf_indicator,
             const std::string& lang,
             TLangApplying fmt,
-            TOutPufFmt output_fmt = ofTlg) const;
+            TOutput output = outputTlg) const;
     std::string rem_text(bool inf_indicator) const;
     virtual std::string rem_code() const=0;
     int get_priority() const;
@@ -79,7 +79,7 @@ class TPaxRemItem : public TPaxRemBasic
                              bool strictly_lat,
                              bool translit_lat,
                              bool language_lat,
-                             TOutPufFmt output_fmt) const;
+                             TOutput output) const;
   public:
 
     std::string code;
@@ -95,7 +95,7 @@ class TPaxRemItem : public TPaxRemBasic
                 bool inf_indicator,
                 const std::string& lang,
                 TLangApplying fmt,
-                TOutPufFmt output_fmt = ofTlg);
+                TOutput output = outputTlg);
     TPaxRemItem(const TPaxRemBasic &basic,
                 bool inf_indicator);
     void clear()
@@ -175,7 +175,7 @@ class TPaxFQTItem : public TPaxRemBasic, public TPaxFQTCard
                              bool strictly_lat,
                              bool translit_lat,
                              bool language_lat,
-                             TOutPufFmt output_fmt) const;
+                             TOutput output) const;
   public:
     std::string rem;
     std::string extra;
@@ -242,15 +242,8 @@ class TPaxFQTItem : public TPaxRemBasic, public TPaxFQTCard
     }
 };
 
-class TPaxASVCItem : public TPaxRemBasic
+class TServiceBasic
 {
-  protected:
-    std::string get_rem_text(bool inf_indicator,
-                             const std::string& lang,
-                             bool strictly_lat,
-                             bool translit_lat,
-                             bool language_lat,
-                             TOutPufFmt output_fmt) const;
   public:
     std::string RFIC;
     std::string RFISC;
@@ -258,13 +251,8 @@ class TPaxASVCItem : public TPaxRemBasic
     std::string ssr_code;
     std::string service_name;
     std::string emd_type;
-    std::string emd_no;
-    int emd_coupon;
-    std::string ssr_text;  //дополнительно, вычисляется из ремарок пассажира
-    TPaxASVCItem()
-    {
-      clear();
-    };
+
+    TServiceBasic() { clear(); }
     void clear()
     {
       RFIC.clear();
@@ -273,10 +261,7 @@ class TPaxASVCItem : public TPaxRemBasic
       ssr_code.clear();
       service_name.clear();
       emd_type.clear();
-      emd_no.clear();
-      emd_coupon=ASTRA::NoExists;
-      ssr_text.clear();
-    };
+    }
     bool empty() const
     {
       return RFIC.empty() &&
@@ -284,11 +269,45 @@ class TPaxASVCItem : public TPaxRemBasic
              service_quantity==ASTRA::NoExists &&
              ssr_code.empty() &&
              service_name.empty() &&
-             emd_type.empty() &&
+             emd_type.empty();
+    }
+
+    const TServiceBasic& toDB(TQuery &Qry) const;
+    TServiceBasic& fromDB(TQuery &Qry);
+
+    void rcpt_service_types(std::set<ASTRA::TRcptServiceType> &service_types) const;
+    bool service_quantity_valid() const { return service_quantity!=ASTRA::NoExists && service_quantity>0; }
+};
+
+class TPaxASVCItem : public TPaxRemBasic, public TServiceBasic
+{
+  protected:
+    std::string get_rem_text(bool inf_indicator,
+                             const std::string& lang,
+                             bool strictly_lat,
+                             bool translit_lat,
+                             bool language_lat,
+                             TOutput output) const;
+  public:
+    std::string emd_no;
+    int emd_coupon;
+    std::string ssr_text;  //дополнительно, вычисляется из ремарок пассажира
+
+    TPaxASVCItem() { clear(); }
+    void clear()
+    {
+      TServiceBasic::clear();
+      emd_no.clear();
+      emd_coupon=ASTRA::NoExists;
+      ssr_text.clear();
+    }
+    bool empty() const
+    {
+      return TServiceBasic::empty() &&
              emd_no.empty() &&
              emd_coupon==ASTRA::NoExists &&
              ssr_text.empty();
-    };
+    }
     bool operator < (const TPaxASVCItem &item) const
     {
       if (emd_no!=item.emd_no)
@@ -297,12 +316,16 @@ class TPaxASVCItem : public TPaxRemBasic
         return (item.emd_coupon==ASTRA::NoExists ||
                 (emd_coupon!=ASTRA::NoExists && emd_coupon<item.emd_coupon));
       return false;
-    };
+    }
     bool operator == (const TPaxASVCItem &item) const
     {
         return
             emd_no == item.emd_no and
             emd_coupon == item.emd_coupon;
+    }
+    bool sameDoc(const TPaxASVCItem &item) const
+    {
+      return operator ==(item);
     }
     const TPaxASVCItem& toXML(xmlNodePtr node) const;
     const TPaxASVCItem& toDB(TQuery &Qry) const;
@@ -312,16 +335,12 @@ class TPaxASVCItem : public TPaxRemBasic
       return "ASVC";
     }
     std::string no_str() const;
-    void rcpt_service_types(std::set<ASTRA::TRcptServiceType> &service_types) const;
-    bool service_quantity_valid() const { return service_quantity!=ASTRA::NoExists && service_quantity>0; }
 };
 
 bool LoadPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems);
 bool LoadCrsPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems);
 bool LoadPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts);
 bool LoadCrsPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts);
-bool LoadPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
-bool LoadCrsPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
 
 void SavePaxRem(int pax_id, const std::multiset<TPaxRemItem> &rems);
 void SavePaxFQT(int pax_id, const std::set<TPaxFQTItem> &fqts);
@@ -330,8 +349,13 @@ typedef std::map<TPaxFQTCard, TPaxFQTItem> TPaxFQTCards;
 void GetPaxFQTCards(const std::set<TPaxFQTItem> &fqts, TPaxFQTCards &cards);
 void SyncFQTTierLevel(int pax_id, bool from_crs, std::set<TPaxFQTItem> &fqts);
 
-
-bool SyncPaxASVC(int id, bool is_grp_id);
+bool needTryCheckinServicesAuto(int id, bool is_grp_id);
+void setSyncEmdsFlag(int id, bool is_grp_id, bool flag);
+bool SyncPaxASVC(int pax_id);
+bool DeletePaxASVC(int pax_id);
+bool AddPaxASVC(int id, bool is_grp_id);
+bool LoadPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
+bool LoadCrsPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
 
 void GetPaxRemDifference(const boost::optional<TRemGrp> &rem_grp,
                          const std::multiset<TPaxRemItem> &prior_rems,

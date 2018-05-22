@@ -115,7 +115,7 @@ std::string TPaxTknItem::get_rem_text(bool inf_indicator,
                                       bool strictly_lat,
                                       bool translit_lat,
                                       bool language_lat,
-                                      TOutPufFmt output_fmt) const
+                                      TOutput output) const
 {
   ostringstream result;
   result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)
@@ -489,7 +489,7 @@ std::string TPaxDocItem::get_rem_text(bool inf_indicator,
                                       bool strictly_lat,
                                       bool translit_lat,
                                       bool language_lat,
-                                      TOutPufFmt output_fmt) const
+                                      TOutput output) const
 {
   ostringstream result;
   result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)
@@ -716,7 +716,7 @@ std::string TPaxDocoItem::get_rem_text(bool inf_indicator,
                                        bool strictly_lat,
                                        bool translit_lat,
                                        bool language_lat,
-                                       TOutPufFmt output_fmt) const
+                                       TOutput output) const
 {
   ostringstream result;
   result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)
@@ -850,7 +850,7 @@ std::string TPaxDocaItem::get_rem_text(bool inf_indicator,
                                        bool strictly_lat,
                                        bool translit_lat,
                                        bool language_lat,
-                                       TOutPufFmt output_fmt) const
+                                       TOutput output) const
 {
   ostringstream result;
   result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)
@@ -2111,29 +2111,6 @@ bool LoadCrsPaxPNRs(int pax_id, std::list<TPnrAddrItem> &pnrs)
   return !pnrs.empty();
 };
 
-void CalcPaidBagEMDProps(const CheckIn::TServicePaymentList &prior_payment,
-                         const boost::optional< CheckIn::TServicePaymentList > &curr_payment,
-                         CheckIn::TPaidBagEMDProps &diff,
-                         CheckIn::TPaidBagEMDProps &props)
-{
-  diff.clear();
-  props.clear();
-  if (!curr_payment) return;  //ничего не изменялось
-  CheckIn::TPaidBagEMDProps props1, props2;
-  for(CheckIn::TServicePaymentList::const_iterator i=prior_payment.begin(); i!=prior_payment.end(); ++i)
-    if (i->isEMD()) props1.insert(CheckIn::TPaidBagEMDPropsItem(*i, true));
-  for(CheckIn::TServicePaymentList::const_iterator i=curr_payment.get().begin(); i!=curr_payment.get().end(); ++i)
-    if (i->isEMD()) props2.insert(CheckIn::TPaidBagEMDPropsItem(*i, true));
-  //в различия попадают и добавленные, и удаленные
-  set_symmetric_difference(props1.begin(), props1.end(),
-                           props2.begin(), props2.end(),
-                           inserter(diff, diff.end()));
-  //manual_bind=true только для удаленных
-  set_difference(props1.begin(), props1.end(),
-                 props2.begin(), props2.end(),
-                 inserter(props, props.end()));
-}
-
 TCkinPaxTknItem& TCkinPaxTknItem::fromDB(TQuery &Qry)
 {
   clear();
@@ -2194,7 +2171,7 @@ void GetTCkinTickets(int pax_id, map<int, TCkinPaxTknItem> &tkns, bool after_cur
         } else {
             tkns.insert(_tkns.begin(), current);
         }
- 
+
         // а здесь происходит удаление элементов, seg_no которых не подряд
         // Напр.:
         // (1,2,3,5,6,10) -> (1,2,3)
