@@ -321,19 +321,25 @@ struct TPDItem {
     TGenderCount standard; // standard weights
     bool empty() const;
     void toXML(xmlNodePtr node) const;
+    void fromXML(xmlNodePtr node);
     void dump();
+    void clear() { actual.clear(); standard.clear(); }
+    TPDItem() { clear(); }
 };
 
 struct TPDParser:public std::map<std::string, TPDItem> {
     TPDType type;
-    TPDParser(): type(pdtUnknown) {};
+    TPDParser() { clear(); }
+    void fromXML(xmlNodePtr node);
     void toXML(xmlNodePtr node) const;
     void parse(TPDType atype, const std::vector<std::string> &val);
     void dump();
+    void clear();
     std::string getKey(const std::string &val, TPDType type);
 };
 
 struct TPD:public std::map<TPDType, TPDParser> {
+    void fromXML(xmlNodePtr node);
     void toXML(xmlNodePtr node) const;
     void parse(const char *val);
     void dump();
