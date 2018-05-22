@@ -289,7 +289,7 @@ noinst_HEADERS = \
   httpClient.h \
   images.h \
   load_fr.h \
-  libra.h\
+  libra.h \
   maindcs.h \
   meridian.h \
   obrnosir.h \

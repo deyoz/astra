@@ -1208,7 +1208,6 @@ void ReadWebSalons( int point_id, const std::vector<AstraWeb::TWebPax> &pnr, map
         web_place_list.ycount = place->y;
 
       wp.seat_no = place->denorm_view(Salons->getLatSeat());
-
       wp.elem_type = place->elem_type;
 /*      if ( !place->elem_type.empty() ) {
         if ( place->elem_type != PARTITION_ELEM_TYPE ) {
@@ -1844,7 +1843,7 @@ void VerifyPax(vector< pair<int, TWebPnrForSave > > &segs, const XMLDoc &emulDoc
             else
             {
               if (Qry.FieldAsInteger("pnr_id")!=pnr_id)
-/*                throw EXCEPTIONS::Exception("VerifyPax: passengers from different PNR (seg_no=%d)", seg_no)*/;  //!!!vlad
+                throw EXCEPTIONS::Exception("VerifyPax: passengers from different PNR (seg_no=%d)", seg_no);
             };
 
             if (!not_checked)
