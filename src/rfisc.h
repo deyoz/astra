@@ -316,7 +316,6 @@ class TRFISCKey : public TRFISCListKey
     TRFISCKey& fromDB(TQuery &Qry);
     void getListItemIfNone();
     void getListItem();
-    bool getPseudoListIdForInboundTrfer(int grp_id);
     void getListItemUnaccomp (int grp_id, int transfer_num, boost::optional<TServiceCategory::Enum> category, const std::string &where)
     {
       getListItem(Unaccomp, grp_id, transfer_num, ASTRA::NoExists, category, where);
@@ -423,8 +422,6 @@ class TRFISCBagPropsList : public std::map<TRFISCListKey, TRFISCBagProps>
     }
 
     void fromDB(const std::set<std::string> &airlines);
-    std::string get_rem_code(const std::string &airline,
-                             const std::string &rfisc) const;
 };
 
 class TRFISCListWithProps : public TRFISCList
@@ -441,7 +438,6 @@ class TRFISCListWithProps : public TRFISCList
       TRFISCList::clear();
       bagProps=boost::none;
     }
-    std::string get_rem_code(const std::string &rfisc, const bool pr_cabin);
     const TRFISCBagPropsList& getBagProps();
     void setPriority();
 };
