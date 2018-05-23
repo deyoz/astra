@@ -680,7 +680,7 @@ void saveFlights( std::map<std::string,map<bool, TParseFlight> > &flights )
   }
 }
 
-void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, std::string &warning );
+void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, const TagsNotExists &tags, std::string &warning );
 /////////////////////////////////////////SINCHRON SVO///////////////////////////////
 void parse_saveFlights( int range_hours, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
@@ -702,10 +702,11 @@ void parse_saveFlights( int range_hours, xmlNodePtr reqNode, xmlNodePtr resNode 
     try {
       std::string warning1, warning2;
       event = "parse";
-      parser.parse( node, airp, dests, warning1 );
+      TagsNotExists tags;
+      parser.parse( node, tags, airp, dests, warning1 );
       StrToFloat( parser.id.c_str(), aodb_point_id );
       event = "write";
-      IntWriteDests( aodb_point_id, range_hours, dests, warning2 );
+      IntWriteDests( aodb_point_id, range_hours, dests, tags, warning2 );
       msg = event + ": " + "flight_number=" + IntToString( flight_number ) + ",id=" + parser.id;
       if ( !warning1.empty() || !warning2.empty() ) {
         msg += ",warning=" + warning1 + warning2;
@@ -809,8 +810,10 @@ void parse_saveFlights( int range_hours, xmlNodePtr reqNode, xmlNodePtr resNode 
   dests - маршрут. по нашему пукту заполнены структуры stages, stations, по всем времена прилета/вылета
   отдельно передается рейс на прилет и рейс на вылет
 */
-void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TPointDests &dests, std::string &warning )
+
+void TXMLFlightParser::parse( xmlNodePtr flightNode, TagsNotExists &tags, const std::string &airp, TPointDests &dests, std::string &warning )
 {
+  tags.clear();
   warning.clear();
   dests.clear();
   id.clear();
@@ -895,20 +898,23 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TP
   ProgTrace(TRACE5,"check terminal");
   int terminal = checkerFlt.checkTerminalNo( NodeAsStringFast( "terminal", flightNode ) );
   //park
-  prop = NodeAsStringFast( "park", flightNode, "" );
-  dest.park_out = TrimString( prop ).substr( 0, 3 );
+  prop = NodeAsStringFast( "park", flightNode, STRING_TAG_NOEXISTS );
+  tags.park_out = (prop == STRING_TAG_NOEXISTS);
+  dest.park_out = tags.park_out?"":TrimString( prop ).substr( 0, 3 );
   //max_commerce
   ProgTrace(TRACE5,"check maxcommerce");
   dest.max_commerce.SetValue( checkerFlt.checkMaxCommerce( string(NodeAsStringFast( "max_commerce", flightNode, "" )) ) );
   //craft
   ProgTrace(TRACE5,"check craft");
-  elem = checkerFlt.checkCraft( NodeAsStringFast( "craft", flightNode, "" ), TCheckerFlt::etExtAODB, false );
-  dest.craft = elem.code;
+  elem = checkerFlt.checkCraft( NodeAsStringFast( "craft", flightNode, STRING_TAG_NOEXISTS ), TCheckerFlt::etExtAODB, false );
+  tags.craft = (elem.code == STRING_TAG_NOEXISTS);
+  dest.craft = tags.craft?"":elem.code;
   dest.craft_fmt = elem.fmt;
   ProgTrace( TRACE5, "craft=%s, fmt=%d", dest.craft.c_str(), dest.craft_fmt );
   //bort
-  prop = NodeAsStringFast( "bort", flightNode, "" );
-  dest.bort =  TrimString( prop ).substr( 0, 10 );
+  prop = NodeAsStringFast( "bort", flightNode, STRING_TAG_NOEXISTS );
+  tags.bort = (prop ==STRING_TAG_NOEXISTS);
+  dest.bort = tags.bort?"":prop;
   ProgTrace(TRACE5,"check stages");
   //checkin_begin
   TTripStage stage;
@@ -977,12 +983,22 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, const std::string &airp, TP
     ppoint->airp = elem.code;
     ppoint->airp_fmt = elem.fmt;
     ProgTrace(TRACE5,"check times");
-    ppoint->scd_in = checkerFlt.checkLocalTime( string(NodeAsStringFast( "scd_in", propNode, "" )), region, "Время прилета плановое " + ppoint->airp, false );
-    ppoint->est_in = checkerFlt.checkLocalTime( string(NodeAsStringFast( "est_in", propNode, "" )), region, "Время прилета расчетное " + ppoint->airp, false );
-    ppoint->act_in = checkerFlt.checkLocalTime( string(NodeAsStringFast( "act_in", propNode, "" )), region, "Время прилета фактическое " + ppoint->airp, false );
-    ppoint->scd_out = checkerFlt.checkLocalTime( string(NodeAsStringFast( "scd_out", propNode, "" )), region, "Время вылета плановое " + ppoint->airp, false );
-    ppoint->est_out = checkerFlt.checkLocalTime( string(NodeAsStringFast( "est_out", propNode, "" )), region, "Время вылета расчетное " + ppoint->airp, false );
-    ppoint->act_out = checkerFlt.checkLocalTime( string(NodeAsStringFast( "act_out", propNode, "" )), region, "Время вылета фактическое " + ppoint->airp, false );
+    prop = NodeAsStringFast( "scd_in", propNode, "" );
+    ppoint->scd_in = checkerFlt.checkLocalTime( prop, region, "Время прилета плановое " + ppoint->airp, false );
+    prop = NodeAsStringFast( "est_in", propNode, STRING_TAG_NOEXISTS );
+    tags.est_in = (prop == STRING_TAG_NOEXISTS);
+    ppoint->est_in = tags.est_in?ASTRA::NoExists:checkerFlt.checkLocalTime( prop, region, "Время прилета расчетное " + ppoint->airp, false );
+    prop = NodeAsStringFast( "act_in", propNode, STRING_TAG_NOEXISTS );
+    tags.act_in = (prop == STRING_TAG_NOEXISTS);
+    ppoint->act_in = tags.act_in?ASTRA::NoExists:checkerFlt.checkLocalTime( prop, region, "Время прилета фактическое " + ppoint->airp, false );
+    prop = NodeAsStringFast( "scd_out", propNode, "" );
+    ppoint->scd_out = checkerFlt.checkLocalTime( prop, region, "Время вылета плановое " + ppoint->airp, false );
+    prop = NodeAsStringFast( "est_out", propNode, STRING_TAG_NOEXISTS );
+    tags.est_out = (prop == STRING_TAG_NOEXISTS );
+    ppoint->est_out = tags.est_out?ASTRA::NoExists:checkerFlt.checkLocalTime( prop, region, "Время вылета расчетное " + ppoint->airp, false );
+    prop = NodeAsStringFast( "act_out", propNode, STRING_TAG_NOEXISTS );
+    tags.act_out = (prop == STRING_TAG_NOEXISTS );
+    ppoint->act_out = tags.act_out?ASTRA::NoExists:checkerFlt.checkLocalTime( prop, region, "Время вылета фактическое " + ppoint->airp, false );
     propNode = GetNode( "@num", n );
     if ( propNode == NULL ) {
       throw EConvertError( "node 'dest @num' not found" );
@@ -1057,7 +1073,7 @@ public:
    }
 };
 
-void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, std::string &warning )
+void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, const TagsNotExists &tags, std::string &warning )
 {
   tst();
   warning.clear();
@@ -1070,6 +1086,8 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, s
   TPoints points;
   bool pr_takeoff;
   bool pr_charter_range = false;
+  bool tag_bort_not_exist = false;
+  bool tag_craft_not_exist = false;
   TQuery Qry(&OraSession);
   TPointsDest d;
   {
@@ -1088,6 +1106,7 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, s
     pr_takeoff = ( dests.items.begin() == idest );
     d = *idest;
   }
+
   if ( //!pr_find && //рейса новый или он переносится на другую дату - задержка? - ищем ближайший по времени
        d.trip_type == "ч" &&
        //d.status == tdInsert &&
@@ -1250,15 +1269,15 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, s
     owndest->bort = d.bort;
     owndest->craft = d.craft;
     owndest->craft_fmt = d.craft_fmt;
-    owndest->park_in = d.park_in;
-    owndest->park_out = d.park_out;
+    //owndest->park_in = d.park_in;
+    owndest->park_out = tags.park_out?owndest->park_out:d.park_out;
     owndest->scd_in = d.scd_in;
-    owndest->est_in = d.est_in;
-    owndest->act_in = d.act_in;
-    owndest->est_out = d.est_out;
+    owndest->est_in = tags.est_in?owndest->est_in:d.est_in;
+    owndest->act_in = tags.act_in?owndest->act_in:d.act_in;
+    owndest->est_out = tags.est_out?owndest->est_out:d.est_out;
     if ( pr_charter_range ) { // был перенесен рейс, изменилась плановая дата вылета в Синхроне, у нас старый рейс, изменяем расчетное время вылета
       //!!!if ( owndest->est_out == ASTRA::NoExists ) {
-        if ( d.est_out == ASTRA::NoExists ) {
+        if ( d.est_out == ASTRA::NoExists || tags.est_out ) {
           owndest->est_out = d.scd_out;
         }
         if ( pr_takeoff ) {
@@ -1270,7 +1289,7 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, s
     else {
       owndest->scd_out = d.scd_out;
     }
-    owndest->act_out = d.act_out;
+    owndest->act_out = tags.act_out?owndest->act_out:d.act_out;
     owndest->pr_del = d.pr_del;
   }
   if ( !dests.items.empty() ) { //очистить последний пункт посадок иначе не будет проходить синхронизация

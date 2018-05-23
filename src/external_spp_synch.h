@@ -90,10 +90,32 @@ struct  TParseFlight {
   }
 };
 
+struct TagsNotExists {
+  bool bort;
+  bool craft;
+  bool est_in;
+  bool act_in;
+  bool est_out;
+  bool act_out;
+  bool park_out;
+  TagsNotExists() {
+    clear();
+  }
+  void clear() {
+    bort = false;
+    craft = false;
+    est_in = false;
+    act_in = false;
+    est_out = false;
+    act_out = false;
+    park_out = false;
+  }
+};
+
 class TXMLFlightParser {
   public:
     std::string id;
-    void parse( xmlNodePtr reqNode, const std::string &airp, TPointDests &dests, std::string &warning );
+    void parse( xmlNodePtr reqNode, TagsNotExists &tags, const std::string &airp, TPointDests &dests, std::string &warning );
 };
 
 void saveFlights( std::map<std::string,std::map<bool, TParseFlight> > &flights );
