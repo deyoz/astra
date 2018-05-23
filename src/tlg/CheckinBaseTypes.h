@@ -18,6 +18,7 @@ namespace Ticketing
     //MakeIntParamType(RouterId_t, int);
 
     FlightNum_t getFlightNum(const std::string &s);
+    FlightNum_t getFlightNum(int n);
 
     ///@class TicketBaseTypeExcept
     ///@brief Этот exception кидается при неправильном использовании TicketBaseTypes

@@ -244,12 +244,14 @@ BaseTables::Company SystemContext::airlineImpl() const
 
 // ================== E D S =====================
 
-EdsSystemContext* EdsSystemContext::read(const std::string& airl, const Ticketing::FlightNum_t& flNum)
+EdsSystemContext* EdsSystemContext::read(const std::string& airl,
+                                         const Ticketing::FlightNum_t& flNum,
+                                         bool throwNf)
 {
     std::string sql = getSelectSql();
     sql +=
-"WHERE AIRLINE=:airl AND (FLT_NO is null OR FLT_NO=:flt_no) "
-"ORDER BY priority DESC";
+"where AIRLINE = :airl and (FLT_NO is null or FLT_NO = :flt_no) "
+"order by PRIORITY desc";
 
     short null = -1, nnull = 0;
     OciCpp::CursCtl cur = make_curs(sql);
@@ -259,14 +261,16 @@ EdsSystemContext* EdsSystemContext::read(const std::string& airl, const Ticketin
     SystemContext sysCtxt;
     try
     {
-        sysCtxt = defSelData(cur);
+        return new EdsSystemContext(defSelData(cur));
     }
     catch(system_not_found)
     {
-        throw system_not_found(airl, flNum);
+        if(throwNf) {
+            throw system_not_found(airl, flNum);
+        }
     }
 
-    return new EdsSystemContext(sysCtxt);
+    return nullptr;
 }
 
 SystemContext* EdsSystemContext::readByEdiAddrs(const std::string& source, const std::string& source_ext,
@@ -275,11 +279,11 @@ SystemContext* EdsSystemContext::readByEdiAddrs(const std::string& source, const
 {
     std::string sql = getSelectSql();
     sql +=
-"where EDI_ADDR = :src and EDI_OWN_ADDR = :dest ";
+"where EDI_ADDR=:src and EDI_OWN_ADDR=:dest ";
     sql +=
 "and (EDI_ADDR_EXT = :src_ext or :src_ext is null) "
 "and (EDI_OWN_ADDR_EXT = :dest_ext or :dest_ext is null) ";
-    sql += "ORDER BY priority DESC";
+    sql += "order by PRIORITY desc";
 
     OciCpp::CursCtl cur = make_curs(sql);
     cur.bind(":src", source)
@@ -352,8 +356,8 @@ void EdsSystemContext::create4TestsOnly(const std::string& airline,
 void EdsSystemContext::deleteDb()
 {
     std::string sql =
-"  delete from ET_ADDR_SET "
-"  where ID = :id ";
+"delete from ET_ADDR_SET "
+"where ID = :id ";
 
     int systemId = ida().get();
 
@@ -368,10 +372,10 @@ void EdsSystemContext::addDb()
 {
     SystemContext &cont = *this;
     std::string sql =
-"  insert into ET_ADDR_SET "
-"  (AIRLINE, EDI_ADDR, EDI_OWN_ADDR, ID) "
-"  values "
-"  (:airline, :edi_addr, :edi_own_addr, :id) ";
+"insert into ET_ADDR_SET "
+"(AIRLINE, EDI_ADDR, EDI_OWN_ADDR, ID) "
+"values "
+"(:airline, :edi_addr, :edi_own_addr, :id) ";
 
     int systemId = cont.ida().get();
     std::string airl = airline();
@@ -396,11 +400,11 @@ void EdsSystemContext::addDb()
 void EdsSystemContext::updateDb()
 {
     std::string sql =
-"  update ET_ADDR_SET set "
-"  AIRLINE = :airline, "
-"  EDI_ADDR = :edi_addr, "
-"  EDI_OWN_ADDR = :edi_own_addr "
-"  where ID = :id ";
+"update ET_ADDR_SET set "
+"AIRLINE = :airline, "
+"EDI_ADDR = :edi_addr, "
+"EDI_OWN_ADDR = :edi_own_addr "
+"where ID = :id ";
 
     int systemId = ida().get();
     std::string airl = airline();
@@ -429,19 +433,22 @@ std::string EdsSystemContext::getSelectSql()
     return
 "select ID, AIRLINE, EDI_ADDR, EDI_OWN_ADDR, EDI_ADDR_EXT, EDI_OWN_ADDR_EXT, "
 "       AIRIMP_ADDR, AIRIMP_OWN_ADDR, EDIFACT_PROFILE, "
-"       DECODE(AIRLINE,NULL,0,2)+ "
-"       DECODE(FLT_NO,NULL,0,1) AS priority "
+"       decode(AIRLINE,null,0,2) + "
+"       decode(FLT_NO,null,0,1) as PRIORITY "
 "from ET_ADDR_SET ";
 }
 
 // ================== D C S =====================
 
-DcsSystemContext* DcsSystemContext::read(const std::string& airl, const Ticketing::FlightNum_t& flNum)
+DcsSystemContext* DcsSystemContext::read(const std::string& airl,
+                                         const Ticketing::FlightNum_t& flNum,
+                                         bool throwNf)
 {
+    LogTrace(TRACE3) << __FUNCTION__ << "(" << airl << "," << flNum << ")";
     std::string sql = getSelectSql();
     sql +=
-"WHERE AIRLINE=:airl AND (FLT_NO is null OR FLT_NO=:flt_no) "
-"ORDER BY priority DESC";
+"where AIRLINE=:airl and (FLT_NO is null or FLT_NO=:flt_no) "
+"order by PRIORITY desc";
 
     short null = -1, nnull = 0;
     OciCpp::CursCtl cur = make_curs(sql);
@@ -454,8 +461,49 @@ DcsSystemContext* DcsSystemContext::read(const std::string& airl, const Ticketin
     }
     catch(system_not_found)
     {
-        throw system_not_found(airl, flNum);
+        if(throwNf) {
+            throw system_not_found(airl, flNum);
+        }
     }
+
+    return nullptr;
+}
+
+DcsSystemContext* DcsSystemContext::read(const std::string& airl,
+                                         const Ticketing::FlightNum_t& flNum,
+                                         const std::string& ourAirl,
+                                         const Ticketing::FlightNum_t& ourFlNum,
+                                         bool throwNf)
+{
+    LogTrace(TRACE3) << __FUNCTION__ << "(" << airl << "," << flNum << ","
+                                            << ourAirl << "," << ourFlNum << ")";
+    std::string sql = getSelectSql();
+    sql +=
+"where AIRLINE=:airl "
+"and (FLT_NO is null or FLT_NO=:flt_no) "
+"and (OUR_AIRLINE is null or OUR_AIRLINE=:our_airl) "
+"and (OUR_FLT_NO is null or OUR_FLT_NO=:our_flt_no) "
+"order by PRIORITY desc";
+
+    short null = -1, nnull = 0;
+    OciCpp::CursCtl cur = make_curs(sql);
+    cur.bind(":airl", airl)
+       .bind(":flt_no", flNum?flNum.get():0, flNum?&nnull:&null)
+       .bind(":our_airl", ourAirl)
+       .bind(":our_flt_no", ourFlNum?ourFlNum.get():0, ourFlNum?&nnull:&null);
+
+    try
+    {
+        return new DcsSystemContext(defSelData(cur));
+    }
+    catch(system_not_found)
+    {
+        if(throwNf) {
+            throw system_not_found(airl, flNum);
+        }
+    }
+
+    return nullptr;
 }
 
 SystemContext* DcsSystemContext::readByEdiAddrs(const std::string& source, const std::string& source_ext,
@@ -468,7 +516,7 @@ SystemContext* DcsSystemContext::readByEdiAddrs(const std::string& source, const
     sql +=
 "and (EDI_ADDR_EXT = :src_ext or :src_ext is null) "
 "and (EDI_OWN_ADDR_EXT = :dest_ext or :dest_ext is null) ";
-    sql += "ORDER BY priority DESC";
+    sql += "order by PRIORITY desc";
 
     OciCpp::CursCtl cur = make_curs(sql);
     cur.bind(":src", source)
@@ -546,10 +594,10 @@ void DcsSystemContext::deleteDb()
 void DcsSystemContext::addDb()
 {
     std::string sql =
-"  insert into DCS_ADDR_SET "
-"  (AIRLINE, EDI_ADDR, EDI_OWN_ADDR, AIRIMP_ADDR, AIRIMP_OWN_ADDR, EDIFACT_PROFILE, ID) "
-"  values "
-"  (:airline, :edi_addr, :edi_own_addr, :air_addr, :air_own_addr, :edifact_profile, :id) ";
+"insert into DCS_ADDR_SET "
+"(AIRLINE, EDI_ADDR, EDI_OWN_ADDR, AIRIMP_ADDR, AIRIMP_OWN_ADDR, EDIFACT_PROFILE, ID) "
+"values "
+"(:airline, :edi_addr, :edi_own_addr, :air_addr, :air_own_addr, :edifact_profile, :id) ";
 
     OciCpp::CursCtl cur = make_curs(sql);
     cur.stb()
@@ -585,8 +633,10 @@ std::string DcsSystemContext::getSelectSql()
     return
 "select ID, AIRLINE, EDI_ADDR, EDI_OWN_ADDR, EDI_ADDR_EXT, EDI_OWN_ADDR_EXT, "
 "       AIRIMP_ADDR, AIRIMP_OWN_ADDR, EDIFACT_PROFILE, "
-"       DECODE(AIRLINE,NULL,0,2)+ "
-"       DECODE(FLT_NO,NULL,0,1) AS priority "
+"       decode(AIRLINE,null,0,2) + "
+"       decode(FLT_NO,null,0,1) + "
+"       decode(OUR_AIRLINE,null,0,2) + "
+"       decode(OUR_FLT_NO,null,0,1) as PRIORITY "
 "from DCS_ADDR_SET ";
 }
 
