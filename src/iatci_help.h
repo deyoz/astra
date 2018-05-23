@@ -182,4 +182,25 @@ inline unsigned getTagNum(const uint64_t& tag)
     return (tag % 1000000);
 }
 
+//---------------------------------------------------------------------------------------
+
+inline bool isSsrTkn(const std::string& ssrCode)
+{
+    return ssrCode.substr(0, 3) == "TKN";
+}
+
+//---------------------------------------------------------------------------------------
+
+inline bool isSsrTkne(const std::string& ssrCode)
+{
+    return ssrCode == "TKNE";
+}
+
+//---------------------------------------------------------------------------------------
+
+inline bool isSsrFqt(const std::string& ssrCode)
+{
+    return ssrCode.substr(0, 3) == "FQT";
+}
+
 }//namespace iatci
