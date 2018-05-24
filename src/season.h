@@ -65,7 +65,7 @@ using BASIC::date_time::TDateTime;
   struct SSIMSection
   {
       std::string from, to;
-      boost::posix_time::time_duration scd_out, scd_in;
+      boost::posix_time::time_duration arr, dep;
   };
 
 

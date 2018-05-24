@@ -3691,7 +3691,7 @@ void SSIMRoute::FromDB( int move_id )
     if ( Qry.FieldIsNULL( "scd_in" ) )
       dest2.scd_in = NoExists;
     else {
-      dest2.scd_in = Qry.FieldAsDateTime( "scd_in" );
+      dest2.scd_in = UTCToLocal( Qry.FieldAsDateTime( "scd_in" ), dest2.region );
     }
     dest2.airline = Qry.FieldAsString( "airline" );
     dest2.airline_fmt = (TElemFmt)Qry.FieldAsInteger( "airline_fmt" );
@@ -3707,7 +3707,7 @@ void SSIMRoute::FromDB( int move_id )
     if ( Qry.FieldIsNULL( "scd_out" ) )
       dest2.scd_out = NoExists;
     else {
-      dest2.scd_out = Qry.FieldAsDateTime( "scd_out" );
+      dest2.scd_out = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), dest2.region );
     }
     dest2.f = Qry.FieldAsInteger( "f" );
     dest2.c = Qry.FieldAsInteger( "c" );
@@ -3718,7 +3718,15 @@ void SSIMRoute::FromDB( int move_id )
       continue;
     }
     //leg
-
+    int hours, mins, secs;
+    SSIMSection section;
+    section.from = ElemIdToClientElem( etAirp, dest1.airp, dest1.airp_fmt );
+    section.to = ElemIdToClientElem( etAirp, dest2.airp, dest2.airp_fmt );
+    DecodeTime( dest1.scd_out, hours, mins, secs );
+    section.dep = time_duration( hours + Qry.FieldAsInteger( "delta_out" ), mins, secs );
+    DecodeTime( dest2.scd_in, hours, mins, secs );
+    section.arr = time_duration( hours + Qry.FieldAsInteger( "delta_in" ), mins, secs );
+    this->legs.push_back( SSIMLeg( section, ElemIdToClientElem( etCraft, dest1.craft, dest1.craft_fmt ) ) );
   }
 }
 
