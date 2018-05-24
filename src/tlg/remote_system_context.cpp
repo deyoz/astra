@@ -481,8 +481,8 @@ DcsSystemContext* DcsSystemContext::read(const std::string& airl,
     sql +=
 "where AIRLINE=:airl "
 "and (FLT_NO is null or FLT_NO=:flt_no) "
-"and (OUR_AIRLINE is null or OUR_AIRLINE=:our_airl) "
-"and (OUR_FLT_NO is null or OUR_FLT_NO=:our_flt_no) "
+"and (OWN_AIRLINE is null or OWN_AIRLINE=:our_airl) "
+"and (OWN_FLT_NO is null or OWN_FLT_NO=:our_flt_no) "
 "order by PRIORITY desc";
 
     short null = -1, nnull = 0;
@@ -635,8 +635,8 @@ std::string DcsSystemContext::getSelectSql()
 "       AIRIMP_ADDR, AIRIMP_OWN_ADDR, EDIFACT_PROFILE, "
 "       decode(AIRLINE,null,0,2) + "
 "       decode(FLT_NO,null,0,1) + "
-"       decode(OUR_AIRLINE,null,0,2) + "
-"       decode(OUR_FLT_NO,null,0,1) as PRIORITY "
+"       decode(OWN_AIRLINE,null,0,2) + "
+"       decode(OWN_FLT_NO,null,0,1) as PRIORITY "
 "from DCS_ADDR_SET ";
 }
 
