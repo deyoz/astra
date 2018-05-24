@@ -3684,7 +3684,10 @@ void SSIMScdPeriods::fromDB( const SSIMFlight &flight, const SSIMPeriod &period 
   Qry.CreateVariable( "last", otDate, period.last );
   Qry.Execute();
   for (; Qry.Eof; Qry.Next() ) {
-
+    SSIMScdPeriod ScdPeriod ( flight );
+    ScdPeriod.period.first = Qry.FieldAsDateTime( "first_day" );
+    ScdPeriod.period.last = Qry.FieldAsDateTime( "last_day" );
+    ScdPeriod.period.days = Qry.FieldAsString( "days" );
   }
 }
 

@@ -52,13 +52,12 @@ using BASIC::date_time::TDateTime;
   struct SSIMPeriod {
     TDateTime first;
     TDateTime last;
-    std::bitset<7> days;
+    std::string days;
+    SSIMPeriod( ) {}
     SSIMPeriod( const TDateTime &vfirst, const TDateTime &vlast, const std::string &vdays ) {
       first = vfirst;
       last = vlast;
-      for ( int i=0; i<7; i++ ) {
-        days.set(i, (vdays[i] != '.') );
-      }
+      days = vdays;
     }
   };
 
@@ -96,7 +95,7 @@ struct TViewTrip {
 	std::string days;
 	bool pr_del;
 	TViewTrip() {
-		first = ASTRA::NoExists;
+	  first = ASTRA::NoExists;
 	}
 };
 
