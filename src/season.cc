@@ -3670,9 +3670,19 @@ TDoubleTrip::~TDoubleTrip()
     delete Qry;
 }
 
-void SSIMRoute::routeFromDB( int move_id )
+void SSIMRoute::FromDB( int move_id )
 {
-  clear();
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT num,airp,airp_fmt,pr_del,scd_in,airline,airline_fmt,flt_no,craft,craft_fmt,scd_out,litera, "
+    "       trip_type,f,c,y,unitrip,delta_in,delta_out,suffix,suffix_fmt "
+    " FROM routes WHERE move_id=:move_id "
+    " ORDER BY num";
+  Qry.CreateVariable( "move_id", otInteger, move_id );
+  Qry.Execute();
+  for ( ; Qry.Eof; Qry.Next() ) {
+
+  }
 }
 
 //index flight, first, last
@@ -3681,19 +3691,27 @@ void SSIMScdPeriods::fromDB( const SSIMFlight &flight, const SSIMPeriod &period 
   clear();
   TQuery Qry( &OraSession );
   Qry.SQLText =
-   "SELECT trip_id,num,move_id,first_day,last_day,days,pr_del,tlg.reference,region"
+   "SELECT trip_id,move_id,first_day,last_day,days,pr_del,tlg.reference,region"
    " FROM sched_days "
-   "WHERE flight=:flight AND first_day<=:last AND last_day>=:first";
+   "WHERE flight=:flight AND first_day<=:last AND last_day>=:first "
+   " ORDER BY num ";
   Qry.CreateVariable( "flight", otString, flight.airline + IntToString( flight.flt_no ) + flight.suffix );
   Qry.CreateVariable( "first", otDate, period.first );
   Qry.CreateVariable( "last", otDate, period.last );
   Qry.Execute();
+  map<int,SSIMRoute> routes;
   for (; Qry.Eof; Qry.Next() ) {
     SSIMScdPeriod ScdPeriod ( flight );
     ScdPeriod.period.first = Qry.FieldAsDateTime( "first_day" );
     ScdPeriod.period.last = Qry.FieldAsDateTime( "last_day" );
     ScdPeriod.period.days = Qry.FieldAsString( "days" );
-    ScdPeriod.route.FromDB( Qry.FieldAsInteger( "move_id" ) );
+    int move_id = Qry.FieldAsInteger( "move_id" );
+    if ( routes.find( move_id ) != routes.end() ) {
+      ScdPeriod.route = routes[ move_id ];
+      continue;
+    }
+    ScdPeriod.route.FromDB( move_id );
+    routes.insert( make_pair( move_id, ScdPeriod.route ) );
   }
 }
 

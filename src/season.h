@@ -61,8 +61,6 @@ using BASIC::date_time::TDateTime;
     }
   };
 
-  using SSIMLegs = std::vector<SSIMLeg>;
-
   struct SSIMSection
   {
       std::string from, to;
@@ -72,7 +70,7 @@ using BASIC::date_time::TDateTime;
 
   struct SSIMLeg
   {
-      SSIMSection s;
+      SSIMSection section;
       std::string craft;
       SSIMLeg(const SSIMSection& vsection, std::string vcraft) {
         section = vsection;
@@ -80,11 +78,12 @@ using BASIC::date_time::TDateTime;
       }
   };
 
+  using SSIMLegs = std::vector<SSIMLeg>;
 
   struct SSIMRoute {
     void FromDB( int move_id );
     SSIMLegs legs;
-    SSIMSegmentsProps segProps;
+    //SSIMSegmentsProps segProps;
   };
 
   struct SSIMScdPeriod {
