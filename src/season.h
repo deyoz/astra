@@ -53,6 +53,13 @@ using BASIC::date_time::TDateTime;
     TDateTime first;
     TDateTime last;
     std::bitset<7> days;
+    SSIMPeriod( const TDateTime &vfirst, const TDateTime &vlast, const std::string &vdays ) {
+      first = vfirst;
+      last = vlast;
+      for ( int i=0; i<7; i++ ) {
+        days.set(i, (vdays[i] != '.') );
+      }
+    }
   };
 
   using SSIMLegs = std::vector<TDest>;
