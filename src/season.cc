@@ -3670,6 +3670,11 @@ TDoubleTrip::~TDoubleTrip()
     delete Qry;
 }
 
+void SSIMRoute::routeFromDB( int move_id )
+{
+  clear();
+}
+
 //index flight, first, last
 void SSIMScdPeriods::fromDB( const SSIMFlight &flight, const SSIMPeriod &period )
 {
@@ -3688,6 +3693,7 @@ void SSIMScdPeriods::fromDB( const SSIMFlight &flight, const SSIMPeriod &period 
     ScdPeriod.period.first = Qry.FieldAsDateTime( "first_day" );
     ScdPeriod.period.last = Qry.FieldAsDateTime( "last_day" );
     ScdPeriod.period.days = Qry.FieldAsString( "days" );
+    ScdPeriod.route.FromDB( Qry.FieldAsInteger( "move_id" ) );
   }
 }
 
