@@ -38,6 +38,7 @@ using BASIC::date_time::TDateTime;
     TDateTime diff;
     TDest() {
       diff = 0.0;
+      num = ASTRA::NoExists;
     }
   };
 

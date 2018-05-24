@@ -3680,7 +3680,44 @@ void SSIMRoute::FromDB( int move_id )
     " ORDER BY num";
   Qry.CreateVariable( "move_id", otInteger, move_id );
   Qry.Execute();
+  TDest dest1, dest2;
   for ( ; Qry.Eof; Qry.Next() ) {
+    dest1 = dest2;
+    dest2.num = Qry.FieldAsInteger( "num" );
+    dest2.airp = Qry.FieldAsString( "airp" );
+    dest2.airp_fmt = (TElemFmt)Qry.FieldAsInteger( "airp_fmt" );
+    dest2.city = Qry.FieldAsString( "city" );
+    dest2.pr_del = Qry.FieldAsInteger( "pr_del" );
+    if ( Qry.FieldIsNULL( "scd_in" ) )
+      dest2.scd_in = NoExists;
+    else {
+      dest2.scd_in = Qry.FieldAsDateTime( "scd_in" );
+    }
+    dest2.airline = Qry.FieldAsString( "airline" );
+    dest2.airline_fmt = (TElemFmt)Qry.FieldAsInteger( "airline_fmt" );
+    dest2.region = AirpTZRegion( Qry.FieldAsString( "airp" ), false );
+    if ( Qry.FieldIsNULL( "flt_no" ) )
+      dest2.trip = NoExists;
+    else
+      dest2.trip = Qry.FieldAsInteger( "flt_no" );
+    dest2.craft = Qry.FieldAsString( "craft" );
+    dest2.craft_fmt = (TElemFmt)Qry.FieldAsInteger( "craft_fmt" );
+    dest2.litera = Qry.FieldAsString( "litera" );
+    dest2.triptype = Qry.FieldAsString( "trip_type" );
+    if ( Qry.FieldIsNULL( "scd_out" ) )
+      dest2.scd_out = NoExists;
+    else {
+      dest2.scd_out = Qry.FieldAsDateTime( "scd_out" );
+    }
+    dest2.f = Qry.FieldAsInteger( "f" );
+    dest2.c = Qry.FieldAsInteger( "c" );
+    dest2.y = Qry.FieldAsInteger( "y" );
+    dest2.suffix = Qry.FieldAsString( "suffix" );
+    dest2.suffix_fmt = (TElemFmt)Qry.FieldAsInteger( "suffix_fmt" );
+    if ( dest1.num == ASTRA::NoExists ) {
+      continue;
+    }
+    //leg
 
   }
 }
@@ -3724,6 +3761,7 @@ void SSIMScdPeriods::toDB()
 // Period.biweekly; - что это такое?
 // Как будет проходить разбивка, если пришли изменения по тем атрибутам, которые Астра не хранит и не передает в ф-цию разбивки?
 // ssim::ScdPeriods AstraSsimCallbacks::getSchedules(const ct::Flight& flight, const Period& period) const - структура period передается всегда в LT (локальном времени)?
+//формат авиакомпании, типа ВС, аэропорта IATA |ICAO ?
 
 
 
