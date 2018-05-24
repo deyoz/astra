@@ -4,10 +4,6 @@
 #include "oralib.h"
 #include "cache.h"
 #include "misc.h"
-#include <map>
-#include <vector>
-#include <deque>
-#include <string>
 #include "stages.h"
 #include "date_time.h"
 #include "stl_utils.h"
@@ -102,35 +98,6 @@ struct timeDiff {
 
 typedef vector<timeDiff> TTimeDiff;
 
-struct TDest {
-  int num;
-  string airp;
-  TElemFmt airp_fmt;
-  string city;
-  TElemFmt city_fmt;
-  int pr_del;
-  TDateTime scd_in;
-  string airline;
-  TElemFmt airline_fmt;
-  string region;
-  int trip;
-  string craft;
-  TElemFmt craft_fmt;
-  string litera;
-  string triptype;
-  TDateTime scd_out;
-  int f;
-  int c;
-  int y;
-  string unitrip;
-  string suffix;
-  TElemFmt suffix_fmt;
-  TDateTime diff;
-  TDest() {
-    diff = 0.0;
-  }
-};
-
 struct trip {
   int trip_id;
   string name;
@@ -179,7 +146,6 @@ struct TRangeList {
 
 class TFilter {
   public:
-
     string filter_tz_region; // регион, относительно которого рассчитывается период расписания
     deque<TSeason> periods; //периоды летнего и зимнего расписания
     int season_idx; // текущее расписание
@@ -249,7 +215,7 @@ string DefaultTripType( bool pr_lang = true )
 
 bool isDefaultTripType( const string &triptype )
 {
-    TElemFmt fmt;
+  TElemFmt fmt;
   return ElemToElemId(etTripType,triptype,fmt) == DefaultTripType(false);
 }
 
@@ -404,7 +370,7 @@ void TFilter::InsertSectsPeriods( map<int,TDestList> &mapds,
     bool psummer = isSummer( p.first );
     time_period s( DateTimeToBoost( p.first ), DateTimeToBoost( p.last ) );
     //разбитие периодов periods периодом p
-    
+
     for ( vector<TPeriod>::iterator ip=speriods.begin(); ip!=speriods.end(); ip++ ) {
         // периоды хранять время вылета из п.п.
         if ( ip->modify == fdelete )
@@ -421,7 +387,7 @@ ProgTrace( TRACE5, "ip first=%s, last=%s",
            DateTimeToStr( ip->first, "dd.mm.yyyy hh:nn:ss" ).c_str(),
            DateTimeToStr( ip->last, "dd.mm.yyyy hh:nn:ss" ).c_str() );
         time_period r( DateTimeToBoost( ip->first ), DateTimeToBoost( ip->last ) );
-        if ( !r.intersects( s ) || !CommonDays( ip->days, p.days ) ) 
+        if ( !r.intersects( s ) || !CommonDays( ip->days, p.days ) )
             continue;
          // есть пересечение
         time_period d( r.intersection( s ) );
@@ -550,7 +516,7 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime scd_i
                               const string &flight_tz_region )
 {
     ProgTrace( TRACE5, "In func: %s: filter.firsttime=%s, filter.lasttime=%s, first_day=%s, scd_in=%s, scd_out=%s",
-		__FUNCTION__,
+                __FUNCTION__,
                DateTimeToStr( firstTime, "dd.mm hh:nn" ).c_str(),
                DateTimeToStr( lastTime, "dd.mm hh:nn" ).c_str(),
                DateTimeToStr( first_day, "dd.mm hh:nn" ).c_str(),
@@ -1120,7 +1086,7 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
   // получим маршрут и проверим на права доступа к этому маршруту
   TQuery Qry(&OraSession);
 
-  Qry.SQLText = 
+  Qry.SQLText =
     " SELECT num, routes.airp, routes.airp_fmt, scd_in-TRUNC(scd_in)+:vdate+delta_in scd_in, "
     "        airline, airline_fmt, flt_no, craft, craft_fmt, "
     "        scd_out-TRUNC(scd_out)+:vdate+delta_out scd_out, trip_type, litera, "
@@ -1128,7 +1094,7 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
     " FROM routes, airps "
     " WHERE routes.move_id=:vmove_id AND routes.airp=airps.code  "
     " ORDER BY move_id,num";
-  
+
   Qry.CreateVariable( "vdate", otDate, vd );
   Qry.CreateVariable( "vmove_id", otInteger, move_id );
 
@@ -1320,7 +1286,7 @@ void createSPP( TDateTime ldt_SPPStart, TSpp &spp, bool createViewer, string &er
 
 //     string flight_tz_region;
      TDateTime udt_scdPeriodStart = ASTRA::NoExists, udt_scdPeriodEnd = ASTRA::NoExists;
-     
+
      while ( 1 ) {
        if ( vmove_id > 0 && ( Qry.Eof || vmove_id != Qry.FieldAsInteger( "move_id" ) ) ) {
         // цикл по полученным датам
@@ -2375,7 +2341,7 @@ TDateTime TDateTimeToClientICU(TDateTime ud_first_day, TDateTime ut_time, TDateT
         ProgTrace(TRACE5, "TDTICU diff: %s", DateTimeToStr(diff).c_str());
 
         f2 = modf(UTCToClient(ud_target_day + ut_time + diff, region), &f3);
-        
+
         if(f3 < ud_target_day)
             return f3 - ud_target_day - f2;
         else
@@ -2394,7 +2360,7 @@ TDateTime TDateTimeToClient( TDateTime flight_time, TDateTime dest_time, const s
     if ( dest_time > NoExists ) {
         f3 = modf( (double)dest_time, &f2 );
         f2 = modf( (double)UTCToClient( f1 + fabs( f3 ), dest_region ), &f3 );
-    
+
         if ( f3 < f1 )
             return f3 - f1 - f2;
         else
@@ -2428,7 +2394,7 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, TDestList &ds,
         crafts += "/";
       crafts += craft_format;
     }
-    
+
     try {
       if ( OwnDest == NULL && NDest->airp == airp ) {
         PriorDest = PDest;
@@ -2469,7 +2435,7 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, TDestList &ds,
            ProgTrace( TRACE5, "scd_in f2=%f, utc_spp_date=%f", f2, utc_spp_date );
            if ( f2 == utc_spp_date ) {
              cantrip = true;
-	     ProgTrace(TRACE5, "scd_in satisfy, cantrip -> true");
+             ProgTrace(TRACE5, "scd_in satisfy, cantrip -> true");
            }
          }
          if ( !cantrip && OwnDest->scd_out > NoExists ) {
@@ -2481,9 +2447,9 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, TDestList &ds,
            }
          }
        }
-       else 
+       else
          cantrip = true;
-      
+
       if ( cantrip &&
            ( ( UTCFilter &&
               ( filter.isFilteredUTCTime( utc_spp_date, ds.flight_time, OwnDest->scd_in ) ||
@@ -3704,6 +3670,33 @@ TDoubleTrip::~TDoubleTrip()
     delete Qry;
 }
 
+//index flight, first, last
+void SSIMScdPeriods::fromDB( const SSIMFlight &flight, const SSIMPeriod &period )
+{
+  clear();
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+   "SELECT trip_id,num,move_id,first_day,last_day,days,pr_del,tlg.reference,region"
+   " FROM sched_days "
+   "WHERE flight=:flight AND first_day<=:last AND last_day>=:first";
+  Qry.CreateVariable( "flight", otString, flight.airline + IntToString( flight.flt_no ) + flight.suffix );
+  Qry.CreateVariable( "first", otDate, period.first );
+  Qry.CreateVariable( "last", otDate, period.last );
+  Qry.Execute();
+  for (; Qry.Eof; Qry.Next() ) {
+
+  }
+}
+
+void SSIMScdPeriods::toDB()
+{
+
+}
+
+//Вопросы:
+// Period.biweekly; - что это такое?
+// Как будет проходить разбивка, если пришли изменения по тем атрибутам, которые Астра не хранит и не передает в ф-цию разбивки?
+// ssim::ScdPeriods AstraSsimCallbacks::getSchedules(const ct::Flight& flight, const Period& period) const - структура period передается всегда в LT (локальном времени)?
 
 
 

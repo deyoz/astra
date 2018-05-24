@@ -1,10 +1,9 @@
 #ifndef _SEASON_H_
 #define _SEASON_H_
 
-#include <libxml/tree.h>
-#include <string>
-#include <map>
+#include <bitset>
 #include "date_time.h"
+#include "astra_elems.h"
 #include "astra_consts.h"
 #include "jxtlib/JxtInterface.h"
 #include "oralib.h"
@@ -13,6 +12,70 @@ namespace SEASON {
 
 using BASIC::date_time::TDateTime;
 
+  struct TDest {
+    int num;
+    std::string airp;
+    TElemFmt airp_fmt;
+    std::string city;
+    TElemFmt city_fmt;
+    int pr_del;
+    TDateTime scd_in;
+    std::string airline;
+    TElemFmt airline_fmt;
+    std::string region;
+    int trip;
+    std::string craft;
+    TElemFmt craft_fmt;
+    std::string litera;
+    std::string triptype;
+    TDateTime scd_out;
+    int f;
+    int c;
+    int y;
+    std::string unitrip;
+    std::string suffix;
+    TElemFmt suffix_fmt;
+    TDateTime diff;
+    TDest() {
+      diff = 0.0;
+    }
+  };
+
+
+/////////////////////////////////SSM//////////////////////////////////////////////////////
+  struct SSIMFlight {
+    std::string airline;
+    int flt_no;
+    std::string suffix;
+  };
+
+  struct SSIMPeriod {
+    TDateTime first;
+    TDateTime last;
+    std::bitset<7> days;
+  };
+
+  using SSIMLegs = std::vector<TDest>;
+
+  struct SSIMRoute {
+    SSIMLegs legs;
+  };
+
+  struct SSIMScdPeriod {
+    SSIMFlight flight;
+    SSIMPeriod period;
+    SSIMRoute route;
+    SSIMScdPeriod(const SSIMFlight& cflight) {
+      flight = cflight;
+    }
+  };
+
+  class SSIMScdPeriods: public std::vector<SSIMScdPeriod> {
+    SSIMScdPeriods( );
+    void fromDB( const SSIMFlight &flight, const SSIMPeriod &period );
+    void toDB();
+  };
+////////////////////////////END SSM //////////////////////////////////////////////////////
 struct TViewTrip {
 	int trip_id;
 	int move_id;
@@ -93,8 +156,8 @@ class TDoubleTrip
 		 TDoubleTrip();
 		 ~TDoubleTrip();
      bool IsExists( int move_id, std::string airline, int flt_no,
-     	              std::string suffix, std::string airp,
-	                  TDateTime scd_in, TDateTime scd_out,
+                      std::string suffix, std::string airp,
+                          TDateTime scd_in, TDateTime scd_out,
                     int &point_id );
 };
 
