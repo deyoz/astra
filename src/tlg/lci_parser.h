@@ -356,7 +356,15 @@ enum TGender {
 struct TSPItem {
     int actual;
     TGender gender;
-    TSPItem(): actual(ASTRA::NoExists) {};
+    void clear();
+    bool empty() const;
+    void toXML(xmlNodePtr node) const;
+    TSPItem() { clear(); }
+};
+
+struct TSPVector: public std::vector<TSPItem> {
+    void fromXML(xmlNodePtr node);
+    void toXML(xmlNodePtr node) const;
 };
 
 // vector<TSPItem> - содержит место ВЗ (F или M) и, если есть, РМ (I)
@@ -368,17 +376,19 @@ struct TSPItem {
 // (проверка пола, очевидно, не делается)
 // 5А/75.5Б/75.5В/75.5А/20 - В этом сл-е в TSP по ключу 5A будет вектор из 2-х эл-тов: 5A/75, 5A/20
 
-struct TSP:public std::map<std::string, std::vector<TSPItem> > {
+struct TSP:public std::map<std::string, TSPVector> {
     private:
         int pr_weight; // true - используются факт. веса пассажиров; false - пол;
     public:
         void parse(const char *val);
         void dump();
+        void fromXML(xmlNodePtr node);
+        void toXML(xmlNodePtr node) const;
         TSP() { clear(); }
         void clear()
         {
             pr_weight = ASTRA::NoExists;
-            std::map<std::string, std::vector<TSPItem> >::clear();
+            std::map<std::string, TSPVector>::clear();
         }
 };
 
@@ -412,6 +422,7 @@ struct TClsTotal {
     int f, c, y;
     TClsTotal(){ clear(); }
     void clear();
+    bool empty() const;
     void parse(const std::string &val);
     void dump(const std::string &caption);
     void toXML(xmlNodePtr node, const std::string &tag) const;
@@ -421,6 +432,7 @@ struct TClsTotal {
 struct TGenderTotal {
     int m, f, c, i;
     void clear();
+    bool empty() const;
     TGenderTotal(){ clear(); }
     void parse(const std::string &val);
     void dump();
@@ -435,6 +447,7 @@ struct TDestInfo
     TClsTotal cls_total, actual_total;
     TGenderTotal gender_total;
     void clear();
+    bool empty() const;
     void dump();
     void toXML(xmlNodePtr node) const;
     void fromXML(xmlNodePtr node);
@@ -483,6 +496,8 @@ typedef const char* TLinePtr;
 struct TSI {
     std::vector<std::string> items;
     void parse(TTlgPartInfo &body, TTlgParser &tlg, TLinePtr &line_p);
+    void toXML(xmlNodePtr node) const;
+    void fromXML(xmlNodePtr node);
     void dump();
     void clear()
     {
@@ -519,6 +534,8 @@ class TLCIContent
         void fromXML(const std::string &content);
 
         void fromDB(int id);
+
+        TLCIContent() { clear(); }
 };
 
 void ParseLCIContent(TTlgPartInfo body, TLCIHeadingInfo& info, TLCIContent& con, TMemoryManager &mem);
