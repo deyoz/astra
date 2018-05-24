@@ -404,7 +404,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
       TlgIdQry.Clear();
       TlgIdQry.SQLText=
        "BEGIN "
-       "  SELECT id INTO :id FROM tlgs_in "
+       "  SELECT /*+ INDEX (tlgs_in tlgs_in__IDX)*/ id INTO :id FROM tlgs_in "
        "  WHERE type= :tlg_type AND "
        "        time_create BETWEEN :min_time_create AND :max_time_create AND "
        "        merge_key= :merge_key AND rownum<2; "
