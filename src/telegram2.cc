@@ -1165,6 +1165,7 @@ namespace PRL_SPACE {
     struct TRemList {
         private:
             void internal_get(TypeB::TDetailCreateInfo &info, int pax_id, string subcls);
+            string chkd(int reg_no, const string &name, const string &surname, bool pr_inf, bool pr_lat);
         public:
             TInfants *infants;
             vector<string> items;
@@ -1540,6 +1541,7 @@ namespace PRL_SPACE {
         TPRLOnwardList OList;
         TTrickyGender::Enum gender;
         TPerson pers_type;
+        int reg_no;
         ASTRA::TCrewType::Enum crew_type;
         TPRLPax(TInfants *ainfants): rems(ainfants) {
             cls_grp_id = NoExists;
@@ -1548,6 +1550,7 @@ namespace PRL_SPACE {
             grp_id = NoExists;
             bag_pool_num = NoExists;
             gender = TTrickyGender::Male;
+            reg_no = NoExists;
             crew_type = TCrewType::Unknown;
         }
     };
@@ -1615,6 +1618,13 @@ namespace PRL_SPACE {
         }
     }
 
+    string TRemList::chkd(int reg_no, const string &name, const string &surname, bool pr_inf, bool pr_lat)
+    {
+        return
+            (string)"CHKD HK1 " + IntToString(reg_no) + (pr_inf ? " I" : "") + "-1" + 
+            transliter(surname, 1, pr_lat) +
+            (name.empty() ? "" : "/" + transliter(name, 1, pr_lat));
+    }
     void TRemList::get(TypeB::TDetailCreateInfo &info, TPRLPax &pax, vector<TTlgCompLayer> &complayers )
     {
         const TypeB::TPRLOptions *PRLOptions=NULL;
@@ -1639,6 +1649,7 @@ namespace PRL_SPACE {
                     rem += "/" + transliter(infRow->name, 1, info.is_lat());
                 }
                 items.push_back(rem);
+                items.push_back(chkd(infRow->reg_no, infRow->name, infRow->surname, true, info.is_lat()));
             }
         }
         if(pax.pers_type == child or pax.pers_type == baby)
@@ -1648,6 +1659,7 @@ namespace PRL_SPACE {
         string seat_list = seats.get_seat_list(info.is_lat() or info.pr_lat_seat);
         if(!seat_list.empty())
             items.push_back("SEAT HK" + IntToString(seats.get_seat_vector(false).size()) + " " + seat_list);
+        items.push_back(chkd(pax.reg_no, pax.name.name, pax.name.surname, seat_list.empty(), info.is_lat()));
         internal_get(info, pax.pax_id, pax.subcls);
 
         QParams QryParams;
@@ -1753,6 +1765,7 @@ namespace PRL_SPACE {
             "    pax_grp.status grp_status, "
             "    pax.is_female, "
             "    pax.pers_type, "
+            "    pax.reg_no, "
             "    pax.crew_type "
             "from "
             "    pax, "
@@ -1814,6 +1827,7 @@ namespace PRL_SPACE {
             int col_subcls = Qry.get().FieldIndex("subclass");
             int col_grp_status = Qry.get().FieldIndex("grp_status");
             int col_pers_type = Qry.get().FieldIndex("pers_type");
+            int col_reg_no = Qry.get().FieldIndex("reg_no");
             int col_crew_type = Qry.get().FieldIndex("crew_type");
             for(; !Qry.get().Eof; Qry.get().Next()) {
                 TPRLPax pax(infants);
@@ -1843,6 +1857,7 @@ namespace PRL_SPACE {
                 grp_map->get(pax.grp_id, pax.bag_pool_num);
                 pax.OList.get(pax.grp_id, pax.pax_id);
                 pax.pers_type = DecodePerson(Qry.get().FieldAsString(col_pers_type));
+                pax.reg_no = Qry.get().FieldAsInteger(col_reg_no);
                 pax.crew_type = TCrewTypes().decode(Qry.get().FieldAsString(col_crew_type));
                 pax.rems.get(info, pax, complayers); // Обязательно после инициализации pers_type выше
                 pax.gender = getGender(Qry.get());
