@@ -5160,7 +5160,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
                      seatFlag == clNotPaySeat && // разметка платным слоем через
                      AllowedAttrsSeat.isWorkINFT( point_id ) &&
                      isINFT( point_id, pax_id ) );
-    if ( pr_INFT || !AllowedAttrsSeat.passSeats( pers_type, pr_INFT, verifyPlaces ) ) { //web-пересадка INFT запрещена
+    if ( pr_INFT && !AllowedAttrsSeat.passSeats( pers_type, pr_INFT, verifyPlaces ) ) { //web-пересадка INFT запрещена
       tst();
       throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
     }
