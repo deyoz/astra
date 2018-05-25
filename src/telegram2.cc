@@ -5436,8 +5436,8 @@ void TDestList<T>::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
                 << "-" << info.TlgElemIdToElem(etAirp, iv->airp)
                 << setw(2) << setfill('0') << iv->PaxList.size();
             if(
-                    PRLOptions and PRLOptions->rbd or
-                    ETLOptions and ETLOptions->rbd
+                    (PRLOptions and PRLOptions->rbd) or
+                    (ETLOptions and ETLOptions->rbd)
                     )
                 line << info.TlgElemIdToElem(etSubcls, iv->cls, prLatToElemFmt(efmtCodeNative,true)); //всегда на латинице - так надо
             else
@@ -5453,7 +5453,7 @@ void TDestList<T>::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
     }
 }
 
-struct TLDMBag {
+struct TLDMBag {;
     int baggage, cargo, mail;
     void get(TypeB::TDetailCreateInfo &info, int point_arv);
     TLDMBag():
@@ -5461,15 +5461,38 @@ struct TLDMBag {
         cargo(0),
         mail(0)
     {};
+    TLDMBag &operator += (const TLDMBag &item)
+    {
+        baggage += item.baggage;
+        cargo += item.cargo;
+        mail += item.mail;
+        return *this;
+    }
 };
 
 struct TToRampBag {
     enum Status{ rbBrd, rbReg };
     map<string, pair<int, int> > items; // items[airp] = <amount, weight>
-    void get(int point_id, Status st);
+    void get(int point_id, Status st, const string &airp_arv = "");
     pair<int, int> by_flight(); // return <amount, weight> summary
     void ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body);
     bool empty();
+    void dump(const string &file, int line) const
+    {
+        LogTrace(TRACE5) << "---TToRampBag " << file << ":" << line << " ---";
+        for(const auto &i: items)
+            LogTrace(TRACE5) << "items[" << i.first << "] = <" << i.second.first << ", " << i.second.second << ">";
+        LogTrace(TRACE5) << "---TToRampBag end dump ---";
+    }
+    TToRampBag &operator += (const TToRampBag &item)
+    {
+        for(const auto &i: item.items) {
+            pair<int, int> &items_val = items[i.first];
+            items_val.first += i.second.first;
+            items_val.second += i.second.second;
+        }
+        return *this;
+    }
 };
 
 void TToRampBag::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
@@ -5588,11 +5611,13 @@ void TBagRems::get(TypeB::TDetailCreateInfo &info)
     }
 }
 
-void TToRampBag::get(int point_id, Status st)
+void TToRampBag::get(int point_id, Status st, const string &airp_arv)
 {
     items.clear();
     QParams QryParams;
     QryParams << QParam("point_id", otInteger, point_id);
+    if(not airp_arv.empty())
+        QryParams << QParam("airp_arv", otString, airp_arv);
     TCachedQuery Qry(
             (string)
             "select "
@@ -5612,6 +5637,7 @@ void TToRampBag::get(int point_id, Status st)
             :
             "   ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) = 0 and "
             ) +
+            (airp_arv.empty() ? "" : " pax_grp.airp_arv = :airp_arv and " ) +
             "   bag2.to_ramp <> 0 "
             "group by "
             "   airp_arv",
@@ -5656,6 +5682,11 @@ struct TExcess {
     int excess;
     void get(int point_id, string airp_arv = "");
     TExcess(): excess(NoExists) {};
+    TExcess &operator += (const TExcess &item)
+    {
+        excess += item.excess;
+        return *this;
+    }
 };
 
 void TExcess::get(int point_id, string airp_arv)
@@ -5677,6 +5708,8 @@ void TExcess::get(int point_id, string airp_arv)
     excess = Qry.FieldAsInteger("excess");
 }
 
+struct TLDMDests;
+
 struct TLDMDest {
     int point_arv;
     string target;
@@ -5691,6 +5724,8 @@ struct TLDMDest {
     int male;
     TLDMBag bag;
     TExcess excess;
+    TToRampBag to_ramp;
+    void append(TLDMDests &dests);
     TLDMDest():
         point_arv(NoExists),
         rk_weight(NoExists),
@@ -5703,6 +5738,22 @@ struct TLDMDest {
         female(NoExists),
         male(NoExists)
     {};
+    TLDMDest &operator += (const TLDMDest &item)
+    {
+        bag += item.bag;
+        rk_weight += item.rk_weight;
+        f += item.f;
+        excess += item.excess;
+        to_ramp += item.to_ramp;
+        c += item.c;
+        y += item.y;
+        adl += item.adl;
+        chd += item.chd;
+        inf += item.inf;
+        female += item.female;
+        male += item.male;
+        return *this;
+    }
 };
 
 struct TETLCFG:TCFG {
@@ -5810,8 +5861,6 @@ void TLDMCFG::get(TypeB::TDetailCreateInfo &info)
 
 struct TLDMDests {
     TLDMCFG cfg;
-    TExcess excess;
-    TToRampBag to_ramp;
     vector<TLDMDest> items;
     void get(TypeB::TDetailCreateInfo &info);
     void ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<string> &body);
@@ -5820,6 +5869,8 @@ struct TLDMDests {
 void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<string> &body)
 {
     cfg.ToTlg(info, vcompleted, body);
+    TToRampBag to_ramp_sum;
+    int excess_sum = 0;
     int baggage_sum = 0;
     int cargo_sum = 0;
     int mail_sum = 0;
@@ -5878,6 +5929,8 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
                 << ".M/" << iv->bag.mail;
             si.push_back(row.str());
         }
+        to_ramp_sum += iv->to_ramp;
+        excess_sum += iv->excess.excess;
         baggage_sum += iv->bag.baggage;
         cargo_sum += iv->bag.cargo;
         mail_sum += iv->bag.mail;
@@ -5897,7 +5950,7 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
         body.insert(body.end(), si.begin(), si.end());
     if(options.version == "CEK" and options.exb) {
         row.str("");
-        row << "SI: EXB" << excess.excess << KG;
+        row << "SI: EXB" << excess_sum << KG;
         body.push_back(row.str());
     }
     if(options.version == "CEK" and info.airp_dep != "ЧЛБ") {
@@ -5918,20 +5971,97 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
         else
             row << "NIL";
         row << ".DAA";
-        if(to_ramp.empty())
+        if(to_ramp_sum.empty())
             row << "NIL";
         else
-            row << to_ramp.by_flight().first << "/" << to_ramp.by_flight().second << KG;
+            row << to_ramp_sum.by_flight().first << "/" << to_ramp_sum.by_flight().second << KG;
         body.push_back(row.str());
     }
     //    body.push_back("SI: TRANSFER BAG CPT 0 NS 0");
 }
 
+void fillFltDetails(TypeB::TDetailCreateInfo &info)
+{
+
+    QParams QryParams;
+    QryParams << QParam("vpoint_id", otInteger, info.point_id);
+    TCachedQuery Qry(
+            "SELECT "
+            "   points.airline, "
+            "   points.flt_no, "
+            "   points.suffix, "
+            "   points.scd_out, "
+            "   points.est_out, "
+            "   points.act_out, "
+            "   points.bort, "
+            "   points.craft, "
+            "   points.airp, "
+            "   points.point_num, "
+            "   points.first_point, "
+            "   points.pr_tranzit, "
+            "   nvl(trip_sets.pr_lat_seat, 1) pr_lat_seat "
+            "from "
+            "   points, "
+            "   trip_sets "
+            "where "
+            "   points.point_id = :vpoint_id AND points.pr_del>=0 and "
+            "   points.point_id = trip_sets.point_id(+) ",
+        QryParams);
+    Qry.get().Execute();
+    if(Qry.get().Eof)
+        throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
+    if (Qry.get().FieldIsNULL("scd_out"))
+        throw AstraLocale::UserException("MSG.FLIGHT_DATE.NOT_SET");
+    info.airline = Qry.get().FieldAsString("airline");
+    if (!Qry.get().FieldIsNULL("flt_no"))
+        info.flt_no = Qry.get().FieldAsInteger("flt_no");
+    info.suffix = Qry.get().FieldAsString("suffix");
+    info.bort = Qry.get().FieldAsString("bort");
+    info.craft = Qry.get().FieldAsString("craft");
+    info.airp_dep = Qry.get().FieldAsString("airp");
+    info.point_num = Qry.get().FieldAsInteger("point_num");
+    info.first_point = Qry.get().FieldIsNULL("first_point")?NoExists:Qry.get().FieldAsInteger("first_point");
+    info.pr_tranzit = Qry.get().FieldAsInteger("pr_tranzit")!=0;
+    info.pr_lat_seat = Qry.get().FieldAsInteger("pr_lat_seat") != 0;
+
+    string tz_region=AirpTZRegion(info.airp_dep);
+    if (!Qry.get().FieldIsNULL("scd_out"))
+    {
+        info.scd_utc = getReportSCDOut(info.point_id);
+        info.scd_local = UTCToLocal( info.scd_utc, tz_region );
+        int Year, Month, Day;
+        DecodeDate(info.scd_local, Year, Month, Day);
+        info.scd_local_day = Day;
+    };
+
+    if(!Qry.get().FieldIsNULL("est_out"))
+        info.est_utc = Qry.get().FieldAsDateTime("est_out");
+    if(!Qry.get().FieldIsNULL("act_out"))
+        info.act_local = UTCToLocal( Qry.get().FieldAsDateTime("act_out"), tz_region );
+}
+
+void TLDMDest::append(TLDMDests &dests)
+{
+    if(dests.items.empty()) return;
+    for(const auto &dest: dests.items)
+        if(dest.point_arv == point_arv)
+            *this += dest;
+}
+
 void TLDMDests::get(TypeB::TDetailCreateInfo &info)
 {
+    TLDMDests before_dests;
+    TTripRouteItem priorAirp;
+    TTripRoute().GetPriorAirp(NoExists, info.point_id, trtNotCancelled,priorAirp);
+    if(priorAirp.point_id != NoExists) {
+        TypeB::TDetailCreateInfo before_detail;
+        before_detail.point_id = priorAirp.point_id;
+        fillFltDetails(before_detail);
+        before_dests.get(before_detail);
+    }
+
     cfg.get(info);
-    excess.get(info.point_id);
-    to_ramp.get(info.point_id, TToRampBag::rbBrd);
+
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT points.point_id AS point_arv, "
@@ -5989,6 +6119,7 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
             item.f = Qry.FieldAsInteger(col_f);
             item.target = Qry.FieldAsString(col_target);
             item.excess.get(info.point_id, item.target);
+            item.to_ramp.get(info.point_id, TToRampBag::rbBrd, item.target);
             item.c = Qry.FieldAsInteger(col_c);
             item.y = Qry.FieldAsInteger(col_y);
             item.adl = Qry.FieldAsInteger(col_adl);
@@ -5996,6 +6127,7 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
             item.inf = Qry.FieldAsInteger(col_inf);
             item.female = Qry.FieldAsInteger(col_female);
             item.male = Qry.FieldAsInteger(col_male);
+            item.append(before_dests);
             items.push_back(item);
         }
     }
@@ -8098,8 +8230,8 @@ void TDestList<T>::get_subcls_lst(TypeB::TDetailCreateInfo &info, list<string> &
     set<TSubclsItem> subcls_set;
 
     if(
-            PRLOptions and PRLOptions->rbd or
-            ETLOptions and ETLOptions->rbd
+            (PRLOptions and PRLOptions->rbd) or
+            (ETLOptions and ETLOptions->rbd)
             ) {
         QParams QryParams;
         QryParams << QParam("point_id", otInteger, info.point_id);
@@ -9201,66 +9333,6 @@ int Unknown(TypeB::TDetailCreateInfo &info)
     tlg_draft.Save(tlg_row);
     tlg_draft.Commit(tlg_row);
     return tlg_row.id;
-}
-
-void fillFltDetails(TypeB::TDetailCreateInfo &info)
-{
-
-    QParams QryParams;
-    QryParams << QParam("vpoint_id", otInteger, info.point_id);
-    TCachedQuery Qry(
-            "SELECT "
-            "   points.airline, "
-            "   points.flt_no, "
-            "   points.suffix, "
-            "   points.scd_out, "
-            "   points.est_out, "
-            "   points.act_out, "
-            "   points.bort, "
-            "   points.craft, "
-            "   points.airp, "
-            "   points.point_num, "
-            "   points.first_point, "
-            "   points.pr_tranzit, "
-            "   nvl(trip_sets.pr_lat_seat, 1) pr_lat_seat "
-            "from "
-            "   points, "
-            "   trip_sets "
-            "where "
-            "   points.point_id = :vpoint_id AND points.pr_del>=0 and "
-            "   points.point_id = trip_sets.point_id(+) ",
-        QryParams);
-    Qry.get().Execute();
-    if(Qry.get().Eof)
-        throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
-    if (Qry.get().FieldIsNULL("scd_out"))
-        throw AstraLocale::UserException("MSG.FLIGHT_DATE.NOT_SET");
-    info.airline = Qry.get().FieldAsString("airline");
-    if (!Qry.get().FieldIsNULL("flt_no"))
-        info.flt_no = Qry.get().FieldAsInteger("flt_no");
-    info.suffix = Qry.get().FieldAsString("suffix");
-    info.bort = Qry.get().FieldAsString("bort");
-    info.craft = Qry.get().FieldAsString("craft");
-    info.airp_dep = Qry.get().FieldAsString("airp");
-    info.point_num = Qry.get().FieldAsInteger("point_num");
-    info.first_point = Qry.get().FieldIsNULL("first_point")?NoExists:Qry.get().FieldAsInteger("first_point");
-    info.pr_tranzit = Qry.get().FieldAsInteger("pr_tranzit")!=0;
-    info.pr_lat_seat = Qry.get().FieldAsInteger("pr_lat_seat") != 0;
-
-    string tz_region=AirpTZRegion(info.airp_dep);
-    if (!Qry.get().FieldIsNULL("scd_out"))
-    {
-        info.scd_utc = getReportSCDOut(info.point_id);
-        info.scd_local = UTCToLocal( info.scd_utc, tz_region );
-        int Year, Month, Day;
-        DecodeDate(info.scd_local, Year, Month, Day);
-        info.scd_local_day = Day;
-    };
-
-    if(!Qry.get().FieldIsNULL("est_out"))
-        info.est_utc = Qry.get().FieldAsDateTime("est_out");
-    if(!Qry.get().FieldIsNULL("act_out"))
-        info.act_local = UTCToLocal( Qry.get().FieldAsDateTime("act_out"), tz_region );
 }
 
 int TelegramInterface::create_tlg(const TypeB::TCreateInfo &createInfo,
