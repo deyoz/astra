@@ -6779,21 +6779,17 @@ void TEmergencySeats::setDisabledEmergencySeats( int point_id, TSalons* Salons, 
     }
     int pax_id = ASTRA::NoExists;
     if ( mode == DisableMode::dlayers &&
-         (iseat->layers.empty() ||
-          (pax_id = iseat->layers.begin()->pax_id) == NoExists ) ) {
+         !iseat->layers.empty() &&
+         (pax_id = iseat->layers.begin()->pax_id) != NoExists &&
+         isOwnerFreePlace<TPaxCover>( pax_id, grpPaxs ) ) {
       continue;
     }
     if ( mode == DisableMode::dlrss &&
-         (pax_id = iseat->getCurrLayer( point_id ).getPaxId()) == ASTRA::NoExists ) {
+         (pax_id = iseat->getCurrLayer( point_id ).getPaxId()) != ASTRA::NoExists &&
+         isOwnerFreePlace<TPaxCover>( pax_id, grpPaxs ) ) {
       continue;
     }
-    ProgTrace( TRACE5, "layer->pax_id=%d", pax_id );
-    bool pr_owner = isOwnerFreePlace<TPaxCover>( pax_id, grpPaxs );
-    ProgTrace(TRACE5, "isOwnerFreePlace=%d", pr_owner );
-    if ( pr_owner ) {
-      continue;
-    }
-
+    ProgTrace( TRACE5, "!owner or layer->pax_id no exists %d", pax_id );
     if ( find( key ) != end() ) {
       continue;
     }
@@ -6804,7 +6800,7 @@ void TEmergencySeats::setDisabledEmergencySeats( int point_id, TSalons* Salons, 
   if ( zoneBL != boost::none &&
        !zoneBL.get().empty() ) {
     TEmergencySeats::iterator izone = insert( make_pair( key, zoneBL ) ).first;
-    ProgTrace(TRACE5, "zone=%s set disabled", izone->second.get().toString().c_str() );
+    ProgTrace(TRACE5, "emergency zone=%s set disabled", izone->second.get().toString().c_str() );
     izone->second.get().setDisabled( point_id, Salons );
   }
 }
