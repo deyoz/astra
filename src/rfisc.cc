@@ -1525,8 +1525,15 @@ void TGrpServiceAutoList::toDB(int grp_id) const
                              << QParam("emd_type", otString)
                              << QParam("emd_no", otString)
                              << QParam("emd_coupon", otInteger));
+
+  Statistic<CheckIn::TPaxASVCItem> svcStat;
+  for(const TGrpServiceAutoItem& item : *this)
+    svcStat.add(item);
+
   for(const TGrpServiceAutoItem& item : *this)
   {
+    const auto iSvc=svcStat.find(item);
+    if (iSvc!=svcStat.end() && iSvc->second>1) continue; //повторяющиеся номера EMD в рамка группы не записываем!
     item.toDB(Qry.get());
     Qry.get().Execute();
   }
