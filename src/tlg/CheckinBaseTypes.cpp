@@ -26,4 +26,14 @@ FlightNum_t getFlightNum(const std::string &s)
     }
 }
 
+FlightNum_t getFlightNum(int n)
+{
+    if(n) {
+        return FlightNum_t(n);
+    } else {
+        return FlightNum_t();
+    }
+
+}
+
 }//namespace Ticketing

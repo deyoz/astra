@@ -888,17 +888,17 @@ unsigned ServiceDetails::SsrInfo::quantity() const
 
 bool ServiceDetails::SsrInfo::isTkn() const
 {
-    return m_ssrCode.substr(0, 3) == "TKN";
+    return iatci::isSsrTkn(m_ssrCode);
 }
 
 bool ServiceDetails::SsrInfo::isFqt() const
 {
-    return m_ssrCode.substr(0, 3) == "FQT";
+    return iatci::isSsrFqt(m_ssrCode);
 }
 
 bool ServiceDetails::SsrInfo::isTkne() const
 {
-    return m_ssrCode == "TKNE";
+    return iatci::isSsrTkne(m_ssrCode);
 }
 
 boost::optional<Ticketing::TicketCpn_t> ServiceDetails::SsrInfo::toTicketCpn() const

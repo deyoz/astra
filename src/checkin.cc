@@ -76,6 +76,7 @@ using namespace BASIC::date_time;
 using namespace AstraLocale;
 using namespace AstraEdifact;
 using astra_api::xml_entities::ReqParams;
+using Ticketing::RemoteSystemContext::DcsSystemContext;
 
 
 void SirenaExchangeInterface::AvailabilityRequest(xmlNodePtr reqNode,
@@ -1114,7 +1115,7 @@ void CheckInInterface::GetTrferSets(const TTripInfo &operFlt,
     //traceTrfer( TRACE5, "GetTrferSets: trfer_tmp", trfer_tmp );
 
     map<int, pair<CheckIn::TTransferItem, TCkinSegFlts> > trfer_segs_tmp;
-    GetTCkinFlights(trfer_tmp, trfer_segs_tmp);
+    GetTCkinFlights(operFlt, trfer_tmp, trfer_segs_tmp);
 
     //traceTrfer( TRACE5, "GetTrferSets: trfer_segs_tmp", trfer_segs_tmp );
 
@@ -8534,11 +8535,15 @@ void CheckInInterface::OpenCheckInInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     TReqInfo::Instance()->LocaleToLog("EVT.CHECKIN_CLOSE_FOR_INFO_SYS", evtFlt, point_id);
 }
 
-void CheckInInterface::GetTCkinFlights(const map<int, CheckIn::TTransferItem> &trfer,
+void CheckInInterface::GetTCkinFlights(const TTripInfo &operFlt,
+                                       const map<int, CheckIn::TTransferItem> &trfer,
                                        map<int, pair<CheckIn::TTransferItem, TCkinSegFlts> > &segs)
 {
   segs.clear();
   if (trfer.empty()) return;
+
+  std::string             operAirl = operFlt.airline;
+  Ticketing::FlightNum_t operFlNum = Ticketing::getFlightNum(operFlt.flt_no);
 
   bool is_edi=false;
   for(map<int, CheckIn::TTransferItem>::const_iterator t=trfer.begin();t!=trfer.end();t++)
@@ -8550,20 +8555,15 @@ void CheckInInterface::GetTCkinFlights(const map<int, CheckIn::TTransferItem> &t
       //проверим обслуживается ли рейс в другой DCS
       if (!is_edi)
       {
-        TQuery Qry(&OraSession);
-        Qry.Clear();
-        Qry.SQLText=
-          "SELECT edi_addr,edi_own_addr, "
-          "       DECODE(airline,NULL,0,2)+ "
-          "       DECODE(flt_no,NULL,0,1) AS priority "
-          "FROM dcs_addr_set "
-          "WHERE airline=:airline AND "
-          "      (flt_no IS NULL OR flt_no=:flt_no) "
-          "ORDER BY priority DESC";
-        Qry.CreateVariable("airline",otString,t->second.operFlt.airline);
-        Qry.CreateVariable("flt_no",otInteger,(const int)(t->second.operFlt.flt_no));
-        Qry.Execute();
-        if (!Qry.Eof) is_edi=true;
+        std::string currOperAirl = t->second.operFlt.airline;
+        Ticketing::FlightNum_t currOperFlNum = Ticketing::getFlightNum(t->second.operFlt.flt_no);
+
+        std::unique_ptr<DcsSystemContext> dcs(DcsSystemContext::read(currOperAirl,
+                                                                     currOperFlNum,
+                                                                     operAirl,
+                                                                     operFlNum,
+                                                                     false));
+        if(dcs) is_edi=true;
       }
 
       seg.is_edi=is_edi;

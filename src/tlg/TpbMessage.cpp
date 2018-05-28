@@ -53,4 +53,9 @@ std::string TpbMessage::makeHeader()
     return header.str();
 }
 
+TpbMessage::~TpbMessage()
+{
+    delete SysCont;
+}
+
 }//namespace airimp

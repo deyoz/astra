@@ -216,7 +216,8 @@ public:
                               const int point_arv,
                               const std::string& airp_arv,
                               TSegInfo& segInfo);
-  static void GetTCkinFlights(const std::map<int, CheckIn::TTransferItem> &trfer,
+  static void GetTCkinFlights(const TTripInfo &operFlt,
+                              const std::map<int, CheckIn::TTransferItem> &trfer,
                               std::map<int, std::pair<CheckIn::TTransferItem, TCkinSegFlts> > &segs);
 
   static void ParseTransfer(xmlNodePtr trferNode,
