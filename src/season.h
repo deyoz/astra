@@ -97,10 +97,14 @@ using BASIC::date_time::TDateTime;
   };
 
   class SSIMScdPeriods: public std::vector<SSIMScdPeriod> {
-    SSIMScdPeriods( );
+    SSIMScdPeriods( ) {
+      trip_id = ASTRA::NoExists;
+    }
+
+    int trip_id;
    public:
     void fromDB( const SSIMFlight &flight, const SSIMPeriod &period );
-    void toDB();
+    void toDB( const SSIMFlight &flight, const SSIMPeriod &period );
   };
 ////////////////////////////END SSM //////////////////////////////////////////////////////
 struct TViewTrip {
