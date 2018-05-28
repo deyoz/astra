@@ -98,6 +98,7 @@ using BASIC::date_time::TDateTime;
 
   class SSIMScdPeriods: public std::vector<SSIMScdPeriod> {
     SSIMScdPeriods( );
+   public:
     void fromDB( const SSIMFlight &flight, const SSIMPeriod &period );
     void toDB();
   };

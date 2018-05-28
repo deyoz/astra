@@ -3681,7 +3681,7 @@ void SSIMRoute::FromDB( int move_id )
   Qry.CreateVariable( "move_id", otInteger, move_id );
   Qry.Execute();
   TDest dest1, dest2;
-  for ( ; Qry.Eof; Qry.Next() ) {
+  for ( ; !Qry.Eof; Qry.Next() ) {
     dest1 = dest2;
     dest2.num = Qry.FieldAsInteger( "num" );
     dest2.airp = Qry.FieldAsString( "airp" );
@@ -3745,7 +3745,7 @@ void SSIMScdPeriods::fromDB( const SSIMFlight &flight, const SSIMPeriod &period 
   Qry.CreateVariable( "last", otDate, period.last );
   Qry.Execute();
   map<int,SSIMRoute> routes;
-  for (; Qry.Eof; Qry.Next() ) {
+  for (; !Qry.Eof; Qry.Next() ) {
     SSIMScdPeriod ScdPeriod ( flight );
     ScdPeriod.period.first = Qry.FieldAsDateTime( "first_day" );
     ScdPeriod.period.last = Qry.FieldAsDateTime( "last_day" );
