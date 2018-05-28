@@ -86,6 +86,7 @@ void IfmMessage::send()
             tpbMsg.send();
         } else {
             LogTrace(TRACE1) << "IFM doesn't supported. Skipping...'";
+            delete dcsCont;
         }
     }
 }
