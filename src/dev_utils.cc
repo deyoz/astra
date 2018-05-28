@@ -593,7 +593,7 @@ template<class T> boost::optional<T>  BCBPInternalWork::get_enum_opt(const strin
 {   char ret = get_char<true>(x, start, err, allow_non_found);
     if(ret == ' ') return boost::none;
     int  i;
-    for(i = 0; i<test.size(); i++)
+    for(i = 0; i<(int)test.size(); i++)
         if(test[i] == ret) return boost::optional<T>(static_cast<T>(i));
     err = "unexpected data in enum field \" \"";
     err[err.size()-2] = ret;
@@ -657,7 +657,7 @@ void BCBPInternalWork::process_err(const string& field, const string& field_type
 template<bool allow_nums>
 std::string BCBPInternalWork::get_alfa_chars_str(const string& x, int start, int end, string& err, const std::string special_symbols_allowed, bool allow_non_found)
 {
-    if(x.size() < end)
+    if((int)x.size() < end)
     {   if(!allow_non_found) err = small_data_size(x.size());
         return "";
     }
@@ -728,7 +728,7 @@ bool alfa_num_check(char x, std::string& err)
 template<bool allow_non_num_alfa>
 char BCBPInternalWork::get_char(const string& x, int pos, string& err, bool allow_non_found)
 {
-    if(pos >= x.size())
+    if(pos >= (int)x.size())
     {   if(!allow_non_found)
         {    err = small_data_size(x.size());
              return -1;
@@ -1768,51 +1768,6 @@ int DeviceParams::getAsInteger(const std::string& name, const int& def) const
   if (i==end()) return def;
 
   return ToInt(i->second.value);
-}
-
-void CategorizedParams::compareXML(xmlNodePtr operNode, bool editable)
-{
-  if (operNode==nullptr) return;
-
-  xmlNodePtr rootNode1, rootNode2;
-  XMLDoc doc1("text", rootNode1, __FUNCTION__);
-  XMLDoc doc2("text", rootNode2, __FUNCTION__);
-
-  CopyNode(rootNode1, GetNode(xmlSectionName().c_str(), operNode), true);
-
-  toXML(rootNode2, editable);
-
-  diffToDB(doc1.text(), doc2.text());
-}
-
-void CategorizedParams::diffToDB(const std::string& text1,
-                                 const std::string& text2)
-{
-  if (text1==text2) return;
-
-//  CREATE TABLE device_params_testing
-//  (
-//    desk      VARCHAR2(6),
-//    term_mode VARCHAR2(10),
-//    text1     VARCHAR2(4000),
-//    text2     VARCHAR2(4000)
-//  );
-  try
-  {
-    TQuery Qry( &OraSession );
-    Qry.SQLText=
-        "INSERT INTO device_params_testing(desk, term_mode, text1, text2) "
-        "VALUES(:desk, :term_mode, :text1, :text2) ";
-    Qry.CreateVariable("term_mode", otString, EncodeOperMode(TReqInfo::Instance()->desk.mode));
-    Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
-    Qry.CreateVariable("text1", otString, text1.substr(0,4000));
-    Qry.CreateVariable("text2", otString, text2.substr(0,4000));
-    Qry.Execute();
-  }
-  catch(...)
-  {
-    LogError(STDLOG) << __FUNCTION__ << ": ERROR!";
-  }
 }
 
 SessParams::SessParams(const std::string& dev_model,

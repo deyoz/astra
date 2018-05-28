@@ -548,16 +548,6 @@ class CategorizedParams : public DeviceParams
 {
   protected:
     virtual std::string xmlSectionName() const=0;
-
-    void toXML(xmlNodePtr operNode, bool editable)
-    {
-      if (operNode==nullptr) return;
-
-      xmlNodePtr pNode = NewTextChild( operNode, xmlSectionName().c_str() );
-      if (!type.empty())
-        SetProp( pNode, "type", type );
-      DeviceParams::toXML(pNode, editable);
-    }
   public:
     std::string type;
 
@@ -571,9 +561,15 @@ class CategorizedParams : public DeviceParams
       DeviceParams::fromXML(GetNode( xmlSectionName().c_str(), operNode ));
     }
 
-    void compareXML(xmlNodePtr operNode, bool editable); //!!!потом удалить
-    static void diffToDB(const std::string& text1,       //!!!потом удалить
-                         const std::string& text2);
+    void toXML(xmlNodePtr operNode, bool editable)
+    {
+      if (operNode==nullptr) return;
+
+      xmlNodePtr pNode = NewTextChild( operNode, xmlSectionName().c_str() );
+      if (!type.empty())
+        SetProp( pNode, "type", type );
+      DeviceParams::toXML(pNode, editable);
+    }
 };
 
 class DeviceEvents : public CategorizedParams

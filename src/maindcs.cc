@@ -315,81 +315,13 @@ void GetModuleList(xmlNodePtr resNode)
   }
 }
 
-struct TDevParam {
-  string param_name;
-  string subparam_name;
-  string param_value;
-  int editable;
-  TDevParam() {
-    editable = 0;
-  }
-  TDevParam( string aparam_name,
-             string asubparam_name, string aparam_value, int aeditable ) {
-    param_name = lowerc(aparam_name);
-    subparam_name = lowerc(asubparam_name);
-    param_value = aparam_value;
-    editable = aeditable;
-  }
-};
-
-typedef vector<TDevParam> TCategoryDevParams;
-
-void PutParams( TDevParam local_param, TCategoryDevParams &params )
-{
-    for ( TCategoryDevParams::iterator server_param=params.begin(); server_param!=params.end(); server_param++ ) {
-        if ( server_param->editable &&
-               server_param->param_name == local_param.param_name &&
-               server_param->subparam_name == local_param.subparam_name ) {
-            ProgTrace( TRACE5, "server->param_name=%s", server_param->param_name.c_str() );
-            server_param->param_value = local_param.param_value;
-            break;
-        }
-    }
-}
-
-void ParseParams( xmlNodePtr paramsNode, TCategoryDevParams &params )
-{
-    //int editable;
-  if ( paramsNode == NULL ) return;
-
-  for ( xmlNodePtr pNode=paramsNode->children; pNode!=NULL && pNode->type == XML_ELEMENT_NODE; pNode=pNode->next ) { // пробег по параметрам
-    ProgTrace( TRACE5, "param name=%s", (const char*)pNode->name );
-    if ( pNode->children == NULL || pNode->children->type != XML_ELEMENT_NODE ) { //нет subparams
-        //editable = NodeAsInteger( "@editable", pNode, 0 );
-      //if ( editable )
-      ProgTrace( TRACE5, "param name=%s,subparam_name=%s,param_value=%s,editable=%d",
-                 (const char*)pNode->name,"", NodeAsString( pNode ), /*editable*/true );
-        PutParams( TDevParam((const char*)pNode->name,
-                                "",
-                                NodeAsString( pNode ),
-                                /*editable*/true),
-                     params );
-        continue;
-    }
-    for (xmlNodePtr subparamNode=pNode->children; subparamNode!=NULL && subparamNode->type == XML_ELEMENT_NODE; subparamNode=subparamNode->next) { // пробег по subparams
-        ProgTrace( TRACE5, "subparam name=%s", (const char*)subparamNode->name );
-    //	editable = NodeAsInteger( "@editable", subparamNode, 0 );
-      ProgTrace( TRACE5, "param name=%s,subparam_name=%s,param_value=%s,editable=%d",
-                 (const char*)pNode->name,(const char*)subparamNode->name,
-                 NodeAsString( subparamNode ), /*editable*/true );
-      PutParams( TDevParam((const char*)pNode->name,
-                          (const char*)subparamNode->name,
-                          NodeAsString( subparamNode ),
-                          /*editable*/true),
-                   params );
-    }
-  }
-}
-
 void GetEventCmd( const vector<string> &event_names,
                   const bool exclude,
                   const string &dev_model,
                   const string &sess_type,
                   const string &fmt_type,
-                  TCategoryDevParams &serverParams,
                   DeviceEvents &events)
 {
-  serverParams.clear();
   events.clear();
 
   TQuery Qry(&OraSession);
@@ -519,54 +451,11 @@ void GetEventCmd( const vector<string> &event_names,
       SetProp(cmdNode,"error_log",      (int)(CmdQry.FieldAsInteger("error_log")!=0));
       SetProp(cmdNode,"error_abort",    (int)(CmdQry.FieldAsInteger("error_abort")!=0));
     };
-    serverParams.push_back( TDevParam("cmd_"+event_name,"",
-                                      XMLTreeToText(cmdDoc.docPtr()),
-                                      (int)false) );
+
     events.add(DeviceParam( DeviceParamKey("cmd_"+event_name),
                             XMLTreeToText(cmdDoc.docPtr()),
                             false ));
   };
-}
-
-void GetParams( TQuery &Qry, TCategoryDevParams &serverParams )
-{
-    serverParams.clear();
-  string param_name,subparam_name;
-  for(;!Qry.Eof;Qry.Next())
-  {
-    string qry_param_name = lowerc(Qry.FieldAsString("param_name"));
-    string qry_subparam_name = lowerc(Qry.FieldAsString("subparam_name"));
-    if (param_name==qry_param_name &&
-        subparam_name==qry_subparam_name) continue;
-    param_name = qry_param_name;
-    subparam_name = qry_subparam_name;
-    serverParams.push_back( TDevParam(param_name,subparam_name,
-                                      Qry.FieldAsString("param_value"),
-                                      Qry.FieldAsInteger("editable")) );
-  }
-}
-
-void BuildParams( xmlNodePtr paramsNode, TCategoryDevParams &params, bool pr_editable )
-{
-    if ( paramsNode == NULL || params.empty() ) return;
-  string paramType;
-  xmlNodePtr paramNode=NULL,subparamNode;
-  for (TCategoryDevParams::iterator iparam=params.begin(); iparam!=params.end(); iparam++) {
-//  	ProgTrace( TRACE5, "param_name=%s, subparam_name=%s, param_value=%s, editable=%d, pr_editable=%d",
-//  	           iparam->param_name.c_str(), iparam->subparam_name.c_str(), iparam->param_value.c_str(), iparam->editable, pr_editable );
-    if ( paramNode==NULL || (const char*)paramNode->name!=iparam->param_name ) {
-      if ( iparam->subparam_name.empty() ) {
-        paramNode = NewTextChild( paramsNode, iparam->param_name.c_str(), iparam->param_value );
-        SetProp( paramNode,"editable",(int)(iparam->editable && pr_editable) );
-      }
-      else
-        paramNode=NewTextChild(paramsNode, iparam->param_name.c_str());
-    }
-    if ( !iparam->subparam_name.empty() ) {
-      subparamNode=NewTextChild( paramNode, iparam->subparam_name.c_str(), iparam->param_value );
-      SetProp( subparamNode,"editable", (int)(iparam->editable && pr_editable) );
-    }
-  }
 }
 
 void GetTerminalParams(xmlNodePtr reqNode, std::vector<std::string> &paramsList )
@@ -768,7 +657,6 @@ void MainDCSInterface::GetEventCmd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   xmlNodePtr devsNode=NodeAsNode("devices",reqNode);
   xmlNodePtr devNode,node,node2;
   vector<string> event_names;
-  TCategoryDevParams params;
   DeviceEvents events;
   for(devNode=devsNode->children;devNode!=NULL;devNode=devNode->next)
   {
@@ -784,7 +672,6 @@ void MainDCSInterface::GetEventCmd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                      NodeAsStringFast("dev_model",node2),
                      NodeAsStringFast("sess_type",node2),
                      NodeAsStringFast("fmt_type",node2),
-                     params,
                      events );
       node=NodeAsNodeFast("events",node2);
       xmlUnlinkNode(node);
@@ -799,11 +686,9 @@ void MainDCSInterface::GetEventCmd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                      NodeAsStringFast("dev_model",node2),
                      NodeAsStringFast("sess_type",node2),
                      NodeAsStringFast("fmt_type",node2),
-                     params,
                      events );
     };
-    BuildParams( NewTextChild(devNode,"events"), params, false );
-    events.compareXML( devNode, false );
+    events.toXML( devNode, false );
   };
   CopyNodeList(resNode,reqNode);
 };
@@ -1182,61 +1067,8 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
 
   bool pr_editable = reqInfo->user.access.rights().permitted(840);
 
-  TQuery SessParamsQry( &OraSession );
-  SessParamsQry.SQLText=
-    "SELECT dev_model_params.sess_type AS param_type, "
-    "       param_name,subparam_name,param_value,editable "
-    "FROM dev_model_params,dev_sess_modes "
-    "WHERE (dev_model_params.dev_model=:dev_model OR dev_model_params.dev_model IS NULL) AND "
-    "      dev_model_params.sess_type=dev_sess_modes.sess_type AND "
-    "      dev_sess_modes.term_mode=:term_mode AND dev_sess_modes.sess_type=:sess_type AND "
-    "      (dev_model_params.fmt_type=:fmt_type OR dev_model_params.fmt_type IS NULL) AND "
-    "      (desk_grp_id=:desk_grp_id OR desk_grp_id IS NULL) AND "
-    "      (pr_sess_param<>0 OR pr_sess_param IS NULL) "
-    "ORDER BY param_type, LOWER(param_name), LOWER(subparam_name) NULLS FIRST, "
-    "         dev_model_params.dev_model NULLS LAST, desk_grp_id NULLS LAST, "
-    "         dev_model_params.fmt_type NULLS LAST";
-
-
-  SessParamsQry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
-  SessParamsQry.CreateVariable("desk_grp_id",otInteger,reqInfo->desk.grp_id);
-  SessParamsQry.DeclareVariable("dev_model",otString);
-  SessParamsQry.DeclareVariable("sess_type",otString);
-  SessParamsQry.DeclareVariable("fmt_type",otString);
-
-    TQuery FmtParamsQry( &OraSession );
-  FmtParamsQry.SQLText=
-    "SELECT dev_model_params.fmt_type AS param_type, "
-    "       param_name,subparam_name,param_value,editable "
-    "FROM dev_model_params,dev_fmt_opers "
-    "WHERE (dev_model_params.dev_model=:dev_model OR dev_model_params.dev_model IS NULL) AND "
-    "      dev_model_params.fmt_type=dev_fmt_opers.fmt_type AND "
-    "      dev_fmt_opers.op_type=:op_type AND dev_fmt_opers.fmt_type=:fmt_type AND "
-    "      (dev_model_params.sess_type=:sess_type OR dev_model_params.sess_type IS NULL) AND "
-    "      (desk_grp_id=:desk_grp_id OR desk_grp_id IS NULL) AND "
-    "      (pr_sess_param=0 OR pr_sess_param IS NULL) "
-    "ORDER BY param_type, LOWER(param_name), LOWER(subparam_name) NULLS FIRST, "
-    "         dev_model_params.dev_model NULLS LAST, desk_grp_id NULLS LAST, "
-    "         dev_model_params.sess_type NULLS LAST";
-  FmtParamsQry.CreateVariable("desk_grp_id",otInteger,reqInfo->desk.grp_id);
-  FmtParamsQry.DeclareVariable("op_type",otString);
-  FmtParamsQry.DeclareVariable("dev_model",otString);
-  FmtParamsQry.DeclareVariable("sess_type",otString);
-  FmtParamsQry.DeclareVariable("fmt_type",otString);
-
-  TQuery ModelParamsQry( &OraSession );
-  ModelParamsQry.SQLText=
-    "SELECT NULL AS param_type, "
-    "       param_name,subparam_name,param_value,editable "
-    "FROM dev_model_params "
-    "WHERE dev_model_params.dev_model=:dev_model AND sess_type IS NULL AND fmt_type IS NULL AND "
-    "      (desk_grp_id=:desk_grp_id OR desk_grp_id IS NULL) "
-    "ORDER BY param_type, LOWER(param_name), LOWER(subparam_name) NULLS FIRST, desk_grp_id NULLS LAST";
-  ModelParamsQry.CreateVariable("desk_grp_id",otInteger,reqInfo->desk.grp_id);
-  ModelParamsQry.DeclareVariable("dev_model",otString);
   // разбираем параметры пришедшие с клиента
   string dev_model, sess_type, fmt_type, client_dev_model, client_sess_type, client_fmt_type;
-  TCategoryDevParams params;
   const char* dev_model_sql=
       "SELECT DISTINCT dev_fmt_opers.op_type AS op_type, "
       "                dev_model_sess_fmt.dev_model,"
@@ -1446,73 +1278,6 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       if (!reqInfo->desk.compatible(OLDEST_SUPPORTED_VERSION))
         NewTextChild( newoperNode, "dev_model_name", ElemIdToNameLong(etDevModel,dev_model));
 
-      SessParamsQry.SetVariable("dev_model",dev_model);
-      SessParamsQry.SetVariable("sess_type",sess_type);
-      SessParamsQry.SetVariable("fmt_type",fmt_type);
-      SessParamsQry.Execute();
-      GetParams( SessParamsQry, params );
-      if ( reqInfo->desk.mode==omRESA ||
-           reqInfo->desk.mode==omCUSE ||
-           (reqInfo->desk.mode==omMUSE && reqInfo->desk.compatible(MUSE_DEV_VARIABLES)) )
-      {
-        TDevOper::Enum oper=DevOperTypes().decode(operation);
-        if (!opers[oper].dev_model.empty() && opers[oper].dev_model==dev_model)
-        {
-          for(TCategoryDevParams::iterator p=params.begin();p!=params.end();++p)
-          {
-            if (p->param_name=="addr") p->param_value=opers[oper].addr;
-            if (p->param_name=="pool_key") p->param_value=opers[oper].pool_key;
-          };
-        };
-      };
-      //ProgTrace( TRACE5, "pr_parse_client_params=%d, k=%d", pr_parse_client_params, k );
-      if ( pr_parse_client_params )
-        ParseParams( GetNode( "sess_params", operNode ), params );
-      //for(TCategoryDevParams::iterator p=params.begin();p!=params.end();++p)
-      //  ProgTrace( TRACE5, "p->param_name=%s p->param_value=%s", p->param_name.c_str(),  p->param_value.c_str() );
-
-      pNode = NewTextChild( newoperNode, "sess_params" );
-      SetProp( pNode, "type", sess_type );
-      BuildParams( pNode, params, pr_editable );
-
-        FmtParamsQry.SetVariable("op_type",operation);
-      FmtParamsQry.SetVariable("dev_model",dev_model);
-      FmtParamsQry.SetVariable("sess_type",sess_type);
-      FmtParamsQry.SetVariable("fmt_type",fmt_type);
-      FmtParamsQry.Execute();
-      GetParams( FmtParamsQry, params );
-      if ( pr_parse_client_params )
-        ParseParams( GetNode( "fmt_params", operNode ), params );
-      pNode = NewTextChild( newoperNode, "fmt_params" );
-      SetProp( pNode, "type", fmt_type );
-      BuildParams( pNode, params, pr_editable );
-
-      //ищем параметр posted_events
-      vector<TDevParam>::iterator iParams=params.begin();
-      for(;iParams!=params.end();iParams++)
-        if (iParams->param_name=="posted_events") break;
-      bool posted_events=iParams!=params.end() && ToInt(iParams->param_value)!=0;
-
-      if (!posted_events)
-      {
-        vector<string> event_names;
-        event_names.push_back("magic_btn_click");
-        event_names.push_back("first_fmt_magic_btn_click");
-        DeviceEvents events;
-        ::GetEventCmd( event_names, true, dev_model, sess_type, fmt_type, params, events );
-        pNode = NewTextChild( newoperNode, "events" );
-        BuildParams( pNode, params, false );
-      };
-
-      ModelParamsQry.SetVariable("dev_model",dev_model);
-      ModelParamsQry.Execute();
-      GetParams( ModelParamsQry, params );
-      if ( pr_parse_client_params )
-        ParseParams( GetNode( "model_params", operNode ), params );
-      pNode = NewTextChild( newoperNode, "model_params" );
-      SetProp( pNode, "type", dev_model );
-      BuildParams( pNode, params, pr_editable );
-
       //SessParams:
       SessParams sessParams(dev_model, sess_type, fmt_type);
 
@@ -1530,7 +1295,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       if ( pr_parse_client_params )
         sessParams.fromXML(operNode);
 
-      sessParams.compareXML(newoperNode, pr_editable);
+      sessParams.toXML(newoperNode, pr_editable);
 
       //FmtParams:
       FmtParams fmtParams(operation, dev_model, sess_type, fmt_type);
@@ -1538,22 +1303,17 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       if ( pr_parse_client_params )
         fmtParams.fromXML(operNode);
 
-      fmtParams.compareXML(newoperNode, pr_editable);
+      fmtParams.toXML(newoperNode, pr_editable);
 
       //ищем параметр posted_events
-      bool posted_events2=fmtParams.getAsBoolean("posted_events", false);
-      if (posted_events!=posted_events2)
-        FmtParams::diffToDB("posted_events="+IntToString(posted_events),
-                            "posted_events="+IntToString(posted_events2));
       if (!fmtParams.getAsBoolean("posted_events", false))
       {
         vector<string> event_names;
         event_names.push_back("magic_btn_click");
         event_names.push_back("first_fmt_magic_btn_click");
-        DeviceEvents events;
-        TCategoryDevParams params2;
-        ::GetEventCmd( event_names, true, dev_model, sess_type, fmt_type, params2, events );
-        events.compareXML(newoperNode, false);
+        DeviceEvents events;        
+        ::GetEventCmd( event_names, true, dev_model, sess_type, fmt_type, events );
+        events.toXML(newoperNode, false);
       };
 
       //ModelParams:
@@ -1562,7 +1322,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       if ( pr_parse_client_params )
         modelParams.fromXML(operNode);
 
-      modelParams.compareXML(newoperNode, pr_editable);
+      modelParams.toXML(newoperNode, pr_editable);
       break;
     }
   }
