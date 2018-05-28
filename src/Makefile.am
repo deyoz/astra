@@ -196,6 +196,7 @@ astra_SOURCES = \
   db_pkg.cc \
   cr_lf.cc \
   stat_fv.cc \
+  astra_ssim.cc \
   bagmessage_daemon.cc
 
 
@@ -205,6 +206,9 @@ astra_LDADD = $(all_libraries) \
 	@SHARED_LIBS@ @SHARED_DEPEND_LIBS@ \
 	@LIBTLG_LIBS@ \
 	@SERVERLIB_LIBS@ \
+  @LIBSSIM_LIBS@ \
+  @LIBCORETYPES_LIBS@ \
+  @LIBNSI_LIBS@ \
         @LIBTYPEB_LIBS@ \
 	@ETICKLIB_LIBS@ @EDILIB_LIBS@ \
 	@ORACLE_LIBS@ @ORACLE_LDFLAGS@ \
@@ -385,4 +389,5 @@ noinst_HEADERS = \
   cr_lf.h \
   stat_fv.h \
   report_common.h \
-  kiosk_alias.h
+  kiosk_alias.h \
+  astra_ssim.h

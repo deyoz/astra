@@ -194,7 +194,7 @@ if [ "$quiet" = "1" ]; then make_silent="-s"; else make_silent=""; fi
 if [ "$build_external_libs" = "1" ]; then
     cat <<EOF > locallibs/external_env_file
 if [ -n "\$BOOST_LIB" ] || [ -n "\$BOOST_LIBS_SUFFIX" ] || [ -n "\$PION_LIB" ] ; then echo "unset BOOST_LIB BOOST_LIBS_SUFFIX PION_LIB, then $0 --build_external_libs" 1>&2; exit 2; fi
-export readonly CPP_STD_VERSION="c++14"
+export readonly CPP_STD_VERSION=$CPP_STD_VERSION
 export readonly BOOST=$EXTERNALLIBS_DIR/boost
 export MY_LOCAL_CFLAGS="\$MY_LOCAL_CFLAGS -DBOOST_NO_CXX11_SCOPED_ENUMS -DBOOST_NO_CXX11_EXPLICIT_CONVERSION_OPERATORS -DBOOST_FILESYSTEM_DEPRECATED -DBOOST_NO_AUTO_PTR"
 EOF

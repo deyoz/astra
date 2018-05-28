@@ -25,6 +25,8 @@
 #include "kiosk_alias.h"
 #include "db_pkg.h"
 
+#include "astra_ssim.h"
+
 int nosir_test(int argc,char **argv);
 void nosir_test_help(const char *name);
 
@@ -130,6 +132,7 @@ const
     {"-rbd_test",               rbd_test,               NULL,                       NULL},
     {"-lci_data",               TypeB::lci_data,               NULL,                       NULL},
     {"-asvc_list_print_sql",    PaxASVCList::print_sql, NULL,                       NULL},
+    {"-ssim_test",              ssim_test,              NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
