@@ -10,6 +10,7 @@
 #include "convert.h"
 #include "tripinfo.h"
 #include "tlg/edi_msg.h"
+#include "tlg/remote_system_context.h"
 
 #include <serverlib/dates_io.h>
 #include <serverlib/dates_oci.h>
@@ -33,6 +34,7 @@
 namespace iatci {
 
 using BASIC::date_time::DateTimeToBoost;
+using Ticketing::RemoteSystemContext::DcsSystemContext;
 
 
 std::string fullFlightString(const FlightDetails& flight, bool edi)
@@ -1882,6 +1884,22 @@ void iatci2xmlSmpUpd(xmlNodePtr node, const dcrcka::Result& res,
     xmlNodePtr layersNode = newChild(newPlaceNode, "layers");
     xmlNodePtr layerNode = newChild(layersNode, "layer");
     NewTextChild(layerNode, "layer_type", "CHECKIN");
+}
+
+//---------------------------------------------------------------------------------------
+
+DcsSystemContext* readDcs(const iatci::FlightDetails& outbFlt,
+                          const boost::optional<FlightDetails>& inbFlt)
+{
+    if(inbFlt) {
+        return DcsSystemContext::read(outbFlt.airline(),
+                                      outbFlt.flightNum(),
+                                      inbFlt->airline(),
+                                      inbFlt->flightNum());
+    } else {
+        return DcsSystemContext::read(outbFlt.airline(),
+                                      outbFlt.flightNum());
+    }
 }
 
 }//namespace iatci

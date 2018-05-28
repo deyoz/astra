@@ -8,6 +8,13 @@
 #include <libtlg/tlgnum.h>
 #include <edilib/EdiSessionId_t.h>
 
+namespace  Ticketing {
+namespace RemoteSystemContext {
+    class DcsSystemContext;
+}//namespace Ticketing
+}//namespace RemoteSystemContext
+
+/////////////////////////////////////////////////////////////////////////////////////////
 
 namespace iatci {
 
@@ -181,5 +188,31 @@ inline unsigned getTagNum(const uint64_t& tag)
 {
     return (tag % 1000000);
 }
+
+//---------------------------------------------------------------------------------------
+
+inline bool isSsrTkn(const std::string& ssrCode)
+{
+    return ssrCode.substr(0, 3) == "TKN";
+}
+
+//---------------------------------------------------------------------------------------
+
+inline bool isSsrTkne(const std::string& ssrCode)
+{
+    return ssrCode == "TKNE";
+}
+
+//---------------------------------------------------------------------------------------
+
+inline bool isSsrFqt(const std::string& ssrCode)
+{
+    return ssrCode.substr(0, 3) == "FQT";
+}
+
+//---------------------------------------------------------------------------------------
+
+Ticketing::RemoteSystemContext::DcsSystemContext* readDcs(const iatci::FlightDetails& outbFlt,
+                                                          const boost::optional<FlightDetails>& inbFlt);
 
 }//namespace iatci

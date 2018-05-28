@@ -256,7 +256,9 @@ namespace RemoteSystemContext
         EdsSystemSettings Settings;
     public:
         EdsSystemContext(const SystemContext& baseCnt, const EdsSystemSettings &Settings = EdsSystemSettings());
-        static EdsSystemContext* read(const std::string& airl, const Ticketing::FlightNum_t& flNum);
+        static EdsSystemContext* read(const std::string& airl,
+                                      const Ticketing::FlightNum_t& flNum,
+                                      bool throwNf = true);
         static SystemContext* readByEdiAddrs(const std::string& source, const std::string& source_ext,
                                              const std::string& dest,   const std::string& dest_ext,
                                              bool throwNf = true);
@@ -302,7 +304,15 @@ namespace RemoteSystemContext
     public:
         DcsSystemContext(const SystemContext& baseCnt);
         static DcsSystemContext* read(const std::string& airl,
-                                      const Ticketing::FlightNum_t& flNum = Ticketing::FlightNum_t());
+                                      const Ticketing::FlightNum_t& flNum,
+                                      bool throwNf = true);
+
+        static DcsSystemContext* read(const std::string& airl,
+                                      const Ticketing::FlightNum_t& flNum,
+                                      const std::string& ourAirl,
+                                      const Ticketing::FlightNum_t& ourFlNum,
+                                      bool throwNf = true);
+
         static SystemContext* readByEdiAddrs(const std::string& source, const std::string& source_ext,
                                              const std::string& dest,   const std::string& dest_ext,
                                              bool throwNf = true);

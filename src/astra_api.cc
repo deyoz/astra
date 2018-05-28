@@ -141,11 +141,11 @@ void addCheckInRems(XmlPax& pax, const iatci::ServiceDetails& service)
         if(ssr.isFqt()) {
             if(!pax.fqt_rems)
                 pax.fqt_rems = XmlFqtRems();
-            pax.fqt_rems->rems.push_back(createCheckInFqtRem(ssr));
+            pax.fqt_rems->rems.insert(createCheckInFqtRem(ssr));
         } else {
             if(!pax.rems)
                 pax.rems = XmlRems();
-            pax.rems->rems.push_back(createCheckInRem(ssr));
+            pax.rems->rems.insert(createCheckInRem(ssr));
         }
     }
 }
@@ -1024,14 +1024,14 @@ static void applyXmlRem(XmlPax& pax, const iatci::UpdateServiceDetails::UpdSsrIn
     {
         LogTrace(TRACE3) << "add/modify remark: " << updSsr.ssrCode() <<
                             "/" << updSsr.ssrText() << " (" << updSsr.freeText() << ")";
-        pax.rems->rems.push_back(rem);
+        pax.rems->rems.insert(rem);
         break;
     }
     case iatci::UpdateDetails::Cancel:
     {
         LogTrace(TRACE3) << "cancel remark: " << updSsr.ssrCode() <<
                             "/" << updSsr.ssrText() << " (" << updSsr.freeText() << ")";
-        pax.rems->rems.remove(rem);
+        pax.rems->rems.erase(rem);
         break;
     }
     default:
@@ -1063,7 +1063,7 @@ static void applyFqtXmlRem(XmlPax& pax, const iatci::UpdateServiceDetails::UpdSs
         LogTrace(TRACE3) << "add/modify fqt remark: " << updSsr.ssrCode()
                          << "/" << updSsr.airline() << "/" << updSsr.ssrText()
                          << "/" << updSsr.quantity();
-        pax.fqt_rems->rems.push_back(rem);
+        pax.fqt_rems->rems.insert(rem);
         break;
     }
     case iatci::UpdateDetails::Cancel:
@@ -1071,7 +1071,7 @@ static void applyFqtXmlRem(XmlPax& pax, const iatci::UpdateServiceDetails::UpdSs
         LogTrace(TRACE3) << "cancel fqt remark: " << updSsr.ssrCode()
                          << "/" << updSsr.airline() << "/" << updSsr.ssrText()
                          << "/" << updSsr.quantity();
-        pax.fqt_rems->rems.remove(rem);
+        pax.fqt_rems->rems.erase(rem);
         break;
     }
     default:
@@ -1215,6 +1215,28 @@ iatci::dcrcka::Result checkinIatciPaxes(xmlNodePtr reqNode, xmlNodePtr ediResNod
     }
     return loadPaxXmlRes.toIatciFirst(iatci::dcrcka::Result::Checkin,
                                       iatci::dcrcka::Result::Ok);
+}
+
+static void normalize(XmlPax& pax)
+{
+    // удалим из rems все FQT*
+    if(pax.rems) {
+        auto&& rems = pax.rems->rems;
+        for(auto i = rems.begin(); i != rems.end(); /*no_op*/) {
+            if(iatci::isSsrFqt(i->rem_code)) {
+                i = rems.erase(i);
+            } else {
+                i++;
+            }
+        }
+    }
+}
+
+static void normalize(XmlSegment& paxSeg)
+{
+    for(auto&& pax: paxSeg.passengers) {
+        normalize(pax);
+    }
 }
 
 static void handleIatciCkiPax(int pointDep,
@@ -1363,6 +1385,8 @@ iatci::dcrcka::Result checkinIatciPaxes(const iatci::CkiParams& ckiParams)
     if(tripHeader) {
         paxSeg.trip_header = tripHeader.get();
     }
+
+    normalize(paxSeg);
 
     // SavePax
     LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(paxSeg);
@@ -1755,6 +1779,8 @@ iatci::dcrcka::Result updateIatciPaxes(const iatci::CkuParams& ckuParams)
             updateBaggageQuery(paxSeg, bags.get(), bagTags.get());
         }
 
+        normalize(paxSeg);
+
         LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(paxSeg,
                                                                            bags,
                                                                            bagTags);
@@ -2036,6 +2062,12 @@ bool operator==(const XmlRem& l, const XmlRem& r)
             l.rem_text == r.rem_text);
 }
 
+bool operator< (const XmlRem& l, const XmlRem& r)
+{
+    return (l.rem_code + l.rem_text <
+            r.rem_code + r.rem_text);
+}
+
 //---------------------------------------------------------------------------------------
 
 astra_entities::FqtRemark XmlFqtRem::toFqtRem() const
@@ -2049,9 +2081,15 @@ astra_entities::FqtRemark XmlFqtRem::toFqtRem() const
 bool operator==(const XmlFqtRem& l, const XmlFqtRem& r)
 {
     return (l.rem_code   == r.rem_code &&
-            l.airline    == r.airline &&
+            /*l.airline    == r.airline &&*/
             l.no         == r.no &&
             l.tier_level == r.tier_level);
+}
+
+bool operator< (const XmlFqtRem& l, const XmlFqtRem& r)
+{
+    return (l.rem_code + /*l.airline +*/ l.no + l.tier_level <
+            r.rem_code + /*r.airline +*/ r.no + r.tier_level);
 }
 
 //---------------------------------------------------------------------------------------
@@ -2749,7 +2787,7 @@ XmlRems XmlEntityReader::readRems(xmlNodePtr remsNode)
     for(xmlNodePtr remNode = remsNode->children;
         remNode != NULL; remNode = remNode->next)
     {
-        rems.rems.push_back(XmlEntityReader::readRem(remNode));
+        rems.rems.insert(XmlEntityReader::readRem(remNode));
     }
     return rems;
 }
@@ -2774,7 +2812,7 @@ XmlFqtRems XmlEntityReader::readFqtRems(xmlNodePtr remsNode)
     for(xmlNodePtr remNode = remsNode->children;
         remNode != NULL; remNode = remNode->next)
     {
-        rems.rems.push_back(XmlEntityReader::readFqtRem(remNode));
+        rems.rems.insert(XmlEntityReader::readFqtRem(remNode));
     }
     return rems;
 }

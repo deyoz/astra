@@ -413,6 +413,7 @@ struct XmlRem
     astra_entities::Remark toRem() const;
 };
 bool operator==(const XmlRem& l, const XmlRem& r);
+bool operator< (const XmlRem& l, const XmlRem& r);
 
 //---------------------------------------------------------------------------------------
 
@@ -426,12 +427,13 @@ struct XmlFqtRem
     astra_entities::FqtRemark toFqtRem() const;
 };
 bool operator==(const XmlFqtRem& l, const XmlFqtRem& r);
+bool operator< (const XmlFqtRem& l, const XmlFqtRem& r);
 
 //---------------------------------------------------------------------------------------
 
 struct XmlRems
 {
-    std::list<XmlRem> rems;
+    std::set<XmlRem> rems;
 
     astra_entities::Remarks toRems() const;
 };
@@ -440,7 +442,7 @@ struct XmlRems
 
 struct XmlFqtRems
 {
-    std::list<XmlFqtRem> rems;
+    std::set<XmlFqtRem> rems;
 
     astra_entities::FqtRemarks toFqtRems() const;
 };

@@ -27,6 +27,8 @@ public:
     const Ticketing::RemoteSystemContext::SystemContext* sysCont() const;
     std::string fullMsg() const; /* заголовок + сообщение */
 
+    ~TpbMessage();
+
 protected:
     std::string makeHeader();
 };

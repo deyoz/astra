@@ -2,6 +2,7 @@
 #include "TpbMessage.h"
 #include "basetables.h"
 #include "remote_system_context.h"
+#include "iatci_help.h"
 
 #include <serverlib/dates.h>
 #include <serverlib/algo.h>
@@ -75,15 +76,18 @@ IfmMessage::IfmMessage(const IfmFlights& flights,
 void IfmMessage::send()
 {
     using Ticketing::RemoteSystemContext::DcsSystemContext;
-    DcsSystemContext *dcsCont = DcsSystemContext::read(flights().rcvFlight().airline(),
-                                                       flights().rcvFlight().flightNum());
-    ASSERT(dcsCont);
-    if(dcsCont->iatciSettings().ifmSupported()) {
-        LogTrace(TRACE1) << "IFM supported. Sending...";                                                       
-        airimp::TpbMessage tpbMsg(msg(), dcsCont);
-        tpbMsg.send();
-    } else {
-        LogTrace(TRACE1) << "IFM doesn't supported. Skipping...'";
+    DcsSystemContext *dcsCont = iatci::readDcs(flights().rcvFlight(),
+                                               flights().dlvFlight());
+    if(dcsCont)
+    {
+        if(dcsCont->iatciSettings().ifmSupported()) {
+            LogTrace(TRACE1) << "IFM supported. Sending...";
+            airimp::TpbMessage tpbMsg(msg(), dcsCont);
+            tpbMsg.send();
+        } else {
+            LogTrace(TRACE1) << "IFM doesn't supported. Skipping...'";
+            delete dcsCont;
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 #include "IatciSmfRequest.h"
-
 #include "view_edi_elements.h"
 #include "remote_system_context.h"
+#include "iatci_help.h"
 
 #include <edilib/edi_func_cpp.h>
 
@@ -17,8 +17,8 @@ SmfRequest::SmfRequest(const iatci::SmfParams& params,
                        const std::string& ctxt,
                        const KickInfo& kick)
     : EdifactRequest(pult, ctxt, kick, DCQSMF,
-                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.outboundFlight().airline(),
-                                                                            params.outboundFlight().flightNum())),
+                     iatci::readDcs(params.outboundFlight(),
+                                    params.inboundFlight())),
       m_params(params)
 {
 }

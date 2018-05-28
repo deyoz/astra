@@ -497,15 +497,18 @@ namespace
 
     struct PointInfo
     {
-        std::string m_airline;
-        std::string m_airport;
+        std::string            m_airline;
+        Ticketing::FlightNum_t m_flNum;
+        std::string            m_airport;
 
         PointInfo()
         {}
 
         PointInfo(const std::string& airline,
+                  const Ticketing::FlightNum_t& flNum,
                   const std::string& airport)
             : m_airline(airline),
+              m_flNum(flNum),
               m_airport(airport)
         {}
 
@@ -514,10 +517,12 @@ namespace
             LogTrace(TRACE5) << "Enter to " << __FUNCTION__ << " by pointId " << pointId;
 
             std::string airl, airp;
+            int flNum = 0;
             OciCpp::CursCtl cur = make_curs(
-                    "select AIRLINE, AIRP from POINTS where POINT_ID=:point_id");
+                    "select AIRLINE, FLT_NO, AIRP from POINTS where POINT_ID=:point_id");
             cur.bind(":point_id", pointId)
                .defNull(airl, "")
+               .defNull(flNum, 0)
                .def(airp)
                .EXfet();
             if(cur.err() == NO_DATA_FOUND) {
@@ -525,7 +530,9 @@ namespace
                 throw EXCEPTIONS::Exception("Point %d not found", pointId);
             }
 
-            return PointInfo(airl, airp);
+            return PointInfo(airl,
+                             Ticketing::getFlightNum(flNum),
+                             airp);
         }
 
         static PointInfo readByGrpId(int grpId)
@@ -1440,6 +1447,16 @@ static iatci::OriginatorDetails makeOrg(int grpId)
                                     pointInfo.m_airport);
 }
 
+static iatci::FlightDetails makeOwnFlight(int grpId)
+{
+    PointInfo pointInfo = readPointInfo(grpId);
+    return iatci::FlightDetails(pointInfo.m_airline,
+                                pointInfo.m_flNum,
+                                pointInfo.m_airport,
+                                "",
+                                boost::gregorian::date());
+}
+
 static iatci::CkxParams getCkxParams(xmlNodePtr reqNode)
 {
     int ownGrpId = getGrpId(reqNode, NULL, IatciInterface::Ckx);
@@ -1483,7 +1500,7 @@ static iatci::CkxParams getCkxParams(xmlNodePtr reqNode)
     return iatci::CkxParams(makeOrg(ownGrpId),
                             makeCascade(),
                             iatci::dcqckx::FlightGroup(iatci::makeFlight(firstReqTab.seg()),
-                                                       boost::none,
+                                                       makeOwnFlight(ownGrpId),
                                                        lPaxGrp));
 }
 
@@ -1573,7 +1590,7 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
     return iatci::CkuParams(makeOrg(ownGrpId),
                             boost::none,
                             iatci::dcqcku::FlightGroup(iatci::makeFlight(oldIatciTabs.tabs().front().xmlSeg()),
-                                                       boost::none,
+                                                       makeOwnFlight(ownGrpId),
                                                        lPaxGrp));
 }
 
@@ -1768,7 +1785,7 @@ static boost::optional<iatci::CkuParams> getUpdateBaggageParams(xmlNodePtr reqNo
     return iatci::CkuParams(makeOrg(ownGrpId),
                             boost::none,
                             iatci::dcqcku::FlightGroup(iatci::makeFlight(oldIatciTabs.tabs().front().xmlSeg()),
-                                                       boost::none,
+                                                       makeOwnFlight(ownGrpId),
                                                        lPaxGrp));
 }
 
@@ -1913,7 +1930,7 @@ static boost::optional<iatci::CkuParams> getCkuParams(xmlNodePtr reqNode)
     return iatci::CkuParams(makeOrg(ownGrpId),
                             boost::none,
                             iatci::dcqcku::FlightGroup(iatci::makeFlight(oldIatciTabs.tabs().front().xmlSeg()),
-                                                       boost::none,
+                                                       makeOwnFlight(ownGrpId),
                                                        lPaxGrp));
 }
 
@@ -1947,7 +1964,7 @@ static iatci::BprParams getBprParams(xmlNodePtr reqNode)
     return iatci::BprParams(makeOrg(ownGrpId),
                             boost::none,
                             iatci::dcqbpr::FlightGroup(iatci::makeFlight(firstEdiTab.xmlSeg()),
-                                                       boost::none,
+                                                       makeOwnFlight(ownGrpId),
                                                        lPaxGrp));
 }
 

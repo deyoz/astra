@@ -1,6 +1,7 @@
 #include "IatciCkxRequest.h"
 #include "view_edi_elements.h"
 #include "remote_system_context.h"
+#include "iatci_help.h"
 
 #include <edilib/edi_func_cpp.h>
 
@@ -19,8 +20,8 @@ CkxRequest::CkxRequest(const iatci::CkxParams& params,
                        const std::string& ctxt,
                        const KickInfo& kick)
     : EdifactRequest(pult, ctxt, kick, DCQCKX,
-                     Ticketing::RemoteSystemContext::DcsSystemContext::read(params.outboundFlight().airline(),
-                                                                            params.outboundFlight().flightNum())),
+                     iatci::readDcs(params.outboundFlight(),
+                                    params.inboundFlight())),
       m_params(params)
 {}
 
@@ -42,7 +43,7 @@ void CkxRequest::collectMessage()
 
     edilib::SetEdiSegGr(pMes(), 1);
     edilib::SetEdiPointToSegGrW(pMes(), 1);
-    viewFdqElement(pMes(), m_params.outboundFlight(), m_params.inboundFlight());
+    viewFdqElement(pMes(), m_params.outboundFlight());
 
     int currPxg = 0;
     for(const auto& pxg: m_params.fltGroup().paxGroups()) {
