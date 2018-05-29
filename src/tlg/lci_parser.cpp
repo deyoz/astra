@@ -128,6 +128,7 @@ TGender DecodeGender(const string &s)
 };
 
 const char* EncodeGender(TGender p)
+
 {
     return TGenderS[p];
 };
@@ -472,6 +473,21 @@ int lci_data(int argc, char **argv)
 
     // lci.wm.parse("WM.WB.TT.4257/PT.2000/HT.150/BT.1000/CT.1100/MT.7.KG");
 
+    // ---- PD - actual passenger distribution ----
+
+    // Можно оба варианта раскоментарить
+
+    // using standard weights
+    // lci.pd.parse("PD.C.П.0/0/0/0.Б.1/0/0/0.Э.4/1/1/1\n");
+
+    // using actual weights
+    // lci.pd.parse("PD.Z.A/640.B/2050.C/17804.KG");
+
+    // ---- PD - actual passenger distribution END OF TEST ----
+
+    // lci.sp.parse("SP.5А/M.5Б/F.5В/M.5В/I.5Г/M.5Д/I.5Е/C.1А/M.6А/M");
+
+    lci.dump();
 
     string lci_data = lci.toXML();
 
@@ -497,17 +513,17 @@ void TLCIContent::fromXML(const string &content)
 {
     clear();
 
-    LogTrace(TRACE5) << "TLCIContent::fromXML: content: " << content;
+    // LogTrace(TRACE5) << "TLCIContent::fromXML: content: " << content;
 
     string converted = ConvertCodepage(content, "CP866", "UTF8");
     XMLDoc lci_data(converted);
     xmlNodePtr rootNode = lci_data.docPtr()->children;
     xml_decode_nodelist(rootNode);
 
-    point_id_tlg = NodeAsInteger("point_id_tlg", rootNode);
-    time_receive = NodeAsDateTime("time_receive", rootNode);
-    sender = NodeAsString("sender", rootNode);
-    typeb_in_id = NodeAsInteger("typeb_in_id", rootNode);
+    point_id_tlg = NodeAsInteger("point_id_tlg", rootNode, NoExists);
+    time_receive = NodeAsDateTime("time_receive", rootNode, NoExists);
+    sender = NodeAsString("sender", rootNode, "");
+    typeb_in_id = NodeAsInteger("typeb_in_id", rootNode, NoExists);
     action_code.fromXML(rootNode);
     req.fromXML(rootNode);
     dst.fromXML(rootNode);
@@ -516,6 +532,9 @@ void TLCIContent::fromXML(const string &content)
     sm.fromXML(rootNode);
     sr.fromXML(rootNode);
     wm.fromXML(rootNode);
+    pd.fromXML(rootNode);
+    sp.fromXML(rootNode);
+    si.fromXML(rootNode);
 }
 
 string TLCIContent::toXML()
@@ -523,10 +542,11 @@ string TLCIContent::toXML()
     XMLDoc doc("LCIData");
     SetXMLDocEncoding(doc.docPtr(), "cp866");
     xmlNodePtr rootNode = doc.docPtr()->children;
-    NewTextChild(rootNode, "point_id_tlg", point_id_tlg);
-    NewTextChild(rootNode, "time_receive", BASIC::date_time::DateTimeToStr(time_receive));
-    NewTextChild(rootNode, "sender", sender);
-    NewTextChild(rootNode, "typeb_in_id", typeb_in_id);
+    NewTextChild(rootNode, "point_id_tlg", point_id_tlg, NoExists);
+    if(time_receive != NoExists)
+        NewTextChild(rootNode, "time_receive", BASIC::date_time::DateTimeToStr(time_receive));
+    NewTextChild(rootNode, "sender", sender, "");
+    NewTextChild(rootNode, "typeb_in_id", typeb_in_id, NoExists);
     action_code.toXML(rootNode);
     req.toXML(rootNode);
     dst.toXML(rootNode);
@@ -535,6 +555,9 @@ string TLCIContent::toXML()
     sm.toXML(rootNode);
     sr.toXML(rootNode);
     wm.toXML(rootNode);
+    pd.toXML(rootNode);
+    sp.toXML(rootNode);
+    si.toXML(rootNode);
     return GetXMLDocText(doc.docPtr());
 }
 
@@ -543,6 +566,7 @@ void TLCIContent::dump()
     ProgTrace(TRACE5, "---TLCIContent::dump---");
     action_code.dump();
     req.dump();
+    dst.dump();
     eqt.dump();
     wa.dump();
     sm.dump();
@@ -550,7 +574,7 @@ void TLCIContent::dump()
     wm.dump();
     pd.dump();
     sp.dump();
-    dst.dump();
+    si.dump();
     ProgTrace(TRACE5, "-----------------------");
 }
 
@@ -817,6 +841,7 @@ void TWeight::fromXML(xmlNodePtr node, const string &tag)
 
 void TWeight::toXML(xmlNodePtr node, const string &tag) const
 {
+    if(empty()) return;
     xmlNodePtr weightNode = NewTextChild(node, tag.c_str());
     NewTextChild(weightNode, "amount", amount, NoExists);
     NewTextChild(weightNode, "measur", EncodeMeasur(measur), "");
@@ -1199,14 +1224,14 @@ xmlNodePtr TClsGenderWeight::fromXML(xmlNodePtr node)
 
 xmlNodePtr TClsGenderWeight::toXML(xmlNodePtr node) const
 {
+    if(empty()) return NULL;
+
     xmlNodePtr result = TSubTypeHolder::toXML(node);
-    if(not empty()) {
-        xmlNodePtr ClsGenderWeightNode = NewTextChild(result, "ClsGenderWeight");
-        for(const auto &i: *this) {
-            xmlNodePtr itemNode = NewTextChild(ClsGenderWeightNode, "item");
-            NewTextChild(itemNode, "first", i.first);
-            i.second.toXML(itemNode);
-        }
+    xmlNodePtr ClsGenderWeightNode = NewTextChild(result, "ClsGenderWeight");
+    for(const auto &i: *this) {
+        xmlNodePtr itemNode = NewTextChild(ClsGenderWeightNode, "item");
+        NewTextChild(itemNode, "first", i.first);
+        i.second.toXML(itemNode);
     }
     return result;
 }
@@ -1270,6 +1295,8 @@ xmlNodePtr TClsWeight::fromXML(xmlNodePtr node)
 
 xmlNodePtr TClsWeight::toXML(xmlNodePtr node) const
 {
+    if(empty()) return NULL;
+
     xmlNodePtr result = TSubTypeHolder::toXML(node);
     xmlNodePtr itemNode = NewTextChild(result, "ClsWeight");
     NewTextChild(itemNode, "f", f, NoExists);
@@ -1338,14 +1365,14 @@ xmlNodePtr TClsBagWeight::fromXML(xmlNodePtr node)
 
 xmlNodePtr TClsBagWeight::toXML(xmlNodePtr node) const
 {
+    if(empty()) return NULL;
+
     xmlNodePtr result = TSubTypeHolder::toXML(node);
-    if(not empty()) {
-        xmlNodePtr ClsBagWeightNode = NewTextChild(result, "ClsBagWeight");
-        for(const auto &i: *this) {
-            xmlNodePtr itemNode = NewTextChild(ClsBagWeightNode, "item");
-            NewTextChild(itemNode, "first", i.first);
-            NewTextChild(itemNode, "second", i.second);
-        }
+    xmlNodePtr ClsBagWeightNode = NewTextChild(result, "ClsBagWeight");
+    for(const auto &i: *this) {
+        xmlNodePtr itemNode = NewTextChild(ClsBagWeightNode, "item");
+        NewTextChild(itemNode, "first", i.first);
+        NewTextChild(itemNode, "second", i.second);
     }
     return result;
 }
@@ -1407,6 +1434,8 @@ xmlNodePtr TGenderCount::fromXML(xmlNodePtr node)
 
 xmlNodePtr TGenderCount::toXML(xmlNodePtr node) const
 {
+    if(empty()) return NULL;
+
     xmlNodePtr result = TSubTypeHolder::toXML(node);
     xmlNodePtr genderCountNode = NewTextChild(result, "GenderCount");
     NewTextChild(genderCountNode, "m", m, NoExists);
@@ -1467,6 +1496,8 @@ xmlNodePtr TSimpleWeight::fromXML(xmlNodePtr node)
 
 xmlNodePtr TSimpleWeight::toXML(xmlNodePtr node) const
 {
+    if(empty()) return NULL;
+
     xmlNodePtr result = TSubTypeHolder::toXML(node);
     NewTextChild(result, "SimpleWeight", weight, NoExists);
     return result;
@@ -1695,9 +1726,23 @@ bool TPDItem::empty() const
     return actual.empty() and standard.empty();
 }
 
+void TPDItem::fromXML(xmlNodePtr node)
+{
+    clear();
+    xmlNodePtr curNode = node->children;
+    curNode = GetNodeFast("PDItem", curNode);
+    if(not curNode) return;
+    actual.fromXML(curNode, "actual");
+    standard.fromXML(curNode);
+
+}
+
 void TPDItem::toXML(xmlNodePtr node) const
 {
     if(empty()) return;
+    xmlNodePtr pdItemNode = NewTextChild(node, "PDItem");
+    actual.toXML(pdItemNode, "actual");
+    standard.toXML(pdItemNode);
 }
 
 void TPDItem::dump()
@@ -1724,6 +1769,12 @@ string TPDParser::getKey(const string &val, TPDType type)
     return result;
 }
 
+void TPDParser::clear()
+{
+    type = pdtUnknown;
+    std::map<std::string, TPDItem>::clear();
+}
+
 void TPDParser::dump()
 {
     ProgTrace(TRACE5, "---TPDParser::dump---");
@@ -1735,16 +1786,38 @@ void TPDParser::dump()
     ProgTrace(TRACE5, "---------------------");
 }
 
+void TPDParser::fromXML(xmlNodePtr node)
+{
+    clear();
+    xmlNodePtr curNode = node->children;
+    curNode = GetNodeFast("PDParser", curNode);
+    if(not curNode) return;
+    curNode = curNode->children;
+    type = DecodePDType(NodeAsStringFast("PDType", curNode));
+    xmlNodePtr PDParserMapNode = NodeAsNodeFast("PDParserMap", curNode);
+    if(PDParserMapNode) {
+        xmlNodePtr PDParserMapItemNode = PDParserMapNode->children;
+        for(; PDParserMapItemNode; PDParserMapItemNode = PDParserMapItemNode->next) {
+            xmlNodePtr PDParserMapItemDataNode = PDParserMapItemNode->children;
+            TPDItem PDItem;
+            PDItem.fromXML(PDParserMapItemNode);
+            insert(make_pair(
+                        NodeAsStringFast("first", PDParserMapItemDataNode),
+                        PDItem));
+        }
+    }
+}
+
 void TPDParser::toXML(xmlNodePtr node) const
 {
     if(empty()) return;
     xmlNodePtr pdParserNode = NewTextChild(node, "PDParser");
     NewTextChild(pdParserNode, "PDType", EncodePDType(type));
-    xmlNodePtr pdParserMapNode = NewTextChild(pdParserNode, "PDParerMap");
+    xmlNodePtr pdParserMapNode = NewTextChild(pdParserNode, "PDParserMap");
     for(const auto &i: *this) {
         xmlNodePtr itemNode = NewTextChild(pdParserMapNode, "item");
         NewTextChild(itemNode, "first", i.first);
-        // i.second.toXML(itemNode);
+        i.second.toXML(itemNode);
     }
 }
 
@@ -1791,6 +1864,24 @@ void TPD::dump()
     ProgTrace(TRACE5, "---------------");
 }
 
+void TPD::fromXML(xmlNodePtr node)
+{
+    clear();
+    xmlNodePtr curNode = node->children;
+    curNode = GetNodeFast("PD", curNode);
+    if(not curNode) return;
+    curNode = curNode->children;
+    for(; curNode; curNode = curNode->next) {
+        xmlNodePtr curNode2 = curNode->children;
+        TPDParser PDParser;
+        PDParser.fromXML(curNode);
+        insert(make_pair(
+                    DecodePDType(NodeAsStringFast("first", curNode2)),
+                    PDParser));
+
+    }
+}
+
 void TPD::toXML(xmlNodePtr node) const
 {
     if(empty()) return;
@@ -1798,7 +1889,7 @@ void TPD::toXML(xmlNodePtr node) const
     for(const auto &i: *this) {
         xmlNodePtr itemNode = NewTextChild(pdNode, "item");
         NewTextChild(itemNode, "first", EncodePDType(i.first));
-        // i.second.toXML(itemNode);
+        i.second.toXML(itemNode);
     }
 }
 
@@ -1813,17 +1904,101 @@ void TPD::parse(const char *val)
     (*this)[type].parse(type, items);
 }
 
+void TSPItem::toXML(xmlNodePtr node) const
+{
+    if(empty()) return;
+    xmlNodePtr spItemNode = NewTextChild(node, "SPItem");
+    NewTextChild(spItemNode, "actual", actual, NoExists);
+    NewTextChild(spItemNode, "gender", EncodeGender(gender), "");
+}
+
+bool TSPItem::empty() const
+{
+    return
+        actual == NoExists and
+        gender == gUnknown;
+}
+
+void TSPItem::clear()
+{
+    actual = NoExists;
+    gender = gUnknown;
+}
+
+void TSPVector::fromXML(xmlNodePtr node)
+{
+    clear();
+    xmlNodePtr curNode = node->children;
+    curNode = GetNodeFast("spVector", curNode);
+    if(not curNode) return;
+    curNode = curNode->children;
+    for(; curNode; curNode = curNode->next) {
+        xmlNodePtr curNode2 = curNode->children;
+        TSPItem item;
+        item.actual = NodeAsIntegerFast("actual", curNode2, NoExists);
+        item.gender = DecodeGender(NodeAsStringFast("gender", curNode2, ""));
+        push_back(item);
+    }
+}
+
+void TSPVector::toXML(xmlNodePtr node) const
+{
+    if(empty()) return;
+    xmlNodePtr spVectorNode = NewTextChild(node, "spVector");
+    for(const auto &i: *this) {
+        if(i.empty()) continue;
+        xmlNodePtr itemNode = NewTextChild(spVectorNode, "item");
+        NewTextChild(itemNode, "actual", i.actual, NoExists);
+        NewTextChild(itemNode, "gender", EncodeGender(i.gender), "");
+    }
+}
+
+void TSP::fromXML(xmlNodePtr node)
+{
+    clear();
+    xmlNodePtr curNode = node->children;
+    curNode = GetNodeFast("SP", curNode);
+    if(not curNode) return;
+    curNode = curNode->children;
+    pr_weight = NodeAsIntegerFast("pr_weight", curNode, NoExists);
+    xmlNodePtr spMapNode = NodeAsNodeFast("SPMap", curNode);
+    xmlNodePtr spMapItemNode = spMapNode->children;
+    for(; spMapItemNode; spMapItemNode = spMapItemNode->next) {
+        xmlNodePtr spMapItemDataNode = spMapItemNode->children;
+        TSPVector spVector;
+        spVector.fromXML(spMapItemNode);
+        insert(make_pair(
+                    NodeAsStringFast("first", spMapItemDataNode),
+                    spVector));
+    }
+}
+
+void TSP::toXML(xmlNodePtr node) const
+{
+    if(empty()) return;
+    xmlNodePtr spNode = NewTextChild(node, "SP");
+    NewTextChild(spNode, "pr_weight", pr_weight, NoExists);
+    xmlNodePtr spMapNode = NULL;
+    for(const auto &i: *this) {
+        if(not spMapNode)
+            spMapNode = NewTextChild(spNode, "SPMap");
+        xmlNodePtr itemNode = NewTextChild(spMapNode, "item");
+        NewTextChild(itemNode, "first", i.first);
+        i.second.toXML(itemNode);
+    }
+}
+
 void TSP::dump()
 {
     ProgTrace(TRACE5, "---TSP::dump---");
-    for(map<string, vector<TSPItem> >::iterator im = begin(); im != end(); im++) {
+    for(const auto &im: *this) {
         ostringstream buf;
-        buf << "SP[" << im->first << "] = ";
-        for(vector<TSPItem>::iterator iv = im->second.begin(); iv != im->second.end(); iv++) {
-            if(iv->actual != NoExists)
-                buf << iv->actual;
+        buf << "SP[" << im.first << "] = ";
+        for(const auto &iv: im.second) {
+            if(iv.actual != NoExists)
+                buf << iv.actual;
             else
-                buf << EncodeGender(iv->gender);
+                buf << EncodeGender(iv.gender);
             ProgTrace(TRACE5, "%s", buf.str().c_str());
         }
     }
@@ -1900,6 +2075,14 @@ bool TDest::find_item(const string &airp, TDestInfoKey key)
     return result;
 }
 
+bool TClsTotal::empty() const
+{
+    return
+        f == NoExists and
+        c == NoExists and
+        y == NoExists;
+}
+
 void TClsTotal::clear()
 {
     f = NoExists;
@@ -1914,13 +2097,14 @@ void TClsTotal::fromXML(xmlNodePtr node, const std::string &tag)
     curNode = GetNodeFast(tag.c_str(), curNode);
     if(not curNode) return;
     curNode = curNode->children;
-    f = NodeAsIntegerFast("f", curNode);
-    c = NodeAsIntegerFast("c", curNode);
-    y = NodeAsIntegerFast("y", curNode);
+    f = NodeAsIntegerFast("f", curNode, NoExists);
+    c = NodeAsIntegerFast("c", curNode, NoExists);
+    y = NodeAsIntegerFast("y", curNode, NoExists);
 }
 
 void TClsTotal::toXML(xmlNodePtr node, const std::string &tag) const
 {
+    if(empty()) return;
     xmlNodePtr tagNode = NewTextChild(node, tag.c_str());
     NewTextChild(tagNode, "f", f, NoExists);
     NewTextChild(tagNode, "c", c, NoExists);
@@ -1952,6 +2136,15 @@ void TClsTotal::parse(const string &val)
     }
 }
 
+bool TGenderTotal::empty() const
+{
+    return
+        m == NoExists and
+        f == NoExists and
+        c == NoExists and
+        i == NoExists;
+}
+
 void TGenderTotal::clear()
 {
     m = NoExists;
@@ -1967,14 +2160,15 @@ void TGenderTotal::fromXML(xmlNodePtr node)
     curNode = GetNodeFast("GenderTotal", curNode);
     if(not curNode) return;
     curNode = curNode->children;
-    m = NodeAsIntegerFast("m", curNode);
-    f = NodeAsIntegerFast("f", curNode);
-    c = NodeAsIntegerFast("c", curNode);
-    i = NodeAsIntegerFast("i", curNode);
+    m = NodeAsIntegerFast("m", curNode, NoExists);
+    f = NodeAsIntegerFast("f", curNode, NoExists);
+    c = NodeAsIntegerFast("c", curNode, NoExists);
+    i = NodeAsIntegerFast("i", curNode, NoExists);
 }
 
 void TGenderTotal::toXML(xmlNodePtr node) const
 {
+    if(empty()) return;
     xmlNodePtr GenderTotalNode = NewTextChild(node, "GenderTotal");
     NewTextChild(GenderTotalNode, "m", m, NoExists);
     NewTextChild(GenderTotalNode, "f", f, NoExists);
@@ -1999,6 +2193,18 @@ void TGenderTotal::parse(const string &val)
     f = ToInt(items[1]);
     c = ToInt(items[2]);
     i = ToInt(items[3]);
+}
+
+bool TDestInfo::empty() const
+{
+    return
+        total == NoExists and
+        weight == NoExists and
+        j == NoExists and
+        measur == mUnknown and
+        cls_total.empty() and
+        actual_total.empty() and
+        gender_total.empty();
 }
 
 void TDestInfo::clear()
@@ -2031,6 +2237,7 @@ void TDestInfo::fromXML(xmlNodePtr node)
 
 void TDestInfo::toXML(xmlNodePtr node) const
 {
+    if(empty()) return;
     xmlNodePtr destInfoNode = NewTextChild(node, "DestInfo");
     NewTextChild(destInfoNode, "total", total, NoExists);
     NewTextChild(destInfoNode, "weight", weight, NoExists);
@@ -2422,6 +2629,25 @@ void TRequest::dump()
     ProgTrace(TRACE5, "--------------------");
 }
 
+void TSI::fromXML(xmlNodePtr node)
+{
+    items.clear();
+    xmlNodePtr curNode = node->children;
+    curNode = GetNodeFast("SI", curNode);
+    if(not curNode) return;
+    curNode = curNode->children;
+    for(; curNode; curNode = curNode->next)
+        items.push_back(NodeAsString(curNode));
+}
+
+void TSI::toXML(xmlNodePtr node) const
+{
+    if(items.empty()) return;
+    xmlNodePtr siNode = NewTextChild(node, "SI");
+    for(const auto &i: items)
+        NewTextChild(siNode, "item", i);
+}
+
 void TSI::parse(TTlgPartInfo &body, TTlgParser &tlg, TLinePtr &line_p)
 {
     items.clear();
@@ -2692,6 +2918,7 @@ int lci(int argc, char **argv)
 
     std::ifstream ifs ("lci", std::ifstream::binary);
 
+    /*
     // get pointer to associated buffer object
     std::filebuf* pbuf = ifs.rdbuf();
 
@@ -2706,6 +2933,10 @@ int lci(int argc, char **argv)
     pbuf->sgetn (buffer,size);
 
     ifs.close();
+    */
+    string buffer = string( std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>() );
+
+    LogTrace(TRACE5) << "buffer: '" << buffer << "'";
 
     /*
        char c;
@@ -2757,7 +2988,7 @@ int lci(int argc, char **argv)
     TFlightsForBind bind_flts;
     TTlgPartsText parts;
     try {
-        GetParts(buffer,parts,HeadingInfo,bind_flts,mem);
+        GetParts(buffer.c_str(),parts,HeadingInfo,bind_flts,mem);
 
         TTlgPartInfo part;
         part.p=parts.heading.c_str();
@@ -2774,6 +3005,16 @@ int lci(int argc, char **argv)
         part.EOL_count+=CalcEOLCount(parts.heading.c_str());
         part.offset+=parts.heading.size();
         ParseLCIContent(part, info, con, mem);
+
+        string lci_data = con.toXML();
+
+        LogTrace(TRACE5) << "lci_data: " << lci_data;
+
+        TLCIContent parsed_lci;
+        parsed_lci.fromXML(lci_data);
+
+        LogTrace(TRACE5) << "parsed_lci: " << parsed_lci.toXML();
+
 //        con.dump();
 
         mem.destroy(HeadingInfo, STDLOG);
@@ -2786,7 +3027,7 @@ int lci(int argc, char **argv)
         throw;
     };
 
-    delete[] buffer;
+//    delete[] buffer;
 
     return 0;
 }
