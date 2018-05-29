@@ -1,7 +1,6 @@
 #ifndef EXTERNAL_SPP_SYNCH_H
 #define EXTERNAL_SPP_SYNCH_H
 
-#include <string>
 #include "date_time.h"
 #include "jxtlib/JxtInterface.h"
 #include "http_main.h"
@@ -112,10 +111,12 @@ struct TagsNotExists {
   }
 };
 
+using DestsTagsNoExists = std::map<std::string,TagsNotExists>;
+
 class TXMLFlightParser {
   public:
     std::string id;
-    void parse( xmlNodePtr reqNode, TagsNotExists &tags, const std::string &airp, TPointDests &dests, std::string &warning );
+    void parse( xmlNodePtr reqNode, DestsTagsNoExists &tags, const std::string &airp, TPointDests &dests, std::string &warning );
 };
 
 void saveFlights( std::map<std::string,std::map<bool, TParseFlight> > &flights );
