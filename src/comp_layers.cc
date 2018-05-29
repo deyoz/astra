@@ -859,7 +859,8 @@ void check_layer_change(const TPointIdsForCheck &point_ids_spp,
   //убираем повторения
   for(TPointIdsForCheck::const_iterator i=point_ids_spp.begin();i!=point_ids_spp.end();i++)
   {
-    if ( SALONS2::isBaseLayer( i->second, false ) ) {
+    if ( SALONS2::isBaseLayer( i->second, false ) ||
+         SALONS2::isUserProtectLayer( i->second ) ) {
       continue;
     }
     if ( find( points_tranzit_check_wait_alarm.begin(),
