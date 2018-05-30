@@ -196,6 +196,7 @@ astra_SOURCES = \
   db_pkg.cc \
   cr_lf.cc \
   stat_fv.cc \
+  franchise.cc \
   astra_ssim.cc \
   bagmessage_daemon.cc
 
@@ -388,6 +389,7 @@ noinst_HEADERS = \
   db_pkg.h \
   cr_lf.h \
   stat_fv.h \
+  franchise.h \
   report_common.h \
   kiosk_alias.h \
   astra_ssim.h
