@@ -1,9 +1,6 @@
 #ifndef _POINTS_H_
 #define _POINTS_H_
 
-#include <string>
-#include <vector>
-#include <map>
 #include "date_time.h"
 #include "astra_consts.h"
 #include "astra_elems.h"
@@ -14,6 +11,9 @@
 #include "stages.h"
 
 using BASIC::date_time::TDateTime;
+
+const std::string DATETIMEFORMAT = "dd.mm.yyyy hh:nn";
+#define STRING_TAG_NOEXISTS "___________________"
 
 enum TStatus { tdUpdate, tdInsert, tdDelete };
 

@@ -1,4 +1,3 @@
-#include <stdlib.h>
 #include "points.h"
 #include "pers_weights.h"
 #include "stages.h"
@@ -8,17 +7,9 @@
 #include "oralib.h"
 #include "xml_unit.h"
 #include "exceptions.h"
-#include "sys/times.h"
-#include <map>
-#include <vector>
-#include <string>
 #include "tripinfo.h"
 #include "season.h" //???
 #include "telegram.h"
-#include "boost/date_time/local_time/local_time.hpp"
-#include <boost/thread/thread.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/enable_shared_from_this.hpp>
 #include "base_tables.h"
 #include "docs.h"
 #include "stat.h"
@@ -185,6 +176,10 @@ int TCheckerFlt::checkPointNum( const std::string &value )
 TElemStruct TCheckerFlt::checkCraft( const std::string &value, CheckMode mode, bool with_exception )
 {
   TElemStruct craft;
+  if ( value == STRING_TAG_NOEXISTS ) {
+    craft.code = STRING_TAG_NOEXISTS;
+    return craft;
+  }
   std::string tmp = value;
   tmp =  TrimString( tmp );
   craft.code = tmp;
@@ -272,7 +267,7 @@ BASIC::date_time::TDateTime TCheckerFlt::checkLocalTime( const std::string &valu
                                                          const std::string &region, const std::string stage,
                                                          bool empty_value_exception )
 {
-  return checkLocalTime( value, "dd.mm.yyyy hh:nn", region, stage, empty_value_exception );
+  return checkLocalTime( value, DATETIMEFORMAT, region, stage, empty_value_exception );
 }
 
 BASIC::date_time::TDateTime TCheckerFlt::checkLocalTime( const std::string &value, const std::string format,
