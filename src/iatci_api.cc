@@ -36,9 +36,76 @@ static void ETRollbackStatus_local(xmlDocPtr ediResDocPtr)
     }
 }
 
+static UpdateBaggageDetails makeFakeUpdBaggage(const BaggageDetails& baggage)
+{
+    return UpdateBaggageDetails(UpdateDetails::Add,
+                                baggage.bag(),
+                                baggage.handBag(),
+                                baggage.bagTags());
+}
+
+static bool haveBaggage(const dcqcki::PaxGroup& ckiPaxGrp)
+{
+    if(ckiPaxGrp.baggage()) 
+    {
+        auto baggage = ckiPaxGrp.baggage();
+        if(baggage->bag() && baggage->bag()->numOfPieces()) {
+            return true;
+        }
+        if(baggage->handBag() && baggage->handBag()->numOfPieces()) {
+            return true;
+        }
+    }
+    
+    return false;         
+}
+                                   
+static boost::optional<CkuParams> makeFakeCkuParamsWithBaggage(const CkiParams& ckiParams)
+{
+    std::list<dcqcku::PaxGroup> ckuPaxGroups;   
+    for(const auto& ckiPaxGrp: ckiParams.fltGroup().paxGroups()) {
+        if(haveBaggage(ckiPaxGrp)) {
+            ckuPaxGroups.push_back(dcqcku::PaxGroup(ckiPaxGrp.pax(),
+                                                    boost::none,/*reserv*/
+                                                    boost::none,/*baggage*/
+                                                    boost::none,/*service*/
+                                                    ckiPaxGrp.infant(),
+                                                    boost::none,/*upd personal*/
+                                                    boost::none,/*upd seat*/
+                                                    makeFakeUpdBaggage(ckiPaxGrp.baggage().get()),
+                                                    boost::none,/*upd service*/
+                                                    boost::none,/*upd doc*/
+                                                    boost::none,/*upd address*/
+                                                    boost::none /*upd visa*/
+                                                    ));
+        }                 
+    }
+    
+    if(!ckuPaxGroups.empty()) {
+        return CkuParams(ckiParams.org(),
+                         ckiParams.cascade(),
+                         dcqcku::FlightGroup(ckiParams.fltGroup().outboundFlight(),
+                                             ckiParams.fltGroup().inboundFlight(),
+                                             ckuPaxGroups));
+    }
+    
+    return boost::none;    
+}
+
 dcrcka::Result checkinPaxes(const CkiParams& ckiParams)
 {
-    return astra_api::checkinIatciPaxes(ckiParams);
+    auto fakeCkuParams = makeFakeCkuParamsWithBaggage(ckiParams);
+    if(fakeCkuParams) {
+        LogTrace(TRACE1) << "CkiParams with baggage";
+        auto checkinRes = astra_api::checkinIatciPaxes(ckiParams);
+        if(checkinRes.status() == dcrcka::Result::Ok) {
+            LogTrace(TRACE1) << "Apply baggage from CkiParams";
+            return updateCheckin(fakeCkuParams.get());
+        }
+        return checkinRes;
+    } else {
+        return astra_api::checkinIatciPaxes(ckiParams);
+    }
 }
 
 dcrcka::Result cancelCheckin(const CkxParams& ckxParams)

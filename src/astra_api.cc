@@ -1259,9 +1259,11 @@ static void handleIatciCkiPax(int pointDep,
         throw tick_soft_except(STDLOG, AstraErr::PAX_ALREADY_CHECKED_IN);
     }
 
+    /*
     if(baggage && baggage->bag() && baggage->bag()->numOfPieces()) {
         throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_BAGS);
     }
+    */
 
     SearchPaxXmlResult searchPaxXmlRes =
                 AstraEngine::singletone().SearchCheckInPax(pointDep,
