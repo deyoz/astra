@@ -3,7 +3,7 @@
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "DEN"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 #include "serverlib/posthooks.h"
 #include "tlg.h"
 
@@ -787,7 +787,7 @@ int ssm(int argc,char **argv)
             part.p=parts.body.c_str();
             part.EOL_count+=CalcEOLCount(parts.heading.c_str());
             part.offset+=parts.heading.size();
-            ParseSSMContent(part, info, con, mem);
+            ParseSSMContent(parts.heading, part, info, con, mem);
             con.dump();
             /*
             // Несколько периодов
@@ -922,8 +922,9 @@ void TRouting::parse(TTlgElement e, TActionIdentifier aid, const char *val)
     }
 }
 
-void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con, TMemoryManager &mem)
+void ParseSSMContent(const string &heading, TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con, TMemoryManager &mem)
 {
+    LogTrace(TRACE5) << "SSM full tlg: " << heading;
     con.Clear();
     TTlgParser tlg;
     const char *line_p=body.p, *ph;
@@ -1185,6 +1186,7 @@ void SaveNEW(TSSMHeadingInfo &info, TSSMContent &con, TSSMSubMessage &msg)
 
 void SaveSSMContent(int tlg_id, TSSMHeadingInfo& info, TSSMContent& con)
 {
+    LogTrace(TRACE5) << "within SaveSSMContent";
     for(vector<TSSMSubMessage>::iterator iv = con.msgs.begin(); iv != con.msgs.end(); iv++) {
         switch(iv->ainfo.id) {
             case aiNEW:

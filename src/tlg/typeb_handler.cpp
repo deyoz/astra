@@ -9,6 +9,7 @@
 #include "tlg_parser.h"
 #include "lci_parser.h"
 #include "ucm_parser.h"
+#include "ssm_parser.h"
 #include "mvt_parser.h"
 #include "ifm_parser.h"
 #include "typeb_utils.h"
@@ -23,6 +24,7 @@
 #include "postpone_edifact.h"
 #include "remote_system_context.h"
 #include "astra_context.h"
+#include "astra_ssim.h"
 
 #include <serverlib/posthooks.h>
 #include <serverlib/ourtime.h>
@@ -1067,18 +1069,22 @@ bool parse_tlg(void)
             emptyHookTables();
             break;
           }
-          /*
           case tcSSM:
           {
+            /*
             TSSMHeadingInfo &info = *(dynamic_cast<TSSMHeadingInfo*>(HeadingInfo));
             TSSMContent con;
-            ParseSSMContent(part,info,con,mem);
+            ParseSSMContent(parts.addr + parts.heading + parts.body, part,info,con,mem);
             SaveSSMContent(tlg_id,info,con);
+            */
+            std::string tlgBody = parts.addr + parts.heading + parts.body;
+            HandleSSMTlg(tlgBody);
             parseTypeB(tlg_id);
             OraSession.Commit();
             count++;
             break;
           }
+          /*
           case tcASM:
           {
             TSSMHeadingInfo &info = *(dynamic_cast<TSSMHeadingInfo*>(HeadingInfo));

@@ -28,9 +28,6 @@ using namespace nsi;
 #include <season.h>
 using namespace SEASON;
 
-SSIMScdPeriod MakeSSIMScdPeriod( const ssim::ScdPeriod& scd);
-ssim::ScdPeriod MakeScdPeriod( const SSIMScdPeriod& scd);
-
 //------------------------------------------------------------------------------------------
 
 class AstraSsimCallbacks : public ssim::SsimTlgCallbacks
@@ -107,6 +104,7 @@ public:
 };
 //------------------------------------------------------------------------------------------
 
+int HandleSSMTlg(string body);
 int ssim_test(int argc, char **argv);
 
 #endif

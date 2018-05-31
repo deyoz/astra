@@ -1370,11 +1370,6 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading,
               mem.create(info, STDLOG);
               next=ParseAHMHeading(heading,*(TAHMHeadingInfo*)info);
               break;
-            case tcSSM:
-              info = new TSSMHeadingInfo(infoh);
-              mem.create(info, STDLOG);
-              next=ParseSSMHeading(heading,*(TSSMHeadingInfo*)info);
-              break;
             case tcASM:
               info = new TSSMHeadingInfo(infoh);
               mem.create(info, STDLOG);

@@ -382,7 +382,7 @@ class TSSMContent
         void dump();
 };
 
-void ParseSSMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con, TMemoryManager &mem);
+void ParseSSMContent(const std::string &heading, TTlgPartInfo body, TSSMHeadingInfo& info, TSSMContent& con, TMemoryManager &mem);
 void SaveSSMContent(int tlg_id, TSSMHeadingInfo& info, TSSMContent& con);
 
 void ParseASMContent(TTlgPartInfo body, TSSMHeadingInfo& info, TASMContent& con, TMemoryManager &mem);

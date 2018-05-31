@@ -19,6 +19,8 @@ using namespace typeb_parser;
 #include "date_time.h"
 using namespace BASIC::date_time;
 using namespace std;
+using namespace boost::local_time;
+using namespace boost::posix_time;
 
 int CodeToId(const std::string code);
 std::string IdToCode(const int id);
@@ -29,58 +31,6 @@ ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& prd );
 
 // 1. Реализовать конвертацию системо-специфичного представления расписания
 // в/из ssim::ScdPeriod (см. convertToSsim/makeScdPeriod)
-
-SSIMScdPeriod MakeSSIMScdPeriod( const ssim::ScdPeriod& scd)
-{
-  SSIMFlight flight;
-  flight.airline = IdToCode(scd.flight.airline.get());
-  flight.flt_no = scd.flight.number.get();
-  flight.suffix = IntToString(static_cast<int>(scd.flight.suffix.get()));
-  SSIMScdPeriod result(flight);
-  result.period.first = BoostToDateTime(scd.period.start);
-  result.period.last = BoostToDateTime(scd.period.end);
-  result.period.days = scd.period.freq.str();
-  for (const ssim::Leg& leg : scd.route.legs)
-  {
-    SSIMSection section;
-    section.from = IdToCode(leg.s.from.get());
-    section.to = IdToCode(leg.s.to.get());
-    section.dep = leg.s.dep;
-    section.arr = leg.s.arr;
-    std::string craft = IdToCode(leg.aircraftType.get());
-    result.route.legs.push_back(SSIMLeg(section, craft));
-  }
-  return result;
-}
-
-ssim::ScdPeriod MakeScdPeriod( const SSIMScdPeriod& scd)
-{
-  int suffix;
-  StrToInt(scd.flight.suffix.c_str(), suffix);
-  ct::Flight flight(nsi::CompanyId(CodeToId(scd.flight.airline)),
-                    ct::FlightNum(scd.flight.flt_no),
-                    ct::Suffix(suffix));
-  Period period(DateTimeToBoost(scd.period.first).date(),
-                DateTimeToBoost(scd.period.last).date(),
-                scd.period.days);
-  ssim::ScdPeriod result(flight);
-  result.period = period;
-  for (const SSIMLeg& leg : scd.route.legs)
-  {
-    ssim::Section section(nsi::PointId(CodeToId(leg.section.from)),
-                          nsi::PointId(CodeToId(leg.section.to)),
-                          leg.section.dep,
-                          leg.section.arr);
-    boost::optional<ct::RbdLayout> rbd = ct::RbdLayout::fromString("CJZIDAYRSTEQGNBXWUOVHLK.C10Y100"); // HACK FIXME
-    if (not rbd) throw EXCEPTIONS::Exception("NO RBD");
-    ssim::Leg leg_r(section,
-                    nsi::ServiceTypeId(0), // HACK FIXME
-                    nsi::AircraftTypeId(CodeToId(leg.craft)),
-                    rbd.get());
-    result.route.legs.push_back(leg_r);
-  }
-  return result;
-}
 
 //------------------------------------------------------------------------------------------
 
@@ -93,7 +43,6 @@ ssim::ScdPeriod MakeScdPeriod( const SSIMScdPeriod& scd)
 ssim::ScdPeriods AstraSsimCallbacks::getSchedules(const ct::Flight& flight, const Period& period) const
 {
   LogTrace(TRACE5) << __func__ << " flight=" << flight << " period=" << period;
-//  return ssim::ScdPeriods();
   return ScdPeriodsFromDb( flight, period );
 }
 
@@ -465,183 +414,241 @@ boost::optional<OrganizationData> AstraCallbacks::findOrganizationData(const Org
 
 //------------------------------------------------------------------------------------------
 
-ssim::ScdPeriods SplitScdPeriodByDays( const ssim::ScdPeriod &src )
+string SchedDaysFlight(ct::Flight flight)
 {
-  ssim::ScdPeriods res;
-  for (boost::gregorian::date date = src.period.start; date <= src.period.end; date += boost::gregorian::days(1))
-  {
-    ssim::ScdPeriod scd(src);
-    scd.period.start = date;
-    scd.period.end = date;
-    short wday = date.day_of_week();
-    if ( wday == 0 )
-      wday = 7;
-    if (scd.period.freq.hasDayOfWeek(wday))
-      res.push_back(scd);
-  }
-  return res;
+  string line = IdToCode(flight.airline.get());
+  string num = IntToString(flight.number.get());
+  string suffix = IntToString(flight.suffix.get());
+  return line + num + suffix;
 }
 
-//------------------------------------------------------------------------------------------
+// УДАЛИТЬ ИЗ БД РАСПИСАНИЕ
 
-// удалить из БД расписания, содержащиеся внутри периода
-// TODO уточнить правила пересечения!!!
-// TODO уточнить насчёт freq
-void DeleteSchedulesFromDb( const ssim::ScdPeriod &scd )
+void DeleteScdPeriodsFromDb( const std::set<ssim::ScdPeriod> &scds )
 {
-  LogTrace(TRACE5) << __func__ << " beg=" << scd.period.start << " end=" << scd.period.end;
-  TQuery Qry( &OraSession );
-  Qry.Clear();
-  Qry.SQLText =
-      "DELETE FROM SCHEDULE_TEST "
-      " WHERE F_LINE = :line AND F_NUMBER = :num AND F_SUFFIX = :suffix "
-      " AND :begDt <= P_DATE1 AND P_DATE2 <= :endDt ";
-
-  Qry.CreateVariable("line", otString, IdToCode(scd.flight.airline.get()));
-  Qry.CreateVariable("num", otInteger, scd.flight.number.get());
-  Qry.CreateVariable("suffix", otInteger, static_cast<int>(scd.flight.suffix.get()));
-  Qry.CreateVariable("begDt", otDate, BoostToDateTime(scd.period.start));
-  Qry.CreateVariable("endDt", otDate, BoostToDateTime(scd.period.end));
-  Qry.Execute();
-}
-
-// положить в БД расписание на основе периода
-// TODO уточнить насчёт суффикса
-void ScdPeriodToDb( const ssim::ScdPeriod &scd )
-{
-  LogTrace(TRACE5) << __func__ << " beg=" << scd.period.start << " end=" << scd.period.end;
-  TQuery Qry(&OraSession);
-  for (const ssim::Leg& leg : scd.route.legs)
+  for (auto &scd : scds)
   {
-    Qry.Clear();
+    LogTrace(TRACE5) << __func__ << " beg=" << scd.period.start << " end=" << scd.period.end;
+    TQuery Qry( &OraSession );
     Qry.SQLText =
-        "INSERT INTO SCHEDULE_TEST "
-        " (F_LINE, F_NUMBER, F_SUFFIX, "
-        " P_DATE1, P_DATE2, P_FREQ, "
-        " AIRP_OUT, SCD_OUT, AIRP_IN, SCD_IN, "
-        " SERV_TYPE, CRAFT_TYPE, RBD_LAYOUT) "
-        " VALUES (:line, :num, :suffix, :begDt, :endDt, :freq, :a_out, :s_out, :a_in, :s_in, :serv, :craft, :rbd) ";
-
-    Qry.CreateVariable("line", otString, IdToCode(scd.flight.airline.get()));
-    Qry.CreateVariable("num", otInteger, scd.flight.number.get());
-    Qry.CreateVariable("suffix", otInteger, static_cast<int>(scd.flight.suffix.get()));
-    Qry.CreateVariable("begDt", otDate, BoostToDateTime(scd.period.start));
-    Qry.CreateVariable("endDt", otDate, BoostToDateTime(scd.period.end));
-    Qry.CreateVariable("freq", otString, scd.period.freq.str());
-
-    Qry.CreateVariable("a_out", otString, IdToCode(leg.s.from.get()));
-    Qry.CreateVariable("a_in", otString, IdToCode(leg.s.to.get()));
-
-    Qry.CreateVariable("s_out", otDate, BoostToDateTime(boost::posix_time::ptime(scd.period.start, leg.s.dep)));
-    Qry.CreateVariable("s_in", otDate, BoostToDateTime(boost::posix_time::ptime(scd.period.start, leg.s.arr)));
-
-    Qry.CreateVariable("serv", otInteger, leg.serviceType.get());
-    Qry.CreateVariable("craft", otString, IdToCode(leg.aircraftType.get()));
-    Qry.CreateVariable("rbd", otString, leg.subclOrder.toString());
-
+        "BEGIN "
+        "DELETE FROM routes WHERE move_id IN ( "
+        " SELECT move_id FROM shed_days "
+        "WHERE flight=:flight AND first_day=:first AND last_day=:last ); "
+        "DELETE FROM sched_days "
+        "WHERE flight=:flight AND first_day=:first AND last_day=:last ; "
+        "END;";
+    Qry.CreateVariable("flight", otString, SchedDaysFlight(scd.flight));
+    Qry.CreateVariable("first", otDate, BoostToDateTime(scd.period.start));
+    Qry.CreateVariable("last", otDate, BoostToDateTime(scd.period.end));
     Qry.Execute();
   }
 }
 
-// получить из БД расписания, пересекающиеся с периодом
-// TODO уточнить насчёт суффикса!!!
-// TODO уточнить насчёт freq
-// TODO и насчёт пересечения тоже уточнить
-// /home/user/leonardo/src/res/scd_locate.cc:226
-ssim::ScdPeriods ScdPeriodsFromDbTest( const ct::Flight& flt, const Period& prd )
+// ПОЛОЖИТЬ В БД РАСПИСАНИЯ
+
+void ScdPeriodsToDb( const ssim::ScdPeriods &scds )
 {
-  LogTrace(TRACE5) << __func__ << " flt=" << flt << " prd=" << prd;
-  TQuery Qry( &OraSession );
-  Qry.Clear();
-  Qry.SQLText =
-      "SELECT F_LINE, F_NUMBER, F_SUFFIX, "
-      " P_DATE1, P_DATE2, P_FREQ, "
-      " AIRP_OUT, AIRP_IN, SCD_OUT, SCD_IN, "
-      " SERV_TYPE, CRAFT_TYPE, RBD_LAYOUT "
-      " FROM SCHEDULE_TEST "
-      " WHERE F_LINE = :line AND F_NUMBER = :num AND F_SUFFIX = :suffix "
-      " AND P_DATE1 <= :endDt AND P_DATE2 >= :begDt ";
-
-  Qry.CreateVariable("line", otString, IdToCode(flt.airline.get()));
-  Qry.CreateVariable("num", otInteger, flt.number.get());
-  Qry.CreateVariable("suffix", otInteger, static_cast<int>(flt.suffix.get()));
-  Qry.CreateVariable("begDt", otDate, BoostToDateTime(prd.start));
-  Qry.CreateVariable("endDt", otDate, BoostToDateTime(prd.end));
-  Qry.Execute();
-
-  ssim::ScdPeriods scds;
-  while (!Qry.Eof)
-  {
-    ct::Flight flight(nsi::CompanyId(CodeToId(Qry.FieldAsString("F_LINE"))),
-                      ct::FlightNum(Qry.FieldAsInteger("F_NUMBER")),
-                      ct::Suffix(Qry.FieldAsInteger("F_SUFFIX")));
-    Period period(DateTimeToBoost(Qry.FieldAsDateTime("P_DATE1")).date(),
-                  DateTimeToBoost(Qry.FieldAsDateTime("P_DATE2")).date(),
-                  Qry.FieldAsString("P_FREQ"));
-    ssim::ScdPeriod scd(flight);
-    scd.period = period;
-    // сформировать Leg
-    ssim::Section section(nsi::PointId(CodeToId(Qry.FieldAsString("AIRP_OUT"))),
-                          nsi::PointId(CodeToId(Qry.FieldAsString("AIRP_IN"))),
-                          DateTimeToBoost(Qry.FieldAsDateTime("SCD_OUT")).time_of_day(),
-                          DateTimeToBoost(Qry.FieldAsDateTime("SCD_IN")).time_of_day());
-    boost::optional<ct::RbdLayout> rbd = ct::RbdLayout::fromString(Qry.FieldAsString("RBD_LAYOUT"));
-    if (not rbd) throw EXCEPTIONS::Exception("NO RBD");
-    ssim::Leg leg(section,
-                  nsi::ServiceTypeId(Qry.FieldAsInteger("SERV_TYPE")),
-                  nsi::AircraftTypeId(CodeToId(Qry.FieldAsString("CRAFT_TYPE"))),
-                  rbd.get());
-    // новый период или добавить к существующему
-    auto iter = find_if(scds.begin(), scds.end(), [&scd] (const ssim::ScdPeriod& x) {return x.flight == scd.flight && x.period == scd.period;});
-    if (iter == scds.end())
-    {
-      scd.route.legs.push_back(leg);
-      scds.push_back(scd);
-    }
-    else
-    {
-      iter->route.legs.push_back(leg);
-    }
-    Qry.Next();
+  if (scds.empty()) return;
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  /*???if ( utc ) {
+    reqInfo->user.sets.time = ustTimeUTC;
   }
-  return scds;
+  else {*/
+    reqInfo->user.sets.time = ustTimeLocalAirp;
+  /*}*/
+  reqInfo->desk.code = "MOVGRG";
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText = "SELECT trip_id FROM sched_days WHERE flight=:flight ";
+  // обоснованно предполагаем, что у всех элементов scds одинаковый flight
+  Qry.CreateVariable("flight", otString, SchedDaysFlight(scds.front().flight));
+  Qry.Execute();
+  int trip_id;
+  if (!Qry.Eof)
+    trip_id = Qry.FieldAsInteger("trip_id");
+  else
+    trip_id = ASTRA::NoExists;
+
+  vector<TPeriod> speriods; //- периоды выполнения
+  map<int,TDestList> mapds; //move_id,маршрут
+  TFilter filter;
+  bool first_airp = true;
+  for ( auto &scd : scds )
+  {
+    LogTrace(TRACE5) << __func__ << " scd=" << scd;
+    TPeriod p;
+    p.move_id = ASTRA::NoExists;
+    p.first = BoostToDateTime(scd.period.start);
+    p.last = BoostToDateTime(scd.period.end);
+    p.days = scd.period.freq.str();
+    p.modify = ASTRA::finsert;
+    speriods.push_back( p );
+    TDestList dests;
+    TDest curr, next;
+    for (auto &leg : scd.route.legs)
+    {
+      curr = next;
+      curr.airline = ElemToElemId( etAirline, IdToCode(scd.flight.airline.get()), curr.airline_fmt );
+      curr.trip = scd.flight.number.get();
+      curr.suffix = ElemToElemId( etSuffix, IntToString(scd.flight.suffix.get()), curr.suffix_fmt );
+      curr.airp = ElemToElemId( etAirp, IdToCode(leg.s.from.get()), curr.airp_fmt );
+      if (first_airp)
+      {
+        filter.filter_tz_region = AirpTZRegion(curr.airp);
+        first_airp = false;
+      }
+      EncodeTime( leg.s.dep.hours(), leg.s.dep.minutes(), 0, curr.scd_out );
+      curr.scd_out = getFlightDateToUTC( curr.scd_out, p.first, curr.airp, false );
+      curr.craft = ElemToElemId( etCraft, IdToCode(leg.aircraftType.get()), curr.craft_fmt );
+
+      next.craft = ElemToElemId( etCraft, IdToCode(leg.aircraftType.get()), next.craft_fmt );
+      next.airp = ElemToElemId( etAirp, IdToCode(leg.s.to.get()), next.airp_fmt );
+      EncodeTime( leg.s.arr.hours(), leg.s.arr.minutes(), 0, next.scd_in );
+      next.scd_in = getFlightDateToUTC( next.scd_in, p.first, next.airp, true );
+      dests.dests.push_back( curr );
+    }
+    next.airline.clear();
+    next.trip = ASTRA::NoExists;
+    next.suffix.clear();
+    dests.dests.push_back( next );
+    mapds.insert( make_pair(ASTRA::NoExists, dests) );
+  }
+  //!!!UTC
+  int_write( filter, SchedDaysFlight(scds.front().flight), speriods, trip_id, mapds );
 }
 
+// ПОЛУЧИТЬ ИЗ БД РАСПИСАНИЯ, ПЕРЕСЕКАЮЩИЕСЯ С ПЕРИОДОМ
+
+//
 ssim::Route RouteFromDb(int move_id)
 {
+  LogTrace(TRACE5) << __func__ << " move_id=" << move_id;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT num,airp,airp_fmt,scd_in,craft,craft_fmt,scd_out,delta_in,delta_out "
+    " FROM routes WHERE move_id=:move_id "
+    " ORDER BY num";
+  Qry.CreateVariable( "move_id", otInteger, move_id );
+  Qry.Execute();
   ssim::Route route;
+  TDest dest1, dest2;
+  for (; !Qry.Eof; Qry.Next())
+  {
+    dest1 = dest2;
+    dest2.num = Qry.FieldAsInteger( "num" );
+    dest2.airp = Qry.FieldAsString( "airp" );
+    dest2.airp_fmt = (TElemFmt)Qry.FieldAsInteger( "airp_fmt" );
+    if ( Qry.FieldIsNULL( "scd_in" ) )
+      dest2.scd_in = ASTRA::NoExists;
+    else
+      dest2.scd_in = UTCToLocal( Qry.FieldAsDateTime( "scd_in" ), AirpTZRegion( dest2.airp ) );
+    dest2.craft = Qry.FieldAsString( "craft" );
+    dest2.craft_fmt = (TElemFmt)Qry.FieldAsInteger( "craft_fmt" );
+    if ( Qry.FieldIsNULL( "scd_out" ) )
+      dest2.scd_out = ASTRA::NoExists;
+    else
+      dest2.scd_out = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), AirpTZRegion( dest2.airp ) );
+    if ( dest1.num == ASTRA::NoExists )
+      continue;
+    //leg
+    int hours_o, mins_o, secs_o;
+    int hours_i, mins_i, secs_i;
+    DecodeTime( dest1.scd_out, hours_o, mins_o, secs_o );
+    DecodeTime( dest2.scd_in, hours_i, mins_i, secs_i );
+    ssim::Section section(nsi::PointId(CodeToId(ElemIdToClientElem( etAirp, dest1.airp, dest1.airp_fmt ))), //out
+                          nsi::PointId(CodeToId(ElemIdToClientElem( etAirp, dest2.airp, dest2.airp_fmt ))), //in
+                          time_duration( hours_o + Qry.FieldAsInteger( "delta_out" ), mins_o, secs_o ), //out
+                          time_duration( hours_i + Qry.FieldAsInteger( "delta_in" ), mins_i, secs_i )); //in
+    boost::optional<ct::RbdLayout> rbd = ct::RbdLayout::fromString("CJZIDAYRSTEQGNBXWUOVHLK.C10Y100"); // HACK
+    if (not rbd) throw EXCEPTIONS::Exception("NO RBD");
+    ssim::Leg leg(section,
+                  nsi::ServiceTypeId(0), // HACK
+                  nsi::AircraftTypeId(CodeToId(ElemIdToClientElem( etCraft, dest1.craft, dest1.craft_fmt ))),
+                  rbd.get());
+    route.legs.push_back(leg);
+  }
   return route;
 }
 
+//
 ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& prd )
 {
   LogTrace(TRACE5) << __func__ << " flt=" << flt << " prd=" << prd;
-  TQuery Qry( &OraSession );
+  TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
-    "SELECT trip_id,move_id,first_day,last_day,days,pr_del,tlg.reference,region"
+    "SELECT move_id, first_day, last_day, days"
     " FROM sched_days "
     "WHERE flight=:flight AND first_day<=:last AND last_day>=:first "
     " ORDER BY num ";
-  string line = IdToCode(flt.airline.get());
-  string num = IntToString(flt.number.get());
-  string suffix = IntToString(static_cast<int>(flt.suffix.get()));
-  Qry.CreateVariable( "flight", otString, line + num + suffix );
-  Qry.CreateVariable( "first", otDate, BoostToDateTime(prd.start) );
-  Qry.CreateVariable( "last", otDate, BoostToDateTime(prd.end) );
+  Qry.CreateVariable("flight", otString, SchedDaysFlight(flt));
+  Qry.CreateVariable("first", otDate, BoostToDateTime(prd.start));
+  Qry.CreateVariable("last", otDate, BoostToDateTime(prd.end));
   Qry.Execute();
   ssim::ScdPeriods scds;
-  while (!Qry.Eof)
+  for (; !Qry.Eof; Qry.Next())
   {
     ssim::ScdPeriod scd(flt);
     scd.period = Period(DateTimeToBoost(Qry.FieldAsDateTime("first_day")).date(),
                         DateTimeToBoost(Qry.FieldAsDateTime("last_day")).date(),
                         Qry.FieldAsString("days"));
+    scd.route = RouteFromDb(Qry.FieldAsInteger("move_id"));
+    scds.push_back(scd);
   }
   return scds;
 }
 
 //------------------------------------------------------------------------------------------
+
+void InitSSIM()
+{
+  static bool init = false;
+  if (!init)
+  {
+    typeb_template::addTemplate(new SsmTemplate());
+    typeb_template::addTemplate(new AsmTemplate());
+    setCallbacks(new AstraCallbacks);
+    init = true;
+  }
+}
+
+int HandleSSMTlg(string body)
+{
+  LogTrace(TRACE5) << __func__ << endl << body;
+  InitSSIM();
+  const auto ssm = ssim::parseSsm(body, nullptr);
+  if (!ssm)
+  {
+    LogTrace(TRACE5) << "SSM NOT PARSED!";
+    return -1;
+  }
+  const ssim::SsmStruct& ssmStr = *ssm;
+  const ssim::ProcContext attr
+  {
+    nsi::CompanyId(0),
+    false,
+    ssmStr.head.timeIsLocal,
+    false,
+    std::make_unique<AstraSsimCallbacks>()
+  };
+  const std::vector<ssim::SsmSubmsgPtr>& submsgs = ssmStr.submsgs.begin()->second;
+  ssim::CachedScdPeriods cache;
+  for (const ssim::SsmSubmsgPtr& subMsg : submsgs)
+  {
+    if(const Message msg = subMsg->modify(cache, attr))
+    {
+      LogTrace(TRACE5) << msg;
+      return -1;
+    }
+  }
+  for (auto &rm : cache.forDeletion)
+    DeleteScdPeriodsFromDb(rm.second);
+  for (auto &sv : cache.forSaving())
+    ScdPeriodsToDb(sv.second);
+  return 0;
+}
 
 int ssim_test(int argc, char **argv)
 {
@@ -649,12 +656,9 @@ int ssim_test(int argc, char **argv)
 //  typeb_template::addTemplate(new SsmTemplate());
 //  typeb_template::addTemplate(new AsmTemplate());
 //  см. sirena/src/airimp/typeb_init.cc (использование в sirena/src/obrzap.cc)
-  typeb_template::addTemplate(new SsmTemplate());
-  typeb_template::addTemplate(new AsmTemplate());
-
 //  nsi::setupTestNsi();
 
-  setCallbacks(new AstraCallbacks);
+  InitSSIM();
 
   std::ifstream t("file.txt");
   std::string str((std::istreambuf_iterator<char>(t)),
@@ -667,7 +671,7 @@ int ssim_test(int argc, char **argv)
 
   if (!ssm)
   {
-    cout << "NO SSM" << endl;
+    cout << "SSM NOT PARSED!" << endl;
     return -1;
   }
 
@@ -675,6 +679,7 @@ int ssim_test(int argc, char **argv)
   cout << "---------------------------------------" << endl;
 
   const ssim::SsmStruct& ssmStr = *ssm;
+  // /home/user/sirena/src/ssim/proc_ssm.cc:438
   const std::vector<ssim::SsmSubmsgPtr>& submsgs = ssmStr.submsgs.begin()->second;
 
 //  struct ProcContext
@@ -711,35 +716,11 @@ int ssim_test(int argc, char **argv)
   cout << cache << endl;
   cout << "---------------------------------------" << endl;
 
-  cout << "forDeletion" << endl;
-  for (auto rm : cache.forDeletion)
-    for (auto scd : rm.second)
-    {
-      cout << scd << endl;
-      DeleteSchedulesFromDb(scd);
-    }
-  cout << "---------------------------------------" << endl;
+  for (auto &rm : cache.forDeletion)
+    DeleteScdPeriodsFromDb(rm.second);
 
-  const bool SPLIT = 0;
-
-  cout << "forSaving" << endl;
-  for (auto sv : cache.forSaving())
-    for (auto scd : sv.second)
-    {
-      cout << scd << endl;
-
-      if (SPLIT)
-      {
-        ssim::ScdPeriods splitted = SplitScdPeriodByDays(scd);
-        for (auto s : splitted) ScdPeriodToDb(s);
-      }
-      else
-      {
-        ScdPeriodToDb(scd);
-      }
-
-    }
-  cout << "---------------------------------------" << endl;
+  for (auto &sv : cache.forSaving())
+    ScdPeriodsToDb(sv.second);
 
   return 0;
 }
