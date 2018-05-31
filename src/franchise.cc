@@ -11,10 +11,13 @@ using namespace std;
 namespace Franchise {
     bool TProp::get(int point_id, TPropType::Enum prop)
     {
-        LogTrace(TRACE5) << "Franchise::TProp::get start";
         clear();
         TTripInfo info;
-        if(info.getByPointId(point_id)) {
+        if(
+                info.getByPointId(point_id) and
+                info.trip_type == "ä" and
+                ((const TTripTypesRow&)base_tables.get("trip_types").get_row( "code", info.trip_type, true )).pr_reg!=0
+          ) {
             oper.airline = info.airline;
             oper.flt_no = info.flt_no;
             oper.suffix = info.suffix;
@@ -34,7 +37,6 @@ namespace Franchise {
                     );
 
             for(int i = 0; i < Qry.get().VariablesCount(); i++)
-                LogTrace(TRACE5) << Qry.get().VariableName(i) << " = " << Qry.get().GetVariableAsString(i);
 
             Qry.get().Execute();
             if(not Qry.get().Eof) {
