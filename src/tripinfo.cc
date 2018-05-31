@@ -32,6 +32,7 @@
 #include "brands.h"
 #include "passenger.h"
 #include "comp_props.h"
+#include "ckin_search.h"
 
 #include <serverlib/testmode.h>
 
@@ -827,11 +828,6 @@ void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodeP
   };
   if (reqInfo->screen.name == "AIR.EXE")
   {
-    // Подклейку pr_vouchers надо вынести в TripsInterface::readTripHeader
-    set<string> trip_vouchers;
-    getTripVouchers(point_id, trip_vouchers);
-    NewTextChild( dataNode, "pr_vouchers", !trip_vouchers.empty() );
-
     if ( GetNode( "tripcounters", reqNode ) )
       CheckInInterface::readTripCounters( point_id, dataNode );
     if ( GetNode( "tripdata", reqNode ) )
@@ -1206,7 +1202,13 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   }
 
   if (reqInfo->screen.name == "AIR.EXE")
+  {
     NewTextChild( node, "pr_mixed_norms", (int)GetTripSets(tsMixedNorms,info) );
+    //ваучеры выводатся на одном уровне с тегом <tripheader>, а надо бы внутри, но терминалы пока не поддерживают
+    set<string> trip_vouchers;
+    getTripVouchers(point_id, trip_vouchers);
+    NewTextChild( dataNode, "pr_vouchers", !trip_vouchers.empty() );
+  }
 
   if (reqInfo->screen.name == "KASSA.EXE")
   {
@@ -2863,11 +2865,11 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "       ( ";
 
 
-  sql << CheckInInterface::GetSearchPaxSubquery(psCheckin, true, false, false, false, "")
+  sql << getSearchPaxSubquery(psCheckin, true, false, false, false, "")
       << "UNION \n"
-      << CheckInInterface::GetSearchPaxSubquery(psGoshow,  true, false, false, false, "")
+      << getSearchPaxSubquery(psGoshow,  true, false, false, false, "")
       << "UNION \n"
-      << CheckInInterface::GetSearchPaxSubquery(psTransit, true, false, false, false, "");
+      << getSearchPaxSubquery(psTransit, true, false, false, false, "");
 
   sql <<
      "       ) ids "

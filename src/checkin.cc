@@ -56,6 +56,7 @@
 #include "rbd.h"
 #include "tlg/AgentWaitsForRemote.h"
 #include "tlg/tlg_parser.h"
+#include "ckin_search.h"
 
 #include <jxtlib/jxt_cont.h>
 #include <serverlib/cursctl.h>
@@ -1726,7 +1727,10 @@ void LoadPaxFQT(int pax_id, xmlNodePtr node, bool from_crs)
   CheckIn::PaxFQTToXML(fqts, node);
 }
 
-static int CreateSearchResponse(int point_dep, TQuery &PaxQry, xmlNodePtr resNode)
+static int CreateSearchResponse(int point_dep,
+                                TQuery &PaxQry,
+                                const set<int>& selectedPaxIds,
+                                xmlNodePtr resNode)
 {
   TQuery FltQry(&OraSession);
   FltQry.Clear();
@@ -1952,8 +1956,17 @@ static int CreateSearchResponse(int point_dep, TQuery &PaxQry, xmlNodePtr resNod
 
     LoadPaxRemAndASVC(pax_id, node, true);
     LoadPaxFQT(pax_id, node, true);
+
+    NewTextChild(node, "selected", (int)(selectedPaxIds.find(pax_id)!=selectedPaxIds.end()), (int)false);
   }
   return count;
+}
+
+static int CreateSearchResponse(int point_dep,
+                                TQuery &PaxQry,
+                                xmlNodePtr resNode)
+{
+  return CreateSearchResponse(point_dep, PaxQry, set<int>(), resNode);
 }
 
 void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2012,132 +2025,103 @@ void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   return;
 }
 
-string CheckInInterface::GetSearchPaxSubquery(TPaxStatus pax_status,
-                                              bool return_pnr_ids,
-                                              bool exclude_checked,
-                                              bool exclude_deleted,
-                                              bool select_pad_with_ok,
-                                              string sql_filter)
+static bool readTripHeaderAndOther(int point_id, xmlNodePtr reqNode, xmlNodePtr dataNode)
 {
-  ostringstream sql;
-  string status_param;
-  switch (pax_status)
+  if (TripsInterface::readTripHeader( point_id, dataNode ))
   {
-    case psTransit: status_param=":ps_transit"; break;
-     case psGoshow: status_param=":ps_goshow";  break;
-           default: status_param=":ps_ok";      break;
-  }
-
-  //2 прохода:
-  for(int pass=1;pass<=2;pass++)
-  {
-    if (pass==2 && pax_status!=psGoshow) continue;
-    if (pass==2)
-      sql << "   UNION \n";
-
-    if (return_pnr_ids)
-      sql << "   SELECT DISTINCT crs_pnr.pnr_id, " << status_param << " AS status \n";
-    else
-      sql << "   SELECT DISTINCT crs_pax.pax_id, " << status_param << " AS status \n";
-
-    sql <<   "   FROM crs_pnr";
-
-    if (!return_pnr_ids || exclude_checked || exclude_deleted)
-      sql << ", crs_pax";
-
-    if (exclude_checked)
-      sql << ", pax";
-
-    sql <<   ", \n";
-
-    sql <<   "    (SELECT b2.point_id_tlg, \n"
-             "            airp_arv_tlg,class_tlg,status \n"
-             "     FROM crs_displace2,tlg_binding b1,tlg_binding b2 \n"
-             "     WHERE crs_displace2.point_id_tlg=b1.point_id_tlg AND \n"
-             "           b1.point_id_spp=b2.point_id_spp AND \n"
-             "           crs_displace2.point_id_spp=:point_id AND \n"
-             "           b1.point_id_spp<>:point_id) crs_displace \n"
-             "   WHERE crs_pnr.point_id=crs_displace.point_id_tlg AND \n"
-             "         crs_pnr.system='CRS' AND \n"
-             "         crs_pnr.airp_arv=crs_displace.airp_arv_tlg AND \n"
-             "         crs_pnr.class=crs_displace.class_tlg \n";
-
-    if (!return_pnr_ids || exclude_checked || exclude_deleted)
-      sql << "         AND crs_pnr.pnr_id=crs_pax.pnr_id \n";
-
-    if (pass==1)
-      sql << "         AND crs_displace.status= " << status_param << " \n";
-
-    if (pass==1 && pax_status==psCheckin && !select_pad_with_ok)
-      sql << "         AND (crs_pnr.status IS NULL OR crs_pnr.status NOT IN ('DG2','RG2','ID2','WL')) \n";
-
-    if (pass==2 && pax_status==psGoshow)
-      sql << "         AND crs_displace.status= :ps_ok \n"
-             "         AND crs_pnr.status IN ('DG2','RG2','ID2','WL') \n";
-
-    if (exclude_checked)
-      sql << "         AND crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL \n";
-
-    if (exclude_deleted)
-      sql << "         AND crs_pax.pr_del=0 \n";
-
-    if (!sql_filter.empty())
-      sql << "         AND ("+sql_filter+") \n";
-
-  }
-
-  //2 прохода:
-  for(int pass=1;pass<=2;pass++)
-  {
-    if ((pass==1 && pax_status!=psCheckin && pax_status!=psGoshow) ||
-        (pass==2 && pax_status==psCheckin)) continue;
-    if (pass==1)
-      sql << "   UNION \n";
-    else
-      sql << "   MINUS \n";
-
-    if (return_pnr_ids)
-      sql << "   SELECT DISTINCT crs_pnr.pnr_id, " << status_param << " AS status \n";
-    else
-      sql << "   SELECT DISTINCT crs_pax.pax_id, " << status_param << " AS status \n";
-
-    sql <<   "   FROM crs_pnr, tlg_binding";
-
-    if (!return_pnr_ids || exclude_checked || exclude_deleted)
-      sql << ", crs_pax";
-
-    if (exclude_checked)
-      sql << ", pax \n";
-    else
-      sql << " \n";
-
-    sql   << "   WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND \n"
-             "         crs_pnr.system='CRS' AND \n"
-             "         tlg_binding.point_id_spp= :point_id \n";
-
-    if (!return_pnr_ids || exclude_checked || exclude_deleted)
-      sql << "         AND crs_pnr.pnr_id=crs_pax.pnr_id \n";
-
-    if ((pass==1 && pax_status==psCheckin && !select_pad_with_ok) ||
-        (pass==2 && pax_status==psGoshow))
-      sql << "         AND (crs_pnr.status IS NULL OR crs_pnr.status NOT IN ('DG2','RG2','ID2','WL')) \n";
-
-    if (pass==1 && pax_status==psGoshow)
-      sql << "         AND crs_pnr.status IN ('DG2','RG2','ID2','WL') \n";
-
-    if (exclude_checked)
-      sql << "         AND crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL \n";
-
-    if (exclude_deleted)
-      sql << "         AND crs_pax.pr_del=0 \n";
-
-    if (!sql_filter.empty())
-      sql << "         AND ("+sql_filter+") \n";
-  }
-  return sql.str();
+    CheckInInterface::readTripCounters( point_id, dataNode );
+    CheckInInterface::readTripData( point_id, point_id, dataNode );
+    CheckInInterface::readTripSets( point_id, dataNode );
+    TripsInterface::PectabsResponse(point_id, reqNode, dataNode);
+    return true;
+  };
+  return false;
 }
 
+void CheckInInterface::SearchPaxByDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int term_point_id=NodeAsInteger("point_id", reqNode);
+  CheckIn::TPaxDocItem doc;
+  doc.fromXML(GetNode("document", reqNode));
+  if (doc.no.empty()) throw UserException("MSG.DEVICE.INVALID_SCAN_FORMAT");
 
+  PaxInfoForSearchList list(CheckIn::TSimplePaxList().searchByDocNo(doc));
+
+  list.trace();
+
+  PaxInfoForSearchList::const_iterator iFound=list.end();
+
+  xmlNodePtr dataNode=NewTextChild( resNode, "data" );
+
+  for(int pass=0; pass<3; pass++)
+  {
+    //первый проход: ищем на текущем выбранном рейсе
+    //второй проход: ищем на рейсе на который можем переключиться
+    //третий проход: все остальное
+    for(PaxInfoForSearchList::const_iterator i=list.begin(); i!=list.end(); ++i)
+    {
+      const PaxInfoForSearch& info=*i;
+      if (pass==0 || pass==1)
+      {
+        if (info.flt)
+        {
+          int point_id=info.flt.get().point_id;
+
+          if (pass==0 && point_id!=term_point_id) continue;
+
+          ReplaceTextChild( dataNode, "point_id", point_id );
+          if (readTripHeaderAndOther( point_id, reqNode, dataNode ))
+          {
+            iFound=i;
+            break;
+          }
+        }
+      }
+      else
+      {
+        if (info.flt)
+        {
+          ReplaceTextChild( dataNode, "point_id", info.flt.get().point_id );
+          throw AstraLocale::UserException("MSG.PASSENGER.FROM_FLIGHT",
+                                           LParams() << LParam("flt", GetTripName(info.flt.get(),ecCkin)));
+        }
+      }
+    }
+    if (iFound!=list.end()) break;
+  }
+
+  if (iFound==list.end()) throw UserException("MSG.PASSENGER.NOT_FOUND");
+
+  const PaxInfoForSearch& found=*iFound;
+
+  if (found.pax.grp_id!=ASTRA::NoExists)
+  {
+    LoadPax(found.pax.grp_id, reqNode, resNode, false);
+    return;
+  }
+
+  //пассажир не зарегистрирован
+  if (!found.flt) throw UserException("MSG.PASSENGER.NOT_FOUND");
+  int point_id=found.flt.get().point_id;
+
+
+  ostringstream sql_filter;
+  sql_filter << "crs_pax.pax_id=" << found.pax.id;
+  TQuery Qry(&OraSession);
+  executeSearchPaxQuery(point_id, ASTRA::psCheckin, true, sql_filter.str(), Qry);
+  if (Qry.Eof)
+    throw AstraLocale::UserException("MSG.PASSENGER.FROM_FLIGHT",
+                                     LParams() << LParam("flt", GetTripName(found.flt.get(),ecCkin)));
+
+  set<int> selectedPaxIds;
+  selectedPaxIds.insert(found.pax.id);
+
+  int count=CreateSearchResponse(point_id, Qry, selectedPaxIds, resNode);
+  if (count>1)
+    NewTextChild(resNode, "ckin_state", "Choice");
+  else
+    NewTextChild(resNode, "ckin_state", "BeforeReg");
+}
 
 
 
@@ -2269,7 +2253,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           "       SUM(DECODE(pax.pax_id,NULL,1,0)) AS seats \n"
           "FROM crs_pnr,crs_pax,pax,( \n";
 
-    sql+= GetSearchPaxSubquery(pax_status,
+    sql+= getSearchPaxSubquery(pax_status,
                                true,
                                false,
                                false,
@@ -2352,63 +2336,21 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     return;
   }
 
-  for(int i=0;i<2;i++)
+  for(int pass=0;pass<2;pass++)
   {
     string surnames;
     for(vector<TInquiryFamily>::iterator f=grp.fams.begin();f!=grp.fams.end();f++)
     {
       if (!surnames.empty()) surnames+=" OR ";
-      surnames=surnames+"crs_pax.surname LIKE '"+f->surname.substr(0,i==0?4:1)+"%'";
+      surnames=surnames+"crs_pax.surname LIKE '"+f->surname.substr(0,pass==0?4:1)+"%'";
     }
 
-    //обычный поиск
-    sql =
-      "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.airp_arv,crs_pnr.subclass, \n"
-      "       crs_pnr.class, crs_pnr.status AS pnr_status, crs_pnr.priority AS pnr_priority, \n"
-      "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, \n"
-      "       salons.get_crs_seat_no(crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, \n"
-      "       crs_pax.seat_type,crs_pax.seats, \n"
-      "       crs_pnr.pnr_id, \n"
-      "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, \n"
-      "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket \n"
-      "FROM crs_pnr,crs_pax,pax,( \n";
+    executeSearchPaxQuery(point_dep,
+                          pax_status,
+                          sum.nPax>1 && !charter_search,
+                          surnames,
+                          PaxQry);
 
-
-    sql+= GetSearchPaxSubquery(pax_status,
-                               sum.nPax>1 && !charter_search,
-                               true,
-                               true,
-                               true,
-                               surnames);
-
-    sql+= "  ) ids  \n"
-          "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND \n"
-          "      crs_pax.pax_id=pax.pax_id(+) AND \n";
-    if (sum.nPax>1 && !charter_search)
-      sql+=
-          "      ids.pnr_id=crs_pnr.pnr_id AND \n";
-    else
-      sql+=
-          "      ids.pax_id=crs_pax.pax_id AND \n";
-
-    sql+= "      crs_pax.pr_del=0 AND \n"
-          "      pax.pax_id IS NULL \n"
-          "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id \n";
-
-//    ProgTrace(TRACE5,"CheckInInterface::SearchPax: status=%s",EncodePaxStatus(pax_status));
-//    ProgTrace(TRACE5,"CheckInInterface::SearchPax: sql=\n%s",sql.c_str());
-
-    PaxQry.SQLText = sql;
-    PaxQry.CreateVariable("point_id",otInteger,point_dep);
-    switch (pax_status)
-    {
-      case psTransit: PaxQry.CreateVariable( "ps_transit", otString, EncodePaxStatus(ASTRA::psTransit) );
-                      break;
-       case psGoshow: PaxQry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
-                      //break не надо!
-             default: PaxQry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
-    }
-    PaxQry.Execute();
     if (!PaxQry.Eof) break;
   }
   if (PaxQry.Eof)
@@ -6761,7 +6703,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         point_id=point_dep;
         xmlNodePtr dataNode=NewTextChild( resNode, "data" );
         NewTextChild( dataNode, "point_id", point_id );
-        if (!TripsInterface::readTripHeader( point_id, dataNode ))
+        if (!readTripHeaderAndOther( point_id, reqNode, dataNode ))
         {
           string msg;
           TTripInfo info;
@@ -6780,20 +6722,6 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
               msg=getLocaleText("MSG.BAGGAGE.FROM_OTHER_FLIGHT");
           }
           throw AstraLocale::UserException(msg);
-        }
-        else
-        {
-          // Подклейку pr_vouchers надо вынести в TripsInterface::readTripHeader
-          // а то получается тут и в TripsInterface::GetSegInfo два раза
-          // из-за того, что тут забыл подклеить, падал поиск пакса по скан-коду
-          set<string> trip_vouchers;
-          getTripVouchers(point_id, trip_vouchers);
-          NewTextChild( dataNode, "pr_vouchers", !trip_vouchers.empty() );
-
-          readTripCounters( point_id, dataNode );
-          readTripData( point_id, point_id, dataNode );
-          readTripSets( point_id, dataNode );
-          TripsInterface::PectabsResponse(point_id, reqNode, dataNode);
         }
       }
     }

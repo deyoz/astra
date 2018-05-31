@@ -2222,6 +2222,60 @@ std::string isFemaleStr( int is_female )
   };
 }
 
+TSimplePaxList& TSimplePaxList::searchByDocNo(const TPaxDocItem& doc)
+{
+  clear();
+
+  if (doc.no.empty()) return *this;
+
+  TQuery Qry(&OraSession);
+  Qry.CreateVariable("no", otString, doc.no);
+  if (doc.birth_date!=ASTRA::NoExists)
+    Qry.CreateVariable("birth_date", otDate, doc.birth_date);
+
+  set<int> pax_ids;
+  for(int pass=0; pass<2; pass++)
+  {
+    ostringstream sql;
+    if (pass==0)
+    {
+      sql << "SELECT pax.* "
+             "FROM pax, pax_doc "
+             "WHERE pax.pax_id=pax_doc.pax_id AND "
+             "      pax_doc.no=:no ";
+      if (doc.birth_date!=ASTRA::NoExists)
+        sql << "AND (pax_doc.birth_date=:birth_date OR pax_doc.birth_date IS NULL)";
+    }
+    else
+    {
+      sql << "SELECT crs_pax.* "
+             "FROM crs_pnr, crs_pax, crs_pax_doc "
+             "WHERE crs_pax.pnr_id=crs_pnr.pnr_id AND "
+             "      crs_pax.pax_id=crs_pax_doc.pax_id AND "
+             "      crs_pnr.system='CRS' AND "
+             "      crs_pax.pr_del=0 AND "
+             "      crs_pax_doc.no=:no ";
+      if (doc.birth_date!=ASTRA::NoExists)
+        sql << "AND (crs_pax_doc.birth_date=:birth_date OR crs_pax_doc.birth_date IS NULL)";
+    }
+
+    Qry.SQLText=sql.str().c_str();
+    Qry.Execute();
+    for(; !Qry.Eof; Qry.Next())
+    {
+      TSimplePaxItem pax;
+      if (pass==0)
+        pax.fromDB(Qry);
+      else
+        pax.fromDBCrs(Qry);
+      if (pax_ids.insert(pax.id).second)
+        push_back(pax);
+    }
+  }
+
+  return *this;
+}
+
 }; //namespace CheckIn
 
 namespace Sirena

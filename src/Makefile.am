@@ -76,6 +76,7 @@ astra_SOURCES = \
   cent.cc \
   checkin.cc \
   checkin_utils.cc \
+  ckin_search.cc \
   code_convert.cc \
   comp_layers.cc \
   convert.cc \
@@ -275,6 +276,7 @@ noinst_HEADERS = \
   cent.h \
   checkin.h \
   checkin_utils.h \
+  ckin_search.h \
   code_convert.h \
   comp_layers.h \
   convert.h \
