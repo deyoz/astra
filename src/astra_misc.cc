@@ -119,8 +119,8 @@ void getTripsByPointIdTlg( const int point_id_tlg, TAdvTripInfoList &trips )
 void getTripsByCRSPnrId(const int pnr_id, TAdvTripInfoList &trips)
 {
   trips.clear();
-  TCachedQuery Qry("select point_id from crs_pnr where pnr_id = :pnr_id",
-          QParams() << QParam("pnr_id", otInteger, pnr_id));
+  TCachedQuery Qry("SELECT point_id FROM crs_pnr WHERE pnr_id=:pnr_id AND system='CRS'",
+                   QParams() << QParam("pnr_id", otInteger, pnr_id));
   Qry.get().Execute();
   if(Qry.get().Eof) return;
 
@@ -130,12 +130,15 @@ void getTripsByCRSPnrId(const int pnr_id, TAdvTripInfoList &trips)
 void getTripsByCRSPaxId(const int pax_id, TAdvTripInfoList &trips)
 {
   trips.clear();
-  TCachedQuery Qry("select pnr_id from crs_pax where pax_id = :pax_id",
-          QParams() << QParam("pax_id", otInteger, pax_id));
+  TCachedQuery Qry("SELECT point_id "
+                   "FROM crs_pnr, crs_pax "
+                   "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:pax_id AND "
+                   "      crs_pnr.system='CRS' AND crs_pax.pr_del=0 ",
+                   QParams() << QParam("pax_id", otInteger, pax_id));
   Qry.get().Execute();
   if(Qry.get().Eof) return;
 
-  getTripsByCRSPnrId(Qry.get().FieldAsInteger("pnr_id"), trips);
+  getTripsByPointIdTlg(Qry.get().FieldAsInteger("point_id"), trips);
 }
 
 void TTripInfo::get_client_dates(TDateTime &scd_out_client, TDateTime &real_out_client, bool trunc_time) const

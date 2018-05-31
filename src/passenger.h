@@ -517,7 +517,11 @@ class TSimplePaxItem
     static void UpdTid(int pax_id);
 };
 
-class TSimplePaxList : public std::list<CheckIn::TSimplePaxItem> {};
+class TSimplePaxList : public std::list<TSimplePaxItem>
+{
+  public:
+    TSimplePaxList& searchByDocNo(const TPaxDocItem& doc);
+};
 
 class TDocaMap : public std::map<TAPIType, TPaxDocaItem>
 {

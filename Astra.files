@@ -88,6 +88,8 @@ src/checkin.cc
 src/checkin.h
 src/checkin_utils.cc
 src/checkin_utils.h
+src/ckin_search.cc
+src/ckin_search.h
 src/cobra.cc
 src/cobra.h
 src/comp_layers.cc

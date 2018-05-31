@@ -172,6 +172,7 @@ public:
      AddEvent("LoadTagPacks",         JXT_HANDLER(CheckInInterface, LoadTagPacks));
      AddEvent("SearchGrp",            JXT_HANDLER(CheckInInterface, SearchGrp));
      AddEvent("SearchPax",            JXT_HANDLER(CheckInInterface, SearchPax));
+     AddEvent("SearchPaxByDoc",       JXT_HANDLER(CheckInInterface, SearchPaxByDoc));
      AddEvent("TCkinSavePax",         JXT_HANDLER(CheckInInterface, SavePax));
      AddEvent("TCkinSaveUnaccompBag", JXT_HANDLER(CheckInInterface, SavePax));
      AddEvent("TCkinLoadPax",         JXT_HANDLER(CheckInInterface, LoadPax));
@@ -189,6 +190,7 @@ public:
   void LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void SearchPaxByDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -203,13 +205,6 @@ public:
   void TestDateTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {}
-
-  static std::string GetSearchPaxSubquery(ASTRA::TPaxStatus pax_status,
-                                          bool return_pnr_ids,
-                                          bool exclude_checked,
-                                          bool exclude_deleted,
-                                          bool select_pad_with_ok,
-                                          std::string sql_filter);
 
   static bool CheckCkinFlight(const int point_dep,
                               const std::string& airp_dep,
