@@ -3,6 +3,7 @@
 #include "apis.h"
 #include <fstream>
 #include "obrnosir.h"
+#include "franchise.h"
 
 #define NICKNAME "GRIG"
 #include "serverlib/test.h"
@@ -39,8 +40,42 @@ bool TApisDataset::FromDB(int point_id, const string& task_name)
     if (Qry.Eof)
       return false;
 
-    airline_code_qry = Qry.FieldAsString("airline");
     string country_dep = Qry.FieldAsString("country");
+
+    int flt_no;
+    string suffix, suffix_lat;
+
+    // Франчайзинг
+    Franchise::TProp franchise_prop;
+    if (franchise_prop.get(point_id, Franchise::TPropType::apis))
+    {
+      if (franchise_prop.val == Franchise::Franchisee)
+      {
+        airline_code_qry = franchise_prop.franchisee.airline;
+        flt_no = franchise_prop.franchisee.flt_no;
+        suffix = franchise_prop.franchisee.suffix;
+      }
+      else /*if (franchise_prop.val == Franchise::Oper)*/
+      {
+        airline_code_qry = franchise_prop.oper.airline;
+        flt_no = franchise_prop.oper.flt_no;
+        suffix = franchise_prop.oper.suffix;
+      }
+    }
+    else // не Франчайзинг
+    {
+      airline_code_qry = Qry.FieldAsString("airline");
+      flt_no = Qry.FieldAsInteger("flt_no");
+      if (!Qry.FieldIsNULL("suffix")) suffix = Qry.FieldAsString("suffix");
+    }
+
+    if (!suffix.empty())
+    {
+      const TTripSuffixesRow& suffixRow = (const TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code", suffix);
+      if (suffixRow.code_lat.empty())
+        throw Exception("suffixRow.code_lat empty (code=%s)",suffixRow.code.c_str());
+      suffix_lat = suffixRow.code_lat;
+    }
 
     TTripRoute route;
     route.GetRouteAfter(NoExists,
@@ -146,15 +181,8 @@ bool TApisDataset::FromDB(int point_id, const string& task_name)
       if (ApisSetsQry.Eof)
         continue;
 
-      rd.flt_no = Qry.FieldAsInteger("flt_no");
-
-      if (!Qry.FieldIsNULL("suffix"))
-      {
-        const TTripSuffixesRow& suffixRow = (const TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code",Qry.FieldAsString("suffix"));
-        if (suffixRow.code_lat.empty())
-          throw Exception("suffixRow.code_lat empty (code=%s)",suffixRow.code.c_str());
-        rd.suffix = suffixRow.code_lat;
-      }
+      rd.flt_no = flt_no;
+      rd.suffix = suffix_lat;
 
       string tz_region;
 
