@@ -2896,7 +2896,9 @@ bool EMDAutoBoundInterface::BeforeLock(const EMDAutoBoundId &id, int &point_id, 
   for(; !Qry.get().Eof; Qry.get().Next())
   {
     if (point_id!=Qry.get().FieldAsInteger("point_dep")) continue;
-    grp_ids.push_back(Qry.get().FieldAsInteger("grp_id"));
+    int grp_id=Qry.get().FieldAsInteger("grp_id");
+    if (find(grp_ids.begin(), grp_ids.end(), grp_id)==grp_ids.end())
+      grp_ids.push_back(grp_id);
   };
 
   TTripInfo info;
