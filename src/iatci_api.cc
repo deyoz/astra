@@ -9,6 +9,7 @@
 #include "tlg/postpone_edifact.h"
 
 #include <serverlib/xml_stuff.h>
+#include <serverlib/savepoint.h>
 #include <etick/exceptions.h>
 
 #include <sstream>
@@ -159,17 +160,11 @@ static boost::optional<CkuParams> makeFakeCkuParamsWithBaggage(const astra_api::
 dcrcka::Result checkinPaxes(const CkiParams& ckiParams)
 {
     auto fakeCkuParams = makeFakeCkuParamsWithBaggage(ckiParams);
-    if(fakeCkuParams) {
-        LogTrace(TRACE1) << "CkiParams with baggage";
-        auto checkinRes = astra_api::checkinIatciPaxes(ckiParams);
-        if(checkinRes.status() == dcrcka::Result::Ok) {
-            LogTrace(TRACE1) << "Apply baggage from CkiParams";
-            return updateCheckin(fakeCkuParams.get());
-        }
-        return checkinRes;
-    } else {
-        return astra_api::checkinIatciPaxes(ckiParams);
+    auto checkinRes = astra_api::checkinIatciPaxes(ckiParams);
+    if(fakeCkuParams && checkinRes.status() == dcrcka::Result::Ok) {
+        checkinRes = updateCheckin(fakeCkuParams.get());
     }
+    return checkinRes;
 }
 
 dcrcka::Result cancelCheckin(const CkxParams& ckxParams)
@@ -224,25 +219,19 @@ dcrcka::Result checkinPax(tlgnum_t postponeTlgNum)
     }
     xmlNodePtr ediResNode = NodeAsNode("/context", ediResCtxt.docPtr());
     ASSERT(ediResNode != NULL);
-
+    
+    OciCpp::Savepoint sp("iatci_checkin");
     try {
-        using astra_api::xml_entities::XmlEntityReader;
-        xmlNodePtr segNode = findNodeR(termReqNode, "segment");
-        auto fakeCkuParams = makeFakeCkuParamsWithBaggage(XmlEntityReader::readSeg(segNode));
-        if(fakeCkuParams) {
-            LogTrace(TRACE1) << "SavePax request with baggage";
-            auto checkinRes = astra_api::checkinIatciPaxes(termReqNode, ediResNode);
-            if(checkinRes.status() == dcrcka::Result::Ok) {
-                LogTrace(TRACE1) << "Apply baggage from SavePax request";
-                return updateCheckin(fakeCkuParams.get());
-            }
-            return checkinRes;
-        } else {
-            return astra_api::checkinIatciPaxes(termReqNode, ediResNode);
+        auto segNode = astra_api::xml_entities::XmlEntityReader::readSeg(findNodeR(termReqNode, "segment"));
+        auto fakeCkuParams = makeFakeCkuParamsWithBaggage(segNode);
+        auto checkinRes = astra_api::checkinIatciPaxes(termReqNode, ediResNode);        
+        if(fakeCkuParams && checkinRes.status() == dcrcka::Result::Ok) {
+            checkinRes = updateCheckin(fakeCkuParams.get());
         }
+        return checkinRes;
     } catch(std::exception&) {
         tst();
-        // откатываем измененные статусы
+        sp.rollback();
         ETRollbackStatus_local(ediResNode->doc);
         throw;
     }
@@ -280,7 +269,6 @@ dcrcka::Result cancelCheckin(tlgnum_t postponeTlgNum)
         return astra_api::cancelCheckinIatciPax(termReqNode, ediResNode);
     } catch(std::exception&) {
         tst();
-        //
         ETRollbackStatus_local(ediResNode->doc);
         throw;
     }
