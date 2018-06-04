@@ -22,10 +22,35 @@ using namespace std;
 using namespace boost::local_time;
 using namespace boost::posix_time;
 
-int CodeToId(const std::string code);
-std::string IdToCode(const int id);
-
 ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& prd );
+
+
+int CodeToId(const std::string &code)
+{
+  // http://ru.cppreference.com/w/cpp/language/types
+  if (sizeof(int) < sizeof(char)*3) throw EXCEPTIONS::Exception("CodeToId invalid sizeof");
+  if (code.size() > 3) throw EXCEPTIONS::Exception("CodeToId invalid code size");
+  const char *c = code.c_str();
+  int id = 0;
+  char* p = (char*)&id;
+  for (unsigned int i = 0; i < code.size(); ++i) p[i] = c[i];
+  LogTrace(TRACE5) << __func__ << " code=\"" << code << "\" id=" << id;
+  return id;
+}
+
+// ЗАМЕЧАНИЕ: в случае id = 10 получается code = символу перевода строки
+std::string IdToCode(const int id)
+{
+  // http://ru.cppreference.com/w/cpp/language/types
+  if (sizeof(int) < sizeof(char)*3) throw EXCEPTIONS::Exception("IdToCode invalid sizeof");
+  const char* p = (const char*)&id;
+  char code[4];
+  for (unsigned int i = 0; i < 3; ++i) code[i] = p[i];
+  code[3] = '\0';
+  std::string code_str(code);
+  LogTrace(TRACE5) << __func__ << " id=" << id << " code=\"" << code_str << "\"";
+  return code_str;
+}
 
 //------------------------------------------------------------------------------------------
 
@@ -134,34 +159,6 @@ template<> std::string translate_impl<ct::Flight>(const UserLanguage&, const ct:
 // Инициализация опять же однократная на старте, см. nsi::init_callbacks (sirena/src/nsi_callbacks.cc + obrzap.cc)
 
 // Тестовая реализация nsi::Callbacks уже есть в libnsi/src/callbacks.cc (nsi::TestCallbacks).
-
-// ЗАМЕЧАНИЕ: в случае id = 10 получается code = символу перевода строки
-
-int CodeToId(const std::string code)
-{
-  // http://ru.cppreference.com/w/cpp/language/types
-  if (sizeof(int) < sizeof(char)*3) throw EXCEPTIONS::Exception("CodeToId invalid sizeof");
-  if (code.size() > 3) throw EXCEPTIONS::Exception("CodeToId invalid code size");
-  const char *c = code.c_str();
-  int id = 0;
-  char* p = (char*)&id;
-  for (unsigned int i = 0; i < code.size(); ++i) p[i] = c[i];
-  LogTrace(TRACE5) << __func__ << " code=\"" << code << "\" id=" << id;
-  return id;
-}
-
-std::string IdToCode(const int id)
-{
-  // http://ru.cppreference.com/w/cpp/language/types
-  if (sizeof(int) < sizeof(char)*3) throw EXCEPTIONS::Exception("IdToCode invalid sizeof");
-  const char* p = (char*)&id;
-  char code[4];
-  for (unsigned int i = 0; i < 3; ++i) code[i] = p[i];
-  code[3] = '\0';
-  std::string code_str(code);
-  LogTrace(TRACE5) << __func__ << " id=" << id << " code=\"" << code_str << "\"";
-  return code_str;
-}
 
 bool AstraCallbacks::needCheckVersion() const
 {
@@ -418,7 +415,7 @@ string SchedDaysFlight(ct::Flight flight)
 {
   string line = IdToCode(flight.airline.get());
   string num = IntToString(flight.number.get());
-  string suffix = IntToString(flight.suffix.get());
+  string suffix = suffixToString(flight.suffix);
   return line + num + suffix;
 }
 
@@ -483,11 +480,11 @@ void ScdPeriodsToDb( const ssim::ScdPeriods &scds )
     p.last = BoostToDateTime(scd.period.end);
     p.days = scd.period.freq.str();
     p.modify = ASTRA::finsert;
-    speriods.push_back( p );
     TDestList dests;
     TDest curr, next;
-    for (auto &leg : scd.route.legs)
+    for (ssim::Legs::const_iterator ileg = scd.route.legs.begin(); ileg != scd.route.legs.end(); ++ileg)
     {
+      const ssim::Leg &leg = *ileg;
       curr = next;
       curr.airline = ElemToElemId( etAirline, IdToCode(scd.flight.airline.get()), curr.airline_fmt );
       curr.trip = scd.flight.number.get();
@@ -500,7 +497,19 @@ void ScdPeriodsToDb( const ssim::ScdPeriods &scds )
       }
       EncodeTime( leg.s.dep.hours(), leg.s.dep.minutes(), 0, curr.scd_out );
       curr.scd_out = ConvertFlightDate( curr.scd_out, p.first, curr.airp, false, mtoUTC );
+      if (ileg == scd.route.legs.begin())
+      {
+        p.first += curr.scd_out;
+        p.last += curr.scd_out;
+      }
       curr.craft = ElemToElemId( etCraft, IdToCode(leg.aircraftType.get()), curr.craft_fmt );
+      for (auto &cfg : leg.subclOrder.config())
+        if (cfg.second)
+        {
+          if (cabinCode(cfg.first)=="F") curr.f = cfg.second.get();
+          if (cabinCode(cfg.first)=="C") curr.c = cfg.second.get();
+          if (cabinCode(cfg.first)=="Y") curr.y = cfg.second.get();
+        }
 
       next.craft = ElemToElemId( etCraft, IdToCode(leg.aircraftType.get()), next.craft_fmt );
       next.airp = ElemToElemId( etAirp, IdToCode(leg.s.to.get()), next.airp_fmt );
@@ -513,6 +522,7 @@ void ScdPeriodsToDb( const ssim::ScdPeriods &scds )
     next.suffix.clear();
     dests.dests.push_back( next );
     mapds.insert( make_pair(ASTRA::NoExists, dests) );
+    speriods.push_back( p );
   }
   //!!!UTC
   int_write( filter, SchedDaysFlight(scds.front().flight), speriods, trip_id, mapds );
@@ -652,45 +662,21 @@ int HandleSSMTlg(string body)
 
 int ssim_test(int argc, char **argv)
 {
-//  Необходимо "зарегистрировать" парсеры (однократно где-нибудь в районе инициализации других глобальных сущностей):
-//  typeb_template::addTemplate(new SsmTemplate());
-//  typeb_template::addTemplate(new AsmTemplate());
-//  см. sirena/src/airimp/typeb_init.cc (использование в sirena/src/obrzap.cc)
-//  nsi::setupTestNsi();
-
   InitSSIM();
-
   std::ifstream t("file.txt");
   std::string str((std::istreambuf_iterator<char>(t)),
                    std::istreambuf_iterator<char>());
-
   cout << "Parsing SSM ..." << endl;
-  cout << "---------------------------------------" << endl;
-
   const auto ssm = ssim::parseSsm(str, nullptr); // !!!
-
   if (!ssm)
   {
     cout << "SSM NOT PARSED!" << endl;
     return -1;
   }
-
   cout << ssm->toString() << endl;
   cout << "---------------------------------------" << endl;
-
   const ssim::SsmStruct& ssmStr = *ssm;
-  // /home/user/sirena/src/ssim/proc_ssm.cc:438
   const std::vector<ssim::SsmSubmsgPtr>& submsgs = ssmStr.submsgs.begin()->second;
-
-//  struct ProcContext
-//  {
-//      nsi::CompanyId ourComp;
-//      bool sloader;
-//      bool timeIsLocal;
-//      bool inventoryHost;
-//      std::unique_ptr<SsimTlgCallbacks> callbacks;
-//  };
-
   const ssim::ProcContext attr {
     nsi::CompanyId(0),
     false,
@@ -698,30 +684,61 @@ int ssim_test(int argc, char **argv)
     false,
     std::make_unique<AstraSsimCallbacks>()
   };
-
-  cout << "Filling ssim::CachedScdPeriods ..." << endl;
-  cout << "---------------------------------------" << endl;
-
   ssim::CachedScdPeriods cache;
   for (const ssim::SsmSubmsgPtr& subMsg : submsgs)
   {
-    // CALL_MSG_RET(subMsg->modify(cache, attr)); // /home/user/Sirena/src/ssim/proc_ssm.cc:516
     if( Message const msg = subMsg->modify(cache, attr) )
     {
-      LogTrace( TRACE5 ) << msg;
       cout << msg << endl;
+      return -1;
     }
   }
 
-  cout << cache << endl;
-  cout << "---------------------------------------" << endl;
-
-  for (auto &rm : cache.forDeletion)
-    DeleteScdPeriodsFromDb(rm.second);
-
+  cout << "cache.forSaving().size()=" << cache.forSaving().size() << endl;
   for (auto &sv : cache.forSaving())
-    ScdPeriodsToDb(sv.second);
-
+  {
+    cout << "sv.second.size()=" << sv.second.size() << endl;
+    for (auto &scd : sv.second)
+    {
+      cout << "scd.route.legs.size()=" << scd.route.legs.size() << endl;
+      for (auto leg : scd.route.legs)
+      {
+        cout << "leg.subclOrder.config().size()=" << leg.subclOrder.config().size() << endl;
+        cout << "CFG: " << toString(leg.subclOrder.config()) << endl;
+        for (auto &c : leg.subclOrder.config())
+        {
+          if (c.second)
+          {
+            cout << "cabinCode=" << cabinCode(c.first) << " i=" << c.second.get() << endl;
+          }
+        }
+      }
+    }
+  }
+  cout << "---------------------------------------" << endl;
   return 0;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
