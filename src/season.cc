@@ -1460,7 +1460,7 @@ ProgTrace( TRACE5, "airp=%s, scd_in=%f, scd_out=%f", id->airp.c_str(), id->scd_i
   }
 }
 
-TDateTime getFlightDateToUTC( TDateTime time, TDateTime first, const std::string &airp, bool pr_arr )
+TDateTime ConvertFlightDate( TDateTime time, TDateTime first, const std::string &airp, bool pr_arr, TConvert conver )
 {
   double first_day, f2, f3, utcFirst;
   modf( (double)first, &utcFirst );
@@ -1470,21 +1470,28 @@ TDateTime getFlightDateToUTC( TDateTime time, TDateTime first, const std::string
   if ( time > NoExists ) {
     f2 = modf( (double)time, &f3 );
     f3 += first_day + fabs( f2 );
-    ProgTrace( TRACE5, "local scd_out=%s, region=%s, airp=%s",DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str(), region.c_str(), airp.c_str() );
-    try {
-      tst();
-      f2 = modf( (double)ClientToUTC( f3, region ), &f3 );
-      tst();
+    ProgTrace( TRACE5, "scd_out=%s, region=%s, airp=%s",DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str(), region.c_str(), airp.c_str() );
+    if ( conver == mtoLocal ) {
+      try {
+        f2 = modf( (double)UTCToClient( f3, region ), &f3 );
+      }
+      catch( Exception &e ) {
+          const TAirpsRow& row=(const TAirpsRow&)base_tables.get("airps").get_row("code",airp,true);
+          throw AstraLocale::UserException( "MSG.CITY.REGION_NOT_DEFINED",
+                                            LParams() << LParam("city", ElemIdToCodeNative(etCity,row.city )));
+      }
     }
-    catch( boost::local_time::ambiguous_result ) {
-      tst();
-      f2 = modf( (double)ClientToUTC( f3 + 1, region ) - 1, &f3 );
-      tst();
-    }
-    catch( boost::local_time::time_label_invalid ) {
-      tst();
-      throw AstraLocale::UserException( pr_arr?"ARV_TIME_FOR_POINT_NOT_EXISTS":"MSG.DEP_TIME_FOR_POINT_NOT_EXISTS",
-              LParams() << LParam("airp", ElemIdToCodeNative(etAirp,airp)) << LParam("time", DateTimeToStr( first, "dd.mm" )));
+    else {
+      try {
+        f2 = modf( (double)ClientToUTC( f3, region ), &f3 );
+      }
+      catch( boost::local_time::ambiguous_result ) {
+        f2 = modf( (double)ClientToUTC( f3 + 1, region ) - 1, &f3 );
+      }
+      catch( boost::local_time::time_label_invalid ) {
+        throw AstraLocale::UserException( pr_arr?"ARV_TIME_FOR_POINT_NOT_EXISTS":"MSG.DEP_TIME_FOR_POINT_NOT_EXISTS",
+                LParams() << LParam("airp", ElemIdToCodeNative(etAirp,airp)) << LParam("time", DateTimeToStr( first, "dd.mm" )));
+      }
     }
     ProgTrace( TRACE5, "trunc(scd_out)=%s, time=%s",
                DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str(),
@@ -1497,6 +1504,7 @@ TDateTime getFlightDateToUTC( TDateTime time, TDateTime first, const std::string
   }
   return val;
 }
+
 
 // разбор и перевод времен в UTC, в диапазонах выполнения хранятся времена вылета
 bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TDestList> &mapds, const string &filter_tz_region )
@@ -1714,8 +1722,8 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
     if ( newdests ) {
       // перевод времен в маршруте в локальные
       for ( TDests::iterator id=ds.dests.begin(); id!=ds.dests.end(); id++ ) {
-        id->scd_in = getFlightDateToUTC( id->scd_in, period.first, id->airp, true );
-        id->scd_out = getFlightDateToUTC( id->scd_out, period.first, id->airp, false );
+        id->scd_in = ConvertFlightDate( id->scd_in, period.first, id->airp, true, mtoUTC );
+        id->scd_out = ConvertFlightDate( id->scd_out, period.first, id->airp, false, mtoUTC );
       } // end for
       mapds[ period.move_id ] = ds;
     }
@@ -1939,7 +1947,8 @@ void SEASON::int_write( const TFilter &filter, const std::string &flight, vector
       tst();
       PrmEnum prmenum("route", "-");
       for ( TDests::iterator id=ds.dests.begin(); id!=ds.dests.end(); id++ ) {
-        ProgTrace(TRACE5, "airp=%s", id->airp.c_str() );
+        ProgTrace(TRACE5, "airp=%s, move_id=%d, num=%d, airp_fmt=%d, id->pr_del=%d, id->airline=%s, id->scd_in=%f, id->scd_out=%f, id->trip=%d, id->craft=%s, id->f=%d, id->c=%d, id->y=%d",
+                  id->airp.c_str(), new_move_id, dnum, (int)id->airp_fmt, id->pr_del, id->airline.c_str(), id->scd_in, id->scd_out, id->trip, id->craft.c_str(), id->f, id->c, id->y );
         RQry.SetVariable( "move_id", new_move_id );
         RQry.SetVariable( "num", dnum );
         RQry.SetVariable( "airp", id->airp );
@@ -3232,25 +3241,8 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
                 NewTextChild( destNode, "cancel", id->pr_del );
               // а если в этом порту другие правила перехода гп летнее/зимнее расписание ???
               // issummer( TDAteTime, region ) != issummer( utcf, pult.region );
+              id->scd_in = ConvertFlightDate( id->scd_in, utcf, id->airp, true, mtoLocal );
               if ( id->scd_in > NoExists ) {
-                f2 = modf( (double)id->scd_in, &f3 );
-                    f3 += utcf + fabs( f2 );
-                ProgTrace( TRACE5, "utc scd_in=%s", DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str() );
-                try {
-                  f2 = modf( (double)UTCToClient( f3, id->region ), &f3 );
-                }
-                catch( Exception &e ) {
-                    throw AstraLocale::UserException( "MSG.CITY.REGION_NOT_DEFINED",
-                                                        LParams() << LParam("city", ElemIdToCodeNative(etCity,id->city)));
-                }
-                ProgTrace( TRACE5, "local date scd_in=%s, time scd_in=%s",
-                           DateTimeToStr( f3, "dd.mm.yy" ).c_str(),
-                           DateTimeToStr( f2, "dd.mm.yy hh:nn" ).c_str() );
-                if ( f3 < first_day )
-                  id->scd_in = f3 - first_day - f2;
-                else
-                  id->scd_in = f3 - first_day + f2;
-
                 NewTextChild( destNode, "land", DateTimeToStr( id->scd_in ) ); //???
               }
               if ( !id->airline.empty() )
@@ -3263,24 +3255,8 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
                 NewTextChild( destNode, "litera", id->litera );
               if ( !isDefaultTripType(id->triptype) )
                 NewTextChild( destNode, "triptype", ElemIdToCodeNative(etTripType,id->triptype) );
+              id->scd_out = ConvertFlightDate( id->scd_out, utcf, id->airp, true, mtoLocal );
               if ( id->scd_out > NoExists ) {
-                f2 = modf( (double)id->scd_out, &f3 );
-                f3 += utcf + fabs( f2 );
-                ProgTrace( TRACE5, "utc scd_out=%s",DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str() );
-                try {
-                  f2 = modf( (double)UTCToClient( f3, id->region ), &f3 );
-                }
-                catch( Exception &e ) {
-                    throw AstraLocale::UserException( "MSG.CITY.REGION_NOT_DEFINED",
-                                                        LParams() << LParam("city", ElemIdToCodeNative(etCity,id->city)));
-                }
-                ProgTrace( TRACE5, "local date scd_out=%s, time scd_out=%s",
-                           DateTimeToStr( f3, "dd.mm.yy" ).c_str(),
-                           DateTimeToStr( f2, "dd.mm.yy hh:nn" ).c_str() );
-                if ( f3 < first_day )
-                  id->scd_out = f3 - first_day - f2;
-                else
-                  id->scd_out = f3 - first_day + f2;
                 NewTextChild( destNode, "takeoff", DateTimeToStr( id->scd_out ) );
               }
               if ( id->f )

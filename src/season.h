@@ -270,7 +270,6 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
-std::string GetCityFromAirp( std::string &airp );
 //std::string GetTZRegion( std::string &city, std::map<std::string,std::string> &regions, bool vexcept=1 );
 std::string AddDays( std::string days, int delta );
 
@@ -287,7 +286,9 @@ class TDoubleTrip
                     int &point_id );
 };
 
-TDateTime getFlightDateToUTC( TDateTime time, TDateTime first, const std::string &airp, bool pr_arr );
+enum TConvert { mtoUTC, mtoLocal };
+
+TDateTime ConvertFlightDate( TDateTime time, TDateTime first, const std::string &airp, bool pr_arr, TConvert convert );
 
 
 
