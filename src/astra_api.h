@@ -449,6 +449,64 @@ struct XmlFqtRems
 
 //---------------------------------------------------------------------------------------
 
+struct XmlIatciBag
+{
+    int  num_of_pieces;
+    int  weight;
+    bool is_hand;
+
+    XmlIatciBag()
+        : num_of_pieces(ASTRA::NoExists),
+          weight(ASTRA::NoExists),
+          is_hand(false)
+    {}  
+};
+
+//---------------------------------------------------------------------------------------
+
+struct XmlIatciBags
+{
+   std::list<XmlIatciBag> bags;
+
+   XmlIatciBags()
+   {}
+   XmlIatciBags(const std::list<XmlIatciBag>& b)
+       : bags(b)
+   {}
+};
+
+//---------------------------------------------------------------------------------------
+
+struct XmlIatciBagTag
+{
+    std::string carrier_code;
+    int 	tag_num;
+    int 	qtty;
+    std::string dest;
+    int 	accode;
+    
+    XmlIatciBagTag()
+        : tag_num(ASTRA::NoExists),
+          qtty(ASTRA::NoExists),
+          accode(ASTRA::NoExists)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
+struct XmlIatciBagTags
+{
+    std::list<XmlIatciBagTag> tags;
+    
+    XmlIatciBagTags()
+    {}
+    XmlIatciBagTags(const std::list<XmlIatciBagTag>& t)
+        : tags(t)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
 struct XmlPax
 {
     int         pax_id;
@@ -483,6 +541,8 @@ struct XmlPax
     boost::optional<XmlPaxVisa> visa;
     boost::optional<XmlRems> rems;
     boost::optional<XmlFqtRems> fqt_rems;
+    boost::optional<XmlIatciBags> iatci_bags;
+    boost::optional<XmlIatciBagTags> iatci_bag_tags;
 
     XmlPax();
 
@@ -1020,9 +1080,15 @@ public:
 
     static XmlBag                        readBag(xmlNodePtr bagNode);
     static std::list<XmlBag>             readBags(xmlNodePtr bagsNode);
+    
+    static XmlIatciBag                   readIatciBag(xmlNodePtr iatciBagNode);
+    static std::list<XmlIatciBag>        readIatciBags(xmlNodePtr iatciBagsNode);
 
     static XmlBagTag                     readBagTag(xmlNodePtr bagTagNode);
     static std::list<XmlBagTag>          readBagTags(xmlNodePtr bagTagsNode);
+    
+    static XmlIatciBagTag                readIatciBagTag(xmlNodePtr iatciBagTagNode);
+    static std::list<XmlIatciBagTag>     readIatciBagTags(xmlNodePtr iatciBagTagsNode);
 
     static XmlPlaceLayer                 readPlaceLayer(xmlNodePtr layerNode);
     static std::list<XmlPlaceLayer>      readPlaceLayers(xmlNodePtr layersNode);
@@ -1066,12 +1132,16 @@ public:
     static xmlNodePtr viewSeg(xmlNodePtr node, const XmlSegment& seg);
 
     static xmlNodePtr viewBag(xmlNodePtr node, const XmlBag& bag);
+    static xmlNodePtr viewBag(xmlNodePtr node, const XmlIatciBag& bag);
     static xmlNodePtr viewBagsHeader(xmlNodePtr node);
     static xmlNodePtr viewBags(xmlNodePtr node, const XmlBags& bags);
+    static xmlNodePtr viewBags(xmlNodePtr node, const XmlIatciBags& bags);
 
     static xmlNodePtr viewBagTag(xmlNodePtr node, const XmlBagTag& tag);
+    static xmlNodePtr viewBagTag(xmlNodePtr node, const XmlIatciBagTag& tag);
     static xmlNodePtr viewBagTagsHeader(xmlNodePtr node);
     static xmlNodePtr viewBagTags(xmlNodePtr node, const XmlBagTags& tags);
+    static xmlNodePtr viewBagTags(xmlNodePtr node, const XmlIatciBagTags& tags);
 
     static xmlNodePtr viewServiveList(xmlNodePtr node, const XmlServiceList& svcList);
 };
