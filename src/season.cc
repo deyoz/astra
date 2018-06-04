@@ -1460,7 +1460,7 @@ ProgTrace( TRACE5, "airp=%s, scd_in=%f, scd_out=%f", id->airp.c_str(), id->scd_i
   }
 }
 
-TDateTime ConvertFlightDate( TDateTime time, TDateTime first, const std::string &airp, bool pr_arr, TConvert conver )
+TDateTime ConvertFlightDate( TDateTime time, TDateTime first, const std::string &airp, bool pr_arr, TConvert convert )
 {
   double first_day, f2, f3, utcFirst;
   modf( (double)first, &utcFirst );
@@ -1471,7 +1471,7 @@ TDateTime ConvertFlightDate( TDateTime time, TDateTime first, const std::string 
     f2 = modf( (double)time, &f3 );
     f3 += first_day + fabs( f2 );
     ProgTrace( TRACE5, "scd_out=%s, region=%s, airp=%s",DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str(), region.c_str(), airp.c_str() );
-    if ( conver == mtoLocal ) {
+    if ( convert == mtoLocal ) {
       try {
         f2 = modf( (double)UTCToClient( f3, region ), &f3 );
       }
