@@ -1081,13 +1081,13 @@ public:
     static XmlBag                        readBag(xmlNodePtr bagNode);
     static std::list<XmlBag>             readBags(xmlNodePtr bagsNode);
     
-    static XmlIatciBag 			 readIatciBag(xmlNodePtr iatciBagNode);
+    static XmlIatciBag                   readIatciBag(xmlNodePtr iatciBagNode);
     static std::list<XmlIatciBag>        readIatciBags(xmlNodePtr iatciBagsNode);
 
     static XmlBagTag                     readBagTag(xmlNodePtr bagTagNode);
     static std::list<XmlBagTag>          readBagTags(xmlNodePtr bagTagsNode);
     
-    static XmlIatciBagTag		 readIatciBagTag(xmlNodePtr iatciBagTagNode);
+    static XmlIatciBagTag                readIatciBagTag(xmlNodePtr iatciBagTagNode);
     static std::list<XmlIatciBagTag>     readIatciBagTags(xmlNodePtr iatciBagTagsNode);
 
     static XmlPlaceLayer                 readPlaceLayer(xmlNodePtr layerNode);

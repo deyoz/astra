@@ -52,7 +52,7 @@ static UpdateBaggageDetails makeFakeUpdBaggage(const astra_api::xml_entities::Xm
     std::list<BaggageDetails::BagTagInfo> bagTags;
     
     for(const auto& b: iatciBags.bags) {
-        if(!b.num_of_pieces) continue;
+        if(!b.num_of_pieces || !b.weight) continue;
         if(!b.is_hand) {
             bag = BaggageDetails::BagInfo(b.num_of_pieces, b.weight);
         } else {
