@@ -50,6 +50,12 @@ using BASIC::date_time::TDateTime;
     TDest() {
       diff = 0.0;
       num = ASTRA::NoExists;
+      scd_out = ASTRA::NoExists;
+      scd_in = ASTRA::NoExists;
+      f = 0;
+      c = 0;
+      y = -1;
+      pr_del = 0;
     }
   };
 
