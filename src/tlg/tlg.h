@@ -126,7 +126,12 @@ void sendCmdTlgSnd();
 void sendCmdTlgSndStepByStep();
 void sendCmdTypeBHandler();
 void sendCmdAppsHandler();
+void sendCmdEdiCommonHandler();
+void sendCmdEdiItciReqHandler();
+void sendCmdEdiItciResHandler();
+
 void sendCmdEdiHandler(TEdiTlgSubtype st);
+void sendCmdEdiHandlerAtHook(TEdiTlgSubtype st);
 
 
 struct tlg_info

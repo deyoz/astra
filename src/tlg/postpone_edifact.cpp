@@ -150,9 +150,9 @@ void PostponeEdiHandling::addToQueue(const tlgnum_t& tnum)
         tlgi.text = tlg.text();
         handle_edi_tlg(tlgi);
     }
-#else
-    sendCmdEdiHandler(tlgSubtype);
 #endif//XP_TESTING
+
+    sendCmdEdiHandlerAtHook(tlgSubtype);
 }
 
 void PostponeEdiHandling::deleteWaiting(const tlgnum_t& tnum)

@@ -89,7 +89,7 @@ void MeetAgentExpectations(const edifact::RemoteResults & res)
 {
     res.updateDb();
     LogTrace(TRACE1) << __FUNCTION__ << " " << res;
-    if (!res.pult().empty())  //!!!vlad msgId?
+    if (!res.isSystemPult())  //!!!vlad msgId?
     {
         LogTrace(TRACE3) << "confirm_notify_levb for edisession: " << res.ediSession();
         confirm_notify_levb(res.ediSession().get(), true);

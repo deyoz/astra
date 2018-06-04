@@ -93,14 +93,40 @@ void sendCmdTypeBHandler()
   sendCmd("CMD_TYPEB_HANDLER","H");
 }
 
+void sendCmdEdiCommonHandler()
+{
+  sendCmd("CMD_EDI_HANDLER","H");
+}
+
+void sendCmdEdiItciReqHandler()
+{
+  sendCmd("CMD_ITCI_REQ_HANDLER","H");
+}
+
+void sendCmdEdiItciResHandler()
+{
+  sendCmd("CMD_ITCI_RES_HANDLER","H");
+}
+
 void sendCmdEdiHandler(TEdiTlgSubtype st)
 {
     if(st == stItciReq) {
-        sendCmd("CMD_ITCI_REQ_HANDLER","H");
+        sendCmdEdiItciReqHandler();
     } else if(st == stItciRes) {
-        sendCmd("CMD_ITCI_RES_HANDLER","H");
+        sendCmdEdiItciResHandler();
     } else {
-        sendCmd("CMD_EDI_HANDLER","H");
+        sendCmdEdiCommonHandler();
+    }
+}
+
+void sendCmdEdiHandlerAtHook(TEdiTlgSubtype st)
+{
+    if(st == stItciReq) {
+        registerHookAfter(sendCmdEdiItciReqHandler);
+    } else if(st == stItciRes) {
+        registerHookAfter(sendCmdEdiItciResHandler);
+    } else {
+        registerHookAfter(sendCmdEdiCommonHandler);
     }
 }
 

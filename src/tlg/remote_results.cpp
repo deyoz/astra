@@ -273,7 +273,7 @@ void RemoteResults::cleanOldRecords(const int min_ago)
 
 bool RemoteResults::isSystemPult() const
 {
-  return Pult.empty();
+  return Pult.empty() || Pult == "IATCIP";
 }
 
 std::ostream & operator <<(std::ostream & os, const RemoteResults & rr)
