@@ -499,13 +499,13 @@ void ScdPeriodsToDb( const ssim::ScdPeriods &scds )
         first_airp = false;
       }
       EncodeTime( leg.s.dep.hours(), leg.s.dep.minutes(), 0, curr.scd_out );
-      curr.scd_out = getFlightDateToUTC( curr.scd_out, p.first, curr.airp, false );
+      curr.scd_out = ConvertFlightDate( curr.scd_out, p.first, curr.airp, false, mtoUTC );
       curr.craft = ElemToElemId( etCraft, IdToCode(leg.aircraftType.get()), curr.craft_fmt );
 
       next.craft = ElemToElemId( etCraft, IdToCode(leg.aircraftType.get()), next.craft_fmt );
       next.airp = ElemToElemId( etAirp, IdToCode(leg.s.to.get()), next.airp_fmt );
       EncodeTime( leg.s.arr.hours(), leg.s.arr.minutes(), 0, next.scd_in );
-      next.scd_in = getFlightDateToUTC( next.scd_in, p.first, next.airp, true );
+      next.scd_in = ConvertFlightDate( next.scd_in, p.first, next.airp, true, mtoUTC );
       dests.dests.push_back( curr );
     }
     next.airline.clear();
