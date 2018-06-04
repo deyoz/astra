@@ -130,7 +130,7 @@ typedef vector<SALONS2::TPoint> TSeatCoords;
 struct TSeatCoordsSalon {
   map<int,TSeatCoords> coords;
   SALONS2::TPlaceList *placeList;
-  void addSeat( TPlaceList *placeList, int x, int xlen, int y, bool pr_window, bool pr_tube, bool pr_seats );
+  bool addSeat( TPlaceList *placeList, int x, int xlen, int y, bool pr_window, bool pr_tube, bool pr_seats );
   std::string toString() const;
 };
 
@@ -140,7 +140,7 @@ class TSeatCoordsClass {
   private:
     vecSeatCoordsVars vecSeatCoords;
     void clear();
-    void addBaseSeat( TPlaceList* placeList, TPoint &p );
+    void addBaseSeat( TPlaceList* placeList, TPoint &p, std::set<int> &passCoord );
   public:
     void addBaseSeats( const std::vector<TCoordSeat> &paxsSeats );
     vecSeatCoordsVars &getSeatCoordsVars( );
@@ -464,7 +464,7 @@ bool getCanUseOneRow() {
     return FSeatAlgoParams.pr_canUseOneRow;
 }
 
-void TSeatCoordsSalon::addSeat( TPlaceList *placeList, int x, int xlen, int y,
+bool TSeatCoordsSalon::addSeat( TPlaceList *placeList, int x, int xlen, int y,
                                 bool pr_window, bool pr_tube, bool pr_seats )
 {
   SALONS2::TPoint p( x, y );
@@ -472,7 +472,7 @@ void TSeatCoordsSalon::addSeat( TPlaceList *placeList, int x, int xlen, int y,
   if ( !place->isplace ||
        !place->visible ||
        CurrSalon->isExistsOccupySeat( placeList->num, x, y ) ) {
-    return;
+    return false;
   }
   int prioritySeats = 0;
   if ( !pr_seats ) {
@@ -504,6 +504,7 @@ void TSeatCoordsSalon::addSeat( TPlaceList *placeList, int x, int xlen, int y,
     icoord = coords.insert( make_pair(prioritySeats,TSeatCoords()) ).first;
   }
   icoord->second.push_back( p );
+  return true;
 }
 
 std::string TSeatCoordsSalon::toString() const
@@ -515,60 +516,74 @@ std::string TSeatCoordsSalon::toString() const
   }
   return res;
 }
-void TSeatCoordsClass::addBaseSeat( TPlaceList* placeList, TPoint &p )
+void TSeatCoordsClass::addBaseSeat( TPlaceList* placeList, TPoint &p, std::set<int> &passCoord )
 {
   if ( !placeList->ValidPlace( p ) ) {
     return;
   }
+  int key = getSeatKey::get( placeList->num, p.x, p.y );
+  if ( passCoord.find( key ) != passCoord.end() ) {
+    return;
+  }
+  passCoord.insert( key );
   for ( vecSeatCoordsVars::iterator ilist=vecSeatCoords.begin(); ilist!=vecSeatCoords.end(); ilist++ ) {
     if ( ilist->placeList->num == placeList->num ) {
-      ilist->addSeat( placeList, p.x, 0, p.y, false, false, true );
-      ProgTrace( TRACE5, "addBaseSeat: x=%d, y=%d", p.x, p.y );
+      if ( ilist->addSeat( placeList, p.x, 0, p.y, false, false, true ) ) {
+        ProgTrace( TRACE5, "addBaseSeat: x=%d, y=%d", p.x, p.y );
+      }
       return;
     }
   }
   TSeatCoordsSalon coordSalon;
   coordSalon.placeList = placeList;
-  coordSalon.addSeat( placeList, p.x, 0, p.y, false, false, true );
-  //ProgTrace( TRACE5, "addBaseSeat: x=%d, y=%d", p.x, p.y );
+  if ( coordSalon.addSeat( placeList, p.x, 0, p.y, false, false, true ) ) {
+    ProgTrace( TRACE5, "addBaseSeat: x=%d, y=%d", p.x, p.y );
+  }
   vecSeatCoords.push_back( coordSalon );
 }
 
 void TSeatCoordsClass::addBaseSeats( const std::vector<TCoordSeat> &paxSeats )
 {
-   for ( std::vector<TCoordSeat>::const_iterator iseat=paxSeats.begin(); iseat!=paxSeats.end(); iseat++ ) {
-     //находим свободные места вокруг
-     for ( std::vector<TPlaceList*>::iterator item=CurrSalon->placelists.begin(); item!=CurrSalon->placelists.end(); item++ ) {
-       if ( iseat->placeListIdx == (*item)->num ) {
-         int xlen = (*item)->GetXsCount();
-         TPoint p1 = iseat->p;
-         p1.x++;
-         if ( p1.x <= xlen - 1 && (*item)->GetXsName( p1.x ).empty() ) {
-           p1.x++;
-           addBaseSeat( *item, p1 );
-         }
-         else {
-           addBaseSeat( *item, p1 );
-         }
-         p1 = iseat->p;
-         p1.x--;
-         if ( p1.x >= 0 && (*item)->GetXsName( p1.x ).empty() ) {
-           p1.x--;
-           addBaseSeat( *item, p1 );
-         }
-         else {
-           addBaseSeat( *item, p1 );
-         }
-         p1 = iseat->p;
-         p1.y--;
-         addBaseSeat( *item, p1 );
-         p1 = iseat->p;
-         p1.y++;
-         addBaseSeat( *item, p1 );
-         break;
-       }
-     }
-   }
+  std::set<int> passCoord;
+  for ( int step=0; step<2; step++ ) {
+    for ( std::vector<TCoordSeat>::const_iterator iseat=paxSeats.begin(); iseat!=paxSeats.end(); iseat++ ) {
+      //находим свободные места вокруг
+      for ( std::vector<TPlaceList*>::iterator item=CurrSalon->placelists.begin(); item!=CurrSalon->placelists.end(); item++ ) {
+        if ( iseat->placeListIdx == (*item)->num ) {
+          int xlen = (*item)->GetXsCount();
+          TPoint p1 = iseat->p;
+          if ( step == 0 ) {
+            p1.x++;
+            if ( p1.x <= xlen - 1 && (*item)->GetXsName( p1.x ).empty() ) {
+              p1.x++;
+              addBaseSeat( *item, p1, passCoord );
+            }
+            else {
+              addBaseSeat( *item, p1, passCoord );
+            }
+            p1 = iseat->p;
+            p1.x--;
+            if ( p1.x >= 0 && (*item)->GetXsName( p1.x ).empty() ) {
+              p1.x--;
+              addBaseSeat( *item, p1, passCoord );
+            }
+            else {
+              addBaseSeat( *item, p1, passCoord );
+            }
+          }
+          if ( step == 1 ) {
+            p1 = iseat->p;
+            p1.y--;
+            addBaseSeat( *item, p1, passCoord );
+            p1 = iseat->p;
+            p1.y++;
+            addBaseSeat( *item, p1, passCoord );
+          }
+          break;
+        }
+      }
+    }
+  }
 }
 
 vecSeatCoordsVars &TSeatCoordsClass::getSeatCoordsVars( )
@@ -3078,6 +3093,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                       TClientType client_type,
                       bool pr_rollback,
                       bool separately_seats_adult_with_baby,
+                      bool denial_emergency_seats,
                       TPassengers &passengers,
                       const std::vector<TCoordSeat> &paxsSeats );
 
@@ -3127,14 +3143,19 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
           ProgTrace( TRACE5, "pax(%i).pax_id=%d", i, passengers.Get(i).paxId );
           paxs.push_back( TPaxCover( passengers.Get(i).paxId, ASTRA::NoExists ) );
         }
-        babyZoness.setDisabledBabySection( Salons, paxs, pax_lists_with_baby );
-        emergencySeats.setDisabledEmergencySeats( Salons, paxs );
+        if ( separately_seats_adult_with_baby ) {
+          babyZoness.setDisabledBabySection( Salons, paxs, pax_lists_with_baby );
+        }
+        if ( denial_emergency_seats ) {
+          emergencySeats.setDisabledEmergencySeats( Salons, paxs );
+        }
       }
       SeatsPassengers( Salons,
                        ASeatAlgoParams /* sdUpDown_Line - умолчание */,
                        client_type,
                        pr_rollback,
                        separately_seats_adult_with_baby,
+                       denial_emergency_seats,
                        passengers,
                        paxsSeats );
       babyZoness.rollbackDisabledBabySection( Salons );
@@ -3434,11 +3455,12 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                       TClientType client_type,
                       bool pr_rollback,
                       bool separately_seats_adult_with_baby,
+                      bool denial_emergency_seats,
                       TPassengers &passengers,
                       const std::vector<TCoordSeat> &paxsSeats )
 {
-  ProgTrace( TRACE5, "NEWSEATS, ASeatAlgoParams=%d, Salons->placelists.size()=%zu, passengers.getCount()=%d",
-            (int)ASeatAlgoParams.SeatAlgoType, Salons->placelists.size(), passengers.getCount() );
+  ProgTrace( TRACE5, "NEWSEATS, ASeatAlgoParams=%d, Salons->placelists.size()=%zu, passengers.getCount()=%d, paxsSeats.size()=%zu, separately_seats_adult_with_baby=%d, denial_emergency_seats=%d",
+            (int)ASeatAlgoParams.SeatAlgoType, Salons->placelists.size(), passengers.getCount(), paxsSeats.size(), separately_seats_adult_with_baby, denial_emergency_seats );
   if ( !passengers.getCount() ) {
     return;
   }
@@ -3482,7 +3504,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
   seatCoords.refreshCoords( FSeatAlgoParams.SeatAlgoType,
                             Passengers.KWindow,
                             Passengers.KTube,
-                            separately_seats_adult_with_baby?paxsSeatsEmpty:paxsSeats );
+                            (separately_seats_adult_with_baby)?paxsSeatsEmpty:paxsSeats );
   SeatAlg = sSeatGrpOnBasePlace;
 
   FindSUBCLS = false;
@@ -3717,7 +3739,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                        for ( int FCanUseTube=0; FCanUseTube<=1; FCanUseTube++ ) {
                          /* для рассадки отдельных пассажиров не надо учитывать проходы */
                          if ( !FCanUseTube && !paxsSeats.empty() && !separately_seats_adult_with_baby  ) {
-                           ProgTrace( TRACE5, "separately_seats_adult_with_baby");
+                           //ProgTrace( TRACE5, "separately_seats_adult_with_baby");
                            continue;
                          }
 /*                         tst();
