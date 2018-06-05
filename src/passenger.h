@@ -275,6 +275,25 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocCompo
     }
     std::string logStr(const std::string &lang=AstraLocale::LANG_EN) const;
     std::string full_name() const;
+    bool isNationalRussianPassport() const { return type=="P" && subtype=="N" && issue_country=="RUS"; }
+};
+
+class TScannedPaxDocItem : public TPaxDocItem
+{
+  public:
+    std::string extra;
+    TScannedPaxDocItem()
+    {
+      clear();
+    }
+    void clear()
+    {
+      TPaxDocItem::clear();
+      extra.clear();
+    }
+
+    TScannedPaxDocItem& fromXML(xmlNodePtr node);
+    std::string getTrueNo() const;
 };
 
 const std::string DOCO_PSEUDO_TYPE="-";
@@ -520,7 +539,7 @@ class TSimplePaxItem
 class TSimplePaxList : public std::list<TSimplePaxItem>
 {
   public:
-    TSimplePaxList& searchByDocNo(const TPaxDocItem& doc);
+    TSimplePaxList& searchByDocNo(const TScannedPaxDocItem& doc);
 };
 
 class TDocaMap : public std::map<TAPIType, TPaxDocaItem>

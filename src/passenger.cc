@@ -359,6 +359,18 @@ TPaxDocItem& TPaxDocItem::fromXML(xmlNodePtr node)
   return *this;
 }
 
+TScannedPaxDocItem& TScannedPaxDocItem::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+  if (node2==NULL) return *this;
+
+  TPaxDocItem::fromXML(node);
+  extra=NodeAsStringFast("extra",node2,"");
+  return *this;
+}
+
 TPaxDocItem& TPaxDocItem::fromWebXML(xmlNodePtr node)
 {
   clear();
@@ -2222,14 +2234,23 @@ std::string isFemaleStr( int is_female )
   };
 }
 
-TSimplePaxList& TSimplePaxList::searchByDocNo(const TPaxDocItem& doc)
+std::string TScannedPaxDocItem::getTrueNo() const
+{
+  if (isNationalRussianPassport() && no.size()==9 && !extra.empty())
+    return no.substr(0,3)+extra.substr(0,1)+no.substr(3);
+
+  return no;
+}
+
+TSimplePaxList& TSimplePaxList::searchByDocNo(const TScannedPaxDocItem& doc)
 {
   clear();
 
   if (doc.no.empty()) return *this;
 
   TQuery Qry(&OraSession);
-  Qry.CreateVariable("no", otString, doc.no);
+  LogTrace(TRACE5) << __FUNCTION__ << ": doc.getTrueNo()=" << doc.getTrueNo();
+  Qry.CreateVariable("no", otString, doc.getTrueNo());
   if (doc.birth_date!=ASTRA::NoExists)
     Qry.CreateVariable("birth_date", otDate, doc.birth_date);
 
