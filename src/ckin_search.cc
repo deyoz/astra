@@ -48,13 +48,16 @@ PaxInfoForSearch::PaxInfoForSearch(const TSimplePaxItem& _pax,
 
 bool PaxInfoForSearch::operator < (const PaxInfoForSearch &info) const
 {
-  if (stagePriority!=info.stagePriority)
+  if ((stagePriority==boost::none)!=(info.stagePriority==boost::none))
     return stagePriority!=boost::none;
+
   if (stagePriority && info.stagePriority &&
       stagePriority.get() != info.stagePriority.get())
     return stagePriority.get() < info.stagePriority.get();
-  if (timeOutAbsDistance!=info.timeOutAbsDistance)
+
+  if ((timeOutAbsDistance==boost::none)!=(info.timeOutAbsDistance==boost::none))
     return timeOutAbsDistance!=boost::none;
+
   if (timeOutAbsDistance && info.timeOutAbsDistance &&
       timeOutAbsDistance.get() != info.timeOutAbsDistance.get())
     return timeOutAbsDistance.get() < info.timeOutAbsDistance.get();

@@ -2041,7 +2041,7 @@ static bool readTripHeaderAndOther(int point_id, xmlNodePtr reqNode, xmlNodePtr 
 void CheckInInterface::SearchPaxByDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int term_point_id=NodeAsInteger("point_id", reqNode);
-  CheckIn::TPaxDocItem doc;
+  CheckIn::TScannedPaxDocItem doc;
   doc.fromXML(GetNode("document", reqNode));
   if (doc.no.empty()) throw UserException("MSG.DEVICE.INVALID_SCAN_FORMAT");
 
