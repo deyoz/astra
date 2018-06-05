@@ -1089,6 +1089,7 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
   TPoints points;
   bool pr_takeoff;
   bool pr_charter_range = false;
+  bool pr_charter_setSCD = false;
   TQuery Qry(&OraSession);
   TPointsDest d;
   {
@@ -1119,7 +1120,7 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
     Qry.CreateVariable( "aodb_point_id", otFloat, aodb_point_id );
     Qry.Execute();
     TAdvTripInfo astraFlt;
-    if ( Qry.Eof ) {
+    if ( Qry.Eof ) { //рейс не найден
       ConnectSinchronAstraCharterFlight searchAstraFlt;
       TAdvTripInfo sinchronFlt;
       sinchronFlt.airline = d.airline;
@@ -1128,7 +1129,10 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
       sinchronFlt.suffix = d.suffix;
       sinchronFlt.scd_out = d.scd_out;
       searchAstraFlt.search( range_hours, sinchronFlt, astraFlt );
-      tst();
+      if ( astraFlt.point_id != ASTRA::NoExists ) {
+        pr_charter_range = true;
+      }
+      ProgTrace( TRACE5, "astraFlt.point_id=%d, pr_charter_range=%d", astraFlt.point_id, pr_charter_range );
     }
     else {
       astraFlt.point_id = Qry.FieldAsInteger( "point_id" );
@@ -1142,7 +1146,7 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
       Qry.CreateVariable( "point_id", otInteger, astraFlt.point_id );
       Qry.Execute();
       points.move_id = Qry.FieldAsInteger( "move_id" );
-      pr_charter_range = true;
+      pr_charter_setSCD = true;
     }
   }
   ProgTrace( TRACE5, "pr_find=%d, move_id=%d", pr_find, points.move_id );
@@ -1328,7 +1332,7 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
       //stages and delay for next dest!!!
       //bindingAODBFlt была вызвана, когда сохраняли маршрут ???
       AODB_POINTS::bindingAODBFlt( TReqInfo::Instance()->desk.code, owndest->point_id, aodb_point_id );
-      if ( pr_charter_range ) { // сохраняем плановую дату, передаваемую из Синхрона
+      if ( pr_charter_setSCD ) { // сохраняем плановую дату, передаваемую из Синхрона
         AODB_POINTS::setSCD_OUT( aodb_point_id, d.scd_out );
       }
     }
