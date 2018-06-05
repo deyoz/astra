@@ -1698,6 +1698,6 @@ SalonFormInterface* SalonFormInterface::instance()
 
 void trace( int pax_id, int grp_id, int parent_pax_id, int crs_pax_id, const std::string &pers_type, int seats )
 {
-  ProgTrace( TRACE5, "pax_id=%d, grp_id=%d, parent_pax_id=%d, crs_pax_id=%d, pers_type=%s, seats=%d",
-             pax_id, grp_id, parent_pax_id, crs_pax_id, pers_type.c_str(), seats );
+//  ProgTrace( TRACE5, "pax_id=%d, grp_id=%d, parent_pax_id=%d, crs_pax_id=%d, pers_type=%s, seats=%d",
+//             pax_id, grp_id, parent_pax_id, crs_pax_id, pers_type.c_str(), seats );
 }
