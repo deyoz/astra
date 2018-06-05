@@ -71,6 +71,7 @@ XmlPaxDoc createCheckInDoc(const iatci::DocDetails& doc)
     ckiDoc.second_name   = doc.secondName();
     ckiDoc.nationality   = doc.nationality();
     ckiDoc.issue_country = doc.issueCountry();
+    ckiDoc.gender        = doc.gender();
     return ckiDoc;
 }
 
