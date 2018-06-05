@@ -867,12 +867,12 @@ void TFilterLayers::getIntFilterLayers( int point_id,
             }
         }
     }
-    for ( int l=0; l!=cltTypeNum; l++ ) {
+/*    for ( int l=0; l!=cltTypeNum; l++ ) {
     ASTRA::TCompLayerType layer_type = (ASTRA::TCompLayerType)l;
     if ( isFlag( layer_type ) ) {
         ProgTrace( TRACE5, "TFilterLayers::getFilterLayers(%d,%s), point_dep=%d", point_id, EncodeCompLayerType( layer_type ), point_dep );
     }
-  }
+  }*/
 }
 
 void TFilterLayers::getFilterLayers( int point_id, bool only_compon_props )
@@ -1011,10 +1011,9 @@ bool TPlace::CompareRFISCs( const TPlace &seat ) const
         p1!=rfiscs.end(),
         p2!=seat.rfiscs.end();
         p1++, p2++ ) {
-    ProgTrace( TRACE5, "point_id1=%d, point_id2=%d, val1=%s, val2=%s", p1->first, p2->first, p1->second.str().c_str(), p2->second.str().c_str() );
+//    ProgTrace( TRACE5, "point_id1=%d, point_id2=%d, val1=%s, val2=%s", p1->first, p2->first, p1->second.str().c_str(), p2->second.str().c_str() );
     if ( p1->first != p2->first ||
          p1->second != p2->second ) {
-      tst();
       return false;
     }
   }
@@ -1652,7 +1651,7 @@ void TPlace::SetRFISC( int point_id, TSeatTariffMapType &tariffMap )
       std::map<std::string,TRFISC>::iterator vrfisc = tariffMap.find( color );
       if ( vrfisc != tariffMap.end() && !color.empty() ) {
         AddRFISC( point_id, vrfisc->second );
-        ProgTrace( TRACE5, "SetRFISC point_id %d, %s", point_id, vrfisc->second.str().c_str() );
+        //ProgTrace( TRACE5, "SetRFISC point_id %d, %s", point_id, vrfisc->second.str().c_str() );
       }
     }
   }
@@ -2867,7 +2866,8 @@ void TLayersPax::dumpPaxLayers( const TSeatLayer &seatLayer, const TPaxLayerSeat
   if ( seatLayer.point_dep != ASTRA::NoExists ) {
     str += " p_dep=" + IntToString( seatLayer.point_dep );
   }
-  if ( seatLayer.point_id != ASTRA::NoExists ) {
+  if ( seatLayer.point_id != ASTRA::NoExists &&
+       seatLayer.point_id != seatLayer.point_dep ) {
     str += " p_id=" + IntToString( seatLayer.point_id );
   }
   if ( seatLayer.point_arv != ASTRA::NoExists ) {

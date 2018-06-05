@@ -116,7 +116,7 @@ void TCompLayerTypes::Update()
                                         Qry.FieldAsInteger( "pr_occupy" ),
                                         Qry.FieldAsInteger( "priority" ) );
     layers.insert( make_pair( layer_type, layer ) );
-    ProgTrace( TRACE5, "TCompLayerTypes::Update(): add %s", code.c_str() );
+    //ProgTrace( TRACE5, "TCompLayerTypes::Update(): add %s", code.c_str() );
   }
   Qry.Clear();
   Qry.SQLText =
