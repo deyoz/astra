@@ -482,6 +482,7 @@ void ScdPeriodsToDb( const ssim::ScdPeriods &scds )
     p.modify = ASTRA::finsert;
     TDestList dests;
     TDest curr, next;
+    TDateTime scd_out = ASTRA::NoExists;
     for (ssim::Legs::const_iterator ileg = scd.route.legs.begin(); ileg != scd.route.legs.end(); ++ileg)
     {
       const ssim::Leg &leg = *ileg;
@@ -497,11 +498,6 @@ void ScdPeriodsToDb( const ssim::ScdPeriods &scds )
       }
       EncodeTime( leg.s.dep.hours(), leg.s.dep.minutes(), 0, curr.scd_out );
       curr.scd_out = ConvertFlightDate( curr.scd_out, p.first, curr.airp, false, mtoUTC );
-      if (ileg == scd.route.legs.begin())
-      {
-        p.first += curr.scd_out;
-        p.last += curr.scd_out;
-      }
       curr.craft = ElemToElemId( etCraft, IdToCode(leg.aircraftType.get()), curr.craft_fmt );
       for (auto &cfg : leg.subclOrder.config())
         if (cfg.second)
@@ -515,7 +511,15 @@ void ScdPeriodsToDb( const ssim::ScdPeriods &scds )
       next.airp = ElemToElemId( etAirp, IdToCode(leg.s.to.get()), next.airp_fmt );
       EncodeTime( leg.s.arr.hours(), leg.s.arr.minutes(), 0, next.scd_in );
       next.scd_in = ConvertFlightDate( next.scd_in, p.first, next.airp, true, mtoUTC );
+      if (ileg == scd.route.legs.begin())
+      {
+        scd_out = curr.scd_out;
+      }
       dests.dests.push_back( curr );
+    }
+    if ( scd_out != ASTRA::NoExists ) {
+      p.first += scd_out;
+      p.last += scd_out;
     }
     next.airline.clear();
     next.trip = ASTRA::NoExists;

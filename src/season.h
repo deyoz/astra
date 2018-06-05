@@ -54,7 +54,7 @@ using BASIC::date_time::TDateTime;
       scd_in = ASTRA::NoExists;
       f = 0;
       c = 0;
-      y = -1;
+      y = 0;
       pr_del = 0;
     }
   };
