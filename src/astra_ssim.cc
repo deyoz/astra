@@ -489,7 +489,7 @@ void ScdPeriodsToDb( const ssim::ScdPeriods &scds )
       curr = next;
       curr.airline = ElemToElemId( etAirline, IdToCode(scd.flight.airline.get()), curr.airline_fmt );
       curr.trip = scd.flight.number.get();
-      curr.suffix = ElemToElemId( etSuffix, IntToString(scd.flight.suffix.get()), curr.suffix_fmt );
+      curr.suffix = ElemToElemId( etSuffix, suffixToString(scd.flight.suffix), curr.suffix_fmt );
       curr.airp = ElemToElemId( etAirp, IdToCode(leg.s.from.get()), curr.airp_fmt );
       if (first_airp)
       {
