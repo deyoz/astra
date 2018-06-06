@@ -3555,7 +3555,9 @@ xmlNodePtr XmlEntityViewer::viewDoc(xmlNodePtr node, const XmlPaxDoc& doc)
     NewTextChild(docNode, "gender",        doc.gender);
     NewTextChild(docNode, "surname",       doc.surname);
     NewTextChild(docNode, "first_name",    doc.first_name);
-    NewTextChild(docNode, "second_name",   doc.second_name);
+    if(!doc.second_name.empty()) {
+        NewTextChild(docNode, "second_name",   doc.second_name);
+    }
     return docNode;
 }
 
