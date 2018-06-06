@@ -1243,6 +1243,15 @@ boost::optional<edifact::RodElem> readEdiRod(_EDI_REAL_MES_STRUCT_ *pMes, unsign
     return rod;
 }
 
+static Dates::Date_t getDocExpiryDate(const std::string& ed)
+{
+    Dates::Date_t expiryDate = Dates::rrmmdd(ed);
+    if(expiryDate.year() == 2000) {
+        expiryDate += boost::gregorian::years(100);
+    }
+    return expiryDate;
+}
+
 boost::optional<edifact::PapElem> readEdiPap(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     EdiPointHolder pap_holder(pMes);
@@ -1253,6 +1262,9 @@ boost::optional<edifact::PapElem> readEdiPap(_EDI_REAL_MES_STRUCT_ *pMes)
     PapElem pap;
     pap.m_type         = GetDBFName(pMes, DataElement(6353), CompElement("C060"));
     pap.m_nationality  = GetDBFName(pMes, DataElement(3207), CompElement("C060"));
+    pap.m_surname      = GetDBFName(pMes, DataElement(3808), CompElement("C060"));
+    pap.m_name	       = GetDBFName(pMes, DataElement(3809), CompElement("C060"));
+    pap.m_otherName    = GetDBFName(pMes, DataElement(9754), CompElement("C060"));
 
     std::string birthDate  = GetDBFName(pMes, DataElement(9916), CompElement("C060"));
     if(!birthDate.empty()) {
@@ -1275,12 +1287,21 @@ boost::optional<edifact::PapElem> readEdiPap(_EDI_REAL_MES_STRUCT_ *pMes)
         papDoc.m_gender       = GetDBNum(pMes, DataElement(6353));
         papDoc.m_cityOfIssue  = GetDBNum(pMes, DataElement(3164));
         papDoc.m_surname      = GetDBNum(pMes, DataElement(3808));
+        if(papDoc.m_surname.empty()) {
+            papDoc.m_surname = pap.m_surname;
+        }
         papDoc.m_name         = GetDBNum(pMes, DataElement(3809));
+        if(papDoc.m_name.empty()) {
+            papDoc.m_name = pap.m_name;
+        }
         papDoc.m_otherName    = GetDBNum(pMes, DataElement(9754));
+        if(papDoc.m_otherName.empty()) {
+            papDoc.m_otherName = pap.m_otherName;
+        }
 
         std::string expiryDate = GetDBNum(pMes, DataElement(2380, 0));
         if(!expiryDate.empty()) {
-            papDoc.m_expiryDate = Dates::rrmmdd(expiryDate);
+            papDoc.m_expiryDate = getDocExpiryDate(expiryDate);
         }
 
         std::string issueDate = GetDBNum(pMes, DataElement(2380, 1));
@@ -1343,7 +1364,10 @@ boost::optional<edifact::UapElem> readEdiUap(_EDI_REAL_MES_STRUCT_ *pMes)
     uap.m_actionCode   = GetDBFName(pMes, DataElement(9858), CompElement("C031"));
     uap.m_type         = GetDBFName(pMes, DataElement(6353), CompElement("C060"));
     uap.m_nationality  = GetDBFName(pMes, DataElement(3207), CompElement("C060"));
-
+    uap.m_surname      = GetDBFName(pMes, DataElement(3808), CompElement("C060"));
+    uap.m_name         = GetDBFName(pMes, DataElement(3809), CompElement("C060"));
+    uap.m_otherName    = GetDBFName(pMes, DataElement(9754), CompElement("C060"));
+    
     std::string birthDate  = GetDBFName(pMes, DataElement(9916), CompElement("C060"));
     if(!birthDate.empty()) {
         uap.m_birthDate = Dates::DateFromYYMMDD(birthDate,
@@ -1365,12 +1389,21 @@ boost::optional<edifact::UapElem> readEdiUap(_EDI_REAL_MES_STRUCT_ *pMes)
         uapDoc.m_gender       = GetDBNum(pMes, DataElement(6353));
         uapDoc.m_cityOfIssue  = GetDBNum(pMes, DataElement(3164));
         uapDoc.m_surname      = GetDBNum(pMes, DataElement(3808));
+        if(uapDoc.m_surname.empty()) {
+            uapDoc.m_surname = uap.m_surname;
+        }
         uapDoc.m_name         = GetDBNum(pMes, DataElement(3809));
+        if(uapDoc.m_name.empty()) {
+            uapDoc.m_name = uap.m_name;
+        }
         uapDoc.m_otherName    = GetDBNum(pMes, DataElement(9754));
+        if(uapDoc.m_otherName.empty()) {
+            uapDoc.m_otherName = uap.m_otherName;
+        }
 
         std::string expiryDate = GetDBNum(pMes, DataElement(2380, 0));
         if(!expiryDate.empty()) {
-            uapDoc.m_expiryDate = Dates::rrmmdd(expiryDate);
+            uapDoc.m_expiryDate = getDocExpiryDate(expiryDate);
         }
 
         std::string issueDate = GetDBNum(pMes, DataElement(2380, 1));
