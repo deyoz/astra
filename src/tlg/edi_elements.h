@@ -1018,6 +1018,9 @@ struct PapElem
     std::string       m_type;
     Dates::Date_t     m_birthDate;
     std::string       m_nationality;
+    std::string       m_surname;
+    std::string       m_name;
+    std::string       m_otherName;
     std::list<PapDoc> m_docs;
 
     boost::optional<PapDoc> findVisa() const;

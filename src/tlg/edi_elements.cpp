@@ -434,7 +434,10 @@ std::ostream& operator<<(std::ostream &os, const PapElem &pap)
     os << "PAP: ";
     os << "type: " << pap.m_type << "; ";
     os << "birth date: " << pap.m_birthDate << "; ";
-    os << "nationality: " << pap.m_nationality << ";\n";
+    os << "nationality: " << pap.m_nationality << "; ";
+    os << "surname: " << pap.m_surname << "; ";
+    os << "name: " << pap.m_name << "; ";
+    os << "other name: " << pap.m_otherName << ";\n";
     for(const auto& papDoc: pap.m_docs) {
         os << "Doc: ";
         os << "qualifier: " << papDoc.m_docQualifier << "; ";
@@ -474,6 +477,9 @@ std::ostream& operator<<(std::ostream &os, const UapElem &uap)
     os << "type: " << uap.m_type << "; ";
     os << "birth date: " << uap.m_birthDate << "; ";
     os << "nationality: " << uap.m_nationality << "; ";
+    os << "surname: " << uap.m_surname << "; ";
+    os << "name: " << uap.m_name << "; ";
+    os << "other name: " << uap.m_otherName << ";\n";
     for(const auto& uapDoc: uap.m_docs) {
         os << "Doc: ";
         os << "qualifier: " << uapDoc.m_docQualifier << "; ";
