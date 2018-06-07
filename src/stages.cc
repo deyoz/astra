@@ -1057,26 +1057,11 @@ void Takeoff( int point_id )
 {
   add_trip_task(point_id, EMD_SYS_UPDATE, "");
 
-  time_t time_start,time_end;
+  deferOrExecuteFlightTask(TTripTaskKey(point_id, COLLECT_STAT, ""));
+  deferOrExecuteFlightTask(TTripTaskKey(point_id, SEND_TYPEB_ON_TAKEOFF, ""));
 
-  time_start=time(NULL);
-  try
-  {
-      map<string, long> stat_times;
-    get_flight_stat(stat_times, point_id, false);
-  }
-  catch(const EOracleError &E) {
-      ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
-      ProgError(STDLOG,"SQL: %s",E.SQLText());
-  }
-  catch(std::exception &E)
-  {
-    ProgError(STDLOG,"Takeoff.get_flight_stat (point_id=%d): %s",point_id,E.what());
-  };
-  time_end=time(NULL);
-  if (time_end-time_start>1)
-    ProgTrace(TRACE5,"Attention! get_flight_stat execute time: %ld secs, point_id=%d",
-                     time_end-time_start,point_id);
+
+  time_t time_start,time_end;
 
   time_start=time(NULL);
   try {
@@ -1084,19 +1069,9 @@ void Takeoff( int point_id )
   } catch(std::exception &E) {
       ProgError(STDLOG,"%s.TSyncTlgOutMng::sync_all (point_id=%d): %s",__FUNCTION__, point_id,E.what());
   }
-  try
-  {
-    vector<TypeB::TCreateInfo> createInfo;
-    TypeB::TTakeoffCreator(point_id).getInfo(createInfo);
-    TelegramInterface::SendTlg(createInfo);
-  }
-  catch(std::exception &E)
-  {
-    ProgError(STDLOG,"Takeoff.SendTlg (point_id=%d): %s",point_id,E.what());
-  };
   time_end=time(NULL);
   if (time_end-time_start>1)
-    ProgTrace(TRACE5,"Attention! TelegramInterface::SendTlg execute time: %ld secs, point_id=%d",
+    ProgTrace(TRACE5,"Attention! TSyncTlgOutMng::Instance()->sync_all execute time: %ld secs, point_id=%d",
                      time_end-time_start,point_id);
 
   time_start=time(NULL);
@@ -1125,6 +1100,8 @@ void Takeoff( int point_id )
   if (time_end-time_start>1)
     ProgTrace(TRACE5,"Attention! sync_checkin_data execute time: %ld secs, point_id=%d",
                      time_end-time_start,point_id);
+
+  time_start=time(NULL);
   try
   {
     sync_aodb( point_id );
@@ -1138,6 +1115,7 @@ void Takeoff( int point_id )
     ProgTrace(TRACE5,"Attention! sync_aodb execute time: %ld secs, point_id=%d",
                      time_end-time_start,point_id);
 
+  time_start=time(NULL);
   try
   {
     create_mintrans_file(point_id);
@@ -1146,6 +1124,10 @@ void Takeoff( int point_id )
   {
     ProgError(STDLOG,"Takeoff.create_mintrans_file (point_id=%d): %s",point_id,E.what());
   };
+  time_end=time(NULL);
+  if (time_end-time_start>1)
+    ProgTrace(TRACE5,"Attention! create_mintrans_file execute time: %ld secs, point_id=%d",
+                     time_end-time_start,point_id);
 
   time_start=time(NULL);
   try

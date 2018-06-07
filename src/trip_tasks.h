@@ -9,6 +9,8 @@
 
 using BASIC::date_time::TDateTime;
 
+const std::string all_other_handler_id="all_other";
+
 const std::string US_CUSTOMS_CODE="ûë";
 const std::string TR_CUSTOMS_CODE="íê";
 const std::string BEFORE_TAKEOFF_30="Takeoff -30";
@@ -27,6 +29,8 @@ const std::string EMD_TRY_BIND="EMD_TRY_BIND";
 const std::string EMD_SYS_UPDATE="EMD_SYS_UPDATE";
 const std::string SEND_NEW_APPS_INFO="SEND_NEW_APPS_INFO";
 const std::string SEND_ALL_APPS_INFO="SEND_ALL_APPS_INFO";
+const std::string COLLECT_STAT="COLLECT_STAT";
+const std::string SEND_TYPEB_ON_TAKEOFF="SEND_TYPEB_ON_TAKEOFF";
 
 class TTripTaskKey
 {
@@ -42,6 +46,24 @@ class TTripTaskKey
     std::string traceStr() const;
 };
 
+struct TTripTasks {
+    std::map<std::string, void (*)(const TTripTaskKey&)> items;
+    TTripTasks();
+    static TTripTasks *Instance();
+};
+
+class TaskState
+{
+  public:
+    enum Enum {Add, Update, Delete, Done};
+};
+
+void taskToLog(
+        const TTripTaskKey& task,
+        TaskState::Enum ts,
+        TDateTime next_exec,
+        TDateTime new_next_exec = ASTRA::NoExists);
+
 std::ostream& operator<<(std::ostream& os, const TTripTaskKey& task);
 
 void add_trip_task(int point_id,
@@ -52,7 +74,6 @@ void add_trip_task(const TTripTaskKey &task,
                    TDateTime new_next_exec=ASTRA::NoExists);
 void remove_trip_task(const TTripTaskKey &task);
 
-void check_trip_tasks();
 #define CALL_POINT (string)__FILE__ + ":" +  IntToString(__LINE__)
 
 class ChangeTrip
@@ -108,6 +129,8 @@ class TSyncTlgOutMng {
         void sync_by_type(const std::string &type, int point_id);
         void add_tasks(std::map<std::string, void (*)(const TTripTaskKey&)> &items);
 };
+
+void deferOrExecuteFlightTask(const TTripTaskKey& task);
 
 #endif
 

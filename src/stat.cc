@@ -11125,6 +11125,30 @@ void get_flight_stat(map<string, long> &stat_times, int point_id, bool final_col
    TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);
 };
 
+void collectStatTask(const TTripTaskKey &task)
+{
+  LogTrace(TRACE5) << __FUNCTION__ << ": " << task;
+
+  time_t time_start=time(NULL);
+  try
+  {
+    map<string, long> stat_times;
+    get_flight_stat(stat_times, task.point_id, false);
+  }
+  catch(const EOracleError &E) {
+    ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
+    ProgError(STDLOG,"SQL: %s",E.SQLText());
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"%s (point_id=%d): %s", __FUNCTION__, task.point_id, E.what());
+  };
+  time_t time_end=time(NULL);
+  if (time_end-time_start>1)
+    ProgTrace(TRACE5,"Attention! %s execute time: %ld secs, point_id=%d",
+                     __FUNCTION__, time_end-time_start, task.point_id);
+}
+
 string getCountry(int point_id, TDateTime part_key, TDateTime &scd_in, TDateTime &scd_out, string &airp)
 {
     QParams QryParams;

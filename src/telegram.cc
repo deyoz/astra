@@ -27,7 +27,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 #define ENDL "\015\012"
 
@@ -2277,4 +2277,25 @@ void TTlgStat::putTypeBOut(const int queue_tlg_id,
   Qry.CreateVariable("extra", otString, extra);
   Qry.Execute();
 };
+
+void sendTypeBOnTakeoffTask(const TTripTaskKey &task)
+{
+  LogTrace(TRACE5) << __FUNCTION__ << ": " << task;
+
+  time_t time_start=time(NULL);
+  try
+  {
+    vector<TypeB::TCreateInfo> createInfo;
+    TypeB::TTakeoffCreator(task.point_id).getInfo(createInfo);
+    TelegramInterface::SendTlg(createInfo);
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"%s (point_id=%d): %s", __FUNCTION__, task.point_id, E.what());
+  };
+  time_t time_end=time(NULL);
+  if (time_end-time_start>1)
+    ProgTrace(TRACE5,"Attention! %s execute time: %ld secs, point_id=%d",
+                     __FUNCTION__, time_end-time_start, task.point_id);
+}
 

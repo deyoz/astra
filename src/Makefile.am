@@ -98,6 +98,7 @@ astra_SOURCES = \
   external_spp_synch.cc \
   ffp_sirena.cc \
   flt_binding.cc \
+  flt_tasks_daemon.cc \
   file_queue.cc \
   hist.cc \
   http_io.cpp \
@@ -108,8 +109,7 @@ astra_SOURCES = \
   locale.cc \
   libra.cc \
   maindcs.cc \
-  meridian.cc \
-  msg_handler.cc \
+  meridian.cc \  
   msg_queue.cc \
   obrnosir.cc \
   passenger.cc \
@@ -163,9 +163,7 @@ astra_SOURCES = \
   iatci_help.cc \
   iatci_settings.cc \
   TypeBHelpMng.cpp \
-  astra_msg.cc \
-  Depeches.cpp \
-  AsyncNet.cpp \
+  astra_msg.cc \  
   img.cpp \
   astra_api.cc \
   astra_date_time.cpp \
@@ -357,9 +355,7 @@ noinst_HEADERS = \
   iatci_settings.h \
   iatci.h \
   TypeBHelpMng.h \
-  astra_msg.h \
-  Depeches.hpp \
-  AsyncNet.hpp \
+  astra_msg.h \  
   img.h \
   astra_iface.h \
   astra_api.h \

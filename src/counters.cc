@@ -595,6 +595,17 @@ const TCounters &TCounters::recount(const CheckIn::TPaxGrpItem& grp,
   return *this;
 }
 
+int TCounters::totalRegisteredPassengers(int point_id)
+{
+  TCachedQuery Qry("SELECT SUM(tranzit)+SUM(ok)+SUM(goshow)+ "
+                   "       SUM(jmp_tranzit)+SUM(jmp_ok)+SUM(jmp_goshow) AS reg FROM counters2 "
+                   "WHERE point_dep=:point_id",
+                   QParams() << QParam("point_id", otInteger, point_id));
+  Qry.get().Execute();
+  if (Qry.get().Eof) return 0;
+  return Qry.get().FieldAsInteger("reg");
+}
+
 } //namespace CheckIn
 
 #include <serverlib/EdiHelpManager.h>
