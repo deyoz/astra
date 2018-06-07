@@ -211,6 +211,7 @@ class TCounters
                              const TSimplePaxList& prior_paxs,
                              const TSimplePaxList& curr_paxs,
                              const std::string& whence);
+    static int totalRegisteredPassengers(int point_id);
 };
 
 } //namespace CheckIn

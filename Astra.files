@@ -60,8 +60,6 @@ src/astra_tick_view_xml.h
 src/astra_ticket.h
 src/astra_utils.cc
 src/astra_utils.h
-src/AsyncNet.cpp
-src/AsyncNet.hpp
 src/baggage.cc
 src/baggage.h
 src/baggage_base.cc
@@ -100,8 +98,6 @@ src/counters.cc
 src/counters.h
 src/crypt.cc
 src/crypt.h
-src/Depeches.cpp
-src/Depeches.hpp
 src/dev_consts.cc
 src/dev_consts.h
 src/dev_tuning.cc
@@ -132,6 +128,7 @@ src/file_queue.cc
 src/file_queue.h
 src/flt_binding.cc
 src/flt_binding.h
+src/flt_tasks_daemon.cc
 src/httpClient.cc
 src/httpClient.h
 src/http_io.cpp
@@ -147,7 +144,6 @@ src/maindcs.cc
 src/maindcs.h
 src/meridian.cc
 src/meridian.h
-src/msg_handler.cc
 src/msg_queue.cc
 src/msg_queue.h
 src/obrnosir.cc
