@@ -3247,7 +3247,11 @@ void ReadTripInfo( int trip_id, vector<TViewPeriod> &viewp, xmlNodePtr reqNode )
 
 void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    throwOnScheduleLock();
+  throwOnScheduleLock();
+  if ( TReqInfo::Instance()->user.access.airlines().totally_permitted() &&
+       TReqInfo::Instance()->user.access.airps().totally_permitted() ) {
+     throw UserException( "MSG.SET_LEVEL_PERMIT" );
+  }
 
   map<int,TDestList> mapds;
   TReqInfo *reqInfo = TReqInfo::Instance();

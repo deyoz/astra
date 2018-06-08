@@ -2167,11 +2167,12 @@ void IntReadTrips( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode,
 {
 //  createCentringFile( 13672, "ASTRA", "DMDTST" );
   ProgTrace( TRACE5, "ReadTrips" );
+  if ( TReqInfo::Instance()->user.access.airlines().totally_permitted() &&
+       TReqInfo::Instance()->user.access.airps().totally_permitted() ) {
+     throw UserException( "MSG.SET_LEVEL_PERMIT" );
+  }
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   TModule module;
-
-  bool pr_verify_new_select = true;//new select GetNode( "pr_verify_new_select", reqNode );
-  ProgTrace( TRACE5, "pr_verify_new_select=%d", pr_verify_new_select );
 
   if ( GetNode( "disp_isg", reqNode ) )
     module = tISG;
@@ -2214,13 +2215,7 @@ void IntReadTrips( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode,
     next_date = NoExists;
   }
   TSOPPTrips trips;
-  string errcity;
-  if ( pr_verify_new_select ) {
-    string errcity = internal_ReadData_N( trips, first_date, next_date, arx, module, exec_time );
-  }
-  else {
-    errcity = internal_ReadData( trips, first_date, next_date, arx, module, exec_time );
-  }
+  string errcity = internal_ReadData_N( trips, first_date, next_date, arx, module, exec_time );
   if ( module == tISG )
     buildISG( trips, errcity, dataNode );
   else
