@@ -289,6 +289,7 @@ class TDoubleTrip
 enum TConvert { mtoUTC, mtoLocal };
 
 TDateTime ConvertFlightDate( TDateTime time, TDateTime first, const std::string &airp, bool pr_arr, TConvert convert );
+bool ConvertPeriodToLocal( TDateTime &first, TDateTime &last, string &days, const string &tz_region, string &err_tz_region );
 
 
 

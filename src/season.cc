@@ -1470,7 +1470,7 @@ TDateTime ConvertFlightDate( TDateTime time, TDateTime first, const std::string 
   if ( time > NoExists ) {
     f2 = modf( (double)time, &f3 );
     f3 += first_day + fabs( f2 );
-    ProgTrace( TRACE5, "scd_out=%s, region=%s, airp=%s",DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str(), region.c_str(), airp.c_str() );
+    ProgTrace( TRACE5, "scd=%s, region=%s, airp=%s",DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str(), region.c_str(), airp.c_str() );
     if ( convert == mtoLocal ) {
       try {
         f2 = modf( (double)UTCToClient( f3, region ), &f3 );
@@ -1489,18 +1489,21 @@ TDateTime ConvertFlightDate( TDateTime time, TDateTime first, const std::string 
         f2 = modf( (double)ClientToUTC( f3 + 1, region ) - 1, &f3 );
       }
       catch( boost::local_time::time_label_invalid ) {
-        throw AstraLocale::UserException( pr_arr?"ARV_TIME_FOR_POINT_NOT_EXISTS":"MSG.DEP_TIME_FOR_POINT_NOT_EXISTS",
+        throw AstraLocale::UserException( pr_arr?"MSG.ARV_TIME_FOR_POINT_NOT_EXISTS":"MSG.DEP_TIME_FOR_POINT_NOT_EXISTS",
                 LParams() << LParam("airp", ElemIdToCodeNative(etAirp,airp)) << LParam("time", DateTimeToStr( first, "dd.mm" )));
       }
     }
-    ProgTrace( TRACE5, "trunc(scd_out)=%s, time=%s",
+    ProgTrace( TRACE5, "trunc(scd)=%s, time=%s",
                DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str(),
                DateTimeToStr( f2, "dd.mm.yyyy hh:nn:ss" ).c_str() );
     if ( f3 < utcFirst )
       val = f3 - utcFirst - f2;
     else
       val = f3 - utcFirst + f2;
-    ProgTrace( TRACE5, "utc scd_out=%s",DateTimeToStr( val, "dd.mm.yyyy hh:nn:ss" ).c_str() );
+    if (convert == mtoUTC)
+      ProgTrace( TRACE5, "utc scd=%s",DateTimeToStr( val, "dd.mm.yyyy hh:nn:ss" ).c_str() );
+    else
+      ProgTrace( TRACE5, "local scd=%s",DateTimeToStr( val, "dd.mm.yyyy hh:nn:ss" ).c_str() );
   }
   return val;
 }
