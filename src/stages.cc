@@ -21,6 +21,7 @@
 #include "stat.h"
 #include "apps_interaction.h"
 #include "etick.h"
+#include "counters.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -1057,8 +1058,9 @@ void Takeoff( int point_id )
 {
   add_trip_task(point_id, EMD_SYS_UPDATE, "");
 
-  deferOrExecuteFlightTask(TTripTaskKey(point_id, COLLECT_STAT, ""));
-  deferOrExecuteFlightTask(TTripTaskKey(point_id, SEND_TYPEB_ON_TAKEOFF, ""));
+  int paxCount=CheckIn::TCounters::totalRegisteredPassengers(point_id);
+  deferOrExecuteFlightTask(TTripTaskKey(point_id, COLLECT_STAT, ""), paxCount);
+  deferOrExecuteFlightTask(TTripTaskKey(point_id, SEND_TYPEB_ON_TAKEOFF, ""), paxCount);
 
 
   time_t time_start,time_end;

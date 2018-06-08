@@ -890,10 +890,8 @@ TSyncTlgOutMng::TSyncTlgOutMng()
     items.insert(make_pair(SLS_FWD, sync_trip_tasks<TSLSFwdTripTask>));
 }
 
-static bool isDefferedFlightTask(const TTripTaskKey& task)
+static bool isDefferedFlightTask(const TTripTaskKey& task, int paxCount)
 {
-  int paxCount=CheckIn::TCounters::totalRegisteredPassengers(task.point_id);
-
   TQuery Qry(&OraSession);
   Qry.SQLText = "SELECT min_pax_count FROM deffered_flt_tasks WHERE task_name=:task_name";
   Qry.CreateVariable("task_name", otString, task.name);
@@ -902,9 +900,9 @@ static bool isDefferedFlightTask(const TTripTaskKey& task)
   return paxCount>=Qry.FieldAsInteger("min_pax_count");
 }
 
-void deferOrExecuteFlightTask(const TTripTaskKey& task)
+void deferOrExecuteFlightTask(const TTripTaskKey& task, int paxCount)
 {
-  if (isDefferedFlightTask(task))
+  if (isDefferedFlightTask(task, paxCount))
     add_trip_task(task);
   else
   {

@@ -129,7 +129,7 @@ class TSyncTlgOutMng {
         void add_tasks(std::map<std::string, void (*)(const TTripTaskKey&)> &items);
 };
 
-void deferOrExecuteFlightTask(const TTripTaskKey& task);
+void deferOrExecuteFlightTask(const TTripTaskKey& task, int paxCount);
 
 #endif
 
