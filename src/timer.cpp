@@ -31,7 +31,6 @@
 #include "serverlib/EdiHelpManager.h"
 #include "qrys.h"
 #include "points.h"
-#include "trip_tasks.h"
 #include "stat.h"
 #include "edi_utils.h"
 #include "http_io.h"
@@ -183,8 +182,6 @@ void exec_tasks( const char *proc_name, int argc, char *argv[] )
       if ( name == "utg" ) utg();
       else
       if ( name == "utg_prl" ) utg_prl();
-      else
-      if ( name == "check_trip_tasks" ) check_trip_tasks();
       else
       if ( name == "sync_fids" ) sync_fids_data();
 /*	  else

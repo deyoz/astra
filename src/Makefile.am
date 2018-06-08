@@ -97,6 +97,7 @@ astra_SOURCES = \
   external_spp_synch.cc \
   ffp_sirena.cc \
   flt_binding.cc \
+  flt_tasks_daemon.cc \
   file_queue.cc \
   hist.cc \
   http_io.cpp \
