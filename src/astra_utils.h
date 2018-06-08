@@ -232,6 +232,7 @@ class TAccessElems
       else
         return _elems.find(elem)==_elems.end();
     }
+    bool totally_permitted() const { return _elems.empty() && !_elems_permit; }
     bool totally_not_permitted() const { return _elems.empty() && _elems_permit; }
     bool only_single_permit() const { return _elems.size()==1 && _elems_permit; }
     bool operator==(const TAccessElems<T>& e) const
