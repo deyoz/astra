@@ -1862,6 +1862,14 @@ void TPaxListItem::checkImportantRems(bool new_checkin, ASTRA::TPaxStatus grp_st
   };
 }
 
+int TPaxListItem::getExistingPaxIdOrSwear() const
+{
+  int pax_id=(pax.id==ASTRA::NoExists?generated_pax_id:pax.id);
+  if (pax_id==ASTRA::NoExists)
+    throw EXCEPTIONS::Exception("%s: strange situation!", __FUNCTION__);
+  return pax_id;
+}
+
 int TPaxList::getBagPoolMainPaxId(int bag_pool_num) const
 {
   if (bag_pool_num==ASTRA::NoExists) return ASTRA::NoExists;

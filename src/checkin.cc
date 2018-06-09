@@ -3623,12 +3623,6 @@ void CheckIn::TAfterSaveInfoList::handle(TAfterSaveInfoData& data, const string&
   }
 }
 
-struct TSegListItem
-{
-  TTripInfo flt;
-  CheckIn::TPaxGrpItem grp;
-  CheckIn::TPaxList paxs;
-};
 typedef list<TSegListItem> TSegList;
 
 void GetInboundGroupBag(const InboundTrfer::TNewGrpInfo &inbound_trfer,
@@ -4907,20 +4901,15 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       CheckIn::TServicePaymentList paymentBefore;
       CheckIn::TServicePaymentListWithAuto paymentBeforeWithAuto;
       bool first_pax_on_flight = false;
-      bool pr_do_check_wait_list_alarm = true;
-      std::set<int> paxs_external_logged;
+      string wl_type;
 
       timing.finish("Check", grp.point_dep);
 
       if (new_checkin)
       {
-        SALONS2::TSalonList salonList;
-        SALONS2::TAutoSeats autoSeats;
-
         //новая регистрация
-        string wl_type=NodeAsString("wl_type",segNode);
+        wl_type=NodeAsString("wl_type",segNode);
         int first_reg_no=NoExists;
-        bool pr_lat_seat=false;
         if (!pr_unaccomp)
         {
           timing.start("CheckCounters", grp.point_dep);
@@ -4996,169 +4985,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           }
 
           timing.finish("CheckCounters", grp.point_dep);
-
-          timing.start("SeatsPassengers", grp.point_dep);
-          if (wl_type.empty() && grp.status!=psCrew)
-          {
-            //группа регистрируется не на лист ожидания
-
-            //разметка детей по взрослым
-            vector<TInfantAdults> InfItems, AdultItems;
-            Qry.Clear();
-            Qry.SQLText = "SELECT pax_id FROM crs_inf WHERE inf_id=:inf_id";
-            Qry.DeclareVariable("inf_id", otInteger);
-            for(int k=0;k<=1;k++)
-            {
-              int pax_no=1;
-              for(CheckIn::TPaxList::const_iterator p=paxs.begin(); p!=paxs.end(); ++p,pax_no++)
-              {
-                const CheckIn::TPaxItem &pax=p->pax;
-                if ((pax.seats<=0&&k==0)||(pax.seats>0&&k==1)) continue;
-                TInfantAdults pass;       // infant из таблицы crs_pax, pax, crs_inf
-                pass.grp_id = 1;
-                if ( pax.id!=NoExists )
-                  pass.pax_id = pax.id; //NULL - не из бронирования - norec
-                else
-                  pass.pax_id = 0 - pax_no; // для уникальности
-                pass.reg_no = pax_no;
-                pass.surname = pax.surname;
-                if (pax.seats<=0)
-                {
-                  // без места
-                  if ( pax.id!=NoExists )
-                  {
-                    Qry.SetVariable("inf_id", pax.id);
-                    Qry.Execute();
-                    if ( !Qry.Eof )
-                      pass.parent_pax_id = Qry.FieldAsInteger( "pax_id" );
-                  }
-                  InfItems.push_back( pass );
-                }
-                else
-                {
-                  if (pax.pers_type == ASTRA::adult) AdultItems.push_back( pass );
-                }
-              }
-            }
-
-            SALONS2::TSeatTariffMap tariffMap;
-            //ProgTrace( TRACE5, "InfItems.size()=%zu, AdultItems.size()=%zu", InfItems.size(), AdultItems.size() );
-            SetInfantsToAdults( InfItems, AdultItems );
-            SEATS2::Passengers.Clear();
-            SEATS2::TSublsRems subcls_rems( fltInfo.airline );
-            salonList.ReadFlight( SALONS2::TFilterRoutesSets( grp.point_dep, grp.point_arv ), grp.cl, ASTRA::NoExists );
-            //заполним массив для рассадки
-            for(int k=0;k<=1;k++)
-            {
-              int pax_no=1;
-              for(CheckIn::TPaxList::const_iterator p=paxs.begin(); p!=paxs.end(); ++p,pax_no++)
-              {
-                const CheckIn::TPaxItem &pax=p->pax;
-                try
-                {
-                  if (pax.seats<=0||(pax.seats>0&&k==1)) continue;
-                  if (pax.is_jmp) continue;
-                  SEATS2::TPassenger pas;
-
-                  pas.clname=grp.cl;
-                  int pax_id;
-                  if ( pax.id!=NoExists ) {
-                    pax_id = pax.id; //NULL - не из бронирования - norec
-                  }
-                  else {
-                    pax_id = 0 - pax_no; // для уникальности
-                  }
-                  pas.paxId = pax_id;
-                  switch ( grp.status )  {
-                    case psCheckin:
-                        pas.grp_status = cltCheckin;
-                        break;
-                    case psTCheckin:
-                        pas.grp_status = cltTCheckin;
-                          break;
-                      case psTransit:
-                        pas.grp_status = cltTranzit;
-                        break;
-                      case psGoshow:
-                        pas.grp_status = cltGoShow;
-                        break;
-                    case psCrew:
-                      throw EXCEPTIONS::Exception("SavePax: Not applied for crew");
-                  }
-                  pas.preseat_no=pax.seat_no; // crs or hand made
-                  pas.countPlace=pax.seats;
-                  pas.is_jmp=pax.is_jmp;
-                  pas.placeRem=pax.seat_type;
-                  pas.pers_type = EncodePerson(pax.pers_type);
-                  bool flagCHIN=pax.pers_type != ASTRA::adult;
-                  bool flagINFT = false;
-                  for(multiset<CheckIn::TPaxRemItem>::const_iterator r=p->rems.begin(); r!=p->rems.end(); ++r)
-                  {
-                    if (r->code=="BLND" ||
-                        r->code=="STCR" ||
-                        r->code=="UMNR" ||
-                        r->code=="WCHS" ||
-                        r->code=="MEDA") flagCHIN=true;
-                    pas.add_rem(r->code);
-                  }
-                  string pass_rem;
-                  if ( subcls_rems.IsSubClsRem( pax.subcl, pass_rem ) )  pas.add_rem(pass_rem);
-                  if ( AdultsWithBaby( pax_id, InfItems ) ) {
-                    flagCHIN = true;
-                    flagINFT = true;
-                  }
-                  if ( flagCHIN ) {
-                    pas.add_rem("CHIN");
-                  }
-                  if ( flagINFT ) {
-                    pas.add_rem("INFT");
-                  }
-
-                  //здесь набираем
-                  if ( SALONS2::selfckin_client() ) {
-                    tariffMap.get_rfisc_colors( fltAdvInfo.airline );
-                    SALONS2::TSelfCkinSalonTariff SelfCkinSalonTariff;
-                    SelfCkinSalonTariff.setTariffMap( grp.point_dep, tariffMap );
-                  }
-                  else {
-                    tariffMap.get(fltAdvInfo, markFltInfo, pax.tkn);
-                  }
-                  pas.tariffs=tariffMap;
-                  pas.tariffStatus = tariffMap.status();
-                  tariffMap.trace(TRACE5);
-
-                  pas.dont_check_payment = pax.dont_check_payment;
-
-                  SEATS2::Passengers.Add(salonList,pas);
-                }
-                catch(CheckIn::UserException)
-                {
-                  throw;
-                }
-                catch(UserException &e)
-                {
-                  if (pax.id!=NoExists)
-                    throw CheckIn::UserException(e.getLexemaData(), grp.point_dep, pax.id);
-                  else
-                    throw;
-                }
-              }
-            }
-
-            //определим алгоритм рассадки
-            SEATS2::TSeatAlgoParams algo=SEATS2::GetSeatAlgo(Qry,fltInfo.airline,fltInfo.flt_no,fltInfo.airp);
-            boost::posix_time::ptime mst1 = boost::posix_time::microsec_clock::local_time();
-            //рассадка
-            SEATS2::SeatsPassengers( salonList, algo, reqInfo->client_type, SEATS2::Passengers, autoSeats );
-            pr_do_check_wait_list_alarm = salonList.check_waitlist_alarm_on_tranzit_routes( autoSeats );
-            //!!! иногда True - возможна рассадка на забронированные места, когда
-            // есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места
-            pr_lat_seat=salonList.isCraftLat();
-            boost::posix_time::ptime mst2 = boost::posix_time::microsec_clock::local_time();
-            LogTrace(TRACE5) << "SeatsPassengers: " << boost::posix_time::time_duration(mst2 - mst1).total_milliseconds() << " msecs";
-          } //if (wl_type.empty())
-
-          timing.finish("SeatsPassengers", grp.point_dep);
 
           timing.start("RegNoGenerator", grp.point_dep);
 
@@ -5407,11 +5233,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           Qry.DeclareVariable("ticket_confirm",otInteger);
           Qry.DeclareVariable("subclass",otString);
           Qry.DeclareVariable("bag_pool_num",otInteger);
-          int i=0;
-          bool change_agent_seat_no = false;
-          bool change_preseat_no = false;
-          bool exists_preseats = false; //есть ли у группы пассажиров предварительные места
-          bool invalid_seat_no = false; //есть запрещенные места
           for(int k=0;k<=1;k++)
           {
             int pax_no=1;
@@ -5468,98 +5289,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 if (pax.id==NoExists) {
                     p->generated_pax_id=pax_id; //заполняется только при первоначальной регистрации (new_checkin) и только для NOREC
                 }
-
-                if (wl_type.empty() && grp.status!=psCrew)
-                {
-                  //запись номеров мест
-                  if (pax.seats>0 && !pax.is_jmp && i<SEATS2::Passengers.getCount())
-                  {
-                    SEATS2::TPassenger pas = SEATS2::Passengers.Get(i);
-                    ProgTrace( TRACE5, "pas.pax_id=%d, pax.id=%d, pax_id=%d", pas.paxId, pax.id, pax_id );
-                    for ( SALONS2::TAutoSeats::iterator iseat=autoSeats.begin();
-                          iseat!=autoSeats.end(); iseat++ ) {
-                      ProgTrace( TRACE5, "pas.paxId=%d, iseat->pax_id=%d, pax_id=%d",
-                                 pas.paxId, iseat->pax_id, pax_id );
-                      if ( pas.paxId == iseat->pax_id ) {
-                        iseat->pax_id = pax_id;
-                        break;
-                      }
-                    }
-                    paxs_external_logged.insert( pax_id );
-
-                    if ( pas.preseat_pax_id > 0 )
-                      exists_preseats = true;
-                    if ( !pas.isValidPlace )
-                      invalid_seat_no = true;
-
-                    if (pas.seat_no.empty()) throw EXCEPTIONS::Exception("SeatsPassengers: empty seat_no");
-                        string pas_seat_no;
-                        bool pr_found_preseat_no = false;
-                        bool pr_found_agent_no = false;
-                        for( std::vector<TSeat>::iterator iseat=pas.seat_no.begin(); iseat!=pas.seat_no.end(); iseat++ ) {
-                          pas_seat_no = iseat->denorm_view(pr_lat_seat);
-                        if ( pas_seat_no == pas.preseat_no ) {
-                          pr_found_preseat_no = true;
-                        }
-                        if ( pas_seat_no == pax.seat_no )
-                          pr_found_agent_no = true;
-                      }
-                      if ( !pax.seat_no.empty() &&
-                           !pr_found_agent_no ) {
-                        change_agent_seat_no = true;
-                      }
-                      if ( pas.preseat_pax_id > 0 &&
-                           !pas.preseat_no.empty() && !pr_found_preseat_no ) {
-                        change_preseat_no = true;
-                      }
-
-                    TSeatRanges ranges;
-                    for(vector<TSeat>::iterator iSeat=pas.seat_no.begin();iSeat!=pas.seat_no.end();iSeat++)
-                    {
-                      TSeatRange range(*iSeat,*iSeat);
-                      ranges.push_back(range);
-                    }
-                    ProgTrace( TRACE5, "ranges.size=%zu", ranges.size() );
-                    //запись в базу
-                    TCompLayerType layer_type = cltCheckin;
-                    switch( grp.status ) {
-                        case psCheckin:
-                            layer_type = cltCheckin;
-                            break;
-                        case psTCheckin:
-                            layer_type = cltTCheckin;
-                            break;
-                        case psGoshow:
-                            layer_type = cltGoShow;
-                            break;
-                        case psTransit:
-                            layer_type = cltTranzit;
-                            break;
-                      case psCrew:
-                        throw EXCEPTIONS::Exception("SavePax: Not applied for crew");
-                    }
-                    SEATS2::SaveTripSeatRanges( grp.point_dep, layer_type, ranges, pax_id, grp.point_dep, grp.point_arv, NowUTC() );
-                    TPointIdsForCheck point_ids_spp; //!!!DJEK
-                    point_ids_spp.insert( make_pair( grp.point_dep, ASTRA::cltProtSelfCkin ) ); //!!!DJEK
-                    DeleteTlgSeatRanges( ASTRA::cltProtSelfCkin , pax_id, pas.tid, point_ids_spp ); //!!!DJEK
-                    point_ids_spp.clear();
-                    point_ids_spp.insert( make_pair( grp.point_dep, ASTRA::cltProtBeforePay ) ); //!!!DJEK
-                    DeleteTlgSeatRanges( ASTRA::cltProtBeforePay , pax_id, pas.tid, point_ids_spp ); //!!!DJEK
-
-                    if ( !pr_do_check_wait_list_alarm ) {
-                      autoSeats.WritePaxSeats( grp.point_dep, pax_id );
-                    }
-                    i++;
-                  }
-                  if ( invalid_seat_no )
-                      AstraLocale::showErrorMessage("MSG.SEATS.PASSENGERS_FORBIDDEN_PLACES");
-                  else
-                        if ( change_agent_seat_no && exists_preseats && !change_preseat_no )
-                        AstraLocale::showErrorMessage("MSG.SEATS.PASSENGERS_PRESEAT_PLACES");
-                    else
-                      if ( change_agent_seat_no || change_preseat_no )
-                              AstraLocale::showErrorMessage("MSG.SEATS.PART_REQUIRED_PLACES_NOT_AVAIL");
-                } //wl_type.empty()
 
                 //запись pax_doc
                 if (pax.DocExists) CheckIn::SavePaxDoc(pax_id,pax.doc,PaxDocQry);
@@ -6247,40 +5976,32 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         EMDStatusInterface::EMDCheckStatus(grp.id, paymentBeforeWithAuto, ChangeStatusInfo.EMD);
       }
 
+      bool rollbackGuaranteed = needSyncEdsEts(ediResNode) && !ChangeStatusInfo.empty();
+
       timing.finish("ETProcessing", grp.point_dep);
 
-      timing.start("check_waitlist_alarm_on_tranzit_routes", grp.point_dep);
-
-      if (!pr_unaccomp && grp.status!=psCrew)
+      if (!rollbackGuaranteed)
       {
-        //!!!только для регистрации пассажиров
-        //определяет по местам пассажиров нужно ли делать перерасчет тревоги ЛО и
-        //если нужно делает перерасчет
-        if ( pr_do_check_wait_list_alarm ) {
-          SALONS2::check_waitlist_alarm_on_tranzit_routes( grp.point_dep, paxs_external_logged, __FUNCTION__ );
-        }
+        timing.start("SeatsPassengers", grp.point_dep);
+        if (new_checkin && !pr_unaccomp && wl_type.empty() && grp.status!=psCrew)
+          CheckIn::seatingWhenNewCheckIn(*iSegListItem, fltAdvInfo, markFltInfo);
+        timing.finish("SeatsPassengers", grp.point_dep);
       }
 
-      timing.finish("check_waitlist_alarm_on_tranzit_routes", grp.point_dep);
-
-      timing.start("GetGrpToLogInfo", grp.point_dep);
-
-      if (ChangeStatusInfo.empty())
+      if (!rollbackGuaranteed)
       {
+        timing.start("GetGrpToLogInfo", grp.point_dep);
         //записываем в лог только если не будет отката транзакции из-за обращения к СЭБ
         GetGrpToLogInfo(grp.id, grpInfoAfter);
+        timing.finish("GetGrpToLogInfo", grp.point_dep);
       }
 
-      timing.finish("GetGrpToLogInfo", grp.point_dep);
-
-      timing.start("sync_pax_grp", grp.point_dep);
-
-      if (!pr_unaccomp)
+      if (!rollbackGuaranteed && !pr_unaccomp)
       {
+        timing.start("sync_pax_grp", grp.point_dep);
         rozysk::sync_pax_grp(grp.id, reqInfo->desk.code, reqInfo->user.descr);
+        timing.finish("sync_pax_grp", grp.point_dep);
       }
-
-      timing.finish("sync_pax_grp", grp.point_dep);
 
       timing.start("check_grp", grp.point_dep);
 
@@ -6301,15 +6022,18 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       timing.finish("recount", grp.point_dep);
 
-      timing.start("annul_bt_after", grp.point_dep);
+      if (!rollbackGuaranteed)
+      {
+        timing.start("annul_bt_after", grp.point_dep);
 
-      TAnnulBT annul_bt_after;
-      annul_bt_after.get(grp.id);
-      annul_bt.minus(annul_bt_after);
+        TAnnulBT annul_bt_after;
+        annul_bt_after.get(grp.id);
+        annul_bt.minus(annul_bt_after);
 
-      annul_bt.toDB();
+        annul_bt.toDB();
 
-      timing.finish("annul_bt_after", grp.point_dep);
+        timing.finish("annul_bt_after", grp.point_dep);
+      }
 
       timing.start("overload_alarm", grp.point_dep);
 
@@ -6378,7 +6102,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       timing.finish("overload_alarm", grp.point_dep);
 
-      timing.start("other_alarms", grp.point_dep);
+      timing.start("getSubclassGroup", grp.point_dep);
 
       if (!pr_unaccomp && grp.status!=psCrew)
       {
@@ -6421,32 +6145,48 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           Qry.CreateVariable("class_grp",otInteger,subclass_grp.get().value());
           Qry.Execute();
         }
-        //вычисляем и записываем признак waitlist_alarm и brd_alarm и spec_service_alarm
-        TTripAlarmHook::set(Alarm::Brd, grp.point_dep);
-        check_spec_service_alarm( grp.point_dep );
-        TTripAlarmHook::set(Alarm::UnboundEMD, grp.point_dep);
-        check_conflict_trfer_alarm( grp.point_dep );
+
         if ( first_pax_on_flight ) {
           SALONS2::setManualCompChg( grp.point_dep );
         }
-        check_apis_alarms( grp.point_dep );
-        check_apps_alarm( grp.point_dep );
       }
-      if (!pr_unaccomp && grp.status==psCrew)
+
+      timing.start("getSubclassGroup", grp.point_dep);
+
+      if (!rollbackGuaranteed)
       {
-        check_crew_alarms( grp.point_dep );
-        check_apis_alarms( grp.point_dep );
-        check_apps_alarm( grp.point_dep );
+        timing.start("other_alarms", grp.point_dep);
+
+        if (!pr_unaccomp)
+        {
+          if (grp.status!=psCrew)
+          {
+            //пассажиры
+            //вычисляем и записываем признак waitlist_alarm и brd_alarm и spec_service_alarm
+            TTripAlarmHook::set(Alarm::Brd, grp.point_dep);
+            check_spec_service_alarm( grp.point_dep );
+            TTripAlarmHook::set(Alarm::UnboundEMD, grp.point_dep);
+            check_conflict_trfer_alarm( grp.point_dep );
+          }
+          else
+          {
+            //экипаж
+            check_crew_alarms( grp.point_dep );
+          }
+
+          check_apis_alarms( grp.point_dep );
+          check_apps_alarm( grp.point_dep );
+        }
+
+        check_TrferExists( grp.point_dep );
+        if (needCheckUnattachedTrferAlarm)
+          check_u_trfer_alarm_for_grp( grp.point_dep, grp.id, grpTagsBefore);
+        if (new_checkin) //для записи изменений уже заранее получили nextTrferSegs
+          InboundTrfer::GetNextTrferCheckedFlts(grp.id, idGrp, nextTrferSegs);
+        check_unattached_trfer_alarm(nextTrferSegs);
+
+        timing.finish("other_alarms", grp.point_dep);
       }
-
-      check_TrferExists( grp.point_dep );
-      if (needCheckUnattachedTrferAlarm)
-        check_u_trfer_alarm_for_grp( grp.point_dep, grp.id, grpTagsBefore);
-      if (new_checkin) //для записи изменений уже заранее получили nextTrferSegs
-        InboundTrfer::GetNextTrferCheckedFlts(grp.id, idGrp, nextTrferSegs);
-      check_unattached_trfer_alarm(nextTrferSegs);
-
-      timing.finish("other_alarms", grp.point_dep);
 
       timing.start("BSM", grp.point_dep);
 
