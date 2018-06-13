@@ -49,13 +49,13 @@ bool TApisDataset::FromDB(int point_id, const string& task_name)
     Franchise::TProp franchise_prop;
     if (franchise_prop.get(point_id, Franchise::TPropType::apis))
     {
-      if (franchise_prop.val == Franchise::Franchisee)
+      if (franchise_prop.val == Franchise::pvNo)
       {
         airline_code_qry = franchise_prop.franchisee.airline;
         flt_no = franchise_prop.franchisee.flt_no;
         suffix = franchise_prop.franchisee.suffix;
       }
-      else /*if (franchise_prop.val == Franchise::Oper)*/
+      else /*if (franchise_prop.val == Franchise::pvYes)*/
       {
         airline_code_qry = franchise_prop.oper.airline;
         flt_no = franchise_prop.oper.flt_no;

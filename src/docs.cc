@@ -1324,7 +1324,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         Franchise::TProp franchise_prop;
         if(
                 franchise_prop.get(rpt_params.point_id, Franchise::TPropType::paxManifest) and
-                franchise_prop.val == Franchise::Franchisee
+                franchise_prop.val == Franchise::pvNo
                 ) {
             airline = franchise_prop.franchisee.airline;
             flt_no = franchise_prop.franchisee.flt_no;

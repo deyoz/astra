@@ -25,9 +25,10 @@ namespace Franchise {
                 prl,
                 btm,
                 ptm,
-                spm,
+                cpm,
                 psm,
-                tpm
+                tpm,
+                Unknown
             };
 
             static const std::list< std::pair<Enum, std::string> >& pairs()
@@ -52,9 +53,34 @@ namespace Franchise {
                     l.push_back(std::make_pair(prl,         "pr_prl"));
                     l.push_back(std::make_pair(btm,         "pr_btm"));
                     l.push_back(std::make_pair(ptm,         "pr_ptm"));
-                    l.push_back(std::make_pair(spm,         "pr_spm"));
+                    l.push_back(std::make_pair(cpm,         "pr_cpm"));
                     l.push_back(std::make_pair(psm,         "pr_psm"));
                     l.push_back(std::make_pair(tpm,         "pr_tpm"));
+
+                }
+                return l;
+            }
+
+            static const std::list< std::pair<Enum, std::string> >& pairs_tlg()
+            {
+                static std::list< std::pair<Enum, std::string> > l;
+                if (l.empty())
+                {
+                    l.push_back(std::make_pair(lci,         "LCI"));
+                    l.push_back(std::make_pair(ldm,         "LDM"));
+                    l.push_back(std::make_pair(mvtDelay,    "MVTC"));
+                    l.push_back(std::make_pair(mvtDep,      "MVTA"));
+                    l.push_back(std::make_pair(mvtArv,      "MVTB"));
+                    l.push_back(std::make_pair(com,         "COM"));
+                    l.push_back(std::make_pair(som,         "SOM"));
+                    l.push_back(std::make_pair(bsm,         "BSM"));
+                    l.push_back(std::make_pair(prl,         "PRL"));
+                    l.push_back(std::make_pair(btm,         "BTM"));
+                    l.push_back(std::make_pair(ptm,         "PTM"));
+                    l.push_back(std::make_pair(ptm,         "PTMN"));
+                    l.push_back(std::make_pair(cpm,         "CPM"));
+                    l.push_back(std::make_pair(psm,         "PSM"));
+                    l.push_back(std::make_pair(tpm,         "TPM"));
 
                 }
                 return l;
@@ -72,11 +98,24 @@ namespace Franchise {
                     boost::none) {}
     };
 
+    class TPropTypesTlg: public ASTRA::PairList<TPropType::Enum, std::string>
+    {
+        private:
+            virtual std::string className() const { return "TPropTypesTlg"; }
+        public:
+            TPropTypesTlg() : ASTRA::PairList<TPropType::Enum, std::string>(TPropType::pairs_tlg(),
+                    TPropType::Unknown,
+                    boost::none) {}
+    };
+
+    const TPropTypes &PropTypes();
+    const TPropTypesTlg &PropTypesTlg();
+
     enum TPropVal {
-        Oper,
-        Franchisee,
-        Both,
-        Unknown
+        pvYes,
+        pvNo,
+        pvEmpty,
+        pvUnknown
     };
 
     struct TFlight {
@@ -96,6 +135,7 @@ namespace Franchise {
         TProp() { clear(); }
         void clear();
         bool get(int point_id, TPropType::Enum prop);
+        bool get(int point_id, const std::string &tlg_type);
     };
 
 }

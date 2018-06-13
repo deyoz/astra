@@ -9,6 +9,15 @@ using namespace ASTRA;
 using namespace std;
 
 namespace Franchise {
+    bool TProp::get(int point_id, const string &tlg_type)
+    {
+        clear();
+        if(PropTypesTlg().decode(tlg_type) == TPropType::Unknown)
+            return false;
+        else
+            return get(point_id, PropTypesTlg().decode(tlg_type));
+    }
+
     bool TProp::get(int point_id, TPropType::Enum prop)
     {
         clear();
@@ -35,30 +44,39 @@ namespace Franchise {
                     << QParam("suffix", otString, info.suffix)
                     << QParam("scd_out", otDate, info.scd_out)
                     );
-
-            for(int i = 0; i < Qry.get().VariablesCount(); i++)
-
             Qry.get().Execute();
             if(not Qry.get().Eof) {
                 franchisee.airline = Qry.get().FieldAsString("airline_franchisee");
                 franchisee.flt_no = Qry.get().FieldAsInteger("flt_no_franchisee");
                 franchisee.suffix = Qry.get().FieldAsString("suffix_franchisee");
-                string prop_name = TPropTypes().encode(prop);
+                string prop_name = PropTypes().encode(prop);
                 if(Qry.get().FieldIsNULL(prop_name))
-                    val = Both;
+                    val = pvEmpty;
                 else {
-                    val = (Qry.get().FieldAsInteger(prop_name) != 0 ? Oper : Franchisee);
+                    val = (Qry.get().FieldAsInteger(prop_name) != 0 ? pvYes : pvNo);
                 }
             }
         }
-        return val != Unknown;
+        return val != pvUnknown;
+    }
+
+    const TPropTypes &PropTypes()
+    {
+        static TPropTypes propTypes;
+        return propTypes;
+    }
+
+    const TPropTypesTlg &PropTypesTlg()
+    {
+        static TPropTypesTlg propTypesTlg;
+        return propTypesTlg;
     }
 
     void TProp::clear()
     {
         oper.clear();
         franchisee.clear();
-        val = Unknown;
+        val = pvUnknown;
     }
 
     void TFlight::clear()

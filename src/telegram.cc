@@ -1868,6 +1868,13 @@ bool CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
 
   partInfo.pr_lat=options.is_lat;
 
+  for(int i=0; i<=1; i++)
+  {
+    string lang=(i==0?LANG_RU:LANG_EN);
+    localizedstream s(lang);
+    partInfo.extra[lang]=options.extraStr(s).str();
+  };
+
   bool equal_is_trfer_exists=false;
 
   typedef vector< pair<CheckIn::TTagItem, CheckIn::TBagItem> > TmpTagList;
@@ -1914,10 +1921,21 @@ bool CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
        << (is_trfer?"T":"L")
        << TlgElemIdToElem(etAirp, con.OutFlt.operFlt.airp, options.is_lat) << ENDL;
 
+  TSimpleMktFlight flt;
+  if(options.franchise_info.empty()) {
+      flt.airline = con.OutFlt.operFlt.airline;
+      flt.flt_no = con.OutFlt.operFlt.flt_no;
+      flt.suffix = con.OutFlt.operFlt.suffix;
+  } else {
+      flt.airline = options.franchise_info.airline;
+      flt.flt_no = options.franchise_info.flt_no;
+      flt.suffix = options.franchise_info.suffix;
+  }
+
   body << ".F/"
-       << TlgElemIdToElem(etAirline, con.OutFlt.operFlt.airline, options.is_lat)
-       << setw(3) << setfill('0') << con.OutFlt.operFlt.flt_no
-       << (con.OutFlt.operFlt.suffix.empty() ? "" : TlgElemIdToElem(etSuffix, con.OutFlt.operFlt.suffix, options.is_lat)) << '/'
+       << TlgElemIdToElem(etAirline, flt.airline, options.is_lat)
+       << setw(3) << setfill('0') << flt.flt_no
+       << (flt.suffix.empty() ? "" : TlgElemIdToElem(etSuffix, flt.suffix, options.is_lat)) << '/'
        << DateTimeToStr( con.OutFlt.operFlt.scd_out, "ddmmm", options.is_lat) << '/'
        << TlgElemIdToElem(etAirp, con.OutFlt.airp_arv, options.is_lat);
   if (options.class_of_travel && !con.OutCls.empty())

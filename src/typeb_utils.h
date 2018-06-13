@@ -10,6 +10,7 @@
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "seats_utils.h"
+#include "franchise.h"
 #include <typeinfo>
 
 using BASIC::date_time::TDateTime;
@@ -88,9 +89,7 @@ class TCreateOptions
     };
     virtual localizedstream& logStr(localizedstream &s) const
     {
-      s << s.getLocaleText("лат.") << ": "
-        << (is_lat ? s.getLocaleText("да"):
-                     s.getLocaleText("нет"));
+      s << s.getLocaleText("лат.") << ": " << (is_lat ? s.getLocaleText("да"):s.getLocaleText("нет"));
       return s;
     };
     virtual localizedstream& extraStr(localizedstream &s) const
@@ -194,7 +193,116 @@ class TUnknownFmtOptions : public TCreateOptions
     };
 };
 
-class TAirpTrferOptions : public TCreateOptions
+std::string getAirpTrferFromExtra(const std::string &val);
+
+class TFranchiseOptions : public TCreateOptions
+{
+  private:
+    void init()
+    {
+      franchise_info.clear();
+    };
+  public:
+    TSimpleMktFlight franchise_info;
+    TFranchiseOptions() {init();};
+    virtual ~TFranchiseOptions() {};
+    virtual void clear()
+    {
+      TCreateOptions::clear();
+      init();
+    };
+    virtual void fromXML(xmlNodePtr node)
+    {
+      TCreateOptions::fromXML(node);
+      if (node==NULL) return;
+      xmlNodePtr currNode = GetNode("Franchise", node);
+      if(currNode == NULL) return;
+      currNode = currNode->children;
+      franchise_info.airline = NodeAsStringFast("airline_franchise", currNode);
+      franchise_info.flt_no = NodeAsIntegerFast("flt_no_franchise", currNode);
+      franchise_info.suffix = NodeAsStringFast("suffix_franchise", currNode);
+    };
+    virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
+    {
+      TCreateOptions::fromDB(Qry, OptionsQry);
+    };
+    virtual localizedstream& logStr(localizedstream &s) const
+    {
+      TCreateOptions::logStr(s);
+      if (!franchise_info.empty())
+         s << ", "
+           << s.getLocaleText("франч.рейс") << ": "
+           << s.ElemIdToCodeNative(etAirline, franchise_info.airline)
+           << std::setw(3) << std::setfill('0') << franchise_info.flt_no
+           << s.ElemIdToCodeNative(etSuffix, franchise_info.suffix);
+      return s;
+    };
+    virtual localizedstream& extraStr(localizedstream &s) const
+    {
+      TCreateOptions::extraStr(s);
+      if (!franchise_info.empty())
+        s << s.getLocaleText("франч.рейс") << ": "
+          << s.ElemIdToCodeNative(etAirline, franchise_info.airline)
+          << std::setw(3) << std::setfill('0') << franchise_info.flt_no
+          << s.ElemIdToCodeNative(etSuffix, franchise_info.suffix)
+          << endl;
+      return s;
+    };
+    virtual std::string typeName() const
+    {
+      return "TFrahchiseOptions";
+    };
+    virtual bool similar(const TCreateOptions &item) const
+    {
+      if (!TCreateOptions::similar(item)) return false;
+      try
+      {
+        const TFranchiseOptions &opt = dynamic_cast<const TFranchiseOptions&>(item);
+        return
+               (franchise_info.airline.empty() ||
+                opt.franchise_info.airline.empty() ||
+                franchise_info.airline==opt.franchise_info.airline) &&
+               (franchise_info.flt_no==ASTRA::NoExists ||
+                opt.franchise_info.flt_no==ASTRA::NoExists ||
+                franchise_info.flt_no==opt.franchise_info.flt_no) &&
+               (franchise_info.suffix.empty() ||
+                opt.franchise_info.suffix.empty() ||
+                franchise_info.suffix==opt.franchise_info.suffix);
+      }
+      catch(std::bad_cast)
+      {
+        return false;
+      };
+    };
+    virtual bool equal(const TCreateOptions &item) const
+    {
+      if (!TCreateOptions::equal(item)) return false;
+      try
+      {
+        const TFranchiseOptions &opt = dynamic_cast<const TFranchiseOptions&>(item);
+        return
+               franchise_info.airline==opt.franchise_info.airline &&
+               franchise_info.flt_no==opt.franchise_info.flt_no &&
+               franchise_info.suffix==opt.franchise_info.suffix;
+      }
+      catch(std::bad_cast)
+      {
+        return false;
+      };
+    };
+    virtual void copy(const TCreateOptions &item)
+    {
+      TCreateOptions::copy(item);
+      try
+      {
+        const TFranchiseOptions &opt = dynamic_cast<const TFranchiseOptions&>(item);
+        franchise_info=opt.franchise_info;
+      }
+      catch(std::bad_cast) {};
+    };
+};
+
+class TAirpTrferOptions : public TFranchiseOptions
 {
   private:
     void init()
@@ -207,24 +315,24 @@ class TAirpTrferOptions : public TCreateOptions
     virtual ~TAirpTrferOptions() {};
     virtual void clear()
     {
-      TCreateOptions::clear();
+      TFranchiseOptions::clear();
       init();
     };
     virtual void fromXML(xmlNodePtr node)
     {
-      TCreateOptions::fromXML(node);
+      TFranchiseOptions::fromXML(node);
       if (node==NULL) return;
       xmlNodePtr node2=node->children;
       airp_trfer=NodeAsStringFast( "airp_arv", node2, airp_trfer.c_str() );
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
-      TCreateOptions::fromDB(Qry, OptionsQry);
+      TFranchiseOptions::fromDB(Qry, OptionsQry);
       airp_trfer=Qry.FieldAsString("airp_arv");
     };
     virtual localizedstream& logStr(localizedstream &s) const
     {
-      TCreateOptions::logStr(s);
+      TFranchiseOptions::logStr(s);
       s << ", "
         << s.getLocaleText("а/п") << ": "
         << s.ElemIdToCodeNative(etAirp, airp_trfer);
@@ -232,7 +340,7 @@ class TAirpTrferOptions : public TCreateOptions
     };
     virtual localizedstream& extraStr(localizedstream &s) const
     {
-      TCreateOptions::extraStr(s);
+      TFranchiseOptions::extraStr(s);
       s << s.getLocaleText("а/п") << ": "
         << s.ElemIdToCodeNative(etAirp, airp_trfer)
         << endl;
@@ -244,7 +352,7 @@ class TAirpTrferOptions : public TCreateOptions
     };
     virtual bool similar(const TCreateOptions &item) const
     {
-      if (!TCreateOptions::similar(item)) return false;
+      if (!TFranchiseOptions::similar(item)) return false;
       try
       {
         const TAirpTrferOptions &opt = dynamic_cast<const TAirpTrferOptions&>(item);
@@ -257,7 +365,7 @@ class TAirpTrferOptions : public TCreateOptions
     };
     virtual bool equal(const TCreateOptions &item) const
     {
-      if (!TCreateOptions::equal(item)) return false;
+      if (!TFranchiseOptions::equal(item)) return false;
       try
       {
         const TAirpTrferOptions &opt = dynamic_cast<const TAirpTrferOptions&>(item);
@@ -270,7 +378,7 @@ class TAirpTrferOptions : public TCreateOptions
     };
     virtual void copy(const TCreateOptions &item)
     {
-      TCreateOptions::copy(item);
+      TFranchiseOptions::copy(item);
       try
       {
         const TAirpTrferOptions &opt = dynamic_cast<const TAirpTrferOptions&>(item);
@@ -280,9 +388,7 @@ class TAirpTrferOptions : public TCreateOptions
     };
 };
 
-std::string getAirpTrferFromExtra(const std::string &val);
-
-class TCrsOptions : public TCreateOptions
+class TCrsOptions : public TFranchiseOptions
 {
   private:
     void init()
@@ -295,24 +401,24 @@ class TCrsOptions : public TCreateOptions
     virtual ~TCrsOptions() {};
     virtual void clear()
     {
-      TCreateOptions::clear();
+      TFranchiseOptions::clear();
       init();
     };
     virtual void fromXML(xmlNodePtr node)
     {
-      TCreateOptions::fromXML(node);
+      TFranchiseOptions::fromXML(node);
       if (node==NULL) return;
       xmlNodePtr node2=node->children;
       crs=NodeAsStringFast( "crs", node2, crs.c_str() );
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
-      TCreateOptions::fromDB(Qry, OptionsQry);
+      TFranchiseOptions::fromDB(Qry, OptionsQry);
       crs=Qry.FieldAsString("crs");
     };
     virtual localizedstream& logStr(localizedstream &s) const
     {
-      TCreateOptions::logStr(s);
+      TFranchiseOptions::logStr(s);
       if (!crs.empty())
         s << ", "
           << s.getLocaleText("центр") << ": "
@@ -321,7 +427,7 @@ class TCrsOptions : public TCreateOptions
     };
     virtual localizedstream& extraStr(localizedstream &s) const
     {
-      TCreateOptions::extraStr(s);
+      TFranchiseOptions::extraStr(s);
       if (!crs.empty())
         s << s.getLocaleText("центр") << ": "
           << crs
@@ -334,7 +440,7 @@ class TCrsOptions : public TCreateOptions
     };
     virtual bool similar(const TCreateOptions &item) const
     {
-      if (!TCreateOptions::similar(item)) return false;
+      if (!TFranchiseOptions::similar(item)) return false;
       try
       {
         const TCrsOptions &opt = dynamic_cast<const TCrsOptions&>(item);
@@ -360,7 +466,7 @@ class TCrsOptions : public TCreateOptions
     };
     virtual void copy(const TCreateOptions &item)
     {
-      TCreateOptions::copy(item);
+      TFranchiseOptions::copy(item);
       try
       {
         const TCrsOptions &opt = dynamic_cast<const TCrsOptions&>(item);
@@ -608,7 +714,7 @@ class TETLOptions : public TMarkInfoOptions
         };
 };
 
-class TMVTOptions : public TCreateOptions
+class TMVTOptions : public TFranchiseOptions
 {
   private:
     void init()
@@ -621,19 +727,19 @@ class TMVTOptions : public TCreateOptions
     virtual ~TMVTOptions() {};
     virtual void clear()
     {
-      TCreateOptions::clear();
+      TFranchiseOptions::clear();
       init();
     };
     virtual void fromXML(xmlNodePtr node)
     {
-      TCreateOptions::fromXML(node);
+      TFranchiseOptions::fromXML(node);
       if (node==NULL) return;
       xmlNodePtr node2=node->children;
       noend=NodeAsIntegerFast("noend", node2, (int)noend) != 0;
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
-      TCreateOptions::fromDB(Qry, OptionsQry);
+      TFranchiseOptions::fromDB(Qry, OptionsQry);
 
       std::string basic_type;
       std::string tlg_type = Qry.FieldAsString("tlg_type");
@@ -662,7 +768,7 @@ class TMVTOptions : public TCreateOptions
     };
     virtual localizedstream& logStr(localizedstream &s) const
     {
-      TCreateOptions::logStr(s);
+      TFranchiseOptions::logStr(s);
       s << ", "
         << "NOEND" << ": "
         << (noend ? s.getLocaleText("да"):
@@ -671,7 +777,7 @@ class TMVTOptions : public TCreateOptions
     };
     virtual localizedstream& extraStr(localizedstream &s) const
     {
-      TCreateOptions::extraStr(s);
+      TFranchiseOptions::extraStr(s);
       s
         << "NOEND" << ": "
         << (noend ? s.getLocaleText("да"):
@@ -685,7 +791,7 @@ class TMVTOptions : public TCreateOptions
     };
     virtual bool similar(const TCreateOptions &item) const
     {
-      if (!TCreateOptions::similar(item)) return false;
+      if (!TFranchiseOptions::similar(item)) return false;
       try
       {
         const TMVTOptions &opt = dynamic_cast<const TMVTOptions&>(item);
@@ -698,7 +804,7 @@ class TMVTOptions : public TCreateOptions
     };
     virtual bool equal(const TCreateOptions &item) const
     {
-      if (!TCreateOptions::equal(item)) return false;
+      if (!TFranchiseOptions::equal(item)) return false;
       try
       {
         const TMVTOptions &opt = dynamic_cast<const TMVTOptions&>(item);
@@ -711,7 +817,7 @@ class TMVTOptions : public TCreateOptions
     };
     virtual void copy(const TCreateOptions &item)
     {
-      TCreateOptions::copy(item);
+      TFranchiseOptions::copy(item);
       try
       {
         const TMVTOptions &opt = dynamic_cast<const TMVTOptions&>(item);
@@ -721,7 +827,7 @@ class TMVTOptions : public TCreateOptions
     };
 };
 
-class TCOMOptions : public TCreateOptions
+class TCOMOptions : public TFranchiseOptions
 {
   private:
     void init()
@@ -734,19 +840,19 @@ class TCOMOptions : public TCreateOptions
     virtual ~TCOMOptions() {};
     virtual void clear()
     {
-      TCreateOptions::clear();
+      TFranchiseOptions::clear();
       init();
     };
     virtual void fromXML(xmlNodePtr node)
     {
-      TCreateOptions::fromXML(node);
+      TFranchiseOptions::fromXML(node);
       if (node==NULL) return;
       xmlNodePtr node2=node->children;
       version=NodeAsStringFast("version", node2, version.c_str());
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
-      TCreateOptions::fromDB(Qry, OptionsQry);
+      TFranchiseOptions::fromDB(Qry, OptionsQry);
       OptionsQry.SetVariable("id", Qry.FieldAsInteger("id"));
       OptionsQry.SetVariable("tlg_type", Qry.FieldAsString("tlg_type"));
       OptionsQry.Execute();
@@ -762,7 +868,7 @@ class TCOMOptions : public TCreateOptions
     };
     virtual localizedstream& logStr(localizedstream &s) const
     {
-      TCreateOptions::logStr(s);
+      TFranchiseOptions::logStr(s);
       s << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.VERSION") << ": "
         << s.ElemIdToNameShort(etTypeBOptionValue, "COM+VERSION+"+version);
@@ -770,7 +876,7 @@ class TCOMOptions : public TCreateOptions
     };
     virtual localizedstream& extraStr(localizedstream &s) const
     {
-      TCreateOptions::extraStr(s);
+      TFranchiseOptions::extraStr(s);
       s << s.getLocaleText("CAP.TYPEB_OPTIONS.VERSION") << ": "
         << s.ElemIdToNameShort(etTypeBOptionValue, "COM+VERSION+"+version)
         << endl;
@@ -782,7 +888,7 @@ class TCOMOptions : public TCreateOptions
     };
     virtual bool similar(const TCreateOptions &item) const
     {
-      if (!TCreateOptions::similar(item)) return false;
+      if (!TFranchiseOptions::similar(item)) return false;
       try
       {
         const TCOMOptions &opt = dynamic_cast<const TCOMOptions&>(item);
@@ -795,7 +901,7 @@ class TCOMOptions : public TCreateOptions
     };
     virtual bool equal(const TCreateOptions &item) const
     {
-      if (!TCreateOptions::equal(item)) return false;
+      if (!TFranchiseOptions::equal(item)) return false;
       try
       {
         const TCOMOptions &opt = dynamic_cast<const TCOMOptions&>(item);
@@ -808,7 +914,7 @@ class TCOMOptions : public TCreateOptions
     };
     virtual void copy(const TCreateOptions &item)
     {
-      TCreateOptions::copy(item);
+      TFranchiseOptions::copy(item);
       try
       {
         const TCOMOptions &opt = dynamic_cast<const TCOMOptions&>(item);
@@ -818,7 +924,7 @@ class TCOMOptions : public TCreateOptions
     };
 };
 
-class TLDMOptions : public TCreateOptions
+class TLDMOptions : public TFranchiseOptions
 {
   private:
     void init()
@@ -836,12 +942,12 @@ class TLDMOptions : public TCreateOptions
     virtual ~TLDMOptions() {};
     virtual void clear()
     {
-      TCreateOptions::clear();
+      TFranchiseOptions::clear();
       init();
     };
     virtual void fromXML(xmlNodePtr node)
     {
-      TCreateOptions::fromXML(node);
+      TFranchiseOptions::fromXML(node);
       if (node==NULL) return;
       xmlNodePtr node2=node->children;
       version=NodeAsStringFast("version", node2, version.c_str());
@@ -852,7 +958,7 @@ class TLDMOptions : public TCreateOptions
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
-      TCreateOptions::fromDB(Qry, OptionsQry);
+      TFranchiseOptions::fromDB(Qry, OptionsQry);
       OptionsQry.SetVariable("id", Qry.FieldAsInteger("id"));
       OptionsQry.SetVariable("tlg_type", Qry.FieldAsString("tlg_type"));
       OptionsQry.Execute();
@@ -888,7 +994,7 @@ class TLDMOptions : public TCreateOptions
     };
     virtual localizedstream& logStr(localizedstream &s) const
     {
-      TCreateOptions::logStr(s);
+      TFranchiseOptions::logStr(s);
       s << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.VERSION") << ": "
         << s.ElemIdToNameShort(etTypeBOptionValue, "LDM+VERSION+"+version)
@@ -912,7 +1018,7 @@ class TLDMOptions : public TCreateOptions
     };
     virtual localizedstream& extraStr(localizedstream &s) const
     {
-      TCreateOptions::extraStr(s);
+      TFranchiseOptions::extraStr(s);
       s << s.getLocaleText("CAP.TYPEB_OPTIONS.VERSION") << ": "
         << s.ElemIdToNameShort(etTypeBOptionValue, "LDM+VERSION+"+version)
         << endl
@@ -940,7 +1046,7 @@ class TLDMOptions : public TCreateOptions
     };
     virtual bool similar(const TCreateOptions &item) const
     {
-      if (!TCreateOptions::similar(item)) return false;
+      if (!TFranchiseOptions::similar(item)) return false;
       try
       {
         const TLDMOptions &opt = dynamic_cast<const TLDMOptions&>(item);
@@ -957,7 +1063,7 @@ class TLDMOptions : public TCreateOptions
     };
     virtual bool equal(const TCreateOptions &item) const
     {
-      if (!TCreateOptions::equal(item)) return false;
+      if (!TFranchiseOptions::equal(item)) return false;
       try
       {
         const TLDMOptions &opt = dynamic_cast<const TLDMOptions&>(item);
@@ -974,7 +1080,7 @@ class TLDMOptions : public TCreateOptions
     };
     virtual void copy(const TCreateOptions &item)
     {
-      TCreateOptions::copy(item);
+      TFranchiseOptions::copy(item);
       try
       {
         const TLDMOptions &opt = dynamic_cast<const TLDMOptions&>(item);
@@ -1142,7 +1248,7 @@ class TPRLOptions : public TMarkInfoOptions
         };
 };
 
-class TLCIOptions : public TCreateOptions
+class TLCIOptions : public TFranchiseOptions
 {
   private:
     void init()
@@ -1174,12 +1280,12 @@ class TLCIOptions : public TCreateOptions
     virtual ~TLCIOptions() {};
     virtual void clear()
     {
-      TCreateOptions::clear();
+      TFranchiseOptions::clear();
       init();
     };
     virtual void fromXML(xmlNodePtr node)
     {
-      TCreateOptions::fromXML(node);
+      TFranchiseOptions::fromXML(node);
       if (node==NULL) return;
       xmlNodePtr node2=node->children;
       equipment=NodeAsIntegerFast("equipment", node2, (int)equipment) != 0;
@@ -1195,7 +1301,7 @@ class TLCIOptions : public TCreateOptions
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
-      TCreateOptions::fromDB(Qry, OptionsQry);
+      TFranchiseOptions::fromDB(Qry, OptionsQry);
       OptionsQry.SetVariable("id", Qry.FieldAsInteger("id"));
       OptionsQry.SetVariable("tlg_type", Qry.FieldAsString("tlg_type"));
       OptionsQry.Execute();
@@ -1256,7 +1362,7 @@ class TLCIOptions : public TCreateOptions
     };
     virtual localizedstream& logStr(localizedstream &s) const
     {
-      TCreateOptions::logStr(s);
+      TFranchiseOptions::logStr(s);
       s << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.EQUIPMENT") << ": "
         << (equipment ? s.getLocaleText("да"):
@@ -1298,7 +1404,7 @@ class TLCIOptions : public TCreateOptions
     };
     virtual localizedstream& extraStr(localizedstream &s) const
     {
-      TCreateOptions::extraStr(s);
+      TFranchiseOptions::extraStr(s);
       s << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.EQUIPMENT") << ": "
         << (equipment ? s.getLocaleText("да"):
                         s.getLocaleText("нет"))
@@ -1344,7 +1450,7 @@ class TLCIOptions : public TCreateOptions
     };
     virtual bool similar(const TCreateOptions &item) const
     {
-      if (!TCreateOptions::similar(item)) return false;
+      if (!TFranchiseOptions::similar(item)) return false;
       try
       {
         const TLCIOptions &opt = dynamic_cast<const TLCIOptions&>(item);
@@ -1366,7 +1472,7 @@ class TLCIOptions : public TCreateOptions
     };
     virtual bool equal(const TCreateOptions &item) const
     {
-      if (!TCreateOptions::equal(item)) return false;
+      if (!TFranchiseOptions::equal(item)) return false;
       try
       {
         const TLCIOptions &opt = dynamic_cast<const TLCIOptions&>(item);
@@ -1388,7 +1494,7 @@ class TLCIOptions : public TCreateOptions
     };
     virtual void copy(const TCreateOptions &item)
     {
-      TCreateOptions::copy(item);
+      TFranchiseOptions::copy(item);
       try
       {
         const TLCIOptions &opt = dynamic_cast<const TLCIOptions&>(item);
@@ -1409,7 +1515,7 @@ class TLCIOptions : public TCreateOptions
     };
 };
 
-class TBSMOptions : public TCreateOptions
+class TBSMOptions : public TFranchiseOptions
 {
   private:
     void init()
@@ -1426,12 +1532,12 @@ class TBSMOptions : public TCreateOptions
     virtual ~TBSMOptions() {};
     virtual void clear()
     {
-      TCreateOptions::clear();
+      TFranchiseOptions::clear();
       init();
     };
     virtual void fromXML(xmlNodePtr node)
     {
-      TCreateOptions::fromXML(node);
+      TFranchiseOptions::fromXML(node);
       if (node==NULL) return;
       xmlNodePtr node2=node->children;
       class_of_travel=NodeAsIntegerFast("class_of_travel", node2, (int)class_of_travel) != 0;
@@ -1440,7 +1546,7 @@ class TBSMOptions : public TCreateOptions
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
-      TCreateOptions::fromDB(Qry, OptionsQry);
+      TFranchiseOptions::fromDB(Qry, OptionsQry);
       OptionsQry.SetVariable("id", Qry.FieldAsInteger("id"));
       OptionsQry.SetVariable("tlg_type", Qry.FieldAsString("tlg_type"));
       OptionsQry.Execute();
@@ -1466,7 +1572,7 @@ class TBSMOptions : public TCreateOptions
     };
     virtual localizedstream& logStr(localizedstream &s) const
     {
-      TCreateOptions::logStr(s);
+      TFranchiseOptions::logStr(s);
       s << ", "
         << s.getLocaleText("CAP.TYPEB_OPTIONS.BSM.CLASS_OF_TRAVEL") << ": "
         << (class_of_travel ? s.getLocaleText("да"):
@@ -1483,7 +1589,7 @@ class TBSMOptions : public TCreateOptions
     };
     virtual localizedstream& extraStr(localizedstream &s) const
     {
-      TCreateOptions::extraStr(s);
+      TFranchiseOptions::extraStr(s);
       s << s.getLocaleText("CAP.TYPEB_OPTIONS.BSM.CLASS_OF_TRAVEL") << ": "
         << (class_of_travel ? s.getLocaleText("да"):
                               s.getLocaleText("нет"))
@@ -1504,7 +1610,7 @@ class TBSMOptions : public TCreateOptions
     };
     virtual bool similar(const TCreateOptions &item) const
     {
-      if (!TCreateOptions::similar(item)) return false;
+      if (!TFranchiseOptions::similar(item)) return false;
       try
       {
         const TBSMOptions &opt = dynamic_cast<const TBSMOptions&>(item);
@@ -1519,7 +1625,7 @@ class TBSMOptions : public TCreateOptions
     };
     virtual bool equal(const TCreateOptions &item) const
     {
-      if (!TCreateOptions::equal(item)) return false;
+      if (!TFranchiseOptions::equal(item)) return false;
       try
       {
         const TBSMOptions &opt = dynamic_cast<const TBSMOptions&>(item);
@@ -1534,7 +1640,7 @@ class TBSMOptions : public TCreateOptions
     };
     virtual void copy(const TCreateOptions &item)
     {
-      TCreateOptions::copy(item);
+      TFranchiseOptions::copy(item);
       try
       {
         const TBSMOptions &opt = dynamic_cast<const TBSMOptions&>(item);
@@ -2296,11 +2402,15 @@ class TCreator
     std::vector<std::string> p_crs;
     bool crs_init;
     std::vector<TSimpleMktFlight> p_mkt_flights;
+    std::vector<TSimpleMktFlight> p_mkt_empty_flights;
     bool mkt_flights_init;
+
+    std::map<std::string, Franchise::TProp> franchise_props;
+    const Franchise::TProp &get_franchise_prop(const std::string &tlg_type);
 
     const std::set<std::string>& airps();
     const std::vector<std::string>& crs();
-    const std::vector<TSimpleMktFlight>& mkt_flights();
+    const std::vector<TSimpleMktFlight>& mkt_flights(const std::string &tlg_type);
 
     TCreatePoint create_point;
   public:
