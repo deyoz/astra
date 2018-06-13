@@ -659,7 +659,7 @@ Points::~Points()
           msecs=boost::none;
           break;
         }
-      LogTrace(TRACE5) << "Timing::Points: " << ServerFramework::getQueryRunner().getEdiHelpManager().msgId().asString()
+      LogTrace(TRACE5) << _traceTitle << ": " << ServerFramework::getQueryRunner().getEdiHelpManager().msgId().asString()
                        << "|" << p.first.what
                        << "|" << (p.first.seg_no?IntToString(p.first.seg_no.get()):"")
                        << "|" << (msecs?IntToString(msecs.get()):"")

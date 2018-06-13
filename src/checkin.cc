@@ -4152,7 +4152,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                                CheckIn::TAfterSaveInfoList &AfterSaveInfoList,
                                bool& httpWasSent)
 {
-  Timing::Points timing;
+  Timing::Points timing("Timing::SavePax");
 
   timing.start("SavePax");
 
@@ -5982,10 +5982,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       if (!rollbackGuaranteed)
       {
-        timing.start("SeatsPassengers", grp.point_dep);
         if (new_checkin && !pr_unaccomp && wl_type.empty() && grp.status!=psCrew)
+        {
+          timing.start("SeatsPassengers", grp.point_dep);
           CheckIn::seatingWhenNewCheckIn(*iSegListItem, fltAdvInfo, markFltInfo);
-        timing.finish("SeatsPassengers", grp.point_dep);
+          timing.finish("SeatsPassengers", grp.point_dep);
+        }
       }
 
       if (!rollbackGuaranteed)
@@ -6016,11 +6018,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       timing.finish("check_grp", grp.point_dep);
 
-      timing.start("recount", grp.point_dep);
+      if (!rollbackGuaranteed)
+      {
+        timing.start("recount", grp.point_dep);
 
-      CheckIn::TCounters().recount(grp, priorSimplePaxList, currSimplePaxList, __FUNCTION__);
+        CheckIn::TCounters().recount(grp, priorSimplePaxList, currSimplePaxList, __FUNCTION__);
 
-      timing.finish("recount", grp.point_dep);
+        timing.finish("recount", grp.point_dep);
+      }
 
       if (!rollbackGuaranteed)
       {
@@ -6195,24 +6200,28 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       timing.finish("BSM", grp.point_dep);
 
-      timing.start("utg_prl", grp.point_dep);
 
-      if (grp.status!=psCrew)
+      if (!rollbackGuaranteed)
       {
-        Qry.Clear();
-        Qry.SQLText=
-          "BEGIN "
-          "  UPDATE utg_prl SET last_flt_change_tid=cycle_tid__seq.currval WHERE point_id=:point_id; "
-          "  IF SQL%NOTFOUND THEN "
-          "    INSERT INTO utg_prl(point_id, last_tlg_create_tid, last_flt_change_tid) "
-          "    VALUES (:point_id, NULL, cycle_tid__seq.currval); "
-          "  END IF; "
-          "END;";
-        Qry.CreateVariable("point_id", otInteger, grp.point_dep);
-        Qry.Execute();
-      }
+        timing.start("utg_prl", grp.point_dep);
 
-      timing.finish("utg_prl", grp.point_dep);
+        if (grp.status!=psCrew)
+        {
+          Qry.Clear();
+          Qry.SQLText=
+              "BEGIN "
+              "  UPDATE utg_prl SET last_flt_change_tid=cycle_tid__seq.currval WHERE point_id=:point_id; "
+              "  IF SQL%NOTFOUND THEN "
+              "    INSERT INTO utg_prl(point_id, last_tlg_create_tid, last_flt_change_tid) "
+              "    VALUES (:point_id, NULL, cycle_tid__seq.currval); "
+              "  END IF; "
+              "END;";
+          Qry.CreateVariable("point_id", otInteger, grp.point_dep);
+          Qry.Execute();
+        }
+
+        timing.finish("utg_prl", grp.point_dep);
+      }
     }
     catch(UserException &e)
     {
