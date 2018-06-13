@@ -876,7 +876,7 @@ void IntLoadPnr( const TIdsPnrDataSegs &ids,
         for(const TWebPax& pax : grp.paxs)
         {
           if ((filter && pax.suitable(filter.get())) ||
-              (!filter && idsSeg.paxIdExists(pax.crs_pax_id)))
+              (!filter/* && idsSeg.paxIdExists(pax.crs_pax_id)*/))
             suitable_ids.insert(pax.crs_pax_id_parent!=NoExists?pax.crs_pax_id_parent:pax.crs_pax_id);
         }
 
@@ -914,12 +914,12 @@ void IntLoadPnr( const TIdsPnrDataSegs &ids,
             continue;
           };
 
-          if (!idsSeg.paxIdExists(iPax->crs_pax_id))
-          {
-            //не пришел ид пассажира в секции <crs_pax_ids> на соответствующем сегменте
-            iPax=grp.paxs.erase(iPax);
-            continue;
-          }
+//          if (!idsSeg.paxIdExists(iPax->crs_pax_id))
+//          {
+//            //не пришел ид пассажира в секции <crs_pax_ids> на соответствующем сегменте
+//            iPax=grp.paxs.erase(iPax);
+//            continue;
+//          }
 
           iPax->pax_no=iPaxFirst->pax_no; //проставляем пассажиру соотв. виртуальный ид. из первого сегмента
           iPax++;
