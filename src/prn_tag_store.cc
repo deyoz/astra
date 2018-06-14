@@ -11,6 +11,7 @@
 #include "passenger.h"
 #include "qrys.h"
 #include "seats_utils.h"
+#include "franchise.h"
 #include <serverlib/str_utils.h>
 #include <serverlib/testmode.h>
 #include <boost/algorithm/string/split.hpp>
@@ -1191,25 +1192,34 @@ void TPrnTagStore::TPointInfo::Init(TDevOper::Enum op, int apoint_id, int agrp_i
         suffix = operFlt.suffix;
         if (!isTestPaxId(agrp_id))
         {
-            Qry.Clear();
-            Qry.SQLText=
-                "SELECT mark_trips.airline,mark_trips.flt_no,mark_trips.suffix, "
-                "       mark_trips.scd AS scd_out,mark_trips.airp_dep AS airp "
-                "FROM pax_grp,mark_trips "
-                "WHERE pax_grp.point_id_mark=mark_trips.point_id AND pax_grp.grp_id=:grp_id";
-            Qry.CreateVariable("grp_id",otInteger,agrp_id);
-            Qry.Execute();
-            if (!Qry.Eof)
-            {
-                TTripInfo markFlt(Qry);
-                TCodeShareSets codeshareSets;
-                codeshareSets.get(operFlt,markFlt);
-                if ( op == TDevOper::PrnBP and codeshareSets.pr_mark_bp )
+            Franchise::TProp franchise_prop;
+            if(op == TDevOper::PrnBP or op == TDevOper::PrnBT)
+                franchise_prop.get(point_id, (op == TDevOper::PrnBP ? Franchise::TPropType::bp : Franchise::TPropType::bt));
+            if(franchise_prop.val == Franchise::pvNo) {
+                airline = franchise_prop.franchisee.airline;
+                flt_no = franchise_prop.franchisee.flt_no;
+                suffix = franchise_prop.franchisee.suffix;
+            } else {
+                Qry.Clear();
+                Qry.SQLText=
+                    "SELECT mark_trips.airline,mark_trips.flt_no,mark_trips.suffix, "
+                    "       mark_trips.scd AS scd_out,mark_trips.airp_dep AS airp "
+                    "FROM pax_grp,mark_trips "
+                    "WHERE pax_grp.point_id_mark=mark_trips.point_id AND pax_grp.grp_id=:grp_id";
+                Qry.CreateVariable("grp_id",otInteger,agrp_id);
+                Qry.Execute();
+                if (!Qry.Eof)
                 {
-                    airline = markFlt.airline;
-                    flt_no = markFlt.flt_no;
-                    suffix = markFlt.suffix;
-                };
+                    TTripInfo markFlt(Qry);
+                    TCodeShareSets codeshareSets;
+                    codeshareSets.get(operFlt,markFlt);
+                    if ( op == TDevOper::PrnBP and codeshareSets.pr_mark_bp )
+                    {
+                        airline = markFlt.airline;
+                        flt_no = markFlt.flt_no;
+                        suffix = markFlt.suffix;
+                    };
+                }
             }
         };
         TripsInterface::readGates(point_id, gates);

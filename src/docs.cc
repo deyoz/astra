@@ -1325,7 +1325,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         if(
                 franchise_prop.get(rpt_params.point_id, Franchise::TPropType::paxManifest) and
                 franchise_prop.val == Franchise::pvNo
-                ) {
+          ) {
             airline = franchise_prop.franchisee.airline;
             flt_no = franchise_prop.franchisee.flt_no;
             suffix = franchise_prop.franchisee.suffix;
@@ -1798,9 +1798,19 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     string suffix;
     int flt_no = NoExists;
     if(rpt_params.mkt_flt.empty()) {
-        airline = Qry.FieldAsString("airline");
-        flt_no = Qry.FieldAsInteger("flt_no");
-        suffix = Qry.FieldAsString("suffix");
+        Franchise::TProp franchise_prop;
+        if(
+                franchise_prop.get(rpt_params.point_id, Franchise::TPropType::paxManifest) and
+                franchise_prop.val == Franchise::pvNo
+          ) {
+            airline = franchise_prop.franchisee.airline;
+            flt_no = franchise_prop.franchisee.flt_no;
+            suffix = franchise_prop.franchisee.suffix;
+        } else {
+            airline = Qry.FieldAsString("airline");
+            flt_no = Qry.FieldAsInteger("flt_no");
+            suffix = Qry.FieldAsString("suffix");
+        }
     } else {
         airline = rpt_params.mkt_flt.airline;
         flt_no = rpt_params.mkt_flt.flt_no;
