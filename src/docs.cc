@@ -1800,7 +1800,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     if(rpt_params.mkt_flt.empty()) {
         Franchise::TProp franchise_prop;
         if(
-                franchise_prop.get(rpt_params.point_id, Franchise::TPropType::paxManifest) and
+                franchise_prop.get(rpt_params.point_id, Franchise::TPropType::bagManifest) and
                 franchise_prop.val == Franchise::pvNo
           ) {
             airline = franchise_prop.franchisee.airline;
