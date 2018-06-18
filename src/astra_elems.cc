@@ -876,6 +876,24 @@ string ElemToPaxDocCountryId(const string &elem, TElemFmt &fmt)
   return result;
 }
 
+std::string PaxDocCountryIdToPrefferedElem(const std::string &id, TElemFmt fmt, const std::string &lang, bool with_deleted)
+{
+  string result;
+  if (fmt==efmtCodeISOInter)
+  {
+    try
+    {
+      result=ElemIdToPrefferedElem(etCountry,
+                                   getBaseTable(etPaxDocCountry).get_row("code",id).AsString("country"),
+                                   fmt, lang, with_deleted);
+    }
+    catch (EBaseTableError) {}
+  }
+  if (result.empty())
+    result=ElemIdToPrefferedElem(etPaxDocCountry, id, fmt, lang, with_deleted);
+  return result;
+}
+
 string airlineToXML(const std::string &code, const std::string &lang)
 {
   string result;

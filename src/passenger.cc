@@ -507,9 +507,9 @@ std::string TPaxDocItem::get_rem_text(bool inf_indicator,
   result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)
          << " HK1"
          << "/" << (type.empty()?"":ElemIdToPrefferedElem(etPaxDocType, type, efmtCodeNative, lang))
-         << "/" << (issue_country.empty()?"":ElemIdToPrefferedElem(etPaxDocCountry, issue_country, efmtCodeNative, lang))
+         << "/" << (issue_country.empty()?"":PaxDocCountryIdToPrefferedElem(issue_country, efmtCodeISOInter, lang))
          << "/" << (strictly_lat?transliter(convert_char_view(no, strictly_lat), 1, strictly_lat):no)
-         << "/" << (nationality.empty()?"":ElemIdToPrefferedElem(etPaxDocCountry, nationality, efmtCodeNative, lang))
+         << "/" << (nationality.empty()?"":PaxDocCountryIdToPrefferedElem(nationality, efmtCodeISOInter, lang))
          << "/" << (birth_date!=ASTRA::NoExists?DateTimeToStr(birth_date, "ddmmmyy", language_lat):"")
          << "/" << (gender.empty()?"":ElemIdToPrefferedElem(etGenderType, gender, efmtCodeNative, lang)) << (inf_indicator?"I":"")
          << "/" << (expiry_date!=ASTRA::NoExists?DateTimeToStr(expiry_date, "ddmmmyy", language_lat):"")
@@ -738,7 +738,7 @@ std::string TPaxDocoItem::get_rem_text(bool inf_indicator,
          << "/" << (strictly_lat?transliter(convert_char_view(no, strictly_lat), 1, strictly_lat):no)
          << "/" << transliter(issue_place, 1, translit_lat)
          << "/" << (issue_date!=ASTRA::NoExists?DateTimeToStr(issue_date, "ddmmmyy", language_lat):"")
-         << "/" << (applic_country.empty()?"":ElemIdToPrefferedElem(etPaxDocCountry, applic_country, efmtCodeNative, lang))
+         << "/" << (applic_country.empty()?"":PaxDocCountryIdToPrefferedElem(applic_country, efmtCodeISOInter, lang))
          << "/" << (inf_indicator?"I":"");
 
   return RemoveTrailingChars(result.str(), "/");
@@ -868,7 +868,7 @@ std::string TPaxDocaItem::get_rem_text(bool inf_indicator,
   result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)
          << " HK1"
          << "/" << type
-         << "/" << (country.empty()?"":ElemIdToPrefferedElem(etPaxDocCountry, country, efmtCodeNative, lang))
+         << "/" << (country.empty()?"":PaxDocCountryIdToPrefferedElem(country, efmtCodeISOInter, lang))
          << "/" << transliter(address, 1, translit_lat)
          << "/" << transliter(city, 1, translit_lat)
          << "/" << transliter(region, 1, translit_lat)
