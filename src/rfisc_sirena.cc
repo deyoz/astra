@@ -111,7 +111,7 @@ const TPaxItem& TPaxItem::toSirenaXML(xmlNodePtr node, const std::string &lang) 
     SetProp(docNode, "number", doc.no, "");
     if (doc.expiry_date!=ASTRA::NoExists)
       SetProp(docNode, "expiration_date", DateTimeToStr(doc.expiry_date, "yyyy-mm-dd"));
-    SetProp(docNode, "country", ElemIdToCodeNative(etPaxDocCountry, doc.issue_country), "");
+    SetProp(docNode, "country", PaxDocCountryIdToPrefferedElem(doc.issue_country, efmtCodeISOInter, lang), "");
   }
 
   for(TPaxSegMap::const_iterator i=segs.begin(); i!=segs.end(); ++i)
