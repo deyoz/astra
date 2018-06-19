@@ -646,6 +646,7 @@ class TPaxListItem
     void addFQT(const CheckIn::TPaxFQTItem &fqt);
     void checkFQTTierLevel();
     void checkImportantRems(bool new_checkin, ASTRA::TPaxStatus grp_status);
+    int getExistingPaxIdOrSwear() const;
 };
 
 class TPaxList : public std::list<CheckIn::TPaxListItem>

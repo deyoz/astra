@@ -243,9 +243,11 @@ class Intervals : public std::list< std::pair<boost::posix_time::ptime, boost::p
 
 class Points : public std::map<Point, Intervals>
 {
+    std::string _traceTitle;
   public:
     void start(const std::string& _what, const boost::optional<int>& _seg_no=boost::none);
     void finish(const std::string& _what, const boost::optional<int>& _seg_no=boost::none);
+    Points(const std::string& traceTitle) : _traceTitle(traceTitle) {}
     ~Points();
 };
 

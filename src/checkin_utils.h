@@ -6,8 +6,19 @@
 #include "web_search.h"
 #include "apis_utils.h"
 
+struct TSegListItem
+{
+  TTripInfo flt;
+  CheckIn::TPaxGrpItem grp;
+  CheckIn::TPaxList paxs;
+};
+
 namespace CheckIn
 {
+
+void seatingWhenNewCheckIn(const TSegListItem& seg,
+                           const TAdvTripInfo& fltAdvInfo,
+                           const TTripInfo& markFltInfo);
 
 class OverloadException: public AstraLocale::UserException
 {
