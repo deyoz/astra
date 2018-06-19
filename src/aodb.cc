@@ -1894,7 +1894,7 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr,
   TFileData fd;
   TQuery Qry( &OraSession );
   Qry.SQLText =
-      "SELECT aodb_point_id,airline||flt_no||suffix trip,scd_out,airp,aodb_points.overload_alarm, "
+      "SELECT aodb_point_id,airline,flt_no,suffix trip,scd_out,airp,aodb_points.overload_alarm, "
       "       rec_no_flt "
       " FROM points, aodb_points "
       " WHERE points.point_id=:point_id AND "
@@ -1906,7 +1906,19 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr,
   if ( Qry.Eof )
     return false;
 
-  string flight = Qry.FieldAsString( "trip" );
+  Franchise::TProp franchise_prop;
+  ostringstream flight;
+  if ( franchise_prop.get(point_id, Franchise::TPropType::aodb) ) {
+    if ( franchise_prop.val == Franchise::pvYes ) {
+      flight << franchise_prop.franchisee.airline << franchise_prop.franchisee.flt_no << franchise_prop.franchisee.suffix;
+    }
+    else {
+      flight << franchise_prop.oper.airline << franchise_prop.oper.flt_no << franchise_prop.oper.suffix;
+    }
+  }
+  else {
+    flight << Qry.FieldAsString( "airline" ) << Qry.FieldAsString( "flt_no" ) << Qry.FieldAsString( "suffix" );
+  }
   string region = getRegion( Qry.FieldAsString( "airp" ) );
   TDateTime scd_out = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region );
   double aodb_point_id = Qry.FieldAsFloat( "aodb_point_id" );
@@ -1964,13 +1976,13 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr,
       r<<std::fixed<<setw(6)<<rec_no<<setw(10)<<setprecision(0)<<aodb_point_id;
     else
       r<<std::fixed<<setw(6)<<rec_no<<setw(10)<<"";
-    r<<setw(10)<<flight.substr(0,10)<<setw(16)<<DateTimeToStr( scd_out, "dd.mm.yyyy hh:nn" )<<record.str();
+    r<<setw(10)<<flight.str().substr(0,10)<<setw(16)<<DateTimeToStr( scd_out, "dd.mm.yyyy hh:nn" )<<record.str();
     AODB_POINTS::recNoFltNext( point_id, point_addr );
     put_string_into_snapshot_points( point_id, FILE_AODB_OUT_TYPE, point_addr, !old_record.empty(), record.str() );
     fd.file_data = r.str() + "\n";
   }
   if ( !fd.file_data.empty() ) {
-    string p = flight + DateTimeToStr( scd_out, "yymmddhhnn" );
+    string p = flight.str() + DateTimeToStr( scd_out, "yymmddhhnn" );
     fd.params[ PARAM_FILE_NAME ] =  p + "reg.txt";
     fd.params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
     fd.params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
