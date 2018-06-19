@@ -40,6 +40,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "astra_misc.h"
 #include "trip_tasks.h"
 #include "code_convert.h"
+#include "franchise.h"
 
 #define NICKNAME "DJEK"
 #define NICKTRACE DJEK_TRACE
@@ -403,8 +404,19 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
   vector<AODB_STRUCT> prior_aodb_bag, aodb_bag;
   if ( !getFlightData( point_id, point_addr, aodb_point_id, fltInfo ) )
     return false;
+  Franchise::TProp franchise_prop;
   ostringstream flight;
-  flight << fltInfo.airline << fltInfo.flt_no << fltInfo.suffix;
+  if ( franchise_prop.get(point_id, Franchise::TPropType::aodb) ) {
+    if ( franchise_prop.val == Franchise::pvYes ) {
+      flight << franchise_prop.franchisee.airline << franchise_prop.franchisee.flt_no << franchise_prop.franchisee.suffix;
+    }
+    else {
+      flight << franchise_prop.oper.airline << franchise_prop.oper.flt_no << franchise_prop.oper.suffix;
+    }
+  }
+  else {
+    flight << fltInfo.airline << fltInfo.flt_no << fltInfo.suffix;
+  }
   TDateTime scd_local=UTCToLocal( fltInfo.scd_out, getRegion(fltInfo.airp) );
   string airp_dep=fltInfo.airp;
   AODB::TBagNamesList bag_names;
@@ -1227,7 +1239,22 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     info.airline =  fl.airline.code;
     info.airp = airp;
     info.flt_no = fl.flt_no;
-    if ( pr_insert && !GetTripSets( tsAODBCreateFlight, info ) ) {
+    info.scd_out = fl.scd;
+    /*if ( pr_insert && !GetTripSets( tsAODBCreateFlight, info ) ) {
+      ProgTrace( TRACE5, "ParseFlight: new flight - return" );
+      return;
+    }*/
+    if ( pr_insert ) {
+      Franchise::TProp franchise_prop;
+      if ( franchise_prop.get(info, Franchise::TPropType::aodb) &&
+           franchise_prop.val == Franchise::pvYes ) {
+        fl.airline.code = franchise_prop.oper.airline;
+        fl.flt_no = franchise_prop.oper.flt_no;
+        fl.suffix.code = franchise_prop.oper.suffix;
+        pr_insert = !findFlt( fl.airline.code, fl.flt_no, fl.suffix.code, local_scd_out, airp, false, pflts );
+      }
+    }
+    if ( pr_insert ) {
       ProgTrace( TRACE5, "ParseFlight: new flight - return" );
       return;
     }

@@ -59,6 +59,39 @@ namespace Franchise {
         }
         return val != pvUnknown;
     }
+    bool TProp::get( const TTripInfo &info, TPropType::Enum prop ) {
+      clear();
+      franchisee.airline = info.airline;
+      franchisee.flt_no = info.flt_no;
+      franchisee.suffix = info.suffix;
+      TCachedQuery Qry(
+          "select * from franchise_sets where "
+          "   airline_franchisee = :airline and "
+          "   flt_no_franchisee = :flt_no and "
+          "   nvl(suffix_franchisee, ' ') = nvl(:suffix, ' ') and "
+          "   :scd_out >= first_date and "
+          "   (last_date is null or :scd_out < last_date) and "
+          "   pr_denial = 0 ",
+                  QParams()
+                  << QParam("airline_franchisee", otString, info.airline)
+                  << QParam("flt_no_franchisee", otInteger, info.flt_no)
+                  << QParam("suffix_franchisee", otString, info.suffix)
+                  << QParam("scd_out", otDate, info.scd_out)
+                  );
+          Qry.get().Execute();
+          if(not Qry.get().Eof) {
+              oper.airline = Qry.get().FieldAsString("airline");
+              oper.flt_no = Qry.get().FieldAsInteger("flt_no");
+              oper.suffix = Qry.get().FieldAsString("suffix");
+              string prop_name = PropTypes().encode(prop);
+              if(Qry.get().FieldIsNULL(prop_name))
+                  val = pvEmpty;
+              else {
+                  val = (Qry.get().FieldAsInteger(prop_name) != 0 ? pvYes : pvNo);
+              }
+          }
+      return val != pvUnknown;
+    }
 
     const TPropTypes &PropTypes()
     {
