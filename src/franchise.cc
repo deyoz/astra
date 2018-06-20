@@ -61,9 +61,11 @@ namespace Franchise {
     }
     bool TProp::get( const TTripInfo &info, TPropType::Enum prop ) {
       clear();
+
       franchisee.airline = info.airline;
       franchisee.flt_no = info.flt_no;
       franchisee.suffix = info.suffix;
+      ProgTrace( TRACE5, "airline=%s, flt_no=%d", franchisee.airline.c_str(),franchisee.flt_no );
       TCachedQuery Qry(
           "select * from franchise_sets where "
           "   airline_franchisee = :airline and "
@@ -79,17 +81,23 @@ namespace Franchise {
                   << QParam("scd_out", otDate, info.scd_out)
                   );
           Qry.get().Execute();
+          tst();
           if(not Qry.get().Eof) {
+              tst();
               oper.airline = Qry.get().FieldAsString("airline");
               oper.flt_no = Qry.get().FieldAsInteger("flt_no");
               oper.suffix = Qry.get().FieldAsString("suffix");
               string prop_name = PropTypes().encode(prop);
-              if(Qry.get().FieldIsNULL(prop_name))
+              if(Qry.get().FieldIsNULL(prop_name)) {
                   val = pvEmpty;
+                  tst();
+              }
               else {
                   val = (Qry.get().FieldAsInteger(prop_name) != 0 ? pvYes : pvNo);
+                  tst();
               }
           }
+      ProgTrace( TRACE5, "val=%d", (int)val );
       return val != pvUnknown;
     }
 
