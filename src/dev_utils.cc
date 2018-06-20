@@ -5,6 +5,7 @@
 #include "misc.h"
 #include <utility>
 #include <vector>
+#include <regex>
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
 
@@ -1932,5 +1933,344 @@ std::string ScanDeviceInfo::bgr_message(const std::list<std::string> &msg) const
 
   return s.str();
 
+}
+
+ScanDocInfo& ScanDocInfo::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==nullptr) return *this;
+  xmlNodePtr node2=node->children;
+  if (node2==nullptr) return *this;
+
+  CheckIn::TScannedPaxDocItem::fromXML(GetNodeFast("document", node2));
+
+  xmlNodePtr scanDataNode=GetNodeFast("scan_data", node2);
+  if (scanDataNode==nullptr) return *this;
+
+  if (NodeAsInteger("@hex", scanDataNode)!=0)
+  {
+    if (!HexToString(NodeAsString(scanDataNode), scan_data))
+      scan_data.clear();
+  }
+  else
+    scan_data=NodeAsString(scanDataNode);
+  return *this;
+}
+
+bool ScanDocInfo::isValidChar(char c)
+{
+  return (IsAscii7(c) && IsUpperLetter(c)) || IsDigit(c) || c=='<';
+}
+
+int ScanDocInfo::getCharCode(char c)
+{
+  if (IsAscii7(c) && IsUpperLetter(c))
+    return c-'A'+10;
+  if (IsDigit(c))
+    return c-'0';
+  if (c=='<')
+    return 0;
+
+  throw EConvertError("Wrong char");
+}
+
+char ScanDocInfo::calcCheckDigit(const std::string& str)
+{
+  int sum=0;
+  int i=1;
+  int weight;
+  for(const char& c : str)
+  {
+    switch ((i-1)%3)
+    {
+       case 0: weight=7; break;
+       case 1: weight=3; break;
+      default: weight=1; break;
+    }
+    sum+=getCharCode(c)*weight;
+    i++;
+  }
+  return sum%10 + '0';
+}
+
+bool ScanDocInfo::isValidField(const std::string& field, const char& checkDigit)
+{
+  for(const char& c : field)
+    if (c!='<') return calcCheckDigit(field)==checkDigit;
+  return (checkDigit=='0' || checkDigit=='<');
+}
+
+const std::list<std::string> ScanDocInfo::examples=
+{
+  "PNRUSER4OVA<<NATAL9B<IVANOVNA<<<<<<<<<<<<<<<\r"
+  "0318740665RUS6611020F<<<<<<<111111623O008<96\r",
+
+  "PNRUSER4OVA<<NATAL9B<IVANOVNA<<<<<<<<<<<<<<<\r\n"
+  "031874O665RUS6611020F<<<<<<<1111116230008<96\r\n",
+
+  "PNRUSER4OVA<<NATAL9B<IVANOVNA<<<<<<<<<<<<<<<\n"
+  "O31874O665RUS6611020F<<<<<<<111111623OO08<96\n",
+
+  "PNRUSER4OVA<<NATAL9B<IVANOVNA<<<<<<<<<<<<<<<\r"
+  "O31874O665RUS6611020F<<<<<<<111111623O0O8<96",
+
+  "PNRUSER4OVA<<NATAL9B<IVANOVNA<<<<<<<<<<<<<<<\r\n"
+  "O318740665RUS6611020F<<<<<<<111111623O008<96",
+
+  "PNRUSER4OVA<<NATAL98<IVANOVNA<<<<<<<<<<<<<<<\n"
+  "0318740665RUS6611020F<<<<<<<1111116230008<96",
+
+  "P<RUSCHICHEROV<<VLADISLAV<<<<<<<<<<<<<<<<<<<\n"
+  "6221683990RUS7507025M1005046<<<<<<<<<<<<<<<0\n",
+
+  "P<RUSVOLODIN<<ANDREY<<<<<<<<<<<<<<<<<<<<<<<<\n"
+  "7053252745RUS7205011M1502246<<<<<<<<<<<<<<08\n",
+
+  "P<RUSKOPOTOVA<<EKATERINA<<<<<<<<<<<<<<<<<<<<\n"
+  "6221242735RUS7401064M0912091<<<<<<<<<<<<<<<8\n",
+
+  "P<RUSKOPOTOVA<<EKATERINA<<<<<<<<<<<<<<<<<<<<\n"
+  "7110913600RUS7401064F2006224<<<<<<<<<<<<<<04\n",
+
+  "P<RUSCHICHEROV<<IGOR<<<<<<<<<<<<<<<<<<<<<<<<\n"
+  "7106240978RUS0806305M2005076<<<<<<<<<<<<<<02\n",
+
+  "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<\n"
+  "L898902C<3UTO6908061F9406236ZE184226B<<<<<14\n",
+
+  "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<\n"
+  "L898902C36UTO7408122F1204159ZE184226B<<<<<10\n",
+
+  "P<RUSCHICHEROV<<VLADISLAV<<<<<<<<<<<<<<<<<<<\n"
+  "7127136849RUS7507025M2012098<<<<<<<<<<<<<<00\n",
+
+  "P<RUSVOLODIN<<ANDREY<<<<<<<<<<<<<<<<<<<<<<<<\n"
+  "6267147799RUS7205011M1008014<<<<<<<<<<<<<<<6\n",
+
+  "I<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<\n"
+  "D231458907UTO7408122F1204159<<<<<<<6\n",
+
+  "IDROULUNGU<<ION<<<<<<<<<<<<<<<<<<<<<\n"
+  "ZC035653<7ROU8104292M240429914102011\n",
+
+  "IDROUSTRATAN<<RUSLAN<<<<<<<<<<<<<<<<\n"
+  "MZ200624<3ROU8609199M230919818077254\n",
+
+  "IDROUPOPESCU<<MARIN<<<<<<<<<<<<<<<<<\n"
+  "SS099993<3ROU4609134M690913314000881\n",
+
+  "PTROUGODEA<<ANDREEA<<<<<<<<<<<<<<<<<<<<<<<<<\n"
+  "0872567876ROU0511243F17111546051124226812<64\n",
+
+  "IDROUGODEA<<TATIANA<<<<<<<<<<<<<<<<<\n"
+  "MZ505723<9ROU8205122F260512228039422\n",
+
+  "IDROMTARASIUC<<IRINA<<<<<<<<<<<<<<<<\n"
+  "RD062393<41326403201M140320613432300\n",
+
+  "IDROUCOTELEA<<CRISTINA<<<<<<<<<<<<<<\n"
+  "VS684057<1ROU9311273F221127128039341\n",
+
+  "V<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<\n"
+  "L8988901C4XXX4009078F96121096ZE184226B<<<<<<\n",
+
+  "V<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<\n"
+  "L8988901C4XXX4009078F9612109<<<<<<<<\n",
+
+  "VCD<<VOLODIN<<ANDREY<<<<<<<<<<<<<<<<\n"
+  "D371300380RUS7205011M0907291<M450430\n",
+
+  "VTINDKOPOTOVA<<EKATERINA<<<<<<<<<<<<<<<<<<<<\n"
+  "AP22217834RUS7401064F1105119<<<<<<<<<<<<<<<6\n",
+
+  "VCGBRVOLODIN<<ANDREY<SERGEYEVICH<<<<\n"
+  "6267147799RUS7205011M0711308<<<<<<<<\n",
+
+  "VNUSAVOLODIN<<ANDREY<SERGEYEVICH<<<<<<<<<<<<\n"
+  "6267147799RUS7205011M0912046B3MOS0901E141068\n",
+
+  "V<VNMVOLODIN<<ANDREY<<<<<<<<<<<<<<<<<<<<<<<<\n"
+  "62N6714771RUS7205011M0607122G0135794<<<<<<14\n"
+};
+
+void ScanDocInfo::splitScanCode(std::vector<std::string>& lines)
+{
+  lines.clear();
+
+  std::regex line_regex("[^\\n\\r]*(\\r\\n|\\n|\\r|$)");
+  auto lines_begin=std::sregex_iterator(scan_data.begin(),
+                                        scan_data.end(),
+                                        line_regex,
+                                        std::regex_constants::match_not_null);
+  auto lines_end = std::sregex_iterator();
+
+  for(std::sregex_iterator i=lines_begin; i!=lines_end; ++i)
+  {
+    std::string match_str = i->str();
+    string::size_type pos=match_str.find_last_not_of("\n\r");
+    if (pos==string::npos) match_str.clear(); else match_str.erase(pos+1);
+
+    lines.push_back(match_str);
+  }
+}
+
+void ScanDocInfo::parse(const TDateTime& nowLocal)
+{
+  class FieldPosition
+  {
+    public:
+      int line, start, finish;
+      FieldPosition(int _line, int _start, int _finish) : line(_line), start(_start), finish(_finish) {}
+  };
+
+  class CheckDigitPosition
+  {
+    public:
+      int line, position;
+      CheckDigitPosition(int _line, int _position) : line(_line), position(_position) {}
+  };
+
+  typedef pair<char, char> ReplacedChars;
+
+  typedef list< pair< list<FieldPosition>, CheckDigitPosition > > FieldsAndCheckDigits;
+  typedef list< pair< list<FieldPosition>, list<ReplacedChars> > > FieldsAndReplacedChars;
+
+  const FieldsAndCheckDigits fieldsPositionsForCheckSize3=
+    { { { {2,  1,  9} }, {2, 10} },
+      { { {2, 14, 19} }, {2, 20} },
+      { { {2, 22, 27} }, {2, 28} },
+      { { {2, 29, 42} }, {2, 43} },
+      { { {2,  1, 10},
+          {2, 14, 20},
+          {2, 22, 43} }, {2, 44} },
+    };
+
+  const FieldsAndCheckDigits fieldsPositionsForCheckSize2=
+    { { { {2,  1,  9} }, {2, 10} },
+      { { {2, 14, 19} }, {2, 20} },
+      { { {2, 22, 27} }, {2, 28} },
+      { { {2,  1, 10},
+          {2, 14, 20},
+          {2, 22, 35} }, {2, 36} },
+    };
+
+  const FieldsAndCheckDigits fieldsPositionsForCheckVisaAB=
+    { { { {2,  1,  9} }, {2, 10} },
+      { { {2, 14, 19} }, {2, 20} },
+      { { {2, 22, 27} }, {2, 28} },
+    };
+
+  const FieldsAndReplacedChars fieldsAndReplacedCharsPNRUS=
+    { { { {2,  1, 10},
+          {2, 14, 20},
+          {2, 29, 44} },
+        { {'O', '0'},
+          {'B', '8'},
+          {'I', '1'},
+          {'S', '5'} } } };
+
+
+  vector<string> lines;
+  splitScanCode(lines);
+  for(const string& line : lines) LogTrace(TRACE5) << line;
+
+  if (lines.size()!=2)
+    throw EConvertError("Wrong number of strings");
+  size_t line_size=lines[0].size();
+  if (!(line_size==44 || line_size==36))
+    throw EConvertError("Wrong #1 string length");
+  int l=1;
+  for(const string& line : lines)
+  {
+    if (line.size()!=line_size)
+      throw EConvertError("Wrong #%d string length", l);
+    int i=1;
+    for(const char& c : line)
+    {
+      if (!isValidChar(c))
+        throw EConvertError("Wrong char in #%d string at position %d", l, i);
+      i++;
+    }
+    l++;
+  }
+
+  bool visa_format=lines[0][0]=='V';
+
+  const FieldsAndCheckDigits& fieldsPositionsForCheck=visa_format?fieldsPositionsForCheckVisaAB:
+                                                      line_size==44?fieldsPositionsForCheckSize3:
+                                                                    fieldsPositionsForCheckSize2;
+
+  if (lines[0].substr(0,5)=="PNRUS" && line_size==44)
+  {
+    for(const auto& i : fieldsAndReplacedCharsPNRUS)
+    {
+      for(const FieldPosition& fieldPosition : i.first )
+        for(const ReplacedChars& replacedChars : i.second)
+        {
+          string::iterator b=lines[fieldPosition.line-1].begin();
+          replace(b+(fieldPosition.start-1),
+                  b+(fieldPosition.finish),
+                  replacedChars.first, replacedChars.second);
+        }
+    }
+  }
+
+
+  for(const auto& i : fieldsPositionsForCheck)
+  {
+    string summaryField;
+    for(const FieldPosition& fieldPosition : i.first )
+      summaryField+=lines[fieldPosition.line-1].substr(fieldPosition.start-1, fieldPosition.finish-fieldPosition.start+1);
+    const CheckDigitPosition& checkDigitPosition=i.second;
+
+    if (!isValidField(summaryField, lines[checkDigitPosition.line-1][checkDigitPosition.position-1]))
+      throw EConvertError("Wrong check digit in #%d string at position %d", checkDigitPosition.line, checkDigitPosition.position);
+  }
+
+  {
+    //разбор верхней строки
+    string& line=lines[0];
+    replace(line.begin(), line.end(), '<', ' ');
+    type=line.substr(0,1);
+    type=TrimString(type);
+    subtype=line.substr(1,1);
+    subtype=TrimString(subtype);
+    issue_country=line.substr(2,3);
+    issue_country=TrimString(issue_country);
+  }
+
+  {
+    //разбор нижней строки
+    string& line=lines[1];
+    replace(line.begin(), line.end(), '<', ' ');
+    no=line.substr(0,9);
+    no=TrimString(no);
+
+    extra=visa_format?line.substr(28):
+                      line_size==44?line.substr(28, 14):
+                                    line.substr(28, 7);
+    extra=RTrimString(extra);
+  }
+}
+
+void ScanDocInfo::parseExamples()
+{
+  for(const string& example : examples)
+  try
+  {
+    ScanDocInfo doc;
+    doc.scan_data=example;
+    doc.parse(NowUTC());
+  }
+  catch(EConvertError &e)
+  {
+    LogError(STDLOG) << e.what();
+  }
+}
+
+int testScanDocExamples(int argc,char **argv)
+{
+  ScanDocInfo::parseExamples();
+  return 0;
 }
 
