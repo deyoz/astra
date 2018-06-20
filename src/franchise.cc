@@ -73,9 +73,9 @@ namespace Franchise {
           "   (last_date is null or :scd_out < last_date) and "
           "   pr_denial = 0 ",
                   QParams()
-                  << QParam("airline_franchisee", otString, info.airline)
-                  << QParam("flt_no_franchisee", otInteger, info.flt_no)
-                  << QParam("suffix_franchisee", otString, info.suffix)
+                  << QParam("airline", otString, info.airline)
+                  << QParam("flt_no", otInteger, info.flt_no)
+                  << QParam("suffix", otString, info.suffix)
                   << QParam("scd_out", otDate, info.scd_out)
                   );
           Qry.get().Execute();
