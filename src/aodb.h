@@ -42,5 +42,6 @@ namespace AODB_POINTS {
 //void update_aodb_pax_change( int point_id, int pax_id, int reg_no, const std::string &work_mode );
 //bool is_sync_aodb( int point_id );
 bool is_sync_aodb_pax( const TTripInfo &tripInfo );
+std::string getAODBFranchisFlight( int point_id, std::string &airline, const std::string &point_addr );
 
 #endif /*_AODB_H_*/

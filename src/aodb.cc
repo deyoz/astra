@@ -1899,6 +1899,41 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
      AstraLocale::showProgError( errs ); !!!*/
 }
 
+std::string getAODBFranchisFlight( int point_id, std::string &airline, const std::string &point_addr )
+{
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+      "SELECT aodb_point_id,airline,flt_no,suffix,scd_out,airp,aodb_points.overload_alarm, "
+      "       rec_no_flt "
+      " FROM points, aodb_points "
+      " WHERE points.point_id=:point_id AND "
+      "       points.point_id=aodb_points.point_id(+) AND "
+      "       :point_addr=aodb_points.point_addr(+) ";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "point_addr", otString, point_addr );
+  Qry.Execute();
+  if ( Qry.Eof ) {
+    return "";
+  }
+  ostringstream flight;
+  Franchise::TProp franchise_prop;
+  if ( franchise_prop.get(point_id, Franchise::TPropType::aodb) ) {
+    if ( franchise_prop.val == Franchise::pvNo ) {
+      flight << franchise_prop.franchisee.airline << franchise_prop.franchisee.flt_no << franchise_prop.franchisee.suffix;
+      airline = franchise_prop.franchisee.airline;
+    }
+    else {
+      flight << franchise_prop.oper.airline << franchise_prop.oper.flt_no << franchise_prop.oper.suffix;
+      airline = franchise_prop.oper.airline;
+    }
+  }
+  else {
+    flight << Qry.FieldAsString( "airline" ) << Qry.FieldAsString( "flt_no" ) << Qry.FieldAsString( "suffix" );
+    airline = Qry.FieldAsString( "airline" );
+  }
+  return flight.str();
+}
+
 bool BuildAODBTimes( int point_id, const std::string &point_addr,
                      TAODBFormat format, TFileDatas &fds )
 {
@@ -1916,20 +1951,9 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr,
   Qry.Execute();
   if ( Qry.Eof )
     return false;
-
-  Franchise::TProp franchise_prop;
+  string airline;
   ostringstream flight;
-  if ( franchise_prop.get(point_id, Franchise::TPropType::aodb) ) {
-    if ( franchise_prop.val == Franchise::pvNo ) {
-      flight << franchise_prop.franchisee.airline << franchise_prop.franchisee.flt_no << franchise_prop.franchisee.suffix;
-    }
-    else {
-      flight << franchise_prop.oper.airline << franchise_prop.oper.flt_no << franchise_prop.oper.suffix;
-    }
-  }
-  else {
-    flight << Qry.FieldAsString( "airline" ) << Qry.FieldAsString( "flt_no" ) << Qry.FieldAsString( "suffix" );
-  }
+  flight << getAODBFranchisFlight( point_id, airline, point_addr );
   string region = getRegion( Qry.FieldAsString( "airp" ) );
   TDateTime scd_out = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region );
   double aodb_point_id = Qry.FieldAsFloat( "aodb_point_id" );

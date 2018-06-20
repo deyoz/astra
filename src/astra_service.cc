@@ -812,7 +812,7 @@ bool CreateCommonFileData( bool pr_commit,
                            const std::string &point_addr,
                            int id, const std::string type,
                            const std::string &airp, const std::string &airline,
-                             const std::string &flt_no, TStats *stats )
+                           const std::string &flt_no, TStats *stats )
 {
     bool res = false;
     TQuery Qry( &OraSession );
@@ -874,9 +874,16 @@ bool CreateCommonFileData( bool pr_commit,
                     /* теперь в params еще лежит и имя файла */
                     string encoding = TFileQueue::getEncoding( type, client_canon_name, true );
                     for ( vector<TFileData>::iterator i=fds.begin(); i!=fds.end(); i++ ) {
-                        i->params[PARAM_CANON_NAME] = client_canon_name;
+                      i->params[PARAM_CANON_NAME] = client_canon_name;
                       i->params[ NS_PARAM_AIRP ] = airp;
-                      i->params[ NS_PARAM_AIRLINE ] = airline;
+                      if ( type == FILE_AODB_OUT_TYPE ) {
+                        string vairline;
+                        getAODBFranchisFlight( id, vairline, client_canon_name );
+                        i->params[ NS_PARAM_AIRLINE ] = vairline;
+                      }
+                      else {
+                        i->params[ NS_PARAM_AIRLINE ] = airline;
+                      }
                       i->params[ NS_PARAM_FLT_NO ] = flt_no;
                         string str_file = i->file_data;
                       if ( !encoding.empty() )
