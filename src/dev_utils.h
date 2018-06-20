@@ -10,6 +10,7 @@
 #include <boost/optional/optional.hpp>
 #include "date_time.h"
 #include "astra_utils.h"
+#include "passenger.h"
 
 using namespace BASIC::date_time;
 
@@ -642,6 +643,33 @@ class ScanDeviceInfo : public DeviceInfo
     unsigned int display_height() const { return _display_height; }
     unsigned int display_width() const { return _display_width; }
     std::string bgr_message(const std::list<std::string> &msg) const;
+};
+
+class ScanDocInfo : public CheckIn::TScannedPaxDocItem
+{
+  protected:
+    static const std::list<std::string> examples;
+    static bool isValidChar(char c);
+    static int getCharCode(char c);
+    static char calcCheckDigit(const std::string& str);
+    static bool isValidField(const std::string& field, const char& checkDigit);
+    void splitScanCode(std::vector<std::string>& lines);
+  public:
+    std::string scan_data;
+    ScanDocInfo()
+    {
+      clear();
+    }
+    void clear()
+    {
+      CheckIn::TScannedPaxDocItem::clear();
+      scan_data.clear();
+    }
+
+    ScanDocInfo& fromXML(xmlNodePtr node);
+
+    void parse(const TDateTime& nowLocal);
+    static void parseExamples();
 };
 
 
