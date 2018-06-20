@@ -1252,7 +1252,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
         fl.flt_no = franchise_prop.oper.flt_no;
         fl.suffix.code = franchise_prop.oper.suffix;
         pr_insert = !findFlt( fl.airline.code, fl.flt_no, fl.suffix.code, local_scd_out, airp, false, pflts );
-        ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, pr_insert=%d", fl.airline.code.c_str(), fl.flt_no, fl.suffix.code.c_str(), pr_insert );
+        ProgTrace( TRACE5, "airline=%s, %d, flt_no=%d, suffix=%s, pr_insert=%d", fl.airline.code.c_str(), fl.airline.code == "ž’", fl.flt_no, fl.suffix.code.c_str(), pr_insert );
       }
     }
     if ( pr_insert ) {
