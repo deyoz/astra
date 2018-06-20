@@ -1247,7 +1247,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     if ( pr_insert ) {
       Franchise::TProp franchise_prop;
       if ( franchise_prop.get(info, Franchise::TPropType::aodb) &&
-           franchise_prop.val == Franchise::pvYes ) {
+           franchise_prop.val == Franchise::pvNo ) {
         fl.airline.code = franchise_prop.oper.airline;
         fl.flt_no = franchise_prop.oper.flt_no;
         fl.suffix.code = franchise_prop.oper.suffix;
