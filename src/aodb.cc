@@ -191,10 +191,20 @@ void createFileParamsAODB( int point_id, map<string,string> &params, bool pr_bag
     throw Exception( "Flight not found in createFileParams" );
   string region = getRegion( FlightQry.FieldAsString( "airp" ) );
   TDateTime scd_out = UTCToLocal( FlightQry.FieldAsDateTime( "scd_out" ), region );
-  string p = string( FlightQry.FieldAsString( "airline" ) ) +
-      FlightQry.FieldAsString( "flt_no" ) +
-      FlightQry.FieldAsString( "suffix" ) +
-      string( DateTimeToStr( scd_out, "yymmddhhnn" ) );
+  Franchise::TProp franchise_prop;
+  ostringstream flight;
+  if ( franchise_prop.get(point_id, Franchise::TPropType::aodb) ) {
+    if ( franchise_prop.val == Franchise::pvNo ) {
+      flight << franchise_prop.franchisee.airline << franchise_prop.franchisee.flt_no << franchise_prop.franchisee.suffix;
+    }
+    else {
+      flight << franchise_prop.oper.airline << franchise_prop.oper.flt_no << franchise_prop.oper.suffix;
+    }
+  }
+  else {
+    flight << FlightQry.FieldAsString( "airline" ) << FlightQry.FieldAsString( "flt_no" ) << FlightQry.FieldAsString( "suffix" );
+  }
+  string p = flight.str() + string( DateTimeToStr( scd_out, "yymmddhhnn" ) );
   if ( pr_bag )
     p += 'b';
   params[ PARAM_FILE_NAME ] =  p + ".txt";
@@ -407,7 +417,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
   Franchise::TProp franchise_prop;
   ostringstream flight;
   if ( franchise_prop.get(point_id, Franchise::TPropType::aodb) ) {
-    if ( franchise_prop.val == Franchise::pvYes ) {
+    if ( franchise_prop.val == Franchise::pvNo ) {
       flight << franchise_prop.franchisee.airline << franchise_prop.franchisee.flt_no << franchise_prop.franchisee.suffix;
     }
     else {
@@ -1910,7 +1920,7 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr,
   Franchise::TProp franchise_prop;
   ostringstream flight;
   if ( franchise_prop.get(point_id, Franchise::TPropType::aodb) ) {
-    if ( franchise_prop.val == Franchise::pvYes ) {
+    if ( franchise_prop.val == Franchise::pvNo ) {
       flight << franchise_prop.franchisee.airline << franchise_prop.franchisee.flt_no << franchise_prop.franchisee.suffix;
     }
     else {
