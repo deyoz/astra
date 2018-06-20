@@ -1894,7 +1894,7 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr,
   TFileData fd;
   TQuery Qry( &OraSession );
   Qry.SQLText =
-      "SELECT aodb_point_id,airline,flt_no,suffix trip,scd_out,airp,aodb_points.overload_alarm, "
+      "SELECT aodb_point_id,airline,flt_no,suffix, trip,scd_out,airp,aodb_points.overload_alarm, "
       "       rec_no_flt "
       " FROM points, aodb_points "
       " WHERE points.point_id=:point_id AND "
