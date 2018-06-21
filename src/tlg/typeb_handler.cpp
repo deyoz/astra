@@ -9,7 +9,6 @@
 #include "tlg_parser.h"
 #include "lci_parser.h"
 #include "ucm_parser.h"
-#include "ssm_parser.h"
 #include "mvt_parser.h"
 #include "ifm_parser.h"
 #include "typeb_utils.h"

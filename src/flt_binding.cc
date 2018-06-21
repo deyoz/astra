@@ -601,6 +601,26 @@ void TFltBinding::trace_for_bind(const vector<int> &point_ids, const string &whe
   ProgTrace(TRACE5, "%s", trace.str().c_str());
 }
 
+void TFltInfo::parse(const char *val)
+{
+    char flt[9];
+    char c = 0;
+    suffix[1] = 0;
+    int res=sscanf(val,"%8[A-Z€-Ÿð0-9]%c",flt,&c);
+    if(c !=0 or res != 1) throw TypeB::ETlgError("wrong flight");
+    if (IsDigit(flt[2]))
+        res=sscanf(flt,"%2[A-Z€-Ÿð0-9]%5lu%c%c",
+                airline,&flt_no,&(suffix[0]),&c);
+    else
+        res=sscanf(flt,"%3[A-Z€-Ÿð0-9]%5lu%c%c",
+                airline,&flt_no,&(suffix[0]),&c);
+    if (c!=0||res<2||flt_no<0) throw TypeB::ETlgError("Wrong flight");
+    if (res==3&&
+            !IsUpperLetter(suffix[0])) throw TypeB::ETlgError("Wrong flight");
+    TypeB::GetAirline(airline);
+    TypeB::GetSuffix(suffix[0]);
+}
+
 void TFltInfo::dump() const
 {
     LogTrace(TRACE5) << "----TFltInfo::dump----";

@@ -1023,6 +1023,10 @@ void throwTlgError(const char* msg, const TTlgPartInfo &curr, const char* line_p
 void split(std::vector<std::string> &result, const std::string val, char c);
 int monthAsNum(const std::string &smonth);
 
+// на входе строка формата nn(aaa(nn))
+TDateTime ParseDate(const std::string &buf);
+
+
 } //namespace TypeB
 
 #endif

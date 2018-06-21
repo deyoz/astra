@@ -16,7 +16,6 @@
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
 
-#include "tlg/ssm_parser.h"
 #include "tlg/lci_parser.h"
 #include "img.h"
 #include "collect.h"
@@ -78,7 +77,6 @@ const
     {"-dst_seasons",            seasons_dst_format,     NULL,                       NULL},
     {"-agent_stat_delta",       STAT::agent_stat_delta, NULL,                       NULL},
     {"-lci",                    TypeB::lci,             NULL,                       NULL},
-    {"-ssm",                    TypeB::ssm,             NULL,                       NULL},
     {"-tz2db",                  tz2db,                  NULL,                       "reload date_time_zonespec.csv content to db"},
     {"-get_sirena_rozysk_stat", get_sirena_rozysk_stat, NULL,                       NULL},
     {"-get_events_stat",        get_events_stat2,       NULL,                       NULL},
