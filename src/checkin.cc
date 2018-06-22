@@ -2052,7 +2052,8 @@ void CheckInInterface::SearchPaxByDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     catch(EConvertError &e)
     {
       LogTrace(TRACE5) << ">>>>" << e.what();
-      throw UserException("MSG.DEVICE.INVALID_SCAN_FORMAT");
+      if (!doc.bluntParsePNRUSDocNo())
+        throw UserException("MSG.DEVICE.INVALID_SCAN_FORMAT");
     }
   }
 

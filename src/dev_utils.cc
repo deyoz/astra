@@ -2002,6 +2002,12 @@ bool ScanDocInfo::isValidField(const std::string& field, const char& checkDigit)
 
 const std::list<std::string> ScanDocInfo::examples=
 {
+  "\r"
+  "\r",
+
+  "PNRUS\r"
+  "O3IB74O66*******************I\r",
+
   "PNRUSER4OVA<<NATAL9B<IVANOVNA<<<<<<<<<<<<<<<\r"
   "0318740665RUS6611020F<<<<<<<111111623O008<96\r",
 
@@ -2114,14 +2120,69 @@ void ScanDocInfo::splitScanCode(std::vector<std::string>& lines)
   }
 }
 
+class FieldPosition
+{
+  public:
+    int line, start, finish;
+    FieldPosition(int _line, int _start, int _finish) : line(_line), start(_start), finish(_finish) {}
+};
+
+typedef pair<char, char> ReplacedChars;
+typedef list< pair< list<FieldPosition>, list<ReplacedChars> > > FieldsAndReplacedChars;
+
+bool ScanDocInfo::bluntParsePNRUSDocNo()
+{
+  CheckIn::TScannedPaxDocItem::clear();
+
+  const FieldsAndReplacedChars fieldsAndReplacedCharsPNRUS=
+    { { { {2,  1,  9},
+          {2, 29, 29} },
+        { {'O', '0'},
+          {'B', '8'},
+          {'I', '1'},
+          {'S', '5'} } } };
+
+  vector<string> lines;
+  splitScanCode(lines);
+  for(const string& line : lines) LogTrace(TRACE5) << line;
+
+  if (lines.size()<2) return false;
+  if (lines[0].size()<5) return false;
+  if (lines[1].size()<29) return false;
+  if (lines[0].substr(0,5)!="PNRUS") return false;
+
+  for(const auto& i : fieldsAndReplacedCharsPNRUS)
+  {
+    for(const FieldPosition& fieldPosition : i.first )
+      for(const ReplacedChars& replacedChars : i.second)
+      {
+        if (fieldPosition.line>(int)lines.size()) continue;
+        if (fieldPosition.start>(int)lines[fieldPosition.line-1].size()) continue;
+        if (fieldPosition.finish>(int)lines[fieldPosition.line-1].size()) continue;
+
+        string::iterator b=lines[fieldPosition.line-1].begin();
+        replace(b+(fieldPosition.start-1),
+                b+(fieldPosition.finish),
+                replacedChars.first, replacedChars.second);
+      }
+  }
+
+  type="P";
+  subtype="N";
+  issue_country="RUS";
+  string& line=lines[1];
+  no=line.substr(0,9);
+  extra=line.substr(28,1);
+
+  LogTrace(TRACE5) << __FUNCTION__ << ": no=" << no << ", extra=" << extra;
+  LogTrace(TRACE5) << __FUNCTION__ << ": getTrueNo()=" << getTrueNo();
+
+  return true;
+}
+
 void ScanDocInfo::parse(const TDateTime& nowLocal)
 {
-  class FieldPosition
-  {
-    public:
-      int line, start, finish;
-      FieldPosition(int _line, int _start, int _finish) : line(_line), start(_start), finish(_finish) {}
-  };
+  CheckIn::TScannedPaxDocItem::clear();
 
   class CheckDigitPosition
   {
@@ -2130,10 +2191,7 @@ void ScanDocInfo::parse(const TDateTime& nowLocal)
       CheckDigitPosition(int _line, int _position) : line(_line), position(_position) {}
   };
 
-  typedef pair<char, char> ReplacedChars;
-
   typedef list< pair< list<FieldPosition>, CheckDigitPosition > > FieldsAndCheckDigits;
-  typedef list< pair< list<FieldPosition>, list<ReplacedChars> > > FieldsAndReplacedChars;
 
   const FieldsAndCheckDigits fieldsPositionsForCheckSize3=
     { { { {2,  1,  9} }, {2, 10} },
@@ -2168,7 +2226,6 @@ void ScanDocInfo::parse(const TDateTime& nowLocal)
           {'B', '8'},
           {'I', '1'},
           {'S', '5'} } } };
-
 
   vector<string> lines;
   splitScanCode(lines);
@@ -2256,15 +2313,18 @@ void ScanDocInfo::parse(const TDateTime& nowLocal)
 void ScanDocInfo::parseExamples()
 {
   for(const string& example : examples)
-  try
   {
     ScanDocInfo doc;
     doc.scan_data=example;
-    doc.parse(NowUTC());
-  }
-  catch(EConvertError &e)
-  {
-    LogError(STDLOG) << e.what();
+    try
+    {
+      doc.parse(NowUTC());
+    }
+    catch(EConvertError &e)
+    {
+      LogError(STDLOG) << e.what();
+      LogError(STDLOG) << "bluntParsePNRUSDocNo() return " << doc.bluntParsePNRUSDocNo();
+    }
   }
 }
 
