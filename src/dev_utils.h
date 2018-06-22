@@ -668,6 +668,7 @@ class ScanDocInfo : public CheckIn::TScannedPaxDocItem
 
     ScanDocInfo& fromXML(xmlNodePtr node);
 
+    bool bluntParsePNRUSDocNo();
     void parse(const TDateTime& nowLocal);
     static void parseExamples();
 };
