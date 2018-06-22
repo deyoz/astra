@@ -560,35 +560,56 @@ bool TDetailCreateInfo::is_lat()
 
 string TDetailCreateInfo::airline_view()
 {
-  const TMarkInfoOptions *markOptions = dynamic_cast<const TMarkInfoOptions*>(&get_options());
-  if (markOptions==NULL || markOptions->mark_info.empty() || !markOptions->pr_mark_header)
-    return TlgElemIdToElem(etAirline, airline);
-  else
-    return TlgElemIdToElem(etAirline, markOptions->mark_info.airline);
+    const TFranchiseOptions *franchiseOptions = dynamic_cast<const TFranchiseOptions*>(&get_options());
+    if(franchiseOptions != NULL and not franchiseOptions->franchise_info.empty()) {
+        return TlgElemIdToElem(etAirline, franchiseOptions->franchise_info.airline);
+    } else {
+        const TMarkInfoOptions *markOptions = dynamic_cast<const TMarkInfoOptions*>(&get_options());
+        if (markOptions==NULL || markOptions->mark_info.empty() || !markOptions->pr_mark_header)
+            return TlgElemIdToElem(etAirline, airline);
+        else
+            return TlgElemIdToElem(etAirline, markOptions->mark_info.airline);
+    }
 };
 
 string TDetailCreateInfo::flt_no_view()
 {
-  int flt_no_tmp;
-  const TMarkInfoOptions *markOptions = dynamic_cast<const TMarkInfoOptions*>(&get_options());
-  if (markOptions==NULL || markOptions->mark_info.empty() || !markOptions->pr_mark_header)
-    flt_no_tmp=flt_no;
-  else
-    flt_no_tmp=markOptions->mark_info.flt_no;
+    const TFranchiseOptions *franchiseOptions = dynamic_cast<const TFranchiseOptions*>(&get_options());
+    if(franchiseOptions != NULL and not franchiseOptions->franchise_info.empty()) {
+        if(franchiseOptions->franchise_info.flt_no == NoExists)
+            return "???";
+        else {
+            ostringstream flt;
+            flt << setw(3) << setfill('0') << franchiseOptions->franchise_info.flt_no;
+            return flt.str();
+        }
+    } else {
+        int flt_no_tmp;
+        const TMarkInfoOptions *markOptions = dynamic_cast<const TMarkInfoOptions*>(&get_options());
+        if (markOptions==NULL || markOptions->mark_info.empty() || !markOptions->pr_mark_header)
+            flt_no_tmp=flt_no;
+        else
+            flt_no_tmp=markOptions->mark_info.flt_no;
 
-  if (flt_no_tmp==NoExists) return "???";
-  ostringstream flt;
-  flt << setw(3) << setfill('0') << flt_no_tmp;
-  return flt.str();
+        if (flt_no_tmp==NoExists) return "???";
+        ostringstream flt;
+        flt << setw(3) << setfill('0') << flt_no_tmp;
+        return flt.str();
+    }
 };
 
 string TDetailCreateInfo::suffix_view()
 {
-  const TMarkInfoOptions *markOptions = dynamic_cast<const TMarkInfoOptions*>(&get_options());
-  if (markOptions==NULL || markOptions->mark_info.empty() || !markOptions->pr_mark_header)
-    return suffix.empty()?"":TlgElemIdToElem(etSuffix, suffix);
-  else
-    return markOptions->mark_info.suffix.empty()?"":TlgElemIdToElem(etSuffix, markOptions->mark_info.suffix);
+    const TFranchiseOptions *franchiseOptions = dynamic_cast<const TFranchiseOptions*>(&get_options());
+    if(franchiseOptions != NULL and not franchiseOptions->franchise_info.empty()) {
+        return franchiseOptions->franchise_info.suffix.empty()?"":TlgElemIdToElem(etSuffix, franchiseOptions->franchise_info.suffix);
+    } else {
+        const TMarkInfoOptions *markOptions = dynamic_cast<const TMarkInfoOptions*>(&get_options());
+        if (markOptions==NULL || markOptions->mark_info.empty() || !markOptions->pr_mark_header)
+            return suffix.empty()?"":TlgElemIdToElem(etSuffix, suffix);
+        else
+            return markOptions->mark_info.suffix.empty()?"":TlgElemIdToElem(etSuffix, markOptions->mark_info.suffix);
+    }
 };
 
 string TDetailCreateInfo::airp_dep_view()
@@ -818,6 +839,14 @@ tr1::shared_ptr<TCreateOptions> make_options(const string &tlg_type)
     return tr1::shared_ptr<TCreateOptions>(new TPRLOptions);
   else if (basic_type=="COM")
     return tr1::shared_ptr<TCreateOptions>(new TCOMOptions);
+  else if (basic_type=="SOM")
+    return tr1::shared_ptr<TCreateOptions>(new TFranchiseOptions);
+  else if (basic_type=="CPM")
+    return tr1::shared_ptr<TCreateOptions>(new TFranchiseOptions);
+  else if (basic_type=="PSM")
+    return tr1::shared_ptr<TCreateOptions>(new TFranchiseOptions);
+  else if (basic_type=="TPM")
+    return tr1::shared_ptr<TCreateOptions>(new TFranchiseOptions);
   else if (basic_type=="LDM")
     return tr1::shared_ptr<TCreateOptions>(new TLDMOptions);
   else if (basic_type=="ETL")
@@ -1165,24 +1194,40 @@ const vector<string>& TCreator::crs()
   return p_crs;
 };
 
-const vector<TSimpleMktFlight>& TCreator::mkt_flights()
+const Franchise::TProp &TCreator::get_franchise_prop(const std::string &tlg_type)
+{
+    auto franchise_prop = franchise_props.find(tlg_type);
+    if(franchise_prop == franchise_props.end()) {
+        Franchise::TProp franchise_db;
+        franchise_db.get(flt.point_id, tlg_type);
+        auto ret = franchise_props.insert(make_pair(tlg_type, franchise_db));
+        franchise_prop = ret.first;
+    }
+    return franchise_prop->second;
+}
+
+const vector<TSimpleMktFlight>& TCreator::mkt_flights(const string &tlg_type)
 {
   if (!mkt_flights_init)
   {
-    //получим список коммерческих рейсов если таковые имеются
-    vector<TTripInfo> markFltInfo;
-    GetMktFlights(flt,markFltInfo);
-    for(vector<TTripInfo>::const_iterator f=markFltInfo.begin(); f!=markFltInfo.end(); ++f)
-    {
-      TSimpleMktFlight mktFlight;
-      mktFlight.airline=f->airline;
-      mktFlight.flt_no=f->flt_no;
-      mktFlight.suffix=f->suffix;
-      p_mkt_flights.push_back(mktFlight);
-    };
-    mkt_flights_init=true;
+      //получим список коммерческих рейсов если таковые имеются
+      vector<TTripInfo> markFltInfo;
+      GetMktFlights(flt,markFltInfo);
+      for(vector<TTripInfo>::const_iterator f=markFltInfo.begin(); f!=markFltInfo.end(); ++f)
+      {
+          TSimpleMktFlight mktFlight;
+          mktFlight.airline=f->airline;
+          mktFlight.flt_no=f->flt_no;
+          mktFlight.suffix=f->suffix;
+          p_mkt_flights.push_back(mktFlight);
+      };
+      mkt_flights_init=true;
   };
-  return p_mkt_flights;
+  // если настроен франчайз, коммерческие рейсы не участвуют
+  if(get_franchise_prop(tlg_type).val != Franchise::pvUnknown)
+      return p_mkt_empty_flights;
+  else
+      return p_mkt_flights;
 };
 
 void TCreateInfo::dump() const
@@ -1224,7 +1269,7 @@ void TCreator::getInfo(vector<TCreateInfo> &info)
     vector<TCreateInfo> ci;
 
     if (TAddrInfo(si).optionsIs<TMarkInfoOptions>())
-      si.getCreateInfo(mkt_flights(), false, ci);
+      si.getCreateInfo(mkt_flights(*t), false, ci);
     else
       si.getCreateInfo(vector<TSimpleMktFlight>(), false, ci);
 
@@ -1239,14 +1284,14 @@ void TCreator::getInfo(vector<TCreateInfo> &info)
       createInfo.point_id=flt.point_id;
 
       if (createInfo.addrs.empty()) continue;
-      //цикл по коммерческим рейсам
+      //цикл по коммерческим рейсам или одна итерация, если тлг не маркетинговая
       vector<TSimpleMktFlight>::const_iterator f;
-      for(isMarkInfoOptions?f=mkt_flights().begin():f;;isMarkInfoOptions?++f:f)
+      for(isMarkInfoOptions?f=mkt_flights(*t).begin():f;;isMarkInfoOptions?++f:f)
       {
         if (isMarkInfoOptions)
         {
           TMarkInfoOptions &markOptions=*(createInfo.optionsAs<TMarkInfoOptions>());
-          if (f!=mkt_flights().end())
+          if (f!=mkt_flights(*t).end())
           {
             if (i->optionsAs<TMarkInfoOptions>()->pr_mark_header==NoExists) continue;
             markOptions.mark_info.airline=f->airline;
@@ -1300,10 +1345,36 @@ void TCreator::getInfo(vector<TCreateInfo> &info)
           };
           if (isCrsOptions?c==crs().end():true) break;
         };
-        if (isMarkInfoOptions?f==mkt_flights().end():true) break;
+        if (isMarkInfoOptions?f==mkt_flights(*t).end():true) break;
       };
     };
   };
+
+  vector<TCreateInfo> franchise_info;
+  for(auto &i: info) {
+      const auto &franchise_prop = get_franchise_prop(i.get_tlg_type());
+      if(
+              franchise_prop.val != Franchise::pvUnknown and
+              i.optionsIs<TFranchiseOptions>()
+              ) {
+          if(franchise_prop.val == Franchise::pvEmpty) { // Значение Пусто - оперативный рейс, т.е. ничего не делаем
+          } else if(franchise_prop.val == Franchise::pvYes) { // Значение ДА - сформировать франчайзинговую тлг, в дополнение к оперативной
+              TCreateInfo tmp;
+              tmp.copy(i);
+              TFranchiseOptions &franchiseOptions=*(tmp.optionsAs<TFranchiseOptions>());
+              franchiseOptions.franchise_info.airline = franchise_prop.franchisee.airline;
+              franchiseOptions.franchise_info.flt_no = franchise_prop.franchisee.flt_no;
+              franchiseOptions.franchise_info.suffix = franchise_prop.franchisee.suffix;
+              franchise_info.push_back(tmp);
+          } else if(franchise_prop.val == Franchise::pvNo) { // Значение НЕТ - только франчайзинговую тлг
+              TFranchiseOptions &franchiseOptions=*(i.optionsAs<TFranchiseOptions>());
+              franchiseOptions.franchise_info.airline = franchise_prop.franchisee.airline;
+              franchiseOptions.franchise_info.flt_no = franchise_prop.franchisee.flt_no;
+              franchiseOptions.franchise_info.suffix = franchise_prop.franchisee.suffix;
+          }
+      }
+  }
+  info.insert(info.end(), franchise_info.begin(), franchise_info.end());
 };
 
 void TForwarder::getInfo(vector<TCreateInfo> &info)

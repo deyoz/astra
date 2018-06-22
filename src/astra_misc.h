@@ -166,6 +166,7 @@ class TTripInfo
       airp.clear();
       craft.clear();
       bort.clear();
+      trip_type.clear();
       scd_out=ASTRA::NoExists;
       est_out=boost::none;
       act_out=boost::none;
@@ -187,6 +188,8 @@ class TTripInfo
         craft=Qry.FieldAsString("craft");
       if (Qry.GetFieldIndex("bort")>=0)
         bort=Qry.FieldAsString("bort");
+      if (Qry.GetFieldIndex("trip_type")>=0)
+        trip_type=Qry.FieldAsString("trip_type");
       if (!Qry.FieldIsNULL("scd_out"))
         scd_out = Qry.FieldAsDateTime("scd_out");
       if (Qry.GetFieldIndex("est_out")>=0)
@@ -247,6 +250,7 @@ class TTripInfo
         << " " << prefix << "airp,"
         << " " << prefix << "craft,"
         << " " << prefix << "bort,"
+        << " " << prefix << "trip_type,"
         << " " << prefix << "scd_out,"
         << " " << prefix << "est_out,"
         << " " << prefix << "act_out,"
@@ -260,7 +264,7 @@ class TTripInfo
     }
 
     int point_id;
-    std::string airline, suffix, airp, craft, bort;
+    std::string airline, suffix, airp, craft, bort, trip_type;
     TDateTime scd_out;
     boost::optional<TDateTime> est_out, act_out; //внимание!!! boost::none, если вообще не выбирается из БД; NoExists, если NULL в БД
     int flt_no, pr_del;
