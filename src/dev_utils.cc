@@ -2099,7 +2099,7 @@ const std::list<std::string> ScanDocInfo::examples=
   "62N6714771RUS7205011M0607122G0135794<<<<<<14\n"
 };
 
-void ScanDocInfo::splitScanCode(std::vector<std::string>& lines)
+void ScanDocInfo::splitScanCode(std::vector<std::string>& lines) const
 {
   lines.clear();
 
@@ -2118,6 +2118,16 @@ void ScanDocInfo::splitScanCode(std::vector<std::string>& lines)
 
     lines.push_back(match_str);
   }
+}
+
+string ScanDocInfo::getScanCodeForErrorMsg() const
+{
+  std::vector<std::string> lines;
+  splitScanCode(lines);
+  string res;
+  for(const string& line : lines)
+    res+= line + "|";
+  return ValidXMLString(res)?res:"";
 }
 
 class FieldPosition

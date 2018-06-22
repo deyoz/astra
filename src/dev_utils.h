@@ -653,7 +653,7 @@ class ScanDocInfo : public CheckIn::TScannedPaxDocItem
     static int getCharCode(char c);
     static char calcCheckDigit(const std::string& str);
     static bool isValidField(const std::string& field, const char& checkDigit);
-    void splitScanCode(std::vector<std::string>& lines);
+    void splitScanCode(std::vector<std::string>& lines) const;
   public:
     std::string scan_data;
     ScanDocInfo()
@@ -670,6 +670,7 @@ class ScanDocInfo : public CheckIn::TScannedPaxDocItem
 
     bool bluntParsePNRUSDocNo();
     void parse(const TDateTime& nowLocal);
+    std::string getScanCodeForErrorMsg() const;
     static void parseExamples();
 };
 
