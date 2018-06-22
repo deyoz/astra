@@ -2052,10 +2052,20 @@ void CheckInInterface::SearchPaxByDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     catch(EConvertError &e)
     {
       LogTrace(TRACE5) << ">>>>" << e.what();
-      if (!doc.bluntParsePNRUSDocNo())
-        throw UserException("MSG.DEVICE.INVALID_SCAN_FORMAT");
+      doc.bluntParsePNRUSDocNo();
     }
   }
+
+  if (doc.no.empty())
+  {
+    string text=doc.getScanCodeForErrorMsg();
+    if (!text.empty())
+      throw UserException("WRAP.DEVICE.INVALID_SCAN_FORMAT",
+                          LParams() << LParam("text", text));
+    else
+      throw UserException("MSG.DEVICE.INVALID_SCAN_FORMAT");
+  }
+
 
   PaxInfoForSearchList list(CheckIn::TSimplePaxList().searchByDocNo(doc));
 
@@ -2102,7 +2112,8 @@ void CheckInInterface::SearchPaxByDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     if (iFound!=list.end()) break;
   }
 
-  if (iFound==list.end()) throw UserException("MSG.PASSENGER.NOT_FOUND");
+  if (iFound==list.end()) throw UserException("MSG.PASSENGER.NOT_FOUND_BY_DOC_NUMBER",
+                                              LParams() << LParam("doc_no", doc.getTrueNo()));
 
   const PaxInfoForSearch& found=*iFound;
 
@@ -2113,7 +2124,8 @@ void CheckInInterface::SearchPaxByDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   }
 
   //пассажир не зарегистрирован
-  if (!found.flt) throw UserException("MSG.PASSENGER.NOT_FOUND");
+  if (!found.flt) throw UserException("MSG.PASSENGER.NOT_FOUND_BY_DOC_NUMBER",
+                                      LParams() << LParam("doc_no", doc.getTrueNo()));
   int point_id=found.flt.get().point_id;
 
 
