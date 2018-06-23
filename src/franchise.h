@@ -2,6 +2,7 @@
 #define _FRANCHISE_H_
 
 #include "astra_consts.h"
+#include "astra_misc.h"
 
 namespace Franchise {
 
@@ -136,6 +137,7 @@ namespace Franchise {
         void clear();
         bool get(int point_id, TPropType::Enum prop);
         bool get(int point_id, const std::string &tlg_type);
+        bool get( const TTripInfo &info, TPropType::Enum prop );
     };
 
 }

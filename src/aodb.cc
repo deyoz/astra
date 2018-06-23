@@ -40,6 +40,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "astra_misc.h"
 #include "trip_tasks.h"
 #include "code_convert.h"
+#include "franchise.h"
 
 #define NICKNAME "DJEK"
 #define NICKTRACE DJEK_TRACE
@@ -190,10 +191,20 @@ void createFileParamsAODB( int point_id, map<string,string> &params, bool pr_bag
     throw Exception( "Flight not found in createFileParams" );
   string region = getRegion( FlightQry.FieldAsString( "airp" ) );
   TDateTime scd_out = UTCToLocal( FlightQry.FieldAsDateTime( "scd_out" ), region );
-  string p = string( FlightQry.FieldAsString( "airline" ) ) +
-      FlightQry.FieldAsString( "flt_no" ) +
-      FlightQry.FieldAsString( "suffix" ) +
-      string( DateTimeToStr( scd_out, "yymmddhhnn" ) );
+  Franchise::TProp franchise_prop;
+  ostringstream flight;
+  if ( franchise_prop.get(point_id, Franchise::TPropType::aodb) ) {
+    if ( franchise_prop.val == Franchise::pvNo ) {
+      flight << franchise_prop.franchisee.airline << franchise_prop.franchisee.flt_no << franchise_prop.franchisee.suffix;
+    }
+    else {
+      flight << franchise_prop.oper.airline << franchise_prop.oper.flt_no << franchise_prop.oper.suffix;
+    }
+  }
+  else {
+    flight << FlightQry.FieldAsString( "airline" ) << FlightQry.FieldAsString( "flt_no" ) << FlightQry.FieldAsString( "suffix" );
+  }
+  string p = flight.str() + string( DateTimeToStr( scd_out, "yymmddhhnn" ) );
   if ( pr_bag )
     p += 'b';
   params[ PARAM_FILE_NAME ] =  p + ".txt";
@@ -403,8 +414,19 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
   vector<AODB_STRUCT> prior_aodb_bag, aodb_bag;
   if ( !getFlightData( point_id, point_addr, aodb_point_id, fltInfo ) )
     return false;
+  Franchise::TProp franchise_prop;
   ostringstream flight;
-  flight << fltInfo.airline << fltInfo.flt_no << fltInfo.suffix;
+  if ( franchise_prop.get(point_id, Franchise::TPropType::aodb) ) {
+    if ( franchise_prop.val == Franchise::pvNo ) {
+      flight << franchise_prop.franchisee.airline << franchise_prop.franchisee.flt_no << franchise_prop.franchisee.suffix;
+    }
+    else {
+      flight << franchise_prop.oper.airline << franchise_prop.oper.flt_no << franchise_prop.oper.suffix;
+    }
+  }
+  else {
+    flight << fltInfo.airline << fltInfo.flt_no << fltInfo.suffix;
+  }
   TDateTime scd_local=UTCToLocal( fltInfo.scd_out, getRegion(fltInfo.airp) );
   string airp_dep=fltInfo.airp;
   AODB::TBagNamesList bag_names;
@@ -1228,7 +1250,23 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
     info.airline =  fl.airline.code;
     info.airp = airp;
     info.flt_no = fl.flt_no;
-    if ( pr_insert && !GetTripSets( tsAODBCreateFlight, info ) ) {
+    info.scd_out = fl.scd;
+    /*if ( pr_insert && !GetTripSets( tsAODBCreateFlight, info ) ) {
+      ProgTrace( TRACE5, "ParseFlight: new flight - return" );
+      return;
+    }*/
+    if ( pr_insert ) {
+      Franchise::TProp franchise_prop;
+      if ( franchise_prop.get(info, Franchise::TPropType::aodb) &&
+           franchise_prop.val == Franchise::pvNo ) {
+        fl.airline.code = franchise_prop.oper.airline;
+        fl.flt_no = franchise_prop.oper.flt_no;
+        fl.suffix.code = franchise_prop.oper.suffix;
+        pr_insert = !findFlt( fl.airline.code, fl.flt_no, fl.suffix.code, local_scd_out, airp, false, pflts );
+        ProgTrace( TRACE5, "airline=%s, %d, flt_no=%d, suffix=%s, pr_insert=%d", fl.airline.code.c_str(), fl.airline.code == "ž’", fl.flt_no, fl.suffix.code.c_str(), pr_insert );
+      }
+    }
+    if ( pr_insert ) {
       ProgTrace( TRACE5, "ParseFlight: new flight - return" );
       return;
     }
@@ -1875,13 +1913,48 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
      AstraLocale::showProgError( errs ); !!!*/
 }
 
+std::string getAODBFranchisFlight( int point_id, std::string &airline, const std::string &point_addr )
+{
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+      "SELECT aodb_point_id,airline,flt_no,suffix,scd_out,airp,aodb_points.overload_alarm, "
+      "       rec_no_flt "
+      " FROM points, aodb_points "
+      " WHERE points.point_id=:point_id AND "
+      "       points.point_id=aodb_points.point_id(+) AND "
+      "       :point_addr=aodb_points.point_addr(+) ";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "point_addr", otString, point_addr );
+  Qry.Execute();
+  if ( Qry.Eof ) {
+    return "";
+  }
+  ostringstream flight;
+  Franchise::TProp franchise_prop;
+  if ( franchise_prop.get(point_id, Franchise::TPropType::aodb) ) {
+    if ( franchise_prop.val == Franchise::pvNo ) {
+      flight << franchise_prop.franchisee.airline << franchise_prop.franchisee.flt_no << franchise_prop.franchisee.suffix;
+      airline = franchise_prop.franchisee.airline;
+    }
+    else {
+      flight << franchise_prop.oper.airline << franchise_prop.oper.flt_no << franchise_prop.oper.suffix;
+      airline = franchise_prop.oper.airline;
+    }
+  }
+  else {
+    flight << Qry.FieldAsString( "airline" ) << Qry.FieldAsString( "flt_no" ) << Qry.FieldAsString( "suffix" );
+    airline = Qry.FieldAsString( "airline" );
+  }
+  return flight.str();
+}
+
 bool BuildAODBTimes( int point_id, const std::string &point_addr,
                      TAODBFormat format, TFileDatas &fds )
 {
   TFileData fd;
   TQuery Qry( &OraSession );
   Qry.SQLText =
-      "SELECT aodb_point_id,airline||flt_no||suffix trip,scd_out,airp,aodb_points.overload_alarm, "
+      "SELECT aodb_point_id,airline,flt_no,suffix,scd_out,airp,aodb_points.overload_alarm, "
       "       rec_no_flt "
       " FROM points, aodb_points "
       " WHERE points.point_id=:point_id AND "
@@ -1892,8 +1965,9 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr,
   Qry.Execute();
   if ( Qry.Eof )
     return false;
-
-  string flight = Qry.FieldAsString( "trip" );
+  string airline;
+  ostringstream flight;
+  flight << getAODBFranchisFlight( point_id, airline, point_addr );
   string region = getRegion( Qry.FieldAsString( "airp" ) );
   TDateTime scd_out = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region );
   double aodb_point_id = Qry.FieldAsFloat( "aodb_point_id" );
@@ -1951,13 +2025,13 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr,
       r<<std::fixed<<setw(6)<<rec_no<<setw(10)<<setprecision(0)<<aodb_point_id;
     else
       r<<std::fixed<<setw(6)<<rec_no<<setw(10)<<"";
-    r<<setw(10)<<flight.substr(0,10)<<setw(16)<<DateTimeToStr( scd_out, "dd.mm.yyyy hh:nn" )<<record.str();
+    r<<setw(10)<<flight.str().substr(0,10)<<setw(16)<<DateTimeToStr( scd_out, "dd.mm.yyyy hh:nn" )<<record.str();
     AODB_POINTS::recNoFltNext( point_id, point_addr );
     put_string_into_snapshot_points( point_id, FILE_AODB_OUT_TYPE, point_addr, !old_record.empty(), record.str() );
     fd.file_data = r.str() + "\n";
   }
   if ( !fd.file_data.empty() ) {
-    string p = flight + DateTimeToStr( scd_out, "yymmddhhnn" );
+    string p = flight.str() + DateTimeToStr( scd_out, "yymmddhhnn" );
     fd.params[ PARAM_FILE_NAME ] =  p + "reg.txt";
     fd.params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
     fd.params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
