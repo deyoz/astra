@@ -1621,10 +1621,14 @@ namespace PRL_SPACE {
 
     string TRemList::chkd(int reg_no, const string &name, const string &surname, bool pr_inf, bool pr_lat)
     {
-        return
-            (string)"CHKD HK1 " + IntToString(reg_no) + (pr_inf ? " I" : "") + "-1" + 
-            transliter(surname, 1, pr_lat) +
-            (name.empty() ? "" : "/" + transliter(name, 1, pr_lat));
+        ostringstream result;
+        result
+            << "CHKD HK1 "
+            << setw(4) << setfill('0') << reg_no
+            << (pr_inf ? " I" : "") << "-1"
+            << transliter(surname, 1, pr_lat)
+            << (name.empty() ? "" : "/" + transliter(name, 1, pr_lat));
+        return result.str();
     }
     void TRemList::get(TypeB::TDetailCreateInfo &info, TPRLPax &pax, vector<TTlgCompLayer> &complayers )
     {
