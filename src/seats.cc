@@ -3464,6 +3464,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
   if ( !passengers.getCount() ) {
     return;
   }
+
   SeatsStat.start("SeatsPassengers(TSalons)");
   //для всей группы одна разметка тарифом
   ProgTrace( TRACE5, "passengers.Get(0).tariffs=%s, tariffStatus=%d", passengers.Get(0).tariffs.key().c_str(), passengers.Get(0).tariffStatus );
@@ -3514,6 +3515,13 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
   bool prElemTypes = false;
   bool prINFT = false;
   bool isWorkINFT = AllowedAttrsSeat.isWorkINFT( Salons->trip_id );
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT airline,flt_no,suffix,airp,scd_out FROM points WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, Salons->trip_id );
+  Qry.Execute();
+  TTripInfo info( Qry );
+  bool isDeniedSeatOnPNLAfterPay = GetTripSets( tsDeniedSeatOnPNLAfterPay, info );
 
   /* не сделано!!! если у всех пассажиров есть места, то тогда рассадка по местам, без учета группы */
 
@@ -3701,7 +3709,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                    curr_preseat_layers[ cltProtBeforePay ] = true;
                    curr_preseat_layers[ cltPNLBeforePay ] = true;
                    curr_preseat_layers[ cltProtAfterPay ] = true;
-                   curr_preseat_layers[ cltPNLAfterPay ] = true;
+                   curr_preseat_layers[ cltPNLAfterPay ] = !isDeniedSeatOnPNLAfterPay;
                    curr_preseat_layers[ cltProtSelfCkin ] = true;
                  }
                  /* задаем массив статусов мест */
