@@ -20,6 +20,7 @@
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 const int SEASON_PERIOD_COUNT = 5;
 const int SEASON_PRIOR_PERIOD = 2;
@@ -67,7 +68,7 @@ void throwOnScheduleLock() {
         throw UserException("MSG.FLIGHT_SCHEDULE.LOCKED");
 }
 
-string DefaultTripType( bool pr_lang = true )
+string DefaultTripType( bool pr_lang )
 {
     string res = "п";
     if (pr_lang)
@@ -1940,6 +1941,14 @@ void SEASON::int_write( const TFilter &filter, const std::string &flight, vector
       params << PrmSmpl<int>("trip_id", trip_id) << PrmSmpl<int>("route_id", new_move_id);
       TReqInfo::Instance()->LocaleToLog( lexema_id, params, evtSeason, trip_id, new_move_id );
     }
+    // GRISHA
+//    LogTrace(TRACE5) << "SQry: trip_id=" << SQry.GetVariableAsInteger("trip_id") <<
+//      " move_id=" << SQry.GetVariableAsInteger("move_id") << " num=" << SQry.GetVariableAsInteger("num") <<
+//      " first_day=" << DateTimeToStr(SQry.GetVariableAsDateTime("first_day")) <<
+//      " last_day=" << DateTimeToStr(SQry.GetVariableAsDateTime("last_day")) <<
+//      " days=" << SQry.GetVariableAsString("days") << " pr_del=" << SQry.GetVariableAsInteger("pr_del") <<
+//      " tlg=" << SQry.GetVariableAsString("tlg") << " reference=" << SQry.GetVariableAsString("reference") <<
+//      " region=" << SQry.GetVariableAsString("region") << " flight=" << SQry.GetVariableAsString("flight");
     SQry.Execute()  ;
     num++;
     TDestList ds = mapds[ ip->move_id ];
@@ -2049,6 +2058,20 @@ void SEASON::int_write( const TFilter &filter, const std::string &flight, vector
           RQry.SetVariable( "suffix", id->suffix );
           RQry.SetVariable( "suffix_fmt", (int)id->suffix_fmt );
         }
+        // GRISHA
+//        LogTrace(TRACE5) << "RQry: move_id=" << RQry.GetVariableAsInteger("move_id") <<
+//          " num=" << RQry.GetVariableAsInteger("num") << " airp=" << RQry.GetVariableAsString("airp") <<
+//          " airp_fmt=" << RQry.GetVariableAsInteger("airp_fmt") << " pr_del=" << RQry.GetVariableAsInteger("pr_del") <<
+//          " scd_in=" << DateTimeToStr(RQry.GetVariableAsDateTime("scd_in")) <<
+//          " airline=" << RQry.GetVariableAsString("airline") << " airline_fmt=" << RQry.GetVariableAsInteger("airline_fmt") <<
+//          " flt_no=" << RQry.GetVariableAsInteger("flt_no") << " craft=" << RQry.GetVariableAsString("craft") <<
+//          " craft_fmt=" << RQry.GetVariableAsInteger("craft_fmt") <<
+//          " scd_out=" << DateTimeToStr(RQry.GetVariableAsDateTime("scd_out")) <<
+//          " litera=" << RQry.GetVariableAsString("litera") << " trip_type=" << RQry.GetVariableAsString("trip_type") <<
+//          " f=" << RQry.GetVariableAsInteger("f") << " c=" << RQry.GetVariableAsInteger("c") <<
+//          " y=" << RQry.GetVariableAsInteger("y") << " unitrip=" << RQry.GetVariableAsString("unitrip") <<
+//          " delta_in=" << RQry.GetVariableAsInteger("delta_in") << " delta_out=" << RQry.GetVariableAsInteger("delta_out") <<
+//          " suffix=" << RQry.GetVariableAsString("suffix") << " suffix_fmt=" << RQry.GetVariableAsInteger("suffix_fmt");
         RQry.Execute();
         dnum++;
         prmenum.prms << prmenum2;
@@ -2092,6 +2115,18 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
   if ( node ) {
     trip_id = NodeAsInteger( node );
   }
+
+  // GRISHA запрет редактирования периода, полученного из SSM телеграммы
+  TQuery Qry(&OraSession);
+  Qry.SQLText = "SELECT flight from sched_days where trip_id = :trip_id";
+  Qry.CreateVariable("trip_id", otInteger, trip_id);
+  Qry.Execute();
+  if (!Qry.Eof && !Qry.FieldIsNULL("flight"))
+  {
+    AstraLocale::showError("MSG.SSIM.EDIT_SSM_PERIOD_FORBIDDEN");
+    return;
+  }
+
   // все диапазоны уже в UTC
   // пробегаем по всем полученным с клиента и накладываем их на все из БД
 
@@ -3084,6 +3119,7 @@ void ReadTripInfo( int trip_id, vector<TViewPeriod> &viewp, xmlNodePtr reqNode )
 void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   throwOnScheduleLock();
+//  GRISHA раскомментировать перед коммитом в STABLE !!!
   if ( TReqInfo::Instance()->user.access.airlines().totally_permitted() &&
        TReqInfo::Instance()->user.access.airps().totally_permitted() ) {
      throw UserException( "MSG.SET_LEVEL_PERMIT" );

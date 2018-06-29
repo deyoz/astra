@@ -243,17 +243,17 @@ boost::optional<CountryData> AstraCallbacks::findCountryData(const nsi::CountryI
   return data;
 }
 
-// TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Для обработки SSM не нужно.
 // region !!! отсутствует в base_tables
 boost::optional<nsi::RegionId> AstraCallbacks::findRegionId(const EncString& code)
 {
-//  LogTrace(TRACE5) << __func__ << " code=" << code.to866();
+  LogTrace(TRACE5) << __func__ << " code = " << code.to866();
   return nsi::RegionId(CodeToId(code.to866()));
 }
 
 boost::optional<RegionData> AstraCallbacks::findRegionData(const nsi::RegionId& id)
 {
-//  LogTrace(TRACE5) << __func__ << " id=" << id.get();
+  LogTrace(TRACE5) << __func__ << " id = " << id.get();
   // explicit RegionData(const RegionId&, const CountryId&);
   RegionData data(id, CountryId(0));
   return data;
@@ -436,10 +436,10 @@ void DeleteScdPeriodsFromDb( const std::set<ssim::ScdPeriod> &scds )
   reqInfo->desk.code = "MOVGRG"; // удалить
   for (auto &scd : scds)
   {
-    LogTrace(TRACE5) << __func__ << " scd=" << scd;
+    LogTrace(TRACE5) << __func__ << " scd = " << scd;
     TDateTime first = BoostToDateTime(scd.period.start);
     TDateTime last = BoostToDateTime(scd.period.end);
-    LogTrace(TRACE5) << "INITIAL first=" << DateTimeToStr(first) << " last=" << DateTimeToStr(last);
+    LogTrace(TRACE5) << "INITIAL first = " << DateTimeToStr(first) << " last = " << DateTimeToStr(last);
     TDateTime period_scd_out = 0;
     if (!scd.route.legs.empty())
     {
@@ -452,8 +452,8 @@ void DeleteScdPeriodsFromDb( const std::set<ssim::ScdPeriod> &scds )
     }
     first = DatePlusTime(first, period_scd_out);
     last = DatePlusTime(last, period_scd_out);
-    LogTrace(TRACE5) << "period_scd_out=" << DateTimeToStr(period_scd_out) << "(" << period_scd_out << ")";
-    LogTrace(TRACE5) << "FINAL first=" << DateTimeToStr(first) << " last=" << DateTimeToStr(last);
+    LogTrace(TRACE5) << "period_scd_out = " << DateTimeToStr(period_scd_out) << " (" << period_scd_out << ")";
+    LogTrace(TRACE5) << "FINAL first = " << DateTimeToStr(first) << " last = " << DateTimeToStr(last);
     TQuery Qry( &OraSession );
     // можно TRUNC а не время вылета
     Qry.SQLText =
@@ -473,9 +473,8 @@ void DeleteScdPeriodsFromDb( const std::set<ssim::ScdPeriod> &scds )
 
 // ПОЛОЖИТЬ В БД РАСПИСАНИЯ
 
-void ScdPeriodsToDb( const ssim::ScdPeriods &scds )
+void ScdPeriodToDb( const ssim::ScdPeriod &scd )
 {
-  if (scds.empty()) return;
   TReqInfo *reqInfo = TReqInfo::Instance();
   /*???if ( utc ) {
     reqInfo->user.sets.time = ustTimeUTC;
@@ -487,88 +486,85 @@ void ScdPeriodsToDb( const ssim::ScdPeriods &scds )
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText = "SELECT trip_id FROM sched_days WHERE flight=:flight ";
-  // обоснованно предполагаем, что у всех элементов scds одинаковый flight
-  Qry.CreateVariable("flight", otString, FlightToString(scds.front().flight));
+  Qry.CreateVariable("flight", otString, FlightToString(scd.flight));
   Qry.Execute();
   int trip_id;
   if (!Qry.Eof)
     trip_id = Qry.FieldAsInteger("trip_id");
   else
     trip_id = ASTRA::NoExists;
-
   vector<TPeriod> speriods; //- периоды выполнения
   map<int,TDestList> mapds; //move_id,маршрут
   TFilter filter;
   bool first_airp = true;
-  for ( auto &scd : scds )
+  LogTrace(TRACE5) << __func__ << " scd = " << scd;
+  TPeriod p;
+  p.move_id = ASTRA::NoExists;
+  p.first = BoostToDateTime(scd.period.start);
+  p.last = BoostToDateTime(scd.period.end);
+  LogTrace(TRACE5) << "INITIAL p.first = " << DateTimeToStr(p.first) << " p.last = " << DateTimeToStr(p.last);
+  p.days = scd.period.freq.str();
+  p.modify = ASTRA::finsert;
+  TDestList dests;
+  TDest curr, next;
+  TDateTime period_scd_out = ASTRA::NoExists;
+  for (ssim::Legs::const_iterator ileg = scd.route.legs.begin(); ileg != scd.route.legs.end(); ++ileg)
   {
-    LogTrace(TRACE5) << __func__ << " scd=" << scd;
-    TPeriod p;
-    p.move_id = ASTRA::NoExists;
-    p.first = BoostToDateTime(scd.period.start);
-    p.last = BoostToDateTime(scd.period.end);
-    LogTrace(TRACE5) << "INITIAL p.first=" << DateTimeToStr(p.first) << " p.last=" << DateTimeToStr(p.last);
-    p.days = scd.period.freq.str();
-    p.modify = ASTRA::finsert;
-    TDestList dests;
-    TDest curr, next;
-    TDateTime period_scd_out = ASTRA::NoExists;
-    for (ssim::Legs::const_iterator ileg = scd.route.legs.begin(); ileg != scd.route.legs.end(); ++ileg)
+    const ssim::Leg &leg = *ileg;
+    curr = next;
+    curr.airline = ElemToElemId( etAirline, IdToCode(scd.flight.airline.get()), curr.airline_fmt );
+    curr.trip = scd.flight.number.get();
+    curr.suffix = ElemToElemId( etSuffix, suffixToString(scd.flight.suffix), curr.suffix_fmt );
+    curr.airp = ElemToElemId( etAirp, IdToCode(leg.s.from.get()), curr.airp_fmt );
+    if (first_airp)
     {
-      const ssim::Leg &leg = *ileg;
-      curr = next;
-      curr.airline = ElemToElemId( etAirline, IdToCode(scd.flight.airline.get()), curr.airline_fmt );
-      curr.trip = scd.flight.number.get();
-      curr.suffix = ElemToElemId( etSuffix, suffixToString(scd.flight.suffix), curr.suffix_fmt );
-      curr.airp = ElemToElemId( etAirp, IdToCode(leg.s.from.get()), curr.airp_fmt );
-      if (first_airp)
-      {
-        filter.filter_tz_region = AirpTZRegion(curr.airp);
-        first_airp = false;
-      }
-      curr.craft = ElemToElemId( etCraft, IdToCode(leg.aircraftType.get()), curr.craft_fmt );
-      EncodeTime( leg.s.dep.hours(), leg.s.dep.minutes(), 0, curr.scd_out );
-      curr.scd_out = ConvertFlightDate(curr.scd_out, p.first, curr.airp, false, mtoUTC);
-      LogTrace(TRACE5) << "curr.scd_out=" << DateTimeToStr(curr.scd_out) << "(" << curr.scd_out << ")";
-
-      next.airp = ElemToElemId( etAirp, IdToCode(leg.s.to.get()), next.airp_fmt );
-      next.craft = ElemToElemId( etCraft, IdToCode(leg.aircraftType.get()), next.craft_fmt );
-      EncodeTime( leg.s.arr.hours(), leg.s.arr.minutes(), 0, next.scd_in );
-      next.scd_in = ConvertFlightDate(next.scd_in, p.first, next.airp, true, mtoUTC);
-      LogTrace(TRACE5) << "next.scd_in=" << DateTimeToStr(next.scd_in) << "(" << next.scd_in << ")";
-
-//      LogTrace(TRACE5) << " leg.subclOrder: " << leg.subclOrder.toString();
-      for (auto &cfg : leg.subclOrder.config())
-        if (cfg.second)
-        {
-          if (cabinCode(cfg.first)=="F") curr.f = cfg.second.get();
-          if (cabinCode(cfg.first)=="C") curr.c = cfg.second.get();
-          if (cabinCode(cfg.first)=="Y") curr.y = cfg.second.get();
-        }
-
-      if (ileg == scd.route.legs.begin())
-      {
-        period_scd_out = curr.scd_out;
-        LogTrace(TRACE5) << "period_scd_out=" << DateTimeToStr(period_scd_out) << "(" << period_scd_out << ")";
-      }
-
-      dests.dests.push_back( curr );
+      filter.filter_tz_region = AirpTZRegion(curr.airp);
+      first_airp = false;
     }
-    if ( period_scd_out != ASTRA::NoExists )
+    curr.craft = ElemToElemId( etCraft, IdToCode(leg.aircraftType.get()), curr.craft_fmt );
+    curr.triptype = DefaultTripType(false);
+    LogTrace(TRACE5) << "leg.s.dep.hours() = " << leg.s.dep.hours() << " leg.s.dep.minutes() = " << leg.s.dep.minutes();
+    int shift_day = leg.s.dep.hours() / 24; // сдвиг даты (время вида KJA1400/1)
+    EncodeTime( leg.s.dep.hours() % 24, leg.s.dep.minutes(), 0, curr.scd_out );
+    curr.scd_out = ConvertFlightDate(curr.scd_out, p.first, curr.airp, false, mtoUTC) + shift_day;
+    LogTrace(TRACE5) << "curr.scd_out = " << DateTimeToStr(curr.scd_out) << " (" << curr.scd_out << ")";
+    next.airp = ElemToElemId( etAirp, IdToCode(leg.s.to.get()), next.airp_fmt );
+    next.craft = ElemToElemId( etCraft, IdToCode(leg.aircraftType.get()), next.craft_fmt );
+    next.triptype = DefaultTripType(false);
+    LogTrace(TRACE5) << "leg.s.arr.hours() = " << leg.s.arr.hours() << " leg.s.arr.minutes() = " << leg.s.arr.minutes();
+    shift_day = leg.s.arr.hours() / 24; // сдвиг даты
+    EncodeTime( leg.s.arr.hours() % 24, leg.s.arr.minutes(), 0, next.scd_in );
+    next.scd_in = ConvertFlightDate(next.scd_in, p.first, next.airp, true, mtoUTC) + shift_day;
+    LogTrace(TRACE5) << "next.scd_in = " << DateTimeToStr(next.scd_in) << " (" << next.scd_in << ")";
+    //      LogTrace(TRACE5) << " leg.subclOrder: " << leg.subclOrder.toString();
+    for (auto &cfg : leg.subclOrder.config())
+      if (cfg.second)
+      {
+        if (cabinCode(cfg.first)=="F") curr.f = cfg.second.get();
+        if (cabinCode(cfg.first)=="C") curr.c = cfg.second.get();
+        if (cabinCode(cfg.first)=="Y") curr.y = cfg.second.get();
+      }
+    if (ileg == scd.route.legs.begin())
     {
-      p.first = DatePlusTime(p.first, period_scd_out);
-      p.last = DatePlusTime(p.last, period_scd_out);
-      LogTrace(TRACE5) << "FINAL p.first=" << DateTimeToStr(p.first) << " p.last=" << DateTimeToStr(p.last);
+      period_scd_out = curr.scd_out;
+      LogTrace(TRACE5) << "period_scd_out = " << DateTimeToStr(period_scd_out) << " (" << period_scd_out << ")";
     }
-    next.airline.clear();
-    next.trip = ASTRA::NoExists;
-    next.suffix.clear();
-    dests.dests.push_back( next );
-    mapds.insert( make_pair(ASTRA::NoExists, dests) );
-    speriods.push_back( p );
+    dests.dests.push_back( curr );
+  } // ileg
+  if ( period_scd_out != ASTRA::NoExists )
+  {
+    p.first = DatePlusTime(p.first, period_scd_out);
+    p.last = DatePlusTime(p.last, period_scd_out);
+    LogTrace(TRACE5) << "FINAL p.first = " << DateTimeToStr(p.first) << " p.last = " << DateTimeToStr(p.last);
   }
+  next.airline.clear();
+  next.trip = ASTRA::NoExists;
+  next.suffix.clear();
+  dests.dests.push_back( next );
+  mapds.insert( make_pair(ASTRA::NoExists, dests) );
+  speriods.push_back( p );
   //!!!UTC
-  int_write( filter, FlightToString(scds.front().flight), speriods, trip_id, mapds );
+  int_write( filter, FlightToString(scd.flight), speriods, trip_id, mapds );
 }
 
 // ПОЛУЧИТЬ ИЗ БД РАСПИСАНИЯ, ПЕРЕСЕКАЮЩИЕСЯ С ПЕРИОДОМ
@@ -577,7 +573,7 @@ void ScdPeriodsToDb( const ssim::ScdPeriods &scds )
 ssim::Route RouteFromDb(int move_id, TDateTime first)
 {
   // уточнить использование delta_in, delta_out
-  LogTrace(TRACE5) << __func__ << " move_id=" << move_id;
+  LogTrace(TRACE5) << __func__ << " move_id = " << move_id;
   TReqInfo *reqInfo = TReqInfo::Instance(); // ??? уже есть в вызывающей функции
   reqInfo->user.sets.time = ustTimeLocalAirp; // останется на рабочем
   reqInfo->desk.code = "MOVGRG"; // удалить
@@ -604,9 +600,9 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
     else
     {
       dest2.scd_in = ConvertFlightDate(Qry.FieldAsDateTime("scd_in"), first, dest2.airp, true, mtoLocal);
-      LogTrace(TRACE5) << "dest2.airp " << dest2.airp << " AirpTZRegion " << AirpTZRegion(dest2.airp);
-      LogTrace(TRACE5) << "qry scd_in " << DateTimeToStr(Qry.FieldAsDateTime("scd_in"));
-      LogTrace(TRACE5) << "dest2.scd_in " << DateTimeToStr(dest2.scd_in);
+      LogTrace(TRACE5) << "dest2.airp = " << dest2.airp << " AirpTZRegion = " << AirpTZRegion(dest2.airp);
+      LogTrace(TRACE5) << "qry scd_in = " << DateTimeToStr(Qry.FieldAsDateTime("scd_in"));
+      LogTrace(TRACE5) << "dest2.scd_in = " << DateTimeToStr(dest2.scd_in);
     }
 
     dest2.craft = Qry.FieldAsString( "craft" );
@@ -617,14 +613,14 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
     else
     {
       dest2.scd_out = ConvertFlightDate(Qry.FieldAsDateTime("scd_out"), first, dest2.airp, false, mtoLocal);
-      LogTrace(TRACE5) << "dest2.airp " << dest2.airp << " AirpTZRegion " << AirpTZRegion(dest2.airp);
-      LogTrace(TRACE5) << "qry scd_out " << DateTimeToStr(Qry.FieldAsDateTime("scd_out"));
-      LogTrace(TRACE5) << "dest2.scd_out " << DateTimeToStr(dest2.scd_out);
+      LogTrace(TRACE5) << "dest2.airp = " << dest2.airp << " AirpTZRegion = " << AirpTZRegion(dest2.airp);
+      LogTrace(TRACE5) << "qry scd_out = " << DateTimeToStr(Qry.FieldAsDateTime("scd_out"));
+      LogTrace(TRACE5) << "dest2.scd_out = " << DateTimeToStr(dest2.scd_out);
     }
 
     if ( dest1.num == ASTRA::NoExists )
     {
-      rbd_string = string("CJZIDAYRSTEQGNBXWUOVHLK.") + // HACK
+      rbd_string = string("CJZIDAYRSTEQGNBXWUOVHLK.") + // HACK (в базе нет этой строки, берём произвольную)
           string("F") + IntToString(Qry.FieldAsInteger("f")) +
           string("C") + IntToString(Qry.FieldAsInteger("c")) +
           string("Y") + IntToString(Qry.FieldAsInteger("y"));
@@ -635,11 +631,13 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
     int hours_i, mins_i, secs_i;
     DecodeTime( dest1.scd_out, hours_o, mins_o, secs_o );
     DecodeTime( dest2.scd_in, hours_i, mins_i, secs_i );
+    if (!Qry.FieldIsNULL("delta_out")) hours_o += Qry.FieldAsInteger("delta_out")*24;
+    if (!Qry.FieldIsNULL("delta_in")) hours_i += Qry.FieldAsInteger("delta_in")*24;
     ssim::Section section(nsi::PointId(CodeToId(ElemIdToClientElem( etAirp, dest1.airp, dest1.airp_fmt ))), //out
                           nsi::PointId(CodeToId(ElemIdToClientElem( etAirp, dest2.airp, dest2.airp_fmt ))), //in
                           time_duration( hours_o, mins_o, secs_o ),
                           time_duration( hours_i, mins_i, secs_i ));
-    LogTrace(TRACE5) << "rbd_string: " << rbd_string;
+    LogTrace(TRACE5) << "rbd_string = " << rbd_string;
     boost::optional<ct::RbdLayout> rbd = ct::RbdLayout::fromString(rbd_string);
     if (not rbd) throw EXCEPTIONS::Exception("NO RBD");
 //    LogTrace(TRACE5) << " RBD: " << rbd.get().toString();
@@ -653,9 +651,26 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
 }
 
 //
-ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& prd )
+ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& a_prd )
 {
-  LogTrace(TRACE5) << __func__ << " flt=" << flt << " prd=" << prd;
+  Period prd(a_prd);
+  LogTrace(TRACE5) << __func__ << " flt = " << flt << " prd = " << prd;
+//  LogTrace(TRACE5) << "prd.start (boost) = " << prd.start << " prd.end (boost) = " << prd.end;
+  // HACK
+  // TODO уточнить допустимость замены neg_infin/pos_infin на min_date_time/max_date_time
+  // https://www.boost.org/doc/libs/1_55_0/doc/html/date_time/gregorian.html#date_time.gregorian.date_class
+  if (prd.start.is_neg_infinity())
+  {
+    prd.start = boost::gregorian::date(boost::gregorian::min_date_time);
+    LogTrace(TRACE5) << "prd.start CHANGED to " << prd.start;
+  }
+  if (prd.end.is_pos_infinity())
+  {
+    prd.end = boost::gregorian::date(boost::gregorian::max_date_time);
+    LogTrace(TRACE5) << "prd.end CHANGED to " << prd.end;
+  }
+  LogTrace(TRACE5) << "prd.start = " << DateTimeToStr(BoostToDateTime(prd.start)) << " (" << BoostToDateTime(prd.start) << ")" <<
+                      " prd.end = " << DateTimeToStr(BoostToDateTime(prd.end)) << " (" << BoostToDateTime(prd.end) << ")";
   TReqInfo *reqInfo = TReqInfo::Instance();
   reqInfo->user.sets.time = ustTimeLocalAirp; // останется на рабочем
   reqInfo->desk.code = "MOVGRG"; // удалить
@@ -686,7 +701,7 @@ ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& prd )
     scd.period = Period(DateTimeToBoost(first).date(),
                         DateTimeToBoost(last).date(),
                         days);
-    LogTrace(TRACE5) << __func__ << " scd=" << scd;
+    LogTrace(TRACE5) << __func__ << " scd = " << scd;
     scds.push_back(scd);
   }
   return scds;
@@ -703,20 +718,62 @@ void InitSSIM()
     typeb_template::addTemplate(new AsmTemplate());
     setCallbacks(new AstraCallbacks);
     init = true;
+    LogTrace(TRACE5) << "SSIM parsers init complete";
   }
 }
 
 int HandleSSMTlg(string body)
 {
 //  LogTrace(TRACE5) << __func__ << endl << body;
+  // TODO RSD /home/user/sirena/src/ssim/proc_ssm.cc:503
+  // TODO перекрытие периодов /home/user/sirena/src/ssim/proc_ssm.cc:555
+
   InitSSIM();
+
   const auto ssm = ssim::parseSsm(body, nullptr);
   if (!ssm)
   {
-    LogTrace(TRACE5) << "SSM NOT PARSED!";
+    throw EXCEPTIONS::Exception("SSM: parse: %s", ssm.err().toString(UserLanguage::en_US()).c_str());
     return -1;
   }
+
   const ssim::SsmStruct& ssmStr = *ssm;
+
+  if (ssmStr.specials.size() > 1)
+  {
+    LogTrace(TRACE5) << "SSM: Several ACK/NAC inside SSM";
+  }
+
+  for (const ssim::SsmSubmsgPtr& spec : ssmStr.specials)
+  {
+    if (spec->type() == ssim::SSM_ACK)
+    {
+      LogTrace(TRACE5) << "SSM: ACK received";
+      return 0;
+    }
+    if (spec->type() == ssim::SSM_NAC)
+    {
+      // ОТРИЦАТЕЛЬНЫЙ ОТВЕТ НА НАШУ ТЕЛЕГРАММУ
+      LogTrace(TRACE5) << "SSM: NAC received";
+      return 0;
+    }
+  }
+
+  if (ssmStr.submsgs.size() > 1)
+  {
+    // НЕСКОЛЬКО РЕЙСОВ В ССМ НЕ ПОДДЕРЖИВАЕТСЯ
+    throw EXCEPTIONS::Exception("SSM: ssmStr.submsgs.size() > 1");
+    return -1;
+  }
+
+  for (const auto& v : ssmStr.submsgs)
+    for (const ssim::SsmSubmsgPtr& s : v.second)
+      if (s->type() == ssim::SSM_RSD)
+      {
+        LogTrace(TRACE5) << "SSM: RSD received";
+        return 0;
+      }
+
   const ssim::ProcContext attr
   {
     nsi::CompanyId(0),
@@ -725,22 +782,40 @@ int HandleSSMTlg(string body)
     false,
     std::make_unique<AstraSsimCallbacks>()
   };
-  const std::vector<ssim::SsmSubmsgPtr>& submsgs = ssmStr.submsgs.begin()->second;
+
   ssim::CachedScdPeriods cache;
+  const std::vector<ssim::SsmSubmsgPtr>& submsgs = ssmStr.submsgs.begin()->second;
+  LogTrace(TRACE5) << "START MODIFY --------------------------------";
   for (const ssim::SsmSubmsgPtr& subMsg : submsgs)
   {
-    if(const Message msg = subMsg->modify(cache, attr))
+    if (const Message msg = subMsg->modify(cache, attr))
     {
-      LogTrace(TRACE5) << "subMsg->modify returned message: " << msg;
+      throw EXCEPTIONS::Exception("SSM: modify: %s", msg.toString(UserLanguage::en_US()).c_str());
       return -1;
     }
   }
+  LogTrace(TRACE5) << "END MODIFY --------------------------------";
+  LogTrace(TRACE5) << "CACHE: " << cache;
+
+  // std::map<ct::Flight, std::set<ssim::ScdPeriod> > forDeletion;
   for (auto &rm : cache.forDeletion)
+  {
     DeleteScdPeriodsFromDb(rm.second);
+  }
+
+  // std::map<ct::Flight, ssim::ScdPeriods> forSaving() const;
   for (auto &sv : cache.forSaving())
-    ScdPeriodsToDb(sv.second);
+  {
+    for (auto &scd : sv.second)
+    {
+      ScdPeriodToDb(scd);
+    }
+  }
+
   return 0;
 }
+
+//------------------------------------------------------------------------------------------
 
 int ssim_test(int argc, char **argv)
 {
@@ -800,27 +875,4 @@ int ssim_test(int argc, char **argv)
   cout << "---------------------------------------" << endl;
   return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
