@@ -3461,6 +3461,14 @@ std::vector<TSegInfo> readIatciSegs(int grpId, xmlNodePtr ediResNode)
 
 void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    int point_id = NodeAsInteger("segments/segment/point_dep",reqNode);
+    TTripStage ts;
+    TTripStages::LoadStage(point_id, sCloseCheckIn, ts);
+    if(
+            ts.act != NoExists and 
+            TReqInfo::Instance()->user.access.rights().permitted(997)
+      )
+        throw AstraLocale::UserException("MSG.NO_ACCESS");
     SavePax(reqNode, NULL, resNode);
 }
 
