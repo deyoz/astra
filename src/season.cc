@@ -1465,10 +1465,10 @@ TDateTime ConvertFlightDate( TDateTime time, TDateTime first, const std::string 
 {
   double first_day, f2, f3, utcFirst;
   modf( (double)first, &utcFirst );
-  first_day = first;
+  modf( (double)first, &first_day );
   TDateTime val = ASTRA::NoExists;
   std::string region = AirpTZRegion( airp );
-  if ( time > NoExists ) {
+  if ( time != NoExists ) {
     f2 = modf( (double)time, &f3 );
     f3 += first_day + fabs( f2 );
     ProgTrace( TRACE5, "scd=%s, region=%s, airp=%s",DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str(), region.c_str(), airp.c_str() );
@@ -3247,7 +3247,6 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
       string days = SQry.FieldAsString( idx_days );
 
       double utcf;
-      double f2, f3;
       modf( (double)first, &utcf );
 
       double first_day;
