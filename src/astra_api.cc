@@ -1932,6 +1932,8 @@ iatci::dcrcka::Result cancelCheckinIatciPaxes(const iatci::CkxParams& ckxParams)
         }
     }
 
+    normalize(paxSeg);
+
     // SavePax
     LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().SavePax(paxSeg);
 
