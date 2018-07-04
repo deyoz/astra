@@ -266,10 +266,12 @@ dcrcka::Result cancelCheckin(tlgnum_t postponeTlgNum)
     xmlNodePtr ediResNode = NodeAsNode("/context", ediResCtxt.docPtr());
     ASSERT(ediResNode != NULL);
     
+    OciCpp::Savepoint sp("iatci_checkin");
     try {
         return astra_api::cancelCheckinIatciPax(termReqNode, ediResNode);
     } catch(std::exception&) {
         tst();
+        sp.rollback();
         ETRollbackStatus_local(ediResNode->doc);
         throw;
     }
