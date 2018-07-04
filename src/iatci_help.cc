@@ -732,9 +732,10 @@ boost::optional<iatci::ServiceDetails> makeService(const astra_api::astra_entiti
             service = iatci::ServiceDetails();
         }
 
+        auto MaxRemTextLen = iatci::ServiceDetails::SsrInfo::MaxFreeTextLen;
         for(const auto& rem: pax.m_rems->m_lRems) {
             if(rem.m_remCode != "TKNE" && rem.m_remCode.substr(0, 3) != "FQT") {
-                service->addSsr(rem.m_remCode, rem.m_remText);
+                service->addSsr(rem.m_remCode, rem.m_remText.substr(0, MaxRemTextLen));
             }
         }
     }

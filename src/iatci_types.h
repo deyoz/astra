@@ -649,6 +649,8 @@ struct ServiceDetails
                 bool isInftTicket = false, const std::string& freeText = "",
                 const std::string& airline = "", unsigned quantity = 0);
 
+        static const size_t MaxFreeTextLen = 70;
+
         const std::string& ssrCode() const;
         const std::string& ssrText() const;
         bool               isInfantTicket() const;
