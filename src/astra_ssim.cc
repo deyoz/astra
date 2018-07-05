@@ -538,7 +538,9 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
     EncodeTime( leg.s.arr.hours() % 24, leg.s.arr.minutes(), 0, next.scd_in );
     next.scd_in = ConvertFlightDate(next.scd_in, p.first, next.airp, true, mtoUTC) + shift_day;
     LogTrace(TRACE5) << "next.scd_in = " << DateTimeToStr(next.scd_in) << " (" << next.scd_in << ")";
-    //      LogTrace(TRACE5) << " leg.subclOrder: " << leg.subclOrder.toString();
+    // struct Leg -> ct::RbdLayout subclOrder;
+    LogTrace(TRACE5) << " leg.subclOrder = " << leg.subclOrder.toString();
+    curr.rbd_order = leg.subclOrder.rbdOrder().toString();
     for (auto &cfg : leg.subclOrder.config())
       if (cfg.second)
       {
@@ -582,7 +584,7 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
-    "SELECT num,airp,airp_fmt,flt_no,suffix,scd_in,craft,craft_fmt,scd_out,delta_in,delta_out,f,c,y "
+    "SELECT num,airp,airp_fmt,flt_no,suffix,scd_in,craft,craft_fmt,scd_out,delta_in,delta_out,f,c,y,rbd_order "
     " FROM routes WHERE move_id=:move_id "
     " ORDER BY num";
   Qry.CreateVariable( "move_id", otInteger, move_id );
@@ -622,7 +624,7 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
 
     if ( dest1.num == ASTRA::NoExists )
     {
-      rbd_string = string("CJZIDAYRSTEQGNBXWUOVHLK.") + // HACK (в базе нет этой строки, берём произвольную)
+      rbd_string = Qry.FieldAsString("rbd_order") + string(".") +
           string("F") + IntToString(Qry.FieldAsInteger("f")) +
           string("C") + IntToString(Qry.FieldAsInteger("c")) +
           string("Y") + IntToString(Qry.FieldAsInteger("y"));
@@ -642,7 +644,7 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
     LogTrace(TRACE5) << "rbd_string = " << rbd_string;
     boost::optional<ct::RbdLayout> rbd = ct::RbdLayout::fromString(rbd_string);
     if (not rbd) throw EXCEPTIONS::Exception("NO RBD");
-//    LogTrace(TRACE5) << " RBD: " << rbd.get().toString();
+    LogTrace(TRACE5) << " RBD = " << rbd.get().toString();
     ssim::Leg leg(section,
                   nsi::ServiceTypeId(0), // HACK
                   nsi::AircraftTypeId(CodeToId(ElemIdToClientElem( etCraft, dest1.craft, dest1.craft_fmt ))),

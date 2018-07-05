@@ -1801,9 +1801,9 @@ void SEASON::int_write( const TFilter &filter, const std::string &flight, vector
   TQuery RQry( &OraSession );
   RQry.SQLText =
   "INSERT INTO routes(move_id,num,airp,airp_fmt,pr_del,scd_in,airline,airline_fmt,flt_no,craft,craft_fmt,scd_out,litera, "
-  "                   trip_type,f,c,y,unitrip,delta_in,delta_out,suffix,suffix_fmt) "
+  "                   trip_type,rbd_order,f,c,y,unitrip,delta_in,delta_out,suffix,suffix_fmt) "
   " VALUES(:move_id,:num,:airp,:airp_fmt,:pr_del,:scd_in,:airline,:airline_fmt,:flt_no,:craft,:craft_fmt,:scd_out,:litera, "
-  "        :trip_type,:f,:c,:y,:unitrip,:delta_in,:delta_out,:suffix,:suffix_fmt) ";
+  "        :trip_type,:rbd_order,:f,:c,:y,:unitrip,:delta_in,:delta_out,:suffix,:suffix_fmt) ";
   RQry.DeclareVariable( "move_id", otInteger );
   RQry.DeclareVariable( "num", otInteger );
   RQry.DeclareVariable( "airp", otString );
@@ -1818,6 +1818,7 @@ void SEASON::int_write( const TFilter &filter, const std::string &flight, vector
   RQry.DeclareVariable( "scd_out", otDate );
   RQry.DeclareVariable( "litera", otString );
   RQry.DeclareVariable( "trip_type", otString );
+  RQry.DeclareVariable( "rbd_order", otString );
   RQry.DeclareVariable( "f", otInteger );
   RQry.DeclareVariable( "c", otInteger );
   RQry.DeclareVariable( "y", otInteger );
@@ -1918,13 +1919,13 @@ void SEASON::int_write( const TFilter &filter, const std::string &flight, vector
       TReqInfo::Instance()->LocaleToLog( lexema_id, params, evtSeason, trip_id, new_move_id );
     }
     // GRISHA
-//    LogTrace(TRACE5) << "SQry: trip_id=" << SQry.GetVariableAsInteger("trip_id") <<
-//      " move_id=" << SQry.GetVariableAsInteger("move_id") << " num=" << SQry.GetVariableAsInteger("num") <<
-//      " first_day=" << DateTimeToStr(SQry.GetVariableAsDateTime("first_day")) <<
-//      " last_day=" << DateTimeToStr(SQry.GetVariableAsDateTime("last_day")) <<
-//      " days=" << SQry.GetVariableAsString("days") << " pr_del=" << SQry.GetVariableAsInteger("pr_del") <<
-//      " tlg=" << SQry.GetVariableAsString("tlg") << " reference=" << SQry.GetVariableAsString("reference") <<
-//      " region=" << SQry.GetVariableAsString("region") << " flight=" << SQry.GetVariableAsString("flight");
+    LogTrace(TRACE5) << "SQry: trip_id=" << SQry.GetVariableAsInteger("trip_id") <<
+      " move_id=" << SQry.GetVariableAsInteger("move_id") << " num=" << SQry.GetVariableAsInteger("num") <<
+      " first_day=" << DateTimeToStr(SQry.GetVariableAsDateTime("first_day")) <<
+      " last_day=" << DateTimeToStr(SQry.GetVariableAsDateTime("last_day")) <<
+      " days=" << SQry.GetVariableAsString("days") << " pr_del=" << SQry.GetVariableAsInteger("pr_del") <<
+      " tlg=" << SQry.GetVariableAsString("tlg") << " reference=" << SQry.GetVariableAsString("reference") <<
+      " region=" << SQry.GetVariableAsString("region") << " flight=" << SQry.GetVariableAsString("flight");
     SQry.Execute()  ;
     num++;
     TDestList ds = mapds[ ip->move_id ];
@@ -2007,6 +2008,10 @@ void SEASON::int_write( const TFilter &filter, const std::string &flight, vector
           RQry.SetVariable( "trip_type", FNull );
         else
           RQry.SetVariable( "trip_type", id->triptype );
+        if ( id->rbd_order.empty() )
+          RQry.SetVariable( "rbd_order", FNull );
+        else
+          RQry.SetVariable( "rbd_order", id->rbd_order);
         RQry.SetVariable( "f", id->f );
         RQry.SetVariable( "c", id->c );
         RQry.SetVariable( "y", id->y );
@@ -2035,19 +2040,20 @@ void SEASON::int_write( const TFilter &filter, const std::string &flight, vector
           RQry.SetVariable( "suffix_fmt", (int)id->suffix_fmt );
         }
         // GRISHA
-//        LogTrace(TRACE5) << "RQry: move_id=" << RQry.GetVariableAsInteger("move_id") <<
-//          " num=" << RQry.GetVariableAsInteger("num") << " airp=" << RQry.GetVariableAsString("airp") <<
-//          " airp_fmt=" << RQry.GetVariableAsInteger("airp_fmt") << " pr_del=" << RQry.GetVariableAsInteger("pr_del") <<
-//          " scd_in=" << DateTimeToStr(RQry.GetVariableAsDateTime("scd_in")) <<
-//          " airline=" << RQry.GetVariableAsString("airline") << " airline_fmt=" << RQry.GetVariableAsInteger("airline_fmt") <<
-//          " flt_no=" << RQry.GetVariableAsInteger("flt_no") << " craft=" << RQry.GetVariableAsString("craft") <<
-//          " craft_fmt=" << RQry.GetVariableAsInteger("craft_fmt") <<
-//          " scd_out=" << DateTimeToStr(RQry.GetVariableAsDateTime("scd_out")) <<
-//          " litera=" << RQry.GetVariableAsString("litera") << " trip_type=" << RQry.GetVariableAsString("trip_type") <<
-//          " f=" << RQry.GetVariableAsInteger("f") << " c=" << RQry.GetVariableAsInteger("c") <<
-//          " y=" << RQry.GetVariableAsInteger("y") << " unitrip=" << RQry.GetVariableAsString("unitrip") <<
-//          " delta_in=" << RQry.GetVariableAsInteger("delta_in") << " delta_out=" << RQry.GetVariableAsInteger("delta_out") <<
-//          " suffix=" << RQry.GetVariableAsString("suffix") << " suffix_fmt=" << RQry.GetVariableAsInteger("suffix_fmt");
+        LogTrace(TRACE5) << "RQry: move_id=" << RQry.GetVariableAsInteger("move_id") <<
+          " num=" << RQry.GetVariableAsInteger("num") << " airp=" << RQry.GetVariableAsString("airp") <<
+          " airp_fmt=" << RQry.GetVariableAsInteger("airp_fmt") << " pr_del=" << RQry.GetVariableAsInteger("pr_del") <<
+          " scd_in=" << DateTimeToStr(RQry.GetVariableAsDateTime("scd_in")) <<
+          " airline=" << RQry.GetVariableAsString("airline") << " airline_fmt=" << RQry.GetVariableAsInteger("airline_fmt") <<
+          " flt_no=" << RQry.GetVariableAsInteger("flt_no") << " craft=" << RQry.GetVariableAsString("craft") <<
+          " craft_fmt=" << RQry.GetVariableAsInteger("craft_fmt") <<
+          " scd_out=" << DateTimeToStr(RQry.GetVariableAsDateTime("scd_out")) <<
+          " litera=" << RQry.GetVariableAsString("litera") << " trip_type=" << RQry.GetVariableAsString("trip_type") <<
+          " rbd_order=" << RQry.GetVariableAsString("rbd_order") <<
+          " f=" << RQry.GetVariableAsInteger("f") << " c=" << RQry.GetVariableAsInteger("c") <<
+          " y=" << RQry.GetVariableAsInteger("y") << " unitrip=" << RQry.GetVariableAsString("unitrip") <<
+          " delta_in=" << RQry.GetVariableAsInteger("delta_in") << " delta_out=" << RQry.GetVariableAsInteger("delta_out") <<
+          " suffix=" << RQry.GetVariableAsString("suffix") << " suffix_fmt=" << RQry.GetVariableAsInteger("suffix_fmt");
         RQry.Execute();
         dnum++;
         prmenum.prms << prmenum2;
@@ -3123,10 +3129,10 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 {
   throwOnScheduleLock();
 //  GRISHA раскомментировать перед коммитом в STABLE !!!
-  if ( TReqInfo::Instance()->user.access.airlines().totally_permitted() &&
-       TReqInfo::Instance()->user.access.airps().totally_permitted() ) {
-     throw UserException( "MSG.SET_LEVEL_PERMIT" );
-  }
+//  if ( TReqInfo::Instance()->user.access.airlines().totally_permitted() &&
+//       TReqInfo::Instance()->user.access.airps().totally_permitted() ) {
+//     throw UserException( "MSG.SET_LEVEL_PERMIT" );
+//  }
 
   map<int,TDestList> mapds;
   TReqInfo *reqInfo = TReqInfo::Instance();

@@ -40,6 +40,7 @@ using BASIC::date_time::TDateTime;
     std::string litera;
     std::string triptype;
     TDateTime scd_out;
+    std::string rbd_order;
     int f;
     int c;
     int y;
