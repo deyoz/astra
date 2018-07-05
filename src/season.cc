@@ -1511,7 +1511,7 @@ TDateTime ConvertFlightDate( TDateTime time, TDateTime first, const std::string 
 
 
 // разбор и перевод времен в UTC, в диапазонах выполнения хранятся времена вылета
-bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TDestList> &mapds, const string &filter_tz_region )
+bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TDestList> &mapds, const std::string &filter_tz_region )
 {
   TBaseTable &baseairps = base_tables.get( "airps" );
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -1561,7 +1561,7 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
     if ( node )
       period.ref = NodeAsString( node );
     node = GetNodeFast( "dests", curNode );
-    double first_day, f2, f3;
+    double first_day, f2;
     modf( (double)period.first, &first_day );
     bool newdests = node;
     if ( newdests ) {
@@ -1698,31 +1698,7 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
                DateTimeToStr( period.last, "dd.mm.yyyy hh:nn:ss" ).c_str(),
                DateTimeToStr( ds.flight_time, "dd.mm.yyyy hh:nn:ss" ).c_str(),
                ds.flight_time );
-    first_day = period.first;
-    period.first += ds.flight_time;
-    ProgTrace( TRACE5, "period.first=%s, period.last=%s, period.days=%s",
-               DateTimeToStr( period.first, "dd.mm.yyyy hh:nn:ss" ).c_str(),
-               DateTimeToStr( period.last, "dd.mm.yyyy hh:nn:ss" ).c_str(),
-               period.days.c_str() );
-        try {
-      period.first = ClientToUTC( (double)period.first, filter_tz_region );
-      }
-    catch( boost::local_time::ambiguous_result ) {
-        period.first = ClientToUTC( (double)period.first + 1, filter_tz_region ) - 1;
-    }
-    catch( boost::local_time::time_label_invalid ) {
-      throw AstraLocale::UserException( "MSG.FLIGHT_TIME_NOT_EXISTS",
-              LParams() << LParam("time", DateTimeToStr( period.first, "dd.mm hh:nn" )));
-    }
-    double utcFirst;
-    f3 = modf( (double)period.first, &utcFirst );
-    if ( first_day != utcFirst ) {
-      period.days = AddDays( period.days, (int)utcFirst - (int)first_day );
-    }
-    period.last += utcFirst - first_day + f3;
-    ProgTrace( TRACE5, "local first=%s",DateTimeToStr( first_day, "dd.mm.yyyy hh:nn:ss" ).c_str() );
-    ProgTrace( TRACE5, "utc first=%s",DateTimeToStr( utcFirst, "dd.mm.yyyy hh:nn:ss" ).c_str() );
-
+    ConvertPeriod( period, ds.flight_time, filter_tz_region );
     if ( newdests ) {
       // перевод времен в маршруте в локальные
       for ( TDests::iterator id=ds.dests.begin(); id!=ds.dests.end(); id++ ) {
@@ -3113,7 +3089,34 @@ void ReadTripInfo( int trip_id, vector<TViewPeriod> &viewp, xmlNodePtr reqNode )
   filter.Parse( filterNode );
   internalRead( filter, viewp, trip_id );
 }
-
+void ConvertPeriod( TPeriod &period, const TDateTime &flight_time, const std::string &filter_tz_region )
+{
+  double first_day, f3;
+  first_day = period.first;
+  period.first += flight_time;
+  ProgTrace( TRACE5, "period.first=%s, period.last=%s, period.days=%s",
+             DateTimeToStr( period.first, "dd.mm.yyyy hh:nn:ss" ).c_str(),
+             DateTimeToStr( period.last, "dd.mm.yyyy hh:nn:ss" ).c_str(),
+             period.days.c_str() );
+  try {
+    period.first = ClientToUTC( (double)period.first, filter_tz_region );
+  }
+  catch( boost::local_time::ambiguous_result ) {
+      period.first = ClientToUTC( (double)period.first + 1, filter_tz_region ) - 1;
+  }
+  catch( boost::local_time::time_label_invalid ) {
+    throw AstraLocale::UserException( "MSG.FLIGHT_TIME_NOT_EXISTS",
+            LParams() << LParam("time", DateTimeToStr( period.first, "dd.mm hh:nn" )));
+  }
+  double utcFirst;
+  f3 = modf( (double)period.first, &utcFirst );
+  if ( first_day != utcFirst ) {
+    period.days = AddDays( period.days, (int)utcFirst - (int)first_day );
+  }
+  period.last += utcFirst - first_day + f3;
+  ProgTrace( TRACE5, "local first=%s",DateTimeToStr( first_day, "dd.mm.yyyy hh:nn:ss" ).c_str() );
+  ProgTrace( TRACE5, "utc first=%s",DateTimeToStr( utcFirst, "dd.mm.yyyy hh:nn:ss" ).c_str() );
+}
 }
 
 void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

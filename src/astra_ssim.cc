@@ -21,6 +21,7 @@ using namespace BASIC::date_time;
 using namespace std;
 using namespace boost::local_time;
 using namespace boost::posix_time;
+using namespace SEASON;
 
 ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& prd );
 
@@ -507,7 +508,7 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
   p.modify = ASTRA::finsert;
   TDestList dests;
   TDest curr, next;
-  TDateTime period_scd_out = ASTRA::NoExists;
+ // TDateTime period_scd_out = ASTRA::NoExists;
   for (ssim::Legs::const_iterator ileg = scd.route.legs.begin(); ileg != scd.route.legs.end(); ++ileg)
   {
     const ssim::Leg &leg = *ileg;
@@ -516,16 +517,17 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
     curr.trip = scd.flight.number.get();
     curr.suffix = ElemToElemId( etSuffix, suffixToString(scd.flight.suffix), curr.suffix_fmt );
     curr.airp = ElemToElemId( etAirp, IdToCode(leg.s.from.get()), curr.airp_fmt );
-    if (first_airp)
-    {
-      filter.filter_tz_region = AirpTZRegion(curr.airp);
-      first_airp = false;
-    }
     curr.craft = ElemToElemId( etCraft, IdToCode(leg.aircraftType.get()), curr.craft_fmt );
     curr.triptype = DefaultTripType(false);
     LogTrace(TRACE5) << "leg.s.dep.hours() = " << leg.s.dep.hours() << " leg.s.dep.minutes() = " << leg.s.dep.minutes();
     int shift_day = leg.s.dep.hours() / 24; // сдвиг даты (время вида KJA1400/1)
     EncodeTime( leg.s.dep.hours() % 24, leg.s.dep.minutes(), 0, curr.scd_out );
+    if (first_airp)
+    {
+      filter.filter_tz_region = AirpTZRegion(curr.airp);
+      first_airp = false;
+      SEASON::ConvertPeriod( p, curr.scd_out, filter.filter_tz_region ); //конывертация периода
+    }
     curr.scd_out = ConvertFlightDate(curr.scd_out, p.first, curr.airp, false, mtoUTC) + shift_day;
     LogTrace(TRACE5) << "curr.scd_out = " << DateTimeToStr(curr.scd_out) << " (" << curr.scd_out << ")";
     next.airp = ElemToElemId( etAirp, IdToCode(leg.s.to.get()), next.airp_fmt );
@@ -544,19 +546,19 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
         if (cabinCode(cfg.first)=="C") curr.c = cfg.second.get();
         if (cabinCode(cfg.first)=="Y") curr.y = cfg.second.get();
       }
-    if (ileg == scd.route.legs.begin())
+/*    if (ileg == scd.route.legs.begin())
     {
       period_scd_out = curr.scd_out;
       LogTrace(TRACE5) << "period_scd_out = " << DateTimeToStr(period_scd_out) << " (" << period_scd_out << ")";
-    }
+    }*/
     dests.dests.push_back( curr );
   } // ileg
-  if ( period_scd_out != ASTRA::NoExists )
+/*  if ( period_scd_out != ASTRA::NoExists )
   {
     p.first = DatePlusTime(p.first, period_scd_out);
     p.last = DatePlusTime(p.last, period_scd_out);
     LogTrace(TRACE5) << "FINAL p.first = " << DateTimeToStr(p.first) << " p.last = " << DateTimeToStr(p.last);
-  }
+  }*/
   next.airline.clear();
   next.trip = ASTRA::NoExists;
   next.suffix.clear();

@@ -227,6 +227,7 @@ struct TViewPeriod {
 };
 
 void ReadTripInfo( int trip_id, std::vector<TViewPeriod> &viewp, xmlNodePtr reqNode );
+void ConvertPeriod( TPeriod &period, const TDateTime &flight_time, const std::string &filter_tz_region );
 
 } // namespace SEASON
 
@@ -290,7 +291,7 @@ enum TConvert { mtoUTC, mtoLocal };
 
 TDateTime ConvertFlightDate( TDateTime time, TDateTime first, const std::string &airp, bool pr_arr, TConvert convert );
 bool ConvertPeriodToLocal( TDateTime &first, TDateTime &last, string &days, const string &tz_region, string &err_tz_region );
-string DefaultTripType( bool pr_lang = true );
+std::string DefaultTripType( bool pr_lang = true );
 
 
 #endif

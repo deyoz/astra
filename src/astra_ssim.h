@@ -26,7 +26,7 @@ using namespace nsi;
 #include <libssim/ssim_data_types.h>
 
 #include <season.h>
-using namespace SEASON;
+//using namespace SEASON;
 
 //------------------------------------------------------------------------------------------
 
