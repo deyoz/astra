@@ -1047,10 +1047,10 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
         crs_cls = Qry.FieldAsString("crs_cls");
 
         /*
-        TETickItem ETickItem;
-        ETickItem.fromDB(ticket_no, coupon_no, TETickItem::Display, false);
-        if(not ETickItem.empty()) crs_cls = ETickItem.cls;
-        */
+           TETickItem ETickItem;
+           ETickItem.fromDB(ticket_no, coupon_no, TETickItem::Display, false);
+           if(not ETickItem.empty()) crs_cls = ETickItem.cls;
+           */
 
         // daem dorabotat' do konca, potom
 
@@ -1153,6 +1153,39 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
     }
 }
 
+void flt_infants(int point_id, vector<TInfantAdults> &infants)
+{
+    infants.clear();
+    TCachedQuery Qry(
+            "SELECT pax.*, crs_inf.pax_id crs_inf_pax_id "
+            "FROM pax_grp,pax,crs_inf WHERE "
+            "   pax_grp.grp_id=pax.grp_id AND "
+            "   pax_grp.point_dep=:point_id AND "
+            "   pax_grp.status NOT IN ('E') AND "
+            "   pax.seats=0 AND "
+            "   pax.pr_brd is not null and "
+            "   pax.pax_id=crs_inf.inf_id(+) ",
+            QParams() << QParam("point_id", otInteger, point_id));
+    Qry.get().Execute();
+    for(; not Qry.get().Eof; Qry.get().Next())
+        infants.push_back(TInfantAdults(Qry.get()));
+    if(not infants.empty()) {
+        vector<TInfantAdults> adults;
+        TCachedQuery adultQry(
+                "SELECT * FROM pax_grp,pax WHERE "
+                "   pax_grp.grp_id=pax.grp_id AND "
+                "   pax_grp.point_dep=:point_id AND "
+                "   pax_grp.status NOT IN ('E') AND "
+                "   pax.pers_type='ВЗ' AND "
+                "   pax.pr_brd is not null ",
+                QParams() << QParam("point_id", otInteger, point_id));
+        adultQry.get().Execute();
+        for(; not adultQry.get().Eof; adultQry.get().Next())
+            adults.push_back(TInfantAdults(adultQry.get()));
+        SetInfantsToAdults( infants, adults );
+    }
+}
+
 void TPrnTagStore::TPointInfo::Init(TDevOper::Enum op, int apoint_id, int agrp_id)
 {
     if(apoint_id == NoExists || agrp_id == NoExists) {
@@ -1221,6 +1254,7 @@ void TPrnTagStore::TPointInfo::Init(TDevOper::Enum op, int apoint_id, int agrp_i
                     };
                 }
             }
+            flt_infants(point_id, infants);
         };
         TripsInterface::readGates(point_id, gates);
     }
@@ -2099,7 +2133,7 @@ string TPrnTagStore::FULLNAME(TFieldParams fp)
     if(!fp.TagInfo.empty()) {
         const std::string fullnm = boost::any_cast<std::string>(fp.TagInfo);
         return transliter(fullnm, 1, tag_lang.GetLang() != AstraLocale::LANG_RU)
-                .substr(0, fp.len > 10 ? fp.len : fp.len == 0 ? string::npos : 10);
+            .substr(0, fp.len > 10 ? fp.len : fp.len == 0 ? string::npos : 10);
     } else {
         string name, surname;
         if(scan_data != NULL) {
@@ -2388,21 +2422,44 @@ string TPrnTagStore::PLACE_DEP(TFieldParams fp)
 
 string TPrnTagStore::TRfiscDescr::get(const string &crs_cls, TBPServiceTypes::Enum code, TPrnTagStore &pts)
 {
-    string tag_bi_rule = pts.get_tag(TAG::BI_HALL);
-    if(
-            not (
-                found_services.find(TBPServiceTypes::UP) != found_services.end() and
-                crs_cls == "Б")
-            and (
-                (code == TBPServiceTypes::LG) and not tag_bi_rule.empty()
-                or
-                (code == TBPServiceTypes::TS_FT) and
-                (crs_cls == "Б" or crs_cls == "П" or not tag_bi_rule.empty())
-                )
-      )
-        return TBPServiceTypesDescr().encode(code);
-    else
-        return (found_services.find(code) != found_services.end() ? TBPServiceTypesDescr().encode(code) : "");
+    if(code == TBPServiceTypes::UP and pts.paxInfo.pers_type == "РМ") {
+        // найдем родителя
+        vector<TInfantAdults>::iterator i = pts.pointInfo.infants.begin();
+        for(; i != pts.pointInfo.infants.end(); i++)
+            if(i->pax_id == pts.paxInfo.pax_id) break;
+        string result;
+        if(i != pts.pointInfo.infants.end()) {
+            CheckIn::TSimplePaxItem parent_pax;
+            parent_pax.getByPaxId(i->parent_pax_id);
+            TPrnTagStore parent_pts(
+                    pts.get_op_type(),
+                    parent_pax.grp_id,
+                    parent_pax.id,
+                    false, NULL);
+            if(
+                    not parent_pts.get_tag(TAG::RFISC_UPGRADE).empty() or
+                    not parent_pts.get_tag(TAG::RFISC_BSN_LONGUE).empty()
+              )
+                result = TBPServiceTypesDescr().encode(TBPServiceTypes::UP);
+        }
+        return result;
+    } else {
+        string tag_bi_rule = pts.get_tag(TAG::BI_HALL);
+        if(
+                not (
+                    found_services.find(TBPServiceTypes::UP) != found_services.end() and
+                    crs_cls == "Б")
+                and (
+                    (code == TBPServiceTypes::LG) and not tag_bi_rule.empty()
+                    or
+                    (code == TBPServiceTypes::TS_FT) and
+                    (crs_cls == "Б" or crs_cls == "П" or not tag_bi_rule.empty())
+                    )
+          )
+            return TBPServiceTypesDescr().encode(code);
+        else
+            return (found_services.find(code) != found_services.end() ? TBPServiceTypesDescr().encode(code) : "");
+    }
 }
 
 void TPrnTagStore::TRfiscDescr::dump() const
