@@ -1030,12 +1030,10 @@ struct TInfantAdults {
   std::string surname;
   int parent_pax_id;
   int temp_parent_id;
-  TInfantAdults() {
-   grp_id = ASTRA::NoExists;
-   pax_id = ASTRA::NoExists;
-   reg_no = ASTRA::NoExists;
-   parent_pax_id = ASTRA::NoExists;
-  };
+  void clear();
+  void fromDB(TQuery &Qry);
+  TInfantAdults(TQuery &Qry);
+  TInfantAdults() { clear(); };
 };
 
 template <class T1>

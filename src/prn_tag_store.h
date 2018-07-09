@@ -424,6 +424,7 @@ class TPrnTagStore {
             std::string airline, suffix;
             std::vector<std::string> gates;
             int flt_no;
+            std::vector<TInfantAdults> infants;
             TPointInfo():
                 scd(ASTRA::NoExists),
                 est(ASTRA::NoExists),
@@ -750,6 +751,7 @@ class TPrnTagStore {
     public:
         TTagProps prn_tag_props;
         TTagLang tag_lang;
+        ASTRA::TDevOper::Enum get_op_type() { return op_type; }
         TPrnTagStore(ASTRA::TDevOper::Enum _op_type, int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute = TTrferRoute());
         TPrnTagStore(ASTRA::TDevOper::Enum _op_type, const std::string &scan, bool apr_lat);
         TPrnTagStore(bool apr_lat);

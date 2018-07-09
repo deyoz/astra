@@ -2395,3 +2395,28 @@ AstraLocale::LexemaData GetLexemeDataWithFlight(const AstraLocale::LexemaData &d
   return result;
 }
 
+TInfantAdults::TInfantAdults(TQuery &Qry)
+{
+    fromDB(Qry);
+}
+
+void TInfantAdults::fromDB(TQuery &Qry)
+{
+    clear();
+    grp_id = Qry.FieldAsInteger("grp_id");
+    pax_id = Qry.FieldAsInteger("pax_id");
+    reg_no = Qry.FieldAsInteger("reg_no");
+    surname = Qry.FieldAsString("surname");
+    if(Qry.GetFieldIndex("crs_inf_pax_id") >= 0)
+        parent_pax_id = Qry.FieldAsInteger("crs_inf_pax_id");
+}
+
+void TInfantAdults::clear()
+{
+   grp_id = NoExists;
+   pax_id = NoExists;
+   reg_no = NoExists;
+   surname.clear();
+   parent_pax_id = NoExists;
+   temp_parent_id = NoExists;
+}
