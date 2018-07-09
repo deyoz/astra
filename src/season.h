@@ -200,7 +200,7 @@ using BASIC::date_time::TDateTime;
       TFilter();
   };
 
-  void int_write( const TFilter &filter, const std::string &flight, vector<TPeriod> &speriods,
+  void int_write( const TFilter &filter, int ssm_id, vector<TPeriod> &speriods,
                   int &trip_id, map<int,TDestList> &mapds );
 
 struct TViewTrip {

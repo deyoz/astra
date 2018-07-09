@@ -697,6 +697,16 @@ void SeasonInterface::Filter(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
 void SeasonInterface::DelRangeList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 //  TReqInfo::Instance()->user.check_access( amWrite );
+  // GRISHA запрет редактирования периода, полученного из SSM телеграммы
+  TQuery QryCheck(&OraSession);
+  QryCheck.SQLText = "SELECT ssm_id from sched_days where trip_id = :trip_id";
+  QryCheck.CreateVariable( "trip_id", otInteger, NodeAsInteger( "trip_id", reqNode ) );
+  QryCheck.Execute();
+  if (!QryCheck.Eof && !QryCheck.FieldIsNULL("ssm_id") && QryCheck.FieldAsInteger("ssm_id") != NoExists)
+  {
+    AstraLocale::showError("MSG.SSIM.EDIT_SSM_PERIOD_FORBIDDEN");
+    return;
+  }
     TQuery Qry(&OraSession);
     Qry.SQLText =
     "BEGIN "
@@ -1719,9 +1729,10 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
   return true;
 }
 
-void SEASON::int_write( const TFilter &filter, const std::string &flight, vector<TPeriod> &speriods,
+void SEASON::int_write( const TFilter &filter, int ssm_id, vector<TPeriod> &speriods,
                 int &trip_id, map<int,TDestList> &mapds )
 {
+  LogTrace(TRACE5) << __func__ << " ssm_id=" << ssm_id << " trip_id=" << trip_id;
   vector<TPeriod> oldperiods;
   TQuery SQry( &OraSession );
   SQry.Clear();
@@ -1746,7 +1757,7 @@ void SEASON::int_write( const TFilter &filter, const std::string &flight, vector
   SQry.Clear();
   int num=0;
   if ( trip_id != NoExists ) {
-    if ( flight.empty() ) {
+    if ( ssm_id == NoExists ) {
       TDateTime begin_date_season;
       SQry.Clear();
       begin_date_season = BoostToDateTime( filter.periods.begin()->period.begin() );
@@ -1786,8 +1797,8 @@ void SEASON::int_write( const TFilter &filter, const std::string &flight, vector
   NQry.SQLText = "SELECT routes_move_id.nextval AS move_id FROM dual";
   SQry.Clear();
   SQry.SQLText =
-  "INSERT INTO sched_days(trip_id,move_id,num,first_day,last_day,days,pr_del,tlg,reference,region,flight) "
-  "VALUES(:trip_id,:move_id,:num,:first_day,:last_day,:days,:pr_del,:tlg,:reference,:region,:flight) ";
+  "INSERT INTO sched_days(trip_id,move_id,num,first_day,last_day,days,pr_del,tlg,reference,region,ssm_id) "
+  "VALUES(:trip_id,:move_id,:num,:first_day,:last_day,:days,:pr_del,:tlg,:reference,:region,:ssm_id) ";
   SQry.DeclareVariable( "trip_id", otInteger );
   SQry.DeclareVariable( "move_id", otInteger );
   SQry.DeclareVariable( "num", otInteger );
@@ -1798,7 +1809,7 @@ void SEASON::int_write( const TFilter &filter, const std::string &flight, vector
   SQry.DeclareVariable( "tlg", otString );
   SQry.DeclareVariable( "reference", otString );
   SQry.CreateVariable( "region", otString, filter.filter_tz_region );
-  SQry.CreateVariable( "flight", otString, flight );
+  SQry.CreateVariable( "ssm_id", otInteger, ssm_id );
   TQuery RQry( &OraSession );
   RQry.SQLText =
   "INSERT INTO routes(move_id,num,airp,airp_fmt,pr_del,scd_in,airline,airline_fmt,flt_no,craft,craft_fmt,scd_out,litera, "
@@ -1926,7 +1937,7 @@ void SEASON::int_write( const TFilter &filter, const std::string &flight, vector
       " last_day=" << DateTimeToStr(SQry.GetVariableAsDateTime("last_day")) <<
       " days=" << SQry.GetVariableAsString("days") << " pr_del=" << SQry.GetVariableAsInteger("pr_del") <<
       " tlg=" << SQry.GetVariableAsString("tlg") << " reference=" << SQry.GetVariableAsString("reference") <<
-      " region=" << SQry.GetVariableAsString("region") << " flight=" << SQry.GetVariableAsString("flight");
+      " region=" << SQry.GetVariableAsString("region") << " ssm_id=" << SQry.GetVariableAsInteger("ssm_id");
     SQry.Execute()  ;
     num++;
     TDestList ds = mapds[ ip->move_id ];
@@ -2100,11 +2111,11 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
   }
 
   // GRISHA запрет редактирования периода, полученного из SSM телеграммы
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "SELECT flight from sched_days where trip_id = :trip_id";
-  Qry.CreateVariable("trip_id", otInteger, trip_id);
-  Qry.Execute();
-  if (!Qry.Eof && !Qry.FieldIsNULL("flight"))
+  TQuery QryCheck(&OraSession);
+  QryCheck.SQLText = "SELECT ssm_id from sched_days where trip_id = :trip_id";
+  QryCheck.CreateVariable("trip_id", otInteger, trip_id);
+  QryCheck.Execute();
+  if (!QryCheck.Eof && !QryCheck.FieldIsNULL("ssm_id") && QryCheck.FieldAsInteger("ssm_id") != NoExists)
   {
     AstraLocale::showError("MSG.SSIM.EDIT_SSM_PERIOD_FORBIDDEN");
     return;
@@ -2144,7 +2155,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
               yp->move_id,
               yp->modify );
   }
-  int_write( filter, "", speriods, trip_id, mapds );
+  int_write( filter, NoExists, speriods, trip_id, mapds );
   // надо перечитать информацию по экрану редактирования
   string err_city;
   GetEditData( trip_id, filter, true, dataNode, err_city );
