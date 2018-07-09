@@ -398,28 +398,28 @@ void TPointsDest::getDestData( TQuery &Qry )
   if ( !Qry.FieldIsNULL( "scd_in" ) )
       scd_in = Qry.FieldAsDateTime( "scd_in" );
     else
-        scd_in = NoExists;
-    if ( !Qry.FieldIsNULL( "est_in" ) )
-      est_in = Qry.FieldAsDateTime( "est_in" );
-    else
-      est_in = NoExists;
-    if ( !Qry.FieldIsNULL( "act_in" ) )
-      act_in = Qry.FieldAsDateTime( "act_in" );
-    else
-      act_in = NoExists;
-    if ( !Qry.FieldIsNULL( "scd_out" ) )
-      scd_out = Qry.FieldAsDateTime( "scd_out" );
-    else
-      scd_out = NoExists;
-    if ( !Qry.FieldIsNULL( "est_out" ) )
-      est_out = Qry.FieldAsDateTime( "est_out" );
-    else
-      est_out = NoExists;
-    if ( !Qry.FieldIsNULL( "act_out" ) )
-      act_out = Qry.FieldAsDateTime( "act_out" );
-    else
-      act_out = NoExists;
-    trip_type = Qry.FieldAsString( "trip_type" );
+      scd_in = NoExists;
+  if ( !Qry.FieldIsNULL( "est_in" ) )
+    est_in = Qry.FieldAsDateTime( "est_in" );
+  else
+    est_in = NoExists;
+  if ( !Qry.FieldIsNULL( "act_in" ) )
+    act_in = Qry.FieldAsDateTime( "act_in" );
+  else
+    act_in = NoExists;
+  if ( !Qry.FieldIsNULL( "scd_out" ) )
+    scd_out = Qry.FieldAsDateTime( "scd_out" );
+  else
+    scd_out = NoExists;
+  if ( !Qry.FieldIsNULL( "est_out" ) )
+    est_out = Qry.FieldAsDateTime( "est_out" );
+  else
+    est_out = NoExists;
+  if ( !Qry.FieldIsNULL( "act_out" ) )
+    act_out = Qry.FieldAsDateTime( "act_out" );
+  else
+    act_out = NoExists;
+  trip_type = Qry.FieldAsString( "trip_type" );
   litera = Qry.FieldAsString( "litera" );
   park_in = Qry.FieldAsString( "park_in" );
   park_out = Qry.FieldAsString( "park_out" );
@@ -427,6 +427,7 @@ void TPointsDest::getDestData( TQuery &Qry )
   pr_reg = Qry.FieldAsInteger( "pr_reg" );
   pr_del = Qry.FieldAsInteger( "pr_del" );
   remark = Qry.FieldAsString( "remark" );
+  ProgTrace( TRACE5, "point_id=%d, trip_type=%s", point_id, trip_type.c_str() );
 }
 
 void TPointsDest::LoadProps( int vpoint_id, BitSet<TUseDestData> FUseData )
@@ -808,18 +809,22 @@ void TPointsDest::getEvents( const TPointsDest &vdest )
       events.setFlag( dmChangeDelays );
   }
 
-    if ( !UseData.isFlag( udNoCalcESTTimeStage ) && status != tdDelete && pr_reg ) {
+  if ( !UseData.isFlag( udNoCalcESTTimeStage ) && status != tdDelete && pr_reg ) {
     TDateTime t1 = NoExists, t2 = NoExists;
     if ( status != tdInsert ) {
-        if ( vdest.est_out > NoExists )
+      if ( vdest.est_out > NoExists ) {
         t1 = vdest.est_out;
-      else
-            t1 = vdest.scd_out;
+      }
+      else {
+        t1 = vdest.scd_out;
+      }
     }
-    if ( est_out > NoExists )
-        t2 = est_out;
-    else
-        t2 = scd_out;
+    if ( est_out > NoExists ) {
+      t2 = est_out;
+    }
+    else {
+      t2 = scd_out;
+    }
     if (  status == tdInsert && est_out > NoExists && scd_out > NoExists ) {
         t1 = scd_out;
         t2 = est_out;
@@ -827,6 +832,7 @@ void TPointsDest::getEvents( const TPointsDest &vdest )
     if ( t1 > NoExists && t2 > NoExists && t1 != t2 ) {
       stage_scd = t1;
       stage_est = t2;
+      ProgTrace( TRACE5, "stage_scd=%f, stage_est=%f", stage_scd, stage_est );
       events.setFlag( dmChangeStageESTTime );
     }
   }
@@ -881,12 +887,14 @@ void TPointsDest::DoEvents( int move_id, const TPointsDest &dest )
        events.isFlag( dmChangeFltNo ) ||
        events.isFlag( dmChangeSuffix ) ) {
     ProgTrace( TRACE5, "dmChangeAirline=%d, dmChangeFltNo=%d, dmChangeSuffix=%d",events.isFlag( dmChangeAirline ),events.isFlag( dmChangeFltNo ),events.isFlag( dmChangeSuffix ) );
-    if ( dest.flt_no != NoExists )
+    if ( dest.flt_no != ASTRA::NoExists )
         reqInfo->LocaleToLog("EVT.FLIGHT.MODIFY_ATTRIBUTES_FROM", LEvntPrms() << PrmFlight("flt", dest.airline, dest.flt_no, dest.suffix)
                               << PrmFlight("new_flt", airline, flt_no, suffix) << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
     else
+      if ( flt_no != ASTRA::NoExists ) {
         reqInfo->LocaleToLog("EVT.FLIGHT.MODIFY_ATTRIBUTES", LEvntPrms() << PrmFlight("flt", airline, flt_no, suffix)
                               << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
+      }
   }
   if ( events.isFlag( dmSetSCDOUT ) )
     reqInfo->LocaleToLog("EVT.DISP.SET_TAKEOFF_PLAN", LEvntPrms() << PrmDate("time", scd_out, "hh:nn dd.mm.yy (UTC)")
@@ -945,6 +953,7 @@ void TPointsDest::DoEvents( int move_id, const TPointsDest &dest )
 
   if ( events.isFlag( dmChangeStageESTTime ) ) {
     TDateTime diff = stage_est - stage_scd;
+    ProgTrace( TRACE5, "diff=%f", diff );
     double f;
     if ( diff < 0 ) {
       modf( diff, &f );
@@ -965,7 +974,8 @@ void TPointsDest::DoEvents( int move_id, const TPointsDest &dest )
     }
   }
 
-  if ( events.isFlag( dmChangeTripType ) )
+  if ( events.isFlag( dmChangeTripType ) &&
+       !trip_type.empty() )
     reqInfo->LocaleToLog("EVT.MODIFY_FLIGHT_TYPE", LEvntPrms() << PrmElem<std::string>("type", etTripType, dest.trip_type, efmtNameLong)
                          << PrmElem<std::string>("new_type", etTripType, trip_type, efmtNameLong)
                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
@@ -1185,8 +1195,7 @@ void TPoints::WriteDest( TPointsDest &dest )
   if ( dest.events.isFlag( dmChangeStages ) ) {
     dest.stages.Save( dest.point_id );
   }
-  tst();
-    if ( dest.events.isFlag( dmChangeStageESTTime ) ) {
+  if ( dest.events.isFlag( dmChangeStageESTTime ) ) {
     ProgTrace( TRACE5, "trip_stages delay=%s", DateTimeToStr(dest.stage_est-dest.stage_scd).c_str() );
     Qry.Clear();
     Qry.SQLText =
@@ -1242,9 +1251,30 @@ void TPoints::WriteDest( TPointsDest &dest )
     else {
       dest.stage_scd = Qry.GetVariableAsDateTime( "vscd" );
       dest.stage_est = Qry.GetVariableAsDateTime( "vest" );
+      double t1, f;
+      t1 = dest.stage_est-dest.stage_scd;
+      if ( t1 < 0 ) {
+        modf( t1, &f );
+        TReqInfo::Instance()->LocaleToLog("EVT.TECHNOLOGY_SCHEDULE_AHEAD", LEvntPrms() << PrmSmpl<std::string>("val", f ? IntToString((int)f) : "")
+                             << PrmDate("time", fabs(t1), "hh:nn") << PrmElem<std::string>("airp", etAirp, dest.airp),
+                             evtGraph, dest.point_id);
+      }
+      if ( t1 >= 0 ) {
+        modf( t1, &f );
+        if ( t1 ) {
+          TReqInfo::Instance()->LocaleToLog("EVT.TECHNOLOGY_SCHEDULE_DELAY", LEvntPrms() << PrmSmpl<std::string>("val", f ? IntToString((int)f) : "")
+                               << PrmDate("time", t1, "hh:nn") << PrmElem<std::string>("airp", etAirp, dest.airp), evtFlt, dest.point_id);
+        }
+        else
+          TReqInfo::Instance()->LocaleToLog("EVT.TECHNOLOGY_SCHEDULE_DELAY_CANCEL", LEvntPrms() <<
+                               PrmElem<std::string>("airp", etAirp, dest.airp), evtFlt, dest.point_id);
+      }
+     /* TReqInfo::Instance()->LocaleToLog("EVT.TECHNOLOGY_STEPS_ASSIGNEMENT", LEvntPrms()
+                                        << PrmFlight("flt", dest.airline, dest.flt_no, dest.suffix)
+                                        << PrmElem<std::string>("airp", etAirp, dest.airp),
+                                        evtDisp, move_id, dest.point_id );*/
     }
   }
-  tst();
 }
 
 template <class A, class B>
@@ -1679,7 +1709,7 @@ void PointsKeyTrip<T>::DoEvents( int move_id )
       else
         params << PrmSmpl<string>("flt_no", "");
       params << PrmElem<string>("suffix", etSuffix, this->key.airline)
-                << PrmElem<string>("airp", etAirp, this->key.airp);
+             << PrmElem<string>("airp", etAirp, this->key.airp);
       //TReqInfo::Instance()->LocaleToLog( DecodeEvents( (TTripEvents)i ), params, evtDisp, move_id, this->key.point_id );
     }
   }
@@ -1909,6 +1939,7 @@ void ReBindTlgs( int move_id, const std::vector<int> &oldPointsId )
 void TPoints::Save( bool isShowMsg )
 {
  //  #warning points.cc. usa apis
+  ProgTrace( TRACE5, "TPoints::Save" );
   events.clearFlags();
   if ( move_id == NoExists ) {
     events.setFlag( peInsert );
@@ -1972,6 +2003,7 @@ void TPoints::Save( bool isShowMsg )
     //ProgTrace( TRACE5, "id->pr_tranzit=%d, pid->suffix=|%s|, id->suffix=|%s|", id->pr_tranzit, pid->suffix.c_str(), id->suffix.c_str() );
 
     id->pr_reg = ( id->scd_out > NoExists &&
+                   !id->trip_type.empty() &&
                    ((const TTripTypesRow&)base_tables.get("trip_types").get_row( "code", id->trip_type, true )).pr_reg!=0 &&
                    id != last_dest );
     if ( id == last_dest ) { // последний пункт
@@ -2050,7 +2082,6 @@ void TPoints::Save( bool isShowMsg )
       ProgTrace( TRACE5, "load: point_id=%d", id->point_id );
       olddests[ id->point_id ].Load( id->point_id, id->UseData );
     }
-    ProgTrace( TRACE5, "id->airp=%s, id->pr_del=%d, id->craft=%s", id->airp.c_str(), id->pr_del, id->craft.c_str() );
     id->getEvents( olddests[ id->point_id ] );
     ProgTrace( TRACE5, "id->airp=%s, id->pr_del=%d, id->craft=%s", id->airp.c_str(), id->pr_del, id->craft.c_str() );
 /*    if ( id->status != tdInsert ) { // работая в лат. терминале - возвращаем лат. коды, но при этом не должны коды портиться у других
@@ -2949,8 +2980,10 @@ void TPointDests::sychDests( TPointDests &new_dests, bool pr_change_dests, sychD
             modf( locale_scd_out2, &d2 );
             modf( locale_scd_in1, &d3 );
             modf( locale_scd_in2, &d4 );
-            pr_compare = ( ( d1 == d2 || d2 == ASTRA::NoExists ) &&
-                           ( d3 == d4 || d4 == ASTRA::NoExists ) );}
+            pr_compare = ( ( d1 == d2 || d2 == ASTRA::NoExists || d1 == ASTRA::NoExists ) &&
+                           ( d3 == d4 || d4 == ASTRA::NoExists || d3 == ASTRA::NoExists ) );
+            ProgTrace( TRACE5, "d1=%f, d2=%f, d3=%f, d4=%f, pr_compare=%d", d1, d2, d3, d4, pr_compare );
+            }
             break;
           case dtAllLocalSCD: //сравнение дат надо делать в локальных временах
           {string region = AirpTZRegion( j->airp, true );
@@ -3009,8 +3042,8 @@ void TPointDests::sychDests( TPointDests &new_dests, bool pr_change_dests, sychD
          continue;
        if ( j->point_id == i->point_id ) {
          prior_find_dest = j + 1;
-         j->scd_in = i->scd_in; //???
-         j->est_in = i->est_in; //???
+         //j->scd_in = i->scd_in; //???
+         //j->est_in = i->est_in; //???
          break;
        }
      }

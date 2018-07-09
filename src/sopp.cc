@@ -3304,12 +3304,13 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   TPersWeights persWeights;
   vector<change_act> vchangeAct;
   TSOPPDests voldDests;
-    bool ch_point_num = false;
-  for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ )
+  bool ch_point_num = false;
+  for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
     if ( id->point_num == NoExists || id->pr_del == -1 ) { // вставка или удаление пункта посадки
         ch_point_num = true;
         break;
     }
+  }
   bool ch_craft = false;
   TQuery Qry(&OraSession);
   TQuery DelQry(&OraSession);
@@ -3325,14 +3326,21 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   int notCancel = (int)dests.size();
   if ( notCancel < 2 )
     throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.ROUTE_LEAST_TWO_POINTS" );
+  for( TSOPPDests::reverse_iterator id=dests.rbegin(); id!=dests.rend(); ++id ) {
+    if ( id->pr_del != -1 ) {
+      id->triptype.clear();
+      break;
+    }
+  }
   // проверки
   // если это работник аэропорта, то в маршруте должен быть этот порт,
   // если работник авиакомпании, то авиакомпания
   if ( reqInfo->user.user_type != utSupport ) {
     bool canDo = reqInfo->user.user_type == utAirline;
     for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
-        if ( id->pr_del == -1 )
-            continue;
+      if ( id->pr_del == -1 ) {
+        continue;
+      }
       if ( reqInfo->user.access.airps().permitted( id->airp ) ) {
         canDo = true;
       }
@@ -3502,6 +3510,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     }
 
     id->pr_reg = ( id->scd_out > NoExists &&
+                   !id->triptype.empty() &&
                    ((const TTripTypesRow&)base_tables.get("trip_types").get_row( "code", id->triptype, true )).pr_reg!=0 &&
                    /*!id->pr_del &&*/ id != dests.end() - 1 );
 /*    if ( id->pr_reg ) {
@@ -3565,26 +3574,27 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
     set_pr_del = false;
     //set_act_out = false;
-    if ( ch_point_num )
+    if ( ch_point_num ) {
       id->point_num = point_num;
+    }
     if ( id->modify ) {
       tst();
       Qry.Clear();
       Qry.SQLText =
        "SELECT cycle_tid__seq.nextval n FROM dual ";
-        Qry.Execute();
-        new_tid = Qry.FieldAsInteger( "n" );
-
+      Qry.Execute();
+      new_tid = Qry.FieldAsInteger( "n" );
       insert_point = id->point_id == NoExists;
-        if ( insert_point ) { //insert
-            if ( !insert )
-                ch_dests = true;
-            Qry.Clear();
-            Qry.SQLText =
-             "SELECT point_id.nextval point_id FROM dual";
-            Qry.Execute();
-            id->point_id = Qry.FieldAsInteger( "point_id" );
+      if ( insert_point ) { //insert
+        if ( !insert ) {
+          ch_dests = true;
         }
+        Qry.Clear();
+        Qry.SQLText =
+          "SELECT point_id.nextval point_id FROM dual";
+        Qry.Execute();
+        id->point_id = Qry.FieldAsInteger( "point_id" );
+      }
     }
     if ( id->pr_del != -1 ) {
           if ( pr_begin ) {
@@ -3616,8 +3626,8 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     ProgTrace( TRACE5, "point_id=%d, id->modify=%d", id->point_id, id->modify );
     if ( !id->modify ) { //??? remark
       voldDests.push_back( *id );
-        point_num++;
-        continue;
+      point_num++;
+      continue;
     }
     reSetCraft = false;
     reSetWeights = false;
@@ -5232,46 +5242,46 @@ void SoppInterface::WriteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
                 }
                 snode = GetNodeFast( "dests", tripNode );
                 if ( snode ) {
-                    snode = snode->children;
-                    xmlNodePtr tmNode;
-                    TElemFmt fmt;
-                    while ( snode ) {
-                        xmlNodePtr destNode = snode->children;
-                        point_id = NodeAsIntegerFast( "point_id", destNode );
-                for( TSOPPDests::iterator d=dests.begin(); d!=dests.end(); d++ ) {
-                    if ( d->point_id == point_id ) {
-                          d->modify = true;
+                  snode = snode->children;
+                  xmlNodePtr tmNode;
+                  TElemFmt fmt;
+                  while ( snode ) {
+                    xmlNodePtr destNode = snode->children;
+                    point_id = NodeAsIntegerFast( "point_id", destNode );
+                    for( TSOPPDests::iterator d=dests.begin(); d!=dests.end(); d++ ) {
+                      if ( d->point_id == point_id ) {
+                            d->modify = true;
                         setDestTime( GetNodeFast( "scd_in", destNode ), d->scd_in, d->region );
                         setDestTime( GetNodeFast( "est_in", destNode ), d->est_in, d->region );
                         setDestTime( GetNodeFast( "act_in", destNode ), d->act_in, d->region );
                         setDestTime( GetNodeFast( "scd_out", destNode ), d->scd_out, d->region );
                         setDestTime( GetNodeFast( "est_out", destNode ), d->est_out, d->region );
-                      setDestTime( GetNodeFast( "act_out", destNode ), d->act_out, d->region );
+                        setDestTime( GetNodeFast( "act_out", destNode ), d->act_out, d->region );
                         tmNode = GetNodeFast( "pr_del", destNode );
                         if ( tmNode )
                           d->pr_del = NodeAsInteger( tmNode );
                         else
                             d->pr_del = 0;
-                      d->delays.clear();
+                        d->delays.clear();
                         tmNode = GetNodeFast( "delays", destNode );
                         if ( tmNode ) {
-                            tmNode = tmNode->children;
-                            while ( tmNode ) {
-                      TSOPPDelay delay;
-                              xmlNodePtr N = tmNode->children;
-                                delay.code = ElemToElemId( etDelayType, NodeAsStringFast( "code", N ), fmt );
-                                    if ( fmt == efmtUnknown )
-                                throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_DELAY" );
-                                setDestTime( GetNodeFast( "time", N ), delay.time, d->region );
-                                d->delays.push_back( delay );
-                                tmNode = tmNode->next;
+                          tmNode = tmNode->children;
+                          while ( tmNode ) {
+                            TSOPPDelay delay;
+                            xmlNodePtr N = tmNode->children;
+                            delay.code = ElemToElemId( etDelayType, NodeAsStringFast( "code", N ), fmt );
+                            if ( fmt == efmtUnknown )
+                              throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_DELAY" );
+                            setDestTime( GetNodeFast( "time", N ), delay.time, d->region );
+                            d->delays.push_back( delay );
+                            tmNode = tmNode->next;
                           }
                         }
                         break;
+                      }
                     }
-                        }
-                        snode = snode->next;
-                    }
+                    snode = snode->next;
+                  }
                 }
               internal_WriteDests( move_id, dests, reference, canExcept, resNode, ownerDisp );
           }

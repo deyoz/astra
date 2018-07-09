@@ -77,7 +77,7 @@ struct TSOPPDelay {
 };
 
 struct TSOPPDest {
-    bool modify;
+  bool modify;
   int point_id;
   int point_num;
   std::string airp;

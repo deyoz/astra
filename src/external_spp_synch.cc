@@ -994,7 +994,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, DestsTagsNoExists &tags, co
     }
     ppoint->airp = elem.code;
     ppoint->airp_fmt = elem.fmt;
-    ProgTrace(TRACE5,"check times");
+    ProgTrace(TRACE5,"check times, airp=%s", ppoint->airp.c_str() );
     prop = NodeAsStringFast( "scd_in", propNode, "" );
     ppoint->scd_in = checkerFlt.checkLocalTime( prop, region, "Время прилета плановое " + ppoint->airp, false );
     prop = NodeAsStringFast( "est_in", propNode, STRING_TAG_NOEXISTS );
@@ -1011,7 +1011,8 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, DestsTagsNoExists &tags, co
     prop = NodeAsStringFast( "act_out", propNode, STRING_TAG_NOEXISTS );
     tags[ ppoint->airp ].act_out = (prop == STRING_TAG_NOEXISTS );
     ppoint->act_out = tags[ ppoint->airp ].act_out?ASTRA::NoExists:checkerFlt.checkLocalTime( prop, region, "Время вылета фактическое " + ppoint->airp, false );
-    ProgTrace( TRACE5, "act_out=%f, tags.act_out=%d, ppoint->point_num=%d", ppoint->act_out, tags[ ppoint->airp ].act_out, ppoint->point_num );
+    ProgTrace( TRACE5, "tag.est_out=%d, act_out=%f, tags.act_out=%d, ppoint->point_num=%d",
+               tags[ ppoint->airp ].est_out, ppoint->act_out, tags[ ppoint->airp ].act_out, ppoint->point_num );
     dsts[ ppoint->point_num ] = *ppoint;
     n = n->next;
   }
@@ -1198,6 +1199,7 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
     chdest->trip_type = d.trip_type;
     chdest->litera = d.litera;
     chdest->pr_del = d.pr_del;
+    //сохранение плановых времен вылетаов и прилетов в пунктах отличных от ШРМ + отслеживание тегов, если нет, то сохраняем значение!!!!
   }
   if ( d.status == tdDelete && !pr_find ) {
     throw EConvertError( ";delete flight not exists" );
@@ -1280,24 +1282,25 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
     if ( iownTags != tags.end() ) {
       ownTags = iownTags->second;
     }
+    else {
+      ProgError( STDLOG, "iownTags not found" );
+    }
     owndest->park_out = ownTags.park_out?owndest->park_out:d.park_out;
     owndest->scd_in = d.scd_in;
     owndest->est_in = ownTags.est_in?owndest->est_in:d.est_in;
     owndest->act_in = ownTags.act_in?owndest->act_in:d.act_in;
     owndest->est_out = ownTags.est_out?owndest->est_out:d.est_out;
+    ProgTrace( TRACE5, "owndest->est_out=%f,  tags.est_out=%d, owndest->point_num=%d", owndest->est_out,  ownTags.est_out, owndest->point_num );
     if ( pr_charter_range ) { // был перенесен рейс, изменилась плановая дата вылета в Синхроне, у нас старый рейс, изменяем расчетное время вылета
-      //!!!if ( owndest->est_out == ASTRA::NoExists ) {
         if ( d.est_out == ASTRA::NoExists || ownTags.est_out ) {
           owndest->est_out = d.scd_out;
         }
+      //!!!if ( owndest->est_out == ASTRA::NoExists ) {
         if ( pr_takeoff ) {
           dests.items.begin()->scd_out = owndest->scd_out; //возвращаем дату на ту, по которой создан рейс
         }
 //!!!      }
       //надо проставить старое плановое время вылета, иначе произойдет удаление ШРМ и добавление нового
-    }
-    else {
-      owndest->scd_out = d.scd_out;
     }
     owndest->act_out = ownTags.act_out?owndest->act_out:d.act_out;
     ProgTrace( TRACE5, "owndest->act_out=%f,  tags.act_out=%d, owndest->point_num=%d", owndest->act_out,  ownTags.act_out, owndest->point_num );
@@ -1312,8 +1315,46 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
   if ( d.status == tdDelete ) {
     dests.items.clear();
   }
+  //std::vector<TPointsDest> oldItems = points.dests.items;
   //синхронизация пунктов посадки с удалением пунктов
   points.dests.sychDests( dests, true, dtSomeLocalSCD );
+  for ( std::vector<TPointsDest>::iterator odest=points.dests.items.begin(); odest!=points.dests.items.end(); odest++ ) {
+    for ( std::vector<TPointsDest>::iterator ndest=dests.items.begin(); ndest!=dests.items.end(); ndest++ ) {
+      DestsTagsNoExists::const_iterator itag;
+      ProgTrace( TRACE5, "odest->point_id=%d, ndest->point_id=%d", odest->point_id, ndest->point_id );
+      if ( odest->point_id == ndest->point_id ) {
+        ndest->scd_out = odest->scd_out!=ASTRA::NoExists?odest->scd_out:ndest->scd_out;
+        ndest->scd_in = odest->scd_in!=ASTRA::NoExists?odest->scd_in:ndest->scd_in;
+        ProgTrace( TRACE5, "scd_in=%f, scd_out=%f, point_id=%d", ndest->scd_in, ndest->scd_out, ndest->point_id );
+        if ( (itag = tags.find( ndest->airp )) != tags.end() ) {
+          ProgTrace( TRACE5, "tags airp=%s", ndest->airp.c_str() );
+          ndest->est_in = itag->second.est_in?odest->est_in:ndest->est_in;
+          ndest->est_out = itag->second.est_out?odest->est_out:ndest->est_out;
+        }
+        odest->airline = ndest->airline;
+        odest->airline_fmt = ndest->airline_fmt;
+        odest->flt_no = ndest->flt_no;
+        odest->suffix = ndest->suffix;
+        odest->suffix_fmt = ndest->suffix_fmt;
+        odest->airp_fmt = ndest->airp_fmt;
+        odest->craft = ndest->craft;
+        odest->craft_fmt = ndest->craft_fmt;
+        odest->bort = ndest->bort;
+        odest->scd_in = ndest->scd_in;
+        odest->est_in = ndest->est_in;
+        odest->act_in = ndest->act_in;
+        odest->scd_out = ndest->scd_out;
+        odest->est_out = ndest->est_out;
+        odest->act_out = ndest->act_out;
+        odest->trip_type = ndest->trip_type;
+        odest->litera = ndest->litera;
+        odest->park_out = ndest->park_out;
+        ProgTrace( TRACE5, "dest=%s", odest->toLog().c_str() );
+        break;
+      }
+    }
+  }
+
   // сохраняем
   //try {
     points.Save( false );

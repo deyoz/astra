@@ -403,6 +403,28 @@ public:
   TFlightMaxCommerce max_commerce;
   TFlightStations stations;
   std::string key;
+  std::string toLog() {
+   std::ostringstream buf;
+   buf << "point_id=" << point_id;
+   buf << ",point_num=" << point_num;
+   buf << ",pr_del=" << pr_del;
+   buf << ",airline=" << airline;
+   buf << ",flt_no=" << flt_no;
+   buf << ",suffix=" << suffix;
+   buf << ",craft=" << craft;
+   buf << ",bort=" << bort;
+   buf << ",trip_type=" << trip_type;
+   buf << ",litera=" << litera;
+   buf << ",part_in=" << park_in;
+   buf << ",part_out=" << park_out;
+   buf << ",scd_in=" << scd_in;
+   buf << ",est_in=" << est_in;
+   buf << ",act_in=" << act_in;
+   buf << ",scd_out=" << scd_out;
+   buf << ",est_out=" << est_out;
+   buf << ",act_out=" << act_out;
+   return buf.str();
+  }
   TPointsDest() {
     status = tdUpdate;
     point_id = ASTRA::NoExists;
