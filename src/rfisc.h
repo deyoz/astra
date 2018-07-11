@@ -627,9 +627,19 @@ class TPaidRFISCStatus : public TPaxSegRFISCKey
       TPaxSegRFISCKey::clear();
       status=TServiceStatus::Unknown;
     }
+    bool operator == (const TPaidRFISCStatus &item) const
+    {
+      return TPaxSegRFISCKey::operator == (item) &&
+             status == item.status;
+    }
+    std::string traceStr() const;
 };
 
-typedef std::list<TPaidRFISCStatus> TPaidRFISCStatusList;
+class TPaidRFISCStatusList : public std::list<TPaidRFISCStatus>
+{
+  public:
+    bool deleteIfFound(const TPaidRFISCStatus& item);
+};
 
 class TPaidRFISCItem : public TGrpServiceItem
 {
