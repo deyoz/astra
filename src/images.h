@@ -71,6 +71,7 @@ class TCompElemType {
     void operator = ( const TCompElemType &elem ) {
        code = elem.code;
        name = elem.name;
+       name_lat = elem.name_lat;
        is_seat = elem.is_seat;
        is_default = elem.is_default;
        time_create = elem.time_create;
