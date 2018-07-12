@@ -1244,6 +1244,25 @@ std::string TPaxSegRFISCKey::traceStr() const
   return s.str();
 }
 
+std::string TPaidRFISCStatus::traceStr() const
+{
+  ostringstream s;
+  s << TPaxSegRFISCKey::traceStr() << ", "
+    << "status=" << ServiceStatuses().encode(status);
+  return s.str();
+}
+
+bool TPaidRFISCStatusList::deleteIfFound(const TPaidRFISCStatus& item)
+{
+  TPaidRFISCStatusList::iterator i=std::find(begin(), end(), item);
+  if (i!=end())
+  {
+    erase(i);
+    return true;
+  }
+  return false;
+}
+
 TGrpServiceAutoItem& TGrpServiceAutoItem::fromDB(TQuery &Qry)
 {
   clear();

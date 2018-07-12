@@ -470,13 +470,23 @@ void TSvcList::addChecked(const TCheckedReqPassengers &req_grps, int grp_id, int
   svcs.fromDB(grp_id, !req_grps.include_refused);
   svcs.addBagInfo(grp_id, tckin_seg_count, trfer_seg_count, req_grps.include_refused);
 
+  TPaidRFISCList paid;
+  paid.fromDB(grp_id, true);
+  TPaidRFISCStatusList statusList;
+  paid.getStatusList(statusList);
+
   CheckIn::TServicePaymentList payment;
   payment.fromDB(grp_id);
-  for(TGrpServiceList::const_iterator i=svcs.begin(); i!=svcs.end(); ++i)
+  for(const TGrpServiceItem& svc : svcs)
   {
-    for(int j=i->service_quantity; j>0; j--)
-      emplace_back(*i, payment.dec(*i)?TServiceStatus::Paid:TServiceStatus::Need);
-  };
+    for(int j=svc.service_quantity; j>0; j--)
+    {
+      if (statusList.deleteIfFound(TPaidRFISCStatus(svc, TServiceStatus::Free)))
+        emplace_back(svc, TServiceStatus::Need);
+      else
+        emplace_back(svc, payment.dec(svc)?TServiceStatus::Paid:TServiceStatus::Need);
+    }
+  }
 
   //автоматически зарегистрированные
   TGrpServiceAutoList svcsAuto;
