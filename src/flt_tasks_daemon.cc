@@ -104,8 +104,8 @@ static void check_trip_tasks(const std::string& handler_id)
     TQuery SelQry(&OraSession);
     SelQry.Clear();
     SelQry.SQLText =
-        "SELECT last_exec, next_exec FROM trip_tasks "
-        "WHERE id=:id AND next_exec<=:now_utc FOR UPDATE";
+        "SELECT last_exec, next_exec, tid FROM trip_tasks "
+        "WHERE id=:id AND next_exec<=:now_utc";
     SelQry.DeclareVariable("id", otInteger);
     SelQry.CreateVariable("now_utc", otDate, nowUTC);
 
@@ -113,9 +113,10 @@ static void check_trip_tasks(const std::string& handler_id)
     UpdQry.Clear();
     UpdQry.SQLText =
         "UPDATE trip_tasks "
-        "SET next_exec=DECODE(next_exec, :next_exec, NULL, next_exec), last_exec=:last_exec "
+        "SET next_exec=DECODE(tid, :tid, DECODE(next_exec, :next_exec, NULL, next_exec), next_exec), last_exec=:last_exec "
         "WHERE id=:id";
     UpdQry.DeclareVariable("id", otInteger);
+    UpdQry.DeclareVariable("tid", otInteger);
     UpdQry.DeclareVariable("next_exec", otDate);
     UpdQry.DeclareVariable("last_exec", otDate);
 
@@ -133,6 +134,7 @@ static void check_trip_tasks(const std::string& handler_id)
             if (SelQry.Eof) continue;
             TDateTime next_exec=SelQry.FieldAsDateTime("next_exec");
             TDateTime last_exec=SelQry.FieldIsNULL("last_exec")?ASTRA::NoExists:SelQry.FieldAsDateTime("last_exec");
+            int tid=SelQry.FieldIsNULL("tid")?ASTRA::NoExists:SelQry.FieldAsInteger("tid");
 
             map<string, void (*)(const TTripTaskKey&)>::const_iterator iTask = TTripTasks::Instance()->items.find(task.name);
             if(iTask == TTripTasks::Instance()->items.end())
@@ -150,6 +152,11 @@ static void check_trip_tasks(const std::string& handler_id)
                         __FUNCTION__, task.traceStr().c_str());
             };
             UpdQry.SetVariable("id", task_id);
+            if (tid!=ASTRA::NoExists)
+              UpdQry.SetVariable("tid", tid);
+            else
+              UpdQry.SetVariable("tid", FNull);
+
             UpdQry.SetVariable("next_exec", next_exec);
             UpdQry.SetVariable("last_exec", nowUTC);
             UpdQry.Execute();
