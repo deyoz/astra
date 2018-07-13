@@ -5,7 +5,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
@@ -543,6 +543,7 @@ void TRFISCKey::getListItem(GetItemWay way, int id, int transfer_num, int bag_po
   }
 
   if (list_id==ASTRA::NoExists)
+  try
   {
     ProgTrace(TRACE5, "\n%s", Qry.get().SQLText.SQLText());
     throw EConvertError("%s: %s: list_id not found (way=%d, id=%d, transfer_num=%d, bag_pool_num=%s, category=%s, %s)",
@@ -554,7 +555,18 @@ void TRFISCKey::getListItem(GetItemWay way, int id, int transfer_num, int bag_po
                         bag_pool_num==ASTRA::NoExists?"NoExists":IntToString(bag_pool_num).c_str(),
                         category?ServiceCategories().encode(category.get()).c_str():"",
                         traceStr().c_str());
-  };
+  }
+  catch(EConvertError &e) //потом убрать
+  {
+    if (where=="TPaidRFISCList")
+    {
+      LogError(STDLOG) << "Warning: " << e.what();
+      throw UserException("MSG.CHECKIN.UNKNOWN_PAYMENT_STATUS_FOR_BAG_TYPE_ON_SEGMENT",
+                          LParams() << LParam("flight", IntToString(transfer_num+1))
+                                    << LParam("bag_type", str()));
+    }
+    throw;
+  }
 }
 
 void TRFISCKey::getListItemIfNone()
@@ -980,6 +992,12 @@ void TRFISCList::recalc_stat()
   category_stat.clear();
   priority_stat.clear();
   for(TRFISCList::const_iterator i=begin(); i!=end(); ++i) update_stat(i->second);
+}
+
+void TRFISCList::dump() const
+{
+  for(const auto& i : *this)
+    LogTrace(TRACE5) << "TRFISCList::dump: " << i.second.traceStr();
 }
 
 TRFISCBagProps& TRFISCBagProps::fromDB(TQuery &Qry)

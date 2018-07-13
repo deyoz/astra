@@ -385,6 +385,7 @@ class TRFISCList : public TRFISCListMap
     bool exists(const TServiceType::Enum service_type) const;
     bool equal(const TRFISCList &list, bool old_version, const std::string &baggage_airline="") const;
     bool included_in_old_version(const TRFISCListItem& item, const std::string &baggage_airline) const;
+    void dump() const;
 };
 
 class TRFISCBagProps
