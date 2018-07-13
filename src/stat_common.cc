@@ -318,6 +318,8 @@ void TStatParams::get(xmlNodePtr reqNode)
         flt_no == NoExists and
         seance == seanceAll;
     pr_pacts = false;
+
+    LT = NodeAsIntegerFast("LTCkBox", curNode, 0) != 0;
 };
 
 void TStatParams::AccessClause(string &SQLText) const
