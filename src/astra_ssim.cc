@@ -467,9 +467,14 @@ void DeleteScdPeriodsFromDb( const std::set<ssim::ScdPeriod> &scds )
 
 // èéãéÜàíú Ç ÅÑ êÄëèàëÄçàÖ
 
-void ScdPeriodToDb( const ssim::ScdPeriod &scd, int ssm_id )
+void ScdPeriodToDb( const ssim::ScdPeriod &scd )
 {
-  LogTrace(TRACE5) << __func__ << " scd = " << scd;
+  TQuery QryId(&OraSession);
+  QryId.Clear();
+  QryId.SQLText = "SELECT ssm_id.nextval AS ssm_id FROM dual";
+  QryId.Execute();
+  int ssm_id = QryId.FieldAsInteger(0);
+  LogTrace(TRACE5) << __func__ << " ssm_id = " << ssm_id << " scd = " << scd;
   TReqInfo *reqInfo = TReqInfo::Instance();
   /*???if ( utc ) {
     reqInfo->user.sets.time = ustTimeUTC;
@@ -563,6 +568,8 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd, int ssm_id )
   next.airline.clear();
   next.trip = ASTRA::NoExists;
   next.suffix.clear();
+  next.craft.clear();
+  next.triptype.clear();
   dests.dests.push_back( next );
   mapds.insert( make_pair(ASTRA::NoExists, dests) );
   speriods.push_back( p );
@@ -717,14 +724,6 @@ int HandleSSMTlg(string body)
 
   InitSSIM();
 
-  TQuery QryId(&OraSession);
-  QryId.Clear();
-  QryId.SQLText = "SELECT ssm_id.nextval AS ssm_id FROM dual";
-  QryId.Execute();
-  int ssm_id = QryId.FieldAsInteger(0);
-  LogTrace(TRACE5) << __func__ << " ssm_id = " << ssm_id;
-
-
   const auto ssm = ssim::parseSsm(body, nullptr);
   if (!ssm)
   {
@@ -803,7 +802,7 @@ int HandleSSMTlg(string body)
   {
     for (auto &scd : sv.second)
     {
-      ScdPeriodToDb(scd, ssm_id);
+      ScdPeriodToDb(scd);
     }
   }
 
