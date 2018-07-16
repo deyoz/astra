@@ -19,7 +19,7 @@
 #include "tlg/remote_system_context.h"
 #include "tlg/edi_msg.h"
 
-#include <serverlib/dates.h>
+#include <serverlib/dates_oci.h>
 #include <serverlib/cursctl.h>
 #include <serverlib/savepoint.h>
 #include <serverlib/dump_table.h>
@@ -495,10 +495,44 @@ namespace
 
     //-----------------------------------------------------------------------------------
 
+    struct PointsPair
+    {
+        int m_pointDep;
+        int m_pointArv;
+
+        PointsPair(int pointDep, int pointArv)
+            : m_pointDep(pointDep),
+              m_pointArv(pointArv)
+        {}
+
+        static PointsPair readByGrpId(int grpId)
+        {
+            LogTrace(TRACE5) << "Enter to " << __FUNCTION__ << " by grpId " << grpId;
+
+            int pointDep = ASTRA::NoExists,
+                pointArv = ASTRA::NoExists;
+            OciCpp::CursCtl cur = make_curs(
+                    "select POINT_DEP, POINT_ARV from PAX_GRP where GRP_ID=:grp_id");
+            cur.bind(":grp_id", grpId)
+               .def(pointDep)
+               .def(pointArv)
+               .EXfet();
+            if(cur.err() == NO_DATA_FOUND) {
+                LogWarning(STDLOG) << "Group " << grpId << " not found!";
+                throw EXCEPTIONS::Exception("Group %d not found", grpId);
+            }
+
+            return PointsPair(pointDep, pointArv);
+        }
+    };
+
+    //-----------------------------------------------------------------------------------
+
     struct PointInfo
     {
         std::string            m_airline;
         Ticketing::FlightNum_t m_flNum;
+        boost::gregorian::date m_scdOut;
         std::string            m_airport;
 
         PointInfo()
@@ -506,9 +540,11 @@ namespace
 
         PointInfo(const std::string& airline,
                   const Ticketing::FlightNum_t& flNum,
+                  const boost::gregorian::date& scdOut,
                   const std::string& airport)
             : m_airline(airline),
               m_flNum(flNum),
+              m_scdOut(scdOut),
               m_airport(airport)
         {}
 
@@ -518,11 +554,14 @@ namespace
 
             std::string airl, airp;
             int flNum = 0;
+            boost::gregorian::date scdOut;
+
             OciCpp::CursCtl cur = make_curs(
-                    "select AIRLINE, FLT_NO, AIRP from POINTS where POINT_ID=:point_id");
+                    "select AIRLINE, FLT_NO, SCD_OUT, AIRP from POINTS where POINT_ID=:point_id");
             cur.bind(":point_id", pointId)
                .defNull(airl, "")
                .defNull(flNum, 0)
+               .defNull(scdOut, boost::gregorian::date())
                .def(airp)
                .EXfet();
             if(cur.err() == NO_DATA_FOUND) {
@@ -532,25 +571,8 @@ namespace
 
             return PointInfo(airl,
                              Ticketing::getFlightNum(flNum),
+                             BASIC::date_time::UTCToLocal(scdOut, AirpTZRegion(airp)),
                              airp);
-        }
-
-        static PointInfo readByGrpId(int grpId)
-        {
-            LogTrace(TRACE5) << "Enter to " << __FUNCTION__ << " by grpId " << grpId;
-
-            int pointId = ASTRA::NoExists;
-            OciCpp::CursCtl cur = make_curs(
-                    "select POINT_DEP from PAX_GRP where GRP_ID=:grp_id");
-            cur.bind(":grp_id", grpId)
-               .def(pointId)
-               .EXfet();
-            if(cur.err() == NO_DATA_FOUND) {
-                LogWarning(STDLOG) << "Group " << grpId << " not found!";
-                throw EXCEPTIONS::Exception("Group %d not found", grpId);
-            }
-
-            return readByPointId(pointId);
         }
     };
 
@@ -856,17 +878,48 @@ static std::string getOldSeat(xmlNodePtr reqNode)
     return oldSeat;
 }
 
-static PointInfo readPointInfo(int grpId)
+static PointsPair readPointsPair(int grpId)
 {
     TCkinRoute tckinRoute;
     if(tckinRoute.GetRouteBefore(grpId, crtWithCurrent, crtIgnoreDependent)) {
         // если на стороне Астры делалась локальная(не iatci) сквозная регистрация
         ASSERT(!tckinRoute.empty());
-        return PointInfo::readByPointId(tckinRoute.front().point_dep);
+        return PointsPair(tckinRoute.front().point_dep,
+                          tckinRoute.front().point_arv);
     } else {
         // если один единственный сегмент
-        return PointInfo::readByGrpId(grpId);
+        return PointsPair::readByGrpId(grpId);
     }
+}
+
+static PointInfo readDepPointInfo(int grpId)
+{
+    return PointInfo::readByPointId(readPointsPair(grpId).m_pointDep);
+}
+
+static iatci::OriginatorDetails makeOrg(int grpId)
+{
+    PointInfo pointInfo = readDepPointInfo(grpId);
+    return iatci::OriginatorDetails(pointInfo.m_airline,
+                                    pointInfo.m_airport);
+}
+
+static iatci::FlightDetails makeOwnFlight(int pointDep, int pointArv)
+{
+    PointInfo depPointInfo = PointInfo::readByPointId(pointDep);
+    PointInfo arvPointInfo = PointInfo::readByPointId(pointArv);
+    return iatci::FlightDetails(depPointInfo.m_airline,
+                                depPointInfo.m_flNum,
+                                depPointInfo.m_airport,
+                                arvPointInfo.m_airport,
+                                depPointInfo.m_scdOut);
+}
+
+static iatci::FlightDetails makeOwnFlight(int grpId)
+{
+    PointsPair pointsPair = readPointsPair(grpId);
+    return makeOwnFlight(pointsPair.m_pointDep,
+                         pointsPair.m_pointArv);
 }
 
 static std::string getIatciRequestContext(const edifact::KickInfo& kickInfo = edifact::KickInfo())
@@ -1248,7 +1301,7 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
     return iatci::CkiParams(iatci::makeOrg(ownSeg),
                             iatci::makeCascade(),
                             iatci::dcqcki::FlightGroup(iatci::makeFlight(firstEdiTab.seg()),
-                                                       iatci::makeFlight(ownSeg),
+                                                       makeOwnFlight(ownSeg.m_pointDep, ownSeg.m_pointArv),
                                                        lPaxGrp));
 }
 
@@ -1438,23 +1491,6 @@ static void checkCkuParams(const iatci::CkuParams& params)
     for(auto paxGrp: params.fltGroup().paxGroups()) {
         checkCkuPaxGroup(paxGrp);
     }
-}
-
-static iatci::OriginatorDetails makeOrg(int grpId)
-{
-    PointInfo pointInfo = readPointInfo(grpId);
-    return iatci::OriginatorDetails(pointInfo.m_airline,
-                                    pointInfo.m_airport);
-}
-
-static iatci::FlightDetails makeOwnFlight(int grpId)
-{
-    PointInfo pointInfo = readPointInfo(grpId);
-    return iatci::FlightDetails(pointInfo.m_airline,
-                                pointInfo.m_flNum,
-                                pointInfo.m_airport,
-                                "",
-                                boost::gregorian::date());
 }
 
 static iatci::CkxParams getCkxParams(xmlNodePtr reqNode)
