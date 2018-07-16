@@ -1892,15 +1892,24 @@ void iatci2xmlSmpUpd(xmlNodePtr node, const dcrcka::Result& res,
 DcsSystemContext* readDcs(const iatci::FlightDetails& outbFlt,
                           const boost::optional<FlightDetails>& inbFlt)
 {
+    DcsSystemContext* dcs = nullptr;
     if(inbFlt) {
-        return DcsSystemContext::read(outbFlt.airline(),
-                                      outbFlt.flightNum(),
-                                      inbFlt->airline(),
-                                      inbFlt->flightNum());
+        dcs = DcsSystemContext::read(outbFlt.airline(),
+                                     outbFlt.flightNum(),
+                                     inbFlt->airline(),
+                                     inbFlt->flightNum(),
+                                     false);
     } else {
-        return DcsSystemContext::read(outbFlt.airline(),
-                                      outbFlt.flightNum());
+        dcs = DcsSystemContext::read(outbFlt.airline(),
+                                     outbFlt.flightNum(),
+                                     false);
     }
+
+    if(!dcs) {
+        throw AstraLocale::UserException("MSG.QRY_HANDLER_ERR.CALL_ADMIN");
+    }
+
+    return dcs;
 }
 
 }//namespace iatci

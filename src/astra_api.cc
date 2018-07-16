@@ -125,7 +125,7 @@ XmlFqtRem createCheckInFqtRem(const iatci::ServiceDetails::SsrInfo& ssr)
 {
     XmlFqtRem fqtRem;
     fqtRem.rem_code = ssr.ssrCode();
-    fqtRem.airline  = ssr.airline();
+    fqtRem.airline  = BaseTables::Company(ssr.airline())->rcode();
     fqtRem.no       = ssr.ssrText();
     if(ssr.quantity()) {
         fqtRem.tier_level = std::to_string(ssr.quantity());
