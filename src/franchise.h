@@ -15,6 +15,7 @@ namespace Franchise {
                 bt,
                 aodb,
                 apis,
+                mintrans,
                 lci,
                 ldm,
                 mvtDelay,
@@ -43,6 +44,7 @@ namespace Franchise {
                     l.push_back(std::make_pair(bt,          "pr_bt"));
                     l.push_back(std::make_pair(aodb,        "pr_aodb"));
                     l.push_back(std::make_pair(apis,        "pr_apis"));
+                    l.push_back(std::make_pair(mintrans,    "pr_mintrans"));
                     l.push_back(std::make_pair(lci,         "pr_lci"));
                     l.push_back(std::make_pair(ldm,         "pr_ldm"));
                     l.push_back(std::make_pair(mvtDelay,    "pr_mvt_delay"));
@@ -135,6 +137,7 @@ namespace Franchise {
 
         TProp() { clear(); }
         void clear();
+        bool get(const TTripInfo &info, TPropType::Enum prop, bool is_local_scd_out);
         bool get(int point_id, TPropType::Enum prop);
         bool get(int point_id, const std::string &tlg_type);
         bool get( const TTripInfo &info, TPropType::Enum prop );
