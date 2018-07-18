@@ -1809,7 +1809,7 @@ void SEASON::int_write( const TFilter &filter, int ssm_id, vector<TPeriod> &sper
   SQry.DeclareVariable( "tlg", otString );
   SQry.DeclareVariable( "reference", otString );
   SQry.CreateVariable( "region", otString, filter.filter_tz_region );
-  SQry.CreateVariable( "ssm_id", otInteger, ssm_id );
+  SQry.CreateVariable( "ssm_id", otInteger, ssm_id==ASTRA::NoExists?FNull:ssm_id );
   TQuery RQry( &OraSession );
   RQry.SQLText =
   "INSERT INTO routes(move_id,num,airp,airp_fmt,pr_del,scd_in,airline,airline_fmt,flt_no,craft,craft_fmt,scd_out,litera, "
