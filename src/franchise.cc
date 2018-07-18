@@ -72,6 +72,8 @@ namespace Franchise {
     bool TProp::get( const TTripInfo &info, TPropType::Enum prop ) {
       clear();
 
+      TDateTime scd_local = UTCToLocal(info.scd_out, AirpTZRegion(info.airp));
+
       franchisee.airline = info.airline;
       franchisee.flt_no = info.flt_no;
       franchisee.suffix = info.suffix;
@@ -88,7 +90,7 @@ namespace Franchise {
                   << QParam("airline", otString, info.airline)
                   << QParam("flt_no", otInteger, info.flt_no)
                   << QParam("suffix", otString, info.suffix)
-                  << QParam("scd_out", otDate, info.scd_out)
+                  << QParam("scd_out", otDate, scd_local)
                   );
           Qry.get().Execute();
           tst();
