@@ -92,8 +92,9 @@ class UsedRegNo
   public:
     int value;
     int grp_id;
-    UsedRegNo(int _value, int _grp_id) :
-      value(_value), grp_id(_grp_id) {}
+    bool without_seat;
+    UsedRegNo(int _value, int _grp_id, bool _without_seat) :
+      value(_value), grp_id(_grp_id), without_seat(_without_seat) {}
 
     bool hasGap(const UsedRegNo& usedRegNo) const
     {

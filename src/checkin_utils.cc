@@ -344,27 +344,30 @@ void RegNoGenerator::getUsedRegNo(std::set<UsedRegNo> &usedRegNo) const
   TQuery Qry(&OraSession);
   if (_type==Negative)
     Qry.SQLText=
-        "SELECT pax.reg_no, pax.grp_id FROM pax_grp, pax "
+        "SELECT pax.reg_no, pax.grp_id, pax.seats FROM pax_grp, pax "
         "WHERE pax_grp.grp_id=pax.grp_id AND reg_no<0 AND point_dep=:point_id ";
   else
     Qry.SQLText=
-        "SELECT pax.reg_no, pax.grp_id FROM pax_grp, pax "
+        "SELECT pax.reg_no, pax.grp_id, pax.seats FROM pax_grp, pax "
         "WHERE pax_grp.grp_id=pax.grp_id AND reg_no>0 AND point_dep=:point_id ";
   Qry.CreateVariable("point_id", otInteger, _point_id);
   Qry.Execute();
 
   for(; !Qry.Eof; Qry.Next())
   {
-    int reg_no=Qry.FieldAsInteger("reg_no");
-    int grp_id=Qry.FieldAsInteger("grp_id");
-    if ((_type==Negative && (reg_no<-_maxAbsRegNo || reg_no>=0))||
-        (_type==Positive && (reg_no<=0 || reg_no>_maxAbsRegNo)))
+    UsedRegNo curr(Qry.FieldAsInteger("reg_no"),
+                   Qry.FieldAsInteger("grp_id"),
+                   Qry.FieldAsInteger("seats")==0);
+
+    if ((_type==Negative && (curr.value<-_maxAbsRegNo || curr.value>=0))||
+        (_type==Positive && (curr.value<=0 || curr.value>_maxAbsRegNo)))
     {
-      LogError(STDLOG) << __FUNCTION__ << ": wrong reg_no=" << reg_no << "!";
+      LogError(STDLOG) << __FUNCTION__ << ": wrong reg_no=" << curr.value << "!";
       continue;
     }
-    if (!usedRegNo.emplace(_type==Negative?-reg_no:reg_no, grp_id).second)
-      LogError(STDLOG) << __FUNCTION__ << ": reg_no=" << reg_no << " duplicated!";
+    const auto res=usedRegNo.emplace(_type==Negative?-curr.value:curr.value, curr.grp_id, curr.without_seat);
+    if (!res.second && (res.first->grp_id!=curr.grp_id || res.first->without_seat==curr.without_seat))
+      LogError(STDLOG) << __FUNCTION__ << ": reg_no=" << curr.value << " duplicated!";
   }
 }
 
@@ -373,7 +376,7 @@ void RegNoGenerator::fillUnusedRanges(const std::set<UsedRegNo> &usedRegNo)
   unusedRanges.clear();
   lastUnusedRange=boost::none;
 
-  UsedRegNo prior(0, ASTRA::NoExists);
+  UsedRegNo prior(0, ASTRA::NoExists, false);
   for(const UsedRegNo& curr : usedRegNo)
   {
     if (prior.hasGap(curr) && curr.value!=prior.value+1)
