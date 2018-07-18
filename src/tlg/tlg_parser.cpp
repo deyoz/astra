@@ -5398,42 +5398,17 @@ void GetParts(const char* tlg_p, TTlgPartsText &text, THeadingInfo* &info, TFlig
 
 int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, TSearchFltInfoPtr search_params, ETlgErrorType error_type)
 {
-  int point_id;
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-    "  SELECT point_id FROM tlg_trips "
-    "  WHERE airline=:airline AND flt_no=:flt_no AND "
-    "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
-    "      scd=:scd AND pr_utc=:pr_utc AND "
-    "      (airp_dep IS NULL AND :airp_dep IS NULL OR airp_dep=:airp_dep) AND "
-    "      (airp_arv IS NULL AND :airp_arv IS NULL OR airp_arv=:airp_arv) AND "
-    "      bind_type=:bind_type";
-  Qry.CreateVariable("airline",otString,flt.airline);
-  Qry.CreateVariable("flt_no",otInteger,(int)flt.flt_no);
-  Qry.CreateVariable("suffix",otString,flt.suffix);
-  Qry.CreateVariable("scd",otDate,flt.scd);
-  Qry.CreateVariable("pr_utc",otInteger,(int)flt.pr_utc);
-  Qry.CreateVariable("airp_dep",otString,flt.airp_dep);
-  Qry.CreateVariable("airp_arv",otString,flt.airp_arv);
-  Qry.CreateVariable("bind_type",otInteger,(int)bind_type);
-  Qry.Execute();
-  if (Qry.Eof)
-  {
-    Qry.SQLText=
-      "BEGIN "
-      "  SELECT point_id.nextval INTO :point_id FROM dual; "
-      "  INSERT INTO tlg_trips(point_id,airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv,bind_type) "
-      "  VALUES(:point_id,:airline,:flt_no,:suffix,:scd,:pr_utc,:airp_dep,:airp_arv,:bind_type); "
-      "END;";
-    Qry.DeclareVariable("point_id",otInteger);
-    Qry.Execute();
-    point_id=Qry.GetVariableAsInteger("point_id");
-    TTlgBinding(false, search_params).bind_flt(point_id);
+  const auto res=flt.getPointId(bind_type);
+  int point_id=res.first;
+  TTlgBinding(false, search_params).bind_flt(point_id);
 
+  if (res.second)
+  {
     /* здесь проверим непривязанные сегменты из crs_displace и привяжем */
     /* но только для PNL/ADL */
     if (!flt.pr_utc && bind_type==btFirstSeg && *flt.airp_arv==0)
     {
+      TQuery Qry(&OraSession);
       Qry.Clear();
       Qry.SQLText=
         "UPDATE crs_displace2 SET point_id_tlg=:point_id "
@@ -5451,43 +5426,16 @@ int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, TSearchFltInfo
       Qry.Execute();
     };
   }
-  else {
-      point_id=Qry.FieldAsInteger("point_id");
-      TTlgBinding(false, search_params).bind_flt(point_id);
-  }
-
 
   bool has_errors=error_type!=tlgeNotError;
   bool has_alarm_errors=error_type==tlgeNotMonitorYesAlarm ||
                         error_type==tlgeYesMonitorYesAlarm;
-  Qry.Clear();
-  Qry.SQLText=
-    "INSERT INTO tlg_source(point_id_tlg,tlg_id,has_errors,has_alarm_errors) "
-    "VALUES(:point_id_tlg,:tlg_id,:has_errors,:has_alarm_errors)";
-  Qry.CreateVariable("point_id_tlg",otInteger,point_id);
-  Qry.CreateVariable("tlg_id",otInteger,tlg_id);
-  Qry.CreateVariable("has_errors",otInteger,(int)has_errors);
-  Qry.CreateVariable("has_alarm_errors",otInteger,(int)has_alarm_errors);
-  try
-  {
-    Qry.Execute();
-  }
-  catch(EOracleError E)
-  {
-    if (E.Code!=1) throw;
-    if (has_errors || has_alarm_errors)
-    {
-      Qry.SQLText=
-          "UPDATE tlg_source "
-          "SET has_errors=DECODE(:has_errors,0,has_errors,:has_errors), "
-          "    has_alarm_errors=DECODE(:has_alarm_errors,0,has_alarm_errors,:has_alarm_errors) "
-          "WHERE point_id_tlg=:point_id_tlg AND tlg_id=:tlg_id ";
-      Qry.Execute();
-    };
-  };
+
+  TlgSource(point_id, tlg_id, has_errors, has_alarm_errors).toDB();
+
   check_tlg_in_alarm(point_id, NoExists);
   return point_id;
-};
+}
 
 bool isDeleteTypeBContent(int point_id, const THeadingInfo& info)
 {
@@ -7368,7 +7316,7 @@ TDateTime ParseDate(const string &buf)
             case 3:
                 fmt = 0;
                 res = sscanf(buf.c_str(), "%2[0-9]%c", sday, &c);
-                if(c != 0 or res != 1) 
+                if(c != 0 or res != 1)
                     throw ETlgError("Flight Identifier: wrong date format: %s", buf.c_str());
                 break;
         }
