@@ -3269,7 +3269,6 @@ std::string getDocsFlags( int pax_id, bool pr_checkin )
        !crs_doca_map[ apiDocaB ].empty() ) {
     crs_pax_doca = crs_doca_map[ apiDocaB ];
   }
-  ProgTrace( TRACE5, "pax_doco.empty()=%d", pax_doco.empty() );
   res += getDocsFlag( crs_pax_doca, pax_doca, pr_checkin, "AB", res.empty() );
   pax_doca.clear();
   crs_pax_doca.clear();
