@@ -412,6 +412,17 @@ boost::optional<OrganizationData> AstraCallbacks::findOrganizationData(const Org
 
 //------------------------------------------------------------------------------------------
 
+void AstraSsimParseCollector::appendFlight(const ct::Flight& f)
+{
+    flt = f;
+}
+
+void AstraSsimParseCollector::appendPeriod(const ct::Flight& f, const Period& p)
+{
+    flt = f;
+}
+//------------------------------------------------------------------------------------------
+
 string FlightToString(ct::Flight flight)
 {
   string line = IdToCode(flight.airline.get());
@@ -724,10 +735,18 @@ int HandleSSMTlg(string body)
 
   InitSSIM();
 
-  const auto ssm = ssim::parseSsm(body, nullptr);
+  AstraSsimParseCollector collector;
+  const auto ssm = ssim::parseSsm(body, &collector);
+  string airline, airline_msg;
+  if (collector.flt)
+  {
+    const TAirlinesRow &airlineRow = (const TAirlinesRow&)base_tables.get("airlines").get_row("code/code_lat", IdToCode(collector.flt->airline.get()));
+    airline = airlineRow.code;
+    airline_msg = string(" airline = ") + airline;
+  }
   if (!ssm)
   {
-    throw EXCEPTIONS::Exception("SSM: parse: %s", ssm.err().toString(UserLanguage::en_US()).c_str());
+    throw EXCEPTIONS::Exception("SSM: parse: %s%s", ssm.err().toString(UserLanguage::en_US()).c_str(), airline_msg.c_str());
     return -1;
   }
 
@@ -756,7 +775,7 @@ int HandleSSMTlg(string body)
   if (ssmStr.submsgs.size() > 1)
   {
     // …‘ŠŽ‹œŠŽ …‰‘Ž‚ ‚ ‘‘Œ … Ž„„…†ˆ‚€…’‘Ÿ
-    throw EXCEPTIONS::Exception("SSM: ssmStr.submsgs.size() > 1");
+    throw EXCEPTIONS::Exception("SSM: ssmStr.submsgs.size() > 1%s", airline_msg.c_str());
     return -1;
   }
 
@@ -784,7 +803,7 @@ int HandleSSMTlg(string body)
   {
     if (const Message msg = subMsg->modify(cache, attr))
     {
-      throw EXCEPTIONS::Exception("SSM: modify: %s", msg.toString(UserLanguage::en_US()).c_str());
+      throw EXCEPTIONS::Exception("SSM: modify: %s%s", msg.toString(UserLanguage::en_US()).c_str(), airline_msg.c_str());
       return -1;
     }
   }

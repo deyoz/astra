@@ -104,6 +104,15 @@ public:
 };
 //------------------------------------------------------------------------------------------
 
+struct AstraSsimParseCollector : public ssim::ParseRequisitesCollector
+{
+    boost::optional<ct::Flight> flt;
+
+    virtual void appendFlight(const ct::Flight&) override;
+    virtual void appendPeriod(const ct::Flight&, const Period&) override;
+};
+//------------------------------------------------------------------------------------------
+
 int HandleSSMTlg(string body);
 int ssim_test(int argc, char **argv);
 
