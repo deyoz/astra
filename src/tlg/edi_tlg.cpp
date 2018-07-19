@@ -370,17 +370,6 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
     return ret;
 }
 
-
-class AstraEdiSessCallBack : public edilib::EdiSessCallBack
-{
-  public:
-    virtual void deleteDbEdiSession(edilib::EdiSessionId_t edisess)
-    {
-      edilib::EdiSessCallBack::deleteDbEdiSession(edisess);
-      edilib::EdiSessionTimeOut::deleteDb(edisess); //чистим также таблицу edisession_timeouts
-    }
-};
-
 int edifact::init_edifact()
 {
     InitEdiLogger(ProgError,WriteLog,ProgTrace);
@@ -405,8 +394,7 @@ int edifact::init_edifact()
     /*if(InitEdiCharSet(edi_chrset, sizeof(edi_chrset)/sizeof(edi_chrset[0]))){
         ProgError(STDLOG,"InitEdiCharSet() failed");
         return -3;
-    }*/
-    delete edilib::EdiSessLib::Instance()->setCallBacks(new AstraEdiSessCallBack());
+    }*/   
 
     return 0;
 }
