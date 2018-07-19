@@ -89,7 +89,9 @@ const
     {"-compare_apis",           compare_apis,           NULL,                       NULL},
     {"-test_sopp_sql",          test_sopp_sql,          NULL,                       NULL},
     {"-test_file_queue",        test_file_queue,        NULL,                       NULL},
+#ifdef XP_TESTING    
     {"-tscript",                nosir_tscript,          NULL,                       NULL},
+#endif//XP_TESTING    
     {"-test_astra_locale_adv",  test_astra_locale_adv,  NULL,                       NULL},
     {"-insert_locales",         insert_locales,         NULL,                       NULL},
     {"-file_by_id",             file_by_id,             NULL,                       NULL},
