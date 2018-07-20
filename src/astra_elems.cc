@@ -89,6 +89,7 @@ const
                          {etDevModel,              "etDevModel",              "dev_models"},
                          {etDevOperType,           "etDevOperType",           "dev_oper_types"},
                          {etDevSessType,           "etDevSessType",           "dev_sess_types"},
+                         {etExtendedPersType,      "etExtendedPersType",      "extended_pers_types"},
                          {etGenderType,            "etGenderType",            "gender_types"},
                          {etGraphStage,            "etGraphStage",            "graph_stages"},
                          {etGraphStageWOInactive,  "etGraphStageWOInactive",  "graph_stages"},
@@ -921,23 +922,6 @@ string craftToXML(const std::string &code, const std::string &lang)
   if (result.size()==4) //â¨¯  ˆŠ€Ž
     result=ElemIdToPrefferedElem(etCraft, code, efmtCodeNative, lang==AstraLocale::LANG_EN?AstraLocale::LANG_RU:
                                                                                            AstraLocale::LANG_EN);
-  return result;
-}
-
-string paxDocCountryToXML(const std::string &code)
-{
-  string result;
-  if (!code.empty())
-  {
-    try
-    {
-      if (TReqInfo::Instance()->client_type == ASTRA::ctWeb ||
-          TReqInfo::Instance()->client_type == ASTRA::ctMobile)
-        result=getBaseTable(etPaxDocCountry).get_row("code",code).AsString("country");
-    }
-    catch (EBaseTableError) {};
-    if (result.empty()) result=code;
-  };
   return result;
 }
 

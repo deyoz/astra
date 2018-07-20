@@ -3157,9 +3157,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
       etick.fromDB(tkn.no, tkn.coupon, TETickItem::Display, false);
       TBrands brands;
       brands.get(flt.airline,etick.fare_basis);
-      TBrand brand;
-      brands.getBrand( brand, TReqInfo::Instance()->desk.lang );
-      NewTextChild( node, "brand", brand.name );
+      NewTextChild( node, "brand", brands.getSingleBrand().name(AstraLocale::OutputLang()) );
     }
     std::set<CheckIn::TPaxFQTItem> fqts;
     CheckIn::LoadCrsPaxFQT(pax_id, fqts);

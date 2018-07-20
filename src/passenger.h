@@ -175,7 +175,8 @@ class TPaxDocCompoundType
   }
 
   const TPaxDocCompoundType& toXML(xmlNodePtr node) const;
-  const TPaxDocCompoundType& toWebXML(xmlNodePtr node) const;
+  const TPaxDocCompoundType& toWebXML(xmlNodePtr node,
+                                      const boost::optional<AstraLocale::OutputLang>& lang) const;
   TPaxDocCompoundType& fromXML(xmlNodePtr node);
   TPaxDocCompoundType& fromWebXML(xmlNodePtr node);
   const TPaxDocCompoundType& toDB(TQuery &Qry) const;
@@ -260,7 +261,8 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocCompo
              scanned_attrs == item.scanned_attrs;
     }
     const TPaxDocItem& toXML(xmlNodePtr node) const;
-    const TPaxDocItem& toWebXML(xmlNodePtr node) const;
+    const TPaxDocItem& toWebXML(xmlNodePtr node,
+                                const boost::optional<AstraLocale::OutputLang>& lang) const;
     TPaxDocItem& fromXML(xmlNodePtr node);
     TPaxDocItem& fromWebXML(xmlNodePtr node);
     const TPaxDocItem& toDB(TQuery &Qry) const;
@@ -358,7 +360,8 @@ class TPaxDocoItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocComp
              scanned_attrs == item.scanned_attrs;
     }
     const TPaxDocoItem& toXML(xmlNodePtr node) const;
-    const TPaxDocoItem& toWebXML(xmlNodePtr node) const;
+    const TPaxDocoItem& toWebXML(xmlNodePtr node,
+                                 const boost::optional<AstraLocale::OutputLang>& lang) const;
     TPaxDocoItem& fromXML(xmlNodePtr node);
     TPaxDocoItem& fromWebXML(xmlNodePtr node);
     const TPaxDocoItem& toDB(TQuery &Qry) const;

@@ -641,8 +641,8 @@ void TDestInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
   NewTextChild(node, "scd_in", scd_in_local==NoExists?"":DateTimeToStr(scd_in_local, ServerFormatDateTimeAsString));
   NewTextChild(node, "est_in", est_in_local==NoExists?"":DateTimeToStr(est_in_local, ServerFormatDateTimeAsString));
   NewTextChild(node, "act_in", act_in_local==NoExists?"":DateTimeToStr(act_in_local, ServerFormatDateTimeAsString));
-  NewTextChild(node, "airp_arv", airp_arv);
-  NewTextChild(node, "city_arv", city_arv);
+  NewTextChild(node, "airp_arv", ElemIdToCodeNative(etAirp, airp_arv));
+  NewTextChild(node, "city_arv", ElemIdToCodeNative(etCity, city_arv));
   arv_utc_offset==NoExists?NewTextChild(node, "arr_utc_offset"):
                            NewTextChild(node, "arr_utc_offset", arv_utc_offset);
 };
@@ -900,10 +900,10 @@ void TFlightInfo::toXMLsimple(xmlNodePtr node, XMLStyle xmlStyle) const
   if (node==NULL) return;
   point_dep==NoExists?NewTextChild(node, xmlStyle==xmlSearchPNRs?"point_dep":"point_id"):
                       NewTextChild(node, xmlStyle==xmlSearchPNRs?"point_dep":"point_id", point_dep);
-  NewTextChild(node, "airline", oper.airline);
+  NewTextChild(node, "airline", ElemIdToCodeNative(etAirline, oper.airline));
   oper.flt_no==NoExists?NewTextChild(node, "flt_no"):
                         NewTextChild(node, "flt_no", oper.flt_no);
-  NewTextChild(node, "suffix", oper.suffix);
+  NewTextChild(node, "suffix", ElemIdToCodeNative(etSuffix, oper.suffix));
 }
 
 void TFlightInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
@@ -965,12 +965,12 @@ void TFlightInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
 */
   if (node==NULL) return;
   toXMLsimple(node, xmlStyle);
-  NewTextChild(node, "craft", craft);
+  NewTextChild(node, "craft", ElemIdToCodeNative(etCraft, craft));
   NewTextChild(node, "scd_out", scd_out_local==NoExists?"":DateTimeToStr(scd_out_local, ServerFormatDateTimeAsString));
   NewTextChild(node, "est_out", est_out_local==NoExists?"":DateTimeToStr(est_out_local, ServerFormatDateTimeAsString));
   NewTextChild(node, "act_out", act_out_local==NoExists?"":DateTimeToStr(act_out_local, ServerFormatDateTimeAsString));
-  NewTextChild(node, "airp_dep", oper.airp);
-  NewTextChild(node, "city_dep", city_dep);
+  NewTextChild(node, "airp_dep", ElemIdToCodeNative(etAirp, oper.airp));
+  NewTextChild(node, "city_dep", ElemIdToCodeNative(etCity, city_dep));
   dep_utc_offset==NoExists?NewTextChild(node, "dep_utc_offset"):
                            NewTextChild(node, "dep_utc_offset", dep_utc_offset);
   if (xmlStyle==xmlSearchPNRs)
@@ -1123,14 +1123,8 @@ void TFlightInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
   NewTextChild( node, "have_to_select_seats", (int)have_to_select_seats );
 
   xmlNodePtr fltsNode = NewTextChild( node, "mark_flights" );
-  for(vector<TTripInfo>::const_iterator m=mark.begin();
-                                        m!=mark.end();++m)
-  {
-    xmlNodePtr fltNode=NewTextChild( fltsNode, "flight" );
-    NewTextChild( fltNode, "airline", m->airline );
-    NewTextChild( fltNode, "flt_no", m->flt_no );
-    NewTextChild( fltNode, "suffix", m->suffix );
-  };
+  for(const TSimpleMktFlight& m : mark)
+    m.toXML(NewTextChild( fltsNode, "flight" ), AstraLocale::OutputLang());
 };
 
 bool TPNRSegInfo::fromDB(int point_id, const TTripRoute &route, TQuery &Qry)
@@ -1189,8 +1183,8 @@ void TPNRSegInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
   {
     pnr_id==NoExists?NewTextChild(node, "pnr_id"):
                      NewTextChild(node, "pnr_id", pnr_id);
-    NewTextChild(node, "subclass", subcls);
-    pnr_addrs.toXML(node);
+    NewTextChild(node, "subclass", ElemIdToCodeNative(etSubcls, subcls));
+    pnr_addrs.toXML(node, AstraLocale::OutputLang());
   }
 
   xmlNodePtr fltNode=GetNode("pnr_mark_flight", node);
@@ -1198,11 +1192,7 @@ void TPNRSegInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
   {
     fltNode=NewTextChild(node, "pnr_mark_flight");
     if (!mktFlight.empty())
-    {
-      NewTextChild( fltNode, "airline", mktFlight.airline );
-      NewTextChild( fltNode, "flt_no", mktFlight.flt_no );
-      NewTextChild( fltNode, "suffix", mktFlight.suffix );
-    };
+      mktFlight.toXML(fltNode, AstraLocale::OutputLang());
   };
 
   if (xmlStyle==xmlSearchFltMulti)

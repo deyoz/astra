@@ -541,6 +541,18 @@ void LexemeDataFromXML(xmlNodePtr lexemeNode, AstraLocale::LexemaData &lexemeDat
 void getLexemaText( LexemaData lexemaData, std::string &text, std::string &master_lexema_id, std::string lang = "" );
 
 xmlNodePtr selectPriorityMessage(xmlNodePtr resNode, std::string& error_code, std::string& error_message);
+
+class OutputLang
+{
+  private:
+    std::string _lang;
+  public:
+    OutputLang(const std::string& lang="") :
+      _lang(lang.empty()?TReqInfo::Instance()->desk.lang:lang) {}
+    const std::string& get() const { return _lang; }
+    bool is_lat() const { return _lang!=LANG_RU; }
+};
+
 } // end namespace AstraLocale
 
 ASTRA::TOperMode DecodeOperMode( const std::string mode );

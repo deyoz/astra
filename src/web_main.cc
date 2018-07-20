@@ -704,7 +704,7 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
               pax.etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
               TBrands brands;
               brands.get(flt.oper.airline,pax.etick.fare_basis);
-              brands.getBrand( pax.brand, TReqInfo::Instance()->desk.lang );
+              pax.brand=brands.getSingleBrand();
             };
             LoadPaxDoc(pax.pax_id, pax.doc);
             LoadPaxDoco(pax.pax_id, pax.doco);
@@ -727,7 +727,7 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
               pax.etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
               TBrands brands;
               brands.get(flt.oper.airline,pax.etick.fare_basis);
-              brands.getBrand( pax.brand, TReqInfo::Instance()->desk.lang );
+              pax.brand=brands.getSingleBrand();
             }
             //ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d pax.tkn.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, pax.tkn.getNotEmptyFieldsMask());
             LoadCrsPaxDoc(pax.crs_pax_id, pax.doc, true);
@@ -986,7 +986,7 @@ void TWebPax::toXML(xmlNodePtr paxParentNode) const
 
   xmlNodePtr paxNode = NewTextChild( paxParentNode, "pax" );
 
-  pnr_addrs.toXML(paxNode);
+  pnr_addrs.toXML(paxNode, AstraLocale::OutputLang());
 
   NewTextChild( paxNode, "pax_no", pax_no, NoExists );
   NewTextChild( paxNode, "crs_pnr_id", crs_pnr_id );
@@ -997,9 +997,9 @@ void TWebPax::toXML(xmlNodePtr paxParentNode) const
   NewTextChild( paxNode, "name", name );
   if ( doc.birth_date != NoExists )
     NewTextChild( paxNode, "birth_date", DateTimeToStr( doc.birth_date, ServerFormatDateTimeAsString ) );
-  NewTextChild( paxNode, "pers_type", pers_type_extended );
-  NewTextChild( paxNode, "subclass", pass_subclass );
-  NewTextChild( paxNode, "class", pass_class );
+  NewTextChild( paxNode, "pers_type", ElemIdToCodeNative(etExtendedPersType, pers_type_extended) );
+  NewTextChild( paxNode, "subclass", ElemIdToCodeNative(etSubcls, pass_subclass) );
+  NewTextChild( paxNode, "class", ElemIdToCodeNative(etClass, pass_class) );
   string seat_no_view;
   if ( !seat_no.empty() )
     seat_no_view = seat_no;
@@ -1017,14 +1017,14 @@ void TWebPax::toXML(xmlNodePtr paxParentNode) const
   NewTextChild( paxNode, "eticket", tkn.rem == "TKNE"?"true":"false" );
   NewTextChild( paxNode, "ticket_no", tkn.no );
 
-  doc.toWebXML(paxNode);
-  doco.toWebXML(paxNode);
+  doc.toWebXML(paxNode, AstraLocale::OutputLang());
+  doco.toWebXML(paxNode, AstraLocale::OutputLang());
 
   xmlNodePtr fqtsNode = NewTextChild( paxNode, "fqt_rems" );
-  for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin(); f!=fqts.end(); ++f)
-    if (f->rem=="FQTV") f->toXML(fqtsNode);
+  for(const CheckIn::TPaxFQTItem& f : fqts)
+    if (f.rem=="FQTV") f.toXML(fqtsNode, AstraLocale::OutputLang());
 
-  brand.toXML( NewTextChild( paxNode, "brand" ) );
+  brand.toWebXML( NewTextChild( paxNode, "brand" ), AstraLocale::OutputLang() );
 
   if (!etick.empty())
   {

@@ -35,6 +35,7 @@ enum TElemType {
                  etDevModel,                 //модели устройств
                  etDevOperType,              //типы операций устройств
                  etDevSessType,              //типы интерфейсов устройств
+                 etExtendedPersType,         //расширенный тип пассажира ВЗ, РБ, РМ, БГ
                  etGenderType,               //пол пассажиров
                  etGraphStage,               //этапы технологического графика
                  etGraphStageWOInactive,     //этапы технологического графика без статуса "неактивен"
@@ -149,6 +150,5 @@ std::string PaxDocCountryIdToPrefferedElem(const std::string &id, TElemFmt fmt, 
 std::string airlineToXML(const std::string &code, const std::string &lang);
 std::string airpToXML(const std::string &code, const std::string &lang);
 std::string craftToXML(const std::string &code, const std::string &lang);
-std::string paxDocCountryToXML(const std::string &code);
 
 #endif /*_ASTRA_ELEMS_H_*/

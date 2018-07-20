@@ -239,11 +239,33 @@ const TPaxDocCompoundType& TPaxDocCompoundType::toXML(xmlNodePtr node) const
   return *this;
 }
 
-const TPaxDocCompoundType& TPaxDocCompoundType::toWebXML(xmlNodePtr node) const
+string paxDocCountryToWebXML(const std::string &code,
+                             const boost::optional<AstraLocale::OutputLang>& lang)
+{
+  string result;
+  if (!code.empty())
+  {
+    try
+    {
+      if (TReqInfo::Instance()->client_type == ASTRA::ctWeb ||
+          TReqInfo::Instance()->client_type == ASTRA::ctMobile)
+      {
+        result=getBaseTable(etPaxDocCountry).get_row("code",code).AsString("country");
+        result=lang?ElemIdToPrefferedElem(etCountry, result, efmtCodeNative, lang->get()):result;
+      }
+    }
+    catch (EBaseTableError) {};
+    if (result.empty()) result=lang?ElemIdToPrefferedElem(etPaxDocCountry, code, efmtCodeNative, lang->get()):code;
+  };
+  return result;
+}
+
+const TPaxDocCompoundType& TPaxDocCompoundType::toWebXML(xmlNodePtr node,
+                                                         const boost::optional<AstraLocale::OutputLang>& lang) const
 {
   if (node==NULL) return *this;
 
-  NewTextChild(node, "type", type);
+  NewTextChild(node, "type", lang?ElemIdToPrefferedElem(etPaxDocType, type, efmtCodeNative, lang->get()):type);
   return *this;
 }
 
@@ -270,21 +292,22 @@ const TPaxDocItem& TPaxDocItem::toXML(xmlNodePtr node) const
   return *this;
 }
 
-const TPaxDocItem& TPaxDocItem::toWebXML(xmlNodePtr node) const
+const TPaxDocItem& TPaxDocItem::toWebXML(xmlNodePtr node,
+                                         const boost::optional<AstraLocale::OutputLang>& lang) const
 {
   if (node==NULL) return *this;
   //документ
   xmlNodePtr docNode=NewTextChild(node,"document");
 
-  TPaxDocCompoundType::toWebXML(docNode);
-  NewTextChild(docNode, "issue_country", paxDocCountryToXML(issue_country));
+  TPaxDocCompoundType::toWebXML(docNode, lang);
+  NewTextChild(docNode, "issue_country", paxDocCountryToWebXML(issue_country, lang));
   NewTextChild(docNode, "no", no);
-  NewTextChild(docNode, "nationality", paxDocCountryToXML(nationality));
+  NewTextChild(docNode, "nationality", paxDocCountryToWebXML(nationality, lang));
   if (birth_date!=ASTRA::NoExists)
     NewTextChild(docNode, "birth_date", DateTimeToStr(birth_date, ServerFormatDateTimeAsString));
   else
     NewTextChild(docNode, "birth_date");
-  NewTextChild(docNode, "gender", gender);
+  NewTextChild(docNode, "gender", lang?ElemIdToPrefferedElem(etGenderType, gender, efmtCodeNative, lang->get()):gender);
   if (expiry_date!=ASTRA::NoExists)
     NewTextChild(docNode, "expiry_date", DateTimeToStr(expiry_date, ServerFormatDateTimeAsString));
   else
@@ -574,13 +597,14 @@ const TPaxDocoItem& TPaxDocoItem::toXML(xmlNodePtr node) const
   return *this;
 }
 
-const TPaxDocoItem& TPaxDocoItem::toWebXML(xmlNodePtr node) const
+const TPaxDocoItem& TPaxDocoItem::toWebXML(xmlNodePtr node,
+                                           const boost::optional<AstraLocale::OutputLang>& lang) const
 {
   if (node==NULL) return *this;
 
   xmlNodePtr docNode=NewTextChild(node,"doco");
   NewTextChild(docNode, "birth_place", birth_place);
-  TPaxDocCompoundType::toWebXML(docNode);
+  TPaxDocCompoundType::toWebXML(docNode, lang);
   NewTextChild(docNode, "no", no);
   NewTextChild(docNode, "issue_place", issue_place);
   if (issue_date!=ASTRA::NoExists)
@@ -591,7 +615,7 @@ const TPaxDocoItem& TPaxDocoItem::toWebXML(xmlNodePtr node) const
     NewTextChild(docNode, "expiry_date", DateTimeToStr(expiry_date, ServerFormatDateTimeAsString));
   else
     NewTextChild(docNode, "expiry_date");
-  NewTextChild(docNode, "applic_country", paxDocCountryToXML(applic_country));
+  NewTextChild(docNode, "applic_country", paxDocCountryToWebXML(applic_country, lang));
   return *this;
 }
 

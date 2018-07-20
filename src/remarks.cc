@@ -459,12 +459,13 @@ TPaxFQTItem& TPaxFQTItem::fromDB(TQuery &Qry)
   return *this;
 };
 
-const TPaxFQTItem& TPaxFQTItem::toXML(xmlNodePtr node) const
+const TPaxFQTItem& TPaxFQTItem::toXML(xmlNodePtr node,
+                                      const boost::optional<AstraLocale::OutputLang>& lang) const
 {
   if (node==NULL) return *this;
   xmlNodePtr remNode=NewTextChild(node,"fqt_rem");
-  NewTextChild(remNode, "rem_code", rem);
-  NewTextChild(remNode, "airline", airline);
+  NewTextChild(remNode, "rem_code", lang?ElemIdToPrefferedElem(etCkinRemType, rem, efmtCodeNative, lang->get()):rem);
+  NewTextChild(remNode, "airline", lang?ElemIdToPrefferedElem(etAirline, airline, efmtCodeNative, lang->get()):airline);
   NewTextChild(remNode, "no", no);
   NewTextChild(remNode, "extra", extra, "");
   NewTextChild(remNode, "tier_level", tier_level, "");

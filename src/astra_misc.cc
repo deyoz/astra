@@ -433,23 +433,25 @@ bool GetSelfCkinSets(const TTripSetType setType,
   return Qry.FieldAsInteger("value")!=0;
 };
 
-const TPnrAddrInfo& TPnrAddrInfo::toXML(xmlNodePtr addrParentNode) const
+const TPnrAddrInfo& TPnrAddrInfo::toXML(xmlNodePtr addrParentNode,
+                                        const boost::optional<AstraLocale::OutputLang>& lang) const
 {
   if (addrParentNode==nullptr) return *this;
 
   xmlNodePtr addrNode=NewTextChild(addrParentNode, "pnr_addr");
-  NewTextChild(addrNode, "airline", airline);
-  NewTextChild(addrNode, "addr", addr);
+  NewTextChild(addrNode, "airline", lang?ElemIdToPrefferedElem(etAirline, airline, efmtCodeNative, lang->get()):airline);
+  NewTextChild(addrNode, "addr", lang?convert_pnr_addr(addr, lang->is_lat()):addr);
 
   return *this;
 }
 
-const TPnrAddrs& TPnrAddrs::toXML(xmlNodePtr addrsParentNode) const
+const TPnrAddrs& TPnrAddrs::toXML(xmlNodePtr addrsParentNode,
+                                  const boost::optional<AstraLocale::OutputLang>& lang) const
 {
   if (addrsParentNode==nullptr) return *this;
 
   xmlNodePtr addrsNode=NewTextChild(addrsParentNode, "pnr_addrs");
-  for(const TPnrAddrInfo& addr : *this) addr.toXML(addrsNode);
+  for(const TPnrAddrInfo& addr : *this) addr.toXML(addrsNode, lang);
 
   return *this;
 }
@@ -1297,6 +1299,16 @@ bool TCkinRoute::GetPriorSeg(int grp_id,
   return true;
 };
 
+const TSimpleMktFlight& TSimpleMktFlight::toXML(xmlNodePtr node,
+                                                const boost::optional<AstraLocale::OutputLang>& lang) const
+{
+  if (node==NULL) return *this;
+  NewTextChild(node, "airline", lang?ElemIdToPrefferedElem(etAirline, airline, efmtCodeNative, lang->get()):airline);
+  NewTextChild(node, "flt_no", flt_no);
+  NewTextChild(node, "suffix", lang?ElemIdToPrefferedElem(etSuffix, suffix, efmtCodeNative, lang->get()):suffix);
+  return *this;
+}
+
 void TMktFlight::dump() const
 {
     ProgTrace(TRACE5, "---TMktFlight::dump()---");
@@ -1774,9 +1786,9 @@ TPaxSeats::~TPaxSeats()
     delete Qry;
 }
 
-void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFltInfo, bool return_scd_utc)
+void GetMktFlights(const TTripInfo &operFltInfo, TSimpleMktFlights &simpleMktFlights)
 {
-  markFltInfo.clear();
+  simpleMktFlights.clear();
   if (operFltInfo.scd_out==NoExists) return;
   TDateTime scd_local=UTCToLocal(operFltInfo.scd_out, AirpTZRegion(operFltInfo.airp));
 
@@ -1799,11 +1811,26 @@ void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFlt
   Qry.CreateVariable("wday",otInteger,DayOfWeek(scd_local));
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
+    simpleMktFlights.emplace_back(Qry.FieldAsString("airline_mark"),
+                                  Qry.FieldAsInteger("flt_no_mark"),
+                                  Qry.FieldAsString("suffix_mark"));
+}
+
+void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFltInfo, bool return_scd_utc)
+{
+  markFltInfo.clear();
+  if (operFltInfo.scd_out==NoExists) return;
+  TDateTime scd_local=UTCToLocal(operFltInfo.scd_out, AirpTZRegion(operFltInfo.airp));
+
+  TSimpleMktFlights simpleMktFlights;
+  GetMktFlights(operFltInfo, simpleMktFlights);
+
+  for(const TSimpleMktFlight& simpleMktFlight : simpleMktFlights)
   {
     TTripInfo flt;
-    flt.airline=Qry.FieldAsString("airline_mark");
-    flt.flt_no=Qry.FieldAsInteger("flt_no_mark");
-    flt.suffix=Qry.FieldAsString("suffix_mark");
+    flt.airline=simpleMktFlight.airline;
+    flt.flt_no=simpleMktFlight.flt_no;
+    flt.suffix=simpleMktFlight.suffix;
     if (return_scd_utc)
       flt.scd_out=operFltInfo.scd_out;
     else

@@ -10,7 +10,7 @@ using namespace std;
 
 void TBrands::get(int pax_id)
 {
-    items.clear();
+    brandIds.clear();
     TCachedQuery paxQry(
             "select "
             "   ticket_no, "
@@ -47,7 +47,7 @@ void TBrands::get(int pax_id)
 void TBrands::get(const std::string &airline, const std::string &fare_basis)
 {
     oper_airline = airline;
-    items.clear();
+    brandIds.clear();
     TCachedQuery brandQry(
             "select "
             "   brands.id "
@@ -64,40 +64,27 @@ void TBrands::get(const std::string &airline, const std::string &fare_basis)
             << QParam("fare_basis", otString, fare_basis));
     brandQry.get().Execute();
     for(; not brandQry.get().Eof; brandQry.get().Next())
-        items.push_back(brandQry.get().FieldAsInteger("id"));
+        brandIds.push_back(brandQry.get().FieldAsInteger("id"));
 }
 
-bool TBrands::getBrand( TBrand &brand, std::string lang ) const
+TBrand TBrands::getSingleBrand() const
 {
-  brand.clear();
-  if ( items.empty() ) {
-    return false;
-  }
-  return getBrand( *items.begin(), brand, lang );
+  return brandIds.empty()?TBrand():TBrand(brandIds.front(), oper_airline);
 }
 
-bool TBrands::getBrand( int id, TBrand &brand, std::string lang ) const
+const std::string TBrand::name(const AstraLocale::OutputLang& lang) const
 {
-  bool res = false;
-  brand.clear();
-  for ( TItems::const_iterator item=items.begin(); item!=items.end(); item++ ) {
-    if ( *item == id ) {
-       brand.oper_airline = oper_airline;
-       brand.code = ElemIdToElem(etBrand, id, efmtCodeNative, lang);
-       brand.name = ElemIdToElem(etBrand, id, efmtNameLong, lang);
-       res = true;
-       break;
-    }
-  }
-  ProgTrace( TRACE5, "getBrand return oper_airline=%s, code=%s, name=%s, res=%d", brand.oper_airline.c_str(), brand.code.c_str(), brand.name.c_str(), res );
-  return res;
+  if (id==ASTRA::NoExists) return "";
+  return ElemIdToPrefferedElem(etBrand, id, efmtNameLong, lang.get());
 }
 
-void TBrand::toXML( xmlNodePtr brandNode ) const
+const TBrand& TBrand::toWebXML(xmlNodePtr node,
+                               const AstraLocale::OutputLang& lang) const
 {
-  if ( !oper_airline.empty() || !code.empty() || !name.empty() ) {
-    NewTextChild( brandNode, "airline", oper_airline );
-    NewTextChild( brandNode, "brand_code", code );
-    NewTextChild( brandNode, "name", name );
-  }
+  if (node==NULL) return *this;
+  if (id==ASTRA::NoExists) return *this;
+  NewTextChild(node, "airline", ElemIdToPrefferedElem(etAirline, oper_airline, efmtCodeNative, lang.get()));
+  NewTextChild(node, "brand_code", ElemIdToPrefferedElem(etBrand, id, efmtCodeNative, lang.get()));
+  NewTextChild(node, "name", ElemIdToPrefferedElem(etBrand, id, efmtNameLong, lang.get()));
+  return *this;
 }

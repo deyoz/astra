@@ -183,7 +183,7 @@ struct TFlightInfo
   //дополнительно
   std::set<TDestInfo> dests;
 
-  std::vector<TTripInfo> mark;
+  TSimpleMktFlights mark;
 
   std::map<TStage, TTripStageTimes> stage_times;
   std::map<TStage_Type, TStage> stage_statuses;

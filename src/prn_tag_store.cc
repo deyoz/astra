@@ -1806,8 +1806,8 @@ string TPrnTagStore::BRAND(TFieldParams fp)
     } else {
         if(scan_data == NULL) {
             ostringstream result;
-            if(not paxInfo.brand.items.empty())
-                result << tag_lang.ElemIdToTagElem(etBrand, *paxInfo.brand.items.begin(), efmtNameLong);
+            if(not paxInfo.brand.brandIds.empty())
+                result << tag_lang.ElemIdToTagElem(etBrand, *paxInfo.brand.brandIds.begin(), efmtNameLong);
             return result.str();
         } else
             return string();
