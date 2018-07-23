@@ -8069,7 +8069,12 @@ void RunPFSStat(
         if (pass!=0)
             QryParams << QParam("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
         string SQLText =
-            "select "
+            "select ";
+        if(pass != 0)
+            SQLText += " points.part_key, ";
+        else
+            SQLText += " null part_key, ";
+        SQLText +=
             "   points.point_id, "
             "   points.scd_out, "
             "   points.airline, "
@@ -8120,6 +8125,7 @@ void RunPFSStat(
         TCachedQuery Qry(SQLText, QryParams);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
+            int col_part_key = Qry.get().FieldIndex("part_key");
             int col_point_id = Qry.get().FieldIndex("point_id");
             int col_scd_out = Qry.get().FieldIndex("scd_out");
             int col_airline = Qry.get().FieldIndex("airline");
@@ -8172,7 +8178,8 @@ void RunPFSStat(
                    trtNotCancelled),
                    */
 
-                row.route = GetRouteAfterStr(NoExists, row.point_id, trtWithCurrent, trtNotCancelled);
+                TDateTime part_key = Qry.get().FieldIsNULL(col_part_key) ? NoExists : Qry.get().FieldAsDateTime(col_part_key);
+                row.route = GetRouteAfterStr(part_key, row.point_id, trtWithCurrent, trtNotCancelled);
 
 
                 row.seats = Qry.get().FieldAsInteger(col_seats);
