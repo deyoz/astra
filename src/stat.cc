@@ -8094,15 +8094,26 @@ void RunPFSStat(
         bool full = false
         )
 {
+    TDateTime first_date = params.FirstDate;
+    TDateTime last_date = params.LastDate;
+    if(params.LT) {
+        first_date -= 1;
+        last_date += 1;
+    };
     for(int pass = 0; pass <= 2; pass++) {
         QParams QryParams;
         QryParams
-            << QParam("FirstDate", otDate, params.FirstDate)
-            << QParam("LastDate", otDate, params.LastDate);
+            << QParam("FirstDate", otDate, first_date)
+            << QParam("LastDate", otDate, last_date);
         if (pass!=0)
             QryParams << QParam("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
         string SQLText =
-            "select "
+            "select ";
+        if(pass != 0)
+            SQLText += " points.part_key, ";
+        else
+            SQLText += " null part_key, ";
+        SQLText +=
             "   points.point_id, "
             "   points.scd_out, "
             "   points.airline, "
@@ -8153,12 +8164,13 @@ void RunPFSStat(
         TCachedQuery Qry(SQLText, QryParams);
         Qry.get().Execute();
         if(not Qry.get().Eof) {
+            int col_part_key = Qry.get().FieldIndex("part_key");
             int col_point_id = Qry.get().FieldIndex("point_id");
             int col_scd_out = Qry.get().FieldIndex("scd_out");
             int col_airline = Qry.get().FieldIndex("airline");
             int col_flt_no = Qry.get().FieldIndex("flt_no");
             int col_suffix = Qry.get().FieldIndex("suffix");
-            // int col_airp = Qry.get().FieldIndex("airp");
+            int col_airp = Qry.get().FieldIndex("airp");
             int col_pax_id = Qry.get().FieldIndex("pax_id");
             int col_status = Qry.get().FieldIndex("status");
             // int col_airp_arv = Qry.get().FieldIndex("airp_arv");
@@ -8170,12 +8182,19 @@ void RunPFSStat(
             int col_gender = Qry.get().FieldIndex("gender");
             int col_birth_date = Qry.get().FieldIndex("birth_date");
             for(; not Qry.get().Eof; Qry.get().Next()) {
+                TDateTime local_scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+                if(params.LT) {
+                    local_scd_out = UTCToLocal(local_scd_out,
+                            AirpTZRegion(Qry.get().FieldAsString(col_airp)));
+                    if(not(local_scd_out >= params.FirstDate and local_scd_out < params.LastDate))
+                        continue;
+                }
                 prn_airline.check(Qry.get().FieldAsString(col_airline));
                 TPFSStatRow row;
                 row.point_id = Qry.get().FieldAsInteger(col_point_id);
                 row.pax_id = Qry.get().FieldAsInteger(col_pax_id);
                 row.status = Qry.get().FieldAsString(col_status);
-                row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+                row.scd_out = local_scd_out;
                 ostringstream buf;
                 buf
                     << ElemIdToCodeNative(etAirline, Qry.get().FieldAsString(col_airline))
@@ -8198,7 +8217,8 @@ void RunPFSStat(
                    trtNotCancelled),
                    */
 
-                row.route = GetRouteAfterStr(NoExists, row.point_id, trtWithCurrent, trtNotCancelled);
+                TDateTime part_key = Qry.get().FieldIsNULL(col_part_key) ? NoExists : Qry.get().FieldAsDateTime(col_part_key);
+                row.route = GetRouteAfterStr(part_key, row.point_id, trtWithCurrent, trtNotCancelled);
 
 
                 row.seats = Qry.get().FieldAsInteger(col_seats);
