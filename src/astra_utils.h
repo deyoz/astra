@@ -541,6 +541,7 @@ void LexemeDataFromXML(xmlNodePtr lexemeNode, AstraLocale::LexemaData &lexemeDat
 void getLexemaText( LexemaData lexemaData, std::string &text, std::string &master_lexema_id, std::string lang = "" );
 
 xmlNodePtr selectPriorityMessage(xmlNodePtr resNode, std::string& error_code, std::string& error_message);
+
 } // end namespace AstraLocale
 
 ASTRA::TOperMode DecodeOperMode( const std::string mode );

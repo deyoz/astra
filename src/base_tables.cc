@@ -44,6 +44,8 @@ TBaseTable &TBaseTables::get(string name)
             base_tables[name] = new TCountries();
         else if(name == "PERS_TYPES")
             base_tables[name] = new TPersTypes();
+        else if(name == "EXTENDED_PERS_TYPES")
+            base_tables[name] = new TExtendedPersTypes();
         else if(name == "REPORT_TYPES")
             base_tables[name] = new TReportTypes();
         else if(name == "GENDER_TYPES")

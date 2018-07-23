@@ -289,6 +289,19 @@ class TPersTypes: public TCodeBaseTable {
       }
 };
 
+class TExtendedPersTypes: public TPersTypes {
+  protected:
+    const char *get_table_name() { return "TExtendedPersTypes"; }
+  public:
+    TExtendedPersTypes() {
+          Init();
+          select_sql =
+            "SELECT code, code_lat, name, name_lat, priority FROM pers_types "
+            "UNION "
+            "SELECT 'БГ', 'CBBG', 'Ручная кладь', 'Cabin baggage', 4 FROM dual";
+      }
+};
+
 class TGenderTypesRow: public TCodeBaseTableRow {
   public:
     bool pr_inf;
@@ -1070,8 +1083,8 @@ class TStationModes: public TCodeBaseTable {
   public:
     TStationModes() {
       Init();
-        select_sql =
-          "SELECT 'Р' AS code, 'Регистрация' AS name, 'Check-in' AS name_lat FROM dual "
+      select_sql =
+        "SELECT 'Р' AS code, 'Регистрация' AS name, 'Check-in' AS name_lat FROM dual "
         "UNION "
         "SELECT 'П', 'Посадка', 'Boarding' FROM dual";
     };
@@ -1090,8 +1103,8 @@ class TSeasonTypes: public TIdBaseTable {
   public:
     TSeasonTypes() {
       Init();
-        select_sql =
-          "SELECT 0 AS id, 'Зима' AS name, 'Winter' AS name_lat FROM dual "
+      select_sql =
+        "SELECT 0 AS id, 'Зима' AS name, 'Winter' AS name_lat FROM dual "
         "UNION "
         "SELECT 1, 'Лето', 'Summer' FROM dual";
     };

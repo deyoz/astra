@@ -4,6 +4,7 @@
 #include <string>
 #include <set>
 #include "astra_consts.h"
+#include "astra_elems.h"
 #include "oralib.h"
 #include "xml_unit.h"
 #include "astra_locale.h"
@@ -202,7 +203,8 @@ class TPaxFQTItem : public TPaxRemBasic, public TPaxFQTCard
     }
     const TPaxFQTItem& toDB(TQuery &Qry) const;
     TPaxFQTItem& fromDB(TQuery &Qry);
-    const TPaxFQTItem& toXML(xmlNodePtr node) const;
+    const TPaxFQTItem& toXML(xmlNodePtr node,
+                             const boost::optional<AstraLocale::OutputLang>& lang=boost::none) const;
     TPaxFQTItem& fromXML(xmlNodePtr node);
     std::string rem_code() const
     {
