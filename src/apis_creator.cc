@@ -549,7 +549,7 @@ void CreateEdi( const TApisRouteData& route,
     if (iPax->doc.birth_date!=NoExists)
       paxInfo.setBirthDate(iPax->doc.birth_date);
 
-    if (format.rule(_setCBPPort) && route.country_regul_dep!=US_CUSTOMS_CODE)
+    if (format.rule(_setCBPPort) && format.NeedCBPPort(route.country_regul_dep))
       paxInfo.setCBPPort(route.airp_cbp_code_lat());
 
     paxInfo.setDepPort(route.airp_dep_code_lat());
