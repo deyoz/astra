@@ -128,8 +128,8 @@ class TSegItem
       scd_in_contain_time=false;
     }
 
-    const TSegItem& toSirenaXML(xmlNodePtr node, const std::string &lang) const;
-    static std::string flight(const TTripInfo &flt, const std::string &lang);
+    const TSegItem& toSirenaXML(xmlNodePtr node, const AstraLocale::OutputLang &lang) const;
+    static std::string flight(const TTripInfo &flt, const AstraLocale::OutputLang &lang);
 };
 
 class TPaxSection;
@@ -158,7 +158,7 @@ class TPaxSegItem : public TSegItem
     using TSegItem::set;
     void set(const CheckIn::TPaxTknItem& _tkn, TPaxSection* paxSection);
 
-    const TPaxSegItem& toSirenaXML(xmlNodePtr node, const std::string &lang) const;
+    const TPaxSegItem& toSirenaXML(xmlNodePtr node, const AstraLocale::OutputLang &lang) const;
 };
 
 typedef std::map<int, TPaxSegItem> TPaxSegMap;
@@ -221,7 +221,7 @@ class TPaxItem
       segs.clear();
     }
 
-    const TPaxItem& toSirenaXML(xmlNodePtr node, const std::string &lang) const;
+    const TPaxItem& toSirenaXML(xmlNodePtr node, const AstraLocale::OutputLang &lang) const;
     std::string category() const {
       return category::value( pers_type, seats );
     }
@@ -270,7 +270,7 @@ class TPaxItem2
       grp_id=ASTRA::NoExists;
     }
 
-    const TPaxItem2& toSirenaXML(xmlNodePtr node, const std::string &lang) const;
+    const TPaxItem2& toSirenaXML(xmlNodePtr node, const AstraLocale::OutputLang &lang) const;
     std::string category() const {
       return category::value( pers_type, seats );
     }
@@ -291,7 +291,7 @@ class TSvcItem : public TPaxSegRFISCKey
       ssr_code.clear();
       ssr_text.clear();
     }
-    const TSvcItem& toSirenaXML(xmlNodePtr node, const std::string &lang) const;
+    const TSvcItem& toSirenaXML(xmlNodePtr node, const AstraLocale::OutputLang &lang) const;
     TSvcItem& fromSirenaXML(xmlNodePtr node);
 };
 

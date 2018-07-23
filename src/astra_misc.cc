@@ -439,8 +439,8 @@ const TPnrAddrInfo& TPnrAddrInfo::toXML(xmlNodePtr addrParentNode,
   if (addrParentNode==nullptr) return *this;
 
   xmlNodePtr addrNode=NewTextChild(addrParentNode, "pnr_addr");
-  NewTextChild(addrNode, "airline", lang?ElemIdToPrefferedElem(etAirline, airline, efmtCodeNative, lang->get()):airline);
-  NewTextChild(addrNode, "addr", lang?convert_pnr_addr(addr, lang->is_lat()):addr);
+  NewTextChild(addrNode, "airline", lang?airlineToPrefferedCode(airline, lang.get()):airline);
+  NewTextChild(addrNode, "addr", lang?convert_pnr_addr(addr, lang->isLatin()):addr);
 
   return *this;
 }
@@ -1303,7 +1303,7 @@ const TSimpleMktFlight& TSimpleMktFlight::toXML(xmlNodePtr node,
                                                 const boost::optional<AstraLocale::OutputLang>& lang) const
 {
   if (node==NULL) return *this;
-  NewTextChild(node, "airline", lang?ElemIdToPrefferedElem(etAirline, airline, efmtCodeNative, lang->get()):airline);
+  NewTextChild(node, "airline", lang?airlineToPrefferedCode(airline, lang.get()):airline);
   NewTextChild(node, "flt_no", flt_no);
   NewTextChild(node, "suffix", lang?ElemIdToPrefferedElem(etSuffix, suffix, efmtCodeNative, lang->get()):suffix);
   return *this;

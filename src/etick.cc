@@ -695,6 +695,11 @@ static boost::optional<Itin> getWcCouponItin(const Ticketing::Airline_t& airline
   return boost::none;
 }
 
+static std::string airlineToXML(const std::string& code)
+{
+  return airlineToPrefferedCode(code, OutputLang(LANG_RU, {OutputLang::OnlyTrueIataCodes}));
+}
+
 Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltParams) const
 {
   Coupon_info ci(et.coupon, et.status);
@@ -718,7 +723,7 @@ Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltPara
   };
 
   Itin itin(wcItin?wcItin.get().airCode():
-                   airlineToXML(fltParams.fltInfo.airline, LANG_RU),   //marketing carrier
+                   airlineToXML(fltParams.fltInfo.airline),   //marketing carrier
             "",                                  //operating carrier
             wcItin?wcItin.get().flightnum():
                    fltParams.fltInfo.flt_no,0,
@@ -850,8 +855,8 @@ void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
   ProgTrace(TRACE5,"ETSearch: oper_carrier=%s edi_addr=%s edi_own_addr=%s",
                    info.airline.c_str(),get_edi_addr().c_str(),get_edi_own_addr().c_str());
 
-  const OrigOfRequest &org=kickInfo.background_mode()?OrigOfRequest(airlineToXML(info.airline, LANG_RU)):
-                                                      OrigOfRequest(airlineToXML(info.airline, LANG_RU), *TReqInfo::Instance());
+  const OrigOfRequest &org=kickInfo.background_mode()?OrigOfRequest(airlineToXML(info.airline)):
+                                                      OrigOfRequest(airlineToXML(info.airline), *TReqInfo::Instance());
 
   xmlNodePtr rootNode;
   XMLDoc xmlCtxt("context", rootNode, __FUNCTION__);
@@ -1157,7 +1162,7 @@ void ETRequestACInterface::RequestControl(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
     TTripInfo info;
     info.getByPointId(pointId);
 
-    const OrigOfRequest org = OrigOfRequest(airlineToXML(info.airline, LANG_RU), *TReqInfo::Instance());
+    const OrigOfRequest org = OrigOfRequest(airlineToXML(info.airline), *TReqInfo::Instance());
 
 
     SendEtRacRequest(edifact::EtRacParams(org,
@@ -1421,7 +1426,7 @@ void EMDSystemUpdateInterface::SysUpdateEmdCoupon(XMLRequestCtxt *ctxt, xmlNodeP
     std::string airline = getTripAirline(info);
     Ticketing::FlightNum_t flNum = getTripFlightNum(info);
 
-    OrigOfRequest org(airlineToXML(airline, LANG_RU), *TReqInfo::Instance());
+    OrigOfRequest org(airlineToXML(airline), *TReqInfo::Instance());
 
     edifact::KickInfo kickInfo=createKickInfo(ASTRA::NoExists, "EMDSystemUpdate");
 
@@ -1565,7 +1570,7 @@ bool EMDSystemUpdateInterface::EMDChangeDisassociation(const edifact::KickInfo &
 
       string ediCtxt=XMLTreeToText(i->second.docPtr());
 
-      edifact::EmdDisassociateRequestParams disassocParams(OrigOfRequest(airlineToXML(i->first.airline_oper, LANG_RU),
+      edifact::EmdDisassociateRequestParams disassocParams(OrigOfRequest(airlineToXML(i->first.airline_oper),
                                                                          *TReqInfo::Instance()),
                                                            ediCtxt,
                                                            kickInfo,
@@ -2044,7 +2049,7 @@ bool EMDStatusInterface::EMDChangeStatus(const edifact::KickInfo &kickInfo,
         string ediCtxt=XMLTreeToText(j->ctxt.docPtr());
         //ProgTrace(TRACE5, "ediCosCtxt=%s", ediCtxt.c_str());
 
-        edifact::EmdCosParams cosParams(OrigOfRequest(airlineToXML(i->first.airline_oper, LANG_RU), *TReqInfo::Instance()),
+        edifact::EmdCosParams cosParams(OrigOfRequest(airlineToXML(i->first.airline_oper), *TReqInfo::Instance()),
                                         ediCtxt,
                                         kickInfo,
                                         i->first.airline_oper,
@@ -2511,8 +2516,8 @@ bool ETStatusInterface::ETChangeStatus(const edifact::KickInfo &kickInfo,
 
         string ediCtxt=XMLTreeToText(j->second.docPtr());
 
-        const OrigOfRequest &org=kickInfo.background_mode()?OrigOfRequest(airlineToXML(oper_carrier, LANG_RU)):
-                                                            OrigOfRequest(airlineToXML(oper_carrier, LANG_RU), *TReqInfo::Instance());
+        const OrigOfRequest &org=kickInfo.background_mode()?OrigOfRequest(airlineToXML(oper_carrier)):
+                                                            OrigOfRequest(airlineToXML(oper_carrier), *TReqInfo::Instance());
 
         //throw_if_request_dup("ETStatusInterface::ETChangeStatus");
         edilib::EdiSessionId_t sessId = ChangeStatus::ETChangeStatus(org,
@@ -2565,7 +2570,7 @@ void EMDStatusInterface::ChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     checkEDSExchange(pointId, true, info);
     std::string airline = getTripAirline(info);
     Ticketing::FlightNum_t flNum = getTripFlightNum(info);
-    OrigOfRequest org(airlineToXML(airline, LANG_RU), *TReqInfo::Instance());
+    OrigOfRequest org(airlineToXML(airline), *TReqInfo::Instance());
     edifact::KickInfo kickInfo=createKickInfo(ASTRA::NoExists, "EMDStatus");
 
     edifact::EmdCosParams cosParams(org, "", kickInfo, airline, flNum, emdDocNum, emdCpnNum, emdCpnStatus);

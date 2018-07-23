@@ -641,7 +641,7 @@ void TDestInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
   NewTextChild(node, "scd_in", scd_in_local==NoExists?"":DateTimeToStr(scd_in_local, ServerFormatDateTimeAsString));
   NewTextChild(node, "est_in", est_in_local==NoExists?"":DateTimeToStr(est_in_local, ServerFormatDateTimeAsString));
   NewTextChild(node, "act_in", act_in_local==NoExists?"":DateTimeToStr(act_in_local, ServerFormatDateTimeAsString));
-  NewTextChild(node, "airp_arv", ElemIdToCodeNative(etAirp, airp_arv));
+  NewTextChild(node, "airp_arv", airpToPrefferedCode(airp_arv, AstraLocale::OutputLang()));
   NewTextChild(node, "city_arv", ElemIdToCodeNative(etCity, city_arv));
   arv_utc_offset==NoExists?NewTextChild(node, "arr_utc_offset"):
                            NewTextChild(node, "arr_utc_offset", arv_utc_offset);
@@ -900,7 +900,7 @@ void TFlightInfo::toXMLsimple(xmlNodePtr node, XMLStyle xmlStyle) const
   if (node==NULL) return;
   point_dep==NoExists?NewTextChild(node, xmlStyle==xmlSearchPNRs?"point_dep":"point_id"):
                       NewTextChild(node, xmlStyle==xmlSearchPNRs?"point_dep":"point_id", point_dep);
-  NewTextChild(node, "airline", ElemIdToCodeNative(etAirline, oper.airline));
+  NewTextChild(node, "airline", airlineToPrefferedCode(oper.airline, AstraLocale::OutputLang()));
   oper.flt_no==NoExists?NewTextChild(node, "flt_no"):
                         NewTextChild(node, "flt_no", oper.flt_no);
   NewTextChild(node, "suffix", ElemIdToCodeNative(etSuffix, oper.suffix));
@@ -965,11 +965,11 @@ void TFlightInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
 */
   if (node==NULL) return;
   toXMLsimple(node, xmlStyle);
-  NewTextChild(node, "craft", ElemIdToCodeNative(etCraft, craft));
+  NewTextChild(node, "craft", craftToPrefferedCode(craft, AstraLocale::OutputLang()));
   NewTextChild(node, "scd_out", scd_out_local==NoExists?"":DateTimeToStr(scd_out_local, ServerFormatDateTimeAsString));
   NewTextChild(node, "est_out", est_out_local==NoExists?"":DateTimeToStr(est_out_local, ServerFormatDateTimeAsString));
   NewTextChild(node, "act_out", act_out_local==NoExists?"":DateTimeToStr(act_out_local, ServerFormatDateTimeAsString));
-  NewTextChild(node, "airp_dep", ElemIdToCodeNative(etAirp, oper.airp));
+  NewTextChild(node, "airp_dep", airpToPrefferedCode(oper.airp, AstraLocale::OutputLang()));
   NewTextChild(node, "city_dep", ElemIdToCodeNative(etCity, city_dep));
   dep_utc_offset==NoExists?NewTextChild(node, "dep_utc_offset"):
                            NewTextChild(node, "dep_utc_offset", dep_utc_offset);

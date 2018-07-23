@@ -83,7 +83,7 @@ const TBrand& TBrand::toWebXML(xmlNodePtr node,
 {
   if (node==NULL) return *this;
   if (id==ASTRA::NoExists) return *this;
-  NewTextChild(node, "airline", ElemIdToPrefferedElem(etAirline, oper_airline, efmtCodeNative, lang.get()));
+  NewTextChild(node, "airline", airlineToPrefferedCode(oper_airline, lang));
   NewTextChild(node, "brand_code", ElemIdToPrefferedElem(etBrand, id, efmtCodeNative, lang.get()));
   NewTextChild(node, "name", ElemIdToPrefferedElem(etBrand, id, efmtNameLong, lang.get()));
   return *this;

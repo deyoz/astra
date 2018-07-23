@@ -997,7 +997,7 @@ void TWebPax::toXML(xmlNodePtr paxParentNode) const
   NewTextChild( paxNode, "name", name );
   if ( doc.birth_date != NoExists )
     NewTextChild( paxNode, "birth_date", DateTimeToStr( doc.birth_date, ServerFormatDateTimeAsString ) );
-  NewTextChild( paxNode, "pers_type", ElemIdToCodeNative(etExtendedPersType, pers_type_extended) );
+  NewTextChild( paxNode, "pers_type", ElemIdToPrefferedElem(etExtendedPersType, pers_type_extended, efmtCodeNative, LANG_RU) ); //ElemIdToCodeNative возможно в будущем
   NewTextChild( paxNode, "subclass", ElemIdToCodeNative(etSubcls, pass_subclass) );
   NewTextChild( paxNode, "class", ElemIdToCodeNative(etClass, pass_class) );
   string seat_no_view;

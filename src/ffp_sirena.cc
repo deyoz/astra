@@ -14,12 +14,12 @@ namespace SirenaExchange
 
 const std::string TFFPInfoExchange::id="ffp_info";
 
-const TFFPItem& TFFPItem::toXML(xmlNodePtr node, const std::string &lang) const
+const TFFPItem& TFFPItem::toXML(xmlNodePtr node, const OutputLang &lang) const
 {
   if (node==NULL) return *this;
 
   xmlNodePtr ffpNode = NewTextChild(node, "ffp", card_number);
-  SetProp(ffpNode, "company", airlineToXML(company, lang));
+  SetProp(ffpNode, "company", airlineToPrefferedCode(company, lang));
 
   return *this;
 }
@@ -79,7 +79,7 @@ void TFFPInfoReq::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return;
 
-  TFFPItem::toXML(node, LANG_EN);
+  TFFPItem::toXML(node, OutputLang(LANG_EN, {OutputLang::OnlyTrueIataCodes}));
 }
 
 void TFFPInfoRes::fromXML(xmlNodePtr node)
@@ -100,7 +100,7 @@ void TFFPInfoRes::fromXML(xmlNodePtr node)
 
     for(node=infoNode->children; node!=NULL; node=node->next)
     {
-      if (string((char*)node->name)!="name") continue;
+      if (string((const char*)node->name)!="name") continue;
       names.push_back(TFFPInfoNameItem().fromXML(node));
     };
 

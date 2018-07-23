@@ -895,33 +895,42 @@ std::string PaxDocCountryIdToPrefferedElem(const std::string &id, TElemFmt fmt, 
   return result;
 }
 
-string airlineToXML(const std::string &code, const std::string &lang)
+AstraLocale::OutputLang::OutputLang(const std::string& lang) :
+  _lang(lang.empty()?TReqInfo::Instance()->desk.lang:lang),
+  _onlyTrueIATACodes(TReqInfo::Instance()->isSelfCkinClientType()) {}
+
+AstraLocale::OutputLang::OutputLang(const std::string& lang,
+                                    const std::set<Props>& props) :
+  _lang(lang.empty()?TReqInfo::Instance()->desk.lang:lang),
+  _onlyTrueIATACodes(props.find(OnlyTrueIataCodes)!=props.end()) {}
+
+string airlineToPrefferedCode(const std::string &code, const AstraLocale::OutputLang& lang)
 {
   string result;
-  result=ElemIdToPrefferedElem(etAirline, code, efmtCodeNative, lang);
-  if (result.size()==3) //â¨¯  ˆŠ€Ž
-    result=ElemIdToPrefferedElem(etAirline, code, efmtCodeNative, lang==AstraLocale::LANG_EN?AstraLocale::LANG_RU:
-                                                                                             AstraLocale::LANG_EN);
+  result=ElemIdToPrefferedElem(etAirline, code, efmtCodeNative, lang.get());
+  if (lang.onlyTrueIATACodes() && result.size()==3) //â¨¯  ˆŠ€Ž
+    result=ElemIdToPrefferedElem(etAirline, code, efmtCodeNative, lang.get()==AstraLocale::LANG_EN?AstraLocale::LANG_RU:
+                                                                                                   AstraLocale::LANG_EN);
   return result;
 }
 
-string airpToXML(const std::string &code, const std::string &lang)
+string airpToPrefferedCode(const std::string &code, const AstraLocale::OutputLang& lang)
 {
   string result;
-  result=ElemIdToPrefferedElem(etAirp, code, efmtCodeNative, lang);
-  if (result.size()==4) //â¨¯  ˆŠ€Ž
-    result=ElemIdToPrefferedElem(etAirp, code, efmtCodeNative, lang==AstraLocale::LANG_EN?AstraLocale::LANG_RU:
-                                                                                          AstraLocale::LANG_EN);
+  result=ElemIdToPrefferedElem(etAirp, code, efmtCodeNative, lang.get());
+  if (lang.onlyTrueIATACodes() && result.size()==4) //â¨¯  ˆŠ€Ž
+    result=ElemIdToPrefferedElem(etAirp, code, efmtCodeNative, lang.get()==AstraLocale::LANG_EN?AstraLocale::LANG_RU:
+                                                                                                AstraLocale::LANG_EN);
   return result;
 }
 
-string craftToXML(const std::string &code, const std::string &lang)
+string craftToPrefferedCode(const std::string &code, const AstraLocale::OutputLang& lang)
 {
   string result;
-  result=ElemIdToPrefferedElem(etCraft, code, efmtCodeNative, lang);
-  if (result.size()==4) //â¨¯  ˆŠ€Ž
-    result=ElemIdToPrefferedElem(etCraft, code, efmtCodeNative, lang==AstraLocale::LANG_EN?AstraLocale::LANG_RU:
-                                                                                           AstraLocale::LANG_EN);
+  result=ElemIdToPrefferedElem(etCraft, code, efmtCodeNative, lang.get());
+  if (lang.onlyTrueIATACodes() && result.size()==4) //â¨¯  ˆŠ€Ž
+    result=ElemIdToPrefferedElem(etCraft, code, efmtCodeNative, lang.get()==AstraLocale::LANG_EN?AstraLocale::LANG_RU:
+                                                                                                 AstraLocale::LANG_EN);
   return result;
 }
 

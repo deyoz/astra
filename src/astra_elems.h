@@ -147,8 +147,29 @@ TBaseTable& getBaseTable(TElemType type);
 std::string ElemToPaxDocCountryId(const std::string &elem, TElemFmt &fmt);
 std::string PaxDocCountryIdToPrefferedElem(const std::string &id, TElemFmt fmt, const std::string &lang, bool with_deleted=true);
 
-std::string airlineToXML(const std::string &code, const std::string &lang);
-std::string airpToXML(const std::string &code, const std::string &lang);
-std::string craftToXML(const std::string &code, const std::string &lang);
+namespace AstraLocale
+{
+
+class OutputLang
+{
+  private:
+    std::string _lang;
+    bool _onlyTrueIATACodes;
+  public:
+    enum Props {OnlyTrueIataCodes};
+
+    explicit OutputLang(const std::string& lang="");
+    explicit OutputLang(const std::string& lang,
+                        const std::set<Props>& props);
+    const std::string& get() const { return _lang; }
+    bool isLatin() const { return _lang!=LANG_RU; }
+    bool onlyTrueIATACodes() const { return _onlyTrueIATACodes; }
+};
+
+} //namespace AstraLocale
+
+std::string airlineToPrefferedCode(const std::string &code, const AstraLocale::OutputLang& lang);
+std::string airpToPrefferedCode(const std::string &code, const AstraLocale::OutputLang& lang);
+std::string craftToPrefferedCode(const std::string &code, const AstraLocale::OutputLang& lang);
 
 #endif /*_ASTRA_ELEMS_H_*/

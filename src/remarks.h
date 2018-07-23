@@ -4,7 +4,7 @@
 #include <string>
 #include <set>
 #include "astra_consts.h"
-#include "astra_utils.h"
+#include "astra_elems.h"
 #include "oralib.h"
 #include "xml_unit.h"
 #include "astra_locale.h"
