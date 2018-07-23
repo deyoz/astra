@@ -34,6 +34,7 @@ namespace STAT {
     static const std::string PARAM_SEG_CATEGORY          = "seg_category";
     static const std::string PARAM_AIRP_TERMINAL         = "airp_terminal";
     static const std::string PARAM_BI_HALL               = "bi_hall";
+    static const std::string PARAM_LT                    = "LT";
 }
 
 enum TSeanceType { seanceAirline, seanceAirport, seanceAll };

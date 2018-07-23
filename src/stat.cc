@@ -8055,11 +8055,17 @@ void RunPFSStat(
         bool full = false
         )
 {
+    TDateTime first_date = params.FirstDate;
+    TDateTime last_date = params.LastDate;
+    if(params.LT) {
+        first_date -= 1;
+        last_date += 1;
+    };
     for(int pass = 0; pass <= 2; pass++) {
         QParams QryParams;
         QryParams
-            << QParam("FirstDate", otDate, params.FirstDate)
-            << QParam("LastDate", otDate, params.LastDate);
+            << QParam("FirstDate", otDate, first_date)
+            << QParam("LastDate", otDate, last_date);
         if (pass!=0)
             QryParams << QParam("arx_trip_date_range", otInteger, ARX_TRIP_DATE_RANGE());
         string SQLText =
@@ -8119,7 +8125,7 @@ void RunPFSStat(
             int col_airline = Qry.get().FieldIndex("airline");
             int col_flt_no = Qry.get().FieldIndex("flt_no");
             int col_suffix = Qry.get().FieldIndex("suffix");
-            // int col_airp = Qry.get().FieldIndex("airp");
+            int col_airp = Qry.get().FieldIndex("airp");
             int col_pax_id = Qry.get().FieldIndex("pax_id");
             int col_status = Qry.get().FieldIndex("status");
             // int col_airp_arv = Qry.get().FieldIndex("airp_arv");
@@ -8131,12 +8137,19 @@ void RunPFSStat(
             int col_gender = Qry.get().FieldIndex("gender");
             int col_birth_date = Qry.get().FieldIndex("birth_date");
             for(; not Qry.get().Eof; Qry.get().Next()) {
+                TDateTime local_scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+                if(params.LT) {
+                    local_scd_out = UTCToLocal(local_scd_out,
+                            AirpTZRegion(Qry.get().FieldAsString(col_airp)));
+                    if(not(local_scd_out >= params.FirstDate and local_scd_out < params.LastDate))
+                        continue;
+                }
                 prn_airline.check(Qry.get().FieldAsString(col_airline));
                 TPFSStatRow row;
                 row.point_id = Qry.get().FieldAsInteger(col_point_id);
                 row.pax_id = Qry.get().FieldAsInteger(col_pax_id);
                 row.status = Qry.get().FieldAsString(col_status);
-                row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
+                row.scd_out = local_scd_out;
                 ostringstream buf;
                 buf
                     << ElemIdToCodeNative(etAirline, Qry.get().FieldAsString(col_airline))
