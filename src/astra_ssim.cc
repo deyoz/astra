@@ -12,11 +12,11 @@ using namespace typeb_parser;
 #include <libssim/ssm_data_types.h> // parseSsm
 #include <functional>
 #include <base_tables.h>
-
 #include "astra_main.h"
 #include "astra_misc.h"
-
 #include "date_time.h"
+#include "flt_binding.h"
+
 using namespace BASIC::date_time;
 using namespace std;
 using namespace boost::local_time;
@@ -24,13 +24,13 @@ using namespace boost::posix_time;
 using namespace SEASON;
 
 ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& prd );
-
+//------------------------------------------------------------------------------------------
 
 int CodeToId(const std::string &code)
 {
   // http://ru.cppreference.com/w/cpp/language/types
   if (sizeof(int) < sizeof(char)*3) throw EXCEPTIONS::Exception("CodeToId invalid sizeof");
-  if (code.size() > 3) throw EXCEPTIONS::Exception("CodeToId invalid code size");
+  if (code.size() > 3) throw EXCEPTIONS::Exception("CodeToId invalid size=%d code=%s", code.size(), code.c_str());
   const char *c = code.c_str();
   int id = 0;
   char* p = (char*)&id;
@@ -423,12 +423,26 @@ void AstraSsimParseCollector::appendPeriod(const ct::Flight& f, const Period& p)
 }
 //------------------------------------------------------------------------------------------
 
-string FlightToString(ct::Flight flight)
+string GetAirline(ct::Flight flight)
 {
-  string line = IdToCode(flight.airline.get());
-  string num = IntToString(flight.number.get());
-  string suffix = suffixToString(flight.suffix);
-  return line + num + suffix;
+  return ((const TAirlinesRow&)base_tables.get("airlines").get_row("code/code_lat", IdToCode(flight.airline.get()))).code;
+}
+
+int GetFltNo(ct::Flight flight)
+{
+  return flight.number.get();
+}
+
+string GetSuffix(ct::Flight flight)
+{
+  string s = suffixToString(flight.suffix); // lang = ENGLISH
+  if (s.empty()) return s;
+  else return ((const TTripSuffixesRow&)base_tables.get("TRIP_SUFFIXES").get_row("code_lat", s)).code;
+}
+
+string FlightToString(ct::Flight f)
+{
+  return GetAirline(f) + IntToString(GetFltNo(f)) + GetSuffix(f);
 }
 
 TDateTime BoostToDateTimeCorrectInfinity(boost::gregorian::date date)
@@ -727,105 +741,113 @@ void InitSSIM()
   }
 }
 
-int HandleSSMTlg(string body)
+void HandleSSMTlg(string body, int tlg_id)
 {
 //  LogTrace(TRACE5) << __func__ << endl << body;
-  // TODO RSD /home/user/sirena/src/ssim/proc_ssm.cc:503
-  // TODO Ø•‡•™‡Î‚®• Ø•‡®Æ§Æ¢ /home/user/sirena/src/ssim/proc_ssm.cc:555
-
-  InitSSIM();
-
-  AstraSsimParseCollector collector;
-  const auto ssm = ssim::parseSsm(body, &collector);
-  string airline, airline_msg;
-  if (collector.flt)
+  // RSD /home/user/sirena/src/ssim/proc_ssm.cc:503
+  // Ø•‡•™‡Î‚®• Ø•‡®Æ§Æ¢ /home/user/sirena/src/ssim/proc_ssm.cc:555
+  // „‚ÆÁ≠®‚Ï arc.appendFlight(ssmStr.submsgs.begin()->first); /home/user/sirena/src/ssim/proc_ssm.cc:440
+  int point_id = ASTRA::NoExists;
+  try
   {
-    const TAirlinesRow &airlineRow = (const TAirlinesRow&)base_tables.get("airlines").get_row("code/code_lat", IdToCode(collector.flt->airline.get()));
-    airline = airlineRow.code;
-    airline_msg = string(" airline = ") + airline;
-  }
-  if (!ssm)
-  {
-    throw EXCEPTIONS::Exception("SSM: parse: %s%s", ssm.err().toString(UserLanguage::en_US()).c_str(), airline_msg.c_str());
-    return -1;
-  }
-
-  const ssim::SsmStruct& ssmStr = *ssm;
-
-  if (ssmStr.specials.size() > 1)
-  {
-    LogTrace(TRACE5) << "SSM: Several ACK/NAC inside SSM";
-  }
-
-  for (const ssim::SsmSubmsgPtr& spec : ssmStr.specials)
-  {
-    if (spec->type() == ssim::SSM_ACK)
+    InitSSIM();
+    bool need_write = true;
+    AstraSsimParseCollector collector;
+    const auto ssm = ssim::parseSsm(body, &collector);
+    string airline_msg;
+    if (collector.flt)
     {
-      LogTrace(TRACE5) << "SSM: ACK received";
-      return 0;
+      LogTrace(TRACE5) << "SSM TLG FLIGHT = " << FlightToString(*collector.flt);
+      string airline = GetAirline(*collector.flt);
+      airline_msg = string("; airline = ") + airline;
+      int flt_no = GetFltNo(*collector.flt);
+      string suffix = GetSuffix(*collector.flt);
+      TFltInfo flt;
+      strcpy(flt.airline, airline.substr(0,3).c_str());
+      flt.flt_no = flt_no;
+      strcpy(flt.suffix, suffix.substr(0,1).c_str());
+      flt.scd = 0;
+      point_id = flt.getPointId(btNone).first;
     }
-    if (spec->type() == ssim::SSM_NAC)
+
+    if (!ssm)
+      throw EXCEPTIONS::Exception("parse: %s%s", ssm.err().toString(UserLanguage::en_US()).c_str(), airline_msg.c_str());
+
+    const ssim::SsmStruct& ssmStr = *ssm;
+
+    if (ssmStr.specials.size() > 1)
+      LogTrace(TRACE5) << "SSM: Several ACK/NAC inside SSM";
+
+    for (const ssim::SsmSubmsgPtr& spec : ssmStr.specials)
     {
-      // éíêàñÄíÖãúçõâ éíÇÖí çÄ çÄòì íÖãÖÉêÄååì
-      LogTrace(TRACE5) << "SSM: NAC received";
-      return 0;
-    }
-  }
-
-  if (ssmStr.submsgs.size() > 1)
-  {
-    // çÖëäéãúäé êÖâëéÇ Ç ëëå çÖ èéÑÑÖêÜàÇÄÖíëü
-    throw EXCEPTIONS::Exception("SSM: ssmStr.submsgs.size() > 1%s", airline_msg.c_str());
-    return -1;
-  }
-
-  for (const auto& v : ssmStr.submsgs)
-    for (const ssim::SsmSubmsgPtr& s : v.second)
-      if (s->type() == ssim::SSM_RSD)
+      if (spec->type() == ssim::SSM_ACK)
       {
-        LogTrace(TRACE5) << "SSM: RSD received";
-        return 0;
+        LogTrace(TRACE5) << "SSM: ACK received";
+        need_write = false;
       }
+      if (spec->type() == ssim::SSM_NAC)
+      {
+        // éíêàñÄíÖãúçõâ éíÇÖí çÄ çÄòì íÖãÖÉêÄååì
+        LogTrace(TRACE5) << "SSM: NAC received";
+        need_write = false;
+      }
+    }
 
-  const ssim::ProcContext attr
-  {
-    nsi::CompanyId(0),
-    false,
-    ssmStr.head.timeIsLocal,
-    false,
-    std::make_unique<AstraSsimCallbacks>()
-  };
+    // çÖëäéãúäé êÖâëéÇ Ç ëëå çÖ èéÑÑÖêÜàÇÄÖíëü
+    if (ssmStr.submsgs.size() > 1)
+      throw EXCEPTIONS::Exception("ssmStr.submsgs.size() > 1%s", airline_msg.c_str());
 
-  ssim::CachedScdPeriods cache;
-  const std::vector<ssim::SsmSubmsgPtr>& submsgs = ssmStr.submsgs.begin()->second;
-  LogTrace(TRACE5) << "START MODIFY --------------------------------";
-  for (const ssim::SsmSubmsgPtr& subMsg : submsgs)
-  {
-    if (const Message msg = subMsg->modify(cache, attr))
+    for (const auto& v : ssmStr.submsgs)
+      for (const ssim::SsmSubmsgPtr& s : v.second)
+        if (s->type() == ssim::SSM_RSD)
+        {
+          LogTrace(TRACE5) << "SSM: RSD received";
+          need_write = false;
+        }
+
+    if (need_write)
     {
-      throw EXCEPTIONS::Exception("SSM: modify: %s%s", msg.toString(UserLanguage::en_US()).c_str(), airline_msg.c_str());
-      return -1;
+      const ssim::ProcContext attr
+      {
+        nsi::CompanyId(0),
+            false,
+            ssmStr.head.timeIsLocal,
+            false,
+            std::make_unique<AstraSsimCallbacks>()
+      };
+
+      ssim::CachedScdPeriods cache;
+      const std::vector<ssim::SsmSubmsgPtr>& submsgs = ssmStr.submsgs.begin()->second;
+      LogTrace(TRACE5) << "START MODIFY --------------------------------";
+
+      for (const ssim::SsmSubmsgPtr& subMsg : submsgs)
+        if (const Message msg = subMsg->modify(cache, attr))
+          throw EXCEPTIONS::Exception("modify: %s%s", msg.toString(UserLanguage::en_US()).c_str(), airline_msg.c_str());
+
+      LogTrace(TRACE5) << "END MODIFY --------------------------------";
+      LogTrace(TRACE5) << "CACHE: " << cache;
+
+      // std::map<ct::Flight, std::set<ssim::ScdPeriod> > forDeletion;
+      for (auto &rm : cache.forDeletion)
+        DeleteScdPeriodsFromDb(rm.second);
+
+      // std::map<ct::Flight, ssim::ScdPeriods> forSaving() const;
+      // using ScdPeriods = std::vector<ScdPeriod>;
+      for (auto &sv : cache.forSaving())
+        for (auto &scd : sv.second)
+          ScdPeriodToDb(scd);
     }
   }
-  LogTrace(TRACE5) << "END MODIFY --------------------------------";
-  LogTrace(TRACE5) << "CACHE: " << cache;
-
-  // std::map<ct::Flight, std::set<ssim::ScdPeriod> > forDeletion;
-  for (auto &rm : cache.forDeletion)
+  catch (...)
   {
-    DeleteScdPeriodsFromDb(rm.second);
+    LogTrace(TRACE5) << "SSM TLG EXCEPTION, point_id = " << point_id;
+    if (point_id != ASTRA::NoExists)
+      TlgSource(point_id, tlg_id, true, false).toDB();
+    throw;
   }
-
-  // std::map<ct::Flight, ssim::ScdPeriods> forSaving() const;
-  for (auto &sv : cache.forSaving())
-  {
-    for (auto &scd : sv.second)
-    {
-      ScdPeriodToDb(scd);
-    }
-  }
-
-  return 0;
+  LogTrace(TRACE5) << "SSM TLG OK, point_id = " << point_id;
+  if (point_id != ASTRA::NoExists)
+    TlgSource(point_id, tlg_id, false, false).toDB();
 }
 
 //------------------------------------------------------------------------------------------

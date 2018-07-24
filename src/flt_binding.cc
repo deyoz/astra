@@ -161,6 +161,7 @@ void TFltBinding::bind_flt(TFltInfo &flt, TBindType bind_type, vector<int> &spp_
 {
   spp_point_ids.clear();
   if (!flt.pr_utc && *flt.airp_dep==0) return;
+  if (bind_type == btNone) return;
 
   TSearchFltInfoPtr filter = get_search_params();
   if(not filter)
@@ -197,6 +198,8 @@ void TFltBinding::bind_flt(TFltInfo &flt, TBindType bind_type, vector<int> &spp_
   {
     switch (bind_type)
     {
+      case btNone:
+        break;
       case btFirstSeg:
         spp_point_ids.push_back(f->point_id);
         break;

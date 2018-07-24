@@ -21,12 +21,12 @@ using namespace nsi;
 #include <iostream>
 #include <fstream>
 #include <streambuf>
+using namespace std;
 
 #include <libssim/callbacks.h>
 #include <libssim/ssim_data_types.h>
 
 #include <season.h>
-//using namespace SEASON;
 
 //------------------------------------------------------------------------------------------
 
@@ -113,7 +113,7 @@ struct AstraSsimParseCollector : public ssim::ParseRequisitesCollector
 };
 //------------------------------------------------------------------------------------------
 
-int HandleSSMTlg(string body);
+void HandleSSMTlg(string body, int tlg_id);
 int ssim_test(int argc, char **argv);
 
 #endif

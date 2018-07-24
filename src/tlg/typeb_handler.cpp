@@ -1077,7 +1077,7 @@ bool parse_tlg(void)
             SaveSSMContent(tlg_id,info,con);
             */
             std::string tlgBody = parts.addr + parts.heading + parts.body;
-            HandleSSMTlg(tlgBody);
+            HandleSSMTlg(tlgBody, tlg_id);
             parseTypeB(tlg_id);
             OraSession.Commit();
             count++;

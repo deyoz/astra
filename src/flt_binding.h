@@ -7,7 +7,7 @@
 
 using BASIC::date_time::TDateTime;
 
-enum TBindType {btFirstSeg=0,btAllSeg=2,btLastSeg=1};
+enum TBindType {btFirstSeg=0,btAllSeg=2,btLastSeg=1,btNone=3};
 
 class TFltInfo
 {
