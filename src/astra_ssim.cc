@@ -741,13 +741,13 @@ void InitSSIM()
   }
 }
 
-void HandleSSMTlg(string body, int tlg_id)
+void HandleSSMTlg(string body, int tlg_id, TypeB::TFlightsForBind& flightsForBind)
 {
+  flightsForBind.clear();
 //  LogTrace(TRACE5) << __func__ << endl << body;
   // RSD /home/user/sirena/src/ssim/proc_ssm.cc:503
   // перекрытие периодов /home/user/sirena/src/ssim/proc_ssm.cc:555
   // уточнить arc.appendFlight(ssmStr.submsgs.begin()->first); /home/user/sirena/src/ssim/proc_ssm.cc:440
-  int point_id = ASTRA::NoExists;
   try
   {
     InitSSIM();
@@ -767,7 +767,7 @@ void HandleSSMTlg(string body, int tlg_id)
       flt.flt_no = flt_no;
       strcpy(flt.suffix, suffix.substr(0,1).c_str());
       flt.scd = 0;
-      point_id = flt.getPointId(btNone).first;
+      flightsForBind.emplace_back(flt, btNone, TSearchFltInfoPtr());
     }
 
     if (!ssm)
@@ -840,14 +840,15 @@ void HandleSSMTlg(string body, int tlg_id)
   }
   catch (...)
   {
-    LogTrace(TRACE5) << "SSM TLG EXCEPTION, point_id = " << point_id;
-    if (point_id != ASTRA::NoExists)
-      TlgSource(point_id, tlg_id, true, false).toDB();
+    LogTrace(TRACE5) << "SSM TLG EXCEPTION";
     throw;
   }
-  LogTrace(TRACE5) << "SSM TLG OK, point_id = " << point_id;
-  if (point_id != ASTRA::NoExists)
+  for(const TypeB::TFltForBind& i : flightsForBind)
+  {
+    int point_id = i.flt_info.getPointId(i.bind_type).first;
+    LogTrace(TRACE5) << "SSM TLG OK, point_id = " << point_id;
     TlgSource(point_id, tlg_id, false, false).toDB();
+  }
 }
 
 //------------------------------------------------------------------------------------------

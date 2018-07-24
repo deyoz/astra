@@ -1070,32 +1070,16 @@ bool parse_tlg(void)
           }
           case tcSSM:
           {
-            /*
-            TSSMHeadingInfo &info = *(dynamic_cast<TSSMHeadingInfo*>(HeadingInfo));
-            TSSMContent con;
-            ParseSSMContent(parts.addr + parts.heading + parts.body, part,info,con,mem);
-            SaveSSMContent(tlg_id,info,con);
-            */
             std::string tlgBody = parts.addr + parts.heading + parts.body;
-            HandleSSMTlg(tlgBody, tlg_id);
+            HandleSSMTlg(tlgBody, tlg_id, bind_flts);
             parseTypeB(tlg_id);
-            OraSession.Commit();
+            callPostHooksBefore();
+            ASTRA::commit();
             count++;
+            callPostHooksAfter();
+            emptyHookTables();
             break;
           }
-          /*
-          case tcASM:
-          {
-            TSSMHeadingInfo &info = *(dynamic_cast<TSSMHeadingInfo*>(HeadingInfo));
-            TASMContent con;
-            ParseASMContent(part,info,con,mem);
-            SaveASMContent(tlg_id,info,con);
-            parseTypeB(tlg_id);
-            OraSession.Commit();
-            count++;
-            break;
-          }
-          */
           default:
           {
             //телеграмму неизвестного типа сразу пишем в разобранные

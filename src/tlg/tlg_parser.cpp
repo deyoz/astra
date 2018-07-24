@@ -5433,7 +5433,8 @@ int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, TSearchFltInfo
 
   TlgSource(point_id, tlg_id, has_errors, has_alarm_errors).toDB();
 
-  check_tlg_in_alarm(point_id, NoExists);
+  if (bind_type!=btNone)
+    check_tlg_in_alarm(point_id, NoExists);
   return point_id;
 }
 

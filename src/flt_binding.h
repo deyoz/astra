@@ -145,4 +145,26 @@ class TTrferBinding : public TFltBinding
     TTrferBinding(bool pcheck_alarm):check_alarm(pcheck_alarm) {};
 };
 
+namespace TypeB
+{
+
+struct TFltForBind {
+    TFltInfo flt_info;
+    TBindType bind_type;
+    TSearchFltInfoPtr search_params;
+    TFltForBind(
+            TFltInfo vflt_info,
+            TBindType vbind_type,
+            TSearchFltInfoPtr vsearch_params
+            ):
+        flt_info(vflt_info),
+        bind_type(vbind_type),
+        search_params(vsearch_params)
+    {}
+};
+
+typedef std::list<TFltForBind> TFlightsForBind;
+
+} //namespace TypeB
+
 #endif
