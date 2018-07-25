@@ -390,7 +390,7 @@ void parse_and_handle_tpb_tlg(const tlg_info &tlg)
     tst();
     handle_tpb_tlg(tlg);
     tst();
-    parse_tlg("");
+    parse_tlg(all_other_handler_id);
     tst();
 }
 
