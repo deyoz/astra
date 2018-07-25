@@ -658,7 +658,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
         if (typeb_tlg_id!=NoExists)
           procTypeB(typeb_tlg_id, 0); //лочка
         InsQry.get().Execute();
-        socket_name = getSocketName(InsQry.get().FieldAsString("proc_name"));
+        socket_name = getSocketName(InsQry.get().GetVariableAsString("proc_name"));
         insert_typeb=true;
       }
       catch(EOracleError E)
@@ -685,7 +685,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
           InsQry.get().SetVariable("id",FNull);
           InsQry.get().SetVariable("merge_key",FNull);
           InsQry.get().Execute();
-          socket_name = getSocketName(InsQry.get().FieldAsString("proc_name"));
+          socket_name = getSocketName(InsQry.get().GetVariableAsString("proc_name"));
           insert_typeb=true;
 
           if (tlgs_text!=typeb_in_text.str())
