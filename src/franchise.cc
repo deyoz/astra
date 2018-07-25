@@ -59,13 +59,8 @@ namespace Franchise {
     {
         clear();
         TTripInfo info;
-        if(
-                info.getByPointId(point_id) and
-                info.trip_type == "ä" and
-                ((const TTripTypesRow&)base_tables.get("trip_types").get_row( "code", info.trip_type, true )).pr_reg!=0
-          ) {
+        if(info.getByPointId(point_id))
             return get(info, prop, false);
-        }
         return val != pvUnknown;
     }
 
