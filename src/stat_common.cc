@@ -88,6 +88,7 @@ void TStatParams::fromFileParams(map<string, string> &file_params)
     reg_type = file_params[PARAM_REG_TYPE];
     skip_rows = ToInt(file_params[PARAM_SKIP_ROWS]);
     pr_pacts = ToInt(file_params[PARAM_PR_PACTS]) != 0;
+    LT = ToInt(file_params[PARAM_LT]) != 0;
 }
 
 void TStatParams::toFileParams(map<string, string> &file_params) const
@@ -130,6 +131,7 @@ void TStatParams::toFileParams(map<string, string> &file_params) const
 
     file_params[PARAM_ORDER_SOURCE] = EncodeOrderSource(osSTAT);
     file_params[PARAM_PR_PACTS] = IntToString(pr_pacts);
+    file_params[PARAM_LT] = IntToString(LT);
 }
 
 void TStatParams::get(xmlNodePtr reqNode)
@@ -318,6 +320,8 @@ void TStatParams::get(xmlNodePtr reqNode)
         flt_no == NoExists and
         seance == seanceAll;
     pr_pacts = false;
+
+    LT = NodeAsIntegerFast("LTCkBox", curNode, 0) != 0;
 };
 
 void TStatParams::AccessClause(string &SQLText) const

@@ -34,6 +34,7 @@ namespace STAT {
     static const std::string PARAM_SEG_CATEGORY          = "seg_category";
     static const std::string PARAM_AIRP_TERMINAL         = "airp_terminal";
     static const std::string PARAM_BI_HALL               = "bi_hall";
+    static const std::string PARAM_LT                    = "LT";
 }
 
 enum TSeanceType { seanceAirline, seanceAirport, seanceAll };
@@ -137,6 +138,7 @@ struct TStatParams {
     std::string trfer_airline;
     int airp_terminal;
     int bi_hall;
+    bool LT; // PFS stat, check box, if true then local airp time used
     void get(xmlNodePtr resNode);
     void toFileParams(std::map<std::string, std::string> &file_params) const;
     void fromFileParams(std::map<std::string, std::string> &file_params);
