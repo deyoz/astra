@@ -165,6 +165,11 @@ int main_typeb_handler_tcl(int supervisorSocket, int argc, char *argv[])
   return 0;
 };
 
+string getSocketName(const string &proc_name)
+{
+    return "CMD_TYPEB_PARSER_" + upperc(proc_name);
+}
+
 int main_typeb_parser_tcl(int supervisorSocket, int argc, char *argv[])
 {
   try
@@ -197,8 +202,7 @@ int main_typeb_parser_tcl(int supervisorSocket, int argc, char *argv[])
       emptyHookTables();
       //
 
-      string socket_name = "CMD_TYPEB_PARSER_" + upperc(handler_id);
-      waitCmd(socket_name.c_str(),queue_not_empty?PARSER_PROC_INTERVAL():PARSER_WAIT_INTERVAL(),buf,sizeof(buf));
+      waitCmd(getSocketName(handler_id).c_str(),queue_not_empty?PARSER_PROC_INTERVAL():PARSER_WAIT_INTERVAL(),buf,sizeof(buf));
     }; // end of loop
   }
   catch(EOracleError &E)
@@ -402,7 +406,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
     TMemoryManager mem(STDLOG);
     TQuery Qry(&OraSession);
 
-    bool pr_typeb_cmd=false;
+    string socket_name;
     TTlgPartsText parts;
     THeadingInfo *HeadingInfo=NULL;
     TEndingInfo *EndingInfo=NULL;
@@ -654,7 +658,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
         if (typeb_tlg_id!=NoExists)
           procTypeB(typeb_tlg_id, 0); //лочка
         InsQry.get().Execute();
-        pr_typeb_cmd=true;
+        socket_name = getSocketName(InsQry.get().FieldAsString("proc_name"));
         insert_typeb=true;
       }
       catch(EOracleError E)
@@ -681,7 +685,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
           InsQry.get().SetVariable("id",FNull);
           InsQry.get().SetVariable("merge_key",FNull);
           InsQry.get().Execute();
-          pr_typeb_cmd=true;
+          socket_name = getSocketName(InsQry.get().FieldAsString("proc_name"));
           insert_typeb=true;
 
           if (tlgs_text!=typeb_in_text.str())
@@ -753,10 +757,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
       throw;
   }
 
-  if (pr_typeb_cmd) {
-      string proc_name = "CMD_TYPEB_PARSER_" + upperc(InsQry.get().GetVariableAsString("proc_name"));
-      sendCmd(proc_name.c_str(),"H");
-  }
+  if (not socket_name.empty()) sendCmd(socket_name.c_str(),"H");
   mem.destroy(HeadingInfo, STDLOG);
   if (HeadingInfo!=NULL) delete HeadingInfo;
   mem.destroy(EndingInfo, STDLOG);
@@ -797,7 +798,7 @@ bool parse_tlg(const string &handler_id)
             "       MAX(time_receive) AS time_receive, "
             "       MAX(time_create) AS max_time_create, "
             "       MIN(time_receive) AS min_time_receive, "
-            "       MIN(NVL(typeb_in.proc_attempt,0)) AS proc_attempt "
+            "       MIN(typeb_in.proc_attempt) AS proc_attempt "
             "FROM tlgs_in, typeb_in "
             "WHERE tlgs_in.id = typeb_in.id AND "
             "      time_receive_not_parse>=:time_receive and "
@@ -810,7 +811,7 @@ bool parse_tlg(const string &handler_id)
             "       MAX(time_receive) AS time_receive, "
             "       MAX(time_create) AS max_time_create, "
             "       MIN(time_receive) AS min_time_receive, "
-            "       MIN(NVL(typeb_in.proc_attempt,0)) AS proc_attempt "
+            "       MIN(typeb_in.proc_attempt) AS proc_attempt "
             "FROM tlgs_in, typeb_in "
             "WHERE tlgs_in.id = typeb_in.id AND "
             "      time_receive_not_parse>=:time_receive and "
