@@ -393,7 +393,7 @@ bool handle_tlg(void)
 void parse_and_handle_tpb_tlg(const tlg_info &tlg)
 {
     handle_tpb_tlg(tlg);
-    parse_tlg("");
+    parse_tlg(all_other_handler_id);
 }
 
 void handle_tpb_tlg(const tlg_info &tlg)
