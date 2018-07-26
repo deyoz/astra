@@ -76,6 +76,8 @@ src/basel_aero.cc
 src/basel_aero.h
 src/bi_rules.cpp
 src/bi_rules.h
+src/brands.cpp
+src/brands.h
 src/brd.cc
 src/brd.h
 src/cache.cc

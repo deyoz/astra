@@ -4,28 +4,39 @@
 #include <list>
 #include <string>
 #include "xml_unit.h"
+#include "astra_consts.h"
+#include "astra_elems.h"
 
 struct TBrand
 {
+  int id;
   std::string oper_airline;
-  std::string code;
-  std::string name;
-  void clear() {
+
+  TBrand() { clear(); }
+  TBrand(int _id, const std::string& _oper_airline) :
+    id(_id), oper_airline(_oper_airline) {}
+
+  void clear()
+  {
+    id=ASTRA::NoExists;
     oper_airline.clear();
-    code.clear();
-    name.clear();
   }
-  void toXML( xmlNodePtr brandNode ) const;
+
+  const std::string name(const AstraLocale::OutputLang& lang) const;
+
+  const TBrand& toWebXML(xmlNodePtr node,
+                         const AstraLocale::OutputLang& lang) const;
 };
 
+typedef std::list<int> BrandIds;
+
 struct TBrands {
-    typedef std::list<int> TItems; // <brands.id, brands.code>
-    TItems items;
+  public:
+    BrandIds brandIds;
     std::string oper_airline;
     void get(int pax_id);
     void get(const std::string &airline, const std::string &fare_basis);
-    bool getBrand( TBrand &brand, std::string lang ) const;
-    bool getBrand( int id, TBrand &brand, std::string lang ) const;
+    TBrand getSingleBrand() const;
 };
 
 #endif

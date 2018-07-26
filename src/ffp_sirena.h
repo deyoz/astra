@@ -28,7 +28,7 @@ class TFFPItem
       company=_company;
       card_number=_card_number;
     }
-    const TFFPItem& toXML(xmlNodePtr node, const std::string &lang) const;
+    const TFFPItem& toXML(xmlNodePtr node, const AstraLocale::OutputLang &lang) const;
     TFFPItem& fromXML(xmlNodePtr node);
     std::string traceStr() const
     {

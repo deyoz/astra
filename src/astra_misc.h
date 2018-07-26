@@ -44,24 +44,33 @@ class TSimpleMktFlight
       airline.clear();
       flt_no=ASTRA::NoExists;
       suffix.clear();
-    };
+    }
   public:
     std::string airline;
     int flt_no;
     std::string suffix;
-    TSimpleMktFlight() {init();};
+    TSimpleMktFlight() { init(); }
+    TSimpleMktFlight(const std::string& _airline,
+                     const int& _flt_no,
+                     const std::string& _suffix) :
+      airline(_airline), flt_no(_flt_no), suffix(_suffix) {}
     void clear()
     {
       init();
-    };
+    }
     bool empty() const
     {
       return airline.empty() &&
              flt_no==ASTRA::NoExists &&
              suffix.empty();
-    };
+    }
+    const TSimpleMktFlight& toXML(xmlNodePtr node,
+                                  const boost::optional<AstraLocale::OutputLang>& lang) const;
+
     virtual ~TSimpleMktFlight() {}
 };
+
+typedef std::vector<TSimpleMktFlight> TSimpleMktFlights;
 
 class TMktFlight : public TSimpleMktFlight
 {
@@ -583,7 +592,8 @@ class TPnrAddrInfo
       return s.str();
     }
 
-    const TPnrAddrInfo& toXML(xmlNodePtr addrParentNode) const;
+    const TPnrAddrInfo& toXML(xmlNodePtr addrParentNode,
+                              const boost::optional<AstraLocale::OutputLang>& lang=boost::none) const;
 };
 
 class TPnrAddrs : public std::vector<TPnrAddrInfo>
@@ -614,7 +624,8 @@ class TPnrAddrs : public std::vector<TPnrAddrInfo>
         if (find(begin(), end(), addr)!=end()) return true;
       return false;
     }
-    const TPnrAddrs &toXML(xmlNodePtr addrsParentNode) const;
+    const TPnrAddrs &toXML(xmlNodePtr addrsParentNode,
+                           const boost::optional<AstraLocale::OutputLang>& lang=boost::none) const;
     const std::string traceStr() const
     {
       std::ostringstream s;
@@ -994,6 +1005,7 @@ struct TCodeShareSets {
              bool is_local_scd_out=false);
 };
 
+void GetMktFlights(const TTripInfo &operFltInfo, TSimpleMktFlights &simpleMktFlights);
 //важно! время вылета scd_out у operFlt должно быть в UTC
 //       return_scd_utc=false: время вылета в markFltInfo возвращается локальное относительно airp
 //       return_scd_utc=true: время вылета в markFltInfo возвращается в UTC

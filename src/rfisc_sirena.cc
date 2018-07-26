@@ -21,20 +21,20 @@ const std::string TGroupInfo::id="group_svc_info";
 const std::string TPseudoGroupInfo::id="pseudogroup_svc_info";
 const std::string TPassengers::id="passenger_with_svc";
 
-const TSegItem& TSegItem::toSirenaXML(xmlNodePtr node, const std::string &lang) const
+const TSegItem& TSegItem::toSirenaXML(xmlNodePtr node, const OutputLang &lang) const
 {
   if (node==NULL) return *this;
 
   SetProp(node, "id", id);
   if (markFlt)
   {
-    SetProp(node, "company", airlineToXML(markFlt.get().airline, lang));
+    SetProp(node, "company", airlineToPrefferedCode(markFlt.get().airline, lang));
     SetProp(node, "flight", flight(markFlt.get(), lang));
   };
-  SetProp(node, "operating_company", airlineToXML(operFlt.airline, lang));
+  SetProp(node, "operating_company", airlineToPrefferedCode(operFlt.airline, lang));
   SetProp(node, "operating_flight", flight(operFlt, lang));
-  SetProp(node, "departure", airpToXML(operFlt.airp, lang));
-  SetProp(node, "arrival", airpToXML(airp_arv, lang));
+  SetProp(node, "departure", airpToPrefferedCode(operFlt.airp, lang));
+  SetProp(node, "arrival", airpToPrefferedCode(airp_arv, lang));
   if (operFlt.scd_out!=ASTRA::NoExists)
   {
     if (scd_out_contain_time)
@@ -51,7 +51,7 @@ const TSegItem& TSegItem::toSirenaXML(xmlNodePtr node, const std::string &lang) 
       SetProp(node, "arrival_date", DateTimeToStr(scd_in, "yyyy-mm-dd")); //локальная дата
 
   }
-  SetProp(node, "equipment", craftToXML(operFlt.craft, lang), "");
+  SetProp(node, "equipment", craftToPrefferedCode(operFlt.craft, lang), "");
 
   return *this;
 }
@@ -64,12 +64,12 @@ void TPaxSegItem::set(const CheckIn::TPaxTknItem& _tkn, TPaxSection* paxSection)
     display_id=paxSection->displays.add(TETickItem().fromDB(tkn.no, tkn.coupon, TETickItem::DisplayTlg, false).ediPnr);
 }
 
-const TPaxSegItem& TPaxSegItem::toSirenaXML(xmlNodePtr node, const std::string &lang) const
+const TPaxSegItem& TPaxSegItem::toSirenaXML(xmlNodePtr node, const OutputLang &lang) const
 {
   if (node==NULL) return *this;
 
   TSegItem::toSirenaXML(node, lang);
-  SetProp(node, "subclass", ElemIdToPrefferedElem(etSubcls, subcl, efmtCodeNative, lang));
+  SetProp(node, "subclass", ElemIdToPrefferedElem(etSubcls, subcl, efmtCodeNative, lang.get()));
   if (!tkn.no.empty())
   {
     xmlNodePtr tknNode=NewTextChild(node, "ticket");
@@ -78,22 +78,22 @@ const TPaxSegItem& TPaxSegItem::toSirenaXML(xmlNodePtr node, const std::string &
     SetProp(tknNode, "display_id", display_id, ASTRA::NoExists);
   }
   for(list<CheckIn::TPnrAddrItem>::const_iterator i=pnrs.begin(); i!=pnrs.end(); ++i)
-    SetProp(NewTextChild(node, "recloc", i->addr), "crs", airlineToXML(i->airline, lang));
+    SetProp(NewTextChild(node, "recloc", i->addr), "crs", airlineToPrefferedCode(i->airline, lang));
   for(std::set<CheckIn::TPaxFQTItem>::const_iterator i=fqts.begin(); i!=fqts.end(); ++i)
-    SetProp(NewTextChild(node, "ffp", i->no), "company", airlineToXML(i->airline, lang));
+    SetProp(NewTextChild(node, "ffp", i->no), "company", airlineToPrefferedCode(i->airline, lang));
 
   return *this;
 }
 
-std::string TSegItem::flight(const TTripInfo &flt, const std::string &lang)
+std::string TSegItem::flight(const TTripInfo &flt, const OutputLang &lang)
 {
   ostringstream s;
   s << setw(3) << setfill('0') << flt.flt_no
-    << ElemIdToPrefferedElem(etSuffix, flt.suffix, efmtCodeNative, lang);
+    << ElemIdToPrefferedElem(etSuffix, flt.suffix, efmtCodeNative, lang.get());
   return s.str();
 }
 
-const TPaxItem& TPaxItem::toSirenaXML(xmlNodePtr node, const std::string &lang) const
+const TPaxItem& TPaxItem::toSirenaXML(xmlNodePtr node, const OutputLang &lang) const
 {
   if (node==NULL) return *this;
 
@@ -111,7 +111,7 @@ const TPaxItem& TPaxItem::toSirenaXML(xmlNodePtr node, const std::string &lang) 
     SetProp(docNode, "number", doc.no, "");
     if (doc.expiry_date!=ASTRA::NoExists)
       SetProp(docNode, "expiration_date", DateTimeToStr(doc.expiry_date, "yyyy-mm-dd"));
-    SetProp(docNode, "country", PaxDocCountryIdToPrefferedElem(doc.issue_country, efmtCodeISOInter, lang), "");
+    SetProp(docNode, "country", PaxDocCountryIdToPrefferedElem(doc.issue_country, efmtCodeISOInter, lang.get()), "");
   }
 
   for(TPaxSegMap::const_iterator i=segs.begin(); i!=segs.end(); ++i)
@@ -127,7 +127,7 @@ std::string TPaxItem::sex() const
   return (f==0?"male":"female");
 }
 
-const TPaxItem2& TPaxItem2::toSirenaXML(xmlNodePtr node, const std::string &lang) const
+const TPaxItem2& TPaxItem2::toSirenaXML(xmlNodePtr node, const OutputLang &lang) const
 {
   if (node==NULL) return *this;
 
@@ -139,7 +139,7 @@ const TPaxItem2& TPaxItem2::toSirenaXML(xmlNodePtr node, const std::string &lang
   return *this;
 }
 
-const TSvcItem& TSvcItem::toSirenaXML(xmlNodePtr node, const std::string &lang) const
+const TSvcItem& TSvcItem::toSirenaXML(xmlNodePtr node, const OutputLang &lang) const
 {
   if (node==NULL) return *this;
 
@@ -192,7 +192,7 @@ void TPaxSection::toXML(xmlNodePtr node) const
   if (paxs.empty() && throw_if_empty) throw Exception("TPaxSection::toXML: paxs.empty()");
 
   for(const TPaxItem& pax : paxs)
-    pax.toSirenaXML(NewTextChild(node, "passenger"), LANG_EN);
+    pax.toSirenaXML(NewTextChild(node, "passenger"), OutputLang(LANG_EN, {OutputLang::OnlyTrueIataCodes}));
 
   for(const TDisplayItem& display : displays)
     display.toSirenaXML(node);
@@ -220,7 +220,7 @@ void TSvcSection::toXML(xmlNodePtr node) const
   if (svcs.empty() && throw_if_empty) throw Exception("TSvcSection::toXML: svcs.empty()");
 
   for(TSvcList::const_iterator i=svcs.begin(); i!=svcs.end(); ++i)
-    i->toSirenaXML(NewTextChild(node, "svc"), LANG_EN);
+    i->toSirenaXML(NewTextChild(node, "svc"), OutputLang(LANG_EN, {OutputLang::OnlyTrueIataCodes}));
 }
 
 void TSvcSection::updateSeg(const Sirena::TPaxSegKey &key)
@@ -689,7 +689,7 @@ void TPassengersRes::toXML(xmlNodePtr node) const
   if (node==NULL) return;
 
   for(list<TPaxItem2>::const_iterator p=begin(); p!=end(); ++p)
-    p->toSirenaXML(NewTextChild(node, "passenger"), LANG_EN);
+    p->toSirenaXML(NewTextChild(node, "passenger"), OutputLang(LANG_EN, {OutputLang::OnlyTrueIataCodes}));
 }
 
 void TGroupInfoReq::fromXML(xmlNodePtr node)

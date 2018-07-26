@@ -99,7 +99,7 @@ const TRFISCListKey& TRFISCListKey::toXML(xmlNodePtr node) const
   return *this;
 }
 
-const TRFISCKey& TRFISCKey::toSirenaXML(xmlNodePtr node, const std::string &lang) const
+const TRFISCKey& TRFISCKey::toSirenaXML(xmlNodePtr node, const OutputLang &lang) const
 {
   if (node==NULL) return *this;
   list_item?list_item.get().toSirenaXML(node, lang):TRFISCListKey::toSirenaXML(node, lang);
@@ -124,19 +124,19 @@ std::string TRFISCListKey::str(const std::string& lang) const
   return s.str();
 }
 
-const TRFISCListKey& TRFISCListKey::toSirenaXML(xmlNodePtr node, const std::string &lang) const
+const TRFISCListKey& TRFISCListKey::toSirenaXML(xmlNodePtr node, const OutputLang &lang) const
 {
   if (node==NULL) return *this;
 
   if (!airline.empty())
-    SetProp(node, "company", airlineToXML(airline, lang));
+    SetProp(node, "company", airlineToPrefferedCode(airline, lang));
   if (service_type!=TServiceType::Unknown)
     SetProp(node, "service_type", ServiceTypes().encode(service_type));
   SetProp(node, "rfisc", RFISC);
   return *this;
 }
 
-const TRFISCListItem& TRFISCListItem::toSirenaXML(xmlNodePtr node, const std::string &lang) const
+const TRFISCListItem& TRFISCListItem::toSirenaXML(xmlNodePtr node, const OutputLang &lang) const
 {
   if (node==NULL) return *this;
 
@@ -1163,7 +1163,7 @@ void TPaxServiceLists::toXML(int id, bool is_unaccomp, int tckin_seg_count, xmlN
   };
 }
 
-const TPaxSegRFISCKey& TPaxSegRFISCKey::toSirenaXML(xmlNodePtr node, const std::string &lang) const
+const TPaxSegRFISCKey& TPaxSegRFISCKey::toSirenaXML(xmlNodePtr node, const OutputLang &lang) const
 {
   if (node==NULL) return *this;
   TPaxSegKey::toSirenaXML(node);

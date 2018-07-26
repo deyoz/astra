@@ -190,7 +190,7 @@ class TRFISCListKey
 
     std::string str(const std::string& lang="") const;
 
-    const TRFISCListKey& toSirenaXML(xmlNodePtr node, const std::string &lang) const;
+    const TRFISCListKey& toSirenaXML(xmlNodePtr node, const AstraLocale::OutputLang &lang) const;
     TRFISCListKey& fromSirenaXML(xmlNodePtr node);
 
     const TRFISCListKey& toXML(xmlNodePtr node) const;
@@ -268,7 +268,7 @@ class TRFISCListItem : public TRFISCListKey
     const std::string& name_view(const std::string& lang="") const;
     const std::string descr_view(const std::string& lang="") const;
 
-    const TRFISCListItem& toSirenaXML(xmlNodePtr node, const std::string &lang) const;
+    const TRFISCListItem& toSirenaXML(xmlNodePtr node, const AstraLocale::OutputLang &lang) const;
     TRFISCListItem& fromSirenaXML(xmlNodePtr node);
 
     const TRFISCListItem& toXML(xmlNodePtr node, const boost::optional<TRFISCListItem> &def=boost::none) const;
@@ -309,7 +309,7 @@ class TRFISCKey : public TRFISCListKey
       list_item=boost::none;
     }
 
-    const TRFISCKey& toSirenaXML(xmlNodePtr node, const std::string &lang) const;
+    const TRFISCKey& toSirenaXML(xmlNodePtr node, const AstraLocale::OutputLang &lang) const;
 
     const TRFISCKey& toXML(xmlNodePtr node) const;
     const TRFISCKey& toDB(TQuery &Qry) const;
@@ -519,7 +519,7 @@ class TPaxSegRFISCKey : public Sirena::TPaxSegKey, public TRFISCKey
              TRFISCKey::operator ==(key);
     }
 
-    const TPaxSegRFISCKey& toSirenaXML(xmlNodePtr node, const std::string &lang) const;
+    const TPaxSegRFISCKey& toSirenaXML(xmlNodePtr node, const AstraLocale::OutputLang &lang) const;
     TPaxSegRFISCKey& fromSirenaXML(xmlNodePtr node);
 
     const TPaxSegRFISCKey& toXML(xmlNodePtr node) const;
