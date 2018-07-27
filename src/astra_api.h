@@ -982,6 +982,7 @@ struct XmlPlaceList
     std::vector<XmlPlace> yPlaces(int y) const;
     XmlPlace minYPlace() const;
     XmlPlace maxYPlace() const;
+    boost::optional<XmlPlace> findPlace(int y, const std::string& xname) const;
 };
 
 //---------------------------------------------------------------------------------------

@@ -758,21 +758,35 @@ static iatci::CabinDetails createCabinDetails(const XmlPlaceList& placelist)
 }
 
 static boost::optional<iatci::RowDetails> createFilledRowDetails(const XmlPlaceList& placelist,
+                                                                 const iatci::CabinDetails& cabinTemplate,
                                                                  int row)
 {
-    std::vector<XmlPlace> rowPlaces = placelist.yPlaces(row);
     std::list<iatci::SeatOccupationDetails> rowOccupations;
-    bool atLeastOnePlaceOccupied = false;
-    for(const XmlPlace& place: rowPlaces) {
-        rowOccupations.push_back(iatci::SeatOccupationDetails(place.xname));
-        if(findLayer(place, "CHECKIN")) {
-            rowOccupations.back().setOccupied();
-            atLeastOnePlaceOccupied = true;
+    if(placelist.yPlaces(row).empty()) {
+        LogTrace(TRACE3) << "Row " << row << " does not exist";
+        return boost::none;
+    }
+
+    bool needRowDetails = false;
+    std::string yname;
+    for(const iatci::SeatColumnDetails& col: cabinTemplate.seatColumns()) {
+        rowOccupations.push_back(iatci::SeatOccupationDetails(col.column()));
+        auto place = placelist.findPlace(row, col.column());
+        if(!place) {
+            needRowDetails = true;
+            rowOccupations.back().setNoExist();
+        } else {
+            if(yname.empty())
+                yname = place->yname;
+            if(findLayer(*place, "CHECKIN")) {
+                needRowDetails = true;
+                rowOccupations.back().setOccupied();
+            }
         }
     }
 
-    if(atLeastOnePlaceOccupied) {
-        return iatci::RowDetails(rowPlaces.front().yname, rowOccupations);
+    if(needRowDetails) {
+        return iatci::RowDetails(yname, rowOccupations);
     }
 
     return boost::none;
@@ -790,7 +804,7 @@ static iatci::SeatmapDetails createSeatmapDetails(const std::list<XmlPlaceList>&
                  maxYPlace = placelist.maxYPlace();
         for(int curRow = minYPlace.y; curRow <= maxYPlace.y; ++curRow)
         {
-            boost::optional<iatci::RowDetails> row = createFilledRowDetails(placelist, curRow);
+            boost::optional<iatci::RowDetails> row = createFilledRowDetails(placelist, cabin, curRow);
             if(row) {
                 lRow.push_back(*row);
             }
@@ -2520,8 +2534,18 @@ std::vector<XmlPlace> XmlPlaceList::yPlaces(int y) const
         }
     }
 
-    ASSERT(!res.empty());
     return algo::sort(res, [](const XmlPlace& l, const XmlPlace& r) { return r.x > l.x; });
+}
+
+boost::optional<XmlPlace> XmlPlaceList::findPlace(int y, const std::string& xname) const
+{
+    for(auto& place: places) {
+        if(place.y == y && place.xname == xname) {
+            return place;
+        }
+    }
+
+    return boost::none;
 }
 
 XmlPlace XmlPlaceList::minYPlace() const
