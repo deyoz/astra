@@ -1335,8 +1335,9 @@ public:
                                            boost::optional<xml_entities::XmlBagTags> tags = boost::none);
     xml_entities::LoadPaxXmlResult SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
-    // изменение места пассажира
-    xml_entities::LoadPaxXmlResult ReseatPax(const xml_entities::XmlSegment& paxSeg);
+    // изменение места
+    void ReseatPax(int pointDep, const xml_entities::XmlPax& pax);
+    xml_entities::LoadPaxXmlResult Reseat(const xml_entities::XmlSegment& paxSeg);
 
     // расширенный поиск рейса на дату
     xml_entities::GetAdvTripListXmlResult GetAdvTripList(const boost::gregorian::date& depDate);
