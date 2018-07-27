@@ -1386,6 +1386,7 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     Qry.CreateVariable("term_mode", otString, EncodeOperMode(reqInfo->desk.mode));
     Qry.Execute();
 
+#ifdef XP_TESTING
     if(inTestMode())
     {
         // добавляем немного привелегий юзеру
@@ -1395,6 +1396,7 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         Qry.CreateVariable("user_id", otInteger, reqInfo->user.user_id);
         Qry.Execute();
     }
+#endif//XP_TESTING
 
     vector<string> run_params;
     SessionParamsFromXML(reqNode, run_params);
