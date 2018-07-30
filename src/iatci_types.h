@@ -847,6 +847,7 @@ public:
     const std::list<std::string>& lCharacteristics() const;
 
     void setOccupied();
+    void setNoExist();
 
 protected:
     SeatOccupationDetails() {} // for boost serialization only

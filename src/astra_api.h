@@ -763,7 +763,7 @@ struct XmlSegment
 
     boost::optional<XmlPax> findPaxById(int paxId) const;
 
-    XmlPax firstAdult() const;
+    XmlPax firstNonInfant() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -982,6 +982,7 @@ struct XmlPlaceList
     std::vector<XmlPlace> yPlaces(int y) const;
     XmlPlace minYPlace() const;
     XmlPlace maxYPlace() const;
+    boost::optional<XmlPlace> findPlace(int y, const std::string& xname) const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -1335,8 +1336,9 @@ public:
                                            boost::optional<xml_entities::XmlBagTags> tags = boost::none);
     xml_entities::LoadPaxXmlResult SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
-    // изменение места пассажира
-    xml_entities::LoadPaxXmlResult ReseatPax(const xml_entities::XmlSegment& paxSeg);
+    // изменение места
+    void ReseatPax(int pointDep, const xml_entities::XmlPax& pax);
+    xml_entities::LoadPaxXmlResult Reseat(const xml_entities::XmlSegment& paxSeg);
 
     // расширенный поиск рейса на дату
     xml_entities::GetAdvTripListXmlResult GetAdvTripList(const boost::gregorian::date& depDate);

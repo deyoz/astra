@@ -1160,6 +1160,11 @@ void SeatOccupationDetails::setOccupied()
     m_occupation = "O";
 }
 
+void SeatOccupationDetails::setNoExist()
+{
+    m_occupation = "Z";
+}
+
 //---------------------------------------------------------------------------------------
 
 RowDetails::RowDetails(const std::string& row,

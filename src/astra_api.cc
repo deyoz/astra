@@ -545,23 +545,14 @@ LoadPaxXmlResult AstraEngine::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode)
     return LoadPaxXmlResult(resNode);
 }
 
-LoadPaxXmlResult AstraEngine::ReseatPax(const xml_entities::XmlSegment& paxSeg)
+void AstraEngine::ReseatPax(int pointDep, const xml_entities::XmlPax& pax)
 {
     xmlNodePtr reqNode = getQueryNode(),
                resNode = getAnswerNode();
 
-    ASSERT(!paxSeg.passengers.empty());
-
-    XmlPax pax = paxSeg.passengers.front();
-    if(paxSeg.passengers.size() > 1) {
-        // если пассажиров найдено несколько, значит нашли пакса с младенцем
-        // у младенца места быть не может, значит ищем взрослого
-        pax = paxSeg.firstAdult();
-    }
-
     iatci::Seat seat = iatci::Seat::fromStr(pax.seat_no);
     xmlNodePtr reseatNode = NewTextChild(reqNode, "Reseat");
-    NewTextChild(reseatNode, "trip_id",         paxSeg.seg_info.point_dep);
+    NewTextChild(reseatNode, "trip_id",         pointDep);
     NewTextChild(reseatNode, "pax_id",          pax.pax_id);
     NewTextChild(reseatNode, "xname",           seat.col());
     NewTextChild(reseatNode, "yname",           seat.row());
@@ -573,7 +564,17 @@ LoadPaxXmlResult AstraEngine::ReseatPax(const xml_entities::XmlSegment& paxSeg)
     LogTrace(TRACE3) << "reseat pax query:\n" << XMLTreeToText(reqNode->doc);
     SalonFormInterface::instance()->Reseat(getRequestCtxt(), reseatNode, resNode);
     LogTrace(TRACE3) << "reseat pax answer:\n" << XMLTreeToText(resNode->doc);
-    return LoadPax(paxSeg.seg_info.point_dep, pax.reg_no);
+}
+
+LoadPaxXmlResult AstraEngine::Reseat(const xml_entities::XmlSegment& paxSeg)
+{
+    ASSERT(!paxSeg.passengers.empty());
+    for(const xml_entities::XmlPax& pax: paxSeg.passengers) {
+        if(pax.toPax().isInfant()) continue;
+        ReseatPax(paxSeg.seg_info.point_dep, pax);
+    }
+
+    return LoadPax(paxSeg.seg_info.point_dep, paxSeg.firstNonInfant().reg_no);
 }
 
 
@@ -757,21 +758,35 @@ static iatci::CabinDetails createCabinDetails(const XmlPlaceList& placelist)
 }
 
 static boost::optional<iatci::RowDetails> createFilledRowDetails(const XmlPlaceList& placelist,
+                                                                 const iatci::CabinDetails& cabinTemplate,
                                                                  int row)
 {
-    std::vector<XmlPlace> rowPlaces = placelist.yPlaces(row);
     std::list<iatci::SeatOccupationDetails> rowOccupations;
-    bool atLeastOnePlaceOccupied = false;
-    for(const XmlPlace& place: rowPlaces) {
-        rowOccupations.push_back(iatci::SeatOccupationDetails(place.xname));
-        if(findLayer(place, "CHECKIN")) {
-            rowOccupations.back().setOccupied();
-            atLeastOnePlaceOccupied = true;
+    if(placelist.yPlaces(row).empty()) {
+        LogTrace(TRACE3) << "Row " << row << " does not exist";
+        return boost::none;
+    }
+
+    bool needRowDetails = false;
+    std::string yname;
+    for(const iatci::SeatColumnDetails& col: cabinTemplate.seatColumns()) {
+        rowOccupations.push_back(iatci::SeatOccupationDetails(col.column()));
+        auto place = placelist.findPlace(row, col.column());
+        if(!place) {
+            needRowDetails = true;
+            rowOccupations.back().setNoExist();
+        } else {
+            if(yname.empty())
+                yname = place->yname;
+            if(findLayer(*place, "CHECKIN")) {
+                needRowDetails = true;
+                rowOccupations.back().setOccupied();
+            }
         }
     }
 
-    if(atLeastOnePlaceOccupied) {
-        return iatci::RowDetails(rowPlaces.front().yname, rowOccupations);
+    if(needRowDetails) {
+        return iatci::RowDetails(yname, rowOccupations);
     }
 
     return boost::none;
@@ -789,7 +804,7 @@ static iatci::SeatmapDetails createSeatmapDetails(const std::list<XmlPlaceList>&
                  maxYPlace = placelist.maxYPlace();
         for(int curRow = minYPlace.y; curRow <= maxYPlace.y; ++curRow)
         {
-            boost::optional<iatci::RowDetails> row = createFilledRowDetails(placelist, curRow);
+            boost::optional<iatci::RowDetails> row = createFilledRowDetails(placelist, cabin, curRow);
             if(row) {
                 lRow.push_back(*row);
             }
@@ -1773,10 +1788,6 @@ iatci::dcrcka::Result updateIatciPaxes(const iatci::CkuParams& ckuParams)
 
     const auto& paxGroups = ckuParams.fltGroup().paxGroups();
     ASSERT(!paxGroups.empty());
-    //    bool multiPax = paxGroups > 1;
-    //    if(multiPax) {
-    //        throw tick_soft_except(STDLOG, AstraErr::UPDATE_SEPARATELY);
-    //    }
     bool Reseat = paxGroups.front().updSeat();
 
     XmlBags newBags, delBags;
@@ -1820,7 +1831,7 @@ iatci::dcrcka::Result updateIatciPaxes(const iatci::CkuParams& ckuParams)
     }
 
     if(Reseat) {
-        LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().ReseatPax(paxSeg);
+        LoadPaxXmlResult loadPaxXmlRes = AstraEngine::singletone().Reseat(paxSeg);
         return loadPaxXmlRes.toIatciFirst(iatci::dcrcka::Result::Update,
                                           iatci::dcrcka::Result::Ok);
     } else {
@@ -2329,12 +2340,12 @@ boost::optional<XmlPax> XmlSegment::findPaxById(int paxId) const
     return boost::none;
 }
 
-XmlPax XmlSegment::firstAdult() const
+XmlPax XmlSegment::firstNonInfant() const
 {
     ASSERT(!passengers.empty());
     for(const XmlPax& pax: passengers) {
         ASTRA::TPerson pers = DecodePerson(pax.pers_type.c_str());
-        if(pers == ASTRA::adult) {
+        if(pers == ASTRA::adult || pers == ASTRA::child) {
             return pax;
         }
     }
@@ -2523,8 +2534,18 @@ std::vector<XmlPlace> XmlPlaceList::yPlaces(int y) const
         }
     }
 
-    ASSERT(!res.empty());
     return algo::sort(res, [](const XmlPlace& l, const XmlPlace& r) { return r.x > l.x; });
+}
+
+boost::optional<XmlPlace> XmlPlaceList::findPlace(int y, const std::string& xname) const
+{
+    for(auto& place: places) {
+        if(place.y == y && place.xname == xname) {
+            return place;
+        }
+    }
+
+    return boost::none;
 }
 
 XmlPlace XmlPlaceList::minYPlace() const
