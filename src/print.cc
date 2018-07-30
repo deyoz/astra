@@ -2382,6 +2382,8 @@ void PrintInterface::GetPrintDataVOUnregistered(
         parser.pts.set_tag(TAG::SUBCLS,        "");
         parser.pts.set_tag(TAG::TAGS,          ""); // TODO get it
 
+        parser.pts.tagsFromXML(params.clientDataNode);
+
         QParams qryParams;
         qryParams
             << QParam("time_print", otDate, NowUTC())
