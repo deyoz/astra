@@ -763,7 +763,7 @@ struct XmlSegment
 
     boost::optional<XmlPax> findPaxById(int paxId) const;
 
-    XmlPax firstAdult() const;
+    XmlPax firstNonInfant() const;
 };
 
 //---------------------------------------------------------------------------------------

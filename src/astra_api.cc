@@ -574,7 +574,7 @@ LoadPaxXmlResult AstraEngine::Reseat(const xml_entities::XmlSegment& paxSeg)
         ReseatPax(paxSeg.seg_info.point_dep, pax);
     }
 
-    return LoadPax(paxSeg.seg_info.point_dep, paxSeg.firstAdult().reg_no);
+    return LoadPax(paxSeg.seg_info.point_dep, paxSeg.firstNonInfant().reg_no);
 }
 
 
@@ -2340,12 +2340,12 @@ boost::optional<XmlPax> XmlSegment::findPaxById(int paxId) const
     return boost::none;
 }
 
-XmlPax XmlSegment::firstAdult() const
+XmlPax XmlSegment::firstNonInfant() const
 {
     ASSERT(!passengers.empty());
     for(const XmlPax& pax: passengers) {
         ASTRA::TPerson pers = DecodePerson(pax.pers_type.c_str());
-        if(pers == ASTRA::adult) {
+        if(pers == ASTRA::adult || pers == ASTRA::child) {
             return pax;
         }
     }
