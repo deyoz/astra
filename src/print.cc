@@ -2316,6 +2316,19 @@ void PrintInterface::GetPrintDataVOUnregistered(
 
         PrintDataParser parser(airp_dep, airp_arv, params.prnParams.pr_lat);
 
+        TBCBPData bcbp;
+        bcbp.cls         = "";
+        bcbp.reg_no      = 0;
+        bcbp.pers_type   = "‚‡";
+        bcbp.airp_dep    = airp_dep;
+        bcbp.airp_arv    = airp_arv;
+        bcbp.airline     = info.airline;
+        bcbp.flt_no      = info.flt_no;
+        bcbp.suffix      = info.suffix;
+        bcbp.scd         = UTCToLocal(info.scd_out, AirpTZRegion(airp_dep));
+        bcbp.is_boarding_pass = false;
+        bcbp.seat_no = "000X";
+
         parser.pts.set_tag(TAG::ACT,           UTCToLocal(info.act_est_scd_out(), AirpTZRegion(airp_dep)));
         parser.pts.set_tag(TAG::AIRLINE,       info.airline);
         parser.pts.set_tag(TAG::AIRLINE_NAME,  info.airline);
@@ -2368,6 +2381,8 @@ void PrintInterface::GetPrintDataVOUnregistered(
         parser.pts.set_tag(TAG::STR_SEAT_NO,   "");
         parser.pts.set_tag(TAG::SUBCLS,        "");
         parser.pts.set_tag(TAG::TAGS,          ""); // TODO get it
+
+        parser.pts.tagsFromXML(params.clientDataNode);
 
         QParams qryParams;
         qryParams
@@ -2426,6 +2441,10 @@ void PrintInterface::GetPrintDataVOUnregistered(
                 parser.pts.set_tag(TAG::FULLNAME,      fullName.str());
                 parser.pts.set_tag(TAG::NAME,          pax->first.name);
                 parser.pts.set_tag(TAG::SURNAME,       pax->first.surname);
+
+                bcbp.surname     = pax->first.surname;
+                bcbp.name        = pax->first.name;
+                parser.pts.set_tag(TAG::BCBP_M_2,      bcbp);
 
                 string prn_form = parser.parse(data);
                 bool hex = false;
