@@ -464,7 +464,7 @@ void DeleteScdPeriodsFromDb( const std::set<ssim::ScdPeriod> &scds )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   reqInfo->user.sets.time = ustTimeLocalAirp; // останется на рабочем
-  reqInfo->desk.code = "MOVGRG"; // удалить
+//  reqInfo->desk.code = "MOVGRG"; // удалить
   for (auto &scd : scds)
   {
     LogTrace(TRACE5) << __func__ << " scd = " << scd;
@@ -507,7 +507,7 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
   else {*/
     reqInfo->user.sets.time = ustTimeLocalAirp; // останется на рабочем
   /*}*/
-  reqInfo->desk.code = "MOVGRG"; // удалить
+//  reqInfo->desk.code = "MOVGRG"; // удалить
   string flight = FlightToString(scd.flight);
   TDateTime first = BoostToDateTime(scd.period.start);
   TDateTime last = BoostToDateTime(scd.period.end);
@@ -611,7 +611,7 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
   LogTrace(TRACE5) << __func__ << " move_id = " << move_id;
   TReqInfo *reqInfo = TReqInfo::Instance(); // ??? уже есть в вызывающей функции
   reqInfo->user.sets.time = ustTimeLocalAirp; // останется на рабочем
-  reqInfo->desk.code = "MOVGRG"; // удалить
+//  reqInfo->desk.code = "MOVGRG"; // удалить
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
@@ -691,7 +691,7 @@ ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& prd )
   LogTrace(TRACE5) << __func__ << " flt = " << flt << " prd = " << prd;
   TReqInfo *reqInfo = TReqInfo::Instance();
   reqInfo->user.sets.time = ustTimeLocalAirp; // останется на рабочем
-  reqInfo->desk.code = "MOVGRG"; // удалить
+//  reqInfo->desk.code = "MOVGRG"; // удалить
   // если у периода нет второй даты, то end = pos_infin
   TDateTime start = BoostToDateTimeCorrectInfinity(prd.start);
   TDateTime end = BoostToDateTimeCorrectInfinity(prd.end);
@@ -795,7 +795,7 @@ void HandleSSMTlg(string body, int tlg_id, TypeB::TFlightsForBind& flightsForBin
 
     // НЕСКОЛЬКО РЕЙСОВ В ССМ НЕ ПОДДЕРЖИВАЕТСЯ
     if (ssmStr.submsgs.size() > 1)
-      throw EXCEPTIONS::Exception("ssmStr.submsgs.size() > 1%s", airline_msg.c_str());
+      throw EXCEPTIONS::Exception("Multiple flights is not supported%s", airline_msg.c_str());
 
     for (const auto& v : ssmStr.submsgs)
       for (const ssim::SsmSubmsgPtr& s : v.second)

@@ -54,6 +54,15 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
 
 void createSPP( TDateTime localdate, TSpp &spp, bool createViewer, string &err_city );
 
+bool SsmIdExists(int trip_id)
+{
+  TQuery QryCheck(&OraSession);
+  QryCheck.SQLText = "SELECT ssm_id from sched_days where trip_id = :trip_id";
+  QryCheck.CreateVariable("trip_id", otInteger, trip_id);
+  QryCheck.Execute();
+  return (!QryCheck.Eof && !QryCheck.FieldIsNULL("ssm_id") && QryCheck.FieldAsInteger("ssm_id") != 0);
+}
+
 bool LOCK_FLIGHT_SCHEDULE()
 {
     static int lock = NoExists;
@@ -698,11 +707,7 @@ void SeasonInterface::DelRangeList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 {
 //  TReqInfo::Instance()->user.check_access( amWrite );
   // GRISHA запрет редактирования периода, полученного из SSM телеграммы
-  TQuery QryCheck(&OraSession);
-  QryCheck.SQLText = "SELECT ssm_id from sched_days where trip_id = :trip_id";
-  QryCheck.CreateVariable( "trip_id", otInteger, NodeAsInteger( "trip_id", reqNode ) );
-  QryCheck.Execute();
-  if (!QryCheck.Eof && !QryCheck.FieldIsNULL("ssm_id") && QryCheck.FieldAsInteger("ssm_id") != NoExists)
+  if (SsmIdExists(NodeAsInteger("trip_id", reqNode)))
   {
     AstraLocale::showError("MSG.SSIM.EDIT_SSM_PERIOD_FORBIDDEN");
     return;
@@ -2111,11 +2116,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
   }
 
   // GRISHA запрет редактирования периода, полученного из SSM телеграммы
-  TQuery QryCheck(&OraSession);
-  QryCheck.SQLText = "SELECT ssm_id from sched_days where trip_id = :trip_id";
-  QryCheck.CreateVariable("trip_id", otInteger, trip_id);
-  QryCheck.Execute();
-  if (!QryCheck.Eof && !QryCheck.FieldIsNULL("ssm_id") && QryCheck.FieldAsInteger("ssm_id") != NoExists)
+  if (SsmIdExists(trip_id))
   {
     AstraLocale::showError("MSG.SSIM.EDIT_SSM_PERIOD_FORBIDDEN");
     return;
@@ -3140,11 +3141,11 @@ void ConvertPeriod( TPeriod &period, const TDateTime &flight_time, const std::st
 void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   throwOnScheduleLock();
-//  GRISHA раскомментировать перед коммитом в STABLE !!!
-//  if ( TReqInfo::Instance()->user.access.airlines().totally_permitted() &&
-//       TReqInfo::Instance()->user.access.airps().totally_permitted() ) {
-//     throw UserException( "MSG.SET_LEVEL_PERMIT" );
-//  }
+//  GRISHA
+  if ( TReqInfo::Instance()->user.access.airlines().totally_permitted() &&
+       TReqInfo::Instance()->user.access.airps().totally_permitted() ) {
+     throw UserException( "MSG.SET_LEVEL_PERMIT" );
+  }
 
   map<int,TDestList> mapds;
   TReqInfo *reqInfo = TReqInfo::Instance();
