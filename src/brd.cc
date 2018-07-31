@@ -1619,7 +1619,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(paxNode, "coupon_no", Qry.FieldAsInteger(col_coupon_no), 0);
           if ( apis_generation ) {
             std::string docflags = getDocsFlags( pax_id, !Qry.FieldIsNULL(col_grp_id) );
-            ProgTrace( TRACE5, "docflags=%s", docflags.c_str() );
             NewTextChild( paxNode, "apisFlags", docflags, "" );
           }
 
