@@ -512,6 +512,8 @@ struct TAPISFormat
 
   virtual TIataCodeType IataCodeType() const { return iata_code_default; }
 
+  virtual bool NeedCBPPort(string country_regul_dep) const { return true; }
+
 protected:
   void ConvertPaxNamesTrunc(string& doc_first_name, string& doc_second_name) const
   {
@@ -767,6 +769,7 @@ struct TAPISFormat_EDI_US : public TEdiAPISFormat
   string unknown_gender() const { return "M"; }
   string process_doc_no(const string& no) const { return NormalizeDocNo(no, false); }
   string mesAssCode() const { return "CBP"; }
+  bool NeedCBPPort(string country_regul_dep) const override { return country_regul_dep!=US_CUSTOMS_CODE; }
 };
 
 struct TAPISFormat_EDI_USBACK : public TEdiAPISFormat
@@ -795,6 +798,7 @@ struct TAPISFormat_EDI_USBACK : public TEdiAPISFormat
   string unknown_gender() const { return "M"; }
   string process_doc_no(const string& no) const { return NormalizeDocNo(no, false); }
   string mesAssCode() const { return "CBP"; }
+  bool NeedCBPPort(string country_regul_dep) const override { return country_regul_dep!=US_CUSTOMS_CODE; }
 };
 
 struct TAPISFormat_EDI_UK : public TEdiAPISFormat
