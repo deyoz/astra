@@ -14,6 +14,7 @@
 #include "file_queue.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/logger.h"
+#include "franchise.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -117,6 +118,28 @@ TRow& TRow::fltFromDB(TQuery &Qry)
       takeoff_utc=NoExists;
       takeoff_local=takeoff;
     };
+    // Франчайзинг
+    TTripInfo trip_info;
+    trip_info.airline = airline;
+    trip_info.flt_no = flt_no;
+    trip_info.suffix = suffix;
+    trip_info.scd_out = takeoff_local;
+    Franchise::TProp franchise_prop;
+    if (franchise_prop.get(trip_info, Franchise::TPropType::mintrans, true))
+    {
+      if (franchise_prop.val == Franchise::pvNo)
+      {
+        airline = franchise_prop.franchisee.airline;
+        flt_no = franchise_prop.franchisee.flt_no;
+        suffix = franchise_prop.franchisee.suffix;
+      }
+      else /*if (franchise_prop.val == Franchise::pvYes)*/
+      {
+        airline = franchise_prop.oper.airline;
+        flt_no = franchise_prop.oper.flt_no;
+        suffix = franchise_prop.oper.suffix;
+      }
+    }
   };
   return *this;
 };
