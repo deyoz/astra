@@ -142,6 +142,7 @@ class TWebTids
     int crs_pax_tid;
     int pax_grp_tid;
     int pax_tid;
+    bool passengerAlreadyChecked;
 
     TWebTids() { clear(); }
 
@@ -151,6 +152,7 @@ class TWebTids
       crs_pax_tid = ASTRA::NoExists;
       pax_grp_tid = ASTRA::NoExists;
       pax_tid     = ASTRA::NoExists;
+      passengerAlreadyChecked = false;
     }
 
     TWebTids& fromDB(TQuery &Qry);
@@ -159,137 +161,283 @@ class TWebTids
 
     bool checked() const
     {
-      return !(pax_grp_tid==ASTRA::NoExists && pax_tid==ASTRA::NoExists);
+      return passengerAlreadyChecked ||
+             !(pax_grp_tid==ASTRA::NoExists && pax_tid==ASTRA::NoExists);
     }
     bool norec() const
     {
       return crs_pnr_tid==ASTRA::NoExists && crs_pax_tid==ASTRA::NoExists;
     }
-    bool tidsEqual(const TWebTids& tids)
+};
+
+class TWebAPISItem : public CheckIn::TAPISItem
+{
+  private:
+    std::set<TAPIType> presentAPITypes;
+  public:
+
+    TWebAPISItem() { clear(); }
+
+    void clear()
     {
-      return crs_pnr_tid==tids.crs_pnr_tid &&
-             crs_pax_tid==tids.crs_pax_tid &&
-             pax_grp_tid==tids.pax_grp_tid &&
-             pax_tid==tids.pax_tid;
+      CheckIn::TAPISItem::clear();
+      presentAPITypes.clear();
+    }
+
+    TWebAPISItem& fromXML(xmlNodePtr node);
+
+    bool isPresent(const TAPIType& type) const
+    {
+      return presentAPITypes.find(type)!=presentAPITypes.end();
+    }
+
+    void setNormalized(const TWebAPISItem& apis)
+    {
+      clear();
+      if (apis.isPresent(apiDoc))
+        set(NormalizeDoc(apis.doc));
+
+      if (apis.isPresent(apiDoco))
+        set(NormalizeDoco(apis.doco));
+    }
+
+    void set(const CheckIn::TPaxAPIItem& item);
+};
+
+class TWebPaxFromReq : public TWebTids
+{
+  public:
+    int id;
+    bool dont_check_payment;
+    std::string seat_no;
+    TWebAPISItem apis;
+    boost::optional<std::set<CheckIn::TPaxFQTItem>> fqtv_rems;
+    bool refuse;
+
+    TWebPaxFromReq() { clear(); }
+
+    void clear()
+    {
+      TWebTids::clear();
+      id = ASTRA::NoExists;
+      dont_check_payment = false;
+      seat_no.clear();
+      apis.clear();
+      fqtv_rems=boost::none;
+      refuse = false;
+    }
+
+    TWebPaxFromReq& fromDB(TQuery &Qry);
+    TWebPaxFromReq& fromXML(xmlNodePtr node);
+
+    bool mergePaxFQT(std::set<CheckIn::TPaxFQTItem> &fqts) const;
+    bool isTest() const { return isTestPaxId(id); }
+    bool checked() const
+    {
+      return !isTest() && TWebTids::checked();
     }
 };
 
-struct TWebPaxFromReq
+class TWebPaxForChng : public CheckIn::TSimplePaxGrpItem, public CheckIn::TSimplePaxItem, public TWebTids
 {
-  int crs_pax_id;
-  bool dont_check_payment;
-  std::string seat_no;
-  CheckIn::TPaxDocItem doc;
-  CheckIn::TPaxDocoItem doco;
-  std::set<CheckIn::TPaxFQTItem> fqtv_rems;
-  bool fqtv_rems_present;
-  std::set<TAPIType> present_in_req;
-  bool refuse;
-  bool checked;
-  TWebPaxFromReq(bool _checked) {
-        crs_pax_id = ASTRA::NoExists;
-        dont_check_payment = false;
-        fqtv_rems_present = false;
-        refuse = false;
-        checked = _checked;
-    };
-  bool mergePaxFQT(std::set<CheckIn::TPaxFQTItem> &fqts) const;
+  public:
+//    int crs_pax_id;
+//    int grp_id;
+//    int point_dep;
+//    int point_arv;
+//    std::string airp_dep;
+//    std::string airp_arv;
+//    std::string cl;
+//    int excess;
+//    bool bag_refuse;
+
+//    std::string surname;
+//    std::string name;
+//    std::string pers_type;
+//    ASTRA::TCrewType::Enum crew_type;
+//    std::string seat_no;
+//    int seats;
+
+//    CheckIn::TPaxDocItem doc;
+//    CheckIn::TPaxDocoItem doco;
+//    std::set<TAPIType> present_in_req;
+
+    TWebAPISItem apis;
+
+    TWebPaxForChng() { clear(); }
+
+    void clear()
+    {
+      CheckIn::TSimplePaxGrpItem::clear();
+      CheckIn::TSimplePaxItem::clear();
+      TWebTids::clear();
+      apis.clear();
+    }
+
+    TWebPaxForChng& fromDB(TQuery &Qry);
+
+    TWebPaxForChng& addFromReq(const TWebPaxFromReq& pax)
+    {
+      apis.setNormalized(pax.apis);
+      return *this;
+    }
 };
 
-struct TWebPaxForChng : public TWebTids
+class TWebPaxForCkin : public CheckIn::TSimplePaxItem, public TWebTids
 {
-  int crs_pax_id;
-  int grp_id;
-  int point_dep;
-  int point_arv;
-  std::string airp_dep;
-  std::string airp_arv;
-  std::string cl;
-  int excess;
-  bool bag_refuse;
+  public:
+//  int crs_pax_id;
 
-  std::string surname;
-  std::string name;
-  std::string pers_type;
-  ASTRA::TCrewType::Enum crew_type;
-  std::string seat_no;
-  int seats;
+//  std::string surname;
+//  std::string name;
+//  std::string pers_type;
+//  ASTRA::TCrewType::Enum crew_type;
+//  std::string seat_no;
+//  std::string seat_type;
+//  int seats;
+//  std::string eticket;
+//  std::string ticket;
+//  CheckIn::TAPISItem apis;
+//  std::set<TAPIType> present_in_req;
+//  std::string subclass;
+//  int reg_no;
 
-  CheckIn::TPaxDocItem doc;
-  CheckIn::TPaxDocoItem doco;
-  std::set<TAPIType> present_in_req;
+    std::string pnr_status;
+    TPnrAddrs pnr_addrs;
+    TWebAPISItem apis;
+    bool dont_check_payment;
 
-  TWebPaxForChng()
-  {
-    crew_type = ASTRA::TCrewType::Unknown;
-  }
+    TWebPaxForCkin() { clear(); }
+
+    void clear()
+    {
+      CheckIn::TSimplePaxItem::clear();
+      TWebTids::clear();
+      pnr_status.clear();
+      pnr_addrs.clear();
+      apis.clear();
+      dont_check_payment = false;
+    }
+
+    bool operator == (const TWebPaxForCkin &pax) const
+    {
+      return transliter_equal(surname,pax.surname) &&
+             transliter_equal(name,pax.name) &&
+             pers_type == pax.pers_type &&
+             ((seats == 0 && pax.seats == 0) || (seats != 0 && pax.seats != 0)) &&
+             pnr_addrs.equalPnrExists(pax.pnr_addrs);
+    }
+
+    const std::string traceStr() const
+    {
+      std::ostringstream s;
+      s << "pnr_addrs=" << pnr_addrs.traceStr() << ", "
+           "surname=" << surname << ", "
+           "name=" << name << ", "
+           "pers_type=" << EncodePerson(pers_type) << ", "
+           "seats=" << seats;
+      return s.str();
+    }
+
+    TWebPaxForCkin& fromDB(TQuery &Qry);
+
+    TWebPaxForCkin& addFromReq(const TWebPaxFromReq& pax)
+    {
+      apis.setNormalized(pax.apis);
+      dont_check_payment=pax.dont_check_payment;
+      return *this;
+    }
+
+    TWebPaxForCkin& initFromMeridian(const ASTRA::TCrewType::Enum& _crew_type)
+    {
+      clear();
+      crew_type=_crew_type;
+      pers_type = ASTRA::adult;
+      seats = 1;
+      return *this;
+    }
+
+    TWebPaxForCkin& setFromMeridian(const CheckIn::TPaxDocItem doc)
+    {
+      surname=doc.surname;
+      name=doc.first_name+" "+doc.second_name;
+      name=TrimString(name);
+      apis.set(doc);
+      return *this;
+    }
 };
 
-struct TWebPaxForCkin : public TWebTids
+class TWebPaxFromReqList : public std::list<TWebPaxFromReq>
 {
-  int crs_pax_id;
-
-  std::string surname;
-  std::string name;
-  std::string pers_type;
-  ASTRA::TCrewType::Enum crew_type;
-  std::string seat_no;
-  std::string seat_type;
-  int seats;
-  std::string eticket;
-  std::string ticket;
-  CheckIn::TAPISItem apis;
-  std::set<TAPIType> present_in_req;
-  std::string subclass;
-  int reg_no;
-  bool dont_check_payment;
-  TPnrAddrs pnr_addrs;
-
-  TWebPaxForCkin()
-  {
-    crs_pax_id = ASTRA::NoExists;
-    seats = ASTRA::NoExists;
-    reg_no = ASTRA::NoExists;
-    dont_check_payment = false;
-    crew_type = ASTRA::TCrewType::Unknown;
-  }
-
-  bool operator == (const TWebPaxForCkin &pax) const
-  {
-    return transliter_equal(surname,pax.surname) &&
-           transliter_equal(name,pax.name) &&
-           pers_type == pax.pers_type &&
-           ((seats == 0 && pax.seats == 0) || (seats != 0 && pax.seats != 0)) &&
-           pnr_addrs.equalPnrExists(pax.pnr_addrs);
-  }
-
-  const std::string traceStr() const
-  {
-    std::ostringstream s;
-    s << "pnr_addrs=" << pnr_addrs.traceStr() << ", "
-         "surname=" << surname << ", "
-         "name=" << name << ", "
-         "pers_type=" << pers_type << ", "
-         "seats=" << seats;
-    return s.str();
-  }
+  public:
+    int notCheckedCount() const
+    {
+      int result=0;
+      for(const TWebPaxFromReq& pax : *this)
+        if (!pax.checked()) result++;
+      return result;
+    }
+    int refusalCount() const
+    {
+      int result=0;
+      for(const TWebPaxFromReq& pax : *this)
+        if (pax.refuse) result++;
+      return result;
+    }
 };
 
-struct TWebPnrForSave
+class TWebPaxForChngList : public std::list<TWebPaxForChng>
 {
-  int pnr_id;
-  ASTRA::TPaxStatus status;
-  std::vector<TWebPaxFromReq> paxFromReq;
-  unsigned int refusalCountFromReq;
-  std::list<TWebPaxForChng> paxForChng;
-  std::list<TWebPaxForCkin> paxForCkin;
 
-  TWebPnrForSave() {
-    pnr_id = ASTRA::NoExists;
-    status = ASTRA::psCheckin;
-    refusalCountFromReq = 0;
-  }
 };
+
+class TWebPaxForCkinList : public std::list<TWebPaxForCkin>
+{
+  public:
+    bool infantsMoreThanAdults() const
+    {
+      int adult_count=0, without_seat_count=0;
+      for(const TWebPaxForCkin& pax : *this)
+      {
+        if (pax.pers_type==ASTRA::adult) adult_count++;
+        if (pax.pers_type==ASTRA::baby && pax.seats==0) without_seat_count++;
+      }
+      return without_seat_count>adult_count;
+    }
+};
+
+class TWebPnrForSave
+{
+  public:
+    int pnr_id;
+    ASTRA::TPaxStatus status;
+    TWebPaxFromReqList paxFromReq;
+    TWebPaxForChngList paxForChng;
+    TWebPaxForCkinList paxForCkin;
+
+    TWebPnrForSave() {
+      pnr_id = ASTRA::NoExists;
+      status = ASTRA::psCheckin;
+    }
+};
+
+//class TMultiWebPnrForSave : public std::map<int/*pnr_id*/, TWebPnrForSave> {};
+
+//class TMultiWebPnrForSaveSeg : public TMultiWebPnrForSave
+//{
+//  public:
+//    int point_id;
+
+//    TMultiWebPnrForSaveSeg() {
+//      point_id = ASTRA::NoExists;
+//    }
+//};
+
+//class TMultiWebPnrForSaveSegs : public std::list<TMultiWebPnrForSaveSeg> {};
+
+//class TMultiPnrData : public std::map<int/*pnr_id*/, WebSearch::TPnrData> {};
+
+//class TMultiPnrDataSegs : public std::list<TMultiPnrData> {};
 
 void CheckSeatNoFromReq(int point_id,
                         int crs_pax_id,

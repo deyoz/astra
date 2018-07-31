@@ -2029,21 +2029,6 @@ string GetRouteAfterStr(TDateTime part_key,
   return result.str();
 };
 
-bool isTestPaxId(int id)
-{
-  return id!=NoExists && id>=TEST_ID_BASE && id<=TEST_ID_LAST;
-}
-
-int getEmptyPaxId()
-{
-  return EMPTY_ID;
-}
-
-bool isEmptyPaxId(int id)
-{
-  return id!=NoExists && id==EMPTY_ID;
-}
-
 bool is_sync_paxs( int point_id )
 {
   TTripInfo tripInfo;

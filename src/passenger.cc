@@ -41,6 +41,21 @@ char ReplaceDigit(char c)
 
 }; //namespace APIS
 
+bool isTestPaxId(int id)
+{
+  return id!=ASTRA::NoExists && id>=TEST_ID_BASE && id<=TEST_ID_LAST;
+}
+
+int getEmptyPaxId()
+{
+  return EMPTY_ID;
+}
+
+bool isEmptyPaxId(int id)
+{
+  return id!=ASTRA::NoExists && id==EMPTY_ID;
+}
+
 namespace CheckIn
 {
 
@@ -358,6 +373,17 @@ TPaxDocCompoundType& TPaxDocCompoundType::fromWebXML(xmlNodePtr node)
   return *this;
 }
 
+TPaxDocCompoundType& TPaxDocCompoundType::fromMeridianXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+  if (node2==NULL) return *this;
+
+  type=NodeAsStringFast("TYPE", node2, "");
+  return *this;
+}
+
 TPaxDocItem& TPaxDocItem::fromXML(xmlNodePtr node)
 {
   clear();
@@ -413,6 +439,28 @@ TPaxDocItem& TPaxDocItem::fromWebXML(xmlNodePtr node)
   surname=NodeAsStringFast("surname",node2);
   first_name=NodeAsStringFast("first_name",node2);
   second_name=NodeAsStringFast("second_name",node2);
+  return *this;
+}
+
+TPaxDocItem& TPaxDocItem::fromMeridianXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+  if (node2==NULL) return *this;
+
+  TPaxDocCompoundType::fromMeridianXML(node);
+  issue_country=NodeAsStringFast("ISSUE_COUNTRY", node2, "");
+  no=NodeAsStringFast("NO", node2, "");
+  nationality=NodeAsStringFast("NATIONALITY",node2,"");
+  if (!NodeIsNULLFast("BIRTH_DATE", node2, true))
+    birth_date = date_fromXML(NodeAsStringFast("BIRTH_DATE", node2, ""));
+  gender=PaxDocGenderNormalize(NodeAsStringFast("GENDER", node2, ""));
+  if (!NodeIsNULLFast("EXPIRY_DATE", node2, true))
+    expiry_date = date_fromXML(NodeAsStringFast("EXPIRY_DATE", node2, ""));
+  surname = upperc(NodeAsStringFast("SURNAME", node2, ""));
+  first_name = upperc(NodeAsStringFast("FIRST_NAME", node2, ""));
+  second_name = upperc(NodeAsStringFast("SECOND_NAME", node2, ""));
   return *this;
 }
 
@@ -571,6 +619,17 @@ std::string TPaxDocItem::full_name() const
   return s.str();
 }
 
+std::string TPaxDocItem::getSurnameWithInitials() const
+{
+  ostringstream s;
+  s << surname << " ";
+  if (!first_name.empty())
+    s << first_name.substr(0, 1) << ".";
+  if (!second_name.empty())
+    s << second_name.substr(0, 1) << ".";
+  return s.str();
+}
+
 bool TPaxDocoItem::needPseudoType() const
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -669,6 +728,27 @@ TPaxDocoItem& TPaxDocoItem::fromWebXML(const xmlNodePtr node)
   applic_country=NodeAsStringFast("applic_country",node2);
   return *this;
 };
+
+TPaxDocoItem& TPaxDocoItem::fromMeridianXML(const xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+  if (node2==NULL) return *this;
+
+  TPaxDocCompoundType::fromMeridianXML(node);
+  birth_place=NodeAsStringFast("BIRTH_PLACE", node2, "");
+  no=NodeAsStringFast("NO", node2, "");
+  issue_place=NodeAsStringFast("ISSUE_PLACE", node2, "");
+  if (!NodeIsNULLFast("ISSUE_DATE", node2, true))
+    issue_date = date_fromXML(NodeAsStringFast("ISSUE_DATE", node2, ""));
+  if (!NodeIsNULLFast("EXPIRY_DATE", node2, true))
+    expiry_date = date_fromXML(NodeAsStringFast("EXPIRY_DATE", node2, ""));
+  applic_country=NodeAsStringFast("APPLIC_COUNTRY", node2, "");
+  doco_confirm=true;
+  return *this;
+}
+
 
 const TPaxDocoItem& TPaxDocoItem::toDB(TQuery &Qry) const
 {
@@ -824,6 +904,22 @@ TPaxDocaItem& TPaxDocaItem::fromXML(xmlNodePtr node)
   return *this;
 };
 
+TPaxDocaItem& TPaxDocaItem::fromMeridianXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+  if (node2==NULL) return *this;
+
+  type = upperc(NodeAsStringFast("TYPE", node2, ""));
+  country=NodeAsStringFast("COUNTRY", node2, "");
+  address=NodeAsStringFast("ADDRESS", node2, "");
+  city=NodeAsStringFast("CITY", node2, "");
+  region=NodeAsStringFast("REGION", node2, "");
+  postal_code=NodeAsStringFast("POSTAL_CODE", node2, "");
+  return *this;
+}
+
 const TPaxDocaItem& TPaxDocaItem::toDB(TQuery &Qry) const
 {
   Qry.SetVariable("type", type);
@@ -974,7 +1070,7 @@ std::string GetPaxDocStr(TDateTime part_key,
   return result.str();
 };
 
-bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, bool without_inf_indicator)
+bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc)
 {
   doc.clear();
   const char* sql1=
@@ -998,14 +1094,6 @@ bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, bool without_inf_indicator)
       doc.no=GetPSPT2Qry.get().FieldAsString("no");
     };
   };
-  if (!doc.gender.empty() && without_inf_indicator)      //!!!потом убрать
-  {
-    int is_female=CheckIn::is_female(doc.gender, "");
-    if (is_female!=ASTRA::NoExists)
-      doc.gender=(is_female==0?"M":"F");
-    else
-      doc.gender.clear();
-  };                                                     //!!!потом убрать
   return !doc.empty();
 };
 
@@ -1591,7 +1679,7 @@ TSimplePaxItem& TSimplePaxItem::fromDB(TQuery &Qry)
   return *this;
 }
 
-TSimplePaxItem& TSimplePaxItem::fromDBCrs(TQuery &Qry)
+TSimplePaxItem& TSimplePaxItem::fromDBCrs(TQuery &Qry, bool withTkn)
 {
   clear();
   id=Qry.FieldAsInteger("pax_id");
@@ -1600,6 +1688,26 @@ TSimplePaxItem& TSimplePaxItem::fromDBCrs(TQuery &Qry)
   pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
   seat_type=Qry.FieldAsString("seat_type");
   seats=Qry.FieldAsInteger("seats");
+  if (Qry.GetFieldIndex("seat_no")>=0)
+    seat_no = Qry.FieldAsString("seat_no");
+  if (Qry.GetFieldIndex("subclass")>=0)
+    subcl = Qry.FieldAsString("subclass");
+  if (Qry.GetFieldIndex("reg_no")>=0)
+    reg_no = Qry.FieldIsNULL("reg_no")?ASTRA::NoExists:Qry.FieldAsInteger("reg_no");
+  if (withTkn)
+  {
+    if (isTest())
+    {
+      tkn.no=Qry.FieldAsString("tkn_no");
+      if (!tkn.no.empty())
+      {
+        tkn.coupon=1;
+        tkn.rem="TKNE";
+      };
+    }
+    else LoadCrsPaxTkn(id, tkn);
+  }
+  TknExists=withTkn;
   return *this;
 }
 
@@ -2043,7 +2151,7 @@ const TPaxGrpItem& TPaxGrpItem::toDB(TQuery &Qry) const
   return *this;
 };
 
-TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
+TSimplePaxGrpItem& TSimplePaxGrpItem::fromDB(TQuery &Qry)
 {
   clear();
   id=Qry.FieldAsInteger("grp_id");
@@ -2057,7 +2165,6 @@ TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
     hall=Qry.FieldAsInteger("hall");
   if (Qry.FieldAsInteger("bag_refuse")!=0)
     bag_refuse=ASTRA::refuseAgentError;
-  GetBagConcepts(id, pc, wt, rfisc_used);
   trfer_confirm=Qry.FieldAsInteger("trfer_confirm")!=0;
   is_mark_norms=Qry.FieldAsInteger("pr_mark_norms")!=0;
   if (Qry.GetFieldIndex("client_type")>=0)
@@ -2067,6 +2174,14 @@ TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
   if (!Qry.FieldIsNULL("bag_types_id"))
     bag_types_id=Qry.FieldAsInteger("bag_types_id");
   baggage_pc=Qry.FieldAsInteger("piece_concept")!=0;
+  return *this;
+}
+
+TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
+{
+  clear();
+  TSimplePaxGrpItem::fromDB(Qry);
+  GetBagConcepts(id, pc, wt, rfisc_used);
   return *this;
 };
 
@@ -2320,7 +2435,7 @@ TSimplePaxList& TSimplePaxList::searchByDocNo(const TScannedPaxDocItem& doc)
       if (pass==0)
         pax.fromDB(Qry);
       else
-        pax.fromDBCrs(Qry);
+        pax.fromDBCrs(Qry, false);
       if (pax_ids.insert(pax.id).second)
         push_back(pax);
     }

@@ -17,6 +17,14 @@ const long int NO_FIELDS=0x0000;
 
 enum TAPIType { apiDoc, apiDoco, apiDocaB, apiDocaR, apiDocaD, apiTkn, apiUnknown };
 
+const int TEST_ID_BASE = 1000000000;
+const int TEST_ID_LAST = TEST_ID_BASE+999999999;
+const int EMPTY_ID = TEST_ID_LAST+1;
+
+bool isTestPaxId(int id);
+int getEmptyPaxId();
+bool isEmptyPaxId(int id);
+
 namespace CheckIn
 {
 
@@ -179,6 +187,7 @@ class TPaxDocCompoundType
                                       const boost::optional<AstraLocale::OutputLang>& lang) const;
   TPaxDocCompoundType& fromXML(xmlNodePtr node);
   TPaxDocCompoundType& fromWebXML(xmlNodePtr node);
+  TPaxDocCompoundType& fromMeridianXML(xmlNodePtr node);
   const TPaxDocCompoundType& toDB(TQuery &Qry) const;
   TPaxDocCompoundType& fromDB(TQuery &Qry);
 };
@@ -265,6 +274,7 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocCompo
                                 const boost::optional<AstraLocale::OutputLang>& lang) const;
     TPaxDocItem& fromXML(xmlNodePtr node);
     TPaxDocItem& fromWebXML(xmlNodePtr node);
+    TPaxDocItem& fromMeridianXML(xmlNodePtr node);
     const TPaxDocItem& toDB(TQuery &Qry) const;
     TPaxDocItem& fromDB(TQuery &Qry);
 
@@ -278,6 +288,7 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocCompo
     std::string logStr(const std::string &lang=AstraLocale::LANG_EN) const;
     std::string full_name() const;
     bool isNationalRussianPassport() const { return type=="P" && subtype=="N" && issue_country=="RUS"; }
+    std::string getSurnameWithInitials() const;
 };
 
 class TScannedPaxDocItem : public TPaxDocItem
@@ -364,6 +375,7 @@ class TPaxDocoItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocComp
                                  const boost::optional<AstraLocale::OutputLang>& lang) const;
     TPaxDocoItem& fromXML(xmlNodePtr node);
     TPaxDocoItem& fromWebXML(xmlNodePtr node);
+    TPaxDocoItem& fromMeridianXML(xmlNodePtr node);
     const TPaxDocoItem& toDB(TQuery &Qry) const;
     TPaxDocoItem& fromDB(TQuery &Qry);
 
@@ -458,6 +470,7 @@ class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
     }
     const TPaxDocaItem& toXML(xmlNodePtr node) const;
     TPaxDocaItem& fromXML(xmlNodePtr node);
+    TPaxDocaItem& fromMeridianXML(xmlNodePtr node);
     const TPaxDocaItem& toDB(TQuery &Qry) const;
     TPaxDocaItem& fromDB(TQuery &Qry);
 
@@ -529,7 +542,7 @@ class TSimplePaxItem
     static ASTRA::TTrickyGender::Enum getTrickyGender(ASTRA::TPerson pers_type, ASTRA::TGender::Enum gender);
 
     TSimplePaxItem& fromDB(TQuery &Qry);
-    TSimplePaxItem& fromDBCrs(TQuery &Qry);
+    TSimplePaxItem& fromDBCrs(TQuery &Qry, bool withTkn);
     bool getByPaxId(int pax_id, TDateTime part_key = ASTRA::NoExists);
     std::string full_name() const;
     bool api_doc_applied() const;
@@ -537,6 +550,9 @@ class TSimplePaxItem
     bool HaveBaggage() const { return bag_pool_num != ASTRA::NoExists; }
     ASTRA::TTrickyGender::Enum getTrickyGender() const { return getTrickyGender(pers_type, gender); }
     static void UpdTid(int pax_id);
+
+    bool isTest() const { return isTestPaxId(id); }
+    int paxId() const { return id; }
 };
 
 class TSimplePaxList : public std::list<TSimplePaxItem>
@@ -658,7 +674,7 @@ class TPaxList : public std::list<CheckIn::TPaxListItem>
     int getBagPoolMainPaxId(int bag_pool_num) const;
 };
 
-class TPaxGrpItem
+class TSimplePaxGrpItem
 {
   public:
     int id;
@@ -670,8 +686,6 @@ class TPaxGrpItem
     ASTRA::TPaxStatus status;
     int hall;
     std::string bag_refuse;
-    bool pc, wt;
-    bool rfisc_used;
     bool trfer_confirm;
     bool is_mark_norms;
     ASTRA::TClientType client_type;
@@ -679,16 +693,8 @@ class TPaxGrpItem
     int bag_types_id;     //!!!потом удалить
     bool baggage_pc;      //!!!потом удалить
 
-    boost::optional< std::list<WeightConcept::TPaxNormItem> > norms;
-    boost::optional< WeightConcept::TPaidBagList > paid;
-    boost::optional< TGroupBagItem > group_bag;
-    boost::optional< TGrpServiceList > svc;
-    boost::optional< TGrpServiceAutoList > svc_auto;
-    boost::optional< TServicePaymentList > payment;
-    TPaxGrpItem()
-    {
-      clear();
-    };
+    TSimplePaxGrpItem() { clear(); }
+
     void clear()
     {
       id=ASTRA::NoExists;
@@ -700,9 +706,6 @@ class TPaxGrpItem
       status=ASTRA::psCheckin;
       hall=ASTRA::NoExists;
       bag_refuse.clear();
-      pc=false;
-      wt=false;
-      rfisc_used=false;
       trfer_confirm=false;
       is_mark_norms=false;
       client_type = ASTRA::ctTypeNum;
@@ -710,6 +713,33 @@ class TPaxGrpItem
 
       bag_types_id=ASTRA::NoExists;
       baggage_pc=false;
+    }
+
+    TSimplePaxGrpItem& fromDB(TQuery &Qry);
+};
+
+class TPaxGrpItem : public TSimplePaxGrpItem
+{
+  public:
+    bool pc, wt;
+    bool rfisc_used;
+
+    boost::optional< std::list<WeightConcept::TPaxNormItem> > norms;
+    boost::optional< WeightConcept::TPaidBagList > paid;
+    boost::optional< TGroupBagItem > group_bag;
+    boost::optional< TGrpServiceList > svc;
+    boost::optional< TGrpServiceAutoList > svc_auto;
+    boost::optional< TServicePaymentList > payment;
+
+    TPaxGrpItem() { clear(); }
+
+    void clear()
+    {
+      TSimplePaxGrpItem::clear();
+
+      pc=false;
+      wt=false;
+      rfisc_used=false;
 
       norms=boost::none;
       paid=boost::none;
@@ -717,7 +747,7 @@ class TPaxGrpItem
       svc=boost::none;
       svc_auto=boost::none;
       payment=boost::none;
-    };
+    }
 
     const TPaxGrpItem& toXML(xmlNodePtr node) const;
     bool fromXML(xmlNodePtr node);
@@ -778,7 +808,7 @@ bool LoadPaxDoca(int pax_id, TDocaType type, TPaxDocaItem &doca);
 bool LoadPaxDoca(TDateTime part_key, int pax_id, TDocaMap &doca_map);
 bool LoadPaxDoca(TDateTime part_key, int pax_id, TDocaType type, TPaxDocaItem &doca);
 
-bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc, bool without_inf_indicator=false);
+bool LoadCrsPaxDoc(int pax_id, TPaxDocItem &doc);
 bool LoadCrsPaxVisa(int pax_id, TPaxDocoItem &doc);
 bool LoadCrsPaxDoca(int pax_id, TDocaMap &doca_map);
 

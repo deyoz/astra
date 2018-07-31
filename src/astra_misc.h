@@ -1028,13 +1028,6 @@ std::string GetRouteAfterStr(TDateTime part_key,  //NoExists если в оперативной 
                              bool show_city_name=false,
                              const std::string &separator="-");
 
-const int TEST_ID_BASE = 1000000000;
-const int TEST_ID_LAST = TEST_ID_BASE+999999999;
-const int EMPTY_ID = TEST_ID_LAST+1;
-bool isTestPaxId(int id);
-int getEmptyPaxId();
-bool isEmptyPaxId(int id);
-
 struct TInfantAdults {
   int grp_id;
   int pax_id;

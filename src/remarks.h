@@ -206,6 +206,7 @@ class TPaxFQTItem : public TPaxRemBasic, public TPaxFQTCard
     const TPaxFQTItem& toXML(xmlNodePtr node,
                              const boost::optional<AstraLocale::OutputLang>& lang=boost::none) const;
     TPaxFQTItem& fromXML(xmlNodePtr node);
+    TPaxFQTItem& fromWebXML(xmlNodePtr node);
     std::string rem_code() const
     {
       return rem;

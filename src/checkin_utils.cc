@@ -507,9 +507,102 @@ const TWebTids& TWebTids::toXML(xmlNodePtr node) const
   return *this;
 }
 
+TWebAPISItem& TWebAPISItem::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==nullptr) return *this;
+  xmlNodePtr node2=node->children;
+
+  xmlNodePtr docNode = GetNodeFast("document", node2);
+  if (docNode!=nullptr)
+  {
+    doc.fromWebXML(docNode);
+    presentAPITypes.insert(apiDoc);
+  }
+
+  xmlNodePtr docoNode = GetNodeFast("doco", node2);
+  if (docoNode!=nullptr)
+  {
+    doco.fromWebXML(docoNode);
+    presentAPITypes.insert(apiDoco);
+  }
+
+  return *this;
+}
+
+void TWebAPISItem::set(const CheckIn::TPaxAPIItem& item)
+{
+  TAPIType type=item.apiType();
+  try
+  {
+    switch(type)
+    {
+      case apiDoc:
+        doc=static_cast<const CheckIn::TPaxDocItem&>(item);
+        break;
+      case apiDoco:
+        doco=static_cast<const CheckIn::TPaxDocoItem&>(item);
+        break;
+      case apiDocaB:
+      case apiDocaD:
+      case apiDocaR:
+        doca_map[type]=static_cast<const CheckIn::TPaxDocaItem&>(item);
+        break;
+      default:
+        throw EXCEPTIONS::Exception("TWebAPISItem::set: wrong type=%d", type);
+    }
+  }
+  catch(bad_cast)
+  {
+    throw EXCEPTIONS::Exception("TWebAPISItem::set: wrong item for type=%d", type);
+  }
+  presentAPITypes.insert(type);
+}
+
+TWebPaxFromReq& TWebPaxFromReq::fromDB(TQuery &Qry)
+{
+  clear();
+  id=Qry.FieldAsInteger("pax_id");
+  TWebTids::fromDB(Qry);
+  return *this;
+}
+
+TWebPaxFromReq& TWebPaxFromReq::fromXML(xmlNodePtr paxNode)
+{
+  clear();
+  if (paxNode==nullptr) return *this;
+
+  xmlNodePtr node2=paxNode->children;
+
+  if (GetNodeFast("passengerAlreadyChecked", node2)!=nullptr)
+    passengerAlreadyChecked=NodeAsBooleanFast("passengerAlreadyChecked", node2);
+  else
+    TWebTids::fromXML(paxNode);
+
+  id=NodeAsIntegerFast("crs_pax_id", node2);
+  dont_check_payment=NodeAsIntegerFast("dont_check_payment", node2, 0)!=0;
+  seat_no=NodeAsStringFast("seat_no", node2, "");
+
+  apis.fromXML(paxNode);
+
+  xmlNodePtr fqtNode = GetNodeFast("fqt_rems", node2);
+  if (fqtNode!=nullptr)
+  {
+    //если тег <fqt_rems> пришел, то изменяем и перезаписываем ремарки FQTV
+    fqtv_rems=std::set<CheckIn::TPaxFQTItem>();
+    //читаем пришедшие ремарки
+    for(fqtNode=fqtNode->children; fqtNode!=NULL; fqtNode=fqtNode->next)
+      fqtv_rems.get().insert(CheckIn::TPaxFQTItem().fromWebXML(fqtNode));
+  };
+
+  refuse=NodeAsIntegerFast("refuse", node2, 0)!=0;
+
+  return *this;
+}
+
 bool TWebPaxFromReq::mergePaxFQT(set<CheckIn::TPaxFQTItem> &fqts) const
 {
-  if (!fqtv_rems_present) return false;
+  if (!fqtv_rems) return false;
   multiset<string> prior, curr;
   for(set<CheckIn::TPaxFQTItem>::iterator f=fqts.begin(); f!=fqts.end();)
   {
@@ -521,12 +614,43 @@ bool TWebPaxFromReq::mergePaxFQT(set<CheckIn::TPaxFQTItem> &fqts) const
     else
       ++f;
   };
-  for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqtv_rems.begin(); f!=fqtv_rems.end(); ++f)
+  for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqtv_rems.get().begin(); f!=fqtv_rems.get().end(); ++f)
     curr.insert(f->rem_text(false));
 
-  fqts.insert(fqtv_rems.begin(), fqtv_rems.end());
+  fqts.insert(fqtv_rems.get().begin(), fqtv_rems.get().end());
 
   return prior!=curr;
+}
+
+TWebPaxForChng& TWebPaxForChng::fromDB(TQuery &Qry)
+{
+  clear();
+  CheckIn::TSimplePaxGrpItem::fromDB(Qry);
+  CheckIn::TSimplePaxItem::fromDB(Qry);
+  TWebTids::fromDB(Qry);
+  return *this;
+}
+
+TWebPaxForCkin& TWebPaxForCkin::fromDB(TQuery &Qry)
+{
+  clear();
+  CheckIn::TSimplePaxItem::fromDBCrs(Qry, true);
+  TWebTids::fromDB(Qry);
+  if (isTest())
+  {
+    pnr_addrs.emplace_back(Qry.FieldAsString("pnr_airline"),
+                           Qry.FieldAsString("pnr_addr"));
+    apis.doc.no = Qry.FieldAsString("doc_no");
+  }
+  else
+  {
+    pnr_status=Qry.FieldAsString("pnr_status");
+    pnr_addrs.getByPaxId(paxId());
+    CheckIn::LoadCrsPaxDoc(paxId(), apis.doc);
+    CheckIn::LoadCrsPaxVisa(paxId(), apis.doco);
+    CheckIn::LoadCrsPaxDoca(paxId(), apis.doca_map);
+  }
+  return *this;
 }
 
 void CheckSeatNoFromReq(int point_id,
@@ -831,7 +955,6 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
           emulCkinNode=NewTextChild(emulCkinNode,"TCkinSavePax");
             NewTextChild(emulCkinNode,"transfer"); //пустой тег - трансфера нет
           NewTextChild(emulCkinNode,"segments");
-          NewTextChild(emulCkinNode,"excess",(int)0);
           NewTextChild(emulCkinNode,"hall");
         };
         xmlNodePtr segsNode=NodeAsNode("/term/query/TCkinSavePax/segments",emulCkinDoc.docPtr());
@@ -867,22 +990,22 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
           with_seat_choice=GetSelfCkinSets(tsRegWithSeatChoice, iPnrData->flt.oper, reqInfo->client_type);
 
         xmlNodePtr paxsNode=NewTextChild(segNode,"passengers");
-        for(list<TWebPaxForCkin>::const_iterator iPaxForCkin=currPnr.paxForCkin.begin();iPaxForCkin!=currPnr.paxForCkin.end();iPaxForCkin++)
+        for(TWebPaxForCkinList::const_iterator iPaxForCkin=currPnr.paxForCkin.begin();iPaxForCkin!=currPnr.paxForCkin.end();iPaxForCkin++)
         {
           try
           {
-            vector<TWebPaxFromReq>::const_iterator iPaxFromReq=currPnr.paxFromReq.begin();
+            TWebPaxFromReqList::const_iterator iPaxFromReq=currPnr.paxFromReq.begin();
             for(;iPaxFromReq!=currPnr.paxFromReq.end();iPaxFromReq++)
-              if (iPaxFromReq->crs_pax_id==iPaxForCkin->crs_pax_id) break;
+              if (iPaxFromReq->id==iPaxForCkin->paxId()) break;
             if (iPaxFromReq==currPnr.paxFromReq.end())
-              throw EXCEPTIONS::Exception("CreateEmulDocs: iPaxFromReq==currPnr.paxFromReq.end() (seg_no=%d, crs_pax_id=%d)", seg_no, iPaxForCkin->crs_pax_id);
+              throw EXCEPTIONS::Exception("CreateEmulDocs: iPaxFromReq==currPnr.paxFromReq.end() (seg_no=%d, crs_pax_id=%d)", seg_no, iPaxForCkin->paxId());
 
             if (!iPaxFromReq->seat_no.empty())
             {
               string curr_xname, curr_yname;
               bool changed;
               CheckSeatNoFromReq(iPnrData->flt.point_dep,
-                                 iPaxForCkin->crs_pax_id,
+                                 iPaxForCkin->paxId(),
                                  iPaxForCkin->seat_no,
                                  iPaxFromReq->seat_no,
                                  curr_xname,
@@ -896,13 +1019,13 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
             };
 
             xmlNodePtr paxNode=NewTextChild(paxsNode,"pax");
-            if (iPaxForCkin->crs_pax_id!=NoExists)
-              NewTextChild(paxNode,"pax_id",iPaxForCkin->crs_pax_id);
+            if (iPaxForCkin->paxId()!=NoExists)
+              NewTextChild(paxNode,"pax_id",iPaxForCkin->paxId());
             else
               NewTextChild(paxNode,"pax_id");
             NewTextChild(paxNode,"surname",iPaxForCkin->surname);
             NewTextChild(paxNode,"name",iPaxForCkin->name);
-            NewTextChild(paxNode,"pers_type",iPaxForCkin->pers_type);
+            NewTextChild(paxNode,"pers_type",EncodePerson(iPaxForCkin->pers_type));
             NewTextChild(paxNode,"crew_type",iPaxForCkin->crew_type);
             if (!iPaxFromReq->seat_no.empty())
               NewTextChild(paxNode,"seat_no",iPaxFromReq->seat_no);
@@ -911,59 +1034,22 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
             NewTextChild(paxNode,"seat_type",iPaxForCkin->seat_type);
             NewTextChild(paxNode,"seats",iPaxForCkin->seats);
             //обработка билетов
-            string ticket_no;
-            if (!iPaxForCkin->eticket.empty())
-            {
-              //билет TKNE
-              ticket_no=iPaxForCkin->eticket;
-
-              int coupon_no=0;
-              string::size_type pos=ticket_no.find_last_of('/');
-              if (pos!=string::npos)
-              {
-                if (StrToInt(ticket_no.substr(pos+1).c_str(),coupon_no)!=EOF &&
-                    coupon_no>=1 && coupon_no<=4)
-                  ticket_no.erase(pos);
-                else
-                  coupon_no=0;
-              };
-
-              if (ticket_no.empty())
-                throw UserException("MSG.ETICK.NUMBER_NOT_SET");
-              NewTextChild(paxNode,"ticket_no",ticket_no);
-              if (coupon_no<=0)
-                throw UserException("MSG.ETICK.COUPON_NOT_SET", LParams()<<LParam("etick", ticket_no ) );
-              NewTextChild(paxNode,"coupon_no",coupon_no);
-              NewTextChild(paxNode,"ticket_rem","TKNE");
-              NewTextChild(paxNode,"ticket_confirm",(int)false);
-            }
-            else
-            {
-              ticket_no=iPaxForCkin->ticket;
-
-              NewTextChild(paxNode,"ticket_no",ticket_no);
-              NewTextChild(paxNode,"coupon_no");
-              if (!ticket_no.empty())
-                NewTextChild(paxNode,"ticket_rem","TKNA");
-              else
-                NewTextChild(paxNode,"ticket_rem");
-              NewTextChild(paxNode,"ticket_confirm",(int)false);
-            };
+            iPaxForCkin->tkn.toXML(paxNode);
 
             ASTRA::TPaxTypeExt pax_ext(currPnr.status, iPaxForCkin->crew_type);
 
-            if (iPaxForCkin->present_in_req.find(apiDoc) != iPaxForCkin->present_in_req.end())
+            if (iPaxForCkin->apis.isPresent(apiDoc))
               CheckDoc(iPaxForCkin->apis.doc, pax_ext, iPaxForCkin->surname, checkInfo, now_local);
             iPaxForCkin->apis.doc.toXML(paxNode);
 
-            if (iPaxForCkin->present_in_req.find(apiDoco) != iPaxForCkin->present_in_req.end())
+            if (iPaxForCkin->apis.isPresent(apiDoco))
               CheckDoco(iPaxForCkin->apis.doco, pax_ext, checkInfo, now_local);
             iPaxForCkin->apis.doco.toXML(paxNode);
 
             for(CheckIn::TDocaMap::const_iterator d = iPaxForCkin->apis.doca_map.begin(); d != iPaxForCkin->apis.doca_map.end(); ++d)
             {
               const CheckIn::TPaxDocaItem &doca = d->second;
-              if (iPaxForCkin->present_in_req.find(doca.apiType()) != iPaxForCkin->present_in_req.end())
+              if (iPaxForCkin->apis.isPresent(doca.apiType()))
                 CheckDoca(doca, pax_ext, checkInfo);
             }
 
@@ -971,7 +1057,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
             for(CheckIn::TDocaMap::const_iterator d = iPaxForCkin->apis.doca_map.begin(); d != iPaxForCkin->apis.doca_map.end(); ++d)
               d->second.toXML(docaNode);
 
-            NewTextChild(paxNode,"subclass",iPaxForCkin->subclass);
+            NewTextChild(paxNode,"subclass",iPaxForCkin->subcl);
             NewTextChild(paxNode,"transfer"); //пустой тег - трансфера нет
             NewTextChild(paxNode,"bag_pool_num");
             if (iPaxForCkin->reg_no!=NoExists)
@@ -979,9 +1065,9 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
 
             //ремарки
             multiset<CheckIn::TPaxRemItem> rems;
-            CheckIn::LoadCrsPaxRem(iPaxForCkin->crs_pax_id, rems);
+            CheckIn::LoadCrsPaxRem(iPaxForCkin->paxId(), rems);
             set<CheckIn::TPaxFQTItem> fqts;
-            CheckIn::LoadCrsPaxFQT(iPaxForCkin->crs_pax_id, fqts);
+            CheckIn::LoadCrsPaxFQT(iPaxForCkin->paxId(), fqts);
             iPaxFromReq->mergePaxFQT(fqts);
             CreateEmulRems(paxNode, rems, fqts);
 
@@ -994,22 +1080,22 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
           }
           catch(UserException &e)
           {
-            throw CheckIn::UserException(e.getLexemaData(), s->first, iPaxForCkin->crs_pax_id);
+            throw CheckIn::UserException(e.getLexemaData(), s->first, iPaxForCkin->paxId());
           };
         };
       };
 
       BitSet<SEATS2::TChangeLayerFlags> change_layer_flags;
       //пассажиры для изменения
-      for(list<TWebPaxForChng>::const_iterator iPaxForChng=currPnr.paxForChng.begin();iPaxForChng!=currPnr.paxForChng.end();iPaxForChng++)
+      for(TWebPaxForChngList::const_iterator iPaxForChng=currPnr.paxForChng.begin();iPaxForChng!=currPnr.paxForChng.end();iPaxForChng++)
       {
         try
         {
-          vector<TWebPaxFromReq>::const_iterator iPaxFromReq=currPnr.paxFromReq.begin();
+          TWebPaxFromReqList::const_iterator iPaxFromReq=currPnr.paxFromReq.begin();
           for(;iPaxFromReq!=currPnr.paxFromReq.end();iPaxFromReq++)
-            if (iPaxFromReq->crs_pax_id==iPaxForChng->crs_pax_id) break;
+            if (iPaxFromReq->id==iPaxForChng->paxId()) break;
           if (iPaxFromReq==currPnr.paxFromReq.end())
-            throw EXCEPTIONS::Exception("CreateEmulDocs: iPaxFromReq==currPnr.paxFromReq.end() (seg_no=%d, crs_pax_id=%d)", seg_no, iPaxForChng->crs_pax_id);
+            throw EXCEPTIONS::Exception("CreateEmulDocs: iPaxFromReq==currPnr.paxFromReq.end() (seg_no=%d, crs_pax_id=%d)", seg_no, iPaxForChng->paxId());
 
           int pax_tid=iPaxForChng->pax_tid;
           //пассажир зарегистрирован
@@ -1018,7 +1104,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
             string curr_xname, curr_yname;
             bool changed;
             CheckSeatNoFromReq(iPnrData->flt.point_dep,
-                               iPaxForChng->crs_pax_id,
+                               iPaxForChng->paxId(),
                                iPaxForChng->seat_no,
                                iPaxFromReq->seat_no,
                                curr_xname,
@@ -1027,7 +1113,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
             if (changed)
             {
                 IntChangeSeatsN( iPnrData->flt.point_dep,
-                                 iPaxForChng->crs_pax_id,
+                                 iPaxForChng->paxId(),
                                  pax_tid,
                                  curr_xname, curr_yname,
                                  SEATS2::stReseat,
@@ -1041,28 +1127,28 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
           ASTRA::TPaxTypeExt pax_ext(currPnr.status, iPaxForChng->crew_type);
 
           bool DocUpdatesPending=false;
-          if (iPaxForChng->present_in_req.find(apiDoc) != iPaxForChng->present_in_req.end()) //тег <document> пришел
+          if (iPaxForChng->apis.isPresent(apiDoc)) //тег <document> пришел
           {
-            CheckDoc(iPaxForChng->doc, pax_ext, iPaxForChng->surname, checkInfo, now_local);
+            CheckDoc(iPaxForChng->apis.doc, pax_ext, iPaxForChng->surname, checkInfo, now_local);
             CheckIn::TPaxDocItem prior_doc;
-            LoadPaxDoc(iPaxForChng->crs_pax_id, prior_doc);
-            DocUpdatesPending=!(prior_doc.equal(iPaxForChng->doc)); //реагируем также на изменение scanned_attrs
+            LoadPaxDoc(iPaxForChng->paxId(), prior_doc);
+            DocUpdatesPending=!(prior_doc.equal(iPaxForChng->apis.doc)); //реагируем также на изменение scanned_attrs
           };
 
           bool DocoUpdatesPending=false;
-          if (iPaxForChng->present_in_req.find(apiDoco) != iPaxForChng->present_in_req.end()) //тег <doco> пришел
+          if (iPaxForChng->apis.isPresent(apiDoco)) //тег <doco> пришел
           {
-            CheckDoco(iPaxForChng->doco, pax_ext, checkInfo, now_local);
+            CheckDoco(iPaxForChng->apis.doco, pax_ext, checkInfo, now_local);
             CheckIn::TPaxDocoItem prior_doco;
-            LoadPaxDoco(iPaxForChng->crs_pax_id, prior_doco);
-            DocoUpdatesPending=!(prior_doco.equal(iPaxForChng->doco)); //реагируем также на изменение scanned_attrs
+            LoadPaxDoco(iPaxForChng->paxId(), prior_doco);
+            DocoUpdatesPending=!(prior_doco.equal(iPaxForChng->apis.doco)); //реагируем также на изменение scanned_attrs
           };
 
           bool FQTRemUpdatesPending=false;
           set<CheckIn::TPaxFQTItem> fqts;
-          if (iPaxFromReq->fqtv_rems_present) //тег <fqt_rems> пришел
+          if (iPaxFromReq->fqtv_rems) //тег <fqt_rems> пришел
           {
-            CheckIn::LoadPaxFQT(iPaxForChng->crs_pax_id, fqts);
+            CheckIn::LoadPaxFQT(iPaxForChng->paxId(), fqts);
             FQTRemUpdatesPending=iPaxFromReq->mergePaxFQT(fqts);
           };
 
@@ -1090,17 +1176,13 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
               NewTextChild(segNode,"tid",iPaxForChng->pax_grp_tid);
               NewTextChild(segNode,"passengers");
 
-              NewTextChild(emulChngNode,"excess",iPaxForChng->excess);
               NewTextChild(emulChngNode,"hall");
-              if (iPaxForChng->bag_refuse)
-                NewTextChild(emulChngNode,"bag_refuse",refuseAgentError);
-              else
-                NewTextChild(emulChngNode,"bag_refuse");
+              NewTextChild(emulChngNode,"bag_refuse",iPaxForChng->bag_refuse);
             };
             xmlNodePtr paxsNode=NodeAsNode("/term/query/TCkinSavePax/segments/segment/passengers",emulChngDoc.docPtr());
 
             xmlNodePtr paxNode=NewTextChild(paxsNode,"pax");
-            NewTextChild(paxNode,"pax_id",iPaxForChng->crs_pax_id);
+            NewTextChild(paxNode,"pax_id",iPaxForChng->paxId());
             NewTextChild(paxNode,"surname",iPaxForChng->surname);
             NewTextChild(paxNode,"name",iPaxForChng->name);
             if (iPaxFromReq->refuse ||
@@ -1114,16 +1196,16 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
             NewTextChild(paxNode,"tid",pax_tid);
 
             if (DocUpdatesPending)
-              iPaxForChng->doc.toXML(paxNode);
+              iPaxForChng->apis.doc.toXML(paxNode);
 
             if (DocoUpdatesPending)
-              iPaxForChng->doco.toXML(paxNode);
+              iPaxForChng->apis.doco.toXML(paxNode);
 
             if (FQTRemUpdatesPending)
             {
               //ремарки
               multiset<CheckIn::TPaxRemItem> rems;
-              CheckIn::LoadPaxRem(iPaxForChng->crs_pax_id, rems);
+              CheckIn::LoadPaxRem(iPaxForChng->paxId(), rems);
               CreateEmulRems(paxNode, rems, fqts);
             };
           };
@@ -1134,7 +1216,7 @@ void CreateEmulDocs(const vector< pair<int/*point_id*/, TWebPnrForSave > > &segs
         }
         catch(UserException &e)
         {
-          throw CheckIn::UserException(e.getLexemaData(), s->first, iPaxForChng->crs_pax_id);
+          throw CheckIn::UserException(e.getLexemaData(), s->first, iPaxForChng->paxId());
         };
       };
     }
