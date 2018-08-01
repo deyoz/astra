@@ -794,7 +794,8 @@ void TPrnTagStore::confirm_print(bool pr_print, TDevOper::Enum op_type)
     TPrnQryBuilder prnQry(Qry);
     Qry.CreateVariable("pax_id", otInteger, pax_id);
     Qry.CreateVariable("now_utc", otDate, time_print.val);
-    Qry.CreateVariable("pr_print", otInteger, pr_print);
+    // Если печать с киоска, подтверждаем сразу.
+    Qry.CreateVariable("pr_print", otInteger, (pr_print ? pr_print : TReqInfo::Instance()->client_type == ctKiosk));
     Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
     Qry.CreateVariable("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type));
     Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
