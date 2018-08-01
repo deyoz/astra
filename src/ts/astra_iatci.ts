@@ -2132,9 +2132,24 @@ $(KICK_IN)
               <airp_code>èãä</airp_code>
               <city_code>ëèí</city_code>
               <target_view>ëÄçäí-èÖíÖêÅìêÉ (èãä)</target_view>
-              <check_doc_info/>
-              <check_doco_info/>
-              <check_tkn_info/>
+              <check_info>
+                <pass>
+                  <doc/>
+                  <doco/>
+                  <doca_b/>
+                  <doca_r/>
+                  <doca_d/>
+                  <tkn/>
+                </pass>
+                <crew>
+                  <doc/>
+                  <doco/>
+                  <doca_b/>
+                  <doca_r/>
+                  <doca_d/>
+                  <tkn/>
+                </crew>
+              </check_info>
             </airp>
           </airps>
           <classes>
@@ -2771,9 +2786,24 @@ $(KICK_IN)
               <airp_code>èãä</airp_code>
               <city_code>ëèí</city_code>
               <target_view>ëÄçäí-èÖíÖêÅìêÉ (èãä)</target_view>
-              <check_doc_info/>
-              <check_doco_info/>
-              <check_tkn_info/>
+              <check_info>
+                <pass>
+                  <doc/>
+                  <doco/>
+                  <doca_b/>
+                  <doca_r/>
+                  <doca_d/>
+                  <tkn/>
+                </pass>
+                <crew>
+                  <doc/>
+                  <doco/>
+                  <doca_b/>
+                  <doca_r/>
+                  <doca_d/>
+                  <tkn/>
+                </crew>
+              </check_info>
             </airp>
           </airps>
           <classes>
@@ -2886,7 +2916,17 @@ $(KICK_IN)
             </rems>
             <asvc_rems/>
             <fqt_rems/>
-            <norms/>
+            <norms>
+              <norm>
+                <bag_type/>
+                <norm_id/>
+                <norm_trfer/>
+                <norm_type/>
+                <amount/>
+                <weight/>
+                <per_unit/>
+              </norm>
+            </norms>
           </pax>
         </passengers>
         <paid_bag_emd/>
@@ -4484,9 +4524,24 @@ $(KICK_IN)
               <airp_code>èãä</airp_code>
               <city_code>ëèí</city_code>
               <target_view>ëÄçäí-èÖíÖêÅìêÉ (èãä)</target_view>
-              <check_doc_info/>
-              <check_doco_info/>
-              <check_tkn_info/>
+              <check_info>
+                <pass>
+                  <doc/>
+                  <doco/>
+                  <doca_b/>
+                  <doca_r/>
+                  <doca_d/>
+                  <tkn/>
+                </pass>
+                <crew>
+                  <doc/>
+                  <doco/>
+                  <doca_b/>
+                  <doca_r/>
+                  <doca_d/>
+                  <tkn/>
+                </crew>
+              </check_info>
             </airp>
           </airps>
           <classes>
