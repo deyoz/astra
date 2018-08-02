@@ -1,4 +1,6 @@
-libs=serverlib tscriptc jxtlib edilib eticklib libtlg libtypeb shared
+#libs=libssim
+#libs=serverlib tscriptc jxtlib edilib eticklib libtlg libtypeb shared libcoretypes
+libs=serverlib tscriptc jxtlib edilib eticklib libtlg libtypeb shared libssim libcoretypes libnsi
 #libs=edilib
 #edilib eticklib libtlg libtypeb shared 
 
