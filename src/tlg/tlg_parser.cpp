@@ -8,7 +8,6 @@
 #include "tlg_parser.h"
 #include "lci_parser.h"
 #include "ucm_parser.h"
-#include "ssm_parser.h"
 #include "astra_consts.h"
 #include "../astra_misc.h"
 #include "astra_utils.h"
@@ -1369,16 +1368,6 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading,
               info = new TAHMHeadingInfo(infoh);
               mem.create(info, STDLOG);
               next=ParseAHMHeading(heading,*(TAHMHeadingInfo*)info);
-              break;
-            case tcSSM:
-              info = new TSSMHeadingInfo(infoh);
-              mem.create(info, STDLOG);
-              next=ParseSSMHeading(heading,*(TSSMHeadingInfo*)info);
-              break;
-            case tcASM:
-              info = new TSSMHeadingInfo(infoh);
-              mem.create(info, STDLOG);
-              next=ParseSSMHeading(heading,*(TSSMHeadingInfo*)info);
               break;
             case tcLCI:
               info = new TLCIHeadingInfo(infoh);
@@ -5409,42 +5398,17 @@ void GetParts(const char* tlg_p, TTlgPartsText &text, THeadingInfo* &info, TFlig
 
 int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, TSearchFltInfoPtr search_params, ETlgErrorType error_type)
 {
-  int point_id;
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-    "  SELECT point_id FROM tlg_trips "
-    "  WHERE airline=:airline AND flt_no=:flt_no AND "
-    "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
-    "      scd=:scd AND pr_utc=:pr_utc AND "
-    "      (airp_dep IS NULL AND :airp_dep IS NULL OR airp_dep=:airp_dep) AND "
-    "      (airp_arv IS NULL AND :airp_arv IS NULL OR airp_arv=:airp_arv) AND "
-    "      bind_type=:bind_type";
-  Qry.CreateVariable("airline",otString,flt.airline);
-  Qry.CreateVariable("flt_no",otInteger,(int)flt.flt_no);
-  Qry.CreateVariable("suffix",otString,flt.suffix);
-  Qry.CreateVariable("scd",otDate,flt.scd);
-  Qry.CreateVariable("pr_utc",otInteger,(int)flt.pr_utc);
-  Qry.CreateVariable("airp_dep",otString,flt.airp_dep);
-  Qry.CreateVariable("airp_arv",otString,flt.airp_arv);
-  Qry.CreateVariable("bind_type",otInteger,(int)bind_type);
-  Qry.Execute();
-  if (Qry.Eof)
-  {
-    Qry.SQLText=
-      "BEGIN "
-      "  SELECT point_id.nextval INTO :point_id FROM dual; "
-      "  INSERT INTO tlg_trips(point_id,airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv,bind_type) "
-      "  VALUES(:point_id,:airline,:flt_no,:suffix,:scd,:pr_utc,:airp_dep,:airp_arv,:bind_type); "
-      "END;";
-    Qry.DeclareVariable("point_id",otInteger);
-    Qry.Execute();
-    point_id=Qry.GetVariableAsInteger("point_id");
-    TTlgBinding(false, search_params).bind_flt(point_id);
+  const auto res=flt.getPointId(bind_type);
+  int point_id=res.first;
+  TTlgBinding(false, search_params).bind_flt(point_id);
 
+  if (res.second)
+  {
     /* здесь проверим непривязанные сегменты из crs_displace и привяжем */
     /* но только для PNL/ADL */
     if (!flt.pr_utc && bind_type==btFirstSeg && *flt.airp_arv==0)
     {
+      TQuery Qry(&OraSession);
       Qry.Clear();
       Qry.SQLText=
         "UPDATE crs_displace2 SET point_id_tlg=:point_id "
@@ -5462,43 +5426,17 @@ int SaveFlt(int tlg_id, const TFltInfo& flt, TBindType bind_type, TSearchFltInfo
       Qry.Execute();
     };
   }
-  else {
-      point_id=Qry.FieldAsInteger("point_id");
-      TTlgBinding(false, search_params).bind_flt(point_id);
-  }
-
 
   bool has_errors=error_type!=tlgeNotError;
   bool has_alarm_errors=error_type==tlgeNotMonitorYesAlarm ||
                         error_type==tlgeYesMonitorYesAlarm;
-  Qry.Clear();
-  Qry.SQLText=
-    "INSERT INTO tlg_source(point_id_tlg,tlg_id,has_errors,has_alarm_errors) "
-    "VALUES(:point_id_tlg,:tlg_id,:has_errors,:has_alarm_errors)";
-  Qry.CreateVariable("point_id_tlg",otInteger,point_id);
-  Qry.CreateVariable("tlg_id",otInteger,tlg_id);
-  Qry.CreateVariable("has_errors",otInteger,(int)has_errors);
-  Qry.CreateVariable("has_alarm_errors",otInteger,(int)has_alarm_errors);
-  try
-  {
-    Qry.Execute();
-  }
-  catch(EOracleError E)
-  {
-    if (E.Code!=1) throw;
-    if (has_errors || has_alarm_errors)
-    {
-      Qry.SQLText=
-          "UPDATE tlg_source "
-          "SET has_errors=DECODE(:has_errors,0,has_errors,:has_errors), "
-          "    has_alarm_errors=DECODE(:has_alarm_errors,0,has_alarm_errors,:has_alarm_errors) "
-          "WHERE point_id_tlg=:point_id_tlg AND tlg_id=:tlg_id ";
-      Qry.Execute();
-    };
-  };
-  check_tlg_in_alarm(point_id, NoExists);
+
+  TlgSource(point_id, tlg_id, has_errors, has_alarm_errors).toDB();
+
+  if (bind_type!=btNone)
+    check_tlg_in_alarm(point_id, NoExists);
   return point_id;
-};
+}
 
 bool isDeleteTypeBContent(int point_id, const THeadingInfo& info)
 {
@@ -7323,6 +7261,90 @@ int monthAsNum(const std::string &smonth)
     if(mon == NoExists)
         throw Exception("%s: cant convert month %s to num", smonth.c_str());
     return mon;
+}
+
+void TFlightIdentifier::parse(const char *val)
+{
+    string buf = val;
+    size_t idx = buf.find('/');
+    if(idx == string::npos)
+        throw ETlgError("Flight Identifier: wrong format: %s", val);
+    TFltInfo flt_info;
+    flt_info.parse(buf.substr(0, idx).c_str());
+    airline = flt_info.airline;
+    flt_no = flt_info.flt_no;
+    suffix = *flt_info.suffix;
+    buf.erase(0, idx + 1);
+    date = ParseDate(buf);
+
+}
+
+void TFlightIdentifier::dump()
+{
+    ProgTrace(TRACE5, "TFlightIdentifier::dump");
+    ProgTrace(TRACE5, "airline: %s", airline.c_str());
+    ProgTrace(TRACE5, "flt_no: %d", flt_no);
+    ProgTrace(TRACE5, "suffix: %c", suffix);
+    ProgTrace(TRACE5, "date: %s", DateTimeToStr(date, "dd.mm.yyyy").c_str());
+
+}
+
+// на входе строка формата nn(aaa(nn))
+TDateTime ParseDate(const string &buf)
+{
+    char sday[3];
+    char smonth[4];
+    char syear[3];
+    char c;
+    int res;
+    int fmt = 1;
+    while(fmt) {
+        *sday = 0;
+        *smonth = 0;
+        *syear = 0;
+        c = 0;
+        switch(fmt) {
+            case 1:
+                fmt = 0;
+                res = sscanf(buf.c_str(), "%2[0-9]%3[A-ZА-ЯЁ]%2[0-9]%c", sday, smonth, syear, &c);
+                if(c != 0 or res != 3) fmt = 2;
+                break;
+            case 2:
+                fmt = 0;
+                res = sscanf(buf.c_str(), "%2[0-9]%3[A-ZА-ЯЁ]%c", sday, smonth, &c);
+                if(c != 0 or res != 2) fmt = 3;
+                break;
+            case 3:
+                fmt = 0;
+                res = sscanf(buf.c_str(), "%2[0-9]%c", sday, &c);
+                if(c != 0 or res != 1)
+                    throw ETlgError("Flight Identifier: wrong date format: %s", buf.c_str());
+                break;
+        }
+    }
+    if(strlen(sday) != 2)
+        throw ETlgError("Flight Identifier: wrond day %s", sday);
+    if(*smonth and strlen(smonth) != 3)
+        throw ETlgError("Flight Identifier: wrond month %s", smonth);
+    if(*syear and strlen(syear) != 2)
+        throw ETlgError("Flight Identifier: wrond year %s", syear);
+
+    TDateTime today=NowUTC();
+
+    TDateTime date;
+    int year(NoExists), mon(NoExists), day(NoExists);
+    StrToInt(sday, day);
+    if(*smonth) mon = monthAsNum(smonth);
+    if(*syear) {
+        StrToInt(syear, year);
+        EncodeDate(year,mon,day,date);
+    } else if(*smonth) {
+        date = DayMonthToDate(day, mon, today, dateEverywhere);
+    } else {
+        date = DayToDate(day, today + 1, true);
+    }
+
+    return date;
 }
 
 }

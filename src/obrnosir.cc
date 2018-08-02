@@ -16,13 +16,14 @@
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
 
-#include "tlg/ssm_parser.h"
 #include "tlg/lci_parser.h"
 #include "img.h"
 #include "collect.h"
 #include "html_pages.h"
 #include "web_main.h"
 #include "db_pkg.h"
+
+#include "astra_ssim.h"
 
 int nosir_test(int argc,char **argv);
 void nosir_test_help(const char *name);
@@ -75,7 +76,6 @@ const
     {"-dst_seasons",            seasons_dst_format,     NULL,                       NULL},
     {"-agent_stat_delta",       STAT::agent_stat_delta, NULL,                       NULL},
     {"-lci",                    TypeB::lci,             NULL,                       NULL},
-    {"-ssm",                    TypeB::ssm,             NULL,                       NULL},
     {"-tz2db",                  tz2db,                  NULL,                       "reload date_time_zonespec.csv content to db"},
     {"-get_sirena_rozysk_stat", get_sirena_rozysk_stat, NULL,                       NULL},
     {"-get_events_stat",        get_events_stat2,       NULL,                       NULL},
@@ -88,7 +88,9 @@ const
     {"-compare_apis",           compare_apis,           NULL,                       NULL},
     {"-test_sopp_sql",          test_sopp_sql,          NULL,                       NULL},
     {"-test_file_queue",        test_file_queue,        NULL,                       NULL},
+#ifdef XP_TESTING    
     {"-tscript",                nosir_tscript,          NULL,                       NULL},
+#endif//XP_TESTING    
     {"-test_astra_locale_adv",  test_astra_locale_adv,  NULL,                       NULL},
     {"-insert_locales",         insert_locales,         NULL,                       NULL},
     {"-file_by_id",             file_by_id,             NULL,                       NULL},
@@ -124,6 +126,7 @@ const
     {"-rbd_test",               rbd_test,               NULL,                       NULL},
     {"-lci_data",               TypeB::lci_data,               NULL,                       NULL},
     {"-asvc_list_print_sql",    PaxASVCList::print_sql, NULL,                       NULL},
+    {"-ssim_test",              ssim_test,              NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)

@@ -161,6 +161,7 @@ void TFltBinding::bind_flt(TFltInfo &flt, TBindType bind_type, vector<int> &spp_
 {
   spp_point_ids.clear();
   if (!flt.pr_utc && *flt.airp_dep==0) return;
+  if (bind_type == btNone) return;
 
   TSearchFltInfoPtr filter = get_search_params();
   if(not filter)
@@ -197,6 +198,8 @@ void TFltBinding::bind_flt(TFltInfo &flt, TBindType bind_type, vector<int> &spp_
   {
     switch (bind_type)
     {
+      case btNone:
+        break;
       case btFirstSeg:
         spp_point_ids.push_back(f->point_id);
         break;
@@ -588,8 +591,8 @@ void TFltBinding::trace_for_bind(const vector<TTripInfo> &flts, const string &wh
           << " " << flt->airp
           << "/" << (flt->scd_out==NoExists?"??.??":DateTimeToStr(flt->scd_out, "dd.mm"))
           << ";";
-  ProgTrace(TRACE5, trace.str().c_str());
-};
+  ProgTrace(TRACE5, "%s", trace.str().c_str());
+}
 
 void TFltBinding::trace_for_bind(const vector<int> &point_ids, const string &where)
 {
@@ -598,8 +601,28 @@ void TFltBinding::trace_for_bind(const vector<int> &point_ids, const string &whe
   for(vector<int>::const_iterator id=point_ids.begin();id!=point_ids.end();id++)
     trace << " " << *id << ";";
 
-  ProgTrace(TRACE5, trace.str().c_str());
-};
+  ProgTrace(TRACE5, "%s", trace.str().c_str());
+}
+
+void TFltInfo::parse(const char *val)
+{
+    char flt[9];
+    char c = 0;
+    suffix[1] = 0;
+    int res=sscanf(val,"%8[A-Z€-Ÿð0-9]%c",flt,&c);
+    if(c !=0 or res != 1) throw TypeB::ETlgError("wrong flight");
+    if (IsDigit(flt[2]))
+        res=sscanf(flt,"%2[A-Z€-Ÿð0-9]%5lu%c%c",
+                airline,&flt_no,&(suffix[0]),&c);
+    else
+        res=sscanf(flt,"%3[A-Z€-Ÿð0-9]%5lu%c%c",
+                airline,&flt_no,&(suffix[0]),&c);
+    if (c!=0||res<2||flt_no<0) throw TypeB::ETlgError("Wrong flight");
+    if (res==3&&
+            !IsUpperLetter(suffix[0])) throw TypeB::ETlgError("Wrong flight");
+    TypeB::GetAirline(airline);
+    TypeB::GetSuffix(suffix[0]);
+}
 
 void TFltInfo::dump() const
 {
@@ -613,3 +636,88 @@ void TFltInfo::dump() const
     LogTrace(TRACE5) << "airp_arv: " << airp_arv;
     LogTrace(TRACE5) << "----------------------";
 }
+
+std::pair<int, bool> TFltInfo::getPointId(TBindType bind_type) const
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "DECLARE \n"
+    "  pass BINARY_INTEGER; \n"
+    "BEGIN \n"
+    "  :inserted:=0; "
+    "  FOR pass IN 1..2 LOOP \n"
+    "    BEGIN \n"
+    "      SELECT point_id INTO :point_id FROM tlg_trips \n"
+    "      WHERE airline=:airline AND flt_no=:flt_no AND \n"
+    "            (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND \n"
+    "            scd=:scd AND pr_utc=:pr_utc AND \n"
+    "            (airp_dep IS NULL AND :airp_dep IS NULL OR airp_dep=:airp_dep) AND \n"
+    "            (airp_arv IS NULL AND :airp_arv IS NULL OR airp_arv=:airp_arv) AND \n"
+    "            bind_type=:bind_type; \n"
+    "      EXIT; \n"
+    "    EXCEPTION \n"
+    "      WHEN NO_DATA_FOUND THEN \n"
+    "        BEGIN \n"
+    "          SELECT point_id.nextval INTO :point_id FROM dual; \n"
+    "          INSERT INTO tlg_trips(point_id,airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv,bind_type) \n"
+    "          VALUES(:point_id,:airline,:flt_no,:suffix,:scd,:pr_utc,:airp_dep,:airp_arv,:bind_type); \n"
+    "          :inserted:=1; "
+    "          EXIT; \n"
+    "        EXCEPTION \n"
+    "          WHEN DUP_VAL_ON_INDEX THEN \n"
+    "            IF pass=1 THEN NULL; ELSE RAISE; END IF; \n"
+    "        END; \n"
+    "    END; \n"
+    "  END LOOP; \n"
+    "END; ";
+  Qry.CreateVariable("airline", otString, airline);
+  Qry.CreateVariable("flt_no", otInteger, (int)flt_no);
+  Qry.CreateVariable("suffix", otString, suffix);
+  Qry.CreateVariable("scd", otDate, scd);
+  Qry.CreateVariable("pr_utc", otInteger, (int)pr_utc);
+  Qry.CreateVariable("airp_dep", otString, airp_dep);
+  Qry.CreateVariable("airp_arv", otString, airp_arv);
+  Qry.CreateVariable("bind_type", otInteger, (int)bind_type);
+  Qry.CreateVariable("point_id", otInteger, FNull);
+  Qry.CreateVariable("inserted", otInteger, FNull);
+  Qry.Execute();
+  if (Qry.VariableIsNULL("point_id"))
+    throw Exception("%s: point_id IS NULL!", __FUNCTION__);
+  if (Qry.VariableIsNULL("inserted"))
+    throw Exception("%s: inserted IS NULL!", __FUNCTION__);
+  return make_pair(Qry.GetVariableAsInteger("point_id"), Qry.GetVariableAsInteger("inserted")!=0);
+}
+
+const TlgSource& TlgSource::toDB() const
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "INSERT INTO tlg_source(point_id_tlg,tlg_id,has_errors,has_alarm_errors) "
+    "VALUES(:point_id_tlg,:tlg_id,:has_errors,:has_alarm_errors)";
+  Qry.CreateVariable("point_id_tlg",otInteger,point_id);
+  Qry.CreateVariable("tlg_id",otInteger,tlg_id);
+  Qry.CreateVariable("has_errors",otInteger,(int)has_errors);
+  Qry.CreateVariable("has_alarm_errors",otInteger,(int)has_alarm_errors);
+  try
+  {
+    Qry.Execute();
+  }
+  catch(EOracleError E)
+  {
+    if (E.Code!=1) throw;
+    if (has_errors || has_alarm_errors)
+    {
+      Qry.SQLText=
+          "UPDATE tlg_source "
+          "SET has_errors=DECODE(:has_errors,0,has_errors,:has_errors), "
+          "    has_alarm_errors=DECODE(:has_alarm_errors,0,has_alarm_errors,:has_alarm_errors) "
+          "WHERE point_id_tlg=:point_id_tlg AND tlg_id=:tlg_id ";
+      Qry.Execute();
+    };
+  };
+
+  return *this;
+}
+
+

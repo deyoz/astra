@@ -7,7 +7,6 @@
 
 #include <serverlib/monitor_ctl.h>
 #include <edilib/edi_session.h>
-#include <edilib/edi_session_cb.h>
 #include <libtlg/hth.h>
 
 namespace Ticketing {
