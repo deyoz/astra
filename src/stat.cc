@@ -3688,6 +3688,7 @@ struct TSelfCkinStatRow {
     int term_bp;
     int term_bag;
     int term_ckin_service;
+    int kiosk_reprint_bp;
     int adult;
     int child;
     int baby;
@@ -3698,6 +3699,7 @@ struct TSelfCkinStatRow {
         term_bp(0),
         term_bag(0),
         term_ckin_service(0),
+        kiosk_reprint_bp(0),
         adult(0),
         child(0),
         baby(0),
@@ -3721,6 +3723,7 @@ struct TSelfCkinStatRow {
         term_bp += item.term_bp;
         term_bag += item.term_bag;
         term_ckin_service += item.term_ckin_service;
+        kiosk_reprint_bp += item.kiosk_reprint_bp;
         adult += item.adult;
         child += item.child;
         baby += item.baby;
@@ -3795,6 +3798,7 @@ void RunSelfCkinStat(const TStatParams &params,
             "    term_bp, "
             "    term_bag, "
             "    term_ckin_service, "
+            "    kiosk_reprint_bp, "
             "    tckin "
             "from ";
         if(pass != 0) {
@@ -3873,6 +3877,7 @@ void RunSelfCkinStat(const TStatParams &params,
             int col_term_bp = Qry.FieldIndex("term_bp");
             int col_term_bag = Qry.FieldIndex("term_bag");
             int col_term_ckin_service = Qry.FieldIndex("term_ckin_service");
+            int col_kiosk_reprint_bp = Qry.FieldIndex("kiosk_reprint_bp");
             int col_baby = Qry.FieldIndex("baby");
             int col_tckin = Qry.FieldIndex("tckin");
             for(; not Qry.Eof; Qry.Next())
@@ -3888,6 +3893,7 @@ void RunSelfCkinStat(const TStatParams &params,
               row.pax_amount = row.adult + row.child + row.baby;
               row.term_bp = Qry.FieldAsInteger(col_term_bp);
               row.term_bag = Qry.FieldAsInteger(col_term_bag);
+              row.kiosk_reprint_bp = Qry.FieldAsInteger(col_kiosk_reprint_bp);
               if (Qry.FieldIsNULL(col_term_ckin_service))
                 row.term_ckin_service = row.pax_amount;
               else
@@ -4013,6 +4019,7 @@ void createXMLSelfCkinStat(const TStatParams &params,
         NewTextChild(rowNode, "col", im->second.term_bag);
         NewTextChild(rowNode, "col", im->second.term_bp);
         NewTextChild(rowNode, "col", im->second.pax_amount - im->second.term_ckin_service);
+        NewTextChild(rowNode, "col", im->second.kiosk_reprint_bp);
 
         if(params.statType == statSelfCkinFull) {
             // ВЗ
@@ -4132,6 +4139,12 @@ void createXMLSelfCkinStat(const TStatParams &params,
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col", total.pax_amount-total.term_ckin_service);
 
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Репринт"));
+    SetProp(colNode, "width", 45);
+    SetProp(colNode, "align", TAlignment::RightJustify);
+    SetProp(colNode, "sort", sortInteger);
+    NewTextChild(rowNode, "col", total.kiosk_reprint_bp);
+
     if(params.statType == statSelfCkinFull) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("ВЗ"));
         SetProp(colNode, "width", 30);
@@ -4215,36 +4228,37 @@ struct TSelfCkinStatCombo : public TOrderStatItem
 
 void TSelfCkinStatCombo::add_header(ostringstream &buf) const
 {
-    buf << "Тип рег." << delim;
-    buf << "Пульт" << delim;
-    buf << "АП пульта" << delim;
+    buf << getLocaleText("Тип рег.") << delim;
+    buf << getLocaleText("Пульт") << delim;
+    buf << getLocaleText("АП пульта") << delim;
     if (params.statType == statSelfCkinFull)
-        buf << "Примечание" << delim;
-    buf << "Код а/к" << delim;
+        buf << getLocaleText("Примечание") << delim;
+    buf << getLocaleText("Код а/к") << delim;
     if (params.statType == statSelfCkinDetail or params.statType == statSelfCkinFull)
-        buf << "Код а/п" << delim;
+        buf << getLocaleText("Код а/п") << delim;
     if (params.statType == statSelfCkinShort or params.statType == statSelfCkinDetail)
-        buf << "Кол-во рейсов" << delim;
+        buf << getLocaleText("Кол-во рейсов") << delim;
     if (params.statType == statSelfCkinFull)
     {
-        buf << "Номер рейса" << delim;
-        buf << "Дата" << delim;
-        buf << "Направление" << delim;
+        buf << getLocaleText("Номер рейса") << delim;
+        buf << getLocaleText("Дата") << delim;
+        buf << getLocaleText("Направление") << delim;
     }
-    buf << "Пас." << delim;
-    buf << "БГ" << delim;
-    buf << "ПТ" << delim;
-    buf << "Всё сами" << delim;
+    buf << getLocaleText("Пас.") << delim;
+    buf << getLocaleText("БГ") << delim;
+    buf << getLocaleText("ПТ") << delim;
+    buf << getLocaleText("Всё сами") << delim;
+    buf << getLocaleText("Репринт") << delim;
     if (params.statType == statSelfCkinFull)
     {
-        buf << "ВЗ" << delim;
-        buf << "РБ" << delim;
-        buf << "РМ" << delim;
+        buf << getLocaleText("ВЗ") << delim;
+        buf << getLocaleText("РБ") << delim;
+        buf << getLocaleText("РМ") << delim;
     }
     if (params.statType == statSelfCkinDetail or params.statType == statSelfCkinFull)
-        buf << "Сквоз." << delim;
+        buf << getLocaleText("Сквоз.") << delim;
     if (params.statType == statSelfCkinShort or params.statType == statSelfCkinDetail)
-        buf << "Примечание" << delim;
+        buf << getLocaleText("Примечание") << delim;
     buf << endl;
 }
 
@@ -4280,6 +4294,8 @@ void TSelfCkinStatCombo::add_data(ostringstream &buf) const
     buf << data.second.term_bp << delim; // ПТ
     buf << (data.second.pax_amount - data.second.term_ckin_service)
      << delim; // Всё сами
+    // Репринт
+    buf << data.second.kiosk_reprint_bp << delim;
     if (params.statType == statSelfCkinFull)
     {
         buf << data.second.adult << delim; // ВЗ
