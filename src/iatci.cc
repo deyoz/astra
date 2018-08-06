@@ -1263,6 +1263,7 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
     const std::list<astra_entities::PaxInfo> lInfants = filterInfants(lPax);
 
     std::list<iatci::dcqcki::PaxGroup> lPaxGrp;
+    std::set<int> processedInfantIds;
     for(const auto& pax: lNonInfants) {
         // поищем SSR INFT у пассажира из non-edi вкладки
         boost::optional<astra_entities::PaxInfo> ownPax = findPax(lPaxOwn, pax.fullName());
@@ -1278,10 +1279,17 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
         if(ssrInft) {
             inft = findInfant(lInfants, *ssrInft);
             if(inft) {
-                infant        = iatci::makeQryPax(*inft);
-                infantDoc     = iatci::makeDoc(*inft);
-                infantAddress = iatci::makeAddress(*inft);
-                infantVisa    = iatci::makeVisa(*inft);
+                if(!algo::contains(processedInfantIds, inft->id())) {
+                    processedInfantIds.insert(inft->id());
+                    infant        = iatci::makeQryPax(*inft);
+                    infantDoc     = iatci::makeDoc(*inft);
+                    infantAddress = iatci::makeAddress(*inft);
+                    infantVisa    = iatci::makeVisa(*inft);
+                } else {
+                    LogTrace(TRACE1) << "Skip infant already processed: " << inft->fullName()
+                                     << " (" << inft->id() << ")";
+                    inft = boost::none;
+                }
             }
         }
         lPaxGrp.push_back(iatci::dcqcki::PaxGroup(iatci::makeQryPax(pax, inft),
