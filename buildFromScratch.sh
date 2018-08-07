@@ -78,6 +78,12 @@ function build_externallib() {
     echo "export LD_LIBRARY_PATH=$EXTERNALLIBS_DIR/$1/lib:\$LD_LIBRARY_PATH" >> locallibs/external_env_file
 }
 
+function create_pkgconfig_amqpcpp() {
+    EXTERNALLIBS_DIR=$EXTERNALLIBS_DIR python ./bin/create_pkgconfig_amqpcpp.py
+    checkresult configext $?
+    echo "create_pkgconfig - ok"
+}
+
 
 usage_no_exit()
 {
@@ -204,6 +210,8 @@ EOF
     build_externallib boost
     build_externallib check
     build_externallib pion
+    build_externallib amqpcpp
+    create_pkgconfig_amqpcpp
 fi
 
 if [ "$configlibs" = "2" ]; then
