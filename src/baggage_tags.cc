@@ -444,15 +444,25 @@ void GetTagsByBagNum(int grp_id, int bag_num, std::multiset<TBagTagNumber> &tags
 void GetTagsByPool(int grp_id, int bag_pool_num , std::multiset<TBagTagNumber> &tags)
 {
     tags.clear();
-    TCachedQuery Qry("select num from bag2 where grp_id = :grp_id and bag_pool_num = :bag_pool_num",
+    TCachedQuery Qry(
+            "select "
+            "    bag_tags.color, "
+            "    bag_tags.no "
+            "from "
+            "    bag2, "
+            "    bag_tags "
+            "where "
+            "    bag2.grp_id = :grp_id and "
+            "    bag2.bag_pool_num = :bag_pool_num and "
+            "    bag2.grp_id = bag_tags.grp_id and "
+            "    bag2.num = bag_tags.bag_num ",
             QParams() << QParam("grp_id", otInteger, grp_id) << QParam("bag_pool_num", otInteger, bag_pool_num));
     Qry.get().Execute();
-    for(; not Qry.get().Eof; Qry.get().Next()) {
-        int bag_num = Qry.get().FieldAsInteger("num");
-        multiset<TBagTagNumber> _tags;
-        GetTagsByBagNum(grp_id, bag_num, _tags);
-        tags.insert(_tags.begin(), _tags.end());
-    }
+    for(; not Qry.get().Eof; Qry.get().Next())
+        tags.insert(
+                TBagTagNumber(
+                    ElemIdToCodeNative(etTagColor, Qry.get().FieldAsString("color")),
+                    Qry.get().FieldAsFloat("no")));
 }
 
 void GetTagsByPaxId(int pax_id, std::multiset<TBagTagNumber> &tags)
