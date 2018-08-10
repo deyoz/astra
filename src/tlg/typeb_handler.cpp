@@ -270,17 +270,13 @@ void progError(int tlg_id,
 
   for(TFlightsForBind::const_iterator f=flts.begin(); f!=flts.end(); ++f)
   {
-    ostringstream flight;
-    flight << f->flt_info.airline
-           << setw(3) << setfill('0') << f->flt_info.flt_no << f->flt_info.suffix
-           << "/" << DateTimeToStr(f->flt_info.scd, "ddmmm")
-           << " " << f->flt_info.airp_dep << f->flt_info.airp_arv;
+    string flight = f->flt_info.toString();
     if (f==flts.begin())
-      only_trace?ProgTrace(TRACE0, "Flights: %s", flight.str().c_str()):
-                 ProgError(STDLOG, "Flights: %s", flight.str().c_str());
+      only_trace?ProgTrace(TRACE0, "Flights: %s", flight.c_str()):
+                 ProgError(STDLOG, "Flights: %s", flight.c_str());
     else
-      only_trace?ProgTrace(TRACE0, "         %s", flight.str().c_str()):
-                 ProgError(STDLOG, "         %s", flight.str().c_str());
+      only_trace?ProgTrace(TRACE0, "         %s", flight.c_str()):
+                 ProgError(STDLOG, "         %s", flight.c_str());
   };
 
   if (tlge!=NULL)

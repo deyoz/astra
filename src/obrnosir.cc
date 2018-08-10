@@ -89,9 +89,9 @@ const
     {"-compare_apis",           compare_apis,           NULL,                       NULL},
     {"-test_sopp_sql",          test_sopp_sql,          NULL,                       NULL},
     {"-test_file_queue",        test_file_queue,        NULL,                       NULL},
-#ifdef XP_TESTING    
+#ifdef XP_TESTING
     {"-tscript",                nosir_tscript,          NULL,                       NULL},
-#endif//XP_TESTING    
+#endif//XP_TESTING
     {"-test_astra_locale_adv",  test_astra_locale_adv,  NULL,                       NULL},
     {"-insert_locales",         insert_locales,         NULL,                       NULL},
     {"-file_by_id",             file_by_id,             NULL,                       NULL},
@@ -132,7 +132,6 @@ const
     {"-rbd_test",               rbd_test,               NULL,                       NULL},
     {"-lci_data",               TypeB::lci_data,               NULL,                       NULL},
     {"-asvc_list_print_sql",    PaxASVCList::print_sql, NULL,                       NULL},
-    {"-ssim_test",              ssim_test,              NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
