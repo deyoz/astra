@@ -10,7 +10,7 @@ EXTERNALLIBS_DIR=${EXTERNAL_LIBS:-$(pwd)/externallibs}
 export EXTLIB_ENV_FILE=${EXTERNALLIBS_DIR}/external_env_file
 
 # Libs in build order
-LIST_EXTLIB="icu libxml2 libxslt boost check pion"
+LIST_EXTLIB="icu libxml2 libxslt boost check pion amqpcpp"
 
 LOCALLIBS_DIR=${LOCAL_LIBS:-$(pwd)/locallibs}
 
@@ -160,6 +160,9 @@ function extLibLDFlag() {
             pion)
                 result="$(extRPATH boost)";
             ;;
+            amqpcpp)
+                result="$(extRPATH amqpcpp)";
+            ;;
         esac;
     fi;
 
@@ -225,6 +228,13 @@ function build_externallib() {
     echo "export PKG_CONFIG_PATH=$libpath/lib/pkgconfig:\$PKG_CONFIG_PATH" >> $EXTLIB_ENV_FILE
     echo "export LD_LIBRARY_PATH=$libpath/lib:\$LD_LIBRARY_PATH" >> $EXTLIB_ENV_FILE
 }
+
+function create_pkgconfig_amqpcpp() {
+    EXTERNALLIBS_DIR=$EXTERNALLIBS_DIR python ./bin/create_pkgconfig_amqpcpp.py
+    checkresult configext $?
+    echo "create_pkgconfig - ok"
+}
+
 
 usage_no_exit()
 {
@@ -345,6 +355,8 @@ EOF
     build_externallib boost
     build_externallib check
     build_externallib pion
+    build_externallib amqpcpp
+    create_pkgconfig_amqpcpp
 fi
 
 if [ "$configlibs" = "2" ]; then

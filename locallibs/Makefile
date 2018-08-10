@@ -1,6 +1,6 @@
 #libs=libssim
 #libs=serverlib tscriptc jxtlib edilib eticklib libtlg libtypeb shared libcoretypes
-libs=serverlib tscriptc jxtlib edilib eticklib libtlg libtypeb shared libssim libcoretypes libnsi
+libs=serverlib tscriptc jxtlib edilib eticklib libtlg libtypeb shared libssim libjms libcoretypes libnsi
 #libs=edilib
 #edilib eticklib libtlg libtypeb shared 
 
@@ -22,6 +22,6 @@ tests:
 
 rebuild: clean all
 
-tscriptc edilib jxtlib libtypeb shared: serverlib
+tscriptc edilib jxtlib libtypeb shared libjms: serverlib
 eticklib: edilib serverlib
 libtlg: edilib serverlib
