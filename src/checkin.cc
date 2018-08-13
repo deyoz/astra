@@ -6327,7 +6327,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
     TPaidRFISCList paid;
     ProgTrace(TRACE5, "actionRefreshPaidBagPC req.svcs.size()=%zu", req.svcs.size());
-    if (!req.svcs.empty())
+    if (!req.svcs.empty() && !reqInfo->api_mode)
     {
       try
       {
@@ -6780,7 +6780,7 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
 //        res.setDestFile("svc_availability_res.xml");
         try
         {
-          if (!req.paxs.empty())
+          if (!req.paxs.empty() && !reqInfo->api_mode)
           {
               if(data.needSync()) {
                   if (data.httpWasSent)
