@@ -71,6 +71,11 @@ void viewAttElement(_EDI_REAL_MES_STRUCT_* pMes, const AttElem& elem, int num = 
 void viewMeaElement(_EDI_REAL_MES_STRUCT_* pMes, const MeaElem& elem, int num = 0);
 
 /**
+ * @brief makes a FTX element
+*/
+void viewFtx2Element(_EDI_REAL_MES_STRUCT_* pMes, const Ftx2Elem& elem, int num = 0);
+
+/**
  * @brief makes a NAT element
 */
 void viewNatElement(_EDI_REAL_MES_STRUCT_* pMes, const NatElem& elem, int num = 0);

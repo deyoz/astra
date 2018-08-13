@@ -12,6 +12,7 @@
 
 #include <string>
 #include <boost/optional.hpp>
+#include <stl_utils.h>
 
 
 namespace edifact
@@ -314,6 +315,22 @@ struct MeaElem
             return "CT";
         return "WT";
     }
+};
+
+//---------------------------------------------------------------------------------------
+
+///@class Ftx2Elem - Free Text --FTX
+struct Ftx2Elem
+{
+  std::string m_qualifier;
+  std::string m_str1;
+  std::string m_str2;
+
+  Ftx2Elem(const std::string &qualifier, const std::string &str1, const std::string &str2)
+    : m_qualifier(upperc(qualifier.substr(0, 3)))
+    , m_str1(upperc(str1.substr(0, 512)))
+    , m_str2(upperc(str2.substr(0, 512)))
+  {}
 };
 
 //---------------------------------------------------------------------------------------

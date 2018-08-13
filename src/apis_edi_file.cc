@@ -86,7 +86,7 @@ static std::string createEdiInterchangeReference()
 {
 #if APIS_TEST
     return "TEST_REF";
-#endif      
+#endif
     std::ostringstream ref;
     ref << time( NULL );
     return ref.str();
@@ -227,6 +227,13 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
         {
             // MEA
             viewMeaElement( pMes, MeaElem( MeaElem::BagWeight, it->bagWeight() ), meaNum++ );
+        }
+
+        int ftxNum = 0;
+        for (auto tag = it->bagTags().begin(); tag != it->bagTags().end() && ftxNum < 99; ++tag, ++ftxNum)
+        {
+          // FTX
+          viewFtx2Element( pMes, Ftx2Elem("BAG", *tag, "1"), ftxNum);
         }
 
         int locNum = 0;
@@ -474,10 +481,10 @@ void PaxlstInfo::toXMLFormat(xmlNodePtr emulApisNode, const int pax_num, const i
 #if APIS_TEST
     NewTextChild(messageNode, "CreateDateTime",
                  DateTimeToStr(nowUtc, "0000-00-00'T'00:00:00"));
-#else    
+#else
     NewTextChild(messageNode, "CreateDateTime",
                  DateTimeToStr(nowUtc, "yyyy-mm-dd'T'hh:nn:00"));
-#endif                 
+#endif
     NewTextChild(messageNode, "SentDateTime",
                  DateTimeToStr(nowUtc, "yyyy-mm-dd"));
     if (senderCarrierCode().empty())

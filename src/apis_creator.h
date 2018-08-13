@@ -139,6 +139,7 @@ struct TApisPaxData : public CheckIn::TSimplePaxItem
   vector< pair<int, string> > seats;
   int amount;
   int weight;
+  set<string> tags;
 
   string doc_type_lat() const
   {
@@ -336,6 +337,7 @@ enum TApisRule
   _setSeats, // edi
   _setBagCount, // edi
   _setBagWeight, // edi
+  r_bagTagSerials,
   _convertPaxNames, // edi
   _setCBPPort, // edi // только для US? (LOC 22)
   _processDocType, // edi
@@ -845,7 +847,6 @@ struct TAPISFormat_EDI_ES : public TEdiAPISFormat
   string process_doc_no(const string& no) const { return NormalizeDocNo(no, false); }
 };
 
-///////////////////////////////////////////////////
 // EDI_DE
 struct TAPISFormat_EDI_DE : public TEdiAPISFormat
 {
@@ -1107,6 +1108,39 @@ struct TAPISFormat_XML_TR : public TEdiAPISFormat
   string unknown_gender() const { return "U"; }
   TIataCodeType IataCodeType() const { return iata_code_TR; }
 };
+
+// основано на TAPISFormat_EDI_CN
+// -------------------------------------------------------------------------------------------------
+struct TAPISFormat_EDI_TR : public TEdiAPISFormat
+{
+  TAPISFormat_EDI_TR()
+  {
+    add_rule(_convertPaxNames);
+    add_rule(_processDocNumber);
+    add_rule(_notOmitCrew);
+    add_rule(_setSeats);
+    add_rule(_setCBPPort);
+    add_rule(_setBagCount); // уточнить
+    add_rule(r_bagTagSerials); // номера бирок: FTX+BAG
+    file_rule = _file_rule_1;
+  }
+  long int required_fields(TPaxType pax, TAPIType api) const
+  {
+    if (pax == pass && api == apiDoc) return DOC_EDI_TR_FIELDS;
+    if (pax == crew && api == apiDoc) return DOC_EDI_TR_FIELDS;
+    return NO_FIELDS;
+  }
+  void convert_pax_names(string& first_name, string& second_name) const
+  {
+    ConvertPaxNamesConcat(first_name, second_name);
+  }
+  string unknown_gender() const { return "U"; }
+  string process_doc_no(const string& no) const { return NormalizeDocNo(no, false); }
+  string respAgnCode() const { return "ZZZ"; }
+  string ProcessPhoneFax(const string& s) const { return HyphenToSpace(s); }
+  string mesRelNum() const override { return "12B"; } // уточнить
+};
+// -------------------------------------------------------------------------------------------------
 
 struct TAPISFormat_CSV_AE : public TTxtApisFormat
 {
@@ -1402,6 +1436,7 @@ inline TAPISFormat* SpawnAPISFormat(const string& fmt)
   if (fmt=="APPS_SITA")   p = new TAPISFormat_APPS_SITA; // TODO remove
   if (fmt=="EDI_AZ")      p = new TAPISFormat_EDI_AZ;
   if (fmt=="EDI_DE")      p = new TAPISFormat_EDI_DE;
+  if (fmt=="EDI_TR")      p = new TAPISFormat_EDI_TR;
 
   if (fmt=="APPS_21")     p = new TAPPSVersion21;
   if (fmt=="APPS_26")     p = new TAPPSVersion26;

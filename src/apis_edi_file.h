@@ -355,6 +355,7 @@ class PassengerInfo
     std::vector< std::pair<int, std::string> > pax_seats;
     int m_bagCount;
     int m_bagWeight;
+    std::set<std::string> m_bagTags;
     std::set<CheckIn::TPaxFQTItem> pax_fqts;
 
     std::string m_doco_type;
@@ -590,6 +591,14 @@ public:
     void setBagWeight( const int value ) {
       m_bagWeight = value;
     }
+    const std::set<std::string>& bagTags() const
+    {
+      return m_bagTags;
+    }
+    void setBagTags(const std::set<std::string>& tags)
+    {
+      m_bagTags = tags;
+    }
     const std::set<CheckIn::TPaxFQTItem>& fqts() const {
         return pax_fqts;
     }
@@ -598,31 +607,31 @@ public:
     }
 
     // passenger's visa type
-    const std::string& docoType() const 
-    { 
-      return m_doco_type; 
+    const std::string& docoType() const
+    {
+      return m_doco_type;
     }
-    void setDocoType( const std::string& t ) 
-    { 
-      m_doco_type = upperc( t.substr( 0, 3 ) ); 
+    void setDocoType( const std::string& t )
+    {
+      m_doco_type = upperc( t.substr( 0, 3 ) );
     }
     // passenger's visa number
-    const std::string& docoNumber() const 
-    { 
-      return m_doco_no; 
+    const std::string& docoNumber() const
+    {
+      return m_doco_no;
     }
-    void setDocoNumber( const std::string& dn ) 
-    { 
-      m_doco_no = upperc( dn.substr( 0, 35 ) ); 
+    void setDocoNumber( const std::string& dn )
+    {
+      m_doco_no = upperc( dn.substr( 0, 35 ) );
     }
     // passenger's visa country
-    const std::string& docoCountry() const 
-    { 
-      return m_doco_applic_country; 
+    const std::string& docoCountry() const
+    {
+      return m_doco_applic_country;
     }
-    void setDocoCountry( const std::string& dc ) 
-    { 
-      m_doco_applic_country = upperc( dc.substr( 0, 25 ) ); 
+    void setDocoCountry( const std::string& dc )
+    {
+      m_doco_applic_country = upperc( dc.substr( 0, 25 ) );
     }
 
 };

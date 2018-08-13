@@ -289,6 +289,10 @@ bool TApisDataset::FromDB(int point_id, const string& task_name)
         if (!PaxQry.FieldIsNULL("bag_weight"))
           pax.weight = PaxQry.FieldAsInteger("bag_weight");
 
+        multiset<TBagTagNumber> tags;
+        GetTagsByPool(pax.grp_id, pax.bag_pool_num, tags);
+        FlattenBagTags(tags, pax.tags);
+
         rd.lstPaxData.push_back(pax);
       } // for PaxQry
       lstRouteData.push_back(rd);
@@ -520,6 +524,9 @@ void CreateEdi( const TApisRouteData& route,
 
     if (format.rule(_setBagWeight) && iPax->weight)
       paxInfo.setBagWeight(iPax->weight);
+
+    if (format.rule(r_bagTagSerials))
+      paxInfo.setBagTags(iPax->tags);
 
     string doc_surname;
     string doc_first_name;

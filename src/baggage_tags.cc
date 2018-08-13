@@ -444,6 +444,7 @@ void GetTagsByBagNum(int grp_id, int bag_num, std::multiset<TBagTagNumber> &tags
 void GetTagsByPool(int grp_id, int bag_pool_num , std::multiset<TBagTagNumber> &tags)
 {
     tags.clear();
+    if (bag_pool_num == ASTRA::NoExists) return;
     TCachedQuery Qry(
             "select "
             "    bag_tags.color, "
@@ -472,4 +473,10 @@ void GetTagsByPaxId(int pax_id, std::multiset<TBagTagNumber> &tags)
     pax.getByPaxId(pax_id);
     if(pax.bag_pool_num != ASTRA::NoExists)
         GetTagsByPool(pax.grp_id, pax.bag_pool_num, tags);
+}
+
+void FlattenBagTags(const std::multiset<TBagTagNumber> &tags, std::set<std::string> &result)
+{
+  result.clear();
+  for (auto tag : tags) result.insert(tag.str());
 }

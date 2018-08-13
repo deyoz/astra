@@ -40,7 +40,7 @@ void viewUnbElement(_EDI_REAL_MES_STRUCT_* pMes, const UnbElem& elem)
     SetEdiPointToCompositeW(pMes, CompElement("S003", 0));
     SetEdiDataElem(pMes, DataElement(7, 0), elem.m_recipientCarrierCode);
     PopEdiPointW(pMes);
-    
+
     PopEdiPointW(pMes);
 }
 
@@ -80,7 +80,7 @@ void viewUngElement(_EDI_REAL_MES_STRUCT_* pMes, const UngElem& elem)
 
     SetEdiDataElem(pMes, DataElement(48, 0), elem.m_groupRefNum);
     SetEdiDataElem(pMes, DataElement(51, 0), elem.m_cntrlAgnCode);
-    
+
     SetEdiComposite(pMes, CompElement("S008", 0));
     PushEdiPointW(pMes);
     SetEdiPointToCompositeW(pMes, CompElement("S008", 0));
@@ -105,7 +105,7 @@ void viewUnhElement(_EDI_REAL_MES_STRUCT_* pMes, const UnhElem& elem)
     SetEdiDataElem(pMes, DataElement(51, 0), elem.m_cntrlAgnCode);
     SetEdiDataElem(pMes, DataElement(57, 0), elem.m_assAccCode);
     PopEdiPointW(pMes);
-            
+
     SetEdiComposite(pMes, CompElement("S010", 0));
     PushEdiPointW(pMes);
     SetEdiPointToCompositeW(pMes, CompElement("S010", 0));
@@ -113,7 +113,7 @@ void viewUnhElement(_EDI_REAL_MES_STRUCT_* pMes, const UnhElem& elem)
     SetEdiDataElem(pMes, DataElement(70, 0), StrUtils::LPad(seqNum, 2, '0'));
     SetEdiDataElem(pMes, DataElement(73, 0), UnhElem::seqFlagToStr(elem.m_seqFlag));
     PopEdiPointW(pMes);
-        
+
     PopEdiPointW(pMes);
 }
 
@@ -223,6 +223,13 @@ void viewMeaElement(_EDI_REAL_MES_STRUCT_* pMes, const MeaElem& elem, int num)
     SetEdiFullSegment(pMes, SegmElement("MEA", num), mea.str());
 }
 
+void viewFtx2Element(_EDI_REAL_MES_STRUCT_* pMes, const Ftx2Elem& elem, int num)
+{
+  std::ostringstream ftx;
+  ftx << elem.m_qualifier << "+++" << elem.m_str1 << ":" << elem.m_str2;
+  SetEdiFullSegment(pMes, SegmElement("FTX", num), ftx.str());
+}
+
 void viewNatElement(_EDI_REAL_MES_STRUCT_* pMes, const NatElem& elem, int num)
 {
     std::ostringstream nat;
@@ -267,12 +274,12 @@ void viewTvlElement(_EDI_REAL_MES_STRUCT_* pMes, const TvlElem& elem)
     tvl << ":";
     if(!elem.m_arrTime.is_special())
         tvl << HelpCpp::string_cast(elem.m_arrTime, "%H%M");
-    
+
     tvl << "+" << elem.m_depPoint << "+" << elem.m_arrPoint;
     tvl << "+" << elem.m_airline;
     if(elem.m_flNum.valid())
         tvl << "+" << elem.m_flNum;
-    
+
     SetEdiFullSegment(pMes, SegmElement("TVL"), tvl.str());
 }
 
