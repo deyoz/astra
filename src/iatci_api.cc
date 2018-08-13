@@ -230,8 +230,8 @@ dcrcka::Result checkinPax(tlgnum_t postponeTlgNum)
             checkinRes = updateCheckin(fakeCkuParams.get());
         }
         return checkinRes;
-    } catch(std::exception&) {
-        tst();
+    } catch(std::exception& e) {
+        LogTrace(TRACE0) << e.what();
         sp.rollback();
         ETRollbackStatus_local(ediResNode->doc);
         throw;
@@ -269,8 +269,8 @@ dcrcka::Result cancelCheckin(tlgnum_t postponeTlgNum)
     OciCpp::Savepoint sp("iatci_checkin");
     try {
         return astra_api::cancelCheckinIatciPax(termReqNode, ediResNode);
-    } catch(std::exception&) {
-        tst();
+    } catch(std::exception& e) {
+        LogTrace(TRACE0) << e.what();
         sp.rollback();
         ETRollbackStatus_local(ediResNode->doc);
         throw;
