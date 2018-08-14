@@ -23,6 +23,10 @@ using namespace boost::local_time;
 using namespace boost::posix_time;
 using namespace SEASON;
 
+#include "tlg/tlg_parser.h"
+using namespace TypeB;
+
+//------------------------------------------------------------------------------------------
 ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& prd );
 //------------------------------------------------------------------------------------------
 
@@ -35,7 +39,6 @@ int CodeToId(const std::string &code)
   int id = 0;
   char* p = (char*)&id;
   for (unsigned int i = 0; i < code.size(); ++i) p[i] = c[i];
-//  LogTrace(TRACE5) << __func__ << " code=\"" << code << "\" id=" << id;
   return id;
 }
 
@@ -49,7 +52,6 @@ std::string IdToCode(const int id)
   for (unsigned int i = 0; i < 3; ++i) code[i] = p[i];
   code[3] = '\0';
   std::string code_str(code);
-//  LogTrace(TRACE5) << __func__ << " id=" << id << " code=\"" << code_str << "\"";
   return code_str;
 }
 
@@ -75,25 +77,21 @@ ssim::ScdPeriods AstraSsimCallbacks::getSchedules(const ct::Flight& flight, cons
 // остальное заглушки
 ssim::ScdPeriods AstraSsimCallbacks::getSchedulesWithOpr(nsi::CompanyId, const ct::Flight&, const Period&) const
 {
-//  LogTrace(TRACE5) << __func__;
   return ssim::ScdPeriods();
 }
 
 Expected< boost::optional<ssim::CshSettings> > AstraSsimCallbacks::cshSettingsByTlg(nsi::CompanyId, ssim::ScdPeriod&) const
 {
-//  LogTrace(TRACE5) << __func__;
   return boost::optional<ssim::CshSettings>();
 }
 
 Expected< boost::optional<ssim::CshSettings> > AstraSsimCallbacks::cshSettingsByScd(const ssim::ScdPeriod&) const
 {
-//  LogTrace(TRACE5) << __func__;
   return boost::optional<ssim::CshSettings>();
 }
 
 ssim::DefValueSetter AstraSsimCallbacks::prepareDefaultValueSetter(ct::DeiCode, const nsi::DepArrPoints&, bool byLeg) const
 {
-//  LogTrace(TRACE5) << __func__;
   return ssim::DefValueSetter();
 }
 
@@ -107,31 +105,26 @@ namespace message_details {
 
 template<> std::string translate_impl<nsi::CompanyId>(const UserLanguage& lang, const nsi::CompanyId& v)
 {
-//  LogTrace(TRACE5) << __func__;
   return nsi::Company(v).code(ENGLISH).toUtf();
 }
 
 template<> std::string translate_impl<boost::gregorian::date>(const UserLanguage& lang, const boost::gregorian::date& d)
 {
-//  LogTrace(TRACE5) << __func__;
   return Dates::ddmmrr(d);
 }
 
 template<> std::string translate_impl<Period>(const UserLanguage& lang, const Period& v)
 {
-//  LogTrace(TRACE5) << __func__;
   return translate_impl(lang, v.start) + "-" + translate_impl(lang, v.end) + " (" + translate_impl(lang, v.freq) + ")";
 }
 
 template<> std::string translate_impl<Freq>(const UserLanguage&, const Freq& v)
 {
-//  LogTrace(TRACE5) << __func__;
   return v.str();
 }
 
 template<> std::string translate_impl<ct::Flight>(const UserLanguage&, const ct::Flight& v)
 {
-//  LogTrace(TRACE5) << __func__;
   return nsi::Company(v.airline).code(ENGLISH).toUtf()
        + '-' + StrUtils::LPad(std::to_string(v.number.get()), 3, '0')
        + ct::suffixToString(v.suffix, ENGLISH);
@@ -163,14 +156,13 @@ template<> std::string translate_impl<ct::Flight>(const UserLanguage&, const ct:
 
 bool AstraCallbacks::needCheckVersion() const
 {
-//  LogTrace(TRACE5) << __func__;
   return false;
 }
 
+// Для SSM реализовывать не обязательно
 nsi::CityId AstraCallbacks::centerCity() const
 {
-//  LogTrace(TRACE5) << __func__;
-  return nsi::CityId(255); // TODO получать реальный город
+  return nsi::CityId(255);
 }
 
 // /home/user/Sirena/sirenalibs/libnsi/src/nsi.h
@@ -178,13 +170,11 @@ nsi::CityId AstraCallbacks::centerCity() const
 // заглушки
 boost::optional<nsi::DocTypeId> AstraCallbacks::findDocTypeId(const EncString& code)
 {
-//  LogTrace(TRACE5) << __func__ << " code=" << code.to866();
   return boost::optional<nsi::DocTypeId>();
 }
 
 boost::optional<DocTypeData> AstraCallbacks::findDocTypeData(const nsi::DocTypeId& id)
 {
-//  LogTrace(TRACE5) << __func__ << " id=" << id.get();
   // explicit DocTypeData(const DocTypeId& id);
   return DocTypeData(id);
 }
@@ -192,13 +182,11 @@ boost::optional<DocTypeData> AstraCallbacks::findDocTypeData(const nsi::DocTypeI
 // заглушки
 boost::optional<nsi::SsrTypeId> AstraCallbacks::findSsrTypeId(const EncString& code)
 {
-//  LogTrace(TRACE5) << __func__ << " code=" << code.to866();
   return boost::optional<nsi::SsrTypeId>();
 }
 
 boost::optional<SsrTypeData> AstraCallbacks::findSsrTypeData(const nsi::SsrTypeId& id)
 {
-//  LogTrace(TRACE5) << __func__ << " id=" << id.get();
   // explicit SsrTypeData(const SsrTypeId&);
   return SsrTypeData(id);
 }
@@ -206,13 +194,11 @@ boost::optional<SsrTypeData> AstraCallbacks::findSsrTypeData(const nsi::SsrTypeI
 // заглушки
 boost::optional<nsi::GeozoneId> AstraCallbacks::findGeozoneId(const EncString& code)
 {
-//  LogTrace(TRACE5) << __func__ << " code=" << code.to866();
   return boost::optional<nsi::GeozoneId>();
 }
 
 boost::optional<GeozoneData> AstraCallbacks::findGeozoneData(const nsi::GeozoneId& id)
 {
-//  LogTrace(TRACE5) << __func__ << " id=" << id.get();
   // explicit GeozoneData(const GeozoneId&);
   return GeozoneData(id);
 }
@@ -220,19 +206,16 @@ boost::optional<GeozoneData> AstraCallbacks::findGeozoneData(const nsi::GeozoneI
 // country !!! done
 boost::optional<nsi::CountryId> AstraCallbacks::findCountryId(const EncString& code)
 {
-//  LogTrace(TRACE5) << __func__ << " code=" << code.to866();
   return nsi::CountryId(CodeToId(code.to866()));
 }
 
 boost::optional<nsi::CountryId> AstraCallbacks::findCountryIdByIso(const EncString& code)
 {
-//  LogTrace(TRACE5) << __func__ << " code=" << code.to866();
   return nsi::CountryId(CodeToId(code.to866())); // ???
 }
 
 boost::optional<CountryData> AstraCallbacks::findCountryData(const nsi::CountryId& id)
 {
-//  LogTrace(TRACE5) << __func__ << " id=" << id.get();
   // explicit CountryData(const CountryId&, const GeozoneId&, const CurrencyId&);
   CountryData data(id, GeozoneId(0), CurrencyId(0));
   const TCountriesRow &countryRow = (const TCountriesRow&)base_tables.get("countries").get_row("code/code_lat", IdToCode(id.get()));
@@ -248,13 +231,11 @@ boost::optional<CountryData> AstraCallbacks::findCountryData(const nsi::CountryI
 // region !!! отсутствует в base_tables
 boost::optional<nsi::RegionId> AstraCallbacks::findRegionId(const EncString& code)
 {
-  LogTrace(TRACE5) << __func__ << " code = " << code.to866();
   return nsi::RegionId(CodeToId(code.to866()));
 }
 
 boost::optional<RegionData> AstraCallbacks::findRegionData(const nsi::RegionId& id)
 {
-  LogTrace(TRACE5) << __func__ << " id = " << id.get();
   // explicit RegionData(const RegionId&, const CountryId&);
   RegionData data(id, CountryId(0));
   return data;
@@ -263,13 +244,11 @@ boost::optional<RegionData> AstraCallbacks::findRegionData(const nsi::RegionId& 
 // city !!! done
 boost::optional<nsi::CityId> AstraCallbacks::findCityId(const EncString& code)
 {
-//  LogTrace(TRACE5) << __func__ << " code=" << code.to866();
   return nsi::CityId(CodeToId(code.to866()));
 }
 
 boost::optional<CityData> AstraCallbacks::findCityData(const nsi::CityId& id)
 {
-//  LogTrace(TRACE5) << __func__ << " id=" << id.get();
   // CityData(const CityId&, const CountryId&, const boost::optional<RegionId>&);
   const TCitiesRow &cityRow = (const TCitiesRow&)base_tables.get("cities").get_row("code/code_lat", IdToCode(id.get()));
   CityData data(id, CountryId(CodeToId(cityRow.country)), RegionId(CodeToId(cityRow.tz_region))); // уточнить tz_region
@@ -284,13 +263,11 @@ boost::optional<CityData> AstraCallbacks::findCityData(const nsi::CityId& id)
 // TODO уточнить про аэропорт и город
 boost::optional<nsi::PointId> AstraCallbacks::findPointId(const EncString& code)
 {
-//  LogTrace(TRACE5) << __func__ << " code=" << code.to866();
   return nsi::PointId(CodeToId(code.to866()));
 }
 
 boost::optional<PointData> AstraCallbacks::findPointData(const nsi::PointId& id)
 {
-//  LogTrace(TRACE5) << __func__ << " id=" << id.get();
   string code_en, code_ru, name_en, name_ru;
   int city_id;
   const TAirpsRow& airpsRow = (const TAirpsRow&)base_tables.get("airps").get_row("code/code_lat", IdToCode(id.get()));
@@ -325,19 +302,16 @@ boost::optional<PointData> AstraCallbacks::findPointData(const nsi::PointId& id)
 // company !!! done
 boost::optional<nsi::CompanyId> AstraCallbacks::findCompanyId(const EncString& code)
 {
-//  LogTrace(TRACE5) << __func__ << " code=" << code.to866();
   return nsi::CompanyId(CodeToId(code.to866()));
 }
 
 boost::optional<nsi::CompanyId> AstraCallbacks::findCompanyIdByAccountCode(const EncString& code)
 {
-//  LogTrace(TRACE5) << __func__ << " code=" << code.to866(); // уточнить AccountCode
   return nsi::CompanyId(CodeToId(code.to866()));
 }
 
 boost::optional<CompanyData> AstraCallbacks::findCompanyData(const nsi::CompanyId& id)
 {
-//  LogTrace(TRACE5) << __func__ << " id=" << id.get();
   // explicit CompanyData(const CompanyId&);
   CompanyData data(id);
   const TAirlinesRow &airlineRow = (const TAirlinesRow&)base_tables.get("airlines").get_row("code/code_lat", IdToCode(id.get()));
@@ -351,13 +325,11 @@ boost::optional<CompanyData> AstraCallbacks::findCompanyData(const nsi::CompanyI
 // aircraft !!! done
 boost::optional<nsi::AircraftTypeId> AstraCallbacks::findAircraftTypeId(const EncString& code)
 {
-//  LogTrace(TRACE5) << __func__ << " code=" << code.to866();
   return nsi::AircraftTypeId(CodeToId(code.to866()));
 }
 
 boost::optional<AircraftTypeData> AstraCallbacks::findAircraftTypeData(const nsi::AircraftTypeId& id)
 {
-//  LogTrace(TRACE5) << __func__ << " id=" << id.get();
   // explicit AircraftTypeData(const AircraftTypeId&);
   AircraftTypeData data(id);
   const TCraftsRow &craftRow = (const TCraftsRow&)base_tables.get("crafts").get_row("code/code_lat", IdToCode(id.get()));
@@ -371,13 +343,11 @@ boost::optional<AircraftTypeData> AstraCallbacks::findAircraftTypeData(const nsi
 // заглушки
 boost::optional<RouterId> AstraCallbacks::findRouterId(const EncString& code)
 {
-//  LogTrace(TRACE5) << __func__ << " code=" << code.to866();
   return boost::optional<RouterId>();
 }
 
 boost::optional<RouterData> AstraCallbacks::findRouterData(const nsi::RouterId& id)
 {
-//  LogTrace(TRACE5) << __func__ << " id=" << id.get();
   // RouterData(const RouterId& );
   return RouterData(id);
 }
@@ -385,13 +355,11 @@ boost::optional<RouterData> AstraCallbacks::findRouterData(const nsi::RouterId& 
 // заглушки
 boost::optional<CurrencyId> AstraCallbacks::findCurrencyId(const EncString& code)
 {
-//  LogTrace(TRACE5) << __func__ << " code=" << code.to866();
   return boost::optional<CurrencyId>();
 }
 
 boost::optional<CurrencyData> AstraCallbacks::findCurrencyData(const nsi::CurrencyId& id)
 {
-//  LogTrace(TRACE5) << __func__ << " id=" << id.get();
   // explicit CurrencyData(const CurrencyId&);
   return CurrencyData(id);
 }
@@ -399,13 +367,11 @@ boost::optional<CurrencyData> AstraCallbacks::findCurrencyData(const nsi::Curren
 // заглушки
 boost::optional<OrganizationId> AstraCallbacks::findOrganizationId(const EncString& code)
 {
-//  LogTrace(TRACE5) << __func__ << " code=" << code.to866();
   return boost::optional<OrganizationId>();
 }
 
 boost::optional<OrganizationData> AstraCallbacks::findOrganizationData(const OrganizationId& id)
 {
-//  LogTrace(TRACE5) << __func__ << " id=" << id.get();
   // explicit OrganizationData(const OrganizationId&);
   return OrganizationData(id);
 }
@@ -454,7 +420,6 @@ TDateTime BoostToDateTimeCorrectInfinity(boost::gregorian::date date)
     result = boost::gregorian::date(boost::gregorian::max_date_time);
   else if (date.is_neg_infinity())
     result = boost::gregorian::date(boost::gregorian::min_date_time);
-  if (result != date) LogTrace(TRACE5) << __func__ << ": " << date << " CHANGED TO " << result;
   return BoostToDateTime(result);
 }
 
@@ -543,7 +508,6 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
   p.move_id = ASTRA::NoExists;
   p.first = first;
   p.last = last;
-  LogTrace(TRACE5) << "INITIAL p.first = " << DateTimeToStr(p.first) << " p.last = " << DateTimeToStr(p.last);
   p.days = days;
   p.modify = ASTRA::finsert;
   TDestList dests;
@@ -551,6 +515,7 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
   for (ssim::Legs::const_iterator ileg = scd.route.legs.begin(); ileg != scd.route.legs.end(); ++ileg)
   {
     const ssim::Leg &leg = *ileg;
+//    LogTrace(TRACE5) << "serviceType = " << leg.serviceType.get();
     curr = next;
     curr.airline = ElemToElemId( etAirline, IdToCode(scd.flight.airline.get()), curr.airline_fmt );
     curr.trip = scd.flight.number.get();
@@ -558,7 +523,6 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
     curr.airp = ElemToElemId( etAirp, IdToCode(leg.s.from.get()), curr.airp_fmt );
     curr.craft = ElemToElemId( etCraft, IdToCode(leg.aircraftType.get()), curr.craft_fmt );
     curr.triptype = DefaultTripType(false);
-    LogTrace(TRACE5) << "leg.s.dep.hours() = " << leg.s.dep.hours() << " leg.s.dep.minutes() = " << leg.s.dep.minutes();
     int shift_day = leg.s.dep.hours() / 24; // сдвиг даты (время вида KJA1400/1)
     EncodeTime( leg.s.dep.hours() % 24, leg.s.dep.minutes(), 0, curr.scd_out );
     if (first_airp)
@@ -568,17 +532,12 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
       SEASON::ConvertPeriod( p, curr.scd_out, filter.filter_tz_region ); //конывертация периода
     }
     curr.scd_out = ConvertFlightDate(curr.scd_out, p.first, curr.airp, false, mtoUTC) + shift_day;
-    LogTrace(TRACE5) << "curr.scd_out = " << DateTimeToStr(curr.scd_out) << " (" << curr.scd_out << ")";
     next.airp = ElemToElemId( etAirp, IdToCode(leg.s.to.get()), next.airp_fmt );
     next.craft = ElemToElemId( etCraft, IdToCode(leg.aircraftType.get()), next.craft_fmt );
     next.triptype = DefaultTripType(false);
-    LogTrace(TRACE5) << "leg.s.arr.hours() = " << leg.s.arr.hours() << " leg.s.arr.minutes() = " << leg.s.arr.minutes();
     shift_day = leg.s.arr.hours() / 24; // сдвиг даты
     EncodeTime( leg.s.arr.hours() % 24, leg.s.arr.minutes(), 0, next.scd_in );
     next.scd_in = ConvertFlightDate(next.scd_in, p.first, next.airp, true, mtoUTC) + shift_day;
-    LogTrace(TRACE5) << "next.scd_in = " << DateTimeToStr(next.scd_in) << " (" << next.scd_in << ")";
-    // struct Leg -> ct::RbdLayout subclOrder;
-    LogTrace(TRACE5) << " leg.subclOrder = " << leg.subclOrder.toString();
     curr.rbd_order = leg.subclOrder.rbdOrder().toString();
     for (auto &cfg : leg.subclOrder.config())
       if (cfg.second)
@@ -589,7 +548,6 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
       }
     dests.dests.push_back( curr );
   } // ileg
-  LogTrace(TRACE5) << "FINAL p.first = " << DateTimeToStr(p.first) << " p.last = " << DateTimeToStr(p.last);
   next.airline.clear();
   next.trip = ASTRA::NoExists;
   next.suffix.clear();
@@ -635,9 +593,6 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
     else
     {
       dest2.scd_in = ConvertFlightDate(Qry.FieldAsDateTime("scd_in"), first, dest2.airp, true, mtoLocal);
-      LogTrace(TRACE5) << "dest2.airp = " << dest2.airp << " AirpTZRegion = " << AirpTZRegion(dest2.airp);
-      LogTrace(TRACE5) << "qry scd_in = " << DateTimeToStr(Qry.FieldAsDateTime("scd_in"));
-      LogTrace(TRACE5) << "dest2.scd_in = " << DateTimeToStr(dest2.scd_in);
     }
 
     dest2.craft = Qry.FieldAsString( "craft" );
@@ -648,9 +603,6 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
     else
     {
       dest2.scd_out = ConvertFlightDate(Qry.FieldAsDateTime("scd_out"), first, dest2.airp, false, mtoLocal);
-      LogTrace(TRACE5) << "dest2.airp = " << dest2.airp << " AirpTZRegion = " << AirpTZRegion(dest2.airp);
-      LogTrace(TRACE5) << "qry scd_out = " << DateTimeToStr(Qry.FieldAsDateTime("scd_out"));
-      LogTrace(TRACE5) << "dest2.scd_out = " << DateTimeToStr(dest2.scd_out);
     }
 
     if ( dest1.num == ASTRA::NoExists )
@@ -672,10 +624,8 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
                           nsi::PointId(CodeToId(ElemIdToClientElem( etAirp, dest2.airp, dest2.airp_fmt ))), //in
                           time_duration( hours_o, mins_o, secs_o ),
                           time_duration( hours_i, mins_i, secs_i ));
-    LogTrace(TRACE5) << "rbd_string = " << rbd_string;
     boost::optional<ct::RbdLayout> rbd = ct::RbdLayout::fromString(rbd_string);
-    if (not rbd) throw EXCEPTIONS::Exception("NO RBD");
-    LogTrace(TRACE5) << " RBD = " << rbd.get().toString();
+    if (not rbd) throw EXCEPTIONS::Exception("Cannot make RBD from string %s", rbd_string.c_str());
     ssim::Leg leg(section,
                   nsi::ServiceTypeId(0), // HACK
                   nsi::AircraftTypeId(CodeToId(ElemIdToClientElem( etCraft, dest1.craft, dest1.craft_fmt ))),
@@ -695,8 +645,6 @@ ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& prd )
   // если у периода нет второй даты, то end = pos_infin
   TDateTime start = BoostToDateTimeCorrectInfinity(prd.start);
   TDateTime end = BoostToDateTimeCorrectInfinity(prd.end);
-  LogTrace(TRACE5) << "prd.start = " << DateTimeToStr(start) << " (" << start << ")" <<
-                      " prd.end = " << DateTimeToStr(end) << " (" << end << ")";
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
@@ -720,7 +668,6 @@ ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& prd )
     double date_for_route;
     modf(first, &date_for_route);
     scd.route = RouteFromDb(Qry.FieldAsInteger("move_id"), date_for_route);
-    LogTrace(TRACE5) << "scd = " << scd;
     scds.push_back(scd);
   }
   return scds;
@@ -744,7 +691,6 @@ void InitSSIM()
 void HandleSSMTlg(string body, int tlg_id, TypeB::TFlightsForBind& flightsForBind)
 {
   flightsForBind.clear();
-//  LogTrace(TRACE5) << __func__ << endl << body;
   // RSD /home/user/sirena/src/ssim/proc_ssm.cc:503
   // перекрытие периодов /home/user/sirena/src/ssim/proc_ssm.cc:555
   // уточнить arc.appendFlight(ssmStr.submsgs.begin()->first); /home/user/sirena/src/ssim/proc_ssm.cc:440
@@ -754,24 +700,24 @@ void HandleSSMTlg(string body, int tlg_id, TypeB::TFlightsForBind& flightsForBin
     bool need_write = true;
     AstraSsimParseCollector collector;
     const auto ssm = ssim::parseSsm(body, &collector);
-    string airline_msg;
     if (collector.flt)
     {
       LogTrace(TRACE5) << "SSM TLG FLIGHT = " << FlightToString(*collector.flt);
       string airline = GetAirline(*collector.flt);
-      airline_msg = string("; airline = ") + airline;
       int flt_no = GetFltNo(*collector.flt);
       string suffix = GetSuffix(*collector.flt);
       TFltInfo flt;
       strcpy(flt.airline, airline.substr(0,3).c_str());
       flt.flt_no = flt_no;
       strcpy(flt.suffix, suffix.substr(0,1).c_str());
-      flt.scd = 0;
       flightsForBind.emplace_back(flt, btNone, TSearchFltInfoPtr());
     }
 
     if (!ssm)
-      throw EXCEPTIONS::Exception("parse: %s%s", ssm.err().toString(UserLanguage::en_US()).c_str(), airline_msg.c_str());
+    {
+      string m = string("parse: ") + ssm.err().toString(UserLanguage::en_US());
+      throw ETlgError(tlgeYesMonitorNotAlarm, m);
+    }
 
     const ssim::SsmStruct& ssmStr = *ssm;
 
@@ -795,7 +741,9 @@ void HandleSSMTlg(string body, int tlg_id, TypeB::TFlightsForBind& flightsForBin
 
     // НЕСКОЛЬКО РЕЙСОВ В ССМ НЕ ПОДДЕРЖИВАЕТСЯ
     if (ssmStr.submsgs.size() > 1)
-      throw EXCEPTIONS::Exception("Multiple flights is not supported%s", airline_msg.c_str());
+    {
+      throw ETlgError(tlgeYesMonitorNotAlarm, "Multiple flights is not supported");
+    }
 
     for (const auto& v : ssmStr.submsgs)
       for (const ssim::SsmSubmsgPtr& s : v.second)
@@ -818,14 +766,13 @@ void HandleSSMTlg(string body, int tlg_id, TypeB::TFlightsForBind& flightsForBin
 
       ssim::CachedScdPeriods cache;
       const std::vector<ssim::SsmSubmsgPtr>& submsgs = ssmStr.submsgs.begin()->second;
-      LogTrace(TRACE5) << "START MODIFY --------------------------------";
 
       for (const ssim::SsmSubmsgPtr& subMsg : submsgs)
         if (const Message msg = subMsg->modify(cache, attr))
-          throw EXCEPTIONS::Exception("modify: %s%s", msg.toString(UserLanguage::en_US()).c_str(), airline_msg.c_str());
-
-      LogTrace(TRACE5) << "END MODIFY --------------------------------";
-      LogTrace(TRACE5) << "CACHE: " << cache;
+        {
+          string m = string("modify: ") + msg.toString(UserLanguage::en_US());
+          throw ETlgError(tlgeYesMonitorNotAlarm, m);
+        }
 
       // std::map<ct::Flight, std::set<ssim::ScdPeriod> > forDeletion;
       for (auto &rm : cache.forDeletion)
@@ -852,7 +799,7 @@ void HandleSSMTlg(string body, int tlg_id, TypeB::TFlightsForBind& flightsForBin
 }
 
 //------------------------------------------------------------------------------------------
-
+#if 0
 int ssim_test(int argc, char **argv)
 {
   InitSSIM();
@@ -911,4 +858,4 @@ int ssim_test(int argc, char **argv)
   cout << "---------------------------------------" << endl;
   return 0;
 }
-
+#endif

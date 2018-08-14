@@ -6,6 +6,7 @@
 #include "astra_misc.h"
 
 using BASIC::date_time::TDateTime;
+using BASIC::date_time::DateTimeToStr;
 
 enum TBindType {btFirstSeg=0,btAllSeg=2,btLastSeg=1,btNone=3};
 
@@ -63,6 +64,16 @@ class TFltInfo
     void dump() const;
     void parse(const char *val);
     std::pair<int, bool> getPointId(TBindType bind_type) const;
+    std::string toString() const
+    {
+      std::ostringstream result;
+      result << airline
+             << std::setw(3) << std::setfill('0') << flt_no << suffix;
+      if (scd != 0)
+        result << "/" << DateTimeToStr(scd, "ddmmm");
+      result << " " << airp_dep << airp_arv;
+      return result.str();
+    }
 };
 
 class TlgSource

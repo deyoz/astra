@@ -116,6 +116,5 @@ struct AstraSsimParseCollector : public ssim::ParseRequisitesCollector
 #include "flt_binding.h"
 
 void HandleSSMTlg(string body, int tlg_id, TypeB::TFlightsForBind& flightsForBind);
-int ssim_test(int argc, char **argv);
 
 #endif
