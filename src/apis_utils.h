@@ -196,6 +196,8 @@ const long int DOC_XML_TR_FIELDS=DOC_TYPE_FIELD|
                                  DOC_SURNAME_FIELD|
                                  DOC_FIRST_NAME_FIELD;
 
+const long int DOC_EDI_TR_FIELDS = DOC_XML_TR_FIELDS;
+
 //==============================================================================
 
 const long int DOC_APPS_21_FIELDS=DOC_TYPE_FIELD|
