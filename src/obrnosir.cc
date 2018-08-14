@@ -24,8 +24,6 @@
 #include "kiosk_alias.h"
 #include "db_pkg.h"
 
-#include "astra_ssim.h"
-
 int nosir_test(int argc,char **argv);
 void nosir_test_help(const char *name);
 
