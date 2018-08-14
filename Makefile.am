@@ -3,4 +3,4 @@
 AUTOMAKE_OPTIONS = foreign 1.4
 SUBDIRS = src src/tests src/tlg
 ACLOCAL_AMFLAGS = -I m4
-AC_CONFIG_MACRO_DIR([m4])
+#AC_CONFIG_MACRO_DIR([m4])
