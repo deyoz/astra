@@ -754,8 +754,15 @@ void on_change_trip(const string &descr, int point_id, ChangeTrip::Whence whence
         TSyncTlgOutMng::Instance()->sync_all(point_id);
         sync_trip_tasks<TEmdRefreshTripTask>(point_id);
         sync_trip_tasks<TStatFVTripTask>(point_id);
-//        sync_trip_tasks<TAPISTripTask>(point_id);
-//        sync_trip_tasks<TCrewAlarmsTripTask>(point_id);
+        //        sync_trip_tasks<TAPISTripTask>(point_id);
+        //        sync_trip_tasks<TCrewAlarmsTripTask>(point_id);
+        try {
+          if ( is_sync_flights( point_id ) ) {
+            update_flights_change( point_id );
+          }
+        } catch(std::exception &E) {
+            ProgError(STDLOG,"%s: %s (point_id=%d): %s", __FUNCTION__, descr.c_str(), point_id,E.what());
+        };
     } catch(std::exception &E) {
         ProgError(STDLOG,"%s: %s (point_id=%d): %s", __FUNCTION__, descr.c_str(), point_id,E.what());
     };

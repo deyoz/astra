@@ -96,6 +96,7 @@ astra_SOURCES = \
   etick.cc \
   events.cc \
   external_spp_synch.cc \
+  exch_checkin_result.cpp \  
   ffp_sirena.cc \
   flt_binding.cc \
   flt_tasks_daemon.cc \
@@ -293,6 +294,7 @@ noinst_HEADERS = \
   etick.h \
   events.h \
   external_spp_synch.h \
+  exch_checkin_result.h \  
   ffp_sirena.h \
   flt_binding.h \
   file_queue.h \
