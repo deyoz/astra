@@ -1917,7 +1917,7 @@ DcsSystemContext* readDcs(const iatci::FlightDetails& outbFlt,
 int getLastTCkinGrpId(int grpId)
 {
     TCkinRoute tckinRoute;
-    if(tckinRoute.GetRouteAfter(grpId, crtWithCurrent, crtOnlyDependent)) {
+    if(tckinRoute.GetRouteAfter(grpId, crtNotCurrent, crtIgnoreDependent)) {
         ASSERT(!tckinRoute.empty());
         return tckinRoute.back().grp_id;
     } else {
