@@ -26,6 +26,8 @@ using namespace SEASON;
 #include "tlg/tlg_parser.h"
 using namespace TypeB;
 
+#include <serverlib/lwriter.h>
+
 //------------------------------------------------------------------------------------------
 ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& prd );
 //------------------------------------------------------------------------------------------
@@ -699,7 +701,11 @@ void HandleSSMTlg(string body, int tlg_id, TypeB::TFlightsForBind& flightsForBin
     InitSSIM();
     bool need_write = true;
     AstraSsimParseCollector collector;
+    LogTrace(TRACE5) << __func__ << " Parsing SSM begin";
+    CutLogLevel* pLLHolder = new CutLogLevel(1);
     const auto ssm = ssim::parseSsm(body, &collector);
+    delete pLLHolder;
+    LogTrace(TRACE5) << __func__ << " Parsing SSM complete";
     if (collector.flt)
     {
       LogTrace(TRACE5) << "SSM TLG FLIGHT = " << FlightToString(*collector.flt);
