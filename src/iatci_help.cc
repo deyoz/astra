@@ -1912,4 +1912,17 @@ DcsSystemContext* readDcs(const iatci::FlightDetails& outbFlt,
     return dcs;
 }
 
+//---------------------------------------------------------------------------------------
+
+int getLastTCkinGrpId(int grpId)
+{
+    TCkinRoute tckinRoute;
+    if(tckinRoute.GetRouteAfter(grpId, crtWithCurrent, crtOnlyDependent)) {
+        ASSERT(!tckinRoute.empty());
+        return tckinRoute.back().grp_id;
+    } else {
+        return grpId;
+    }
+}
+
 }//namespace iatci

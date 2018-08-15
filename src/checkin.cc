@@ -7318,7 +7318,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
   {
       bool afterKick = ReqParams(reqNode).getBoolParam("after_kick", false);
       bool needSync = !afterKick && !reqInfo->api_mode && !afterSavePax;
-      LoadIatciPax(reqNode, resNode, grp_id, needSync);
+      LoadIatciPax(reqNode, resNode, tckin_grp_ids.back(), needSync);
   }
 }
 
