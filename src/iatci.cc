@@ -881,7 +881,7 @@ static std::string getOldSeat(xmlNodePtr reqNode)
 static PointsPair readPointsPair(int grpId)
 {
     TCkinRoute tckinRoute;
-    if(tckinRoute.GetRouteAfter(grpId, crtNotCurrent, crtIgnoreDependent)) {
+    if(tckinRoute.GetRouteAfter(grpId, crtWithCurrent, crtIgnoreDependent)) {
         // если на стороне Астры делалась локальная(не iatci) сквозная регистрация
         ASSERT(!tckinRoute.empty());
         return PointsPair(tckinRoute.back().point_dep,
