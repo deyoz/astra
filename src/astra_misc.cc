@@ -11,6 +11,7 @@
 #include "aodb.h"
 #include "meridian.h"
 #include "basel_aero.h"
+#include "exch_checkin_result.h"
 #include "qrys.h"
 #include "emdoc.h"
 #define NICKNAME "DEN"
@@ -2052,7 +2053,16 @@ bool is_sync_paxs( int point_id )
 
   return MERIDIAN::is_sync_meridian( tripInfo ) ||
          is_sync_basel_pax( tripInfo ) ||
-         is_sync_aodb_pax( tripInfo );
+         is_sync_aodb_pax( tripInfo ) ||
+         MQRABBIT_TRANSPORT::is_sync_exch_checkin_result_mqrabbit( tripInfo );
+}
+
+bool is_sync_flights( int point_id )
+{
+  TTripInfo tripInfo;
+  if (!tripInfo.getByPointId(point_id, FlightProps(FlightProps::NotCancelled,
+                                                   FlightProps::WithCheckIn))) return false;
+  return MQRABBIT_TRANSPORT::is_sync_exch_flights_result_mqrabbit( tripInfo );
 }
 
 void update_pax_change( int point_id, int pax_id, int reg_no, const string &work_mode )
@@ -2083,6 +2093,29 @@ void update_pax_change( int point_id, int pax_id, int reg_no, const string &work
   Qry.CreateVariable( "airp", otString, tripInfo.airp );
   Qry.Execute();
 }
+
+void update_flights_change( int point_id )
+{
+  TTripInfo tripInfo;
+  if ( !tripInfo.getByPointId ( point_id ) ) {
+    return;
+  }
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+     "BEGIN "
+     " UPDATE exch_flights "
+     "  SET time=:time, tid=exch_flights__seq.nextval "
+     " WHERE point_id=:point_id; "
+     " IF SQL%NOTFOUND THEN "
+     "  INSERT INTO exch_flights(point_id,time,tid) "
+     "   SELECT :point_id,:time,exch_flights__seq.nextval FROM DUAL; "
+     " END IF; "
+     "END;";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "time", otDate, NowUTC() );
+  Qry.Execute();
+}
+
 
 const map<string, TPaxNameTitle>& pax_name_titles()
 {
