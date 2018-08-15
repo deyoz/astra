@@ -1052,6 +1052,7 @@ void CreateSPP( TDateTime localdate )
         PQry.SetVariable( "pr_del", d->pr_del );
 
         int pr_reg = ( d->scd_out > NoExists &&
+                       !d->triptype.empty() &&
                        ((const TTripTypesRow&)TripTypes.get_row("code", d->triptype )).pr_reg != 0 &&
                        d->pr_del == 0 && d != im->second.dests.end() - 1 );
         if ( pr_reg ) {
