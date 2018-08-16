@@ -934,9 +934,12 @@ static std::string getIatciRequestContext(const edifact::KickInfo& kickInfo = ed
 static int getGrpId(xmlNodePtr reqNode, xmlNodePtr resNode, IatciInterface::RequestType reqType)
 {
     int grpId = 0;
-    if(reqType == IatciInterface::Cki) {
-        // при первичной регистрации grp_id появляется в ответном xml
-        grpId = NodeAsInteger("grp_id", NodeAsNode("segments/segment", resNode));
+    if(reqType == IatciInterface::Cki || reqType == IatciInterface::Ckx) {
+        // при первичной регистрации grp_id появляется в ответном xml, при отмене - в запросе
+        xmlNodePtr node = (reqType == IatciInterface::Cki ? resNode : reqNode);
+        XmlCheckInTabs ownTabs(findNodeR(node, "segments"));
+        ASSERT(!ownTabs.empty());
+        grpId = ownTabs.tabs().back().seg().m_grpId;
     } else {
         // в остальных случаях grp_id уже содержится в запросе, либо её можно найти
         xmlNodePtr grpIdNode = findNodeR(reqNode, "grp_id");
@@ -966,13 +969,15 @@ static int getGrpId(xmlNodePtr reqNode, xmlNodePtr resNode, IatciInterface::Requ
                 }
             }
         }
+
+        grpId = iatci::getLastTCkinGrpId(grpId);
     }
 
-    int lastGrpId = iatci::getLastTCkinGrpId(grpId);
-    LogTrace(TRACE3) << "grpId: " << grpId << "; lastGrpId: " << lastGrpId;
-    ASSERT(grpId > 0 && lastGrpId > 0);
-    return lastGrpId;
+    LogTrace(TRACE3) << "grpId: " << grpId;
+    ASSERT(grpId > 0);
+    return grpId;
 }
+
 
 static void specialPlfErrorHandler(xmlNodePtr reqNode, const Ticketing::AstraMsg_t& errCode)
 {
