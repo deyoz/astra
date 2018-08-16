@@ -27,6 +27,7 @@ using namespace SEASON;
 using namespace TypeB;
 
 #include <serverlib/lwriter.h>
+#include <boost/scoped_ptr.hpp>
 
 //------------------------------------------------------------------------------------------
 ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& prd );
@@ -702,9 +703,9 @@ void HandleSSMTlg(string body, int tlg_id, TypeB::TFlightsForBind& flightsForBin
     bool need_write = true;
     AstraSsimParseCollector collector;
     LogTrace(TRACE5) << __func__ << " Parsing SSM begin";
-    CutLogLevel* pLLHolder = new CutLogLevel(1);
+    boost::scoped_ptr<CutLogLevel> pLLHolder(new CutLogLevel(1));
     const auto ssm = ssim::parseSsm(body, &collector);
-    delete pLLHolder;
+    pLLHolder.reset();
     LogTrace(TRACE5) << __func__ << " Parsing SSM complete";
     if (collector.flt)
     {
