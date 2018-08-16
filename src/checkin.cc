@@ -3545,7 +3545,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
 
             // снимем флаг необходимости посылки iatci-запроса
             ReqParams(reqNode).setBoolParam("may_need_send_iatci", false);
-            transformSavePaxRequestByIatci(reqNode, AfterSaveInfoList.front().segs.front().grp_id);
+            transformSavePaxRequestByIatci(reqNode, AfterSaveInfoList.front().segs.back().grp_id);
             // выставим флаг факта посылки iatci-запроса. Может быть изменён в false,
             // если update не затронет edifact-вкладки
             ReqParams(reqNode).setBoolParam("was_sent_iatci", willSentIatci);
