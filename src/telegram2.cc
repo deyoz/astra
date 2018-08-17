@@ -7653,6 +7653,7 @@ int LCI(TypeB::TDetailCreateInfo &info)
             << info.flight_view() << "/"
             << DateTimeToStr(info.scd_utc, "ddmmm", 1) << "." << info.airp_dep_view() << TypeB::endl;
     tlg_row.heading = heading.str();
+    size_t part_len = tlg_row.textSize();
     vector<string> body;
     try {
         TLCI lci;
@@ -7661,8 +7662,15 @@ int LCI(TypeB::TDetailCreateInfo &info)
     } catch(...) {
         ExceptionFilter(body, info);
     }
-    for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++)
-        tlg_row.body += *iv + TypeB::endl;
+    for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++) {
+        part_len += iv->size() + TypeB::endl.size();
+        if(part_len > PART_SIZE) {
+            tlg_draft.Save(tlg_row);
+            tlg_row.body = *iv + TypeB::endl;
+            part_len = tlg_row.textSize();
+        } else
+            tlg_row.body += *iv + TypeB::endl;
+    }
     tlg_draft.Save(tlg_row);
     tlg_draft.Commit(tlg_row);
     return tlg_row.id;
