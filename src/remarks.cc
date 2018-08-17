@@ -487,6 +487,21 @@ TPaxFQTItem& TPaxFQTItem::fromXML(xmlNodePtr node)
   return *this;
 };
 
+TPaxFQTItem& TPaxFQTItem::fromWebXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+
+  rem="FQTV";
+  TElemFmt fmt;
+  airline = ElemToElemId( etAirline, NodeAsStringFast("airline", node2), fmt );
+  if (fmt==efmtUnknown)
+    airline=NodeAsStringFast("airline", node2);
+  no=NodeAsStringFast("no", node2);
+  return *this;
+};
+
 std::string TPaxFQTItem::get_rem_text(bool inf_indicator,
                                       const std::string& lang,
                                       bool strictly_lat,

@@ -190,7 +190,7 @@ XmlIatciBagTags createCheckInIatciBagTags(const iatci::BaggageDetails& baggage)
     XmlIatciBagTags xmlBagTags;
     for(const auto& bagTag: bagTags) {
         xmlBagTags.tags.push_back(createCheckInBagTag(bagTag));
-    }    
+    }
     return xmlBagTags;
 }
 
@@ -452,7 +452,6 @@ LoadPaxXmlResult AstraEngine::SavePax(int pointDep, const XmlTrip& paxTrip)
         XmlEntityViewer::viewFqtRems(paxNode, pax.fqt_rems);
     }
 
-    NewTextChild(savePaxNode, "excess");
     NewTextChild(savePaxNode, "hall", 1);
     NewTextChild(savePaxNode, "value_bags");
     NewTextChild(savePaxNode, "paid_bags");
@@ -509,7 +508,6 @@ LoadPaxXmlResult AstraEngine::SavePax(const xml_entities::XmlSegment& paxSeg,
 
     NewTextChild(segNode, "paid_bag_emd");
 
-    NewTextChild(savePaxNode, "excess");
     NewTextChild(savePaxNode, "hall", 1);
     NewTextChild(savePaxNode, "bag_refuse");
     NewTextChild(savePaxNode, "value_bags");
@@ -1331,11 +1329,11 @@ static void handleIatciCkiPax(int pointDep,
         throw tick_soft_except(STDLOG, AstraErr::PAX_ALREADY_CHECKED_IN);
     }
 
-    
+
     //if(baggage && baggage->bag() && baggage->bag()->numOfPieces()) {
     //    throw tick_soft_except(STDLOG, AstraErr::TOO_MANY_BAGS);
     //}
-    
+
 
     SearchPaxXmlResult searchPaxXmlRes =
                 AstraEngine::singletone().SearchCheckInPax(pointDep,
@@ -3032,13 +3030,13 @@ XmlPax XmlEntityReader::readPax(xmlNodePtr paxNode)
     if(fqtRemsNode != NULL) {
         pax.fqt_rems = XmlEntityReader::readFqtRems(fqtRemsNode);
     }
-    
+
     // iatci_bags
     xmlNodePtr iatciBagsNode = findNode(paxNode, "iatci_bags");
     if(iatciBagsNode != NULL) {
         pax.iatci_bags = XmlEntityReader::readIatciBags(iatciBagsNode);
     }
-    
+
     // iatci_bag_tags
     xmlNodePtr iatciBagTagsNode = findNode(paxNode, "iatci_bag_tags");
     if(iatciBagTagsNode != NULL) {
@@ -3323,20 +3321,20 @@ std::list<XmlBag> XmlEntityReader::readBags(xmlNodePtr bagsNode)
 }
 
 XmlIatciBag XmlEntityReader::readIatciBag(xmlNodePtr iatciBagNode)
-{	
+{
     ASSERT(iatciBagNode);
-    
+
     XmlIatciBag bag;
     bag.num_of_pieces = getIntFromXml(iatciBagNode, "num_of_pieces", ASTRA::NoExists);
     bag.weight        = getIntFromXml(iatciBagNode, "weight",        ASTRA::NoExists);
-    bag.is_hand       = getBoolFromXml(iatciBagNode,"is_hand",       false);    
+    bag.is_hand       = getBoolFromXml(iatciBagNode,"is_hand",       false);
     return bag;
 }
 
 std::list<XmlIatciBag> XmlEntityReader::readIatciBags(xmlNodePtr iatciBagsNode)
 {
     ASSERT(iatciBagsNode);
-    
+
     std::list<XmlIatciBag> bags;
     for(xmlNodePtr bagNode = iatciBagsNode->children;
         bagNode != NULL; bagNode = bagNode->next)
@@ -3377,7 +3375,7 @@ std::list<XmlBagTag> XmlEntityReader::readBagTags(xmlNodePtr bagTagsNode)
 XmlIatciBagTag XmlEntityReader::readIatciBagTag(xmlNodePtr iatciBagTagNode)
 {
     ASSERT(iatciBagTagNode);
-    
+
     XmlIatciBagTag bagTag;
     bagTag.carrier_code = getStrFromXml(iatciBagTagNode, "carrier_code");
     bagTag.tag_num      = getIntFromXml(iatciBagTagNode, "tag_num",     ASTRA::NoExists);
@@ -3390,14 +3388,14 @@ XmlIatciBagTag XmlEntityReader::readIatciBagTag(xmlNodePtr iatciBagTagNode)
 std::list<XmlIatciBagTag> XmlEntityReader::readIatciBagTags(xmlNodePtr iatciBagTagsNode)
 {
     ASSERT(iatciBagTagsNode);
-    
+
     std::list<XmlIatciBagTag> bagTags;
     for(xmlNodePtr bagTagNode = iatciBagTagsNode->children;
         bagTagNode != NULL; bagTagNode = bagTagNode->next)
     {
         bagTags.push_back(XmlEntityReader::readIatciBagTag(bagTagNode));
     }
-    return bagTags;  
+    return bagTags;
 }
 
 XmlPlaceLayer XmlEntityReader::readPlaceLayer(xmlNodePtr layerNode)
@@ -3702,7 +3700,7 @@ xmlNodePtr XmlEntityViewer::viewBag(xmlNodePtr node, const XmlIatciBag& bag)
     xmlNodePtr bagNode = NewTextChild(node, "iatci_bag");
     NewTextChild(bagNode, "num_of_pieces", bag.num_of_pieces);
     NewTextChild(bagNode, "weight",        bag.weight);
-    NewTextChild(bagNode, "is_hand",       bag.is_hand ? 1 : 0); 
+    NewTextChild(bagNode, "is_hand",       bag.is_hand ? 1 : 0);
     return bagNode;
 }
 
@@ -3728,7 +3726,7 @@ xmlNodePtr XmlEntityViewer::viewBags(xmlNodePtr node, const XmlIatciBags& bags)
     for(const XmlIatciBag& bag: bags.bags) {
         XmlEntityViewer::viewBag(bagsNode, bag);
     }
-    
+
     return bagsNode;
 }
 
@@ -3848,7 +3846,7 @@ LoadPaxXmlResult::LoadPaxXmlResult(xmlNodePtr node)
     xmlNodePtr bagTagsNode = findNode(node, "tags");
     if(bagTagsNode != NULL) {
         this->lBagTag = XmlEntityReader::readBagTags(bagTagsNode);
-    }   
+    }
 
     finalizeBags();
     finalizeBagTags();

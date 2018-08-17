@@ -169,13 +169,7 @@ struct TDestInfo
 
 struct TFlightInfo
 {
-  int point_dep;
-  int point_num;
-  int first_point;
-  bool pr_tranzit;
-  TTripInfo oper;
-  std::string craft;
-  int craft_fmt;
+  TAdvTripInfo oper;
   TDateTime scd_out_local, est_out_local, act_out_local;
   std::string city_dep;
   int dep_utc_offset;
@@ -188,19 +182,16 @@ struct TFlightInfo
   std::map<TStage, TTripStageTimes> stage_times;
   std::map<TStage_Type, TStage> stage_statuses;
   bool pr_paid_ckin, free_seating, have_to_select_seats;
-  TFlightInfo() { clear(); };
+  TFlightInfo() { clear(); }
   TFlightInfo(int point_id)
   {
     clear();
-    point_dep=point_id;
-  };
+    oper.point_id=point_id;
+  }
 
   void clear()
   {
-    point_dep=ASTRA::NoExists;
     oper.Clear();
-    craft.clear();
-    craft_fmt=ASTRA::NoExists;
     scd_out_local=ASTRA::NoExists;
     est_out_local=ASTRA::NoExists;
     act_out_local=ASTRA::NoExists;
@@ -217,9 +208,10 @@ struct TFlightInfo
 
   bool operator < (const TFlightInfo &item) const
   {
-    return point_dep < item.point_dep;
+    return oper.point_id < item.oper.point_id;
   };
 
+  void set(const TAdvTripInfo& fltInfo);
   bool fromDB(TQuery &Qry);
   bool fromDB(int point_id, bool first_segment, bool pr_throw);
   bool fromDBadditional(bool first_segment, bool pr_throw);
@@ -228,16 +220,26 @@ struct TFlightInfo
   void toXMLsimple(xmlNodePtr node, XMLStyle xmlStyle) const;
   void toXML(xmlNodePtr node, XMLStyle xmlStyle) const;
   boost::optional<TStage> stage() const;
+  void isSelfCheckInPossible(bool first_segment, bool notRefusalExists, bool refusalExists) const;
+  static void isSelfCheckInPossible(const ASTRA::TClientType& client_type,
+                                    const boost::optional<TStage>& checkInStage,
+                                    const boost::optional<TStage>& cancelStage,
+                                    bool first_segment,
+                                    bool notRefusalExists,
+                                    bool refusalExists);
+
+  private:
+    boost::optional<TStage> stage(const TStage_Type& type) const;
 };
 
 struct TPNRSegInfo
 {
-  int point_dep, point_arv, pnr_id;
-  std::string cls;
+    int point_dep, point_arv, pnr_id;
+    std::string cls;
     std::string subcls;
     TPnrAddrs pnr_addrs;
-    TMktFlight mktFlight;
-    TPNRSegInfo() { clear(); };
+    boost::optional<TMktFlight> mktFlight;
+    TPNRSegInfo() { clear(); }
 
   void clear()
   {
@@ -247,12 +249,13 @@ struct TPNRSegInfo
     cls.clear();
     subcls.clear();
     pnr_addrs.clear();
-  };
+    mktFlight=boost::none;
+  }
 
   bool fromDB(int point_id, const TTripRoute &route, TQuery &Qry);
   bool filterFromDB(const TPNRFilter &filter);
   bool fromTestPax(int point_id, const TTripRoute &route, const TTestPaxInfo &pax);
-  void getMarkFlt(const TFlightInfo &flt, bool is_test, TTripInfo &mark) const;
+  void getMarkFlt(const TFlightInfo &flt, TTripInfo &mark) const;
   void toXML(xmlNodePtr node, XMLStyle xmlStyle) const;
 
   static bool isJointCheckInPossible(const TPNRSegInfo& seg1,
@@ -298,7 +301,7 @@ struct TPNRInfo
     bag_norm(ASTRA::NoExists) {};
 
   void add(const TPaxInfo &pax);
-  bool fromDBadditional(const TFlightInfo &flt, const TDestInfo &dest, bool is_test);
+  bool fromDBadditional(const TFlightInfo &flt, const TDestInfo &dest);
   void toXML(xmlNodePtr node, XMLStyle xmlStyle) const;
 };
 
@@ -372,6 +375,12 @@ struct TPnrData
   TDestInfo dest;
   TPNRSegInfo seg;
 };
+
+void getTCkinData( const TFlightInfo& first_flt,
+                   const TDestInfo& first_dest,
+                   const TPNRSegInfo& first_seg,
+                   bool is_test,
+                   std::vector<TPnrData> &other);
 
 void getTCkinData( const TPnrData &first,
                    bool is_test,
