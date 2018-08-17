@@ -25,7 +25,8 @@ int getPointIdsSpp(int id, bool is_pnr_id, set<int>& point_ids_spp)
     sql << "SELECT point_id_spp, crs_pnr.pnr_id "
            "FROM crs_pnr,crs_pax,tlg_binding "
            "WHERE crs_pax.pnr_id=crs_pnr.pnr_id AND "
-           "      crs_pnr.point_id=tlg_binding.point_id_tlg(+) AND ";
+           "      crs_pnr.point_id=tlg_binding.point_id_tlg(+) AND "
+           "      crs_pnr.system='CRS' AND ";
     if (is_pnr_id)
       sql << "      crs_pnr.pnr_id=:id AND ";
     else

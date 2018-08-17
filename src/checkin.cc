@@ -6705,7 +6705,7 @@ void fillPaxsBags(const TCheckedReqPassengers &req_grps, TExchange &exch, TCheck
             reqSeg.subcl=pax.subcl;
             reqSeg.set(pax.tkn, paxSection);
             CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);
-            CheckIn::LoadCrsPaxPNRs(pax.id, reqSeg.pnrs);
+            reqSeg.pnrs.getByPaxIdFast(pax.id);
             ++iReqPax;
           }
         }
@@ -9123,10 +9123,9 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
         flightsForLock.Get(flt.point_id, ftTranzit);
         flightsForLock.Lock(__FUNCTION__);
 
-        WebSearch::TPnrData pnrData;
-        pnrData.flt.fromDB(flt.point_id, true, true);
-        vector<WebSearch::TPnrData> PNRs;
-        PNRs.insert(PNRs.begin(), pnrData); //вставляем в начало первый сегмент
+        TMultiPnrDataSegs multiPnrDataSegs;
+        TMultiPnrData& multiPnrData=multiPnrDataSegs.add(flt.point_id, true, false);
+
         xmlNodePtr crew_groups = NodeAsNode("CREW_GROUPS", reqNode);
 
         map<int,TAdvTripInfo> segs; // набор рейсов
@@ -9141,14 +9140,16 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
         for(xmlNodePtr crew_group = crew_groups->children; crew_group != NULL; crew_group = crew_group->next)
         {
+            multiPnrData.segs.clear();
+
             // for HTTP
             string airp_arv = airp_fromXML(NodeAsNode("AIRP_ARV", crew_group), cfErrorIfEmpty, __FUNCTION__, "MERIDIAN");
             TCompleteAPICheckInfo checkInfo(flt.point_id, airp_arv);
 
             xmlNodePtr crew_members = NodeAsNode("CREW_MEMBERS", crew_group);
-            TWebPnrForSave pnr;
-            pnr.status = psCrew;
-            pnr.paxFromReq.emplace_back();
+            TWebPaxForSaveSeg seg(multiPnrData.flt.oper.point_id);
+            seg.paxForCkin.status = psCrew;
+            seg.paxFromReq.emplace_back();
             for(xmlNodePtr crew_member = crew_members->children; crew_member != NULL; crew_member = crew_member->next)
             {
                 if(NodeAsString("DUTY", crew_member, "") == string("PIC") && NodeAsInteger("ORDER", crew_member, ASTRA::NoExists) == 1)
@@ -9159,7 +9160,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                     is_commander = true;
                 }
                 TWebPaxForCkin paxForCkin;
-                paxForCkin.initFromMeridian(CrewTypes().decode(NodeAsString("CREW_TYPE", crew_member, "")));
+                paxForCkin.initFromMeridian(airp_arv, CrewTypes().decode(NodeAsString("CREW_TYPE", crew_member, "")));
                 ASTRA::TPaxTypeExt pax_type_ext(ASTRA::psCrew, paxForCkin.crew_type); // for HTTP
                 switch (paxForCkin.crew_type)
                 {
@@ -9237,18 +9238,19 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
                 if (!paxForCkin.apis.isPresent(apiDoc))
                   throw AstraLocale::UserException("MSG.SECTION_NOT_FOUND", LEvntPrms() << PrmSmpl<string>("name", "DOCS"));
-                pnr.paxForCkin.push_back(paxForCkin);
+                seg.paxForCkin.push_back(paxForCkin);
+                multiPnrData.segs.add(multiPnrData.flt.oper, paxForCkin);
             }
 
-            WebSearch::TPnrData &pnrData=*(PNRs.begin());
-//            string airp_arv = airp_fromXML(NodeAsNode("AIRP_ARV", crew_group), cfErrorIfEmpty, __FUNCTION__);
-            CompletePnrDataForCrew(airp_arv, pnrData);
+            multiPnrData.checkJointCheckInAndComplete();
+
             XMLDoc emulDocHeader;
             CreateEmulXMLDoc(emulDocHeader);
             XMLDoc emulCkinDoc;
-            map<int,XMLDoc> emulChngDocs;
-            CreateEmulDocs(vector< pair<int, TWebPnrForSave > >(1, make_pair(pnrData.flt.point_dep, pnr)),
-                           PNRs, emulDocHeader, emulCkinDoc, emulChngDocs);
+            CreateEmulDocs(TWebPaxForSaveSegs(seg),
+                           multiPnrDataSegs,
+                           emulDocHeader,
+                           emulCkinDoc);
 
             TChangeStatusList ChangeStatusInfo;
             SirenaExchange::TLastExchangeList SirenaExchangeList;

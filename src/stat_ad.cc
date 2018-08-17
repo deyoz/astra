@@ -452,10 +452,7 @@ void get_stat_ad(int point_id)
         int pax_id = Qry.get().FieldAsInteger("pax_id");
         TPaxEvent pe;
         if(pe.fromDB(pax_id, TPaxEventTypes::BRD)) {
-            string pnr;
-            list<CheckIn::TPnrAddrItem> pnrs;
-            if(CheckIn::LoadCrsPaxPNRs(pax_id, pnrs))
-                pnr = pnrs.begin()->addr;
+            string pnr=TPnrAddrs().firstAddrByPaxId(pax_id, TPnrAddrInfo::AddrOnly);
 
             CheckIn::TPaxGrpItem grp;
             grp.fromDB(Qry.get());

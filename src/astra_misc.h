@@ -49,10 +49,10 @@ class TSimpleMktFlight
     std::string airline;
     int flt_no;
     std::string suffix;
-    TSimpleMktFlight() { init(); }
-    TSimpleMktFlight(const std::string& _airline,
-                     const int& _flt_no,
-                     const std::string& _suffix) :
+    explicit TSimpleMktFlight() { init(); }
+    explicit TSimpleMktFlight(const std::string& _airline,
+                              const int& _flt_no,
+                              const std::string& _suffix) :
       airline(_airline), flt_no(_flt_no), suffix(_suffix) {}
     void clear()
     {
@@ -64,6 +64,14 @@ class TSimpleMktFlight
              flt_no==ASTRA::NoExists &&
              suffix.empty();
     }
+
+    bool operator == (const TSimpleMktFlight &s) const
+    {
+      return airline == s.airline &&
+             flt_no == s.flt_no &&
+             suffix == s.suffix;
+    }
+
     const TSimpleMktFlight& toXML(xmlNodePtr node,
                                   const boost::optional<AstraLocale::OutputLang>& lang) const;
 
@@ -109,13 +117,6 @@ class TMktFlight : public TSimpleMktFlight
              scd_date_local == ASTRA::NoExists &&
              airp_dep.empty() &&
              airp_arv.empty();
-    }
-
-    bool operator == (const TSimpleMktFlight &s) const
-    {
-      return airline == s.airline &&
-             flt_no == s.flt_no &&
-             suffix == s.suffix;
     }
 
     void getByPaxId(int pax_id);
@@ -789,6 +790,18 @@ class TTripRoute : public TTripBase, public std::vector<TTripRouteItem>
                       int point_id,
                       TTripRouteType2 route_type2,
                       TTripRouteItem& item);
+    boost::optional<TTripRouteItem> findFirstAirp(const std::string& airp) const
+    {
+      for(const TTripRouteItem& item : *this)
+        if (item.airp==airp) return item;
+      return boost::none;
+    }
+    boost::optional<TTripRouteItem> getFirstAirp() const
+    {
+      if (!empty()) return front();
+      return boost::none;
+    }
+
     std::string GetStr() const;
     virtual ~TTripRoute() {}
 };

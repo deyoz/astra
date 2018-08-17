@@ -77,7 +77,7 @@ const TPaxSegItem& TPaxSegItem::toSirenaXML(xmlNodePtr node, const OutputLang &l
     SetProp(tknNode, "coupon_num", tkn.coupon, ASTRA::NoExists);
     SetProp(tknNode, "display_id", display_id, ASTRA::NoExists);
   }
-  for(list<CheckIn::TPnrAddrItem>::const_iterator i=pnrs.begin(); i!=pnrs.end(); ++i)
+  for(TPnrAddrs::const_iterator i=pnrs.begin(); i!=pnrs.end(); ++i)
     SetProp(NewTextChild(node, "recloc", i->addr), "crs", airlineToPrefferedCode(i->airline, lang));
   for(std::set<CheckIn::TPaxFQTItem>::const_iterator i=fqts.begin(); i!=fqts.end(); ++i)
     SetProp(NewTextChild(node, "ffp", i->no), "company", airlineToPrefferedCode(i->airline, lang));

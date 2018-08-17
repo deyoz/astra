@@ -674,6 +674,29 @@ class TPaxList : public std::list<CheckIn::TPaxListItem>
     int getBagPoolMainPaxId(int bag_pool_num) const;
 };
 
+class TSimplePnrItem
+{
+  public:
+    int id;
+    std::string airp_arv;
+    std::string cl;
+    std::string status;
+
+    TSimplePnrItem() { clear(); }
+
+    void clear()
+    {
+      id=ASTRA::NoExists;
+      airp_arv.clear();
+      cl.clear();
+      status.clear();
+    }
+
+    TSimplePnrItem& fromDB(TQuery &Qry);
+
+    int pnrId() const { return id; }
+};
+
 class TSimplePaxGrpItem
 {
   public:
@@ -764,22 +787,6 @@ class TPaxGrpItem : public TSimplePaxGrpItem
     static void UpdTid(int grp_id);
 };
 
-class TPnrAddrItem
-{
-  public:
-    std::string airline, addr;
-    TPnrAddrItem()
-    {
-      clear();
-    }
-    void clear()
-    {
-      airline.clear();
-      addr.clear();
-    }
-    TPnrAddrItem& fromDB(TQuery &Qry);
-};
-
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc);
 bool LoadPaxDoc(TDateTime part_key, int pax_id, TPaxDocItem &doc);
 std::string GetPaxDocStr(TDateTime part_key,
@@ -817,8 +824,6 @@ void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry);
 void SavePaxDoca(int pax_id, const TDocaMap &doca_map, TQuery& PaxDocaQry, bool new_checkin);
 
 std::string PaxDocGenderNormalize(const std::string &pax_doc_gender);
-
-bool LoadCrsPaxPNRs(int pax_id, std::list<TPnrAddrItem> &pnrs);
 
 template<class T>
 void CalcGrpEMDProps(const T &prior,

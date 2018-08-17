@@ -2151,6 +2151,16 @@ const TPaxGrpItem& TPaxGrpItem::toDB(TQuery &Qry) const
   return *this;
 };
 
+TSimplePnrItem& TSimplePnrItem::fromDB(TQuery &Qry)
+{
+  clear();
+  id=Qry.FieldAsInteger("pnr_id");
+  airp_arv=Qry.FieldAsString("airp_arv");
+  cl=Qry.FieldAsString("class");
+  status=Qry.FieldAsString("status");
+  return *this;
+}
+
 TSimplePaxGrpItem& TSimplePaxGrpItem::fromDB(TQuery &Qry)
 {
   clear();
@@ -2245,30 +2255,6 @@ void TPaxGrpItem::UpdTid(int grp_id)
                    QParams() << QParam("grp_id", otInteger, grp_id));
   Qry.get().Execute();
 }
-
-TPnrAddrItem& TPnrAddrItem::fromDB(TQuery &Qry)
-{
-  clear();
-  airline=Qry.FieldAsString("airline");
-  addr=Qry.FieldAsString("addr");
-  return *this;
-};
-
-bool LoadCrsPaxPNRs(int pax_id, std::list<TPnrAddrItem> &pnrs)
-{
-  pnrs.clear();
-  const char* sql=
-      "SELECT pnr_addrs.airline, pnr_addrs.addr "
-      "FROM crs_pax, pnr_addrs "
-      "WHERE crs_pax.pnr_id=pnr_addrs.pnr_id AND crs_pax.pax_id=:pax_id";
-  QParams QryParams;
-  QryParams << QParam("pax_id", otInteger, pax_id);
-  TCachedQuery Qry(sql, QryParams);
-  Qry.get().Execute();
-  for(; !Qry.get().Eof; Qry.get().Next())
-    pnrs.push_back(TPnrAddrItem().fromDB(Qry.get()));
-  return !pnrs.empty();
-};
 
 TCkinPaxTknItem& TCkinPaxTknItem::fromDB(TQuery &Qry)
 {

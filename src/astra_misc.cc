@@ -472,33 +472,34 @@ void TPnrAddrs::getByPnrIdFast(int pnr_id)
 std::string TPnrAddrs::getByPnrId(int pnr_id, string &airline)
 {
   clear();
-  if (airline.empty())
-  {
-    QParams QryParams;
-    QryParams << QParam("pnr_id", otInteger, pnr_id);
-
-    TCachedQuery CachedQry(
-      "SELECT airline "
-      "FROM crs_pnr,tlg_trips "
-      "WHERE crs_pnr.point_id=tlg_trips.point_id AND pnr_id=:pnr_id", //pnr_market_flt
-      QryParams);
-    CachedQry.get().Execute();
-    if (!CachedQry.get().Eof) airline=CachedQry.get().FieldAsString("airline");
-  };
 
   QParams QryParams;
-  QryParams << QParam("pnr_id", otInteger, pnr_id)
-            << QParam("airline", otString, airline);
+  QryParams << QParam("pnr_id", otInteger, pnr_id);
+  if (!airline.empty())
+    QryParams << QParam("airline", otString, airline);
 
-  TCachedQuery CachedQry(
-    "SELECT airline,addr FROM pnr_addrs "
-    "WHERE pnr_id=:pnr_id ORDER BY DECODE(airline,:airline,0,1),airline",
-    QryParams);
+  TCachedQuery CachedQry(airline.empty()?
+                         "SELECT pnr_addrs.airline, pnr_addrs.addr, tlg_trips.airline AS priority_airline "
+                         "FROM pnr_addrs, crs_pnr, tlg_trips "
+                         "WHERE pnr_addrs.pnr_id=crs_pnr.pnr_id AND "
+                         "      crs_pnr.point_id=tlg_trips.point_id AND "
+                         "      pnr_addrs.pnr_id=:pnr_id "
+                         "ORDER BY DECODE(pnr_addrs.airline, tlg_trips.airline, 0, 1), pnr_addrs.airline":
+                         "SELECT pnr_addrs.airline, pnr_addrs.addr, :airline AS priority_airline "
+                         "FROM pnr_addrs "
+                         "WHERE pnr_addrs.pnr_id=:pnr_id "
+                         "ORDER BY DECODE(pnr_addrs.airline, :airline, 0, 1), pnr_addrs.airline",
+                         QryParams);
+
   TQuery &Qry=CachedQry.get();
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
+  {
+    if (airline.empty())
+      airline=Qry.FieldAsString("priority_airline");
     emplace_back(Qry.FieldAsString("airline"),
                  Qry.FieldAsString("addr"));
+  }
 
   if (!empty() && begin()->airline==airline)
     return begin()->addr;

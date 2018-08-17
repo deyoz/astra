@@ -140,7 +140,7 @@ class TPaxSegItem : public TSegItem
     std::string subcl;
     CheckIn::TPaxTknItem tkn;
     int display_id;
-    std::list<CheckIn::TPnrAddrItem> pnrs;
+    TPnrAddrs pnrs;
     std::set<CheckIn::TPaxFQTItem> fqts;
     TPaxSegItem()
     {
