@@ -1115,6 +1115,7 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
        //d.status == tdInsert &&
        pr_takeoff &&
        d.scd_out != ASTRA::NoExists ) { // возможно это рейс, который в Синхроне удален и добавлен заново с новым плановым временем вылета
+    tst();
     Qry.Clear();
     Qry.SQLText =
       "SELECT point_id FROM aodb_points WHERE aodb_point_id=:aodb_point_id";
@@ -1130,14 +1131,9 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
       sinchronFlt.suffix = d.suffix;
       sinchronFlt.scd_out = d.scd_out;
       searchAstraFlt.search( range_hours, sinchronFlt, astraFlt );
-      if ( astraFlt.point_id != ASTRA::NoExists ) {
-        pr_charter_range = true;
-      }
-      ProgTrace( TRACE5, "astraFlt.point_id=%d, pr_charter_range=%d", astraFlt.point_id, pr_charter_range );
     }
     else {
       astraFlt.point_id = Qry.FieldAsInteger( "point_id" );
-      tst();
     }
     if ( astraFlt.point_id != ASTRA::NoExists ) {
       pr_find = true;
@@ -1148,6 +1144,8 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
       Qry.Execute();
       points.move_id = Qry.FieldAsInteger( "move_id" );
       pr_charter_setSCD = true;
+      pr_charter_range = true;
+      ProgTrace( TRACE5, "astraFlt.point_id=%d, pr_charter_range", astraFlt.point_id );
     }
   }
   ProgTrace( TRACE5, "pr_find=%d, move_id=%d", pr_find, points.move_id );
@@ -1292,7 +1290,7 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
     owndest->est_out = ownTags.est_out?owndest->est_out:d.est_out;
     ProgTrace( TRACE5, "owndest->est_out=%f,  tags.est_out=%d, owndest->point_num=%d", owndest->est_out,  ownTags.est_out, owndest->point_num );
     if ( pr_charter_range ) { // был перенесен рейс, изменилась плановая дата вылета в Синхроне, у нас старый рейс, изменяем расчетное время вылета
-        if ( d.est_out == ASTRA::NoExists || ownTags.est_out ) {
+        if ( owndest->scd_out != d.scd_out && ( d.est_out == ASTRA::NoExists || ownTags.est_out ) ) {
           owndest->est_out = d.scd_out;
         }
       //!!!if ( owndest->est_out == ASTRA::NoExists ) {
@@ -1317,15 +1315,19 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
   }
   //std::vector<TPointsDest> oldItems = points.dests.items;
   //синхронизация пунктов посадки с удалением пунктов
+  int own_point_id = (owndest != points.dests.items.end())?owndest->point_id:ASTRA::NoExists;
+  ProgTrace( TRACE5, "owndest != points.dests.items.end()=%d", owndest != points.dests.items.end() );
   points.dests.sychDests( dests, true, dtSomeLocalSCD );
   for ( std::vector<TPointsDest>::iterator odest=points.dests.items.begin(); odest!=points.dests.items.end(); odest++ ) {
     for ( std::vector<TPointsDest>::iterator ndest=dests.items.begin(); ndest!=dests.items.end(); ndest++ ) {
       DestsTagsNoExists::const_iterator itag;
       ProgTrace( TRACE5, "odest->point_id=%d, ndest->point_id=%d", odest->point_id, ndest->point_id );
-      if ( odest->point_id == ndest->point_id ) { //синхронизация всех пунктов кроме нашего если update
-        if ( owndest != points.dests.items.end() && owndest->point_id != ASTRA::NoExists && odest->point_id == owndest->point_id ) {
+      if ( odest->point_id == ndest->point_id /* && odest->point_id != ASTRA::NoExists*/ ) { //синхронизация всех пунктов кроме нашего если update
+        if ( own_point_id != ASTRA::NoExists && odest->point_id == own_point_id ) {
+          tst();
           continue;
         }
+        tst();
         ndest->scd_out = odest->scd_out!=ASTRA::NoExists?odest->scd_out:ndest->scd_out;
         ndest->scd_in = odest->scd_in!=ASTRA::NoExists?odest->scd_in:ndest->scd_in;
         ProgTrace( TRACE5, "scd_in=%f, scd_out=%f, point_id=%d", ndest->scd_in, ndest->scd_out, ndest->point_id );
