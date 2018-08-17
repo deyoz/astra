@@ -37,7 +37,7 @@ int CodeToId(const std::string &code)
 {
   // http://ru.cppreference.com/w/cpp/language/types
   if (sizeof(int) < sizeof(char)*3) throw EXCEPTIONS::Exception("CodeToId invalid sizeof");
-  if (code.size() > 3) throw EXCEPTIONS::Exception("CodeToId invalid size=%d code=%s", code.size(), code.c_str());
+  if (code.size() > 3) throw EXCEPTIONS::Exception("CodeToId invalid size=%d code=\"%s\"", code.size(), code.c_str());
   const char *c = code.c_str();
   int id = 0;
   char* p = (char*)&id;
@@ -628,7 +628,7 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
                           time_duration( hours_o, mins_o, secs_o ),
                           time_duration( hours_i, mins_i, secs_i ));
     boost::optional<ct::RbdLayout> rbd = ct::RbdLayout::fromString(rbd_string);
-    if (not rbd) throw EXCEPTIONS::Exception("Cannot make RBD from string %s", rbd_string.c_str());
+    if (not rbd) throw EXCEPTIONS::Exception("Cannot make RBD from string \"%s\"", rbd_string.c_str());
     ssim::Leg leg(section,
                   nsi::ServiceTypeId(0), // HACK
                   nsi::AircraftTypeId(CodeToId(ElemIdToClientElem( etCraft, dest1.craft, dest1.craft_fmt ))),
