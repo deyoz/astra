@@ -1255,7 +1255,7 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
       d.craft_fmt = owndest->craft_fmt;
     }
     if ( !owndest->bort.empty() ) {
-      warning += " ;Не задан борт ВС, оставляем старое значение '" + owndest->bort + "'";
+      warning += " ;Задан борт ВС, оставляем старое значение '" + owndest->bort + "'";
       d.bort = owndest->bort;
     }
     if ( d.litera.empty() && !owndest->litera.empty() ) {
@@ -1322,7 +1322,10 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
     for ( std::vector<TPointsDest>::iterator ndest=dests.items.begin(); ndest!=dests.items.end(); ndest++ ) {
       DestsTagsNoExists::const_iterator itag;
       ProgTrace( TRACE5, "odest->point_id=%d, ndest->point_id=%d", odest->point_id, ndest->point_id );
-      if ( odest->point_id == ndest->point_id ) {
+      if ( odest->point_id == ndest->point_id ) { //синхронизация всех пунктов кроме нашего если update
+        if ( owndest != points.dests.items.end() && owndest->point_id != ASTRA::NoExists && odest->point_id == owndest->point_id ) {
+          continue;
+        }
         ndest->scd_out = odest->scd_out!=ASTRA::NoExists?odest->scd_out:ndest->scd_out;
         ndest->scd_in = odest->scd_in!=ASTRA::NoExists?odest->scd_in:ndest->scd_in;
         ProgTrace( TRACE5, "scd_in=%f, scd_out=%f, point_id=%d", ndest->scd_in, ndest->scd_out, ndest->point_id );
@@ -1331,7 +1334,8 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
           ndest->est_in = itag->second.est_in?odest->est_in:ndest->est_in;
           ndest->est_out = itag->second.est_out?odest->est_out:ndest->est_out;
         }
-        odest->airline = ndest->airline;
+        //ProgTrace( TRACE5, "odest->craft=%s, ndest->craft=%s", odest->craft.c_str(), ndest->craft.c_str() );
+        /*odest->airline = ndest->airline;
         odest->airline_fmt = ndest->airline_fmt;
         odest->flt_no = ndest->flt_no;
         odest->suffix = ndest->suffix;
@@ -1339,16 +1343,16 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
         odest->airp_fmt = ndest->airp_fmt;
         odest->craft = ndest->craft;
         odest->craft_fmt = ndest->craft_fmt;
-        odest->bort = ndest->bort;
+        odest->bort = ndest->bort;*/
         odest->scd_in = ndest->scd_in;
         odest->est_in = ndest->est_in;
         odest->act_in = ndest->act_in;
         odest->scd_out = ndest->scd_out;
         odest->est_out = ndest->est_out;
         odest->act_out = ndest->act_out;
-        odest->trip_type = ndest->trip_type;
+        /*dest->trip_type = ndest->trip_type;
         odest->litera = ndest->litera;
-        odest->park_out = ndest->park_out;
+        odest->park_out = ndest->park_out;*/
         ProgTrace( TRACE5, "dest=%s", odest->toLog().c_str() );
         break;
       }
