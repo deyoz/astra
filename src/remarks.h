@@ -29,10 +29,10 @@ enum TRemEventType {
     retTYPEB_PIL,
     retSERVICE_STAT,
     retLIMITED_CAPAB_STAT,
+    retSELF_CKIN_EXCHANGE,
     retWEB,
     retKIOSK,
-    retMOB,
-    retTYPEB_LCI
+    retMOB
 };
 
 class TRemGrp : public std::set<std::string>
@@ -375,6 +375,7 @@ void SyncPaxRemOrigin(const boost::optional<TRemGrp> &rem_grp,
 
 void PaxRemAndASVCFromDB(int pax_id,
                          bool from_crs,
+                         const boost::optional<std::set<TPaxFQTItem>>& add_fqts,
                          std::multiset<TPaxRemItem> &rems_and_asvc);
 
 void PaxFQTFromDB(int pax_id,
