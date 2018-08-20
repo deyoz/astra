@@ -2720,6 +2720,7 @@ PROCEDURE modify_rem_event_sets(old_set_id          rem_event_sets.set_id%TYPE,
                                 typeb_pil           rem_event_sets.event_value%TYPE,
                                 service_stat        rem_event_sets.event_value%TYPE,
                                 limited_capab_stat  rem_event_sets.event_value%TYPE,
+                                self_ckin_exchange  rem_event_sets.event_value%TYPE,
                                 web                 rem_event_sets.event_value%TYPE,
                                 kiosk               rem_event_sets.event_value%TYPE,
                                 mob                 rem_event_sets.event_value%TYPE,
@@ -2733,7 +2734,7 @@ vid          rem_event_sets.id%TYPE;
 vset_id      rem_event_sets.set_id%TYPE;
 BEGIN
   SELECT id__seq.nextval INTO vset_id FROM dual;
-  FOR i IN 1..15 LOOP
+  FOR i IN 1..16 LOOP
     vevent_type:= CASE i
                     WHEN 1  THEN 'BP'
                     WHEN 2  THEN 'ALARM_SS'
@@ -2747,9 +2748,10 @@ BEGIN
                     WHEN 10 THEN 'TYPEB_PIL'
                     WHEN 11 THEN 'SERVICE_STAT'
                     WHEN 12 THEN 'LIMITED_CAPAB_STAT'
-                    WHEN 13 THEN 'WEB'
-                    WHEN 14 THEN 'KIOSK'
-                    WHEN 15 THEN 'MOB'
+                    WHEN 13 THEN 'SELF_CKIN_EXCHANGE'
+                    WHEN 14 THEN 'WEB'
+                    WHEN 15 THEN 'KIOSK'
+                    WHEN 16 THEN 'MOB'
                   END;
     vevent_value:=CASE i
                     WHEN 1  THEN bp
@@ -2764,10 +2766,20 @@ BEGIN
                     WHEN 10 THEN typeb_pil
                     WHEN 11 THEN service_stat
                     WHEN 12 THEN limited_capab_stat
-                    WHEN 13 THEN web
-                    WHEN 14 THEN kiosk
-                    WHEN 15 THEN mob
+                    WHEN 13 THEN self_ckin_exchange
+                    WHEN 14 THEN web
+                    WHEN 15 THEN kiosk
+                    WHEN 16 THEN mob
                   END;
+
+    IF vevent_type IN ('SELF_CKIN_EXCHANGE', 'WEB', 'KIOSK', 'MOB') THEN
+      BEGIN
+        SELECT 0 INTO vevent_value FROM rem_cats WHERE rem_code=vrem_code AND category IN ('DOC','DOCO','DOCA','TKN');
+      EXCEPTION
+        WHEN NO_DATA_FOUND THEN NULL;
+      END;
+    END IF;
+
     IF old_set_id IS NOT NULL THEN
       IF vrem_code IS NULL THEN
         DELETE FROM rem_event_sets WHERE set_id=old_set_id AND event_type = vevent_type RETURNING id INTO vid;
