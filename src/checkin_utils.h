@@ -431,13 +431,7 @@ class TWebPaxForCkinList : public std::list<TWebPaxForCkin>
 
     bool infantsMoreThanAdults() const
     {
-      int adult_count=0, without_seat_count=0;
-      for(const TWebPaxForCkin& pax : *this)
-      {
-        if (pax.pers_type==ASTRA::adult) adult_count++;
-        if (pax.pers_type==ASTRA::baby && pax.seats==0) without_seat_count++;
-      }
-      return without_seat_count>adult_count;
+      return CheckIn::infantsMoreThanAdults(*this);
     }
 
     void checkUniquenessAndAdd(const TWebPaxForCkin& newPax);

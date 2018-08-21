@@ -2249,6 +2249,63 @@ void TPaxGrpItem::SyncServiceAuto(const TTripInfo& flt)
   }
 }
 
+void TPaxGrpItem::checkInfantsCount(const TSimplePaxList &prior_paxs,
+                                    const TSimplePaxList &curr_paxs) const
+{
+  if (prior_paxs.empty() && !curr_paxs.empty())
+  {
+    //new_checkin
+    if (curr_paxs.infantsMoreThanAdults())
+    {
+      LogTrace(TRACE0) << "curr_paxs.infantsMoreThanAdults()";
+      throw UserException("MSG.CHECKIN.BABY_WO_SEATS_MORE_ADULT_FOR_GRP");
+    }
+    return;
+  }
+
+  bool needCheck=false;
+  if (prior_paxs.size()!=curr_paxs.size())
+    throw EXCEPTIONS::Exception("%s: strange situation: prior_paxs.size()!=curr_paxs.size()!", __FUNCTION__);
+
+  TSimplePaxList::const_iterator iPrior=prior_paxs.begin();
+  for(; iPrior!=prior_paxs.end(); ++iPrior)
+  {
+    TSimplePaxList::const_iterator iCurr=curr_paxs.begin();
+    for(; iCurr!=curr_paxs.end(); ++iCurr)
+      if (iCurr->id==iPrior->id) break;
+    if (iCurr==curr_paxs.end()) break;
+    if (iCurr->pers_type!=iPrior->pers_type ||
+        iCurr->seats!=iPrior->seats ||
+        iCurr->refuse!=iPrior->refuse) break;
+  }
+  if (iPrior!=prior_paxs.end()) needCheck=true;
+
+
+  if (!needCheck) return;
+
+  TCachedQuery Qry("SELECT SUM(CASE WHEN pers_type=:adult THEN 1 ELSE 0 END) AS adults, "
+                   "       SUM(CASE WHEN pers_type=:infant AND seats=0 THEN 1 ELSE 0 END) AS infants "
+                   "FROM pax "
+                   "WHERE grp_id=:grp_id AND refuse IS NULL ",
+                   QParams() << QParam("grp_id", otInteger, id)
+                             << QParam("adult", otString, EncodePerson(ASTRA::adult))
+                             << QParam("infant", otString, EncodePerson(ASTRA::baby)));
+
+  Qry.get().Execute();
+  if (Qry.get().Eof ||
+      Qry.get().FieldIsNULL("adults") ||
+      Qry.get().FieldIsNULL("infants")) return;
+
+  int adults=Qry.get().FieldAsInteger("adults");
+  int infants=Qry.get().FieldAsInteger("infants");
+
+  if (adults < infants)
+  {
+    LogTrace(TRACE0) << "adults=" << adults << " infants=" << infants;
+    throw UserException("MSG.CHECKIN.BABY_WO_SEATS_MORE_ADULT_FOR_GRP");
+  }
+}
+
 void TPaxGrpItem::UpdTid(int grp_id)
 {
   TCachedQuery Qry("UPDATE pax_grp SET tid=cycle_tid__seq.nextval WHERE grp_id=:grp_id",
@@ -2373,6 +2430,11 @@ std::string TScannedPaxDocItem::getTrueNo() const
     return no.substr(0,3)+extra.substr(0,1)+no.substr(3);
 
   return no;
+}
+
+bool TSimplePaxList::infantsMoreThanAdults() const
+{
+  return CheckIn::infantsMoreThanAdults(*this);
 }
 
 TSimplePaxList& TSimplePaxList::searchByDocNo(const TScannedPaxDocItem& doc)

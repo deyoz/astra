@@ -4657,7 +4657,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               pax.crew_type=priorPax.crew_type;
               pax.is_jmp=priorPax.is_jmp;
               if (!new_checkin && !pax.PaxUpdatesPending)
+              {
+                pax.pers_type=priorPax.pers_type;
                 pax.refuse=priorPax.refuse;
+              }
               priorSimplePaxList.push_back(priorPax);
             }
 
@@ -5678,6 +5681,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
         timing.finish("ChangePassengers", grp.point_dep);
       }
+
+      grp.checkInfantsCount(priorSimplePaxList, currSimplePaxList);
 
       timing.start("ChangeBaggage", grp.point_dep);
 
