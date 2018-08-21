@@ -714,6 +714,7 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
             LoadPaxDoc(pax.pax_id, pax.doc);
             LoadPaxDoco(pax.pax_id, pax.doco);
             CheckIn::LoadPaxFQT(pax.pax_id, pax.fqts);
+            CheckIn::PaxRemAndASVCFromDB(pax.pax_id, false, pax.fqts, pax.rems_and_asvc);
           }
           else
           {
@@ -741,8 +742,8 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
             //ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d pax.doco.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, pax.doco.getNotEmptyFieldsMask());
             LoadCrsPaxDoca(pax.crs_pax_id, pax.doca_map);
 
-            CheckIn::LoadCrsPaxRem(pax.crs_pax_id, pax.rems);
             CheckIn::LoadCrsPaxFQT(pax.crs_pax_id, pax.fqts);
+            CheckIn::PaxRemAndASVCFromDB(pax.crs_pax_id, true, pax.fqts, pax.rems_and_asvc);
 
             if (!is_valid_pnr_status(Qry.FieldAsString("pnr_status")))
               pax.agent_checkin_reasons.insert("pnr_status");
@@ -760,7 +761,7 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
               pax.agent_checkin_reasons.insert("incomplete_tkn");
             if (is_et_not_displayed(flt.oper, pax.tkn, pax.etick))
               pax.agent_checkin_reasons.insert("et_not_displayed");
-            if (!is_valid_rem_codes(flt.oper, pax.rems))
+            if (!is_valid_rem_codes(flt.oper, pax.rems_and_asvc))
               pax.agent_checkin_reasons.insert("forbidden_rem_code");
 
             if (!pax.agent_checkin_reasons.empty())
@@ -981,11 +982,14 @@ void TWebGrp::toXML(xmlNodePtr segParentNode) const
   NewTextChild( segNode, "apis", (int)(!checkInfo.apis_formats().empty()) );
   checkInfo.pass().toWebXML(segNode);
 
+  TRemGrp outputRemGrp;
+  outputRemGrp.Load(retSELF_CKIN_EXCHANGE, flt.oper.airline);
+
   xmlNodePtr paxsNode = NewTextChild( segNode, "passengers" );
-  for(const TWebPax& pax : paxs) pax.toXML(paxsNode);
+  for(const TWebPax& pax : paxs) pax.toXML(paxsNode, outputRemGrp);
 }
 
-void TWebPax::toXML(xmlNodePtr paxParentNode) const
+void TWebPax::toXML(xmlNodePtr paxParentNode, const TRemGrp& outputRemGrp) const
 {
   if (paxParentNode==nullptr) return;
 
@@ -1039,6 +1043,14 @@ void TWebPax::toXML(xmlNodePtr paxParentNode) const
       SetProp(NewTextChild( paxNode, "bag_norm", etick.bag_norm ), "unit", etick.bag_norm_unit.get_db_form() );
   }
   else NewTextChild( paxNode, "bag_norm" );
+
+  xmlNodePtr remsNode=nullptr;
+  for(const CheckIn::TPaxRemItem& r : rems_and_asvc)
+  {
+    if (!outputRemGrp.exists(r.code)) continue;
+    if (remsNode==nullptr) remsNode=NewTextChild(paxNode, "rems");
+    r.toXML(remsNode);
+  }
 
   xmlNodePtr tidsNode = NewTextChild( paxNode, "tids" );
   NewTextChild( tidsNode, "crs_pnr_tid", crs_pnr_tid );

@@ -148,7 +148,7 @@ struct TWebPax {
     TETickItem etick;
     CheckIn::TDocaMap doca_map;
     std::set<CheckIn::TPaxFQTItem> fqts;
-    std::multiset<CheckIn::TPaxRemItem> rems;
+    std::multiset<CheckIn::TPaxRemItem> rems_and_asvc;
     TPnrAddrs pnr_addrs;
     TWebPax() {
       clear();
@@ -193,7 +193,7 @@ struct TWebPax {
     };
 
     bool suitable(const WebSearch::TPNRFilter &filter) const;
-    void toXML(xmlNodePtr paxParentNode) const;
+    void toXML(xmlNodePtr paxParentNode, const TRemGrp &outputRemGrp) const;
 };
 int bcbp_test(int argc,char **argv);
 

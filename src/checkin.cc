@@ -1702,7 +1702,7 @@ void LoadPaxRemAndASVC(int pax_id, xmlNodePtr node, bool from_crs)
   if (node==NULL) return;
 
   multiset<CheckIn::TPaxRemItem> rems_and_asvc;
-  CheckIn::PaxRemAndASVCFromDB(pax_id, from_crs, rems_and_asvc);
+  CheckIn::PaxRemAndASVCFromDB(pax_id, from_crs, boost::none, rems_and_asvc);
   CheckIn::TPaxRemItem apps_satus_rem = getAPPSRem( pax_id, TReqInfo::Instance()->desk.lang );
   if ( !apps_satus_rem.empty() )
    rems_and_asvc.insert( apps_satus_rem );
@@ -4778,7 +4778,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               CheckIn::SyncFQTTierLevel(pax.id, new_checkin, p->fqts);
               //проверка readonly-ремарок
               multiset<CheckIn::TPaxRemItem> prior_rems;
-              CheckIn::PaxRemAndASVCFromDB(pax.id, new_checkin, prior_rems);
+              CheckIn::PaxRemAndASVCFromDB(pax.id, new_checkin, boost::none, prior_rems);
               multiset<CheckIn::TPaxRemItem> added;
               multiset<CheckIn::TPaxRemItem> deleted;
               CheckIn::GetPaxRemDifference(boost::none, prior_rems, rems, added, deleted);
