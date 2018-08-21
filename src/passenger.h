@@ -555,9 +555,22 @@ class TSimplePaxItem
     int paxId() const { return id; }
 };
 
+template <class T>
+bool infantsMoreThanAdults(const T& container)
+{
+  int adult_count=0, without_seat_count=0;
+  for(const auto& pax : container)
+  {
+    if (pax.pers_type==ASTRA::adult) adult_count++;
+    if (pax.pers_type==ASTRA::baby && pax.seats==0) without_seat_count++;
+  }
+  return without_seat_count>adult_count;
+}
+
 class TSimplePaxList : public std::list<TSimplePaxItem>
 {
   public:
+    bool infantsMoreThanAdults() const;
     TSimplePaxList& searchByDocNo(const TScannedPaxDocItem& doc);
 };
 
@@ -784,6 +797,9 @@ class TPaxGrpItem : public TSimplePaxGrpItem
       return grpCategory()==TPaxGrpCategory::UnnacompBag;
     }
     void SyncServiceAuto(const TTripInfo &flt);
+    void checkInfantsCount(const CheckIn::TSimplePaxList &prior_paxs,
+                           const CheckIn::TSimplePaxList &curr_paxs) const;
+
     static void UpdTid(int grp_id);
 };
 
