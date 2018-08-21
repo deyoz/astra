@@ -445,12 +445,16 @@ namespace EXCH_CHECKIN_RESULT
   void ChangeFlightsDBData::createSQLRequest( const Request &request, TQuery &Qry )
   {
     string sql_text =
-      "SELECT point_id,time, tid "
-      " FROM exch_flights "
-      "WHERE time >= :time AND time <= :uptime ";
+      "SELECT exch_flights.point_id,time, exch_flights.tid "
+      " FROM exch_flights ";
     if ( !request.airlines.empty() ||
          !request.airps.empty() ) {
-      sql_text += " AND ( ";
+      sql_text += ",points ";
+    }
+   sql_text += "WHERE time >= :time AND time <= :uptime ";
+    if ( !request.airlines.empty() ||
+         !request.airps.empty() ) {
+      sql_text += " AND points.point_id=exch_flights.point_id AND ( ";
       if ( !request.airlines.empty() ) {
         sql_text += " airline IN " + GetSQLEnum( request.airlines );
       }
@@ -462,7 +466,7 @@ namespace EXCH_CHECKIN_RESULT
       }
       sql_text += ") ";
     }
-    sql_text += "ORDER BY time, point_id ";
+    sql_text += "ORDER BY time, exch_flights.point_id ";
     ProgTrace( TRACE5, "sql_text=%s", sql_text.c_str() );
     Qry.SQLText = sql_text;
     TDateTime nowUTC = NowUTC();
