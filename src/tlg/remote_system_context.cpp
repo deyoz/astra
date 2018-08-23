@@ -506,6 +506,17 @@ DcsSystemContext* DcsSystemContext::read(const std::string& airl,
     return nullptr;
 }
 
+DcsSystemContext DcsSystemContext::read(Ticketing::SystemAddrs_t id)
+{
+    LogTrace(TRACE3) << __FUNCTION__ << "(" << id << ")";
+    std::string sql = getSelectSql();
+    sql += "where ID=:id";
+
+    OciCpp::CursCtl cur = make_curs(sql);
+    cur.bind(":id", id.get());
+    return DcsSystemContext(defSelData(cur));
+}
+
 SystemContext* DcsSystemContext::readByEdiAddrs(const std::string& source, const std::string& source_ext,
                                                 const std::string& dest,   const std::string& dest_ext,
                                                 bool throwNf)

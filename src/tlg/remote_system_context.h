@@ -313,6 +313,8 @@ namespace RemoteSystemContext
                                       const Ticketing::FlightNum_t& ourFlNum,
                                       bool throwNf = true);
 
+        static DcsSystemContext read(Ticketing::SystemAddrs_t id);
+
         static SystemContext* readByEdiAddrs(const std::string& source, const std::string& source_ext,
                                              const std::string& dest,   const std::string& dest_ext,
                                              bool throwNf = true);

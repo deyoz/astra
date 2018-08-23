@@ -9,6 +9,7 @@
 #include "salonform.h"
 #include "passenger.h" // TPaxItem
 #include "astra_context.h" // AstraContext
+#include "tlg/CheckinBaseTypes.h"
 #include "tlg/IatciCkiRequest.h"
 #include "tlg/IatciCkuRequest.h"
 #include "tlg/IatciCkxRequest.h"
@@ -2241,6 +2242,17 @@ static void UpdateIatciGrp(int grpId, IatciInterface::RequestType reqType,
     SaveIatciGrp(grpId, reqType, updater.iatciNode(), termReqNode, resNode);
 }
 
+static void ShowRemoteError(const Ticketing::AstraMsg_t& errCode,
+                            const Ticketing::SystemAddrs_t& systemId)
+{
+    auto dcs = Ticketing::RemoteSystemContext::DcsSystemContext::read(systemId);
+    auto lang = TReqInfo::Instance()->desk.lang == AstraLocale::LANG_RU ? RUSSIAN : ENGLISH;
+    AstraLocale::LParams lex;
+    lex << AstraLocale::LParam("air_code", dcs.airlineImpl()->code(lang))
+        << AstraLocale::LParam("text",     AstraLocale::LexemaData(errCode));
+    AstraLocale::showErrorMessage("WRAP.REM_DCS_ERROR", lex);
+}
+
 //---------------------------------------------------------------------------------------
 
 IatciInterface::RequestType IatciInterface::ClassifyCheckInRequest(xmlNodePtr reqNode)
@@ -2486,6 +2498,7 @@ void IatciInterface::KickHandler(XMLRequestCtxt* ctxt,
                                  xmlNodePtr resNode)
 {
     using namespace edifact;
+
     FuncIn(KickHandler);
     pRemoteResults remRes = RemoteResults::readSingle();
     if(remRes)
@@ -2504,18 +2517,11 @@ void IatciInterface::KickHandler(XMLRequestCtxt* ctxt,
             if(remRes->status() == RemoteStatus::Success) {
                 KickHandler_onSuccess(reqCtxtId, termReqCtxt.node(), resNode, lRes);
             } else {
-                const Ticketing::AstraMsg_t RemDcsErr = "MSG.ERROR_IN_REMOTE_DCS";
-                Ticketing::AstraMsg_t errCode = getInnerErrByErd(remRes->ediErrCode(),
-                                                                 RemDcsErr);
-                if(!remRes->remark().empty()) {
-                    AstraLocale::showProgError(remRes->remark());
-                } else {
-                    if(!remRes->ediErrCode().empty()) {
-                        AstraLocale::showProgError(errCode);
-                    } else {
-                        AstraLocale::showProgError(RemDcsErr);
-                    }
+                Ticketing::AstraMsg_t errCode = "MSG.ERROR_IN_REMOTE_DCS";
+                if(!remRes->ediErrCode().empty()) {
+                    errCode = getInnerErrByErd(remRes->ediErrCode(), errCode);
                 }
+                ShowRemoteError(errCode, remRes->remoteSystem());
                 KickHandler_onFailure(reqCtxtId, termReqCtxt.node(), resNode, lRes, errCode);
             }
         }
