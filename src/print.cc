@@ -1920,7 +1920,7 @@ void PrintInterface::GetPrintDataBP(
         // Т.е. отсутствуют данные для печати
         // Причем, если буквы L нет, то ошибка не возникает:
         // 1260,500,T,arial.ttf,36,0,
-        // Договорились для формата Graphics2d в случае пустых данных передавать пробел
+        // Договорились для формата Graphics2D в случае пустых данных передавать пробел
 
         parser->set_space_if_empty(params.isGraphics2D());
 
@@ -2778,6 +2778,7 @@ void PrintInterface::print_bp2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         get_pectab(op_type, params, data, pectab);
 
         PrintDataParser parser(op_type, grp_id, pax_id, false, NULL);
+        parser.set_space_if_empty(params.isGraphics2D());
         parser.pts.set_tag(TAG::GATE, "ВРАТА");
         parser.pts.set_tag(TAG::DUPLICATE, 1);
         parser.pts.set_tag(TAG::VOUCHER_CODE, "DV");
