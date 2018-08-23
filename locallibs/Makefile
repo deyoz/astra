@@ -1,15 +1,11 @@
-#libs=libssim
-#libs=serverlib tscriptc jxtlib edilib eticklib libtlg libtypeb shared libcoretypes
 libs=serverlib tscriptc jxtlib edilib eticklib libtlg libtypeb shared libssim libjms libcoretypes libnsi
-#libs=edilib
-#edilib eticklib libtlg libtypeb shared 
 
 .PHONY: all clean tests $(libs)
 
 all: $(libs)
 
 $(libs):
-	$(MAKE) -C $@
+	./build.sh $@
 
 config:
 	./config.sh $(libs)
@@ -22,6 +18,15 @@ tests:
 
 rebuild: clean all
 
-tscriptc edilib jxtlib libtypeb shared libjms: serverlib
-eticklib: edilib serverlib
-libtlg: edilib serverlib
+serverlib:
+tscriptc: serverlib
+jxtlib: serverlib
+edilib: serverlib
+shared: serverlib
+eticklib: serverlib edilib
+libtlg: serverlib edilib
+libtypeb: serverlib eticklib
+libjms: serverlib
+libnsi: serverlib
+libcoretypes: serverlib libnsi
+

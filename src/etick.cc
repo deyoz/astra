@@ -902,6 +902,9 @@ void ETSearchInterface::SearchET(const ETSearchParams& searchParams,
 void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id=NodeAsInteger("point_id",reqNode);
+  if(point_id < 0) {
+      throw UserException("MSG.ETICK.UNABLE_TO_DISPLAY_ET_ON_EDI_SEGMENT");
+  }
   TicketNum_t tickNum=checkDocNum(NodeAsString("TickNoEdit",reqNode), true);
 
   TTripInfo flt;

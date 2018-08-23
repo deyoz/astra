@@ -215,4 +215,8 @@ inline bool isSsrFqt(const std::string& ssrCode)
 Ticketing::RemoteSystemContext::DcsSystemContext* readDcs(const iatci::FlightDetails& outbFlt,
                                                           const boost::optional<FlightDetails>& inbFlt);
 
+//---------------------------------------------------------------------------------------
+
+int getLastTCkinGrpId(int grpId);
+
 }//namespace iatci

@@ -881,11 +881,11 @@ static std::string getOldSeat(xmlNodePtr reqNode)
 static PointsPair readPointsPair(int grpId)
 {
     TCkinRoute tckinRoute;
-    if(tckinRoute.GetRouteBefore(grpId, crtWithCurrent, crtIgnoreDependent)) {
+    if(tckinRoute.GetRouteAfter(grpId, crtWithCurrent, crtIgnoreDependent)) {
         // если на стороне Астры делалась локальная(не iatci) сквозная регистрация
         ASSERT(!tckinRoute.empty());
-        return PointsPair(tckinRoute.front().point_dep,
-                          tckinRoute.front().point_arv);
+        return PointsPair(tckinRoute.back().point_dep,
+                          tckinRoute.back().point_arv);
     } else {
         // если один единственный сегмент
         return PointsPair::readByGrpId(grpId);
@@ -934,9 +934,12 @@ static std::string getIatciRequestContext(const edifact::KickInfo& kickInfo = ed
 static int getGrpId(xmlNodePtr reqNode, xmlNodePtr resNode, IatciInterface::RequestType reqType)
 {
     int grpId = 0;
-    if(reqType == IatciInterface::Cki) {
-        // при первичной регистрации grp_id появляется в ответном xml
-        grpId = NodeAsInteger("grp_id", NodeAsNode("segments/segment", resNode));
+    if(reqType == IatciInterface::Cki || reqType == IatciInterface::Ckx) {
+        // при первичной регистрации grp_id появляется в ответном xml, при отмене - в запросе
+        xmlNodePtr node = (reqType == IatciInterface::Cki ? resNode : reqNode);
+        XmlCheckInTabs ownTabs(findNodeR(node, "segments"));
+        ASSERT(!ownTabs.empty());
+        grpId = ownTabs.tabs().back().seg().m_grpId;
     } else {
         // в остальных случаях grp_id уже содержится в запросе, либо её можно найти
         xmlNodePtr grpIdNode = findNodeR(reqNode, "grp_id");
@@ -966,12 +969,15 @@ static int getGrpId(xmlNodePtr reqNode, xmlNodePtr resNode, IatciInterface::Requ
                 }
             }
         }
+
+        grpId = iatci::getLastTCkinGrpId(grpId);
     }
 
     LogTrace(TRACE3) << "grpId: " << grpId;
     ASSERT(grpId > 0);
     return grpId;
 }
+
 
 static void specialPlfErrorHandler(xmlNodePtr reqNode, const Ticketing::AstraMsg_t& errCode)
 {
@@ -1247,9 +1253,9 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
     XmlCheckInTabs ownTabs(findNodeR(reqNode, "segments"));
     ASSERT(!ownTabs.empty());
 
-    const XmlCheckInTab& firstTab = ownTabs.tabs().front();
+    const XmlCheckInTab& lastOwnTab = ownTabs.tabs().back();
 
-    const astra_entities::SegmentInfo ownSeg = ownTabs.tabs().back().seg();
+    const astra_entities::SegmentInfo lastOwnSeg = lastOwnTab.seg();
 
     XmlCheckInTabs ediTabs(findNodeR(reqNode, "iatci_segments"));
     ASSERT(ediTabs.size() == 1);
@@ -1257,7 +1263,7 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
     const XmlCheckInTab& firstEdiTab = ediTabs.tabs().front();
     ASSERT(!firstEdiTab.lPax().empty());
 
-    const std::list<astra_entities::PaxInfo> lPaxOwn = firstTab.lPax();
+    const std::list<astra_entities::PaxInfo> lPaxOwn = lastOwnTab.lPax();
     const std::list<astra_entities::PaxInfo> lPax = firstEdiTab.lPax();
     const std::list<astra_entities::PaxInfo> lNonInfants = filterNotInfants(lPax);
     const std::list<astra_entities::PaxInfo> lInfants = filterInfants(lPax);
@@ -1306,10 +1312,10 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
                                                   infantVisa));
     }
 
-    return iatci::CkiParams(iatci::makeOrg(ownSeg),
+    return iatci::CkiParams(iatci::makeOrg(lastOwnSeg),
                             iatci::makeCascade(),
                             iatci::dcqcki::FlightGroup(iatci::makeFlight(firstEdiTab.seg()),
-                                                       makeOwnFlight(ownSeg.m_pointDep, ownSeg.m_pointArv),
+                                                       makeOwnFlight(lastOwnSeg.m_pointDep, lastOwnSeg.m_pointArv),
                                                        lPaxGrp));
 }
 
