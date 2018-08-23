@@ -5,7 +5,7 @@ libs=serverlib tscriptc jxtlib edilib eticklib libtlg libtypeb shared libssim li
 all: $(libs)
 
 $(libs):
-	$(MAKE) -C $@
+	./build.sh $@
 
 config:
 	./config.sh $(libs)
@@ -27,3 +27,5 @@ eticklib: serverlib edilib
 libtlg: serverlib edilib
 libtypeb: serverlib eticklib
 libjms: serverlib
+libnsi: serverlib
+libcoretypes: serverlib libnsi
