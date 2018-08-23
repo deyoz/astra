@@ -78,27 +78,6 @@ namespace xp_testing { namespace tscript {
             }
         }
                 
-        virtual void beforeTest()
-        {
-             LogTrace(TRACE3) << __func__;
-             make_curs("savepoint tscript").exec();
-             
-             TsCallbacks::beforeTest();	
-        }
-
-        virtual void afterTest()
-        {
-            LogTrace(TRACE3) << __func__;
-            make_curs("rollback to savepoint tscript").exec();
-
-            if (nosir_mode()) {
-                rollbackInTestMode();
-                // this commit makes SP_XP_TESTING to prevent core dump in nosir mode
-                commit();
-            }
-
-            TsCallbacks::afterTest();
-        }
     private:
         xp_testing::TlgAccumulator tlgAccumulator_;
     };
