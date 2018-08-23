@@ -337,6 +337,7 @@ if [ "$build_external_libs" = "1" ]; then
 if [ -n "\$BOOST_LIB" ] || [ -n "\$BOOST_LIBS_SUFFIX" ] || [ -n "\$PION_LIB" ] ; then echo "unset BOOST_LIB BOOST_LIBS_SUFFIX PION_LIB, then $0 --build_external_libs" 1>&2; exit 2; fi
 export readonly BOOST=$EXTERNALLIBS_DIR/boost
 export readonly LIBXML2=$EXTERNALLIBS_DIR/libxml2
+export readonly LIBCHECK=$EXTERNALLIBS_DIR/check
 export EXTERNAL_CXXFLAGS="-DBOOST_NO_CXX11_SCOPED_ENUMS -DBOOST_NO_CXX11_EXPLICIT_CONVERSION_OPERATORS -DBOOST_FILESYSTEM_DEPRECATED -DBOOST_NO_AUTO_PTR"
 EOF
     build_externallib icu

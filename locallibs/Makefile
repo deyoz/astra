@@ -1,13 +1,11 @@
 libs=serverlib tscriptc jxtlib edilib eticklib libtlg libtypeb shared
-#libs=edilib
-#edilib eticklib libtlg libtypeb shared 
 
 .PHONY: all clean tests $(libs)
 
 all: $(libs)
 
 $(libs):
-	$(MAKE) -C $@
+	./build.sh $@
 
 config:
 	./config.sh $(libs)
@@ -20,6 +18,11 @@ tests:
 
 rebuild: clean all
 
-tscriptc edilib jxtlib libtypeb shared: serverlib
-eticklib: edilib serverlib
-libtlg: edilib serverlib
+serverlib:
+tscriptc: serverlib
+jxtlib: serverlib
+edilib: serverlib
+shared: serverlib
+eticklib: serverlib edilib
+libtlg: serverlib edilib
+libtypeb: serverlib eticklib

@@ -2,7 +2,7 @@
 
 function uab_check_version() {
     v=`grep 'CHECK_M...._VERSION' $1/include/check.h | cut -f3 -d\  | tr '\n' ' '`
-    test "$v" == "(0) (10) (0) "
+    test "$v" == "(0) (12) (0) "
 }
 
 function uab_config_and_build() {
@@ -15,6 +15,6 @@ function uab_config_and_build() {
 }
 
 function uab_pkg_tarball() {
-    echo check-0.10.0.tar.gz
+    echo check-0.12.0.tar.gz
 }
 

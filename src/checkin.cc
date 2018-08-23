@@ -3545,7 +3545,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
 
             // снимем флаг необходимости посылки iatci-запроса
             ReqParams(reqNode).setBoolParam("may_need_send_iatci", false);
-            transformSavePaxRequestByIatci(reqNode, AfterSaveInfoList.front().segs.front().grp_id);
+            transformSavePaxRequestByIatci(reqNode, AfterSaveInfoList.front().segs.back().grp_id);
             // выставим флаг факта посылки iatci-запроса. Может быть изменён в false,
             // если update не затронет edifact-вкладки
             ReqParams(reqNode).setBoolParam("was_sent_iatci", willSentIatci);
@@ -7320,7 +7320,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
   {
       bool afterKick = ReqParams(reqNode).getBoolParam("after_kick", false);
       bool needSync = !afterKick && !reqInfo->api_mode && !afterSavePax;
-      LoadIatciPax(reqNode, resNode, grp_id, needSync);
+      LoadIatciPax(reqNode, resNode, tckin_grp_ids.back(), needSync);
   }
 }
 
