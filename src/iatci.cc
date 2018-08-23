@@ -2249,8 +2249,8 @@ static void ShowRemoteError(const Ticketing::AstraMsg_t& errCode,
     auto lang = TReqInfo::Instance()->desk.lang == AstraLocale::LANG_RU ? RUSSIAN : ENGLISH;
     AstraLocale::LParams lex;
     lex << AstraLocale::LParam("air_code", dcs.airlineImpl()->code(lang))
-        << AstraLocale::LParam("text",     AstraLocale::LexemaData(errCode));
-    AstraLocale::showErrorMessage("WRAP.REM_DCS_ERROR", lex);
+        << AstraLocale::LParam("err_text", AstraLocale::LexemaData(errCode));
+    AstraLocale::showError("WRAP.REM_DCS_ERROR", lex);
 }
 
 //---------------------------------------------------------------------------------------
