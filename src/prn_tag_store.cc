@@ -242,6 +242,7 @@ void TPrnTagStore::TRemarksInfo::Init(TPrnTagStore &pts)
 TPrnTagStore::TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat):
     rcpt(arcpt),
     time_print(NowUTC()),
+    space_if_empty(false),
     prn_tag_props(TDevOper::PrnBR)
 {
     print_mode = 0;
@@ -297,6 +298,7 @@ TPrnTagStore::TPrnTagStore(const std::string& airp_dep,
     pax_id(NoExists),
     print_mode(0),
     time_print(NowUTC()),
+    space_if_empty(false),
     prn_tag_props(TDevOper::PrnBP)
 {
     init_bp_tags();
@@ -306,6 +308,7 @@ TPrnTagStore::TPrnTagStore(const std::string& airp_dep,
 // Test tags
 TPrnTagStore::TPrnTagStore(bool apr_lat):
     time_print(NowUTC()),
+    space_if_empty(false),
     prn_tag_props(TDevOper::Unknown)
 {
     print_mode = 0;
@@ -317,6 +320,7 @@ TPrnTagStore::TPrnTagStore(TDevOper::Enum _op_type, const string &ascan, bool ap
     op_type(_op_type),
     scan(ascan),
     time_print(NowUTC()),
+    space_if_empty(false),
     prn_tag_props(TDevOper::PrnBP)
 {
     scan_data = boost::shared_ptr<BCBPSections>(new BCBPSections());
@@ -431,6 +435,7 @@ void TPrnTagStore::tagsFromXML(xmlNodePtr tagsNode)
 TPrnTagStore::TPrnTagStore(TDevOper::Enum _op_type, int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute):
     op_type(_op_type),
     time_print(NowUTC()),
+    space_if_empty(false),
     prn_tag_props(aroute.empty() ? TDevOper::PrnBP : TDevOper::PrnBT)
 {
     if(op_type == TDevOper::PrnBP or op_type == TDevOper::PrnBI) rfisc_descr.fromDB(agrp_id, apax_id);
@@ -698,6 +703,7 @@ string TPrnTagStore::get_field(std::string name, size_t len, const std::string &
         }
         this->tag_lang.set_tag_lang("");
         //ProgTrace(TRACE5, "name: %s, value: '%s'", name.c_str(), result.c_str());
+        if(result.empty() and space_if_empty.get()) result.append(1, ' ');
         return result;
     } catch(...) {
         this->tag_lang.set_tag_lang("");

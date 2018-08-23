@@ -313,6 +313,15 @@ struct TBCBPData {
     std::string toString(const TTagLang &tag_lang);
 };
 
+class TSpaceIfEmpty {
+    private:
+        bool val;
+    public:
+        TSpaceIfEmpty(bool _val): val(_val) {}
+        void set(bool _val) { val = _val; }
+        bool get() { return val; }
+};
+
 class TPrnTagStore {
     private:
 
@@ -748,6 +757,8 @@ class TPrnTagStore {
         };
         TRfiscDescr rfisc_descr;
 
+        TSpaceIfEmpty space_if_empty;
+
     public:
         TTagProps prn_tag_props;
         TTagLang tag_lang;
@@ -779,6 +790,7 @@ class TPrnTagStore {
         TDateTime get_time_print() { return time_print.val; };
         void tst_get_tag_list(std::vector<std::string> &tag_list);
         void tagsFromXML(xmlNodePtr tagsNode);
+        void set_space_if_empty(bool val) { space_if_empty.set(val); };
 };
 
 #endif

@@ -41,6 +41,7 @@ class PrintDataParser {
             : pectab_format(0), pts(airp_dep, airp_arv, pr_lat) {}
 
         std::string parse(const std::string &form);
+        void set_space_if_empty(bool val) { pts.set_space_if_empty(val); };
 };
 
 
@@ -103,6 +104,7 @@ class PrintInterface: public JxtInterface
           std::string form_type;
           TPrnParams prnParams;
           xmlNodePtr clientDataNode;
+          bool isGraphics2D() { return fmt_type == "Graphics2D"; }
         };
 
         PrintInterface(): JxtInterface("123", "print")
@@ -124,11 +126,13 @@ class PrintInterface: public JxtInterface
             AddEvent("GetImg",            JXT_HANDLER(PrintInterface, GetImg));
 
             AddEvent("print_bp", JXT_HANDLER(PrintInterface, print_bp));
+            AddEvent("print_bp2", JXT_HANDLER(PrintInterface, print_bp2));
         }
 
         void GetImg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void print_bp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+        void print_bp2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
