@@ -1914,6 +1914,16 @@ void PrintInterface::GetPrintDataBP(
             }
         else
             parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->scan, true));
+
+        // Из за косяка в клиентской части киоска происходит ошибка, если встречается строка вида
+        // 1260,500,T,arial.ttf,36,L,0,
+        // Т.е. отсутствуют данные для печати
+        // Причем, если буквы L нет, то ошибка не возникает:
+        // 1260,500,T,arial.ttf,36,0,
+        // Договорились для формата Graphics2D в случае пустых данных передавать пробел
+
+        parser->set_space_if_empty(params.isGraphics2D());
+
         //        big_test(parser, TDevOper::PrnBP);
         // если это нулевой сегмент, то тогда печатаем выход на посадку иначе не нечатаем
         //надо удалить выход на посадку из данных по пассажиру
@@ -2711,6 +2721,73 @@ TOps::TOps(xmlNodePtr node)
         opsItem.prnParams.get_prn_params(currNode);
         items[DevOperTypes().decode(NodeAsString("@type", currNode))] = opsItem;
     }
+}
+
+void PrintInterface::print_bp2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    xmlNodePtr contentNode = NodeAsNode("content", reqNode)->children;
+    if(not contentNode) throw Exception("content is null");
+
+    TSearchFltInfo filter;
+    filter.airline = CKIN_REPORT::getElemId(etAirline, NodeAsString("airline", contentNode));
+    filter.flt_no = NodeAsInteger("flt_no", contentNode);
+    filter.airp_dep = CKIN_REPORT::getElemId(etAirp,NodeAsString("airp_dep", contentNode));
+    if(StrToDateTime(NodeAsString("scd_out", contentNode), "dd.mm.yy", filter.scd_out) == EOF)
+        throw Exception("print_bp: can't convert scd_out: %s", NodeAsString("scd_Out", contentNode));
+    filter.scd_out_in_utc = true;
+    filter.only_with_reg = false;
+
+    list<TAdvTripInfo> flts;
+    SearchFlt(filter, flts);
+
+    TNearestDate nd(filter.scd_out);
+    for(list<TAdvTripInfo>::iterator i = flts.begin(); i != flts.end(); ++i)
+        nd.sorted_points[i->scd_out] = i->point_id;
+    int point_id = nd.get();
+    if(point_id == NoExists)
+        throw Exception("print_bp: flight not found");
+
+    int reg_no = NodeAsInteger("reg_no", contentNode);
+
+    TCachedQuery Qry(
+            "select "
+            "   pax.grp_id, "
+            "   pax.pax_id "
+            "from "
+            "   pax_grp, "
+            "   pax "
+            "where "
+            "   pax_grp.point_dep = :point_id and "
+            "   pax_grp.grp_id = pax.grp_id and "
+            "   pax.reg_no = :reg_no ",
+            QParams()
+            << QParam("point_id", otInteger, point_id)
+            << QParam("reg_no", otInteger, reg_no)
+            );
+    Qry.get().Execute();
+    if(not Qry.get().Eof) {
+        int grp_id = Qry.get().FieldAsInteger("grp_id");
+        int pax_id = Qry.get().FieldAsInteger("pax_id");
+
+        TDevOper::Enum op_type = TDevOper::PrnBP;
+        BPParams params;
+        params.dev_model = NodeAsString("dev_model", contentNode);
+        params.fmt_type = NodeAsString("fmt_type", contentNode);
+        check_pectab_availability(params, grp_id, op_type);
+        string pectab, data;
+        get_pectab(op_type, params, data, pectab);
+
+        PrintDataParser parser(op_type, grp_id, pax_id, false, NULL);
+        parser.set_space_if_empty(params.isGraphics2D());
+        parser.pts.set_tag(TAG::GATE, "ВРАТА");
+        parser.pts.set_tag(TAG::DUPLICATE, 1);
+        parser.pts.set_tag(TAG::VOUCHER_CODE, "DV");
+        parser.pts.set_tag(TAG::VOUCHER_TEXT, "DV");
+        data = StrUtils::b64_encode(
+                ConvertCodepage(parser.parse(data),"CP866","UTF-8"));
+        SetProp(NewTextChild(resNode, "content", data), "b64", true);
+    } else
+        throw Exception("reg_no %d not found", reg_no);
 }
 
 void PrintInterface::print_bp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
