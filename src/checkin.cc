@@ -7194,8 +7194,15 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
         }
         pax.toXML(paxNode);
         if (pax.tkn.validET())
-          NewTextChild(paxNode, "ticket_bag_norm",
-                       lowerc(TETickItem().fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false).bag_norm_view()), "");
+        {
+          TETickItem etickItem;
+          etickItem.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
+          TBrands brands;
+          brands.get(operFlt.airline, etickItem.fare_basis);
+          string s=lowerc(etickItem.bag_norm_view()) + " " + brands.getSingleBrand().name(AstraLocale::OutputLang());
+          s=TrimString(s);
+          NewTextChild(paxNode, "ticket_bag_norm", s, "");
+        }
         NewTextChild(paxNode,"pr_norec",(int)PaxQry.FieldIsNULL("crs_pax_id"));
 
         bool pr_bp_print, pr_bi_print;
