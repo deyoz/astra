@@ -631,7 +631,7 @@ void TPaxData::check_data() const
     throw Exception( "Passport number too long: %s", passport.c_str() );
   if( !doc_type.empty() && doc_type != "P" && doc_type != "O" && doc_type != "N" && doc_type != "I" )
     throw Exception( "Incorrect doc_type: %s", doc_type.c_str() );
-  if( family_name.empty() || family_name.size() < 2 || family_name.size() > 40 )
+  if( family_name.empty() || family_name.size() > 40 )
     throw Exception( "Incorrect family_name: %s", family_name.c_str() );
   if( given_names.size() > 40 )
     throw Exception( "given_names too long: %s", given_names.c_str() );
