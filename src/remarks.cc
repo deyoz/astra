@@ -158,6 +158,9 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
       case retLIMITED_CAPAB_STAT:
         event_type = "LIMITED_CAPAB_STAT";
         break;
+      case retSELF_CKIN_EXCHANGE:
+        event_type = "SELF_CKIN_EXCHANGE";
+        break;
       case retWEB:
         event_type = "WEB";
         break;
@@ -166,9 +169,6 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
         break;
       case retMOB:
         event_type = "MOB";
-        break;
-      case retTYPEB_LCI:
-        event_type = "TYPEB_LCI";
         break;
       default:
         throw Exception("LoadRemGrp: unknown event type %d", rem_set_type);
@@ -1107,6 +1107,7 @@ void SyncPaxRemOrigin(const boost::optional<TRemGrp> &rem_grp,
 
 void PaxRemAndASVCFromDB(int pax_id,
                          bool from_crs,
+                         const boost::optional<std::set<TPaxFQTItem>>& add_fqts,
                          std::multiset<TPaxRemItem> &rems_and_asvc)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -1136,20 +1137,19 @@ void PaxRemAndASVCFromDB(int pax_id,
     rems_and_asvc.insert(TPaxRemItem(*r, false, reqInfo->desk.lang, applyLang));
   };
 
-  if (!(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(FQT_TIER_LEVEL_VERSION)))
+  std::set<TPaxFQTItem> fqts;
+  if (!add_fqts)
   {
-    std::set<TPaxFQTItem> fqts;
-
-    if (from_crs)
-      LoadCrsPaxFQT(pax_id, fqts);
-    else
-      LoadPaxFQT(pax_id, fqts);
-
-    for(set<TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
-    {
-      rems_and_asvc.insert(TPaxRemItem(*r, false, reqInfo->desk.lang, applyLang));
-    };
+    if (!(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(FQT_TIER_LEVEL_VERSION)))
+      PaxFQTFromDB(pax_id, from_crs, fqts);
   }
+  else
+    fqts=add_fqts.get();
+
+  for(set<TPaxFQTItem>::const_iterator r=fqts.begin(); r!=fqts.end(); ++r)
+  {
+    rems_and_asvc.insert(TPaxRemItem(*r, false, reqInfo->desk.lang, applyLang));
+  };
 }
 
 void PaxFQTFromDB(int pax_id,
