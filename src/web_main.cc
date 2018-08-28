@@ -655,7 +655,7 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
       {
         TPnrAddrs pnr_addrs;
         pnr_addrs.getByPnrIdFast(pnr_id);
-
+        TBrands brands; //здесь, чтобы кэшировались запросы
         checkInfo.set(flt.oper.point_id, Qry.FieldAsString("airp_arv"));
         for(;!Qry.Eof;Qry.Next())
         {
@@ -708,7 +708,6 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
             if (pax.tkn.validET())
             {
               pax.etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
-              TBrands brands;
               brands.get(flt.oper.airline,pax.etick.fare_basis);
               pax.brand=brands.getSingleBrand();
             };
@@ -732,7 +731,6 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
             if (pax.tkn.validET())
             {
               pax.etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
-              TBrands brands;
               brands.get(flt.oper.airline,pax.etick.fare_basis);
               pax.brand=brands.getSingleBrand();
             }
