@@ -7090,6 +7090,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
   vector<CheckIn::TTransferItem> segs;
   xmlNodePtr segsNode=NewTextChild(resNode,"segments");
   int first_point_dep=NoExists;
+  TBrands brands; //здесь, чтобы кэшировались запросы
   for(TCkinGrpIds::const_iterator grp_id=tckin_grp_ids.begin();grp_id!=tckin_grp_ids.end();grp_id++)
   {
     list<WeightConcept::TBagNormInfo> all_norms;
@@ -7197,7 +7198,6 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
         {
           TETickItem etickItem;
           etickItem.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
-          TBrands brands;
           brands.get(operFlt.airline, etickItem.fare_basis);
           string s=lowerc(etickItem.bag_norm_view()) + " " + brands.getSingleBrand().name(AstraLocale::OutputLang());
           s=TrimString(s);

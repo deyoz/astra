@@ -31,12 +31,17 @@ struct TBrand
 typedef std::list<int> BrandIds;
 
 struct TBrands {
+  private:
+    std::map<std::pair<std::string, std::string>, BrandIds> secretMap;
+    int getsTotal, getsCached;
   public:
+    TBrands() : getsTotal(0), getsCached(0) {}
     BrandIds brandIds;
     std::string oper_airline;
     void get(int pax_id);
     void get(const std::string &airline, const std::string &fare_basis);
     TBrand getSingleBrand() const;
+    void traceCaching() const;
 };
 
 #endif

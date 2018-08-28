@@ -31,12 +31,11 @@ void TBrands::get(int pax_id)
     if(not paxQry.get().Eof) {
         CheckIn::TPaxTknItem tkn;
         tkn.fromDB(paxQry.get());
-        if (tkn.validET()) {
-            string ticket_no = paxQry.get().FieldAsString("ticket_no");
-            int coupon_no = paxQry.get().FieldAsInteger("coupon_no");
+        if (tkn.validET())
+        {
             string airline = paxQry.get().FieldAsString("airline");
             TETickItem etick;
-            etick.fromDB(ticket_no, coupon_no, TETickItem::Display, false);
+            etick.fromDB(tkn.no, tkn.coupon, TETickItem::Display, false);
             if(not etick.fare_basis.empty()) {
                 return get(airline, etick.fare_basis);
             }
@@ -48,7 +47,15 @@ void TBrands::get(const std::string &airline, const std::string &fare_basis)
 {
     oper_airline = airline;
     brandIds.clear();
-    TCachedQuery brandQry(
+    if (airline.empty() || fare_basis.empty()) return;
+
+    getsTotal++;
+
+    const auto i = secretMap.emplace(make_pair(airline, fare_basis), BrandIds());
+
+    if (i.second)
+    {
+      TCachedQuery brandQry(
             "select "
             "   brands.id "
             "from "
@@ -59,17 +66,25 @@ void TBrands::get(const std::string &airline, const std::string &fare_basis)
             "   :fare_basis like replace(fare_basis, '*', '%') and "
             "   brand_fares.airline = brands.airline and "
             "   brand_fares.brand = brands.code ",
-            QParams()
-            << QParam("airline", otString, airline)
-            << QParam("fare_basis", otString, fare_basis));
-    brandQry.get().Execute();
-    for(; not brandQry.get().Eof; brandQry.get().Next())
-        brandIds.push_back(brandQry.get().FieldAsInteger("id"));
+            QParams() << QParam("airline", otString, airline)
+                      << QParam("fare_basis", otString, fare_basis));
+      brandQry.get().Execute();
+      for(; not brandQry.get().Eof; brandQry.get().Next())
+        i.first->second.push_back(brandQry.get().FieldAsInteger("id"));
+    }
+    else getsCached++;
+
+    brandIds=i.first->second;
 }
 
 TBrand TBrands::getSingleBrand() const
 {
   return brandIds.empty()?TBrand():TBrand(brandIds.front(), oper_airline);
+}
+
+void TBrands::traceCaching() const
+{
+  LogTrace(TRACE5) << "getsTotal: " << getsTotal << "; getsCached: " << getsCached;
 }
 
 const std::string TBrand::name(const AstraLocale::OutputLang& lang) const
