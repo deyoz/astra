@@ -2991,6 +2991,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   int col_is_jmp=Qry.FieldIndex("is_jmp");
   int mode; // режим для поиска мест 0 - регистрация иначе список pnl
   int crs_row=1, pax_row=1;
+  TBrands brands; //объявляем здесь, чтобы задействовать кэширование брендов
   for(;!Qry.Eof;Qry.Next())
   {
     mode = -1; // не надо искать место
@@ -3154,7 +3155,6 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     if ( tkn.validET() ) {
       TETickItem etick;
       etick.fromDB(tkn.no, tkn.coupon, TETickItem::Display, false);
-      TBrands brands;
       brands.get(flt.airline,etick.fare_basis);
       NewTextChild( node, "brand", brands.getSingleBrand().name(AstraLocale::OutputLang()) );
     }
@@ -3175,6 +3175,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "apis", docflags, "" );
     //end for
   };
+  brands.traceCaching();
 };
 
 

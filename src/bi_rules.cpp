@@ -385,6 +385,7 @@ namespace BIPrintRules {
                 "   pax.grp_id = pax_grp.grp_id ",
                 QParams() << QParam("grp_id", otInteger, grp_id));
         paxQry.get().Execute();
+        TBrands brands; //здесь, чтобы кэшировались запросы
         for(; not paxQry.get().Eof; paxQry.get().Next()) {
             int pax_id = paxQry.get().FieldAsInteger("pax_id");
             string cls = paxQry.get().FieldAsString("class");
@@ -401,7 +402,6 @@ namespace BIPrintRules {
                 get_rfisc(grp_id, pax_id, rfisc);
 
                 // Достаем бренды
-                TBrands brands;
                 brands.get(pax_id);
                 // Если не найдено ни одного бренда, добавляем пустой, чтобы get_rule все-таки отработала
                 if(brands.brandIds.empty()) brands.brandIds.push_back(NoExists);
