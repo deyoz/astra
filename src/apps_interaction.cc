@@ -331,7 +331,11 @@ bool checkTime( const int point_id, TDateTime& start_time )
   start_time = ASTRA::NoExists;
   TDateTime now = NowUTC();
   TTripInfo trip;
-  trip.getByPointId(point_id);
+  if (not trip.getByPointId(point_id))
+  {
+    ProgError(STDLOG, "getByPointId returned false, point_id=%d", point_id);
+    return false;
+  }
   // The APP System only allows transactions on [- 2 days] TODAY [+ 10 days].
   if ( ( now - trip.scd_out ) > 2 )
     return false;
@@ -399,6 +403,7 @@ std::string TTransData::msg() const // TODO уточнить зависимость от версии
 
 void TFlightData::init( const int id, const std::string& flt_type, int ver )
 {
+  ProgTrace( TRACE5, "TFlightData::init: %d", id );
   if ( id == ASTRA::NoExists )
     return;
   point_id = id;
@@ -738,6 +743,7 @@ std::string TPaxData::msg() const
 
 void TPaxAddData::init( const int pax_id, const int ver )
 {
+  ProgTrace(TRACE5, "TPaxAddData::init: %d", pax_id);
   version = ver;
 
   CheckIn::TPaxDocoItem doco;
@@ -862,7 +868,11 @@ bool TPaxRequest::getByPaxId( const int pax_id, const std::string& override_type
   string airp_arv = Qry.FieldAsString("airp_arv");
 
   TTripInfo info;
-  info.getByPointId( point_dep );
+  if (not info.getByPointId( point_dep ))
+  {
+    ProgError(STDLOG, "getByPointId returned false, point_id=%d, pax_id=%d", point_dep, pax_id);
+    return false;
+  }
 
   TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
   if (airline.code_lat.empty())
@@ -938,7 +948,10 @@ bool TPaxRequest::getByCrsPaxId( const int pax_id, const std::string& override_t
   int point_id = Qry.FieldAsInteger("point_id_spp");
   string airp_arv = Qry.FieldAsString("airp_arv");
   TTripInfo info;
-  info.getByPointId( point_id );
+  if (not info.getByPointId( point_id ))
+  {
+    throw Exception("getByPointId returned false, point_id=%d, pax_id=%d", point_id, pax_id);
+  }
   TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
   if (airline.code_lat.empty())
     throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
@@ -980,6 +993,7 @@ bool TPaxRequest::getByCrsPaxId( const int pax_id, const std::string& override_t
 
 bool TPaxRequest::fromDBByPaxId( const int pax_id )
 {
+  ProgTrace(TRACE5, "TPaxRequest::fromDBByPaxId: %d", pax_id);
   // попытаемся найти пассажира среди отправленных
   TQuery Qry( &OraSession );
   Qry.SQLText = "SELECT * FROM "
@@ -1005,7 +1019,11 @@ bool TPaxRequest::fromDBByPaxId( const int pax_id )
   int point_id = Qry.FieldAsInteger("point_id");
   version = Qry.FieldIsNULL("version")? VERSION_21: Qry.FieldAsInteger("version");
   TTripInfo info;
-  info.getByPointId( point_id );
+  if (not info.getByPointId( point_id ))
+  {
+    ProgError(STDLOG, "getByPointId returned false, point_id=%d, pax_id=%d", point_id, pax_id);
+    return false; // или удалить пакса?
+  }
   TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
   if ( airline.code_lat.empty() )
     throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
@@ -1023,6 +1041,7 @@ bool TPaxRequest::fromDBByPaxId( const int pax_id )
 
 bool TPaxRequest::fromDBByMsgId( const int msg_id )
 {
+  ProgTrace(TRACE5, "TPaxRequest::fromDBByMsgId: %d", msg_id);
   // попытаемся найти пассажира среди отправленных
   TQuery Qry( &OraSession );
   Qry.SQLText = "SELECT pax_id, apps_pax_id, status, pax_crew, "
@@ -1046,7 +1065,11 @@ bool TPaxRequest::fromDBByMsgId( const int msg_id )
   int point_id = Qry.FieldAsInteger("point_id");
   version = Qry.FieldIsNULL("version")? VERSION_21: Qry.FieldAsInteger("version");
   TTripInfo info;
-  info.getByPointId( point_id );
+  if (not info.getByPointId( point_id ))
+  {
+    ProgError(STDLOG, "getByPointId returned false, point_id=%d, msg_id=%d", point_id, msg_id);
+    return false;
+  }
   TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
   if (airline.code_lat.empty())
     throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
@@ -1066,11 +1089,11 @@ std::string TPaxRequest::msg() const
 {
   std::ostringstream msg;
   msg << trans.msg() << "/";
-  msg << int_flt.msg() << "/";
   if ( trans.code == "CIRQ" && ckin_flt.point_id != ASTRA::NoExists )
   {
     msg << ckin_flt.msg() << "/";
   }
+  msg << int_flt.msg() << "/";
   msg << pax.msg() << "/";
   if ( trans.code == "CIRQ" && version >= VERSION_26 && !pax_add.country_for_data.empty() )
   {
@@ -1243,10 +1266,15 @@ std::string TMftData::msg() const
   return msg.str();
 }
 
-void TManifestRequest::init( const int point_id, const std::string& country_lat, const std::string& country_code )
+bool TManifestRequest::init( const int point_id, const std::string& country_lat, const std::string& country_code )
 {
+  ProgTrace(TRACE5, "TManifestRequest::init: %d", point_id);
   TTripInfo info;
-  info.getByPointId( point_id );
+  if (not info.getByPointId( point_id ))
+  {
+    ProgError(STDLOG, "getByPointId returned false, point_id=%d", point_id);
+    return false;
+  }
   TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
   if (airline.code_lat.empty())
     throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
@@ -1255,6 +1283,7 @@ void TManifestRequest::init( const int point_id, const std::string& country_lat,
   trans.init( false, "CIMR", getUserId( airline ), version );
   int_flt.init( point_id, "INM", version );
   mft_req.init( country_lat, version );
+  return true;
 }
 
 std::string TManifestRequest::msg() const
@@ -1845,8 +1874,8 @@ void APPSFlightCloseout( const int point_id )
   {
     string country_lat = ((TCountriesRow&)base_tables.get("countries").get_row("code",*it)).code_lat;
     TManifestRequest close_flt;
-    close_flt.init( point_id, country_lat, *it );
-    close_flt.sendReq();
+    if (close_flt.init( point_id, country_lat, *it ))
+      close_flt.sendReq();
   }
 }
 
