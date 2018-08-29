@@ -3658,8 +3658,9 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
              bool ignore_rate = condRates.ignore_rate;
              for ( condRates.current_rate = condRates.rates.begin(); condRates.current_rate != condRates.rates.end(); condRates.current_rate++ ) {
 //               ProgTrace( TRACE5, "current_rate=condRates.rates.current_rate=%s", condRates.current_rate->str().c_str() );
-               if ( ( condRates.current_rate->rate != 0.0   &&
-                      SeatAlg != sSeatPassengers ) ) { //рассадка на платные места только по одному SeatAlg=1
+               if ( condRates.current_rate->rate != 0.0   &&
+                    ( SeatAlg != sSeatPassengers || SeatOnlyBasePlace )
+                      ) { //рассадка на платные места только по одному SeatAlg=1 и надо игнорировать рассадку на базовые места, если они стоят денег
 //                 ProgTrace( TRACE5, "condRates.current_rate=%f continue", condRates.current_rate->rate );
                  continue;
                }

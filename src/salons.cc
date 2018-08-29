@@ -1537,7 +1537,7 @@ void TPlace::SetTariffsByRFISCColor( int point_dep, const TSeatTariffMapType &sa
       TSeatTariff tariff;
       tariff.color = colorItem->second.color;
       tariff.currency_id = colorItem->second.currency_id;
-      if ( status != TSeatTariffMap::stUseRFISC ) {
+      if ( status != TSeatTariffMap::stUseRFISC || colorItem->second.currency_id.empty() ) {
       //режим работы с RFISC, но оценка не прошла, надо указать для разметки макс. стоимость, чтобы пассажир сел на размеченные места в последнюю очередь
         tariff.rate = INT_MAX;
       }
@@ -4744,7 +4744,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
       if ( SALONS2::Checkin( tariff_pax_id ) ) {
         tariffMap.get( tariff_pax_id );
         paxTariff = ( tariffMap.status() == TSeatTariffMap::stUseRFISC );
-        ProgTrace( TRACE5, "RFIS CMode=%d, paxTariff=%d, tariff_pax_id=%d", RFISCMode, paxTariff, tariff_pax_id );
+        ProgTrace( TRACE5, "RFISC CMode=%d, paxTariff=%d, tariff_pax_id=%d", RFISCMode, paxTariff, tariff_pax_id );
         tariffMap.trace(TRACE5);
       }
       else {
