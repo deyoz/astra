@@ -333,7 +333,7 @@ bool checkTime( const int point_id, TDateTime& start_time )
   TTripInfo trip;
   if (not trip.getByPointId(point_id))
   {
-    ProgError(STDLOG, "getByPointId returned false, point_id=%d", point_id);
+    ProgTrace(TRACE5, "getByPointId returned false, point_id=%d", point_id);
     return false;
   }
   // The APP System only allows transactions on [- 2 days] TODAY [+ 10 days].
@@ -870,7 +870,7 @@ bool TPaxRequest::getByPaxId( const int pax_id, const std::string& override_type
   TTripInfo info;
   if (not info.getByPointId( point_dep ))
   {
-    ProgError(STDLOG, "getByPointId returned false, point_id=%d, pax_id=%d", point_dep, pax_id);
+    ProgTrace(TRACE5, "getByPointId returned false, point_id=%d, pax_id=%d", point_dep, pax_id);
     return false;
   }
 
@@ -949,9 +949,8 @@ bool TPaxRequest::getByCrsPaxId( const int pax_id, const std::string& override_t
   string airp_arv = Qry.FieldAsString("airp_arv");
   TTripInfo info;
   if (not info.getByPointId( point_id ))
-  {
-    throw Exception("getByPointId returned false, point_id=%d, pax_id=%d", point_id, pax_id);
-  }
+    throw Exception("getByPointId returned false, point_id=%d, pax_id=%d (getByCrsPaxId)", point_id, pax_id);
+
   TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
   if (airline.code_lat.empty())
     throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
@@ -1021,7 +1020,7 @@ bool TPaxRequest::fromDBByPaxId( const int pax_id )
   TTripInfo info;
   if (not info.getByPointId( point_id ))
   {
-    ProgError(STDLOG, "getByPointId returned false, point_id=%d, pax_id=%d", point_id, pax_id);
+    ProgTrace(TRACE5, "getByPointId returned false, point_id=%d, pax_id=%d", point_id, pax_id);
     return false; // или удалить пакса?
   }
   TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
@@ -1067,7 +1066,7 @@ bool TPaxRequest::fromDBByMsgId( const int msg_id )
   TTripInfo info;
   if (not info.getByPointId( point_id ))
   {
-    ProgError(STDLOG, "getByPointId returned false, point_id=%d, msg_id=%d", point_id, msg_id);
+    ProgTrace(TRACE5, "getByPointId returned false, point_id=%d, msg_id=%d", point_id, msg_id);
     return false;
   }
   TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
@@ -1272,7 +1271,7 @@ bool TManifestRequest::init( const int point_id, const std::string& country_lat,
   TTripInfo info;
   if (not info.getByPointId( point_id ))
   {
-    ProgError(STDLOG, "getByPointId returned false, point_id=%d", point_id);
+    ProgTrace(TRACE5, "getByPointId returned false, point_id=%d", point_id);
     return false;
   }
   TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
