@@ -88,6 +88,7 @@ enum TTlgCategory{
     tcCPM,
     tcSLS,
     tcLDM,
+    tcNTM,
     tcIFM,
 };
 
