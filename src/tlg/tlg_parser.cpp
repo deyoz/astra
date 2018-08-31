@@ -348,6 +348,7 @@ TTlgCategory GetTlgCategory(char *tlg_type)
   if (strcmp(tlg_type,"CPM")==0) cat=tcCPM;
   if (strcmp(tlg_type,"SLS")==0) cat=tcSLS;
   if (strcmp(tlg_type,"LDM")==0) cat=tcLDM;
+  if (strcmp(tlg_type,"NTM")==0) cat=tcNTM;
   if (strcmp(tlg_type,"IFM")==0) cat=tcIFM;
   return cat;
 };
@@ -1378,6 +1379,7 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading,
             case tcCPM:
             case tcSLS:
             case tcLDM:
+            case tcNTM:
               info = new TUCMHeadingInfo(infoh);
               mem.create(info, STDLOG);
               next=ParseUCMHeading(heading,*(TUCMHeadingInfo*)info,flts);
