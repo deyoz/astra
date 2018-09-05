@@ -867,7 +867,7 @@ void CreateEmulRems(xmlNodePtr paxNode, const multiset<CheckIn::TPaxRemItem> &re
     CheckIn::TPaxRemItem(*r, false).toXML(remsNode);
 }
 
-void TMultiPNRSegInfo::add(const TAdvTripInfo &flt, const TWebPaxForCkin& pax)
+void TMultiPNRSegInfo::add(const TAdvTripInfo &flt, const TWebPaxForCkin& pax, bool first_segment)
 {
   if (find(pax.pnrId())!=end()) return;
 
@@ -907,6 +907,13 @@ void TMultiPNRSegInfo::add(const TAdvTripInfo &flt, const TWebPaxForCkin& pax)
     if (seg.mktFlight.get().empty())
       throw UserException("MSG.PASSENGER.NOT_FOUND.REFRESH_DATA");
   }
+
+  if (first_segment)
+  {
+    //проверим доступ
+    if (!WebSearch::TPNRFilter::userAccessIsAllowed(flt, boost::optional<TSimpleMktFlight>(seg.mktFlight)))
+      throw UserException( "MSG.FLIGHT.ACCESS_DENIED" );
+  }
 }
 
 void TMultiPnrData::checkJointCheckInAndComplete()
@@ -928,7 +935,7 @@ TMultiPnrData& TMultiPnrDataSegs::add(int point_id, bool first_segment, bool wit
 {
   emplace_back();
   TMultiPnrData& multiPnrData=back();
-  multiPnrData.flt.fromDB(point_id, first_segment, true);
+  multiPnrData.flt.fromDB(point_id, true);
   if (with_additional)
     multiPnrData.flt.fromDBadditional(first_segment, true);
   return multiPnrData;

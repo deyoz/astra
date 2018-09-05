@@ -18,7 +18,7 @@ using namespace BASIC::date_time;
 string airl_fromXML(xmlNodePtr node, TCheckFieldFromXML check_type, const string &trace_info, const string &system_name)
 {
   if (node==NULL) throw EXCEPTIONS::Exception("%s: airl_fromXML(node==NULL)!", trace_info.c_str());
-  return airl_fromXML(NodeAsString(node), check_type, trace_info, (char*)(node->name));
+  return airl_fromXML(NodeAsString(node), check_type, trace_info, (const char*)(node->name));
 }
 
 string airl_fromXML(const string &value, TCheckFieldFromXML check_type, const string &trace_info, const string &node_name, const string &system_name)
@@ -57,7 +57,7 @@ string airl_fromXML(const string &value, TCheckFieldFromXML check_type, const st
 string airp_fromXML(xmlNodePtr node, TCheckFieldFromXML check_type, const string &trace_info, const std::string& system_name)
 {
   if (node==NULL) throw EXCEPTIONS::Exception("%s: airp_fromXML(node==NULL)!", trace_info.c_str());
-  return airp_fromXML(NodeAsString(node), check_type, trace_info, (char*)(node->name), system_name);
+  return airp_fromXML(NodeAsString(node), check_type, trace_info, (const char*)(node->name), system_name);
 }
 
 string airp_fromXML(const string &value, TCheckFieldFromXML check_type, const string &trace_info, const string &node_name,
@@ -93,9 +93,9 @@ string airp_fromXML(const string &value, TCheckFieldFromXML check_type, const st
   return airp;
 }
 
-int flt_no_fromXML(string str)
+int flt_no_fromXML(string str, TCheckFieldFromXML check_type)
 {
-    int flt_no;
+    int flt_no=ASTRA::NoExists;
     TrimString(str);
     if (!str.empty())
     {
@@ -109,7 +109,11 @@ int flt_no_fromXML(string str)
     }
     else
     {
+
+      if (check_type==cfTraceIfEmpty ||
+          check_type==cfErrorIfEmpty)
         TReqInfo::Instance()->traceToMonitor(TRACE5, "flt_no_fromXML: <flt_no> not defined");
+      if (check_type==cfErrorIfEmpty)
         throw UserException( "MSG.CHECK_FLIGHT.NOT_SET_FLT_NO" );
     };
     return flt_no;
@@ -135,7 +139,7 @@ string suffix_fromXML(string str)
 
 TDateTime scd_out_fromXML(string str, const char* fmt)
 {
-    TDateTime scd_out;
+    TDateTime scd_out=ASTRA::NoExists;
     TrimString(str);
     if (!str.empty())
     {
@@ -151,7 +155,7 @@ TDateTime scd_out_fromXML(string str, const char* fmt)
 
 TDateTime date_fromXML(string str)
 {
-    TDateTime date;
+    TDateTime date=ASTRA::NoExists;
     TrimString(str);
     if (!str.empty())
     {

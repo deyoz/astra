@@ -731,8 +731,8 @@ void PaymentInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
   NewTextChild(resNode,"tid",tid);
 
-  CheckIn::TPaxGrpItem grp;
-  if (!grp.fromDB(grp_id)) return;
+  CheckIn::TSimplePaxGrpItem grp;
+  if (!grp.getByGrpId(grp_id)) return;
 
   CheckIn::TGroupBagItem group_bag;
   if (group_bag.fromXML(reqNode, grp_id, ASTRA::NoExists,

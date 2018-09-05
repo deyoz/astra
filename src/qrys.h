@@ -92,4 +92,6 @@ class TCachedQuery {
         ~TCachedQuery();
 };
 
+std::ostream& operator<<(std::ostream& os, const QParams& params);
+
 #endif

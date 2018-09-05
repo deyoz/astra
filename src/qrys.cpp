@@ -260,3 +260,39 @@ TQry_ptr TQrys::get(const std::string &SQLText, const QParams &p)
 
     return *i_qry;
 }
+
+#include "date_time.h"
+
+std::ostream& operator<<(std::ostream& os, const QParams& params)
+{
+  for(const QParam& p : params)
+  {
+    os << p.name << "=";
+    if (p.empty)
+      os << "FNull";
+    else
+    {
+      switch(p.ft) {
+          case otInteger:
+              os << p.int_value;
+              break;
+          case otFloat:
+              os << p.double_value;
+              break;
+          case otString:
+          case otChar:
+              os << p.string_value;
+              break;
+          case otDate:
+              os << BASIC::date_time::DateTimeToStr(p.double_value);
+              break;
+          case otLong:
+          case otLongRaw:
+              os << "Not displayed (Long, LongRaw)";
+              break;
+      }
+    }
+    os << endl;
+  }
+  return os;
+}
