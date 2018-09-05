@@ -269,7 +269,7 @@ class TManifestRequest
   TMftData mft_req;
   int version = 0;
 public:
-  void init( const int point_id, const std::string& country_lat, const std::string& country_code );
+  bool init( const int point_id, const std::string& country_lat, const std::string& country_code );
   std::string msg() const;
   void sendReq() const;
 };
