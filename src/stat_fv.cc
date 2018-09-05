@@ -37,7 +37,7 @@ struct TGrpInfo {
 
             struct TPrWeapon {
                 map<int, bool> items; // <bag_pool_num, pr_weapon>
-                void fromDB(const CheckIn::TPaxGrpItem &grp, const string &airline);
+                void fromDB(const CheckIn::TSimplePaxGrpItem &grp, const string &airline);
                 bool get(int bag_pool_num);
             };
 
@@ -63,7 +63,7 @@ bool TGrpInfo::TGrpInfoItem::TPrWeapon::get(int bag_pool_num)
     return items.find(bag_pool_num) != items.end();
 }
 
-void TGrpInfo::TGrpInfoItem::TPrWeapon::fromDB(const CheckIn::TPaxGrpItem &grp, const string &airline)
+void TGrpInfo::TGrpInfoItem::TPrWeapon::fromDB(const CheckIn::TSimplePaxGrpItem &grp, const string &airline)
 {
     TCachedQuery Qry("select * from bag2 where grp_id = :grp_id",
             QParams() << QParam("grp_id", otInteger, grp.id));
@@ -88,8 +88,8 @@ TGrpInfo::TGrpInfoMap::iterator TGrpInfo::get(int grp_id)
 {
     TGrpInfoMap::iterator result = items.find(grp_id);
     if(result == items.end()) {
-        CheckIn::TPaxGrpItem grp;
-        grp.fromDB(grp_id);
+        CheckIn::TSimplePaxGrpItem grp;
+        grp.getByGrpId(grp_id);
         TGrpInfoItem item;
         item.cls = grp.cl;
         CheckIn::LoadTransfer(grp_id, item.trfer);
@@ -128,8 +128,8 @@ void TTrferInfo::get(int pax_id, const TTripRoute &route, const vector<CheckIn::
         LogTrace(TRACE5) << "pax_id: " << pax_id << "; trfer by GetTCkinTickets";
         CheckIn::TSimplePaxItem pax;
         pax.getByPaxId(tkns.rbegin()->second.pax_id);
-        CheckIn::TPaxGrpItem grp;
-        grp.fromDB(pax.grp_id);
+        CheckIn::TSimplePaxGrpItem grp;
+        grp.getByGrpId(pax.grp_id);
         airp_arv = grp.airp_arv;
     } else {
         pr_trfer_arv = not trfer.empty();
@@ -141,7 +141,7 @@ void TTrferInfo::get(int pax_id, const TTripRoute &route, const vector<CheckIn::
         }
     }
 
-    /* 
+    /*
     pr_trfer_arv = not trfer.empty();
     if(pr_trfer_arv) {
         LogTrace(TRACE5) << "pax_id: " << pax_id << "; trfer by TTransferItem";
@@ -153,7 +153,7 @@ void TTrferInfo::get(int pax_id, const TTripRoute &route, const vector<CheckIn::
             LogTrace(TRACE5) << "pax_id: " << pax_id << "; trfer by GetTCkinTickets";
             CheckIn::TSimplePaxItem pax;
             pax.getByPaxId(tkns.rbegin()->second.pax_id);
-            CheckIn::TPaxGrpItem grp;
+            CheckIn::TSimplePaxGrpItem grp;
             grp.fromDB(pax.grp_id);
             airp_arv = grp.airp_arv;
         } else {

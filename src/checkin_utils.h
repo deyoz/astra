@@ -375,8 +375,8 @@ class TWebPaxForCkin : public CheckIn::TSimplePnrItem, public CheckIn::TSimplePa
           "       subclass, "
           "       NULL AS status, "
           "       test_pax.id AS pax_id, "
-          "       surname, name, :adult AS pers_type, "
-          "       NULL AS seat_no, NULL AS seat_type, 1 AS seats, "
+          "       surname, name, "
+          "       NULL AS seat_no, "
           "       doc_no, tkn_no, pnr_airline, pnr_addr, "
           "       test_pax.id AS crs_pnr_tid, test_pax.id AS crs_pax_tid "
           "FROM test_pax, subcls "
@@ -471,7 +471,7 @@ class TMultiPNRSegInfo : public std::map<int/*pnr_id*/, WebSearch::TPNRSegInfo>
     std::map<int/*point_id*/, TTripRoute> routes;
 
   public:
-    void add(const TAdvTripInfo &operFlt, const TWebPaxForCkin& pax);
+    void add(const TAdvTripInfo &operFlt, const TWebPaxForCkin& pax, bool first_segment);
 };
 
 class TMultiPnrData

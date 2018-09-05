@@ -278,3 +278,89 @@ void executeSearchPaxQuery(const int& point_dep,
   }
   Qry.Execute();
 }
+
+namespace CheckIn
+{
+
+std::string Search::getSQLText() const
+{
+  if (conditions.empty()) return "";
+
+  std::ostringstream sql;
+  switch(origin)
+  {
+    case paxCheckIn:
+      sql << "SELECT pax.* \n"
+             "FROM pax";
+      for(const std::string& t : tables)
+        sql << ", " << t;
+      sql << " \n";
+      for(std::list<std::string>::const_iterator c=conditions.begin(); c!=conditions.end(); ++c)
+        sql << (c==conditions.begin()?"WHERE ":"  AND ") << *c << " \n";
+      break;
+    case paxPnl:
+      sql << "SELECT crs_pax.*, crs_pnr.subclass \n"
+             "FROM crs_pnr, crs_pax";
+      for(const std::string& t : tables)
+        sql << ", " << t;
+      sql << " \n";
+      sql << "WHERE crs_pax.pnr_id=crs_pnr.pnr_id \n"
+             "  AND crs_pnr.system='CRS' \n"
+             "  AND crs_pax.pr_del=0 \n";
+      for(std::list<std::string>::const_iterator c=conditions.begin(); c!=conditions.end(); ++c)
+        sql << "  AND " << *c << " \n";
+      break;
+    case paxTest:
+      sql << "SELECT test_pax.id AS pax_id, surname, name, subclass, tkn_no \n"
+             "FROM test_pax";
+      for(const std::string& t : tables)
+        sql << ", " << t;
+      sql << " \n";
+      for(std::list<std::string>::const_iterator c=conditions.begin(); c!=conditions.end(); ++c)
+        sql << (c==conditions.begin()?"WHERE ":"  AND ") << *c << " \n";
+      break;
+  }
+
+  return sql.str();
+}
+
+bool Search::addPassengers(CheckIn::TSimplePaxList& paxs) const
+{
+  if (conditions.empty()) return true;
+
+  string sql = getSQLText();
+
+//  LogTrace(TRACE5) << __FUNCTION__ << ": " << endl << sql;
+//  LogTrace(TRACE5) << __FUNCTION__ << ": " << endl << params;
+
+  TCachedQuery Qry(sql, params);
+
+  if (timeIsUp()) return false;
+  Qry.get().Execute();
+  for(; !Qry.get().Eof; Qry.get().Next())
+  {
+    if (timeIsUp()) return false;
+
+    CheckIn::TSimplePaxItem pax;
+    if (origin==paxCheckIn)
+      pax.fromDB(Qry.get());
+    else
+      pax.fromDBCrs(Qry.get(), false);
+    if (foundPaxIds.insert(pax.id).second)
+      paxs.push_back(pax);
+  }
+
+  return true;
+}
+
+bool Search::timeIsUp() const
+{
+  if (!timeout) return false;
+  if (startTime.is_not_a_date_time()) return false;
+
+  return (boost::posix_time::microsec_clock::local_time() - startTime).total_milliseconds() > timeout.get();
+}
+
+} //namespace CheckIn
+
+

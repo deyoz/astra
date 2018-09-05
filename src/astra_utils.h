@@ -573,7 +573,6 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
 };
 
-std::string convert_pnr_addr(const std::string &value, bool pr_lat);
 std::string transliter(const std::string &value, int fmt, bool pr_lat);
 bool transliter_equal(const std::string &value1, const std::string &value2, int fmt);
 bool transliter_equal(const std::string &value1, const std::string &value2);

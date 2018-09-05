@@ -1547,25 +1547,6 @@ TCountriesRow getCountryByAirp( const std::string& airp)
   return ((const TCountriesRow&)base_tables.get("countries").get_row("code",cityRow.country));
 }
 
-char ToLatPnrAddr(char c)
-{
-  if (!IsAscii7(c))
-  {
-    ByteReplace(&c,1,rus_pnr,lat_pnr);
-    if (!IsAscii7(c)) c='?';
-  };
-  return c;
-};
-
-string convert_pnr_addr(const string &value, bool pr_lat)
-{
-  string result = value;
-  if (pr_lat)
-    transform(result.begin(), result.end(), result.begin(), ToLatPnrAddr);
-  return result;
-
-};
-
 class TTranslitLetter
 {
   public:

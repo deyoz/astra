@@ -6268,8 +6268,8 @@ string segListFromDB(int tckin_id)
                 << info.flt_no << ","
                 << info.suffix << ","
                 << DateTimeToStr(info.scd_out) << ",";
-            CheckIn::TPaxGrpItem grp;
-            if(grp.fromDB(grp_id))
+            CheckIn::TSimplePaxGrpItem grp;
+            if(grp.getByGrpId(grp_id))
                 result << grp.airp_arv;
         }
     }

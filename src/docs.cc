@@ -3984,8 +3984,8 @@ void RESEAT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
         map<int, string>::iterator i_cls = classes.find(i->second.pax.grp_id);
         if(i_cls == classes.end()) {
-            CheckIn::TPaxGrpItem grp;
-            grp.fromDB(i->second.pax.grp_id);
+            CheckIn::TSimplePaxGrpItem grp;
+            grp.getByGrpId(i->second.pax.grp_id);
             pair<map<int, string>::iterator, bool> ret;
             ret = classes.insert(make_pair(i->second.pax.grp_id, grp.cl));
             i_cls = ret.first;
@@ -4427,7 +4427,7 @@ void DocsInterface::print_komplekt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
         else
             NewTextChild(reqNode, "rpt_type", code);
 
-        // Некоторые отчеты, напр. GOSHO требуют, чтобы структура 
+        // Некоторые отчеты, напр. GOSHO требуют, чтобы структура
         // XML была следующая: /term/answer
         XMLDoc doc("term");
         xmlNodePtr reportNode = doc.docPtr()->children;
