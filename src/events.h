@@ -181,7 +181,7 @@ class TPaxToLogInfo
     std::string tags;
     std::list< std::pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;
     std::map< std::string/*bag_type_view*/, WeightConcept::TNormItem> norms_normal;
-    std::multiset<CheckIn::TPaxRemItem> rems;
+    CheckIn::PaxRems rems;
     std::set<CheckIn::TPaxFQTItem> fqts;
     TPaidToLogInfo paid;
     TPaxToLogInfo()

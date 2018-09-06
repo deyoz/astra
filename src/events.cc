@@ -726,6 +726,29 @@ void GetAPISLogMsgs(const CheckIn::TAPISItem &apisBefore,
   };
 };
 
+static void SaveRemsToLog(const boost::optional<TRemGrp> &rem_grp,
+                          const CheckIn::PaxRems &prior_rems,
+                          const CheckIn::PaxRems &curr_rems,
+                          const TLogLocale &msgPattern)
+{
+  CheckIn::PaxRems added, deleted;
+
+  CheckIn::GetPaxRemDifference(rem_grp, prior_rems, curr_rems, added, deleted);
+
+  TReqInfo* reqInfo = TReqInfo::Instance();
+  for(int pass=0; pass<2; pass++)
+  {
+    for(const CheckIn::TPaxRemItem& item : (pass==0?deleted:added))
+    {
+      LEvntPrms params(msgPattern.prms);
+      params << PrmSmpl<string>("rem_text", item.text);
+
+      reqInfo->LocaleToLog(pass==0?"EVT.REM_DELETED_FOR_PASSENGER":"EVT.REM_ADDED_FOR_PASSENGER",
+                           params, ASTRA::evtPax, msgPattern.id1, msgPattern.id2, msgPattern.id3);
+    }
+  }
+}
+
 void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
                   const TGrpToLogInfo &grpInfoAfter,
                   const CheckIn::TGrpEMDProps &handmadeEMDDiff,
@@ -746,6 +769,7 @@ void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
 
   TRemGrp service_stat_rem_grp;
   service_stat_rem_grp.Load(retSERVICE_STAT, operFlt.airline);
+  TRemGrp events_log_rem_grp({"MSG"});
 
   agentStat.clear();
 
@@ -1023,7 +1047,7 @@ void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
       else
       {
         //первоначальная регистрация
-        multiset<CheckIn::TPaxRemItem> crs_rems;
+        CheckIn::PaxRems crs_rems;
         CheckIn::LoadCrsPaxRem(aPax->first.pax_id, crs_rems);
         CheckIn::SyncPaxRemOrigin(service_stat_rem_grp,
                                   aPax->first.pax_id,
@@ -1033,6 +1057,16 @@ void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
                                   reqInfo->desk.code);
       }
     }
+
+    TLogLocale msgPattern;
+    (aPax!=grpInfoAfter.pax.end()?aPax->second.getPaxName(msgPattern.prms):bPax->second.getPaxName(msgPattern.prms));
+    msgPattern.id1=point_id;
+    msgPattern.id2=((aPax!=grpInfoAfter.pax.end() && aPax->second.refuse!=refuseAgentError)?aPax->first.reg_no:NoExists);
+    msgPattern.id3=grp_id;
+    //изменения в ремарках пассажиров
+    const CheckIn::PaxRems& remsBefore=(bPax!=grpInfoBefore.pax.end() && bPax->second.refuse!=refuseAgentError)?bPax->second.rems:CheckIn::PaxRems();
+    const CheckIn::PaxRems& remsAfter=(aPax!=grpInfoAfter.pax.end() && aPax->second.refuse!=refuseAgentError)?aPax->second.rems:CheckIn::PaxRems();
+    SaveRemsToLog(events_log_rem_grp, remsBefore, remsAfter, msgPattern);
 
     string bagStrAfter, bagStrBefore;
     int d=0;
@@ -1077,11 +1111,6 @@ void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
 
     const TPaidToLogInfo &paidBefore=(bPax!=grpInfoBefore.pax.end() && bPax->second.refuse!=refuseAgentError)?bPax->second.paid:TPaidToLogInfo();
     const TPaidToLogInfo &paidAfter=(aPax!=grpInfoAfter.pax.end() && aPax->second.refuse!=refuseAgentError)?aPax->second.paid:TPaidToLogInfo();
-    TLogLocale msgPattern;
-    (aPax!=grpInfoAfter.pax.end()?aPax->second.getPaxName(msgPattern.prms):bPax->second.getPaxName(msgPattern.prms));
-    msgPattern.id1=point_id;
-    msgPattern.id2=((aPax!=grpInfoAfter.pax.end() && aPax->second.refuse!=refuseAgentError)?aPax->first.reg_no:NoExists);
-    msgPattern.id3=grp_id;
     SavePaidToLog(paidBefore, paidAfter, msgPattern, piece_concept,
                   !(aPax!=grpInfoAfter.pax.end() && aPax->second.refuse!=refuseAgentError),
                   handmadeEMDDiff);
