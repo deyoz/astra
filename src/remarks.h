@@ -38,6 +38,8 @@ enum TRemEventType {
 class TRemGrp : public std::set<std::string>
 {
   public:
+    TRemGrp() {}
+    TRemGrp(std::initializer_list<std::string> l) : std::set<std::string>(l) {}
     bool exists (const std::string &rem) const { return find(rem) != end(); }
     void Load(TRemEventType rem_set_type, int point_id);
     void Load(TRemEventType rem_set_type, const std::string &airline);
@@ -340,6 +342,7 @@ class TPaxASVCItem : public TPaxRemBasic, public TServiceBasic
     std::string no_str() const;
 };
 
+typedef std::multiset<TPaxRemItem> PaxRems;
 bool LoadPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems);
 bool LoadCrsPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems);
 bool LoadPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts);
