@@ -223,7 +223,7 @@ int create_apis_nosir(int argc,char **argv)
 
 #if USE_NEW_CREATE_APIS
 // старая функция
-bool create_apis_file_old(int point_id, const string& task_name)
+bool create_apis_file_old(int point_id, const string& task_name, TApisTestMap* test_map = nullptr)
 #else
 
 #if APIS_TEST
