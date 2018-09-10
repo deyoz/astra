@@ -364,10 +364,17 @@ bool LoadPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
 bool LoadCrsPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
 
 void GetPaxRemDifference(const boost::optional<TRemGrp> &rem_grp,
-                         const std::multiset<TPaxRemItem> &prior_rems,
-                         const std::multiset<TPaxRemItem> &curr_rems,
-                         std::multiset<TPaxRemItem> &added,
-                         std::multiset<TPaxRemItem> &deleted);
+                         const PaxRems &prior_rems,
+                         const PaxRems &curr_rems,
+                         PaxRems &added,
+                         PaxRems &deleted,
+                         std::list<std::pair<TPaxRemItem, TPaxRemItem>> &modified);
+
+void GetPaxRemDifference(const boost::optional<TRemGrp> &rem_grp,
+                         const PaxRems &prior_rems,
+                         const PaxRems &curr_rems,
+                         PaxRems &added,
+                         PaxRems &deleted);
 
 void SyncPaxRemOrigin(const boost::optional<TRemGrp> &rem_grp,
                       const int &pax_id,
