@@ -4059,7 +4059,7 @@ void CheckBagChanges(const TGrpToLogInfo &prev, const CheckIn::TPaxGrpItem &grp)
     if (bBag!=bagBefore.end())
     {
       if (bBag->second.is_trfer && !bBag->second.handmade &&
-          !reqInfo->user.access.rights().permitted(347))
+          !reqInfo->user.access.check_profile(grp.point_dep, 347))
         throw UserException("MSG.NO_PERM_MODIFY_INBOUND_TRFER");
     }
     if (aBag!=bagAfter.end())
