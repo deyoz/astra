@@ -1936,7 +1936,9 @@ bool CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
        << TlgElemIdToElem(etAirline, flt.airline, options.is_lat)
        << setw(3) << setfill('0') << flt.flt_no
        << (flt.suffix.empty() ? "" : TlgElemIdToElem(etSuffix, flt.suffix, options.is_lat)) << '/'
-       << DateTimeToStr( con.OutFlt.operFlt.scd_out, "ddmmm", options.is_lat) << '/'
+       << DateTimeToStr( options.actual_dep_date?con.OutFlt.operFlt.act_est_scd_out():
+                                                 con.OutFlt.operFlt.scd_out,
+                         "ddmmm", options.is_lat) << '/'
        << TlgElemIdToElem(etAirp, con.OutFlt.airp_arv, options.is_lat);
   if (options.class_of_travel && !con.OutCls.empty())
     body << '/' << TlgElemIdToElem(etClass, con.OutCls, options.is_lat);

@@ -820,7 +820,7 @@ tr1::shared_ptr<TCreateOptions> make_options(const string &tlg_type)
   if (!tlg_type.empty())
   try
   {
-    const TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
+    const TTypeBTypesRow& row = (const TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
     basic_type=row.basic_type;
   }
   catch(EBaseTableError)
@@ -872,7 +872,7 @@ bool TSendInfo::isSend() const
   bool pr_dep=false,pr_arv=false;
   try
   {
-    const TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
+    const TTypeBTypesRow& row = (const TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
     pr_dep=row.pr_dep==NoExists || row.pr_dep!=0;
     pr_arv=row.pr_dep==NoExists || row.pr_dep==0;
   }
@@ -989,7 +989,7 @@ bool CheckApis_USA( const std::string &airp )
 {
   TBaseTable &baseairps = base_tables.get( "airps" );
   TBaseTable &basecities = base_tables.get( "cities" );
-  string country = ((TCitiesRow&)basecities.get_row( "code", ((TAirpsRow&)baseairps.get_row( "code", airp )).city)).country;
+  string country = ((const TCitiesRow&)basecities.get_row( "code", ((const TAirpsRow&)baseairps.get_row( "code", airp )).city)).country;
   return ( APIS::customsUS().find( country ) != APIS::customsUS().end() );
 }
 
@@ -1036,7 +1036,7 @@ void filter_typeb_addrs(const TSendInfo &sendInfo,
     bool pr_dep=false,pr_arv=false;
     try
     {
-        const TTypeBTypesRow& row = (TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",sendInfo.tlg_type));
+        const TTypeBTypesRow& row = (const TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",sendInfo.tlg_type));
         pr_dep=row.pr_dep==NoExists || row.pr_dep!=0;
         pr_arv=row.pr_dep==NoExists || row.pr_dep==0;
     }
