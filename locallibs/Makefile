@@ -1,4 +1,4 @@
-libs=serverlib tscriptc jxtlib edilib eticklib libtlg libtypeb shared
+libs=serverlib tscriptc jxtlib edilib eticklib libtlg libtypeb shared libjms
 
 .PHONY: all clean tests $(libs)
 
@@ -26,3 +26,4 @@ shared: serverlib
 eticklib: serverlib edilib
 libtlg: serverlib edilib
 libtypeb: serverlib eticklib
+libjms: serverlib
