@@ -731,11 +731,23 @@ static void SaveRemsToLog(const boost::optional<TRemGrp> &rem_grp,
                           const CheckIn::PaxRems &curr_rems,
                           const TLogLocale &msgPattern)
 {
-  CheckIn::PaxRems added, deleted;
-
-  CheckIn::GetPaxRemDifference(rem_grp, prior_rems, curr_rems, added, deleted);
-
   TReqInfo* reqInfo = TReqInfo::Instance();
+
+  CheckIn::PaxRems added, deleted;
+  list<pair<CheckIn::TPaxRemItem, CheckIn::TPaxRemItem>> modified;
+
+  CheckIn::GetPaxRemDifference(rem_grp, prior_rems, curr_rems, added, deleted, modified);
+
+  for(const auto& item : modified)
+  {
+    LEvntPrms params(msgPattern.prms);
+    params << PrmSmpl<string>("old_rem_text", item.first.text);
+    params << PrmSmpl<string>("new_rem_text", item.second.text);
+
+    reqInfo->LocaleToLog("EVT.REM_MODIFIED_FOR_PASSENGER",
+                         params, ASTRA::evtPax, msgPattern.id1, msgPattern.id2, msgPattern.id3);
+  }
+
   for(int pass=0; pass<2; pass++)
   {
     for(const CheckIn::TPaxRemItem& item : (pass==0?deleted:added))
