@@ -1123,12 +1123,14 @@ int apis_test_single(int argc, char **argv)
   TQuery PointIdQry(&OraSession);
   PointIdQry.SQLText=
   "SELECT point_id FROM points WHERE airline IS NOT NULL AND PR_DEL=0 AND "
-  "SCD_OUT BETWEEN TO_DATE('01.08.17 00:00', 'DD.MM.YY HH24:MI') AND TO_DATE('01.08.18 00:00','DD.MM.YY HH24:MI')";
+  "SCD_OUT BETWEEN TO_DATE('20.08.18 00:00', 'DD.MM.YY HH24:MI') AND TO_DATE('01.09.18 00:00','DD.MM.YY HH24:MI')";
+  int iteration = 0;
   for (PointIdQry.Execute(); !PointIdQry.Eof; PointIdQry.Next())
   {
     int point_id = PointIdQry.FieldAsInteger("point_id");
     for (string task_name : {BEFORE_TAKEOFF_30, BEFORE_TAKEOFF_60, ON_TAKEOFF, ON_CLOSE_CHECKIN, ON_CLOSE_BOARDING})
     {
+      nosir_wait(iteration++, false, 2, 0);
       LogTrace(TRACE5) << "TESTING APIS: point = " << point_id << " task = \"" << task_name << "\"";
 #if APIS_TEST
       // заполним map
