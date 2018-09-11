@@ -6,7 +6,7 @@ $(defmacro login
  <term>
    <query handle='0' id='MainDCS' ver='1' opr='' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
      <UserLogon>
-       <term_version>201311-0154253</term_version>
+       <term_version>201509-0173355</term_version>
        <userr>PIKE</userr>
        <passwd>PIKE</passwd>
        <airlines/>
@@ -30,7 +30,7 @@ $(defmacro login2
 <term>
   <query handle='0' id='MainDCS' ver='1' opr='' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <UserLogon>
-      <term_version>201311-0154253</term_version>
+      <term_version>201509-0173355</term_version>
       <lang dictionary_lang='RU' dictionary_checksum='622046546'>RU</lang>
       <userr>PIKE</userr>
       <passwd>PIKE</passwd>

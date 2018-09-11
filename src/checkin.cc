@@ -3465,7 +3465,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     TTripStage ts;
     TTripStages::LoadStage(point_id, sCloseCheckIn, ts);
     if(
-            ts.act != NoExists and 
+            ts.act != NoExists and
             TReqInfo::Instance()->user.access.rights().permitted(997)
       )
         throw AstraLocale::UserException("MSG.NO_ACCESS");
@@ -6707,7 +6707,7 @@ void fillPaxsBags(const TCheckedReqPassengers &req_grps, TExchange &exch, TCheck
             reqSeg.subcl=pax.subcl;
             reqSeg.set(pax.tkn, paxSection);
             CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);
-            CheckIn::LoadCrsPaxPNRs(pax.id, reqSeg.pnrs);
+            reqSeg.pnrs.getByPaxIdFast(pax.id);
             ++iReqPax;
           }
         }
@@ -9133,10 +9133,9 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
         flightsForLock.Get(flt.point_id, ftTranzit);
         flightsForLock.Lock(__FUNCTION__);
 
-        WebSearch::TPnrData pnrData;
-        pnrData.flt.fromDB(flt.point_id, true, true);
-        vector<WebSearch::TPnrData> PNRs;
-        PNRs.insert(PNRs.begin(), pnrData); //вставляем в начало первый сегмент
+        TMultiPnrDataSegs multiPnrDataSegs;
+        TMultiPnrData& multiPnrData=multiPnrDataSegs.add(flt.point_id, true, false);
+
         xmlNodePtr crew_groups = NodeAsNode("CREW_GROUPS", reqNode);
 
         map<int,TAdvTripInfo> segs; // набор рейсов
@@ -9151,14 +9150,16 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
         for(xmlNodePtr crew_group = crew_groups->children; crew_group != NULL; crew_group = crew_group->next)
         {
+            multiPnrData.segs.clear();
+
             // for HTTP
             string airp_arv = airp_fromXML(NodeAsNode("AIRP_ARV", crew_group), cfErrorIfEmpty, __FUNCTION__, "MERIDIAN");
             TCompleteAPICheckInfo checkInfo(flt.point_id, airp_arv);
 
             xmlNodePtr crew_members = NodeAsNode("CREW_MEMBERS", crew_group);
-            TWebPnrForSave pnr;
-            pnr.status = psCrew;
-            pnr.paxFromReq.push_back(TWebPaxFromReq(false));
+            TWebPaxForSaveSeg seg(multiPnrData.flt.oper.point_id);
+            seg.paxForCkin.status = psCrew;
+            seg.paxFromReq.emplace_back();
             for(xmlNodePtr crew_member = crew_members->children; crew_member != NULL; crew_member = crew_member->next)
             {
                 if(NodeAsString("DUTY", crew_member, "") == string("PIC") && NodeAsInteger("ORDER", crew_member, ASTRA::NoExists) == 1)
@@ -9169,7 +9170,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                     is_commander = true;
                 }
                 TWebPaxForCkin paxForCkin;
-                paxForCkin.crew_type = CrewTypes().decode(NodeAsString("CREW_TYPE", crew_member, ""));
+                paxForCkin.initFromMeridian(airp_arv, CrewTypes().decode(NodeAsString("CREW_TYPE", crew_member, "")));
                 ASTRA::TPaxTypeExt pax_type_ext(ASTRA::psCrew, paxForCkin.crew_type); // for HTTP
                 switch (paxForCkin.crew_type)
                 {
@@ -9189,127 +9190,77 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                 xmlNodePtr pers_data = NodeAsNode("PERSONAL_DATA", crew_member);
 
                 // for HTTP
-                xmlNodePtr docs_init = NodeAsNode("DOCS", pers_data);
-                string full_name = NodeAsString("SURNAME", docs_init, "") + string(" ") + NodeAsString("FIRST_NAME", docs_init, "");
+                string full_name = NodeAsString("DOCS/SURNAME", pers_data, "") + string(" ") + NodeAsString("DOCS/FIRST_NAME", pers_data, "");
+                full_name = TrimString(full_name);
 
                 for (xmlNodePtr document = pers_data->children; document != NULL; document = document->next)
                 {
-                    xmlNodePtr doc=document->children;
-                    if (doc==NULL) continue;
+                    if (document->children==nullptr) continue;
                     if (strcmp((const char*)document->name,"DOCS") == 0)
                     {
-                        if (!paxForCkin.present_in_req.insert(apiDoc).second)
+                        if (paxForCkin.apis.isPresent(apiDoc))
                             throw AstraLocale::UserException("MSG.SECTION_DUPLICATED",
-                                                              LEvntPrms() << PrmSmpl<string>("airline", "D"));
-                        paxForCkin.surname = upperc(NodeAsStringFast("SURNAME", doc, ""));
-                        string name = NodeAsStringFast("FIRST_NAME", doc, "");
-                        string second_name;
-                        second_name = NodeAsStringFast("SECOND_NAME", doc, "");
-                        paxForCkin.apis.doc.surname=paxForCkin.surname;
-                        paxForCkin.apis.doc.first_name=name;
-                        paxForCkin.apis.doc.second_name=second_name;
-                        if (!second_name.empty())
-                            name = name + " " + second_name;
-                        paxForCkin.name = upperc(name);
+                                                              LEvntPrms() << PrmSmpl<string>("name", "DOCS"));
+
+                        CheckIn::TPaxDocItem doc;
+                        doc.fromMeridianXML(document);
                         if (is_commander)
                         {
-                            commander = paxForCkin.surname + " " + upperc(name.substr(0, 1)) + ".";
-                            if (!second_name.empty())
-                                commander = commander + upperc(second_name.substr(0, 1)) + ".";
-                            is_commander = false;
+                          commander=doc.getSurnameWithInitials();
+                          is_commander = false;
                         }
-                        paxForCkin.pers_type = EncodePerson(ASTRA::adult);
-                        paxForCkin.seats = 1;
-                        paxForCkin.apis.doc.type=NodeAsStringFast("TYPE",doc,"");
-                        paxForCkin.apis.doc.issue_country=NodeAsStringFast("ISSUE_COUNTRY",doc,"");
-                        paxForCkin.apis.doc.no=NodeAsStringFast("NO",doc,"");
-                        paxForCkin.apis.doc.nationality=NodeAsStringFast("NATIONALITY",doc,"");
-                        if (!NodeIsNULLFast("BIRTH_DATE",doc, true))
-                            paxForCkin.apis.doc.birth_date = date_fromXML(NodeAsStringFast("BIRTH_DATE",doc,""));
-                        paxForCkin.apis.doc.gender=CheckIn::PaxDocGenderNormalize(NodeAsStringFast("GENDER",doc,""));
-                        if (!NodeIsNULLFast("EXPIRY_DATE",doc, true))
-                            paxForCkin.apis.doc.expiry_date = date_fromXML(NodeAsStringFast("EXPIRY_DATE",doc,""));
 
-//                        paxForCkin.apis.doc=NormalizeDoc(paxForCkin.apis.doc);
-                        // for HTTP
-                        paxForCkin.apis.doc = NormalizeDocHttp(paxForCkin.apis.doc, full_name);
-                        CheckDocHttp(paxForCkin.apis.doc, pax_type_ext, paxForCkin.apis.doc.surname, checkInfo, checkDate, full_name);
+                        doc = NormalizeDocHttp(doc, full_name);
+                        CheckDocHttp(doc, pax_type_ext, doc.surname, checkInfo, checkDate, full_name);
+                        paxForCkin.setFromMeridian(doc);
                     }
                     else if (strcmp((const char*)document->name,"DOCO") == 0)
                     {
-                        if (!paxForCkin.present_in_req.insert(apiDoco).second)
+                        if (paxForCkin.apis.isPresent(apiDoco))
                             throw AstraLocale::UserException("MSG.SECTION_DUPLICATED",
-                                                              LEvntPrms() << PrmSmpl<string>("name", "doco"));
+                                                              LEvntPrms() << PrmSmpl<string>("name", "DOCO"));
 
-                        TReqInfo *reqInfo = TReqInfo::Instance();
-                        if (!(reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(DOCO_CONFIRM_VERSION)))
-                            paxForCkin.apis.doco.doco_confirm=true;
-                        paxForCkin.apis.doco.birth_place=NodeAsStringFast("BIRTH_PLACE",doc,"");
-                        paxForCkin.apis.doco.type=NodeAsStringFast("TYPE",doc,"");
-                        paxForCkin.apis.doco.no=NodeAsStringFast("NO",doc,"");
-                        paxForCkin.apis.doco.issue_place=NodeAsStringFast("ISSUE_PLACE",doc,"");
-                        if (!NodeIsNULLFast("ISSUE_DATE",doc,true))
-                            paxForCkin.apis.doco.issue_date=date_fromXML(NodeAsStringFast("ISSUE_DATE",doc,""));
-                        if (!NodeIsNULLFast("EXPIRY_DATE",doc,true))
-                            paxForCkin.apis.doco.expiry_date=date_fromXML(NodeAsStringFast("EXPIRY_DATE",doc,""));
-                        paxForCkin.apis.doco.applic_country=NodeAsStringFast("APPLIC_COUNTRY",doc,"");
-                        if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(DOCO_CONFIRM_VERSION))
-                        {
-                            if (paxForCkin.apis.doco.type==CheckIn::DOCO_PSEUDO_TYPE && paxForCkin.apis.doco.getNotEmptyFieldsMask()==DOCO_TYPE_FIELD)
-                                paxForCkin.apis.doco.doco_confirm=true;
-                            else
-                                paxForCkin.apis.doco.doco_confirm=(paxForCkin.apis.doco.getNotEmptyFieldsMask()!=NO_FIELDS);
-                            if (paxForCkin.apis.doco.type==CheckIn::DOCO_PSEUDO_TYPE) paxForCkin.apis.doco.type.clear();
-                        }
-                        else paxForCkin.apis.doco.doco_confirm=true;
-//                        paxForCkin.apis.doco = NormalizeDoco(paxForCkin.apis.doco);
-                        // for HTTP
-                        paxForCkin.apis.doco = NormalizeDocoHttp(paxForCkin.apis.doco, full_name);
-                        CheckDocoHttp(paxForCkin.apis.doco, pax_type_ext, checkInfo, checkDate, full_name);
+                        CheckIn::TPaxDocoItem doco;
+                        doco.fromMeridianXML(document);
+
+                        doco = NormalizeDocoHttp(doco, full_name);
+                        CheckDocoHttp(doco, pax_type_ext, checkInfo, checkDate, full_name);
+                        paxForCkin.apis.set(doco);
                     }
                     else if (strcmp((const char*)document->name,"DOCA") == 0)
                     {
-                        string type = upperc(NodeAsStringFast("TYPE", doc, ""));
-
-                        if (!(type == "B" || type == "R" || type == "D"))
-                            throw AstraLocale::UserException("MSG.INVALID_ADDRES_TYPE");
-
-                        if ((type == "B" && !paxForCkin.present_in_req.insert(apiDocaB).second) ||
-                            (type == "R" && !paxForCkin.present_in_req.insert(apiDocaR).second) ||
-                            (type == "D" && !paxForCkin.present_in_req.insert(apiDocaD).second))
-                            throw AstraLocale::UserException("MSG.SECTION_DUPLICATED_WITH_TYPE",
-                                                              LEvntPrms() << PrmSmpl<string>("name", "DOCA")
-                                                              << PrmSmpl<string>("type", type));
-
                         CheckIn::TPaxDocaItem doca;
-                        doca.type=type;
-                        doca.country=NodeAsStringFast("COUNTRY",doc,"");
-                        doca.address=NodeAsStringFast("ADDRESS",doc,"");
-                        doca.city=NodeAsStringFast("CITY",doc,"");
-                        doca.region=NodeAsStringFast("REGION",doc,"");
-                        doca.postal_code=NodeAsStringFast("POSTAL_CODE",doc,"");
-//                        CheckIn::TPaxDocaItem norm_doca = NormalizeDoca(doca);
-                        // for HTTP
-                        CheckIn::TPaxDocaItem norm_doca = NormalizeDocaHttp(doca, full_name);
-                        CheckDocaHttp(norm_doca, pax_type_ext, checkInfo, full_name);
-                        if (norm_doca.apiType() != apiUnknown) paxForCkin.apis.doca_map[norm_doca.apiType()] = norm_doca;
+                        doca.fromMeridianXML(document);
+
+                        if (doca.apiType()==apiUnknown)
+                          throw AstraLocale::UserException("MSG.INVALID_ADDRES_TYPE");
+
+                        if (paxForCkin.apis.isPresent(doca.apiType()))
+                          throw AstraLocale::UserException("MSG.SECTION_DUPLICATED_WITH_TYPE",
+                                                           LEvntPrms() << PrmSmpl<string>("name", "DOCA")
+                                                                       << PrmSmpl<string>("type", doca.type));
+
+                        doca = NormalizeDocaHttp(doca, full_name);
+                        CheckDocaHttp(doca, pax_type_ext, checkInfo, full_name);
+                        paxForCkin.apis.set(doca);
                     }
                 }
 
-                if (paxForCkin.present_in_req.find(apiDoc) == paxForCkin.present_in_req.end())
-                    throw AstraLocale::UserException("MSG.SECTION_NOT_FOUND", LEvntPrms() << PrmSmpl<string>("name", "DOCS"));
-                pnr.paxForCkin.push_back(paxForCkin);
+                if (!paxForCkin.apis.isPresent(apiDoc))
+                  throw AstraLocale::UserException("MSG.SECTION_NOT_FOUND", LEvntPrms() << PrmSmpl<string>("name", "DOCS"));
+                seg.paxForCkin.push_back(paxForCkin);
+                multiPnrData.segs.add(multiPnrData.flt.oper, paxForCkin);
             }
 
-            WebSearch::TPnrData &pnrData=*(PNRs.begin());
-//            string airp_arv = airp_fromXML(NodeAsNode("AIRP_ARV", crew_group), cfErrorIfEmpty, __FUNCTION__);
-            CompletePnrDataForCrew(airp_arv, pnrData);
+            multiPnrData.checkJointCheckInAndComplete();
+
             XMLDoc emulDocHeader;
             CreateEmulXMLDoc(emulDocHeader);
             XMLDoc emulCkinDoc;
-            map<int,XMLDoc> emulChngDocs;
-            CreateEmulDocs(vector< pair<int, TWebPnrForSave > >(1, make_pair(pnrData.flt.point_dep, pnr)),
-                           PNRs, emulDocHeader, emulCkinDoc, emulChngDocs);
+            CreateEmulDocs(TWebPaxForSaveSegs(seg),
+                           multiPnrDataSegs,
+                           emulDocHeader,
+                           emulCkinDoc);
 
             TChangeStatusList ChangeStatusInfo;
             SirenaExchange::TLastExchangeList SirenaExchangeList;

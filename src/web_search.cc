@@ -647,29 +647,86 @@ void TDestInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
                            NewTextChild(node, "arr_utc_offset", arv_utc_offset);
 };
 
-bool TFlightInfo::fromDB(TQuery &Qry)
+void TFlightInfo::set(const TAdvTripInfo& fltInfo)
 {
   clear();
-  if (Qry.Eof) return false;
-  point_dep = Qry.FieldAsInteger("point_id");
-  point_num = Qry.FieldAsInteger("point_num");
-  first_point = Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
-  pr_tranzit = Qry.FieldAsInteger("pr_tranzit")!=0;
-  oper.Init(Qry);
-  craft=Qry.FieldAsString("craft");
-  craft_fmt=(TElemFmt)Qry.FieldAsInteger("craft_fmt");
+  oper=fltInfo;
+
   string region=AirpTZRegion(oper.airp);
-  scd_out_local=oper.scd_out==NoExists?NoExists:UTCToLocal(oper.scd_out, region);
-  est_out_local=Qry.FieldIsNULL("est_out")?NoExists:UTCToLocal(Qry.FieldAsDateTime("est_out"), region);
-  act_out_local=Qry.FieldIsNULL("act_out")?NoExists:UTCToLocal(Qry.FieldAsDateTime("act_out"), region);
+  scd_out_local=oper.scd_out!=NoExists?UTCToLocal(oper.scd_out, region):NoExists;
+  est_out_local=oper.est_out_exists()?UTCToLocal(oper.est_out.get(), region):NoExists;
+  act_out_local=oper.act_out_exists()?UTCToLocal(oper.act_out.get(), region):NoExists;
 
   city_dep = ((const TAirpsRow&)base_tables.get( "airps" ).get_row( "code", oper.airp, true )).city;
   if (oper.scd_out!=NoExists && scd_out_local!=NoExists)
     dep_utc_offset = (int)round((scd_out_local - oper.scd_out) * 1440);
   else
     dep_utc_offset = NoExists;
+}
+
+bool TFlightInfo::fromDB(TQuery &Qry)
+{
+  clear();
+  if (Qry.Eof) return false;
+  set(TAdvTripInfo(Qry));
   return true;
-};
+}
+
+void TFlightInfo::isSelfCheckInPossible(const ASTRA::TClientType& client_type,
+                                        const boost::optional<TStage>& checkInStage,
+                                        const boost::optional<TStage>& cancelStage,
+                                        bool first_segment,
+                                        bool notRefusalExists,
+                                        bool refusalExists)
+{
+  if (!notRefusalExists && !refusalExists) return;
+
+  //проверяем на сегменте вылет рейса и состояние соответствующего этапа
+  if (!checkInStage)
+    throw UserException( "MSG.CHECKIN.CLOSED_OR_DENIAL" );
+
+  if (checkInStage.get()==sTakeoff)
+    throw UserException( "MSG.FLIGHT.TAKEOFF" );
+
+  if (notRefusalExists || (refusalExists && client_type == ctKiosk))
+  {
+    if (!(checkInStage.get() == sOpenKIOSKCheckIn ||
+          checkInStage.get() == sOpenWEBCheckIn ||
+          (checkInStage.get() == sNoActive && !first_segment)))
+    {
+      if (checkInStage.get() == sNoActive)
+        throw UserException( "MSG.CHECKIN.NOT_OPEN" );
+      else
+        throw UserException( "MSG.CHECKIN.CLOSED_OR_DENIAL" );
+    }
+  }
+
+  if (refusalExists && client_type != ctKiosk)
+  {
+    if (!cancelStage)
+      throw UserException( "MSG.CHECKIN.CLOSED_OR_DENIAL" );
+    if (!(cancelStage.get() == sOpenWEBCheckIn ||
+          (cancelStage.get() == sNoActive && !first_segment)))
+    {
+      if (cancelStage.get() == sNoActive)
+        throw UserException( "MSG.CHECKIN.NOT_OPEN" );
+      else if (cancelStage.get() == sCloseWEBCancel)
+        throw UserException( "MSG.PASSENGER.UNREGISTRATION_DENIAL" );
+      else
+        throw UserException( "MSG.CHECKIN.CLOSED_OR_DENIAL" );
+    }
+  }
+}
+
+void TFlightInfo::isSelfCheckInPossible(bool first_segment, bool notRefusalExists, bool refusalExists) const
+{
+  TFlightInfo::isSelfCheckInPossible(TReqInfo::Instance()->client_type,
+                                     stage(),
+                                     stage(stWEBCancel),
+                                     first_segment,
+                                     notRefusalExists,
+                                     refusalExists);
+}
 
 bool TFlightInfo::fromDB(int point_id, bool first_segment, bool pr_throw)
 {
@@ -678,42 +735,28 @@ bool TFlightInfo::fromDB(int point_id, bool first_segment, bool pr_throw)
   clear();
   try
   {
-    TReqInfo *reqInfo = TReqInfo::Instance();
-
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT points.point_id, points.point_num, points.first_point, points.pr_tranzit, "
-      "       points.pr_del, points.pr_reg, "
-      "       points.airline, points.flt_no, points.suffix, points.airp, "
-      "       points.scd_out, points.est_out, points.act_out, points.craft, "
-      "       points.airline_fmt, points.suffix_fmt, points.airp_fmt, points.craft_fmt "
-      "FROM points "
-      "WHERE points.point_id=:point_id";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.Execute();
-    if (Qry.Eof) throw UserException( "MSG.FLIGHT.NOT_FOUND" );
-
-    if (!fromDB(Qry)) throw UserException( "MSG.FLIGHT.NOT_FOUND" );
-
-    if ( Qry.FieldAsInteger( "pr_del" ) < 0 )
-        throw UserException( "MSG.FLIGHT.DELETED" );
+    TAdvTripInfo fltInfo;
+    if (!fltInfo.getByPointId(point_id))
+      throw UserException( "MSG.FLIGHT.NOT_FOUND" );
 
     if (first_segment)
     {
+      TReqInfo *reqInfo = TReqInfo::Instance();
       //необходимо соблюдать доступ только к первому сегменту
-      if ( !reqInfo->user.access.airlines().permitted(oper.airline) ||
-           !reqInfo->user.access.airps().permitted(oper.airp) )
+      if ( !reqInfo->user.access.airlines().permitted(fltInfo.airline) ||
+           !reqInfo->user.access.airps().permitted(fltInfo.airp) )
         throw UserException( "MSG.FLIGHT.ACCESS_DENIED" );
     };
 
-    if ( Qry.FieldAsInteger( "pr_del" ) > 0 )
-        throw UserException( "MSG.FLIGHT.CANCELED" );
+    if (fltInfo.pr_del!=0)
+      throw UserException( "MSG.FLIGHT.CANCELED" );
 
-    if ( Qry.FieldAsInteger( "pr_reg" ) == 0 )
-        throw UserException( "MSG.FLIGHT.CHECKIN_CANCELED" );
+    if (!fltInfo.pr_reg)
+      throw UserException( "MSG.FLIGHT.CHECKIN_CANCELED" );
 
-    if (oper.scd_out==NoExists) throw UserException( "MSG.FLIGHT_DATE.NOT_SET" );
+    if (fltInfo.scd_out==NoExists) throw UserException( "MSG.FLIGHT_DATE.NOT_SET" );
+
+    set(fltInfo);
   }
   catch(UserException &E)
   {
@@ -724,18 +767,17 @@ bool TFlightInfo::fromDB(int point_id, bool first_segment, bool pr_throw)
       return false;
   };
     return true;
-};
+}
 
 bool TFlightInfo::fromDBadditional(bool first_segment, bool pr_throw)
 {
-  if (point_dep==NoExists)
+  if (oper.point_id==NoExists)
     throw EXCEPTIONS::Exception("TFlightInfo::fromDBadditional: point_dep not defined");
   try
   {
     GetMktFlights(oper, mark);
-    //std::map<TStage_Type, TStage> stage_statuses
     stage_statuses.clear();
-    TTripStages tripStages( point_dep );
+    TTripStages tripStages( oper.point_id );
     stage_statuses[stWEBCheckIn]=tripStages.getStage( stWEBCheckIn );
     stage_statuses[stWEBCancel]=tripStages.getStage( stWEBCancel );
     stage_statuses[stKIOSKCheckIn]=tripStages.getStage( stKIOSKCheckIn );
@@ -748,7 +790,7 @@ bool TFlightInfo::fromDBadditional(bool first_segment, bool pr_throw)
     stage_times.clear();
     TStagesRules *sr = TStagesRules::Instance();
     TCkinClients ckin_clients;
-    TTripStages::ReadCkinClients( point_dep, ckin_clients );
+    TTripStages::ReadCkinClients( oper.point_id, ckin_clients );
     TStage stage;
     for(int pass=0; pass<7; pass++)
     {
@@ -789,7 +831,7 @@ bool TFlightInfo::fromDBadditional(bool first_segment, bool pr_throw)
           Qry.SQLText=
             "SELECT pr_permit FROM trip_ckin_client "
             "WHERE point_id=:point_id AND client_type=:client_type AND desk_grp_id=:desk_grp_id";
-          Qry.CreateVariable("point_id", otInteger, point_dep);
+          Qry.CreateVariable("point_id", otInteger, oper.point_id);
           Qry.CreateVariable("client_type", otString, EncodeClientType(reqInfo->client_type));
           Qry.CreateVariable("desk_grp_id", otInteger, reqInfo->desk.grp_id);
           Qry.Execute();
@@ -818,12 +860,12 @@ bool TFlightInfo::fromDBadditional(bool first_segment, bool pr_throw)
       "SELECT trip_paid_ckin.pr_permit AS pr_paid_ckin "
       "FROM trip_paid_ckin "
       "WHERE trip_paid_ckin.point_id=:point_id";
-    Qry.CreateVariable( "point_id", otInteger, point_dep );
+    Qry.CreateVariable( "point_id", otInteger, oper.point_id );
     Qry.Execute();
     pr_paid_ckin = false;
     if (!Qry.Eof)
       pr_paid_ckin = Qry.FieldAsInteger("pr_paid_ckin")!=0;
-    free_seating=SALONS2::isFreeSeating(point_dep);
+    free_seating=SALONS2::isFreeSeating(oper.point_id);
     if (reqInfo->isSelfCkinClientType())
       have_to_select_seats = GetSelfCkinSets(tsRegWithSeatChoice, oper, reqInfo->client_type);
   }
@@ -869,37 +911,34 @@ void TFlightInfo::add(const TDestInfo &dest)
 
 const TDestInfo& TFlightInfo::getDestInfo(int point_arv) const
 {
-  set<WebSearch::TDestInfo>::const_iterator iDest=dests.find(WebSearch::TDestInfo(point_arv));
+  std::set<WebSearch::TDestInfo>::const_iterator iDest=dests.find(WebSearch::TDestInfo(point_arv));
   if (iDest==dests.end())
     throw EXCEPTIONS::Exception("TFlightInfo::getDestInfo: dest not found (point_arv=%d)", point_arv);
   return *iDest;
 }
 
+boost::optional<TStage> TFlightInfo::stage(const TStage_Type& type) const
+{
+  map<TStage_Type, TStage>::const_iterator iStatus=stage_statuses.find(type);
+  if (iStatus!=stage_statuses.end())
+    return iStatus->second;
+
+  return boost::none;
+}
+
 boost::optional<TStage> TFlightInfo::stage() const
 {
-  boost::optional<TStage> result;
-
   if ( act_out_local != NoExists )
-    result=sTakeoff;
-  else
-  {
-    map<TStage_Type, TStage>::const_iterator iStatus;
-    if ( TReqInfo::Instance()->client_type == ctKiosk )
-      iStatus=stage_statuses.find(stKIOSKCheckIn);
-    else
-      iStatus=stage_statuses.find(stWEBCheckIn);
-    if (iStatus!=stage_statuses.end())
-      result=iStatus->second;
-  };
+    return sTakeoff;
 
-  return result;
-};
+  return stage(TReqInfo::Instance()->client_type == ctKiosk?stKIOSKCheckIn:stWEBCheckIn);
+}
 
 void TFlightInfo::toXMLsimple(xmlNodePtr node, XMLStyle xmlStyle) const
 {
   if (node==NULL) return;
-  point_dep==NoExists?NewTextChild(node, xmlStyle==xmlSearchPNRs?"point_dep":"point_id"):
-                      NewTextChild(node, xmlStyle==xmlSearchPNRs?"point_dep":"point_id", point_dep);
+  oper.point_id==NoExists?NewTextChild(node, xmlStyle==xmlSearchPNRs?"point_dep":"point_id"):
+                          NewTextChild(node, xmlStyle==xmlSearchPNRs?"point_dep":"point_id", oper.point_id);
   NewTextChild(node, "airline", airlineToPrefferedCode(oper.airline, AstraLocale::OutputLang()));
   oper.flt_no==NoExists?NewTextChild(node, "flt_no"):
                         NewTextChild(node, "flt_no", oper.flt_no);
@@ -965,7 +1004,7 @@ void TFlightInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
 */
   if (node==NULL) return;
   toXMLsimple(node, xmlStyle);
-  NewTextChild(node, "craft", craftToPrefferedCode(craft, AstraLocale::OutputLang()));
+  NewTextChild(node, "craft", craftToPrefferedCode(oper.craft, AstraLocale::OutputLang()));
   NewTextChild(node, "scd_out", scd_out_local==NoExists?"":DateTimeToStr(scd_out_local, ServerFormatDateTimeAsString));
   NewTextChild(node, "est_out", est_out_local==NoExists?"":DateTimeToStr(est_out_local, ServerFormatDateTimeAsString));
   NewTextChild(node, "act_out", act_out_local==NoExists?"":DateTimeToStr(act_out_local, ServerFormatDateTimeAsString));
@@ -976,7 +1015,7 @@ void TFlightInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
   if (xmlStyle==xmlSearchPNRs)
   {
     xmlNodePtr destsNode=NewTextChild(node, "dests");
-    for(set<TDestInfo>::const_iterator i=dests.begin();i!=dests.end();++i)
+    for(std::set<TDestInfo>::const_iterator i=dests.begin();i!=dests.end();++i)
       i->toXML(NewTextChild(destsNode, "dest"), xmlStyle);
   };
 
@@ -1131,21 +1170,21 @@ bool TPNRSegInfo::fromDB(int point_id, const TTripRoute &route, TQuery &Qry)
 {
   clear();
   if (Qry.Eof) return false;
-  string airp_arv=Qry.FieldAsString("airp_arv");
-  TTripRoute::const_iterator r=route.begin();
-  for(; r!=route.end(); ++r)
-    if (r->airp == airp_arv) break;
-  if (r==route.end()) return false;
+  boost::optional<TTripRouteItem> arv=route.findFirstAirp(Qry.FieldAsString("airp_arv"));
+  if (!arv) return false;
 
   point_dep=point_id;
-  point_arv=r->point_id;
+  point_arv=arv.get().point_id;
   pnr_id=Qry.FieldAsInteger("pnr_id");
   cls=Qry.FieldAsString("class");
   subcls=Qry.FieldAsString("subclass");
 
   pnr_addrs.getByPnrIdFast(pnr_id);
 
-  mktFlight.getByPnrId(pnr_id);
+  mktFlight=TMktFlight();
+  mktFlight.get().getByPnrId(pnr_id);
+  if (mktFlight.get().empty())
+    throw EXCEPTIONS::Exception("TPNRSegInfo::fromDB: mktFlight.get().empty() (pnr_id=%d)",pnr_id);
 
   return true;
 };
@@ -1191,8 +1230,8 @@ void TPNRSegInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
   if (fltNode==nullptr)
   {
     fltNode=NewTextChild(node, "pnr_mark_flight");
-    if (!mktFlight.empty())
-      mktFlight.toXML(fltNode, AstraLocale::OutputLang());
+    if (mktFlight)
+      mktFlight.get().toXML(fltNode, AstraLocale::OutputLang());
   };
 
   if (xmlStyle==xmlSearchFltMulti)
@@ -1276,30 +1315,25 @@ void TPaxInfo::toXML(xmlNodePtr node) const
 
 void checkPnrData(const TFlightInfo &flt, const TDestInfo &dest, const TPNRSegInfo &seg, const string &where)
 {
-  if (flt.point_dep==NoExists || flt.point_dep!=seg.point_dep)
-    throw EXCEPTIONS::Exception("%s: wrong flt.point_dep %d", where.c_str(), flt.point_dep);
+  if (flt.oper.point_id==NoExists || flt.oper.point_id!=seg.point_dep)
+    throw EXCEPTIONS::Exception("%s: wrong flt.point_dep %d", where.c_str(), flt.oper.point_id);
   if (dest.point_arv==NoExists || dest.point_arv!=seg.point_arv)
     throw EXCEPTIONS::Exception("%s: wrong dest.point_arv %d", where.c_str(), dest.point_arv);
   if (seg.pnr_id==NoExists)
     throw EXCEPTIONS::Exception("%s: pnr_id not defined", where.c_str());
 };
 
-void TPNRSegInfo::getMarkFlt(const TFlightInfo &flt, bool is_test, TTripInfo &mark) const
+void TPNRSegInfo::getMarkFlt(const TFlightInfo &flt, TTripInfo &mark) const
 {
   mark.Clear();
-  if (!is_test && pnr_id!=NoExists)
+  if (mktFlight)
   {
     //коммерческий рейс PNR
-    TMktFlight mktFlt;
-    mktFlt.getByPnrId(pnr_id);
-    if (mktFlt.empty())
-      throw EXCEPTIONS::Exception("TPNRSegInfo::getMarkFlt: empty mktFlt (pnr_id=%d)",pnr_id);
-
-    mark.airline=mktFlt.airline;
-    mark.flt_no=mktFlt.flt_no;
-    mark.suffix=mktFlt.suffix;
-    mark.airp=mktFlt.airp_dep;
-    mark.scd_out=mktFlt.scd_date_local;
+    mark.airline=mktFlight.get().airline;
+    mark.flt_no=mktFlight.get().flt_no;
+    mark.suffix=mktFlight.get().suffix;
+    mark.airp=mktFlight.get().airp_dep;
+    mark.scd_out=mktFlight.get().scd_date_local;
   }
   else
   {
@@ -1312,22 +1346,22 @@ void TPNRSegInfo::getMarkFlt(const TFlightInfo &flt, bool is_test, TTripInfo &ma
 
 };
 
-bool TPNRInfo::fromDBadditional(const TFlightInfo &flt, const TDestInfo &dest, bool is_test)
+bool TPNRInfo::fromDBadditional(const TFlightInfo &flt, const TDestInfo &dest)
 {
   if (segs.empty())
     throw EXCEPTIONS::Exception("TPNRInfo::fromDBadditional: empty segs");
   checkPnrData(flt, dest, segs.begin()->second, "TPNRInfo::fromDBadditional");
 
   TTripInfo pnrMarkFlt;
-  segs.begin()->second.getMarkFlt(flt, is_test, pnrMarkFlt);
+  segs.begin()->second.getMarkFlt(flt, pnrMarkFlt);
   TCodeShareSets codeshareSets;
   codeshareSets.get(flt.oper,pnrMarkFlt);
 
   bag_norm = NoExists; //ничего не выводим в качестве нормы
-  if (!TTripSetList().fromDB(flt.point_dep).value(tsPieceConcept, true)) //не разрешаем расчет по кол-ву мест
+  if (!TTripSetList().fromDB(flt.oper.point_id).value(tsPieceConcept, true)) //не разрешаем расчет по кол-ву мест
   {
     WeightConcept::TNormFltInfo fltInfo;
-    fltInfo.point_id=flt.point_dep;
+    fltInfo.point_id=flt.oper.point_id;
     fltInfo.use_mark_flt=codeshareSets.pr_mark_norms;
     fltInfo.airline_mark=pnrMarkFlt.airline;
     fltInfo.flt_no_mark=pnrMarkFlt.flt_no;
@@ -1414,7 +1448,7 @@ void TPNRInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
 
 bool TPNRs::add(const TFlightInfo &flt, const TPNRSegInfo &seg, const TPaxInfo &pax, bool is_test)
 {
-  if (flt.point_dep==NoExists) throw EXCEPTIONS::Exception("TPNRs::add: flt.point_dep not defined");
+  if (flt.oper.point_id==NoExists) throw EXCEPTIONS::Exception("TPNRs::add: flt.point_dep not defined");
   if (seg.point_arv==NoExists) throw EXCEPTIONS::Exception("TPNRs::add: seg.point_arv not defined");
   if (seg.pnr_id==NoExists) throw EXCEPTIONS::Exception("TPNRs::add: seg.pnr_id not defined");
 
@@ -1452,7 +1486,7 @@ bool TPNRs::add(const TFlightInfo &flt, const TPNRSegInfo &seg, const TPaxInfo &
   TPNRInfo pnr;
   pnr.segs[1]=first.seg;
   pnr.add(pax);
-  if (!pnr.fromDBadditional(first.flt, first.dest, is_test)) return false;
+  if (!pnr.fromDBadditional(first.flt, first.dest)) return false;
 
   vector<TPnrData> other;
   getTCkinData(first, is_test, other);
@@ -1697,7 +1731,7 @@ bool TPNRSegInfo::isJointCheckInPossible(const TPNRSegInfo& seg1,
   if (!(seg1.mktFlight==seg2.mktFlight))
     errors.emplace_back("MSG.DIFFERENT_MARK_FLIGHT");
   boost::optional<TSubclassGroup> subclass_grp1=rbds.getSubclassGroup(seg1.subcls, seg1.cls);
-  boost::optional<TSubclassGroup> subclass_grp2=rbds.getSubclassGroup(seg1.subcls, seg1.cls);
+  boost::optional<TSubclassGroup> subclass_grp2=rbds.getSubclassGroup(seg2.subcls, seg2.cls);
   if (subclass_grp1!=subclass_grp2)
     errors.emplace_back("MSG.INCOMPATIBLE_FARE_CLASS");
 
@@ -1800,10 +1834,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass, bool ignore_reg_n
   {
     ostringstream sql;
     sql.str("");
-    sql << "SELECT points.point_id, points.point_num, points.first_point, points.pr_tranzit, "
-           "       points.airline, points.flt_no, points.suffix, points.airp, "
-           "       points.scd_out, points.est_out, points.act_out, points.craft, "
-           "       points.airline_fmt, points.suffix_fmt, points.airp_fmt, points.craft_fmt ";
+    sql << "SELECT " << TAdvTripInfo::selectedFields("points");
     if (pass==1)
     {
       //ищем фактический рейс
@@ -1945,10 +1976,10 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass, bool ignore_reg_n
     {
       TTripRoute route;
       route.GetRouteAfter( NoExists,
-                           iFlt->first.point_dep,
-                           iFlt->first.point_num,
-                           iFlt->first.first_point,
-                           iFlt->first.pr_tranzit,
+                           iFlt->first.oper.point_id,
+                           iFlt->first.oper.point_num,
+                           iFlt->first.oper.first_point,
+                           iFlt->first.oper.pr_tranzit,
                            trtNotCurrent,
                            trtNotCancelled );
 
@@ -1968,7 +1999,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass, bool ignore_reg_n
               if (pnr_id==NoExists || pnr_id!=PaxQry.FieldAsInteger("pnr_id"))
               {
                 pnr_id=PaxQry.FieldAsInteger("pnr_id");
-                pnr_filter=seg.fromDB(iFlt->first.point_dep, route, PaxQry);
+                pnr_filter=seg.fromDB(iFlt->first.oper.point_id, route, PaxQry);
                 pnr_filter=pnr_filter && seg.filterFromDB(filter);
               };
               if (!pnr_filter) continue;
@@ -1993,7 +2024,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass, bool ignore_reg_n
           };
 
           TPNRSegInfo seg;
-          if (!seg.fromTestPax(iFlt->first.point_dep, route, *p)) continue;
+          if (!seg.fromTestPax(iFlt->first.oper.point_id, route, *p)) continue;
           TPaxInfo pax;
           if (!pax.fromTestPax(*p)) continue;
           PNRs.add(iFlt->first, seg, pax, true);
@@ -2106,10 +2137,10 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass, bool ignore_reg_n
 
               TTripRoute route;
               route.GetRouteAfter( NoExists,
-                                   flt.point_dep,
-                                   flt.point_num,
-                                   flt.first_point,
-                                   flt.pr_tranzit,
+                                   flt.oper.point_id,
+                                   flt.oper.point_num,
+                                   flt.oper.first_point,
+                                   flt.oper.pr_tranzit,
                                    trtNotCurrent,
                                    trtNotCancelled );
 
@@ -2125,7 +2156,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass, bool ignore_reg_n
             for(vector< pair<TFlightInfo, TTripRoute> >::const_iterator i=flts.begin(); i!=flts.end(); ++i)
             {
               TPNRSegInfo seg;
-              bool pnr_filter=seg.fromDB(i->first.point_dep, i->second, PaxQry);
+              bool pnr_filter=seg.fromDB(i->first.oper.point_id, i->second, PaxQry);
               pnr_filter=pnr_filter && seg.filterFromDB(filter);
               if (pnr_filter)
                 segs.push_back( make_pair(i->first, seg) );
@@ -2143,12 +2174,14 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass, bool ignore_reg_n
   }; //pass==3 && filter.test_paxs.empty()
 };
 
-void getTCkinData( const TPnrData &first,
+void getTCkinData( const TFlightInfo& first_flt,
+                   const TDestInfo& first_dest,
+                   const TPNRSegInfo& first_seg,
                    bool is_test,
                    vector<TPnrData> &other)
 {
   other.clear();
-  checkPnrData(first.flt, first.dest, first.seg, "getTCkinData");
+  checkPnrData(first_flt, first_dest, first_seg, "getTCkinData");
 
   if (is_test) return;
 
@@ -2158,7 +2191,7 @@ void getTCkinData( const TPnrData &first,
 
   TQuery Qry(&OraSession);
   map<int, CheckIn::TTransferItem> crs_trfer;
-  CheckInInterface::GetOnwardCrsTransfer(first.seg.pnr_id, Qry, first.flt.oper, first.dest.airp_arv, crs_trfer);
+  CheckInInterface::GetOnwardCrsTransfer(first_seg.pnr_id, Qry, first_flt.oper, first_dest.airp_arv, crs_trfer);
   if (!crs_trfer.empty())
   {
     //проверяем разрешение сквозной регистрации для данного типа клиента
@@ -2178,20 +2211,20 @@ void getTCkinData( const TPnrData &first,
         "WHERE point_id=:point_id AND client_type=:client_type AND desk_grp_id IS NULL";
       Qry.CreateVariable("client_type", otString, EncodeClientType(ctWeb)); //!!!ctMobile
     };
-    Qry.CreateVariable("point_id", otInteger, first.flt.point_dep);
+    Qry.CreateVariable("point_id", otInteger, first_flt.oper.point_id);
     Qry.Execute();
     if (Qry.Eof || Qry.FieldAsInteger("pr_tckin")==0)
     {
       //сквозная регистрация запрещена
       ProgTrace(TRACE5, ">>>> Through check-in not permitted (point_id=%d, client_type=%s, desk_grp_id=%d)",
-                        first.flt.point_dep, EncodeClientType(reqInfo->client_type), reqInfo->desk.grp_id);
+                        first_flt.oper.point_id, EncodeClientType(reqInfo->client_type), reqInfo->desk.grp_id);
       return;
     };
 
     map<int, pair<TCkinSegFlts, TTrferSetsInfo> > trfer_segs;
     traceTrfer(TRACE5, "getTCkinData: crs_trfer", crs_trfer);
-    CheckInInterface::GetTrferSets(first.flt.oper,
-                                   first.dest.airp_arv,
+    CheckInInterface::GetTrferSets(first_flt.oper,
+                                   first_dest.airp_arv,
                                    "",
                                    crs_trfer,
                                    false,
@@ -2254,7 +2287,7 @@ void getTCkinData( const TPnrData &first,
             throw "Stage of web check-in not found";
         };
 
-        if (first.seg.pnr_addrs.empty())
+        if (first_seg.pnr_addrs.empty())
           throw "PNR not defined";
 
         //ищем PNR по номеру
@@ -2278,18 +2311,18 @@ void getTCkinData( const TPnrData &first,
         {
           TTripRoute route;
           route.GetRouteAfter( NoExists,
-                               pnrData.flt.point_dep,
-                               pnrData.flt.point_num,
-                               pnrData.flt.first_point,
-                               pnrData.flt.pr_tranzit,
+                               pnrData.flt.oper.point_id,
+                               pnrData.flt.oper.point_num,
+                               pnrData.flt.oper.first_point,
+                               pnrData.flt.oper.pr_tranzit,
                                trtNotCurrent,
                                trtNotCancelled );
 
           for(;!Qry.Eof;Qry.Next())
           {
             TPNRSegInfo seg;
-            if (!seg.fromDB(pnrData.flt.point_dep, route, Qry)) continue;
-            if (!seg.pnr_addrs.equalPnrExists(first.seg.pnr_addrs)) continue;
+            if (!seg.fromDB(pnrData.flt.oper.point_id, route, Qry)) continue;
+            if (!seg.pnr_addrs.equalPnrExists(first_seg.pnr_addrs)) continue;
             if (pnrData.seg.pnr_id!=NoExists) //дубль PNR
               throw "More than one PNR found";
             pnrData.seg=seg;
@@ -2312,7 +2345,14 @@ void getTCkinData( const TPnrData &first,
       traceTrfer(TRACE5, "trfer_segs", trfer_segs);
     };
   };
-};
+}
+
+void getTCkinData( const TPnrData &first,
+                   bool is_test,
+                   vector<TPnrData> &other)
+{
+  getTCkinData( first.flt, first.dest, first.seg, is_test, other );
+}
 
 } // namespace WebSearch
 
