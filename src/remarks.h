@@ -38,6 +38,8 @@ enum TRemEventType {
 class TRemGrp : public std::set<std::string>
 {
   public:
+    TRemGrp() {}
+    TRemGrp(std::initializer_list<std::string> l) : std::set<std::string>(l) {}
     bool exists (const std::string &rem) const { return find(rem) != end(); }
     void Load(TRemEventType rem_set_type, int point_id);
     void Load(TRemEventType rem_set_type, const std::string &airline);
@@ -339,6 +341,7 @@ class TPaxASVCItem : public TPaxRemBasic, public TServiceBasic
     std::string no_str() const;
 };
 
+typedef std::multiset<TPaxRemItem> PaxRems;
 bool LoadPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems);
 bool LoadCrsPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems);
 bool LoadPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts);
@@ -360,10 +363,17 @@ bool LoadPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
 bool LoadCrsPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
 
 void GetPaxRemDifference(const boost::optional<TRemGrp> &rem_grp,
-                         const std::multiset<TPaxRemItem> &prior_rems,
-                         const std::multiset<TPaxRemItem> &curr_rems,
-                         std::multiset<TPaxRemItem> &added,
-                         std::multiset<TPaxRemItem> &deleted);
+                         const PaxRems &prior_rems,
+                         const PaxRems &curr_rems,
+                         PaxRems &added,
+                         PaxRems &deleted,
+                         std::list<std::pair<TPaxRemItem, TPaxRemItem>> &modified);
+
+void GetPaxRemDifference(const boost::optional<TRemGrp> &rem_grp,
+                         const PaxRems &prior_rems,
+                         const PaxRems &curr_rems,
+                         PaxRems &added,
+                         PaxRems &deleted);
 
 void SyncPaxRemOrigin(const boost::optional<TRemGrp> &rem_grp,
                       const int &pax_id,

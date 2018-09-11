@@ -10,7 +10,7 @@
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -1062,10 +1062,36 @@ void TPaxRemOriginList::del(const multiset<TPaxRemItem> &rems,
 }
 
 void GetPaxRemDifference(const boost::optional<TRemGrp> &rem_grp,
-                         const multiset<TPaxRemItem> &prior_rems,
-                         const multiset<TPaxRemItem> &curr_rems,
-                         multiset<TPaxRemItem> &added,
-                         multiset<TPaxRemItem> &deleted)
+                         const PaxRems &prior_rems,
+                         const PaxRems &curr_rems,
+                         PaxRems &added,
+                         PaxRems &deleted,
+                         list<std::pair<TPaxRemItem, TPaxRemItem> > &modified)
+{
+  GetPaxRemDifference(rem_grp, prior_rems, curr_rems, added, deleted);
+
+  modified.clear();
+  for(PaxRems::iterator a=added.begin(); a!=added.end();)
+  {
+    PaxRems::iterator d=deleted.begin();
+    for(; d!=deleted.end();)
+      if (a->code==d->code) break;
+    if (d!=deleted.end())
+    {
+      modified.emplace_back(*d, *a);
+      a=added.erase(a);
+      d=deleted.erase(d);
+      continue;
+    }
+    ++a;
+  }
+}
+
+void GetPaxRemDifference(const boost::optional<TRemGrp> &rem_grp,
+                         const PaxRems &prior_rems,
+                         const PaxRems &curr_rems,
+                         PaxRems &added,
+                         PaxRems &deleted)
 {
   added.clear();
   deleted.clear();
