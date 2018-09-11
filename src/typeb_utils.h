@@ -22,21 +22,29 @@ class localizedstream : public std::ostringstream
   private:
     std::string plang;
   public:
-    localizedstream(std::string lang) : std::ostringstream(), plang(lang) {};
-    std::string lang() {return plang;};
-    std::string ElemIdToCodeNative(TElemType type, const std::string &elem)
+    localizedstream(std::string lang) : std::ostringstream(), plang(lang) {}
+    std::string lang() const {return plang;}
+
+    std::string ElemIdToCodeNative(TElemType type, const std::string &elem) const
     {
       return ::ElemIdToPrefferedElem(type, elem, efmtCodeNative, plang);
-    };
-    std::string ElemIdToNameShort(TElemType type, const std::string &elem)
+    }
+
+    std::string ElemIdToNameShort(TElemType type, const std::string &elem) const
     {
       return ::ElemIdToPrefferedElem(type, elem, efmtNameShort, plang);
-    };
+    }
 
-    std::string getLocaleText(const std::string &vlexema)
+    std::string  operator () (const char* vlexema) const
     {
       return AstraLocale::getLocaleText(vlexema, plang);
-    };
+    }
+
+    std::string  operator () (const bool& b) const
+    {
+      return (b ? ("да"):
+                  ("нет"));
+    }
 };
 
 namespace TypeB
@@ -68,7 +76,7 @@ class TCreateOptions
       clear();
       if (node==NULL) return;
       xmlNodePtr node2=node->children;
-      is_lat=NodeAsIntegerFast( "pr_lat", node2, (int)is_lat )!=0;
+      is_lat=NodeAsBooleanFast( "pr_lat", node2, is_lat );
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
@@ -89,7 +97,7 @@ class TCreateOptions
     };
     virtual localizedstream& logStr(localizedstream &s) const
     {
-      s << s.getLocaleText("лат.") << ": " << (is_lat ? s.getLocaleText("да"):s.getLocaleText("нет"));
+      s << s("лат.") << ": " << s(is_lat);
       return s;
     };
     virtual localizedstream& extraStr(localizedstream &s) const
@@ -141,7 +149,7 @@ class TUnknownFmtOptions : public TCreateOptions
     {
       TCreateOptions::logStr(s);
       s << ", "
-        << s.getLocaleText("доп.") << ": "
+        << s("доп.") << ": "
         << extra;
       return s;
     };
@@ -231,7 +239,7 @@ class TFranchiseOptions : public TCreateOptions
       TCreateOptions::logStr(s);
       if (!franchise_info.empty())
          s << ", "
-           << s.getLocaleText("франч.рейс") << ": "
+           << s("франч.рейс") << ": "
            << s.ElemIdToCodeNative(etAirline, franchise_info.airline)
            << std::setw(3) << std::setfill('0') << franchise_info.flt_no
            << s.ElemIdToCodeNative(etSuffix, franchise_info.suffix);
@@ -241,7 +249,7 @@ class TFranchiseOptions : public TCreateOptions
     {
       TCreateOptions::extraStr(s);
       if (!franchise_info.empty())
-        s << s.getLocaleText("франч.рейс") << ": "
+        s << s("франч.рейс") << ": "
           << s.ElemIdToCodeNative(etAirline, franchise_info.airline)
           << std::setw(3) << std::setfill('0') << franchise_info.flt_no
           << s.ElemIdToCodeNative(etSuffix, franchise_info.suffix)
@@ -334,14 +342,14 @@ class TAirpTrferOptions : public TFranchiseOptions
     {
       TFranchiseOptions::logStr(s);
       s << ", "
-        << s.getLocaleText("а/п") << ": "
+        << s("а/п") << ": "
         << s.ElemIdToCodeNative(etAirp, airp_trfer);
       return s;
     };
     virtual localizedstream& extraStr(localizedstream &s) const
     {
       TFranchiseOptions::extraStr(s);
-      s << s.getLocaleText("а/п") << ": "
+      s << s("а/п") << ": "
         << s.ElemIdToCodeNative(etAirp, airp_trfer)
         << endl;
       return s;
@@ -421,7 +429,7 @@ class TCrsOptions : public TFranchiseOptions
       TFranchiseOptions::logStr(s);
       if (!crs.empty())
         s << ", "
-          << s.getLocaleText("центр") << ": "
+          << s("центр") << ": "
           << crs;
       return s;
     };
@@ -429,7 +437,7 @@ class TCrsOptions : public TFranchiseOptions
     {
       TFranchiseOptions::extraStr(s);
       if (!crs.empty())
-        s << s.getLocaleText("центр") << ": "
+        s << s("центр") << ": "
           << crs
           << endl;
       return s;
@@ -504,7 +512,7 @@ class TMarkInfoOptions : public TCrsOptions
       mark_info.airline = NodeAsStringFast("airline_mark", currNode);
       mark_info.flt_no = NodeAsIntegerFast("flt_no_mark", currNode);
       mark_info.suffix = NodeAsStringFast("suffix_mark", currNode);
-      pr_mark_header = (int)(NodeAsIntegerFast("pr_mark_header", currNode) != 0);
+      pr_mark_header = (int)NodeAsBooleanFast("pr_mark_header", currNode);
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
@@ -521,7 +529,7 @@ class TMarkInfoOptions : public TCrsOptions
       TCrsOptions::logStr(s);
       if (!mark_info.empty())
          s << ", "
-           << s.getLocaleText("комм.рейс") << ": "
+           << s("комм.рейс") << ": "
            << s.ElemIdToCodeNative(etAirline, mark_info.airline)
            << std::setw(3) << std::setfill('0') << mark_info.flt_no
            << s.ElemIdToCodeNative(etSuffix, mark_info.suffix);
@@ -531,15 +539,14 @@ class TMarkInfoOptions : public TCrsOptions
     {
       TCrsOptions::extraStr(s);
       if (!mark_info.empty())
-        s << s.getLocaleText("комм.рейс") << ": "
+        s << s("комм.рейс") << ": "
           << s.ElemIdToCodeNative(etAirline, mark_info.airline)
           << std::setw(3) << std::setfill('0') << mark_info.flt_no
           << s.ElemIdToCodeNative(etSuffix, mark_info.suffix)
           << endl;
       if (pr_mark_header!=ASTRA::NoExists)
-        s << s.getLocaleText("комм.заголовок") << ": "
-          << (pr_mark_header!=0 ? s.getLocaleText("да"):
-                                 s.getLocaleText("нет"))
+        s << s("комм.заголовок") << ": "
+          << s(pr_mark_header!=0)
           << endl;
       return s;
     };
@@ -619,7 +626,7 @@ class TETLOptions : public TMarkInfoOptions
             TMarkInfoOptions::fromXML(node);
             if(node == NULL) return;
             xmlNodePtr node2=node->children;
-            rbd = NodeAsIntegerFast("rbd", node2, rbd) != 0;
+            rbd = NodeAsBooleanFast("rbd", node2, rbd);
         }
         virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
         {
@@ -656,8 +663,7 @@ class TETLOptions : public TMarkInfoOptions
             s
                 << ", "
                 << "RBD: "
-                << (rbd ? s.getLocaleText("да"):
-                        s.getLocaleText("нет"));
+                << s(rbd);
             return s;
         }
         virtual localizedstream& extraStr(localizedstream &s) const
@@ -665,8 +671,7 @@ class TETLOptions : public TMarkInfoOptions
             TMarkInfoOptions::extraStr(s);
             s
                 << "RBD: "
-                << (rbd ? s.getLocaleText("да"):
-                        s.getLocaleText("нет"))
+                << s(rbd)
                 << endl;
             return s;
         };
@@ -735,7 +740,7 @@ class TMVTOptions : public TFranchiseOptions
       TFranchiseOptions::fromXML(node);
       if (node==NULL) return;
       xmlNodePtr node2=node->children;
-      noend=NodeAsIntegerFast("noend", node2, (int)noend) != 0;
+      noend=NodeAsBooleanFast("noend", node2, noend);
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
@@ -771,8 +776,7 @@ class TMVTOptions : public TFranchiseOptions
       TFranchiseOptions::logStr(s);
       s << ", "
         << "NOEND" << ": "
-        << (noend ? s.getLocaleText("да"):
-                  s.getLocaleText("нет"));
+        << s(noend);
       return s;
     };
     virtual localizedstream& extraStr(localizedstream &s) const
@@ -780,8 +784,7 @@ class TMVTOptions : public TFranchiseOptions
       TFranchiseOptions::extraStr(s);
       s
         << "NOEND" << ": "
-        << (noend ? s.getLocaleText("да"):
-                     s.getLocaleText("нет"))
+        << s(noend)
         << endl;
       return s;
     };
@@ -870,14 +873,14 @@ class TCOMOptions : public TFranchiseOptions
     {
       TFranchiseOptions::logStr(s);
       s << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.VERSION") << ": "
+        << s("CAP.TYPEB_OPTIONS.VERSION") << ": "
         << s.ElemIdToNameShort(etTypeBOptionValue, "COM+VERSION+"+version);
       return s;
     };
     virtual localizedstream& extraStr(localizedstream &s) const
     {
       TFranchiseOptions::extraStr(s);
-      s << s.getLocaleText("CAP.TYPEB_OPTIONS.VERSION") << ": "
+      s << s("CAP.TYPEB_OPTIONS.VERSION") << ": "
         << s.ElemIdToNameShort(etTypeBOptionValue, "COM+VERSION+"+version)
         << endl;
       return s;
@@ -951,10 +954,10 @@ class TLDMOptions : public TFranchiseOptions
       if (node==NULL) return;
       xmlNodePtr node2=node->children;
       version=NodeAsStringFast("version", node2, version.c_str());
-      cabin_baggage=NodeAsIntegerFast("cabin_baggage", node2, (int)cabin_baggage) != 0;
-      gender=NodeAsIntegerFast("gender", node2, (int)gender) != 0;
-      exb=NodeAsIntegerFast("exb", node2, (int)exb) != 0;
-      noend=NodeAsIntegerFast("noend", node2, (int)noend) != 0;
+      cabin_baggage=NodeAsBooleanFast("cabin_baggage", node2, cabin_baggage);
+      gender=NodeAsBooleanFast("gender", node2, gender);
+      exb=NodeAsBooleanFast("exb", node2, exb);
+      noend=NodeAsBooleanFast("noend", node2, noend);
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
@@ -996,47 +999,39 @@ class TLDMOptions : public TFranchiseOptions
     {
       TFranchiseOptions::logStr(s);
       s << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.VERSION") << ": "
+        << s("CAP.TYPEB_OPTIONS.VERSION") << ": "
         << s.ElemIdToNameShort(etTypeBOptionValue, "LDM+VERSION+"+version)
         << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.CABIN_BAGGAGE") << ": "
-        << (cabin_baggage ? s.getLocaleText("да"):
-                            s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.LDM.CABIN_BAGGAGE") << ": "
+        << s(cabin_baggage)
         << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.GENDER") << ": "
-        << (gender ? s.getLocaleText("да"):
-                     s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.LDM.GENDER") << ": "
+        << s(gender)
         << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.EXB") << ": "
-        << (exb ? s.getLocaleText("да"):
-                  s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.LDM.EXB") << ": "
+        << s(exb)
         << ", "
         << "NOEND" << ": "
-        << (noend ? s.getLocaleText("да"):
-                  s.getLocaleText("нет"));
+        << s(noend);
       return s;
     };
     virtual localizedstream& extraStr(localizedstream &s) const
     {
       TFranchiseOptions::extraStr(s);
-      s << s.getLocaleText("CAP.TYPEB_OPTIONS.VERSION") << ": "
+      s << s("CAP.TYPEB_OPTIONS.VERSION") << ": "
         << s.ElemIdToNameShort(etTypeBOptionValue, "LDM+VERSION+"+version)
         << endl
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.CABIN_BAGGAGE") << ": "
-        << (cabin_baggage ? s.getLocaleText("да"):
-                            s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.LDM.CABIN_BAGGAGE") << ": "
+        << s(cabin_baggage)
         << endl
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.GENDER") << ": "
-        << (gender ? s.getLocaleText("да"):
-                     s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.LDM.GENDER") << ": "
+        << s(gender)
         << endl
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LDM.EXB") << ": "
-        << (exb ? s.getLocaleText("да"):
-                     s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.LDM.EXB") << ": "
+        << s(exb)
         << endl
         << "NOEND" << ": "
-        << (noend ? s.getLocaleText("да"):
-                     s.getLocaleText("нет"))
+        << s(noend)
         << endl;
       return s;
     };
@@ -1124,7 +1119,7 @@ class TPRLOptions : public TMarkInfoOptions
             version=NodeAsStringFast("version", node2, version.c_str());
             create_point = NodeAsStringFast("create_point", node2, create_point.c_str());
             pax_state = NodeAsStringFast("pax_state", node2, pax_state.c_str());
-            rbd = NodeAsIntegerFast("rbd", node2, rbd) != 0;
+            rbd = NodeAsBooleanFast("rbd", node2, rbd);
         }
         virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
         {
@@ -1162,36 +1157,34 @@ class TPRLOptions : public TMarkInfoOptions
             TMarkInfoOptions::logStr(s);
             s
                 << ", "
-                << s.getLocaleText("CAP.TYPEB_OPTIONS.VERSION") << ": "
+                << s("CAP.TYPEB_OPTIONS.VERSION") << ": "
                 << s.ElemIdToNameShort(etTypeBOptionValue, "PRL+VERSION+"+version)
                 << ", "
-                << s.getLocaleText("CAP.TYPEB_OPTIONS.PRL.CREATE_POINT") << ": "
+                << s("CAP.TYPEB_OPTIONS.PRL.CREATE_POINT") << ": "
                 << s.ElemIdToNameShort(etTypeBOptionValue, "PRL+CREATE_POINT+"+create_point)
                 << ", "
-                << s.getLocaleText("CAP.TYPEB_OPTIONS.PRL.PAX_STATE") << ": "
+                << s("CAP.TYPEB_OPTIONS.PRL.PAX_STATE") << ": "
                 << s.ElemIdToNameShort(etTypeBOptionValue, "PRL+PAX_STATE+"+pax_state)
                 << ", "
-                << s.getLocaleText("CAP.TYPEB_OPTIONS.PRL.RBD") << ": "
-                << (rbd ? s.getLocaleText("да"):
-                        s.getLocaleText("нет"));
+                << s("CAP.TYPEB_OPTIONS.PRL.RBD") << ": "
+                << s(rbd);
             return s;
         }
         virtual localizedstream& extraStr(localizedstream &s) const
         {
             TMarkInfoOptions::extraStr(s);
             s
-                << s.getLocaleText("CAP.TYPEB_OPTIONS.VERSION") << ": "
+                << s("CAP.TYPEB_OPTIONS.VERSION") << ": "
                 << s.ElemIdToNameShort(etTypeBOptionValue, "PRL+VERSION+"+version)
                 << endl
-                << s.getLocaleText("CAP.TYPEB_OPTIONS.PRL.CREATE_POINT") << ": "
+                << s("CAP.TYPEB_OPTIONS.PRL.CREATE_POINT") << ": "
                 << s.ElemIdToNameShort(etTypeBOptionValue, "PRL+CREATE_POINT+"+create_point)
                 << endl
-                << s.getLocaleText("CAP.TYPEB_OPTIONS.PRL.PAX_STATE") << ": "
+                << s("CAP.TYPEB_OPTIONS.PRL.PAX_STATE") << ": "
                 << s.ElemIdToNameShort(etTypeBOptionValue, "PRL+PAX_STATE+"+pax_state)
                 << endl
-                << s.getLocaleText("CAP.TYPEB_OPTIONS.PRL.RBD") << ": "
-                << (rbd ? s.getLocaleText("да"):
-                        s.getLocaleText("нет"))
+                << s("CAP.TYPEB_OPTIONS.PRL.RBD") << ": "
+                << s(rbd)
                 << endl;
             return s;
         };
@@ -1288,15 +1281,15 @@ class TLCIOptions : public TFranchiseOptions
       TFranchiseOptions::fromXML(node);
       if (node==NULL) return;
       xmlNodePtr node2=node->children;
-      equipment=NodeAsIntegerFast("equipment", node2, (int)equipment) != 0;
+      equipment=NodeAsBooleanFast("equipment", node2, equipment);
       weight_avail=NodeAsStringFast("weight_avail", node2, weight_avail.c_str());
-      seating=NodeAsIntegerFast("seating", node2, (int)seating) != 0;
-      weight_mode=NodeAsIntegerFast("weight_mode", node2, (int)weight_mode) != 0;
+      seating=NodeAsBooleanFast("seating", node2, seating);
+      weight_mode=NodeAsBooleanFast("weight_mode", node2, weight_mode);
       seat_restrict=NodeAsStringFast("seat_restrict", node2, seat_restrict.c_str());
-      pas_totals=NodeAsIntegerFast("pas_totals", node2, (int)pas_totals) != 0;
-      bag_totals=NodeAsIntegerFast("bag_totals", node2, (int)bag_totals) != 0;
-      pas_distrib=NodeAsIntegerFast("pas_distrib", node2, (int)pas_distrib) != 0;
-      seat_plan=NodeAsIntegerFast("seat_plan", node2, (int)seat_plan) != 0;
+      pas_totals=NodeAsBooleanFast("pas_totals", node2, pas_totals);
+      bag_totals=NodeAsBooleanFast("bag_totals", node2, bag_totals);
+      pas_distrib=NodeAsBooleanFast("pas_distrib", node2, pas_distrib);
+      seat_plan=NodeAsBooleanFast("seat_plan", node2, seat_plan);
       version=NodeAsStringFast("version", node2, version.c_str());
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
@@ -1364,82 +1357,68 @@ class TLCIOptions : public TFranchiseOptions
     {
       TFranchiseOptions::logStr(s);
       s << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.EQUIPMENT") << ": "
-        << (equipment ? s.getLocaleText("да"):
-                        s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.LCI.EQUIPMENT") << ": "
+        << s(equipment)
         << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.WEIGHT_AVAIL") << ": "
+        << s("CAP.TYPEB_OPTIONS.LCI.WEIGHT_AVAIL") << ": "
         << s.ElemIdToNameShort(etTypeBOptionValue, "LCI+WEIGHT_AVAIL+"+weight_avail)
         << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SEATING") << ": "
-        << (seating ? s.getLocaleText("да"):
-                      s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.LCI.SEATING") << ": "
+        << s(seating)
         << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.WEIGHT_MODE") << ": "
-        << (weight_mode ? s.getLocaleText("да"):
-                          s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.LCI.WEIGHT_MODE") << ": "
+        << s(weight_mode)
         << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SEAT_RESTRICT") << ": "
+        << s("CAP.TYPEB_OPTIONS.LCI.SEAT_RESTRICT") << ": "
         << s.ElemIdToNameShort(etTypeBOptionValue, "LCI+SEAT_RESTRICT+"+seat_restrict)
         << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.PAS_TOTALS") << ": "
-        << (pas_totals ? s.getLocaleText("да"):
-                         s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.LCI.PAS_TOTALS") << ": "
+        << s(pas_totals)
         << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.BAG_TOTALS") << ": "
-        << (bag_totals ? s.getLocaleText("да"):
-                         s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.LCI.BAG_TOTALS") << ": "
+        << s(bag_totals)
         << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.PAS_DISTRIB") << ": "
-        << (pas_distrib ? s.getLocaleText("да"):
-                          s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.LCI.PAS_DISTRIB") << ": "
+        << s(pas_distrib)
         << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SEAT_PLAN") << ": "
-        << (seat_plan ? s.getLocaleText("да"):
-                          s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.LCI.SEAT_PLAN") << ": "
+        << s(seat_plan)
         << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.VERSION") << ": "
+        << s("CAP.TYPEB_OPTIONS.VERSION") << ": "
         << s.ElemIdToNameShort(etTypeBOptionValue, "LCI+VERSION+"+version);
       return s;
     };
     virtual localizedstream& extraStr(localizedstream &s) const
     {
       TFranchiseOptions::extraStr(s);
-      s << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.EQUIPMENT") << ": "
-        << (equipment ? s.getLocaleText("да"):
-                        s.getLocaleText("нет"))
+      s << s("CAP.TYPEB_OPTIONS.LCI.EQUIPMENT") << ": "
+        << s(equipment)
         << endl
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.WEIGHT_AVAIL") << ": "
+        << s("CAP.TYPEB_OPTIONS.LCI.WEIGHT_AVAIL") << ": "
         << s.ElemIdToNameShort(etTypeBOptionValue, "LCI+WEIGHT_AVAIL+"+weight_avail)
         << endl
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SEATING") << ": "
-        << (seating ? s.getLocaleText("да"):
-                      s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.LCI.SEATING") << ": "
+        << s(seating)
         << endl
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.WEIGHT_MODE") << ": "
-        << (weight_mode ? s.getLocaleText("да"):
-                          s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.LCI.WEIGHT_MODE") << ": "
+        << s(weight_mode)
         << endl
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SEAT_RESTRICT") << ": "
+        << s("CAP.TYPEB_OPTIONS.LCI.SEAT_RESTRICT") << ": "
         << s.ElemIdToNameShort(etTypeBOptionValue, "LCI+SEAT_RESTRICT+"+seat_restrict)
         << endl
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.PAS_TOTALS") << ": "
-        << (pas_totals ? s.getLocaleText("да"):
-                         s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.LCI.PAS_TOTALS") << ": "
+        << s(pas_totals)
         << endl
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.BAG_TOTALS") << ": "
-        << (bag_totals ? s.getLocaleText("да"):
-                         s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.LCI.BAG_TOTALS") << ": "
+        << s(bag_totals)
         << endl
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.PAS_DISTRIB") << ": "
-        << (pas_distrib ? s.getLocaleText("да"):
-                          s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.LCI.PAS_DISTRIB") << ": "
+        << s(pas_distrib)
         << endl
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.LCI.SEAT_PLAN") << ": "
-        << (seat_plan ? s.getLocaleText("да"):
-                          s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.LCI.SEAT_PLAN") << ": "
+        << s(seat_plan)
         << endl
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.VERSION") << ": "
+        << s("CAP.TYPEB_OPTIONS.VERSION") << ": "
         << s.ElemIdToNameShort(etTypeBOptionValue, "LCI+VERSION+"+version)
         << endl;
       return s;
@@ -1523,11 +1502,13 @@ class TBSMOptions : public TFranchiseOptions
       class_of_travel=false;
       tag_printer_id=false;
       pas_name_rp1745=false;
+      actual_dep_date=false;
     };
   public:
     bool class_of_travel;
     bool tag_printer_id;
     bool pas_name_rp1745;
+    bool actual_dep_date;
     TBSMOptions() {init();};
     virtual ~TBSMOptions() {};
     virtual void clear()
@@ -1540,9 +1521,10 @@ class TBSMOptions : public TFranchiseOptions
       TFranchiseOptions::fromXML(node);
       if (node==NULL) return;
       xmlNodePtr node2=node->children;
-      class_of_travel=NodeAsIntegerFast("class_of_travel", node2, (int)class_of_travel) != 0;
-      tag_printer_id=NodeAsIntegerFast("tag_printer_id", node2, (int)tag_printer_id) != 0;
-      pas_name_rp1745=NodeAsIntegerFast("pas_name_rp1745", node2, (int)pas_name_rp1745) != 0;
+      class_of_travel=NodeAsBooleanFast("class_of_travel", node2, class_of_travel);
+      tag_printer_id= NodeAsBooleanFast("tag_printer_id",  node2, tag_printer_id);
+      pas_name_rp1745=NodeAsBooleanFast("pas_name_rp1745", node2, pas_name_rp1745);
+      actual_dep_date=NodeAsBooleanFast("actual_dep_date", node2, actual_dep_date);
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
@@ -1568,39 +1550,44 @@ class TBSMOptions : public TFranchiseOptions
           pas_name_rp1745=OptionsQry.FieldAsInteger("value")!=0;
           continue;
         };
+        if (cat=="ACTUAL_DEP_DATE")
+        {
+          actual_dep_date=OptionsQry.FieldAsInteger("value")!=0;
+          continue;
+        };
       };
     };
     virtual localizedstream& logStr(localizedstream &s) const
     {
       TFranchiseOptions::logStr(s);
       s << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.BSM.CLASS_OF_TRAVEL") << ": "
-        << (class_of_travel ? s.getLocaleText("да"):
-                              s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.BSM.CLASS_OF_TRAVEL") << ": "
+        << s(class_of_travel)
         << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.BSM.TAG_PRINTER_ID") << ": "
-        << (tag_printer_id ? s.getLocaleText("да"):
-                             s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.BSM.TAG_PRINTER_ID") << ": "
+        << s(tag_printer_id)
         << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.BSM.PAS_NAME_RP1745") << ": "
-        << (pas_name_rp1745 ? s.getLocaleText("да"):
-                              s.getLocaleText("нет"));
+        << s("CAP.TYPEB_OPTIONS.BSM.PAS_NAME_RP1745") << ": "
+        << s(pas_name_rp1745)
+        << ", "
+        << s("CAP.TYPEB_OPTIONS.BSM.ACTUAL_DEP_DATE") << ": "
+        << s(actual_dep_date);
       return s;
     };
     virtual localizedstream& extraStr(localizedstream &s) const
     {
       TFranchiseOptions::extraStr(s);
-      s << s.getLocaleText("CAP.TYPEB_OPTIONS.BSM.CLASS_OF_TRAVEL") << ": "
-        << (class_of_travel ? s.getLocaleText("да"):
-                              s.getLocaleText("нет"))
+      s << s("CAP.TYPEB_OPTIONS.BSM.CLASS_OF_TRAVEL") << ": "
+        << s(class_of_travel)
         << endl
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.BSM.TAG_PRINTER_ID") << ": "
-        << (tag_printer_id ? s.getLocaleText("да"):
-                             s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.BSM.TAG_PRINTER_ID") << ": "
+        << s(tag_printer_id)
         << endl
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.BSM.PAS_NAME_RP1745") << ": "
-        << (pas_name_rp1745 ? s.getLocaleText("да"):
-                              s.getLocaleText("нет"))
+        << s("CAP.TYPEB_OPTIONS.BSM.PAS_NAME_RP1745") << ": "
+        << s(pas_name_rp1745)
+        << endl
+        << s("CAP.TYPEB_OPTIONS.BSM.ACTUAL_DEP_DATE") << ": "
+        << s(actual_dep_date)
         << endl;
       return s;
     };
@@ -1616,7 +1603,8 @@ class TBSMOptions : public TFranchiseOptions
         const TBSMOptions &opt = dynamic_cast<const TBSMOptions&>(item);
         return class_of_travel==opt.class_of_travel &&
                tag_printer_id==opt.tag_printer_id &&
-               pas_name_rp1745==opt.pas_name_rp1745;
+               pas_name_rp1745==opt.pas_name_rp1745 &&
+               actual_dep_date==opt.actual_dep_date;
       }
       catch(std::bad_cast)
       {
@@ -1631,7 +1619,8 @@ class TBSMOptions : public TFranchiseOptions
         const TBSMOptions &opt = dynamic_cast<const TBSMOptions&>(item);
         return class_of_travel==opt.class_of_travel &&
                tag_printer_id==opt.tag_printer_id &&
-               pas_name_rp1745==opt.pas_name_rp1745;
+               pas_name_rp1745==opt.pas_name_rp1745 &&
+               actual_dep_date==opt.actual_dep_date;
       }
       catch(std::bad_cast)
       {
@@ -1647,6 +1636,7 @@ class TBSMOptions : public TFranchiseOptions
         class_of_travel=opt.class_of_travel;
         tag_printer_id=opt.tag_printer_id;
         pas_name_rp1745=opt.pas_name_rp1745;
+        actual_dep_date=opt.actual_dep_date;
       }
       catch(std::bad_cast) {};
     };
@@ -1676,7 +1666,7 @@ class TForwardOptions : public TCreateOptions
       TCreateOptions::fromXML(node);
       if (node==NULL) return;
       xmlNodePtr node2=node->children;
-      forwarding=NodeAsIntegerFast("forwarding", node2, (int)forwarding) != 0;
+      forwarding=NodeAsBooleanFast("forwarding", node2, forwarding);
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
@@ -1711,17 +1701,15 @@ class TForwardOptions : public TCreateOptions
     {
       TCreateOptions::logStr(s);
       s << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.FORWARDING") << ": "
-        << (forwarding ? s.getLocaleText("да"):
-                         s.getLocaleText("нет"));
+        << s("CAP.TYPEB_OPTIONS.FORWARDING") << ": "
+        << s(forwarding);
       return s;
     };
     virtual localizedstream& extraStr(localizedstream &s) const
     {
       TCreateOptions::extraStr(s);
-      s << s.getLocaleText("CAP.TYPEB_OPTIONS.FORWARDING") << ": "
-        << (forwarding ? s.getLocaleText("да"):
-                         s.getLocaleText("нет"))
+      s << s("CAP.TYPEB_OPTIONS.FORWARDING") << ": "
+        << s(forwarding)
         << endl;
       return s;
     };
@@ -1793,7 +1781,7 @@ class TPNLADLOptions : public TMarkInfoOptions
       TMarkInfoOptions::fromXML(node);
       if (node==NULL) return;
       xmlNodePtr node2=node->children;
-      forwarding=NodeAsIntegerFast("forwarding", node2, (int)forwarding) != 0;
+      forwarding=NodeAsBooleanFast("forwarding", node2, forwarding);
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
@@ -1828,17 +1816,15 @@ class TPNLADLOptions : public TMarkInfoOptions
     {
       TMarkInfoOptions::logStr(s);
       s << ", "
-        << s.getLocaleText("CAP.TYPEB_OPTIONS.PNLADL.FORWARDING") << ": "
-        << (forwarding ? s.getLocaleText("да"):
-                         s.getLocaleText("нет"));
+        << s("CAP.TYPEB_OPTIONS.PNLADL.FORWARDING") << ": "
+        << s(forwarding);
       return s;
     };
     virtual localizedstream& extraStr(localizedstream &s) const
     {
       TMarkInfoOptions::extraStr(s);
-      s << s.getLocaleText("CAP.TYPEB_OPTIONS.PNLADL.FORWARDING") << ": "
-        << (forwarding ? s.getLocaleText("да"):
-                         s.getLocaleText("нет"))
+      s << s("CAP.TYPEB_OPTIONS.PNLADL.FORWARDING") << ": "
+        << s(forwarding)
         << endl;
       return s;
     };
@@ -2081,7 +2067,7 @@ class TCreateInfo : public TOptionsInfo
     localizedstream& logStr(localizedstream &s) const
     {
       get_options().logStr(s) << ", "
-                              << s.getLocaleText("адреса") << ": "
+                              << s("адреса") << ": "
                               << get_addrs();
       return s;
     };
