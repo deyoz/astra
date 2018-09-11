@@ -1123,7 +1123,7 @@ int apis_test_single(int argc, char **argv)
   TQuery PointIdQry(&OraSession);
   PointIdQry.SQLText=
   "SELECT point_id FROM points WHERE airline IS NOT NULL AND PR_DEL=0 AND "
-  "SCD_OUT BETWEEN TO_DATE('20.08.18 00:00', 'DD.MM.YY HH24:MI') AND TO_DATE('01.09.18 00:00','DD.MM.YY HH24:MI')";
+  "SCD_OUT BETWEEN TO_DATE('25.08.18 00:00', 'DD.MM.YY HH24:MI') AND TO_DATE('01.09.18 00:00','DD.MM.YY HH24:MI')";
   int iteration = 0;
   for (PointIdQry.Execute(); !PointIdQry.Eof; PointIdQry.Next())
   {

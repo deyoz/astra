@@ -374,6 +374,7 @@ static std::string createEdiPaxlstString( const PaxlstInfo& paxlst,
     strcpy( edih.chset, Chset );
     strcpy( edih.to, paxlst.recipientName().c_str() );
 #if APIS_TEST
+    // перезаписывается в функции CreateMesByHead
     strcpy( edih.date, "000000" );
     strcpy( edih.time, "0000" );
 #else
