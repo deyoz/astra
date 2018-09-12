@@ -1878,7 +1878,7 @@ bool CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
   bool equal_is_trfer_exists=false;
 
   typedef vector< pair<CheckIn::TTagItem, CheckIn::TBagItem> > TmpTagList;
-  typedef map<int/*reg_no*/, pair<TPaxItem, TmpTagList> > TmpPaxMap;
+  typedef map<TPaxKey, pair<TPaxItem, TmpTagList> > TmpPaxMap;
 
   TmpPaxMap tmpPax;
   for(map<TTagKey, CheckIn::TTagItem>::const_iterator iTag=con.tags.begin();iTag!=con.tags.end();++iTag)
@@ -1890,9 +1890,12 @@ bool CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
     map<int, TPaxItem>::const_iterator iPax=con.pax.find(iBag->second.bag_pool_num);
     if (iPax==con.pax.end()) continue;
 
-    TmpPaxMap::iterator p=tmpPax.find(iPax->second.reg_no);
+    TPaxKey paxKey(iPax->second.reg_no,
+                   options.tag_printer_id?iBag->second.tag_printer_id(options.is_lat):"");
+
+    TmpPaxMap::iterator p=tmpPax.find(paxKey);
     if (p==tmpPax.end())
-      tmpPax[iPax->second.reg_no]=make_pair(iPax->second, TmpTagList(1, make_pair(iTag->second, iBag->second)));
+      tmpPax[paxKey]=make_pair(iPax->second, TmpTagList(1, make_pair(iTag->second, iBag->second)));
     else
       p->second.second.push_back(make_pair(iTag->second, iBag->second));
   };
@@ -1968,25 +1971,19 @@ bool CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
     if (tmpTags.empty()) throw Exception("BSM::CreateTlgBody: tmpTags empty");
     double first_no = 0.;
     int num = 0;
-    string printer_id;
     TmpTagList::const_iterator i=tmpTags.begin();
     while(true)
     {
       if (i!=tmpTags.begin() &&
-          (i==tmpTags.end() || i->first.no!=first_no+num || (options.tag_printer_id && i->second.tag_printer_id(options.is_lat)!=printer_id)))
+          (i==tmpTags.end() || i->first.no!=first_no+num))
       {
         body << ".N/"
              << setw(10) << setfill('0') << setprecision(0) << first_no
              << setw(3) << setfill('0') << num << ENDL;
-        if (options.tag_printer_id && !printer_id.empty())
-          body << ".T/" << printer_id << ENDL;
       };
       if (i==tmpTags.end()) break;
-      if (i==tmpTags.begin() || i->first.no!=first_no+num || (options.tag_printer_id && i->second.tag_printer_id(options.is_lat)!=printer_id))
+      if (i==tmpTags.begin() || i->first.no!=first_no+num)
       {
-        printer_id.clear();
-        if (options.tag_printer_id)
-          printer_id=i->second.tag_printer_id(options.is_lat);
         first_no=i->first.no;
         num=1;
       }
@@ -2018,6 +2015,10 @@ bool CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
 
     if (!p->second.first.pnr_addr.empty())
       body << ".L/" << convert_pnr_addr(p->second.first.pnr_addr,options.is_lat) << ENDL;
+
+    const TPaxKey& paxKey=p->first;
+    if (!paxKey.printer_id.empty())
+      body << ".T/" << paxKey.printer_id << ENDL;
   };
   partInfo.body = body.str();
 
