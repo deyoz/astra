@@ -23,17 +23,6 @@ std::string GetCustomsRegulCountry(const std::string &depend,
 
 void create_apis_task(const TTripTaskKey &task);
 
-#if !USE_NEW_CREATE_APIS
-
-// старая функция, а новая в apis_creator.h
-#if APIS_TEST
-bool create_apis_file(int point_id, const string& task_name, TApisTestMap* test_map = nullptr);
-#else
-bool create_apis_file(int point_id, const string& task_name);
-#endif
-
-#endif
-
 void create_apis_nosir_help(const char *name);
 int create_apis_nosir(int argc,char **argv);
 
