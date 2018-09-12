@@ -28,10 +28,11 @@ using namespace std;
 const string apis_test_text =
 "select 'mvd_czech_edi' AS dir, 'ESAPIS:ZZ' AS edi_addr, 'AIR EUROPA:UX' AS edi_own_addr, code AS format "
 "FROM apis_formats "
-"WHERE code<>'APPS_SITA' AND code<>'TEST' AND code<>'EDI_TR' "
+"WHERE code<>'APPS_SITA' AND code<>'TEST' "
 "ORDER BY format";
 
-int apis_test(int argc, char **argv);
+//int apis_test(int argc, char **argv);
+int apis_test_single(int argc, char **argv);
 
 #if USE_NEW_CREATE_APIS
 // замена старой функции
@@ -42,7 +43,7 @@ struct apis_test_key
 {
   int route_point_id;
   string format;
-  string ToString()
+  string ToString() const
   {
     ostringstream s;
     s << "route " << route_point_id << ", format \"" << format << "\"";
@@ -95,6 +96,27 @@ struct apis_test_value
   {
     return files.size() + text.size() + type.size() + file_params.size();
   }
+  string ToString() const
+  {
+    ostringstream f;
+    f << "FILES:" << endl;
+    for (const auto i : files)
+    {
+      f << i.first << endl;
+      f << i.second << endl;
+    }
+    f << "TEXT:" << endl;
+    f << text << endl;
+    f << "TYPE:" << endl;
+    f << type << endl;
+    f << "FILE_PARAMS:" << endl;
+    for (const auto i : file_params)
+    {
+      f << i.first << endl;
+      f << i.second << endl;
+    }
+    return f.str();
+  }
 };
 
 struct TApisTestMap : public map<apis_test_key, apis_test_value, apis_test_key_less>
@@ -102,6 +124,17 @@ struct TApisTestMap : public map<apis_test_key, apis_test_value, apis_test_key_l
   bool exception = false;
   string str_exception;
   apis_test_key try_key;
+  string ToString()
+  {
+    ostringstream s;
+    s << "TEST_MAP;"
+      << " EXCEPTION: " << exception
+      << " STRING: \"" << str_exception << "\""
+      << " TRY_KEY: " << try_key.ToString() << endl;
+    for (const auto i : *this)
+      s << i.first.ToString() << endl << i.second.ToString() << endl;
+    return s.str();
+  }
 };
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -289,11 +322,11 @@ struct TApisRouteData
 
 struct TApisDataset
 {
-#if APIS_TEST
-  bool FromDB(int point_id, const string& task_name, TApisTestMap* test_map);
-#else
-  bool FromDB(int point_id, const string& task_name);
-#endif
+//#if APIS_TEST
+  bool FromDB(int point_id, const string& task_name, TApisTestMap* test_map = nullptr);
+//#else
+//  bool FromDB(int point_id, const string& task_name);
+//#endif
   list<TApisRouteData> lstRouteData;
 
   // getters
