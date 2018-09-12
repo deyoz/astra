@@ -211,6 +211,23 @@ namespace BSM
 std::string TlgElemIdToElem(TElemType type, int id, bool pr_lat);
 std::string TlgElemIdToElem(TElemType type, std::string id, bool pr_lat);
 
+class TPaxKey
+{
+  public:
+    int reg_no;
+    std::string printer_id;
+
+    TPaxKey(int _reg_no, const std::string& _printer_id)
+      : reg_no(_reg_no), printer_id(_printer_id) {}
+
+    bool operator < (const TPaxKey &key) const
+    {
+      if (reg_no!=key.reg_no)
+        return reg_no < key.reg_no;
+      return printer_id < key.printer_id;
+    }
+};
+
 class TPaxItem
 {
   public:
