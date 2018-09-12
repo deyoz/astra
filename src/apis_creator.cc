@@ -15,11 +15,7 @@
 #define MAX_PAX_PER_EDI_PART 15
 #define MAX_LEN_OF_EDI_PART 3000
 
-//#if APIS_TEST
 bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* test_map)
-//#else
-//bool TApisDataset::FromDB(int point_id, const string& task_name)
-//#endif
 {
   try
   {
@@ -305,7 +301,7 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
   return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+//---------------------------------------------------------------------------------------
 
 bool omit_incomplete_apis(int point_id, const TApisPaxData& pax, const TAPISFormat& format)
 {
@@ -353,7 +349,7 @@ bool omit_incomplete_apis(int point_id, const TApisPaxData& pax, const TAPISForm
   return false;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+//---------------------------------------------------------------------------------------
 
 void CreateEdi( const TApisRouteData& route,
                 const TAPISFormat& format,
@@ -379,7 +375,7 @@ void CreateEdi( const TApisRouteData& route,
       paxlstInfo.setFax(format.ProcessPhoneFax(offices.begin()->fax));
     }
 
-    if (format.rule(_notSetSenderRecipient))
+    if (format.rule(r_notSetSenderRecipient))
     {
       paxlstInfo.setSenderCarrierCode(route.airline_code_lat());
     }
@@ -402,7 +398,7 @@ void CreateEdi( const TApisRouteData& route,
     }
 
     ostringstream flight;
-    if (!format.rule(_omitAirlineCode))
+    if (!format.rule(r_omitAirlineCode))
       flight << route.airline_code_lat();
     flight << route.flt_no << route.suffix;
     string iataCode;
@@ -426,7 +422,7 @@ void CreateEdi( const TApisRouteData& route,
     // LogTrace(TRACE5) << "iataCode \"" << iataCode << "\" type " << format.IataCodeType();
     paxlstInfo.setIataCode( iataCode );
 
-    if (format.rule(_setCarrier))
+    if (format.rule(r_setCarrier))
       paxlstInfo.setCarrier(route.airline_code_lat());
 
     paxlstInfo.setFlight(flight.str());
@@ -435,7 +431,7 @@ void CreateEdi( const TApisRouteData& route,
     paxlstInfo.setArrPort(route.airp_arv_code_lat());
     paxlstInfo.setArrDateTime(route.scd_in_local);
 
-    if (format.rule(_setFltLegs))
+    if (format.rule(r_setFltLegs))
     {
       FlightLegs legs;
       for (list<FlightlegDataset>::const_iterator iLeg = route.lstLegs.begin(); iLeg != route.lstLegs.end(); ++iLeg)
@@ -457,20 +453,20 @@ void CreateEdi( const TApisRouteData& route,
   {
     Paxlst::PassengerInfo paxInfo;
 
-    if (iPax->status==psCrew && !format.rule(_notOmitCrew))
+    if (iPax->status==psCrew && !format.rule(r_notOmitCrew))
       continue;
     if (iPax->status!=psCrew && !iPax->pr_brd && route.final_apis)
       continue;
     if (omit_incomplete_apis(route.dataset_point_id, *iPax, format))
       continue;
 
-    if (format.rule(_setPrBrd))
+    if (format.rule(r_setPrBrd))
       paxInfo.setPrBrd(iPax->pr_brd);
 
-    if (format.rule(_setGoShow))
+    if (format.rule(r_setGoShow))
       paxInfo.setGoShow(iPax->status==psGoshow);
 
-    if (format.rule(_setPersType))
+    if (format.rule(r_setPersType))
     {
       switch(iPax->pers_type)
       {
@@ -481,17 +477,17 @@ void CreateEdi( const TApisRouteData& route,
       }
     }
 
-    if (format.rule(_setTicketNumber))
+    if (format.rule(r_setTicketNumber))
       paxInfo.setTicketNumber(iPax->tkn.no);
 
-    if (format.rule(_setFqts))
+    if (format.rule(r_setFqts))
     {
       set<CheckIn::TPaxFQTItem> fqts;
       CheckIn::LoadPaxFQT(iPax->id, fqts);
       paxInfo.setFqts(fqts);
     }
 
-    if (format.rule(_addMarkFlt))
+    if (format.rule(r_addMarkFlt))
     {
       //Marketing flights
       TMktFlight mktflt;
@@ -516,13 +512,13 @@ void CreateEdi( const TApisRouteData& route,
       }
     }
 
-    if (format.rule(_setSeats))
+    if (format.rule(r_setSeats))
       paxInfo.setSeats(iPax->seats);
 
-    if (format.rule(_setBagCount) && iPax->amount)
+    if (format.rule(r_setBagCount) && iPax->amount)
       paxInfo.setBagCount(iPax->amount);
 
-    if (format.rule(_setBagWeight) && iPax->weight)
+    if (format.rule(r_setBagWeight) && iPax->weight)
       paxInfo.setBagWeight(iPax->weight);
 
     if (format.rule(r_bagTagSerials))
@@ -544,7 +540,7 @@ void CreateEdi( const TApisRouteData& route,
       doc_first_name = transliter(iPax->name,1,1);
     }
 
-    if (format.rule(_convertPaxNames))
+    if (format.rule(r_convertPaxNames))
       format.convert_pax_names(doc_first_name, doc_second_name);
 
     paxInfo.setSurname(doc_surname);
@@ -556,7 +552,7 @@ void CreateEdi( const TApisRouteData& route,
     if (iPax->doc.birth_date!=NoExists)
       paxInfo.setBirthDate(iPax->doc.birth_date);
 
-    if (format.rule(_setCBPPort) && format.NeedCBPPort(route.country_regul_dep))
+    if (format.rule(r_setCBPPort) && format.NeedCBPPort(route.country_regul_dep))
       paxInfo.setCBPPort(route.airp_cbp_code_lat());
 
     paxInfo.setDepPort(route.airp_dep_code_lat());
@@ -577,10 +573,10 @@ void CreateEdi( const TApisRouteData& route,
     if (!APIS::isValidDocType(format.fmt, iPax->status, doc_type))
       doc_type.clear();
 
-    if (!doc_type.empty() && format.rule(_processDocType))
+    if (!doc_type.empty() && format.rule(r_processDocType))
       doc_type = format.process_doc_type(doc_type);
 
-    if (format.rule(_processDocNumber))
+    if (format.rule(r_processDocNumber))
       doc_no = format.process_doc_no(doc_no);
 
     if (format.check_doc_type_no(doc_type, doc_no))
@@ -594,7 +590,7 @@ void CreateEdi( const TApisRouteData& route,
 
     paxInfo.setDocCountry(iPax->doc.issue_country);
 
-    if (format.rule(_docaD_US) && iPax->docaD)
+    if (format.rule(r_docaD_US) && iPax->docaD)
     {
       if (iPax->status!=psCrew && route.country_regul_dep!=US_CUSTOMS_CODE)
       {
@@ -607,10 +603,10 @@ void CreateEdi( const TApisRouteData& route,
       }
     }
 
-    if (format.rule(_setResidCountry) && iPax->docaR)
+    if (format.rule(r_setResidCountry) && iPax->docaR)
       paxInfo.setResidCountry(iPax->docaR.get().country);
 
-    if (format.rule(_docaR_US) && iPax->docaR)
+    if (format.rule(r_docaR_US) && iPax->docaR)
     {
       if (iPax->status!=psCrew && route.country_regul_dep!=US_CUSTOMS_CODE)
       {
@@ -627,17 +623,17 @@ void CreateEdi( const TApisRouteData& route,
       }
     }
 
-    if (format.rule(_setBirthCountry) && iPax->docaB)
+    if (format.rule(r_setBirthCountry) && iPax->docaB)
       paxInfo.setBirthCountry(iPax->docaB.get().country);
 
-    if (format.rule(_docaB_US) && iPax->docaB && iPax->status==psCrew)
+    if (format.rule(r_docaB_US) && iPax->docaB && iPax->status==psCrew)
     {
       paxInfo.setBirthCity(iPax->docaB.get().city);
       paxInfo.setBirthRegion(iPax->docaB.get().region);
       paxInfo.setBirthCountry(iPax->docaB.get().country);
     }
 
-    if (format.rule(_doco) && iPax->doco)
+    if (format.rule(r_doco) && iPax->doco)
     {
       paxInfo.setDocoType(iPax->doco_type_lat());
       paxInfo.setDocoNumber(iPax->doco.get().no);
@@ -651,7 +647,7 @@ void CreateEdi( const TApisRouteData& route,
   } // for iPax
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+//---------------------------------------------------------------------------------------
 
 void CreateEdiFile1(  const TApisRouteData& route,
                       const TAPISFormat& format,
@@ -674,12 +670,12 @@ void CreateEdiFile1(  const TApisRouteData& route,
       vector<string> parts;
       string file_extension;
 
-      if (format.rule(_fileExtTXT))
+      if (format.rule(r_fileExtTXT))
         file_extension="TXT";
       else
         file_extension=(pass==0?"FPM":"FCM");
 
-      if (format.rule(_fileSimplePush))
+      if (format.rule(r_fileSimplePush))
         parts.push_back(paxlstInfo.toEdiString());
       else
       {
@@ -700,7 +696,7 @@ void CreateEdiFile1(  const TApisRouteData& route,
       {
         ostringstream file_name;
         string lst_type;
-        if (format.rule(_lstTypeLetter))
+        if (format.rule(r_lstTypeLetter))
           lst_type=(pass==0?"_P":"_C");
         file_name << format.dir
                   << "/"
@@ -719,7 +715,7 @@ void CreateEdiFile1(  const TApisRouteData& route,
   } // for int pass
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+//---------------------------------------------------------------------------------------
 
 bool CreateEdiFile2(  const TApisRouteData& route,
                       const TAPISFormat& format,
@@ -733,7 +729,7 @@ bool CreateEdiFile2(  const TApisRouteData& route,
   int passengers_count = FPM.passengersList().size();
   int crew_count = FCM.passengersList().size();
   // сформируем файл
-  if ( format.rule(_file_XML_TR) && ( passengers_count || crew_count ))
+  if ( format.rule(r_file_XML_TR) && ( passengers_count || crew_count ))
   {
     XMLDoc doc;
     doc.set("FlightMessage");
@@ -751,7 +747,7 @@ bool CreateEdiFile2(  const TApisRouteData& route,
     text = GetXMLDocText(doc.docPtr());
     type = APIS_TR;
   }
-  else if ( format.rule(_file_LT) && passengers_count )
+  else if ( format.rule(r_file_LT) && passengers_count )
   {
     type = APIS_LT;
     text = FPM.toEdiString();
@@ -781,7 +777,7 @@ bool CreateEdiFile2(  const TApisRouteData& route,
   return result;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+//---------------------------------------------------------------------------------------
 
 void CreateTxt( const TApisRouteData& route,
                 const TAPISFormat& format,
@@ -792,7 +788,7 @@ void CreateTxt( const TApisRouteData& route,
         iPax != route.lstPaxData.end();
         ++iPax)
   {
-    if (iPax->status==psCrew && !format.rule(_notOmitCrew))
+    if (iPax->status==psCrew && !format.rule(r_notOmitCrew))
       continue;
     if (iPax->status!=psCrew && !iPax->pr_brd && route.final_apis)
       continue;
@@ -818,7 +814,7 @@ void CreateTxt( const TApisRouteData& route,
       pdf.doc_first_name = transliter(iPax->name,1,1);
     }
 
-    if (format.rule(_convertPaxNames))
+    if (format.rule(r_convertPaxNames))
       format.convert_pax_names(pdf.doc_first_name, pdf.doc_second_name);
 
     pdf.gender=format.Gender(iPax->gender);
@@ -829,40 +825,40 @@ void CreateTxt( const TApisRouteData& route,
     if (!APIS::isValidDocType(format.fmt, iPax->status, pdf.doc_type))
       pdf.doc_type.clear();
 
-    if (!pdf.doc_type.empty() && format.rule(_processDocType))
+    if (!pdf.doc_type.empty() && format.rule(r_processDocType))
       pdf.doc_type = format.process_doc_type(pdf.doc_type);
 
-    if (format.rule(_processDocNumber))
+    if (format.rule(r_processDocNumber))
       pdf.doc_no = format.process_doc_no(pdf.doc_no);
 
     pdf.nationality = iPax->doc.nationality;
     pdf.issue_country = iPax->doc.issue_country;
 
-    if (iPax->doc.birth_date!=NoExists && format.rule(_birth_date))
+    if (iPax->doc.birth_date!=NoExists && format.rule(r_birth_date))
       pdf.birth_date = DateTimeToStr(iPax->doc.birth_date, format.DateTimeFormat(), true);
 
-    if (iPax->doc.expiry_date!=NoExists && format.rule(_expiry_date))
+    if (iPax->doc.expiry_date!=NoExists && format.rule(r_expiry_date))
       pdf.expiry_date = DateTimeToStr(iPax->doc.expiry_date, format.DateTimeFormat(), true);
 
-    if (iPax->docaB && format.rule(_birth_country))
+    if (iPax->docaB && format.rule(r_birth_country))
       pdf.birth_country = iPax->docaB.get().country;
 
     pdf.trip_type = "N";
-    if (format.rule(_trip_type))
+    if (format.rule(r_trip_type))
         pdf.trip_type = getTripType(iPax->status, iPax->grp_id,
             format.direction(route.country_dep), format.apis_country());
 
     pdf.airp_final_lat = iPax->airp_final_lat;
     pdf.airp_final_code = iPax->airp_final_code;
 
-    if (format.rule(_airp_arv_code_lat))
+    if (format.rule(r_airp_arv_code_lat))
       pdf.airp_arv_code_lat = route.airp_arv_code_lat(); // throws
 
-    if (format.rule(_airp_dep_code_lat))
+    if (format.rule(r_airp_dep_code_lat))
       pdf.airp_dep_code_lat = route.airp_dep_code_lat(); // throws
 
     // doco
-    if (iPax->doco && format.rule(_doco))
+    if (iPax->doco && format.rule(r_doco))
     {
       pdf.doco_exists = iPax->doco != boost::none;
       pdf.doco_type = iPax->doco_type_lat(); // throws
@@ -876,13 +872,9 @@ void CreateTxt( const TApisRouteData& route,
   tdf.count_overall = count;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+//---------------------------------------------------------------------------------------
 
-//#if APIS_TEST
 bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullptr)
-//#else
-//bool CreateApisFiles(const TApisDataset& dataset)
-//#endif
 {
 #if APIS_TEST
   if (test_map == nullptr)
@@ -901,9 +893,9 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
         boost::scoped_ptr<const TAPISFormat> pFormat(SpawnAPISFormat(*iApis));
         // https://stackoverflow.com/questions/6718538/does-boostscoped-ptr-violate-the-guideline-of-logical-constness
 
-        if ((iRoute->task_name==ON_CLOSE_CHECKIN && !pFormat->rule(_create_ON_CLOSE_CHECKIN)) ||
-            (iRoute->task_name==ON_CLOSE_BOARDING && !pFormat->rule(_create_ON_CLOSE_BOARDING)) ||
-            (iRoute->task_name==ON_TAKEOFF && pFormat->rule(_skip_ON_TAKEOFF)))
+        if ((iRoute->task_name==ON_CLOSE_CHECKIN && !pFormat->rule(r_create_ON_CLOSE_CHECKIN)) ||
+            (iRoute->task_name==ON_CLOSE_BOARDING && !pFormat->rule(r_create_ON_CLOSE_BOARDING)) ||
+            (iRoute->task_name==ON_TAKEOFF && pFormat->rule(r_skip_ON_TAKEOFF)))
           continue;
 
         string lst_type_extra = pFormat->lst_type_extra(iRoute->final_apis);
@@ -922,21 +914,21 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
 
         switch (pFormat->format_type)
         {
-          case _format_edi:
+          case t_format_edi:
             CreateEdi(*iRoute, *pFormat, FPM, FCM);
             switch (pFormat->file_rule)
             {
-              case _file_rule_1:
+              case r_file_rule_1:
                 CreateEdiFile1(*iRoute, *pFormat, FPM, FCM, files);
                 break;
-              case _file_rule_2:
+              case r_file_rule_2:
                 result = CreateEdiFile2(*iRoute, *pFormat, FPM, FCM, text, type, file_params);
                 break;
               default:
                 break;
             }
             break;
-          case _format_txt:
+          case t_format_txt:
             CreateTxt(*iRoute, *pFormat, tdf);
             pFormat->CreateTxtBodies(tdf, body, paxs_body, crew_body);
             if (iRoute->task_name.empty() ||
@@ -947,7 +939,7 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
               pFormat->CreateHeaders(*iRoute, header, pax_header, crew_header, crew_body, tdf.count_overall);
               switch (pFormat->file_rule)
               {
-                case _file_rule_txt_AE_TH:
+                case r_file_rule_txt_AE_TH:
                   if ( !paxs_body.str().empty() && !pax_header.str().empty() )
                   {
                     ostringstream paxs;
@@ -963,7 +955,7 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
                     files.push_back( make_pair( file_name + pFormat->NameTrailCrew_AE_TH(), crew.str() ) );
                   }
                   break;
-                case _file_rule_txt_common:
+                case r_file_rule_txt_common:
                   if(!file_name.empty() && !header.str().empty() && !body.str().empty())
                     files.push_back( make_pair(file_name, string(header.str()).append(body.str())) );
                   break;
@@ -982,9 +974,6 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
 #else
         if (!files.empty())
         {
-#if APIS_TEST_CREATE_FILES
-          LogTrace(TRACE5) << "CREATING FILES ON DISK \"" << pFormat->fmt << "\"";
-#endif
           for(vector< pair<string, string> >::const_iterator iFile=files.begin();iFile!=files.end();++iFile)
           {
             ofstream f;
@@ -1028,21 +1017,17 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
   return result;
 }
 
-#if USE_NEW_CREATE_APIS
-// замена старой функции
+//---------------------------------------------------------------------------------------
+
 bool create_apis_file(int point_id, const string& task_name)
-#else
-bool CreateApisFiles(int point_id, const string& task_name)
-#endif
 {
   TApisDataset dataset;
   if (!dataset.FromDB(point_id, task_name))
     return false;
-  bool result = CreateApisFiles(dataset);
-    return result;
+  return CreateApisFiles(dataset);
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+//---------------------------------------------------------------------------------------
 
 void WriteCmpFile(ofstream& f, const apis_test_value& v)
 {
@@ -1114,7 +1099,7 @@ string TruncExceptionString(const string& s)
     return "";
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+//---------------------------------------------------------------------------------------
 
 int apis_test_single(int argc, char **argv)
 {
@@ -1315,19 +1300,6 @@ int apis_test(int argc, char **argv)
       }
       LogTrace(TRACE5) << "OVERALL " << cnt << ", empty " << cnt_empty
                         << ", equal " << cnt_eq << ", different " << cnt_dif;
-#else
-
-#if APIS_TEST_CREATE_FILES
-      try
-      {
-        CreateApisFiles(point_id, task_name);
-      }
-      catch (std::exception& E)
-      {
-        LogTrace(TRACE5) << "EXCEPTION: " << E.what();
-      }
-#endif
-
 #endif
     } // for (string task_name : lst_task_name)
   } // for (int point_id : lst_point_id)
