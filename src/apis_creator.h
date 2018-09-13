@@ -34,10 +34,7 @@ const string apis_test_text =
 //int apis_test(int argc, char **argv);
 int apis_test_single(int argc, char **argv);
 
-#if USE_NEW_CREATE_APIS
-// замена старой функции
 bool create_apis_file(int point_id, const string& task_name);
-#endif
 
 struct apis_test_key
 {
@@ -137,7 +134,7 @@ struct TApisTestMap : public map<apis_test_key, apis_test_value, apis_test_key_l
   }
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////
+//---------------------------------------------------------------------------------------
 // from apis.cc TODO потом убрать все дубликаты
 
 class TAirlineOfficeInfo
@@ -153,8 +150,7 @@ void GetAirlineOfficeInfo(const string &airline,
                           const string &airp,
                           list<TAirlineOfficeInfo> &offices);
 
-/////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////
+//---------------------------------------------------------------------------------------
 
 struct TApisPaxData : public CheckIn::TSimplePaxItem
 {
@@ -322,11 +318,7 @@ struct TApisRouteData
 
 struct TApisDataset
 {
-//#if APIS_TEST
   bool FromDB(int point_id, const string& task_name, TApisTestMap* test_map = nullptr);
-//#else
-//  bool FromDB(int point_id, const string& task_name);
-//#endif
   list<TApisRouteData> lstRouteData;
 
   // getters
@@ -344,8 +336,7 @@ struct TApisDataset
   }
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////
+//---------------------------------------------------------------------------------------
 
 string NormalizeDocNo(const string& str, bool try_keep_only_digits); // apis.cc
 
@@ -354,72 +345,72 @@ enum TApisRule
   // TODO убрать названия форматов из правил
 
   // PaxlstInfo
-  _notSetSenderRecipient, // edi // tr
-  _omitAirlineCode, // edi // tr // TODO переделать получше
-  _setCarrier, // edi // для всех edi?
-  _setFltLegs, // edi // tr
+  r_notSetSenderRecipient, // edi // tr
+  r_omitAirlineCode, // edi // tr // TODO переделать получше
+  r_setCarrier, // edi // для всех edi?
+  r_setFltLegs, // edi // tr
 
   // PassengerInfo
-  _notOmitCrew, // edi
-  _setPrBrd, // edi // tr
-  _setGoShow, // edi // tr
-  _setPersType, // edi // tr
-  _setTicketNumber, // edi // tr
-  _setFqts, // edi // tr
-  _addMarkFlt, // edi // tr
-  _setSeats, // edi
-  _setBagCount, // edi
-  _setBagWeight, // edi
+  r_notOmitCrew, // edi
+  r_setPrBrd, // edi // tr
+  r_setGoShow, // edi // tr
+  r_setPersType, // edi // tr
+  r_setTicketNumber, // edi // tr
+  r_setFqts, // edi // tr
+  r_addMarkFlt, // edi // tr
+  r_setSeats, // edi
+  r_setBagCount, // edi
+  r_setBagWeight, // edi
   r_bagTagSerials,
-  _convertPaxNames, // edi
-  _setCBPPort, // edi // только для US? (LOC 22)
-  _processDocType, // edi
-  _processDocNumber, // edi
-  _docaD_US, // edi
-  _setResidCountry, // edi
-  _docaR_US, // edi
-  _setBirthCountry, // edi
-  _docaB_US, // edi
+  r_convertPaxNames, // edi
+  r_setCBPPort, // edi // только для US? (LOC 22)
+  r_processDocType, // edi
+  r_processDocNumber, // edi
+  r_docaD_US, // edi
+  r_setResidCountry, // edi
+  r_docaR_US, // edi
+  r_setBirthCountry, // edi
+  r_docaB_US, // edi
 
   // creation
-  _create_ON_CLOSE_CHECKIN,
-  _create_ON_CLOSE_BOARDING,
-  _skip_ON_TAKEOFF,
+  r_create_ON_CLOSE_CHECKIN,
+  r_create_ON_CLOSE_BOARDING,
+  r_skip_ON_TAKEOFF,
 
   // file
-  _fileExtTXT, // edi
-  _fileSimplePush, // edi
-  _lstTypeLetter, // edi
-  _file_XML_TR, // edi
-  _file_LT, // edi
+  r_fileExtTXT, // edi
+  r_fileSimplePush, // edi
+  r_lstTypeLetter, // edi
+  r_file_XML_TR, // edi
+  r_file_LT, // edi
 
   // txt & csv
-  _birth_date,
-  _expiry_date,
-  _birth_country, // TODO _setBirthCountry
-  _trip_type,
-  _airp_arv_code_lat,
-  _airp_dep_code_lat,
+  r_birth_date,
+  r_expiry_date,
+  r_birth_country, // TODO r_setBirthCountry
+  r_trip_type,
+  r_airp_arv_code_lat,
+  r_airp_dep_code_lat,
 
   //  ВИЗА
-  _doco,
+  r_doco,
 };
 
 enum TApisFileRule
 {
-  _file_rule_undef,
-  _file_rule_1,
-  _file_rule_2,
-  _file_rule_txt_AE_TH,
-  _file_rule_txt_common,
+  r_file_rule_undef,
+  r_file_rule_1,
+  r_file_rule_2,
+  r_file_rule_txt_AE_TH,
+  r_file_rule_txt_common,
 };
 
 enum TApisFormatType
 {
-  _format_undef,
-  _format_edi,
-  _format_txt,
-  _format_apps,
+  t_format_undef,
+  t_format_edi,
+  t_format_txt,
+  t_format_apps,
 };
 
 enum TIataCodeType
@@ -464,6 +455,7 @@ struct TTxtDataFormatted
   list<TPaxDataFormatted> lstPaxData;
 };
 
+//---------------------------------------------------------------------------------------
 
 const string ENDL = "\r\n";
 
@@ -483,8 +475,8 @@ struct TAPISFormat
   virtual bool CheckDocoIssueCountry(string country) { return true; }
   TAPISFormat()
   {
-    file_rule = _file_rule_undef;
-    format_type = _format_undef;
+    file_rule = r_file_rule_undef;
+    format_type = t_format_undef;
   }
   virtual ~TAPISFormat() {}
 
@@ -627,7 +619,7 @@ struct TEdiAPISFormat : public TAPISFormat
 {
   TEdiAPISFormat()
   {
-    format_type = _format_edi;
+    format_type = t_format_edi;
   }
   bool check_doc_type_no(const string& doc_type, const string& doc_no) const
   {
@@ -643,7 +635,7 @@ struct TTxtApisFormat : public TAPISFormat
 {
   TTxtApisFormat()
   {
-    format_type = _format_txt;
+    format_type = t_format_txt;
   }
 };
 
@@ -651,17 +643,19 @@ struct TAppsSitaFormat : public TAPISFormat
 {
   TAppsSitaFormat()
   {
-    format_type = _format_apps;
+    format_type = t_format_apps;
   }
 };
+
+//---------------------------------------------------------------------------------------
 
 struct TAPISFormat_CSV_CZ : public TTxtApisFormat
 {
   TAPISFormat_CSV_CZ()
   {
-    add_rule(_birth_date);
-    add_rule(_expiry_date);
-    file_rule = _file_rule_txt_common;
+    add_rule(r_birth_date);
+    add_rule(r_expiry_date);
+    file_rule = r_file_rule_txt_common;
   }
   long int required_fields(TPaxType pax, TAPIType api) const
   {
@@ -718,10 +712,10 @@ struct TAPISFormat_EDI_CZ : public TEdiAPISFormat
 {
   TAPISFormat_EDI_CZ()
   {
-    add_rule(_processDocNumber);
-    add_rule(_fileExtTXT);
-    add_rule(_fileSimplePush);
-    file_rule = _file_rule_1;
+    add_rule(r_processDocNumber);
+    add_rule(r_fileExtTXT);
+    add_rule(r_fileSimplePush);
+    file_rule = r_file_rule_1;
   }
   long int required_fields(TPaxType pax, TAPIType api) const
   {
@@ -736,10 +730,10 @@ struct TAPISFormat_EDI_CN : public TEdiAPISFormat
 {
   TAPISFormat_EDI_CN()
   {
-    add_rule(_convertPaxNames);
-    add_rule(_processDocNumber);
-    add_rule(_notOmitCrew);
-    file_rule = _file_rule_1;
+    add_rule(r_convertPaxNames);
+    add_rule(r_processDocNumber);
+    add_rule(r_notOmitCrew);
+    file_rule = r_file_rule_1;
   }
   long int required_fields(TPaxType pax, TAPIType api) const
   {
@@ -761,10 +755,10 @@ struct TAPISFormat_EDI_IN : public TEdiAPISFormat
 {
   TAPISFormat_EDI_IN()
   {
-    add_rule(_setCarrier);
-    add_rule(_notOmitCrew);
-    add_rule(_processDocNumber);
-    file_rule = _file_rule_1;
+    add_rule(r_setCarrier);
+    add_rule(r_notOmitCrew);
+    add_rule(r_processDocNumber);
+    file_rule = r_file_rule_1;
   }
   long int required_fields(TPaxType pax, TAPIType api) const
   {
@@ -782,14 +776,14 @@ struct TAPISFormat_EDI_US : public TEdiAPISFormat
 {
   TAPISFormat_EDI_US()
   {
-    add_rule(_setCBPPort);
-    add_rule(_docaD_US);
-    add_rule(_docaR_US);
-    add_rule(_docaB_US);
-    add_rule(_setCarrier);
-    add_rule(_notOmitCrew);
-    add_rule(_processDocNumber);
-    file_rule = _file_rule_1;
+    add_rule(r_setCBPPort);
+    add_rule(r_docaD_US);
+    add_rule(r_docaR_US);
+    add_rule(r_docaB_US);
+    add_rule(r_setCarrier);
+    add_rule(r_notOmitCrew);
+    add_rule(r_processDocNumber);
+    file_rule = r_file_rule_1;
   }
   long int required_fields(TPaxType pax, TAPIType api) const
   {
@@ -811,14 +805,14 @@ struct TAPISFormat_EDI_USBACK : public TEdiAPISFormat
 {
   TAPISFormat_EDI_USBACK()
   {
-    add_rule(_setCBPPort);
-    add_rule(_docaD_US);
-    add_rule(_docaR_US);
-    add_rule(_docaB_US);
-    add_rule(_setCarrier);
-    add_rule(_notOmitCrew);
-    add_rule(_processDocNumber);
-    file_rule = _file_rule_1;
+    add_rule(r_setCBPPort);
+    add_rule(r_docaD_US);
+    add_rule(r_docaR_US);
+    add_rule(r_docaB_US);
+    add_rule(r_setCarrier);
+    add_rule(r_notOmitCrew);
+    add_rule(r_processDocNumber);
+    file_rule = r_file_rule_1;
   }
   long int required_fields(TPaxType pax, TAPIType api) const
   {
@@ -840,11 +834,11 @@ struct TAPISFormat_EDI_UK : public TEdiAPISFormat
 {
   TAPISFormat_EDI_UK()
   {
-    add_rule(_setCarrier);
-    add_rule(_notOmitCrew);
-    add_rule(_processDocNumber);
-    add_rule(_create_ON_CLOSE_CHECKIN);
-    file_rule = _file_rule_1;
+    add_rule(r_setCarrier);
+    add_rule(r_notOmitCrew);
+    add_rule(r_processDocNumber);
+    add_rule(r_create_ON_CLOSE_CHECKIN);
+    file_rule = r_file_rule_1;
   }
   long int required_fields(TPaxType pax, TAPIType api) const
   {
@@ -865,10 +859,10 @@ struct TAPISFormat_EDI_ES : public TEdiAPISFormat
 {
   TAPISFormat_EDI_ES()
   {
-    add_rule(_setCarrier);
-    add_rule(_notOmitCrew);
-    add_rule(_processDocNumber);
-    file_rule = _file_rule_1;
+    add_rule(r_setCarrier);
+    add_rule(r_notOmitCrew);
+    add_rule(r_processDocNumber);
+    file_rule = r_file_rule_1;
   }
   long int required_fields(TPaxType pax, TAPIType api) const
   {
@@ -887,13 +881,13 @@ struct TAPISFormat_EDI_DE : public TEdiAPISFormat
 
   TAPISFormat_EDI_DE()
   {
-    add_rule(_setCarrier);
-    add_rule(_convertPaxNames);
-    add_rule(_setCBPPort); // УТОЧНИТЬ!
-    add_rule(_processDocType); // уточнить
-    add_rule(_processDocNumber); // уточнить
-    add_rule(_doco); // ВИЗА!!!
-    file_rule = _file_rule_1;
+    add_rule(r_setCarrier);
+    add_rule(r_convertPaxNames);
+    add_rule(r_setCBPPort); // УТОЧНИТЬ!
+    add_rule(r_processDocType); // уточнить
+    add_rule(r_processDocNumber); // уточнить
+    add_rule(r_doco); // ВИЗА!!!
+    file_rule = r_file_rule_1;
   }
   long int required_fields(TPaxType pax, TAPIType api) const
   {
@@ -923,19 +917,18 @@ struct TAPISFormat_EDI_DE : public TEdiAPISFormat
     return NormalizeDocNo(no, false);
   }
 };
-///////////////////////////////////////////////////
 
 struct TAPISFormat_CSV_DE : public TTxtApisFormat
 {
   TAPISFormat_CSV_DE()
   {
-    add_rule(_convertPaxNames);
-    add_rule(_processDocType);
-    add_rule(_birth_date);
-    add_rule(_airp_arv_code_lat);
-    add_rule(_airp_dep_code_lat);
-    add_rule(_doco);
-    file_rule = _file_rule_txt_common;
+    add_rule(r_convertPaxNames);
+    add_rule(r_processDocType);
+    add_rule(r_birth_date);
+    add_rule(r_airp_arv_code_lat);
+    add_rule(r_airp_dep_code_lat);
+    add_rule(r_doco);
+    file_rule = r_file_rule_txt_common;
   }
   long int required_fields(TPaxType pax, TAPIType api) const
   {
@@ -1010,11 +1003,11 @@ struct TAPISFormat_TXT_EE : public TTxtApisFormat
 {
   TAPISFormat_TXT_EE()
   {
-    add_rule(_convertPaxNames);
-    add_rule(_processDocType);
-    add_rule(_birth_date);
-    add_rule(_doco);
-    file_rule = _file_rule_txt_common;
+    add_rule(r_convertPaxNames);
+    add_rule(r_processDocType);
+    add_rule(r_birth_date);
+    add_rule(r_doco);
+    file_rule = r_file_rule_txt_common;
   }
   long int required_fields(TPaxType pax, TAPIType api) const
   {
@@ -1108,25 +1101,25 @@ struct TAPISFormat_XML_TR : public TEdiAPISFormat
 {
   TAPISFormat_XML_TR()
   {
-    add_rule(_setPrBrd);
-    add_rule(_setGoShow);
-    add_rule(_setPersType);
-    add_rule(_setTicketNumber);
-    add_rule(_setFqts);
-    add_rule(_addMarkFlt);
-    add_rule(_setSeats);
-    add_rule(_convertPaxNames);
-    add_rule(_docaD_US);
-    add_rule(_setResidCountry);
-    add_rule(_setBirthCountry);
-    add_rule(_notSetSenderRecipient);
-    add_rule(_omitAirlineCode);
-    add_rule(_setCarrier);
-    add_rule(_notOmitCrew);
-    add_rule(_file_XML_TR);
-    add_rule(_setFltLegs);
-    add_rule(_create_ON_CLOSE_CHECKIN);
-    file_rule = _file_rule_2;
+    add_rule(r_setPrBrd);
+    add_rule(r_setGoShow);
+    add_rule(r_setPersType);
+    add_rule(r_setTicketNumber);
+    add_rule(r_setFqts);
+    add_rule(r_addMarkFlt);
+    add_rule(r_setSeats);
+    add_rule(r_convertPaxNames);
+    add_rule(r_docaD_US);
+    add_rule(r_setResidCountry);
+    add_rule(r_setBirthCountry);
+    add_rule(r_notSetSenderRecipient);
+    add_rule(r_omitAirlineCode);
+    add_rule(r_setCarrier);
+    add_rule(r_notOmitCrew);
+    add_rule(r_file_XML_TR);
+    add_rule(r_setFltLegs);
+    add_rule(r_create_ON_CLOSE_CHECKIN);
+    file_rule = r_file_rule_2;
   }
   long int required_fields(TPaxType pax, TAPIType api) const
   {
@@ -1148,14 +1141,14 @@ struct TAPISFormat_EDI_TR : public TEdiAPISFormat
 {
   TAPISFormat_EDI_TR()
   {
-    add_rule(_convertPaxNames);
-    add_rule(_processDocNumber);
-    add_rule(_notOmitCrew);
-    add_rule(_setSeats);
-    add_rule(_setCBPPort);
-    add_rule(_setBagCount); // уточнить
+    add_rule(r_convertPaxNames);
+    add_rule(r_processDocNumber);
+    add_rule(r_notOmitCrew);
+    add_rule(r_setSeats);
+    add_rule(r_setCBPPort);
+    add_rule(r_setBagCount); // уточнить
     add_rule(r_bagTagSerials); // номера бирок: FTX+BAG
-    file_rule = _file_rule_1;
+    file_rule = r_file_rule_1;
   }
   long int required_fields(TPaxType pax, TAPIType api) const
   {
@@ -1179,13 +1172,13 @@ struct TAPISFormat_CSV_AE : public TTxtApisFormat
 {
   TAPISFormat_CSV_AE()
   {
-    add_rule(_convertPaxNames);
-    add_rule(_processDocType);
-    add_rule(_notOmitCrew);
-    add_rule(_birth_date);
-    add_rule(_expiry_date);
-    add_rule(_trip_type);
-    file_rule = _file_rule_txt_AE_TH;
+    add_rule(r_convertPaxNames);
+    add_rule(r_processDocType);
+    add_rule(r_notOmitCrew);
+    add_rule(r_birth_date);
+    add_rule(r_expiry_date);
+    add_rule(r_trip_type);
+    file_rule = r_file_rule_txt_AE_TH;
   }
   long int required_fields(TPaxType pax, TAPIType api) const
   {
@@ -1256,11 +1249,11 @@ struct TAPISFormat_EDI_LT : public TEdiAPISFormat
 {
   TAPISFormat_EDI_LT()
   {
-    add_rule(_file_LT);
-    add_rule(_processDocNumber);
-    add_rule(_create_ON_CLOSE_BOARDING);
-    add_rule(_skip_ON_TAKEOFF);
-    file_rule = _file_rule_2;
+    add_rule(r_file_LT);
+    add_rule(r_processDocNumber);
+    add_rule(r_create_ON_CLOSE_BOARDING);
+    add_rule(r_skip_ON_TAKEOFF);
+    file_rule = r_file_rule_2;
   }
   long int required_fields(TPaxType pax, TAPIType api) const
   {
@@ -1275,14 +1268,14 @@ struct TAPISFormat_CSV_TH : public TTxtApisFormat
 {
   TAPISFormat_CSV_TH()
   {
-    add_rule(_convertPaxNames);
-    add_rule(_processDocType);
-    add_rule(_notOmitCrew);
-    add_rule(_birth_date);
-    add_rule(_expiry_date);
-    add_rule(_birth_country);
-    add_rule(_trip_type);
-    file_rule = _file_rule_txt_AE_TH;
+    add_rule(r_convertPaxNames);
+    add_rule(r_processDocType);
+    add_rule(r_notOmitCrew);
+    add_rule(r_birth_date);
+    add_rule(r_expiry_date);
+    add_rule(r_birth_country);
+    add_rule(r_trip_type);
+    file_rule = r_file_rule_txt_AE_TH;
   }
   long int required_fields(TPaxType pax, TAPIType api) const
   {
@@ -1354,12 +1347,12 @@ struct TAPISFormat_EDI_KR : public TEdiAPISFormat
 {
   TAPISFormat_EDI_KR()
   {
-    add_rule(_setCarrier);
-    add_rule(_notOmitCrew);
-    add_rule(_processDocNumber);
-    add_rule(_fileExtTXT);
-    add_rule(_lstTypeLetter);
-    file_rule = _file_rule_1;
+    add_rule(r_setCarrier);
+    add_rule(r_notOmitCrew);
+    add_rule(r_processDocNumber);
+    add_rule(r_fileExtTXT);
+    add_rule(r_lstTypeLetter);
+    file_rule = r_file_rule_1;
   }
   long int required_fields(TPaxType pax, TAPIType api) const
   {
@@ -1392,15 +1385,15 @@ struct TAPISFormat_EDI_AZ : public TEdiAPISFormat
 {
   TAPISFormat_EDI_AZ()
   {
-    add_rule(_setSeats);
-    add_rule(_setBagCount);
-    add_rule(_setBagWeight);
-    add_rule(_setCarrier);
-    add_rule(_notOmitCrew);
-    add_rule(_processDocNumber);
-    add_rule(_create_ON_CLOSE_CHECKIN);
-    add_rule(_skip_ON_TAKEOFF);
-    file_rule = _file_rule_1;
+    add_rule(r_setSeats);
+    add_rule(r_setBagCount);
+    add_rule(r_setBagWeight);
+    add_rule(r_setCarrier);
+    add_rule(r_notOmitCrew);
+    add_rule(r_processDocNumber);
+    add_rule(r_create_ON_CLOSE_CHECKIN);
+    add_rule(r_skip_ON_TAKEOFF);
+    file_rule = r_file_rule_1;
   }
   long int required_fields(TPaxType pax, TAPIType api) const
   {
@@ -1414,7 +1407,7 @@ struct TAPISFormat_EDI_AZ : public TEdiAPISFormat
   string mesRelNum() const { return "05B"; }
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////
+//---------------------------------------------------------------------------------------
 
 struct TAPPSVersion21 : public TAppsSitaFormat
 {
@@ -1445,33 +1438,32 @@ struct TAPPSVersion26 : public TAppsSitaFormat
   }
 };
 
-/////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////
+//---------------------------------------------------------------------------------------
 
 inline TAPISFormat* SpawnAPISFormat(const string& fmt)
 {
   TAPISFormat* p = nullptr;
-  if (fmt=="CSV_CZ")      p = new TAPISFormat_CSV_CZ;
-  if (fmt=="EDI_CZ")      p = new TAPISFormat_EDI_CZ;
-  if (fmt=="EDI_CN")      p = new TAPISFormat_EDI_CN;
-  if (fmt=="EDI_IN")      p = new TAPISFormat_EDI_IN;
-  if (fmt=="EDI_US")      p = new TAPISFormat_EDI_US;
-  if (fmt=="EDI_USBACK")  p = new TAPISFormat_EDI_USBACK;
-  if (fmt=="EDI_UK")      p = new TAPISFormat_EDI_UK;
-  if (fmt=="EDI_ES")      p = new TAPISFormat_EDI_ES;
-  if (fmt=="CSV_DE")      p = new TAPISFormat_CSV_DE;
-  if (fmt=="TXT_EE")      p = new TAPISFormat_TXT_EE;
-  if (fmt=="XML_TR")      p = new TAPISFormat_XML_TR;
-  if (fmt=="CSV_AE")      p = new TAPISFormat_CSV_AE;
-  if (fmt=="EDI_LT")      p = new TAPISFormat_EDI_LT;
-  if (fmt=="CSV_TH")      p = new TAPISFormat_CSV_TH;
-  if (fmt=="EDI_KR")      p = new TAPISFormat_EDI_KR;
-  if (fmt=="APPS_SITA")   p = new TAPISFormat_APPS_SITA; // TODO remove
-  if (fmt=="EDI_AZ")      p = new TAPISFormat_EDI_AZ;
-  if (fmt=="EDI_DE")      p = new TAPISFormat_EDI_DE;
-  if (fmt=="EDI_TR")      p = new TAPISFormat_EDI_TR;
+  if (fmt=="CSV_CZ")      p = new TAPISFormat_CSV_CZ; else
+  if (fmt=="EDI_CZ")      p = new TAPISFormat_EDI_CZ; else
+  if (fmt=="EDI_CN")      p = new TAPISFormat_EDI_CN; else
+  if (fmt=="EDI_IN")      p = new TAPISFormat_EDI_IN; else
+  if (fmt=="EDI_US")      p = new TAPISFormat_EDI_US; else
+  if (fmt=="EDI_USBACK")  p = new TAPISFormat_EDI_USBACK; else
+  if (fmt=="EDI_UK")      p = new TAPISFormat_EDI_UK; else
+  if (fmt=="EDI_ES")      p = new TAPISFormat_EDI_ES; else
+  if (fmt=="CSV_DE")      p = new TAPISFormat_CSV_DE; else
+  if (fmt=="TXT_EE")      p = new TAPISFormat_TXT_EE; else
+  if (fmt=="XML_TR")      p = new TAPISFormat_XML_TR; else
+  if (fmt=="CSV_AE")      p = new TAPISFormat_CSV_AE; else
+  if (fmt=="EDI_LT")      p = new TAPISFormat_EDI_LT; else
+  if (fmt=="CSV_TH")      p = new TAPISFormat_CSV_TH; else
+  if (fmt=="EDI_KR")      p = new TAPISFormat_EDI_KR; else
+  if (fmt=="APPS_SITA")   p = new TAPISFormat_APPS_SITA; else // TODO remove
+  if (fmt=="EDI_AZ")      p = new TAPISFormat_EDI_AZ; else
+  if (fmt=="EDI_DE")      p = new TAPISFormat_EDI_DE; else
+  if (fmt=="EDI_TR")      p = new TAPISFormat_EDI_TR; else
 
-  if (fmt=="APPS_21")     p = new TAPPSVersion21;
+  if (fmt=="APPS_21")     p = new TAPPSVersion21; else
   if (fmt=="APPS_26")     p = new TAPPSVersion26;
 
   if (p == nullptr) throw Exception("SpawnAPISFormat: unhandled format %s", fmt.c_str());
@@ -1487,28 +1479,5 @@ inline TAPISFormat* SpawnAPISFormat(const TApisSetsData& sd)
   p->dir = sd.dir;
   return p;
 }
-
-// text formats
-// CSV_CZ     // 1
-// CSV_DE     // 2
-// TXT_EE     // 3
-// CSV_AE     // 4
-// CSV_TH     // 5
-
-// EDI formats
-// EDI_CZ     // 1
-// EDI_CN     // 2
-// EDI_IN     // 3
-// EDI_US     // 4
-// EDI_USBACK // 5
-// EDI_UK     // 6
-// EDI_ES     // 7
-// XML_TR     // 8
-// EDI_LT     // 9
-// EDI_KR     // 10
-// EDI_AZ     // 11
-
-// other
-// APPS_SITA  //  1
 
 #endif // APIS_CREATOR_H
