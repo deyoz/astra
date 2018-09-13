@@ -119,7 +119,7 @@ const
     {"-prn_tags",               prn_tags,               NULL,                       NULL},
     {"-kuf_fix",                KUF_STAT::fix,          NULL,                       NULL},
     {"-stat_belgorod",          stat_belgorod,          NULL,                       NULL},
-    {"-apis_test",              apis_test,              NULL,                       NULL},
+    {"-apis_test",              apis_test_single,              NULL,                       NULL},
     {"-db_pkg",                 db_pkg,                 NULL,                       NULL},
     {"-rbd_test",               rbd_test,               NULL,                       NULL},
     {"-lci_data",               TypeB::lci_data,               NULL,                       NULL},

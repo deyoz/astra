@@ -33,7 +33,7 @@ void FlightLegs::FlightLegstoXML(xmlNodePtr FlightLegsNode) const {
      iter->toXML(FlightLegsNode);
 }
 
-void FlightLegs::FillLocQualifier() 
+void FlightLegs::FillLocQualifier()
 {
   /* Code set:
   87 : airport initial arrival in target country.
@@ -44,27 +44,27 @@ void FlightLegs::FillLocQualifier()
   bool change_flag = false;
   std::vector<FlightLeg>::reverse_iterator previous, next;
 
-  for (previous=rbegin(), (next=rbegin())++; next!=rend(); previous++, next++) 
+  for (previous=rbegin(), (next=rbegin())++; next!=rend(); previous++, next++)
   {
-    if (previous==rbegin()) 
+    if (previous==rbegin())
       target_country = previous->Country();
 
-    if(change_flag) 
+    if(change_flag)
       next->setLocQualifier(92);
     else
 
-      if (previous->Country() != next->Country() && previous->Country() == target_country) 
+      if (previous->Country() != next->Country() && previous->Country() == target_country)
       {
         previous->setLocQualifier(87);
         next->setLocQualifier(125);
         change_flag = true;
       }
-      else 
+      else
       {
         next->setLocQualifier(87); // исправлено APIS_TEST
         if (previous==rbegin())
           previous->setLocQualifier(130);
-        else 
+        else
           previous->setLocQualifier(92);
       }
   }
@@ -72,29 +72,26 @@ void FlightLegs::FillLocQualifier()
 
 const std::string generate_envelope_id (const std::string& airl)
 {
+#if APIS_TEST
+  return airl + std::string("-") + std::string("TEST_ENVELOPE_ID");
+#endif
   boost::uuids::uuid uuid = boost::uuids::random_generator()();
   std::stringstream ss;
   ss << uuid;
-  std::string res = airl + std::string("-") + ss.str();
-#if APIS_TEST
-  return airl + std::string("-") + std::string("TEST_ENVELOPE_ID");
-#else  
   return airl + std::string("-") + ss.str();
-#endif  
 }
 
 const std::string get_msg_identifier ()
 {
+#if APIS_TEST
+  return "TEST_MSG_ID";
+#endif
   TQuery Qry(&OraSession);
   Qry.SQLText = "SELECT apis_id__seq.nextval vid FROM dual";
   Qry.Execute();
   std::stringstream ss;
   ss << std::string("ASTRA") << std::setw(7) << std::setfill('0') << Qry.FieldAsString("vid");
-#if APIS_TEST
-  return "TEST_MSG_ID";
-#else  
   return ss.str();
-#endif  
 }
 
 bool get_trip_apis_param (const int point_id, const std::string& format, const std::string& param_name, int& param_value)

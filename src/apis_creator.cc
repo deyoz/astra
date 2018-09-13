@@ -15,11 +15,11 @@
 #define MAX_PAX_PER_EDI_PART 15
 #define MAX_LEN_OF_EDI_PART 3000
 
-#if APIS_TEST
+//#if APIS_TEST
 bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* test_map)
-#else
-bool TApisDataset::FromDB(int point_id, const string& task_name)
-#endif
+//#else
+//bool TApisDataset::FromDB(int point_id, const string& task_name)
+//#endif
 {
   try
   {
@@ -878,11 +878,11 @@ void CreateTxt( const TApisRouteData& route,
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
-#if APIS_TEST
-bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map)
-#else
-bool CreateApisFiles(const TApisDataset& dataset)
-#endif
+//#if APIS_TEST
+bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullptr)
+//#else
+//bool CreateApisFiles(const TApisDataset& dataset)
+//#endif
 {
 #if APIS_TEST
   if (test_map == nullptr)
@@ -1116,6 +1116,62 @@ string TruncExceptionString(const string& s)
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
+int apis_test_single(int argc, char **argv)
+{
+  if(edifact::init_edifact() < 0)
+    throw EXCEPTIONS::Exception("'init_edifact' error!");
+  TQuery PointIdQry(&OraSession);
+  PointIdQry.SQLText=
+  "SELECT point_id FROM points WHERE airline IS NOT NULL AND PR_DEL=0 AND "
+  "SCD_OUT BETWEEN TO_DATE('25.08.18 00:00', 'DD.MM.YY HH24:MI') AND TO_DATE('01.09.18 00:00','DD.MM.YY HH24:MI')";
+  int iteration = 0;
+  for (PointIdQry.Execute(); !PointIdQry.Eof; PointIdQry.Next())
+  {
+    int point_id = PointIdQry.FieldAsInteger("point_id");
+    for (string task_name : {BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL, BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL, ON_TAKEOFF, ON_CLOSE_CHECKIN, ON_CLOSE_BOARDING})
+    {
+      nosir_wait(iteration++, false, 2, 0);
+      LogTrace(TRACE5) << "TESTING APIS: point = " << point_id << " task = \"" << task_name << "\"";
+#if APIS_TEST
+      // заполним map
+      TApisTestMap map_test;
+      TApisDataset dataset;
+      try
+      {
+        dataset.FromDB(point_id, task_name, &map_test);
+        CreateApisFiles(dataset, &map_test);
+      }
+      catch (std::exception& E)
+      {
+        map_test.exception = true;
+        map_test.str_exception = E.what();
+      }
+      // запишем файл
+      ofstream file_test;
+      try
+      {
+        ostringstream filename;
+        filename << "./apis_test/" << "point_" << point_id << "_task_" << task_name << ".txt";
+        file_test.open(filename.str().c_str(), ios_base::trunc|ios_base::out);
+        if (!file_test.is_open())
+          throw Exception("Can't open file '%s'",filename.str().c_str());
+        file_test << map_test.ToString() << endl;
+        file_test.close();
+      }
+      catch (Exception e)
+      {
+        LogTrace(TRACE5) << "ERROR write file: " << e.what();
+        try { file_test.close(); } catch (...) { }
+      }
+#else
+      LogTrace(TRACE5) << "APIS_TEST must be true";
+#endif
+    }
+  }
+  return 1;
+}
+
+#if 0
 int apis_test(int argc, char **argv)
 {
   if(edifact::init_edifact() < 0)
@@ -1277,4 +1333,4 @@ int apis_test(int argc, char **argv)
   } // for (int point_id : lst_point_id)
   return 1;
 }
-
+#endif
