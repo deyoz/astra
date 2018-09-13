@@ -687,7 +687,7 @@ void parse_saveFlights( int range_hours, xmlNodePtr reqNode, xmlNodePtr resNode 
   xmlNodePtr node = GetNode( "flights", reqNode );
   resNode = NewTextChild( resNode, "flights" );
   if ( node == NULL ) {
-    throw Exception( "Unknown xml: node Flights not found" );
+    throw Exception( "Unknown xml: node flights not found" );
   }
   std::string airp = TReqInfo::Instance()->desk.airp;
   node = node->children;
@@ -1322,7 +1322,7 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
     for ( std::vector<TPointsDest>::iterator ndest=dests.items.begin(); ndest!=dests.items.end(); ndest++ ) {
       DestsTagsNoExists::const_iterator itag;
       ProgTrace( TRACE5, "odest->point_id=%d, ndest->point_id=%d", odest->point_id, ndest->point_id );
-      if ( odest->point_id == ndest->point_id /* && odest->point_id != ASTRA::NoExists*/ ) { //синхронизация всех пунктов кроме нашего если update
+      if ( odest->point_id == ndest->point_id && odest->airp == ndest->airp/* && odest->point_id != ASTRA::NoExists*/ ) { //синхронизация всех пунктов кроме нашего если update
         if ( own_point_id != ASTRA::NoExists && odest->point_id == own_point_id ) {
           tst();
           continue;

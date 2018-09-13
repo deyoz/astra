@@ -3033,7 +3033,7 @@ void TPointDests::sychDests( TPointDests &new_dests, bool pr_change_dests, sychD
   for ( std::vector<TPointsDest>::iterator i=new_dests.items.begin(); i!=new_dests.items.end(); i++ ) {
     if ( i->point_id == NoExists ) {
       prior_find_dest = items.insert( prior_find_dest, *i );
-      ProgTrace( TRACE5, "insert i->key=%s", i->key.c_str() );
+      ProgTrace( TRACE5, "insert i->key=%s, dest=%s", i->key.c_str(), i->toLog().c_str() );
       prior_find_dest++;
     }
     else
