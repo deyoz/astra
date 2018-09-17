@@ -765,7 +765,7 @@ void TPaxAddData::init( const int pax_id, const int ver )
   }
   doco_type = doco.type;
   doco_no = doco.no.substr(0, 20); // ¢ ÅÑ doco.no VARCHAR2(25 BYTE)
-  country_issuance = doco.issue_place;
+  country_issuance = doco.issue_place.substr(0, 3);
 
   if (doco.expiry_date != ASTRA::NoExists)
     doco_expiry_date = DateTimeToStr( doco.expiry_date, "yyyymmdd" );
@@ -784,7 +784,7 @@ void TPaxAddData::init( TQuery &Qry, int ver )
   country_for_data = Qry.FieldAsString("country_for_data");
   doco_type = Qry.FieldAsString("doco_type");
   doco_no = Qry.FieldAsString("doco_no");
-  country_issuance = Qry.FieldAsString("country_issuance");
+  country_issuance = string(Qry.FieldAsString("country_issuance")).substr(0, 3);
   doco_expiry_date = Qry.FieldAsString("doco_expiry_date");
   num_street = Qry.FieldAsString("num_street");
   city = Qry.FieldAsString("city");
