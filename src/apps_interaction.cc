@@ -12,6 +12,7 @@
 #include "trip_tasks.h"
 #include "tlg/tlg.h"
 #include <boost/scoped_ptr.hpp>
+#include "apis_utils.h"
 
 #define NICKNAME "ANNA"
 #define NICKTRACE SYSTEM_TRACE
@@ -741,6 +742,17 @@ std::string TPaxData::msg() const
   return msg.str();
 }
 
+string IssuePlaceToCountry(const string& issue_place)
+{
+  string country = SubstrAfterLastSpace(issue_place);
+  TElemFmt elem_fmt;
+  string country_id = ElemToPaxDocCountryId(upperc(country), elem_fmt);
+  if (elem_fmt != efmtUnknown)
+    return country_id;
+  else
+    throw Exception("IssuePlaceToCountry failed: issue_place=\"%s\"", issue_place);
+}
+
 void TPaxAddData::init( const int pax_id, const int ver )
 {
   ProgTrace(TRACE5, "TPaxAddData::init: %d", pax_id);
@@ -765,7 +777,7 @@ void TPaxAddData::init( const int pax_id, const int ver )
   }
   doco_type = doco.type;
   doco_no = doco.no.substr(0, 20); // ¢ ÅÑ doco.no VARCHAR2(25 BYTE)
-  country_issuance = doco.issue_place;
+  country_issuance = IssuePlaceToCountry(doco.issue_place);
 
   if (doco.expiry_date != ASTRA::NoExists)
     doco_expiry_date = DateTimeToStr( doco.expiry_date, "yyyymmdd" );
@@ -784,7 +796,7 @@ void TPaxAddData::init( TQuery &Qry, int ver )
   country_for_data = Qry.FieldAsString("country_for_data");
   doco_type = Qry.FieldAsString("doco_type");
   doco_no = Qry.FieldAsString("doco_no");
-  country_issuance = Qry.FieldAsString("country_issuance");
+  country_issuance = IssuePlaceToCountry(Qry.FieldAsString("country_issuance"));
   doco_expiry_date = Qry.FieldAsString("doco_expiry_date");
   num_street = Qry.FieldAsString("num_street");
   city = Qry.FieldAsString("city");

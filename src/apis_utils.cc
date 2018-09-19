@@ -1792,4 +1792,13 @@ CheckIn::TPaxDocaItem NormalizeDocaHttp(const CheckIn::TPaxDocaItem &doc, const 
   }
 }
 
+std::string SubstrAfterLastSpace(const std::string& str)
+{
+  std::size_t found = str.rfind(' ');
+  if (found != std::string::npos)
+    return str.substr(found+1);
+  else
+    return str;
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////

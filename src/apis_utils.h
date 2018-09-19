@@ -541,4 +541,6 @@ void CheckDocaHttp(const CheckIn::TPaxDocaItem &doc,
                const TCompleteAPICheckInfo &checkInfo,
                const std::string full_name);
 
+std::string SubstrAfterLastSpace(const std::string& str);
+
 #endif // APIS_UTILS_H
