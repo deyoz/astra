@@ -744,6 +744,8 @@ std::string TPaxData::msg() const
 
 string IssuePlaceToCountry(const string& issue_place)
 {
+  if (issue_place.empty())
+    return issue_place;
   string country = SubstrAfterLastSpace(issue_place);
   TElemFmt elem_fmt;
   string country_id = ElemToPaxDocCountryId(upperc(country), elem_fmt);

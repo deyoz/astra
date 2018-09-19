@@ -1430,13 +1430,7 @@ struct TAPPSVersion26 : public TAppsSitaFormat
     if (api == apiDoco) return DOCO_APPS_26_FIELDS;
     return NO_FIELDS;
   }
-  bool CheckDocoIssueCountry(string issue_place)
-  {
-    string country = SubstrAfterLastSpace(issue_place);
-    TElemFmt elem_fmt;
-    ElemToPaxDocCountryId(upperc(country), elem_fmt);
-    return elem_fmt != efmtUnknown;
-  }
+  bool CheckDocoIssueCountry(string issue_place);
 };
 
 //---------------------------------------------------------------------------------------
