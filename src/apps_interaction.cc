@@ -750,7 +750,7 @@ string IssuePlaceToCountry(const string& issue_place)
   if (elem_fmt != efmtUnknown)
     return country_id;
   else
-    throw Exception("IssuePlaceToCountry failed: issue_place=\"%s\"", issue_place);
+    throw Exception("IssuePlaceToCountry failed: issue_place=\"%s\"", issue_place.c_str());
 }
 
 void TPaxAddData::init( const int pax_id, const int ver )
