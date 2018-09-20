@@ -1029,6 +1029,20 @@ bool create_apis_file(int point_id, const string& task_name)
 
 //---------------------------------------------------------------------------------------
 
+bool TAPPSVersion26::CheckDocoIssueCountry(string issue_place)
+{
+  string country = SubstrAfterLastSpace(issue_place);
+  TElemFmt elem_fmt;
+  ElemToPaxDocCountryId(upperc(country), elem_fmt);
+  LogTrace(TRACE5) << "CheckDocoIssueCountry: "
+                   << "issue_place=\"" << issue_place << "\" "
+                   << "country=\"" << country << "\" "
+                   << "elem_fmt=" << elem_fmt;
+  return elem_fmt != efmtUnknown;
+}
+
+//---------------------------------------------------------------------------------------
+
 void WriteCmpFile(ofstream& f, const apis_test_value& v)
 {
   f << "FILES:" << endl;
