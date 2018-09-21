@@ -20,7 +20,7 @@
 #include "serverlib/test.h"
 #include "serverlib/slogger.h"
 
-#define ENDL "\r\n"
+//#define ENDL "\r\n"
 
 
 using namespace ASTRA;

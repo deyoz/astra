@@ -25,8 +25,13 @@ using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
 using namespace std;
 
+const string ENDL = "\r\n";
+const string TRANSPORT_TYPE_FILE = "FILE";
+const string TRANSPORT_TYPE_RABBIT_MQ = "RABBIT_MQ";
+
 const string apis_test_text =
-"select 'mvd_czech_edi' AS dir, 'ESAPIS:ZZ' AS edi_addr, 'AIR EUROPA:UX' AS edi_own_addr, code AS format "
+"select 'ESAPIS:ZZ' AS edi_addr, 'AIR EUROPA:UX' AS edi_own_addr, code AS format "
++ TRANSPORT_TYPE_FILE + " AS transport_type, 'mvd_czech_edi' AS transport_params "
 "FROM apis_formats "
 "WHERE code<>'APPS_SITA' AND code<>'TEST' "
 "ORDER BY format";
@@ -200,7 +205,8 @@ struct TApisSetsData
   string fmt;
   string edi_own_addr;
   string edi_addr;
-  string dir;
+  string transport_type;
+  string transport_params;
 };
 
 struct FlightlegDataset
@@ -457,15 +463,14 @@ struct TTxtDataFormatted
 
 //---------------------------------------------------------------------------------------
 
-const string ENDL = "\r\n";
-
 struct TAPISFormat
 {
   enum TPaxType { pass, crew };
   string fmt;
   string edi_own_addr;
   string edi_addr;
-  string dir;
+  string transport_type;
+  string transport_params;
   set<TApisRule> rules;
   TApisFileRule file_rule;
   TApisFormatType format_type;
@@ -473,12 +478,18 @@ struct TAPISFormat
   bool rule(TApisRule r) const { return rules.count(r); }
   virtual long int required_fields(TPaxType, TAPIType) const = 0;
   virtual bool CheckDocoIssueCountry(string issue_place) { return true; }
+
   TAPISFormat()
   {
     file_rule = r_file_rule_undef;
     format_type = t_format_undef;
   }
   virtual ~TAPISFormat() {}
+
+  string dir() const
+  {
+    return transport_type == TRANSPORT_TYPE_FILE ? transport_params : fmt + string("_dir_error");
+  }
 
   virtual void convert_pax_names(string& first_name, string& second_name) const {}
   virtual string unknown_gender() const { return ""; }
@@ -567,7 +578,7 @@ protected:
     ostringstream file_name;
     ostringstream f;
     f << route.airline_code_lat() << route.flt_no << route.suffix;
-    file_name << dir
+    file_name << dir()
               << "/"
               << route.airline_code_lat()
               << (f.str().size()<6?string(6-f.str().size(),'0'):"") << route.flt_no << route.suffix
@@ -1059,7 +1070,7 @@ struct TAPISFormat_TXT_EE : public TTxtApisFormat
   string CreateFilename(const TApisRouteData& route) const
   {
     ostringstream file_name;
-    file_name << dir
+    file_name << dir()
               << "/"
               << "LL-" << route.airline_code_lat() << setw(3) << setfill('0') << route.flt_no << route.suffix
               << "-" << DateTimeToStr(route.scd_in_local,"ddmmyyyy-hhnn") << "-S.TXT";
@@ -1149,6 +1160,7 @@ struct TAPISFormat_EDI_TR : public TEdiAPISFormat
     add_rule(r_setBagCount); // уточнить
     add_rule(r_bagTagSerials); // номера бирок: FTX+BAG
     file_rule = r_file_rule_1;
+    add_rule(r_fileSimplePush); // формировать EDIFACT одним блоком
   }
   long int required_fields(TPaxType pax, TAPIType api) const
   {
@@ -1471,7 +1483,8 @@ inline TAPISFormat* SpawnAPISFormat(const TApisSetsData& sd)
   TAPISFormat* p = SpawnAPISFormat(sd.fmt);
   p->edi_own_addr = sd.edi_own_addr;
   p->edi_addr = sd.edi_addr;
-  p->dir = sd.dir;
+  p->transport_type = sd.transport_type;
+  p->transport_params = sd.transport_params;
   return p;
 }
 
