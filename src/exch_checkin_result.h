@@ -12,10 +12,16 @@ const std::string MQRABBIT_FLIGHTS_RESULT_OUT_TYPE = "MQRF";
 bool is_sync_exch_checkin_result_mqrabbit( const TTripInfo &tripInfo );
 bool is_sync_exch_flights_result_mqrabbit( const TTripInfo &tripInfo );
 
+struct MQRabbitParams {
+  std::string addr;
+  std::string queue;
+  MQRabbitParams( const std::string &connect_str );
+};
+
 }
 
 namespace EXCH_CHECKIN_RESULT {
-
+ 
 struct Tids {
   int pax_tid;
   int grp_tid;

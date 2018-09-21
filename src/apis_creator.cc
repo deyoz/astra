@@ -4,8 +4,10 @@
 #include <fstream>
 #include "obrnosir.h"
 #include "franchise.h"
+#include "exch_checkin_result.h"
+#include "jms/jms.hpp"
 
-#define NICKNAME "GRIG"
+#define NICKNAME "GRISHA"
 #include "serverlib/test.h"
 #include "serverlib/slogger.h"
 
@@ -94,7 +96,7 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
       ApisSetsQry.SQLText = apis_test_text;
 #else
       ApisSetsQry.SQLText=
-      "SELECT dir,edi_addr,edi_own_addr,format "
+      "SELECT edi_addr,edi_own_addr,format, transport_type,transport_params "
       "FROM apis_sets "
       "WHERE airline=:airline AND country_dep=:country_dep AND country_arv=:country_arv AND pr_denial=0";
       ApisSetsQry.CreateVariable("airline", otString, airline_code());
@@ -242,7 +244,8 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
 #endif
         sd.edi_own_addr = ApisSetsQry.FieldAsString("edi_own_addr");
         sd.edi_addr = ApisSetsQry.FieldAsString("edi_addr");
-        sd.dir = ApisSetsQry.FieldAsString("dir");
+        sd.transport_type = ApisSetsQry.FieldAsString("transport_type");
+        sd.transport_params = ApisSetsQry.FieldAsString("transport_params");
         rd.lstSetsData.push_back(sd);
       } // for ApisSetsQry
       if (rd.lstSetsData.empty())
@@ -698,7 +701,7 @@ void CreateEdiFile1(  const TApisRouteData& route,
         string lst_type;
         if (format.rule(r_lstTypeLetter))
           lst_type=(pass==0?"_P":"_C");
-        file_name << format.dir
+        file_name << format.dir()
                   << "/"
                   << Paxlst::createEdiPaxlstFileName( route.airline_code_lat(),
                                                       route.flt_no,
@@ -753,6 +756,7 @@ bool CreateEdiFile2(  const TApisRouteData& route,
     text = FPM.toEdiString();
   }
   // положим апис в очередь на отправку
+#if !APIS_TEST
   if ( !text.empty() )
   {
     TFileQueue::add_sets_params(route.airp_dep_code(), route.airline_code(), IntToString(route.flt_no),
@@ -761,7 +765,6 @@ bool CreateEdiFile2(  const TApisRouteData& route,
     {
       file_params[ NS_PARAM_EVENT_ID1 ] = IntToString( route.dataset_point_id );
       file_params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
-#if !APIS_TEST
       TFileQueue::putFile(OWN_POINT_ADDR(), OWN_POINT_ADDR(),
           type, file_params, ConvertCodepage( text, "CP866", "UTF-8"));
       LEvntPrms params;
@@ -770,10 +773,10 @@ bool CreateEdiFile2(  const TApisRouteData& route,
           << PrmElem<string>("country_arv", etCountry, route.country_arv_code)
           << PrmElem<string>("airp_arv", etAirp, route.airp_arv_code());
       TReqInfo::Instance()->LocaleToLog("EVT.APIS_CREATED", params, evtFlt, route.dataset_point_id);
-#endif
       result = true;
     }
   }
+#endif
   return result;
 }
 
@@ -974,38 +977,62 @@ bool CreateApisFiles(const TApisDataset& dataset, TApisTestMap* test_map = nullp
 #else
         if (!files.empty())
         {
-          for(vector< pair<string, string> >::const_iterator iFile=files.begin();iFile!=files.end();++iFile)
+          bool apis_created = false;
+          if (pFormat->transport_type == TRANSPORT_TYPE_FILE)
           {
-            ofstream f;
-            f.open(iFile->first.c_str());
-            if (!f.is_open()) throw Exception("Can't open file '%s'",iFile->first.c_str());
-            try
+            LogTrace(TRACE5) << __func__ << " TRANSPORT_TYPE_FILE, files.size=" << files.size();
+            for(vector< pair<string, string> >::const_iterator iFile=files.begin();iFile!=files.end();++iFile)
             {
-              f << iFile->second;
-              f.close();
-            }
-            catch(...)
-            {
-              try { f.close(); } catch( ... ) { };
+              ofstream f;
+              f.open(iFile->first.c_str());
+              if (!f.is_open()) throw Exception("Can't open file '%s'",iFile->first.c_str());
               try
               {
-                //в случае ошибки запишем пустой файл
-                f.open(iFile->first.c_str());
-                if (f.is_open()) f.close();
+                f << iFile->second;
+                f.close();
               }
-              catch( ... ) { };
-              throw;
+              catch(...)
+              {
+                try { f.close(); } catch( ... ) { };
+                try
+                {
+                  //в случае ошибки запишем пустой файл
+                  f.open(iFile->first.c_str());
+                  if (f.is_open()) f.close();
+                }
+                catch( ... ) { };
+                throw;
+              }
             }
+            apis_created = true;
+          }
+          else if (pFormat->transport_type == TRANSPORT_TYPE_RABBIT_MQ)
+          {
+            LogTrace(TRACE5) << __func__ << " TRANSPORT_TYPE_RABBIT_MQ, files.size=" << files.size();
+            MQRABBIT_TRANSPORT::MQRabbitParams mq(pFormat->transport_params);
+            jms::connection cl( mq.addr );
+            jms::text_queue queue = cl.create_text_queue( mq.queue );
+            for (auto iFile : files)
+            {
+              jms::text_message in1;
+              in1.text = iFile.second;
+              queue.enqueue(in1);
+            }
+            cl.commit();
+            apis_created = true;
           }
 
-          LEvntPrms params;
-          params << PrmSmpl<string>("fmt", pFormat->fmt) << PrmElem<string>("country_dep", etCountry, iRoute->country_dep)
-                  << PrmElem<string>("airp_dep", etAirp, iRoute->airp_dep_code())
-                  << PrmElem<string>("country_arv", etCountry, iRoute->country_arv_code)
-                  << PrmElem<string>("airp_arv", etAirp, iRoute->airp_arv_code());
-          TReqInfo::Instance()->LocaleToLog("EVT.APIS_CREATED", params, evtFlt, iRoute->dataset_point_id);
-          result = true;
-        }
+          if (apis_created)
+          {
+            LEvntPrms params;
+            params << PrmSmpl<string>("fmt", pFormat->fmt) << PrmElem<string>("country_dep", etCountry, iRoute->country_dep)
+                   << PrmElem<string>("airp_dep", etAirp, iRoute->airp_dep_code())
+                   << PrmElem<string>("country_arv", etCountry, iRoute->country_arv_code)
+                   << PrmElem<string>("airp_arv", etAirp, iRoute->airp_arv_code());
+            TReqInfo::Instance()->LocaleToLog("EVT.APIS_CREATED", params, evtFlt, iRoute->dataset_point_id);
+            result = true;
+          }
+        } // !files.empty
 #endif
       } // for iApis
     } // for iRoute

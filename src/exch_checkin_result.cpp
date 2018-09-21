@@ -1009,18 +1009,20 @@ namespace EXCH_CHECKIN_RESULT
 
 } //end namespace EXCH_CHECKIN_RESULT
 
-  struct MQRabbitParams {
-    std::string addr;
-    std::string queue;
-    MQRabbitParams( const std::string &connect_str ) {
-      std::size_t np = connect_str.find( ";" );
-      if ( np != std::string::npos ) {
+namespace MQRABBIT_TRANSPORT {
+  MQRabbitParams::MQRabbitParams( const std::string &connect_str ) {
+   std::size_t np = connect_str.find( ";" );
+   if ( np != std::string::npos ) {
         addr = connect_str.substr( 0, np );
         queue = connect_str.substr( np + 1 );
-      }
-      LogTrace(TRACE5) << "addr=" << addr << ",queue=" << queue;
-    }
-  };
+    }   
+    LogTrace(TRACE5) << "addr=" << addr << ",queue=" << queue;
+    if ( addr.empty() ||
+         queue.empty() ) {
+      ProgError( STDLOG, "MQRabbitParams: invalid connect string in file_params_sets" );
+    }    
+  }
+}
 
   void putMQRabbitPaxs( EXCH_CHECKIN_RESULT::Request &request, const std::map<std::string,std::string> &params )
   {
@@ -1030,10 +1032,9 @@ namespace EXCH_CHECKIN_RESULT
       ProgError( STDLOG, "putMQRabbitPaxs: invalid connect string in file_params_sets" );
       return;
     }
-    MQRabbitParams p( iparam->second );
+    MQRABBIT_TRANSPORT::MQRabbitParams p( iparam->second );
     if ( p.addr.empty() ||
          p.queue.empty() ) {
-      ProgError( STDLOG, "putMQRabbitPaxs: invalid connect string in file_params_sets" );
       return;
     }
     try {
@@ -1101,10 +1102,9 @@ namespace EXCH_CHECKIN_RESULT
       ProgError( STDLOG, "putMQRabbitFlights: invalid connect string in file_params_sets" );
       return;
     }
-    MQRabbitParams p( iparam->second );
+    MQRABBIT_TRANSPORT::MQRabbitParams p( iparam->second );
     if ( p.addr.empty() ||
          p.queue.empty() ) {
-      ProgError( STDLOG, "putMQRabbitFlights: invalid connect string in file_params_sets" );
       return;
     }
     try {
