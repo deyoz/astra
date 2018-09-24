@@ -497,7 +497,7 @@ void check_crew_alarms(int point_id)
   bool crew_diff = false;
 
   TQuery Qry(&OraSession);
-  bool do_check=CheckStageACT(point_id, sCloseCheckIn);
+  bool do_check=CheckStageACT(point_id, sOpenCheckIn);
   if (!do_check)
   {
     Qry.Clear();
@@ -513,7 +513,7 @@ void check_crew_alarms(int point_id)
     if (!Qry.Eof) do_check=true;
   };
 
-    if ( do_check )
+  if ( do_check )
   {
     int sopp_num=NoExists;
     int checkin_num=NoExists;
@@ -542,16 +542,9 @@ void check_crew_alarms(int point_id)
     if (checkin_num==NoExists || checkin_num<=0 ||
         sopp_num==NoExists || sopp_num<=0)
     {
-      Qry.SQLText=
-        "SELECT airline, flt_no, suffix, airp, scd_out, "
-        "       point_id, point_num, first_point, pr_tranzit "
-        "FROM points "
-        "WHERE point_id=:point_id ";
-      Qry.Execute();
-      if (!Qry.Eof)
+      TAdvTripInfo fltInfo;
+      if (fltInfo.getByPointId(point_id))
       {
-        TAdvTripInfo fltInfo(Qry);
-
         if (checkin_num==NoExists || checkin_num<=0)
         {
           do
@@ -586,7 +579,7 @@ void check_crew_alarms(int point_id)
         };
       };
     };
-    };
+  };
   set_alarm( point_id, Alarm::CrewCheckin, crew_checkin );
   set_alarm( point_id, Alarm::CrewNumber, crew_number );
   set_alarm( point_id, Alarm::CrewDiff, crew_diff );
