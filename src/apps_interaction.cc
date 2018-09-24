@@ -52,18 +52,12 @@ using namespace ASTRA;
 
 // static const std::string APPSFormat = "APPS_FMT";
 
-const std::string FORMAT_21 = "APPS_21";
-const std::string FORMAT_26 = "APPS_26";
-const int VERSION_21 = 21;
-const int VERSION_26 = 26;
-const int VERSION_27 = 27;
-
 // версия спецификации документа
 enum ESpecVer { SPEC_6_76, SPEC_6_83 };
 
 ESpecVer GetSpecVer(int msg_ver)
 {
-  if (msg_ver == VERSION_21)
+  if (msg_ver == APPS_VERSION_21)
     return SPEC_6_76;
   else
     return SPEC_6_83;
@@ -88,14 +82,14 @@ int FieldCount( string data_group, int version )
   if (data_group == "EXD") return 4;
   if (data_group == "MAK") return 4;
   // зависимые от версии
-  if (version == VERSION_21)
+  if (version == APPS_VERSION_21)
   {
     if (data_group == "PRQ") return 22;
     if (data_group == "PCX") return 20;
     if (data_group == "PRS") return 27;
     if (data_group == "PAD") return 0;
   }
-  if (version == VERSION_26)
+  if (version == APPS_VERSION_26)
   {
     if (data_group == "PRQ") return 34;
     if (data_group == "PCX") return 21; // NOTE в спецификации нет версии 26 для этой группы данных
@@ -168,7 +162,7 @@ std::string TAppsSets::get_format()
   init_qry(AppsSetsQry, "format");
   AppsSetsQry.Execute();
   if (AppsSetsQry.Eof || AppsSetsQry.FieldIsNULL("format"))
-    return FORMAT_21;
+    return APPS_FORMAT_21;
   else
     return AppsSetsQry.FieldAsString("format");
 }
@@ -176,8 +170,8 @@ std::string TAppsSets::get_format()
 int TAppsSets::get_version()
 {
   string fmt = get_format();
-  if (fmt == FORMAT_21) return VERSION_21;
-  if (fmt == FORMAT_26) return VERSION_26;
+  if (fmt == APPS_FORMAT_21) return APPS_VERSION_21;
+  if (fmt == APPS_FORMAT_26) return APPS_VERSION_26;
   throw Exception("cannot get version, format %s", fmt.c_str());
   return 0;
 }
@@ -667,7 +661,7 @@ std::string TPaxData::msg() const
     /* 7  */ msg << passport << '/';
     /* 8  */ msg << check_char << '/';
     /* 9  */ msg << doc_type << '/';
-    if (version >= VERSION_26)
+    if (version >= APPS_VERSION_26)
     {
       /* 10 */ msg << doc_subtype << '/';
     }
@@ -687,7 +681,7 @@ std::string TPaxData::msg() const
     /* 24 */ msg << override_codes << '/';
     /* 25 */ msg << pnr_source << '/';
     /* 26 */ msg << pnr_locator;
-    if (version >= VERSION_26)
+    if (version >= APPS_VERSION_26)
     {
       msg << '/';
       /* 27 */ msg << '/';
@@ -695,7 +689,7 @@ std::string TPaxData::msg() const
       /* 29 */ msg << '/';
       /* 30 */ msg << reference;
     }
-    if (version >= VERSION_26)
+    if (version >= APPS_VERSION_26)
     {
       msg << '/';
       /* 31 */ msg << '/';
@@ -733,7 +727,7 @@ std::string TPaxData::msg() const
     /* 20 */ msg << endorsee << '/';
     /* 21 */ msg << trfer_at_origin << '/';
     /* 22 */ msg << trfer_at_dest;
-    if (version >= VERSION_26)
+    if (version >= APPS_VERSION_26)
     {
       msg << '/';
       /* 23 */ msg << reference;
@@ -940,7 +934,8 @@ bool TPaxRequest::getByPaxId( const int pax_id, const std::string& override_type
     DecodePerson(Qry.FieldAsString("pers_type")), CheckIn::TSimplePaxItem::genderFromDB(Qry) );
   pax.init( pax_id, Qry.FieldAsString("surname"), name, (pax_status==psCrew), transfer, override_type,
     Qry.FieldAsInteger("reg_no"), tricky_gender, version );
-  pax_add.init(pax_id, version);
+  if(version >= APPS_VERSION_26)
+    pax_add.init(pax_id, version);
   return true;
 }
 
@@ -1000,7 +995,8 @@ bool TPaxRequest::getByCrsPaxId( const int pax_id, const std::string& override_t
     DecodePerson(Qry.FieldAsString("pers_type")), TGender::Unknown );
   pax.init( pax_id, Qry.FieldAsString("surname"), name, false, transfer, override_type,
     ASTRA::NoExists, tricky_gender, version );
-  pax_add.init(pax_id, version);
+  if(version >= APPS_VERSION_26)
+    pax_add.init(pax_id, version);
   return true;
 }
 
@@ -1030,7 +1026,7 @@ bool TPaxRequest::fromDBByPaxId( const int pax_id )
     return false;
 
   int point_id = Qry.FieldAsInteger("point_id");
-  version = Qry.FieldIsNULL("version")? VERSION_21: Qry.FieldAsInteger("version");
+  version = Qry.FieldIsNULL("version")? APPS_VERSION_21: Qry.FieldAsInteger("version");
   TTripInfo info;
   if (not info.getByPointId( point_id ))
   {
@@ -1048,7 +1044,8 @@ bool TPaxRequest::fromDBByPaxId( const int pax_id )
     ckin_flt.init( Qry.FieldAsInteger("ckin_point_id"), "CHK", Qry.FieldAsString("ckin_flt_num"),
                    Qry.FieldAsString("ckin_port"), "", ASTRA::NoExists, ASTRA::NoExists, version );
   pax.init( Qry, version );
-  pax_add.init(Qry, version);
+  if(version >= APPS_VERSION_26)
+    pax_add.init(Qry, version);
   return true;
 }
 
@@ -1076,7 +1073,7 @@ bool TPaxRequest::fromDBByMsgId( const int msg_id )
     return false;
 
   int point_id = Qry.FieldAsInteger("point_id");
-  version = Qry.FieldIsNULL("version")? VERSION_21: Qry.FieldAsInteger("version");
+  version = Qry.FieldIsNULL("version")? APPS_VERSION_21: Qry.FieldAsInteger("version");
   TTripInfo info;
   if (not info.getByPointId( point_id ))
   {
@@ -1094,7 +1091,8 @@ bool TPaxRequest::fromDBByMsgId( const int msg_id )
     ckin_flt.init( Qry.FieldAsInteger("ckin_point_id"), "CHK", Qry.FieldAsString("ckin_flt_num"),
                    Qry.FieldAsString("ckin_port"), "", ASTRA::NoExists, ASTRA::NoExists, version );
   pax.init( Qry, version );
-  pax_add.init(Qry, version);
+  if(version >= APPS_VERSION_26)
+    pax_add.init(Qry, version);
   return true;
 }
 
@@ -1108,7 +1106,7 @@ std::string TPaxRequest::msg() const
   }
   msg << int_flt.msg() << "/";
   msg << pax.msg() << "/";
-  if ( trans.code == "CIRQ" && version >= VERSION_26 && !pax_add.country_for_data.empty() )
+  if ( trans.code == "CIRQ" && version >= APPS_VERSION_26 && !pax_add.country_for_data.empty() )
   {
     msg << pax_add.msg() << "/";
   }
@@ -1346,8 +1344,8 @@ void TAnsPaxData::init( std::string source, int ver )
   {
     /* PRS */
     int i = 22; // начальная позиция итератора (поле 23)
-    if (version < VERSION_27) --i;
-    if (version < VERSION_26) --i;
+    if (version < APPS_VERSION_27) --i;
+    if (version < APPS_VERSION_26) --i;
     code = getInt(tmp[i++]);         /* 23 */
     status = *(tmp[i++].begin());    /* 24 */
     apps_pax_id = tmp[i++];          /* 25 */
@@ -1450,7 +1448,7 @@ bool TAPPSAns::init( const std::string& trans_type, const std::string& source )
   point_id = Qry.FieldAsInteger("point_id");
   msg_text = Qry.FieldAsString("msg_text");
   send_attempts = Qry.FieldAsInteger("send_attempts");
-  version = Qry.FieldIsNULL("version")? VERSION_21: Qry.FieldAsInteger("version");
+  version = Qry.FieldIsNULL("version")? APPS_VERSION_21: Qry.FieldAsInteger("version");
 
   if( *(it++) == "ERR" )
   {
