@@ -14,6 +14,12 @@
 const int NumSendAttempts = 5; // количество попыток до включения тревоги "Нет связи с APPS"
 const int MaxSendAttempts = 99; // максимальное количество попыток
 
+const std::string APPS_FORMAT_21 = "APPS_21";
+const std::string APPS_FORMAT_26 = "APPS_26";
+const int APPS_VERSION_21 = 21;
+const int APPS_VERSION_26 = 26;
+const int APPS_VERSION_27 = 27;
+
 enum APPSAction { NoAction, NeedUpdate, NeedNew, NeedCancel };
 
 void processPax( const int pax_id, const std::string& override_type = "", const bool is_forced = false );
@@ -171,7 +177,7 @@ struct TPaxData
 
 struct TPaxAddData // Passenger Additional Data
 {
-  int version = 0;
+  int version = APPS_VERSION_26;
   std::string country_for_data; // Country for Additional Data // 4
   std::string doco_type; // Document Type // 5
   std::string doco_no; // Document Number X(20) // 6
