@@ -472,7 +472,7 @@ struct TAPISFormat
   void add_rule(TApisRule r) { rules.insert(r); }
   bool rule(TApisRule r) const { return rules.count(r); }
   virtual long int required_fields(TPaxType, TAPIType) const = 0;
-  virtual bool CheckDocoIssueCountry(string country) { return true; }
+  virtual bool CheckDocoIssueCountry(string issue_place) { return true; }
   TAPISFormat()
   {
     file_rule = r_file_rule_undef;
@@ -1416,7 +1416,7 @@ struct TAPPSVersion21 : public TAppsSitaFormat
     if (api == apiDoc) return DOC_APPS_21_FIELDS;
     return NO_FIELDS;
   }
-  bool CheckDocoIssueCountry(string country)
+  bool CheckDocoIssueCountry(string issue_place)
   {
     return true; // для 21 версии не требуется
   }
@@ -1430,12 +1430,7 @@ struct TAPPSVersion26 : public TAppsSitaFormat
     if (api == apiDoco) return DOCO_APPS_26_FIELDS;
     return NO_FIELDS;
   }
-  bool CheckDocoIssueCountry(string country)
-  {
-    TElemFmt elem_fmt;
-    ElemToPaxDocCountryId(upperc(country), elem_fmt);
-    return elem_fmt != efmtUnknown;
-  }
+  bool CheckDocoIssueCountry(string issue_place);
 };
 
 //---------------------------------------------------------------------------------------
