@@ -28,6 +28,7 @@ namespace Franchise {
         oper.suffix = info.suffix;
         TCachedQuery Qry(
                 "select * from franchise_sets where "
+                "   airp_dep = :airp and "
                 "   airline = :airline and "
                 "   flt_no = :flt_no and "
                 "   nvl(suffix, ' ') = nvl(:suffix, ' ') and "
@@ -35,6 +36,7 @@ namespace Franchise {
                 "   (last_date is null or :scd_out < last_date) and "
                 "   pr_denial = 0 ",
                 QParams()
+                << QParam("airp", otString, info.airp)
                 << QParam("airline", otString, info.airline)
                 << QParam("flt_no", otInteger, info.flt_no)
                 << QParam("suffix", otString, info.suffix)
@@ -75,6 +77,7 @@ namespace Franchise {
       ProgTrace( TRACE5, "airline=%s, flt_no=%d", franchisee.airline.c_str(),franchisee.flt_no );
       TCachedQuery Qry(
           "select * from franchise_sets where "
+          "   airp_dep = :airp and "
           "   airline_franchisee = :airline and "
           "   flt_no_franchisee = :flt_no and "
           "   nvl(suffix_franchisee, ' ') = nvl(:suffix, ' ') and "
@@ -82,6 +85,7 @@ namespace Franchise {
           "   (last_date is null or :scd_out < last_date) and "
           "   pr_denial = 0 ",
                   QParams()
+                  << QParam("airp", otString, info.airp)
                   << QParam("airline", otString, info.airline)
                   << QParam("flt_no", otInteger, info.flt_no)
                   << QParam("suffix", otString, info.suffix)
