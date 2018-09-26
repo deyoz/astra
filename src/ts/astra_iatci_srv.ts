@@ -258,6 +258,53 @@ UNT+5+1"
 UNZ+1+ASTRA000690001"
 
 
+# ¥ιρ § ―ΰ®α ª €αβΰ¥
+<<
+UNB+SIRE:1+DCS1+DCS2+150217:0747+ASTRA000670001+++O"
+UNH+1+DCQCKI:03:1:IA+ASTRA00067"
+LOR+S7:SVO"
+FDQ+UT+103+$(yymmdd)+DME+LED++S7+1027+$(yymmdd)0530+$(yymmdd)0940+AER+DME"
+PPD+REPIN+M++IVAN++S71027"
+PRD+Y"
+PSD++1A"
+PBD+0"
+UNT+8+1"
+UNZ+1+ASTRA000670001"
+
+
+# ―®θρ« § ―ΰ®α Ά ‘ ­  α¬¥­γ αβ βγα  ¨§  αβΰλ
+>>
+UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
+MSG+:142"
+ORG+’:‚++++Y+::EN+IATCIP"
+EQN+1:TD"
+TKT+2982401841689:T"
+CPN+1:CK"
+TVL+$(ddmmyy)+„„+‹+’+103: ++1"
+UNT+8+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+# ®βΆ¥β ®β ‘
+<<
+UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
+MSG+:142+7"
+ERC+396"
+IFT+3+…‚…›‰ ‘’€’“‘ ‹…’€/“€"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+>>
+UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000670001+++T"
+UNH+1+DCRCKA:03:1:IA+ASTRA00067"
+FDR+UT+103+$(yymmdd)+DME+LED++T"
+RAD+I+X"
+ERD+1:102:UNABLE TO PROCESS - SYSTEM ERROR"
+UNT+5+1"
+UNZ+1+ASTRA000670001"
+
+
 %%
 #########################################################################################
 # ό3
