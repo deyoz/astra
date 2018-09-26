@@ -120,6 +120,7 @@ TRow& TRow::fltFromDB(TQuery &Qry)
     };
     // Франчайзинг
     TTripInfo trip_info;
+    trip_info.airp = airp_dep;
     trip_info.airline = airline;
     trip_info.flt_no = flt_no;
     trip_info.suffix = suffix;
