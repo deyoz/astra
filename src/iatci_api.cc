@@ -32,10 +32,11 @@ static void ETRollbackStatus_local(xmlDocPtr ediResDocPtr)
 {
     try {
         ETStatusInterface::ETRollbackStatus(ediResDocPtr, false);
-        ASTRA::commit();
     } catch(const TlgHandling::TlgToBePostponed&) {
         ; // nop
     }
+
+    ASTRA::commit();
 }
 
 static UpdateBaggageDetails makeFakeUpdBaggage(const BaggageDetails& baggage)

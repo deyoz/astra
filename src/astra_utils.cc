@@ -1783,7 +1783,7 @@ void beforeSoftError()
 void afterSoftError()
 {
     std::string sp_name("SavePointNum1");
-    make_curs(("ROLLBACK TO SAVEPOINT " + sp_name)).exec();
+    make_curs(("rollback to savepoint " + sp_name)).exec();
     ProgTrace(TRACE1, "RollBacking to savepoint - %s", sp_name.c_str());
 }
 
