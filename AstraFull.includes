@@ -9,3 +9,4 @@ locallibs/libtlg/include
 locallibs/serverlib/include
 locallibs/shared/src
 eternallibs/boost/include
+locallibs/libjms/src

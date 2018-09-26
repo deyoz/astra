@@ -14,6 +14,7 @@
 #include "astra_service.h"
 #include "meridian.h"
 #include "astra_callbacks.h"
+#include "exch_checkin_result.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -133,18 +134,6 @@ void GetFlightInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
   }
 }
 
-struct Tids {
-  int pax_tid;
-  int grp_tid;
-  Tids( ) {
-    pax_tid = -1;
-    grp_tid = -1;
-  }
-  Tids( int vpax_tid, int vgrp_tid ) {
-    pax_tid = vpax_tid;
-    grp_tid = vgrp_tid;
-  }
-};
 /*
 bool checkAccess( const std::string &airline, const TTripInfo &tripInfo, const std::set<std::string> &airps ) {
   return ( airline == tripInfo.airline || airps.find( tripInfo.airp ) != airps.end() );
@@ -181,7 +170,7 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
         throw UserException( "Invalid tag value '@time'" );
   bool pr_reset = ( GetNode( "@reset", reqNode ) != NULL );
   string prior_paxs;
-  map<int,Tids> Paxs; // pax_id, <pax_tid, grp_tid> список пассажиров переданных ранее
+  map<int,EXCH_CHECKIN_RESULT::Tids> Paxs; // pax_id, <pax_tid, grp_tid> список пассажиров переданных ранее
   xmlDocPtr paxsDoc;
   if ( !pr_reset && AstraContext::GetContext( getMeridianContextName( airline ), 0, prior_paxs ) != NoExists ) {
     paxsDoc = TextToXMLTree( prior_paxs );
@@ -194,8 +183,8 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
             throw UserException( "Invalid tag value '@time' in context" );
       if ( vpriordate == vdate ) { // разбор дерева при условии, что предыдущий запрос не передал всех пассажиров за заданный момент времени
         nodePax = nodePax->children;
-        for ( ; nodePax!=NULL && string((char*)nodePax->name) == "pax"; nodePax=nodePax->next ) {
-          Paxs[ NodeAsInteger( "@pax_id", nodePax ) ] = Tids( NodeAsInteger( "@pax_tid", nodePax ), NodeAsInteger( "@grp_tid", nodePax ) );
+        for ( ; nodePax!=NULL && string((const char*)nodePax->name) == "pax"; nodePax=nodePax->next ) {
+          Paxs[ NodeAsInteger( "@pax_id", nodePax ) ] = EXCH_CHECKIN_RESULT::Tids( NodeAsInteger( "@pax_tid", nodePax ), NodeAsInteger( "@grp_tid", nodePax ) );
           ProgTrace( TRACE5, "pax_id=%d, pax_tid=%d, grp_tid=%d",
                      NodeAsInteger( "@pax_id", nodePax ),
                      NodeAsInteger( "@pax_tid", nodePax ),
@@ -279,7 +268,7 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
   string res;
   int pax_count = 0;
   int prior_pax_id = -1;
-  Tids tids;
+  EXCH_CHECKIN_RESULT::Tids tids;
   map<int,TTripInfo> trips;
   map<int,bool> sync_meridian;
   int col_pax_tid = -1;
@@ -451,7 +440,7 @@ void GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
     try {
       node = paxsDoc->children;
       SetProp( node, "time", DateTimeToStr( max_time, ServerFormatDateTimeAsString ) );
-      for ( map<int,Tids>::iterator p=Paxs.begin(); p!=Paxs.end(); p++ ) {
+      for ( map<int,EXCH_CHECKIN_RESULT::Tids>::iterator p=Paxs.begin(); p!=Paxs.end(); p++ ) {
         xmlNodePtr n = NewTextChild( node, "pax" );
         SetProp( n, "pax_id", p->first );
         SetProp( n, "pax_tid", p->second.pax_tid );

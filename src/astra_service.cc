@@ -285,7 +285,7 @@ public:
 
 
 void getFileParams1( const std::string client_canon_name, const std::string &type,
-                      int id, map<string, string> &fileparams, bool send )
+                     int id, map<string, string> &fileparams, bool send )
 {
     map<string, string> fp = fileparams;
     fileparams.clear();
