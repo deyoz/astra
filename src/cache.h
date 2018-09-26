@@ -60,6 +60,7 @@ const
                          {"AIRLINES",                etAirline},
                          {"AIRPS",                   etAirp},
                          {"AIRP_TERMINALS",          etAirpTerminal},
+                         {"APIS_TRANSPORTS",         etMsgTransport},
                          {"BAG_NORM_TYPES",          etBagNormType},
                          {"BAG_TYPES",               etBagType},
                          {"BI_HALLS",                etBIHall},
