@@ -650,27 +650,12 @@ void AstraEdiHandlerManager::beforeProc()
     RemoteSystemContext::SystemContext::Instance(STDLOG).inbTlgInfo().setTlgNum(*tlgNum);
     if(TlgHandling::isTlgPostponed(*tlgNum)) {
         RemoteSystemContext::SystemContext::Instance(STDLOG).inbTlgInfo().setRepeatedlyProcessed();
+    } else {
+        // создаём savepoint до обработки только для случаев не postponed
+        // Postponed-обработка создаёт свой собственный savepoint
+        ASTRA::beforeSoftError();
+        ProcSavePoint = true;
     }
-
-//    etsSessionHandler->setSysCont(&RemoteSystemContext::SystemContext::Instance(STDLOG));
-
-//    LogTrace(TRACE1) << "Request/Response from " <<
-//              RemoteSystemContext::SystemContext::Instance(STDLOG).description();
-
-
-//    detectLang();
-
-//    if(sessionHandler()->edih()->msg_type_req == RESPONSE
-//            && sessionHandler()->ediSession()->msgId().num.valid())
-//    {
-//        TlgSource::setAnswerTlgNumDb(sessionHandler()->ediSession()->msgId(),
-//                                     TlgSrc->tlgNum());
-//    }
-
-    ProgTrace(TRACE1,"Check edifact session - Ok");
-    /* ВСЕ ХОРОШО, ПРОДОЛЖАЕМ ... */
-    ASTRA::beforeSoftError();
-    ProcSavePoint = true;
 }
 
 void AstraEdiHandlerManager::afterProc()
