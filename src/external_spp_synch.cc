@@ -881,7 +881,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, DestsTagsNoExists &tags, co
     else {
       dest.trip_type = "п";
     }
-  }
+  }  
   if ( dest.status == tdDelete ) { //airp не задан!!!
       dest.pr_del = -1;
 /*    elem = checkerFlt.checkAirp( TReqInfo::Instance()->desk.airp, TCheckerFlt::etExtAODB, true, Qry );
@@ -975,7 +975,8 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, DestsTagsNoExists &tags, co
     TPointsDest *ppoint;
     ProgTrace(TRACE5,"check airp");
     elem = checkerFlt.checkAirp( NodeAsStringFast( "airp", propNode, "" ), TCheckerFlt::etExtAODB, true );
-    if ( elem.code == dest.airp ) {
+    bool own_airp = elem.code == dest.airp; //own airp
+    if ( own_airp ) { 
       ppoint = &dest;
       tags.insert( make_pair( dest.airp, ownTags ) );
     }
@@ -1013,6 +1014,20 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, DestsTagsNoExists &tags, co
     ppoint->act_out = tags[ ppoint->airp ].act_out?ASTRA::NoExists:checkerFlt.checkLocalTime( prop, region, "Время вылета фактическое " + ppoint->airp, false );
     ProgTrace( TRACE5, "tag.est_out=%d, act_out=%f, tags.act_out=%d, ppoint->point_num=%d",
                tags[ ppoint->airp ].est_out, ppoint->act_out, tags[ ppoint->airp ].act_out, ppoint->point_num );
+    if ( own_airp ) {
+        TTripInfo info;
+        info.airline =  dest.airline;
+        info.airp = dest.airp;
+        info.flt_no = dest.flt_no;
+        info.scd_out = dest.scd_out;  
+        Franchise::TProp franchise_prop;
+        if ( franchise_prop.get(info, Franchise::TPropType::aodb) &&
+             franchise_prop.val == Franchise::pvNo ) {          
+          dest.airline = franchise_prop.oper.airline;
+          dest.flt_no = franchise_prop.oper.flt_no;
+          dest.suffix = franchise_prop.oper.suffix;
+        }        
+    }
     dsts[ ppoint->point_num ] = *ppoint;
     n = n->next;
   }
