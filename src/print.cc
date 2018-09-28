@@ -1066,14 +1066,30 @@ void set_via_fields(PrintDataParser &parser, const TTrferRoute &route, int start
 {
     int via_idx = 1;
     for(int j = start_idx; j < end_idx; ++j) {
-        string str_via_idx = IntToString(via_idx);
-        ostringstream flt_no;
-        flt_no << setw(3) << setfill('0') << route[j].operFlt.flt_no;
+
+        string view_airline = route[j].operFlt.airline;
+        int view_flt_no = route[j].operFlt.flt_no;
+        string view_suffix = route[j].operFlt.suffix;
         TDateTime real_local=route[j].operFlt.act_est_scd_out()==ASTRA::NoExists?route[j].operFlt.scd_out:route[j].operFlt.act_est_scd_out();
 
-        parser.pts.set_tag("flt_no" + str_via_idx, flt_no.str() + route[j].operFlt.suffix);
+        // Франчайз применяем только к первому пункту маршрута
+        if(j == 0 and route[j].operFlt.point_id != NoExists) {
+            Franchise::TProp franchise_prop;
+            franchise_prop.get(route[j].operFlt.point_id, Franchise::TPropType::bt);
+            if(franchise_prop.val == Franchise::pvNo) {
+                view_airline = franchise_prop.franchisee.airline;
+                view_flt_no = franchise_prop.franchisee.flt_no;
+                view_suffix = franchise_prop.franchisee.suffix;
+            }
+        }
+
+        string str_via_idx = IntToString(via_idx);
+        ostringstream flt_no;
+        flt_no << setw(3) << setfill('0') << view_flt_no;
+
+        parser.pts.set_tag("flt_no" + str_via_idx, flt_no.str() + view_suffix);
         parser.pts.set_tag("local_date" + str_via_idx, real_local);
-        parser.pts.set_tag("airline" + str_via_idx, route[j].operFlt.airline);
+        parser.pts.set_tag("airline" + str_via_idx, view_airline);
         parser.pts.set_tag("airp_arv" + str_via_idx, route[j].airp_arv);
         parser.pts.set_tag("fltdate" + str_via_idx, real_local);
         parser.pts.set_tag("airp_arv_name" + str_via_idx, route[j].airp_arv);
@@ -2787,7 +2803,7 @@ void PrintInterface::print_bp2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 ConvertCodepage(parser.parse(data),"CP866","UTF-8"));
         SetProp(NewTextChild(resNode, "content", data), "b64", true);
     } else
-        throw Exception("reg_no %d not found", reg_no);
+        throw Exception("reg_no " + IntToString(reg_no) + " not found");
 }
 
 void PrintInterface::print_bp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
