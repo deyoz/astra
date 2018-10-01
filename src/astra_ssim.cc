@@ -83,14 +83,14 @@ ssim::ScdPeriods AstraSsimCallbacks::getSchedulesWithOpr(nsi::CompanyId, const c
   return ssim::ScdPeriods();
 }
 
-Expected< boost::optional<ssim::CshSettings> > AstraSsimCallbacks::cshSettingsByTlg(nsi::CompanyId, ssim::ScdPeriod&) const
+Expected< ssim::PeriodicCshs > AstraSsimCallbacks::cshSettingsByTlg(nsi::CompanyId, const ssim::ScdPeriod&) const
 {
-  return boost::optional<ssim::CshSettings>();
+  return ssim::PeriodicCshs();
 }
 
-Expected< boost::optional<ssim::CshSettings> > AstraSsimCallbacks::cshSettingsByScd(const ssim::ScdPeriod&) const
+Expected< ssim::PeriodicCshs > AstraSsimCallbacks::cshSettingsByScd(const ssim::ScdPeriod&) const
 {
-  return boost::optional<ssim::CshSettings>();
+  return ssim::PeriodicCshs();
 }
 
 ssim::DefValueSetter AstraSsimCallbacks::prepareDefaultValueSetter(ct::DeiCode, const nsi::DepArrPoints&, bool byLeg) const

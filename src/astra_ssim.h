@@ -39,9 +39,9 @@ public:
     // остальное заглушки
     virtual ssim::ScdPeriods getSchedulesWithOpr(nsi::CompanyId, const ct::Flight&, const Period&) const override;
 
-    virtual Expected< boost::optional<ssim::CshSettings> > cshSettingsByTlg(nsi::CompanyId, ssim::ScdPeriod&) const override;
+    virtual Expected< ssim::PeriodicCshs > cshSettingsByTlg(nsi::CompanyId, const ssim::ScdPeriod&) const override;
 
-    virtual Expected< boost::optional<ssim::CshSettings> > cshSettingsByScd(const ssim::ScdPeriod&) const override;
+    virtual Expected< ssim::PeriodicCshs > cshSettingsByScd(const ssim::ScdPeriod&) const override;
 
     virtual ssim::DefValueSetter prepareDefaultValueSetter(ct::DeiCode, const nsi::DepArrPoints&, bool byLeg) const override;
 };
