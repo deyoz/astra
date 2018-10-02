@@ -30,11 +30,12 @@ const string TRANSPORT_TYPE_FILE = "FILE";
 const string TRANSPORT_TYPE_RABBIT_MQ = "RABBIT_MQ";
 
 const string apis_test_text =
-"select 'ESAPIS:ZZ' AS edi_addr, 'AIR EUROPA:UX' AS edi_own_addr, code AS format "
-+ TRANSPORT_TYPE_FILE + " AS transport_type, 'mvd_czech_edi' AS transport_params "
+"select 'ESAPIS:ZZ' AS edi_addr, 'AIR EUROPA:UX' AS edi_own_addr, code AS format, '"
++ TRANSPORT_TYPE_FILE + "' AS transport_type, 'mvd_czech_edi' AS transport_params "
 "FROM apis_formats "
 "WHERE code<>'APPS_SITA' AND code<>'TEST' "
 "ORDER BY format";
+// https://stackoverflow.com/questions/3592357/string-concatenation
 
 //int apis_test(int argc, char **argv);
 int apis_test_single(int argc, char **argv);
