@@ -30,9 +30,9 @@ template<typename T> struct Traits< property_map<T> >
     typedef property_map<T> Type;
     enum { allowEmptyConstructor = 0 };
     static mValue packInt(const Type& i);
-    static boost::optional< Type > unpackInt(const mValue& v);
+    static UnpackResult< Type > unpackInt(const mValue& v);
     static mValue packExt(const Type& i);
-    static boost::optional< Type > unpackExt(const mValue& v);
+    static UnpackResult< Type > unpackExt(const mValue& v);
 };
 
 } //namespace json_spirit
@@ -50,21 +50,19 @@ mValue Traits<property_map<T>>::pack##EI(const property_map<T>& i)\
     return ret;\
 }\
 template <typename T>\
-boost::optional<property_map<T>> Traits<property_map<T>>::unpack##EI(const mValue& v)\
+UnpackResult<property_map<T>> Traits<property_map<T>>::unpack##EI(const mValue& v)\
 {\
     JSON_ASSERT_TYPE(property_map<T>, v, json_spirit::obj_type);\
     const mObject& obj(v.get_obj());\
     property_map<T>  ts;\
     for (const auto & val : obj) {\
         const auto& key = std::get<0>(val);\
-        boost::optional<T> t(Traits<T>::unpack##EI(std::get<1>(val)));\
+        auto t = Traits<T>::unpack##EI(std::get<1>(val));\
         if (!t) {\
-            writeJsonLog( key );\
-            return boost::optional< property_map<T> >();\
+            return UnpackError{"unpack" #EI " failed " + key};\
         }\
         if (!std::get<1>(ts.emplace(key, *t)) ) {\
-            writeJsonLog( key + " insert failed");\
-            return boost::optional< property_map<T> >();\
+            return UnpackError{key + " insert failed"};\
         }\
     }\
     return ts;\
@@ -93,14 +91,14 @@ namespace json_spirit
     boost::optional<std::string> timeout;
     std::string time;
     int id;
-    KioskServerEvent( const std::string &vapplication,
-                      const std::string &vscreen,
-                      const std::string &vkioskId,
-                      const std::string &vhardwareId,
-                      const std::string &vmode,
-                      const std::string &vtypeRequest,
-                      boost::optional< property_map<std::vector<boost::optional<std::string>>> > vparams,
-                      const std::string &vtimeout,
+    KioskServerEvent( const boost::optional<std::string> &vapplication,
+                      const boost::optional<std::string> &vscreen,
+                      const boost::optional<std::string> &vkioskId,
+                      const boost::optional<std::string> &vhardwareId,
+                      const boost::optional<std::string> &vmode,
+                      const boost::optional<std::string> &vtypeRequest,
+                      const boost::optional< property_map<std::vector<boost::optional<std::string>>> > &vparams,
+                      const boost::optional<std::string> &vtimeout,
                       std::string vtime,
                       int vid
                        ) {
@@ -219,9 +217,8 @@ CREATE SEQUENCE kiosk_event__seq
 struct KioskServerEventContainer {
   std::string JAVA_TIME_FORMAT = "dd.mm.yyyy hh:nn:ss";
   public:
-    boost::optional<json_spirit::KioskServerEvent> event;
+    json_spirit::UnpackResult<json_spirit::KioskServerEvent> event = json_spirit::UnpackError{""};
     std::map<std::string,std::string> headers;
-    std::string parse_error;
     TDateTime time;
     void parse( xmlNodePtr reqNode ) {
       headers[ "content" ] = "";
@@ -241,22 +238,19 @@ struct KioskServerEventContainer {
            node = node->next;
          }
       }
-      parse_error.clear();
       json_spirit::mValue v;
       bool pr_read = json_spirit::read(headers[ "content" ], v);
       ProgTrace(TRACE5, " json read=%d",  pr_read == true );
-      json_spirit::JsonLogger l;
+      //json_spirit::JsonLogger l;
       event = json_spirit::Traits<json_spirit::KioskServerEvent>::unpackExt(v);
-      parse_error = l.msg();
-      if ( event != boost::none &&
-           BASIC::date_time::StrToDateTime( event.get().time.c_str(),JAVA_TIME_FORMAT.c_str(), time ) == EOF ) { //!!!очень криво, надо, чтобы работал json!!!
-         parse_error += " invalid value at field time";
-         event = boost::none;
+      if ( event.valid() &&
+           BASIC::date_time::StrToDateTime( event->time.c_str(),JAVA_TIME_FORMAT.c_str(), time ) == EOF ) { //!!!очень криво, надо, чтобы работал json!!!
+         event = json_spirit::UnpackError{"invalid value at field time"};
       }
     }
     void toDB() {
       TQuery Qry( &OraSession );
-      if ( event != boost::none ) {
+      if ( event.valid()) {
         try {
           Qry.SQLText =
             "SELECT kiosk_event__seq.nextval AS event_id FROM dual";
@@ -267,16 +261,16 @@ struct KioskServerEventContainer {
             "INSERT INTO kiosk_events(id,type,application,screen,kioskid,time,ev_order,session_id) "
             "VALUES(:event_id,:type,:application,:screen,:kioskid,:time,:ev_order,:session_id) ";
           Qry.CreateVariable( "event_id", otString, event_id );
-          Qry.CreateVariable( "type", otString, event.get().typeRequest == boost::none?string("unknown"):event.get().typeRequest.get() );
-          Qry.CreateVariable( "application", otString, event.get().application == boost::none?string(""):event.get().application.get() );
-          Qry.CreateVariable( "screen", otString, event.get().screen == boost::none?string(""):event.get().screen.get() );
-          Qry.CreateVariable( "kioskid", otString, event.get().kioskId==boost::none?string(""):event.get().kioskId.get() );
+          Qry.CreateVariable( "type", otString, event->typeRequest == boost::none?string("unknown"):event->typeRequest.get() );
+          Qry.CreateVariable( "application", otString, event->application == boost::none?string(""):event->application.get() );
+          Qry.CreateVariable( "screen", otString, event->screen == boost::none?string(""):event->screen.get() );
+          Qry.CreateVariable( "kioskid", otString, event->kioskId==boost::none?string(""):event->kioskId.get() );
           Qry.CreateVariable( "time", otDate, time );
-          ProgTrace( TRACE5, "id=%d", event.get().id );
-          Qry.CreateVariable( "ev_order", otInteger, event.get().id );
-          Qry.CreateVariable( "session_id", otString, event.get().session_id() );
+          ProgTrace( TRACE5, "id=%d", event->id );
+          Qry.CreateVariable( "ev_order", otInteger, event->id );
+          Qry.CreateVariable( "session_id", otString, event->session_id() );
           Qry.Execute();
-          if ( event.get().inputParams != boost::none ) {
+          if ( event->inputParams != boost::none ) {
             Qry.Clear();
             Qry.SQLText =
               "INSERT INTO kiosk_event_params(event_id,num,name,value,page_no) "
@@ -287,7 +281,7 @@ struct KioskServerEventContainer {
             Qry.DeclareVariable( "value", otString );
             Qry.DeclareVariable( "page_no", otInteger );
             int num = 0;
-            for ( property_map<std::vector<boost::optional<std::string>>>::const_iterator i=event.get().inputParams.get().begin(); i!=event.get().inputParams.get().end(); i++ ) {
+            for ( property_map<std::vector<boost::optional<std::string>>>::const_iterator i=event->inputParams.get().begin(); i!=event->inputParams.get().end(); i++ ) {
               Qry.SetVariable( "name", i->first );
               if ( !i->second.empty() ) {
                 for ( vector<boost::optional<std::string>>::const_iterator v=i->second.begin(); v!=i->second.end(); v++ ) {
@@ -311,26 +305,23 @@ struct KioskServerEventContainer {
           }
         }
         catch( EXCEPTIONS::Exception &e ) {
-          event = boost::none;
-          parse_error = e.what();
+          event = json_spirit::UnpackError{e.what()};
         }
         catch( std::exception &e ) {
-          event = boost::none;
-          parse_error = e.what();
+          event = json_spirit::UnpackError{e.what()};
         }
         catch(...) {
-          event = boost::none;
-          parse_error = "unknown error";
+          event = json_spirit::UnpackError{"unknown error"};
         }
     }
-    if ( event == boost::none ) {
-      ProgError( STDLOG, "kiosk_event error %s", parse_error.c_str() );
+    if ( !event.valid() ) {
+      ProgError( STDLOG, "kiosk_event error %s", event.err().text.c_str() );
       Qry.Clear();
       Qry.SQLText =
         "INSERT INTO kiosk_event_errors(content,error,reference,time) "
         " VALUES(:content,:error,:reference,:time)";
       Qry.CreateVariable( "content", otString, headers[ "content" ].substr(0,2000) );
-      Qry.CreateVariable( "error", otString, parse_error.substr(0,2000) );
+      Qry.CreateVariable( "error", otString, event.err().text.substr(0,2000) );
       Qry.CreateVariable( "reference", otString, string("") );
       Qry.CreateVariable( "time", otDate, BASIC::date_time::Now() );
       tst();
