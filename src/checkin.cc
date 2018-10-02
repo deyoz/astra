@@ -9022,8 +9022,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       }
     }
 
-    // TODO здесь понадобится чтение настроек IATCI
-    //if (!s->second.tckin_permit || s->first.is_edi) total_permit=false;
+    if (!s->second.tckin_permit && !s->first.is_edi) total_permit=false;
     bool total_waitlist=false;
     string wl_type;
     if (total_permit)
