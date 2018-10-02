@@ -646,6 +646,7 @@ class PaxlstSettings
     std::string m_mesAssCode;
     std::string m_respAgnCode;
     bool m_viewUNGandUNE;
+    bool m_view_RFF_TN = false;
 
 public:
     PaxlstSettings()
@@ -670,6 +671,9 @@ public:
 
     bool viewUNGandUNE() const { return m_viewUNGandUNE; }
     void setViewUNGandUNE( const bool& viewUNGandUNE ) { m_viewUNGandUNE = viewUNGandUNE; }
+
+    bool view_RFF_TN() const { return m_view_RFF_TN; }
+    void set_view_RFF_TN( bool view_RFF_TN ) { m_view_RFF_TN = view_RFF_TN; }
 };
 
 //-------------------------------------------------------------------------------------------------
