@@ -790,6 +790,68 @@ TPrnQryBuilder::TPrnQryBuilder(TQuery &aQry): Qry(aQry)
         "       :op_type ";
 };
 
+TDateTime get_date_from_bcbp(int julian_date)
+{
+    //вообще-то здесь нужно различать TDirection
+    //для time_print TDirection::before, для date_of_flight TDirection::everywhere
+    //это на потом
+    JulianDate d(julian_date, NowUTC(), JulianDate::TDirection::everywhere);
+    d.trace(__FUNCTION__);
+    return d.getDateTime();
+}
+
+void TPrnTagStore::save_foreign_scan()
+{
+    pair<int, char> bcbp_flt_no = scan_data->flight_number(0);
+    string suffix;
+    suffix.append(1, bcbp_flt_no.second);
+    suffix = StrUtils::trim(suffix); // пустой суффикс почему-то хранится как пробел ' '
+
+    TCachedQuery Qry(
+            "insert into foreign_scan ( "
+            "   id, "
+            "   time_print, "
+            "   desk, "
+            "   desk_airp, "
+            "   descr, "
+            "   client_type, "
+            "   airline, "
+            "   flt_no, "
+            "   suffix, "
+            "   scd_out, "
+            "   airp_dep, "
+            "   airp_arv, "
+            "   scan_data "
+            ") values ( "
+            "   cycle_id__seq.nextval, "
+            "   :time_print, "
+            "   :desk, "
+            "   (select airp from desk_grp where grp_id = (select grp_id from desks where code = :desk)), "
+            "   (select descr from web_clients where desk = :desk), "
+            "   :client_type, "
+            "   :airline, "
+            "   :flt_no, "
+            "   :suffix, "
+            "   :scd_out, "
+            "   :airp_dep, "
+            "   :airp_arv, "
+            "   :scan_data "
+            ") ",
+        QParams()
+            << QParam("time_print", otDate, time_print.val)
+            << QParam("desk", otString, TReqInfo::Instance()->desk.code)
+            << QParam("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type))
+            << QParam("airline", otString, getElemId(etAirline, StrUtils::trim(scan_data->operating_carrier_designator(0))))
+            << QParam("flt_no", otInteger, bcbp_flt_no.first)
+            << QParam("suffix", otString, (suffix.empty() ? suffix : getElemId(etSuffix, suffix)))
+            << QParam("scd_out", otDate, get_date_from_bcbp(scan_data->date_of_flight(0)))
+            << QParam("airp_dep", otString, getElemId(etAirp, scan_data->from_city_airport(0)))
+            << QParam("airp_arv", otString, getElemId(etAirp, scan_data->to_city_airport(0)))
+            << QParam("scan_data", otString, scan));
+
+    Qry.get().Execute();
+}
+
 void TPrnTagStore::confirm_print(bool pr_print, TDevOper::Enum op_type)
 {
     if(scan_data != NULL) return;
@@ -1574,12 +1636,7 @@ string get_date_from_bcbp(TDateTime date, const string &date_format, bool pr_lat
 
 string get_date_from_bcbp(int julian_date, const string &date_format, bool pr_lat)
 {
-    //вообще-то здесь нужно различать TDirection
-    //для time_print TDirection::before, для date_of_flight TDirection::everywhere
-    //это на потом
-    JulianDate d(julian_date, NowUTC(), JulianDate::TDirection::everywhere);
-    d.trace(__FUNCTION__);
-    return get_date_from_bcbp(d.getDateTime(), date_format, pr_lat);
+    return get_date_from_bcbp(get_date_from_bcbp(julian_date), date_format, pr_lat);
 }
 
 string TPrnTagStore::ACT(TFieldParams fp)

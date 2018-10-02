@@ -1971,6 +1971,8 @@ void PrintInterface::GetPrintDataBP(
         }
         if(iPax->pax_id!=NoExists)
             parser->pts.confirm_print(false, op_type);
+        else
+            parser->pts.save_foreign_scan();
         iPax->time_print=parser->pts.get_time_print();
     }
     paxs.erase(remove_if(paxs.begin(), paxs.end(), IsErrPax), paxs.end());
@@ -2745,9 +2747,9 @@ void PrintInterface::print_bp2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     if(not contentNode) throw Exception("content is null");
 
     TSearchFltInfo filter;
-    filter.airline = CKIN_REPORT::getElemId(etAirline, NodeAsString("airline", contentNode));
+    filter.airline = getElemId(etAirline, NodeAsString("airline", contentNode));
     filter.flt_no = NodeAsInteger("flt_no", contentNode);
-    filter.airp_dep = CKIN_REPORT::getElemId(etAirp,NodeAsString("airp_dep", contentNode));
+    filter.airp_dep = getElemId(etAirp,NodeAsString("airp_dep", contentNode));
     if(StrToDateTime(NodeAsString("scd_out", contentNode), "dd.mm.yy", filter.scd_out) == EOF)
         throw Exception("print_bp: can't convert scd_out: %s", NodeAsString("scd_Out", contentNode));
     filter.scd_out_in_utc = true;
@@ -2819,9 +2821,9 @@ void PrintInterface::print_bp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         content.erase(0, idx + 1);
 
         TSearchFltInfo filter;
-        filter.airline = CKIN_REPORT::getElemId(etAirline, params[0]);
+        filter.airline = getElemId(etAirline, params[0]);
         filter.flt_no = ToInt(params[1]);
-        filter.airp_dep = CKIN_REPORT::getElemId(etAirp, params[3]);
+        filter.airp_dep = getElemId(etAirp, params[3]);
         if(StrToDateTime(params[2].c_str(), "dd.mm.yy", filter.scd_out) == EOF)
             throw Exception("print_bp: can't convert scd_out: %s", params[2].c_str());
         filter.scd_out_in_utc = true;

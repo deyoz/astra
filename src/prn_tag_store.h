@@ -775,6 +775,7 @@ class TPrnTagStore {
         void set_tag(std::string name, int value);
         void set_tag(std::string name, TDateTime value);
         std::string get_field(std::string name, size_t len, const std::string &text, std::string align, std::string date_format, std::string tag_lang, bool pr_user_except = true);
+        void save_foreign_scan();
         void confirm_print(bool pr_print, ASTRA::TDevOper::Enum op_type);
         std::string get_tag_no_err( // Версия get_tag, которая игнорирует ошибку "Данные печати не латинские"
                 std::string name,
