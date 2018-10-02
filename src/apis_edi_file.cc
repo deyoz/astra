@@ -142,6 +142,10 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
     viewBgmElement( pMes, BgmElem( paxlst.type()==PaxlstInfo::FlightPassengerManifest?"745":"250",
                                    paxlst.docId() ) );
 
+    // RFF
+    if (paxlst.settings().view_RFF_TN())
+      viewRffElement( pMes, RffElem( "TN", createEdiInterchangeReference().substr(0,35) ), 0 );
+
     if( !paxlst.partyName().empty() )
     {
         SetEdiSegGr( pMes, SegGrElement( 1, 0 ) );

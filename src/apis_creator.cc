@@ -368,6 +368,7 @@ void CreateEdi( const TApisRouteData& route,
     paxlstInfo.settings().setMesRelNum(format.mesRelNum());
     paxlstInfo.settings().setMesAssCode(format.mesAssCode());
     paxlstInfo.settings().setViewUNGandUNE(format.viewUNGandUNE());
+    if (format.rule(r_view_RFF_TN)) paxlstInfo.settings().set_view_RFF_TN(true);
 
     list<TAirlineOfficeInfo> offices;
     GetAirlineOfficeInfo(route.airline_code(), route.country_arv_code, route.airp_arv_code(), offices);
