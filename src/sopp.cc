@@ -42,6 +42,7 @@
 #include "annul_bt.h"
 #include "counters.h"
 #include "baggage_tags.h"
+//#include "seat_map_converter.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/slogger.h"
@@ -58,6 +59,9 @@ using namespace boost::local_time;
 
 enum TModule { tSOPP, tISG, tSPPCEK };
 enum TSoppWriteOwner { ownerDisp, ownerMVT };
+
+const 
+  int TAKEOFF_DELAY_MIN_SHOW_MESSAGE = 15; //мин
 
 /*const char* points_SOPP_SQL_N =
       "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
@@ -2895,6 +2899,18 @@ std::string GetTagsOfNotBoardedPax(int point_id)
   return GetTagRangesStrShort(tags);
 }
 
+bool isPaxsNotGrd( int point_id )
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT 1 AS nobrd "
+    "FROM pax_grp, pax "
+    "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pax_grp.status NOT IN ('E') AND pr_brd=0 AND rownum<2";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  return !Qry.Eof;
+}
+
 void GetBirks( int point_id, xmlNodePtr dataNode )
 {
   xmlNodePtr node = NewTextChild( dataNode, "birks" );
@@ -3428,6 +3444,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         break;
     }
   }
+  std::vector<LexemaData> warnings;
   bool ch_craft = false;
   TQuery Qry(&OraSession);
   TQuery DelQry(&OraSession);
@@ -3507,6 +3524,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     }
   }
   try {
+    warnings.clear(); 
     // проверка на отмену + в маршруте участвует всего одна авиакомпания
     string old_airline;
     for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
@@ -3545,21 +3563,31 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         oldtime = curtime;
         curtime = id->scd_in;
         if ( oldtime > NoExists && oldtime > curtime ) {
+          if ( !canExcept ) {
             throw AstraLocale::UserException( "MSG.ROUTE.IN_OUT_TIMES_NOT_ORDERED" );
+          }
+          warnings.push_back( LexemaData("MSG.ROUTE.IN_OUT_TIMES_NOT_ORDERED") );
         }
       }
       if ( id->scd_out > NoExists && id->act_out == NoExists ) {
         oldtime = curtime;
         curtime = id->scd_out;
         if ( oldtime > NoExists && oldtime > curtime ) {
+          if ( !canExcept ) {
             throw AstraLocale::UserException( "MSG.ROUTE.IN_OUT_TIMES_NOT_ORDERED" );
+          }
+          warnings.push_back( LexemaData("MSG.ROUTE.IN_OUT_TIMES_NOT_ORDERED") );
         }
       }
       if ( id->craft.empty() ) {
         for ( TSOPPDests::iterator xd=id+1; xd!=dests.end(); xd++ ) {
             if ( xd->pr_del )
                 continue;
-          throw AstraLocale::UserException( "MSG.CRAFT.NOT_SET" );
+          if ( !canExcept ) {
+            throw AstraLocale::UserException( "MSG.CRAFT.NOT_SET" );
+          }
+          warnings.push_back( LexemaData("MSG.CRAFT.NOT_SET") );
+          break;
         }
       }
       int point_id;
@@ -3569,38 +3597,92 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         existsTrip = true;
         break;
       }
-      if ( id->pr_del != -1 && id != dests.end() && id->est_out != id->scd_out &&
+      if ( id->pr_del != -1 && id->est_out != id->scd_out &&
            ( !id->delays.empty() || id->est_out != NoExists ) ) {
         TTripInfo info;
         info.airline = id->airline;
         info.flt_no = id->flt_no;
         info.airp = id->airp;
         if ( GetTripSets( tsCheckMVTDelays, info ) ) { //проверка задержек на совместимость с телеграммами
-          if ( id->delays.empty() )
-            throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_CODE" );
-          vector<TSOPPDelay>::iterator q = id->delays.end() - 1;
-          if ( q->time != id->est_out )
-            throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_CODE" );
-          for ( q=id->delays.begin(); q!=id->delays.end(); q++ ) {
-            if ( !check_delay_code( q->code ) )
+          if ( id->delays.empty() ) {
+            if ( !canExcept ) {
               throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_CODE" );
-            ProgTrace( TRACE5, "%f", q->time - id->scd_out );
-            if ( q->time != id->scd_out && !check_delay_value( q->time - id->scd_out ) )
-              throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_TIME" );
+            }
+            warnings.push_back( LexemaData("MSG.MVTDELAY.INVALID_CODE") );
+          }
+          vector<TSOPPDelay>::iterator q = id->delays.end() - 1;
+          if ( q->time != id->est_out ) {
+            if ( !canExcept ) {
+              throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_CODE" );
+            }
+            warnings.push_back( LexemaData("MSG.MVTDELAY.INVALID_CODE") );
+          }
+          for ( q=id->delays.begin(); q!=id->delays.end(); q++ ) {
+            if ( !check_delay_code( q->code ) ) {
+              if ( !canExcept ) {
+                throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_CODE" );
+              }
+              warnings.push_back( LexemaData("MSG.MVTDELAY.INVALID_CODE") );
+              break;
+            }
+            if ( q->time != id->scd_out && !check_delay_value( q->time - id->scd_out ) ) {
+              if ( !canExcept ) {
+                throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_TIME" );
+              }
+              warnings.push_back( LexemaData("MSG.MVTDELAY.INVALID_TIME") );
+              break;              
+            }
           }
         }
       }
+      
+      if ( id->pr_del == 0 && 
+           id->point_id != ASTRA::NoExists && 
+           id->scd_out != ASTRA::NoExists &&
+           id->act_out != ASTRA::NoExists ) { //возможно проставили время?          
+         TPointsDest d; 
+         BitSet<TUseDestData> FUseData;
+         d.Load( id->point_id, FUseData );
+         if ( d.act_out == ASTRA::NoExists ) {
+           TTripInfo info;
+           info.airline = id->airline;
+           info.flt_no = id->flt_no;
+           info.airp = id->airp;             
+           if ( fabs( (d.est_out!=ASTRA::NoExists?d.est_out:d.scd_out) - id->act_out )*1440 >= TAKEOFF_DELAY_MIN_SHOW_MESSAGE ) {
+             if ( GetTripSets( tsShowTakeoffDiffTakeoffACT, info ) ) { //проверка задержек на совместимость с телеграммами             
+               warnings.push_back( LexemaData( id->est_out!=ASTRA::NoExists?"QST.CONFIRM_TAKEOFF_ACT_DIFF_TAKEOFF_EST":"QST.CONFIRM_TAKEOFF_ACT_DIFF_TAKEOFF_SCD" ) );
+             }
+           }
+           if ( GetTripSets( tsShowTakeoffPassNotBrd, info ) ) {
+             warnings.push_back( LexemaData( "QST.CONFIRM_TAKEOFF_ACT_BRD" ) );  
+           }           
+         } 
+      }
     } // end for
-    if ( !pr_time )
+    if ( !pr_time ) {
+      if ( !canExcept ) {
         throw AstraLocale::UserException( "MSG.ROUTE.IN_OUT_TIMES_NOT_SPECIFIED" );
-  }
-  catch( AstraLocale::UserException &e ) {
-    if ( canExcept ) {
-        NewTextChild( NewTextChild( resNode, "data" ), "notvalid" );
-        AstraLocale::showErrorMessage( "MSG.ERR_MSG.REPEAT_F9_SAVE", LParams() << LParam("msg", getLocaleText(e.getLexemaData())));
-        return;
+      }
+      warnings.push_back( LexemaData("MSG.ROUTE.IN_OUT_TIMES_NOT_SPECIFIED") );
     }
   }
+  catch( AstraLocale::UserException &e ) {
+  }
+  
+  if ( canExcept && !warnings.empty() ) {
+    xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+    NewTextChild( dataNode, "notvalid" );
+    AstraLocale::showErrorMessage( "MSG.ERR_MSG.REPEAT_F9_SAVE", LParams() << LParam("msg", getLocaleText(*warnings.begin())));
+    dataNode = NewTextChild( dataNode, "warnings" );
+    for ( std::vector<LexemaData>::iterator imsg=warnings.begin(); imsg!=warnings.end(); imsg++ ) {
+      LParams lparams;      
+      lparams << LParam( "msg", *imsg );
+      LexemaData ld( std::string("WRAP.ERR_MSG.SOPP_SHOW_DIALOGS"), lparams);
+      NewTextChild( dataNode, "msg", getLocaleText( ld ) );
+    }
+    return;
+  }
+  
 
   if ( pr_other_airline )
     throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.ROUTE_CANNOT_BELONG_TO_DIFFERENT_AIRLINES" );
@@ -4821,7 +4903,10 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     return;
   }
   NewTextChild( reqNode, "move_id", move_id );
-  ReadDests( ctxt, reqNode, resNode );
+  ReadDests( ctxt, reqNode, resNode );  
+/*  seatMapConverter conv;
+  boost::optional<leonardo::ws::seats::SeatMap> seatmap;
+  conv.translateFromLeo( "", seatmap );*/
 }
 
 void SetFlightFact(int point_id, TDateTime utc_act_out)
