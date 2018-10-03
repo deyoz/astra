@@ -168,7 +168,7 @@ bool SeatInRange(const TSeatRange &range, const TSeat &seat)
          strcmp(seat.line,range.second.line)<=0;
 };
 
-bool NextSeatInRange(TSeatRange &range, TSeat &seat)
+bool NextSeatInRange(const TSeatRange &range, TSeat &seat)
 {
   if (!SeatInRange(range,seat)) return false;
   if (strcmp(seat.line,range.second.line)>=0)

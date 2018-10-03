@@ -130,7 +130,7 @@ std::string GetSeatRangeView(const TSeatRanges &ranges,
 std::string GetSeatRangeView(const TSeatRanges &ranges,
                              const std::string &format,
                              bool pr_lat);
-                             
+
 std::string GetSeatView(const TSeat &seat,
                         const std::string &format,
                         bool pr_lat);
@@ -148,7 +148,7 @@ TSeat& FirstNormSeatLine(TSeat &seat);
 TSeat& LastNormSeatLine(TSeat &seat);
 bool NextNormSeat(TSeat &seat);
 bool SeatInRange(const TSeatRange &range, const TSeat &seat);
-bool NextSeatInRange(TSeatRange &range, TSeat &seat);
+bool NextSeatInRange(const TSeatRange &range, TSeat &seat);
 
 #endif /*_SEATS_UTILS_H_*/
 
