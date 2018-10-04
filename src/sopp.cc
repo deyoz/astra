@@ -2899,7 +2899,7 @@ std::string GetTagsOfNotBoardedPax(int point_id)
   return GetTagRangesStrShort(tags);
 }
 
-bool isPaxsNotGrd( int point_id )
+bool isPaxsNotBrd( int point_id )
 {
   TQuery Qry(&OraSession);
   Qry.SQLText =
@@ -3536,7 +3536,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
                warnings.push_back( LexemaData( id->est_out!=ASTRA::NoExists?"QST.CONFIRM_TAKEOFF_ACT_DIFF_TAKEOFF_EST":"QST.CONFIRM_TAKEOFF_ACT_DIFF_TAKEOFF_SCD" ) );
              }
            }
-           if ( GetTripSets( tsShowTakeoffPassNotBrd, info ) ) {
+           if ( GetTripSets( tsShowTakeoffPassNotBrd, info ) && isPaxsNotBrd( id->point_id ) ) {
              warnings.push_back( LexemaData( "QST.CONFIRM_TAKEOFF_ACT_BRD" ) );  
            }           
          } 
