@@ -3849,18 +3849,21 @@ void TPaxItem::getAndLockSeatBlockingIds(const int& paxId, std::set<int>& seatId
     seatIds.insert(Qry.FieldAsInteger("seat_id"));
 }
 
-void TPaxItem::bindSeatsBlocking(const TRemItem& remItem,
-                                 TSeatsBlockingList& neSeatsBlocking,
-                                 TSeatsBlockingList& specialSeatsBlocking)
+void TPaxItem::bindSeatsBlocking(const TNameElement& ne,
+                                 const TRemItem& remItem,
+                                 TSeatsBlockingList& srcSeatsBlocking)
 {
   if (!isSeatBlockingRem(remItem.code)) return;
-  for(int pass=0; pass<2; pass++)
+  for(bool isSpecialPass : {false, true})
   {
-    TSeatsBlockingList& srcSeatsBlocking=(pass==0)?neSeatsBlocking:specialSeatsBlocking;
     for(TSeatsBlockingList::iterator i=srcSeatsBlocking.begin(); i!=srcSeatsBlocking.end(); ++i)
     {
       TSeatsBlockingItem& seatsBlockingItem=*i;
-      if (seatsBlockingItem.name==remItem.code)
+
+      if (seatsBlockingItem.isSpecial()!=isSpecialPass) continue;
+
+      if ((seatsBlockingItem.isSpecial() || seatsBlockingItem.surname==ne.surname) &&
+          seatsBlockingItem.name==remItem.code)
       {
         if (!seatsBlockingItem.isCBBG())
         {
@@ -3927,21 +3930,20 @@ void TPnrItem::separateSeatsBlocking()
 {
   for(TNameElement& nameElement : ne)
   {
-    TSeatsBlockingList& dest=nameElement.isSpecial()?
-          seatsBlocking.emplace(nameElement.indicator, TSeatsBlockingList()).first->second:
-          nameElement.seatsBlocking;
+    TSeatsBlockingList& dest=
+      seatsBlocking.emplace(nameElement.indicator, TSeatsBlockingList()).first->second;
 
     nameElement.separateSeatsBlocking(dest);
   }
 }
 
 void TNameElement::bindSeatsBlocking(const std::string& remCode,
-                                     TSeatsBlockingList& specialSeatsBlocking)
+                                     TSeatsBlockingList& srcSeatsBlocking)
 {
   for(TPaxItem& paxItem : pax)
     for(const TRemItem& remItem : paxItem.rem)
       if (remCode==remItem.code)
-        paxItem.bindSeatsBlocking(remItem, seatsBlocking, specialSeatsBlocking);
+        paxItem.bindSeatsBlocking(*this, remItem, srcSeatsBlocking);
 }
 
 void TPaxItem::setSomeDataForSeatsBlocking(const int& paxId, const TNameElement& ne)
@@ -4039,8 +4041,8 @@ void TPnrItem::bindSeatsBlocking()
   for(const string& remCode : {"STCR", "STCR", "EXST", "CBBG"}) //2 раза STCR это не ошибка
     for(TNameElement& nameElement : ne)
     {
-      TSeatsBlockingList& specialSeatsBlocking=seatsBlocking.emplace(nameElement.indicator, TSeatsBlockingList()).first->second;
-      nameElement.bindSeatsBlocking(remCode, specialSeatsBlocking);
+      TSeatsBlockingList& srcSeatsBlocking=seatsBlocking.emplace(nameElement.indicator, TSeatsBlockingList()).first->second;
+      nameElement.bindSeatsBlocking(remCode, srcSeatsBlocking);
     }
 }
 

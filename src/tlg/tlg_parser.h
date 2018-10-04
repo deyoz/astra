@@ -657,9 +657,9 @@ class TPaxItem
     void removeNotConfimedSSRs();
     bool isSeatBlocking() const { return isSeatBlockingRem(name); }
     bool isCBBG() const { return name=="CBBG"; }
-    void bindSeatsBlocking(const TRemItem& remItem,
-                           TSeatsBlockingList& neSeatsBlocking,
-                           TSeatsBlockingList& specialSeatsBlocking);
+    void bindSeatsBlocking(const TNameElement& ne,
+                           const TRemItem& remItem,
+                           TSeatsBlockingList& srcSeatsBlocking);
     void setSomeDataForSeatsBlocking(const int& paxId, const TNameElement& ne);
     void setSomeDataForSeatsBlocking(const TNameElement& ne);
     void getTknNumbers(std::list<std::string>& result) const;
@@ -788,7 +788,6 @@ class TNameElement
     TBagItem bag;
     std::vector<TTagItem> tags;
     int bag_pool;
-    TSeatsBlockingList seatsBlocking;
     TNameElement()
     {
       Clear();
@@ -809,7 +808,7 @@ class TNameElement
     void removeNotConfimedSSRs();
     void separateSeatsBlocking(TSeatsBlockingList& dest);
     void bindSeatsBlocking(const std::string& remCode,
-                           TSeatsBlockingList& specialSeatsBlocking);
+                           TSeatsBlockingList& srcSeatsBlocking);
     bool seatIsUsed(const TSeat& seat) const;
     void setNotUsedSeat(TSeatRanges& seats, TPaxItem& paxItem, bool moveSeat) const;
     bool isSpecial() const { return surname=="ZZ"; }
