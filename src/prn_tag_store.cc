@@ -2444,14 +2444,14 @@ string TPrnTagStore::TRfiscDescr::get(const string &crs_cls, TBPServiceTypes::En
                     parent_pax.id,
                     false, NULL);
             if(
-                    not parent_pts.get_tag(TAG::RFISC_UPGRADE).empty() or
-                    not parent_pts.get_tag(TAG::RFISC_BSN_LONGUE).empty()
+                    not StrUtils::trim(parent_pts.get_tag(TAG::RFISC_UPGRADE)).empty() or
+                    not StrUtils::trim(parent_pts.get_tag(TAG::RFISC_BSN_LONGUE)).empty()
               )
                 result = TBPServiceTypesDescr().encode(TBPServiceTypes::UP);
         }
         return result;
     } else {
-        string tag_bi_rule = pts.get_tag(TAG::BI_HALL);
+        string tag_bi_rule = StrUtils::trim(pts.get_tag(TAG::BI_HALL));
         if(
                 not (
                     found_services.find(TBPServiceTypes::UP) != found_services.end() and
