@@ -1946,10 +1946,14 @@ void PrintInterface::GetPrintDataBP(
         if (iPax->gate.second)
             parser->pts.set_tag("gate", iPax->gate.first);
 
-        if(TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION)) {
+        if(
+                TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION) or
+                TReqInfo::Instance()->isSelfCkinClientType()
+          ) {
             if(iPax->grp_id > 0 && iPax->pax_id > 0) {
                 const BIPrintRules::TRule &bi_rule = bi_rules.get(iPax->grp_id, iPax->pax_id);
-                if(bi_rule.tags_enabled(op_type, not iPax->gate.second)) {
+                // В случае саморегистрации сегмент всегда считается первым
+                if(bi_rule.tags_enabled(op_type, (not iPax->gate.second or TReqInfo::Instance()->isSelfCkinClientType()))) {
                     parser->pts.set_tag(TAG::BI_HALL, bi_rule);
                     parser->pts.set_tag(TAG::BI_HALL_CAPTION, bi_rule);
                     parser->pts.set_tag(TAG::BI_RULE, bi_rule);
@@ -2628,7 +2632,10 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
 
     // Начитываем правила БП для всех паксов
     BIPrintRules::Holder bi_rules(op_type);
-    if(TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION)) {
+    if(
+            TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION) or
+            TReqInfo::Instance()->isSelfCkinClientType()
+      ) {
         bool bi_access = false;
         for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
             if(first_seg_grp_id != iPax->grp_id) continue;
@@ -2646,9 +2653,12 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
     // Если с клиента пришли выбранные залы, выбираем их
     bi_rules.select(reqNode);
     if(
-            TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION) and
+            (
+             TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION) or
+             TReqInfo::Instance()->isSelfCkinClientType()
+            ) and
             not bi_rules.complete() // требуется назначить залы пассажирам
-            ) {
+      ) {
         LogTrace(TRACE5) << "complete false";
         bi_rules.toXML(op_type, resNode);
     } else {
@@ -2666,7 +2676,7 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
         }
 
         xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"),
-                (TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION) ? "print" : "printBP")
+                (TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION) or TReqInfo::Instance()->isSelfCkinClientType() ? "print" : "printBP")
                 );
         NewTextChild(BPNode, "pectab", pectab);
         xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");

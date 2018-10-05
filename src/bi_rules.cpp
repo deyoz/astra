@@ -572,7 +572,10 @@ void TPrPrint::get_pr_print(int grp_id, int pax_id, bool &pr_bp_print, bool &pr_
     Qry.get().Execute();
     pr_bp_print = not Qry.get().Eof;
 
-    if(TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION)) {
+    if(
+            TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION) or
+            TReqInfo::Instance()->isSelfCkinClientType()
+      ) {
         if(paxs.empty()) { // первый вызов
             fromDB(grp_id, pax_id, Qry.get());
         } else if(grps.find(grp_id) == grps.end()) {
