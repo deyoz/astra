@@ -3610,27 +3610,31 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
             }
             warnings.push_back( LexemaData("MSG.MVTDELAY.INVALID_CODE") );
           }
-          vector<TSOPPDelay>::iterator q = id->delays.end() - 1;
-          if ( q->time != id->est_out ) {
-            if ( !canExcept ) {
-              throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_CODE" );
-            }
-            warnings.push_back( LexemaData("MSG.MVTDELAY.INVALID_CODE") );
-          }
-          for ( q=id->delays.begin(); q!=id->delays.end(); q++ ) {
-            if ( !check_delay_code( q->code ) ) {
+          else {
+            vector<TSOPPDelay>::iterator q = id->delays.end() - 1;
+            if ( q->time != id->est_out ) {
               if ( !canExcept ) {
                 throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_CODE" );
               }
               warnings.push_back( LexemaData("MSG.MVTDELAY.INVALID_CODE") );
-              break;
             }
-            if ( q->time != id->scd_out && !check_delay_value( q->time - id->scd_out ) ) {
-              if ( !canExcept ) {
-                throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_TIME" );
+            else {
+              for ( q=id->delays.begin(); q!=id->delays.end(); q++ ) {
+                if ( !check_delay_code( q->code ) ) {
+                  if ( !canExcept ) {
+                    throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_CODE" );
+                  }
+                  warnings.push_back( LexemaData("MSG.MVTDELAY.INVALID_CODE") );
+                  break;
+                }
+                if ( q->time != id->scd_out && !check_delay_value( q->time - id->scd_out ) ) {
+                  if ( !canExcept ) {
+                    throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_TIME" );
+                  }
+                  warnings.push_back( LexemaData("MSG.MVTDELAY.INVALID_TIME") );
+                  break;              
+                }
               }
-              warnings.push_back( LexemaData("MSG.MVTDELAY.INVALID_TIME") );
-              break;              
             }
           }
         }
