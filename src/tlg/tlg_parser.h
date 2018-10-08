@@ -806,6 +806,7 @@ class TNameElement
     }
 
     void removeNotConfimedSSRs();
+    bool containsSinglePassenger() const;
     void separateSeatsBlocking(TSeatsBlockingList& dest);
     void bindSeatsBlocking(const std::string& remCode,
                            TSeatsBlockingList& srcSeatsBlocking);

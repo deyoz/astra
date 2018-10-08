@@ -3101,7 +3101,17 @@ void BindRemarks(TTlgParser &tlg, TNameElement &ne)
     else
     {
       //не нашли ссылку на пассажира
-      if (ne.pax.size()!=1)
+      iPaxItem=ne.pax.end();
+      if (ne.pax.size()==1)
+        iPaxItem=ne.pax.begin();
+      else
+        if (ne.containsSinglePassenger())
+        {
+          for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();++iPaxItem)
+            if (!iPaxItem->isSeatBlocking()) break;
+        }
+
+      if (iPaxItem==ne.pax.end())
       {
         ++iRemItem;
         continue;
@@ -3909,6 +3919,14 @@ void TPaxItem::moveTknWithNumber(const std::string& no, std::vector<TTKNItem>& d
     }
     ++iTkn;
   }
+}
+
+bool TNameElement::containsSinglePassenger() const
+{
+  int count=0;
+  for(const TPaxItem& paxItem : pax)
+    if (!paxItem.isSeatBlocking()) count++;
+  return count==1;
 }
 
 void TNameElement::separateSeatsBlocking(TSeatsBlockingList& dest)
