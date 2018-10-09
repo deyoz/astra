@@ -36,6 +36,7 @@
 #include "stat_ha.h"
 #include "stat_ad.h"
 #include "stat_unacc.h"
+#include "stat_reprint.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -8818,6 +8819,12 @@ void create_plain_files(
         case statHAFull:
             RunHAFullFile(params, order_writer);
             break;
+        case statReprintShort:
+            RunReprintShortFile(params, order_writer);
+            break;
+        case statReprintFull:
+            RunReprintFullFile(params, order_writer);
+            break;
         default:
             throw Exception("unsupported statType %d", params.statType);
     }
@@ -9658,6 +9665,8 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         case statVOFull:
         case statVOShort:
         case statADFull:
+        case statReprintShort:
+        case statReprintFull:
         case statBIFull:
         case statBIShort:
         case statBIDetail:
@@ -9820,6 +9829,18 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             TBIFullStat BIFullStat;
             RunBIStat(params, BIFullStat);
             createXMLBIFullStat(params, BIFullStat, resNode);
+        }
+        if(params.statType == statReprintShort)
+        {
+            TReprintShortStat ReprintShortStat;
+            RunReprintStat(params, ReprintShortStat);
+            createXMLReprintShortStat(params, ReprintShortStat, resNode);
+        }
+        if(params.statType == statReprintFull)
+        {
+            TReprintFullStat ReprintFullStat;
+            RunReprintStat(params, ReprintFullStat);
+            createXMLReprintFullStat(params, ReprintFullStat, resNode);
         }
         if(params.statType == statHAShort)
         {
@@ -11299,6 +11320,9 @@ void get_flight_stat(map<string, long> &stat_times, int point_id, bool final_col
      tm.Init();
      get_stat_ad(point_id);
      add_stat_time(stat_times, "stat_ad", tm.Print());
+     tm.Init();
+     get_stat_reprint(point_id);
+     add_stat_time(stat_times, "stat_reprint", tm.Print());
    };
 
    TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);

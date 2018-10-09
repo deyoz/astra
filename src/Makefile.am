@@ -189,6 +189,7 @@ astra_SOURCES = \
   stat_vo.cc \
   stat_ha.cc \
   stat_ad.cc \
+  stat_reprint.cc \
   stat_unacc.cc \
   pax_events.cc \
   stat_utils.cc \
@@ -383,6 +384,7 @@ noinst_HEADERS = \
   stat_vo.h \
   stat_ha.h \
   stat_ad.h \
+  stat_reprint.h \
   stat_unacc.h \
   pax_events.h \
   stat_utils.h \

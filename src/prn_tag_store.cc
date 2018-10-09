@@ -245,6 +245,7 @@ TPrnTagStore::TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat):
     space_if_empty(false),
     prn_tag_props(TDevOper::PrnBR)
 {
+    from_scan_code = false;
     print_mode = 0;
     tag_lang.Init(arcpt, apr_lat);
     tag_list.insert(make_pair(TAG::BULKY_BT,            TTagListItem(&TPrnTagStore::BULKY_BT)));
@@ -301,6 +302,7 @@ TPrnTagStore::TPrnTagStore(const std::string& airp_dep,
     space_if_empty(false),
     prn_tag_props(TDevOper::PrnBP)
 {
+    from_scan_code = false;
     init_bp_tags();
     tag_lang.Init(airp_dep, airp_arv, apr_lat);
 }
@@ -311,6 +313,7 @@ TPrnTagStore::TPrnTagStore(bool apr_lat):
     space_if_empty(false),
     prn_tag_props(TDevOper::Unknown)
 {
+    from_scan_code = false;
     print_mode = 0;
     tag_lang.Init(apr_lat);
     prn_test_tags.Init();
@@ -323,6 +326,7 @@ TPrnTagStore::TPrnTagStore(TDevOper::Enum _op_type, const string &ascan, bool ap
     space_if_empty(false),
     prn_tag_props(TDevOper::PrnBP)
 {
+    from_scan_code = true;
     scan_data = boost::shared_ptr<BCBPSections>(new BCBPSections());
     BCBPSections::get(ascan, 0, ascan.size(), *scan_data);
     print_mode = 0;
@@ -432,7 +436,7 @@ void TPrnTagStore::tagsFromXML(xmlNodePtr tagsNode)
 }
 
 // BP && BT
-TPrnTagStore::TPrnTagStore(TDevOper::Enum _op_type, int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute):
+TPrnTagStore::TPrnTagStore(TDevOper::Enum _op_type, int agrp_id, int apax_id, bool afrom_scan_code, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute):
     op_type(_op_type),
     time_print(NowUTC()),
     space_if_empty(false),
@@ -440,6 +444,7 @@ TPrnTagStore::TPrnTagStore(TDevOper::Enum _op_type, int agrp_id, int apax_id, in
 {
     if(op_type == TDevOper::PrnBP or op_type == TDevOper::PrnBI) rfisc_descr.fromDB(agrp_id, apax_id);
 
+    from_scan_code = afrom_scan_code;
     print_mode = 0;
     grpInfo.Init(agrp_id, apax_id);
     tag_lang.Init(
@@ -779,6 +784,7 @@ TPrnQryBuilder::TPrnQryBuilder(TQuery &aQry): Qry(aQry)
         "       pr_print, "
         "       desk, "
         "       client_type, "
+        "       from_scan_code, "
         "       op_type ";
     part2 =
         "   ) values( "
@@ -787,6 +793,7 @@ TPrnQryBuilder::TPrnQryBuilder(TQuery &aQry): Qry(aQry)
         "       :pr_print, "
         "       :desk, "
         "       :client_type, "
+        "       :from_scan_code, "
         "       :op_type ";
 };
 
@@ -866,6 +873,7 @@ void TPrnTagStore::confirm_print(bool pr_print, TDevOper::Enum op_type)
     Qry.CreateVariable("pr_print", otInteger, (pr_print ? pr_print : TReqInfo::Instance()->client_type == ctKiosk));
     Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
     Qry.CreateVariable("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type));
+    Qry.CreateVariable("from_scan_code", otInteger, from_scan_code);
     Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
 
     if(
@@ -2499,7 +2507,7 @@ string TPrnTagStore::TRfiscDescr::get(const string &crs_cls, TBPServiceTypes::En
                     pts.get_op_type(),
                     parent_pax.grp_id,
                     parent_pax.id,
-                    false, NULL);
+                    false, false, NULL);
             if(
                     not StrUtils::trim(parent_pts.get_tag(TAG::RFISC_UPGRADE)).empty() or
                     not StrUtils::trim(parent_pts.get_tag(TAG::RFISC_BSN_LONGUE)).empty()
