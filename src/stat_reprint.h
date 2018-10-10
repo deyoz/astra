@@ -3,6 +3,7 @@
 
 #include "stat_common.h"
 
+void cleanForeignScan(int days);
 void get_stat_reprint(int point_id);
 
 struct TReprintStatRow {

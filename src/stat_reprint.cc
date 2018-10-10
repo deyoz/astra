@@ -12,6 +12,13 @@ using namespace ASTRA;
 using namespace AstraLocale;
 using namespace BASIC::date_time;
 
+void cleanForeignScan(int days)
+{
+    TCachedQuery Qry("delete from foreign_scan where time_print <= :time",
+            QParams() << QParam("time", otDate, NowUTC() - days));
+    Qry.get().Execute();
+}
+
 void get_stat_reprint(int point_id)
 {
     TCachedQuery delQry("delete from stat_reprint where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
