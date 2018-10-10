@@ -3691,64 +3691,16 @@ struct TSelfCkinStatRow {
     int term_bp;
     int term_bag;
     int term_ckin_service;
-    int kiosk_reprint_bp;
     int adult;
     int child;
     int baby;
     int tckin;
     set<int> flts;
-
-    struct TFltInfo {
-        std::string airline;
-        int flt_no;
-        std::string airp;
-        TDateTime scd_out;
-
-        void clear()
-        {
-            airline.clear();
-            flt_no = NoExists;
-            airp.clear();
-            scd_out = NoExists;
-        }
-        TFltInfo()
-        {
-            clear();
-        }
-        TFltInfo(
-                const string &_airline,
-                int _flt_no,
-                const string &_airp,
-                TDateTime _scd_out
-                ) {
-            airline = _airline;
-            flt_no = _flt_no;
-            airp = _airp;
-            scd_out = _scd_out;
-        }
-
-        bool operator < (const TFltInfo &fi) const
-        {
-            if(airline != fi.airline)
-                return airline < fi.airline;
-            if(flt_no != fi.flt_no)
-                return flt_no < fi.flt_no;
-            if(airp != fi.airp)
-                return airp < fi.airp;
-            return scd_out < fi.scd_out;
-        }
-    };
-
-    set<TFltInfo> foreign_flts;
-
-    int flts_amount() const { return (int)flts.size() + (int)foreign_flts.size(); }
-
     TSelfCkinStatRow():
         pax_amount(0),
         term_bp(0),
         term_bag(0),
         term_ckin_service(0),
-        kiosk_reprint_bp(0),
         adult(0),
         child(0),
         baby(0),
@@ -3764,8 +3716,7 @@ struct TSelfCkinStatRow {
                child == item.child &&
                baby == item.baby &&
                tckin == item.tckin &&
-               flts.size() == item.flts.size() &&
-               foreign_flts.size() == item.foreign_flts.size();
+               flts.size() == item.flts.size();
     };
     void operator += (const TSelfCkinStatRow &item)
     {
@@ -3773,13 +3724,11 @@ struct TSelfCkinStatRow {
         term_bp += item.term_bp;
         term_bag += item.term_bag;
         term_ckin_service += item.term_ckin_service;
-        kiosk_reprint_bp += item.kiosk_reprint_bp;
         adult += item.adult;
         child += item.child;
         baby += item.baby;
         tckin += item.tckin;
         flts.insert(item.flts.begin(),item.flts.end());
-        foreign_flts.insert(item.foreign_flts.begin(),item.foreign_flts.end());
     };
 };
 
@@ -3849,7 +3798,6 @@ void RunSelfCkinStat(const TStatParams &params,
             "    term_bp, "
             "    term_bag, "
             "    term_ckin_service, "
-            "    kiosk_reprint_bp, "
             "    tckin "
             "from ";
         if(pass != 0) {
@@ -3928,7 +3876,6 @@ void RunSelfCkinStat(const TStatParams &params,
             int col_term_bp = Qry.FieldIndex("term_bp");
             int col_term_bag = Qry.FieldIndex("term_bag");
             int col_term_ckin_service = Qry.FieldIndex("term_ckin_service");
-            int col_kiosk_reprint_bp = Qry.FieldIndex("kiosk_reprint_bp");
             int col_baby = Qry.FieldIndex("baby");
             int col_tckin = Qry.FieldIndex("tckin");
             for(; not Qry.Eof; Qry.Next())
@@ -3944,7 +3891,6 @@ void RunSelfCkinStat(const TStatParams &params,
               row.pax_amount = row.adult + row.child + row.baby;
               row.term_bp = Qry.FieldAsInteger(col_term_bp);
               row.term_bag = Qry.FieldAsInteger(col_term_bag);
-              row.kiosk_reprint_bp = Qry.FieldAsInteger(col_kiosk_reprint_bp);
               if (Qry.FieldIsNULL(col_term_ckin_service))
                 row.term_ckin_service = row.pax_amount;
               else
@@ -3981,101 +3927,6 @@ void RunSelfCkinStat(const TStatParams &params,
               {
                 SelfCkinStatTotal+=row;
               };
-            }
-        }
-    }
-
-    // Вытаскиваем репринт сторонних ПТ
-    {
-        string SQLText = "select * from foreign_scan where scd_out >= :FirstDate and scd_out < :LastDate";
-        QParams QryParams;
-        QryParams << QParam("FirstDate", otDate, params.FirstDate);
-        QryParams << QParam("LastDate", otDate, params.LastDate);
-
-        if(TReqInfo::Instance()->client_type==ctHTTP ||
-                TReqInfo::Instance()->desk.compatible(SELF_CKIN_STAT_VERSION)) {
-            if(not params.reg_type.empty()) {
-                SQLText += " and client_type = :reg_type ";
-                QryParams << QParam("reg_type", otString, params.reg_type);
-            }
-        } else {
-            SQLText += " and client_type = :reg_type ";
-            QryParams << QParam("reg_type", otString, EncodeClientType(ctKiosk));
-        }
-        if(params.flt_no != NoExists) {
-            SQLText += " and flt_no = :flt_no ";
-            QryParams << QParam("flt_no", otInteger, params.flt_no);
-        }
-        if (!params.airps.elems().empty()) {
-            if (params.airps.elems_permit())
-                SQLText += " AND airp_dep IN " + GetSQLEnum(params.airps.elems()) + "\n";
-            else
-                SQLText += " AND airp_dep NOT IN " + GetSQLEnum(params.airps.elems()) + "\n";
-        }
-        if (!params.airlines.elems().empty()) {
-            if (params.airlines.elems_permit())
-                SQLText += " AND airline IN " + GetSQLEnum(params.airlines.elems()) + "\n";
-            else
-                SQLText += " AND airline NOT IN " + GetSQLEnum(params.airlines.elems()) + "\n";
-        }
-        if(!params.desk.empty()) {
-            SQLText += "and desk = :desk ";
-            QryParams << QParam("desk", otString, params.desk);
-        }
-
-        TCachedQuery foreignScanQry(SQLText, QryParams);
-        foreignScanQry.get().Execute();
-
-        if(not foreignScanQry.get().Eof) {
-            int col_desk = foreignScanQry.get().FieldIndex("desk");
-            int col_desk_airp = foreignScanQry.get().FieldIndex("desk_airp");
-            int col_descr = foreignScanQry.get().FieldIndex("descr");
-            int col_client_type = foreignScanQry.get().FieldIndex("client_type");
-            int col_airline = foreignScanQry.get().FieldIndex("airline");
-            int col_flt_no = foreignScanQry.get().FieldIndex("flt_no");
-            int col_scd_out = foreignScanQry.get().FieldIndex("scd_out");
-            int col_airp_dep = foreignScanQry.get().FieldIndex("airp_dep");
-            int col_airp_arv = foreignScanQry.get().FieldIndex("airp_arv");
-            for(; not foreignScanQry.get().Eof; foreignScanQry.get().Next()) {
-                string airline = foreignScanQry.get().FieldAsString(col_airline);
-                prn_airline.check(airline);
-
-                TSelfCkinStatRow row;
-
-                TSelfCkinStatRow::TFltInfo flt_info;
-                flt_info.airline = airline;
-                flt_info.flt_no = foreignScanQry.get().FieldAsInteger(col_flt_no);
-                flt_info.airp = foreignScanQry.get().FieldAsString(col_airp_dep);
-                flt_info.scd_out = foreignScanQry.get().FieldAsDateTime(col_scd_out);
-
-                row.kiosk_reprint_bp = 1;
-                row.foreign_flts.insert(flt_info);
-                if (!params.skip_rows)
-                {
-                    TSelfCkinStatKey key;
-                    key.client_type = foreignScanQry.get().FieldAsString(col_client_type);
-                    key.desk = foreignScanQry.get().FieldAsString(col_desk);
-                    key.desk_airp = ElemIdToCodeNative(etAirp, foreignScanQry.get().FieldAsString(col_desk_airp));
-                    key.descr = foreignScanQry.get().FieldAsString(col_descr);
-
-                    key.ak = ElemIdToCodeNative(etAirline, airline);
-                    if(
-                            params.statType == statSelfCkinDetail or
-                            params.statType == statSelfCkinFull
-                      )
-                        key.ap = flt_info.airp;
-                    if(params.statType == statSelfCkinFull) {
-                        key.flt_no = flt_info.flt_no;
-                        key.scd_out = flt_info.scd_out;
-                        key.places.set(foreignScanQry.get().FieldAsString(col_airp_arv), false);
-                    }
-
-                    AddStatRow(key, row, SelfCkinStat, full);
-                }
-                else
-                {
-                    SelfCkinStatTotal+=row;
-                };
             }
         }
     }
@@ -4145,8 +3996,8 @@ void createXMLSelfCkinStat(const TStatParams &params,
                 params.statType == statSelfCkinDetail
           ) {
             // Кол-во рейсов
-            NewTextChild(rowNode, "col", im->second.flts_amount());
-            flts_total += im->second.flts_amount();
+            NewTextChild(rowNode, "col", (int)im->second.flts.size());
+            flts_total += im->second.flts.size();
         }
         if(params.statType == statSelfCkinFull) {
             // номер рейса
@@ -4165,7 +4016,6 @@ void createXMLSelfCkinStat(const TStatParams &params,
         NewTextChild(rowNode, "col", im->second.term_bag);
         NewTextChild(rowNode, "col", im->second.term_bp);
         NewTextChild(rowNode, "col", im->second.pax_amount - im->second.term_ckin_service);
-        NewTextChild(rowNode, "col", im->second.kiosk_reprint_bp);
 
         if(params.statType == statSelfCkinFull) {
             // ВЗ
@@ -4285,12 +4135,6 @@ void createXMLSelfCkinStat(const TStatParams &params,
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col", total.pax_amount-total.term_ckin_service);
 
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Репринт"));
-    SetProp(colNode, "width", 45);
-    SetProp(colNode, "align", TAlignment::RightJustify);
-    SetProp(colNode, "sort", sortInteger);
-    NewTextChild(rowNode, "col", total.kiosk_reprint_bp);
-
     if(params.statType == statSelfCkinFull) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("ВЗ"));
         SetProp(colNode, "width", 30);
@@ -4394,7 +4238,6 @@ void TSelfCkinStatCombo::add_header(ostringstream &buf) const
     buf << getLocaleText("БГ") << delim;
     buf << getLocaleText("ПТ") << delim;
     buf << getLocaleText("Всё сами") << delim;
-    buf << getLocaleText("Репринт") << delim;
     if (params.statType == statSelfCkinFull)
     {
         buf << getLocaleText("ВЗ") << delim;
@@ -4440,8 +4283,6 @@ void TSelfCkinStatCombo::add_data(ostringstream &buf) const
     buf << data.second.term_bp << delim; // ПТ
     buf << (data.second.pax_amount - data.second.term_ckin_service)
      << delim; // Всё сами
-    // Репринт
-    buf << data.second.kiosk_reprint_bp << delim;
     if (params.statType == statSelfCkinFull)
     {
         buf << data.second.adult << delim; // ВЗ
