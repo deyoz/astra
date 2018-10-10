@@ -172,4 +172,6 @@ std::string airlineToPrefferedCode(const std::string &code, const AstraLocale::O
 std::string airpToPrefferedCode(const std::string &code, const AstraLocale::OutputLang& lang);
 std::string craftToPrefferedCode(const std::string &code, const AstraLocale::OutputLang& lang);
 
+std::string getElemId(TElemType type, const std::string &elem);
+
 #endif /*_ASTRA_ELEMS_H_*/

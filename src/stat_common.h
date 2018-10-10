@@ -72,6 +72,8 @@ enum TStatType {
     statVOFull,
     statVOShort,
     statADFull,
+    statReprintShort,
+    statReprintFull,
     statNum
 };
 
@@ -142,7 +144,7 @@ struct TStatParams {
     void get(xmlNodePtr resNode);
     void toFileParams(std::map<std::string, std::string> &file_params) const;
     void fromFileParams(std::map<std::string, std::string> &file_params);
-    void AccessClause(std::string &SQLText) const;
+    void AccessClause(std::string &SQLText, const std::string &tab = "points") const;
 };
 
 struct TPrintAirline {

@@ -35,8 +35,8 @@ class PrintDataParser {
         PrintDataParser(ASTRA::TDevOper::Enum op_type, const std::string &scan, bool pr_lat = false): pectab_format(0), pts(op_type, scan, pr_lat) {}
         PrintDataParser(bool pr_lat = false): pectab_format(0), pts(pr_lat) {}
         PrintDataParser(const TBagReceipt &rcpt, bool pr_lat): pectab_format(0), pts(rcpt, pr_lat) {}
-        PrintDataParser(ASTRA::TDevOper::Enum op_type, int grp_id, int pax_id, bool pr_lat, xmlNodePtr tagsNode, const TTrferRoute &route = TTrferRoute()):
-            pectab_format(0), pts(op_type, grp_id, pax_id, pr_lat, tagsNode, route) {}
+        PrintDataParser(ASTRA::TDevOper::Enum op_type, int grp_id, int pax_id, bool from_scan_code, bool pr_lat, xmlNodePtr tagsNode, const TTrferRoute &route = TTrferRoute()):
+            pectab_format(0), pts(op_type, grp_id, pax_id, from_scan_code, pr_lat, tagsNode, route) {}
         PrintDataParser(const std::string& airp_dep, const std::string& airp_arv, bool pr_lat)
             : pectab_format(0), pts(airp_dep, airp_arv, pr_lat) {}
 
@@ -65,7 +65,8 @@ class PrintInterface: public JxtInterface
           std::pair<std::string, bool> gate; //bool=true, если делать set_tag, иначе с gate ничего не делаем
           TDateTime time_print;
           std::string prn_form;
-          std::string scan;
+          std::string scan; // если пакс брался из штрих кода и нашелся в базе, то scan пустой.
+          bool from_scan_code; // true если данные взяты из штрих кода (независимо, есть ли пакс в базе или нет)
           std::string voucher;
           bool error;
 
@@ -92,6 +93,7 @@ class PrintInterface: public JxtInterface
             time_print=ASTRA::NoExists;
             prn_form.clear();
             scan.clear();
+            from_scan_code = false;
             hex=false;
             error = false;
           };

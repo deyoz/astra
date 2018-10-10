@@ -9825,16 +9825,6 @@ namespace CKIN_REPORT {
         return 1;
     }
 
-    string getElemId(TElemType type, const string &elem)
-    {
-        TElemFmt fmt;
-        string result = ElemToElemId(type, elem, fmt, false);
-        if(fmt == efmtUnknown)
-            throw Exception("getElemId: elem not found (type = %s, elem = %s)",
-                    EncodeElemType(type),elem.c_str());
-        return result;
-    }
-
     int get_point_id(TSearchFltInfo &filter)
     {
         list<TAdvTripInfo> flts;
@@ -10992,7 +10982,7 @@ void TelegramInterface::kuf_file(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         TSearchFltInfo filter;
         filter.airline = "ž’";
         filter.flt_no = ToInt(items[2]);
-        filter.airp_dep = CKIN_REPORT::getElemId(etAirp, items[4]);
+        filter.airp_dep = getElemId(etAirp, items[4]);
 
         if(StrToDateTime(items[3].c_str(), "dd.mm.yy", filter.scd_out) == EOF)
             throw Exception("kuf_file: can't convert scd_out: %s", items[3].c_str());

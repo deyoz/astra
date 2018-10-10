@@ -2401,6 +2401,7 @@ void WebRequestsIface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
         pax.gate=make_pair(gates[pax.point_dep], true);
       };
       if (pax.pax_id==NoExists) pax.scan=scanCode;
+      pax.from_scan_code = true;
       paxs.push_back(pax);
     }
     catch(UserException &e)
@@ -2507,7 +2508,7 @@ int bcbp_test(int argc,char **argv)
         parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(TDevOper::PrnBP, scan));
     } else {
         cout << "pax found, pax_id: " << pax.pax_id << endl;
-        parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(TDevOper::PrnBP, pax.grp_id, pax.pax_id, 0, NULL));
+        parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(TDevOper::PrnBP, pax.grp_id, pax.pax_id, false, 0, NULL));
     }
     cout << endl;
 
@@ -2536,13 +2537,13 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if(pax.pax_id == NoExists)
       parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(TDevOper::PrnBP, scanCode));
     else
-      parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(TDevOper::PrnBP, pax.grp_id, pax.pax_id, 0, NULL));
+      parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(TDevOper::PrnBP, pax.grp_id, pax.pax_id, false, 0, NULL));
   }
   else
   {
     bool is_test=isTestPaxId(NodeAsInteger("pax_id", reqNode));
     GetBPPax( reqNode, is_test, pax );
-    parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(TDevOper::PrnBP, pax.grp_id, pax.pax_id, 0, NULL));
+    parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(TDevOper::PrnBP, pax.grp_id, pax.pax_id, false, 0, NULL));
   };
   vector<string> tags;
   BPTags::Instance()->getFields( tags );
