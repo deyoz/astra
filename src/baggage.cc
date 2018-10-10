@@ -116,16 +116,8 @@ const TBagItem& TBagItem::toXML(xmlNodePtr node) const
   NewTextChild(node,"pr_liab_limit",(int)pr_liab_limit);
   NewTextChild(node,"to_ramp",(int)to_ramp);
   NewTextChild(node,"using_scales",(int)using_scales);
-  if (TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION))
-  {
-    NewTextChild(node,"is_trfer",(int)is_trfer);
-    NewTextChild(node,"handmade_trfer", (int)(is_trfer && handmade), (int)false);
-  }
-  else
-  {
-    if (is_trfer) ReplaceTextChild(node,"bag_type",WeightConcept::OLD_TRFER_BAG_TYPE);
-    NewTextChild(node,"is_trfer",(int)(is_trfer && !handmade));
-  };
+  NewTextChild(node,"is_trfer",(int)is_trfer);
+  NewTextChild(node,"handmade_trfer", (int)(is_trfer && handmade), (int)false);
   NewTextChild(node,"bag_pool_num",bag_pool_num);
   return *this;
 };
@@ -167,17 +159,7 @@ TBagItem& TBagItem::fromXML(xmlNodePtr node, bool baggage_pc)
       };
     };
 
-    if (TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION))
-      is_trfer=NodeAsIntegerFast("is_trfer",node2)!=0;
-    else
-    {
-      is_trfer=false;
-      if (wt && wt.get().bag_type==WeightConcept::OLD_TRFER_BAG_TYPE)
-      {
-        is_trfer=true;
-        wt.get().bag_type.clear();
-      };
-    };
+    is_trfer=NodeAsIntegerFast("is_trfer",node2)!=0;
   };
   pr_cabin=NodeAsIntegerFast("pr_cabin",node2)!=0;
   amount=NodeAsIntegerFast("amount",node2);
@@ -185,13 +167,8 @@ TBagItem& TBagItem::fromXML(xmlNodePtr node, bool baggage_pc)
   if (!NodeIsNULLFast("value_bag_num",node2))
     value_bag_num=NodeAsIntegerFast("value_bag_num",node2);
   pr_liab_limit=NodeAsIntegerFast("pr_liab_limit",node2)!=0;
-
-  if (TReqInfo::Instance()->desk.compatible(BAG_TO_RAMP_VERSION))
-    to_ramp=NodeAsIntegerFast("to_ramp",node2)!=0;
-
-  if (TReqInfo::Instance()->desk.compatible(USING_SCALES_VERSION))
-    using_scales=NodeAsIntegerFast("using_scales",node2)!=0;
-
+  to_ramp=NodeAsIntegerFast("to_ramp",node2)!=0;
+  using_scales=NodeAsIntegerFast("using_scales",node2)!=0;
   bag_pool_num=NodeAsIntegerFast("bag_pool_num",node2);
   return *this;
 };
@@ -610,13 +587,6 @@ void TGroupBagItem::setPoolNum(int bag_pool_num)
     i->second.bag_pool_num=bag_pool_num;
 };
 
-bool TGroupBagItem::trferExists() const
-{
-  for(TBagMap::const_iterator i=bags.begin();i!=bags.end();++i)
-    if (i->second.is_trfer) return true;
-  return false;
-}
-
 bool TGroupBagItem::completeXMLForIatci(int grp_id, xmlNodePtr bagtagNode, xmlNodePtr firstSegNode)
 {
   TTrferRoute trfer;
@@ -875,16 +845,6 @@ void TGroupBagItem::fromXMLcompletion(int grp_id, int hall, bool is_unaccomp, bo
         nb->second.user_id=ob->second.user_id;
         nb->second.desk=ob->second.desk;
         nb->second.time_create=ob->second.time_create;
-        if (!reqInfo->desk.compatible(BAG_TO_RAMP_VERSION))
-          nb->second.to_ramp=ob->second.to_ramp;
-        if (!reqInfo->desk.compatible(USING_SCALES_VERSION))
-        {
-          //сохраняем старый using_scales только если ob->second.weight==nb->second.weight
-          if (ob->second.weight==nb->second.weight)
-            nb->second.using_scales=ob->second.using_scales;
-          else
-            nb->second.using_scales=false;
-        };
         nb->second.handmade=ob->second.handmade;
       }
       else throw Exception("%s: strange situation ob==old_bags.end()! (id=%d)", __FUNCTION__, nb->second.id);
@@ -1518,7 +1478,7 @@ void GridInfoToXML(const TTrferRoute &trfer,
 
 TExcessNodeList::TExcessNodeList(): concept(ctInitial) {
     must_work = true;
-    if (TReqInfo::Instance()->client_type != ASTRA::ctTerm || ! TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION))
+    if (TReqInfo::Instance()->client_type != ASTRA::ctTerm)
         must_work = false;
 }
 

@@ -1092,10 +1092,6 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       setList.toXML(node);
 
       NewTextChild( node, "apis_exists", (int)(TRouteAPICheckInfo(point_id).apis_generation()) );
-
-      if (reqInfo->client_type == ctTerm &&
-          !reqInfo->desk.compatible(PAX_LOAD_BY_GENDER))
-        NewTextChild( node, "pr_airp_seance" );
     };
 
     if (reqInfo->screen.name == "AIR.EXE" ||
@@ -1761,13 +1757,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   NewTextChild(fieldsNode,"field","crs_ok");
   NewTextChild(fieldsNode,"field","crs_tranzit");
   NewTextChild(fieldsNode,"field","seats");
-  if (TReqInfo::Instance()->desk.compatible(PAX_LOAD_BY_GENDER))
-  {
-    NewTextChild(fieldsNode,"field","adult_m");
-    NewTextChild(fieldsNode,"field","adult_f");
-  }
-  else
-    NewTextChild(fieldsNode,"field","adult");
+  NewTextChild(fieldsNode,"field","adult_m");
+  NewTextChild(fieldsNode,"field","adult_f");
   NewTextChild(fieldsNode,"field","child");
   NewTextChild(fieldsNode,"field","baby");
   NewTextChild(fieldsNode,"field","rk_weight");
@@ -1794,13 +1785,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   xmlNodePtr rowNode=NewTextChild(rowsNode,"row");
   NewTextChild(rowNode,"title",AstraLocale::getLocaleText("Всего"));
   NewTextChild(rowNode,"seats",total.seats,0);
-  if (TReqInfo::Instance()->desk.compatible(PAX_LOAD_BY_GENDER))
-  {
-    NewTextChild(rowNode,"adult_m",total.adult_m,0);
-    NewTextChild(rowNode,"adult_f",total.adult_f,0);
-  }
-  else
-    NewTextChild(rowNode,"adult",total.adult_m+total.adult_f,0);
+  NewTextChild(rowNode,"adult_m",total.adult_m,0);
+  NewTextChild(rowNode,"adult_f",total.adult_f,0);
   NewTextChild(rowNode,"child",total.child,0);
   NewTextChild(rowNode,"baby",total.baby,0);
   NewTextChild(rowNode,"bag_amount",total.bag_amount,0);
@@ -2366,13 +2352,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   {
     rowNode=NewTextChild(rowsNode,"row");
     NewTextChild(rowNode,"seats",i->seats,0);
-    if (TReqInfo::Instance()->desk.compatible(PAX_LOAD_BY_GENDER))
-    {
-      NewTextChild(rowNode,"adult_m",i->adult_m,0);
-      NewTextChild(rowNode,"adult_f",i->adult_f,0);
-    }
-    else
-      NewTextChild(rowNode,"adult",i->adult_m+i->adult_f,0);
+    NewTextChild(rowNode,"adult_m",i->adult_m,0);
+    NewTextChild(rowNode,"adult_f",i->adult_f,0);
     NewTextChild(rowNode,"child",i->child,0);
     NewTextChild(rowNode,"baby",i->baby,0);
 

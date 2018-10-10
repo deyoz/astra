@@ -673,9 +673,6 @@ void CreateSalonMenu( int point_dep, xmlNodePtr salonsNode )
 
 bool compatibleLayer( ASTRA::TCompLayerType layer_type )
 {
-  if ( layer_type == cltDisable &&
-       !TReqInfo::Instance()->desk.compatible( DISABLE_LAYERS ) )
-    return false;
   if ( layer_type == cltProtSelfCkin &&
        !TReqInfo::Instance()->desk.compatible( LAYER_PROT_SELF_CKIN ) )
     return false;

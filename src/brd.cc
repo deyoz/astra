@@ -817,7 +817,7 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
       if (docaItem.apiType() != apiUnknown) apis.doca_map[docaItem.apiType()] = docaItem;
     };
     HandleDoca(grp, pax, checkInfo, apis.doca_map);
-    CheckIn::SavePaxDoca(pax_id, apis.doca_map, Qry, false);
+    CheckIn::SavePaxDoca(pax_id, apis.doca_map, Qry);
   };
 
   if (apis_control)
@@ -1288,8 +1288,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             GetAPISAlarms(airp_arv, pax_ext, pax.name!="CBBG", pax.pax_id, NoExists,
                           setList.value<bool>(tsAPISControl), setList.value<bool>(tsAPISManualInput), route_check_info,
                           apis, alarms, document_alarm);
-            if (document_alarm &&
-                reqInfo->desk.compatible(APIS_CONTROL_VERSION))
+            if (document_alarm)
             {
               if (alarms.find(APIS::atIncomplete)!=alarms.end())
               {
@@ -1427,28 +1426,18 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       }
       catch(CompleteWithSuccess)
       {
-        if (reqInfo->desk.compatible(MULTI_BOARDING_VERSION))
-        {
-          xmlNodePtr node=NewTextChild(dataNode,"updated");
-          if (paxWithSeat.exists() && paxWithSeat.updated)
-            NewTextChild(node, "pax_id", paxWithSeat.pax_id);
-          if (paxWithoutSeat.exists() && paxWithoutSeat.updated)
-            NewTextChild(node, "pax_id", paxWithoutSeat.pax_id);
-        }
-        else
-        {
-          if (paxWithSeat.exists() && paxWithSeat.updated)
-            NewTextChild(dataNode, "updated", paxWithSeat.pax_id);
-          else if (paxWithoutSeat.exists() && paxWithoutSeat.updated)
-            NewTextChild(dataNode, "updated", paxWithoutSeat.pax_id);
-        };
+        xmlNodePtr node=NewTextChild(dataNode,"updated");
+        if (paxWithSeat.exists() && paxWithSeat.updated)
+          NewTextChild(node, "pax_id", paxWithSeat.pax_id);
+        if (paxWithoutSeat.exists() && paxWithoutSeat.updated)
+          NewTextChild(node, "pax_id", paxWithoutSeat.pax_id);
 
         if (paxWithSeat.exists() && paxWithSeat.updated)
           NewTextChild(dataNode, "bgr_message", paxWithSeat.bgr_message(scanDevice), "");
         else if (paxWithoutSeat.exists() && paxWithoutSeat.updated)
           NewTextChild(dataNode, "bgr_message", paxWithoutSeat.bgr_message(scanDevice), "");
 
-        xmlNodePtr node=NewTextChild(dataNode,"trip_sets");
+        node=NewTextChild(dataNode,"trip_sets");
         NewTextChild( node, "pr_etl_only", (int)pr_etl_only );
         NewTextChild( node, "pr_etstatus", pr_etstatus );
 
@@ -1634,17 +1623,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           bool pr_payment=RFISCPaymentCompleted(grp_id, pax_id, check_pay_on_tckin_segs) &&
                           WeightConcept::BagPaymentCompleted(grp_id, &value_bag_count);
 
-          if (TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION))
+          if (value_bag_count!=0)
           {
-            if (value_bag_count!=0)
-            {
-              ostringstream s;
-              s << value_bag_count << getLocaleText("–");
-              NewTextChild(paxNode, "value_bag_count", s.str());
-            };
-          }
-          else
-            NewTextChild(paxNode, "value_bag_count", value_bag_count, 0);
+            ostringstream s;
+            s << value_bag_count << getLocaleText("–");
+            NewTextChild(paxNode, "value_bag_count", s.str());
+          };
           //ticket_bag_norm
           CheckIn::TPaxTknItem tkn;
           tkn.fromDB( Qry );

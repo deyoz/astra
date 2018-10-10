@@ -673,16 +673,9 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 
       try {
           err_lst.fromDB(iv->id, iv->num);
-          if(TReqInfo::Instance()->desk.compatible(TLG_ERR_BROWSE_VERSION))
-          {
-            bool is_first_part = iv == tlgs.begin() or (iv - 1)->id != iv->id;
-            bool is_last_part = (iv + 1 == tlgs.end() or (iv + 1)->id != iv->id);
-            err_lst.toXML(node, iv->draft, is_first_part, is_last_part, TReqInfo::Instance()->desk.lang);
-          }
-          else
-          {
-            if (!err_lst.empty()) iv->type=!iv->type.empty()?"!"+iv->type+"!":"!";
-          };
+          bool is_first_part = iv == tlgs.begin() or (iv - 1)->id != iv->id;
+          bool is_last_part = (iv + 1 == tlgs.end() or (iv + 1)->id != iv->id);
+          err_lst.toXML(node, iv->draft, is_first_part, is_last_part, TReqInfo::Instance()->desk.lang);
       } catch(Exception &E) {
           ProgError(STDLOG, "ErrLst: tlg_id = %d, num = %d; %s", iv->id, iv->num, E.what());
       } catch(...) {
@@ -763,16 +756,9 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
       try {
           err_lst.fromDB(iv->id, iv->num);
-          if(TReqInfo::Instance()->desk.compatible(TLG_ERR_BROWSE_VERSION))
-          {
-            bool is_first_part = iv == tlgs.begin() or (iv - 1)->id != iv->id;
-            bool is_last_part = (iv + 1 == tlgs.end() or (iv + 1)->id != iv->id);
-            err_lst.toXML(node, iv->draft, is_first_part, is_last_part, TReqInfo::Instance()->desk.lang);
-          }
-          else
-          {
-            if (!err_lst.empty()) iv->type=!iv->type.empty()?"!"+iv->type+"!":"!";
-          };
+          bool is_first_part = iv == tlgs.begin() or (iv - 1)->id != iv->id;
+          bool is_last_part = (iv + 1 == tlgs.end() or (iv + 1)->id != iv->id);
+          err_lst.toXML(node, iv->draft, is_first_part, is_last_part, TReqInfo::Instance()->desk.lang);
       } catch(Exception &E) {
           ProgError(STDLOG, "ErrLst: tlg_id = %d, num = %d; %s", iv->id, iv->num, E.what());
       } catch(...) {
@@ -917,10 +903,7 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     bool is_last_part = (iv + 1 == tlgs.end() or (iv + 1)->id != iv->id);
 
     err_lst.fromDB(iv->id, iv->num);
-    if(TReqInfo::Instance()->desk.compatible(TLG_ERR_BROWSE_VERSION)) {
-        err_lst.toXML(node, iv->draft, is_first_part, is_last_part, TReqInfo::Instance()->desk.lang);
-    } else
-        err_lst.unpack(iv->draft, is_first_part, is_last_part);
+    err_lst.toXML(node, iv->draft, is_first_part, is_last_part, TReqInfo::Instance()->desk.lang);
 
     NewTextChild( node, "id", iv->id );
     NewTextChild( node, "num", iv->num);
@@ -941,11 +924,7 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     NewTextChild( node, "body", iv->draft.body );
     NewTextChild( node, "ending", iv->draft.ending );
     NewTextChild( node, "is_final_part", (int)is_last_part, (int)false);
-    if(TReqInfo::Instance()->desk.compatible(CACHE_CHILD_VERSION))
-      NewTextChild( node, "extra", iv->extra, "" );
-    else
-      NewTextChild( node, "extra", CharReplace(iv->extra,endl_stream.str().c_str()," "), "" );
-
+    NewTextChild( node, "extra", iv->extra, "" );
     NewTextChild( node, "pr_lat", iv->pr_lat);
     NewTextChild( node, "completed", completed, true );
 

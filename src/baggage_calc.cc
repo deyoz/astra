@@ -1371,10 +1371,6 @@ int test_norms(int argc,char **argv)
       std::vector<CheckIn::TTransferItem> trfer;
       GetGrpToLogInfo(grp.id, grpLogInfo);
       CheckIn::LoadTransfer(grp.id, trfer);
-      for(map<int/*id*/, TEventsBagItem>::iterator i=grpLogInfo.bag.begin(); i!=grpLogInfo.bag.end(); ++i)
-      {
-        if (i->second.wt && i->second.wt.get().bag_type==OLD_TRFER_BAG_TYPE) i->second.is_trfer=true;
-      }
 
       if (!test_paid)
       {
@@ -1501,10 +1497,7 @@ int test_norms(int argc,char **argv)
             TPaidBagMap sorted_prior_paid;
             TPaidBagMap sorted_calc_paid;
             for(TPaidBagList::const_iterator i=prior_paid.begin(); i!=prior_paid.end(); ++i)
-            {
-              if (i->key()==OldTrferBagType()) continue;
               sorted_prior_paid.insert(make_pair(i->key(), *i));
-            }
             for(TPaidBagWideMap::const_iterator i=paid_wide.begin(); i!=paid_wide.end(); ++i)
               sorted_calc_paid.insert(*i);
 

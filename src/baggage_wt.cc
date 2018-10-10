@@ -618,12 +618,6 @@ void TBagTypeList::update_stat(const TBagTypeListItem &item)
 namespace WeightConcept
 {
 
-const TBagTypeListKey& OldTrferBagType()
-{
-  static TBagTypeListKey result(OLD_TRFER_BAG_TYPE, "");
-  return result;
-}
-
 TBagTypeListKey RegularBagType(const std::string& airline)
 {
   return TBagTypeListKey(REGULAR_BAG_TYPE, airline);
@@ -859,7 +853,7 @@ bool GrpNormsFromDB(TDateTime part_key, int grp_id, list< pair<TPaxNormItem, TNo
   return !norms.empty();
 };
 
-void NormsToXML(const list< pair<TPaxNormItem, TNormItem> > &norms, bool groupBagTrferExists, xmlNodePtr node)
+void NormsToXML(const list< pair<TPaxNormItem, TNormItem> > &norms, xmlNodePtr node)
 {
   if (node==NULL) return;
 
@@ -869,19 +863,6 @@ void NormsToXML(const list< pair<TPaxNormItem, TNormItem> > &norms, bool groupBa
     xmlNodePtr normNode=NewTextChild(normsNode,"norm");
     i->first.toXML(normNode);
     i->second.toXML(normNode);
-  };
-
-  if (!TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION) && groupBagTrferExists)
-  {
-    //добавим неопределенную норму по 99 багажу для старых терминалов
-    xmlNodePtr normNode=NewTextChild(normsNode,"norm");
-    TPaxNormItem paxNormItem;
-    paxNormItem.bag_type222=OLD_TRFER_BAG_TYPE;
-    paxNormItem.norm_id=1000000000;
-    paxNormItem.toXML(normNode);
-    TNormItem normItem;
-    normItem.norm_type=ASTRA::bntFree;
-    normItem.toXML(normNode);
   };
 };
 
@@ -1078,13 +1059,8 @@ void PaidBagFromXML(xmlNodePtr paidbagNode,
   {
     paid=TPaidBagList();
     for(xmlNodePtr node=paidBagNode->children;node!=NULL;node=node->next)
-    {
       paid.get().push_back(TPaidBagItem().fromXML(node));
-      if (!TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION))
-      {
-        if (paid.get().back().key()==OldTrferBagType()) paid.get().pop_back();
-      };
-    };
+
     if (!TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
       paid.get().getAllListKeys(grp_id, is_unaccomp);
   };
@@ -1164,29 +1140,6 @@ void PaidBagFromDB(TDateTime part_key, int grp_id, TPaidBagList &paid)
   BagQry.get().Execute();
   for(;!BagQry.get().Eof;BagQry.get().Next())
     paid.push_back(TPaidBagItem().fromDB(BagQry.get()));
-}
-
-void PaidBagToXML(const TPaidBagList &paid, bool groupBagTrferExists, xmlNodePtr paidbagNode)
-{
-  if (paidbagNode==NULL) return;
-
-  xmlNodePtr node=NewTextChild(paidbagNode,"paid_bags");
-  for(TPaidBagList::const_iterator i=paid.begin(); i!=paid.end(); ++i)
-  {
-    xmlNodePtr paidBagNode=NewTextChild(node,"paid_bag");
-    i->toXML(paidBagNode);
-  };
-
-  if (!TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION) && groupBagTrferExists)
-  {
-    //добавим нулевой платный 99 багаж для старых терминалов
-    xmlNodePtr paidBagNode=NewTextChild(node,"paid_bag");
-    TPaidBagItem item;
-    item.key(OldTrferBagType());
-    item.weight=0;
-    item.handmade=false;
-    item.toXML(paidBagNode);
-  };
 }
 
 std::string GetCurrSegBagAirline(int grp_id)

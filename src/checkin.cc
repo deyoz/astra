@@ -1907,15 +1907,12 @@ static int CreateSearchResponse(int point_dep,
     CheckIn::TPaxDocoItem doco;
     if (LoadCrsPaxVisa(pax_id, doco)) doco.toXML(node);
     //обработка адресов
-    if (TReqInfo::Instance()->desk.compatible(DOCA_VERSION))
+    CheckIn::TDocaMap doca_map;
+    if (LoadCrsPaxDoca(pax_id, doca_map))
     {
-      CheckIn::TDocaMap doca_map;
-      if (LoadCrsPaxDoca(pax_id, doca_map))
-      {
-        xmlNodePtr docaNode=NewTextChild(node, "addresses");
-        for(CheckIn::TDocaMap::const_iterator d = doca_map.begin(); d != doca_map.end(); ++d)
-          d->second.toXML(docaNode);
-      }
+      xmlNodePtr docaNode=NewTextChild(node, "addresses");
+      for(CheckIn::TDocaMap::const_iterator d = doca_map.begin(); d != doca_map.end(); ++d)
+        d->second.toXML(docaNode);
     }
 
     //обработка билетов
@@ -2150,8 +2147,6 @@ void CheckInInterface::SearchPaxByDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
 void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo *reqInfo = TReqInfo::Instance();
-
   int point_dep = NodeAsInteger("point_dep",reqNode);
   TPaxStatus pax_status = DecodePaxStatus(NodeAsString("pax_status",reqNode));
   string query= NodeAsString("query",reqNode);
@@ -2165,9 +2160,6 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   setList.fromDB(point_dep);
   if (setList.empty())
     throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-  if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION) &&
-      setList.value<bool>(tsPieceConcept))
-    throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
 
   TInquiryGroup grp;
   TInquiryGroupSummary sum;
@@ -4445,61 +4437,47 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
     if (!info.tag_map.empty())
     {
-      if (reqInfo->desk.compatible(INBOUND_TRFER_VERSION))
+      try
       {
+        InboundTrfer::TNewGrpInfo filtered_info;
+        //есть трансферные бирки
+        xmlNodePtr confirmReqNode=GetNode("inbound_confirmation", reqNode);
+        if (!FilterInboundConfirmation(confirmReqNode, info, filtered_info))
+        {
+          if (confirmReqNode!=NULL)
+            AstraLocale::showErrorMessage( "MSG.CHANGE_INBOUND_TRFER_MUST_REVERIFY" );
+          throw UserException2();
+        }
+
         try
         {
-          InboundTrfer::TNewGrpInfo filtered_info;
-          //есть трансферные бирки
-          xmlNodePtr confirmReqNode=GetNode("inbound_confirmation", reqNode);
-          if (!FilterInboundConfirmation(confirmReqNode, info, filtered_info))
-          {
-            if (confirmReqNode!=NULL)
-              AstraLocale::showErrorMessage( "MSG.CHANGE_INBOUND_TRFER_MUST_REVERIFY" );
-            throw UserException2();
-          }
-
-          try
-          {
-            GetInboundGroupBag(filtered_info,
-                               true,
-                               segList,
-                               inbound_group_bag);
-          }
-          catch(UserException &e)
-          {
-            AstraLocale::showErrorMessage(e.getLexemaData());
-            throw UserException2();
-          }
-        }
-        catch(UserException2)
-        {
-          XMLRequestCtxt *xmlRC = getXmlCtxt();
-          if (xmlRC->resDoc==NULL) throw EXCEPTIONS::Exception("CheckInInterface::SavePax: xmlRC->resDoc=NULL;");
-          xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-
-          vector<TrferList::TGrpViewItem> grps;
-          NewGrpInfoToGrpsView(info, grps);
-          sort(grps.begin(), grps.end(), CompareGrpViewItem);
-          TrferToXML(TrferList::trferOutForCkin,
-                     grps,
-                     NewTextChild(resNode, "inbound_confirmation"));
-          throw; //это важно, чтобы с одной стороны делать откат ЭБ а с другой стороны не затирать в xml inbound_confirmation
-        }
-      }
-      else
-      {
-        if (info.conflicts.empty())
-        {
-          GetInboundGroupBag(info,
-                             false,
+          GetInboundGroupBag(filtered_info,
+                             true,
                              segList,
                              inbound_group_bag);
         }
-        inbound_trfer_conflicts=info.conflicts;
+        catch(UserException &e)
+        {
+          AstraLocale::showErrorMessage(e.getLexemaData());
+          throw UserException2();
+        }
+      }
+      catch(UserException2)
+      {
+        XMLRequestCtxt *xmlRC = getXmlCtxt();
+        if (xmlRC->resDoc==NULL) throw EXCEPTIONS::Exception("CheckInInterface::SavePax: xmlRC->resDoc=NULL;");
+        xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+
+        vector<TrferList::TGrpViewItem> grps;
+        NewGrpInfoToGrpsView(info, grps);
+        sort(grps.begin(), grps.end(), CompareGrpViewItem);
+        TrferToXML(TrferList::trferOutForCkin,
+                   grps,
+                   NewTextChild(resNode, "inbound_confirmation"));
+        throw; //это важно, чтобы с одной стороны делать откат ЭБ а с другой стороны не затирать в xml inbound_confirmation
       }
     }
-    inbound_confirm=reqInfo->desk.compatible(INBOUND_TRFER_VERSION);
+    inbound_confirm=true;
   }
 
   if (!inbound_group_bag.empty())
@@ -5171,7 +5149,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         if (trfer_confirm) AfterSaveInfo.action=CheckIn::actionCheckPieceConcept;
         Qry.CreateVariable("trfer_confirm",otInteger,(int)trfer_confirm);
         Qry.CreateVariable("trfer_conflict",otInteger,(int)(!inbound_trfer_conflicts.empty() && reqInfo->client_type != ctTerm));  //зажигаем тревогу только для веба и киоска
-        Qry.CreateVariable("inbound_confirm",otInteger,(int)inbound_confirm); //устанавливаем только для терминалов compatible(INBOUND_TRFER_VERSION)
+        Qry.CreateVariable("inbound_confirm",otInteger,(int)inbound_confirm);
         if (reqInfo->client_type!=ctPNL && !reqInfo->api_mode)
           Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
         else
@@ -5327,18 +5305,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 //запись pax_doc
                 if (pax.DocExists) CheckIn::SavePaxDoc(pax_id,pax.doc,PaxDocQry);
                 if (pax.DocoExists) CheckIn::SavePaxDoco(pax_id,pax.doco,PaxDocoQry);
-
-                if (reqInfo->api_mode ||
-                        reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCA_VERSION))
-                {
-                  if (pax.DocaExists) CheckIn::SavePaxDoca(pax_id, pax.doca_map, PaxDocaQry, true);
-                }
-                else
-                {
-                  CheckIn::TDocaMap doca_map;
-                  if (LoadCrsPaxDoca(pax_id, doca_map))
-                    SavePaxDoca(pax_id, doca_map, PaxDocaQry, true);
-                }
+                if (pax.DocaExists) CheckIn::SavePaxDoca(pax_id, pax.doca_map, PaxDocaQry);
 
                 if (save_trfer)
                 {
@@ -5351,10 +5318,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   CheckIn::SavePaxRem(pax_id, p->rems);
                   CheckIn::SavePaxFQT(pax_id, p->fqts);
                 }
-                //запись норм
-                if (first_segment &&
-                    !(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
-                  WeightConcept::PaxNormsToDB(pax_id, p->norms);
 
                 if ( need_apps ) {
                   // Для новых пассадиров ремарки APPS не проверяем
@@ -5381,14 +5344,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           } //end for k
           CheckIn::AddPaxASVC(grp.id, true); //синхронизируем ASVC только при первой регистрации
           grp.SyncServiceAuto(fltInfo);
-        }
-        else
-        {
-          //несопровождаемый багаж
-          //запись норм
-          if (first_segment &&
-              !(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
-            WeightConcept::GrpNormsToDB(grp.id, grp.norms);
         }
 
         TLogLocale tlocale;
@@ -5580,12 +5535,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 //запись pax_doc
                 if (pax.DocExists) CheckIn::SavePaxDoc(pax.id,pax.doc,PaxDocQry);
                 if (pax.DocoExists) CheckIn::SavePaxDoco(pax.id,pax.doco,PaxDocoQry);
-
-                if (reqInfo->api_mode ||
-                        reqInfo->client_type!=ctTerm || reqInfo->desk.compatible(DOCA_VERSION))
-                {
-                  if (pax.DocaExists) CheckIn::SavePaxDoca(pax.id, pax.doca_map, PaxDocaQry, false);
-                }
+                if (pax.DocaExists) CheckIn::SavePaxDoca(pax.id, pax.doca_map, PaxDocaQry);
 
                 if (reqInfo->client_type!=ctTerm && pax.refuse==refuseAgentError) //ctPNL???
                 {
@@ -5634,10 +5584,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 CheckIn::SavePaxRem(pax.id, p->rems);
                 CheckIn::SavePaxFQT(pax.id, p->fqts);
               }
-              //запись норм
-              if (first_segment &&
-                  !(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
-                WeightConcept::PaxNormsToDB(pax.id, p->norms);
 
               if ( need_apps ) {
                 string override;
@@ -5656,13 +5602,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               throw CheckIn::UserException(e.getLexemaData(), grp.point_dep, pax.id);
             }
           }
-        }
-        else
-        {
-          //запись норм
-          if (first_segment &&
-              !(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
-            WeightConcept::GrpNormsToDB(grp.id, grp.norms);
         }
 
         if (save_trfer)
@@ -5683,12 +5622,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       timing.start("ChangeBaggage", grp.point_dep);
 
-      if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION) &&
-          AfterSaveInfo.action==CheckIn::actionCheckPieceConcept && setList.value<bool>(tsPieceConcept))
-        throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
-
       bool unknown_concept=!inbound_group_bag.empty() ||
-                           (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION) &&
+                           (reqInfo->client_type==ASTRA::ctTerm &&
                             AfterSaveInfo.action==CheckIn::actionCheckPieceConcept && setList.value<bool>(tsPieceConcept));
 
       AfterSaveInfo.segs.back().grp_id=grp.id;
@@ -5748,9 +5683,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
           if (grp.wt)
           {
-            if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
+            if (reqInfo->client_type==ASTRA::ctTerm)
             {
               //расчет и запись норм и платного багажа
+              //возможно надо перерасчитывать при изменениях нв вебе, если, например, удаляется пассажир ???
               WeightConcept::TNormFltInfo normFltInfo;
               normFltInfo.point_id=grp.point_dep;
               normFltInfo.airline_mark=markFltInfo.airline;
@@ -5767,14 +5703,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               WeightConcept::TPaidBagList result_paid;
               WeightConcept::RecalcPaidBagToDB(airlines, grpInfoBefore.bag, curr_bag, grpInfoBefore.pax, normFltInfo, trfer, grp, paxs, prior_paid, pr_unaccomp, true, result_paid);
               CheckIn::TryCleanServicePayment(result_paid, paymentBefore, grp.payment);
-            }
-            else
-            {
-              if (grp.paid)
-              {
-                WeightConcept::PaidBagToDB(grp.id, pr_unaccomp, grp.paid.get());
-                CheckIn::TryCleanServicePayment(grp.paid.get(), paymentBefore, grp.payment);
-              };
             }
           }
 
@@ -6311,12 +6239,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   {
     timing.start("svc_payment_status");
 
-    if (reqInfo->client_type==ASTRA::ctTerm &&
-        !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
-    {
-      showErrorMessage("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
-      throw 1;
-    }
     if (AfterSaveInfo.segs.empty()) throw 1;
     int first_grp_id=AfterSaveInfo.segs.front().grp_id;
     TCkinGrpIds tckin_grp_ids;
@@ -6553,26 +6475,6 @@ void AddPaxCategory(const CheckIn::TPaxItem &pax, set<string> &cats)
   if (pax.pers_type==baby && pax.seats==0) cats.insert("INA");
 }
 
-void ShowPaxCatWarning(const string &airline, const set<string> &cats)
-{
-  if (cats.empty()) return;
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="SELECT airline FROM bag_norms WHERE airline=:airline AND pax_cat=:pax_cat AND rownum<2";
-  Qry.CreateVariable("airline", otString, airline);
-  Qry.DeclareVariable("pax_cat", otString);
-  set<string>::const_iterator i=cats.begin();
-  for(; i!=cats.end(); ++i)
-  {
-    Qry.SetVariable("pax_cat", *i);
-    Qry.Execute();
-    if (!Qry.Eof) break;
-  }
-  if (i==cats.end()) return;
-  if (*i=="CHC") showErrorMessage("MSG.NEED_SELECT_BAG_NORMS_MANUALLY.CHC");
-  if (*i=="INA") showErrorMessage("MSG.NEED_SELECT_BAG_NORMS_MANUALLY.INA");
-}
-
 const char* pax_sql=
     "SELECT pax.*, "
     "       salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,NULL,NULL,'one',rownum) AS seat_no, "
@@ -6770,9 +6672,6 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
   TReqInfo *reqInfo = TReqInfo::Instance();
   if (setList.value<bool>(tsPieceConcept))
   {
-    if (reqInfo->client_type!=ASTRA::ctTerm  ||
-        reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
-    {
       if (tckin_grp_ids.empty()) return;
 
       if (grp_cat==CheckIn::TPaxGrpCategory::Passenges)
@@ -6901,8 +6800,6 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
           }
         }
       }
-    }
-    else throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
   }
 
   if (grp_cat!=CheckIn::TPaxGrpCategory::UnnacompBag) {
@@ -7102,9 +6999,6 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
       return; //это бывает когда разрегистрация всей группы по ошибке агента
     }
 
-    if (grp.pc && !reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
-      throw UserException("MSG.TERM_VERSION.PIECE_CONCEPT_NOT_SUPPORTED");
-
     if (grp_id==tckin_grp_ids.begin())
     {
       first_point_dep=grp.point_dep;
@@ -7219,7 +7113,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
           {
             list< pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;
             WeightConcept::PaxNormsFromDB(NoExists, pax.id, norms);
-            WeightConcept::NormsToXML(norms, group_bag.trferExists(), paxNode);
+            WeightConcept::NormsToXML(norms, paxNode);
             if (pax.refuse.empty())
               all_norms.insert(all_norms.end(), norms.begin(), norms.end());
           };
@@ -7243,7 +7137,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
         {
           list< pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;
           WeightConcept::GrpNormsFromDB(NoExists, grp.id, norms);
-          WeightConcept::NormsToXML(norms, group_bag.trferExists(), segNode);
+          WeightConcept::NormsToXML(norms, segNode);
           all_norms.insert(all_norms.end(), norms.begin(), norms.end());
         }
       }
@@ -7280,19 +7174,15 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
       {
         WeightConcept::TPaidBagList paid;
         WeightConcept::PaidBagFromDB(NoExists, grp.id, paid);
-        if (reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
-        {
-          map<int/*id*/, TEventsBagItem> tmp_bag;
-          GetBagToLogInfo(grp.id, tmp_bag);
-          WeightConcept::TAirlines airlines(grp.id,
-                                            used_norms_airline_mark.empty()?seg.operFlt.airline:used_norms_airline_mark,
-                                            "CalcPaidBagView");
-          WeightConcept::CalcPaidBagView(airlines, tmp_bag, all_norms, paid, payment, used_norms_airline_mark,
-                                         PaidBagViewMap, TrferBagViewMap);
-          WeightConcept::PaidBagViewToXML(PaidBagViewMap, TrferBagViewMap, resNode);
-        }
-        else
-          WeightConcept::PaidBagToXML(paid, group_bag.trferExists(), resNode);
+
+        map<int/*id*/, TEventsBagItem> tmp_bag;
+        GetBagToLogInfo(grp.id, tmp_bag);
+        WeightConcept::TAirlines airlines(grp.id,
+                                          used_norms_airline_mark.empty()?seg.operFlt.airline:used_norms_airline_mark,
+                                          "CalcPaidBagView");
+        WeightConcept::CalcPaidBagView(airlines, tmp_bag, all_norms, paid, payment, used_norms_airline_mark,
+                                       PaidBagViewMap, TrferBagViewMap);
+        WeightConcept::PaidBagViewToXML(PaidBagViewMap, TrferBagViewMap, resNode);
       };
 
       //табличка платности
@@ -7313,8 +7203,6 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
   }
   if (!trfer_confirm)
   {
-    if (!reqInfo->desk.compatible(INA_BUGFIX_VERSION))
-      ShowPaxCatWarning(pax_cat_airline, pax_cats);
     //собираем информацию о неподтвержденном трансфере
     if (!LoadUnconfirmedTransfer(segs, resNode) &&
         !reqInfo->desk.compatible(NOT_F9_WARNING_VERSION))
@@ -8081,16 +7969,8 @@ void CheckInInterface::readTripData(int point_id, int first_point_id, xmlNodePtr
       TCompleteAPICheckInfo checkInfo;
       if (point_id==first_point_id || !notCheckAPI)
         checkInfo.set(point_id, airpsRow.code);
-      if (TReqInfo::Instance()->desk.compatible(DOCA_VERSION))
-      {
-        checkInfo.toXML(NewTextChild(itemNode, "check_info"));
-      }
-      else
-      {
-        checkInfo.pass().get(apiDoc).toXML(NewTextChild( itemNode, "check_doc_info"));
-        checkInfo.pass().get(apiDoco).toXML(NewTextChild( itemNode, "check_doco_info"));
-        checkInfo.pass().get(apiTkn).toXML(NewTextChild( itemNode, "check_tkn_info"));
-      }
+      checkInfo.toXML(NewTextChild(itemNode, "check_info"));
+
       airps.push_back(airpsRow.code);
     }
     catch(EBaseTableError) {}

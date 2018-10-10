@@ -852,7 +852,7 @@ bool LoadCrsPaxDoca(int pax_id, TDocaMap &doca_map);
 
 void SavePaxDoc(int pax_id, const TPaxDocItem &doc, TQuery& PaxDocQry);
 void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry);
-void SavePaxDoca(int pax_id, const TDocaMap &doca_map, TQuery& PaxDocaQry, bool new_checkin);
+void SavePaxDoca(int pax_id, const TDocaMap &doca_map, TQuery& PaxDocaQry);
 
 std::string PaxDocGenderNormalize(const std::string &pax_doc_gender);
 

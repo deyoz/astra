@@ -60,11 +60,6 @@ void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
       )
         continue;
         */
-    if(!TReqInfo::Instance()->desk.compatible(CACHE_CHILD_VERSION) &&
-       cache.find("TYPEB_ADDRS")==0 &&
-       cache!="TYPEB_ADDRS" &&
-       cache!="TYPEB_ADDRS_MARK") continue;
-
     rowNode = NewTextChild( node, "CacheTable" );
     NewTextChild( rowNode, "cache", cache );
     NewTextChild( rowNode, "title", AstraLocale::getLocaleText(Qry.FieldAsString("title")) );
@@ -117,8 +112,8 @@ void AdmInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   reqInfo->LocaleToLog("EVT.PASSWORD.RESET", LEvntPrms()
                        << PrmSmpl<string>("descr", Qry.FieldAsString("descr")), evtAccess);
   AstraLocale::showMessage("MSG.PASSWORD.ASSIGNED_DEFAULT",
-  	                       LParams() << LParam("user", (string)Qry.FieldAsString( "descr" ))<<
-  	                                    LParam("passwd",(string)Qry.FieldAsString( "login" )) );
+                           LParams() << LParam("user", (string)Qry.FieldAsString( "descr" ))<<
+                                        LParam("passwd",(string)Qry.FieldAsString( "login" )) );
 }
 
 

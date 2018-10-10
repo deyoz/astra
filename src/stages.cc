@@ -82,11 +82,9 @@ bool CompatibleStage( TStage stage )
   if ( stage == sOpenWEBCheckIn ||
        stage == sOpenKIOSKCheckIn ||
        stage == sCloseWEBCheckIn ||
-       stage == sCloseKIOSKCheckIn )
+       stage == sCloseKIOSKCheckIn ||
+       stage == sCloseWEBCancel )
     return true;
-
-  if ( stage == sCloseWEBCancel )
-    return TReqInfo::Instance()->desk.compatible( WEB_CANCEL_VERSION );
 
   return false;
 }
@@ -94,16 +92,16 @@ bool CompatibleStage( TStage stage )
 bool CompatibleStageType( TStage_Type stage_type )
 {
   if ( stage_type == stCheckIn ||
-         stage_type == stBoarding ||
-         stage_type == stCraft )
+       stage_type == stBoarding ||
+       stage_type == stCraft )
     return true;
 
   if ( stage_type == stWEBCheckIn ||
-         stage_type == stKIOSKCheckIn )
+       stage_type == stKIOSKCheckIn )
     return true;
 
   if ( stage_type == stWEBCancel )
-    return TReqInfo::Instance()->desk.compatible( WEB_CANCEL_VERSION );
+    return true;
 
   return false;
 }

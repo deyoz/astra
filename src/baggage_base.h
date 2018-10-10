@@ -12,11 +12,6 @@
 
 using BASIC::date_time::TDateTime;
 
-namespace WeightConcept
-{
-const std::string OLD_TRFER_BAG_TYPE="99";
-}
-
 class TServiceCategory
 {
   public:
