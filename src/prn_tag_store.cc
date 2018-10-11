@@ -245,6 +245,7 @@ TPrnTagStore::TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat):
     space_if_empty(false),
     prn_tag_props(TDevOper::PrnBR)
 {
+    from_scan_code = false;
     print_mode = 0;
     tag_lang.Init(arcpt, apr_lat);
     tag_list.insert(make_pair(TAG::BULKY_BT,            TTagListItem(&TPrnTagStore::BULKY_BT)));
@@ -301,6 +302,7 @@ TPrnTagStore::TPrnTagStore(const std::string& airp_dep,
     space_if_empty(false),
     prn_tag_props(TDevOper::PrnBP)
 {
+    from_scan_code = false;
     init_bp_tags();
     tag_lang.Init(airp_dep, airp_arv, apr_lat);
 }
@@ -311,6 +313,7 @@ TPrnTagStore::TPrnTagStore(bool apr_lat):
     space_if_empty(false),
     prn_tag_props(TDevOper::Unknown)
 {
+    from_scan_code = false;
     print_mode = 0;
     tag_lang.Init(apr_lat);
     prn_test_tags.Init();
@@ -323,6 +326,7 @@ TPrnTagStore::TPrnTagStore(TDevOper::Enum _op_type, const string &ascan, bool ap
     space_if_empty(false),
     prn_tag_props(TDevOper::PrnBP)
 {
+    from_scan_code = true;
     scan_data = boost::shared_ptr<BCBPSections>(new BCBPSections());
     BCBPSections::get(ascan, 0, ascan.size(), *scan_data);
     print_mode = 0;
@@ -432,7 +436,7 @@ void TPrnTagStore::tagsFromXML(xmlNodePtr tagsNode)
 }
 
 // BP && BT
-TPrnTagStore::TPrnTagStore(TDevOper::Enum _op_type, int agrp_id, int apax_id, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute):
+TPrnTagStore::TPrnTagStore(TDevOper::Enum _op_type, int agrp_id, int apax_id, bool afrom_scan_code, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute):
     op_type(_op_type),
     time_print(NowUTC()),
     space_if_empty(false),
@@ -440,6 +444,7 @@ TPrnTagStore::TPrnTagStore(TDevOper::Enum _op_type, int agrp_id, int apax_id, in
 {
     if(op_type == TDevOper::PrnBP or op_type == TDevOper::PrnBI) rfisc_descr.fromDB(agrp_id, apax_id);
 
+    from_scan_code = afrom_scan_code;
     print_mode = 0;
     grpInfo.Init(agrp_id, apax_id);
     tag_lang.Init(
@@ -779,6 +784,7 @@ TPrnQryBuilder::TPrnQryBuilder(TQuery &aQry): Qry(aQry)
         "       pr_print, "
         "       desk, "
         "       client_type, "
+        "       from_scan_code, "
         "       op_type ";
     part2 =
         "   ) values( "
@@ -787,8 +793,71 @@ TPrnQryBuilder::TPrnQryBuilder(TQuery &aQry): Qry(aQry)
         "       :pr_print, "
         "       :desk, "
         "       :client_type, "
+        "       :from_scan_code, "
         "       :op_type ";
 };
+
+TDateTime get_date_from_bcbp(int julian_date)
+{
+    //вообще-то здесь нужно различать TDirection
+    //для time_print TDirection::before, для date_of_flight TDirection::everywhere
+    //это на потом
+    JulianDate d(julian_date, NowUTC(), JulianDate::TDirection::everywhere);
+    d.trace(__FUNCTION__);
+    return d.getDateTime();
+}
+
+void TPrnTagStore::save_foreign_scan()
+{
+    pair<int, char> bcbp_flt_no = scan_data->flight_number(0);
+    string suffix;
+    suffix.append(1, bcbp_flt_no.second);
+    suffix = StrUtils::trim(suffix); // пустой суффикс почему-то хранится как пробел ' '
+
+    TCachedQuery Qry(
+            "insert into foreign_scan ( "
+            "   id, "
+            "   time_print, "
+            "   desk, "
+            "   desk_airp, "
+            "   descr, "
+            "   client_type, "
+            "   airline, "
+            "   flt_no, "
+            "   suffix, "
+            "   scd_out, "
+            "   airp_dep, "
+            "   airp_arv, "
+            "   scan_data "
+            ") values ( "
+            "   cycle_id__seq.nextval, "
+            "   :time_print, "
+            "   :desk, "
+            "   (select airp from desk_grp where grp_id = (select grp_id from desks where code = :desk)), "
+            "   (select descr from web_clients where desk = :desk), "
+            "   :client_type, "
+            "   :airline, "
+            "   :flt_no, "
+            "   :suffix, "
+            "   :scd_out, "
+            "   :airp_dep, "
+            "   :airp_arv, "
+            "   :scan_data "
+            ") ",
+        QParams()
+            << QParam("time_print", otDate, time_print.val)
+            << QParam("desk", otString, TReqInfo::Instance()->desk.code)
+            << QParam("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type))
+            << QParam("airline", otString, getElemId(etAirline, StrUtils::trim(scan_data->operating_carrier_designator(0))))
+            << QParam("flt_no", otInteger, bcbp_flt_no.first)
+            << QParam("suffix", otString, (suffix.empty() ? suffix : getElemId(etSuffix, suffix)))
+            << QParam("scd_out", otDate, get_date_from_bcbp(scan_data->date_of_flight(0)))
+            << QParam("airp_dep", otString, getElemId(etAirp, scan_data->from_city_airport(0)))
+            << QParam("airp_arv", otString, getElemId(etAirp, scan_data->to_city_airport(0)))
+            << QParam("scan_data", otString, scan));
+
+    Qry.get().Execute();
+}
 
 void TPrnTagStore::confirm_print(bool pr_print, TDevOper::Enum op_type)
 {
@@ -804,6 +873,7 @@ void TPrnTagStore::confirm_print(bool pr_print, TDevOper::Enum op_type)
     Qry.CreateVariable("pr_print", otInteger, (pr_print ? pr_print : TReqInfo::Instance()->client_type == ctKiosk));
     Qry.CreateVariable("desk", otString, TReqInfo::Instance()->desk.code);
     Qry.CreateVariable("client_type", otString, EncodeClientType(TReqInfo::Instance()->client_type));
+    Qry.CreateVariable("from_scan_code", otInteger, from_scan_code);
     Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
 
     if(
@@ -1574,12 +1644,7 @@ string get_date_from_bcbp(TDateTime date, const string &date_format, bool pr_lat
 
 string get_date_from_bcbp(int julian_date, const string &date_format, bool pr_lat)
 {
-    //вообще-то здесь нужно различать TDirection
-    //для time_print TDirection::before, для date_of_flight TDirection::everywhere
-    //это на потом
-    JulianDate d(julian_date, NowUTC(), JulianDate::TDirection::everywhere);
-    d.trace(__FUNCTION__);
-    return get_date_from_bcbp(d.getDateTime(), date_format, pr_lat);
+    return get_date_from_bcbp(get_date_from_bcbp(julian_date), date_format, pr_lat);
 }
 
 string TPrnTagStore::ACT(TFieldParams fp)
@@ -2442,7 +2507,7 @@ string TPrnTagStore::TRfiscDescr::get(const string &crs_cls, TBPServiceTypes::En
                     pts.get_op_type(),
                     parent_pax.grp_id,
                     parent_pax.id,
-                    false, NULL);
+                    false, false, NULL);
             if(
                     not StrUtils::trim(parent_pts.get_tag(TAG::RFISC_UPGRADE)).empty() or
                     not StrUtils::trim(parent_pts.get_tag(TAG::RFISC_BSN_LONGUE)).empty()

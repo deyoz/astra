@@ -61,7 +61,11 @@ struct HTTPClient
     jxt_interface["EventToServer"] =        JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
     jxt_interface["piece_concept"] =        JxtInfo(PIECE_CONCEPT_JXT_INTERFACE_ID, NULL);
     jxt_interface["GetGRPPrintData"] =      JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
-    jxt_interface["GetPrintDataBP"] =       JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
+    // Запрос с одинаковым названием, но в разных классах
+    // данная мэпа не подходит для такого случая
+    // т.к. затирается обработчик
+    // jxt_interface["GetPrintDataBP"] =       JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
+    jxt_interface["GetPrintDataBP"] =       JxtInfo(WEB_JXT_IFACE_ID,               NULL);
     jxt_interface["GetGRPPrintDataBP"] =    JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
     jxt_interface["GetImg"] =               JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
     jxt_interface["get_resource"] =         JxtInfo(HTML_JXT_INTERFACE_ID,          NULL);

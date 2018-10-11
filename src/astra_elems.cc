@@ -934,3 +934,13 @@ string craftToPrefferedCode(const std::string &code, const AstraLocale::OutputLa
   return result;
 }
 
+string getElemId(TElemType type, const string &elem)
+{
+    TElemFmt fmt;
+    string result = ElemToElemId(type, elem, fmt, false);
+    if(fmt == efmtUnknown)
+        throw Exception("getElemId: elem not found (type = %s, elem = %s)",
+                EncodeElemType(type),elem.c_str());
+    return result;
+}
+

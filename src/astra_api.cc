@@ -298,7 +298,7 @@ void savePrintBP(int grpId, const std::list<XmlPax>& paxes)
                          << " pax_id:" << pax.pax_id;
 
 
-        PrintDataParser parser(ASTRA::TDevOper::PrnBP, grpId, pax.pax_id, 0, NULL);
+        PrintDataParser parser(ASTRA::TDevOper::PrnBP, grpId, pax.pax_id, false, 0, NULL);
         parser.pts.confirm_print(true, ASTRA::TDevOper::PrnBP);
     }
 }

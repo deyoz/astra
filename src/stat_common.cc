@@ -51,7 +51,9 @@ const char *TStatTypeS[statNum] = {
     "statBIDetail",
     "statVOFull",
     "statVOShort",
-    "statADFull"
+    "statADFull",
+    "statReprintShort",
+    "statReprintFull"
 };
 
 void TStatParams::fromFileParams(map<string, string> &file_params)
@@ -237,6 +239,10 @@ void TStatParams::get(xmlNodePtr reqNode)
     } else if(type == "Факт. вылет") {
         if(name == "Подробная") statType=statADFull;
         else throw Exception("Unknown stat mode " + name);
+    } else if(type == "Репринт") {
+        if(name == "Подробная") statType=statReprintFull;
+        else if(name == "Общая") statType=statReprintShort;
+        else throw Exception("Unknown stat mode " + name);
     } else
         throw Exception("Unknown stat type " + type);
 
@@ -324,19 +330,19 @@ void TStatParams::get(xmlNodePtr reqNode)
     LT = NodeAsIntegerFast("LTCkBox", curNode, 0) != 0;
 };
 
-void TStatParams::AccessClause(string &SQLText) const
+void TStatParams::AccessClause(string &SQLText, const string &tab) const
 {
     if (!airps.elems().empty()) {
         if (airps.elems_permit())
-            SQLText += " points.airp IN " + GetSQLEnum(airps.elems()) + "and ";
+            SQLText += " " + (tab.empty() ? tab : tab + ".") + "airp IN " + GetSQLEnum(airps.elems()) + "and ";
         else
-            SQLText += " points.airp NOT IN " + GetSQLEnum(airps.elems()) + "and ";
+            SQLText += " " + (tab.empty() ? tab : tab + ".") + "airp NOT IN " + GetSQLEnum(airps.elems()) + "and ";
     };
     if (!airlines.elems().empty()) {
         if (airlines.elems_permit())
-            SQLText += " points.airline IN " + GetSQLEnum(airlines.elems()) + "and ";
+            SQLText += " " + (tab.empty() ? tab : tab + ".") + "airline IN " + GetSQLEnum(airlines.elems()) + "and ";
         else
-            SQLText += " points.airline NOT IN " + GetSQLEnum(airlines.elems()) + "and ";
+            SQLText += " " + (tab.empty() ? tab : tab + ".") + "airline NOT IN " + GetSQLEnum(airlines.elems()) + "and ";
     };
 }
 

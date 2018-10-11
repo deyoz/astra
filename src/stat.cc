@@ -35,6 +35,7 @@
 #include "stat_ha.h"
 #include "stat_ad.h"
 #include "stat_unacc.h"
+#include "stat_reprint.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -3688,7 +3689,6 @@ struct TSelfCkinStatRow {
     int term_bp;
     int term_bag;
     int term_ckin_service;
-    int kiosk_reprint_bp;
     int adult;
     int child;
     int baby;
@@ -3699,7 +3699,6 @@ struct TSelfCkinStatRow {
         term_bp(0),
         term_bag(0),
         term_ckin_service(0),
-        kiosk_reprint_bp(0),
         adult(0),
         child(0),
         baby(0),
@@ -3723,7 +3722,6 @@ struct TSelfCkinStatRow {
         term_bp += item.term_bp;
         term_bag += item.term_bag;
         term_ckin_service += item.term_ckin_service;
-        kiosk_reprint_bp += item.kiosk_reprint_bp;
         adult += item.adult;
         child += item.child;
         baby += item.baby;
@@ -3798,7 +3796,6 @@ void RunSelfCkinStat(const TStatParams &params,
             "    term_bp, "
             "    term_bag, "
             "    term_ckin_service, "
-            "    kiosk_reprint_bp, "
             "    tckin "
             "from ";
         if(pass != 0) {
@@ -3877,7 +3874,6 @@ void RunSelfCkinStat(const TStatParams &params,
             int col_term_bp = Qry.FieldIndex("term_bp");
             int col_term_bag = Qry.FieldIndex("term_bag");
             int col_term_ckin_service = Qry.FieldIndex("term_ckin_service");
-            int col_kiosk_reprint_bp = Qry.FieldIndex("kiosk_reprint_bp");
             int col_baby = Qry.FieldIndex("baby");
             int col_tckin = Qry.FieldIndex("tckin");
             for(; not Qry.Eof; Qry.Next())
@@ -3893,7 +3889,6 @@ void RunSelfCkinStat(const TStatParams &params,
               row.pax_amount = row.adult + row.child + row.baby;
               row.term_bp = Qry.FieldAsInteger(col_term_bp);
               row.term_bag = Qry.FieldAsInteger(col_term_bag);
-              row.kiosk_reprint_bp = Qry.FieldAsInteger(col_kiosk_reprint_bp);
               if (Qry.FieldIsNULL(col_term_ckin_service))
                 row.term_ckin_service = row.pax_amount;
               else
@@ -4019,7 +4014,6 @@ void createXMLSelfCkinStat(const TStatParams &params,
         NewTextChild(rowNode, "col", im->second.term_bag);
         NewTextChild(rowNode, "col", im->second.term_bp);
         NewTextChild(rowNode, "col", im->second.pax_amount - im->second.term_ckin_service);
-        NewTextChild(rowNode, "col", im->second.kiosk_reprint_bp);
 
         if(params.statType == statSelfCkinFull) {
             // Çá
@@ -4139,12 +4133,6 @@ void createXMLSelfCkinStat(const TStatParams &params,
     SetProp(colNode, "sort", sortInteger);
     NewTextChild(rowNode, "col", total.pax_amount-total.term_ckin_service);
 
-    colNode = NewTextChild(headerNode, "col", getLocaleText("ê•Ø‡®≠‚"));
-    SetProp(colNode, "width", 45);
-    SetProp(colNode, "align", TAlignment::RightJustify);
-    SetProp(colNode, "sort", sortInteger);
-    NewTextChild(rowNode, "col", total.kiosk_reprint_bp);
-
     if(params.statType == statSelfCkinFull) {
         colNode = NewTextChild(headerNode, "col", getLocaleText("Çá"));
         SetProp(colNode, "width", 30);
@@ -4248,7 +4236,6 @@ void TSelfCkinStatCombo::add_header(ostringstream &buf) const
     buf << getLocaleText("ÅÉ") << delim;
     buf << getLocaleText("èí") << delim;
     buf << getLocaleText("Ç·Ò ·†¨®") << delim;
-    buf << getLocaleText("ê•Ø‡®≠‚") << delim;
     if (params.statType == statSelfCkinFull)
     {
         buf << getLocaleText("Çá") << delim;
@@ -4294,8 +4281,6 @@ void TSelfCkinStatCombo::add_data(ostringstream &buf) const
     buf << data.second.term_bp << delim; // èí
     buf << (data.second.pax_amount - data.second.term_ckin_service)
      << delim; // Ç·Ò ·†¨®
-    // ê•Ø‡®≠‚
-    buf << data.second.kiosk_reprint_bp << delim;
     if (params.statType == statSelfCkinFull)
     {
         buf << data.second.adult << delim; // Çá
@@ -8713,6 +8698,12 @@ void create_plain_files(
         case statHAFull:
             RunHAFullFile(params, order_writer);
             break;
+        case statReprintShort:
+            RunReprintShortFile(params, order_writer);
+            break;
+        case statReprintFull:
+            RunReprintFullFile(params, order_writer);
+            break;
         default:
             throw Exception("unsupported statType %d", params.statType);
     }
@@ -9553,6 +9544,8 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         case statVOFull:
         case statVOShort:
         case statADFull:
+        case statReprintShort:
+        case statReprintFull:
         case statBIFull:
         case statBIShort:
         case statBIDetail:
@@ -9715,6 +9708,18 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             TBIFullStat BIFullStat;
             RunBIStat(params, BIFullStat);
             createXMLBIFullStat(params, BIFullStat, resNode);
+        }
+        if(params.statType == statReprintShort)
+        {
+            TReprintShortStat ReprintShortStat;
+            RunReprintStat(params, ReprintShortStat);
+            createXMLReprintShortStat(params, ReprintShortStat, resNode);
+        }
+        if(params.statType == statReprintFull)
+        {
+            TReprintFullStat ReprintFullStat;
+            RunReprintStat(params, ReprintFullStat);
+            createXMLReprintFullStat(params, ReprintFullStat, resNode);
         }
         if(params.statType == statHAShort)
         {
@@ -10878,6 +10883,9 @@ void get_flight_stat(map<string, long> &stat_times, int point_id, bool final_col
      tm.Init();
      get_stat_ad(point_id);
      add_stat_time(stat_times, "stat_ad", tm.Print());
+     tm.Init();
+     get_stat_reprint(point_id);
+     add_stat_time(stat_times, "stat_reprint", tm.Print());
    };
 
    TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);

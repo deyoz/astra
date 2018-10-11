@@ -1275,7 +1275,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
           pax_id = Qry.FieldAsInteger("pax_id");
         };
 
-        PrintDataParser parser(TDevOper::PrnBT, tag_key.grp_id, pax_id, tag_key.pr_lat, NULL, route);
+        PrintDataParser parser(TDevOper::PrnBT, tag_key.grp_id, pax_id, false, tag_key.pr_lat, NULL, route);
 
         parser.pts.set_tag(TAG::AIRCODE, aircode);
         parser.pts.set_tag(TAG::NO, no);
@@ -1793,11 +1793,11 @@ void tst_dump(int pax_id, int grp_id, bool pr_lat)
 {
     vector<string> tags;
     {
-        TPrnTagStore pts(TDevOper::PrnBP, grp_id, pax_id, pr_lat, NULL);
+        TPrnTagStore pts(TDevOper::PrnBP, grp_id, pax_id, false, pr_lat, NULL);
         pts.tst_get_tag_list(tags);
     }
     for(vector<string>::iterator iv = tags.begin(); iv != tags.end(); iv++) {
-        TPrnTagStore tmp_pts(TDevOper::PrnBP, grp_id, pax_id, pr_lat, NULL);
+        TPrnTagStore tmp_pts(TDevOper::PrnBP, grp_id, pax_id, false, pr_lat, NULL);
         tmp_pts.set_tag("gate", "");
         ProgTrace(TRACE5, "tag: %s; value: '%s'", iv->c_str(), tmp_pts.get_field(*iv, 0, "", "L", "dd.mm hh:nn", "R").c_str());
         tmp_pts.confirm_print(false, TDevOper::PrnBP);
@@ -1918,7 +1918,7 @@ void PrintInterface::GetPrintDataBP(
         boost::shared_ptr<PrintDataParser> parser;
         if(iPax->pax_id!=NoExists)
             try {
-                parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->grp_id, iPax->pax_id, params.prnParams.pr_lat, params.clientDataNode ));
+                parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->grp_id, iPax->pax_id, iPax->from_scan_code, params.prnParams.pr_lat, params.clientDataNode ));
             } catch(UserException &E) {
                 if(not error) {
                     TTripInfo fltInfo;
@@ -1975,6 +1975,8 @@ void PrintInterface::GetPrintDataBP(
         }
         if(iPax->pax_id!=NoExists)
             parser->pts.confirm_print(false, op_type);
+        else
+            parser->pts.save_foreign_scan();
         iPax->time_print=parser->pts.get_time_print();
     }
     paxs.erase(remove_if(paxs.begin(), paxs.end(), IsErrPax), paxs.end());
@@ -2243,7 +2245,7 @@ void PrintInterface::GetPrintDataVO(
                 int grp_id = Qry.get().FieldAsInteger("grp_id");
                 int reg_no = Qry.get().FieldAsInteger("reg_no");
 
-                PrintDataParser parser(TDevOper::PrnBP, grp_id, pax->first, params.prnParams.pr_lat, params.clientDataNode);
+                PrintDataParser parser(TDevOper::PrnBP, grp_id, pax->first, false, params.prnParams.pr_lat, params.clientDataNode);
 
                 parser.pts.set_tag(TAG::VOUCHER_CODE, v->first);
                 parser.pts.set_tag(TAG::VOUCHER_TEXT, v->first);
@@ -2755,9 +2757,9 @@ void PrintInterface::print_bp2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     if(not contentNode) throw Exception("content is null");
 
     TSearchFltInfo filter;
-    filter.airline = CKIN_REPORT::getElemId(etAirline, NodeAsString("airline", contentNode));
+    filter.airline = getElemId(etAirline, NodeAsString("airline", contentNode));
     filter.flt_no = NodeAsInteger("flt_no", contentNode);
-    filter.airp_dep = CKIN_REPORT::getElemId(etAirp,NodeAsString("airp_dep", contentNode));
+    filter.airp_dep = getElemId(etAirp,NodeAsString("airp_dep", contentNode));
     if(StrToDateTime(NodeAsString("scd_out", contentNode), "dd.mm.yy", filter.scd_out) == EOF)
         throw Exception("print_bp: can't convert scd_out: %s", NodeAsString("scd_Out", contentNode));
     filter.scd_out_in_utc = true;
@@ -2803,7 +2805,7 @@ void PrintInterface::print_bp2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         string pectab, data;
         get_pectab(op_type, params, data, pectab);
 
-        PrintDataParser parser(op_type, grp_id, pax_id, false, NULL);
+        PrintDataParser parser(op_type, grp_id, pax_id, false, false, NULL);
         parser.set_space_if_empty(params.isGraphics2D());
         parser.pts.set_tag(TAG::GATE, "ÇêÄíÄ");
         parser.pts.set_tag(TAG::DUPLICATE, 1);
@@ -2829,9 +2831,9 @@ void PrintInterface::print_bp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         content.erase(0, idx + 1);
 
         TSearchFltInfo filter;
-        filter.airline = CKIN_REPORT::getElemId(etAirline, params[0]);
+        filter.airline = getElemId(etAirline, params[0]);
         filter.flt_no = ToInt(params[1]);
-        filter.airp_dep = CKIN_REPORT::getElemId(etAirp, params[3]);
+        filter.airp_dep = getElemId(etAirp, params[3]);
         if(StrToDateTime(params[2].c_str(), "dd.mm.yy", filter.scd_out) == EOF)
             throw Exception("print_bp: can't convert scd_out: %s", params[2].c_str());
         filter.scd_out_in_utc = true;
@@ -2868,7 +2870,7 @@ void PrintInterface::print_bp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         if(not Qry.get().Eof) {
             int grp_id = Qry.get().FieldAsInteger("grp_id");
             int pax_id = Qry.get().FieldAsInteger("pax_id");
-            PrintDataParser parser(TDevOper::PrnBP, grp_id, pax_id, false, NULL);
+            PrintDataParser parser(TDevOper::PrnBP, grp_id, pax_id, false, false, NULL);
             parser.pts.set_tag(TAG::GATE, "ÇêÄíÄ");
             parser.pts.set_tag(TAG::DUPLICATE, 1);
             parser.pts.set_tag(TAG::VOUCHER_CODE, "DV");
