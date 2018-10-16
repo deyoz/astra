@@ -324,19 +324,24 @@ void TStatParams::get(xmlNodePtr reqNode)
     LT = NodeAsIntegerFast("LTCkBox", curNode, 0) != 0;
 };
 
-void TStatParams::AccessClause(string &SQLText, const string &tab) const
+void TStatParams::AccessClause(
+        string &SQLText,
+        const string &tab,
+        const string &airline_col,
+        const string &airp_col
+        ) const
 {
     if (!airps.elems().empty()) {
         if (airps.elems_permit())
-            SQLText += " " + (tab.empty() ? tab : tab + ".") + "airp IN " + GetSQLEnum(airps.elems()) + "and ";
+            SQLText += " " + (tab.empty() ? tab : tab + ".") + airp_col + " IN " + GetSQLEnum(airps.elems()) + "and ";
         else
-            SQLText += " " + (tab.empty() ? tab : tab + ".") + "airp NOT IN " + GetSQLEnum(airps.elems()) + "and ";
+            SQLText += " " + (tab.empty() ? tab : tab + ".") + airp_col + " NOT IN " + GetSQLEnum(airps.elems()) + "and ";
     };
     if (!airlines.elems().empty()) {
         if (airlines.elems_permit())
-            SQLText += " " + (tab.empty() ? tab : tab + ".") + "airline IN " + GetSQLEnum(airlines.elems()) + "and ";
+            SQLText += " " + (tab.empty() ? tab : tab + ".") + airline_col + " IN " + GetSQLEnum(airlines.elems()) + "and ";
         else
-            SQLText += " " + (tab.empty() ? tab : tab + ".") + "airline NOT IN " + GetSQLEnum(airlines.elems()) + "and ";
+            SQLText += " " + (tab.empty() ? tab : tab + ".") + airline_col + " NOT IN " + GetSQLEnum(airlines.elems()) + "and ";
     };
 }
 
