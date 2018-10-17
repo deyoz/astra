@@ -72,8 +72,16 @@ class TSimpleMktFlight
              suffix == s.suffix;
     }
 
+    void operator = (const TSimpleMktFlight &flt)
+    {
+        airline = flt.airline;
+        flt_no = flt.flt_no;
+        suffix = flt.suffix;
+    }
+
     const TSimpleMktFlight& toXML(xmlNodePtr node,
                                   const boost::optional<AstraLocale::OutputLang>& lang) const;
+    TSimpleMktFlight& fromXML(xmlNodePtr node);
 
     virtual ~TSimpleMktFlight() {}
 };

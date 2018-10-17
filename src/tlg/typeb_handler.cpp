@@ -1062,6 +1062,23 @@ bool parse_tlg(const string &handler_id)
           case tcNTM:
           {
               TUCMHeadingInfo &info = *(dynamic_cast<TUCMHeadingInfo*>(HeadingInfo));
+
+              // Применение франчайз
+              {
+                  TTripInfo trip_info;
+                  trip_info.airline = info.flt_info.airline;
+                  trip_info.airp = info.flt_info.airp;
+                  trip_info.flt_no = info.flt_info.flt_no;
+                  trip_info.suffix = info.flt_info.suffix;
+                  trip_info.scd_out = info.flt_info.date;
+                  Franchise::TProp franchise_prop;
+                  if(franchise_prop.get_franchisee(trip_info, Franchise::TPropType::wb) and franchise_prop.val == Franchise::pvYes) {
+                      info.flt_info.airline = franchise_prop.oper.airline;
+                      info.flt_info.flt_no = franchise_prop.oper.flt_no;
+                      info.flt_info.suffix = franchise_prop.oper.suffix;
+                  }
+              }
+
               SaveFlt(tlg_id,info.flt_info.toFltInfo(),btFirstSeg,TSearchFltInfoPtr());
               parseTypeB(tlg_id);
               callPostHooksBefore();

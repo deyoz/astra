@@ -30,6 +30,7 @@ namespace Franchise {
                 cpm,
                 psm,
                 tpm,
+                wb,
                 Unknown
             };
 
@@ -59,6 +60,7 @@ namespace Franchise {
                     l.push_back(std::make_pair(cpm,         "pr_cpm"));
                     l.push_back(std::make_pair(psm,         "pr_psm"));
                     l.push_back(std::make_pair(tpm,         "pr_tpm"));
+                    l.push_back(std::make_pair(wb,          "pr_wb"));
 
                 }
                 return l;
@@ -137,10 +139,16 @@ namespace Franchise {
 
         TProp() { clear(); }
         void clear();
+        
+        // поиск ведется по ст-цам
+        // airline, flt_no, suffix
         bool get(const TTripInfo &info, TPropType::Enum prop, bool is_local_scd_out);
         bool get(int point_id, TPropType::Enum prop);
         bool get(int point_id, const std::string &tlg_type);
-        bool get( const TTripInfo &info, TPropType::Enum prop );
+
+        // поиск ведется по ст-цам
+        // airline_franchisee, flt_no_franchisee, suffix_franchisee
+        bool get_franchisee( const TTripInfo &info, TPropType::Enum prop );
     };
 
 }

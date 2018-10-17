@@ -1021,7 +1021,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, DestsTagsNoExists &tags, co
         info.flt_no = dest.flt_no;
         info.scd_out = dest.scd_out;  
         Franchise::TProp franchise_prop;
-        if ( franchise_prop.get(info, Franchise::TPropType::aodb) &&
+        if ( franchise_prop.get_franchisee(info, Franchise::TPropType::aodb) &&
              franchise_prop.val == Franchise::pvNo ) {          
           dest.airline = franchise_prop.oper.airline;
           dest.flt_no = franchise_prop.oper.flt_no;
