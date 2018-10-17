@@ -54,8 +54,9 @@ static CpnElem getCpn(const EmdDisassociateRequestParams& params)
 
 void EmdDisassociateRequest::collectMessage()
 {
+    BaseTables::Router rot(sysCont()->routerCanonName());
     // ORG
-    viewOrgElement(pMes(), m_params.org());
+    viewOrgElement2(pMes(), m_params.org(), rot->translit());
     // EQN
     viewEqnElement(pMes(), getEqnList(m_params));
     edilib::SetEdiSegGr(pMes(), 1);

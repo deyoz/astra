@@ -136,14 +136,15 @@ static TvlElem getTvl(const Ticketing::Itin& itin)
     
 void EmdCosRequest::collectMessage()
 {
+    BaseTables::Router rot(sysCont()->routerCanonName());
     // ORG
-    viewOrgElement(pMes(), m_cosParams.org());
+    viewOrgElement2(pMes(), m_cosParams.org(), rot->translit());
     // EQN
     viewEqnElement(pMes(), getEqn(m_cosParams));
     
     if(m_cosParams.globalItinOpt()) {
         // global TVL
-        viewTvlElement(pMes(), getTvl(*m_cosParams.globalItinOpt()));
+        viewItin2(pMes(), *m_cosParams.globalItinOpt(), rot->translit());
     }
     
     edilib::PushEdiPointW(pMes());
@@ -160,7 +161,7 @@ void EmdCosRequest::collectMessage()
         viewCpnElement(pMes(), getCpn(item.cpnNum(), item.status()));
         if(item.itinOpt()) {
             // coupon TVL
-            viewTvlElement(pMes(), getTvl(*item.itinOpt()));
+            viewItin2(pMes(), *item.itinOpt(), rot->translit());
         }
         edilib::PopEdiPointW(pMes());
         
