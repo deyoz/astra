@@ -180,7 +180,7 @@ void RunReprintStat(
             << QParam("FirstDate", otDate, params.FirstDate)
             << QParam("LastDate", otDate, params.LastDate);
         string SQLText = "select * from foreign_scan where ";
-        params.AccessClause(SQLText, "");
+        params.AccessClause(SQLText, "", "airline", "airp_dep");
         if(params.flt_no != NoExists) {
             SQLText += " flt_no = :flt_no and ";
             QryParams << QParam("flt_no", otInteger, params.flt_no);
