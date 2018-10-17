@@ -1375,6 +1375,18 @@ const TGrpMktFlight& TGrpMktFlight::toXML(xmlNodePtr node) const
   return *this;
 }
 
+TSimpleMktFlight& TSimpleMktFlight::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+  if (node2==NULL) return *this;
+  airline=NodeAsStringFast("airline",node2);
+  flt_no=NodeAsIntegerFast("flt_no",node2);
+  suffix=NodeAsStringFast("suffix",node2);
+  return *this;
+}
+
 TGrpMktFlight& TGrpMktFlight::fromXML(xmlNodePtr node)
 {
   clear();

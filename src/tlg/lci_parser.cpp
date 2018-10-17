@@ -337,6 +337,7 @@ void TLCIContent::clear()
     time_receive = NoExists;
     sender.clear();
     typeb_in_id = NoExists;
+    franchise_flt.clear();
     action_code.clear();
     req.clear();
     dst.clear();
@@ -524,6 +525,7 @@ void TLCIContent::fromXML(const string &content)
     time_receive = NodeAsDateTime("time_receive", rootNode, NoExists);
     sender = NodeAsString("sender", rootNode, "");
     typeb_in_id = NodeAsInteger("typeb_in_id", rootNode, NoExists);
+    franchise_flt.fromXML(GetNode("franchise_flt", rootNode));
     action_code.fromXML(rootNode);
     req.fromXML(rootNode);
     dst.fromXML(rootNode);
@@ -547,6 +549,8 @@ string TLCIContent::toXML()
         NewTextChild(rootNode, "time_receive", BASIC::date_time::DateTimeToStr(time_receive));
     NewTextChild(rootNode, "sender", sender, "");
     NewTextChild(rootNode, "typeb_in_id", typeb_in_id, NoExists);
+    if(not franchise_flt.empty())
+        franchise_flt.toXML(NewTextChild(rootNode, "franchise_flt"), boost::none);
     action_code.toXML(rootNode);
     req.toXML(rootNode);
     dst.toXML(rootNode);
@@ -668,6 +672,10 @@ void TLCIFltInfo::parse(const char *val, TFlightsForBind &flts)
     info.scd_out = flt.date;
     Franchise::TProp franchise_prop;
     if(franchise_prop.get_franchisee(info, Franchise::TPropType::wb) and franchise_prop.val == Franchise::pvYes) {
+        franchise_flt.airline = info.airline;
+        franchise_flt.flt_no = info.flt_no;
+        franchise_flt.suffix = info.suffix;
+
         flt.airline = franchise_prop.oper.airline;
         flt.flt_no = franchise_prop.oper.flt_no;
         if(franchise_prop.oper.suffix.empty())
@@ -2816,6 +2824,7 @@ string TLCIContent::answer()
         options.pas_distrib = false;
         options.seat_plan = true;
         options.version = "WB";
+        options.franchise_info = franchise_flt;
 
         if(action_code.action == aRequest) {
 
@@ -2925,6 +2934,7 @@ void SaveLCIContent(int tlg_id, TDateTime time_receive, TLCIHeadingInfo& info, T
     con.time_receive = time_receive;
     con.sender = info.sender;
     con.typeb_in_id = tlg_id;
+    con.franchise_flt = info.flt_info.franchise_flt;
 
     TypeBHelpMng::notify_ok(tlg_id, AstraContext::SetContext("LCI", con.toXML())); // Отвешиваем процесс, если есть.
 }
