@@ -246,8 +246,8 @@ void TStatParams::get(xmlNodePtr reqNode)
 
     xmlNodePtr curNode = reqNode->children;
 
-    string ak = NodeAsStringFast("ak", curNode, "");
-    string ap = NodeAsStringFast("ap", curNode, "");
+    ak = NodeAsStringFast("ak", curNode, "");
+    ap = NodeAsStringFast("ap", curNode, "");
     if (!NodeIsNULLFast("flt_no", curNode, true))
       flt_no = NodeAsIntegerFast("flt_no", curNode, NoExists);
     else
@@ -274,7 +274,11 @@ void TStatParams::get(xmlNodePtr reqNode)
     ProgTrace(TRACE5, "ap: %s", ap.c_str());
 
     airlines=info.user.access.airlines();
-    if (!ak.empty())
+    if (
+            !ak.empty() and
+            statType != statReprintShort and
+            statType != statReprintFull
+       )
       airlines.merge(TAccessElems<string>(ak, true));
     airps=info.user.access.airps();
     if (!ap.empty())
