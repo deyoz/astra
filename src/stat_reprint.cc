@@ -128,7 +128,26 @@ void RunReprintStat(
             "where "
             "   stat_reprint.point_id = points.point_id and "
             "   points.pr_del >= 0 and ";
-        params.AccessClause(SQLText);
+
+        if (!params.airlines.elems().empty()) {
+            SQLText += "exists (select * from desk_owners where desk = stat_reprint.desk and airline ";
+            if (params.airlines.elems_permit())
+                SQLText += "in " + GetSQLEnum(params.airlines.elems());
+            else
+                SQLText += "not in " + GetSQLEnum(params.airlines.elems());
+            SQLText += ") and ";
+        }
+
+        if(not params.ap.empty()) {
+            SQLText += " points.airp = :airp and ";
+            QryParams << QParam("airp", otString, params.ap);
+        }
+
+        if(not params.ak.empty()) {
+            SQLText += " points.airline = :airline and ";
+            QryParams << QParam("airline", otString, params.ak);
+        }
+
         if(params.flt_no != NoExists) {
             SQLText += " points.flt_no = :flt_no and ";
             QryParams << QParam("flt_no", otInteger, params.flt_no);
@@ -180,13 +199,33 @@ void RunReprintStat(
             << QParam("FirstDate", otDate, params.FirstDate)
             << QParam("LastDate", otDate, params.LastDate);
         string SQLText = "select * from foreign_scan where ";
-        params.AccessClause(SQLText, "", "airline", "airp_dep");
+
+        if (!params.airlines.elems().empty()) {
+            SQLText += "exists (select * from desk_owners where desk = foreign_scan.desk and airline ";
+            if (params.airlines.elems_permit())
+                SQLText += "in " + GetSQLEnum(params.airlines.elems());
+            else
+                SQLText += "not in " + GetSQLEnum(params.airlines.elems());
+            SQLText += ") and ";
+        }
+
+        if(not params.ap.empty()) {
+            SQLText += " foreign_scan.airp_dep = :airp and ";
+            QryParams << QParam("airp", otString, params.ap);
+        }
+
+        if(not params.ak.empty()) {
+            SQLText += " foreign_scan.airline = :airline and ";
+            QryParams << QParam("airline", otString, params.ak);
+        }
+
         if(params.flt_no != NoExists) {
             SQLText += " flt_no = :flt_no and ";
             QryParams << QParam("flt_no", otInteger, params.flt_no);
         }
         SQLText += " scd_out >= :FirstDate and scd_out < :LastDate ";
         TCachedQuery Qry(SQLText, QryParams);
+        LogTrace(TRACE5) << "SQLText: " << SQLText;
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             int col_desk = Qry.get().GetFieldIndex("desk");

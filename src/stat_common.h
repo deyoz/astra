@@ -120,6 +120,7 @@ struct TStatParams {
     std::string desk_lang;
     std::string name, type;
     TStatType statType;
+    std::string ak, ap;
     TAccessElems<std::string> airlines, airps;
     bool airp_column_first;
     TSeanceType seance;
