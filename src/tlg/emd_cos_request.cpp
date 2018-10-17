@@ -136,8 +136,9 @@ static TvlElem getTvl(const Ticketing::Itin& itin)
     
 void EmdCosRequest::collectMessage()
 {
+    BaseTables::Router rot(sysCont()->routerCanonName());
     // ORG
-    viewOrgElement(pMes(), m_cosParams.org());
+    viewOrgElement2(pMes(), m_cosParams.org(), rot->translit());
     // EQN
     viewEqnElement(pMes(), getEqn(m_cosParams));
     
