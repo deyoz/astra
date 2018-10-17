@@ -66,7 +66,7 @@ namespace Franchise {
         return val != pvUnknown;
     }
 
-    bool TProp::get( const TTripInfo &info, TPropType::Enum prop ) {
+    bool TProp::get_franchisee( const TTripInfo &info, TPropType::Enum prop ) {
       clear();
 
       TDateTime scd_local = UTCToLocal(info.scd_out, AirpTZRegion(info.airp));

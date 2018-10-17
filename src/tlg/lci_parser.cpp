@@ -659,6 +659,23 @@ void TLCIFltInfo::parse(const char *val, TFlightsForBind &flts)
     airp = ElemToElemId(etAirp, aairp, fmt, lang);
     if(airp.empty())
         throw ETlgError("airp '%s' not found", aairp.c_str());
+
+    TTripInfo info;
+    info.airline = flt.airline;
+    info.airp = airp;
+    info.flt_no = flt.flt_no;
+    info.suffix = string(1, flt.suffix);
+    info.scd_out = flt.date;
+    Franchise::TProp franchise_prop;
+    if(franchise_prop.get_franchisee(info, Franchise::TPropType::wb) and franchise_prop.val == Franchise::pvYes) {
+        flt.airline = franchise_prop.oper.airline;
+        flt.flt_no = franchise_prop.oper.flt_no;
+        if(franchise_prop.oper.suffix.empty())
+            flt.suffix = 0;
+        else
+            flt.suffix = franchise_prop.oper.suffix[0];
+    }
+
     // привязка к рейсы
     flts.push_back(TFltForBind(toFltInfo(),  btFirstSeg, TSearchFltInfoPtr(new TLCISearchParams())));
 }
