@@ -9713,6 +9713,19 @@ namespace WBMessages {
         filter.scd_out_in_utc = true;
         filter.only_with_reg = false;
 
+        TTripInfo info;
+        info.airline = flt.airline;
+        info.airp = filter.airp_dep;
+        info.flt_no = flt.flt_no;
+        info.suffix = string(1, flt.suffix);
+        info.scd_out = flt.date;
+        Franchise::TProp franchise_prop;
+        if(franchise_prop.get_franchisee(info, Franchise::TPropType::wb) and franchise_prop.val == Franchise::pvYes) {
+            filter.airline = franchise_prop.oper.airline;
+            filter.flt_no = franchise_prop.oper.flt_no;
+            filter.suffix = franchise_prop.oper.suffix;
+        }
+
         list<TAdvTripInfo> flts;
         SearchFlt(filter, flts);
 
