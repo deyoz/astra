@@ -296,7 +296,6 @@ class TGroupBagItem
     void add(const TGroupBagItem &item);
     void setInboundTrfer(const TrferList::TGrpItem &grp);
     void setPoolNum(int bag_pool_num);
-    bool trferExists() const;
     void convertBag(std::multimap<int, TBagItem> &result) const;
     void fillUnaccompRules();
     void getAllListKeys(const int grp_id, const bool is_unaccomp, const int transfer_num);

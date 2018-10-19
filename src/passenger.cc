@@ -860,23 +860,8 @@ const TPaxDocaItem& TPaxDocaItem::toXML(xmlNodePtr node) const
   NewTextChild(docaNode, "type", type);
   NewTextChild(docaNode, "country", country, "");
   NewTextChild(docaNode, "address", address, "");
-  if (TReqInfo::Instance()->client_type!=ASTRA::ctTerm ||
-      TReqInfo::Instance()->desk.compatible(APIS_CITY_REGION_VERSION))
-  {
-    NewTextChild(docaNode, "city", city, "");
-    NewTextChild(docaNode, "region", region, "");
-  }
-  else
-  {
-    string str;
-    str.clear();
-    transform(city.begin(), city.end(), back_inserter(str), APIS::ReplaceDigit);
-    NewTextChild(docaNode, "city", str, "");
-    str.clear();
-    transform(region.begin(), region.end(), back_inserter(str), APIS::ReplaceDigit);
-    NewTextChild(docaNode, "region", str, "");
-  };
-
+  NewTextChild(docaNode, "city", city, "");
+  NewTextChild(docaNode, "region", region, "");
   NewTextChild(docaNode, "postal_code", postal_code, "");
   return *this;
 };
@@ -1352,38 +1337,11 @@ void SavePaxDoco(int pax_id, const TPaxDocoItem &doc, TQuery& PaxDocQry)
   PaxQry.get().Execute();
 };
 
-void SavePaxDoca(int pax_id, const CheckIn::TDocaMap &doca_map, TQuery& PaxDocaQry, bool new_checkin)
+void SavePaxDoca(int pax_id, const CheckIn::TDocaMap &doca_map, TQuery& PaxDocaQry)
 {
   list<TPaxDocaItem> doca2;
   for (CheckIn::TDocaMap::const_iterator idm = doca_map.begin(); idm != doca_map.end(); ++idm)
     if (!idm->second.empty()) doca2.push_back(idm->second);
-  if (!doca2.empty() &&
-      !(TReqInfo::Instance()->client_type!=ASTRA::ctTerm ||
-        TReqInfo::Instance()->desk.compatible(APIS_CITY_REGION_VERSION)))
-  {
-    CheckIn::TDocaMap old_doca_map;
-    if (new_checkin)
-      LoadCrsPaxDoca(pax_id, old_doca_map); //данные из бронирования
-    else
-      LoadPaxDoca(ASTRA::NoExists, pax_id, old_doca_map);
-
-    TPaxDocaItem old_docaB, old_docaR, old_docaD;
-    ConvertDoca(old_doca_map, old_docaB, old_docaR, old_docaD);
-    for(list<CheckIn::TPaxDocaItem>::iterator d=doca2.begin(); d!=doca2.end(); ++d)
-    {
-      CheckIn::TPaxDocaItem old_doca;
-      if (d->type=="B") old_doca=old_docaB;
-      if (d->type=="R") old_doca=old_docaR;
-      if (d->type=="D") old_doca=old_docaD;
-
-      string city, region;
-      transform(old_doca.city.begin(), old_doca.city.end(), back_inserter(city), APIS::ReplaceDigit);
-      transform(old_doca.region.begin(), old_doca.region.end(), back_inserter(region), APIS::ReplaceDigit);
-
-      if (d->city==city) d->city=old_doca.city;
-      if (d->region==region) d->region=old_doca.region;
-    };
-  };
 
   const char* sql=
         "BEGIN "
@@ -1437,8 +1395,6 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
 
-  TReqInfo *reqInfo=TReqInfo::Instance();
-
   xmlNodePtr paxNode=node;
   NewTextChild(paxNode, "pax_id", id);
   NewTextChild(paxNode, "surname", surname);
@@ -1460,16 +1416,11 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node) const
   if (TknExists) tkn.toXML(paxNode);
   if (DocExists) doc.toXML(paxNode);
   if (DocoExists || doco.needPseudoType()) doco.toXML(paxNode);
-
-  if (reqInfo->api_mode ||
-          reqInfo->desk.compatible(DOCA_VERSION))
+  if (DocaExists)
   {
-    if (DocaExists)
-    {
-      xmlNodePtr docaNode=NewTextChild(paxNode, "addresses");
-      for(CheckIn::TDocaMap::const_iterator d = doca_map.begin(); d != doca_map.end(); ++d)
-        d->second.toXML(docaNode);
-    };
+    xmlNodePtr docaNode=NewTextChild(paxNode, "addresses");
+    for(CheckIn::TDocaMap::const_iterator d = doca_map.begin(); d != doca_map.end(); ++d)
+      d->second.toXML(docaNode);
   };
   return *this;
 };
@@ -1525,22 +1476,18 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
         DocExists=true;
         DocoExists=true;
 
-        if (reqInfo->api_mode ||
-                reqInfo->desk.compatible(DOCA_VERSION))
+        xmlNodePtr docaNode=GetNodeFast("addresses",node2);
+        if (docaNode!=NULL)
         {
-          xmlNodePtr docaNode=GetNodeFast("addresses",node2);
-          if (docaNode!=NULL)
+          for(docaNode=docaNode->children; docaNode!=NULL; docaNode=docaNode->next)
           {
-            for(docaNode=docaNode->children; docaNode!=NULL; docaNode=docaNode->next)
-            {
-              TPaxDocaItem docaItem;
-              docaItem.fromXML(docaNode);
-              if (docaItem.empty()) continue;
-              if (docaItem.apiType() != apiUnknown) doca_map[docaItem.apiType()] = docaItem;
-            };
+            TPaxDocaItem docaItem;
+            docaItem.fromXML(docaNode);
+            if (docaItem.empty()) continue;
+            if (docaItem.apiType() != apiUnknown) doca_map[docaItem.apiType()] = docaItem;
           };
-          DocaExists=true;
         };
+        DocaExists=true;
       }
       else
       {
@@ -1861,13 +1808,7 @@ TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode)
   {
     norms=list<WeightConcept::TPaxNormItem>();
     for(normNode=normNode->children; normNode!=NULL; normNode=normNode->next)
-    {
       norms.get().push_back(WeightConcept::TPaxNormItem().fromXML(normNode));
-      if (!reqInfo->desk.compatible(PIECE_CONCEPT_VERSION))
-      {
-        if (norms.get().back().bag_type222==WeightConcept::OLD_TRFER_BAG_TYPE) norms.get().pop_back();
-      };
-    };
   };
 
   return *this;
@@ -2069,13 +2010,7 @@ bool TPaxGrpItem::fromXML(xmlNodePtr node)
   {
     norms=list<WeightConcept::TPaxNormItem>();
     for(normNode=normNode->children; normNode!=NULL; normNode=normNode->next)
-    {
       norms.get().push_back(WeightConcept::TPaxNormItem().fromXML(normNode));
-      if (!TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION))
-      {
-        if (norms.get().back().bag_type222==WeightConcept::OLD_TRFER_BAG_TYPE) norms.get().pop_back();
-      };
-    };
   };
   return true;
 };

@@ -150,13 +150,7 @@ void TStatParams::get(xmlNodePtr reqNode)
         else if(name == "Общая") statType=statShort;
         else if(name == "Детализированная") statType=statDetail;
         else throw Exception("Unknown stat mode " + name);
-    } else if(type ==
-            ((TReqInfo::Instance()->client_type==ctHTTP ||
-              TReqInfo::Instance()->desk.compatible(SELF_CKIN_STAT_VERSION)) ?
-             "Саморегистрация" :
-             "По киоскам"
-            )
-            ) {
+    } else if(type == "Саморегистрация") {
         if(name == "Подробная")
             statType=statSelfCkinFull;
         else if(name == "Общая")

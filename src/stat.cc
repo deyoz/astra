@@ -3823,15 +3823,10 @@ void RunSelfCkinStat(const TStatParams &params,
             "    points.pr_del >= 0 and "
             "    points.scd_out >= :FirstDate and "
             "    points.scd_out < :LastDate ";
-        if(TReqInfo::Instance()->client_type==ctHTTP ||
-           TReqInfo::Instance()->desk.compatible(SELF_CKIN_STAT_VERSION)) {
-            if(not params.reg_type.empty()) {
-                SQLText += " and self_ckin_stat.client_type = :reg_type ";
-                Qry.CreateVariable("reg_type", otString, params.reg_type);
-            }
-        } else {
+
+        if(not params.reg_type.empty()) {
             SQLText += " and self_ckin_stat.client_type = :reg_type ";
-            Qry.CreateVariable("reg_type", otString, EncodeClientType(ctKiosk));
+            Qry.CreateVariable("reg_type", otString, params.reg_type);
         }
         if(params.flt_no != NoExists) {
             SQLText += " and points.flt_no = :flt_no ";
@@ -4179,13 +4174,7 @@ void createXMLSelfCkinStat(const TStatParams &params,
 
     xmlNodePtr variablesNode = STAT::set_variables(resNode);
     NewTextChild(variablesNode, "stat_type", params.statType);
-    NewTextChild(variablesNode, "stat_mode", getLocaleText(
-                ((TReqInfo::Instance()->client_type==ctHTTP ||
-                  TReqInfo::Instance()->desk.compatible(SELF_CKIN_STAT_VERSION)) ?
-                 "Саморегистрация" :
-                 "Киоски саморегистрации"
-                )
-                ));
+    NewTextChild(variablesNode, "stat_mode", getLocaleText("Саморегистрация"));
     string buf;
     switch(params.statType) {
         case statSelfCkinShort:

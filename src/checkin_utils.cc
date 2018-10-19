@@ -1226,7 +1226,6 @@ void CreateEmulDocs(const TWebPaxForSaveSegs &segs,
         currPaxFromReq.mergePaxFQT(fqts);
         CreateEmulRems(paxNode, rems, fqts);
 
-        NewTextChild(paxNode,"norms"); //пустой тег - норм нет
         NewTextChild(paxNode, "dont_check_payment", (int)currPaxForCkin.dont_check_payment, (int)false);
       }
       catch(CheckIn::UserException)
