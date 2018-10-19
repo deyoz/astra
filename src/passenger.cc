@@ -1970,9 +1970,7 @@ const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
   NewTextChild(grpNode, "bag_refuse", bag_refuse);
   if (!TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
   {
-    bag_types_id!=ASTRA::NoExists?
-          NewTextChild(grpNode, "bag_types_id", bag_types_id):
-          NewTextChild(grpNode, "bag_types_id", 0); //0 важен для терминала
+    NewTextChild(grpNode, "bag_types_id", id);
     NewTextChild(grpNode, "piece_concept", (int)baggage_pc);
   };
   NewTextChild(grpNode, "tid", tid);
@@ -2116,8 +2114,6 @@ TSimplePaxGrpItem& TSimplePaxGrpItem::fromDB(TQuery &Qry)
     client_type = DecodeClientType(Qry.FieldAsString("client_type"));
   tid=Qry.FieldAsInteger("tid");
 
-  if (!Qry.FieldIsNULL("bag_types_id"))
-    bag_types_id=Qry.FieldAsInteger("bag_types_id");
   baggage_pc=Qry.FieldAsInteger("piece_concept")!=0;
   return *this;
 }
