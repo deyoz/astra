@@ -740,7 +740,6 @@ class TSimplePaxGrpItem
     bool is_mark_norms;
     ASTRA::TClientType client_type;
     int tid;
-    int bag_types_id;     //!!!потом удалить
     bool baggage_pc;      //!!!потом удалить
 
     TSimplePaxGrpItem() { clear(); }
@@ -761,7 +760,6 @@ class TSimplePaxGrpItem
       client_type = ASTRA::ctTypeNum;
       tid=ASTRA::NoExists;
 
-      bag_types_id=ASTRA::NoExists;
       baggage_pc=false;
     }
 
