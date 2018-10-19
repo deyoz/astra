@@ -9009,7 +9009,14 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           std::vector<TCkinPaxInfo> vPax = GetRequestPaxes(NodeAsNode("passengers",reqNode)->children, *f);
           xmlNodePtr tckinPaxesNode = NewTextChild(seg2Node, "tckin_passengers");
           FillEdiTCkinPaxesNode(reqNode, tckinPaxesNode, vPax, *f);
-          NewTextChild(seg2Node, "class_code", EncodeClass(Y)); // find correct class! TODO
+
+          if (!vPax.empty())
+          try
+          {
+            const TSubclsRow& row=(const TSubclsRow&)base_tables.get("subcls").get_row("code/code_lat",vPax.front().subclass);
+            NewTextChild(seg2Node, "class_code", row.cl);
+          }
+          catch(EBaseTableError) {}
       }
       else
       {
