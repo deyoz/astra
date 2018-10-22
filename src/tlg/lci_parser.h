@@ -10,6 +10,7 @@ namespace TypeB
 
 struct TLCIFltInfo {
     TFlightIdentifier flt;
+    TSimpleMktFlight franchise_flt;
     std::string airp;
     TFltInfo toFltInfo();
     void parse(const char *val, TFlightsForBind &flts);
@@ -513,6 +514,7 @@ class TLCIContent
         TDateTime time_receive;
         std::string sender;
         int typeb_in_id;
+        TSimpleMktFlight franchise_flt;
 
         std::string answer();
 
