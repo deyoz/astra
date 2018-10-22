@@ -3,6 +3,7 @@
 #define NICKNAME "GRISHA"
 #define NICKTRACE GRISHA_TRACE
 #include <serverlib/slogger.h>
+const bool TRACE_ALL_FUNCTIONS = false;
 
 #include <typeb/typeb_template.h>
 #include <typeb/SSM_template.h>
@@ -34,7 +35,7 @@ int CodeToId(const std::string &code)
 {
   // http://ru.cppreference.com/w/cpp/language/types
   if (sizeof(int) < sizeof(char)*3) throw EXCEPTIONS::Exception("CodeToId invalid sizeof");
-  if (code.size() > 3) throw EXCEPTIONS::Exception("CodeToId invalid size=%d code=%s", code.size(), code.c_str());
+  if (code.size() > 3) throw EXCEPTIONS::Exception("CodeToId invalid size=%d code='%s'", code.size(), code.c_str());
   const char *c = code.c_str();
   int id = 0;
   char* p = (char*)&id;
@@ -70,7 +71,7 @@ std::string IdToCode(const int id)
 // getSchedules надо реализовать
 ssim::ScdPeriods AstraSsimCallbacks::getSchedules(const ct::Flight& flight, const Period& period) const
 {
-//  LogTrace(TRACE5) << __func__ << " flight=" << flight << " period=" << period;
+//  LogTrace(TRACE1) << __func__ << " flight=" << flight << " period=" << period;
   return ScdPeriodsFromDb( flight, period );
 }
 
@@ -139,6 +140,27 @@ template<> std::string translate_impl<ct::Flight>(const UserLanguage&, const ct:
 
 //------------------------------------------------------------------------------------------
 
+string GetElemId(TElemType type, const string& elem)
+{
+  string type_encode = EncodeElemType(type);
+  if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " type = '" << type_encode << "' elem = '" << elem << "'";
+  switch (type)
+  {
+    case etCountry: type_encode = "Country"; break;
+    case etCity: type_encode = "City"; break;
+    case etAirp: type_encode = "Airport"; break;
+    case etAirline: type_encode = "Airline"; break;
+    case etCraft: type_encode = "Craft"; break;
+    case etSuffix: type_encode = "Suffix"; break;
+    default: break;
+  }
+  TElemFmt fmt;
+  string result = ElemToElemId(type, elem, fmt);
+  if (fmt == efmtUnknown)
+    throw EXCEPTIONS::Exception("%s not found: '%s'", type_encode.c_str(), elem.c_str());
+  return result;
+}
+
 // это относится к реализации nsi::Callbacks (города/порты и т.п.)
 // См. sirena/src/nsi_callbacks.(h + cc)
 // В принципе можно для целей SSIM ограничиться заглушками/ассертами для:
@@ -156,13 +178,14 @@ template<> std::string translate_impl<ct::Flight>(const UserLanguage&, const ct:
 
 bool AstraCallbacks::needCheckVersion() const
 {
+//  вызывается по 5 раз в режиме ожидания
   return false;
 }
 
 // Для SSM реализовывать не обязательно
 nsi::CityId AstraCallbacks::centerCity() const
 {
-  return nsi::CityId(255);
+  return nsi::CityId(0);
 }
 
 // /home/user/Sirena/sirenalibs/libnsi/src/nsi.h
@@ -206,19 +229,23 @@ boost::optional<GeozoneData> AstraCallbacks::findGeozoneData(const nsi::GeozoneI
 // country !!! done
 boost::optional<nsi::CountryId> AstraCallbacks::findCountryId(const EncString& code)
 {
+  if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " code = '" << code.to866() << "'";
   return nsi::CountryId(CodeToId(code.to866()));
 }
 
 boost::optional<nsi::CountryId> AstraCallbacks::findCountryIdByIso(const EncString& code)
 {
+  if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " code = '" << code.to866() << "'";
   return nsi::CountryId(CodeToId(code.to866())); // ???
 }
 
 boost::optional<CountryData> AstraCallbacks::findCountryData(const nsi::CountryId& id)
 {
+  if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " code = '" << IdToCode(id.get()) << "'";
   // explicit CountryData(const CountryId&, const GeozoneId&, const CurrencyId&);
   CountryData data(id, GeozoneId(0), CurrencyId(0));
-  const TCountriesRow &countryRow = (const TCountriesRow&)base_tables.get("countries").get_row("code/code_lat", IdToCode(id.get()));
+  string country_code = GetElemId(etCountry, IdToCode(id.get()));
+  const TCountriesRow &countryRow = (const TCountriesRow&)base_tables.get("countries").get_row("code", country_code);
   data.isoCode = countryRow.code_iso;
   data.codes[ENGLISH] = EncString::from866(countryRow.code_lat);
   data.codes[RUSSIAN] = EncString::from866(countryRow.code);
@@ -227,11 +254,10 @@ boost::optional<CountryData> AstraCallbacks::findCountryData(const nsi::CountryI
   return data;
 }
 
-// Для обработки SSM не нужно.
-// region !!! отсутствует в base_tables
+// region - Для обработки SSM не нужно.
 boost::optional<nsi::RegionId> AstraCallbacks::findRegionId(const EncString& code)
 {
-  return nsi::RegionId(CodeToId(code.to866()));
+  return nsi::RegionId(0);
 }
 
 boost::optional<RegionData> AstraCallbacks::findRegionData(const nsi::RegionId& id)
@@ -244,77 +270,66 @@ boost::optional<RegionData> AstraCallbacks::findRegionData(const nsi::RegionId& 
 // city !!! done
 boost::optional<nsi::CityId> AstraCallbacks::findCityId(const EncString& code)
 {
+  if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " code = '" << code.to866() << "'";
   return nsi::CityId(CodeToId(code.to866()));
 }
 
 boost::optional<CityData> AstraCallbacks::findCityData(const nsi::CityId& id)
 {
+  if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " id = '" << id.get() << "' code = '" << IdToCode(id.get()) << "'";
   // CityData(const CityId&, const CountryId&, const boost::optional<RegionId>&);
-  const TCitiesRow &cityRow = (const TCitiesRow&)base_tables.get("cities").get_row("code/code_lat", IdToCode(id.get()));
-  CityData data(id, CountryId(CodeToId(cityRow.country)), RegionId(CodeToId(cityRow.tz_region))); // уточнить tz_region
+  string city_code = GetElemId(etCity, IdToCode(id.get()));
+  const TCitiesRow &cityRow = (const TCitiesRow&)base_tables.get("cities").get_row("code", city_code);
+  CityData data(id, CountryId(CodeToId(cityRow.country)), boost::optional<RegionId>());
   data.codes[ENGLISH] = EncString::from866(cityRow.code_lat);
   data.codes[RUSSIAN] = EncString::from866(cityRow.code);
   data.names[ENGLISH] = EncString::from866(cityRow.name_lat);
   data.names[RUSSIAN] = EncString::from866(cityRow.name);
+  data.timezone = cityRow.tz_region;
   return data;
 }
 
-// point !!! отсутствует в base_tables !!! done
-// TODO уточнить про аэропорт и город
+// point !!! done
 boost::optional<nsi::PointId> AstraCallbacks::findPointId(const EncString& code)
 {
+  if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " code = '" << code.to866() << "'";
   return nsi::PointId(CodeToId(code.to866()));
 }
 
 boost::optional<PointData> AstraCallbacks::findPointData(const nsi::PointId& id)
 {
-  string code_en, code_ru, name_en, name_ru;
-  int city_id;
-  const TAirpsRow& airpsRow = (const TAirpsRow&)base_tables.get("airps").get_row("code/code_lat", IdToCode(id.get()));
-  if (airpsRow.code != "")
-  {
-    // аэропорт
-    code_en = airpsRow.code_lat;
-    code_ru = airpsRow.code;
-    name_en = airpsRow.name_lat;
-    name_ru = airpsRow.name;
-    city_id = ((const TCitiesRow&)base_tables.get("cities").get_row("code/code_lat", airpsRow.city)).id;
-  }
-  else
-  {
-    // город
-    const TCitiesRow &cityRow = (const TCitiesRow&)base_tables.get("cities").get_row("code/code_lat", IdToCode(id.get()));
-    code_en = cityRow.code_lat;
-    code_ru = cityRow.code;
-    name_en = cityRow.name_lat;
-    name_ru = cityRow.name;
-    city_id = cityRow.id;
-  }
+  if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " code = '" << IdToCode(id.get()) << "'";
+  string airp_code = GetElemId(etAirp, IdToCode(id.get()));
+  const TAirpsRow& airpsRow = (const TAirpsRow&)base_tables.get("airps").get_row("code", airp_code);
   // explicit PointData(const PointId&, const CityId&);
-  PointData data(id, CityId(city_id));
-  data.codes[ENGLISH] = EncString::from866(code_en);
-  data.codes[RUSSIAN] = EncString::from866(code_ru);
-  data.names[ENGLISH] = EncString::from866(name_en);
-  data.names[RUSSIAN] = EncString::from866(name_ru);
+  PointData data(id, CityId(CodeToId(airpsRow.city)));
+  data.codes[ENGLISH] = EncString::from866(airpsRow.code_lat);
+  data.codes[RUSSIAN] = EncString::from866(airpsRow.code);
+  data.names[ENGLISH] = EncString::from866(airpsRow.name_lat);
+  data.names[RUSSIAN] = EncString::from866(airpsRow.name);
   return data;
 }
 
 // company !!! done
 boost::optional<nsi::CompanyId> AstraCallbacks::findCompanyId(const EncString& code)
 {
+  if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " code = '" << code.to866() << "'";
   return nsi::CompanyId(CodeToId(code.to866()));
 }
 
 boost::optional<nsi::CompanyId> AstraCallbacks::findCompanyIdByAccountCode(const EncString& code)
 {
+  if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " code = '" << code.to866() << "'";
   return nsi::CompanyId(CodeToId(code.to866()));
 }
 
 boost::optional<CompanyData> AstraCallbacks::findCompanyData(const nsi::CompanyId& id)
 {
+  if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " code = '" << IdToCode(id.get()) << "'";
   // explicit CompanyData(const CompanyId&);
   CompanyData data(id);
-  const TAirlinesRow &airlineRow = (const TAirlinesRow&)base_tables.get("airlines").get_row("code/code_lat", IdToCode(id.get()));
+  string airline_code = GetElemId(etAirline, IdToCode(id.get()));
+  const TAirlinesRow &airlineRow = (const TAirlinesRow&)base_tables.get("airlines").get_row("code", airline_code);
   data.codes[ENGLISH] = EncString::from866(airlineRow.code_lat);
   data.codes[RUSSIAN] = EncString::from866(airlineRow.code);
   data.names[ENGLISH] = EncString::from866(airlineRow.name_lat);
@@ -325,14 +340,17 @@ boost::optional<CompanyData> AstraCallbacks::findCompanyData(const nsi::CompanyI
 // aircraft !!! done
 boost::optional<nsi::AircraftTypeId> AstraCallbacks::findAircraftTypeId(const EncString& code)
 {
+  if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " code = '" << code.to866() << "'";
   return nsi::AircraftTypeId(CodeToId(code.to866()));
 }
 
 boost::optional<AircraftTypeData> AstraCallbacks::findAircraftTypeData(const nsi::AircraftTypeId& id)
 {
+  if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " code = '" << IdToCode(id.get()) << "'";
   // explicit AircraftTypeData(const AircraftTypeId&);
   AircraftTypeData data(id);
-  const TCraftsRow &craftRow = (const TCraftsRow&)base_tables.get("crafts").get_row("code/code_lat", IdToCode(id.get()));
+  string craft_code = GetElemId(etCraft, IdToCode(id.get()));
+  const TCraftsRow &craftRow = (const TCraftsRow&)base_tables.get("crafts").get_row("code", craft_code);
   data.codes[ENGLISH] = EncString::from866(craftRow.code_lat);
   data.codes[RUSSIAN] = EncString::from866(craftRow.code);
   data.names[ENGLISH] = EncString::from866(craftRow.name_lat);
@@ -391,7 +409,8 @@ void AstraSsimParseCollector::appendPeriod(const ct::Flight& f, const Period& p)
 
 string GetAirline(ct::Flight flight)
 {
-  return ((const TAirlinesRow&)base_tables.get("airlines").get_row("code/code_lat", IdToCode(flight.airline.get()))).code;
+  if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " airline = '" << IdToCode(flight.airline.get()) << "'";
+  return GetElemId(etAirline, IdToCode(flight.airline.get()));
 }
 
 int GetFltNo(ct::Flight flight)
@@ -402,8 +421,11 @@ int GetFltNo(ct::Flight flight)
 string GetSuffix(ct::Flight flight)
 {
   string s = suffixToString(flight.suffix); // lang = ENGLISH
-  if (s.empty()) return s;
-  else return ((const TTripSuffixesRow&)base_tables.get("TRIP_SUFFIXES").get_row("code_lat", s)).code;
+  if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " suffix = '" << s << "'";
+  if (s.empty())
+    return s;
+  else
+    return GetElemId(etSuffix, s);
 }
 
 string FlightToString(ct::Flight f)
@@ -432,7 +454,7 @@ void DeleteScdPeriodsFromDb( const std::set<ssim::ScdPeriod> &scds )
 //  reqInfo->desk.code = "MOVGRG"; // удалить
   for (auto &scd : scds)
   {
-    LogTrace(TRACE5) << __func__ << " scd = " << scd;
+    if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " scd = " << scd;
     TDateTime first = BoostToDateTime(scd.period.start);
     TDateTime last = BoostToDateTime(scd.period.end);
     TQuery Qry( &OraSession );
@@ -455,6 +477,50 @@ void DeleteScdPeriodsFromDb( const std::set<ssim::ScdPeriod> &scds )
   } // scd
 }
 
+// проверка на разницу между временем прилёта и вылета
+
+void CheckDepArrTimeEqual( const ssim::ScdPeriod &scd )
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  reqInfo->user.sets.time = ustTimeLocalAirp;
+  TFilter filter;
+  filter.GetSeason();
+  bool first_airp = true;
+  TPeriod p;
+  p.move_id = ASTRA::NoExists;
+  p.first = BoostToDateTime(scd.period.start);
+  p.last = BoostToDateTime(scd.period.end);
+  p.days = scd.period.freq.str();
+  p.modify = ASTRA::finsert;
+  TDest curr, next;
+  for (const auto leg : scd.route.legs)
+  {
+    curr = next;
+    curr.airp = ElemToElemId( etAirp, IdToCode(leg.s.from.get()), curr.airp_fmt );
+    int shift_day = leg.s.dep.hours() / 24;
+    EncodeTime( leg.s.dep.hours() % 24, leg.s.dep.minutes(), 0, curr.scd_out );
+    if (first_airp)
+    {
+      filter.filter_tz_region = AirpTZRegion(curr.airp);
+      first_airp = false;
+      SEASON::ConvertPeriod( p, curr.scd_out, filter.filter_tz_region );
+    }
+    curr.scd_out = ConvertFlightDate(curr.scd_out, p.first, curr.airp, false, mtoUTC) + shift_day;
+    next.airp = ElemToElemId( etAirp, IdToCode(leg.s.to.get()), next.airp_fmt );
+    shift_day = leg.s.arr.hours() / 24;
+    EncodeTime( leg.s.arr.hours() % 24, leg.s.arr.minutes(), 0, next.scd_in );
+    next.scd_in = ConvertFlightDate(next.scd_in, p.first, next.airp, true, mtoUTC) + shift_day;
+    // TODO проверять не только для одного плеча, а для всех предшествующих времён прилёта и вылета !!!
+    if (next.scd_in <= curr.scd_out)
+    {
+      ostringstream s;
+      s << "Arrival time <= Departure time on leg '"
+        << IdToCode(leg.s.from.get()) << "-" << IdToCode(leg.s.to.get()) << "'";
+      throw EXCEPTIONS::Exception("%s", s.str().c_str());
+    }
+  }
+}
+
 // ПОЛОЖИТЬ В БД РАСПИСАНИЕ
 
 void ScdPeriodToDb( const ssim::ScdPeriod &scd )
@@ -464,7 +530,7 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
   QryId.SQLText = "SELECT ssm_id.nextval AS ssm_id FROM dual";
   QryId.Execute();
   int ssm_id = QryId.FieldAsInteger(0);
-  LogTrace(TRACE5) << __func__ << " ssm_id = " << ssm_id << " scd = " << scd;
+  if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " ssm_id = " << ssm_id << " scd = " << scd;
   TReqInfo *reqInfo = TReqInfo::Instance();
   /*???if ( utc ) {
     reqInfo->user.sets.time = ustTimeUTC;
@@ -515,7 +581,7 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
   for (ssim::Legs::const_iterator ileg = scd.route.legs.begin(); ileg != scd.route.legs.end(); ++ileg)
   {
     const ssim::Leg &leg = *ileg;
-//    LogTrace(TRACE5) << "serviceType = " << leg.serviceType.get();
+//    LogTrace(TRACE1) << "serviceType = " << leg.serviceType.get();
     curr = next;
     curr.airline = ElemToElemId( etAirline, IdToCode(scd.flight.airline.get()), curr.airline_fmt );
     curr.trip = scd.flight.number.get();
@@ -560,13 +626,10 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
   int_write( filter, ssm_id, speriods, trip_id, mapds );
 }
 
-// ПОЛУЧИТЬ ИЗ БД РАСПИСАНИЯ, ПЕРЕСЕКАЮЩИЕСЯ С ПЕРИОДОМ
-
-//
 ssim::Route RouteFromDb(int move_id, TDateTime first)
 {
   // уточнить использование delta_in, delta_out
-  LogTrace(TRACE5) << __func__ << " move_id = " << move_id;
+  if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " move_id = " << move_id;
   TReqInfo *reqInfo = TReqInfo::Instance(); // ??? уже есть в вызывающей функции
   reqInfo->user.sets.time = ustTimeLocalAirp; // останется на рабочем
 //  reqInfo->desk.code = "MOVGRG"; // удалить
@@ -625,7 +688,7 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
                           time_duration( hours_o, mins_o, secs_o ),
                           time_duration( hours_i, mins_i, secs_i ));
     boost::optional<ct::RbdLayout> rbd = ct::RbdLayout::fromString(rbd_string);
-    if (not rbd) throw EXCEPTIONS::Exception("Cannot make RBD from string %s", rbd_string.c_str());
+    if (not rbd) throw EXCEPTIONS::Exception("Cannot make RBD from string '%s'", rbd_string.c_str());
     ssim::Leg leg(section,
                   nsi::ServiceTypeId(0), // HACK
                   nsi::AircraftTypeId(CodeToId(ElemIdToClientElem( etCraft, dest1.craft, dest1.craft_fmt ))),
@@ -635,10 +698,11 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
   return route;
 }
 
-//
+// ПОЛУЧИТЬ ИЗ БД РАСПИСАНИЯ, ПЕРЕСЕКАЮЩИЕСЯ С ПЕРИОДОМ
+
 ssim::ScdPeriods ScdPeriodsFromDb( const ct::Flight& flt, const Period& prd )
 {
-  LogTrace(TRACE5) << __func__ << " flt = " << flt << " prd = " << prd;
+  if (TRACE_ALL_FUNCTIONS) LogTrace(TRACE1) << __func__ << " flt = " << flt << " prd = " << prd;
   TReqInfo *reqInfo = TReqInfo::Instance();
   reqInfo->user.sets.time = ustTimeLocalAirp; // останется на рабочем
 //  reqInfo->desk.code = "MOVGRG"; // удалить
