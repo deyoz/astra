@@ -1086,6 +1086,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
     map<int, string> TripItems;
     xmlNodePtr rowsNode = NULL;
+    TDeskAccess desk_access;
     for(int j = 0; j < 2; j++) {
         Qry.Clear();
         if (j==0) {
@@ -1221,7 +1222,6 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
         typedef map<string, bool> TAccessMap;
         TAccessMap user_access;
-        TAccessMap desk_access;
         if(!Qry.Eof) {
             int col_point_id=Qry.FieldIndex("point_id");
             int col_ev_user=Qry.FieldIndex("ev_user");
@@ -1256,20 +1256,8 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                     if(!user_access[ev_user]) continue;
                 }
 
-                if(station != "") {
-                    if(desk_access.find(station) == desk_access.end()) {
-                        TQuery Qry(&OraSession);
-                        Qry.SQLText =
-                            "select code from desks where "
-                            "   adm.check_desk_view_access(code, :SYS_user_id) <> 0 and "
-                            "   code = :station ";
-                        Qry.CreateVariable("station", otString, station);
-                        Qry.CreateVariable("SYS_user_id", otInteger, reqInfo->user.user_id);
-                        Qry.Execute();
-                        desk_access[station] = !Qry.Eof;
-                    }
-                    if(!desk_access[station]) continue;
-                }
+                if(not station.empty() and not desk_access.get(station))
+                    continue;
 
                 xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
                 NewTextChild(rowNode, "point_id", Qry.FieldAsInteger(col_point_id));

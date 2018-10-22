@@ -104,6 +104,7 @@ void RunReprintStat(
         )
 {
     TFltInfoCache flt_cache;
+    TDeskAccess desk_access;
     for(int pass = 0; pass <= 2; pass++) {
         QParams QryParams;
         QryParams
@@ -128,15 +129,6 @@ void RunReprintStat(
             "where "
             "   stat_reprint.point_id = points.point_id and "
             "   points.pr_del >= 0 and ";
-
-        if (!params.airlines.elems().empty()) {
-            SQLText += "exists (select * from desk_owners where desk = stat_reprint.desk and airline ";
-            if (params.airlines.elems_permit())
-                SQLText += "in " + GetSQLEnum(params.airlines.elems());
-            else
-                SQLText += "not in " + GetSQLEnum(params.airlines.elems());
-            SQLText += ") and ";
-        }
 
         if(not params.ap.empty()) {
             SQLText += " points.airp = :airp and ";
@@ -176,6 +168,8 @@ void RunReprintStat(
                     part_key = Qry.get().FieldAsDateTime(col_part_key);
                 row.desk = Qry.get().FieldAsString(col_desk);
 
+                if(not desk_access.get(row.desk)) continue;
+
                 int point_id = Qry.get().FieldAsInteger(col_point_id);
                 TFltInfoCacheItem info = flt_cache.get(point_id, part_key);
                 row.airline = info.airline;
@@ -199,15 +193,6 @@ void RunReprintStat(
             << QParam("FirstDate", otDate, params.FirstDate)
             << QParam("LastDate", otDate, params.LastDate);
         string SQLText = "select * from foreign_scan where ";
-
-        if (!params.airlines.elems().empty()) {
-            SQLText += "exists (select * from desk_owners where desk = foreign_scan.desk and airline ";
-            if (params.airlines.elems_permit())
-                SQLText += "in " + GetSQLEnum(params.airlines.elems());
-            else
-                SQLText += "not in " + GetSQLEnum(params.airlines.elems());
-            SQLText += ") and ";
-        }
 
         if(not params.ap.empty()) {
             SQLText += " foreign_scan.airp_dep = :airp and ";
@@ -238,6 +223,9 @@ void RunReprintStat(
             for(; not Qry.get().Eof; Qry.get().Next()) {
                 TReprintStatRow row;
                 row.desk = Qry.get().FieldAsString(col_desk);
+
+                if(not desk_access.get(row.desk)) continue;
+
                 row.airline = Qry.get().FieldAsString(col_airline);
                 row.view_airline = ElemIdToCodeNative(etAirline, row.airline);
                 ostringstream flt_no_str;
