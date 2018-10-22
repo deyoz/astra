@@ -299,7 +299,6 @@ void GetModuleList(xmlNodePtr resNode)
     for(;!Qry.Eof;Qry.Next())
     {
       string exe=Qry.FieldAsString("exe");
-      if (exe=="ACCESS.EXE" && !reqinfo->desk.compatible(ACCESS_MODULE_VERSION)) continue;
       if (exe=="KASSA.EXE" && reqinfo->desk.compatible(PAX_SERVICE_VERSION)) continue;
       xmlNodePtr moduleNode = NewTextChild(modulesNode, "module");
       NewTextChild(moduleNode, "id", Qry.FieldAsInteger("id"));
@@ -1116,14 +1115,14 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
   map<string/*dev_model*/, set<string> > valid_addrs;
   if ( reqInfo->desk.mode==omRESA ||
        reqInfo->desk.mode==omCUSE ||
-       (reqInfo->desk.mode==omMUSE && reqInfo->desk.compatible(MUSE_DEV_VARIABLES)) )
+       reqInfo->desk.mode==omMUSE )
   {
     if ( reqInfo->desk.mode==omRESA )
       ResaEquipmentToXML(paramsList, reqNode);
 
     if ( reqInfo->desk.mode==omRESA ||
          reqInfo->desk.mode==omCUSE ||
-         (reqInfo->desk.mode==omMUSE && reqInfo->desk.compatible(MUSE_DEV_VARIABLES)) )
+         reqInfo->desk.mode==omMUSE )
     {
       GetPlatformAddrs(reqInfo->desk.mode, reqNode, opers, valid_addrs);
     };
@@ -1222,7 +1221,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
         if ( pr_parse_client_params ) {
           if (reqInfo->desk.mode==omRESA ||
               reqInfo->desk.mode==omCUSE ||
-              (reqInfo->desk.mode==omMUSE && reqInfo->desk.compatible(MUSE_DEV_VARIABLES)))
+              reqInfo->desk.mode==omMUSE)
           {
             //проверить что адрес валидный пришедший с клиента
             pr_parse_client_params = false;
@@ -1283,7 +1282,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
 
       if ( reqInfo->desk.mode==omRESA ||
            reqInfo->desk.mode==omCUSE ||
-           (reqInfo->desk.mode==omMUSE && reqInfo->desk.compatible(MUSE_DEV_VARIABLES)) )
+           reqInfo->desk.mode==omMUSE )
       {
         TDevOper::Enum oper=DevOperTypes().decode(operation);
         if (!opers[oper].dev_model.empty() && opers[oper].dev_model==dev_model)
@@ -1311,7 +1310,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
         vector<string> event_names;
         event_names.push_back("magic_btn_click");
         event_names.push_back("first_fmt_magic_btn_click");
-        DeviceEvents events;        
+        DeviceEvents events;
         ::GetEventCmd( event_names, true, dev_model, sess_type, fmt_type, events );
         events.toXML(newoperNode, false);
       };

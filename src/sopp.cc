@@ -60,7 +60,7 @@ using namespace boost::local_time;
 enum TModule { tSOPP, tISG, tSPPCEK };
 enum TSoppWriteOwner { ownerDisp, ownerMVT };
 
-const 
+const
   int TAKEOFF_DELAY_MIN_SHOW_MESSAGE = 15; //мин
 
 /*const char* points_SOPP_SQL_N =
@@ -2964,70 +2964,28 @@ void GetLuggage( int point_id, xmlNodePtr dataNode )
       max_commerce = 0;
     NewTextChild( node, "max_commerce", max_commerce );
   NewTextChild( node, "pr_edit", dest.act_out != NoExists || dest.pr_del != 0 );
-  if ( TReqInfo::Instance()->desk.compatible( PERS_WEIGHT_VERSION ) ) {
-    tst();
-    int weight_cargos = 0;
-    for ( vector<TPointsDestCargo>::iterator c=cargs.begin(); c!=cargs.end(); c++ ) {
-      weight_cargos += c->cargo;
-      weight_cargos += c->mail;
-    }
-    NewTextChild( node, "adult", w.male + w.female );
-    NewTextChild( node, "child", w.child );
-    NewTextChild( node, "infant", w.infant );
-    NewTextChild( node, "weight_adult", w.weight_male + w.weight_female );
-    NewTextChild( node, "weight_child", w.weight_child );
-    NewTextChild( node, "weight_infant", w.weight_infant );
-    NewTextChild( node, "weight_bag", w.weight_bag );
-    NewTextChild( node, "weight_cabin_bag", w.weight_cabin_bag );
-    NewTextChild( node, "weight_commerce", w.weight_male +
-                                           w.weight_female +
-                                           w.weight_child +
-                                           w.weight_infant +
-                                           w.weight_bag +
-                                           w.weight_cabin_bag +
-                                           weight_cargos );
+
+  int weight_cargos = 0;
+  for ( vector<TPointsDestCargo>::iterator c=cargs.begin(); c!=cargs.end(); c++ ) {
+    weight_cargos += c->cargo;
+    weight_cargos += c->mail;
   }
-  else {
-    tst();
-    r.weight( "", "", weight );
-    xmlNodePtr wm = NewTextChild( node, "weightman" );
-        xmlNodePtr weightNode = NewTextChild( wm, "weight" );
-        NewTextChild( weightNode, "code", string(EncodePerson( ASTRA::adult )) );
-        NewTextChild( weightNode, "weight", weight.male );
-        weightNode = NewTextChild( wm, "weight" );
-        NewTextChild( weightNode, "code", string(EncodePerson( ASTRA::child )) );
-        NewTextChild( weightNode, "weight", weight.child );
-        weightNode = NewTextChild( wm, "weight" );
-        NewTextChild( weightNode, "code", string(EncodePerson( ASTRA::baby )) );
-        NewTextChild( weightNode, "weight", weight.infant );
-    NewTextChild( node, "bag_weight", w.weight_bag );
-      NewTextChild( node, "rk_weight", w.weight_cabin_bag );
-      NewTextChild( node, "adult", w.male + w.female  );
-      NewTextChild( node, "child", w.child );
-      NewTextChild( node, "baby", w.infant );
-        // сообщение в терминале о несоответствии фактической загрузке в терминале реальной в системе
-        int commerce_weight = 0, newcommerce_weight = 0;
-    commerce_weight += (w.male + w.female)*weight.male;
-        commerce_weight += w.child*weight.child;
-        commerce_weight += w.infant*weight.infant;
-        commerce_weight += w.weight_cabin_bag;
-        commerce_weight += w.weight_bag;
-        newcommerce_weight += w.weight_male;
-        newcommerce_weight += w.weight_female;
-        newcommerce_weight += w.weight_child;
-        newcommerce_weight += w.weight_infant;
-        newcommerce_weight += w.weight_cabin_bag;
-        newcommerce_weight += w.weight_bag;
-        if ( commerce_weight != newcommerce_weight ) {
-      ProgTrace( TRACE5, "commerce_weight=%d, newcommerce_weight=%d, w.male=%d, weight.male=%d, w.weight_male=%d, w.child=%d, weight.child=%d, w.infant=%d, weight.infant=%d,"
-                 "w.weight_bag=%d, w.weight_male=%d, w.weight_female=%d, w.weight_child=%d, "
-                 "w.weight_infant=%d, w.weight_cabin_bag=%d",
-                 commerce_weight, newcommerce_weight, w.male, weight.male, w.weight_male, w.child, weight.child, w.infant, weight.infant,
-                 w.weight_bag, w.weight_male, w.weight_female, w.weight_child,
-                 w.weight_infant, w.weight_cabin_bag );
-      showErrorMessage( "MSG.INVALID_CALC_PERS_WEIGHTS" );
-        }
-  }
+  NewTextChild( node, "adult", w.male + w.female );
+  NewTextChild( node, "child", w.child );
+  NewTextChild( node, "infant", w.infant );
+  NewTextChild( node, "weight_adult", w.weight_male + w.weight_female );
+  NewTextChild( node, "weight_child", w.weight_child );
+  NewTextChild( node, "weight_infant", w.weight_infant );
+  NewTextChild( node, "weight_bag", w.weight_bag );
+  NewTextChild( node, "weight_cabin_bag", w.weight_cabin_bag );
+  NewTextChild( node, "weight_commerce", w.weight_male +
+                                         w.weight_female +
+                                         w.weight_child +
+                                         w.weight_infant +
+                                         w.weight_bag +
+                                         w.weight_cabin_bag +
+                                         weight_cargos );
+
   xmlNodePtr loadNode = NewTextChild( node, "trip_load" );
   for ( vector<TPointsDestCargo>::iterator c=cargs.begin(); c!=cargs.end(); c++ ) {
     xmlNodePtr fn = NewTextChild( loadNode, "load" );
@@ -3524,7 +3482,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     }
   }
   try {
-    warnings.clear(); 
+    warnings.clear();
     // проверка на отмену + в маршруте участвует всего одна авиакомпания
     string old_airline;
     for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
@@ -3632,35 +3590,35 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
                     throw AstraLocale::UserException( "MSG.MVTDELAY.INVALID_TIME" );
                   }
                   warnings.push_back( LexemaData("MSG.MVTDELAY.INVALID_TIME") );
-                  break;              
+                  break;
                 }
               }
             }
           }
         }
       }
-      
-      if ( id->pr_del == 0 && 
-           id->point_id != ASTRA::NoExists && 
+
+      if ( id->pr_del == 0 &&
+           id->point_id != ASTRA::NoExists &&
            id->scd_out != ASTRA::NoExists &&
-           id->act_out != ASTRA::NoExists ) { //возможно проставили время?          
-         TPointsDest d; 
+           id->act_out != ASTRA::NoExists ) { //возможно проставили время?
+         TPointsDest d;
          BitSet<TUseDestData> FUseData;
          d.Load( id->point_id, FUseData );
          if ( d.act_out == ASTRA::NoExists ) {
            TTripInfo info;
            info.airline = id->airline;
            info.flt_no = id->flt_no;
-           info.airp = id->airp;             
+           info.airp = id->airp;
            if ( fabs( (d.est_out!=ASTRA::NoExists?d.est_out:d.scd_out) - id->act_out )*1440 >= TAKEOFF_DELAY_MIN_SHOW_MESSAGE ) {
-             if ( GetTripSets( tsShowTakeoffDiffTakeoffACT, info ) ) { //проверка задержек на совместимость с телеграммами             
+             if ( GetTripSets( tsShowTakeoffDiffTakeoffACT, info ) ) { //проверка задержек на совместимость с телеграммами
                warnings.push_back( LexemaData( id->est_out!=ASTRA::NoExists?"QST.CONFIRM_TAKEOFF_ACT_DIFF_TAKEOFF_EST":"QST.CONFIRM_TAKEOFF_ACT_DIFF_TAKEOFF_SCD" ) );
              }
            }
            if ( GetTripSets( tsShowTakeoffPassNotBrd, info ) && isPaxsNotBrd( id->point_id ) ) {
-             warnings.push_back( LexemaData( "QST.CONFIRM_TAKEOFF_ACT_BRD" ) );  
-           }           
-         } 
+             warnings.push_back( LexemaData( "QST.CONFIRM_TAKEOFF_ACT_BRD" ) );
+           }
+         }
       }
     } // end for
     if ( !pr_time ) {
@@ -3672,21 +3630,21 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   }
   catch( AstraLocale::UserException &e ) {
   }
-  
+
   if ( canExcept && !warnings.empty() ) {
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
     NewTextChild( dataNode, "notvalid" );
     AstraLocale::showErrorMessage( "MSG.ERR_MSG.REPEAT_F9_SAVE", LParams() << LParam("msg", getLocaleText(*warnings.begin())));
     dataNode = NewTextChild( dataNode, "warnings" );
     for ( std::vector<LexemaData>::iterator imsg=warnings.begin(); imsg!=warnings.end(); imsg++ ) {
-      LParams lparams;      
+      LParams lparams;
       lparams << LParam( "msg", *imsg );
       LexemaData ld( std::string("WRAP.ERR_MSG.SOPP_SHOW_DIALOGS"), lparams);
       NewTextChild( dataNode, "msg", getLocaleText( ld ) );
     }
     return;
   }
-  
+
 
   if ( pr_other_airline )
     throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.ROUTE_CANNOT_BELONG_TO_DIFFERENT_AIRLINES" );
@@ -4907,7 +4865,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     return;
   }
   NewTextChild( reqNode, "move_id", move_id );
-  ReadDests( ctxt, reqNode, resNode );  
+  ReadDests( ctxt, reqNode, resNode );
 /*  seatMapConverter conv;
   boost::optional<leonardo::ws::seats::SeatMap> seatmap;
   conv.translateFromLeo( "", seatmap );*/

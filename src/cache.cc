@@ -36,7 +36,7 @@ void TCacheTable::getParams(xmlNodePtr paramNode, TParams &vparams)
     return;
   xmlNodePtr curNode = paramNode->children;
   while( curNode ) {
-    string name = upperc( (char*)curNode->name );
+    string name = upperc( (const char*)curNode->name );
     string value = NodeAsString(curNode);
     vparams[ name ].Value = value;
     ProgTrace( TRACE5, "param name=%s, value=%s", name.c_str(), value.c_str() );
@@ -109,8 +109,7 @@ void TCacheTable::Init(xmlNodePtr cacheNode)
   else
     DeleteRight=-1;
   getPerms( );
-  if(TReqInfo::Instance()->desk.compatible(CACHE_CHILD_VERSION))
-      initChildTables();
+  initChildTables();
   initFields(); /* инициализация FFields */
 }
 
@@ -287,7 +286,7 @@ void TCacheTable::initFields()
                         if (FField.DataSize>=8 && FField.DataSize<=9)
                             FField.Width = 8; /* dd.mm.yy */
                         else FField.Width = 10; /* dd.mm.yyyy */
-                        break;
+                    break;
                 case ftTime:
                         FField.Width = 5;
                         break;
@@ -1031,14 +1030,14 @@ void TCacheTable::parse_updates(xmlNodePtr rowsNode)
           string strnode = "col[@index ='"+IntToString(i)+"']";
           switch(row.status) {
             case usModified:
-              row.old_cols.push_back( NodeAsString((char*)string(strnode + "/old").c_str(), rowNode) );
-              row.cols.push_back( NodeAsString((char*)string(strnode + "/new").c_str(), rowNode) );
+              row.old_cols.push_back( NodeAsString(string(strnode + "/old").c_str(), rowNode) );
+              row.cols.push_back( NodeAsString(string(strnode + "/new").c_str(), rowNode) );
               break;
             case usDeleted:
-              row.old_cols.push_back( NodeAsString((char*)strnode.c_str(), rowNode) );
+              row.old_cols.push_back( NodeAsString(strnode.c_str(), rowNode) );
               break;
             case usInserted:
-              row.cols.push_back( NodeAsString((char*)strnode.c_str(), rowNode) );
+              row.cols.push_back( NodeAsString(strnode.c_str(), rowNode) );
               break;
             default:;
           }
@@ -1477,7 +1476,7 @@ void SetVariablesFromParams(const std::vector<string> &vars, const TParams &SQLP
     if ( Qry.Variables->FindVariable( iv->first.c_str() ) == -1 ) continue;
     Qry.SetVariable( iv->first, iv->second.Value );
     ProgTrace( TRACE5, "SetVariable name=%s, value=%s",
-              (char*)iv->first.c_str(),(char *)iv->second.Value.c_str() );
+              iv->first.c_str(),iv->second.Value.c_str() );
   }
 };
 
@@ -1687,11 +1686,11 @@ void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
         else
           value = row.old_cols[ Idx ];
         if ( !value.empty() )
-          Qry->SetVariable( vars[ iv->VarIdx[i] ],(char *)value.c_str());
+          Qry->SetVariable( vars[ iv->VarIdx[i] ],value.c_str());
         else
           Qry->SetVariable( vars[ iv->VarIdx[i] ],FNull);
         ProgTrace( TRACE5, "SetVariable name=%s, value=%s, ind=%d",
-                  (char*)vars[ iv->VarIdx[i] ].c_str(),(char *)value.c_str(), Idx );
+                   vars[ iv->VarIdx[i] ].c_str(), value.c_str(), Idx );
       }
     }
   }
@@ -1999,7 +1998,7 @@ void AfterApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCa
 void CacheInterface::LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ProgTrace(TRACE2, "CacheInterface::LoadCache, reqNode->Name=%s, resNode->Name=%s",
-           (char*)reqNode->name,(char*)resNode->name);
+           (const char*)reqNode->name,(const char*)resNode->name);
   TCacheTable cache;
   cache.Init(reqNode);
   cache.OnBeforeRefresh = BeforeRefresh;
@@ -2047,7 +2046,7 @@ void TParams1::getParams(xmlNodePtr paramNode)
         return;
     xmlNodePtr curNode = paramNode->children;
     while(curNode) {
-        string name = upperc( (char*)curNode->name );
+        string name = upperc( (const char*)curNode->name );
         string value = NodeAsString(curNode);
         (*this)[ name ].Value = value;
         ProgTrace( TRACE5, "param name=%s, value=%s", name.c_str(), value.c_str() );

@@ -198,7 +198,6 @@ const std::string REGULAR_BAG_TYPE_IN_DB=" ";
 const std::string REGULAR_BAG_TYPE="";
 const std::string REGULAR_BAG_NAME="Обычный багаж или р/кладь";
 
-const TBagTypeListKey& OldTrferBagType();
 TBagTypeListKey RegularBagType(const std::string &airline);
 
 class TNormItem
@@ -278,7 +277,7 @@ class TPaxNormItem
 
 bool PaxNormsFromDB(TDateTime part_key, int pax_id, std::list< std::pair<TPaxNormItem, TNormItem> > &norms);
 bool GrpNormsFromDB(TDateTime part_key, int grp_id, std::list< std::pair<TPaxNormItem, TNormItem> > &norms);
-void NormsToXML(const std::list< std::pair<TPaxNormItem, TNormItem> > &norms, bool groupBagTrferExists, xmlNodePtr node);
+void NormsToXML(const std::list< std::pair<TPaxNormItem, TNormItem> > &norms, xmlNodePtr node);
 void PaxNormsToDB(int pax_id, const boost::optional< std::list<TPaxNormItem> > &norms);
 void GrpNormsToDB(int grp_id, const boost::optional< std::list<TPaxNormItem> > &norms);
 void ConvertNormsList(const std::list< std::pair<TPaxNormItem, TNormItem> > &norms,
@@ -339,7 +338,6 @@ void PaidBagFromXML(xmlNodePtr paidbagNode,
 void PaidBagToDB(int grp_id, bool is_unaccomp,
                  TPaidBagList &paid);
 void PaidBagFromDB(TDateTime part_key, int grp_id, TPaidBagList &paid);
-void PaidBagToXML(const TPaidBagList &paid, bool groupBagTrferExists, xmlNodePtr paidbagNode);
 
 std::string GetCurrSegBagAirline(int grp_id);
 

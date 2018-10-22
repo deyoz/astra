@@ -577,25 +577,21 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   group_bag.toXML(dataNode);
   WeightConcept::TPaidBagList paid;
   WeightConcept::PaidBagFromDB(NoExists, grp_id, paid);
-  if (!(reqInfo->client_type==ASTRA::ctTerm && reqInfo->desk.compatible(PIECE_CONCEPT_VERSION)))
-    WeightConcept::PaidBagToXML(paid, group_bag.trferExists(), dataNode);
-  else
-  {
-    TPaidBagViewMap PaidBagViewMap;
-    TPaidBagViewMap TrferBagViewMap;
-    map<int/*id*/, TEventsBagItem> tmp_bag;
-    GetBagToLogInfo(grp_id, tmp_bag);
-    WeightConcept::CalcPaidBagView(WeightConcept::TAirlines(grp_id,
-                                                            mktFlight.pr_mark_norms?mktFlight.airline:operFlt.airline,
-                                                            "CalcPaidBagView"),
-                                   tmp_bag,
-                                   list<WeightConcept::TBagNormInfo>(),
-                                   paid,
-                                   CheckIn::TServicePaymentListWithAuto(),
-                                   "",
-                                   PaidBagViewMap, TrferBagViewMap);
-    WeightConcept::PaidBagViewToXML(PaidBagViewMap, TrferBagViewMap, dataNode);
-  };
+
+  TPaidBagViewMap PaidBagViewMap;
+  TPaidBagViewMap TrferBagViewMap;
+  map<int/*id*/, TEventsBagItem> tmp_bag;
+  GetBagToLogInfo(grp_id, tmp_bag);
+  WeightConcept::CalcPaidBagView(WeightConcept::TAirlines(grp_id,
+                                                          mktFlight.pr_mark_norms?mktFlight.airline:operFlt.airline,
+                                                          "CalcPaidBagView"),
+                                 tmp_bag,
+                                 list<WeightConcept::TBagNormInfo>(),
+                                 paid,
+                                 CheckIn::TServicePaymentListWithAuto(),
+                                 "",
+                                 PaidBagViewMap, TrferBagViewMap);
+  WeightConcept::PaidBagViewToXML(PaidBagViewMap, TrferBagViewMap, dataNode);
 
   LoadReceipts(grp_id,true,prnParams.pr_lat,dataNode);
   //ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
@@ -1685,23 +1681,11 @@ void PaymentInterface::PutReceiptFields(const TBagReceipt &rcpt, bool pr_lat, xm
   NewTextChild(fieldsNode,"issue_date",      parser.pts.get_tag_no_err(TAG::ISSUE_DATE, "ddmmmyy"));
   NewTextChild(fieldsNode,"to",              parser.pts.get_tag_no_err(TAG::TO));
   NewTextChild(fieldsNode,"remarks1",        parser.pts.get_tag_no_err(TAG::REMARKS1));
-  if(TReqInfo::Instance()->desk.compatible(RCPT_NDS_VERSION)) {
-      NewTextChild(fieldsNode,"remarks2",    parser.pts.get_tag_no_err(TAG::REMARKS2));
-      NewTextChild(fieldsNode,"remarks3",         parser.pts.get_tag_no_err(TAG::REMARKS3));
-      NewTextChild(fieldsNode,"remarks4",         parser.pts.get_tag_no_err(TAG::REMARKS4));
-      NewTextChild(fieldsNode,"remarks5",         parser.pts.get_tag_no_err(TAG::REMARKS5));
-  } else
-      NewTextChild(fieldsNode,"remarks2",    parser.pts.get_tag_no_err(TAG::REMARKS2) +
-                                             "\xd\xa" +
-                                             parser.pts.get_tag_no_err(TAG::NDS)
-                                             );
-  if(not TReqInfo::Instance()->desk.compatible(RCPT_NDS_VERSION) and rcpt.form_type == FT_298_451)
-      NewTextChild(fieldsNode,"exchange_rate",   parser.pts.get_tag_no_err(TAG::EXCHANGE_RATE) +
-                                                 "\xd\xa" +
-                                                 parser.pts.get_tag_no_err(TAG::NDS)
-                                                 );
-  else
-      NewTextChild(fieldsNode,"exchange_rate",   parser.pts.get_tag_no_err(TAG::EXCHANGE_RATE));
+  NewTextChild(fieldsNode,"remarks2",        parser.pts.get_tag_no_err(TAG::REMARKS2));
+  NewTextChild(fieldsNode,"remarks3",        parser.pts.get_tag_no_err(TAG::REMARKS3));
+  NewTextChild(fieldsNode,"remarks4",        parser.pts.get_tag_no_err(TAG::REMARKS4));
+  NewTextChild(fieldsNode,"remarks5",        parser.pts.get_tag_no_err(TAG::REMARKS5));
+  NewTextChild(fieldsNode,"exchange_rate",   parser.pts.get_tag_no_err(TAG::EXCHANGE_RATE));
   NewTextChild(fieldsNode,"total",           parser.pts.get_tag_no_err(TAG::TOTAL));
   NewTextChild(fieldsNode,"airline",         parser.pts.get_tag_no_err(TAG::AIRLINE));
   NewTextChild(fieldsNode,"airline_code",    parser.pts.get_tag_no_err(TAG::AIRLINE_CODE));

@@ -217,10 +217,8 @@ TServicePaymentItem& TServicePaymentItem::fromXMLcompatible(xmlNodePtr node, boo
   xmlNodePtr node2=node->children;
   TPaymentDoc::fromXMLcompatible(node);
 
-  if (TReqInfo::Instance()->client_type==ASTRA::ctTerm && TReqInfo::Instance()->desk.compatible(PIECE_CONCEPT_VERSION))
-    trfer_num=NodeAsIntegerFast("transfer_num", node2);
-  else
-    trfer_num=0;
+  trfer_num=NodeAsIntegerFast("transfer_num", node2);
+
   if (baggage_pc)
   {
     pc=TRFISCKey();
@@ -684,11 +682,6 @@ void ServicePaymentFromXML(xmlNodePtr node,
       if (!TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
       {
         item.fromXMLcompatible(itemNode, baggage_pc);
-        if (item.wt)
-        {
-          if (/*item.trfer_num!=0 || !!vlad (это старое)*/
-              item.wt.get().bag_type==WeightConcept::OLD_TRFER_BAG_TYPE) continue;  //!!vlad потом докрутить (это старое)
-        };
         if (item.pc)
         {
           if (item.pc.get().RFISC.empty())

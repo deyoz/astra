@@ -459,7 +459,7 @@ struct XmlIatciBag
         : num_of_pieces(ASTRA::NoExists),
           weight(ASTRA::NoExists),
           is_hand(false)
-    {}  
+    {}
 };
 
 //---------------------------------------------------------------------------------------
@@ -484,7 +484,7 @@ struct XmlIatciBagTag
     int 	qtty;
     std::string dest;
     int 	accode;
-    
+
     XmlIatciBagTag()
         : tag_num(ASTRA::NoExists),
           qtty(ASTRA::NoExists),
@@ -497,7 +497,7 @@ struct XmlIatciBagTag
 struct XmlIatciBagTags
 {
     std::list<XmlIatciBagTag> tags;
-    
+
     XmlIatciBagTags()
     {}
     XmlIatciBagTags(const std::list<XmlIatciBagTag>& t)
@@ -1081,13 +1081,13 @@ public:
 
     static XmlBag                        readBag(xmlNodePtr bagNode);
     static std::list<XmlBag>             readBags(xmlNodePtr bagsNode);
-    
+
     static XmlIatciBag                   readIatciBag(xmlNodePtr iatciBagNode);
     static std::list<XmlIatciBag>        readIatciBags(xmlNodePtr iatciBagsNode);
 
     static XmlBagTag                     readBagTag(xmlNodePtr bagTagNode);
     static std::list<XmlBagTag>          readBagTags(xmlNodePtr bagTagsNode);
-    
+
     static XmlIatciBagTag                readIatciBagTag(xmlNodePtr iatciBagTagNode);
     static std::list<XmlIatciBagTag>     readIatciBagTags(xmlNodePtr iatciBagTagsNode);
 
@@ -1309,7 +1309,7 @@ protected:
     xmlNodePtr      getQueryNode() const;
     xmlNodePtr      getAnswerNode() const;
 
-    void initReqInfo(const std::string& deskVersion = PIECE_CONCEPT_VERSION) const;
+    void initReqInfo(const std::string& deskVersion = ASTRA_API_VERSION) const;
 
     AstraEngine();
 
