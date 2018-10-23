@@ -2221,23 +2221,9 @@ namespace NatStat {
 
     int nat_stat(int argc,char **argv)
     {
-
-        if(argc != 3) {
-            cout << "usage: " << argv[0] << " yyyymmdd yyyymmdd" << endl;
-            return 1;
-        }
-
         TDateTime FirstDate, LastDate;
-
-        if(StrToDateTime(argv[1], "yyyymmdd", FirstDate) == EOF) {
-            cout << "wrong first date: " << argv[1] << endl;
-            return 1;
-        }
-
-        if(StrToDateTime(argv[2], "yyyymmdd", LastDate) == EOF) {
-            cout << "wrong last date: " << argv[1] << endl;
-            return 1;
-        }
+        if (!getDateRangeFromArgs(argc, argv, FirstDate, LastDate))
+          return 1;
 
         TQuery Qry(&OraSession);
         natStatMap stat;
@@ -2411,142 +2397,7 @@ namespace NatStat {
 }
 
 
-int ego_stat(int argc,char **argv)
-{
-    if(argc != 3) {
-        cout << "usage: " << argv[0] << " yyyymmdd yyyymmdd" << endl;
-        return 1;
-    }
 
-    TDateTime FirstDate, LastDate;
-
-    if(StrToDateTime(argv[1], "yyyymmdd", FirstDate) == EOF) {
-        cout << "wrong first date: " << argv[1] << endl;
-        return 1;
-    }
-
-    if(StrToDateTime(argv[2], "yyyymmdd", LastDate) == EOF) {
-        cout << "wrong last date: " << argv[1] << endl;
-        return 1;
-    }
-
-    TQuery Qry(&OraSession);
-    int processed=0;
-
-    const string delim = ";";
-    TEncodedFileStream of("cp1251",
-            (string)"ego_stat." +
-            DateTimeToStr(FirstDate, "ddmmyy") + "-" +
-            DateTimeToStr(LastDate, "ddmmyy") +
-            ".csv");
-    of
-        << "ФИО" << delim
-        << "Дата рождения" << delim
-        << "Паспорт" << delim
-        << "Направление полета" << delim
-        << "Дата перелета" << endl;
-
-    for(int step = 0; step < 2; step++) {
-        tst();
-        string SQLText =
-            "SELECT point_id, scd_out ";
-        if(step == 1)
-            SQLText +=
-                "   ,part_key ";
-        SQLText +=
-            "FROM ";
-        if(step == 0)
-            SQLText +=
-                "   points ";
-        else
-            SQLText +=
-                "   arx_points ";
-        SQLText +=
-            "WHERE scd_out>=:FirstDate AND scd_out<:LastDate AND "
-            "      pr_reg<>0 AND pr_del>=0";
-        Qry.Clear();
-        Qry.SQLText= SQLText;
-        Qry.CreateVariable("FirstDate", otDate, FirstDate);
-        Qry.CreateVariable("LastDate", otDate, LastDate);
-        Qry.Execute();
-        list< pair<int, pair<TDateTime, TDateTime> > > point_ids;
-        for(;!Qry.Eof;Qry.Next()) {
-            TDateTime part_key = NoExists;
-            if(step == 1)
-                part_key = Qry.FieldAsDateTime("part_key");
-            point_ids.push_back(
-                    make_pair(
-                        Qry.FieldAsInteger("point_id"),
-                        make_pair(
-                            Qry.FieldAsDateTime("scd_out"),
-                            part_key
-                            )
-                        )
-                    );
-        }
-
-        Qry.Clear();
-        tst();
-        SQLText =
-            "SELECT "
-            "   pax.surname, "
-            "   pax.name, "
-            "   pax_doc.birth_date, "
-            "   pax_doc.no, "
-            "   pax_grp.airp_arv "
-            "FROM ";
-        if(step == 0)
-            SQLText +=
-                "   pax_grp, "
-                "   pax, "
-                "   pax_doc ";
-        else
-            SQLText +=
-                "   arx_pax_grp pax_grp, "
-                "   arx_pax pax, "
-                "   arx_pax_doc pax_doc ";
-        SQLText +=
-            "WHERE ";
-        if(step == 1) {
-            SQLText +=
-                "   pax_grp.part_key = :part_key and "
-                "   pax.part_key = :part_key and "
-                "   pax_doc.part_key = :part_key and ";
-            Qry.DeclareVariable("part_key", otDate);
-        }
-        SQLText +=
-            "   pax_grp.grp_id=pax.grp_id AND pax.pax_id=pax_doc.pax_id AND "
-            "   pax_grp.airp_dep = 'БЕД' and "
-            "   pax_doc.no like '20%' and "
-            "   pax_grp.status NOT IN ('E') AND pax_grp.point_dep=:point_id ";
-
-        Qry.SQLText= SQLText;
-        Qry.DeclareVariable("point_id", otInteger);
-        for(list< pair<int, pair<TDateTime, TDateTime> > >::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
-        {
-            Qry.SetVariable("point_id", i->first);
-            if(step == 1) {
-                Qry.SetVariable("part_key", i->second.second);
-            }
-            Qry.Execute();
-            for(;!Qry.Eof;Qry.Next())
-            {
-                of
-                    << (string)
-                    Qry.FieldAsString("surname") + " " +
-                    Qry.FieldAsString("name") << delim
-                    << DateTimeToStr(Qry.FieldAsDateTime("birth_date"), "dd.mm.yyyy") << delim
-                    << Qry.FieldAsString("no") << delim
-                    << ElemIdToNameLong(etAirp, Qry.FieldAsString("airp_arv")) << delim
-                    << DateTimeToStr(i->second.first, "dd.mm.yyyy") << endl;
-            }
-            processed++;
-            nosir_wait(processed, false, 10, 0);
-        }
-    }
-
-    return 0;
-}
 
 /*
 CREATE TABLE drop_pc_wt_stat
@@ -2819,35 +2670,6 @@ int tst_vo(int, char**)
                 rootNode->children->children->next);
     LogTrace(TRACE5) << GetXMLDocText(rootNode->doc);
     return 1; // 0 - изменения коммитятся, 1 - rollback
-}
-
-int rfisc_test(int argc,char **argv)
-{
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT id, crc FROM bag_types_lists ORDER BY id";
-  Qry.Execute();
-  map<int, int> crcs;
-  for(;!Qry.Eof;Qry.Next())
-    crcs.insert(make_pair(Qry.FieldAsInteger("id"), Qry.FieldAsInteger("crc")));
-  printf("total %zu iterations\n", crcs.size());
-  for(map<int, int>::const_iterator i=crcs.begin(); i!=crcs.end(); ++i)
-  {
-    int list_id=i->first;
-    int crc=i->second;
-    TRFISCList list;
-    list.fromDB(list_id, true);
-    int crc2=list.crc(true);
-    if (crc2!=crc)
-      ProgError(STDLOG, "list_id=%d crc=%d crc()=%d", list_id, crc, crc2);
-    int list_id2=list.toDBAdv(true);
-    if (list_id!=list_id2)
-      ProgError(STDLOG, "list_id=%d list_id2=%d", list_id, list_id2);
-    OraSession.Rollback();
-  }
-
-  return 0;
 }
 
 string capt_code(const string &val, const string &suffix = "")

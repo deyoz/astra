@@ -32,7 +32,6 @@ int nosir_tscript(int argc, char** argv);
 int tz2db(int argc,char **argv);
 int verifyHTTP(int argc,char **argv);
 int pc_wt_stat(int argc,char **argv);
-int rfisc_test(int argc,char **argv);
 int test_reprint(int argc,char **argv);
 int get_events_stat(int argc,char **argv);
 int get_events_stat2(int argc,char **argv);
@@ -100,7 +99,6 @@ const
     {"-nat_stat",               NatStat::nat_stat,      NULL,                       NULL},
     {"-ego_stat",               ego_stat,               NULL,                       NULL},
     {"-pc_wt_stat",             pc_wt_stat,             NULL,                       NULL},
-    {"-rfisc_test",             rfisc_test,             NULL,                       NULL},
     {"-rfisc_stat",             nosir_rfisc_stat,       NULL,                       NULL},
     {"-test_reprint",           test_reprint,    NULL,                       NULL},
     {"-ffp",                    ffp,                    ffp_help,                   "getting FFP card status"},
@@ -235,5 +233,35 @@ void nosir_wait(int processed, bool commit_before_sleep=false, int work_secs=5, 
     printf("go!\n");
     start_time=time(NULL);
   };
+}
+
+bool getDateRangeFromArgs(int argc, char **argv,
+                          TDateTime& firstDate,
+                          TDateTime& lastDate)
+{
+  firstDate=ASTRA::NoExists;
+  lastDate=ASTRA::NoExists;
+
+  if(argc != 3) {
+      cout << "usage: " << argv[0] << " yyyymmdd yyyymmdd" << endl;
+      return false;
+  }
+
+  if(StrToDateTime(argv[1], "yyyymmdd", firstDate) == EOF) {
+      cout << "wrong first date: " << argv[1] << endl;
+      return false;
+  }
+
+  if(StrToDateTime(argv[2], "yyyymmdd", lastDate) == EOF) {
+      cout << "wrong last date: " << argv[2] << endl;
+      return false;
+  }
+
+  if (lastDate<=firstDate) {
+      cout << "wrong range: [" << argv[1] << ", " << argv[2] << ")" << endl;
+      return false;
+  }
+
+  return true;
 }
 
