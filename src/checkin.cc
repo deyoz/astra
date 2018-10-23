@@ -1732,16 +1732,12 @@ static int CreateSearchResponse(int point_dep,
                                 const set<int>& selectedPaxIds,
                                 xmlNodePtr resNode)
 {
-  TQuery FltQry(&OraSession);
-  FltQry.Clear();
-  FltQry.SQLText=
-    "SELECT airline,flt_no,suffix,airp,scd_out FROM points "
-    "WHERE point_id=:point_id AND pr_del>=0 AND pr_reg<>0";
-  FltQry.CreateVariable("point_id",otInteger,point_dep);
-  FltQry.Execute();
-  if (FltQry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-  TTripInfo operFlt(FltQry);
+  TTripInfo operFlt;
+  if (!operFlt.getByPointId(point_dep, FlightProps(FlightProps::WithCancelled,
+                                                   FlightProps::WithCheckIn)))
+    throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
 
+  TQuery FltQry(&OraSession);
   FltQry.Clear();
   FltQry.SQLText=
     "SELECT airline,flt_no,suffix,airp_dep AS airp,TRUNC(scd) AS scd_out "
@@ -2063,8 +2059,11 @@ void CheckInInterface::SearchPaxByDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
       throw UserException("MSG.DEVICE.INVALID_SCAN_FORMAT");
   }
 
+  CheckIn::TSimplePaxList paxs;
+  CheckIn::Search()(paxs, doc);
 
-  PaxInfoForSearchList list(CheckIn::TSimplePaxList().searchByDocNo(doc));
+
+  PaxInfoForSearchList list(paxs);
 
   list.trace();
 
@@ -6526,8 +6525,8 @@ void fillPaxsBags(const TCheckedReqPassengers &req_grps, TExchange &exch, TCheck
     {
       if (req_grps.only_first_segment && grp_id!=tckin_grp_ids.begin()) continue;
 
-      CheckIn::TPaxGrpItem grp;
-      if (!grp.fromDB(*grp_id))
+      CheckIn::TSimplePaxGrpItem grp;
+      if (!grp.getByGrpId(*grp_id))
       {
         tckin_grp_ids.clear();
         return; //это бывает когда разрегистрация всей группы по ошибке агента
@@ -6995,7 +6994,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
     string used_norms_airline_mark;
 
     CheckIn::TPaxGrpItem grp;
-    if (!grp.fromDB(*grp_id))
+    if (!grp.getByGrpIdWithBagConcepts(*grp_id))
     {
       if (grp_id==tckin_grp_ids.begin() && !afterSavePax)
         throw AstraLocale::UserException("MSG.PAX_GRP_OR_LUGGAGE_NOT_CHECKED_IN");
@@ -7094,8 +7093,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
           etickItem.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
           brands.get(operFlt.airline, etickItem.fare_basis);
           string s=lowerc(etickItem.bag_norm_view()) + " " + brands.getSingleBrand().name(AstraLocale::OutputLang());
-          s=TrimString(s);
-          NewTextChild(paxNode, "ticket_bag_norm", s, "");
+          NewTextChild(paxNode, "ticket_bag_norm", TrimString(s), "");
         }
         NewTextChild(paxNode,"pr_norec",(int)PaxQry.FieldIsNULL("crs_pax_id"));
 
@@ -8999,7 +8997,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     xmlNodePtr flightNode = NodeAsNode("FLIGHT", reqNode);
     TSearchFltInfo filter;
     filter.airline = airl_fromXML(NodeAsNode("AIRLINE", flightNode), cfErrorIfEmpty, __FUNCTION__, "MERIDIAN");
-    filter.flt_no = flt_no_fromXML(NodeAsString("FLT_NO", flightNode));
+    filter.flt_no = flt_no_fromXML(NodeAsString("FLT_NO", flightNode), cfErrorIfEmpty);
     filter.suffix = suffix_fromXML(NodeAsString("SUFFIX", flightNode,""));
     filter.airp_dep = airp_fromXML(NodeAsNode("AIRP_DEP", flightNode), cfErrorIfEmpty, __FUNCTION__, "MERIDIAN");
     filter.scd_out = scd_out_fromXML(NodeAsString("SCD", flightNode), "dd.mm.yyyy");
@@ -9140,7 +9138,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                 if (!paxForCkin.apis.isPresent(apiDoc))
                   throw AstraLocale::UserException("MSG.SECTION_NOT_FOUND", LEvntPrms() << PrmSmpl<string>("name", "DOCS"));
                 seg.paxForCkin.push_back(paxForCkin);
-                multiPnrData.segs.add(multiPnrData.flt.oper, paxForCkin);
+                multiPnrData.segs.add(multiPnrData.flt.oper, paxForCkin, true);
             }
 
             multiPnrData.checkJointCheckInAndComplete();

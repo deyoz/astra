@@ -395,11 +395,9 @@ TPaxDocItem& TPaxDocItem::fromXML(xmlNodePtr node)
   issue_country=NodeAsStringFast("issue_country",node2,"");
   no=NodeAsStringFast("no",node2,"");
   nationality=NodeAsStringFast("nationality",node2,"");
-  if (!NodeIsNULLFast("birth_date",node2,true))
-    birth_date = date_fromXML(NodeAsStringFast("birth_date",node2,""));
+  birth_date = date_fromXML(NodeAsStringFast("birth_date",node2,""));
   gender=PaxDocGenderNormalize(NodeAsStringFast("gender",node2,""));
-  if (!NodeIsNULLFast("expiry_date",node2,true))
-    expiry_date = date_fromXML(NodeAsStringFast("expiry_date",node2,""));
+  expiry_date = date_fromXML(NodeAsStringFast("expiry_date",node2,""));
   surname=NodeAsStringFast("surname",node2,"");
   first_name=NodeAsStringFast("first_name",node2,"");
   second_name=NodeAsStringFast("second_name",node2,"");
@@ -453,11 +451,9 @@ TPaxDocItem& TPaxDocItem::fromMeridianXML(xmlNodePtr node)
   issue_country=NodeAsStringFast("ISSUE_COUNTRY", node2, "");
   no=NodeAsStringFast("NO", node2, "");
   nationality=NodeAsStringFast("NATIONALITY",node2,"");
-  if (!NodeIsNULLFast("BIRTH_DATE", node2, true))
-    birth_date = date_fromXML(NodeAsStringFast("BIRTH_DATE", node2, ""));
+  birth_date = date_fromXML(NodeAsStringFast("BIRTH_DATE", node2, ""));
   gender=PaxDocGenderNormalize(NodeAsStringFast("GENDER", node2, ""));
-  if (!NodeIsNULLFast("EXPIRY_DATE", node2, true))
-    expiry_date = date_fromXML(NodeAsStringFast("EXPIRY_DATE", node2, ""));
+  expiry_date = date_fromXML(NodeAsStringFast("EXPIRY_DATE", node2, ""));
   surname = upperc(NodeAsStringFast("SURNAME", node2, ""));
   first_name = upperc(NodeAsStringFast("FIRST_NAME", node2, ""));
   second_name = upperc(NodeAsStringFast("SECOND_NAME", node2, ""));
@@ -692,10 +688,8 @@ TPaxDocoItem& TPaxDocoItem::fromXML(xmlNodePtr node)
   birth_place=NodeAsStringFast("birth_place",node2,"");
   no=NodeAsStringFast("no",node2,"");
   issue_place=NodeAsStringFast("issue_place",node2,"");
-  if (!NodeIsNULLFast("issue_date",node2,true))
-    issue_date = date_fromXML(NodeAsStringFast("issue_date",node2,""));
-  if (!NodeIsNULLFast("expiry_date",node2,true))
-    expiry_date=date_fromXML(NodeAsStringFast("expiry_date",node2,""));
+  issue_date = date_fromXML(NodeAsStringFast("issue_date",node2,""));
+  expiry_date=date_fromXML(NodeAsStringFast("expiry_date",node2,""));
   applic_country=NodeAsStringFast("applic_country",node2,"");
   scanned_attrs=NodeAsIntegerFast("scanned_attrs",node2,NO_FIELDS);
   if (reqInfo->client_type==ASTRA::ctTerm && !reqInfo->desk.compatible(DOCO_CONFIRM_VERSION))
@@ -740,10 +734,8 @@ TPaxDocoItem& TPaxDocoItem::fromMeridianXML(const xmlNodePtr node)
   birth_place=NodeAsStringFast("BIRTH_PLACE", node2, "");
   no=NodeAsStringFast("NO", node2, "");
   issue_place=NodeAsStringFast("ISSUE_PLACE", node2, "");
-  if (!NodeIsNULLFast("ISSUE_DATE", node2, true))
-    issue_date = date_fromXML(NodeAsStringFast("ISSUE_DATE", node2, ""));
-  if (!NodeIsNULLFast("EXPIRY_DATE", node2, true))
-    expiry_date = date_fromXML(NodeAsStringFast("EXPIRY_DATE", node2, ""));
+  issue_date = date_fromXML(NodeAsStringFast("ISSUE_DATE", node2, ""));
+  expiry_date = date_fromXML(NodeAsStringFast("EXPIRY_DATE", node2, ""));
   applic_country=NodeAsStringFast("APPLIC_COUNTRY", node2, "");
   doco_confirm=true;
   return *this;
@@ -1632,9 +1624,17 @@ TSimplePaxItem& TSimplePaxItem::fromDBCrs(TQuery &Qry, bool withTkn)
   id=Qry.FieldAsInteger("pax_id");
   surname=Qry.FieldAsString("surname");
   name=Qry.FieldAsString("name");
-  pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
-  seat_type=Qry.FieldAsString("seat_type");
-  seats=Qry.FieldAsInteger("seats");
+  if (isTest())
+  {
+    pers_type=ASTRA::adult;
+    seats=1;
+  }
+  else
+  {
+    pers_type=DecodePerson(Qry.FieldAsString("pers_type"));
+    seat_type=Qry.FieldAsString("seat_type");
+    seats=Qry.FieldAsInteger("seats");
+  }
   if (Qry.GetFieldIndex("seat_no")>=0)
     seat_no = Qry.FieldAsString("seat_no");
   if (Qry.GetFieldIndex("subclass")>=0)
@@ -1990,7 +1990,7 @@ bool TPaxGrpItem::fromXML(xmlNodePtr node)
   if (grp_id!=ASTRA::NoExists)
   {
     //ß†Ø®·Ï ®ß¨•≠•≠®©
-    if (!fromDB(grp_id)) return false;
+    if (!getByGrpIdWithBagConcepts(grp_id)) return false;
     if (tid!=NodeAsIntegerFast("tid",node2)) return false;
   };
 
@@ -2118,15 +2118,7 @@ TSimplePaxGrpItem& TSimplePaxGrpItem::fromDB(TQuery &Qry)
   return *this;
 }
 
-TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
-{
-  clear();
-  TSimplePaxGrpItem::fromDB(Qry);
-  GetBagConcepts(id, pc, wt, rfisc_used);
-  return *this;
-};
-
-bool TPaxGrpItem::fromDB(int grp_id)
+bool TSimplePaxGrpItem::getByGrpId(int grp_id)
 {
   clear();
   TCachedQuery Qry("SELECT * FROM pax_grp WHERE grp_id=:grp_id",
@@ -2137,7 +2129,34 @@ bool TPaxGrpItem::fromDB(int grp_id)
   return true;
 }
 
-TPaxGrpCategory::Enum TPaxGrpItem::grpCategory() const
+bool TSimplePnrItem::getByPaxId(int pax_id)
+{
+  clear();
+  TCachedQuery Qry("SELECT crs_pnr.* FROM crs_pnr, crs_pax WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:pax_id",
+                   QParams() << QParam("pax_id", otInteger, pax_id));
+  Qry.get().Execute();
+  if (Qry.get().Eof) return false;
+  fromDB(Qry.get());
+  return true;
+}
+
+TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
+{
+  clear();
+  TSimplePaxGrpItem::fromDB(Qry);
+  GetBagConcepts(id, pc, wt, rfisc_used);
+  return *this;
+};
+
+bool TPaxGrpItem::getByGrpIdWithBagConcepts(int grp_id)
+{
+  clear();
+  if (!TSimplePaxGrpItem::getByGrpId(grp_id)) return false;
+  GetBagConcepts(id, pc, wt, rfisc_used);
+  return true;
+}
+
+TPaxGrpCategory::Enum TSimplePaxGrpItem::grpCategory() const
 {
   if (status==ASTRA::psCrew)
     return TPaxGrpCategory::Crew;
@@ -2355,6 +2374,113 @@ std::string isFemaleStr( int is_female )
   };
 }
 
+bool TPaxTknItem::validForSearch() const
+{
+  return !no.empty();
+}
+
+void TPaxTknItem::addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const
+{
+  switch(origin)
+  {
+    case paxCheckIn:
+      break;
+    case paxPnl:
+      tables.push_back("crs_pax_tkn");
+      break;
+    case paxTest:
+      break;
+  }
+}
+
+void TPaxTknItem::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const
+{
+  switch(origin)
+  {
+    case paxCheckIn:
+      if (no.size()==14)
+        conditions.push_back("pax.ticket_no IN (:tkn_no, :tkn_no_13)");
+      else
+        conditions.push_back("pax.ticket_no=:tkn_no");
+      if (coupon!=ASTRA::NoExists)
+        conditions.push_back("pax.coupon_no=:tkn_coupon");
+      break;
+    case paxPnl:
+      conditions.push_back("crs_pax.pax_id=crs_pax_tkn.pax_id");
+      if (no.size()==14)
+        conditions.push_back("crs_pax_tkn.ticket_no IN (:tkn_no, :tkn_no_13)");
+      else
+        conditions.push_back("crs_pax_tkn.ticket_no=:tkn_no");
+      if (coupon!=ASTRA::NoExists)
+        conditions.push_back("crs_pax_tkn.coupon_no=:tkn_coupon");
+      break;
+    case paxTest:
+      if (no.size()==14)
+        conditions.push_back("test_pax.tkn_no IN (:tkn_no, :tkn_no_13)");
+      else
+        conditions.push_back("test_pax.tkn_no=:tkn_no");
+      break;
+  }
+}
+
+void TPaxTknItem::addSQLParamsForSearch(QParams& params) const
+{
+  params << QParam("tkn_no", otString, no);
+  if (no.size()==14)
+    params << QParam("tkn_no_13", otString, no.substr(0,13));
+  if (coupon!=ASTRA::NoExists)
+    params << QParam("tkn_coupon", otInteger, coupon);
+}
+
+bool TPaxDocItem::validForSearch() const
+{
+  return !no.empty();
+}
+
+void TPaxDocItem::addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const
+{
+  switch(origin)
+  {
+    case paxCheckIn:
+      tables.push_back("pax_doc");
+      break;
+    case paxPnl:
+      tables.push_back("crs_pax_doc");
+      break;
+    case paxTest:
+      break;
+  }
+}
+
+void TPaxDocItem::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const
+{
+  switch(origin)
+  {
+    case paxCheckIn:
+      conditions.push_back("pax.pax_id=pax_doc.pax_id");
+      conditions.push_back("pax_doc.no=:doc_no");
+      if (birth_date!=ASTRA::NoExists)
+        conditions.push_back("(pax_doc.birth_date=:doc_birth_date OR pax_doc.birth_date IS NULL)");
+      break;
+    case paxPnl:
+      conditions.push_back("crs_pax.pax_id=crs_pax_doc.pax_id");
+      conditions.push_back("crs_pax_doc.no=:doc_no");
+      if (birth_date!=ASTRA::NoExists)
+        conditions.push_back("(crs_pax_doc.birth_date=:doc_birth_date OR crs_pax_doc.birth_date IS NULL)");
+      break;
+    case paxTest:
+      conditions.push_back("test_pax.doc_no=:doc_no");
+      break;
+  }
+}
+
+void TPaxDocItem::addSQLParamsForSearch(QParams& params) const
+{
+  params << QParam("doc_no", otString, no);
+  if (birth_date!=ASTRA::NoExists)
+    params << QParam("doc_birth_date", otDate, birth_date);
+}
+
 std::string TScannedPaxDocItem::getTrueNo() const
 {
   if (isNationalRussianPassport() && no.size()==9 && !extra.empty())
@@ -2363,64 +2489,20 @@ std::string TScannedPaxDocItem::getTrueNo() const
   return no;
 }
 
+void TScannedPaxDocItem::addSQLParamsForSearch(QParams& params) const
+{
+  LogTrace(TRACE5) << __FUNCTION__ << ": doc_no=" << getTrueNo();
+  params << QParam("doc_no", otString, getTrueNo());
+  if (birth_date!=ASTRA::NoExists)
+  {
+    LogTrace(TRACE5) << __FUNCTION__ << ": doc_birth_date=" << DateTimeToStr(birth_date);
+    params << QParam("doc_birth_date", otDate, birth_date);
+  }
+}
+
 bool TSimplePaxList::infantsMoreThanAdults() const
 {
   return CheckIn::infantsMoreThanAdults(*this);
-}
-
-TSimplePaxList& TSimplePaxList::searchByDocNo(const TScannedPaxDocItem& doc)
-{
-  clear();
-
-  if (doc.no.empty()) return *this;
-
-  TQuery Qry(&OraSession);
-  LogTrace(TRACE5) << __FUNCTION__ << ": doc.getTrueNo()=" << doc.getTrueNo();
-  Qry.CreateVariable("no", otString, doc.getTrueNo());
-  if (doc.birth_date!=ASTRA::NoExists)
-    Qry.CreateVariable("birth_date", otDate, doc.birth_date);
-
-  set<int> pax_ids;
-  for(int pass=0; pass<2; pass++)
-  {
-    ostringstream sql;
-    if (pass==0)
-    {
-      sql << "SELECT pax.* "
-             "FROM pax, pax_doc "
-             "WHERE pax.pax_id=pax_doc.pax_id AND "
-             "      pax_doc.no=:no ";
-      if (doc.birth_date!=ASTRA::NoExists)
-        sql << "AND (pax_doc.birth_date=:birth_date OR pax_doc.birth_date IS NULL)";
-    }
-    else
-    {
-      sql << "SELECT crs_pax.* "
-             "FROM crs_pnr, crs_pax, crs_pax_doc "
-             "WHERE crs_pax.pnr_id=crs_pnr.pnr_id AND "
-             "      crs_pax.pax_id=crs_pax_doc.pax_id AND "
-             "      crs_pnr.system='CRS' AND "
-             "      crs_pax.pr_del=0 AND "
-             "      crs_pax_doc.no=:no ";
-      if (doc.birth_date!=ASTRA::NoExists)
-        sql << "AND (crs_pax_doc.birth_date=:birth_date OR crs_pax_doc.birth_date IS NULL)";
-    }
-
-    Qry.SQLText=sql.str().c_str();
-    Qry.Execute();
-    for(; !Qry.Eof; Qry.Next())
-    {
-      TSimplePaxItem pax;
-      if (pass==0)
-        pax.fromDB(Qry);
-      else
-        pax.fromDBCrs(Qry, false);
-      if (pax_ids.insert(pax.id).second)
-        push_back(pax);
-    }
-  }
-
-  return *this;
 }
 
 }; //namespace CheckIn
@@ -2539,3 +2621,192 @@ void PaxBrandsNormsToStream(const TTrferRoute &trfer, const CheckIn::TPaxItem &p
 }
 
 } //namespace Sirena
+
+const char rus_pnr[]="0123456789ÅÇÉÑäãåçèêëíîïñÜò";
+const char lat_pnr[]="0123456789BVGDKLMNPRSTFXCZW";
+
+static char toLatPnrCharStrictly(char c)
+{
+  if (!IsAscii7(c))
+  {
+    ByteReplace(&c,1,rus_pnr,lat_pnr);
+    if (!IsAscii7(c)) c='?';
+  };
+  return c;
+}
+
+static char toLatPnrChar(char c)
+{
+  ByteReplace(&c,1,rus_pnr,lat_pnr);
+  return c;
+}
+
+static char toRusPnrChar(char c)
+{
+  ByteReplace(&c,1,lat_pnr,rus_pnr);
+  return c;
+}
+
+string convert_pnr_addr(const string &value, bool pr_lat)
+{
+  string result = value;
+  if (pr_lat)
+    transform(result.begin(), result.end(), result.begin(), toLatPnrCharStrictly);
+  return result;
+
+}
+
+const TPnrAddrInfo& TPnrAddrInfo::toXML(xmlNodePtr addrParentNode,
+                                        const boost::optional<AstraLocale::OutputLang>& lang) const
+{
+  if (addrParentNode==nullptr) return *this;
+
+  xmlNodePtr addrNode=NewTextChild(addrParentNode, "pnr_addr");
+  NewTextChild(addrNode, "airline", lang?airlineToPrefferedCode(airline, lang.get()):airline);
+  NewTextChild(addrNode, "addr", lang?convert_pnr_addr(addr, lang->isLatin()):addr);
+
+  return *this;
+}
+
+bool TPnrAddrInfo::validForSearch() const
+{
+  return !addr.empty();
+}
+
+void TPnrAddrInfo::addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const
+{
+  switch(origin)
+  {
+    case paxCheckIn:
+      tables.push_back("crs_pax");
+      tables.push_back("crs_pnr");
+      tables.push_back("pnr_addrs");
+      break;
+    case paxPnl:
+      tables.push_back("pnr_addrs");
+      break;
+    case paxTest:
+      break;
+  }
+}
+
+void TPnrAddrInfo::addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const
+{
+  switch(origin)
+  {
+    case paxCheckIn:
+      conditions.push_back("pax.pax_id=crs_pax.pax_id");
+      conditions.push_back("crs_pax.pnr_id=crs_pnr.pnr_id");
+      conditions.push_back("crs_pnr.system='CRS'");
+      conditions.push_back("crs_pax.pr_del=0");
+      conditions.push_back("pnr_addrs.pnr_id=crs_pax.pnr_id");
+      conditions.push_back("pnr_addrs.addr IN (:addr_rus, :addr_lat)");
+      break;
+    case paxPnl:
+      conditions.push_back("pnr_addrs.pnr_id=crs_pax.pnr_id");
+      conditions.push_back("pnr_addrs.addr IN (:addr_rus, :addr_lat)");
+      break;
+    case paxTest:
+      conditions.push_back("test_pax.pnr_addr IN (:addr_rus, :addr_lat)");
+      break;
+  }
+}
+
+void TPnrAddrInfo::addSQLParamsForSearch(QParams& params) const
+{
+  std::string addr_rus(addr), addr_lat(addr);
+  transform(addr_rus.begin(), addr_rus.end(), addr_rus.begin(), toRusPnrChar);
+  transform(addr_lat.begin(), addr_lat.end(), addr_lat.begin(), toLatPnrChar);
+  params << QParam("addr_rus", otString, addr_rus)
+         << QParam("addr_lat", otString, addr_lat);
+}
+
+const TPnrAddrs& TPnrAddrs::toXML(xmlNodePtr addrsParentNode,
+                                  const boost::optional<AstraLocale::OutputLang>& lang) const
+{
+  if (addrsParentNode==nullptr) return *this;
+
+  xmlNodePtr addrsNode=NewTextChild(addrsParentNode, "pnr_addrs");
+  for(const TPnrAddrInfo& addr : *this) addr.toXML(addrsNode, lang);
+
+  return *this;
+}
+
+std::string TPnrAddrs::getByPnrId(int pnr_id)
+{
+  string airline;
+  return getByPnrId(pnr_id, airline);
+}
+
+void TPnrAddrs::getByPnrIdFast(int pnr_id)
+{
+  string airline("No matter");
+  getByPnrId(pnr_id, airline);
+}
+
+std::string TPnrAddrs::getByPnrId(int pnr_id, string &airline)
+{
+  clear();
+
+  QParams QryParams;
+  QryParams << QParam("pnr_id", otInteger, pnr_id);
+  if (!airline.empty())
+    QryParams << QParam("airline", otString, airline);
+
+  TCachedQuery CachedQry(airline.empty()?
+                         "SELECT pnr_addrs.airline, pnr_addrs.addr, tlg_trips.airline AS priority_airline "
+                         "FROM pnr_addrs, crs_pnr, tlg_trips "
+                         "WHERE pnr_addrs.pnr_id=crs_pnr.pnr_id AND "
+                         "      crs_pnr.point_id=tlg_trips.point_id AND "
+                         "      pnr_addrs.pnr_id=:pnr_id "
+                         "ORDER BY DECODE(pnr_addrs.airline, tlg_trips.airline, 0, 1), pnr_addrs.airline":
+                         "SELECT pnr_addrs.airline, pnr_addrs.addr, :airline AS priority_airline "
+                         "FROM pnr_addrs "
+                         "WHERE pnr_addrs.pnr_id=:pnr_id "
+                         "ORDER BY DECODE(pnr_addrs.airline, :airline, 0, 1), pnr_addrs.airline",
+                         QryParams);
+
+  TQuery &Qry=CachedQry.get();
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    if (airline.empty())
+      airline=Qry.FieldAsString("priority_airline");
+    emplace_back(Qry.FieldAsString("airline"),
+                 Qry.FieldAsString("addr"));
+  }
+
+  if (!empty() && begin()->airline==airline)
+    return begin()->addr;
+  else
+    return "";
+}
+
+std::string TPnrAddrs::getByPaxId(int pax_id)
+{
+  string airline;
+  return getByPaxId(pax_id, airline);
+}
+
+void TPnrAddrs::getByPaxIdFast(int pax_id)
+{
+  string airline("No matter");
+  getByPaxId(pax_id, airline);
+}
+
+std::string TPnrAddrs::getByPaxId(int pax_id, string &airline)
+{
+  clear();
+  QParams QryParams;
+  QryParams << QParam("pax_id", otInteger, pax_id);
+
+  TCachedQuery CachedQry(
+    "SELECT pnr_id FROM crs_pax WHERE pax_id=:pax_id AND pr_del=0",
+    QryParams);
+  TQuery &Qry=CachedQry.get();
+  Qry.Execute();
+  if (!Qry.Eof)
+    return getByPnrId(Qry.FieldAsInteger("pnr_id"), airline);
+  else
+    return "";
+};

@@ -42,7 +42,7 @@
 #include "seats_utils.h"
 #include "rfisc_sirena.h"
 #include "web_exchange.h"
-
+#include "ckin_search.h"
 
 
 #define NICKNAME "DJEK"
@@ -296,6 +296,127 @@ bool TIdsPnrData::containAtLeastOnePnrId() const
   return !pnr_ids.empty();
 }
 
+static void GetPNRsList(const WebSearch::TPNRFilter &filter,
+                        bool isSearchPNRsRequest,
+                        list<WebSearch::TPNRs> &PNRsList,
+                        list<AstraLocale::LexemaData> &errors)
+{
+  PNRsList.clear();
+  errors.clear();
+  if (!(filter.test_paxs.empty() && !filter.from_scan_code)) return;
+
+  CheckIn::TSimplePaxList paxs;
+  WebSearch::SurnameFilter surname(filter);
+
+  CheckIn::Search search(WebSearch::TIMEOUT());
+  if (!filter.ticket_no.empty())
+  {
+    CheckIn::TPaxTknItem tkn;
+    tkn.no=filter.ticket_no;
+    search(paxs, tkn, surname);
+  }
+  else if (!filter.pnr_addr_normal.empty())
+  {
+    TPnrAddrInfo pnr;
+    pnr.addr=filter.pnr_addr_normal;
+    search(paxs, pnr, surname);
+  }
+  else if (!filter.document.empty())
+  {
+    CheckIn::TPaxDocItem doc;
+    doc.no=filter.document;
+    search(paxs, doc); //по фамилии фильтруем потом, иначе поиск может не прерваться очень долго
+  };
+
+  if (search.timeoutIsReached())
+  {
+    LogTrace(TRACE5) << __FUNCTION__ << ": paxs.size()=" << paxs.size();
+    throw UserException("MSG.TOO_LONG_SEARCH.ADJUST_SEARCH_PARAMS");
+  }
+
+  for(const CheckIn::TSimplePaxItem& pax : paxs)
+  {
+//    ProgTrace(TRACE5, "%s: pax_id=%d", __FUNCTION__, pax.id);
+
+    bool checked=pax.grp_id!=ASTRA::NoExists;
+
+    TAdvTripInfoList flts;
+    if (checked)
+    {
+      TAdvTripInfo flt;
+      if (flt.getByGrpId(pax.grp_id)) flts.push_back(flt);
+    }
+    else getTripsByCRSPaxId(pax.id, flts);
+
+    if (flts.empty())
+    {
+//      ProgTrace(TRACE5, "%s: flts.empty()", __FUNCTION__);
+      continue;
+    }
+
+    WebSearch::TPaxInfo paxInfo;
+    if (!paxInfo.setIfSuitable(filter, pax))
+    {
+//      ProgTrace(TRACE5, "%s: !paxInfo.setIfSuitable", __FUNCTION__);
+      continue;
+    }
+
+    for(const TAdvTripInfo& flt : flts)
+    {
+      WebSearch::TPNRSegInfo segInfo;
+      if (!segInfo.setIfSuitable(filter, flt, pax))
+      {
+//        ProgTrace(TRACE5, "%s: !segInfo.setIfSuitable", __FUNCTION__);
+        continue;
+      }
+
+      if (!segInfo.mktFlight) continue;
+
+      WebSearch::TFlightInfo fltInfo;
+      if (!fltInfo.setIfSuitable(filter, flt, segInfo.mktFlight.get()))
+      {
+//        ProgTrace(TRACE5, "%s: !fltInfo.setIfSuitable", __FUNCTION__);
+        continue;
+      }
+
+      list<WebSearch::TPNRs>::iterator iPNRs=PNRsList.begin();
+      if (!isSearchPNRsRequest)
+      {
+        for(; iPNRs!=PNRsList.end(); ++iPNRs)
+          if (iPNRs->getFirstPNRInfo().getFirstPointDep()==fltInfo.oper.point_id) break;
+      }
+
+      if (iPNRs==PNRsList.end())
+        iPNRs=PNRsList.emplace(PNRsList.end());
+      try
+      {
+        iPNRs->add(fltInfo, segInfo, paxInfo, false);
+      }
+      catch(UserException &e)
+      {
+        if (iPNRs->pnrs.empty()) PNRsList.erase(iPNRs);
+        errors.push_back(e.getLexemaData());
+        ProgTrace(TRACE5, ">>>> %s: %s", __FUNCTION__, e.what());
+      }
+    }
+  }
+
+  if (!isSearchPNRsRequest)
+  {
+    if (PNRsList.empty() && errors.empty())
+      errors.push_back(LexemaData("MSG.PASSENGERS.NOT_FOUND"));
+
+    for(WebSearch::TPNRs& PNRs : PNRsList)
+      if (PNRs.pnrs.size()>1)
+      {
+        PNRs.trace(WebSearch::xmlSearchPNRs);
+        PNRs.error=LexemaData("MSG.PASSENGERS.FOUND_MORE.ADJUST_SEARCH_PARAMS");
+      }
+
+    PNRsList.sort(WebSearch::TPNRsSortOrder(NowUTC()-1));
+  }
+}
+
 void WebRequestsIface::SearchPNRs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   emulateClientType();
@@ -315,17 +436,29 @@ void WebRequestsIface::SearchPNRs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   filter.testPaxFromDB();
   filter.trace(TRACE5);
 
-  WebSearch::TPNRs PNRs;
-  WebSearch::findPNRs(filter, PNRs, 1);
-  WebSearch::findPNRs(filter, PNRs, 2);
-  WebSearch::findPNRs(filter, PNRs, 3);
-  PNRs.toXML(resNode, true, WebSearch::xmlSearchPNRs);
-};
+  if (filter.test_paxs.empty() && !filter.from_scan_code)
+  {
+    list<WebSearch::TPNRs> PNRsList;
+    list<AstraLocale::LexemaData> errors;
+    GetPNRsList(filter, true, PNRsList, errors);
+    if (!PNRsList.empty())
+      PNRsList.front().toXML(resNode, true, WebSearch::xmlSearchPNRs);
+  }
+  else
+  {
+    WebSearch::TPNRs PNRs;
+    WebSearch::findPNRs(filter, PNRs);
+    PNRs.toXML(resNode, true, WebSearch::xmlSearchPNRs);
+  }
+}
 
-void GetPNRsList(WebSearch::TPNRFilters &filters,
-                 list<WebSearch::TPNRs> &PNRsList,
-                 list<AstraLocale::LexemaData> &errors)
+static void GetPNRsList(WebSearch::TPNRFilters &filters,
+                        list<WebSearch::TPNRs> &PNRsList,
+                        list<AstraLocale::LexemaData> &errors)
 {
+  PNRsList.clear();
+  errors.clear();
+
   for(list<WebSearch::TPNRFilter>::iterator f=filters.segs.begin(); f!=filters.segs.end(); ++f)
   {
     WebSearch::TPNRFilter &filter=*f;
@@ -344,35 +477,32 @@ void GetPNRsList(WebSearch::TPNRFilters &filters,
     filter.testPaxFromDB();
     filter.trace(TRACE5);
 
-    PNRsList.push_back(WebSearch::TPNRs());
+    if (filter.test_paxs.empty() && !filter.from_scan_code)
+    {
+      if (filters.segs.size()!=1)
+        throw EXCEPTIONS::Exception("%s: filters.segs.size()!=1", __FUNCTION__);
+      GetPNRsList(filter, false, PNRsList, errors);
+      break;
+    };
+
+    PNRsList.emplace_back();
     try
     {
       WebSearch::TPNRs &PNRs=PNRsList.back();
-      if (!filter.from_scan_code)
-      {
-        //это не сканирование штрих-кода
-        WebSearch::findPNRs(filter, PNRs, 1);
-        if (PNRs.pnrs.empty())
-        {
-          WebSearch::findPNRs(filter, PNRs, 2);
-          WebSearch::findPNRs(filter, PNRs, 3);
-        };
-      }
-      else
-      {
-        //если сканирование штрих-кода, тогда только поиск по оперирующему перевозчику
-        WebSearch::findPNRs(filter, PNRs, 1, false);
-        if (filter.test_paxs.empty() && PNRs.pnrs.empty())
-        {
-          WebSearch::findPNRs(filter, PNRs, 1, true);
-          if (!PNRs.pnrs.empty())
-            throw UserException( "MSG.PASSENGER.CONTACT_CHECKIN_AGENT" );
-        };
-      };
 
+      WebSearch::findPNRs(filter, PNRs, false);
       if (PNRs.pnrs.empty())
+      {
+        if (filter.test_paxs.empty() && filter.from_scan_code)
+        {
+          WebSearch::findPNRs(filter, PNRs, true);
+          if (!PNRs.pnrs.empty())
+            throw UserException( "MSG.PASSENGER.CONTACT_CHECKIN_AGENT" ); //другой рег. номер
+        }
         throw UserException( "MSG.PASSENGERS.NOT_FOUND" );
-      if (filter.test_paxs.empty() && PNRs.pnrs.size()>1)
+      }
+
+      if (PNRs.pnrs.size()>1 && filter.test_paxs.empty())
         filter.from_scan_code?
           throw UserException( "MSG.PASSENGERS.FOUND_MORE" ):
           throw UserException( "MSG.PASSENGERS.FOUND_MORE.ADJUST_SEARCH_PARAMS" );
@@ -433,13 +563,20 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
         if (PNRsList.size()>1)
         {
-          int priority=PNRs.calcStagePriority(PNRs.pnrs.begin()->first);
+          int priority=PNRs.calcStagePriority(PNRs.getFirstPnrId());
           ProgTrace(TRACE5, "%s: pass=%d priority=%d ", __FUNCTION__, pass, priority);
 
           if (pass!=priority) throw nextPNRs();
         }
-        multiPNRsList.add(filters, PNRs);
-        throw nextPNRFilters();; //выходим из цикла проходов pass, так как записали в multiPNRsList сквозные сегменты с самым подходящим 1-м сегментом
+
+        if (PNRs.error)
+        {
+          errors.push_back(PNRs.error.get());
+          multiPNRsList.add(filters, errors);
+        }
+        else
+          multiPNRsList.add(filters, PNRs);
+        throw nextPNRFilters(); //выходим из цикла проходов pass, так как записали в multiPNRsList сквозные сегменты с самым подходящим 1-м сегментом
       }
       catch(nextPNRs) {};
     };
@@ -1068,7 +1205,7 @@ void WebRequestsIface::LoadPnr(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   {
     int point_id=NodeAsInteger( "point_id", segNode );
     WebSearch::TFlightInfo flt;
-    flt.fromDB(point_id, false, true);
+    flt.fromDB(point_id, true);
     flt.fromDBadditional(false, true);
     TIdsPnrData idsPnrData(flt);
     if (TIdsPnrData::trueMultiRequest(reqNode))
@@ -1418,7 +1555,7 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   }
 
   WebSearch::TFlightInfo flt;
-  flt.fromDB(point_id, false, true);
+  flt.fromDB(point_id, true);
 
   int pnr_id=TIdsPnrData(flt).fromXML(reqNode).getStrictlySinglePnrId();
 
@@ -1644,7 +1781,7 @@ bool CreateEmulCkinDocForCHKD(int crs_pax_id,
 
     seg.paxFromReq.push_back(paxFromReq);
     seg.paxForCkin.push_back(paxForCkin);
-    multiPnrData.segs.add(multiPnrData.flt.oper, paxForCkin);
+    multiPnrData.segs.add(multiPnrData.flt.oper, paxForCkin, true);
   };
 
   multiPnrData.checkJointCheckInAndComplete();
@@ -1724,15 +1861,9 @@ static void VerifyPax(TWebPaxForSaveSegs &segs, const XMLDoc &emulDocHeader,
 
           Qry.Clear();
           if (!paxFromReq.checked())
-          {
             Qry.SQLText=TWebPaxForCkin::sql(paxFromReq.isTest());
-            if (paxFromReq.isTest())
-              Qry.CreateVariable("adult", otString, EncodePerson(adult));
-          }
           else
-          {
             Qry.SQLText=TWebPaxForChng::sql();
-          }
           Qry.CreateVariable("pax_id", otInteger, paxFromReq.id);
           Qry.Execute();
 
@@ -1759,7 +1890,7 @@ static void VerifyPax(TWebPaxForSaveSegs &segs, const XMLDoc &emulDocHeader,
               pax.addFromReq(paxFromReq);
 
               s.paxForCkin.checkUniquenessAndAdd(pax);
-              multiPnrData.segs.add(multiPnrData.flt.oper, pax);
+              multiPnrData.segs.add(multiPnrData.flt.oper, pax, s.point_id==firstPointIdForCkin);
             }
           }
           else
@@ -2152,12 +2283,11 @@ void GetBPPaxFromScanCode(const string &scanCode, PrintInterface::BPPax &pax)
 
     if (PNRs.pnrs.empty())
       throw UserException( "MSG.PASSENGERS.NOT_FOUND" );
-    if (!is_test && (PNRs.pnrs.size()>1 || PNRs.pnrs.begin()->second.paxs.size()>1))
+    if (!is_test && (PNRs.pnrs.size()>1 || PNRs.getFirstPNRInfo().paxs.size()>1))
       throw UserException( "MSG.PASSENGERS.FOUND_MORE" );
-    if (PNRs.pnrs.begin()->second.segs.empty()) throw EXCEPTIONS::Exception("%s: PNRs.pnrs.begin()->second.segs.empty()", __FUNCTION__);
-    int point_dep=PNRs.pnrs.begin()->second.segs.begin()->second.point_dep;
-    if (PNRs.pnrs.begin()->second.paxs.empty()) throw EXCEPTIONS::Exception("%s: PNRs.pnrs.begin()->second.paxs.empty()", __FUNCTION__);
-    int pax_id=PNRs.pnrs.begin()->second.paxs.begin()->pax_id;
+    int point_dep=PNRs.getFirstPNRInfo().getFirstPointDep();
+    if (PNRs.getFirstPNRInfo().paxs.empty()) throw EXCEPTIONS::Exception("%s: PNRs.getFirstPNRInfo().paxs.empty()", __FUNCTION__);
+    int pax_id=PNRs.getFirstPNRInfo().paxs.begin()->pax_id;
     GetBPPax( point_dep, pax_id, is_test, pax );
   }
   catch(UserException &e)

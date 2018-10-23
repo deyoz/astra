@@ -10,12 +10,14 @@
 #include "payment_base.h"
 #include <boost/optional.hpp>
 #include "date_time.h"
+#include "qrys.h"
 
 using BASIC::date_time::TDateTime;
 
 const long int NO_FIELDS=0x0000;
 
 enum TAPIType { apiDoc, apiDoco, apiDocaB, apiDocaR, apiDocaD, apiTkn, apiUnknown };
+enum PaxOrigin { paxCheckIn, paxPnl, paxTest };
 
 const int TEST_ID_BASE = 1000000000;
 const int TEST_ID_LAST = TEST_ID_BASE+999999999;
@@ -151,6 +153,11 @@ class TPaxTknItem : public TPaxAPIItem, public TPaxRemBasic
       return no_str();
     }
     int checkedInETCount() const;
+
+    bool validForSearch() const;
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const;
+    void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
+    void addSQLParamsForSearch(QParams& params) const;
 };
 
 bool LoadPaxTkn(int pax_id, TPaxTknItem &tkn);
@@ -289,6 +296,11 @@ class TPaxDocItem : public TPaxAPIItem, public TPaxRemBasic, public TPaxDocCompo
     std::string full_name() const;
     bool isNationalRussianPassport() const { return type=="P" && subtype=="N" && issue_country=="RUS"; }
     std::string getSurnameWithInitials() const;
+
+    bool validForSearch() const;
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const;
+    void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
+    void addSQLParamsForSearch(QParams& params) const;
 };
 
 class TScannedPaxDocItem : public TPaxDocItem
@@ -307,6 +319,8 @@ class TScannedPaxDocItem : public TPaxDocItem
 
     TScannedPaxDocItem& fromXML(xmlNodePtr node);
     std::string getTrueNo() const;
+
+    void addSQLParamsForSearch(QParams& params) const;
 };
 
 const std::string DOCO_PSEUDO_TYPE="-";
@@ -571,7 +585,6 @@ class TSimplePaxList : public std::list<TSimplePaxItem>
 {
   public:
     bool infantsMoreThanAdults() const;
-    TSimplePaxList& searchByDocNo(const TScannedPaxDocItem& doc);
 };
 
 class TDocaMap : public std::map<TAPIType, TPaxDocaItem>
@@ -706,6 +719,7 @@ class TSimplePnrItem
     }
 
     TSimplePnrItem& fromDB(TQuery &Qry);
+    bool getByPaxId(int pax_id);
 
     int pnrId() const { return id; }
 };
@@ -749,7 +763,13 @@ class TSimplePaxGrpItem
       baggage_pc=false;
     }
 
+    TPaxGrpCategory::Enum grpCategory() const;
+    bool is_unaccomp() const
+    {
+      return grpCategory()==TPaxGrpCategory::UnnacompBag;
+    }
     TSimplePaxGrpItem& fromDB(TQuery &Qry);
+    bool getByGrpId(int grp_id);
 };
 
 class TPaxGrpItem : public TSimplePaxGrpItem
@@ -788,12 +808,7 @@ class TPaxGrpItem : public TSimplePaxGrpItem
     TPaxGrpItem& fromXMLadditional(xmlNodePtr node, xmlNodePtr firstSegNode, bool is_unaccomp);
     const TPaxGrpItem& toDB(TQuery &Qry) const;
     TPaxGrpItem& fromDB(TQuery &Qry);
-    bool fromDB(int grp_id);
-    TPaxGrpCategory::Enum grpCategory() const;
-    bool is_unaccomp() const
-    {
-      return grpCategory()==TPaxGrpCategory::UnnacompBag;
-    }
+    bool getByGrpIdWithBagConcepts(int grp_id);
     void SyncServiceAuto(const TTripInfo &flt);
     void checkInfantsCount(const CheckIn::TSimplePaxList &prior_paxs,
                            const CheckIn::TSimplePaxList &curr_paxs) const;
@@ -898,6 +913,90 @@ void PaxBrandsNormsToStream(const TTrferRoute &trfer, const CheckIn::TPaxItem &p
 
 } //namespace Sirena
 
+std::string convert_pnr_addr(const std::string &value, bool pr_lat);
+
+class TPnrAddrInfo
+{
+  public:
+    enum Format { AddrOnly,
+                  AddrAndAirline };
+
+    std::string airline, addr;
+
+    TPnrAddrInfo() {}
+
+    TPnrAddrInfo(const std::string& _airline,
+                 const std::string& _addr) :
+      airline(_airline), addr(_addr) {}
+
+    void clear()
+    {
+      airline.clear();
+      addr.clear();
+    }
+
+    bool operator == (const TPnrAddrInfo &item) const
+    {
+      return airline==item.airline &&
+             convert_pnr_addr(addr, true)==convert_pnr_addr(item.addr, true);
+    }
+
+    std::string str(TPnrAddrInfo::Format format) const
+    {
+      std::ostringstream s;
+      s << addr;
+      if (format==AddrAndAirline)
+        s << "/" << airline;
+      return s.str();
+    }
+
+    const TPnrAddrInfo& toXML(xmlNodePtr addrParentNode,
+                              const boost::optional<AstraLocale::OutputLang>& lang=boost::none) const;
+
+    bool validForSearch() const;
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const;
+    void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
+    void addSQLParamsForSearch(QParams& params) const;
+};
+
+class TPnrAddrs : public std::vector<TPnrAddrInfo>
+{
+  public:
+    std::string getByPnrId(int pnr_id, std::string &airline);
+    std::string getByPaxId(int pax_id, std::string &airline);
+
+    std::string getByPnrId(int pnr_id);
+    std::string getByPaxId(int pax_id);
+
+    void getByPnrIdFast(int pnr_id);
+    void getByPaxIdFast(int pax_id);
+
+    std::string firstAddrByPnrId(int pnr_id, TPnrAddrInfo::Format format)
+    {
+      getByPnrId(pnr_id);
+      return empty()?"":front().str(format);
+    }
+    std::string firstAddrByPaxId(int pax_id, TPnrAddrInfo::Format format)
+    {
+      getByPaxId(pax_id);
+      return empty()?"":front().str(format);
+    }
+    bool equalPnrExists(const TPnrAddrs& pnrAddrs) const
+    {
+      for(const TPnrAddrInfo& addr : pnrAddrs)
+        if (find(begin(), end(), addr)!=end()) return true;
+      return false;
+    }
+    const TPnrAddrs &toXML(xmlNodePtr addrsParentNode,
+                           const boost::optional<AstraLocale::OutputLang>& lang=boost::none) const;
+    const std::string traceStr() const
+    {
+      std::ostringstream s;
+      for(const TPnrAddrInfo& addr : *this)
+        s << addr.str(TPnrAddrInfo::AddrAndAirline) << " ";
+      return s.str();
+    }
+};
 
 #endif
 

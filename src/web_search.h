@@ -12,6 +12,8 @@
 namespace WebSearch
 {
 
+int TIMEOUT();       //миллисекунды
+
 enum XMLStyle {xmlSearchFlt, xmlSearchFltMulti, xmlSearchPNRs};
 
   using BASIC::date_time::TDateTime;
@@ -42,7 +44,27 @@ struct TTestPaxInfo
   void trace( TRACE_SIGNATURE ) const;
 };
 
-class TPNRFilter
+class SurnameFilter
+{
+  public:
+    std::string surname;
+    int surname_equal_len;
+
+    void clear()
+    {
+      surname.clear();
+      surname_equal_len=ASTRA::NoExists;
+    }
+
+    bool validForSearch() const;
+    void addSQLTablesForSearch(const PaxOrigin& origin, std::list<std::string>& tables) const;
+    void addSQLConditionsForSearch(const PaxOrigin& origin, std::list<std::string>& conditions) const;
+    void addSQLParamsForSearch(QParams& params) const;
+};
+
+struct TFlightInfo;
+
+class TPNRFilter : public SurnameFilter
 {
   public:
     std::set<std::string> airlines;
@@ -50,23 +72,23 @@ class TPNRFilter
     std::string suffix;
     std::vector< std::pair<TDateTime, TDateTime> > scd_out_local_ranges;
     std::vector< std::pair<TDateTime, TDateTime> > scd_out_utc_ranges;
-    std::string surname, name, pnr_addr_normal, ticket_no, document;
+    std::string name, pnr_addr_normal, ticket_no, document;
     int reg_no;
     std::vector<TTestPaxInfo> test_paxs;
     //BCBP_M
     bool from_scan_code;
-    int surname_equal_len, name_equal_len;
+    int name_equal_len;
     std::string airp_dep, airp_arv;
 
     TPNRFilter() { clear(); };
 
     void clear()
     {
+      SurnameFilter::clear();
       airlines.clear();
       flt_no=ASTRA::NoExists;
       suffix.clear();
       scd_out_local_ranges.clear();
-      surname.clear();
       name.clear();
       pnr_addr_normal.clear();
       ticket_no.clear();
@@ -75,7 +97,6 @@ class TPNRFilter
       test_paxs.clear();
       //BCBP_M
       from_scan_code=false;
-      surname_equal_len=ASTRA::NoExists;
       name_equal_len=ASTRA::NoExists;
       airp_dep.clear();
       airp_arv.clear();
@@ -91,6 +112,9 @@ class TPNRFilter
     bool isEqualTkn(const std::string &pax_ticket_no) const;
     bool isEqualDoc(const std::string &pax_document) const;
     bool isEqualRegNo(const int &pax_reg_no) const;
+    bool isEqualFlight(const TAdvTripInfo &oper, const TSimpleMktFlight& mark) const;
+
+    static bool userAccessIsAllowed(const TAdvTripInfo &oper, const boost::optional<TSimpleMktFlight>& mark);
 };
 
 class TPNRFilters
@@ -213,20 +237,32 @@ struct TFlightInfo
 
   void set(const TAdvTripInfo& fltInfo);
   bool fromDB(TQuery &Qry);
-  bool fromDB(int point_id, bool first_segment, bool pr_throw);
+  bool fromDB(int point_id, bool pr_throw);
   bool fromDBadditional(bool first_segment, bool pr_throw);
   void add(const TDestInfo &dest);
   const TDestInfo& getDestInfo(int point_arv) const;
   void toXMLsimple(xmlNodePtr node, XMLStyle xmlStyle) const;
   void toXML(xmlNodePtr node, XMLStyle xmlStyle) const;
   boost::optional<TStage> stage() const;
+  int getStagePriority() const;
   void isSelfCheckInPossible(bool first_segment, bool notRefusalExists, bool refusalExists) const;
+
+  static int getStagePriority(const ASTRA::TClientType& client_type,
+                              const boost::optional<TStage>& checkInStage,
+                              const boost::optional<TStage>& cancelStage);
   static void isSelfCheckInPossible(const ASTRA::TClientType& client_type,
                                     const boost::optional<TStage>& checkInStage,
                                     const boost::optional<TStage>& cancelStage,
                                     bool first_segment,
                                     bool notRefusalExists,
                                     bool refusalExists);
+#if 0
+  static void isSelfCheckInPossibleTest();
+#endif
+
+  bool setIfSuitable(const TPNRFilter &filter,
+                     const TAdvTripInfo& oper,
+                     const TSimpleMktFlight& mark);
 
   private:
     boost::optional<TStage> stage(const TStage_Type& type) const;
@@ -254,6 +290,9 @@ struct TPNRSegInfo
 
   bool fromDB(int point_id, const TTripRoute &route, TQuery &Qry);
   bool filterFromDB(const TPNRFilter &filter);
+  bool setIfSuitable(const TPNRFilter &filter,
+                     const TAdvTripInfo& flt,
+                     const CheckIn::TSimplePaxItem& pax);
   bool fromTestPax(int point_id, const TTripRoute &route, const TTestPaxInfo &pax);
   void getMarkFlt(const TFlightInfo &flt, TTripInfo &mark) const;
   void toXML(xmlNodePtr node, XMLStyle xmlStyle) const;
@@ -287,6 +326,7 @@ struct TPaxInfo
   };
 
   bool filterFromDB(const TPNRFilter &filter, TQuery &Qry, bool ignore_reg_no);
+  bool setIfSuitable(const TPNRFilter& filter, const CheckIn::TSimplePaxItem& pax, bool ignore_reg_no=false);
   bool fromTestPax(const TTestPaxInfo &pax);
   void toXML(xmlNodePtr node) const;
 };
@@ -303,18 +343,36 @@ struct TPNRInfo
   void add(const TPaxInfo &pax);
   bool fromDBadditional(const TFlightInfo &flt, const TDestInfo &dest);
   void toXML(xmlNodePtr node, XMLStyle xmlStyle) const;
+
+  int getFirstPointDep() const;
 };
 
 struct TPNRs
 {
   std::set<TFlightInfo> flights;
   std::map< int/*pnr_id*/, TPNRInfo > pnrs; //все PNR, которые подходят к критериям поиска
+  boost::optional<AstraLocale::LexemaData> error;
 
   bool add(const TFlightInfo &flt, const TPNRSegInfo &seg, const TPaxInfo &pax, bool is_test);
   const TFlightInfo& getFlightInfo(int point_dep) const;
   const TPNRInfo& getPNRInfo(int pnr_id) const;
+  int getFirstPnrId() const;
+  const TPNRInfo& getFirstPNRInfo() const;
+  TPNRInfo& getFirstPNRInfo();
+
   int calcStagePriority(int pnr_id) const;
+  boost::optional<TDateTime> getFirstSegTime() const;
   void toXML(xmlNodePtr node, bool is_primary, XMLStyle xmlStyle) const;
+  void trace(XMLStyle xmlStyle) const;
+};
+
+class TPNRsSortOrder
+{
+  private:
+    TDateTime _timePoint;
+  public:
+    TPNRsSortOrder(const TDateTime& timePoint) : _timePoint(timePoint) {}
+    bool operator () (const TPNRs &item1, const TPNRs &item2) const;
 };
 
 class TMultiPNRs : public TPNRs
@@ -367,7 +425,7 @@ class TMultiPNRsList
     }
 };
 
-void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, int pass, bool ignore_reg_no=false);
+void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, bool ignore_reg_no=false);
 
 struct TPnrData
 {
