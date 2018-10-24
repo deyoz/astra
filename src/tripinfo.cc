@@ -1027,7 +1027,8 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "craft_stage", tripStages.getStage( stCraft ) );
   };
 
-  if (reqInfo->screen.name == "AIR.EXE" && reqInfo->desk.airp == "ВНК")
+/* попросили убрать работу с табло 24.10.1018 Feature #33436
+ *  if (reqInfo->screen.name == "AIR.EXE" && reqInfo->desk.airp == "ВНК")
   {
     TQuery Qryh( &OraSession );
     Qryh.Clear();
@@ -1040,7 +1041,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     Qryh.Execute();
     if (!Qryh.Eof)
       NewTextChild( node, "start_check_info", (int)!Qryh.FieldIsNULL( "start_time" ) );
-  };
+  };*/
 
   if (reqInfo->screen.name == "AIR.EXE" ||
       reqInfo->screen.name == "BRDBUS.EXE" ||
