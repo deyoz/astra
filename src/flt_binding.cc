@@ -56,16 +56,7 @@ void TFltBinding::unbind_flt(int point_id, int point_id_spp)
 void TTlgBinding::after_bind_or_unbind_flt(int point_id_tlg, int point_id_spp, bool unbind)
 {
   crs_recount(point_id_tlg,point_id_spp,unbind?false:check_comp);
-  TPointIdsForCheck point_ids_spp_layers;
-  for(int layer=0;layer<(int)cltTypeNum;layer++)
-    if (IsTlgCompLayer((TCompLayerType)layer))
-    {
-      TPointIdsForCheck point_ids_spp;
-      SyncTripCompLayers(point_id_tlg, point_id_spp, (TCompLayerType)layer, point_ids_spp);
-      point_ids_spp_layers.insert( point_ids_spp.begin(), point_ids_spp.end() );
-    };
-  check_layer_change(point_ids_spp_layers, __FUNCTION__);
-
+  update_tlg_comp_layers( point_id_tlg, point_id_spp );
   if (!unbind) {
     add_trip_task(point_id_spp, SYNC_ALL_CHKD, "");
     TDateTime start_time;
