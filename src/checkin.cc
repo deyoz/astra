@@ -3219,6 +3219,7 @@ bool CheckInInterface::ParseFQTRem(TypeB::TTlgParser &tlg, string &rem_text, Che
   return false;
 }
 
+/*
 bool CheckInInterface::CheckAPPSRems(const std::multiset<CheckIn::TPaxRemItem> &rems, std::string& override, bool& is_forced)
 {
   for(multiset<CheckIn::TPaxRemItem>::const_iterator r=rems.begin(); r!=rems.end(); ++r)
@@ -3237,6 +3238,56 @@ bool CheckInInterface::CheckAPPSRems(const std::multiset<CheckIn::TPaxRemItem> &
       boost::replace_all(override, "AAE", "GAE");
   };
   return is_forced;
+}
+*/
+
+string CountryCodeFromRemText(string text)
+{
+  string result;
+  size_t delim_pos = text.find_first_of(" /");
+  if (delim_pos != string::npos && delim_pos < text.length())
+  {
+    string tail = text.substr(delim_pos + 1);
+    TElemFmt fmt;
+    string country_code = ElemToElemId(etCountry, tail, fmt);
+    if (fmt != efmtUnknown)
+    {
+      const TCountriesRow& countryRow = static_cast<const TCountriesRow&>(base_tables.get("countries").get_row("code", country_code));
+      result = countryRow.code_lat;
+    }
+  }
+  LogTrace(TRACE5) << __func__ << " text = '" << text << "' result = '" << result << "'";
+  return result;
+}
+
+void VerifyAPPSOverrideRem(const CheckIn::TPaxRemItem &rem)
+{
+  if (rem.code == "OVRA" or rem.code == "OVRG")
+    if (CountryCodeFromRemText(rem.text).empty())
+      throw UserException("MSG.APPS_OVERRIDE_COUNTRY_INVALID", LParams() << LParam("code", rem.code));
+}
+
+void HandleAPPSRems(const std::multiset<CheckIn::TPaxRemItem> &rems, std::string& override, bool& is_forced)
+{
+  struct TAppsOverrideCode { bool A = false; bool G = false; };
+  map<string, TAppsOverrideCode> code_map; // country, override code
+  for (const auto& rem : rems)
+  {
+    if (rem.code == "RSIA") is_forced = true;
+    if (rem.code == "OVRA") code_map[CountryCodeFromRemText(rem.text)].A = true;
+    if (rem.code == "OVRG") code_map[CountryCodeFromRemText(rem.text)].G = true;
+  }
+  string result;
+  for (const auto& code_pair : code_map)
+  {
+    string code;
+    if (code_pair.second.A) code = "A";
+    if (code_pair.second.G) code = "G";
+    string country = code_pair.first;
+    if (!code.empty() && !country.empty()) result += (code + country);
+  }
+  override = result.substr(0, 15);
+  LogTrace(TRACE5) << __func__ << " override = '" << override << "'";
 }
 
 boost::optional<std::string> CheckRefusability(const TAdvTripInfo& fltInfo, int pax_id)
@@ -4737,6 +4788,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 if (r->code=="STCR") flagSTCR=true;
                 if (r->code=="EXST") flagEXST=true;
 
+                VerifyAPPSOverrideRem(*r);
+
                 if (!(reqInfo->client_type==ctTerm && reqInfo->desk.compatible(FQT_TIER_LEVEL_VERSION)))
                 {
                   //проверим корректность ремарки FQT...
@@ -5590,8 +5643,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               if ( need_apps ) {
                 string override;
                 bool is_forced = false;
-                // проверим ремарки только в случае записи изменений
-                CheckInInterface::CheckAPPSRems( p->rems, override, is_forced );
+                HandleAPPSRems(p->rems, override, is_forced);
                 processPax( pax.id, override, is_forced );
               }
             }
