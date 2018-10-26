@@ -693,6 +693,10 @@ class TRFISCListItemsCache
   public:
     void getRFISCListItems(const TPaxSegRFISCKey& key,
                            TRFISCListItems& items) const;
+    bool isRFISCGrpExists(const TPaxSegRFISCKey& key,
+                          const std::string &grp, const std::string &subgrp) const;
+    std::string getNameViewUnambiguous(const TPaxSegRFISCKey &key,
+                                       const std::string& lang="") const;
     void dumpCache() const;
     void clearCache() { secret_map.clear(); }
 };
