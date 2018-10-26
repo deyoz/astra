@@ -23,12 +23,12 @@ const TBagConcepts& BagConcepts()
   return bagConcepts;
 };
 
-void TBagNormUnit::set(const Ticketing::Baggage::Baggage_t &value)
+void TBagUnit::set(const Ticketing::Baggage::Baggage_t &value)
 {
   unit=value;
 }
 
-void TBagNormUnit::set(const std::string &value)
+void TBagUnit::set(const std::string &value)
 {
   if      (value=="PC") unit=Ticketing::Baggage::NumPieces;
   else if (value=="KG") unit=Ticketing::Baggage::WeightKilo;
@@ -36,12 +36,12 @@ void TBagNormUnit::set(const std::string &value)
   else                  unit=Ticketing::Baggage::Nil;
 }
 
-Ticketing::Baggage::Baggage_t TBagNormUnit::get() const
+Ticketing::Baggage::Baggage_t TBagUnit::get() const
 {
   return unit;
 }
 
-std::string TBagNormUnit::get_db_form() const
+std::string TBagUnit::get_db_form() const
 {
   switch(unit)
   {
@@ -53,7 +53,7 @@ std::string TBagNormUnit::get_db_form() const
   return "";
 }
 
-std::string TBagNormUnit::get_lexeme_form() const
+std::string TBagUnit::get_lexeme_form() const
 {
   switch(unit)
   {
@@ -63,6 +63,15 @@ std::string TBagNormUnit::get_lexeme_form() const
     case Ticketing::Baggage::Nil:          return "";
   }
   return "";
+}
+
+std::string TBagQuantity::view(const AstraLocale::OutputLang &lang, const bool &unitRequired) const
+{
+  ostringstream s;
+  s << quantity;
+  if (unitRequired)
+    s << lowerc(AstraLocale::getLocaleText(unit.get_lexeme_form(), lang.get()));
+  return s.str();
 }
 
 namespace Sirena

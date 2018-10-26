@@ -476,7 +476,7 @@ void CouponXmlView::operator () (ViewerData &Data, const list<Coupon> &lcpn) con
     ostringstream ebd;
     if(itin.luggage().haveLuggage())
         ebd << itin.luggage()->quantity()
-            << AstraLocale::getLocaleText(TBagNormUnit(itin.luggage()->chargeQualifier()).get_lexeme_form());
+            << AstraLocale::getLocaleText(TBagUnit(itin.luggage()->chargeQualifier()).get_lexeme_form());
     else
         ebd << AstraLocale::getLocaleText("…’");
 

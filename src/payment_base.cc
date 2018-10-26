@@ -12,6 +12,72 @@ using namespace AstraLocale;
 using namespace EXCEPTIONS;
 using namespace BASIC::date_time;
 
+TComplexBagExcess::TComplexBagExcess(const TBagQuantity& excess1,
+                                     const TBagQuantity& excess2) :
+  pc(0, TBagUnit()),
+  wt(0, TBagUnit())
+{
+  if (excess1.getUnit()==Ticketing::Baggage::NumPieces)
+    pc=excess1;
+  if (excess2.getUnit()==Ticketing::Baggage::NumPieces)
+    pc=excess2;
+  if (excess1.getUnit()==Ticketing::Baggage::WeightKilo ||
+      excess1.getUnit()==Ticketing::Baggage::WeightPounds)
+    wt=excess1;
+  if (excess2.getUnit()==Ticketing::Baggage::WeightKilo ||
+      excess2.getUnit()==Ticketing::Baggage::WeightPounds)
+    wt=excess2;
+
+  if (pc.empty() || wt.empty())
+    throw Exception("%s: wrong parameters (excess1=%s, excess2=%s)",
+                    __FUNCTION__,
+                    excess1.view(AstraLocale::OutputLang(LANG_EN)).c_str(),
+                    excess2.view(AstraLocale::OutputLang(LANG_EN)).c_str());
+}
+
+std::string TComplexBagExcess::view(const AstraLocale::OutputLang &lang,
+                                    const bool &unitRequired,
+                                    const std::string& separator) const
+{
+  ostringstream s;
+  if (!wt.zero() && !pc.zero())
+    s << wt.view(lang, true) << separator << pc.view(lang, true);
+  else
+  {
+    if (!wt.zero())
+      s << wt.view(lang, unitRequired);
+    else if (!pc.zero())
+      s << pc.view(lang, unitRequired);
+    else
+      s << "0";
+  };
+  return s.str();
+}
+
+void TComplexBagExcessNodeList::add(xmlNodePtr parent,
+                                    const char *name,
+                                    const TBagQuantity& excess1,
+                                    const TBagQuantity& excess2)
+{
+  if (parent==nullptr) return;
+  TComplexBagExcess excess(excess1, excess2);
+  if (_containsOnlyNonZeroExcess && excess.pc.zero() && excess.wt.zero()) return;
+  if (!excess.pc.zero()) pcExists=true;
+  if (!excess.wt.zero()) wtExists=true;
+  excessList.emplace_front(NewTextChild(parent, name, "?"), excess);
+}
+
+void TComplexBagExcessNodeList::apply() const
+{
+  try
+  {
+    bool unitRequiredTmp=unitRequired();
+    for(const auto& i : excessList)
+      NodeSetContent(i.first, i.second.view(_lang, unitRequiredTmp, _separator));
+  }
+  catch(...) {}
+}
+
 namespace CheckIn
 {
 

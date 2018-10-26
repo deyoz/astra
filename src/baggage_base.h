@@ -92,14 +92,14 @@ class TBagConcepts : public ASTRA::PairList<TBagConcept::Enum, std::string>
 
 const TBagConcepts& BagConcepts();
 
-class TBagNormUnit
+class TBagUnit
 {
   private:
     Ticketing::Baggage::Baggage_t unit;
   public:
-    TBagNormUnit() : unit(Ticketing::Baggage::Nil) {}
-    TBagNormUnit(const Ticketing::Baggage::Baggage_t &value) : unit(value) {}
-    TBagNormUnit(const std::string &value) { set(value); }
+    TBagUnit() : unit(Ticketing::Baggage::Nil) {}
+    TBagUnit(const Ticketing::Baggage::Baggage_t &value) : unit(value) {}
+    TBagUnit(const std::string &value) { set(value); }
     void clear()
     {
       unit=Ticketing::Baggage::Nil;
@@ -113,6 +113,34 @@ class TBagNormUnit
     Ticketing::Baggage::Baggage_t get() const;
     std::string get_db_form() const;
     std::string get_lexeme_form() const;
+};
+
+class TBagQuantity
+{
+  private:
+    int quantity;
+    TBagUnit unit;
+  public:
+    TBagQuantity(const int& _quantity, const TBagUnit& _unit) :
+      quantity(_quantity), unit(_unit) {}
+    std::string view(const AstraLocale::OutputLang &lang, const bool &unitRequired=true) const;
+    Ticketing::Baggage::Baggage_t getUnit() const { return unit.get(); }
+    bool empty() const { return unit.empty(); }
+    bool zero() const { return quantity==0; }
+};
+
+class TBagPieces : public TBagQuantity
+{
+  public:
+    TBagPieces(const int& _quantity) :
+      TBagQuantity(_quantity, Ticketing::Baggage::NumPieces) {}
+};
+
+class TBagKilos : public TBagQuantity
+{
+  public:
+    TBagKilos(const int& _quantity) :
+      TBagQuantity(_quantity, Ticketing::Baggage::WeightKilo) {}
 };
 
 namespace Sirena

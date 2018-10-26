@@ -4,6 +4,53 @@
 #include "exceptions.h"
 #include "baggage_wt.h"
 #include "rfisc.h"
+#include <etick/tick_data.h>
+#include <forward_list>
+
+class TComplexBagExcess
+{
+  friend class TComplexBagExcessNodeList;
+  private:
+    TBagQuantity pc, wt;
+  public:
+    TComplexBagExcess(const TBagQuantity& excess1,
+                      const TBagQuantity& excess2);
+    std::string view(const AstraLocale::OutputLang &lang,
+                     const bool &unitRequired,
+                     const std::string& separator="/") const;
+
+};
+
+class TComplexBagExcessNodeList
+{
+  private:
+    void apply() const;
+    std::forward_list<std::pair<xmlNodePtr, TComplexBagExcess>> excessList;
+    bool pcExists, wtExists;
+    bool _containsOnlyNonZeroExcess;
+    AstraLocale::OutputLang _lang;
+    bool _unitRequiredAnyway;
+    std::string _separator;
+  public:
+    void add(xmlNodePtr parent,
+             const char *name,
+             const TBagQuantity& excess1,
+             const TBagQuantity& excess2);
+
+    TComplexBagExcessNodeList(const bool& containsOnlyNonZeroExcess,
+                              const AstraLocale::OutputLang &lang,
+                              const bool &unitRequiredAnyway=false,
+                              const std::string& separator="/") :
+      pcExists(false),
+      wtExists(false),
+      _containsOnlyNonZeroExcess(containsOnlyNonZeroExcess),
+      _lang(lang),
+      _unitRequiredAnyway(unitRequiredAnyway),
+      _separator(separator) {}
+    ~TComplexBagExcessNodeList() { apply(); }
+
+    bool unitRequired() const { return (pcExists && wtExists) || _unitRequiredAnyway; }
+};
 
 namespace CheckIn
 {

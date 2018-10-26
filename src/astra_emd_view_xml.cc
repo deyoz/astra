@@ -190,7 +190,7 @@ void EmdXmlView::viewEmdTicketCoupons(const std::list<EmdCoupon>& lCpn) const
         ostringstream ossLuggage;
         if(cpn.haveItin() && cpn.itin().luggage().haveLuggage())
             ossLuggage << cpn.itin().luggage()->quantity()
-                       << AstraLocale::getLocaleText(TBagNormUnit(cpn.itin().luggage()->chargeQualifier()).get_lexeme_form());
+                       << AstraLocale::getLocaleText(TBagUnit(cpn.itin().luggage()->chargeQualifier()).get_lexeme_form());
         else
             ossLuggage << "-";
 
