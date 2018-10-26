@@ -314,12 +314,8 @@ bool TServicePaymentListWithAuto::isRFISCGrpExists(int pax_id, const string &grp
     if (i.pc and (i.pax_id == pax_id || i.pax_id == ASTRA::NoExists) and i.trfer_num == 0)
     {
       TPaxSegRFISCKey key(Sirena::TPaxSegKey(i.pax_id, i.trfer_num), i.pc.get());
-      TRFISCListItems items;
-      getRFISCListItems(key, items);
-      for(const auto& j : items)
-        if (j.grp == grp and
-            (subgrp.empty() or j.subgrp == subgrp)) return true;
 
+      if (TRFISCListItemsCache::isRFISCGrpExists(key, grp, subgrp)) return true;
     };
   };
   return false;
