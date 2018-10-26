@@ -954,7 +954,11 @@ void SeasonInterface::GetSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
 
 bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day, TDateTime vd, TDestList &ds)
 {
-  ProgTrace( TRACE5, "move_id=%d, first_day=%s", move_id, DateTimeToStr( first_day, "dd.mm.yy hh:nn" ).c_str() );
+  ProgTrace( TRACE5, "da=%s, move_id=%d, first_day=%s, vd=%s", 
+             DateTimeToStr( da, "dd.mm.yy hh:nn" ).c_str(),
+             move_id, 
+             DateTimeToStr( first_day, "dd.mm.yy hh:nn" ).c_str(),
+             DateTimeToStr( vd, "dd.mm.yy hh:nn" ).c_str() );
 
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool canUseAirline, canUseAirp; /* можно ли использовать данный рейс */
@@ -998,7 +1002,7 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
       modf( (double)d.scd_in, &f1 );
       if ( f1 == da ) {
         candests = candests || filter.isFilteredUTCTime( da, first_day, d.scd_in );
-        ProgTrace( TRACE5, "filter.firsttime=%s, filter.lasttime=%s, d,scd_in=%s	, res=%d",
+        ProgTrace( TRACE5, "filter.firsttime=%s, filter.lasttime=%s, d,scd_in=%s, res=%d",
                    DateTimeToStr( filter.firstTime, "dd hh:nn" ).c_str(),
                    DateTimeToStr( filter.lastTime, "dd hh:nn" ).c_str(),
                    DateTimeToStr( d.scd_in, "dd hh:nn" ).c_str(), candests );
@@ -1010,7 +1014,10 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
     d.region = AirpTZRegion( Qry.FieldAsString( "airp" ), false );
 
     //d.diff = ddiff( d.region, first_day, vd );
-    d.diff = getDatesOffsetsDiff(first_day, vd, d.region);
+    //first_day - дата+время выполнения рейса, vd - СПП за дату
+    double vdt = modf( (double)first_day, &f1 ) + vd;
+    ProgTrace( TRACE5, "create season time %s", DateTimeToStr( vdt, "dd hh:nn" ).c_str() );
+    d.diff = getDatesOffsetsDiff(first_day, vdt, d.region);
 
     ProgTrace( TRACE5, "dest: region=%s, first_date=%s, curr_date=%s, diff=%f",
                        d.region.c_str(), DateTimeToStr( first_day, "dd.mm.yy hh:nn" ).c_str(),
