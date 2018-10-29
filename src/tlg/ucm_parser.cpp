@@ -1,5 +1,4 @@
 #include "ucm_parser.h"
-#include "franchise.h"
 #include "astra_misc.h" // for DayToDate
 #include "date_time.h" // for NowUTC()
 #include <utility>
@@ -9,7 +8,6 @@
 #include "serverlib/slogger.h"
 
 using namespace std;
-using namespace ASTRA;
 using namespace BASIC::date_time;
 
 namespace TypeB
@@ -17,8 +15,6 @@ namespace TypeB
 
 TTlgPartInfo ParseUCMHeading(TTlgPartInfo heading, TUCMHeadingInfo &info, TFlightsForBind &flts)
 {
-    LogTrace(TRACE5) << "ParseUCMHeading START";
-    LogTrace(TRACE5) << "heading.p: '" << heading.p << "'";
     TTlgPartInfo next;
     const char *p, *line_p;
     TTlgParser tlg;
@@ -28,7 +24,7 @@ TTlgPartInfo ParseUCMHeading(TTlgPartInfo heading, TUCMHeadingInfo &info, TFligh
         do
         {
             if ((p=tlg.GetToEOLLexeme(line_p))==NULL) continue;
-            info.flt_info.parse(tlg.lex,flts,info.tlg_cat);
+            info.flt_info.parse(tlg.lex,flts);
             line_p=tlg.NextLine(line_p);
             return nextPart(heading, line_p);
         }
@@ -101,19 +97,8 @@ namespace regex {
     static const string date = "(\\d{2})";
 }
 
-void TUCMFltInfo::clear()
+void TUCMFltInfo::parse(const char *val, TFlightsForBind &flts)
 {
-    src.clear();
-    airline.clear();
-    airp.clear();
-    flt_no = NoExists;
-    suffix.clear();
-    date = NoExists;
-}
-
-void TUCMFltInfo::parse(const char *val, TFlightsForBind &flts, TTlgCategory tlg_cat)
-{
-    clear();
     src = val; // это важно: boost::regex_match(strin(val), results, e2) не прокатит, непредсказуемо.
 
     static const boost::regex e1("^" + regex::airline + regex::flt_no + "/" + regex::flt_no + "/" + regex::date + ".*");
@@ -136,22 +121,6 @@ void TUCMFltInfo::parse(const char *val, TFlightsForBind &flts, TTlgCategory tlg
     } else
         throw ETlgError(tlgeNotMonitorNotAlarm, "Wrong flight: " + src);
 
-    /*
-    // Применение франчайз
-    TTripInfo trip_info;
-    trip_info.airline = airline;
-    trip_info.airp = airp;
-    trip_info.flt_no = flt_no;
-    trip_info.suffix = suffix;
-    trip_info.scd_out = date;
-    Franchise::TProp franchise_prop;
-    if(franchise_prop.get_franchisee(trip_info, Franchise::TPropType::wb) and franchise_prop.val == Franchise::pvYes) {
-        airline = franchise_prop.oper.airline;
-        flt_no = franchise_prop.oper.flt_no;
-        suffix = franchise_prop.oper.suffix;
-    }
-    */
-
     // привязка к рейсы
     flts.push_back(TFltForBind(toFltInfo(),  btFirstSeg, TSearchFltInfoPtr()));
 }
@@ -169,19 +138,6 @@ TFltInfo TUCMFltInfo::toFltInfo()
     *result.airp_arv = 0;
     result.dump();
     return result;
-}
-
-string TUCMFltInfo::toString()
-{
-    ostringstream result;
-    result
-        << "src: '" << src << "': "
-        << airline
-        << setw(3) << setfill('0') << flt_no
-        << suffix << ' '
-        << airp << ' '
-        << DateTimeToStr(date, ServerFormatDateTimeAsString);
-    return result.str();
 }
 
 }

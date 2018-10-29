@@ -343,13 +343,8 @@ namespace BIPrintRules {
                 grp_id = grpQry.get().FieldAsInteger("grp_id");
             }
             if(grps.find(grp_id) == grps.end()) { // Rules for this group not queried yet
-                // Если тестовый пакс, кладем пустое правило
-                if(isTestPaxId(grp_id))
-                    items.insert(make_pair(pax_id, TRule()));
-                else {
-                    getByGrpId(grp_id);
-                    grps.insert(grp_id);
-                }
+                getByGrpId(grp_id);
+                grps.insert(grp_id);
             }
             iPax = items.find(pax_id);
             if(iPax == items.end())
