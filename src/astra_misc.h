@@ -522,6 +522,7 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsNoRefuseIfBrd=44,             //Запрет отмены регистрации если пассажир статус "посажен"
                     tsBanAdultsWithBabyInOneZone=54,//Запрет регистрации пассажиров с младецами в одном блоке мест
                     tsAdultsWithBabyInOneZoneWL=55, //Регистрация на ЛО взрослого с ребенком, если нет больше блоков без младенцев
+                    tsProcessInboundLDM=56,         //Обработка входных LDM
                     tsDeniedSeatCHINEmergencyExit=60, //Регистрация на ЛО взрослого с ребенком, если нет больше блоков без младенцев
                     tsDeniedSeatOnPNLAfterPay=61,  //Запред рассадки на оплаченные места из PNL/ADL
                     tsShowTakeoffDiffTakeoffACT=70,     //Выводить сообщение в СОПП о разнице времен факта вылета и планового или разсчетного времени
