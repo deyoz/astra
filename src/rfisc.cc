@@ -1430,8 +1430,8 @@ bool TRFISCListItemsCache::isRFISCGrpExists(const TPaxSegRFISCKey& key,
   return false;
 }
 
-std::string TRFISCListItemsCache::getNameViewUnambiguous(const TPaxSegRFISCKey& key,
-                                                         const std::string& lang) const
+std::string TRFISCListItemsCache::getRFISCNameIfUnambiguous(const TPaxSegRFISCKey& key,
+                                                            const std::string& lang) const
 {
   std::string result;
 
@@ -1468,6 +1468,19 @@ bool TPaidRFISCListWithAuto::isRFISCGrpExists(int pax_id, const std::string &grp
     };
   };
   return false;
+}
+
+std::string TPaidRFISCListWithAuto::getRFISCName(const TPaidRFISCItem& item, const std::string& lang) const
+{
+  std::string result;
+
+  if (item.is_auto_service() || !item.list_item)
+    result = getRFISCNameIfUnambiguous(item, lang);
+
+  if (result.empty() && item.list_item)
+    return item.list_item->name_view(lang);
+
+  return result;
 }
 
 void TPaidRFISCListWithAuto::addItem(const TGrpServiceAutoItem &svcAuto, bool squeeze)
