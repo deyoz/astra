@@ -1419,6 +1419,33 @@ void TRFISCListItemsCache::getRFISCListItems(const TPaxSegRFISCKey& key,
     items.push_back(key.list_item.get());
 }
 
+bool TRFISCListItemsCache::isRFISCGrpExists(const TPaxSegRFISCKey& key,
+                                            const string &grp, const string &subgrp) const
+{
+  TRFISCListItems items;
+  getRFISCListItems(key, items);
+  for(const auto& j : items)
+    if (j.grp == grp and
+        (subgrp.empty() or j.subgrp == subgrp)) return true;
+  return false;
+}
+
+std::string TRFISCListItemsCache::getRFISCNameIfUnambiguous(const TPaxSegRFISCKey& key,
+                                                            const std::string& lang) const
+{
+  std::string result;
+
+  TRFISCListItems items;
+  getRFISCListItems(key, items);
+  for(const TRFISCListItem& item : items)
+    if (result.empty())
+      result=item.name_view(lang);
+    else
+      if (result!=item.name_view(lang)) return "";
+
+  return result;
+}
+
 void TRFISCListItemsCache::dumpCache() const
 {
   ProgTrace(TRACE5, "secret_map: start dump ");
@@ -1437,14 +1464,23 @@ bool TPaidRFISCListWithAuto::isRFISCGrpExists(int pax_id, const std::string &grp
   {
     if (i.second.pax_id == pax_id and i.second.trfer_num == 0)
     {
-      TRFISCListItems items;
-      getRFISCListItems(i.second, items);
-      for(const auto& j : items)
-        if (j.grp == grp and
-            (subgrp.empty() or j.subgrp == subgrp)) return true;
+      if (TRFISCListItemsCache::isRFISCGrpExists(i.second, grp, subgrp)) return true;
     };
   };
   return false;
+}
+
+std::string TPaidRFISCListWithAuto::getRFISCName(const TPaidRFISCItem& item, const std::string& lang) const
+{
+  std::string result;
+
+  if (item.is_auto_service() || !item.list_item)
+    result = getRFISCNameIfUnambiguous(item, lang);
+
+  if (result.empty() && item.list_item)
+    return item.list_item->name_view(lang);
+
+  return result;
 }
 
 void TPaidRFISCListWithAuto::addItem(const TGrpServiceAutoItem &svcAuto, bool squeeze)

@@ -3787,7 +3787,7 @@ void SERVICES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                     //  Код услуги
                     row.RFISC = item.list_item->RFISC;
                     //  Описание
-                    row.desc = item.list_item->name_view();
+                    row.desc = prList.getRFISCName(item, rpt_params.GetLang());
                 }
                 //  цикл по всем квитанциям группы
                 for (CheckIn::TServicePaymentListWithAuto::iterator sp = spList.begin(); sp != spList.end(); ++ sp)
