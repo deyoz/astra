@@ -1864,7 +1864,8 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
         if(not num.empty() and num[0] == '0')
                 throw AstraLocale::UserException("MSG.INVALID_COPIES");
     }
-  if (cache.code() == "BI_PRINT_RULES") {
+  if (cache.code() == "BI_PRINT_RULES" ||
+      cache.code() == "DCS_SERVICE_APPLYING") {
     string rfisc;
     if (
             row.status != usDeleted and

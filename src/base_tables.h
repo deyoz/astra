@@ -1262,6 +1262,22 @@ class TVoucherTypes: public TCodeBaseTable {
     }
 };
 
+class DCSServiceTypesRow: public TCodeBaseTableRow {
+  public:
+    const char *get_row_name() const { return "DCSServiceTypesRow"; }
+};
+
+class DCSServiceTypes: public TCodeBaseTable {
+  protected:
+    const char *get_table_name() { return "DCSServiceTypes"; }
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {} //всегда актуальна
+  public:
+    DCSServiceTypes() {
+        Init( "dcs_service_types" );
+    }
+};
+
 class TBaseTables {
     private:
         typedef std::map<std::string, TBaseTable *> TTables;
