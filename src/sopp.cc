@@ -59,7 +59,7 @@ using namespace boost::local_time;
 #define NOT_CHANGE_AIRLINE_FLT_NO_SCD_
 
 enum TModule { tSOPP, tISG, tSPPCEK };
-enum TSoppWriteOwner { ownerDisp, ownerMVT };
+enum TSoppWriteOwner { ownerDisp, ownerMVT, ownerLDM };
 
 const
   int TAKEOFF_DELAY_MIN_SHOW_MESSAGE = 15; //мин
@@ -3859,11 +3859,13 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
                 id->remark += " ";
           id->remark += "изм. борта с " + old_dest.bort; //!!!locale
           if ( !id->bort.empty() )
-              reqInfo->LocaleToLog("EVT.MODIFY_BOARD_TYPE", LEvntPrms() << PrmSmpl<std::string>("bort", id->bort)
+              reqInfo->LocaleToLog("EVT.MODIFY_BOARD_TYPE", LEvntPrms() << PrmLexema("owner",owner==ownerLDM?string("EVT.TLG.LDM"):string(""))
+                                << PrmSmpl<std::string>("bort", id->bort)
                                 << PrmElem<std::string>("airp", etAirp, id->airp), evtDisp, move_id, id->point_id);
         }
         else {
-            reqInfo->LocaleToLog("EVT.ASSIGNE_BOARD_TYPE", LEvntPrms() << PrmSmpl<std::string>("bort", id->bort)
+            reqInfo->LocaleToLog("EVT.ASSIGNE_BOARD_TYPE", LEvntPrms() << PrmLexema("owner",owner==ownerLDM?string("EVT.TLG.LDM"):string(""))
+                                 << PrmSmpl<std::string>("bort", id->bort)
                                  << PrmElem<std::string>("airp", etAirp, id->airp), evtDisp, move_id, id->point_id );
         }
         reSetCraft = true;
@@ -4469,6 +4471,8 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 {
   TBaseTable &baseairps = base_tables.get( "airps" );
     xmlNodePtr node = NodeAsNode( "data", reqNode );
+    TSoppWriteOwner write_owner = ownerDisp;
+    if(GetNode("fromLDM", node)) write_owner = ownerLDM;
     bool canExcept = NodeAsInteger( "canexcept", node );
     int move_id = NodeAsInteger( "move_id", node );
     xmlNodePtr snode = GetNode( "reference", node );
@@ -4730,7 +4734,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       dests.push_back( d );
       node = node->next;
   } // end while
-  internal_WriteDests( move_id, dests, reference, canExcept, resNode, ownerDisp );
+  internal_WriteDests( move_id, dests, reference, canExcept, resNode, write_owner );
   if ( GetNode( "data/notvalid", resNode ) ) {
     return;
   }
@@ -6841,4 +6845,79 @@ void set_flight_sets(int point_id, int f, int c, int y)
   };
   set_trip_sets(flt);
   puttrip_stages(point_id);
+}
+
+#include "serverlib/xml_stuff.h" // для xml_decode_nodelist
+
+void ChangeBortFromLDM(const std::string &bort, int point_id)
+{
+    // Ф-я вызывается из обработчика телеграмм, юзер и пульт пустые.
+    // В настройках юзера умолчальное время ustTimeLocalDesk
+    // Поменяем на UTC, чтобы не было падений при конвертации времен (выводить без конвертации)
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    reqInfo->user.sets.time = ustTimeUTC;
+
+    TCachedQuery Qry("select move_id from points where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
+    Qry.get().Execute();
+    int move_id = Qry.get().Eof ? NoExists : Qry.get().FieldAsInteger("move_id");
+    if(move_id != NoExists) {
+        ostringstream req;
+        req <<
+            "<?xml version='1.0' encoding='cp866'?> "
+            "<term> "
+            "  <query> "
+            "    <ReadDests> "
+            "      <move_id>" << move_id << "</move_id> "
+            "    </ReadDests> "
+            "    <response/>" // сам дописал, туда будет засовываться ответ
+            "  </query> "
+            "</term> ";
+        XMLDoc reqDoc(req.str());
+        xml_decode_nodelist(reqDoc.docPtr()->children);
+
+        xmlNodePtr rootNode=xmlDocGetRootElement(reqDoc.docPtr());
+        xmlNodePtr resNode = rootNode->children->children->next;
+        XMLRequestCtxt *ctxt = getXmlCtxt();
+        JxtInterfaceMng::Instance()->
+            GetInterface("sopp")->
+            OnEvent("ReadDests",  ctxt,
+                    rootNode->children->children,
+                    resNode
+                    );
+        xmlNodePtr destNode = GetNode("data/dests/dest", resNode);
+        if(destNode) {
+            bool changed = false;
+            for(; destNode; destNode = destNode->next) {
+                if(destNode->next != NULL and (NodeAsInteger("point_id", destNode) == point_id or changed)) {
+                    xmlNodePtr bortNode = GetNode("bort", destNode);
+                    bool modify = false;
+                    if(bortNode) {
+                        if(NodeAsString(bortNode) != bort) {
+                            NodeSetContent(bortNode, bort);
+                            modify = true;
+                            changed = true;
+                        }
+                    } else {
+                        NewTextChild(destNode, "bort", bort);
+                        modify = true;
+                        changed = true;
+                    }
+                    if(modify) NewTextChild(destNode, "modify");
+                    break;
+                }
+            }
+            if(changed) {
+                xmlNodePtr dataNode = GetNode("data", resNode);
+                NewTextChild(dataNode, "canexcept", 0);
+                NewTextChild(dataNode, "fromLDM");
+                xmlNodePtr writeAnswerNode = NewTextChild(dataNode, "writeAnswer");
+                JxtInterfaceMng::Instance()->
+                    GetInterface("sopp")->
+                    OnEvent("WriteDests",  ctxt,
+                            resNode,
+                            writeAnswerNode
+                           );
+            }
+        }
+    }
 }

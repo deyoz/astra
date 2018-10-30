@@ -1466,7 +1466,7 @@ void ParseFlight( const std::string &point_addr, const std::string &airp, std::s
       Qry.CreateVariable( "bort", otString, fl.bort );
       if ( fl.bort != dest.bort ) {
         if ( dest.bort.empty() ) {
-          reqInfo->LocaleToLog("EVT.ASSIGNE_BOARD_TYPE", LEvntPrms() << PrmSmpl<std::string>("bort", fl.bort)
+          reqInfo->LocaleToLog("EVT.ASSIGNE_BOARD_TYPE", LEvntPrms() << PrmLexema("owner","") << PrmSmpl<std::string>("bort", fl.bort)
                                << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
           change_comp = true;
         }

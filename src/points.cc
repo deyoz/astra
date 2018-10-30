@@ -993,10 +993,10 @@ void TPointsDest::DoEvents( int move_id, const TPointsDest &dest )
     reqInfo->LocaleToLog("EVT.ASSIGNE_CRAFT_TYPE", LEvntPrms() << PrmElem<std::string>("craft", etCraft, craft)
                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmChangeBort ) )
-    reqInfo->LocaleToLog("EVT.MODIFY_BOARD_TYPE", LEvntPrms() << PrmSmpl<std::string>("bort", bort)
+    reqInfo->LocaleToLog("EVT.MODIFY_BOARD_TYPE", LEvntPrms() << PrmLexema("owner","") << PrmSmpl<std::string>("bort", bort)
                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( events.isFlag( dmSetBort ) )
-    reqInfo->LocaleToLog("EVT.ASSIGNE_BOARD_TYPE", LEvntPrms() << PrmSmpl<std::string>("bort", bort)
+    reqInfo->LocaleToLog("EVT.ASSIGNE_BOARD_TYPE", LEvntPrms() << PrmLexema("owner","") << PrmSmpl<std::string>("bort", bort)
                          << PrmElem<std::string>("airp", etAirp, airp), evtDisp, move_id, point_id );
   if ( status != tdInsert &&
        ( events.isFlag( dmSetACTOUT ) ||

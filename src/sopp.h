@@ -424,6 +424,7 @@ void set_pr_tranzit(int point_id, int point_num, int first_point, bool new_pr_tr
 
 void SetFlightFact(int point_id, TDateTime utc_act_out);
 void getTripVouchers( int point_id, std::set<std::string> &trip_vouchers );
+void ChangeBortFromLDM(const std::string &bort, int point_id);
 
 #endif /*_SOPP_H_*/
 
