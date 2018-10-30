@@ -52,8 +52,6 @@ namespace TypeB
             } else
                 throw ETlgError(tlgeNotMonitorNotAlarm, "Wrong crew: " + crew);
 
-            LogTrace(TRACE5) << con.toString();
-
             /*
             TTlgParser tlg;
             const char *line_p=body.p;
@@ -78,8 +76,8 @@ namespace TypeB
                 TTripInfo flt;
                 flt.getByPointId(Qry.get().FieldAsInteger("point_id_spp"));
                 if(GetTripSets(tsProcessInboundLDM, flt)) {
-                    LogTrace(TRACE5) << "before ChangeBort point_id = " << Qry.get().FieldAsInteger(0);
                     ChangeBortFromLDM(con.bort, Qry.get().FieldAsInteger(0));
+                    UpdateCrew(Qry.get().FieldAsInteger(0), "", con.cockpit, con.cabin, ownerLDM);
                 }
             }
         }

@@ -9219,7 +9219,7 @@ void CheckInInterface::CrewCheckin(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
               }
             }
         }
-        UpdateCrew(flt.point_id, commander, cockpit, cabin);
+        UpdateCrew(flt.point_id, commander, cockpit, cabin, ownerDisp);
 
     }
     catch(...)

@@ -59,7 +59,6 @@ using namespace boost::local_time;
 #define NOT_CHANGE_AIRLINE_FLT_NO_SCD_
 
 enum TModule { tSOPP, tISG, tSPPCEK };
-enum TSoppWriteOwner { ownerDisp, ownerMVT, ownerLDM };
 
 const
   int TAKEOFF_DELAY_MIN_SHOW_MESSAGE = 15; //мин
@@ -2620,9 +2619,10 @@ void DeletePassengersAnswer( map<int,TAdvTripInfo> &segs, xmlNodePtr resNode )
   }
 }
 
-void UpdateCrew(int point_id, std::string commander, int cockpit, int cabin)
+void UpdateCrew(int point_id, std::string commander, int cockpit, int cabin, TSoppWriteOwner owner)
 {
     LEvntPrms params;
+    params << PrmLexema("owner",owner==ownerLDM?string("EVT.TLG.LDM"):string(""));
     TQuery Qry(&OraSession);
     Qry.SQLText =
       "BEGIN "
@@ -5639,7 +5639,7 @@ void SoppInterface::WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     cabin = NodeAsInteger("cabin", dataNode);
   else
     cabin = 0;
-  UpdateCrew(point_id, commander, cockpit, cabin);
+  UpdateCrew(point_id, commander, cockpit, cabin, ownerDisp);
 }
 
 void SoppInterface::ReadDoc(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

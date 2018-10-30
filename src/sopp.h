@@ -254,10 +254,12 @@ class TDeletePaxFilter
     TDeletePaxFilter():inbound_point_dep(ASTRA::NoExists),with_crew(false) {};
 };
 
+enum TSoppWriteOwner { ownerDisp, ownerMVT, ownerLDM };
+
 void DeletePassengers( int point_id, const TDeletePaxFilter &filter, std::map<int,TAdvTripInfo> &segs );
 void DeletePassengersAnswer( std::map<int,TAdvTripInfo> &segs, xmlNodePtr resNode );
 void validateField( const std::string &surname, const std::string &fieldname );
-void UpdateCrew( int point_id, std::string commander, int cockpit, int cabin );
+void UpdateCrew( int point_id, std::string commander, int cockpit, int cabin, TSoppWriteOwner owner );
 
 class SoppInterface : public JxtInterface
 {
