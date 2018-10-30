@@ -29,4 +29,4 @@ libtypeb: serverlib eticklib
 libjms: serverlib
 libnsi: serverlib
 libcoretypes: serverlib libnsi
-
+libssim: libnsi libcoretypes
