@@ -147,6 +147,7 @@ astra_SOURCES = \
   trip_tasks.cc \
   tripinfo.cc \
   typeb_utils.cc \
+  web_craft.cc \
   web_exchange.cc \
   web_main.cc \
   web_search.cc \
@@ -338,6 +339,7 @@ noinst_HEADERS = \
   trip_tasks.h \
   tripinfo.h \
   typeb_utils.h \
+  web_craft.h \
   web_exchange.h \
   web_main.h \
   web_search.h \

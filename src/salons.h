@@ -149,6 +149,18 @@ struct TPlaceLayer {
       time_create = vtime_create;
       priority = vpriority;
     }
+    std::string toString() const {
+      std::ostringstream buf;
+      buf << "layer_type=" << EncodeCompLayerType( layer_type );
+      buf << ",point_dep=" << point_dep;
+      if ( point_arv != ASTRA::NoExists ) {
+        buf << ",point_arv=" << point_arv;
+      }
+      if ( pax_id != ASTRA::NoExists ) {
+        buf << ",pax_id=" << pax_id;
+      }
+      return buf.str();
+    }
 };
 
 struct TRFISC {
@@ -883,6 +895,7 @@ class TPlace {
 
 typedef std::vector<TPlace> TPlaces;
 typedef TPlaces::iterator IPlace;
+typedef TPlaces::const_iterator CIPlace;
 
 struct TCompSectionLayers {
   TCompSection compSection;
