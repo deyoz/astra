@@ -19,6 +19,7 @@
 #include "points.h"
 #include "stages.h"
 #include "astra_date_time.h"
+#include "astra_service.h"
 #include "serverlib/xml_stuff.h"
 
 #define NICKNAME "DJEK"
@@ -765,7 +766,7 @@ namespace EXCH_CHECKIN_RESULT
           SetProp( n, "grp_tid", p->second.grp_tid );
         }
         AstraContext::SetContext( request.Sender, 0, XMLTreeToText( paxsDoc ) );
-        ProgTrace( TRACE5, "xmltreetotext=%s", XMLTreeToText( paxsDoc ).c_str() );
+        //ProgTrace( TRACE5, "xmltreetotext=%s", XMLTreeToText( paxsDoc ).c_str() );
       }
       catch( ... ) {
         xmlFreeDoc( paxsDoc );
@@ -915,7 +916,7 @@ namespace EXCH_CHECKIN_RESULT
           SetProp( n, "tid", p->second );
         }
         AstraContext::SetContext( request.Sender + ".flights", 0, XMLTreeToText( flightsDoc ) );
-        ProgTrace( TRACE5, "xmltreetotext=%s", XMLTreeToText( flightsDoc ).c_str() );
+        //ProgTrace( TRACE5, "xmltreetotext=%s", XMLTreeToText( flightsDoc ).c_str() );
       }
       catch( ... ) {
         xmlFreeDoc( flightsDoc );

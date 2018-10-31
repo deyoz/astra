@@ -1256,7 +1256,7 @@ bool TSeatPlaces::SeatSubGrp_On( SALONS2::TPoint FP, TSeatStep Step, int Wanted 
     Step = sRight;
   if ( Step == sUp )
     Step = sDown;
-//  ProgTrace( TRACE5, "SeatSubGrp_On FP=(%d,%d), Step=%d, Wanted=%d", FP.x, FP.y, Step, Wanted );
+//  ProgTrace( TRACE5, "Seatd_On FP=(%d,%d), Step=%d, Wanted=%d", FP.x, FP.y, Step, Wanted );
   int foundCount = 0; // кол-во найденных мест всего
   int foundBefore = 0; // кол-во найденных мест до и после FP
   int foundTubeBefore = 0;
