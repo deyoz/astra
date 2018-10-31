@@ -134,24 +134,19 @@ void TUCMFltInfo::parse(const char *val, TFlightsForBind &flts, TTlgCategory tlg
     } else
         throw ETlgError(tlgeNotMonitorNotAlarm, "Wrong flight: " + src);
 
-    /*
-    // Применение франчайз
     TTripInfo trip_info;
     trip_info.airline = airline;
-    trip_info.airp = airp;
+    trip_info.airp = airp; // TODO доставать АП из UCM & SLS
     trip_info.flt_no = flt_no;
     trip_info.suffix = suffix;
     trip_info.scd_out = date;
-    Franchise::TProp franchise_prop;
-    if(franchise_prop.get_franchisee(trip_info, Franchise::TPropType::wb) and franchise_prop.val == Franchise::pvYes) {
-        airline = franchise_prop.oper.airline;
-        flt_no = franchise_prop.oper.flt_no;
-        suffix = franchise_prop.oper.suffix;
-    }
-    */
+
+    vector<TTripInfo> franchise_flts;
+    get_wb_franchise_flts(trip_info, franchise_flts);
 
     // привязка к рейсы
-    flts.push_back(TFltForBind(toFltInfo(),  btFirstSeg, TSearchFltInfoPtr()));
+    for(const auto &flt: franchise_flts)
+        flts.push_back(TFltForBind(TFltInfo(flt),  btFirstSeg, TSearchFltInfoPtr()));
 }
 
 TFltInfo TUCMFltInfo::toFltInfo()

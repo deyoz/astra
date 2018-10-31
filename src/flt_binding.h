@@ -23,6 +23,7 @@ class TFltInfo
     {
       Clear();
     };
+    TFltInfo(const TTripInfo &flt);
     TFltInfo(const TFltInfo &flt)
     {
       *this=flt;
@@ -74,6 +75,10 @@ class TFltInfo
       result << " " << airp_dep << airp_arv;
       return result.str();
     }
+    void set_airline(const std::string &_airline);
+    void set_airp_dep(const std::string &_airp_dep);
+    void set_airp_arv(const std::string &_airp_arv);
+    void set_suffix(const std::string &_suffix);
 };
 
 class TlgSource
@@ -177,5 +182,7 @@ struct TFltForBind {
 typedef std::list<TFltForBind> TFlightsForBind;
 
 } //namespace TypeB
+
+void get_wb_franchise_flts(const TTripInfo &trip_info, std::vector<TTripInfo> &franchise_flts);
 
 #endif
