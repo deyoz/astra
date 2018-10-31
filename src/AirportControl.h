@@ -11,8 +11,7 @@ namespace Ticketing {
 class AirportControlNotFound : public EXCEPTIONS::Exception
 {
 public:
-    AirportControlNotFound(const Ticketing::Airline_t& airl,
-                           const Ticketing::TicketNum_t& tick,
+    AirportControlNotFound(const Ticketing::TicketNum_t& tick,
                            const Ticketing::CouponNum_t& cpn);
     AirportControlNotFound(const std::string& rl);
 };
@@ -32,8 +31,7 @@ public:
 class AirportControlCantBeReturned : public EXCEPTIONS::Exception
 {
 public:
-    AirportControlCantBeReturned(const Ticketing::Airline_t& airl,
-                                 const Ticketing::TicketNum_t& tick,
+    AirportControlCantBeReturned(const Ticketing::TicketNum_t& tick,
                                  const Ticketing::CouponNum_t& cpn);
 };
 
@@ -42,19 +40,12 @@ public:
 class AirportControl
 {
 public:
-    const Ticketing::Airline_t&   airline() const;
     const Ticketing::TicketNum_t& ticknum() const;
     const Ticketing::CouponNum_t& cpnnum()  const;
     const Dates::DateTime_t&      dateCr()  const;
     const std::string&            recloc()  const;
 
-    static AirportControl* readDb(const Ticketing::Airline_t& airline,
-                                  const Ticketing::TicketNum_t& tickNum,
-                                  const Ticketing::CouponNum_t& cpnNum,
-                                  bool throwNf = false);
-
-    static AirportControl* readDb(const std::string& airline,
-                                  const Ticketing::TicketNum_t& tickNum,
+    static AirportControl* readDb(const Ticketing::TicketNum_t& tickNum,
                                   const Ticketing::CouponNum_t& cpnNum,
                                   bool throwNf = false);
 
@@ -66,7 +57,6 @@ public:
     void deleteDb() const;
 
     static AirportControl* create(const std::string& recloc,
-                                  const Ticketing::Airline_t& airline,
                                   const Ticketing::TicketNum_t& ticknum,
                                   const Ticketing::CouponNum_t& cpnnum);
 
@@ -76,7 +66,6 @@ protected:
     AirportControl() {}
 
 private:
-    Ticketing::Airline_t   m_airline;
     Ticketing::TicketNum_t m_ticknum;
     Ticketing::CouponNum_t m_cpnnum;
     Dates::DateTime_t      m_dateCr;
@@ -85,13 +74,11 @@ private:
 
 std::ostream& operator<<(std::ostream& s, const AirportControl& ac);
 
-bool existsAirportControl(const Ticketing::Airline_t& airline,
-                          const Ticketing::TicketNum_t& ticknum,
+bool existsAirportControl(const Ticketing::TicketNum_t& ticknum,
                           const Ticketing::CouponNum_t& cpnnum,
                           bool throwErr);
 
-bool existsAirportControl(const std::string& airline,
-                          const std::string& tick_no,
+bool existsAirportControl(const std::string& tick_no,
                           const int& coupon_no,
                           bool throwErr);
 

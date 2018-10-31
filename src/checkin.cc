@@ -4721,8 +4721,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   throw UserException("MSG.ETICK.NEED_DISPLAY", LParams()<<LParam("etick", pax.tkn.no_str()));
 
                 if (ediFltParams.control_method &&
-                    !Ticketing::existsAirportControl(fltInfo.airline,
-                                                     pax.tkn.no,
+                    !Ticketing::existsAirportControl(pax.tkn.no,
                                                      pax.tkn.coupon,
                                                      false))
                   throw UserException("MSG.ETICK.NEED_DISPLAY", LParams()<<LParam("etick", pax.tkn.no_str()));

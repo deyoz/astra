@@ -763,7 +763,7 @@ $(KICK_IN)
         <class>ù</class>
         <status>K</status>
         <bag_refuse/>
-        <bag_types_id>0</bag_types_id>
+        <bag_types_id>...
         <piece_concept>0</piece_concept>
         <tid>...
         <show_ticket_norms>0</show_ticket_norms>

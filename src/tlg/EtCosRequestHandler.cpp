@@ -120,8 +120,7 @@ void CosRequestHandler::handle()
     ASSERT(m_cosParams);
 
     try {
-        Ticketing::returnWcCoupon(SystemContext::Instance(STDLOG).airlineImpl()->ida(),
-                                  m_cosParams->m_tickNum,
+        Ticketing::returnWcCoupon(m_cosParams->m_tickNum,
                                   m_cosParams->m_cpnNum,
                                   true);
     } catch(const AirportControlCantBeReturned& e) {
@@ -137,9 +136,8 @@ void CosRequestHandler::makeAnAnswer()
     ASSERT(m_cosParams);
 
     boost::optional<WcCoupon> wcCpn;
-    wcCpn= Ticketing::readWcCoupon(SystemContext::Instance(STDLOG).airlineImpl()->ida(),
-                                   m_cosParams->m_tickNum,
-                                   m_cosParams->m_cpnNum);
+    wcCpn = Ticketing::readWcCoupon(m_cosParams->m_tickNum,
+                                    m_cosParams->m_cpnNum);
     ASSERT(wcCpn);
 
     PushEdiPointW(pMesW());

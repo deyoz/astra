@@ -682,11 +682,10 @@ boost::optional<Itin> getEtDispCouponItin(const Ticketing::TicketNum_t& ticknum,
   return boost::none;
 }
 
-static boost::optional<Itin> getWcCouponItin(const Ticketing::Airline_t& airline,
-                                             const Ticketing::TicketNum_t& ticknum,
+static boost::optional<Itin> getWcCouponItin(const Ticketing::TicketNum_t& ticknum,
                                              const Ticketing::CouponNum_t& cpnnum)
 {
-  boost::optional<WcPnr> wcPnr=loadWcPnr(airline, ticknum);
+  boost::optional<WcPnr> wcPnr=loadWcPnr(ticknum);
   if(!wcPnr) LogTrace(TRACE5) << __FUNCTION__ << ": wcPnr==boost::none";
 
   if (wcPnr)
@@ -711,8 +710,7 @@ Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltPara
 
   if (fltParams.control_method)
   {
-    wcItin=getWcCouponItin(BaseTables::Company(fltParams.fltInfo.airline)->ida(),
-                           Ticketing::TicketNum_t(et.no),
+    wcItin=getWcCouponItin(Ticketing::TicketNum_t(et.no),
                            Ticketing::CouponNum_t(et.coupon));
 
     if (wcItin)
@@ -935,7 +933,7 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
       cpnNum=CouponNum_t(ETCtxtItems.begin()->et.coupon);
     }
 
-    bool existsAC=existsAirportControl(BaseTables::Company(flt.airline)->ida(), tickNum, cpnNum, false);
+    bool existsAC=existsAirportControl(tickNum, cpnNum, false);
 
     CheckIn::TPaxTknItem tkn(tickNum.get(), cpnNum.get());
     TFltParams ediFltParams;
@@ -960,7 +958,7 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
     }
     else
     {
-      boost::optional<WcPnr> wcPnr=loadWcPnrWithActualStatuses(BaseTables::Company(flt.airline)->ida(), tickNum);
+      boost::optional<WcPnr> wcPnr=loadWcPnrWithActualStatuses(tickNum);
       if (!wcPnr) LogTrace(TRACE5) << __FUNCTION__ << ": wcPnr==boost::none";
       if (wcPnr)
       {
@@ -2090,7 +2088,7 @@ bool ETStatusInterface::ChangeStatusLocallyOnly(const TFltParams& fltParams,
 
   try
   {
-    changeOfStatusWcCoupon(fltParams.fltInfo.airline, item.et.no, item.et.coupon, item.et.status, true);
+    changeOfStatusWcCoupon(item.et.no, item.et.coupon, item.et.status, true);
     if (fltParams.in_final_status &&
         (item.et.status==CouponStatus::OriginalIssue ||
          item.et.status==CouponStatus::Flown))
@@ -2134,7 +2132,7 @@ bool ETStatusInterface::ToDoNothingWhenChangingStatus(const TFltParams& fltParam
                                                       const TETickItem& item)
 {
    bool res=item.et.status == CouponStatus::Airport &&
-            existsAirportControl(fltParams.fltInfo.airline, item.et.no, item.et.coupon, false);
+            existsAirportControl(item.et.no, item.et.coupon, false);
    LogTrace(TRACE5) << __FUNCTION__ << " returned " << std::boolalpha << res;
    return res;
 }
@@ -2183,13 +2181,12 @@ bool ETStatusInterface::ReturnAirportControl(const TFltParams& fltParams,
 
   try
   {
-    changeOfStatusWcCoupon(fltParams.fltInfo.airline, item.et.no, item.et.coupon, item.et.status, true);
+    changeOfStatusWcCoupon(item.et.no, item.et.coupon, item.et.status, true);
     LogTrace(TRACE5) << __FUNCTION__ << ": " << item.et.no_str()
                                      << " in_final_status=" << boolalpha << fltParams.in_final_status
                                      << " coupon_status=" << item.et.status->dispCode();
 
-    return returnWcCoupon(BaseTables::Company(fltParams.fltInfo.airline)->ida(),
-                          Ticketing::TicketNum_t(item.et.no),
+    return returnWcCoupon(Ticketing::TicketNum_t(item.et.no),
                           Ticketing::CouponNum_t(item.et.coupon),
                           false);
   }
@@ -3785,8 +3782,7 @@ void handleEtRacResponse(const edifact::RemoteResults& remRes)
             int readStatus = ReadEdiMessage(remRes.tlgSource().c_str());
             ASSERT(readStatus == EDI_MES_OK);
             Ticketing::EdiPnr ediPnr(remRes.tlgSource(), EdiRacRes);
-            Ticketing::saveWcPnr(SystemContext::Instance(STDLOG).airlineImpl()->ida(),
-                                 ediPnr);
+            Ticketing::saveWcPnr(ediPnr);
             ETDisplayToDB(ediPnr);
         }
         catch(std::exception &e) {
@@ -3804,7 +3800,6 @@ void handleEtUac(const std::string& uac)
 {
     LogTrace(TRACE3) << __FUNCTION__;
     Ticketing::EdiPnr ediPnr(uac, edifact::EdiUacReq);
-    Ticketing::saveWcPnr(SystemContext::Instance(STDLOG).airlineImpl()->ida(),
-                         ediPnr);
+    Ticketing::saveWcPnr(ediPnr);
     ETDisplayToDB(ediPnr);
 }

@@ -8,6 +8,7 @@
 #include "tlg/CheckinBaseTypesOci.h"
 
 #include <serverlib/cursctl.h>
+#include <serverlib/dates_oci.h>
 #include <etick/tickmng.h>
 
 #include <boost/scoped_ptr.hpp>
@@ -23,7 +24,6 @@ using namespace TickView;
 using namespace TickMng;
 
 static AirportControl* createAirportControlIfNeeded(const std::string& recloc,
-                                                    const Ticketing::Airline_t& airline,
                                                     const Ticketing::Coupon& cpn)
 {
     AirportControl* ac = nullptr;
@@ -31,7 +31,6 @@ static AirportControl* createAirportControlIfNeeded(const std::string& recloc,
        cpn.couponInfo().status() == Ticketing::CouponStatus::Airport)
     {
         return AirportControl::create(recloc,
-                                      airline,
                                       Ticketing::TicketNum_t(cpn.ticknum()),
                                       Ticketing::CouponNum_t(cpn.couponInfo().num()));
     }
@@ -40,45 +39,39 @@ static AirportControl* createAirportControlIfNeeded(const std::string& recloc,
 }
 
 static void saveCouponWc(const std::string& recloc,
-                         const Ticketing::Airline_t& airline,
                          const Ticketing::Coupon& cpn)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " "
                      << recloc << "/"
-                     << airline << "/"
                      << cpn.ticknum() << "/"
                      << cpn.couponInfo().num();
 
     make_curs(
 "begin "
-"delete from WC_COUPON where OWNER_AIRLINE=:owner_airline and TICKNUM=:ticknum and NUM=:num; "
-"insert into WC_COUPON(RECLOC, OWNER_AIRLINE, TICKNUM, NUM, STATUS) "
-"values (:recloc, :owner_airline, :ticknum, :num, :status);"
+"delete from WC_COUPON where TICKNUM=:ticknum and NUM=:num; "
+"insert into WC_COUPON(RECLOC, TICKNUM, NUM, STATUS) "
+"values (:recloc, :ticknum, :num, :status);"
 "end;")
             .stb()
             .bind(":recloc",        recloc)
-            .bind(":owner_airline", airline)
             .bind(":ticknum",       cpn.ticknum())
             .bind(":num",           cpn.couponInfo().num())
             .bind(":status",        cpn.couponInfo().status()->toBaseType())
             .exec();
 
-    boost::scoped_ptr<AirportControl> ac(createAirportControlIfNeeded(recloc,
-                                                                      airline,
-                                                                      cpn));
+    boost::scoped_ptr<AirportControl> ac(createAirportControlIfNeeded(recloc, cpn));
     if(ac) {
         try {
             ac->writeDb();
         } catch(const AirportControlExists&) {
             LogWarning(STDLOG) << "Airport control under coupon "
-                               << airline << "/" << cpn.ticknum() << "/" << cpn.couponInfo().num()
+                               << cpn.ticknum() << "/" << cpn.couponInfo().num()
                                << " already exists!";
             ac->deleteDb();
             ac->writeDb();
         }
 
         WcCoupon wcCpn(recloc,
-                       airline,
                        Ticketing::TicketNum_t(cpn.ticknum()),
                        Ticketing::CouponNum_t(cpn.couponInfo().num()),
                        cpn.couponInfo().status());
@@ -91,24 +84,20 @@ static void saveCouponWc(const std::string& recloc,
     }
 }
 
-static void updateCouponWc(const Ticketing::Airline_t& airline,
-                           const Ticketing::TicketNum_t& ticknum,
+static void updateCouponWc(const Ticketing::TicketNum_t& ticknum,
                            const Ticketing::CouponNum_t& cpnnum,
                            const Ticketing::CouponStatus& status)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " "
-                     << airline << "/"
                      << ticknum << "/"
                      << cpnnum << "/"
                      << status;
 
     make_curs(
 "update WC_COUPON set STATUS=:status "
-"where OWNER_AIRLINE=:owner_airline and "
-"TICKNUM=:ticknum and "
+"where TICKNUM=:ticknum and "
 "NUM=:cpnnum")
             .stb()
-            .bind(":owner_airline", airline)
             .bind(":ticknum",       ticknum.get())
             .bind(":cpnnum",        cpnnum.get())
             .bind(":status",        status->toBaseType())
@@ -116,32 +105,28 @@ static void updateCouponWc(const Ticketing::Airline_t& airline,
 }
 
 static void saveTicketWc(const std::string& recloc,
-                         const Ticketing::Airline_t& airline,
                          const Ticketing::Ticket& ticket)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " "
                      << recloc << "/"
-                     << airline << "/"
                      << ticket.ticknum();
 
     for(const auto& cpn: ticket.getCoupon()) {
-        saveCouponWc(recloc, airline, cpn);
+        saveCouponWc(recloc, cpn);
     }
 
     make_curs(
 "begin "
-"delete from WC_TICKET where AIRLINE=:airline and TICKNUM=:ticknum; "
-"insert into WC_TICKET(RECLOC, AIRLINE, TICKNUM) "
-"values (:recloc, :airline, :ticknum); "
+"delete from WC_TICKET where TICKNUM=:ticknum; "
+"insert into WC_TICKET(RECLOC, TICKNUM) "
+"values (:recloc, :ticknum); "
 "end;")
             .bind(":recloc",  recloc)
-            .bind(":airline", airline)
             .bind(":ticknum", ticket.ticknumt().get())
             .exec();
 }
 
 static void savePnrEdifact(const std::string& recloc,
-                           const Ticketing::Airline_t& airline,
                            const std::string& ediText,
                            edifact::EdiMessageType ediType)
 {
@@ -160,27 +145,24 @@ static void savePnrEdifact(const std::string& recloc,
         itb = ite;
 
         make_curs(
-"insert into WC_PNR(RECLOC, AIRLINE, PAGE_NO, TLG_TEXT, TLG_TYPE) "
-"values (:recloc, :airline, :page_no, :edi_text, :edi_type)")
+"insert into WC_PNR(RECLOC, PAGE_NO, TLG_TEXT, TLG_TYPE, DATE_CR) "
+"values (:recloc, :page_no, :edi_text, :edi_type, :date_cr)")
         .bind(":recloc",   recloc)
-        .bind(":airline",  airline)
         .bind(":page_no",  pageNo)
         .bind(":edi_text", page)
         .bind(":edi_type", static_cast<int>(ediType))
+        .bind(":date_cr",  Dates::second_clock::local_time())
         .exec();
     }
 }
 
 static void saveWcPnr(const std::string& recloc,
-                      const Ticketing::Airline_t& airline,
                       const EdiPnr& ediPnr)
 {
-    LogTrace(TRACE3) << __FUNCTION__ << " "
-                     << recloc << "/"
-                     << airline;
+    LogTrace(TRACE3) << __FUNCTION__ << " " << recloc;
 
     LogTrace(TRACE3) << ediPnr;
-    savePnrEdifact(recloc, airline, ediPnr.m_ediText, ediPnr.m_ediType);
+    savePnrEdifact(recloc, ediPnr.m_ediText, ediPnr.m_ediType);
 }
 
 static bool controlMayBeReturned(const WcCoupon& cpn)
@@ -204,14 +186,12 @@ std::ostream& operator<<(std::ostream& os, const EdiPnr& ediPnr)
 
 //---------------------------------------------------------------------------------------
 
-WcCouponNotFound::WcCouponNotFound(const Ticketing::Airline_t& airl,
-                                   const Ticketing::TicketNum_t& tick,
+WcCouponNotFound::WcCouponNotFound(const Ticketing::TicketNum_t& tick,
                                    const Ticketing::CouponNum_t& cpn)
     : EXCEPTIONS::Exception("")
 {
     std::string err = "WcCoupon not found: ";
-    err += BaseTables::Company(airl)->code() + "/" + tick.get() + "/" +
-            std::to_string(cpn.get());
+    err += tick.get() + "/" + std::to_string(cpn.get());
 
     setMessage(err);
 }
@@ -229,7 +209,7 @@ WcCouponNotFound::WcCouponNotFound(const std::string& recloc,
 
 //---------------------------------------------------------------------------------------
 
-void saveWcPnr(const Ticketing::Airline_t& airline, const EdiPnr& ediPnr)
+void saveWcPnr(const EdiPnr& ediPnr)
 {
     const std::string recloc = Recloc::GenerateRecloc();
 
@@ -238,16 +218,16 @@ void saveWcPnr(const Ticketing::Airline_t& airline, const EdiPnr& ediPnr)
 
     for(const auto& ticket: pnr.ltick()) {
         if(ticket.actCode() == TickStatAction::newtick) {
-            saveTicketWc(recloc, airline, ticket);
+            saveTicketWc(recloc, ticket);
         }
     }
 
-    saveWcPnr(recloc, airline, ediPnr);
+    saveWcPnr(recloc, ediPnr);
 }
 
 void loadWcEdiPnr(const std::string& recloc, boost::optional<EdiPnr>& ediPnr)
 {
-    ediPnr=boost::none;
+    ediPnr = boost::none;
 
     std::string res, page;
     int tlgType = 0;
@@ -266,7 +246,7 @@ void loadWcEdiPnr(const std::string& recloc, boost::optional<EdiPnr>& ediPnr)
         return;
     }
 
-    ediPnr=EdiPnr(res, static_cast<edifact::EdiMessageType>(tlgType));
+    ediPnr = EdiPnr(res, static_cast<edifact::EdiMessageType>(tlgType));
 }
 
 boost::optional<WcPnr> loadWcPnr(const std::string& recloc)
@@ -281,10 +261,9 @@ boost::optional<WcPnr> loadWcPnr(const std::string& recloc)
   return WcPnr(recloc, readPnr(ediPnr.get()));
 }
 
-boost::optional<WcPnr> loadWcPnr(const Ticketing::Airline_t& airline,
-                                 const Ticketing::TicketNum_t& tickNum)
+boost::optional<WcPnr> loadWcPnr(const Ticketing::TicketNum_t& tickNum)
 {
-    boost::optional<WcTicket> ticket = readWcTicket(airline, tickNum);
+    boost::optional<WcTicket> ticket = readWcTicket(tickNum);
     if(ticket) {
         return loadWcPnr(ticket->recloc());
     }
@@ -309,17 +288,15 @@ boost::optional<WcPnr> loadWcPnrWithActualStatuses(const std::string& recloc)
     return wcPnr;
 }
 
-boost::optional<WcPnr> loadWcPnrWithActualStatuses(const Ticketing::Airline_t& airline,
-                                                   const Ticketing::TicketNum_t& tickNum)
+boost::optional<WcPnr> loadWcPnrWithActualStatuses(const Ticketing::TicketNum_t& tickNum)
 {
-    boost::optional<WcPnr> wcPnr = loadWcPnr(airline, tickNum);
+    boost::optional<WcPnr> wcPnr = loadWcPnr(tickNum);
     if(!wcPnr) return wcPnr;
 
     for(auto& ticket: wcPnr->pnr().ltick()) {
         for(auto& coupon: ticket.getCoupon()) {
             boost::optional<WcCoupon> wcCpn;
-            wcCpn = readWcCoupon(airline,
-                                 Ticketing::TicketNum_t(coupon.ticknum()),
+            wcCpn = readWcCoupon(Ticketing::TicketNum_t(coupon.ticknum()),
                                  Ticketing::CouponNum_t(coupon.couponInfo().num()));
             ASSERT(wcCpn);
             coupon.couponInfo().setStatus(wcCpn->status());
@@ -329,19 +306,17 @@ boost::optional<WcPnr> loadWcPnrWithActualStatuses(const Ticketing::Airline_t& a
     return wcPnr;
 }
 
-boost::optional<WcTicket> readWcTicket(const Ticketing::Airline_t& airline,
-                                       const Ticketing::TicketNum_t& tickNum)
+boost::optional<WcTicket> readWcTicket(const Ticketing::TicketNum_t& tickNum)
 {
     OciCpp::CursCtl cur = make_curs(
 "select RECLOC "
 "from WC_TICKET "
-"where AIRLINE=:airline and TICKNUM=:ticknum");
+"where TICKNUM=:ticknum");
 
     std::string recloc;
     cur
             .stb()
             .def(recloc)
-            .bind(":airline", airline)
             .bind(":ticknum", tickNum.get())
             .EXfet();
 
@@ -349,17 +324,16 @@ boost::optional<WcTicket> readWcTicket(const Ticketing::Airline_t& airline,
         return boost::none;
     }
 
-    return WcTicket(recloc, airline, tickNum);
+    return WcTicket(recloc, tickNum);
 }
 
-boost::optional<WcCoupon> readWcCoupon(const Ticketing::Airline_t& airline,
-                                       const Ticketing::TicketNum_t& tickNum,
+boost::optional<WcCoupon> readWcCoupon(const Ticketing::TicketNum_t& tickNum,
                                        const Ticketing::CouponNum_t& cpnNum)
 {
     OciCpp::CursCtl cur = make_curs(
 "select RECLOC, STATUS "
 "from WC_COUPON "
-"where OWNER_AIRLINE=:airline and TICKNUM=:ticknum and NUM=:cpnnum");
+"where TICKNUM=:ticknum and NUM=:cpnnum");
 
     std::string recloc;
     int status = 0;
@@ -367,7 +341,6 @@ boost::optional<WcCoupon> readWcCoupon(const Ticketing::Airline_t& airline,
             .stb()
             .def(recloc)
             .def(status)
-            .bind(":airline", airline)
             .bind(":ticknum", tickNum.get())
             .bind(":cpnnum",  cpnNum.get())
             .EXfet();
@@ -376,7 +349,7 @@ boost::optional<WcCoupon> readWcCoupon(const Ticketing::Airline_t& airline,
         return boost::none;
     }
 
-    return WcCoupon(recloc, airline, tickNum, cpnNum, CouponStatus(status));
+    return WcCoupon(recloc, tickNum, cpnNum, CouponStatus(status));
 }
 
 WcCoupon readWcCouponByRl(const std::string& recloc,
@@ -384,15 +357,13 @@ WcCoupon readWcCouponByRl(const std::string& recloc,
                           const Ticketing::CouponNum_t& cpnNum)
 {
     OciCpp::CursCtl cur = make_curs(
-"select OWNER_AIRLINE, STATUS "
+"select STATUS "
 "from WC_COUPON "
 "where RECLOC=:recloc and TICKNUM=:ticknum and NUM=:cpnnum");
 
-    Ticketing::Airline_t airline;
     int status = 0;
     cur
             .stb()
-            .def(airline)
             .def(status)
             .bind(":recloc",  recloc)
             .bind(":ticknum", tickNum.get())
@@ -403,81 +374,76 @@ WcCoupon readWcCouponByRl(const std::string& recloc,
         throw WcCouponNotFound(recloc, tickNum, cpnNum);
     }
 
-    return WcCoupon(recloc, airline, tickNum, cpnNum, CouponStatus(status));
+    return WcCoupon(recloc, tickNum, cpnNum, CouponStatus(status));
 }
 
-bool changeOfStatusWcCoupon(const Ticketing::Airline_t& airline,
-                            const Ticketing::TicketNum_t& ticknum,
+bool changeOfStatusWcCoupon(const Ticketing::TicketNum_t& ticknum,
                             const Ticketing::CouponNum_t& cpnnum,
                             const Ticketing::CouponStatus& newStatus,
                             bool throwErr)
 {
-  if (!existsAirportControl(airline, ticknum, cpnnum, throwErr)) return false;
+  if (!existsAirportControl(ticknum, cpnnum, throwErr)) return false;
 
-    boost::optional<WcCoupon> cpn = readWcCoupon(airline, ticknum, cpnnum);
+    boost::optional<WcCoupon> cpn = readWcCoupon(ticknum, cpnnum);
     if(!cpn) {
         LogWarning(STDLOG) << "Coupon not found: "
-                           << airline << "/" << ticknum << "/" << cpnnum;
+                           << ticknum << "/" << cpnnum;
         if(throwErr) {
-            throw WcCouponNotFound(airline, ticknum, cpnnum);
+            throw WcCouponNotFound(ticknum, cpnnum);
         }
         return false;
     }
 
-    updateCouponWc(airline, ticknum, cpnnum, newStatus);
+    updateCouponWc(ticknum, cpnnum, newStatus);
     return true;
 }
 
-bool changeOfStatusWcCoupon(const std::string& airline,
-                            const std::string& ticknum,
+bool changeOfStatusWcCoupon(const std::string& ticknum,
                             unsigned cpnnum,
                             const Ticketing::CouponStatus& newStatus,
                             bool throwErr)
 {
-    return changeOfStatusWcCoupon(BaseTables::Company(airline)->ida(),
-                                  Ticketing::TicketNum_t(ticknum),
+    return changeOfStatusWcCoupon(Ticketing::TicketNum_t(ticknum),
                                   Ticketing::CouponNum_t(cpnnum),
                                   newStatus,
                                   throwErr);
 }
 
-bool returnWcCoupon(const Ticketing::Airline_t& airline,
-                    const Ticketing::TicketNum_t& ticknum,
+bool returnWcCoupon(const Ticketing::TicketNum_t& ticknum,
                     const Ticketing::CouponNum_t& cpnnum,
                     bool throwErr)
 {
     LogTrace(TRACE3) << __FUNCTION__ << " "
-                     << airline << "/" << ticknum << "/" << cpnnum;
+                     << ticknum << "/" << cpnnum;
 
-    boost::scoped_ptr<AirportControl> ac(AirportControl::readDb(airline,
-                                                                ticknum,
+    boost::scoped_ptr<AirportControl> ac(AirportControl::readDb(ticknum,
                                                                 cpnnum));
     if(!ac) {
         LogWarning(STDLOG) << "Airport control not found: "
-                           << airline << "/" << ticknum << "/" << cpnnum;
+                           << ticknum << "/" << cpnnum;
         if(throwErr) {
-            throw AirportControlNotFound(airline, ticknum, cpnnum);
+            throw AirportControlNotFound(ticknum, cpnnum);
         }
         return false;
     }
 
-    boost::optional<WcCoupon> cpn = readWcCoupon(airline, ticknum, cpnnum);
+    boost::optional<WcCoupon> cpn = readWcCoupon(ticknum, cpnnum);
     if(!cpn) {
         LogWarning(STDLOG) << "Coupon not found: "
-                           << airline << "/" << ticknum << "/" << cpnnum;
+                           << ticknum << "/" << cpnnum;
         if(throwErr) {
-            throw WcCouponNotFound(airline, ticknum, cpnnum);
+            throw WcCouponNotFound(ticknum, cpnnum);
         }
         return false;
     }
 
     if(!controlMayBeReturned(*cpn)) {
         LogWarning(STDLOG) << "Control "
-                           << airline << "/" << ticknum << "/" << cpnnum
+                           << ticknum << "/" << cpnnum
                            << " may NOT be returned due to status " << cpn->status();
 
         if(throwErr) {
-            throw AirportControlCantBeReturned(airline, ticknum, cpnnum);
+            throw AirportControlCantBeReturned(ticknum, cpnnum);
         }
         return false;
     }
