@@ -83,6 +83,7 @@ astra_SOURCES = \
   counters.cc \
   comp_props.cpp \
   crypt.cc \
+  dcs_services.cc \
   dev_consts.cc \
   dev_tuning.cc \
   dev_utils.cc \
@@ -285,6 +286,7 @@ noinst_HEADERS = \
   counters.h \
   comp_props.h \
   crypt.h \
+  dcs_services.h \
   dev_consts.h \
   dev_tuning.h \
   dev_utils.h \
