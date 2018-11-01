@@ -1024,6 +1024,17 @@ void throwTlgError(const char* msg, const TTlgPartInfo &curr, const char* line_p
 void split(std::vector<std::string> &result, const std::string val, char c);
 int monthAsNum(const std::string &smonth);
 
+namespace regex {
+    static const std::string  m = "[€-ŸðA-Z0-9]";
+    static const std::string a = "[€-ŸðA-Z]";
+
+    static const std::string airline = "(" + m + "{2}" + a + "?)";
+    static const std::string airp = "(" + a + "{3})";
+    static const std::string flt_no = "(\\d{1,4})(" + a + "?)";
+    static const std::string date = "(\\d{2})";
+}
+
+
 } //namespace TypeB
 
 #endif
