@@ -1117,7 +1117,7 @@ void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
             xmlNodePtr dataNode=getNode(astra_iface(resNode, "ETViewForm"),"data");
             PnrDisp::doDisplay(PnrXmlView(dataNode), pnr);
         } else {
-            HandleNotSuccessEtsResult(*remRes);
+            HandleNotSuccessEtsResult(*remRes, resNode);
         }
     }
     catch(edilib::EdiExcept &e) {
@@ -1140,7 +1140,7 @@ void ETRequestControlInterface::KickHandler(XMLRequestCtxt *ctxt,
             xmlNodePtr dataNode=getNode(astra_iface(resNode, "ETViewForm"),"data");
             PnrDisp::doDisplay(PnrXmlView(dataNode), pnr);
         } else {
-            HandleNotSuccessEtsResult(*remRes);
+            HandleNotSuccessEtsResult(*remRes, resNode);
         }
     }
     catch(edilib::EdiExcept &e) {
