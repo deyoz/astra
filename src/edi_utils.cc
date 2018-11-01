@@ -639,9 +639,17 @@ void cleanOldRecords(int min_ago)
   edifact::RemoteResults::cleanOldRecords(min_ago);
 }
 
-void HandleNotSuccessEtsResult(const edifact::RemoteResults& res)
+void HandleNotSuccessEtsResult(const edifact::RemoteResults& res, xmlNodePtr resNode)
 {
   if (res.status() == edifact::RemoteStatus::Success) return;
+  if (res.status() == edifact::RemoteStatus::Timeout)
+  {
+    xmlNodePtr errNode=NewTextChild(resNode,"ets_connect_error");
+    SetProp(errNode,"internal_msgid",get_internal_msgid_hex());
+    NewTextChild(errNode,"message",getLocaleText("MSG.ETS_CONNECT_ERROR"));
+    return;
+  }
+
   if (res.status() == edifact::RemoteStatus::CommonError)
   {
     ProgTrace(TRACE1, "ETS: ERROR %s", res.ediErrCode().c_str());

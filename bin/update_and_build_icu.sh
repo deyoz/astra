@@ -15,6 +15,7 @@ function uab_config_and_build() {
 }
 
 function uab_pkg_tarball() {
-    echo icu4c-57_1.tar.gz
+#    echo icu4c-57_1.tar.gz
+    echo icu4c-63_1-src-new.tgz
 }
 
