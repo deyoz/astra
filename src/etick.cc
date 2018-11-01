@@ -1323,8 +1323,8 @@ void EMDDisplayInterface::KickHandler(XMLRequestCtxt *ctxt,
   edifact::RemoteResults::readDb(lres);
 
   if(timeoutOccured(lres)) {
-      // TODO add timeout error id
-      throw AstraLocale::UserException("MSG.EMD.EDS_TIMEOUT_ERROR");
+      AstraLocale::showProgError("MSG.ETS_EDS_CONNECT_ERROR");
+      throw UserException2();
   }
 
   int req_ctxt_id=NodeAsInteger("@req_ctxt_id",reqNode);
