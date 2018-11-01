@@ -38,11 +38,15 @@ namespace TypeB
                 throw ETlgError("wrong LDM format");
             con.bort = tokens[1];
 
+            boost::match_results<std::string::const_iterator> results;
+            static const boost::regex regex_bort("^(" + regex::m + "{2,10}" + ")$");
+            if(not boost::regex_match(con.bort, results, regex_bort))
+                throw ETlgError(tlgeNotMonitorNotAlarm, "Wrong bort: '" + con.bort + "'");
+
             static const boost::regex crew1("^(\\d)/(\\d{1,2})$");
             static const boost::regex crew2("^(\\d)/(\\d{1,2})/(\\d{1,2})$");
 
             string crew = tokens[3];
-            boost::match_results<std::string::const_iterator> results;
             if(boost::regex_match(crew, results, crew1)) {
                 con.cockpit = ToInt(results[1]);
                 con.cabin = ToInt(results[2]);
