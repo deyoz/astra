@@ -105,8 +105,8 @@ int SetTermVersionNotice(int argc,char **argv)
     "    DELETE FROM desk_notices WHERE notice_id=curRow.notice_id; "
     "  END LOOP; "
     "  SELECT cycle_id__seq.nextval INTO :notice_id FROM dual; "
-    "  INSERT INTO desk_notices(notice_id, notice_type, term_mode, last_version, default_disable, time_create, pr_del) "
-    "  VALUES(:notice_id, :notice_type, :term_mode, :last_version, 0, system.UTCSYSDATE, 0); "
+    "  INSERT INTO desk_notices(notice_id, notice_type, term_mode, last_version, default_disable, always_enabled, time_create, pr_del) "
+    "  VALUES(:notice_id, :notice_type, :term_mode, :last_version, 0, 0, system.UTCSYSDATE, 0); "
     "END; ";
   Qry.DeclareVariable("notice_id", otInteger);
   Qry.CreateVariable("notice_type", otString, NEW_TERM_VER_NOTICE);
@@ -162,12 +162,12 @@ void GetNotices(xmlNodePtr resNode)
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT desk_notices.notice_id, locale_notices.text, default_disable "
+    "SELECT desk_notices.notice_id, locale_notices.text, default_disable, always_enabled "
     "FROM desk_notices, locale_notices, "
     "     (SELECT notice_id FROM desk_disable_notices WHERE desk=:desk) desk_disable_notices "
     "WHERE desk_notices.notice_id=locale_notices.notice_id AND locale_notices.lang=:lang AND "
     "      desk_notices.notice_id=desk_disable_notices.notice_id(+) AND "
-    "      desk_disable_notices.notice_id IS NULL AND "
+    "      (desk_disable_notices.notice_id IS NULL OR desk_notices.always_enabled<>0) AND "
     "      (desk IS NULL OR desk=:desk) AND "
     "      (desk_grp_id IS NULL OR desk_grp_id=:desk_grp_id) AND "
     "      (term_mode IS NULL OR term_mode=:term_mode) AND "
@@ -190,6 +190,7 @@ void GetNotices(xmlNodePtr resNode)
       NewTextChild(node, "id", Qry.FieldAsInteger("notice_id"));
       NewTextChild(node, "text", Qry.FieldAsString("text"));
       NewTextChild(node, "default_disable", (int)(Qry.FieldAsInteger("default_disable")!=0), (int)false);
+      NewTextChild(node, "always_enabled", (int)(Qry.FieldAsInteger("always_enabled")!=0), (int)false);
       //NewTextChild(node, "dlg_type", EncodeMsgDlgType(mtInformation));
     };
   };
