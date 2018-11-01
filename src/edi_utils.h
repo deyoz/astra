@@ -157,7 +157,7 @@ void traceTermRequestCtxt(int sessIda, const std::string &whence);
 
 void cleanOldRecords(int min_ago);
 
-void HandleNotSuccessEtsResult(const edifact::RemoteResults& res);
+void HandleNotSuccessEtsResult(const edifact::RemoteResults& res, xmlNodePtr resNode);
 
 void ProcEdiError(const AstraLocale::LexemaData &error,
                   const xmlNodePtr errorCtxtNode,
