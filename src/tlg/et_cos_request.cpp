@@ -27,7 +27,7 @@ std::string EtCosRequest::mesFuncCode() const
 void EtCosRequest::collectMessage()
 {
     BaseTables::Router rot(sysCont()->routerCanonName());
-    viewOrgElement2(pMes(), m_chngStatData.org(), rot->translit());
+    viewOrgElement(pMes(), m_chngStatData.org(), rot->translit());
     ProgTrace(TRACE2,"Tick.size()=%zu", m_chngStatData.ltick().size());
     SetEdiFullSegment(pMes(), SegmElement("EQN"),
                       HelpCpp::string_cast(m_chngStatData.ltick().size()) + ":TD");

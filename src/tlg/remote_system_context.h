@@ -298,7 +298,7 @@ namespace RemoteSystemContext
 
 
     /// @class DcsSystemContext
-    /// @brief Система регистрации (в случае iacti)
+    /// @brief Система регистрации (в случае iatci)
     class DcsSystemContext : public SystemContext
     {
     public:

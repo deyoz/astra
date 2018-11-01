@@ -56,7 +56,7 @@ void EmdDisassociateRequest::collectMessage()
 {
     BaseTables::Router rot(sysCont()->routerCanonName());
     // ORG
-    viewOrgElement2(pMes(), m_params.org(), rot->translit());
+    viewOrgElement(pMes(), m_params.org(), rot->translit());
     // EQN
     viewEqnElement(pMes(), getEqnList(m_params));
     edilib::SetEdiSegGr(pMes(), 1);

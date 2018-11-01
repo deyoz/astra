@@ -138,7 +138,7 @@ void EmdCosRequest::collectMessage()
 {
     BaseTables::Router rot(sysCont()->routerCanonName());
     // ORG
-    viewOrgElement2(pMes(), m_cosParams.org(), rot->translit());
+    viewOrgElement(pMes(), m_cosParams.org(), rot->translit());
     // EQN
     viewEqnElement(pMes(), getEqn(m_cosParams));
     

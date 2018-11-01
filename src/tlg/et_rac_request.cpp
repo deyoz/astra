@@ -23,7 +23,7 @@ std::string EtRacRequest::mesFuncCode() const
 void EtRacRequest::collectMessage()
 {
     BaseTables::Router rot(sysCont()->routerCanonName());
-    viewOrgElement2(pMes(), m_racParams.org(), rot->translit());
+    viewOrgElement(pMes(), m_racParams.org(), rot->translit());
     viewEqnElement(pMes(), EqnElem(1, "TD"));
 
     edilib::SetEdiSegGr(pMes(), 1);
