@@ -1063,6 +1063,16 @@ int monthAsNum(const std::string &smonth);
 // на входе строка формата nn(aaa(nn))
 TDateTime ParseDate(const std::string &buf);
 
+namespace regex {
+    static const std::string  m = "[А-ЯЁA-Z0-9]";
+    static const std::string a = "[А-ЯЁA-Z]";
+
+    static const std::string airline = "(" + m + "{2}" + a + "?)";
+    static const std::string airp = "(" + a + "{3})";
+    static const std::string flt_no = "(\\d{1,4})(" + a + "?)";
+    static const std::string date = "(\\d{2})";
+}
+
 
 } //namespace TypeB
 

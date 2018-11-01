@@ -89,16 +89,6 @@ namespace new_breed {
     };
 }
 
-namespace regex {
-    static const string  m = "[€-ŸðA-Z0-9]";
-    static const string a = "[€-ŸðA-Z]";
-
-    static const string airline = "(" + m + "{2}" + a + "?)";
-    static const string airp = "(" + a + "{3})";
-    static const string flt_no = "(\\d{1,4})(" + a + "?)";
-    static const string date = "(\\d{2})";
-}
-
 void TUCMFltInfo::clear()
 {
     src.clear();
