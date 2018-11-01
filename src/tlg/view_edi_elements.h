@@ -122,13 +122,11 @@ void viewEqnElement(_EDI_REAL_MES_STRUCT_* pMes, const std::list<EqnElem>& lElem
 /**
  * @brief makes an ORG element
 */
-void viewOrgElement(_EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest& elem);
-
-void viewOrgElement2(_EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest& elem,
-                     bool translit);
+void viewOrgElement(_EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest& elem,
+                    bool translit);
 
 
-//-------------------------------------IACTI---------------------------------------------
+//-------------------------------------IATCI---------------------------------------------
 /**
  * @brief makes a LOR element
 */
