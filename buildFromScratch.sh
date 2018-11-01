@@ -10,8 +10,7 @@ EXTERNALLIBS_DIR=${EXTERNAL_LIBS:-$(pwd)/externallibs}
 export EXTLIB_ENV_FILE=${EXTERNALLIBS_DIR}/external_env_file
 
 # Libs in build order
-#LIST_EXTLIB="icu libxml2 libxslt boost check pion amqpcpp"
-LIST_EXTLIB="icu"
+LIST_EXTLIB="icu libxml2 libxslt boost check pion amqpcpp"
 
 LOCALLIBS_DIR=${LOCAL_LIBS:-$(pwd)/locallibs}
 
@@ -355,13 +354,13 @@ export readonly LIBCHECK=$EXTERNALLIBS_DIR/check
 export EXTERNAL_CXXFLAGS="-DBOOST_NO_CXX11_SCOPED_ENUMS -DBOOST_NO_CXX11_EXPLICIT_CONVERSION_OPERATORS -DBOOST_FILESYSTEM_DEPRECATED -DBOOST_NO_AUTO_PTR"
 EOF
     build_externallib icu
-#    build_externallib libxml2
-#    build_externallib libxslt
-#    build_externallib boost
-#    build_externallib check
-#    build_externallib pion
-#    build_externallib amqpcpp
-#    create_pkgconfig_amqpcpp
+    build_externallib libxml2
+    build_externallib libxslt
+    build_externallib boost
+    build_externallib check
+    build_externallib pion
+    build_externallib amqpcpp
+    create_pkgconfig_amqpcpp
 fi
 
 if [ "$configlibs" = "2" ]; then

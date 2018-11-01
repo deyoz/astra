@@ -26,9 +26,9 @@ pkg_tgz=$(uab_pkg_tarball)
 pkg_uri=$ftp/$pkg_tgz
 
 if [ -z "$LOUD" ] ; then quiet='--no-verbose' ; fi
-#if ! wget --timestamping $quiet --directory-prefix=$prefix $pkg_uri ; then
-#    stat $prefix/$pkg_tgz > /dev/null
-#fi
+if ! wget --timestamping $quiet --directory-prefix=$prefix $pkg_uri ; then
+    stat $prefix/$pkg_tgz > /dev/null
+fi
 
 [ -d $pkg_src ] || mkdir -p $pkg_src
 compression=`file --dereference $prefix/$pkg_tgz | cut -f2 -d\ `
