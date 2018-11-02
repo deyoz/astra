@@ -13,11 +13,13 @@ struct TUCMFltInfo {
     int flt_no;
     std::string suffix;
     TDateTime date;
-    TUCMFltInfo() { clear(); }
-    void clear();
+    TUCMFltInfo():
+        airp("òêå"), // !!!
+        flt_no(ASTRA::NoExists),
+        date(ASTRA::NoExists)
+    {}
     TFltInfo toFltInfo();
-    void parse(const char *val, TFlightsForBind &flts, TTlgCategory tlg_cat);
-    std::string toString();
+    void parse(const char *val, TFlightsForBind &flts);
 };
 
 class TUCMHeadingInfo : public THeadingInfo

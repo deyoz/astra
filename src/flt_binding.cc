@@ -7,7 +7,6 @@
 #include "apps_interaction.h"
 #include "etick.h"
 #include "counters.h"
-#include "franchise.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -613,79 +612,4 @@ void TFltInfo::dump() const
     LogTrace(TRACE5) << "airp_dep: " << airp_dep;
     LogTrace(TRACE5) << "airp_arv: " << airp_arv;
     LogTrace(TRACE5) << "----------------------";
-}
-
-void TFltInfo::set_airline(const string &_airline)
-{
-    strcpy(airline, _airline.c_str());
-}
-
-void TFltInfo::set_airp_dep(const string &_airp_dep)
-{
-    strcpy(airp_dep, _airp_dep.c_str());
-}
-
-void TFltInfo::set_airp_arv(const string &_airp_arv)
-{
-    strcpy(airp_arv, _airp_arv.c_str());
-}
-
-void TFltInfo::set_suffix(const string &_suffix)
-{
-    suffix[0] = (_suffix.empty() ? 0 : _suffix[0]);
-    suffix[1] = 0;
-}
-
-
-
-TFltInfo::TFltInfo(const TTripInfo &flt)
-{
-    Clear();
-    set_airline(flt.airline);
-    set_airp_dep(flt.airp);
-    flt_no=flt.flt_no;
-    set_suffix(flt.suffix);
-    scd=flt.scd_out;
-    pr_utc=true;
-    *airp_arv = 0;
-}
-
-void get_wb_franchise_flts(const TTripInfo &trip_info, vector<TTripInfo> &franchise_flts)
-{
-    franchise_flts.clear();
-    if(trip_info.airp.empty()) {
-        TCachedQuery Qry(
-                "select * from franchise_sets where "
-                "   airline_franchisee = :airline and "
-                "   flt_no_franchisee = :flt_no and "
-                "   nvl(suffix_franchisee, ' ') = nvl(:suffix, ' ') and "
-                "   pr_wb <> 0 and "
-                "   pr_denial = 0 ",
-                QParams()
-                << QParam("airline", otString, trip_info.airline)
-                << QParam("flt_no", otInteger, trip_info.flt_no)
-                << QParam("suffix", otString, trip_info.suffix));
-        Qry.get().Execute();
-        for(; not Qry.get().Eof; Qry.get().Next()) {
-            TTripInfo _info = trip_info;
-            _info.airp = Qry.get().FieldAsString("airp_dep");
-            Franchise::TProp franchise_prop;
-            if(franchise_prop.get_franchisee(_info, Franchise::TPropType::wb) and franchise_prop.val == Franchise::pvYes) {
-                _info.airline = franchise_prop.oper.airline;
-                _info.flt_no = franchise_prop.oper.flt_no;
-                _info.suffix = franchise_prop.oper.suffix;
-                franchise_flts.push_back(_info);
-            }
-        }
-        if(franchise_flts.empty()) franchise_flts.push_back(trip_info);
-    } else {
-        TTripInfo _info = trip_info;
-        Franchise::TProp franchise_prop;
-        if(franchise_prop.get_franchisee(trip_info, Franchise::TPropType::wb) and franchise_prop.val == Franchise::pvYes) {
-            _info.airline = franchise_prop.oper.airline;
-            _info.flt_no = franchise_prop.oper.flt_no;
-            _info.suffix = franchise_prop.oper.suffix;
-        }
-        franchise_flts.push_back(_info);
-    }
 }

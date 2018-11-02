@@ -23,7 +23,7 @@ libtlg_a_SOURCES = apps_handler.cc apps_answer_emul.cc edi_handler.cpp edi_msg.c
         IatciCkxRequestHandler.cpp IatciPlfRequest.cpp IatciPlfResponseHandler.cpp IatciPlfRequestHandler.cpp \
         IatciSeatmapResponseHandler.cpp IatciSmfRequest.cpp IatciSmfResponseHandler.cpp \
         IatciBprRequest.cpp IatciBprResponseHandler.cpp IatciBprRequestHandler.cpp \
-        IatciSeatmapRequestHandler.cpp IatciSmfRequestHandler.cpp IatciIfm.cpp ldm_parser.cpp
+        IatciSeatmapRequestHandler.cpp IatciSmfRequestHandler.cpp IatciIfm.cpp
         
         
 
@@ -45,6 +45,6 @@ noinst_HEADERS = EdifactRequest.h read_edi_elements.h edi_elements.h \
    	IatciCkxRequestHandler.h IatciPlfRequest.h IatciPlfResponseHandler.h IatciPlfRequestHandler.h \
         IatciSeatmapResponseHandler.h IatciSmfRequest.h IatciSmfResponseHandler.h \
         IatciBprRequest.h IatciBprResponseHandler.h IatciBprRequestHandler.h \
-        IatciSeatmapRequestHandler.h IatciSmfRequestHandler.h IatciIfm.h ldm_parser.cpp
+        IatciSeatmapRequestHandler.h IatciSmfRequestHandler.h IatciIfm.h
    	
    	

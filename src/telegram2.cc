@@ -9702,49 +9702,40 @@ namespace WBMessages {
         TypeB::TFlightIdentifier flt;
         flt.parse(flight.c_str());
 
-        string airp;
-        // Достанем АП вылета, если есть
-        vector<string>::const_iterator line = lines.begin();
-        for(; line != lines.end(); line++)
-            if(line->substr(0, 4) == "FROM") break;
-        if(line != lines.end()) {
-            line++;
-            if(line != lines.end()) {
-                TElemFmt fmt;
-                airp = ElemToElemId(etAirp, line->substr(0, 3), fmt);
-                if(fmt == efmtUnknown) airp.clear();
-            }
-        }
-
-        TTripInfo trip_info;
-        trip_info.airline = flt.airline;
-        trip_info.airp = airp;
-        trip_info.flt_no = flt.flt_no;
+        TSearchFltInfo filter;
+        filter.airline = flt.airline;
+        filter.flt_no = flt.flt_no;
         if(flt.suffix)
-            trip_info.suffix.append(1, flt.suffix);
-        trip_info.scd_out = flt.date;
+            filter.suffix.append(1, flt.suffix);
+        filter.airp_dep = "ШРМ";
+        filter.scd_out = flt.date;
+        filter.scd_out_in_utc = true;
+        filter.only_with_reg = false;
 
-        vector<TTripInfo> franchise_flts;
-        get_wb_franchise_flts(trip_info, franchise_flts);
-        bool found = false;
-        for(const auto &f: franchise_flts) {
-            TSearchFltInfo filter;
-            filter.airline = f.airline;
-            filter.flt_no = f.flt_no;
-            filter.suffix = f.suffix;
-            filter.airp_dep = f.airp;
-            filter.scd_out = f.scd_out;
-            filter.scd_out_in_utc = true;
-            filter.only_with_reg = false;
-
-            list<TAdvTripInfo> flts;
-            SearchFlt(filter, flts);
-
-            if(flts.empty())
-                throw Exception("flight not found: %s", flight.c_str());
-            for(list<TAdvTripInfo>::iterator i = flts.begin(); i != flts.end(); ++i)
-                toDB(i->point_id, msg_type, in_content);
+        TTripInfo info;
+        info.airline = flt.airline;
+        info.airp = filter.airp_dep;
+        info.flt_no = flt.flt_no;
+        info.suffix = string(1, flt.suffix);
+        info.scd_out = flt.date;
+        Franchise::TProp franchise_prop;
+        if(franchise_prop.get_franchisee(info, Franchise::TPropType::wb) and franchise_prop.val == Franchise::pvYes) {
+            filter.airline = franchise_prop.oper.airline;
+            filter.flt_no = franchise_prop.oper.flt_no;
+            filter.suffix = franchise_prop.oper.suffix;
         }
+
+        list<TAdvTripInfo> flts;
+        SearchFlt(filter, flts);
+
+        TNearestDate nd(flt.date);
+        for(list<TAdvTripInfo>::iterator i = flts.begin(); i != flts.end(); ++i)
+            nd.sorted_points[i->scd_out] = i->point_id;
+        int point_id = nd.get();
+        if(point_id == NoExists)
+            throw Exception("flight not found: %s", flight.c_str());
+
+        toDB(point_id, msg_type, in_content);
     }
 
 }
