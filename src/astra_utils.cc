@@ -1630,6 +1630,21 @@ bool transliter_equal(const string &value1, const string &value2)
   return false;
 };
 
+bool transliter_equal_begin(const string &str, const string &substr, int fmt)
+{
+  std::string v1(transliter(str,    fmt, true));
+  std::string v2(transliter(substr, fmt, true));
+  size_t minSize=v2.size();
+  return v1.substr(0, minSize)==v2.substr(0, minSize);
+};
+
+bool transliter_equal_begin(const string &str, const string &substr)
+{
+  for(int fmt=1;fmt<=3;fmt++)
+    if (transliter_equal_begin(str, substr, fmt)) return true;
+  return false;
+};
+
 int best_transliter_similarity(const string &value1, const string &value2)
 {
   if (value1==value2) return 100;

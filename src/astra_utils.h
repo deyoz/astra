@@ -576,6 +576,8 @@ public:
 std::string transliter(const std::string &value, int fmt, bool pr_lat);
 bool transliter_equal(const std::string &value1, const std::string &value2, int fmt);
 bool transliter_equal(const std::string &value1, const std::string &value2);
+bool transliter_equal_begin(const std::string &str, const std::string &substr, int fmt);
+bool transliter_equal_begin(const std::string &str, const std::string &substr);
 int best_transliter_similarity(const std::string &value1, const std::string &value2);
 std::string convert_char_view(const std::string &value, bool pr_lat);
 
