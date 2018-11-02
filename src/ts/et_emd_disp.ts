@@ -283,11 +283,16 @@ UNZ+1+$(last_edifact_ref)0001"
 $(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
 $(run_daemon edi_timeout)
 
+>> lines=auto
+    <kick req_ctxt_id...
 
-$(KICK_IN)
+
+!! capture=on err=ignore
+$(lastRedisplay)
+
 
 >> lines=auto
-      <user_error lexema_id='MSG.EMD.EDS_TIMEOUT_ERROR'...
+      <error lexema_id='MSG.ETS_EDS_CONNECT_ERROR' code='0'>Нет связи с сервером эл. билетов или сервером эл. документов</error>...
 
 
 #########################################################################################
@@ -407,12 +412,12 @@ $(run_daemon edi_timeout)
     <kick req_ctxt_id...
 
 
-!! capture=on
+!! capture=on err=ignore
 $(lastRedisplay)
 
 
 >> lines=auto
-      <user_error lexema_id='MSG.EMD.EDS_TIMEOUT_ERROR'...
+      <error lexema_id='MSG.ETS_EDS_CONNECT_ERROR' code='0'>Нет связи с сервером эл. билетов или сервером эл. документов</error>...
 
 
 #########################################################################################
