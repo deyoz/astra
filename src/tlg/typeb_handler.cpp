@@ -54,6 +54,10 @@ using namespace EXCEPTIONS;
 using namespace std;
 using namespace TypeB;
 
+namespace TypeB {
+    const std::string all_other_handler_id="all_other";
+}
+
 static void handle_tpb_tlg(const tlg_info &tlg);
 
 static int HANDLER_WAIT_INTERVAL()       //миллисекунды
@@ -117,7 +121,7 @@ static void initRsc(int tlg_id, const std::string& tlg_body)
 }
 
 static bool handle_tlg(void);
-static bool parse_tlg(void);
+static bool parse_tlg(const string &handler_id);
 
 int main_typeb_handler_tcl(int supervisorSocket, int argc, char *argv[])
 {
@@ -167,12 +171,24 @@ int main_typeb_handler_tcl(int supervisorSocket, int argc, char *argv[])
   return 0;
 };
 
+string getSocketName(const string &proc_name)
+{
+    return "CMD_TYPEB_PARSER_" + upperc(proc_name);
+}
+
 int main_typeb_parser_tcl(int supervisorSocket, int argc, char *argv[])
 {
   try
   {
     sleep(15);
     InitLogTime(argc>0?argv[0]:NULL);
+
+    std::string handler_id;
+    if(argc!=2) {
+      LogError(STDLOG) << __FUNCTION__ << ": wrong number of parameters: " << argc;
+    } else {
+        handler_id = argv[1];
+    }
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
             ->connect_db();
@@ -183,7 +199,7 @@ int main_typeb_parser_tcl(int supervisorSocket, int argc, char *argv[])
     {
       InitLogTime(argc>0?argv[0]:NULL);
       base_tables.Invalidate();
-      bool queue_not_empty=parse_tlg();
+      bool queue_not_empty=parse_tlg(handler_id);
 
       // This block added specially for TypeBHelpMng::notify(typeb_in_id)
       // notify func registers hook(setHAfter) which need to be handled here.
@@ -192,7 +208,7 @@ int main_typeb_parser_tcl(int supervisorSocket, int argc, char *argv[])
       emptyHookTables();
       //
 
-      waitCmd("CMD_TYPEB_PARSER",queue_not_empty?PARSER_PROC_INTERVAL():PARSER_WAIT_INTERVAL(),buf,sizeof(buf));
+      waitCmd(getSocketName(handler_id).c_str(),queue_not_empty?PARSER_PROC_INTERVAL():PARSER_WAIT_INTERVAL(),buf,sizeof(buf));
     }; // end of loop
   }
   catch(EOracleError &E)
@@ -374,7 +390,7 @@ bool handle_tlg(void)
 void parse_and_handle_tpb_tlg(const tlg_info &tlg)
 {
     handle_tpb_tlg(tlg);
-    parse_tlg();
+    parse_tlg(all_other_handler_id);
 }
 
 void handle_tpb_tlg(const tlg_info &tlg)
@@ -389,7 +405,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
     TMemoryManager mem(STDLOG);
     TQuery Qry(&OraSession);
 
-    bool pr_typeb_cmd=false;
+    string socket_name;
     TTlgPartsText parts;
     THeadingInfo *HeadingInfo=NULL;
     TEndingInfo *EndingInfo=NULL;
@@ -431,8 +447,13 @@ void handle_tpb_tlg(const tlg_info &tlg)
       "  vtime_parse:=NULL; "
       "  vtime_receive_not_parse:=vnow; "
       "  IF :id IS NULL THEN "
+      "    begin "
+      "      select proc_name into :proc_name from typeb_parse_processes where tlg_type = :tlg_type; "
+      "    exception "
+      "      when no_data_found then null; "
+      "    end; "
       "    SELECT tlg_in_out__seq.nextval INTO :id FROM dual; "
-      "    INSERT INTO typeb_in(id,proc_attempt) VALUES(:id,0); "
+      "    INSERT INTO typeb_in(id,proc_attempt,proc_name) VALUES(:id,0,:proc_name); "
       "  ELSE "
       "    FOR curRow IN cur(:id) LOOP "
       "      IF curRow.time_parse IS NOT NULL THEN "
@@ -458,6 +479,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
               << QParam("is_final_part",otInteger)
               << QParam("merge_key",otString)
               << QParam("time_create",otDate)
+              << QParam("proc_name",otString,all_other_handler_id)
               << QParam("tlgs_id",otInteger);
 
     TCachedQuery InsQry(ins_sql, QryParams);
@@ -632,7 +654,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
         if (typeb_tlg_id!=NoExists)
           procTypeB(typeb_tlg_id, 0); //лочка
         InsQry.get().Execute();
-        pr_typeb_cmd=true;
+        socket_name = getSocketName(InsQry.get().GetVariableAsString("proc_name"));
         insert_typeb=true;
       }
       catch(EOracleError E)
@@ -659,7 +681,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
           InsQry.get().SetVariable("id",FNull);
           InsQry.get().SetVariable("merge_key",FNull);
           InsQry.get().Execute();
-          pr_typeb_cmd=true;
+          socket_name = getSocketName(InsQry.get().GetVariableAsString("proc_name"));
           insert_typeb=true;
 
           if (tlgs_text!=typeb_in_text.str())
@@ -731,7 +753,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
       throw;
   }
 
-  if (pr_typeb_cmd) sendCmd("CMD_TYPEB_PARSER","H");
+  if (not socket_name.empty()) sendCmd(socket_name.c_str(),"H");
   mem.destroy(HeadingInfo, STDLOG);
   if (HeadingInfo!=NULL) delete HeadingInfo;
   mem.destroy(EndingInfo, STDLOG);
@@ -752,7 +774,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
 #define PARSING_MAX_TIMEOUT        0         //вообще не тормозим разборщик
 #define SCAN_TIMEOUT               60.0/1440 //1 час
 
-bool parse_tlg(void)
+bool parse_tlg(const string &handler_id)
 {
   bool queue_not_empty=false;
 
@@ -766,18 +788,34 @@ bool parse_tlg(void)
   if (TlgIdQry.SQLText.IsEmpty())
   {
     TlgIdQry.Clear();
-    TlgIdQry.SQLText=
-      "SELECT tlgs_in.id, "
-      "       MAX(time_receive) AS time_receive, "
-      "       MAX(time_create) AS max_time_create, "
-      "       MIN(time_receive) AS min_time_receive, "
-      "       MIN(NVL(typeb_in.proc_attempt,0)) AS proc_attempt "
-      "FROM tlgs_in, typeb_in "
-      "WHERE tlgs_in.id = typeb_in.id(+) AND "   //потом убрать(+)
-      "      time_receive_not_parse>=:time_receive "
-      "GROUP BY tlgs_in.id "
-      "ORDER BY max_time_create,min_time_receive,tlgs_in.id";
+    if (handler_id==all_other_handler_id)
+        TlgIdQry.SQLText=
+            "SELECT tlgs_in.id, "
+            "       MAX(time_receive) AS time_receive, "
+            "       MAX(time_create) AS max_time_create, "
+            "       MIN(time_receive) AS min_time_receive, "
+            "       MIN(typeb_in.proc_attempt) AS proc_attempt "
+            "FROM tlgs_in, typeb_in "
+            "WHERE tlgs_in.id = typeb_in.id AND "
+            "      time_receive_not_parse>=:time_receive and "
+            "      (proc_name = :handler_id or proc_name is null) "
+            "GROUP BY tlgs_in.id "
+            "ORDER BY max_time_create,min_time_receive,tlgs_in.id";
+    else
+        TlgIdQry.SQLText=
+            "SELECT tlgs_in.id, "
+            "       MAX(time_receive) AS time_receive, "
+            "       MAX(time_create) AS max_time_create, "
+            "       MIN(time_receive) AS min_time_receive, "
+            "       MIN(typeb_in.proc_attempt) AS proc_attempt "
+            "FROM tlgs_in, typeb_in "
+            "WHERE tlgs_in.id = typeb_in.id AND "
+            "      time_receive_not_parse>=:time_receive and "
+            "      proc_name = :handler_id "
+            "GROUP BY tlgs_in.id "
+            "ORDER BY max_time_create,min_time_receive,tlgs_in.id";
     TlgIdQry.CreateVariable("time_receive",otDate,utc_date-SCAN_TIMEOUT);
+    TlgIdQry.CreateVariable("handler_id",otString,handler_id);
   };
 
   static TQuery TlgInQry(&OraSession);
