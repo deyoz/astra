@@ -48,12 +48,12 @@ class SurnameFilter
 {
   public:
     std::string surname;
-    int surname_equal_len;
+    bool checkSurnameEqualBeginning;
 
     void clear()
     {
       surname.clear();
-      surname_equal_len=ASTRA::NoExists;
+      checkSurnameEqualBeginning=false;
     }
 
     bool validForSearch() const;
@@ -77,7 +77,7 @@ class TPNRFilter : public SurnameFilter
     std::vector<TTestPaxInfo> test_paxs;
     //BCBP_M
     bool from_scan_code;
-    int name_equal_len;
+    bool checkNameEqualBeginning;
     std::string airp_dep, airp_arv;
 
     TPNRFilter() { clear(); };
@@ -97,7 +97,7 @@ class TPNRFilter : public SurnameFilter
       test_paxs.clear();
       //BCBP_M
       from_scan_code=false;
-      name_equal_len=ASTRA::NoExists;
+      checkNameEqualBeginning=false;
       airp_dep.clear();
       airp_arv.clear();
     };
