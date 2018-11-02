@@ -8,7 +8,7 @@ export WITH_MESPRO=1
 export EXTERNAL_LIBS=$HOME/externallibs
 export LOCAL_LIBS=$(pwd)/locallibs
 
-export CPP_STD_VERSION="c++11"
+export CPP_STD_VERSION="c++14"
 
 export ASTRA_FLAGS="-Wno-deprecated-declarations"
 

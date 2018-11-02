@@ -1,4 +1,4 @@
-libs=serverlib tscriptc jxtlib edilib eticklib libtlg libtypeb shared libjms
+libs=serverlib tscriptc jxtlib edilib eticklib libtlg libtypeb shared libssim libjms libcoretypes libnsi
 
 .PHONY: all clean tests $(libs)
 
@@ -27,3 +27,6 @@ eticklib: serverlib edilib
 libtlg: serverlib edilib
 libtypeb: serverlib eticklib
 libjms: serverlib
+libnsi: serverlib
+libcoretypes: serverlib libnsi
+libssim: libnsi libcoretypes

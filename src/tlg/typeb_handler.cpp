@@ -29,6 +29,7 @@
 #include "postpone_edifact.h"
 #include "remote_system_context.h"
 #include "astra_context.h"
+#include "astra_ssim.h"
 
 #include <serverlib/posthooks.h>
 #include <serverlib/ourtime.h>
@@ -259,17 +260,13 @@ void progError(int tlg_id,
 
   for(TFlightsForBind::const_iterator f=flts.begin(); f!=flts.end(); ++f)
   {
-    ostringstream flight;
-    flight << f->flt_info.airline
-           << setw(3) << setfill('0') << f->flt_info.flt_no << f->flt_info.suffix
-           << "/" << DateTimeToStr(f->flt_info.scd, "ddmmm")
-           << " " << f->flt_info.airp_dep << f->flt_info.airp_arv;
+    string flight = f->flt_info.toString();
     if (f==flts.begin())
-      only_trace?ProgTrace(TRACE0, "Flights: %s", flight.str().c_str()):
-                 ProgError(STDLOG, "Flights: %s", flight.str().c_str());
+      only_trace?ProgTrace(TRACE0, "Flights: %s", flight.c_str()):
+                 ProgError(STDLOG, "Flights: %s", flight.c_str());
     else
-      only_trace?ProgTrace(TRACE0, "         %s", flight.str().c_str()):
-                 ProgError(STDLOG, "         %s", flight.str().c_str());
+      only_trace?ProgTrace(TRACE0, "         %s", flight.c_str()):
+                 ProgError(STDLOG, "         %s", flight.c_str());
   };
 
   if (tlge!=NULL)
@@ -1085,30 +1082,18 @@ bool parse_tlg(void)
             emptyHookTables();
             break;
           }
-          /*
           case tcSSM:
           {
-            TSSMHeadingInfo &info = *(dynamic_cast<TSSMHeadingInfo*>(HeadingInfo));
-            TSSMContent con;
-            ParseSSMContent(part,info,con,mem);
-            SaveSSMContent(tlg_id,info,con);
+            std::string tlgBody = parts.addr + parts.heading + parts.body;
+            HandleSSMTlg(tlgBody, tlg_id, bind_flts);
             parseTypeB(tlg_id);
-            OraSession.Commit();
+            callPostHooksBefore();
+            ASTRA::commit();
             count++;
+            callPostHooksAfter();
+            emptyHookTables();
             break;
           }
-          case tcASM:
-          {
-            TSSMHeadingInfo &info = *(dynamic_cast<TSSMHeadingInfo*>(HeadingInfo));
-            TASMContent con;
-            ParseASMContent(part,info,con,mem);
-            SaveASMContent(tlg_id,info,con);
-            parseTypeB(tlg_id);
-            OraSession.Commit();
-            count++;
-            break;
-          }
-          */
           default:
           {
             //телеграмму неизвестного типа сразу пишем в разобранные

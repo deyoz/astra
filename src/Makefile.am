@@ -178,9 +178,9 @@ astra_SOURCES = \
   environ.cc \
   AirportControl.cpp \
   md5_sum.cc \
+  kiosk_events.cc \
   bagmessage.cc \
   hotel_acmd.cc \
-  kiosk_events.cc \
   self_ckin_log.cc \
   stat_bi.cc \
   stat_vo.cc \
@@ -195,6 +195,7 @@ astra_SOURCES = \
   cr_lf.cc \
   stat_fv.cc \
   franchise.cc \
+  astra_ssim.cc \
   bagmessage_daemon.cc
 
 astra_LDADD = $(all_libraries) \
@@ -204,6 +205,9 @@ astra_LDADD = $(all_libraries) \
 	@LIBTLG_LIBS@ \
 	@SERVERLIB_LIBS@ \
 	@LIBJMS_LIBS@ \
+  @LIBSSIM_LIBS@ \
+  @LIBCORETYPES_LIBS@ \
+  @LIBNSI_LIBS@ \
         @LIBTYPEB_LIBS@ \
 	@ETICKLIB_LIBS@ @EDILIB_LIBS@ \
 	@ORACLE_LIBS@ \
@@ -242,7 +246,7 @@ noinst_HEADERS = \
   astra_context.h \
   astra_elem_utils.h \
   astra_elems.h \
-  astra_locale.h \  
+  astra_locale.h \
   astra_locale_adv.h \
   astra_main.h \
   astra_misc.h \
@@ -363,8 +367,8 @@ noinst_HEADERS = \
   astra_pnr.h \
   AirportControl.h \
   md5_sum.h \
-  hotel_acmd.h \
   kiosk_events.h \
+  hotel_acmd.h \
   self_ckin_log.h \
   stat_bi.h \
   stat_vo.h \
@@ -379,4 +383,5 @@ noinst_HEADERS = \
   cr_lf.h \
   stat_fv.h \
   franchise.h \
-  report_common.h
+  report_common.h \
+  astra_ssim.h

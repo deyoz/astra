@@ -178,23 +178,6 @@ struct TTlgPartsText
   };
 };
 
-struct TFltForBind {
-    TFltInfo flt_info;
-    TBindType bind_type;
-    TSearchFltInfoPtr search_params;
-    TFltForBind(
-            TFltInfo vflt_info,
-            TBindType vbind_type,
-            TSearchFltInfoPtr vsearch_params
-            ):
-        flt_info(vflt_info),
-        bind_type(vbind_type),
-        search_params(vsearch_params)
-    {}
-};
-
-typedef std::list<TFltForBind> TFlightsForBind;
-
 class THeadingInfo
 {
   public:
@@ -1023,6 +1006,9 @@ TTlgPartInfo nextPart(const TTlgPartInfo &curr, const char* line_p);
 void throwTlgError(const char* msg, const TTlgPartInfo &curr, const char* line_p);
 void split(std::vector<std::string> &result, const std::string val, char c);
 int monthAsNum(const std::string &smonth);
+
+// на входе строка формата nn(aaa(nn))
+TDateTime ParseDate(const std::string &buf);
 
 } //namespace TypeB
 

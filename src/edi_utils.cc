@@ -19,6 +19,7 @@
 #include <serverlib/internal_msgid.h>
 #include <edilib/EdiSessionTimeOut.h>
 #include <edilib/edi_session.h>
+#include <edilib/edilib_db_callbacks.h>
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -632,8 +633,8 @@ void cleanOldRecords(int min_ago)
   {
     using namespace edilib;
     EdiSessionId_t edisess(Qry.FieldAsInteger("ida"));
-    EdiSession::deleteDb(edisess);
-    EdiSessionTimeOut::deleteDb(edisess);
+    EdilibDbCallbacks::instance()->ediSessionDeleteDb(edisess);
+    EdilibDbCallbacks::instance()->ediSessionToDeleteDb(edisess);
   };
 
   edifact::RemoteResults::cleanOldRecords(min_ago);

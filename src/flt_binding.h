@@ -6,6 +6,9 @@
 #include "astra_misc.h"
 
 using BASIC::date_time::TDateTime;
+using BASIC::date_time::DateTimeToStr;
+
+enum TBindType {btFirstSeg=0,btAllSeg=2,btLastSeg=1,btNone=3};
 
 class TFltInfo
 {
@@ -59,11 +62,35 @@ class TFltInfo
              strcmp(airp_arv, flt.airp_arv)==0;
     };
     void dump() const;
+    void parse(const char *val);
+    std::pair<int, bool> getPointId(TBindType bind_type) const;
+    std::string toString() const
+    {
+      std::ostringstream result;
+      result << airline
+             << std::setw(3) << std::setfill('0') << flt_no << suffix;
+      if (scd != 0)
+        result << "/" << DateTimeToStr(scd, "ddmmm");
+      result << " " << airp_dep << airp_arv;
+      return result.str();
+    }
+};
+
+class TlgSource
+{
+  public:
+    int point_id;
+    int tlg_id;
+    bool has_errors;
+    bool has_alarm_errors;
+
+    TlgSource(int _point_id, int _tlg_id, bool _has_errors, bool _has_alarm_errors) :
+      point_id(_point_id), tlg_id(_tlg_id), has_errors(_has_errors), has_alarm_errors(_has_alarm_errors) {}
+
+    const TlgSource& toDB() const;
 };
 
 void crs_recount(int point_id_tlg, int point_id_spp, bool check_comp);
-
-enum TBindType {btFirstSeg=0,btAllSeg=2,btLastSeg=1};
 
 class TFltBinding
 {
@@ -128,5 +155,27 @@ class TTrferBinding : public TFltBinding
     TTrferBinding():check_alarm(true) {};
     TTrferBinding(bool pcheck_alarm):check_alarm(pcheck_alarm) {};
 };
+
+namespace TypeB
+{
+
+struct TFltForBind {
+    TFltInfo flt_info;
+    TBindType bind_type;
+    TSearchFltInfoPtr search_params;
+    TFltForBind(
+            TFltInfo vflt_info,
+            TBindType vbind_type,
+            TSearchFltInfoPtr vsearch_params
+            ):
+        flt_info(vflt_info),
+        bind_type(vbind_type),
+        search_params(vsearch_params)
+    {}
+};
+
+typedef std::list<TFltForBind> TFlightsForBind;
+
+} //namespace TypeB
 
 #endif
