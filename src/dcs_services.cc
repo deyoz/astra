@@ -3,6 +3,7 @@
 #include "passenger.h"
 #include "brands.h"
 #include "rfisc.h"
+#include "astra_locale_adv.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
@@ -72,11 +73,19 @@ void DCSServiceApplying::addRequiredRFISCs(const DCSServiceApplyingParams& param
   LogTrace(TRACE5) << __FUNCTION__ << ": " << s.str();
 }
 
+void DCSServiceApplying::throwIfNotAllowed(int pax_id, DCSService::Enum dcs_service)
+{
+  if ( !isAllowed( pax_id, dcs_service ) )
+    throw AstraLocale::UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL.ADD_SERVICE", 
+                                      AstraLocale::LParams()<<AstraLocale::LParam( "service", "" ) );    
+}
+
 bool DCSServiceApplying::isAllowed(int pax_id, DCSService::Enum dcs_service)
 {
   LogTrace(TRACE5) << __FUNCTION__ << ": pax_id=" << pax_id <<
                                       ", dcs_service=" << dcsServices().encode(dcs_service);
-
+  if ( TReqInfo::Instance()->client_type != ASTRA::ctTerm ) return true;// только с терминала  
+  
   CheckIn::TSimplePaxItem pax;
   if (!pax.getByPaxId(pax_id)) return false;
 

@@ -56,6 +56,7 @@ class DCSServiceApplying
     static void addRequiredRFISCs(const DCSServiceApplyingParams& params, RFISCsSet& rfiscs);
   public:
     static bool isAllowed(int pax_id, DCSService::Enum dcs_service);
+    static void throwIfNotAllowed(int pax_id, DCSService::Enum dcs_service);
 };
 
 
