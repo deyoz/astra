@@ -644,29 +644,25 @@ std::pair<int, bool> TFltInfo::getPointId(TBindType bind_type) const
     "DECLARE \n"
     "  pass BINARY_INTEGER; \n"
     "BEGIN \n"
-    "  :inserted:=0; "
+    "  :inserted:=0; \n"
     "  FOR pass IN 1..2 LOOP \n"
+    "    SELECT MIN(point_id) INTO :point_id FROM tlg_trips \n"
+    "    WHERE airline=:airline AND flt_no=:flt_no AND \n"
+    "          (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND \n"
+    "          scd=:scd AND pr_utc=:pr_utc AND \n"
+    "          (airp_dep IS NULL AND :airp_dep IS NULL OR airp_dep=:airp_dep) AND \n"
+    "          (airp_arv IS NULL AND :airp_arv IS NULL OR airp_arv=:airp_arv) AND \n"
+    "          bind_type=:bind_type; \n"
+    "    IF :point_id IS NOT NULL THEN EXIT; END IF; \n"
     "    BEGIN \n"
-    "      SELECT point_id INTO :point_id FROM tlg_trips \n"
-    "      WHERE airline=:airline AND flt_no=:flt_no AND \n"
-    "            (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND \n"
-    "            scd=:scd AND pr_utc=:pr_utc AND \n"
-    "            (airp_dep IS NULL AND :airp_dep IS NULL OR airp_dep=:airp_dep) AND \n"
-    "            (airp_arv IS NULL AND :airp_arv IS NULL OR airp_arv=:airp_arv) AND \n"
-    "            bind_type=:bind_type; \n"
+    "      SELECT point_id.nextval INTO :point_id FROM dual; \n"
+    "      INSERT INTO tlg_trips(point_id,airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv,bind_type) \n"
+    "      VALUES(:point_id,:airline,:flt_no,:suffix,:scd,:pr_utc,:airp_dep,:airp_arv,:bind_type); \n"
+    "      :inserted:=1; \n"
     "      EXIT; \n"
     "    EXCEPTION \n"
-    "      WHEN NO_DATA_FOUND THEN \n"
-    "        BEGIN \n"
-    "          SELECT point_id.nextval INTO :point_id FROM dual; \n"
-    "          INSERT INTO tlg_trips(point_id,airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv,bind_type) \n"
-    "          VALUES(:point_id,:airline,:flt_no,:suffix,:scd,:pr_utc,:airp_dep,:airp_arv,:bind_type); \n"
-    "          :inserted:=1; "
-    "          EXIT; \n"
-    "        EXCEPTION \n"
-    "          WHEN DUP_VAL_ON_INDEX THEN \n"
-    "            IF pass=1 THEN NULL; ELSE RAISE; END IF; \n"
-    "        END; \n"
+    "      WHEN DUP_VAL_ON_INDEX THEN \n"
+    "        IF pass=1 THEN NULL; ELSE RAISE; END IF; \n"
     "    END; \n"
     "  END LOOP; \n"
     "END; ";
@@ -685,7 +681,13 @@ std::pair<int, bool> TFltInfo::getPointId(TBindType bind_type) const
     throw Exception("%s: point_id IS NULL!", __FUNCTION__);
   if (Qry.VariableIsNULL("inserted"))
     throw Exception("%s: inserted IS NULL!", __FUNCTION__);
-  return make_pair(Qry.GetVariableAsInteger("point_id"), Qry.GetVariableAsInteger("inserted")!=0);
+  int point_id=Qry.GetVariableAsInteger("point_id");
+  int inserted=Qry.GetVariableAsInteger("inserted")!=0;
+
+  if (inserted)
+    LogTrace(TRACE5) << __FUNCTION__ << ": point_id=" << point_id << " inserted";
+
+  return make_pair(point_id, inserted);
 }
 
 const TlgSource& TlgSource::toDB() const
