@@ -544,3 +544,19 @@ string TAirpArvInfo::get(TQuery &Qry)
     }
     return im->second;
 }
+
+bool TDeskAccess::get(const string &desk)
+{
+    map<string, bool>::iterator result = items.find(desk);
+    if(result == items.end()) {
+        TCachedQuery Qry(
+                "select adm.check_desk_view_access(:desk, :SYS_user_id) from dual",
+                QParams()
+                << QParam("desk", otString, desk)
+                << QParam(":SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id));
+        Qry.get().Execute();
+        pair<map<string, bool>::iterator, bool> res = items.insert(make_pair(desk, Qry.get().FieldAsInteger(0) != 0));
+        result = res.first;
+    }
+    return result->second;
+}
