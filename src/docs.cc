@@ -1276,8 +1276,9 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "rk_weight", row.rk_weight);
         NewTextChild(rowNode, "bag_amount", row.bag_amount);
         NewTextChild(rowNode, "bag_weight", row.bag_weight);
-        NewTextChild(rowNode, "excess",    row.excess_wt);
-        NewTextChild(rowNode, "excess_pc", row.excess_pc);
+        NewTextChild(rowNode, "excess", TComplexBagExcess(TBagKilos(row.excess_wt),
+                                                          TBagPieces(row.excess_pc)).
+                                          view(OutputLang(rpt_params.GetLang()), true));
         NewTextChild(rowNode, "xcr", row.xcr);
         NewTextChild(rowNode, "dhc", row.dhc);
         NewTextChild(rowNode, "mos", row.mos);
@@ -2160,9 +2161,6 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       ostringstream adl_fem;
       adl_fem << NodeAsInteger("adl", rowNode) << '/' << NodeAsInteger("adl_f", rowNode);
 
-      TComplexBagExcess excess(TBagKilos(NodeAsInteger("excess",rowNode)),
-                               TBagPieces(NodeAsInteger("excess_pc",rowNode)));
-
       s.str("");
       s << setw(rpt_params.pr_trfer?19:15) << NodeAsString("class_name",rowNode)
         << setw(7) << NodeAsInteger("seats",rowNode)
@@ -2172,7 +2170,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         << setw(7) << NodeAsInteger("bag_amount",rowNode)
         << setw(7) << NodeAsInteger("bag_weight",rowNode)
         << setw(7) << NodeAsInteger("rk_weight",rowNode)
-        << setw(7) << excess.view(OutputLang(rpt_params.GetLang()), true) << endl
+        << setw(7) << NodeAsString("excess",rowNode) << endl
         << "XCR/DHC/MOS/JMP: "
         << NodeAsInteger("xcr",rowNode) << "/"
         << NodeAsInteger("dhc",rowNode) << "/"
