@@ -242,41 +242,26 @@ void SurnameFilter::addSQLConditionsForSearch(const PaxOrigin& origin, std::list
       break;
   }
   ostringstream sql;
-  if (surname_equal_len!=NoExists)
-    sql << "system.transliter_equal(SUBSTR(" << field_name << ",1,:surname_equal_len),:surname)<>0";
-  else
-    sql << "system.transliter_equal(" << field_name << ",:surname)<>0";
+  sql << (checkSurnameEqualBeginning?"system.transliter_equal_begin(":
+                                     "system.transliter_equal(")
+      << field_name << ", :surname)<>0";
 
   conditions.push_back(sql.str());
 }
 
 void SurnameFilter::addSQLParamsForSearch(QParams& params) const
 {
-  if (surname_equal_len!=NoExists)
-  {
-    params << QParam("surname", otString, surname.substr(0, surname_equal_len))
-           << QParam("surname_equal_len", otInteger, surname_equal_len);
-  }
-  else
-  {
-    params << QParam("surname", otString, surname);
-  }
+  params << QParam("surname", otString, surname);
 }
 
 string TPNRFilter::getSurnameSQLFilter(const string &field_name, TQuery &Qry) const
 {
   ostringstream sql;
-  if (surname_equal_len!=NoExists)
-  {
-    sql << " system.transliter_equal(SUBSTR(" << field_name << ",1,:surname_equal_len),:surname)<>0 ";
-    Qry.CreateVariable("surname", otString, surname.substr(0, surname_equal_len));
-    Qry.CreateVariable("surname_equal_len", otInteger, surname_equal_len);
-  }
-  else
-  {
-    sql << " system.transliter_equal(" << field_name << ",:surname)<>0 ";
-    Qry.CreateVariable("surname", otString, surname);
-  };
+  sql << (checkSurnameEqualBeginning?"system.transliter_equal_begin(":
+                                     "system.transliter_equal(")
+      << field_name << ", :surname)<>0";
+
+  Qry.CreateVariable("surname", otString, surname);
   return sql.str();
 };
 
@@ -297,15 +282,8 @@ bool TPNRFilter::isEqualSurname(const string &pax_surname) const
 {
   if (!surname.empty())
   {
-    if (surname_equal_len!=NoExists)
-    {
-      if (!transliter_equal(pax_surname.substr(0, surname_equal_len),
-                                surname.substr(0, surname_equal_len))) return false;
-    }
-    else
-    {
-      if (!transliter_equal(pax_surname, surname)) return false;
-    };
+    if (!(checkSurnameEqualBeginning?transliter_equal_begin(pax_surname, surname):
+                                     transliter_equal(pax_surname, surname))) return false;
   }
   return true;
 }
@@ -318,15 +296,8 @@ bool TPNRFilter::isEqualName(const string &pax_name) const
     //оставляем часть до пробела
     pax_name_normal.erase(find(pax_name_normal.begin(), pax_name_normal.end(), ' '), pax_name_normal.end());
     //проверим совпадение имени
-    if (name_equal_len!=NoExists)
-    {
-      if (!transliter_equal(pax_name_normal.substr(0, name_equal_len),
-                                       name.substr(0, name_equal_len))) return false;
-    }
-    else
-    {
-      if (!transliter_equal(pax_name_normal, name)) return false;
-    };
+    if (!(checkNameEqualBeginning?transliter_equal_begin(pax_name_normal, name):
+                                  transliter_equal(pax_name_normal, name))) return false;
   };
   return true;
 };
@@ -459,8 +430,8 @@ void TPNRFilter::trace( TRACE_SIGNATURE ) const
   ProgTrace(TRACE_PARAMS, " ");
   ProgTrace(TRACE_PARAMS, "airp_dep: %s", airp_dep.c_str());
   ProgTrace(TRACE_PARAMS, "airp_arv: %s", airp_arv.c_str());
-  ProgTrace(TRACE_PARAMS, "surname_equal_len: %s", surname_equal_len==NoExists?"":IntToString(surname_equal_len).c_str());
-  ProgTrace(TRACE_PARAMS, "name_equal_len: %s", name_equal_len==NoExists?"":IntToString(name_equal_len).c_str());
+  ProgTrace(TRACE_PARAMS, "checkSurnameEqualBeginning: %s", checkSurnameEqualBeginning?"true":"false");
+  ProgTrace(TRACE_PARAMS, "checkNameEqualBeginning: %s", checkNameEqualBeginning?"true":"false");
   ProgTrace(TRACE_PARAMS, "from_scan_code: %s", from_scan_code?"true":"false");
   ProgTrace(TRACE_PARAMS, "^^^^^^^^^^^^ TPNRFilter ^^^^^^^^^^^^");
 };
@@ -509,9 +480,9 @@ TPNRFilters& TPNRFilters::fromBCBPSections(const BCBPSections &sections)
 
       if (filter.surname.size()+filter.name.size()+1 >= 20)
       {
-        filter.surname_equal_len=filter.surname.size();
+        filter.checkSurnameEqualBeginning=true;
         if (!filter.name.empty())
-          filter.name_equal_len=filter.name.size();
+          filter.checkNameEqualBeginning=true;
       };
       filter.name.erase(find(filter.name.begin(), filter.name.end(), ' '), filter.name.end()); //оставляем часть до пробела
 
