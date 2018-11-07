@@ -1159,9 +1159,7 @@ void ParseAHMFltInfo(TTlgPartInfo body, const TAHMHeadingInfo &info, TFltInfo& f
                 !IsUpperLetter(flt.suffix[0])) throw ETlgError("Wrong flight");
             GetAirline(flt.airline);
             GetSuffix(flt.suffix[0]);
-            //переведем day в TDateTime
-            //м.б. разность системных времен у формирователя и приемщика, поэтому +1!
-            flt.scd = DayToDate(day, NowUTC() + 1, true);
+            flt.scd = ParseDate(day);
             flt.pr_utc=true;
 
             if (strcmp(info.tlg_type,"MVT")==0)
@@ -7491,6 +7489,11 @@ void TFlightIdentifier::dump()
 
 }
 
+TDateTime ParseDate(int day)
+{
+    return DayToDate(day, NowUTC() + 15, true);
+}
+
 // на входе строка формата nn(aaa(nn))
 TDateTime ParseDate(const string &buf)
 {
@@ -7543,7 +7546,7 @@ TDateTime ParseDate(const string &buf)
     } else if(*smonth) {
         date = DayMonthToDate(day, mon, today, dateEverywhere);
     } else {
-        date = DayToDate(day, today + 1, true);
+        date = ParseDate(day);
     }
 
     return date;

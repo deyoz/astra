@@ -1,7 +1,5 @@
 #include "ucm_parser.h"
 #include "franchise.h"
-#include "astra_misc.h" // for DayToDate
-#include "date_time.h" // for NowUTC()
 #include <utility>
 #include <boost/regex.hpp>
 
@@ -142,20 +140,20 @@ void TUCMFltInfo::parse(const char *val, TFlightsForBind &flts, TTlgCategory tlg
         airline = new_breed::GetAirline(results[1]);
         flt_no = ToInt(results[2]);
         suffix = new_breed::GetSuffix(results[3]);
-        date = DayToDate(ToInt(results[4]), NowUTC() + 1, true);
+        date = ParseDate(ToInt(results[4]));
         airp = new_breed::GetAirp(results[7]);
     } else if (boost::regex_match(src, results, e1)) {
         // OTHER 1 (unknown airp)
         airline = new_breed::GetAirline(results[1]);
         flt_no = ToInt(results[2]);
         suffix = new_breed::GetSuffix(results[3]);
-        date = DayToDate(ToInt(results[6]), NowUTC() + 1, true);
+        date = ParseDate(ToInt(results[6]));
     } else if (boost::regex_match(src, results, e2)) {
         // OTHER 2 (unknown airp)
         airline = new_breed::GetAirline(results[1]);
         flt_no = ToInt(results[2]);
         suffix = new_breed::GetSuffix(results[3]);
-        date = DayToDate(ToInt(results[4]), NowUTC() + 1, true);
+        date = ParseDate(ToInt(results[4]));
     } else
         throw ETlgError(tlgeNotMonitorNotAlarm, "Wrong flight: " + src);
 

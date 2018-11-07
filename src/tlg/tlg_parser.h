@@ -1062,6 +1062,7 @@ int monthAsNum(const std::string &smonth);
 
 // на входе строка формата nn(aaa(nn))
 TDateTime ParseDate(const std::string &buf);
+TDateTime ParseDate(int day);
 
 namespace regex {
     static const std::string  m = "[А-ЯЁA-Z0-9]";
