@@ -59,6 +59,18 @@ namespace new_breed {
         return id2;
     }
 
+    string GetAirp(const string &airp, bool with_icao=true)
+    {
+        try
+        {
+            return TlgElemToElemId(etAirp,airp,with_icao);
+        }
+        catch (EBaseTableError)
+        {
+            throw ETlgError("Unknown airport code '%s'", airp.c_str());
+        };
+    };
+
     string GetAirline(const string &airline, bool with_icao = true)
     {
         try
@@ -104,19 +116,42 @@ void TUCMFltInfo::parse(const char *val, TFlightsForBind &flts, TTlgCategory tlg
     clear();
     src = val; // это важно: boost::regex_match(strin(val), results, e2) не прокатит, непредсказуемо.
 
+    static const boost::regex e_ntm("^" + regex::airline + regex::flt_no + "/" + regex::date_month + " " + regex::airp + ".*");
+    static const boost::regex e_sls_ucm(
+            "^" + regex::airline + regex::flt_no + "/" + regex::date +
+            regex::full_stop + regex::bort +
+            regex::full_stop + regex::aircraft_vers +
+            regex::full_stop + regex::airp +
+            ".*");
     static const boost::regex e1("^" + regex::airline + regex::flt_no + "/" + regex::flt_no + "/" + regex::date + ".*");
     static const boost::regex e2("^" + regex::airline + regex::flt_no + "/" + regex::date + ".*");
 
     boost::match_results<std::string::const_iterator> results;
 
-    if (boost::regex_match(src, results, e1))
-    {
+    // для LDM и CPM АП вылета неизвестен
+
+    if (boost::regex_match(src, results, e_ntm)) {
+        // NTM
+        airline = new_breed::GetAirline(results[1]);
+        flt_no = ToInt(results[2]);
+        suffix = new_breed::GetSuffix(results[3]);
+        date = ParseDate(results[4]);
+        airp = new_breed::GetAirp(results[5]);
+    } else if (boost::regex_match(src, results, e_sls_ucm)) {
+        // SLS & UCM
+        airline = new_breed::GetAirline(results[1]);
+        flt_no = ToInt(results[2]);
+        suffix = new_breed::GetSuffix(results[3]);
+        date = DayToDate(ToInt(results[4]), NowUTC() + 1, true);
+        airp = new_breed::GetAirp(results[7]);
+    } else if (boost::regex_match(src, results, e1)) {
+        // OTHER 1 (unknown airp)
         airline = new_breed::GetAirline(results[1]);
         flt_no = ToInt(results[2]);
         suffix = new_breed::GetSuffix(results[3]);
         date = DayToDate(ToInt(results[6]), NowUTC() + 1, true);
-    } else if (boost::regex_match(src, results, e2))
-    {
+    } else if (boost::regex_match(src, results, e2)) {
+        // OTHER 2 (unknown airp)
         airline = new_breed::GetAirline(results[1]);
         flt_no = ToInt(results[2]);
         suffix = new_breed::GetSuffix(results[3]);
@@ -126,7 +161,7 @@ void TUCMFltInfo::parse(const char *val, TFlightsForBind &flts, TTlgCategory tlg
 
     TTripInfo trip_info;
     trip_info.airline = airline;
-    trip_info.airp = airp; // TODO доставать АП из UCM & SLS
+    trip_info.airp = airp;
     trip_info.flt_no = flt_no;
     trip_info.suffix = suffix;
     trip_info.scd_out = date;
