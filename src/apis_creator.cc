@@ -561,7 +561,7 @@ void CreateEdi( const TApisRouteData& route,
 
     paxInfo.setDepPort(route.airp_dep_code_lat());
     paxInfo.setArrPort(route.airp_arv_code_lat());
-    paxInfo.setNationality(iPax->doc.nationality);
+    paxInfo.setNationality(format.ConvertCountry(iPax->doc.nationality));
 
     if (iPax->status!=psCrew)
     {
@@ -592,7 +592,7 @@ void CreateEdi( const TApisRouteData& route,
     if (iPax->doc.expiry_date!=NoExists)
       paxInfo.setDocExpirateDate(iPax->doc.expiry_date);
 
-    paxInfo.setDocCountry(iPax->doc.issue_country);
+    paxInfo.setDocCountry(format.ConvertCountry(iPax->doc.issue_country));
 
     if (format.rule(r_docaD_US) && iPax->docaD)
     {
@@ -603,45 +603,45 @@ void CreateEdi( const TApisRouteData& route,
         if (route.country_arv_code_lat!="US" || iPax->docaD.get().region.size()==2) //код штата для US
           paxInfo.setCountrySubEntityCode(iPax->docaD.get().region);
         paxInfo.setPostalCode(iPax->docaD.get().postal_code);
-        paxInfo.setDestCountry(iPax->docaD.get().country);
+        paxInfo.setDestCountry(format.ConvertCountry(iPax->docaD.get().country));
       }
     }
 
     if (format.rule(r_setResidCountry) && iPax->docaR)
-      paxInfo.setResidCountry(iPax->docaR.get().country);
+      paxInfo.setResidCountry(format.ConvertCountry(iPax->docaR.get().country));
 
     if (format.rule(r_docaR_US) && iPax->docaR)
     {
       if (iPax->status!=psCrew && route.country_regul_dep!=US_CUSTOMS_CODE)
       {
-        paxInfo.setResidCountry(iPax->docaR.get().country);
+        paxInfo.setResidCountry(format.ConvertCountry(iPax->docaR.get().country));
       }
       if (iPax->status==psCrew)
       {
-        paxInfo.setResidCountry(iPax->docaR.get().country);
+        paxInfo.setResidCountry(format.ConvertCountry(iPax->docaR.get().country));
         paxInfo.setStreet(iPax->docaR.get().address);
         paxInfo.setCity(iPax->docaR.get().city);
         paxInfo.setCountrySubEntityCode(iPax->docaR.get().region);
         paxInfo.setPostalCode(iPax->docaR.get().postal_code);
-        paxInfo.setDestCountry(iPax->docaR.get().country);
+        paxInfo.setDestCountry(format.ConvertCountry(iPax->docaR.get().country)); // docaD?
       }
     }
 
     if (format.rule(r_setBirthCountry) && iPax->docaB)
-      paxInfo.setBirthCountry(iPax->docaB.get().country);
+      paxInfo.setBirthCountry(format.ConvertCountry(iPax->docaB.get().country));
 
     if (format.rule(r_docaB_US) && iPax->docaB && iPax->status==psCrew)
     {
       paxInfo.setBirthCity(iPax->docaB.get().city);
       paxInfo.setBirthRegion(iPax->docaB.get().region);
-      paxInfo.setBirthCountry(iPax->docaB.get().country);
+      paxInfo.setBirthCountry(format.ConvertCountry(iPax->docaB.get().country));
     }
 
     if (format.rule(r_doco) && iPax->doco)
     {
       paxInfo.setDocoType(iPax->doco_type_lat());
       paxInfo.setDocoNumber(iPax->doco.get().no);
-      paxInfo.setDocoCountry(iPax->doco.get().applic_country);
+      paxInfo.setDocoCountry(format.ConvertCountry(iPax->doco.get().applic_country));
     }
 
     if (iPax->status != psCrew)
@@ -835,8 +835,8 @@ void CreateTxt( const TApisRouteData& route,
     if (format.rule(r_processDocNumber))
       pdf.doc_no = format.process_doc_no(pdf.doc_no);
 
-    pdf.nationality = iPax->doc.nationality;
-    pdf.issue_country = iPax->doc.issue_country;
+    pdf.nationality = format.ConvertCountry(iPax->doc.nationality);
+    pdf.issue_country = format.ConvertCountry(iPax->doc.issue_country);
 
     if (iPax->doc.birth_date!=NoExists && format.rule(r_birth_date))
       pdf.birth_date = DateTimeToStr(iPax->doc.birth_date, format.DateTimeFormat(), true);
@@ -845,7 +845,7 @@ void CreateTxt( const TApisRouteData& route,
       pdf.expiry_date = DateTimeToStr(iPax->doc.expiry_date, format.DateTimeFormat(), true);
 
     if (iPax->docaB && format.rule(r_birth_country))
-      pdf.birth_country = iPax->docaB.get().country;
+      pdf.birth_country = format.ConvertCountry(iPax->docaB.get().country);
 
     pdf.trip_type = "N";
     if (format.rule(r_trip_type))
@@ -867,7 +867,7 @@ void CreateTxt( const TApisRouteData& route,
       pdf.doco_exists = iPax->doco != boost::none;
       pdf.doco_type = iPax->doco_type_lat(); // throws
       pdf.doco_no = iPax->doco.get().no;
-      pdf.doco_applic_country = iPax->doco.get().applic_country;
+      pdf.doco_applic_country = format.ConvertCountry(iPax->doco.get().applic_country);
     }
 
     tdf.lstPaxData.push_back(pdf);
@@ -1150,7 +1150,7 @@ int apis_test_single(int argc, char **argv)
   TQuery PointIdQry(&OraSession);
   PointIdQry.SQLText=
   "SELECT point_id FROM points WHERE airline IS NOT NULL AND PR_DEL=0 AND "
-  "SCD_OUT BETWEEN TO_DATE('25.08.18 00:00', 'DD.MM.YY HH24:MI') AND TO_DATE('01.09.18 00:00','DD.MM.YY HH24:MI')";
+  "SCD_OUT BETWEEN TO_DATE('07.11.18 00:00', 'DD.MM.YY HH24:MI') AND TO_DATE('08.11.18 00:00','DD.MM.YY HH24:MI')";
   int iteration = 0;
   for (PointIdQry.Execute(); !PointIdQry.Eof; PointIdQry.Next())
   {

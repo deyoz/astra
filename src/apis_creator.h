@@ -37,7 +37,6 @@ const string apis_test_text =
 "ORDER BY format";
 // https://stackoverflow.com/questions/3592357/string-concatenation
 
-//int apis_test(int argc, char **argv);
 int apis_test_single(int argc, char **argv);
 
 bool create_apis_file(int point_id, const string& task_name);
@@ -554,6 +553,12 @@ struct TAPISFormat
 
   virtual bool NeedCBPPort(string country_regul_dep) const { return true; }
 
+  // используется только для Германии (коды D и DEU)
+  virtual string ConvertCountry(string country) const
+  {
+    return PaxDocCountryIdToPrefferedElem(country, efmtCodeISOInter, AstraLocale::LANG_EN);
+  }
+
 protected:
   void ConvertPaxNamesTrunc(string& doc_first_name, string& doc_second_name) const
   {
@@ -887,7 +892,7 @@ struct TAPISFormat_EDI_ES : public TEdiAPISFormat
   string process_doc_no(const string& no) const { return NormalizeDocNo(no, false); }
 };
 
-struct TAPISFormat_EDI_DE : public TEdiAPISFormat
+struct TAPISFormat_EDI_DE : public TEdiAPISFormat // Германия
 {
   // уточнить viewUNGandUNE
 
@@ -928,9 +933,14 @@ struct TAPISFormat_EDI_DE : public TEdiAPISFormat
   {
     return NormalizeDocNo(no, false);
   }
+
+  string ConvertCountry(string country) const override
+  {
+    return PaxDocCountryIdToPrefferedElem(country, efmtCodeNative, AstraLocale::LANG_EN);
+  }
 };
 
-struct TAPISFormat_CSV_DE : public TTxtApisFormat
+struct TAPISFormat_CSV_DE : public TTxtApisFormat // Германия
 {
   TAPISFormat_CSV_DE()
   {
@@ -1008,6 +1018,11 @@ struct TAPISFormat_CSV_DE : public TTxtApisFormat
       << route.airp_dep_code_lat() << ";" << DateTimeToStr(route.scd_out_local,"yymmddhhnn") << ";"
       << route.airp_arv_code_lat() << ";" << DateTimeToStr(route.scd_in_local,"yymmddhhnn") << ";"
       << count_overall << ENDL;
+  }
+
+  string ConvertCountry(string country) const override
+  {
+    return PaxDocCountryIdToPrefferedElem(country, efmtCodeNative, AstraLocale::LANG_EN);
   }
 };
 
