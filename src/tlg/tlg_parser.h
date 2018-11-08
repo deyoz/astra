@@ -1009,6 +1009,22 @@ int monthAsNum(const std::string &smonth);
 
 // на входе строка формата nn(aaa(nn))
 TDateTime ParseDate(const std::string &buf);
+TDateTime ParseDate(int day);
+
+namespace regex {
+    static const std::string  m = "[А-ЯЁA-Z0-9]";
+    static const std::string a = "[А-ЯЁA-Z]";
+
+    static const std::string airline = "(" + m + "{2}" + a + "?)";
+    static const std::string airp = "(" + a + "{3})";
+    static const std::string flt_no = "(\\d{1,4})(" + a + "?)";
+    static const std::string date = "(\\d{2})";
+    static const std::string date_month = "(\\d{2}" + a + "{3})";
+    static const std::string date_month_year = "(\\d{2}" + a + "{3}\\d{2})";
+    static const std::string bort = "(" + m + "{2,10})";
+    static const std::string aircraft_vers = "(" + m + "{1,12})";
+    static const std::string full_stop = "\\.";
+}
 
 } //namespace TypeB
 

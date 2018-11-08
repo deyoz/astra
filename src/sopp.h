@@ -254,10 +254,12 @@ class TDeletePaxFilter
     TDeletePaxFilter():inbound_point_dep(ASTRA::NoExists),with_crew(false) {};
 };
 
+enum TSoppWriteOwner { ownerDisp, ownerMVT, ownerLDM };
+
 void DeletePassengers( int point_id, const TDeletePaxFilter &filter, std::map<int,TAdvTripInfo> &segs );
 void DeletePassengersAnswer( std::map<int,TAdvTripInfo> &segs, xmlNodePtr resNode );
 void validateField( const std::string &surname, const std::string &fieldname );
-void UpdateCrew( int point_id, std::string commander, int cockpit, int cabin );
+void UpdateCrew( int point_id, std::string commander, int cockpit, int cabin, TSoppWriteOwner owner );
 
 class SoppInterface : public JxtInterface
 {
@@ -427,6 +429,7 @@ void set_pr_tranzit(int point_id, int point_num, int first_point, bool new_pr_tr
 
 void SetFlightFact(int point_id, TDateTime utc_act_out);
 void getTripVouchers( int point_id, std::set<std::string> &trip_vouchers );
+void ChangeBortFromLDM(const std::string &bort, int point_id);
 
 #endif /*_SOPP_H_*/
 
