@@ -754,7 +754,7 @@ void errorTypeB(int tlg_id,
     QryParams << QParam("error_pos", otInteger, error_pos==ASTRA::NoExists?0:error_pos);
     QryParams << QParam("error_len", otInteger, error_len==ASTRA::NoExists?0:error_len);
     QryParams << QParam("lang", otString);
-    QryParams << QParam("text", otString, text);
+    QryParams << QParam("text", otString, text.substr(0, 250));
 
     TCachedQuery ErrQry(sql, QryParams);
 
