@@ -1184,7 +1184,8 @@ void TWebPax::toXML(xmlNodePtr paxParentNode, const TRemGrp& outputRemGrp) const
   xmlNodePtr remsNode=nullptr;
   for(const CheckIn::TPaxRemItem& r : rems_and_asvc)
   {
-    if (!outputRemGrp.exists(r.code)) continue;
+    if (!TWebPaxFromReq::isRemProcessingAllowed(r) &&
+        !outputRemGrp.exists(r.code)) continue;
     if (remsNode==nullptr) remsNode=NewTextChild(paxNode, "rems");
     r.toXML(remsNode);
   }
@@ -1243,8 +1244,8 @@ void WebRequestsIface::LoadPnr(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 }
 
 void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{  
-  ProgTrace(TRACE1,"WebRequestsIface::ViewCraft");  
+{
+  ProgTrace(TRACE1,"WebRequestsIface::ViewCraft");
   emulateClientType();
   int point_id = NodeAsInteger( "point_id", reqNode );
   if ( SALONS2::isFreeSeating( point_id ) ) { //???
