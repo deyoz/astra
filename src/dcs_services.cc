@@ -9,6 +9,7 @@
 #include "serverlib/slogger.h"
 
 using namespace std;
+using namespace AstraLocale;
 
 const DCSServices& dcsServices() { return ASTRA::singletone<DCSServices>(); }
 
@@ -73,19 +74,46 @@ void DCSServiceApplying::addRequiredRFISCs(const DCSServiceApplyingParams& param
   LogTrace(TRACE5) << __FUNCTION__ << ": " << s.str();
 }
 
-void DCSServiceApplying::throwIfNotAllowed(int pax_id, DCSService::Enum dcs_service)
+void DCSServiceApplying::throwIfNotAllowed(int pax_id, DCSService::Enum dcsService)
 {
-  if ( !isAllowed( pax_id, dcs_service ) )
-    throw AstraLocale::UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL.ADD_SERVICE", 
-                                      AstraLocale::LParams()<<AstraLocale::LParam( "service", "" ) );    
+  RFISCsSet requiredRFISCs;
+
+  if ( !isAllowed( pax_id, dcsService, requiredRFISCs ) )
+  {
+    LexemaData lexemeData;
+
+    lexemeData.lparams << LParam("service", ElemIdToNameLong(etDCSServiceType, dcsServices().encode(dcsService)));
+
+    if (!requiredRFISCs.empty())
+    {
+      ostringstream s;
+      for(RFISCsSet::const_iterator i=requiredRFISCs.begin(); i!=requiredRFISCs.end(); ++i)
+      {
+        if (i!=requiredRFISCs.begin()) s << ", ";
+        s << *i;
+      }
+      lexemeData.lparams << LParam("rfiscs", s.str());
+
+      if (requiredRFISCs.size()==1)
+        lexemeData.lexema_id="MSG.DCS_SERVICE.NOT_AVAIL_RFISC_REQUIRED";
+      else
+        lexemeData.lexema_id="MSG.DCS_SERVICE.NOT_AVAIL_RFISCS_REQUIRED";
+    }
+    else lexemeData.lexema_id="MSG.DCS_SERVICE.NOT_AVAIL";
+
+    throw UserException(lexemeData.lexema_id, lexemeData.lparams);
+  }
 }
 
-bool DCSServiceApplying::isAllowed(int pax_id, DCSService::Enum dcs_service)
+bool DCSServiceApplying::isAllowed(int pax_id, DCSService::Enum dcsService, RFISCsSet& reqRFISCs)
 {
   LogTrace(TRACE5) << __FUNCTION__ << ": pax_id=" << pax_id <<
-                                      ", dcs_service=" << dcsServices().encode(dcs_service);
-  if ( TReqInfo::Instance()->client_type != ASTRA::ctTerm ) return true;// только с терминала  
-  
+                                      ", dcsService=" << dcsServices().encode(dcsService);
+
+  reqRFISCs.clear();
+
+  if ( TReqInfo::Instance()->client_type != ASTRA::ctTerm ) return true;// только с терминала
+
   CheckIn::TSimplePaxItem pax;
   if (!pax.getByPaxId(pax_id)) return false;
 
@@ -103,11 +131,9 @@ bool DCSServiceApplying::isAllowed(int pax_id, DCSService::Enum dcs_service)
   CheckIn::LoadPaxFQT(pax.id, fqts);
   if (fqts.empty()) fqts.insert(CheckIn::TPaxFQTItem());
 
-  RFISCsSet reqRFISCs;
-
   DCSServiceApplyingParams params;
   params.airline=flt.airline;
-  params.dcs_service=dcs_service;
+  params.dcs_service=dcsService;
   params.cl=grp.cl;
   for(int brandId : brands.brandIds)
   {
