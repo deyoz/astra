@@ -567,6 +567,36 @@ TWebPaxFromReq& TWebPaxFromReq::fromDB(TQuery &Qry)
   return *this;
 }
 
+bool TWebPaxFromReq::isRemProcessingAllowed(const CheckIn::TPaxFQTItem& fqt)
+{
+  return fqt.rem=="FQTV";
+}
+
+bool TWebPaxFromReq::isRemProcessingAllowed(const CheckIn::TPaxRemItem& rem)
+{
+  return rem.code=="JMP";
+}
+
+bool TWebPaxFromReq::mergePaxFQT(std::set<CheckIn::TPaxFQTItem> &dest) const
+{
+  return mergeRems< std::set<CheckIn::TPaxFQTItem> >(fqtv_rems, dest);
+}
+
+bool TWebPaxFromReq::mergePaxRem(CheckIn::PaxRems &dest) const
+{
+  return mergeRems< CheckIn::PaxRems >(rems, dest);
+}
+
+void TWebPaxFromReq::paxFQTFromXML(xmlNodePtr paxNode)
+{
+  remsFromXML< std::set<CheckIn::TPaxFQTItem>, CheckIn::TPaxFQTItem >(paxNode, fqtv_rems);
+}
+
+void TWebPaxFromReq::paxRemFromXML(xmlNodePtr paxNode)
+{
+  remsFromXML< CheckIn::PaxRems, CheckIn::TPaxRemItem >(paxNode, rems);
+}
+
 TWebPaxFromReq& TWebPaxFromReq::fromXML(xmlNodePtr paxNode)
 {
   clear();
@@ -585,44 +615,12 @@ TWebPaxFromReq& TWebPaxFromReq::fromXML(xmlNodePtr paxNode)
 
   apis.fromXML(paxNode);
 
-  xmlNodePtr fqtNode = GetNodeFast("fqt_rems", node2);
-  if (fqtNode!=nullptr)
-  {
-    //если тег <fqt_rems> пришел, то изменяем и перезаписываем ремарки FQTV
-    fqtv_rems=std::set<CheckIn::TPaxFQTItem>();
-    //читаем пришедшие ремарки
-    for(fqtNode=fqtNode->children; fqtNode!=NULL; fqtNode=fqtNode->next)
-    {
-      if (string((const char*)fqtNode->name)!="fqt_rem") continue;
-      fqtv_rems.get().insert(CheckIn::TPaxFQTItem().fromWebXML(fqtNode));
-    }
-  };
+  paxFQTFromXML(paxNode);
+  paxRemFromXML(paxNode);
 
   refuse=NodeAsBooleanFast("refuse", node2, false);
 
   return *this;
-}
-
-bool TWebPaxFromReq::mergePaxFQT(set<CheckIn::TPaxFQTItem> &fqts) const
-{
-  if (!fqtv_rems) return false;
-  multiset<string> prior, curr;
-  for(set<CheckIn::TPaxFQTItem>::iterator f=fqts.begin(); f!=fqts.end();)
-  {
-    if (f->rem=="FQTV")
-    {
-      prior.insert(f->rem_text(false));
-      f=Erase(fqts, f);
-    }
-    else
-      ++f;
-  };
-  for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqtv_rems.get().begin(); f!=fqtv_rems.get().end(); ++f)
-    curr.insert(f->rem_text(false));
-
-  fqts.insert(fqtv_rems.get().begin(), fqtv_rems.get().end());
-
-  return prior!=curr;
 }
 
 const TWebPaxFromReq& TWebPaxFromReqList::get(int id, const std::string& whence) const
@@ -1030,18 +1028,23 @@ void CreateEmulDocs(const TWebPaxForSaveSegs &segs,
         DocoUpdatesPending=!(prior_doco.equal(currPaxForChng.apis.doco)); //реагируем также на изменение scanned_attrs
       };
 
-      bool FQTRemUpdatesPending=false;
+      bool RemUpdatesPending=false;
       set<CheckIn::TPaxFQTItem> fqts;
-      if (currPaxFromReq.fqtv_rems) //тег <fqt_rems> пришел
+      CheckIn::PaxRems rems;
+      if (currPaxFromReq.fqtv_rems || currPaxFromReq.rems) //тег <fqt_rems> или тег <rems> пришел
       {
         CheckIn::LoadPaxFQT(currPaxForChng.paxId(), fqts);
-        FQTRemUpdatesPending=currPaxFromReq.mergePaxFQT(fqts);
+        CheckIn::LoadPaxRem(currPaxForChng.paxId(), rems);
+        if (currPaxFromReq.mergePaxFQT(fqts))
+          RemUpdatesPending=true;
+        if (currPaxFromReq.mergePaxRem(rems))
+          RemUpdatesPending=true;
       };
 
       if (currPaxFromReq.refuse ||
           DocUpdatesPending ||
           DocoUpdatesPending ||
-          FQTRemUpdatesPending)
+          RemUpdatesPending)
       {
         //придется вызвать транзакцию на запись изменений
         XMLDoc &emulChngDoc=emulChngDocs[currPaxForChng.grp_id];
@@ -1087,13 +1090,8 @@ void CreateEmulDocs(const TWebPaxForSaveSegs &segs,
         if (DocoUpdatesPending)
           currPaxForChng.apis.doco.toXML(paxNode);
 
-        if (FQTRemUpdatesPending)
-        {
-          //ремарки
-          multiset<CheckIn::TPaxRemItem> rems;
-          CheckIn::LoadPaxRem(currPaxForChng.paxId(), rems);
+        if (RemUpdatesPending)
           CreateEmulRems(paxNode, rems, fqts);
-        };
       };
     }
     catch(CheckIn::UserException)
@@ -1221,6 +1219,7 @@ void CreateEmulDocs(const TWebPaxForSaveSegs &segs,
         //ремарки
         multiset<CheckIn::TPaxRemItem> rems;
         CheckIn::LoadCrsPaxRem(currPaxForCkin.paxId(), rems);
+        currPaxFromReq.mergePaxRem(rems);
         set<CheckIn::TPaxFQTItem> fqts;
         CheckIn::LoadCrsPaxFQT(currPaxForCkin.paxId(), fqts);
         currPaxFromReq.mergePaxFQT(fqts);

@@ -128,12 +128,18 @@ class TPaxRemItem : public TPaxRemBasic
     };
     const TPaxRemItem& toXML(xmlNodePtr node) const;
     TPaxRemItem& fromXML(xmlNodePtr node);
+    TPaxRemItem& fromWebXML(xmlNodePtr node);
     const TPaxRemItem& toDB(TQuery &Qry) const;
     TPaxRemItem& fromDB(TQuery &Qry);
     void calcPriority();
     std::string rem_code() const
     {
       return code;
+    }
+
+    static std::pair<std::string, std::string> getWebXMLTagNames()
+    {
+      return std::make_pair("rems", "rem");
     }
 };
 
@@ -244,6 +250,11 @@ class TPaxFQTItem : public TPaxRemBasic, public TPaxFQTCard
         }
       }
       return false;
+    }
+
+    static std::pair<std::string, std::string> getWebXMLTagNames()
+    {
+      return std::make_pair("fqt_rems", "fqt_rem");
     }
 };
 
