@@ -100,6 +100,8 @@ src/counters.cc
 src/counters.h
 src/crypt.cc
 src/crypt.h
+src/dcs_services.cc
+src/dcs_services.h
 src/dev_consts.cc
 src/dev_consts.h
 src/dev_tuning.cc
