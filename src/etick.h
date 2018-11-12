@@ -203,12 +203,13 @@ class TETickItem
     TDateTime issue_date;
     std::string surname, name;
     std::string fare_basis;
-    std::string subcls;
+    std::string display_subcls;
     int bag_norm;
     TBagUnit bag_norm_unit;
     std::string display_error, change_status_error;
     int point_id;
     std::string airp_dep, airp_arv;
+    std::string subclass;
     boost::optional<Ticketing::EdiPnr> ediPnr;
     TETickItem()
     {
@@ -221,6 +222,7 @@ class TETickItem
                const int &_point_id,
                const std::string &_airp_dep,
                const std::string &_airp_arv,
+               const std::string &_subclass,
                const Ticketing::CouponStatus &_status)
     {
       clear();
@@ -229,6 +231,7 @@ class TETickItem
       point_id=_point_id;
       airp_dep=_airp_dep;
       airp_arv=_airp_arv;
+      subclass=_subclass;
       et.status=_status;
     }
 
@@ -239,7 +242,7 @@ class TETickItem
       surname.clear();
       name.clear();
       fare_basis.clear();
-      subcls.clear();
+      display_subcls.clear();
       bag_norm=ASTRA::NoExists;
       bag_norm_unit.clear();
       display_error.clear();
@@ -247,6 +250,7 @@ class TETickItem
       point_id=ASTRA::NoExists;
       airp_dep.clear();
       airp_arv.clear();
+      subclass.clear();
       ediPnr=boost::none;
     }
 
