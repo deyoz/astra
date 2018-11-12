@@ -319,13 +319,14 @@ TPrnTagStore::TPrnTagStore(bool apr_lat):
     prn_test_tags.Init();
 }
 
-TPrnTagStore::TPrnTagStore(TDevOper::Enum _op_type, const string &ascan, bool apr_lat):
+TPrnTagStore::TPrnTagStore(TDevOper::Enum _op_type, const string &ascan, boost::optional<const std::list<AstraLocale::LexemaData> &> aerrors, bool apr_lat):
     op_type(_op_type),
     scan(ascan),
     time_print(NowUTC()),
     space_if_empty(false),
     prn_tag_props(TDevOper::PrnBP)
 {
+    errors = aerrors;
     from_scan_code = true;
     scan_data = boost::shared_ptr<BCBPSections>(new BCBPSections());
     BCBPSections::get(ascan, 0, ascan.size(), *scan_data);
@@ -807,6 +808,14 @@ TDateTime get_date_from_bcbp(int julian_date)
     return d.getDateTime();
 }
 
+string TPrnTagStore::errorsToString()
+{
+    string result;
+    if(errors and not errors.get().empty())
+        result = getLocaleText(errors.get().begin()->lexema_id, errors.get().begin()->lparams, LANG_EN);
+    return result.substr(0, 200);
+}
+
 void TPrnTagStore::save_foreign_scan()
 {
     pair<int, char> bcbp_flt_no = scan_data->flight_number(0);
@@ -828,7 +837,8 @@ void TPrnTagStore::save_foreign_scan()
             "   scd_out, "
             "   airp_dep, "
             "   airp_arv, "
-            "   scan_data "
+            "   scan_data, "
+            "   errors "
             ") values ( "
             "   cycle_id__seq.nextval, "
             "   :time_print, "
@@ -842,7 +852,8 @@ void TPrnTagStore::save_foreign_scan()
             "   :scd_out, "
             "   :airp_dep, "
             "   :airp_arv, "
-            "   :scan_data "
+            "   :scan_data, "
+            "   :errors "
             ") ",
         QParams()
             << QParam("time_print", otDate, time_print.val)
@@ -854,7 +865,8 @@ void TPrnTagStore::save_foreign_scan()
             << QParam("scd_out", otDate, get_date_from_bcbp(scan_data->date_of_flight(0)))
             << QParam("airp_dep", otString, getElemId(etAirp, scan_data->from_city_airport(0)))
             << QParam("airp_arv", otString, getElemId(etAirp, scan_data->to_city_airport(0)))
-            << QParam("scan_data", otString, scan));
+            << QParam("scan_data", otString, scan)
+            << QParam("errors", otString, errorsToString()));
 
     Qry.get().Execute();
 }
