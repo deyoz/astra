@@ -729,7 +729,7 @@ Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltPara
             "",                                  //operating carrier
             wcItin?wcItin.get().flightnum():
                    fltParams.fltInfo.flt_no,0,
-            SubClass(subclass),
+            subclass.empty()?SubClass():SubClass(subclass),
             scd.date(),
             time_duration(not_a_date_time), // not a date time
             airp_dep,
