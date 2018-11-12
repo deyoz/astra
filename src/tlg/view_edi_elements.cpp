@@ -304,7 +304,7 @@ void viewItin(EDI_REAL_MES_STRUCT *pMes, const Ticketing::Itin &itin, int num)
     } else {
         tvl << Ticketing::ItinStatus::Open;
     }
-    tvl << ":" << itin.classCodeStr();
+    tvl << ":" << itin.classCodeStr(ENGLISH, "");
     if (num) {
         tvl << "++" << num;
     }
@@ -338,7 +338,7 @@ void viewItin2(EDI_REAL_MES_STRUCT *pMes, const Ticketing::Itin &itin,
     } else {
         tvl << Ticketing::ItinStatus::Open;
     }
-    tvl << ":" << itin.classCodeStr();
+    tvl << ":" << itin.classCodeStr(ENGLISH, "");
     if (num) {
         tvl << "++" << num;
     }
