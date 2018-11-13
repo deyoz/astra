@@ -1459,9 +1459,9 @@ string TBCBPData::toString(const TTagLang &tag_lang)
     result << (not etkt ? " " : "E");
     // Operating carrier PNR code
     result << left;
-    if(pnr.empty())
+    if(pnr.empty() or pnr.size() > 7)
         result << setw(7) << " ";
-    else if(pnr.size() <= 7)
+    else
         result << setw(7) << convert_pnr_addr(pnr, tag_lang.GetLang() != AstraLocale::LANG_RU);
     // From City Airport Code
     result << setw(3) << airp_code_2D(tag_lang.ElemIdToTagElem(etAirp, airp_dep, efmtCodeNative));
