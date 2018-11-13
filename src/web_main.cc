@@ -1823,12 +1823,11 @@ void GetBPPaxFromScanCode(const string &scanCode, PrintInterface::BPPax &pax)
   {
     filters.fromBCBPSections(scanSections);
 
-    list<AstraLocale::LexemaData> errors;
     list<WebSearch::TPNRs> PNRsList;
 
-    GetPNRsList(filters, PNRsList, errors);
-    if (!errors.empty())
-      throw UserException(errors.begin()->lexema_id, errors.begin()->lparams);
+    GetPNRsList(filters, PNRsList, pax.errors);
+    if (!pax.errors.empty())
+      throw UserException(pax.errors.begin()->lexema_id, pax.errors.begin()->lparams);
     //проверим что это посадочный талон и что пассажир тестовый
     if (filters.segs.empty()) throw EXCEPTIONS::Exception("%s: filters.segs.empty()", __FUNCTION__);
     if (filters.segs.front().reg_no==NoExists) //это не посадочный талон, потому что рег. номер не известен

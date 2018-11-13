@@ -32,7 +32,10 @@ class PrintDataParser {
         std::string parse_tag(int offset, std::string tag);
     public:
         TPrnTagStore pts;
-        PrintDataParser(ASTRA::TDevOper::Enum op_type, const std::string &scan, bool pr_lat = false): pectab_format(0), pts(op_type, scan, pr_lat) {}
+        PrintDataParser(
+                ASTRA::TDevOper::Enum op_type,
+                const std::string &scan, boost::optional<const std::list<AstraLocale::LexemaData> &> errors = boost::none,
+                bool pr_lat = false): pectab_format(0), pts(op_type, scan, errors, pr_lat) {}
         PrintDataParser(bool pr_lat = false): pectab_format(0), pts(pr_lat) {}
         PrintDataParser(const TBagReceipt &rcpt, bool pr_lat): pectab_format(0), pts(rcpt, pr_lat) {}
         PrintDataParser(ASTRA::TDevOper::Enum op_type, int grp_id, int pax_id, bool from_scan_code, bool pr_lat, xmlNodePtr tagsNode, const TTrferRoute &route = TTrferRoute()):
@@ -67,6 +70,7 @@ class PrintInterface: public JxtInterface
           std::string prn_form;
           std::string scan; // если пакс брался из штрих кода и нашелся в базе, то scan пустой.
           bool from_scan_code; // true если данные взяты из штрих кода (независимо, есть ли пакс в базе или нет)
+          std::list<AstraLocale::LexemaData> errors; // GetPNRsList errors
           std::string voucher;
           bool error;
 
@@ -94,8 +98,10 @@ class PrintInterface: public JxtInterface
             prn_form.clear();
             scan.clear();
             from_scan_code = false;
-            hex=false;
+            errors.clear();
+            voucher.clear();
             error = false;
+            hex=false;
           };
           bool fromDB(int vpax_id, int test_point_dep);
         };
