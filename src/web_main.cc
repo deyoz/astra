@@ -335,72 +335,76 @@ static void GetPNRsList(const WebSearch::TPNRFilter &filter,
     throw UserException("MSG.TOO_LONG_SEARCH.ADJUST_SEARCH_PARAMS");
   }
 
-  for(const CheckIn::TSimplePaxItem& pax : paxs)
-  {
-//    ProgTrace(TRACE5, "%s: pax_id=%d", __FUNCTION__, pax.id);
-
-    bool checked=pax.grp_id!=ASTRA::NoExists;
-
-    TAdvTripInfoList flts;
-    if (checked)
+  for(bool checked : {false, true})
+    for(const CheckIn::TSimplePaxItem& pax : paxs)
     {
-      TAdvTripInfo flt;
-      if (flt.getByGrpId(pax.grp_id)) flts.push_back(flt);
-    }
-    else getTripsByCRSPaxId(pax.id, flts);
+      if (checked!=(pax.grp_id!=ASTRA::NoExists)) continue;
 
-    if (flts.empty())
-    {
-//      ProgTrace(TRACE5, "%s: flts.empty()", __FUNCTION__);
-      continue;
-    }
+//      ProgTrace(TRACE5, "%s: checked=%d pax_id=%d", __FUNCTION__, (int)checked, pax.id);
 
-    WebSearch::TPaxInfo paxInfo;
-    if (!paxInfo.setIfSuitable(filter, pax))
-    {
-//      ProgTrace(TRACE5, "%s: !paxInfo.setIfSuitable", __FUNCTION__);
-      continue;
-    }
-
-    for(const TAdvTripInfo& flt : flts)
-    {
-      WebSearch::TPNRSegInfo segInfo;
-      if (!segInfo.setIfSuitable(filter, flt, pax))
+      TAdvTripInfoList flts;
+      if (checked)
       {
-//        ProgTrace(TRACE5, "%s: !segInfo.setIfSuitable", __FUNCTION__);
+        TAdvTripInfo flt;
+        if (flt.getByGrpId(pax.grp_id)) flts.push_back(flt);
+      }
+      else getTripsByCRSPaxId(pax.id, flts);
+
+      if (flts.empty())
+      {
+//        ProgTrace(TRACE5, "%s: flts.empty()", __FUNCTION__);
         continue;
       }
 
-      if (!segInfo.mktFlight) continue;
-
-      WebSearch::TFlightInfo fltInfo;
-      if (!fltInfo.setIfSuitable(filter, flt, segInfo.mktFlight.get()))
+      WebSearch::TPaxInfo paxInfo;
+      if (!paxInfo.setIfSuitable(filter, pax))
       {
-//        ProgTrace(TRACE5, "%s: !fltInfo.setIfSuitable", __FUNCTION__);
+//        ProgTrace(TRACE5, "%s: !paxInfo.setIfSuitable", __FUNCTION__);
         continue;
       }
 
-      list<WebSearch::TPNRs>::iterator iPNRs=PNRsList.begin();
-      if (!isSearchPNRsRequest)
+      for(const TAdvTripInfo& flt : flts)
       {
-        for(; iPNRs!=PNRsList.end(); ++iPNRs)
-          if (iPNRs->getFirstPNRInfo().getFirstPointDep()==fltInfo.oper.point_id) break;
-      }
+        WebSearch::TPNRSegInfo segInfo;
+        if (!segInfo.setIfSuitable(filter, flt, pax))
+        {
+//          ProgTrace(TRACE5, "%s: !segInfo.setIfSuitable", __FUNCTION__);
+          continue;
+        }
 
-      if (iPNRs==PNRsList.end())
-        iPNRs=PNRsList.emplace(PNRsList.end());
-      try
-      {
-        iPNRs->add(fltInfo, segInfo, paxInfo, false);
-      }
-      catch(UserException &e)
-      {
-        if (iPNRs->pnrs.empty()) PNRsList.erase(iPNRs);
-        errors.push_back(e.getLexemaData());
-        ProgTrace(TRACE5, ">>>> %s: %s", __FUNCTION__, e.what());
+        if (!segInfo.mktFlight) continue;
+
+        WebSearch::TFlightInfo fltInfo;
+        if (!fltInfo.setIfSuitable(filter, flt, segInfo.mktFlight.get()))
+        {
+//          ProgTrace(TRACE5, "%s: !fltInfo.setIfSuitable", __FUNCTION__);
+          continue;
+        }
+
+        list<WebSearch::TPNRs>::iterator iPNRs=PNRsList.begin();
+        if (!isSearchPNRsRequest)
+        {
+          for(; iPNRs!=PNRsList.end(); ++iPNRs)
+            if (iPNRs->getFirstPNRInfo().getFirstPointDep()==fltInfo.oper.point_id) break;
+        }
+
+        if (iPNRs==PNRsList.end())
+          iPNRs=PNRsList.emplace(PNRsList.end());
+        try
+        {
+          if (!checked || !iPNRs->isSameTicketInAnotherPNR(segInfo, paxInfo))
+            iPNRs->add(fltInfo, segInfo, paxInfo, false);
+
+          if (iPNRs->pnrs.empty()) PNRsList.erase(iPNRs);
+        }
+        catch(UserException &e)
+        {
+          if (iPNRs->pnrs.empty()) PNRsList.erase(iPNRs);
+          errors.push_back(e.getLexemaData());
+          ProgTrace(TRACE5, ">>>> %s: %s", __FUNCTION__, e.what());
+        }
       }
     }
-  }
 
   if (!isSearchPNRsRequest)
   {
