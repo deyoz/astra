@@ -1423,7 +1423,7 @@ bool TPaxInfo::fromTestPax(const TTestPaxInfo &pax)
   pax_id=pax.pax_id;
   surname=pax.surname;
   name=pax.name;
-  ticket_no=pax.ticket_no;
+  ticket.no=pax.ticket_no;
   document=pax.document;
   reg_no=NoExists; //не pax.reg_no, так как считаем что изначально тестовый пассажир не зарегистрирован
   return true;
@@ -1440,8 +1440,8 @@ bool TPaxInfo::filterFromDB(const TPNRFilter &filter, TQuery &Qry, bool ignore_r
 
   CheckIn::TPaxTknItem tkn;
   LoadCrsPaxTkn(pax_id, tkn);
-  ticket_no=tkn.no;
-  if (!filter.isEqualTkn(ticket_no)) return false;
+  ticket=tkn;
+  if (!filter.isEqualTkn(ticket.no)) return false;
 
   CheckIn::TPaxDocItem doc;
   LoadCrsPaxDoc(pax_id, doc);
@@ -1470,21 +1470,21 @@ bool TPaxInfo::setIfSuitable(const TPNRFilter& filter, const CheckIn::TSimplePax
 
   CheckIn::TPaxTknItem tkn(pax.tkn);
   if (!pax.TknExists)
-    pax.grp_id!=ASTRA::NoExists?LoadPaxTkn(pax.id, tkn):
-                                LoadCrsPaxTkn(pax.id, tkn);
+    pax.grp_id!=ASTRA::NoExists?CheckIn::LoadPaxTkn(pax.id, tkn):
+                                CheckIn::LoadCrsPaxTkn(pax.id, tkn);
 
   if (!filter.isEqualTkn(tkn.no)) return false;
 
   CheckIn::TPaxDocItem doc;
-  pax.grp_id!=ASTRA::NoExists?LoadPaxDoc(pax.id, doc):
-                              LoadCrsPaxDoc(pax.id, doc);
+  pax.grp_id!=ASTRA::NoExists?CheckIn::LoadPaxDoc(pax.id, doc):
+                              CheckIn::LoadCrsPaxDoc(pax.id, doc);
 
   if (!filter.isEqualDoc(doc.no)) return false;
 
   pax_id=pax.id;
   surname=pax.surname;
   name=pax.name;
-  ticket_no=tkn.no;
+  ticket=tkn;
   document=doc.no;
   reg_no=pax.reg_no;
   return true;
@@ -1504,7 +1504,7 @@ void TPaxInfo::toXML(xmlNodePtr node) const
   if (node==NULL) return;
   NewTextChild(node, "surname", surname);
   NewTextChild(node, "name", name);
-  NewTextChild(node, "ticket_no", ticket_no);
+  NewTextChild(node, "ticket_no", ticket.no);
   NewTextChild(node, "document", document);
   reg_no==NoExists?NewTextChild(node, "reg_no"):
                    NewTextChild(node, "reg_no", reg_no);
@@ -1648,6 +1648,18 @@ int TPNRInfo::getFirstPointDep() const
   if (segs.empty())
     throw EXCEPTIONS::Exception("TPNRInfo::getFirstPointDep: empty segs");
   return segs.begin()->second.point_dep;
+}
+
+bool TPNRs::isSameTicketInAnotherPNR(const TPNRSegInfo &seg, const TPaxInfo &pax) const
+{
+  for(const auto& p : pnrs)
+  {
+    if (seg.pnr_id==p.first) continue;
+    for(const TPaxInfo& paxInfo : p.second.paxs)
+      if (paxInfo.ticket.equalAttrs(pax.ticket)) return true;
+  }
+
+  return false;
 }
 
 bool TPNRs::add(const TFlightInfo &flt, const TPNRSegInfo &seg, const TPaxInfo &pax, bool is_test)

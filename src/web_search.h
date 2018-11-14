@@ -306,24 +306,25 @@ struct TPNRSegInfo
 struct TPaxInfo
 {
   int pax_id;
-  std::string surname, name, ticket_no, document;
+  std::string surname, name, document;
+  CheckIn::TPaxTknItem ticket;
   int reg_no;
-  TPaxInfo() { clear(); };
+  TPaxInfo() { clear(); }
 
   void clear()
   {
     pax_id=ASTRA::NoExists;
     surname.clear();
     name.clear();
-    ticket_no.clear();
+    ticket.clear();
     document.clear();
     reg_no=ASTRA::NoExists;
-  };
+  }
 
   bool operator < (const TPaxInfo &item) const
   {
     return pax_id < item.pax_id;
-  };
+  }
 
   bool filterFromDB(const TPNRFilter &filter, TQuery &Qry, bool ignore_reg_no);
   bool setIfSuitable(const TPNRFilter& filter, const CheckIn::TSimplePaxItem& pax, bool ignore_reg_no=false);
@@ -353,6 +354,7 @@ struct TPNRs
   std::map< int/*pnr_id*/, TPNRInfo > pnrs; //все PNR, которые подходят к критериям поиска
   boost::optional<AstraLocale::LexemaData> error;
 
+  bool isSameTicketInAnotherPNR(const TPNRSegInfo &seg, const TPaxInfo &pax) const;
   bool add(const TFlightInfo &flt, const TPNRSegInfo &seg, const TPaxInfo &pax, bool is_test);
   const TFlightInfo& getFlightInfo(int point_dep) const;
   const TPNRInfo& getPNRInfo(int pnr_id) const;
