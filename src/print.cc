@@ -1929,7 +1929,7 @@ void PrintInterface::GetPrintDataBP(
                 continue;
             }
         else
-            parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->scan, true));
+            parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->scan, iPax->errors, true));
 
         // Из за косяка в клиентской части киоска происходит ошибка, если встречается строка вида
         // 1260,500,T,arial.ttf,36,L,0,
