@@ -388,6 +388,16 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::PLACE_DEP,               TTagListItem(&TPrnTagStore::PLACE_DEP)));
     tag_list.insert(make_pair(TAG::REG_NO,                  TTagListItem(&TPrnTagStore::REG_NO, PAX_INFO)));
     tag_list.insert(make_pair(TAG::REM,                     TTagListItem(&TPrnTagStore::REM, REM_INFO)));
+    tag_list.insert(make_pair(TAG::REM_TXT0,                TTagListItem(&TPrnTagStore::REM_TXT, POINT_INFO | PAX_INFO)));
+    tag_list.insert(make_pair(TAG::REM_TXT1,                TTagListItem(&TPrnTagStore::REM_TXT, POINT_INFO | PAX_INFO)));
+    tag_list.insert(make_pair(TAG::REM_TXT2,                TTagListItem(&TPrnTagStore::REM_TXT, POINT_INFO | PAX_INFO)));
+    tag_list.insert(make_pair(TAG::REM_TXT3,                TTagListItem(&TPrnTagStore::REM_TXT, POINT_INFO | PAX_INFO)));
+    tag_list.insert(make_pair(TAG::REM_TXT4,                TTagListItem(&TPrnTagStore::REM_TXT, POINT_INFO | PAX_INFO)));
+    tag_list.insert(make_pair(TAG::REM_TXT5,                TTagListItem(&TPrnTagStore::REM_TXT, POINT_INFO | PAX_INFO)));
+    tag_list.insert(make_pair(TAG::REM_TXT6,                TTagListItem(&TPrnTagStore::REM_TXT, POINT_INFO | PAX_INFO)));
+    tag_list.insert(make_pair(TAG::REM_TXT7,                TTagListItem(&TPrnTagStore::REM_TXT, POINT_INFO | PAX_INFO)));
+    tag_list.insert(make_pair(TAG::REM_TXT8,                TTagListItem(&TPrnTagStore::REM_TXT, POINT_INFO | PAX_INFO)));
+    tag_list.insert(make_pair(TAG::REM_TXT9,                TTagListItem(&TPrnTagStore::REM_TXT, POINT_INFO | PAX_INFO)));
     tag_list.insert(make_pair(TAG::RFISC_BSN_LONGUE,        TTagListItem(&TPrnTagStore::RFISC_BSN_LONGUE, PAX_INFO)));
     tag_list.insert(make_pair(TAG::RFISC_FAST_TRACK,        TTagListItem(&TPrnTagStore::RFISC_FAST_TRACK, PAX_INFO)));
     tag_list.insert(make_pair(TAG::RFISC_UPGRADE,           TTagListItem(&TPrnTagStore::RFISC_UPGRADE, PAX_INFO)));
@@ -537,23 +547,23 @@ void TPrnTagStore::set_tag(string name, string value)
     im->second.TagInfo = value;
 }
 
-string TPrnTagStore::get_field_from_bcbp(std::string name, size_t len, const std::string &text, std::string date_format)
+string TPrnTagStore::get_field_from_bcbp(const std::string &name, size_t len, const std::string &text, const std::string &date_format)
 {
     map<const string, TTagListItem>::iterator im = tag_list.find(name);
     if(im == tag_list.end())
         throw Exception("TPrnTagStore::get_field_from_bcbp: tag '%s' not implemented", name.c_str());
-    string result = (this->*im->second.tag_funct)(TFieldParams(date_format, im->second.TagInfo, len, text));
+    string result = (this->*im->second.tag_funct)(TFieldParams(name, date_format, im->second.TagInfo, len, text));
     im->second.processed = true;
     im->second.english_only &= tag_lang.english_tag();
     return result;
 }
 
-string TPrnTagStore::get_test_field(std::string name, size_t len, const std::string &text, std::string date_format)
+string TPrnTagStore::get_test_field(const std::string &name, size_t len, const std::string &text, const std::string &date_format)
 {
-    name = upperc(name);
-    map<string, TPrnTestTagsItem>::iterator im = prn_test_tags.items.find(name);
+    string upper_name = upperc(name);
+    map<string, TPrnTestTagsItem>::iterator im = prn_test_tags.items.find(upper_name);
     if(im == prn_test_tags.items.end())
-        throw Exception("TPrnTagStore::get_test_field: %s tag not found", name.c_str());
+        throw Exception("TPrnTagStore::get_test_field: %s tag not found", upper_name.c_str());
     string value = tag_lang.IsInter() ? im->second.value_lat : im->second.value;
     if(value.empty())
         value = im->second.value;
@@ -575,7 +585,7 @@ string TPrnTagStore::get_test_field(std::string name, size_t len, const std::str
     return result.str();
 }
 
-string TPrnTagStore::get_real_field(std::string name, size_t len, const std::string &text, std::string date_format)
+string TPrnTagStore::get_real_field(const std::string &name, size_t len, const std::string &text, const std::string &date_format)
 {
     map<const string, TTagListItem>::iterator im = tag_list.find(name);
     if(im == tag_list.end())
@@ -596,7 +606,7 @@ string TPrnTagStore::get_real_field(std::string name, size_t len, const std::str
         remInfo.Init(grpInfo.point_dep);
     string result;
     try {
-        result = (this->*im->second.tag_funct)(TFieldParams(date_format, im->second.TagInfo, len, text));
+        result = (this->*im->second.tag_funct)(TFieldParams(name, date_format, im->second.TagInfo, len, text));
         im->second.processed = true;
         im->second.english_only &= tag_lang.english_tag();
     } catch(UserException E) {
@@ -2596,6 +2606,12 @@ void TPrnTagStore::TRfiscDescr::fromDB(int grp_id, int pax_id)
         }
     }
     dump();
+}
+
+string TPrnTagStore::REM_TXT(TFieldParams fp)
+{
+    int tag_index = ToInt(fp.tag_name.substr(fp.tag_name.size() - 1));
+    return get_rem_txt(pointInfo.airline, grpInfo.grp_id, paxInfo.pax_id, tag_index);
 }
 
 string TPrnTagStore::RFISC_BSN_LONGUE(TFieldParams fp)
