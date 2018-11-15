@@ -1295,34 +1295,9 @@ void TPrnTagStore::TPointInfo::Init(TDevOper::Enum op, int apoint_id, int agrp_i
         LogTrace(TRACE3) << "Fake point_id or grp_id detected!";
         return;
     }
-    if(point_id == NoExists) {
-        point_id = apoint_id;
-        TQuery Qry(&OraSession);
-        Qry.SQLText =
-            "select "
-            "   airline, "
-            "   flt_no, "
-            "   suffix, "
-            "   airp, "
-            "   points.scd_out, "
-            "   NVL( points.est_out, points.scd_out ) est, "
-            "   NVL( points.act_out, NVL( points.est_out, points.scd_out ) ) act, "
-            "   craft, "
-            "   points.BORT "
-            "from "
-            "   points "
-            "where "
-            "   points.point_id = :point_id and points.pr_del>=0 ";
-        Qry.CreateVariable("point_id", otInteger, point_id);
-        Qry.Execute();
-        if(Qry.Eof)
-            throw Exception("TPointInfo::Init failed. point_id %d not found", point_id);
-        scd = Qry.FieldAsDateTime("scd_out");
-        est = Qry.FieldAsDateTime("est");
-        act = Qry.FieldAsDateTime("act");
-        craft = Qry.FieldAsString("craft");
-        bort = Qry.FieldAsString("bort");
-        TTripInfo operFlt(Qry);
+    if(operFlt.point_id == NoExists) {
+        if(not operFlt.getByPointId(apoint_id))
+            throw Exception("TPointInfo::Init failed. point_id %d not found", apoint_id);
         airline = operFlt.airline;
         flt_no = operFlt.flt_no;
         suffix = operFlt.suffix;
@@ -1330,13 +1305,13 @@ void TPrnTagStore::TPointInfo::Init(TDevOper::Enum op, int apoint_id, int agrp_i
         {
             Franchise::TProp franchise_prop;
             if(op == TDevOper::PrnBP or op == TDevOper::PrnBT)
-                franchise_prop.get(point_id, (op == TDevOper::PrnBP ? Franchise::TPropType::bp : Franchise::TPropType::bt));
+                franchise_prop.get(operFlt.point_id, (op == TDevOper::PrnBP ? Franchise::TPropType::bp : Franchise::TPropType::bt));
             if(franchise_prop.val == Franchise::pvNo) {
                 airline = franchise_prop.franchisee.airline;
                 flt_no = franchise_prop.franchisee.flt_no;
                 suffix = franchise_prop.franchisee.suffix;
             } else {
-                Qry.Clear();
+                TQuery Qry(&OraSession);
                 Qry.SQLText=
                     "SELECT mark_trips.airline,mark_trips.flt_no,mark_trips.suffix, "
                     "       mark_trips.scd AS scd_out,mark_trips.airp_dep AS airp "
@@ -1357,9 +1332,9 @@ void TPrnTagStore::TPointInfo::Init(TDevOper::Enum op, int apoint_id, int agrp_i
                     };
                 }
             }
-            flt_infants(point_id, infants);
+            flt_infants(operFlt.point_id, infants);
         };
-        TripsInterface::readGates(point_id, gates);
+        TripsInterface::readGates(operFlt.point_id, gates);
     }
 }
 
@@ -1390,7 +1365,7 @@ string TPrnTagStore::BCBP_V_5(TFieldParams fp)
     try{
         if(pointInfo.flt_no > 0)
             barcode.set_flight_number(BCBPSectionsEnums::to_string(pointInfo.flt_no), 0 );
-        barcode.set_date_of_flight(UTCToLocal(pointInfo.scd, AirpTZRegion(grpInfo.airp_dep)),0);
+        barcode.set_date_of_flight(UTCToLocal(pointInfo.operFlt.scd_out, AirpTZRegion(grpInfo.airp_dep)),0);
     }
     catch(EConvertError e)
     {
@@ -1613,7 +1588,7 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
             bcbp_data.airline = pointInfo.airline;
             bcbp_data.flt_no = pointInfo.flt_no;
             bcbp_data.suffix = pointInfo.suffix;
-            bcbp_data.scd = UTCToLocal(pointInfo.scd, AirpTZRegion(grpInfo.airp_dep));
+            bcbp_data.scd = UTCToLocal(pointInfo.operFlt.scd_out, AirpTZRegion(grpInfo.airp_dep));
             bcbp_data.class_grp = grpInfo.class_grp;
             bcbp_data.seat_no = ONE_SEAT_NO(fp);
             bcbp_data.reg_no = paxInfo.reg_no;
@@ -1683,7 +1658,7 @@ string TPrnTagStore::ACT(TFieldParams fp)
             return get_date_from_bcbp(scan_data->date_of_flight(0), fp.date_format,  tag_lang.GetLang() != AstraLocale::LANG_RU);
         else
         {
-            return DateTimeToStr(UTCToLocal(pointInfo.act, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
+            return DateTimeToStr(UTCToLocal(pointInfo.operFlt.act_est_scd_out(), AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
         }
     }
 }
@@ -2100,7 +2075,7 @@ string TPrnTagStore::EST(TFieldParams fp)
         if(scan_data != NULL) {
             return get_date_from_bcbp(scan_data->date_of_flight(0), fp.date_format,  tag_lang.GetLang() != AstraLocale::LANG_RU);
         } else {
-            return DateTimeToStr(UTCToLocal(pointInfo.est, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
+            return DateTimeToStr(UTCToLocal(pointInfo.operFlt.est_scd_out(), AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
         }
     }
 }
@@ -2680,7 +2655,7 @@ string TPrnTagStore::SCD(TFieldParams fp)
         if(scan_data != NULL)
             return get_date_from_bcbp(scan_data->date_of_flight(0), fp.date_format,  tag_lang.GetLang() != AstraLocale::LANG_RU);
         else
-            return DateTimeToStr(UTCToLocal(pointInfo.scd, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
+            return DateTimeToStr(UTCToLocal(pointInfo.operFlt.scd_out, AirpTZRegion(grpInfo.airp_dep)), fp.date_format, tag_lang.GetLang() != AstraLocale::LANG_RU);
     }
 }
 
