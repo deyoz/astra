@@ -446,6 +446,7 @@ class TPrnTagStore {
 
         struct TPointInfo {
             TTripInfo operFlt;
+            // Номер рейса (след. три поля) может отличаться от operFlt (франчайз или маркетинг)
             std::string airline, suffix;
             int flt_no;
             std::vector<std::string> gates;

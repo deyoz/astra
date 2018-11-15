@@ -1585,9 +1585,9 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
                 bcbp_data.pnr = iv->addr;
             bcbp_data.airp_dep = grpInfo.airp_dep;
             bcbp_data.airp_arv = grpInfo.airp_arv;
-            bcbp_data.airline = pointInfo.airline;
-            bcbp_data.flt_no = pointInfo.flt_no;
-            bcbp_data.suffix = pointInfo.suffix;
+            bcbp_data.airline = pointInfo.operFlt.airline;
+            bcbp_data.flt_no = pointInfo.operFlt.flt_no;
+            bcbp_data.suffix = pointInfo.operFlt.suffix;
             bcbp_data.scd = UTCToLocal(pointInfo.operFlt.scd_out, AirpTZRegion(grpInfo.airp_dep));
             bcbp_data.class_grp = grpInfo.class_grp;
             bcbp_data.seat_no = ONE_SEAT_NO(fp);
