@@ -445,20 +445,22 @@ class TPrnTagStore {
         std::map<const std::string, TTagListItem> tag_list;
 
         struct TPointInfo {
-            TDateTime scd, est, act;
-            int point_id;
-            std::string craft, bort;
+            TTripInfo operFlt;
+            // Номер рейса (след. три поля) может отличаться от operFlt (франчайз или маркетинг)
             std::string airline, suffix;
-            std::vector<std::string> gates;
             int flt_no;
+            std::vector<std::string> gates;
             std::vector<TInfantAdults> infants;
-            TPointInfo():
-                scd(ASTRA::NoExists),
-                est(ASTRA::NoExists),
-                act(ASTRA::NoExists),
-                point_id(ASTRA::NoExists),
-                flt_no(ASTRA::NoExists)
-            {}
+            TPointInfo() { clear(); }
+            void clear()
+            {
+                operFlt.Clear();
+                airline.clear();
+                suffix.clear();
+                flt_no = ASTRA::NoExists;
+                gates.clear();
+                infants.clear();
+            }
             void Init(ASTRA::TDevOper::Enum op, int apoint_id, int grp_id);
         };
         TPointInfo pointInfo;
