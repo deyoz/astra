@@ -595,7 +595,7 @@ void TPrPrint::get_pr_print(int grp_id, int pax_id, bool &pr_bp_print, bool &pr_
         pr_bi_print = false;
 }
 
-string get_rem_txt(const string &airline, int grp_id, int pax_id, int tag_index)
+string get_rem_txt(const string &airline, int pax_id, int tag_index)
 {
     // Достаем RFISC-и
     // как платные, так и бесплатные
