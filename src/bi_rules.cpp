@@ -594,3 +594,39 @@ void TPrPrint::get_pr_print(int grp_id, int pax_id, bool &pr_bp_print, bool &pr_
         pr_bi_print = false;
 }
 
+string get_rem_txt(const string &airline, int grp_id, int pax_id, int tag_index)
+{
+    // Достаем RFISC-и
+    set<string> rfisc_list;
+    BIPrintRules::get_rfisc(grp_id, pax_id, rfisc_list);
+
+    // Достаем ремарки
+    set<CheckIn::TPaxFQTItem> fqts;
+    CheckIn::LoadPaxFQT(pax_id, fqts);
+    // Если не найдено ни одной ремарки, добавляем пустую
+    if(fqts.empty()) fqts.insert(CheckIn::TPaxFQTItem());
+
+    TCachedQuery Qry(
+            "select * from rem_txt_sets where "
+            "   airline = :airline and "
+            "   tag_index = :tag_index and "
+            "   (rfisc is null or rfisc = :rfisc) and "
+            "   (rem_code is null or rem_code = :rem_code) ",
+            QParams()
+            << QParam("airline", otString, airline)
+            << QParam("tag_index", otInteger, tag_index)
+            << QParam("rfisc", otString)
+            << QParam("rem_code", otString));
+    for(const auto &rfisc: rfisc_list)
+        for(const auto &fqt: fqts) {
+            Qry.get().SetVariable("rfisc", rfisc);
+            Qry.get().SetVariable("rem_code", fqt.rem);
+            Qry.get().Execute();
+            if(not Qry.get().Eof)
+                return transliter(
+                        string(Qry.get().FieldAsString("text")).substr(0, Qry.get().FieldAsInteger("text_length")),
+                        1, Qry.get().FieldAsInteger("pr_lat"));
+        }
+
+    return "";
+}

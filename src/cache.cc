@@ -1859,7 +1859,34 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
         if(not num.empty() and num[0] == '0')
                 throw AstraLocale::UserException("MSG.INVALID_COPIES");
     }
-  if (cache.code() == "BI_PRINT_RULES") {
+
+    if (cache.code() == "REM_TXT_SETS") {
+        if (
+                row.status != usDeleted and
+                row.status != usUnmodified
+           ) {
+            string rfisc = cache.FieldValue("rfisc", row);
+            string rem_code = cache.FieldValue("rem_code", row);
+            if(rfisc.empty() and rem_code.empty())
+                throw AstraLocale::UserException("MSG.REM_TXT_SETS.RFISC_OR_REM_CODE.NOT_SET");
+            if(not rfisc.empty() and not rem_code.empty())
+                throw AstraLocale::UserException("MSG.REM_TXT_SETS.RFISC_AND_REM_CODE.SET");
+
+            int tag_index = ToInt(cache.FieldValue("tag_index", row));
+            int text_length = ToInt(cache.FieldValue("text_length", row));
+            if(tag_index > 9)
+                throw AstraLocale::UserException("MSG.REM_TXT_SETS.WRONG_TAG_INDEX");
+            if(tag_index < 5) {
+                if(text_length > 26)
+                    throw AstraLocale::UserException("MSG.REM_TXT_SETS.WRONG_TEXT_LENGTH_SMALL");
+            } else if(text_length > 73)
+                throw AstraLocale::UserException("MSG.REM_TXT_SETS.WRONG_TEXT_LENGTH_BIG");
+        }
+    }
+
+  if (cache.code() == "BI_PRINT_RULES" ||
+      cache.code() == "REM_TXT_SETS" ||
+      cache.code() == "DCS_SERVICE_APPLYING") {
     string rfisc;
     if (
             row.status != usDeleted and
@@ -1869,7 +1896,7 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
 
     if(not rfisc.empty()) {
         static const boost::regex e("^[€-ŸðA-Z0-9]{3,15}$");
-        boost::match_results<std::string::const_iterator> results;
+        boost::smatch results;
         if(not boost::regex_match(rfisc, results, e))
             throw AstraLocale::UserException("MSG.WRONG_RFISC");
     }

@@ -74,6 +74,16 @@ namespace TAG {
     const std::string PLACE_DEP = "PLACE_DEP";
     const std::string REG_NO = "REG_NO";
     const std::string REM = "REM";
+    const std::string REM_TXT0 = "REM_TXT0";
+    const std::string REM_TXT1 = "REM_TXT1";
+    const std::string REM_TXT2 = "REM_TXT2";
+    const std::string REM_TXT3 = "REM_TXT3";
+    const std::string REM_TXT4 = "REM_TXT4";
+    const std::string REM_TXT5 = "REM_TXT5";
+    const std::string REM_TXT6 = "REM_TXT6";
+    const std::string REM_TXT7 = "REM_TXT7";
+    const std::string REM_TXT8 = "REM_TXT8";
+    const std::string REM_TXT9 = "REM_TXT9";
     const std::string RFISC_BSN_LONGUE = "RFISC_BSN_LONGUE";
     const std::string RFISC_FAST_TRACK = "RFISC_FAST_TRACK";
     const std::string RFISC_UPGRADE = "RFISC_UPGRADE";
@@ -347,17 +357,23 @@ class TPrnTagStore {
         TBagReceipt rcpt;
 
         struct TFieldParams {
+            std::string tag_name;
             std::string date_format;
             boost::any TagInfo;
             size_t len;
             std::string text;
-            TFieldParams(std::string adate_format, boost::any aTagInfo, int alen, const std::string &atext):
+            TFieldParams(
+                    const std::string &atag_name,
+                    const std::string &adate_format,
+                    boost::any aTagInfo,
+                    int alen,
+                    const std::string &atext):
+                tag_name(atag_name),
                 date_format(adate_format),
                 TagInfo(aTagInfo),
                 len(alen),
                 text(atext)
             {};
-            TFieldParams(): len(ASTRA::NoExists) {};
         };
 
         typedef std::string (TPrnTagStore::*TTagFunct)(TFieldParams fp);
@@ -429,20 +445,22 @@ class TPrnTagStore {
         std::map<const std::string, TTagListItem> tag_list;
 
         struct TPointInfo {
-            TDateTime scd, est, act;
-            int point_id;
-            std::string craft, bort;
+            TTripInfo operFlt;
+            // Номер рейса (след. три поля) может отличаться от operFlt (франчайз или маркетинг)
             std::string airline, suffix;
-            std::vector<std::string> gates;
             int flt_no;
+            std::vector<std::string> gates;
             std::vector<TInfantAdults> infants;
-            TPointInfo():
-                scd(ASTRA::NoExists),
-                est(ASTRA::NoExists),
-                act(ASTRA::NoExists),
-                point_id(ASTRA::NoExists),
-                flt_no(ASTRA::NoExists)
-            {}
+            TPointInfo() { clear(); }
+            void clear()
+            {
+                operFlt.Clear();
+                airline.clear();
+                suffix.clear();
+                flt_no = ASTRA::NoExists;
+                gates.clear();
+                infants.clear();
+            }
             void Init(ASTRA::TDevOper::Enum op, int apoint_id, int grp_id);
         };
         TPointInfo pointInfo;
@@ -634,6 +652,7 @@ class TPrnTagStore {
         std::string PLACE_DEP(TFieldParams fp);
         std::string REG_NO(TFieldParams fp);
         std::string REM(TFieldParams fp);
+        std::string REM_TXT(TFieldParams fp);
         std::string RFISC_BSN_LONGUE(TFieldParams fp);
         std::string RFISC_FAST_TRACK(TFieldParams fp);
         std::string RFISC_UPGRADE(TFieldParams fp);
@@ -732,9 +751,9 @@ class TPrnTagStore {
         std::string TO(TFieldParams fp);
         std::string TOTAL(TFieldParams fp);
 
-        std::string get_test_field(std::string name, size_t len, const std::string &text, std::string date_format);
-        std::string get_real_field(std::string name, size_t len, const std::string &text, std::string date_format);
-        std::string get_field_from_bcbp(std::string name, size_t len, const std::string &text, std::string date_format);
+        std::string get_test_field(const std::string &name, size_t len, const std::string &text, const std::string &date_format);
+        std::string get_real_field(const std::string &name, size_t len, const std::string &text, const std::string &date_format);
+        std::string get_field_from_bcbp(const std::string &name, size_t len, const std::string &text, const std::string &date_format);
 
         void init_bp_tags();
 
