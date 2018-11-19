@@ -148,6 +148,6 @@ class TPrPrint {
         TPrPrint(): bi_rules(ASTRA::TDevOper::PrnBI) {}
 };
 
-std::string get_rem_txt(const std::string &airline, int pax_id, int tag_index);
+std::string get_rem_txt(const std::string &airline, int grp_id, int pax_id, int tag_index);
 
 #endif
