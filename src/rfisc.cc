@@ -1483,6 +1483,16 @@ std::string TPaidRFISCListWithAuto::getRFISCName(const TPaidRFISCItem& item, con
   return result;
 }
 
+void TPaidRFISCListWithAuto::getUniqRFISCSs(int pax_id, std::set<std::string> &rfisc_set) const
+{
+  for(const auto& i : *this)
+  {
+    const TPaxSegRFISCKey& key=i.first;
+    if (key.pax_id == pax_id && key.trfer_num == 0)
+      rfisc_set.insert(key.RFISC);
+  }
+}
+
 void TPaidRFISCListWithAuto::addItem(const TGrpServiceAutoItem &svcAuto, bool squeeze)
 {
   TPaidRFISCItem item(svcAuto);
