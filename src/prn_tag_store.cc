@@ -821,11 +821,7 @@ TDateTime get_date_from_bcbp(int julian_date)
 string TPrnTagStore::errorsToString()
 {
     string result;
-    if(
-            errors and not
-            errors.get().empty() and
-            errors.get().begin()->lexema_id != "MSG.PASSENGERS.NOT_FOUND"
-      )
+    if(errors and not errors.get().empty())
         result = getLocaleText(errors.get().begin()->lexema_id, errors.get().begin()->lparams, LANG_EN);
     return result.substr(0, 200);
 }
