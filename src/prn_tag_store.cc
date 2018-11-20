@@ -2586,7 +2586,7 @@ void TPrnTagStore::TRfiscDescr::fromDB(int grp_id, int pax_id)
 string TPrnTagStore::REM_TXT(TFieldParams fp)
 {
     int tag_index = ToInt(fp.tag_name.substr(fp.tag_name.size() - 1));
-    return get_rem_txt(pointInfo.airline, grpInfo.grp_id, paxInfo.pax_id, tag_index);
+    return get_rem_txt(pointInfo.airline, paxInfo.pax_id, tag_index);
 }
 
 string TPrnTagStore::RFISC_BSN_LONGUE(TFieldParams fp)

@@ -6,6 +6,7 @@
 #include "etick.h"
 #include "term_version.h"
 #include "brands.h"
+#include "dcs_services.h"
 
 using namespace std;
 using namespace ASTRA;
@@ -594,11 +595,15 @@ void TPrPrint::get_pr_print(int grp_id, int pax_id, bool &pr_bp_print, bool &pr_
         pr_bi_print = false;
 }
 
-string get_rem_txt(const string &airline, int grp_id, int pax_id, int tag_index)
+string get_rem_txt(const string &airline, int pax_id, int tag_index)
 {
     // Достаем RFISC-и
-    set<string> rfisc_list;
-    BIPrintRules::get_rfisc(grp_id, pax_id, rfisc_list);
+    // как платные, так и бесплатные
+    RFISCsSet paxRFISCs;
+    TPaidRFISCListWithAuto paid;
+    paid.fromDB(pax_id, false);
+    paid.getUniqRFISCSs(pax_id, paxRFISCs);
+    if(paxRFISCs.empty()) paxRFISCs.insert("");
 
     // Достаем ремарки
     set<CheckIn::TPaxFQTItem> fqts;
@@ -617,7 +622,7 @@ string get_rem_txt(const string &airline, int grp_id, int pax_id, int tag_index)
             << QParam("tag_index", otInteger, tag_index)
             << QParam("rfisc", otString)
             << QParam("rem_code", otString));
-    for(const auto &rfisc: rfisc_list)
+    for(const auto &rfisc: paxRFISCs)
         for(const auto &fqt: fqts) {
             Qry.get().SetVariable("rfisc", rfisc);
             Qry.get().SetVariable("rem_code", fqt.rem);
