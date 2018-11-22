@@ -797,9 +797,9 @@ void CreateSPP( TDateTime localdate )
 
         int point_id;
         if ( doubletrip.IsExists( NoExists, d->airline,
-                                    d->trip, d->suffix,
-                                    d->airp,
-                                    vscd_in, vscd_out,
+                                  d->trip, d->suffix,
+                                  d->airp,
+                                  vscd_in, vscd_out,
                                   point_id ) ) {
             exists = true;
             break;
@@ -1014,7 +1014,7 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
       modf( (double)d.scd_in, &f1 );
       if ( f1 == da ) {
         candests = candests || filter.isFilteredUTCTime( da, first_day, d.scd_in );
-        ProgTrace( TRACE5, "filter.firsttime=%s, filter.lasttime=%s, d,scd_in=%s, res=%d",
+        ProgTrace( TRACE5, "filter.firsttime=%s, filter.lasttime=%s, d.scd_in=%s, res=%d",
                    DateTimeToStr( filter.firstTime, "dd hh:nn" ).c_str(),
                    DateTimeToStr( filter.lastTime, "dd hh:nn" ).c_str(),
                    DateTimeToStr( d.scd_in, "dd hh:nn" ).c_str(), candests );
@@ -1136,9 +1136,9 @@ void createSPP( TDateTime ldt_SPPStart, TSpp &spp, bool createViewer, string &er
         "           first_day,last_day,region "
         " FROM sched_days,routes "
         " WHERE routes.move_id = sched_days.move_id AND "
-        "       TRUNC(first_day) + delta_in <= :vd AND "
-        "       TRUNC(last_day) + delta_in >= :vd AND  "
-        "       INSTR( days, TO_CHAR( :vd - delta_in, 'D' ) ) != 0 "
+        "       TRUNC(first_day) + delta_in + delta <= :vd AND "
+        "       TRUNC(last_day) + delta_in + delta >= :vd AND  "
+        "       INSTR( days, TO_CHAR( :vd - delta_in - delta, 'D' ) ) != 0 "
         "   UNION "
         " SELECT routes.move_id as move_id, "
         "        TO_NUMBER(delta_out) as delta,"
@@ -1146,9 +1146,9 @@ void createSPP( TDateTime ldt_SPPStart, TSpp &spp, bool createViewer, string &er
         "        first_day,last_day,region "
         " FROM sched_days,routes "
         "   WHERE routes.move_id = sched_days.move_id AND "
-        "         TRUNC(first_day) + delta_out <= :vd AND "
-        "         TRUNC(last_day) + delta_out >= :vd AND "
-        "         INSTR( days, TO_CHAR( :vd - delta_out, 'D' ) ) != 0 ) d "
+        "         TRUNC(first_day) + delta_out + delta <= :vd AND "
+        "         TRUNC(last_day) + delta_out + delta >= :vd AND "
+        "         INSTR( days, TO_CHAR( :vd - delta_out - delta, 'D' ) ) != 0 ) d "
         " ORDER BY move_id, qdate";
 
    Qry.DeclareVariable( "vd", otDate );
@@ -1733,7 +1733,7 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
                DateTimeToStr( period.last, "dd.mm.yyyy hh:nn:ss" ).c_str(),
                DateTimeToStr( ds.flight_time, "dd.mm.yyyy hh:nn:ss" ).c_str(),
                ds.flight_time );
-    ConvertPeriod( period, ds.flight_time, filter_tz_region );
+    period.delta = ConvertPeriod( period, ds.flight_time, filter_tz_region );
     if ( newdests ) {
       // перевод времен в маршруте в локальные
       for ( TDests::iterator id=ds.dests.begin(); id!=ds.dests.end(); id++ ) {
@@ -1821,8 +1821,8 @@ void SEASON::int_write( const TFilter &filter, int ssm_id, vector<TPeriod> &sper
   NQry.SQLText = "SELECT routes_move_id.nextval AS move_id FROM dual";
   SQry.Clear();
   SQry.SQLText =
-  "INSERT INTO sched_days(trip_id,move_id,num,first_day,last_day,days,pr_del,tlg,reference,region,ssm_id) "
-  "VALUES(:trip_id,:move_id,:num,:first_day,:last_day,:days,:pr_del,:tlg,:reference,:region,:ssm_id) ";
+  "INSERT INTO sched_days(trip_id,move_id,num,first_day,last_day,days,pr_del,tlg,reference,region,ssm_id,delta) "
+  "VALUES(:trip_id,:move_id,:num,:first_day,:last_day,:days,:pr_del,:tlg,:reference,:region,:ssm_id,:delta) ";
   SQry.DeclareVariable( "trip_id", otInteger );
   SQry.DeclareVariable( "move_id", otInteger );
   SQry.DeclareVariable( "num", otInteger );
@@ -1834,6 +1834,7 @@ void SEASON::int_write( const TFilter &filter, int ssm_id, vector<TPeriod> &sper
   SQry.DeclareVariable( "reference", otString );
   SQry.CreateVariable( "region", otString, filter.filter_tz_region );
   SQry.CreateVariable( "ssm_id", otInteger, ssm_id==ASTRA::NoExists?FNull:ssm_id );
+  SQry.DeclareVariable( "delta", otInteger );
   TQuery RQry( &OraSession );
   RQry.SQLText =
   "INSERT INTO routes(move_id,num,airp,airp_fmt,pr_del,scd_in,airline,airline_fmt,flt_no,craft,craft_fmt,scd_out,litera, "
@@ -1899,6 +1900,7 @@ void SEASON::int_write( const TFilter &filter, int ssm_id, vector<TPeriod> &sper
     SQry.SetVariable( "pr_del", ip->pr_del );
     SQry.SetVariable( "tlg", ip->tlg );
     SQry.SetVariable( "reference", ip->ref );
+    SQry.SetVariable( "delta", ip->delta );
     vector<TPeriod>::iterator ew = oldperiods.end();
     for ( ew=oldperiods.begin(); ew!=oldperiods.end(); ew++ ) {
         if ( ew->first == ip->first && ew->last == ip->last )
@@ -3127,7 +3129,7 @@ void ReadTripInfo( int trip_id, vector<TViewPeriod> &viewp, xmlNodePtr reqNode )
   filter.Parse( filterNode );
   internalRead( filter, viewp, trip_id );
 }
-void ConvertPeriod( TPeriod &period, const TDateTime &flight_time, const std::string &filter_tz_region )
+int ConvertPeriod( TPeriod &period, const TDateTime &flight_time, const std::string &filter_tz_region )
 {
   double first_day, f3;
   first_day = period.first;
@@ -3154,6 +3156,7 @@ void ConvertPeriod( TPeriod &period, const TDateTime &flight_time, const std::st
   period.last += utcFirst - first_day + f3;
   ProgTrace( TRACE5, "local first=%s",DateTimeToStr( first_day, "dd.mm.yyyy hh:nn:ss" ).c_str() );
   ProgTrace( TRACE5, "utc first=%s",DateTimeToStr( utcFirst, "dd.mm.yyyy hh:nn:ss" ).c_str() );
+  return (int)first_day - (int)utcFirst;
 }
 }
 
