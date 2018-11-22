@@ -1920,8 +1920,7 @@ void PrintInterface::GetPrintDataBP(
         if(iPax->pax_id!=NoExists)
             try {
                 parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->grp_id, iPax->pax_id, iPax->from_scan_code, params.prnParams.pr_lat, params.clientDataNode ));
-                if(TReqInfo::Instance()->client_type == ctTerm)
-                    DCSServiceApplying::throwIfNotAllowed( iPax->pax_id, DCSService::Enum::PrintBPOnDesk );
+                DCSServiceApplying::throwIfNotAllowed( iPax->pax_id, DCSService::Enum::PrintBPOnDesk );
             } catch(UserException &E) {
                 if(not error) {
                     TTripInfo fltInfo;
