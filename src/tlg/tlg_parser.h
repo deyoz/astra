@@ -317,6 +317,11 @@ class TDetailRemAncestor
       Clear();
     };
     virtual ~TDetailRemAncestor() {};
+
+    bool isHKReservationsStatus() const
+    {
+      return strcmp(rem_status, "HK")==0;
+    }
   protected:
     void Clear()
     {
@@ -563,6 +568,22 @@ class TASVCItem : public TDetailRemAncestor
     }
 };
 
+class TSeatBlockingRem : public TDetailRemAncestor
+{
+  public:
+    int numberOfSeats;
+    TSeatBlockingRem() { clear(); }
+    void clear()
+    {
+      TDetailRemAncestor::Clear();
+      numberOfSeats=0;
+    }
+    bool isSTCR() const
+    {
+      return strcmp(rem_code, "STCR")==0;
+    }
+};
+
 class TRemItem
 {
   public:
@@ -625,6 +646,7 @@ class TSeatsBlockingList : public std::vector<TSeatsBlockingItem>
 };
 
 class TNameElement;
+class TTlgParser;
 
 class TPaxItem
 {
@@ -647,6 +669,7 @@ class TPaxItem
     std::vector<TCHKDItem> chkd;
     std::vector<TASVCItem> asvc;
     TSeatsBlockingList seatsBlocking;
+    std::list<TSeatBlockingRem> seatBlockingRemList;
     TPaxItem()
     {
       pers_type=ASTRA::adult;
@@ -658,12 +681,13 @@ class TPaxItem
     bool isSeatBlocking() const { return isSeatBlockingRem(name); }
     bool isCBBG() const { return name=="CBBG"; }
     void bindSeatsBlocking(const TNameElement& ne,
-                           const TRemItem& remItem,
+                           const std::string& remCode,
                            TSeatsBlockingList& srcSeatsBlocking);
     void setSomeDataForSeatsBlocking(const int& paxId, const TNameElement& ne);
     void setSomeDataForSeatsBlocking(const TNameElement& ne);
     void getTknNumbers(std::list<std::string>& result) const;
     void moveTknWithNumber(const std::string& no, std::vector<TTKNItem>& dest);
+    void fillSeatBlockingRemList(TTlgParser &tlg);
 
     static bool isSeatBlockingRem(const std::string &rem_code);
     static int getNotUsedSeatBlockingId(const int& paxId);
@@ -813,6 +837,7 @@ class TNameElement
     bool seatIsUsed(const TSeat& seat) const;
     void setNotUsedSeat(TSeatRanges& seats, TPaxItem& paxItem, bool moveSeat) const;
     bool isSpecial() const { return surname=="ZZ"; }
+    void fillSeatBlockingRemList(TTlgParser &tlg);
 };
 
 class TPnrAddrItem
