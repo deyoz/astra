@@ -1110,6 +1110,7 @@ void TFlightInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
   if (node==NULL) return;
   toXMLsimple(node, xmlStyle);
   NewTextChild(node, "craft", craftToPrefferedCode(oper.craft, AstraLocale::OutputLang()));
+  NewTextChild(node, "bort", oper.bort);
   NewTextChild(node, "scd_out", scd_out_local==NoExists?"":DateTimeToStr(scd_out_local, ServerFormatDateTimeAsString));
   NewTextChild(node, "est_out", est_out_local==NoExists?"":DateTimeToStr(est_out_local, ServerFormatDateTimeAsString));
   NewTextChild(node, "act_out", act_out_local==NoExists?"":DateTimeToStr(act_out_local, ServerFormatDateTimeAsString));
