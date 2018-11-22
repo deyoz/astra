@@ -2342,6 +2342,15 @@ string getFileSizeStr(double size)
     return result.str();
 }
 
+AstraLocale::LexemaData GetLexemeDataWithRegNo(const AstraLocale::LexemaData &data, int reg_no)
+{
+  AstraLocale::LexemaData result;
+  result.lexema_id="WRAP.REG_NO";
+  result.lparams << AstraLocale::LParam("reg_no", reg_no)
+                 << AstraLocale::LParam("text",data);
+  return result;
+}
+
 AstraLocale::LexemaData GetLexemeDataWithFlight(const AstraLocale::LexemaData &data, const TTripInfo &fltInfo)
 {
   AstraLocale::LexemaData result;

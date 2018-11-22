@@ -2576,8 +2576,7 @@ void TPrnTagStore::TRfiscDescr::fromDB(int grp_id, int pax_id)
         else if(registered_services.isRFISCGrpExists(pax_id, grp, subgrp)) {
             CheckIn::TSimplePaxItem pax;
             pax.getByPaxId(pax_id);
-            throw UserException("MSG.UNPAID_SERVICE_EXISTS",
-                    LParams() << LParam("reg_no", pax.reg_no));
+            throw UserException("MSG.UNPAID_SERVICE_EXISTS");
         }
     }
     dump();

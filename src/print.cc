@@ -25,6 +25,7 @@
 #include "points.h"
 #include "telegram.h"
 #include "cr_lf.h"
+#include "dcs_services.h"
 
 #define NICKNAME "DENIS"
 #include <serverlib/slogger.h>
@@ -1919,11 +1920,13 @@ void PrintInterface::GetPrintDataBP(
         if(iPax->pax_id!=NoExists)
             try {
                 parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->grp_id, iPax->pax_id, iPax->from_scan_code, params.prnParams.pr_lat, params.clientDataNode ));
+                if(TReqInfo::Instance()->client_type == ctTerm)
+                    DCSServiceApplying::throwIfNotAllowed( iPax->pax_id, DCSService::Enum::PrintBPOnDesk );
             } catch(UserException &E) {
                 if(not error) {
                     TTripInfo fltInfo;
                     fltInfo.getByGrpId(iPax->grp_id);
-                    error = GetLexemeDataWithFlight(E.getLexemaData( ), fltInfo);
+                    error = GetLexemeDataWithFlight(GetLexemeDataWithRegNo(E.getLexemaData( ), iPax->reg_no), fltInfo);
                 }
                 iPax->error = true;
                 continue;
