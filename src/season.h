@@ -90,11 +90,12 @@ using BASIC::date_time::TDateTime;
     tmodify modify;
 
     bool pr_del;
-    int hours;
+    int delta;
 
     TPeriod() {
       modify = fnochange;
       pr_del = false;
+      delta = 0;
     }
   };
 
@@ -228,7 +229,7 @@ struct TViewPeriod {
 };
 
 void ReadTripInfo( int trip_id, std::vector<TViewPeriod> &viewp, xmlNodePtr reqNode );
-void ConvertPeriod( TPeriod &period, const TDateTime &flight_time, const std::string &filter_tz_region );
+int ConvertPeriod( TPeriod &period, const TDateTime &flight_time, const std::string &filter_tz_region );
 
 } // namespace SEASON
 
