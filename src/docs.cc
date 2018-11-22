@@ -1390,7 +1390,6 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "takeoff", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "dd.mm.yy hh:nn")));
     NewTextChild(variablesNode, "takeoff_date", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "dd.mm")));
     NewTextChild(variablesNode, "takeoff_time", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "hh:nn")));
-    LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
 }
 
 void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2319,7 +2318,6 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     while(!rows.empty());
     NewTextChild(variablesNode,"report_summary",s.str());
   };
-  LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
 };
 
 string get_flight(xmlNodePtr variablesNode)
