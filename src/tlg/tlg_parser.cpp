@@ -97,11 +97,11 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
 void BindRemarks(TTlgParser &tlg, TNameElement &ne);
 void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
                   TTlgParser &tlg, const TDCSHeadingInfo &info, TPnrItem &pnr, TNameElement &ne);
-bool ParseCHDRem(TTlgParser &tlg,string &rem_text,vector<TChdItem> &chd);
-bool ParseINFRem(TTlgParser &tlg,string &rem_text,TInfList &inf);
-bool ParseSEATRem(TTlgParser &tlg,string &rem_text,TSeatRanges &seats);
-bool ParseTKNRem(TTlgParser &tlg,string &rem_text,TTKNItem &tkn);
-bool ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fqt);
+bool ParseCHDRem(TTlgParser &tlg, const string &rem_text, vector<TChdItem> &chd);
+bool ParseINFRem(TTlgParser &tlg, const string &rem_text, TInfList &inf);
+bool ParseSEATRem(TTlgParser &tlg, const string &rem_text, TSeatRanges &seats);
+bool ParseTKNRem(TTlgParser &tlg, const string &rem_text, TTKNItem &tkn);
+bool ParseFQTRem(TTlgParser &tlg, const string &rem_text, TFQTItem &fqt);
 
 const char* TTlgParser::NextLine(const char* p)
 {
@@ -2368,7 +2368,10 @@ void ParsePNLADLPRLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPNLADLPRLC
     for(TTotalsByDest& totals : con.resa)
       for(TPnrItem& pnr : totals.pnr)
         for(TNameElement& ne : pnr.ne)
+        {
           BindRemarks(tlg, ne);
+          ne.fillSeatBlockingRemList(tlg);
+        }
 
     //B. проанализировать дополнительные места пассажиров (после привязки, но до разбора ремарок!)
     for(TTotalsByDest& totals : con.resa)
@@ -3150,13 +3153,14 @@ void BindRemarks(TTlgParser &tlg, TNameElement &ne)
   };
 };
 
-bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, std::string &rem_text, TDocItem &doc);
-bool ParseDOCORem(TTlgParser &tlg, TDateTime scd_local, std::string &rem_text, TDocoItem &doc);
-bool ParseDOCARem(TTlgParser &tlg, string &rem_text, TDocaItem &doca);
-bool ParseCHKDRem(TTlgParser &tlg, string &rem_text, TCHKDItem &chkd);
-bool ParseASVCRem(TTlgParser &tlg, string &rem_text, TASVCItem &asvc);
-bool ParseOTHS_DOCSRem(TTlgParser &tlg, string &rem_text, TDocExtraItem &doc);
-bool ParseOTHS_FQTSTATUSRem(TTlgParser &tlg, string &rem_text, TFQTExtraItem &fqt);
+bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, const std::string &rem_text, TDocItem &doc);
+bool ParseDOCORem(TTlgParser &tlg, TDateTime scd_local, const std::string &rem_text, TDocoItem &doc);
+bool ParseDOCARem(TTlgParser &tlg, const string &rem_text, TDocaItem &doca);
+bool ParseCHKDRem(TTlgParser &tlg, const string &rem_text, TCHKDItem &chkd);
+bool ParseASVCRem(TTlgParser &tlg, const string &rem_text, TASVCItem &asvc);
+bool ParseOTHS_DOCSRem(TTlgParser &tlg, const string &rem_text, TDocExtraItem &doc);
+bool ParseOTHS_FQTSTATUSRem(TTlgParser &tlg, const string &rem_text, TFQTExtraItem &fqt);
+bool ParseSeatBlockingRem(TTlgParser &tlg, const string &rem_text, TSeatBlockingRem &rem);
 void BindDetailRem(TRemItem &remItem, bool isGrpRem, TPaxItem &paxItem,
                    const TDetailRemAncestor &item)
 {
@@ -3862,10 +3866,10 @@ void TPaxItem::getAndLockSeatBlockingIds(const int& paxId, std::set<int>& seatId
 }
 
 void TPaxItem::bindSeatsBlocking(const TNameElement& ne,
-                                 const TRemItem& remItem,
+                                 const std::string& remCode,
                                  TSeatsBlockingList& srcSeatsBlocking)
 {
-  if (!isSeatBlockingRem(remItem.code)) return;
+  if (!isSeatBlockingRem(remCode)) return;
   for(bool isSpecialPass : {false, true})
   {
     for(TSeatsBlockingList::iterator i=srcSeatsBlocking.begin(); i!=srcSeatsBlocking.end(); ++i)
@@ -3875,7 +3879,7 @@ void TPaxItem::bindSeatsBlocking(const TNameElement& ne,
       if (seatsBlockingItem.isSpecial()!=isSpecialPass) continue;
 
       if ((seatsBlockingItem.isSpecial() || seatsBlockingItem.surname==ne.surname) &&
-          seatsBlockingItem.name==remItem.code)
+          seatsBlockingItem.name==remCode)
       {
         if (!seatsBlockingItem.isCBBG())
         {
@@ -3931,6 +3935,25 @@ bool TNameElement::containsSinglePassenger() const
   return count==1;
 }
 
+void TPaxItem::fillSeatBlockingRemList(TTlgParser &tlg)
+{
+  for(const TRemItem& remItem : rem)
+  {
+    if (!TPaxItem::isSeatBlockingRem(remItem.code)) continue;
+
+    TSeatBlockingRem seatBlockingRem;
+    if (ParseSeatBlockingRem(tlg,remItem.text,seatBlockingRem))
+      seatBlockingRemList.push_back(seatBlockingRem);
+
+  }
+}
+
+void TNameElement::fillSeatBlockingRemList(TTlgParser &tlg)
+{
+  for(TPaxItem& paxItem : pax)
+    paxItem.fillSeatBlockingRemList(tlg);
+}
+
 void TNameElement::separateSeatsBlocking(TSeatsBlockingList& dest)
 {
   for(vector<TPaxItem>::iterator iPax=pax.begin();iPax!=pax.end();)
@@ -3961,9 +3984,17 @@ void TNameElement::bindSeatsBlocking(const std::string& remCode,
                                      TSeatsBlockingList& srcSeatsBlocking)
 {
   for(TPaxItem& paxItem : pax)
-    for(const TRemItem& remItem : paxItem.rem)
-      if (remCode==remItem.code)
-        paxItem.bindSeatsBlocking(*this, remItem, srcSeatsBlocking);
+    for(const TSeatBlockingRem& remItem : paxItem.seatBlockingRemList)
+    {
+      if (remItem.rem_code!=remCode) continue;
+      if (!remItem.isHKReservationsStatus()) continue;
+      if (remItem.numberOfSeats==NoExists) continue;
+      for(int i=0; i<remItem.numberOfSeats; i++)
+      {
+        paxItem.bindSeatsBlocking(*this, remItem.rem_code, srcSeatsBlocking);
+        if (remItem.isSTCR()) break; //пока рассчитываем на STCR HK1, но подумать если HK будет отображать реальное кол-во доп. мест
+      }
+    }
 }
 
 void TPaxItem::setSomeDataForSeatsBlocking(const int& paxId, const TNameElement& ne)
@@ -4297,7 +4328,7 @@ void ParseSeatRange(string str, TSeatRanges &ranges, bool usePriorContext)
   };
 };
 
-bool ParseSEATRem(TTlgParser &tlg,string &rem_text,TSeatRanges &seats)
+bool ParseSEATRem(TTlgParser &tlg, const string &rem_text, TSeatRanges &seats)
 {
   char c;
   int res;
@@ -4342,7 +4373,7 @@ bool ParseSEATRem(TTlgParser &tlg,string &rem_text,TSeatRanges &seats)
   return false;
 };
 
-bool ParseCHDRem(TTlgParser &tlg,string &rem_text,vector<TChdItem> &chd)
+bool ParseCHDRem(TTlgParser &tlg, const string &rem_text, vector<TChdItem> &chd)
 {
   char c;
   int res;
@@ -4405,7 +4436,7 @@ bool ParseCHDRem(TTlgParser &tlg,string &rem_text,vector<TChdItem> &chd)
 };
 
 
-bool ParseINFRem(TTlgParser &tlg, string &rem_text, TInfList &inf)
+bool ParseINFRem(TTlgParser &tlg, const string &rem_text, TInfList &inf)
 {
   char c;
   int res;
@@ -4482,7 +4513,7 @@ bool ParseINFRem(TTlgParser &tlg, string &rem_text, TInfList &inf)
   return false;
 };
 
-bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocItem &doc)
+bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, const string &rem_text, TDocItem &doc)
 {
   char c;
   int res,k;
@@ -4738,7 +4769,7 @@ bool ParseDOCSRem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocIt
   return false;
 };
 
-bool ParseDOCORem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocoItem &doc)
+bool ParseDOCORem(TTlgParser &tlg, TDateTime scd_local, const string &rem_text, TDocoItem &doc)
 {
   char c;
   int res,k;
@@ -4854,7 +4885,7 @@ bool ParseDOCORem(TTlgParser &tlg, TDateTime scd_local, string &rem_text, TDocoI
   return false;
 };
 
-bool ParseDOCARem(TTlgParser &tlg, string &rem_text, TDocaItem &doca)
+bool ParseDOCARem(TTlgParser &tlg, const string &rem_text, TDocaItem &doca)
 {
   char c;
   int res,k;
@@ -4981,7 +5012,7 @@ bool ParseDOCARem(TTlgParser &tlg, string &rem_text, TDocaItem &doca)
   return false;
 };
 
-bool ParseCHKDRem(TTlgParser &tlg, string &rem_text, TCHKDItem &chkd)
+bool ParseCHKDRem(TTlgParser &tlg, const string &rem_text, TCHKDItem &chkd)
 {
   char c;
   int res,k;
@@ -5052,7 +5083,7 @@ bool ParseCHKDRem(TTlgParser &tlg, string &rem_text, TCHKDItem &chkd)
   return false;
 };
 
-bool ParseASVCRem(TTlgParser &tlg, string &rem_text, TASVCItem &asvc)
+bool ParseASVCRem(TTlgParser &tlg, const string &rem_text, TASVCItem &asvc)
 {
   char c;
   int res,k;
@@ -5124,6 +5155,7 @@ bool ParseASVCRem(TTlgParser &tlg, string &rem_text, TASVCItem &asvc)
         {
           case 0:
             *asvc.rem_status=0;
+            asvc.service_quantity=NoExists;
             throw ETlgError("status code: %s",E.what());
           case 1:
             *asvc.RFIC=0;
@@ -5155,9 +5187,63 @@ bool ParseASVCRem(TTlgParser &tlg, string &rem_text, TASVCItem &asvc)
   };
 
   return false;
-};
+}
 
-bool ParseOTHS_DOCSRem(TTlgParser &tlg, string &rem_text, TDocExtraItem &doc)
+bool ParseSeatBlockingRem(TTlgParser &tlg, const string &rem_text, TSeatBlockingRem &rem)
+{
+  char c;
+  int res,k;
+
+  const char *p=rem_text.c_str();
+
+  rem.clear();
+
+  if (rem_text.empty()) return false;
+  p=tlg.GetWord(p);
+  c=0;
+  res=sscanf(tlg.lex,"%5[A-ZА-ЯЁ0-9]%c",rem.rem_code,&c);
+  if (c!=0||res!=1) return false;
+
+  if (!TPaxItem::isSeatBlockingRem(rem.rem_code)) return false;
+
+  for(k=0;k<=0;k++)
+  try
+  {
+    try
+    {
+      p=tlg.GetLexeme(p);
+      if (p==NULL) throw ETlgError("Lexeme not found");
+      if (*tlg.lex==0) continue;
+      c=0;
+      switch(k)
+      {
+        case 0:
+          res=sscanf(tlg.lex,"%2[A-Z]%d%c",rem.rem_status,&rem.numberOfSeats,&c);
+          if (c!=0||res!=2||
+              rem.numberOfSeats<1||rem.numberOfSeats>3) throw ETlgError("Wrong format");
+          break;
+      }
+    }
+    catch(exception &E)
+    {
+      switch(k)
+      {
+        case 0:
+          *rem.rem_status=0;
+          rem.numberOfSeats=0;
+          throw ETlgError("action/status code: %s",E.what());
+      };
+    };
+  }
+  catch(ETlgError &E)
+  {
+    ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",rem.rem_code,E.what(),rem_text.c_str());
+  };
+
+  return true;
+}
+
+bool ParseOTHS_DOCSRem(TTlgParser &tlg, const string &rem_text, TDocExtraItem &doc)
 {
   char c;
   int res,k;
@@ -5234,7 +5320,7 @@ bool ParseOTHS_DOCSRem(TTlgParser &tlg, string &rem_text, TDocExtraItem &doc)
   return false;
 };
 
-bool ParseOTHS_FQTSTATUSRem(TTlgParser &tlg, string &rem_text, TFQTExtraItem &fqt)
+bool ParseOTHS_FQTSTATUSRem(TTlgParser &tlg, const string &rem_text, TFQTExtraItem &fqt)
 {
   char c;
   int res,k;
@@ -5304,7 +5390,7 @@ bool ParseOTHS_FQTSTATUSRem(TTlgParser &tlg, string &rem_text, TFQTExtraItem &fq
   return false;
 };
 
-bool ParseTKNRem(TTlgParser &tlg,string &rem_text,TTKNItem &tkn)
+bool ParseTKNRem(TTlgParser &tlg, const string &rem_text, TTKNItem &tkn)
 {
   char c;
   int res,k;
@@ -5386,7 +5472,7 @@ bool ParseTKNRem(TTlgParser &tlg,string &rem_text,TTKNItem &tkn)
   return false;
 };
 
-bool ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fqt)
+bool ParseFQTRem(TTlgParser &tlg, const string &rem_text, TFQTItem &fqt)
 {
   char c;
   int res,k;
