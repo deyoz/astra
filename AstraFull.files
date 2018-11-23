@@ -111,6 +111,8 @@ src/events.cc
 src/events.h
 src/external_spp_synch.cc
 src/external_spp_synch.h
+src/exch_checkin_result.cpp
+src/exch_checkin_result.h
 src/file_queue.cc
 src/file_queue.h
 src/flt_binding.cc
@@ -274,3 +276,12 @@ src/xp_testing.cc
 src/xp_testing.h
 src/Makefile.am
 src/tlg/Makefile.am
+src/tz_test.cpp
+src/tz_test.h
+src/icu_conversion.cpp
+src/astra_date_time.cpp
+src/astra_date_time.h
+src/kiosk_events.cc
+src/kiosk_events.h
+src/zamar_dsm.cpp
+src/zamar_dsm.h

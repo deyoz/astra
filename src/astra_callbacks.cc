@@ -46,6 +46,7 @@
 #include "rfisc_sirena.h"
 #include "html_pages.h"
 #include "kiosk_events.h"
+#include "zamar_dsm.h"
 #include "hotel_acmd.h"
 #include "libra.h"
 #include "self_ckin_log.h"
@@ -104,6 +105,8 @@ void AstraJxtCallbacks::InitInterfaces()
     new PieceConceptInterface();
     new ServicePaymentInterface();
     new SirenaExchangeInterface();
+    
+    new ZamarDSMInterface();
 
     CheckInInterface::instance();
     TripsInterface::instance();

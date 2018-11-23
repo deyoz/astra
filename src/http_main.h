@@ -17,6 +17,7 @@ namespace AstraHTTP
 #define HTML_JXT_INTERFACE_ID "html"
 #define PIECE_CONCEPT_JXT_INTERFACE_ID "PieceConcept"
 #define PRINT_JXT_INTERFACE_ID "print"
+#define ZAMAR_DSM_JXT_INTERFACE_ID "ZamarDSM"
 
 struct HTTPClient;
 
@@ -72,6 +73,7 @@ struct HTTPClient
     jxt_interface["get_resource"] =         JxtInfo(HTML_JXT_INTERFACE_ID,          NULL);
     jxt_interface["print_bp"] =             JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
     jxt_interface["print_bp2"] =            JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
+    jxt_interface["PassengerSearch"] =      JxtInfo(ZAMAR_DSM_JXT_INTERFACE_ID,     NULL);
   }
 };
 
