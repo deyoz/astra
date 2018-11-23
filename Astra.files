@@ -306,5 +306,7 @@ src/xml_unit.cc
 src/xml_unit.h
 src/xp_testing.cc
 src/xp_testing.h
+src/zamar_dsm.h
+src/zamar_dsm.cpp
 src/Makefile.am
 src/tlg/Makefile.am

@@ -18,6 +18,7 @@ namespace AstraHTTP
 #define HTML_JXT_INTERFACE_ID "html"
 #define PIECE_CONCEPT_JXT_INTERFACE_ID "PieceConcept"
 #define PRINT_JXT_INTERFACE_ID "print"
+#define ZAMAR_DSM_JXT_INTERFACE_ID "ZamarDSM"
 
 struct HTTPClient;
 
@@ -51,7 +52,7 @@ struct HTTPClient
   HTTPClient() {
     jxt_format = false;
     jxt_interface["SaveSPP"] =              JxtInfo(SPP_SYNCH_JXT_INTERFACE_ID,     NULL);
-    jxt_interface["SaveSinhronSPP"] =       JxtInfo(SPP_SYNCH_JXT_INTERFACE_ID,     NULL);
+    jxt_interface["SaveSinhronSPP"] =       JxtInfo(SPP_SYNCH_JXT_INTERFACE_ID,     NULL);    
     jxt_interface["CREWCHECKIN"] =          JxtInfo(CHECKIN_JXT_INTERFACE_ID,       HTTPPostProcessXMLAnswer);
     jxt_interface["tlg_srv"] =              JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      TlgPostProcessXMLAnswer);
     jxt_interface["kick"] =                 JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      TlgPostProcessXMLAnswer);
@@ -75,6 +76,7 @@ struct HTTPClient
     jxt_interface["get_resource"] =         JxtInfo(HTML_JXT_INTERFACE_ID,          NULL);
     jxt_interface["print_bp"] =             JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
     jxt_interface["print_bp2"] =            JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
+    jxt_interface["PassengerSearch"] =      JxtInfo(ZAMAR_DSM_JXT_INTERFACE_ID,     NULL);
   }
 };
 
