@@ -450,13 +450,14 @@ class TTKNItem : public TDetailRemAncestor
     TTKNItem()
     {
       Clear();
-    };
+    }
     void Clear()
     {
       TDetailRemAncestor::Clear();
       *ticket_no=0;
       coupon_no=0;
-    };
+    }
+    void toDB(TQuery &Qry) const;
 };
 
 class TFQTItem
