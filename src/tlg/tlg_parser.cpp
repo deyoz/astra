@@ -3799,6 +3799,16 @@ void ParseRemarks(const vector< pair<string,int> > &seat_rem_priority,
   };
 };
 
+void TTKNItem::toDB(TQuery &Qry) const
+{
+  Qry.SetVariable("rem_code", rem_code);
+  Qry.SetVariable("ticket_no", ticket_no);
+  if (coupon_no!=0)
+    Qry.SetVariable("coupon_no", coupon_no);
+  else
+    Qry.SetVariable("coupon_no", FNull);
+}
+
 bool TPaxItem::emdRequired(const std::string& ssr_code) const
 {
   if (ssr_code.empty()) return false;
@@ -6226,14 +6236,9 @@ void SaveTKNRem(int pax_id, const vector<TTKNItem> &tkn, bool clearBeforeSave)
     Qry.DeclareVariable("rem_code",otString);
     Qry.DeclareVariable("ticket_no",otString);
     Qry.DeclareVariable("coupon_no",otInteger);
-    for(vector<TTKNItem>::const_iterator i=tkn.begin();i!=tkn.end();++i)
+    for(const TTKNItem& t : tkn)
     {
-      Qry.SetVariable("rem_code",i->rem_code);
-      Qry.SetVariable("ticket_no",i->ticket_no);
-      if (i->coupon_no!=0)
-        Qry.SetVariable("coupon_no",i->coupon_no);
-      else
-        Qry.SetVariable("coupon_no",FNull);
+      t.toDB(Qry);
       Qry.Execute();
     }
   }
@@ -6533,7 +6538,7 @@ void SuitablePaxList::get(const std::vector<TTKNItem>& tkn,
                           const bool& isInfant)
 {
   clear();
-  if (tkn.size()!=1) return;
+  if (tkn.empty()) return;
 
   TCachedQuery Qry("SELECT crs_pax.pax_id, crs_pax.pr_del, crs_pax.last_op, "
                    "       crs_inf_deleted.pax_id AS parent_pax_id "
@@ -6557,17 +6562,20 @@ void SuitablePaxList::get(const std::vector<TTKNItem>& tkn,
                              << QParam("system", otString, system)
                              << QParam("sender", otString, sender)
                              << QParam("airp_arv", otString, airp_arv)
-                             << QParam("rem_code", otString, tkn.front().rem_code)
-                             << QParam("ticket_no", otString, tkn.front().ticket_no)
-                             << (tkn.front().coupon_no!=0?
-                                  QParam("coupon_no", otInteger, tkn.front().coupon_no):
-                                  QParam("coupon_no", otInteger, FNull))
+                             << QParam("rem_code", otString)
+                             << QParam("ticket_no", otString)
+                             << QParam("coupon_no", otInteger)
                              << QParam("surname", otString, surname)
                              << QParam("name", otString, name)
                              << QParam("seats", otInteger, isInfant?0:1));
-  Qry.get().Execute();
-  for(; !Qry.get().Eof; Qry.get().Next())
-    emplace_back(Qry);
+  for(const TTKNItem& t : tkn)
+  {
+    t.toDB(Qry.get());
+    Qry.get().Execute();
+    for(; !Qry.get().Eof; Qry.get().Next())
+      emplace_back(Qry);
+    if (!empty()) break;
+  }
 }
 
 bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& con, bool forcibly)
