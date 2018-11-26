@@ -10,6 +10,7 @@
 #include "date_time.h"
 #include "qrys.h"
 #include "trip_tasks.h"
+#include "counters.h"
 
 const int NumSendAttempts = 5; // количество попыток до включения тревоги "Нет связи с APPS"
 const int MaxSendAttempts = 99; // максимальное количество попыток
@@ -22,7 +23,7 @@ const int APPS_VERSION_27 = 27;
 
 enum APPSAction { NoAction, NeedUpdate, NeedNew, NeedCancel };
 
-void processPax( const int pax_id, const std::string& override_type = "", const bool is_forced = false );
+void processPax( const int pax_id, Timing::Points& timing, const std::string& override_type = "", const bool is_forced = false );
 void APPSFlightCloseout( const int point_id );
 std::string getAnsText( const std::string& tlg );
 bool processReply( const std::string& source_raw );

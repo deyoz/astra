@@ -1802,21 +1802,47 @@ bool processReply( const std::string& source_raw )
   return false;
 }
 
-void processPax( const int pax_id, const std::string& override_type, const bool is_forced )
+void processPax( const int pax_id, Timing::Points& timing, const std::string& override_type, const bool is_forced )
 {
   ProgTrace( TRACE5, "processPax: %d", pax_id );
+  timing.start("processPax");
+  
   TPaxRequest new_data;
+  timing.start("new_data.init");
   new_data.init( pax_id, override_type );
+  timing.finish("new_data.init");
+  
   TPaxRequest actual_data;
+  timing.start("actual_data.fromDBByPaxId");
   bool is_exists = actual_data.fromDBByPaxId( pax_id );
+  timing.finish("actual_data.fromDBByPaxId");
+  
+  timing.start("new_data.typeOfAction");
   APPSAction action = new_data.typeOfAction( is_exists, actual_data.getStatus(),
                                              ( new_data == actual_data ), is_forced );
+  timing.finish("new_data.typeOfAction");
+  
   if (action == NoAction)
+  {
+    timing.finish("processPax");
     return;
+  }
+  
   if ( action == NeedCancel || action == NeedUpdate )
+  {
+    timing.start("actual_data.sendReq");
     actual_data.sendReq();
+    timing.finish("actual_data.sendReq");
+  }
+  
   if ( action == NeedUpdate || action == NeedNew )
+  {
+    timing.start("new_data.sendReq");
     new_data.sendReq();
+    timing.finish("new_data.sendReq");
+  }
+  
+  timing.finish("processPax");
 }
 
 std::set<std::string> needFltCloseout( const std::set<std::string>& countries, const std::string airline )
@@ -2050,9 +2076,12 @@ static void sendAPPSInfo( const int point_id, const int point_id_tlg )
   flightsForLock.Get( point_id, ftTranzit );
   flightsForLock.Lock(__FUNCTION__);
 
+  Timing::Points timing("Timing::sendAPPSInfo");
+  timing.start("for !Qry.Eof");
   for ( ; !Qry.Eof; Qry.Next() )
     if ( checkAPPSSets( point_id, Qry.FieldAsString( "airp_arv" ) ) )
-      processPax( Qry.FieldAsInteger( "pax_id" ) );
+      processPax( Qry.FieldAsInteger( "pax_id" ), timing );
+  timing.finish("for !Qry.Eof");
 }
 
 void sendAllAPPSInfo(const TTripTaskKey &task)
@@ -2088,14 +2117,17 @@ void sendNewAPPSInfo(const TTripTaskKey &task)
   flightsForLock.Get( task.point_id, ftTranzit );
   flightsForLock.Lock(__FUNCTION__);
 
+  Timing::Points timing("Timing::sendNewAPPSInfo");
+  timing.start("for !Qry.Eof");
   for( ; !Qry.Eof; Qry.Next() ) {
     int pax_id = Qry.FieldAsInteger( "pax_id" );
-    processPax( pax_id );
+    processPax( pax_id, timing );
 
     TCachedQuery Qry( "UPDATE crs_pax SET need_apps=0 WHERE pax_id=:pax_id",
                       QParams() << QParam( "pax_id", otInteger, pax_id ) );
     Qry.get().Execute();
   }
+  timing.finish("for !Qry.Eof");
 }
 
 int test_apps_tlg(int argc, char **argv)
