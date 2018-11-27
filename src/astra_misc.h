@@ -1164,6 +1164,7 @@ TDateTime getTimeTravel(const std::string &craft, const std::string &airp, const
 double getFileSizeDouble(const std::string &str);
 std::string getFileSizeStr(double size);
 AstraLocale::LexemaData GetLexemeDataWithFlight(const AstraLocale::LexemaData &data, const TTripInfo &fltInfo);
+AstraLocale::LexemaData GetLexemeDataWithRegNo(const AstraLocale::LexemaData &data, int reg_no);
 
 #endif /*_ASTRA_MISC_H_*/
 
