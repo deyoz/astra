@@ -2,7 +2,7 @@
 #define MQRABBIT_RESULTCHECKIN_H
 
 #include "astra_misc.h"
-#include "astra_service.h"
+//#include "astra_service.h"
 
 
 namespace MQRABBIT_TRANSPORT {
