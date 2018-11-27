@@ -23,6 +23,7 @@
 #include "web_main.h"
 #include "passenger.h"
 #include "remarks.h"
+#include "dcs_services.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -5219,6 +5220,16 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
     tst();
     return changedOrNotPay;
   }
+  
+  std::set<TCompLayerType> checkinLayers { cltGoShow, cltTranzit, cltCheckin, cltTCheckin };
+  if ( 
+       seat_type == stReseat && //пересадка       
+       checkinLayers.find( layer_type ) != checkinLayers.end() // уже зарегистрированного       
+     ) {
+    DCSServiceApplying::throwIfNotAllowed( pax_id, DCSService::Enum::ChangeSeatOnDesk ); //нельзя делать пересадку, т.к. должны быть услуги
+  }
+  
+  //checkDCSServices( pax_id );
 
   int curr_tid = NoExists;
   TPointIdsForCheck point_ids_spp;

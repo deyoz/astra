@@ -73,6 +73,7 @@ const
                          {"COUNTRIES",               etCountry},
                          {"CRAFTS",                  etCraft},
                          {"CURRENCY",                etCurrency},
+                         {"DCS_SERVICE_TYPES",       etDCSServiceType},
                          {"DESK_GRP",                etDeskGrp},
                          {"ENCODING_FMT",            etUserSetType},
                          {"FQT_REM_TYPES",           etCkinRemType},
