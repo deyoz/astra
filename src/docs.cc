@@ -1444,6 +1444,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "    pax_grp.grp_id, "
         "    pax_grp.airp_arv, "
         "    pax_grp.class, "
+        "    pax_grp.status, "
         "    bag2.bag_type, "
         "    bag2.rfisc, "
         "    bag2.num bag_num, "
@@ -1464,8 +1465,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "    points.pr_del>=0 AND "
         "    pax_grp.point_dep = :point_id and "
         "    pax_grp.point_arv = points.point_id and "
-        "    pax_grp.grp_id = bag2.grp_id and "
-        "    pax_grp.status NOT IN ('E') and ";
+        "    pax_grp.grp_id = bag2.grp_id and ";
 
     if (rpt_params.pr_brd)
       SQLText +=
@@ -1523,9 +1523,14 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         string class_code = Qry.FieldAsString("class");
         bag_tag_row.rfisc = Qry.FieldAsString("rfisc");
         bag_names.get(class_code, bag_tag_row, rpt_params);
-        if(Qry.FieldIsNULL("class"))
-            bag_tag_row.class_priority = 100;
-        else {
+        if(Qry.FieldIsNULL("class")) {
+            if((string)Qry.FieldAsString("status") == "E") {
+                bag_tag_row.class_priority = 50;
+                bag_tag_row.class_code = "1";
+                bag_tag_row.class_name = getLocaleText("Баг. экипажа", rpt_params.GetLang());
+            } else
+                bag_tag_row.class_priority = 100;
+        } else {
             bag_tag_row.class_priority = ((const TClassesRow&)base_tables.get("classes").get_row( "code", class_code)).priority;
             bag_tag_row.class_code = rpt_params.ElemIdToReportElem(etClass, class_code, efmtCodeNative);
             bag_tag_row.class_name = rpt_params.ElemIdToReportElem(etClass, class_code, efmtNameLong);
