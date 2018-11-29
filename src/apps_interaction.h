@@ -239,12 +239,12 @@ class TPaxRequest
   TPaxData pax;
   TPaxAddData pax_add;
   int version = 0;
-  bool getByPaxId( const int pax_id, const std::string& override_type );
-  bool getByCrsPaxId( const int pax_id, const std::string& override_type );
+  bool getByPaxId( const int pax_id, Timing::Points& timing, const std::string& override_type );
+  bool getByCrsPaxId( const int pax_id, Timing::Points& timing, const std::string& override_type );
   void saveData() const;
 
 public:
-  void init( const int pax_id, const std::string& override_type = "" );
+  void init( const int pax_id, Timing::Points& timing, const std::string& override_type = "" );
   bool fromDBByPaxId( const int pax_id );
   bool fromDBByMsgId( const int msg_id );
   bool operator == (const TPaxRequest &c) const
@@ -262,7 +262,7 @@ public:
   APPSAction typeOfAction( const bool is_exists, const std::string& status,
                            const bool is_the_same, const bool is_forced ) const;
   std::string msg() const;
-  void sendReq() const;
+  void sendReq(Timing::Points& timing) const;
   std::string getStatus() const {
     return pax.status;
   }
