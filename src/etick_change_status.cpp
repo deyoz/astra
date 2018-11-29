@@ -50,12 +50,15 @@ namespace ChangeStatus
         char status_code = *GetDBFName(pMes, DataElement(4343), SegmElement("MSG"), "PROG_ERR");
         if(status_code != '3' && status_code != '6' /* particulary */)
         {
-            string GlobErr = GetDBFName(pMes, DataElement(9321),
-                                        "PROG_ERR",CompElement("C901"), SegmElement("ERC"));
-            list<FreeTextInfo> lIft;
-            TickReader::readEdiIFT(pMes, lIft);
-            return ChngStatAnswer(pair<string, string>
-                    (GlobErr, lIft.empty() ? "" : lIft.front().fullText()));
+            if(GetNumSegment(pMes, "ERC"))
+            {
+                string GlobErr = GetDBFName(pMes, DataElement(9321),
+                                            "PROG_ERR",CompElement("C901"), SegmElement("ERC"));
+                list<FreeTextInfo> lIft;
+                TickReader::readEdiIFT(pMes, lIft);
+                return ChngStatAnswer(pair<string, string>
+                        (GlobErr, lIft.empty() ? "" : lIft.front().fullText()));
+            }
         }
 
         list<Ticket> lTick;
