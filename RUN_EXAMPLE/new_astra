@@ -1,6 +1,6 @@
 #!/bin/bash
 
-AstraSrc=$HOME/Astra2015_2/src/
+AstraSrc=$HOME/Astra2007/src/astra
 
 if [ ! -x $AstraSrc ] ; then 
 	echo No new astra found. Exiting.
