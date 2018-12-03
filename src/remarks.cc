@@ -1,5 +1,6 @@
 #include "remarks.h"
 #include <map>
+#include <regex>
 #include "oralib.h"
 #include "base_tables.h"
 #include "qrys.h"
@@ -388,6 +389,24 @@ TPaxRemItem& TPaxRemItem::fromXML(xmlNodePtr node)
   calcPriority();
   return *this;
 };
+
+TPaxRemItem& TPaxRemItem::fromWebXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  xmlNodePtr node2=node->children;
+
+  text=upperc(NodeAsStringFast("rem_text",node2));
+  TrimString(text);
+
+  //выделим код ремарки
+  std::smatch sm;
+  if (std::regex_search(text, sm, std::regex("^[A-ZА-ЯЁ0-9]{3,5}\\b")))
+    code=sm[0];
+
+  calcPriority();
+  return *this;
+}
 
 const TPaxRemItem& TPaxRemItem::toDB(TQuery &Qry) const
 {

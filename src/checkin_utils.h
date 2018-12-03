@@ -211,6 +211,7 @@ class TWebPaxFromReq : public TWebTids
     std::string seat_no;
     TWebAPISItem apis;
     boost::optional<std::set<CheckIn::TPaxFQTItem>> fqtv_rems;
+    boost::optional<CheckIn::PaxRems> rems;
     bool refuse;
 
     TWebPaxFromReq() { clear(); }
@@ -223,13 +224,74 @@ class TWebPaxFromReq : public TWebTids
       seat_no.clear();
       apis.clear();
       fqtv_rems=boost::none;
+      rems=boost::none;
       refuse = false;
     }
 
     TWebPaxFromReq& fromDB(TQuery &Qry);
     TWebPaxFromReq& fromXML(xmlNodePtr node);
 
-    bool mergePaxFQT(std::set<CheckIn::TPaxFQTItem> &fqts) const;
+    static bool isRemProcessingAllowed(const CheckIn::TPaxFQTItem& fqt);
+    static bool isRemProcessingAllowed(const CheckIn::TPaxRemItem& rem);
+
+    template<typename ContainerT, typename ItemT>
+    static void remsFromXML(xmlNodePtr paxNode, boost::optional<ContainerT>& dest)
+    {
+      if (paxNode==nullptr) return;
+
+      xmlNodePtr node2=paxNode->children;
+
+      auto tagNames=ItemT::getWebXMLTagNames();
+
+      xmlNodePtr itemNode = GetNodeFast(tagNames.first.c_str(), node2);
+      if (itemNode!=nullptr)
+      {
+        //если тег пришел, то изменяем и перезаписываем ремарки
+        dest=ContainerT();
+        //читаем пришедшие ремарки
+        for(itemNode=itemNode->children; itemNode!=NULL; itemNode=itemNode->next)
+        {
+          if (std::string((const char*)itemNode->name)!=tagNames.second) continue;
+          ItemT item;
+          item.fromWebXML(itemNode);
+          if (!isRemProcessingAllowed(item)) continue;
+          dest.get().insert(item);
+        }
+      };
+    }
+
+    template<typename ContainerT>
+    static bool mergeRems(const boost::optional<ContainerT>& src, ContainerT& dest)
+    {
+      if (!src) return false;
+      std::multiset<std::string> prior, curr;
+
+      for(typename ContainerT::iterator i=dest.begin(); i!=dest.end();)
+      {
+        if (isRemProcessingAllowed(*i))
+        {
+          prior.insert(i->rem_text(false));
+          i=dest.erase(i);
+        }
+        else
+          ++i;
+      }
+
+      for(typename ContainerT::iterator i=src.get().begin(); i!=src.get().end(); ++i)
+        curr.insert(i->rem_text(false));
+
+      std::copy(src.get().begin(), src.get().end(),
+                inserter(dest, dest.end()));
+
+      return prior!=curr;
+    }
+
+
+    bool mergePaxFQT(std::set<CheckIn::TPaxFQTItem> &dest) const;
+    bool mergePaxRem(CheckIn::PaxRems &dest) const;
+    void paxFQTFromXML(xmlNodePtr paxNode);
+    void paxRemFromXML(xmlNodePtr paxNode);
+
     bool isTest() const { return isTestPaxId(id); }
     bool checked() const
     {
