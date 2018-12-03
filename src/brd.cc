@@ -1202,7 +1202,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         //========================= проверка запрета посадки пассажира JMP ==================================
         if (screen==sBoarding) {
           TPaxItem &pax=paxWithoutSeat.exists()?paxWithoutSeat:paxWithSeat; //??? VLAD
-          ProgTrace( TRACE5, "is_jmp=%d, already_marked=%d", pax.is_jmp, pax.already_marked  );
           if ( pax.exists() && 
                pax.is_jmp && 
                !pax.already_marked &&
