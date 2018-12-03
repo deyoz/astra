@@ -3958,6 +3958,12 @@ void TPaxItem::fillSeatBlockingRemList(TTlgParser &tlg)
   }
 }
 
+bool TPaxItem::dontSaveToDB(const TNameElement& ne) const
+{
+  return ne.surname=="NONAMES" ||
+         (ne.isSpecial() && name=="NONAMES");
+}
+
 void TNameElement::fillSeatBlockingRemList(TTlgParser &tlg)
 {
   for(TPaxItem& paxItem : pax)
@@ -6894,7 +6900,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
   {
     if (pr_save_ne)
     {
-      //определим, является ли PNL чисто цифровым (с учетом ZZ)
+      //определим, является ли PNL чисто цифровым
       bool pr_ne=false;
       int seats=0;
       for(iTotals=con.resa.begin();iTotals!=con.resa.end()&&!pr_ne;iTotals++)
@@ -6903,11 +6909,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end()&&!pr_ne;iPnrItem++)
         {
           TPnrItem& pnr=*iPnrItem;
-          for(iNameElement=pnr.ne.begin();iNameElement!=pnr.ne.end()&&!pr_ne;iNameElement++)
-          {
-            TNameElement& ne=*iNameElement;
-            if (!ne.isSpecial()) pr_ne=true;
-          };
+          if (!pnr.ne.empty()) pr_ne=true;
         };
       };
       if (pr_ne)
@@ -7223,6 +7225,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
               int seatsBlockingPaxId=NoExists;
               for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
               {
+                if (iPaxItem->dontSaveToDB(ne)) continue;
+
                 int pax_id=NoExists;
 
                 CrsPaxInsQry.SetVariable("pax_id",FNull);

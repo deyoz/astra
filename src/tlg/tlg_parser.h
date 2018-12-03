@@ -689,6 +689,7 @@ class TPaxItem
     void getTknNumbers(std::list<std::string>& result) const;
     void moveTknWithNumber(const std::string& no, std::vector<TTKNItem>& dest);
     void fillSeatBlockingRemList(TTlgParser &tlg);
+    bool dontSaveToDB(const TNameElement& ne) const;
 
     static bool isSeatBlockingRem(const std::string &rem_code);
     static int getNotUsedSeatBlockingId(const int& paxId);
