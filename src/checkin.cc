@@ -4382,9 +4382,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       if (segList.begin()->grp.group_bag)
       {
         //проверим чтобы для экипажа не регистрировался багаж в багажник
+          bool pr_bag_ckin_crew = GetTripSets(tsBaggageCheckInCrew, segList.begin()->flt);
         for(CheckIn::TBagMap::const_iterator b=segList.begin()->grp.group_bag.get().bags.begin();
                                              b!=segList.begin()->grp.group_bag.get().bags.end();++b)
-          if (!b->second.pr_cabin)
+          if (not pr_bag_ckin_crew and !b->second.pr_cabin)
             throw UserException("MSG.CREW.CAN_CHECKIN_ONLY_CABIN_BAGGAGE");
       }
     }
