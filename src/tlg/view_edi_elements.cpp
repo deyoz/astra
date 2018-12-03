@@ -3,6 +3,7 @@
 #include "basetables.h"
 #include "iatci_help.h"
 #include "convert.h"
+#include "environ.h"
 
 #include <edilib/edi_func_cpp.h>
 #include <edilib/edi_astra_msg_types.h>
@@ -303,7 +304,7 @@ void viewItin(EDI_REAL_MES_STRUCT *pMes, const Ticketing::Itin &itin, int num)
     } else {
         tvl << Ticketing::ItinStatus::Open;
     }
-    tvl << ":" << itin.classCodeStr();
+    tvl << ":" << itin.classCodeStr(ENGLISH, "");
     if (num) {
         tvl << "++" << num;
     }
@@ -337,7 +338,7 @@ void viewItin2(EDI_REAL_MES_STRUCT *pMes, const Ticketing::Itin &itin,
     } else {
         tvl << Ticketing::ItinStatus::Open;
     }
-    tvl << ":" << itin.classCodeStr();
+    tvl << ":" << itin.classCodeStr(ENGLISH, "");
     if (num) {
         tvl << "++" << num;
     }
@@ -414,31 +415,22 @@ void viewEqnElement(_EDI_REAL_MES_STRUCT_* pMes, const std::list<EqnElem>& lElem
     SetEdiFullSegment(pMes, SegmElement("EQN"), eqn.str());
 }
 
-void viewOrgElement(_EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest& elem)
-{
-    std::ostringstream org;
-    org << elem.airlineCode() << ":" + elem.locationCode() << "+";
-    org << elem.pprNumber() << "+++";
-    org << elem.type() << "+::";
-    org << elem.langStr()<< "+" << elem.pult();
-    SetEdiFullSegment(pMes, SegmElement("ORG"), org.str());
-}
-
-void viewOrgElement2(_EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest& elem,
-                     bool translit)
+void viewOrgElement(_EDI_REAL_MES_STRUCT_* pMes, const Ticketing::OrigOfRequest& elem,
+                    bool translit)
 {
     std::ostringstream org;
     BaseTables::Company airl = BaseTables::Company(elem.airlineCode());
-    org << (translit ? airl->lcode() : airl->rcode()) << ":";
+    org << Environment::Environ::systemAirlineCode() << ":";
     BaseTables::City city = BaseTables::City(elem.locationCode());
     org << (translit ? city->lcode() : city->rcode()) << "+";
-    org << elem.pprNumber() << "+++";
+    org << elem.pprNumber() << "++";
+    org << (translit ? airl->lcode() : airl->rcode()) << "+";
     org << elem.type() << "+::";
-    org << elem.langStr()<< "+" << (translit ? StrUtils::translit(elem.pult(), false) : elem.pult());
+    org << elem.langStr() << "+" << (translit ? StrUtils::translit(elem.pult(), false) : elem.pult());
     SetEdiFullSegment(pMes, SegmElement("ORG"), org.str());
 }
 
-//-------------------------------------IACTI---------------------------------------------
+//-------------------------------------IATCI---------------------------------------------
 
 void viewLorElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::OriginatorDetails& origin)
 {

@@ -107,11 +107,11 @@ $(SAVE_ET_DISP $(get point_dep) 2981212121212 …ˆ ˆ‚€)
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
 UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
 MSG+:142"
-ORG+’:Œ‚++++Y+::RU+Œ‚Œ"
+ORG+1H:Œ‚+++’+Y+::RU+Œ‚Œ"
 EQN+1:TD"
 TKT+2981212121212:T"
 CPN+1:CK"
-TVL+$(ddmmyy)+„Œ„+‹Š+’+103: ++1"
+TVL+$(ddmmyy)+„Œ„+‹Š+’+103++1"
 UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 

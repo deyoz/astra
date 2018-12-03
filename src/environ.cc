@@ -15,4 +15,14 @@ Ticketing::Airline_t Environ::airline()
     return SystemContext::Instance(STDLOG).airlineImpl()->ida();
 }
 
+Ticketing::Airline_t Environ::systemAirline()
+{
+    return BaseTables::Company(systemAirlineCode())->ida();
+}
+
+std::string Environ::systemAirlineCode()
+{
+    return "1H";
+}
+
 }//namespace Environment

@@ -31,7 +31,8 @@ EmdDispRequestByNum::EmdDispRequestByNum(const EmdDispByNum& dispParams)
 
 void EmdDispRequestByNum::collectMessage()
 {
-    viewOrgElement(pMes(), m_dispParams.org());
+    BaseTables::Router rot(sysCont()->routerCanonName());
+    viewOrgElement(pMes(), m_dispParams.org(), rot->translit());
     edilib::SetEdiSegGr(pMes(), 1);
     edilib::SetEdiPointToSegGrW(pMes(), 1);
     TktElem tkt;

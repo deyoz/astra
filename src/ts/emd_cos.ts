@@ -26,7 +26,7 @@ $(PREPARE_FLIGHT_1 ž’ 103 „Œ„ ‹Š REPIN IVAN)
 UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
 UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
 MSG+:793"
-ORG+ž’:ŒŽ‚++++Y+::RU+ŒŽ‚ŽŒ"
+ORG+1H:ŒŽ‚+++ž’+Y+::RU+ŒŽ‚ŽŒ"
 EQN+1:TD"
 TKT+2982348111616:J::3"
 CPN+1:CK"
