@@ -1201,11 +1201,11 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         
         //========================= проверка запрета посадки пассажира JMP ==================================
         if (screen==sBoarding) {
-          TPaxItem &pax=paxWithoutSeat.exists()?paxWithoutSeat:paxWithSeat; //??? VLAD
+          TPaxItem &pax=paxWithoutSeat.exists()?paxWithoutSeat:paxWithSeat; 
           if ( pax.exists() && 
                pax.is_jmp && 
                !pax.already_marked &&
-                GetTripSets( tsDeniedBoarddingJMP, fltInfo ) ) { //??? VLAD
+                GetTripSets( tsDeniedBoardingJMP, fltInfo ) ) { 
               AstraLocale::showErrorMessage("MSG.PASSENGER.JMP_BOARDED_DENIAL",120);
               throw CompleteWithError();
           }
