@@ -2649,19 +2649,22 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
     };
     if (PnrAddr.airline[0]==0) strcpy(PnrAddr.airline,flt.airline);
 
-    //анализ на повторение
-    vector<TPnrAddrItem>::iterator i;
-    for(i=pnr.addrs.begin();i!=pnr.addrs.end();i++)
-      if (strcmp(PnrAddr.airline,i->airline)==0) break;
-    if (i!=pnr.addrs.end())
+    if (strlen(PnrAddr.addr)<=6)
     {
-      if (strcmp(i->addr,PnrAddr.addr)!=0)
-        throw ETlgError("Different PNR address in group found");
+      //анализ на повторение
+      vector<TPnrAddrItem>::iterator i;
+      for(i=pnr.addrs.begin();i!=pnr.addrs.end();i++)
+        if (strcmp(PnrAddr.airline,i->airline)==0) break;
+      if (i!=pnr.addrs.end())
+      {
+        if (strcmp(i->addr,PnrAddr.addr)!=0)
+          throw ETlgError("Different PNR address in group found");
+      }
+      else
+      {
+        pnr.addrs.push_back(PnrAddr);
+      };
     }
-    else
-    {
-      pnr.addrs.push_back(PnrAddr);
-    };
     return;
   };
   if (strcmp(lexh,"WL")==0 ||
