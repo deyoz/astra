@@ -4346,12 +4346,19 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         i!=points_check_diffcomp_alarm.end(); i++ ) {
     SALONS2::check_diffcomp_alarm(*i);
   }
+  tst();
   if ( pr_update_tlg_comp_layers ) {
-    for( TSOPPDests::iterator i=dests.begin(); i!=dests.end(); i++ ) {    
-       update_tlg_comp_layers( ASTRA::NoExists, i->point_id );
+    for( TSOPPDests::iterator i=dests.begin(); i!=dests.end(); i++ ) {
+       if ( i->pr_del == 0 ) {
+         update_tlg_comp_layers( ASTRA::NoExists, i->point_id );
+       }
+       else {
+         ProgTrace( TRACE5, "not update tlg_comp_layers: point_id=%d, pr_del=%d", i->point_id, i->pr_del );
+       }
     }
     points_tranzit_check_wait_alarm.clear(); // уже сделали
   }
+  tst();
   //тревога ЛО
   SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, __FUNCTION__ );
 
