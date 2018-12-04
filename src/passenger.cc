@@ -1722,9 +1722,14 @@ std::string TSimplePaxItem::full_name() const
   return s.str();
 };
 
+bool TSimplePaxItem::isCBBG() const
+{
+  return name=="CBBG";
+}
+
 bool TSimplePaxItem::api_doc_applied() const
 {
-  return name!="CBBG";
+  return !isCBBG();
 }
 
 bool TSimplePaxItem::upward_within_bag_pool(const TSimplePaxItem& pax) const
