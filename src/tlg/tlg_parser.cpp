@@ -3960,7 +3960,7 @@ void TPaxItem::fillSeatBlockingRemList(TTlgParser &tlg)
 
 bool TPaxItem::dontSaveToDB(const TNameElement& ne) const
 {
-  return ne.surname=="NONAMES" ||
+  return (ne.surname=="NONAMES" && name.empty()) ||
          (ne.isSpecial() && name=="NONAMES");
 }
 
