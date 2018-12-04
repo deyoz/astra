@@ -24,6 +24,7 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC::date_time;
 using namespace ASTRA;
+using namespace AstraLocale;
 
 const std::string ROZYSK_MAGISTRAL      = "ROZYSK_MAGISTRAL";
 const std::string ROZYSK_MAGISTRAL_24   = "ROZYSK_MAGISTRAL_24";
@@ -980,6 +981,8 @@ void get_pax_list(int point_id,
   if (point_id==NoExists)
     throw Exception("mintrans::get_pax_list: point_id not defined");
 
+  OutputLang outputLang(LANG_EN, {OutputLang::OnlyTrueIataCodes});
+
   TQuery Qry(&OraSession);
   Qry.Clear();
   ostringstream sql;
@@ -1080,9 +1083,9 @@ void get_pax_list(int point_id,
       };
 
       pax.docNumber = Qry.FieldAsString( idx_doc_no );
-      pax.departPlace = ElemIdToPrefferedElem(etAirp, Qry.FieldAsString( idx_airp_dep ), efmtCodeNative, AstraLocale::LANG_EN);
+      pax.departPlace = airpToPrefferedCode( Qry.FieldAsString( idx_airp_dep ), outputLang);
       if (pax.departPlace.empty()) pax.departPlace = Qry.FieldAsString( idx_airp_dep );
-      pax.arrivePlace = ElemIdToPrefferedElem(etAirp, Qry.FieldAsString( idx_airp_arv ), efmtCodeNative, AstraLocale::LANG_EN);
+      pax.arrivePlace = airpToPrefferedCode( Qry.FieldAsString( idx_airp_arv ), outputLang);
       if (pax.arrivePlace.empty()) pax.arrivePlace = Qry.FieldAsString( idx_airp_arv );
       if ( Qry.FieldIsNULL( idx_route_type ) )
         pax.transfer = ASTRA::NoExists;
@@ -1109,10 +1112,10 @@ void get_pax_list(int point_id,
       //Данные о регистрируемой операции
       pax.operationType = Qry.FieldAsString( idx_operation );
       pax.registerTimeIS = Qry.FieldAsDateTime( idx_time );
-      pax.airlineCode = ElemIdToPrefferedElem(etAirline, Qry.FieldAsString( idx_airline ), efmtCodeNative, AstraLocale::LANG_EN);
+      pax.airlineCode = airlineToPrefferedCode( Qry.FieldAsString( idx_airline ), outputLang);
       if (pax.airlineCode.empty()) pax.airlineCode = Qry.FieldAsString( idx_airline );
       pax.flightNum = Qry.FieldAsInteger( idx_flt_no );
-      pax.operSuff = ElemIdToPrefferedElem(etSuffix, Qry.FieldAsString( idx_suffix ), efmtCodeNative, AstraLocale::LANG_EN);
+      pax.operSuff = ElemIdToPrefferedElem(etSuffix, Qry.FieldAsString( idx_suffix ), efmtCodeNative, LANG_EN);
       if (pax.operSuff.empty()) pax.operSuff = Qry.FieldAsString( idx_suffix );
       pax.actLoc = Qry.FieldAsString( idx_seat_no );
       pax.pnrId = Qry.FieldAsString( idx_pnr );
