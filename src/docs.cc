@@ -1121,6 +1121,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     TPMTotals PMTotals;
     TRemGrp rem_grp;
     bool rem_grp_loaded = false;
+    boost::optional<vector<TTlgCompLayer>> complayers;
     for(; !Qry.Eof; Qry.Next()) {
         CheckIn::TSimplePaxItem pax;
         pax.fromDB(Qry);
@@ -1241,7 +1242,21 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         // seat_no достается с добитыми слева пробелами, чтобы order by
         // правильно отрабатывал, далее эти пробелы нам ни к чему
         // (в частности они мешаются в текстовом отчете).
-        NewTextChild(rowNode, "seat_no", TrimString(pax.seat_no));
+
+
+        if(not complayers) {
+            complayers = vector<TTlgCompLayer>();
+            TAdvTripInfo flt_info;
+            flt_info.getByPointId(rpt_params.point_id);
+            if(not SALONS2::isFreeSeating(flt_info.point_id) and not SALONS2::isEmptySalons(flt_info.point_id))
+                getSalonLayers( flt_info.point_id, flt_info.point_num, flt_info.first_point, flt_info.pr_tranzit, complayers.get(), false );
+        }
+
+        TTlgSeatList seats;
+        seats.add_seats(pax.paxId(), complayers.get());
+
+//        NewTextChild(rowNode, "seat_no", TrimString(pax.seat_no));
+        NewTextChild(rowNode, "seat_no", seats.get_seat_one(rpt_params.GetLang() != AstraLocale::LANG_RU));
 
         if(not rem_grp_loaded) {
             rem_grp_loaded = true;
