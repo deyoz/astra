@@ -1020,7 +1020,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       Qry.SQLText=
         "SELECT pax_grp.grp_id, pax_grp.point_arv, pax_grp.airp_arv, pax_grp.status, "
         "       pax.pax_id, pax.surname, pax.name, pax.seats, pax.crew_type, "
-        "       pax.pr_brd, pax.pr_exam, pax.wl_type, pax.ticket_rem, pax.tid, "
+        "       pax.pr_brd, pax.pr_exam, pax.wl_type, pax.is_jmp, pax.ticket_rem, pax.tid, "
         "       salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'seats',rownum,1) AS seat_no_lat "
         "FROM pax_grp, pax "
         "WHERE pax_grp.grp_id=pax.grp_id AND "
@@ -1045,7 +1045,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           string surname, name;
           string wl_type;
           string ticket_rem;
-          bool pr_brd, pr_exam, already_marked;
+          bool pr_brd, pr_exam, already_marked, is_jmp;
           int tid;
           string seat_no_lat;
           bool updated;
@@ -1059,6 +1059,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             ticket_rem.clear();
             pr_brd=false;
             pr_exam=false;
+            is_jmp = false;
             already_marked=false;
             tid=NoExists;
             seat_no_lat.clear();
@@ -1116,6 +1117,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         pax.already_marked=(screen==sBoarding?pax.pr_brd:pax.pr_exam);
         pax.tid=Qry.FieldAsInteger("tid");
         pax.seat_no_lat=Qry.FieldAsString("seat_no_lat");
+        pax.is_jmp = Qry.FieldAsInteger("is_jmp") != 0;
       };
 
       if (!paxWithSeat.exists() && !paxWithoutSeat.exists())
@@ -1196,6 +1198,19 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
           throw CompleteWithError();
         };
+        
+        //========================= проверка запрета посадки пассажира JMP ==================================
+        if (screen==sBoarding) {
+          TPaxItem &pax=paxWithoutSeat.exists()?paxWithoutSeat:paxWithSeat; 
+          if ( pax.exists() && 
+               pax.is_jmp && 
+               !pax.already_marked &&
+                GetTripSets( tsDeniedBoardingJMP, fltInfo ) ) { 
+              AstraLocale::showErrorMessage("MSG.PASSENGER.JMP_BOARDED_DENIAL",120);
+              throw CompleteWithError();
+          }
+        }
+        
 
         //============================ зал посадки ============================
         int hall=NoExists;
