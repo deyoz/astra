@@ -1186,7 +1186,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             default:
                 break;
         }
-        if(pax.is_jmp) row.jmp++;
+        if(pax.is_jmp) row.jmp += pax.seats;
 
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
         NewTextChild(rowNode, "reg_no", pax.reg_no);
@@ -1256,7 +1256,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         seats.add_seats(pax.paxId(), complayers.get());
 
 //        NewTextChild(rowNode, "seat_no", TrimString(pax.seat_no));
-        NewTextChild(rowNode, "seat_no", seats.get_seat_one(rpt_params.GetLang() != AstraLocale::LANG_RU));
+        NewTextChild(rowNode, "seat_no", (pax.is_jmp ? "JMP" : seats.get_seat_one(rpt_params.GetLang() != AstraLocale::LANG_RU)));
 
         if(not rem_grp_loaded) {
             rem_grp_loaded = true;
