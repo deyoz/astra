@@ -563,6 +563,19 @@ TPNRFilters& TPNRFilters::fromXML(xmlNodePtr fltParentNode, xmlNodePtr paxParent
   return *this;
 };
 
+bool TMultiPNRFilters::isExcellentSearchParams() const
+{
+  if (segs.size()==1)
+  {
+    const TPNRFilter& filter=segs.front();
+    if (filter.test_paxs.empty() &&
+        !filter.from_scan_code &&
+        (!filter.ticket_no.empty() ||
+         !filter.pnr_addr_normal.empty())) return true;
+  }
+  return false;
+}
+
 TMultiPNRFilters& TMultiPNRFilters::fromXML(xmlNodePtr fltParentNode, xmlNodePtr paxParentNode)
 {
   clear();
@@ -1651,6 +1664,29 @@ int TPNRInfo::getFirstPointDep() const
   return segs.begin()->second.point_dep;
 }
 
+bool TPNRInfo::isIdenticalSegInfo(const std::pair<int, TPNRSegInfo>& s1,
+                                  const std::pair<int, TPNRSegInfo>& s2)
+{
+  return s1.second.point_dep==s2.second.point_dep &&
+         s1.second.point_arv==s2.second.point_arv &&
+         s1.second.pnr_id==s2.second.pnr_id;
+}
+
+bool TPNRInfo::partOf(const TPNRInfo &pnrInfo) const
+{
+  return find_end(pnrInfo.segs.begin(), pnrInfo.segs.end(),
+                  segs.begin(), segs.end(),
+                  TPNRInfo::isIdenticalSegInfo)!=pnrInfo.segs.end();
+}
+
+bool TPNRs::partOf(const TPNRs &PNRs) const
+{
+  if (pnrs.size()==1 && PNRs.pnrs.size()==1)
+    return pnrs.begin()->second.partOf(PNRs.pnrs.begin()->second);
+  else
+    return false;
+}
+
 bool TPNRs::isSameTicketInAnotherPNR(const TPNRSegInfo &seg, const TPaxInfo &pax) const
 {
   for(const auto& p : pnrs)
@@ -1819,7 +1855,7 @@ void TPNRs::trace(XMLStyle xmlStyle) const
   LogTrace(TRACE5) << doc.text();
 }
 
-void TPNRs::toXML(xmlNodePtr node, bool is_primary, XMLStyle xmlStyle) const
+void TPNRs::toXML(xmlNodePtr node, bool is_primary, XMLStyle xmlStyle, xmlNodePtr& segsNode) const
 {
 /*
   секция оперирующих рейсов:
@@ -1853,12 +1889,11 @@ void TPNRs::toXML(xmlNodePtr node, bool is_primary, XMLStyle xmlStyle) const
   {
     const TPNRInfo& pnrInfo=getFirstPNRInfo();
 
-    xmlNodePtr segsNode=GetNode("segments", node);
     if (is_primary)
     {
       if (segsNode!=nullptr)
         throw EXCEPTIONS::Exception("TPNRs::toXML: segsNode!=nullptr!");
-      xmlNodePtr segsNode=NewTextChild(node, "segments");
+      segsNode=NewTextChild(node, "segments");
       for(map< int/*num*/, TPNRSegInfo >::const_iterator iSeg=pnrInfo.segs.begin(); iSeg!=pnrInfo.segs.end(); ++iSeg)
       {
         const TPNRSegInfo& pnrSegInfo=iSeg->second;
@@ -1896,12 +1931,13 @@ void TPNRs::toXML(xmlNodePtr node, bool is_primary, XMLStyle xmlStyle) const
   }
 }
 
-void TMultiPNRs::toXML(xmlNodePtr segsParentNode, xmlNodePtr grpsParentNode, bool is_primary, XMLStyle xmlStyle) const
+void TMultiPNRs::toXML(xmlNodePtr segsParentNode, xmlNodePtr grpsParentNode,
+                       bool is_primary, XMLStyle xmlStyle, xmlNodePtr& segsNode) const
 {
   if (segsParentNode==nullptr || grpsParentNode==nullptr) return;
 
   if (errors.empty())
-    TPNRs::toXML(segsParentNode, is_primary, xmlStyle);
+    TPNRs::toXML(segsParentNode, is_primary, xmlStyle, segsNode);
 
   if (!errors.empty() || !warnings.empty())
   {
@@ -1943,15 +1979,16 @@ void TMultiPNRsList::toXML(xmlNodePtr resNode) const
 
   xmlNodePtr segsParentNode=resNode;
   xmlNodePtr grpsParentNode=resNode;
+  xmlNodePtr segsNode=nullptr;
 
   if (trueMultiResponse(resNode))
   {
-    primaryPNRs.toXML(segsParentNode, grpsParentNode, true, xmlSearchFltMulti);
+    primaryPNRs.toXML(segsParentNode, grpsParentNode, true, xmlSearchFltMulti, segsNode);
     for(const TMultiPNRs& secondaryPNRs : secondary)
-      secondaryPNRs.toXML(segsParentNode, grpsParentNode, false, xmlSearchFltMulti);
+      secondaryPNRs.toXML(segsParentNode, grpsParentNode, false, xmlSearchFltMulti, segsNode);
   }
   else
-    primaryPNRs.toXML(segsParentNode, grpsParentNode, true, xmlSearchFlt);
+    primaryPNRs.toXML(segsParentNode, grpsParentNode, true, xmlSearchFlt, segsNode);
 }
 
 void TMultiPNRsList::checkGroups()
