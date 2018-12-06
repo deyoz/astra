@@ -767,6 +767,33 @@ struct TAPISFormat_EDI_CN : public TEdiAPISFormat
   string ProcessPhoneFax(const string& s) const { return HyphenToSpace(s); }
 };
 
+// основано на TAPISFormat_EDI_CN
+// -------------------------------------------------------------------------------------------------
+struct TAPISFormat_EDI_IN : public TEdiAPISFormat // Индия
+{
+  TAPISFormat_EDI_IN()
+  {
+    add_rule(r_convertPaxNames);
+    add_rule(r_processDocNumber);
+    add_rule(r_notOmitCrew);
+    file_rule = r_file_rule_1;
+  }
+  long int required_fields(TPaxType pax, TAPIType api) const
+  {
+    if (pax == pass && api == apiDoc) return DOC_EDI_IN_FIELDS;
+    if (pax == crew && api == apiDoc) return DOC_EDI_IN_FIELDS;
+    return NO_FIELDS;
+  }
+  void convert_pax_names(string& first_name, string& second_name) const
+  {
+    ConvertPaxNamesConcat(first_name, second_name);
+  }
+  string unknown_gender() const { return "U"; }
+  string process_doc_no(const string& no) const { return NormalizeDocNo(no, false); }
+  string ProcessPhoneFax(const string& s) const { return HyphenToSpace(s); }
+};
+
+/* старый формат для Индии
 struct TAPISFormat_EDI_IN : public TEdiAPISFormat
 {
   TAPISFormat_EDI_IN()
@@ -787,6 +814,7 @@ struct TAPISFormat_EDI_IN : public TEdiAPISFormat
   string appRef() const { return ""; }
   string mesRelNum() const { return "05B"; }
 };
+*/
 
 struct TAPISFormat_EDI_US : public TEdiAPISFormat
 {
