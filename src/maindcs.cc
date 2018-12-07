@@ -701,9 +701,11 @@ void WriteFilterParamsContext(const set<string> &airlines,
     ctxt1 << (i==airlines.begin()?"":"/") << *i;
   for(set<string>::const_iterator i=airps.begin(); i!=airps.end(); ++i)
     ctxt2 << (i==airps.begin()?"":"/") << *i;
-  if (!ctxt1.str().empty())
+  ctxt1.str().empty()?
+    JxtContext::getJxtContHandler()->sysContext()->remove("filter_airlines"):
     JxtContext::getJxtContHandler()->sysContext()->write("filter_airlines", ctxt1.str());
-  if (!ctxt2.str().empty())
+  ctxt2.str().empty()?
+    JxtContext::getJxtContHandler()->sysContext()->remove("filter_airps"):
     JxtContext::getJxtContHandler()->sysContext()->write("filter_airps", ctxt2.str());
 };
 
