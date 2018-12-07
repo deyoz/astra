@@ -564,6 +564,10 @@ class TSimplePaxItem
     bool HaveBaggage() const { return bag_pool_num != ASTRA::NoExists; }
     ASTRA::TTrickyGender::Enum getTrickyGender() const { return getTrickyGender(pers_type, gender); }
     static void UpdTid(int pax_id);
+    bool allowToBoarding() const
+    {
+      return refuse.empty() && !pr_brd;
+    }
 
     bool isTest() const { return isTestPaxId(id); }
     int paxId() const { return id; }
@@ -941,12 +945,22 @@ class TPnrAddrInfo
              convert_pnr_addr(addr, true)==convert_pnr_addr(item.addr, true);
     }
 
-    std::string str(TPnrAddrInfo::Format format) const
+    std::string str(TPnrAddrInfo::Format format,
+                    const boost::optional<AstraLocale::OutputLang>& lang = boost::none) const
     {
       std::ostringstream s;
-      s << addr;
-      if (format==AddrAndAirline)
-        s << "/" << airline;
+      if (lang)
+      {
+        s << convert_pnr_addr(addr, lang->isLatin());
+        if (format == AddrAndAirline)
+          s << "/" << airlineToPrefferedCode(airline, lang.get());
+      }
+      else
+      {
+        s << addr;
+        if (format == AddrAndAirline)
+          s << "/" << airline;
+      }
       return s.str();
     }
 
@@ -989,6 +1003,20 @@ class TPnrAddrs : public std::vector<TPnrAddrInfo>
     }
     const TPnrAddrs &toXML(xmlNodePtr addrsParentNode,
                            const boost::optional<AstraLocale::OutputLang>& lang=boost::none) const;
+    
+    std::string str(TPnrAddrInfo::Format format,
+                    const boost::optional<AstraLocale::OutputLang>& lang = boost::none) const
+    {
+      std::ostringstream s;
+      std::string separator;
+      for (const auto& info : *this)
+      {
+        s << separator << info.str(format, lang);
+        separator = ",";
+      }
+      return s.str();
+    }
+    
     const std::string traceStr() const
     {
       std::ostringstream s;
