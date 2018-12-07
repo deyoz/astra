@@ -8,6 +8,8 @@
 #include "astra_consts.h"
 #include <libxml/parser.h>
 #include "oralib.h"
+#include "astra_elems.h"
+#include "astra_locale.h"
 
 using BASIC::date_time::TDateTime;
 
@@ -152,7 +154,8 @@ class TStagesRules {
     TStagesRules();
     bool CanStatus( TStage_Type stage_type, TStage stage );
     std::string status( TStage_Type stage_type, TStage stage, bool is_lat );
-    std::string status_view( TStage_Type stage_type, TStage stage );
+    std::string status_view( TStage_Type stage_type, TStage stage,
+                             boost::optional<AstraLocale::OutputLang> lang = boost::none);
     std::string stage_name( TStage stage, const std::string &airp, bool is_lat );
     std::string stage_name_view( TStage stage, const std::string &airp );
     void Build( xmlNodePtr dataNode );
