@@ -7,6 +7,7 @@
 #include "web_main.h"
 #include "baggage_tags.h"
 #include "astra_elems.h"
+#include "tripinfo.h"
 
 #define NICKNAME "GRISHA"
 #include <serverlib/slogger.h>
@@ -31,7 +32,7 @@ PassengerSearchResult& PassengerSearchResult::fromXML(xmlNodePtr reqNode)
     throw Exception("Empty <bcbp>");
   
   AstraWeb::GetBPPaxFromScanCode(bcbp, bppax); // throws
-  int point_id = bppax.point_dep;
+  point_id = bppax.point_dep;
   int grp_id = bppax.grp_id;
   int pax_id = bppax.pax_id;
   
@@ -81,7 +82,16 @@ const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) co
   // dstAirport
   NewTextChild(resNode, "dstAirport", airpToPrefferedCode(grp_item.airp_arv, lang));
   // gate
-  NewTextChild(resNode, "gate", bppax.gate.first);
+  vector<string> gates;
+  TripsInterface::readGates(point_id, gates);
+  ostringstream ss_gates;
+  string separator_gates;
+  for (const auto& gate : gates)
+  {
+    ss_gates << separator_gates << gate;
+    separator_gates = " ";
+  }
+  NewTextChild(resNode, "gate", ss_gates.str());
   // codeshare
   ostringstream ss_mkt;
   ss_mkt << airlineToPrefferedCode(mkt_flt.airline, lang)
@@ -113,14 +123,14 @@ const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) co
   // baggageTags // уточнить в процессе тестирования !!!
   set<string> flatten_tags;
   FlattenBagTags(baggageTags, flatten_tags);
-  ostringstream ss_tag;
-  string separator;
+  ostringstream ss_tags;
+  string separator_tags;
   for (const auto& tag : flatten_tags)
   {
-    ss_tag << separator << tag;
-    separator = ",";
+    ss_tags << separator_tags << tag;
+    separator_tags = ",";
   }
-  NewTextChild(resNode, "baggageTags", ss_tag.str());
+  NewTextChild(resNode, "baggageTags", ss_tags.str());
   
   return *this;
 }

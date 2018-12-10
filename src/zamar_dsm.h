@@ -25,6 +25,7 @@ class ZamarDSMInterface: public JxtInterface
 class PassengerSearchResult
 {
   PrintInterface::BPPax bppax;
+  int point_id;
   TTripInfo trip_info;
   CheckIn::TSimplePaxGrpItem grp_item;
   CheckIn::TSimplePaxItem pax_item;
