@@ -555,17 +555,19 @@ string TRptParams::ElemIdToReportElem(TElemType type, int id, TElemFmt fmt, stri
 string get_last_target(TQuery &Qry, TRptParams &rpt_params)
 {
     string result;
-    string airline = Qry.FieldAsString("trfer_airline");
-    if(!airline.empty()) {
-        ostringstream buf;
-        buf
-            << rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("trfer_airp_arv"), efmtNameLong).substr(0, 50)
-            << "("
-            << rpt_params.ElemIdToReportElem(etAirline, airline, efmtCodeNative)
-            << setw(3) << setfill('0') << Qry.FieldAsInteger("trfer_flt_no")
-            << rpt_params.ElemIdToReportElem(etSuffix, Qry.FieldAsString("trfer_suffix"), efmtCodeNative)
-            << ")/" << DateTimeToStr(Qry.FieldAsDateTime("trfer_scd"), "dd");
-        result = buf.str();
+    if(rpt_params.pr_trfer) {
+        string airline = Qry.FieldAsString("trfer_airline");
+        if(!airline.empty()) {
+            ostringstream buf;
+            buf
+                << rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("trfer_airp_arv"), efmtNameLong).substr(0, 50)
+                << "("
+                << rpt_params.ElemIdToReportElem(etAirline, airline, efmtCodeNative)
+                << setw(3) << setfill('0') << Qry.FieldAsInteger("trfer_flt_no")
+                << rpt_params.ElemIdToReportElem(etSuffix, Qry.FieldAsString("trfer_suffix"), efmtCodeNative)
+                << ")/" << DateTimeToStr(Qry.FieldAsDateTime("trfer_scd"), "dd");
+            result = buf.str();
+        }
     }
     return result;
 }
@@ -958,8 +960,73 @@ TDateTime getReportSCDOut(int point_id)
   return res;
 }
 
+struct TPMPax;
+
+struct TCrsSeatsBlockingItem {
+    int seat_id;
+    string surname;
+    string name;
+    int pax_id;
+    bool pr_del;
+    boost::optional<const TPMPax &> pax_info;
+
+    void clear()
+    {
+        seat_id = NoExists;
+        surname.clear();
+        name.clear();
+        pax_id = NoExists;
+        pr_del = false;
+        pax_info = boost::none;
+    }
+    void fromDB(TQuery &Qry);
+
+    TCrsSeatsBlockingItem(TQuery &Qry) { fromDB(Qry); }
+    TCrsSeatsBlockingItem() { clear(); }
+};
+
+
+void TCrsSeatsBlockingItem::fromDB(TQuery &Qry)
+{
+    clear();
+    if(not Qry.Eof) {
+        seat_id = Qry.FieldAsInteger("seat_id");
+        surname = Qry.FieldAsString("surname");
+        name = Qry.FieldAsString("name");
+        pax_id = Qry.FieldAsInteger("pax_id");
+        pr_del = Qry.FieldAsString("pr_del") != 0;
+    }
+}
+
+struct TCrsSeatsBlockingList: public list<TCrsSeatsBlockingItem> {
+    int pax_id;
+
+    void clear()
+    {
+        list<TCrsSeatsBlockingItem>::clear();
+        pax_id = NoExists;
+    }
+
+    TCrsSeatsBlockingList() { clear(); }
+
+    void fromDB(int _pax_id, bool with_deleted = false);
+
+};
+
+void TCrsSeatsBlockingList::fromDB(int _pax_id, bool with_deleted)
+{
+    clear();
+    pax_id = _pax_id;
+    TCachedQuery Qry("select * from crs_seats_blocking where pax_id = :pax_id and pr_del = :with_deleted",
+            QParams() << QParam("pax_id", otInteger, pax_id) << QParam("with_deleted", otInteger, with_deleted));
+    Qry.get().Execute();
+    for(; not Qry.get().Eof; Qry.get().Next())
+        emplace_back(Qry.get());
+}
+
 struct TPMPax {
-    CheckIn::TSimplePaxItem pax;
+    CheckIn::TSimplePaxItem simple_pax;
+    TCrsSeatsBlockingList CBBG_list;
     string target;
     string last_target;
     string status;
@@ -977,7 +1044,8 @@ struct TPMPax {
 
     void clear()
     {
-        pax.clear();
+        simple_pax.clear();
+        CBBG_list.clear();
         target.clear();
         last_target.clear();
         status.clear();
@@ -1001,16 +1069,20 @@ struct TPMPax {
 TPMPax::TPMPax(TQuery &Qry, TRptParams &rpt_params)
 {
     clear();
-    pax.fromDB(Qry);
+    simple_pax.fromDB(Qry);
+    if(not simple_pax.isCBBG())
+        CBBG_list.fromDB(simple_pax.paxId());
     target = Qry.FieldAsString("target");
     last_target = get_last_target(Qry, rpt_params);
     status = Qry.FieldAsString("status");
     tags = Qry.FieldAsString("tags");
-    remarks = Qry.FieldAsString("remarks");
+    if(rpt_params.pr_et)
+        remarks = Qry.FieldAsString("remarks");
     point_id = Qry.FieldAsInteger("trip_id");
     grp_id = Qry.FieldAsInteger("grp_id");
     class_grp = Qry.FieldAsInteger("class_grp");
-    pr_trfer = Qry.FieldAsInteger("pr_trfer");
+    if(rpt_params.pr_trfer)
+        pr_trfer = Qry.FieldAsInteger("pr_trfer");
     rk_weight = Qry.FieldAsInteger("rk_weight");
     bag_amount = Qry.FieldAsInteger("bag_amount");
     bag_weight = Qry.FieldAsInteger("bag_weight");
@@ -1018,22 +1090,102 @@ TPMPax::TPMPax(TQuery &Qry, TRptParams &rpt_params)
     excess_pc = Qry.FieldAsInteger("excess_pc");
 }
 
-struct TPMPaxList: public vector<TPMPax> {
+struct TPMPaxList;
+
+struct TTripCBBGList: public list<pair<bool, TPMPax>> {
+    void add_cbbg(const TPMPax &_cbbg_pax, TPMPaxList &pax_list);
+    void bind_cbbg(TPMPax &_pax);
+};
+
+struct TPMPaxList: public list<TPMPax> {
     boost::optional<TRemGrp> rem_grp;
+    // общий список CBBG для point_id
+    TTripCBBGList CBBG_list; // CBBG_list.first - привязан (true) к паксу, либо нет (false)
     int point_id;
 
     void clear()
     {
-        vector<TPMPax>::clear();
+        list<TPMPax>::clear();
         rem_grp = boost::none;
+        CBBG_list.clear();
         point_id = NoExists;
     }
+    void fromDB(TQuery &Qry, TRptParams &rpt_params);
+    void trace(TRACE_SIGNATURE);
 
     TPMPaxList()
     {
         clear();
     }
 };
+
+void TPMPaxList::trace(TRACE_SIGNATURE)
+{
+    LogTrace(TRACE_PARAMS) << "---TPMPaxList::trace---";
+    for(const auto &pax: *this) {
+        LogTrace(TRACE_PARAMS) << "reg_no: " << pax.simple_pax.reg_no;
+        LogTrace(TRACE_PARAMS) << "name: " << pax.simple_pax.name;
+        LogTrace(TRACE_PARAMS) << "surname: " << pax.simple_pax.surname;
+        LogTrace(TRACE_PARAMS) << "pax.CBBG_list.size(): " << pax.CBBG_list.size();
+        for(auto &cbbg: pax.CBBG_list) {
+            LogTrace(TRACE5) << "  cbbg.seat_id: " << cbbg.seat_id;
+            LogTrace(TRACE5) << "  cbbg.surname: " << cbbg.surname << " " << cbbg.name;
+            LogTrace(TRACE5) << "  cbbg.pax_info: " << (cbbg.pax_info == boost::none);
+            if(cbbg.pax_info) {
+                LogTrace(TRACE_PARAMS) << "  reg_no: " << cbbg.pax_info.get().simple_pax.reg_no;
+                LogTrace(TRACE_PARAMS) << "  name: " << cbbg.pax_info.get().simple_pax.name;
+                LogTrace(TRACE_PARAMS) << "  surname: " << cbbg.pax_info.get().simple_pax.surname;
+            }
+        }
+    }
+    for(const auto &cbbg: CBBG_list) {
+        if(not cbbg.first)
+            LogTrace(TRACE5) << cbbg.second.simple_pax.reg_no << " not applyed";
+    }
+}
+
+// Ищется пакс и к нему добавляется cbbg
+void TTripCBBGList::add_cbbg(const TPMPax &_cbbg_pax, TPMPaxList &pax_list)
+{
+    if(not _cbbg_pax.simple_pax.isCBBG()) return;
+    push_back(make_pair(false, _cbbg_pax));
+    auto &new_pax = back();
+    for(auto &pax: pax_list) {
+        for(auto &paxCBBG: pax.CBBG_list) {
+            if(paxCBBG.seat_id == new_pax.second.simple_pax.paxId()) {
+                new_pax.first = true;
+                paxCBBG.pax_info = new_pax.second;
+                return;
+            }
+        }
+    }
+}
+
+// добавляет к паксу инфу по cbbg
+void TTripCBBGList::bind_cbbg(TPMPax &_pax)
+{
+    for(auto &cbbg: *this) {
+        if(not cbbg.first) {
+            for(auto &paxCBBG:_pax.CBBG_list) {
+                if(paxCBBG.seat_id == cbbg.second.simple_pax.paxId()) {
+                    cbbg.first = true;
+                    paxCBBG.pax_info = cbbg.second;
+                }
+            }
+        }
+    }
+}
+
+void TPMPaxList::fromDB(TQuery &Qry, TRptParams &rpt_params)
+{
+    TPMPax pax(Qry, rpt_params);
+    if(pax.simple_pax.isCBBG()) {
+        CBBG_list.add_cbbg(pax, *this);
+    } else {
+        push_back(pax);
+        CBBG_list.bind_cbbg(back());
+    }
+}
 
 void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -1149,6 +1301,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             " and pax_grp.grp_id=transfer.grp_id(+) and \n"
             " transfer.pr_final(+) <> 0 and \n"
             " transfer.point_id_trfer = trfer_trips.point_id(+) \n";
+    /*
     SQLText +=
         "ORDER BY \n";
     if(rpt_params.airp_arv.empty())
@@ -1182,6 +1335,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 "    pax.seats DESC \n";
             break;
     }
+    */
     ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
@@ -1203,7 +1357,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     TPMPaxList pax_list;
 
     for(; !Qry.Eof; Qry.Next()) {
-        pax_list.emplace_back(Qry, rpt_params);
+        pax_list.fromDB(Qry, rpt_params);
 
         CheckIn::TSimplePaxItem pax;
         pax.fromDB(Qry);
@@ -1347,6 +1501,8 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "remarks",
                 (rpt_params.pr_et ? Qry.FieldAsString("remarks") : GetRemarkStr(rem_grp, pax.id, rpt_params.GetLang())));
     }
+
+    // pax_list.trace(TRACE5);
 
     dataSetNode = NewTextChild(dataSetsNode, rpt_params.pr_trfer ? "v_pm_trfer_total" : "v_pm_total");
 
