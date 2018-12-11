@@ -958,6 +958,83 @@ TDateTime getReportSCDOut(int point_id)
   return res;
 }
 
+struct TPMPax {
+    CheckIn::TSimplePaxItem pax;
+    string target;
+    string last_target;
+    string status;
+    string tags;
+    string remarks;
+    int point_id;
+    int grp_id;
+    int class_grp;
+    int pr_trfer;
+    int rk_weight;
+    int bag_amount;
+    int bag_weight;
+    int excess_wt;
+    int excess_pc;
+
+    void clear()
+    {
+        pax.clear();
+        target.clear();
+        last_target.clear();
+        status.clear();
+        tags.clear();
+        remarks.clear();
+        point_id = NoExists;
+        grp_id = NoExists;
+        class_grp = NoExists;
+        pr_trfer = NoExists;
+        rk_weight = NoExists;
+        bag_amount = NoExists;
+        bag_weight = NoExists;
+        excess_wt = NoExists;
+        excess_pc = NoExists;
+    }
+
+    TPMPax() { clear(); }
+    TPMPax(TQuery &Qry, TRptParams &rpt_params);
+};
+
+TPMPax::TPMPax(TQuery &Qry, TRptParams &rpt_params)
+{
+    clear();
+    pax.fromDB(Qry);
+    target = Qry.FieldAsString("target");
+    last_target = get_last_target(Qry, rpt_params);
+    status = Qry.FieldAsString("status");
+    tags = Qry.FieldAsString("tags");
+    remarks = Qry.FieldAsString("remarks");
+    point_id = Qry.FieldAsInteger("trip_id");
+    grp_id = Qry.FieldAsInteger("grp_id");
+    class_grp = Qry.FieldAsInteger("class_grp");
+    pr_trfer = Qry.FieldAsInteger("pr_trfer");
+    rk_weight = Qry.FieldAsInteger("rk_weight");
+    bag_amount = Qry.FieldAsInteger("bag_amount");
+    bag_weight = Qry.FieldAsInteger("bag_weight");
+    excess_wt = Qry.FieldAsInteger("excess_wt");
+    excess_pc = Qry.FieldAsInteger("excess_pc");
+}
+
+struct TPMPaxList: public vector<TPMPax> {
+    boost::optional<TRemGrp> rem_grp;
+    int point_id;
+
+    void clear()
+    {
+        vector<TPMPax>::clear();
+        rem_grp = boost::none;
+        point_id = NoExists;
+    }
+
+    TPMPaxList()
+    {
+        clear();
+    }
+};
+
 void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
@@ -1122,7 +1199,12 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     TRemGrp rem_grp;
     bool rem_grp_loaded = false;
     boost::optional<vector<TTlgCompLayer>> complayers;
+
+    TPMPaxList pax_list;
+
     for(; !Qry.Eof; Qry.Next()) {
+        pax_list.emplace_back(Qry, rpt_params);
+
         CheckIn::TSimplePaxItem pax;
         pax.fromDB(Qry);
 
