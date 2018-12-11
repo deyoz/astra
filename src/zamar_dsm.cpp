@@ -53,7 +53,7 @@ PassengerSearchResult& PassengerSearchResult::fromXML(xmlNodePtr reqNode)
   // pnr
   pnr.getByPaxIdFast(pax_id);
   // baggageTags
-  GetTagsByPool(grp_id, pax_item.bag_pool_num, baggageTags);
+  GetTagsByPool(grp_id, pax_item.bag_pool_num, baggageTags, false);
   
   return *this;
 }
