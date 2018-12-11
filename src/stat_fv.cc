@@ -281,7 +281,7 @@ void stat_fv_toXML(xmlNodePtr rootNode, int point_id)
             NewTextChild(PassengerNode, "PsychotropicAgentSign", 0);
 
             multiset<TBagTagNumber> tags;
-            GetTagsByPool(pax.grp_id, pax.bag_pool_num, tags);
+            GetTagsByPool(pax.grp_id, pax.bag_pool_num, tags, true);
             if(not tags.empty()) {
                 xmlNodePtr LuggageTagNode = NewTextChild(PassengerNode, "LuggageTag");
                 for(const auto &tag : tags)

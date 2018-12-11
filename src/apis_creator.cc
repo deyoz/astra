@@ -289,7 +289,7 @@ bool TApisDataset::FromDB(int point_id, const string& task_name, TApisTestMap* t
           pax.weight = PaxQry.FieldAsInteger("bag_weight");
 
         multiset<TBagTagNumber> tags;
-        GetTagsByPool(pax.grp_id, pax.bag_pool_num, tags);
+        GetTagsByPool(pax.grp_id, pax.bag_pool_num, tags, false);
         FlattenBagTags(tags, pax.tags);
 
         rd.lstPaxData.push_back(pax);

@@ -123,7 +123,7 @@ class TGeneratedTags
 };
 
 void GetTagsByBagNum(int grp_id, int bag_num, std::multiset<TBagTagNumber> &tags);
-void GetTagsByPool(int grp_id, int bag_pool_num , std::multiset<TBagTagNumber> &tags);
+void GetTagsByPool(int grp_id, int bag_pool_num , std::multiset<TBagTagNumber> &tags, bool includeTagColor);
 void GetTagsByPaxId(int pax_id, std::multiset<TBagTagNumber> &tags);
 
 void FlattenBagTags(const std::multiset<TBagTagNumber> &tags, std::set<std::string> &result);
