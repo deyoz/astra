@@ -463,6 +463,7 @@ PROCEDURE sync_BSM_options(vid              typeb_addrs.id%TYPE,
                            vclass_of_travel typeb_addr_options.value%TYPE,
                            vtag_printer_id  typeb_addr_options.value%TYPE,
                            vpas_name_rp1745 typeb_addr_options.value%TYPE,
+                           vactual_dep_date typeb_addr_options.value%TYPE,
                            vsetting_user    history_events.open_user%TYPE,
                            vstation         history_events.open_desk%TYPE);
 
