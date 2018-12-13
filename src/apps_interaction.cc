@@ -52,6 +52,8 @@ using namespace ASTRA;
 
 // static const std::string APPSFormat = "APPS_FMT";
 
+class AppsPaxNotFoundException : public std::exception {} ;
+
 // версия спецификации документа
 enum ESpecVer { SPEC_6_76, SPEC_6_83 };
 
@@ -952,7 +954,7 @@ bool TPaxRequest::getByCrsPaxId( const int pax_id, const std::string& override_t
   Qry.Execute();
 
   if ( Qry.Eof )
-    throw AstraLocale::UserException("MSG.PASSENGER.NOT_FOUND");
+    throw AppsPaxNotFoundException();
 
   int point_id = Qry.FieldAsInteger("point_id_spp");
   string airp_arv = Qry.FieldAsString("airp_arv");
@@ -1663,9 +1665,19 @@ void TPaxReqAnswer::processAnswer() const
   // проверим, нужно ли гасить тревогу "рассинхронизация"
   TPaxRequest actual;
   TPaxRequest received;
-  actual.init( pax_id );
-  received.fromDBByMsgId( msg_id );
-  if ( received == actual )
+  bool pax_not_found = false;
+  try
+  {
+    actual.init( pax_id );
+  }
+  catch (AppsPaxNotFoundException)
+  {
+    pax_not_found = true;
+    ProgTrace(TRACE5, "Passenger has not been found");
+  }
+  if (!pax_not_found)
+    received.fromDBByMsgId( msg_id );
+  if ( pax_not_found || received == actual )
   {
     set_pax_alarm( pax_id, Alarm::APPSConflict, false );
     set_crs_pax_alarm( pax_id, Alarm::APPSConflict, false );
