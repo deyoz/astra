@@ -51,10 +51,10 @@ BEGIN
 --   IF SQL%ROWCOUNT=0 THEN
 --     RETURN;
 --   END IF;
--- 
+--
 --   UPDATE history_events SET close_time=vtime, close_user=vuser, close_desk=vdesk
 --   WHERE row_ident=vrow_ident AND table_id=vtable_id AND close_time = vdefault_time;
--- 
+--
 --   INSERT INTO history_events(table_id,row_ident,open_time,open_user,open_desk,hist_order,close_time)
 --   VALUES (vtable_id,vrow_ident,vtime,vuser,vdesk,vorder,vdefault_time);
 END synchronize_history;

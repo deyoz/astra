@@ -939,6 +939,7 @@ BEGIN
     DELETE FROM bag_prepay WHERE grp_id=vgrp_id;
     UPDATE bag_receipts SET grp_id=NULL WHERE grp_id=vgrp_id;
     DELETE FROM bag_tags WHERE grp_id=vgrp_id;
+    DELETE FROM bag_tags_generated WHERE grp_id=vgrp_id;
     DELETE FROM unaccomp_bag_info WHERE grp_id=vgrp_id;
     DELETE FROM bag2 WHERE grp_id=vgrp_id;
     DELETE FROM grp_norms WHERE grp_id=vgrp_id;
@@ -1115,6 +1116,8 @@ BEGIN
         (vsender IS NULL OR sender=vsender);
   FORALL i IN 1..paxids.COUNT
     DELETE FROM crs_inf WHERE pax_id=paxids(i);
+  FORALL i IN 1..paxids.COUNT
+    DELETE FROM crs_inf_deleted WHERE pax_id=paxids(i);
   FORALL i IN 1..paxids.COUNT
     DELETE FROM crs_pax_rem WHERE pax_id=paxids(i);
   FORALL i IN 1..paxids.COUNT

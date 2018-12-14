@@ -230,6 +230,27 @@ BEGIN
   RETURN 0;
 END transliter_equal;
 
+FUNCTION transliter_equal_begin(str       IN VARCHAR2,
+                                substring IN VARCHAR2,
+                                fmt       IN INTEGER DEFAULT NULL) RETURN NUMBER
+IS
+s1 VARCHAR2(4000);
+s2 VARCHAR2(4000);
+min_len NUMBER;
+BEGIN
+  IF str IS NULL OR substring IS NULL THEN RETURN 0; END IF;
+  FOR ifmt IN 1..3 LOOP
+    IF fmt IS NULL OR
+       fmt IS NOT NULL AND fmt=ifmt THEN
+      s1:=system.transliter(str,ifmt);
+      s2:=system.transliter(substring,ifmt);
+      min_len:=LENGTH(s2);
+      IF SUBSTR(s1,1,min_len)=SUBSTR(s2,1,min_len) THEN RETURN 1; END IF;
+    END IF;
+  END LOOP;
+  RETURN 0;
+END transliter_equal_begin;
+
 PROCEDURE raise_user_exception(verror_code   IN NUMBER,
                                lexeme_id     IN locale_messages.id%TYPE,
                                lexeme_params IN TLexemeParams)
