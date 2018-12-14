@@ -190,7 +190,8 @@ namespace EXCH_CHECKIN_RESULT
      std::string airp_arv;
      std::string seat_no;
      int seats;
-     int excess;
+     TBagKilos excess_wt;
+     TBagPieces excess_pc;
      int rkamount;
      int rkweight;
      int bagamount;
@@ -202,7 +203,9 @@ namespace EXCH_CHECKIN_RESULT
      std::multiset<CheckIn::TPaxRemItem> rems;
      TDateTime time;
      TPnrAddrs pnrAddrs;
-     PaxData( int vpax_id, int vpoint_id, TDateTime vmax_time ) {
+     PaxData( int vpax_id, int vpoint_id, TDateTime vmax_time ) :
+       excess_wt(0), excess_pc(0)
+     {
        pax_id = vpax_id;
        grp_id = ASTRA::NoExists;
        point_id = vpoint_id;
@@ -267,7 +270,8 @@ namespace EXCH_CHECKIN_RESULT
     int col_airp_arv;
     int col_seat_no;
     int col_seats;
-    int col_excess;
+    int col_excess_wt;
+    int col_excess_pc;
     int col_rkamount;
     int col_rkweight;
     int col_bagamount;
@@ -299,7 +303,8 @@ namespace EXCH_CHECKIN_RESULT
       col_airp_arv = ASTRA::NoExists;
       col_seat_no = ASTRA::NoExists;
       col_seats = ASTRA::NoExists;
-      col_excess = ASTRA::NoExists;
+      col_excess_wt = ASTRA::NoExists;
+      col_excess_pc = ASTRA::NoExists;
       col_rkamount = ASTRA::NoExists;
       col_rkweight = ASTRA::NoExists;
       col_bagamount = ASTRA::NoExists;
@@ -321,7 +326,8 @@ namespace EXCH_CHECKIN_RESULT
           "       pax.subclass, "
           "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'tlg',rownum) AS seat_no, "
           "       pax.seats seats, "
-          "       ckin.get_excess(pax_grp.grp_id,pax.pax_id) excess,"
+          "       ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
+          "       ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
           "       ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkamount,"
           "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkweight,"
           "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagamount,"
@@ -385,7 +391,8 @@ namespace EXCH_CHECKIN_RESULT
     col_airp_arv = (col_airp_arv = PaxQry.GetFieldIndex( "airp_arv" )) >= 0 ?col_airp_arv:ASTRA::NoExists;
     col_seat_no = (col_seat_no = PaxQry.GetFieldIndex( "seat_no" )) >= 0 ?col_seat_no:ASTRA::NoExists;
     col_seats = (col_seats = PaxQry.GetFieldIndex( "seats" )) >= 0 ?col_seats:ASTRA::NoExists;
-    col_excess = (col_excess = PaxQry.GetFieldIndex( "excess" )) >= 0 ?col_excess:ASTRA::NoExists;
+    col_excess_wt = (col_excess_wt = PaxQry.GetFieldIndex( "excess_wt" )) >= 0 ?col_excess_wt:ASTRA::NoExists;
+    col_excess_pc = (col_excess_pc = PaxQry.GetFieldIndex( "excess_pc" )) >= 0 ?col_excess_pc:ASTRA::NoExists;
     col_rkamount = (col_rkamount = PaxQry.GetFieldIndex( "rkamount" )) >= 0 ?col_rkamount:ASTRA::NoExists;
     col_rkweight = (col_rkweight = PaxQry.GetFieldIndex( "rkweight" )) >= 0 ?col_rkweight:ASTRA::NoExists;
     col_bagamount = (col_bagamount = PaxQry.GetFieldIndex( "bagamount" )) >= 0 ?col_bagamount:ASTRA::NoExists;
@@ -538,7 +545,8 @@ namespace EXCH_CHECKIN_RESULT
     paxData.airp_arv = PaxQry.FieldAsString( col_airp_arv );
     paxData.seat_no = PaxQry.FieldAsString( col_seat_no );
     paxData.seats = PaxQry.FieldAsInteger( col_seats );
-    paxData.excess = PaxQry.FieldAsInteger( col_excess );
+    paxData.excess_wt = PaxQry.FieldAsInteger( col_excess_wt );
+    paxData.excess_pc = PaxQry.FieldAsInteger( col_excess_pc );
     paxData.rkamount = PaxQry.FieldAsInteger( col_rkamount );
     paxData.rkweight = PaxQry.FieldAsInteger( col_rkweight );
     paxData.bagamount = PaxQry.FieldAsInteger( col_bagamount );
@@ -675,7 +683,9 @@ namespace EXCH_CHECKIN_RESULT
     NewTextChild( paxNode, "airp_arv", airp_arv );
     NewTextChild( paxNode, "seat_no", seat_no );
     NewTextChild( paxNode, "seats", seats );
-    NewTextChild( paxNode, "excess", excess );
+    NewTextChild( paxNode, "excess_wt", excess_wt.getQuantity() );
+    NewTextChild( paxNode, "excess_pc", excess_pc.getQuantity() );
+    NewTextChild( paxNode, "excess", TComplexBagExcess(excess_pc, excess_wt).getDeprecatedInt() );
     NewTextChild( paxNode, "rkamount", rkamount );
     NewTextChild( paxNode, "rkweight", rkweight );
     NewTextChild( paxNode, "bagamount", bagamount );
@@ -1016,12 +1026,12 @@ namespace MQRABBIT_TRANSPORT {
    if ( np != std::string::npos ) {
         addr = connect_str.substr( 0, np );
         queue = connect_str.substr( np + 1 );
-    }   
+    }
     LogTrace(TRACE5) << "addr=" << addr << ",queue=" << queue;
     if ( addr.empty() ||
          queue.empty() ) {
       ProgError( STDLOG, "MQRabbitParams: invalid connect string in file_params_sets" );
-    }    
+    }
   }
 }
 

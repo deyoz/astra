@@ -519,7 +519,8 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
         "       pax.pers_type, NVL(pax.is_female, 1) AS is_female, "
         "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
         "       pax.seats seats, "
-        "       ckin.get_excess(pax_grp.grp_id,pax.pax_id) excess,"
+        "       ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
+        "       ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
         "       ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkamount,"
         "       ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rkweight,"
         "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bagamount,"
@@ -654,7 +655,8 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
       }
       record<<setw(5)<<Qry.FieldAsString( "seat_no" );
       record<<setw(2)<<Qry.FieldAsInteger( "seats" )-1;
-      record<<setw(4)<<Qry.FieldAsInteger( "excess" );
+      record<<setw(4)<<TComplexBagExcess(TBagPieces(Qry.FieldAsInteger( "excess_pc" )),
+                                         TBagKilos(Qry.FieldAsInteger( "excess_wt" ))).getDeprecatedInt();
       record<<setw(3)<<Qry.FieldAsInteger( "rkamount" );
       record<<setw(4)<<Qry.FieldAsInteger( "rkweight" );
       record<<setw(3)<<Qry.FieldAsInteger( "bagamount" );

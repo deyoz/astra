@@ -205,7 +205,7 @@ class TETickItem
     std::string fare_basis;
     std::string display_subcls;
     int bag_norm;
-    TBagNormUnit bag_norm_unit;
+    TBagUnit bag_norm_unit;
     std::string display_error, change_status_error;
     int point_id;
     std::string airp_dep, airp_arv;

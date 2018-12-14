@@ -180,31 +180,6 @@ BEGIN
   RETURN res;
 END get_birks2;
 
-FUNCTION get_excess(vpart_key     IN arx_pax.part_key%TYPE,
-                    vgrp_id       IN arx_pax.grp_id%TYPE,
-                    vpax_id       IN arx_pax.pax_id%TYPE) RETURN NUMBER
-IS
-vexcess        arx_pax_grp.excess%TYPE;
-main_pax_id    arx_pax.pax_id%TYPE;
-BEGIN
-  vexcess:=0;
-  IF vpax_id IS NOT NULL THEN
-    main_pax_id:=get_main_pax_id2(vpart_key, vgrp_id);
-  END IF;
-  IF vpax_id IS NULL OR
-     main_pax_id IS NOT NULL AND main_pax_id=vpax_id THEN
-   BEGIN
-    SELECT DECODE(bag_refuse,0,excess,0) INTO vexcess
-    FROM arx_pax_grp
-    WHERE part_key=vpart_key AND grp_id=vgrp_id;
-   EXCEPTION
-     WHEN NO_DATA_FOUND THEN NULL;
-   END;
-  END IF;
-  IF vexcess=0 THEN vexcess:=NULL; END IF;
-  RETURN vexcess;
-END get_excess;
-
 FUNCTION get_bagInfo2(vpart_key     IN arx_pax.part_key%TYPE,
                       vgrp_id       IN arx_pax.grp_id%TYPE,
                       vpax_id 	    IN arx_pax.pax_id%TYPE,
@@ -313,6 +288,48 @@ BEGIN
   END IF;
   RETURN bagInfo.rkWeight;
 END get_rkWeight2;
+
+FUNCTION get_excess_wt(vpart_key       IN arx_pax.part_key%TYPE,
+                       vgrp_id         IN arx_pax.grp_id%TYPE,
+                       vpax_id         IN arx_pax.pax_id%TYPE,
+                       vexcess_wt      IN arx_pax_grp.excess_wt%TYPE DEFAULT NULL,
+                       vexcess_nvl     IN arx_pax_grp.excess%TYPE DEFAULT NULL,
+                       vbag_refuse     IN arx_pax_grp.bag_refuse%TYPE DEFAULT NULL) RETURN NUMBER
+
+IS
+vexcess         arx_pax_grp.excess_wt%TYPE;
+main_pax_id     arx_pax.pax_id%TYPE;
+BEGIN
+  vexcess:=0;
+
+  IF NVL(vexcess_wt, vexcess_nvl) IS NULL OR vbag_refuse IS NULL THEN
+    BEGIN
+      SELECT DECODE(bag_refuse, 0, NVL(excess_wt, excess), 0)
+      INTO vexcess
+      FROM arx_pax_grp
+      WHERE part_key=vpart_key AND grp_id=vgrp_id;
+    EXCEPTION
+      WHEN NO_DATA_FOUND THEN RETURN NULL;
+    END;
+  ELSE
+    SELECT DECODE(vbag_refuse, 0, NVL(vexcess_wt, vexcess_nvl), 0)
+    INTO vexcess
+    FROM dual;
+  END IF;
+
+  IF vpax_id IS NOT NULL THEN
+    main_pax_id:=get_main_pax_id2(vpart_key, vgrp_id);
+  END IF;
+  IF vpax_id IS NULL OR
+     main_pax_id IS NOT NULL AND main_pax_id=vpax_id THEN
+    NULL;
+  ELSE
+    vexcess:=NULL;
+  END IF;
+
+  IF vexcess=0 THEN vexcess:=NULL; END IF;
+  RETURN vexcess;
+END get_excess_wt;
 
 FUNCTION next_airp(vpart_key     IN arx_points.part_key%TYPE,
                    vfirst_point  IN arx_points.first_point%TYPE,
@@ -466,12 +483,12 @@ BEGIN
       FORALL i IN 1..grprowids.COUNT
         INSERT INTO arx_pax_grp
           (grp_id,point_dep,point_arv,airp_dep,airp_arv,class,class_grp,
-           status,excess,excess_wt,excess_pc,hall,bag_refuse,user_id,client_type,point_id_mark,pr_mark_norms,
-           piece_concept,bag_types_id,desk,time_create,tid,part_key)
+           status,excess_wt,excess_pc,hall,bag_refuse,user_id,client_type,point_id_mark,pr_mark_norms,
+           piece_concept,desk,time_create,tid,part_key)
         SELECT
            grp_id,point_dep,point_arv,airp_dep,airp_arv,class,class_grp,
-           status,excess,excess_wt,excess_pc,hall,bag_refuse,user_id,client_type,point_id_mark,pr_mark_norms,
-           piece_concept,bag_types_id,desk,time_create,tid,vpart_key
+           status,excess_wt,excess_pc,hall,bag_refuse,user_id,client_type,point_id_mark,pr_mark_norms,
+           piece_concept,desk,time_create,tid,vpart_key
         FROM pax_grp
         WHERE rowid=grprowids(i);
     END IF;
@@ -669,10 +686,10 @@ BEGIN
       FORALL i IN 1..rowids.COUNT
         INSERT INTO arx_stat
           (point_id,airp_arv,hall,status,client_type,f,c,y,adult,child,baby,child_wop,baby_wop,
-           pcs,weight,unchecked,excess,excess_pc,term_bp,term_bag,term_ckin_service,part_key)
+           pcs,weight,unchecked,excess_wt,excess_pc,term_bp,term_bag,term_ckin_service,part_key)
         SELECT
            point_id,airp_arv,hall,status,client_type,f,c,y,adult,child,baby,child_wop,baby_wop,
-           pcs,weight,unchecked,excess,excess_pc,term_bp,term_bag,term_ckin_service,vpart_key
+           pcs,weight,unchecked,excess_wt,excess_pc,term_bp,term_bag,term_ckin_service,vpart_key
         FROM stat
         WHERE rowid=rowids(i);
     END IF;
@@ -686,10 +703,10 @@ BEGIN
       FORALL i IN 1..rowids.COUNT
         INSERT INTO arx_trfer_stat
           (point_id,trfer_route,client_type,f,c,y,adult,child,baby,child_wop,baby_wop,
-           pcs,weight,unchecked,excess,excess_pc,part_key)
+           pcs,weight,unchecked,excess_wt,excess_pc,part_key)
         SELECT
            point_id,trfer_route,client_type,f,c,y,adult,child,baby,child_wop,baby_wop,
-           pcs,weight,unchecked,excess,excess_pc,vpart_key
+           pcs,weight,unchecked,excess_wt,excess_pc,vpart_key
         FROM trfer_stat
         WHERE rowid=rowids(i);
     END IF;

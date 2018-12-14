@@ -101,21 +101,19 @@ const std::string qryBalanceBagWithCheckinTranzit =
 const std::string qryBalanceExcessBagWOCheckinTranzit =
     "SELECT point_dep, "
     "       DECODE(point_dep,:point_dep,0,1) as  pr_tranzit, class, "
-    "       SUM(NVL(pax_grp.excess,0)) paybag_weight "
+    "       SUM(NVL(ckin.get_excess_wt(pax_grp.grp_id, NULL, pax_grp.excess_wt, pax_grp.bag_refuse),0)) paybag_weight "
     "FROM pax_grp "
     " WHERE point_arv=:point_arv AND "
-    "       pax_grp.status NOT IN ('E') AND "
-    "       pax_grp.bag_refuse = 0 "
+    "       pax_grp.status NOT IN ('E') "
     " GROUP BY point_dep, DECODE(point_dep,:point_dep,0,1), class";
 const std::string qryBalanceExcessBagWithCheckinTranzit =
     "SELECT point_dep, "
     "       DECODE(status,:status_tranzit,1,0) as  pr_tranzit, class, "
-    "       SUM(NVL(pax_grp.excess,0)) paybag_weight "
+    "       SUM(NVL(ckin.get_excess_wt(pax_grp.grp_id, NULL, pax_grp.excess_wt, pax_grp.bag_refuse),0)) paybag_weight "
     "FROM pax_grp "
     " WHERE point_dep=:point_dep AND "
     "       point_arv=:point_arv AND "
-    "       pax_grp.status NOT IN ('E') AND "
-    "       pax_grp.bag_refuse = 0 "
+    "       pax_grp.status NOT IN ('E') "
     " GROUP BY point_dep, DECODE(status,:status_tranzit,1,0), class";
 /*const std::string qryBalancePad =
     "SELECT point_dep, "
@@ -150,7 +148,7 @@ const std::string qryBalanceCargo =
     "       cargo, mail "
     "FROM trip_load "
     " WHERE point_arv=:point_arv ";
-    
+
 
 enum TBalanceDataFlag { tdPass, tdBag, tdExcess, tdPad, tdCargo };
 
@@ -263,7 +261,7 @@ struct TDestBalance {
   std::map<std::string,TBalance> total_classbal, tranzit_classbal, goshow_classbal;
 };
 
-    
+
 class TBalanceData
 {
   BitSet<TBalanceDataFlag> dataFlags;
@@ -383,7 +381,7 @@ class TBalanceData
     std::vector<TDestBalance> balances;
     std::map<int,TPassenger> passengers;
 };
-    
+
 class CentInterface : public JxtInterface
 {
 private:

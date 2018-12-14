@@ -33,6 +33,7 @@
 #include "passenger.h"
 #include "comp_props.h"
 #include "ckin_search.h"
+#include "payment_base.h"
 
 #include <serverlib/testmode.h>
 
@@ -1323,7 +1324,8 @@ class TPaxLoadItem
     int crs_ok,crs_tranzit; //данные бронирования
     int seats,adult_m,adult_f,child,baby; //пассажиры
     int rk_weight,bag_amount,bag_weight; //багаж
-    int excess_wt, excess_pc; //платный вес
+    TBagKilos excess_wt;  //платный вес
+    TBagPieces excess_pc; //платные места
 
     TPaxLoadItem():
       class_priority(NoExists),
@@ -1525,28 +1527,6 @@ class TZonePaxItem
     bool is_female;
 };
 
-string excessStr(int excess_wt, int excess_pc, bool &unit_required)
-{
-  ostringstream s;
-  if (excess_wt!=0 && excess_pc!=0)
-  {
-    s << excess_wt << getLocaleText("кг") << "/"
-      << excess_pc << getLocaleText("м");
-    unit_required=true;
-  }
-  else
-  {
-    if (excess_wt!=0)
-      s << excess_wt << (unit_required?getLocaleText("кг"):"");
-    else if
-       (excess_pc!=0)
-      s << excess_pc << (unit_required?getLocaleText("м"):"");
-    else
-      s << "0";
-  };
-  return s.str();
-}
-
 std::string createCrewFilter()
 {
   return "pax_grp.status NOT IN ('E') AND ";
@@ -1649,10 +1629,12 @@ struct PaxLoadTotalRowStruct {
   std::map<std::string, pair<int,int>> bags;
   int crs_ok;
   int crs_tranzit;
-  int excess_wt;
-  int excess_pc;
+  TBagKilos excess_wt;
+  TBagPieces excess_pc;
   int cfg;
-  PaxLoadTotalRowStruct() {
+  PaxLoadTotalRowStruct() :
+    excess_wt(0), excess_pc(0)
+  {
    seats = 0;
    adult_m = 0;
    adult_f = 0;
@@ -1663,8 +1645,6 @@ struct PaxLoadTotalRowStruct {
    rk_weight = 0;
    crs_ok = 0;
    crs_tranzit = 0;
-   excess_wt = 0;
-   excess_pc = 0;
    cfg = 0;
   }
 };
@@ -1689,8 +1669,8 @@ void createReadPaxLoadTotalRow( TQuery &Qry, int point_id, PaxLoadTotalRowStruct
     "         NVL(SUM(crs_tranzit),0) AS crs_tranzit "
     "  FROM counters2 "
     "  WHERE point_dep=:point_id) c, "
-    " (SELECT NVL(SUM(DECODE(piece_concept, 0, excess, NULL, excess,      0)),0) AS excess_wt, "
-    "         NVL(SUM(DECODE(piece_concept, 0,      0, NULL,      0, excess)),0) AS excess_pc "
+    " (SELECT NVL(SUM(excess_wt),0) AS excess_wt, "
+    "         NVL(SUM(excess_pc),0) AS excess_pc "
     "  FROM pax_grp "
     "  WHERE point_dep=:point_id AND status NOT IN ('E') AND bag_refuse=0) e, "
     " (SELECT NVL(SUM(cfg),0) AS cfg "
@@ -1778,6 +1758,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
   TTripInfo fltInfo(Qry);
   PaxLoadTotalRowStruct total;
+  TComplexBagExcessNodeList  excessNodeList(OutputLang(), {TComplexBagExcessNodeList::ContainsOnlyNonZeroExcess});
   createReadPaxLoadTotalRow( Qry, point_id, total );
   //секция строк
   xmlNodePtr rowsNode=NewTextChild(resNode,"rows");
@@ -1795,10 +1776,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   NewTextChild(rowNode,"crs_ok",total.crs_ok,0);
   NewTextChild(rowNode,"crs_tranzit",total.crs_tranzit,0);
 
-  bool excess_unit_required=false;
-  NewTextChild(rowNode,"excess",excessStr(total.excess_wt,
-                                          total.excess_pc,
-                                          excess_unit_required),"0");
+  excessNodeList.add(rowNode, "excess", total.excess_pc, total.excess_wt);
+
   NewTextChild(rowNode,"cfg",total.cfg,0);
   NewTextChild(rowNode,"load",getCommerceWeight( point_id, onlyCheckin, CWTotal ),0);
 
@@ -2079,8 +2058,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
           if (pr_status)      s << ", pax_grp.status";
         };
 
-        sql << "SELECT SUM(DECODE(piece_concept, 0, excess, NULL, excess,      0)) AS excess_wt, " << endl
-            << "       SUM(DECODE(piece_concept, 0,      0, NULL,      0, excess)) AS excess_pc, " << endl
+        sql << "SELECT SUM(excess_wt) AS excess_wt, " << endl
+            << "       SUM(excess_pc) AS excess_pc, " << endl
             << "       " << select.str().erase(0,1) << endl
             << "FROM pax_grp " << endl;
 
@@ -2364,7 +2343,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
       NewTextChild(rowNode,"rk_weight",i->rk_weight,0);
       if (!pr_section)
       {
-        NewTextChild(rowNode,"excess",excessStr(i->excess_wt, i->excess_pc, excess_unit_required),"0");
+        excessNodeList.add(rowNode, "excess", i->excess_pc, i->excess_wt);
+
         if (!pr_cl_grp && !pr_trfer && !pr_client_type && !pr_status && !pr_hall && !pr_user)
         {
           NewTextChild(rowNode,"crs_ok",i->crs_ok,0);
@@ -2757,10 +2737,7 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
   NewTextChild(rowNode,"rk_weight",total.rk_weight);
   NewTextChild(rowNode,"crs_ok",total.crs_ok);
   NewTextChild(rowNode,"crs_tranzit",total.crs_tranzit);
-  bool excess_unit_required=false;
-  NewTextChild(rowNode,"excess",excessStr(total.excess_wt,
-                                          total.excess_pc,
-                                          excess_unit_required));
+  NewTextChild(rowNode,"excess",TComplexBagExcess(total.excess_pc, total.excess_wt).view(OutputLang(), false));
   NewTextChild(rowNode,"section","");
   NewTextChild(rowNode,"cfg",total.cfg,0);
   for ( const auto& i : paxLoad ) {

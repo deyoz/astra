@@ -1474,34 +1474,3 @@ void GridInfoToXML(const TTrferRoute &trfer,
     if (free) break;
   };
 }
-
-TExcessNodeList::TExcessNodeList(): concept(ctInitial) {
-    must_work = true;
-    if (TReqInfo::Instance()->client_type != ASTRA::ctTerm)
-        must_work = false;
-}
-
-void TExcessNodeList::apply()
-{
-    if(concept == ctAll) {
-        for(TConceptList::iterator i = items.begin(); i != items.end(); i++) {
-            if(i->second)
-                NodeSetContent(i->first, std::string(NodeAsString(i->first))+AstraLocale::getLocaleText("¬"));
-            else
-                NodeSetContent(i->first, std::string(NodeAsString(i->first))+AstraLocale::getLocaleText("ª£"));
-        }
-    }
-}
-
-void TExcessNodeList::set_concept(xmlNodePtr& node, bool val)
-{   if(!must_work) return;
-    if(node) {
-        items.push_back(std::make_pair(node,val));
-    }
-    ConceptType tmp = (val == false ? ctWeight : ctPiece);
-    if(concept == ctInitial) {
-        concept = tmp;
-    } else if(concept != ctAll and concept != tmp)
-        concept = ctAll;
-}
-

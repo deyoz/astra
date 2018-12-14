@@ -2621,7 +2621,8 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
     "  ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
     "  ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight, "
-    "  ckin.get_excess(pax.grp_id,pax.pax_id) AS excess, "
+    "  ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
+    "  ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
     "  pax_grp.piece_concept, "
     "  ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
     "  mark_trips.airline AS airline_mark, "
@@ -2658,7 +2659,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     sql <<
     "  AND pax_grp.status NOT IN ('E') "
     "  AND ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, "
-    "                            pax_grp.piece_concept, pax_grp.excess, pax_grp.excess_wt, pax_grp.excess_pc, pax.pax_id)<>0 ";
+    "                            pax_grp.piece_concept, pax_grp.excess_wt, pax_grp.excess_pc, pax.pax_id)<>0 ";
   sql <<
     "ORDER BY pax.reg_no, pax.seats DESC"; //в будущем убрать ORDER BY
 
@@ -2670,7 +2671,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.CreateVariable("lang",otString,reqInfo->desk.lang);
   Qry.Execute();
   xmlNodePtr node=NewTextChild(resNode,"passengers");
-  TExcessNodeList excessNodeList;
+  TComplexBagExcessNodeList excessNodeList(OutputLang(), {TComplexBagExcessNodeList::ContainsOnlyNonZeroExcess});
   if (!Qry.Eof)
   {
     createDefaults=true;
@@ -2692,7 +2693,8 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     int col_bag_amount=Qry.FieldIndex("bag_amount");
     int col_bag_weight=Qry.FieldIndex("bag_weight");
     int col_rk_weight=Qry.FieldIndex("rk_weight");
-    int col_excess=Qry.FieldIndex("excess");
+    int col_excess_wt=Qry.FieldIndex("excess_wt");
+    int col_excess_pc=Qry.FieldIndex("excess_pc");
     int col_piece_concept=Qry.FieldIndex("piece_concept");
     int col_tags=Qry.FieldIndex("tags");
 
@@ -2777,9 +2779,10 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       NewTextChild(paxNode,"bag_weight",Qry.FieldAsInteger(col_bag_weight),0);
       NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger(col_rk_weight),0);
 
-      xmlNodePtr excessNode = NewTextChild(paxNode,"excess",Qry.FieldAsInteger(col_excess),0);
+      excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger(col_excess_pc)),
+                                            TBagKilos(Qry.FieldAsInteger(col_excess_wt)));
+
       bool piece_concept=Qry.FieldAsInteger(col_piece_concept)!=0;
-      excessNodeList.set_concept(excessNode, piece_concept);
 
       NewTextChild(paxNode,"tags",Qry.FieldAsString(col_tags),"");
       NewTextChild(paxNode,"rems",GetRemarkStr(rem_grp, pax_id, reqInfo->desk.lang),"");
@@ -2881,7 +2884,8 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL) AS bag_amount, "
     "  ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL) AS bag_weight, "
     "  ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL) AS rk_weight, "
-    "  ckin.get_excess(pax_grp.grp_id,NULL) AS excess, "
+    "  ckin.get_excess_wt(pax_grp.grp_id, NULL, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
+    "  ckin.get_excess_pc(pax_grp.grp_id, NULL) AS excess_pc, "
     "  ckin.get_birks2(pax_grp.grp_id,NULL,NULL,:lang) AS tags, "
     "  pax_grp.grp_id, "
     "  pax_grp.hall AS hall_id, "
@@ -2908,7 +2912,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if (with_rcpt_info)
     sql <<
     "  AND ckin.need_for_payment(pax_grp.grp_id, pax_grp.class, pax_grp.bag_refuse, "
-    "                            pax_grp.piece_concept, pax_grp.excess, pax_grp.excess_wt, pax_grp.excess_pc, NULL)<>0 ";
+    "                            pax_grp.piece_concept, pax_grp.excess_wt, pax_grp.excess_pc, NULL)<>0 ";
 
   //ProgTrace(TRACE5, "%s", sql.str().c_str());
 
@@ -2937,9 +2941,10 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       NewTextChild(paxNode,"bag_weight",Qry.FieldAsInteger("bag_weight"),0);
       NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger("rk_weight"),0);
 
-      xmlNodePtr excessNode = NewTextChild(paxNode,"excess",Qry.FieldAsInteger("excess"),0);
+      excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger("excess_pc")),
+                                            TBagKilos(Qry.FieldAsInteger("excess_wt")));
+
       bool piece_concept=Qry.FieldAsInteger("piece_concept")!=0;
-      excessNodeList.set_concept(excessNode, piece_concept);
 
       NewTextChild(paxNode,"tags",Qry.FieldAsString("tags"),"");
       if (with_rcpt_info)
@@ -2989,7 +2994,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(defNode, "bag_amount", 0);
     NewTextChild(defNode, "bag_weight", 0);
     NewTextChild(defNode, "rk_weight", 0);
-    NewTextChild(defNode, "excess", 0);
+    NewTextChild(defNode, "excess", "0");
     NewTextChild(defNode, "tags", "");
     //не для несопровождаемого багажа
     NewTextChild(defNode, "name", "");
@@ -5176,10 +5181,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           "    SELECT pax_grp__seq.nextval INTO :grp_id FROM dual; "
           "  END IF; "
           "  INSERT INTO pax_grp(grp_id,point_dep,point_arv,airp_dep,airp_arv,class, "
-          "    status,excess,excess_wt,excess_pc,hall,bag_refuse,trfer_confirm,user_id,desk,time_create,client_type, "
+          "    status,excess_wt,excess_pc,hall,bag_refuse,trfer_confirm,user_id,desk,time_create,client_type, "
           "    point_id_mark,pr_mark_norms,trfer_conflict,inbound_confirm,tid) "
           "  VALUES(:grp_id,:point_dep,:point_arv,:airp_dep,:airp_arv,:class, "
-          "    :status,0,0,0,:hall,0,:trfer_confirm,:user_id,:desk,:time_create,:client_type, "
+          "    :status,0,0,:hall,0,:trfer_confirm,:user_id,:desk,:time_create,:client_type, "
           "    :point_id_mark,:pr_mark_norms,:trfer_conflict,:inbound_confirm,cycle_tid__seq.nextval); "
           "  IF :seg_no IS NOT NULL THEN "
           "    IF :seg_no=1 THEN :tckin_id:=:grp_id; END IF; "
@@ -6715,7 +6720,6 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
 
   if (!Qry.get().FieldIsNULL("piece_concept")) return; //piece_cоncept уже установили
 
-  int bag_types_id=ASTRA::NoExists;
   TCkinGrpIds tckin_grp_ids;
   map<int/*seg_no*/,TBagConcept::Enum> bag_concept_by_seg;
   CheckIn::TPaxGrpCategory::Enum grp_cat;
@@ -6780,6 +6784,12 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
                 //определяем piece или weight по наличию/отсутствию RFISC
                 seg_concept=res.exists_rfisc(s->second.id, TServiceType::BaggageCharge)?TBagConcept::Piece:TBagConcept::Weight;
               }
+              if (seg_concept.get()==TBagConcept::Piece)
+              {
+                //определяем piece или weight по наличию/отсутствию багажных RFISC
+                boost::optional<bool> carry_on=false;
+                seg_concept=res.exists_rfisc(s->second.id, carry_on)?TBagConcept::Piece:TBagConcept::Weight;
+              }
               bag_concept_by_seg.insert(make_pair(s->second.id, seg_concept.get()));
 
               if ((unsigned)s->second.id<tckin_grp_ids.size())
@@ -6805,16 +6815,6 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
             {
               if (req.paxs.size()>9)
                 throw UserException("MSG.CHECKIN.PIECE_CONCEPT_NOT_SUPPORT_MORE_9_PASSENGERS");
-              boost::optional<TRFISCList> rfisc_list;
-              if (!res.identical_rfisc_list(segs.begin()->second.id, rfisc_list))  //проверяем идентичность только багажных RFISC и только на первом сегменте !!!потом убрать
-              {
-                string flight_view=GetTripName(segs.begin()->second.operFlt, ecCkin);
-                throw UserException("MSG.CHECKIN.DIFFERENT_RFISC_LISTS_ON_SEGMENT",
-                                    LParams()<<LParam("flight", flight_view));
-              }
-              if (!rfisc_list)
-                throw EXCEPTIONS::Exception("%s: strange situation: unknown rfisc_list!", __FUNCTION__);
-              bag_types_id=rfisc_list.get().toDBAdv(true);
             };
             res.rfiscsToDB(tckin_grp_ids, bag_concept.get(), true); //на первом этапе применяем только концепт багажа (old_version=true) !!!потом убрать
             res.normsToDB(tckin_grp_ids);
@@ -6830,7 +6830,6 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
           if (data.needSync()) throw;
 
           bag_concept_by_seg.clear();
-          bag_types_id=ASTRA::NoExists;
           if (res.error() &&
               (res.error_code=="1" || res.error_message=="Incorrect format") &&
               (res.error_reference.path=="passenger/ticket/number" ||
@@ -6865,13 +6864,12 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
 
   TCachedQuery GrpQry("BEGIN "
                       "  UPDATE pax_grp "
-                      "  SET piece_concept=:piece_concept, bag_types_id=:bag_types_id "
+                      "  SET piece_concept=:piece_concept "
                       "  WHERE grp_id=:grp_id "
                       "  RETURNING point_dep INTO :point_id; "
                       "END;",
                       QParams() << QParam("grp_id", otInteger)
                                 << QParam("piece_concept", otInteger)
-                                << QParam("bag_types_id", otInteger)
                                 << QParam("point_id", otInteger));
 
   TCachedQuery TrferQry("UPDATE transfer SET piece_concept=:piece_concept WHERE grp_id=:grp_id AND transfer_num=:transfer_num",
@@ -6886,7 +6884,6 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
     {
       GrpQry.get().SetVariable("grp_id", *grp_id);
       GrpQry.get().SetVariable("piece_concept", (int)false);
-      GrpQry.get().SetVariable("bag_types_id", FNull);
       GrpQry.get().SetVariable("point_id", FNull);
       GrpQry.get().Execute();
 
@@ -6910,8 +6907,6 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
         throw EXCEPTIONS::Exception("%s: strange situation: i->first=%d seg_no=%d!", __FUNCTION__, i->first, seg_no);
       GrpQry.get().SetVariable("grp_id", *grp_id);
       GrpQry.get().SetVariable("piece_concept", (int)(i->second==TBagConcept::Piece));
-      bag_types_id==ASTRA::NoExists?GrpQry.get().SetVariable("bag_types_id", FNull):
-                                    GrpQry.get().SetVariable("bag_types_id", bag_types_id);
       GrpQry.get().SetVariable("point_id", FNull);
       GrpQry.get().Execute();
       ++i;

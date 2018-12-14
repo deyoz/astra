@@ -34,14 +34,9 @@ FUNCTION need_for_payment(vgrp_id        IN pax_grp.grp_id%TYPE,
                           vclass         IN pax_grp.class%TYPE,
                           vbag_refuse    IN pax_grp.bag_refuse%TYPE,
                           vpiece_concept IN pax_grp.piece_concept%TYPE,
-                          vexcess        IN pax_grp.excess%TYPE,
                           vexcess_wt     IN pax_grp.excess_wt%TYPE,
                           vexcess_pc     IN pax_grp.excess_pc%TYPE,
                           vpax_id        IN pax.pax_id%TYPE) RETURN NUMBER;
-
-FUNCTION get_excess(vgrp_id         IN pax.grp_id%TYPE,
-                    vpax_id         IN pax.pax_id%TYPE,
-                    include_all_svc IN NUMBER DEFAULT 0) RETURN NUMBER;
 
 FUNCTION get_bagInfo2(vgrp_id       IN pax.grp_id%TYPE,
                       vpax_id  	    IN pax.pax_id%TYPE,
@@ -62,6 +57,16 @@ FUNCTION get_rkWeight2(vgrp_id       IN pax.grp_id%TYPE,
                        vpax_id  	   IN pax.pax_id%TYPE,
                        vbag_pool_num IN pax.bag_pool_num%TYPE,
                        row	         IN NUMBER DEFAULT 1) RETURN NUMBER;
+
+FUNCTION get_excess_wt(vgrp_id         IN pax.grp_id%TYPE,
+                       vpax_id         IN pax.pax_id%TYPE,
+                       vexcess_wt      IN pax_grp.excess_wt%TYPE DEFAULT NULL,
+                       vbag_refuse     IN pax_grp.bag_refuse%TYPE DEFAULT NULL) RETURN NUMBER;
+
+FUNCTION get_excess_pc(vgrp_id         IN pax.grp_id%TYPE,
+                       vpax_id         IN pax.pax_id%TYPE,
+                       include_all_svc IN NUMBER DEFAULT 0) RETURN NUMBER;
+
 FUNCTION get_crs_priority(vcrs           IN crs_set.crs%TYPE,
                           vairline       IN crs_set.airline%TYPE,
                           vflt_no        IN crs_set.flt_no%TYPE,
@@ -74,8 +79,6 @@ FUNCTION delete_grp_trfer(vgrp_id     pax_grp.grp_id%TYPE) RETURN NUMBER;
 FUNCTION delete_grp_tckin_segs(vgrp_id     pax_grp.grp_id%TYPE) RETURN NUMBER;
 PROCEDURE check_grp(vgrp_id     pax_grp.grp_id%TYPE);
 
-FUNCTION get_main_pax_id(vgrp_id IN pax_grp.grp_id%TYPE,
-                         include_refused IN NUMBER DEFAULT 1) RETURN pax.pax_id%TYPE;
 FUNCTION get_main_pax_id2(vgrp_id IN pax_grp.grp_id%TYPE,
                           include_refused IN NUMBER DEFAULT 1) RETURN pax.pax_id%TYPE;
 FUNCTION get_bag_pool_pax_id(vgrp_id       IN pax.grp_id%TYPE,

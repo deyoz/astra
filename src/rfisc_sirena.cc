@@ -309,36 +309,6 @@ bool TAvailabilityRes::identical_concept(int seg_id, bool carry_on, boost::optio
   return true;
 }
 
-bool TAvailabilityRes::identical_rfisc_list(int seg_id, boost::optional<TRFISCList> &rfisc_list) const //!!!потом убрать
-{
-  rfisc_list=boost::none;
-  for(TAvailabilityResMap::const_iterator i=begin(); i!=end(); ++i)
-  {
-    if (i->first.trfer_num!=seg_id) continue;
-    if (!rfisc_list)
-      rfisc_list=i->second.rfisc_list;
-    else
-    {
-      if (!rfisc_list.get().equal(i->second.rfisc_list,true))  //old_version - сравниваем только багажные RFISC
-      {
-        rfisc_list=boost::none;
-        return false;
-      }
-    };
-  };
-  return true;
-}
-
-bool TAvailabilityRes::exists_rfisc(int seg_id, TServiceType::Enum service_type) const
-{
-  for(TAvailabilityResMap::const_iterator i=begin(); i!=end(); ++i)
-  {
-    if (i->first.trfer_num!=seg_id) continue;
-    if (i->second.rfisc_list.exists(service_type)) return true;
-  };
-  return false;
-};
-
 void TAvailabilityRes::rfiscsToDB(const TCkinGrpIds &tckin_grp_ids, TBagConcept::Enum bag_concept, bool old_version) const
 {
   TPaxServiceLists serviceLists;
@@ -388,7 +358,7 @@ void TAvailabilityRes::rfiscsToDB(const TCkinGrpIds &tckin_grp_ids, TBagConcept:
       TPaxServiceListsItem serviceItem;
       serviceItem.pax_id=i->first.pax_id;
       serviceItem.trfer_num=i->first.trfer_num;
-      serviceItem.list_id=i->second.rfisc_list.toDBAdv(false);
+      serviceItem.list_id=i->second.rfisc_list.toDBAdv();
       serviceItem.category=cat;
       serviceLists.insert(serviceItem);
       if (old_version && cat==TServiceCategory::Baggage)
@@ -1185,7 +1155,7 @@ void ServicePaymentInterface::LoadServiceLists(XMLRequestCtxt *ctxt, xmlNodePtr 
     if (Qry.FieldAsInteger("rfisc_used")!=0)
     {
       TRFISCListWithProps list;
-      list.fromDB(list_id, false, true);
+      list.fromDB(list_id, true);
       list.getBagProps();
       list.setPriority();
       list.toXML(list_id, NewTextChild(svcNode, "service_list"));
