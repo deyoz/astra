@@ -70,9 +70,6 @@ PRAGMA RESTRICT_REFERENCES (get_crs_priority, WNDS, WNPS, RNPS);
 
 FUNCTION get_crs_ok(vpoint_id	IN points.point_id%TYPE) RETURN NUMBER;
 
-PROCEDURE crs_recount(vpoint_id	IN points.point_id%TYPE);
-PROCEDURE recount(vpoint_id	IN points.point_id%TYPE);
-
 FUNCTION delete_grp_trfer(vgrp_id     pax_grp.grp_id%TYPE) RETURN NUMBER;
 FUNCTION delete_grp_tckin_segs(vgrp_id     pax_grp.grp_id%TYPE) RETURN NUMBER;
 PROCEDURE check_grp(vgrp_id     pax_grp.grp_id%TYPE);

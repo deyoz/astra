@@ -3279,8 +3279,8 @@ void TSeatsBlockingList::toDB(const int& paxId) const
   TQuery Qry(&OraSession);
   Qry.SQLText =
     "BEGIN "
-    "  UPDATE crs_seats_blocking SET surname=:surname, pr_del=0 "
-    "  WHERE pax_id=:pax_id AND name=:name AND pr_del<>0 AND rownum<2; "
+    "  UPDATE crs_seats_blocking SET pr_del=0 "
+    "  WHERE pax_id=:pax_id AND surname=:surname AND name=:name AND pr_del<>0 AND rownum<2; "
     "  IF SQL%NOTFOUND THEN "
     "    INSERT INTO crs_seats_blocking(seat_id, surname, name, pax_id, pr_del) "
     "    VALUES(pax_id.nextval, :surname, :name, :pax_id, 0);"
