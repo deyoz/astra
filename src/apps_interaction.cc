@@ -900,8 +900,10 @@ bool TPaxRequest::getByPaxId( const int pax_id, Timing::Points& timing, const st
     timing.finish("getByPaxId");
     throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
   }
+  timing.start("getByPaxId version, header");
   version = GetVersion(airline.code, getCountryByAirp( airp_arv ).code);
   header = makeHeader( airline.code_lat );
+  timing.finish("getByPaxId version, header");
   timing.start("getByPaxId trans.init");
   trans.init( false, (Qry.FieldIsNULL("refuse"))?"CIRQ":"CICX", getUserId( airline ), version );
   timing.finish("getByPaxId trans.init");
@@ -951,10 +953,12 @@ bool TPaxRequest::getByPaxId( const int pax_id, Timing::Points& timing, const st
   }
   timing.finish("getByPaxId transfer");
   // заполним информацию о пассажире
+  timing.start("getByPaxId name, status, gender");
   string name = (!Qry.FieldIsNULL("name"))?Qry.FieldAsString("name"):"";
   TPaxStatus pax_status = DecodePaxStatus(Qry.FieldAsString("status"));
   ASTRA::TTrickyGender::Enum tricky_gender = CheckIn::TSimplePaxItem::getTrickyGender(
     DecodePerson(Qry.FieldAsString("pers_type")), CheckIn::TSimplePaxItem::genderFromDB(Qry) );
+  timing.finish("getByPaxId name, status, gender");
   timing.start("getByPaxId pax.init");
   pax.init( pax_id, Qry.FieldAsString("surname"), name, (pax_status==psCrew), transfer, override_type,
     Qry.FieldAsInteger("reg_no"), tricky_gender, version );
@@ -1008,8 +1012,10 @@ bool TPaxRequest::getByCrsPaxId( const int pax_id, Timing::Points& timing, const
     timing.finish("getByCrsPaxId");
     throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
   }
+  timing.start("getByCrsPaxId version, header");
   version = GetVersion(airline.code, getCountryByAirp( airp_arv ).code);
   header = makeHeader( airline.code_lat );
+  timing.finish("getByCrsPaxId version, header");
   timing.start("getByCrsPaxId trans.init");
   trans.init( true, Qry.FieldAsInteger("pr_del")?"CICX":"CIRQ", getUserId( airline ), version );
   timing.finish("getByCrsPaxId trans.init");
@@ -1041,9 +1047,11 @@ bool TPaxRequest::getByCrsPaxId( const int pax_id, Timing::Points& timing, const
   }
   timing.finish("getByCrsPaxId transfer");
   // заполним информацию о пассажире
+  timing.start("getByCrsPaxId name, gender");
   string name = (!Qry.FieldIsNULL("name"))?Qry.FieldAsString("name"):"";
   ASTRA::TTrickyGender::Enum tricky_gender = CheckIn::TSimplePaxItem::getTrickyGender(
     DecodePerson(Qry.FieldAsString("pers_type")), TGender::Unknown );
+  timing.finish("getByCrsPaxId name, gender");
   timing.start("getByCrsPaxId pax.init");
   pax.init( pax_id, Qry.FieldAsString("surname"), name, false, transfer, override_type,
     ASTRA::NoExists, tricky_gender, version );
