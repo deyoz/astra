@@ -370,7 +370,8 @@ void TicketEdiR::operator () (ReaderData &RData, list<Ticket> &ltick,
         } else if(tick_act_code == TickStatAction::inConnectionWith)  {
             ASSERT(tkt->m_inConnectionTicketNum);
             Ticket ticket(tkt->m_ticketNum.get(), tick_act_code,
-                          *tkt->m_nBooklets, getConnectedCoupons(pMes, Data.currTicket().first));
+                          tkt->m_nBooklets ? *tkt->m_nBooklets : 1,
+                          getConnectedCoupons(pMes, Data.currTicket().first));
             if(tkt->m_inConnectionTicketNum)
                 ticket.setConnectedDocNum(*tkt->m_inConnectionTicketNum);
             ltick.push_back(ticket);
