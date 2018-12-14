@@ -18,18 +18,50 @@ class TComplexBagExcess
     std::string view(const AstraLocale::OutputLang &lang,
                      const bool &unitRequired,
                      const std::string& separator="/") const;
+    std::string deprecatedView(const AstraLocale::OutputLang &lang) const;
+    bool zero() const { return pc.zero() && wt.zero(); }
+    int getDeprecatedInt() const;
 
+    bool operator == (const TComplexBagExcess &item) const
+    {
+      return pc==item.pc &&
+             wt==item.wt;
+    }
+
+    TComplexBagExcess& operator += (const TComplexBagExcess &item)
+    {
+      pc+=item.pc;
+      wt+=item.wt;
+      return *this;
+    }
 };
+
+class TComplexBagExcessNodeItem
+{
+  public:
+    xmlNodePtr node;
+    TComplexBagExcess complexExcess;
+
+    TComplexBagExcessNodeItem(xmlNodePtr _node,
+                              const TComplexBagExcess& _complexExcess) :
+      node(_node), complexExcess(_complexExcess) {}
+};
+
 
 class TComplexBagExcessNodeList
 {
+  public:
+    enum Props {ContainsOnlyNonZeroExcess, UnitRequiredAnyway, DeprecatedIntegerOutput};
+
   private:
     void apply() const;
-    std::forward_list<std::pair<xmlNodePtr, TComplexBagExcess>> excessList;
+    std::forward_list<TComplexBagExcessNodeItem> excessList;
     bool pcExists, wtExists;
     bool _containsOnlyNonZeroExcess;
-    AstraLocale::OutputLang _lang;
     bool _unitRequiredAnyway;
+    bool _deprecatedIntegerOutput;
+    AstraLocale::OutputLang _lang;
+
     std::string _separator;
   public:
     void add(xmlNodePtr parent,
@@ -37,15 +69,15 @@ class TComplexBagExcessNodeList
              const TBagQuantity& excess1,
              const TBagQuantity& excess2);
 
-    TComplexBagExcessNodeList(const bool& containsOnlyNonZeroExcess,
-                              const AstraLocale::OutputLang &lang,
-                              const bool &unitRequiredAnyway=false,
+    TComplexBagExcessNodeList(const AstraLocale::OutputLang &lang,
+                              const std::set<Props> &props,
                               const std::string& separator="/") :
       pcExists(false),
       wtExists(false),
-      _containsOnlyNonZeroExcess(containsOnlyNonZeroExcess),
+      _containsOnlyNonZeroExcess(props.find(ContainsOnlyNonZeroExcess)!=props.end()),
+      _unitRequiredAnyway(props.find(UnitRequiredAnyway)!=props.end()),
+      _deprecatedIntegerOutput(props.find(DeprecatedIntegerOutput)!=props.end()),
       _lang(lang),
-      _unitRequiredAnyway(unitRequiredAnyway),
       _separator(separator) {}
     ~TComplexBagExcessNodeList() { apply(); }
 

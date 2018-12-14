@@ -118,34 +118,6 @@ class TServiceStatuses : public ASTRA::PairList<TServiceStatus::Enum, std::strin
 
 const TServiceStatuses& ServiceStatuses();
 
-class TEmdType  //только для совместимости со старым протоколом
-{
-  public:
-    static const std::list< std::pair<std::string, std::string> >& pairs()
-    {
-      static std::list< std::pair<std::string, std::string> > l;
-      if (l.empty())
-      {
-        l.push_back(std::make_pair("A", "EMD-A"));
-        l.push_back(std::make_pair("S", "EMD-S"));
-        l.push_back(std::make_pair("O", "OTHR"));
-      }
-      return l;
-    }
-};
-
-class TEmdTypes : public ASTRA::PairList<std::string, std::string>
-{
-  private:
-    virtual std::string className() const { return "TEmdTypes"; }
-  public:
-    TEmdTypes() : ASTRA::PairList<std::string, std::string>(TEmdType::pairs(),
-                                                            std::string(""),
-                                                            std::string("")) {}
-};
-
-const TEmdTypes& EmdTypes();
-
 class TRFISCListKey
 {
   public:
@@ -272,8 +244,8 @@ class TRFISCListItem : public TRFISCListKey
     TRFISCListItem& fromSirenaXML(xmlNodePtr node);
 
     const TRFISCListItem& toXML(xmlNodePtr node, const boost::optional<TRFISCListItem> &def=boost::none) const;
-    const TRFISCListItem& toDB(TQuery &Qry, bool old_version) const;
-    TRFISCListItem& fromDB(TQuery &Qry, bool old_version);
+    const TRFISCListItem& toDB(TQuery &Qry) const;
+    TRFISCListItem& fromDB(TQuery &Qry);
     std::string traceStr() const;
 };
 
@@ -374,17 +346,16 @@ class TRFISCList : public TRFISCListMap
     void update_stat(const TRFISCListItem &item);
     void recalc_stat();
   public:
-    boost::optional<TRFISCListKey> getBagRFISCListKey(const std::string &RFISC, const bool &carry_on) const;
     void fromSirenaXML(xmlNodePtr node);
     void toXML(int list_id, xmlNodePtr node) const;
-    void fromDB(int list_id, bool old_version, bool only_visible=false); // загрузка только списка RFISC
-    void toDB(int list_id, bool old_version, const std::string &baggage_airline) const; // сохранение только списка RFISC
-    int crc(bool old_version, const std::string &baggage_airline="") const;
-    int toDBAdv(bool old_version) const; //продвинутое сохранение с анализом существующих справочников
+    void fromDB(int list_id, bool only_visible=false); // загрузка только списка RFISC
+    void toDB(int list_id) const; // сохранение только списка RFISC
+    int crc() const;
+    int toDBAdv() const; //продвинутое сохранение с анализом существующих справочников
     std::string localized_name(const TRFISCListKey &key, const std::string& lang) const; //локализованное описание RFISC
     bool exists(const TServiceType::Enum service_type) const;
-    bool equal(const TRFISCList &list, bool old_version, const std::string &baggage_airline="") const;
-    bool included_in_old_version(const TRFISCListItem& item, const std::string &baggage_airline) const;
+    bool exists(const boost::optional<bool>& carry_on) const;
+    bool equal(const TRFISCList &list) const;
     void dump() const;
 };
 

@@ -54,6 +54,17 @@ std::string TComplexBagExcess::view(const AstraLocale::OutputLang &lang,
   return s.str();
 }
 
+std::string TComplexBagExcess::deprecatedView(const AstraLocale::OutputLang &lang) const
+{
+  return !wt.zero()?wt.view(lang, false):
+                    pc.view(lang, false);
+}
+
+int TComplexBagExcess::getDeprecatedInt() const
+{
+  return (!wt.zero()?wt:pc).getQuantity();
+}
+
 void TComplexBagExcessNodeList::add(xmlNodePtr parent,
                                     const char *name,
                                     const TBagQuantity& excess1,
@@ -72,8 +83,10 @@ void TComplexBagExcessNodeList::apply() const
   try
   {
     bool unitRequiredTmp=unitRequired();
-    for(const auto& i : excessList)
-      NodeSetContent(i.first, i.second.view(_lang, unitRequiredTmp, _separator));
+    for(const TComplexBagExcessNodeItem& i : excessList)
+      NodeSetContent(i.node, _deprecatedIntegerOutput?
+                               i.complexExcess.deprecatedView(_lang):
+                               i.complexExcess.view(_lang, unitRequiredTmp, _separator));
   }
   catch(...) {}
 }

@@ -910,7 +910,9 @@ struct TPMTotalsCmp {
 };
 
 struct TPMTotalsRow {
-    int seats, adl_m, adl_f, chd, inf, rk_weight, bag_amount, bag_weight, excess_wt, excess_pc;
+    int seats, adl_m, adl_f, chd, inf, rk_weight, bag_amount, bag_weight;
+    TBagKilos excess_wt;
+    TBagPieces excess_pc;
     int xcr, dhc, mos, jmp;
     TPMTotalsRow():
         seats(0),
@@ -1403,8 +1405,8 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         row.rk_weight += Qry.FieldAsInteger("rk_weight");
         row.bag_amount += Qry.FieldAsInteger("bag_amount");
         row.bag_weight += Qry.FieldAsInteger("bag_weight");
-        int excess_wt=Qry.FieldAsInteger("excess_wt");
-        int excess_pc=Qry.FieldAsInteger("excess_pc");
+        TBagKilos excess_wt=Qry.FieldAsInteger("excess_wt");
+        TBagPieces excess_pc=Qry.FieldAsInteger("excess_pc");
 
         row.excess_wt += excess_wt;
         row.excess_pc += excess_pc;
@@ -1450,12 +1452,11 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
         NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
 
-        NewTextChild(rowNode, "excess", TComplexBagExcess(TBagKilos(excess_wt),
-                                                          TBagPieces(excess_pc)).
+        NewTextChild(rowNode, "excess", TComplexBagExcess(excess_wt, excess_pc).
                                           view(OutputLang(rpt_params.GetLang()), true));
         // для суммы по группе Всего в классе
-        NewTextChild(rowNode, "excess_pc", excess_pc);
-        NewTextChild(rowNode, "excess_kg", excess_wt);
+        NewTextChild(rowNode, "excess_pc", excess_pc.getQuantity());
+        NewTextChild(rowNode, "excess_kg", excess_wt.getQuantity());
 
         {
           string gender;
@@ -1529,8 +1530,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "rk_weight", row.rk_weight);
         NewTextChild(rowNode, "bag_amount", row.bag_amount);
         NewTextChild(rowNode, "bag_weight", row.bag_weight);
-        NewTextChild(rowNode, "excess", TComplexBagExcess(TBagKilos(row.excess_wt),
-                                                          TBagPieces(row.excess_pc)).
+        NewTextChild(rowNode, "excess", TComplexBagExcess(row.excess_wt, row.excess_pc).
                                           view(OutputLang(rpt_params.GetLang()), true));
         NewTextChild(rowNode, "xcr", row.xcr);
         NewTextChild(rowNode, "dhc", row.dhc);
@@ -3556,7 +3556,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       if (fltInfo.getByPointId(rpt_params.point_id))
         check_pay_on_tckin_segs=GetTripSets(tsCheckPayOnTCkinSegs, fltInfo);
 
-      TComplexBagExcessNodeList excessNodeList(false, OutputLang(rpt_params.GetLang()), false, "+");
+      TComplexBagExcessNodeList excessNodeList(OutputLang(rpt_params.GetLang()), {}, "+");
       for( ; !Qry.Eof; Qry.Next()) {
         CheckIn::TSimplePaxItem pax;
         pax.fromDB(Qry);

@@ -125,8 +125,17 @@ class TBagQuantity
       quantity(_quantity), unit(_unit) {}
     std::string view(const AstraLocale::OutputLang &lang, const bool &unitRequired=true) const;
     Ticketing::Baggage::Baggage_t getUnit() const { return unit.get(); }
+    int getQuantity() const { return quantity; }
     bool empty() const { return unit.empty(); }
     bool zero() const { return quantity==0; }
+
+    bool operator == (const TBagQuantity &item) const
+    {
+      return quantity==item.quantity &&
+             unit.get()==item.unit.get();
+    }
+
+    TBagQuantity& operator += (const TBagQuantity &item);
 };
 
 class TBagPieces : public TBagQuantity

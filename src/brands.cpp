@@ -87,7 +87,7 @@ void TBrands::traceCaching() const
   LogTrace(TRACE5) << "getsTotal: " << getsTotal << "; getsCached: " << getsCached;
 }
 
-const std::string TBrand::name(const AstraLocale::OutputLang& lang) const
+std::string TBrand::name(const AstraLocale::OutputLang& lang) const
 {
   if (id==ASTRA::NoExists) return "";
   return ElemIdToPrefferedElem(etBrand, id, efmtNameLong, lang.get());

@@ -43,10 +43,6 @@ FUNCTION get_birks2(vpart_key     IN arx_pax.part_key%TYPE,
                     vbag_pool_num IN arx_pax.bag_pool_num%TYPE,
                     vlang	        IN lang_types.code%TYPE) RETURN VARCHAR2;
 
-FUNCTION get_excess(vpart_key     IN arx_pax.part_key%TYPE,
-                    vgrp_id       IN arx_pax.grp_id%TYPE,
-                    vpax_id       IN arx_pax.pax_id%TYPE) RETURN NUMBER;
-
 FUNCTION get_bagInfo2(vpart_key     IN arx_pax.part_key%TYPE,
                       vgrp_id       IN arx_pax.grp_id%TYPE,
                       vpax_id 	    IN arx_pax.pax_id%TYPE,
@@ -71,6 +67,13 @@ FUNCTION get_rkWeight2(vpart_key     IN arx_pax.part_key%TYPE,
                        vpax_id  	   IN arx_pax.pax_id%TYPE,
                        vbag_pool_num IN arx_pax.bag_pool_num%TYPE,
                        row	         IN NUMBER DEFAULT 1) RETURN NUMBER;
+
+FUNCTION get_excess_wt(vpart_key       IN arx_pax.part_key%TYPE,
+                       vgrp_id         IN arx_pax.grp_id%TYPE,
+                       vpax_id         IN arx_pax.pax_id%TYPE,
+                       vexcess_wt      IN arx_pax_grp.excess_wt%TYPE DEFAULT NULL,
+                       vexcess_nvl     IN arx_pax_grp.excess%TYPE DEFAULT NULL,
+                       vbag_refuse     IN arx_pax_grp.bag_refuse%TYPE DEFAULT NULL) RETURN NUMBER;
 
 FUNCTION next_airp(vpart_key     IN arx_points.part_key%TYPE,
                    vfirst_point  IN arx_points.first_point%TYPE,

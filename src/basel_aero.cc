@@ -455,7 +455,8 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
       "arch.get_bagAmount2(pax_grp.part_key,pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
       "arch.get_bagWeight2(pax_grp.part_key,pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
       "arch.get_rkWeight2(pax_grp.part_key,pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight, "
-      "arch.get_excess(pax_grp.part_key,pax_grp.grp_id,pax.pax_id) AS excess, "
+      "arch.get_excess_wt(pax.part_key, pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.excess, pax_grp.bag_refuse) AS excess_wt, "
+      "NULL AS excess_pc, "
       "arch.get_birks2(pax_grp.part_key,pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,'RU') AS tags, "
       "arch.get_main_pax_id2(pax_grp.part_key,pax_grp.grp_id) AS main_pax_id "
       "FROM arx_pax_grp pax_grp, arx_pax pax "
@@ -473,7 +474,8 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
       "ckin.get_bagAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
       "ckin.get_bagWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
       "ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight, "
-      "ckin.get_excess(pax_grp.grp_id,pax.pax_id) AS excess, "
+      "ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
+      "ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
       "ckin.get_birks2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,'RU') AS tags, "
       "ckin.get_main_pax_id2(pax_grp.grp_id) AS main_pax_id "
       "FROM pax_grp, pax "
@@ -508,7 +510,8 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
     stat.viewPCT = Qry.FieldAsInteger("bag_amount");
     stat.viewWeight = Qry.FieldAsInteger("bag_weight");
     stat.viewCarryon = Qry.FieldAsInteger("rk_weight");
-    stat.viewPayWeight = Qry.FieldAsInteger("excess");
+    stat.viewPayWeight = TComplexBagExcess(TBagPieces(Qry.FieldAsInteger("excess_pc")),
+                                           TBagKilos(Qry.FieldAsInteger("excess_wt"))).getDeprecatedInt();
     stat.viewTag = string(Qry.FieldAsString("tags")).substr(0,100);
     pair<TDateTime, TDateTime> times(NoExists, NoExists);
     std::list< std::pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;

@@ -2349,7 +2349,7 @@ bool TPassenger::is_valid_seats( const std::vector<SALONS2::TPlace> &places )
   return AllowedAttrsSeat.passSeats( pers_type, isRemark( "INFT" ), places );
 }
 
-void TPassenger::build( xmlNodePtr pNode, const TDefaults& def )
+void TPassenger::build( xmlNodePtr pNode, const TDefaults& def, TComplexBagExcessNodeList &excessNodeList)
 {
   NewTextChild( pNode, "grp_id", grpId );
   NewTextChild( pNode, "pax_id", paxId );
@@ -2371,7 +2371,7 @@ void TPassenger::build( xmlNodePtr pNode, const TDefaults& def )
   NewTextChild( pNode, "document", document, def.document );
   NewTextChild( pNode, "bag_weight", bag_weight, def.bag_weight );
   NewTextChild( pNode, "bag_amount", bag_amount, def.bag_amount );
-  NewTextChild( pNode, "excess", excess, def.excess );
+  excessNodeList.add(pNode, "excess", excess_pc, excess_wt);
   NewTextChild( pNode, "trip_from", trip_from, def.trip_from );
 
   string comp_rem;
@@ -3896,7 +3896,8 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p )
     "       pax.ticket_no, "
     "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
     "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
-    "       ckin.get_excess(pax.grp_id,pax.pax_id) AS excess, "
+    "       ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
+    "       ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
     "       pax.tid, "
     "       pax.wl_type, "
     "       pax_grp.point_arv, "
@@ -3933,7 +3934,8 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p )
     pass.document = CheckIn::GetPaxDocStr(NoExists, Qry.FieldAsInteger( "pax_id" ), true);
     pass.bag_weight = Qry.FieldAsInteger( "bag_weight" );
     pass.bag_amount = Qry.FieldAsInteger( "bag_amount" );
-    pass.excess = Qry.FieldAsInteger( "excess" );
+    pass.excess_wt = Qry.FieldAsInteger( "excess_wt" );
+    pass.excess_pc = Qry.FieldAsInteger( "excess_pc" );
     pass.grp_status = DecodeCompLayerType(((const TGrpStatusTypesRow&)grp_status_types.get_row("code",Qry.FieldAsString( "status" ))).layer_type.c_str());
     pass.pers_type = Qry.FieldAsString( "pers_type" );
     pass.wl_type = Qry.FieldAsString( "wl_type" );
@@ -5220,15 +5222,15 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
     tst();
     return changedOrNotPay;
   }
-  
+
   std::set<TCompLayerType> checkinLayers { cltGoShow, cltTranzit, cltCheckin, cltTCheckin };
-  if ( 
-       seat_type == stReseat && //пересадка       
-       checkinLayers.find( layer_type ) != checkinLayers.end() // уже зарегистрированного       
+  if (
+       seat_type == stReseat && //пересадка
+       checkinLayers.find( layer_type ) != checkinLayers.end() // уже зарегистрированного
      ) {
     DCSServiceApplying::throwIfNotAllowed( pax_id, DCSService::Enum::ChangeSeatOnDesk ); //нельзя делать пересадку, т.к. должны быть услуги
   }
-  
+
   //checkDCSServices( pax_id );
 
   int curr_tid = NoExists;
@@ -5800,6 +5802,8 @@ void TPassengers::Build( xmlNodePtr dataNode )
   TDefaults def;
   bool createDefaults=false;
   vector<TPassenger> ps;
+  TComplexBagExcessNodeList excessNodeList(OutputLang(), {TComplexBagExcessNodeList::ContainsOnlyNonZeroExcess,
+                                                          TComplexBagExcessNodeList::DeprecatedIntegerOutput});
   while ( !Qry.Eof ) {
     for (VPassengers::iterator p=FPassengers.begin(); p!=FPassengers.end(); p++ ) {
         if ( p->InUse || p->grp_status != DecodeCompLayerType(Qry.FieldAsString( "layer_type" )) )
@@ -5814,7 +5818,7 @@ void TPassengers::Build( xmlNodePtr dataNode )
         xmlNodePtr pNode = NewTextChild( passNode, "layer_type", Qry.FieldAsString( "layer_type" ) );
         SetProp( pNode, "name", Qry.FieldAsString( "name" ) );
         for ( vector<TPassenger>::iterator ip=ps.begin(); ip!=ps.end(); ip++ ) {
-            ip->build( NewTextChild( pNode, "pass" ), def );
+            ip->build( NewTextChild( pNode, "pass" ), def, excessNodeList );
             ip->InUse = true;
         }
         ps.clear();
@@ -5835,7 +5839,7 @@ void TPassengers::Build( xmlNodePtr dataNode )
     NewTextChild( defNode, "document", def.document );
     NewTextChild( defNode, "bag_weight", def.bag_weight );
     NewTextChild( defNode, "bag_amount", def.bag_amount );
-    NewTextChild( defNode, "excess", def.excess );
+    NewTextChild( defNode, "excess", "0" );
     NewTextChild( defNode, "trip_from", def.trip_from );
     NewTextChild( defNode, "comp_rem", def.comp_rem );
     NewTextChild( defNode, "pr_down", (int)def.pr_down );

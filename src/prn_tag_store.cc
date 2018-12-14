@@ -1068,6 +1068,8 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
                 "   ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_weight, "
                 "   ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_amount, "
                 "   ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_weight, "
+                "   ckin.get_excess_wt(pax.grp_id, NULL) AS excess_wt, "
+                "   ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
                 "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
                 "   pax.subclass, "
                 "   crs_pnr.class crs_cls "
@@ -1104,6 +1106,8 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
                 "   0 AS bag_weight, "
                 "   0 AS rk_amount, "
                 "   0 AS rk_weight, "
+                "   0 AS excess_wt, "
+                "   0 AS excess_pc, "
                 "   NULL AS tags, "
                 "   null subclass, "
                 "   null crs_cls "
@@ -1141,6 +1145,8 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
         bag_weight = Qry.FieldAsInteger("bag_weight");
         rk_amount = Qry.FieldAsInteger("rk_amount");
         rk_weight = Qry.FieldAsInteger("rk_weight");
+        excess_wt = Qry.FieldAsInteger("excess_wt");
+        excess_pc = Qry.FieldAsInteger("excess_pc");
         tags = Qry.FieldAsString("tags");
         subcls = Qry.FieldAsString("subclass");
         crs_cls = Qry.FieldAsString("crs_cls");
@@ -1187,8 +1193,7 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
                 "   airp_arv, "
                 "   class_grp, "
                 "   class, "
-                "   hall, "
-                "   DECODE(pax_grp.bag_refuse,0,pax_grp.excess,0) AS excess "
+                "   hall "
                 "from "
                 "   pax_grp "
                 "where "
@@ -1206,7 +1211,6 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
             cls = Qry.FieldAsString("class");
             if(not Qry.FieldIsNULL("hall"))
                 hall = Qry.FieldAsInteger("hall");
-            excess = Qry.FieldAsInteger("excess");
 
             TTripInfo info;
             info.getByPointId(point_dep);
@@ -1247,7 +1251,6 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
             if(Qry.Eof)
                 throw Exception("TPrnTagStore::TGrpInfo::Init no data found for grp_id = %d", grp_id);
             class_grp = Qry.FieldAsInteger("class_grp");
-            excess =0;
         };
     }
 }
@@ -1868,6 +1871,16 @@ string TPrnTagStore::BAG_WEIGHT(TFieldParams fp)
     return (bagWeight == 0 ? "" : IntToString(paxInfo.bag_weight));
 }
 
+string TPrnTagStore::EXCESS(TFieldParams fp)
+{
+    int exbg_wt = 0;
+    if(!fp.TagInfo.empty())
+        exbg_wt = boost::any_cast<int>(fp.TagInfo);
+    else if(scan_data == NULL)
+        exbg_wt = paxInfo.excess_wt.getQuantity();
+    return (exbg_wt == 0 ? "" : IntToString(exbg_wt));
+}
+
 string TPrnTagStore::BRAND(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
@@ -2111,16 +2124,6 @@ string TPrnTagStore::ETKT(TFieldParams fp)
     if(not result.empty())
         result = "ETKT" + result;
     return result;
-}
-
-string TPrnTagStore::EXCESS(TFieldParams fp)
-{
-    int exbg = 0;
-    if(!fp.TagInfo.empty())
-        exbg = boost::any_cast<int>(fp.TagInfo);
-    else if(scan_data == NULL)
-        exbg = grpInfo.excess;
-    return (exbg == 0 ? "" : IntToString(exbg));
 }
 
 string TPrnTagStore::FLT_NO(TFieldParams fp)

@@ -74,6 +74,18 @@ std::string TBagQuantity::view(const AstraLocale::OutputLang &lang, const bool &
   return s.str();
 }
 
+TBagQuantity& TBagQuantity::operator += (const TBagQuantity &item)
+{
+
+  if (unit.get()!=item.unit.get())
+    throw Exception("%s: impossible to summarize (%s+=%s)",
+                    __FUNCTION__,
+                    view(AstraLocale::OutputLang(LANG_EN)).c_str(),
+                    item.view(AstraLocale::OutputLang(LANG_EN)).c_str());
+  quantity+=item.quantity;
+  return *this;
+}
+
 namespace Sirena
 {
 

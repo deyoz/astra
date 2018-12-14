@@ -7,6 +7,8 @@
 #include "seats_utils.h"
 #include "base_tables.h"
 #include "date_time.h"
+#include "payment_base.h"
+#include "baggage_base.h"
 #include <map>
 #include <libxml/tree.h>
 
@@ -70,7 +72,6 @@ struct TDefaults {
   std::string document;
   int bag_weight;
   int bag_amount;
-  int excess;
   std::string trip_from;
   std::string pass_rem;
   std::string comp_rem;
@@ -83,7 +84,6 @@ struct TDefaults {
     isSeat = true;
     bag_weight = 0;
     bag_amount = 0;
-    excess = 0;
     pr_down = false;
   };
 };
@@ -137,7 +137,8 @@ struct TPassenger {
     std::string document;
     int bag_weight;
     int bag_amount;
-    int excess;
+    TBagKilos excess_wt;
+    TBagPieces excess_pc;
     std::string trip_from;
     std::string pass_rem;
     /*выход*/
@@ -148,11 +149,12 @@ struct TPassenger {
     bool isValidPlace;
     TSeatTariffMapType tariffs;
     TSeatTariffMap::TStatus tariffStatus;
-    TPassenger() {
+    TPassenger() :
+      excess_wt(0), excess_pc(0)
+    {
       regNo = -1;
       bag_weight = 0;
       bag_amount = 0;
-      excess = 0;
       countPlace = 1;
       is_jmp = false;
       prSmoke = false;
@@ -176,7 +178,7 @@ struct TPassenger {
     void get_remarks( std::vector<std::string> &vrems );
     bool isRemark( std::string code );
     bool is_valid_seats( const std::vector<SALONS2::TPlace> &places );
-    void build( xmlNodePtr pNode, const TDefaults& def);
+    void build(xmlNodePtr pNode, const TDefaults& def, TComplexBagExcessNodeList &excessNodeList);
     std::string toString() const {
       std::ostringstream buf;
       buf << std::fixed << std::setprecision(2);
@@ -250,8 +252,11 @@ struct TPassenger {
       if ( bag_amount > 0 ) {
         buf << "bag_amount=" << bag_amount << ",";
       }
-      if ( excess != 0 ) {
-        buf << "excess=" << excess << ",";
+      if ( !excess_wt.zero() ) {
+        buf << "excess_wt=" << excess_wt.view(AstraLocale::OutputLang(AstraLocale::LANG_EN), true) << ",";
+      }
+      if ( !excess_pc.zero() ) {
+        buf << "excess_pc=" << excess_pc.view(AstraLocale::OutputLang(AstraLocale::LANG_EN), true) << ",";
       }
       if ( !trip_from.empty() ) {
         buf << "trip_from=" << trip_from << ",";

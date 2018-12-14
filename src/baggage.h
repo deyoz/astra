@@ -312,21 +312,5 @@ void GridInfoToXML(const TTrferRoute &trfer,
                    const TPaidBagViewMap &trferBag,
                    xmlNodePtr node);
 
-struct TExcessNodeList {
-    enum ConceptType {ctInitial, ctAll, ctPiece, ctWeight} concept;
-    typedef std::vector<std::pair<xmlNodePtr, bool> > TConceptList; // bool: false - weight, true - seat
-    TConceptList items;
-    bool must_work;
-    void set_concept(xmlNodePtr& node, bool val);
-    TExcessNodeList();
-    ~TExcessNodeList()
-    {  if(must_work) apply();
-        //временно отключено
-
-    }
-private:
-     void apply();
-};
-
 #endif
 

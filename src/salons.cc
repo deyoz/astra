@@ -10146,13 +10146,15 @@ bool _TSalonPassengers::BuildWaitList( xmlNodePtr dataNode )
 
   Qry.Clear();
   Qry.SQLText =
-    "SELECT ticket_no, wl_type, tid, "
+    "SELECT pax.ticket_no, pax.wl_type, pax.tid, "
     "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:rnum) AS bag_weight, "
     "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:rnum) AS bag_amount, "
-    "       ckin.get_excess(pax.grp_id,pax.pax_id) AS excess, "
+    "       ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
+    "       ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
     "       tckin_pax_grp.tckin_id, tckin_pax_grp.seg_no "
-    "FROM pax, tckin_pax_grp "
-    "WHERE pax_id=:pax_id AND "
+    "FROM pax, tckin_pax_grp, pax_grp "
+    "WHERE pax_grp.grp_id=pax.grp_id AND "
+    "      pax.pax_id=:pax_id AND "
     "      pax.grp_id=tckin_pax_grp.grp_id(+)";
   Qry.DeclareVariable( "pax_id", otInteger );
   Qry.DeclareVariable( "rnum", otInteger );
@@ -10176,6 +10178,10 @@ bool _TSalonPassengers::BuildWaitList( xmlNodePtr dataNode )
       }
     }
   }
+
+  TComplexBagExcessNodeList excessNodeList(OutputLang(), {TComplexBagExcessNodeList::ContainsOnlyNonZeroExcess,
+                                                          TComplexBagExcessNodeList::DeprecatedIntegerOutput});
+
   //grp_status
   for ( map<string,std::set<TSalonPax,ComparePassenger>,CompareGrpStatus >::iterator igrp_layer=salonGrpStatusPaxs.begin();
         igrp_layer!=salonGrpStatusPaxs.end(); igrp_layer++ ) {
@@ -10236,7 +10242,8 @@ bool _TSalonPassengers::BuildWaitList( xmlNodePtr dataNode )
                     def.document );
       NewTextChild( passNode, "bag_weight", Qry.FieldAsInteger( "bag_weight" ), def.bag_weight );
       NewTextChild( passNode, "bag_amount", Qry.FieldAsInteger( "bag_amount" ), def.bag_amount );
-      NewTextChild( passNode, "excess", Qry.FieldAsInteger( "excess" ), def.excess );
+      excessNodeList.add(passNode, "excess", TBagPieces(Qry.FieldAsInteger( "excess_pc" )),
+                                             TBagKilos(Qry.FieldAsInteger( "excess_wt" )));
       ostringstream trip;
       if ( !Qry.FieldIsNULL("tckin_id") ) {
         TCkinRouteItem priorSeg;
@@ -10293,7 +10300,7 @@ bool _TSalonPassengers::BuildWaitList( xmlNodePtr dataNode )
     NewTextChild( defNode, "document", def.document );
     NewTextChild( defNode, "bag_weight", def.bag_weight );
     NewTextChild( defNode, "bag_amount", def.bag_amount );
-    NewTextChild( defNode, "excess", def.excess );
+    NewTextChild( defNode, "excess", "0" );
     NewTextChild( defNode, "trip_from", def.trip_from );
     NewTextChild( defNode, "comp_rem", def.comp_rem );
     NewTextChild( defNode, "pr_down", (int)def.pr_down );

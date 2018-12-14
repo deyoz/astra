@@ -1087,10 +1087,10 @@ void PaidBagToDB(int grp_id, bool is_unaccomp,
   BagQry.DeclareVariable("rate_id",otInteger);
   BagQry.DeclareVariable("rate_trfer",otInteger);
   BagQry.DeclareVariable("handmade",otInteger);
-  int excess=0;
+  int excess_wt=0;
   for(TPaidBagList::iterator i=paid.begin(); i!=paid.end(); ++i)
   {
-    excess+=i->weight;
+    excess_wt+=i->weight;
     i->toDB(BagQry);
     BagQry.Execute();
   };
@@ -1098,10 +1098,10 @@ void PaidBagToDB(int grp_id, bool is_unaccomp,
   BagQry.Clear();
   BagQry.SQLText=
     "UPDATE pax_grp "
-    "SET excess_wt=:excess, excess=DECODE(NVL(piece_concept,0), 0, :excess, excess) "
+    "SET excess_wt=:excess_wt "
     "WHERE grp_id=:grp_id";
   BagQry.CreateVariable("grp_id", otInteger, grp_id);
-  BagQry.CreateVariable("excess", otInteger, excess);
+  BagQry.CreateVariable("excess_wt", otInteger, excess_wt);
   BagQry.Execute();
 };
 

@@ -118,13 +118,16 @@ class TEventsSumBagItem
 class TPaidToLogInfo
 {
   public:
-    int excess;
+    TBagKilos excess_wt;
+    TBagPieces excess_pc;
     std::map<TEventsSumBagKey, TEventsSumBagItem> bag;
     std::multiset<CheckIn::TServicePaymentItem> payment;
-    TPaidToLogInfo() { clear(); }
+    TPaidToLogInfo() :
+      excess_wt(0), excess_pc(0) { clear(); }
     void clear()
     {
-      excess=0;
+      excess_wt=0;
+      excess_pc=0;
       bag.clear();
       payment.clear();
     }
@@ -133,7 +136,8 @@ class TPaidToLogInfo
     void add(const TPaidRFISCItem& item);
     void clearExcess()
     {
-      excess=0;
+      excess_wt=0;
+      excess_pc=0;
       for(std::map<TEventsSumBagKey, TEventsSumBagItem>::iterator b=bag.begin(); b!=bag.end(); ++b)
         b->second.paid=0;
     }

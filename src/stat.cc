@@ -1328,7 +1328,7 @@ struct THallItem {
     string name;
 };
 
-void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, TExcessNodeList &excessNodeList, bool isPaxSearch, int pass, int &count)
+void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList &excessNodeList, bool isPaxSearch, int pass, int &count)
 {
   if(Qry.Eof) return;
 
@@ -1345,8 +1345,8 @@ void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, TExcessNodeList &excessN
   int col_bag_amount = Qry.FieldIndex("bag_amount");
   int col_bag_weight = Qry.FieldIndex("bag_weight");
   int col_rk_weight = Qry.FieldIndex("rk_weight");
-  int col_excess = Qry.FieldIndex("excess");
-  int col_piece_concept = Qry.FieldIndex("piece_concept");
+  int col_excess_wt = Qry.FieldIndex("excess_wt");
+  int col_excess_pc = Qry.FieldIndex("excess_pc");
   int col_grp_id = Qry.FieldIndex("grp_id");
   int col_airp_arv = Qry.FieldIndex("airp_arv");
   int col_tags = Qry.FieldIndex("tags");
@@ -1395,8 +1395,8 @@ void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, TExcessNodeList &excessN
       NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger(col_bag_weight));
       NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
 
-      xmlNodePtr excessNode =  NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess));;
-      excessNodeList.set_concept(excessNode,  Qry.FieldAsInteger(col_piece_concept));
+      excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger(col_excess_pc)),
+                                            TBagKilos(Qry.FieldAsInteger(col_excess_wt)));
 
       NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
       NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
@@ -1424,7 +1424,7 @@ void UnaccompListToXML(TQuery &Qry, xmlNodePtr resNode, TExcessNodeList &excessN
   ProgTrace(TRACE5, "XML%d: %s", pass, tm.PrintWithMessage().c_str());
 };
 
-void PaxListToXML(TQuery &Qry, xmlNodePtr resNode, TExcessNodeList& excessNodeList, bool isPaxSearch, int pass, int &count)
+void PaxListToXML(TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList& excessNodeList, bool isPaxSearch, int pass, int &count)
 {
   if(Qry.Eof) return;
 
@@ -1446,8 +1446,8 @@ void PaxListToXML(TQuery &Qry, xmlNodePtr resNode, TExcessNodeList& excessNodeLi
   int col_bag_amount = Qry.FieldIndex("bag_amount");
   int col_bag_weight = Qry.FieldIndex("bag_weight");
   int col_rk_weight = Qry.FieldIndex("rk_weight");
-  int col_excess = Qry.FieldIndex("excess");
-  int col_piece_concept = Qry.FieldIndex("piece_concept");
+  int col_excess_wt = Qry.FieldIndex("excess_wt");
+  int col_excess_pc = Qry.FieldIndex("excess_pc");
   int col_grp_id = Qry.FieldIndex("grp_id");
   int col_airp_arv = Qry.FieldIndex("airp_arv");
   int col_tags = Qry.FieldIndex("tags");
@@ -1502,8 +1502,9 @@ void PaxListToXML(TQuery &Qry, xmlNodePtr resNode, TExcessNodeList& excessNodeLi
       NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger(col_bag_amount));
       NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger(col_bag_weight));
       NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
-      xmlNodePtr excessNode = NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess));
-      excessNodeList.set_concept(excessNode,  Qry.FieldAsInteger(col_piece_concept));
+
+      excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger(col_excess_pc)),
+                                            TBagKilos(Qry.FieldAsInteger(col_excess_wt)));
 
       NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
       NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_airp_arv)));
@@ -1579,8 +1580,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, "
                 "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight, "
                 "   NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) rk_weight, "
-                "   NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) excess, "
-                "   pax_grp.piece_concept, "
+                "   ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
+                "   ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
                 "   pax_grp.grp_id, "
                 "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags, "
                 "   pax.refuse, "
@@ -1619,8 +1620,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   NVL(arch.get_bagAmount2(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,arx_pax.bag_pool_num,rownum),0) bag_amount, "
                 "   NVL(arch.get_bagWeight2(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,arx_pax.bag_pool_num,rownum),0) bag_weight, "
                 "   NVL(arch.get_rkWeight2(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,arx_pax.bag_pool_num,rownum),0) rk_weight, "
-                "   NVL(arch.get_excess(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id),0) excess, "
-                "   arx_pax_grp.piece_concept, "
+                "   arch.get_excess_wt(arx_pax.part_key, arx_pax.grp_id, arx_pax.pax_id, arx_pax_grp.excess_wt, arx_pax_grp.excess, arx_pax_grp.bag_refuse) AS excess_wt, "
+                "   NULL AS excess_pc, "
                 "   arx_pax_grp.grp_id, "
                 "   arch.get_birks2(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,arx_pax.bag_pool_num,:pr_lat) tags, "
                 "   arx_pax.refuse, "
@@ -1632,7 +1633,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   arx_pax.ticket_no, "
                 "   arx_pax.pax_id, "
                 "   arx_pax_grp.status "
-                "FROM  arx_pax_grp,arx_pax, arx_points "
+                "FROM arx_pax_grp, arx_pax, arx_points "
                 "WHERE "
                 "   arx_points.point_id = :point_id and arx_points.pr_del>=0 and "
                 "   arx_points.part_key = arx_pax_grp.part_key and "
@@ -1667,7 +1668,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         ProgTrace(TRACE5, "Qry.Execute: %s", tm.PrintWithMessage().c_str());
 
         int count=0;
-        TExcessNodeList excessNodeList;
+        TComplexBagExcessNodeList excessNodeList(OutputLang(), {});
         PaxListToXML(Qry, resNode, excessNodeList, false, 0, count);
 
         ProgTrace(TRACE5, "XML: %s", tm.PrintWithMessage().c_str());
@@ -1682,8 +1683,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL) AS bag_amount, "
                 "   ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL) AS bag_weight, "
                 "   ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL) AS rk_weight, "
-                "   ckin.get_excess(pax_grp.grp_id,NULL) AS excess, "
-                "   pax_grp.piece_concept, "
+                "   ckin.get_excess_wt(pax_grp.grp_id, NULL, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
+                "   ckin.get_excess_pc(pax_grp.grp_id, NULL) AS excess_pc, "
                 "   ckin.get_birks2(pax_grp.grp_id,NULL,NULL,:pr_lat) AS tags, "
                 "   pax_grp.grp_id, "
                 "   pax_grp.hall "
@@ -1714,8 +1715,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "  arch.get_bagAmount2(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL,NULL) AS bag_amount, "
                 "  arch.get_bagWeight2(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL,NULL) AS bag_weight, "
                 "  arch.get_rkWeight2(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL,NULL) AS rk_weight, "
-                "  arch.get_excess(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL) AS excess, "
-                "  arx_pax_grp.piece_concept, "
+                "  arch.get_excess_wt(arx_pax_grp.part_key, arx_pax_grp.grp_id, NULL, arx_pax_grp.excess_wt, arx_pax_grp.excess, arx_pax_grp.bag_refuse) AS excess_wt, "
+                "  NULL AS excess_pc, "
                 "  arch.get_birks2(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL,NULL,:pr_lat) AS tags, "
                 "  arx_pax_grp.grp_id, "
                 "  arx_pax_grp.hall "
@@ -1800,8 +1801,8 @@ string GetStatSQLText(const TStatParams &params, int pass)
            " unchecked rk_weight, \n"
            " pcs bag_amount, \n"
            " weight bag_weight, \n"
-           " excess, \n"
-           " nvl(excess_pc,0) excess_pc\n";
+           " excess_wt, \n"
+           " NVL(excess_pc,0) AS excess_pc \n";
   };
   if (params.statType==statFull)
   {
@@ -1821,8 +1822,8 @@ string GetStatSQLText(const TStatParams &params, int pass)
            " SUM(unchecked) rk_weight, \n"
            " SUM(pcs) bag_amount, \n"
            " SUM(weight) bag_weight, \n"
-           " SUM(excess) excess, \n"
-           " SUM(nvl(excess_pc,0)) excess_pc \n";
+           " SUM(excess_wt) AS excess_wt, \n"
+           " SUM(NVL(excess_pc,0)) AS excess_pc \n";
   };
   if (params.statType==statShort)
   {
@@ -2310,54 +2311,6 @@ void TRFISCStatRow::add_header(ostringstream &buf) const
 
 typedef set<TRFISCStatRow> TRFISCStat;
 
-struct TPaid {
-    int excess;
-    int excess_pcs;
-
-    TPaid(int aexcess, int aexcess_pcs):
-        excess(aexcess),
-        excess_pcs(aexcess_pcs)
-    {}
-
-    /*
-    string toString() const
-    {
-        ostringstream result;
-        if(excess == 0 and excess_pcs == 0)
-            result << 0;
-        else {
-            if(excess != 0)
-                result << excess << getLocaleText("ª£");
-            if(excess_pcs != 0) {
-                if(not result.str().empty())
-                    result << " + ";
-                result << excess_pcs << getLocaleText("¬");
-            }
-        }
-        return result.str();
-    }
-    */
-
-    void set(int aexcess, int aexcess_pcs)
-    {
-        excess = aexcess;
-        excess_pcs = aexcess_pcs;
-    }
-
-    bool operator == (const TPaid &val) const
-    {
-        return
-            excess == val.excess and
-            excess_pcs == val.excess_pcs;
-    }
-
-    void operator += (const TPaid &val)
-    {
-        excess += val.excess;
-        excess_pcs += val.excess_pcs;
-    }
-};
-
 struct TFullStatRow {
     int pax_amount;
     TInetStat i_stat;
@@ -2367,7 +2320,8 @@ struct TFullStatRow {
     int rk_weight;
     int bag_amount;
     int bag_weight;
-    TPaid paid;
+    TBagKilos excess_wt;
+    TBagPieces excess_pc;
     TFullStatRow():
         pax_amount(0),
         adult(0),
@@ -2376,7 +2330,8 @@ struct TFullStatRow {
         rk_weight(0),
         bag_amount(0),
         bag_weight(0),
-        paid(0, 0)
+        excess_wt(0),
+        excess_pc(0)
     {}
     bool operator == (const TFullStatRow &item) const
     {
@@ -2388,7 +2343,8 @@ struct TFullStatRow {
             rk_weight == item.rk_weight &&
             bag_amount == item.bag_amount &&
             bag_weight == item.bag_weight &&
-            paid == item.paid;
+            excess_wt == item.excess_wt &&
+            excess_pc == item.excess_pc;
     };
     void operator += (const TFullStatRow &item)
     {
@@ -2400,7 +2356,8 @@ struct TFullStatRow {
         rk_weight += item.rk_weight;
         bag_amount += item.bag_amount;
         bag_weight += item.bag_weight;
-        paid += item.paid;
+        excess_wt += item.excess_wt;
+        excess_pc += item.excess_pc;
     };
 };
 
@@ -2596,7 +2553,7 @@ void GetFullStat(const TStatParams &params, TQuery &Qry,
       int col_rk_weight = Qry.FieldIndex("rk_weight");
       int col_bag_amount = Qry.FieldIndex("bag_amount");
       int col_bag_weight = Qry.FieldIndex("bag_weight");
-      int col_excess = Qry.FieldIndex("excess");
+      int col_excess_wt = Qry.FieldIndex("excess_wt");
       int col_excess_pc = Qry.FieldIndex("excess_pc");
       int col_flt_no = Qry.FieldIndex("flt_no");
       int col_scd_out = Qry.FieldIndex("scd_out");
@@ -2626,7 +2583,8 @@ void GetFullStat(const TStatParams &params, TQuery &Qry,
         row.rk_weight = Qry.FieldAsInteger(col_rk_weight);
         row.bag_amount = Qry.FieldAsInteger(col_bag_amount);
         row.bag_weight = Qry.FieldAsInteger(col_bag_weight);
-        row.paid.set(Qry.FieldAsInteger(col_excess), Qry.FieldAsInteger(col_excess_pc));
+        row.excess_wt = Qry.FieldAsInteger(col_excess_wt);
+        row.excess_pc = Qry.FieldAsInteger(col_excess_pc);
         if (!params.skip_rows)
         {
           TFullStatKey key;
@@ -3006,8 +2964,8 @@ void createXMLFullStat(const TStatParams &params,
           NewTextChild(rowNode, "col", im->second.bag_amount);
           NewTextChild(rowNode, "col", im->second.bag_weight);
 
-          NewTextChild(rowNode, "col", im->second.paid.excess_pcs);
-          NewTextChild(rowNode, "col", im->second.paid.excess);
+          NewTextChild(rowNode, "col", im->second.excess_pc.getQuantity());
+          NewTextChild(rowNode, "col", im->second.excess_wt.getQuantity());
           if (params.statType==statTrferFull)
               NewTextChild(rowNode, "col", im->first.point_id);
 
@@ -3111,13 +3069,13 @@ void createXMLFullStat(const TStatParams &params,
     SetProp(colNode, "width", 40);
     SetProp(colNode, "align", TAlignment::RightJustify);
     SetProp(colNode, "sort", sortInteger);
-    NewTextChild(rowNode, "col",  total.paid.excess_pcs);
+    NewTextChild(rowNode, "col",  total.excess_pc.getQuantity());
 
     colNode = NewTextChild(headerNode, "col", getLocaleText("«.Ά¥α"));
     SetProp(colNode, "width", 40);
     SetProp(colNode, "align", TAlignment::RightJustify);
     SetProp(colNode, "sort", sortInteger);
-    NewTextChild(rowNode, "col",  total.paid.excess);
+    NewTextChild(rowNode, "col",  total.excess_wt.getQuantity());
 
     if (!showTotal)
     {
@@ -3658,8 +3616,8 @@ void TFullStatCombo::add_data(ostringstream &buf) const
     buf << data.second.rk_weight << delim; // /ª« ¤μ (Ά¥α)
     buf << data.second.bag_amount << delim; // ƒ ¬¥αβ
     buf << data.second.bag_weight << delim; // ƒ Ά¥α
-    buf << data.second.paid.excess_pcs << delim; // «.¬
-    buf << data.second.paid.excess << endl; // «.Ά¥α
+    buf << data.second.excess_pc.getQuantity() << delim; // «.¬
+    buf << data.second.excess_wt.getQuantity() << endl; // «.Ά¥α
 }
 
 template <class T>
@@ -5901,9 +5859,9 @@ void createCSVFullStat(const TStatParams &params, const TFullStat &FullStat, con
         // ƒ Ά¥α
         data << i->second.bag_weight << delim;
         // «.¬
-        data << i->second.paid.excess_pcs << delim;
+        data << i->second.excess_pc.getQuantity() << delim;
         // «.Ά¥α
-        data << i->second.paid.excess << endl;
+        data << i->second.excess_wt.getQuantity() << endl;
     }
 }
 
@@ -10066,16 +10024,16 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
           sql << " NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, \n"
                  " NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight, \n"
                  " NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) rk_weight, \n"
-                 " NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) excess, \n"
-                 "   pax_grp.piece_concept, "
+                 " ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
+                 " ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
                  " ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags, \n"
                  " salons.get_seat_no(pax.pax_id, pax.seats, pax.is_jmp, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, \n";
         else
           sql << " NVL(arch.get_bagAmount2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, \n"
                  " NVL(arch.get_bagWeight2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight, \n"
                  " NVL(arch.get_rkWeight2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) rk_weight, \n"
-                 " NVL(arch.get_excess(pax.part_key,pax.grp_id,pax.pax_id),0) excess, \n"
-                 "   pax_grp.piece_concept, "
+                 " arch.get_excess_wt(pax.part_key, pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.excess, pax_grp.bag_refuse) AS excess_wt, "
+                 " NULL AS excess_pc, "
                  " arch.get_birks2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags, \n"
                  " LPAD(seat_no,3,'0')|| \n"
                  "      DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, \n";
@@ -10176,7 +10134,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             else
                 throw;
         }
-        TExcessNodeList excessNodeList;
+        TComplexBagExcessNodeList excessNodeList(OutputLang(), {});
         PaxListToXML(Qry, resNode, excessNodeList, true, pass, count);
 
     }

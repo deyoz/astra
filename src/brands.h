@@ -22,7 +22,7 @@ struct TBrand
     oper_airline.clear();
   }
 
-  const std::string name(const AstraLocale::OutputLang& lang) const;
+  std::string name(const AstraLocale::OutputLang& lang) const;
 
   const TBrand& toWebXML(xmlNodePtr node,
                          const AstraLocale::OutputLang& lang) const;
