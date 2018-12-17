@@ -521,6 +521,23 @@ static void GetPNRsList(WebSearch::TPNRFilters &filters,
   };
 };
 
+static void weedPNRsList(list<WebSearch::TPNRs> &PNRsList)
+{
+  for(list<WebSearch::TPNRs>::iterator i=PNRsList.begin(); i!=PNRsList.end();)
+  {
+    list<WebSearch::TPNRs>::const_iterator j=PNRsList.begin();
+    for(; j!=PNRsList.end(); ++j)
+    {
+      if (i==j) continue;
+      if (i->partOf(*j)) break;
+    }
+    if (j!=PNRsList.end() || i->pnrs.empty())
+      i=PNRsList.erase(i);
+    else
+      ++i;
+  }
+}
+
 void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   emulateClientType();
@@ -547,6 +564,50 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   WebSearch::TMultiPNRFiltersList multiPNRFiltersList;
   multiPNRFiltersList.fromXML(reqNode);
 
+  if (multiPNRFiltersList.trueMultiRequest(reqNode) &&
+      multiPNRFiltersList.size()==1 &&
+      multiPNRFiltersList.front().isExcellentSearchParams())
+  {
+    //самый первоначальный поск главного и пока единственного
+    //в качестве критерия - номер билета или номер PNR
+    list<WebSearch::TMultiPNRsList> listOfMultiPNRsList;
+
+    WebSearch::TMultiPNRFilters& filters=multiPNRFiltersList.front();
+
+    list<AstraLocale::LexemaData> errors;
+    list<WebSearch::TPNRs> PNRsList;
+
+    GetPNRsList(filters, PNRsList, errors);
+    weedPNRsList(PNRsList);
+
+    for(const WebSearch::TPNRs& PNRs : PNRsList)
+    {
+      if (PNRs.pnrs.empty()) continue; //на всякий случай
+
+      listOfMultiPNRsList.emplace_back();
+      if (PNRsList.size()==1 && PNRs.error) //если несколько маршрутов, ошибку не выводим, показываем все маршруты
+      {
+        errors.push_back(PNRs.error.get());
+        listOfMultiPNRsList.back().add(filters, errors);
+      }
+      else
+        listOfMultiPNRsList.back().add(filters, PNRs);
+    }
+
+    if (listOfMultiPNRsList.empty())
+    {
+      if (errors.empty()) throw EXCEPTIONS::Exception("%s: errors.empty()", __FUNCTION__);
+      listOfMultiPNRsList.emplace_back();
+      listOfMultiPNRsList.back().add(filters, errors);
+    }
+
+    for(WebSearch::TMultiPNRsList& multiPNRsList : listOfMultiPNRsList)
+      multiPNRsList.checkAndPutToXML(resNode);
+
+    return;
+  }
+
+
   class nextPNRs{};
   class nextPNRFilters{};
 
@@ -558,6 +619,9 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     list<WebSearch::TPNRs> PNRsList;
 
     GetPNRsList(filters, PNRsList, errors);
+
+    if (multiPNRFiltersList.trueMultiRequest(reqNode))
+      weedPNRsList(PNRsList);
 
     for(int pass=1; pass<=5; pass++)
     {
@@ -590,11 +654,8 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   }
   catch(nextPNRFilters) {};
 
-  multiPNRsList.checkGroups();
-  multiPNRsList.checkSegmentCompatibility();
-  multiPNRsList.toXML(resNode);
-
-};
+  multiPNRsList.checkAndPutToXML(resNode);
+}
 /*
 1. Если кто-то уже начал работать с pnr (агент,разборщик PNL)
 2. Если пассажир зарегистрировался, а разборщик PNL ставит признак удаления
