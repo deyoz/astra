@@ -23,6 +23,7 @@
 #include "baggage_calc.h"
 #include "salons.h"
 #include "franchise.h"
+#include <boost/algorithm/string.hpp>
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -1275,7 +1276,20 @@ string TPMPax::rems() const
                         cbbg.pax_info.get()._rems.begin(),
                         cbbg.pax_info.get()._rems.end());
         }
-        return GetRemarkStr(pax_list.rem_grp.get(), result);
+        string result_str = GetRemarkStr(pax_list.rem_grp.get(), result, "\n");
+        // сконвертим в неповторяющиеся ремарки, с сохранением сортировки
+        vector<string> items;
+        boost::split(items, result_str, boost::is_any_of("\n"));
+        set<string> unique_items;
+        string unique_items_str;
+        for(const auto &i: items) {
+            if(unique_items_str.find(i) == string::npos) {
+                if(not unique_items_str.empty())
+                    unique_items_str += " ";
+                unique_items_str += i;
+            }
+        }
+        return unique_items_str;
     }
 }
 
