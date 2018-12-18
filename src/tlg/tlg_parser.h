@@ -450,13 +450,14 @@ class TTKNItem : public TDetailRemAncestor
     TTKNItem()
     {
       Clear();
-    };
+    }
     void Clear()
     {
       TDetailRemAncestor::Clear();
       *ticket_no=0;
       coupon_no=0;
-    };
+    }
+    void toDB(TQuery &Qry) const;
 };
 
 class TFQTItem
@@ -1104,6 +1105,7 @@ namespace regex {
     static const std::string aircraft_vers = "(" + m + "{1,12})";
     static const std::string full_stop = "\\.";
 }
+
 
 } //namespace TypeB
 
