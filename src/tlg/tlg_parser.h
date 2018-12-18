@@ -317,6 +317,11 @@ class TDetailRemAncestor
       Clear();
     };
     virtual ~TDetailRemAncestor() {};
+
+    bool isHKReservationsStatus() const
+    {
+      return strcmp(rem_status, "HK")==0;
+    }
   protected:
     void Clear()
     {
@@ -563,6 +568,22 @@ class TASVCItem : public TDetailRemAncestor
     }
 };
 
+class TSeatBlockingRem : public TDetailRemAncestor
+{
+  public:
+    int numberOfSeats;
+    TSeatBlockingRem() { clear(); }
+    void clear()
+    {
+      TDetailRemAncestor::Clear();
+      numberOfSeats=0;
+    }
+    bool isSTCR() const
+    {
+      return strcmp(rem_code, "STCR")==0;
+    }
+};
+
 class TRemItem
 {
   public:
@@ -614,6 +635,19 @@ class TInfList : public std::vector<TInfItem>
     void setSurnameIfEmpty(const std::string &surname);
 };
 
+class TSeatsBlockingItem;
+
+class TSeatsBlockingList : public std::vector<TSeatsBlockingItem>
+{
+  public:
+    void toDB(const int& paxId) const;
+    void fromDB(const int& paxId);
+    void replace(const TSeatsBlockingList& src, bool isSpecial, long& seats);
+};
+
+class TNameElement;
+class TTlgParser;
+
 class TPaxItem
 {
   public:
@@ -634,14 +668,45 @@ class TPaxItem
     std::set<TFQTExtraItem> fqt_extra;
     std::vector<TCHKDItem> chkd;
     std::vector<TASVCItem> asvc;
+    TSeatsBlockingList seatsBlocking;
+    std::list<TSeatBlockingRem> seatBlockingRemList;
     TPaxItem()
     {
       pers_type=ASTRA::adult;
       seats=1;
       *seat_rem=0;
-    };
+    }
     bool emdRequired(const std::string& ssr_code) const;
     void removeNotConfimedSSRs();
+    bool isSeatBlocking() const { return isSeatBlockingRem(name); }
+    bool isCBBG() const { return name=="CBBG"; }
+    void bindSeatsBlocking(const TNameElement& ne,
+                           const std::string& remCode,
+                           TSeatsBlockingList& srcSeatsBlocking);
+    void setSomeDataForSeatsBlocking(const int& paxId, const TNameElement& ne);
+    void setSomeDataForSeatsBlocking(const TNameElement& ne);
+    void getTknNumbers(std::list<std::string>& result) const;
+    void moveTknWithNumber(const std::string& no, std::vector<TTKNItem>& dest);
+    void fillSeatBlockingRemList(TTlgParser &tlg);
+
+    static bool isSeatBlockingRem(const std::string &rem_code);
+    static int getNotUsedSeatBlockingId(const int& paxId);
+    static void getAndLockSeatBlockingIds(const int& paxId, std::set<int>& seatIds);
+};
+
+class TSeatsBlockingItem : public TPaxItem
+{
+  public:
+    std::string surname;
+    TSeatsBlockingItem(const std::string& _surname, const TPaxItem& paxItem) :
+      TPaxItem(paxItem), surname(_surname) {}
+    TSeatsBlockingItem(const std::string& _surname, const std::string& _name) :
+      surname(_surname)
+    {
+      name=_name;
+      pers_type=ASTRA::NoPerson;
+    }
+    bool isSpecial() const { return surname=="ZZ"; }
 };
 
 class TSegmentItem : public TFltInfo
@@ -750,7 +815,7 @@ class TNameElement
     TNameElement()
     {
       Clear();
-    };
+    }
     void Clear()
     {
       indicator=None;
@@ -762,9 +827,17 @@ class TNameElement
       bag.Clear();
       tags.clear();
       bag_pool=ASTRA::NoExists;
-    };
+    }
 
     void removeNotConfimedSSRs();
+    bool containsSinglePassenger() const;
+    void separateSeatsBlocking(TSeatsBlockingList& dest);
+    void bindSeatsBlocking(const std::string& remCode,
+                           TSeatsBlockingList& srcSeatsBlocking);
+    bool seatIsUsed(const TSeat& seat) const;
+    void setNotUsedSeat(TSeatRanges& seats, TPaxItem& paxItem, bool moveSeat) const;
+    bool isSpecial() const { return surname=="ZZ"; }
+    void fillSeatBlockingRemList(TTlgParser &tlg);
 };
 
 class TPnrAddrItem
@@ -791,12 +864,13 @@ class TPnrItem
     std::vector<TNameElement> ne;
     std::vector<TTransferItem> transfer;
     TSegmentItem market_flt;
+    std::map<TIndicator, TSeatsBlockingList> seatsBlocking;
     TPnrItem()
     {
       *grp_ref=0;
       grp_seats=0;
       *status=0;
-    };
+    }
     void Clear()
     {
       *grp_ref=0;
@@ -808,7 +882,11 @@ class TPnrItem
       ne.clear();
       transfer.clear();
       market_flt.Clear();
-    };
+    }
+
+    void separateSeatsBlocking();
+    void bindSeatsBlocking();
+    bool seatIsUsed(const TSeat& seat) const;
 };
 
 class TTotalsByDest
