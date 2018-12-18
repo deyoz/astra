@@ -145,7 +145,6 @@ class TMultiPNRFilters : public TPNRFilters
       group_id=boost::none;
       is_main=false;
     }
-    bool isExcellentSearchParams() const;
     TMultiPNRFilters& fromXML(xmlNodePtr fltNode, xmlNodePtr grpNode);
 };
 
@@ -347,10 +346,6 @@ struct TPNRInfo
   void toXML(xmlNodePtr node, XMLStyle xmlStyle) const;
 
   int getFirstPointDep() const;
-
-  static bool isIdenticalSegInfo(const std::pair<int, TPNRSegInfo>& s1,
-                                 const std::pair<int, TPNRSegInfo>& s2);
-  bool partOf(const TPNRInfo &pnrInfo) const;
 };
 
 struct TPNRs
@@ -369,15 +364,8 @@ struct TPNRs
 
   int calcStagePriority(int pnr_id) const;
   boost::optional<TDateTime> getFirstSegTime() const;
-  void toXML(xmlNodePtr node, bool is_primary, XMLStyle xmlStyle, xmlNodePtr& segsNode) const;
-  void toXML(xmlNodePtr node, bool is_primary, XMLStyle xmlStyle) const
-  {
-    xmlNodePtr segsNode;
-    toXML(node, is_primary, xmlStyle, segsNode);
-  }
+  void toXML(xmlNodePtr node, bool is_primary, XMLStyle xmlStyle) const;
   void trace(XMLStyle xmlStyle) const;
-
-  bool partOf(const TPNRs &PNRs) const;
 };
 
 class TPNRsSortOrder
@@ -404,8 +392,7 @@ class TMultiPNRs : public TPNRs
                const std::list<AstraLocale::LexemaData> _errors) :
       errors(_errors), group_id(filters.group_id) {}
 
-    void toXML(xmlNodePtr segsParentNode, xmlNodePtr grpsParentNode,
-               bool is_primary, XMLStyle xmlStyle, xmlNodePtr& segsNode) const;
+    void toXML(xmlNodePtr segsParentNode, xmlNodePtr grpsParentNode, bool is_primary, XMLStyle xmlStyle) const;
     void truncateSegments(int numOfSegs);
 
     static int numberOfCompatibleSegments(const TMultiPNRs& PNRs1,
@@ -437,13 +424,6 @@ class TMultiPNRsList
     static bool trueMultiResponse(xmlNodePtr resNode)
     {
       return std::string((const char*)resNode->name)=="SearchFltMulti";
-    }
-
-    void checkAndPutToXML(xmlNodePtr resNode)
-    {
-      checkGroups();
-      checkSegmentCompatibility();
-      toXML(resNode);
     }
 };
 
