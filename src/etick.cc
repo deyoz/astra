@@ -1805,9 +1805,9 @@ void ETStatusInterface::ETRollbackStatus(xmlDocPtr ediResDocPtr,
 
 xmlNodePtr TETChangeStatusList::addTicket(const TETChangeStatusKey &key,
                                           const Ticketing::Ticket &tick,
-                                          bool control_method)
+                                          bool onlySingleTicketInTlg)
 {
-  size_t MaxTicketsInTlg = control_method?1:MAX_TICKETS_IN_TLG; //плохое решение, лучше закладываться в настройках et_addr_set
+  size_t MaxTicketsInTlg = onlySingleTicketInTlg?1:MAX_TICKETS_IN_TLG; //плохое решение, лучше закладываться в настройках et_addr_set
 //  if(TReqInfo::Instance()->api_mode) {
 //      MaxTicketsInTlg = 99;
 //  }
@@ -1917,7 +1917,7 @@ void ETStatusInterface::ETCheckStatusForRollback(int point_id,
           ProgTrace(TRACE5,"status=%s prior_status=%s real_status=%s",
                            status->dispCode(),prior_status->dispCode(),real_status->dispCode());
 
-          xmlNodePtr node=mtick.addTicket(key, ETItem.makeTicket(fltParams), fltParams.control_method);
+          xmlNodePtr node=mtick.addTicket(key, ETItem.makeTicket(fltParams), fltParams.strictlySingleTicketInTlg());
 
           NewTextChild(node,"ticket_no",ticket_no);
           NewTextChild(node,"coupon_no",coupon_no);
@@ -2347,7 +2347,7 @@ void ETStatusInterface::ETCheckStatus(int id,
 
               ProgTrace(TRACE5,"status=%s real_status=%s",status->dispCode(),real_status->dispCode());
 
-              xmlNodePtr node=mtick.addTicket(key, ETItem.makeTicket(fltParams), fltParams.control_method);
+              xmlNodePtr node=mtick.addTicket(key, ETItem.makeTicket(fltParams), fltParams.strictlySingleTicketInTlg());
 
               NewTextChild(node,"ticket_no",ticket_no);
               NewTextChild(node,"coupon_no",coupon_no);
@@ -2429,7 +2429,7 @@ void ETStatusInterface::ETCheckStatus(int id,
                                                            ETItem,
                                                            TETCtxtItem(*TReqInfo::Instance(), ET.point_id))) continue;
 
-            xmlNodePtr node=mtick.addTicket(key, ETItem.makeTicket(fltParams), fltParams.control_method);
+            xmlNodePtr node=mtick.addTicket(key, ETItem.makeTicket(fltParams), fltParams.strictlySingleTicketInTlg());
 
             NewTextChild(node,"ticket_no",ET.et.no);
             NewTextChild(node,"coupon_no",ET.et.coupon);

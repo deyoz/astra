@@ -431,7 +431,7 @@ class TETChangeStatusList : public std::map<TETChangeStatusKey, std::vector<TETC
   public:
     xmlNodePtr addTicket(const TETChangeStatusKey &key,
                          const Ticketing::Ticket &tick,
-                         bool control_method);
+                         bool onlySingleTicketInTlg);
 };
 
 class TEMDChangeStatusKey

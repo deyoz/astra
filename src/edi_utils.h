@@ -73,6 +73,7 @@ class TFltParams
     }
     bool get(int point_id);
     bool get(const TAdvTripInfo& _fltInfo);
+    bool strictlySingleTicketInTlg() const;
     static void incFinalAttempts(int point_id);
     static void finishFinalAttempts(int point_id);
     static void setETSExchangeStatus(int point_id, ETSExchangeStatus::Enum status);
