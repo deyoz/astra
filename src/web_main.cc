@@ -564,7 +564,7 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   WebSearch::TMultiPNRFiltersList multiPNRFiltersList;
   multiPNRFiltersList.fromXML(reqNode);
 
-  if (multiPNRFiltersList.trueMultiRequest(reqNode) &&
+  if (multiPNRFiltersList.showAllSegments(reqNode) &&
       multiPNRFiltersList.size()==1 &&
       multiPNRFiltersList.front().isExcellentSearchParams())
   {
@@ -620,7 +620,7 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
     GetPNRsList(filters, PNRsList, errors);
 
-    if (multiPNRFiltersList.trueMultiRequest(reqNode))
+    if (multiPNRFiltersList.showAllSegments(reqNode))
       weedPNRsList(PNRsList);
 
     for(int pass=1; pass<=5; pass++)
