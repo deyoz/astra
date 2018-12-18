@@ -3274,13 +3274,25 @@ void VerifyAPPSOverrideRem(const CheckIn::TPaxRemItem &rem)
 
 void HandleAPPSRems(const std::multiset<CheckIn::TPaxRemItem> &rems, std::string& override, bool& is_forced)
 {
+  const string REM_RSIA = "RSIA";
+  const string REM_OVRA = "OVRA";
+  const string REM_OVRG = "OVRG";
   struct TAppsOverrideCode { bool A = false; bool G = false; };
   map<string, TAppsOverrideCode> code_map; // country, override code
   for (const auto& rem : rems)
   {
-    if (rem.code == "RSIA") is_forced = true;
-    if (rem.code == "OVRA") code_map[CountryCodeFromRemText(rem.text)].A = true;
-    if (rem.code == "OVRG") code_map[CountryCodeFromRemText(rem.text)].G = true;
+    if (rem.code == REM_RSIA)
+      is_forced = true;
+    if (rem.code == REM_OVRA || rem.code == REM_OVRG)
+    {
+      string country_code = CountryCodeFromRemText(rem.text);
+      if (!country_code.empty())
+      {
+        is_forced = true;
+        if (rem.code == REM_OVRA) code_map[country_code].A = true;
+        if (rem.code == REM_OVRG) code_map[country_code].G = true;
+      }
+    }
   }
   string result;
   for (const auto& code_pair : code_map)
@@ -3291,7 +3303,8 @@ void HandleAPPSRems(const std::multiset<CheckIn::TPaxRemItem> &rems, std::string
     string country = code_pair.first;
     if (!code.empty() && !country.empty()) result += (code + country);
   }
-  override = result.substr(0, 15);
+  if (!result.empty())
+    override = result.substr(0, 15);
   LogTrace(TRACE5) << __func__ << " override = '" << override << "'";
 }
 
