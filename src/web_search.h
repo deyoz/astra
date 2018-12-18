@@ -157,6 +157,11 @@ class TMultiPNRFiltersList : public std::list<TMultiPNRFilters>
     {
       return std::string((const char*)reqNode->name)=="SearchFltMulti";
     }
+    static bool showAllSegments(xmlNodePtr reqNode)
+    {
+      return trueMultiRequest(reqNode) &&
+             NodeAsBoolean("@show_all_segments", reqNode, false);
+    }
 };
 
 struct TDestInfo
