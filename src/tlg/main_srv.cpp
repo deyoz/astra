@@ -172,20 +172,14 @@ void process_tlg(void)
 
     TQuery RotQry(&OraSession);
     RotQry.SQLText=
-      "SELECT 1,ip_port FROM rot "
+      "SELECT ip_port FROM rot "
       "WHERE ip_address=:addr AND ip_port=:port AND "
-      "      own_canon_name=:own_canon_name AND canon_name=:canon_name "
-      "union "
-      "SELECT 2,ip_port FROM rot "
-      "WHERE ip_address=:addr AND ip_port=:port AND "
-      "      own_canon_name=:own_canon_name "
-      "ORDER BY 1";
+      "      own_canon_name=:own_canon_name AND rownum<2";
     RotQry.CreateVariable("addr",otString,inet_ntoa(from_addr.sin_addr));
     RotQry.CreateVariable("port",otInteger,ntohs(from_addr.sin_port));
     RotQry.CreateVariable("own_canon_name",otString,OWN_CANON_NAME());
-    RotQry.CreateVariable("canon_name",otString,tlg_in.Sender);
     RotQry.Execute();
-    if (RotQry.RowCount()==0)
+    if (RotQry.Eof)
       throw Exception("Telegram from unknown router %s:%d",
                       RotQry.GetVariableAsString("addr"),
                       RotQry.GetVariableAsInteger("port"));
@@ -248,9 +242,9 @@ void process_tlg(void)
             };
           };
 
+          TDateTime nowUTC=NowUTC();
           if (TlgQry.Eof) //не нашли - значит вставляем новую
           {
-            TDateTime nowUTC=NowUTC();
             ProgTrace(TRACE5,"IN: PUT (sender=%s, tlg_num=%d, time=%.10f)", tlg_in.Sender, tlg_in.num, nowUTC);
 
             int tlg_id = getNextTlgNum();
@@ -296,7 +290,11 @@ void process_tlg(void)
                 tlgnum_t tlgNum(boost::lexical_cast<std::string>(tlg_id));
                 telegrams::callbacks()->writeHthInfo(tlgNum, hthInfo);
             }
-          };
+          }
+          else
+          {
+            ProgTrace(TRACE5,"IN: already in tlgs (sender=%s, tlg_num=%d, time=%.10f)", tlg_in.Sender, tlg_in.num, nowUTC);
+          }
         };
       }
         break;
