@@ -55,6 +55,9 @@ FUNCTION transliter(str	IN VARCHAR2, fmt IN INTEGER) RETURN VARCHAR2;
 FUNCTION transliter_equal(str1 IN VARCHAR2,
                           str2 IN VARCHAR2,
                           fmt  IN INTEGER DEFAULT NULL) RETURN NUMBER;
+FUNCTION transliter_equal_begin(str       IN VARCHAR2,
+                                substring IN VARCHAR2,
+                                fmt       IN INTEGER DEFAULT NULL) RETURN NUMBER;
 
 TYPE TLexemeParams IS TABLE OF VARCHAR2(50) INDEX BY VARCHAR2(20);
 

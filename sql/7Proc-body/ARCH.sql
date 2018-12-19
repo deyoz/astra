@@ -601,6 +601,21 @@ BEGIN
       DELETE FROM stat_vo WHERE rowid=rowids(i);
 
     SELECT rowid BULK COLLECT INTO rowids
+    FROM stat_reprint
+    WHERE point_id=curRow.point_id FOR UPDATE;
+    IF use_insert THEN
+      FORALL i IN 1..rowids.COUNT
+        INSERT INTO arx_stat_reprint
+        (point_id, scd_out, desk, ckin_type, amount, part_key)
+        SELECT
+         point_id, scd_out, desk, ckin_type, amount, vpart_key
+        FROM stat_reprint
+        WHERE rowid=rowids(i);
+    END IF;
+    FORALL i IN 1..rowids.COUNT
+      DELETE FROM stat_reprint WHERE rowid=rowids(i);
+
+    SELECT rowid BULK COLLECT INTO rowids
     FROM trfer_pax_stat
     WHERE point_id=curRow.point_id FOR UPDATE;
     IF use_insert THEN
@@ -1145,6 +1160,7 @@ BEGIN
     DELETE FROM aodb_unaccomp WHERE point_id=curRow.point_id;
     DELETE FROM aodb_pax WHERE point_id=curRow.point_id;
     DELETE FROM aodb_points WHERE point_id=curRow.point_id;
+    DELETE FROM exch_flights WHERE point_id=curRow.point_id;
     DELETE FROM counters2 WHERE point_dep=curRow.point_id;
     DELETE FROM crs_counters WHERE point_dep=curRow.point_id;
     DELETE FROM crs_displace2 WHERE point_id_spp=curRow.point_id;
@@ -1495,7 +1511,7 @@ BEGIN
   remain_rows:=max_rows;
   time_finish:=SYSDATE+time_duration/86400;
 
-  WHILE step>=1 AND step<=6 LOOP
+  WHILE step>=1 AND step<=8 LOOP
     IF SYSDATE>time_finish THEN RETURN; END IF;
     IF step=1 THEN
       OPEN cur FOR
@@ -1510,7 +1526,14 @@ BEGIN
         WHERE time<arx_date AND rownum<=remain_rows FOR UPDATE;
     END IF;
 
-    IF step=1 OR step=2 THEN
+    IF step=8 THEN
+      OPEN cur FOR
+        SELECT rowid,id
+        FROM kiosk_events
+        WHERE time<arx_date AND rownum<=remain_rows FOR UPDATE;
+    END IF;
+
+    IF step=1 OR step=2 OR step=8 THEN
       LOOP
         FETCH cur BULK COLLECT INTO rowids,ids LIMIT BULK_COLLECT_LIMIT;
         IF step=1 THEN
@@ -1553,6 +1576,14 @@ BEGIN
           FORALL i IN 1..rowids.COUNT
             DELETE FROM files WHERE rowid=rowids(i);
         END IF;
+        IF step=8 THEN
+          FORALL i IN 1..ids.COUNT
+            DELETE FROM kiosk_event_params WHERE event_id=ids(i);
+
+          FORALL i IN 1..rowids.COUNT
+            DELETE FROM kiosk_events WHERE rowid=rowids(i);
+        END IF;
+
         remain_rows:=remain_rows-rowids.COUNT;
         EXIT WHEN rowids.COUNT<BULK_COLLECT_LIMIT;
         IF SYSDATE>time_finish THEN CLOSE cur; RETURN; END IF;
@@ -1592,7 +1623,10 @@ BEGIN
       DELETE FROM eticks_display_tlgs WHERE last_display<arx_date AND rownum<=remain_rows;
       remain_rows:=remain_rows-SQL%ROWCOUNT;
     END IF;
-
+    IF step=7 THEN
+      DELETE FROM emdocs_display WHERE last_display<arx_date AND rownum<=remain_rows;
+      remain_rows:=remain_rows-SQL%ROWCOUNT;
+    END IF;
     IF remain_rows<=0 THEN RETURN; END IF;
     step:=step+1;
   END LOOP;
