@@ -74,22 +74,40 @@ void populate_client_from_uri(const string& uri, HTTPClient& client)
         std::vector<std::string> part_vec;
         boost::split(part_vec, *i_part, boost::is_any_of("="));
         if ( part_vec.size() == 2 and !part_vec[0].empty() and !part_vec[1].empty() ) {
-            client.get_params[part_vec[0]] = part_vec[1];
+            client.uri_params[part_vec[0]] = part_vec[1];
         }
     }
-    if(not client.get_params[CLIENT_ID].empty()) {
-        client.client_info = getInetClient(client.get_params[CLIENT_ID]);
-        client.operation = client.get_params[OPERATION];
-        if(client.operation.empty()) 
+    if(not client.uri_params[CLIENT_ID].empty()) {
+        client.client_info = getInetClient(client.uri_params[CLIENT_ID]);
+        client.operation = client.uri_params[OPERATION];
+        if(client.operation.empty())
             client.operation = "get_resource";
-        client.user_name = client.get_params[LOGIN];
-        client.password = client.get_params[PASSWORD];
+        client.user_name = client.uri_params[LOGIN];
+        client.password = client.uri_params[PASSWORD];
     }
 }
 
 HTTPClient getHTTPClient(const request& req)
 {
   HTTPClient client;
+  httpParams p; // без учета регистра
+  p << req.headers;
+  ProgTrace( TRACE5, "%s: %s", __FUNCTION__, p.trace().c_str() );
+  if ( p.find( CLIENT_ID ) != p.end() ) {
+    client.client_info = getInetClient( p[CLIENT_ID] );
+  }
+  if ( p.find( OPERATION ) != p.end() ) {
+    client.operation =  p[OPERATION];
+  }
+  if ( p.find( AUTHORIZATION ) != p.end() && p[ AUTHORIZATION ].length() > 6 ) {
+    string Authorization = p[ AUTHORIZATION ].substr( 6 );
+    Authorization = StrUtils::b64_decode( Authorization );
+    if ( Authorization.find( ":" ) != std::string::npos ) {
+      client.user_name = Authorization.substr( 0, Authorization.find( ":" ) );
+      client.password = Authorization.substr( Authorization.find( ":" ) + 1 );
+    }
+  }
+/*
   for (request::Headers::const_iterator iheader=req.headers.begin(); iheader!=req.headers.end(); iheader++) {
     ProgTrace( TRACE5, "%s: header: name=%s, value=%s", __FUNCTION__, iheader->name.c_str(), iheader->value.c_str() );
     if ( iheader->name == CLIENT_ID ) {
@@ -106,7 +124,7 @@ HTTPClient getHTTPClient(const request& req)
         client.password = Authorization.substr( Authorization.find( ":" ) + 1 );
       }
     }
-  }
+  }*/
   if (client.client_info.client_id.empty())
   {
     // Не удалось заполнить client из http headers
@@ -116,13 +134,16 @@ HTTPClient getHTTPClient(const request& req)
     if (client.client_info.client_id.empty()) {
         // Из uri не получилось
         // Пробуем из http header-а Referer
-        ProgTrace( TRACE5, "%s: empty client_id, trying to populate HTTPClient from Referer HTTP header", __FUNCTION__ );
+        if ( p.find( REFERER ) != p.end() ) {
+          populate_client_from_uri(p[REFERER], client);
+        }
+/*        ProgTrace( TRACE5, "%s: empty client_id, trying to populate HTTPClient from Referer HTTP header", __FUNCTION__ );
         for (request::Headers::const_iterator iheader=req.headers.begin(); iheader!=req.headers.end(); iheader++) {
             if(iheader->name == REFERER) {
                 populate_client_from_uri(iheader->value, client);
                 break;
             }
-        }
+        }*/
     }
   }
 
@@ -149,7 +170,7 @@ HTTPClient getHTTPClient(const request& req)
   return client;
 }
 
-bool isCR(char c) { return c == '\r'; };
+bool isCR(char c) { return c == '\r'; }
 
 void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &header, std::string &body )
 {
@@ -164,12 +185,12 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
   http_header += "</header>\n";
   http_header += "<get_params>\n";
   // параметры, полученные при разборе URI
-  for (std::map<std::string, std::string>::iterator i_param = get_params.begin(); i_param != get_params.end(); ++i_param )
+  for (auto param : uri_params )
   {
-      string unescaped = URIUnescapeString(i_param->second);
+      string unescaped = URIUnescapeString(param.second);
       http_header += string("<param>") +
-                   "<name>" + i_param->first + "</name>\n" +
-                   "<value>" + URIUnescapeString(i_param->second) + "</value>\n" + "</param>\n";
+                   "<name>" + param.first + "</name>\n" +
+                   "<value>" + URIUnescapeString(param.second) + "</value>\n" + "</param>\n";
   }
   http_header += "</get_params>\n";
   http_header += "<uri_path>" + EncodeSpecialChars(uri_path) + "</uri_path>";
@@ -357,7 +378,20 @@ void save_http_client_headers(const request &req)
             );
     bool pr_kick = false;
     bool pr_client_id = false;
-    for (request::Headers::const_iterator iheader=req.headers.begin(); iheader!=req.headers.end(); iheader++) {
+    httpParams p; // без учета регистра
+    p << req.headers;
+    if ( p.find(CLIENT_ID) != p.end() ) {
+      pr_client_id = not  p[CLIENT_ID].empty();
+      Qry.get().SetVariable("client_id", p[CLIENT_ID]);
+    }
+    if ( p.find(HOST) != p.end() ) {
+      Qry.get().SetVariable("host", p[HOST]);
+    }
+    if ( p.find(OPERATION) != p.end() ) {
+      pr_kick = p[OPERATION] == "kick";
+      Qry.get().SetVariable("operation", p[OPERATION]);
+    }
+/*    for (request::Headers::const_iterator iheader=req.headers.begin(); iheader!=req.headers.end(); iheader++) {
         if ( iheader->name == CLIENT_ID ) {
             pr_client_id = not iheader->value.empty();
             Qry.get().SetVariable("client_id", iheader->value);
@@ -368,7 +402,7 @@ void save_http_client_headers(const request &req)
             pr_kick = iheader->value == "kick";
             Qry.get().SetVariable("operation", iheader->value);
         }
-    }
+    }*/
     if(not pr_kick and pr_client_id) Qry.get().Execute();
 }
 
