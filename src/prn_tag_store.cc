@@ -2576,7 +2576,7 @@ void TPrnTagStore::TRfiscDescr::fromDB(int grp_id, int pax_id)
 
         if(paid_services.isRFISCGrpExists(pax_id, grp, subgrp))
             found_services.insert(i->first);
-        else if(registered_services.isRFISCGrpExists(pax_id, grp, subgrp)) {
+        else if(registered_services.isRFISCGrpNeedForPayment(pax_id, grp, subgrp)) {
             CheckIn::TSimplePaxItem pax;
             pax.getByPaxId(pax_id);
             throw UserException("MSG.UNPAID_SERVICE_EXISTS");
