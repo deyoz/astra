@@ -85,6 +85,11 @@ bool TFltParams::get(const TAdvTripInfo& _fltInfo)
   return get(fltInfo, control_method, in_final_status);
 }
 
+bool TFltParams::strictlySingleTicketInTlg() const
+{
+  return control_method || fltInfo.airline=="EL";
+}
+
 bool TFltParams::get(const TAdvTripInfo& fltInfo,
                      bool &control_method,
                      bool &in_final_status)
