@@ -142,7 +142,7 @@ int stat_belgorod(int argc, char **argv)
           for(int pass=0; pass<2; pass++)
           {
             nosir_wait(processed, false, 20, 1);
-            if ((pass==0 && (airp_arv!=belgorod_airp || moscow_airps.find(airp_dep)==moscow_airps.end())) ||
+            if ((pass==0 && airp_arv!=belgorod_airp) ||
                 (pass!=0 && airp_dep!=belgorod_airp)) continue;
 
             std::ofstream &f=(pass==0?farv:fdep);
