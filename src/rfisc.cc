@@ -1470,6 +1470,19 @@ bool TPaidRFISCListWithAuto::isRFISCGrpExists(int pax_id, const std::string &grp
   return false;
 }
 
+bool TPaidRFISCListWithAuto::isRFISCGrpNeedForPayment(int pax_id, const std::string &grp, const std::string &subgrp) const
+{
+  for(const auto& i : *this)
+  {
+    if (i.second.pax_id == pax_id and i.second.trfer_num == 0)
+    {
+      if (TRFISCListItemsCache::isRFISCGrpExists(i.second, grp, subgrp) &&
+          i.second.need_positive()) return true;
+    };
+  };
+  return false;
+}
+
 std::string TPaidRFISCListWithAuto::getRFISCName(const TPaidRFISCItem& item, const std::string& lang) const
 {
   std::string result;

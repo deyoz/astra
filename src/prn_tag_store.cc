@@ -2534,9 +2534,8 @@ string TPrnTagStore::TRfiscDescr::get(const string &crs_cls, TBPServiceTypes::En
 void TPrnTagStore::TRfiscDescr::dump() const
 {
     LogTrace(TRACE5) << "---TPrnTagStore::TRfiscDescr::dump---";
-    for(std::set<TBPServiceTypes::Enum>::const_iterator i = found_services.begin();
-            i != found_services.end(); i++)
-        LogTrace(TRACE5) << TBPServiceTypesCode().encode(*i);
+    for(const auto i: found_services)
+        LogTrace(TRACE5) << TBPServiceTypesCode().encode(i);
     LogTrace(TRACE5) << "-------------------------------------";
 }
 
@@ -2555,27 +2554,27 @@ void TPrnTagStore::TRfiscDescr::fromDB(int grp_id, int pax_id)
 
     paid_services.dump(__FILE__, __LINE__);
 
-    for(list< pair<TBPServiceTypes::Enum, string> >::const_iterator
-            i = TBPServiceTypes::pairsCodes().begin();
-            i != TBPServiceTypes::pairsCodes().end(); i++) {
-        if(i->first == TBPServiceTypes::Unknown) continue;
+    for(const auto &service_type: TBPServiceTypes::pairsCodes()) {
+        if(service_type.first == TBPServiceTypes::Unknown) continue;
         string grp, subgrp;
 
-        if(i->first == TBPServiceTypes::TS_FT) {
+        if(service_type.first == TBPServiceTypes::TS_FT) {
             vector<string> tokens;
-            boost::split(tokens, i->second, boost::is_any_of(" "));
+            boost::split(tokens, service_type.second, boost::is_any_of(" "));
             if(tokens.size() != 2)
-                throw Exception("%s: wrong service type code: %s", __FUNCTION__, i->second.c_str());
+                throw Exception("%s: wrong service type code: %s", __FUNCTION__, service_type.second.c_str());
             grp = tokens[0];
             subgrp = tokens[1];
         } else
-            grp = i->second;
+            grp = service_type.second;
 
+        // Пробег по всем RFISC группы
+        // если хотя бы одна оплачена return true
         if(paid_services.isRFISCGrpExists(pax_id, grp, subgrp))
-            found_services.insert(i->first);
-        else if(registered_services.isRFISCGrpExists(pax_id, grp, subgrp)) {
-            CheckIn::TSimplePaxItem pax;
-            pax.getByPaxId(pax_id);
+            found_services.insert(service_type.first);
+        // Пробег по всем RFISC группы
+        // если хотя бы одна не оплачена return true
+        else if(registered_services.isRFISCGrpNeedForPayment(pax_id, grp, subgrp)) {
             throw UserException("MSG.UNPAID_SERVICE_EXISTS");
         }
     }

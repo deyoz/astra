@@ -711,6 +711,7 @@ class TPaidRFISCListWithAuto : public std::map<TPaxSegRFISCKey, TPaidRFISCItem>,
                                 bool squeeze=false);
     void fromDB(int id, bool is_grp_id, bool squeeze=false);
     bool isRFISCGrpExists(int pax_id, const std::string &grp, const std::string &subgrp) const;
+    bool isRFISCGrpNeedForPayment(int pax_id, const std::string &grp, const std::string &subgrp) const;
     std::string getRFISCName(const TPaidRFISCItem& item, const std::string& lang="") const;
     void getUniqRFISCSs(int pax_id, std::set<std::string> &rfisc_set) const;
 };
