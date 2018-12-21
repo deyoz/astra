@@ -235,8 +235,10 @@ class TRFISCListItem : public TRFISCListKey
              visible==item.visible;
     }
 
-    boost::optional<bool> carry_on() const;
+    bool isCarryOn() const;
+    bool isBaggageOrCarryOn() const;
     TServiceCategory::Enum calc_category() const;
+    bool isBaggageInCabinOrCarryOn() const;
     const std::string& name_view(const std::string& lang="") const;
     const std::string descr_view(const std::string& lang="") const;
 
@@ -354,7 +356,7 @@ class TRFISCList : public TRFISCListMap
     int toDBAdv() const; //продвинутое сохранение с анализом существующих справочников
     std::string localized_name(const TRFISCListKey &key, const std::string& lang) const; //локализованное описание RFISC
     bool exists(const TServiceType::Enum service_type) const;
-    bool exists(const boost::optional<bool>& carry_on) const;
+    bool exists(const bool carryOn) const;
     bool equal(const TRFISCList &list) const;
     void dump() const;
 };

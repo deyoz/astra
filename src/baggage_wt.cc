@@ -567,8 +567,8 @@ void TBagTypeList::create(const std::string &airline,
     item.bag_type=Qry.FieldAsString("code_str");
     item.airline=Qry.FieldAsString("airline");
     item.category=Qry.FieldAsInteger("pr_additional")!=0?
-                    TServiceCategory::BothWithOrigInfo:
-                    TServiceCategory::Both;
+                    TServiceCategory::BaggageAndCarryOnWithOrigInfo:
+                    TServiceCategory::BaggageAndCarryOn;
     item.name=Qry.FieldAsString("name");
     item.name_lat=Qry.FieldAsString("name_lat");
     item.descr=Qry.FieldAsString("descr");
@@ -586,7 +586,7 @@ void TBagTypeList::create(const std::string &airline,
   TBagTypeListItem item;
   item.airline=airline;
   item.bag_type=WeightConcept::REGULAR_BAG_TYPE;
-  item.category=TServiceCategory::Both;
+  item.category=TServiceCategory::BaggageAndCarryOn;
   item.name=getLocaleText(WeightConcept::REGULAR_BAG_NAME, LANG_RU);
   item.name_lat=getLocaleText(WeightConcept::REGULAR_BAG_NAME, LANG_EN);
   item.visible=!is_unaccomp;
@@ -601,7 +601,7 @@ void TBagTypeList::createForInboundTrferFromBTM(const std::string &airline)
   TBagTypeListItem item;
   item.airline=airline;
   item.bag_type=WeightConcept::REGULAR_BAG_TYPE;
-  item.category=TServiceCategory::Both;
+  item.category=TServiceCategory::BaggageAndCarryOn;
   item.name=getLocaleText(WeightConcept::REGULAR_BAG_NAME, LANG_RU);
   item.name_lat=getLocaleText(WeightConcept::REGULAR_BAG_NAME, LANG_EN);
   item.visible=false;
@@ -1006,13 +1006,13 @@ int TPaidBagItem::priority() const
   if (list_item)
   {
     const TServiceCategory::Enum &cat=list_item.get().category;
-    if (cat==TServiceCategory::Baggage ||
-        cat==TServiceCategory::Both ||
-        cat==TServiceCategory::BaggageWithOrigInfo ||
-        cat==TServiceCategory::BothWithOrigInfo)
+    if (cat==TServiceCategory::BaggageInHold ||
+        cat==TServiceCategory::BaggageAndCarryOn ||
+        cat==TServiceCategory::BaggageInHoldWithOrigInfo ||
+        cat==TServiceCategory::BaggageAndCarryOnWithOrigInfo)
       return 2;
-    if (cat==TServiceCategory::CarryOn ||
-        cat==TServiceCategory::CarryOnWithOrigInfo)
+    if (cat==TServiceCategory::BaggageInCabinOrCarryOn ||
+        cat==TServiceCategory::BaggageInCabinOrCarryOnWithOrigInfo)
       return 3;
   };
   return ASTRA::NoExists;

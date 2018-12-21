@@ -282,14 +282,14 @@ void TBagItem::check(TRFISCListWithPropsCache &lists) const
   if (amount!=1)
     throw UserException("MSG.LUGGAGE.EACH_PIECE_SHOULD_WEIGHTED_SEPARATELY");
   if (!pc.get().list_item ||
-      !pc.get().list_item.get().carry_on())
+      !pc.get().list_item.get().isBaggageOrCarryOn())
     throw UserException("MSG.LUGGAGE.UNKNOWN_BAG_TYPE",
                         LParams() << LParam("bag_type", pc.get().key().str()));
 
-  bool carry_on=pc.get().list_item.get().carry_on().get();
-  if (pr_cabin!=carry_on)
+  bool inCabin=pc.get().list_item.get().isBaggageInCabinOrCarryOn();
+  if (pr_cabin!=inCabin)
   {
-    if (carry_on)
+    if (inCabin)
       throw UserException("MSG.LUGGAGE.BAG_TYPE_SHOULD_BE_ADDED_TO_CABIN",
                           LParams() << LParam("bag_type", pc.get().key().str()));
     else
@@ -1279,7 +1279,8 @@ void TGroupBagItem::getAllListKeys(const int grp_id, const bool is_unaccomp, con
   for(TBagMap::iterator b=bags.begin(); b!=bags.end(); ++b)
   {
     TBagItem &bag=b->second;
-    TServiceCategory::Enum category=bag.pr_cabin?TServiceCategory::CarryOn:TServiceCategory::Baggage;
+    TServiceCategory::Enum category=bag.pr_cabin?TServiceCategory::BaggageInCabinOrCarryOn:
+                                                 TServiceCategory::BaggageInHold;
     try
     {
       if (bag.pc)
@@ -1325,7 +1326,8 @@ void TGroupBagItem::getAllListItems(const int grp_id, const bool is_unaccomp, co
   for(TBagMap::iterator b=bags.begin(); b!=bags.end(); ++b)
   {
     TBagItem &bag=b->second;
-    TServiceCategory::Enum category=bag.pr_cabin?TServiceCategory::CarryOn:TServiceCategory::Baggage;
+    TServiceCategory::Enum category=bag.pr_cabin?TServiceCategory::BaggageInCabinOrCarryOn:
+                                                 TServiceCategory::BaggageInHold;
     try
     {
       if (bag.pc)
