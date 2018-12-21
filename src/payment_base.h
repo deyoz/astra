@@ -248,7 +248,7 @@ void splitServicePaymentItems(const T &src,
     if (i->pc)
     {
       if (!i->pc.get().list_item)  throw EXCEPTIONS::Exception("%s: !i->pc.get().list_item", __FUNCTION__);
-      if (!i->pc.get().list_item.get().carry_on())
+        if (!i->pc.get().list_item.get().isBaggageOrCarryOn())
       {
         other_svc.push_back(*i);
         continue; //выводим только багаж

@@ -6754,6 +6754,8 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
         {
           if (!req.paxs.empty() && !reqInfo->api_mode)
           {
+//#define SVC_AVAILABILITY_SYNC_MODE
+#ifndef SVC_AVAILABILITY_SYNC_MODE
               if(data.needSync()) {
                   if (data.httpWasSent)
                     throw Exception("%s: very bad situation! needSync again!", __FUNCTION__);
@@ -6768,9 +6770,9 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
                   res.parseResponse(data.getAnswerNode());
                   if (res.error()) throw Exception("SIRENA ERROR: %s", res.traceError().c_str());
               }
-
-            //SirenaExchange::SendRequest(req, res); синхронный метод обмена с сиреной
-
+#else
+            SirenaExchange::SendRequest(req, res); //синхронный метод обмена с сиреной
+#endif
             if (res.empty()) throw EXCEPTIONS::Exception("%s: strange situation: res.empty()", __FUNCTION__);
             if (req.paxs.empty()) throw EXCEPTIONS::Exception("%s: strange situation: req.paxs.empty()", __FUNCTION__);
             const SirenaExchange::TPaxSegMap &segs=req.paxs.front().segs;
@@ -6799,8 +6801,7 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
               if (seg_concept.get()==TBagConcept::Piece)
               {
                 //определяем piece или weight по наличию/отсутствию багажных RFISC
-                boost::optional<bool> carry_on=false;
-                seg_concept=res.exists_rfisc(s->second.id, carry_on)?TBagConcept::Piece:TBagConcept::Weight;
+                seg_concept=res.exists_rfisc(s->second.id, false)?TBagConcept::Piece:TBagConcept::Weight;
               }
               bag_concept_by_seg.insert(make_pair(s->second.id, seg_concept.get()));
 
@@ -6839,8 +6840,9 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
         }
         catch(std::exception &e)
         {
+#ifndef SVC_AVAILABILITY_SYNC_MODE
           if (data.needSync()) throw;
-
+#endif
           bag_concept_by_seg.clear();
           if (res.error() &&
               (res.error_code=="1" || res.error_message=="Incorrect format") &&

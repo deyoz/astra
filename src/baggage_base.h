@@ -18,12 +18,12 @@ class TServiceCategory
     enum Enum
     {
       Other=0,
-      Baggage=1,
-      CarryOn=2,
-      Both=3,
-      BaggageWithOrigInfo=4,
-      CarryOnWithOrigInfo=5,
-      BothWithOrigInfo=6
+      BaggageInHold=1,
+      BaggageInCabinOrCarryOn=2,
+      BaggageAndCarryOn=3,
+      BaggageInHoldWithOrigInfo=4,
+      BaggageInCabinOrCarryOnWithOrigInfo=5,
+      BaggageAndCarryOnWithOrigInfo=6
     };
 
     static const std::list< std::pair<Enum, std::string> >& pairs()
@@ -31,13 +31,13 @@ class TServiceCategory
       static std::list< std::pair<Enum, std::string> > l;
       if (l.empty())
       {
-        l.push_back(std::make_pair(Other,               "Other"));
-        l.push_back(std::make_pair(Baggage,             "Baggage"));
-        l.push_back(std::make_pair(CarryOn,             "CarryOn"));
-        l.push_back(std::make_pair(Both,                "Both"));
-        l.push_back(std::make_pair(BaggageWithOrigInfo, "BaggageWithOrigInfo"));
-        l.push_back(std::make_pair(CarryOnWithOrigInfo, "CarryOnWithOrigInfo"));
-        l.push_back(std::make_pair(BothWithOrigInfo,    "BothWithOrigInfo"));
+        l.push_back(std::make_pair(Other,                               "Other"));
+        l.push_back(std::make_pair(BaggageInHold,                       "BaggageInHold"));
+        l.push_back(std::make_pair(BaggageInCabinOrCarryOn,             "BaggageInCabinOrCarryOn"));
+        l.push_back(std::make_pair(BaggageAndCarryOn,                   "BaggageAndCarryOn"));
+        l.push_back(std::make_pair(BaggageInHoldWithOrigInfo,           "BaggageInHoldWithOrigInfo"));
+        l.push_back(std::make_pair(BaggageInCabinOrCarryOnWithOrigInfo, "BaggageInCabinOrCarryOnWithOrigInfo"));
+        l.push_back(std::make_pair(BaggageAndCarryOnWithOrigInfo,       "BaggageAndCarryOnWithOrigInfo"));
       }
       return l;
     }
