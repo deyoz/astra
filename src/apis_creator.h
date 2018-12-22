@@ -30,11 +30,12 @@ const string TRANSPORT_TYPE_FILE = "FILE";
 const string TRANSPORT_TYPE_RABBIT_MQ = "RABBIT_MQ";
 
 const string apis_test_text =
-"select 'ESAPIS:ZZ' AS edi_addr, 'AIR EUROPA:UX' AS edi_own_addr, code AS format "
-+ TRANSPORT_TYPE_FILE + " AS transport_type, 'mvd_czech_edi' AS transport_params "
+"select 'ESAPIS:ZZ' AS edi_addr, 'AIR EUROPA:UX' AS edi_own_addr, code AS format, '"
++ TRANSPORT_TYPE_FILE + "' AS transport_type, 'mvd_czech_edi' AS transport_params "
 "FROM apis_formats "
 "WHERE code<>'APPS_SITA' AND code<>'TEST' "
 "ORDER BY format";
+// https://stackoverflow.com/questions/3592357/string-concatenation
 
 int apis_test_single(int argc, char **argv);
 
@@ -354,6 +355,7 @@ enum TApisRule
   r_omitAirlineCode, // edi // tr // TODO переделать получше
   r_setCarrier, // edi // для всех edi?
   r_setFltLegs, // edi // tr
+  r_view_RFF_TN,
 
   // PassengerInfo
   r_notOmitCrew, // edi
@@ -1461,6 +1463,34 @@ struct TAPISFormat_EDI_AZ : public TEdiAPISFormat
   string mesRelNum() const { return "05B"; }
 };
 
+// основано на TAPISFormat_EDI_CN
+// -------------------------------------------------------------------------------------------------
+struct TAPISFormat_EDI_VN : public TEdiAPISFormat // ВЬЕТНАМ
+{
+  TAPISFormat_EDI_VN()
+  {
+    add_rule(r_convertPaxNames);
+    add_rule(r_processDocNumber);
+    add_rule(r_notOmitCrew);
+    add_rule(r_view_RFF_TN); // новое поле
+    file_rule = r_file_rule_1;
+  }
+  long int required_fields(TPaxType pax, TAPIType api) const
+  {
+    if (pax == pass && api == apiDoc) return DOC_EDI_VN_FIELDS;
+    if (pax == crew && api == apiDoc) return DOC_EDI_VN_FIELDS;
+    return NO_FIELDS;
+  }
+  void convert_pax_names(string& first_name, string& second_name) const
+  {
+    ConvertPaxNamesConcat(first_name, second_name);
+  }
+  string unknown_gender() const { return "U"; }
+  string process_doc_no(const string& no) const { return NormalizeDocNo(no, false); }
+  string respAgnCode() const { return "ZZZ"; }
+  string ProcessPhoneFax(const string& s) const { return HyphenToSpace(s); }
+};
+
 //---------------------------------------------------------------------------------------
 
 struct TAPPSVersion21 : public TAppsSitaFormat
@@ -1511,6 +1541,7 @@ inline TAPISFormat* SpawnAPISFormat(const string& fmt)
   if (fmt=="EDI_AZ")      p = new TAPISFormat_EDI_AZ; else
   if (fmt=="EDI_DE")      p = new TAPISFormat_EDI_DE; else
   if (fmt=="EDI_TR")      p = new TAPISFormat_EDI_TR; else
+  if (fmt=="EDI_VN")      p = new TAPISFormat_EDI_VN; else
 
   if (fmt=="APPS_21")     p = new TAPPSVersion21; else
   if (fmt=="APPS_26")     p = new TAPPSVersion26;
