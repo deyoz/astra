@@ -1181,6 +1181,7 @@ void TWebGrp::toXML(xmlNodePtr segParentNode) const
 
   xmlNodePtr segNode=NewTextChild(segParentNode, "segment");
   flt.toXMLsimple(segNode, WebSearch::xmlSearchFltMulti);
+  NewTextChild(segNode, "scd_out", flt.scd_out_local==NoExists?"":DateTimeToStr(flt.scd_out_local, ServerFormatDateTimeAsString));
   NewTextChild( segNode, "apis", (int)(!checkInfo.apis_formats().empty()) );
   checkInfo.pass().toWebXML(segNode);
 
