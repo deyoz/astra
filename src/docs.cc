@@ -23,6 +23,7 @@
 #include "baggage_calc.h"
 #include "salons.h"
 #include "franchise.h"
+#include "docs_pax_list.h"
 #include <boost/algorithm/string.hpp>
 
 #define NICKNAME "DENIS"
@@ -552,26 +553,6 @@ string TRptParams::ElemIdToReportElem(TElemType type, int id, TElemFmt fmt, stri
   return ElemIdToPrefferedElem(type, id, fmt, lang, true);
 };
 
-
-string get_last_target(TQuery &Qry, TRptParams &rpt_params)
-{
-    string result;
-    if(rpt_params.pr_trfer) {
-        string airline = Qry.FieldAsString("trfer_airline");
-        if(!airline.empty()) {
-            ostringstream buf;
-            buf
-                << rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("trfer_airp_arv"), efmtNameLong).substr(0, 50)
-                << "("
-                << rpt_params.ElemIdToReportElem(etAirline, airline, efmtCodeNative)
-                << setw(3) << setfill('0') << Qry.FieldAsInteger("trfer_flt_no")
-                << rpt_params.ElemIdToReportElem(etSuffix, Qry.FieldAsString("trfer_suffix"), efmtCodeNative)
-                << ")/" << DateTimeToStr(Qry.FieldAsDateTime("trfer_scd"), "dd");
-            result = buf.str();
-        }
-    }
-    return result;
-}
 
 string get_hall_list(string airp, TRptParams &rpt_params)
 {
@@ -1223,7 +1204,7 @@ TPMPax::TPMPax( TQuery &Qry, TPMPaxList &_pax_list):
     if(not simple.isCBBG())
         CBBG_list.fromDB(simple.paxId());
     target = Qry.FieldAsString("target");
-    last_target = get_last_target(Qry, pax_list.rpt_params);
+    last_target = REPORTS::get_last_target(Qry, pax_list.rpt_params);
     status = Qry.FieldAsString("status");
     if(pax_list.rpt_params.pr_et) {
         if(not simple.tkn.empty())
@@ -1436,16 +1417,17 @@ void PMTotalsToXML(const TPMTotals &PMTotals, map<string, int> &fr_target_ref, x
     }
 }
 
-void PaxListToXML(const TPMPaxList &pax_list, xmlNodePtr dataSetsNode, TRptParams &rpt_params)
+void PaxListToXML(const REPORTS::TPMPaxList &pax_list, xmlNodePtr dataSetsNode, TRptParams &rpt_params)
 {
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_pm_trfer");
     map<string, int> fr_target_ref;
     int fr_target_ref_idx = 0;
     TPMTotals PMTotals;
-    for(const auto &pax: pax_list) {
+    for(const auto &pax_item: pax_list) {
+        const REPORTS::TPMPax &pax = dynamic_cast<const REPORTS::TPMPax&>(*pax_item);
         TPMTotalsKey key;
 
-        key.point_id = pax.point_id;
+        key.point_id = rpt_params.point_id;
         key.target = pax.target;
         key.status = pax.status;
         key.cls = rpt_params.ElemIdToReportElem(etClsGrp, pax.class_grp, efmtCodeNative);
@@ -1789,7 +1771,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             string last_target;
             int pr_trfer = 0;
             if(rpt_params.pr_trfer) {
-                last_target = get_last_target(Qry, rpt_params);
+                last_target = REPORTS::get_last_target(Qry, rpt_params);
                 pr_trfer = Qry.FieldAsInteger("pr_trfer");
             }
             NewTextChild(rowNode, "last_target", last_target);
@@ -1861,9 +1843,9 @@ void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         }
         PMTotalsToXML(PMTotals, fr_target_ref, dataSetsNode, rpt_params);
     } else {
-        TPMPaxList pax_list(rpt_params);
+        REPORTS::TPMPaxList pax_list(rpt_params);
         for(; !Qry.Eof; Qry.Next()) pax_list.fromDB(Qry);
-        pax_list.sort();
+        pax_list.sort(REPORTS::pax_compare);
         pax_list.trace(TRACE5);
         PaxListToXML(pax_list, dataSetsNode, rpt_params);
     }
@@ -2095,7 +2077,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
         TBagTagRow bag_tag_row;
         bag_tag_row.pr_trfer = Qry.FieldAsInteger("pr_trfer");
-        bag_tag_row.last_target = get_last_target(Qry, rpt_params);
+        bag_tag_row.last_target = REPORTS::get_last_target(Qry, rpt_params);
         bag_tag_row.point_num = Qry.FieldAsInteger("point_num");
         bag_tag_row.grp_id = cur_grp_id;
         bag_tag_row.airp_arv = Qry.FieldAsString("airp_arv");

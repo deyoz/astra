@@ -196,6 +196,8 @@ astra_SOURCES = \
   pax_events.cc \
   stat_utils.cc \
   stat_common.cc \
+  pax_list.cc \
+  docs_pax_list.cc \
   db_pkg.cc \
   cr_lf.cc \
   stat_fv.cc \
@@ -394,6 +396,8 @@ noinst_HEADERS = \
   pax_events.h \
   stat_utils.h \
   stat_common.h \
+  pax_list.h \
+  docs_pax_list.h \
   db_pkg.h \
   cr_lf.h \
   stat_fv.h \
