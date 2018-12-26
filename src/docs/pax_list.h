@@ -88,6 +88,7 @@ namespace REPORTS {
         int point_id;
         TUnboundCBBGList unbound_cbbg_list; // список непривязанных CBBG для point_id
 
+        boost::optional<TSimpleMktFlight> mkt_flt;
         boost::optional<TRemEventType> rem_event_type;
         boost::optional<std::vector<TTlgCompLayer>> complayers;
         boost::optional<TRemGrp> rem_grp;
@@ -97,7 +98,11 @@ namespace REPORTS {
         void fromDB(TQuery &Qry);
         virtual TPaxPtr getPaxPtr();
 
-        TPaxList(int _point_id, boost::optional<TRemEventType> _rem_event_type = boost::none);
+        TPaxList(
+                int _point_id,
+                boost::optional<TRemEventType> _rem_event_type = boost::none,
+                boost::optional<TSimpleMktFlight> _mkt_flt = boost::none
+                );
         virtual ~TPaxList() {};
     };
 }

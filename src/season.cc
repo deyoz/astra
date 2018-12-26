@@ -8,7 +8,7 @@
 #include "date_time.h"
 #include "stl_utils.h"
 #include "stat_utils.h"
-#include "docs.h"
+#include "docs/common.h"
 #include "pers_weights.h"
 #include "base_tables.h"
 #include "astra_misc.h"

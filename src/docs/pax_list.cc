@@ -4,6 +4,8 @@
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
 
+// просто комментарий
+
 using namespace REPORTS;
 using namespace std;
 
@@ -55,6 +57,12 @@ void TPaxList::fromDB(TQuery &Qry)
     TPaxPtr pax = getPaxPtr();
     pax->fromDB(Qry);
 
+    if(mkt_flt and not mkt_flt.get().empty()) {
+        TMktFlight db_mkt_flt;
+        db_mkt_flt.getByPaxId(pax->simple.id);
+        if(not(db_mkt_flt == mkt_flt.get()))
+            return;
+    }
 
     if(pax->simple.isCBBG()) {
         unbound_cbbg_list.add_cbbg(pax);
@@ -137,6 +145,7 @@ void TCrsSeatsBlockingItem::fromDB(TQuery &Qry)
 void TPaxList::clear()
 {
     point_id = ASTRA::NoExists;
+    mkt_flt = boost::none;
     rem_event_type = boost::none;
     list<TPaxPtr>::clear();
     unbound_cbbg_list.clear();
@@ -144,9 +153,14 @@ void TPaxList::clear()
     rem_grp = boost::none;
 }
 
-TPaxList::TPaxList(int _point_id, boost::optional<TRemEventType> _rem_event_type)
+TPaxList::TPaxList(
+        int _point_id,
+        boost::optional<TRemEventType> _rem_event_type,
+        boost::optional<TSimpleMktFlight> _mkt_flt
+        )
 {
     clear();
     point_id = _point_id;
+    mkt_flt = _mkt_flt;
     rem_event_type = _rem_event_type;
 }

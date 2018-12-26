@@ -1,9 +1,9 @@
-#ifndef _DOCS_PAX_LIST_H_
-#define _DOCS_PAX_LIST_H_
+#ifndef _DOCS_PTM_H_
+#define _DOCS_PTM_H_
 
 #include "pax_list.h"
 #include <string>
-#include "docs.h"
+#include "common.h"
 
 namespace REPORTS {
 
@@ -11,7 +11,7 @@ namespace REPORTS {
         TRptParams &rpt_params;
         TPaxPtr getPaxPtr();
         TPMPaxList(TRptParams &_rpt_params):
-            TPaxList(_rpt_params.point_id, retRPT_PM),
+            TPaxList(_rpt_params.point_id, retRPT_PM, _rpt_params.mkt_flt),
             rpt_params(_rpt_params)
         {};
     };
@@ -96,6 +96,8 @@ namespace REPORTS {
     std::string get_last_target(TQuery &Qry, TRptParams &rpt_params);
     int nosir_cbbg(int argc, char** argv);
     bool pax_compare(TPaxPtr pax1, TPaxPtr pax2);
+
+    void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode);
 }
 
 #endif
