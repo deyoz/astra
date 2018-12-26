@@ -87,7 +87,7 @@ CFLAGS="-Wall -g -O0 $TCH_ETC_FLAGS $ORACLE_CXXFLAGS $EDILIB_CXXFLAGS $JXTLIB_CX
  $LIBSSIM_CXXFLAGS $LIBCORETYPES_CXXFLAGS $LIBNSI_CXXFLAGS \
  $FORMAT_SECURITY -I\$(top_builddir)/src -D ASTRA2007"
 CXXFLAGS="$CFLAGS $BOOST_CPPFLAGS $PION_CFLAGS $XML_CFLAGS"
-AC_OUTPUT(Makefile src/Makefile src/tlg/Makefile src/tests/Makefile)
+AC_OUTPUT(Makefile src/Makefile src/tlg/Makefile src/tests/Makefile src/docs/Makefile)
 
 ln -s $LIBROOT/tscriptc/tscriptc ${srcdir}/src/tscriptc
 
