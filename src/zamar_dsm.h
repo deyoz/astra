@@ -30,6 +30,8 @@ class PassengerSearchResult
   CheckIn::TSimplePaxGrpItem grp_item;
   CheckIn::TSimplePaxItem pax_item;
   CheckIn::TPaxDocItem doc;
+  CheckIn::TPaxDocoItem doco;
+  bool doco_exists;
   TMktFlight mkt_flt;
   
   // sessionId

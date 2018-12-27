@@ -44,6 +44,7 @@ PassengerSearchResult& PassengerSearchResult::fromXML(xmlNodePtr reqNode)
     throw Exception("Failed pax_item.getByPaxId %d", pax_id);
   if (not CheckIn::LoadPaxDoc(pax_id, doc))
     throw Exception("Failed LoadPaxDoc %d", pax_id);
+  doco_exists = CheckIn::LoadPaxDoco(pax_id, doco);
   mkt_flt.getByPaxId(pax_id);
   if (mkt_flt.empty())
     throw Exception("Failed mkt_flt.getByPaxId %d", pax_id);
@@ -104,13 +105,30 @@ const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) co
   NewTextChild(resNode, "passengerId", bppax.pax_id);
   // sequence
   NewTextChild(resNode, "sequence", pax_item.reg_no);
-  // LastName
-  NewTextChild(resNode, "lastName", doc.surname);
-  // firstName
-  NewTextChild(resNode, "firstName", doc.first_name);
-  // gender
-  NewTextChild(resNode, "gender",
-      ElemIdToPrefferedElem(etGenderType, doc.gender, efmtCodeNative, lang.get()));
+  // document
+  xmlNodePtr docNode = NewTextChild(resNode, "document");
+  NewTextChild(docNode, "type", ElemIdToPrefferedElem(etPaxDocType, doc.type, efmtCodeNative, lang.get()));
+  NewTextChild(docNode, "issue_country", ElemIdToPrefferedElem(etCountry, doc.issue_country, efmtCodeNative, lang.get()));
+  NewTextChild(docNode, "no", doc.no.substr(0, 15));
+  NewTextChild(docNode, "nationality", ElemIdToPrefferedElem(etCountry, doc.nationality, efmtCodeNative, lang.get()));
+  NewTextChild(docNode, "birth_date", DateTimeToStr(doc.birth_date, "yyyy-mm-dd"));
+  NewTextChild(docNode, "gender", ElemIdToPrefferedElem(etGenderType, doc.gender, efmtCodeNative, lang.get()));
+  NewTextChild(docNode, "expiry_date", DateTimeToStr(doc.expiry_date, "yyyy-mm-dd"));
+  NewTextChild(docNode, "surname", doc.surname.substr(0, 64));
+  NewTextChild(docNode, "first_name", doc.first_name.substr(0, 64));
+  NewTextChild(docNode, "second_name", doc.second_name.substr(0, 64));
+  // doco
+  xmlNodePtr docoNode = NewTextChild(resNode, "doco");
+  if (doco_exists)
+  {
+    NewTextChild(docoNode, "birth_place", doco.birth_place.substr(0, 35));
+    NewTextChild(docoNode, "type", "V");
+    NewTextChild(docoNode, "no", doco.no.substr(0, 15));
+    NewTextChild(docoNode, "issue_place", doco.issue_place.substr(0, 35));
+    NewTextChild(docoNode, "issue_date", DateTimeToStr(doco.issue_date, "yyyy-mm-dd"));
+    NewTextChild(docoNode, "expiry_date", DateTimeToStr(doco.expiry_date, "yyyy-mm-dd"));
+    NewTextChild(docoNode, "applic_country", ElemIdToPrefferedElem(etCountry, doco.applic_country, efmtCodeNative, lang.get()));
+  }
   // group
   NewTextChild(resNode, "group", "");
   // pnr
