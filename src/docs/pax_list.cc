@@ -1,5 +1,6 @@
 #include "pax_list.h"
 #include "salons.h"
+#include <boost/algorithm/string.hpp>
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -8,6 +9,7 @@
 
 using namespace REPORTS;
 using namespace std;
+using namespace ASTRA;
 
 TPaxPtr TPaxList::getPaxPtr()
 {
@@ -86,6 +88,25 @@ void TPax::trace(TRACE_SIGNATURE)
     }
 }
 
+// Может, вынести в утилиты?
+string FieldAsString(TQuery &Qry, const string &name)
+{
+    string result;
+    int col_idx = Qry.GetFieldIndex(name);
+    if(col_idx >= 0)
+        result = Qry.FieldAsString(col_idx);
+    return result;
+}
+
+int FieldAsInteger(TQuery &Qry, const string &name)
+{
+    int result = NoExists;
+    int col_idx = Qry.GetFieldIndex(name);
+    if(col_idx >= 0)
+        result = Qry.FieldAsInteger(col_idx);
+    return result;
+}
+
 void TPax::fromDB(TQuery &Qry)
 {
     simple.fromDB(Qry);
@@ -101,11 +122,18 @@ void TPax::fromDB(TQuery &Qry)
     }
 
     seat_list.add_seats(simple.paxId(), pax_list.complayers.get());
+    simple.seat_no = (simple.is_jmp ? "JMP" : seat_list.get_seat_one(pax_list.lang != AstraLocale::LANG_RU));
 
     if(not pax_list.rem_grp and pax_list.rem_event_type) {
         pax_list.rem_grp = boost::in_place();
         pax_list.rem_grp.get().Load(pax_list.rem_event_type.get(), pax_list.point_id);
     }
+
+    user_descr = FieldAsString(Qry, "user_descr");
+    baggage.fromDB(Qry);
+    if(simple.bag_pool_num != NoExists)
+        GetTagsByPool(simple.grp_id, simple.bag_pool_num, _tags, true);
+    GetRemarks(simple.id, pax_list.lang, _rems);
 }
 
 void TPaxList::trace(TRACE_SIGNATURE)
@@ -145,6 +173,7 @@ void TCrsSeatsBlockingItem::fromDB(TQuery &Qry)
 void TPaxList::clear()
 {
     point_id = ASTRA::NoExists;
+    lang = AstraLocale::LANG_RU;
     mkt_flt = boost::none;
     rem_event_type = boost::none;
     list<TPaxPtr>::clear();
@@ -153,14 +182,151 @@ void TPaxList::clear()
     rem_grp = boost::none;
 }
 
-TPaxList::TPaxList(
-        int _point_id,
-        boost::optional<TRemEventType> _rem_event_type,
-        boost::optional<TSimpleMktFlight> _mkt_flt
-        )
+TPaxList::TPaxList(int _point_id)
 {
     clear();
     point_id = _point_id;
-    mkt_flt = _mkt_flt;
-    rem_event_type = _rem_event_type;
 }
+
+string TPax::seat_no() const
+{
+    ostringstream result;
+    result << simple.seat_no;
+    if(seats() > 1) result << "+" << seats() - 1;
+    return result.str();
+}
+
+int TPax::seats() const
+{
+    int result = simple.seats;
+    for(const auto &cbbg: cbbg_list) {
+        if(cbbg.pax_info)
+            result += cbbg.pax_info->simple.seats;
+    }
+    return result;
+}
+
+string TPax::tkn_str() const
+{
+    string result;
+    if(not simple.tkn.empty())
+        result += simple.tkn.no_str();
+    for(const auto &cbbg: cbbg_list) {
+        if(cbbg.pax_info) {
+            if(not cbbg.pax_info->simple.tkn.empty()) {
+                if(not result.empty())
+                    result += " ";
+                result += cbbg.pax_info->simple.tkn.no_str();
+            }
+        }
+    }
+    return result;
+}
+
+void TBaggage::fromDB(TQuery &Qry)
+{
+    rk_amount = FieldAsInteger(Qry, "rk_amount");
+    rk_weight = Qry.FieldAsInteger("rk_weight");
+    amount = Qry.FieldAsInteger("bag_amount");
+    weight = Qry.FieldAsInteger("bag_weight");
+    excess_wt = Qry.FieldAsInteger("excess_wt");
+    excess_pc = Qry.FieldAsInteger("excess_pc");
+}
+
+int TPax::bag_amount() const
+{
+    int result = baggage.amount;
+    for(const auto &cbbg: cbbg_list) {
+        if(cbbg.pax_info)
+            result += cbbg.pax_info->baggage.amount;
+    }
+    return result;
+}
+
+int TPax::bag_weight() const
+{
+    int result = baggage.weight;
+    for(const auto &cbbg: cbbg_list) {
+        if(cbbg.pax_info)
+            result += cbbg.pax_info->baggage.weight;
+    }
+    return result;
+}
+
+int TPax::rk_amount() const
+{
+    int result = baggage.rk_amount;
+    for(const auto &cbbg: cbbg_list) {
+        if(cbbg.pax_info)
+            result += cbbg.pax_info->baggage.rk_amount;
+    }
+    return result;
+}
+
+int TPax::rk_weight() const
+{
+    int result = baggage.rk_weight;
+    for(const auto &cbbg: cbbg_list) {
+        if(cbbg.pax_info)
+            result += cbbg.pax_info->baggage.rk_weight;
+    }
+    return result;
+}
+
+TBagKilos TPax::excess_wt() const
+{
+    TBagKilos result = baggage.excess_wt;
+    for(const auto &cbbg: cbbg_list) {
+        if(cbbg.pax_info)
+            result += cbbg.pax_info->baggage.excess_wt;
+    }
+    return result;
+}
+
+TBagPieces TPax::excess_pc() const
+{
+    TBagPieces result = baggage.excess_pc;
+    for(const auto &cbbg: cbbg_list) {
+        if(cbbg.pax_info)
+            result += cbbg.pax_info->baggage.excess_pc;
+    }
+    return result;
+}
+
+string TPax::get_tags() const
+{
+    multiset<TBagTagNumber> result = _tags;
+    for(const auto &cbbg: cbbg_list) {
+        if(cbbg.pax_info)
+            result.insert(
+                    cbbg.pax_info->_tags.begin(),
+                    cbbg.pax_info->_tags.end());
+    }
+    return GetTagRangesStrShort(result);
+}
+
+string TPax::rems() const
+{
+    multiset<CheckIn::TPaxRemItem> result = _rems;
+    for(const auto &cbbg: cbbg_list) {
+        if(cbbg.pax_info)
+            result.insert(
+                    cbbg.pax_info->_rems.begin(),
+                    cbbg.pax_info->_rems.end());
+    }
+    string result_str = GetRemarkStr(pax_list.rem_grp.get(), result, "\n");
+    // сконвертим в неповторяющиеся ремарки, с сохранением сортировки
+    vector<string> items;
+    boost::split(items, result_str, boost::is_any_of("\n"));
+    set<string> unique_items;
+    string unique_items_str;
+    for(const auto &i: items) {
+        if(unique_items_str.find(i) == string::npos) {
+            if(not unique_items_str.empty())
+                unique_items_str += " ";
+            unique_items_str += i;
+        }
+    }
+    return unique_items_str;
+}
+

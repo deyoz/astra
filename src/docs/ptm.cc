@@ -86,16 +86,10 @@ TPMPaxList &TPMPax::get_pax_list() const
 void TPMPax::fromDB(TQuery &Qry)
 {
     TPax::fromDB(Qry);
-    simple.seat_no = (simple.is_jmp ? "JMP" : seat_list.get_seat_one(get_pax_list().rpt_params.GetLang() != AstraLocale::LANG_RU));
     _seat_no = " " + simple.seat_no;
     target = Qry.FieldAsString("target");
     last_target = get_last_target(Qry, get_pax_list().rpt_params);
     status = Qry.FieldAsString("status");
-    if(get_pax_list().rpt_params.pr_et) {
-        if(not simple.tkn.empty())
-            _rems.emplace("", simple.tkn.no + IntToString(simple.tkn.coupon));
-    } else
-        GetRemarks(simple.id, get_pax_list().rpt_params.GetLang(), _rems);
     point_id = Qry.FieldAsInteger("trip_id");
     class_grp = Qry.FieldAsInteger("class_grp");
     priority = ((const TClsGrpRow&)base_tables.get("cls_grp").get_row( "id", class_grp, true)).priority;
@@ -108,13 +102,6 @@ void TPMPax::fromDB(TQuery &Qry)
         trfer_airp_arv = Qry.FieldAsString("trfer_airp_arv");
         trfer_scd = Qry.FieldAsDateTime("trfer_scd");
     }
-    _rk_weight = Qry.FieldAsInteger("rk_weight");
-    _bag_amount = Qry.FieldAsInteger("bag_amount");
-    _bag_weight = Qry.FieldAsInteger("bag_weight");
-    excess_wt = Qry.FieldAsInteger("excess_wt");
-    excess_pc = Qry.FieldAsInteger("excess_pc");
-    if(simple.bag_pool_num != NoExists)
-        GetTagsByPool(simple.grp_id, simple.bag_pool_num, _tags, true);
 }
 
 void TPMPax::trace(TRACE_SIGNATURE)
@@ -143,104 +130,12 @@ string REPORTS::get_last_target(TQuery &Qry, TRptParams &rpt_params)
     return result;
 }
 
-int TPMPax::seats() const
-{
-    int result = simple.seats;
-    for(const auto &cbbg: cbbg_list) {
-        if(cbbg.pax_info)
-            result += pm_pax(cbbg.pax_info).simple.seats;
-    }
-    return result;
-}
-
-string TPMPax::seat_no() const
-{
-    ostringstream result;
-    result << simple.seat_no;
-    if(seats() > 1) result << "+" << seats() - 1;
-    return result.str();
-}
-
-int TPMPax::bag_amount() const
-{
-    int result = _bag_amount;
-    for(const auto &cbbg: cbbg_list) {
-        if(cbbg.pax_info)
-            result += pm_pax(cbbg.pax_info)._bag_amount;
-    }
-    return result;
-}
-
-int TPMPax::bag_weight() const
-{
-    int result = _bag_weight;
-    for(const auto &cbbg: cbbg_list) {
-        if(cbbg.pax_info)
-            result += pm_pax(cbbg.pax_info)._bag_weight;
-    }
-    return result;
-}
-
-int TPMPax::rk_weight() const
-{
-    int result = _rk_weight;
-    for(const auto &cbbg: cbbg_list) {
-        if(cbbg.pax_info)
-            result += pm_pax(cbbg.pax_info)._rk_weight;
-    }
-    return result;
-}
-
-string TPMPax::get_tags() const
-{
-    multiset<TBagTagNumber> result = _tags;
-    for(const auto &cbbg: cbbg_list) {
-        if(cbbg.pax_info)
-            result.insert(
-                    pm_pax(cbbg.pax_info)._tags.begin(),
-                    pm_pax(cbbg.pax_info)._tags.end());
-    }
-    return GetTagRangesStrShort(result);
-}
-
 string TPMPax::rems() const
 {
     if(get_pax_list().rpt_params.pr_et) {
-        string result;
-        if(not simple.tkn.empty())
-            result += simple.tkn.no_str();
-        for(const auto &cbbg: cbbg_list) {
-            if(cbbg.pax_info) {
-                if(not pm_pax(cbbg.pax_info).simple.tkn.empty()) {
-                    if(not result.empty())
-                        result += " ";
-                    result += pm_pax(cbbg.pax_info).simple.tkn.no_str();
-                }
-            }
-        }
-        return result;
+        return tkn_str();
     } else {
-        multiset<CheckIn::TPaxRemItem> result = _rems;
-        for(const auto &cbbg: cbbg_list) {
-            if(cbbg.pax_info)
-                result.insert(
-                        pm_pax(cbbg.pax_info)._rems.begin(),
-                        pm_pax(cbbg.pax_info)._rems.end());
-        }
-        string result_str = GetRemarkStr(pax_list.rem_grp.get(), result, "\n");
-        // сконвертим в неповторяющиеся ремарки, с сохранением сортировки
-        vector<string> items;
-        boost::split(items, result_str, boost::is_any_of("\n"));
-        set<string> unique_items;
-        string unique_items_str;
-        for(const auto &i: items) {
-            if(unique_items_str.find(i) == string::npos) {
-                if(not unique_items_str.empty())
-                    unique_items_str += " ";
-                unique_items_str += i;
-            }
-        }
-        return unique_items_str;
+        return TPax::rems();
     }
 }
 
@@ -388,7 +283,7 @@ void PaxListToXML(const REPORTS::TPMPaxList &pax_list, xmlNodePtr dataSetsNode, 
         key.pr_trfer = pax.pr_trfer;
 
         TPMTotalsRow &row = PMTotals[key];
-        row.seats += pax.seats();
+        row.seats += pax_item->seats();
         switch(pax.simple.getTrickyGender())
         {
           case TTrickyGender::Male:
@@ -410,8 +305,8 @@ void PaxListToXML(const REPORTS::TPMPaxList &pax_list, xmlNodePtr dataSetsNode, 
         row.rk_weight += pax.rk_weight();
         row.bag_amount += pax.bag_amount();
         row.bag_weight += pax.bag_weight();
-        row.excess_wt += pax.excess_wt;
-        row.excess_pc += pax.excess_pc;
+        row.excess_wt += pax.excess_wt();
+        row.excess_pc += pax.excess_pc();
 
         switch(pax.simple.crew_type) {
             case TCrewType::ExtraCrew:
@@ -442,16 +337,16 @@ void PaxListToXML(const REPORTS::TPMPaxList &pax_list, xmlNodePtr dataSetsNode, 
         NewTextChild(rowNode, "grp_id", pax.simple.grp_id);
         NewTextChild(rowNode, "class_name", key.cls_name);
         NewTextChild(rowNode, "class", key.cls);
-        NewTextChild(rowNode, "seats", pax.seats());
+        NewTextChild(rowNode, "seats", pax_item->seats());
         NewTextChild(rowNode, "crew_type", CrewTypes().encode(pax.simple.crew_type));
         NewTextChild(rowNode, "rk_weight", pax.rk_weight());
         NewTextChild(rowNode, "bag_amount", pax.bag_amount());
         NewTextChild(rowNode, "bag_weight", pax.bag_weight());
-        NewTextChild(rowNode, "excess", TComplexBagExcess(pax.excess_wt, pax.excess_pc).
+        NewTextChild(rowNode, "excess", TComplexBagExcess(pax.excess_wt(), pax.excess_pc()).
                                           view(OutputLang(rpt_params.GetLang()), true));
         // для суммы по группе Всего в классе
-        NewTextChild(rowNode, "excess_pc", pax.excess_pc.getQuantity());
-        NewTextChild(rowNode, "excess_kg", pax.excess_wt.getQuantity());
+        NewTextChild(rowNode, "excess_pc", pax.excess_pc().getQuantity());
+        NewTextChild(rowNode, "excess_kg", pax.excess_wt().getQuantity());
         {
           string gender;
           switch(pax.simple.getTrickyGender())
@@ -468,19 +363,12 @@ void PaxListToXML(const REPORTS::TPMPaxList &pax_list, xmlNodePtr dataSetsNode, 
           NewTextChild(rowNode, "pers_type", DocTrickyGenders().encode(pax.simple.getTrickyGender()));
           NewTextChild(rowNode, "gender", gender);
           NewTextChild(rowNode, "tags", pax.get_tags());
-          NewTextChild(rowNode, "seat_no", pax.seat_no());
+          NewTextChild(rowNode, "seat_no", pax_item->seat_no());
           NewTextChild(rowNode, "remarks", pax.rems());
         }
     }
 
     PMTotalsToXML(PMTotals, fr_target_ref, dataSetsNode, rpt_params);
-}
-
-bool old_ptm_cbbg()
-{
-    TCachedQuery Qry("select new from test_ptm_cbbg");
-    Qry.get().Execute();
-    return not Qry.get().Eof and Qry.get().FieldAsInteger("new") == 0;
 }
 
 void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -529,18 +417,11 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
     SQLText +=
         "   pax_grp.class_grp, \n"
         "   DECODE(pax_grp.status, 'T', pax_grp.status, 'N') status, \n"
-        "   salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no, \n";
-    if(rpt_params.pr_et) { //ЭБ
-        SQLText +=
-            "    ticket_no||'/'||coupon_no AS remarks, \n";
-    };
-    SQLText +=
         "   NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS rk_weight, \n"
         "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_amount, \n"
         "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_weight, \n"
         "   NVL(ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse),0) AS excess_wt, \n"
         "   NVL(ckin.get_excess_pc(pax.grp_id, pax.pax_id),0) AS excess_pc, \n"
-        "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, \n"
         "   pax_grp.grp_id \n"
         "FROM  \n"
         "   pax_grp, \n"
@@ -597,211 +478,17 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
             " and pax_grp.grp_id=transfer.grp_id(+) and \n"
             " transfer.pr_final(+) <> 0 and \n"
             " transfer.point_id_trfer = trfer_trips.point_id(+) \n";
-    if(old_ptm_cbbg()) {
-        SQLText +=
-            "ORDER BY \n";
-        if(rpt_params.airp_arv.empty())
-            SQLText +=
-                "   points.point_num, \n";
-        if(rpt_params.pr_trfer)
-            SQLText +=
-                "    PR_TRFER ASC, \n"
-                "    TRFER_AIRP_ARV ASC, \n";
-        SQLText +=
-            "    cls_grp.priority, \n"
-            "    cls_grp.class, \n";
-        switch(rpt_params.sort) {
-            case stServiceCode:
-            case stRegNo:
-                SQLText +=
-                    "    pax.reg_no ASC, \n"
-                    "    pax.seats DESC \n";
-                break;
-            case stSurname:
-                SQLText +=
-                    "    pax.surname ASC, \n"
-                    "    pax.name ASC, \n"
-                    "    pax.reg_no ASC, \n"
-                    "    pax.seats DESC \n";
-                break;
-            case stSeatNo:
-                SQLText +=
-                    "    seat_no ASC, \n"
-                    "    pax.reg_no ASC, \n"
-                    "    pax.seats DESC \n";
-                break;
-        }
-    }
     ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-    Qry.CreateVariable("lang", otString, rpt_params.GetLang());
-    Qry.CreateVariable("pr_lat", otInteger, rpt_params.IsInter());
     Qry.Execute();
 
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
-    if(old_ptm_cbbg()) { // true старый код, false - новый
-        xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_pm_trfer");
-        // следующие 2 переменные введены для нужд FastReport
-        map<string, int> fr_target_ref;
-        int fr_target_ref_idx = 0;
-
-        TPMTotals PMTotals;
-        TRemGrp rem_grp;
-        bool rem_grp_loaded = false;
-        boost::optional<vector<TTlgCompLayer>> complayers;
-
-        for(; !Qry.Eof; Qry.Next()) {
-            CheckIn::TSimplePaxItem pax;
-            pax.fromDB(Qry);
-
-            if(not rpt_params.mkt_flt.empty()) {
-                TMktFlight mkt_flt;
-                mkt_flt.getByPaxId(pax.id);
-                if(mkt_flt.empty() or not(mkt_flt == rpt_params.mkt_flt))
-                    continue;
-            }
-
-            TPMTotalsKey key;
-            key.point_id = Qry.FieldAsInteger("trip_id");
-            key.target = Qry.FieldAsString("target");
-            key.status = Qry.FieldAsString("status");
-            int class_grp = Qry.FieldAsInteger("class_grp");
-            key.cls = rpt_params.ElemIdToReportElem(etClsGrp, class_grp, efmtCodeNative);
-            key.cls_name = rpt_params.ElemIdToReportElem(etClsGrp, class_grp, efmtNameLong);
-            key.lvl = ((const TClsGrpRow&)base_tables.get("cls_grp").get_row( "id", class_grp, true)).priority;
-            if(rpt_params.pr_trfer) {
-                key.pr_trfer = Qry.FieldAsInteger("pr_trfer");
-            }
-            TPMTotalsRow &row = PMTotals[key];
-            row.seats += pax.seats;
-            switch(pax.getTrickyGender())
-            {
-                case TTrickyGender::Male:
-                    row.adl_m++;
-                    break;
-                case TTrickyGender::Female:
-                    row.adl_f++;
-                    break;
-                case TTrickyGender::Child:
-                    row.chd++;
-                    break;
-                case TTrickyGender::Infant:
-                    row.inf++;
-                    break;
-                default:
-                    throw Exception("DecodePerson failed");
-            }
-
-            row.rk_weight += Qry.FieldAsInteger("rk_weight");
-            row.bag_amount += Qry.FieldAsInteger("bag_amount");
-            row.bag_weight += Qry.FieldAsInteger("bag_weight");
-            TBagKilos excess_wt=Qry.FieldAsInteger("excess_wt");
-            TBagPieces excess_pc=Qry.FieldAsInteger("excess_pc");
-
-            row.excess_wt += excess_wt;
-            row.excess_pc += excess_pc;
-
-            switch(pax.crew_type) {
-                case TCrewType::ExtraCrew:
-                    row.xcr++;
-                    break;
-                case TCrewType::DeadHeadCrew:
-                    row.dhc++;
-                    break;
-                case TCrewType::MiscOperStaff:
-                    row.mos++;
-                    break;
-                default:
-                    break;
-            }
-            if(pax.is_jmp) row.jmp += pax.seats;
-
-            xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-            NewTextChild(rowNode, "reg_no", pax.reg_no);
-            NewTextChild(rowNode, "full_name", transliter(pax.full_name(), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-            string last_target;
-            int pr_trfer = 0;
-            if(rpt_params.pr_trfer) {
-                last_target = REPORTS::get_last_target(Qry, rpt_params);
-                pr_trfer = Qry.FieldAsInteger("pr_trfer");
-            }
-            NewTextChild(rowNode, "last_target", last_target);
-            NewTextChild(rowNode, "pr_trfer", pr_trfer);
-
-            if(fr_target_ref.find(key.target) == fr_target_ref.end())
-                fr_target_ref[key.target] = fr_target_ref_idx++;
-            NewTextChild(rowNode, "airp_arv", key.target);
-            NewTextChild(rowNode, "fr_target_ref", fr_target_ref[key.target]);
-            NewTextChild(rowNode, "airp_arv_name", rpt_params.ElemIdToReportElem(etAirp, key.target, efmtNameLong));
-            NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
-            NewTextChild(rowNode, "class_name", key.cls_name);
-            NewTextChild(rowNode, "class", key.cls);
-            NewTextChild(rowNode, "seats", pax.seats);
-            NewTextChild(rowNode, "crew_type", CrewTypes().encode(pax.crew_type));
-            NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
-            NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
-            NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
-
-            NewTextChild(rowNode, "excess", TComplexBagExcess(excess_wt, excess_pc).
-                    view(OutputLang(rpt_params.GetLang()), true));
-            // для суммы по группе Всего в классе
-            NewTextChild(rowNode, "excess_pc", excess_pc.getQuantity());
-            NewTextChild(rowNode, "excess_kg", excess_wt.getQuantity());
-
-            {
-                string gender;
-                switch(pax.getTrickyGender())
-                {
-                    case TTrickyGender::Male:
-                        gender = "M";
-                        break;
-                    case TTrickyGender::Female:
-                        gender = "F";
-                        break;
-                    default:
-                        break;
-                };
-                NewTextChild(rowNode, "pers_type", DocTrickyGenders().encode(pax.getTrickyGender()));
-                NewTextChild(rowNode, "gender", gender);
-            }
-            NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
-
-            // seat_no достается с добитыми слева пробелами, чтобы order by
-            // правильно отрабатывал, далее эти пробелы нам ни к чему
-            // (в частности они мешаются в текстовом отчете).
-
-
-            if(not complayers) {
-                complayers = boost::in_place();
-                TAdvTripInfo flt_info;
-                flt_info.getByPointId(rpt_params.point_id);
-                if(not SALONS2::isFreeSeating(flt_info.point_id) and not SALONS2::isEmptySalons(flt_info.point_id))
-                    getSalonLayers( flt_info.point_id, flt_info.point_num, flt_info.first_point, flt_info.pr_tranzit, complayers.get(), false );
-            }
-
-            TTlgSeatList seats;
-            seats.add_seats(pax.paxId(), complayers.get());
-
-            //        NewTextChild(rowNode, "seat_no", TrimString(pax.seat_no));
-            NewTextChild(rowNode, "seat_no", (pax.is_jmp ? "JMP" : seats.get_seat_one(rpt_params.GetLang() != AstraLocale::LANG_RU)));
-
-            if(not rem_grp_loaded) {
-                rem_grp_loaded = true;
-                rem_grp.Load(retRPT_PM, rpt_params.point_id);
-            }
-            NewTextChild(rowNode, "remarks",
-                    (rpt_params.pr_et ? Qry.FieldAsString("remarks") : GetRemarkStr(rem_grp, pax.id, rpt_params.GetLang())));
-        }
-        PMTotalsToXML(PMTotals, fr_target_ref, dataSetsNode, rpt_params);
-    } else {
-        REPORTS::TPMPaxList pax_list(rpt_params);
-        for(; !Qry.Eof; Qry.Next()) pax_list.fromDB(Qry);
-        pax_list.sort(REPORTS::pax_compare);
-        pax_list.trace(TRACE5);
-        PaxListToXML(pax_list, dataSetsNode, rpt_params);
-    }
-
+    REPORTS::TPMPaxList pax_list(rpt_params);
+    for(; !Qry.Eof; Qry.Next()) pax_list.fromDB(Qry);
+    pax_list.sort(REPORTS::pax_compare);
+    pax_list.trace(TRACE5);
+    PaxListToXML(pax_list, dataSetsNode, rpt_params);
 
     // Теперь переменные отчета
     Qry.Clear();

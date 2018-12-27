@@ -44,19 +44,77 @@ namespace REPORTS {
 
     };
 
+    struct TBaggage {
+        int rk_amount;
+        int rk_weight;
+        int amount;
+        int weight;
+        TBagKilos excess_wt;
+        TBagPieces excess_pc;
+        void clear()
+        {
+            rk_amount = ASTRA::NoExists;
+            rk_weight = ASTRA::NoExists;
+            amount = ASTRA::NoExists;
+            weight = ASTRA::NoExists;
+            excess_wt = ASTRA::NoExists;
+            excess_pc = ASTRA::NoExists;
+        }
+        TBaggage():
+            excess_wt(ASTRA::NoExists),
+            excess_pc(ASTRA::NoExists)
+        {
+            clear();
+        }
+        bool empty()
+        {
+            return
+                rk_amount == ASTRA::NoExists or
+                rk_weight == ASTRA::NoExists or
+                amount == ASTRA::NoExists or
+                weight == ASTRA::NoExists or
+                excess_wt.empty() or
+                excess_pc.empty();
+        }
+        void fromDB(TQuery &Qry);
+    };
+
     struct TPaxList;
     struct TPax {
         TPaxList &pax_list;
         CheckIn::TSimplePaxItem simple;
         TCrsSeatsBlockingList cbbg_list;
 
+        std::string user_descr;
+        TBaggage baggage;
+
+        int rk_amount() const;
+        int rk_weight() const;
+        int bag_amount() const;
+        int bag_weight() const;
+        TBagKilos excess_wt() const;
+        TBagPieces excess_pc() const;
+
         TTlgSeatList seat_list;
+        int seats() const;
+        std::string seat_no() const;
+        std::string tkn_str() const;
+
+        std::multiset<TBagTagNumber> _tags;
+        std::string get_tags() const;
+
+        std::multiset<CheckIn::TPaxRemItem> _rems;
+        virtual std::string rems() const;
 
         virtual void clear()
         {
             simple.clear();
             cbbg_list.clear();
             seat_list.Clear();
+            user_descr.clear();
+            baggage.clear();
+            _tags.clear();
+            _rems.clear();
         }
 
         TPax(TPaxList &_pax_list): pax_list(_pax_list)
@@ -86,6 +144,7 @@ namespace REPORTS {
 
     struct TPaxList: public std::list<TPaxPtr> {
         int point_id;
+        std::string lang;
         TUnboundCBBGList unbound_cbbg_list; // список непривязанных CBBG для point_id
 
         boost::optional<TSimpleMktFlight> mkt_flt;
@@ -98,11 +157,7 @@ namespace REPORTS {
         void fromDB(TQuery &Qry);
         virtual TPaxPtr getPaxPtr();
 
-        TPaxList(
-                int _point_id,
-                boost::optional<TRemEventType> _rem_event_type = boost::none,
-                boost::optional<TSimpleMktFlight> _mkt_flt = boost::none
-                );
+        TPaxList(int _point_id);
         virtual ~TPaxList() {};
     };
 }

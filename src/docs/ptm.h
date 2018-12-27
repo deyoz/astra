@@ -11,9 +11,12 @@ namespace REPORTS {
         TRptParams &rpt_params;
         TPaxPtr getPaxPtr();
         TPMPaxList(TRptParams &_rpt_params):
-            TPaxList(_rpt_params.point_id, retRPT_PM, _rpt_params.mkt_flt),
+            TPaxList(_rpt_params.point_id),
             rpt_params(_rpt_params)
-        {};
+        {
+            rem_event_type = retRPT_PM;
+            mkt_flt = _rpt_params.mkt_flt;
+        };
     };
 
     struct TPMPax: public TPax {
@@ -40,14 +43,6 @@ namespace REPORTS {
         std::string trfer_airp_arv;
         TDateTime trfer_scd;
 
-        int _rk_weight;
-        int _bag_amount;
-        int _bag_weight;
-        TBagKilos excess_wt;
-        TBagPieces excess_pc;
-        std::multiset<TBagTagNumber> _tags;
-        std::multiset<CheckIn::TPaxRemItem> _rems;
-
         void clear()
         {
             TPax::clear();
@@ -66,30 +61,13 @@ namespace REPORTS {
             trfer_suffix.clear();
             trfer_airp_arv.clear();
             trfer_scd = ASTRA::NoExists;
-
-            _rk_weight = ASTRA::NoExists;
-            _bag_amount = ASTRA::NoExists;
-            _bag_weight = ASTRA::NoExists;
-            excess_wt = ASTRA::NoExists;
-            excess_pc = ASTRA::NoExists;
-            _tags.clear();
-            _rems.clear();
         }
 
         TPMPax(TPaxList &_pax_list):
             TPax(_pax_list)
-            ,excess_wt(ASTRA::NoExists)
-            ,excess_pc(ASTRA::NoExists)
         {
             clear();
         }
-
-        int seats() const;
-        std::string seat_no() const;
-        int bag_amount() const;
-        int bag_weight() const;
-        int rk_weight() const;
-        std::string get_tags() const;
         std::string rems() const;
     };
 
