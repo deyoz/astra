@@ -19,7 +19,7 @@ bool old_cbbg()
     return not Qry.get().Eof and Qry.get().FieldAsInteger("new") == 0;
 }
 
-void REPORTS::EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     bool pr_web = (rpt_params.rpt_type == rtWEB or rpt_params.rpt_type == rtWEBTXT);
     bool pr_norec = (rpt_params.rpt_type == rtNOREC or rpt_params.rpt_type == rtNORECTXT);
@@ -92,8 +92,13 @@ void REPORTS::EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNod
             if (fltInfo.getByPointId(rpt_params.point_id))
                 check_pay_on_tckin_segs=GetTripSets(tsCheckPayOnTCkinSegs, fltInfo);
             TComplexBagExcessNodeList excessNodeList(OutputLang(rpt_params.GetLang()), {}, "+");
-            TEXAMPaxList pax_list(rpt_params);
+
+            REPORTS::TPaxList pax_list(rpt_params.point_id);
+            pax_list.rem_event_type = retBRD_VIEW;
+            pax_list.lang = rpt_params.GetLang();
+
             for(; !Qry.Eof; Qry.Next()) pax_list.fromDB(Qry);
+
             for(const auto &pax: pax_list) {
                 xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
                 NewTextChild(paxNode, "reg_no", pax->simple.reg_no);
@@ -169,7 +174,7 @@ void REPORTS::EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNod
     NewTextChild(variablesNode, "pc", getLocaleText("м", rpt_params.GetLang()));
 }
 
-void REPORTS::EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     EXAM(rpt_params, reqNode, resNode);
     const char col_sym = ' '; //символ разделителя столбцов

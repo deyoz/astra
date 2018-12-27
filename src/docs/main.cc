@@ -2077,13 +2077,13 @@ void CRSTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 void WEB(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     NewTextChild(reqNode, "client_type", rpt_params.client_type);
-    REPORTS::EXAM(rpt_params, reqNode, resNode);
+    EXAM(rpt_params, reqNode, resNode);
 }
 
 void WEBTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     NewTextChild(reqNode, "client_type", rpt_params.client_type);
-    REPORTS::EXAMTXT(rpt_params, reqNode, resNode);
+    EXAMTXT(rpt_params, reqNode, resNode);
 }
 
 // VOUCHERS BEGIN
@@ -2921,12 +2921,12 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         case rtEXAM:
         case rtNOREC:
         case rtGOSHO:
-            REPORTS::EXAM(rpt_params, reqNode, resNode);
+            EXAM(rpt_params, reqNode, resNode);
             break;
         case rtEXAMTXT:
         case rtNORECTXT:
         case rtGOSHOTXT:
-            REPORTS::EXAMTXT(rpt_params, reqNode, resNode);
+            EXAMTXT(rpt_params, reqNode, resNode);
             break;
         case rtEMD:
             EMD(rpt_params, reqNode, resNode);
