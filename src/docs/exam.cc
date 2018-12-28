@@ -3,6 +3,8 @@
 #include "baggage_calc.h"
 #include "stat_utils.h"
 #include "utils.h"
+#include "xml_unit.h"
+#include "serverlib/xmllibcpp.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -11,13 +13,6 @@ using namespace ASTRA;
 using namespace AstraLocale;
 using namespace std;
 using namespace EXCEPTIONS;
-
-bool old_cbbg()
-{
-    TCachedQuery Qry("select new from test_cbbg");
-    Qry.get().Execute();
-    return not Qry.get().Eof and Qry.get().FieldAsInteger("new") == 0;
-}
 
 void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -94,10 +89,13 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             TComplexBagExcessNodeList excessNodeList(OutputLang(rpt_params.GetLang()), {}, "+");
 
             REPORTS::TPaxList pax_list(rpt_params.point_id);
-            pax_list.rem_event_type = retBRD_VIEW;
-            pax_list.lang = rpt_params.GetLang();
+            pax_list.options.rem_event_type = retBRD_VIEW;
+            pax_list.options.lang = rpt_params.GetLang();
+            pax_list.options.flags.setFlag(REPORTS::oeBaggage);
+            pax_list.options.flags.setFlag(REPORTS::oeSeatNo);
+            pax_list.options.flags.setFlag(REPORTS::oeTags);
 
-            for(; !Qry.Eof; Qry.Next()) pax_list.fromDB(Qry);
+            pax_list.fromDB(Qry);
 
             for(const auto &pax: pax_list) {
                 xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
@@ -116,7 +114,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 NewTextChild(paxNode, "bag_weight", pax->bag_weight());
                 NewTextChild(paxNode, "rk_amount", pax->rk_amount());
                 NewTextChild(paxNode, "rk_weight", pax->rk_weight());
-                NewTextChild(paxNode, "excess", TComplexBagExcess(pax->excess_wt(), pax->excess_pc()).
+                NewTextChild(paxNode, "excess", TComplexBagExcess(pax->baggage.excess_wt, pax->baggage.excess_pc).
                         view(OutputLang(rpt_params.GetLang()), true));
                 bool pr_payment=RFISCPaymentCompleted(pax->simple.grp_id, pax->simple.id, check_pay_on_tckin_segs) &&
                     WeightConcept::BagPaymentCompleted(pax->simple.grp_id);
@@ -225,7 +223,7 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_footer_top", s.str() );
 
     xmlNodePtr dataSetNode = NodeAsNode("passengers", dataSetsNode);
-    xmlNodeSetName(dataSetNode, (const xmlChar*)"table");
+    xmlNodeSetName(dataSetNode, "table");
     vector<string> rows;
     map< string, vector<string> > fields;
     int row;

@@ -4,5 +4,6 @@
 #include <string>
 
 std::string get_test_str(int page_width, std::string lang);
+bool old_cbbg();
 
 #endif

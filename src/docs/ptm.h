@@ -14,13 +14,15 @@ namespace REPORTS {
             TPaxList(_rpt_params.point_id),
             rpt_params(_rpt_params)
         {
-            rem_event_type = retRPT_PM;
-            mkt_flt = _rpt_params.mkt_flt;
+            options.rem_event_type = retRPT_PM;
+            options.mkt_flt = _rpt_params.mkt_flt;
+            options.flags.setFlag(oeBaggage);
+            options.flags.setFlag(oeSeatNo);
+            options.flags.setFlag(oeTags);
         };
     };
 
     struct TPMPax: public TPax {
-        std::string _seat_no; // # места с пробелом в начале, для сортировки
 
 
         void fromDB(TQuery &Qry);
@@ -46,7 +48,6 @@ namespace REPORTS {
         void clear()
         {
             TPax::clear();
-            _seat_no.clear();
             target.clear();
             last_target.clear();
             status.clear();

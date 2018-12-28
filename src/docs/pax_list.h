@@ -6,6 +6,36 @@
 
 namespace REPORTS {
 
+    // Какую инфу доставать из базы, определяется следующими параметрами
+    //
+    // pax_list.options.lang - язык вывода некоторых данных (ФИО, № места...)
+    // pax_list.options.mkt_flt - выборка по маркетинговому рейсу
+    // pax_list.options.rem_event_type = retRPT_PM - типы ремарок. Если не задан, ремарки не читаются
+    // pax_list.options.flags.setFlag(REPORTS::oeBaggage) - добавить инфу по багажу, например
+
+    enum TOptionsEnum {
+        oeBaggage,
+        oeSeatNo,
+        oeTags
+    };
+
+    class TPaxListFlags: public BitSet<TOptionsEnum> {};
+
+    struct TOptions {
+        std::string lang;
+        boost::optional<TSimpleMktFlight> mkt_flt;
+        boost::optional<TRemEventType> rem_event_type;
+        TPaxListFlags flags;
+        void clear()
+        {
+            lang = AstraLocale::LANG_RU;
+            mkt_flt = boost::none;
+            rem_event_type = boost::none;
+            flags.clearFlags();
+        }
+        TOptions() { clear(); }
+    };
+
     struct TPax;
     typedef std::shared_ptr<TPax> TPaxPtr;
 
@@ -53,26 +83,26 @@ namespace REPORTS {
         TBagPieces excess_pc;
         void clear()
         {
-            rk_amount = ASTRA::NoExists;
-            rk_weight = ASTRA::NoExists;
-            amount = ASTRA::NoExists;
-            weight = ASTRA::NoExists;
-            excess_wt = ASTRA::NoExists;
-            excess_pc = ASTRA::NoExists;
+            rk_amount = 0;
+            rk_weight = 0;
+            amount = 0;
+            weight = 0;
+            excess_wt = 0;
+            excess_pc = 0;
         }
         TBaggage():
-            excess_wt(ASTRA::NoExists),
-            excess_pc(ASTRA::NoExists)
+            excess_wt(0),
+            excess_pc(0)
         {
             clear();
         }
         bool empty()
         {
             return
-                rk_amount == ASTRA::NoExists or
-                rk_weight == ASTRA::NoExists or
-                amount == ASTRA::NoExists or
-                weight == ASTRA::NoExists or
+                rk_amount == 0 or
+                rk_weight == 0 or
+                amount == 0 or
+                weight == 0 or
                 excess_wt.empty() or
                 excess_pc.empty();
         }
@@ -84,6 +114,8 @@ namespace REPORTS {
         TPaxList &pax_list;
         CheckIn::TSimplePaxItem simple;
         TCrsSeatsBlockingList cbbg_list;
+
+        std::string full_name_view();
 
         std::string user_descr;
         TBaggage baggage;
@@ -99,6 +131,7 @@ namespace REPORTS {
         int seats() const;
         std::string seat_no() const;
         std::string tkn_str() const;
+        std::string _seat_no; // # места с пробелами в начале, для сортировки
 
         std::multiset<TBagTagNumber> _tags;
         std::string get_tags() const;
@@ -111,6 +144,7 @@ namespace REPORTS {
             simple.clear();
             cbbg_list.clear();
             seat_list.Clear();
+            _seat_no.clear();
             user_descr.clear();
             baggage.clear();
             _tags.clear();
@@ -130,25 +164,23 @@ namespace REPORTS {
 
 
     struct TUnboundCBBGList: public std::list<TPaxPtr> {
-        // ╨Ш╤Й╨╡╨╝ ╨▓ ╤Б╨┐╨╕╤Б╨║╨╡ pax_list ╨┐╨░╤А╨╡╨╜╤В╨░ cbbg_pax
-        // ╨Х╤Б╨╗╨╕ ╨╜╨░╨╣╨┤╨╡╨╜, ╨┐╤А╨╛╨┐╨╕╤Б╤Л╨▓╨░╨╡╨╝ ╨┐╨░╤А╨╡╨╜╤В╤Г ╤Б╤Б╤Л╨╗╨║╤Г ╨╜╨░ cbbg_pax
-        // ╨▓ ╨┐╤А╨╛╤В╨╕╨▓╨╜╨╛╨╝ ╤Б╨╗╤Г╤З╨░╨╡ ╨┤╨╛╨▒╨░╨▓╨╗╤П╨╡╨╝ ╨▓ ╨┤╨░╨╜╨╜╤Л╨╣ ╤Б╨┐╨╕╤Б╨╛╨║
+        // Ищем в списке pax_list парента cbbg_pax
+        // Если найден, прописываем паренту ссылку на cbbg_pax
+        // в противном случае добавляем в данный список
         void add_cbbg(TPaxPtr _cbbg_pax);
 
-        // ╨Я╤А╨╛╨▒╨╡╨│ ╨┐╨╛ ╨┤╨░╨╜╨╜╨╛╨╝╤Г ╤Б╨┐╨╕╤Б╨║╤Г
-        // ╨Т pax ╨┐╤А╨╛╨┐╨╕╤Б╤Л╨▓╨░╨╡╨╝ ╤Б╤Б╤Л╨╗╨║╨╕ ╨╜╨░ ╨╜╨░╨╣╨┤╨╡╨╜╨╜╤Л╨╡ ╤З╨░╨╣╨╗╨┤╤Л
-        // ╨г╨┤╨░╨╗╤П╨╡╨╝ ╨╜╨░╨╣╨┤╨╡╨╜╨╜╤Л╤Е ╨╕╨╖ ╨┤╨░╨╜╨╜╨╛╨│╨╛ ╤Б╨┐╨╕╤Б╨║╨░
+        // Пробег по данному списку
+        // В pax прописываем ссылки на найденные чайлды
+        // Удаляем найденных из данного списка
         void bind_cbbg(TPaxPtr _pax);
         void trace(TRACE_SIGNATURE);
     };
 
     struct TPaxList: public std::list<TPaxPtr> {
+        TOptions options;
         int point_id;
-        std::string lang;
-        TUnboundCBBGList unbound_cbbg_list; // ╤Б╨┐╨╕╤Б╨╛╨║ ╨╜╨╡╨┐╤А╨╕╨▓╤П╨╖╨░╨╜╨╜╤Л╤Е CBBG ╨┤╨╗╤П point_id
+        TUnboundCBBGList unbound_cbbg_list; // список непривязанных CBBG для point_id
 
-        boost::optional<TSimpleMktFlight> mkt_flt;
-        boost::optional<TRemEventType> rem_event_type;
         boost::optional<std::vector<TTlgCompLayer>> complayers;
         boost::optional<TRemGrp> rem_grp;
 

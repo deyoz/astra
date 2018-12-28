@@ -34,10 +34,7 @@ bool REPORTS::pax_compare(TPaxPtr pax1, TPaxPtr pax2)
         case stRegNo:
             return pm_pax1.simple.reg_no < pm_pax2.simple.reg_no;
         case stSurname:
-            if(pm_pax1.simple.surname != pm_pax2.simple.surname)
-                return pm_pax1.simple.surname < pm_pax2.simple.surname;
-            if(pm_pax1.simple.name != pm_pax2.simple.name)
-                return pm_pax1.simple.name < pm_pax2.simple.name;
+            return pax1->full_name_view() < pax2->full_name_view();
             break;
         case stSeatNo:
             if(pm_pax1._seat_no != pm_pax2._seat_no)
@@ -86,7 +83,6 @@ TPMPaxList &TPMPax::get_pax_list() const
 void TPMPax::fromDB(TQuery &Qry)
 {
     TPax::fromDB(Qry);
-    _seat_no = " " + simple.seat_no;
     target = Qry.FieldAsString("target");
     last_target = get_last_target(Qry, get_pax_list().rpt_params);
     status = Qry.FieldAsString("status");
@@ -485,7 +481,7 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
 
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     REPORTS::TPMPaxList pax_list(rpt_params);
-    for(; !Qry.Eof; Qry.Next()) pax_list.fromDB(Qry);
+    pax_list.fromDB(Qry);
     pax_list.sort(REPORTS::pax_compare);
     pax_list.trace(TRACE5);
     PaxListToXML(pax_list, dataSetsNode, rpt_params);

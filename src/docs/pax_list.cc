@@ -56,21 +56,23 @@ void TUnboundCBBGList::bind_cbbg(TPaxPtr _pax)
 
 void TPaxList::fromDB(TQuery &Qry)
 {
-    TPaxPtr pax = getPaxPtr();
-    pax->fromDB(Qry);
+    for(; !Qry.Eof; Qry.Next()) {
+        TPaxPtr pax = getPaxPtr();
+        pax->fromDB(Qry);
 
-    if(mkt_flt and not mkt_flt.get().empty()) {
-        TMktFlight db_mkt_flt;
-        db_mkt_flt.getByPaxId(pax->simple.id);
-        if(not(db_mkt_flt == mkt_flt.get()))
-            return;
-    }
+        if(options.mkt_flt and not options.mkt_flt.get().empty()) {
+            TMktFlight db_mkt_flt;
+            db_mkt_flt.getByPaxId(pax->simple.id);
+            if(not(db_mkt_flt == options.mkt_flt.get()))
+                return;
+        }
 
-    if(pax->simple.isCBBG()) {
-        unbound_cbbg_list.add_cbbg(pax);
-    } else {
-        push_back(pax);
-        unbound_cbbg_list.bind_cbbg(back());
+        if(pax->simple.isCBBG()) {
+            unbound_cbbg_list.add_cbbg(pax);
+        } else {
+            push_back(pax);
+            unbound_cbbg_list.bind_cbbg(back());
+        }
     }
 }
 
@@ -113,7 +115,7 @@ void TPax::fromDB(TQuery &Qry)
     if(not simple.isCBBG())
         cbbg_list.fromDB(simple.id);
 
-    if(not pax_list.complayers) {
+    if(pax_list.options.flags.isFlag(oeSeatNo) and not pax_list.complayers) {
         pax_list.complayers = boost::in_place();
         TAdvTripInfo flt_info;
         flt_info.getByPointId(pax_list.point_id);
@@ -121,19 +123,26 @@ void TPax::fromDB(TQuery &Qry)
             getSalonLayers( flt_info.point_id, flt_info.point_num, flt_info.first_point, flt_info.pr_tranzit, pax_list.complayers.get(), false );
     }
 
-    seat_list.add_seats(simple.paxId(), pax_list.complayers.get());
-    simple.seat_no = (simple.is_jmp ? "JMP" : seat_list.get_seat_one(pax_list.lang != AstraLocale::LANG_RU));
+    if(pax_list.complayers) {
+        seat_list.add_seats(simple.paxId(), pax_list.complayers.get());
+        simple.seat_no = (simple.is_jmp ? "JMP" : seat_list.get_seat_one(pax_list.options.lang != AstraLocale::LANG_RU));
+        ostringstream s;
+        s << setw(4) << right << simple.seat_no;
+        _seat_no = s.str();
+    }
 
-    if(not pax_list.rem_grp and pax_list.rem_event_type) {
+    if(not pax_list.rem_grp and pax_list.options.rem_event_type) {
         pax_list.rem_grp = boost::in_place();
-        pax_list.rem_grp.get().Load(pax_list.rem_event_type.get(), pax_list.point_id);
+        pax_list.rem_grp.get().Load(pax_list.options.rem_event_type.get(), pax_list.point_id);
     }
 
     user_descr = FieldAsString(Qry, "user_descr");
-    baggage.fromDB(Qry);
-    if(simple.bag_pool_num != NoExists)
+    if(pax_list.options.flags.isFlag(oeBaggage))
+        baggage.fromDB(Qry);
+    if(pax_list.options.flags.isFlag(oeTags) and simple.bag_pool_num != NoExists)
         GetTagsByPool(simple.grp_id, simple.bag_pool_num, _tags, true);
-    GetRemarks(simple.id, pax_list.lang, _rems);
+    if(pax_list.rem_grp)
+        GetRemarks(simple.id, pax_list.options.lang, _rems);
 }
 
 void TPaxList::trace(TRACE_SIGNATURE)
@@ -172,10 +181,8 @@ void TCrsSeatsBlockingItem::fromDB(TQuery &Qry)
 
 void TPaxList::clear()
 {
+    options.clear();
     point_id = ASTRA::NoExists;
-    lang = AstraLocale::LANG_RU;
-    mkt_flt = boost::none;
-    rem_event_type = boost::none;
     list<TPaxPtr>::clear();
     unbound_cbbg_list.clear();
     complayers = boost::none;
@@ -191,8 +198,10 @@ TPaxList::TPaxList(int _point_id)
 string TPax::seat_no() const
 {
     ostringstream result;
-    result << simple.seat_no;
-    if(seats() > 1) result << "+" << seats() - 1;
+    if(pax_list.options.flags.isFlag(oeSeatNo)) {
+        result << simple.seat_no;
+        if(seats() > 1) result << "+" << seats() - 1;
+    }
     return result.str();
 }
 
@@ -226,11 +235,11 @@ string TPax::tkn_str() const
 void TBaggage::fromDB(TQuery &Qry)
 {
     rk_amount = FieldAsInteger(Qry, "rk_amount");
-    rk_weight = Qry.FieldAsInteger("rk_weight");
-    amount = Qry.FieldAsInteger("bag_amount");
-    weight = Qry.FieldAsInteger("bag_weight");
-    excess_wt = Qry.FieldAsInteger("excess_wt");
-    excess_pc = Qry.FieldAsInteger("excess_pc");
+    rk_weight = FieldAsInteger(Qry, "rk_weight");
+    amount = FieldAsInteger(Qry, "bag_amount");
+    weight = FieldAsInteger(Qry, "bag_weight");
+    excess_wt = FieldAsInteger(Qry, "excess_wt");
+    excess_pc = FieldAsInteger(Qry, "excess_pc");
 }
 
 int TPax::bag_amount() const
@@ -330,3 +339,7 @@ string TPax::rems() const
     return unique_items_str;
 }
 
+string TPax::full_name_view()
+{
+    return transliter(simple.full_name(), 1, pax_list.options.lang != AstraLocale::LANG_RU);
+}
