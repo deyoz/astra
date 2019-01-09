@@ -6685,7 +6685,7 @@ void fillPaxsBags(const TCheckedReqPassengers &req_grps, TExchange &exch, TCheck
             reqSeg.subcl=pax.subcl;
             reqSeg.set(pax.tkn, paxSection);
             CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);
-            reqSeg.pnrs.getByPaxIdFast(pax.id);
+            reqSeg.pnrAddrs.getByPaxIdFast(pax.id);
             ++iReqPax;
           }
         }

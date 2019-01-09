@@ -140,7 +140,7 @@ class TPaxSegItem : public TSegItem
     std::string subcl;
     CheckIn::TPaxTknItem tkn;
     int display_id;
-    TPnrAddrs pnrs;
+    TPnrAddrs pnrAddrs;
     std::set<CheckIn::TPaxFQTItem> fqts;
     TPaxSegItem()
     {
@@ -152,7 +152,7 @@ class TPaxSegItem : public TSegItem
       subcl.clear();
       tkn.clear();
       display_id=ASTRA::NoExists;
-      pnrs.clear();
+      pnrAddrs.clear();
       fqts.clear();
     }
     using TSegItem::set;
@@ -237,6 +237,7 @@ class TPaxItem2
     int seats;
     int reg_no;
     int grp_id;
+    TPnrAddrs pnrAddrs;
     TPaxItem2()
     {
       clear();
@@ -268,6 +269,7 @@ class TPaxItem2
       seats=ASTRA::NoExists;
       reg_no=ASTRA::NoExists;
       grp_id=ASTRA::NoExists;
+      pnrAddrs.clear();
     }
 
     const TPaxItem2& toSirenaXML(xmlNodePtr node, const AstraLocale::OutputLang &lang) const;
