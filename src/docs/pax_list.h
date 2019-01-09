@@ -3,6 +3,7 @@
 
 #include "passenger.h"
 #include "telegram.h"
+#include "consts.h"
 
 namespace REPORTS {
 
@@ -11,10 +12,14 @@ namespace REPORTS {
     // pax_list.options.lang - язык вывода некоторых данных (ФИО, № места...)
     // pax_list.options.mkt_flt - выборка по маркетинговому рейсу
     // pax_list.options.rem_event_type = retRPT_PM - типы ремарок. Если не задан, ремарки не читаются
-    // pax_list.options.flags.setFlag(REPORTS::oeBaggage) - добавить инфу по багажу, например
+    // pax_list.options.flags.setFlag(REPORTS::oeBagAmount) - добавить инфу по кол-ву багажа, например
 
     enum TOptionsEnum {
-        oeBaggage,
+        oeBagAmount,
+        oeBagWeight,
+        oeRkAmount,
+        oeRkWeight,
+        oeExcess,
         oeSeatNo,
         oeTags
     };
@@ -25,12 +30,16 @@ namespace REPORTS {
         std::string lang;
         boost::optional<TSimpleMktFlight> mkt_flt;
         boost::optional<TRemEventType> rem_event_type;
+        boost::optional<bool> pr_brd;
+        TSortType sort;
         TPaxListFlags flags;
         void clear()
         {
             lang = AstraLocale::LANG_RU;
             mkt_flt = boost::none;
             rem_event_type = boost::none;
+            pr_brd = boost::none;
+            sort = stRegNo;
             flags.clearFlags();
         }
         TOptions() { clear(); }
@@ -186,12 +195,17 @@ namespace REPORTS {
 
         void clear();
         void trace(TRACE_SIGNATURE);
+        // внешний запрос
         void fromDB(TQuery &Qry);
+        // клеится свой, внутренний
+        void fromDB();
         virtual TPaxPtr getPaxPtr();
 
         TPaxList(int _point_id);
         virtual ~TPaxList() {};
     };
+
+    bool pax_cmp(TPaxPtr pax1, TPaxPtr pax2);
 }
 
 #endif

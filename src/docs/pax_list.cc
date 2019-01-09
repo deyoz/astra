@@ -54,6 +54,39 @@ void TUnboundCBBGList::bind_cbbg(TPaxPtr _pax)
     if(cbbg != this->end()) this->erase(cbbg);
 }
 
+void TPaxList::fromDB()
+{
+    QParams QryParams;
+    QryParams << QParam("point_id", otInteger, point_id);
+    string SQLText =
+        "select "
+        "   pax.* ";
+    if(options.flags.isFlag(oeBagAmount))
+        SQLText += "   ,ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount ";
+    if(options.flags.isFlag(oeBagWeight))
+        SQLText += "   ,ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount ";
+    if(options.flags.isFlag(oeRkAmount))
+        SQLText += "   ,ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount ";
+    if(options.flags.isFlag(oeRkWeight))
+        SQLText += "   ,ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount ";
+    if(options.flags.isFlag(oeExcess))
+        SQLText +=
+            "   ,NVL(ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse),0) AS excess_wt "
+            "   ,NVL(ckin.get_excess_pc(pax.grp_id, pax.pax_id),0) AS excess_pc ";
+    SQLText +=
+        "from pax_grp, pax where "
+        "   pax_grp.point_dep = :point_id and "
+        "   pax_grp.grp_id = pax.grp_id and "
+        "   pax_grp.status not in ('E') ";
+    if(options.pr_brd) {
+        SQLText += "and pax.pr_brd = :pr_brd ";
+        QryParams << QParam("pr_brd", otInteger, options.pr_brd.get());
+    }
+    TCachedQuery Qry(SQLText, QryParams);
+    Qry.get().Execute();
+    fromDB(Qry.get());
+}
+
 void TPaxList::fromDB(TQuery &Qry)
 {
     for(; !Qry.Eof; Qry.Next()) {
@@ -137,8 +170,7 @@ void TPax::fromDB(TQuery &Qry)
     }
 
     user_descr = FieldAsString(Qry, "user_descr");
-    if(pax_list.options.flags.isFlag(oeBaggage))
-        baggage.fromDB(Qry);
+    baggage.fromDB(Qry);
     if(pax_list.options.flags.isFlag(oeTags) and simple.bag_pool_num != NoExists)
         GetTagsByPool(simple.grp_id, simple.bag_pool_num, _tags, true);
     if(pax_list.rem_grp)
@@ -342,4 +374,18 @@ string TPax::rems() const
 string TPax::full_name_view()
 {
     return transliter(simple.full_name(), 1, pax_list.options.lang != AstraLocale::LANG_RU);
+}
+
+bool REPORTS::pax_cmp(TPaxPtr pax1, TPaxPtr pax2)
+{
+    switch(pax1->pax_list.options.sort) {
+        case stServiceCode:
+        case stRegNo:
+            return pax1->simple.reg_no < pax2->simple.reg_no;
+        case stSurname:
+            return pax1->full_name_view() < pax2->full_name_view();
+        case stSeatNo:
+            return pax1->_seat_no < pax2->_seat_no;
+    }
+    return pax1->simple.reg_no < pax2->simple.reg_no;
 }

@@ -16,7 +16,6 @@ namespace REPORTS {
         {
             options.rem_event_type = retRPT_PM;
             options.mkt_flt = _rpt_params.mkt_flt;
-            options.flags.setFlag(oeBaggage);
             options.flags.setFlag(oeSeatNo);
             options.flags.setFlag(oeTags);
         };

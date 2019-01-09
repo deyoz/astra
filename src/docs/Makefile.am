@@ -21,4 +21,5 @@ noinst_HEADERS = \
   ptm.h \
   exam.h \
   notpres.h \
+  consts.h \
   pax_list.h

@@ -4,8 +4,7 @@
 #include <string>
 #include "astra_elems.h"
 #include "print.h"
-
-enum TSortType {stRegNo, stSurname, stSeatNo, stServiceCode};
+#include "consts.h"
 
 const std::string ALL_CKIN_ZONES = " ";
 

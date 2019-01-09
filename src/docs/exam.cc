@@ -91,7 +91,6 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             REPORTS::TPaxList pax_list(rpt_params.point_id);
             pax_list.options.rem_event_type = retBRD_VIEW;
             pax_list.options.lang = rpt_params.GetLang();
-            pax_list.options.flags.setFlag(REPORTS::oeBaggage);
             pax_list.options.flags.setFlag(REPORTS::oeSeatNo);
             pax_list.options.flags.setFlag(REPORTS::oeTags);
 

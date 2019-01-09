@@ -11,36 +11,6 @@ using namespace ASTRA;
 using namespace std;
 using namespace AstraLocale;
 
-namespace REPORTS {
-    struct TNOTPRESPaxList: public TPaxList {
-        TRptParams &rpt_params;
-        TNOTPRESPaxList(TRptParams &_rpt_params):
-            TPaxList(_rpt_params.point_id),
-            rpt_params(_rpt_params)
-        {
-            options.lang = rpt_params.GetLang();
-            options.flags.setFlag(oeBaggage);
-            options.flags.setFlag(oeSeatNo);
-            options.flags.setFlag(oeTags);
-        }
-    };
-    bool notpres_cmp(TPaxPtr pax1, TPaxPtr pax2)
-    {
-        const TRptParams &rpt_params = dynamic_cast<const TNOTPRESPaxList &>(pax1->pax_list).rpt_params;
-        switch(rpt_params.sort) {
-            case stServiceCode:
-            case stRegNo:
-                return pax1->simple.reg_no < pax2->simple.reg_no;
-            case stSurname:
-                return pax1->full_name_view() < pax2->full_name_view();
-            case stSeatNo:
-                return pax1->_seat_no < pax2->_seat_no;
-        }
-        return pax1->simple.reg_no < pax2->simple.reg_no;
-    }
-
-}
-
 void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     if(rpt_params.rpt_type == rtNOTPRESTXT)
@@ -101,24 +71,20 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             Qry.Next();
         }
     } else {
-        TCachedQuery Qry(
-                "select "
-                "   pax.*, "
-                "   ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount "
-                "from pax_grp, pax where "
-                "   pax_grp.point_dep = :point_id and "
-                "   pax_grp.grp_id = pax.grp_id and "
-                "   pax.pr_brd = 0 and "
-                "   pax_grp.status not in ('E') ",
-                QParams() << QParam("point_id" , otInteger, rpt_params.point_id));
-        Qry.get().Execute();
-        REPORTS::TNOTPRESPaxList pax_list(rpt_params);
-        pax_list.fromDB(Qry.get());
-        pax_list.sort(REPORTS::notpres_cmp);
+        REPORTS::TPaxList pax_list(rpt_params.point_id);
+
+        pax_list.options.lang = rpt_params.GetLang();
+        pax_list.options.sort = rpt_params.sort;
+        pax_list.options.pr_brd = false;
+        pax_list.options.flags.setFlag(REPORTS::oeBagAmount);
+        pax_list.options.flags.setFlag(REPORTS::oeSeatNo);
+        pax_list.options.flags.setFlag(REPORTS::oeTags);
+
+        pax_list.fromDB();
+        pax_list.sort(REPORTS::pax_cmp);
         for(const auto &pax: pax_list) {
             xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
 
-            NewTextChild(rowNode, "point_id", rpt_params.point_id);
             NewTextChild(rowNode, "reg_no", pax->simple.reg_no);
             NewTextChild(rowNode, "family", pax->full_name_view());
             NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, EncodePerson(pax->simple.pers_type), efmtCodeNative));
