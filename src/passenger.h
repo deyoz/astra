@@ -1003,7 +1003,9 @@ class TPnrAddrs : public std::vector<TPnrAddrInfo>
     }
     const TPnrAddrs &toXML(xmlNodePtr addrsParentNode,
                            const boost::optional<AstraLocale::OutputLang>& lang=boost::none) const;
-    
+    const TPnrAddrs &toSirenaXML(xmlNodePtr addrParentNode,
+                                 const AstraLocale::OutputLang& lang) const;
+
     std::string str(TPnrAddrInfo::Format format,
                     const boost::optional<AstraLocale::OutputLang>& lang = boost::none) const
     {
@@ -1016,7 +1018,7 @@ class TPnrAddrs : public std::vector<TPnrAddrInfo>
       }
       return s.str();
     }
-    
+
     const std::string traceStr() const
     {
       std::ostringstream s;

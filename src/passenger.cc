@@ -2731,6 +2731,16 @@ const TPnrAddrs& TPnrAddrs::toXML(xmlNodePtr addrsParentNode,
 
   return *this;
 }
+const TPnrAddrs& TPnrAddrs::toSirenaXML(xmlNodePtr addrParentNode,
+                                        const AstraLocale::OutputLang& lang) const
+{
+  if (addrParentNode==nullptr) return *this;
+
+  for(const TPnrAddrInfo& addr : *this)
+    SetProp(NewTextChild(addrParentNode, "recloc", addr.addr), "crs", airlineToPrefferedCode(addr.airline, lang));
+
+  return *this;
+}
 
 std::string TPnrAddrs::getByPnrId(int pnr_id)
 {
