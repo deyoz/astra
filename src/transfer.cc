@@ -49,7 +49,7 @@ void PaxTransferToXML(const list<TPaxTransferItem> &trfer, xmlNodePtr paxNode)
     for(list<TPaxTransferItem>::const_iterator i=trfer.begin(); i!=trfer.end(); ++i)
     {
       xmlNodePtr trferNode=NewTextChild(node,"segment");
-      str=ElemIdToClientElem(etSubcls, i->subclass, i->subclass_fmt);
+      str=ElemIdToCodeNative(etSubcls, i->subclass);
       NewTextChild(trferNode,"subclass",str);
     };
   };

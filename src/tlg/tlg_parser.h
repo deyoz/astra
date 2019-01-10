@@ -1044,10 +1044,8 @@ class TTlgParser
 extern char lexh[];
 
 int CalcEOLCount(const char* p);
-char* TlgElemToElemId(TElemType type, const char* elem, char* id, bool with_icao=false);
-ASTRA::TClass GetClass(const char* subcl);
-char GetSuffix(char &suffix);
-char* GetAirline(char* airline, bool with_icao=true);
+char* GetAirline(char* airline, bool with_icao=true, bool throwIfUnknown=true);
+char GetSuffix(char &suffix, bool throwIfUnknown=true);
 const char* GetTlgElementName(TTlgElement e);
 TTlgCategory GetTlgCategory(char *tlg_type);
 void GetParts(const char* tlg_p, TTlgPartsText &text, THeadingInfo* &info, TFlightsForBind &flts, TMemoryManager &mem);
