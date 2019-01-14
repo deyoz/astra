@@ -4642,7 +4642,7 @@ $(KICK_IN)
             <pr_bi_print>0</pr_bi_print>
             <transfer>
               <segment>
-                <subclass>L</subclass>
+                <subclass>‹</subclass>
               </segment>
             </transfer>
             <service_lists>
@@ -4711,7 +4711,7 @@ $(KICK_IN)
             <pr_bi_print>0</pr_bi_print>
             <transfer>
               <segment>
-                <subclass>L</subclass>
+                <subclass>‹</subclass>
               </segment>
             </transfer>
             <service_lists>
