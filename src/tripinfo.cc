@@ -16,7 +16,7 @@
 #include "checkin.h"
 #include "prepreg.h"
 #include "telegram.h"
-#include "docs.h"
+#include "docs/common.h"
 #include "stat.h"
 #include "print.h"
 #include "convert.h"
@@ -856,7 +856,7 @@ void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodeP
     if ( GetNode( "tripdata", reqNode ) && point_id != -1 )
       TelegramInterface::readTripData( point_id, dataNode );
     if ( GetNode( "ckin_zones", reqNode ) )
-        DocsInterface::GetZoneList(point_id, dataNode);
+        GetZoneList(point_id, dataNode);
   };
 };
 

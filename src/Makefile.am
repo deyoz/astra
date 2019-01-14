@@ -87,8 +87,6 @@ astra_SOURCES = \
   dev_tuning.cc \
   dev_utils.cc \
   develop_dbf.cc \
-  docs.cc \
-  docs2.cc \
   edi_utils.cc \
   emdoc.cc \
   empty_proc.cc \
@@ -196,6 +194,7 @@ astra_SOURCES = \
   db_pkg.cc \
   cr_lf.cc \
   stat_fv.cc \
+  stat_annul_bt.cc \
   franchise.cc \
   astra_ssim.cc \
   bagmessage_daemon.cc \
@@ -203,7 +202,8 @@ astra_SOURCES = \
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
-        tests/libtests.a \
+	docs/libdocs.a \
+	tests/libtests.a \
 	@SHARED_LIBS@ @SHARED_DEPEND_LIBS@ \
 	@LIBTLG_LIBS@ \
 	@SERVERLIB_LIBS@ \
@@ -227,7 +227,7 @@ astra_LDADD = $(all_libraries) \
 #	-L/usr/lib -lboost_filesystem
 #	-L/home/beta/crypt/locallibs/mespro -lmesprox
 
-SUBDIRS = tlg tests
+SUBDIRS = tlg tests docs
 
 EXTRA_DIST = systarg.mk run astra.tcl PS Restart kills \
 	MAKE local_after_example.tcl local_before_example.tcl
@@ -287,7 +287,6 @@ noinst_HEADERS = \
   dev_tuning.h \
   dev_utils.h \
   develop_dbf.h \
-  docs.h \
   edi_utils.h \
   emdoc.h \
   etick_change_status.h \
@@ -387,6 +386,7 @@ noinst_HEADERS = \
   db_pkg.h \
   cr_lf.h \
   stat_fv.h \
+  stat_annul_bt.h \
   franchise.h \
   report_common.h \
   astra_ssim.h \

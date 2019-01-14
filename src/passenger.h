@@ -559,6 +559,7 @@ class TSimplePaxItem
     TSimplePaxItem& fromDBCrs(TQuery &Qry, bool withTkn);
     bool getByPaxId(int pax_id, TDateTime part_key = ASTRA::NoExists);
     std::string full_name() const;
+    bool isCBBG() const;
     bool api_doc_applied() const;
     bool upward_within_bag_pool(const TSimplePaxItem& pax) const;
     bool HaveBaggage() const { return bag_pool_num != ASTRA::NoExists; }
