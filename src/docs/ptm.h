@@ -27,7 +27,6 @@ namespace REPORTS {
         void fromDB(TQuery &Qry);
         void trace(TRACE_SIGNATURE);
         TPMPaxList &get_pax_list() const;
-        TPMPax &pm_pax(TPaxPtr val) const;
 
         std::string target;
         std::string last_target;

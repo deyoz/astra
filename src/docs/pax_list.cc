@@ -79,8 +79,19 @@ void TPaxList::fromDB()
         "   pax_grp.grp_id = pax.grp_id and "
         "   pax_grp.status not in ('E') ";
     if(options.pr_brd) {
-        SQLText += "and pax.pr_brd = :pr_brd ";
-        QryParams << QParam("pr_brd", otInteger, options.pr_brd.get());
+        switch(options.pr_brd.get().val) {
+            case TBrdVal::bvNULL:
+                SQLText += "and pax.pr_brd is null ";
+                break;
+            case TBrdVal::bvNOT_NULL:
+                SQLText += "and pax.pr_brd is not null ";
+                break;
+            case TBrdVal::bvTRUE:
+            case TBrdVal::bvFALSE:
+                SQLText += "and pax.pr_brd = :pr_brd ";
+                QryParams << QParam("pr_brd", otInteger, options.pr_brd.get().val != TBrdVal::bvFALSE);
+                break;
+        }
     }
     TCachedQuery Qry(SQLText, QryParams);
     Qry.get().Execute();
@@ -371,7 +382,7 @@ string TPax::rems() const
     return unique_items_str;
 }
 
-string TPax::full_name_view()
+string TPax::full_name_view() const
 {
     return transliter(simple.full_name(), 1, pax_list.options.lang != AstraLocale::LANG_RU);
 }

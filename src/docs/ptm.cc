@@ -70,11 +70,6 @@ TPaxPtr TPMPaxList::getPaxPtr()
     return TPaxPtr(new TPMPax(*this));
 }
 
-TPMPax &TPMPax::pm_pax(TPaxPtr val) const
-{
-    return dynamic_cast<TPMPax&>(*val);
-}
-
 TPMPaxList &TPMPax::get_pax_list() const
 {
     return dynamic_cast<TPMPaxList&>(pax_list);

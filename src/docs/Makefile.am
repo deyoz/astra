@@ -12,6 +12,7 @@ libdocs_a_SOURCES = \
   exam.cc \
   notpres.cc \
   refuse.cc \
+  rem.cc \
   pax_list.cc
         
 
@@ -23,5 +24,6 @@ noinst_HEADERS = \
   exam.h \
   notpres.h \
   refuse.h \
+  rem.h \
   consts.h \
   pax_list.h

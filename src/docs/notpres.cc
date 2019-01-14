@@ -75,7 +75,7 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
         pax_list.options.lang = rpt_params.GetLang();
         pax_list.options.sort = rpt_params.sort;
-        pax_list.options.pr_brd = false;
+        pax_list.options.pr_brd = boost::in_place(REPORTS::TBrdVal::bvFALSE);
         pax_list.options.flags.setFlag(REPORTS::oeBagAmount);
         pax_list.options.flags.setFlag(REPORTS::oeSeatNo);
         pax_list.options.flags.setFlag(REPORTS::oeTags);

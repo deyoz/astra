@@ -26,11 +26,17 @@ namespace REPORTS {
 
     class TPaxListFlags: public BitSet<TOptionsEnum> {};
 
+    struct TBrdVal {
+        enum Enum {bvNULL, bvNOT_NULL, bvTRUE, bvFALSE};
+        Enum val;
+        TBrdVal(Enum _val): val(_val) {}
+    };
+
     struct TOptions {
         std::string lang;
         boost::optional<TSimpleMktFlight> mkt_flt;
         boost::optional<TRemEventType> rem_event_type;
-        boost::optional<bool> pr_brd;
+        boost::optional<TBrdVal> pr_brd;
         TSortType sort;
         TPaxListFlags flags;
         void clear()
@@ -124,7 +130,7 @@ namespace REPORTS {
         CheckIn::TSimplePaxItem simple;
         TCrsSeatsBlockingList cbbg_list;
 
-        std::string full_name_view();
+        std::string full_name_view() const;
 
         std::string user_descr;
         TBaggage baggage;
