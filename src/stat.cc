@@ -8260,10 +8260,8 @@ void stat_orders_collect(void)
             OraSession.Rollback();
             try
             {
-                EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-                if (orae!=NULL&&
-                        (orae->Code==4061||orae->Code==4068)) continue;
-                ProgError(STDLOG,"Exception: %s (file id=%d), SQLText: %s",E.what(),item->id, orae->SQLText());
+                if (isIgnoredEOracleError(E)) continue;
+                ProgError(STDLOG,"Exception: %s (file id=%d)",E.what(),item->id);
             }
             catch(...) {};
         }
