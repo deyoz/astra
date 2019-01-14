@@ -310,9 +310,7 @@ bool scan_tlg(bool sendOutAStepByStep)
         OraSession.Rollback();
         try
         {
-          EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-          if (orae!=NULL&&
-              (orae->Code==4061||orae->Code==4068)) continue;
+          if (isIgnoredEOracleError(E)) continue;
           ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",E.what(),tlg_id);
           errorTlg(tlg_id,"SEND",E.what());
         }

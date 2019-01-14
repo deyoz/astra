@@ -1363,9 +1363,7 @@ void save_mintrans_files()
           OraSession.Rollback();
           try
           {
-              EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-              if (orae!=NULL&&
-                      (orae->Code==4061||orae->Code==4068)) continue;
+              if (isIgnoredEOracleError(E)) continue;
               ProgError(STDLOG,"Exception: %s (file id=%d)",E.what(),item->id);
           }
           catch(...) {};

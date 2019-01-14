@@ -1,0 +1,14 @@
+LOAD DATA
+INFILE *
+INTO TABLE tlg_bind_types
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+code
+)
+BEGINDATA
+         0
+         1
+         2
+         3

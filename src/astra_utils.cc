@@ -1716,6 +1716,15 @@ string& EOracleError2UserException(string& msg)
   return msg;
 };
 
+bool isIgnoredEOracleError(const std::exception& e)
+{
+  const EOracleError *orae=dynamic_cast<const EOracleError*>(&e);
+  return (orae!=NULL&&
+          (orae->Code==4061 ||
+           orae->Code==4068 ||
+           orae->Code==60));
+}
+
 string get_internal_msgid_hex()
 {
   string str_msg_id((const char*)get_internal_msgid(),sizeof(int)*3);

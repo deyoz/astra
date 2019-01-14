@@ -737,9 +737,7 @@ void handle_tpb_tlg(const tlg_info &tlg)
     ASTRA::rollback();//OraSession.Rollback();
     try
     {
-      EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-      if (orae!=NULL&&
-          (orae->Code==4061||orae->Code==4068)) return;
+      if (isIgnoredEOracleError(E)) return;
       progError(tlg.id, NoExists, error_no, E, "", bind_flts);  //хорошо бы доделать, чтобы передавался tlg_type
       errorTlg(tlg.id,"PARS",E.what());
     }
@@ -754,11 +752,12 @@ void handle_tpb_tlg(const tlg_info &tlg)
       throw;
   }
 
-  if (not socket_name.empty()) sendCmd(socket_name.c_str(),"H");
   mem.destroy(HeadingInfo, STDLOG);
   if (HeadingInfo!=NULL) delete HeadingInfo;
   mem.destroy(EndingInfo, STDLOG);
   if (EndingInfo!=NULL) delete EndingInfo;
+
+  ASTRA::commit();
 
   ProgTrace(TRACE1,"========= %d TLG: DONE HANDLE =============",tlg.id);
   ProgTrace(TRACE5, "IN: PUT->DONE (sender=%s, tlg_num=%s, time=%.10f)",
@@ -766,7 +765,9 @@ void handle_tpb_tlg(const tlg_info &tlg)
                     tlg.tlgNumStr().c_str(),
                     NowUTC());
 
-    monitor_idle_zapr_type(1, QUEPOT_TLG_AIR);
+  if (not socket_name.empty()) sendCmd(socket_name.c_str(),"H");
+
+  monitor_idle_zapr_type(1, QUEPOT_TLG_AIR);
 }
 
 
@@ -895,9 +896,7 @@ bool parse_tlg(const string &handler_id)
       catch(std::exception &E)
       {
         count++;
-        EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-        if (orae!=NULL&&
-            (orae->Code==4061||orae->Code==4068)) continue;
+        if (isIgnoredEOracleError(E)) continue;
         progError(tlg_id, tlg_num, error_no, E, tlg_type, bind_flts);
         parseTypeB(tlg_id);
         bindTypeB(tlg_id, bind_flts, E);
@@ -1145,9 +1144,7 @@ bool parse_tlg(const string &handler_id)
         ASTRA::rollback();//OraSession.Rollback();
         try
         {
-          EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-          if (orae!=NULL&&
-             (orae->Code==4061||orae->Code==4068)) continue;
+          if (isIgnoredEOracleError(E)) continue;
           progError(tlg_id, NoExists, error_no, E, tlg_type, bind_flts);
           parseTypeB(tlg_id);
           bindTypeB(tlg_id, bind_flts, E);
