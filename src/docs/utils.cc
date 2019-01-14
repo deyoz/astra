@@ -16,9 +16,12 @@ string get_test_str(int page_width, string lang)
 
 bool old_cbbg()
 {
+    return false;
+    /*
     TCachedQuery Qry("select new from test_cbbg");
     Qry.get().Execute();
     return not Qry.get().Eof and Qry.get().FieldAsInteger("new") == 0;
+    */
 }
 
 namespace REPORT_PAX_REMS {
