@@ -42,8 +42,7 @@ PassengerSearchResult& PassengerSearchResult::fromXML(xmlNodePtr reqNode)
     throw Exception("Failed grp_item.getByGrpId %d", grp_id);
   if (not pax_item.getByPaxId(pax_id))
     throw Exception("Failed pax_item.getByPaxId %d", pax_id);
-  if (not CheckIn::LoadPaxDoc(pax_id, doc))
-    throw Exception("Failed LoadPaxDoc %d", pax_id);
+  doc_exists = CheckIn::LoadPaxDoc(pax_id, doc);
   doco_exists = CheckIn::LoadPaxDoco(pax_id, doco);
   mkt_flt.getByPaxId(pax_id);
   if (mkt_flt.empty())
@@ -73,8 +72,7 @@ const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) co
   // flightCode
   NewTextChild(resNode, "flightCode", trip_info.flight_number());
   // flightStatus
-  NewTextChild(resNode, "flightStatus",
-               TStagesRules::Instance()->status_view(stCheckIn, flightCheckinStage, lang));  
+  NewTextChild(resNode, "flightStatus", EncodeStage(flightCheckinStage));
   // flightSTD
   TDateTime flightSTD = UTCToLocal(trip_info.scd_out, AirpTZRegion(trip_info.airp));
   NewTextChild(resNode, "flightSTD", DateTimeToStr(flightSTD, "yyyy-mm-dd'T'hh:nn:00"));
@@ -106,38 +104,26 @@ const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) co
   // sequence
   NewTextChild(resNode, "sequence", pax_item.reg_no);
   // document
-  xmlNodePtr docNode = NewTextChild(resNode, "document");
-  NewTextChild(docNode, "type", ElemIdToPrefferedElem(etPaxDocType, doc.type, efmtCodeNative, lang.get()));
-  NewTextChild(docNode, "issue_country", ElemIdToPrefferedElem(etCountry, doc.issue_country, efmtCodeNative, lang.get()));
-  NewTextChild(docNode, "no", doc.no.substr(0, 15));
-  NewTextChild(docNode, "nationality", ElemIdToPrefferedElem(etCountry, doc.nationality, efmtCodeNative, lang.get()));
-  NewTextChild(docNode, "birth_date", DateTimeToStr(doc.birth_date, "yyyy-mm-dd"));
-  NewTextChild(docNode, "gender", ElemIdToPrefferedElem(etGenderType, doc.gender, efmtCodeNative, lang.get()));
-  NewTextChild(docNode, "expiry_date", DateTimeToStr(doc.expiry_date, "yyyy-mm-dd"));
-  NewTextChild(docNode, "surname", doc.surname.substr(0, 64));
-  NewTextChild(docNode, "first_name", doc.first_name.substr(0, 64));
-  NewTextChild(docNode, "second_name", doc.second_name.substr(0, 64));
+  if (doc_exists)
+    doc.toWebXML(resNode, lang);
+  else
+    NewTextChild(resNode, "document");
   // doco
-  xmlNodePtr docoNode = NewTextChild(resNode, "doco");
   if (doco_exists)
-  {
-    NewTextChild(docoNode, "birth_place", doco.birth_place.substr(0, 35));
-    NewTextChild(docoNode, "type", "V");
-    NewTextChild(docoNode, "no", doco.no.substr(0, 15));
-    NewTextChild(docoNode, "issue_place", doco.issue_place.substr(0, 35));
-    NewTextChild(docoNode, "issue_date", DateTimeToStr(doco.issue_date, "yyyy-mm-dd"));
-    NewTextChild(docoNode, "expiry_date", DateTimeToStr(doco.expiry_date, "yyyy-mm-dd"));
-    NewTextChild(docoNode, "applic_country", ElemIdToPrefferedElem(etCountry, doco.applic_country, efmtCodeNative, lang.get()));
-  }
+    doco.toWebXML(resNode, lang);
+  else
+    NewTextChild(resNode, "doco");
   // group
   NewTextChild(resNode, "group", "");
   // pnr
   NewTextChild(resNode, "pnr", pnr.str(TPnrAddrInfo::AddrAndAirline, lang));
   // ticket
   NewTextChild(resNode, "ticket", pax_item.tkn.no_str());
-  // status
-  NewTextChild(resNode, "status",
+  // type
+  NewTextChild(resNode, "type",
       ElemIdToPrefferedElem(etPersType, EncodePerson(pax_item.pers_type), efmtCodeNative, lang.get()));
+  // status
+  NewTextChild(resNode, "status", pax_item.checkInStatus());
   // baggageTags // уточнить в процессе тестирования !!!
   set<string> flatten_tags;
   FlattenBagTags(baggageTags, flatten_tags);

@@ -31,6 +31,7 @@ class PassengerSearchResult
   CheckIn::TSimplePaxItem pax_item;
   CheckIn::TPaxDocItem doc;
   CheckIn::TPaxDocoItem doco;
+  bool doc_exists;
   bool doco_exists;
   TMktFlight mkt_flt;
   

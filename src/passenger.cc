@@ -1753,6 +1753,15 @@ void TSimplePaxItem::UpdTid(int pax_id)
   Qry.get().Execute();
 }
 
+std::string TSimplePaxItem::checkInStatus() const
+{    
+  if (id==ASTRA::NoExists) return "unknown";
+  if (!refuse.empty()) return "refused";
+  if (pr_brd) return "boarded";
+  if (grp_id!=ASTRA::NoExists) return "checked";
+  return "not_checked";  
+}
+
 TAPISItem& TAPISItem::fromDB(int pax_id)
 {
   clear();
