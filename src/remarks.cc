@@ -102,7 +102,7 @@ bool IsReadonlyRem( const string &rem_code, const string &rem_text )
 static bool isAPPSRem( const std::string& rem )
 {
   return ( rem == "RSIA" || rem == "SPIA" || rem == "SBIA" || rem == "SXIA" ||
-           rem == "ATH" || rem == "GTH" || rem == "AAE" || rem == "GAE" );
+           rem == "OVRA" || rem == "OVRG" );
 }
 
 void TRemGrp::Load(TRemEventType rem_set_type, int point_id)
