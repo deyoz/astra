@@ -1,5 +1,5 @@
-#include "stat_common.h"
-#include "stat_utils.h"
+#include "stat/common.h"
+#include "stat/utils.h"
 #include "date_time.h"
 #include "term_version.h"
 #include "docs/common.h"

@@ -1,7 +1,7 @@
 #ifndef _STAT_REPRINT_H_
 #define _STAT_REPRINT_H_
 
-#include "stat_common.h"
+#include "common.h"
 
 void cleanForeignScan(int days);
 void get_stat_reprint(int point_id);

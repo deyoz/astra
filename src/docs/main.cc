@@ -1,7 +1,7 @@
 #include <set>
 #include "main.h"
 #include "common.h"
-#include "stat_utils.h"
+#include "stat/utils.h"
 #include "oralib.h"
 #include "xml_unit.h"
 #include "exceptions.h"
@@ -25,7 +25,7 @@
 #include "franchise.h"
 #include "ptm.h"
 #include <boost/algorithm/string.hpp>
-#include "stat_annul_bt.h"
+#include "stat/annul_bt.h"
 #include "exam.h"
 #include "notpres.h"
 #include "refuse.h"

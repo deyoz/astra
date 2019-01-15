@@ -9,7 +9,7 @@
 #include "astra_consts.h"
 #include "docs/common.h"
 #include "aodb.h"
-#include "stat.h"
+#include "stat/main.h"
 #include "sopp.h"
 #include "qrys.h"
 

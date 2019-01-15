@@ -7,7 +7,7 @@
 #include "stages.h"
 #include "date_time.h"
 #include "stl_utils.h"
-#include "stat_utils.h"
+#include "stat/utils.h"
 #include "docs/common.h"
 #include "pers_weights.h"
 #include "base_tables.h"

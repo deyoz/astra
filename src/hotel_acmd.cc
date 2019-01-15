@@ -1,7 +1,7 @@
 #include "hotel_acmd.h"
 #include "tripinfo.h"
 #include "brd.h"
-#include "stat_utils.h"
+#include "stat/utils.h"
 #include "qrys.h"
 
 #define NICKNAME "DENIS"

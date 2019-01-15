@@ -5,7 +5,7 @@
 #include "date_time.h"
 #include "astra_utils.h"
 #include "report_common.h"
-#include "stat_utils.h"
+#include "stat/utils.h"
 #include "docs/common.h"
 #include "cr_lf.h"
 

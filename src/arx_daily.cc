@@ -5,7 +5,7 @@
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "qrys.h"
-#include "stat.h"
+#include "stat/main.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE

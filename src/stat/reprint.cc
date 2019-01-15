@@ -1,8 +1,8 @@
-#include "stat_reprint.h"
+#include "reprint.h"
 #include "qrys.h"
 #include "astra_misc.h"
 #include "report_common.h"
-#include "stat_utils.h"
+#include "stat/utils.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
