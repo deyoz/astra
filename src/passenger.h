@@ -572,6 +572,8 @@ class TSimplePaxItem
 
     bool isTest() const { return isTestPaxId(id); }
     int paxId() const { return id; }
+    
+    std::string checkInStatus() const;
 };
 
 template <class T>

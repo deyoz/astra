@@ -42,8 +42,8 @@ PassengerSearchResult& PassengerSearchResult::fromXML(xmlNodePtr reqNode)
     throw Exception("Failed grp_item.getByGrpId %d", grp_id);
   if (not pax_item.getByPaxId(pax_id))
     throw Exception("Failed pax_item.getByPaxId %d", pax_id);
-  if (not CheckIn::LoadPaxDoc(pax_id, doc))
-    throw Exception("Failed LoadPaxDoc %d", pax_id);
+  doc_exists = CheckIn::LoadPaxDoc(pax_id, doc);
+  doco_exists = CheckIn::LoadPaxDoco(pax_id, doco);
   mkt_flt.getByPaxId(pax_id);
   if (mkt_flt.empty())
     throw Exception("Failed mkt_flt.getByPaxId %d", pax_id);
@@ -72,8 +72,7 @@ const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) co
   // flightCode
   NewTextChild(resNode, "flightCode", trip_info.flight_number());
   // flightStatus
-  NewTextChild(resNode, "flightStatus",
-               TStagesRules::Instance()->status_view(stCheckIn, flightCheckinStage, lang));  
+  NewTextChild(resNode, "flightStatus", EncodeStage(flightCheckinStage));
   // flightSTD
   TDateTime flightSTD = UTCToLocal(trip_info.scd_out, AirpTZRegion(trip_info.airp));
   NewTextChild(resNode, "flightSTD", DateTimeToStr(flightSTD, "yyyy-mm-dd'T'hh:nn:00"));
@@ -104,22 +103,27 @@ const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) co
   NewTextChild(resNode, "passengerId", bppax.pax_id);
   // sequence
   NewTextChild(resNode, "sequence", pax_item.reg_no);
-  // LastName
-  NewTextChild(resNode, "lastName", doc.surname);
-  // firstName
-  NewTextChild(resNode, "firstName", doc.first_name);
-  // gender
-  NewTextChild(resNode, "gender",
-      ElemIdToPrefferedElem(etGenderType, doc.gender, efmtCodeNative, lang.get()));
+  // document
+  if (doc_exists)
+    doc.toWebXML(resNode, lang);
+  else
+    NewTextChild(resNode, "document");
+  // doco
+  if (doco_exists)
+    doco.toWebXML(resNode, lang);
+  else
+    NewTextChild(resNode, "doco");
   // group
   NewTextChild(resNode, "group", "");
   // pnr
   NewTextChild(resNode, "pnr", pnr.str(TPnrAddrInfo::AddrAndAirline, lang));
   // ticket
   NewTextChild(resNode, "ticket", pax_item.tkn.no_str());
-  // status
-  NewTextChild(resNode, "status",
+  // paxCategory
+  NewTextChild(resNode, "paxCategory",
       ElemIdToPrefferedElem(etPersType, EncodePerson(pax_item.pers_type), efmtCodeNative, lang.get()));
+  // status
+  NewTextChild(resNode, "status", pax_item.checkInStatus());
   // baggageTags // уточнить в процессе тестирования !!!
   set<string> flatten_tags;
   FlattenBagTags(baggageTags, flatten_tags);
