@@ -119,8 +119,8 @@ const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) co
   NewTextChild(resNode, "pnr", pnr.str(TPnrAddrInfo::AddrAndAirline, lang));
   // ticket
   NewTextChild(resNode, "ticket", pax_item.tkn.no_str());
-  // type
-  NewTextChild(resNode, "type",
+  // paxCategory
+  NewTextChild(resNode, "paxCategory",
       ElemIdToPrefferedElem(etPersType, EncodePerson(pax_item.pers_type), efmtCodeNative, lang.get()));
   // status
   NewTextChild(resNode, "status", pax_item.checkInStatus());
