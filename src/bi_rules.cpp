@@ -410,7 +410,7 @@ namespace BIPrintRules {
                 // Достаем бренды
                 brands.get(pax_id);
                 // Если не найдено ни одного бренда, добавляем пустой, чтобы get_rule все-таки отработала
-                if(brands.brandIds.empty()) brands.brandIds.push_back(NoExists);
+                if(brands.empty()) brands.emplace_back();
 
                 // Достаем ремарки
                 set<CheckIn::TPaxFQTItem> fqts;
@@ -433,14 +433,14 @@ namespace BIPrintRules {
                 BIPrintRules::TRule tmp_rule = bi_rule; // чтобы не потерять hall, is_business_hall, pr_print_bi
                 for(set<string>::iterator iRfisc = rfisc.begin(); iRfisc != rfisc.end(); ++iRfisc)
                     for(set<CheckIn::TPaxFQTItem>::iterator iFqt = fqts.begin(); iFqt != fqts.end(); ++iFqt)
-                        for(BrandIds::iterator iBrand = brands.brandIds.begin(); iBrand != brands.brandIds.end(); ++iBrand) {
+                        for(TBrands::const_iterator iBrand = brands.begin(); iBrand != brands.end(); ++iBrand) {
                             BIPrintRules::get_rule(
                                     t.airline,
                                     iFqt->tier_level,
                                     cls,
                                     subcls,
                                     iFqt->rem,
-                                    ElemIdToCodeNative(etBrand, *iBrand),
+                                    iBrand->code(),
                                     iFqt->airline,
                                     aircode,
                                     *iRfisc,

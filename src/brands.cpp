@@ -1,7 +1,6 @@
 #include "brands.h"
 #include "qrys.h"
 #include "passenger.h"
-#include "etick.h"
 
 #define NICKNAME "DEN"
 #include "serverlib/slogger.h"
@@ -10,7 +9,7 @@ using namespace std;
 
 void TBrands::get(int pax_id)
 {
-    brandIds.clear();
+    clear();
     TCachedQuery paxQry(
             "select "
             "   ticket_no, "
@@ -34,57 +33,76 @@ void TBrands::get(int pax_id)
         if (tkn.validET())
         {
             string airline = paxQry.get().FieldAsString("airline");
-            TETickItem etick;
-            etick.fromDB(tkn.no, tkn.coupon, TETickItem::Display, false);
-            if(not etick.fare_basis.empty()) {
-                return get(airline, etick.fare_basis);
-            }
+            get(airline, TETickItem().fromDB(tkn.no, tkn.coupon, TETickItem::Display, false));
         }
     }
 }
 
-void TBrands::get(const std::string &airline, const std::string &fare_basis)
+void TBrands::get(const std::string &airline, const TETickItem& etick)
 {
-    oper_airline = airline;
-    brandIds.clear();
-    if (airline.empty() || fare_basis.empty()) return;
+    clear();
+    if (airline.empty() ||
+        etick.fare_basis.empty() ||
+        etick.issue_date==ASTRA::NoExists) return;
 
     getsTotal++;
 
-    const auto i = secretMap.emplace(make_pair(airline, fare_basis), BrandIds());
+    const auto i = secretMap.emplace(make_pair(airline, etick.fare_basis), BrandIdsWithDateRanges());
 
     if (i.second)
     {
       TCachedQuery brandQry(
-            "select "
-            "   brands.id "
-            "from "
+            "SELECT "
+            "   brands.id, "
+            "   brand_fares.sale_first_date, "
+            "   brand_fares.sale_last_date "
+            "FROM "
             "   brand_fares, "
             "   brands "
-            "where "
-            "   brand_fares.airline = :airline and "
-            "   :fare_basis like replace(fare_basis, '*', '%') and "
-            "   brand_fares.airline = brands.airline and "
-            "   brand_fares.brand = brands.code ",
+            "WHERE "
+            "   brand_fares.airline = :airline AND "
+            "   :fare_basis LIKE REPLACE(fare_basis, '*', '%') AND "
+            "   brand_fares.airline = brands.airline AND "
+            "   brand_fares.brand = brands.code "
+            "ORDER BY LENGTH(:fare_basis)-REGEXP_COUNT(brand_fares.fare_basis, '[^*]') ",
             QParams() << QParam("airline", otString, airline)
-                      << QParam("fare_basis", otString, fare_basis));
+                      << QParam("fare_basis", otString, etick.fare_basis));
       brandQry.get().Execute();
       for(; not brandQry.get().Eof; brandQry.get().Next())
-        i.first->second.push_back(brandQry.get().FieldAsInteger("id"));
+      {
+        const boost::optional<TDateTime>& first_date=
+          brandQry.get().FieldIsNULL("sale_first_date")?
+            boost::none:
+            boost::optional<TDateTime>(brandQry.get().FieldAsDateTime("sale_first_date"));
+        const boost::optional<TDateTime>& last_date=
+          brandQry.get().FieldIsNULL("sale_last_date")?
+            boost::none:
+            boost::optional<TDateTime>(brandQry.get().FieldAsDateTime("sale_last_date"));
+
+        i.first->second.emplace_back(brandQry.get().FieldAsInteger("id"),
+                                     ASTRA::Range<TDateTime>(first_date, last_date));
+      }
     }
     else getsCached++;
 
-    brandIds=i.first->second;
+    for(const auto& j : i.first->second)
+      if (j.second.contains(etick.issue_date)) emplace_back(j.first, airline);
 }
 
 TBrand TBrands::getSingleBrand() const
 {
-  return brandIds.empty()?TBrand():TBrand(brandIds.front(), oper_airline);
+  return empty()?TBrand():front();
 }
 
 void TBrands::traceCaching() const
 {
   LogTrace(TRACE5) << "getsTotal: " << getsTotal << "; getsCached: " << getsCached;
+}
+
+std::string TBrand::code() const
+{
+  if (id==ASTRA::NoExists) return "";
+  return ElemIdToCodeNative(etBrand, id);
 }
 
 std::string TBrand::name(const AstraLocale::OutputLang& lang) const

@@ -910,7 +910,7 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
             if (pax.tkn.validET())
             {
               pax.etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
-              brands.get(flt.oper.airline,pax.etick.fare_basis);
+              brands.get(flt.oper.airline,pax.etick);
               pax.brand=brands.getSingleBrand();
             };
             LoadPaxDoc(pax.pax_id, pax.doc);
@@ -933,7 +933,7 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
             if (pax.tkn.validET())
             {
               pax.etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
-              brands.get(flt.oper.airline,pax.etick.fare_basis);
+              brands.get(flt.oper.airline,pax.etick);
               pax.brand=brands.getSingleBrand();
             }
             //ProgTrace(TRACE5, "getPnr: pax.crs_pax_id=%d pax.tkn.getNotEmptyFieldsMask=%ld", pax.crs_pax_id, pax.tkn.getNotEmptyFieldsMask());

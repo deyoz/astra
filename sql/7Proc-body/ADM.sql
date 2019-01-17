@@ -6,6 +6,35 @@ TYPE TFltList IS TABLE OF trfer_set_flts.flt_no%TYPE INDEX BY BINARY_INTEGER;
 
 TYPE sync_typeb_options_cur IS REF CURSOR;
 
+TYPE periods_row IS RECORD
+(
+id NUMBER(9),
+first_date DATE,
+last_date DATE
+);
+
+TYPE periods_cur IS REF CURSOR RETURN periods_row;
+
+PROCEDURE check_chars_in_name(str	  IN VARCHAR2,
+                              pr_lat      IN INTEGER,
+                              symbols     IN VARCHAR2,
+                              cache_code  IN cache_tables.code%TYPE,
+                              cache_field IN cache_fields.name%TYPE,
+                              vlang       IN locale_messages.lang%TYPE)
+IS
+c CHAR(1);
+info	 adm.TCacheInfo;
+lparams  system.TLexemeParams;
+BEGIN
+  c:=system.invalid_char_in_name(str, pr_lat, symbols);
+  IF c IS NOT NULL THEN
+    info:=adm.get_cache_info(cache_code);
+    lparams('field_name'):=get_locale_text(info.field_title(cache_field), vlang);
+    lparams('symbol'):=c;
+    system.raise_user_exception('MSG.FIELD_INCLUDE_INVALID_CHARACTER1', lparams);
+  END IF;
+END check_chars_in_name;
+
 PROCEDURE modify_originator(
        vid              typeb_originators.id%TYPE,
        vlast_date       typeb_originators.last_date%TYPE,
@@ -3165,9 +3194,9 @@ PROCEDURE modify_airline_offices(vid           airline_offices.id%TYPE,
                                  vstation      history_events.open_desk%TYPE)
 IS
 i BINARY_INTEGER;
-c CHAR(1);
-info	 adm.TCacheInfo;
-lparams  system.TLexemeParams;
+--c CHAR(1);
+--info	 adm.TCacheInfo;
+--lparams  system.TLexemeParams;
 vidh     airline_offices.id%TYPE;
 BEGIN
   IF vairp IS NOT NULL THEN
@@ -3180,23 +3209,9 @@ BEGIN
     END IF;
   END IF;
   IF vto_apis<>0 THEN
-    FOR i IN 1..3 LOOP
-      c:=CASE i
-           WHEN 1 THEN system.invalid_char_in_name(vcontact_name, 1, ' -')
-           WHEN 2 THEN system.invalid_char_in_name(vphone, 1, ' -')
-           WHEN 3 THEN system.invalid_char_in_name(vfax, 1, ' -')
-         END;
-      IF c IS NOT NULL THEN
-        info:=adm.get_cache_info('AIRLINE_OFFICES');
-        lparams('field_name'):=get_locale_text(info.field_title(CASE i
-                                                                  WHEN 1 THEN 'CONTACT_NAME'
-                                                                  WHEN 2 THEN 'PHONE'
-                                                                  WHEN 3 THEN 'FAX'
-                                                                END), vlang);
-        lparams('symbol'):=c;
-        system.raise_user_exception('MSG.FIELD_INCLUDE_INVALID_CHARACTER1', lparams);
-      END IF;
-    END LOOP;
+    check_chars_in_name(vcontact_name, 1, ' -', 'AIRLINE_OFFICES', 'CONTACT_NAME', vlang);
+    check_chars_in_name(vphone,        1, ' -', 'AIRLINE_OFFICES', 'PHONE',        vlang);
+    check_chars_in_name(vfax,          1, ' -', 'AIRLINE_OFFICES', 'FAX',          vlang);
   END IF;
   IF vid IS NULL THEN
     INSERT INTO airline_offices(id, airline, country, airp, contact_name, phone, fax, to_apis)
@@ -3309,6 +3324,41 @@ BEGIN
   hist.synchronize_history('roles',vrole_id,vsetting_user,vstation);
 END delete_roles;
 
+PROCEDURE normalize_and_check_period(id IN NUMBER,
+                                     first_date IN DATE,
+                                     last_date IN DATE,
+                                     cur IN periods_cur,
+                                     norm_first_date OUT DATE,
+                                     norm_last_date OUT DATE)
+IS
+curRow		cur%ROWTYPE;
+BEGIN
+  norm_first_date:=TRUNC(first_date);
+  norm_last_date:=TRUNC(last_date)+1;
+  IF norm_last_date<=norm_first_date THEN
+    system.raise_user_exception('MSG.TABLE.INVALID_RANGE');
+  END IF;
+  LOOP
+    FETCH cur INTO curRow;
+    EXIT WHEN cur%NOTFOUND;
+    IF id IS NULL OR id<>curRow.id THEN
+      IF (norm_last_date IS NOT NULL AND norm_last_date<=curRow.first_date) OR
+         (curRow.last_date IS NOT NULL AND curRow.last_date<=norm_first_date) THEN
+        NULL; /*­¥ ¯¥à¥á¥ª îâáï*/
+      ELSE
+        system.raise_user_exception('MSG.PERIOD_OVERLAPS_WITH_INTRODUCED');
+      END IF;
+    END IF;
+  END LOOP;
+  CLOSE cur;
+EXCEPTION
+  WHEN OTHERS THEN
+    CLOSE cur;
+    norm_first_date:=NULL;
+    norm_last_date:=NULL;
+    RAISE;
+END normalize_and_check_period;
+
 PROCEDURE insert_rfisc_rates(vid              IN rfisc_rates.id%TYPE,
                              vsys_user_id     IN users2.user_id%TYPE,
                              vairline         IN rfisc_rates.airline%TYPE,
@@ -3323,73 +3373,99 @@ PROCEDURE insert_rfisc_rates(vid              IN rfisc_rates.id%TYPE,
                              vsetting_user    IN history_events.open_user%TYPE,
                              vstation         IN history_events.open_desk%TYPE)
 IS
-CURSOR cur IS
-  SELECT id, sale_first_date, sale_last_date
-  FROM rfisc_rates
-  WHERE airline=vairline AND brand=vbrand AND rfisc=vrfisc;
-vidh		     rfisc_rates.id%TYPE;
+existing_periods     periods_cur;
+new_period           periods_row;
 vairlineh            rfisc_rates.airline%TYPE;
-norm_sale_first_date rfisc_rates.sale_first_date%TYPE;
-norm_sale_last_date  rfisc_rates.sale_last_date%TYPE;
 BEGIN
   vairlineh:=adm.check_airline_access(vairline,vairline_view,vSYS_user_id,1);
   IF vrfisc_airline IS NOT NULL AND vrfisc_airline<>vairline THEN
     system.raise_user_exception('MSG.BRAND_DOES_NOT_MEET_RFISC');
   END IF;
 
-  norm_sale_first_date:=TRUNC(vsale_first_date);
-  norm_sale_last_date:=TRUNC(vsale_last_date)+1;
-  IF norm_sale_last_date<=norm_sale_first_date THEN
-    system.raise_user_exception('MSG.TABLE.INVALID_RANGE');
-  END IF;
-  FOR curRow IN cur LOOP
-    IF vid IS NULL OR vid<>curRow.id THEN
-      IF (norm_sale_last_date IS NOT NULL AND norm_sale_last_date<=curRow.sale_first_date) OR
-         (curRow.sale_last_date IS NOT NULL AND curRow.sale_last_date<=norm_sale_first_date) THEN
-        NULL; /*­¥ ¯¥à¥á¥ª îâáï*/
-      ELSE
-        system.raise_user_exception('MSG.PERIOD_OVERLAPS_WITH_INTRODUCED');
-      END IF;
-    END IF;
-  END LOOP;
+  OPEN existing_periods FOR
+    SELECT id, sale_first_date, sale_last_date
+    FROM rfisc_rates
+    WHERE airline=vairline AND brand=vbrand AND rfisc=vrfisc;
+
+  normalize_and_check_period(vid,
+                             vsale_first_date,
+                             vsale_last_date,
+                             existing_periods,
+                             new_period.first_date,
+                             new_period.last_date);
+
   IF vid IS NULL THEN
-    SELECT id__seq.nextval INTO vidh FROM dual;
+    SELECT id__seq.nextval INTO new_period.id FROM dual;
     INSERT INTO rfisc_rates(id, airline, brand, sale_first_date, sale_last_date, rfisc, rate, rate_cur)
-    VALUES(vidh, vairline, vbrand, norm_sale_first_date, norm_sale_last_date, vrfisc, vrate, vrate_cur);
-    hist.synchronize_history('rfisc_rates', vidh, vsetting_user, vstation);
+    VALUES(new_period.id, vairline, vbrand, new_period.first_date, new_period.last_date, vrfisc, vrate, vrate_cur);
+    hist.synchronize_history('rfisc_rates', new_period.id, vsetting_user, vstation);
   ELSE
     UPDATE rfisc_rates
-    SET airline=vairline, brand=vbrand, sale_first_date=norm_sale_first_date, sale_last_date=norm_sale_last_date,
+    SET airline=vairline, brand=vbrand, sale_first_date=new_period.first_date, sale_last_date=new_period.last_date,
         rfisc=vrfisc, rate=vrate, rate_cur=vrate_cur
     WHERE id=vid;
     hist.synchronize_history('rfisc_rates', vid, vsetting_user, vstation);
   END IF;
-END;
+END insert_rfisc_rates;
+
+PROCEDURE insert_brand_fares(vid              IN brand_fares.id%TYPE,
+                             vsys_user_id     IN users2.user_id%TYPE,
+                             vairline         IN brand_fares.airline%TYPE,
+                             vairline_view    IN VARCHAR2,
+                             vfare_basis      IN brand_fares.fare_basis%TYPE,
+                             vbrand           IN brand_fares.brand%TYPE,
+                             vsale_first_date IN brand_fares.sale_first_date%TYPE,
+                             vsale_last_date  IN brand_fares.sale_last_date%TYPE,
+                             vlang            IN locale_messages.lang%TYPE,
+                             vsetting_user    IN history_events.open_user%TYPE,
+                             vstation         IN history_events.open_desk%TYPE)
+IS
+existing_periods     periods_cur;
+new_period           periods_row;
+vairlineh            brand_fares.airline%TYPE;
+BEGIN
+  vairlineh:=adm.check_airline_access(vairline,vairline_view,vSYS_user_id,1);
+
+  check_chars_in_name(vfare_basis, NULL, '-/*', 'BRAND_FARES', 'FARE_BASIS', vlang);
+
+--  SELECT COUNT(*) FROM eticks_display WHERE last_display>TO_DATE('16.01.19','DD.MM.YY') AND system.invalid_char_in_name(fare_basis, NULL, '-/') IS NOT NULL;
+
+  OPEN existing_periods FOR
+    SELECT id, sale_first_date, sale_last_date
+    FROM brand_fares
+    WHERE airline=vairline AND fare_basis=vfare_basis;
+
+  normalize_and_check_period(vid,
+                             vsale_first_date,
+                             vsale_last_date,
+                             existing_periods,
+                             new_period.first_date,
+                             new_period.last_date);
+
+  IF vid IS NULL THEN
+    SELECT id__seq.nextval INTO new_period.id FROM dual;
+    INSERT INTO brand_fares(id, airline, fare_basis, brand, sale_first_date, sale_last_date)
+    VALUES(new_period.id, vairline, vfare_basis, vbrand, new_period.first_date, new_period.last_date);
+    hist.synchronize_history('brand_fares', new_period.id, vsetting_user, vstation);
+  ELSE
+    UPDATE brand_fares
+    SET airline=vairline, fare_basis=vfare_basis, brand=vbrand,
+        sale_first_date=new_period.first_date, sale_last_date=new_period.last_date
+    WHERE id=vid;
+    hist.synchronize_history('brand_fares', vid, vsetting_user, vstation);
+  END IF;
+END insert_brand_fares;
 
 PROCEDURE check_web_sales_row(v_st_desk IN web_sales.st_desk%TYPE,
                               v_st_user IN web_sales.st_user%TYPE,
                               vlang     IN lang_types.code%TYPE)
 IS
-i BINARY_INTEGER;
-c CHAR(1);
 info	 adm.TCacheInfo;
 lparams  system.TLexemeParams;
 BEGIN
-  FOR i IN 1..2 LOOP
-    c:=CASE i
-         WHEN 1 THEN system.invalid_char_in_name(v_st_desk, NULL, NULL)
-         WHEN 2 THEN system.invalid_char_in_name(v_st_user, NULL, NULL)
-       END;
-    IF c IS NOT NULL THEN
-      info:=adm.get_cache_info('WEB_SALES');
-      lparams('field_name'):=get_locale_text(info.field_title(CASE i
-                                                                WHEN 1 THEN 'ST_DESK'
-                                                                WHEN 2 THEN 'ST_USER'
-                                                              END), vlang);
-      lparams('symbol'):=c;
-      system.raise_user_exception('MSG.FIELD_INCLUDE_INVALID_CHARACTER1', lparams);
-    END IF;
-  END LOOP;
+  check_chars_in_name(v_st_desk, NULL, NULL, 'WEB_SALES', 'ST_DESK', vlang);
+  check_chars_in_name(v_st_user, NULL, NULL, 'WEB_SALES', 'ST_USER', vlang);
+
   IF v_st_desk IS NOT NULL THEN
     IF LENGTH(v_st_desk)<>6 THEN
       system.raise_user_exception('MSG.INVALID_DESK_LENGTH');
