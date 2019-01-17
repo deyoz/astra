@@ -264,10 +264,13 @@ void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TTripInfo &markFlt, 
       "      brand_fares.brand=rfisc_rates.brand AND "
       "      rfisc_rates.airline=rfisc_comp_props.airline AND "
       "      rfisc_rates.rfisc=rfisc_comp_props.code AND "
+      "      :issue_date>=rfisc_rates.sale_first_date AND "
+      "      (rfisc_rates.sale_last_date IS NULL OR :issue_date<rfisc_rates.sale_last_date) AND "
       "      brand_fares.airline=:airline AND "
       "      :fare_basis LIKE REPLACE(brand_fares.fare_basis,'*','%') AND "
-      "      :issue_date>=rfisc_rates.sale_first_date AND "
-      "      (rfisc_rates.sale_last_date IS NULL OR :issue_date<rfisc_rates.sale_last_date)",
+      "      :issue_date>=brand_fares.sale_first_date AND "
+      "      (brand_fares.sale_last_date IS NULL OR :issue_date<brand_fares.sale_last_date) "
+      "ORDER BY LENGTH(:fare_basis)-REGEXP_COUNT(brand_fares.fare_basis, '[^*]') ",
       QParams() << QParam("airline", otString, operFlt.airline)
                 << QParam("fare_basis", otString, etick.fare_basis)
                 << QParam("issue_date", otDate, etick.issue_date)

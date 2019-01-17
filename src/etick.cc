@@ -783,13 +783,14 @@ void ETDisplayToDB(const Ticketing::EdiPnr& ediPnr)
       };
 
       const Itin &itin = cpn.itin();
-      if (itin.fareBasis().empty())
+      ETickItem.fare_basis=itin.fareBasis();
+      TrimString(ETickItem.fare_basis); //как показала практика, fareBasis() может содержать пробелы в конце
+      if (ETickItem.fare_basis.empty())
       {
         ProgError(STDLOG, "%s: itin.fareBasis().empty()! (ticket=%s)",
                           __FUNCTION__, ETickItem.et.no_str().c_str());
         continue;
       }
-      ETickItem.fare_basis=itin.fareBasis();
       if(itin.luggage().haveLuggage())
       {
         ETickItem.bag_norm=itin.luggage()->quantity();

@@ -1086,7 +1086,7 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
             Qry.CreateVariable("lang", otString, tag_lang.GetLang());
 
             TPrPrint().get_pr_print(grp_info.grp_id, pax_id, pr_bp_print, pr_bi_print);
-            brand.get(pax_id);
+            brands.get(pax_id);
         }
         else
         {
@@ -1888,8 +1888,8 @@ string TPrnTagStore::BRAND(TFieldParams fp)
     } else {
         if(scan_data == NULL) {
             ostringstream result;
-            if(not paxInfo.brand.brandIds.empty())
-                result << tag_lang.ElemIdToTagElem(etBrand, *paxInfo.brand.brandIds.begin(), efmtNameLong);
+            if(not paxInfo.brands.empty())
+                result << tag_lang.ElemIdToTagElem(etBrand, paxInfo.brands.begin()->id, efmtNameLong);
             return result.str();
         } else
             return string();

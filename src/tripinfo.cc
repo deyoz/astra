@@ -3113,9 +3113,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     CheckIn::TPaxTknItem tkn;
     CheckIn::LoadCrsPaxTkn(pax_id, tkn);
     if ( tkn.validET() ) {
-      TETickItem etick;
-      etick.fromDB(tkn.no, tkn.coupon, TETickItem::Display, false);
-      brands.get(flt.airline,etick.fare_basis);
+      brands.get(flt.airline, TETickItem().fromDB(tkn.no, tkn.coupon, TETickItem::Display, false));
       NewTextChild( node, "brand", brands.getSingleBrand().name(AstraLocale::OutputLang()) );
     }
     std::set<CheckIn::TPaxFQTItem> fqts;
