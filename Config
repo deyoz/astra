@@ -35,4 +35,5 @@ fi
 
 
 pwd
+set -e
 autoreconf --force --install && ./configure --silent CFLAGS=$CFLAGS CXXFLAGS=$CFLAGS CC="$CC" CXX="$CXX" $WITH_PARAMS $shared_mode $@

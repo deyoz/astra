@@ -70,7 +70,7 @@ EXTERNALLIBS_DIR=${SIRENA_EXTERNALS:-$(pwd)/externallibs}
 
 
 function build_externallib() {
-    ./bin/astra_update_and_build.sh $1 $EXTERNALLIBS_DIR/$1
+    SIRENA_HOME=$PWD ./bin/astra_update_and_build.sh $1 $EXTERNALLIBS_DIR/$1
     checkresult build_$1 $?
     export PKG_CONFIG_PATH=$EXTERNALLIBS_DIR/$1/lib/pkgconfig:$PKG_CONFIG_PATH
     export LD_LIBRARY_PATH=$EXTERNALLIBS_DIR/$1/lib:$LD_LIBRARY_PATH
@@ -211,7 +211,7 @@ EOF
     build_externallib check
     build_externallib pion
     build_externallib amqpcpp
-    create_pkgconfig_amqpcpp
+#create_pkgconfig_amqpcpp
 fi
 
 if [ "$configlibs" = "2" ]; then

@@ -51,5 +51,6 @@ for i in $@; do
     if [ -f $i/Makefile ] ; then
     	(cd $i && make distclean) || echo 'make distclean failed. Probably not configured before.'
     fi
+    [[ $i == libjms ]] && WITH_PARAMS+=' --without-oracle'
     (cd $i && ./Config -f $WITH_PARAMS --cache-file=$CONFIG_CACHE_FILE)  || exit 1
 done

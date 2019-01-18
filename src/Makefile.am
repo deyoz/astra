@@ -95,7 +95,7 @@ astra_SOURCES = \
   etick.cc \
   events.cc \
   external_spp_synch.cc \
-  exch_checkin_result.cpp \  
+  exch_checkin_result.cpp \
   ffp_sirena.cc \
   flt_binding.cc \
   flt_tasks_daemon.cc \
@@ -109,7 +109,7 @@ astra_SOURCES = \
   locale.cc \
   libra.cc \
   maindcs.cc \
-  meridian.cc \  
+  meridian.cc \
   msg_queue.cc \
   obrnosir.cc \
   passenger.cc \
@@ -163,7 +163,7 @@ astra_SOURCES = \
   iatci_help.cc \
   iatci_settings.cc \
   TypeBHelpMng.cpp \
-  astra_msg.cc \  
+  astra_msg.cc \
   img.cpp \
   astra_api.cc \
   astra_date_time.cpp \
@@ -288,7 +288,7 @@ noinst_HEADERS = \
   etick.h \
   events.h \
   external_spp_synch.h \
-  exch_checkin_result.h \  
+  exch_checkin_result.h \
   ffp_sirena.h \
   flt_binding.h \
   file_queue.h \
@@ -352,7 +352,7 @@ noinst_HEADERS = \
   iatci_settings.h \
   iatci.h \
   TypeBHelpMng.h \
-  astra_msg.h \  
+  astra_msg.h \
   img.h \
   astra_iface.h \
   astra_api.h \
