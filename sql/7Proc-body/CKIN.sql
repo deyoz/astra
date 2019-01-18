@@ -251,7 +251,6 @@ FUNCTION need_for_payment(vgrp_id        IN pax_grp.grp_id%TYPE,
                           vclass         IN pax_grp.class%TYPE,
                           vbag_refuse    IN pax_grp.bag_refuse%TYPE,
                           vpiece_concept IN pax_grp.piece_concept%TYPE,
-                          vexcess        IN pax_grp.excess%TYPE,
                           vexcess_wt     IN pax_grp.excess_wt%TYPE,
                           vexcess_pc     IN pax_grp.excess_pc%TYPE,
                           vpax_id        IN pax.pax_id%TYPE) RETURN NUMBER
@@ -261,7 +260,7 @@ BEGIN
   IF vbag_refuse<>0 THEN RETURN 0; END IF;
 
   IF vpiece_concept=0 THEN
-    IF vexcess>0 THEN RETURN 1; END IF;
+    IF vexcess_wt>0 THEN RETURN 1; END IF;
   ELSE
     IF vpax_id IS NOT NULL THEN
       SELECT COUNT(*)
@@ -283,61 +282,6 @@ BEGIN
         value_bag.grp_id=vgrp_id AND value_bag.value>0 AND rownum<2;
   RETURN res;
 END need_for_payment;
-
-FUNCTION get_excess(vgrp_id         IN pax.grp_id%TYPE,
-                    vpax_id         IN pax.pax_id%TYPE,
-                    include_all_svc IN NUMBER DEFAULT 0) RETURN NUMBER
-IS
-vexcess         pax_grp.excess%TYPE;
-vexcess_wt      pax_grp.excess_wt%TYPE;
-vexcess_pc      pax_grp.excess_pc%TYPE;
-vpiece_concept  pax_grp.piece_concept%TYPE;
-main_pax_id     pax.pax_id%TYPE;
-BEGIN
-  vexcess:=0;
-  BEGIN
-    SELECT NVL(piece_concept,0), DECODE(bag_refuse,0,excess,0), excess_wt, excess_pc
-    INTO vpiece_concept, vexcess, vexcess_wt, vexcess_pc
-    FROM pax_grp WHERE grp_id=vgrp_id;
-  EXCEPTION
-    WHEN NO_DATA_FOUND THEN RETURN NULL;
-  END;
-
-  IF vpiece_concept=0 THEN
-    IF vpax_id IS NOT NULL THEN
-      main_pax_id:=get_main_pax_id2(vgrp_id);
-    END IF;
-    IF vpax_id IS NULL OR
-       main_pax_id IS NOT NULL AND main_pax_id=vpax_id THEN
-      NULL;
-    ELSE
-      vexcess:=NULL;
-    END IF;
-  ELSE
-    IF vpax_id IS NOT NULL THEN
-      IF include_all_svc=0 THEN
-        SELECT NVL(SUM(paid_rfisc.paid), 0)
-        INTO vexcess
-        FROM paid_rfisc, rfisc_list_items
-        WHERE paid_rfisc.list_id=rfisc_list_items.list_id AND
-              paid_rfisc.rfisc=rfisc_list_items.rfisc AND
-              paid_rfisc.service_type=rfisc_list_items.service_type AND
-              paid_rfisc.airline=rfisc_list_items.airline AND
-              paid_rfisc.pax_id=vpax_id AND
-              paid_rfisc.transfer_num=0 AND
-              paid_rfisc.paid>0 AND
-              rfisc_list_items.category IN (1/*baggage*/, 2/*carry_on*/);
-      ELSE
-        SELECT NVL(SUM(paid), 0)
-        INTO vexcess
-        FROM paid_rfisc
-        WHERE pax_id=vpax_id AND paid>0 AND transfer_num=0;
-      END IF;
-    END IF;
-  END IF;
-  IF vexcess=0 THEN vexcess:=NULL; END IF;
-  RETURN vexcess;
-END get_excess;
 
 FUNCTION get_bagInfo2(vgrp_id       IN pax.grp_id%TYPE,
                       vpax_id 	    IN pax.pax_id%TYPE,
@@ -442,6 +386,78 @@ BEGIN
   END IF;
   RETURN bagInfo.rkWeight;
 END get_rkWeight2;
+
+FUNCTION get_excess_wt(vgrp_id         IN pax.grp_id%TYPE,
+                       vpax_id         IN pax.pax_id%TYPE,
+                       vexcess_wt      IN pax_grp.excess_wt%TYPE DEFAULT NULL,
+                       vbag_refuse     IN pax_grp.bag_refuse%TYPE DEFAULT NULL) RETURN NUMBER
+
+IS
+vexcess         pax_grp.excess_wt%TYPE;
+main_pax_id     pax.pax_id%TYPE;
+BEGIN
+  vexcess:=0;
+
+  IF vexcess_wt IS NULL OR vbag_refuse IS NULL THEN
+    BEGIN
+      SELECT DECODE(bag_refuse, 0, excess_wt, 0)
+      INTO vexcess
+      FROM pax_grp WHERE grp_id=vgrp_id;
+    EXCEPTION
+      WHEN NO_DATA_FOUND THEN RETURN NULL;
+    END;
+  ELSE
+    SELECT DECODE(vbag_refuse, 0, vexcess_wt, 0)
+    INTO vexcess
+    FROM dual;
+  END IF;
+
+  IF vpax_id IS NOT NULL THEN
+    main_pax_id:=get_main_pax_id2(vgrp_id);
+  END IF;
+  IF vpax_id IS NULL OR
+     main_pax_id IS NOT NULL AND main_pax_id=vpax_id THEN
+    NULL;
+  ELSE
+    vexcess:=NULL;
+  END IF;
+
+  IF vexcess=0 THEN vexcess:=NULL; END IF;
+  RETURN vexcess;
+END get_excess_wt;
+
+FUNCTION get_excess_pc(vgrp_id         IN pax.grp_id%TYPE,
+                       vpax_id         IN pax.pax_id%TYPE,
+                       include_all_svc IN NUMBER DEFAULT 0) RETURN NUMBER
+IS
+vexcess         pax_grp.excess_pc%TYPE;
+BEGIN
+  vexcess:=0;
+
+  IF vpax_id IS NOT NULL THEN
+    IF include_all_svc=0 THEN
+      SELECT NVL(SUM(paid_rfisc.paid), 0)
+      INTO vexcess
+      FROM paid_rfisc, rfisc_list_items
+      WHERE paid_rfisc.list_id=rfisc_list_items.list_id AND
+            paid_rfisc.rfisc=rfisc_list_items.rfisc AND
+            paid_rfisc.service_type=rfisc_list_items.service_type AND
+            paid_rfisc.airline=rfisc_list_items.airline AND
+            paid_rfisc.pax_id=vpax_id AND
+            paid_rfisc.transfer_num=0 AND
+            paid_rfisc.paid>0 AND
+            rfisc_list_items.category IN (1/*baggage*/, 2/*carry_on*/);
+    ELSE
+      SELECT NVL(SUM(paid), 0)
+      INTO vexcess
+      FROM paid_rfisc
+      WHERE pax_id=vpax_id AND paid>0 AND transfer_num=0;
+    END IF;
+  END IF;
+
+  IF vexcess=0 THEN vexcess:=NULL; END IF;
+  RETURN vexcess;
+END get_excess_pc;
 
 FUNCTION get_crs_priority(vcrs           IN crs_set.crs%TYPE,
                           vairline       IN crs_set.airline%TYPE,
@@ -695,30 +711,6 @@ BEGIN
 EXCEPTION
   WHEN NO_DATA_FOUND THEN NULL;
 END check_grp;
-
-FUNCTION get_main_pax_id(vgrp_id IN pax_grp.grp_id%TYPE,
-                         include_refused IN NUMBER DEFAULT 1) RETURN pax.pax_id%TYPE
-IS
-  CURSOR cur IS
-    SELECT pax_id,refuse FROM pax
-    WHERE grp_id=vgrp_id
-    ORDER BY DECODE(refuse,NULL,0,1),
-             DECODE(seats,0,1,0),
-             DECODE(pers_type,'Çá',0,'êÅ',1,2),
-             reg_no;
-curRow	cur%ROWTYPE;
-res	pax.pax_id%TYPE;
-BEGIN
-  res:=NULL;
-  OPEN cur;
-  FETCH cur INTO curRow;
-  IF cur%FOUND THEN
-    res:=curRow.pax_id;
-    IF include_refused=0 AND curRow.refuse IS NOT NULL THEN res:=NULL; END IF;
-  END IF;
-  CLOSE cur;
-  RETURN res;
-END get_main_pax_id;
 
 FUNCTION get_main_pax_id2(vgrp_id IN pax_grp.grp_id%TYPE,
                           include_refused IN NUMBER DEFAULT 1) RETURN pax.pax_id%TYPE

@@ -291,7 +291,7 @@ void TPaidToLogInfo::add(const WeightConcept::TPaidBagItem& item)
     i=bag.insert(make_pair(key, TEventsSumBagItem())).first;
   if (i==bag.end()) return;
   i->second.paid+=item.weight;
-  excess+=item.weight;
+  excess_wt+=TBagKilos(item.weight);
 }
 void TPaidToLogInfo::add(const TPaidRFISCItem& item)
 {
@@ -305,14 +305,15 @@ void TPaidToLogInfo::add(const TPaidRFISCItem& item)
   if (item.paid_positive())
   {
     i->second.paid+=item.paid;
-    excess+=item.paid;
+    excess_pc+=TBagPieces(item.paid);
   }
 }
 
 void TPaidToLogInfo::trace( TRACE_SIGNATURE, const std::string &descr) const
 {
   ProgTrace(TRACE_PARAMS, "============ %s ============", descr.c_str());
-  ProgTrace(TRACE_PARAMS, "excess: %d", excess);
+  ProgTrace(TRACE_PARAMS, "excess_wt: %s", excess_wt.view(OutputLang(LANG_EN)).c_str());
+  ProgTrace(TRACE_PARAMS, "excess_pc: %s", excess_pc.view(OutputLang(LANG_EN)).c_str());
   ProgTrace(TRACE_PARAMS, "bag:");
   for(map<TEventsSumBagKey, TEventsSumBagItem>::const_iterator b=bag.begin(); b!=bag.end(); ++b)
   {
@@ -467,7 +468,6 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
     "       NVL(ckin.get_rkAmount2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_amount, "
     "       NVL(ckin.get_rkWeight2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS rk_weight, "
     "       ckin.get_birks2(pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
-    "       DECODE(pax_grp.bag_refuse,0,pax_grp.excess,0) AS excess, "
     "       pax_grp.trfer_confirm, NVL(pax_grp.piece_concept, 0) AS piece_concept "
     "FROM pax_grp, pax "
     "WHERE pax_grp.grp_id=pax.grp_id(+) AND pax_grp.grp_id=:grp_id";
@@ -1345,10 +1345,12 @@ void SavePaidToLog(const TPaidToLogInfo &paidBefore,
   if (onlyEMD) return;
 
   if (paidBefore.bag==paidAfter.bag &&
-      paidBefore.excess==paidAfter.excess) return;
+      paidBefore.excess_wt==paidAfter.excess_wt &&
+      paidBefore.excess_pc==paidAfter.excess_pc) return;
 
   LEvntPrms lprms(msgPattern.prms);
-  lprms << PrmSmpl<int>(piece_concept?"pieces":"weight", paidAfter.excess);
+  lprms << PrmSmpl<int>(piece_concept?"pieces":"weight", piece_concept?paidAfter.excess_pc.getQuantity():
+                                                                       paidAfter.excess_wt.getQuantity());
 
   if (!paidAfter.bag.empty())
   {

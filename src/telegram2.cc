@@ -805,7 +805,8 @@ struct TWItem {
     int bagWeight;
     int rkAmount;
     int rkWeight;
-    int excess; // used in CKIN_REPORT
+    TBagKilos excess_wt; // used in CKIN_REPORT
+    TBagPieces excess_pc; // пока не используется, но начитывается
     void get(int grp_id, int bag_pool_num);
     void get(int pax_id);
     void ToTlg(vector<string> &body);
@@ -814,7 +815,8 @@ struct TWItem {
         bagWeight(0),
         rkAmount(0),
         rkWeight(0),
-        excess(0)
+        excess_wt(0),
+        excess_pc(0)
     {};
     TWItem &operator += (const TWItem &val)
     {
@@ -822,7 +824,8 @@ struct TWItem {
         bagWeight += val.bagWeight;
         rkAmount += val.rkAmount;
         rkWeight += val.rkWeight;
-        excess += val.excess;
+        excess_wt += val.excess_wt;
+        excess_pc += val.excess_pc;
         return *this;
     }
     void operator = (const TWItem &val)
@@ -831,7 +834,8 @@ struct TWItem {
         bagWeight = val.bagWeight;
         rkAmount = val.rkAmount;
         rkWeight = val.rkWeight;
-        excess = val.excess;
+        excess_wt = val.excess_wt;
+        excess_pc = val.excess_pc;
     }
 };
 
@@ -2450,7 +2454,8 @@ void TWItem::get(int grp_id, int bag_pool_num)
         << QParam("bagWeight", otInteger)
         << QParam("rkAmount", otInteger)
         << QParam("rkWeight", otInteger)
-        << QParam("excess", otInteger);
+        << QParam("excess_wt", otInteger)
+        << QParam("excess_pc", otInteger);
     TCachedQuery Qry(
             "declare "
             "   bag_pool_pax_id pax.pax_id%type; "
@@ -2460,7 +2465,8 @@ void TWItem::get(int grp_id, int bag_pool_num)
             "   :bagWeight := ckin.get_bagWeight2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
             "   :rkAmount := ckin.get_rkAmount2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
             "   :rkWeight := ckin.get_rkWeight2(:grp_id, bag_pool_pax_id, :bag_pool_num); "
-            "   :excess := ckin.get_excess(:grp_id, bag_pool_pax_id); "
+            "   :excess_wt := ckin.get_excess_wt(:grp_id, bag_pool_pax_id); "
+            "   :excess_pc := ckin.get_excess_pc(:grp_id, bag_pool_pax_id); "
             "end;",
             QryParams);
     Qry.get().Execute();
@@ -2468,7 +2474,8 @@ void TWItem::get(int grp_id, int bag_pool_num)
     bagWeight = Qry.get().GetVariableAsInteger("bagWeight");
     rkAmount = Qry.get().GetVariableAsInteger("rkAmount");
     rkWeight = Qry.get().GetVariableAsInteger("rkWeight");
-    excess = Qry.get().GetVariableAsInteger("excess");
+    excess_wt = Qry.get().GetVariableAsInteger("excess_wt");
+    excess_pc = Qry.get().GetVariableAsInteger("excess_pc");
 }
 
 struct TBTMGrpList;
@@ -5698,12 +5705,14 @@ void TLDMBag::get(TypeB::TDetailCreateInfo &info, int point_arv)
 }
 
 struct TExcess {
-    int excess;
+    TBagKilos kilos;
+    TBagPieces pieces;
     void get(int point_id, string airp_arv = "");
-    TExcess(): excess(NoExists) {};
+    TExcess(): kilos(NoExists), pieces(NoExists) {}
     TExcess &operator += (const TExcess &item)
     {
-        excess += item.excess;
+        kilos += item.kilos;
+        pieces += item.pieces;
         return *this;
     }
 };
@@ -5712,11 +5721,12 @@ void TExcess::get(int point_id, string airp_arv)
 {
     TQuery Qry(&OraSession);
     string SQLText =
-        "SELECT NVL(SUM(excess),0) excess FROM pax_grp "
+        "SELECT NVL(SUM(excess_wt),0) excess_wt "
+        "FROM pax_grp "
         "WHERE "
         "   point_dep=:point_id AND "
         "   pax_grp.status NOT IN ('E') AND "
-        "   ckin.excess_boarded(grp_id,class,bag_refuse)<>0 ";
+        "   ckin.excess_boarded(grp_id,class,bag_refuse)<>0 "; //для excess_pc надо определять boarded по каждому пассажиру
     if(not airp_arv.empty()) {
         SQLText += " and airp_arv = :airp_arv ";
         Qry.CreateVariable("airp_arv", otString, airp_arv);
@@ -5724,7 +5734,7 @@ void TExcess::get(int point_id, string airp_arv)
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
-    excess = Qry.FieldAsInteger("excess");
+    kilos = Qry.FieldAsInteger("excess_wt");
 }
 
 struct TLDMDests;
@@ -5889,7 +5899,9 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
 {
     cfg.ToTlg(info, vcompleted, body);
     TToRampBag to_ramp_sum;
-    int excess_sum = 0;
+    TExcess excess_sum;
+    excess_sum.kilos = 0;
+    excess_sum.pieces = 0;
     int baggage_sum = 0;
     int cargo_sum = 0;
     int mail_sum = 0;
@@ -5949,7 +5961,7 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
             si.push_back(row.str());
         }
         to_ramp_sum += iv->to_ramp;
-        excess_sum += iv->excess.excess;
+        excess_sum += iv->excess;
         baggage_sum += iv->bag.baggage;
         cargo_sum += iv->bag.cargo;
         mail_sum += iv->bag.mail;
@@ -5961,7 +5973,7 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
                 << " C " << iv->bag.cargo
                 << " M " << iv->bag.mail
                 << " B " << iv->bag.baggage
-                << " E " << iv->excess.excess;
+                << " E " << iv->excess.kilos.getQuantity();
             body.push_back(buf.str());
         }
     }
@@ -5969,7 +5981,7 @@ void TLDMDests::ToTlg(TypeB::TDetailCreateInfo &info, bool &vcompleted, vector<s
         body.insert(body.end(), si.begin(), si.end());
     if(options.version == "CEK" and options.exb) {
         row.str("");
-        row << "SI: EXB" << excess_sum << KG;
+        row << "SI: EXB" << excess_sum.kilos.getQuantity() << KG;
         body.push_back(row.str());
     }
     if(options.version == "CEK" and info.airp_dep != "ЧЛБ") {
@@ -9755,7 +9767,6 @@ namespace WBMessages {
 
         vector<TTripInfo> franchise_flts;
         get_wb_franchise_flts(trip_info, franchise_flts);
-        bool found = false;
         for(const auto &f: franchise_flts) {
             TSearchFltInfo filter;
             filter.airline = f.airline;
@@ -10385,7 +10396,7 @@ namespace CKIN_REPORT {
         if(gender.bag.rkWeight) NewTextChild(classNode, "rk_weight", gender.bag.rkWeight);
         if(gender.bag.bagAmount) NewTextChild(classNode, "bag_amount", gender.bag.bagAmount);
         if(gender.bag.bagWeight) NewTextChild(classNode, "bag_weight", gender.bag.bagWeight);
-        if(gender.bag.excess) NewTextChild(classNode, "paybag_weight", gender.bag.excess);
+        if(!gender.bag.excess_wt.zero()) NewTextChild(classNode, "paybag_weight", gender.bag.excess_wt.getQuantity());
     }
 
     string get_seats(const TCheckinPaxSeats &seats)
@@ -10628,8 +10639,8 @@ namespace CKIN_REPORT {
                 buf << w.bagAmount << "/" << w.bagWeight << "/" << w.rkWeight;
             NewTextChild(itemNode, "bag", buf.str());
             buf.str("");
-            if(w.excess != 0)
-                buf << w.excess << KG;
+            if(!w.excess_wt.zero())
+                buf << w.excess_wt.getQuantity() << KG;
             NewTextChild(itemNode, "xbag", buf.str());
 
             NewTextChild(itemNode, "bagtags", get_bag_tags(*iPax, bag_pool_num));

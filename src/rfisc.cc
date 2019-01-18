@@ -30,12 +30,6 @@ const TServiceStatuses& ServiceStatuses()
   return serviceStatuses;
 }
 
-const TEmdTypes& EmdTypes()
-{
-  static TEmdTypes emdTypes;
-  return emdTypes;
-}
-
 std::ostream & operator <<(std::ostream &os, TServiceType::Enum const &value)
 {
   os << ServiceTypesView().encode(value);
@@ -269,32 +263,21 @@ TRFISCListKey& TRFISCListKey::fromXMLcompatible(xmlNodePtr node)
   return *this;
 }
 
-const TRFISCListItem& TRFISCListItem::toDB(TQuery &Qry, bool old_version) const
+const TRFISCListItem& TRFISCListItem::toDB(TQuery &Qry) const
 {
   Qry.SetVariable("rfic", RFIC);
   Qry.SetVariable("rfisc", RFISC);
   Qry.SetVariable("service_type", ServiceTypes().encode(service_type));
-  if (old_version)
-    Qry.SetVariable("emd_type", EmdTypes().decode(emd_type));
-  else
-    Qry.SetVariable("emd_type", emd_type);
+  Qry.SetVariable("emd_type", emd_type);
   Qry.SetVariable("name", name);
   Qry.SetVariable("name_lat", name_lat);
-  if (old_version)
-  {
-    carry_on()?Qry.SetVariable("pr_cabin", (int)carry_on().get()):
-               Qry.SetVariable("pr_cabin", FNull);
-  }
-  else
-  {
-    Qry.SetVariable("airline", airline);
-    Qry.SetVariable("grp", grp);
-    Qry.SetVariable("subgrp", subgrp);
-    Qry.SetVariable("descr1", descr1);
-    Qry.SetVariable("descr2", descr2);
-    Qry.SetVariable("category", (int)category);
-    Qry.SetVariable("visible", (int)visible);
-  }
+  Qry.SetVariable("airline", airline);
+  Qry.SetVariable("grp", grp);
+  Qry.SetVariable("subgrp", subgrp);
+  Qry.SetVariable("descr1", descr1);
+  Qry.SetVariable("descr2", descr2);
+  Qry.SetVariable("category", (int)category);
+  Qry.SetVariable("visible", (int)visible);
   return *this;
 };
 
@@ -451,7 +434,7 @@ void TRFISCKey::getListItemLastSimilar()
   {
     list_id=Qry.get().FieldAsInteger("list_id");
     list_item=TRFISCListItem();
-    list_item.get().fromDB(Qry.get(), false);
+    list_item.get().fromDB(Qry.get());
   }
 }
 
@@ -539,7 +522,7 @@ void TRFISCKey::getListItem(GetItemWay way, int id, int transfer_num, int bag_po
   {
     list_id=Qry.get().FieldAsInteger("list_id");
     list_item=TRFISCListItem();
-    list_item.get().fromDB(Qry.get(), false);
+    list_item.get().fromDB(Qry.get());
   }
 
   if (list_id==ASTRA::NoExists)
@@ -593,7 +576,7 @@ void TRFISCKey::getListItemsAuto(int pax_id, int transfer_num, const std::string
   for(;!Qry.get().Eof; Qry.get().Next())
   {
     TRFISCListItem item;
-    item.fromDB(Qry.get(), false);
+    item.fromDB(Qry.get());
     items.push_back(item);
   }
 }
@@ -618,18 +601,15 @@ void TRFISCKey::getListItem()
   if (Qry.get().Eof)
     throw Exception("%s: item not found (%s)",  __FUNCTION__,  traceStr().c_str());
   list_item=TRFISCListItem();
-  list_item.get().fromDB(Qry.get(), list_id<0);
+  list_item.get().fromDB(Qry.get());
 }
 
-TRFISCListItem& TRFISCListItem::fromDB(TQuery &Qry, bool old_version)
+TRFISCListItem& TRFISCListItem::fromDB(TQuery &Qry)
 {
   clear();
   TRFISCListKey::fromDB(Qry);
   RFIC=Qry.FieldAsString("rfic");
-  if (old_version)
-    emd_type=EmdTypes().encode(Qry.FieldAsString("emd_type"));
-  else
-    emd_type=Qry.FieldAsString("emd_type");
+  emd_type=Qry.FieldAsString("emd_type");
   grp=Qry.FieldAsString("grp");
   subgrp=Qry.FieldAsString("subgrp");
   name=Qry.FieldAsString("name");
@@ -706,217 +686,105 @@ void TRFISCList::toXML(int list_id, xmlNodePtr node) const
     i->second.toXML(NewTextChild(node, "item"), def);
 }
 
-void TRFISCList::fromDB(int list_id, bool old_version, bool only_visible)
+void TRFISCList::fromDB(int list_id, bool only_visible)
 {
   clear();
   TQuery Qry(&OraSession);
   Qry.Clear();
-  if (old_version)
+  if (only_visible)
     Qry.SQLText =
-      "SELECT grp_rfisc_lists.*, "
-      "       bag_types_lists.airline, "
-      "       DECODE(grp_rfisc_lists.pr_cabin, NULL, NULL, 0, NULL, 'BG') AS grp, "
-      "       DECODE(grp_rfisc_lists.pr_cabin, NULL, NULL, 0, NULL, 'CY') AS subgrp, "
-      "       NULL AS descr1, NULL AS descr2, "
-      "       DECODE(grp_rfisc_lists.pr_cabin, NULL, 0, 0, 1, 2) AS category, "
-      "       1 AS visible "
-      "FROM grp_rfisc_lists, bag_types_lists "
-      "WHERE grp_rfisc_lists.list_id=:list_id AND bag_types_lists.id=:list_id";
+      "SELECT * FROM rfisc_list_items WHERE list_id=:list_id AND visible<>0";
   else
-    if (only_visible)
-      Qry.SQLText =
-        "SELECT * FROM rfisc_list_items WHERE list_id=:list_id AND visible<>0";
-    else
-      Qry.SQLText =
-        "SELECT * FROM rfisc_list_items WHERE list_id=:list_id";
+    Qry.SQLText =
+      "SELECT * FROM rfisc_list_items WHERE list_id=:list_id";
   Qry.CreateVariable( "list_id", otInteger, list_id );
   Qry.Execute();
   for ( ;!Qry.Eof; Qry.Next())
   {
     TRFISCListItem item;
-    item.fromDB(Qry, old_version);
+    item.fromDB(Qry);
     if (insert(make_pair(TRFISCListKey(item), item)).second) update_stat(item);
   }
 }
 
-void TRFISCList::toDB(int list_id, bool old_version, const std::string &baggage_airline) const
+void TRFISCList::toDB(int list_id) const
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
-  if (old_version)
-    Qry.SQLText =
-        "INSERT INTO grp_rfisc_lists(list_id, rfisc, service_type, rfic, emd_type, pr_cabin, name, name_lat) "
-        "VALUES(:list_id, :rfisc, :service_type, :rfic, :emd_type, :pr_cabin, :name, :name_lat)";
-  else
-    Qry.SQLText =
-        "INSERT INTO rfisc_list_items(list_id, rfisc, service_type, airline, rfic, emd_type, grp, subgrp, name, name_lat, descr1, descr2, category, visible) "
-        "VALUES(:list_id, :rfisc, :service_type, :airline, :rfic, :emd_type, :grp, :subgrp, :name, :name_lat, :descr1, :descr2, :category, :visible)";
+  Qry.SQLText =
+      "INSERT INTO rfisc_list_items(list_id, rfisc, service_type, airline, rfic, emd_type, grp, subgrp, name, name_lat, descr1, descr2, category, visible) "
+      "VALUES(:list_id, :rfisc, :service_type, :airline, :rfic, :emd_type, :grp, :subgrp, :name, :name_lat, :descr1, :descr2, :category, :visible)";
   Qry.CreateVariable( "list_id", otInteger, list_id );
   Qry.DeclareVariable( "rfisc", otString );
   Qry.DeclareVariable( "service_type", otString );
-  if (old_version)
-    Qry.DeclareVariable( "pr_cabin", otInteger );
-  else
-  {
-    Qry.DeclareVariable( "airline", otString );
-    Qry.DeclareVariable( "grp", otString );
-    Qry.DeclareVariable( "subgrp", otString );
-    Qry.DeclareVariable( "descr1", otString );
-    Qry.DeclareVariable( "descr2", otString );
-    Qry.DeclareVariable( "category", otInteger );
-    Qry.DeclareVariable( "visible", otInteger );
-  };
+  Qry.DeclareVariable( "airline", otString );
+  Qry.DeclareVariable( "grp", otString );
+  Qry.DeclareVariable( "subgrp", otString );
+  Qry.DeclareVariable( "descr1", otString );
+  Qry.DeclareVariable( "descr2", otString );
+  Qry.DeclareVariable( "category", otInteger );
+  Qry.DeclareVariable( "visible", otInteger );
   Qry.DeclareVariable( "rfic", otString );
   Qry.DeclareVariable( "emd_type", otString );
   Qry.DeclareVariable( "name", otString );
   Qry.DeclareVariable( "name_lat", otString );
-  if (old_version)
+
+  for(TRFISCList::const_iterator i=begin(); i!=end(); ++i)
   {
-    for(TRFISCList::const_iterator i=begin(); i!=end(); ++i)
-    {
-      if (!included_in_old_version(i->second, baggage_airline)) continue;
-      i->second.toDB(Qry, old_version);
-      try
-      {
-        Qry.Execute();
-      }
-      catch(EOracleError E)
-      {
-        if (E.Code==1)
-          ProgError(STDLOG, "Warning: TRFISCList::toDB: duplicate list_id=%d rfisc=%s", list_id, i->second.RFISC.c_str());
-        else
-          throw;
-      };
-    };
-  }
-  else
-  {
-    for(TRFISCList::const_iterator i=begin(); i!=end(); ++i)
-    {
-      i->second.toDB(Qry, old_version);
-      Qry.Execute();
-    };
+    i->second.toDB(Qry);
+    Qry.Execute();
   };
 }
 
-bool TRFISCList::included_in_old_version(const TRFISCListItem& item, const std::string &baggage_airline) const
-{
-  if (item.service_type!=TServiceType::BaggageCharge) return false;
-  if (!baggage_airline.empty() && item.airline!=baggage_airline)
-  {
-    //услуга не принадлежит багажу
-    TRFISCListKey key=item;
-    key.airline=baggage_airline;
-    if (find(key)!=end()) return false;
-  };
-  return true;
-}
-
-int TRFISCList::crc(bool old_version, const std::string& baggage_airline) const
+int TRFISCList::crc() const
 {
   if (empty()) throw Exception("TRFISCList::crc: empty list");
   boost::crc_basic<32> crc32( 0x04C11DB7, 0xFFFFFFFF, 0xFFFFFFFF, true, true );
   crc32.reset();
   ostringstream buf;
-  if (old_version)
-  {
-    for(TRFISCList::const_iterator i=begin(); i!=end(); ++i)
-    {
-      if (!included_in_old_version(i->second, baggage_airline)) continue;
-      buf << i->second.RFISC << ";"
-          << i->second.service_type << ";"
-          << (baggage_airline.empty()?i->second.airline:baggage_airline) << ";"
-          << i->second.category << ";"
-          << (i->second.visible?"+":"-") << ";"
-          << i->second.name.substr(0, 10) << ";"
-          << i->second.name_lat.substr(0, 10) << ";";
-    };
-    if (buf.str().empty())
-      throw Exception("TRFISCList::crc: empty baggage dominant RFISC list");
-  }
-  else
-  {
-    for(TRFISCList::const_iterator i=begin(); i!=end(); ++i)
-      buf << i->second.RFISC << ";"
-          << i->second.service_type << ";"
-          << i->second.airline << ";"
-          << i->second.category << ";"
-          << (i->second.visible?"+":"-") << ";"
-          << i->second.name.substr(0, 10) << ";"
-          << i->second.name_lat.substr(0, 10) << ";";
-  };
+  for(TRFISCList::const_iterator i=begin(); i!=end(); ++i)
+    buf << i->second.RFISC << ";"
+        << i->second.service_type << ";"
+        << i->second.airline << ";"
+        << i->second.category << ";"
+        << (i->second.visible?"+":"-") << ";"
+        << i->second.name.substr(0, 10) << ";"
+        << i->second.name_lat.substr(0, 10) << ";";
   //ProgTrace(TRACE5, "TRFISCList::crc: %s", buf.str().c_str());
   crc32.process_bytes( buf.str().c_str(), buf.str().size() );
   return crc32.checksum();
 }
 
-boost::optional<TRFISCListKey> TRFISCList::getBagRFISCListKey(const std::string &RFISC, const bool &carry_on) const
+int TRFISCList::toDBAdv() const
 {
-  for(TRFISCList::const_iterator i=begin(); i!=end(); ++i)
-  {
-    const TRFISCListItem &item=i->second;
-    if (item.service_type==TServiceType::BaggageCharge && item.carry_on() && item.carry_on().get()==carry_on &&
-        (RFISC.empty() || item.RFISC==RFISC))
-      return i->first;
-  }
-  return boost::none;
-}
-
-int TRFISCList::toDBAdv(bool old_version) const
-{
-  string baggage_airline;
-  if (old_version)
-  {
-    boost::optional<TRFISCListKey> key=getBagRFISCListKey("", false);
-    if (!key) throw Exception("TRFISCList::toDBAdv: empty baggage dominant RFISC list");
-    baggage_airline=key.get().airline;
-  }
-
-  int crc_tmp=crc(old_version, baggage_airline);
+  int crc_tmp=crc();
 
   TQuery Qry(&OraSession);
   Qry.Clear();
-  if (old_version)
-    Qry.SQLText = "SELECT id FROM bag_types_lists WHERE crc=:crc AND rownum<=10";
-  else
-  {
-    Qry.SQLText = "SELECT id FROM service_lists WHERE crc=:crc AND rfisc_used=:rfisc_used";
-    Qry.CreateVariable( "rfisc_used", otInteger, (int)true );
-  };
+  Qry.SQLText = "SELECT id FROM service_lists WHERE crc=:crc AND rfisc_used=:rfisc_used";
+  Qry.CreateVariable( "rfisc_used", otInteger, (int)true );
   Qry.CreateVariable( "crc", otInteger, crc_tmp );
   Qry.Execute();
   for(; !Qry.Eof; Qry.Next())
   {
     int list_id=Qry.FieldAsInteger("id");
     TRFISCList list;
-    list.fromDB(list_id, old_version);
-    if (equal(list, old_version, baggage_airline)) return list_id;
+    list.fromDB(list_id);
+    if (equal(list)) return list_id;
   };
 
   Qry.Clear();
-  if (old_version)
-  {
-    Qry.SQLText =
-        "BEGIN "
-        "  SELECT bag_types_lists__seq.nextval INTO :id FROM dual; "
-        "  INSERT INTO bag_types_lists(id, airline, crc, time_create) VALUES(:id, :airline, :crc, SYSTEM.UTCSYSDATE); "
-        "END;";
-    Qry.CreateVariable("airline", otString, baggage_airline);
-  }
-  else
-  {
-    Qry.SQLText =
-        "BEGIN "
-        "  SELECT service_lists__seq.nextval INTO :id FROM dual; "
-        "  INSERT INTO service_lists(id, crc, rfisc_used, time_create) VALUES(:id, :crc, :rfisc_used, SYSTEM.UTCSYSDATE); "
-        "END;";
-    Qry.CreateVariable("rfisc_used", otInteger, (int)true);
-  };
+  Qry.SQLText =
+    "BEGIN "
+    "  SELECT service_lists__seq.nextval INTO :id FROM dual; "
+    "  INSERT INTO service_lists(id, crc, rfisc_used, time_create) VALUES(:id, :crc, :rfisc_used, SYSTEM.UTCSYSDATE); "
+    "END;";
+  Qry.CreateVariable("rfisc_used", otInteger, (int)true);
   Qry.CreateVariable("id", otInteger, FNull);
   Qry.CreateVariable("crc", otInteger, crc_tmp);
   Qry.Execute();
   int list_id=Qry.GetVariableAsInteger("id");
-  toDB(list_id, old_version, baggage_airline);
+  toDB(list_id);
   return list_id;
 }
 
@@ -936,45 +804,17 @@ bool TRFISCList::exists(const TServiceType::Enum service_type) const
   return false;
 }
 
-bool TRFISCList::equal(const TRFISCList &list, bool old_version, const std::string& baggage_airline) const
+bool TRFISCList::exists(const boost::optional<bool>& carry_on) const
 {
-  if (old_version)
-  {
-    TRFISCList::const_iterator i1=begin();
-    TRFISCList::const_iterator i2=list.begin();
-    for(;i1!=end() || i2!=list.end();)
-    {
-      if (i1!=end() && !included_in_old_version(i1->second, baggage_airline))
-      {
-        ++i1;
-        continue;
-      };
-      if (i2!=list.end() && !list.included_in_old_version(i2->second, baggage_airline))
-      {
-        ++i2;
-        continue;
-      };
-      if (i1!=end() &&
-          i2!=list.end() &&
-          i1->second.RFIC==i2->second.RFIC &&
-          i1->second.RFISC==i2->second.RFISC &&
-          i1->second.service_type==i2->second.service_type &&
-          (baggage_airline.empty()?i1->second.airline:baggage_airline)==i2->second.airline &&
-          i1->second.emd_type==i2->second.emd_type &&
-          i1->second.carry_on()==i2->second.carry_on() &&
-          i1->second.name==i2->second.name &&
-          i1->second.name_lat==i2->second.name_lat)
-      {
-        ++i1;
-        ++i2;
-        continue;
-      }
-      break;
-    }
-    return i1==end() && i2==list.end();
-  }
-  else
-    return *this==list;
+  for(TRFISCList::const_iterator i=begin(); i!=end(); ++i)
+    if (i->second.carry_on()==carry_on) return true;
+
+  return false;
+}
+
+bool TRFISCList::equal(const TRFISCList &list) const
+{
+  return *this==list;
 }
 
 void TRFISCList::update_stat(const TRFISCListItem &item)
@@ -1068,7 +908,7 @@ const TRFISCBagPropsList& TRFISCListWithPropsCache::getBagProps(int list_id)
     i=insert(make_pair(list_id, TRFISCListWithProps())).first;
     if (i==end())
       throw EXCEPTIONS::Exception("TRFISCListWithPropsCache::getBagProps: i==end() (list_id=%d)", list_id);
-    i->second.fromDB(list_id, false);
+    i->second.fromDB(list_id);
   };
   return i->second.getBagProps();
 }
@@ -1820,7 +1660,7 @@ void TPaidRFISCList::updateExcess(int grp_id)
 {
   TCachedQuery Qry(
     "BEGIN "
-    "  SELECT NVL(SUM(paid_rfisc.paid),0) INTO :excess "
+    "  SELECT NVL(SUM(paid_rfisc.paid),0) INTO :excess_pc "
     "  FROM paid_rfisc, pax, rfisc_list_items "
     "  WHERE paid_rfisc.pax_id=pax.pax_id AND "
     "        paid_rfisc.list_id=rfisc_list_items.list_id AND "
@@ -1832,11 +1672,11 @@ void TPaidRFISCList::updateExcess(int grp_id)
     "        paid_rfisc.paid>0 AND "
     "        rfisc_list_items.category IN (:baggage, :carry_on); "
     "  UPDATE pax_grp "
-    "  SET excess_pc=:excess, excess=DECODE(NVL(piece_concept,0), 0, excess, :excess) "
+    "  SET excess_pc=:excess_pc "
     "  WHERE grp_id=:grp_id; "
     "END; ",
     QParams() << QParam("grp_id", otInteger, grp_id)
-              << QParam("excess", otInteger, FNull)
+              << QParam("excess_pc", otInteger, FNull)
               << QParam("baggage", otInteger, (int)TServiceCategory::Baggage)
               << QParam("carry_on", otInteger, (int)TServiceCategory::CarryOn));
   Qry.get().Execute();

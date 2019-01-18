@@ -4,6 +4,85 @@
 #include "exceptions.h"
 #include "baggage_wt.h"
 #include "rfisc.h"
+#include <etick/tick_data.h>
+#include <forward_list>
+
+class TComplexBagExcess
+{
+  friend class TComplexBagExcessNodeList;
+  private:
+    TBagQuantity pc, wt;
+  public:
+    TComplexBagExcess(const TBagQuantity& excess1,
+                      const TBagQuantity& excess2);
+    std::string view(const AstraLocale::OutputLang &lang,
+                     const bool &unitRequired,
+                     const std::string& separator="/") const;
+    std::string deprecatedView(const AstraLocale::OutputLang &lang) const;
+    bool zero() const { return pc.zero() && wt.zero(); }
+    int getDeprecatedInt() const;
+
+    bool operator == (const TComplexBagExcess &item) const
+    {
+      return pc==item.pc &&
+             wt==item.wt;
+    }
+
+    TComplexBagExcess& operator += (const TComplexBagExcess &item)
+    {
+      pc+=item.pc;
+      wt+=item.wt;
+      return *this;
+    }
+};
+
+class TComplexBagExcessNodeItem
+{
+  public:
+    xmlNodePtr node;
+    TComplexBagExcess complexExcess;
+
+    TComplexBagExcessNodeItem(xmlNodePtr _node,
+                              const TComplexBagExcess& _complexExcess) :
+      node(_node), complexExcess(_complexExcess) {}
+};
+
+
+class TComplexBagExcessNodeList
+{
+  public:
+    enum Props {ContainsOnlyNonZeroExcess, UnitRequiredAnyway, DeprecatedIntegerOutput};
+
+  private:
+    void apply() const;
+    std::forward_list<TComplexBagExcessNodeItem> excessList;
+    bool pcExists, wtExists;
+    bool _containsOnlyNonZeroExcess;
+    bool _unitRequiredAnyway;
+    bool _deprecatedIntegerOutput;
+    AstraLocale::OutputLang _lang;
+
+    std::string _separator;
+  public:
+    void add(xmlNodePtr parent,
+             const char *name,
+             const TBagQuantity& excess1,
+             const TBagQuantity& excess2);
+
+    TComplexBagExcessNodeList(const AstraLocale::OutputLang &lang,
+                              const std::set<Props> &props,
+                              const std::string& separator="/") :
+      pcExists(false),
+      wtExists(false),
+      _containsOnlyNonZeroExcess(props.find(ContainsOnlyNonZeroExcess)!=props.end()),
+      _unitRequiredAnyway(props.find(UnitRequiredAnyway)!=props.end()),
+      _deprecatedIntegerOutput(props.find(DeprecatedIntegerOutput)!=props.end()),
+      _lang(lang),
+      _separator(separator) {}
+    ~TComplexBagExcessNodeList() { apply(); }
+
+    bool unitRequired() const { return (pcExists && wtExists) || _unitRequiredAnyway; }
+};
 
 namespace CheckIn
 {

@@ -40,7 +40,6 @@ struct PaxLoad {
     int adult;
     int child;
     int baby;
-    int excess;
     PaxLoad() {
         point_arv = 0;
         seatsadult = 0;
@@ -51,7 +50,6 @@ struct PaxLoad {
       adult = 0;
       child = 0;
       baby = 0;
-      excess = 0;
     }
 };
 
