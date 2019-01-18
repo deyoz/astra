@@ -53,9 +53,22 @@ PassengerSearchResult& PassengerSearchResult::fromXML(xmlNodePtr reqNode)
   // pnr
   pnr.getByPaxIdFast(pax_id);
   // baggageTags
-  GetTagsByPool(grp_id, pax_item.bag_pool_num, baggageTags, false);
+  GetTagsByPool(grp_id, pax_item.bag_pool_num, bagTagsExtended, false);
   
   return *this;
+}
+
+static void ToZamarXML(xmlNodePtr resNode, const std::multimap<TBagTagNumber, CheckIn::TBagItem>& tags_ext)
+{
+  if (resNode == nullptr) return;
+  xmlNodePtr tagsNode = NewTextChild(resNode, "baggageTags");
+  for (const auto & tag : tags_ext)
+  {
+    xmlNodePtr tagNode = NewTextChild(tagsNode, "baggageTag");
+    SetProp(tagNode, "id", tag.first.str());
+    SetProp(tagNode, "weight", tag.second.weight);
+    SetProp(tagNode, "unit", "KG");
+  }
 }
 
 const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) const
@@ -116,7 +129,7 @@ const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) co
   // group
   NewTextChild(resNode, "group", "");
   // pnr
-  NewTextChild(resNode, "pnr", pnr.str(TPnrAddrInfo::AddrAndAirline, lang));
+  pnr.toXML(resNode, lang);
   // ticket
   NewTextChild(resNode, "ticket", pax_item.tkn.no_str());
   // paxCategory
@@ -124,17 +137,8 @@ const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) co
       ElemIdToPrefferedElem(etPersType, EncodePerson(pax_item.pers_type), efmtCodeNative, lang.get()));
   // status
   NewTextChild(resNode, "status", pax_item.checkInStatus());
-  // baggageTags // уточнить в процессе тестирования !!!
-  set<string> flatten_tags;
-  FlattenBagTags(baggageTags, flatten_tags);
-  ostringstream ss_tags;
-  string separator_tags;
-  for (const auto& tag : flatten_tags)
-  {
-    ss_tags << separator_tags << tag;
-    separator_tags = ",";
-  }
-  NewTextChild(resNode, "baggageTags", ss_tags.str());
+  // baggageTags
+  ToZamarXML(resNode, bagTagsExtended);
   
   return *this;
 }

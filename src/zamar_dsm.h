@@ -42,7 +42,7 @@ class PassengerSearchResult
   // pnr
   TPnrAddrs pnr;
   // baggageTags
-  std::multiset<TBagTagNumber> baggageTags;
+  std::multimap<TBagTagNumber, CheckIn::TBagItem> bagTagsExtended;
   
 public:
   PassengerSearchResult& fromXML(xmlNodePtr reqNode);

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "oralib.h"
+#include "qrys.h"
+#include "astra_elems.h"
 
 class TBagTagNumber
 {
@@ -122,8 +124,45 @@ class TGeneratedTags
     std::set<TBagTagNumber> _tags;
 };
 
-void GetTagsByBagNum(int grp_id, int bag_num, std::multiset<TBagTagNumber> &tags);
-void GetTagsByPool(int grp_id, int bag_pool_num , std::multiset<TBagTagNumber> &tags, bool includeTagColor);
+void GetTagsByBagNum(int grp_id, int bag_num, std::multiset<TBagTagNumber> &tags, bool includeTagColor);
 void GetTagsByPaxId(int pax_id, std::multiset<TBagTagNumber> &tags);
+
+void BagTagContainerFromDB(std::multiset<TBagTagNumber>& container, TQuery& Qry, bool includeTagColor);
+
+template <typename TBagItem>
+void BagTagContainerFromDB(std::multimap<TBagTagNumber, TBagItem>& container, TQuery& Qry, bool includeTagColor)
+{
+  container.clear();
+  for(; not Qry.Eof; Qry.Next())
+  {
+    TBagTagNumber tag_number(includeTagColor ? ElemIdToCodeNative(etTagColor, Qry.FieldAsString("color")) : "", Qry.FieldAsFloat("no"));
+    TBagItem bag_item;
+    bag_item.fromDB(Qry);
+    container.emplace(tag_number, bag_item);
+  }
+}
+
+template <typename T>
+void GetTagsByPool(int grp_id, int bag_pool_num , T& container, bool includeTagColor)
+{
+    if (bag_pool_num == ASTRA::NoExists) return;
+    TCachedQuery Qry(
+            "select "
+            "    bag_tags.color, "
+            "    bag_tags.no, "
+            "    bag2.* "
+            "from "
+            "    bag2, "
+            "    bag_tags "
+            "where "
+            "    bag2.grp_id = :grp_id and "
+            "    bag2.bag_pool_num = :bag_pool_num and "
+            "    bag2.grp_id = bag_tags.grp_id and "
+            "    bag2.num = bag_tags.bag_num ",
+            QParams() << QParam("grp_id", otInteger, grp_id) << QParam("bag_pool_num", otInteger, bag_pool_num));    
+    Qry.get().Execute();
+    container.clear();
+    BagTagContainerFromDB(container, Qry.get(), includeTagColor);
+}
 
 void FlattenBagTags(const std::multiset<TBagTagNumber> &tags, std::set<std::string> &result);
