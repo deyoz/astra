@@ -428,7 +428,7 @@ void TGeneratedTags::trace(const std::string& where) const
     LogTrace(TRACE5) << tag.str();
 }
 
-void GetTagsByBagNum(int grp_id, int bag_num, std::multiset<TBagTagNumber> &tags)
+void GetTagsByBagNum(int grp_id, int bag_num, std::multiset<TBagTagNumber> &tags, bool includeTagColor)
 {
     tags.clear();
     TCachedQuery Qry("select color, no  from bag_tags where grp_id = :grp_id and bag_num = :bag_num",
@@ -437,32 +437,7 @@ void GetTagsByBagNum(int grp_id, int bag_num, std::multiset<TBagTagNumber> &tags
     for(; not Qry.get().Eof; Qry.get().Next())
         tags.insert(
                 TBagTagNumber(
-                    ElemIdToCodeNative(etTagColor, Qry.get().FieldAsString("color")),
-                    Qry.get().FieldAsFloat("no")));
-}
-
-void GetTagsByPool(int grp_id, int bag_pool_num , std::multiset<TBagTagNumber> &tags, bool includeTagColor)
-{
-    tags.clear();
-    if (bag_pool_num == ASTRA::NoExists) return;
-    TCachedQuery Qry(
-            "select "
-            "    bag_tags.color, "
-            "    bag_tags.no "
-            "from "
-            "    bag2, "
-            "    bag_tags "
-            "where "
-            "    bag2.grp_id = :grp_id and "
-            "    bag2.bag_pool_num = :bag_pool_num and "
-            "    bag2.grp_id = bag_tags.grp_id and "
-            "    bag2.num = bag_tags.bag_num ",
-            QParams() << QParam("grp_id", otInteger, grp_id) << QParam("bag_pool_num", otInteger, bag_pool_num));
-    Qry.get().Execute();
-    for(; not Qry.get().Eof; Qry.get().Next())
-        tags.insert(
-                TBagTagNumber(
-                    includeTagColor ? ElemIdToCodeNative(etTagColor, Qry.get().FieldAsString("color")) : "",
+                    includeTagColor ? ElemIdToCodeNative(etTagColor, Qry.get().FieldAsString("color")) : "",                    
                     Qry.get().FieldAsFloat("no")));
 }
 
@@ -473,6 +448,13 @@ void GetTagsByPaxId(int pax_id, std::multiset<TBagTagNumber> &tags)
     pax.getByPaxId(pax_id);
     if(pax.bag_pool_num != ASTRA::NoExists)
         GetTagsByPool(pax.grp_id, pax.bag_pool_num, tags, true);
+}
+
+void BagTagContainerFromDB(std::multiset<TBagTagNumber>& container, TQuery& Qry, bool includeTagColor)
+{
+  container.clear();
+  for(; not Qry.Eof; Qry.Next())
+    container.emplace(includeTagColor ? ElemIdToCodeNative(etTagColor, Qry.FieldAsString("color")) : "", Qry.FieldAsFloat("no"));
 }
 
 void FlattenBagTags(const std::multiset<TBagTagNumber> &tags, std::set<std::string> &result)
