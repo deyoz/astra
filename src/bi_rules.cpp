@@ -615,13 +615,14 @@ string get_rem_txt(const string &airline, int pax_id, int tag_index)
     TBrands brands;
     brands.get(pax_id);
     // Если не найдено ни одного бренда, добавляем пустой
-    if(brands.brandIds.empty()) brands.brandIds.push_back(NoExists);
+    if(brands.empty()) brands.emplace_back();
 
     TCachedQuery Qry(
             "select * from rem_txt_sets where "
             "   airline = :airline and "
             "   tag_index = :tag_index and "
             "   (rfisc is null or rfisc = :rfisc) and "
+            "   (brand_airline is null or brand_airline = :brand_airline) and "
             "   (brand_code is null or brand_code = :brand_code) and "
             "   (fqt_airline is null or fqt_airline = :fqt_airline) and "
             "   (fqt_tier_level is null or fqt_tier_level = :fqt_tier_level) ",
@@ -629,14 +630,16 @@ string get_rem_txt(const string &airline, int pax_id, int tag_index)
             << QParam("airline", otString, airline)
             << QParam("tag_index", otInteger, tag_index)
             << QParam("rfisc", otString)
+            << QParam("brand_airline", otString)
             << QParam("brand_code", otString)
             << QParam("fqt_airline", otString)
             << QParam("fqt_tier_level", otString));
     for(const auto &rfisc: paxRFISCs)
         for(const auto &fqt: fqts)
-            for(const auto &brand: brands.brandIds) {
+            for(const auto &brand: brands) {
                 Qry.get().SetVariable("rfisc", rfisc);
-                Qry.get().SetVariable("brand_code", ElemIdToCodeNative(etBrand, brand));
+                Qry.get().SetVariable("brand_airline", brand.oper_airline);
+                Qry.get().SetVariable("brand_code", brand.code());
                 Qry.get().SetVariable("fqt_airline", fqt.airline);
                 Qry.get().SetVariable("fqt_tier_level", fqt.tier_level);
                 Qry.get().Execute();
