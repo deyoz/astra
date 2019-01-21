@@ -182,585 +182,6 @@ GROUP BY type,
          DECODE(id3,NULL,'NULL','NOT NULL')
 ORDER BY max_time;
 */
-int get_sirena_rozysk_stat(int argc,char **argv)
-{
-  string country="’„";
-
-  TQuery Qry(&OraSession);
-
-  const char* filename="TJ.txt";
-  ofstream f;
-  f.open(filename);
-  if (!f.is_open()) throw EXCEPTIONS::Exception("Can't open file '%s'",filename);
-  try
-  {
-    for(int pass=1; pass<=2; pass++)
-    {
-      Qry.Clear();
-      if (pass==1)
-        Qry.SQLText="SELECT TO_DATE('01.01.2012','DD.MM.YYYY') AS min_date FROM dual";
-      else
-        Qry.SQLText="SELECT TO_DATE('01.01.2012','DD.MM.YYYY') AS min_date FROM dual";
-      Qry.Execute();
-      if (Qry.Eof || Qry.FieldIsNULL("min_date")) return 0;
-      TDateTime min_date=Qry.FieldAsDateTime("min_date");
-
-      Qry.Clear();
-      if (pass==1)
-        Qry.SQLText="SELECT MAX(part_key) /*TO_DATE('02.01.2012','DD.MM.YYYY')*/ AS max_date FROM /*dual*/arx_points";
-      else
-        Qry.SQLText="SELECT MAX(time_out) /*TO_DATE('03.07.2012','DD.MM.YYYY')*/ AS max_date FROM /*dual*/points";
-      Qry.Execute();
-      if (Qry.Eof || Qry.FieldIsNULL("max_date")) return 0;
-      TDateTime max_date=Qry.FieldAsDateTime("max_date");
-
-      Qry.Clear();
-      if (pass==1)
-        Qry.SQLText=
-          "SELECT part_key, point_id, point_num, first_point, pr_tranzit "
-          "FROM arx_points, airps, cities "
-          "WHERE arx_points.part_key>=:low_date AND arx_points.part_key<:high_date AND "
-          "      arx_points.airp=airps.code AND airps.city=cities.code AND cities.country=:country AND arx_points.pr_del=0";
-      else
-        Qry.SQLText=
-          "SELECT point_id, point_num, first_point, pr_tranzit "
-          "FROM points, airps, cities "
-          "WHERE points.time_out>=:low_date AND points.time_out<:high_date AND "
-          "      points.airp=airps.code AND airps.city=cities.code AND cities.country=:country AND points.pr_del=0 "
-          "UNION "
-          "SELECT point_id, point_num, first_point, pr_tranzit "
-          "FROM points, airps, cities "
-          "WHERE points.time_in>=:low_date AND points.time_in<:high_date AND "
-          "      points.airp=airps.code AND airps.city=cities.code AND cities.country=:country AND points.pr_del=0 ";
-      Qry.CreateVariable("country", otString, country);
-      Qry.DeclareVariable("low_date", otDate);
-      Qry.DeclareVariable("high_date", otDate);
-
-      TQuery PaxQry(&OraSession);
-      PaxQry.Clear();
-      if (pass==1)
-      {
-        PaxQry.SQLText=
-          "SELECT arx_mark_trips.point_id AS point_id_mark, "
-          "       DECODE(arx_mark_trips.point_id,NULL,arx_points.airline,arx_mark_trips.airline) AS airline, "
-          "       arx_pax.ticket_no, "
-          "       arx_points.scd_out, "
-          "       DECODE(arx_mark_trips.point_id,NULL,arx_points.flt_no,arx_mark_trips.flt_no) AS flt_no, "
-          "       DECODE(arx_mark_trips.point_id,NULL,arx_points.suffix,arx_mark_trips.suffix) AS suffix, "
-          "       arx_pax_grp.class, "
-          "       TRIM(arx_pax.surname||' '||arx_pax.name) AS full_name, "
-          "       arx_pax.pr_brd, arx_pax.reg_no, arx_pax.pax_id, "
-          "       arx_points.act_out "
-          "FROM arx_points, arx_pax_grp, arx_pax, arx_mark_trips "
-          "WHERE arx_points.part_key=arx_pax_grp.part_key AND "
-          "      arx_points.point_id=arx_pax_grp.point_dep AND "
-          "      arx_pax_grp.part_key=arx_pax.part_key AND "
-          "      arx_pax_grp.grp_id=arx_pax.grp_id AND "
-          "      arx_pax_grp.part_key=arx_mark_trips.part_key(+) AND "
-          "      arx_pax_grp.point_id_mark=arx_mark_trips.point_id(+) AND "
-          "      arx_pax_grp.part_key=:part_key AND "
-          "      arx_pax_grp.point_dep=:point_dep AND "
-          "      arx_pax_grp.point_arv=:point_arv AND "
-          "      arx_pax.pr_brd IS NOT NULL ";
-        PaxQry.DeclareVariable("part_key", otDate);
-      }
-      else
-      {
-        PaxQry.SQLText=
-          "SELECT mark_trips.point_id AS point_id_mark, "
-          "       DECODE(mark_trips.point_id,NULL,points.airline,mark_trips.airline) AS airline, "
-          "       pax.ticket_no, "
-          "       points.scd_out, "
-          "       DECODE(mark_trips.point_id,NULL,points.flt_no,mark_trips.flt_no) AS flt_no, "
-          "       DECODE(mark_trips.point_id,NULL,points.suffix,mark_trips.suffix) AS suffix, "
-          "       pax_grp.class, "
-          "       TRIM(pax.surname||' '||pax.name) AS full_name, "
-          "       pax.pr_brd, pax.reg_no, pax.pax_id, "
-          "       points.act_out "
-          "FROM points, pax_grp, pax, mark_trips "
-          "WHERE points.point_id=pax_grp.point_dep AND "
-          "      pax_grp.grp_id=pax.grp_id AND "
-          "      pax_grp.point_id_mark=mark_trips.point_id(+) AND "
-          "      pax_grp.point_dep=:point_dep AND "
-          "      pax_grp.point_arv=:point_arv AND "
-          "      pax_grp.status NOT IN ('E') AND "
-          "      pax.pr_brd IS NOT NULL ";
-      }
-      PaxQry.DeclareVariable("point_dep", otInteger);
-      PaxQry.DeclareVariable("point_arv", otInteger);
-
-      TQuery EventsQry(&OraSession);
-      EventsQry.Clear();
-      if (pass==1)
-      {
-        if(ARX_EVENTS_DISABLED())
-          throw AstraLocale::UserException("MSG.ERR_MSG.ARX_EVENTS_DISABLED");
-        EventsQry.SQLText=
-          "SELECT MIN(time) AS time FROM arx_events "
-          "WHERE part_key=:part_key AND lang=:lang AND type=:evtPax AND id1=:point_dep AND id2=:reg_no";
-        EventsQry.DeclareVariable("part_key", otDate);
-      }
-      else
-      {
-        EventsQry.SQLText=
-          "SELECT MIN(time) AS time FROM events_bilingual "
-          "WHERE lang=:lang AND type=:evtPax AND id1=:point_dep AND id2=:reg_no";
-      };
-      EventsQry.CreateVariable("lang", otString, AstraLocale::LANG_RU);
-      EventsQry.CreateVariable("evtPax", otString, EncodeEventType(ASTRA::evtPax));
-      EventsQry.DeclareVariable("point_dep", otInteger);
-      EventsQry.DeclareVariable("reg_no", otInteger);
-
-      set< pair<TDateTime, int> > point_ids;
-      int processed=0;
-      for(TDateTime curr_date=min_date; curr_date<=max_date; curr_date+=1.0, processed++)
-      {
-        nosir_wait(processed, false, 10, 5);
-        Qry.SetVariable("low_date",curr_date);
-        Qry.SetVariable("high_date",curr_date+1.0);
-        Qry.Execute();
-        for(;!Qry.Eof;Qry.Next())
-        {
-          TDateTime part_key=pass==1?Qry.FieldAsDateTime("part_key"):NoExists;
-          int point_id=Qry.FieldAsInteger("point_id");
-          int point_num=Qry.FieldAsInteger("point_num");
-          int first_point=Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
-          bool pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
-          for(int pass2=1; pass2<=2; pass2++)
-          {
-            TTripRoute route;
-            if (pass2==1)
-            {
-              route.GetRouteBefore(part_key,
-                                   point_id,
-                                   point_num,
-                                   first_point,
-                                   pr_tranzit,
-                                   trtWithCurrent,
-                                   trtNotCancelled);
-            }
-            else
-            {
-              TTripRouteItem item;
-              route.GetNextAirp(part_key,
-                                point_id,
-                                point_num,
-                                first_point,
-                                pr_tranzit,
-                                trtNotCancelled,
-                                item);
-              if (item.point_id!=NoExists)
-              {
-                route.GetRouteBefore(item.part_key, item.point_id, trtNotCurrent, trtNotCancelled);
-                //printf("routeBefore: %s\n", route.GetStr().c_str());
-              };
-            };
-            //printf("routeBefore(point_num=%d): %s\n", Qry.FieldAsInteger("point_num"), route.GetStr().c_str());
-            if (!route.empty())
-              point_ids.insert( make_pair(route.begin()->part_key, route.begin()->point_id) );
-          };
-        };
-      };
-      printf("point_ids.size()=%zu\n", point_ids.size());
-      processed=0;
-      for(set< pair<TDateTime, int> >::const_iterator i=point_ids.begin(); i!=point_ids.end(); i++, processed++)
-      {
-        nosir_wait(processed, false, 10, 5);
-        TTripRoute route;
-        route.GetRouteAfter(i->first, i->second, trtWithCurrent, trtNotCancelled);
-        //printf("routeAfter: %s\n", route.GetStr().c_str());
-        for(TTripRoute::const_iterator r1=route.begin(); r1!=route.end(); r1++)
-        {
-          string city_dep, country_dep;
-          try
-          {
-            const TAirpsRow &airpRow = (const TAirpsRow&)base_tables.get("airps").get_row("code",r1->airp);
-            city_dep=airpRow.city;
-            const TCitiesRow &cityRow = (const TCitiesRow&)base_tables.get("cities").get_row("code",airpRow.city);
-            country_dep=cityRow.country;
-          }
-          catch(EBaseTableError) {};
-
-          for(TTripRoute::const_iterator r2=r1; r2!=route.end(); r2++)
-          {
-            if (r1->part_key==r2->part_key &&
-                r1->point_id==r2->point_id) continue;
-            string city_arv, country_arv;
-            try
-            {
-              const TAirpsRow &airpRow = (const TAirpsRow&)base_tables.get("airps").get_row("code",r2->airp);
-              city_arv=airpRow.city;
-              const TCitiesRow &cityRow = (const TCitiesRow&)base_tables.get("cities").get_row("code",airpRow.city);
-              country_arv=cityRow.country;
-            }
-            catch(EBaseTableError) {};
-            if (country_dep==country || country_arv==country)
-            {
-              //nosir_wait(processed);
-              if (pass==1)
-                PaxQry.SetVariable("part_key", r1->part_key);
-              PaxQry.SetVariable("point_dep", r1->point_id);
-              PaxQry.SetVariable("point_arv", r2->point_id);
-              if (pass==1)
-                EventsQry.SetVariable("part_key", r1->part_key);
-              EventsQry.SetVariable("point_dep", r1->point_id);
-              PaxQry.Execute();
-              /*printf("load pax: part_key=%s point_dep=%d point_arv=%d EOF=%d\n",
-                     (pass==1?DateTimeToStr(r1->part_key, "dd.mm.yy hh:nn:ss").c_str():""),
-                     r1->point_id, r2->point_id, (int)PaxQry.Eof);*/
-
-              for(;!PaxQry.Eof;PaxQry.Next())
-              {
-                if (PaxQry.FieldIsNULL("point_id_mark"))
-                  printf("empty airline_mark (part_key=%s, point_dep=%d)",
-                         (pass==1?DateTimeToStr(r1->part_key, "dd.mm.yy hh:nn:ss").c_str():""),
-                         r1->point_id);
-
-                TDateTime scd_out_local=NoExists;
-                if (!PaxQry.FieldIsNULL("scd_out"))
-                {
-                  scd_out_local=UTCToLocal(PaxQry.FieldAsDateTime("scd_out"),
-                                           AirpTZRegion(r1->airp));
-                };
-                if (scd_out_local==NoExists || scd_out_local<min_date) continue;
-
-
-                f << "ASTRA;;;"
-                  << PaxQry.FieldAsString("airline") << ";;"
-                  << PaxQry.FieldAsString("ticket_no") << ";";
-
-                if (!PaxQry.FieldIsNULL("scd_out"))
-                {
-                  TDateTime scd_out_local=UTCToLocal(PaxQry.FieldAsDateTime("scd_out"),
-                                                     AirpTZRegion(r1->airp));
-                  f << DateTimeToStr(scd_out_local, "dd.mm.yyyy") << ";"
-                    << DateTimeToStr(scd_out_local, "hh:nn") << ";";
-                }
-                else
-                {
-                  f << ";;";
-                };
-
-                if (!PaxQry.FieldIsNULL("flt_no"))
-                {
-                  f << setw(3) << setfill('0')
-                    << PaxQry.FieldAsInteger("flt_no")
-                    << PaxQry.FieldAsString("suffix") << ";";
-                }
-                else
-                {
-                  f << ";";
-                };
-
-                f << city_dep << ";" << city_arv << ";"
-                  << r1->airp << ";" << r2->airp << ";";
-                switch( DecodeClass( PaxQry.FieldAsString( "class" ) ) ) {
-                    case F: f << ";";
-                        break;
-                    case C: f << "¨§­¥á-ª« áá;";
-                        break;
-                    case Y: f << "ª®­®¬-ª« áá;";
-                        break;
-                    default: f << ";";
-                };
-
-                f << ";;;";
-
-                int pax_id=PaxQry.FieldAsInteger("pax_id");
-
-                CheckIn::TPaxDocItem doc;
-                LoadPaxDoc(r1->part_key, pax_id, doc);
-
-                CheckIn::TPaxDocoItem doco;
-                LoadPaxDoco(r1->part_key, pax_id, doco);
-
-                if (doc.surname.empty())
-                  f << PaxQry.FieldAsString("full_name") << ";";
-                else
-                  f << doc.surname
-                    << (doc.first_name.empty()?"":" ") << doc.first_name
-                    << (doc.second_name.empty()?"":" ") << doc.second_name << ";";
-
-                f << doc.gender << ";"
-                  << doco.birth_place << ";";
-
-                if (doc.birth_date!=NoExists)
-                  f << DateTimeToStr(doc.birth_date, "dd.mm.yyyy") << ";";
-                else
-                  f << ";";
-
-                f << doc.nationality << ";"
-                  << (doc.type=="P"?" á¯®àâ":"") << ";"
-                  << doc.no << ";";
-
-                if (doc.expiry_date!=NoExists)
-                  f << DateTimeToStr(doc.expiry_date, "dd.mm.yyyy") << ";";
-                else
-                  f << ";";
-
-                f << doc.issue_country << ";";
-
-                if (doco.type=="V")
-                {
-                  f << doco.no << ";";
-                  if (doco.issue_date!=NoExists)
-                    f << DateTimeToStr(doco.issue_date, "dd.mm.yyyy") << ";";
-                  else
-                    f << ";";
-                  f << doco.issue_place << ";"
-                    << doco.applic_country << ";";
-                }
-                else
-                {
-                  f << ";;;;";
-                };
-
-                f << ";;‡ à¥£¨áâà¨à®¢ ­;";
-
-                EventsQry.SetVariable("reg_no", PaxQry.FieldAsInteger("reg_no"));
-                EventsQry.Execute();
-                if (!EventsQry.Eof && !EventsQry.FieldIsNULL("time"))
-                {
-                  TDateTime time_local=UTCToLocal(EventsQry.FieldAsDateTime("time"),
-                                                     AirpTZRegion(r1->airp));
-                  f << DateTimeToStr(time_local, "dd.mm.yyyy hh:nn:ss") << ";";
-                }
-                else
-                  f << ";";
-
-                f << ";;";
-
-                if (PaxQry.FieldAsInteger("pr_brd")!=0)
-                  f << " áá ¦¨à ¢ë«¥â¥«;";
-                else
-                  f << " áá ¦¨à ­¥ ¢ë«¥â¥«;";
-
-                if (!PaxQry.FieldIsNULL("act_out"))
-                {
-                  TDateTime act_out_local=UTCToLocal(PaxQry.FieldAsDateTime("act_out"),
-                                                     AirpTZRegion(r1->airp));
-                  f << DateTimeToStr(act_out_local, "dd.mm.yyyy hh:nn");
-                };
-
-                f << endl;
-              };
-
-            };
-          };
-        };
-      };
-    }; //pass
-    f.close();
-  }
-  catch(...)
-  {
-    try { f.close(); } catch( ... ) { };
-    try
-    {
-      //¢ á«ãç ¥ ®è¨¡ª¨ § ¯¨è¥¬ ¯ãáâ®© ä ©«
-      f.open(filename);
-      if (f.is_open()) f.close();
-    }
-    catch( ... ) { };
-    throw;
-  };
-
-  return 0;
-};
-
-int test_trfer_exists(int argc,char **argv)
-{
-  TReqInfo *reqInfo = TReqInfo::Instance();
-    reqInfo->Initialize("ŒŽ‚");
-
-  TDateTime first_date, last_date;
-  StrToDateTime("26.05.2013 00:00:00","dd.mm.yyyy hh:nn:ss",first_date);
-  StrToDateTime("31.05.2013 00:00:00","dd.mm.yyyy hh:nn:ss",last_date);
-
-  TQuery FltQry(&OraSession);
-  FltQry.Clear();
-  FltQry.SQLText=
-    "SELECT point_id, airline, flt_no, suffix, scd_out, airp "
-    "FROM points WHERE move_id=:move_id AND pr_del>=0 ORDER BY point_num ";
-  FltQry.DeclareVariable("move_id", otInteger);
-
-  TQuery ExistsQry(&OraSession);
-
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT DISTINCT move_id FROM points "
-    "WHERE (scd_out>=:first_date AND scd_out<:last_date OR "
-    "       scd_in>=:first_date AND scd_in<:last_date)/* AND move_id IN (1236392, 1237032)*/";
-  Qry.CreateVariable("first_date", otDate, first_date);
-  Qry.CreateVariable("last_date", otDate, last_date);
-  Qry.Execute();
-  int compared=0;
-  int different=0;
-  int errors=0;
-  for(;!Qry.Eof;Qry.Next())
-  {
-    int move_id=Qry.FieldAsInteger("move_id");
-    FltQry.SetVariable("move_id", move_id);
-    FltQry.Execute();
-    for(;!FltQry.Eof;)
-    {
-      int point_id_out=FltQry.FieldAsInteger("point_id");
-      TTripInfo flt(FltQry);
-      FltQry.Next();
-      if (FltQry.Eof) break;
-      int point_id_in=FltQry.FieldAsInteger("point_id");
-      for(int pass=0; pass<4; pass++)
-      {
-        int point_id=NoExists;
-        TrferList::TTrferType trferType = TrferList::tckinInbound;
-        string title;
-        bool exists=false;
-        try
-        {
-          if (pass==0)
-          {
-            title="TrferList::tckinInbound";
-            trferType=TrferList::tckinInbound;
-            point_id=point_id_out;
-            continue;
-          };
-          if (pass==1)
-          {
-            title="TrferList::trferCkin";
-            trferType=TrferList::trferCkin;
-            point_id=point_id_out;
-            exists=TrferList::trferCkinExists(point_id_out, ExistsQry);
-          };
-          if (pass==2)
-          {
-            title="TrferList::trferIn";
-            trferType=TrferList::trferIn;
-            point_id=point_id_in;
-            exists=TrferList::trferInExists(point_id_in, point_id_out, ExistsQry);
-          };
-          if (pass==3)
-          {
-            title="TrferList::trferOut";
-            trferType=TrferList::trferOut;
-            point_id=point_id_out;
-            exists=TrferList::trferOutExists(point_id_out, ExistsQry);
-          };
-
-          TTripInfo flt_tmp;
-          vector<TrferList::TGrpItem> grps_ckin;
-          vector<TrferList::TGrpItem> grps_tlg;
-          TrferList::TrferFromDB(trferType, point_id, true, flt_tmp, grps_ckin, grps_tlg);
-
-          compared++;
-          if (exists!=(!grps_ckin.empty() || !grps_tlg.empty()))
-          {
-            different++;
-            printf("%s: exists=%d grps_ckin.size()=%zu grps_tlg.size()=%zu point_id=%d\n",
-                   title.c_str(), (int)exists, grps_ckin.size(), grps_tlg.size(), point_id);
-          };
-        }
-        catch(EXCEPTIONS::Exception &e)
-        {
-          errors++;
-          ProgError(STDLOG, "test_trfer_exists: %s (title=%s point_id=%d)", e.what(), title.c_str(), point_id );
-        };
-      };
-    };
-  };
-  printf("compared=%d different=%d errors=%d\n", compared, different, errors);
-
-  return 1;
-};
-
-int bind_trfer_trips(int argc,char **argv)
-{
-  TQuery Qry(&OraSession);
-
-  Qry.Clear();
-  Qry.SQLText="CREATE INDEX trfer_trips_tmp__IDX ON trfer_trips (scd ASC)";
-  Qry.Execute();
-
-  Qry.Clear();
-  Qry.SQLText="SELECT MIN(scd) AS min_date FROM trfer_trips";
-  Qry.Execute();
-  if (Qry.Eof || Qry.FieldIsNULL("min_date")) return 0;
-  TDateTime min_date=Qry.FieldAsDateTime("min_date");
-
-  Qry.Clear();
-  Qry.SQLText="SELECT MAX(scd) AS max_date FROM trfer_trips";
-  Qry.Execute();
-  if (Qry.Eof || Qry.FieldIsNULL("max_date")) return 0;
-  TDateTime max_date=Qry.FieldAsDateTime("max_date");
-
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT point_id FROM trfer_trips "
-    "WHERE point_id_spp IS NULL AND scd>=:low_date AND scd<:high_date";
-  Qry.DeclareVariable("low_date", otDate);
-  Qry.DeclareVariable("high_date", otDate);
-
-  TTrferBinding trferBinding(false);
-
-  for(TDateTime curr_date=min_date; curr_date<=max_date; curr_date+=1.0)
-  {
-    Qry.SetVariable("low_date",curr_date);
-    Qry.SetVariable("high_date",curr_date+1.0);
-    Qry.Execute();
-    for(;!Qry.Eof;Qry.Next())
-      trferBinding.bind_flt(Qry.FieldAsInteger("point_id"));
-    OraSession.Commit();
-  };
-
-  Qry.Clear();
-  Qry.SQLText="DROP INDEX trfer_trips_tmp__IDX";
-  Qry.Execute();
-
-  return 0;
-};
-
-int unbind_trfer_trips(int argc,char **argv)
-{
-  TQuery Qry(&OraSession);
-
-  Qry.Clear();
-  Qry.SQLText="CREATE INDEX trfer_trips_tmp__IDX ON trfer_trips (scd ASC)";
-  Qry.Execute();
-
-  Qry.Clear();
-  Qry.SQLText="SELECT MIN(scd) AS min_date FROM trfer_trips";
-  Qry.Execute();
-  if (Qry.Eof || Qry.FieldIsNULL("min_date")) return 0;
-  TDateTime min_date=Qry.FieldAsDateTime("min_date");
-
-  Qry.Clear();
-  Qry.SQLText="SELECT MAX(scd) AS max_date FROM trfer_trips";
-  Qry.Execute();
-  if (Qry.Eof || Qry.FieldIsNULL("max_date")) return 0;
-  TDateTime max_date=Qry.FieldAsDateTime("max_date");
-
-  Qry.Clear();
-  Qry.SQLText=
-    "UPDATE trfer_trips SET point_id_spp=NULL "
-    "WHERE point_id_spp IS NOT NULL AND scd>=:low_date AND scd<:high_date";
-  Qry.DeclareVariable("low_date", otDate);
-  Qry.DeclareVariable("high_date", otDate);
-
-  for(TDateTime curr_date=min_date; curr_date<=max_date; curr_date+=1.0)
-  {
-    Qry.SetVariable("low_date",curr_date);
-    Qry.SetVariable("high_date",curr_date+1.0);
-    Qry.Execute();
-    OraSession.Commit();
-  };
-
-  Qry.Clear();
-  Qry.SQLText="DROP INDEX trfer_trips_tmp__IDX";
-  Qry.Execute();
-
-  return 0;
-};
-
 int season_to_schedules(int argc,char **argv)
 {
   //!!!TDateTime first_date = NowUTC()-3000;
@@ -1145,175 +566,6 @@ int test_typeb_utils(int argc,char **argv)
     };
 
     return 0;
-};
-
-#include <sys/types.h>
-#include <dirent.h>
-
-class TAPISFlight
-{
-  public:
-    string airline;
-    int flt_no;
-    string suffix;
-    string airp_dep;
-    TDateTime scd_out_local;
-
-    TAPISFlight()
-    {
-      flt_no=ASTRA::NoExists;
-      scd_out_local=ASTRA::NoExists;
-    };
-    bool operator < (const TAPISFlight &item) const
-    {
-      if (airline!=item.airline)
-        return airline<item.airline;
-      if (flt_no!=item.flt_no)
-        return flt_no<item.flt_no;
-      if (suffix!=item.suffix)
-        return suffix<item.suffix;
-      if (airp_dep!=item.airp_dep)
-        return airp_dep<item.airp_dep;
-      return scd_out_local<item.scd_out_local;
-    };
-};
-
-int compare_apis(int argc,char **argv)
-{
-  if (argc<2 || strcmp(argv[1],"")==0)
-  {
-    printf("dir not specified\n");
-    return 0;
-  };
-  DIR *dirp=opendir(argv[1]);
-  if (dirp==NULL)
-  {
-    printf("dir not opened\n");
-    return 0;
-  };
-
-  if (edifact::init_edifact()<0)
-  {
-    printf("'init_edifact' error");
-    return 0;
-  };
-
-  set<TAPISFlight> flts;
-
-  try
-  {
-
-    struct dirent *dp;
-    while ((dp = readdir (dirp)) != NULL)
-    {
-
-      if (strlen(dp->d_name)<3) continue;
-
-      int res;
-      char c;
-      char airline[4];
-      long unsigned int flt_no;
-      char suffix[2];
-      suffix[0]=0;
-      char airp_dep[4];
-      char airp_arv[4];
-      char scd_out_local[9];
-      if (IsDigit(dp->d_name[2]))
-      {
-        res=sscanf(dp->d_name,
-                   "%2[A-Z€-Ÿð0-9]%5lu%3[A-Z€-Ÿð]%3[A-Z€-Ÿð]%8[0-9]%c",
-                   airline, &flt_no, airp_dep, airp_arv, scd_out_local, &c);
-        if (res!=6 || IsDigitIsLetter(c))
-        {
-          res=sscanf(dp->d_name,
-                     "%2[A-Z€-Ÿð0-9]%5lu%1[A-Z€-Ÿð]%3[A-Z€-Ÿð]%3[A-Z€-Ÿð]%8[0-9]%c",
-                     airline, &flt_no, suffix, airp_dep, airp_arv, scd_out_local, &c);
-          if (res!=7 || IsDigitIsLetter(c)) continue;
-        };
-      }
-      else
-      {
-        res=sscanf(dp->d_name,
-                   "%3[A-Z€-Ÿð0-9]%5lu%3[A-Z€-Ÿð]%3[A-Z€-Ÿð]%8[0-9]%c",
-                   airline, &flt_no, airp_dep, airp_arv, scd_out_local, &c);
-        if (res!=6 || IsDigitIsLetter(c))
-        {
-          res=sscanf(dp->d_name,
-                     "%3[A-Z€-Ÿð0-9]%5lu%1[A-Z€-Ÿð]%3[A-Z€-Ÿð]%3[A-Z€-Ÿð]%8[0-9]%c",
-                     airline, &flt_no, suffix, airp_dep, airp_arv, scd_out_local, &c);
-          if (res!=7 || IsDigitIsLetter(c)) continue;
-        };
-      };
-
-      TElemFmt fmt=efmtUnknown;
-      TAPISFlight flt;
-      flt.airline=ElemToElemId(etAirline, airline, fmt);
-      if (fmt==efmtUnknown) continue;
-      flt.flt_no=flt_no;
-      if (suffix[0]!=0)
-      {
-        flt.suffix=ElemToElemId(etSuffix, suffix, fmt);
-        if (fmt==efmtUnknown) continue;
-      };
-      flt.airp_dep=ElemToElemId(etAirp, airp_dep, fmt);
-      if (fmt==efmtUnknown) continue;
-      if (StrToDateTime(scd_out_local, "yyyymmdd", flt.scd_out_local )==EOF) continue;
-
-      if (flt.scd_out_local<NowUTC()-7) continue;
-
-      flts.insert(flt);
-    };
-    closedir (dirp);
-  }
-  catch(...)
-  {
-    closedir (dirp);
-  };
-
-  set<int> point_ids;
-  for(set<TAPISFlight>::const_iterator i=flts.begin(); i!=flts.end(); ++i)
-  {
-    ostringstream s;
-    s << i->airline << "|"
-      << i->flt_no << "|"
-      << i->suffix << "|"
-      << i->airp_dep << "|"
-      << DateTimeToStr(i->scd_out_local, "dd.mm.yyyy") << "|";
-
-    //printf("%s", s.str().c_str());
-    TSearchFltInfo filter;
-    filter.airline=i->airline;
-    filter.flt_no=i->flt_no;
-    filter.suffix=i->suffix;
-    filter.airp_dep=i->airp_dep;
-    filter.scd_out=i->scd_out_local;
-    filter.scd_out_in_utc=false;
-    filter.only_with_reg=true;
-
-    list<TAdvTripInfo> flts;
-    SearchFlt(filter, flts);
-
-    for(list<TAdvTripInfo>::const_iterator f=flts.begin(); f!=flts.end(); ++f)
-    {
-      point_ids.insert(f->point_id);
-    };
-  };
-
-  for(set<int>::const_iterator i=point_ids.begin(); i!=point_ids.end(); ++i)
-  {
-    OraSession.Rollback();
-    try
-    {
-      create_apis_file(*i, "");
-      //printf("%d\n", *i);
-    }
-    catch(EXCEPTIONS::Exception &E) {ProgError(STDLOG, "exception: %s", E.what());}
-    catch(...) {ProgError(STDLOG, "unknown error");};
-  };
-
-  OraSession.Rollback();
-
-  return 0;
 };
 
 int test_sopp_sql(int argc,char **argv)
@@ -2090,65 +1342,6 @@ int test_file_queue(int argc,char **argv)
    }
    return res;
 }
-
-int convert_codeshare(int argc,char **argv)
-{
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT * FROM codeshare_sets "
-    "WHERE (last_date IS NULL OR last_date>=TO_DATE('01.04.15','DD.MM.YY')) AND "
-    "      first_date<TO_DATE('01.04.15','DD.MM.YY') AND pr_mark_norms=0 AND pr_del=0";
-  Qry.Execute();
-
-  TQuery UpdQry(&OraSession);
-  UpdQry.Clear();
-  UpdQry.SQLText=
-    "BEGIN "
-    "  adm.add_codeshare_set(:id,:airline_oper,:flt_no_oper,:airp_dep,:airline_mark,:flt_no_mark, "
-    "                        1,:pr_mark_bp,:pr_mark_rpt,:days,TO_DATE('01.04.15','DD.MM.YY'),:last_date, "
-    "                        :now_local,NULL,0,'—ˆ—…Ž‚ ‚.‚.','ŒŽ‚‚‹€'); "
-    "END; ";
-  UpdQry.DeclareVariable("id", otInteger);
-  UpdQry.DeclareVariable("airline_oper", otString);
-  UpdQry.DeclareVariable("flt_no_oper", otInteger);
-  UpdQry.DeclareVariable("airp_dep", otString);
-  UpdQry.DeclareVariable("airline_mark", otString);
-  UpdQry.DeclareVariable("flt_no_mark", otInteger);
-  UpdQry.DeclareVariable("pr_mark_bp", otInteger);
-  UpdQry.DeclareVariable("pr_mark_rpt", otInteger);
-  UpdQry.DeclareVariable("days", otString);
-  UpdQry.DeclareVariable("last_date", otDate);
-  UpdQry.DeclareVariable("now_local", otDate);
-
-  for(;!Qry.Eof;Qry.Next())
-  {
-    UpdQry.SetVariable("id", FNull);
-    UpdQry.SetVariable("airline_oper", Qry.FieldAsString("airline_oper"));
-    UpdQry.SetVariable("flt_no_oper", Qry.FieldAsInteger("flt_no_oper"));
-    UpdQry.SetVariable("airp_dep", Qry.FieldAsString("airp_dep"));
-    UpdQry.SetVariable("airline_mark", Qry.FieldAsString("airline_mark"));
-    UpdQry.SetVariable("flt_no_mark", Qry.FieldAsInteger("flt_no_mark"));
-    UpdQry.SetVariable("pr_mark_bp", Qry.FieldAsInteger("pr_mark_bp"));
-    UpdQry.SetVariable("pr_mark_rpt", Qry.FieldAsInteger("pr_mark_rpt"));
-    UpdQry.SetVariable("days", Qry.FieldAsString("days"));
-    if (!Qry.FieldIsNULL("last_date"))
-      UpdQry.SetVariable("last_date", Qry.FieldAsDateTime("last_date"));
-    else
-      UpdQry.SetVariable("last_date", FNull);
-
-
-    string airp=Qry.FieldAsString("airp_dep");
-    TDateTime now_local= UTCToLocal( NowUTC(), AirpTZRegion(airp) );
-    modf(now_local,&now_local);
-    UpdQry.SetVariable("now_local", now_local);
-
-    UpdQry.Execute();
-
-  };
-  OraSession.Commit();
-  return 0;
-};
 
 /*
 CREATE TABLE drop_nat_stat
@@ -3840,5 +3033,187 @@ int seasons_dst_format(int argc,char **argv)
   catch(...){
     throw;
   };
+  return 0;
+}
+
+int tzdump(int argc,char **argv)
+{
+/*
+  CREATE TABLE tzdump
+  (
+    version VARCHAR2(5) NOT NULL,
+    utc_date DATE NOT NULL,
+    local_date DATE NOT NULL,
+    tz_region VARCHAR2(50) NOt NULL
+  );
+*/
+
+  if(argc != 2) {
+      cout << "Usage: " << argv[0] << " <version(e.g. 2018f)>" << endl;
+      return 1;
+  }
+
+  string version=argv[1];
+
+  TQuery Qry(&OraSession);
+
+  set<string> regions;
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT cities.tz_region "
+    "FROM points, airps, cities "
+    "WHERE points.airp=airps.code AND "
+    "      airps.city=cities.code AND cities.tz_region IS NOT NULL "
+    "UNION "
+    "SELECT cities.tz_region "
+    "FROM routes, airps, cities "
+    "WHERE routes.airp=airps.code AND "
+    "      airps.city=cities.code AND cities.tz_region IS NOT NULL ";
+  Qry.Execute();
+  for(; !Qry.Eof; Qry.Next())
+    regions.insert(Qry.FieldAsString("tz_region"));
+
+  cout << "regions.size()=" << regions.size() << endl;
+
+  Qry.Clear();
+  Qry.SQLText="SELECT TRUNC(SYSDATE-180) AS min_date, "
+              "       TRUNC(SYSDATE+60)  AS max_date "
+              "FROM dual";
+  Qry.Execute();
+  TDateTime min_date=Qry.FieldAsDateTime("min_date");
+  TDateTime max_date=Qry.FieldAsDateTime("max_date");
+
+  Qry.Clear();
+  Qry.SQLText="DELETE FROM tzdump WHERE version=:version";
+  Qry.CreateVariable("version", otString, version);
+  Qry.Execute();
+  ASTRA::commit();
+
+  Qry.Clear();
+  Qry.SQLText="INSERT INTO tzdump(version, utc_date, local_date, tz_region) "
+              "VALUES(:version, :utc_date, :local_date, :tz_region)";
+
+  Qry.CreateVariable("version", otString, version);
+  Qry.DeclareVariable("utc_date", otDate);
+  Qry.DeclareVariable("local_date", otDate);
+  Qry.DeclareVariable("tz_region", otString);
+
+  for(const auto& region : regions)
+  {
+    cout << region << "...";
+    Qry.SetVariable("tz_region", region);
+    for(TDateTime d=min_date; d<=max_date; d+=1.0)
+    {
+      Qry.SetVariable("utc_date", d);
+      Qry.SetVariable("local_date", UTCToLocal(d, region));
+      Qry.Execute();
+    }
+    ASTRA::commit();
+    cout << "ok" << endl;
+  };
+
+  return 0;
+}
+
+int tzdiff(int argc,char **argv)
+{
+  if(argc != 3) {
+      cout << "Usage: " << argv[0] << " <version(e.g. 2016j)> <version(e.g. 2018i)>" << endl;
+      return 1;
+  }
+
+  string version1=argv[1];
+  string version2=argv[2];
+
+  TQuery Qry(&OraSession);
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT a.tz_region, a.utc_date, "
+    "       (a.local_date-a.utc_date)*24 AS offset1, "
+    "       (b.local_date-b.utc_date)*24 AS offset2 "
+    "FROM tzdump a, tzdump b "
+    "WHERE a.utc_date=b.utc_date AND "
+    "      a.tz_region=b.tz_region AND "
+    "      a.version=:version1 AND b.version=:version2 AND a.local_date<>b.local_date "
+    "ORDER BY a.tz_region, a.utc_date";
+  Qry.CreateVariable("version1", otString, version1);
+  Qry.CreateVariable("version2", otString, version2);
+  Qry.Execute();
+
+  TQuery AirpsQry(&OraSession);
+  AirpsQry.Clear();
+  AirpsQry.SQLText=
+      "SELECT LISTAGG(airp, ', ') WITHIN GROUP (ORDER BY airp) AS airps "
+      "FROM "
+      "(SELECT points.airp "
+      " FROM points, airps, cities "
+      " WHERE points.airp=airps.code AND "
+      "       airps.city=cities.code AND cities.tz_region=:tz_region "
+      " UNION "
+      " SELECT routes.airp "
+      " FROM routes, airps, cities "
+      " WHERE routes.airp=airps.code AND "
+      "       airps.city=cities.code AND cities.tz_region=:tz_region) ";
+
+  AirpsQry.DeclareVariable("tz_region", otString);
+
+  struct Row
+  {
+    string tz_region;
+    TDateTime utc_date;
+    double offset1;
+    double offset2;
+
+    bool empty() const { return tz_region.empty(); }
+  };
+
+  Row prior;
+
+  while(true)
+  {
+    Row curr;
+    if (!Qry.Eof)
+    {
+      curr.tz_region=Qry.FieldAsString("tz_region");
+      curr.utc_date=Qry.FieldAsDateTime("utc_date");
+      curr.offset1=Qry.FieldAsFloat("offset1");
+      curr.offset2=Qry.FieldAsFloat("offset2");
+    }
+
+    if (prior.empty() && curr.empty())
+      cout << "No diffs found :)" << endl;
+    else
+      if (prior.tz_region!=curr.tz_region ||
+          prior.utc_date!=curr.utc_date-1.0 ||
+          prior.offset1!=curr.offset1 ||
+          prior.offset2!=curr.offset2)
+      {
+        if (!prior.empty())
+        {
+          cout << "-" << DateTimeToStr(prior.utc_date, "dd.mm.yy") << ": " << endl;
+          cout << "  " << version1 << ": GMT" << std::showpos << fixed << setprecision(2) << prior.offset1 << endl;
+          cout << "  " << version2 << ": GMT" << std::showpos << fixed << setprecision(2) << prior.offset2 << endl;
+          cout << "  airports: ";
+          AirpsQry.SetVariable("tz_region", prior.tz_region);
+          AirpsQry.Execute();
+          if (!AirpsQry.Eof) cout << AirpsQry.FieldAsString("airps");
+          cout << endl;
+        }
+
+        if (!curr.empty())
+        {
+          cout << curr.tz_region << " " << DateTimeToStr(curr.utc_date, "dd.mm.yy");
+        }
+      }
+
+    if (Qry.Eof) break;
+
+    Qry.Next();
+
+    prior=curr;
+  }
+
   return 0;
 }

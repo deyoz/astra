@@ -36,23 +36,19 @@ int pc_wt_stat(int argc,char **argv);
 int test_reprint(int argc,char **argv);
 int get_events_stat(int argc,char **argv);
 int get_events_stat2(int argc,char **argv);
-int get_sirena_rozysk_stat(int argc,char **argv);
 int season_to_schedules(int argc,char **argv);
-int test_trfer_exists(int argc,char **argv);
-int bind_trfer_trips(int argc,char **argv);
-int unbind_trfer_trips(int argc,char **argv);
 int test_typeb_utils(int argc,char **argv);
 int test_typeb_utils2(int argc,char **argv);
-int compare_apis(int argc,char **argv);
 int test_sopp_sql(int argc,char **argv);
 int test_file_queue(int argc,char **argv);
-int convert_codeshare(int argc,char **argv);
 namespace NatStat { int nat_stat(int argc,char **argv); }
 int ego_stat(int argc,char **argv);
 int tst_vo(int, char**);
 int prn_tags(int argc, char **argv);
 int stat_belgorod(int argc, char **argv);
 int rbd_test(int argc, char **argv);
+int tzdump(int argc, char **argv);
+int tzdiff(int argc, char **argv);
 
 const
   struct {
@@ -75,15 +71,10 @@ const
     {"-agent_stat_delta",       STAT::agent_stat_delta, NULL,                       NULL},
     {"-lci",                    TypeB::lci,             NULL,                       NULL},
     {"-tz2db",                  tz2db,                  NULL,                       "reload date_time_zonespec.csv content to db"},
-    {"-get_sirena_rozysk_stat", get_sirena_rozysk_stat, NULL,                       NULL},
     {"-get_events_stat",        get_events_stat2,       NULL,                       NULL},
     {"-basel_stat",             basel_stat,             NULL,                       NULL},
     {"-testsalons",             testsalons,             NULL,                       NULL},
-    {"-test_trfer_exists",      test_trfer_exists,      NULL,                       NULL},
-    {"-bind_trfer_trips",       bind_trfer_trips,       NULL,                       NULL},
-    {"-unbind_trfer_trips",     unbind_trfer_trips,     NULL,                       NULL},
     {"-test_typeb_utils",       test_typeb_utils,       NULL,                       NULL},
-    {"-compare_apis",           compare_apis,           NULL,                       NULL},
     {"-test_sopp_sql",          test_sopp_sql,          NULL,                       NULL},
     {"-test_file_queue",        test_file_queue,        NULL,                       NULL},
 #ifdef XP_TESTING
@@ -93,7 +84,6 @@ const
     {"-insert_locales",         insert_locales,         NULL,                       NULL},
     {"-file_by_id",             file_by_id,             NULL,                       NULL},
     {"-dst_points",             points_dst_format,      NULL,                       NULL},
-    {"-convert_codeshare",      convert_codeshare,      NULL,                       NULL},
     {"-ovb",                    STAT::ovb,              NULL,                       NULL},
     {"-http",                   verifyHTTP,             NULL,                       NULL},
     {"-bcbp",                   AstraWeb::bcbp_test,    NULL,                       NULL},
@@ -128,6 +118,8 @@ const
     {"-rbd_test",               rbd_test,               NULL,                       NULL},
     {"-lci_data",               TypeB::lci_data,               NULL,                       NULL},
     {"-asvc_list_print_sql",    PaxASVCList::print_sql, NULL,                       NULL},
+    {"-tzdump",                 tzdump,                 NULL,                       NULL},
+    {"-tzdiff",                 tzdiff,                 NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
