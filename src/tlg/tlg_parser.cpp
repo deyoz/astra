@@ -219,7 +219,7 @@ int CalcEOLCount(const char* p)
   return i;
 };
 
-char* TlgElemToElemId(TElemType type, const char* elem, char* id, bool with_icao)
+char* TlgElemToElemId(TElemType type, const char* elem, char* id, bool with_icao=false)
 {
   TElemFmt fmt;
   string id2;
@@ -239,7 +239,7 @@ char* TlgElemToElemId(TElemType type, const char* elem, char* id, bool with_icao
   return id;
 };
 
-char* GetAirline(char* airline, bool with_icao)
+char* GetAirline(char* airline, bool with_icao, bool throwIfUnknown)
 {
   try
   {
@@ -247,11 +247,13 @@ char* GetAirline(char* airline, bool with_icao)
   }
   catch (EBaseTableError)
   {
-    throw ETlgError("Unknown airline code '%s'", airline);
+    if (throwIfUnknown)
+      throw ETlgError("Unknown airline code '%s'", airline);
   };
+  return airline;
 };
 
-char* GetAirp(char* airp, bool with_icao=false)
+char* GetAirp(char* airp, bool with_icao=false, bool throwIfUnknown=true)
 {
   try
   {
@@ -259,8 +261,10 @@ char* GetAirp(char* airp, bool with_icao=false)
   }
   catch (EBaseTableError)
   {
-    throw ETlgError("Unknown airport code '%s'", airp);
+    if (throwIfUnknown)
+      throw ETlgError("Unknown airport code '%s'", airp);
   };
+  return airp;
 };
 
 TClass GetClass(const char* subcl)
@@ -277,7 +281,7 @@ TClass GetClass(const char* subcl)
   };
 };
 
-char* GetSubcl(char* subcl)
+char* GetSubcl(char* subcl, bool throwIfUnknown=true)
 {
   try
   {
@@ -285,11 +289,13 @@ char* GetSubcl(char* subcl)
   }
   catch (EBaseTableError)
   {
-    throw ETlgError("Unknown subclass '%s'", subcl);
+    if (throwIfUnknown)
+      throw ETlgError("Unknown subclass '%s'", subcl);
   };
+  return subcl;
 };
 
-char GetSuffix(char &suffix)
+char GetSuffix(char &suffix, bool throwIfUnknown)
 {
   if (suffix!=0)
   {
@@ -299,12 +305,13 @@ char GetSuffix(char &suffix)
     try
     {
       TlgElemToElemId(etSuffix,suffixh,suffixh);
+      suffix=suffixh[0];
     }
     catch (EBaseTableError)
     {
-      throw ETlgError("Unknown flight number suffix '%c'", suffix);
+      if (throwIfUnknown)
+        throw ETlgError("Unknown flight number suffix '%c'", suffix);
     };
-    suffix=suffixh[0];
   };
   return suffix;
 };
@@ -2771,12 +2778,14 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
                 };
               };
 */
+    bool throwIfUnknownCode=(elementID=='M');
+    GetAirline(Transfer.airline, true, throwIfUnknownCode);
+    GetAirp(Transfer.airp_dep, false, throwIfUnknownCode);
+    GetAirp(Transfer.airp_arv, false, throwIfUnknownCode);
+    GetSubcl(Transfer.subcl, throwIfUnknownCode);
+
     if (elementID=='M')
     {
-      GetAirline(Transfer.airline);
-      GetAirp(Transfer.airp_dep);
-      GetAirp(Transfer.airp_arv);
-      GetSubcl(Transfer.subcl);
       //анализ на повторение
       if (!pnr.market_flt.Empty())
       {

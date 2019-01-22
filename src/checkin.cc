@@ -1284,41 +1284,36 @@ void CheckInInterface::LoadOnwardCrsTransfer(const map<int, pair<CheckIn::TTrans
     xmlNodePtr node2=NewTextChild(trferNode,"segment");
     NewTextChild(node2,"num",t->first);
     if (t->second.first.operFlt.airline_fmt!=efmtUnknown)
-      NewTextChild(node2,"airline",ElemIdToClientElem(etAirline,
-                                                      t->second.first.operFlt.airline,
-                                                      t->second.first.operFlt.airline_fmt));
+      NewTextChild(node2,"airline",ElemIdToCodeNative(etAirline,
+                                                      t->second.first.operFlt.airline));
     else
       NewTextChild(node2,"airline",t->second.first.operFlt.airline);
 
     NewTextChild(node2,"flt_no",t->second.first.operFlt.flt_no);
 
     if (t->second.first.operFlt.suffix_fmt!=efmtUnknown)
-      NewTextChild(node2,"suffix",ElemIdToClientElem(etSuffix,
-                                                     t->second.first.operFlt.suffix,
-                                                     t->second.first.operFlt.suffix_fmt),"");
+      NewTextChild(node2,"suffix",ElemIdToCodeNative(etSuffix,
+                                                     t->second.first.operFlt.suffix),"");
     else
       NewTextChild(node2,"suffix",t->second.first.operFlt.suffix,"");
 
     NewTextChild(node2,"local_date",t->second.first.local_date);
 
     if (t->second.first.operFlt.airp_fmt!=efmtUnknown)
-      NewTextChild(node2,"airp_dep",ElemIdToClientElem(etAirp,
-                                                       t->second.first.operFlt.airp,
-                                                       t->second.first.operFlt.airp_fmt),"");
+      NewTextChild(node2,"airp_dep",ElemIdToCodeNative(etAirp,
+                                                       t->second.first.operFlt.airp),"");
     else
       NewTextChild(node2,"airp_dep",t->second.first.operFlt.airp,"");
 
     if (t->second.first.airp_arv_fmt!=efmtUnknown)
-      NewTextChild(node2,"airp_arv",ElemIdToClientElem(etAirp,
-                                                       t->second.first.airp_arv,
-                                                       t->second.first.airp_arv_fmt));
+      NewTextChild(node2,"airp_arv",ElemIdToCodeNative(etAirp,
+                                                       t->second.first.airp_arv));
     else
       NewTextChild(node2,"airp_arv",t->second.first.airp_arv);
 
     if (t->second.first.subclass_fmt!=efmtUnknown)
-      NewTextChild(node2,"subclass",ElemIdToClientElem(etSubcls,
-                                                       t->second.first.subclass,
-                                                       t->second.first.subclass_fmt));
+      NewTextChild(node2,"subclass",ElemIdToCodeNative(etSubcls,
+                                                       t->second.first.subclass));
     else
       NewTextChild(node2,"subclass",t->second.first.subclass);
 
@@ -7829,13 +7824,13 @@ void CheckInInterface::BuildTransfer(const TTrferRoute &trfer, TTrferRouteType r
     xmlNodePtr trferNode=NewTextChild(node,"segment");
     NewTextChild(trferNode,"flight_short",t->operFlt.flight_view());
     NewTextChild(trferNode,"airline",
-                 ElemIdToClientElem(etAirline, t->operFlt.airline, t->operFlt.airline_fmt));
+                 ElemIdToCodeNative(etAirline, t->operFlt.airline));
 
     NewTextChild(trferNode,"flt_no",t->operFlt.flt_no);
 
     if (!t->operFlt.suffix.empty())
       NewTextChild(trferNode,"suffix",
-                   ElemIdToClientElem(etSuffix, t->operFlt.suffix, t->operFlt.suffix_fmt));
+                   ElemIdToCodeNative(etSuffix, t->operFlt.suffix));
     else
       NewTextChild(trferNode,"suffix");
 
@@ -7844,10 +7839,10 @@ void CheckInInterface::BuildTransfer(const TTrferRoute &trfer, TTrferRouteType r
     NewTextChild(trferNode,"local_date",iDay);
 
     NewTextChild(trferNode,"airp_dep",
-                 ElemIdToClientElem(etAirp, t->operFlt.airp, t->operFlt.airp_fmt));
+                 ElemIdToCodeNative(etAirp, t->operFlt.airp));
 
     NewTextChild(trferNode,"airp_arv",
-                 ElemIdToClientElem(etAirp, t->airp_arv, t->airp_arv_fmt));
+                 ElemIdToCodeNative(etAirp, t->airp_arv));
 
     NewTextChild(trferNode,"city_dep",
                  base_tables.get("airps").get_row("code",t->operFlt.airp).AsString("city"));
