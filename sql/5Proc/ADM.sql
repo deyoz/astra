@@ -526,6 +526,18 @@ PROCEDURE insert_rfisc_rates(vid              IN rfisc_rates.id%TYPE,
                              vsetting_user    IN history_events.open_user%TYPE,
                              vstation         IN history_events.open_desk%TYPE);
 
+PROCEDURE insert_brand_fares(vid              IN brand_fares.id%TYPE,
+                             vsys_user_id     IN users2.user_id%TYPE,
+                             vairline         IN brand_fares.airline%TYPE,
+                             vairline_view    IN VARCHAR2,
+                             vfare_basis      IN brand_fares.fare_basis%TYPE,
+                             vbrand           IN brand_fares.brand%TYPE,
+                             vsale_first_date IN brand_fares.sale_first_date%TYPE,
+                             vsale_last_date  IN brand_fares.sale_last_date%TYPE,
+                             vlang            IN locale_messages.lang%TYPE,
+                             vsetting_user    IN history_events.open_user%TYPE,
+                             vstation         IN history_events.open_desk%TYPE);
+
 PROCEDURE check_web_sales_row(v_st_desk IN web_sales.st_desk%TYPE,
                               v_st_user IN web_sales.st_user%TYPE,
                               vlang     IN lang_types.code%TYPE);

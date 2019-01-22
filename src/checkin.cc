@@ -7147,7 +7147,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
         {
           TETickItem etickItem;
           etickItem.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
-          brands.get(operFlt.airline, etickItem.fare_basis);
+          brands.get(operFlt.airline, etickItem);
           string s=lowerc(etickItem.bag_norm_view()) + " " + brands.getSingleBrand().name(AstraLocale::OutputLang());
           NewTextChild(paxNode, "ticket_bag_norm", TrimString(s), "");
         }

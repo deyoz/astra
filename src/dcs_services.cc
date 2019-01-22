@@ -125,7 +125,7 @@ bool DCSServiceApplying::isAllowed(int pax_id, DCSService::Enum dcsService, RFIS
 
   TBrands brands;
   brands.get(pax.id);
-  if (brands.brandIds.empty()) brands.brandIds.push_back(ASTRA::NoExists);
+  if (brands.empty()) brands.emplace_back();
 
   set<CheckIn::TPaxFQTItem> fqts;
   CheckIn::LoadPaxFQT(pax.id, fqts);
@@ -135,10 +135,10 @@ bool DCSServiceApplying::isAllowed(int pax_id, DCSService::Enum dcsService, RFIS
   params.airline=flt.airline;
   params.dcs_service=dcsService;
   params.cl=grp.cl;
-  for(int brandId : brands.brandIds)
+  for(const TBrand& brand : brands)
   {
-    params.brand_airline=brandId!=ASTRA::NoExists?flt.airline:"";
-    params.brand_code=   brandId!=ASTRA::NoExists?ElemIdToCodeNative(etBrand, brandId):"";
+    params.brand_airline=brand.oper_airline;
+    params.brand_code=   brand.code();
 
     for(const CheckIn::TPaxFQTItem& fqt : fqts)
     {

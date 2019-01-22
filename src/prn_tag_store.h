@@ -525,7 +525,7 @@ class TPrnTagStore {
             bool pr_bp_print;
             bool pr_bi_print;
             CheckIn::TPaxDocItem doc;
-            TBrands brand;
+            TBrands brands;
             TPaxInfo():
                 pax_id(ASTRA::NoExists),
                 coupon_no(ASTRA::NoExists),
