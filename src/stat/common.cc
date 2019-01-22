@@ -37,7 +37,7 @@ const char *TStatTypeS[statNum] = {
     "statTlgOutDetail",
     "statPactShort",
     "statRFISC",
-    "statService",
+    "statRem",
     "statLimitedCapab",
     "statUnaccBag",
     "statAnnulBT",
@@ -187,9 +187,9 @@ void TStatParams::get(xmlNodePtr reqNode)
             statType=statRFISC;
         else
             throw Exception("Unknown stat mode " + name);
-    } else if(type == "Услуги") {
+    } else if(type == "Ремарки") {
         if(name == "Подробная")
-            statType=statService;
+            statType=statRem;
         else
             throw Exception("Unknown stat mode " + name);
     } else if(type == "Огр. возмож.") {

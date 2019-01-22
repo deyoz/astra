@@ -57,7 +57,7 @@ enum TStatType {
     statTlgOutDetail,
     statPactShort,
     statRFISC,
-    statService,
+    statRem,
     statLimitedCapab,
     statUnaccBag,
     statAnnulBT,
