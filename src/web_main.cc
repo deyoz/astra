@@ -3313,7 +3313,7 @@ void fillPaxsSvcs(const TNotCheckedReqPassengers &req_pnrs, TExchange &exch)
       reqSeg.subcl=mktFlight.subcls;
       reqSeg.set(pax.tkn, paxSection);
       CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);
-      reqSeg.pnrs.getByPaxIdFast(pax.id);
+      reqSeg.pnrAddrs.getByPaxIdFast(pax.id);
 
       if (svcSection && req_pnrs.include_unbound_svcs)
       {

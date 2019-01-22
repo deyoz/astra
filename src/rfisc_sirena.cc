@@ -77,8 +77,7 @@ const TPaxSegItem& TPaxSegItem::toSirenaXML(xmlNodePtr node, const OutputLang &l
     SetProp(tknNode, "coupon_num", tkn.coupon, ASTRA::NoExists);
     SetProp(tknNode, "display_id", display_id, ASTRA::NoExists);
   }
-  for(TPnrAddrs::const_iterator i=pnrs.begin(); i!=pnrs.end(); ++i)
-    SetProp(NewTextChild(node, "recloc", i->addr), "crs", airlineToPrefferedCode(i->airline, lang));
+  pnrAddrs.toSirenaXML(node, lang);
   for(std::set<CheckIn::TPaxFQTItem>::const_iterator i=fqts.begin(); i!=fqts.end(); ++i)
     SetProp(NewTextChild(node, "ffp", i->no), "company", airlineToPrefferedCode(i->airline, lang));
 
@@ -136,6 +135,7 @@ const TPaxItem2& TPaxItem2::toSirenaXML(xmlNodePtr node, const OutputLang &lang)
   NewTextChild( node, "category", category());
   NewTextChild( node, "group_id", grp_id );
   NewTextChild( node, "reg_no", reg_no );
+  pnrAddrs.toSirenaXML(node, lang);
   return *this;
 }
 
@@ -832,6 +832,7 @@ void PieceConceptInterface::procPassengers( const SirenaExchange::TPassengersReq
           etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
         SirenaExchange::TPaxItem2 resPax;
         resPax.set(Qry.FieldAsInteger("grp_id"), pax, etick);
+        resPax.pnrAddrs.getByPaxIdFast(pax.id);
         res.push_back( resPax );
       }
     }
