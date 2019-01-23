@@ -6,7 +6,7 @@
 #include "astra_misc.h"
 #include "xml_unit.h"
 #include "misc.h"
-#include "docs.h"
+#include "docs/common.h"
 #include "tripinfo.h"
 #include "passenger.h"
 #include "qrys.h"

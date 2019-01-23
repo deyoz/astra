@@ -3,7 +3,7 @@
 
 #include <libxml/tree.h>
 #include "oralib.h"
-#include "docs.h"
+#include "docs/common.h"
 #include "apis_utils.h"
 #include "jxtlib/JxtInterface.h"
 

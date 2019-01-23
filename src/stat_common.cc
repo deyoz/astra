@@ -2,7 +2,7 @@
 #include "stat_utils.h"
 #include "date_time.h"
 #include "term_version.h"
-#include "docs.h"
+#include "docs/common.h"
 #include "md5_sum.h"
 #include "qrys.h"
 

@@ -1,5 +1,6 @@
 #include <set>
-#include "docs.h"
+#include "main.h"
+#include "common.h"
 #include "stat_utils.h"
 #include "oralib.h"
 #include "xml_unit.h"
@@ -19,10 +20,17 @@
 #include "telegram.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/str_utils.h"
-#include <boost/shared_array.hpp>
 #include "baggage_calc.h"
 #include "salons.h"
 #include "franchise.h"
+#include "ptm.h"
+#include <boost/algorithm/string.hpp>
+#include "stat_annul_bt.h"
+#include "exam.h"
+#include "notpres.h"
+#include "refuse.h"
+#include "rem.h"
+#include "utils.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -35,562 +43,6 @@ using namespace ASTRA;
 using namespace ASTRA::date_time;
 using namespace boost;
 
-const string ALL_CKIN_ZONES = " ";
-
-string vsHow_ru(int nmb, int range)
-{
-    static const char* sotni[] = {
-        "сто ",
-        "двести ",
-        "триста ",
-        "четыреста ",
-        "пятьсот ",
-        "шестьсот ",
-        "семьсот ",
-        "восемьсот ",
-        "девятьсот "
-    };
-    static const char* teen[] = {
-        "десять ",
-        "одиннадцать ",
-        "двенадцать ",
-        "тринадцать ",
-        "четырнадцать ",
-        "пятнадцать ",
-        "шестнадцать ",
-        "семнадцать ",
-        "восемнадцать ",
-        "девятнадцать "
-    };
-    static const char* desatki[] = {
-        "двадцать ",
-        "тридцать ",
-        "сорок ",
-        "пятьдесят ",
-        "шестьдесят ",
-        "семьдесят ",
-        "восемьдесят ",
-        "девяносто "
-    };
-    static const char* stuki_g[] = {
-        "",
-        "одно ",
-        "два ",
-        "три ",
-        "четыре ",
-        "пять ",
-        "шесть ",
-        "семь ",
-        "восемь ",
-        "девять "
-    };
-    static const char* stuki_m[] = {
-        "",
-        "одна ",
-        "две ",
-        "три ",
-        "четыре ",
-        "пять ",
-        "шесть ",
-        "семь ",
-        "восемь ",
-        "девять "
-    };
-    static const char* dtext[2][3] = {
-        {"", "", ""},
-        {"тысяча ", "тысячи ", "тысяч "}
-    };
-
-    string out;
-    if(nmb == 0) return out;
-    int tmp = nmb / 100;
-    if(tmp > 0) out += sotni[tmp - 1];
-    tmp = nmb % 100;
-    if(tmp >= 10 && tmp < 20) out += teen[tmp - 10];
-    else {
-        tmp /= 10;
-        if(tmp > 1) out += desatki[tmp - 2];
-        tmp = (nmb % 100) % 10;
-        switch(range) {
-            case 0:
-            case 1:
-            case 2:
-            case 4:
-                out += stuki_m[tmp];
-                break;
-            case 3:
-            case 5:
-                out += stuki_g[tmp];
-                break;
-            default:
-                throw Exception("vsHow: unknown range: " + IntToString(range));
-        }
-    }
-    switch(tmp) {
-        case 1:
-            out += dtext[range][0];
-            break;
-        case 2:
-        case 3:
-        case 4:
-            out += dtext[range][1];
-            break;
-        default:
-            out += dtext[range][2];
-            break;
-    }
-    return out;
-}
-
-string vsHow_lat(int nmb, int range)
-{
-    static const char* sotni[] = {
-        "one hundred ",
-        "two hundreds ",
-        "three hundreds ",
-        "four hundreds ",
-        "five hundreds ",
-        "six hundreds ",
-        "seven hundreds ",
-        "eight hundreds ",
-        "nine hundreds "
-    };
-    static const char* teen[] = {
-        "ten ",
-        "eleven ",
-        "twelve ",
-        "thirteen ",
-        "fourteen ",
-        "fifteen ",
-        "sixteen ",
-        "seventeen ",
-        "eighteen ",
-        "nineteen "
-    };
-    static const char* desatki[] = {
-        "twenty ",
-        "thirty ",
-        "forty ",
-        "fifty ",
-        "sixty ",
-        "seventy ",
-        "eighty ",
-        "ninety "
-    };
-    static const char* stuki_m[] = {
-        "",
-        "one ",
-        "two ",
-        "three ",
-        "four ",
-        "five ",
-        "six ",
-        "seven ",
-        "eight ",
-        "nine "
-    };
-    static const char* dtext[2][3] = {
-        {"", "", ""},
-        {"thousand ", "thousands ", "thousands "}
-    };
-
-    string out;
-    if(nmb == 0) return out;
-    int tmp = nmb / 100;
-    if(tmp > 0) out += sotni[tmp - 1];
-    tmp = nmb % 100;
-    if(tmp >= 10 && tmp < 20) out += teen[tmp - 10];
-    else {
-        tmp /= 10;
-        if(tmp > 1) out += desatki[tmp - 2];
-        tmp = (nmb % 100) % 10;
-        switch(range) {
-            case 0:
-            case 1:
-            case 2:
-            case 4:
-                out += stuki_m[tmp];
-                break;
-            case 3:
-            case 5:
-                out += stuki_m[tmp];
-                break;
-            default:
-                throw Exception("vsHow: unknown range: " + IntToString(range));
-        }
-    }
-    switch(tmp) {
-        case 1:
-            out += dtext[range][0];
-            break;
-        case 2:
-        case 3:
-        case 4:
-            out += dtext[range][1];
-            break;
-        default:
-            out += dtext[range][2];
-            break;
-    }
-    return out;
-}
-
-string vs_number(int number, bool pr_lat)
-{
-    string result;
-    if(number >= 1000000) {
-       result = "XXXXXX";
-       ProgTrace(TRACE5, "vs_number: value too large (>= 1000000): %d", number);
-    } else {
-        int i = number / 1000;
-        result += (pr_lat ? vsHow_lat(i, 1) : vsHow_ru(i, 1));
-        i = number % 1000;
-        result += (pr_lat ? vsHow_lat(i, 0) : vsHow_ru(i, 0));
-    }
-    return result;
-}
-
-void SeasonListVars(int trip_id, int pr_lat, xmlNodePtr variablesNode, xmlNodePtr reqNode)
-{
-  NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
-  if(STAT::bad_client_img_version())
-      NewTextChild(variablesNode, "doc_cap_test", " ");
-  vector<SEASON::TViewPeriod> viewp;
-  SEASON::ReadTripInfo( trip_id, viewp, GetNode( "seasonvars", reqNode ) );
-  bool pr_find = false;
-  for ( vector<SEASON::TViewPeriod>::const_iterator i=viewp.begin(); i!=viewp.end(); i++ ) {
-    for ( vector<SEASON::TViewTrip>::const_iterator j=i->trips.begin(); j!=i->trips.end(); j++ ) {
-      NewTextChild( variablesNode, "trip", j->name );
-      pr_find = true;
-      break;
-    }
-  }
-  if ( !pr_find ) {
-    throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
-  }
-}
-
-void populate_doc_cap(xmlNodePtr variablesNode, string lang)
-{
-    NewTextChild(variablesNode, "doc_cap_no", getLocaleText("№", lang));
-    NewTextChild(variablesNode, "doc_cap_name", getLocaleText("Ф.И.О.", lang));
-    NewTextChild(variablesNode, "doc_cap_surname", getLocaleText("Фамилия", lang));
-    NewTextChild(variablesNode, "doc_cap_doc", getLocaleText("Документ", lang));
-    NewTextChild(variablesNode, "doc_cap_tkt", getLocaleText("Билет", lang));
-    NewTextChild(variablesNode, "doc_cap_tkt_no", getLocaleText("№ Билета", lang));
-    NewTextChild(variablesNode, "doc_cap_ref_type", getLocaleText("Причина невылета", lang));
-    NewTextChild(variablesNode, "doc_cap_bag", getLocaleText("Баг.", lang));
-    NewTextChild(variablesNode, "doc_cap_baggage", getLocaleText("Багаж", lang));
-    NewTextChild(variablesNode, "doc_cap_rk", getLocaleText("Р/к", lang));
-    NewTextChild(variablesNode, "doc_cap_pay", getLocaleText("Опл.", lang));
-    NewTextChild(variablesNode, "doc_cap_tags", getLocaleText("№№ баг. бирок", lang));
-    NewTextChild(variablesNode, "doc_cap_tags_short", getLocaleText("№ б/б", lang));
-    NewTextChild(variablesNode, "doc_cap_rem", getLocaleText("Рем.", lang));
-    NewTextChild(variablesNode, "doc_cap_pas", getLocaleText("Пас", lang));
-    NewTextChild(variablesNode, "doc_cap_type", getLocaleText("Тип", lang));
-    NewTextChild(variablesNode, "doc_cap_seat_no", getLocaleText("№ м", lang));
-    NewTextChild(variablesNode, "doc_cap_old_seat_no", getLocaleText("Стар.", lang));
-    NewTextChild(variablesNode, "doc_cap_new_seat_no", getLocaleText("Нов.", lang));
-    NewTextChild(variablesNode, "doc_cap_remarks", getLocaleText("Ремарки", lang));
-    NewTextChild(variablesNode, "doc_cap_cl", getLocaleText("Кл", lang));
-    NewTextChild(variablesNode, "doc_cap_seats", getLocaleText("Крс", lang));
-    NewTextChild(variablesNode, "doc_cap_dest", getLocaleText("П/н", lang));
-    NewTextChild(variablesNode, "doc_cap_to", getLocaleText("CAP.DOC.TO", lang));
-    NewTextChild(variablesNode, "doc_cap_ex", getLocaleText("Дс", lang));
-    NewTextChild(variablesNode, "doc_cap_brd", getLocaleText("Пс", lang));
-    NewTextChild(variablesNode, "doc_cap_test", (STAT::bad_client_img_version() and not get_test_server()) ? " " : getLocaleText("CAP.TEST", lang));
-    NewTextChild(variablesNode, "doc_cap_user_descr", getLocaleText("Оператор", lang));
-    NewTextChild(variablesNode, "doc_cap_emd_no", getLocaleText("№ EMD", lang));
-    NewTextChild(variablesNode, "doc_cap_total", getLocaleText("Итого:", lang));
-    NewTextChild(variablesNode, "doc_cap_overall", getLocaleText("Всего:", lang));
-    NewTextChild(variablesNode, "doc_cap_vou_quantity", getLocaleText("Кол-во ваучеров", lang));
-    NewTextChild(variablesNode, "doc_cap_descr", getLocaleText("Описание", lang));
-    NewTextChild(variablesNode, "doc_cap_rcpt_no", getLocaleText("№ квитанции", lang));
-    NewTextChild(variablesNode, "doc_cap_service_code", getLocaleText("Код услуги", lang));
-}
-
-void PaxListVars(int point_id, TRptParams &rpt_params, xmlNodePtr variablesNode, TDateTime part_key)
-{
-    TQuery Qry(&OraSession);
-    string SQLText =
-        "select "
-        "   airp, "
-        "   airline, "
-        "   flt_no, "
-        "   suffix, "
-        "   craft, "
-        "   bort, "
-        "   park_out park, "
-        "   act_out, "
-        "   scd_out "
-        "from ";
-    if(part_key == NoExists)
-        SQLText +=
-            "   points "
-            "where "
-            "   point_id = :point_id AND pr_del>=0 ";
-    else {
-        SQLText +=
-            "   arx_points "
-            "where "
-            "   part_key = :part_key and "
-            "   point_id = :point_id AND pr_del>=0 ";
-        Qry.CreateVariable("part_key", otDate, part_key);
-    }
-    Qry.SQLText = SQLText;
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.Execute();
-    if(Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
-
-    string airp = Qry.FieldAsString("airp");
-    string airline = Qry.FieldAsString("airline");
-    string craft = Qry.FieldAsString("craft");
-    string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
-
-    string airline_name;
-    if(airline.size()) {
-        // сначала airline_name, потом airline
-        // иначе в лат варианте будет конвертится уже сконверченный airline
-        airline_name = rpt_params.ElemIdToReportElem(etAirline, airline, efmtNameLong);
-        airline = rpt_params.ElemIdToReportElem(etAirline, airline, efmtCodeNative);
-    }
-
-    ostringstream trip;
-    trip
-        << airline
-        << setw(3) << setfill('0') << Qry.FieldAsInteger("flt_no")
-        << rpt_params.ElemIdToReportElem(etSuffix, Qry.FieldAsString("suffix"), efmtCodeNative);
-
-    NewTextChild(variablesNode, "trip", trip.str());
-    TDateTime scd_out, real_out;
-    scd_out= UTCToClient(getReportSCDOut(point_id),tz_region);
-    if(Qry.FieldIsNULL("act_out"))
-        real_out = scd_out;
-    else
-        real_out= UTCToClient(Qry.FieldAsDateTime("act_out"),tz_region);
-    NewTextChild(variablesNode, "scd_out", DateTimeToStr(scd_out, "dd.mm.yyyy"));
-    NewTextChild(variablesNode, "real_out", DateTimeToStr(real_out, "dd.mm.yyyy"));
-    NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm"));
-    TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
-    NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn"));
-    NewTextChild(variablesNode, "day_issue", DateTimeToStr(issued, "dd.mm.yy"));
-
-
-    NewTextChild(variablesNode, "lang", TReqInfo::Instance()->desk.lang );
-    NewTextChild(variablesNode, "own_airp_name", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, rpt_params.dup_lang())), rpt_params.dup_lang()));
-    NewTextChild(variablesNode, "own_airp_name_lat", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, AstraLocale::LANG_EN)), AstraLocale::LANG_EN));
-    const TAirpsRow &airpRow = (const TAirpsRow&)base_tables.get("AIRPS").get_row("code",airp);
-    NewTextChild(variablesNode, "airp_dep_name", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong));
-    NewTextChild(variablesNode, "airp_dep_city", rpt_params.ElemIdToReportElem(etCity, airpRow.city, efmtCodeNative));
-    NewTextChild(variablesNode, "airline_name", airline_name);
-    NewTextChild(variablesNode, "flt", trip.str());
-    NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
-    NewTextChild(variablesNode, "craft", craft);
-    NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
-    NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh:nn"));
-    NewTextChild(variablesNode, "long_route", GetRouteAfterStr(part_key,
-                                                               point_id,
-                                                               trtWithCurrent,
-                                                               trtNotCancelled,
-                                                               rpt_params.GetLang(),
-                                                               true));
-    NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
-    if(STAT::bad_client_img_version())
-        NewTextChild(variablesNode, "doc_cap_test", " ");
-    NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT", rpt_params.GetLang()));
-}
-
-void TRptParams::Init(xmlNodePtr node)
-{
-    prn_params.get_prn_params(node->parent);
-    point_id = NodeAsIntegerFast("point_id", node);
-    rpt_type = DecodeRptType(NodeAsStringFast("rpt_type", node));
-    orig_rpt_type = rpt_type;
-    cls = NodeAsStringFast("cls", node, "");
-    subcls = NodeAsStringFast("subcls", node, "");
-    airp_arv = NodeAsStringFast("airp_arv", node, "");
-    ckin_zone = NodeAsStringFast("ckin_zone", node, ALL_CKIN_ZONES.c_str());
-    pr_et = NodeAsIntegerFast("pr_et", node, 0) != 0;
-    text = NodeAsIntegerFast("text", node, NoExists);
-    pr_trfer = NodeAsIntegerFast("pr_trfer", node, 0) != 0;
-    pr_brd = NodeAsIntegerFast("pr_brd", node, 0) != 0;
-    sort = (TSortType)NodeAsIntegerFast("sort", node, 0);
-    if(text != NoExists and text != 0 and
-            // у этих отчетов нет текстового варианта
-            // При формировании отчетов из-под DCP CUTE, передается тег text = 1
-            // Хотя он visibl = false в терминале
-            rpt_type != rtBDOCS and
-            rpt_type != rtLOADSHEET and
-            rpt_type != rtNOTOC and
-            rpt_type != rtLIR and
-            rpt_type != rtANNUL_TAGS and
-            rpt_type != rtVOUCHERS and
-            rpt_type != rtKOMPLEKT
-            )
-        rpt_type = TRptType((int)rpt_type + 1);
-    string route_country;
-    route_inter = IsRouteInter(point_id, NoExists, route_country);
-    if(route_country == "РФ")
-        route_country_lang = AstraLocale::LANG_RU;
-    else
-        route_country_lang = "";
-    xmlNodePtr mktFltNode = GetNodeFast("mkt_flight", node);
-    if(mktFltNode != NULL) {
-        xmlNodePtr node = mktFltNode->children;
-        mkt_flt.airline = NodeAsStringFast("airline", node);
-        mkt_flt.flt_no = NodeAsIntegerFast("flt_no", node);
-        mkt_flt.suffix = NodeAsStringFast("suffix", node, "");
-    }
-    xmlNodePtr clientTypeNode = GetNodeFast("client_type", node);
-    if(clientTypeNode != NULL)
-        client_type = NodeAsString(clientTypeNode);
-    if(prn_params.pr_lat)
-        req_lang = AstraLocale::LANG_EN;
-    else if(
-            rpt_type == rtPTM or
-            rpt_type == rtPTMTXT or
-            rpt_type == rtBTM or
-            rpt_type == rtBTMTXT
-           )
-        req_lang = "";
-    else
-        req_lang = TReqInfo::Instance()->desk.lang;
-
-    xmlNodePtr remsNode = GetNodeFast("rems", node);
-    set<int> rem_grps;
-    if(remsNode != NULL) {
-        TBaseTable &base_rems = base_tables.get("ckin_rem_types");
-        xmlNodePtr currNode = remsNode->children;
-        for(; currNode; currNode = currNode->next)
-        {
-            string rem = NodeAsString(currNode);
-            rem_grps.insert(((const TCkinRemTypesRow&)base_rems.get_row("code", rem)).grp_id);
-            TRemCategory cat=getRemCategory(rem, "");
-            rems[cat].push_back(NodeAsString(currNode));
-        };
-    }
-
-    xmlNodePtr remGrpNode = GetNodeFast("rem_grp", node);
-    if(remGrpNode != NULL) {
-        xmlNodePtr currNode = remGrpNode->children;
-        for(; currNode; currNode = currNode->next)
-        {
-            int rem_grp_id = NodeAsInteger(currNode);
-            // Если не было выбрано ремарок для тек. группы, добавляем все ремарки тек. группы
-            if(rem_grps.find(rem_grp_id) == rem_grps.end()) {
-                TCachedQuery Qry("select code from ckin_rem_types where grp_id = :grp_id",
-                        QParams() << QParam("grp_id", otInteger, rem_grp_id));
-                Qry.get().Execute();
-                for(; not Qry.get().Eof; Qry.get().Next()) {
-                    string rem = Qry.get().FieldAsString("code");
-                    TRemCategory cat=getRemCategory(rem, "");
-                    rems[cat].push_back(rem);
-                }
-            }
-        };
-    }
-
-    xmlNodePtr rficNode = GetNodeFast("rfic", node);
-    if(rficNode != NULL) {
-        xmlNodePtr currNode = rficNode->children;
-        for(; currNode; currNode = currNode->next)
-        {
-            rfic.push_back(NodeAsString(currNode));
-        };
-    }
-    if(IsInter()) req_lang = AstraLocale::LANG_EN;
-}
-
-bool TRptParams::IsInter() const
-{
-    return req_lang == AstraLocale::LANG_EN || route_inter || route_country_lang.empty() || route_country_lang!=TReqInfo::Instance()->desk.lang;
-}
-
-string TRptParams::GetLang() const
-{
-  string lang = req_lang;
-  if (lang.empty())
-  {
-    lang = TReqInfo::Instance()->desk.lang;
-    if (IsInter()) lang=AstraLocale::LANG_EN;
-  }
-  return lang;
-}
-
-string TRptParams::GetLang(TElemFmt &fmt, string firm_lang) const
-{
-  string lang = firm_lang.empty()? req_lang : firm_lang;
-  if (lang.empty())
-  {
-     lang = TReqInfo::Instance()->desk.lang;
-     if (IsInter())
-     {
-       if (fmt==efmtNameShort || fmt==efmtNameLong) lang=AstraLocale::LANG_EN;
-       if (fmt==efmtCodeNative) fmt=efmtCodeInter;
-       if (fmt==efmtCodeICAONative) fmt=efmtCodeICAOInter;
-     };
-  };
-  return lang;
-}
-
-string TRptParams::ElemIdToReportElem(TElemType type, const string &id, TElemFmt fmt, string firm_lang) const
-{
-  if (id.empty()) return "";
-
-  string lang=GetLang(fmt, firm_lang); //специально вынесено, так как fmt в процедуре может измениться
-
-  return ElemIdToPrefferedElem(type, id, fmt, lang, true);
-};
-
-string TRptParams::ElemIdToReportElem(TElemType type, int id, TElemFmt fmt, string firm_lang) const
-{
-  if (id==ASTRA::NoExists) return "";
-
-  string lang=GetLang(fmt, firm_lang); //специально вынесено, так как fmt в процедуре может измениться
-
-  return ElemIdToPrefferedElem(type, id, fmt, lang, true);
-};
-
-
-string get_last_target(TQuery &Qry, TRptParams &rpt_params)
-{
-    string result;
-    string airline = Qry.FieldAsString("trfer_airline");
-    if(!airline.empty()) {
-        ostringstream buf;
-        buf
-            << rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("trfer_airp_arv"), efmtNameLong).substr(0, 50)
-            << "("
-            << rpt_params.ElemIdToReportElem(etAirline, airline, efmtCodeNative)
-            << setw(3) << setfill('0') << Qry.FieldAsInteger("trfer_flt_no")
-            << rpt_params.ElemIdToReportElem(etSuffix, Qry.FieldAsString("trfer_suffix"), efmtCodeNative)
-            << ")/" << DateTimeToStr(Qry.FieldAsDateTime("trfer_scd"), "dd");
-        result = buf.str();
-    }
-    return result;
-}
-
-string get_hall_list(string airp, TRptParams &rpt_params)
-{
-    TQuery Qry(&OraSession);
-    string SQLText = (string)
-        "SELECT id FROM halls2 WHERE "
-        "   airp = :airp AND "
-        "   NVL(rpt_grp, ' ') = NVL(:rpt_grp, ' ') "
-        "ORDER BY "
-        "   name ";
-    Qry.SQLText = SQLText;
-    Qry.CreateVariable("airp", otString, airp);
-    Qry.CreateVariable("rpt_grp", otString, rpt_params.ckin_zone);
-    Qry.Execute();
-    string result;
-    for(; !Qry.Eof; Qry.Next()) {
-        if(!result.empty())
-            result += ", ";
-        result += rpt_params.ElemIdToReportElem(etHall, Qry.FieldAsInteger("id"), efmtNameLong);
-    }
-    return result;
-}
 
 struct TBag2PK {
     int grp_id, num;
@@ -756,639 +208,6 @@ void dump_bag_tags(vector<TBagTagRow> &bag_tags)
     ProgTrace(TRACE5, "%s", log.str().c_str());
 }
 
-bool lessTagNos(const t_tag_nos_row &p1, const t_tag_nos_row &p2)
-{
-    return p1.no < p2.no;
-}
-
-string get_tag_rangeA(vector<t_tag_nos_row> &tag_nos, vector<t_tag_nos_row>::iterator begin, vector<t_tag_nos_row>::iterator end, string lang)
-{
-    string lim = getLocaleText("(огр)", lang);
-    ostringstream result;
-    double first_no = -1.;
-    double prev_no = -1.;
-    int pr_liab_limit = -1;
-    for(vector<t_tag_nos_row>::iterator iv = begin; iv != end; iv++) {
-        if(result.str().empty() || iv->no - 1 != prev_no || iv->pr_liab_limit != pr_liab_limit) {
-            if(!result.str().empty() && prev_no != first_no) {
-                double mod = prev_no - (floor(prev_no / 1000) * 1000);
-                if(pr_liab_limit) { // delete from stream unneeded first lim
-                    long pos = result.tellp();
-                    pos -= lim.size();
-                    result.seekp(pos);
-                }
-                result << "-" << fixed << setprecision(0) << setw(3) << setfill('0') << mod;
-                if(pr_liab_limit)
-                    result << lim;
-            }
-            if(!result.str().empty()) {
-                result << ", ";
-            }
-            result << fixed << setprecision(0) << setw(10) << setfill('0') << iv->no;
-            if(iv->pr_liab_limit)
-                result << lim;
-            first_no = iv->no;
-        }
-        prev_no = iv->no;
-        pr_liab_limit = iv->pr_liab_limit;
-    }
-    if(prev_no != first_no) {
-        double mod = prev_no - (floor(prev_no / 1000) * 1000);
-        if(pr_liab_limit) { // delete from stream unneeded first lim
-            long pos = result.tellp();
-            pos -= lim.size();
-            result.seekp(pos);
-        }
-        result << "-" << fixed << setprecision(0) << setw(3) << setfill('0') << mod;
-        if(pr_liab_limit)
-            result << lim;
-    }
-    return result.str();
-}
-
-string get_tag_range(vector<t_tag_nos_row> tag_nos, string lang)
-{
-    ostringstream result;
-    sort(tag_nos.begin(), tag_nos.end(), lessTagNos);
-    vector<t_tag_nos_row>::iterator begin = tag_nos.begin();
-    double base = -1.;
-    for(vector<t_tag_nos_row>::iterator iv = tag_nos.begin(); iv != tag_nos.end(); iv++) {
-        double tmp_base = floor(iv->no / 1000);
-        if(tmp_base != base) {
-            base = tmp_base;
-            if(iv != begin) {
-                if(!result.str().empty())
-                    result << ", ";
-                result << get_tag_rangeA(tag_nos, begin, iv, lang);
-            }
-            begin = iv;
-        }
-    }
-    if(!result.str().empty())
-        result << ", ";
-    result << get_tag_rangeA(tag_nos, begin, tag_nos.end(), lang);
-    return result.str();
-}
-
-string get_report_version(string name)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select version from fr_forms2 where name = :name and version <= :version order by version desc";
-    Qry.CreateVariable("name", otString, name);
-    Qry.CreateVariable("version", otString, TReqInfo::Instance()->desk.version);
-    Qry.Execute();
-    string result;
-    if(!Qry.Eof)
-        result = Qry.FieldAsString("version");
-    return result;
-}
-
-struct TPMTotalsKey {
-    int point_id;
-    int pr_trfer;
-    string target;
-    string status;
-    string cls;
-    string cls_name;
-    int lvl;
-    void dump() const;
-    TPMTotalsKey():
-        point_id(NoExists),
-        pr_trfer(NoExists),
-        lvl(NoExists)
-    {
-    };
-};
-
-void TPMTotalsKey::dump() const
-{
-    ProgTrace(TRACE5, "---TPMTotalsKey::dump()---");
-    ProgTrace(TRACE5, "point_id: %d", point_id);
-    ProgTrace(TRACE5, "pr_trfer: %d", pr_trfer);
-    ProgTrace(TRACE5, "target: %s", target.c_str());
-    ProgTrace(TRACE5, "status: %s", status.c_str());
-    ProgTrace(TRACE5, "cls: %s", cls.c_str());
-    ProgTrace(TRACE5, "cls_name: %s", cls_name.c_str());
-    ProgTrace(TRACE5, "lvl: %d", lvl);
-    ProgTrace(TRACE5, "--------------------------");
-}
-
-struct TPMTotalsCmp {
-    bool operator() (const TPMTotalsKey &l, const TPMTotalsKey &r) const
-    {
-        if(l.pr_trfer == NoExists)
-            if(l.point_id == r.point_id)
-                if(l.lvl == r.lvl)
-                    if(l.status == r.status)
-                        return l.cls < r.cls;
-                    else
-                        return l.status < r.status;
-                else
-                    return l.lvl < r.lvl;
-            else
-                return l.point_id < r.point_id;
-        else
-            if(l.point_id == r.point_id)
-                if(l.target == r.target)
-                    if(l.pr_trfer == r.pr_trfer)
-                        if(l.lvl == r.lvl)
-                            if(l.status == r.status)
-                                return l.cls < r.cls;
-                            else
-                                return l.status < r.status;
-                        else
-                            return l.lvl < r.lvl;
-                    else
-                        return l.pr_trfer < r.pr_trfer;
-                else
-                    return l.target < r.target;
-            else
-                return l.point_id < r.point_id;
-    }
-};
-
-struct TPMTotalsRow {
-    int seats, adl_m, adl_f, chd, inf, rk_weight, bag_amount, bag_weight;
-    TBagKilos excess_wt;
-    TBagPieces excess_pc;
-    int xcr, dhc, mos, jmp;
-    TPMTotalsRow():
-        seats(0),
-        adl_m(0),
-        adl_f(0),
-        chd(0),
-        inf(0),
-        rk_weight(0),
-        bag_amount(0),
-        bag_weight(0),
-        excess_wt(0),
-        excess_pc(0),
-        xcr(0),
-        dhc(0),
-        mos(0),
-        jmp(0)
-    {};
-};
-
-typedef map<TPMTotalsKey, TPMTotalsRow, TPMTotalsCmp> TPMTotals;
-
-void trip_rpt_person(xmlNodePtr resNode, TRptParams &rpt_params)
-{
-    xmlNodePtr variablesNode = STAT::getVariablesNode(resNode);
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select * from trip_rpt_person where point_id = :point_id";
-    Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-    Qry.Execute();
-    string loader, pts_agent;
-    if(not Qry.Eof) {
-        loader = Qry.FieldAsString("loader");
-        pts_agent = Qry.FieldAsString("pts_agent");
-    }
-    NewTextChild(variablesNode, "loader", transliter(loader, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-    NewTextChild(variablesNode, "pts_agent", transliter(pts_agent, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-}
-
-TDateTime getReportSCDOut(int point_id)
-{
-  TDateTime res = AODB_POINTS::getSCD_OUT( point_id );
-  if ( res == ASTRA::NoExists ) {
-    TTripInfo tripInfo;
-    if ( tripInfo.getByPointId ( point_id ) ) {
-      res = tripInfo.scd_out;
-    }
-  }
-  return res;
-}
-
-void PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
-    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
-    string rpt_name;
-    if(rpt_params.airp_arv.empty() ||
-            rpt_params.rpt_type==rtPTMTXT) {
-        if(rpt_params.pr_trfer)
-            rpt_name="PMTrferTotalEL";
-        else
-            rpt_name="PMTotalEL";
-    } else {
-        if(rpt_params.pr_trfer)
-            rpt_name="PMTrfer";
-        else
-            rpt_name="PM";
-    };
-    if (rpt_params.rpt_type==rtPTMTXT) rpt_name=rpt_name+"Txt";
-    get_compatible_report_form(rpt_name, reqNode, resNode);
-
-    {
-        string et, et_lat;
-        if(rpt_params.pr_et) {
-            et = getLocaleText("(ЭБ)", rpt_params.dup_lang());
-            et_lat = getLocaleText("(ЭБ)", AstraLocale::LANG_EN);
-        }
-        NewTextChild(variablesNode, "ptm", getLocaleText("CAP.DOC.PTM", LParams() << LParam("et", et), rpt_params.dup_lang()));
-        NewTextChild(variablesNode, "ptm_lat", getLocaleText("CAP.DOC.PTM", LParams() << LParam("et", et_lat), AstraLocale::LANG_EN));
-    }
-    TQuery Qry(&OraSession);
-    string SQLText =
-        "SELECT \n"
-        "   pax.*, \n"
-        "   pax_grp.point_dep AS trip_id, \n"
-        "   pax_grp.airp_arv AS target, \n";
-    if(rpt_params.pr_trfer)
-        SQLText +=
-            "    nvl2(transfer.grp_id, 1, 0) pr_trfer, \n"
-            "    trfer_trips.airline trfer_airline, \n"
-            "    trfer_trips.flt_no trfer_flt_no, \n"
-            "    trfer_trips.suffix trfer_suffix, \n"
-            "    transfer.airp_arv trfer_airp_arv, \n"
-            "    trfer_trips.scd trfer_scd, \n";
-    SQLText +=
-        "   pax_grp.class_grp, \n"
-        "   DECODE(pax_grp.status, 'T', pax_grp.status, 'N') status, \n"
-        "   salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no, \n";
-    if(rpt_params.pr_et) { //ЭБ
-        SQLText +=
-            "    ticket_no||'/'||coupon_no AS remarks, \n";
-    };
-    SQLText +=
-        "   NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS rk_weight, \n"
-        "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_amount, \n"
-        "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_weight, \n"
-        "   NVL(ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse),0) AS excess_wt, \n"
-        "   NVL(ckin.get_excess_pc(pax.grp_id, pax.pax_id),0) AS excess_pc, \n"
-        "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, \n"
-        "   pax_grp.grp_id \n"
-        "FROM  \n"
-        "   pax_grp, \n"
-        "   points, \n"
-        "   pax, \n"
-        "   cls_grp, \n"
-        "   halls2 \n";
-    if(rpt_params.pr_trfer)
-        SQLText += ", transfer, trfer_trips \n";
-    SQLText +=
-        "WHERE \n"
-        "   points.pr_del>=0 AND \n"
-        "   pax_grp.point_dep = :point_id and \n"
-        "   pax_grp.point_arv = points.point_id and \n"
-        "   pax_grp.grp_id=pax.grp_id AND \n"
-        "   pax_grp.class_grp is not null AND \n"
-        "   pax_grp.class_grp = cls_grp.id and \n"
-        "   pax_grp.hall = halls2.id(+) and \n"
-        "   pax_grp.status NOT IN ('E') and \n"
-        "   pr_brd IS NOT NULL and \n"
-        "   decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
-    Qry.CreateVariable("pr_brd_pax", otInteger, rpt_params.pr_brd);
-
-    if(not rpt_params.subcls.empty()) {
-        SQLText +=
-            "   pax.subclass = :subcls and \n";
-        Qry.CreateVariable("subcls", otString, rpt_params.subcls);
-    }
-
-    if(not rpt_params.cls.empty()) {
-        SQLText +=
-            "   pax_grp.class = :cls and \n";
-        Qry.CreateVariable("cls", otString, rpt_params.cls);
-    }
-
-
-    if(rpt_params.pr_et) //ЭБ
-        SQLText +=
-            "   pax.ticket_rem='TKNE' and \n";
-    if(not rpt_params.airp_arv.empty()) { // сегмент
-        SQLText +=
-            "    pax_grp.airp_arv = :target AND \n";
-        Qry.CreateVariable("target", otString, rpt_params.airp_arv);
-    }
-    if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
-        SQLText +=
-            "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and pax_grp.hall IS NOT NULL and ";
-        Qry.CreateVariable("zone", otString, rpt_params.ckin_zone);
-    }
-    SQLText +=
-        "       DECODE(pax_grp.status, 'T', pax_grp.status, 'N') in ('T', 'N') \n";
-    if(rpt_params.pr_trfer)
-        SQLText +=
-            " and pax_grp.grp_id=transfer.grp_id(+) and \n"
-            " transfer.pr_final(+) <> 0 and \n"
-            " transfer.point_id_trfer = trfer_trips.point_id(+) \n";
-    SQLText +=
-        "ORDER BY \n";
-    if(rpt_params.airp_arv.empty())
-        SQLText +=
-            "   points.point_num, \n";
-    if(rpt_params.pr_trfer)
-        SQLText +=
-            "    PR_TRFER ASC, \n"
-            "    TRFER_AIRP_ARV ASC, \n";
-    SQLText +=
-        "    cls_grp.priority, \n"
-        "    cls_grp.class, \n";
-    switch(rpt_params.sort) {
-        case stServiceCode:
-        case stRegNo:
-            SQLText +=
-                "    pax.reg_no ASC, \n"
-                "    pax.seats DESC \n";
-            break;
-        case stSurname:
-            SQLText +=
-                "    pax.surname ASC, \n"
-                "    pax.name ASC, \n"
-                "    pax.reg_no ASC, \n"
-                "    pax.seats DESC \n";
-            break;
-        case stSeatNo:
-            SQLText +=
-                "    seat_no ASC, \n"
-                "    pax.reg_no ASC, \n"
-                "    pax.seats DESC \n";
-            break;
-    }
-    ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
-    Qry.SQLText = SQLText;
-    Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-    Qry.CreateVariable("lang", otString, rpt_params.GetLang());
-    Qry.CreateVariable("pr_lat", otInteger, rpt_params.IsInter());
-    Qry.Execute();
-
-    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
-    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_pm_trfer");
-    // следующие 2 переменные введены для нужд FastReport
-    map<string, int> fr_target_ref;
-    int fr_target_ref_idx = 0;
-
-    TPMTotals PMTotals;
-    TRemGrp rem_grp;
-    bool rem_grp_loaded = false;
-    for(; !Qry.Eof; Qry.Next()) {
-        CheckIn::TSimplePaxItem pax;
-        pax.fromDB(Qry);
-
-        if(not rpt_params.mkt_flt.empty()) {
-            TMktFlight mkt_flt;
-            mkt_flt.getByPaxId(pax.id);
-            if(mkt_flt.empty() or not(mkt_flt == rpt_params.mkt_flt))
-                continue;
-        }
-
-        TPMTotalsKey key;
-        key.point_id = Qry.FieldAsInteger("trip_id");
-        key.target = Qry.FieldAsString("target");
-        key.status = Qry.FieldAsString("status");
-        int class_grp = Qry.FieldAsInteger("class_grp");
-        key.cls = rpt_params.ElemIdToReportElem(etClsGrp, class_grp, efmtCodeNative);
-        key.cls_name = rpt_params.ElemIdToReportElem(etClsGrp, class_grp, efmtNameLong);
-        key.lvl = ((const TClsGrpRow&)base_tables.get("cls_grp").get_row( "id", class_grp, true)).priority;
-        if(rpt_params.pr_trfer) {
-            key.pr_trfer = Qry.FieldAsInteger("pr_trfer");
-        }
-        TPMTotalsRow &row = PMTotals[key];
-        row.seats += pax.seats;
-        switch(pax.getTrickyGender())
-        {
-          case TTrickyGender::Male:
-            row.adl_m++;
-            break;
-          case TTrickyGender::Female:
-            row.adl_f++;
-            break;
-          case TTrickyGender::Child:
-            row.chd++;
-            break;
-          case TTrickyGender::Infant:
-            row.inf++;
-            break;
-          default:
-            throw Exception("DecodePerson failed");
-        }
-
-        row.rk_weight += Qry.FieldAsInteger("rk_weight");
-        row.bag_amount += Qry.FieldAsInteger("bag_amount");
-        row.bag_weight += Qry.FieldAsInteger("bag_weight");
-        TBagKilos excess_wt=Qry.FieldAsInteger("excess_wt");
-        TBagPieces excess_pc=Qry.FieldAsInteger("excess_pc");
-
-        row.excess_wt += excess_wt;
-        row.excess_pc += excess_pc;
-
-        switch(pax.crew_type) {
-            case TCrewType::ExtraCrew:
-                row.xcr++;
-                break;
-            case TCrewType::DeadHeadCrew:
-                row.dhc++;
-                break;
-            case TCrewType::MiscOperStaff:
-                row.mos++;
-                break;
-            default:
-                break;
-        }
-        if(pax.is_jmp) row.jmp++;
-
-        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-        NewTextChild(rowNode, "reg_no", pax.reg_no);
-        NewTextChild(rowNode, "full_name", transliter(pax.full_name(), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-        string last_target;
-        int pr_trfer = 0;
-        if(rpt_params.pr_trfer) {
-            last_target = get_last_target(Qry, rpt_params);
-            pr_trfer = Qry.FieldAsInteger("pr_trfer");
-        }
-        NewTextChild(rowNode, "last_target", last_target);
-        NewTextChild(rowNode, "pr_trfer", pr_trfer);
-
-        if(fr_target_ref.find(key.target) == fr_target_ref.end())
-            fr_target_ref[key.target] = fr_target_ref_idx++;
-        NewTextChild(rowNode, "airp_arv", key.target);
-        NewTextChild(rowNode, "fr_target_ref", fr_target_ref[key.target]);
-        NewTextChild(rowNode, "airp_arv_name", rpt_params.ElemIdToReportElem(etAirp, key.target, efmtNameLong));
-        NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
-        NewTextChild(rowNode, "class_name", key.cls_name);
-        NewTextChild(rowNode, "class", key.cls);
-        NewTextChild(rowNode, "seats", pax.seats);
-        NewTextChild(rowNode, "crew_type", CrewTypes().encode(pax.crew_type));
-        NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
-        NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
-        NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
-
-        NewTextChild(rowNode, "excess", TComplexBagExcess(excess_wt, excess_pc).
-                                          view(OutputLang(rpt_params.GetLang()), true));
-        // для суммы по группе Всего в классе
-        NewTextChild(rowNode, "excess_pc", excess_pc.getQuantity());
-        NewTextChild(rowNode, "excess_kg", excess_wt.getQuantity());
-
-        {
-          string gender;
-          switch(pax.getTrickyGender())
-          {
-            case TTrickyGender::Male:
-              gender = "M";
-              break;
-            case TTrickyGender::Female:
-              gender = "F";
-              break;
-            default:
-              break;
-          };
-          NewTextChild(rowNode, "pers_type", DocTrickyGenders().encode(pax.getTrickyGender()));
-          NewTextChild(rowNode, "gender", gender);
-        }
-        NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
-
-        // seat_no достается с добитыми слева пробелами, чтобы order by
-        // правильно отрабатывал, далее эти пробелы нам ни к чему
-        // (в частности они мешаются в текстовом отчете).
-        NewTextChild(rowNode, "seat_no", TrimString(pax.seat_no));
-
-        if(not rem_grp_loaded) {
-            rem_grp_loaded = true;
-            rem_grp.Load(retRPT_PM, rpt_params.point_id);
-        }
-        NewTextChild(rowNode, "remarks",
-                (rpt_params.pr_et ? Qry.FieldAsString("remarks") : GetRemarkStr(rem_grp, pax.id, rpt_params.GetLang())));
-    }
-
-    dataSetNode = NewTextChild(dataSetsNode, rpt_params.pr_trfer ? "v_pm_trfer_total" : "v_pm_total");
-
-    for(TPMTotals::iterator im = PMTotals.begin(); im != PMTotals.end(); im++) {
-        const TPMTotalsKey &key = im->first;
-        TPMTotalsRow &row = im->second;
-
-        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-
-        NewTextChild(rowNode, "point_id", key.point_id);
-        if(rpt_params.pr_trfer) {
-            NewTextChild(rowNode, "target", key.target);
-            NewTextChild(rowNode, "fr_target_ref", fr_target_ref[key.target]);
-            NewTextChild(rowNode, "pr_trfer", key.pr_trfer);
-        }
-        NewTextChild(rowNode, "status", key.status);
-        NewTextChild(rowNode, "class_name", key.cls_name);
-        NewTextChild(rowNode, "lvl", key.lvl);
-        NewTextChild(rowNode, "seats", row.seats);
-        NewTextChild(rowNode, "adl", row.adl_m+row.adl_f);
-        NewTextChild(rowNode, "adl_f", row.adl_f);
-        NewTextChild(rowNode, "chd", row.chd);
-        NewTextChild(rowNode, "inf", row.inf);
-        NewTextChild(rowNode, "rk_weight", row.rk_weight);
-        NewTextChild(rowNode, "bag_amount", row.bag_amount);
-        NewTextChild(rowNode, "bag_weight", row.bag_weight);
-        NewTextChild(rowNode, "excess", TComplexBagExcess(row.excess_wt, row.excess_pc).
-                                          view(OutputLang(rpt_params.GetLang()), true));
-        NewTextChild(rowNode, "xcr", row.xcr);
-        NewTextChild(rowNode, "dhc", row.dhc);
-        NewTextChild(rowNode, "mos", row.mos);
-        NewTextChild(rowNode, "jmp", row.jmp);
-    }
-
-    // Теперь переменные отчета
-    Qry.Clear();
-    Qry.SQLText =
-        "select "
-        "   airp, "
-        "   airline, "
-        "   flt_no, "
-        "   suffix, "
-        "   craft, "
-        "   bort, "
-        "   park_out park, "
-        "   scd_out, "
-        "   act_out, "
-        "   airp_fmt, "
-        "   airline_fmt, "
-        "   suffix_fmt, "
-        "   craft_fmt "
-        "from "
-        "   points "
-        "where "
-        "   point_id = :point_id AND pr_del>=0";
-    Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-    Qry.Execute();
-    if(Qry.Eof) throw Exception("RunPM: variables fetch failed for point_id " + IntToString(rpt_params.point_id));
-
-    TElemFmt airline_fmt = (TElemFmt)Qry.FieldAsInteger("airline_fmt");
-    TElemFmt suffix_fmt = (TElemFmt)Qry.FieldAsInteger("suffix_fmt");
-    TElemFmt craft_fmt = (TElemFmt)Qry.FieldAsInteger("craft_fmt");
-
-    string airp = Qry.FieldAsString("airp");
-    string airline, suffix;
-    int flt_no = NoExists;
-    if(rpt_params.mkt_flt.empty()) {
-        Franchise::TProp franchise_prop;
-        if(
-                franchise_prop.get(rpt_params.point_id, Franchise::TPropType::paxManifest) and
-                franchise_prop.val == Franchise::pvNo
-          ) {
-            airline = franchise_prop.franchisee.airline;
-            flt_no = franchise_prop.franchisee.flt_no;
-            suffix = franchise_prop.franchisee.suffix;
-        } else {
-            airline = Qry.FieldAsString("airline");
-            flt_no = Qry.FieldAsInteger("flt_no");
-            suffix = Qry.FieldAsString("suffix");
-        }
-    } else {
-        airline = rpt_params.mkt_flt.airline;
-        flt_no = rpt_params.mkt_flt.flt_no;
-        suffix = rpt_params.mkt_flt.suffix;
-        airline_fmt = efmtCodeNative;
-        suffix_fmt = efmtCodeNative;
-        craft_fmt = efmtCodeNative;
-    }
-    string craft = Qry.FieldAsString("craft");
-    string tz_region = AirpTZRegion(airp);
-
-    //    TCrafts crafts;
-
-    if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
-        NewTextChild(variablesNode, "zone", get_hall_list(airp, rpt_params));
-    } else
-        NewTextChild(variablesNode, "zone"); // пустой тег - нет детализации по залу
-    NewTextChild(variablesNode, "own_airp_name", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, rpt_params.dup_lang())), rpt_params.dup_lang()));
-    NewTextChild(variablesNode, "own_airp_name_lat", getLocaleText("CAP.DOC.AIRP_NAME",  LParams() << LParam("airp", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong, AstraLocale::LANG_EN)), AstraLocale::LANG_EN));
-    NewTextChild(variablesNode, "airp_dep_name", rpt_params.ElemIdToReportElem(etAirp, airp, efmtNameLong));
-    NewTextChild(variablesNode, "airline_name", rpt_params.ElemIdToReportElem(etAirline, airline, efmtNameLong));
-
-    ostringstream flt;
-    flt
-        << rpt_params.ElemIdToReportElem(etAirline, airline, airline_fmt)
-        << setw(3) << setfill('0') << flt_no
-        << rpt_params.ElemIdToReportElem(etSuffix, suffix, suffix_fmt);
-    NewTextChild(variablesNode, "flt", flt.str());
-    NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
-    NewTextChild(variablesNode, "craft", rpt_params.ElemIdToReportElem(etCraft, craft, craft_fmt));
-    NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
-    TDateTime scd_out = UTCToLocal(getReportSCDOut(rpt_params.point_id), tz_region);
-    NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", rpt_params.IsInter()));
-    NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh:nn", rpt_params.IsInter()));
-    NewTextChild(variablesNode, "airp_arv_name", rpt_params.ElemIdToReportElem(etAirp, rpt_params.airp_arv, efmtNameLong));
-
-    TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
-    NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", rpt_params.IsInter()));
-
-    NewTextChild(variablesNode, "pr_vip", 2);
-    string pr_brd_pax_str = (string)"ПАССАЖИРЫ " + (rpt_params.pr_brd ? "(посаж)" : "(зарег)");
-    NewTextChild(variablesNode, "pr_brd_pax", getLocaleText(pr_brd_pax_str, rpt_params.dup_lang()));
-    NewTextChild(variablesNode, "pr_brd_pax_lat", getLocaleText(pr_brd_pax_str, AstraLocale::LANG_EN));
-    NewTextChild(variablesNode, "pr_group", rpt_params.sort == stRegNo); // Если сортировка по рег. но., то выделяем группы пассажиров в fr-отчете
-    NewTextChild(variablesNode, "kg", getLocaleText("кг", rpt_params.GetLang()));
-    NewTextChild(variablesNode, "pc", getLocaleText("м", rpt_params.GetLang()));
-    populate_doc_cap(variablesNode, rpt_params.GetLang());
-    STAT::set_variables(resNode, rpt_params.GetLang());
-    trip_rpt_person(resNode, rpt_params);
-
-    TDateTime takeoff = NoExists;
-    if(not Qry.FieldIsNULL("act_out"))
-        takeoff = UTCToLocal(Qry.FieldAsDateTime("act_out"), tz_region);
-    NewTextChild(variablesNode, "takeoff", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "dd.mm.yy hh:nn")));
-    NewTextChild(variablesNode, "takeoff_date", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "dd.mm")));
-    NewTextChild(variablesNode, "takeoff_time", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "hh:nn")));
-}
-
 void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TQuery Qry(&OraSession);
@@ -1510,7 +329,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
         TBagTagRow bag_tag_row;
         bag_tag_row.pr_trfer = Qry.FieldAsInteger("pr_trfer");
-        bag_tag_row.last_target = get_last_target(Qry, rpt_params);
+        bag_tag_row.last_target = REPORTS::get_last_target(Qry, rpt_params);
         bag_tag_row.point_num = Qry.FieldAsInteger("point_num");
         bag_tag_row.grp_id = cur_grp_id;
         bag_tag_row.airp_arv = Qry.FieldAsString("airp_arv");
@@ -1871,18 +690,10 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "takeoff_time", (takeoff == NoExists ? "" : DateTimeToStr(takeoff, "hh:nn")));
 }
 
-string get_test_str(int page_width, string lang)
-{
-    string result;
-    for(int i=0;i<page_width/6;i++) result += " " + ( STAT::bad_client_img_version() and not get_test_server() ? " " : getLocaleText("CAP.TEST", lang)) + " ";
-    return result;
-}
-
-
 void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   if (rpt_params.rpt_type==rtPTMTXT)
-    PTM(rpt_params, reqNode, resNode);
+    REPORTS::PTM(rpt_params, reqNode, resNode);
   else
     BTM(rpt_params, reqNode, resNode);
 
@@ -2306,150 +1117,6 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
   };
 };
 
-string get_flight(xmlNodePtr variablesNode)
-{
-    return (string)NodeAsString("trip", variablesNode) + "/" + NodeAsString("scd_out", variablesNode);
-}
-
-void REFUSE(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    if(rpt_params.rpt_type == rtREFUSETXT)
-        get_compatible_report_form("docTxt", reqNode, resNode);
-    else
-        get_compatible_report_form("ref", reqNode, resNode);
-    TQuery Qry(&OraSession);
-    string SQLText =
-        "SELECT point_dep AS point_id, "
-        "       reg_no, "
-        "       surname||' '||pax.name family, "
-        "       pax.pers_type, "
-        "       ticket_no, "
-        "       refusal_types.code refuse, "
-        "       ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags "
-        "FROM   pax_grp,pax,refusal_types "
-        "WHERE  pax_grp.grp_id=pax.grp_id AND "
-        "       pax.refuse = refusal_types.code AND "
-        "       pax_grp.status NOT IN ('E') AND "
-        "       pax.refuse IS NOT NULL and "
-        "       point_dep = :point_id "
-        "order by ";
-    switch(rpt_params.sort) {
-        case stServiceCode:
-        case stSeatNo:
-        case stRegNo:
-            SQLText += " pax.reg_no, pax.seats DESC ";
-            break;
-        case stSurname:
-            SQLText += " family, pax.reg_no, pax.seats DESC ";
-            break;
-    }
-    Qry.SQLText = SQLText;
-    Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-    Qry.CreateVariable("lang", otString, rpt_params.GetLang());
-    Qry.Execute();
-    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
-    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
-    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_ref");
-    while(!Qry.Eof) {
-        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-
-        NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
-        NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
-        NewTextChild(rowNode, "family", transliter(Qry.FieldAsString("family"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-        NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, Qry.FieldAsString("pers_type"), efmtCodeNative));
-        NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
-        NewTextChild(rowNode, "refuse", rpt_params.ElemIdToReportElem(etRefusalType, Qry.FieldAsString("refuse"), efmtNameLong));
-        NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
-
-        Qry.Next();
-    }
-
-    // Теперь переменные отчета
-    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
-    PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
-    NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.REFUSE", LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang())); //!!!param 100%error
-    populate_doc_cap(variablesNode, rpt_params.GetLang());
-}
-
-void REFUSETXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    REFUSE(rpt_params, reqNode, resNode);
-
-    xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
-    xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
-    int page_width=80;
-    int max_symb_count=rpt_params.IsInter()?page_width:60;
-    NewTextChild(variablesNode, "page_width", page_width);
-    NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
-    if(STAT::bad_client_img_version())
-        NewTextChild(variablesNode, "doc_cap_test", " ");
-    NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
-    ostringstream s;
-    s.str("");
-    s << NodeAsString("caption", variablesNode);
-    string str = s.str().substr(0, max_symb_count);
-    s.str("");
-    s << right << setw(((page_width - str.size()) / 2) + str.size()) << str;
-    NewTextChild(variablesNode, "page_header_top", s.str());
-    s.str("");
-    s
-        << right << setw(3)  << getLocaleText("№", rpt_params.GetLang()) << " "
-        << left
-        << setw(21) << getLocaleText("Ф.И.О.", rpt_params.GetLang())
-        << setw(5)  << getLocaleText("Тип", rpt_params.GetLang())
-        << setw(10) << getLocaleText("№ Билета", rpt_params.GetLang())
-        << setw(24)  << getLocaleText("Причина невылета", rpt_params.GetLang())
-        << setw(16) << getLocaleText("№ б/б", rpt_params.GetLang());
-    NewTextChild(variablesNode, "page_header_bottom", s.str() );
-    NewTextChild(variablesNode, "page_footer_top",
-            getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
-    xmlNodePtr dataSetNode = NodeAsNode("v_ref", dataSetsNode);
-    xmlNodeSetName(dataSetNode, BAD_CAST "table");
-    vector<string> rows;
-    map< string, vector<string> > fields;
-    int row;
-    xmlNodePtr rowNode=dataSetNode->children;
-    const char col_sym = ' ';
-    for(; rowNode != NULL; rowNode = rowNode->next)
-    {
-        SeparateString(NodeAsString("family", rowNode), 20, rows);
-        fields["surname"]=rows;
-
-        SeparateString(NodeAsString("ticket_no", rowNode), 9, rows);
-        fields["tkts"]=rows;
-
-        SeparateString(NodeAsString("refuse", rowNode), 23, rows);
-        fields["refuse"]=rows;
-
-        SeparateString(NodeAsString("tags", rowNode), 16, rows);
-        fields["tags"]=rows;
-
-        row=0;
-        s.str("");
-        do
-        {
-            if (row != 0) s << endl;
-            s
-                << right << setw(3) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
-                << left << setw(20) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
-                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode) : "") << " " << col_sym
-                << left << setw(9) << (!fields["tkts"].empty() ? *(fields["tkts"].begin()) : "") << col_sym
-                << left << setw(23) << (!fields["refuse"].empty() ? *(fields["refuse"].begin()) : "") << col_sym
-                << left << setw(16) << (!fields["tags"].empty() ? *(fields["tags"].begin()) : "");
-            for(map< string, vector<string> >::iterator f = fields.begin(); f != fields.end(); f++)
-                if (!f->second.empty()) f->second.erase(f->second.begin());
-            row++;
-        }
-        while(
-                !fields["surname"].empty() ||
-                !fields["tkts"].empty() ||
-                !fields["refuse"].empty() ||
-                !fields["tags"].empty()
-             );
-        NewTextChild(rowNode,"str",s.str());
-    }
-}
-
 void EMD(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     if(rpt_params.rpt_type == rtEMDTXT)
@@ -2529,7 +1196,7 @@ void EMDTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_footer_top",
             getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
     xmlNodePtr dataSetNode = NodeAsNode("v_emd", dataSetsNode);
-    xmlNodeSetName(dataSetNode, BAD_CAST "table");
+    xmlNodeSetName(dataSetNode, "table");
     vector<string> rows;
     map< string, vector<string> > fields;
     int row;
@@ -2562,445 +1229,6 @@ void EMDTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 !fields["surname"].empty() or
                 !fields["emd_no"].empty()
                 );
-        NewTextChild(rowNode,"str",s.str());
-    }
-}
-
-void NOTPRES(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    if(rpt_params.rpt_type == rtNOTPRESTXT)
-        get_compatible_report_form("docTxt", reqNode, resNode);
-    else
-        get_compatible_report_form("notpres", reqNode, resNode);
-    TQuery Qry(&OraSession);
-    string SQLText =
-        "SELECT point_dep AS point_id, "
-        "       pax.*, "
-        "       salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no, "
-        "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bagAmount, "
-        "       ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags "
-        "FROM   pax_grp,pax "
-        "WHERE  pax_grp.grp_id=pax.grp_id AND "
-        "       pax.pr_brd=0 and "
-        "       point_dep = :point_id and "
-        "       pax_grp.status NOT IN ('E') "
-        "order by ";
-    switch(rpt_params.sort) {
-        case stServiceCode:
-        case stRegNo:
-            SQLText += " pax.reg_no, pax.seats DESC ";
-            break;
-        case stSurname:
-            SQLText += " pax.surname, pax.name, pax.reg_no, pax.seats DESC ";
-            break;
-        case stSeatNo:
-            SQLText += " seat_no, pax.reg_no, pax.seats DESC ";
-            break;
-    }
-    Qry.SQLText = SQLText;
-    Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-    Qry.CreateVariable("lang", otString, rpt_params.GetLang());
-    Qry.CreateVariable("pr_lat", otInteger, rpt_params.IsInter());
-    Qry.Execute();
-    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
-    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
-    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_notpres");
-    while(!Qry.Eof) {
-      CheckIn::TSimplePaxItem pax;
-      pax.fromDB(Qry);
-      xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-
-      NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
-      NewTextChild(rowNode, "reg_no", pax.reg_no);
-      NewTextChild(rowNode, "family", transliter(pax.full_name(), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-      NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, EncodePerson(pax.pers_type), efmtCodeNative));
-      NewTextChild(rowNode, "seat_no", pax.seat_no);
-      NewTextChild(rowNode, "bagamount", Qry.FieldAsInteger("bagamount"));
-      NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
-
-      Qry.Next();
-    }
-
-    // Теперь переменные отчета
-    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
-    PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
-    NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.NOTPRES",
-                LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
-    populate_doc_cap(variablesNode, rpt_params.GetLang());
-}
-
-void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    NOTPRES(rpt_params, reqNode, resNode);
-
-    xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
-    xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
-    int page_width=80;
-    int max_symb_count=rpt_params.IsInter()?page_width:60;
-    NewTextChild(variablesNode, "page_width", page_width);
-    NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
-    if(STAT::bad_client_img_version())
-        NewTextChild(variablesNode, "doc_cap_test", " ");
-    NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
-    ostringstream s;
-    s.str("");
-    s << NodeAsString("caption", variablesNode);
-    string str = s.str().substr(0, max_symb_count);
-    s.str("");
-    s << right << setw(((page_width - str.size()) / 2) + str.size()) << str;
-    NewTextChild(variablesNode, "page_header_top", s.str());
-    s.str("");
-    s
-        << right << setw(3)  << getLocaleText("№", rpt_params.GetLang()) << " "
-        << left
-        << setw(38) << getLocaleText("Ф.И.О.", rpt_params.GetLang())
-        << setw(5)  << getLocaleText("Тип", rpt_params.GetLang())
-        << setw(8)  << getLocaleText("№ м", rpt_params.GetLang())
-        << setw(6) << getLocaleText("Баг.", rpt_params.GetLang())
-        << " " << setw(19) << getLocaleText("№ б/б", rpt_params.GetLang());
-    NewTextChild(variablesNode, "page_header_bottom", s.str() );
-    NewTextChild(variablesNode, "page_footer_top",
-            getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
-    xmlNodePtr dataSetNode = NodeAsNode("v_notpres", dataSetsNode);
-    xmlNodeSetName(dataSetNode, BAD_CAST "table");
-    vector<string> rows;
-    map< string, vector<string> > fields;
-    int row;
-    xmlNodePtr rowNode=dataSetNode->children;
-    const char col_sym = ' ';
-    for(; rowNode != NULL; rowNode = rowNode->next)
-    {
-        SeparateString(NodeAsString("family", rowNode), 37, rows);
-        fields["surname"]=rows;
-
-        SeparateString(NodeAsString("tags", rowNode), 19, rows);
-        fields["tags"]=rows;
-
-        row=0;
-        s.str("");
-        do
-        {
-            string bagamount = NodeAsString("bagamount", rowNode, "");
-            if(bagamount == "0") bagamount.erase();
-            if (row != 0) s << endl;
-            s
-                << right << setw(3) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
-                << left << setw(37) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
-                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode, "ВЗ") : "") << " " << col_sym
-                << left <<  setw(7) << (row == 0 ? NodeAsString("seat_no", rowNode, "") : "") << col_sym
-                << left <<  setw(5) << (row == 0 ? bagamount : "") << col_sym
-                << left << setw(19) << (!fields["tags"].empty() ? *(fields["tags"].begin()) : "");
-            for(map< string, vector<string> >::iterator f = fields.begin(); f != fields.end(); f++)
-                if (!f->second.empty()) f->second.erase(f->second.begin());
-            row++;
-        }
-        while(
-                !fields["surname"].empty() ||
-                !fields["tags"].empty()
-             );
-        NewTextChild(rowNode,"str",s.str());
-    }
-}
-
-bool getPaxRem(const string &lang, const CheckIn::TPaxRemBasic &basic, bool inf_indicator, CheckIn::TPaxRemItem &rem)
-{
-  if (basic.empty()) return false;
-  rem=CheckIn::TPaxRemItem(basic, inf_indicator, lang, applyLangForTranslit, CheckIn::TPaxRemBasic::outputReport);
-  return true;
-}
-
-namespace REPORT_PAX_REMS {
-    void get(TQuery &Qry, const string &lang, const map< TRemCategory, vector<string> > &filter, multiset<CheckIn::TPaxRemItem> &final_rems)
-    {
-        CheckIn::TPaxTknItem tkn;
-        CheckIn::TPaxDocItem doc;
-        CheckIn::TPaxDocoItem doco;
-        CheckIn::TDocaMap doca_map;
-        set<CheckIn::TPaxFQTItem> fqts;
-        vector<CheckIn::TPaxASVCItem> asvc;
-        multiset<CheckIn::TPaxRemItem> rems;
-        map< TRemCategory, bool > cats;
-        cats[remTKN]=false;
-        cats[remDOC]=false;
-        cats[remDOCO]=false;
-        cats[remDOCA]=false;
-        cats[remFQT]=false;
-        cats[remASVC]=false;
-        cats[remUnknown]=false;
-        int pax_id=Qry.FieldAsInteger("pax_id");
-        bool inf_indicator=DecodePerson(Qry.FieldAsString("pers_type"))==ASTRA::baby && Qry.FieldAsInteger("seats")==0;
-        bool pr_find=true;
-        if (!filter.empty())
-        {
-            pr_find=false;
-            //фильтр по конкретным ремаркам
-            map< TRemCategory, vector<string> >::const_iterator iRem=filter.begin();
-            for(; iRem!=filter.end(); iRem++)
-            {
-                switch(iRem->first)
-                {
-                    case remTKN:
-                        tkn.fromDB(Qry);
-                        if (!tkn.empty() && !tkn.rem.empty() &&
-                                find(iRem->second.begin(),iRem->second.end(),tkn.rem)!=iRem->second.end())
-                            pr_find=true;
-                        cats[remTKN]=true;
-                        break;
-                    case remDOC:
-                        if (find(iRem->second.begin(),iRem->second.end(),"DOCS")!=iRem->second.end())
-                        {
-                            if (LoadPaxDoc(pax_id, doc)) pr_find=true;
-                            cats[remDOC]=true;
-                        };
-                        break;
-                    case remDOCO:
-                        if (find(iRem->second.begin(),iRem->second.end(),"DOCO")!=iRem->second.end())
-                        {
-                            if (LoadPaxDoco(pax_id, doco)) pr_find=true;
-                            cats[remDOCO]=true;
-                        };
-                        break;
-                    case remDOCA:
-                        if (find(iRem->second.begin(),iRem->second.end(),"DOCA")!=iRem->second.end())
-                        {
-                            if (LoadPaxDoca(pax_id, doca_map)) pr_find=true;
-                            cats[remDOCA]=true;
-                        };
-                        break;
-                    case remFQT:
-                        LoadPaxFQT(pax_id, fqts);
-                        for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();f++)
-                        {
-                            if (!f->rem.empty() &&
-                                    find(iRem->second.begin(),iRem->second.end(),f->rem)!=iRem->second.end())
-                            {
-                                pr_find=true;
-                                break;
-                            };
-                        };
-                        cats[remFQT]=true;
-                        break;
-                    case remASVC:
-                        if (find(iRem->second.begin(),iRem->second.end(),"ASVC")!=iRem->second.end())
-                        {
-                            if (LoadPaxASVC(pax_id, asvc)) pr_find=true;
-                            cats[remASVC]=true;
-                        };
-                        break;
-                    default:
-                        LoadPaxRem(pax_id, rems);
-                        for(multiset<CheckIn::TPaxRemItem>::const_iterator r=rems.begin();r!=rems.end();r++)
-                        {
-                            if (!r->code.empty() &&
-                                    find(iRem->second.begin(),iRem->second.end(),r->code)!=iRem->second.end())
-                            {
-                                pr_find=true;
-                                break;
-                            };
-                        };
-                        cats[remUnknown]=true;
-                        break;
-                };
-                if (pr_find) break;
-            };
-        };
-
-        if(pr_find) {
-            CheckIn::TPaxRemItem rem;
-            //обычные ремарки (обязательно обрабатываем первыми)
-            if (!cats[remUnknown]) LoadPaxRem(pax_id, rems);
-            for(multiset<CheckIn::TPaxRemItem>::iterator r=rems.begin();r!=rems.end();++r)
-                if (getPaxRem(lang, *r, inf_indicator, rem)) final_rems.insert(rem);
-
-            //билет
-            if (!cats[remTKN]) tkn.fromDB(Qry);
-            if (getPaxRem(lang, tkn, inf_indicator, rem)) final_rems.insert(rem);
-            //документ
-            if (!cats[remDOC]) LoadPaxDoc(pax_id, doc);
-            if (getPaxRem(lang, doc, inf_indicator, rem)) final_rems.insert(rem);
-            //виза
-            if (!cats[remDOCO]) LoadPaxDoco(pax_id, doco);
-            if (getPaxRem(lang, doco, inf_indicator, rem)) final_rems.insert(rem);
-            //адреса
-            if (!cats[remDOCA]) LoadPaxDoca(pax_id, doca_map);
-            for(CheckIn::TDocaMap::const_iterator d = doca_map.begin(); d != doca_map.end(); ++d)
-                if (getPaxRem(lang, d->second, inf_indicator, rem)) final_rems.insert(rem);
-            //бонус-программа
-            if (!cats[remFQT]) LoadPaxFQT(pax_id, fqts);
-            for(set<CheckIn::TPaxFQTItem>::const_iterator f=fqts.begin();f!=fqts.end();++f)
-                if (getPaxRem(lang, *f, inf_indicator, rem)) final_rems.insert(rem);
-            //услуги
-            if (!cats[remASVC]) LoadPaxASVC(pax_id, asvc);
-            for(vector<CheckIn::TPaxASVCItem>::const_iterator a=asvc.begin();a!=asvc.end();++a)
-                if (getPaxRem(lang, *a, inf_indicator, rem)) final_rems.insert(rem);
-        }
-    }
-
-    void get(TQuery &Qry, const string &lang, multiset<CheckIn::TPaxRemItem> &final_rems)
-    {
-        return get(Qry, lang, map< TRemCategory, vector<string> >(), final_rems);
-    }
-
-    void get_rem_codes(TQuery &Qry, const string &lang, set<string> &rem_codes)
-    {
-        multiset<CheckIn::TPaxRemItem> final_rems;
-        get(Qry, lang, map< TRemCategory, vector<string> >(), final_rems);
-        for(multiset<CheckIn::TPaxRemItem>::iterator i = final_rems.begin(); i != final_rems.end(); i++)
-            rem_codes.insert(i->code);
-    }
-}
-
-void REM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    if(rpt_params.rpt_type == rtREMTXT or rpt_params.rpt_type == rtSPECTXT)
-        get_compatible_report_form("docTxt", reqNode, resNode);
-    else
-        get_compatible_report_form("rem", reqNode, resNode);
-
-    TRemGrp spec_rems;
-    string CAP_DOC = "CAP.DOC.REM";
-    if(rpt_params.rpt_type == rtSPEC or rpt_params.rpt_type == rtSPECTXT) {
-        spec_rems.Load(retRPT_SS, rpt_params.point_id);
-        CAP_DOC = "CAP.DOC.SPEC";
-    }
-
-    TQuery Qry(&OraSession);
-    string SQLText =
-        "SELECT pax_grp.point_dep AS point_id, "
-        "       pax.*, "
-        "       salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no "
-        "FROM   pax_grp,pax "
-        "WHERE  pax_grp.grp_id=pax.grp_id AND "
-        "       pr_brd IS NOT NULL and "
-        "       point_dep = :point_id and "
-        "       pax_grp.status NOT IN ('E') "
-        "order by ";
-    switch(rpt_params.sort) {
-        case stServiceCode:
-        case stRegNo:
-            SQLText += " pax.reg_no, pax.seats DESC ";
-            break;
-        case stSurname:
-            SQLText += " pax.surname, pax.name, pax.reg_no, pax.seats DESC ";
-            break;
-        case stSeatNo:
-            SQLText += " seat_no, pax.reg_no, pax.seats DESC ";
-            break;
-    }
-    Qry.SQLText = SQLText;
-    Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-    Qry.CreateVariable("pr_lat", otInteger, rpt_params.IsInter());
-    Qry.Execute();
-
-    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
-    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
-    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_rem");
-    for(; !Qry.Eof; Qry.Next())
-    {
-      CheckIn::TSimplePaxItem pax;
-      pax.fromDB(Qry);
-
-      multiset<CheckIn::TPaxRemItem> final_rems;
-      REPORT_PAX_REMS::get(Qry, rpt_params.GetLang(), rpt_params.rems, final_rems);
-
-      if(rpt_params.rpt_type == rtSPEC or rpt_params.rpt_type == rtSPECTXT)
-      {
-        for(multiset<CheckIn::TPaxRemItem>::iterator r=final_rems.begin();r!=final_rems.end();)
-        {
-          if (!spec_rems.exists(r->code)) r=Erase(final_rems, r); else ++r;
-        };
-      }
-
-      if (final_rems.empty()) continue;
-
-      xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-      NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
-      NewTextChild(rowNode, "reg_no", pax.reg_no);
-      NewTextChild(rowNode, "family", transliter(pax.full_name(), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-      NewTextChild(rowNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, EncodePerson(pax.pers_type), efmtCodeNative));
-      NewTextChild(rowNode, "seat_no", pax.seat_no);
-
-      ostringstream rem_info;
-      for(multiset<CheckIn::TPaxRemItem>::const_iterator r=final_rems.begin();r!=final_rems.end();++r)
-      {
-        rem_info << ".R/" << r->text << " ";
-      };
-      NewTextChild(rowNode, "info", rem_info.str());
-    }
-
-    // Теперь переменные отчета
-    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
-    PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
-    NewTextChild(variablesNode, "caption", getLocaleText(CAP_DOC,
-                LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
-    populate_doc_cap(variablesNode, rpt_params.GetLang());
-}
-
-void REMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    REM(rpt_params, reqNode, resNode);
-
-    xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
-    xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
-    int page_width=80;
-    int max_symb_count=rpt_params.IsInter()?page_width:60;
-    NewTextChild(variablesNode, "page_width", page_width);
-    NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
-    if(STAT::bad_client_img_version())
-        NewTextChild(variablesNode, "doc_cap_test", " ");
-    NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
-    ostringstream s;
-    s.str("");
-    s << NodeAsString("caption", variablesNode);
-    string str = s.str().substr(0, max_symb_count);
-    s.str("");
-    s << right << setw(((page_width - str.size()) / 2) + str.size()) << str;
-    NewTextChild(variablesNode, "page_header_top", s.str());
-    s.str("");
-    s
-        << right << setw(3)  << getLocaleText("№", rpt_params.GetLang()) << " "
-        << left
-        << setw(38) << getLocaleText("Ф.И.О.", rpt_params.GetLang())
-        << setw(5)  << getLocaleText("Тип", rpt_params.GetLang())
-        << setw(8)  << getLocaleText("№ м", rpt_params.GetLang())
-        << setw(25) << getLocaleText("Ремарки", rpt_params.GetLang());
-    NewTextChild(variablesNode, "page_header_bottom", s.str() );
-    NewTextChild(variablesNode, "page_footer_top",
-            getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
-    xmlNodePtr dataSetNode = NodeAsNode("v_rem", dataSetsNode);
-    xmlNodeSetName(dataSetNode, BAD_CAST "table");
-    vector<string> rows;
-    map< string, vector<string> > fields;
-    int row;
-    xmlNodePtr rowNode=dataSetNode->children;
-    const char col_sym = ' ';
-    for(; rowNode != NULL; rowNode = rowNode->next)
-    {
-        SeparateString(NodeAsString("family", rowNode), 37, rows);
-        fields["surname"]=rows;
-
-        SeparateString(NodeAsString("info", rowNode), 25, rows);
-        fields["rems"]=rows;
-
-        row=0;
-        s.str("");
-        do
-        {
-            if (row != 0) s << endl;
-            s
-                << right << setw(3) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
-                << left << setw(37) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
-                << right <<  setw(4) << (row == 0 ? NodeAsString("pers_type", rowNode, "ВЗ") : "") << col_sym
-                << left <<  setw(7) << (row == 0 ? NodeAsString("seat_no", rowNode, "") : "") << col_sym
-                << left << setw(25) << (!fields["rems"].empty() ? *(fields["rems"].begin()) : "");
-            for(map< string, vector<string> >::iterator f = fields.begin(); f != fields.end(); f++)
-                if (!f->second.empty()) f->second.erase(f->second.begin());
-            row++;
-        }
-        while(
-                !fields["surname"].empty() ||
-                !fields["rems"].empty()
-             );
         NewTextChild(rowNode,"str",s.str());
     }
 }
@@ -3220,7 +1448,7 @@ void CRSTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_footer_top",
             getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
     xmlNodePtr dataSetNode = NodeAsNode("v_crs", dataSetsNode);
-    xmlNodeSetName(dataSetNode, BAD_CAST "table");
+    xmlNodeSetName(dataSetNode, "table");
     map< string, vector<string> > fields;
     int row;
     xmlNodePtr rowNode=dataSetNode->children;
@@ -3266,232 +1494,6 @@ void CRSTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 !fields["surname"].empty() ||
                 !fields["tkts"].empty() ||
                 !fields["docs"].empty()
-             );
-        NewTextChild(rowNode,"str",s.str());
-    }
-}
-
-void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    bool pr_web = (rpt_params.rpt_type == rtWEB or rpt_params.rpt_type == rtWEBTXT);
-    bool pr_norec = (rpt_params.rpt_type == rtNOREC or rpt_params.rpt_type == rtNORECTXT);
-    bool pr_gosho = (rpt_params.rpt_type == rtGOSHO or rpt_params.rpt_type == rtGOSHOTXT);
-    if(
-            rpt_params.rpt_type == rtEXAMTXT or
-            rpt_params.rpt_type == rtWEBTXT or
-            rpt_params.rpt_type == rtNORECTXT or
-            rpt_params.rpt_type == rtGOSHOTXT
-      )
-        get_compatible_report_form("docTxt", reqNode, resNode);
-    else
-        get_compatible_report_form(pr_web ? "web" : "exam", reqNode, resNode);
-
-    TQuery Qry(&OraSession);
-    BrdInterface::GetPaxQuery(Qry, rpt_params.point_id, NoExists, NoExists, rpt_params.GetLang(), rpt_params.rpt_type, rpt_params.client_type, rpt_params.sort);
-    ProgTrace(TRACE5, "Qry: %s", Qry.SQLText.SQLText());
-    Qry.Execute();
-    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
-    xmlNodePtr datasetsNode = NewTextChild(formDataNode, "datasets");
-    xmlNodePtr passengersNode = NewTextChild(datasetsNode, "passengers");
-    TRemGrp rem_grp;
-    if(!Qry.Eof)
-    {
-      rem_grp.Load(retBRD_VIEW, rpt_params.point_id);
-
-      bool check_pay_on_tckin_segs=false;
-      TTripInfo fltInfo;
-      if (fltInfo.getByPointId(rpt_params.point_id))
-        check_pay_on_tckin_segs=GetTripSets(tsCheckPayOnTCkinSegs, fltInfo);
-
-      TComplexBagExcessNodeList excessNodeList(OutputLang(rpt_params.GetLang()), {}, "+");
-      for( ; !Qry.Eof; Qry.Next()) {
-        CheckIn::TSimplePaxItem pax;
-        pax.fromDB(Qry);
-
-        xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
-        int grp_id = Qry.FieldAsInteger("grp_id");
-        NewTextChild(paxNode, "reg_no", pax.reg_no);
-        NewTextChild(paxNode, "surname", transliter(pax.surname, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-        NewTextChild(paxNode, "name", transliter(pax.name, 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-        if(pr_web)
-          NewTextChild(paxNode, "user_descr", transliter(Qry.FieldAsString("user_descr"), 1, rpt_params.GetLang() != AstraLocale::LANG_RU));
-        NewTextChild(paxNode, "pers_type", rpt_params.ElemIdToReportElem(etPersType, EncodePerson(pax.pers_type), efmtCodeNative));
-        NewTextChild(paxNode, "pr_exam", (int)pax.pr_exam, (int)false);
-        NewTextChild(paxNode, "pr_brd", (int)pax.pr_brd, (int)false);
-        NewTextChild(paxNode, "seat_no", pax.seat_no);
-        NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(NoExists, pax.id, false, rpt_params.GetLang()));
-        NewTextChild(paxNode, "ticket_no", pax.tkn.no);
-        NewTextChild(paxNode, "coupon_no", pax.tkn.coupon);
-        NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
-        NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
-        NewTextChild(paxNode, "rk_amount", Qry.FieldAsInteger("rk_amount"));
-        NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
-        excessNodeList.add(paxNode, "excess", TBagPieces(Qry.FieldAsInteger("excess_pc")),
-                                              TBagKilos(Qry.FieldAsInteger("excess_wt")));
-        bool pr_payment=RFISCPaymentCompleted(grp_id, pax.id, check_pay_on_tckin_segs) &&
-                        WeightConcept::BagPaymentCompleted(grp_id);
-        NewTextChild(paxNode, "pr_payment", (int)pr_payment);
-        NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
-        NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax.id, rpt_params.GetLang()));
-      }
-    }
-
-    // Теперь переменные отчета
-    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
-    BrdInterface::readTripCounters(rpt_params.point_id, rpt_params, variablesNode, rpt_params.rpt_type, rpt_params.client_type);
-    PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
-    if ( pr_web) {
-        if(!rpt_params.client_type.empty()) {
-            string ls_type;
-            switch(DecodeClientType(rpt_params.client_type.c_str())) {
-                case ctWeb:
-                    ls_type = getLocaleText("CAP.PAX_LIST.WEB", rpt_params.GetLang());
-                    break;
-                case ctMobile:
-                    ls_type = getLocaleText("CAP.PAX_LIST.MOBILE", rpt_params.GetLang());
-                    break;
-                case ctKiosk:
-                    ls_type = getLocaleText("CAP.PAX_LIST.KIOSK", rpt_params.GetLang());
-                    break;
-                default:
-                    throw Exception("Unexpected client_type: %s", rpt_params.client_type.c_str());
-            }
-            NewTextChild(variablesNode, "paxlist_type", ls_type);
-        }
-    } else if(pr_norec)
-        NewTextChild(variablesNode, "paxlist_type", "NOREC");
-    else if(pr_gosho)
-        NewTextChild(variablesNode, "paxlist_type", "GOSHO");
-    else
-        NewTextChild(variablesNode, "paxlist_type", getLocaleText("CAP.PAX_LIST.BRD", rpt_params.GetLang()));
-    if(pr_web and rpt_params.client_type.empty())
-        NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.PAX_LIST.SELF_CKIN",
-                    LParams()
-                    << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang())
-                );
-    else
-        NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.PAX_LIST",
-                    LParams()
-                    << LParam("list_type", NodeAsString("paxlist_type", variablesNode))
-                    << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang())
-                );
-    xmlNodePtr currNode = variablesNode->children;
-    xmlNodePtr totalNode = NodeAsNodeFast("total", currNode);
-    NodeSetContent(totalNode, getLocaleText("CAP.TOTAL.VAL", LParams() << LParam("total", NodeAsString(totalNode)), rpt_params.GetLang()));
-    populate_doc_cap(variablesNode, rpt_params.GetLang());
-    NewTextChild(variablesNode, "kg", getLocaleText("кг", rpt_params.GetLang()));
-    NewTextChild(variablesNode, "pc", getLocaleText("м", rpt_params.GetLang()));
-}
-
-void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    EXAM(rpt_params, reqNode, resNode);
-    const char col_sym = ' '; //символ разделителя столбцов
-    bool pr_web = rpt_params.rpt_type == rtWEBTXT;
-
-    xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
-    xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
-    int page_width=80;
-    int max_symb_count=rpt_params.IsInter()?page_width:60;
-    NewTextChild(variablesNode, "page_width", page_width);
-    NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
-    if(STAT::bad_client_img_version())
-        NewTextChild(variablesNode, "doc_cap_test", " ");
-    string str;
-    ostringstream s;
-    s.str("");
-    NewTextChild(variablesNode, "test_str", get_test_str(page_width, rpt_params.GetLang()));
-    s.str("");
-    s << NodeAsString("caption", variablesNode);
-    str = s.str().substr(0, max_symb_count);
-    s.str("");
-    s << right << setw(((page_width - str.size()) / 2) + str.size()) << str;
-    NewTextChild(variablesNode, "page_header_top", s.str());
-    s.str("");
-    s
-        << right << setw(3)  << getLocaleText("№", rpt_params.GetLang()) << col_sym
-        << left << setw(pr_web ? 19 : 30) << getLocaleText("Фамилия", rpt_params.GetLang());
-    if(pr_web)
-        s
-            << setw(9)  << getLocaleText("Оператор", rpt_params.GetLang());
-    s << setw(4)  << getLocaleText("Пас", rpt_params.GetLang());
-    if(pr_web)
-        s
-            << setw(9)  << getLocaleText("№ м", rpt_params.GetLang());
-    else
-        s
-            << setw(3)  << getLocaleText("Дс", rpt_params.GetLang())
-            << setw(4)  << getLocaleText("Пс", rpt_params.GetLang());
-    s
-        << setw(11) << getLocaleText("Документ", rpt_params.GetLang())
-        << setw(14) << getLocaleText("Билет", rpt_params.GetLang())
-        << setw(10) << getLocaleText("№ б/б", rpt_params.GetLang());
-    NewTextChild(variablesNode, "page_header_bottom", s.str() );
-    s.str("");
-    s
-        << NodeAsString("total", variablesNode) << endl
-        << getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang());
-    NewTextChild(variablesNode, "page_footer_top", s.str() );
-
-    xmlNodePtr dataSetNode = NodeAsNode("passengers", dataSetsNode);
-    xmlNodeSetName(dataSetNode, BAD_CAST "table");
-    vector<string> rows;
-    map< string, vector<string> > fields;
-    int row;
-    xmlNodePtr rowNode=dataSetNode->children;
-    for(; rowNode != NULL; rowNode = rowNode->next)
-    {
-        //рабиваем фамилию, документ, билет, бирки, ремарки
-        SeparateString(((string)NodeAsString("surname",rowNode) + " " + NodeAsString("name", rowNode, "")).c_str(),(pr_web ? 18 : 29),rows);
-        fields["surname"]=rows;
-
-        SeparateString(NodeAsString("document",rowNode, ""),10,rows);
-        fields["docs"]=rows;
-
-        SeparateString(NodeAsString("ticket_no",rowNode, ""),13,rows);
-        fields["tkts"]=rows;
-
-        SeparateString(NodeAsString("tags",rowNode, ""),10,rows);
-        fields["tags"]=rows;
-
-        SeparateString(NodeAsString("user_descr",rowNode, ""),8,rows);
-        fields["user_descr"]=rows;
-
-        row=0;
-        s.str("");
-        do
-        {
-            if (row != 0) s << endl;
-            s
-                << right << setw(3) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
-                << left << setw(pr_web ? 18 : 29) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym;
-            if(pr_web)
-                s
-                    << left << setw(8) << (!fields["user_descr"].empty() ? *(fields["user_descr"].begin()) : "") << col_sym;
-            s
-                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode) : "") << col_sym;
-            if(pr_web) {
-                s
-                    << left <<  setw(8) << (row == 0 ? NodeAsString("seat_no", rowNode, "") : "") << col_sym;
-            } else {
-                s
-                    << left <<  setw(3) << (row == 0 ? (strcmp(NodeAsString("pr_exam", rowNode, ""), "") == 0 ? "-" : "+") : "")
-                    << left <<  setw(4) << (row == 0 ? (strcmp(NodeAsString("pr_brd", rowNode, ""), "") == 0 ? "-" : "+") : "");
-            }
-            s
-                << left << setw(10) << (!fields["docs"].empty() ? *(fields["docs"].begin()) : "") << col_sym
-                << left << setw(13) << (!fields["tkts"].empty() ? *(fields["tkts"].begin()) : "") << col_sym
-                << left << setw(10) << (!fields["tags"].empty() ? *(fields["tags"].begin()) : "");
-            for(map< string, vector<string> >::iterator f = fields.begin(); f != fields.end(); f++)
-                if (!f->second.empty()) f->second.erase(f->second.begin());
-            row++;
-        }
-        while(
-                !fields["surname"].empty() ||
-                !fields["docs"].empty() ||
-                !fields["tkts"].empty() ||
-                !fields["tags"].empty() ||
-                !fields["user_descr"].empty()
              );
         NewTextChild(rowNode,"str",s.str());
     }
@@ -3619,6 +1621,8 @@ void VOUCHERS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         buf << getLocaleText("Всего:", rpt_params.GetLang()) << " " << total_sum;
         NewTextChild(rowNode, "item", buf.str());
     }
+
+    LogTrace(TRACE5) << GetXMLDocText(resNode->doc); //!!!
 }
 
 // VOUCHERS END
@@ -3835,7 +1839,7 @@ void SERVICESTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_footer_top",
             getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
     xmlNodePtr dataSetNode = NodeAsNode("v_services", dataSetsNode);
-    xmlNodeSetName(dataSetNode, BAD_CAST "table");
+    xmlNodeSetName(dataSetNode, "table");
     vector<string> rows;
     map< string, vector<string> > fields;
     int row;
@@ -4022,7 +2026,7 @@ void RESEATTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_footer_top",
             getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
     xmlNodePtr dataSetNode = NodeAsNode("v_reseat", dataSetsNode);
-    xmlNodeSetName(dataSetNode, BAD_CAST "table");
+    xmlNodeSetName(dataSetNode, "table");
     vector<string> rows;
     map< string, vector<string> > fields;
     int row;
@@ -4187,6 +2191,105 @@ int GetNumCopies(TRptParams rpt_params)
   return Qry.Eof ? NoExists : Qry.FieldAsInteger("num");
 }
 
+void ANNUL_TAGS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    get_compatible_report_form("annul_tags", reqNode, resNode);
+    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
+    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_annul");
+    // переменные отчёта
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    PaxListVars(rpt_params.point_id, rpt_params, variablesNode);
+    // заголовок отчёта
+    NewTextChild(variablesNode, "caption",
+            getLocaleText("CAP.DOC.ANNUL_TAGS", LParams() << LParam("flight", get_flight(variablesNode)), rpt_params.GetLang()));
+    populate_doc_cap(variablesNode, rpt_params.GetLang());
+
+    NewTextChild(variablesNode, "doc_cap_annul_reg_no", getLocaleText("№"));
+    NewTextChild(variablesNode, "doc_cap_annul_fio", getLocaleText("Ф.И.О."));
+    NewTextChild(variablesNode, "doc_cap_annul_no", getLocaleText("№№ баг. бирок"));
+    NewTextChild(variablesNode, "doc_cap_annul_weight", getLocaleText("БГ вес"));
+    NewTextChild(variablesNode, "doc_cap_annul_bag_type", getLocaleText("Тип багажа/RFISC"));
+    NewTextChild(variablesNode, "doc_cap_annul_trfer", getLocaleText("Трфр"));
+    NewTextChild(variablesNode, "doc_cap_annul_trfer_dir", getLocaleText("До трфр"));
+
+    TAnnulBTStat AnnulBTStat;
+    RunAnnulBTStat(AnnulBTStat, rpt_params.point_id);
+
+    TCachedQuery paxQry("select reg_no, name, surname from pax where pax_id = :pax_id",
+            QParams() << QParam("pax_id", otInteger));
+
+    struct TPaxInfo {
+        int reg_no;
+        string surname;
+        string name;
+        TPaxInfo(): reg_no(NoExists) {}
+    };
+
+    map<int, TPaxInfo> pax_map;
+
+    for(list<TAnnulBTStatRow>::const_iterator i = AnnulBTStat.rows.begin(); i != AnnulBTStat.rows.end(); i++) {
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+
+        map<int, TPaxInfo>::iterator iPax = pax_map.find(i->pax_id);
+
+        if(iPax == pax_map.end()) {
+            TPaxInfo pax;
+            if(i->pax_id != NoExists) {
+                paxQry.get().SetVariable("pax_id", i->pax_id);
+                paxQry.get().Execute();
+                if(not paxQry.get().Eof) {
+                    pax.reg_no = paxQry.get().FieldAsInteger("reg_no");
+                    pax.name = paxQry.get().FieldAsString("name");
+                    pax.surname = paxQry.get().FieldAsString("surname");
+                }
+            }
+            pair<map<int, TPaxInfo>::iterator, bool> ret =
+                pax_map.insert(make_pair(i->pax_id, pax));
+            iPax = ret.first;
+        }
+
+        //  Рег№
+        if(iPax->second.reg_no == NoExists)
+            NewTextChild(rowNode, "reg_no");
+        else
+            NewTextChild(rowNode, "reg_no", iPax->second.reg_no);
+        //  пассажира ФИО
+        ostringstream buf;
+        if(iPax->second.reg_no != NoExists)
+            buf
+                << transliter(iPax->second.surname, 1, rpt_params.GetLang() != AstraLocale::LANG_RU) << " "
+                << transliter(iPax->second.name, 1, rpt_params.GetLang() != AstraLocale::LANG_RU);
+        NewTextChild(rowNode, "fio", buf.str());
+        //  номер бирки
+        NewTextChild(rowNode, "no", get_tag_range(i->tags, LANG_EN));
+        //  значение по весу
+        if (i->weight != NoExists)
+            NewTextChild(rowNode, "weight", i->weight);
+        else
+            NewTextChild(rowNode, "weight");
+
+        //  тип багажа
+        buf.str("");
+        if(not i->rfisc.empty())
+            buf << i->rfisc;
+        else if(i->bag_type != NoExists)
+            buf << ElemIdToNameLong(etBagType, i->bag_type);
+        NewTextChild(rowNode, "bag_type", buf.str());
+
+        if(i->trfer_airline.empty()) {
+            //  призн.трансфера
+            NewTextChild(rowNode, "pr_trfer", getLocaleText("НЕТ"));
+            //  направление трфр
+            NewTextChild(rowNode, "trfer_airp_arv");
+        } else {
+            NewTextChild(rowNode, "pr_trfer", getLocaleText("ДА"));
+            NewTextChild(rowNode, "trfer_airp_arv", rpt_params.ElemIdToReportElem(etAirp, i->trfer_airp_arv, efmtCodeNative));
+        }
+    }
+    //LogTrace(TRACE5) << GetXMLDocText(resNode->doc);
+}
+
 void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr node = reqNode->children;
@@ -4194,7 +2297,7 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     rpt_params.Init(node);
     switch(rpt_params.rpt_type) {
         case rtPTM:
-            PTM(rpt_params, reqNode, resNode);
+            REPORTS::PTM(rpt_params, reqNode, resNode);
             break;
         case rtPTMTXT:
             PTMBTMTXT(rpt_params, reqNode, resNode);
@@ -4340,51 +2443,6 @@ void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     TReqInfo::Instance()->LocaleToLog("EVT.UPDATE_REPORT", LEvntPrms() << PrmSmpl<std::string>("name", name), evtSystem);
 }
 
-vector<string> get_grp_zone_list(int point_id)
-{
-    vector<string> result;
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select distinct  "
-        "   rpt_grp  "
-        "from  "
-        "   points,  "
-        "   halls2  "
-        "where  "
-        "   points.point_id = :point_id and "
-        "   halls2.airp = points.airp "
-        "order by  "
-        "   rpt_grp ";
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.Execute();
-    for(; !Qry.Eof; Qry.Next())
-        result.push_back(Qry.FieldAsString("rpt_grp"));
-    if(result.size() == 1 and result[0].empty())
-        result[0] = ALL_CKIN_ZONES; // группа залов "все залы"
-    if(result.size() > 1 or result.empty())
-        result.insert(result.begin(), " ");
-    return result;
-}
-
-void DocsInterface::GetZoneList(int point_id, xmlNodePtr dataNode)
-{
-    vector<string> zone_list = get_grp_zone_list(point_id);
-    xmlNodePtr ckin_zonesNode = NewTextChild(dataNode, "ckin_zones");
-    for(vector<string>::iterator iv = zone_list.begin(); iv != zone_list.end(); iv++) {
-        xmlNodePtr itemNode = NewTextChild(ckin_zonesNode, "item");
-        if(iv->empty()) {
-            NewTextChild(itemNode, "code");
-            NewTextChild(itemNode, "name", getLocaleText("Др. залы"));
-        } else if(*iv == ALL_CKIN_ZONES) {
-            NewTextChild(itemNode, "code", *iv);
-            NewTextChild(itemNode, "name");
-        } else {
-            NewTextChild(itemNode, "code", *iv);
-            NewTextChild(itemNode, "name", *iv);
-        }
-    }
-}
-
 void DocsInterface::print_komplekt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr codesNode = NodeAsNode("codes", reqNode);
@@ -4445,8 +2503,8 @@ int testbm(int argc,char **argv)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
     reqInfo->Initialize("МОВ");
-    xmlDocPtr resDoc=xmlNewDoc(BAD_CAST "1.0");
-    xmlNodePtr rootNode=xmlNewDocNode(resDoc,NULL,BAD_CAST "query",NULL);
+    xmlDocPtr resDoc=xmlNewDoc("1.0");
+    xmlNodePtr rootNode=xmlNewDocNode(resDoc,NULL,"query",NULL);
     TRptParams rpt_params;
     rpt_params.point_id = 603906;
     rpt_params.ckin_zone = "area bis";
@@ -4457,43 +2515,3 @@ int testbm(int argc,char **argv)
     return 0;
 }
 
-void get_report_form(const string name, xmlNodePtr resNode)
-{
-    string form;
-    string version;
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select form, pr_locale from fr_forms2 where name = :name and version = :version ";
-    version = get_report_version(name);
-    Qry.CreateVariable("version", otString, version);
-    Qry.CreateVariable("name", otString, name);
-    Qry.Execute();
-    if(Qry.Eof) {
-        NewTextChild(resNode, "FormNotExists", name);
-        SetProp(NewTextChild(resNode, "form"), "name", name);
-        return;
-    }
-    // положим в ответ шаблон отчета
-    int len = Qry.GetSizeLongField("form");
-    shared_array<char> data (new char[len]);
-    Qry.FieldAsLong("form", data.get());
-    form.clear();
-    form.append(data.get(), len);
-
-    xmlNodePtr formNode = ReplaceTextChild(resNode, "form", form);
-    SetProp(formNode, "name", name);
-    SetProp(formNode, "version", version);
-    if (Qry.FieldAsInteger("pr_locale") != 0)
-        SetProp(formNode, "pr_locale");
-}
-
-void get_compatible_report_form(const string name, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    get_new_report_form(name, reqNode, resNode);
-}
-
-void get_new_report_form(const string name, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    if(GetNode("LoadForm", reqNode) == NULL)
-        return;
-    get_report_form(name, resNode);
-}
