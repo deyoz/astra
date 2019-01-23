@@ -1865,12 +1865,14 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
                 row.status != usDeleted and
                 row.status != usUnmodified
            ) {
-            string rfisc = cache.FieldValue("rfisc", row);
-            string rem_code = cache.FieldValue("rem_code", row);
-            if(rfisc.empty() and rem_code.empty())
-                throw AstraLocale::UserException("MSG.REM_TXT_SETS.RFISC_OR_REM_CODE.NOT_SET");
-            if(not rfisc.empty() and not rem_code.empty())
-                throw AstraLocale::UserException("MSG.REM_TXT_SETS.RFISC_AND_REM_CODE.SET");
+            int assigned = 0;
+            assigned += not cache.FieldValue("rfisc", row).empty();
+            assigned += not cache.FieldValue("brand_code", row).empty();
+            assigned += not cache.FieldValue("fqt_tier_level", row).empty();
+            if(not assigned)
+                throw AstraLocale::UserException("MSG.CANNOT_INSERT_NULL");
+            if(assigned > 1)
+                throw AstraLocale::UserException("MSG.MORE_THAN_ONE_CRITERION");
 
             int tag_index = ToInt(cache.FieldValue("tag_index", row));
             int text_length = ToInt(cache.FieldValue("text_length", row));
