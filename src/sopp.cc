@@ -24,7 +24,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #include "base_tables.h"
-#include "docs/common.h"
+#include "docs.h"
 #include "stat_utils.h"
 #include "salons.h"
 #include "seats.h"
@@ -4479,12 +4479,12 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         i!=points_check_diffcomp_alarm.end(); i++ ) {
     SALONS2::check_diffcomp_alarm(*i);
   }
-  if ( pr_update_tlg_comp_layers ) {
-    for( TSOPPDests::iterator i=dests.begin(); i!=dests.end(); i++ ) {    
-       update_tlg_comp_layers( ASTRA::NoExists, i->point_id );
-    }
-    points_tranzit_check_wait_alarm.clear(); // уже сделали
-  }
+//  if ( pr_update_tlg_comp_layers ) {
+//    for( TSOPPDests::iterator i=dests.begin(); i!=dests.end(); i++ ) {    
+//       update_tlg_comp_layers( ASTRA::NoExists, i->point_id );
+//    }
+//    points_tranzit_check_wait_alarm.clear(); // уже сделали
+//  }
   //тревога ЛО
   SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, __FUNCTION__ );
 

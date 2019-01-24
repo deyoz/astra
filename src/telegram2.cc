@@ -23,7 +23,7 @@
 #include "serverlib/xml_stuff.h" // для xml_decode_nodelist
 #include "serverlib/str_utils.h"
 #include <boost/regex.hpp>
-#include "docs/common.h"
+#include "docs.h"
 
 #define NICKNAME "DEN"
 #include "serverlib/slogger.h"

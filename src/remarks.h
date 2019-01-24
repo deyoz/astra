@@ -412,7 +412,6 @@ void PaxFQTToXML(const std::set<TPaxFQTItem> &fqts,
 };
 
 CheckIn::TPaxRemItem getAPPSRem(const int pax_id, const std::string &lang );
-void GetRemarks(int pax_id, const std::string &lang, std::multiset<CheckIn::TPaxRemItem> &rems);
 std::string GetRemarkStr(const TRemGrp &rem_grp, const std::multiset<CheckIn::TPaxRemItem> &rems, const std::string &term = " ");
 std::string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const std::string &lang, const std::string &term = " ");
 std::string GetCrsRemarkStr(const TRemGrp &rem_grp, int pax_id, const std::string &term = " ");

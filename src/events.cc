@@ -7,7 +7,7 @@
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
-#include "docs/common.h"
+#include "docs.h"
 #include "aodb.h"
 #include "stat.h"
 #include "sopp.h"

@@ -10,6 +10,7 @@
 #include "date_time.h"
 #include "qrys.h"
 #include "trip_tasks.h"
+#include "counters.h"
 
 const int NumSendAttempts = 5; // количество попыток до включения тревоги "Нет связи с APPS"
 const int MaxSendAttempts = 99; // максимальное количество попыток
@@ -22,7 +23,7 @@ const int APPS_VERSION_27 = 27;
 
 enum APPSAction { NoAction, NeedUpdate, NeedNew, NeedCancel };
 
-void processPax( const int pax_id, const std::string& override_type = "", const bool is_forced = false );
+void processPax( const int pax_id, Timing::Points& timing, const std::string& override_type = "", const bool is_forced = false );
 void APPSFlightCloseout( const int point_id );
 std::string getAnsText( const std::string& tlg );
 bool processReply( const std::string& source_raw );
@@ -238,12 +239,12 @@ class TPaxRequest
   TPaxData pax;
   TPaxAddData pax_add;
   int version = 0;
-  bool getByPaxId( const int pax_id, const std::string& override_type );
-  bool getByCrsPaxId( const int pax_id, const std::string& override_type );
+  bool getByPaxId( const int pax_id, Timing::Points& timing, const std::string& override_type );
+  bool getByCrsPaxId( const int pax_id, Timing::Points& timing, const std::string& override_type );
   void saveData() const;
 
 public:
-  void init( const int pax_id, const std::string& override_type = "" );
+  void init( const int pax_id, Timing::Points& timing, const std::string& override_type = "" );
   bool fromDBByPaxId( const int pax_id );
   bool fromDBByMsgId( const int msg_id );
   bool operator == (const TPaxRequest &c) const
@@ -261,7 +262,7 @@ public:
   APPSAction typeOfAction( const bool is_exists, const std::string& status,
                            const bool is_the_same, const bool is_forced ) const;
   std::string msg() const;
-  void sendReq() const;
+  void sendReq(Timing::Points& timing) const;
   std::string getStatus() const {
     return pax.status;
   }
