@@ -6,7 +6,7 @@
 #include "astra_utils.h"
 #include "report_common.h"
 #include "stat_utils.h"
-#include "docs/common.h"
+#include "docs.h"
 #include "cr_lf.h"
 
 #define NICKNAME "DENIS"

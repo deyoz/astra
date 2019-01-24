@@ -10,7 +10,7 @@
 #include "oralib.h"
 #include "stl_utils.h"
 #include "tripinfo.h"
-#include "docs/common.h"
+#include "docs.h"
 #include "stat_utils.h"
 #include "salons.h"
 #include "sopp.h"

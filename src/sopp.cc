@@ -24,7 +24,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #include "base_tables.h"
-#include "docs/common.h"
+#include "docs.h"
 #include "stat_utils.h"
 #include "salons.h"
 #include "seats.h"

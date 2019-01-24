@@ -8,7 +8,7 @@
 #include "astra_locale.h"
 #include "qrys.h"
 #include "passenger.h"
-#include "docs/common.h"
+#include "docs.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
