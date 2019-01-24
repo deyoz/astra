@@ -18,6 +18,9 @@ bool REPORTS::pax_compare(TPaxPtr pax1, TPaxPtr pax2)
     const TPMPax &pm_pax1 = dynamic_cast<const TPMPax &>(*pax1);
     const TPMPax &pm_pax2 = dynamic_cast<const TPMPax &>(*pax2);
 
+    if(pm_pax1.target != pm_pax2.target)
+        return pm_pax1.target < pm_pax2.target;
+
     if(pm_pax1.get_pax_list().rpt_params.pr_trfer) {
         if(pm_pax1.pr_trfer != pm_pax2.pr_trfer)
             return pm_pax1.pr_trfer < pm_pax2.pr_trfer;
