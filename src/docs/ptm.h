@@ -14,6 +14,7 @@ namespace REPORTS {
             TPaxList(_rpt_params.point_id),
             rpt_params(_rpt_params)
         {
+            options.lang = _rpt_params.GetLang();
             options.rem_event_type = retRPT_PM;
             options.mkt_flt = _rpt_params.mkt_flt;
             options.flags.setFlag(oeSeatNo);
