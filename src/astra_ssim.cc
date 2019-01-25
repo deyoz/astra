@@ -481,7 +481,7 @@ void DeleteScdPeriodsFromDb( const std::set<ssim::ScdPeriod> &scds )
 }
 
 // проверка на разницу между временем прилёта и вылета
-
+/*
 void CheckDepArrTimeEqual( const ssim::ScdPeriod &scd )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -523,6 +523,7 @@ void CheckDepArrTimeEqual( const ssim::ScdPeriod &scd )
     }
   }
 }
+*/
 
 // ПОЛОЖИТЬ В БД РАСПИСАНИЕ
 
@@ -592,21 +593,51 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
     curr.airp = ElemToElemId( etAirp, IdToCode(leg.s.from.get()), curr.airp_fmt );
     curr.craft = ElemToElemId( etCraft, IdToCode(leg.aircraftType.get()), curr.craft_fmt );
     curr.triptype = DefaultTripType(false);
-    int shift_day = leg.s.dep.hours() / 24; // сдвиг даты (время вида KJA1400/1)
-    EncodeTime( leg.s.dep.hours() % 24, leg.s.dep.minutes(), 0, curr.scd_out );
+
+    time_duration td_dep = leg.s.dep; // departure
+    // для первого пункта маршрута сдвиг даты не разрешён, но парсер позволяет отрицательный сдвиг - недоработка libssim
+    if (first_airp && td_dep < time_duration(0,0,0,0))
+      throw EXCEPTIONS::Exception("negative date shift in first point of route is not allowed");
+    // для SSM предусмотрен максимальный отрицательный сдвиг даты на 1 сутки назад (/M1), но парсер позволяет и больше - недоработка libssim
+    if (td_dep < time_duration(-24,0,0,0)) throw EXCEPTIONS::Exception("departure: maximum negative shift is 1 day");
+    bool dep_neg = td_dep < time_duration(0,0,0,0);
+    int shift_day = dep_neg ? -1 : td_dep.hours() / 24; // сдвиг даты (время вида KJA1400/1)
+    LogTrace(TRACE5) << "EncodeTime dep: hours=" << td_dep.hours() << " minutes=" << td_dep.minutes() << " shift_day=" << shift_day;
+    if (dep_neg)
+    {
+      td_dep = td_dep + time_duration(24,0,0,0);
+      LogTrace(TRACE5) << "EncodeTime dep_neg: hours=" << td_dep.hours() << " minutes=" << td_dep.minutes() << " shift_day=" << shift_day;
+    }
+    EncodeTime( td_dep.hours() % 24, td_dep.minutes(), 0, curr.scd_out );
     if (first_airp)
     {
       filter.filter_tz_region = AirpTZRegion(curr.airp);
       first_airp = false;
       SEASON::ConvertPeriod( p, curr.scd_out, filter.filter_tz_region ); //конывертация периода
     }
-    curr.scd_out = ConvertFlightDate(curr.scd_out, p.first, curr.airp, false, mtoUTC) + shift_day;
+    curr.scd_out = ConvertFlightDate(curr.scd_out, p.first, curr.airp, false, mtoUTC);
+    if (dep_neg) curr.scd_out = -curr.scd_out;
+    curr.scd_out += shift_day;
+    
     next.airp = ElemToElemId( etAirp, IdToCode(leg.s.to.get()), next.airp_fmt );
     next.craft = ElemToElemId( etCraft, IdToCode(leg.aircraftType.get()), next.craft_fmt );
     next.triptype = DefaultTripType(false);
-    shift_day = leg.s.arr.hours() / 24; // сдвиг даты
-    EncodeTime( leg.s.arr.hours() % 24, leg.s.arr.minutes(), 0, next.scd_in );
-    next.scd_in = ConvertFlightDate(next.scd_in, p.first, next.airp, true, mtoUTC) + shift_day;
+
+    time_duration td_arr = leg.s.arr; //arrival
+    if (td_arr < time_duration(-24,0,0,0)) throw EXCEPTIONS::Exception("arrival: maximum negative shift is 1 day");
+    bool arr_neg = td_arr < time_duration(0,0,0,0);
+    shift_day = arr_neg ? -1 : td_arr.hours() / 24;
+    LogTrace(TRACE5) << "EncodeTime arr: hours=" << td_arr.hours() << " minutes=" << td_arr.minutes() << " shift_day=" << shift_day;
+    if (arr_neg)
+    {
+      td_arr = td_arr + time_duration(24,0,0,0);
+      LogTrace(TRACE5) << "EncodeTime arr_neg: hours=" << td_arr.hours() << " minutes=" << td_arr.minutes() << " shift_day=" << shift_day;
+    }
+    EncodeTime( td_arr.hours() % 24, td_arr.minutes(), 0, next.scd_in );
+    next.scd_in = ConvertFlightDate(next.scd_in, p.first, next.airp, true, mtoUTC);
+    if (arr_neg) next.scd_in = -next.scd_in;
+    next.scd_in += shift_day;
+    
     curr.rbd_order = leg.subclOrder.rbdOrder().toString();
     for (auto &cfg : leg.subclOrder.config())
       if (cfg.second)
@@ -646,10 +677,14 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
   Qry.Execute();
   ssim::Route route;
   TDest dest1, dest2;
+  int dest1_delta_out = 0;
+  int dest2_delta_in = 0, dest2_delta_out = 0;
   string rbd_string;
   for (; !Qry.Eof; Qry.Next())
   {
     dest1 = dest2;
+    dest1_delta_out = dest2_delta_out;
+    
     dest2.num = Qry.FieldAsInteger( "num" );
     dest2.airp = Qry.FieldAsString( "airp" );
     dest2.airp_fmt = (TElemFmt)Qry.FieldAsInteger( "airp_fmt" );
@@ -657,9 +692,12 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
     if ( Qry.FieldIsNULL( "scd_in" ) )
       dest2.scd_in = ASTRA::NoExists;
     else
-    {
       dest2.scd_in = ConvertFlightDate(Qry.FieldAsDateTime("scd_in"), first, dest2.airp, true, mtoLocal);
-    }
+    
+    if (Qry.FieldIsNULL("delta_in"))
+      dest2_delta_in = 0;
+    else
+      dest2_delta_in = Qry.FieldAsInteger("delta_in");
 
     dest2.craft = Qry.FieldAsString( "craft" );
     dest2.craft_fmt = (TElemFmt)Qry.FieldAsInteger( "craft_fmt" );
@@ -667,10 +705,13 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
     if ( Qry.FieldIsNULL( "scd_out" ) )
       dest2.scd_out = ASTRA::NoExists;
     else
-    {
       dest2.scd_out = ConvertFlightDate(Qry.FieldAsDateTime("scd_out"), first, dest2.airp, false, mtoLocal);
-    }
-
+    
+    if (Qry.FieldIsNULL("delta_out"))
+      dest2_delta_out = 0;
+    else
+      dest2_delta_out = Qry.FieldAsInteger("delta_out");
+    
     if ( dest1.num == ASTRA::NoExists )
     {
       rbd_string = Qry.FieldAsString("rbd_order") + string(".") +
@@ -680,16 +721,23 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
       continue;
     }
     //leg
+    if (dest1.scd_out == ASTRA::NoExists) throw EXCEPTIONS::Exception("dest1.scd_out == ASTRA::NoExists");
+    if (dest2.scd_in == ASTRA::NoExists) throw EXCEPTIONS::Exception("dest2.scd_in == ASTRA::NoExists");
+    double days_o, days_i;
+    modf(dest1.scd_out, &days_o);
+    modf(dest2.scd_in, &days_i);
     int hours_o, mins_o, secs_o;
     int hours_i, mins_i, secs_i;
     DecodeTime( dest1.scd_out, hours_o, mins_o, secs_o );
     DecodeTime( dest2.scd_in, hours_i, mins_i, secs_i );
-    if (!Qry.FieldIsNULL("delta_out")) hours_o += Qry.FieldAsInteger("delta_out")*24;
-    if (!Qry.FieldIsNULL("delta_in")) hours_i += Qry.FieldAsInteger("delta_in")*24;
+    time_duration td_out( hours_o, mins_o, secs_o );
+    time_duration td_in( hours_i, mins_i, secs_i );
+    td_out = td_out + hours(24 * (static_cast<int>(days_o) + dest1_delta_out));
+    td_in = td_in + hours(24 * (static_cast<int>(days_i) + dest2_delta_in));
     ssim::Section section(nsi::PointId(CodeToId(ElemIdToClientElem( etAirp, dest1.airp, dest1.airp_fmt ))), //out
                           nsi::PointId(CodeToId(ElemIdToClientElem( etAirp, dest2.airp, dest2.airp_fmt ))), //in
-                          time_duration( hours_o, mins_o, secs_o ),
-                          time_duration( hours_i, mins_i, secs_i ));
+                          td_out,
+                          td_in);
     boost::optional<ct::RbdLayout> rbd = ct::RbdLayout::fromString(rbd_string);
     if (not rbd) throw EXCEPTIONS::Exception("Cannot make RBD from string '%s'", rbd_string.c_str());
     ssim::Leg leg(section,
