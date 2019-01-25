@@ -196,7 +196,7 @@ namespace REPORTS {
         int point_id;
         TUnboundCBBGList unbound_cbbg_list; // список непривязанных CBBG для point_id
 
-        boost::optional<std::vector<TTlgCompLayer>> complayers;
+        boost::optional<TTlgCompLayerList> complayers;
         boost::optional<TRemGrp> rem_grp;
 
         void clear();

@@ -356,7 +356,7 @@ void getSalonLayers( int point_id,
                      int point_num,
                      int first_point,
                      bool pr_tranzit,
-                     vector<TTlgCompLayer> &complayers,
+                     TTlgCompLayerList &complayers,
                      bool pr_blocked )
 {
   complayers.clear();
@@ -366,6 +366,7 @@ void getSalonLayers( int point_id,
   SALONS2::TGetPassFlags flags;
   TSectionInfo sectionInfo;
   salonList.getSectionInfo( sectionInfo, flags );
+  complayers.pr_craft_lat = salonList.isCraftLat();
   std::vector<std::pair<TSeatLayer,TPassSeats> > layersSeats;
   TTlgCompLayer comp_layer;
   int next_point_arv = ASTRA::NoExists;
@@ -421,7 +422,7 @@ void getSalonLayers( int point_id,
 }
 
 void getSalonLayers(const TypeB::TDetailCreateInfo &info,
-                    vector<TTlgCompLayer> &complayers,
+                    TTlgCompLayerList &complayers,
                     bool pr_blocked)
 {
   getSalonLayers(info.point_id,
@@ -3544,7 +3545,7 @@ void TPSM::get(TypeB::TDetailCreateInfo &info)
 {
     cfg.get(info.point_id);
     if(cfg.empty()) cfg.get(NoExists);
-    vector<TTlgCompLayer> complayers;
+    TTlgCompLayerList complayers;
     if(not isFreeSeating(info.point_id) and not isEmptySalons(info.point_id))
         getSalonLayers( info, complayers, false );
     TQuery Qry(&OraSession);
@@ -3616,7 +3617,7 @@ void TPIL::get(TypeB::TDetailCreateInfo &info)
 {
     cfg.get(info.point_id);
     if(cfg.empty()) cfg.get(NoExists);
-    vector<TTlgCompLayer> complayers;
+    TTlgCompLayerList complayers;
     if(isFreeSeating(info.point_id))
         throw UserException("MSG.SALONS.FREE_SEATING");
     if(isEmptySalons(info.point_id))
@@ -4387,7 +4388,7 @@ void TTlgSeatList::dump_comp() const
 void TTlgSeatList::apply_comp(TypeB::TDetailCreateInfo &info, bool pr_blocked = false)
 {
 
-  vector<TTlgCompLayer> complayers;
+  TTlgCompLayerList complayers;
   getSalonLayers( info, complayers, pr_blocked );
   for ( vector<TTlgCompLayer>::iterator il=complayers.begin(); il!=complayers.end(); il++ ) {
     add_seat( il->point_arv, il->xname, il->yname );
@@ -8178,7 +8179,7 @@ int IDM(TypeB::TDetailCreateInfo &info)
 
     vector<string> body;
     try {
-        vector<TTlgCompLayer> complayers;
+        TTlgCompLayerList complayers;
         if(not isFreeSeating(info.point_id) and not isEmptySalons(info.point_id))
             getSalonLayers( info, complayers, false );
         TIDM idm(info, complayers);
@@ -9372,7 +9373,7 @@ int PRL(TypeB::TDetailCreateInfo &info)
         TRBD rbd;
         rbd.get(info);
         rbd.ToTlg(info, body);
-        vector<TTlgCompLayer> complayers;
+        TTlgCompLayerList complayers;
         if(not isFreeSeating(info.point_id) and not isEmptySalons(info.point_id))
             getSalonLayers( info, complayers, false );
         TDestList<TPRLDest> dests;
