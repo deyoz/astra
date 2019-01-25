@@ -19,7 +19,7 @@
 #include "print.h"
 #include "checkin.h"
 #include "events.h"
-#include "docs.h"
+#include "docs/main.h"
 #include "access.h"
 #include "telegram.h"
 #include "astra_service.h"

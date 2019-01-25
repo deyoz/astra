@@ -33,12 +33,21 @@ struct TTlgCompLayer {
     }
 };
 
+struct TTlgCompLayerList: public std::vector<TTlgCompLayer> {
+    bool pr_craft_lat;
+    void clear() {
+        std::vector<TTlgCompLayer>::clear();
+        pr_craft_lat = false;
+    }
+    TTlgCompLayerList() { clear(); }
+};
+
 
 void getSalonLayers( int point_id,
                      int point_num,
                      int first_point,
                      bool pr_tranzit,
-                     std::vector<TTlgCompLayer> &complayers,
+                     TTlgCompLayerList &complayers,
                      bool pr_blocked );
 struct TTlgStatPoint
 {

@@ -16,11 +16,10 @@
 #include "emdoc.h"
 #include "sopp.h"
 #include "date_time.h"
-#include "counters.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
-#include <serverlib/slogger.h>
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace ASTRA;
@@ -709,8 +708,6 @@ bool check_apps_alarm( int point_id )
 
 bool calc_apps_alarm( int point_id )
 {
-  LogTrace(TRACE5) << __FUNCTION__ << " started";
-   
   TQuery PaxQry(&OraSession);
   PaxQry.Clear();
   PaxQry.SQLText=
@@ -740,7 +737,7 @@ bool calc_apps_alarm( int point_id )
   CrsPaxQry.CreateVariable("apps_negative", otString, AlarmTypes().encode(Alarm::APPSNegativeDirective));
 
   CrsPaxQry.Execute();
-  
+
   return (!PaxQry.Eof || !CrsPaxQry.Eof);
 }
 

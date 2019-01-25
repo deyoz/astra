@@ -11,7 +11,7 @@
 #include "season.h" //???
 #include "telegram.h"
 #include "base_tables.h"
-#include "docs.h"
+#include "docs/common.h"
 #include "stat.h"
 #include "salons.h"
 #include "seats.h"

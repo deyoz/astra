@@ -262,7 +262,7 @@ string GetRemarkMSGText(int pax_id, const string &rem_msg)
    return res;
 }
 
-string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const string &lang, const string &term)
+void GetRemarks(int pax_id, const string &lang, std::multiset<CheckIn::TPaxRemItem> &rems)
 {
     const char *sql =
         "SELECT TRIM(ticket_rem) AS rem_code, NULL AS rem FROM pax "
@@ -286,12 +286,17 @@ string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const string &lang, cons
     QryParams << QParam("pax_id", otInteger, pax_id);
     TCachedQuery Qry(sql, QryParams);
     Qry.get().Execute();
-    multiset<CheckIn::TPaxRemItem> rems;
     for(;!Qry.get().Eof;Qry.get().Next())
       rems.insert(CheckIn::TPaxRemItem().fromDB(Qry.get()));
     CheckIn::TPaxRemItem apps_satus_rem = getAPPSRem( pax_id, lang );
     if ( !apps_satus_rem.empty() )
      rems.insert( apps_satus_rem );
+}
+
+string GetRemarkStr(const TRemGrp &rem_grp, int pax_id, const string &lang, const string &term)
+{
+    multiset<CheckIn::TPaxRemItem> rems;
+    GetRemarks(pax_id, lang, rems);
     return GetRemarkStr(rem_grp, rems, term);
 };
 

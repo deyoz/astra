@@ -2,7 +2,7 @@
 
 #include "telegram.h"
 #include "maindcs.h"
-#include "docs.h"
+#include "docs/main.h"
 #include "load_fr.h"
 #include "apis.h"
 #include "salons.h"

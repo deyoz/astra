@@ -19,7 +19,9 @@
 #include "aodb.h"
 #include "salons.h"
 #include "seats.h"
-#include "docs.h"
+#include "docs/common.h"
+#include "dev_utils.h"
+#include "checkin_utils.h"
 #include "stat_utils.h"
 #include "etick.h"
 #include "events.h"
@@ -5389,8 +5391,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
                 if ( need_apps ) {
                   // Для новых пассадиров ремарки APPS не проверяем
-                  Timing::Points apps_timing("Timing::need_apps_1");
-                  processPax( pax_id, apps_timing );
+                  processPax( pax_id );
                 }
 
                 // Запись в pax_events
@@ -5659,8 +5660,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 string override;
                 bool is_forced = false;
                 HandleAPPSRems(p->rems, override, is_forced);
-                Timing::Points apps_timing("Timing::need_apps_2");
-                processPax( pax.id, apps_timing, override, is_forced );
+                processPax( pax.id, override, is_forced );
               }
             }
             catch(CheckIn::UserException)

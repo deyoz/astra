@@ -1,4 +1,5 @@
-#include "docs.h"
+#include "main.h"
+#include "common.h"
 #include "xml_unit.h"
 #include "oralib.h"
 #include "exceptions.h"

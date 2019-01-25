@@ -10,7 +10,7 @@
 #include "iatci.h"
 #include "misc.h"
 #include "stages.h"
-#include "docs.h"
+#include "docs/common.h"
 #include "base_tables.h"
 #include "stl_utils.h"
 #include "payment.h"
