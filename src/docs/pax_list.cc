@@ -169,7 +169,9 @@ void TPax::fromDB(TQuery &Qry)
 
     if(pax_list.complayers) {
         seat_list.add_seats(simple.paxId(), pax_list.complayers.get());
-        simple.seat_no = (simple.is_jmp ? "JMP" : seat_list.get_seat_one(pax_list.options.lang != AstraLocale::LANG_RU));
+        simple.seat_no = (simple.is_jmp ? "JMP" : seat_list.get_seat_one(
+                    pax_list.complayers.get().pr_craft_lat or
+                    pax_list.options.lang != AstraLocale::LANG_RU));
         ostringstream s;
         s << setw(4) << right << simple.seat_no;
         _seat_no = s.str();

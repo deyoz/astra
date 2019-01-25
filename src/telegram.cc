@@ -1617,7 +1617,7 @@ void LoadContent(int grp_id, TTlgContent& con)
 
   if (!pr_unaccomp)
   {
-    vector<TTlgCompLayer> complayers;
+    TTlgCompLayerList complayers;
     if(not SALONS2::isFreeSeating(point_id) and not SALONS2::isEmptySalons(point_id)) {
       getSalonLayers( point_id, point_num, first_point, pr_tranzit, complayers, false );
     }
