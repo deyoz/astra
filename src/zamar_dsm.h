@@ -40,7 +40,7 @@ class PassengerSearchResult
   // flightStatus
   TStage flightCheckinStage = sNoActive;
   // pnr
-  TPnrAddrs pnr;
+  TPnrAddrs pnrs;
   // baggageTags
   std::multimap<TBagTagNumber, CheckIn::TBagItem> bagTagsExtended;
   

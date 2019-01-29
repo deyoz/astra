@@ -51,14 +51,16 @@ PassengerSearchResult& PassengerSearchResult::fromXML(xmlNodePtr reqNode)
   // flightStatus
   flightCheckinStage = TTripStages(point_id).getStage( stCheckIn );    
   // pnr
-  pnr.getByPaxIdFast(pax_id);
+  pnrs.getByPaxIdFast(pax_id);
   // baggageTags
   GetTagsByPool(grp_id, pax_item.bag_pool_num, bagTagsExtended, false);
   
   return *this;
 }
 
-static void ToZamarXML(xmlNodePtr resNode, const std::multimap<TBagTagNumber, CheckIn::TBagItem>& tags_ext)
+//-----------------------------------------------------------------------------------
+
+static void BagTagsToZamarXML(xmlNodePtr resNode, const std::multimap<TBagTagNumber, CheckIn::TBagItem>& tags_ext)
 {
   if (resNode == nullptr) return;
   xmlNodePtr tagsNode = NewTextChild(resNode, "baggageTags");
@@ -70,6 +72,60 @@ static void ToZamarXML(xmlNodePtr resNode, const std::multimap<TBagTagNumber, Ch
     SetProp(tagNode, "unit", "KG");
   }
 }
+
+static void PnrToZamarXML(xmlNodePtr resNode, const TPnrAddrs& pnrs, const boost::optional<AstraLocale::OutputLang>& lang)
+{
+  if (resNode == nullptr) return;
+  xmlNodePtr addrsNode = NewTextChild(resNode, "pnrAddrs");
+  for (const TPnrAddrInfo& pnr : pnrs)
+  {
+    xmlNodePtr pnrNode = NewTextChild(addrsNode, "pnr", lang ? convert_pnr_addr(pnr.addr, lang->isLatin()) : pnr.addr);
+    SetProp(pnrNode, "airline", lang ? airlineToPrefferedCode(pnr.airline, lang.get()) : pnr.airline);
+  }  
+}
+
+static void DocToZamarXML(xmlNodePtr resNode, const CheckIn::TPaxDocItem& doc, const boost::optional<AstraLocale::OutputLang>& lang)
+{
+  if (resNode == nullptr) return;
+  xmlNodePtr docNode = NewTextChild(resNode, "document");
+  NewTextChild(docNode, "type", lang ? ElemIdToPrefferedElem(etPaxDocType, doc.type, efmtCodeNative, lang->get()) : doc.type);
+  NewTextChild(docNode, "issueCountry", CheckIn::paxDocCountryToWebXML(doc.issue_country, lang));
+  NewTextChild(docNode, "no", doc.no);
+  NewTextChild(docNode, "nationality", CheckIn::paxDocCountryToWebXML(doc.nationality, lang));
+  if (doc.birth_date != ASTRA::NoExists)
+    NewTextChild(docNode, "birthDate", DateTimeToStr(doc.birth_date, "yyyy-mm-dd"));
+  else
+    NewTextChild(docNode, "birthDate");
+  NewTextChild(docNode, "gender", lang ? ElemIdToPrefferedElem(etGenderType, doc.gender, efmtCodeNative, lang->get()) : doc.gender);
+  if (doc.expiry_date != ASTRA::NoExists)
+    NewTextChild(docNode, "expiryDate", DateTimeToStr(doc.expiry_date, "yyyy-mm-dd"));
+  else
+    NewTextChild(docNode, "expiryDate");
+  NewTextChild(docNode, "surname", doc.surname);
+  NewTextChild(docNode, "firstName", doc.first_name);
+  NewTextChild(docNode, "secondName", doc.second_name);
+}
+
+static void DocoToZamarXML(xmlNodePtr resNode, const CheckIn::TPaxDocoItem& doco, const boost::optional<AstraLocale::OutputLang>& lang)
+{
+  if (resNode == nullptr) return;
+  xmlNodePtr docNode = NewTextChild(resNode, "doco");
+  NewTextChild(docNode, "birthPlace", doco.birth_place);
+  NewTextChild(docNode, "type", lang ? ElemIdToPrefferedElem(etPaxDocType, doco.type, efmtCodeNative, lang->get()) : doco.type);
+  NewTextChild(docNode, "no", doco.no);
+  NewTextChild(docNode, "issuePlace", doco.issue_place);
+  if (doco.issue_date != ASTRA::NoExists)
+    NewTextChild(docNode, "issueDate", DateTimeToStr(doco.issue_date, "yyyy-mm-dd"));
+  else
+    NewTextChild(docNode, "issueDate");
+  if (doco.expiry_date != ASTRA::NoExists)
+    NewTextChild(docNode, "expiryDate", DateTimeToStr(doco.expiry_date, "yyyy-mm-dd"));
+  else
+    NewTextChild(docNode, "expiryDate");
+  NewTextChild(docNode, "applicCountry", CheckIn::paxDocCountryToWebXML(doco.applic_country, lang));
+}
+
+//-----------------------------------------------------------------------------------
 
 const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) const
 {
@@ -83,7 +139,7 @@ const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) co
   // airline
   NewTextChild(resNode, "airline", airlineToPrefferedCode(trip_info.airline, lang));
   // flightCode
-  NewTextChild(resNode, "flightCode", trip_info.flight_number());
+  NewTextChild(resNode, "flightCode", trip_info.flight_number(lang));
   // flightStatus
   NewTextChild(resNode, "flightStatus", EncodeStage(flightCheckinStage));
   // flightSTD
@@ -96,49 +152,48 @@ const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) co
   // gate
   vector<string> gates;
   TripsInterface::readGates(point_id, gates);
-  ostringstream ss_gates;
-  string separator_gates;
+  xmlNodePtr gatesNode = NewTextChild(resNode, "gates");
   for (const auto& gate : gates)
   {
-    ss_gates << separator_gates << gate;
-    separator_gates = " ";
+    NewTextChild(gatesNode, "gate", gate);
   }
-  NewTextChild(resNode, "gate", ss_gates.str());
   // codeshare
-  ostringstream ss_mkt;
-  ss_mkt << airlineToPrefferedCode(mkt_flt.airline, lang)
-         << "/"
-         << mkt_flt.flight_number(lang);
-  NewTextChild(resNode, "codeshare", ss_mkt.str());
+  xmlNodePtr codeshareNode = NewTextChild(resNode, "codeshare");
+  xmlNodePtr flightNode = NewTextChild(codeshareNode, "flight");
+  SetProp(flightNode, "airline", airlineToPrefferedCode(mkt_flt.airline, lang));
+  SetProp(flightNode, "code", mkt_flt.flight_number(lang));
   // allowBoarding
   NewTextChild(resNode, "allowBoarding", pax_item.allowToBoarding()? 1: 0);
-  // passengerId
-  NewTextChild(resNode, "passengerId", bppax.pax_id);
+  // paxId
+  NewTextChild(resNode, "paxId", bppax.pax_id);
   // sequence
   NewTextChild(resNode, "sequence", pax_item.reg_no);
+  // lastName
+  NewTextChild(resNode, "lastName", pax_item.surname);
+  // firstName
+  NewTextChild(resNode, "firstName", pax_item.name);
   // document
   if (doc_exists)
-    doc.toWebXML(resNode, lang);
+    DocToZamarXML(resNode, doc, lang);
   else
     NewTextChild(resNode, "document");
   // doco
   if (doco_exists)
-    doco.toWebXML(resNode, lang);
+    DocoToZamarXML(resNode, doco, lang);
   else
     NewTextChild(resNode, "doco");
   // group
   NewTextChild(resNode, "group", "");
   // pnr
-  pnr.toXML(resNode, lang);
+  PnrToZamarXML(resNode, pnrs, lang);
   // ticket
   NewTextChild(resNode, "ticket", pax_item.tkn.no_str());
   // paxCategory
-  NewTextChild(resNode, "paxCategory",
-      ElemIdToPrefferedElem(etPersType, EncodePerson(pax_item.pers_type), efmtCodeNative, lang.get()));
+  NewTextChild(resNode, "paxCategory", ElemIdToPrefferedElem(etPersType, EncodePerson(pax_item.pers_type), efmtCodeNative, lang.get()));
   // status
   NewTextChild(resNode, "status", pax_item.checkInStatus());
   // baggageTags
-  ToZamarXML(resNode, bagTagsExtended);
+  BagTagsToZamarXML(resNode, bagTagsExtended);
   
   return *this;
 }
@@ -151,7 +206,6 @@ void PassengerSearchResult::errorXML(xmlNodePtr resNode, const std::string& msg 
 
 void ZamarDSMInterface::PassengerSearch(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 { 
-//  NewTextChild( resNode, "sessionId", string(NodeAsString( "sessionId", reqNode, "empty sessionid" )) + ", Hello world!!!" );
   PassengerSearchResult result;
   try
   {

@@ -911,6 +911,8 @@ void GetTCkinTicketsAfter(int pax_id, std::map<int, TCkinPaxTknItem> &tkns);
 
 std::string isFemaleStr( int is_female );
 
+std::string paxDocCountryToWebXML(const std::string &code, const boost::optional<AstraLocale::OutputLang>& lang);
+
 } //namespace CheckIn
 
 namespace Sirena

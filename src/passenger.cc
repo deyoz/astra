@@ -254,10 +254,10 @@ const TPaxDocCompoundType& TPaxDocCompoundType::toXML(xmlNodePtr node) const
   return *this;
 }
 
-string paxDocCountryToWebXML(const std::string &code,
-                             const boost::optional<AstraLocale::OutputLang>& lang)
+std::string paxDocCountryToWebXML(const std::string &code,
+                                  const boost::optional<AstraLocale::OutputLang>& lang)
 {
-  string result;
+  std::string result;
   if (!code.empty())
   {
     try
