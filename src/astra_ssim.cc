@@ -613,12 +613,15 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
     {
       filter.filter_tz_region = AirpTZRegion(curr.airp);
       first_airp = false;
-      SEASON::ConvertPeriod( p, curr.scd_out, filter.filter_tz_region ); //конывертация периода
+      p.delta = SEASON::ConvertPeriod( p, curr.scd_out, filter.filter_tz_region ); //конывертация периода
+      if ( p.delta  ) {
+        LogTrace(TRACE5) << "shift to prior day";
+      }
     }
     curr.scd_out = ConvertFlightDate(curr.scd_out, p.first, curr.airp, false, mtoUTC);
     if (dep_neg) curr.scd_out = -curr.scd_out;
     curr.scd_out += shift_day;
-    
+
     next.airp = ElemToElemId( etAirp, IdToCode(leg.s.to.get()), next.airp_fmt );
     next.craft = ElemToElemId( etCraft, IdToCode(leg.aircraftType.get()), next.craft_fmt );
     next.triptype = DefaultTripType(false);
@@ -637,7 +640,7 @@ void ScdPeriodToDb( const ssim::ScdPeriod &scd )
     next.scd_in = ConvertFlightDate(next.scd_in, p.first, next.airp, true, mtoUTC);
     if (arr_neg) next.scd_in = -next.scd_in;
     next.scd_in += shift_day;
-    
+
     curr.rbd_order = leg.subclOrder.rbdOrder().toString();
     for (auto &cfg : leg.subclOrder.config())
       if (cfg.second)
@@ -684,7 +687,7 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
   {
     dest1 = dest2;
     dest1_delta_out = dest2_delta_out;
-    
+
     dest2.num = Qry.FieldAsInteger( "num" );
     dest2.airp = Qry.FieldAsString( "airp" );
     dest2.airp_fmt = (TElemFmt)Qry.FieldAsInteger( "airp_fmt" );
@@ -693,7 +696,7 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
       dest2.scd_in = ASTRA::NoExists;
     else
       dest2.scd_in = ConvertFlightDate(Qry.FieldAsDateTime("scd_in"), first, dest2.airp, true, mtoLocal);
-    
+
     if (Qry.FieldIsNULL("delta_in"))
       dest2_delta_in = 0;
     else
@@ -706,12 +709,12 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
       dest2.scd_out = ASTRA::NoExists;
     else
       dest2.scd_out = ConvertFlightDate(Qry.FieldAsDateTime("scd_out"), first, dest2.airp, false, mtoLocal);
-    
+
     if (Qry.FieldIsNULL("delta_out"))
       dest2_delta_out = 0;
     else
       dest2_delta_out = Qry.FieldAsInteger("delta_out");
-    
+
     if ( dest1.num == ASTRA::NoExists )
     {
       rbd_string = Qry.FieldAsString("rbd_order") + string(".") +
