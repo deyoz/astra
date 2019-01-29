@@ -245,11 +245,12 @@ void TAvailabilityResItem::remove_unnecessary()
   for(TRFISCList::iterator i=rfisc_list.begin(); i!=rfisc_list.end();)
   {
     const TRFISCListItem &item=i->second;
-    if (item.carry_on())
+    if (item.isBaggageOrCarryOn())
     {
+      bool carryOn=item.isCarryOn();
       //багаж или р/кладь
-      if ((!item.carry_on().get() && baggage_norm.airline!=item.airline) ||
-          (item.carry_on().get() && carry_on_norm.airline!=item.airline))
+      if ((!carryOn && baggage_norm.airline!=item.airline) ||
+          (carryOn && carry_on_norm.airline!=item.airline))
       {
         i=Erase<TRFISCList>(rfisc_list, i);
         continue;
@@ -321,15 +322,15 @@ void TAvailabilityRes::rfiscsToDB(const TCkinGrpIds &tckin_grp_ids, TBagConcept:
       TServiceCategory::Enum cat;
       switch(pass)
       {
-        case 1: cat=TServiceCategory::Baggage; break;
-        case 2: cat=TServiceCategory::CarryOn; break;
+        case 1: cat=TServiceCategory::BaggageInHold; break;
+        case 2: cat=TServiceCategory::BaggageInCabinOrCarryOn; break;
         default: cat=TServiceCategory::Other; break;
       };
 
-      if (old_version && cat==TServiceCategory::CarryOn) continue;//!!! потом удалить
+      if (old_version && cat==TServiceCategory::BaggageInCabinOrCarryOn) continue;//!!! потом удалить
 
-      if (cat==TServiceCategory::Baggage ||
-          cat==TServiceCategory::CarryOn)
+      if (cat==TServiceCategory::BaggageInHold ||
+          cat==TServiceCategory::BaggageInCabinOrCarryOn)
       {
         if (bag_concept==TBagConcept::Weight ||
             bag_concept==TBagConcept::Unknown) continue;
@@ -361,11 +362,11 @@ void TAvailabilityRes::rfiscsToDB(const TCkinGrpIds &tckin_grp_ids, TBagConcept:
       serviceItem.list_id=i->second.rfisc_list.toDBAdv();
       serviceItem.category=cat;
       serviceLists.insert(serviceItem);
-      if (old_version && cat==TServiceCategory::Baggage)
+      if (old_version && cat==TServiceCategory::BaggageInHold)
       {
         //!!! потом удалить
         //специально сделано чтобы при разных концептах багажа и ручной клади применялся багажный
-        serviceItem.category=TServiceCategory::CarryOn;
+        serviceItem.category=TServiceCategory::BaggageInCabinOrCarryOn;
         serviceLists.insert(serviceItem);
       }
     };
@@ -999,7 +1000,8 @@ void TAvailabilityReq::bagTypesToDB(const TCkinGrpIds &tckin_grp_ids, bool copy_
       serviceItem.trfer_num=s->second.id;
       for(int pass=0; pass<2; pass++)
       {
-        serviceItem.category=(pass==0?TServiceCategory::Baggage:TServiceCategory::CarryOn);
+        serviceItem.category=(pass==0?TServiceCategory::BaggageInHold:
+                                      TServiceCategory::BaggageInCabinOrCarryOn);
         if (paxServiceLists.find(serviceItem)==paxServiceLists.end())
         {
           if (serviceItem.list_id==ASTRA::NoExists)
@@ -1042,7 +1044,8 @@ void unaccBagTypesToDB(int grp_id, bool ignore_unaccomp_sets) //!!! потом удалит
   for(int pass=0; pass<2; pass++)
   {
     serviceItem.trfer_num=0;
-    serviceItem.category=(pass==0?TServiceCategory::Baggage:TServiceCategory::CarryOn);
+    serviceItem.category=(pass==0?TServiceCategory::BaggageInHold:
+                                  TServiceCategory::BaggageInCabinOrCarryOn);
     if (serviceItem.list_id==ASTRA::NoExists)
     {
       TBagTypeList list;

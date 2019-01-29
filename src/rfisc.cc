@@ -36,21 +36,40 @@ std::ostream & operator <<(std::ostream &os, TServiceType::Enum const &value)
   return os;
 }
 
-boost::optional<bool> TRFISCListItem::carry_on() const
+
+bool TRFISCListItem::isCarryOn() const
 {
   if (service_type==TServiceType::BaggageCharge ||
       service_type==TServiceType::BaggagePrepaid)
   {
-    return (grp=="BG"/*(Багаж)*/&& subgrp=="CY"/*Ручная кладь*/) ||
-           (grp=="PT"/*(Животные)*/&& subgrp=="PC"/*(В кабине)*/);
+    if (grp=="BG"/*(Багаж)*/&& subgrp=="CY"/*Ручная кладь*/) return true;
   }
-  return boost::none;
+  return false;
+}
+
+bool TRFISCListItem::isBaggageOrCarryOn() const
+{
+  return service_type==TServiceType::BaggageCharge ||
+         service_type==TServiceType::BaggagePrepaid;
 }
 
 TServiceCategory::Enum TRFISCListItem::calc_category() const
 {
-  boost::optional<bool> carry_on_tmp=carry_on();
-  return carry_on_tmp?(carry_on_tmp.get()?TServiceCategory::CarryOn:TServiceCategory::Baggage):TServiceCategory::Other;
+  if (service_type==TServiceType::BaggageCharge ||
+      service_type==TServiceType::BaggagePrepaid)
+  {
+    if ((grp=="BG"/*(Багаж)*/&& subgrp=="CY"/*Ручная кладь*/) ||
+        (grp=="PT"/*(Животные)*/&& subgrp=="PC"/*(В кабине)*/))
+      return TServiceCategory::BaggageInCabinOrCarryOn;
+    else
+      return TServiceCategory::BaggageInHold;
+  }
+  return TServiceCategory::Other;
+}
+
+bool TRFISCListItem::isBaggageInCabinOrCarryOn() const
+{
+  return calc_category()==TServiceCategory::BaggageInCabinOrCarryOn;
 }
 
 const std::string& TRFISCListItem::name_view(const std::string &lang) const
@@ -319,7 +338,7 @@ bool TRFISCKey::isBaggageOrCarryOn(const std::string &where) const
   if (!list_item)
     throw Exception("%s: item.list_item=boost::none! (%s)", where.c_str(), traceStr().c_str());
 
-  return (bool)list_item.get().carry_on();
+  return list_item.get().isBaggageOrCarryOn();
 }
 
 void TRFISCKey::getListKey(GetItemWay way, int id, int transfer_num, int bag_pool_num,
@@ -526,7 +545,6 @@ void TRFISCKey::getListItem(GetItemWay way, int id, int transfer_num, int bag_po
   }
 
   if (list_id==ASTRA::NoExists)
-  try
   {
     ProgTrace(TRACE5, "\n%s", Qry.get().SQLText.SQLText());
     throw EConvertError("%s: %s: list_id not found (way=%d, id=%d, transfer_num=%d, bag_pool_num=%s, category=%s, %s)",
@@ -538,18 +556,7 @@ void TRFISCKey::getListItem(GetItemWay way, int id, int transfer_num, int bag_po
                         bag_pool_num==ASTRA::NoExists?"NoExists":IntToString(bag_pool_num).c_str(),
                         category?ServiceCategories().encode(category.get()).c_str():"",
                         traceStr().c_str());
-  }
-  catch(EConvertError &e) //потом убрать
-  {
-    if (where=="TPaidRFISCList")
-    {
-      LogError(STDLOG) << "Warning: " << e.what();
-      throw UserException("MSG.CHECKIN.UNKNOWN_PAYMENT_STATUS_FOR_BAG_TYPE_ON_SEGMENT",
-                          LParams() << LParam("flight", IntToString(transfer_num+1))
-                                    << LParam("bag_type", str()));
-    }
-    throw;
-  }
+  };
 }
 
 void TRFISCKey::getListItemIfNone()
@@ -804,10 +811,13 @@ bool TRFISCList::exists(const TServiceType::Enum service_type) const
   return false;
 }
 
-bool TRFISCList::exists(const boost::optional<bool>& carry_on) const
+bool TRFISCList::exists(const bool carryOn) const
 {
   for(TRFISCList::const_iterator i=begin(); i!=end(); ++i)
-    if (i->second.carry_on()==carry_on) return true;
+  {
+    if (!i->second.isBaggageOrCarryOn()) continue;
+    if (i->second.isCarryOn()==carryOn) return true;
+  }
 
   return false;
 }
@@ -1677,8 +1687,8 @@ void TPaidRFISCList::updateExcess(int grp_id)
     "END; ",
     QParams() << QParam("grp_id", otInteger, grp_id)
               << QParam("excess_pc", otInteger, FNull)
-              << QParam("baggage", otInteger, (int)TServiceCategory::Baggage)
-              << QParam("carry_on", otInteger, (int)TServiceCategory::CarryOn));
+              << QParam("baggage", otInteger, (int)TServiceCategory::BaggageInHold)
+              << QParam("carry_on", otInteger, (int)TServiceCategory::BaggageInCabinOrCarryOn));
   Qry.get().Execute();
 }
 
@@ -1940,13 +1950,13 @@ int TPaidRFISCViewItem::priority() const
   if (list_item)
   {
     const TServiceCategory::Enum &cat=list_item.get().category;
-    if (cat==TServiceCategory::Baggage ||
-        cat==TServiceCategory::Both ||
-        cat==TServiceCategory::BaggageWithOrigInfo ||
-        cat==TServiceCategory::BothWithOrigInfo)
+    if (cat==TServiceCategory::BaggageInHold ||
+        cat==TServiceCategory::BaggageAndCarryOn ||
+        cat==TServiceCategory::BaggageInHoldWithOrigInfo ||
+        cat==TServiceCategory::BaggageAndCarryOnWithOrigInfo)
       return 0;
-    if (cat==TServiceCategory::CarryOn ||
-        cat==TServiceCategory::CarryOnWithOrigInfo)
+    if (cat==TServiceCategory::BaggageInCabinOrCarryOn ||
+        cat==TServiceCategory::BaggageInCabinOrCarryOnWithOrigInfo)
       return 1;
   };
   return ASTRA::NoExists;
@@ -2096,7 +2106,7 @@ void PaidRFISCViewToXML(const TPaidRFISCViewMap &paid_view, xmlNodePtr node)
     xmlNodePtr servicesNode=NewTextChild(node, "paid_bags");
     for(TSumPaidRFISCViewMap::const_iterator i=paid_view_sum.begin(); i!=paid_view_sum.end(); ++i)
     {
-      if (!i->first.list_item || !i->first.list_item.get().carry_on()) continue; //выводим только багаж
+      if (!i->first.list_item || !i->first.list_item.get().isBaggageOrCarryOn()) continue; //выводим только багаж
       i->second.toXMLcompatible(servicesNode);
     };
   }
@@ -2143,8 +2153,8 @@ void GetBagConcepts(int grp_id, bool &pc, bool &wt, bool &rfisc_used)
     bool _rfisc_used=Qry.FieldAsInteger("rfisc_used");
     int category=Qry.FieldAsInteger("category");
     if (_rfisc_used) rfisc_used=true;
-    if (category==(int)TServiceCategory::Baggage ||
-        category==(int)TServiceCategory::CarryOn)
+    if (category==(int)TServiceCategory::BaggageInHold ||
+        category==(int)TServiceCategory::BaggageInCabinOrCarryOn)
     {
       _rfisc_used?pc=true:wt=true;
     };

@@ -9808,9 +9808,9 @@ struct TRFISCBag {
             if (!item.list_item)
               throw Exception("TRFISCBag::get: item.list_item=boost::none! (%s)", item.traceStr().c_str());
 
-            if (!item.list_item.get().carry_on()) continue;
+            if (!item.list_item.get().isBaggageOrCarryOn()) continue;
             //только относящиеся к багажу или ручной клади
-            if (item.list_item.get().carry_on().get()) continue;
+            if (item.list_item.get().isCarryOn()) continue;
             //только относящиеся к багажу
             if (item.trfer_num!=0) continue;
             //только относящиеся к багажу и только на начальном сегменте
