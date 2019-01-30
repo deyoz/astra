@@ -357,6 +357,7 @@ typedef std::multiset<TPaxRemItem> PaxRems;
 bool LoadPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems);
 bool LoadCrsPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems);
 bool LoadPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts);
+bool LoadPaxFQTNotEmptyTierLevel(int pax_id, std::set<TPaxFQTItem> &fqts);
 bool LoadCrsPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts);
 
 void SavePaxRem(int pax_id, const std::multiset<TPaxRemItem> &rems);

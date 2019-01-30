@@ -741,6 +741,22 @@ bool LoadPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts)
   return !fqts.empty();
 };
 
+bool LoadPaxFQTNotEmptyTierLevel(int pax_id, std::set<TPaxFQTItem> &fqts)
+{
+  fqts.clear();
+  LoadPaxFQT(pax_id, fqts);
+  for(set<TPaxFQTItem>::iterator i=fqts.begin(); i!=fqts.end();)
+  {
+    if (i->tier_level.empty())
+    {
+      i=fqts.erase(i);
+      continue;
+    }
+    ++i;
+  }
+  return !fqts.empty();
+}
+
 bool needTryCheckinServicesAuto(int id, bool is_grp_id)
 {
   TCachedQuery Qry(is_grp_id?"SELECT 1 FROM pax WHERE grp_id=:id AND NVL(sync_emds, 0)<>0 AND rownum<2":
