@@ -2453,9 +2453,9 @@ void TSalonList::ReadSeats( TQuery &Qry, const string &FilterClass )
     point_p.y = Qry.FieldAsInteger( col_y );
     // если место еще не определено или место есть, но не проинициализировано
     if ( !placeList->ValidPlace( point_p ) || placeList->place( point_p )->x == -1 ) {
-      place.x = point_p.x;
-      place.y = point_p.y;
-      place.num = num;
+        place.x = point_p.x;
+        place.y = point_p.y;
+        place.num = num;
       place.elem_type = Qry.FieldAsString( col_elem_type );
       place.isplace = TCompElemTypes::Instance()->isSeat( place.elem_type );
       if ( Qry.FieldIsNULL( col_xprior ) )
@@ -7473,6 +7473,7 @@ bool TPlaceList::GetisPlaceXY( string placeName, TPoint &p )
   for( vector<string>::iterator ix=xs.begin(); ix!=xs.end(); ix++ )
     for ( vector<string>::iterator iy=ys.begin(); iy!=ys.end(); iy++ ) {
         salon_seat_no = denorm_iata_row(*iy) + denorm_iata_line(*ix,false);
+        //ProgTrace( TRACE5, "GetisPlaceXY: salon_seat_no=|%s|, seat_no=|%s|, %d, %d", salon_seat_no.c_str(), seat_no.c_str(), salon_seat_no.back(), seat_no.back() );
       if ( placeName == salon_seat_no ||
            ( !seat_no.empty() && seat_no == salon_seat_no ) ) {
         p.x = distance( xs.begin(), ix );
@@ -7501,6 +7502,9 @@ void TPlaceList::Add( TPlace &pl )
       ys[ pl.y ] = pl.yname;
     }
   }
+  if ( (int)xs.size()*(int)ys.size() > (int)places.size() ) {
+    for ( int iy=0; iy<prior_max_y-1; iy++ ) {
+        IPlace ip = places.begin() + GetPlaceIndex( prior_max_x - 1, iy );
         TPlace p;
         if ( (int)xs.size() > prior_max_x ) {
           places.insert( ip + 1, (int)xs.size() - prior_max_x, p );
@@ -9444,7 +9448,6 @@ void fillMapChangesRFISCsSeats( int point_id,
   if ( rfisc1.find( point_id ) != rfisc1.end() &&
        ( rfisc2.find( point_id ) == rfisc2.end() ||
          rfisc1[ point_id ] != rfisc2[ point_id ] ) ) {
-    tst();
     mapChanges[ key_value + rfisc1[ point_id ].str() ].places.push_back( *seat1 );
   }
 }
@@ -9986,10 +9989,6 @@ void TSalonPax::get_seats( TWaitListReason &waitListReason,
     ranges.insert( TSeat( (*iseat)->yname, (*iseat)->xname ) );
   }
 }
-
-std::string TSalonPax::seat_no( const std::string &format, bool pr_lat_seat, TWaitListReason &waitListReason ) const
-{
-  if ( is_jmp ) {
     tst();
     return "JMP";
   }
