@@ -18,8 +18,8 @@ bool REPORTS::pax_compare(TPaxPtr pax1, TPaxPtr pax2)
     const TPMPax &pm_pax1 = dynamic_cast<const TPMPax &>(*pax1);
     const TPMPax &pm_pax2 = dynamic_cast<const TPMPax &>(*pax2);
 
-    if(pm_pax1.target != pm_pax2.target)
-        return pm_pax1.target < pm_pax2.target;
+    if(pm_pax1.point_num != pm_pax2.point_num)
+        return pm_pax1.point_num < pm_pax2.point_num;
 
     if(pm_pax1.get_pax_list().rpt_params.pr_trfer) {
         if(pm_pax1.pr_trfer != pm_pax2.pr_trfer)
@@ -83,6 +83,7 @@ void TPMPax::fromDB(TQuery &Qry)
     TPax::fromDB(Qry);
     target = Qry.FieldAsString("target");
     last_target = get_last_target(Qry, get_pax_list().rpt_params);
+    point_num = Qry.FieldAsInteger("point_num");
     status = Qry.FieldAsString("status");
     point_id = Qry.FieldAsInteger("trip_id");
     class_grp = Qry.FieldAsInteger("class_grp");
@@ -399,7 +400,8 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
         "SELECT \n"
         "   pax.*, \n"
         "   pax_grp.point_dep AS trip_id, \n"
-        "   pax_grp.airp_arv AS target, \n";
+        "   pax_grp.airp_arv AS target, \n"
+        "   points.point_num, \n";
     if(rpt_params.pr_trfer)
         SQLText +=
             "    nvl2(transfer.grp_id, 1, 0) pr_trfer, \n"

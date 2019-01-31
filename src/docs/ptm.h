@@ -29,6 +29,7 @@ namespace REPORTS {
         void trace(TRACE_SIGNATURE);
         TPMPaxList &get_pax_list() const;
 
+        int point_num;
         std::string target;
         std::string last_target;
         std::string status;
@@ -47,6 +48,7 @@ namespace REPORTS {
         void clear()
         {
             TPax::clear();
+            point_num = ASTRA::NoExists;
             target.clear();
             last_target.clear();
             status.clear();
