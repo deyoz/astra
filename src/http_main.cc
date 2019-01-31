@@ -107,24 +107,6 @@ HTTPClient getHTTPClient(const request& req)
       client.password = Authorization.substr( Authorization.find( ":" ) + 1 );
     }
   }
-/*
-  for (request::Headers::const_iterator iheader=req.headers.begin(); iheader!=req.headers.end(); iheader++) {
-    ProgTrace( TRACE5, "%s: header: name=%s, value=%s", __FUNCTION__, iheader->name.c_str(), iheader->value.c_str() );
-    if ( iheader->name == CLIENT_ID ) {
-        client.client_info = getInetClient(iheader->value);
-    }
-    if ( iheader->name == OPERATION ) {
-      client.operation = iheader->value;
-    }
-    if ( iheader->name == AUTHORIZATION && iheader->value.length() > 6 ) {
-      string Authorization = iheader->value.substr( 6 );
-      Authorization = StrUtils::b64_decode( Authorization );
-      if ( Authorization.find( ":" ) != std::string::npos ) {
-        client.user_name = Authorization.substr( 0, Authorization.find( ":" ) );
-        client.password = Authorization.substr( Authorization.find( ":" ) + 1 );
-      }
-    }
-  }*/
   if (client.client_info.client_id.empty())
   {
     // Не удалось заполнить client из http headers
@@ -137,13 +119,6 @@ HTTPClient getHTTPClient(const request& req)
         if ( p.find( REFERER ) != p.end() ) {
           populate_client_from_uri(p[REFERER], client);
         }
-/*        ProgTrace( TRACE5, "%s: empty client_id, trying to populate HTTPClient from Referer HTTP header", __FUNCTION__ );
-        for (request::Headers::const_iterator iheader=req.headers.begin(); iheader!=req.headers.end(); iheader++) {
-            if(iheader->name == REFERER) {
-                populate_client_from_uri(iheader->value, client);
-                break;
-            }
-        }*/
     }
   }
 
@@ -391,18 +366,6 @@ void save_http_client_headers(const request &req)
       pr_kick = p[OPERATION] == "kick";
       Qry.get().SetVariable("operation", p[OPERATION]);
     }
-/*    for (request::Headers::const_iterator iheader=req.headers.begin(); iheader!=req.headers.end(); iheader++) {
-        if ( iheader->name == CLIENT_ID ) {
-            pr_client_id = not iheader->value.empty();
-            Qry.get().SetVariable("client_id", iheader->value);
-        }
-        if ( iheader->name == HOST )
-            Qry.get().SetVariable("host", iheader->value);
-        if ( iheader->name == OPERATION ) {
-            pr_kick = iheader->value == "kick";
-            Qry.get().SetVariable("operation", iheader->value);
-        }
-    }*/
     if(not pr_kick and pr_client_id) Qry.get().Execute();
 }
 
