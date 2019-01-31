@@ -34,6 +34,40 @@ struct JxtInfo {
   JxtInfo() : post_proc(NULL) {}
 };
 
+struct ci_less
+{
+  // case-independent (ci) compare_less binary function
+  struct nocase_compare
+  {
+    bool operator() (const unsigned char& c1, const unsigned char& c2) const {
+        return tolower (c1) < tolower (c2);
+    }
+  };
+  bool operator() (const std::string & s1, const std::string & s2) const {
+    return std::lexicographical_compare
+      (s1.begin (), s1.end (),   // source range
+      s2.begin (), s2.end (),   // dest range
+      nocase_compare ());  // comparison
+  }
+};
+
+struct httpParams:public std::map<std::string,std::string,ci_less>
+{
+  void operator<<(const ServerFramework::HTTP::request::Headers &hdrs ) {
+     for ( auto header : hdrs  ) {
+       insert( make_pair( header.name, header.value ) );
+     }
+  }
+  std::string trace( ) {
+    std::ostringstream buf;
+    buf << "heardes: " << std::endl;
+    for ( auto header : *this  ) {
+      buf << "'" << header.first << "'=" << header.second << "'";
+    }
+    return buf.str();
+  }
+};
+
 struct HTTPClient
 {
   InetClient client_info;
@@ -43,7 +77,7 @@ struct HTTPClient
   std::string password;
   std::string uri_path;
   std::map<std::string, JxtInfo> jxt_interface;
-  std::map<std::string, std::string> get_params;
+  httpParams uri_params;
   std::string toString();
   void toJXT( const ServerFramework::HTTP::request& req, std::string &header, std::string &body );
   ServerFramework::HTTP::reply& fromJXT( std::string res, ServerFramework::HTTP::reply& rep );

@@ -2453,9 +2453,9 @@ void TSalonList::ReadSeats( TQuery &Qry, const string &FilterClass )
     point_p.y = Qry.FieldAsInteger( col_y );
     // если место еще не определено или место есть, но не проинициализировано
     if ( !placeList->ValidPlace( point_p ) || placeList->place( point_p )->x == -1 ) {
-        place.x = point_p.x;
-        place.y = point_p.y;
-        place.num = num;
+      place.x = point_p.x;
+      place.y = point_p.y;
+      place.num = num;
       place.elem_type = Qry.FieldAsString( col_elem_type );
       place.isplace = TCompElemTypes::Instance()->isSeat( place.elem_type );
       if ( Qry.FieldIsNULL( col_xprior ) )
@@ -7489,12 +7489,18 @@ void TPlaceList::Add( TPlace &pl )
   int prior_max_y = (int)ys.size();
   if ( pl.x >= prior_max_x )
     xs.resize( pl.x + 1, "" );
-  if ( !pl.xname.empty() )
-    xs[ pl.x ] = pl.xname;
+  if ( !pl.xname.empty() ) {
+    if ( xs[ pl.x ].empty() || is_iata_line( pl.xname ) ) {
+      xs[ pl.x ] = pl.xname;
+    }
+  }
   if ( pl.y >= prior_max_y )
     ys.resize( pl.y + 1, "" );
-  if ( !pl.yname.empty() )
-    ys[ pl.y ] = pl.yname;
+  if ( !pl.yname.empty() ) {
+    if ( ys[ pl.y ].empty() || is_iata_row( pl.yname ) ) {
+      ys[ pl.y ] = pl.yname;
+    }
+  }
   if ( (int)xs.size()*(int)ys.size() > (int)places.size() ) {
     for ( int iy=0; iy<prior_max_y-1; iy++ ) {
         IPlace ip = places.begin() + GetPlaceIndex( prior_max_x - 1, iy );
