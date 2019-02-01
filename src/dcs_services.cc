@@ -49,8 +49,9 @@ void DCSServiceApplying::addRequiredRFISCs(const DCSServiceApplyingParams& param
     "      dcs_service=:dcs_service AND "
     "      (brand_airline IS NULL OR brand_airline=:brand_airline) AND "
     "      (brand_code IS NULL OR brand_code=:brand_code) AND "
-    "      (fqt_airline IS NULL OR fqt_airline=:fqt_airline) AND "
-    "      (fqt_tier_level IS NULL OR fqt_tier_level=:fqt_tier_level) AND "
+    "      (fqt_airline IS NULL AND fqt_tier_level IS NULL OR"
+    "       fqt_airline IS NULL AND fqt_tier_level IS NOT NULL AND :fqt_airline IS NULL AND :fqt_tier_level IS NULL OR "
+    "       fqt_airline=:fqt_airline AND fqt_tier_level=:fqt_tier_level) AND "
     "      (class IS NULL OR class=:class) AND "
     "      pr_denial=0 ",
     QParams() << QParam("airline", otString, params.airline)
@@ -128,7 +129,7 @@ bool DCSServiceApplying::isAllowed(int pax_id, DCSService::Enum dcsService, RFIS
   if (brands.empty()) brands.emplace_back();
 
   set<CheckIn::TPaxFQTItem> fqts;
-  CheckIn::LoadPaxFQT(pax.id, fqts);
+  CheckIn::LoadPaxFQTNotEmptyTierLevel(pax.id, fqts);
   if (fqts.empty()) fqts.insert(CheckIn::TPaxFQTItem());
 
   DCSServiceApplyingParams params;
