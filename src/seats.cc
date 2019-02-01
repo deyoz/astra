@@ -4863,7 +4863,7 @@ void SyncPRSA( const string &airline_oper,
 #warning 6 ChangeLayer: передавать TSalonList, чтобы не делать очередную начитку + определение приоритета слоя (layer_type,time_create,point_dep, point_arv)
 bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
                   string first_xname, string first_yname, TSeatsType seat_type, TChangeLayerProcFlag seatFlag,
-                  bool waitlist /*┬п├а┬и┬з┬н┬а┬к ├в┬о┬г┬о, ├з├в┬о ┬п┬е├а┬е├б┬а┬д┬к┬а ┬и┬д┬е├в ├б KN*/  )
+                  bool waitlist /*признак того, что пересадка идет с ЛО*/  )
 {
   bool changedOrNotPay = true;
   if ( seatFlag != clNotPaySeat &&
@@ -5226,7 +5226,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
 
   std::set<TCompLayerType> checkinLayers { cltGoShow, cltTranzit, cltCheckin, cltTCheckin };
   if (
-       !waitlist && //  ┬н┬е ├а├г┬г┬а┬е┬м├б├п, ┬е├б┬л┬и ┬п┬е├а┬е├б┬а┬д┬к┬а ┬и┬д┬е├в ├б KN
+       !waitlist && //  не ругаемся, если пересадка идет с ЛО
        seat_type == stReseat && //пересадка
        checkinLayers.find( layer_type ) != checkinLayers.end() // уже зарегистрированного
      ) {
