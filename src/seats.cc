@@ -4862,7 +4862,8 @@ void SyncPRSA( const string &airline_oper,
 
 #warning 6 ChangeLayer: передавать TSalonList, чтобы не делать очередную начитку + определение приоритета слоя (layer_type,time_create,point_dep, point_arv)
 bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
-                  string first_xname, string first_yname, TSeatsType seat_type, TChangeLayerProcFlag seatFlag )
+                  string first_xname, string first_yname, TSeatsType seat_type, TChangeLayerProcFlag seatFlag,
+                  bool waitlist /*признак того, что пересадка идет с ЛО*/  )
 {
   bool changedOrNotPay = true;
   if ( seatFlag != clNotPaySeat &&
@@ -5225,13 +5226,12 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
 
   std::set<TCompLayerType> checkinLayers { cltGoShow, cltTranzit, cltCheckin, cltTCheckin };
   if (
+       !waitlist && //  не ругаемся, если пересадка идет с ЛО
        seat_type == stReseat && //пересадка
        checkinLayers.find( layer_type ) != checkinLayers.end() // уже зарегистрированного
      ) {
     DCSServiceApplying::throwIfNotAllowed( pax_id, DCSService::Enum::ChangeSeatOnDesk ); //нельзя делать пересадку, т.к. должны быть услуги
   }
-
-  //checkDCSServices( pax_id );
 
   int curr_tid = NoExists;
   TPointIdsForCheck point_ids_spp;
@@ -5367,7 +5367,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
         case cltTranzit:
         case cltCheckin:
         case cltTCheckin:
-          reqinfo->LocaleToLog("EVT.PASSENGER_SEATED_MANUALLY",
+          reqinfo->LocaleToLog(waitlist?"EVT.PASSENGER_SEATED_MANUALLY_WAITLIST":"EVT.PASSENGER_SEATED_MANUALLY",
                                LEvntPrms() << PrmSmpl<std::string>("name", fullname)
                                            << seatPrmEnum,
                                evtPax, point_id, idx1, idx2);
@@ -5381,7 +5381,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
         case cltTranzit:
         case cltCheckin:
         case cltTCheckin:
-          reqinfo->LocaleToLog("EVT.PASSENGER_CHANGE_SEAT_MANUALLY",
+          reqinfo->LocaleToLog(waitlist?"EVT.PASSENGER_CHANGE_SEAT_MANUALLY_WAITLIST":"EVT.PASSENGER_CHANGE_SEAT_MANUALLY",
                                LEvntPrms() << PrmSmpl<std::string>("name", fullname)
                                            << seatPrmEnum,
                                evtPax, point_id, idx1, idx2);
