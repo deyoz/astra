@@ -173,11 +173,6 @@ void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //векто
   for(vector< pair<int, TSeatRange> >::const_iterator r=ranges.begin(); r!=ranges.end(); r++)
     seat_view_ranges.push_back(r->second);
 
- /* TQuery LockQry(&OraSession);
-  LockQry.Clear();
-  LockQry.SQLText="SELECT point_id FROM points WHERE point_id=:point_id FOR UPDATE";
-  LockQry.DeclareVariable("point_id", otInteger);*/
-
   for(vector<TPointIds>::iterator i=prior_point_ids.begin();i!=prior_point_ids.end();i++)
   {
     if (!i->pr_paid_ckin &&
@@ -776,6 +771,37 @@ void DeleteTripCompLayers(int point_id_tlg,
   };
 };
 
+void InsertTripCompLayers(int point_id_tlg,
+                          int point_id_spp,
+                          TPointIdsForCheck &point_ids_spp) //вектор point_id_spp по которым были изменения
+{
+  for(int layer=0;layer<(int)cltTypeNum;layer++)
+    if (IsTlgCompLayer((TCompLayerType)layer)) {
+      InsertTripCompLayers(point_id_tlg, point_id_spp, (TCompLayerType)layer, point_ids_spp);
+    }
+}
+
+
+void DeleteTripCompLayers(int point_id_tlg,
+                          int point_id_spp,
+                          TPointIdsForCheck &point_ids_spp) //вектор point_id_spp по которым были изменения
+{
+  for(int layer=0;layer<(int)cltTypeNum;layer++)
+    if (IsTlgCompLayer((TCompLayerType)layer)) {
+      DeleteTripCompLayers(point_id_tlg, point_id_spp, (TCompLayerType)layer, point_ids_spp);
+    }
+}
+
+void SyncTripCompLayers(int point_id_tlg,
+                        int point_id_spp,
+                        TPointIdsForCheck &point_ids_spp) //вектор point_id_spp по которым были изменения
+{
+  for(int layer=0;layer<(int)cltTypeNum;layer++)
+    if (IsTlgCompLayer((TCompLayerType)layer)) {
+      SyncTripCompLayers(point_id_tlg, point_id_spp, (TCompLayerType)layer, point_ids_spp);
+    }
+}
+
 TCompLayerType GetSeatRemLayer(const string &airline_mark, const string &seat_rem)
 {
   static bool rem_layers_init=false;
@@ -872,34 +898,3 @@ void check_layer_change(const TPointIdsForCheck &point_ids_spp,
   SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, paxs_external_logged, whence );
 }
 
-void update_tlg_comp_layers( int point_id_tlg, int point_id_spp )
-{
-  TPointIdsForCheck point_ids_spp_layers;
-  for(int layer=0;layer<(int)cltTypeNum;layer++)
-    if (IsTlgCompLayer((TCompLayerType)layer)) {
-      TPointIdsForCheck point_ids_spp;
-      SyncTripCompLayers(point_id_tlg, point_id_spp, (TCompLayerType)layer, point_ids_spp);
-      point_ids_spp_layers.insert( point_ids_spp.begin(), point_ids_spp.end() );
-    };
-  check_layer_change(point_ids_spp_layers, __FUNCTION__);
- }
-
-
-/*void update_timeout( std::vector<int> range_ids, int time_limit )
-{
-  TQuery LayerQry(&OraSession);
-  LayerQry.Clear();
-  LayerQry.SQLText=
-  "UPDATE tlg_comp_layers "
-  "SET time_remove=SYSTEM.UTCSYSDATE+:timeout/1440 "
-  "WHERE range_id=:range_id ";
-  LayerQry.DeclareVariable("range_id", otInteger);
-  if (time_limit!=NoExists)
-    LayerQry.CreateVariable("timeout", otInteger, time_limit);
-  else
-    LayerQry.CreateVariable("timeout", otInteger, FNull);
-  for ( std::vector<int>::const_iterator irange=range_ids.begin(); irange!=range_ids.end(); irange++ ) {
-     LayerQry.SetVariable( "range_id", *irange );
-     LayerQry.Execute();
-  }
-}*/
