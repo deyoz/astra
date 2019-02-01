@@ -596,6 +596,7 @@ double ORDERS_MAX_TOTAL_SIZE();
 int ORDERS_TIMEOUT();
 
 std::string& EOracleError2UserException(std::string& msg);
+bool isIgnoredEOracleError(const std::exception& e);
 
 std::string get_internal_msgid_hex();
 
