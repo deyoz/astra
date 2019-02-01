@@ -456,7 +456,7 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
       "arch.get_bagWeight2(pax_grp.part_key,pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
       "arch.get_rkWeight2(pax_grp.part_key,pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight, "
       "arch.get_excess_wt(pax.part_key, pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.excess, pax_grp.bag_refuse) AS excess_wt, "
-      "NULL AS excess_pc, "
+      "pax.excess_pc, "
       "arch.get_birks2(pax_grp.part_key,pax_grp.grp_id,pax.pax_id,pax.bag_pool_num,'RU') AS tags, "
       "arch.get_main_pax_id2(pax_grp.part_key,pax_grp.grp_id) AS main_pax_id "
       "FROM arx_pax_grp pax_grp, arx_pax pax "
