@@ -3,7 +3,7 @@
 #define NICKNAME "GRISHA"
 #define NICKTRACE GRISHA_TRACE
 #include <serverlib/slogger.h>
-const bool TRACE_ALL_FUNCTIONS = false;
+const bool TRACE_ALL_FUNCTIONS = true;
 
 #include <typeb/typeb_template.h>
 #include <typeb/SSM_template.h>
@@ -452,6 +452,7 @@ TDateTime BoostToDateTimeCorrectInfinity(boost::gregorian::date date)
 
 void DeleteScdPeriodsFromDb( const std::set<ssim::ScdPeriod> &scds )
 {
+  tst();
   TReqInfo *reqInfo = TReqInfo::Instance();
   reqInfo->user.sets.time = ustTimeLocalAirp; // останется на рабочем
 //  reqInfo->desk.code = "MOVGRG"; // удалить
@@ -737,6 +738,19 @@ ssim::Route RouteFromDb(int move_id, TDateTime first)
     time_duration td_in( hours_i, mins_i, secs_i );
     td_out = td_out + hours(24 * (static_cast<int>(days_o) + dest1_delta_out));
     td_in = td_in + hours(24 * (static_cast<int>(days_i) + dest2_delta_in));
+    double h;
+    ProgTrace( TRACE5, "dest1.scd_out=%s", DateTimeToStr( dest1.scd_out , "dd.mm.yyyy hh:nn:ss" ).c_str() );
+    ProgTrace( TRACE5, "dest2.scd_in=%s", DateTimeToStr( dest2.scd_in , "dd.mm.yyyy hh:nn:ss" ).c_str() );
+    if ( dest1.scd_out != ASTRA::NoExists ) {
+      modf(dest1.scd_out,&h);
+      hours_o += h*24;
+    }
+    if ( dest2.scd_in != ASTRA::NoExists ) {
+      modf(dest2.scd_in,&h);
+      hours_i += h*24;
+    }
+    ProgTrace( TRACE5, "hours_o=%d, hours_i=%d", hours_o, hours_i );
+
     ssim::Section section(nsi::PointId(CodeToId(ElemIdToClientElem( etAirp, dest1.airp, dest1.airp_fmt ))), //out
                           nsi::PointId(CodeToId(ElemIdToClientElem( etAirp, dest2.airp, dest2.airp_fmt ))), //in
                           td_out,
@@ -897,8 +911,10 @@ void HandleSSMTlg(string body, int tlg_id, TypeB::TFlightsForBind& flightsForBin
         }
 
       // std::map<ct::Flight, std::set<ssim::ScdPeriod> > forDeletion;
-      for (auto &rm : cache.forDeletion)
+      for (auto &rm : cache.forDeletion) {
+        LogTrace(TRACE1) << "SMM for deletion rm" << rm.first;
         DeleteScdPeriodsFromDb(rm.second);
+      }
 
       // std::map<ct::Flight, ssim::ScdPeriods> forSaving() const;
       // using ScdPeriods = std::vector<ScdPeriod>;
