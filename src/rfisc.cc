@@ -1741,8 +1741,7 @@ void TGrpServiceList::addBagInfo(int grp_id,
                    "       bag2.rfisc, "
                    "       bag2.service_type, "
                    "       bag2.airline, "
-                   "       bag2.amount AS service_quantity, "
-                   "       bag2.pr_cabin "
+                   "       bag2.amount AS service_quantity "
                    "FROM bag2 "
                    "WHERE bag2.grp_id=:grp_id AND bag2.rfisc IS NOT NULL ",
                    QParams() << QParam("grp_id", otInteger, grp_id)
@@ -1753,14 +1752,53 @@ void TGrpServiceList::addBagInfo(int grp_id,
     if (Qry.get().FieldIsNULL("pax_id")) continue;
     TGrpServiceItem item;
     item.fromDB(Qry.get());
-    bool pr_cabin=Qry.get().FieldAsInteger("pr_cabin")!=0;
+    if (!item.list_item)
+      throw Exception("%s: !item.list_item", __FUNCTION__);
+    if (!item.list_item.get().isBaggageOrCarryOn())
+      throw Exception("%s: !item.list_item.get().isBaggageOrCarryOn()", __FUNCTION__);
+    bool carryOn=item.list_item.get().isCarryOn();
+
     for(int trfer_num=0; trfer_num<trfer_seg_count; trfer_num++)
     {
-      if (trfer_num>=tckin_seg_count && pr_cabin) continue;
+      if (trfer_num>=tckin_seg_count && carryOn) continue;
       item.trfer_num=trfer_num;
+
+      if (trfer_num>0)
+      {
+        addTrueBagInfo(item);
+        continue;
+      }
+
       push_back(item);
     };
   }
+}
+
+void TGrpServiceList::addTrueBagInfo(const TGrpServiceItem& item)
+{
+  TRFISCKey RFISCKey;
+  RFISCKey.key(item);
+  for(int pass=0; pass<2; pass++)
+  try
+  {
+    if (pass!=0)
+    {
+      RFISCKey.airline.clear();
+      RFISCKey.getListKeyByPaxId(item.pax_id, item.trfer_num, item.list_item.get().category, __FUNCTION__);
+    }
+    RFISCKey.getListItemByPaxId(item.pax_id, item.trfer_num, item.list_item.get().category, __FUNCTION__);
+    break;
+  }
+  catch(EConvertError) {}
+
+  if (item.list_item &&
+      item.list_item.get().isBaggageOrCarryOn() &&
+      RFISCKey.list_item &&
+      RFISCKey.list_item.get().isBaggageOrCarryOn() &&
+      RFISCKey.list_item.get().isCarryOn()==item.list_item.get().isCarryOn())
+    emplace_back(TPaxSegRFISCKey(item, RFISCKey), item.service_quantity);
+  else
+    push_back(item);
 }
 
 void TGrpServiceList::getAllListItems()
