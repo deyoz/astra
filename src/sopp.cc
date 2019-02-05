@@ -3738,7 +3738,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   std::vector<int> points_tranzit_check_wait_alarm;
   std::vector<int> points_check_diffcomp_alarm;
   bool conditions_check_apis_usa = false;
-  bool pr_update_tlg_comp_layers = false;
+  bool sync_trip_comp_layers = false;
   for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
     set_pr_del = false;
     //set_act_out = false;
@@ -3800,7 +3800,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     reSetCraft = false;
     reSetWeights = false;
     bool pr_check_wait_list_alarm = ch_point_num;
-    bool pr_check_diffcomp_alarm = false;    
+    bool pr_check_diffcomp_alarm = false;
     TSOPPDest old_dest;
     if ( id->pr_del != -1 ) {
       if (lexema_id.empty()) {
@@ -3848,7 +3848,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
        reSetWeights = true;
        pr_check_wait_list_alarm = true;
        pr_check_diffcomp_alarm = true;
-       pr_update_tlg_comp_layers = true;
+       sync_trip_comp_layers = true;
     }
     else { //update
       tst();
@@ -4027,7 +4027,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
                     reqInfo->LocaleToLog("EVT.DISP.DELETE_POINT", LEvntPrms() << PrmSmpl<std::string>("flt", "")
                                          << PrmElem<std::string>("airp", etAirp, id->airp), evtDisp, move_id, id->point_id );
                   pr_check_wait_list_alarm = true;
-                  pr_update_tlg_comp_layers = true;
+                  sync_trip_comp_layers = true;
                 }
          pr_check_wait_list_alarm = true;
          pr_check_diffcomp_alarm = true;
@@ -4479,12 +4479,25 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         i!=points_check_diffcomp_alarm.end(); i++ ) {
     SALONS2::check_diffcomp_alarm(*i);
   }
-  if ( pr_update_tlg_comp_layers ) {
-    for( TSOPPDests::iterator i=dests.begin(); i!=dests.end(); i++ ) {    
-       update_tlg_comp_layers( ASTRA::NoExists, i->point_id );
+
+  if ( sync_trip_comp_layers )
+  {
+    TPointIdsForCheck point_ids_spp;
+    for(const TSOPPDest& dest : dests)
+    {
+      DeleteTripCompLayers(ASTRA::NoExists, dest.point_id, point_ids_spp);
+      LogTrace(TRACE5) << "DeleteTripCompLayers for point_id=" << dest.point_id;
     }
-    points_tranzit_check_wait_alarm.clear(); // уже сделали
+    for(const TSOPPDest& dest : dests)
+      if (dest.pr_del>=0)
+      {
+        InsertTripCompLayers(ASTRA::NoExists, dest.point_id, point_ids_spp);
+        LogTrace(TRACE5) << "InsertTripCompLayers for point_id=" << dest.point_id;
+      }
+
+    check_layer_change(point_ids_spp, __FUNCTION__);
   }
+  
   //тревога ЛО
   SALONS2::check_waitlist_alarm_on_tranzit_routes( points_tranzit_check_wait_alarm, __FUNCTION__ );
 

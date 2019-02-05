@@ -3255,7 +3255,7 @@ int FilterRoutesProperty::readNum( int point_id, bool in_use )
   if ( pointNum.find( point_id ) == pointNum.end() ) {
     TQuery Qry( &OraSession );
     Qry.SQLText =
-      "SELECT point_num, airp FROM points WHERE point_id = :point_id AND pr_del=0";
+      "SELECT point_num, airp FROM points WHERE point_id = :point_id AND pr_del!=-1";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.Execute();
     if ( Qry.Eof )
