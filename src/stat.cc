@@ -6080,20 +6080,22 @@ struct TRemInfo {
     string rfisc;
     double rate;
     string rate_cur;
-    TRemInfo(const string &rem) {
-        parse(rem);
+    TRemInfo(const string &rem_code, const string &rem) {
+        parse(rem_code, rem);
     }
-    void parse(const string &rem);
+    void parse(const string &rem_code, const string &rem);
 };
 
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
 
-void TRemInfo::parse(const string &rem)
+void TRemInfo::parse(const string &rem_code, const string &rem)
 {
     rfisc.clear();
     rate_cur.clear();
     rate = NoExists;
+
+    if(rem_code != "PRSA") return;
 
     vector<string> tokens;
     boost::split(tokens, rem, boost::is_any_of("/"));
@@ -6369,7 +6371,9 @@ void get_service_stat(int point_id)
             insQry.get().SetVariable("user_id", Qry.get().FieldAsInteger(col_user_id));
             insQry.get().SetVariable("desk", Qry.get().FieldAsString(col_desk));
 
-            TRemInfo remInfo(Qry.get().FieldAsString(col_rem));
+            TRemInfo remInfo(
+                    Qry.get().FieldAsString(col_rem_code),
+                    Qry.get().FieldAsString(col_rem));
 
             insQry.get().SetVariable("rfisc", remInfo.rfisc);
             if(remInfo.rate == NoExists)
