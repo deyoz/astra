@@ -652,7 +652,7 @@ class TPaidRFISCList : public std::map<TPaxSegRFISCKey, TPaidRFISCItem>
     void fromDB(int id, bool is_grp_id);
     void toDB(int grp_id) const;
     void inc(const TPaxSegRFISCKey& key, const TServiceStatus::Enum status);
-    boost::optional<TRFISCKey> getKeyIfSingleRFISC(int pax_id, const std::string &rfisc) const;
+    boost::optional<TRFISCKey> getKeyIfSingleRFISC(int pax_id, int trfer_num, const std::string &rfisc) const;
     void getAllListItems();
     void getStatusList(TPaidRFISCStatusList &list) const;
     static void clearDB(int grp_id);

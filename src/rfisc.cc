@@ -1867,13 +1867,13 @@ void TPaidRFISCList::inc(const TPaxSegRFISCKey& key, const TServiceStatus::Enum 
     (status!=TServiceStatus::Need?0:1);
 }
 
-boost::optional<TRFISCKey> TPaidRFISCList::getKeyIfSingleRFISC(int pax_id, const std::string &rfisc) const
+boost::optional<TRFISCKey> TPaidRFISCList::getKeyIfSingleRFISC(int pax_id, int trfer_num, const std::string &rfisc) const
 {
   boost::optional<TRFISCKey> result=boost::none;
   for(TPaidRFISCList::const_iterator i=begin(); i!=end(); ++i)
   {
     const TPaidRFISCItem &item=i->second;
-    if (item.pax_id==pax_id && item.RFISC==rfisc)
+    if (item.pax_id==pax_id && item.trfer_num==trfer_num && item.RFISC==rfisc)
     {
       if (result && !(result.get()==item)) return boost::none;
       result=item;
