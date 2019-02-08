@@ -4818,7 +4818,7 @@ void SyncPRSA( const string &airline_oper,
   if (TReqInfo::Instance()->client_type!=ctTerm) return;
 
   TRemGrp service_stat_rem_grp;
-  service_stat_rem_grp.Load(retSERVICE_STAT, airline_oper);
+  service_stat_rem_grp.Load(retREM_STAT, airline_oper);
 
   multiset<CheckIn::TPaxRemItem> prior_rems;
   CheckIn::LoadPaxRem(pax_id, prior_rems);
