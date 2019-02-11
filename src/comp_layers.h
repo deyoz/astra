@@ -56,6 +56,18 @@ void SyncTripCompLayers(int point_id_tlg, //point_id_tlg либо point_id_spp м.б. 
                         ASTRA::TCompLayerType layer_type,
                         TPointIdsForCheck &point_ids_spp); //вектор point_id_spp по которым были изменения
 
+void InsertTripCompLayers(int point_id_tlg,
+                          int point_id_spp,
+                          TPointIdsForCheck &point_ids_spp);
+
+void DeleteTripCompLayers(int point_id_tlg,
+                          int point_id_spp,
+                          TPointIdsForCheck &point_ids_spp);
+
+void SyncTripCompLayers(int point_id_tlg,
+                        int point_id_spp,
+                        TPointIdsForCheck &point_ids_spp);
+
 //возвращает слой если ремарка места PNL для указанной компании может быть использована для платной регистрации
 //иначе возвращает cltUnknown
 ASTRA::TCompLayerType GetSeatRemLayer(const std::string &airline_mark, const std::string &seat_rem);
@@ -70,8 +82,5 @@ void check_layer_change(const TPointIdsForCheck &point_ids_spp,
 void check_layer_change(const TPointIdsForCheck &point_ids_spp,
                         const std::set<int> &paxs_external_logged,
                         const std::string& whence);
-
-void update_tlg_comp_layers( int point_id_tlg, int point_id_spp );
-//void update_timeout( std::vector<int> range_ids, int time_limit );
 #endif
 
