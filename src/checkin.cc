@@ -6338,10 +6338,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             prior.pc_payment_res.empty() ||
             prior.pc_payment_req!=curr.pc_payment_req)
         {
-          //RequestInfo requestInfo;
-          //ResponseInfo responseInfo;
-          //SirenaExchange::SendRequest(req, res, requestInfo, responseInfo);
-
+//#define SVC_PAYMENT_STATUS_SYNC_MODE
+#ifndef SVC_PAYMENT_STATUS_SYNC_MODE
           if(needSyncSirena(ediResNode)) {
             if (httpWasSent)
               throw Exception("%s: very bad situation! needSyncSirena again!", __FUNCTION__);
@@ -6367,6 +6365,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
             SirenaExchangeList.push_back(curr);
           }
+#else
+          RequestInfo requestInfo;
+          ResponseInfo responseInfo;
+          SirenaExchange::SendRequest(req, res, requestInfo, responseInfo);
+          curr.grp_id=first_grp_id;
+          curr.pc_payment_res=responseInfo.content;
+          SirenaExchangeList.push_back(curr);
+#endif
         }
         else
           res.parse(prior.pc_payment_res);
@@ -6830,6 +6836,7 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
             res.rfiscsToDB(tckin_grp_ids, bag_concept.get(), true); //на первом этапе применяем только концепт багажа (old_version=true) !!!потом убрать
             res.normsToDB(tckin_grp_ids);
             res.brandsToDB(tckin_grp_ids);
+            res.setAdditionalListId(tckin_grp_ids); //обязательно после rfiscsToDB и normsToDB
           }
         }
         catch(UserException &e)

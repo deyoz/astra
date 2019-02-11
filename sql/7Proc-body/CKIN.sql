@@ -900,5 +900,50 @@ BEGIN
         (vsender IS NULL OR sender=vsender);
 END delete_typeb_data;
 
+PROCEDURE set_additional_list_id(vgrp_id IN pax.grp_id%TYPE)
+IS
+CURSOR cur IS
+  SELECT pax_service_lists.pax_id,
+         pax_service_lists.category,
+         pax_service_lists.transfer_num,
+         pax_service_lists.list_id,
+         pax_norms_text.airline
+  FROM pax, pax_service_lists, pax_norms_text, service_lists
+  WHERE pax.pax_id=pax_service_lists.pax_id AND
+        pax_service_lists.pax_id=pax_norms_text.pax_id AND
+        pax_service_lists.transfer_num=pax_norms_text.transfer_num AND
+        pax_service_lists.category=DECODE(pax_norms_text.carry_on,0,1,2) AND
+        pax_norms_text.lang='RU' AND pax_norms_text.page_no=1 AND
+        pax_service_lists.list_id=service_lists.id AND service_lists.rfisc_used<>0 AND
+        pax.grp_id=vgrp_id
+  ORDER BY pax_id, category, transfer_num;
+zeroRow cur%ROWTYPE;
+BEGIN
+  FOR curRow IN cur LOOP
+    IF curRow.transfer_num=0 THEN
+      zeroRow:=curRow;
+    ELSE
+      IF zeroRow.pax_id=curRow.pax_id AND
+         zeroRow.category=curRow.category AND
+         zeroRow.list_id<>curRow.list_id AND
+         zeroRow.airline<>curRow.airline THEN
+        UPDATE pax_service_lists
+        SET additional_list_id=zeroRow.list_id
+        WHERE pax_id=curRow.pax_id AND transfer_num=curRow.transfer_num AND category=curRow.category;
+        UPDATE service_lists_group SET last_access=SYSTEM.UTCSYSDATE
+        WHERE list_id=curRow.list_id AND additional_list_id=zeroRow.list_id;
+        IF SQL%NOTFOUND THEN
+          BEGIN
+            INSERT INTO service_lists_group(term_list_id, list_id, additional_list_id, last_access)
+            VALUES(service_lists_group__seq.nextval, curRow.list_id, zeroRow.list_id, SYSTEM.UTCSYSDATE);
+          EXCEPTION
+            WHEN DUP_VAL_ON_INDEX THEN NULL;
+          END;
+        END IF;
+      END IF;
+    END IF;
+  END LOOP;
+END set_additional_list_id;
+
 END ckin;
 /

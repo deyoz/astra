@@ -2622,9 +2622,6 @@ bool TryEnlargeServicePayment(TPaidRFISCList &paid_rfisc,
     if (emds.empty()) continue; //по пассажиру нет ничего
     for(map<TRFISCListKey, TQuantityPerSeg>::iterator irfisc=i->second.begin(); irfisc!=i->second.end(); ++irfisc)
     {
-      boost::optional<TRFISCKey> emdKey=paid_rfisc.getKeyIfSingleRFISC(i->first, irfisc->first.RFISC);
-      if (!emdKey) continue; //у пассажира как минимум 2 разных услуги с одним RFISC и мы не можем определить к какой услуге относится ASVC или EMD
-
       TBaseEmdMap base_emds(irfisc->first.RFISC);
       for(multiset<TPaxEMDItem>::const_iterator e=emds.begin(); e!=emds.end(); ++e) base_emds.add(*e);
 
@@ -2671,26 +2668,30 @@ bool TryEnlargeServicePayment(TPaidRFISCList &paid_rfisc,
                 if (curr_added.continuous_segs< initial_trfer_num && e==emds.end()) continue;
                 if (curr_added.continuous_segs>=initial_trfer_num && e!=emds.end())
                 {
-                  CheckIn::TServicePaymentItem item;
-                  item.doc_type="EMD"+e->emd_type;
-                  item.doc_no=e->emd_no;
-                  item.doc_coupon=e->emd_coupon;
-                  item.service_quantity=e->service_quantity;
-                  item.pax_id=i->first;
-                  item.trfer_num=e->trfer_num;
-                  item.pc=emdKey.get();
-
-                  if (Confirmed(item, confirmed_emd) &&
-                      UpdatePaidBag(item, paid_rfisc, true))
+                  boost::optional<TRFISCKey> emdKey=paid_rfisc.getKeyIfSingleRFISC(i->first, e->trfer_num, irfisc->first.RFISC);
+                  if (emdKey)  //!emdKey - у пассажира как минимум 2 разных услуги с одним RFISC на одном сегменте и мы не можем определить к какой услуге относится ASVC или EMD
                   {
-                    if (emdProps.get(e->emd_no, e->emd_coupon).get_manual_bind())
-                      curr_added.manual_bind=true;
-                    else
+                    CheckIn::TServicePaymentItem item;
+                    item.doc_type="EMD"+e->emd_type;
+                    item.doc_no=e->emd_no;
+                    item.doc_coupon=e->emd_coupon;
+                    item.service_quantity=e->service_quantity;
+                    item.pax_id=i->first;
+                    item.trfer_num=e->trfer_num;
+                    item.pc=emdKey.get();
+
+                    if (Confirmed(item, confirmed_emd) &&
+                        UpdatePaidBag(item, paid_rfisc, true))
                     {
-                      curr_added.coupons.push_back(item);
-                      continue;
+                      if (emdProps.get(e->emd_no, e->emd_coupon).get_manual_bind())
+                        curr_added.manual_bind=true;
+                      else
+                      {
+                        curr_added.coupons.push_back(item);
+                        continue;
+                      }
                     }
-                  };
+                  }
                 }
               }
               break; //сюда дошли - значит к данному сегменту не можем привязать
