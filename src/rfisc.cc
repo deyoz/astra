@@ -693,7 +693,7 @@ void TRFISCList::toXML(int list_id, xmlNodePtr node) const
     i->second.toXML(NewTextChild(node, "item"), def);
 }
 
-void TRFISCList::fromDB(int list_id, bool only_visible)
+void TRFISCList::fromDB(const ServiceListId& list_id, bool only_visible)
 {
   clear();
   TQuery Qry(&OraSession);
@@ -704,13 +704,19 @@ void TRFISCList::fromDB(int list_id, bool only_visible)
   else
     Qry.SQLText =
       "SELECT * FROM rfisc_list_items WHERE list_id=:list_id";
-  Qry.CreateVariable( "list_id", otInteger, list_id );
-  Qry.Execute();
-  for ( ;!Qry.Eof; Qry.Next())
+  Qry.DeclareVariable( "list_id", otInteger);
+  for(int id : {list_id.primary(), list_id.additional})
   {
-    TRFISCListItem item;
-    item.fromDB(Qry);
-    if (insert(make_pair(TRFISCListKey(item), item)).second) update_stat(item);
+    if (id==ASTRA::NoExists) continue;
+    Qry.SetVariable( "list_id", id );
+    Qry.Execute();
+    for ( ;!Qry.Eof; Qry.Next())
+    {
+      TRFISCListItem item;
+      item.fromDB(Qry);
+      if (id!=list_id.primary() && !item.isBaggageOrCarryOn()) continue;
+      if (insert(make_pair(TRFISCListKey(item), item)).second) update_stat(item);
+    }
   }
 }
 
@@ -923,6 +929,51 @@ const TRFISCBagPropsList& TRFISCListWithPropsCache::getBagProps(int list_id)
   return i->second.getBagProps();
 }
 
+const ServiceListId& ServiceListId::toDB(TQuery &Qry) const
+{
+  list_id==ASTRA::NoExists?Qry.SetVariable("list_id", FNull):
+                           Qry.SetVariable("list_id", list_id);
+  return *this;
+}
+
+ServiceListId& ServiceListId::fromDB(TQuery &Qry)
+{
+  clear();
+  list_id=Qry.FieldIsNULL("list_id")?ASTRA::NoExists:
+                                     Qry.FieldAsInteger("list_id");
+  if (Qry.GetFieldIndex("term_list_id")>=0)
+  {
+    additional=Qry.FieldIsNULL("additional_list_id")?ASTRA::NoExists:
+                                                     Qry.FieldAsInteger("additional_list_id");
+    term_list_id=Qry.FieldIsNULL("term_list_id")?ASTRA::NoExists:
+                                                 Qry.FieldAsInteger("term_list_id");
+  }
+  return *this;
+}
+
+const ServiceListId& ServiceListId::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+  SetProp(node, "list_id", forTerminal());
+  return *this;
+}
+
+ServiceListId& ServiceListId::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==NULL) return *this;
+  list_id=NodeAsInteger(node);
+  if (list_id<0)
+  {
+    TCachedQuery Qry("SELECT * FROM service_lists_group WHERE term_list_id=:term_list_id",
+                     QParams() << QParam("term_list_id", otInteger, -list_id));
+    Qry.get().Execute();
+    if (!Qry.get().Eof) fromDB(Qry.get());
+  }
+
+  return *this;
+}
+
 const TPaxServiceListsKey& TPaxServiceListsKey::toDB(TQuery &Qry) const
 {
   TPaxSegKey::toDB(Qry);
@@ -941,8 +992,7 @@ TPaxServiceListsKey& TPaxServiceListsKey::fromDB(TQuery &Qry)
 const TPaxServiceListsItem& TPaxServiceListsItem::toDB(TQuery &Qry) const
 {
   TPaxServiceListsKey::toDB(Qry);
-  list_id==ASTRA::NoExists?Qry.SetVariable("list_id", FNull):
-                           Qry.SetVariable("list_id", list_id);
+  ServiceListId::toDB(Qry);
   return *this;
 }
 
@@ -950,8 +1000,7 @@ TPaxServiceListsItem& TPaxServiceListsItem::fromDB(TQuery &Qry)
 {
   clear();
   TPaxServiceListsKey::fromDB(Qry);
-  list_id=Qry.FieldIsNULL("list_id")?ASTRA::NoExists:
-                                     Qry.FieldAsInteger("list_id");
+  ServiceListId::fromDB(Qry);
   return *this;
 }
 
@@ -960,7 +1009,7 @@ const TPaxServiceListsItem& TPaxServiceListsItem::toXML(xmlNodePtr node) const
   if (node==NULL) return *this;
   SetProp(node, "seg_no", trfer_num);
   SetProp(node, "category", (int)category);
-  SetProp(node, "list_id", list_id);
+  ServiceListId::toXML(node);
   return *this;
 }
 
@@ -978,7 +1027,13 @@ void TPaxServiceLists::fromDB(int id, bool is_unaccomp)
 {
   clear();
   TCachedQuery Qry(is_unaccomp?"SELECT grp_service_lists.*, grp_id AS pax_id FROM grp_service_lists WHERE grp_id=:id":
-                               "SELECT * FROM pax_service_lists WHERE pax_id=:id",
+                               (TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION)?
+                                  "SELECT pax_service_lists.*, service_lists_group.term_list_id "
+                                  "FROM pax_service_lists, service_lists_group "
+                                  "WHERE pax_service_lists.list_id=service_lists_group.list_id(+) AND "
+                                  "      pax_service_lists.additional_list_id=service_lists_group.additional_list_id(+) AND "
+                                  "      pax_service_lists.pax_id=:id":
+                                  "SELECT * FROM pax_service_lists WHERE pax_id=:id"),
                    QParams() << QParam("id", otInteger, id));
   Qry.get().Execute();
   for(; !Qry.get().Eof; Qry.get().Next())
