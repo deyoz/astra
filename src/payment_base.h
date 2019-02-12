@@ -301,6 +301,11 @@ class TServicePaymentListWithAuto : public std::list<TServicePaymentItem>, publi
     void dump(const std::string &file, int line) const;
 };
 
+class TPaidRFISCAndServicePaymentListWithAuto : std::list< std::pair<TPaidRFISCStatus, boost::optional<TServicePaymentItem> > >
+{
+  void fromDB(int grp_id);
+};
+
 void ServicePaymentFromXML(xmlNodePtr node,
                            int grp_id,
                            bool is_unaccomp,

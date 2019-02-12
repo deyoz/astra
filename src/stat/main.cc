@@ -9276,7 +9276,7 @@ struct TRFISCBag {
             //только относящиеся к багажу
             if (item.trfer_num!=0) continue;
             //только относящиеся к багажу и только на начальном сегменте
-            item.addStatusList(statusList);
+            statusList.add(item);
           };
           for(TPaidRFISCStatusList::const_iterator i=statusList.begin();
                                                    i!=statusList.end(); ++i)

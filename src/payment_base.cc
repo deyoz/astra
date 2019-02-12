@@ -735,6 +735,47 @@ void TServicePaymentList::dump(const std::string &where) const
     ProgTrace(TRACE5, "%s: %s", where.c_str(), i->traceStr().c_str());
 }
 
+void TPaidRFISCAndServicePaymentListWithAuto::fromDB(int grp_id)
+{
+  clear();
+
+  {
+    //сначала запишем все услуги с соответствующими статусами
+    TPaidRFISCListWithAuto paid;
+    paid.fromDB(grp_id, true);
+    TPaidRFISCStatusList paidStatuses;
+    paidStatuses.set(paid);
+    for(const TPaidRFISCStatus& status : paidStatuses) emplace_back(status, boost::none);
+  }
+
+  //потом свяжем каждую услугу с документом оплаты
+  CheckIn::TServicePaymentListWithAuto payment;
+  payment.fromDB(grp_id);
+  payment.sort();
+
+  if (payment.empty()) return;
+
+  for(bool unboundPaymentPass : {false, true})
+    for(auto& i : *this)
+    {
+      if (i.first.status==TServiceStatus::Free || i.second) continue; //услуга бесплатная или уже привязана оплата
+      const TPaidRFISCStatus& rfisc=i.first;
+      for(CheckIn::TServicePaymentListWithAuto::iterator iPayment=payment.begin(); iPayment!=payment.end(); ++iPayment)
+      {
+        if (iPayment->pc &&
+            ((!unboundPaymentPass && iPayment->pax_id!=ASTRA::NoExists && iPayment->pax_id==rfisc.pax_id) ||
+             (unboundPaymentPass && iPayment->pax_id==ASTRA::NoExists)) &&
+            iPayment->trfer_num==rfisc.trfer_num &&
+            iPayment->pc->key()==rfisc.key())
+        {
+          i.second=*iPayment;
+          payment.erase(iPayment);
+          break;
+        }
+      }
+    }
+}
+
 void ServicePaymentFromXML(xmlNodePtr node,
                            int grp_id,
                            bool is_unaccomp,
