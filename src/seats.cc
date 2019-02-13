@@ -24,9 +24,11 @@
 #include "passenger.h"
 #include "remarks.h"
 #include "dcs_services.h"
+#include "seat_descript.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace AstraLocale;
@@ -197,7 +199,16 @@ string DecodeCanUseRems( TUseRem VCanUseRems )
 
 inline bool LSD( int G3, int G2, int G, int V3, int V2, TWhere Where );
 
+struct CondSeats {
+  bool SeatDescription;
+  std::string seatDescr;
+  CondSeats() {
+    SeatDescription = false;
+  }
+};
+
 /* глобальные переменные для этого модуля */
+CondSeats condSeats;
 TSeatPlaces SeatPlaces;
 SALONS2::TSalons *CurrSalon;
 TSeatCoordsClass seatCoords;
@@ -208,7 +219,6 @@ TCompLayerType PlaceLayer; /* сам слой */
 vector<TCompLayerType> SeatsLayers;
 TUseLayers UseLayers; // можно ли использовать место со слоем для рассадки пассажиров с другими слоями
 
-//bool CanUse_PS; /* можно ли использовать статус предв. рассадки для пассажиров с другими статусами */
 bool CanUseSmoke; /* поиск курящих мест */
 
 struct TAllowedAttributesSeat {
@@ -1145,6 +1155,12 @@ int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep 
             PlaceLayer == cltUnknown && place->layers.empty() )*/ &&
           ( !CanUseSmoke || place->isLayer( cltSmoke ) ) &&
           ( AllowedAttrsSeat.passSeat( place ) ) ) {
+    if ( condSeats.SeatDescription ) {
+       if ( place->seatDescr != condSeats.seatDescr ) {
+         break;
+       }
+       LogTrace(TRACE5) << "seat descr=" << place->seatDescr;
+    }
     if ( canUseSUBCLS ) {
       for ( prem = place->rems.begin(); prem != place->rems.end(); prem++ ) {
         if ( !prem->pr_denial && prem->rem == SUBCLS_REM )
@@ -2039,6 +2055,8 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
   vector<TPassenger> npass;
   Passengers.copyTo( npass );
   string OLDclname = Passengers.clname;
+  bool OLDSeatDescrPassengers = ( Passengers.SeatDescription && pr_autoreseats );
+  bool OLDSeatDescrCondSeats = ( Passengers.SeatDescription && pr_autoreseats );
   bool OLDKTube = Passengers.KTube;
   bool OLDKWindow = Passengers.KWindow;
   bool OLDUseSmoke = Passengers.UseSmoke;
@@ -2053,117 +2071,121 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
   //ProgTrace( TRACE5, "SeatsPassengers: pr_isWorkINFT=%d", AllowedAttrsSeat.pr_isWorkINFT );
 
   try {
-    for ( int FCanUseINFT=AllowedAttrsSeat.pr_isWorkINFT; FCanUseINFT>=0; FCanUseINFT-- ) {
-      for ( int ik=0; ik<=AllowedAttrsSeat.pr_isWorkINFT*2; ik++ )   { //0 -группа с детьми, 1-группа без детей, 2-группа без детей без учета мест
-        for ( int FCanUseElem_Type=1/*pr_autoreseats*/; FCanUseElem_Type>=0; FCanUseElem_Type-- ) { // вслучае автомат. рассадки 2 прохода: с учетом типа места и без учета типа места
-          for ( /*int i=(int)!pr_autoreseats; i<=1+(int)pr_autoreseats; i++*/ int i=0; i<=2; i++ ) {
-            for ( VPassengers::iterator ipass=npass.begin(); ipass!=npass.end(); ipass++ ) {
-              /* когда пассажир посажен или рассадка на бронь и у пассажира статус не бронь или нет предвар. рассадки или у пассажира указано не то место */
-              if ( ipass->InUse )
-                pr_seat = true;
-              if ( ipass->InUse )
-                continue;
-              if ( SALONS2::isUserProtectLayer( PlaceLayer ) && !CanUseLayer( PlaceLayer, UseLayers ) &&
-                   ( ipass->preseat_layer != PlaceLayer ) ) {
-                continue;
-              }
-              if (!( (ik == 0 && ((!AllowedAttrsSeat.pr_isWorkINFT) || (FCanUseINFT == 1 && ipass->countPlace > 0 && ipass->isRemark( "INFT" )))) ||
-                     (ik == 1 && FCanUseINFT == 1 && !(ipass->countPlace > 0 && ipass->isRemark( "INFT" ))) ||
-                     (ik == 2 && FCanUseINFT == 0 && !(ipass->countPlace > 0 && ipass->isRemark( "INFT" ))) )) {
-                continue;
-              }
-//              ProgTrace( TRACE5, "pax_id=%d,ik=%d, FCanUseINFT=%d, ipass->countPlace=%d, pass.INFT=%d", ipass->paxId,ik, FCanUseINFT, ipass->countPlace, ipass->isRemark( "INFT" ) );
-              /*???31.03.11        if ( ipass->InUse || PlaceLayer == cltProtCkin && !CanUseLayer( cltProtCkin, UseLayers ) && //!!!
-                               ( ipass->layer != PlaceLayer || ipass->preseat.empty() || ipass->preseat != ipass->placeName ) )
-          continue;*/
-              Passengers.Clear();
-              ipass->placeList = NULL;
-              ipass->seat_no.clear();
-              int old_index = ipass->index;
-
-              AllowedAttrsSeat.clearAll();
-              if ( FCanUseElem_Type == 1 && ipass->countPlace > 0 && ipass->pers_type != "ВЗ" ) {
-                AllowedAttrsSeat.getValidChildElem_Types( );
-              }
-              AllowedAttrsSeat.pr_isWorkINFT = ( FCanUseINFT == 1 );
-              AllowedAttrsSeat.pr_INFT = ( ipass->countPlace > 0 && ipass->isRemark( "INFT" ) );
-              if ( pr_autoreseats ) {
-                if ( i == 0 ) {
-                  if ( ipass->SUBCLS_REM.empty() ) {
-                    continue;
-                  }
-                  FindSUBCLS = true;
-                  canUseSUBCLS = true;
-                  SUBCLS_REM = ipass->SUBCLS_REM;
+//    for ( int FCanUseSeatDescr=OLDSeatDescrPassengers; FCanUseSeatDescr>=0; FCanUseSeatDescr-- ) {
+      condSeats.SeatDescription = OLDSeatDescrPassengers;
+      for ( int FCanUseINFT=AllowedAttrsSeat.pr_isWorkINFT; FCanUseINFT>=0; FCanUseINFT-- ) {
+        for ( int ik=0; ik<=AllowedAttrsSeat.pr_isWorkINFT*2; ik++ )   { //0 -группа с детьми, 1-группа без детей, 2-группа без детей без учета мест
+          for ( int FCanUseElem_Type=1/*pr_autoreseats*/; FCanUseElem_Type>=0; FCanUseElem_Type-- ) { // вслучае автомат. рассадки 2 прохода: с учетом типа места и без учета типа места
+            for ( /*int i=(int)!pr_autoreseats; i<=1+(int)pr_autoreseats; i++*/ int i=0; i<=2; i++ ) {
+              for ( VPassengers::iterator ipass=npass.begin(); ipass!=npass.end(); ipass++ ) {
+                /* когда пассажир посажен или рассадка на бронь и у пассажира статус не бронь или нет предвар. рассадки или у пассажира указано не то место */
+                if ( ipass->InUse ) {
+                  pr_seat = true;
+                  continue;
                 }
-                else {
-                  if ( i == 1 ) {
-                    if ( !ipass->SUBCLS_REM.empty() ) {
+                if ( SALONS2::isUserProtectLayer( PlaceLayer ) && !CanUseLayer( PlaceLayer, UseLayers ) &&
+                     ( ipass->preseat_layer != PlaceLayer ) ) {
+                  continue;
+                }
+                if (!( (ik == 0 && ((!AllowedAttrsSeat.pr_isWorkINFT) || (FCanUseINFT == 1 && ipass->countPlace > 0 && ipass->isRemark( "INFT" )))) ||
+                       (ik == 1 && FCanUseINFT == 1 && !(ipass->countPlace > 0 && ipass->isRemark( "INFT" ))) ||
+                       (ik == 2 && FCanUseINFT == 0 && !(ipass->countPlace > 0 && ipass->isRemark( "INFT" ))) )) {
+                  continue;
+                }
+//                ProgTrace( TRACE5, "pax_id=%d,ik=%d, FCanUseINFT=%d, ipass->countPlace=%d, pass.INFT=%d", ipass->paxId,ik, FCanUseINFT, ipass->countPlace, ipass->isRemark( "INFT" ) );
+                /*???31.03.11        if ( ipass->InUse || PlaceLayer == cltProtCkin && !CanUseLayer( cltProtCkin, UseLayers ) && //!!!
+                                 ( ipass->layer != PlaceLayer || ipass->preseat.empty() || ipass->preseat != ipass->placeName ) )
+            continue;*/
+                Passengers.Clear();
+                ipass->placeList = NULL;
+                ipass->seat_no.clear();
+                int old_index = ipass->index;
+
+                AllowedAttrsSeat.clearAll();
+                if ( FCanUseElem_Type == 1 && ipass->countPlace > 0 && ipass->pers_type != "ВЗ" ) {
+                  AllowedAttrsSeat.getValidChildElem_Types( );
+                }
+                AllowedAttrsSeat.pr_isWorkINFT = ( FCanUseINFT == 1 );
+                AllowedAttrsSeat.pr_INFT = ( ipass->countPlace > 0 && ipass->isRemark( "INFT" ) );
+                if ( pr_autoreseats ) {
+                  if ( i == 0 ) {
+                    if ( ipass->SUBCLS_REM.empty() ) {
                       continue;
                     }
-                    FindSUBCLS = false;
+                    FindSUBCLS = true;
                     canUseSUBCLS = true;
+                    SUBCLS_REM = ipass->SUBCLS_REM;
                   }
                   else {
-                    canUseSUBCLS = false;
+                    if ( i == 1 ) {
+                      if ( !ipass->SUBCLS_REM.empty() ) {
+                        continue;
+                      }
+                      FindSUBCLS = false;
+                      canUseSUBCLS = true;
+                    }
+                    else {
+                      canUseSUBCLS = false;
+                    }
                   }
                 }
-              }
-              else { // первый проход: если используется поиск по подклассу, то сажаем всех пассажиров с нужным подклассом
-                if ( i == 2 || ( i == 0 && canUseSUBCLS && ipass->SUBCLS_REM != SUBCLS_REM ) )
-                  continue; // сейчас идет поиск по подклассам, а у пассажира его нет - не пытаемся его рассадить
-                if ( i == 1 ) { // сейчас идет поиск мест для пассажиров у которых нет подкласса
-/*                                                ProgTrace( TRACE5, "ipass->SUBCLS_REM=%s, SUBCLS_REM=%s, canUseSUBCLS=%d",
-                           ipass->SUBCLS_REM.c_str(), SUBCLS_REM.c_str(), canUseSUBCLS );*/
-                  if ( canUseSUBCLS && !pr_seat )
-                    continue;
-                  FindSUBCLS = false;
-                  //       		  	canUseSUBCLS = false;
+                else { // первый проход: если используется поиск по подклассу, то сажаем всех пассажиров с нужным подклассом
+                  if ( i == 2 || ( i == 0 && canUseSUBCLS && ipass->SUBCLS_REM != SUBCLS_REM ) )
+                    continue; // сейчас идет поиск по подклассам, а у пассажира его нет - не пытаемся его рассадить
+                  if ( i == 1 ) { // сейчас идет поиск мест для пассажиров у которых нет подкласса
+/*                                                  ProgTrace( TRACE5, "ipass->SUBCLS_REM=%s, SUBCLS_REM=%s, canUseSUBCLS=%d",
+                             ipass->SUBCLS_REM.c_str(), SUBCLS_REM.c_str(), canUseSUBCLS );*/
+                    if ( canUseSUBCLS && !pr_seat )
+                      continue;
+                    FindSUBCLS = false;
+                    //       		  	canUseSUBCLS = false;
+                  }
                 }
-              }
-//              ProgTrace( TRACE5, "pax_id=%d,ik=%d, FCanUseINFT=%d, ipass->countPlace=%d, pass.INFT=%d, FCanUseElem_Type=%d, i=%d",
-//                         ipass->paxId,ik, FCanUseINFT, ipass->countPlace, ipass->isRemark( "INFT" ), FCanUseElem_Type, i );
+//                ProgTrace( TRACE5, "pax_id=%d,ik=%d, FCanUseINFT=%d, ipass->countPlace=%d, pass.INFT=%d, FCanUseElem_Type=%d, i=%d",
+//                           ipass->paxId,ik, FCanUseINFT, ipass->countPlace, ipass->isRemark( "INFT" ), FCanUseElem_Type, i );
 
-              Passengers.Add( *ipass );
-              ipass->index = old_index;
-//              ProgTrace( TRACE5, "Passengers.Count=%d - go seats", Passengers.getCount() );
-              if ( SeatGrpOnBasePlace( ) ||
-                   ( ( CanUseRems == sNotUse_NotUseDenial ||
-                       CanUseRems == sNotUse ||
-                       CanUseRems == sIgnoreUse ||
-                       CanUseRems == sNotUseDenial ) &&
-                     ( !CanUseLayers ||
-                       ( PlaceLayer == cltProtCkin && CanUseLayer( cltProtCkin, UseLayers ) ) ||
-                       ( PlaceLayer == cltProtAfterPay && CanUseLayer( cltProtAfterPay, UseLayers ) ) ||
-                       ( PlaceLayer == cltPNLAfterPay && CanUseLayer( cltPNLAfterPay, UseLayers ) ) ||
-                       ( PlaceLayer == cltProtBeforePay && CanUseLayer( cltProtBeforePay, UseLayers ) ) ||
-                       ( PlaceLayer == cltPNLBeforePay && CanUseLayer( cltPNLBeforePay, UseLayers ) ) ||
-                       ( PlaceLayer == cltProtSelfCkin && CanUseLayer( cltProtSelfCkin, UseLayers ) ) ||
-                       !SALONS2::isUserProtectLayer( PlaceLayer ) ) &&
-                     SeatsGrp( ) ) ) { // тогда можно находить место по всему салону
-                if ( seatplaces.begin()->Step == sLeft || seatplaces.begin()->Step == sUp )
-                  throw EXCEPTIONS::Exception( "Недопустимое значение направления рассадки" );
-                ipass->placeList = seatplaces.begin()->placeList;
-                ipass->Pos = seatplaces.begin()->Pos;
-                ipass->Step = seatplaces.begin()->Step;
-                ipass->foundSeats = ipass->placeList->GetPlaceName( ipass->Pos );
-                ipass->isValidPlace = ipass->is_valid_seats( seatplaces.begin()->oldPlaces );
-                ipass->InUse = true;
-                ipass->set_seat_no();
-                TCompLayerType l = grp_status;
-                int vseparately_seats_adults_crs_pax_id = separately_seats_adults_crs_pax_id;
-                Clear();
-                grp_status = l;//??? надо так делать, но не красиво
-                separately_seats_adults_crs_pax_id = vseparately_seats_adults_crs_pax_id;
-                if ( !pr_autoreseats && i == 0 && canUseSUBCLS ) {
-                  pr_seat = true;
+                Passengers.Add( *ipass );
+                condSeats.seatDescr = ipass->seatDescr;
+                ipass->index = old_index;
+//                ProgTrace( TRACE5, "Passengers.Count=%d - go seats", Passengers.getCount() );
+                if ( (!condSeats.SeatDescription && SeatGrpOnBasePlace( )) ||
+                     ( ( CanUseRems == sNotUse_NotUseDenial ||
+                         CanUseRems == sNotUse ||
+                         CanUseRems == sIgnoreUse ||
+                         CanUseRems == sNotUseDenial ) &&
+                       ( !CanUseLayers ||
+                         ( PlaceLayer == cltProtCkin && CanUseLayer( cltProtCkin, UseLayers ) ) ||
+                         ( PlaceLayer == cltProtAfterPay && CanUseLayer( cltProtAfterPay, UseLayers ) ) ||
+                         ( PlaceLayer == cltPNLAfterPay && CanUseLayer( cltPNLAfterPay, UseLayers ) ) ||
+                         ( PlaceLayer == cltProtBeforePay && CanUseLayer( cltProtBeforePay, UseLayers ) ) ||
+                         ( PlaceLayer == cltPNLBeforePay && CanUseLayer( cltPNLBeforePay, UseLayers ) ) ||
+                         ( PlaceLayer == cltProtSelfCkin && CanUseLayer( cltProtSelfCkin, UseLayers ) ) ||
+                         !SALONS2::isUserProtectLayer( PlaceLayer ) ) &&
+                       SeatsGrp( ) ) ) { // тогда можно находить место по всему салону
+                  if ( seatplaces.begin()->Step == sLeft || seatplaces.begin()->Step == sUp )
+                    throw EXCEPTIONS::Exception( "Недопустимое значение направления рассадки" );
+                  ipass->placeList = seatplaces.begin()->placeList;
+                  ipass->Pos = seatplaces.begin()->Pos;
+                  ipass->Step = seatplaces.begin()->Step;
+                  ipass->foundSeats = ipass->placeList->GetPlaceName( ipass->Pos );
+                  ipass->isValidPlace = ipass->is_valid_seats( seatplaces.begin()->oldPlaces );
+                  ipass->InUse = true;
+                  ipass->set_seat_no();
+                  TCompLayerType l = grp_status;
+                  int vseparately_seats_adults_crs_pax_id = separately_seats_adults_crs_pax_id;
+                  Clear();
+                  grp_status = l;//??? надо так делать, но не красиво
+                  separately_seats_adults_crs_pax_id = vseparately_seats_adults_crs_pax_id;
+                  if ( !pr_autoreseats && i == 0 && canUseSUBCLS ) {
+                    pr_seat = true;
+                  }
                 }
-              }
-            } // for passengers
-          } // end for i=0..2
-        } // end for FCanUseElem_Type
-      } // for ik - подгруппы
-    } // end for FCanUseINFT
+              } // for passengers
+            } // end for i=0..2
+          } // end for FCanUseElem_Type
+        } // for ik - подгруппы
+      } // end for FCanUseINFT
+  //  } // end for condSeats.SeatDescription
   }
   catch( ... ) {
     FindSUBCLS = OLDFindSUBCLS;
@@ -2173,6 +2195,8 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
     Passengers.Clear();
     Passengers.copyFrom( npass );
     Passengers.clname = OLDclname;
+    Passengers.SeatDescription = OLDSeatDescrPassengers;
+    condSeats.SeatDescription = OLDSeatDescrCondSeats;
     Passengers.KTube = OLDKTube;
     Passengers.KWindow = OLDKWindow;
     Passengers.UseSmoke = OLDUseSmoke;
@@ -2189,6 +2213,8 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
   Passengers.Clear();
   Passengers.copyFrom( npass );
   Passengers.clname = OLDclname;
+  Passengers.SeatDescription = OLDSeatDescrPassengers;
+  condSeats.SeatDescription = OLDSeatDescrCondSeats;
   Passengers.KTube = OLDKTube;
   Passengers.KWindow = OLDKWindow;
   Passengers.UseSmoke = OLDUseSmoke;
@@ -2363,6 +2389,7 @@ void TPassenger::build( xmlNodePtr pNode, const TDefaults& def, TComplexBagExces
   NewTextChild( pNode, "reg_no", regNo );
   NewTextChild( pNode, "name", fullName );
   NewTextChild( pNode, "seat_no", foundSeats, def.placeName );
+  NewTextChild( pNode, "seat_descr", seatDescr, def.seat_descr );
   NewTextChild( pNode, "wl_type", wl_type, def.wl_type );
   NewTextChild( pNode, "seats", countPlace, def.countPlace );
   NewTextChild( pNode, "tid", tid );
@@ -2392,12 +2419,12 @@ void TPassenger::build( xmlNodePtr pNode, const TDefaults& def, TComplexBagExces
 /*//////////////////////////////// CLASS TPASSENGERS ///////////////////////////////////*/
 TPassengers::TPassengers()
 {
- Clear();
+  Clear();
 }
 
 TPassengers::~TPassengers()
 {
- Clear();
+  Clear();
 }
 
 void TPassengers::Clear()
@@ -2406,7 +2433,8 @@ void TPassengers::Clear()
   KTube = false;
   KWindow = false;
   clname.clear();
-  this->UseSmoke = false;
+  UseSmoke = false;
+  SeatDescription = false;
   counters.Clear();
 }
 
@@ -2599,6 +2627,7 @@ void TPassengers::Add( const SALONS2::TSalonList &salonList, TPassenger &pass )
                   plList!=salonList.end(); plList++ ) {
               TPlaceList* placeList = *plList;
               TPoint p;
+              tst();
               if ( placeList->GetisPlaceXY( pass.preseat_no, p ) ) {
                 coord.placeListIdx = placeList->num;
                 break;
@@ -2962,9 +2991,12 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
         }
         for ( std::set<TPlace*,CompareSeats>::iterator iseat=values.begin();
               iseat!=values.end(); iseat++ ) {
-          seat.ranges.push_back( TSeat( (*iseat)->yname, (*iseat)->xname ) );
-          ProgTrace( TRACE5, "autoSeats.push_back pax_id=%d, seats=%d, yname=%s, xname=%s",
-                     seat.pax_id, seat.seats, (*iseat)->yname.c_str(), (*iseat)->xname.c_str() );
+          TSeat s( (*iseat)->yname, (*iseat)->xname );
+          seat.ranges.push_back( s );
+          seat.descrs.insert( make_pair( s, SEAT_DESCR::descrSeatTypeOrigin( salonList.getAirline(), CurrSalon->trip_id, salonList.getRFISCMode(), pass.placeList,
+                                                                                 (*iseat)->x, (*iseat)->y  ).toPropHintFormatStr() ) );
+          ProgTrace( TRACE5, "autoSeats.push_back pax_id=%d, seats=%d, yname=%s, xname=%s, descr=%s",
+                     seat.pax_id, seat.seats, (*iseat)->yname.c_str(), (*iseat)->xname.c_str(), seat.descrs[ s ].c_str() );
         }
         ProgTrace( TRACE5, "autoSeats.push_back pax_id=%d, seats=%d", seat.pax_id, seat.seats );
         autoSeats.push_back( seat );
@@ -4151,646 +4183,6 @@ bool isINFT( int point_id, int pax_id ) {
   return false;
 }
 
-/*!!!bool ChangeLayer( TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
-                  string first_xname, string first_yname, TSeatsType seat_type,
-                  bool pr_lat_seat, TChangeLayerProcFlag seatFlag )
-{
-  bool changedOrNotPay = true;
-  // разметка и проверка возможна только для платных слоев
-  if ( seatFlag != clNotPaySeat &&
-       ( seat_type != stSeat || ( layer_type != cltProtBeforePay && layer_type != cltProtAfterPay && layer_type != cltProtSelfCkin  ) ) ) {
-    tst();
-    throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
-  }
-  UseLayers[ cltProtCkin ] = false;
-  UseLayers[ cltProtBeforePay ] = false;
-  UseLayers[ cltPNLBeforePay ] = false;
-  UseLayers[ cltProtAfterPay ] = false;
-  UseLayers[ cltPNLAfterPay ] = false;
-  UseLayers[ cltProtSelfCkin ] = false;
-  first_xname = norm_iata_line( first_xname );
-  first_yname = norm_iata_line( first_yname );
-  ProgTrace( TRACE5, "layer=%s, point_id=%d, pax_id=%d, first_xname=%s, first_yname=%s",
-             EncodeCompLayerType( layer_type ), point_id, pax_id, first_xname.c_str(), first_yname.c_str() );
-  TQuery Qry( &OraSession );
-  // лочим рейс
-  TFlights flights;
-  flights.Get( point_id, ftTranzit );
-  flights.Lock(__FUNCTION__);
-
-  / считываем инфу по пассажиру
-  switch ( layer_type ) {
-    case cltGoShow:
-    case cltTranzit:
-    case cltCheckin:
-    case cltTCheckin:
-      Qry.SQLText =
-       "SELECT surname, name, reg_no, pax.grp_id, pax.seats, pax.is_jmp, a.step step, pax.tid, '' airp_arv, point_dep, point_arv, "
-       "       0 point_id, salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,:point_dep,'list',rownum) AS seat_no, "
-       "       class, pers_type "
-       " FROM pax, pax_grp, "
-       "( SELECT COUNT(*) step FROM pax_rem "
-       "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
-       "WHERE pax.pax_id=:pax_id AND "
-       "      pax_grp.grp_id=pax.grp_id ";
-       Qry.CreateVariable( "point_dep", otInteger, point_id );
-      break;
-    case cltProtCkin:
-    case cltProtBeforePay: //WEB ChangeProtPaidLayer
-    case cltProtAfterPay:
-    case cltPNLAfterPay:
-    case cltProtSelfCkin:
-      Qry.SQLText =
-        "SELECT surname, name, 0 reg_no, 0 grp_id, seats, 0 is_jmp, a.step step, crs_pax.tid, airp_arv, point_id, 0 point_arv, "
-        "       NULL AS seat_no, class, pers_type "
-        " FROM crs_pax, crs_pnr, "
-        "( SELECT COUNT(*) step FROM crs_pax_rem "
-        "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
-        " WHERE crs_pax.pax_id=:pax_id AND crs_pax.pr_del=0 AND "
-        "       crs_pax.pnr_id=crs_pnr.pnr_id";
-     if ( layer_type == cltProtCkin || layer_type == cltProtSelfCkin ||
-          (seatFlag == clNotPaySeat && ( layer_type == cltPNLAfterPay || layer_type == cltProtAfterPay )) ||
-          seatFlag != clNotPaySeat ) {
-        break;
-     }
-    default:
-        ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
-        throw UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );
-  }
-  Qry.CreateVariable( "pax_id", otInteger, pax_id );
-  Qry.Execute();
-  // пассажир не найден или изменеоизводились с другой стойки или при предв. рассадке пассажир уже зарегистрирован
-  if ( !Qry.RowCount() ) {
-    ProgTrace( TRACE5, "!!! Passenger not found in funct ChangeLayer" );
-    throw UserException( "MSG.PASSENGER.NOT_FOUND.REFRESH_DATA"	);
-  }
-
-  string strclass = Qry.FieldAsString( "class" );
-  ProgTrace( TRACE5, "subclass=%s", strclass.c_str() );
-  string fullname = Qry.FieldAsString( "surname" );
-  TrimString( fullname );
-  fullname += string(" ") + Qry.FieldAsString( "name" );
-  int idx1 = Qry.FieldAsInteger( "reg_no" );
-  int idx2 = Qry.FieldAsInteger( "grp_id" );
-  string airp_arv = Qry.FieldAsString( "airp_arv" );
-  int point_id_tlg = Qry.FieldAsInteger( "point_id" );
-  int point_arv = Qry.FieldAsInteger( "point_arv" );
-  int seats_count = Qry.FieldAsInteger( "seats" );
-  bool is_jmp = Qry.FieldAsInteger( "is_jmp" )!=0;
-  int pr_down;
-  if ( Qry.FieldAsInteger( "step" ) )
-    pr_down = 1;
-  else
-    pr_down = 0;
-  string prior_seat = Qry.FieldAsString( "seat_no" );
-  string pers_type = Qry.FieldAsString( "pers_type" );
-  if ( !seats_count ) {
-    ProgTrace( TRACE5, "!!! Passenger has count seats=0 in funct ChangeLayer" );
-    throw UserException( "MSG.SEATS.NOT_RESEATS_SEATS_ZERO" );
-  }
-  if (is_jmp) throw UserException( "MSG.SEATS.NOT_RESEATS_PASSENGER_FROM_JUMP_SEAT" );
-
-  if ( Qry.FieldAsInteger( "tid" ) != tid  ) {
-    ProgTrace( TRACE5, "!!! Passenger has changed in other term in funct ChangeLayer" );
-    throw UserException( "MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
-                         LParams()<<LParam("surname", fullname ) );
-  }
-  if ( ( layer_type != cltGoShow &&
-         layer_type != cltCheckin &&
-         layer_type != cltTCheckin &&
-         layer_type != cltTranzit ) && SALONS2::Checkin( pax_id ) ) { //???
-    ProgTrace( TRACE5, "!!! Passenger set layer=%s, but his was chekin in funct ChangeLayer", EncodeCompLayerType( layer_type ) );
-    throw UserException( "MSG.PASSENGER.CHECKED.REFRESH_DATA" );
-  }
-
-  SALONS2::TSalons Salons( point_id, SALONS2::rTripSalons );
-  Salons.Read();
-  TSeatRange r;
-  TSalonPoint p;
-  TPlace* place;
-  TSeatRanges nseats;
-  int priority = Salons.getPriority( layer_type );
-
-  // проверка на то, что пассажир имеет уже более приоритетный слой, а хотим назначить менее приоритетный
-  //если пассажир имеет платный слой, то нельзя работать с предварительной разметкой ???
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT trip_comp_layers.layer_type, first_xname, first_yname "
-    " FROM trip_comp_layers, comp_layer_types "
-    "WHERE point_id=:point_id AND (crs_pax_id=:pax_id OR pax_id=:pax_id) AND "
-    "      trip_comp_layers.layer_type = comp_layer_types.code AND "
-    "      comp_layer_types.priority<=:priority "
-    "ORDER BY priority";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "pax_id", otInteger, pax_id );
-  Qry.CreateVariable( "priority", otInteger, priority );
-  Qry.Execute();
-  // выбираем все более приоритетные слои по пассажиру
-  while ( !Qry.Eof ) {
-    strcpy( r.first.line, Qry.FieldAsString( "first_xname" ) );
-    strcpy( r.first.row, Qry.FieldAsString( "first_yname" ) );
-    r.second = r.first;
-    // находим места со слоями в салоне
-    if ( getCurrSeat( Salons, r, p ) ) {
-      vector<TPlaceList*>::iterator placeList = Salons.placelists.end();
-      for( placeList = Salons.placelists.begin();placeList != Salons.placelists.end(); placeList++ ) {
-        if ( (*placeList)->num == p.num )
-            break;
-      }
-      if ( placeList != Salons.placelists.end() ) {
-        SALONS2::TPoint coord( p.x, p.y );
-        place = (*placeList)->place( coord );
-        ProgTrace( TRACE5, "pax_id=%d, seat_no=%s, layer_type=%s, priority=%d",
-                   pax_id, string(place->yname+place->xname).c_str(), EncodeCompLayerType( layer_type ), Salons.getPriority( layer_type ) );
-        // проверяем а правда ли слой действует или перекрыт более приоритетным слоем
-        int p = Salons.getPriority( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) );
-        if ( p < priority &&
-             place->isLayer( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) ) ) {
-          throw UserException( "MSG.SEATS.SEAT_NO.EXIST_MORE_PRIORITY" );
-        }
-        if ( p == priority ) { // сохраняем места с нашим слоем
-          strcpy( r.first.line, place->xname.c_str() );
-          strcpy( r.first.row, place->yname.c_str() );
-          r.second = r.first;
-          nseats.push_back( r );
-        }
-      }
-    }
-    Qry.Next();
-  }
-
-  TSeatRanges seats;
-  if ( seat_type != stDropseat ) { // заполнение вектора мест + проверка
-    TQuery QrySeatRules( &OraSession );
-    QrySeatRules.SQLText =
-        "SELECT pr_owner FROM comp_layer_rules "
-        "WHERE src_layer=:new_layer AND dest_layer=:old_layer";
-    QrySeatRules.CreateVariable( "new_layer", otString, EncodeCompLayerType( layer_type ) );
-    QrySeatRules.DeclareVariable( "old_layer", otString );
-  // считываем слои по новому месту и делаем проверку на то, что этот слой уже занят другим пассажиром
-    seats.clear();
-    strcpy( r.first.line, first_xname.c_str() );
-    strcpy( r.first.row, first_yname.c_str() );
-    r.second = r.first;
-    if ( !getCurrSeat( Salons, r, p ) ) {
-      tst();
-        throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
-    }
-    vector<TPlaceList*>::iterator placeList = Salons.placelists.end();
-    for( placeList = Salons.placelists.begin();placeList != Salons.placelists.end(); placeList++ ) {
-        if ( (*placeList)->num == p.num )
-            break;
-    }
-    if ( placeList == Salons.placelists.end() ) {
-      tst();
-        throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
-    }
-    std::vector<SALONS2::TPlace> verifyPlaces;
-    TCompLayerType old_pax_layer = cltUnknown;
-    for ( int i=0; i<seats_count; i++ ) { // пробег по кол-ву мест и по местам
-        SALONS2::TPoint coord( p.x, p.y );
-        place = (*placeList)->place( coord );
-        if ( !place->visible || !place->isplace || place->clname != strclass ) {
-            tst();
-            throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
-        }
-        // проверка на то, что пассажир не "ВЗ" а место у аварийного выхода
-      verifyPlaces.push_back( *place );
-        // проверка на то, что мы имеем право назначить слой на эти места по пассажиру
-      if ( !place->layers.empty() ) {
-        if ( place->layers.begin()->pax_id == pax_id &&
-             place->layers.begin()->layer_type == layer_type ) {
-          if ( seatFlag == clNotPaySeat ) {
-            throw UserException( "MSG.SEATS.SEAT_NO.PASSENGER_OWNER" );
-          }
-        }
-        if ( seatFlag == clNotPaySeat ) {
-          QrySeatRules.SetVariable( "old_layer", EncodeCompLayerType( place->layers.begin()->layer_type ) );
-          ProgTrace( TRACE5, "old layer=%s", EncodeCompLayerType( place->layers.begin()->layer_type ) );
-          QrySeatRules.Execute();
-          if ( QrySeatRules.Eof )
-            throw UserException( "MSG.SEATS.UNABLE_SET_CURRENT" );
-          if ( QrySeatRules.FieldAsInteger( "pr_owner" ) && pax_id != place->layers.begin()->pax_id )
-            throw UserException( "MSG.SEATS.SEAT_NO.OCCUPIED_OTHER_PASSENGER" );
-          if ( pax_id == place->layers.begin()->pax_id ) {
-            old_pax_layer = place->layers.begin()->layer_type;
-          }
-        }
-      }
-      strcpy( r.first.line, place->xname.c_str() );
-      strcpy( r.first.row, place->yname.c_str() );
-      r.second = r.first;
-      seats.push_back( r );
-      if ( pr_down )
-        p.y++;
-      else
-        p.x++;
-    }
-    //INFT
-    bool pr_INFT = ( TReqInfo::Instance()->client_type != ctTerm &&
-                     TReqInfo::Instance()->client_type != ctPNL &&
-                     seatFlag == clNotPaySeat &&
-                     AllowedAttrsSeat.isWorkINFT( point_id ) &&
-                     isINFT( point_id, pax_id ) ); //расчитаем prINFT
-    if ( pr_INFT || !AllowedAttrsSeat.passSeats( pers_type, pr_INFT, verifyPlaces ) ) { //web-пересдка INFT запрещена
-      tst();
-      throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
-    }
-    if ( seatFlag != clNotPaySeat &&
-         ( old_pax_layer == cltProtBeforePay || old_pax_layer == cltProtAfterPay ) &&
-         !nseats.empty() ) { // были платные места - не должны измениться
-      tst();
-      //сравниваем
-      if ( seats.size() != nseats.size() ||
-           seats != nseats ) {
-        tst();
-        throw UserException( "MSG.SEATS.SEAT_NO.NOT_COINCIDE_WITH_PREPAID" );
-      }
-      changedOrNotPay = false;
-      if ( !( seatFlag == clPaySeatSet && //надо разметить слоем
-            ( TReqInfo::Instance()->client_type == ctWeb ||
-              TReqInfo::Instance()->client_type == ctMobile ) ) ) {
-        return changedOrNotPay;
-      }
-    }
-    tst();
-    if ( seatFlag == clPaySeatCheck ) {
-      tst();
-      return changedOrNotPay;
-    }
-    //проверка мест с разметкой нашего слоя
-
-//	  if ( Qry.Eof ) {
-//        ProgError( STDLOG, "CanChangeLayer: error xname=%s, yname=%s", first_xname.c_str(), first_yname.c_str() );
-//        throw UserException( "MSG.SEATS.SEAT_NO.SEATS_NOT_AVAIL" );
-//      }
-  }
-
-  int curr_tid = NoExists;
-  TPointIdsForCheck point_ids_spp;
-  point_ids_spp.insert( make_pair(point_id, layer_type) );
-  if ( seat_type != stSeat ) { // пересадка, высадка - удаление старого слоя
-    switch( layer_type ) {
-        case cltGoShow:
-        case cltTranzit:
-        case cltCheckin:
-        case cltTCheckin:
-        Qry.Clear();
-        Qry.SQLText =
-          "BEGIN "
-          " DELETE FROM trip_comp_layers "
-          "  WHERE point_id=:point_id AND "
-          "        layer_type=:layer_type AND "
-          "        pax_id=:pax_id; "
-          " IF :tid IS NULL THEN "
-          "   SELECT cycle_tid__seq.nextval INTO :tid FROM dual; "
-          "   UPDATE pax SET tid=:tid WHERE pax_id=:pax_id;"
-          " END IF;"
-          "END;";
-        Qry.CreateVariable( "point_id", otInteger, point_id );
-        Qry.CreateVariable( "pax_id", otInteger, pax_id );
-        Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
-        if ( curr_tid == NoExists )
-          Qry.CreateVariable( "tid", otInteger, FNull );
-        else
-          Qry.CreateVariable( "tid", otInteger, curr_tid );
-        Qry.Execute();
-        curr_tid = Qry.GetVariableAsInteger( "tid" );
-        break;
-        case cltProtCkin:
-        case cltProtAfterPay:
-        case cltPNLAfterPay:
-        case cltProtBeforePay:
-        case cltProtSelfCkin://WEB ChangeProtPaidLayer
-            // удаление из салона, если есть разметка
-            DeleteTlgSeatRanges( layer_type, pax_id, curr_tid, point_ids_spp );
-            break;
-        //case cltProtBeforePay: //WEB ChangeProtPaidLayer
-//          break;
-      default:
-        ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
-        throw UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );
-    }
-  }
-  // назначение нового слоя
-  if ( seat_type != stDropseat ) { // посадка на новое место
-    switch ( layer_type ) {
-        case cltGoShow:
-        case cltTranzit:
-        case cltCheckin:
-        case cltTCheckin:
-          SaveTripSeatRanges( point_id, layer_type, seats, pax_id, point_id, point_arv, NowUTC() );
-          Qry.Clear();
-          Qry.SQLText =
-          "BEGIN "
-          " IF :tid IS NULL THEN "
-          "   SELECT cycle_tid__seq.nextval INTO :tid FROM dual; "
-          "   UPDATE pax SET tid=:tid WHERE pax_id=:pax_id;"
-          " END IF;"
-          "END;";
-        Qry.CreateVariable( "pax_id", otInteger, pax_id );
-        if ( curr_tid == NoExists )
-          Qry.CreateVariable( "tid", otInteger, FNull );
-        else
-          Qry.CreateVariable( "tid", otInteger, curr_tid );
-        Qry.Execute();
-        curr_tid = Qry.GetVariableAsInteger( "tid" );
-        break;
-      case cltProtCkin:
-      case cltProtBeforePay: //WEB ChangeProtPaidLayer
-      case cltProtAfterPay:
-      case cltPNLAfterPay:
-      case cltProtSelfCkin:
-        if ( layer_type != cltProtCkin ) { //требуется удалить старые платные слои, иначе их кол-во будет увеличиваться, отдельно вынес cltProtCkin для того, чтобы ничего по этому слою не менялось
-          DeleteTlgSeatRanges( layer_type, pax_id, curr_tid, point_ids_spp );
-        }
-        InsertTlgSeatRanges( point_id_tlg, airp_arv, layer_type, seats, pax_id, NoExists, time_limit, false, curr_tid, point_ids_spp );
-        break;
-      default:
-        ProgTrace( TRACE5, "!!! Unuseable layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
-        throw UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );
-    }
-  }
-  { //mvd
-    switch ( layer_type ) {
-      case cltGoShow:
-        case cltTranzit:
-      case cltCheckin:
-      case cltTCheckin:
-        rozysk::sync_pax(pax_id, TReqInfo::Instance()->desk.code, TReqInfo::Instance()->user.descr);
-        break;
-      default:
-        break;
-    }
-  }
-
-  tid = curr_tid;
-
-  TReqInfo *reqinfo = TReqInfo::Instance();
-  string new_seat_no;
-  for (TSeatRanges::iterator ns=seats.begin(); ns!=seats.end(); ns++ ) {
-    if ( !new_seat_no.empty() )
-        new_seat_no += " ";
-    new_seat_no += ns->first.denorm_view(pr_lat_seat);
-  }
-  switch( seat_type ) {
-    case stSeat:
-        switch( layer_type ) {
-          case cltGoShow:
-          case cltTranzit:
-          case cltCheckin:
-          case cltTCheckin:
-            reqinfo->LocaleToLog("EVT.PASSENGER_SEATED_MANUALLY",
-                                 LEvntPrms() << PrmSmpl<std::string>("name", fullname)
-                                             << PrmSmpl<std::string>("seat", new_seat_no),
-                                 evtPax, point_id, idx1, idx2);
-          if ( is_sync_paxs( point_id ) )
-            update_pax_change( point_id, pax_id, idx1, "Р" );
-          break;
-        default:;
-        }
-        break;
-    case stReseat:
-        switch( layer_type ) {
-            case cltGoShow:
-        case cltTranzit:
-        case cltCheckin:
-        case cltTCheckin:
-            reqinfo->LocaleToLog("EVT.PASSENGER_CHANGE_SEAT_MANUALLY",
-                                 LEvntPrms() << PrmSmpl<std::string>("name", fullname)
-                                             << PrmSmpl<std::string>("seat", new_seat_no),
-                                 evtPax, point_id, idx1, idx2);
-          if ( is_sync_paxs( point_id ) ) {
-            update_pax_change( point_id, pax_id, idx1, "Р" );
-          }
-          break;
-        default:;
-        }
-        break;
-    case stDropseat:
-        switch( layer_type ) {
-            case cltGoShow:
-        case cltTranzit:
-        case cltCheckin:
-        case cltTCheckin:
-          reqinfo->LocaleToLog("EVT.PASSENGER_DISEMBARKED_MANUALLY",
-                               LEvntPrms() << PrmSmpl<std::string>("name", fullname)
-                                           << PrmSmpl<std::string>("seat", prior_seat),
-                               evtPax, point_id, idx1, idx2);
-          if ( is_sync_paxs( point_id ) )
-            update_pax_change( point_id, pax_id, idx1, "Р" );
-          break;
-        default:;
-        }
-        break;
-  }
-  check_layer_change( point_ids_spp, __FUNCTION__ );
-  return changedOrNotPay;
-}
-!!!*/
-void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, TSeatAlgoParams ASeatAlgoParams )
-{
-  // салон содержит все нормальные места (нет инвалидных мест, например с разрывами
-  // нужна информация о младенцах на руках - для рассадки их в первую очередь на спец. места
-  if ( Salons.placelists.empty() )
-    throw EXCEPTIONS::Exception( "Не задан салон для автоматической рассадки" );
-  std::vector<TCoordSeat> paxsSeats;
-  FSeatAlgoParams = ASeatAlgoParams;
-  CurrSalon = &Salons;
-  SeatAlg = sSeatPassengers;
-  CanUseLayers = false; /* не учитываем статус мест */
-  UseLayers[ cltProtCkin ] = true;
-  UseLayers[ cltProtBeforePay ] = true;
-  UseLayers[ cltProtAfterPay ] = true;
-  UseLayers[ cltPNLBeforePay ] = true;
-  UseLayers[ cltPNLAfterPay ] = true;
-  UseLayers[ cltProtSelfCkin ] = true;
-  //CanUse_PS = true;
-  CanUseSmoke = false;
-  AllowedAttrsSeat.clearAll();
-  CanUseRems = sIgnoreUse;
-  Remarks.clear();
-  CanUseTube = true;
-  CanUseAlone = uTrue;
-  SeatPlaces.Clear();
-  condRates.Init( Salons, false, TReqInfo::Instance()->client_type ); // собирает все типы платных мест в массив по приоритетам, если это web-клиент, то не учитываем
-
-  //!!! не задано pass.placeName, pass.PrevPlaceName, pass.OldPlaceName, pass.placeList,pass.InUse ,x,y???
-    TQuery Qry( &OraSession );
-    Qry.SQLText =
-    "SELECT layer_type FROM grp_status_types WHERE layer_type IS NOT NULL ORDER BY priority ";
-    Qry.Execute();
-
-  AllowedAttrsSeat.isWorkINFT( Salons.trip_id );
-  if ( AllowedAttrsSeat.pr_isWorkINFT ) { //младенцев на руки - ремака пассажиру INFT - работает медленно, но этот кусок программы устарел!!!
-    int s = APass.getCount();
-    for ( int i=0; i<s; i++ ) { // пробег по пассажирам
-      TPassenger &pass = APass.Get( i );
-      if ( isINFT( Salons.trip_id, pass.paxId ) ) {
-        ProgTrace( TRACE5, "AutoReSeatsPassengers: old version: isINFT(%d)", pass.paxId );
-        pass.add_rem( "INFT" );
-      }
-    }
-  }
-  int s;
-  try {
-    while ( !Qry.Eof ) { // пробег по слоям
-      for ( int vClass=0; vClass<=2; vClass++ ) { // пробег по классам
-        Passengers.Clear();
-        s = APass.getCount();
-        for ( int i=0; i<s; i++ ) { // пробег по пассажирам
-          TPassenger &pass = APass.Get( i );
-          if ( pass.isSeat ) // пассажир посажен
-            continue;
-          if ( pass.grp_status != DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) ) // разбиваем пассажиров по типам Бронь, Транзит...
-            continue;
-          if ( pass.is_jmp) {
-            //!!!djek ProgError?
-            continue;
-          }
-          ProgTrace( TRACE5, "isSeat=%d, pass.pax_id=%d, pass.foundSeats=%s, pass.clname=%s, layer_type=%s, pass.grp_status=%s, equal_y_class=%d",
-                     pass.isSeat, pass.paxId, pass.foundSeats.c_str(), pass.clname.c_str(), Qry.FieldAsString( "layer_type" ),
-                     EncodeCompLayerType( pass.grp_status ), pass.clname == "Э" );
-
-          switch( vClass ) {
-            case 0:
-               if ( pass.clname != "П" )
-                 continue;
-               break;
-            case 1:
-               if ( pass.clname != "Б" )
-                 continue;
-               break;
-            case 2:
-               if ( pass.clname != "Э" )
-                 continue;
-               break;
-          }
-          tst();
-          if ( ExistsBasePlace( Salons, pass ) ) { // пассажир не посажен, но нашлось для него базовое место - пометили как занято //??? кодировка !!!
-            tst();
-            continue;
-          }
-          Passengers.Add( pass ); /* накапливаются те у которых не нашлось базовых мест */
-        } /* пробежались по всем пассажирам */
-        if ( Passengers.getCount() ) {
-          Passengers.KWindow = ( Passengers.KWindow && !Passengers.KTube );
-          Passengers.KTube = ( !Passengers.KWindow && Passengers.KTube );
-          seatCoords.refreshCoords( FSeatAlgoParams.SeatAlgoType,
-                                    Passengers.KWindow,
-                                    Passengers.KTube,
-                                    paxsSeats );
-          /* рассадка пассажира у которого не найдено базовое место */
-          ProgTrace( TRACE5, "AutoReSeatsPassengers: Passengers.getCount()=%d, layer_type=%s", Passengers.getCount(),Qry.FieldAsString( "layer_type" ) );
-          SeatPlaces.grp_status = Passengers.Get( 0 ).grp_status;
-          SeatPlaces.separately_seats_adults_crs_pax_id = Passengers.Get( 0 ).paxId;
-          SeatPlaces.SeatsPassengers( true );
-          SeatPlaces.RollBack( );
-          int s = Passengers.getCount();
-          for ( int i=0; i<s; i++ ) {
-            TPassenger &pass = Passengers.Get( i );
-            int k = APass.getCount();
-            for ( int j=0; j<k; j++	 ) {
-              TPassenger &opass = APass.Get( j );
-              if ( opass.paxId == pass.paxId ) {
-                opass = pass;
-                if ( opass.isSeat ) {
-                  paxsSeats.push_back( TCoordSeat( opass.placeList->num, opass.Pos.x, opass.Pos.y ) );
-                }
-                ProgTrace( TRACE5, "pass.pax_id=%d, pass foundSeats=%s, pass.isSeat=%d, pass.InUse=%d, pass.Pos(%d,%d), seat_no.size=%zu",
-                           pass.paxId,pass.foundSeats.c_str(), pass.isSeat, pass.InUse, pass.Pos.x, pass.Pos.y, pass.seat_no.size() );
-                break;
-              }
-            }
-          }
-        }
-      } // конец пробега по классам
-      Qry.Next();
-    } // конец пробега по слоям
-    TQuery QryPax( &OraSession );
-    TQuery QryLayer( &OraSession );
-    TQuery QryUpd( &OraSession );
-    QryPax.SQLText =
-      "SELECT point_dep, point_arv, "
-      "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,point_dep,'list',rownum) AS seat_no "
-      " FROM pax, pax_grp "
-      " WHERE pax.pax_id=:pax_id AND "
-      "       pax.grp_id=pax_grp.grp_id ";
-    QryPax.DeclareVariable( "pax_id", otInteger );
-    QryLayer.SQLText =
-      "DELETE FROM trip_comp_layers "
-      " WHERE pax_id=:pax_id ";
-    QryLayer.DeclareVariable( "pax_id", otInteger );
-    QryUpd.SQLText =
-      "UPDATE pax SET tid=cycle_tid__seq.nextval WHERE pax_id=:pax_id";
-    QryUpd.DeclareVariable( "pax_id", otInteger );
-
-    Passengers.Clear();
-
-    s = APass.getCount();
-    TDateTime time_create = NowUTC();
-    for ( int i=0; i<s; i++ ) {
-        TPassenger &pass = APass.Get( i );
-        ProgTrace( TRACE5, "pass.pax_id=%d, pass.isSeat=%d", pass.paxId, pass.isSeat );
-        Passengers.Add( pass );
-        if ( pass.isSeat )
-            continue;
-        QryPax.SetVariable( "pax_id", pass.paxId );
-      QryPax.Execute();
-      if ( QryPax.Eof )
-        throw UserException( "MSG.SEATS.SEATS_DIRECTION_NOT_SET" );
-      int point_dep = QryPax.FieldAsInteger( "point_dep" );
-      int point_arv = QryPax.FieldAsInteger( "point_arv" );
-      string prev_seat_no = QryPax.FieldAsString( "seat_no" );
-      ProgTrace( TRACE5, "pax_id=%d, prev_seat_no=%s,pass.InUse=%d", pass.paxId, prev_seat_no.c_str(), pass.InUse );
-
-        if ( !pass.InUse ) { /* не смогли посадить */
-          if ( !pass.foundSeats.empty() ) {
-            TReqInfo::Instance()->LocaleToLog("EVT.PASSENGER_DISEMBARKED_DUE_TO_LAYOUT",
-                                              LEvntPrms() << PrmSmpl<std::string>("name", pass.fullName)
-                                              << PrmSmpl<std::string>("seat", prev_seat_no),
-                                              evtPax, Salons.trip_id, pass.regNo, pass.grpId);
-          if ( is_sync_paxs( Salons.trip_id ) )
-            update_pax_change( Salons.trip_id, pass.paxId, pass.regNo, "Р" );
-        }
-      }
-      else {
-        TSeatRanges seats;
-        for ( vector<TSeat>::iterator i=pass.seat_no.begin(); i!=pass.seat_no.end(); i++ ) {
-            TSeatRange r(*i,*i);
-            seats.push_back( r );
-        }
-        // необходимо вначале удалить все его инвалидные места из слоя регистрации
-        QryLayer.SetVariable( "pax_id", pass.paxId );
-        QryLayer.Execute();
-        SaveTripSeatRanges( Salons.trip_id, pass.grp_status, seats, pass.paxId, point_dep, point_arv, time_create ); //???
-        QryUpd.SetVariable( "pax_id", pass.paxId );
-        QryUpd.Execute();
-        rozysk::sync_pax(pass.paxId, TReqInfo::Instance()->desk.code, TReqInfo::Instance()->user.descr);
-        QryPax.Execute();
-        string new_seat_no = QryPax.FieldAsString( "seat_no" );
-        ProgTrace( TRACE5, "oldplace=%s, newplace=%s", prev_seat_no.c_str(), new_seat_no.c_str() );
-        if ( prev_seat_no != new_seat_no ){ /* пересадили на другое место */
-
-          TReqInfo::Instance()->LocaleToLog("EVT.PASSENGER_CHANGE_SEAT_DUE_TO_LAYOUT",
-                                            LEvntPrms() << PrmSmpl<std::string>("name", pass.fullName)
-                                            << PrmSmpl<std::string>("seat", new_seat_no),
-                                            evtPax, Salons.trip_id, pass.regNo, pass.grpId);
-          if ( is_sync_paxs( Salons.trip_id ) )
-            update_pax_change( Salons.trip_id, pass.paxId, pass.regNo, "Р" );
-        }
-      }
-    }
-  }
-  catch( ... ) {
-    SeatPlaces.RollBack( );
-    throw;
-  }
-  SeatPlaces.RollBack( );
-  check_waitlist_alarm( Salons.trip_id );
-  ProgTrace( TRACE5, "passengers.count=%d", APass.getCount() );
-}
-
 bool getCurrSeat( const TSalonList &salonList,
                   TSeatRange &r, SALONS2::TPoint &coord,
                   vector<TPlaceList*>::const_iterator &isalonList )
@@ -5363,7 +4755,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
   switch( seat_type ) {
     case stSeat:
         switch( layer_type ) {
-            case cltGoShow:
+        case cltGoShow:
         case cltTranzit:
         case cltCheckin:
         case cltTCheckin:
@@ -5506,7 +4898,11 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
                             const SALONS2::TIntArvSalonPassengers &passengers,
                             TSeatAlgoParams ASeatAlgoParams )
 {
-  ProgTrace( TRACE5, "AutoReSeatsPassengers: point_id=%d", salonList.getDepartureId() );
+  LogTrace(TRACE5) << "AutoReSeatsPassengers: point_id=" << salonList.getDepartureId() << ",getSeatDescription=" << salonList.getSeatDescription();
+  SEAT_DESCR::paxsWaitListDescrSeat paxsSeatDescr;
+  if ( salonList.getSeatDescription() ) {
+    paxsSeatDescr.get( salonList.getDepartureId() );
+  }
   std::vector<TCoordSeat> paxsSeats;
   TPassengers Passes;
   TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
@@ -5623,12 +5019,16 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
               TPassenger vpass = ipasses->Get( k );
               vpass.grp_status = grp_layer_type;
               Passes.Add( vpass );
+              vpass.seatDescr = paxsSeatDescr.getDescr( "one", vpass.paxId );
               Passengers.Add( vpass );
-              ExistsBasePlace( SalonsN, vpass ); // пассажир не посажен, но нашлось для него базовое место - пометили как занято //??? кодировка !!!
+              if ( !salonList.getSeatDescription() ) { //пробег по базовым местам при рассадке без учета свойств мест
+                ExistsBasePlace( SalonsN, vpass ); // пассажир не посажен, но нашлось для него базовое место - пометили как занято //??? кодировка !!!
+              }
             }
             if ( Passengers.getCount() ) {
               Passengers.KWindow = ( Passengers.KWindow && !Passengers.KTube );
               Passengers.KTube = ( !Passengers.KWindow && Passengers.KTube );
+              Passengers.SeatDescription = salonList.getSeatDescription();
               seatCoords.refreshCoords( FSeatAlgoParams.SeatAlgoType,
                                         Passengers.KWindow,
                                         Passengers.KTube,
@@ -5756,7 +5156,7 @@ TSeatAlgoParams GetSeatAlgo(TQuery &Qry, string airline, int flt_no, string airp
   };
   Qry.Close();
   return res;
-};
+}
 
 bool CompGrp( TPassenger item1, TPassenger item2 )
 {

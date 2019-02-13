@@ -65,6 +65,7 @@ struct TDefaults {
   std::string pers_type;
   std::string clname;
   std::string placeName;
+  std::string seat_descr;
   std::string wl_type;
   int countPlace;
   bool isSeat;
@@ -85,7 +86,7 @@ struct TDefaults {
     bag_weight = 0;
     bag_amount = 0;
     pr_down = false;
-  };
+  }
 };
 
 struct TCoordSeat {
@@ -114,6 +115,7 @@ struct TPassenger {
     int point_arv;
     //std::string placeName;
     std::string foundSeats;
+    std::string seatDescr;
     bool isSeat;
     std::string wl_type;
     int countPlace;
@@ -299,6 +301,9 @@ struct TPassenger {
            buf << *irem << " ";
          }
       }
+      if ( !seatDescr.empty() ) {
+        buf << ",seatDescr=" << seatDescr;
+      }
       return buf.str();
     }
 };
@@ -315,6 +320,7 @@ class TPassengers {
     bool KTube;
     bool KWindow;
     bool UseSmoke;
+    bool SeatDescription;
     TPassengers();
     ~TPassengers();
     void Clear();

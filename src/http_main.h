@@ -94,6 +94,7 @@ struct HTTPClient
     jxt_interface["kuf_stat_flts"] =        JxtInfo(TELEGRAM_JXT_INTERFACE_ID, NULL);
     jxt_interface["stat_srv"] =             JxtInfo(STAT_JXT_INTERFACE_ID, NULL);
     jxt_interface["EventToServer"] =        JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
+    jxt_interface["ViewCraft"] =            JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
     jxt_interface["piece_concept"] =        JxtInfo(PIECE_CONCEPT_JXT_INTERFACE_ID, NULL);
     jxt_interface["GetGRPPrintData"] =      JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
     // Запрос с одинаковым названием, но в разных классах
