@@ -9,6 +9,7 @@
 #include "date_time.h"
 #include "xml_unit.h"
 #include "date_time.h"
+#include "web_main.h"
 #include "serverlib/json_packer_heavy.h"
 #include "serverlib/json_pack_types.h"
 
@@ -338,6 +339,14 @@ void KioskRequestInterface::EventToServer(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   KioskServerEventContainer event;
   event.parse(reqNode);
   event.toDB();
+}
+
+void KioskRequestInterface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  LogTrace(TRACE5) << reqNode->name;
+  LogTrace(TRACE5) << reqNode->children->name;
+  reqNode = GetNode( "content/ViewCraft", reqNode );
+  AstraWeb::WebRequestsIface::IntViewCraft( reqNode, resNode);
 }
 
 /*

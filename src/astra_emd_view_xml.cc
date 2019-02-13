@@ -125,15 +125,15 @@ void EmdXmlView::viewEmdTicketCoupons(const std::list<EmdCoupon>& lCpn) const
         xmlSetProp(rowNode, "index", count++);
 
         unsigned colNum = 0;
-        xmlSetProp(xmlNewTextChild(rowNode, NULL, "num", cpn.num()),
+        xmlSetProp(xmlNewTextChild(rowNode, NULL, "num", cpn.num().get()),
                    "index", colNum++);
 
         if(cpn.associatedNum()) {
-            xmlSetProp(xmlNewTextChild(rowNode, NULL, "associated_num", cpn.associatedNum()),
+            xmlSetProp(xmlNewTextChild(rowNode, NULL, "associated_num", cpn.associatedNum().get()),
                        "index", colNum++);
-            xmlSetProp(xmlNewTextChild(rowNode, NULL, "associated_doc_num", cpn.associatedTickNum()),
+            xmlSetProp(xmlNewTextChild(rowNode, NULL, "associated_doc_num", cpn.associatedTickNum().get()),
                        "index", colNum++);
-            xmlSetProp(xmlNewTextChild(rowNode, NULL, "association_status", cpn.associated() ? "702" : "703"),
+            xmlSetProp(xmlNewTextChild(rowNode, NULL, "association_status", cpn.associated() ? "702" : "703").get(),
                        "index", colNum++);
         }
 

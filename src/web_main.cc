@@ -1309,10 +1309,8 @@ void WebRequestsIface::LoadPnr(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   grpSegs.toXML(NewTextChild(resNode, (const char*)reqNode->name));
 }
 
-void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void WebRequestsIface::IntViewCraft(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  ProgTrace(TRACE1,"WebRequestsIface::ViewCraft");
-  emulateClientType();
   int point_id = NodeAsInteger( "point_id", reqNode );
   if ( SALONS2::isFreeSeating( point_id ) ) { //???
     throw UserException( "MSG.SALONS.FREE_SEATING" );
@@ -1326,6 +1324,15 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   TWebGrp grp(flt);
   grp.addPnr(pnr_id, true, false );
   AstraWeb::WebCraft::ViewCraft( grp.paxs, reqNode, resNode );
+}
+
+
+void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  ProgTrace(TRACE1,"WebRequestsIface::ViewCraft");
+  emulateClientType();
+
+  IntViewCraft( reqNode, resNode );
 }
 
 bool CreateEmulCkinDocForCHKD(int crs_pax_id,

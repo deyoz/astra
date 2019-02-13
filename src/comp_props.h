@@ -3,8 +3,6 @@
 
 #include "xml_unit.h"
 #include "astra_consts.h"
-#include "exceptions.h"
-#include "stl_utils.h"
 #include "astra_locale.h"
 
 namespace SALONS2
@@ -46,6 +44,12 @@ class SimpleProp {
       this->first_row = simpleProp.getFirstRow();
       this->last_row = simpleProp.getLastRow();
     }
+    bool operator == ( const SimpleProp &value ) const {
+      return ( name == value.name &&
+               first_row == value.first_row &&
+               last_row == value.last_row );
+    }
+
     const std::string str() const {
       return name + "=(" + IntToString(first_row) + "," + IntToString(last_row) + ")";
     }
@@ -87,6 +91,8 @@ struct CodeNames {
     this->color = color;
   }
 };
+
+class adjustmentIndexRow:public std::vector<int>{};
 
 class componPropCodes {
   private:
@@ -163,7 +169,7 @@ class componPropCodes {
        }
        return "";
     }
-    void buildSections( int comp_id, const std::string &lang, xmlNodePtr dataNode, bool buildEmptySection = true );
+    void buildSections( int comp_id, const std::string &lang, xmlNodePtr dataNode, const adjustmentIndexRow &rows, bool buildEmptySection = true );
 };
 
 /*template <typename T> class CompProps {
@@ -190,25 +196,36 @@ class componPropCodes {
     }
 };*/
 
+struct less_than_SimpleProp
+{
+    inline bool operator() (const SimpleProp& prop1, const SimpleProp& prop2)
+    {
+        return (prop1.getFirstRow() < prop2.getFirstRow());
+    }
+};
+
 class simpleProps:public std::vector<SimpleProp> {
   private:
     std::string code;
+    simpleProps& adjustmentIndexRowFunc( const adjustmentIndexRow &rows );
   public:
     simpleProps( const std::string &code ) {
       this->code = code;
     }
+    simpleProps& build( const adjustmentIndexRow &rows, xmlNodePtr sectionNode );
     simpleProps& read( int comp_id );
     simpleProps& write( int comp_id );
-    simpleProps& build( xmlNodePtr sectionNode );
     simpleProps& parse( xmlNodePtr sectionNode );
-    void parseANDwrite( xmlNodePtr sectionNode, int comp_id ) {
+    simpleProps& parse_check_write( xmlNodePtr sectionNode, int comp_id );
+    simpleProps& parse_write( xmlNodePtr sectionNode, int comp_id ) {
       if ( sectionNode ) {
         parse( sectionNode ).write( comp_id );
       }
+      return *this;
     }
 };
 
-void checkBuildSections( int point_id, int comp_id, xmlNodePtr dataNode, bool buildEmptySection = true );
+void checkBuildSections( int point_id, int comp_id, xmlNodePtr dataNode, const adjustmentIndexRow &rows, bool buildEmptySection = true );
 
 } //end namespace
 

@@ -820,6 +820,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, DestsTagsNoExists &tags, co
   if ( flightNode == NULL ) {
     throw EConvertError( "node 'flight' not found" );
   }
+  bool pr_cancel = ( GetNode( "@cancel", flightNode ) );
   TPointsDest dest;
   xmlNodePtr propNode;
   std::string region = getRegion( airp );
@@ -850,10 +851,6 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, DestsTagsNoExists &tags, co
       dest.status = tdDelete;
     }
   }
-  propNode = GetNodeFast( "@cancel", flightNode->children );
-  if ( propNode ) {
-    dest.pr_del = 1;
-  }
   //airline,flight_no,suffix
   prop = NodeAsStringFast( "airline", flightNode );
   prop += NodeAsStringFast( "flight_no", flightNode );
@@ -881,7 +878,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, DestsTagsNoExists &tags, co
     else {
       dest.trip_type = "п";
     }
-  }  
+  }
   if ( dest.status == tdDelete ) { //airp не задан!!!
       dest.pr_del = -1;
 /*    elem = checkerFlt.checkAirp( TReqInfo::Instance()->desk.airp, TCheckerFlt::etExtAODB, true, Qry );
@@ -976,7 +973,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, DestsTagsNoExists &tags, co
     ProgTrace(TRACE5,"check airp");
     elem = checkerFlt.checkAirp( NodeAsStringFast( "airp", propNode, "" ), TCheckerFlt::etExtAODB, true );
     bool own_airp = elem.code == dest.airp; //own airp
-    if ( own_airp ) { 
+    if ( own_airp ) {
       ppoint = &dest;
       tags.insert( make_pair( dest.airp, ownTags ) );
     }
@@ -1019,15 +1016,17 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, DestsTagsNoExists &tags, co
         info.airline =  dest.airline;
         info.airp = dest.airp;
         info.flt_no = dest.flt_no;
-        info.scd_out = dest.scd_out;  
+        info.scd_out = dest.scd_out;
+        info.pr_del = dest.pr_del;
         Franchise::TProp franchise_prop;
         if ( franchise_prop.get_franchisee(info, Franchise::TPropType::aodb) &&
-             franchise_prop.val == Franchise::pvNo ) {          
+             franchise_prop.val == Franchise::pvNo ) {
           dest.airline = franchise_prop.oper.airline;
           dest.flt_no = franchise_prop.oper.flt_no;
           dest.suffix = franchise_prop.oper.suffix;
-        }        
+        }
     }
+    ppoint->pr_del = pr_cancel;
     dsts[ ppoint->point_num ] = *ppoint;
     n = n->next;
   }
