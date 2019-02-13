@@ -95,7 +95,7 @@ void EmdXmlView::viewEmdTickets() const
                     tmp2 = std::string("emd_inconnection") + HelpCpp::string_cast(count);
         xmlNodePtr emdTickNode = newChild(mainNode, tmp1.c_str());
 
-        xmlNewTextChild(emdTickNode, NULL, "emd_num", emdTick.tickNum()); // номер билета EMD
+        xmlNewTextChild(emdTickNode, NULL, "emd_num", emdTick.tickNum().get()); // номер билета EMD
 
         boost::optional<TicketNum_t> tickNumConnect;
 
@@ -125,15 +125,15 @@ void EmdXmlView::viewEmdTicketCoupons(const std::list<EmdCoupon>& lCpn) const
         xmlSetProp(rowNode, "index", count++);
 
         unsigned colNum = 0;
-        xmlSetProp(xmlNewTextChild(rowNode, NULL, "num", cpn.num().get()),
+        xmlSetProp(xmlNewTextChild(rowNode, NULL, "num", cpn.num()),
                    "index", colNum++);
 
         if(cpn.associatedNum()) {
-            xmlSetProp(xmlNewTextChild(rowNode, NULL, "associated_num", cpn.associatedNum().get()),
+            xmlSetProp(xmlNewTextChild(rowNode, NULL, "associated_num", cpn.associatedNum()),
                        "index", colNum++);
-            xmlSetProp(xmlNewTextChild(rowNode, NULL, "associated_doc_num", cpn.associatedTickNum().get()),
+            xmlSetProp(xmlNewTextChild(rowNode, NULL, "associated_doc_num", cpn.associatedTickNum()),
                        "index", colNum++);
-            xmlSetProp(xmlNewTextChild(rowNode, NULL, "association_status", cpn.associated() ? "702" : "703").get(),
+            xmlSetProp(xmlNewTextChild(rowNode, NULL, "association_status", cpn.associated() ? "702" : "703"),
                        "index", colNum++);
         }
 

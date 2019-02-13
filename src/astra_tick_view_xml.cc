@@ -351,7 +351,7 @@ void TicketXmlView::operator ()
 
     VData.setCurrTickNode(tickNode);
     if(Tick.actCode() == TickStatAction::inConnectionWith) {
-      xmlNewTextChild(tickNode, NULL, "connected_doc_num", Tick.connectedDocNum()); // номер билета
+      xmlNewTextChild(tickNode, NULL, "connected_doc_num", Tick.connectedDocNum().get()); // номер билета
       viewConnectedCoupons(VData, Tick.getCoupon());
     }
     else {
