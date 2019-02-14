@@ -572,8 +572,10 @@ class TSimplePaxItem
 
     bool isTest() const { return isTestPaxId(id); }
     int paxId() const { return id; }
-    
+
     std::string checkInStatus() const;
+
+    static void changeCompartment(int pax_id, ASTRA::TClass cl);
 };
 
 template <class T>

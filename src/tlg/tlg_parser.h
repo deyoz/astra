@@ -889,6 +889,23 @@ class TPnrItem
     void separateSeatsBlocking();
     void bindSeatsBlocking();
     bool seatIsUsed(const TSeat& seat) const;
+
+    enum IndicatorsPresence
+    {
+      WithoutDEL,
+      OnlyDEL,
+      Various
+    };
+
+    IndicatorsPresence getIndicatorsPresence() const
+    {
+      std::set<TIndicator> indicators;
+      for(const TNameElement& elem : ne)
+        indicators.insert(elem.indicator);
+      if (indicators.find(DEL)==indicators.end()) return WithoutDEL;
+      if (indicators.size()==1) return OnlyDEL;
+      return Various;
+    }
 };
 
 class TTotalsByDest

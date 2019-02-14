@@ -6490,6 +6490,7 @@ class SuitablePax
     int parent_pax_id;
     bool deleted;
     TDateTime last_op;
+    bool classChanged;
 
     SuitablePax(TCachedQuery &Qry)
     {
@@ -6497,6 +6498,12 @@ class SuitablePax
       parent_pax_id=Qry.get().FieldIsNULL("parent_pax_id")?NoExists:Qry.get().FieldAsInteger("parent_pax_id");
       deleted=Qry.get().FieldAsInteger("pr_del")!=0;
       last_op=Qry.get().FieldAsDateTime("last_op");
+      classChanged=false;
+    }
+
+    SuitablePax(TCachedQuery &Qry, TClass cl) : SuitablePax(Qry)
+    {
+      classChanged=(cl!=DecodeClass(Qry.get().FieldAsString("class")));
     }
 };
 
@@ -6511,7 +6518,7 @@ class SuitablePaxList : public list<SuitablePax>
              const int& point_id,
              const std::string& system,
              const std::string& sender,
-             const std::string& airp_arv,
+             const TTotalsByDest& totalsByDest,
              const std::string& surname,
              const std::string& name,
              const bool& isInfant);
@@ -6547,7 +6554,7 @@ void SuitablePaxList::get(const std::vector<TTKNItem>& tkn,
                           const int& point_id,
                           const std::string& system,
                           const std::string& sender,
-                          const std::string& airp_arv,
+                          const TTotalsByDest& totalsByDest,
                           const std::string& surname,
                           const std::string& name,
                           const bool& isInfant)
@@ -6556,6 +6563,7 @@ void SuitablePaxList::get(const std::vector<TTKNItem>& tkn,
   if (tkn.empty()) return;
 
   TCachedQuery Qry("SELECT crs_pax.pax_id, crs_pax.pr_del, crs_pax.last_op, "
+                   "       crs_pnr.class, "
                    "       crs_inf_deleted.pax_id AS parent_pax_id "
                    "FROM crs_pnr, crs_pax, crs_pax_tkn, crs_inf_deleted "
                    "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
@@ -6576,7 +6584,7 @@ void SuitablePaxList::get(const std::vector<TTKNItem>& tkn,
                    QParams() << QParam("point_id", otInteger, point_id)
                              << QParam("system", otString, system)
                              << QParam("sender", otString, sender)
-                             << QParam("airp_arv", otString, airp_arv)
+                             << QParam("airp_arv", otString, totalsByDest.dest)
                              << QParam("rem_code", otString)
                              << QParam("ticket_no", otString)
                              << QParam("coupon_no", otInteger)
@@ -6588,7 +6596,7 @@ void SuitablePaxList::get(const std::vector<TTKNItem>& tkn,
     t.toDB(Qry.get());
     Qry.get().Execute();
     for(; !Qry.get().Eof; Qry.get().Next())
-      emplace_back(Qry);
+      emplace_back(Qry, totalsByDest.cl);
     if (!empty()) break;
   }
 }
@@ -6984,8 +6992,9 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           "    WHERE pax_id=:pax_id; "
           "    IF SQL%FOUND THEN RETURN; END IF; "
           "  END IF; "
-          "  INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem,seat_type,seats,bag_pool,sync_chkd,pr_del,last_op,tid,need_apps) "
-          "  VALUES(:pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type,:seats,:bag_pool,0,:pr_del,:last_op,cycle_tid__seq.currval,:need_apps); "
+          "  INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem,seat_type,seats,bag_pool,sync_chkd,pr_del,last_op,tid,need_apps,subclass_orig,class_orig) "
+          "  SELECT :pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type,:seats,:bag_pool,0,:pr_del,:last_op,cycle_tid__seq.currval,:need_apps,subclass,class "
+          "  FROM crs_pnr WHERE pnr_id=:pnr_id; "
           "END;";
         CrsPaxInsQry.DeclareVariable("pax_id",otInteger);
         CrsPaxInsQry.DeclareVariable("pnr_id",otInteger);
@@ -7069,6 +7078,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           if (!trips.empty())
             point_id_spp = trips.front().point_id;
         }
+       for(bool delIndicatorPass : {true, false})
         for(iTotals=con.resa.begin();iTotals!=con.resa.end();iTotals++)
         {
           CrsPnrQry.SetVariable("airp_arv",iTotals->dest);
@@ -7082,6 +7092,11 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end();iPnrItem++)
           {
             TPnrItem& pnr=*iPnrItem;
+            TPnrItem::IndicatorsPresence indicatorsPresence=pnr.getIndicatorsPresence();
+            if (!(indicatorsPresence==TPnrItem::Various ||
+                  (indicatorsPresence==TPnrItem::OnlyDEL && delIndicatorPass) ||
+                  (indicatorsPresence==TPnrItem::WithoutDEL && !delIndicatorPass))) continue;
+
             pr_sync_pnr=true;
             pnr_id=0;
             //попробовать найти pnr_id по PNR reference
@@ -7226,17 +7241,18 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
               PnrAddrsQry.Execute();
             };
 
-            bool onlyDEL=true;
             for(iNameElement=pnr.ne.begin();iNameElement!=pnr.ne.end();iNameElement++)
             {
               TNameElement& ne=*iNameElement;
-              if (ne.indicator!=DEL) onlyDEL=false;
+              if ((ne.indicator==DEL && !delIndicatorPass) ||
+                  (ne.indicator!=DEL && delIndicatorPass)) continue;
               int seatsBlockingPaxId=NoExists;
               for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
               {
                 if (iPaxItem->dontSaveToDB(ne)) continue;
 
                 int pax_id=NoExists;
+                bool paxClassChanged=false;
 
                 CrsPaxInsQry.SetVariable("pax_id",FNull);
                 CrsPaxInsQry.SetVariable("surname",ne.surname);
@@ -7254,6 +7270,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                         ne.indicator==DEL)
                     {
                       pax_id=suitablePax.pax_id;
+                      paxClassChanged=suitablePax.classChanged;
                       CrsPaxInsQry.SetVariable("pax_id",suitablePax.pax_id);
                     };
                   }
@@ -7261,7 +7278,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                   {
                     if (ne.indicator==ADD)
                     {
-                      suitablePaxList.get(iPaxItem->tkn, point_id, system, info.sender, iTotals->dest, ne.surname, iPaxItem->name, false);
+                      suitablePaxList.get(iPaxItem->tkn, point_id, system, info.sender, *iTotals, ne.surname, iPaxItem->name, false);
                       if (!suitablePaxList.empty())
                       {
                         //нашли по билету (скорее всего в другом PNR)
@@ -7270,6 +7287,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                             suitablePax.deleted)
                         {
                           pax_id=suitablePax.pax_id;
+                          paxClassChanged=suitablePax.classChanged;
                           CrsPaxInsQry.SetVariable("pax_id",suitablePax.pax_id);
                           ProgTrace(TRACE5, "suitablePax: pax_id=%d", pax_id);
                         }
@@ -7429,6 +7447,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     for(TInfList::const_iterator iInfItem=paxItem.inf.begin();iInfItem!=paxItem.inf.end();++iInfItem)
                     {
                       int inf_id=ASTRA::NoExists;
+                      bool infClassChanged=false;
 
                       if (ne.indicator==ADD||ne.indicator==CHG)
                       {
@@ -7437,7 +7456,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                         {
                           searchInOwnPnr?
                                 suitablePaxList.get(pnr_id, iInfItem->surname, iInfItem->name, true):
-                                suitablePaxList.get(iInfItem->tkn, point_id, system, info.sender, iTotals->dest, iInfItem->surname, iInfItem->name, true);
+                                suitablePaxList.get(iInfItem->tkn, point_id, system, info.sender, *iTotals, iInfItem->surname, iInfItem->name, true);
                           for(const SuitablePax& suitablePax : suitablePaxList)
                           {
                             if ((!searchInOwnPnr ||
@@ -7447,6 +7466,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                                 suitablePax.deleted)
                             {
                               inf_id=suitablePax.pax_id;
+                              infClassChanged=suitablePax.classChanged;
                               if (!searchInOwnPnr)
                                 ProgTrace(TRACE5, "suitablePax: inf_id=%d", inf_id);
                               break;
@@ -7473,6 +7493,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                       SaveTKNRem(inf_id,iInfItem->tkn,ne.indicator!=None);
                       if (SaveCHKDRem(inf_id,iInfItem->chkd)) chkd_exists=true;
                       et_display_pax_ids.insert(inf_id);
+                      if (infClassChanged) CheckIn::TPaxItem::changeCompartment(inf_id, iTotals->cl);
                     };
 
                     //ремарки пассажира
@@ -7484,6 +7505,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     SaveFQTRem(pax_id,paxItem.fqt,paxItem.fqt_extra);
                     if (SaveCHKDRem(pax_id,paxItem.chkd)) chkd_exists=true;
                     et_display_pax_ids.insert(pax_id);
+                    if (paxClassChanged) CheckIn::TPaxItem::changeCompartment(pax_id, iTotals->cl);
 
                     if (!seatsBlockingPass) paxItem.seatsBlocking.toDB(pax_id);
 
@@ -7527,7 +7549,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             }; //for(iNameElement=pnr.ne.begin()
 
             //запишем стыковки
-            if (!onlyDEL)
+            if (!pnr.ne.empty() && indicatorsPresence!=TPnrItem::OnlyDEL)
             {
               //удаляем нафиг все стыковки
               Qry.Clear();
@@ -7561,7 +7583,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
               Qry.Execute();
             };
             //запишем коммерческий рейс
-            if (!onlyDEL)
+            if (!pnr.ne.empty() && indicatorsPresence!=TPnrItem::OnlyDEL)
             {
               //удаляем нафиг предыдущий
               Qry.Clear();

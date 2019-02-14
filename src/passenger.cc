@@ -1754,12 +1754,22 @@ void TSimplePaxItem::UpdTid(int pax_id)
 }
 
 std::string TSimplePaxItem::checkInStatus() const
-{    
+{
   if (id==ASTRA::NoExists) return "unknown";
   if (!refuse.empty()) return "refused";
   if (pr_brd) return "boarded";
   if (grp_id!=ASTRA::NoExists) return "checked";
-  return "not_checked";  
+  return "not_checked";
+}
+
+void TSimplePaxItem::changeCompartment(int pax_id, ASTRA::TClass cl)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="UPDATE pax SET compartment=:compartment WHERE pax_id=:pax_id";
+  Qry.CreateVariable("pax_id", otInteger, pax_id);
+  Qry.CreateVariable("compartment", otString, EncodeClass(cl));
+  Qry.Execute();
 }
 
 TAPISItem& TAPISItem::fromDB(int pax_id)
