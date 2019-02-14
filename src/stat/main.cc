@@ -41,6 +41,7 @@
 #include "reprint.h"
 #include "annul_bt.h"
 #include "rem.h"
+#include "services.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -10045,6 +10046,9 @@ void get_flight_stat(map<string, long> &stat_times, int point_id, bool final_col
      tm.Init();
      get_stat_reprint(point_id);
      add_stat_time(stat_times, "stat_reprint", tm.Print());
+     tm.Init();
+     get_stat_services(point_id);
+     add_stat_time(stat_times, "stat_services", tm.Print());
    };
 
    TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);

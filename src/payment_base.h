@@ -301,9 +301,17 @@ class TServicePaymentListWithAuto : public std::list<TServicePaymentItem>, publi
     void dump(const std::string &file, int line) const;
 };
 
-class TPaidRFISCAndServicePaymentListWithAuto : std::list< std::pair<TPaidRFISCStatus, boost::optional<TServicePaymentItem> > >
+class TPaidRFISCAndServicePaymentListWithAuto : public std::list< std::pair<TPaidRFISCStatus, boost::optional<TServicePaymentItem> > >, public TRFISCListItemsCache
 {
-  void fromDB(int grp_id);
+    public:
+        void fromDB(int grp_id);
+};
+
+class TServiceReport {
+    private:
+        std::map<int, boost::optional<TPaidRFISCAndServicePaymentListWithAuto>> services_map;
+    public:
+        const TPaidRFISCAndServicePaymentListWithAuto &get(int grp_id);
 };
 
 void ServicePaymentFromXML(xmlNodePtr node,

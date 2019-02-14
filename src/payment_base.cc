@@ -776,6 +776,16 @@ void TPaidRFISCAndServicePaymentListWithAuto::fromDB(int grp_id)
     }
 }
 
+const TPaidRFISCAndServicePaymentListWithAuto &TServiceReport::get(int grp_id)
+{
+    auto &service_info = services_map[grp_id];
+    if(not service_info) {
+        service_info = boost::in_place();
+        service_info->fromDB(grp_id);
+    }
+    return service_info.get();
+}
+
 void ServicePaymentFromXML(xmlNodePtr node,
                            int grp_id,
                            bool is_unaccomp,

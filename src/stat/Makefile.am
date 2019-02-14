@@ -16,6 +16,7 @@ libstat_a_SOURCES = \
   unacc.cc \
   utils.cc \
   rem.cc \
+  services.cc \
   vo.cc
         
 
@@ -32,4 +33,5 @@ noinst_HEADERS = \
   unacc.h \
   utils.h \
   rem.h \
+  services.h \
   vo.h

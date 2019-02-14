@@ -1373,6 +1373,19 @@ std::string TRFISCListItemsCache::getRFISCNameIfUnambiguous(const TPaxSegRFISCKe
   return result;
 }
 
+std::string TRFISCListItemsCache::getRFISCName(const TPaxSegRFISCKey& item, const std::string& lang) const
+{
+  std::string result;
+
+  if (item.is_auto_service() || !item.list_item)
+    result = getRFISCNameIfUnambiguous(item, lang);
+
+  if (result.empty() && item.list_item)
+    return item.list_item->name_view(lang);
+
+  return result;
+}
+
 void TRFISCListItemsCache::dumpCache() const
 {
   ProgTrace(TRACE5, "secret_map: start dump ");
@@ -1408,19 +1421,6 @@ bool TPaidRFISCListWithAuto::isRFISCGrpNeedForPayment(int pax_id, const std::str
     };
   };
   return false;
-}
-
-std::string TPaidRFISCListWithAuto::getRFISCName(const TPaidRFISCItem& item, const std::string& lang) const
-{
-  std::string result;
-
-  if (item.is_auto_service() || !item.list_item)
-    result = getRFISCNameIfUnambiguous(item, lang);
-
-  if (result.empty() && item.list_item)
-    return item.list_item->name_view(lang);
-
-  return result;
 }
 
 void TPaidRFISCListWithAuto::getUniqRFISCSs(int pax_id, std::set<std::string> &rfisc_set) const
