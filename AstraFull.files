@@ -171,6 +171,8 @@ src/season.cc
 src/season.h
 src/seats.cc
 src/seats.h
+src/seat_descript.cc
+src/seat_descript.h
 src/seats_utils.cc
 src/seats_utils.h
 src/sofi.cc
@@ -270,6 +272,8 @@ src/web_main.cc
 src/web_main.h
 src/web_search.cc
 src/web_search.h
+src/web_craft.cc
+src/web_craft.h
 src/xml_unit.cc
 src/xml_unit.h
 src/xp_testing.cc
