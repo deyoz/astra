@@ -171,7 +171,7 @@ void RunReprintStat(
                 if(not desk_access.get(row.desk)) continue;
 
                 int point_id = Qry.get().FieldAsInteger(col_point_id);
-                TFltInfoCacheItem info = flt_cache.get(point_id, part_key);
+                const TFltInfoCacheItem &info = flt_cache.get(point_id, part_key);
                 row.airline = info.airline;
                 row.view_airline = info.view_airline;
                 row.flt = info.view_flt_no;

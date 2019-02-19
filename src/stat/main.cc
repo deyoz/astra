@@ -7550,6 +7550,15 @@ void create_plain_files(
         case statReprintFull:
             RunReprintFullFile(params, order_writer);
             break;
+        case statServicesShort:
+            RunServicesShortFile(params, order_writer);
+            break;
+        case statServicesDetail:
+            RunServicesDetailFile(params, order_writer);
+            break;
+        case statServicesFull:
+            RunServicesFullFile(params, order_writer);
+            break;
         default:
             throw Exception("unsupported statType %d", params.statType);
     }
@@ -8381,7 +8390,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             get_compatible_report_form("RFISCStat", reqNode, resNode);
             break;
         case statRem:
-            get_compatible_report_form("ServiceStat", reqNode, resNode);
+            get_compatible_report_form("RemStat", reqNode, resNode);
             break;
         case statHAFull:
         case statHAShort:
@@ -8393,6 +8402,9 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         case statBIFull:
         case statBIShort:
         case statBIDetail:
+        case statServicesFull:
+        case statServicesShort:
+        case statServicesDetail:
         case statSelfCkinFull:
         case statSelfCkinShort:
         case statSelfCkinDetail:
@@ -8552,6 +8564,24 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             TBIFullStat BIFullStat;
             RunBIStat(params, BIFullStat);
             createXMLBIFullStat(params, BIFullStat, resNode);
+        }
+        if(params.statType == statServicesShort)
+        {
+            TServicesShortStat ServicesShortStat;
+            RunServicesStat(params, ServicesShortStat);
+            createXMLServicesShortStat(params, ServicesShortStat, resNode);
+        }
+        if(params.statType == statServicesFull)
+        {
+            TServicesFullStat ServicesFullStat;
+            RunServicesStat(params, ServicesFullStat);
+            createXMLServicesFullStat(params, ServicesFullStat, resNode);
+        }
+        if(params.statType == statServicesDetail)
+        {
+            TServicesDetailStat ServicesDetailStat;
+            RunServicesStat(params, ServicesDetailStat);
+            createXMLServicesDetailStat(params, ServicesDetailStat, resNode);
         }
         if(params.statType == statReprintShort)
         {

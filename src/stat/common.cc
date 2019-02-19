@@ -53,7 +53,10 @@ const char *TStatTypeS[statNum] = {
     "statVOShort",
     "statADFull",
     "statReprintShort",
-    "statReprintFull"
+    "statReprintFull",
+    "statServicesFull",
+    "statServicesShort",
+    "statServicesDetail"
 };
 
 void TStatParams::fromFileParams(map<string, string> &file_params)
@@ -236,6 +239,11 @@ void TStatParams::get(xmlNodePtr reqNode)
     } else if(type == "Репринт") {
         if(name == "Подробная") statType=statReprintFull;
         else if(name == "Общая") statType=statReprintShort;
+        else throw Exception("Unknown stat mode " + name);
+    } else if(type == "Услуги") {
+        if(name == "Подробная") statType=statServicesFull;
+        else if(name == "Общая") statType=statServicesShort;
+        else if(name == "Детализированная") statType=statServicesDetail;
         else throw Exception("Unknown stat mode " + name);
     } else
         throw Exception("Unknown stat type " + type);

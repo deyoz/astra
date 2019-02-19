@@ -293,9 +293,6 @@ void createXMLRemStat(const TStatParams &params, const TRemStat &RemStat, const 
     }
 
     xmlNodePtr variablesNode = STAT::set_variables(resNode);
-    NewTextChild(variablesNode, "stat_type", params.statType);
-    NewTextChild(variablesNode, "stat_mode", getLocaleText("Багажные RFISC"));
-    NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
 }
 
 namespace RemStat {

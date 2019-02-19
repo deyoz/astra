@@ -14,8 +14,9 @@ enum EServiceSortOrder
 struct TServiceRow
 {
     int pax_id;
-    TPaidRFISCItem paid_rfisc_item;
 
+    std::string airp_dep;
+    std::string airp_arv;
 
     std::string seat_no;
     std::string family;

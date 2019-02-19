@@ -74,6 +74,9 @@ enum TStatType {
     statADFull,
     statReprintShort,
     statReprintFull,
+    statServicesShort,
+    statServicesDetail,
+    statServicesFull,
     statNum
 };
 

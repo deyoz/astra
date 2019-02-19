@@ -39,7 +39,9 @@ bool TServiceRow::operator < (const TServiceRow &other) const
 void TServiceRow::clear()
 {
     pax_id = NoExists;
-    paid_rfisc_item.clear();
+
+    airp_dep.clear();
+    airp_arv.clear();
 
     seat_no.clear();
     family.clear();
@@ -69,6 +71,7 @@ void TServiceList::fromDB(const TRptParams &rpt_params)
     TQuery Qry(&OraSession);
     string SQLText =
     "select "
+    "    pax_grp.*, "
     "    pax.*, "
     "    salons.get_seat_no(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,'_seats',rownum,:pr_lat) AS seat_no "
     "from "
@@ -94,44 +97,56 @@ void TServiceList::fromDB(const TRptParams &rpt_params)
     }
     //  инициализация фильтра
     TServiceFilter filter;
-    if (pr_stat or TReqInfo::Instance()->desk.compatible( RFIC_FILTER_VERSION ))
+    if (pr_stat or TReqInfo::Instance()->desk.compatible( RFIC_FILTER_VERSION )) {
         for (list<string>::const_iterator iRFIC = rpt_params.rfic.begin(); iRFIC != rpt_params.rfic.end(); ++iRFIC) filter.AddRFIC(*iRFIC);
-    else filter.ExcludeRFIC("C"); // Для старых терминалов в отчет должны попадать все услуги, кроме RFIC=C
-    //  цикл для каждого пакса в выборке
-    CheckIn::TServiceReport service_report;
-    for (; !Qry.Eof; Qry.Next())
-    {
-        CheckIn::TSimplePaxItem pax;
-        pax.fromDB(Qry);
-        int grp_id = Qry.FieldAsInteger("grp_id");
+    } else {
+        filter.ExcludeRFIC("C"); // Для старых терминалов в отчет должны попадать все услуги, кроме RFIC=C
+    }
+    if(not Qry.Eof) {
+        int col_airp_dep = Qry.GetFieldIndex("airp_dep");
+        int col_airp_arv = Qry.GetFieldIndex("airp_arv");
 
-        const auto& services=service_report.get(grp_id);
-        for(const auto &service: services) {
+        //  цикл для каждого пакса в выборке
+        CheckIn::TServiceReport service_report;
+        for (; !Qry.Eof; Qry.Next())
+        {
+            CheckIn::TSimplePaxItem pax;
+            pax.fromDB(Qry);
+            int grp_id = Qry.FieldAsInteger("grp_id");
 
-            const TPaidRFISCStatus &item =service.first;
-            const boost::optional<CheckIn::TServicePaymentItem> &pay_info = service.second;
+            const auto& services=service_report.get(grp_id);
+            for(const auto &service: services) {
 
-            if(item.pax_id != pax.id or item.trfer_num != 0) continue;
+                const TPaidRFISCStatus &item =service.first;
+                const boost::optional<CheckIn::TServicePaymentItem> &pay_info = service.second;
 
-            TServiceRow row(sortOrder); // sortOrder для всех строк в контейнере должен быть одинаков!
-            //  Место в салоне
-            row.seat_no = pax.seat_no;
-            //  ФИО пассажира
-            row.family = transliter(pax.full_name(), 1, rpt_params.GetLang() != AstraLocale::LANG_RU);
-            //  Рег. №
-            row.reg_no = pax.reg_no;
-            if(service.first.list_item) {
-                //  RFIC
-                row.RFIC = item.list_item->RFIC;
-                //  Код услуги
-                row.RFISC = item.list_item->RFISC;
-                //  Описание
-                row.desc = services.getRFISCName(item, rpt_params.GetLang());
-                if(pay_info) {
-                    row.num = pay_info->no_str();
+                if(item.pax_id != pax.id or item.trfer_num != 0) continue;
+
+                TServiceRow row(sortOrder); // sortOrder для всех строк в контейнере должен быть одинаков!
+
+                row.pax_id = item.pax_id;
+                row.airp_dep = Qry.FieldAsString(col_airp_dep);
+                row.airp_arv = Qry.FieldAsString(col_airp_arv);
+
+                //  Место в салоне
+                row.seat_no = pax.seat_no;
+                //  ФИО пассажира
+                row.family = transliter(pax.full_name(), 1, rpt_params.GetLang() != AstraLocale::LANG_RU);
+                //  Рег. №
+                row.reg_no = pax.reg_no;
+                if(service.first.list_item) {
+                    //  RFIC
+                    row.RFIC = item.list_item->RFIC;
+                    //  Код услуги
+                    row.RFISC = item.list_item->RFISC;
+                    //  Описание
+                    row.desc = services.getRFISCName(item, rpt_params.GetLang());
+                    if(pay_info) {
+                        row.num = pay_info->no_str();
+                    }
                 }
+                if (filter.Check(row)) push_back(row);
             }
-            if (filter.Check(row)) push_back(row);
         }
     }
 }
