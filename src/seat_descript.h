@@ -275,7 +275,7 @@ class descrSeatType:public std::map<SeatDescrService::Enum,bool>  { // создается
       std::ostringstream s;
       s << "=========================================" << std::endl << "descrSeatType description: " << std::endl;
       for ( const auto e : SeatDescrService::sets() ) {
-        s << seatDescrServices().encode( e ) << " " << find( e )->second;
+        s << seatDescrServices().encode( e ) << "=" << find( e )->second <<"|";
       }
       s << "========================================="  << std::endl;
       return s.str();
