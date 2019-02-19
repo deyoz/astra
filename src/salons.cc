@@ -4302,7 +4302,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     throw UserException( "MSG.FLIGHT_WO_CRAFT_CONFIGURE" );
   }
   ReadSeats( Qry, filterSets.filterClass );
-  if ( !for_calc_waitlist ) {
+  if ( /*!for_calc_waitlist*/ true ) { //при расчете WL требуются ремарки
     //начитываем ремарки по маршруту
     Qry.Clear();
     Qry.SQLText =
@@ -4320,7 +4320,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
       ReadRemarks( Qry, filterRoutes, prior_compon_props_point_id );
     }
   }
-  if ( !for_calc_waitlist ) {
+  if ( /*!for_calc_waitlist*/ true ) { //в расчете WL уже требуются тарифы
     //начитываем тарифы мест по маршруту
     Qry.Clear();
     Qry.SQLText =
@@ -4447,7 +4447,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
                 prior_compon_props_point_id );
   }
   CommitLayers();
-  if ( !for_calc_waitlist ) {
+  if ( /*!for_calc_waitlist*/ true ) { // //в расчете WL уже требуются тарифы
     TSeatTariffMap tariffMap;
     bool paxTariff = false;
     if ( tariff_pax_id != NoExists ) {
