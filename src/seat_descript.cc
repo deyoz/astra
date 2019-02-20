@@ -262,7 +262,7 @@ bool descriptSeatCreator::locationToiletSeat( const SeatCoord &seatCoord ) {
 // Место перед туалетом
 bool descriptSeatCreator::frontToiletSeat( const SeatCoord &seatCoord ) {
   if ( seatCoord.isValidSeat( ) ) {
-    return locationElemTypeSeat( seatCoord, seatCoord.line, seatCoord.row + 1, SALONS2::TOILET_ELEM_TYPE );
+    return locationElemTypeSeat( seatCoord, -1, seatCoord.row + 1, SALONS2::TOILET_ELEM_TYPE );
   }
   return false;
 }
@@ -270,7 +270,7 @@ bool descriptSeatCreator::frontToiletSeat( const SeatCoord &seatCoord ) {
 // Место позади туалета
 bool descriptSeatCreator::behindToiletSeat( const SeatCoord &seatCoord ) {
   if ( seatCoord.isValidSeat( ) ) {
-    return locationElemTypeSeat( seatCoord, seatCoord.line, seatCoord.row - 1, SALONS2::TOILET_ELEM_TYPE );
+    return locationElemTypeSeat( seatCoord, -1, seatCoord.row - 1, SALONS2::TOILET_ELEM_TYPE );
   }
   return false;
 }
