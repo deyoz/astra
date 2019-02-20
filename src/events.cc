@@ -9,7 +9,7 @@
 #include "astra_consts.h"
 #include "docs/common.h"
 #include "aodb.h"
-#include "stat.h"
+#include "stat/main.h"
 #include "sopp.h"
 #include "qrys.h"
 
@@ -780,7 +780,7 @@ void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
   bool apis_control=GetAPISControl(point_id);
 
   TRemGrp service_stat_rem_grp;
-  service_stat_rem_grp.Load(retSERVICE_STAT, operFlt.airline);
+  service_stat_rem_grp.Load(retREM_STAT, operFlt.airline);
   TRemGrp events_log_rem_grp({"MSG"});
 
   agentStat.clear();

@@ -57,7 +57,7 @@ enum TStatType {
     statTlgOutDetail,
     statPactShort,
     statRFISC,
-    statService,
+    statRem,
     statLimitedCapab,
     statUnaccBag,
     statAnnulBT,
@@ -74,6 +74,9 @@ enum TStatType {
     statADFull,
     statReprintShort,
     statReprintFull,
+    statServicesShort,
+    statServicesDetail,
+    statServicesFull,
     statNum
 };
 

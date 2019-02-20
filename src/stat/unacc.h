@@ -1,7 +1,7 @@
 #ifndef _STAT_UNACC_H_
 #define _STAT_UNACC_H_
 
-#include "stat_common.h"
+#include "common.h"
 
 struct TUNACCStatRow: public TOrderStatItem
 {

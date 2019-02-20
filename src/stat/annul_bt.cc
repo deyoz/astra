@@ -1,6 +1,6 @@
-#include "stat_annul_bt.h"
+#include "annul_bt.h"
 #include "report_common.h"
-#include "stat_utils.h"
+#include "stat/utils.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"

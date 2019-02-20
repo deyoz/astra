@@ -1,7 +1,7 @@
 #ifndef _STAT_HA_H_
 #define _STAT_HA_H_
 
-#include "stat_common.h"
+#include "common.h"
 
 struct THAStatRow {
     TDateTime part_key;

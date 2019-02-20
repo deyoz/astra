@@ -639,12 +639,6 @@ class TPaidRFISCStatus : public TPaxSegRFISCKey
     std::string traceStr() const;
 };
 
-class TPaidRFISCStatusList : public std::list<TPaidRFISCStatus>
-{
-  public:
-    bool deleteIfFound(const TPaidRFISCStatus& item);
-};
-
 class TPaidRFISCItem : public TGrpServiceItem
 {
   public:
@@ -672,7 +666,19 @@ class TPaidRFISCItem : public TGrpServiceItem
     TPaidRFISCItem& fromDB(TQuery &Qry);
     bool paid_positive() const { return paid!=ASTRA::NoExists && paid>0; }
     bool need_positive() const { return need!=ASTRA::NoExists && need>0; }
-    void addStatusList(TPaidRFISCStatusList &list) const;
+};
+
+class TPaidRFISCStatusList : public std::list<TPaidRFISCStatus>
+{
+  public:
+    void add(const TPaidRFISCItem& item);
+    bool deleteIfFound(const TPaidRFISCStatus& item);
+    template <class T>
+    void set(const T& container)
+    {
+      clear();
+      for(const auto& i : container) add(i.second);
+    }
 };
 
 class TPaidRFISCList : public std::map<TPaxSegRFISCKey, TPaidRFISCItem>
@@ -683,7 +689,6 @@ class TPaidRFISCList : public std::map<TPaxSegRFISCKey, TPaidRFISCItem>
     void inc(const TPaxSegRFISCKey& key, const TServiceStatus::Enum status);
     boost::optional<TRFISCKey> getKeyIfSingleRFISC(int pax_id, int trfer_num, const std::string &rfisc) const;
     void getAllListItems();
-    void getStatusList(TPaidRFISCStatusList &list) const;
     static void clearDB(int grp_id);
     static void copyDB(int grp_id_src, int grp_id_dest);
     static void updateExcess(int grp_id);
@@ -703,6 +708,7 @@ class TRFISCListItemsCache
                            TRFISCListItems& items) const;
     void dumpCache() const;
     void clearCache() { secret_map.clear(); }
+    std::string getRFISCName(const TPaxSegRFISCKey& item, const std::string& lang="") const;
 };
 
 class TPaidRFISCListWithAuto : public std::map<TPaxSegRFISCKey, TPaidRFISCItem>, public TRFISCListItemsCache
@@ -715,7 +721,6 @@ class TPaidRFISCListWithAuto : public std::map<TPaxSegRFISCKey, TPaidRFISCItem>,
     void fromDB(int id, bool is_grp_id, bool squeeze=false);
     bool isRFISCGrpExists(int pax_id, const std::string &grp, const std::string &subgrp) const;
     bool isRFISCGrpNeedForPayment(int pax_id, const std::string &grp, const std::string &subgrp) const;
-    std::string getRFISCName(const TPaidRFISCItem& item, const std::string& lang="") const;
     void getUniqRFISCSs(int pax_id, std::set<std::string> &rfisc_set) const;
 };
 

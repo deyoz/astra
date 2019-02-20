@@ -31,14 +31,14 @@
 #include "serverlib/EdiHelpManager.h"
 #include "qrys.h"
 #include "points.h"
-#include "stat.h"
+#include "stat/main.h"
 #include "edi_utils.h"
 #include "http_io.h"
 #include "httpClient.h"
 #include "TypeBHelpMng.h"
 #include "sirena_exchange.h"
 #include "baggage_tags.h"
-#include "stat_reprint.h"
+#include "stat/reprint.h"
 #include <thread>
 #include <chrono>
 

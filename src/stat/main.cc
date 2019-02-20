@@ -1,5 +1,5 @@
 #include <fstream>
-#include "stat.h"
+#include "main.h"
 #include "oralib.h"
 #include "cache.h"
 #include "xml_unit.h"
@@ -26,17 +26,22 @@
 #include "serverlib/str_utils.h"
 #include <boost/filesystem.hpp>
 #include <boost/shared_array.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
 #include <boost/crc.hpp>
+#include "md5_sum.h"
 #include "payment_base.h"
 #include "report_common.h"
-#include "stat_utils.h"
-#include "stat_bi.h"
-#include "stat_vo.h"
-#include "stat_ha.h"
-#include "stat_ad.h"
-#include "stat_unacc.h"
-#include "stat_reprint.h"
-#include "stat_annul_bt.h"
+#include "utils.h"
+#include "bi.h"
+#include "vo.h"
+#include "ha.h"
+#include "ad.h"
+#include "unacc.h"
+#include "reprint.h"
+#include "annul_bt.h"
+#include "rem.h"
+#include "services.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -87,6 +92,7 @@ const string EncodeOrderStatus(TOrderStatus s)
 {
   return TOrderStatusS[s];
 };
+
 
 const string AIRP_PERIODS =
 "(SELECT DECODE(SIGN(period_first_date-:FirstDate),1,period_first_date,:FirstDate) AS period_first_date, \n"
@@ -1620,7 +1626,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   NVL(arch.get_bagWeight2(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,arx_pax.bag_pool_num,rownum),0) bag_weight, "
                 "   NVL(arch.get_rkWeight2(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,arx_pax.bag_pool_num,rownum),0) rk_weight, "
                 "   arch.get_excess_wt(arx_pax.part_key, arx_pax.grp_id, arx_pax.pax_id, arx_pax_grp.excess_wt, arx_pax_grp.excess, arx_pax_grp.bag_refuse) AS excess_wt, "
-                "   arx_pax.excess_pc, "
+                "   NULL AS excess_pc, "
                 "   arx_pax_grp.grp_id, "
                 "   arch.get_birks2(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,arx_pax.bag_pool_num,:pr_lat) tags, "
                 "   arx_pax.refuse, "
@@ -1715,7 +1721,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "  arch.get_bagWeight2(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL,NULL) AS bag_weight, "
                 "  arch.get_rkWeight2(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL,NULL) AS rk_weight, "
                 "  arch.get_excess_wt(arx_pax_grp.part_key, arx_pax_grp.grp_id, NULL, arx_pax_grp.excess_wt, arx_pax_grp.excess, arx_pax_grp.bag_refuse) AS excess_wt, "
-                "  arx_pax_grp.excess_pc, "
+                "  NULL AS excess_pc, "
                 "  arch.get_birks2(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL,NULL,:pr_lat) AS tags, "
                 "  arx_pax_grp.grp_id, "
                 "  arx_pax_grp.hall "
@@ -6047,69 +6053,6 @@ void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, 
     NewTextChild(variablesNode, "CAP.STAT.FLT_INFO", getLocaleText("CAP.STAT.FLT_INFO"));
 }
 
-/******************* Service Stat ****************************/
-
-namespace ServiceStat {
-    struct TFltInfo {
-        struct THelperFltInfo {
-            string airp_last;
-            TDateTime travel_time;
-            THelperFltInfo(): travel_time(NoExists) {}
-        };
-        typedef map<int, THelperFltInfo> TItems;
-        TItems items;
-        TItems::iterator get(const int &point_id, const string &craft, const string &airp)
-        {
-            TItems::iterator result = items.find(point_id);
-            if(result == items.end()) {
-                THelperFltInfo hfi;
-                TTripRoute route;
-                route.GetRouteAfter(NoExists, point_id, trtNotCurrent, trtNotCancelled);
-                hfi.airp_last = route.back().airp;
-
-                hfi.travel_time = getTimeTravel(craft, airp, hfi.airp_last);
-                pair<TItems::iterator, bool> res = items.insert(make_pair(point_id, hfi));
-                result = res.first;
-            }
-            return result;
-        }
-    };
-}
-
-struct TRemInfo {
-    string rfisc;
-    double rate;
-    string rate_cur;
-    TRemInfo(const string &rem_code, const string &rem) {
-        parse(rem_code, rem);
-    }
-    void parse(const string &rem_code, const string &rem);
-};
-
-#include <boost/algorithm/string/split.hpp>
-#include <boost/algorithm/string/classification.hpp>
-
-void TRemInfo::parse(const string &rem_code, const string &rem)
-{
-    rfisc.clear();
-    rate_cur.clear();
-    rate = NoExists;
-
-    if(rem_code != "PRSA") return;
-
-    vector<string> tokens;
-    boost::split(tokens, rem, boost::is_any_of("/"));
-    if(tokens.size() == 2) { // PRSA/0B7
-        rfisc = tokens[1];
-    } else if(tokens.size() == 4) { // PRSA/0B7/1500/RUB
-        rfisc = tokens[1];
-        if ( StrToFloat( tokens[2].c_str(), rate ) == EOF )
-            rate = NoExists;
-        TElemFmt fmt;
-        rate_cur = ElemToElemId(etCurrency, tokens[3], fmt);
-    }
-}
-
 void get_limited_capability_stat(int point_id)
 {
     TCachedQuery delQry("delete from limited_capability_stat where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
@@ -6269,228 +6212,6 @@ void get_trfer_pax_stat(int point_id)
             insQry.get().Execute();
         }
     }
-}
-
-void get_service_stat(int point_id)
-{
-    TCachedQuery delQry("delete from service_stat where point_id = :point_id", QParams() << QParam("point_id", otInteger, point_id));
-    delQry.get().Execute();
-    TCachedQuery Qry(
-            "select "
-            "    pax.pax_id, "
-            "    points.craft, "
-            "    points.airp, "
-            "    pro.rem_code, "
-            "    pro.rem, "
-            "    pro.user_id, "
-            "    pro.desk "
-            "from "
-            "    points, "
-            "    pax_grp, "
-            "    pax, "
-            "    pax_rem_origin pro "
-            "where "
-            "    points.point_id = :point_id and "
-            "    pax_grp.point_dep = points.point_id and "
-            "    pax_grp.grp_id = pax.grp_id and"
-            "    pax.pax_id = pro.pax_id ",
-            QParams() << QParam("point_id", otInteger, point_id)
-            );
-    TCachedQuery insQry(
-            "insert into service_stat( "
-            "   point_id, "
-            "   travel_time, "
-            "   rem_code, "
-            "   ticket_no, "
-            "   airp_last, "
-            "   user_id, "
-            "   desk, "
-            "   rfisc, "
-            "   rate, "
-            "   rate_cur "
-            ") values ( "
-            "   :point_id, "
-            "   :travel_time, "
-            "   :rem_code, "
-            "   :ticket_no, "
-            "   :airp_last, "
-            "   :user_id, "
-            "   :desk, "
-            "   :rfisc, "
-            "   :rate, "
-            "   :rate_cur "
-            ") ",
-            QParams()
-            << QParam("point_id", otInteger, point_id)
-            << QParam("travel_time", otDate)
-            << QParam("rem_code", otString)
-            << QParam("ticket_no", otString)
-            << QParam("airp_last", otString)
-            << QParam("user_id", otInteger)
-            << QParam("desk", otString)
-            << QParam("rfisc", otString)
-            << QParam("rate", otFloat)
-            << QParam("rate_cur", otString)
-            );
-
-    Qry.get().Execute();
-
-
-    if(not Qry.get().Eof) {
-        int col_pax_id = Qry.get().FieldIndex("pax_id");
-        int col_craft = Qry.get().FieldIndex("craft");
-        int col_airp = Qry.get().FieldIndex("airp");
-        int col_rem_code = Qry.get().FieldIndex("rem_code");
-        int col_rem = Qry.get().FieldIndex("rem");
-        int col_user_id = Qry.get().FieldIndex("user_id");
-        int col_desk = Qry.get().FieldIndex("desk");
-        ServiceStat::TFltInfo flt_info;
-        for(; not Qry.get().Eof; Qry.get().Next()) {
-            int pax_id = Qry.get().FieldAsInteger(col_pax_id);
-            string craft = Qry.get().FieldAsString(col_craft);
-            string airp = Qry.get().FieldAsString(col_airp);
-
-            ServiceStat::TFltInfo::TItems::iterator flt_info_idx = flt_info.get(point_id, craft, airp);
-
-            CheckIn::TPaxTknItem tkn;
-            LoadPaxTkn(pax_id, tkn);
-            ostringstream ticket_no;
-            if(not tkn.empty()) {
-                ticket_no << tkn.no;
-                if (tkn.coupon!=ASTRA::NoExists)
-                    ticket_no << "/" << tkn.coupon;
-            }
-
-            if(flt_info_idx->second.travel_time == NoExists)
-                insQry.get().SetVariable("travel_time", FNull);
-            else
-                insQry.get().SetVariable("travel_time", flt_info_idx->second.travel_time);
-            insQry.get().SetVariable("rem_code", Qry.get().FieldAsString(col_rem_code));
-            insQry.get().SetVariable("ticket_no", ticket_no.str());
-            insQry.get().SetVariable("airp_last", flt_info_idx->second.airp_last);
-            insQry.get().SetVariable("user_id", Qry.get().FieldAsInteger(col_user_id));
-            insQry.get().SetVariable("desk", Qry.get().FieldAsString(col_desk));
-
-            TRemInfo remInfo(
-                    Qry.get().FieldAsString(col_rem_code),
-                    Qry.get().FieldAsString(col_rem));
-
-            insQry.get().SetVariable("rfisc", remInfo.rfisc);
-            if(remInfo.rate == NoExists)
-                insQry.get().SetVariable("rate", FNull);
-            else
-                insQry.get().SetVariable("rate", remInfo.rate);
-            insQry.get().SetVariable("rate_cur", remInfo.rate_cur);
-
-            insQry.get().Execute();
-        }
-    }
-}
-
-struct TServiceStatRow:public TOrderStatItem {
-    int point_id;
-    string ticket_no;
-    TDateTime scd_out;
-    int flt_no;
-    string suffix;
-    string airp;
-    string airp_last;
-    string craft;
-    TDateTime travel_time;
-    string rem_code;
-    string airline;
-    string user;
-    string desk;
-    string rfisc;
-    double rate;
-    string rate_cur;
-
-    string rate_str() const;
-
-    TServiceStatRow():
-        point_id(NoExists),
-        scd_out(NoExists),
-        flt_no(NoExists),
-        travel_time(NoExists),
-        rate(NoExists)
-    {}
-    bool operator < (const TServiceStatRow &val) const
-    {
-        if(point_id == val.point_id)
-            return rem_code < val.rem_code;
-        return point_id < val.point_id;
-    }
-
-    void add_header(ostringstream &buf) const;
-    void add_data(ostringstream &buf) const;
-};
-
-void TServiceStatRow::add_header(ostringstream &buf) const
-{
-    buf
-        << "АП рег." << delim
-        << "Стойка" << delim
-        << "Агент" << delim
-        << "Билет" << delim
-        << "Дата" << delim
-        << "Рейс" << delim
-        << "От" << delim
-        << "До" << delim
-        << "Тип ВС" << delim
-        << "Время в пути" << delim
-        << "Код услуги" << delim
-        << "RFISC" << delim
-        << "Тариф" << delim
-        << "Валюта"
-        << endl;
-}
-
-void TServiceStatRow::add_data(ostringstream &buf) const
-{
-    buf
-        // АП рег
-        << ElemIdToCodeNative(etAirp, airp) << delim
-        // Стойка
-        << desk << delim
-        // Агент
-        << user << delim
-        // Билет
-        << ticket_no << delim
-        // Дата
-        << DateTimeToStr(scd_out, "dd.mm.yyyy") << delim;
-    // Рейс
-    ostringstream flt_no_str;
-    flt_no_str << setw(3) << setfill('0') << flt_no << ElemIdToCodeNative(etSuffix, suffix);
-    buf
-        << flt_no_str.str() << delim
-        // От
-        << ElemIdToCodeNative(etAirp, airp) << delim
-        // До
-        << ElemIdToCodeNative(etAirp, airp_last) << delim
-        // Тип ВС
-        << ElemIdToCodeNative(etCraft, craft) << delim;
-    // Время в пути
-    if(travel_time != NoExists)
-        buf << DateTimeToStr(travel_time, "hh:nn");
-    buf << delim
-        // Код услуги
-        << rem_code << delim
-        // RFISC
-        << rfisc << delim
-        // Тариф
-        << rate_str() << delim
-        // Валюта
-        << ElemIdToCodeNative(etCurrency, rate_cur)
-        << endl;
-}
-
-string TServiceStatRow::rate_str() const
-{
-    ostringstream result;
-    if(rate != NoExists) {
-        result << fixed << setprecision(2) << setfill('0') << rate;
-    }
-    return result.str();
 }
 
 struct TFlight {
@@ -6758,227 +6479,6 @@ void RunLimitedCapabStatFile(const TStatParams &params, T &writer, TPrintAirline
         writer.insert(TLimitedCapabStatCombo(*row, LimitedCapabStat.total));
 }
 
-/********************************************************/
-
-typedef multiset<TServiceStatRow> TServiceStat;
-
-template <class T>
-void RunServiceStat(
-        const TStatParams &params,
-        T &ServiceStat,
-        TPrintAirline &prn_airline
-        )
-{
-    for(int pass = 0; pass <= 1; pass++) {
-        QParams QryParams;
-        QryParams
-            << QParam("FirstDate", otDate, params.FirstDate)
-            << QParam("LastDate", otDate, params.LastDate);
-        string SQLText =
-            "select "
-            "   points.point_id, "
-            "   cs.ticket_no, "
-            "   points.scd_out, "
-            "   points.flt_no, "
-            "   points.suffix, "
-            "   points.airp, "
-            "   cs.airp_last, "
-            "   points.craft, "
-            "   cs.travel_time, "
-            "   cs.rem_code, "
-            "   points.airline, "
-            "   users2.descr, "
-            "   cs.desk, "
-            "   cs.rfisc, "
-            "   cs.rate, "
-            "   cs.rate_cur "
-            "from ";
-        if(pass != 0) {
-            SQLText +=
-                "   arx_service_stat cs, "
-                "   arx_points points, ";
-        } else {
-            SQLText +=
-                "   service_stat cs, "
-                "   points, ";
-        }
-        SQLText +=
-            "   users2 "
-            "where "
-            "   cs.point_id = points.point_id and ";
-        params.AccessClause(SQLText);
-        if(params.flt_no != NoExists) {
-            SQLText += " points.flt_no = :flt_no and ";
-            QryParams << QParam("flt_no", otInteger, params.flt_no);
-        }
-        if(pass != 0)
-            SQLText +=
-                " points.part_key >= :FirstDate and points.part_key < :FirstDate and "
-                " cs.part_key >= :FirstDate and cs.part_key < :LastDate and ";
-        else
-            SQLText +=
-                "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate and ";
-        SQLText +=
-            "    cs.user_id = users2.user_id ";
-        TCachedQuery Qry(SQLText, QryParams);
-        Qry.get().Execute();
-        if(not Qry.get().Eof) {
-            int col_point_id = Qry.get().GetFieldIndex("point_id");
-            int col_ticket_no = Qry.get().GetFieldIndex("ticket_no");
-            int col_scd_out = Qry.get().GetFieldIndex("scd_out");
-            int col_flt_no = Qry.get().GetFieldIndex("flt_no");
-            int col_suffix = Qry.get().GetFieldIndex("suffix");
-            int col_airp = Qry.get().GetFieldIndex("airp");
-            int col_airp_last = Qry.get().GetFieldIndex("airp_last");
-            int col_craft = Qry.get().GetFieldIndex("craft");
-            int col_travel_time = Qry.get().GetFieldIndex("travel_time");
-            int col_rem_code = Qry.get().GetFieldIndex("rem_code");
-            int col_airline = Qry.get().GetFieldIndex("airline");
-            int col_descr = Qry.get().GetFieldIndex("descr");
-            int col_desk = Qry.get().GetFieldIndex("desk");
-            int col_rfisc = Qry.get().GetFieldIndex("rfisc");
-            int col_rate = Qry.get().GetFieldIndex("rate");
-            int col_rate_cur = Qry.get().GetFieldIndex("rate_cur");
-            for(; not Qry.get().Eof; Qry.get().Next()) {
-                prn_airline.check(Qry.get().FieldAsString(col_airline));
-                TServiceStatRow row;
-                row.point_id = Qry.get().FieldAsInteger(col_point_id);
-                row.ticket_no = Qry.get().FieldAsString(col_ticket_no);
-                row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
-                row.flt_no = Qry.get().FieldAsInteger(col_flt_no);
-                row.suffix = Qry.get().FieldAsString(col_suffix);
-                row.airp = Qry.get().FieldAsString(col_airp);
-                row.airp_last = Qry.get().FieldAsString(col_airp_last);
-                row.craft = Qry.get().FieldAsString(col_craft);
-                if(not Qry.get().FieldIsNULL(col_travel_time))
-                    row.travel_time = Qry.get().FieldAsDateTime(col_travel_time);
-                row.rem_code = Qry.get().FieldAsString(col_rem_code);
-                row.user = Qry.get().FieldAsString(col_descr);
-                row.desk = Qry.get().FieldAsString(col_desk);
-                row.rfisc = Qry.get().FieldAsString(col_rfisc);
-                if(not Qry.get().FieldIsNULL(col_rate))
-                    row.rate = Qry.get().FieldAsFloat(col_rate);
-                row.rate_cur = Qry.get().FieldAsString(col_rate_cur);
-                ServiceStat.insert(row);
-            }
-        }
-    }
-}
-
-void createXMLServiceStat(const TStatParams &params, const TServiceStat &ServiceStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
-{
-    if(ServiceStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
-    if (ServiceStat.size() > (size_t)MAX_STAT_ROWS()) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
-    NewTextChild(resNode, "airline", prn_airline.get(), "");
-    xmlNodePtr grdNode = NewTextChild(resNode, "grd");
-
-    xmlNodePtr headerNode = NewTextChild(grdNode, "header");
-    xmlNodePtr colNode;
-    colNode = NewTextChild(headerNode, "col", getLocaleText("АП рег."));
-    SetProp(colNode, "width", 50);
-    SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Стойка"));
-    SetProp(colNode, "width", 60);
-    SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Агент"));
-    SetProp(colNode, "width", 80);
-    SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Билет"));
-    SetProp(colNode, "width", 100);
-    SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
-    SetProp(colNode, "width", 60);
-    SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Рейс"));
-    SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("От"));
-    SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("До"));
-    SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Тип ВС"));
-    SetProp(colNode, "width", 40);
-    SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Время в пути"));
-    SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Код услуги"));
-    SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("RFISC"));
-    SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Тариф"));
-    SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortFloat);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("Валюта"));
-    SetProp(colNode, "width", 70);
-    SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortString);
-
-    xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
-    xmlNodePtr rowNode;
-    ostringstream buf;
-    for(TServiceStat::iterator i = ServiceStat.begin(); i != ServiceStat.end(); i++) {
-        rowNode = NewTextChild(rowsNode, "row");
-        // АП рег
-        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp));
-        // Стойка
-        NewTextChild(rowNode, "col", i->desk);
-        // Агент
-        NewTextChild(rowNode, "col", i->user);
-        // Билет
-        NewTextChild(rowNode, "col", i->ticket_no);
-        // Дата
-        NewTextChild(rowNode, "col", DateTimeToStr(i->scd_out, "dd.mm.yyyy"));
-        // Рейс
-        ostringstream buf;
-        buf << setw(3) << setfill('0') << i->flt_no << ElemIdToCodeNative(etSuffix, i->suffix);
-        NewTextChild(rowNode, "col", buf.str());
-        // От
-        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp));
-        // До
-        NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp_last));
-        // Тип ВС
-        NewTextChild(rowNode, "col", ElemIdToCodeNative(etCraft, i->craft));
-        // Время в пути
-        if(i->travel_time == NoExists)
-            NewTextChild(rowNode, "col");
-        else
-            NewTextChild(rowNode, "col", DateTimeToStr(i->travel_time, "hh:nn"));
-        // Код услуги
-        NewTextChild(rowNode, "col", i->rem_code);
-        // RFISC
-        NewTextChild(rowNode, "col", i->rfisc);
-        // Тариф
-        NewTextChild(rowNode, "col", i->rate_str());
-        // Валюта
-        NewTextChild(rowNode, "col", ElemIdToCodeNative(etCurrency, i->rate_cur));
-    }
-
-    xmlNodePtr variablesNode = STAT::set_variables(resNode);
-    NewTextChild(variablesNode, "stat_type", params.statType);
-    NewTextChild(variablesNode, "stat_mode", getLocaleText("Багажные RFISC"));
-    NewTextChild(variablesNode, "stat_type_caption", getLocaleText("Подробная"));
-}
-
-/******************* End of Service Stat ****************************/
-
 struct TPeriods {
     typedef list<pair<TDateTime, TDateTime> > TItems;
     TItems items;
@@ -7211,47 +6711,6 @@ void TStatOrder::toDB()
             );
     Qry.get().Execute();
 }
-
-#include <openssl/md5.h>
-
-struct TMD5Sum {
-    MD5_CTX c;
-    u_char digest[16];
-    double data_size;
-
-    void init()
-    {
-        data_size = 0;
-        MD5_Init(&c);
-    }
-
-    int update(const void *data, size_t len)
-    {
-        data_size += len;
-        return MD5_Update(&c, (unsigned char *)data, len);
-    }
-
-    int Final()
-    {
-        return MD5_Final(digest, &c);
-    }
-
-    string str()
-    {
-        ostringstream md5sum;
-        for(size_t i = 0; i < sizeof(digest) / sizeof(u_char); i++)
-            md5sum << hex << setw(2) << setfill('0') << (int)digest[i];
-        return md5sum.str();
-    }
-
-    static TMD5Sum *Instance()
-    {
-        static TMD5Sum *instance_ = 0;
-        if(not instance_)
-            instance_ = new TMD5Sum();
-        return instance_;
-    }
-};
 
 void TStatOrder::check_integrity(TDateTime month)
 {
@@ -7632,8 +7091,10 @@ void RunPFSStat(
                 else
                     row.birth_date = Qry.get().FieldAsDateTime(col_birth_date);
                 PFSStat.add(row);
-                if ((not full) and (PFSStat.RowCount() > (size_t)MAX_STAT_ROWS()))
+
+                if ((not full) and (PFSStat.RowCount() > (size_t)MAX_STAT_ROWS())) {
                     throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
+                }
             }
         }
     }
@@ -7986,7 +7447,6 @@ void RunPFSFullFile(const TStatParams &params, T &writer, TPrintAirline &prn_air
 
 /*--------------------------------------------------------------------------------*/
 
-
 template <class T>
 void RunTrferPaxStat(
         const TStatParams &params,
@@ -8018,8 +7478,8 @@ void create_plain_files(
         case statRFISC:
             RunRFISCStat(params, order_writer, airline);
             break;
-        case statService:
-            RunServiceStat(params, order_writer, airline);
+        case statRem:
+            RunRemStat(params, order_writer, airline);
             break;
         case statUnaccBag:
             RunUNACCFullFile(params, order_writer);
@@ -8089,6 +7549,15 @@ void create_plain_files(
             break;
         case statReprintFull:
             RunReprintFullFile(params, order_writer);
+            break;
+        case statServicesShort:
+            RunServicesShortFile(params, order_writer);
+            break;
+        case statServicesDetail:
+            RunServicesDetailFile(params, order_writer);
+            break;
+        case statServicesFull:
+            RunServicesFullFile(params, order_writer);
             break;
         default:
             throw Exception("unsupported statType %d", params.statType);
@@ -8230,7 +7699,7 @@ void stat_orders_synchro(void)
     fs::path so_path(ORDERS_PATH());
     fs::directory_iterator end_iter;
     for ( fs::directory_iterator dir_itr( so_path ); dir_itr != end_iter; ++dir_itr ) {
-        if(files.find((string)ORDERS_PATH() + dir_itr->path().filename().c_str()) == files.end()) {
+        if(files.find(dir_itr->path().c_str()) == files.end()) {
             fs::remove_all(dir_itr->path());
         }
     }
@@ -8870,7 +8339,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     if(
             (TReqInfo::Instance()->desk.compatible(STAT_ORDERS_VERSION) and (
                 params.statType == statRFISC
-                or params.statType == statService
+                or params.statType == statRem
                 or params.statType == statTlgOutFull
                 )) or
             params.order
@@ -8920,8 +8389,8 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         case statRFISC:
             get_compatible_report_form("RFISCStat", reqNode, resNode);
             break;
-        case statService:
-            get_compatible_report_form("ServiceStat", reqNode, resNode);
+        case statRem:
+            get_compatible_report_form("RemStat", reqNode, resNode);
             break;
         case statHAFull:
         case statHAShort:
@@ -8933,6 +8402,9 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         case statBIFull:
         case statBIShort:
         case statBIDetail:
+        case statServicesFull:
+        case statServicesShort:
+        case statServicesDetail:
         case statSelfCkinFull:
         case statSelfCkinShort:
         case statSelfCkinDetail:
@@ -9027,12 +8499,12 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             RunRFISCStat(params, RFISCStat, airline);
             createXMLRFISCStat(params,RFISCStat, airline, resNode);
         }
-        if(params.statType == statService)
+        if(params.statType == statRem)
         {
             TPrintAirline airline;
-            TServiceStat ServiceStat;
-            RunServiceStat(params, ServiceStat, airline);
-            createXMLServiceStat(params,ServiceStat, airline, resNode);
+            TRemStat RemStat;
+            RunRemStat(params, RemStat, airline);
+            createXMLRemStat(params,RemStat, airline, resNode);
         }
         if(params.statType == statLimitedCapab)
         {
@@ -9092,6 +8564,24 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             TBIFullStat BIFullStat;
             RunBIStat(params, BIFullStat);
             createXMLBIFullStat(params, BIFullStat, resNode);
+        }
+        if(params.statType == statServicesShort)
+        {
+            TServicesShortStat ServicesShortStat;
+            RunServicesStat(params, ServicesShortStat);
+            createXMLServicesShortStat(params, ServicesShortStat, resNode);
+        }
+        if(params.statType == statServicesFull)
+        {
+            TServicesFullStat ServicesFullStat;
+            RunServicesStat(params, ServicesFullStat);
+            createXMLServicesFullStat(params, ServicesFullStat, resNode);
+        }
+        if(params.statType == statServicesDetail)
+        {
+            TServicesDetailStat ServicesDetailStat;
+            RunServicesStat(params, ServicesDetailStat);
+            createXMLServicesDetailStat(params, ServicesDetailStat, resNode);
         }
         if(params.statType == statReprintShort)
         {
@@ -9154,6 +8644,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         else
             throw;
     }
+    LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
 }
 
 void TStatOrders::check_integrity()
@@ -9519,7 +9010,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                  " NVL(arch.get_bagWeight2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight, \n"
                  " NVL(arch.get_rkWeight2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) rk_weight, \n"
                  " arch.get_excess_wt(pax.part_key, pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.excess, pax_grp.bag_refuse) AS excess_wt, "
-                 " pax.excess_pc, "
+                 " NULL AS excess_pc, "
                  " arch.get_birks2(pax.part_key,pax.grp_id,pax.pax_id,pax.bag_pool_num,:pr_lat) tags, \n"
                  " LPAD(seat_no,3,'0')|| \n"
                  "      DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, \n";
@@ -9816,7 +9307,7 @@ struct TRFISCBag {
             //только относящиеся к багажу
             if (item.trfer_num!=0) continue;
             //только относящиеся к багажу и только на начальном сегменте
-            item.addStatusList(statusList);
+            statusList.add(item);
           };
           for(TPaidRFISCStatusList::const_iterator i=statusList.begin();
                                                    i!=statusList.end(); ++i)
@@ -10185,6 +9676,321 @@ void nosir_rfisc_stat_point(int point_id)
     OraSession.Commit();
 }
 
+int nosir_self_ckin(int argc,char **argv)
+{
+    cout << "start time: " << DateTimeToStr(NowUTC(), ServerFormatDateTimeAsString) << endl;
+    map<string, map<string, int> > result;
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "    points.point_id, "
+        "    points.airline, "
+        "    scs.client_type "
+        "from "
+        "    self_ckin_stat scs, "
+        "    points "
+        "where "
+        "    points.scd_out >= to_date('01.11.2015 00:00:00', 'DD.MM.YYYY HH24:MI:SS') and "
+        "    points.scd_out < to_date('01.02.2016 00:00:00', 'DD.MM.YYYY HH24:MI:SS') and "
+        "    points.point_id = scs.point_id ";
+    Qry.Execute();
+    if(not Qry.Eof) {
+        int col_point_id = Qry.GetFieldIndex("point_id");
+        int col_airline = Qry.GetFieldIndex("airline");
+        int col_client_type = Qry.GetFieldIndex("client_type");
+        int count = 0;
+        map<int, string> points;
+        for(; not Qry.Eof; Qry.Next(), count++) {
+            if(count % 100 == 0) cout << count << endl;
+            int point_id = Qry.FieldAsInteger(col_point_id);
+
+            map<int, string>::iterator idx = points.find(point_id);
+            if(idx == points.end()) {
+                TTripRoute route;
+                route.GetRouteAfter(NoExists, point_id, trtNotCurrent, trtNotCancelled);
+                string airp_arv;
+                if(not route.empty())
+                    airp_arv = route.back().airp;
+                pair<map<int, string>::iterator, bool> res = points.insert(make_pair(point_id, airp_arv));
+                idx = res.first;
+            }
+
+            if(idx->second != "СОЧ") continue;
+            result[Qry.FieldAsString(col_airline)][Qry.FieldAsString(col_client_type)]++;
+        }
+    }
+    ofstream out("self_ckin.csv");
+    for(map<string, map<string, int> >::iterator i = result.begin(); i != result.end(); i++) {
+        for(map<string, int>::iterator j = i->second.begin(); j != i->second.end(); j++) {
+            out
+                << i->first << ","
+                << j->first << ","
+                << "СОЧ,"
+                << j->second << endl;
+        }
+    }
+    cout << "end time: " << DateTimeToStr(NowUTC(), ServerFormatDateTimeAsString) << endl;
+    return 1;
+}
+
+int nosir_rfisc_all_xml(int argc,char **argv)
+{
+    TDateTime begin;
+    TDateTime now = NowUTC();
+    StrToDateTime("01.10.2015 00:00:00", "dd.mm.yyyy hh:nn:ss", begin);
+    TQuery nextDateQry(&OraSession);
+    nextDateQry.SQLText = "select add_months(:begin, 1) from dual";
+    nextDateQry.DeclareVariable("begin", otDate);
+    while(begin < now) {
+        nextDateQry.SetVariable("begin", begin);
+        nextDateQry.Execute();
+        TDateTime end = nextDateQry.FieldAsDateTime(0);
+
+        TStatParams params;
+        TPrintAirline airline;
+        TRFISCStat RFISCStat;
+        RunRFISCStat(params, RFISCStat, airline);
+        //createXMLRFISCStat(params,RFISCStat, airline, resNode);
+
+        begin = end;
+    }
+    return 1;
+}
+
+int nosir_rfisc_all(int argc,char **argv)
+{
+    TDateTime begin;
+    StrToDateTime("01.10.2015 00:00:00", "dd.mm.yyyy hh:nn:ss", begin);
+    TQuery nextDateQry(&OraSession);
+    nextDateQry.SQLText = "select add_months(:begin, 1) from dual";
+    nextDateQry.DeclareVariable("begin", otDate);
+
+    TQuery rfiscQry(&OraSession);
+    rfiscQry.SQLText =
+        "select "
+        "   rfisc_stat.rfisc, "
+        "   rfisc_stat.point_id, "
+        "   rfisc_stat.point_num, "
+        "   rfisc_stat.pr_trfer, "
+        "   points.scd_out, "
+        "   points.airline, "
+        "   points.flt_no, "
+        "   points.suffix, "
+        "   points.airp, "
+        "   rfisc_stat.airp_arv, "
+        "   points.craft, "
+        "   rfisc_stat.travel_time, "
+        "   rfisc_stat.trfer_flt_no, "
+        "   rfisc_stat.trfer_suffix, "
+        "   rfisc_stat.trfer_airp_arv, "
+        "   rfisc_stat.desk, "
+        "   rfisc_stat.user_login, "
+        "   rfisc_stat.user_descr, "
+        "   rfisc_stat.time_create, "
+        "   rfisc_stat.tag_no, "
+        "   rfisc_stat.fqt_no, "
+        "   rfisc_stat.excess, "
+        "   rfisc_stat.paid "
+        "from "
+        "   points, "
+        "   rfisc_stat "
+        "where "
+        "   rfisc_stat.point_id = points.point_id and "
+        "   points.pr_del >= 0 and "
+        "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate "
+        "order by "
+        "   rfisc_stat.point_id, "
+        "   rfisc_stat.point_num, "
+        "   rfisc_stat.pr_trfer, "
+        "   rfisc_stat.airp_arv ";
+    rfiscQry.DeclareVariable("FirstDate", otDate);
+    rfiscQry.DeclareVariable("LastDate", otDate);
+    TDateTime now = NowUTC();
+    const char delim = ';';
+    ostringstream header;
+    header
+        << "RFISC" << delim
+        << "Платн." << delim
+        << "Опл." << delim
+        << "Бирка" << delim
+        << "SPEC" << delim
+        << "FQTV" << delim
+        << "Дата вылета" << delim
+        << "Рейс" << delim
+        << "От" << delim
+        << "До" << delim
+        << "Тип ВС" << delim
+        << "Время в пути" << delim
+        << "Трфр.рейс" << delim
+        << "От" << delim
+        << "До" << delim
+        << "АП рег." << delim
+        << "Стойка" << delim
+        << "LOGIN" << delim
+        << "Агент" << delim
+        << "Дата оформ.";
+    ofstream rfisc_all("rfisc_all.csv");
+    rfisc_all << header.str() << endl;
+    int count = 0;
+    while(begin < now) {
+        nextDateQry.SetVariable("begin", begin);
+        nextDateQry.Execute();
+        TDateTime end = nextDateQry.FieldAsDateTime(0);
+        cout << "begin: " << DateTimeToStr(begin, ServerFormatDateTimeAsString) << endl;
+        cout << "end: " << DateTimeToStr(end, ServerFormatDateTimeAsString) << endl;
+        rfiscQry.SetVariable("FirstDate", begin);
+        rfiscQry.SetVariable("LastDate", end);
+        rfiscQry.Execute();
+        if(not rfiscQry.Eof) {
+            string fname = "rfisc." + DateTimeToStr(begin, "yyyymm") + ".csv";
+            ofstream rfisc_month(fname);
+            rfisc_month << header.str() << endl;
+            ostringstream out;
+
+            int col_rfisc = rfiscQry.GetFieldIndex("rfisc");
+            int col_scd_out = rfiscQry.GetFieldIndex("scd_out");
+            int col_flt_no = rfiscQry.GetFieldIndex("flt_no");
+            int col_suffix = rfiscQry.GetFieldIndex("suffix");
+            int col_airp = rfiscQry.GetFieldIndex("airp");
+            int col_airp_arv = rfiscQry.GetFieldIndex("airp_arv");
+            int col_craft = rfiscQry.GetFieldIndex("craft");
+            int col_travel_time = rfiscQry.GetFieldIndex("travel_time");
+            int col_pr_trfer = rfiscQry.GetFieldIndex("pr_trfer");
+            int col_trfer_flt_no = rfiscQry.GetFieldIndex("trfer_flt_no");
+            int col_trfer_suffix = rfiscQry.GetFieldIndex("trfer_suffix");
+            int col_trfer_airp_arv = rfiscQry.GetFieldIndex("trfer_airp_arv");
+            int col_desk = rfiscQry.GetFieldIndex("desk");
+            int col_user_login = rfiscQry.GetFieldIndex("user_login");
+            int col_user_descr = rfiscQry.GetFieldIndex("user_descr");
+            int col_time_create = rfiscQry.GetFieldIndex("time_create");
+            int col_tag_no = rfiscQry.GetFieldIndex("tag_no");
+            int col_fqt_no = rfiscQry.GetFieldIndex("fqt_no");
+            int col_excess = rfiscQry.GetFieldIndex("excess");
+            int col_paid = rfiscQry.GetFieldIndex("paid");
+
+            for(; not rfiscQry.Eof; rfiscQry.Next(), count++) {
+                // RFISC
+                out
+                    << rfiscQry.FieldAsString(col_rfisc) << delim;
+                // Платн.
+                if(not rfiscQry.FieldIsNULL(col_excess))
+                    out << rfiscQry.FieldAsInteger(col_excess);
+                out << delim;
+                // Опл.
+                if(not rfiscQry.FieldIsNULL(col_paid))
+                    out << rfiscQry.FieldAsInteger(col_paid);
+                out
+                    << delim
+                    // Бирка
+                    << rfiscQry.FieldAsString(col_tag_no) << delim
+                    // SPEQ
+                    << delim
+                    // FQTV
+                    << rfiscQry.FieldAsString(col_fqt_no) << delim
+                    // Дата вылета
+                    << DateTimeToStr(rfiscQry.FieldAsDateTime(col_scd_out), "dd.mm.yyyy") << delim
+                    // Рейс
+                    << rfiscQry.FieldAsInteger(col_flt_no) << rfiscQry.FieldAsString(col_suffix) << delim
+                    // От
+                    << rfiscQry.FieldAsString(col_airp) << delim
+                    // До
+                    << rfiscQry.FieldAsString(col_airp_arv) << delim
+                    // Тип ВС
+                    << rfiscQry.FieldAsString(col_craft) << delim;
+                // Время в пути
+                if(not rfiscQry.FieldIsNULL(col_travel_time))
+                    out << DateTimeToStr(rfiscQry.FieldAsDateTime(col_travel_time), "hh:nn");
+                out
+                    << delim;
+                if(rfiscQry.FieldAsInteger(col_pr_trfer) != 0) {
+                    out
+                        // Трфр.рейс
+                        << rfiscQry.FieldAsInteger(col_trfer_flt_no) << rfiscQry.FieldAsString(col_trfer_suffix) << delim
+                        // От
+                        << rfiscQry.FieldAsString(col_airp) << delim
+                        // До
+                        << rfiscQry.FieldAsString(col_trfer_airp_arv) << delim;
+                } else {
+                    out << delim << delim << delim;
+                }
+                out
+                    // АП рег
+                    << rfiscQry.FieldAsString(col_airp) << delim
+                    // Стойка
+                    << rfiscQry.FieldAsString(col_desk) << delim
+                    // Логин
+                    << rfiscQry.FieldAsString(col_user_login) << delim
+                    // Агент
+                    << rfiscQry.FieldAsString(col_user_descr) << delim;
+                // Дата оформ.
+                if(not rfiscQry.FieldIsNULL(col_time_create))
+                    out << DateTimeToStr(rfiscQry.FieldAsDateTime(col_scd_out), "dd.mm.yyyy");
+                out << endl;
+                if(count % 10000 == 0)
+                    cout << count << endl;
+            }
+            rfisc_month << out.str();
+            rfisc_all << out.str();
+        }
+        OraSession.Rollback();
+        begin = end;
+    }
+    cout << count << endl;
+    return 1;
+}
+
+void nosir_lim_capab_stat_point(int point_id)
+{
+    TFlights flightsForLock;
+    flightsForLock.Get( point_id, ftTranzit );
+    flightsForLock.Lock(__FUNCTION__);
+
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "SELECT count(*) from points where point_id=:point_id AND pr_del=0";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    if (Qry.Eof || Qry.FieldAsInteger(0) == 0)
+    {
+        OraSession.Rollback();
+        return;
+    }
+
+    bool pr_stat = false;
+    Qry.SQLText = "SELECT pr_stat FROM trip_sets WHERE point_id=:point_id";
+    Qry.Execute();
+    if(not Qry.Eof) pr_stat = Qry.FieldAsInteger(0) != 0;
+
+    int count = 0;
+    Qry.SQLText = "select count(*) from limited_capability_stat where point_id=:point_id";
+    Qry.Execute();
+    if(not Qry.Eof) count = Qry.FieldAsInteger(0);
+
+    if(pr_stat and count == 0)
+        get_limited_capability_stat(point_id);
+
+    OraSession.Commit();
+}
+
+int nosir_lim_capab_stat(int argc,char **argv)
+{
+    cout << "start time: " << DateTimeToStr(NowUTC(), ServerFormatDateTimeAsString) << endl;
+    list<int> point_ids;
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select point_id from trip_sets";
+    Qry.Execute();
+    for(; not Qry.Eof; Qry.Next()) point_ids.push_back(Qry.FieldAsInteger(0));
+    OraSession.Rollback();
+    cout << point_ids.size() << " points to process." << endl;
+    int count = 0;
+    for(list<int>::iterator i = point_ids.begin(); i != point_ids.end(); i++, count++) {
+        nosir_lim_capab_stat_point(*i);
+        if(not (count % 1000))
+            cout << count << endl;
+    }
+    cout << "end time: " << DateTimeToStr(NowUTC(), ServerFormatDateTimeAsString) << endl;
+    return 0;
+}
+
 int nosir_rfisc_stat(int argc,char **argv)
 {
     cout << "start time: " << DateTimeToStr(NowUTC(), ServerFormatDateTimeAsString) << endl;
@@ -10244,8 +10050,8 @@ void get_flight_stat(map<string, long> &stat_times, int point_id, bool final_col
      get_rfisc_stat(point_id);
      add_stat_time(stat_times, "rfisc_stat", tm.Print());
      tm.Init();
-     get_service_stat(point_id);
-     add_stat_time(stat_times, "service_stat", tm.Print());
+     get_rem_stat(point_id);
+     add_stat_time(stat_times, "rem_stat", tm.Print());
      tm.Init();
      get_limited_capability_stat(point_id);
      add_stat_time(stat_times, "limited_capability_stat", tm.Print());
@@ -10270,6 +10076,9 @@ void get_flight_stat(map<string, long> &stat_times, int point_id, bool final_col
      tm.Init();
      get_stat_reprint(point_id);
      add_stat_time(stat_times, "stat_reprint", tm.Print());
+     tm.Init();
+     get_stat_services(point_id);
+     add_stat_time(stat_times, "stat_services", tm.Print());
    };
 
    TReqInfo::Instance()->LocaleToLog("EVT.COLLECT_STATISTIC", evtFlt, point_id);

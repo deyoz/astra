@@ -1,7 +1,7 @@
-#include "stat_vo.h"
+#include "vo.h"
 #include "qrys.h"
 #include "report_common.h"
-#include "stat_utils.h"
+#include "stat/utils.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"

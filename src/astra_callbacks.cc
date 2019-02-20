@@ -15,7 +15,7 @@
 #include "salonform.h"
 #include "salonform2.h"
 #include "sopp.h"
-#include "stat.h"
+#include "stat/main.h"
 #include "print.h"
 #include "checkin.h"
 #include "events.h"
