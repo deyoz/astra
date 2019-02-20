@@ -259,75 +259,75 @@ void createXMLAnnulBTStat(
 
     xmlNodePtr headerNode = NewTextChild(grdNode, "header");
     xmlNodePtr colNode;
-    colNode = NewTextChild(headerNode, "col", getLocaleText("–ê–ö"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Ää"));
     SetProp(colNode, "width", 50);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("–ê–ü"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Äè"));
     SetProp(colNode, "width", 50);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("–†–µ–π—Å"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("ê•©·"));
     SetProp(colNode, "width", 40);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("–ê–≥–µ–Ω—Ç"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Ä£•≠‚"));
     SetProp(colNode, "width", 100);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("–ü–∞—Å—Å–∞–∂–∏—Ä"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("è†··†¶®‡"));
     SetProp(colNode, "width", 100);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("‚Ññ‚Ññ –±–∞–≥. –±–∏—Ä–æ–∫"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("¸¸ °†£. °®‡Æ™"));
     SetProp(colNode, "width", 90);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("–û—Ç"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("é‚"));
     SetProp(colNode, "width", 40);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("–î–æ"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("ÑÆ"));
     SetProp(colNode, "width", 40);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("–ë–ì –º–µ—Å—Ç"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("ÅÉ ¨•·‚"));
     SetProp(colNode, "width", 40);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("–ë–ì –≤–µ—Å"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("ÅÉ ¢•·"));
     SetProp(colNode, "width", 40);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("–¢–∏–ø –±–∞–≥–∞–∂–∞/RFISC"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("í®Ø °†£†¶†/RFISC"));
     SetProp(colNode, "width", 100);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("–î–∞—Ç–∞ –≤—ã–ø—É—Å–∫–∞"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Ñ†‚† ¢ÎØ„·™†"));
     SetProp(colNode, "width", 80);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("–í—Ä–µ–º—è –≤—ã–ø—É—Å–∫–∞"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Ç‡•¨Ô ¢ÎØ„·™†"));
     SetProp(colNode, "width", 80);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("–î–∞—Ç–∞ —É–¥–∞–ª–µ–Ω–∏—è"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Ñ†‚† „§†´•≠®Ô"));
     SetProp(colNode, "width", 85);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("–í—Ä–µ–º—è —É–¥–∞–ª–µ–Ω–∏—è"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Ç‡•¨Ô „§†´•≠®Ô"));
     SetProp(colNode, "width", 85);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("–¢—Ä—Ñ—Ä"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("í‡‰‡"));
     SetProp(colNode, "width", 40);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("–†–µ–π—Å"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("ê•©·"));
     SetProp(colNode, "width", 40);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
-    colNode = NewTextChild(headerNode, "col", getLocaleText("–î–∞—Ç–∞"));
+    colNode = NewTextChild(headerNode, "col", getLocaleText("Ñ†‚†"));
     SetProp(colNode, "width", 60);
     SetProp(colNode, "align", TAlignment::LeftJustify);
     SetProp(colNode, "sort", sortString);
@@ -336,35 +336,35 @@ void createXMLAnnulBTStat(
     xmlNodePtr rowNode;
     for(list<TAnnulBTStatRow>::const_iterator i = AnnulBTStat.rows.begin(); i != AnnulBTStat.rows.end(); i++) {
         rowNode = NewTextChild(rowsNode, "row");
-        // –ê–ö
+        // Ää
         NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirline, i->airline));
-        // –ê–ü
+        // Äè
         NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp));
-        //–†–µ–π—Å
+        //ê•©·
         ostringstream buf;
         buf << setw(3) << setfill('0') << i->flt_no << ElemIdToCodeNative(etSuffix, i->suffix);
         NewTextChild(rowNode, "col", buf.str());
-        // –ê–≥–µ–Ω—Ç
+        // Ä£•≠‚
         NewTextChild(rowNode, "col", i->agent);
-        // –ü–∞—Å—Å–∞–∂–∏—Ä
+        // è†··†¶®‡
         NewTextChild(rowNode, "col", transliter(i->full_name, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU));
-        // ‚Ññ‚Ññ –±–∞–≥. –±–∏—Ä–æ–∫
+        // ¸¸ °†£. °®‡Æ™
         NewTextChild(rowNode, "col", get_tag_range(i->tags, LANG_EN));
-        // –û—Ç
+        // é‚
         NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp_dep));
-        // –î–æ
+        // ÑÆ
         NewTextChild(rowNode, "col", ElemIdToCodeNative(etAirp, i->airp_arv));
-        // –ú–µ—Å—Ç
+        // å•·‚
         if(i->amount != NoExists)
             NewTextChild(rowNode, "col", i->amount);
         else
             NewTextChild(rowNode, "col");
-        // –í–µ—Å
+        // Ç•·
         if(i->weight != NoExists)
             NewTextChild(rowNode, "col", i->weight);
         else
             NewTextChild(rowNode, "col");
-        // –¢–∏–ø –±–∞–≥–∞–∂–∞/RFISC
+        // í®Ø °†£†¶†/RFISC
         buf.str("");
         if(not i->rfisc.empty())
             buf << i->rfisc;
@@ -372,98 +372,98 @@ void createXMLAnnulBTStat(
             buf << ElemIdToNameLong(etBagType, i->bag_type);
         NewTextChild(rowNode, "col", buf.str());
         if(i->time_create != NoExists) {
-            // –î–∞—Ç–∞ –≤—ã–ø—É—Å–∫–∞
+            // Ñ†‚† ¢ÎØ„·™†
             NewTextChild(rowNode, "col", DateTimeToStr(i->time_create, "dd.mm.yyyy"));
-            // –í—Ä–µ–º—è –≤—ã–ø—É—Å–∫–∞
+            // Ç‡•¨Ô ¢ÎØ„·™†
             NewTextChild(rowNode, "col", DateTimeToStr(i->time_create, "hh:nn"));
         } else {
             NewTextChild(rowNode, "col");
             NewTextChild(rowNode, "col");
         }
         if(i->time_create != NoExists) {
-            // –î–∞—Ç–∞ —É–¥–∞–ª–µ–Ω–∏—è
+            // Ñ†‚† „§†´•≠®Ô
             NewTextChild(rowNode, "col", DateTimeToStr(i->time_annul, "dd.mm.yyyy"));
-            // –í—Ä–µ–º—è —É–¥–∞–ª–µ–Ω–∏—è
+            // Ç‡•¨Ô „§†´•≠®Ô
             NewTextChild(rowNode, "col", DateTimeToStr(i->time_annul, "hh:nn"));
         } else {
             NewTextChild(rowNode, "col");
             NewTextChild(rowNode, "col");
         }
-        // –¢—Ä—Ñ—Ä
+        // í‡‰‡
         if(i->trfer_airline.empty()) {
-            NewTextChild(rowNode, "col", getLocaleText("–ù–ï–¢"));
+            NewTextChild(rowNode, "col", getLocaleText("çÖí"));
             NewTextChild(rowNode, "col");
             NewTextChild(rowNode, "col");
         } else {
-            // –¢—Ä—Ñ—Ä
-            NewTextChild(rowNode, "col", getLocaleText("–î–ê"));
-            //–†–µ–π—Å
+            // í‡‰‡
+            NewTextChild(rowNode, "col", getLocaleText("ÑÄ"));
+            //ê•©·
             buf.str("");
             buf
                 << ElemIdToCodeNative(etAirline, i->trfer_airline)
                 << setw(3) << setfill('0') << i->trfer_flt_no << ElemIdToCodeNative(etSuffix, i->trfer_suffix);
             NewTextChild(rowNode, "col", buf.str());
-            // –î–∞—Ç–∞
+            // Ñ†‚†
             NewTextChild(rowNode, "col", DateTimeToStr(i->trfer_scd, "dd.mm.yyyy"));
         }
     }
     xmlNodePtr variablesNode = STAT::set_variables(resNode);
     NewTextChild(variablesNode, "stat_type", params.statType);
-    NewTextChild(variablesNode, "stat_mode", getLocaleText("–ê–Ω–Ω—É–ª. –±–∏—Ä–∫–∏"));
-    NewTextChild(variablesNode, "stat_type_caption", getLocaleText("–ü–æ–¥—Ä–æ–±–Ω–∞—è"));
+    NewTextChild(variablesNode, "stat_mode", getLocaleText("Ä≠≠„´. °®‡™®"));
+    NewTextChild(variablesNode, "stat_type_caption", getLocaleText("èÆ§‡Æ°≠†Ô"));
 }
 
 void TAnnulBTStatCombo::add_header(ostringstream &buf) const
 {
     buf
-        << "–ê–ö" << delim
-        << "–ê–ü" << delim
-        << "–†–µ–π—Å" << delim
-        << "–ê–≥–µ–Ω—Ç" << delim
-        << "–ü–∞—Å—Å–∞–∂–∏—Ä" << delim
-        << "‚Ññ‚Ññ –±–∞–≥. –±–∏—Ä–æ–∫" << delim
-        << "–û—Ç" << delim
-        << "–î–æ" << delim
-        << "–ë–ì –º–µ—Å—Ç" << delim
-        << "–ë–ì –≤–µ—Å" << delim
-        << "–¢–∏–ø –±–∞–≥–∞–∂–∞/RFISC" << delim
-        << "–î–∞—Ç–∞ –≤—ã–ø—É—Å–∫–∞" << delim
-        << "–í—Ä–µ–º—è –≤—ã–ø—É—Å–∫–∞" << delim
-        << "–î–∞—Ç–∞ —É–¥–∞–ª–µ–Ω–∏—è" << delim
-        << "–í—Ä–µ–º—è —É–¥–∞–ª–µ–Ω–∏—è" << delim
-        << "–¢—Ä—Ñ—Ä" << delim
-        << "–†–µ–π—Å" << delim
-        << "–î–∞—Ç–∞" << endl;
+        << "Ää" << delim
+        << "Äè" << delim
+        << "ê•©·" << delim
+        << "Ä£•≠‚" << delim
+        << "è†··†¶®‡" << delim
+        << "¸¸ °†£. °®‡Æ™" << delim
+        << "é‚" << delim
+        << "ÑÆ" << delim
+        << "ÅÉ ¨•·‚" << delim
+        << "ÅÉ ¢•·" << delim
+        << "í®Ø °†£†¶†/RFISC" << delim
+        << "Ñ†‚† ¢ÎØ„·™†" << delim
+        << "Ç‡•¨Ô ¢ÎØ„·™†" << delim
+        << "Ñ†‚† „§†´•≠®Ô" << delim
+        << "Ç‡•¨Ô „§†´•≠®Ô" << delim
+        << "í‡‰‡" << delim
+        << "ê•©·" << delim
+        << "Ñ†‚†" << endl;
 }
 
 void TAnnulBTStatCombo::add_data(ostringstream &buf) const
 {
-        // –ê–ö
+        // Ää
     buf <<  ElemIdToCodeNative(etAirline, data.airline) << delim
-        // –ê–ü
+        // Äè
         <<  ElemIdToCodeNative(etAirp, data.airp) << delim;
-        //–†–µ–π—Å
+        //ê•©·
     ostringstream oss1;
     oss1 << setw(3) << setfill('0') << data.flt_no
             << ElemIdToCodeNative(etSuffix, data.suffix);
     buf <<  oss1.str() << delim
-        // –ê–≥–µ–Ω—Ç
+        // Ä£•≠‚
         <<  data.agent << delim
-        // –ü–∞—Å—Å–∞–∂–∏—Ä
+        // è†··†¶®‡
         <<  transliter(data.full_name, 1, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU) << delim
-        // ‚Ññ‚Ññ –±–∞–≥. –±–∏—Ä–æ–∫
+        // ¸¸ °†£. °®‡Æ™
         <<  get_tag_range(data.tags, LANG_EN) << delim
-        // –û—Ç
+        // é‚
         << ElemIdToCodeNative(etAirp, data.airp_dep) << delim
-        // –î–æ
+        // ÑÆ
         <<  ElemIdToCodeNative(etAirp, data.airp_arv) << delim;
-    // –ú–µ—Å—Ç
+    // å•·‚
     if (data.amount != NoExists) buf << data.amount;
     buf << delim;
-    // –í–µ—Å
+    // Ç•·
     if (data.weight != NoExists) buf << data.weight;
     buf << delim;
-    // –¢–∏–ø –±–∞–≥–∞–∂–∞/RFISC
+    // í®Ø °†£†¶†/RFISC
     oss1.str("");
     if (not data.rfisc.empty())
         oss1 << data.rfisc;
@@ -472,32 +472,32 @@ void TAnnulBTStatCombo::add_data(ostringstream &buf) const
     buf <<  oss1.str() << delim;
     if (data.time_create != NoExists)
     {
-        // –î–∞—Ç–∞ –≤—ã–ø—É—Å–∫–∞
+        // Ñ†‚† ¢ÎØ„·™†
         buf <<  DateTimeToStr(data.time_create, "dd.mm.yyyy") << delim
-        // –í—Ä–µ–º—è –≤—ã–ø—É—Å–∫–∞
+        // Ç‡•¨Ô ¢ÎØ„·™†
             <<  DateTimeToStr(data.time_create, "hh:nn") << delim;
     } else buf << delim << delim;
     if (data.time_create != NoExists)
     {
-        // –î–∞—Ç–∞ —É–¥–∞–ª–µ–Ω–∏—è
+        // Ñ†‚† „§†´•≠®Ô
         buf <<  DateTimeToStr(data.time_annul, "dd.mm.yyyy") << delim
-        // –í—Ä–µ–º—è —É–¥–∞–ª–µ–Ω–∏—è
+        // Ç‡•¨Ô „§†´•≠®Ô
             <<  DateTimeToStr(data.time_annul, "hh:nn") << delim;
     } else buf << delim << delim;
-    // –¢—Ä—Ñ—Ä
+    // í‡‰‡
     if (data.trfer_airline.empty())
     {
-        buf << getLocaleText("–ù–ï–¢") << delim << delim;
+        buf << getLocaleText("çÖí") << delim << delim;
     } else {
-        // –¢—Ä—Ñ—Ä
-        buf << getLocaleText("–î–ê") << delim;
-        //–†–µ–π—Å
+        // í‡‰‡
+        buf << getLocaleText("ÑÄ") << delim;
+        //ê•©·
         oss1.str("");
         oss1 << ElemIdToCodeNative(etAirline, data.trfer_airline)
                 << setw(3) << setfill('0') << data.trfer_flt_no
                 << ElemIdToCodeNative(etSuffix, data.trfer_suffix);
         buf <<  oss1.str() << delim;
-        // –î–∞—Ç–∞
+        // Ñ†‚†
         buf << DateTimeToStr(data.trfer_scd, "dd.mm.yyyy");
     }
     buf << endl;
