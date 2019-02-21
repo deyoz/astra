@@ -19,11 +19,15 @@ public:
      //UFA
      evHandle=JxtHandler<HTTPRequestsIface>::CreateHandler(&HTTPRequestsIface::SaveSPP);
      AddEvent("SaveSPP",evHandle);
+     //UFA XML
+     evHandle=JxtHandler<HTTPRequestsIface>::CreateHandler(&HTTPRequestsIface::SaveUFASPP);
+     AddEvent("SaveUFASPP",evHandle);
      //SINHRON SVO
      evHandle=JxtHandler<HTTPRequestsIface>::CreateHandler(&HTTPRequestsIface::SaveSinhronSPP);
      AddEvent("SaveSinhronSPP",evHandle);
   }
   void SaveSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void SaveUFASPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SaveSinhronSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
 };

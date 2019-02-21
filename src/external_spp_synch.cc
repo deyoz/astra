@@ -1431,6 +1431,15 @@ void HTTPRequestsIface::SaveSinhronSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   parse_saveFlights( range_hours, reqNode, resNode );
 }
 
+void HTTPRequestsIface::SaveUFASPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  ProgTrace( TRACE5, "SaveUFASPP: desk=%s, airp=%s", TReqInfo::Instance()->desk.code.c_str(), TReqInfo::Instance()->desk.airp.c_str() );
+  int range_hours = SEARCH_SYNCHRON_FLIGHT_RANGE; //+-24 часа для поиска чартера
+  parse_saveFlights( range_hours, reqNode, resNode );
+}
+
+
+
 void testSinchron()
 {
   string s = "<?xml version='1.0' encoding='UTF-8'?>"
