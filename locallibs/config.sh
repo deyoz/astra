@@ -17,11 +17,11 @@ EOF
 
 . ./env_file
 
-WITH_PARAMS="--silent"
 if [ -n "$ORACLE_INSTANT" ]; then
-  WITH_PARAMS="--with-instant-client=yes --with-oracle-includes=$ORACLE_INSTANT/sdk/include --with-oracle-libraries=$ORACLE_INSTANT --with-oci-version=11G"
+    OI_PARAMS="--with-instant-client=yes --with-oracle-includes=$ORACLE_INSTANT/sdk/include --with-oracle-libraries=$ORACLE_INSTANT --with-oci-version=11G"
 fi
 
+WITH_PARAMS="--silent"
 if [ -n "$UNIT_CHECK" ]; then
   WITH_PARAMS="$WITH_PARAMS --with-check=$UNIT_CHECK"
 fi
@@ -51,6 +51,6 @@ for i in $@; do
     if [ -f $i/Makefile ] ; then
     	(cd $i && make distclean) || echo 'make distclean failed. Probably not configured before.'
     fi
-    [[ $i == libjms ]] && WITH_PARAMS+=' --without-oracle'
-    (cd $i && ./Config -f $WITH_PARAMS --cache-file=$CONFIG_CACHE_FILE)  || exit 1
+    [[ $i == libjms ]] && OI_PARAMS='--without-oracle'
+    (cd $i && ./Config -f $WITH_PARAMS $OI_PARAMS --cache-file=$CONFIG_CACHE_FILE) || exit 1
 done
