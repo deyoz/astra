@@ -9292,6 +9292,7 @@ struct TRFISCBag {
     {
         TGrpIdGroup::iterator result = items.find(grp_id);
         if(result == items.end()) {
+            LogTrace(TRACE5) << "rfisc_bag.get grp_id: " << grp_id;
           TPaidRFISCListWithAuto paid;
           paid.fromDB(grp_id, true);
           TPaidRFISCStatusList statusList;
@@ -9301,14 +9302,19 @@ struct TRFISCBag {
             if (!item.list_item)
               throw Exception("TRFISCBag::get: item.list_item=boost::none! (%s)", item.traceStr().c_str());
 
+            LogTrace(TRACE5) << "rfisc_bag.get iteration";
             if (!item.list_item.get().isBaggageOrCarryOn()) continue;
+            LogTrace(TRACE5) << "rfisc_bag.get after isBaggageOrCarryOn";
             //только относящиеся к багажу или ручной клади
-            if (item.list_item.get().isCarryOn()) continue;
+            // if (item.list_item.get().isCarryOn()) continue;
+            // LogTrace(TRACE5) << "rfisc_bag.get after isOrCarryOn";
             //только относящиеся к багажу
             if (item.trfer_num!=0) continue;
+            LogTrace(TRACE5) << "rfisc_bag.get after trfer_num";
             //только относящиеся к багажу и только на начальном сегменте
             statusList.add(item);
           };
+          LogTrace(TRACE5) << "rfisc_bag.get statusList.size(): " << statusList.size();
           for(TPaidRFISCStatusList::const_iterator i=statusList.begin();
                                                    i!=statusList.end(); ++i)
           {
@@ -9397,7 +9403,7 @@ void get_rfisc_stat(int point_id)
             "    pax_grp.grp_id = bag2.grp_id and "
             "    pax_grp.status NOT IN ('E') and "
             "    ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 and "
-            "    bag2.pr_cabin = 0 and "
+//            "    bag2.pr_cabin = 0 and "
             "    bag2.is_trfer = 0 and "
             "    bag2.rfisc is not null and "
             "    ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num) = pax.pax_id(+)  and "
@@ -9525,7 +9531,9 @@ void get_rfisc_stat(int point_id)
         for(; not bagQry.get().Eof; bagQry.get().Next()) {
             int grp_id = bagQry.get().FieldAsInteger(col_grp_id);
             TRFISCBag::TGrpIdGroup::iterator rfisc_grp = rfisc_bag.get(grp_id);
+            LogTrace(TRACE5) << "get_rfisc_stat BEFORE rfisc_grp grp_id: " << grp_id;
             if(rfisc_grp == rfisc_bag.items.end()) continue;
+            LogTrace(TRACE5) << "get_rfisc_stat AFTER rfisc_grp grp_id: " << grp_id;
 
             int point_id =  bagQry.get().FieldAsInteger(col_point_id);
             insQry.get().SetVariable("point_id", point_id);
