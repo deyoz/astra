@@ -1489,6 +1489,7 @@ struct TAPISFormat_EDI_VN : public TEdiAPISFormat // ВЬЕТНАМ
   string process_doc_no(const string& no) const { return NormalizeDocNo(no, false); }
   string respAgnCode() const { return "ZZZ"; }
   string ProcessPhoneFax(const string& s) const { return HyphenToSpace(s); }
+  string mesRelNum() const { return "05B"; } // в соответствии с требованиями
 };
 
 //---------------------------------------------------------------------------------------
