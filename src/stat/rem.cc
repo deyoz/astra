@@ -134,7 +134,7 @@ void RunRemStat(
         }
         if(pass != 0)
             SQLText +=
-                " points.part_key >= :FirstDate and points.part_key < :FirstDate and "
+                " points.part_key >= :FirstDate and points.part_key < :LastDate and "
                 " cs.part_key >= :FirstDate and cs.part_key < :LastDate and ";
         else
             SQLText +=
