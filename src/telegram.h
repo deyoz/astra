@@ -408,4 +408,5 @@ void get_bag_info(std::map<std::string, std::pair<int, int> > &bag_info, int poi
 
 #endif /*_TELEGRAM_H_*/
 
+int flt_to_arx (int argc,char **argv);
 
