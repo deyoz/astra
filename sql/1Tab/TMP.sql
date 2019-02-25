@@ -1,0 +1,3 @@
+CREATE TABLE TMP (
+I NUMBER
+);
