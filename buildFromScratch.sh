@@ -254,7 +254,7 @@ if [ "$createdb" = "1" ]; then
     checkresult bin/createdb.sh $?
 fi
 if [ "$runtests" = "1" ]; then
-    (cd src && time XP_LIST_EXCLUDE=SqlUtil,httpsrv,httpsrv_ext XP_CUTLOGGING=0 ASTRA_SRC=$ASTRA_HOME/src make xp-tests)
+    (cd src && time XP_LIST_EXCLUDE=SqlUtil,httpsrv,httpsrv_ext,ssim XP_CUTLOGGING=0 ASTRA_SRC=$ASTRA_HOME/src make xp-tests)
     testsresult=$?
     if [ ! -d "src/xplogs" ]; then
         mkdir src/xplogs
