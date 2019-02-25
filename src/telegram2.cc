@@ -11283,13 +11283,3 @@ void get_kuf_stat(int point_id)
         KUF_STAT::run(tripInfo, KUF_STAT::TFileType::ftPax);
     }
 }
-
-#include "arx_daily.h"
-
-int flt_to_arx (int argc,char **argv)
-{
-    TDateTime utcdate = NowUTC() + 130;
-    TArxMoveFlt arx(utcdate);
-    while(arx.Next(ARX_MAX_ROWS(), 0));
-    return 0;
-}

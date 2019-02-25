@@ -114,7 +114,6 @@ const
     {"-asvc_list_print_sql",    PaxASVCList::print_sql, NULL,                       NULL},
     {"-tzdump",                 tzdump,                 NULL,                       NULL},
     {"-tzdiff",                 tzdiff,                 NULL,                       NULL},
-    {"-arx",                    flt_to_arx,             NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
