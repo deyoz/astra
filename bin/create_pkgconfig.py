@@ -1,4 +1,3 @@
-#!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 
 """
@@ -11,8 +10,12 @@ This file, when executed, will read a .pc file and print the result of
 processing.  The result will be functionally equivalent, but not identical.
 Re-running on its own output *should* produce identical results.
 """
+from __future__ import print_function
 from string import Template
-from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 class PkgConfig:
   """
@@ -49,19 +52,19 @@ class PkgConfig:
   def __str__(self):
     OUT = StringIO()
     for comment in self.__comments:
-      print >> OUT, comment
-    print >> OUT
+      print(comment, file=OUT)
+    print('', file=OUT)
     for i in self.__var_map:
-      print >> OUT, "%s=%s" % (i[0], i[1])
-    print >> OUT
+      print("%s=%s" % (i[0], i[1]), file=OUT)
+    print('', file=OUT)
     for key in PkgConfig.fields:
       if key not in self.__field_map: continue
-      print >> OUT, "%s: %s" % (key, self.__field_map[key])
+      print("%s: %s" % (key, self.__field_map[key]), file=OUT)
     if self.__unrecognized_field_map:
-      print >> OUT
-      print >> OUT, PkgConfig.own_comments[0]
+      print('', file=OUT)
+      print(PkgConfig.own_comments[0], file=OUT)
       for key,val in self.__unrecognized_field_map.items():
-        print >> OUT, "%s: %s" % (key, val)
+        print("%s: %s" % (key, val), file=OUT)
     assert set(self.__field_map).issubset(PkgConfig.fields)
     return OUT.getvalue()
 
@@ -91,7 +94,7 @@ class PkgConfig:
     if hasattr(self, name):
       return self.__interpolated(getattr(self, name))
     else:
-      raise IndexError, name
+      raise IndexError(name)
 
   def __getattr__(self, name):
     if name in PkgConfig.fields:
@@ -103,7 +106,10 @@ class PkgConfig:
 
   def __setattr__(self, name, val):
     if name in PkgConfig.fields:
-      self.__field_map[name] = val
+        if name in self.__field_map and self.__field_map[name] != 'unknown':
+            self.__field_map[name] += " " + val;
+        else:
+            self.__field_map[name] = val
     elif not name.startswith('_'):
       self.__var_map.append((name, val))
     else:
@@ -137,10 +143,8 @@ class PkgConfig:
         name, val = line.split('=')
         self.__var_map[name] = val
 
-import os
-import shutil
 
-def create_pc(name, prefix, libs, incdir = "/include", libdir = "/lib"):
+def create_pc(name, prefix, libs, incdir = "/include", libdir = "/lib", **kwargs):
     a = PkgConfig()
     a.Name = name
     a.Description = "unknown"
@@ -151,39 +155,56 @@ def create_pc(name, prefix, libs, incdir = "/include", libdir = "/lib"):
     a.includedir = "${exec_prefix}%s" % incdir
     a.Libs = "-L${libdir} %s" % libs
     a.Cflags = "-I${includedir}"
+    for key in kwargs:
+        a.__setattr__(key, kwargs[key])
+    import os
     with open("pkgconfig/%s.pc" % name, 'wt') as f:
         f.write(str(a))
+        return f.name
 
 
-shutil.rmtree('pkgconfig', ignore_errors=True)
-os.mkdir('pkgconfig')
+def create_oracle_pc(env):
+    oracle_ic = env.get('ORACLE_INSTANT', None)
+    oracle = env.get('ORACLE_HOME', None)
+    if oracle_ic:
+        if '/12.' in oracle_ic and oracle_ic.startswith('/usr/lib/'):
+            create_pc("oracle", oracle_ic, "-lclntsh",
+                      incdir='', libdir='/lib',
+                      Cflags='-I'+oracle_ic.replace('/usr/lib/','/usr/include/'))
+        else:
+            create_pc("oracle", oracle_ic, "-lclntsh", "/sdk/include", "")
+    elif oracle:
+        create_pc("oracle", oracle, "-lclntsh", "/rdbms/public")
 
-default_dirs = ["/usr", "/usr/local"]
-libroot = os.environ.get('LIBROOT', None)
-if libroot:
-    default_dirs.append(libroot)
-print "Search externals libs in", default_dirs
 
+if __name__ == '__main__':
+    import os
+    import shutil
+    shutil.rmtree('pkgconfig', ignore_errors=True)
+    os.mkdir('pkgconfig')
 
-for i in default_dirs:
-    if os.path.isfile(i + "/include/zint.h"):
-       create_pc("zint", i, "-lzint")
-       break
+    default_dirs = ["/usr", "/usr/local"]
+    libroot = os.environ.get('LIBROOT', None)
+    if libroot:
+        default_dirs.append(libroot)
+    print("Search externals libs in ", default_dirs)
 
-for i in default_dirs:
-    if os.path.isfile(i + "/include/hpdf.h"):
-       create_pc("hpdf", i, "-lhpdf -lpng")
-       break
+    externallibs = os.path.abspath(os.environ.get('EXTERNALLIBS_DIR','externallibs'))
 
-for i in default_dirs:
-    if os.path.isfile(i + "/include/zlib.h"):
-       create_pc("zlib", i, "-lz")
-       break
+    create_oracle_pc(os.environ)
 
-oracle_ic = os.environ.get('ORACLE_INSTANT', None)
-oracle = os.environ.get('ORACLE_HOME', None)
-if oracle_ic:
-    create_pc("oracle", oracle_ic, "-lclntsh", "/sdk/include", "")
-elif oracle:
-    create_pc("oracle", oracle, "-lclntsh", "/rdbms/public")
+    for i in default_dirs + [ os.path.join(externallibs, 'soci') ] :
+        if (os.path.isfile(i + "/lib/libsoci_core.so") or os.path.isfile(i + "/lib/libsoci_core.a") ) and os.path.isfile(i + "/include/soci/soci.h"):
+           libs = "-lsoci_core"
+           cflags = "-I${includedir} -I${includedir}/soci "
+           if os.path.isfile(i + "/lib/libsoci_postgresql.so") or os.path.isfile(i + "/lib/libsoci_postgresql.a") :
+               libs += " -lsoci_postgresql -lpq"
+               cflags += " -DSOCI_HAVE_POSTGRESQL=1 "
+           if os.path.isfile(i + "/lib/libsoci_oracle.so") or os.path.isfile(i + "/lib/libsoci_oracle.a") :
+               libs += " -lsoci_oracle"
+               if os.environ.get('SIRENA_WORKAROUND_ADD_LOCCI','0') == '1':
+                   libs += " -locci"
+               cflags += " -DSOCI_HAVE_ORACLE=1 "
+           create_pc("soci", i, libs, Cflags=cflags)
+           break
 
