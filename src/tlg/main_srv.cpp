@@ -328,7 +328,7 @@ void process_tlg(void)
           TlgUpdQry.SQLText=
             "DELETE FROM tlg_queue "
             "WHERE sender= :sender AND tlg_num= :tlg_num AND "
-            "      type IN ('OUTA','OUTB','OAPP') AND status='SEND'";
+            "      type IN ('OUTA','OUTB','OAPP') AND status IN ('SEND', 'PUT')";
           TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
           TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
           TlgUpdQry.Execute();
