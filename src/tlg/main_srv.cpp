@@ -352,6 +352,8 @@ void process_tlg(void)
           TlgUpdQry.SQLText=
             "UPDATE tlg_stat SET time_receive=SYSTEM.UTCSYSDATE "
             "WHERE queue_tlg_id=:tlg_num AND sender_canon_name=:sender";
+          TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
+          TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
           TlgUpdQry.Execute();
         };
         break;
