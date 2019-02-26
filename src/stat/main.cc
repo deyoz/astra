@@ -9276,8 +9276,10 @@ void STAT::agent_stat_delta(
 struct TRFISCBag {
 
     struct TBagInfo {
+        bool is_carry_on;
         int excess, paid;
         TBagInfo():
+            is_carry_on(false),
             excess(NoExists),
             paid(NoExists)
         {}
@@ -9292,7 +9294,6 @@ struct TRFISCBag {
     {
         TGrpIdGroup::iterator result = items.find(grp_id);
         if(result == items.end()) {
-            LogTrace(TRACE5) << "rfisc_bag.get grp_id: " << grp_id;
           TPaidRFISCListWithAuto paid;
           paid.fromDB(grp_id, true);
           TPaidRFISCStatusList statusList;
@@ -9302,23 +9303,22 @@ struct TRFISCBag {
             if (!item.list_item)
               throw Exception("TRFISCBag::get: item.list_item=boost::none! (%s)", item.traceStr().c_str());
 
-            LogTrace(TRACE5) << "rfisc_bag.get iteration";
             if (!item.list_item.get().isBaggageOrCarryOn()) continue;
-            LogTrace(TRACE5) << "rfisc_bag.get after isBaggageOrCarryOn";
             //только относящиеся к багажу или ручной клади
+
             // if (item.list_item.get().isCarryOn()) continue;
-            // LogTrace(TRACE5) << "rfisc_bag.get after isOrCarryOn";
             //только относящиеся к багажу
+
             if (item.trfer_num!=0) continue;
-            LogTrace(TRACE5) << "rfisc_bag.get after trfer_num";
             //только относящиеся к багажу и только на начальном сегменте
             statusList.add(item);
           };
-          LogTrace(TRACE5) << "rfisc_bag.get statusList.size(): " << statusList.size();
           for(TPaidRFISCStatusList::const_iterator i=statusList.begin();
                                                    i!=statusList.end(); ++i)
           {
             TBagInfo val;
+
+            val.is_carry_on = i->list_item.get().isCarryOn();
 
             switch(i->status) {
                 case TServiceStatus::Free:
@@ -9531,9 +9531,7 @@ void get_rfisc_stat(int point_id)
         for(; not bagQry.get().Eof; bagQry.get().Next()) {
             int grp_id = bagQry.get().FieldAsInteger(col_grp_id);
             TRFISCBag::TGrpIdGroup::iterator rfisc_grp = rfisc_bag.get(grp_id);
-            LogTrace(TRACE5) << "get_rfisc_stat BEFORE rfisc_grp grp_id: " << grp_id;
             if(rfisc_grp == rfisc_bag.items.end()) continue;
-            LogTrace(TRACE5) << "get_rfisc_stat AFTER rfisc_grp grp_id: " << grp_id;
 
             int point_id =  bagQry.get().FieldAsInteger(col_point_id);
             insQry.get().SetVariable("point_id", point_id);
@@ -9622,17 +9620,20 @@ void get_rfisc_stat(int point_id)
                 }
             }
 
-            tagsQry.get().SetVariable("grp_id", grp_id);
-            tagsQry.get().SetVariable("bag_num", bagQry.get().FieldAsInteger(col_bag_num));
-            tagsQry.get().Execute();
-            for(; not tagsQry.get().Eof; tagsQry.get().Next()) {
-                TRFISCBag::TBagInfoList &bag_info = rfisc_grp->second[bagQry.get().FieldAsString(col_rfisc)];
-                TRFISCBag::TBagInfo paid_bag_item;
-                if(not bag_info.empty()) {
-                    paid_bag_item = bag_info.back();
-                    bag_info.pop_back();
-                }
+            TRFISCBag::TBagInfoList &bag_info = rfisc_grp->second[bagQry.get().FieldAsString(col_rfisc)];
+            TRFISCBag::TBagInfo paid_bag_item;
+            if(not bag_info.empty()) {
+                paid_bag_item = bag_info.back();
+                bag_info.pop_back();
+            }
 
+            if(not paid_bag_item.is_carry_on) {
+                tagsQry.get().SetVariable("grp_id", grp_id);
+                tagsQry.get().SetVariable("bag_num", bagQry.get().FieldAsInteger(col_bag_num));
+                tagsQry.get().Execute();
+            }
+
+            while(true) {
                 if(paid_bag_item.excess == NoExists)
                     insQry.get().SetVariable("excess", FNull);
                 else
@@ -9642,11 +9643,17 @@ void get_rfisc_stat(int point_id)
                 else
                     insQry.get().SetVariable("paid", paid_bag_item.paid);
 
-                insQry.get().SetVariable("bag_tag", tagsQry.get().FieldAsFloat("no"));
+                insQry.get().SetVariable("bag_tag",
+                        paid_bag_item.is_carry_on ? NoExists :
+                        tagsQry.get().FieldAsFloat("no"));
                 insQry.get().SetVariable("fqt_no", fqt_no);
                 fqt_no.clear();
 
                 insQry.get().Execute();
+                if(paid_bag_item.is_carry_on)
+                    break;
+                else
+                    tagsQry.get().Next();
             }
         }
     }
