@@ -117,7 +117,101 @@ int main_srv_tcl(int supervisorSocket, int argc, char *argv[])
     ProgError(STDLOG, "Unknown exception");
   };
   return 0;
-};
+}
+
+bool update_tlg_stat(const AIRSRV_MSG& tlg_in)
+{
+    TQuery TlgUpdQry(&OraSession);
+    TlgUpdQry.SQLText=
+      "UPDATE tlg_stat SET time_send=SYSTEM.UTCSYSDATE "
+      "WHERE queue_tlg_id=:tlg_num AND sender_canon_name=:sender";
+    TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
+    TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
+    TlgUpdQry.Execute();
+    return TlgUpdQry.RowsProcessed() > 0;
+}
+
+bool del_from_tlg_queue_by_status(const AIRSRV_MSG& tlg_in, const std::string& status)
+{
+    TQuery TlgUpdQry(&OraSession);
+    TlgUpdQry.SQLText=
+      "DELETE FROM tlg_queue "
+      "WHERE sender= :sender AND tlg_num= :tlg_num AND "
+      "      type IN ('OUTA','OUTB','OAPP') AND status= :status";
+    TlgUpdQry.CreateVariable("sender", otString, tlg_in.Receiver);
+    TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
+    TlgUpdQry.CreateVariable("status", otString, status);
+    TlgUpdQry.Execute();
+    return TlgUpdQry.RowsProcessed() > 0;
+}
+
+bool del_from_tlg_queue(const AIRSRV_MSG& tlg_in)
+{
+    TQuery TlgUpdQry(&OraSession);
+    TlgUpdQry.SQLText=
+      "DELETE FROM tlg_queue "
+      "WHERE sender= :sender AND tlg_num= :tlg_num AND "
+      "      type IN ('OUTA','OUTB','OAPP')";
+    TlgUpdQry.CreateVariable("sender", otString, tlg_in.Receiver);
+    TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
+    TlgUpdQry.Execute();
+    return TlgUpdQry.RowsProcessed() > 0;
+}
+
+bool upd_tlg_queue_status(const AIRSRV_MSG& tlg_in,
+                          const std::string& curStatus, const std::string& newStatus)
+{
+    TQuery TlgUpdQry(&OraSession);
+    TlgUpdQry.SQLText=
+      "UPDATE tlg_queue SET status= :new_status "
+      "WHERE sender= :sender AND tlg_num= :tlg_num AND "
+      "      type IN ('OUTA','OUTB','OAPP') AND status= :cur_status";
+    TlgUpdQry.CreateVariable("sender",     otString, tlg_in.Receiver);
+    TlgUpdQry.CreateVariable("tlg_num",    otInteger,(int)tlg_in.num);
+    TlgUpdQry.CreateVariable("cur_status", otString, curStatus);
+    TlgUpdQry.CreateVariable("new_status", otString, newStatus);
+    TlgUpdQry.Execute();
+    return TlgUpdQry.RowsProcessed() > 0;
+}
+
+bool upd_tlgs_by_error(const AIRSRV_MSG& tlg_in, const std::string& error)
+{
+    TQuery TlgUpdQry(&OraSession);
+    TlgUpdQry.SQLText=
+      "UPDATE tlgs SET error= :error "
+      "WHERE tlg_num= :tlg_num AND sender= :sender AND "
+      "      type IN ('OUTA','OUTB','OAPP')";
+    TlgUpdQry.CreateVariable("sender", otString, tlg_in.Receiver);
+    TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
+    TlgUpdQry.CreateVariable("error",  otString, error);
+    TlgUpdQry.Execute();
+    return TlgUpdQry.RowsProcessed() > 0;
+}
+
+bool handle_tlg_ack(const AIRSRV_MSG& tlg_in)
+{
+    if(!upd_tlg_queue_status(tlg_in, "PUT", "SEND"))
+    {
+      OraSession.Rollback();
+      ProgTrace(TRACE0,"Attention! Can't find tlg in tlg_queue "
+                       "(sender: %s, tlg_num: %d, curr_status: PUT)",
+                       tlg_in.Receiver, tlg_in.num);
+      return false;
+    }
+
+    return true;
+}
+
+bool handle_tlg_f_ack(const AIRSRV_MSG& tlg_in, bool& wasAck)
+{
+    wasAck = del_from_tlg_queue_by_status(tlg_in, "SEND");
+    if(!wasAck) {
+        LogTrace(TRACE1) << "ACK was not found for tlg: " << tlg_in.num;
+        del_from_tlg_queue_by_status(tlg_in, "PUT");
+    }
+
+    return true;
+}
 
 void process_tlg(void)
 {
@@ -128,7 +222,7 @@ void process_tlg(void)
   int len,tlg_len,from_addr_len,tlg_header_len=sizeof(tlg_in)-sizeof(tlg_in.body);
   from_addr_len=sizeof(from_addr);
   char *tlg_body;
-
+  bool wasAck = false;
   int type = tNone;
   TEdiTlgSubtype subtype = stCommon;
   time_t start_time=time(NULL);
@@ -300,62 +394,23 @@ void process_tlg(void)
         break;
       case TLG_ACK:
         {
-          TQuery TlgUpdQry(&OraSession);
-          TlgUpdQry.SQLText=
-            "UPDATE tlg_queue SET status='SEND' "
-            "WHERE sender= :sender AND tlg_num= :tlg_num AND "
-            "      type IN ('OUTA','OUTB','OAPP') AND status='PUT'";
-          TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
-          TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
-          TlgUpdQry.Execute();
-          if (TlgUpdQry.RowsProcessed()==0)
-          {
-            OraSession.Rollback();
-            ProgTrace(TRACE0,"Attention! Can't find tlg in tlg_queue "
-                             "(sender: %s, tlg_num: %d, curr_status: PUT)",
-                             tlg_in.Receiver, tlg_in.num);
-            return;
-          };
-          TlgUpdQry.SQLText=
-            "UPDATE tlg_stat SET time_send=SYSTEM.UTCSYSDATE "
-            "WHERE queue_tlg_id=:tlg_num AND sender_canon_name=:sender";
-          TlgUpdQry.Execute();
+          if(handle_tlg_ack(tlg_in)) {
+            update_tlg_stat(tlg_in);
+          }
         };
         break;
       case TLG_F_ACK:
         {
-          TQuery TlgUpdQry(&OraSession);
-          TlgUpdQry.SQLText=
-            "DELETE FROM tlg_queue "
-            "WHERE sender= :sender AND tlg_num= :tlg_num AND "
-            "      type IN ('OUTA','OUTB','OAPP') AND status IN ('SEND', 'PUT')";
-          TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
-          TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
-          TlgUpdQry.Execute();
-          TlgUpdQry.SQLText=
-            "UPDATE tlg_stat SET time_receive=SYSTEM.UTCSYSDATE "
-            "WHERE queue_tlg_id=:tlg_num AND sender_canon_name=:sender";
-          TlgUpdQry.Execute();
+          handle_tlg_f_ack(tlg_in, wasAck);
+          update_tlg_stat(tlg_in);
         };
         break;
       case TLG_F_NEG:
       case TLG_CFG_ERR:
       case TLG_CRASH:
         {
-          TQuery TlgUpdQry(&OraSession);
-          TlgUpdQry.SQLText=
-            "DELETE FROM tlg_queue "
-            "WHERE sender= :sender AND tlg_num= :tlg_num AND "
-            "      type IN ('OUTA','OUTB','OAPP')";
-          TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
-          TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
-          TlgUpdQry.Execute();
-          TlgUpdQry.SQLText=
-            "UPDATE tlgs SET error= :error "
-            "WHERE tlg_num= :tlg_num AND sender= :sender AND "
-            "      type IN ('OUTA','OUTB','OAPP')";
-          TlgUpdQry.CreateVariable("error",otString,"GATE");
-          TlgUpdQry.Execute();
+          del_from_tlg_queue(tlg_in);
+          upd_tlgs_by_error(tlg_in, "GATE");
         };
         break;
       case TLG_ACK_ACK:
@@ -431,6 +486,10 @@ void process_tlg(void)
         break;
       case TLG_F_ACK:
         ProgTrace(TRACE5,"OUT: SEND->DONE (sender=%s, tlg_num=%d, time=%.10f)", tlg_in.Receiver, tlg_in.num, NowUTC());
+        if(!wasAck) {
+            ProgTrace(TRACE5, "Kick sender by TLG_F_ACK");
+            sendCmdTlgSnd(); //пинок отправщику (можно отправлять следующую телеграмму)
+        }
         break;
       case TLG_F_NEG:
       case TLG_CFG_ERR:
