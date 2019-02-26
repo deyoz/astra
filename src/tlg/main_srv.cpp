@@ -117,7 +117,30 @@ int main_srv_tcl(int supervisorSocket, int argc, char *argv[])
     ProgError(STDLOG, "Unknown exception");
   };
   return 0;
-};
+}
+
+int del_tlg_from_queue_by_status(const AIRSRV_MSG& tlg_in, const std::string& status)
+{
+    TQuery TlgUpdQry(&OraSession);
+    TlgUpdQry.SQLText=
+      "DELETE FROM tlg_queue "
+      "WHERE sender= :sender AND tlg_num= :tlg_num AND "
+      "      type IN ('OUTA','OUTB','OAPP') AND status= :status";
+    TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
+    TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
+    TlgUpdQry.CreateVariable("status",otString, status);
+    TlgUpdQry.Execute();
+    return TlgUpdQry.RowsProcessed();
+}
+
+void handle_tlg_f_ack(const AIRSRV_MSG& tlg_in, bool& wasAck)
+{
+    wasAck = (del_tlg_from_queue_by_status(tlg_in, "SEND") > 0);
+    if(!wasAck) {
+        LogTrace(TRACE1) << "ACK was not found for tlg: " << tlg_in.num;
+        del_tlg_from_queue_by_status(tlg_in, "PUT");
+    }
+}
 
 void process_tlg(void)
 {
@@ -128,7 +151,7 @@ void process_tlg(void)
   int len,tlg_len,from_addr_len,tlg_header_len=sizeof(tlg_in)-sizeof(tlg_in.body);
   from_addr_len=sizeof(from_addr);
   char *tlg_body;
-
+  bool wasAck = false;
   int type = tNone;
   TEdiTlgSubtype subtype = stCommon;
   time_t start_time=time(NULL);
@@ -324,14 +347,8 @@ void process_tlg(void)
         break;
       case TLG_F_ACK:
         {
-          TQuery TlgUpdQry(&OraSession);
-          TlgUpdQry.SQLText=
-            "DELETE FROM tlg_queue "
-            "WHERE sender= :sender AND tlg_num= :tlg_num AND "
-            "      type IN ('OUTA','OUTB','OAPP') AND status IN ('SEND', 'PUT')";
-          TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
-          TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
-          TlgUpdQry.Execute();
+          handle_tlg_f_ack(tlg_in, wasAck);
+          TQuery TlgUpdQry(&OraSession);          
           TlgUpdQry.SQLText=
             "UPDATE tlg_stat SET time_receive=SYSTEM.UTCSYSDATE "
             "WHERE queue_tlg_id=:tlg_num AND sender_canon_name=:sender";
@@ -431,6 +448,10 @@ void process_tlg(void)
         break;
       case TLG_F_ACK:
         ProgTrace(TRACE5,"OUT: SEND->DONE (sender=%s, tlg_num=%d, time=%.10f)", tlg_in.Receiver, tlg_in.num, NowUTC());
+        if(!wasAck) {
+            ProgTrace(TRACE5, "Kick sender by TLG_F_ACK");
+            sendCmdTlgSnd(); //пинок отправщику (можно отправлять следующую телеграмму)
+        }
         break;
       case TLG_F_NEG:
       case TLG_CFG_ERR:
