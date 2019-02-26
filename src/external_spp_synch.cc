@@ -698,9 +698,10 @@ void parse_saveFlights( int range_hours, xmlNodePtr reqNode, xmlNodePtr resNode 
   double aodb_point_id;
   xmlNodePtr flightNode = node;
   while ( flightNode != NULL && (string)"flight" == (const char*)flightNode->name ) {
-    flightNode = node->next;
+    flightNode = flightNode->next;
     flight_number++;
   }
+  ProgTrace( TRACE5, "flight count=%d", flight_number );
   //if ( flight_number >= )
   while ( node != NULL && (string)"flight" == (const char*)node->name ) {
     TPointDests dests;
