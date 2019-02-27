@@ -395,8 +395,10 @@ void get_rfisc_stat(int point_id)
                 insQry.get().Execute();
                 if(paid_bag_item.is_carry_on)
                     break;
-                else
+                else {
                     tagsQry.get().Next();
+                    if(tagsQry.get().Eof) break;
+                }
             }
         }
     }
