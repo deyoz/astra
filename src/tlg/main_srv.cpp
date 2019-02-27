@@ -394,9 +394,8 @@ void process_tlg(void)
         break;
       case TLG_ACK:
         {
-          if(handle_tlg_ack(tlg_in)) {
-            update_tlg_stat(tlg_in);
-          }
+          if(!handle_tlg_ack(tlg_in)) return;
+          update_tlg_stat(tlg_in);
         };
         break;
       case TLG_F_ACK:
