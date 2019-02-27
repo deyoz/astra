@@ -2345,8 +2345,10 @@ void TSalonList::ReadLayers( TQuery &Qry, FilterRoutesProperty &filterRoutes,
            !findSeat( salons, &placelist, point_s ) ||
            !placelist->ValidPlace( seat_p ) ) {
         LogTrace(TRACE5) << ">>>TSalonList::ReadLayers: seat not found (" << point_s.num << "," << point_s.x << "," << point_s.y << ") "
-                         << Qry.FieldAsString(idx_first_yname) << Qry.FieldAsString(idx_first_xname) << "-"
-                         << Qry.FieldAsString(idx_last_yname) <<  Qry.FieldAsString(idx_last_xname) << " "
+                         << (idx_first_yname>=0?Qry.FieldAsString(idx_first_yname):"")
+                         << (idx_first_xname>=0?Qry.FieldAsString(idx_first_xname):"") << "-"
+                         << (idx_last_yname>=0?Qry.FieldAsString(idx_last_yname):"")
+                         << (idx_last_xname>=0?Qry.FieldAsString(idx_last_xname):"") << " "
                          << layer.toString();
         if ( layer.getPaxId() != NoExists &&
              pax_list.find( layer.getPaxId() ) != pax_list.end() ) {
