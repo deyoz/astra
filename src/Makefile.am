@@ -131,6 +131,7 @@ astra_SOURCES = \
   season.cc \
   seats_utils.cc \
   seats.cc \
+  seat_descript.cc \
   sirena_exchange.cc \
   sofi.cc \
   sopp.cc \
@@ -328,6 +329,7 @@ noinst_HEADERS = \
   season.h \
   seats_utils.h \
   seats.h \
+  seat_descript.h \
   sirena_exchange.h \
   sofi.h \
   sopp.h \

@@ -534,6 +534,7 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsBaggageCheckInCrew=57,            //Оформление багажа для экипажа
                     tsDeniedSeatCHINEmergencyExit=60,   //Регистрация на ЛО взрослого с ребенком, если нет больше блоков без младенцев
                     tsDeniedSeatOnPNLAfterPay=61,       //Запред рассадки на оплаченные места из PNL/ADL
+                    tsSeatDescription=62,               //Расчет стоимости в салоне по свойству мест
                     tsShowTakeoffDiffTakeoffACT=70,     //Выводить сообщение в СОПП о разнице времен факта вылета и планового или разсчетного времени
                     tsShowTakeoffPassNotBrd=71,         //Выводить сообщение в СОПП о том, что есть не посаженные пассажира при проставлении факта вылета
                     tsDeniedBoardingJMP=80,        //Запрет посадки пассажиров JMP

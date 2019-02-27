@@ -14,13 +14,13 @@ namespace AstraWeb
 {
 namespace WebCraft {
   const int FIRST_VERSION               =  0;
-  const int ALL_CLASS_CRAFT_VERSION     =  1;  
-  const int LAST_VERSION                =  1;  
-  
+  const int ALL_CLASS_CRAFT_VERSION     =  1;
+  const int LAST_VERSION                =  1;
+
   bool isCompatibleVersion( int version_value, int curr_version ) {
     return ( curr_version >= version_value );
   }
-  
+
   int getVersion( int version ) {
     if ( version < FIRST_VERSION ||
          version > LAST_VERSION ) {
@@ -28,7 +28,7 @@ namespace WebCraft {
     }
     return version;
   }
-  
+
   struct CraftFilter {
     std::pair<int,int> leg;
     std::string cls;
@@ -38,7 +38,7 @@ namespace WebCraft {
       this->cls = cls;
     }
     std::string toString() const {
-      std::ostringstream buf;      
+      std::ostringstream buf;
       buf << "CraftFilter: point_dep=" << leg.first;
       if ( leg.second != ASTRA::NoExists ) {
         buf << ",point_arv=" << leg.second;
@@ -48,8 +48,8 @@ namespace WebCraft {
       }
       return buf.str();
     }
-  };  
-  
+  };
+
   struct WebCraftFilters {
     CraftFilter filterCraft;
     FilterWebSeat filterWebSeat;
@@ -70,12 +70,12 @@ namespace WebCraft {
         if ( point_arv == ASTRA::NoExists ) {
           point_arv = SALONS2::getCrsPaxPointArv( ipax->crs_pax_id, point_id );
         }
-      }      
-      filterCraft = CraftFilter( point_id, point_arv, filterWebSeat.crs_class );      
+      }
+      filterCraft = CraftFilter( point_id, point_arv, filterWebSeat.crs_class );
     }
     void setPassRem( const std::string airline ) {
       TSublsRems subcls_rems( airline );
-      subcls_rems.IsSubClsRem( crs_subclass, filterWebSeat.pass_rem );      
+      subcls_rems.IsSubClsRem( crs_subclass, filterWebSeat.pass_rem );
     }
     void setPrLat( bool pr_lat ) {
       filterWebSeat.pr_lat = pr_lat;
@@ -85,8 +85,8 @@ namespace WebCraft {
       buf << filterCraft.toString() << "\n" << filterWebSeat.toString();
       return buf.str();
     }
-  };  
-  
+  };
+
   void TWebPlace::layerFromSeats( SALONS2::IPlace &seat, const FilterWebSeat &filterWebSeat ) { //вычисляем слой
     bool pr_first = true;
     for( std::vector<TPlaceLayer>::iterator ilayer=seat->layers.begin(); ilayer!=seat->layers.end(); ilayer++ ) { // сортировка по приоритетам
@@ -101,8 +101,8 @@ namespace WebCraft {
            ilayer->layer_type != cltUnknown ) { //место используется, определяем статус резерва пассажиром
         pr_first = false;
         pr_free = false;
-        bool isOwnerFreePlace = false; 
-        reserv_owner =  ( ( ilayer->layer_type == cltPNLCkin || 
+        bool isOwnerFreePlace = false;
+        reserv_owner =  ( ( ilayer->layer_type == cltPNLCkin ||
                             SALONS2::isUserProtectLayer( ilayer->layer_type ) ) && (isOwnerFreePlace=SALONS2::isOwnerFreePlace<TWebPax>( ilayer->pax_id, filterWebSeat.pnr )) );
         LogTrace(TRACE5) << __FUNCTION__ << ": layer(" << ilayer->toString() << "), isOwnerFreePlace=" << isOwnerFreePlace;
       }
@@ -117,21 +117,21 @@ namespace WebCraft {
       }
     }
     pr_free = ( pr_free || pr_first ); // 0 - занято, 1 - свободно, 2 - частично занято
-    reserv_owner = ( reserv_owner || pr_first );   
+    reserv_owner = ( reserv_owner || pr_first );
   }
-  
+
   std::string TWebPlace::getSubCls( const vector<TRem> &rems ) { //вычисляем подкласс места
      for ( vector<TRem>::const_iterator irem=rems.begin(); irem!=rems.end(); irem++ ) {
        if ( SALONS2::isREM_SUBCLS( irem->rem ) && !irem->pr_denial ) {
          return irem->rem;
        }
-     }     
+     }
      return "";
   }
-  
+
   void TWebPlace::propsFromPlace( SALONS2::IPlace &seat, const FilterWebSeat &filterWebSeat ) { //вычисляем все свойства мест
     x = seat->x;
-    y = seat->y;    
+    y = seat->y;
     xname = seat->xname;
     yname = seat->yname;
     seat_no = seat->denorm_view(filterWebSeat.pr_lat);
@@ -145,7 +145,7 @@ namespace WebCraft {
     rfisc = seat->getRFISC( filterWebSeat.point_id );
     if ( seat->isplace && !seat->clname.empty() && seat->clname == filterWebSeat.crs_class ) {
       layerFromSeats( seat, filterWebSeat );
-      if ( pr_free ) { //место свободно        
+      if ( pr_free ) { //место свободно
         string seat_subcls = getSubCls( seat->rems );
         if ( !filterWebSeat.pass_rem.empty() ) { //у пассажира есть подкласс
           if ( filterWebSeat.pass_rem == seat_subcls ) {
@@ -180,9 +180,9 @@ namespace WebCraft {
           }
         }
       }
-    } // end if seat->isplace && !seat->clname.empty() && seat->clname == crs_class            
+    } // end if seat->isplace && !seat->clname.empty() && seat->clname == crs_class
   }
-  
+
   int TWebPlace::get_seat_status( bool pr_find_free_subcls_place, bool view_craft ) const {
     int status = 0;
     switch( pr_free ) {
@@ -211,23 +211,23 @@ namespace WebCraft {
       status = 1;
     }
     return status;
-  }  
-    
+  }
+
   void WebCraft::add( int num, const TWebPlaceList &placeList ) {
     if ( !placeList.empty() ) {
       pr_find_free_subcls_place |= placeList.FreeSubclsExists();
       insert( make_pair( num, placeList ) );
     }
-  }          
+  }
   void WebCraft::Read( int point_id, const std::vector<AstraWeb::TWebPax> &pnr ) {
     LogTrace(TRACE5) << "WebCraft:" <<__FUNCTION__ << " point_id=" << point_id << ",version=" << version;
     clear();
-    WebCraftFilters filters( point_id, pnr );    
+    WebCraftFilters filters( point_id, pnr );
     if ( filters.filterCraft.cls.empty() ) {
-      throw UserException( "MSG.CLASS.NOT_SET" );    
+      throw UserException( "MSG.CLASS.NOT_SET" );
     }
-    salonList.ReadFlight( SALONS2::TFilterRoutesSets( filters.filterCraft.leg.first, filters.filterCraft.leg.second ), 
-                          isCompatibleVersion( ALL_CLASS_CRAFT_VERSION, version )?"":filters.filterCraft.cls, NoExists );    
+    salonList.ReadFlight( SALONS2::TFilterRoutesSets( filters.filterCraft.leg.first, filters.filterCraft.leg.second ),
+                          isCompatibleVersion( ALL_CLASS_CRAFT_VERSION, version )?"":filters.filterCraft.cls, NoExists );
     filters.setPassRem( salonList.getAirline() );
     filters.setPrLat( salonList.isCraftLat() );
     LogTrace(TRACE5) << __FUNCTION__ << filters.toString();
@@ -259,9 +259,9 @@ namespace WebCraft {
     for( vector<TPlaceList*>::iterator placeList = Salons->placelists.begin(); // пробег по салонам
          placeList != Salons->placelists.end(); placeList++ ) {
       TWebPlaceList webPlaceList;
-    
+
       for ( IPlace place = (*placeList)->places.begin(); //пробег по местам
-            place != (*placeList)->places.end(); place++ ) { 
+            place != (*placeList)->places.end(); place++ ) {
         if ( !place->visible ) {
           continue;
         }
@@ -272,25 +272,25 @@ namespace WebCraft {
                  place->xname.find("=") != std::string::npos)) ) {
           place->xname.clear();
           place->yname.clear();
-        };        
+        };
         webPlaceList.add( TWebPlace( place, filters.filterWebSeat ) );
       }
       add( (*placeList)->num, webPlaceList );
-    }        
+    }
   }
-  
+
   bool WebCraft::findSeat( std::string seat_no, TWebPlace &wsp ) {
-    for ( WebCraft::const_iterator iwebSalon=begin(); iwebSalon!=end(); iwebSalon++ ) {       
-      for ( TWebPlaces::const_iterator wp = iwebSalon->second.begin(); wp != iwebSalon->second.end(); wp++ ) {   
+    for ( WebCraft::const_iterator iwebSalon=begin(); iwebSalon!=end(); iwebSalon++ ) {
+      for ( TWebPlaces::const_iterator wp = iwebSalon->second.begin(); wp != iwebSalon->second.end(); wp++ ) {
         if ( seat_no == wp->getSeatNo() ) {
            wsp = *wp;
            return true;
         }
       }
-    }    
+    }
     return false;
   }
-  
+
   void TWebPlace::toXML( int version, bool isFreeSubclsSeats, xmlNodePtr placeListNode ) const {
     xmlNodePtr placeNode = NewTextChild( placeListNode, "place" );
     NewTextChild( placeNode, "x", x );
@@ -298,10 +298,10 @@ namespace WebCraft {
     NewTextChild( placeNode, "seat_no", seat_no );
     NewTextChild( placeNode, "elem_type", elem_type );
     if ( !isCompatibleVersion( ALL_CLASS_CRAFT_VERSION, version ) ) {
-      NewTextChild( placeNode, "status", get_seat_status( isFreeSubclsSeats, true ) );  
+      NewTextChild( placeNode, "status", get_seat_status( isFreeSubclsSeats, true ) );
     }
     else {
-      NewTextChild( placeNode, "cls", cls );    
+      NewTextChild( placeNode, "cls", cls );
     }
     if ( pax_id != NoExists ) {
       NewTextChild( placeNode, "pax_id", pax_id );
@@ -329,22 +329,22 @@ namespace WebCraft {
         NewTextChild( rNode, "code", irem->rem );
         NewTextChild( rNode, "pr_denial", irem->pr_denial );
       }
-    }    
+    }
   }
-  
+
   void TWebPlaceList::toXML( int version, int num, bool isFreeSubclsSeats, xmlNodePtr viewCraftNode ) const {
     xmlNodePtr placeListNode = NewTextChild( viewCraftNode, "placelist" );
     SetProp( placeListNode, "num", num );
     SetProp( placeListNode, "xcount", xcount + 1 );
-    SetProp( placeListNode, "ycount", ycount + 1 );  
+    SetProp( placeListNode, "ycount", ycount + 1 );
     for ( TWebPlaces::const_iterator wp = begin(); wp != end(); wp++ ) {
       wp->toXML( version, isFreeSubclsSeats, placeListNode );
     }
   }
-  
+
   void WebCraft::toXML( xmlNodePtr craftNode ) {
      xmlNodePtr viewCraftNode = NewTextChild( craftNode, "salons" );
-     for( WebCraft::const_iterator iwebSalon=begin(); iwebSalon!=end(); iwebSalon++ ) {       
+     for( WebCraft::const_iterator iwebSalon=begin(); iwebSalon!=end(); iwebSalon++ ) {
        iwebSalon->second.toXML( version, iwebSalon->first, pr_find_free_subcls_place, viewCraftNode  );
      }
   }
@@ -355,7 +355,7 @@ namespace WebCraft {
   2. Есть группа пассажиров, некоторые уже зарегистрированы, некоторые нет.
   */
   void ViewCraft( const vector<TWebPax> &paxs, xmlNodePtr reqNode, xmlNodePtr resNode)
-  {    
+  {
     int point_id = NodeAsInteger( "point_id", reqNode );
   //  xmlNodePtr flagsNode = GetNode( "passengers/flags", reqNode );
     xmlNodePtr flagsNode = GetNode( "passengers", reqNode );
@@ -366,10 +366,10 @@ namespace WebCraft {
     xmlNodePtr versionNode = GetNode( "version", reqNode );
     if ( versionNode ) {
       version = NodeAsInteger( versionNode );
-    }    
+    }
     WebCraft webCraft( getVersion( version ) );
-    webCraft.Read( point_id, paxs );    
-  
+    webCraft.Read( point_id, paxs );
+
     xmlNodePtr nodeViewCraft = NewTextChild( resNode, "ViewCraft" );
     ProgTrace( TRACE5, "FreeSubclsExists=%d", webCraft.FreeSubclsExists() );
     webCraft.toXML( nodeViewCraft );
@@ -435,7 +435,7 @@ namespace WebCraft {
            }
         }
       }
-      SALONS2::checkBuildSections( point_id, salonList.getCompId(), nodeViewCraft, false );
+      SALONS2::checkBuildSections( point_id, salonList.getCompId(), nodeViewCraft, TAdjustmentRows().get( salonList ), false );
     }
     ProgTrace( TRACE5, "flagsNode %d", flagsNode != NULL );
     xmlNodePtr passesNode = NULL;
@@ -508,7 +508,7 @@ namespace WebCraft {
       }
     }
   }
-  
+
   // передается заполненные поля crs_pax_id, crs_seat_no, class, subclass
   // на выходе заполнено TWebPlace по пассажиру
   void GetCrsPaxSeats( int point_id, const vector<TWebPax> &pnr,
@@ -516,24 +516,24 @@ namespace WebCraft {
   {
     pax_seats.clear();
     WebCraft webCraft( FIRST_VERSION );
-    webCraft.Read( point_id, pnr );    
+    webCraft.Read( point_id, pnr );
     for ( vector<TWebPax>::const_iterator ipax=pnr.begin(); ipax!=pnr.end(); ipax++ ) { // пробег по пассажирам
       LexemaData ld;
       TWebPlace wsp;
       bool pr_find = webCraft.findSeat( ipax->crs_seat_no, wsp );
       if ( pr_find ) {
         if ( wsp.get_seat_status( webCraft.FreeSubclsExists(), false ) == 1 ) {
-           ld.lexema_id = "MSG.SEATS.SEAT_NO.NOT_AVAIL";   
+           ld.lexema_id = "MSG.SEATS.SEAT_NO.NOT_AVAIL";
         }
          wsp.setPaxId( ipax->crs_pax_id );
-         pax_seats.push_back( make_pair( wsp, ld ) );           
+         pax_seats.push_back( make_pair( wsp, ld ) );
       }
       else {
         TWebPlace wsp;
         wsp.setPaxId( ipax->crs_pax_id );
         wsp.setSeatNo( ipax->crs_seat_no );
         ld.lexema_id = "MSG.SEATS.SEAT_NO.NOT_FOUND";
-        pax_seats.push_back( make_pair( wsp, ld ) );          
+        pax_seats.push_back( make_pair( wsp, ld ) );
       }
   /*    for( map<int, TWebPlaceList>::iterator isal=web_salons.begin(); isal!=web_salons.end(); isal++ ) {
         for ( TWebPlaces::iterator wp = isal->second.places.begin();
@@ -559,7 +559,7 @@ namespace WebCraft {
       }*/
     } // пробег по пассажирам
   }
-  
-}  
+
+}
 }
 
