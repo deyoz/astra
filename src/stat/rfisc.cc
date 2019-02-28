@@ -375,7 +375,7 @@ void get_rfisc_stat(int point_id)
                 tagsQry.get().SetVariable("bag_num", bagQry.get().FieldAsInteger(col_bag_num));
                 tagsQry.get().Execute();
                 // Если это не Р/к, но бирок нет, запишем в Р/к
-                paid_bag_item.is_carry_on = tagsQry.get().Eof();
+                paid_bag_item.is_carry_on = tagsQry.get().Eof;
             }
 
             while(true) {
