@@ -1923,6 +1923,7 @@ void GetBPPaxFromScanCode(const string &scanCode, PrintInterface::BPPax &pax)
   }
   catch(UserException &e)
   {
+    pax.errors.push_back(e.getLexemaData());
     LogTrace(TRACE5) << '\n' << scanSections;
     LogTrace(TRACE5) << ">>>> " << e.what();
   }
