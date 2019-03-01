@@ -20,10 +20,8 @@ using namespace BASIC::date_time;
 struct TRFISCBag {
 
     struct TBagInfo {
-        bool is_carry_on;
         int excess, paid;
         TBagInfo():
-            is_carry_on(false),
             excess(NoExists),
             paid(NoExists)
         {}
@@ -61,8 +59,6 @@ struct TRFISCBag {
                                                    i!=statusList.end(); ++i)
           {
             TBagInfo val;
-
-            val.is_carry_on = i->list_item.get().isCarryOn();
 
             switch(i->status) {
                 case TServiceStatus::Free:
@@ -124,6 +120,7 @@ void get_rfisc_stat(int point_id)
             "    bag2.num bag_num, "
             "    bag2.desk, "
             "    bag2.time_create, "
+            "    bag2.pr_cabin, "
             "    users2.login, "
             "    users2.descr, "
             "    points.airp, "
@@ -264,6 +261,7 @@ void get_rfisc_stat(int point_id)
         int col_bag_num = bagQry.get().FieldIndex("bag_num");
         int col_desk = bagQry.get().FieldIndex("desk");
         int col_time_create = bagQry.get().FieldIndex("time_create");
+        int col_pr_cabin = bagQry.get().FieldIndex("pr_cabin");
         int col_login = bagQry.get().FieldIndex("login");
         int col_descr = bagQry.get().FieldIndex("descr");
         int col_airp = bagQry.get().FieldIndex("airp");
@@ -370,12 +368,14 @@ void get_rfisc_stat(int point_id)
                 bag_info.pop_back();
             }
 
-            if(not paid_bag_item.is_carry_on) {
+            bool pr_cabin = bagQry.get().FieldAsInteger(col_pr_cabin);
+            bool tags_exists = false;
+
+            if(not pr_cabin) {
                 tagsQry.get().SetVariable("grp_id", grp_id);
                 tagsQry.get().SetVariable("bag_num", bagQry.get().FieldAsInteger(col_bag_num));
                 tagsQry.get().Execute();
-                // Если это не Р/к, но бирок нет, запишем в Р/к
-                paid_bag_item.is_carry_on = tagsQry.get().Eof;
+                tags_exists = not tagsQry.get().Eof;
             }
 
             while(true) {
@@ -389,18 +389,18 @@ void get_rfisc_stat(int point_id)
                     insQry.get().SetVariable("paid", paid_bag_item.paid);
 
                 insQry.get().SetVariable("bag_tag",
-                        paid_bag_item.is_carry_on ? NoExists :
-                        tagsQry.get().FieldAsFloat("no"));
+                        tags_exists ?
+                        tagsQry.get().FieldAsFloat("no"):
+                        (pr_cabin ? NoExists : -1));
                 insQry.get().SetVariable("fqt_no", fqt_no);
                 fqt_no.clear();
 
                 insQry.get().Execute();
-                if(paid_bag_item.is_carry_on)
-                    break;
-                else {
+                if(tags_exists) {
                     tagsQry.get().Next();
                     if(tagsQry.get().Eof) break;
-                }
+                } else
+                    break;
             }
         }
     }
@@ -663,14 +663,24 @@ int nosir_rfisc_all(int argc,char **argv)
     return 1;
 }
 
+string get_tag_no(double tag_no)
+{
+    ostringstream result;
+    if(tag_no == NoExists) {
+        result << getLocaleText("Р/к");
+    } else if(tag_no != -1) {
+        result
+            << fixed
+            << setprecision(0)
+            << setw(10)
+            << setfill('0')
+            << tag_no;
+    }
+    return result.str();
+}
+
 void TRFISCStatRow::add_data(ostringstream &buf) const
 {
-    ostringstream tag_field;
-    if(tag_no != NoExists)
-        tag_field << fixed << setprecision(0) << setw(10) << setfill('0') << tag_no;
-    else
-        tag_field << getLocaleText("Р/к");
-
     //RFISC
     buf << rfisc << delim;
     // Платн.
@@ -683,7 +693,7 @@ void TRFISCStatRow::add_data(ostringstream &buf) const
     buf
         << delim
         // Бирка
-        << tag_field.str() << delim
+        << get_tag_no(tag_no) << delim
         // SPEQ
         << delim
         // FQTV
@@ -1002,18 +1012,7 @@ void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, 
         else
             NewTextChild(rowNode, "col", i->paid);
         // Бирка
-        if(i->tag_no != NoExists) {
-            buf.str("");
-            buf
-                << fixed
-                << setprecision(0)
-                << setw(10)
-                << setfill('0')
-                << i->tag_no;
-            NewTextChild(rowNode, "col", buf.str());
-        } else {
-            NewTextChild(rowNode, "col", getLocaleText("Р/к"));
-        }
+        NewTextChild(rowNode, "col", get_tag_no(i->tag_no));
         // SPEQ - признак спец. багажа
         NewTextChild(rowNode, "col");
         // Статус или признак FQTV
