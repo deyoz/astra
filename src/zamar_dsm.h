@@ -47,7 +47,7 @@ class PassengerSearchResult
 public:
   PassengerSearchResult& fromXML(xmlNodePtr reqNode);
   const PassengerSearchResult& toXML(xmlNodePtr resNode) const;
-  static void errorXML(xmlNodePtr resNode, const std::string& msg);
+  static void errorXML(xmlNodePtr resNode, const std::string& cmd, const std::string& err);
 };
 
 #endif // ZAMAR_DSM_H

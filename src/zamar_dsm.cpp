@@ -17,11 +17,25 @@
 using namespace std;
 using namespace EXCEPTIONS;
 
+const string STR_PAX_NO_MATCH = "PAX_NO_MATCH";
+const string STR_INTERNAL_ERROR = "INTERNAL_ERROR";
+
+//-----------------------------------------------------------------------------------
+
+struct ZamarException : public Exception
+{
+  string cmd;
+  ZamarException(string a_cmd, string a_err) : Exception(a_err.c_str()), cmd(a_cmd) {}
+};
+
+//-----------------------------------------------------------------------------------
+
 PassengerSearchResult& PassengerSearchResult::fromXML(xmlNodePtr reqNode)
 {
   if (reqNode == nullptr)
     throw Exception("reqNode == nullptr");
   
+  AstraLocale::OutputLang lang("", {AstraLocale::OutputLang::OnlyTrueIataCodes});
   // sessionId
   sessionId = NodeAsString( "sessionId", reqNode);
   if (sessionId.empty())
@@ -32,6 +46,25 @@ PassengerSearchResult& PassengerSearchResult::fromXML(xmlNodePtr reqNode)
     throw Exception("Empty <bcbp>");
   
   AstraWeb::GetBPPaxFromScanCode(bcbp, bppax); // throws
+
+  if (not bppax.errors.empty())
+  {
+    for (const auto& err : bppax.errors)
+    {
+      if (err.lexema_id == "MSG.PASSENGERS.NOT_FOUND" or
+          err.lexema_id == "MSG.PASSENGER.NOT_FOUND" or
+          err.lexema_id == "MSG.PASSENGERS.FOUND_MORE" or
+          err.lexema_id == "MSG.FLIGHT.NOT_FOUND")
+      {
+        LogTrace(TRACE5) << "error command = '" << STR_PAX_NO_MATCH << "' lexema_id = '" << err.lexema_id << "'";
+        throw ZamarException(STR_PAX_NO_MATCH, getLocaleText(err.lexema_id, err.lparams, lang.get()));
+      }
+    }
+    const auto& err = *bppax.errors.cbegin();
+    LogTrace(TRACE5) << "error command = '" << STR_INTERNAL_ERROR << "' lexema_id = '" << err.lexema_id << "'";
+    throw ZamarException(STR_INTERNAL_ERROR, getLocaleText(err.lexema_id, err.lparams, lang.get()));
+  }
+
   point_id = bppax.point_dep;
   int grp_id = bppax.grp_id;
   int pax_id = bppax.pax_id;
@@ -198,10 +231,13 @@ const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) co
   return *this;
 }
 
-void PassengerSearchResult::errorXML(xmlNodePtr resNode, const std::string& msg )
+//-----------------------------------------------------------------------------------
+
+void PassengerSearchResult::errorXML(xmlNodePtr resNode, const std::string& cmd, const std::string &err)
 {
   if (resNode == nullptr) return;
-  NewTextChild(resNode, "error", msg);
+  NewTextChild(resNode, "command", cmd);
+  NewTextChild(resNode, "error", err);
 }
 
 void ZamarDSMInterface::PassengerSearch(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -211,9 +247,14 @@ void ZamarDSMInterface::PassengerSearch(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   {
     result.fromXML(reqNode);
   }
+  catch (ZamarException ZE)
+  {
+    PassengerSearchResult::errorXML(resNode, ZE.cmd, ZE.what());
+    return;
+  }
   catch (Exception E)
   {
-    PassengerSearchResult::errorXML(resNode, E.what());
+    PassengerSearchResult::errorXML(resNode, STR_INTERNAL_ERROR, E.what());
     return;
   }
   result.toXML(resNode);
