@@ -92,7 +92,7 @@ COMMON_FLAGS="-Wall $TCH_ETC_FLAGS $ORACLE_CXXFLAGS $EDILIB_CXXFLAGS $JXTLIB_CXX
 CFLAGS="$COMMON_FLAGS $CFLAGS"
 CXXFLAGS="$COMMON_FLAGS $BOOST_CPPFLAGS $CXXFLAGS $XML_CFLAGS"
 
-AC_OUTPUT(Makefile src/Makefile src/tlg/Makefile src/tests/Makefile src/docs/Makefile)
+AC_OUTPUT(Makefile src/Makefile src/tlg/Makefile src/tests/Makefile src/docs/Makefile src/stat/Makefile)
 
 ln -s $LIBROOT/tscriptc/tscriptc ${srcdir}/src/tscriptc
 

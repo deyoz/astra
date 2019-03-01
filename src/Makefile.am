@@ -137,7 +137,6 @@ astra_SOURCES = \
   sopp.cc \
   spp_cek.cc \
   stages.cc \
-  stat.cc \
   stat_doc_country.cc \
   qrys.cpp \
   telegram.cc \
@@ -183,19 +182,9 @@ astra_SOURCES = \
   bagmessage.cc \
   hotel_acmd.cc \
   self_ckin_log.cc \
-  stat_bi.cc \
-  stat_vo.cc \
-  stat_ha.cc \
-  stat_ad.cc \
-  stat_reprint.cc \
-  stat_unacc.cc \
   pax_events.cc \
-  stat_utils.cc \
-  stat_common.cc \
   db_pkg.cc \
   cr_lf.cc \
-  stat_fv.cc \
-  stat_annul_bt.cc \
   franchise.cc \
   astra_ssim.cc \
   bagmessage_daemon.cc
@@ -203,6 +192,7 @@ astra_SOURCES = \
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
 	docs/libdocs.a \
+	stat/libstat.a \
 	tests/libtests.a \
 	@SHARED_LIBS@ @SHARED_DEPEND_LIBS@ \
 	@LIBTLG_LIBS@ \
@@ -227,7 +217,7 @@ astra_LDADD = $(all_libraries) \
 #	-L/usr/lib -lboost_filesystem
 #	-L/home/beta/crypt/locallibs/mespro -lmesprox
 
-SUBDIRS = tlg tests docs
+SUBDIRS = tlg tests docs stat
 
 EXTRA_DIST = systarg.mk run astra.tcl PS Restart kills \
 	MAKE local_after_example.tcl local_before_example.tcl
@@ -335,7 +325,6 @@ noinst_HEADERS = \
   sopp.h \
   spp_cek.h \
   stages.h \
-  stat.h \
   qrys.h \
   timer.h \
   transfer.h \
@@ -375,19 +364,9 @@ noinst_HEADERS = \
   kiosk_events.h \
   hotel_acmd.h \
   self_ckin_log.h \
-  stat_bi.h \
-  stat_vo.h \
-  stat_ha.h \
-  stat_ad.h \
-  stat_reprint.h \
-  stat_unacc.h \
   pax_events.h \
-  stat_utils.h \
-  stat_common.h \
   db_pkg.h \
   cr_lf.h \
-  stat_fv.h \
-  stat_annul_bt.h \
   franchise.h \
   report_common.h \
   astra_ssim.h

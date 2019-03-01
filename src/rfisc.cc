@@ -1120,6 +1120,28 @@ std::string TPaidRFISCStatus::traceStr() const
   return s.str();
 }
 
+void TPaidRFISCStatusList::add(const TPaidRFISCItem& item)
+{
+  if (!item.service_quantity_valid()) return;
+
+  TPaidRFISCItem tmpItem=item;
+  while(tmpItem.service_quantity>0)
+  {
+    if (tmpItem.need==ASTRA::NoExists ||
+        tmpItem.paid==ASTRA::NoExists)
+      emplace_back(tmpItem, TServiceStatus::Unknown);
+    else if (tmpItem.need>0)
+      emplace_back(tmpItem, TServiceStatus::Need);
+    else if (tmpItem.paid>0)
+      emplace_back(tmpItem, TServiceStatus::Paid);
+    else
+      emplace_back(tmpItem, TServiceStatus::Free);
+    if (tmpItem.need!=ASTRA::NoExists) tmpItem.need--;
+    if (tmpItem.paid!=ASTRA::NoExists) tmpItem.paid--;
+    tmpItem.service_quantity--;
+  };
+}
+
 bool TPaidRFISCStatusList::deleteIfFound(const TPaidRFISCStatus& item)
 {
   TPaidRFISCStatusList::iterator i=std::find(begin(), end(), item);
@@ -1296,6 +1318,19 @@ std::string TRFISCListItemsCache::getRFISCNameIfUnambiguous(const TPaxSegRFISCKe
   return result;
 }
 
+std::string TRFISCListItemsCache::getRFISCName(const TPaxSegRFISCKey& item, const std::string& lang) const
+{
+  std::string result;
+
+  if (item.is_auto_service() || !item.list_item)
+    result = getRFISCNameIfUnambiguous(item, lang);
+
+  if (result.empty() && item.list_item)
+    return item.list_item->name_view(lang);
+
+  return result;
+}
+
 void TRFISCListItemsCache::dumpCache() const
 {
   ProgTrace(TRACE5, "secret_map: start dump ");
@@ -1331,19 +1366,6 @@ bool TPaidRFISCListWithAuto::isRFISCGrpNeedForPayment(int pax_id, const std::str
     };
   };
   return false;
-}
-
-std::string TPaidRFISCListWithAuto::getRFISCName(const TPaidRFISCItem& item, const std::string& lang) const
-{
-  std::string result;
-
-  if (item.is_auto_service() || !item.list_item)
-    result = getRFISCNameIfUnambiguous(item, lang);
-
-  if (result.empty() && item.list_item)
-    return item.list_item->name_view(lang);
-
-  return result;
 }
 
 void TPaidRFISCListWithAuto::getUniqRFISCSs(int pax_id, std::set<std::string> &rfisc_set) const
@@ -1849,36 +1871,6 @@ void TPaidRFISCList::getAllListItems()
   for(TPaidRFISCList::iterator i=begin(); i!=end(); ++i)
     i->second.getListItemByPaxId(i->second.pax_id, i->second.trfer_num, boost::none, "TPaidRFISCList");
 }
-
-void TPaidRFISCItem::addStatusList(TPaidRFISCStatusList &list) const
-{
-  if (!service_quantity_valid()) return;
-
-  TPaidRFISCItem item=*this;
-  while(item.service_quantity>0)
-  {
-    if (item.need==ASTRA::NoExists ||
-        item.paid==ASTRA::NoExists)
-      list.push_back(TPaidRFISCStatus(item, TServiceStatus::Unknown));
-    else if (item.need>0)
-      list.push_back(TPaidRFISCStatus(item, TServiceStatus::Need));
-    else if (item.paid>0)
-      list.push_back(TPaidRFISCStatus(item, TServiceStatus::Paid));
-    else
-      list.push_back(TPaidRFISCStatus(item, TServiceStatus::Free));
-    if (item.need!=ASTRA::NoExists) item.need--;
-    if (item.paid!=ASTRA::NoExists) item.paid--;
-    item.service_quantity--;
-  };
-}
-
-void TPaidRFISCList::getStatusList(TPaidRFISCStatusList &list) const
-{
-  list.clear();
-  for(TPaidRFISCList::const_iterator i=begin(); i!=end(); ++i)
-    i->second.addStatusList(list);
-}
-
 
 const TPaidRFISCViewKey& TPaidRFISCViewKey::toXML(xmlNodePtr node) const
 {

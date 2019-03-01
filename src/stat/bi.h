@@ -1,7 +1,7 @@
 #ifndef _BI_STAT_H_
 #define _BI_STAT_H_
 
-#include "stat_common.h"
+#include "common.h"
 #include "bi_rules.h"
 
 struct TBIStatRow {

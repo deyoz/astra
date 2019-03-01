@@ -444,7 +444,7 @@ void TSvcList::addChecked(const TCheckedReqPassengers &req_grps, int grp_id, int
   TPaidRFISCList paid;
   paid.fromDB(grp_id, true);
   TPaidRFISCStatusList statusList;
-  paid.getStatusList(statusList);
+  statusList.set(paid);
 
   CheckIn::TServicePaymentList payment;
   payment.fromDB(grp_id);

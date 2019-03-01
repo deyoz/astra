@@ -3,7 +3,7 @@
 
 #include <vector>
 #include "docs/common.h"
-#include "stat_common.h"
+#include "stat/common.h"
 
 struct TAnnulBTStatRow {
     std::vector<t_tag_nos_row> tags;

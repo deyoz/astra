@@ -1,5 +1,5 @@
-#include "stat_common.h"
-#include "stat_utils.h"
+#include "stat/common.h"
+#include "stat/utils.h"
 #include "date_time.h"
 #include "term_version.h"
 #include "docs/common.h"
@@ -37,7 +37,7 @@ const char *TStatTypeS[statNum] = {
     "statTlgOutDetail",
     "statPactShort",
     "statRFISC",
-    "statService",
+    "statRem",
     "statLimitedCapab",
     "statUnaccBag",
     "statAnnulBT",
@@ -53,7 +53,10 @@ const char *TStatTypeS[statNum] = {
     "statVOShort",
     "statADFull",
     "statReprintShort",
-    "statReprintFull"
+    "statReprintFull",
+    "statServicesFull",
+    "statServicesShort",
+    "statServicesDetail"
 };
 
 void TStatParams::fromFileParams(map<string, string> &file_params)
@@ -187,9 +190,9 @@ void TStatParams::get(xmlNodePtr reqNode)
             statType=statRFISC;
         else
             throw Exception("Unknown stat mode " + name);
-    } else if(type == "Услуги") {
+    } else if(type == "Ремарки") {
         if(name == "Подробная")
-            statType=statService;
+            statType=statRem;
         else
             throw Exception("Unknown stat mode " + name);
     } else if(type == "Огр. возмож.") {
@@ -236,6 +239,11 @@ void TStatParams::get(xmlNodePtr reqNode)
     } else if(type == "Репринт") {
         if(name == "Подробная") statType=statReprintFull;
         else if(name == "Общая") statType=statReprintShort;
+        else throw Exception("Unknown stat mode " + name);
+    } else if(type == "Услуги") {
+        if(name == "Подробная") statType=statServicesFull;
+        else if(name == "Общая") statType=statServicesShort;
+        else if(name == "Детализированная") statType=statServicesDetail;
         else throw Exception("Unknown stat mode " + name);
     } else
         throw Exception("Unknown stat type " + type);

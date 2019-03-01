@@ -153,8 +153,8 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
       case retTYPEB_PIL:
         event_type = "TYPEB_PIL";
         break;
-      case retSERVICE_STAT:
-        event_type = "SERVICE_STAT";
+      case retREM_STAT:
+        event_type = "REM_STAT";
         break;
       case retLIMITED_CAPAB_STAT:
         event_type = "LIMITED_CAPAB_STAT";

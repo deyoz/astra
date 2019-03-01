@@ -1,8 +1,8 @@
-#include "stat_unacc.h"
+#include "unacc.h"
 #include "qrys.h"
 #include "report_common.h"
 #include "astra_misc.h"
-#include "stat_utils.h"
+#include "stat/utils.h"
 
 using namespace std;
 using namespace ASTRA;

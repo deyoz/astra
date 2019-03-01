@@ -18,7 +18,7 @@
 #include "points.h"
 #include "trip_tasks.h"
 #include "qrys.h"
-#include "stat.h"
+#include "stat/main.h"
 #include "apps_interaction.h"
 #include "etick.h"
 #include "counters.h"

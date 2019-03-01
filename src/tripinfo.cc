@@ -17,7 +17,7 @@
 #include "prepreg.h"
 #include "telegram.h"
 #include "docs/common.h"
-#include "stat.h"
+#include "stat/main.h"
 #include "print.h"
 #include "convert.h"
 #include "term_version.h"

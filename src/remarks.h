@@ -27,7 +27,7 @@ enum TRemEventType {
     retCKIN_VIEW,
     retTYPEB_PSM,
     retTYPEB_PIL,
-    retSERVICE_STAT,
+    retREM_STAT,
     retLIMITED_CAPAB_STAT,
     retSELF_CKIN_EXCHANGE,
     retWEB,

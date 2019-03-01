@@ -1,6 +1,6 @@
 #include "oralib.h"
 #include "exceptions.h"
-#include "stat.h"
+#include "stat/main.h"
 #include "qrys.h"
 #include "passenger.h"
 #include "obrnosir.h"

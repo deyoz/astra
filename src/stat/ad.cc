@@ -1,9 +1,9 @@
-#include "stat_ad.h"
+#include "ad.h"
 #include "qrys.h"
 #include "pax_events.h"
 #include "passenger.h"
 #include "report_common.h"
-#include "stat_utils.h"
+#include "stat/utils.h"
 
 using namespace std;
 using namespace ASTRA;

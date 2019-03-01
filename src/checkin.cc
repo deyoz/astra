@@ -22,7 +22,7 @@
 #include "docs/common.h"
 #include "dev_utils.h"
 #include "checkin_utils.h"
-#include "stat_utils.h"
+#include "stat/utils.h"
 #include "etick.h"
 #include "events.h"
 #include "term_version.h"

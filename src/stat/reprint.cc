@@ -1,8 +1,8 @@
-#include "stat_reprint.h"
+#include "reprint.h"
 #include "qrys.h"
 #include "astra_misc.h"
 #include "report_common.h"
-#include "stat_utils.h"
+#include "stat/utils.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -171,7 +171,7 @@ void RunReprintStat(
                 if(not desk_access.get(row.desk)) continue;
 
                 int point_id = Qry.get().FieldAsInteger(col_point_id);
-                TFltInfoCacheItem info = flt_cache.get(point_id, part_key);
+                const TFltInfoCacheItem &info = flt_cache.get(point_id, part_key);
                 row.airline = info.airline;
                 row.view_airline = info.view_airline;
                 row.flt = info.view_flt_no;

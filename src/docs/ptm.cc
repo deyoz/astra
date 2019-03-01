@@ -2,7 +2,7 @@
 #include <boost/algorithm/string.hpp>
 #include "astra_utils.h"
 #include "salons.h"
-#include "stat_utils.h"
+#include "stat/utils.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
