@@ -1,0 +1,32 @@
+#!/bin/bash
+
+hosts=(beta astratest astraedu astra)
+
+cd ~/NOSIR
+
+# comment out all hosts
+for host in ${hosts[*]}
+do
+  ex -sc ':%s/^\([^#].*CONNECT_STRING '$host'\>.*$\)/#\1/g|x' local_after.tcl
+done
+
+prev_host=""
+
+for host in ${hosts[*]}
+do
+  # comment out previous host
+  if [[ $prev_host != "" ]]
+  then
+    ex -sc ':%s/^\([^#].*CONNECT_STRING '$prev_host'\>.*$\)/#\1/g|x' local_after.tcl
+  fi
+
+  #uncomment current and fetch 
+  ex -sc ':%s/^#\(.*CONNECT_STRING '$host'\>.*$\)/\1/g|x' local_after.tcl
+  rm -rf pkg_$host
+  mkdir pkg_$host
+  ./nosir.tcl -db_pkg pkg_$host
+  prev_host=$host
+done
+ex -sc ':%s/^\([^#].*CONNECT_STRING '$prev_host'\>.*$\)/#\1/g|x' local_after.tcl
+ex -sc ':%s/^#\(.*CONNECT_STRING '${hosts[0]}'\>.*$\)/\1/g|x' local_after.tcl
+
