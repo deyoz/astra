@@ -162,13 +162,13 @@ void TRemGrp::Load(TRemEventType rem_set_type, const string &airline)
       case retSELF_CKIN_EXCHANGE:
         event_type = "SELF_CKIN_EXCHANGE";
         break;
-      case retWEB:
+      case retFORBIDDEN_WEB:
         event_type = "WEB";
         break;
-      case retKIOSK:
+      case retFORBIDDEN_KIOSK:
         event_type = "KIOSK";
         break;
-      case retMOB:
+      case retFORBIDDEN_MOB:
         event_type = "MOB";
         break;
       default:
@@ -1286,6 +1286,21 @@ CheckIn::TPaxRemItem CalcJmpRem(const ASTRA::TPaxStatus grp_status,
   if (grp_status!=ASTRA::psCrew && is_jmp)
     return CheckIn::TPaxRemItem("JMP", "JMP");
   return CheckIn::TPaxRemItem();
+}
+
+bool forbiddenRemExists(const TRemGrp& forbiddenRemGrp,
+                        const multiset<CheckIn::TPaxRemItem> &rems)
+{
+  if (forbiddenRemGrp.empty()) return false;
+
+  for(const CheckIn::TPaxRemItem& rem : rems)
+    if (forbiddenRemGrp.exists(rem.code))
+    {
+      ProgTrace(TRACE5, "%s: forbidden rem code %s", __FUNCTION__, rem.code.c_str());
+      return true;
+    }
+
+  return false;
 }
 
 

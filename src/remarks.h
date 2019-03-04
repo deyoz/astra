@@ -30,9 +30,9 @@ enum TRemEventType {
     retREM_STAT,
     retLIMITED_CAPAB_STAT,
     retSELF_CKIN_EXCHANGE,
-    retWEB,
-    retKIOSK,
-    retMOB
+    retFORBIDDEN_WEB,
+    retFORBIDDEN_KIOSK,
+    retFORBIDDEN_MOB
 };
 
 class TRemGrp : public std::set<std::string>
@@ -410,7 +410,7 @@ void PaxRemAndASVCToXML(const std::multiset<TPaxRemItem> &rems_and_asvc,
 void PaxFQTToXML(const std::set<TPaxFQTItem> &fqts,
                  xmlNodePtr node);
 
-};
+}
 
 CheckIn::TPaxRemItem getAPPSRem(const int pax_id, const std::string &lang );
 void GetRemarks(int pax_id, const std::string &lang, std::multiset<CheckIn::TPaxRemItem> &rems);
@@ -424,6 +424,9 @@ CheckIn::TPaxRemItem CalcCrewRem(const ASTRA::TPaxStatus grp_status,
                                  const ASTRA::TCrewType::Enum crew_type);
 CheckIn::TPaxRemItem CalcJmpRem(const ASTRA::TPaxStatus grp_status,
                                 const bool is_jmp);
+
+bool forbiddenRemExists(const TRemGrp& forbiddenRemGrp,
+                        const std::multiset<CheckIn::TPaxRemItem> &rems);
 
 #endif
 
