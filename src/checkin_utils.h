@@ -559,6 +559,10 @@ void CheckSeatNoFromReq(int point_id,
                         std::string &curr_xname,
                         std::string &curr_yname,
                         bool &changed);
+
+bool forbiddenRemExists(const TTripInfo &flt,
+                        const std::multiset<CheckIn::TPaxRemItem> &rems,
+                        boost::optional<TRemGrp>& forbiddenRemGrp);
 void CreateEmulRems(xmlNodePtr paxNode, const std::multiset<CheckIn::TPaxRemItem> &rems, const std::set<CheckIn::TPaxFQTItem> &fqts);
 void CreateEmulXMLDoc(xmlNodePtr reqNode, XMLDoc &emulDoc);
 void CreateEmulXMLDoc(XMLDoc &emulDoc);

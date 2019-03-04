@@ -4687,6 +4687,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         TCompleteAPICheckInfo checkInfo;
         if (first_segment || !notCheckAPI)
           checkInfo.set(grp.point_dep, grp.airp_arv);
+        boost::optional<TRemGrp> forbiddenRemGrp;
         for(CheckIn::TPaxList::iterator p=paxs.begin(); p!=paxs.end(); ++p)
         {
           CheckIn::TPaxItem &pax=p->pax;
@@ -4791,6 +4792,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             if (new_checkin || p->remsExists)
             {
               multiset<CheckIn::TPaxRemItem> &rems=p->rems;
+
+              if (new_checkin && forbiddenRemExists(fltInfo, rems, forbiddenRemGrp))
+                throw UserException("MSG.PASSENGER.CHECKIN_DENIAL");
 
               bool flagVIP=false,
                    flagSTCR=false,
