@@ -92,13 +92,14 @@ struct HTTPClient
     jxt_interface["kuf_stat"] =             JxtInfo(TELEGRAM_JXT_INTERFACE_ID, NULL);
     jxt_interface["kuf_stat_flts"] =        JxtInfo(TELEGRAM_JXT_INTERFACE_ID, NULL);
     jxt_interface["stat_srv"] =             JxtInfo(STAT_JXT_INTERFACE_ID, NULL);
+    jxt_interface["PingKiosk"] =       JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
     jxt_interface["EventToServer"] =        JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
-    jxt_interface["ViewCraft"] =            JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
+    jxt_interface["ViewCraftKiosk"] =       JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
     jxt_interface["piece_concept"] =        JxtInfo(PIECE_CONCEPT_JXT_INTERFACE_ID, NULL);
     jxt_interface["GetGRPPrintData"] =      JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
-    // –ó–∞–ø—Ä–æ—Å —Å –æ–¥–∏–Ω–∞–∫–æ–≤—ã–º –Ω–∞–∑–≤–∞–Ω–∏–µ–º, –Ω–æ –≤ —Ä–∞–∑–Ω—ã—Ö –∫–ª–∞—Å—Å–∞—Ö
-    // –¥–∞–Ω–Ω–∞—è –º—ç–ø–∞ –Ω–µ –ø–æ–¥—Ö–æ–¥–∏—Ç –¥–ª—è —Ç–∞–∫–æ–≥–æ —Å–ª—É—á–∞—è
-    // —Ç.–∫. –∑–∞—Ç–∏—Ä–∞–µ—Ç—Å—è –æ–±—Ä–∞–±–æ—Ç—á–∏–∫
+    // á†Ø‡Æ· · Æ§®≠†™Æ¢Î¨ ≠†ß¢†≠®•¨, ≠Æ ¢ ‡†ß≠ÎÂ ™´†··†Â
+    // §†≠≠†Ô ¨ÌØ† ≠• ØÆ§ÂÆ§®‚ §´Ô ‚†™Æ£Æ ·´„Á†Ô
+    // ‚.™. ß†‚®‡†•‚·Ô Æ°‡†°Æ‚Á®™
     // jxt_interface["GetPrintDataBP"] =       JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
     jxt_interface["GetPrintDataBP"] =       JxtInfo(WEB_JXT_IFACE_ID,               NULL);
     jxt_interface["SearchFlt"] =            JxtInfo(WEB_JXT_IFACE_ID,               NULL);
