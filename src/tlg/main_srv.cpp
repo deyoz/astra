@@ -220,6 +220,7 @@ bool handle_tlg_f_ack(const AIRSRV_MSG& tlg_in, bool& wasAck)
     if(!wasAck) {
         LogTrace(TRACE1) << "ACK was not found for tlg: " << tlg_in.num;
         del_from_tlg_queue_by_status(tlg_in, "PUT");
+        update_tlg_stat_time_send(tlg_in);
     }
     update_tlg_stat_time_receive(tlg_in);
 
