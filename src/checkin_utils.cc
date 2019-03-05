@@ -851,6 +851,38 @@ void CheckSeatNoFromReq(int point_id,
   };
 }
 
+void getForbiddenRemGrp(const TTripInfo &flt, TRemGrp& forbiddenRemGrp)
+{
+  forbiddenRemGrp.clear();
+
+  switch (TReqInfo::Instance()->client_type)
+  {
+    case ctWeb:
+      forbiddenRemGrp.Load(retFORBIDDEN_WEB, flt.airline);
+      break;
+    case ctKiosk:
+      forbiddenRemGrp.Load(retFORBIDDEN_KIOSK, flt.airline);
+      break;
+    case ctMobile:
+      forbiddenRemGrp.Load(retFORBIDDEN_MOB, flt.airline);
+      break;
+    default:
+      break;
+  }
+}
+
+bool forbiddenRemExists(const TTripInfo &flt,
+                        const multiset<CheckIn::TPaxRemItem> &rems,
+                        boost::optional<TRemGrp>& forbiddenRemGrp)
+{
+  if (!forbiddenRemGrp)
+  {
+    forbiddenRemGrp=boost::in_place();
+    getForbiddenRemGrp(flt, forbiddenRemGrp.get());
+  }
+  return forbiddenRemExists(forbiddenRemGrp.get(), rems);
+}
+
 void CreateEmulRems(xmlNodePtr paxNode, const multiset<CheckIn::TPaxRemItem> &rems, const set<CheckIn::TPaxFQTItem> &fqts)
 {
   xmlNodePtr remsNode=NewTextChild(paxNode,"rems");

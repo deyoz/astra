@@ -770,35 +770,6 @@ bool is_et_not_displayed(const TTripInfo &flt,
   return false;
 }
 
-
-bool is_valid_rem_codes(const TTripInfo &flt,
-                        const std::multiset<CheckIn::TPaxRemItem> &rems)
-{
-  TRemGrp rem_grp;
-  switch (TReqInfo::Instance()->client_type)
-  {
-    case ctWeb:
-      rem_grp.Load(retWEB, flt.airline);
-      break;
-    case ctKiosk:
-      rem_grp.Load(retKIOSK, flt.airline);
-      break;
-    case ctMobile:
-      rem_grp.Load(retMOB, flt.airline);
-      break;
-    default:
-      return true;
-  }
-  bool result=true;
-  for(multiset<CheckIn::TPaxRemItem>::const_iterator i=rems.begin(); i!=rems.end(); ++i)
-    if (rem_grp.exists(i->code))
-    {
-      ProgTrace(TRACE5, "%s: airline=%s forbidden rem code %s", __FUNCTION__, flt.airline.c_str(), i->code.c_str());
-      result=false;
-    }
-  return result;
-}
-
 void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
 {
   try
@@ -858,6 +829,7 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
         TPnrAddrs pnr_addrs;
         pnr_addrs.getByPnrIdFast(pnr_id);
         TBrands brands; //здесь, чтобы кэшировались запросы
+        boost::optional<TRemGrp> forbiddenRemGrp; //здесь чтобы кэшировалась TRemGrp.Load
         checkInfo.set(flt.oper.point_id, Qry.FieldAsString("airp_arv"));
         for(;!Qry.Eof;Qry.Next())
         {
@@ -962,7 +934,7 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
               pax.agent_checkin_reasons.insert("incomplete_tkn");
             if (is_et_not_displayed(flt.oper, pax.tkn, pax.etick))
               pax.agent_checkin_reasons.insert("et_not_displayed");
-            if (!is_valid_rem_codes(flt.oper, pax.rems_and_asvc))
+            if (forbiddenRemExists(flt.oper, pax.rems_and_asvc, forbiddenRemGrp))
               pax.agent_checkin_reasons.insert("forbidden_rem_code");
 
             if (!pax.agent_checkin_reasons.empty())
