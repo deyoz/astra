@@ -696,6 +696,13 @@ void parse_saveFlights( int range_hours, xmlNodePtr reqNode, xmlNodePtr resNode 
   string event;
   int flight_number = 1;
   double aodb_point_id;
+  xmlNodePtr flightNode = node;
+  while ( flightNode != NULL && (string)"flight" == (const char*)flightNode->name ) {
+    flightNode = flightNode->next;
+    flight_number++;
+  }
+  ProgTrace( TRACE5, "flight count=%d", flight_number );
+  //if ( flight_number >= )
   while ( node != NULL && (string)"flight" == (const char*)node->name ) {
     TPointDests dests;
     bool prerror = true;
@@ -893,7 +900,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, DestsTagsNoExists &tags, co
   dest.litera = checkerFlt.checkLitera( NodeAsStringFast( "litera", flightNode, "" ), TCheckerFlt::etExtAODB );
   //terminal
   ProgTrace(TRACE5,"check terminal");
-  int terminal = checkerFlt.checkTerminalNo( NodeAsStringFast( "terminal", flightNode ) );
+  int terminal = checkerFlt.checkTerminalNo( NodeAsStringFast( "terminal", flightNode, "" ) );
   TagsNotExists ownTags;
   //park
   prop = NodeAsStringFast( "park", flightNode, STRING_TAG_NOEXISTS );
@@ -1430,6 +1437,15 @@ void HTTPRequestsIface::SaveSinhronSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   int range_hours = SEARCH_SYNCHRON_FLIGHT_RANGE; //+-24 часа для поиска чартера
   parse_saveFlights( range_hours, reqNode, resNode );
 }
+
+void HTTPRequestsIface::SaveUFASPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  ProgTrace( TRACE5, "SaveUFASPP: desk=%s, airp=%s", TReqInfo::Instance()->desk.code.c_str(), TReqInfo::Instance()->desk.airp.c_str() );
+  int range_hours = SEARCH_SYNCHRON_FLIGHT_RANGE; //+-24 часа для поиска чартера
+  parse_saveFlights( range_hours, reqNode, resNode );
+}
+
+
 
 void testSinchron()
 {
