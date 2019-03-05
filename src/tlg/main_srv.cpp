@@ -119,11 +119,23 @@ int main_srv_tcl(int supervisorSocket, int argc, char *argv[])
   return 0;
 }
 
-bool update_tlg_stat(const AIRSRV_MSG& tlg_in)
+bool update_tlg_stat_time_send(const AIRSRV_MSG& tlg_in)
 {
     TQuery TlgUpdQry(&OraSession);
     TlgUpdQry.SQLText=
       "UPDATE tlg_stat SET time_send=SYSTEM.UTCSYSDATE "
+      "WHERE queue_tlg_id=:tlg_num AND sender_canon_name=:sender";
+    TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
+    TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
+    TlgUpdQry.Execute();
+    return TlgUpdQry.RowsProcessed() > 0;
+}
+
+bool update_tlg_stat_time_receive(const AIRSRV_MSG& tlg_in)
+{
+    TQuery TlgUpdQry(&OraSession);
+    TlgUpdQry.SQLText=
+      "UPDATE tlg_stat SET time_receive=SYSTEM.UTCSYSDATE "
       "WHERE queue_tlg_id=:tlg_num AND sender_canon_name=:sender";
     TlgUpdQry.CreateVariable("sender",otString,tlg_in.Receiver); //OWN_CANON_NAME
     TlgUpdQry.CreateVariable("tlg_num",otInteger,(int)tlg_in.num);
@@ -192,12 +204,12 @@ bool handle_tlg_ack(const AIRSRV_MSG& tlg_in)
 {
     if(!upd_tlg_queue_status(tlg_in, "PUT", "SEND"))
     {
-      OraSession.Rollback();
       ProgTrace(TRACE0,"Attention! Can't find tlg in tlg_queue "
                        "(sender: %s, tlg_num: %d, curr_status: PUT)",
                        tlg_in.Receiver, tlg_in.num);
       return false;
     }
+    update_tlg_stat_time_send(tlg_in);
 
     return true;
 }
@@ -209,6 +221,7 @@ bool handle_tlg_f_ack(const AIRSRV_MSG& tlg_in, bool& wasAck)
         LogTrace(TRACE1) << "ACK was not found for tlg: " << tlg_in.num;
         del_from_tlg_queue_by_status(tlg_in, "PUT");
     }
+    update_tlg_stat_time_receive(tlg_in);
 
     return true;
 }
@@ -394,14 +407,15 @@ void process_tlg(void)
         break;
       case TLG_ACK:
         {
-          if(!handle_tlg_ack(tlg_in)) return;
-          update_tlg_stat(tlg_in);
+          if(!handle_tlg_ack(tlg_in)) {
+              OraSession.Rollback();
+              return;
+          }
         };
         break;
       case TLG_F_ACK:
         {
           handle_tlg_f_ack(tlg_in, wasAck);
-          update_tlg_stat(tlg_in);
         };
         break;
       case TLG_F_NEG:
