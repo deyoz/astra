@@ -324,7 +324,7 @@ void createXMLServicesDetailStat(
     colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во"));
     SetProp(colNode, "width", 40);
     SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortString);
+    SetProp(colNode, "sort", sortInteger);
 
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
     xmlNodePtr rowNode;
@@ -393,7 +393,7 @@ void createXMLServicesShortStat(
     colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во"));
     SetProp(colNode, "width", 40);
     SetProp(colNode, "align", TAlignment::LeftJustify);
-    SetProp(colNode, "sort", sortString);
+    SetProp(colNode, "sort", sortInteger);
 
     xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
     xmlNodePtr rowNode;
