@@ -1981,16 +1981,11 @@ void EMDStatusInterface::EMDCheckStatus(const int grp_id,
                                         TEMDChangeStatusList &emdList)
 {
   if (TReqInfo::Instance()->duplicate) return;
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="SELECT point_dep FROM pax_grp WHERE pax_grp.grp_id=:grp_id";
-  Qry.CreateVariable("grp_id",otInteger,grp_id);
-  Qry.Execute();
-  if (Qry.Eof) return;
-  int point_id=Qry.FieldAsInteger("point_dep");
+  TAdvTripInfo fltInfo;
+  if (!fltInfo.getByGrpId(grp_id)) return;
 
   TFltParams fltParams;
-  if (!fltParams.get(point_id)) return;
+  if (!fltParams.get(fltInfo)) return;
   if (fltParams.eds_no_exchange) return;
 
   list<TEMDCtxtItem> added_emds, deleted_emds;
@@ -2019,7 +2014,7 @@ void EMDStatusInterface::EMDCheckStatus(const int grp_id,
       if (paxStatus==CouponStatus::OriginalIssue ||
           paxStatus==CouponStatus::Unavailable) continue;  //пассажир разрегистрируется
 
-      e->point_id=point_id;
+      e->point_id=fltInfo.point_id;
       e->flight=flight;
       e->emd.status = pass==0?CouponStatus(paxStatus):CouponStatus(CouponStatus::OriginalIssue);
 
@@ -3044,6 +3039,7 @@ void EMDAutoBoundInterface::EMDSearch(const EMDAutoBoundId &id,
 
   boost::optional<edifact::KickInfo> kickInfo;
   map<int /*grp_id*/, edifact::KickInfo> kicksByGrp;
+  map<int /*grp_id*/, int /*point_id*/> pointIdsByGrp;
 
   QParams params;
   id.setSQLParams(params);
@@ -3052,6 +3048,9 @@ void EMDAutoBoundInterface::EMDSearch(const EMDAutoBoundId &id,
   set<string> tkns_set;
   for(;!PaxQry.get().Eof; PaxQry.get().Next())
   {
+    int grp_id=PaxQry.get().FieldAsInteger("grp_id");
+    pointIdsByGrp.emplace(grp_id, point_id);
+
     int pax_id=PaxQry.get().FieldAsInteger("pax_id");
     string refuse=PaxQry.get().FieldAsString("refuse");
     if (pax_ids && pax_ids.get().find(pax_id)==pax_ids.get().end()) continue;
@@ -3060,12 +3059,20 @@ void EMDAutoBoundInterface::EMDSearch(const EMDAutoBoundId &id,
     map<int, CheckIn::TCkinPaxTknItem> tkns;
     CheckIn::GetTCkinTickets(pax_id, tkns);
     if (tkns.empty()) //не сквозной пассажир
-      tkns.insert(make_pair(1, CheckIn::TCkinPaxTknItem().fromDB(PaxQry.get())));
+      tkns.emplace(1, CheckIn::TCkinPaxTknItem().fromDB(PaxQry.get()));
 
     for(map<int, CheckIn::TCkinPaxTknItem>::const_iterator i=tkns.begin(); i!=tkns.end(); ++i)
     {
       if (i->second.no.empty()) continue;
       if (!tkns_set.insert(i->second.no).second) continue; //чтобы не было дублирования по билетам на дисплей
+      auto iPointIdsByGrp=pointIdsByGrp.find(i->second.grp_id);
+      if (iPointIdsByGrp==pointIdsByGrp.end())
+      {
+        TTripInfo fltInfo;
+        if (!fltInfo.getByGrpId(i->second.grp_id)) continue;
+        iPointIdsByGrp=pointIdsByGrp.emplace(i->second.grp_id, fltInfo.point_id).first;
+        ProgTrace(TRACE5, "%s: pointIdsByGrp.emplace(%d, %d)", __FUNCTION__, i->second.grp_id, fltInfo.point_id);
+      }
       try
       {
         if (reqNode!=nullptr)
@@ -3079,7 +3086,6 @@ void EMDAutoBoundInterface::EMDSearch(const EMDAutoBoundId &id,
         }
         else
         {
-          int grp_id=PaxQry.get().FieldAsInteger("grp_id");
           map<int /*grp_id*/, edifact::KickInfo>::const_iterator iKick=kicksByGrp.find(grp_id);
           if (iKick==kicksByGrp.end())
           {
@@ -3088,13 +3094,13 @@ void EMDAutoBoundInterface::EMDSearch(const EMDAutoBoundId &id,
             EMDAutoBoundGrpId(grp_id).toXML(ctxtNode);
 
             kickInfo=AstraEdifact::createKickInfo(AstraContext::SetContext("TERM_REQUEST", reqCtxt.text()), point_id, EMD_TRY_BIND);
-            kicksByGrp.insert(make_pair(grp_id, kickInfo.get()));
+            kicksByGrp.emplace(grp_id, kickInfo.get());
 
           }
           else kickInfo=iKick->second;
         };
 
-        ETSearchInterface::SearchET(ETSearchByTickNoParams(point_id, i->second.no),
+        ETSearchInterface::SearchET(ETSearchByTickNoParams(iPointIdsByGrp->second, i->second.no),
                                     ETSearchInterface::spEMDRefresh,
                                     kickInfo.get());
       }
