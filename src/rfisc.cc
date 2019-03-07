@@ -221,7 +221,7 @@ TRFISCListItem& TRFISCListItem::fromSirenaXML(xmlNodePtr node)
     };
 
     category=calc_category();
-    visible=true;
+    visible=(emd_type!="OTHR");
   }
   catch(Exception &e)
   {
