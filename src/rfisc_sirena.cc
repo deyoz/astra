@@ -380,6 +380,21 @@ void TAvailabilityRes::rfiscsToDB(const TCkinGrpIds &tckin_grp_ids, TBagConcept:
   }
 }
 
+void TAvailabilityRes::setAdditionalListId(const TCkinGrpIds &tckin_grp_ids) const
+{
+  if (tckin_grp_ids.size()<=1) return;
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText = "BEGIN ckin.set_additional_list_id(:grp_id); END;";
+  Qry.DeclareVariable("grp_id", otInteger);
+  for(int grp_id : tckin_grp_ids)
+  {
+    Qry.SetVariable("grp_id", grp_id);
+    Qry.Execute();
+  }
+}
+
 void TAvailabilityRes::normsToDB(const TCkinGrpIds &tckin_grp_ids) const
 {
   list<Sirena::TPaxNormItem> normsList;
@@ -1151,9 +1166,10 @@ void ServicePaymentInterface::LoadServiceLists(XMLRequestCtxt *ctxt, xmlNodePtr 
   for(xmlNodePtr node=NodeAsNode("service_lists", reqNode)->children; node!=NULL; node=node->next)
   {
     if (string((const char*)node->name)!="list_id") continue;
-    int list_id=NodeAsInteger(node);
+    ServiceListId list_id;
+    list_id.fromXML(node);
 
-    Qry.SetVariable("id", list_id);
+    Qry.SetVariable("id", list_id.primary());
     Qry.Execute();
     if (Qry.Eof) continue;
     if (Qry.FieldAsInteger("rfisc_used")!=0)
@@ -1162,13 +1178,13 @@ void ServicePaymentInterface::LoadServiceLists(XMLRequestCtxt *ctxt, xmlNodePtr 
       list.fromDB(list_id, true);
       list.getBagProps();
       list.setPriority();
-      list.toXML(list_id, NewTextChild(svcNode, "service_list"));
+      list.toXML(list_id.forTerminal(), NewTextChild(svcNode, "service_list"));
     }
     else
     {
       TBagTypeList list;
-      list.fromDB(list_id, true);
-      list.toXML(list_id, NewTextChild(svcNode, "service_list"));
+      list.fromDB(list_id.primary(), true);
+      list.toXML(list_id.forTerminal(), NewTextChild(svcNode, "service_list"));
     };
   }
 }

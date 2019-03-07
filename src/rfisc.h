@@ -336,6 +336,37 @@ class TRFISCKey : public TRFISCListKey
     void getListItemLastSimilar();
 };
 
+class ServiceListId
+{
+  private:
+    int term_list_id;
+  public:
+    int list_id;
+    int additional;
+
+    ServiceListId() { clear(); }
+    ServiceListId(int _list_id)
+    {
+      clear();
+      list_id=_list_id;
+    }
+
+    void clear()
+    {
+      list_id=ASTRA::NoExists;
+      additional=ASTRA::NoExists;
+      term_list_id=ASTRA::NoExists;
+    }
+
+    int primary() const { return list_id; }
+    int forTerminal() const { return term_list_id!=ASTRA::NoExists?-term_list_id:list_id; }
+
+    const ServiceListId& toDB(TQuery &Qry) const;
+    ServiceListId& fromDB(TQuery &Qry);
+    const ServiceListId& toXML(xmlNodePtr node) const;
+    ServiceListId& fromXML(xmlNodePtr node);
+};
+
 typedef std::map<TRFISCListKey, TRFISCListItem> TRFISCListMap;
 
 class TRFISCList : public TRFISCListMap
@@ -350,7 +381,7 @@ class TRFISCList : public TRFISCListMap
   public:
     void fromSirenaXML(xmlNodePtr node);
     void toXML(int list_id, xmlNodePtr node) const;
-    void fromDB(int list_id, bool only_visible=false); // загрузка только списка RFISC
+    void fromDB(const ServiceListId& list_id, bool only_visible=false); // загрузка только списка RFISC
     void toDB(int list_id) const; // сохранение только списка RFISC
     int crc() const;
     int toDBAdv() const; //продвинутое сохранение с анализом существующих справочников
@@ -444,16 +475,14 @@ class TPaxServiceListsKey : public Sirena::TPaxSegKey
     TPaxServiceListsKey& fromDB(TQuery &Qry);
 };
 
-class TPaxServiceListsItem : public TPaxServiceListsKey
+class TPaxServiceListsItem : public TPaxServiceListsKey, public ServiceListId
 {
   public:
-    int list_id;
-
     TPaxServiceListsItem() { clear(); }
     void clear()
     {
       TPaxServiceListsKey::clear();
-      list_id=ASTRA::NoExists;
+      ServiceListId::clear();
     }
 
     const TPaxServiceListsItem& toDB(TQuery &Qry) const;
@@ -571,6 +600,7 @@ class TGrpServiceList : public std::list<TGrpServiceItem>
                     int tckin_seg_count,
                     int trfer_seg_count,
                     bool include_refused);
+    void addTrueBagInfo(const TGrpServiceItem& item);
     void getAllListItems();
     static void clearDB(int grp_id);
     static void copyDB(int grp_id_src, int grp_id_dest);
@@ -657,7 +687,7 @@ class TPaidRFISCList : public std::map<TPaxSegRFISCKey, TPaidRFISCItem>
     void fromDB(int id, bool is_grp_id);
     void toDB(int grp_id) const;
     void inc(const TPaxSegRFISCKey& key, const TServiceStatus::Enum status);
-    boost::optional<TRFISCKey> getKeyIfSingleRFISC(int pax_id, const std::string &rfisc) const;
+    boost::optional<TRFISCKey> getKeyIfSingleRFISC(int pax_id, int trfer_num, const std::string &rfisc) const;
     void getAllListItems();
     static void clearDB(int grp_id);
     static void copyDB(int grp_id_src, int grp_id_dest);

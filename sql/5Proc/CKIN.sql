@@ -108,5 +108,7 @@ TYPE birks_cursor_ref IS REF CURSOR;
 
 FUNCTION build_birks_str(cur birks_cursor_ref) RETURN VARCHAR2;
 
+PROCEDURE set_additional_list_id(vgrp_id IN pax.grp_id%TYPE);
+
 END ckin;
 /
