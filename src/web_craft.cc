@@ -372,49 +372,12 @@ namespace WebCraft {
 
     xmlNodePtr nodeViewCraft = NewTextChild( resNode, "ViewCraft" );
     ProgTrace( TRACE5, "FreeSubclsExists=%d", webCraft.FreeSubclsExists() );
+    if ( isCheckinWOChoiceSeats( point_id ) ) {
+      NewTextChild(nodeViewCraft, "checkin_wo_choice_seats"); //!!!DJEK
+    }
+
     webCraft.toXML( nodeViewCraft );
-    /*xmlNodePtr node = NewTextChild( nodeViewCraft, "salons" );
-    for( WebCraft::const_iterator isal=webCraft.begin(); isal!=webCraft.end(); isal++ ) {
-      xmlNodePtr placeListNode = NewTextChild( node, "placelist" );
-      SetProp( placeListNode, "num", isal->first );
-      SetProp( placeListNode, "xcount", isal->second.xcount + 1 );
-      SetProp( placeListNode, "ycount", isal->second.ycount + 1 );
-      for ( TWebPlaces::iterator wp = isal->second.places.begin();
-            wp != isal->second.places.end(); wp++ ) {
-        xmlNodePtr placeNode = NewTextChild( placeListNode, "place" );
-        NewTextChild( placeNode, "x", wp->x );
-        NewTextChild( placeNode, "y", wp->y );
-        NewTextChild( placeNode, "seat_no", wp->seat_no );
-        NewTextChild( placeNode, "elem_type", wp->elem_type );
-        NewTextChild( placeNode, "status", get_seat_status( *wp, pr_find_free_subcls_place, true ) );
-        if ( wp->pax_id != NoExists )
-          NewTextChild( placeNode, "pax_id", wp->pax_id );
-        if ( !wp->SeatTariff.empty() ) { // если платная регистрация отключена, value=0.0 в любом случае
-          xmlNodePtr rateNode = NewTextChild( placeNode, "rate" );
-          NewTextChild( rateNode, "color", wp->SeatTariff.color );
-          NewTextChild( rateNode, "value", wp->SeatTariff.rateView() );
-          NewTextChild( rateNode, "currency", wp->SeatTariff.currencyView(TReqInfo::Instance()->desk.lang) );
-        }
-        if ( !wp->rfisc.empty() ) {
-          NewTextChild( placeNode, "rfisc", wp->rfisc.code );
-        }
-        if ( wp->layer_type != cltUnknown ) {
-          xmlNodePtr layerNode = NewTextChild( placeNode, "layer" );
-          NewTextChild( layerNode, "layer_type", EncodeCompLayerType( wp->layer_type ) );
-          if ( wp->layer_pax_id != ASTRA::NoExists ) {
-            NewTextChild( layerNode, "pax_id", wp->layer_pax_id );
-          }
-        }
-        if ( !wp->rems.empty() ) {
-          xmlNodePtr remsNode = NewTextChild( placeNode, "remarks" );
-          for ( std::vector<TRem>::const_iterator irem=wp->rems.begin(); irem!=wp->rems.end(); irem++ ) {
-            xmlNodePtr rNode = NewTextChild( remsNode, "remark" );
-            NewTextChild( rNode, "code", irem->rem );
-            NewTextChild( rNode, "pr_denial", irem->pr_denial );
-          }
-        }
-      }
-    }*/
+
     TSalonList &salonList = webCraft.getSalonList();
     if ( !webCraft.empty() ) {
       //salon_descriptions
@@ -515,6 +478,9 @@ namespace WebCraft {
                        vector< pair<TWebPlace, LexemaData> > &pax_seats )
   {
     pax_seats.clear();
+    if ( pnr.empty() ) {
+      return;
+    }
     WebCraft webCraft( FIRST_VERSION );
     webCraft.Read( point_id, pnr );
     for ( vector<TWebPax>::const_iterator ipax=pnr.begin(); ipax!=pnr.end(); ipax++ ) { // пробег по пассажирам
