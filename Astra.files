@@ -94,6 +94,8 @@ src/cobra.cc
 src/cobra.h
 src/comp_layers.cc
 src/comp_layers.h
+src/comp_props.cpp
+src/comp_props.h
 src/convert.cc
 src/convert.h
 src/counters.cc
