@@ -623,9 +623,11 @@ bool TStagesRules::CanStatus( TStage_Type stage_type, TStage stage )
   return false;
 }
 
-string TStagesRules::status_view( TStage_Type stage_type, TStage stage )
+string TStagesRules::status_view( TStage_Type stage_type, TStage stage,
+                                  boost::optional<AstraLocale::OutputLang> lang)
 {
-  return status(stage_type, stage, TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU);
+  return status(stage_type, stage, lang? (lang->get() != AstraLocale::LANG_RU):
+                                        (TReqInfo::Instance()->desk.lang != AstraLocale::LANG_RU));
 }
 
 string TStagesRules::status( TStage_Type stage_type, TStage stage, bool is_lat )

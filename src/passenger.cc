@@ -254,10 +254,10 @@ const TPaxDocCompoundType& TPaxDocCompoundType::toXML(xmlNodePtr node) const
   return *this;
 }
 
-string paxDocCountryToWebXML(const std::string &code,
-                             const boost::optional<AstraLocale::OutputLang>& lang)
+std::string paxDocCountryToWebXML(const std::string &code,
+                                  const boost::optional<AstraLocale::OutputLang>& lang)
 {
-  string result;
+  std::string result;
   if (!code.empty())
   {
     try
@@ -1751,6 +1751,15 @@ void TSimplePaxItem::UpdTid(int pax_id)
   TCachedQuery Qry("UPDATE pax SET tid=cycle_tid__seq.nextval WHERE pax_id=:pax_id",
                    QParams() << QParam("pax_id", otInteger, pax_id));
   Qry.get().Execute();
+}
+
+std::string TSimplePaxItem::checkInStatus() const
+{    
+  if (id==ASTRA::NoExists) return "unknown";
+  if (!refuse.empty()) return "refused";
+  if (pr_brd) return "boarded";
+  if (grp_id!=ASTRA::NoExists) return "checked";
+  return "not_checked";  
 }
 
 TAPISItem& TAPISItem::fromDB(int pax_id)

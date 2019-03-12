@@ -70,7 +70,7 @@ class PrintInterface: public JxtInterface
           std::string prn_form;
           std::string scan; // если пакс брался из штрих кода и нашелся в базе, то scan пустой.
           bool from_scan_code; // true если данные взяты из штрих кода (независимо, есть ли пакс в базе или нет)
-          std::list<AstraLocale::LexemaData> errors; // GetPNRsList errors
+          std::list<AstraLocale::LexemaData> errors; // GetPNRsList + GetBPPaxFromScanCode errors
           std::string voucher;
           bool error;
 

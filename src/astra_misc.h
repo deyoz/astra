@@ -82,7 +82,13 @@ class TSimpleMktFlight
     const TSimpleMktFlight& toXML(xmlNodePtr node,
                                   const boost::optional<AstraLocale::OutputLang>& lang) const;
     TSimpleMktFlight& fromXML(xmlNodePtr node);
-
+    std::string flight_number(const boost::optional<AstraLocale::OutputLang>& lang = boost::none) const
+    {
+      std::ostringstream s;
+      s << flt_no;
+      s << (lang? ElemIdToElem(etSuffix, suffix, efmtCodeInter, lang->get()): suffix);
+      return s.str();
+    }
     virtual ~TSimpleMktFlight() {}
 };
 
@@ -347,7 +353,7 @@ class TTripInfo
       if (props.checkin_ability()==FlightProps::WithCheckIn && !pr_reg) return false;
       return true;
     }
-
+    
     std::string flight_number(const boost::optional<AstraLocale::OutputLang>& lang = boost::none) const
     {
       std::ostringstream s;

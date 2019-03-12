@@ -14,6 +14,7 @@
 #include <tuple>
 #include <vector>
 #include <cstdint>
+#include "print.h"
 
 #define WEB_JXT_IFACE_ID "WEB"
 #define EMUL_CLIENT_TYPE ctWeb
@@ -30,6 +31,8 @@ InetClient getInetClient(std::string client_id);
 
 namespace AstraWeb
 {
+
+void GetBPPaxFromScanCode(const std::string &scanCode, PrintInterface::BPPax &pax);
 
 std::tuple<std::vector<uint8_t>, std::vector<uint8_t>> internet_main(const std::vector<uint8_t>& body, const char *head, size_t hlen);
 
