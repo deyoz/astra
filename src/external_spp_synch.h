@@ -101,6 +101,7 @@ struct TagsNotExists {
   bool est_out;
   bool act_out;
   bool park_out;
+  bool stations;
   TagsNotExists() {
     clear();
   }
@@ -112,6 +113,7 @@ struct TagsNotExists {
     est_out = false;
     act_out = false;
     park_out = false;
+    stations = false;
   }
 };
 

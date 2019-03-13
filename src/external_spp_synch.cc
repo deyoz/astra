@@ -942,6 +942,7 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, DestsTagsNoExists &tags, co
   //stations - важен порядок - перед маршрутом выполнить
   ProgTrace(TRACE5,"check stations");
   xmlNodePtr n = GetNodeFast( "stations", flightNode );
+  ownTags.stations = ( n == NULL );
   if ( n != NULL ) {
     n = n->children;
     while ( n != NULL && string("station") == (const char*)n->name ) {
@@ -1393,8 +1394,10 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
     if ( owndest->point_id != ASTRA::NoExists ) {
       // имеем point_id
       //сохраняем стойки и выходы
-      tst();
-      d.stations.Save( owndest->point_id );
+      if ( !ownTags.stations ) {
+        tst();
+        d.stations.Save( owndest->point_id );
+      }
       //max_commerce
       d.max_commerce.Save( owndest->point_id );
       //stages and delay for next dest!!!
