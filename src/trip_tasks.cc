@@ -10,7 +10,7 @@
 #include "tlg/remote_system_context.h"
 #include "apps_interaction.h"
 #include "counters.h"
-#include "stat/fv.h"
+#include "stat/stat_fv.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
