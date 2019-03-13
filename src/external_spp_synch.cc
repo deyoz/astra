@@ -1394,7 +1394,9 @@ void IntWriteDests( double aodb_point_id, int range_hours, TPointDests &dests, c
     if ( owndest->point_id != ASTRA::NoExists ) {
       // имеем point_id
       //сохраняем стойки и выходы
-      if ( !ownTags.stations ) {
+      DestsTagsNoExists::const_iterator iownTags = tags.find( owndest->airp );
+      if ( iownTags != tags.end() &&
+           !iownTags->second.stations ) {
         tst();
         d.stations.Save( owndest->point_id );
       }
