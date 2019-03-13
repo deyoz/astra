@@ -6,7 +6,7 @@
 #include "remarks.h"
 #include "astra_misc.h"
 #include "astra_utils.h"
-#include "stat/main.h"
+#include "stat/stat_main.h"
 
 #include <sstream>
 #include <libxml/tree.h>
