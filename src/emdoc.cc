@@ -108,8 +108,35 @@ string GetSQL(const TListType ltype)
 {
   ostringstream sql;
 
-  if (ltype==asvcByGrpId ||
-      ltype==asvcByPaxId)
+  if (ltype==asvcByGrpIdWithoutEMD ||
+      ltype==asvcByPaxIdWithoutEMD)
+  {
+    sql << "SELECT c.pax_id, \n"
+           "       0 AS transfer_num, \n"
+           "       c.emd_no, \n"
+           "       c.emd_coupon, \n"
+           "       c.rfic, \n"
+           "       c.rfisc, \n"
+           "       c.service_quantity, \n"
+           "       c.ssr_code, \n"
+           "       c.service_name, \n"
+           "       c.emd_type, \n"
+           "       c.emd_no AS emd_no_base \n"
+           "FROM pax, pax_asvc c \n"
+           "WHERE pax.pax_id=c.pax_id AND \n"
+           "      c.emd_type IS NULL AND \n"
+           "      c.emd_no IS NULL AND \n"
+           "      c.emd_coupon IS NULL AND \n";
+    if (ltype==asvcByGrpIdWithoutEMD)
+      sql << "      pax.grp_id=:id \n";
+    if (ltype==asvcByPaxIdWithoutEMD)
+      sql << "      pax.pax_id=:id \n";
+    sql << "UNION ALL \n";
+  }
+  if (ltype==asvcByGrpIdWithEMD ||
+      ltype==asvcByPaxIdWithEMD ||
+      ltype==asvcByGrpIdWithoutEMD ||
+      ltype==asvcByPaxIdWithoutEMD)
   {
     sql << "SELECT p.pax_id, \n"
            "       tckin_pax_grp.seg_no-p.seg_no AS transfer_num, \n"
@@ -129,16 +156,29 @@ string GetSQL(const TListType ltype)
            "             tckin_pax_grp.seg_no \n"
            "      FROM pax, tckin_pax_grp \n"
            "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND \n";
-    if (ltype==asvcByGrpId)
+    if (ltype==asvcByGrpIdWithEMD ||
+        ltype==asvcByGrpIdWithoutEMD)
       sql << "      pax.grp_id=:id \n";
-    if (ltype==asvcByPaxId)
+    if (ltype==asvcByPaxIdWithEMD ||
+        ltype==asvcByPaxIdWithoutEMD)
       sql << "      pax.pax_id=:id \n";
     sql << "     ) p \n"
            "WHERE tckin_pax_grp.tckin_id=p.tckin_id AND \n"
            "      pax.grp_id=tckin_pax_grp.grp_id AND \n"
            "      tckin_pax_grp.first_reg_no-pax.reg_no=p.distance AND \n"
-           "      pax.pax_id=c.pax_id AND \n"
-           "      tckin_pax_grp.seg_no-p.seg_no>=0 \n";
+           "      pax.pax_id=c.pax_id AND \n";
+    if (ltype==asvcByGrpIdWithEMD ||
+        ltype==asvcByPaxIdWithEMD)
+      sql << "      c.emd_type IS NOT NULL AND \n"
+             "      c.emd_no IS NOT NULL AND \n"
+             "      c.emd_coupon IS NOT NULL AND \n"
+             "      tckin_pax_grp.seg_no-p.seg_no>=0 \n";
+    if (ltype==asvcByGrpIdWithoutEMD ||
+        ltype==asvcByPaxIdWithoutEMD)
+      sql << "      c.emd_type IS NULL AND \n"
+             "      c.emd_no IS NULL AND \n"
+             "      c.emd_coupon IS NULL AND \n"
+             "      tckin_pax_grp.seg_no-p.seg_no>0 \n"; //>0 потому что UNION ALL!
 
     return sql.str();
   }
@@ -210,6 +250,9 @@ string GetSQL(const TListType ltype)
          "      paxs.emd_no=      c.emd_no(+) AND \n"
          "      paxs.emd_coupon=  c.emd_coupon(+) AND \n"
 
+         "      paxs.emd_no IS NOT NULL AND \n"
+         "      paxs.emd_coupon IS NOT NULL AND \n"
+
          "      (/*a.emd_no IS NOT NULL OR*/ \n"
          "       b.emd_no IS NOT NULL OR \n"
          "       c.emd_no IS NOT NULL AND paxs.transfer_num=0) ";
@@ -239,8 +282,10 @@ void printSQLs()
   ProgTrace(TRACE5, "%s: SQL(unboundByPaxId)=\n%s", __FUNCTION__, GetSQL(unboundByPaxId).c_str());
   ProgTrace(TRACE5, "%s: SQL(allByPaxId)=\n%s", __FUNCTION__, GetSQL(allByPaxId).c_str());
   ProgTrace(TRACE5, "%s: SQL(allByGrpId)=\n%s", __FUNCTION__, GetSQL(allByGrpId).c_str());
-  ProgTrace(TRACE5, "%s: SQL(asvcByPaxId)=\n%s", __FUNCTION__, GetSQL(asvcByPaxId).c_str());
-  ProgTrace(TRACE5, "%s: SQL(asvcByGrpId)=\n%s", __FUNCTION__, GetSQL(asvcByGrpId).c_str());
+  ProgTrace(TRACE5, "%s: SQL(asvcByPaxIdWithEMD)=\n%s", __FUNCTION__, GetSQL(asvcByPaxIdWithEMD).c_str());
+  ProgTrace(TRACE5, "%s: SQL(asvcByGrpIdWithEMD)=\n%s", __FUNCTION__, GetSQL(asvcByGrpIdWithEMD).c_str());
+  ProgTrace(TRACE5, "%s: SQL(asvcByPaxIdWithoutEMD)=\n%s", __FUNCTION__, GetSQL(asvcByPaxIdWithoutEMD).c_str());
+  ProgTrace(TRACE5, "%s: SQL(asvcByGrpIdWithoutEMD)=\n%s", __FUNCTION__, GetSQL(asvcByGrpIdWithoutEMD).c_str());
   ProgTrace(TRACE5, "%s: SQL(allWithTknByPointId)=\n%s", __FUNCTION__, GetSQL(allWithTknByPointId).c_str());
   ProgTrace(TRACE5, "%s: SQL(oneWithTknByGrpId)=\n%s", __FUNCTION__, GetSQL(oneWithTknByGrpId).c_str());
   ProgTrace(TRACE5, "%s: SQL(oneWithTknByPaxId)=\n%s", __FUNCTION__, GetSQL(oneWithTknByPaxId).c_str());
@@ -271,28 +316,41 @@ void GetUnboundBagEMD(int id, multiset<CheckIn::TPaxASVCItem> &asvc, bool is_pax
     asvc.insert(item);
     if (only_one) break;
   };
-};
+}
 
 void GetUnboundBagEMD(int point_id, multiset<CheckIn::TPaxASVCItem> &asvc)
 {
   GetUnboundBagEMD(point_id, asvc, false, false);
-};
+}
 
 bool ExistsUnboundBagEMD(int point_id)
 {
   multiset<CheckIn::TPaxASVCItem> asvc;
   GetUnboundBagEMD(point_id, asvc, false, true);
   return !asvc.empty();
-};
+}
 
 bool ExistsPaxUnboundBagEMD(int pax_id)
 {
   multiset<CheckIn::TPaxASVCItem> asvc;
   GetUnboundBagEMD(pax_id, asvc, true, true);
   return !asvc.empty();
-};
+}
 
-}; //namespace PaxASVCList
+void getWithoutEMD(int id, TGrpServiceAutoList &svcsAuto, bool is_pax_id)
+{
+  svcsAuto.clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText = PaxASVCList::GetSQL(is_pax_id?PaxASVCList::asvcByPaxIdWithoutEMD:
+                                              PaxASVCList::asvcByGrpIdWithoutEMD);
+  Qry.CreateVariable( "id", otInteger, id );
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+    svcsAuto.push_back(TGrpServiceAutoItem().fromDB(Qry));
+}
+
+} //namespace PaxASVCList
 
 const TEMDCtxtItem& TEMDCtxtItem::toXML(xmlNodePtr node) const
 {
@@ -776,8 +834,8 @@ void TPaxEMDList::getPaxEMD(int id, PaxASVCList::TListType listType, bool doNotC
   if (!doNotClear) clear();
   if (!(listType==PaxASVCList::allByGrpId ||
         listType==PaxASVCList::allByPaxId ||
-        listType==PaxASVCList::asvcByGrpId||
-        listType==PaxASVCList::asvcByPaxId)) return;
+        listType==PaxASVCList::asvcByGrpIdWithEMD||
+        listType==PaxASVCList::asvcByPaxIdWithEMD)) return;
 
   TCachedQuery Qry(PaxASVCList::GetSQL(listType),
                    QParams() << QParam("id", otInteger, id));
@@ -793,7 +851,7 @@ void TPaxEMDList::getAllPaxEMD(int pax_id, bool singleSegment)
   if (!singleSegment)
     //pax_asvc содержит только текущий сегмент,
     //поэтому при сквозной регистрации надо начитать asvc по всем сквозным сегментам
-    getPaxEMD(pax_id, PaxASVCList::asvcByPaxId, true);
+    getPaxEMD(pax_id, PaxASVCList::asvcByPaxIdWithEMD, true);
 }
 
 void TPaxEMDList::getAllEMD(const TCkinGrpIds &tckin_grp_ids)
@@ -804,7 +862,7 @@ void TPaxEMDList::getAllEMD(const TCkinGrpIds &tckin_grp_ids)
   if (tckin_grp_ids.size()>1)
     //pax_asvc содержит только текущий сегмент,
     //поэтому при сквозной регистрации надо начитать asvc по всем сквозным сегментам
-    getPaxEMD(tckin_grp_ids.front(), PaxASVCList::asvcByGrpId, true);
+    getPaxEMD(tckin_grp_ids.front(), PaxASVCList::asvcByGrpIdWithEMD, true);
 }
 
 void TPaxEMDList::toDB() const

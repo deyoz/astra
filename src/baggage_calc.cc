@@ -2617,7 +2617,9 @@ bool TryEnlargeServicePayment(TPaidRFISCList &paid_rfisc,
   {
     TPaxEMDList emds;
     emds.getAllPaxEMD(i->first, tckin_grp_ids.size()==1);
-    for(const TGrpServiceAutoItem& svcAuto : svcsAuto) emds.erase(TPaxEMDItem(svcAuto)); //удаляем уже автопривязанные
+    for(const TGrpServiceAutoItem& svcAuto : svcsAuto)
+      if (svcAuto.withEMD())
+        emds.erase(TPaxEMDItem(svcAuto)); //удаляем уже автопривязанные
 
     if (emds.empty()) continue; //по пассажиру нет ничего
     for(map<TRFISCListKey, TQuantityPerSeg>::iterator irfisc=i->second.begin(); irfisc!=i->second.end(); ++irfisc)
@@ -2754,13 +2756,38 @@ bool TryCheckinServicesAuto(TGrpServiceAutoList &svcsAuto,
     auto& flt=flts.at(svcAuto.trfer_num);
     if (!flt.second)
     {
-      flt.second=TTripInfo();
+      flt.second=boost::in_place();
       flt.second.get().getByGrpId(flt.first);
     }
     if (!svcAuto.permittedForAutoCheckin(flt.second.get())) continue;
     svcsAuto.push_back(svcAuto);
     result=true;
   }
+
+  TGrpServiceAutoList asvcWithoutEMD;
+  PaxASVCList::getWithoutEMD(tckin_grp_ids.front(), asvcWithoutEMD, false);
+  //формируем новый список с подходящими
+  TGrpServiceAutoList actualWithoutEMD;
+  for(const TGrpServiceAutoItem& svcAuto : asvcWithoutEMD)
+  {
+    if (!svcAuto.isSuitableForAutoCheckin()) continue;
+    if (svcAuto.trfer_num<0 || svcAuto.trfer_num>=(int)flts.size()) continue;
+    auto& flt=flts.at(svcAuto.trfer_num);
+    if (!flt.second)
+    {
+      flt.second=boost::in_place();
+      flt.second.get().getByGrpId(flt.first);
+    }
+    if (!svcAuto.permittedForAutoCheckin(flt.second.get())) continue;
+
+    actualWithoutEMD.push_back(svcAuto);
+
+    if (!svcsAuto.removeEqualWithoutEMD(svcAuto)) result=true;
+  }
+
+  if (any_of(svcsAuto.begin(), svcsAuto.end(), not1(mem_fun_ref(&TGrpServiceAutoItem::withEMD)))) result=true;
+
+  svcsAuto.replaceWithoutEMDFrom(actualWithoutEMD);
 
   return result;
 }
