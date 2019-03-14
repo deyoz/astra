@@ -16,6 +16,8 @@
 #include <serverlib/testmode.h>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
+#include <boost/regex.hpp>
+
 
 #define NICKNAME "DEN"
 #include "serverlib/slogger.h"
@@ -1545,8 +1547,13 @@ string TBCBPData::toString(const TTagLang &tag_lang)
         */
 
         // For individual airline use
-        if(pax_id != NoExists)
+        if(pax_id != NoExists) {
             cond1 << setw(10) << right << setfill('0') << pax_id;
+            if(is_rem_txt) {
+                cond1 << setw(3) << left << setfill(' ') << tag_lang.ElemIdToTagElem(etAirline, airline, efmtCodeNative);
+                cond1 << "*";
+            }
+        }
 
     }
 
@@ -1560,6 +1567,20 @@ string TBCBPData::toString(const TTagLang &tag_lang)
             if(not IsAscii7(*si)) *si = 'X';
     return buf;
 };
+
+bool TPrnTagStore::rem_txt_exists()
+{
+    static const string rem_txt_prefix = "REM_TXT";
+    for(const auto &tag: pectab_tags) {
+        if(
+                tag.substr(0, rem_txt_prefix.size()) == rem_txt_prefix and
+                not get_tag(tag).empty()
+
+          )
+            return true;
+    }
+    return false;
+}
 
 string TPrnTagStore::BCBP_M_2(TFieldParams fp)
 {
@@ -1595,6 +1616,7 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
             bcbp_data.is_boarding_pass = isBoardingPass();
             if(isBoardingPass())
                 bcbp_data.pax_id = pax_id;
+            bcbp_data.is_rem_txt = rem_txt_exists();
             return bcbp_data.toString(tag_lang);
         }
     }
@@ -3697,3 +3719,16 @@ std::ostream & operator <<(std::ostream &os, BIPrintRules::TPrintType::Enum cons
     return os;
 }
 
+void TPrnTagStore::get_pectab_tags(const string &form)
+{
+    static const boost::regex e("<(\\w*)\\(?.*?>");
+    boost::sregex_iterator res(form.begin(),form.end(),e);
+    boost::sregex_iterator end;
+    for (; res != end; ++res)
+        // [0] содержит всю совпавшую строку
+        // [1] то, что запомнено в скобочках
+        // 1 - в первой паре скобочек
+        // 2 - во второй паре и т.д.
+        pectab_tags.push_back(upperc((*res)[1]));
+
+}
