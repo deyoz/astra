@@ -248,7 +248,7 @@ public:
   static void LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNode, bool afterSavePax);
   static void LoadPax(xmlNodePtr reqNode, xmlNodePtr resNode);
   static void LoadIatciPax(xmlNodePtr reqNode, xmlNodePtr resNode, int grpId, bool needSync);
-  static void LoadPaxRem(xmlNodePtr paxNode);
+  static void PaxRemToXML(xmlNodePtr paxNode);
   static void BuildTransfer(const TTrferRoute &trfer, TTrferRouteType route_type, xmlNodePtr transferNode);
   static void BuildTCkinSegments(int grp_id, xmlNodePtr tckinNode);
   static void LoadTransfer(int grp_id, xmlNodePtr transferNode);

@@ -293,6 +293,7 @@ class TServiceBasic
 
     void rcpt_service_types(std::set<ASTRA::TRcptServiceType> &service_types) const;
     bool service_quantity_valid() const { return service_quantity!=ASTRA::NoExists && service_quantity>0; }
+    bool withEMD() const { return !emd_type.empty(); }
 };
 
 class TPaxASVCItem : public TPaxRemBasic, public TServiceBasic

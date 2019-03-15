@@ -19,8 +19,10 @@ enum TListType {unboundByPointId,
                 unboundByPaxId,
                 allByPaxId,
                 allByGrpId,
-                asvcByPaxId,
-                asvcByGrpId,
+                asvcByPaxIdWithEMD,
+                asvcByGrpIdWithEMD,
+                asvcByPaxIdWithoutEMD,
+                asvcByGrpIdWithoutEMD,
                 allWithTknByPointId,
                 oneWithTknByGrpId,
                 oneWithTknByPaxId};
@@ -31,6 +33,7 @@ int print_sql(int argc, char **argv);
 void GetUnboundBagEMD(int point_id, std::multiset<CheckIn::TPaxASVCItem> &asvc);
 bool ExistsUnboundBagEMD(int point_id);
 bool ExistsPaxUnboundBagEMD(int pax_id);
+void getWithoutEMD(int id, TGrpServiceAutoList &svcsAuto, bool is_pax_id);
 
 } //namespace PaxASVCList
 

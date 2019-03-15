@@ -5745,6 +5745,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           {
             TGrpServiceAutoList svcsAutoBefore;
             svcsAutoBefore.fromDB(grp.id, true);
+            grp.svc_auto.get().replaceWithoutEMDFrom(svcsAutoBefore); //ASVC без EMD удаляются только через ADL, вручную не будут пока
+
             CheckIn::TGrpEMDProps handmadeAutoEMDDiff;
             CheckIn::TGrpEMDProps emdProps;
             CheckIn::CalcGrpEMDProps<TGrpServiceAutoList>(svcsAutoBefore, grp.svc_auto,  handmadeAutoEMDDiff, emdProps);
@@ -7179,7 +7181,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
           CheckIn::PaxTransferToXML(pax_trfer, paxNode);
           TPaxServiceLists().toXML(pax.id, false, tckin_grp_ids.size(), NewTextChild(paxNode, "service_lists"));
         }
-        LoadPaxRem(paxNode);
+        PaxRemToXML(paxNode);
         if (grp_id==tckin_grp_ids.begin())
         {
           if (grp.wt)
@@ -7298,7 +7300,7 @@ void CheckInInterface::LoadPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     CheckInInterface::instance()->LoadPax(NULL, reqNode, resNode);
 }
 
-void CheckInInterface::LoadPaxRem(xmlNodePtr paxNode)
+void CheckInInterface::PaxRemToXML(xmlNodePtr paxNode)
 {
   if (paxNode==NULL) return;
   xmlNodePtr node2=paxNode->children;

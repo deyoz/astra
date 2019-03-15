@@ -547,8 +547,10 @@ class TGrpServiceAutoItem : public Sirena::TPaxSegKey, public CheckIn::TPaxASVCI
     {
       return RFIC!="C";
     }
-    bool isEMD() const { return true; }
+    bool isEMD() const { return withEMD(); }
     bool permittedForAutoCheckin(const TTripInfo &flt) const;
+    bool equalWithoutEMD(const TGrpServiceAutoItem& item) const;
+    TServiceStatus::Enum serviceStatus() const { return withEMD()?TServiceStatus::Paid:TServiceStatus::Free; }
 };
 
 class TGrpServiceItem : public TPaxSegRFISCKey
@@ -588,6 +590,8 @@ class TGrpServiceAutoList : public std::list<TGrpServiceAutoItem>
     static void clearDB(int grp_id);
     static void copyDB(int grp_id_src, int grp_id_dest, bool not_clear=false);
     bool sameDocExists(const CheckIn::TPaxASVCItem& asvc) const;
+    bool removeEqualWithoutEMD(const TGrpServiceAutoItem& item);
+    void replaceWithoutEMDFrom(const TGrpServiceAutoList& list);
 };
 
 class TGrpServiceList : public std::list<TGrpServiceItem>
@@ -647,7 +651,7 @@ class TPaidRFISCItem : public TGrpServiceItem
 
     TPaidRFISCItem() { clear(); }
     TPaidRFISCItem(const TGrpServiceAutoItem& item) :
-      TGrpServiceItem(item), paid(item.service_quantity), need(0) {};
+      TGrpServiceItem(item), paid(item.withEMD()?item.service_quantity:0), need(0) {}
     TPaidRFISCItem(const TGrpServiceItem& item):TGrpServiceItem(item)
     {
       paid=ASTRA::NoExists;

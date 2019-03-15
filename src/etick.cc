@@ -3022,14 +3022,7 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
     int point_id=NoExists;
     if (Lock(id, point_id, tckin_grp_ids, string(__FUNCTION__)+"("+termReqName+")"))
     {
-      bool need=false;
-      for(auto grp_id : tckin_grp_ids)
-        if (CheckIn::needTryCheckinServicesAuto(grp_id, true))
-        {
-          need=true;
-          break;
-        }
-      if (need)
+      if (any_of(tckin_grp_ids.begin(), tckin_grp_ids.end(), bind2nd(ptr_fun(CheckIn::needTryCheckinServicesAuto), true)))
       {
         id.toXML(reqNode);
         EMDTryBind(tckin_grp_ids, reqNode, NULL);
@@ -3211,7 +3204,8 @@ void EMDAutoBoundInterface::EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
         TAgentStatInfo agentStat;
         SaveGrpToLog(grpInfoBefore, grpInfoAfter, CheckIn::TGrpEMDProps(), agentStat);
       };
-    };
+    }
+
   };
 
 }
