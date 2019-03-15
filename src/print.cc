@@ -684,6 +684,7 @@ string PrintDataParser::parse_field0(int offset, string field)
 
 string PrintDataParser::parse(const string &form)
 {
+    pts.get_pectab_tags(form);
     string result;
     char Mode = 'S';
     string::size_type VarPos = 0;
@@ -2828,7 +2829,7 @@ void PrintInterface::print_bp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         vector<string> params;
         string buf = content.substr(0, idx);
         boost::split(params, buf, boost::is_any_of(" "));
-        if(params.size() != 5)
+        if(params.size() > 6 or params.size() < 5)
             throw Exception("print_bp: wrong params");
         content.erase(0, idx + 1);
 
@@ -2852,6 +2853,13 @@ void PrintInterface::print_bp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             throw Exception("print_bp: flight not found");
 
         int reg_no = ToInt(params[4]);
+        bool is_boarding_pass = true;
+        if(params.size() == 6) {
+            if(params[5] == "I")
+                is_boarding_pass = false;
+            else
+                throw Exception("print_bp: wrong BP param: %s", params[5].c_str());
+        }
 
         TCachedQuery Qry(
                 "select "
@@ -2875,8 +2883,10 @@ void PrintInterface::print_bp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             PrintDataParser parser(TDevOper::PrnBP, grp_id, pax_id, false, false, NULL);
             parser.pts.set_tag(TAG::GATE, "‚€’€");
             parser.pts.set_tag(TAG::DUPLICATE, 1);
-            parser.pts.set_tag(TAG::VOUCHER_CODE, "DV");
-            parser.pts.set_tag(TAG::VOUCHER_TEXT, "DV");
+            if(not is_boarding_pass) {
+                parser.pts.set_tag(TAG::VOUCHER_CODE, "DV");
+                parser.pts.set_tag(TAG::VOUCHER_TEXT, "DV");
+            }
             content = StrUtils::b64_encode(
                     ConvertCodepage(parser.parse(content),"CP866","UTF-8"));
             SetProp(NewTextChild(resNode, "content", content), "b64", true);
