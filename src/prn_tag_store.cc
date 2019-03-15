@@ -1548,13 +1548,15 @@ string TBCBPData::toString(const TTagLang &tag_lang)
 
         // For individual airline use
         if(pax_id != NoExists) {
-            cond1 << setw(10) << right << setfill('0') << pax_id;
             if(is_rem_txt) {
-                cond1 << setw(3) << left << setfill(' ') << tag_lang.ElemIdToTagElem(etAirline, airline, efmtCodeNative);
-                cond1 << "*";
-            }
+                cond1
+                    << "ASTRA"
+                    << setw(10) << right << setfill('0') << pax_id
+                    << setw(3) << left << setfill(' ') << tag_lang.ElemIdToTagElem(etAirline, airline, efmtCodeNative, LANG_EN)
+                    << "*";
+            } else
+                cond1 << setw(10) << right << setfill('0') << pax_id;
         }
-
     }
 
     // Field size of following varible size field
