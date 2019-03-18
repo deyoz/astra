@@ -823,6 +823,7 @@ class TPrnTagStore {
         void set_space_if_empty(bool val) { space_if_empty.set(val); };
         std::string errorsToString();
         void get_pectab_tags(const std::string &form);
+        void get_pectab_tags(const std::vector<std::string> &tags);
 };
 
 #endif
