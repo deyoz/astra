@@ -2151,6 +2151,7 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   };
   vector<string> tags;
   BPTags::Instance()->getFields( tags );
+  parser->pts.get_pectab_tags(tags);
   xmlNodePtr node = NewTextChild( resNode, "GetBPTags" );
   for ( vector<string>::iterator i=tags.begin(); i!=tags.end(); i++ ) {
     for(int j = 0; j < 2; j++) {

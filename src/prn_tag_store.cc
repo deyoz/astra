@@ -3721,6 +3721,11 @@ std::ostream & operator <<(std::ostream &os, BIPrintRules::TPrintType::Enum cons
     return os;
 }
 
+void TPrnTagStore::get_pectab_tags(const vector<string> &tags)
+{
+    for(const auto &tag: tags)
+        pectab_tags.push_back(upperc(tag));
+}
 void TPrnTagStore::get_pectab_tags(const string &form)
 {
     static const boost::regex e("<(\\w*)\\(?.*?>");
