@@ -715,8 +715,9 @@ namespace EXCH_CHECKIN_RESULT
     if ( !tkn.empty() ) {
       tkn.toXML( NewTextChild( paxNode, "tkn" ) );
     }
-    if ( pnrAddrs.empty() ) {
-      pnrAddrs.toXML( NewTextChild( paxNode, "pnrAddrs" ) );
+    if ( !pnrAddrs.empty() ) {
+      pnrAddrs.toSirenaXML(  NewTextChild( paxNode, "pnrAddrs" ),   AstraLocale::OutputLang( "en" ) );
+      //pnrAddrs.toXML( NewTextChild( paxNode, "pnrAddrs" ) );
     }
   }
 
@@ -1053,25 +1054,38 @@ namespace MQRABBIT_TRANSPORT {
       //emptyHookTables();
       EXCH_CHECKIN_RESULT::changePaxs chPaxs;
       xmlDocPtr docPaxs = NULL;
-      std::string lasttime;
-      request.pr_reset = ( AstraContext::GetContext( request.Sender + ".lastReqTime", 0, lasttime ) == NoExists );
-      if ( !request.pr_reset ) {
-        request.pr_reset = ( StrToDateTime( lasttime.c_str(), "dd.mm.yyyy hh:nn:ss", request.lastRequestTime ) == EOF );
+      try {
+        std::string lasttime;
+        request.pr_reset = ( AstraContext::GetContext( request.Sender + ".lastReqTime", 0, lasttime ) == NoExists );
+        if ( !request.pr_reset ) {
+          request.pr_reset = ( StrToDateTime( lasttime.c_str(), "dd.mm.yyyy hh:nn:ss", request.lastRequestTime ) == EOF );
+        }
+        ProgTrace( TRACE5, "pr_reset=%d, lastRequestTime=%s", request.pr_reset, DateTimeToStr( request.lastRequestTime, "dd.mm.yyyy hh:nn:ss").c_str() );
+        if ( !chPaxs.processPaxs( request, docPaxs ) ) {
+           xmlFreeDoc( docPaxs );
+           docPaxs = NULL;
+        }
+        tst();
+        //put to queue
+        if ( docPaxs ) {
+          jms::text_message in1;
+          jms::connection cl( p.addr, false );
+          jms::text_queue queue = cl.create_text_queue( p.queue );//"astra_exch/CRM_DATA/astra.tst.crm");
+          in1.text = XMLTreeToText( docPaxs );
+          queue.enqueue(in1);
+          cl.commit();
+        }
       }
-      ProgTrace( TRACE5, "pr_reset=%d, lastRequestTime=%s", request.pr_reset, DateTimeToStr( request.lastRequestTime, "dd.mm.yyyy hh:nn:ss").c_str() );
-      if ( !chPaxs.processPaxs( request, docPaxs ) ) {
-         xmlFreeDoc( docPaxs );
-         docPaxs = NULL;
+      catch(...) {
+        if ( docPaxs ) {
+          xmlFreeDoc( docPaxs );
+          docPaxs = NULL;
+        }
+        throw;
       }
-      tst();
-      //put to queue
       if ( docPaxs ) {
-        jms::text_message in1;
-        jms::connection cl( p.addr );
-        jms::text_queue queue = cl.create_text_queue( p.queue );//"astra_exch/CRM_DATA/astra.tst.crm");
-        in1.text = XMLTreeToText( docPaxs );
-        queue.enqueue(in1);
-        cl.commit();
+        xmlFreeDoc( docPaxs );
+        docPaxs = NULL;
       }
       AstraContext::ClearContext( request.Sender + ".lastReqTime", 0 );
       if ( request.lastRequestTime != ASTRA::NoExists ) {
@@ -1121,25 +1135,38 @@ namespace MQRABBIT_TRANSPORT {
     try {
       EXCH_CHECKIN_RESULT::changeFlights chFlights;
       xmlDocPtr docFlights = NULL;
-      std::string lasttime;
-      request.pr_reset = ( AstraContext::GetContext( request.Sender + "fl.lastReqTime", 0, lasttime ) == NoExists );
-      if ( !request.pr_reset ) {
-        request.pr_reset = ( StrToDateTime( lasttime.c_str(), "dd.mm.yyyy hh:nn:ss", request.lastRequestTime ) == EOF );
+      try {
+        std::string lasttime;
+        request.pr_reset = ( AstraContext::GetContext( request.Sender + "fl.lastReqTime", 0, lasttime ) == NoExists );
+        if ( !request.pr_reset ) {
+          request.pr_reset = ( StrToDateTime( lasttime.c_str(), "dd.mm.yyyy hh:nn:ss", request.lastRequestTime ) == EOF );
+        }
+        ProgTrace( TRACE5, "pr_reset=%d, lastRequestTime=%s", request.pr_reset, DateTimeToStr( request.lastRequestTime, "dd.mm.yyyy hh:nn:ss").c_str() );
+        if ( !chFlights.processFlights( request, docFlights ) ) {
+           xmlFreeDoc( docFlights );
+           docFlights = NULL;
+        }
+        tst();
+        //put to queue
+        if ( docFlights ) {
+          jms::text_message in1;
+          jms::connection cl( p.addr, false );
+          jms::text_queue queue = cl.create_text_queue( p.queue );//"astra_exch/CRM_DATA/astra.tst.crm");
+          in1.text = XMLTreeToText( docFlights );
+          queue.enqueue(in1);
+          cl.commit();
+        }
       }
-      ProgTrace( TRACE5, "pr_reset=%d, lastRequestTime=%s", request.pr_reset, DateTimeToStr( request.lastRequestTime, "dd.mm.yyyy hh:nn:ss").c_str() );
-      if ( !chFlights.processFlights( request, docFlights ) ) {
-         xmlFreeDoc( docFlights );
-         docFlights = NULL;
+      catch(...) {
+        if ( docFlights ) {
+          xmlFreeDoc( docFlights );
+          docFlights = NULL;
+        }
+        throw;
       }
-      tst();
-      //put to queue
       if ( docFlights ) {
-        jms::text_message in1;
-        jms::connection cl( p.addr );
-        jms::text_queue queue = cl.create_text_queue( p.queue );//"astra_exch/CRM_DATA/astra.tst.crm");
-        in1.text = XMLTreeToText( docFlights );
-        queue.enqueue(in1);
-        cl.commit();
+        xmlFreeDoc( docFlights );
+        docFlights = NULL;
       }
       AstraContext::ClearContext( request.Sender + "fl.lastReqTime", 0 );
       if ( request.lastRequestTime != ASTRA::NoExists ) {
