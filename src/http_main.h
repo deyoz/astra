@@ -14,6 +14,7 @@ namespace AstraHTTP
 #define TELEGRAM_JXT_INTERFACE_ID "Telegram"
 #define KIOSK_ALIAS_JXT_INTERFACE_ID "KioskAlias"
 #define KIOSK_REQUEST_JXT_INTERFACE_ID "KioskRequest"
+#define KIOSK_CONFIG_JXT_INTERFACE_ID "KioskConfig"
 #define STAT_JXT_INTERFACE_ID "stat"
 #define HTML_JXT_INTERFACE_ID "html"
 #define PIECE_CONCEPT_JXT_INTERFACE_ID "PieceConcept"
@@ -95,9 +96,11 @@ struct HTTPClient
     jxt_interface["kuf_stat"] =             JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      NULL);
     jxt_interface["kuf_stat_flts"] =        JxtInfo(TELEGRAM_JXT_INTERFACE_ID,      NULL);
 
-    jxt_interface["PingKiosk"] =       JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
+    jxt_interface["PingKiosk"] =            JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
     jxt_interface["EventToServer"] =        JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
     jxt_interface["ViewCraftKiosk"] =       JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
+    jxt_interface["AppParamsKiosk"] =       JxtInfo(KIOSK_CONFIG_JXT_INTERFACE_ID, NULL);
+    jxt_interface["AppAliasesKiosk"] =       JxtInfo(KIOSK_CONFIG_JXT_INTERFACE_ID, NULL);
 
     jxt_interface["kiosk_alias"] =          JxtInfo(KIOSK_ALIAS_JXT_INTERFACE_ID,   NULL);
     jxt_interface["kiosk_alias_locale"] =   JxtInfo(KIOSK_ALIAS_JXT_INTERFACE_ID,   NULL);

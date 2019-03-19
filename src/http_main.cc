@@ -45,6 +45,7 @@ const std::string OPERATION = "OPERATION";
 const std::string HOST = "Host";
 const std::string AUTHORIZATION = "Authorization";
 const std::string REFERER = "Referer";
+const std::string KIOSKID = "kioskId";
 
 const std::string LOGIN = "login";
 const std::string PASSWORD = "password";
@@ -53,7 +54,9 @@ using namespace ServerFramework::HTTP;
 
 std::string HTTPClient::toString()
 {
-  string res = "client_id: " + client_info.client_id + ", operation=" + operation + ", user_name=" + user_name + ", password=" + password;
+  string res = "client_id: " + client_info.client_id + "," +
+               "pult=" + client_info.pult + "," +
+               "operation=" + operation + ", user_name=" + user_name + ", password=" + password;
   return res;
 }
 
@@ -121,6 +124,12 @@ HTTPClient getHTTPClient(const request& req)
         }
     }
   }
+  if (client.client_info.client_id.empty()) { //запрос от киоска?
+     if ( p.find(KIOSKID) != p.end() ) {
+        client.client_info = getInetClientByKioskId( p[KIOSKID] );
+     }
+  }
+
 
   if (client.client_info.client_id.empty()) ProgError(STDLOG, "%s: empty client_id", __FUNCTION__);
 
@@ -135,6 +144,7 @@ HTTPClient getHTTPClient(const request& req)
       client.user_name != Qry.FieldAsString( "http_user" ) ||
       client.password != Qry.FieldAsString( "http_pswd" ))
   {
+  //ProgTrace(TRACE5, "%s=%s, %s=%s", client.user_name.c_str(), Qry.FieldAsString( "http_user" ), client.password.c_str(), Qry.FieldAsString( "http_pswd" ) );
       client.client_info.opr.clear();
       ProgError(STDLOG, "%s: wrong authorization (client_id=%s)",
                 __FUNCTION__,

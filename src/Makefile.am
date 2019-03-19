@@ -180,8 +180,6 @@ astra_SOURCES = \
   environ.cc \
   AirportControl.cpp \
   md5_sum.cc \
-  kiosk_alias.cpp \
-  kiosk_events.cc \
   bagmessage.cc \
   hotel_acmd.cc \
   self_ckin_log.cc \
@@ -373,7 +371,6 @@ noinst_HEADERS = \
   environ.h \
   AirportControl.h \
   md5_sum.h \
-  kiosk_events.h \
   hotel_acmd.h \
   self_ckin_log.h \
   pax_events.h \

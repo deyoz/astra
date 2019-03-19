@@ -45,7 +45,7 @@
 #include "external_spp_synch.h"
 #include "rfisc_sirena.h"
 #include "html_pages.h"
-#include "kiosk_alias.h"
+#include "kiosk_config.h"
 #include "kiosk_events.h"
 #include "zamar_dsm.h"
 #include "hotel_acmd.h"
@@ -95,8 +95,8 @@ void AstraJxtCallbacks::InitInterfaces()
     new CryptInterface();
     new TestInterface();
     new HtmlInterface();
-    new KioskAliasInterface();
-    new KioskRequestInterface();
+    new KIOSKEVENTS::KioskRequestInterface();
+    new KIOSKCONFIG::KioskRequestInterface();
     new HotelAcmdInterface();
     new SelfCkinLogInterface();
 
@@ -107,7 +107,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new PieceConceptInterface();
     new ServicePaymentInterface();
     new SirenaExchangeInterface();
-    
+
     new ZamarDSMInterface();
 
     CheckInInterface::instance();

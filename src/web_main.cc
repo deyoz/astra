@@ -56,7 +56,7 @@ using namespace SEATS2;
 using namespace BASIC::date_time;
 using namespace AstraLocale;
 
-InetClient getInetClient(string client_id)
+InetClient getInetClient(const string &client_id)
 {
   InetClient client;
   client.client_id = client_id;
@@ -74,6 +74,30 @@ InetClient getInetClient(string client_id)
     client.client_type = Qry.FieldAsString( "client_type" );
   }
   else ProgError(STDLOG, "%s: client_id=%s not found", __FUNCTION__, client_id.c_str());
+  return client;
+}
+
+InetClient getInetClientByKioskId(const string &kiosk_id)
+{
+  InetClient client;
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT client_type,web_clients.desk,login,client_id "
+    "FROM web_clients,users2 "
+    "WHERE web_clients.kiosk_id=:kiosk_id AND "
+    "      web_clients.client_type=:client_type AND "
+    "      web_clients.user_id=users2.user_id";
+  Qry.CreateVariable( "kiosk_id", otString, kiosk_id );
+  Qry.CreateVariable( "client_type", otString,  EncodeClientType(ctKiosk) );
+  Qry.Execute();
+  if ( !Qry.Eof ) {
+    client.pult = Qry.FieldAsString( "desk" );
+    client.opr = Qry.FieldAsString( "login" );
+    client.client_id = Qry.FieldAsString( "client_id" );
+    client.client_type = Qry.FieldAsString( "client_type" );
+    ProgTrace( TRACE5, "client=%s", client.toString().c_str() );
+  }
+  else ProgError(STDLOG, "%s: kiosk_id=%s client_id=%s not found", __FUNCTION__, kiosk_id.c_str(), client.client_id.c_str());
   return client;
 }
 
