@@ -1573,15 +1573,22 @@ string TBCBPData::toString(const TTagLang &tag_lang)
 bool TPrnTagStore::rem_txt_exists()
 {
     static const string rem_txt_prefix = "REM_TXT";
+    // при отработке get_tag в цикле, TTagLang::tag_lang затирается
+    // sick! ((
+    string lang = tag_lang.get_tag_lang();
+    bool result = false;
     for(const auto &tag: pectab_tags) {
         if(
                 tag.substr(0, rem_txt_prefix.size()) == rem_txt_prefix and
                 not get_tag(tag).empty()
 
-          )
-            return true;
+          ) {
+            result = true;
+            break;
+        }
     }
-    return false;
+    tag_lang.set_tag_lang(lang);
+    return result;
 }
 
 string TPrnTagStore::BCBP_M_2(TFieldParams fp)
