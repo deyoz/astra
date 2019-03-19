@@ -2188,14 +2188,18 @@ void TPaxGrpItem::SyncServiceAuto(const TTripInfo& flt)
     "       rfic, rfisc, service_quantity, ssr_code, service_name, emd_type, emd_no, emd_coupon "
     "FROM pax, crs_pax_asvc "
     "WHERE pax.pax_id=crs_pax_asvc.pax_id AND "
-    "      rem_status='HI' AND "
     "      rfic IS NOT NULL AND "
     "      rfisc IS NOT NULL AND "
     "      service_quantity IS NOT NULL AND "
     "      service_name IS NOT NULL AND "
-    "      emd_type IS NOT NULL AND "
-    "      emd_no IS NOT NULL AND "
-    "      emd_coupon IS NOT NULL AND "
+    "      (rem_status='HI' AND "
+    "       emd_type IS NOT NULL AND "
+    "       emd_no IS NOT NULL AND "
+    "       emd_coupon IS NOT NULL OR "
+    "       rem_status='HK' AND "
+    "       emd_type IS NULL AND "
+    "       emd_no IS NULL AND "
+    "       emd_coupon IS NULL) AND "
     "      pax.grp_id=:id ";
   QParams QryParams;
   QryParams << QParam("id", otInteger, id);

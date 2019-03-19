@@ -407,13 +407,14 @@ void TServicePaymentListWithAuto::fromDB(int grp_id)
 
   TServicePaymentList list1;
   list1.fromDB(grp_id);
-  for(TServicePaymentList::const_iterator i=list1.begin(); i!=list1.end(); ++i)
-    push_back(*i);
+  for(const TServicePaymentItem& i : list1)
+    push_back(i);
 
   TGrpServiceAutoList list2;
   list2.fromDB(grp_id, true);
-  for(TGrpServiceAutoList::const_iterator i=list2.begin(); i!=list2.end(); ++i)
-    push_back(TServicePaymentItem(*i));
+  for(const TGrpServiceAutoItem& i : list2)
+    if (i.withEMD())
+      push_back(TServicePaymentItem(i));
 }
 
 void TServicePaymentList::clearDB(int grp_id)

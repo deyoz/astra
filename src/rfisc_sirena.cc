@@ -483,8 +483,8 @@ void TSvcList::addChecked(const TCheckedReqPassengers &req_grps, int grp_id, int
       {
         for(int j=svcAuto.service_quantity; j>0; j--)
         {
-          emplace_back(svc, TServiceStatus::Paid);
-          _autoChecked.emplace_back(svc, TServiceStatus::Paid);
+          emplace_back(svc, svcAuto.serviceStatus());
+          _autoChecked.emplace_back(svc, svcAuto.serviceStatus());
         }
         break;
       }
@@ -514,7 +514,8 @@ void TSvcList::addASVCs(int pax_id, const std::vector<CheckIn::TPaxASVCItem> &as
     {
       TRFISCKey RFISCKey;
       RFISCKey.RFISC=i->RFISC;
-      push_back(TSvcItem(TPaxSegRFISCKey(Sirena::TPaxSegKey(pax_id, 0), RFISCKey), TServiceStatus::Paid));
+      emplace_back(TPaxSegRFISCKey(Sirena::TPaxSegKey(pax_id, 0), RFISCKey),
+                   i->withEMD()?TServiceStatus::Paid:TServiceStatus::Free);
     };
   }
 }

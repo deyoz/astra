@@ -602,7 +602,8 @@ const TPaxASVCItem& TPaxASVCItem::toDB(TQuery &Qry) const
 {
   TServiceBasic::toDB(Qry);
   Qry.SetVariable("emd_no", emd_no);
-  Qry.SetVariable("emd_coupon", emd_coupon);
+  emd_coupon==ASTRA::NoExists?Qry.SetVariable("emd_coupon", FNull):
+                              Qry.SetVariable("emd_coupon", emd_coupon);
   return *this;
 }
 
@@ -623,7 +624,8 @@ TPaxASVCItem& TPaxASVCItem::fromDB(TQuery &Qry)
   clear();
   TServiceBasic::fromDB(Qry);
   emd_no=Qry.FieldAsString("emd_no");
-  emd_coupon=Qry.FieldAsInteger("emd_coupon");
+  emd_coupon=Qry.FieldIsNULL("emd_coupon")?ASTRA::NoExists:
+                                           Qry.FieldAsInteger("emd_coupon");
   return *this;
 };
 
@@ -801,14 +803,18 @@ bool AddPaxASVC(int id, bool is_grp_id)
     "SELECT pax.pax_id, rfic, rfisc, service_quantity, ssr_code, service_name, emd_type, emd_no, emd_coupon "
     "FROM pax, crs_pax_asvc "
     "WHERE pax.pax_id=crs_pax_asvc.pax_id AND "
-    "      rem_status='HI' AND "
     "      rfic IS NOT NULL AND "
     "      rfisc IS NOT NULL AND "
     "      service_quantity IS NOT NULL AND "
     "      service_name IS NOT NULL AND "
-    "      emd_type IS NOT NULL AND "
-    "      emd_no IS NOT NULL AND "
-    "      emd_coupon IS NOT NULL AND ";
+    "      (rem_status='HI' AND "
+    "       emd_type IS NOT NULL AND "
+    "       emd_no IS NOT NULL AND "
+    "       emd_coupon IS NOT NULL OR "
+    "       rem_status='HK' AND "
+    "       emd_type IS NULL AND "
+    "       emd_no IS NULL AND "
+    "       emd_coupon IS NULL) AND ";
   if (is_grp_id)
     sql <<  "      pax.grp_id=:id ";
   else
@@ -821,7 +827,7 @@ bool AddPaxASVC(int id, bool is_grp_id)
   return (Qry.get().RowsProcessed()>0);
 }
 
-bool LoadPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
+bool PaxASVCFromDB(int pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
 {
   asvc.clear();
   const char* sql=
@@ -829,14 +835,18 @@ bool LoadPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
   const char* crs_sql=
     "SELECT * FROM crs_pax_asvc "
     "WHERE pax_id=:pax_id AND "
-    "      rem_status='HI' AND "
     "      rfic IS NOT NULL AND "
     "      rfisc IS NOT NULL AND "
     "      service_quantity IS NOT NULL AND "
     "      service_name IS NOT NULL AND "
-    "      emd_type IS NOT NULL AND "
-    "      emd_no IS NOT NULL AND "
-    "      emd_coupon IS NOT NULL ";
+    "      (rem_status='HI' AND "
+    "       emd_type IS NOT NULL AND "
+    "       emd_no IS NOT NULL AND "
+    "       emd_coupon IS NOT NULL OR "
+    "       rem_status='HK' AND "
+    "       emd_type IS NULL AND "
+    "       emd_no IS NULL AND "
+    "       emd_coupon IS NULL) ";
 
   QParams ASVCQryParams;
   ASVCQryParams << QParam("pax_id", otInteger, pax_id);
@@ -877,12 +887,12 @@ bool LoadPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
 
 bool LoadPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc)
 {
-  return LoadPaxASVC(pax_id, asvc, false);
+  return PaxASVCFromDB(pax_id, asvc, false);
 };
 
 bool LoadCrsPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc)
 {
-  return LoadPaxASVC(pax_id, asvc, true);
+  return PaxASVCFromDB(pax_id, asvc, true);
 };
 
 
@@ -1193,18 +1203,11 @@ void PaxRemAndASVCFromDB(int pax_id,
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   rems_and_asvc.clear();
-  std::vector<TPaxASVCItem> asvc;
 
   if (from_crs)
-  {
     LoadCrsPaxRem(pax_id, rems_and_asvc);
-    LoadCrsPaxASVC(pax_id, asvc);
-  }
   else
-  {
     LoadPaxRem(pax_id, rems_and_asvc);
-    LoadPaxASVC(pax_id, asvc);
-  };
 
   for(multiset<TPaxRemItem>::iterator r=rems_and_asvc.begin(); r!=rems_and_asvc.end();)
   {
@@ -1213,6 +1216,9 @@ void PaxRemAndASVCFromDB(int pax_id,
     else
       ++r;
   };
+
+  std::vector<TPaxASVCItem> asvc;
+  PaxASVCFromDB(pax_id, asvc, from_crs);
   for(vector<TPaxASVCItem>::const_iterator r=asvc.begin(); r!=asvc.end(); ++r)
   {
     rems_and_asvc.insert(TPaxRemItem(*r, false, reqInfo->desk.lang, applyLang));

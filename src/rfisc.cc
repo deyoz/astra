@@ -1246,6 +1246,17 @@ bool TGrpServiceAutoItem::permittedForAutoCheckin(const TTripInfo& flt) const
   return Qry.get().FieldAsInteger("auto_checkin")!=0;
 }
 
+bool TGrpServiceAutoItem::equalWithoutEMD(const TGrpServiceAutoItem& item) const
+{
+  return !withEMD() && !item.withEMD() &&
+         TPaxSegKey::operator ==(item) &&
+         RFIC==item.RFIC &&
+         RFISC==item.RFISC &&
+         service_quantity==item.service_quantity &&
+         ssr_code==item.ssr_code &&
+         service_name==item.service_name;
+}
+
 void TGrpServiceList::fromDB(int grp_id, bool without_refused)
 {
   clear();
@@ -1551,12 +1562,16 @@ void TGrpServiceAutoList::toDB(int grp_id) const
 
   Statistic<CheckIn::TPaxASVCItem> svcStat;
   for(const TGrpServiceAutoItem& item : *this)
-    svcStat.add(item);
+    if (item.withEMD())
+      svcStat.add(item);
 
   for(const TGrpServiceAutoItem& item : *this)
   {
-    const auto iSvc=svcStat.find(item);
-    if (iSvc!=svcStat.end() && iSvc->second>1) continue; //повторяющиеся номера EMD в рамка группы не записываем!
+    if (item.withEMD())
+    {
+      const auto iSvc=svcStat.find(item);
+      if (iSvc!=svcStat.end() && iSvc->second>1) continue; //повторяющиеся номера EMD в рамка группы не записываем!
+    }
     item.toDB(Qry.get());
     Qry.get().Execute();
   }
@@ -1636,8 +1651,25 @@ void TGrpServiceAutoList::copyDB(int grp_id_src, int grp_id_dest, bool not_clear
 bool TGrpServiceAutoList::sameDocExists(const CheckIn::TPaxASVCItem& asvc) const
 {
   for(const TGrpServiceAutoItem item : *this)
-    if (item.sameDoc(asvc)) return true;
+    if (item.withEMD() && item.sameDoc(asvc)) return true;
   return false;
+}
+
+bool TGrpServiceAutoList::removeEqualWithoutEMD(const TGrpServiceAutoItem& item)
+{
+  for(TGrpServiceAutoList::iterator i=begin(); i!=end(); ++i)
+    if (item.equalWithoutEMD(*i))
+    {
+      erase(i);
+      return true;
+    }
+  return false;
+}
+
+void TGrpServiceAutoList::replaceWithoutEMDFrom(const TGrpServiceAutoList& list)
+{
+  this->remove_if(not1(mem_fun_ref(&TGrpServiceAutoItem::withEMD)));
+  copy_if(list.begin(), list.end(), inserter(*this, this->end()), not1(mem_fun_ref(&TGrpServiceAutoItem::withEMD)));
 }
 
 void TGrpServiceListWithAuto::split(int grp_id, TGrpServiceList& list1, TGrpServiceAutoList& list2) const
