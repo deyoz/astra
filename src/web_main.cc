@@ -3133,8 +3133,12 @@ void fillProtBeforePaySvcs(const TAdvTripInfo &operFlt,
       ProgTrace(TRACE5, "%s: salonList.ReadFlight (point_dep=%d, point_arv=%d)", __FUNCTION__, point_id, point_arv);
       if (salonList.getRFISCMode()==rRFISC)
       {
-        std::set<TPlace*,CompareSeats> seats;
-        salonList.getPaxLayer( point_id, pax_id, cltProtBeforePay, seats );
+        std::set<TPlace*,CompareSeats> seats, seatsTmp;
+        for(const TCompLayerType layer_type : {cltProtBeforePay, cltProtSelfCkin})
+        {
+          salonList.getPaxLayer( point_id, pax_id, layer_type, seatsTmp );
+          seats.insert(seatsTmp.begin(), seatsTmp.end());
+        }
 
           //массив мест с RFISCами
         vector< pair<TSeat, TRFISC> > seats_with_rfisc;
@@ -3146,13 +3150,13 @@ void fillProtBeforePaySvcs(const TAdvTripInfo &operFlt,
           TRFISC rfisc=place.getRFISC(point_id);
           if (rfisc.empty() || rfisc.code.empty())
           {
-            ProgTrace(TRACE5, "%s: seat_no=%s, rfisc.empty() || rfisc.code.empty()",
-                      __FUNCTION__, place.denorm_view(salonList.isCraftLat()).c_str());
+            ProgTrace(TRACE5, "%s: pax_id=%d, seat_no=%s, rfisc.empty() || rfisc.code.empty()",
+                      __FUNCTION__, pax_id, place.denorm_view(salonList.isCraftLat()).c_str());
             continue;
           };
 
-          ProgTrace(TRACE5, "%s: seat_no=%s, rfisc.code=%s",
-                    __FUNCTION__, place.denorm_view(salonList.isCraftLat()).c_str(), rfisc.code.c_str());
+          ProgTrace(TRACE5, "%s: pax_id=%d, seat_no=%s, rfisc.code=%s",
+                    __FUNCTION__, pax_id, place.denorm_view(salonList.isCraftLat()).c_str(), rfisc.code.c_str());
 
           seats_with_rfisc.push_back(make_pair(place.getTSeat(), rfisc));
         };
@@ -3163,15 +3167,15 @@ void fillProtBeforePaySvcs(const TAdvTripInfo &operFlt,
           TSeatRanges ranges;
           GetTlgSeatRanges(cltProtAfterPay, pax_id, ranges);
           if (!ranges.empty())
-            ProgTrace(TRACE5, "%s: layer_type=%s, ranges: %s",
-                      __FUNCTION__, EncodeCompLayerType(cltProtAfterPay), ranges.traceStr().c_str());
+            ProgTrace(TRACE5, "%s: pax_id=%d, layer_type=%s, ranges: %s",
+                      __FUNCTION__, pax_id, EncodeCompLayerType(cltProtAfterPay), ranges.traceStr().c_str());
 
           if (ranges.empty())
           {
             GetTlgSeatRanges(cltPNLAfterPay, pax_id, ranges);
             if (!ranges.empty())
-              ProgTrace(TRACE5, "%s: layer_type=%s, ranges: %s",
-                        __FUNCTION__, EncodeCompLayerType(cltPNLAfterPay), ranges.traceStr().c_str());
+              ProgTrace(TRACE5, "%s: pax_id=%d, layer_type=%s, ranges: %s",
+                        __FUNCTION__, pax_id, EncodeCompLayerType(cltPNLAfterPay), ranges.traceStr().c_str());
           }
           //грузим множество оплаченных EMD
           vector<CheckIn::TPaxASVCItem> asvc;
@@ -3191,8 +3195,8 @@ void fillProtBeforePaySvcs(const TAdvTripInfo &operFlt,
                 if (e->RFISC==rfisc.code)
                 {
                   rfisc_found=true;
-                  ProgTrace(TRACE5, "%s: seat_no=%s, rfisc.code=%s, %s",
-                            __FUNCTION__, seat.denorm_view(salonList.isCraftLat()).c_str(),
+                  ProgTrace(TRACE5, "%s: pax_id=%d, seat_no=%s, rfisc.code=%s, %s",
+                            __FUNCTION__, pax_id, seat.denorm_view(salonList.isCraftLat()).c_str(),
                             rfisc.code.c_str(),
                             e->rem_text(false, LANG_EN, applyLang).c_str());
                   asvc.erase(e);
