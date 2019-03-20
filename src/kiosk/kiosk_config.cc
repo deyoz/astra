@@ -135,7 +135,7 @@ class KioskParams
         "SELECT " + table_name + ".id, " +
         "       " + table_name + ".name, " +
         "       " + table_name + ".value, " +
-        "       kiosk_app_list.name AS application, kiosk_id, grp_id, ";
+        "       kiosk_app_list.code AS application, kiosk_id, grp_id, ";
       if ( fieldsContent.isFlag( elang ) ) {
         sql += " kiosk_lang.code AS lang, ";
       }
@@ -159,8 +159,8 @@ class KioskParams
         "   ( kiosk_id=:kiosk_id OR "
         "         kiosk_id IS NULL OR "
         "         grp_id IN ( SELECT grp_id FROM kiosk_grp WHERE kiosk_id=:kiosk_id ) ) AND "
-        "       ( kiosk_app_list.name=:application OR "
-        "         kiosk_app_list.name IS NULL ) ";
+        "       ( kiosk_app_list.code=:application OR "
+        "         kiosk_app_list.code IS NULL ) ";
       if ( fieldsContent.isFlag( elang ) ) {
         sql += " AND kiosk_lang.id= " + table_name + ".lang_id ";
       }
