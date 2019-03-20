@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 #include "telegram.h"
 #include "maindcs.h"
 #include "docs/docs_main.h"
@@ -21,6 +19,7 @@
 #include "collect.h"
 #include "html_pages.h"
 #include "web_main.h"
+#include "kiosk/kiosk_config.h"
 #include "db_pkg.h"
 
 int nosir_test(int argc,char **argv);
@@ -108,6 +107,7 @@ const
     {"-kuf_fix",                KUF_STAT::fix,          NULL,                       NULL},
     {"-stat_belgorod",          stat_belgorod,          NULL,                       NULL},
     {"-apis_test",              apis_test_single,              NULL,                       NULL},
+    {"-alias_to_db",            KIOSKCONFIG::alias_to_db, NULL,                       NULL},
     {"-db_pkg",                 db_pkg,                 NULL,                       NULL},
     {"-rbd_test",               rbd_test,               NULL,                       NULL},
     {"-lci_data",               TypeB::lci_data,               NULL,                       NULL},

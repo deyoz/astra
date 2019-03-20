@@ -421,6 +421,7 @@ void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, TSeatRa
 bool GetPassengersForWaitList( int point_id, TPassengers &p );
 TSeatAlgoParams GetSeatAlgo(TQuery &Qry, std::string airline, int flt_no, std::string airp_dep);
 bool IsSubClsRem( const std::string &airline, const std::string &subclass, std::string &rem );
+  bool isCheckinWOChoiceSeats( int point_id );
 
 extern TPassengers Passengers;
 } // end namespace SEATS2
