@@ -3013,7 +3013,7 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
     return;
   }
 
-  //но может быть можно попробовать просто автоматически зарегистрировать EMD?
+  //но может быть можно попробовать просто автоматически привязать или зарегистрировать EMD?
   if (reqNode==nullptr) return;
   string termReqName=(const char*)(reqNode->name);
 
@@ -3022,7 +3022,8 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
     int point_id=NoExists;
     if (Lock(id, point_id, tckin_grp_ids, string(__FUNCTION__)+"("+termReqName+")"))
     {
-      if (any_of(tckin_grp_ids.begin(), tckin_grp_ids.end(), bind2nd(ptr_fun(CheckIn::needTryCheckinServicesAuto), true)))
+      if ((pax_ids_for_refresh && !pax_ids_for_refresh.get().empty()) ||
+          any_of(tckin_grp_ids.begin(), tckin_grp_ids.end(), bind2nd(ptr_fun(CheckIn::needTryCheckinServicesAuto), true)))
       {
         id.toXML(reqNode);
         EMDTryBind(tckin_grp_ids, reqNode, NULL);
