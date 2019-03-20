@@ -12,7 +12,6 @@ namespace AstraHTTP
 #define SPP_SYNCH_JXT_INTERFACE_ID "SppSynch"
 #define CHECKIN_JXT_INTERFACE_ID "CheckIn"
 #define TELEGRAM_JXT_INTERFACE_ID "Telegram"
-#define KIOSK_ALIAS_JXT_INTERFACE_ID "KioskAlias"
 #define KIOSK_REQUEST_JXT_INTERFACE_ID "KioskRequest"
 #define KIOSK_CONFIG_JXT_INTERFACE_ID "KioskConfig"
 #define STAT_JXT_INTERFACE_ID "stat"
@@ -102,8 +101,6 @@ struct HTTPClient
     jxt_interface["AppParamsKiosk"] =       JxtInfo(KIOSK_CONFIG_JXT_INTERFACE_ID, NULL);
     jxt_interface["AppAliasesKiosk"] =       JxtInfo(KIOSK_CONFIG_JXT_INTERFACE_ID, NULL);
 
-    jxt_interface["kiosk_alias"] =          JxtInfo(KIOSK_ALIAS_JXT_INTERFACE_ID,   NULL);
-    jxt_interface["kiosk_alias_locale"] =   JxtInfo(KIOSK_ALIAS_JXT_INTERFACE_ID,   NULL);
     jxt_interface["stat_srv"] =             JxtInfo(STAT_JXT_INTERFACE_ID,          NULL);
     jxt_interface["piece_concept"] =        JxtInfo(PIECE_CONCEPT_JXT_INTERFACE_ID, NULL);
     jxt_interface["GetGRPPrintData"] =      JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
