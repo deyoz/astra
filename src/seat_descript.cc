@@ -492,5 +492,17 @@ std::string paxsWaitListDescrSeat::getDescr( const std::string &format, int pax_
   return res;
 }
 
+void paxsWaitListDescrSeat::getDescr( int pax_id, std::vector<std::string> &res )
+{
+  res.clear();
+  std::map<int, paxDescrSeats >::const_iterator ipaxSeatDescr = find( pax_id );
+  if ( ipaxSeatDescr != end() ) {
+    for ( auto descrs : ipaxSeatDescr->second ) {
+      res.push_back( descrs.second );
+    }
+  }
+}
+
+
 
 } // end namespace SEAT_DESCR
