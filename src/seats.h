@@ -9,8 +9,7 @@
 #include "date_time.h"
 #include "payment_base.h"
 #include "baggage_base.h"
-#include <map>
-#include <libxml/tree.h>
+
 
 namespace SEATS2
 {
@@ -100,6 +99,68 @@ struct TCoordSeat {
     }
 };
 
+struct SeatsDescr {
+  std::map<std::string,int> seatsDescr;
+  void addSeatDescr( const std::vector<std::string> &v ) {
+    clear();
+    for ( auto i : v ) {
+      addSeatDescr( i );
+    }
+  }
+  void addSeatDescr( const std::string &seatDescr ) {
+    std::map<std::string, int>::iterator it = seatsDescr.find( seatDescr );
+    if ( it == seatsDescr.end() ) {
+      seatsDescr.insert( make_pair(seatDescr,1) );
+    }
+    else {
+      it->second++;
+    }
+  }
+  bool findSeat( const std::string &seatDescr ) {
+    std::map<std::string, int>::iterator it = seatsDescr.find( seatDescr );
+    if ( it != seatsDescr.end() &&
+         it->second > 0 ) {
+      it->second--;
+      return true;
+    }
+    return false;
+  }
+
+  void clear() {
+    seatsDescr.clear();
+  }
+
+  std::string traceStr() const {
+    std::ostringstream buf;
+    buf << ",seatsDescr={" << toString("multi",true) << "}";
+    return buf.str();
+  }
+
+  std::string toString( std::string format, bool trace=false ) const {
+    if ( seatsDescr.empty() ) {
+      return "";
+    }
+    std::ostringstream buf;
+    bool first = true;
+    for ( std::map<std::string, int>::const_iterator it=seatsDescr.begin(); it!=seatsDescr.end(); it++ ) {
+      if ( !first ) {
+       buf << ",";
+      }
+      first = false;
+      if ( trace ) {
+        buf << "(" << it->first << "," << it->second << ") ";
+      }
+      else {
+        buf << it->first;
+      }
+      if ( format == "one" ) {
+        break;
+      }
+    }
+    return buf.str();
+  }
+};
+
 struct TPassenger {
   private:
     std::vector<std::string> rems;
@@ -115,7 +176,7 @@ struct TPassenger {
     int point_arv;
     //std::string placeName;
     std::string foundSeats;
-    std::string seatDescr;
+    SeatsDescr seatsDescr;
     bool isSeat;
     std::string wl_type;
     int countPlace;
@@ -301,9 +362,7 @@ struct TPassenger {
            buf << *irem << " ";
          }
       }
-      if ( !seatDescr.empty() ) {
-        buf << ",seatDescr=" << seatDescr;
-      }
+      buf << seatsDescr.traceStr();
       return buf.str();
     }
 };
@@ -421,7 +480,7 @@ void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, TSeatRa
 bool GetPassengersForWaitList( int point_id, TPassengers &p );
 TSeatAlgoParams GetSeatAlgo(TQuery &Qry, std::string airline, int flt_no, std::string airp_dep);
 bool IsSubClsRem( const std::string &airline, const std::string &subclass, std::string &rem );
-  bool isCheckinWOChoiceSeats( int point_id );
+bool isCheckinWOChoiceSeats( int point_id );
 
 extern TPassengers Passengers;
 } // end namespace SEATS2

@@ -354,6 +354,7 @@ class paxsWaitListDescrSeat:public std::map<int, std::map<TSeat,std::string,Comp
   public:
     void get( int point_dep );
     std::string getDescr( const std::string &format, int pax_id );
+    void getDescr( int pax_id, std::vector<std::string> &res );
 };
 
 typedef std::map<TSeat,std::string,CompareSeat> paxDescrSeats;

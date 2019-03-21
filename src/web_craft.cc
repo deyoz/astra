@@ -373,7 +373,7 @@ namespace WebCraft {
     xmlNodePtr nodeViewCraft = NewTextChild( resNode, "ViewCraft" );
     ProgTrace( TRACE5, "FreeSubclsExists=%d", webCraft.FreeSubclsExists() );
     if ( isCheckinWOChoiceSeats( point_id ) ) {
-      NewTextChild(nodeViewCraft, "checkin_wo_choice_seats"); //!!!DJEK
+      NewTextChild(nodeViewCraft, "checkin_wo_choice_seats");
     }
 
     webCraft.toXML( nodeViewCraft );
