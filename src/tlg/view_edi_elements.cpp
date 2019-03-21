@@ -13,9 +13,6 @@
 #include <serverlib/dates_io.h>
 #include <serverlib/dates.h>
 
-#include <boost/lexical_cast.hpp>
-#include <boost/foreach.hpp>
-
 #define NICKNAME "ANTON"
 #define NICKTRACE ROMAN_TRACE
 #include <serverlib/slogger.h>
@@ -110,7 +107,7 @@ void viewUnhElement(_EDI_REAL_MES_STRUCT_* pMes, const UnhElem& elem)
     SetEdiComposite(pMes, CompElement("S010", 0));
     PushEdiPointW(pMes);
     SetEdiPointToCompositeW(pMes, CompElement("S010", 0));
-    std::string seqNum = boost::lexical_cast< std::string >(elem.m_seqNumber);
+    std::string seqNum = std::to_string(elem.m_seqNumber);
     SetEdiDataElem(pMes, DataElement(70, 0), StrUtils::LPad(seqNum, 2, '0'));
     SetEdiDataElem(pMes, DataElement(73, 0), UnhElem::seqFlagToStr(elem.m_seqFlag));
     PopEdiPointW(pMes);
@@ -182,7 +179,7 @@ void viewTdtElement(_EDI_REAL_MES_STRUCT_* pMes, const TdtElem& elem, int num)
 void viewLocElement(_EDI_REAL_MES_STRUCT_* pMes, const LocElem& elem, int num)
 {
     std::ostringstream loc;
-    loc << boost::lexical_cast< std::string >(elem.m_locQualifier) << "+" << elem.m_locName;
+    loc << std::to_string(elem.m_locQualifier) << "+" << elem.m_locName;
     if(!elem.m_relatedLocName1.empty()||
         !elem.m_relatedLocName2.empty())
     {
@@ -200,7 +197,7 @@ void viewLocElement(_EDI_REAL_MES_STRUCT_* pMes, const LocElem& elem, int num)
 void viewDtmElement(_EDI_REAL_MES_STRUCT_* pMes, const DtmElem& elem, int num)
 {
     std::ostringstream dtm;
-    dtm << boost::lexical_cast< std::string >(elem.m_dtmQualifier) << ":";
+    dtm << std::to_string(elem.m_dtmQualifier) << ":";
     std::string format = (elem.m_formatCode == "201" ? "yymmddhhnn" : "yymmdd");
     dtm << (elem.m_dateTime != ASTRA::NoExists ? DateTimeToStr(elem.m_dateTime, format) : "");
     dtm << ":" << elem.m_formatCode;
@@ -256,7 +253,7 @@ void viewDocElement(_EDI_REAL_MES_STRUCT_* pMes, const DocElem& elem, int num)
 void viewCntElement(_EDI_REAL_MES_STRUCT_* pMes, const CntElem& elem, int num)
 {
     std::ostringstream cnt;
-    cnt << boost::lexical_cast< std::string >(elem.m_cntType) << ":";
+    cnt << std::to_string(elem.m_cntType) << ":";
     cnt << elem.m_cnt;
     SetEdiFullSegment(pMes, SegmElement("CNT", num), cnt.str());
 }
@@ -407,7 +404,7 @@ void viewEqnElement(_EDI_REAL_MES_STRUCT_* pMes, const std::list<EqnElem>& lElem
     }
 
     std::ostringstream eqn;
-    BOOST_FOREACH(const EqnElem& elem, lElem)
+    for(const EqnElem& elem: lElem)
     {
         eqn << elem.m_numberOfUnits << ":";
         eqn << elem.m_qualifier << "+";
@@ -572,7 +569,7 @@ void viewPsiElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::ServiceDetails& se
 {
     std::ostringstream psi;
     psi << service.osi();
-    BOOST_FOREACH(const iatci::ServiceDetails::SsrInfo& ssr, service.lSsr())
+    for(const iatci::ServiceDetails::SsrInfo& ssr: service.lSsr())
     {
         psi << "+" << ssr.ssrCode() << ":";
         if(!ssr.airline().empty()) {
@@ -603,7 +600,7 @@ void viewPsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::SeatDetails& seat)
 {
     std::ostringstream psd;
     psd << seat.smokeIndAsString();
-    BOOST_FOREACH(const std::string& seatCharactesistic, seat.characteristics()) {
+    for(const std::string& seatCharactesistic: seat.characteristics()) {
         psd << ":" << seatCharactesistic;
     }
     psd << "+" << iatci::normSeatNum(seat.seat());
@@ -652,16 +649,28 @@ void viewPbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::BaggageDetails& ba
 void viewChdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::CascadeHostDetails& cascadeDetails)
 {
     std::ostringstream chd;
-    if(!cascadeDetails.originAirline().empty()) {
-        chd << BaseTables::Company(cascadeDetails.originAirline())->code(/*lang*/);
+    chd << "+";
+    if(!cascadeDetails.destAirline().empty()) {
+        chd << BaseTables::Company(cascadeDetails.destAirline())->code(/*lang*/);
     }
-    chd << ":";
-    if(!cascadeDetails.originPort().empty()) {
-        chd << BaseTables::Port(cascadeDetails.originPort())->code(/*lang*/);
+    chd << "+";
+    if(cascadeDetails.destFlightNum()) {
+        chd << cascadeDetails.destFlightNum();
     }
-
-    chd << "++++++++";
-    BOOST_FOREACH(const std::string& hostAirline, cascadeDetails.hostAirlines()) {
+    chd << "+";
+    if(!cascadeDetails.destFlightDate().is_special()) {
+        chd << Dates::rrmmdd(cascadeDetails.destFlightDate());
+    }
+    chd << "+";
+    if(!cascadeDetails.destDepPort().empty()) {
+        chd << BaseTables::Port(cascadeDetails.destDepPort())->code(/*lang*/);
+    }
+    chd << "+";
+    if(!cascadeDetails.destArrPort().empty()) {
+        chd << BaseTables::Port(cascadeDetails.destArrPort())->code(/*lang*/);
+    }
+    chd << "++";
+    for(const std::string& hostAirline: cascadeDetails.hostAirlines()) {
         chd << "H::" << BaseTables::Company(hostAirline)->code(/*lang*/) << "+";
     }
     SetEdiFullSegment(pMes, SegmElement("CHD"), chd.str());
@@ -758,7 +767,7 @@ void viewUsdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateSeatDetails&
 {
     std::ostringstream usd;
     usd << updSeat.smokeIndAsString();
-    BOOST_FOREACH(const std::string& seatCharactesistic, updSeat.characteristics()) {
+    for(const std::string& seatCharactesistic: updSeat.characteristics()) {
         usd << ":" << seatCharactesistic;
     }
     usd << "+" << iatci::normSeatNum(updSeat.seat());
@@ -862,7 +871,7 @@ void viewUapElement(_EDI_REAL_MES_STRUCT_* pMes, bool infant)
 void viewUsiElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::UpdateServiceDetails& updService)
 {
     std::ostringstream usi;
-    BOOST_FOREACH(const iatci::UpdateServiceDetails::UpdSsrInfo& ssr, updService.lSsr())
+    for(const iatci::UpdateServiceDetails::UpdSsrInfo& ssr: updService.lSsr())
     {
         usi << "+" << ssr.actionCodeAsString() << ":"
                    << ssr.ssrCode() << ":";
@@ -905,7 +914,7 @@ void viewCbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::CabinDetails& cabi
             << std::setfill('0') << std::setw(3) << cabinDetails.overwingArea()->lastRow();
     }
     cbd << "+";
-    BOOST_FOREACH(const iatci::SeatColumnDetails& seatColumn, cabinDetails.seatColumns()) {
+    for(const iatci::SeatColumnDetails& seatColumn: cabinDetails.seatColumns()) {
         cbd << iatci::normSeatLetter(seatColumn.column()) << ":"
             << seatColumn.desc1() << ":"
             << seatColumn.desc2() << "+";
@@ -918,10 +927,10 @@ void viewRodElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::RowDetails& rowDet
     std::ostringstream rod;
     rod << rowDetails.row() << "+";
     rod << rowDetails.characteristic() << "+";
-    BOOST_FOREACH(const iatci::SeatOccupationDetails& seatOccup, rowDetails.lOccupationDetails()) {
+    for(const iatci::SeatOccupationDetails& seatOccup: rowDetails.lOccupationDetails()) {
         rod << iatci::normSeatLetter(seatOccup.column())
             << ":" << seatOccup.occupation();
-        BOOST_FOREACH(const std::string& seatCharstc, seatOccup.lCharacteristics()) {
+        for(const std::string& seatCharstc: seatOccup.lCharacteristics()) {
             rod << ":" << seatCharstc;
         }
         rod << "+";

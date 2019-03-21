@@ -204,13 +204,7 @@ Result IatciSeatmapResultMaker::makeResult() const
 
     boost::optional<iatci::CascadeHostDetails> cascadeDetails;
     if(m_chd) {
-        cascadeDetails = iatci::CascadeHostDetails(m_chd->m_origAirline.empty() ? ""
-                                        : BaseTables::Company(m_chd->m_origAirline)->rcode(),
-                                                   m_chd->m_origPoint.empty() ? ""
-                                        : BaseTables::Port(m_chd->m_origPoint)->rcode());
-        BOOST_FOREACH(const std::string& hostAirline, m_chd->m_hostAirlines) {
-            cascadeDetails->addHostAirline(BaseTables::Company(hostAirline)->rcode());
-        }
+        // TODO
     }
 
     boost::optional<iatci::ErrorDetails> errorDetails;

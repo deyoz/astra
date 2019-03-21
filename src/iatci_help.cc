@@ -449,11 +449,7 @@ iatci::OriginatorDetails makeOrg(const edifact::LorElem& lor)
 
 iatci::CascadeHostDetails makeCascade(const edifact::ChdElem& chd)
 {
-    iatci::CascadeHostDetails cascade =
-            iatci::CascadeHostDetails(chd.m_origAirline.empty() ? ""
-                                          : BaseTables::Company(chd.m_origAirline)->rcode(),
-                                      chd.m_origPoint.empty() ? ""
-                                           : BaseTables::Port(chd.m_origPoint)->rcode());
+    iatci::CascadeHostDetails cascade;
     for(const auto& hostAirline: chd.m_hostAirlines) {
         cascade.addHostAirline(BaseTables::Company(hostAirline)->rcode());
     }
@@ -851,12 +847,6 @@ boost::optional<iatci::VisaDetails> makeVisa(const astra_api::astra_entities::Pa
     return boost::none;
 }
 
-boost::optional<iatci::CascadeHostDetails> makeCascade()
-{
-    // TODO
-    return boost::none;
-}
-
 iatci::UpdatePaxDetails makeUpdPax(const astra_api::astra_entities::PaxInfo& newPax,
                                    iatci::UpdateDetails::UpdateActionCode_e act)
 {
@@ -987,6 +977,16 @@ iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
                                 boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
                                 scd_brd_to_time,
                                 gate);
+}
+
+iatci::CascadeHostDetails makeCascade(const astra_api::xml_entities::XmlSegment& seg)
+{
+    auto fld = makeFlight(seg);
+    return iatci::CascadeHostDetails(fld.airline(),
+                                     fld.flightNum(),
+                                     fld.depDate(),
+                                     fld.depPort(),
+                                     fld.arrPort());
 }
 
 //---------------------------------------------------------------------------------------

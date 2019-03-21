@@ -37,6 +37,10 @@ public:
     int toNeg() const;
 
     static MagicTab fromNeg(int pt);
+
+protected:
+    static boost::optional<MagicTab> readById(int id);
+    static int genNextTabId();
 };
 
 //---------------------------------------------------------------------------------------
@@ -914,23 +918,31 @@ struct CascadeHostDetails
     friend class boost::serialization::access;
 
 protected:
-    std::string            m_originAirline;
-    std::string            m_originPort;
+    std::string            m_destAirline;
+    Ticketing::FlightNum_t m_destFlightNum;
+    boost::gregorian::date m_destFlightDate;
+    std::string            m_destDepPort;
+    std::string            m_destArrPort;
+
     std::list<std::string> m_hostAirlines;
 
 public:
-    CascadeHostDetails(const std::string& host);
-    CascadeHostDetails(const std::string& origAirl,
-                       const std::string& origPort);
+    CascadeHostDetails() {}
+    CascadeHostDetails(const std::string& destAirline,
+                       const Ticketing::FlightNum_t& destFlightNum,
+                       const boost::gregorian::date& destFlightDate,
+                       const std::string& destDepPort,
+                       const std::string& destArrPort);
 
-    const std::string&            originAirline() const;
-    const std::string&            originPort() const;
+    const std::string&            destAirline() const;
+    const Ticketing::FlightNum_t& destFlightNum() const;
+    const boost::gregorian::date& destFlightDate() const;
+    const std::string&            destDepPort() const;
+    const std::string&            destArrPort() const;
+
     const std::list<std::string>& hostAirlines() const;
 
     void addHostAirline(const std::string& hostAirline);
-
-protected:
-    CascadeHostDetails() {} // for boost serialization only
 };
 
 //---------------------------------------------------------------------------------------

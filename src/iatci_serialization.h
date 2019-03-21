@@ -1096,8 +1096,11 @@ public:
 
     iatci::CascadeHostDetails& get() { return *this; }
 
-    using iatci::CascadeHostDetails::m_originAirline;
-    using iatci::CascadeHostDetails::m_originPort;
+    using iatci::CascadeHostDetails::m_destAirline;
+    using iatci::CascadeHostDetails::m_destFlightNum;
+    using iatci::CascadeHostDetails::m_destFlightDate;
+    using iatci::CascadeHostDetails::m_destDepPort;
+    using iatci::CascadeHostDetails::m_destArrPort;
     using iatci::CascadeHostDetails::m_hostAirlines;
 };
 
@@ -1110,14 +1113,23 @@ template<class Archive>
 inline void save(Archive& ar, const iatci::CascadeHostDetails& par, const unsigned int version)
 {
     CascadeHostDetailsAccessor acc(par);
-    ar & acc.m_originAirline & acc.m_originPort & acc.m_hostAirlines;
+    unsigned flNum = acc.m_destFlightNum.get();
+    ar & flNum;
+    ar & acc.m_destAirline & acc.m_destFlightDate;
+    ar & acc.m_destDepPort & acc.m_destArrPort;
+    ar & acc.m_hostAirlines;
 }
 
 template<class Archive>
 inline void load(Archive& ar, iatci::CascadeHostDetails& par, const unsigned int version)
 {
     CascadeHostDetailsAccessor acc;
-    ar & acc.m_originAirline & acc.m_originPort & acc.m_hostAirlines;
+    unsigned flNum = 0;
+    ar & flNum;
+    acc.m_destFlightNum = Ticketing::FlightNum_t(flNum);
+    ar & acc.m_destAirline & acc.m_destFlightDate;
+    ar & acc.m_destDepPort & acc.m_destArrPort;
+    ar & acc.m_hostAirlines;
     par = acc.get();
 }
 

@@ -7,6 +7,7 @@
 #include "astra_msg.h"
 
 #include <serverlib/exception.h>
+#include <serverlib/cursctl.h>
 #include <etick/exceptions.h>
 
 #include <ostream>
@@ -23,29 +24,59 @@ using namespace Ticketing::TickExceptions;
 MagicTab MagicTab::fromNeg(int gt)
 {
     ASSERT(gt < 0);
-    /*const std::string pts = std::to_string(std::abs(gt));
-    std::string p = pts.substr(0, pts.length() - 1);
-    std::string t = pts.substr(pts.length() - 1);
-    LogTrace(TRACE5) << "gt: " << gt;
-    LogTrace(TRACE5) << "p: " << p;
-    LogTrace(TRACE5) << "t: " << t;
-    return MagicTab(std::atoi(p.c_str()), std::atoi(t.c_str()));*/
+    int val = std::abs(gt);
+    if(auto mt = readById(val)) {
+        return *mt;
+    }
 
-    return MagicTab(std::abs(gt), 1); // Hard Code до обновления терминала
+    return MagicTab(val, 1); // если вкладки нет в БД, то tabInd всегда равен 1
 }
 
 int MagicTab::toNeg() const
 {
-    /*std::ostringstream s;
-    s << "-";
-    s << m_grpId;
-    s << m_tabInd;
-    LogTrace(TRACE5) << "P: " << m_grpId;
-    LogTrace(TRACE5) << "T: " << m_tabInd;
-    LogTrace(TRACE5) << "GT: " << std::atoi(s.str().c_str());
-    return std::atoi(s.str().c_str());*/
+    int id = genNextTabId();
+    OciCpp::CursCtl cur = make_curs(
+"insert into IATCI_TABS(ID, GRP_ID, TAB_IND) values (:id, :grp_id, :tab_ind)");
 
-    return -m_grpId;
+    cur
+            .bind(":id",      id)
+            .bind(":grp_id",  m_grpId)
+            .bind(":tab_ind", m_tabInd)
+            .exec();
+    LogTrace(TRACE1) << "New iatci tab_id (-)" << id << " was generated "
+                     << "for grp_id:" << m_grpId << " and tab_ind:" << m_tabInd;
+    return -id;
+}
+
+boost::optional<MagicTab> MagicTab::readById(int id)
+{
+    OciCpp::CursCtl cur = make_curs(
+"select GRP_ID, TAB_IND from IATCI_TABS where ID=:id");
+
+    int grpId;
+    unsigned tabInd;
+
+    cur
+            .bind(":id", id)
+            .def(grpId)
+            .def(tabInd)
+            .EXfet();
+    if(cur.err() == NO_DATA_FOUND) {
+        LogTrace(TRACE1) << "Iatci tab " << id << " not found in DB!";
+        return boost::none;
+    }
+
+    return MagicTab(grpId, tabInd);
+}
+
+int MagicTab::genNextTabId()
+{
+    int id = 0;
+    OciCpp::CursCtl cur = make_curs(
+"select IATCI_TABS_SEQ.nextval from dual");
+    cur.def(id).EXfet();
+
+    return id;
 }
 
 //---------------------------------------------------------------------------------------
@@ -1233,25 +1264,41 @@ const std::list<RowDetails>& SeatmapDetails::lRow() const
 
 //---------------------------------------------------------------------------------------
 
-CascadeHostDetails::CascadeHostDetails(const std::string& host)
-{
-    m_hostAirlines.push_back(host);
-}
-
-CascadeHostDetails::CascadeHostDetails(const std::string& origAirl,
-                                       const std::string& origPort)
-    : m_originAirline(origAirl),
-      m_originPort(origPort)
+CascadeHostDetails::CascadeHostDetails(const std::string& destAirline,
+                                       const Ticketing::FlightNum_t& destFlightNum,
+                                       const boost::gregorian::date& destFlightDate,
+                                       const std::string& destDepPort,
+                                       const std::string& destArrPort)
+    : m_destAirline(destAirline),
+      m_destFlightNum(destFlightNum),
+      m_destFlightDate(destFlightDate),
+      m_destDepPort(destDepPort),
+      m_destArrPort(destArrPort)
 {}
 
-const std::string& CascadeHostDetails::originAirline() const
+const std::string& CascadeHostDetails::destAirline() const
 {
-    return m_originAirline;
+    return m_destAirline;
 }
 
-const std::string& CascadeHostDetails::originPort() const
+const Ticketing::FlightNum_t& CascadeHostDetails::destFlightNum() const
 {
-    return m_originPort;
+    return m_destFlightNum;
+}
+
+const boost::gregorian::date& CascadeHostDetails::destFlightDate() const
+{
+    return m_destFlightDate;
+}
+
+const std::string& CascadeHostDetails::destDepPort() const
+{
+    return m_destDepPort;
+}
+
+const std::string& CascadeHostDetails::destArrPort() const
+{
+    return m_destArrPort;
 }
 
 const std::list<std::string>& CascadeHostDetails::hostAirlines() const

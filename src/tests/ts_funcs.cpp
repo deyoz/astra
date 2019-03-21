@@ -489,6 +489,30 @@ static std::string FP_getSinglePaxTid(const std::vector<std::string>& p)
     return boost::lexical_cast<std::string>(paxSeg.passengers.front().tid);
 }
 
+static std::string FP_getIatciTabId(const std::vector<std::string>& p)
+{
+    assert(p.size() == 2);
+    int grpId = atoi(p.at(0).c_str());
+    unsigned tabInd = atoi(p.at(1).c_str());
+    int id;
+
+    OciCpp::CursCtl cur = make_curs(
+"select ID from IATCI_TABS where GRP_ID=:grp_id and TAB_IND=:tab_ind");
+
+    cur
+            .def(id)
+            .bind(":grp_id", grpId)
+            .bind(":tab_ind",tabInd)
+            .EXfet();
+
+    if(cur.err() == NO_DATA_FOUND) {
+        throw EXCEPTIONS::Exception("Iatci tab not found by grp_id=" + std::to_string(grpId)
+                                    + " and tab_ind=" + std::to_string(tabInd));
+    }
+
+    return std::to_string(id);
+}
+
 static std::string FP_getPointTid(const std::vector<std::string>& p)
 {
     assert(p.size() == 1);
@@ -604,6 +628,7 @@ FP_REGISTER("get_single_pax_id", FP_getSinglePaxId);
 FP_REGISTER("get_single_grp_id", FP_getSingleGrpId);
 FP_REGISTER("get_single_tid", FP_getSingleTid);
 FP_REGISTER("get_single_pax_tid",FP_getSinglePaxTid);
+FP_REGISTER("get_iatci_tab_id", FP_getIatciTabId);
 FP_REGISTER("get_point_tid", FP_getPointTid);
 FP_REGISTER("get_lat_code", FP_get_lat_code);
 FP_REGISTER("prepare_bp_printing", FP_prepare_bp_printing);

@@ -2463,8 +2463,496 @@ $(KICK_IN)
 
 %%
 #########################################################################################
-# ¸3 è‡Æ·¨Æ‚‡ ®≠‰Æ‡¨†Ê®® ØÆ Ø†··†¶®‡„ ØÆ grp_id
+# ¸3 ê•£®·‚‡†Ê®Ô ≠•·™Æ´Ï™®Â "Á„¶®Â" ·•£¨•≠‚Æ¢
 ###
+
+$(init)
+$(init_jxt_pult åéÇêéå)
+$(login)
+$(init_dcs ë7 TA OA)
+$(init_eds ûí UTET UTDC)
+
+
+$(PREPARE_FLIGHT_3 ûí 103 ÑåÑ èãä ë7 1027 èãä ëéó REPIN IVAN)
+
+$(set point_dep $(last_point_id_spp))
+$(set point_arv $(get_next_trip_point_id $(get point_dep)))
+$(set pax_id $(get_single_pax_id $(get point_dep) REPIN IVAN))
+
+$(OPEN_CHECKIN $(get point_dep))
+$(SAVE_ET_DISP $(get point_dep) 2986120030297)
+$(SAVE_PAX $(get pax_id) $(get point_dep) $(get point_arv) ûí 103 ÑåÑ èãä
+                                                           ë7 1027 èãä ëéó
+                                                           REPIN IVAN
+                                                           2986120030297 Çá)
+
+$(ETS_COS_EXCHANGE 2986120030297 1 CK)
+
+$(KICK_IN_SILENT)
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKI:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)+LED+AER++UT+103+$(yymmdd)++DME+LED"
+PPD+REPIN+A:N++IVAN"
+PRD+Y"
+PSD++007A"
+PBD+0"
+PSI++FOID::::::FOID PP7774441110+FQTV:S7:7788990011"
+UNT+9+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+S7+1027+$(yymmdd)1000+LED+AER++T"
+RAD+I+O"
+PPD+REPIN+A+0013929620+IVAN"
+PFD+005A+:ù"
+PSI++TKNE::29861200302972"
+PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
+FDR+SU+1033+$(yymmdd)1700+AER+SVO++T"
+RAD+I+O"
+PPD+REPIN+A+0013929629+IVAN"
+PFD+005A+:ù"
+PSI++TKNE::29861200302973"
+PAP+:::860310:::RUS++PP:5408123432:RUS:::491231:M::::::REPIN:IVAN"
+UNT+12+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+
+$(KICK_IN)
+
+>> lines=auto
+    <segments>
+      <segment>
+        <tripheader>
+          <flight>ûí103 ÑåÑ</flight>
+          <flight_short>ûí103...
+          <airline>ûí</airline>
+          <aircode>298</aircode>
+          <flt_no>103</flt_no>
+          <suffix/>
+          <airp>ÑåÑ</airp>
+          <scd_out_local>$(date_format %d.%m.%Y +0) 10:15:00</scd_out_local>
+          <pr_etl_only>0</pr_etl_only>
+          <pr_etstatus>0</pr_etstatus>
+          <pr_no_ticket_check>0</pr_no_ticket_check>
+          <pr_auto_pt_print>0</pr_auto_pt_print>
+          <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
+          <use_jmp>0</use_jmp>
+        </tripheader>
+        <tripdata>
+          <airps>
+            <airp>
+              <point_id>$(get point_arv)</point_id>
+              <airp_code>èãä</airp_code>
+              <city_code>ëèí</city_code>
+              <target_view>ëÄçäí-èÖíÖêÅìêÉ (èãä)</target_view>
+              <check_info>
+                <pass>
+                  <doc/>
+                  <doco/>
+                  <doca_b/>
+                  <doca_r/>
+                  <doca_d/>
+                  <tkn/>
+                </pass>
+                <crew>
+                  <doc/>
+                  <doco/>
+                  <doca_b/>
+                  <doca_r/>
+                  <doca_d/>
+                  <tkn/>
+                </crew>
+              </check_info>
+            </airp>
+          </airps>
+          <classes>
+            <class>
+              <code>ù</code>
+              <class_view>ùäéçéå</class_view>
+              <cfg>52</cfg>
+            </class>
+          </classes>
+          <gates/>
+          <halls>
+            <hall>
+              <id>1</id>
+              <name>á†´ 1</name>
+            </hall>
+            <hall>
+              <id>0</id>
+              <name>Ñ‡.</name>
+            </hall>
+            <hall>
+              <id>1141</id>
+              <name>VIP</name>
+            </hall>
+            <hall>
+              <id>1439</id>
+              <name>è†¢. ¢Æ™ß.</name>
+            </hall>
+            <hall>
+              <id>39706</id>
+              <name>·„Ø•‡ ß†´</name>
+            </hall>
+          </halls>
+          <mark_flights>
+            <flight>
+              <airline>ûí</airline>
+              <flt_no>103</flt_no>
+              <suffix/>
+              <scd>$(date_format %d.%m.%Y +0) 10:15:00</scd>
+              <airp_dep>ÑåÑ</airp_dep>
+              <pr_mark_norms>0</pr_mark_norms>
+            </flight>
+          </mark_flights>
+        </tripdata>
+        <grp_id>...
+        <point_dep>$(get point_dep)</point_dep>
+        <airp_dep>ÑåÑ</airp_dep>
+        <point_arv>$(get point_arv)</point_arv>
+        <airp_arv>èãä</airp_arv>
+        <class>ù</class>
+        <status>K</status>
+        <bag_refuse/>
+        <bag_types_id>...
+        <piece_concept>0</piece_concept>
+        <tid>...
+        <show_ticket_norms>0</show_ticket_norms>
+        <show_wt_norms>1</show_wt_norms>
+        <city_arv>ëèí</city_arv>
+        <mark_flight>
+          <airline>ûí</airline>
+          <flt_no>103</flt_no>
+          <suffix/>
+          <scd>$(date_format %d.%m.%Y +0) 00:00:00</scd>
+          <airp_dep>ÑåÑ</airp_dep>
+          <pr_mark_norms>0</pr_mark_norms>
+        </mark_flight>
+        <passengers>
+          <pax>
+            <pax_id>$(get pax_id)</pax_id>
+            <surname>REPIN</surname>
+            <name>IVAN</name>
+            <pers_type>Çá</pers_type>
+            <crew_type/>
+            <seat_no>1A</seat_no>
+            <seat_type/>
+            <seats>1</seats>
+            <refuse/>
+            <reg_no>1</reg_no>
+            <subclass>ù</subclass>
+            <bag_pool_num/>
+            <tid>...
+            <ticket_no>2986120030297</ticket_no>
+            <coupon_no>1</coupon_no>
+            <ticket_rem>TKNE</ticket_rem>
+            <ticket_confirm>1</ticket_confirm>
+            <document>
+              <type>P</type>
+              <issue_country>RUS</issue_country>
+              <no>7774441110</no>
+              <nationality>RUS</nationality>
+              <birth_date>01.05.1976 00:00:00</birth_date>
+              <gender>M</gender>
+              <surname>REPIN</surname>
+              <first_name>IVAN</first_name>
+            </document>
+            <ticket_bag_norm>≠•‚</ticket_bag_norm>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <service_lists>
+              <service_list seg_no='0' category='1'...
+              <service_list seg_no='0' category='2'...
+              <service_list seg_no='1' category='1'...
+              <service_list seg_no='1' category='2'...
+              <service_list seg_no='2' category='1'...
+              <service_list seg_no='2' category='2'...
+            </service_lists>
+            <rems>
+              <rem>
+                <rem_code>FOID</rem_code>
+                <rem_text>FOID PP7774441110</rem_text>
+              </rem>
+            </rems>
+            <asvc_rems/>
+            <fqt_rems/>
+            <norms/>
+          </pax>
+        </passengers>
+        <paid_bag_emd/>
+        <tripcounters>
+          <item>
+            <point_arv>$(get point_arv)</point_arv>
+            <class>...
+            <noshow>...
+            <trnoshow>...
+            <show>...
+            <free_ok>...
+            <free_goshow>...
+            <nooccupy>...
+          </item>
+        </tripcounters>
+        <load_residue/>
+      </segment>
+      <segment>
+        <tripheader>
+          <flight>ë71027...
+          <airline>ë7</airline>
+          <aircode>421</aircode>
+          <flt_no>1027</flt_no>
+          <suffix/>
+          <airp>èãä</airp>
+          <scd_out_local>$(date_format %d.%m.%Y +0) 10:00:00</scd_out_local>
+          <scd_brd_to_local/>
+          <remote_gate/>
+          <pr_etl_only>0</pr_etl_only>
+          <pr_etstatus>0</pr_etstatus>
+          <pr_no_ticket_check>0</pr_no_ticket_check>
+          <pr_auto_pt_print>0</pr_auto_pt_print>
+          <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
+          <use_jmp>0</use_jmp>
+        </tripheader>
+        <tripdata>
+          <airps>
+            <airp>
+              <point_id>-1</point_id>
+              <airp_code>ëéó</airp_code>
+              <city_code>ëéó</city_code>
+              <target_view>ëéóà (ëéó)</target_view>
+              <check_info>
+                <pass/>
+                <crew/>
+              </check_info>
+            </airp>
+          </airps>
+          <classes/>
+          <gates/>
+          <halls/>
+          <mark_flights/>
+        </tripdata>
+        <grp_id>-1</grp_id>
+        <point_dep>...
+        <airp_dep>èãä</airp_dep>
+        <point_arv>-1</point_arv>
+        <airp_arv>ëéó</airp_arv>
+        <class/>
+        <status>K</status>
+        <bag_refuse/>
+        <piece_concept>0</piece_concept>
+        <tid>0</tid>
+        <city_arv>ëéó</city_arv>
+        <passengers>
+          <pax>
+            <pax_id>-1</pax_id>
+            <surname>REPIN</surname>
+            <name>IVAN</name>
+            <pers_type>Çá</pers_type>
+            <refuse/>
+            <bag_pool_num/>
+            <tid>0</tid>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <seat_no>xx</seat_no>
+            <reg_no/>
+            <seat_type/>
+            <seats>1</seats>
+            <subclass>ù</subclass>
+            <ticket_no>2986120030297</ticket_no>
+            <coupon_no>2</coupon_no>
+            <ticket_rem>TKNE</ticket_rem>
+            <ticket_confirm>1</ticket_confirm>
+            <rems/>
+            <fqt_rems/>
+            <document>
+              <type>PP</type>
+              <issue_country>RUS</issue_country>
+              <no>5408123432</no>
+              <nationality>RUS</nationality>
+              <birth_date>10.03.1986 00:00:00</birth_date>
+              <gender>M</gender>
+              <surname>REPIN</surname>
+              <first_name>IVAN</first_name>
+              <expiry_date>31.12.2049 00:00:00</expiry_date>
+            </document>
+            <addresses/>
+            <doco/>
+            <iatci_pax_id>0013929620</iatci_pax_id>
+            <iatci_parent_pax_id/>
+          </pax>
+        </passengers>
+        <paid_bag_emd/>
+        <tripcounters/>
+        <load_residue/>
+      </segment>
+      <segment>
+        <tripheader>
+          <flight>ëì1033...
+          <airline>ëì</airline>
+          <aircode>555</aircode>
+          <flt_no>1033</flt_no>
+          <suffix/>
+          <airp>ëéó</airp>
+          <scd_out_local>$(date_format %d.%m.%Y +0) 17:00:00</scd_out_local>
+          <scd_brd_to_local/>
+          <remote_gate/>
+          <pr_etl_only>0</pr_etl_only>
+          <pr_etstatus>0</pr_etstatus>
+          <pr_no_ticket_check>0</pr_no_ticket_check>
+          <pr_auto_pt_print>0</pr_auto_pt_print>
+          <pr_auto_pt_print_reseat>0</pr_auto_pt_print_reseat>
+          <use_jmp>0</use_jmp>
+        </tripheader>
+        <tripdata>
+          <airps>
+            <airp>
+              <point_id>-1</point_id>
+              <airp_code>òêå</airp_code>
+              <city_code>åéÇ</city_code>
+              <target_view>åéëäÇÄ (òêå)</target_view>
+              <check_info>
+                <pass/>
+                <crew/>
+              </check_info>
+            </airp>
+          </airps>
+          <classes/>
+          <gates/>
+          <halls/>
+          <mark_flights/>
+        </tripdata>
+        <grp_id>-1</grp_id>
+        <point_dep>...
+        <airp_dep>ëéó</airp_dep>
+        <point_arv>-1</point_arv>
+        <airp_arv>òêå</airp_arv>
+        <class/>
+        <status>K</status>
+        <bag_refuse/>
+        <piece_concept>0</piece_concept>
+        <tid>0</tid>
+        <city_arv>åéÇ</city_arv>
+        <passengers>
+          <pax>
+            <pax_id>-1</pax_id>
+            <surname>REPIN</surname>
+            <name>IVAN</name>
+            <pers_type>Çá</pers_type>
+            <refuse/>
+            <bag_pool_num/>
+            <tid>0</tid>
+            <pr_norec>0</pr_norec>
+            <pr_bp_print>0</pr_bp_print>
+            <pr_bi_print>0</pr_bi_print>
+            <seat_no>xx</seat_no>
+            <reg_no/>
+            <seat_type/>
+            <seats>1</seats>
+            <subclass>ù</subclass>
+            <ticket_no>2986120030297</ticket_no>
+            <coupon_no>3</coupon_no>
+            <ticket_rem>TKNE</ticket_rem>
+            <ticket_confirm>1</ticket_confirm>
+            <rems/>
+            <fqt_rems/>
+            <document>
+              <type>PP</type>
+              <issue_country>RUS</issue_country>
+              <no>5408123432</no>
+              <nationality>RUS</nationality>
+              <birth_date>10.03.1986 00:00:00</birth_date>
+              <gender>M</gender>
+              <surname>REPIN</surname>
+              <first_name>IVAN</first_name>
+              <expiry_date>31.12.2049 00:00:00</expiry_date>
+            </document>
+            <addresses/>
+            <doco/>
+            <iatci_pax_id>0013929629</iatci_pax_id>
+            <iatci_parent_pax_id/>
+          </pax>
+        </passengers>
+        <paid_bag_emd/>
+        <tripcounters/>
+        <load_residue/>
+      </segment>
+    </segments>
+
+
+$(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
+$(set tab_id $(get_iatci_tab_id $(get grp_id) 2))
+
+
+!! err=ignore
+{<?xml version='1.0' encoding='CP866'?>
+<term>
+  <query handle='0' id='salonform' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
+    <Reseat>
+      <trip_id>-$(get tab_id)</trip_id>
+      <pax_id>-1</pax_id>
+      <xname>A</xname>
+      <yname>4</yname>
+      <tid>0</tid>
+      <question_reseat/>
+    </Reseat>
+  </query>
+</term>}
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQCKU:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+CHD++SU+1033+$(yymmdd)+AER+SVO"
+FDQ+S7+1027+$(yymmdd)1000+LED+AER"
+PPD+REPIN+A:N+0013929629+IVAN"
+USD++004A"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRCKA:96:2:IA+$(last_edifact_ref)"
+FDR+S7+1027+$(yymmdd)1000+LED+AER++T"
+RAD+U+O"
+PPD+REPIN+A:N+0013929629+IVAN"
+PFD+004A"
+UNT+5+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(KICK_IN_SILENT)
+
+>>
+UNB+SIRE:1+OA+TA+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
+UNH+1+DCQSMF:94:1:IA+$(last_edifact_ref)"
+LOR+UT:DME"
+FDQ+S7+1027+$(yymmdd)1000+LED+AER"
+SRP+Y"
+CHD++SU+1033+$(yymmdd)+AER+SVO"
+UNT+6+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+<<
+UNB+SIRE:1+TA+OA+151027:1527+$(last_edifact_ref)0001+++T"
+UNH+1+DCRSMF:96:2:IA+$(last_edifact_ref)"
+FDR+S7+1027+$(yymmdd)1000+LED+AER"
+RAD+S+O"
+EQD++++++D09"
+CBD+F+3:6+++F++A:W+B:A+E:A+F:W"
+ROD+3++A::K+B::K+E::K+F::K"
+ROD+6++A+B:O+E+F"
+UNT+7+1"
+UNZ+1+$(last_edifact_ref)0001"
+
+$(KICK_IN)
+
+>> lines=auto
+      <update_salons RFISCMode='0'>
 
 
 %%
@@ -3687,14 +4175,14 @@ UNZ+1+$(last_edifact_ref)0001"
 $(KICK_IN_SILENT)
 
 $(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
-
+$(set tab_id $(get_iatci_tab_id $(get grp_id) 1))
 
 !! err=ignore
 {<?xml version='1.0' encoding='CP866'?>
 <term>
   <query handle='0' id='salonform' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <Show>
-      <trip_id>-$(get grp_id)</trip_id>
+      <trip_id>-$(get tab_id)</trip_id>
     </Show>
   </query>
 </term>}
@@ -3723,13 +4211,15 @@ UNZ+1+$(last_edifact_ref)0001"
 !! err=$(utf8 "ç•¢•‡≠Î© ‡•©·/§†‚†")
 $(lastRedisplay)
 
+$(set tab_id $(get_iatci_tab_id $(get grp_id) 1))
+
 
 !! err=ignore
 {<?xml version='1.0' encoding='CP866'?>
 <term>
   <query handle='0' id='salonform' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <Show>
-      <trip_id>-$(get grp_id)</trip_id>
+      <trip_id>-$(get tab_id)</trip_id>
     </Show>
   </query>
 </term>}
@@ -3913,12 +4403,15 @@ $(KICK_IN)
     </data>
 
 
+$(set tab_id $(get_iatci_tab_id $(get grp_id) 1))
+
+
 !! err=ignore
 {<?xml version='1.0' encoding='CP866'?>
 <term>
   <query handle='0' id='salonform' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <Reseat>
-      <trip_id>-$(get grp_id)</trip_id>
+      <trip_id>-$(get tab_id)</trip_id>
       <pax_id>-1</pax_id>
       <xname>A</xname>
       <yname>6</yname>
@@ -4932,6 +5425,8 @@ $(KICK_IN)
 
 $(set grp_id $(get_single_grp_id $(get point_dep) REPIN IVAN))
 $(set tid $(get_single_tid $(get point_dep) REPIN IVAN))
+$(set tab_id $(get_iatci_tab_id $(get grp_id) 1))
+
 
 $(dump_table GRP_IATCI_XML)
 
@@ -4942,7 +5437,7 @@ $(dump_table GRP_IATCI_XML)
 <term>
   <query handle='0' id='salonform' ver='1' opr='PIKE' screen='AIR.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <Reseat>
-      <trip_id>-$(get grp_id)</trip_id>
+      <trip_id>-$(get tab_id)</trip_id>
       <pax_id>-2</pax_id>
       <xname>A</xname>
       <yname>6</yname>

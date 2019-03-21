@@ -1314,7 +1314,7 @@ static iatci::CkiParams getCkiParams(xmlNodePtr reqNode)
     }
 
     return iatci::CkiParams(iatci::makeOrg(lastOwnSeg),
-                            iatci::makeCascade(),
+                            boost::none,
                             iatci::dcqcki::FlightGroup(iatci::makeFlight(firstEdiTab.seg()),
                                                        makeOwnFlight(lastOwnSeg.m_pointDep, lastOwnSeg.m_pointArv),
                                                        lPaxGrp));
@@ -1549,7 +1549,7 @@ static iatci::CkxParams getCkxParams(xmlNodePtr reqNode)
     }
 
     return iatci::CkxParams(makeOrg(ownGrpId),
-                            makeCascade(),
+                            boost::none,
                             iatci::dcqckx::FlightGroup(iatci::makeFlight(firstReqTab.seg()),
                                                        makeOwnFlight(ownGrpId),
                                                        lPaxGrp));
@@ -1623,6 +1623,11 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
         infant = iatci::makeQryPax(*inft);
     }
 
+    boost::optional<iatci::CascadeHostDetails> cascade;
+    if(magicTab.tabInd() > 1) {
+        cascade = iatci::makeCascade(oldIatciTab.xmlSeg());
+    }
+
     std::list<iatci::dcqcku::PaxGroup> lPaxGrp;
     lPaxGrp.push_back(iatci::dcqcku::PaxGroup(iatci::makeQryPax(*paxOpt, inft),
                                               boost::none, // Reserv
@@ -1639,7 +1644,7 @@ static iatci::CkuParams getSeatUpdateParams(xmlNodePtr reqNode)
                                               ));
 
     return iatci::CkuParams(makeOrg(ownGrpId),
-                            boost::none,
+                            cascade,
                             iatci::dcqcku::FlightGroup(iatci::makeFlight(oldIatciTabs.tabs().front().xmlSeg()),
                                                        makeOwnFlight(ownGrpId),
                                                        lPaxGrp));
@@ -2039,9 +2044,16 @@ static iatci::SmfParams getSmfParams(int magicId)
     XmlCheckInTabs oldIatciTabs(findNodeR(oldXmlDoc.docPtr()->children, "segments"));
     const XmlCheckInTab& oldIatciTab = oldIatciTabs.tabs().at(magicTab.tabInd() - 1);
 
+    boost::optional<CascadeHostDetails> cascade;
+    if(magicTab.tabInd() > 1) {
+        cascade = iatci::makeCascade(oldIatciTab.xmlSeg());
+    }
+
     return iatci::SmfParams(makeOrg(magicTab.grpId()),
                             iatci::makeSeatReq(oldIatciTab.xmlSeg()),
-                            iatci::makeFlight(oldIatciTab.xmlSeg()));
+                            iatci::makeFlight(oldIatciTabs.tabs().front().xmlSeg()),
+                            boost::none,
+                            cascade);
 }
 
 static iatci::SmfParams getSmfParams(xmlNodePtr reqNode)

@@ -106,7 +106,6 @@ boost::optional<iatci::DocDetails>         makeDoc(const astra_api::astra_entiti
 iatci::AddressDetails::AddrInfo            makeAddrInfo(const astra_api::astra_entities::AddressInfo& address);
 boost::optional<iatci::AddressDetails>     makeAddress(const astra_api::astra_entities::PaxInfo& pax);
 boost::optional<iatci::VisaDetails>        makeVisa(const astra_api::astra_entities::PaxInfo& pax);
-boost::optional<iatci::CascadeHostDetails> makeCascade();
 
 iatci::UpdatePaxDetails makeUpdPax(const astra_api::astra_entities::PaxInfo& newPax,
                                    iatci::UpdateDetails::UpdateActionCode_e act);
@@ -126,6 +125,7 @@ iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::BagP
 
 iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
                                 bool readAdditionals = false);
+iatci::CascadeHostDetails makeCascade(const astra_api::xml_entities::XmlSegment& seg);
 boost::optional<iatci::SeatRequestDetails> makeSeatReq(const astra_api::xml_entities::XmlSegment& seg);
 //---------------------------------------------------------------------------------------
 

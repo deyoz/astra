@@ -149,7 +149,7 @@ static boost::optional<CkuParams> makeFakeCkuParamsWithBaggage(const astra_api::
     
     if(!ckuPaxGroups.empty()) {
         return CkuParams(iatci::makeOrg(xmlSeg.toSeg()),
-                         iatci::makeCascade(),
+                         boost::none,
                          dcqcku::FlightGroup(iatci::makeFlight(xmlSeg.toSeg()),
                                              boost::none,
                                              ckuPaxGroups));
