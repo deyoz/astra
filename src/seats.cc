@@ -403,7 +403,7 @@ struct TCondRate {
     SeatsStat.start(__FUNCTION__);
     pr_web = apr_pay;
     use_rate = ( client_type == ctTerm || client_type == ctPNL ||
-                 (client_type == ctKiosk && isCheckinWOChoiceSeats( Salons.trip_id ))  );
+                 isCheckinWOChoiceSeats( Salons.trip_id ) );
     ProgTrace( TRACE5, "TCondRate::Init use_rate=%d", use_rate);
     rates.clear();
     ignore_rate = false;
@@ -5308,19 +5308,15 @@ bool TPassengers::existsNoSeats()
   return false;
 }
 
-  bool isCheckinWOChoiceSeats( int point_id )
-  {
-    if ( TReqInfo::Instance()->client_type == ctKiosk ) {
-      TCachedQuery Qry("SELECT airline, flt_no, suffix, airp, scd_out FROM points WHERE point_id=:point_id AND pr_del>=0",
-                   QParams() << QParam("point_id", otInteger, point_id));
-      Qry.get().Execute();
-      if (Qry.get().Eof) return false;
-      TTripInfo info(Qry.get());
-      return GetTripSets( tsKioskCheckinOnPaidSeat, info );
-    }
-    return false;
-  }
-
+bool isCheckinWOChoiceSeats( int point_id )
+{
+  TCachedQuery Qry("SELECT airline, flt_no, suffix, airp, scd_out FROM points WHERE point_id=:point_id AND pr_del>=0",
+               QParams() << QParam("point_id", otInteger, point_id));
+  Qry.get().Execute();
+  if (Qry.get().Eof) return false;
+  TTripInfo info(Qry.get());
+  return GetSelfCkinSets( tsKioskCheckinOnPaidSeat, info, TReqInfo::Instance()->client_type );
+}
 
 TPassengers Passengers;
 
