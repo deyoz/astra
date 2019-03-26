@@ -6,31 +6,12 @@ $(defmacro ETS_COS_EXCHANGE
     tickno
     cpnno
     status
-    pult=‚
 {
 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::xx+$(pult)"
-EQN+1:TD"
-TKT+$(tickno):T"
-CPN+$(cpnno):$(status)"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-# ®βΆ¥β ®β ‘
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ’ $(tickno) $(cpnno) $(status))
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+$(tickno):T::3"
-CPN+$(cpnno):$(status)::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref) $(tickno) $(cpnno) $(status))
 
 }) #end-of-macro
 
@@ -43,7 +24,7 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 
 # § ―ΰ®α ª €αβΰ¥
@@ -60,7 +41,7 @@ PSI++FQTV:UT:1017820380"
 UNT+8+1"
 UNZ+1+ASTRA000660001"
 
-$(ETS_COS_EXCHANGE 2982401841689 1 CK IATCIP)
+$(ETS_COS_EXCHANGE 2982401841689 1 CK)
 
 # ®βΆ¥β ®β €αβΰλ
 >>
@@ -88,7 +69,7 @@ $(login)
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 
 # § ―ΰ®α ª €αβΰ¥
@@ -107,19 +88,10 @@ UNZ+1+ASTRA000660001"
 
 # ―®θρ« § ―ΰ®α Ά ‘ ­  α¬¥­γ αβ βγα  ¨§  αβΰλ
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ’ 2982401841689 1 CK)
 
 
-# TODO §¤¥αμ ­γ¦­® αν¬γ«¨ΰ®Ά βμ β ©¬ γβ ®βΆ¥β  ‘
+# ν¬γ«οζ¨ο β ©¬ γβ  ®βΆ¥β  ‘
 $(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
 $(run_daemon edi_timeout)
 
@@ -150,30 +122,11 @@ UNT+8+1"
 UNZ+1+ASTRA000670001"
 
 
-
 # ―®θρ« § ―ΰ®α Ά ‘ ­  α¬¥­γ αβ βγα  ¨§  αβΰλ
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-# ®βΆ¥β ®β ‘
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ’ 2982401841689 1 CK)
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841689:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref) 2982401841689 1 CK)
 
 
 >>
@@ -205,27 +158,9 @@ UNZ+1+ASTRA000680001"
 
 # ―®θ«¨ Ά ‘ ®βª βλΆ βμ αβ βγα ªγ―®­ 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:I"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-# ®βΆ¥β ®β ‘
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ’ 2982401841689 1 I)
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841689:T::3"
-CPN+1:I::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref) 2982401841689 1 I)
 
 
 # ®βΆ¥β ­  ®β¬¥­γ ¨§ €αβΰλ
@@ -274,26 +209,10 @@ UNZ+1+ASTRA000670001"
 
 # ―®θρ« § ―ΰ®α Ά ‘ ­  α¬¥­γ αβ βγα  ¨§  αβΰλ
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-# ®βΆ¥β ®β ‘
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ’ 2982401841689 1 CK)
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+7"
-ERC+396"
-IFT+3+…‚…›‰ ‘’€’“‘ ‹…’€/“€"
-UNT+5+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS_ERR UTET UTDC $(last_edifact_ref) 396 "…‚…›‰ ‘’€’“‘ ‹…’€/“€")
+
 
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000670001+++T"
@@ -315,7 +234,7 @@ $(login)
 $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 # PLF ¤® ΰ¥£¨αβΰ ζ¨¨
 <<
@@ -350,7 +269,7 @@ PBD+0"
 UNT+8+1"
 UNZ+1+ASTRA000660001"
 
-$(ETS_COS_EXCHANGE 2982401841689 1 CK IATCIP)
+$(ETS_COS_EXCHANGE 2982401841689 1 CK)
 
 # ®βΆ¥β ®β €αβΰλ
 >>
@@ -411,7 +330,7 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 
 # § ―ΰ®α ª €αβΰ¥
@@ -428,7 +347,7 @@ UNT+8+1"
 UNZ+1+ASTRA000660001"
 
 
-$(ETS_COS_EXCHANGE 2982401841689 1 CK IATCIP)
+$(ETS_COS_EXCHANGE 2982401841689 1 CK)
 
 
 # ®βΆ¥β ®β €αβΰλ
@@ -530,7 +449,7 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 # § ―ΰ®α ª €αβΰ¥
 <<
@@ -561,7 +480,7 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 # § ―ΰ®α ª €αβΰ¥
 <<
@@ -576,7 +495,7 @@ PBD+0"
 UNT+8+1"
 UNZ+1+ASTRA000660001"
 
-$(ETS_COS_EXCHANGE 2982401841689 1 CK IATCIP)
+$(ETS_COS_EXCHANGE 2982401841689 1 CK)
 
 # ®βΆ¥β ®β €αβΰλ
 >>
@@ -629,7 +548,7 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 # § ―ΰ®α ª €αβΰ¥
 <<
@@ -644,7 +563,7 @@ PBD+0"
 UNT+8+1"
 UNZ+1+ASTRA000660001"
 
-$(ETS_COS_EXCHANGE 2982401841689 1 CK IATCIP)
+$(ETS_COS_EXCHANGE 2982401841689 1 CK)
 
 # ®βΆ¥β ®β €αβΰλ
 >>
@@ -774,7 +693,7 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 
 # § ―ΰ®α ª €αβΰ¥
@@ -791,7 +710,7 @@ UNT+8+1"
 UNZ+1+ASTRA000660001"
 
 
-$(ETS_COS_EXCHANGE 2982401841689 1 CK IATCIP)
+$(ETS_COS_EXCHANGE 2982401841689 1 CK)
 
 
 # ®βΆ¥β ®β €αβΰλ
@@ -821,28 +740,7 @@ DEL
 1REPIN/IVAN
 ENDIFM
 
->>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:I"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-# ®βΆ¥β ®β ‘
-<<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841689:T::3"
-CPN+1:I::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(ETS_COS_EXCHANGE 2982401841689 1 I)
 
 
 %%
@@ -855,9 +753,9 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
-                   REPIN IVAN 2982401841689 1
-                   PETROV PETR 2982401841612 1)
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+                                           REPIN IVAN 2982401841689 1
+                                           PETROV PETR 2982401841612 1)
 
 
 # § ―ΰ®α ª €αβΰ¥
@@ -875,56 +773,24 @@ PSD+N"
 UNT+12+1"
 UNZ+1+ASTRA000660001"
 
-
+# ¨¤ρ¬ Ά ‘
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841612:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref 1)0001"
-
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 1) ’ 2982401841612 1 CK)
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 0) ’ 2982401841689 1 CK)
 
 # ®¤¨­ ®βΆ¥β ―ΰ¨θρ«, ¤ΰγ£®© § β ©¬ γβ¨«αο
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841689:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref) 2982401841689 1 CK)
+
 
 $(sql {update EDISESSION_TIMEOUTS set time_out = sysdate - 1})
 $(run_daemon edi_timeout)
 
-
 # ®ª β γα―¥θ­®© α¬¥­λ αβ βγα 
->> lines=auto
-MSG+:142"
-ORG+1H:‚+++’+Y+::xx+xxxxxx"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:I"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
+>>
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ’ 2982401841689 1 I)
 
-$(dump_table EDISESSION fields="OURREF")
 
 >>
 UNB+SIRE:1+DCS2+DCS1+xxxxxx:xxxx+ASTRA000660001+++T"
@@ -946,9 +812,9 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
-                   REPIN IVAN 2982401841689 1
-                   REPIN PETR 2982401841612 1)
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+                                           REPIN IVAN 2982401841689 1
+                                           REPIN PETR 2982401841612 1)
 
 
 $(deny_ets_interactive ’ 103 „„)
@@ -993,7 +859,7 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    REPIN IVAN 2982401841689 1
                    REPIN IVAN 2982401841612 1)
 
@@ -1053,7 +919,7 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    REPIN IVAN 2982401841689 1
                    PETROV PETR 2982401841612 1)
 
@@ -1076,29 +942,12 @@ UNT+12+1"
 UNZ+1+ASTRA000660001"
 
 
+# § ―ΰ®αλ Ά ‘
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841612:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref 1)0001"
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 1) ’ 2982401841612 1 CK)
+>>
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 0) ’ 2982401841689 1 CK)
 
->>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
 
 # ­¥ ―®«γη¨«¨ ­¨ ®¤­®£® ®βΆ¥β  ®β ‘
 
@@ -1126,9 +975,9 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
-                   REPIN IVAN 2982401841689 1
-                   PETROV PETR 2982401841612 1)
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+                                           REPIN IVAN 2982401841689 1
+                                           PETROV PETR 2982401841612 1)
 
 
 # § ―ΰ®α ª €αβΰ¥
@@ -1149,52 +998,20 @@ UNT+12+1"
 UNZ+1+ASTRA000660001"
 
 
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
+
+# § ―ΰ®αλ Ά ‘
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841612:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref 1)0001"
-
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841612 1 CK)
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841689 1 CK)
 
 
-# ®βΆ¥β ΰ §
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841689:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-# ®βΆ¥β ¤Ά 
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982401841689 1 CK)
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841612:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982401841612 1 CK)
 
 
 >>
@@ -1258,31 +1075,11 @@ UNT+6+1"
 UNZ+1+ASTRA000680001"
 
 
-
 # ―®θ«¨ ®βª βλΆ βμ αβ βγαλ
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841612:T"
-CPN+1:I"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref 1)0001"
-
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 1) ’ 2982401841612 1 I)
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:I"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 0) ’ 2982401841689 1 I)
 
 
 # ­¥ ―®«γη¨«¨ ­¨ ®¤­®£® ®βΆ¥β  ®β ‘
@@ -1336,52 +1133,20 @@ UNZ+1+ASTRA000680001"
 
 
 # ―®θ«¨ ®βª βλΆ βμ αβ βγαλ
->>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841612:T"
-CPN+1:I"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref 1)0001"
+
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:I"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841612 1 I)
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841689 1 I)
 
 
-# ®βΆ¥β ΰ §
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841689:T::3"
-CPN+1:I::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-# ®βΆ¥β ¤Ά 
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982401841689 1 I)
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841612:T::3"
-CPN+1:I::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982401841612 1 I)
 
 
 >>
@@ -1425,7 +1190,7 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    REPIN IVAN 2982401841689 1
                    PETROV PETR 2982401841612 1)
 
@@ -1542,7 +1307,7 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    REPIN IVAN 2982401841689 1
                    PETROV PETR 2982401841612 1)
 
@@ -1647,7 +1412,7 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    ONE CHILD 2982401841689 1
                    PETROV PETR 2982401841612 1)
 
@@ -1695,7 +1460,7 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_6 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_1PAX_1INFT_1SEG ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    ONE ADULT 2982401841612 1
                    ONE INFANT 2982401841689 1)
 
@@ -1720,52 +1485,15 @@ UNZ+1+1"
 
 # ®΅ι¥­¨¥ α ‘ (α¬¥­  αβ βγα  ­  CK)
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841612:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref 1)0001"
-
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 1) ’ 2982401841612 1 CK)
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 0) ’ 2982401841689 1 CK)
 
 
-# ®βΆ¥β ΰ §
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841689:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-# ®βΆ¥β ¤Ά 
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref 1) 2982401841612 1 CK)
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841612:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
-
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref 0) 2982401841689 1 CK)
 
 
 >>
@@ -1877,53 +1605,20 @@ UNZ+1+ASTRA000680001"
 
 
 # ®΅ι¥­¨¥ α ‘ (®βª β αβ βγα )
->>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841612:T"
-CPN+1:I"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref 1)0001"
-
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:I"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841612 1 I)
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841689 1 I)
 
 
-# ®βΆ¥β ΰ §
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841689:T::3"
-CPN+1:I::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-# ®βΆ¥β ¤Ά 
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982401841612 1 I)
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841612:T::3"
-CPN+1:I::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982401841689 1 I)
+
 
 
 >>
@@ -1945,7 +1640,7 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    REPIN IVAN 2982401841689 1
                    REPIN PETR 2982401841612 1)
 
@@ -2190,7 +1885,7 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α  α ®¤­®δ ¬¨«μζ ¬¨
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    REPIN IVAN 2982401841689 1
                    REPIN IVAN 2982401841612 1)
 
@@ -2372,7 +2067,7 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 $(deny_ets_interactive ’ 103 „„)
 
@@ -2444,7 +2139,7 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 $(deny_ets_interactive ’ 103 „„)
 
@@ -2594,7 +2289,7 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_6 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_1PAX_1INFT_1SEG ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    ONE ADULT 2982401841612 1
                    ONE INFANT 2982401841689 1)
 
@@ -2832,7 +2527,7 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_6 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_1PAX_1INFT_1SEG ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    ONE ADULT 2982401841612 1
                    ONE INFANT 2982401841689 1)
 
@@ -3028,7 +2723,7 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    REPIN {IVAN MR} 2982401841689 1
                    PETROV PETR 2982401841612 1)
 
@@ -3100,7 +2795,7 @@ $(init_eds ’ UTET UTDC)
 $(init_dcs ‘“ DCS1 DCS2)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_5 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘—
                    REPIN IVAN 2982401841689 1
                    PETROV PETR 2982401841612 1)
 
@@ -3124,52 +2819,20 @@ PAP+A:PETROV:PETR:870408:::JP+:::DECLINED+P:TL0046023:JP:::000101:F:702"
 UNT+12+1"
 UNZ+1+ASTRA000660001"
 
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
 
+# § ―ΰ®αλ Ά ‘
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841612:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref 1)0001"
-
-
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) ’ 2982401841612 1 CK)
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:‚+++’+Y+::EN+IATCIP"
-EQN+1:TD"
-TKT+2982401841689:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„„+‹+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) ’ 2982401841689 1 CK)
 
 
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841689:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
-
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) 2982401841689 1 CK)
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2982401841612:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref1) 2982401841612 1 CK)
 
 
 >>
@@ -3244,7 +2907,7 @@ $(settcl SIRENA_HOST localhost)
 $(settcl SIRENA_PORT 8008)
 
 # ―®¤£®β®Άª  ΰ¥©α 
-$(PREPARE_FLIGHT_2 ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS_WITH_REMARKS ’ 103 „„ ‹ ‘“ 2278 ‹ ‘— REPIN IVAN)
 
 $(sql "update TRIP_SETS set PIECE_CONCEPT=1")
 
@@ -3262,7 +2925,7 @@ PBD+0"
 UNT+8+1"
 UNZ+1+ASTRA000660001"
 
-$(ETS_COS_EXCHANGE 2982401841689 1 CK IATCIP)
+$(ETS_COS_EXCHANGE 2982401841689 1 CK)
 
 # ®βΆ¥β ®β €αβΰλ
 >>
@@ -3304,3 +2967,50 @@ PSI++TKNE::29824018416891+DOCS::::::DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB
 PAP+A:REPIN:IVAN:850724:::TJK++P:400522509:TJK:::250205:M::::::REPIN:IVAN"
 UNT+11+1"
 UNZ+1+ASTRA000660001"
+
+
+%%
+#########################################################################################
+# ό30
+
+$(init)
+$(init_jxt_pult ‚)
+$(login)
+
+$(init_eds ’ UTET UTDC)
+
+$(init_dcs S7 DCS_S7 DCS_UT)
+
+
+$(PREPARE_SEASON_SCD ’ „„ ‹ 101)
+$(create_spp $(ddmmyyyy +0))
+
+<<
+$(PNL_1PAX_3SEGS ’ „„ ‹ 101
+                 ‘“ ‹ ‘— 202
+                 “6 ‘— ™ 303
+                 PUTIN VLADIMIR
+                 2982401841689 1)
+
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref) ’ 2982401841689)
+<<
+$(TKCRES_ET_DISP_1CPN UTET UTDC $(last_edifact_ref) UT 2982401841689 1 I PUTIN VLADIMIR $(ddmmyy) DME LED 101)
+
+$(create_random_trip_comp $(get_dep_point_id „„ ’ 101 $(yymmdd +0)) )
+
+$(deny_ets_interactive ’ 101 „„)
+
+
+# § ―ΰ®α ª €αβΰ¥
+#<<
+#UNB+SIRE:1+DCS_S7+DCS_UT+150217:0747+ASTRA000660001+++O"
+#UNH+1+DCQCKI:03:1:IA+ASTRA00066"
+#LOR+S7:EKN"
+#FDQ+UT+101+$(yymmdd)+DME+LED++S7+550+$(yymmdd)0530+$(yymmdd)0940+EKN+DME"
+#PPD+PUTIN+M++VLADIMIR"
+#PRD+Y"
+#PSD+N"
+#PBD+0"
+#UNT+8+1"
+#UNZ+1+ASTRA000660001"

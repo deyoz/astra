@@ -6,7 +6,7 @@ $(init_jxt_pult ŒŽ‚ŽŒ)
 $(login)
 $(init_eds ž’ UTET UTDC)
 
-$(PREPARE_FLIGHT_1 ž’ 103 „Œ„ ‹Š REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_1SEG ž’ 103 „Œ„ ‹Š REPIN IVAN)
 
 $(EMD_TEXT_VIEW $(last_point_id_spp) 2982348111616)
 
@@ -212,7 +212,7 @@ $(init_jxt_pult ŒŽ‚ŽŒ)
 $(login)
 $(init_eds ž’ UTET UTDC)
 
-$(PREPARE_FLIGHT_1 ž’ 103 „Œ„ ‹Š REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_1SEG ž’ 103 „Œ„ ‹Š REPIN IVAN)
 
 $(EMD_TEXT_VIEW $(last_point_id_spp) 2982348111616)
 
@@ -266,7 +266,7 @@ $(init_jxt_pult ŒŽ‚ŽŒ)
 $(login)
 $(init_eds ž’ UTET UTDC)
 
-$(PREPARE_FLIGHT_1 ž’ 103 „Œ„ ‹Š REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_1SEG ž’ 103 „Œ„ ‹Š REPIN IVAN)
 
 $(EMD_TEXT_VIEW $(last_point_id_spp) 2982348111616)
 
@@ -304,7 +304,7 @@ $(init_jxt_pult ŒŽ‚ŽŒ)
 $(login)
 $(init_eds ž’ UTET UTDC)
 
-$(PREPARE_FLIGHT_1 ž’ 103 „Œ„ ‹Š REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_1SEG ž’ 103 „Œ„ ‹Š REPIN IVAN)
 
 $(EMD_TEXT_VIEW $(last_point_id_spp) 2982348111616)
 
@@ -429,7 +429,7 @@ $(init_jxt_pult ŒŽ‚ŽŒ)
 $(login)
 $(init_eds ž’ UTET UTDC)
 
-$(PREPARE_FLIGHT_1 ž’ 103 „Œ„ ‹Š REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_1SEG ž’ 103 „Œ„ ‹Š REPIN IVAN)
 
 $(EMD_TEXT_VIEW $(last_point_id_spp) 2982348111616)
 

@@ -2,37 +2,13 @@ include(ts/macro.ts)
 
 # meta: suite iatci
 
-$(defmacro INBOUND_PNL_LOCAL
-{MOWKB1H
-.MOWRMUT 020815
-PNL
-UT103/28APR DME PART1
-CFG/060F060C060Y
-RBD F/F C/C Y/YKMU
-AVAIL
- DME  LED
-F060
-C060
-Y059
--LED000F
--LED000C
--LED001Y
-1REPIN/IVAN
-.L/0840Z6/UT
-.L/09T1B3/1H
-.O/S71027Y28LEDAER2315AR
--LED000K
--LED000M
--LED000U
-ENDPNL}
-) #end-of-macro
-
 
 $(defmacro SAVE_ET_DISP
 point_id
 tick_no
 surname=REPIN
 name=IVAN
+airl=UT
 {
 {<?xml version='1.0' encoding='CP866'?>
 <term>
@@ -45,44 +21,15 @@ name=IVAN
 </term>}
 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:131"
-ORG+1H:МОВ+++ЮТ+Y+::RU+МОВРОМ"
-TKT+$(tick_no)"
-UNT+5+1"
-UNZ+1+$(last_edifact_ref)0001"
-
+$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref) ЮТ $(tick_no))
 <<
-UNB+SIRE:1+UTET+UTDC+091030:0529+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
-MSG+:131+3"
-TIF+$(surname)+$(name)"
-TAI+0162"
-RCI+UA:G4LK6W:1"
-MON+B:20.00:USD+T:20.00:USD"
-FOP+CA:3"
-PTK+++$(ddmmyy)+++:US"
-ODI+DME+LED"
-ORG+UT:MOW++IAH++A+US+D80D1BWO"
-EQN+1:TD"
-TXD+700+0.00:::US"
-IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
-IFT+4:5+00001230161213"
-IFT+4:10+REFUNDABLE"
-IFT+4:39+HOUSTON+UNITED AIRLINES INC"
-TKT+$(tick_no):T:1:3"
-CPN+1:I"
-TVL+$(ddmmyy):2205+DME+LED+UT+103:Y+J"
-RPI++NS"
-PTS++YINF"
-UNT+19+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_DISP_1CPN UTET UTDC $(last_edifact_ref) $(airl) $(tick_no) I $(surname) $(name) $(ddmmyy) DME LED 103)
 
 $(KICK_IN)
 
-}
-) #end-of-macro
+}) #end-of-macro
+
+#########################################################################################
 
 
 $(defmacro CHECK_SEARCH_PAX
@@ -127,9 +74,9 @@ $(defmacro CHECK_SEARCH_PAX
                 <surname>$(surname)</surname>
                 <name>$(name)</name>
 
-
 }) #end-of-macro
 
+#########################################################################################
 
 $(defmacro CHECK_TCKIN_ROUTE_1
     point_dep
@@ -184,6 +131,7 @@ $(defmacro CHECK_TCKIN_ROUTE_1
 
 }) #end-of-macro
 
+#########################################################################################
 
 $(defmacro CHECK_TCKIN_ROUTE_2
     point_dep
@@ -321,6 +269,7 @@ $(defmacro CHECK_TCKIN_ROUTE_2
 
 }) #end-of-macro
 
+#########################################################################################
 
 $(defmacro CHECK_TCKIN_ROUTE_GRP_1
     point_dep
@@ -389,6 +338,7 @@ $(defmacro CHECK_TCKIN_ROUTE_GRP_1
 
 }) #end-of-macro
 
+#########################################################################################
 
 $(defmacro CHECK_TCKIN_ROUTE_GRP_2
     point_dep
@@ -575,7 +525,7 @@ $(defmacro CHECK_TCKIN_ROUTE_GRP_2
 
 }) #end-of-macro
 
-
+#########################################################################################
 
 $(defmacro SAVE_PAX
     pax_id
@@ -727,6 +677,7 @@ $(defmacro SAVE_PAX
 
 }) #end-of-macro
 
+#########################################################################################
 
 $(defmacro SAVE_GRP
     pax_id1
@@ -988,6 +939,8 @@ $(defmacro SAVE_GRP
 
 }) #end-of-macro
 
+#########################################################################################
+
 $(defmacro SAVE_GRP_BAGGAGE
     grp_id
     tid
@@ -1155,6 +1108,7 @@ $(defmacro SAVE_GRP_BAGGAGE
 
 }) #end-of-macro
 
+#########################################################################################
 
 $(defmacro REMOVE_ONE_BAG
     grp_id
@@ -1227,6 +1181,7 @@ $(defmacro REMOVE_ONE_BAG
 
 }) #end-of-macro
 
+#########################################################################################
 
 $(defmacro REMOVE_ALL_BAGS
     grp_id
@@ -1352,6 +1307,7 @@ $(defmacro REMOVE_ALL_BAGS
 
 }) #end-of-macro
 
+#########################################################################################
 
 $(defmacro CANCEL_PAX
     pax_id
@@ -1453,6 +1409,7 @@ $(defmacro CANCEL_PAX
 
 }) #end-of-macro
 
+#########################################################################################
 
 $(defmacro UPDATE_PAX_DOC
     point_dep
@@ -1535,6 +1492,7 @@ $(defmacro UPDATE_PAX_DOC
 
 }) #end-of-macro
 
+#########################################################################################
 
 $(defmacro REMOVE_PAX_DOC
     point_dep
@@ -1608,6 +1566,8 @@ $(defmacro REMOVE_PAX_DOC
 
 }) #end-of-macro
 
+#########################################################################################
+
 $(defmacro LOAD_PAX_BY_GRP_ID
     point_dep
     grp_id
@@ -1625,6 +1585,7 @@ $(defmacro LOAD_PAX_BY_GRP_ID
 
 }) #end-of-macro
 
+#########################################################################################
 
 $(defmacro LOAD_PAX_BY_REG_NO
     point_dep
@@ -1643,6 +1604,7 @@ $(defmacro LOAD_PAX_BY_REG_NO
 
 }) #end-of-macro
 
+#########################################################################################
 
 $(defmacro LOAD_PAX_BY_PAX_ID
     point_dep
@@ -1661,6 +1623,7 @@ $(defmacro LOAD_PAX_BY_PAX_ID
 
 }) #end-of-macro
 
+#########################################################################################
 
 $(defmacro ETS_COS_EXCHANGE
     tickno
@@ -1670,88 +1633,40 @@ $(defmacro ETS_COS_EXCHANGE
 {
 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:МОВ+++ЮТ+Y+::RU+$(pult)"
-EQN+1:TD"
-TKT+$(tickno):T"
-CPN+$(cpnno):$(status)"
-TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-# ответ от СЭБ
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ЮТ $(tickno) $(cpnno) $(status) $(pult))
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+$(tickno):T::3"
-CPN+$(cpnno):$(status)::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref) $(tickno) $(cpnno) $(status))
 
 }) #end-of-macro
 
+#########################################################################################
 
 $(defmacro ETS_COS_EXCHANGE2
     tickno1
-    cpnno1
+    cpnno1    
     tickno2
     cpnno2
-    status
+    status    
     pult=МОВРОМ
+    airl=ЮТ
 {
 
->>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
-MSG+:142"
-ORG+1H:МОВ+++ЮТ+Y+::RU+$(pult)"
-EQN+1:TD"
-TKT+$(tickno2):T"
-CPN+$(cpnno2):$(status)"
-TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref 1)0001"
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:МОВ+++ЮТ+Y+::RU+$(pult)"
-EQN+1:TD"
-TKT+$(tickno1):T"
-CPN+$(cpnno1):$(status)"
-TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-# ответы от СЭБ
-<<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+$(tickno1):T::3"
-CPN+$(cpnno1):$(status)::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref1) $(airl) $(tickno2) $(cpnno2) $(status) $(pult))
+>>
+$(TKCREQ_ET_COS UTDC UTET $(get edi_ref0) $(airl) $(tickno1) $(cpnno1) $(status) $(pult))
 
 <<
-UNB+SIRE:1+UTET+UTDC+151027:1527+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:96:2:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+$(tickno2):T::3"
-CPN+$(cpnno2):$(status)::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref0) $(tickno1) $(cpnno1) $(status))
+<<
+$(TKCRES_ET_COS UTET UTDC $(get edi_ref1) $(tickno2) $(cpnno2) $(status))
 
 }) #end-of-macro
 
-
+#########################################################################################
 
 $(defmacro UPDATE_PAX_DOC_NON_IATCI
     point_dep
@@ -1832,6 +1747,7 @@ $(defmacro UPDATE_PAX_DOC_NON_IATCI
 
 }) #end-of-macro
 
+#########################################################################################
 
 $(defmacro UPDATE_PAX_REMS
     point_dep
@@ -1911,6 +1827,8 @@ $(defmacro UPDATE_PAX_REMS
 
 }) #end-of-macro
 
+#########################################################################################
+
 $(defmacro CANCEL_PAX_REMS
     point_dep
     point_arv
@@ -1974,6 +1892,7 @@ $(defmacro CANCEL_PAX_REMS
 
 }) #end-of-macro
 
+#########################################################################################
 
 $(defmacro UPDATE_PAX_REMS_WITH_LONG
     point_dep
@@ -2058,7 +1977,7 @@ $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
 
 
-$(PREPARE_FLIGHT_3 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -2376,7 +2295,7 @@ $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
 
 
-$(PREPARE_FLIGHT_3 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -2473,7 +2392,7 @@ $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
 
 
-$(PREPARE_FLIGHT_3 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -2993,7 +2912,7 @@ $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
 
 
-$(PREPARE_FLIGHT_3 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -3061,7 +2980,7 @@ $(init_dcs С7 TA OA IFM1 IFM2)
 $(init_eds ЮТ UTET UTDC)
 
 
-$(PREPARE_FLIGHT_3 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -3165,7 +3084,7 @@ $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
 
 
-$(PREPARE_FLIGHT_3 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -3623,7 +3542,7 @@ $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
 
 
-$(PREPARE_FLIGHT_3 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -3708,7 +3627,7 @@ $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
 
 
-$(PREPARE_FLIGHT_3 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -3887,7 +3806,7 @@ $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
 
 
-$(PREPARE_FLIGHT_3 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -3955,7 +3874,7 @@ $(init_eds ЮТ UTET UTDC)
 
 
 $(prepare_bp_printing ЮТ 103 ДМД)
-$(PREPARE_FLIGHT_3 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -4128,7 +4047,7 @@ $(init_eds ЮТ UTET UTDC)
 
 
 $(prepare_bp_printing ЮТ 103 ДМД)
-$(PREPARE_FLIGHT_3 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -4511,7 +4430,7 @@ $(init_eds ЮТ UTET UTDC)
 
 
 $(prepare_bp_printing ЮТ 103 ДМД)
-$(PREPARE_FLIGHT_3 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -4546,7 +4465,7 @@ $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
 
 
-$(PREPARE_FLIGHT_3 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -4606,7 +4525,7 @@ $(init_dcs С7 TA OA REMIFM OURIFM)
 $(init_eds ЮТ UTET UTDC)
 
 
-$(PREPARE_FLIGHT_3 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -4651,16 +4570,7 @@ $(lastRedisplay)
 
 # откат смены статуса в СЭБ
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:МОВ+++ЮТ+Y+::RU+SYSTEM"
-EQN+1:TD"
-TKT+2986120030297:T"
-CPN+1:I"
-TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ЮТ 2986120030297 1 I)
 
 
 # IFM
@@ -4689,7 +4599,7 @@ $(init_dcs С7 TA OA REMIFM OURIFM)
 $(init_eds ЮТ UTET UTDC)
 
 
-$(PREPARE_FLIGHT_3 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -4778,16 +4688,8 @@ $(lastRedisplay)
 
 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:МОВ+++ЮТ+Y+::RU+SYSTEM"
-EQN+1:TD"
-TKT+2986120030297:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+ДМД+ПЛК+ЮТ+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ЮТ 2986120030297 1 CK)
+
 
 >>
 REMIFM
@@ -4858,7 +4760,7 @@ $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
 
 
-$(PREPARE_FLIGHT_3 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -4924,7 +4826,7 @@ $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
 
 # подготовка рейса
-$(PREPARE_FLIGHT_5 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ
+$(PREPARE_FLIGHT_2PAXES_2SEGS_WITH_REMARKS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ
                    REPIN IVAN 2982401841689 1
                    PETROV PETR 2982401841612 1)
 
@@ -5539,7 +5441,7 @@ $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
 
 # подготовка рейса
-$(PREPARE_FLIGHT_6 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ
+$(PREPARE_FLIGHT_1PAX_1INFT_1SEG ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ
                    REPIN ADULT 2982401841689 1
                    REPIN INFANT 2982401841612 1)
 
@@ -6646,7 +6548,7 @@ $(init_dcs С7 TA OA)
 $(init_eds ЮТ UTET UTDC)
 
 
-$(PREPARE_FLIGHT_3 ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_2SEGS ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))

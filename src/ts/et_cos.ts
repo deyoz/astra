@@ -102,7 +102,7 @@ $(init_jxt_pult Œ‚Œ)
 $(login)
 $(init_eds ’ UTET UTDC)
 
-$(PREPARE_FLIGHT_1 ’ 103 „Œ„ ‹Š REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_1SEG ’ 103 „Œ„ ‹Š REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -152,7 +152,7 @@ $(init_jxt_pult Œ‚Œ)
 $(login)
 $(init_eds ’ UTET UTDC)
 
-$(PREPARE_FLIGHT_1 ’ 103 „Œ„ ‹Š REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_1SEG ’ 103 „Œ„ ‹Š REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -202,7 +202,7 @@ $(init_jxt_pult Œ‚Œ)
 $(login)
 $(init_eds ’ UTET UTDC)
 
-$(PREPARE_FLIGHT_1 ’ 103 „Œ„ ‹Š REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_1SEG ’ 103 „Œ„ ‹Š REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))
@@ -243,7 +243,7 @@ $(init_jxt_pult Œ‚Œ)
 $(login)
 $(init_eds KAR IKET IKDC translit)
 
-$(PREPARE_FLIGHT_1 KAR 103 „Œ„ ‹Š REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_1SEG KAR 103 „Œ„ ‹Š REPIN IVAN)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))

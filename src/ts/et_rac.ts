@@ -6,7 +6,7 @@ $(init_jxt_pult МОВРОМ)
 $(login)
 $(init_eds ЮТ UTET UTDC translit)
 
-$(PREPARE_FLIGHT_1 ЮТ 103 ДМД ПЛК REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_1SEG ЮТ 103 ДМД ПЛК REPIN IVAN)
 
 # забирают контроль, которого ещё и нет вовсе у нас
 <<
@@ -157,7 +157,7 @@ $(init_jxt_pult МОВРОМ)
 $(login)
 $(init_eds ЮТ UTET UTDC translit)
 
-$(PREPARE_FLIGHT_1 ЮТ 103 ДМД ПЛК REPIN IVAN)
+$(PREPARE_FLIGHT_1PAX_1SEG ЮТ 103 ДМД ПЛК REPIN IVAN)
 
 
 $(REQUEST_AC_BY_TICK_NO_CPN_NO $(last_point_id_spp) 2982348111616 1)

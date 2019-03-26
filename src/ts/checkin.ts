@@ -12,7 +12,7 @@ $(init_jxt_pult Œ‚Œ)
 $(login)
 $(init_eds ’ UTET UTDC)
 
-$(PREPARE_FLIGHT_1 ’ 103 „Œ„ ‹Š …ˆ ˆ‚€)
+$(PREPARE_FLIGHT_1PAX_1SEG ’ 103 „Œ„ ‹Š …ˆ ˆ‚€)
 
 $(sql "update TRIP_SETS set PIECE_CONCEPT=1")
 $(sql "update DESKS set VERSION='201707-0195750'")
@@ -111,27 +111,10 @@ $(SAVE_ET_DISP $(get point_dep) 2981212121212 …ˆ ˆ‚€)
 
 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:Œ‚+++’+Y+::RU+Œ‚Œ"
-EQN+1:TD"
-TKT+2981212121212:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„Œ„+‹Š+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ’ 2981212121212 1 CK)
 <<
-UNB+SIRE:1+UTET+UTDC+160408:0828+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+2:TD"
-TKT+2981212121212:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref) 2981212121212 1 CK)
+
 
 $(http_forecast content=$(get_svc_availability_resp))
 
@@ -157,8 +140,8 @@ RCI+’:G4LK6W:1"
 MON+B:20.00:USD+T:20.00:USD"
 FOP+CA:3"
 PTK+++$(ddmmyy)+++:US"
-ODI+DME+LED"
-ORG+UT:MOW++IAH++A+US+D80D1BWO"
+ODI+MOW+LED"
+ORG+xx:MOW++IAH++A+US+D80D1BWO"
 EQN+1:TD"
 TXD+700+0.00:::US"
 IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
@@ -297,8 +280,8 @@ RCI+’:G4LK6W:1"
 MON+B:20.00:USD+T:20.00:USD"
 FOP+CA:3"
 PTK+++$(ddmmyy)+++:US"
-ODI+DME+LED"
-ORG+UT:MOW++IAH++A+US+D80D1BWO"
+ODI+MOW+LED"
+ORG+xx:MOW++IAH++A+US+D80D1BWO"
 EQN+1:TD"
 TXD+700+0.00:::US"
 IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
@@ -436,8 +419,8 @@ RCI+’:G4LK6W:1"
 MON+B:20.00:USD+T:20.00:USD"
 FOP+CA:3"
 PTK+++$(ddmmyy)+++:US"
-ODI+DME+LED"
-ORG+UT:MOW++IAH++A+US+D80D1BWO"
+ODI+MOW+LED"
+ORG+xx:MOW++IAH++A+US+D80D1BWO"
 EQN+1:TD"
 TXD+700+0.00:::US"
 IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
@@ -488,7 +471,7 @@ $(init_jxt_pult Œ‚Œ)
 $(login)
 $(init_eds ’ UTET UTDC)
 
-$(PREPARE_FLIGHT_4 ’ 103 „Œ„ ‹Š …ˆ ‚€‘ˆ‹ˆ‰ …ˆ€ €€)
+$(PREPARE_FLIGHT_2PAXES_1SEG ’ 103 „Œ„ ‹Š …ˆ ‚€‘ˆ‹ˆ‰ …ˆ€ €€)
 
 $(dump_table CRS_PAX)
 
@@ -620,49 +603,14 @@ $(SAVE_ET_DISP $(get point_dep) 2981212121213 …ˆ€ €€)
 
 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref 1)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref 1)"
-MSG+:142"
-ORG+1H:Œ‚+++’+Y+::RU+Œ‚Œ"
-EQN+1:TD"
-TKT+2981212121212:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„Œ„+‹Š+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref 1)0001"
-
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 1) ’ 2981212121212 1 CK)
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:Œ‚+++’+Y+::RU+Œ‚Œ"
-EQN+1:TD"
-TKT+2981212121213:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„Œ„+‹Š+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
-
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref 0) ’ 2981212121213 1 CK)
 
 <<
-UNB+SIRE:1+UTET+UTDC+160408:0828+$(last_edifact_ref 1)0001+++T"
-UNH+1+TKCRES:06:1:IA+$(last_edifact_ref 1)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2981212121212:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref 1)0001"
-
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref 1) 2981212121212 1 CK)
 <<
-UNB+SIRE:1+UTET+UTDC+160408:0828+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+1:TD"
-TKT+2981212121213:T::3"
-CPN+1:CK::E"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref 0) 2981212121213 1 CK)
 
 
 
@@ -898,7 +846,7 @@ $(init_jxt_pult Œ‚Œ)
 $(login)
 $(init_eds ’ UTET UTDC)
 
-$(PREPARE_FLIGHT_1 ’ 103 „Œ„ ‹Š …ˆ ˆ‚€)
+$(PREPARE_FLIGHT_1PAX_1SEG ’ 103 „Œ„ ‹Š …ˆ ˆ‚€)
 
 $(sql "update TRIP_SETS set PIECE_CONCEPT=1")
 $(sql "update DESKS set VERSION='201707-0195750'")
@@ -997,26 +945,10 @@ $(SAVE_ET_DISP $(get point_dep) 2981212121212 …ˆ ˆ‚€)
 
 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:Œ‚+++’+Y+::RU+Œ‚Œ"
-EQN+1:TD"
-TKT+2981212121212:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„Œ„+‹Š+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
-
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ’ 2981212121212 1 CK)
 <<
-UNB+SIRE:1+UTET+UTDC+160408:0828+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
-MSG+:142+3"
-EQN+2:TD"
-TKT+2981212121212:T::3"
-CPN+1:CK::E"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS UTET UTDC $(last_edifact_ref) 2981212121212 1 CK)
+
 
 
 $(http_forecast content=$(get_svc_availability_invalid_resp))
@@ -1043,8 +975,8 @@ RCI+’:G4LK6W:1"
 MON+B:20.00:USD+T:20.00:USD"
 FOP+CA:3"
 PTK+++$(ddmmyy)+++:US"
-ODI+DME+LED"
-ORG+UT:MOW++IAH++A+US+D80D1BWO"
+ODI+MOW+LED"
+ORG+xx:MOW++IAH++A+US+D80D1BWO"
 EQN+1:TD"
 TXD+700+0.00:::US"
 IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
@@ -1084,7 +1016,7 @@ $(init_jxt_pult Œ‚Œ)
 $(login)
 $(init_eds ’ UTET UTDC)
 
-$(PREPARE_FLIGHT_1 ’ 103 „Œ„ ‹Š …ˆ ˆ‚€)
+$(PREPARE_FLIGHT_1PAX_1SEG ’ 103 „Œ„ ‹Š …ˆ ˆ‚€)
 
 $(sql "update DESKS set VERSION='201707-0195750'")
 
@@ -1179,28 +1111,10 @@ $(SAVE_ET_DISP $(get point_dep) 2981212121212 …ˆ ˆ‚€)
 
 
 >>
-UNB+SIRE:1+UTDC+UTET+xxxxxx:xxxx+$(last_edifact_ref)0001+++O"
-UNH+1+TKCREQ:96:2:IA+$(last_edifact_ref)"
-MSG+:142"
-ORG+1H:Œ‚+++’+Y+::RU+Œ‚Œ"
-EQN+1:TD"
-TKT+2981212121212:T"
-CPN+1:CK"
-TVL+$(ddmmyy)+„Œ„+‹Š+’+103:Y++1"
-UNT+8+1"
-UNZ+1+$(last_edifact_ref)0001"
-
-
+$(TKCREQ_ET_COS UTDC UTET $(last_edifact_ref) ’ 2981212121212 1 CK)
 <<
-UNB+SIRE:1+UTET+UTDC+160408:0828+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
-MSG+:142+7"
-EQN+1:TD"
-TKT+2981212121212:T::3"
-CPN+1:CK::E"
-ERC+401"
-UNT+6+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_COS_FAKE_ERR UTET UTDC $(last_edifact_ref) 2981212121212 1 CK 401)
+
 
 
 >> lines=auto
