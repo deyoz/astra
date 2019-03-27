@@ -5446,7 +5446,6 @@ void TLayout::toXML(xmlNodePtr resNode)
 void StatInterface::Layout(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TLayout().toXML(resNode);
-    LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
 }
 
 void StatInterface::stat_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -5490,7 +5489,6 @@ void StatInterface::stat_srv(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
       xmlUnlinkNode(formDataNode);
       xmlFreeNode(formDataNode);
     };
-    //ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void createCSVFullStat(const TStatParams &params, const TFullStat &FullStat, const TPrintAirline &prn_airline, ostringstream &data)
@@ -8180,7 +8178,6 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         else
             throw;
     }
-    LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
 }
 
 void TStatOrders::check_integrity()

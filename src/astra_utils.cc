@@ -443,36 +443,6 @@ void TProfiledRights::toXML(xmlNodePtr node)
     }
 }
 
-void TAirlineProfiles::toXML(xmlNodePtr node) const
-{
-    xmlNodePtr profilesNode = NULL;
-    for(const auto &airline: items)
-        for(const auto &airp: airline.second) {
-            if(not profilesNode)
-                profilesNode = NewTextChild(node, "profiles");
-            xmlNodePtr itemNode = NewTextChild(profilesNode, "item");
-            SetProp(itemNode, "airline", airline.first);
-            SetProp(itemNode, "airp", airp.first);
-            for(const auto &right: airp.second) {
-                NewTextChild(itemNode, "right", right);
-            }
-        }
-}
-
-const TAirlineProfiles &TAirlineProfiles::fromDB()
-{
-    items.clear();
-    if(TReqInfo::Instance()->user.user_type != utAirport) return *this;
-    TCachedQuery Qry("select * from airline_profiles ap, profile_rights pr where ap.profile_id = pr.profile_id");
-    Qry.get().Execute();
-    for(; not Qry.get().Eof; Qry.get().Next())
-        items
-            [Qry.get().FieldAsString("airline")]
-            [Qry.get().FieldAsString("airp")]
-            .insert(Qry.get().FieldAsInteger("right_id"));
-    return *this;
-}
-
 void TProfiledRights::fromDB(const string &airline, const string &airp)
 {
     if(TReqInfo::Instance()->user.user_type != utAirport) return;
@@ -595,8 +565,6 @@ void TAccess::fromDB(int user_id, TUserType user_type)
 void TAccess::toXML(xmlNodePtr accessNode)
 {
   if (accessNode==NULL) return;
-  // профили
-  TAirlineProfiles().fromDB().toXML(accessNode);
   //права доступа к операциям
   xmlNodePtr node;
   node = NewTextChild(accessNode, "rights");

@@ -724,14 +724,6 @@ void longToDB(TQuery &Qry, const std::string &column_name, const std::string &sr
 
 void traceXML(const xmlDocPtr doc);
 
-struct TAirlineProfiles {
-    typedef std::map<std::string, std::set<int>> TAirpMap;
-    typedef std::map<std::string, TAirpMap> TAirlineMap;
-    TAirlineMap items;
-    const TAirlineProfiles &fromDB();
-    void toXML(xmlNodePtr node) const;
-};
-
 struct TProfiledRights {
 
     void fromDB(const std::string &airline, const std::string &airp);
