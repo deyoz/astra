@@ -297,6 +297,7 @@ struct TBCBPData {
     std::string pers_type; // ВЗ, РБ, РМ
     bool is_boarding_pass;
     int pax_id;
+    bool is_rem_txt; // В пектабе ПТ присутствуют теги rem_txt и хотя бы один из них не пустой
 
     void clear()
     {
@@ -317,6 +318,7 @@ struct TBCBPData {
         pers_type.clear();
         is_boarding_pass = true;
         pax_id = ASTRA::NoExists;
+        is_rem_txt = false;
     }
 
     TBCBPData() { clear(); }
@@ -782,6 +784,10 @@ class TPrnTagStore {
 
         TSpaceIfEmpty space_if_empty;
 
+        // список всех тегов в пектабе
+        std::vector<std::string> pectab_tags;
+        bool rem_txt_exists();
+
     public:
         TTagProps prn_tag_props;
         TTagLang tag_lang;
@@ -816,6 +822,8 @@ class TPrnTagStore {
         void tagsFromXML(xmlNodePtr tagsNode);
         void set_space_if_empty(bool val) { space_if_empty.set(val); };
         std::string errorsToString();
+        void get_pectab_tags(const std::string &form);
+        void get_pectab_tags(const std::vector<std::string> &tags);
 };
 
 #endif
