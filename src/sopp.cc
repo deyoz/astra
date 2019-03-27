@@ -1734,7 +1734,14 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
       continue;
     }
     xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
-    TProfiledRights((tr->airline_out.empty() ? tr->airline_in : tr->airline_out), tr->airp).toXML(tripNode);
+
+    if(TReqInfo::Instance()->desk.compatible(PROFILE_REFACT_VERSION)) {
+        // АП, АК для проверки профилей
+        NewTextChild(tripNode, "airp_id", tr->airp);
+        NewTextChild(tripNode, "airline_id", tr->airline_out.empty() ? tr->airline_in : tr->airline_out);
+    } else
+        TProfiledRights((tr->airline_out.empty() ? tr->airline_in : tr->airline_out), tr->airp).toXML(tripNode);
+
     NewTextChild( tripNode, "move_id", tr->move_id );
     NewTextChild( tripNode, "point_id", tr->point_id );
     if ( tr->part_key > NoExists )
@@ -1969,7 +1976,14 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
     NewTextChild( tripNode, "move_id", tr->move_id );
     NewTextChild( tripNode, "point_id", tr->point_id );
-    TProfiledRights(tr->point_id).toXML(tripNode);
+
+    if(TReqInfo::Instance()->desk.compatible(PROFILE_REFACT_VERSION)) {
+        // АП, АК для проверки профилей
+        NewTextChild(tripNode, "airp_id", tr->airp);
+        NewTextChild(tripNode, "airline_id", tr->airline_out.empty() ? tr->airline_in : tr->airline_out);
+    } else
+        TProfiledRights(tr->point_id).toXML(tripNode);
+
     if ( tr->part_key > NoExists )
       NewTextChild( tripNode, "part_key", DateTimeToStr( tr->part_key, ServerFormatDateTimeAsString ) );
     if ( !tr->airline_in.empty() )
@@ -3002,7 +3016,6 @@ void SoppInterface::readPaxZoneLoad(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   get_compatible_report_form("PaxZoneLoad", reqNode, resNode);
   resNode = NewTextChild( resNode, "reportPaxZoneLoadData" );
   viewPaxLoadSectionReport( NodeAsInteger( "point_id", reqNode ), resNode );
-  LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
 }
 
 
@@ -3215,7 +3228,12 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   string region;
   for ( TSOPPDests::iterator d=dests.begin(); d!=dests.end(); d++ ) {
     snode = NewTextChild( node, "dest" );
-    TProfiledRights(d->point_id).toXML(snode);
+
+    if(TReqInfo::Instance()->desk.compatible(PROFILE_REFACT_VERSION)) {
+        NewTextChild( snode, "airlineId", d->airline );
+    } else
+        TProfiledRights(d->point_id).toXML(snode);
+
     NewTextChild( snode, "point_id", d->point_id );
     NewTextChild( snode, "point_num", d->point_num );
     if ( d->first_point > NoExists )

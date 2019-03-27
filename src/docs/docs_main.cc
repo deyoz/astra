@@ -1622,8 +1622,6 @@ void VOUCHERS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         buf << getLocaleText("Всего:", rpt_params.GetLang()) << " " << total_sum;
         NewTextChild(rowNode, "item", buf.str());
     }
-
-    LogTrace(TRACE5) << GetXMLDocText(resNode->doc); //!!!
 }
 
 // VOUCHERS END
@@ -1909,7 +1907,6 @@ void KOMPLEKT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(rowNode, "name", ElemIdToNameLong(etReportType, r.code));
     NewTextChild(rowNode, "num", r.num);
   }
-  LogTrace(TRACE5) << GetXMLDocText(resNode->doc); //!!!
 }
 
 int GetNumCopies(TRptParams rpt_params)
@@ -2033,7 +2030,6 @@ void ANNUL_TAGS(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "trfer_airp_arv", rpt_params.ElemIdToReportElem(etAirp, i->trfer_airp_arv, efmtCodeNative));
         }
     }
-    //LogTrace(TRACE5) << GetXMLDocText(resNode->doc);
 }
 
 void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2235,7 +2231,6 @@ void DocsInterface::print_komplekt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
         // break;
     }
-    LogTrace(TRACE5) << GetXMLDocText(resNode->doc); //!!!
 }
 
 void DocsInterface::GetFonts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
