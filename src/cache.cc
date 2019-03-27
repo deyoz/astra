@@ -1764,10 +1764,6 @@ void TCacheTable::getPerms( )
 
 void BeforeRefresh(TCacheTable &cache, TQuery &refreshQry, const TCacheQueryType qryType)
 {
-  if (cache.code() == "TERM_PROFILE_RIGHTS") {
-      refreshQry.CreateVariable("is_airp_user_type",otInteger,TReqInfo::Instance()->user.user_type == utAirport);
-  }
-
   if (cache.code() == "TRIP_BAG_NORMS" ||
       cache.code() == "TRIP_BAG_RATES" ||
       cache.code() == "TRIP_VALUE_BAG_TAXES" ||
