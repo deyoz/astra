@@ -201,9 +201,45 @@ inline bool LSD( int G3, int G2, int G, int V3, int V2, TWhere Where );
 
 struct CondSeats {
   bool SeatDescription;
-  std::string seatDescr;
+  SeatsDescr p;
+  SeatsDescr seatsDescr;
   CondSeats() {
     SeatDescription = false;
+  }
+  void SavePoint() {
+    if ( !SeatDescription ) {
+      return;
+    }
+    p.clear();
+    LogTrace(TRACE5) << "CondSeats: SavePoint " <<  seatsDescr.traceStr();
+    p.seatsDescr = seatsDescr.seatsDescr;
+  }
+  void Rollback() {
+    if ( !SeatDescription ) {
+      return;
+    }
+    seatsDescr.clear();
+    seatsDescr.seatsDescr = p.seatsDescr;
+    LogTrace(TRACE5) << "CondSeats: Rollback " <<  seatsDescr.traceStr();
+  }
+  bool isOk( ) {
+    for ( auto i : seatsDescr.seatsDescr ) {
+       if ( i.second > 0 ) {
+         return false;
+       }
+    }
+    return true;
+  }
+
+  bool findSeat( const std::string &seatDescr ) {
+    if ( !SeatDescription ) {
+      return true;
+    }
+    if ( seatsDescr.findSeat( seatDescr ) ) {
+      LogTrace(TRACE5) << "CondSeats: find seat " << seatsDescr.traceStr();
+      return true;
+    }
+    return false;
   }
 };
 
@@ -1143,6 +1179,7 @@ int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep 
 /*  if ( SeatAlg == 1 && !canUseSUBCLS && CanUseRems == sNotUse_NotUseDenial )
       ProgTrace( TRACE5, "sNotUse_NotUseDenial CurrSalon->placeIsFree( place )=%d,place->isplace=%d,place->visible=%d,Passengers.clname=%s, VerifyUseLayer( place )=%d, condRates.CanUseRate( place )=%d,  AllowedAttrsSeat.passSeat( place )=%d",
                  CurrSalon->placeIsFree( place ),place->isplace,place->visible,Passengers.clname.c_str(), VerifyUseLayer( place ), condRates.CanUseRate( place ),  AllowedAttrsSeat.passSeat( place ) );*/
+  condSeats.SavePoint();
   while ( !CurrSalon->isExistsOccupySeat( placeList->num, place->x, place->y ) &&
           //CurrSalon->placeIsFree( place ) && place->isplace && place->visible &&
           place->clname == Passengers.clname &&
@@ -1155,12 +1192,6 @@ int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep 
             PlaceLayer == cltUnknown && place->layers.empty() )*/ &&
           ( !CanUseSmoke || place->isLayer( cltSmoke ) ) &&
           ( AllowedAttrsSeat.passSeat( place ) ) ) {
-    if ( condSeats.SeatDescription ) {
-       if ( place->seatDescr != condSeats.seatDescr ) {
-         break;
-       }
-       LogTrace(TRACE5) << "seat descr=" << place->seatDescr;
-    }
     if ( canUseSUBCLS ) {
       for ( prem = place->rems.begin(); prem != place->rems.end(); prem++ ) {
         if ( !prem->pr_denial && prem->rem == SUBCLS_REM )
@@ -1234,7 +1265,14 @@ int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep 
          }
          break;
     } /* end switch */
+    if ( !condSeats.findSeat( place->seatDescr ) ) {
+      break;
+    }
     Result++; /* нашли еще одно место */
+    if ( condSeats.SeatDescription &&
+         condSeats.isOk() ) {
+      break;
+    }
     switch( Step ) {
       case sRight:
          EP.x++;
@@ -1254,6 +1292,14 @@ int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep 
     place = placeList->place( EP );
 
   } /* end while */
+  if ( condSeats.SeatDescription ) {
+    if ( !condSeats.isOk() ) {
+      condSeats.Rollback();
+    }
+    else {
+      LogTrace(TRACE5) << "condSeats.isOk - stop search";
+    }
+  }
   SeatsStat.stop(__FUNCTION__);
   return Result;
 }
@@ -1286,7 +1332,7 @@ bool TSeatPlaces::SeatSubGrp_On( SALONS2::TPoint FP, TSeatStep Step, int Wanted 
     SeatsStat.stop(__FUNCTION__);
     return false;
   }
-//  ProgTrace( TRACE5, "FP=(%d,%d), foundafter=%d", FP.x, FP.y, foundAfter );
+  //ProgTrace( TRACE5, "FP=(%d,%d), foundafter=%d", FP.x, FP.y, foundAfter );
   foundCount += foundAfter;
   if ( foundAfter && Wanted ) { // если мы нашли места и нам надо Wanted
     if ( foundAfter > Wanted )
@@ -2145,7 +2191,8 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
 //                           ipass->paxId,ik, FCanUseINFT, ipass->countPlace, ipass->isRemark( "INFT" ), FCanUseElem_Type, i );
 
                 Passengers.Add( *ipass );
-                condSeats.seatDescr = ipass->seatDescr;
+                condSeats.seatsDescr = ipass->seatsDescr;
+                LogTrace(TRACE5) << condSeats.seatsDescr.traceStr();
                 ipass->index = old_index;
 //                ProgTrace( TRACE5, "Passengers.Count=%d - go seats", Passengers.getCount() );
                 if ( (!condSeats.SeatDescription && SeatGrpOnBasePlace( )) ||
@@ -2389,7 +2436,7 @@ void TPassenger::build( xmlNodePtr pNode, const TDefaults& def, TComplexBagExces
   NewTextChild( pNode, "reg_no", regNo );
   NewTextChild( pNode, "name", fullName );
   NewTextChild( pNode, "seat_no", foundSeats, def.placeName );
-  NewTextChild( pNode, "seat_descr", seatDescr, def.seat_descr );
+  NewTextChild( pNode, "seat_descr", seatsDescr.toString("one"), def.seat_descr );
   NewTextChild( pNode, "wl_type", wl_type, def.wl_type );
   NewTextChild( pNode, "seats", countPlace, def.countPlace );
   NewTextChild( pNode, "tid", tid );
@@ -4868,6 +4915,7 @@ void dividePassengersToGrpsAutoSeats( TIntStatusSalonPassengers::const_iterator 
       }
       if ( comp_rems.find( r->code ) != comp_rems.end() &&
            r->code == "STCR" ) {
+        vpass.add_rem( "STCR" );
         vpass.Step = sDown;
       }
     }
@@ -5019,7 +5067,9 @@ void AutoReSeatsPassengers( SALONS2::TSalonList &salonList,
               TPassenger vpass = ipasses->Get( k );
               vpass.grp_status = grp_layer_type;
               Passes.Add( vpass );
-              vpass.seatDescr = paxsSeatDescr.getDescr( "one", vpass.paxId );
+              std::vector<std::string> v;
+              paxsSeatDescr.getDescr( vpass.paxId, v );
+              vpass.seatsDescr.addSeatDescr(v);
               Passengers.Add( vpass );
               if ( !salonList.getSeatDescription() ) { //пробег по базовым местам при рассадке без учета свойств мест
                 ExistsBasePlace( SalonsN, vpass ); // пассажир не посажен, но нашлось для него базовое место - пометили как занято //??? кодировка !!!
@@ -5256,6 +5306,7 @@ bool TPassengers::existsNoSeats()
   }
   return false;
 }
+
 
 TPassengers Passengers;
 
