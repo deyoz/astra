@@ -233,6 +233,27 @@ struct TRFISC {
     }
 };
 
+struct TExtRFISC: public TRFISC {
+  bool pr_prot_ckin;
+  void clear() {
+    TRFISC::clear();
+    pr_prot_ckin = false;
+  }
+  TExtRFISC() {
+    TRFISC();
+    pr_prot_ckin = false;
+  }
+
+  TExtRFISC(const std::string &color,
+           const double &rate,
+           const std::string &currency_id,
+           const std::string &code,
+           bool pr_prot_ckin ) {
+     TRFISC(color,rate,currency_id,code);
+     this->pr_prot_ckin = pr_prot_ckin;
+  }
+};
+
 struct TSeatTariff {
     std::string color;
     double rate;
@@ -311,11 +332,11 @@ struct RFISCCompare {
 };
 
 
-class TSeatTariffMapType : public std::map<std::string,TRFISC> {
+class TSeatTariffMapType : public std::map<std::string,TExtRFISC> { //color,rfisc
   public:
     std::string key() const {
       std::string res;
-      for ( std::map<std::string,TRFISC,RFISCCompare>::const_iterator i=begin(); i!=end(); i++ ) {
+      for ( std::map<std::string,TExtRFISC,RFISCCompare>::const_iterator i=begin(); i!=end(); i++ ) {
          res += " " + i->second.str();
       }
       return res;
@@ -374,7 +395,7 @@ class TSeatTariffMap : public TSeatTariffMapType
     void get_rfisc_colors(const std::string &airline_oper);
     void clear()
     {
-      std::map<std::string,TRFISC>::clear();
+      std::map<std::string,TExtRFISC>::clear();
       _status=stNotFound;
     }
     void trace( TRACE_SIGNATURE ) const;
