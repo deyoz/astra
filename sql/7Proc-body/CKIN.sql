@@ -586,6 +586,7 @@ BEGIN
         deleted:=deleted+1;
         DELETE FROM pax_events WHERE pax_id=curRow.pax_id;
         DELETE FROM stat_ad WHERE pax_id=curRow.pax_id;
+        DELETE FROM stat_services WHERE pax_id=curRow.pax_id;
         DELETE FROM confirm_print WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_doc WHERE pax_id=curRow.pax_id;
         DELETE FROM pax_doco WHERE pax_id=curRow.pax_id;
