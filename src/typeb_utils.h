@@ -171,7 +171,7 @@ class TUnknownFmtOptions : public TCreateOptions
         dynamic_cast<const TUnknownFmtOptions&>(item);
         return true;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -184,7 +184,7 @@ class TUnknownFmtOptions : public TCreateOptions
         dynamic_cast<const TUnknownFmtOptions&>(item);
         return true;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -197,7 +197,7 @@ class TUnknownFmtOptions : public TCreateOptions
         const TUnknownFmtOptions &opt = dynamic_cast<const TUnknownFmtOptions&>(item);
         extra=opt.extra;
       }
-      catch(std::bad_cast) {};
+      catch(std::bad_cast&) {};
     };
 };
 
@@ -277,7 +277,7 @@ class TFranchiseOptions : public TCreateOptions
                 opt.franchise_info.suffix.empty() ||
                 franchise_info.suffix==opt.franchise_info.suffix);
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -293,7 +293,7 @@ class TFranchiseOptions : public TCreateOptions
                franchise_info.flt_no==opt.franchise_info.flt_no &&
                franchise_info.suffix==opt.franchise_info.suffix;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -306,7 +306,7 @@ class TFranchiseOptions : public TCreateOptions
         const TFranchiseOptions &opt = dynamic_cast<const TFranchiseOptions&>(item);
         franchise_info=opt.franchise_info;
       }
-      catch(std::bad_cast) {};
+      catch(std::bad_cast&) {};
     };
 };
 
@@ -366,7 +366,7 @@ class TAirpTrferOptions : public TFranchiseOptions
         const TAirpTrferOptions &opt = dynamic_cast<const TAirpTrferOptions&>(item);
         return airp_trfer.empty() || opt.airp_trfer.empty() || airp_trfer==opt.airp_trfer;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -379,7 +379,7 @@ class TAirpTrferOptions : public TFranchiseOptions
         const TAirpTrferOptions &opt = dynamic_cast<const TAirpTrferOptions&>(item);
         return airp_trfer==opt.airp_trfer;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -392,7 +392,7 @@ class TAirpTrferOptions : public TFranchiseOptions
         const TAirpTrferOptions &opt = dynamic_cast<const TAirpTrferOptions&>(item);
         airp_trfer=opt.airp_trfer;
       }
-      catch(std::bad_cast) {};
+      catch(std::bad_cast&) {};
     };
 };
 
@@ -454,7 +454,7 @@ class TCrsOptions : public TFranchiseOptions
         const TCrsOptions &opt = dynamic_cast<const TCrsOptions&>(item);
         return crs==opt.crs;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -467,7 +467,7 @@ class TCrsOptions : public TFranchiseOptions
         const TCrsOptions &opt = dynamic_cast<const TCrsOptions&>(item);
         return crs==opt.crs;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -480,7 +480,7 @@ class TCrsOptions : public TFranchiseOptions
         const TCrsOptions &opt = dynamic_cast<const TCrsOptions&>(item);
         crs=opt.crs;
       }
-      catch(std::bad_cast) {};
+      catch(std::bad_cast&) {};
     };
 };
 
@@ -571,7 +571,7 @@ class TMarkInfoOptions : public TCrsOptions
                 opt.mark_info.suffix.empty() ||
                 mark_info.suffix==opt.mark_info.suffix);
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -587,7 +587,7 @@ class TMarkInfoOptions : public TCrsOptions
                mark_info.flt_no==opt.mark_info.flt_no &&
                mark_info.suffix==opt.mark_info.suffix;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -601,7 +601,7 @@ class TMarkInfoOptions : public TCrsOptions
         pr_mark_header=opt.pr_mark_header;
         mark_info=opt.mark_info;
       }
-      catch(std::bad_cast) {};
+      catch(std::bad_cast&) {};
     };
 };
 
@@ -639,7 +639,7 @@ class TETLOptions : public TMarkInfoOptions
                 const TTypeBTypesRow& row = (const TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
                 basic_type=row.basic_type;
             }
-            catch(EBaseTableError)
+            catch(EBaseTableError&)
             {
                 throw EXCEPTIONS::Exception("%s::fromDB: unknown telegram type %s", typeName().c_str(), tlg_type.c_str());
             };
@@ -688,7 +688,7 @@ class TETLOptions : public TMarkInfoOptions
                 return
                     rbd == opt.rbd;
             }
-            catch(std::bad_cast)
+            catch(std::bad_cast&)
             {
                 return false;
             };
@@ -702,7 +702,7 @@ class TETLOptions : public TMarkInfoOptions
                 return
                     rbd == opt.rbd;
             }
-            catch(std::bad_cast)
+            catch(std::bad_cast&)
             {
                 return false;
             };
@@ -715,7 +715,7 @@ class TETLOptions : public TMarkInfoOptions
                 const TETLOptions &opt = dynamic_cast<const TETLOptions&>(item);
                 rbd = opt.rbd;
             }
-            catch(std::bad_cast) {};
+            catch(std::bad_cast&) {};
         };
 };
 
@@ -753,7 +753,7 @@ class TMVTOptions : public TFranchiseOptions
           const TTypeBTypesRow& row = (const TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
           basic_type=row.basic_type;
       }
-      catch(EBaseTableError)
+      catch(EBaseTableError&)
       {
           throw EXCEPTIONS::Exception("%s::fromDB: unknown telegram type %s", typeName().c_str(), tlg_type.c_str());
       };
@@ -800,7 +800,7 @@ class TMVTOptions : public TFranchiseOptions
         const TMVTOptions &opt = dynamic_cast<const TMVTOptions&>(item);
         return noend == opt.noend;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -813,7 +813,7 @@ class TMVTOptions : public TFranchiseOptions
         const TMVTOptions &opt = dynamic_cast<const TMVTOptions&>(item);
         return noend == opt.noend;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -826,7 +826,7 @@ class TMVTOptions : public TFranchiseOptions
         const TMVTOptions &opt = dynamic_cast<const TMVTOptions&>(item);
         noend = opt.noend;
       }
-      catch(std::bad_cast) {};
+      catch(std::bad_cast&) {};
     };
 };
 
@@ -897,7 +897,7 @@ class TCOMOptions : public TFranchiseOptions
         const TCOMOptions &opt = dynamic_cast<const TCOMOptions&>(item);
         return version == opt.version;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -910,7 +910,7 @@ class TCOMOptions : public TFranchiseOptions
         const TCOMOptions &opt = dynamic_cast<const TCOMOptions&>(item);
         return version == opt.version;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -923,7 +923,7 @@ class TCOMOptions : public TFranchiseOptions
         const TCOMOptions &opt = dynamic_cast<const TCOMOptions&>(item);
         version = opt.version;
       }
-      catch(std::bad_cast) {};
+      catch(std::bad_cast&) {};
     };
 };
 
@@ -1051,7 +1051,7 @@ class TLDMOptions : public TFranchiseOptions
             noend==opt.noend &&
             version == opt.version;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -1068,7 +1068,7 @@ class TLDMOptions : public TFranchiseOptions
             noend==opt.noend &&
             version == opt.version;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -1085,7 +1085,7 @@ class TLDMOptions : public TFranchiseOptions
         noend=opt.noend;
         version = opt.version;
       }
-      catch(std::bad_cast) {};
+      catch(std::bad_cast&) {};
     };
 };
 
@@ -1204,7 +1204,7 @@ class TPRLOptions : public TMarkInfoOptions
                     rbd == opt.rbd and
                     pax_state == opt.pax_state;
             }
-            catch(std::bad_cast)
+            catch(std::bad_cast&)
             {
                 return false;
             };
@@ -1221,7 +1221,7 @@ class TPRLOptions : public TMarkInfoOptions
                     rbd == opt.rbd and
                     pax_state == opt.pax_state;
             }
-            catch(std::bad_cast)
+            catch(std::bad_cast&)
             {
                 return false;
             };
@@ -1237,7 +1237,7 @@ class TPRLOptions : public TMarkInfoOptions
                 pax_state = opt.pax_state;
                 rbd = opt.rbd;
             }
-            catch(std::bad_cast) {};
+            catch(std::bad_cast&) {};
         };
 };
 
@@ -1444,7 +1444,7 @@ class TLCIOptions : public TFranchiseOptions
                version==opt.version &&
                seat_plan==opt.seat_plan;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -1466,7 +1466,7 @@ class TLCIOptions : public TFranchiseOptions
                version==opt.version &&
                seat_plan==opt.seat_plan;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -1490,7 +1490,7 @@ class TLCIOptions : public TFranchiseOptions
         seats = opt.seats;
         cfg = opt.cfg;
       }
-      catch(std::bad_cast) {};
+      catch(std::bad_cast&) {};
     };
 };
 
@@ -1606,7 +1606,7 @@ class TBSMOptions : public TFranchiseOptions
                pas_name_rp1745==opt.pas_name_rp1745 &&
                actual_dep_date==opt.actual_dep_date;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -1622,7 +1622,7 @@ class TBSMOptions : public TFranchiseOptions
                pas_name_rp1745==opt.pas_name_rp1745 &&
                actual_dep_date==opt.actual_dep_date;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -1638,7 +1638,7 @@ class TBSMOptions : public TFranchiseOptions
         pas_name_rp1745=opt.pas_name_rp1745;
         actual_dep_date=opt.actual_dep_date;
       }
-      catch(std::bad_cast) {};
+      catch(std::bad_cast&) {};
     };
 };
 
@@ -1679,7 +1679,7 @@ class TForwardOptions : public TCreateOptions
           const TTypeBTypesRow& row = (const TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
           basic_type=row.basic_type;
       }
-      catch(EBaseTableError)
+      catch(EBaseTableError&)
       {
           throw EXCEPTIONS::Exception("%s::fromDB: unknown telegram type %s", typeName().c_str(), tlg_type.c_str());
       };
@@ -1725,7 +1725,7 @@ class TForwardOptions : public TCreateOptions
         const TForwardOptions &opt = dynamic_cast<const TForwardOptions&>(item);
         return forwarding==opt.forwarding;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -1738,7 +1738,7 @@ class TForwardOptions : public TCreateOptions
         const TForwardOptions &opt = dynamic_cast<const TForwardOptions&>(item);
         return forwarding==opt.forwarding;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -1753,7 +1753,7 @@ class TForwardOptions : public TCreateOptions
         typeb_in_id=opt.typeb_in_id;
         typeb_in_num=opt.typeb_in_num;
       }
-      catch(std::bad_cast) {};
+      catch(std::bad_cast&) {};
     };
 };
 
@@ -1794,7 +1794,7 @@ class TPNLADLOptions : public TMarkInfoOptions
           const TTypeBTypesRow& row = (const TTypeBTypesRow&)(base_tables.get("typeb_types").get_row("code",tlg_type));
           basic_type=row.basic_type;
       }
-      catch(EBaseTableError)
+      catch(EBaseTableError&)
       {
           throw EXCEPTIONS::Exception("%s::fromDB: unknown telegram type %s", typeName().c_str(), tlg_type.c_str());
       };
@@ -1840,7 +1840,7 @@ class TPNLADLOptions : public TMarkInfoOptions
         const TPNLADLOptions &opt = dynamic_cast<const TPNLADLOptions&>(item);
         return forwarding==opt.forwarding;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -1853,7 +1853,7 @@ class TPNLADLOptions : public TMarkInfoOptions
         const TPNLADLOptions &opt = dynamic_cast<const TPNLADLOptions&>(item);
         return forwarding==opt.forwarding;
       }
-      catch(std::bad_cast)
+      catch(std::bad_cast&)
       {
         return false;
       };
@@ -1868,7 +1868,7 @@ class TPNLADLOptions : public TMarkInfoOptions
         typeb_in_id=opt.typeb_in_id;
         typeb_in_num=opt.typeb_in_num;
       }
-      catch(std::bad_cast) {};
+      catch(std::bad_cast&) {};
     };
 };
 

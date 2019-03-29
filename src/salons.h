@@ -336,7 +336,7 @@ class TSeatTariffMapType : public std::map<std::string,TExtRFISC> { //color,rfis
   public:
     std::string key() const {
       std::string res;
-      for ( std::map<std::string,TExtRFISC,RFISCCompare>::const_iterator i=begin(); i!=end(); i++ ) {
+      for (auto i=this->cbegin(); i!=this->cend(); i++ ) {
          res += " " + i->second.str();
       }
       return res;
@@ -395,7 +395,7 @@ class TSeatTariffMap : public TSeatTariffMapType
     void get_rfisc_colors(const std::string &airline_oper);
     void clear()
     {
-      std::map<std::string,TExtRFISC>::clear();
+      TSeatTariffMapType::clear();
       _status=stNotFound;
     }
     void trace( TRACE_SIGNATURE ) const;

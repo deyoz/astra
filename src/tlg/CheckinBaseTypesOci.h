@@ -8,7 +8,7 @@
 struct OciSelector<Ticketing::Value<I,base_t> > { \
     enum{ canOdef = 1}; \
     enum{ canObind = 1 }; \
-    enum{ canBindout}; \
+    enum{ canBindout = 1 }; \
     enum{ bind_out_is_denied_for_this_type };\
     typedef Ticketing::Value<I,base_t> this_type;\
     static const bool auto_null_value=true;\
@@ -46,14 +46,6 @@ struct OciSelector<Ticketing::Value<I,base_t> > { \
             ((this_type*)out_ptr)->operator =(a);\
         }\
     }\
-    static  buf_ptr_t conv (const this_type *p) { \
-        return DefaultConvert(p ? p->never_use_except_in_OciCpp() : 0, sizeof(base_t), sizeof(base_t)); \
-    } \
-    static buf_ptr_t convnull () \
-    { \
-        this_type a;\
-        return DefaultConvert(a.never_use_except_in_OciCpp(), sizeof(base_t), sizeof(base_t)); \
-    } \
 }; \
 template <Ticketing::IDS I> struct OciSelector<const Ticketing::Value<I,base_t> > { \
     enum { canOdef = 0 }; \
@@ -63,7 +55,7 @@ template <Ticketing::IDS I> struct OciSelector<const Ticketing::Value<I,base_t> 
     static const External::type data_type = External::wrapper;\
     typedef const Ticketing::Value<I,base_t> this_type;\
     static bool canBind(const Ticketing::Value<I,base_t>& ) {return true;} \
-    static void * addr(this_type   *a){return a;}\
+    static void * addr(const this_type *a){return (void*)a;}\
     static char* to(const void* a, indicator& ind)\
     {\
         char* memory = new char[sizeof(base_t)];\
