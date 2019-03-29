@@ -528,34 +528,19 @@ BEGIN
       DELETE FROM rfisc_stat WHERE rowid=rowids(i);
 
     SELECT rowid BULK COLLECT INTO rowids
-    FROM stat_services
+    FROM service_stat
     WHERE point_id=curRow.point_id FOR UPDATE;
     IF use_insert THEN
       FORALL i IN 1..rowids.COUNT
-        INSERT INTO arx_stat_services
-        (point_id, scd_out, pax_id, airp_dep, airp_arv, rfic, rfisc, receipt_no, part_key)
-        SELECT
-         point_id, scd_out, pax_id, airp_dep, airp_arv, rfic, rfisc, receipt_no, vpart_key
-        FROM stat_services
-        WHERE rowid=rowids(i);
-    END IF;
-    FORALL i IN 1..rowids.COUNT
-      DELETE FROM stat_services WHERE rowid=rowids(i);
-
-    SELECT rowid BULK COLLECT INTO rowids
-    FROM stat_rem
-    WHERE point_id=curRow.point_id FOR UPDATE;
-    IF use_insert THEN
-      FORALL i IN 1..rowids.COUNT
-        INSERT INTO arx_stat_rem
+        INSERT INTO arx_service_stat
         (point_id, travel_time, rem_code, ticket_no, airp_last, user_id, desk, rfisc, rate, rate_cur, part_key)
         SELECT
          point_id, travel_time, rem_code, ticket_no, airp_last, user_id, desk, rfisc, rate, rate_cur, vpart_key
-        FROM stat_rem
+        FROM service_stat
         WHERE rowid=rowids(i);
     END IF;
     FORALL i IN 1..rowids.COUNT
-      DELETE FROM stat_rem WHERE rowid=rowids(i);
+      DELETE FROM service_stat WHERE rowid=rowids(i);
 
     SELECT rowid BULK COLLECT INTO rowids
     FROM limited_capability_stat
