@@ -3230,7 +3230,10 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     snode = NewTextChild( node, "dest" );
 
     if(TReqInfo::Instance()->desk.compatible(PROFILE_REFACT_VERSION)) {
-        NewTextChild( snode, "airlineId", d->airline );
+        string airlineId = d->airline;
+        if(airlineId.empty() and d != dests.begin())
+            airlineId = (d - 1)->airline;
+        NewTextChild( snode, "airlineId", airlineId);
     } else
         TProfiledRights(d->point_id).toXML(snode);
 
