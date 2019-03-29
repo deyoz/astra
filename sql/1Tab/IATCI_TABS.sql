@@ -1,6 +1,5 @@
-create table IATCI_TABS
-(
-ID      number(9) not null,
-GRP_ID  number(9) not null,
-TAB_IND number(1) not null
+CREATE TABLE IATCI_TABS (
+GRP_ID NUMBER(9) NOT NULL,
+ID NUMBER(9) NOT NULL,
+TAB_IND NUMBER(1) NOT NULL
 );

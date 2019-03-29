@@ -22,7 +22,7 @@ BEGIN
           trip_comp_layers.pax_id=pax.pax_id(+) AND
           pax.grp_id=pax_grp.grp_id(+) AND
           (:new.class IS NOT NULL AND
-           (pax_grp.class IS NULL OR pax_grp.class=:new.class) AND
+           (NVL(pax.compartment, pax_grp.class) IS NULL OR NVL(pax.compartment, pax_grp.class)=:new.class) AND
            (crs_pnr.class IS NULL OR crs_pnr.class=:new.class));
   ELSE
     --проверить, является ли нормализованным место xname+yname и диапазон
@@ -44,7 +44,7 @@ BEGIN
           trip_comp_layers.pax_id=pax.pax_id(+) AND
           pax.grp_id=pax_grp.grp_id(+) AND
           (:new.class IS NOT NULL AND
-           (pax_grp.class IS NULL OR pax_grp.class=:new.class) AND
+           (NVL(pax.compartment, pax_grp.class) IS NULL OR NVL(pax.compartment, pax_grp.class)=:new.class) AND
            (crs_pnr.class IS NULL OR crs_pnr.class=:new.class));
   END IF;
 END;
