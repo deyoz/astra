@@ -3314,21 +3314,24 @@ bool SearchPaxByScanData(xmlNodePtr reqNode,
     Qry.Clear();
 
     ostringstream sql;
-    sql << "SELECT pax.grp_id, pax.pax_id, pax.name, pax.seats "
+    sql << "SELECT pax.grp_id, pax.pax_id, pax.name, pax.seats, pax.reg_no "
            "FROM pax_grp, pax "
            "WHERE pax_grp.grp_id=pax.grp_id AND "
            "      pax_grp.point_dep=:point_id AND "
            "      pax_grp.airp_arv=:airp_arv AND "
-           "      pr_brd IS NOT NULL AND "
-           "      reg_no=:reg_no AND "
+           "      pax.pr_brd IS NOT NULL AND "
         << filter.getSurnameSQLFilter("pax.surname", Qry);
     Qry.DeclareVariable("point_id", otInteger);
     Qry.CreateVariable("airp_arv", otString, filter.airp_arv);
-    Qry.CreateVariable("reg_no", otInteger, filter.reg_no);
     Qry.SQLText=sql.str().c_str();
+
+    int anySuitablePointId=NoExists;
+    int anySuitablePaxId=NoExists;
 
     for(list<TAdvTripInfo>::const_iterator f=flts.begin(); f!=flts.end(); ++f)
     {
+      anySuitablePointId=f->point_id;
+
       int pax_id_with_seats=NoExists;
       int pax_id_without_seats=NoExists;
       int grp_id=NoExists;
@@ -3337,6 +3340,9 @@ bool SearchPaxByScanData(xmlNodePtr reqNode,
       for(;!Qry.Eof;Qry.Next())
       {
         if (!filter.isEqualName(Qry.FieldAsString("name"))) continue;
+        anySuitablePaxId=Qry.FieldAsInteger("pax_id");
+        if (!filter.isEqualRegNo(Qry.FieldAsInteger("reg_no"))) continue;
+
         int &pax_id_ref=(Qry.FieldAsInteger("seats")>0?pax_id_with_seats:pax_id_without_seats);
         if (pax_id_ref!=NoExists)
           throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d, reg_no=%d)", f->point_id, filter.reg_no);
@@ -3357,6 +3363,9 @@ bool SearchPaxByScanData(xmlNodePtr reqNode,
         result=true;
       };
     };
+
+    if (point_id==NoExists) point_id=anySuitablePointId;
+    if (pax_id==NoExists) pax_id=anySuitablePaxId;
   }
   catch(EXCEPTIONS::EConvertError &e)
   {
