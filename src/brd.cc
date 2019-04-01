@@ -915,7 +915,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         if (Qry.Eof)
         {
           if (search_type==updateByPaxId)
-            throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
+            throw AstraLocale::UserException("MSG.PASSENGER.NOT_CHECKIN");
           if (search_type==refreshByPaxId)
             throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
         };
@@ -926,8 +926,21 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       {
           bool isBoardingPass;
         SearchPaxByScanData(reqNode, found_point_id, reg_no, found_pax_id, isBoardingPass);
-        if (found_point_id==NoExists || reg_no==NoExists || found_pax_id==NoExists || not isBoardingPass)
-          throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
+        if (found_point_id==NoExists || reg_no==NoExists || found_pax_id==NoExists || !isBoardingPass)
+        {
+          LogTrace(TRACE5) << __FUNCTION__
+                           << ": found_point_id=" << found_point_id
+                           << ", reg_no=" << reg_no
+                           << ", found_pax_id=" << found_pax_id
+                           << boolalpha << ", isBoardingPass=" << isBoardingPass;
+          if (!isBoardingPass)
+            throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
+          if (found_point_id==NoExists)
+            throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
+          if (found_pax_id==NoExists)
+            throw AstraLocale::UserException("MSG.PASSENGER.NOT_CHECKIN");
+          throw AstraLocale::UserException("MSG.PASSENGER.NOT_CHECKIN_WITH_REG_NO");
+        }
       };
 
       if (point_id!=found_point_id)
