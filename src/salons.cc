@@ -297,7 +297,7 @@ void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TTripInfo &markFlt, 
     {
       _real_queries++;
       TCachedQuery Qry(
-        "SELECT DISTINCT color AS rate_color, rate, rate_cur, NULL AS rfisc "
+        "SELECT DISTINCT color AS rate_color, rate, rate_cur, NULL AS rfisc, 0 AS pr_prot_ckin "
         "FROM trip_comp_rates "
         "WHERE point_id=:point_id",
         QParams() << QParam("point_id", otInteger, operFlt.point_id)
