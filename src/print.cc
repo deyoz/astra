@@ -2518,7 +2518,6 @@ void PrintInterface::GetPrintDataVOUnregistered(
             }
         }
     }
-    LogTrace(TRACE5) << GetXMLDocText(resNode->doc); // !!!
 }
 
 void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)

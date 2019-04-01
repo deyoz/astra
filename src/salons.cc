@@ -6750,6 +6750,8 @@ void GetTripParams( int trip_id, xmlNodePtr dataNode )
 
   TTripInfo info( Qry );
 
+  NewTextChild( dataNode, "airline", Qry.FieldAsString("airline"));
+  NewTextChild( dataNode, "airp", Qry.FieldAsString("airp"));
   NewTextChild( dataNode, "trip", GetTripName( info, ecCkin ) );
   NewTextChild( dataNode, "craft", ElemIdToElemCtxt( ecDisp, etCraft, Qry.FieldAsString( "craft" ), (TElemFmt)Qry.FieldAsInteger( "craft_fmt" ) ) );
   NewTextChild( dataNode, "bort", Qry.FieldAsString( "bort" ) );

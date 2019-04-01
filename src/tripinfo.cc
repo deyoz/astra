@@ -771,7 +771,8 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         GetSegInfo(node, NULL, NewTextChild(segsNode,"segment"), first_point_id);
       }
   };
-  TProfiledRights(first_point_id).toXML(dataNode);
+  if(not TReqInfo::Instance()->desk.compatible(PROFILE_REFACT_VERSION))
+      TProfiledRights(first_point_id).toXML(dataNode);
 };
 
 void TripsInterface::PectabsResponse(int point_id, xmlNodePtr reqNode, xmlNodePtr dataNode)
