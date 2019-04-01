@@ -1,2 +1,1 @@
-ALTER TABLE TYPEB_PARSE_PROCESSES ADD CONSTRAINT TYPEB_PARSE_PROCESSES__PK PRIMARY KEY (TLG_TYPE) USING INDEX TYPEB_PARSE_PROCESSES__PK;
-
+alter table typeb_parse_processes add constraint typeb_parse_processes__pk primary key (tlg_type);

@@ -1,4 +1,4 @@
-CREATE TABLE DEFFERED_FLT_TASKS (
-MIN_PAX_COUNT NUMBER(3) NOT NULL,
-TASK_NAME VARCHAR2(50) NOT NULL
+CREATE TABLE deffered_flt_tasks (
+       task_name            VARCHAR2(50) NOT NULL,
+       min_pax_count        NUMBER(3) NOT NULL
 );

@@ -1,2 +1,1 @@
-create sequence EXCH_FLIGHTS__SEQ minvalue 1 maxvalue 999999999 increment by 1 cycle
-/
+CREATE SEQUENCE exch_flights__seq INCREMENT BY 1 START WITH 1 MAXVALUE 999999999 CYCLE ORDER;

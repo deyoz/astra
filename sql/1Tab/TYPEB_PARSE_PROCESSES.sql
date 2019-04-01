@@ -1,4 +1,5 @@
-CREATE TABLE TYPEB_PARSE_PROCESSES (
-PROC_NAME VARCHAR2(20) NOT NULL,
-TLG_TYPE VARCHAR2(3) NOT NULL
+create table typeb_parse_processes (
+    tlg_type varchar2(3) not null,
+    proc_name varchar2(20) not null
 );
+
