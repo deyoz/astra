@@ -172,11 +172,12 @@ void TSeatTariffMap::get(TQuery &Qry, const std::string &traceDetail)
   Qry.Execute();
   for(; !Qry.Eof; Qry.Next())
   {
-    TRFISC rfisc;
+    TExtRFISC rfisc;
     rfisc.color=Qry.FieldAsString("rate_color");
     rfisc.rate=Qry.FieldAsFloat("rate");
     rfisc.currency_id=Qry.FieldAsString("rate_cur");
     rfisc.code=Qry.FieldAsString("rfisc");
+    rfisc.pr_prot_ckin=Qry.FieldAsInteger("pr_prot_ckin");
 
     pair<TSeatTariffMapType::iterator, bool> i=insert(make_pair(rfisc.color, rfisc));
     if (!i.second && rfisc!=i.first->second)
@@ -213,7 +214,7 @@ void TSeatTariffMap::get_rfisc_colors_internal(const std::string &airline_oper)
   if (iRFISColors==rfisc_colors.end())
   {
     _real_queries++;
-    TCachedQuery Qry("SELECT rate_color, 0 AS rate, NULL AS rate_cur, code AS rfisc "
+    TCachedQuery Qry("SELECT rate_color, 0 AS rate, NULL AS rate_cur, code AS rfisc, pr_prot_ckin "
                      "FROM rfisc_comp_props "
                      "WHERE airline=:airline",
                      QParams() << QParam("airline", otString, airline_oper));
@@ -259,7 +260,7 @@ void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TTripInfo &markFlt, 
     _potential_queries++;
     _real_queries++;
     TCachedQuery Qry(
-      "SELECT rfisc_comp_props.rate_color, rfisc_rates.rate, rfisc_rates.rate_cur, rfisc_rates.rfisc "
+      "SELECT rfisc_comp_props.rate_color, rfisc_comp_props.pr_prot_ckin, rfisc_rates.rate, rfisc_rates.rate_cur, rfisc_rates.rfisc "
       "FROM brand_fares, rfisc_rates, rfisc_comp_props "
       "WHERE brand_fares.airline=rfisc_rates.airline AND "
       "      brand_fares.brand=rfisc_rates.brand AND "
@@ -296,7 +297,7 @@ void TSeatTariffMap::get(const TAdvTripInfo &operFlt, const TTripInfo &markFlt, 
     {
       _real_queries++;
       TCachedQuery Qry(
-        "SELECT DISTINCT color AS rate_color, rate, rate_cur, NULL AS rfisc "
+        "SELECT DISTINCT color AS rate_color, rate, rate_cur, NULL AS rfisc, 0 AS pr_prot_ckin "
         "FROM trip_comp_rates "
         "WHERE point_id=:point_id",
         QParams() << QParam("point_id", otInteger, operFlt.point_id)
@@ -1650,7 +1651,7 @@ void TPlace::SetRFISC( int point_id, TSeatTariffMapType &tariffMap )
     irfisc->second.clear();
     irfisc->second.color = color;
     if ( !tariffMap.empty() ) {
-      std::map<std::string,TRFISC>::iterator vrfisc = tariffMap.find( color );
+      std::map<std::string,TExtRFISC>::iterator vrfisc = tariffMap.find( color );
       if ( vrfisc != tariffMap.end() && !color.empty() ) {
         AddRFISC( point_id, vrfisc->second );
         //ProgTrace( TRACE5, "SetRFISC point_id %d, %s", point_id, vrfisc->second.str().c_str() );
@@ -4572,7 +4573,7 @@ void TSalonList::Build( xmlNodePtr salonsNode )
     if ( tariffMap.is_rfisc_applied( this->getAirline() ) ) {
       tst();
       xmlNodePtr tariffsNode = NewTextChild( salonsNode, "rfisc_colors" );
-      for( std::map<std::string,TRFISC>::iterator i=tariffMap.begin(); i!=tariffMap.end(); i++ ) {
+      for( std::map<std::string,TExtRFISC>::iterator i=tariffMap.begin(); i!=tariffMap.end(); i++ ) {
         xmlNodePtr n = NewTextChild( tariffsNode, "item" );
         SetProp( n, "color", i->first );
         SetProp( n, "figure", "rurect" );
