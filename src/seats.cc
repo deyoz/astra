@@ -2945,6 +2945,7 @@ bool ExistsBasePlace( SALONS2::TSalons &Salons, TPassenger &pass )
 void SeatsPassengersGrps( SALONS2::TSalons *Salons,
                           TSeatAlgoParams ASeatAlgoParams /* sdUpDown_Line - умолчание */,
                           TClientType client_type,
+                          TRFISCMode UseRFISCMode,
                           TPassengers &passengers,
                           const std::map<int,TPaxList> &pax_lists );
 
@@ -3010,6 +3011,7 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
       SeatsPassengersGrps( CurrSalon,
                            ASeatAlgoParams,
                            client_type,
+                           salonList.getRFISCMode(),
                            passes,
                            salonList.pax_lists );
       for ( int i=0; i<passes.getCount(); i++ ) {
@@ -3174,12 +3176,14 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                       bool pr_rollback,
                       bool separately_seats_adult_with_baby,
                       bool denial_emergency_seats,
+                      TRFISCMode useRFISCMode,
                       TPassengers &passengers,
                       const std::vector<TCoordSeat> &paxsSeats );
 
 void SeatsPassengersGrps( SALONS2::TSalons *Salons,
                           TSeatAlgoParams ASeatAlgoParams /* sdUpDown_Line - умолчание */,
                           TClientType client_type,
+                          TRFISCMode useRFISCMode,
                           TPassengers &passengers,
                           const std::map<int,TPaxList> &pax_lists )
 {
@@ -3236,6 +3240,7 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
                        pr_rollback,
                        separately_seats_adult_with_baby,
                        denial_emergency_seats,
+                       useRFISCMode,
                        passengers,
                        paxsSeats );
       babyZoness.rollbackDisabledBabySection( Salons );
@@ -3324,7 +3329,7 @@ void SeatsPassengersGrps( SALONS2::TSalons *Salons,
 }
 
 
-bool UsedPayedPreseatForPassenger( const TPlace &seat, int pass_preseat_pax_id, TCompLayerType pass_preseat_layer ) {
+bool UsedPayedPreseatForPassenger( int point_id, TPlace &seat, const TPassenger &pass, bool check_rfisc  ) {
   if ( TReqInfo::Instance()->client_type == ctTerm && seat.SeatTariff.rate == 0.0 ) { // only for Term analize rates
     tst();
     return true;
@@ -3341,19 +3346,39 @@ bool UsedPayedPreseatForPassenger( const TPlace &seat, int pass_preseat_pax_id, 
          seat.layers.begin()->layer_type == cltPNLAfterPay ||
          seat.layers.begin()->layer_type == cltProtSelfCkin ) {
       ProgTrace( TRACE5, "seat->pax_id=%d, pass.preseat_pax_id=%d",
-                 seat.layers.begin()->pax_id, pass_preseat_pax_id );
-      return seat.layers.begin()->pax_id == pass_preseat_pax_id; //принадлежит пассажиру
+                 seat.layers.begin()->pax_id, pass.preseat_pax_id );
+      return seat.layers.begin()->pax_id == pass.preseat_pax_id; //принадлежит пассажиру
     }
   }
   //у пассажира разметка с меньшим приоритетом чем платное
   BASIC_SALONS::TCompLayerTypes *compTypes = BASIC_SALONS::TCompLayerTypes::Instance();
-  int priority = compTypes->priority( pass_preseat_layer );
+  int priority = compTypes->priority( pass.preseat_layer );
   if ( priority > compTypes->priority( cltProtBeforePay )&&
        priority > compTypes->priority( cltProtAfterPay )&&
        priority > compTypes->priority( cltPNLBeforePay )&&
        priority > compTypes->priority( cltPNLAfterPay ) &&
        priority > compTypes->priority( cltProtSelfCkin )) {
-    tst();
+    if ( pass.preseat_layer == cltProtCkin ) {
+      if ( !check_rfisc ) {
+        return false;
+      }
+      std::map<int, TRFISC,classcomp> vrfiscs;
+      seat.GetRFISCs( vrfiscs );
+      if ( vrfiscs.find( point_id ) != vrfiscs.end() ) {
+        TRFISC rfisc = vrfiscs[ point_id ];
+        LogTrace(TRACE5) << rfisc.str();
+        TSeatTariffMapType::const_iterator irfisc;
+        if ( !rfisc.empty() &&
+              (irfisc=pass.tariffs.find( rfisc.color )) != pass.tariffs.end() ) {
+          LogTrace(TRACE5) << "pr_prot_ckin=" <<irfisc->second.pr_prot_ckin;
+          if ( irfisc->second.pr_prot_ckin ) {
+            seat.SeatTariff.clear();
+            tst();
+            return true;
+          }
+        }
+      }
+    }
     return false;
   }
   tst();
@@ -3364,7 +3389,7 @@ bool UsedPayedPreseatForPassenger( const TPlace &seat, int pass_preseat_pax_id, 
 class AnomalisticConditionsPayment
 {
   public:
-    static void clearPreseatPaymentLayers( SALONS2::TSalons *Salons, TPassengers &passengers ) {
+    static void clearPreseatPaymentLayers( SALONS2::TSalons *Salons, bool check_prot_ckin_rfisc, TPassengers &passengers ) {
       //удаляем предварительно назначенное платное место
       for ( int i=0; i<passengers.getCount(); i++ ) {
         TPassenger &pass = passengers.Get( i );
@@ -3383,7 +3408,7 @@ class AnomalisticConditionsPayment
               if ( pass.preseat_layer == cltProtBeforePay || // не оплатили - удаляем из компоновки разметку слоем и пассажира делаем обычным
                    pass.preseat_layer == cltPNLBeforePay ||
                    (pass.preseat_layer == cltProtSelfCkin && !p->SeatTariff.empty()) || //резерв, но не оплачен
-                   !UsedPayedPreseatForPassenger( *p, pass.preseat_pax_id, pass.preseat_layer ) ) { //очистка предварительно назначенных мест
+                   !UsedPayedPreseatForPassenger( Salons->trip_id, *p, pass, check_prot_ckin_rfisc ) ) { //очистка предварительно назначенных мест
                 prClear = true;
                 pls.push_back( p );
               }
@@ -3536,6 +3561,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
                       bool pr_rollback,
                       bool separately_seats_adult_with_baby,
                       bool denial_emergency_seats,
+                      TRFISCMode useRFISCMode,
                       TPassengers &passengers,
                       const std::vector<TCoordSeat> &paxsSeats )
 {
@@ -3551,7 +3577,8 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
   if ( passengers.Get(0).tariffStatus != TSeatTariffMap::stNotRFISC ) {
     Salons->SetTariffsByRFISCColor( Salons->trip_id, passengers.Get(0).tariffs, passengers.Get(0).tariffStatus );
   }
-  AnomalisticConditionsPayment::clearPreseatPaymentLayers( Salons, passengers );
+  AnomalisticConditionsPayment::clearPreseatPaymentLayers( Salons, useRFISCMode == rRFISC, passengers );
+  //AnomalisticConditionsPayment::clearTariffProtCkinLayers( Salons, UseRFISCMode, passengers );
   //AnomalisticConditionsPayment::clearTariffsOnWebSignal( Salons, passengers );
   AnomalisticConditionsPayment::setPayementOnWebSignal( Salons, passengers );
   AnomalisticConditionsPayment::removeRemarksOnPaymentLayer( Salons, passengers );
@@ -4319,8 +4346,8 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
     //CanUse_PS = false; //!!!
   first_xname = norm_iata_line( first_xname );
   first_yname = norm_iata_line( first_yname );
-  ProgTrace( TRACE5, "layer=%s, point_id=%d, pax_id=%d, first_xname=%s, first_yname=%s",
-             EncodeCompLayerType( layer_type ), point_id, pax_id, first_xname.c_str(), first_yname.c_str() );
+  LogTrace( TRACE5 ) << ((salonList.getRFISCMode() == rTariff)?string(""):string("RFISC Mode ")) << "layer=" << EncodeCompLayerType( layer_type )
+              << ",point_id=" << point_id << ",pax_id=" << pax_id << ",first_xname=" << first_xname << ",first_yname=" << first_yname;
   TQuery Qry( &OraSession );
   TFlights flights;
   flights.Get( point_id, ftTranzit );
@@ -4393,7 +4420,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
     pr_down = 1;
   else
     pr_down = 0;
-  string prior_seat = Qry.FieldAsString( "seat_no" );
+  //string prior_seat = Qry.FieldAsString( "seat_no" );
   string pers_type = Qry.FieldAsString( "pers_type" );
   if ( !seats_count ) {
     ProgTrace( TRACE5, "!!! Passenger has count seats=0 in funct ChangeLayer" );
@@ -4540,6 +4567,21 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
       //bool pr_departure_tariff_only = true;
       TRFISC rfisc;
       ProgTrace( TRACE5, "RFISCMode=%d", salonList.getRFISCMode() );
+      if ( salonList.getRFISCMode() ) {
+        std::map<int, TRFISC,classcomp> vrfiscs;
+        seat->GetRFISCs( vrfiscs );
+        if ( vrfiscs.find( point_id ) != vrfiscs.end() ) {
+          rfisc = vrfiscs[ point_id ];
+        }
+        if ( !rfisc.empty() &&
+             passTariffs.find( rfisc.color ) != passTariffs.end() ) {
+          LogTrace(TRACE5) << passTariffs[ rfisc.color ].str() << ",pr_prot_ckin=" << passTariffs[ rfisc.color ].pr_prot_ckin;
+          if (!passTariffs[ rfisc.color ].pr_prot_ckin ) {
+            throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL_WITH_RFISC",
+                                LParams()<<LParam("code", rfisc.code) );
+          }
+        }
+      }
       passTariffs.trace( TRACE5 );
       if ( passTariffs.status() == TSeatTariffMap::stUseRFISC ) {
         SALONS2::TSelfCkinSalonTariff SelfCkinSalonTariff;
@@ -4615,7 +4657,10 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
                                         <<LParam("airp_arv", ElemIdToCodeNative(etAirp,airp_arv) ) );
         }
       }
-      if ( !UsedPayedPreseatForPassenger( *seat, pax_id, layer_type ) ) {
+      TPassenger pass;
+      pass.preseat_pax_id = pax_id;
+      pass.preseat_layer = layer_type;
+      if ( !UsedPayedPreseatForPassenger( point_id, *seat, pass, false ) ) {
          throw UserException( "MSG.SEATS.UNABLE_SET_CURRENT" );
       }
       strcpy( r.first.line, seat->xname.c_str() );
