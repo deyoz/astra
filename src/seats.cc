@@ -3119,6 +3119,7 @@ void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passG
       ostringstream grp_variant;
       std::vector<std::string> vrems;
       pass.get_remarks( vrems );
+      //grp_variant << pass.clname << separatelyRem( separately_seat_adult_with_baby?"INFT":"", vrems, pass.index );
       grp_variant << separatelyRem( separately_seat_adult_with_baby?"INFT":"", vrems, pass.index );
       grp_variant << separatelyRem( separately_seat_chin_emergency?"CHIN":"", vrems, pass.index );
       //дети и оплата
@@ -4567,7 +4568,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
       //bool pr_departure_tariff_only = true;
       TRFISC rfisc;
       ProgTrace( TRACE5, "RFISCMode=%d", salonList.getRFISCMode() );
-      if ( salonList.getRFISCMode() ) {
+      if ( salonList.getRFISCMode() && layer_type == cltProtCkin ) {
         std::map<int, TRFISC,classcomp> vrfiscs;
         seat->GetRFISCs( vrfiscs );
         if ( vrfiscs.find( point_id ) != vrfiscs.end() ) {
