@@ -547,15 +547,12 @@ void TServicePaymentList::copyDBOneByOne(int grp_id_src, int grp_id_dest)
 {
   TServicePaymentList list;
 
-  for(int pass=0; pass<2; pass++)
-  {
-    TCachedQuery Qry(pass==0?copySelectSQL():copySelectSQL2(),
-                     QParams() << QParam("grp_id_src", otInteger, grp_id_src)
-                               << QParam("grp_id_dest", otInteger, grp_id_dest));
-    Qry.get().Execute();
-    for(; !Qry.get().Eof; Qry.get().Next())
-      list.push_back(TServicePaymentItem().fromDB(Qry.get()));
-  }
+  TCachedQuery Qry(copySelectSQL()+" UNION ALL "+copySelectSQL2(),
+                   QParams() << QParam("grp_id_src", otInteger, grp_id_src)
+                             << QParam("grp_id_dest", otInteger, grp_id_dest));
+  Qry.get().Execute();
+  for(; !Qry.get().Eof; Qry.get().Next())
+    list.push_back(TServicePaymentItem().fromDB(Qry.get()));
 
   list.toDB(grp_id_dest);
 }
@@ -563,19 +560,14 @@ void TServicePaymentList::copyDBOneByOne(int grp_id_src, int grp_id_dest)
 void TServicePaymentList::copyDB(int grp_id_src, int grp_id_dest)
 {
   clearDB(grp_id_dest);
-  //привязанные к pax_id:
   TCachedQuery Qry(
     "INSERT INTO service_payment(grp_id, pax_id, transfer_num, list_id, bag_type, rfisc, service_type, airline, service_quantity, "
     "  doc_type, doc_aircode, doc_no, doc_coupon, doc_weight) " +
-    copySelectSQL(),
-    QParams() << QParam("grp_id_src", otInteger, grp_id_src)
-              << QParam("grp_id_dest", otInteger, grp_id_dest));
-
-  //непривязанные к pax_id:
-  //неправильный расчет платности багажа при wt на последующих сегментах. Надо вводить is_trfer возможно, аналогично багажу
-  TCachedQuery Qry2(
-    "INSERT INTO service_payment(grp_id, pax_id, transfer_num, list_id, bag_type, rfisc, service_type, airline, service_quantity, "
-    "  doc_type, doc_aircode, doc_no, doc_coupon, doc_weight) " +
+    //привязанные к pax_id:
+    copySelectSQL() +
+    " UNION ALL " +
+    //непривязанные к pax_id:
+    //неправильный расчет платности багажа при wt на последующих сегментах. Надо вводить is_trfer возможно, аналогично багажу
     copySelectSQL2(),
     QParams() << QParam("grp_id_src", otInteger, grp_id_src)
               << QParam("grp_id_dest", otInteger, grp_id_dest));
@@ -583,7 +575,6 @@ void TServicePaymentList::copyDB(int grp_id_src, int grp_id_dest)
   try
   {
     Qry.get().Execute();
-    Qry2.get().Execute();
   }
   catch(EOracleError E)
   {
