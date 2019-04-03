@@ -6992,7 +6992,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           "    WHERE pax_id=:pax_id; "
           "    IF SQL%FOUND THEN RETURN; END IF; "
           "  END IF; "
-          "  INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem,seat_type,seats,bag_pool,sync_chkd,pr_del,last_op,tid,need_apps,subclass_orig,class_orig) "
+          "  INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_rem,seat_type,seats,bag_pool,sync_chkd,pr_del,last_op,tid,need_apps,orig_subclass,orig_class) "
           "  SELECT :pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_rem,:seat_type,:seats,:bag_pool,0,:pr_del,:last_op,cycle_tid__seq.currval,:need_apps,subclass,class "
           "  FROM crs_pnr WHERE pnr_id=:pnr_id; "
           "END;";
@@ -7493,6 +7493,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                       SaveTKNRem(inf_id,iInfItem->tkn,ne.indicator!=None);
                       if (SaveCHKDRem(inf_id,iInfItem->chkd)) chkd_exists=true;
                       et_display_pax_ids.insert(inf_id);
+                      TETickItem::syncOriginalSubclass(inf_id);
                       if (infClassChanged) CheckIn::TPaxItem::changeCompartment(inf_id, iTotals->cl);
                     };
 
@@ -7505,6 +7506,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     SaveFQTRem(pax_id,paxItem.fqt,paxItem.fqt_extra);
                     if (SaveCHKDRem(pax_id,paxItem.chkd)) chkd_exists=true;
                     et_display_pax_ids.insert(pax_id);
+                    TETickItem::syncOriginalSubclass(pax_id);
                     if (paxClassChanged) CheckIn::TPaxItem::changeCompartment(pax_id, iTotals->cl);
 
                     if (!seatsBlockingPass) paxItem.seatsBlocking.toDB(pax_id);

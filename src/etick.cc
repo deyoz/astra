@@ -36,6 +36,8 @@
 #include "astra_elems.h"
 #include "baggage_calc.h"
 #include "AirportControl.h"
+#include "passenger.h"
+#include "ckin_search.h"
 #include "tlg/et_disp_request.h"
 #include "tlg/emd_disp_request.h"
 #include "tlg/emd_system_update_request.h"
@@ -428,9 +430,10 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
                 << QParam("fare_basis", otString, fare_basis)
                 << (bag_norm!=ASTRA::NoExists?QParam("bag_norm", otInteger, bag_norm):
                                               QParam("bag_norm", otInteger, FNull))
-                << QParam("subcls", otString, display_subcls)
+                << QParam("fare_class", otString, fare_class)
                 << QParam("bag_norm_unit", otString, bag_norm_unit.get_db_form())
-                << QParam("last_display", otDate, NowUTC());
+                << QParam("last_display", otDate, NowUTC())
+                << QParam("inserted", otInteger, FNull);
       break;
     case ChangeOfStatus:
       QryParams << (point_id!=ASTRA::NoExists?QParam("point_id", otInteger, point_id):
@@ -470,21 +473,25 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
       {
         const char* sql=
             "BEGIN "
+            "  :inserted:=0; "
             "  UPDATE eticks_display "
             "  SET issue_date=:issue_date, surname=:surname, name=:name, "
-            "      fare_basis=:fare_basis, bag_norm=:bag_norm, subcls=:subcls, bag_norm_unit=:bag_norm_unit, "
-            "      last_display=:last_display "
+            "      fare_basis=:fare_basis, bag_norm=:bag_norm, bag_norm_unit=:bag_norm_unit, "
+            "      fare_class=:fare_class, last_display=:last_display "
             "  WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
             "  IF SQL%NOTFOUND THEN "
             "    INSERT INTO eticks_display(ticket_no, coupon_no, issue_date, surname, name, "
-            "      fare_basis, bag_norm, subcls, bag_norm_unit, last_display) "
+            "      fare_basis, bag_norm, bag_norm_unit, fare_class, orig_fare_class, last_display) "
             "    VALUES(:ticket_no, :coupon_no, :issue_date, :surname, :name, "
-            "      :fare_basis, :bag_norm, :subcls, :bag_norm_unit, :last_display); "
+            "      :fare_basis, :bag_norm, :bag_norm_unit, :fare_class, :fare_class, :last_display); "
+            "    :inserted:=1; "
             "  END IF; "
             "END;";
 
         TCachedQuery Qry(sql, QryParams);
         Qry.get().Execute();
+        bool inserted=Qry.get().GetVariableAsInteger("inserted")!=0;
+        if (inserted) syncOriginalSubclass(this->et);
       }
       break;
 
@@ -512,6 +519,7 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
       }
       break;
   };
+
   return *this;
 };
 
@@ -559,7 +567,7 @@ TETickItem& TETickItem::fromDB(const TEdiAction ediAction,
         surname=Qry.FieldAsString("surname");
         name=Qry.FieldAsString("name");
         fare_basis=Qry.FieldAsString("fare_basis");
-        display_subcls=Qry.FieldAsString("subcls");
+        fare_class=Qry.FieldAsString("fare_class");
         bag_norm=Qry.FieldIsNULL("bag_norm")?ASTRA::NoExists:
                                              Qry.FieldAsInteger("bag_norm");
         bag_norm_unit.set(Qry.FieldAsString("bag_norm_unit"));
@@ -740,6 +748,81 @@ Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltPara
   return Ticket(et.no, lcpn);
 }
 
+bool TETickItem::syncOriginalSubclass(int pax_id)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText =
+    "DECLARE "
+    "  CURSOR cur IS "
+    "    SELECT 1 AS view_order, "
+    "           eticks_display.orig_fare_class AS etick_subclass, "
+    "           classes.code AS etick_class, "
+    "           classes.priority AS class_priority "
+    "    FROM crs_pax, crs_pax_tkn, eticks_display, crs_pnr, crs_rbd, subcls, classes "
+    "    WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND "
+    "          crs_pax_tkn.rem_code='TKNE' AND "
+    "          eticks_display.ticket_no=crs_pax_tkn.ticket_no AND "
+    "          eticks_display.coupon_no=crs_pax_tkn.coupon_no AND "
+    "          crs_pnr.pnr_id=crs_pax.pnr_id AND "
+    "          crs_pnr.system='CRS' AND "
+    "          crs_rbd.point_id=crs_pnr.point_id AND "
+    "          crs_rbd.sender=crs_pnr.sender AND "
+    "          crs_rbd.system=crs_pnr.system AND "
+    "          crs_rbd.fare_class=eticks_display.orig_fare_class AND "
+    "          subcls.code=crs_rbd.compartment AND "
+    "          classes.code=subcls.class AND "
+    "          crs_pax.pax_id=:pax_id "
+    "    UNION ALL "
+    "    SELECT 2 AS view_order, "
+    "           eticks_display.orig_fare_class AS etick_subclass, "
+    "           classes.code AS etick_class, "
+    "           classes.priority AS class_priority "
+    "    FROM crs_pax, crs_pax_tkn, eticks_display, crs_pnr, subcls, classes "
+    "    WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND "
+    "          crs_pax_tkn.rem_code='TKNE' AND "
+    "          eticks_display.ticket_no=crs_pax_tkn.ticket_no AND "
+    "          eticks_display.coupon_no=crs_pax_tkn.coupon_no AND "
+    "          crs_pnr.pnr_id=crs_pax.pnr_id AND "
+    "          crs_pnr.system='CRS' AND "
+    "          subcls.code=eticks_display.orig_fare_class AND "
+    "          classes.code=subcls.class AND "
+    "          crs_pax.pax_id=:pax_id "
+    "    ORDER BY view_order, class_priority, etick_subclass; "
+    "curRow	cur%ROWTYPE; "
+    "BEGIN "
+    "  OPEN cur; "
+    "  FETCH cur INTO curRow; "
+    "  CLOSE cur; "
+    "  UPDATE crs_pax "
+    "  SET etick_subclass=curRow.etick_subclass, etick_class=curRow.etick_class "
+    "  WHERE pax_id=:pax_id AND "
+    "        (DECODE(etick_subclass, curRow.etick_subclass, 0, 1)<>0 OR "
+    "         DECODE(etick_class, curRow.etick_class, 0, 1)<>0); "
+    "  IF SQL%NOTFOUND THEN :updated:=0; ELSE :updated:=1; END IF; "
+    "END; ";
+  Qry.CreateVariable("pax_id", otInteger, pax_id);
+  Qry.CreateVariable("updated", otInteger, FNull);
+  Qry.Execute();
+  bool updated=Qry.GetVariableAsInteger("updated")!=0;
+  if (updated)
+    ProgTrace(TRACE5, "%s: pax_id=%d updated", __FUNCTION__, pax_id);
+
+  return updated;
+}
+
+void TETickItem::syncOriginalSubclass(const TETCoupon& et)
+{
+  if (et.empty()) return;
+
+  CheckIn::TSimplePaxList paxs;
+  CheckIn::Search search(paxPnl);
+  search(paxs, CheckIn::TPaxTknItem(et.no, et.coupon));
+
+  for(const CheckIn::TSimplePaxItem& pax : paxs)
+    syncOriginalSubclass(pax.id);
+}
+
 void ETDisplayToDB(const Ticketing::EdiPnr& ediPnr)
 {
   TETickItem ETickItem;
@@ -801,7 +884,7 @@ void ETDisplayToDB(const Ticketing::EdiPnr& ediPnr)
         ETickItem.bag_norm=ASTRA::NoExists;
         ETickItem.bag_norm_unit.clear();
       }
-      ETickItem.display_subcls = itin.rbd()->code(RUSSIAN);
+      ETickItem.fare_class = itin.rbd()->code(RUSSIAN);
 
       ETickItem.toDB(TETickItem::DisplayTlg);
       ETickItem.toDB(TETickItem::Display);
