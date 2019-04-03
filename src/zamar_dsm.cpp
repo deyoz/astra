@@ -19,6 +19,7 @@ using namespace EXCEPTIONS;
 
 const string STR_PAX_NO_MATCH = "PAX_NO_MATCH";
 const string STR_INTERNAL_ERROR = "INTERNAL_ERROR";
+const string STR_UNDER_CONSTRUCTION = "UNDER_CONSTRUCTION";
 
 //-----------------------------------------------------------------------------------
 
@@ -30,7 +31,7 @@ struct ZamarException : public Exception
 
 //-----------------------------------------------------------------------------------
 
-PassengerSearchResult& PassengerSearchResult::fromXML(xmlNodePtr reqNode)
+PassengerSearchResult& PassengerSearchResult::fromXML(xmlNodePtr reqNode, ZamarType type)
 {
   if (reqNode == nullptr)
     throw Exception("reqNode == nullptr");
@@ -86,7 +87,7 @@ PassengerSearchResult& PassengerSearchResult::fromXML(xmlNodePtr reqNode)
   // pnr
   pnrs.getByPaxIdFast(pax_id);
   // baggageTags
-  GetTagsByPool(grp_id, pax_item.bag_pool_num, bagTagsExtended, false);
+  if (type == ZamarType::DSM) GetTagsByPool(grp_id, pax_item.bag_pool_num, bagTagsExtended, false);
   
   return *this;
 }
@@ -160,13 +161,18 @@ static void DocoToZamarXML(xmlNodePtr resNode, const CheckIn::TPaxDocoItem& doco
 
 //-----------------------------------------------------------------------------------
 
-const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) const
+const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode, ZamarType type) const
 {
   if (resNode == nullptr) return *this;
   
   AstraLocale::OutputLang lang("", {AstraLocale::OutputLang::OnlyTrueIataCodes});
   // lang
   SetProp(resNode, "lang", lang.get());
+
+  // queryType
+  // TODO queryType for DSM -- согласовать с клиентом?
+  if (type == ZamarType::SBDO) NewTextChild(resNode, "queryType", "PassengerSearchSBDO");
+
   // sessionId
   NewTextChild(resNode, "sessionId", sessionId);
   // airline
@@ -195,8 +201,13 @@ const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) co
   xmlNodePtr flightNode = NewTextChild(codeshareNode, "flight");
   SetProp(flightNode, "airline", airlineToPrefferedCode(mkt_flt.airline, lang));
   SetProp(flightNode, "code", mkt_flt.flight_number(lang));
-  // allowBoarding
-  NewTextChild(resNode, "allowBoarding", pax_item.allowToBoarding()? 1: 0);
+
+  // allowCheckIn -- SBDO
+  if (type == ZamarType::SBDO) NewTextChild(resNode, "allowCheckIn", STR_UNDER_CONSTRUCTION);
+
+  // allowBoarding -- DSM
+  if (type == ZamarType::DSM) NewTextChild(resNode, "allowBoarding", pax_item.allowToBoarding()? 1: 0);
+
   // paxId
   NewTextChild(resNode, "paxId", bppax.pax_id);
   // sequence
@@ -221,17 +232,42 @@ const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) co
   PnrToZamarXML(resNode, pnrs, lang);
   // ticket
   NewTextChild(resNode, "ticket", pax_item.tkn.no_str());
+
+  // seat -- SBDO
+  if (type == ZamarType::SBDO) NewTextChild(resNode, "seat", STR_UNDER_CONSTRUCTION);
+
   // paxCategory
   NewTextChild(resNode, "paxCategory", ElemIdToPrefferedElem(etPersType, EncodePerson(pax_item.pers_type), efmtCodeNative, lang.get()));
   // status
   NewTextChild(resNode, "status", pax_item.checkInStatus());
-  // baggageTags
-  BagTagsToZamarXML(resNode, bagTagsExtended);
+
+  // cabinClass -- SBDO
+  if (type == ZamarType::SBDO) NewTextChild(resNode, "cabinClass", STR_UNDER_CONSTRUCTION);
+  // bookingClass -- SBDO
+  if (type == ZamarType::SBDO) NewTextChild(resNode, "bookingClass", STR_UNDER_CONSTRUCTION);
+  // bonusLevel -- SBDO
+  if (type == ZamarType::SBDO) NewTextChild(resNode, "bonusLevel", STR_UNDER_CONSTRUCTION);
+  // bagTotalCount -- SBDO
+  if (type == ZamarType::SBDO) NewTextChild(resNode, "bagTotalCount", STR_UNDER_CONSTRUCTION);
+  // bagTotalWeight -- SBDO
+  if (type == ZamarType::SBDO) NewTextChild(resNode, "bagTotalWeight", STR_UNDER_CONSTRUCTION);
+  // bagAllowanceType -- SBDO
+  if (type == ZamarType::SBDO) NewTextChild(resNode, "bagAllowanceType", STR_UNDER_CONSTRUCTION);
+  // bagAllowanceCount -- SBDO
+  if (type == ZamarType::SBDO) NewTextChild(resNode, "bagAllowanceCount", STR_UNDER_CONSTRUCTION);
+  // bagAllowanceWeight -- SBDO
+  if (type == ZamarType::SBDO) NewTextChild(resNode, "bagAllowanceWeight", STR_UNDER_CONSTRUCTION);
+  // baggageRoute -- SBDO
+  if (type == ZamarType::SBDO) NewTextChild(resNode, "baggageRoute", STR_UNDER_CONSTRUCTION);
+
+  // baggageTags -- DSM
+  if (type == ZamarType::DSM) BagTagsToZamarXML(resNode, bagTagsExtended);
   
   return *this;
 }
 
 //-----------------------------------------------------------------------------------
+// DSM
 
 void PassengerSearchResult::errorXML(xmlNodePtr resNode, const std::string& cmd, const std::string &err)
 {
@@ -245,7 +281,7 @@ void ZamarDSMInterface::PassengerSearch(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   PassengerSearchResult result;
   try
   {
-    result.fromXML(reqNode);
+    result.fromXML(reqNode, ZamarType::DSM);
   }
   catch (ZamarException ZE)
   {
@@ -257,5 +293,47 @@ void ZamarDSMInterface::PassengerSearch(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     PassengerSearchResult::errorXML(resNode, STR_INTERNAL_ERROR, E.what());
     return;
   }
-  result.toXML(resNode);
+  result.toXML(resNode, ZamarType::DSM);
+}
+
+//-----------------------------------------------------------------------------------
+// SBDO
+
+void ZamarSBDOInterface::PassengerSearchSBDO(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  // FIXME повторяющийся код -- проанализировать после завершения работ по SBDO
+  PassengerSearchResult result;
+  try
+  {
+    result.fromXML(reqNode, ZamarType::SBDO);
+  }
+  catch (ZamarException ZE)
+  {
+    PassengerSearchResult::errorXML(resNode, ZE.cmd, ZE.what());
+    return;
+  }
+  catch (Exception E)
+  {
+    PassengerSearchResult::errorXML(resNode, STR_INTERNAL_ERROR, E.what());
+    return;
+  }
+  result.toXML(resNode, ZamarType::SBDO);
+}
+
+void ZamarSBDOInterface::PassengerBaggageTagAdd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  if (resNode == nullptr) return;
+  NewTextChild(resNode, "command", STR_UNDER_CONSTRUCTION);
+}
+
+void ZamarSBDOInterface::PassengerBaggageTagConfirm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  if (resNode == nullptr) return;
+  NewTextChild(resNode, "command", STR_UNDER_CONSTRUCTION);
+}
+
+void ZamarSBDOInterface::PassengerBaggageTagRevoke(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  if (resNode == nullptr) return;
+  NewTextChild(resNode, "command", STR_UNDER_CONSTRUCTION);
 }
