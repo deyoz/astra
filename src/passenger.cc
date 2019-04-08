@@ -1772,6 +1772,57 @@ void TSimplePaxItem::changeCompartment(int pax_id, ASTRA::TClass cl)
   Qry.Execute();
 }
 
+bool TSimplePaxItem::setCrsCompartment()
+{
+  if (id==ASTRA::NoExists) return false;
+
+  TCachedQuery Qry(
+    "SELECT crs_pnr.class "
+    "FROM crs_pnr, crs_pax "
+    "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
+    "      crs_pnr.system='CRS' AND "
+    "      crs_pax.pax_id=:pax_id AND "
+    "      crs_pax.pr_del=0",
+    QParams() << QParam("pax_id", otInteger, id));
+  Qry.get().Execute();
+  if (!Qry.get().Eof)
+    compartment=Qry.get().FieldAsString("class");
+
+  return !Qry.get().Eof;
+}
+
+const std::string TSimplePaxItem::getCompartment() const
+{
+  if (compartment.empty() && grp_id!=ASTRA::NoExists)
+  {
+    TSimplePaxGrpItem grp;
+    if (grp.getByGrpId(grp_id)) return grp.cl;
+  }
+
+  return compartment;
+}
+
+bool TSimplePaxItem::getBaggageInHoldTotals(TBagTotals& totals) const
+{
+  totals.clear();
+  if (id==ASTRA::NoExists) return false;
+
+  TCachedQuery Qry(
+    "SELECT NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS amount, "
+    "       NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS weight "
+    "FROM pax "
+    "WHERE pax_id=:pax_id",
+    QParams() << QParam("pax_id", otInteger, id));
+  Qry.get().Execute();
+  if (!Qry.get().Eof)
+  {
+    totals.amount=Qry.get().FieldAsInteger("amount");
+    totals.weight=Qry.get().FieldAsInteger("weight");
+  }
+
+  return !Qry.get().Eof;
+}
+
 TAPISItem& TAPISItem::fromDB(int pax_id)
 {
   clear();

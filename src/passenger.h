@@ -499,6 +499,22 @@ class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
     std::string logStr(const std::string &lang=AstraLocale::LANG_EN) const;
 };
 
+class TBagTotals
+{
+  public:
+    int amount;
+    int weight;
+
+    TBagTotals() { clear(); }
+    TBagTotals(int _amount, int _weight) : amount(_amount), weight(_weight) {}
+
+    void clear()
+    {
+      amount=0;
+      weight=0;
+    }
+};
+
 class TSimplePaxItem
 {
   public:
@@ -518,6 +534,7 @@ class TSimplePaxItem
     std::string wl_type;
     int reg_no;
     std::string subcl;
+    std::string compartment;
     int bag_pool_num;
     int tid;
     TPaxTknItem tkn;
@@ -545,6 +562,7 @@ class TSimplePaxItem
       wl_type.clear();
       reg_no=ASTRA::NoExists;
       subcl.clear();
+      compartment.clear();
       bag_pool_num=ASTRA::NoExists;
       tid=ASTRA::NoExists;
       tkn.clear();
@@ -576,6 +594,10 @@ class TSimplePaxItem
     std::string checkInStatus() const;
 
     static void changeCompartment(int pax_id, ASTRA::TClass cl);
+    bool setCrsCompartment();
+    const std::string getCompartment() const;
+
+    bool getBaggageInHoldTotals(TBagTotals& totals) const;
 };
 
 template <class T>
