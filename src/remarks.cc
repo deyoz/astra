@@ -743,13 +743,13 @@ bool LoadPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts)
   return !fqts.empty();
 };
 
-bool LoadPaxFQTNotEmptyTierLevel(int pax_id, std::set<TPaxFQTItem> &fqts)
+bool LoadPaxFQTNotEmptyTierLevel(int pax_id, std::set<TPaxFQTItem> &fqts, bool onlyFQTV)
 {
   fqts.clear();
   LoadPaxFQT(pax_id, fqts);
   for(set<TPaxFQTItem>::iterator i=fqts.begin(); i!=fqts.end();)
   {
-    if (i->tier_level.empty())
+    if (i->tier_level.empty() or (onlyFQTV and i->rem != "FQTV"))
     {
       i=fqts.erase(i);
       continue;
