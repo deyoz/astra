@@ -1823,6 +1823,18 @@ bool TSimplePaxItem::getBaggageInHoldTotals(TBagTotals& totals) const
   return !Qry.get().Eof;
 }
 
+boost::optional<WeightConcept::TNormItem> TSimplePaxItem::getRegularNorm() const
+{
+  if (id==ASTRA::NoExists) return boost::none;
+
+  std::list< std::pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;
+  PaxNormsFromDB(ASTRA::NoExists, id, norms);
+  for(const auto& norm : norms)
+    if (norm.first.isRegularBagType()) return norm.second;
+
+  return boost::none;
+}
+
 TAPISItem& TAPISItem::fromDB(int pax_id)
 {
   clear();

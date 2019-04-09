@@ -499,22 +499,6 @@ class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
     std::string logStr(const std::string &lang=AstraLocale::LANG_EN) const;
 };
 
-class TBagTotals
-{
-  public:
-    int amount;
-    int weight;
-
-    TBagTotals() { clear(); }
-    TBagTotals(int _amount, int _weight) : amount(_amount), weight(_weight) {}
-
-    void clear()
-    {
-      amount=0;
-      weight=0;
-    }
-};
-
 class TSimplePaxItem
 {
   public:
@@ -598,6 +582,7 @@ class TSimplePaxItem
     const std::string getCompartment() const;
 
     bool getBaggageInHoldTotals(TBagTotals& totals) const;
+    boost::optional<WeightConcept::TNormItem> getRegularNorm() const;
 };
 
 template <class T>
