@@ -1673,8 +1673,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(paxNode, "rk_amount", Qry.FieldAsInteger(col_rk_amount), 0);
           NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight), 0);
           NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags), "");
+
+          ostringstream remarks;
           if(fltInfo.airline == "ž’") {
-              ostringstream remarks;
               if(etick) {
                   brands.get(fltInfo.airline, etick.get());
                   remarks << brands.getSingleBrand().name(AstraLocale::OutputLang());
@@ -1686,12 +1687,16 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                   remarks << fqts.begin()->tier_level;
               }
 
-              if(not remarks.str().empty()) remarks << " ";
-              remarks << GetRemarkStr(rem_grp, pax_id, reqInfo->desk.lang);
+              const string rfisc = "08A";
+              if(CheckIn::ExistsPaxASVC(pax_id, rfisc)) {
+                  if(not remarks.str().empty()) remarks << " ";
+                  remarks << rfisc;
+              }
+          }
+          if(not remarks.str().empty()) remarks << " ";
+          remarks << GetRemarkStr(rem_grp, pax_id, reqInfo->desk.lang);
+          NewTextChild(paxNode, "remarks", remarks.str(), "");
 
-              NewTextChild(paxNode, "remarks", remarks.str(), "");
-          } else
-              NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax_id, reqInfo->desk.lang), "");
 
           if (DecodeClientType(Qry.FieldAsString(col_client_type))!=ctTerm)
             NewTextChild(paxNode, "client_name", ElemIdToNameShort(etClientType, Qry.FieldAsString(col_client_type)));
