@@ -1676,8 +1676,15 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
           ostringstream remarks;
           if(fltInfo.airline == "ž’") {
+              const string rfisc = "08A";
+              if(CheckIn::ExistsPaxASVC(pax_id, rfisc)) {
+                  if(not remarks.str().empty()) remarks << " ";
+                  remarks << rfisc;
+              }
+
               if(etick) {
                   brands.get(fltInfo.airline, etick.get());
+                  if(not remarks.str().empty()) remarks << " ";
                   remarks << brands.getSingleBrand().name(AstraLocale::OutputLang());
               }
 
@@ -1685,12 +1692,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
               if(LoadPaxFQTNotEmptyTierLevel(pax_id, fqts, true)) {
                   if(not remarks.str().empty()) remarks << " ";
                   remarks << fqts.begin()->tier_level;
-              }
-
-              const string rfisc = "08A";
-              if(CheckIn::ExistsPaxASVC(pax_id, rfisc)) {
-                  if(not remarks.str().empty()) remarks << " ";
-                  remarks << rfisc;
               }
           }
           if(not remarks.str().empty()) remarks << " ";
