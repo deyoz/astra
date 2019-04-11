@@ -518,6 +518,7 @@ class TSimplePaxItem
     std::string wl_type;
     int reg_no;
     std::string subcl;
+    std::string compartment;
     int bag_pool_num;
     int tid;
     TPaxTknItem tkn;
@@ -545,6 +546,7 @@ class TSimplePaxItem
       wl_type.clear();
       reg_no=ASTRA::NoExists;
       subcl.clear();
+      compartment.clear();
       bag_pool_num=ASTRA::NoExists;
       tid=ASTRA::NoExists;
       tkn.clear();
@@ -570,10 +572,22 @@ class TSimplePaxItem
       return refuse.empty() && !pr_brd;
     }
 
+    bool allowToBagCheckIn() const
+    {
+      return refuse.empty();
+    }
+
     bool isTest() const { return isTestPaxId(id); }
     int paxId() const { return id; }
     
     std::string checkInStatus() const;
+    bool setCrsCompartment();
+    const std::string getCompartment() const;
+
+    bool getBaggageInHoldTotals(TBagTotals& totals) const;
+    boost::optional<WeightConcept::TNormItem> getRegularNorm() const;
+    void getBaggageListForSBDO(TRFISCList& list) const;
+    void getBaggageListForSBDO(TBagTypeList& list) const;
 };
 
 template <class T>
@@ -777,6 +791,8 @@ class TSimplePaxGrpItem
     }
     TSimplePaxGrpItem& fromDB(TQuery &Qry);
     bool getByGrpId(int grp_id);
+
+    bool allowToBagCheckIn() const { return trfer_confirm; }
 };
 
 class TPaxGrpItem : public TSimplePaxGrpItem
@@ -821,6 +837,12 @@ class TPaxGrpItem : public TSimplePaxGrpItem
                            const CheckIn::TSimplePaxList &curr_paxs) const;
 
     static void UpdTid(int grp_id);
+
+    TBagConcept::Enum getBagAllowanceType() const
+    {
+      if ( (!pc && !wt) || (pc && wt) ) return TBagConcept::Unknown;
+      return pc? TBagConcept::Piece: TBagConcept::Weight;
+    }
 };
 
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc);

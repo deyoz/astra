@@ -1762,6 +1762,102 @@ std::string TSimplePaxItem::checkInStatus() const
   return "not_checked";  
 }
 
+bool TSimplePaxItem::setCrsCompartment()
+{
+  if (id==ASTRA::NoExists) return false;
+
+  TCachedQuery Qry(
+    "SELECT crs_pnr.class "
+    "FROM crs_pnr, crs_pax "
+    "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
+    "      crs_pnr.system='CRS' AND "
+    "      crs_pax.pax_id=:pax_id AND "
+    "      crs_pax.pr_del=0",
+    QParams() << QParam("pax_id", otInteger, id));
+  Qry.get().Execute();
+  if (!Qry.get().Eof)
+    compartment=Qry.get().FieldAsString("class");
+
+  return !Qry.get().Eof;
+}
+
+const std::string TSimplePaxItem::getCompartment() const
+{
+  if (compartment.empty() && grp_id!=ASTRA::NoExists)
+  {
+    TSimplePaxGrpItem grp;
+    if (grp.getByGrpId(grp_id)) return grp.cl;
+  }
+
+  return compartment;
+}
+
+bool TSimplePaxItem::getBaggageInHoldTotals(TBagTotals& totals) const
+{
+  totals.clear();
+  if (id==ASTRA::NoExists) return false;
+
+  TCachedQuery Qry(
+    "SELECT NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS amount, "
+    "       NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS weight "
+    "FROM pax "
+    "WHERE pax_id=:pax_id",
+    QParams() << QParam("pax_id", otInteger, id));
+  Qry.get().Execute();
+  if (!Qry.get().Eof)
+  {
+    totals.amount=Qry.get().FieldAsInteger("amount");
+    totals.weight=Qry.get().FieldAsInteger("weight");
+  }
+
+  return !Qry.get().Eof;
+}
+
+boost::optional<WeightConcept::TNormItem> TSimplePaxItem::getRegularNorm() const
+{
+  if (id==ASTRA::NoExists) return boost::none;
+
+  std::list< std::pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;
+  PaxNormsFromDB(ASTRA::NoExists, id, norms);
+  for(const auto& norm : norms)
+    if (norm.first.isRegularBagType()) return norm.second;
+
+  return boost::none;
+}
+
+template<class T>
+static void getBaggageInHoldList(int id, T& list)
+{
+  list.clear();
+
+  if (id==ASTRA::NoExists) return;
+
+  TPaxServiceLists serviceLists;
+  serviceLists.fromDB(id, false);
+  for(const TPaxServiceListsItem& i : serviceLists)
+    if (i.trfer_num==0 && i.category==TServiceCategory::BaggageInHold)
+    {
+      list.fromDB(i.primary(), true);
+      break;
+    }
+
+  for(typename T::iterator i=list.begin(); i!=list.end();)
+  {
+    auto& item=i->second;
+    item.isBaggageInHold()?++i:i=list.erase(i);
+  }
+}
+
+void TSimplePaxItem::getBaggageListForSBDO(TRFISCList& list) const
+{
+  getBaggageInHoldList(id, list);
+}
+
+void TSimplePaxItem::getBaggageListForSBDO(TBagTypeList& list) const
+{
+  getBaggageInHoldList(id, list);
+}
+
 TAPISItem& TAPISItem::fromDB(int pax_id)
 {
   clear();

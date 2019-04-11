@@ -8,6 +8,8 @@
 #include "baggage_tags.h"
 #include "astra_elems.h"
 #include "tripinfo.h"
+#include "remarks.h"
+#include "baggage_calc.h"
 
 #define NICKNAME "GRISHA"
 #include <serverlib/slogger.h>
@@ -19,6 +21,7 @@ using namespace EXCEPTIONS;
 
 const string STR_PAX_NO_MATCH = "PAX_NO_MATCH";
 const string STR_INTERNAL_ERROR = "INTERNAL_ERROR";
+const string STR_UNDER_CONSTRUCTION = "UNDER_CONSTRUCTION";
 
 //-----------------------------------------------------------------------------------
 
@@ -30,7 +33,7 @@ struct ZamarException : public Exception
 
 //-----------------------------------------------------------------------------------
 
-PassengerSearchResult& PassengerSearchResult::fromXML(xmlNodePtr reqNode)
+PassengerSearchResult& PassengerSearchResult::fromXML(xmlNodePtr reqNode, ZamarType type)
 {
   if (reqNode == nullptr)
     throw Exception("reqNode == nullptr");
@@ -66,15 +69,26 @@ PassengerSearchResult& PassengerSearchResult::fromXML(xmlNodePtr reqNode)
   }
 
   point_id = bppax.point_dep;
-  int grp_id = bppax.grp_id;
-  int pax_id = bppax.pax_id;
+  grp_id = bppax.grp_id;
+  pax_id = bppax.pax_id;
   
   if (not trip_info.getByPointId(point_id))
     throw Exception("Failed trip_info.getByPointId %d", point_id);
-  if (not grp_item.getByGrpId(grp_id))
-    throw Exception("Failed grp_item.getByGrpId %d", grp_id);
+
+  bool get_grp_result = false;
+  if (type == ZamarType::DSM) get_grp_result = grp_item.getByGrpId(grp_id);
+  else if (type == ZamarType::SBDO) get_grp_result = grp_item.getByGrpIdWithBagConcepts(grp_id);
+  if (not get_grp_result)
+  {
+    string err_str = "Unknown grp_id error %d";
+    if (type == ZamarType::DSM) err_str = "Failed grp_item.getByGrpId %d";
+    else if (type == ZamarType::SBDO) err_str = "Failed grp_item.getByGrpIdWithBagConcepts %d";
+    throw Exception(err_str.c_str(), grp_id);
+  }
+
   if (not pax_item.getByPaxId(pax_id))
     throw Exception("Failed pax_item.getByPaxId %d", pax_id);
+
   doc_exists = CheckIn::LoadPaxDoc(pax_id, doc);
   doco_exists = CheckIn::LoadPaxDoco(pax_id, doco);
   mkt_flt.getByPaxId(pax_id);
@@ -86,7 +100,7 @@ PassengerSearchResult& PassengerSearchResult::fromXML(xmlNodePtr reqNode)
   // pnr
   pnrs.getByPaxIdFast(pax_id);
   // baggageTags
-  GetTagsByPool(grp_id, pax_item.bag_pool_num, bagTagsExtended, false);
+  if (type == ZamarType::DSM) GetTagsByPool(grp_id, pax_item.bag_pool_num, bagTagsExtended, false);
   
   return *this;
 }
@@ -158,15 +172,50 @@ static void DocoToZamarXML(xmlNodePtr resNode, const CheckIn::TPaxDocoItem& doco
   NewTextChild(docNode, "applicCountry", CheckIn::paxDocCountryToWebXML(doco.applic_country, lang));
 }
 
+static void BaggageListToZamarXML(xmlNodePtr listNode, const TRFISCList& list, const AstraLocale::OutputLang& lang)
+{
+  if (listNode == nullptr || list.empty()) return;
+  for (const auto& item : list)
+  {
+    const auto& i = item.second;
+    xmlNodePtr node = NewTextChild(listNode, "piece_concept");
+    NewTextChild(node, "rfisc", i.RFISC);
+    NewTextChild(node, "service_type", ServiceTypes().encode(i.service_type));
+    NewTextChild(node, "airline", airlineToPrefferedCode(i.airline, lang));
+    NewTextChild(node, "name_view", lowerc(i.name_view(lang.get())));
+    i.priority? NewTextChild(node, "priority", i.priority.get()): NewTextChild(node, "priority");
+  }
+}
+
+static void BaggageListToZamarXML(xmlNodePtr listNode, const TBagTypeList& list, const AstraLocale::OutputLang& lang)
+{
+  if (listNode == nullptr || list.empty()) return;
+  for (const auto& item : list)
+  {
+    const auto& i = item.second;
+    xmlNodePtr node = NewTextChild(listNode, "weight_concept");
+    NewTextChild(node, "bag_type", i.bag_type);
+    NewTextChild(node, "airline", airlineToPrefferedCode(i.airline, lang));
+    NewTextChild(node, "name_view", i.name_view(lang.get()));
+    NewTextChild(node, "descr_view", i.descr_view(lang.get()));
+    i.priority? NewTextChild(node, "priority", i.priority.get()): NewTextChild(node, "priority");
+  }
+}
+
 //-----------------------------------------------------------------------------------
 
-const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) const
+const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode, ZamarType type) const
 {
   if (resNode == nullptr) return *this;
   
   AstraLocale::OutputLang lang("", {AstraLocale::OutputLang::OnlyTrueIataCodes});
   // lang
   SetProp(resNode, "lang", lang.get());
+
+  // queryType
+  // TODO queryType for DSM -- согласовать с клиентом?
+  if (type == ZamarType::SBDO) NewTextChild(resNode, "queryType", "PassengerSearchSBDO");
+
   // sessionId
   NewTextChild(resNode, "sessionId", sessionId);
   // airline
@@ -195,8 +244,19 @@ const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) co
   xmlNodePtr flightNode = NewTextChild(codeshareNode, "flight");
   SetProp(flightNode, "airline", airlineToPrefferedCode(mkt_flt.airline, lang));
   SetProp(flightNode, "code", mkt_flt.flight_number(lang));
-  // allowBoarding
-  NewTextChild(resNode, "allowBoarding", pax_item.allowToBoarding()? 1: 0);
+
+  // allowCheckIn -- SBDO
+  if (type == ZamarType::SBDO)
+  {
+    bool allowCheckIn = grp_item.allowToBagCheckIn() &&
+                        pax_item.allowToBagCheckIn() &&
+                        TTripStages(point_id).allowToBagCheckIn();
+    NewTextChild(resNode, "allowCheckIn", allowCheckIn? 1: 0);
+  }
+
+  // allowBoarding -- DSM
+  if (type == ZamarType::DSM) NewTextChild(resNode, "allowBoarding", pax_item.allowToBoarding()? 1: 0);
+
   // paxId
   NewTextChild(resNode, "paxId", bppax.pax_id);
   // sequence
@@ -221,17 +281,112 @@ const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode) co
   PnrToZamarXML(resNode, pnrs, lang);
   // ticket
   NewTextChild(resNode, "ticket", pax_item.tkn.no_str());
+
+  // seats -- SBDO
+  if (type == ZamarType::SBDO)
+  {
+    xmlNodePtr seatsNode = NewTextChild(resNode, "seats");
+    NewTextChild(seatsNode, "seat", "5A");
+    NewTextChild(seatsNode, "seat", "5B");
+  }
+
   // paxCategory
   NewTextChild(resNode, "paxCategory", ElemIdToPrefferedElem(etPersType, EncodePerson(pax_item.pers_type), efmtCodeNative, lang.get()));
   // status
   NewTextChild(resNode, "status", pax_item.checkInStatus());
-  // baggageTags
-  BagTagsToZamarXML(resNode, bagTagsExtended);
+
+  // cabinClass -- SBDO
+  if (type == ZamarType::SBDO)
+    NewTextChild(resNode, "cabinClass", ElemIdToPrefferedElem(etClass, pax_item.getCompartment(), efmtCodeNative, lang.get()));
+  // bookingClass -- SBDO
+  if (type == ZamarType::SBDO)
+    NewTextChild(resNode, "bookingClass", ElemIdToPrefferedElem(etSubcls, pax_item.subcl, efmtCodeNative, lang.get()));
+
+  // bonusLevel -- SBDO
+  if (type == ZamarType::SBDO)
+  {
+    set<CheckIn::TPaxFQTItem> fqts;
+    if (CheckIn::LoadPaxFQTNotEmptyTierLevel(pax_id, fqts, true))
+      NewTextChild(resNode, "bonusLevel", fqts.begin()->tier_level);
+    else
+      NewTextChild(resNode, "bonusLevel");
+  }
+
+  if (type == ZamarType::SBDO)
+  {
+    TBagTotals totals;
+    /*bool totals_result =*/ pax_item.getBaggageInHoldTotals(totals);
+    // bagTotalCount -- SBDO
+    if (/*totals_result &&*/ totals.amount != ASTRA::NoExists) NewTextChild(resNode, "bagTotalCount", totals.amount);
+    else NewTextChild(resNode, "bagTotalCount");
+    // bagTotalWeight -- SBDO
+    if (/*totals_result &&*/ totals.weight != ASTRA::NoExists) NewTextChild(resNode, "bagTotalWeight", totals.weight);
+    else NewTextChild(resNode, "bagTotalWeight");
+  }
+
+  if (type == ZamarType::SBDO)
+  {
+    TBagConcept::Enum bagAllowanceType = grp_item.getBagAllowanceType();
+    string bagAllowanceType_str;
+    switch (bagAllowanceType)
+    {
+    case TBagConcept::Unknown: bagAllowanceType_str = "UNKNOWN"; break;
+    case TBagConcept::Piece: bagAllowanceType_str = "PIECE"; break;
+    case TBagConcept::Weight: bagAllowanceType_str = "WEIGHT"; break;
+    default: break;
+    }
+    // bagAllowanceType -- SBDO
+    NewTextChild(resNode, "bagAllowanceType", bagAllowanceType_str);
+
+    boost::optional<TBagTotals> totals = boost::none;
+    if (bagAllowanceType == TBagConcept::Piece) totals = PieceConcept::getBagAllowance(pax_item);
+    else if (bagAllowanceType == TBagConcept::Weight) totals = WeightConcept::getBagAllowance(pax_item);
+    // bagAllowanceCount -- SBDO
+    if (totals && totals->amount != ASTRA::NoExists) NewTextChild(resNode, "bagAllowanceCount", totals->amount);
+    else NewTextChild(resNode, "bagAllowanceCount");
+    // bagAllowanceWeight -- SBDO
+    if (totals && totals->weight != ASTRA::NoExists) NewTextChild(resNode, "bagAllowanceWeight", totals->weight);
+    else NewTextChild(resNode, "bagAllowanceWeight");
+  }
+
+  // baggageRoute -- SBDO
+  if (type == ZamarType::SBDO)
+  {
+    TTrferRoute route;
+    route.GetRoute(grp_item.id, trtWithFirstSeg);
+    xmlNodePtr routeNode = NewTextChild(resNode, "baggageRoute");
+    int segment = 0;
+    for (const auto& item : route)
+    {
+      xmlNodePtr itemNode = NewTextChild(routeNode, "item");
+      NewTextChild(itemNode, "segment", ++segment);
+      NewTextChild(itemNode, "airline", airlineToPrefferedCode(item.operFlt.airline, lang));
+      NewTextChild(itemNode, "flightCode", item.operFlt.flight_number(lang));
+      NewTextChild(itemNode, "srcAirport", airpToPrefferedCode(item.operFlt.airp, lang));
+      NewTextChild(itemNode, "dstAirport", airpToPrefferedCode(item.airp_arv, lang));
+    }
+  }
+
+  // baggageTypes -- SBDO
+  if (type == ZamarType::SBDO)
+  {
+    xmlNodePtr listNode = NewTextChild(resNode, "baggageTypes");
+    TRFISCList rfiscList;
+    pax_item.getBaggageListForSBDO(rfiscList);
+    BaggageListToZamarXML(listNode, rfiscList, lang);
+    TBagTypeList bagTypeList;
+    pax_item.getBaggageListForSBDO(bagTypeList);
+    BaggageListToZamarXML(listNode, bagTypeList, lang);
+  }
+
+  // baggageTags -- DSM
+  if (type == ZamarType::DSM) BagTagsToZamarXML(resNode, bagTagsExtended);
   
   return *this;
 }
 
 //-----------------------------------------------------------------------------------
+// DSM
 
 void PassengerSearchResult::errorXML(xmlNodePtr resNode, const std::string& cmd, const std::string &err)
 {
@@ -245,7 +400,7 @@ void ZamarDSMInterface::PassengerSearch(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   PassengerSearchResult result;
   try
   {
-    result.fromXML(reqNode);
+    result.fromXML(reqNode, ZamarType::DSM);
   }
   catch (ZamarException ZE)
   {
@@ -257,5 +412,50 @@ void ZamarDSMInterface::PassengerSearch(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     PassengerSearchResult::errorXML(resNode, STR_INTERNAL_ERROR, E.what());
     return;
   }
-  result.toXML(resNode);
+  result.toXML(resNode, ZamarType::DSM);
+}
+
+//-----------------------------------------------------------------------------------
+// SBDO
+
+void ZamarSBDOInterface::PassengerSearchSBDO(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  // FIXME повторяющийся код -- проанализировать после завершения работ по SBDO
+  PassengerSearchResult result;
+  try
+  {
+    result.fromXML(reqNode, ZamarType::SBDO);
+  }
+  catch (ZamarException ZE)
+  {
+    PassengerSearchResult::errorXML(resNode, ZE.cmd, ZE.what());
+    return;
+  }
+  catch (Exception E)
+  {
+    PassengerSearchResult::errorXML(resNode, STR_INTERNAL_ERROR, E.what());
+    return;
+  }
+  result.toXML(resNode, ZamarType::SBDO);
+}
+
+void ZamarSBDOInterface::PassengerBaggageTagAdd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  if (resNode == nullptr) return;
+  NewTextChild(resNode, "queryType", "PassengerBaggageTagAdd");
+  NewTextChild(resNode, "command", STR_UNDER_CONSTRUCTION);
+}
+
+void ZamarSBDOInterface::PassengerBaggageTagConfirm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  if (resNode == nullptr) return;
+  NewTextChild(resNode, "queryType", "PassengerBaggageTagConfirm");
+  NewTextChild(resNode, "command", STR_UNDER_CONSTRUCTION);
+}
+
+void ZamarSBDOInterface::PassengerBaggageTagRevoke(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  if (resNode == nullptr) return;
+  NewTextChild(resNode, "queryType", "PassengerBaggageTagRevoke");
+  NewTextChild(resNode, "command", STR_UNDER_CONSTRUCTION);
 }

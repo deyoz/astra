@@ -152,6 +152,22 @@ class TBagKilos : public TBagQuantity
       TBagQuantity(_quantity, Ticketing::Baggage::WeightKilo) {}
 };
 
+class TBagTotals
+{
+  public:
+    int amount;
+    int weight;
+
+    TBagTotals() { clear(); }
+    TBagTotals(int _amount, int _weight) : amount(_amount), weight(_weight) {}
+
+    void clear()
+    {
+      amount=0;
+      weight=0;
+    }
+};
+
 namespace Sirena
 {
 

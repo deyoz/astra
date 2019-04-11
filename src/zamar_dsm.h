@@ -11,6 +11,11 @@
 
 using BASIC::date_time::TDateTime;
 
+enum class ZamarType { DSM, SBDO };
+
+//-----------------------------------------------------------------------------------
+// DSM
+
 class ZamarDSMInterface: public JxtInterface
 {
     public:
@@ -22,12 +27,16 @@ class ZamarDSMInterface: public JxtInterface
         void PassengerSearch(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
+//-----------------------------------------------------------------------------------
+
 class PassengerSearchResult
 {
   PrintInterface::BPPax bppax;
-  int point_id;
+  int point_id = ASTRA::NoExists;
+  int grp_id = ASTRA::NoExists;
+  int pax_id = ASTRA::NoExists;
   TTripInfo trip_info;
-  CheckIn::TSimplePaxGrpItem grp_item;
+  CheckIn::TPaxGrpItem grp_item; // для DSM было TSimplePaxGrpItem
   CheckIn::TSimplePaxItem pax_item;
   CheckIn::TPaxDocItem doc;
   CheckIn::TPaxDocoItem doco;
@@ -45,9 +54,29 @@ class PassengerSearchResult
   std::multimap<TBagTagNumber, CheckIn::TBagItem> bagTagsExtended;
   
 public:
-  PassengerSearchResult& fromXML(xmlNodePtr reqNode);
-  const PassengerSearchResult& toXML(xmlNodePtr resNode) const;
+  PassengerSearchResult& fromXML(xmlNodePtr reqNode, ZamarType type);
+  const PassengerSearchResult& toXML(xmlNodePtr resNode, ZamarType type) const;
   static void errorXML(xmlNodePtr resNode, const std::string& cmd, const std::string& err);
+};
+
+//-----------------------------------------------------------------------------------
+// SBDO
+
+class ZamarSBDOInterface: public JxtInterface
+{
+    public:
+        ZamarSBDOInterface(): JxtInterface("457", "ZamarSBDO") // уточнить параметры конструктора
+        {
+            AddEvent("PassengerSearchSBDO",    JXT_HANDLER(ZamarSBDOInterface, PassengerSearchSBDO));
+            AddEvent("PassengerBaggageTagAdd",    JXT_HANDLER(ZamarSBDOInterface, PassengerBaggageTagAdd));
+            AddEvent("PassengerBaggageTagConfirm",    JXT_HANDLER(ZamarSBDOInterface, PassengerBaggageTagConfirm));
+            AddEvent("PassengerBaggageTagRevoke",    JXT_HANDLER(ZamarSBDOInterface, PassengerBaggageTagRevoke));
+        }
+
+        void PassengerSearchSBDO(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+        void PassengerBaggageTagAdd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+        void PassengerBaggageTagConfirm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+        void PassengerBaggageTagRevoke(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
 #endif // ZAMAR_DSM_H
