@@ -239,6 +239,7 @@ class TRFISCListItem : public TRFISCListKey
     bool isBaggageOrCarryOn() const;
     TServiceCategory::Enum calc_category() const;
     bool isBaggageInCabinOrCarryOn() const;
+    bool isBaggageInHold() const;
     const std::string& name_view(const std::string& lang="") const;
     const std::string descr_view(const std::string& lang="") const;
 

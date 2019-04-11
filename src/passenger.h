@@ -583,6 +583,8 @@ class TSimplePaxItem
 
     bool getBaggageInHoldTotals(TBagTotals& totals) const;
     boost::optional<WeightConcept::TNormItem> getRegularNorm() const;
+    void getBaggageListForSBDO(TRFISCList& list) const;
+    void getBaggageListForSBDO(TBagTypeList& list) const;
 };
 
 template <class T>

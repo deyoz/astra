@@ -402,6 +402,27 @@ TBagTypeKey& TBagTypeKey::fromDBcompatible(TQuery &Qry)
   return *this;
 }
 
+bool TBagTypeListItem::isBaggageOrCarryOn() const
+{
+  return category!=TServiceCategory::Other;
+}
+
+bool TBagTypeListItem::isBaggageInCabinOrCarryOn() const
+{
+  return category==TServiceCategory::BaggageInCabinOrCarryOn ||
+         category==TServiceCategory::BaggageAndCarryOn ||
+         category==TServiceCategory::BaggageInCabinOrCarryOnWithOrigInfo ||
+         category==TServiceCategory::BaggageAndCarryOnWithOrigInfo;
+}
+
+bool TBagTypeListItem::isBaggageInHold() const
+{
+  return category==TServiceCategory::BaggageInHold ||
+         category==TServiceCategory::BaggageAndCarryOn ||
+         category==TServiceCategory::BaggageInHoldWithOrigInfo ||
+         category==TServiceCategory::BaggageAndCarryOnWithOrigInfo;
+}
+
 void TBagTypeList::toXML(int list_id, xmlNodePtr node) const
 {
   if (node==NULL) throw Exception("TBagTypeList::toXML: node not defined");

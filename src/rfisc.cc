@@ -72,6 +72,11 @@ bool TRFISCListItem::isBaggageInCabinOrCarryOn() const
   return calc_category()==TServiceCategory::BaggageInCabinOrCarryOn;
 }
 
+bool TRFISCListItem::isBaggageInHold() const
+{
+  return calc_category()==TServiceCategory::BaggageInHold;
+}
+
 const std::string& TRFISCListItem::name_view(const std::string &lang) const
 {
   return (lang.empty()?TReqInfo::Instance()->desk.lang:lang)==AstraLocale::LANG_RU?name:name_lat;

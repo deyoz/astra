@@ -1835,6 +1835,39 @@ boost::optional<WeightConcept::TNormItem> TSimplePaxItem::getRegularNorm() const
   return boost::none;
 }
 
+template<class T>
+static void getBaggageInHoldList(int id, T& list)
+{
+  list.clear();
+
+  if (id==ASTRA::NoExists) return;
+
+  TPaxServiceLists serviceLists;
+  serviceLists.fromDB(id, false);
+  for(const TPaxServiceListsItem& i : serviceLists)
+    if (i.trfer_num==0 && i.category==TServiceCategory::BaggageInHold)
+    {
+      list.fromDB(i.primary(), true);
+      break;
+    }
+
+  for(typename T::iterator i=list.begin(); i!=list.end();)
+  {
+    auto& item=i->second;
+    item.isBaggageInHold()?++i:i=list.erase(i);
+  }
+}
+
+void TSimplePaxItem::getBaggageListForSBDO(TRFISCList& list) const
+{
+  getBaggageInHoldList(id, list);
+}
+
+void TSimplePaxItem::getBaggageListForSBDO(TBagTypeList& list) const
+{
+  getBaggageInHoldList(id, list);
+}
+
 TAPISItem& TAPISItem::fromDB(int pax_id)
 {
   clear();
