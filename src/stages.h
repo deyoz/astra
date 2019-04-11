@@ -109,6 +109,7 @@ class TTripStages {
     TDateTime time( TStage stage ) const;
     TTripStageTimes getStageTimes( TStage stage ) const;
     TStage getStage( TStage_Type stage_type );
+    bool allowToBagCheckIn() { return getStage(stCheckIn) == sOpenCheckIn; }
 };
 
 struct TStage_Level {

@@ -109,6 +109,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new SirenaExchangeInterface();
 
     new ZamarDSMInterface();
+    new ZamarSBDOInterface();
 
     CheckInInterface::instance();
     TripsInterface::instance();

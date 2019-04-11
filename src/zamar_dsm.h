@@ -32,9 +32,11 @@ class ZamarDSMInterface: public JxtInterface
 class PassengerSearchResult
 {
   PrintInterface::BPPax bppax;
-  int point_id;
+  int point_id = ASTRA::NoExists;
+  int grp_id = ASTRA::NoExists;
+  int pax_id = ASTRA::NoExists;
   TTripInfo trip_info;
-  CheckIn::TSimplePaxGrpItem grp_item;
+  CheckIn::TPaxGrpItem grp_item; // для DSM было TSimplePaxGrpItem
   CheckIn::TSimplePaxItem pax_item;
   CheckIn::TPaxDocItem doc;
   CheckIn::TPaxDocoItem doco;

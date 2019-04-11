@@ -19,6 +19,7 @@ namespace AstraHTTP
 #define PIECE_CONCEPT_JXT_INTERFACE_ID "PieceConcept"
 #define PRINT_JXT_INTERFACE_ID "print"
 #define ZAMAR_DSM_JXT_INTERFACE_ID "ZamarDSM"
+#define ZAMAR_SBDO_JXT_INTERFACE_ID "ZamarSBDO"
 
 struct HTTPClient;
 
@@ -116,6 +117,10 @@ struct HTTPClient
     jxt_interface["print_bp"] =             JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
     jxt_interface["print_bp2"] =            JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
     jxt_interface["PassengerSearch"] =      JxtInfo(ZAMAR_DSM_JXT_INTERFACE_ID,     NULL);
+    jxt_interface["PassengerSearchSBDO"] =        JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     NULL);
+    jxt_interface["PassengerBaggageTagAdd"] =     JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     NULL);
+    jxt_interface["PassengerBaggageTagConfirm"] = JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     NULL);
+    jxt_interface["PassengerBaggageTagRevoke"] =  JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     NULL);
   }
 };
 
