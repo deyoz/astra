@@ -743,13 +743,13 @@ bool LoadPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts)
   return !fqts.empty();
 };
 
-bool LoadPaxFQTNotEmptyTierLevel(int pax_id, std::set<TPaxFQTItem> &fqts)
+bool LoadPaxFQTNotEmptyTierLevel(int pax_id, std::set<TPaxFQTItem> &fqts, bool onlyFQTV)
 {
   fqts.clear();
   LoadPaxFQT(pax_id, fqts);
   for(set<TPaxFQTItem>::iterator i=fqts.begin(); i!=fqts.end();)
   {
-    if (i->tier_level.empty())
+    if (i->tier_level.empty() or (onlyFQTV and i->rem != "FQTV"))
     {
       i=fqts.erase(i);
       continue;
@@ -883,18 +883,27 @@ bool PaxASVCFromDB(int pax_id, vector<TPaxASVCItem> &asvc, bool from_crs)
     };
   };
   return !asvc.empty();
-};
+}
 
 bool LoadPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc)
 {
   return PaxASVCFromDB(pax_id, asvc, false);
-};
+}
 
 bool LoadCrsPaxASVC(int pax_id, vector<TPaxASVCItem> &asvc)
 {
   return PaxASVCFromDB(pax_id, asvc, true);
-};
+}
 
+bool ExistsPaxASVC(int pax_id, const std::string& rfisc)
+{
+  QParams ASVCQryParams;
+  ASVCQryParams << QParam("pax_id", otInteger, pax_id)
+                << QParam("rfisc", otString, rfisc);
+  TCachedQuery PaxASVCQry("SELECT 1 FROM pax_asvc WHERE pax_id=:pax_id AND rfisc=:rfisc AND rownum<2", ASVCQryParams);
+  PaxASVCQry.get().Execute();
+  return !PaxASVCQry.get().Eof;
+}
 
 void SavePaxRem(int pax_id, const multiset<TPaxRemItem> &rems)
 {

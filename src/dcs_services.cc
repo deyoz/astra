@@ -129,7 +129,7 @@ bool DCSServiceApplying::isAllowed(int pax_id, DCSService::Enum dcsService, RFIS
   if (brands.empty()) brands.emplace_back();
 
   set<CheckIn::TPaxFQTItem> fqts;
-  CheckIn::LoadPaxFQTNotEmptyTierLevel(pax.id, fqts);
+  CheckIn::LoadPaxFQTNotEmptyTierLevel(pax.id, fqts, false);
   if (fqts.empty()) fqts.insert(CheckIn::TPaxFQTItem());
 
   DCSServiceApplyingParams params;
