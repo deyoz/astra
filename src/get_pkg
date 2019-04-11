@@ -20,13 +20,15 @@ do
     ex -sc ':%s/^\([^#].*CONNECT_STRING '$prev_host'\>.*$\)/#\1/g|x' local_after.tcl
   fi
 
-  #uncomment current and fetch 
+  # uncomment current and fetch 
   ex -sc ':%s/^#\(.*CONNECT_STRING '$host'\>.*$\)/\1/g|x' local_after.tcl
   rm -rf pkg_$host
   mkdir pkg_$host
   ./nosir.tcl -db_pkg pkg_$host
   prev_host=$host
 done
+# comment out last host
 ex -sc ':%s/^\([^#].*CONNECT_STRING '$prev_host'\>.*$\)/#\1/g|x' local_after.tcl
+# restore beta
 ex -sc ':%s/^#\(.*CONNECT_STRING '${hosts[0]}'\>.*$\)/\1/g|x' local_after.tcl
 
