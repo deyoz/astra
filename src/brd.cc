@@ -1587,6 +1587,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
       TComplexBagExcessNodeList excessNodeList(OutputLang(), props, "+");
 
+      TBrands brands; //объявляем здесь, чтобы задействовать кэширование брендов
       for(;!Qry.Eof;Qry.Next())
       {
           int grp_id=Qry.FieldAsInteger(col_grp_id);
@@ -1659,17 +1660,44 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           //ticket_bag_norm
           CheckIn::TPaxTknItem tkn;
           tkn.fromDB( Qry );
+          boost::optional<TETickItem> etick;
           if (tkn.validET()) {
-            NewTextChild(paxNode, "bag_norm",
-                         TETickItem().fromDB(tkn.no, tkn.coupon, TETickItem::Display, false).bag_norm_view(), "");
+              etick = boost::in_place();
+              etick.get().fromDB(tkn.no, tkn.coupon, TETickItem::Display, false);
           }
+          if(etick)
+              NewTextChild(paxNode, "bag_norm", etick.get().bag_norm_view(), "");
           NewTextChild(paxNode, "pr_payment", (int)pr_payment, (int)false);
           NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger(col_bag_amount), 0);
           NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger(col_bag_weight), 0);
           NewTextChild(paxNode, "rk_amount", Qry.FieldAsInteger(col_rk_amount), 0);
           NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight), 0);
           NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags), "");
-          NewTextChild(paxNode, "remarks", GetRemarkStr(rem_grp, pax_id, reqInfo->desk.lang), "");
+
+          ostringstream remarks;
+          if(fltInfo.airline == "ЮТ") {
+              const string rfisc = "08A";
+              if(CheckIn::ExistsPaxASVC(pax_id, rfisc)) {
+                  if(not remarks.str().empty()) remarks << " ";
+                  remarks << rfisc;
+              }
+
+              if(etick) {
+                  brands.get(fltInfo.airline, etick.get());
+                  if(not remarks.str().empty()) remarks << " ";
+                  remarks << brands.getSingleBrand().name(AstraLocale::OutputLang());
+              }
+
+              std::set<CheckIn::TPaxFQTItem> fqts;
+              if(LoadPaxFQTNotEmptyTierLevel(pax_id, fqts, true)) {
+                  if(not remarks.str().empty()) remarks << " ";
+                  remarks << fqts.begin()->tier_level;
+              }
+          }
+          if(not remarks.str().empty()) remarks << " ";
+          remarks << GetRemarkStr(rem_grp, pax_id, reqInfo->desk.lang);
+          NewTextChild(paxNode, "remarks", remarks.str(), "");
+
 
           if (DecodeClientType(Qry.FieldAsString(col_client_type))!=ctTerm)
             NewTextChild(paxNode, "client_name", ElemIdToNameShort(etClientType, Qry.FieldAsString(col_client_type)));

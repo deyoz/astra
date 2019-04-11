@@ -358,7 +358,7 @@ typedef std::multiset<TPaxRemItem> PaxRems;
 bool LoadPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems);
 bool LoadCrsPaxRem(int pax_id, std::multiset<TPaxRemItem> &rems);
 bool LoadPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts);
-bool LoadPaxFQTNotEmptyTierLevel(int pax_id, std::set<TPaxFQTItem> &fqts);
+bool LoadPaxFQTNotEmptyTierLevel(int pax_id, std::set<TPaxFQTItem> &fqts, bool onlyFQTV);
 bool LoadCrsPaxFQT(int pax_id, std::set<TPaxFQTItem> &fqts);
 
 void SavePaxRem(int pax_id, const std::multiset<TPaxRemItem> &rems);
@@ -375,6 +375,7 @@ bool DeletePaxASVC(int pax_id);
 bool AddPaxASVC(int id, bool is_grp_id);
 bool LoadPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
 bool LoadCrsPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
+bool ExistsPaxASVC(int pax_id, const std::string& rfisc);
 
 void GetPaxRemDifference(const boost::optional<TRemGrp> &rem_grp,
                          const PaxRems &prior_rems,
