@@ -62,13 +62,14 @@ private:
 struct TTransData
 {
   int msg_id;
+  std::string header;
   std::string code;
   std::string user_id;
   bool type; // '' = Check-in Transaction. "P" = Pre-Check-in Vetting
   int version = 0;
 
   TTransData() : type( false ) {}
-  void init( const bool pre_ckin, const std::string& trans_code, const std::string& id, int ver );
+  void init( const bool pre_ckin, const std::string& trans_code, const TAirlinesRow& airline, int ver );
   bool operator == ( const TTransData& data ) const
   {
     return type == data.type &&
@@ -231,7 +232,6 @@ struct TMftData
 
 class TPaxRequest
 {
-  std::string header;
   TTransData trans;
   TFlightData int_flt;
   TFlightData ckin_flt;
@@ -269,7 +269,6 @@ public:
 
 class TManifestRequest
 {
-  std::string header;
   TTransData trans;
   TFlightData int_flt;
   TMftData mft_req;

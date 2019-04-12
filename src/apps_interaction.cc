@@ -14,9 +14,11 @@
 #include <boost/scoped_ptr.hpp>
 #include "apis_utils.h"
 
+#include <serverlib/str_utils.h>
+
 #define NICKNAME "ANNA"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -192,9 +194,19 @@ static std::string getH2HReceiver()
   return VAR;
 }
 
-static std::string makeHeader( const std::string& airline )
+static std::string getH2HTpr(int msgId)
 {
-  return string( "V.\rVHLG.WA/E5" + string(OWN_CANON_NAME()) + "/I5" + getH2HReceiver() + "/P0001\rVGZ.\rV" + airline + "/MOW/////////RU\r" );
+    const size_t TprLen = 4;
+
+    std::string res = StrUtils::ToBase36Lpad(msgId, TprLen);
+    if(res.length() > TprLen)
+        res = res.substr(res.length() - TprLen, TprLen);
+    return res;
+}
+
+static std::string makeHeader( const std::string& airline, int msgId )
+{
+  return string( "V.\rVHLG.WA/E5" + string(OWN_CANON_NAME()) + "/I5" + getH2HReceiver() + "/P" + getH2HTpr(msgId) + "\rVGZ.\rV" + airline + "/MOW/////////RU\r" );
 }
 
 static std::string getUserId( const TAirlinesRow &airline )
@@ -361,13 +373,15 @@ void deleteAPPSAlarms( const int pax_id )
   set_crs_pax_alarm( pax_id, Alarm::APPSConflict, false );
 }
 
-void TTransData::init( const bool pre_ckin, const std::string& trans_code, const std::string& id, int ver )
+void TTransData::init(const bool pre_ckin, const std::string& trans_code,
+                      const TAirlinesRow& airline, int ver)
 {
   code = trans_code;
   msg_id = getIdent();
-  user_id = id;
+  user_id = getUserId(airline);
   type = pre_ckin;
   version = ver;
+  header = makeHeader(airline.code_lat, msg_id);
 }
 
 void TTransData::check_data() const
@@ -888,8 +902,7 @@ bool TPaxRequest::getByPaxId( const int pax_id, const std::string& override_type
   if (airline.code_lat.empty())
     throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
   version = GetVersion(airline.code, getCountryByAirp( airp_arv ).code);
-  header = makeHeader( airline.code_lat );
-  trans.init( false, (Qry.FieldIsNULL("refuse"))?"CIRQ":"CICX", getUserId( airline ), version );
+  trans.init( false, (Qry.FieldIsNULL("refuse"))?"CIRQ":"CICX", airline, version );
   int_flt.init( point_dep, "INT", version );
 
   /* Проверим транзит. В случае транзита через страну-участницу APPS, выставим
@@ -966,8 +979,7 @@ bool TPaxRequest::getByCrsPaxId( const int pax_id, const std::string& override_t
   if (airline.code_lat.empty())
     throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
   version = GetVersion(airline.code, getCountryByAirp( airp_arv ).code);
-  header = makeHeader( airline.code_lat );
-  trans.init( true, Qry.FieldAsInteger("pr_del")?"CICX":"CIRQ", getUserId( airline ), version );
+  trans.init( true, Qry.FieldAsInteger("pr_del")?"CICX":"CIRQ", airline, version );
   int_flt.init( point_id, "INT", version );
 
   TQuery TrferQry( &OraSession );
@@ -1038,8 +1050,7 @@ bool TPaxRequest::fromDBByPaxId( const int pax_id )
   TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
   if ( airline.code_lat.empty() )
     throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
-  header = makeHeader( airline.code_lat );
-  trans.init( Qry.FieldAsInteger("pre_ckin"), "CICX", getUserId( airline ), version );
+  trans.init( Qry.FieldAsInteger("pre_ckin"), "CICX", airline, version );
   int_flt.init( point_id, "INT", Qry.FieldAsString("flt_num"), Qry.FieldAsString("dep_port"),
                 Qry.FieldAsString("arv_port"), Qry.FieldAsDateTime("dep_date"), Qry.FieldAsDateTime("arv_date"), version );
   if ( !Qry.FieldIsNULL("ckin_point_id") )
@@ -1085,8 +1096,7 @@ bool TPaxRequest::fromDBByMsgId( const int msg_id )
   TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
   if (airline.code_lat.empty())
     throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
-  header = makeHeader( airline.code_lat );
-  trans.init( Qry.FieldAsInteger("pre_ckin"), "CICX", getUserId( airline ), version );
+  trans.init( Qry.FieldAsInteger("pre_ckin"), "CICX", airline, version );
   int_flt.init( point_id, "INT", Qry.FieldAsString("flt_num"), Qry.FieldAsString("dep_port"),
                 Qry.FieldAsString("arv_port"), Qry.FieldAsDateTime("dep_date"), Qry.FieldAsDateTime("arv_date"), version );
   if ( !Qry.FieldIsNULL("ckin_point_id") )
@@ -1112,7 +1122,7 @@ std::string TPaxRequest::msg() const
   {
     msg << pax_add.msg() << "/";
   }
-  return string(header + "\x02" + msg.str() + "\x03");
+  return string(trans.header + "\x02" + msg.str() + "\x03");
 }
 
 void TPaxRequest::saveData() const
@@ -1292,8 +1302,7 @@ bool TManifestRequest::init( const int point_id, const std::string& country_lat,
   if (airline.code_lat.empty())
     throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
   version = GetVersion(airline.code, country_code);
-  header = makeHeader( airline.code_lat );
-  trans.init( false, "CIMR", getUserId( airline ), version );
+  trans.init( false, "CIMR", airline, version );
   int_flt.init( point_id, "INM", version );
   mft_req.init( country_lat, version );
   return true;
@@ -1304,7 +1313,7 @@ std::string TManifestRequest::msg() const
   string msg  = trans.msg() + "/"
               + int_flt.msg() + "/"
               + mft_req.msg() + "/";
-  return string(header + "\x02" + msg + "\x03");
+  return string(trans.header + "\x02" + msg + "\x03");
 }
 
 void TManifestRequest::sendReq() const
