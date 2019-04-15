@@ -446,9 +446,9 @@ void TServicePaymentList::toDB(int grp_id) const
                              << QParam("doc_no", otString)
                              << QParam("doc_coupon", otInteger)
                              << QParam("doc_weight", otInteger));
-  for(TServicePaymentList::const_iterator i=begin(); i!=end(); ++i)
+  for(const TServicePaymentItem& i : *this)
   {
-    i->toDB(Qry.get());
+    i.toDB(Qry.get());
     try
     {
       Qry.get().Execute();
@@ -457,10 +457,10 @@ void TServicePaymentList::toDB(int grp_id) const
     {
       if (E.Code==1)
       {
-        if (i->isEMD())
-          throw UserException("MSG.DUPLICATED_EMD_NUMBER", LParams()<<LParam("emd_no",i->no_str()));
+        if (i.isEMD())
+          throw UserException("MSG.DUPLICATED_EMD_NUMBER", LParams()<<LParam("emd_no",i.no_str()));
         else
-          throw UserException("MSG.DUPLICATED_MCO_NUMBER", LParams()<<LParam("mco_no",i->no_str()));
+          throw UserException("MSG.DUPLICATED_MCO_NUMBER", LParams()<<LParam("mco_no",i.no_str()));
       }
       else
         throw;
@@ -470,88 +470,119 @@ void TServicePaymentList::toDB(int grp_id) const
   TGrpAlarmHook::set(Alarm::UnboundEMD, grp_id);
 }
 
+std::string TServicePaymentList::copySelectSQL()
+{
+  return
+      "SELECT dest.grp_id, "
+      "       dest.pax_id, "
+      "       service_payment.transfer_num+src.seg_no-dest.seg_no AS transfer_num, "
+      "       service_payment.list_id, "
+      "       service_payment.bag_type, "
+      "       service_payment.rfisc, "
+      "       service_payment.service_type, "
+      "       service_payment.airline, "
+      "       service_payment.service_quantity, "
+      "       service_payment.doc_type, "
+      "       service_payment.doc_aircode, "
+      "       service_payment.doc_no, "
+      "       service_payment.doc_coupon, "
+      "       service_payment.doc_weight "
+      "FROM service_payment, "
+      "     (SELECT pax.pax_id, "
+      "             tckin_pax_grp.grp_id, "
+      "             tckin_pax_grp.tckin_id, "
+      "             tckin_pax_grp.seg_no, "
+      "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
+      "      FROM pax, tckin_pax_grp "
+      "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_src) src, "
+      "     (SELECT pax.pax_id, "
+      "             tckin_pax_grp.grp_id, "
+      "             tckin_pax_grp.tckin_id, "
+      "             tckin_pax_grp.seg_no, "
+      "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
+      "      FROM pax, tckin_pax_grp "
+      "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_dest) dest "
+      "WHERE src.tckin_id=dest.tckin_id AND "
+      "      src.distance=dest.distance AND "
+      "      service_payment.pax_id=src.pax_id AND "
+      "      service_payment.transfer_num+src.seg_no-dest.seg_no>=0 AND "
+      "      service_payment.pax_id IS NOT NULL AND service_payment.doc_weight IS NULL ";
+}
+
+std::string TServicePaymentList::copySelectSQL2()
+{
+  return
+      "SELECT dest.grp_id, "
+      "       NULL AS pax_id, "
+      "       service_payment.transfer_num+src.seg_no-dest.seg_no AS transfer_num, "
+      "       service_payment.list_id, "
+      "       service_payment.bag_type, "
+      "       service_payment.rfisc, "
+      "       service_payment.service_type, "
+      "       service_payment.airline, "
+      "       service_payment.service_quantity, "
+      "       service_payment.doc_type, "
+      "       service_payment.doc_aircode, "
+      "       service_payment.doc_no, "
+      "       service_payment.doc_coupon, "
+      "       service_payment.doc_weight "
+      "FROM service_payment, "
+      "     (SELECT tckin_pax_grp.grp_id, "
+      "             tckin_pax_grp.tckin_id, "
+      "             tckin_pax_grp.seg_no "
+      "      FROM tckin_pax_grp "
+      "      WHERE tckin_pax_grp.grp_id=:grp_id_src) src, "
+      "     (SELECT tckin_pax_grp.grp_id, "
+      "             tckin_pax_grp.tckin_id, "
+      "             tckin_pax_grp.seg_no "
+      "      FROM tckin_pax_grp "
+      "      WHERE tckin_pax_grp.grp_id=:grp_id_dest) dest "
+      "WHERE src.tckin_id=dest.tckin_id AND "
+      "      service_payment.grp_id=src.grp_id AND "
+      "      service_payment.transfer_num+src.seg_no-dest.seg_no>=0 AND "
+      "      service_payment.pax_id IS NULL AND service_payment.doc_weight IS NULL ";
+}
+
+void TServicePaymentList::copyDBOneByOne(int grp_id_src, int grp_id_dest)
+{
+  TServicePaymentList list;
+
+  TCachedQuery Qry(copySelectSQL()+" UNION ALL "+copySelectSQL2(),
+                   QParams() << QParam("grp_id_src", otInteger, grp_id_src)
+                             << QParam("grp_id_dest", otInteger, grp_id_dest));
+  Qry.get().Execute();
+  for(; !Qry.get().Eof; Qry.get().Next())
+    list.push_back(TServicePaymentItem().fromDB(Qry.get()));
+
+  list.toDB(grp_id_dest);
+}
+
 void TServicePaymentList::copyDB(int grp_id_src, int grp_id_dest)
 {
   clearDB(grp_id_dest);
-  //привязанные к pax_id:
   TCachedQuery Qry(
     "INSERT INTO service_payment(grp_id, pax_id, transfer_num, list_id, bag_type, rfisc, service_type, airline, service_quantity, "
-    "  doc_type, doc_aircode, doc_no, doc_coupon, doc_weight) "
-    "SELECT dest.grp_id, "
-    "       dest.pax_id, "
-    "       service_payment.transfer_num+src.seg_no-dest.seg_no, "
-    "       service_payment.list_id, "
-    "       service_payment.bag_type, "
-    "       service_payment.rfisc, "
-    "       service_payment.service_type, "
-    "       service_payment.airline, "
-    "       service_payment.service_quantity, "
-    "       service_payment.doc_type, "
-    "       service_payment.doc_aircode, "
-    "       service_payment.doc_no, "
-    "       service_payment.doc_coupon, "
-    "       service_payment.doc_weight "
-    "FROM service_payment, "
-    "     (SELECT pax.pax_id, "
-    "             tckin_pax_grp.grp_id, "
-    "             tckin_pax_grp.tckin_id, "
-    "             tckin_pax_grp.seg_no, "
-    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-    "      FROM pax, tckin_pax_grp "
-    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_src) src, "
-    "     (SELECT pax.pax_id, "
-    "             tckin_pax_grp.grp_id, "
-    "             tckin_pax_grp.tckin_id, "
-    "             tckin_pax_grp.seg_no, "
-    "             tckin_pax_grp.first_reg_no-pax.reg_no AS distance "
-    "      FROM pax, tckin_pax_grp "
-    "      WHERE pax.grp_id=tckin_pax_grp.grp_id AND pax.grp_id=:grp_id_dest) dest "
-    "WHERE src.tckin_id=dest.tckin_id AND "
-    "      src.distance=dest.distance AND "
-    "      service_payment.pax_id=src.pax_id AND "
-    "      service_payment.transfer_num+src.seg_no-dest.seg_no>=0 AND "
-    "      service_payment.pax_id IS NOT NULL AND service_payment.doc_weight IS NULL ",
+    "  doc_type, doc_aircode, doc_no, doc_coupon, doc_weight) " +
+    //привязанные к pax_id:
+    copySelectSQL() +
+    " UNION ALL " +
+    //непривязанные к pax_id:
+    //неправильный расчет платности багажа при wt на последующих сегментах. Надо вводить is_trfer возможно, аналогично багажу
+    copySelectSQL2(),
     QParams() << QParam("grp_id_src", otInteger, grp_id_src)
               << QParam("grp_id_dest", otInteger, grp_id_dest));
-  Qry.get().Execute();
 
-  //непривязанные к pax_id:
-  //неправильный расчет платности багажа при wt на последующих сегментах. Надо вводить is_trfer возможно, аналогично багажу
-  TCachedQuery Qry2(
-    "INSERT INTO service_payment(grp_id, pax_id, transfer_num, list_id, bag_type, rfisc, service_type, airline, service_quantity, "
-    "  doc_type, doc_aircode, doc_no, doc_coupon, doc_weight) "
-    "SELECT dest.grp_id, "
-    "       NULL, "
-    "       service_payment.transfer_num+src.seg_no-dest.seg_no, "
-    "       service_payment.list_id, "
-    "       service_payment.bag_type, "
-    "       service_payment.rfisc, "
-    "       service_payment.service_type, "
-    "       service_payment.airline, "
-    "       service_payment.service_quantity, "
-    "       service_payment.doc_type, "
-    "       service_payment.doc_aircode, "
-    "       service_payment.doc_no, "
-    "       service_payment.doc_coupon, "
-    "       service_payment.doc_weight "
-    "FROM service_payment, "
-    "     (SELECT tckin_pax_grp.grp_id, "
-    "             tckin_pax_grp.tckin_id, "
-    "             tckin_pax_grp.seg_no "
-    "      FROM tckin_pax_grp "
-    "      WHERE tckin_pax_grp.grp_id=:grp_id_src) src, "
-    "     (SELECT tckin_pax_grp.grp_id, "
-    "             tckin_pax_grp.tckin_id, "
-    "             tckin_pax_grp.seg_no "
-    "      FROM tckin_pax_grp "
-    "      WHERE tckin_pax_grp.grp_id=:grp_id_dest) dest "
-    "WHERE src.tckin_id=dest.tckin_id AND "
-    "      service_payment.grp_id=src.grp_id AND "
-    "      service_payment.transfer_num+src.seg_no-dest.seg_no>=0 AND "
-    "      service_payment.pax_id IS NULL AND service_payment.doc_weight IS NULL ",
-    QParams() << QParam("grp_id_src", otInteger, grp_id_src)
-              << QParam("grp_id_dest", otInteger, grp_id_dest));
-  Qry2.get().Execute();
+  try
+  {
+    Qry.get().Execute();
+  }
+  catch(EOracleError E)
+  {
+    if (E.Code==1)
+      copyDBOneByOne(grp_id_src, grp_id_dest);
+    else
+      throw;
+  };
 
   TGrpAlarmHook::set(Alarm::UnboundEMD, grp_id_dest);
 }

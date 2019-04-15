@@ -265,6 +265,10 @@ void splitServicePaymentItems(const T &src,
 
 class TServicePaymentList : public std::list<TServicePaymentItem>
 {
+  private:
+    static std::string copySelectSQL();
+    static std::string copySelectSQL2();
+    static void copyDBOneByOne(int grp_id_src, int grp_id_dest);
   public:
     void getCompatibleWithPriorTermVersions(TServicePaymentList &compatible,
                                             TServicePaymentList &not_compatible,
