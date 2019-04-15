@@ -1047,6 +1047,7 @@ namespace MQRABBIT_TRANSPORT {
     MQRABBIT_TRANSPORT::MQRabbitParams p( iparam->second );
     if ( p.addr.empty() ||
          p.queue.empty() ) {
+      LogTrace(TRACE5) << "addr is empty";
       return;
     }
     try {
@@ -1130,6 +1131,7 @@ namespace MQRABBIT_TRANSPORT {
     MQRABBIT_TRANSPORT::MQRabbitParams p( iparam->second );
     if ( p.addr.empty() ||
          p.queue.empty() ) {
+      LogTrace(TRACE5) << "addr is empty";
       return;
     }
     try {
@@ -1224,10 +1226,12 @@ namespace MQRABBIT_TRANSPORT {
         request.Sender = Qry.FieldAsString( "point_addr" );
       }
       if ( request.Sender != Qry.FieldAsString( "point_addr" ) ) {
-        if ( std::string( handler_id ) == "paxs" ) {
+        if ( std::string( task ) == "paxs" ) {
+          tst();
           putMQRabbitPaxs( request, params );
         }
         else {
+          tst();
           putMQRabbitFlights( request, params );
         }
         request.clear();
@@ -1247,10 +1251,12 @@ namespace MQRABBIT_TRANSPORT {
     }
     if ( !request.Sender.empty() ) {
      if ( std::string( task ) == "paxs" ) {
+        tst();
         putMQRabbitPaxs( request, params );
      }
      else {
-      putMQRabbitFlights( request, params );
+       tst();
+       putMQRabbitFlights( request, params );
      }
       request.clear();
     }
