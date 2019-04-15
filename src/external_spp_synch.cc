@@ -1002,21 +1002,22 @@ void TXMLFlightParser::parse( xmlNodePtr flightNode, DestsTagsNoExists &tags, co
     ppoint->airp_fmt = elem.fmt;
     ProgTrace(TRACE5,"check times, airp=%s", ppoint->airp.c_str() );
     prop = NodeAsStringFast( "scd_in", propNode, "" );
-    ppoint->scd_in = checkerFlt.checkLocalTime( prop, region, "Время прилета плановое " + ppoint->airp, false );
+    string airp_region = getRegion(ppoint->airp);
+    ppoint->scd_in = checkerFlt.checkLocalTime( prop, airp_region, "Время прилета плановое " + ppoint->airp, false );
     prop = NodeAsStringFast( "est_in", propNode, STRING_TAG_NOEXISTS );
     tags[ ppoint->airp ].est_in = (prop == STRING_TAG_NOEXISTS);
-    ppoint->est_in = tags[ ppoint->airp ].est_in?ASTRA::NoExists:checkerFlt.checkLocalTime( prop, region, "Время прилета расчетное " + ppoint->airp, false );
+    ppoint->est_in = tags[ ppoint->airp ].est_in?ASTRA::NoExists:checkerFlt.checkLocalTime( prop, airp_region, "Время прилета расчетное " + ppoint->airp, false );
     prop = NodeAsStringFast( "act_in", propNode, STRING_TAG_NOEXISTS );
     tags[ ppoint->airp ].act_in = (prop == STRING_TAG_NOEXISTS);
-    ppoint->act_in = tags[ ppoint->airp ].act_in?ASTRA::NoExists:checkerFlt.checkLocalTime( prop, region, "Время прилета фактическое " + ppoint->airp, false );
+    ppoint->act_in = tags[ ppoint->airp ].act_in?ASTRA::NoExists:checkerFlt.checkLocalTime( prop, airp_region, "Время прилета фактическое " + ppoint->airp, false );
     prop = NodeAsStringFast( "scd_out", propNode, "" );
-    ppoint->scd_out = checkerFlt.checkLocalTime( prop, region, "Время вылета плановое " + ppoint->airp, false );
+    ppoint->scd_out = checkerFlt.checkLocalTime( prop, airp_region, "Время вылета плановое " + ppoint->airp, false );
     prop = NodeAsStringFast( "est_out", propNode, STRING_TAG_NOEXISTS );
     tags[ ppoint->airp ].est_out = (prop == STRING_TAG_NOEXISTS );
-    ppoint->est_out = tags[ ppoint->airp ].est_out?ASTRA::NoExists:checkerFlt.checkLocalTime( prop, region, "Время вылета расчетное " + ppoint->airp, false );
+    ppoint->est_out = tags[ ppoint->airp ].est_out?ASTRA::NoExists:checkerFlt.checkLocalTime( prop, airp_region, "Время вылета расчетное " + ppoint->airp, false );
     prop = NodeAsStringFast( "act_out", propNode, STRING_TAG_NOEXISTS );
     tags[ ppoint->airp ].act_out = (prop == STRING_TAG_NOEXISTS );
-    ppoint->act_out = tags[ ppoint->airp ].act_out?ASTRA::NoExists:checkerFlt.checkLocalTime( prop, region, "Время вылета фактическое " + ppoint->airp, false );
+    ppoint->act_out = tags[ ppoint->airp ].act_out?ASTRA::NoExists:checkerFlt.checkLocalTime( prop, airp_region, "Время вылета фактическое " + ppoint->airp, false );
     ProgTrace( TRACE5, "tag.est_out=%d, act_out=%f, tags.act_out=%d, ppoint->point_num=%d",
                tags[ ppoint->airp ].est_out, ppoint->act_out, tags[ ppoint->airp ].act_out, ppoint->point_num );
     if ( own_airp ) {
