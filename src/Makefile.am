@@ -189,6 +189,7 @@ astra_SOURCES = \
   franchise.cc \
   astra_ssim.cc \
   bagmessage_daemon.cc \
+  get_cls_upgrade.cc \
   zamar_dsm.cpp
 
 
@@ -380,4 +381,5 @@ noinst_HEADERS = \
   report_common.h \
   kiosk_alias.h \
   astra_ssim.h \
+  get_cls_upgrade.h \
   zamar_dsm.h

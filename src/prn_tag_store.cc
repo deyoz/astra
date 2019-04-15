@@ -360,8 +360,8 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::CHD,                     TTagListItem(&TPrnTagStore::CHD, PAX_INFO)));
     tag_list.insert(make_pair(TAG::CITY_ARV_NAME,           TTagListItem(&TPrnTagStore::CITY_ARV_NAME)));
     tag_list.insert(make_pair(TAG::CITY_DEP_NAME,           TTagListItem(&TPrnTagStore::CITY_DEP_NAME)));
-    tag_list.insert(make_pair(TAG::CLASS,                   TTagListItem(&TPrnTagStore::CLASS)));
-    tag_list.insert(make_pair(TAG::CLASS_NAME,              TTagListItem(&TPrnTagStore::CLASS_NAME)));
+    tag_list.insert(make_pair(TAG::CLASS,                   TTagListItem(&TPrnTagStore::CLASS, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::CLASS_NAME,              TTagListItem(&TPrnTagStore::CLASS_NAME, PAX_INFO)));
     tag_list.insert(make_pair(TAG::DESK,                    TTagListItem(&TPrnTagStore::DESK)));
     tag_list.insert(make_pair(TAG::DOCUMENT,                TTagListItem(&TPrnTagStore::DOCUMENT, PAX_INFO)));
     tag_list.insert(make_pair(TAG::DUPLICATE,               TTagListItem(&TPrnTagStore::DUPLICATE, PAX_INFO)));
@@ -1066,6 +1066,7 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
                 "   pax.reg_no, "
                 "   pax.seats, "
                 "   pax.pers_type, "
+                "   pax.compartment, "
                 "   ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_amount, "
                 "   ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) bag_weight, "
                 "   ckin.get_rkAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) rk_amount, "
@@ -1104,6 +1105,7 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
                 "   reg_no, "
                 "   1 AS seats, "
                 "   :adult AS pers_type, "
+                "   null compartment, "
                 "   0 AS bag_amount, "
                 "   0 AS bag_weight, "
                 "   0 AS rk_amount, "
@@ -1143,6 +1145,7 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
         reg_no = Qry.FieldAsInteger("reg_no");
         seats = Qry.FieldAsInteger("seats");
         pers_type = Qry.FieldAsString("pers_type");
+        compartment = Qry.FieldAsString("compartment");
         bag_amount = Qry.FieldAsInteger("bag_amount");
         bag_weight = Qry.FieldAsInteger("bag_weight");
         rk_amount = Qry.FieldAsInteger("rk_amount");
@@ -1469,11 +1472,18 @@ string TBCBPData::toString(const TTagLang &tag_lang)
     _scd.trace(__FUNCTION__);
     // Date of flight(Julian Date)
     result << right << setw(3) << setfill('0') << _scd.getJulianDate();
+
     // Compartment Code
-    if(class_grp != NoExists)
+    if(
+            not compartment.empty() and
+            compartment != cls
+      ) {
+        result << tag_lang.ElemIdToTagElem(etClass, compartment, efmtCodeNative);
+    } else if(class_grp != NoExists)
         result << tag_lang.ElemIdToTagElem(etClsGrp, class_grp, efmtCodeNative);
     else
         result << tag_lang.ElemIdToTagElem(etClass, cls, efmtCodeNative);
+
     // Seat Number
     result << setw(4) << right << seat_no;
     // Check-In Sequence Number
@@ -1618,6 +1628,8 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
             bcbp_data.flt_no = pointInfo.operFlt.flt_no;
             bcbp_data.suffix = pointInfo.operFlt.suffix;
             bcbp_data.scd = UTCToLocal(pointInfo.operFlt.scd_out, AirpTZRegion(grpInfo.airp_dep));
+            bcbp_data.compartment = paxInfo.compartment;
+            bcbp_data.cls = grpInfo.cls;
             bcbp_data.class_grp = grpInfo.class_grp;
             bcbp_data.seat_no = ONE_SEAT_NO(fp);
             bcbp_data.reg_no = paxInfo.reg_no;
@@ -2045,7 +2057,12 @@ string TPrnTagStore::CLASS(TFieldParams fp)
             return cl;
         } else {
             string result;
-            if(grpInfo.class_grp != NoExists)
+            if(
+                    not paxInfo.compartment.empty() and
+                    paxInfo.compartment != grpInfo.cls
+              ) {
+                result = tag_lang.ElemIdToTagElem(etClass, paxInfo.compartment, efmtCodeNative);
+            } else if(grpInfo.class_grp != NoExists)
                 result = tag_lang.ElemIdToTagElem(etClsGrp, grpInfo.class_grp, efmtCodeNative);
             return result;
         }
@@ -2069,7 +2086,13 @@ string TPrnTagStore::CLASS_NAME(TFieldParams fp)
         return cl;
     } else {
         string result;
-        if(grpInfo.class_grp != NoExists)
+
+        if(
+                not paxInfo.compartment.empty() and
+                paxInfo.compartment != grpInfo.cls
+          ) {
+            result = tag_lang.ElemIdToTagElem(etClass, paxInfo.compartment, efmtNameLong);
+        } else if(grpInfo.class_grp != NoExists)
             result = tag_lang.ElemIdToTagElem(etClsGrp, grpInfo.class_grp, efmtNameLong);
         return result;
     }
