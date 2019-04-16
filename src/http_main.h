@@ -13,6 +13,7 @@ namespace AstraHTTP
 #define CHECKIN_JXT_INTERFACE_ID "CheckIn"
 #define TELEGRAM_JXT_INTERFACE_ID "Telegram"
 #define KIOSK_REQUEST_JXT_INTERFACE_ID "KioskRequest"
+#define KIOSK_CONFIG_JXT_INTERFACE_ID "KioskConfig"
 #define STAT_JXT_INTERFACE_ID "stat"
 #define HTML_JXT_INTERFACE_ID "html"
 #define PIECE_CONCEPT_JXT_INTERFACE_ID "PieceConcept"
@@ -94,9 +95,13 @@ struct HTTPClient
     jxt_interface["kuf_stat"] =             JxtInfo(TELEGRAM_JXT_INTERFACE_ID, NULL);
     jxt_interface["kuf_stat_flts"] =        JxtInfo(TELEGRAM_JXT_INTERFACE_ID, NULL);
     jxt_interface["stat_srv"] =             JxtInfo(STAT_JXT_INTERFACE_ID, NULL);
-    jxt_interface["PingKiosk"] =       JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
+    jxt_interface["PingKiosk"] =            JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
     jxt_interface["EventToServer"] =        JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
     jxt_interface["ViewCraftKiosk"] =       JxtInfo(KIOSK_REQUEST_JXT_INTERFACE_ID, NULL);
+    jxt_interface["AppParamsKiosk"] =       JxtInfo(KIOSK_CONFIG_JXT_INTERFACE_ID, NULL);
+    jxt_interface["AppAliasesKiosk"] =       JxtInfo(KIOSK_CONFIG_JXT_INTERFACE_ID, NULL);
+
+    jxt_interface["stat_srv"] =             JxtInfo(STAT_JXT_INTERFACE_ID,          NULL);
     jxt_interface["piece_concept"] =        JxtInfo(PIECE_CONCEPT_JXT_INTERFACE_ID, NULL);
     jxt_interface["GetGRPPrintData"] =      JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
     // Запрос с одинаковым названием, но в разных классах

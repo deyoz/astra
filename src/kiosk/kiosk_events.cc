@@ -230,8 +230,8 @@ struct KioskServerEventContainer {
       node = GetNode( "header", reqNode );
       if ( node != NULL ) {
          node = node->children;
-         ProgTrace(TRACE5, "name=%s", (char*)node->name );
-         while ( node != NULL && string((char*)node->name ) == string( "param" ) ) {
+         ProgTrace(TRACE5, "name=%s", (const char*)node->name );
+         while ( node != NULL && string((const char*)node->name ) == string( "param" ) ) {
            xmlNodePtr n = node;
            ProgTrace(TRACE5, "name=%s", NodeAsString( "name", n ) );
            ProgTrace(TRACE5, "value=%s", NodeAsString( "value", n ) );
@@ -332,7 +332,13 @@ struct KioskServerEventContainer {
   }
 };
 
+namespace KIOSKEVENTS
+{
 
+void KioskRequestInterface::Ping(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+
+}
 
 void KioskRequestInterface::EventToServer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -343,12 +349,10 @@ void KioskRequestInterface::EventToServer(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 
 void KioskRequestInterface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  LogTrace(TRACE5) << reqNode->name;
-  LogTrace(TRACE5) << reqNode->children->name;
-  reqNode = GetNode( "content/ViewCraft", reqNode );
   AstraWeb::WebRequestsIface::IntViewCraft( reqNode, resNode);
 }
 
+}
 /*
 void KioskRequestInterface::ViewKioskEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {

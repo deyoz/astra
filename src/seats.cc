@@ -402,7 +402,8 @@ struct TCondRate {
   void Init( SALONS2::TSalons &Salons, bool apr_pay, TClientType client_type ) {
     SeatsStat.start(__FUNCTION__);
     pr_web = apr_pay;
-    use_rate = ( client_type == ctTerm || client_type == ctPNL );
+    use_rate = ( client_type == ctTerm || client_type == ctPNL ||
+                 isCheckinWOChoiceSeats( Salons.trip_id ) );
     ProgTrace( TRACE5, "TCondRate::Init use_rate=%d", use_rate);
     rates.clear();
     ignore_rate = false;
@@ -5353,8 +5354,18 @@ bool TPassengers::existsNoSeats()
   return false;
 }
 
+bool isCheckinWOChoiceSeats( int point_id )
+{
+  TCachedQuery Qry("SELECT airline, flt_no, suffix, airp, scd_out FROM points WHERE point_id=:point_id AND pr_del>=0",
+               QParams() << QParam("point_id", otInteger, point_id));
+  Qry.get().Execute();
+  if (Qry.get().Eof) return false;
+  TTripInfo info(Qry.get());
+  return GetSelfCkinSets( tsKioskCheckinOnPaidSeat, info, TReqInfo::Instance()->client_type );
+}
 
 TPassengers Passengers;
+
 
 } // end namespace SEATS2
 

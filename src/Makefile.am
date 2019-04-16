@@ -178,7 +178,6 @@ astra_SOURCES = \
   environ.cc \
   AirportControl.cpp \
   md5_sum.cc \
-  kiosk_events.cc \
   bagmessage.cc \
   hotel_acmd.cc \
   self_ckin_log.cc \
@@ -194,6 +193,7 @@ astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
 	docs/libdocs.a \
 	stat/libstat.a \
+	kiosk/libkiosk.a \
 	tests/libtests.a \
 	@SHARED_LIBS@ @SHARED_DEPEND_LIBS@ \
 	@LIBTLG_LIBS@ \
@@ -218,7 +218,7 @@ astra_LDADD = $(all_libraries) \
 #	-L/usr/lib -lboost_filesystem
 #	-L/home/beta/crypt/locallibs/mespro -lmesprox
 
-SUBDIRS = tlg tests docs stat
+SUBDIRS = tlg tests docs stat kiosk
 
 EXTRA_DIST = systarg.mk run astra.tcl PS Restart kills \
 	MAKE local_after_example.tcl local_before_example.tcl
@@ -362,7 +362,6 @@ noinst_HEADERS = \
   astra_pnr.h \
   AirportControl.h \
   md5_sum.h \
-  kiosk_events.h \
   hotel_acmd.h \
   self_ckin_log.h \
   pax_events.h \
