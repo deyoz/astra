@@ -86,9 +86,15 @@ void TPMPax::fromDB(TQuery &Qry)
     point_num = Qry.FieldAsInteger("point_num");
     status = Qry.FieldAsString("status");
     point_id = Qry.FieldAsInteger("trip_id");
-    class_grp = Qry.FieldAsInteger("class_grp");
-    priority = ((const TClsGrpRow&)base_tables.get("cls_grp").get_row( "id", class_grp, true)).priority;
-    cls = ((const TClsGrpRow&)base_tables.get("cls_grp").get_row( "id", class_grp, true)).cl;
+    cls = Qry.FieldAsString("class");
+    if(not simple.compartment.empty() and cls != simple.compartment) {
+        cls = simple.compartment;
+        priority = ((const TClassesRow&)base_tables.get("classes").get_row( "code", simple.compartment, true)).priority;
+    } else {
+        class_grp = Qry.FieldAsInteger("class_grp");
+        priority = ((const TClsGrpRow&)base_tables.get("cls_grp").get_row( "id", class_grp, true)).priority;
+        cls = ((const TClsGrpRow&)base_tables.get("cls_grp").get_row( "id", class_grp, true)).cl;
+    }
     if(get_pax_list().rpt_params.pr_trfer) {
         pr_trfer = Qry.FieldAsInteger("pr_trfer");
         trfer_airline = Qry.FieldAsString("trfer_airline");
@@ -272,8 +278,13 @@ void PaxListToXML(const REPORTS::TPMPaxList &pax_list, xmlNodePtr dataSetsNode, 
         key.point_id = rpt_params.point_id;
         key.target = pax.target;
         key.status = pax.status;
-        key.cls = rpt_params.ElemIdToReportElem(etClsGrp, pax.class_grp, efmtCodeNative);
-        key.cls_name = rpt_params.ElemIdToReportElem(etClsGrp, pax.class_grp, efmtNameLong);
+        if(pax.class_grp != NoExists) {
+            key.cls = rpt_params.ElemIdToReportElem(etClsGrp, pax.class_grp, efmtCodeNative);
+            key.cls_name = rpt_params.ElemIdToReportElem(etClsGrp, pax.class_grp, efmtNameLong);
+        } else {
+            key.cls = rpt_params.ElemIdToReportElem(etClass, pax.simple.compartment, efmtCodeNative);
+            key.cls_name = rpt_params.ElemIdToReportElem(etClass, pax.simple.compartment, efmtNameLong);
+        }
         key.lvl = pax.priority;
         key.pr_trfer = pax.pr_trfer;
 
@@ -411,6 +422,7 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
             "    transfer.airp_arv trfer_airp_arv, \n"
             "    trfer_trips.scd trfer_scd, \n";
     SQLText +=
+        "   pax_grp.class, \n"
         "   pax_grp.class_grp, \n"
         "   DECODE(pax_grp.status, 'T', pax_grp.status, 'N') status, \n"
         "   NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS rk_weight, \n"

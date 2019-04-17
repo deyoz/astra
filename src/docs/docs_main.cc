@@ -260,6 +260,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             "    null trfer_scd, ";
     SQLText +=
         "    points.point_num, "
+        "    pax.compartment, "
         "    pax.pax_id, "
         "    pax_grp.grp_id, "
         "    pax_grp.airp_arv, "
@@ -343,7 +344,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         string class_code = Qry.FieldAsString("class");
         bag_tag_row.rfisc = Qry.FieldAsString("rfisc");
         bag_names.get(class_code, bag_tag_row, rpt_params);
-        if(Qry.FieldIsNULL("class")) {
+        if(class_code.empty()) {
             if((string)Qry.FieldAsString("status") == "E") {
                 bag_tag_row.class_priority = 50;
                 bag_tag_row.class_code = "1";
@@ -351,6 +352,9 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             } else
                 bag_tag_row.class_priority = 100;
         } else {
+            string compartment = Qry.FieldAsString("compartment");
+            if(not compartment.empty() and compartment != class_code)
+                class_code = compartment;
             bag_tag_row.class_priority = ((const TClassesRow&)base_tables.get("classes").get_row( "code", class_code)).priority;
             bag_tag_row.class_code = rpt_params.ElemIdToReportElem(etClass, class_code, efmtCodeNative);
             bag_tag_row.class_name = rpt_params.ElemIdToReportElem(etClass, class_code, efmtNameLong);
