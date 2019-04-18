@@ -18,7 +18,7 @@ BEGIN
   END IF;
   --читаем информацию по классу пассажира crs_pnr.class
   IF :new.pax_id IS NOT NULL THEN
-    SELECT pax_grp.class
+    SELECT NVL(pax.cabin_class, pax_grp.class)
     INTO vclass
     FROM pax_grp,pax
     WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:new.pax_id;
