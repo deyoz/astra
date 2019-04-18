@@ -3120,7 +3120,6 @@ void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passG
       ostringstream grp_variant;
       std::vector<std::string> vrems;
       pass.get_remarks( vrems );
-      //grp_variant << pass.clname << separatelyRem( separately_seat_adult_with_baby?"INFT":"", vrems, pass.index );
       grp_variant << separatelyRem( separately_seat_adult_with_baby?"INFT":"", vrems, pass.index );
       grp_variant << separatelyRem( separately_seat_chin_emergency?"CHIN":"", vrems, pass.index );
       //дети и оплата
@@ -4457,7 +4456,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
     }
   }
   TSeatRanges seatRanges;
-  vector<pair<TSeatRange,TRFISC> > tariffs;
+  vector<pair<TSeatRange,TRFISC> > logSeats;
   TSeatRange r;
   vector<TPlaceList*>::const_iterator isalonList;
   SALONS2::TPoint coord;
@@ -4492,7 +4491,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
     QrySeatRules.DeclareVariable( "old_layer", otString );
   // считываем слои по новому месту и делаем проверку на то, что этот слой уже занят другим пассажиром
     seatRanges.clear();
-    tariffs.clear();
+    logSeats.clear();
     strcpy( r.first.line, first_xname.c_str() );
     strcpy( r.first.row, first_yname.c_str() );
     r.second = r.first;
@@ -4669,8 +4668,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
       strcpy( r.first.row, seat->yname.c_str() );
       r.second = r.first;
       seatRanges.push_back( r );
-      //!!!tariffs.push_back( make_pair(r, seat->SeatTariff ) );
-      tariffs.push_back( make_pair(r, rfisc ) );
+      logSeats.push_back( make_pair(r, rfisc ) );
       if ( pr_down )
         coord.y++;
       else
@@ -4819,8 +4817,16 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
   TReqInfo *reqinfo = TReqInfo::Instance();
   PrmEnum seatPrmEnum("seat", "");
 
-  for ( vector<pair<TSeatRange,TRFISC> >::iterator it=tariffs.begin(); it!=tariffs.end(); it++ ) {
-    if (it!=tariffs.begin())
+  if ( seat_type == stDropseat ) { //в переменной seats список старых мест, без учета тарифа в журнале
+    logSeats.clear();
+    for ( auto s : seats ) {
+      logSeats.push_back( make_pair(TSeatRange(TSeat(s->yname,s->xname), TSeat(s->yname,s->xname)),TRFISC()));
+    }
+  }
+
+
+  for ( vector<pair<TSeatRange,TRFISC> >::iterator it=logSeats.begin(); it!=logSeats.end(); it++ ) {
+    if (it!=logSeats.begin())
       seatPrmEnum.prms << PrmSmpl<string>("", " ");
 
     seatPrmEnum.prms << PrmSmpl<string>("", it->first.first.denorm_view(salonList.isCraftLat()));
@@ -4872,7 +4878,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
                                            << seatPrmEnum,
                                evtPax, point_id, idx1, idx2);
           if ( prCheckin ) {
-            SyncPRSA( operFlt.airline, pax_id, passTariffs.status(), tariffs );
+            SyncPRSA( operFlt.airline, pax_id, passTariffs.status(), logSeats );
           }
           break;
         default:;

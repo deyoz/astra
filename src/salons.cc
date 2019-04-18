@@ -8213,6 +8213,7 @@ struct TStringRef {
     }
 };
 
+/* not use?
 void SeparateEvents( vector<TStringRef> referStrs, vector<string> &eventsStrs, unsigned int line_len )
 {
     for ( vector<TStringRef>::iterator i=referStrs.begin(); i!=referStrs.end(); i++ ) {
@@ -8272,7 +8273,7 @@ void SeparateEvents( vector<TStringRef> referStrs, vector<string> &eventsStrs, u
     }
     }
 }
-
+*/
 
 bool RightRows( const string &row1, const string &row2 )
 {
