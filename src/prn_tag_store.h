@@ -288,10 +288,7 @@ struct TBCBPData {
     std::string suffix;
     TDateTime scd;
 
-    // Если compartment не пустой и не совпадает с cls, он попадает в баркод
-    // В противном случае:
     //   Если class_grp = NoExists, в баркод попадает cls
-    std::string compartment;
     std::string cls;
     int class_grp;
 
@@ -314,7 +311,6 @@ struct TBCBPData {
         flt_no = ASTRA::NoExists;
         suffix.clear();
         scd = ASTRA::NoExists;
-        compartment.clear();
         cls.clear();
         class_grp = ASTRA::NoExists;
         seat_no.clear();
@@ -521,7 +517,6 @@ class TPrnTagStore {
             bool pr_smoke;
             int seats;
             std::string pers_type;
-            std::string compartment;
             int bag_amount, bag_weight;
             int rk_amount, rk_weight;
             TBagKilos excess_wt;
@@ -549,7 +544,7 @@ class TPrnTagStore {
                 pr_bp_print(false),
                 pr_bi_print(false)
             {}
-            void Init(const TGrpInfo &grp_info, int apax_id, TTagLang &tag_lang);
+            void Init(TGrpInfo &grp_info, int apax_id, TTagLang &tag_lang);
         };
         TPaxInfo paxInfo;
 

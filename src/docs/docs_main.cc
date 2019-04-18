@@ -260,11 +260,10 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             "    null trfer_scd, ";
     SQLText +=
         "    points.point_num, "
-        "    pax.compartment, "
         "    pax.pax_id, "
         "    pax_grp.grp_id, "
         "    pax_grp.airp_arv, "
-        "    pax_grp.class, "
+        "    nvl(pax.cabin_class, pax_grp.class) class, "
         "    pax_grp.status, "
         "    bag2.bag_type, "
         "    bag2.rfisc, "
@@ -352,9 +351,6 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             } else
                 bag_tag_row.class_priority = 100;
         } else {
-            string compartment = Qry.FieldAsString("compartment");
-            if(not compartment.empty() and compartment != class_code)
-                class_code = compartment;
             bag_tag_row.class_priority = ((const TClassesRow&)base_tables.get("classes").get_row( "code", class_code)).priority;
             bag_tag_row.class_code = rpt_params.ElemIdToReportElem(etClass, class_code, efmtCodeNative);
             bag_tag_row.class_name = rpt_params.ElemIdToReportElem(etClass, class_code, efmtNameLong);

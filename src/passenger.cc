@@ -1610,7 +1610,6 @@ TSimplePaxItem& TSimplePaxItem::fromDB(TQuery &Qry)
   pr_exam=Qry.FieldAsInteger("pr_exam")!=0;
   reg_no=Qry.FieldAsInteger("reg_no");
   subcl=Qry.FieldAsString("subclass");
-  compartment=Qry.FieldAsString("compartment");
   bag_pool_num=Qry.FieldIsNULL("bag_pool_num")?ASTRA::NoExists:Qry.FieldAsInteger("bag_pool_num");
   tid=Qry.FieldAsInteger("tid");
   tkn.fromDB(Qry);
