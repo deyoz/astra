@@ -18,8 +18,10 @@ using namespace SALONS2;
 enum TSeatStep { sLeft, sRight, sUp, sDown };
 enum TWhere { sLeftRight, sUpDown, sEveryWhere };
 enum TSeatsType { stSeat, stReseat, stDropseat };
-enum TChangeLayerFlags { flWaitList, flQuestionReseat, flSetPayLayer, flCheckPayLayer };
-enum TChangeLayerProcFlag { clNotPaySeat, clPaySeatSet, clPaySeatCheck };
+enum TChangeLayerFlags { flWaitList, flQuestionReseat, flSetPayLayer };
+enum TChangeLayerProcFlag { procPaySeatSet,
+                            procWaitList, /*признак того, что пересадка идет с ЛО*/
+                            procSyncCabinClass };
 
 /* алгоритм рассадки пассажиров
        sdUpDown_Row - сверху вниз в ряд
@@ -473,8 +475,8 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
                       TPassengers &passengers,
                       SALONS2::TAutoSeats &seats );
 bool ChangeLayer( const SALONS2::TSalonList &salonList, ASTRA::TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
-                  std::string first_xname, std::string first_yname, TSeatsType seat_type, TChangeLayerProcFlag seatFlag,
-                  bool waitlist );
+                  std::string first_xname, std::string first_yname, TSeatsType seat_type,
+                  const BitSet<TChangeLayerProcFlag> &procFlags );
 void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, TSeatRanges &seats,
                          int pax_id, int point_dep, int point_arv, TDateTime time_create );
 bool GetPassengersForWaitList( int point_id, TPassengers &p );

@@ -771,57 +771,7 @@ void CheckSeatNoFromReq(int point_id,
       Qry.Clear();
       Qry.SQLText=
 /*      все бы хорошо в закомментированном методе, но IntChangeSeatsN и IntChangeSeats не работают  с cltPNLBeforePay и cltPNLAfterPay
- *      возможно, потом докрутим
-        "SELECT tlg_comp_layers.layer_type "
-        "FROM tlg_comp_layers, comp_layer_types "
-        "WHERE tlg_comp_layers.layer_type=comp_layer_types.code AND "
-        "      crs_pax_id=:crs_pax_id AND "
-        "      tlg_comp_layers.layer_type IN (:cltPNLBeforePay, "
-        "                                     :cltPNLAfterPay, "
-        "                                     :cltProtBeforePay, "
-        "                                     :cltProtAfterPay) "
-        "ORDER BY comp_layer_types.priority ";
-      Qry.CreateVariable("crs_pax_id", otInteger, crs_pax_id);
-      Qry.CreateVariable("cltPNLBeforePay", otString, EncodeCompLayerType(cltPNLBeforePay));
-      Qry.CreateVariable("cltPNLAfterPay", otString, EncodeCompLayerType(cltPNLAfterPay));
-      Qry.CreateVariable("cltProtBeforePay", otString, EncodeCompLayerType(cltProtBeforePay));
-      Qry.CreateVariable("cltProtAfterPay", otString, EncodeCompLayerType(cltProtAfterPay));
-      Qry.Execute();
-      if (!Qry.Eof)
-      {
-        TCompLayerType layer_type=DecodeCompLayerType(Qry.FieldAsString("layer_type"));
-        bool isTranzitSalonsVersion = isTranzitSalons( point_id );
-        BitSet<SEATS2::TChangeLayerFlags> change_layer_flags;
-        change_layer_flags.setFlag(SEATS2::flCheckPayLayer);
-
-        bool changedOrNotPay;
-        int tid=NoExists;
-        if ( isTranzitSalonsVersion ) {
-          changedOrNotPay = IntChangeSeatsN( point_id,
-                                             crs_pax_id,
-                                             tid,
-                                             curr_xname,
-                                             curr_yname,
-                                             SEATS2::stSeat,
-                                             layer_type,
-                                             change_layer_flags,
-                                             NULL );
-        }
-        else {
-          changedOrNotPay = IntChangeSeats( point_id,
-                                            crs_pax_id,
-                                            tid,
-                                            curr_xname,
-                                            curr_yname,
-                                            SEATS2::stSeat,
-                                            layer_type,
-                                            change_layer_flags,
-                                            NULL );
-        };
-
-      };
-
-*/
+ *      возможно, потом докрутим*/
         "DECLARE "
         "vseat_xname crs_pax.seat_xname%TYPE; "
         "vseat_yname crs_pax.seat_yname%TYPE; "

@@ -4329,11 +4329,11 @@ void SyncPRSA( const string &airline_oper,
 
 #warning 6 ChangeLayer: передавать TSalonList, чтобы не делать очередную начитку + определение приоритета слоя (layer_type,time_create,point_dep, point_arv)
 bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
-                  string first_xname, string first_yname, TSeatsType seat_type, TChangeLayerProcFlag seatFlag,
-                  bool waitlist /*признак того, что пересадка идет с ЛО*/  )
+                  string first_xname, string first_yname, TSeatsType seat_type,
+                  const BitSet<TChangeLayerProcFlag> &procFlags )
 {
   bool changedOrNotPay = true;
-  if ( seatFlag != clNotPaySeat &&
+  if ( procFlags.isFlag( procPaySeatSet ) &&
        ( seat_type != stSeat || ( layer_type != cltProtBeforePay && layer_type != cltProtAfterPay && layer_type != cltProtSelfCkin ) ) ) {
     tst();
     throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
@@ -4388,8 +4388,8 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
         " WHERE crs_pax.pax_id=:pax_id AND crs_pax.pr_del=0 AND "
         "       crs_pax.pnr_id=crs_pnr.pnr_id";
         if ( layer_type == cltProtCkin || layer_type == cltProtSelfCkin ||
-             (seatFlag == clNotPaySeat && ( layer_type == cltPNLAfterPay || layer_type == cltProtAfterPay )) ||
-             seatFlag != clNotPaySeat ) {
+             ( !procFlags.isFlag( procPaySeatSet ) && ( layer_type == cltPNLAfterPay || layer_type == cltProtAfterPay )) ||
+             procFlags.isFlag( procPaySeatSet ) ) {
           break;
         }
     default:
@@ -4624,7 +4624,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
         }
         if ( ilayers->second.begin()->getPaxId() == pax_id &&
              ilayers->second.begin()->layer_type == layer_type ) {
-          if ( seatFlag == clNotPaySeat ) {
+          if ( !procFlags.isFlag( procPaySeatSet ) ) {
             throw UserException( "MSG.SEATS.SEAT_NO.PASSENGER_OWNER" );
           }
           else {
@@ -4676,14 +4676,14 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
     }
     bool pr_INFT = ( TReqInfo::Instance()->client_type != ctTerm &&
                      TReqInfo::Instance()->client_type != ctPNL &&
-                     seatFlag == clNotPaySeat && // разметка платным слоем через
+                     !procFlags.isFlag( procPaySeatSet ) && // разметка платным слоем через
                      AllowedAttrsSeat.isWorkINFT( point_id ) &&
                      isINFT( point_id, pax_id ) );
     if ( pr_INFT && !AllowedAttrsSeat.passSeats( pers_type, pr_INFT, verifyPlaces ) ) { //web-пересадка INFT запрещена
       tst();
       throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
     }
-    if ( seatFlag != clNotPaySeat &&
+    if ( procFlags.isFlag( procPaySeatSet ) &&
          ( seatLayer.layer_type == cltProtBeforePay || seatLayer.layer_type == cltProtAfterPay ) &&
          !seats.empty() ) { // были платные места - не должны измениться!!!
       ProgTrace( TRACE5, "seats.size()=%zu, nseats.size()=%zu", seats.size(), nseats.size() );
@@ -4694,7 +4694,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
         throw  UserException( "MSG.SEATS.SEAT_NO.NOT_COINCIDE_WITH_PREPAID" );
       }
       changedOrNotPay = false;
-      if ( !( seatFlag == clPaySeatSet &&
+      if ( !( procFlags.isFlag( procPaySeatSet ) &&
              ( TReqInfo::Instance()->client_type == ctWeb ||
                TReqInfo::Instance()->client_type == ctMobile ) ) ) {
         return changedOrNotPay;
@@ -4703,14 +4703,9 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
     tst();
   }
 
-  if ( seatFlag == clPaySeatCheck ) {
-    tst();
-    return changedOrNotPay;
-  }
-
   std::set<TCompLayerType> checkinLayers { cltGoShow, cltTranzit, cltCheckin, cltTCheckin };
   if (
-       !waitlist && //  не ругаемся, если пересадка идет с ЛО
+       !procFlags.isFlag( procWaitList ) && //  не ругаемся, если пересадка идет с ЛО
        seat_type == stReseat && //пересадка
        checkinLayers.find( layer_type ) != checkinLayers.end() // уже зарегистрированного
      ) {
@@ -4859,7 +4854,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
         case cltTranzit:
         case cltCheckin:
         case cltTCheckin:
-          reqinfo->LocaleToLog(waitlist?"EVT.PASSENGER_SEATED_MANUALLY_WAITLIST":"EVT.PASSENGER_SEATED_MANUALLY",
+          reqinfo->LocaleToLog(procFlags.isFlag( procWaitList )?"EVT.PASSENGER_SEATED_MANUALLY_WAITLIST":"EVT.PASSENGER_SEATED_MANUALLY",
                                LEvntPrms() << PrmSmpl<std::string>("name", fullname)
                                            << seatPrmEnum,
                                evtPax, point_id, idx1, idx2);
@@ -4873,7 +4868,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
         case cltTranzit:
         case cltCheckin:
         case cltTCheckin:
-          reqinfo->LocaleToLog(waitlist?"EVT.PASSENGER_CHANGE_SEAT_MANUALLY_WAITLIST":"EVT.PASSENGER_CHANGE_SEAT_MANUALLY",
+          reqinfo->LocaleToLog(procFlags.isFlag( procWaitList )?"EVT.PASSENGER_CHANGE_SEAT_MANUALLY_WAITLIST":"EVT.PASSENGER_CHANGE_SEAT_MANUALLY",
                                LEvntPrms() << PrmSmpl<std::string>("name", fullname)
                                            << seatPrmEnum,
                                evtPax, point_id, idx1, idx2);
@@ -4890,7 +4885,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
         case cltTranzit:
         case cltCheckin:
         case cltTCheckin:
-          reqinfo->LocaleToLog("EVT.PASSENGER_DISEMBARKED_MANUALLY",
+          reqinfo->LocaleToLog(procFlags.isFlag( procSyncCabinClass )?"":"EVT.PASSENGER_DISEMBARKED_MANUALLY",
                                LEvntPrms() << PrmSmpl<std::string>("name", fullname)
                                            << seatPrmEnum,
                                evtPax, point_id, idx1, idx2);
