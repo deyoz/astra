@@ -18,7 +18,7 @@ using namespace SALONS2;
 enum TSeatStep { sLeft, sRight, sUp, sDown };
 enum TWhere { sLeftRight, sUpDown, sEveryWhere };
 enum TSeatsType { stSeat, stReseat, stDropseat };
-enum TChangeLayerFlags { flWaitList, flQuestionReseat, flSetPayLayer };
+enum TChangeLayerFlags { flWaitList, flQuestionReseat, flSetPayLayer, flSyncCabinClass };
 enum TChangeLayerProcFlag { procPaySeatSet,
                             procWaitList, /*признак того, что пересадка идет с ЛО*/
                             procSyncCabinClass };

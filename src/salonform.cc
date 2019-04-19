@@ -1153,6 +1153,9 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
   if ( flags.isFlag( flWaitList ) ) {
     procFlags.setFlag( procWaitList );
   }
+  if ( flags.isFlag( flSyncCabinClass ) )  {
+    procFlags.setFlag( procSyncCabinClass );
+  }
   try {
     changedOrNotPay = SEATS2::ChangeLayer( salonList, layer_type, time_limit, point_id, pax_id, tid, xname, yname, seat_type, procFlags );
     if ( TReqInfo::Instance()->client_type != ctTerm || resNode == NULL )
