@@ -6291,6 +6291,25 @@ bool SaveCHKDRem(int pax_id, const vector<TCHKDItem> &chkd)
   return result;
 };
 
+static bool SyncPaxASVC(int pax_id)
+{
+  bool result=false;
+  if (CheckIn::DeletePaxASVC(pax_id)) result=true;
+  if (CheckIn::AddPaxASVC(pax_id, false)) result=true;
+  if (result)
+  {
+    addAlarmByPaxId(pax_id, Alarm::SyncEmds, paxCheckIn);
+    TPaxAlarmHook::set(Alarm::UnboundEMD, pax_id);
+  }
+  return result;
+}
+
+static void onChangeClass(int pax_id, ASTRA::TClass cl)
+{
+  addAlarmByPaxId(pax_id, Alarm::SyncCabinClass, paxCheckIn);
+  TPaxAlarmHook::set(Alarm::SyncCabinClass, pax_id);
+}
+
 void SaveASVCRem(int pax_id, const vector<TASVCItem> &asvc)
 {
   if (asvc.empty()) return;
@@ -7494,7 +7513,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                       if (SaveCHKDRem(inf_id,iInfItem->chkd)) chkd_exists=true;
                       et_display_pax_ids.insert(inf_id);
                       TETickItem::syncOriginalSubclass(inf_id);
-                      if (infClassChanged) CheckIn::TPaxItem::changeCompartment(inf_id, iTotals->cl);
+                      if (infClassChanged) onChangeClass(inf_id, iTotals->cl);
                     };
 
                     //ремарки пассажира
@@ -7507,13 +7526,12 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     if (SaveCHKDRem(pax_id,paxItem.chkd)) chkd_exists=true;
                     et_display_pax_ids.insert(pax_id);
                     TETickItem::syncOriginalSubclass(pax_id);
-                    if (paxClassChanged) CheckIn::TPaxItem::changeCompartment(pax_id, iTotals->cl);
+                    if (paxClassChanged) onChangeClass(pax_id, iTotals->cl);
 
                     if (!seatsBlockingPass) paxItem.seatsBlocking.toDB(pax_id);
 
                     SaveASVCRem(pax_id, paxItem.asvc);
-                    if (CheckIn::SyncPaxASVC(pax_id))
-                      TPaxAlarmHook::set(Alarm::UnboundEMD, pax_id);
+                    SyncPaxASVC(pax_id);
                     //разметка слоев
                     InsertTlgSeatRanges(point_id,iTotals->dest,isPRL?cltPRLTrzt:cltPNLCkin,paxItem.seatRanges,
                                         pax_id,tlg_id,NoExists,UsePriorContext,tid,point_ids_spp);

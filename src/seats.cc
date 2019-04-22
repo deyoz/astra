@@ -3120,8 +3120,9 @@ void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passG
       ostringstream grp_variant;
       std::vector<std::string> vrems;
       pass.get_remarks( vrems );
-      grp_variant << separatelyRem( separately_seat_adult_with_baby?"INFT":"", vrems, pass.index );
-      grp_variant << separatelyRem( separately_seat_chin_emergency?"CHIN":"", vrems, pass.index );
+      grp_variant << pass.clname
+                  << separatelyRem( separately_seat_adult_with_baby?"INFT":"", vrems, pass.index )
+                  << separatelyRem( separately_seat_chin_emergency?"CHIN":"", vrems, pass.index );
       //дети и оплата
       grp_variant << pr_pay << (ignoreINFT || pass.isRemark( "INFT" ));
       //тариф
@@ -3994,7 +3995,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p )
     "       pax.reg_no, "
     "       surname, "
     "       pax.name, "
-    "       pax_grp.class, "
+    "       NVL(pax.cabin_class, pax_grp.class) AS class, "
     "       cls_grp.code subclass, "
     "       pax.seats, "
     "       pax.is_jmp, "
@@ -4366,7 +4367,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
       Qry.SQLText =
        "SELECT surname, name, reg_no, pax.grp_id, pax.seats, pax.is_jmp, a.step step, pax.tid, '' airp_arv, point_dep, point_arv, "
        "       0 point_id, salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,:point_dep,'list',rownum) AS seat_no, "
-       "       class, pers_type "
+       "       NVL(pax.cabin_class, pax_grp.class) AS class, pers_type "
        " FROM pax, pax_grp, "
        "( SELECT COUNT(*) step FROM pax_rem "
        "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
@@ -4823,7 +4824,6 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
   for ( vector<pair<TSeatRange,TRFISC> >::iterator it=logSeats.begin(); it!=logSeats.end(); it++ ) {
     if (it!=logSeats.begin())
       seatPrmEnum.prms << PrmSmpl<string>("", " ");
-
     seatPrmEnum.prms << PrmSmpl<string>("", it->first.first.denorm_view(salonList.isCraftLat()));
 
     if ( !it->second.code.empty() || !it->second.empty())
@@ -4881,14 +4881,15 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
         break;
     case stDropseat:
         switch( layer_type ) {
-            case cltGoShow:
-        case cltTranzit:
-        case cltCheckin:
-        case cltTCheckin:
-          reqinfo->LocaleToLog(procFlags.isFlag( procSyncCabinClass )?"":"EVT.PASSENGER_DISEMBARKED_MANUALLY",
-                               LEvntPrms() << PrmSmpl<std::string>("name", fullname)
-                                           << seatPrmEnum,
-                               evtPax, point_id, idx1, idx2);
+          case cltGoShow:
+          case cltTranzit:
+          case cltCheckin:
+          case cltTCheckin:
+            if (!logSeats.empty())
+              reqinfo->LocaleToLog(procFlags.isFlag( procSyncCabinClass )?"EVT.PASSENGER_DISEMBARKED_DUE_TO_CLASS_CHANGE":"EVT.PASSENGER_DISEMBARKED_MANUALLY",
+                                   LEvntPrms() << PrmSmpl<std::string>("name", fullname)
+                                               << seatPrmEnum,
+                                   evtPax, point_id, idx1, idx2);
           break;
         default:;
         }

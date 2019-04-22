@@ -893,7 +893,7 @@ void TPaxEMDList::toDB() const
 
   for(const int& paxId : paxIds)
   {
-    CheckIn::setSyncEmdsFlag(paxId, false, true);
+    addAlarmByPaxId(paxId, Alarm::SyncEmds, paxCheckIn);
     TPaxAlarmHook::set(Alarm::UnboundEMD, paxId);
   }
 }

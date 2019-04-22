@@ -2799,7 +2799,10 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      crs_pnr.priority AS pnr_priority, "
      "      RTRIM(crs_pax.surname||' '||crs_pax.name) full_name, "
      "      crs_pax.pers_type, "
-     "      crs_pnr.class,crs_pnr.subclass, "
+     "      crs_pnr.class, "
+     "      crs_pnr.subclass, "
+     "      NVL(crs_pax.etick_class, NVL(crs_pax.orig_class, crs_pnr.class)) AS orig_class, "
+     "      NVL(crs_pax.etick_subclass, NVL(crs_pax.orig_subclass, crs_pnr.subclass)) AS orig_subclass, "
      "      crs_pax.seat_xname, "
      "      crs_pax.seat_yname, "
      "      crs_pax.seats seats, "
@@ -2929,6 +2932,8 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   int col_pers_type=Qry.FieldIndex("pers_type");
   int col_class=Qry.FieldIndex("class");
   int col_subclass=Qry.FieldIndex("subclass");
+  int col_orig_class=Qry.FieldIndex("orig_class");
+//  int col_orig_subclass=Qry.FieldIndex("orig_subclass");
   int col_seat_xname=Qry.FieldIndex("seat_xname");
   int col_seat_yname=Qry.FieldIndex("seat_yname");
   int col_seats=Qry.FieldIndex("seats");
@@ -2987,8 +2992,14 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "pnr_priority", Qry.FieldAsString( col_pnr_priority ), "" );
     NewTextChild( node, "full_name", Qry.FieldAsString( col_full_name ) );
     NewTextChild( node, "pers_type", Qry.FieldAsString( col_pers_type ), def_pers_type ); //специально не перекодируем, так как идет подсчет по типам
-    NewTextChild( node, "class", ElemIdToCodeNative(etClass,Qry.FieldAsString( col_class )), def_class );
-    NewTextChild( node, "subclass", ElemIdToCodeNative(etSubcls,Qry.FieldAsString( col_subclass ) ));
+    string cl=Qry.FieldAsString( col_class );
+    string orig_cl=Qry.FieldAsString( col_orig_class );
+    NewTextChild( node, "class", (cl!=orig_cl?ElemIdToCodeNative(etClass, orig_cl)+"->":"") +
+                                 ElemIdToCodeNative(etClass, cl), def_class );
+    string subcl=Qry.FieldAsString( col_subclass );
+//    string orig_subcl=Qry.FieldAsString( col_orig_subclass );
+    NewTextChild( node, "subclass", //(subcl!=orig_subcl?ElemIdToCodeNative(etSubcls, orig_subcl)+"->":"") +
+                                    ElemIdToCodeNative(etSubcls, subcl) );
     NewTextChild( node, "seats", Qry.FieldAsInteger( col_seats ), 1 );
     NewTextChild( node, "target", ElemIdToCodeNative(etAirp,Qry.FieldAsString( col_airp_arv ) ));
     if (!Qry.FieldIsNULL(col_airp_arv_final))

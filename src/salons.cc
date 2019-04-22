@@ -3968,7 +3968,7 @@ void TSalonList::getPaxLayer( int point_dep, int pax_id, ASTRA::TCompLayerType l
 
 void TSalonList::getPaxLayer( int point_dep, int pax_id,
                               TSeatLayer &seatLayer,
-                              std::set<TPlace*,CompareSeats> &seats ) const
+                              std::set<TPlace*,CompareSeats> &seats, bool useInvalidLayers ) const
 {
   seatLayer = TSeatLayer();
   seats.clear();
@@ -3982,7 +3982,7 @@ void TSalonList::getPaxLayer( int point_dep, int pax_id,
   }
   for ( TLayersPax::const_iterator ilayers=ipax->second.layers.begin();
         ilayers!=ipax->second.layers.end(); ilayers++ ) {
-    if ( ilayers->second.waitListReason.layerStatus != layerValid ||
+    if ( (!useInvalidLayers && ilayers->second.waitListReason.layerStatus != layerValid) ||
          ilayers->first.getPaxId( ) != pax_id ) {
       continue;
     }
@@ -4364,7 +4364,8 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     // начитываем список зарегистрированных пассажиров по маршруту  pax_list
     Qry.Clear();
     Qry.SQLText =
-      " SELECT pax.grp_id, pax.pax_id, pax.pers_type, pax.seats, pax.is_jmp, class, class_grp, "
+      " SELECT pax.grp_id, pax.pax_id, pax.pers_type, pax.seats, pax.is_jmp, "
+      "        NVL(pax.cabin_class, pax_grp.class) AS class, class_grp, "
       "        reg_no, pax.name, pax.surname, pax.is_female, pax_grp.status, "
       "        pax_grp.point_dep, pax_grp.point_arv, "
       "        crs_inf.pax_id AS parent_pax_id, "

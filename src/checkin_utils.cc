@@ -5,12 +5,14 @@
 #include "salonform.h"
 #include "date_time.h"
 #include "comp_layers.h"
+#include "alarms.h"
+#include "points.h"
+#include "counters.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "ANNA"
 #include <serverlib/slogger.h>
-
-#include "serverlib/test.h"
+#include <serverlib/savepoint.h>
 
 using namespace std;
 using namespace ASTRA;
@@ -21,12 +23,201 @@ using namespace SALONS2;
 namespace CheckIn
 {
 
+void setComplexClassGrp(const TFlightRbd& rbds, TComplexClass& complex)
+{
+  boost::optional<TSubclassGroup> pax_subclass_grp=rbds.getSubclassGroup(complex.subcl, complex.cl);
+  if (!pax_subclass_grp)
+    throw AstraLocale::UserException("MSG.CHECKIN.NOT_MADE_IN_CLASS",
+                                     LParams()<<LParam("class",ElemIdToCodeNative(etClass,complex.cl)));
+  complex.cl_grp=pax_subclass_grp.get().value();
+}
+
+class SeatingGroup
+{
+  public:
+    TSegListItem seg;
+    TTripInfo markFltInfo;
+};
+
+class SeatingGroups : public std::map<int/*grp_id*/, SeatingGroup>
+{
+  private:
+    TAdvTripInfo fltInfo;
+  public:
+    SeatingGroups(const TAdvTripInfo& _fltInfo) : fltInfo(_fltInfo) {}
+    void add(const TSimplePaxItem& pax);
+};
+
+void SeatingGroups::add(const TSimplePaxItem& pax)
+{
+  if (pax.id==ASTRA::NoExists) return;
+
+  SeatingGroups::iterator iGroup=find(pax.grp_id);
+  if (iGroup==end())
+  {
+    TSimplePaxGrpItem grp;
+    if (!grp.getByGrpId(pax.grp_id)) return;
+    //коммерческий рейс
+    TGrpMktFlight grpMktFlight;
+    if (!grpMktFlight.getByGrpId(pax.grp_id)) return;
+
+    iGroup=emplace(pax.grp_id, SeatingGroup()).first;
+    iGroup->second.seg.flt=fltInfo;
+    static_cast<TSimplePaxGrpItem&>(iGroup->second.seg.grp)=grp;
+    iGroup->second.markFltInfo.Init(grpMktFlight);
+  }
+
+  if (iGroup==end()) return;
+
+  iGroup->second.seg.paxs.emplace_back(pax);
+  //ремарки нужны для рассадки
+  LoadPaxRem(pax.id, iGroup->second.seg.paxs.back().rems);
+  iGroup->second.seg.paxs.back().remsExists=true;
+}
+
+void syncCabinClassErrorToLog(int point_id,
+                              const TSimplePaxItem& pax,
+                              const AstraLocale::UserException& e)
+{
+  string err_id;
+  LEvntPrms err_prms;
+  e.getAdvParams(err_id, err_prms);
+
+  TLogLocale locale;
+  locale.ev_type=ASTRA::evtPax;
+  locale.id1=point_id;
+  locale.id2=pax.reg_no;
+  locale.id3=pax.grp_id;
+  locale.lexema_id = "EVT.PAX.SYNC_CABIN_CLASS_ERROR";
+
+  locale.prms << PrmSmpl<string>("name", pax.full_name())
+              << PrmLexema("what", err_id, err_prms);
+  TReqInfo::Instance()->LocaleToLog(locale);
+}
+
+void newCabinClassMsgToLog(int point_id,
+                           const TSimplePaxItem& pax)
+{
+  TLogLocale locale;
+  locale.ev_type=ASTRA::evtPax;
+  locale.id1=point_id;
+  locale.id2=pax.reg_no;
+  locale.id3=pax.grp_id;
+  locale.lexema_id = "EVT.PASSENGER_SEATED_AUTOMATICALLY";
+
+  locale.prms << PrmSmpl<string>("name", pax.full_name())
+              << PrmSmpl<string>("seat", pax.seat_no);
+  TReqInfo::Instance()->LocaleToLog(locale);
+}
+
+void syncCabinClass(const TTripTaskKey &task)
+{
+  set<int> paxIds;
+  getAlarmByPointId(task.point_id, Alarm::SyncCabinClass, paxIds);
+  if (paxIds.empty()) return;
+
+  TFlights flightsForLock;
+  flightsForLock.Get(task.point_id, ftTranzit);
+  flightsForLock.Lock(__FUNCTION__);
+
+  TAdvTripInfo fltInfo;
+  if (!fltInfo.getByPointId(task.point_id)) return;
+
+  TFlightRbd rbds(fltInfo);
+
+  SeatingGroups seatingGroups(fltInfo);
+
+  for(const int& paxId : paxIds)
+  {
+    LogTrace(TRACE5) << __FUNCTION__ << ": paxId=" << paxId;
+    deleteAlarmByPaxId(paxId, Alarm::SyncCabinClass, paxCheckIn);
+
+    OciCpp::Savepoint spSyncCabinClass("sync_cabin_class");
+
+    TSimplePaxItem pax;
+    if (!pax.getByPaxId(paxId)) continue;
+
+    try
+    {
+      TComplexClass actualCabin=pax.getCrsClass(false);
+      if (actualCabin.cl.empty() || pax.cabin.cl==actualCabin.cl) continue;
+
+      if (pax.hasCabinSeatNumber())
+      {
+        //высаживаем пассажира из салона
+        BitSet<SEATS2::TChangeLayerFlags> change_layer_flags;
+        change_layer_flags.setFlag(SEATS2::flSyncCabinClass);
+
+        IntChangeSeatsN( fltInfo.point_id, pax.id, pax.tid, "", "",
+                         SEATS2::stDropseat,
+                         cltUnknown,
+                         NoExists,
+                         change_layer_flags,
+                         0, NoExists, NULL);
+      };
+
+      setComplexClassGrp(rbds, actualCabin);
+      pax.cabin=actualCabin;
+      if (!pax.cabinClassToDB())
+        throw EXCEPTIONS::Exception("strange situation - !pax.cabinClassToDB()");
+
+      if (pax.hasCabinSeatNumber())
+        seatingGroups.add(pax);
+    }
+    catch(AstraLocale::UserException &e)
+    {
+      spSyncCabinClass.rollback();
+      syncCabinClassErrorToLog(fltInfo.point_id, pax, e);
+    }
+    catch(std::exception &e)
+    {
+      spSyncCabinClass.rollback();
+      LogError(STDLOG) << __func__ << " error (pax_id=" << paxId << "): " << e.what();
+    }
+  }
+
+  for(auto& g : seatingGroups)
+  {
+    const SeatingGroup& seatingGroup=g.second;
+
+    OciCpp::Savepoint spSyncCabinClass("sync_cabin_class");
+
+    try
+    {
+      //надо ли здесь проверить счетчики - CheckCounters?
+      seatingWhenNewCheckIn(seatingGroup.seg,
+                            fltInfo,
+                            seatingGroup.markFltInfo);
+      for(TPaxListItem& i : g.second.seg.paxs)
+      {
+        i.pax.seat_no=i.pax.getSeatNo("seats");
+        newCabinClassMsgToLog(fltInfo.point_id, i.pax);
+      }
+    }
+    catch(AstraLocale::UserException &e)
+    {
+      spSyncCabinClass.rollback();
+      for(const TPaxListItem& i : seatingGroup.seg.paxs)
+        syncCabinClassErrorToLog(fltInfo.point_id, i.pax, e);
+    }
+    catch(std::exception &e)
+    {
+      spSyncCabinClass.rollback();
+      for(const TPaxListItem& i : seatingGroup.seg.paxs)
+        LogError(STDLOG) << __func__ << " error (grp_id=" << i.pax.grp_id << ", pax_id=" << i.pax.id << "): " << e.what();
+    }
+  }
+
+  TCounters().recount(fltInfo.point_id, CheckIn::TCounters::Total, __func__);
+  SALONS2::check_waitlist_alarm_on_tranzit_routes( fltInfo.point_id, __func__ );
+}
+
 void seatingWhenNewCheckIn(const TSegListItem& seg,
                            const TAdvTripInfo& fltAdvInfo,
                            const TTripInfo& markFltInfo)
 {
   const TTripInfo& fltInfo=seg.flt;
-  const CheckIn::TPaxGrpItem& grp=seg.grp;
+  const CheckIn::TSimplePaxGrpItem& grp=seg.grp;
   const CheckIn::TPaxList& paxs=seg.paxs;
 
   //разметка детей по взрослым
@@ -40,7 +231,7 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
     int pax_no=1;
     for(CheckIn::TPaxList::const_iterator p=paxs.begin(); p!=paxs.end(); ++p,pax_no++)
     {
-      const CheckIn::TPaxItem &pax=p->pax;
+      const CheckIn::TSimplePaxItem &pax=p->pax;
       int pax_id=p->getExistingPaxIdOrSwear();
 
       if ((pax.seats<=0&&k==0)||(pax.seats>0&&k==1)) continue;
@@ -75,13 +266,13 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
   SEATS2::TSublsRems subcls_rems( fltInfo.airline );
 
   SALONS2::TSalonList salonList;
-  salonList.ReadFlight( SALONS2::TFilterRoutesSets( grp.point_dep, grp.point_arv ), grp.cl, ASTRA::NoExists );
+  salonList.ReadFlight( SALONS2::TFilterRoutesSets( grp.point_dep, grp.point_arv ), "", ASTRA::NoExists );
   //заполним массив для рассадки
   for(int k=0;k<=1;k++)
   {
     for(CheckIn::TPaxList::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
     {
-      const CheckIn::TPaxItem &pax=p->pax;
+      const CheckIn::TSimplePaxItem &pax=p->pax;
       int pax_id=p->getExistingPaxIdOrSwear();
       try
       {
@@ -89,24 +280,11 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
         if (pax.is_jmp) continue;
         SEATS2::TPassenger pas;
 
-        pas.clname=grp.cl;
+        pas.clname=pax.cabin.cl.empty()?grp.cl:pax.cabin.cl;
         pas.paxId = pax_id;
-        switch ( grp.status )  {
-          case psCheckin:
-              pas.grp_status = cltCheckin;
-              break;
-          case psTCheckin:
-              pas.grp_status = cltTCheckin;
-                break;
-            case psTransit:
-              pas.grp_status = cltTranzit;
-              break;
-            case psGoshow:
-              pas.grp_status = cltGoShow;
-              break;
-          case psCrew:
-            throw EXCEPTIONS::Exception("SavePax: Not applied for crew");
-        }
+        pas.grp_status = grp.getCheckInLayerType();
+        if (pas.grp_status==cltUnknown)
+          throw EXCEPTIONS::Exception("%s: Not applied for grp.status=%s", __func__, EncodePaxStatus(grp.status));
         pas.preseat_no=pax.seat_no; // crs or hand made
         pas.countPlace=pax.seats;
         pas.is_jmp=pax.is_jmp;
@@ -149,7 +327,7 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
         pas.tariffStatus = tariffMap.status();
         tariffMap.trace(TRACE5);
 
-        pas.dont_check_payment = pax.dont_check_payment;
+        pas.dont_check_payment = p->pax.dont_check_payment;
 
         SEATS2::Passengers.Add(salonList,pas);
       }
@@ -187,7 +365,7 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
   {
     for(CheckIn::TPaxList::const_iterator p=paxs.begin(); p!=paxs.end(); ++p)
     {
-      const CheckIn::TPaxItem &pax=p->pax;
+      const CheckIn::TSimplePaxItem &pax=p->pax;
       int pax_id=p->getExistingPaxIdOrSwear();
       try
       {
@@ -243,23 +421,10 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
           }
           ProgTrace( TRACE5, "ranges.size=%zu", ranges.size() );
           //запись в базу
-          TCompLayerType layer_type = cltCheckin;
-          switch( grp.status ) {
-              case psCheckin:
-                  layer_type = cltCheckin;
-                  break;
-              case psTCheckin:
-                  layer_type = cltTCheckin;
-                  break;
-              case psGoshow:
-                  layer_type = cltGoShow;
-                  break;
-              case psTransit:
-                  layer_type = cltTranzit;
-                  break;
-            case psCrew:
-              throw EXCEPTIONS::Exception("SavePax: Not applied for crew");
-          }
+          TCompLayerType layer_type = grp.getCheckInLayerType();
+          if (layer_type==cltUnknown)
+            throw EXCEPTIONS::Exception("%s: Not applied for grp.status=%s", __func__, EncodePaxStatus(grp.status));
+
           SEATS2::SaveTripSeatRanges( grp.point_dep, layer_type, ranges, pax_id, grp.point_dep, grp.point_arv, NowUTC() );
           TPointIdsForCheck point_ids_spp; //!!!DJEK
           point_ids_spp.insert( make_pair( grp.point_dep, ASTRA::cltProtSelfCkin ) ); //!!!DJEK

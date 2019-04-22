@@ -368,9 +368,6 @@ typedef std::map<TPaxFQTCard, TPaxFQTItem> TPaxFQTCards;
 void GetPaxFQTCards(const std::set<TPaxFQTItem> &fqts, TPaxFQTCards &cards);
 void SyncFQTTierLevel(int pax_id, bool from_crs, std::set<TPaxFQTItem> &fqts);
 
-bool needTryCheckinServicesAuto(int id, bool is_grp_id);
-void setSyncEmdsFlag(int id, bool is_grp_id, bool flag);
-bool SyncPaxASVC(int pax_id);
 bool DeletePaxASVC(int pax_id);
 bool AddPaxASVC(int id, bool is_grp_id);
 bool LoadPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);

@@ -445,7 +445,8 @@ void get_basel_aero_flight_stat(TDateTime part_key, int point_id, std::vector<TB
   Qry.Clear();
   ostringstream sql;
   sql <<
-    "SELECT pax_grp.grp_id, pax_grp.class, NVL(pax_grp.piece_concept, 0) AS piece_concept, "
+    "SELECT pax_grp.grp_id, NVL(pax.cabin_class, pax_grp.class) AS class, "
+    "       NVL(pax_grp.piece_concept, 0) AS piece_concept, "
     "       pax.pax_id, pax.surname, pax.name, "
     "       pax.refuse, pax.pr_brd, pax.reg_no, "
     "         ";

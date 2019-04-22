@@ -460,7 +460,7 @@ void TCounters::recountInitially()
         "      WHERE classes.code=trip_classes.class(+) AND trip_classes.point_id(+)=:point_dep AND "
         "            points.first_point=:first_point AND points.point_num>:point_num AND points.pr_del=0 AND "
         "            (trip_classes.point_id IS NOT NULL OR :cfg_exists=0 AND :pr_free_seating<>0)) main, "
-        "     (SELECT pax_grp.point_arv, pax_grp.class, "
+        "     (SELECT pax_grp.point_arv, NVL(pax.cabin_class, pax_grp.class) AS class, "
         "             SUM(DECODE(pax.is_jmp, 0, DECODE(pax_grp.status,'T',pax.seats,0), 0)) AS tranzit, "
         "             SUM(DECODE(pax.is_jmp, 0, DECODE(pax_grp.status,'K',pax.seats,'C',pax.seats,0), 0)) AS ok, "
         "             SUM(DECODE(pax.is_jmp, 0, DECODE(pax_grp.status,'P',pax.seats,0), 0)) AS goshow, "
@@ -472,7 +472,7 @@ void TCounters::recountInitially()
         "            pax_grp.point_dep=:point_dep AND "
         "            pax_grp.status NOT IN ('E') AND "
         "            pax.refuse IS NULL "
-        "      GROUP BY point_arv, class) pax "
+        "      GROUP BY pax_grp.point_arv, NVL(pax.cabin_class, pax_grp.class)) pax "
         "WHERE main.point_arv=pax.point_arv(+) AND main.class=pax.class(+)",
         QParams() << QParam("point_dep", otInteger, flt().point_id)
                   << QParam("first_point", otInteger, !flt().pr_tranzit?flt().point_id:flt().first_point)

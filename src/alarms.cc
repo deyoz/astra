@@ -710,7 +710,7 @@ bool check_apps_alarm( int point_id )
 bool calc_apps_alarm( int point_id )
 {
   LogTrace(TRACE5) << __FUNCTION__ << " started";
-   
+
   TQuery PaxQry(&OraSession);
   PaxQry.Clear();
   PaxQry.SQLText=
@@ -740,7 +740,7 @@ bool calc_apps_alarm( int point_id )
   CrsPaxQry.CreateVariable("apps_negative", otString, AlarmTypes().encode(Alarm::APPSNegativeDirective));
 
   CrsPaxQry.Execute();
-  
+
   return (!PaxQry.Eof || !CrsPaxQry.Eof);
 }
 
@@ -754,6 +754,9 @@ void TTripAlarm::check()
       break;
     case Alarm::UnboundEMD:
       check_unbound_emd_alarm(id);
+      break;
+    case Alarm::SyncCabinClass:
+      add_trip_task(id, AlarmTypes().encode(type), "");
       break;
     default:
       ProgError(STDLOG, "TTripAlarm::check: alarm not supported (%s)", traceStr().c_str());
@@ -813,3 +816,95 @@ void TPaxAlarmHook::set(Alarm::Enum _type, const int& _id)
   sethBefore(TSomeonesAlarmHook<TTripAlarm>(TTripAlarm(_type, Qry.get().FieldAsInteger("point_dep"))));
 }
 
+static std::string getPaxAlarmTable(const PaxOrigin paxOrigin)
+{
+  switch (paxOrigin)
+  {
+    case paxCheckIn:
+      return "pax_alarms";
+      break;
+    case paxPnl:
+      return "crs_pax_alarms";
+      break;
+    default:
+      break;
+  }
+
+  return "";
+}
+
+static void setAlarmByPaxId(const int paxId, const Alarm::Enum alarmType, const bool alarmValue, const PaxOrigin paxOrigin)
+{
+  string table_name=getPaxAlarmTable(paxOrigin);
+  if (table_name.empty()) return;
+
+  TQuery Qry(&OraSession);
+  if(alarmValue)
+      Qry.SQLText = "insert into " + table_name + "(pax_id, alarm_type) values(:pax_id, :alarm_type)";
+  else
+      Qry.SQLText = "delete from " + table_name + " where pax_id = :pax_id and alarm_type = :alarm_type";
+  Qry.CreateVariable("pax_id", otInteger, paxId);
+  Qry.CreateVariable("alarm_type", otString, AlarmTypes().encode(alarmType));
+  try {
+      Qry.Execute();
+  } catch (EOracleError &E) {
+      if(E.Code != 1 && E.Code != 2291) throw; // parent key not found, unique constraint violated
+  }
+}
+
+void addAlarmByPaxId(const int paxId, const Alarm::Enum alarmType, const PaxOrigin paxOrigin)
+{
+  setAlarmByPaxId(paxId, alarmType, true, paxOrigin);
+}
+
+void deleteAlarmByPaxId(const int paxId, const Alarm::Enum alarmType, const PaxOrigin paxOrigin)
+{
+  setAlarmByPaxId(paxId, alarmType, false, paxOrigin);
+}
+
+void deleteAlarmByGrpId(const int grpId, const Alarm::Enum alarmType)
+{
+  TCachedQuery Qry("DELETE FROM pax_alarms WHERE alarm_type=:alarm_type AND pax_id IN (SELECT pax_id FROM pax WHERE grp_id=:grp_id)",
+                   QParams() << QParam("grp_id", otInteger, grpId)
+                             << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)));
+  Qry.get().Execute();
+}
+
+bool existsAlarmByPaxId(const int paxId, const Alarm::Enum alarmType, const PaxOrigin paxOrigin)
+{
+  string table_name=getPaxAlarmTable(paxOrigin);
+  if (table_name.empty()) return false;
+
+  TCachedQuery Qry("SELECT 1 FROM " + table_name + " WHERE alarm_type=:alarm_type AND pax_id=:pax_id",
+                   QParams() << QParam("pax_id", otInteger, paxId)
+                             << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)));
+  Qry.get().Execute();
+  return (!Qry.get().Eof);
+}
+
+bool existsAlarmByGrpId(const int grpId, const Alarm::Enum alarmType)
+{
+  TCachedQuery Qry("SELECT 1 FROM pax_alarms, pax "
+                   "WHERE pax_alarms.pax_id=pax.pax_id AND pax_alarms.alarm_type=:alarm_type AND pax.grp_id=:grp_id AND rownum<2",
+                   QParams() << QParam("grp_id", otInteger, grpId)
+                             << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)));
+  Qry.get().Execute();
+  return (!Qry.get().Eof);
+}
+
+void getAlarmByPointId(const int pointId, const Alarm::Enum alarmType, std::set<int>& paxIds)
+{
+  paxIds.clear();
+
+  TCachedQuery Qry("SELECT pax_alarms.pax_id "
+                   "FROM pax_alarms, pax, pax_grp "
+                   "WHERE pax_alarms.pax_id=pax.pax_id AND "
+                   "      pax.grp_id=pax_grp.grp_id AND "
+                   "      pax_grp.point_dep=:point_id AND "
+                   "      pax_alarms.alarm_type=:alarm_type",
+                   QParams() << QParam("point_id", otInteger, pointId)
+                             << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)));
+  Qry.get().Execute();
+  for(; !Qry.get().Eof; Qry.get().Next())
+    paxIds.insert(Qry.get().FieldAsInteger("pax_id"));
+}

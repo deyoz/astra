@@ -3035,6 +3035,12 @@ bool EMDAutoBoundInterface::Lock(const EMDAutoBoundId &id, int &point_id, TCkinG
   return true;
 }
 
+static bool needTryCheckinServicesAuto(int id, bool is_grp_id)
+{
+  return is_grp_id?existsAlarmByGrpId(id, Alarm::SyncEmds):
+                   existsAlarmByPaxId(id, Alarm::SyncEmds, paxCheckIn);
+
+}
 
 void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqNode)
 {
@@ -3103,7 +3109,7 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
     if (Lock(id, point_id, tckin_grp_ids, string(__FUNCTION__)+"("+termReqName+")"))
     {
       if ((pax_ids_for_refresh && !pax_ids_for_refresh.get().empty()) ||
-          any_of(tckin_grp_ids.begin(), tckin_grp_ids.end(), bind2nd(ptr_fun(CheckIn::needTryCheckinServicesAuto), true)))
+          any_of(tckin_grp_ids.begin(), tckin_grp_ids.end(), bind2nd(ptr_fun(needTryCheckinServicesAuto), true)))
       {
         id.toXML(reqNode);
         EMDTryBind(tckin_grp_ids, reqNode, NULL);
@@ -3226,7 +3232,7 @@ void EMDAutoBoundInterface::EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
   bool checkinServicesAuto=PieceConcept::TryCheckinServicesAuto(svcsAuto, payment, tckin_grp_ids, emdProps, confirmed_emd);
 
   for(const int& grp_id : tckin_grp_ids)
-    CheckIn::setSyncEmdsFlag(grp_id, true, false);
+    deleteAlarmByGrpId(grp_id, Alarm::SyncEmds);
 
   if (enlargedServicePayment || checkinServicesAuto)
   {

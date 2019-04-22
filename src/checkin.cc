@@ -4594,6 +4594,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       throw EXCEPTIONS::Exception("CheckInInterface::SavePax: point_id not found in map segs");
 
     const TTripInfo &fltInfo=s->second.fltInfo;
+    boost::optional<TFlightRbd> flightRbd;
 
     if (first_segment &&
         grp.status!=psCrew &&
@@ -4707,6 +4708,16 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 pax.refuse=priorPax.refuse;
               }
               priorSimplePaxList.push_back(priorPax);
+            }
+            else
+            {
+              if (!flightRbd)
+                flightRbd=boost::in_place(fltInfo);
+              const TFlightRbd& rbds=flightRbd.get();
+              pax.cabin=pax.getCrsClass(true);
+              if (pax.cabin.cl.empty()) pax.cabin.cl=grp.cl;
+              if (pax.cabin.subcl.empty()) pax.cabin.subcl=pax.subcl;
+              setComplexClassGrp(rbds, pax.cabin);
             }
 
             if (pax.name.empty() && pr_mintrans_file)
@@ -5292,10 +5303,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             "  END IF; "
             "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,crew_type,is_jmp,is_female,seat_type,seats,pr_brd, "
             "                  wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm,doco_confirm, "
-            "                  pr_exam,subclass,bag_pool_num,sync_emds,tid) "
+            "                  pr_exam,subclass,cabin_subclass,cabin_class,cabin_class_grp,bag_pool_num,tid) "
             "  VALUES(:pax_id,:grp_id,:surname,:name,:pers_type,:crew_type,:is_jmp,:is_female,:seat_type,:seats,:pr_brd, "
             "         :wl_type,NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:ticket_confirm,0, "
-            "         :pr_exam,:subclass,:bag_pool_num,0,cycle_tid__seq.currval); "
+            "         :pr_exam,:subclass,:cabin_subclass,:cabin_class,:cabin_class_grp,:bag_pool_num,cycle_tid__seq.currval); "
             "END;";
           Qry.DeclareVariable("pax_id",otInteger);
           Qry.DeclareVariable("grp_id",otInteger);
@@ -5316,6 +5327,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           Qry.DeclareVariable("ticket_rem",otString);
           Qry.DeclareVariable("ticket_confirm",otInteger);
           Qry.DeclareVariable("subclass",otString);
+          Qry.DeclareVariable("cabin_subclass",otString);
+          Qry.DeclareVariable("cabin_class",otString);
+          Qry.DeclareVariable("cabin_class_grp",otInteger);
           Qry.DeclareVariable("bag_pool_num",otInteger);
           for(int k=0;k<=1;k++)
           {
@@ -6161,7 +6175,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         PaxQry.Execute();
         if (!PaxQry.Eof)
         {
-          TFlightRbd rbds(fltInfo);
+          if (!flightRbd)
+            flightRbd=boost::in_place(fltInfo);
+          const TFlightRbd& rbds=flightRbd.get();
           if (rbds.empty())
             throw UserException("MSG.CHECKIN.NOT_MADE_IN_ONE_CLASSES"); //WEB
 

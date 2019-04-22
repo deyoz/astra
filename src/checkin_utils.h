@@ -5,6 +5,7 @@
 #include "passenger.h"
 #include "web_search.h"
 #include "apis_utils.h"
+#include "trip_tasks.h"
 
 struct TSegListItem
 {
@@ -15,6 +16,10 @@ struct TSegListItem
 
 namespace CheckIn
 {
+
+void setComplexClassGrp(const TFlightRbd& rbds, TComplexClass& complex);
+
+void syncCabinClass(const TTripTaskKey &task);
 
 void seatingWhenNewCheckIn(const TSegListItem& seg,
                            const TAdvTripInfo& fltAdvInfo,
