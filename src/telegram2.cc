@@ -1659,6 +1659,14 @@ namespace PRL_SPACE {
                 }
                 items.push_back(rem);
                 items.push_back(chkd(infRow->reg_no, infRow->name, infRow->surname, true, info.is_lat()));
+
+                {
+                    // билет РМ
+                    CheckIn::TPaxRemItem rem;
+                    CheckIn::TPaxTknItem tkn;
+                    LoadPaxTkn(infRow->pax_id, tkn);
+                    if (getPaxRem(info, tkn, true, rem)) items.push_back(rem.text);
+                }
             }
         }
         if(pax.pers_type == child or pax.pers_type == baby)
