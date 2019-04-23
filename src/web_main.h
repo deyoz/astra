@@ -154,6 +154,7 @@ struct TWebPax {
     int pax_tid;
     std::string checkin_status;
     std::set<std::string> agent_checkin_reasons;
+    std::set<std::string> bp_not_allowed_reasons;
     CheckIn::TPaxTknItem tkn;
     TBrand brand;
     CheckIn::TPaxDocItem doc;

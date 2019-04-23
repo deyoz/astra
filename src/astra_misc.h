@@ -575,6 +575,7 @@ enum TTripSetType { /*не привязанные к рейсу*/
                     tsNoRepeatedSelfCkin=205,       //Запрет повторной саморегистрации
                     tsAllowCancelSelfCkin=206,       //Отмена саморегистрации без учета терминала
                     tsKioskCheckinOnPaidSeat=207,    //Регистрация пассажиров с киоска на платные места
+                    tsEmergencyExitBPNotAllowed=208  //Запрет печати посадочного на местах аварийного выхода для саморегистрации
 
                   };
 

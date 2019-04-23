@@ -45,6 +45,7 @@
 #include "web_exchange.h"
 #include "ckin_search.h"
 #include "web_craft.h"
+#include "seatPax.h"
 
 
 #define NICKNAME "DJEK"
@@ -226,7 +227,13 @@ struct TIdsPnrData {
     static int VerifyPNR( int point_id, int id, bool is_pnr_id );
 };
 
-struct TIdsPnrDataSegs : public std::list<TIdsPnrData> {};
+struct TIdsPnrDataSegs : public std::list<TIdsPnrData> {
+  bool showBPNotAllowedReason;
+  TIdsPnrDataSegs(xmlNodePtr reqNode) : showBPNotAllowedReason(false)
+  {
+    showBPNotAllowedReason=NodeAsBoolean("@showBPNotAllowedReason", reqNode, false);
+  }
+};
 
 int TIdsPnrData::VerifyPNR( int point_id, int id, bool is_pnr_id )
 {
@@ -1129,7 +1136,11 @@ void IntLoadPnr( const TIdsPnrDataSegs &ids,
           iPax++;
         };
       }
-
+      if ( ids.showBPNotAllowedReason &&
+           GetSelfCkinSets( tsEmergencyExitBPNotAllowed, grp.flt.oper, TReqInfo::Instance()->client_type ) ) {
+        SEATPAX::GrpNotAllowedReason<TWebPax> grpNotAllowedReason;
+        grpNotAllowedReason.boarding_pass( grp.flt.oper.point_id, grp.paxs );
+      }
       grpSegs.push_back(grp);
     }
     catch(CheckIn::UserException)
@@ -1221,6 +1232,11 @@ void TWebPax::toXML(xmlNodePtr paxParentNode, const TRemGrp& outputRemGrp) const
   for(set<string>::const_iterator r=agent_checkin_reasons.begin();
                                   r!=agent_checkin_reasons.end(); ++r)
     NewTextChild(reasonsNode, "reason", *r);
+  reasonsNode=NewTextChild( paxNode, "boarding_pass_not_allowed_reasons" );
+  for(set<string>::const_iterator r=bp_not_allowed_reasons.begin();
+                                  r!=bp_not_allowed_reasons.end(); ++r)
+    NewTextChild(reasonsNode, "reason", *r);
+
 
   NewTextChild( paxNode, "eticket", tkn.rem == "TKNE"?"true":"false" );
   NewTextChild( paxNode, "ticket_no", tkn.no );
@@ -1265,7 +1281,7 @@ void WebRequestsIface::LoadPnr(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   ProgTrace(TRACE1,"WebRequestsIface::LoadPnr");
   xmlNodePtr segsNode = NodeAsNode( "segments", reqNode );
-  TIdsPnrDataSegs ids;
+  TIdsPnrDataSegs ids(reqNode);
   for(xmlNodePtr segNode=segsNode->children; segNode!=NULL; segNode=segNode->next)
   {
     int point_id=NodeAsInteger( "point_id", segNode );
@@ -1654,7 +1670,7 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
 
   XMLDoc emulCkinDoc;
   map<int,XMLDoc> emulChngDocs;
-  TIdsPnrDataSegs ids;
+  TIdsPnrDataSegs ids(reqNode);
   VerifyPax(segs, emulDocHeader, emulCkinDoc, emulChngDocs, ids);
 
   TChangeStatusList ChangeStatusInfo;
