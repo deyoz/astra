@@ -1075,7 +1075,7 @@ struct TPass {
 struct TSalonPax {
   private:
     void int_get_seats( TWaitListReason &waitListReason,
-                        std::vector<TPlace*> &seats ) const;
+                        std::vector<TPlace*> &seats, bool with_crs = false ) const;
   public:
     int grp_id; //+ sort
     int pax_id; //+
@@ -1137,7 +1137,7 @@ struct TSalonPax {
                     TPassSeats &ranges ) const;
     void get_seats( TWaitListReason &waitListReason,
                     TPassSeats &ranges,
-                    std::map<TSeat,TPlace*,CompareSeat> &descrs ) const;
+                    std::map<TSeat,TPlace*,CompareSeat> &descrs, bool with_crs = false ) const;
     std::string seat_no( const std::string &format, bool pr_lat_seat, TWaitListReason &waitListReason ) const;
     std::string event_seat_no(bool pr_lat_seat, int point_dep, TWaitListReason &waitListReason, LEvntPrms &evntPrms) const;
     std::string prior_seat_no( const std::string &format, bool pr_lat_seat ) const;
