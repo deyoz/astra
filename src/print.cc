@@ -26,6 +26,7 @@
 #include "telegram.h"
 #include "cr_lf.h"
 #include "dcs_services.h"
+#include "seatPax.h"
 
 #define NICKNAME "DENIS"
 #include <serverlib/slogger.h>
@@ -1915,10 +1916,23 @@ void PrintInterface::GetPrintDataBP(
     if(paxs.empty()) return;
     error = boost::none;
 
+    boost::optional<SEATPAX::paxSeats> paxSeats;
     for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
 
         boost::shared_ptr<PrintDataParser> parser;
-        if(iPax->pax_id!=NoExists)
+        if(iPax->pax_id!=NoExists) {
+
+            // iPax->point_dep м.б. NoExists, поэтому достаем рейс по grp_id
+            TTripInfo flt_info;
+            if(not flt_info.getByGrpId(iPax->grp_id))
+                throw Exception("%s: flight not found for grp_id: %d", __FUNCTION__, iPax->grp_id);
+            if(not paxSeats) paxSeats = boost::in_place();
+            if(
+                    GetSelfCkinSets(tsEmergencyExitBPNotAllowed, flt_info, TReqInfo::Instance()->client_type) and
+                    not paxSeats->boarding_pass_not_allowed_reasons(flt_info.point_id, iPax->pax_id).empty()
+              )
+                throw AstraLocale::UserException("MSG.BP_PRINT_TERM_ONLY");
+
             try {
                 parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->grp_id, iPax->pax_id, iPax->from_scan_code, params.prnParams.pr_lat, params.clientDataNode ));
                 DCSServiceApplying::throwIfNotAllowed( iPax->pax_id, DCSService::Enum::PrintBPOnDesk );
@@ -1931,7 +1945,7 @@ void PrintInterface::GetPrintDataBP(
                 iPax->error = true;
                 continue;
             }
-        else
+        } else
             parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->scan, iPax->errors, true));
 
         // Из за косяка в клиентской части киоска происходит ошибка, если встречается строка вида
