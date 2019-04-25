@@ -1922,16 +1922,18 @@ void PrintInterface::GetPrintDataBP(
         boost::shared_ptr<PrintDataParser> parser;
         if(iPax->pax_id!=NoExists) {
 
-            // iPax->point_dep м.б. NoExists, поэтому достаем рейс по grp_id
-            TTripInfo flt_info;
-            if(not flt_info.getByGrpId(iPax->grp_id))
-                throw Exception("%s: flight not found for grp_id: %d", __FUNCTION__, iPax->grp_id);
-            if(not paxSeats) paxSeats = boost::in_place();
-            if(
-                    GetSelfCkinSets(tsEmergencyExitBPNotAllowed, flt_info, TReqInfo::Instance()->client_type) and
-                    not paxSeats->boarding_pass_not_allowed_reasons(flt_info.point_id, iPax->pax_id).empty()
-              )
-                throw AstraLocale::UserException("MSG.BP_PRINT_TERM_ONLY");
+            if(TReqInfo::Instance()->isSelfCkinClientType()) {
+                // iPax->point_dep м.б. NoExists, поэтому достаем рейс по grp_id
+                TTripInfo flt_info;
+                if(not flt_info.getByGrpId(iPax->grp_id))
+                    throw Exception("%s: flight not found for grp_id: %d", __FUNCTION__, iPax->grp_id);
+                if(not paxSeats) paxSeats = boost::in_place();
+                if(
+                        GetSelfCkinSets(tsEmergencyExitBPNotAllowed, flt_info, TReqInfo::Instance()->client_type) and
+                        not paxSeats->boarding_pass_not_allowed_reasons(flt_info.point_id, iPax->pax_id).empty()
+                  )
+                    throw AstraLocale::UserException("MSG.BP_PRINT_TERM_ONLY");
+            }
 
             try {
                 parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->grp_id, iPax->pax_id, iPax->from_scan_code, params.prnParams.pr_lat, params.clientDataNode ));
