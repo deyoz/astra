@@ -8,6 +8,7 @@
 #include <set>
 #include "prn_tag_store.h"
 #include "checkin_utils.h"
+#include "seatPax.h"
 
 using BASIC::date_time::TDateTime;
 
@@ -104,6 +105,8 @@ class PrintInterface: public JxtInterface
             hex=false;
           };
           bool fromDB(int vpax_id, int test_point_dep);
+          void checkBPPrintAllowed(boost::optional<SEATPAX::paxSeats> &paxSeats);
+          void checkBPPrintAllowed();
         };
 
         struct BPParams {
