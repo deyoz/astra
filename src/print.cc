@@ -26,7 +26,6 @@
 #include "telegram.h"
 #include "cr_lf.h"
 #include "dcs_services.h"
-#include "seatPax.h"
 
 #define NICKNAME "DENIS"
 #include <serverlib/slogger.h>
@@ -1904,6 +1903,28 @@ bool IsErrPax(const PrintInterface::BPPax &pax)
     return pax.error;
 }
 
+void PrintInterface::BPPax::checkBPPrintAllowed()
+{
+    boost::optional<SEATPAX::paxSeats> paxSeats;
+    return checkBPPrintAllowed(paxSeats);
+}
+
+void PrintInterface::BPPax::checkBPPrintAllowed(boost::optional<SEATPAX::paxSeats> &paxSeats)
+{
+    if(TReqInfo::Instance()->isSelfCkinClientType()) {
+        // point_dep м.б. NoExists, поэтому достаем рейс по grp_id
+        TTripInfo flt_info;
+        if(not flt_info.getByGrpId(grp_id))
+            throw Exception("%s: flight not found for grp_id: %d", __FUNCTION__, grp_id);
+        if(not paxSeats) paxSeats = boost::in_place();
+        if(
+                GetSelfCkinSets(tsEmergencyExitBPNotAllowed, flt_info, TReqInfo::Instance()->client_type) and
+                not paxSeats->boarding_pass_not_allowed_reasons(flt_info.point_id, pax_id).empty()
+          )
+            throw AstraLocale::UserException("MSG.BP_PRINT_TERM_ONLY");
+    }
+}
+
 void PrintInterface::GetPrintDataBP(
                                     TDevOper::Enum op_type,
                                     BPParams &params,
@@ -1921,20 +1942,7 @@ void PrintInterface::GetPrintDataBP(
 
         boost::shared_ptr<PrintDataParser> parser;
         if(iPax->pax_id!=NoExists) {
-
-            if(TReqInfo::Instance()->isSelfCkinClientType()) {
-                // iPax->point_dep м.б. NoExists, поэтому достаем рейс по grp_id
-                TTripInfo flt_info;
-                if(not flt_info.getByGrpId(iPax->grp_id))
-                    throw Exception("%s: flight not found for grp_id: %d", __FUNCTION__, iPax->grp_id);
-                if(not paxSeats) paxSeats = boost::in_place();
-                if(
-                        GetSelfCkinSets(tsEmergencyExitBPNotAllowed, flt_info, TReqInfo::Instance()->client_type) and
-                        not paxSeats->boarding_pass_not_allowed_reasons(flt_info.point_id, iPax->pax_id).empty()
-                  )
-                    throw AstraLocale::UserException("MSG.BP_PRINT_TERM_ONLY");
-            }
-
+            iPax->checkBPPrintAllowed(paxSeats);
             try {
                 parser = boost::shared_ptr<PrintDataParser> (new PrintDataParser ( op_type, iPax->grp_id, iPax->pax_id, iPax->from_scan_code, params.prnParams.pr_lat, params.clientDataNode ));
                 DCSServiceApplying::throwIfNotAllowed( iPax->pax_id, DCSService::Enum::PrintBPOnDesk );
