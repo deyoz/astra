@@ -1911,6 +1911,7 @@ void PrintInterface::BPPax::checkBPPrintAllowed()
 
 void PrintInterface::BPPax::checkBPPrintAllowed(boost::optional<SEATPAX::paxSeats> &paxSeats)
 {
+    if(isTestPaxId(pax_id)) return;
     if(TReqInfo::Instance()->isSelfCkinClientType()) {
         // point_dep м.б. NoExists, поэтому достаем рейс по grp_id
         TTripInfo flt_info;
