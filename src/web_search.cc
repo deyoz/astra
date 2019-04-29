@@ -1404,7 +1404,7 @@ void TPNRSegInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
     pnr_id==NoExists?NewTextChild(node, "pnr_id"):
                      NewTextChild(node, "pnr_id", pnr_id);
     NewTextChild(node, "subclass", ElemIdToCodeNative(etSubcls, subcls));
-    pnr_addrs.toXML(node, AstraLocale::OutputLang());
+    pnr_addrs.toWebXML(node, AstraLocale::OutputLang());
   }
 
   xmlNodePtr fltNode=GetNode("pnr_mark_flight", node);

@@ -454,7 +454,7 @@ void get_stat_ad(int point_id)
         if(pe.fromDB(pax_id, TPaxEventTypes::BRD)) {
             string pnr=TPnrAddrs().firstAddrByPaxId(pax_id, TPnrAddrInfo::AddrOnly);
 
-            CheckIn::TPaxGrpItem grp;
+            CheckIn::TSimplePaxGrpItem grp;
             grp.fromDB(Qry.get());
 
             insQry.get().SetVariable("scd_out", Qry.get().FieldAsDateTime("scd_out"));

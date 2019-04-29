@@ -4249,7 +4249,8 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     Qry.Clear();
     Qry.SQLText =
       " SELECT pax.grp_id, pax.pax_id, pax.pers_type, pax.seats, pax.is_jmp, "
-      "        NVL(pax.cabin_class, pax_grp.class) AS class, class_grp, "
+      "        NVL(pax.cabin_class, pax_grp.class) AS class, "
+      "        NVL(pax.cabin_class_grp, pax_grp.class_grp) AS class_grp, "
       "        reg_no, pax.name, pax.surname, pax.is_female, pax_grp.status, "
       "        pax_grp.point_dep, pax_grp.point_arv, "
       "        crs_inf.pax_id AS parent_pax_id, "

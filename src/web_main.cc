@@ -1205,7 +1205,7 @@ void TWebPax::toXML(xmlNodePtr paxParentNode, const TRemGrp& outputRemGrp) const
 
   xmlNodePtr paxNode = NewTextChild( paxParentNode, "pax" );
 
-  pnr_addrs.toXML(paxNode, AstraLocale::OutputLang());
+  pnr_addrs.toWebXML(paxNode, AstraLocale::OutputLang());
 
   NewTextChild( paxNode, "pax_no", pax_no, NoExists );
   NewTextChild( paxNode, "crs_pnr_id", crs_pnr_id );

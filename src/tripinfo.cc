@@ -1881,9 +1881,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         for(int i=0; i<2; i++)
         {
           ostringstream &s=(i==0)?select:group_by;
-          if (pr_class)       s << ", DECODE(pax_grp.status,'E',' ',pax_grp.class)"
+          if (pr_class)       s << ", DECODE(pax_grp.status,'E',' ',NVL(pax.cabin_class, pax_grp.class))"
                                 << (i==0?" AS class":"");
-          if (pr_cl_grp)      s << ", DECODE(pax_grp.status,'E',1000000000,pax_grp.class_grp)"
+          if (pr_cl_grp)      s << ", DECODE(pax_grp.status,'E',1000000000,NVL(pax.cabin_class_grp, pax_grp.class_grp))"
                                 << (i==0?" AS class_grp":"");
           if (pr_hall)        s << ", pax_grp.hall";
           if (pr_airp_arv)    s << ", pax_grp.point_arv";
@@ -2004,9 +2004,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
         for(int i=0; i<2; i++)
         {
           ostringstream &s=(i==0)?select:group_by;
-          if (pr_class)       s << ", DECODE(pax_grp.status,'E',' ',pax_grp.class)"
+          if (pr_class)       s << ", DECODE(pax_grp.status,'E',' ',NVL(pax.cabin_class, pax_grp.class))"
                                 << (i==0?" AS class":"");
-          if (pr_cl_grp)      s << ", DECODE(pax_grp.status,'E',1000000000,pax_grp.class_grp)"
+          if (pr_cl_grp)      s << ", DECODE(pax_grp.status,'E',1000000000,NVL(pax.cabin_class_grp, pax_grp.class_grp))"
                                 << (i==0?" AS class_grp":"");
           if (pr_hall)        s << ", NVL(bag2.hall, DECODE(bag2.is_trfer, 0, bag2.hall, DECODE(bag2.handmade, 0, 1000000000, bag2.hall)))"
                                 << (i==0?" AS hall":"");
@@ -2027,14 +2027,23 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
             << "       " << select.str().erase(0,1) << endl
             << "FROM pax_grp,bag2 " << endl;
 
-        if (pr_trfer) sql << "    ," << endl
-                          << last_trfer_sql.str() << endl;
+        if (pr_trfer)
+          sql << "    ," << endl
+              << last_trfer_sql.str() << endl;
+
+        if (pr_class || pr_cl_grp)
+          sql << ", pax " << endl;
+
 
         sql << "WHERE pax_grp.grp_id=bag2.grp_id AND " << endl
             << "      pax_grp.point_dep=:point_id AND " << endl
             << "      " << crew_filter << endl
             << "      ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 " << endl;
-        if (pr_trfer) sql << "      AND pax_grp.grp_id=last_trfer.grp_id(+) " << endl;
+        if (pr_trfer)
+          sql << "      AND pax_grp.grp_id=last_trfer.grp_id(+) " << endl;
+        if (pr_class || pr_cl_grp)
+          sql << "      AND bag2.grp_id=pax.grp_id(+) "
+              << "      AND bag2.bag_pool_num=pax.bag_pool_num(+) " << endl;
       };
       if (pass==5)
       {
@@ -2802,7 +2811,6 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      crs_pnr.class, "
      "      crs_pnr.subclass, "
      "      NVL(crs_pax.etick_class, NVL(crs_pax.orig_class, crs_pnr.class)) AS orig_class, "
-     "      NVL(crs_pax.etick_subclass, NVL(crs_pax.orig_subclass, crs_pnr.subclass)) AS orig_subclass, "
      "      crs_pax.seat_xname, "
      "      crs_pax.seat_yname, "
      "      crs_pax.seats seats, "
@@ -2933,7 +2941,6 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   int col_class=Qry.FieldIndex("class");
   int col_subclass=Qry.FieldIndex("subclass");
   int col_orig_class=Qry.FieldIndex("orig_class");
-//  int col_orig_subclass=Qry.FieldIndex("orig_subclass");
   int col_seat_xname=Qry.FieldIndex("seat_xname");
   int col_seat_yname=Qry.FieldIndex("seat_yname");
   int col_seats=Qry.FieldIndex("seats");
@@ -2992,14 +2999,9 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "pnr_priority", Qry.FieldAsString( col_pnr_priority ), "" );
     NewTextChild( node, "full_name", Qry.FieldAsString( col_full_name ) );
     NewTextChild( node, "pers_type", Qry.FieldAsString( col_pers_type ), def_pers_type ); //специально не перекодируем, так как идет подсчет по типам
-    string cl=Qry.FieldAsString( col_class );
-    string orig_cl=Qry.FieldAsString( col_orig_class );
-    NewTextChild( node, "class", (cl!=orig_cl?ElemIdToCodeNative(etClass, orig_cl)+"->":"") +
-                                 ElemIdToCodeNative(etClass, cl), def_class );
-    string subcl=Qry.FieldAsString( col_subclass );
-//    string orig_subcl=Qry.FieldAsString( col_orig_subclass );
-    NewTextChild( node, "subclass", //(subcl!=orig_subcl?ElemIdToCodeNative(etSubcls, orig_subcl)+"->":"") +
-                                    ElemIdToCodeNative(etSubcls, subcl) );
+    NewTextChild( node, "class", classIdsToCodeNative(Qry.FieldAsString( col_orig_class ),
+                                                      Qry.FieldAsString( col_class )), def_class );
+    NewTextChild( node, "subclass", ElemIdToCodeNative(etSubcls, Qry.FieldAsString( col_subclass )) );
     NewTextChild( node, "seats", Qry.FieldAsInteger( col_seats ), 1 );
     NewTextChild( node, "target", ElemIdToCodeNative(etAirp,Qry.FieldAsString( col_airp_arv ) ));
     if (!Qry.FieldIsNULL(col_airp_arv_final))

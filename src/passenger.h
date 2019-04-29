@@ -832,6 +832,8 @@ class TSimplePaxGrpItem
 
 class TPaxGrpItem : public TSimplePaxGrpItem
 {
+  private:
+    TSimplePaxGrpItem& fromDB(TQuery &Qry);
   public:
     bool pc, wt;
     bool rfisc_used;
@@ -865,7 +867,7 @@ class TPaxGrpItem : public TSimplePaxGrpItem
     bool fromXML(xmlNodePtr node);
     TPaxGrpItem& fromXMLadditional(xmlNodePtr node, xmlNodePtr firstSegNode, bool is_unaccomp);
     const TPaxGrpItem& toDB(TQuery &Qry) const;
-    TPaxGrpItem& fromDB(TQuery &Qry);
+    TPaxGrpItem& fromDBWithBagConcepts(TQuery &Qry);
     bool getByGrpIdWithBagConcepts(int grp_id);
     void SyncServiceAuto(const TTripInfo &flt);
     void checkInfantsCount(const CheckIn::TSimplePaxList &prior_paxs,
@@ -1063,8 +1065,9 @@ class TPnrAddrs : public std::vector<TPnrAddrInfo>
         if (find(begin(), end(), addr)!=end()) return true;
       return false;
     }
-    const TPnrAddrs &toXML(xmlNodePtr addrsParentNode,
-                           const boost::optional<AstraLocale::OutputLang>& lang=boost::none) const;
+    const TPnrAddrs &toXML(xmlNodePtr addrsParentNode) const;
+    const TPnrAddrs &toWebXML(xmlNodePtr addrsParentNode,
+                              const boost::optional<AstraLocale::OutputLang>& lang=boost::none) const;
     const TPnrAddrs &toSirenaXML(xmlNodePtr addrParentNode,
                                  const AstraLocale::OutputLang& lang) const;
 

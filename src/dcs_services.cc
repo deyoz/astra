@@ -113,7 +113,7 @@ bool DCSServiceApplying::isAllowed(int pax_id, DCSService::Enum dcsService, RFIS
 
   reqRFISCs.clear();
 
-  if ( TReqInfo::Instance()->client_type != ASTRA::ctTerm ) return true;// только с терминала
+  if ( TReqInfo::Instance()->client_type != ASTRA::ctTerm ) return true;//  о└ ко с  е oина└а
 
   CheckIn::TSimplePaxItem pax;
   if (!pax.getByPaxId(pax_id)) return false;
@@ -149,7 +149,7 @@ bool DCSServiceApplying::isAllowed(int pax_id, DCSService::Enum dcsService, RFIS
     }
   }
 
-  if (reqRFISCs.empty()) return true;  //не нашли по компании/операции ни одного требуемого RFISCа
+  if (reqRFISCs.empty()) return true;  //не на └и ╗о коo╗ании/о╗е а ии ни одного   еб еoого RFISCа
 
   RFISCsSet paxRFISCs, intersectRFISCs;
 

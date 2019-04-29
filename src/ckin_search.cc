@@ -232,7 +232,9 @@ void executeSearchPaxQuery(const int& point_dep,
   sql <<
     "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.airp_arv, \n"
     "       NVL(crs_pax.etick_class, NVL(crs_pax.orig_class, crs_pnr.class)) AS class, \n"
-    "       NVL(crs_pax.etick_subclass, NVL(crs_pax.orig_subclass, crs_pnr.subclass)) AS subclass, \n"
+    "       DECODE(crs_pnr.class, NVL(crs_pax.etick_class, NVL(crs_pax.orig_class, crs_pnr.class)), \n"
+    "         crs_pnr.subclass, \n"
+    "         NVL(crs_pax.etick_subclass, NVL(crs_pax.orig_subclass, crs_pnr.subclass))) AS subclass, \n"
     "       crs_pnr.status AS pnr_status, crs_pnr.priority AS pnr_priority, \n"
     "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, \n"
     "       salons.get_crs_seat_no(crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, \n"
@@ -262,7 +264,7 @@ void executeSearchPaxQuery(const int& point_dep,
 
   sql << "      crs_pax.pr_del=0 AND \n"
          "      pax.pax_id IS NULL \n"
-         "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id \n";
+         "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,class,subclass,crs_pax.surname,crs_pax.pax_id \n";
 
 //  ProgTrace(TRACE5,"CheckInInterface::SearchPax: status=%s",EncodePaxStatus(pax_status));
 //  ProgTrace(TRACE5,"CheckInInterface::SearchPax: sql=\n%s",sql.c_str());

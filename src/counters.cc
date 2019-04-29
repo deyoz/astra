@@ -273,15 +273,20 @@ void TRegDifferenceMap::getDifference(const CheckIn::TPaxGrpItem &grp,
   LogTrace(TRACE5) << __FUNCTION__;
 
   clear();
-  TCountersKey key;
-  key.point_dep=grp.point_dep;
-  key.point_arv=grp.point_arv;
-  key.cl=grp.cl;
-  TRegCountersData data;
+
+  TRegDifferenceMap localDifferenceMap;
+
   for(int pass=0; pass<2; pass++)
   {
     for(const CheckIn::TSimplePaxItem& pax : (pass==0?prior_paxs:curr_paxs))
     {
+      TCountersKey key;
+      key.point_dep=grp.point_dep;
+      key.point_arv=grp.point_arv;
+      key.cl=pax.cabin.cl.empty()?grp.cl:pax.cabin.cl;
+
+      TRegCountersData& data=localDifferenceMap.emplace(key, TRegCountersData()).first->second;
+
       if (!pax.refuse.empty()) continue;
       if (pax.seats<=0) continue;
       int* d=nullptr;
@@ -304,8 +309,10 @@ void TRegDifferenceMap::getDifference(const CheckIn::TPaxGrpItem &grp,
         *d+=pax.seats;
     }
   }
-  if (!data.isZero())
-    insert(make_pair(key, data));
+
+  for(const auto& i : localDifferenceMap)
+    if (!i.second.isZero())
+      insert(i);
 }
 
 void TRegDifferenceMap::apply(const TAdvTripInfo &flt, const bool pr_tranz_reg) const
@@ -604,6 +611,101 @@ int TCounters::totalRegisteredPassengers(int point_id)
   Qry.get().Execute();
   if (Qry.get().Eof) return 0;
   return Qry.get().FieldAsInteger("reg");
+}
+
+void AvailableByClasses::dump() const
+{
+  for(const auto& i: *this)
+  {
+    const AvailableByClass& item=i.second;
+    LogTrace(TRACE5) << "cl=" << (item.is_jmp?"JMP":item.cl)
+                     << ", need=" << item.need
+                     << ", avail=" << (item.avail==ASTRA::NoExists?"NoExists":IntToString(item.avail));
+  }
+}
+
+void CheckCounters(const CheckIn::TPaxGrpItem& grp,
+                   bool free_seating,
+                   AvailableByClasses& availableByClasses)
+{
+  for(auto& i : availableByClasses)
+    CheckCounters(grp.point_dep,grp.point_arv,i.second.cl,grp.status,TCFG(grp.point_dep),free_seating,i.second.is_jmp,i.second.avail);
+}
+
+void CheckCounters(int point_dep,
+                   int point_arv,
+                   const string &cl,
+                   ASTRA::TPaxStatus grp_status,
+                   const TCFG &cfg,
+                   bool free_seating,
+                   bool is_jmp,
+                   int &free)
+{
+    free=ASTRA::NoExists;
+    if (cfg.empty() && free_seating) return;
+    if (grp_status==ASTRA::psCrew) return;
+    //проверка наличия свободных мест
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    if (!is_jmp)
+    {
+      Qry.SQLText=
+        "SELECT free_ok, free_goshow, nooccupy, jmp_nooccupy FROM counters2 "
+        "WHERE point_dep=:point_dep AND point_arv=:point_arv AND class=:class ";
+      Qry.CreateVariable("class", otString, cl);
+    }
+    else
+    {
+      Qry.SQLText=
+        "SELECT free_ok, free_goshow, nooccupy, jmp_nooccupy FROM counters2 "
+        "WHERE point_dep=:point_dep AND point_arv=:point_arv AND rownum<2 ";
+    }
+    Qry.CreateVariable("point_dep", otInteger, point_dep);
+    Qry.CreateVariable("point_arv", otInteger, point_arv);
+
+    Qry.Execute();
+    if (Qry.Eof)
+    {
+      ProgTrace(TRACE0,"counters2 empty! (point_dep=%d point_arv=%d cl=%s)",point_dep,point_arv,cl.c_str());
+      CheckIn::TCounters().recount(point_dep, CheckIn::TCounters::Total, __FUNCTION__);
+      Qry.Execute();
+    }
+    if (Qry.Eof)
+    {
+      free=0;
+      return;
+    };
+
+    if (!is_jmp)
+    {
+      TTripStages tripStages( point_dep );
+      TStage ckin_stage =  tripStages.getStage( stCheckIn );
+      switch (grp_status)
+      {
+        case ASTRA::psTransit:
+                   free=Qry.FieldAsInteger("nooccupy");
+                   break;
+        case ASTRA::psCheckin:
+        case ASTRA::psTCheckin:
+                   if (ckin_stage==sNoActive ||
+                       ckin_stage==sPrepCheckIn ||
+                       ckin_stage==sOpenCheckIn)
+                     free=Qry.FieldAsInteger("free_ok");
+                   else
+                     free=Qry.FieldAsInteger("nooccupy");
+                   break;
+        default:   if (ckin_stage==sNoActive ||
+                       ckin_stage==sPrepCheckIn ||
+                       ckin_stage==sOpenCheckIn)
+                     free=Qry.FieldAsInteger("free_goshow");
+                   else
+                     free=Qry.FieldAsInteger("nooccupy");
+      }
+    }
+    else
+      free=Qry.FieldAsInteger("jmp_nooccupy");
+
+    if (free<0) free=0;
 }
 
 } //namespace CheckIn

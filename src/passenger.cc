@@ -2326,7 +2326,7 @@ bool TSimplePnrItem::getByPaxId(int pax_id)
   return true;
 }
 
-TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
+TPaxGrpItem& TPaxGrpItem::fromDBWithBagConcepts(TQuery &Qry)
 {
   clear();
   TSimplePaxGrpItem::fromDB(Qry);
@@ -2911,8 +2911,26 @@ void TPnrAddrInfo::addSQLParamsForSearch(QParams& params) const
          << QParam("addr_lat", otString, addr_lat);
 }
 
-const TPnrAddrs& TPnrAddrs::toXML(xmlNodePtr addrsParentNode,
-                                  const boost::optional<AstraLocale::OutputLang>& lang) const
+const TPnrAddrs& TPnrAddrs::toXML(xmlNodePtr addrsParentNode) const
+{
+  if (addrsParentNode==nullptr) return *this;
+
+  if (!empty())
+  {
+    if (size()==1)
+      front().toXML(addrsParentNode, boost::none);
+    else
+    {
+      xmlNodePtr addrsNode=NewTextChild(addrsParentNode, "pnr_addrs");
+      for(const TPnrAddrInfo& addr : *this) addr.toXML(addrsNode, boost::none);
+    }
+  }
+
+  return *this;
+}
+
+const TPnrAddrs& TPnrAddrs::toWebXML(xmlNodePtr addrsParentNode,
+                                     const boost::optional<AstraLocale::OutputLang>& lang) const
 {
   if (addrsParentNode==nullptr) return *this;
 

@@ -8,6 +8,59 @@
 namespace CheckIn
 {
 
+class AvailableByClassKey
+{
+  public:
+    std::string cl;
+    bool is_jmp;
+
+  AvailableByClassKey(const std::string& _cl, bool _is_jmp) :
+    cl(_cl), is_jmp(_is_jmp) {}
+
+  bool operator < (const AvailableByClassKey &key) const
+  {
+    return (is_jmp?"":cl) < (key.is_jmp?"":key.cl);
+  }
+};
+
+class AvailableByClass : public AvailableByClassKey
+{
+  public:
+    int need;
+    int avail;
+
+  AvailableByClass(const AvailableByClassKey& key) :
+    AvailableByClassKey(key), need(0), avail(ASTRA::NoExists) {}
+};
+
+class AvailableByClasses : public std::map<AvailableByClassKey, AvailableByClass>
+{
+  public:
+    AvailableByClasses(const CheckIn::TPaxList& paxs)
+    {
+      for(const CheckIn::TPaxListItem& p : paxs)
+      {
+        AvailableByClassKey key(p.pax.cabin.cl, p.pax.is_jmp);
+        emplace(key, key).first->second.need+=p.pax.seats;
+      }
+    }
+
+    void dump() const;
+};
+
+void CheckCounters(const CheckIn::TPaxGrpItem& grp,
+                   bool free_seating,
+                   AvailableByClasses& availableByClasses);
+
+void CheckCounters(int point_dep,
+                   int point_arv,
+                   const std::string &cl,
+                   ASTRA::TPaxStatus grp_status,
+                   const TCFG &cfg,
+                   bool free_seating,
+                   bool is_jmp,
+                   int &free);
+
 class TCrsCountersKey
 {
   public:
@@ -124,7 +177,7 @@ class TRegCountersData
              jmp_goshow==data.jmp_goshow;
     }
 
-    bool isZero()
+    bool isZero() const
     {
       return operator ==(TRegCountersData());
     }

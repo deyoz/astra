@@ -548,7 +548,7 @@ void recountBySubcls(int point_id,
       if (!pax.refuse.empty()) continue;
       if (DecodePaxStatus(pax.status.c_str())==psCrew) continue;
       map<TStatBySubclsKey, TStatBySubclsItem>::iterator i=
-        stat.insert(make_pair(TStatBySubclsKey(pax.subcl, pax.cl), TStatBySubclsItem())).first;
+        stat.insert(make_pair(TStatBySubclsKey(pax.subcl, pax.cabin_cl), TStatBySubclsItem())).first;
       if (i==stat.end()) throw Exception("%s: i==stat.end()", __FUNCTION__);
       switch(DecodePerson(pax.pers_type.c_str()))
       {

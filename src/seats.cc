@@ -4015,7 +4015,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p )
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax_grp.point_dep=:point_id AND "
     "      pax_grp.status NOT IN ('E') AND "
-    "      pax_grp.class_grp = cls_grp.id AND "
+    "      NVL(pax.cabin_class_grp, pax_grp.class_grp) = cls_grp.id AND "
     "      pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND "
     "      pax.pr_brd IS NOT NULL AND "
     "      pax.seats > 0 ";

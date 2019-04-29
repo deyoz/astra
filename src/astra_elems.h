@@ -148,6 +148,10 @@ TBaseTable& getBaseTable(TElemType type);
 
 std::string ElemToPaxDocCountryId(const std::string &elem, TElemFmt &fmt);
 std::string PaxDocCountryIdToPrefferedElem(const std::string &id, TElemFmt fmt, const std::string &lang, bool with_deleted=true);
+std::string classIdsToCodeNative(const std::string &orig_cl,
+                                 const std::string &cabin_cl);
+std::string clsGrpIdsToCodeNative(const int orig_cl_grp,
+                                  const int cabin_cl_grp);
 
 namespace AstraLocale
 {
