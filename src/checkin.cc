@@ -1874,12 +1874,12 @@ static int CreateSearchResponse(int point_dep,
         }
       }
 
+      paxNode=NewTextChild(node,"passengers");
+
       if (!trfer.empty())
         CheckInInterface::LoadOnwardCrsTransfer(trfer, trfer_segs, NewTextChild(node,"transfer"));
 
       pnrAddrs.toXML(node);
-
-      paxNode=NewTextChild(node,"passengers");
     }
     node=NewTextChild(paxNode,"pax");
     pax_id=PaxQry.FieldAsInteger("pax_id");
