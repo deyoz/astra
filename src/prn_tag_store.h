@@ -479,8 +479,6 @@ class TPrnTagStore {
             std::string airp_dep;
             std::string airp_arv;
             int point_dep, point_arv;
-            std::string cls;
-            int class_grp;
             int hall;
             TPrPrint prPrintInfo;
             bool pr_print_fio_pnl;
@@ -488,7 +486,6 @@ class TPrnTagStore {
                 grp_id(ASTRA::NoExists),
                 point_dep(ASTRA::NoExists),
                 point_arv(ASTRA::NoExists),
-                class_grp(ASTRA::NoExists),
                 hall(ASTRA::NoExists),
                 pr_print_fio_pnl(false)
             {}
@@ -524,6 +521,8 @@ class TPrnTagStore {
             std::string tags;
             std::string subcls;
             std::string crs_cls;
+            std::string cls;
+            int class_grp;
             bool pr_bp_print;
             bool pr_bi_print;
             CheckIn::TPaxDocItem doc;
@@ -541,6 +540,7 @@ class TPrnTagStore {
                 rk_weight(ASTRA::NoExists),
                 excess_wt(ASTRA::NoExists),
                 excess_pc(ASTRA::NoExists),
+                class_grp(ASTRA::NoExists),
                 pr_bp_print(false),
                 pr_bi_print(false)
             {}
