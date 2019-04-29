@@ -963,13 +963,15 @@ BEGIN
           INSERT INTO arx_pax
             (pax_id,grp_id,surname,name,pers_type,is_female,seat_no,seat_type,seats,is_jmp,
              pr_brd,pr_exam,wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm,doco_confirm,
-             subclass,bag_pool_num,excess_pc,tid,part_key)
+             subclass,cabin_subclass,cabin_class,cabin_class_grp,bag_pool_num,
+             excess_pc,
+             tid,part_key)
           SELECT
              pax_id,grp_id,surname,name,pers_type,is_female,
              salons.get_seat_no(pax_id,seats,is_jmp,NULL,curRow.point_id,'one',rownum) AS seat_no, /*не оптимально. надо передавать grp_status */
              seat_type,seats,is_jmp,
              pr_brd,pr_exam,wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm,doco_confirm,
-             subclass,bag_pool_num,
+             subclass,cabin_subclass,cabin_class,cabin_class_grp,bag_pool_num,
              ckin.get_excess_pc(grp_id, pax_id),
              tid,vpart_key
           FROM pax
