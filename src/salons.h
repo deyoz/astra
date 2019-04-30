@@ -1687,7 +1687,8 @@ class TSalonList: public std::vector<TPlaceList*> {
                       std::set<TPlace*,CompareSeats> &seats ) const;
     void getPaxLayer( int point_dep, int pax_id,
                       TSeatLayer &seatLayer,
-                      std::set<TPlace*,CompareSeats> &seats ) const;
+                      std::set<TPlace*,CompareSeats> &seats,
+                      bool useInvalidLayers=false ) const;
     bool check_waitlist_alarm_on_tranzit_routes( const TAutoSeats &autoSeats );
     void check_waitlist_alarm_on_tranzit_routes( const std::set<int> &paxs_external_logged );
 

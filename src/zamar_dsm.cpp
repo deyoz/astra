@@ -37,7 +37,7 @@ PassengerSearchResult& PassengerSearchResult::fromXML(xmlNodePtr reqNode, ZamarT
 {
   if (reqNode == nullptr)
     throw Exception("reqNode == nullptr");
-  
+
   AstraLocale::OutputLang lang("", {AstraLocale::OutputLang::OnlyTrueIataCodes});
   // sessionId
   sessionId = NodeAsString( "sessionId", reqNode);
@@ -47,7 +47,7 @@ PassengerSearchResult& PassengerSearchResult::fromXML(xmlNodePtr reqNode, ZamarT
   string bcbp = NodeAsString( "bcbp", reqNode);
   if (bcbp.empty())
     throw Exception("Empty <bcbp>");
-  
+
   AstraWeb::GetBPPaxFromScanCode(bcbp, bppax); // throws
 
   if (not bppax.errors.empty())
@@ -71,7 +71,7 @@ PassengerSearchResult& PassengerSearchResult::fromXML(xmlNodePtr reqNode, ZamarT
   point_id = bppax.point_dep;
   grp_id = bppax.grp_id;
   pax_id = bppax.pax_id;
-  
+
   if (not trip_info.getByPointId(point_id))
     throw Exception("Failed trip_info.getByPointId %d", point_id);
 
@@ -94,14 +94,14 @@ PassengerSearchResult& PassengerSearchResult::fromXML(xmlNodePtr reqNode, ZamarT
   mkt_flt.getByPaxId(pax_id);
   if (mkt_flt.empty())
     throw Exception("Failed mkt_flt.getByPaxId %d", pax_id);
-  
+
   // flightStatus
-  flightCheckinStage = TTripStages(point_id).getStage( stCheckIn );    
+  flightCheckinStage = TTripStages(point_id).getStage( stCheckIn );
   // pnr
   pnrs.getByPaxIdFast(pax_id);
   // baggageTags
   if (type == ZamarType::DSM) GetTagsByPool(grp_id, pax_item.bag_pool_num, bagTagsExtended, false);
-  
+
   return *this;
 }
 
@@ -128,7 +128,7 @@ static void PnrToZamarXML(xmlNodePtr resNode, const TPnrAddrs& pnrs, const boost
   {
     xmlNodePtr pnrNode = NewTextChild(addrsNode, "pnr", lang ? convert_pnr_addr(pnr.addr, lang->isLatin()) : pnr.addr);
     SetProp(pnrNode, "airline", lang ? airlineToPrefferedCode(pnr.airline, lang.get()) : pnr.airline);
-  }  
+  }
 }
 
 static void DocToZamarXML(xmlNodePtr resNode, const CheckIn::TPaxDocItem& doc, const boost::optional<AstraLocale::OutputLang>& lang)
@@ -207,7 +207,7 @@ static void BaggageListToZamarXML(xmlNodePtr listNode, const TBagTypeList& list,
 const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode, ZamarType type) const
 {
   if (resNode == nullptr) return *this;
-  
+
   AstraLocale::OutputLang lang("", {AstraLocale::OutputLang::OnlyTrueIataCodes});
   // lang
   SetProp(resNode, "lang", lang.get());
@@ -297,7 +297,7 @@ const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode, Za
 
   // cabinClass -- SBDO
   if (type == ZamarType::SBDO)
-    NewTextChild(resNode, "cabinClass", ElemIdToPrefferedElem(etClass, pax_item.getCompartment(), efmtCodeNative, lang.get()));
+    NewTextChild(resNode, "cabinClass", ElemIdToPrefferedElem(etClass, pax_item.getCabinClass(), efmtCodeNative, lang.get()));
   // bookingClass -- SBDO
   if (type == ZamarType::SBDO)
     NewTextChild(resNode, "bookingClass", ElemIdToPrefferedElem(etSubcls, pax_item.subcl, efmtCodeNative, lang.get()));
@@ -381,7 +381,7 @@ const PassengerSearchResult& PassengerSearchResult::toXML(xmlNodePtr resNode, Za
 
   // baggageTags -- DSM
   if (type == ZamarType::DSM) BagTagsToZamarXML(resNode, bagTagsExtended);
-  
+
   return *this;
 }
 
@@ -396,7 +396,7 @@ void PassengerSearchResult::errorXML(xmlNodePtr resNode, const std::string& cmd,
 }
 
 void ZamarDSMInterface::PassengerSearch(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{ 
+{
   PassengerSearchResult result;
   try
   {

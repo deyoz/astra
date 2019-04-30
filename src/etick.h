@@ -203,7 +203,7 @@ class TETickItem
     TDateTime issue_date;
     std::string surname, name;
     std::string fare_basis;
-    std::string display_subcls;
+    std::string fare_class;
     int bag_norm;
     TBagUnit bag_norm_unit;
     std::string display_error, change_status_error;
@@ -242,7 +242,7 @@ class TETickItem
       surname.clear();
       name.clear();
       fare_basis.clear();
-      display_subcls.clear();
+      fare_class.clear();
       bag_norm=ASTRA::NoExists;
       bag_norm_unit.clear();
       display_error.clear();
@@ -290,6 +290,8 @@ class TETickItem
                        std::list<TETickItem> &eticks);
 
     Ticketing::Ticket makeTicket(const AstraEdifact::TFltParams& fltParams) const;
+    static void syncOriginalSubclass(const TETCoupon& et);
+    static bool syncOriginalSubclass(int pax_id);
 };
 
 void ETDisplayToDB(const Ticketing::EdiPnr &ediPnr);

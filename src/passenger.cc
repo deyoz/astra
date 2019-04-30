@@ -390,7 +390,7 @@ TPaxDocItem& TPaxDocItem::fromXML(xmlNodePtr node)
   if (node==NULL) return *this;
   xmlNodePtr node2=node->children;
   if (node2==NULL) return *this;
-  
+
   TPaxDocCompoundType::fromXML(node);
   issue_country=NodeAsStringFast("issue_country",node2,"");
   no=NodeAsStringFast("no",node2,"");
@@ -1520,6 +1520,18 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
   return *this;
 };
 
+const TComplexClass& TComplexClass::toDB(TQuery &Qry, const std::string& fieldPrefix) const
+{
+  if (Qry.GetVariableIndex(fieldPrefix+"subclass")>=0)
+    Qry.SetVariable(fieldPrefix+"subclass", subcl);
+  if (Qry.GetVariableIndex(fieldPrefix+"class")>=0)
+    Qry.SetVariable(fieldPrefix+"class", cl);
+  if (Qry.GetVariableIndex(fieldPrefix+"class_grp")>=0)
+    cl_grp!=ASTRA::NoExists?Qry.SetVariable(fieldPrefix+"class_grp", cl_grp):
+                            Qry.SetVariable(fieldPrefix+"class_grp", FNull);
+  return *this;
+}
+
 const TPaxItem& TPaxItem::toDB(TQuery &Qry) const
 {
   id!=ASTRA::NoExists?Qry.SetVariable("pax_id", id):
@@ -1550,6 +1562,7 @@ const TPaxItem& TPaxItem::toDB(TQuery &Qry) const
     Qry.SetVariable("reg_no", reg_no);
   if (Qry.GetVariableIndex("subclass")>=0)
     Qry.SetVariable("subclass", subcl);
+  cabin.toDB(Qry, "cabin_");
   if (Qry.GetVariableIndex("bag_pool_num")>=0)
     bag_pool_num!=ASTRA::NoExists?Qry.SetVariable("bag_pool_num", bag_pool_num):
                                   Qry.SetVariable("bag_pool_num", FNull);
@@ -1590,6 +1603,15 @@ ASTRA::TTrickyGender::Enum TSimplePaxItem::getTrickyGender(ASTRA::TPerson pers_t
   return result;
 }
 
+TComplexClass& TComplexClass::fromDB(TQuery &Qry, const std::string& fieldPrefix)
+{
+  clear();
+  subcl=Qry.FieldAsString(fieldPrefix+"subclass");
+  cl=Qry.FieldAsString(fieldPrefix+"class");
+  cl_grp=Qry.FieldIsNULL(fieldPrefix+"class_grp")?ASTRA::NoExists:Qry.FieldAsInteger(fieldPrefix+"class_grp");
+  return *this;
+}
+
 TSimplePaxItem& TSimplePaxItem::fromDB(TQuery &Qry)
 {
   clear();
@@ -1610,6 +1632,7 @@ TSimplePaxItem& TSimplePaxItem::fromDB(TQuery &Qry)
   pr_exam=Qry.FieldAsInteger("pr_exam")!=0;
   reg_no=Qry.FieldAsInteger("reg_no");
   subcl=Qry.FieldAsString("subclass");
+  cabin.fromDB(Qry, "cabin_");
   bag_pool_num=Qry.FieldIsNULL("bag_pool_num")?ASTRA::NoExists:Qry.FieldAsInteger("bag_pool_num");
   tid=Qry.FieldAsInteger("tid");
   tkn.fromDB(Qry);
@@ -1754,20 +1777,23 @@ void TSimplePaxItem::UpdTid(int pax_id)
 }
 
 std::string TSimplePaxItem::checkInStatus() const
-{    
+{
   if (id==ASTRA::NoExists) return "unknown";
   if (!refuse.empty()) return "refused";
   if (pr_brd) return "boarded";
   if (grp_id!=ASTRA::NoExists) return "checked";
-  return "not_checked";  
+  return "not_checked";
 }
 
-bool TSimplePaxItem::setCrsCompartment()
+TComplexClass TSimplePaxItem::getCrsClass(bool onlyIfClassChange) const
 {
-  if (id==ASTRA::NoExists) return false;
+  TComplexClass result;
+
+  if (id==ASTRA::NoExists) return result;
 
   TCachedQuery Qry(
-    "SELECT crs_pnr.class "
+    "SELECT NVL(crs_pax.etick_class, NVL(crs_pax.orig_class, crs_pnr.class)) AS orig_class, "
+    "       crs_pnr.subclass, crs_pnr.class "
     "FROM crs_pnr, crs_pax "
     "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
     "      crs_pnr.system='CRS' AND "
@@ -1776,20 +1802,65 @@ bool TSimplePaxItem::setCrsCompartment()
     QParams() << QParam("pax_id", otInteger, id));
   Qry.get().Execute();
   if (!Qry.get().Eof)
-    compartment=Qry.get().FieldAsString("class");
-
-  return !Qry.get().Eof;
+  {
+    std::string currentClass=Qry.get().FieldAsString("class");
+    std::string originalClass=Qry.get().FieldAsString("orig_class");
+    if (!onlyIfClassChange || currentClass!=originalClass)
+    {
+      result.subcl=Qry.get().FieldAsString("subclass");
+      result.cl=currentClass;
+    }
+  }
+  return result;
 }
 
-const std::string TSimplePaxItem::getCompartment() const
+std::string TSimplePaxItem::getCabinClass() const
 {
-  if (compartment.empty() && grp_id!=ASTRA::NoExists)
+  if (cabin.cl.empty() && grp_id!=ASTRA::NoExists)
   {
     TSimplePaxGrpItem grp;
     if (grp.getByGrpId(grp_id)) return grp.cl;
   }
 
-  return compartment;
+  return cabin.cl;
+}
+
+std::string TSimplePaxItem::getSeatNo(const std::string& fmt) const
+{
+  if (id==ASTRA::NoExists) return "";
+  TCachedQuery Qry(
+    "SELECT salons.get_seat_no(:pax_id, :seats, :is_jmp, pax_grp.status, pax_grp.point_dep, :fmt, rownum) seat_no "
+    "FROM pax_grp WHERE grp_id=:grp_id",
+    QParams() << QParam("pax_id", otInteger, id)
+              << QParam("grp_id", otInteger, grp_id)
+              << QParam("seats", otInteger, seats)
+              << QParam("is_jmp", otInteger, (int)is_jmp)
+              << QParam("fmt", otString, fmt));
+  Qry.get().Execute();
+  if (!Qry.get().Eof)
+    return Qry.get().FieldAsString("seat_no");
+  return "";
+}
+
+bool TSimplePaxItem::cabinClassToDB() const
+{
+  if (id==ASTRA::NoExists) return false;
+
+  TCachedQuery Qry("UPDATE pax "
+                   "SET cabin_subclass=:cabin_subclass, "
+                   "    cabin_class=:cabin_class, "
+                   "    cabin_class_grp=:cabin_class_grp, "
+                   "    tid=cycle_tid__seq.nextval "
+                   "WHERE pax_id=:pax_id AND tid=:tid",
+                   QParams() << QParam("pax_id", otInteger, id)
+                             << QParam("tid", otInteger, tid)
+                             << QParam("cabin_subclass", otString)
+                             << QParam("cabin_class", otString)
+                             << QParam("cabin_class_grp", otInteger));
+  cabin.toDB(Qry.get(), "cabin_");
+  Qry.get().Execute();
+
+  return Qry.get().RowsProcessed()>0;
 }
 
 bool TSimplePaxItem::getBaggageInHoldTotals(TBagTotals& totals) const
@@ -2239,6 +2310,11 @@ bool TSimplePaxGrpItem::getByGrpId(int grp_id)
   return true;
 }
 
+ASTRA::TCompLayerType TSimplePaxGrpItem::getCheckInLayerType() const
+{
+  return DecodeCompLayerType(getBaseTable(etGrpStatusType).get_row("code", EncodePaxStatus(status)).AsString("layer_type").c_str());
+}
+
 bool TSimplePnrItem::getByPaxId(int pax_id)
 {
   clear();
@@ -2250,7 +2326,7 @@ bool TSimplePnrItem::getByPaxId(int pax_id)
   return true;
 }
 
-TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
+TPaxGrpItem& TPaxGrpItem::fromDBWithBagConcepts(TQuery &Qry)
 {
   clear();
   TSimplePaxGrpItem::fromDB(Qry);
@@ -2835,8 +2911,26 @@ void TPnrAddrInfo::addSQLParamsForSearch(QParams& params) const
          << QParam("addr_lat", otString, addr_lat);
 }
 
-const TPnrAddrs& TPnrAddrs::toXML(xmlNodePtr addrsParentNode,
-                                  const boost::optional<AstraLocale::OutputLang>& lang) const
+const TPnrAddrs& TPnrAddrs::toXML(xmlNodePtr addrsParentNode) const
+{
+  if (addrsParentNode==nullptr) return *this;
+
+  if (!empty())
+  {
+    if (size()==1)
+      front().toXML(addrsParentNode, boost::none);
+    else
+    {
+      xmlNodePtr addrsNode=NewTextChild(addrsParentNode, "pnr_addrs");
+      for(const TPnrAddrInfo& addr : *this) addr.toXML(addrsNode, boost::none);
+    }
+  }
+
+  return *this;
+}
+
+const TPnrAddrs& TPnrAddrs::toWebXML(xmlNodePtr addrsParentNode,
+                                     const boost::optional<AstraLocale::OutputLang>& lang) const
 {
   if (addrsParentNode==nullptr) return *this;
 

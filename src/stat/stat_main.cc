@@ -1460,6 +1460,7 @@ void PaxListToXML(TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList& ex
   int col_pr_brd = Qry.FieldIndex("pr_brd");
   int col_refuse = Qry.FieldIndex("refuse");
   int col_class_grp = Qry.FieldIndex("class_grp");
+  int col_cabin_class_grp = Qry.FieldIndex("cabin_class_grp");
   int col_seat_no = Qry.FieldIndex("seat_no");
   int col_ticket_no = Qry.FieldIndex("ticket_no");
   int col_hall = Qry.FieldIndex("hall");
@@ -1531,7 +1532,8 @@ void PaxListToXML(TQuery &Qry, xmlNodePtr resNode, TComplexBagExcessNodeList& ex
           status+= getLocaleText("MSG.CANCEL_REG.REFUSAL",
                    LParams() << LParam("refusal", ElemIdToCodeNative(etRefusalType, Qry.FieldAsString(col_refuse))));
       NewTextChild(paxNode, "status", status);
-      NewTextChild(paxNode, "class", ElemIdToCodeNative(etClsGrp, Qry.FieldAsInteger(col_class_grp)));
+      NewTextChild(paxNode, "class", clsGrpIdsToCodeNative(Qry.FieldAsInteger(col_class_grp),
+                                                           Qry.FieldAsInteger(col_cabin_class_grp)));
       NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
       NewTextChild(paxNode, "document", CheckIn::GetPaxDocStr(part_key,
                                                               Qry.FieldAsInteger(col_pax_id),
@@ -1593,6 +1595,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   pax.refuse, "
                 "   pax.pr_brd, "
                 "   pax_grp.class_grp, "
+                "   NVL(pax.cabin_class_grp, pax_grp.class_grp) AS cabin_class_grp, "
                 "   salons.get_seat_no(pax.pax_id, pax.seats, pax.is_jmp, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
                 "   pax_grp.hall, "
                 "   pax.ticket_no, "
@@ -1633,6 +1636,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   arx_pax.refuse, "
                 "   arx_pax.pr_brd, "
                 "   arx_pax_grp.class_grp, "
+                "   NVL(arx_pax.cabin_class_grp, arx_pax_grp.class_grp) AS cabin_class_grp, "
                 "   LPAD(seat_no,3,'0')|| "
                 "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
                 "   arx_pax_grp.hall, "
@@ -8551,6 +8555,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                " pax.pr_brd, \n"
                " pax.refuse, \n"
                " pax_grp.class_grp, \n"
+               " NVL(pax.cabin_class_grp, pax_grp.class_grp) AS cabin_class_grp, \n"
                " pax_grp.hall, \n"
                " pax.ticket_no, \n"
                " pax.pax_id, \n"

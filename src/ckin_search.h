@@ -48,6 +48,7 @@ namespace CheckIn
 class Search
 {
   private:
+    std::list<PaxOrigin> originList;
     boost::optional<int> timeout;
 
     boost::posix_time::ptime startTime;
@@ -92,7 +93,10 @@ class Search
 
   public:
     Search(const boost::optional<int>& _timeout=boost::none) :
-      timeout(_timeout), incomplete(false) {}
+      originList({ paxCheckIn, paxPnl }), timeout(_timeout), incomplete(false) {}
+    Search(const PaxOrigin& _origin,
+           const boost::optional<int>& _timeout=boost::none) :
+      originList(1, _origin), timeout(_timeout), incomplete(false) {}
 
     template <class ... Criterions>
     void operator () (CheckIn::TSimplePaxList& paxs, const Criterions& ... criterions)

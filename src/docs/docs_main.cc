@@ -263,7 +263,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         "    pax.pax_id, "
         "    pax_grp.grp_id, "
         "    pax_grp.airp_arv, "
-        "    pax_grp.class, "
+        "    nvl(pax.cabin_class, pax_grp.class) class, "
         "    pax_grp.status, "
         "    bag2.bag_type, "
         "    bag2.rfisc, "
@@ -343,7 +343,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         string class_code = Qry.FieldAsString("class");
         bag_tag_row.rfisc = Qry.FieldAsString("rfisc");
         bag_names.get(class_code, bag_tag_row, rpt_params);
-        if(Qry.FieldIsNULL("class")) {
+        if(class_code.empty()) {
             if((string)Qry.FieldAsString("status") == "E") {
                 bag_tag_row.class_priority = 50;
                 bag_tag_row.class_code = "1";

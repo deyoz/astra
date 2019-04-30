@@ -673,7 +673,7 @@ std::pair<int, bool> TFltInfo::getPointId(TBindType bind_type) const
   if (Qry.VariableIsNULL("inserted"))
     throw Exception("%s: inserted IS NULL!", __FUNCTION__);
   int point_id=Qry.GetVariableAsInteger("point_id");
-  int inserted=Qry.GetVariableAsInteger("inserted")!=0;
+  bool inserted=Qry.GetVariableAsInteger("inserted")!=0;
 
   if (inserted)
     LogTrace(TRACE5) << __FUNCTION__ << ": point_id=" << point_id << " inserted";

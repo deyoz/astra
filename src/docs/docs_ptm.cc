@@ -411,7 +411,7 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
             "    transfer.airp_arv trfer_airp_arv, \n"
             "    trfer_trips.scd trfer_scd, \n";
     SQLText +=
-        "   pax_grp.class_grp, \n"
+        "   nvl(pax.cabin_class_grp, pax_grp.class_grp) class_grp, \n"
         "   DECODE(pax_grp.status, 'T', pax_grp.status, 'N') status, \n"
         "   NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS rk_weight, \n"
         "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num),0) AS bag_amount, \n"
@@ -449,7 +449,7 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
 
     if(not rpt_params.cls.empty()) {
         SQLText +=
-            "   pax_grp.class = :cls and \n";
+            "   nvl(pax.cabin_class, pax_grp.class) = :cls and \n";
         Qry.CreateVariable("cls", otString, rpt_params.cls);
     }
 
@@ -483,7 +483,6 @@ void REPORTS::PTM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode
     REPORTS::TPMPaxList pax_list(rpt_params);
     pax_list.fromDB(Qry);
     pax_list.sort(REPORTS::pax_compare);
-    pax_list.trace(TRACE5);
     PaxListToXML(pax_list, dataSetsNode, rpt_params);
 
     // Теперь переменные отчета

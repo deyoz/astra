@@ -456,7 +456,8 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
   Qry.Clear();
   Qry.SQLText=
     "SELECT "
-    "       pax_grp.point_dep, pax_grp.airp_arv, pax_grp.class, pax_grp.status, "
+    "       pax_grp.point_dep, pax_grp.airp_arv, "
+    "       pax_grp.class AS orig_class, NVL(pax.cabin_class, pax_grp.class) AS cabin_class, pax_grp.status, "
     "       pax_grp.pr_mark_norms, pax_grp.bag_refuse, "
     "       pax.pax_id, pax.reg_no, "
     "       pax.surname, pax.name, pax.pers_type, pax.refuse, pax.subclass, pax.is_female, pax.seats, "
@@ -488,7 +489,8 @@ void GetGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
       TPaxToLogInfo &paxInfo=grpInfo.pax[paxInfoKey];
       paxInfo.clear();
       paxInfo.airp_arv=Qry.FieldAsString("airp_arv");
-      paxInfo.cl=Qry.FieldAsString("class");
+      paxInfo.orig_cl=Qry.FieldAsString("orig_class");
+      paxInfo.cabin_cl=Qry.FieldAsString("cabin_class");
       paxInfo.status=Qry.FieldAsString("status");
       paxInfo.pr_mark_norms=Qry.FieldAsInteger("pr_mark_norms")!=0;
 
@@ -820,7 +822,7 @@ void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
     if (aPax!=grpInfoAfter.pax.end())
     {
       bool is_crew=aPax->second.status==EncodePaxStatus(psCrew);
-      bool is_unaccomp=aPax->second.cl.empty() && !is_crew;
+      bool is_unaccomp=aPax->second.orig_cl.empty() && !is_crew;
       if (aPax->second.refuse.empty())
       {
         //пассажир не разрегистрирован
@@ -898,7 +900,7 @@ void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
               params << PrmSmpl<string>("board", "");
             if (!is_crew) {
               PrmLexema lexema("params" ,"EVT.CLASS_STATUS_SEAT_NO");
-              lexema.prms << PrmElem<string>("cls", etClass, aPax->second.cl)
+              lexema.prms << PrmElem<string>("cls", etClass, aPax->second.cabin_cl )
                           << PrmElem<string>("status", etGrpStatusType, aPax->second.status, efmtNameLong);
               if (!aPax->second.seat_no.empty())
                 lexema.prms << PrmSmpl<string>("seat_no", aPax->second.seat_no);

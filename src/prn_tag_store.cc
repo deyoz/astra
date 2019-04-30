@@ -360,8 +360,8 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::CHD,                     TTagListItem(&TPrnTagStore::CHD, PAX_INFO)));
     tag_list.insert(make_pair(TAG::CITY_ARV_NAME,           TTagListItem(&TPrnTagStore::CITY_ARV_NAME)));
     tag_list.insert(make_pair(TAG::CITY_DEP_NAME,           TTagListItem(&TPrnTagStore::CITY_DEP_NAME)));
-    tag_list.insert(make_pair(TAG::CLASS,                   TTagListItem(&TPrnTagStore::CLASS)));
-    tag_list.insert(make_pair(TAG::CLASS_NAME,              TTagListItem(&TPrnTagStore::CLASS_NAME)));
+    tag_list.insert(make_pair(TAG::CLASS,                   TTagListItem(&TPrnTagStore::CLASS, PAX_INFO)));
+    tag_list.insert(make_pair(TAG::CLASS_NAME,              TTagListItem(&TPrnTagStore::CLASS_NAME, PAX_INFO)));
     tag_list.insert(make_pair(TAG::DESK,                    TTagListItem(&TPrnTagStore::DESK)));
     tag_list.insert(make_pair(TAG::DOCUMENT,                TTagListItem(&TPrnTagStore::DOCUMENT, PAX_INFO)));
     tag_list.insert(make_pair(TAG::DUPLICATE,               TTagListItem(&TPrnTagStore::DUPLICATE, PAX_INFO)));
@@ -1037,7 +1037,7 @@ void TPrnTagStore::TBrdInfo::Init(int point_id)
     }
 }
 
-void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLang &tag_lang)
+void TPrnTagStore::TPaxInfo::Init(TGrpInfo &grp_info, int apax_id, TTagLang &tag_lang)
 {
     if(apax_id == NoExists) {
         LogTrace(TRACE3) << "Fake pax_id detected!";
@@ -1074,13 +1074,17 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
                 "   ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
                 "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,:lang) AS tags, "
                 "   pax.subclass, "
+                "   nvl(pax.cabin_class, pax_grp.class) cabin_class, "
+                "   nvl(pax.cabin_class_grp, pax_grp.class_grp) cabin_class_grp, "
                 "   crs_pnr.class crs_cls "
                 "from "
+                "   pax_grp, "
                 "   pax, "
                 "   crs_pax, "
                 "   crs_pnr "
                 "where "
                 "   pax.pax_id = :pax_id and "
+                "   pax.grp_id = pax_grp.grp_id and "
                 "   pax.pax_id = crs_pax.pax_id(+) and "
                 "   crs_pax.pr_del(+) = 0 and "
                 "   crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
@@ -1111,12 +1115,18 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
                 "   0 AS excess_wt, "
                 "   0 AS excess_pc, "
                 "   NULL AS tags, "
-                "   null subclass, "
+                "   test_pax.subclass, "
+                "   subcls.class cabin_class, "
+                "   cls_grp.id cabin_class_grp, "
                 "   null crs_cls "
                 "FROM "
-                "   test_pax "
+                "   test_pax, "
+                "   subcls, cls_grp "
                 "WHERE "
-                "   id = :pax_id ";
+                "   subcls.class=cls_grp.class AND "
+                "   cls_grp.airline IS NULL AND cls_grp.airp IS NULL AND "
+                "   test_pax.id = :pax_id ";
+
             Qry.CreateVariable("adult", otString, EncodePerson(adult));
             pr_bp_print = false;
             pr_bi_print = false;
@@ -1152,6 +1162,9 @@ void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLan
         tags = Qry.FieldAsString("tags");
         subcls = Qry.FieldAsString("subclass");
         crs_cls = Qry.FieldAsString("crs_cls");
+        cls = Qry.FieldAsString("cabin_class");
+        if(not Qry.FieldIsNULL("cabin_class_grp"))
+            class_grp = Qry.FieldAsInteger("cabin_class_grp");
 
         /*
            TETickItem ETickItem;
@@ -1193,8 +1206,6 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
                 "   point_arv, "
                 "   airp_dep, "
                 "   airp_arv, "
-                "   class_grp, "
-                "   class, "
                 "   hall "
                 "from "
                 "   pax_grp "
@@ -1208,9 +1219,6 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
             airp_arv = Qry.FieldAsString("airp_arv");
             point_dep = Qry.FieldAsInteger("point_dep");
             point_arv = Qry.FieldAsInteger("point_arv");
-            if(not Qry.FieldIsNULL("class_grp"))
-                class_grp = Qry.FieldAsInteger("class_grp");
-            cls = Qry.FieldAsString("class");
             if(not Qry.FieldIsNULL("hall"))
                 hall = Qry.FieldAsInteger("hall");
 
@@ -1237,22 +1245,6 @@ void TPrnTagStore::TGrpInfo::Init(int agrp_id, int apax_id)
             point_arv = next.point_id;
             airp_arv = next.airp;
 
-            Qry.Clear();
-            Qry.SQLText =
-                "SELECT cls_grp.id AS class_grp "
-                "FROM test_pax, subcls, cls_grp "
-                "WHERE test_pax.subclass=subcls.code AND "
-                "      subcls.class=cls_grp.class AND "
-                "      cls_grp.airline IS NULL AND cls_grp.airp IS NULL AND "
-                "      test_pax.id=:pax_id";
-            if(apax_id == NoExists) {
-                LogError(STDLOG) << "pax_id is not initialized but used!";
-            }
-            Qry.CreateVariable("pax_id", otInteger, apax_id);
-            Qry.Execute();
-            if(Qry.Eof)
-                throw Exception("TPrnTagStore::TGrpInfo::Init no data found for grp_id = %d", grp_id);
-            class_grp = Qry.FieldAsInteger("class_grp");
         };
     }
 }
@@ -1469,11 +1461,13 @@ string TBCBPData::toString(const TTagLang &tag_lang)
     _scd.trace(__FUNCTION__);
     // Date of flight(Julian Date)
     result << right << setw(3) << setfill('0') << _scd.getJulianDate();
+
     // Compartment Code
     if(class_grp != NoExists)
         result << tag_lang.ElemIdToTagElem(etClsGrp, class_grp, efmtCodeNative);
     else
         result << tag_lang.ElemIdToTagElem(etClass, cls, efmtCodeNative);
+
     // Seat Number
     result << setw(4) << right << seat_no;
     // Check-In Sequence Number
@@ -1618,7 +1612,8 @@ string TPrnTagStore::BCBP_M_2(TFieldParams fp)
             bcbp_data.flt_no = pointInfo.operFlt.flt_no;
             bcbp_data.suffix = pointInfo.operFlt.suffix;
             bcbp_data.scd = UTCToLocal(pointInfo.operFlt.scd_out, AirpTZRegion(grpInfo.airp_dep));
-            bcbp_data.class_grp = grpInfo.class_grp;
+            bcbp_data.cls = paxInfo.cls;
+            bcbp_data.class_grp = paxInfo.class_grp;
             bcbp_data.seat_no = ONE_SEAT_NO(fp);
             bcbp_data.reg_no = paxInfo.reg_no;
             bcbp_data.pers_type = paxInfo.pers_type;
@@ -2045,8 +2040,8 @@ string TPrnTagStore::CLASS(TFieldParams fp)
             return cl;
         } else {
             string result;
-            if(grpInfo.class_grp != NoExists)
-                result = tag_lang.ElemIdToTagElem(etClsGrp, grpInfo.class_grp, efmtCodeNative);
+            if(paxInfo.class_grp != NoExists)
+                result = tag_lang.ElemIdToTagElem(etClsGrp, paxInfo.class_grp, efmtCodeNative);
             return result;
         }
     }
@@ -2069,8 +2064,8 @@ string TPrnTagStore::CLASS_NAME(TFieldParams fp)
         return cl;
     } else {
         string result;
-        if(grpInfo.class_grp != NoExists)
-            result = tag_lang.ElemIdToTagElem(etClsGrp, grpInfo.class_grp, efmtNameLong);
+        if(paxInfo.class_grp != NoExists)
+            result = tag_lang.ElemIdToTagElem(etClsGrp, paxInfo.class_grp, efmtNameLong);
         return result;
     }
 }

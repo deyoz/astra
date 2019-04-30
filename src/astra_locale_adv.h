@@ -314,11 +314,11 @@ class UserException:public EXCEPTIONS::Exception
           data.lparams = lparams;
         return data;
     }
-    void getAdvParams(std::string &lexema, LEvntPrms &aparams)
+    void getAdvParams(std::string &lexema, LEvntPrms &aparams) const
     {
         lexema = lexema_id;
         if (!useAdvParams) {
-          for(std::map<std::string, boost::any>::iterator iter = lparams.begin(); iter != lparams.end(); iter++) {
+          for(std::map<std::string, boost::any>::const_iterator iter = lparams.begin(); iter != lparams.end(); iter++) {
             if (boost::any_cast<std::string>(&(iter->second)))
               aparams << PrmSmpl<std::string>(iter->first, boost::any_cast<std::string>(iter->second));
             else if (boost::any_cast<int>(&(iter->second)))

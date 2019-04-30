@@ -11,6 +11,7 @@
 #include "apps_interaction.h"
 #include "counters.h"
 #include "stat/stat_fv.h"
+#include "checkin_utils.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -95,6 +96,7 @@ TTripTasks::TTripTasks()
     TSyncTlgOutMng::Instance()->add_tasks(items);
     items.insert(make_pair(COLLECT_STAT, collectStatTask));
     items.insert(make_pair(SEND_TYPEB_ON_TAKEOFF, sendTypeBOnTakeoffTask));
+    items.insert(make_pair(AlarmTypes().encode(Alarm::SyncCabinClass), CheckIn::syncCabinClass));
 }
 
 TTripTasks *TTripTasks::Instance()

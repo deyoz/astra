@@ -3194,9 +3194,6 @@ PROCEDURE modify_airline_offices(vid           airline_offices.id%TYPE,
                                  vstation      history_events.open_desk%TYPE)
 IS
 i BINARY_INTEGER;
---c CHAR(1);
---info	 adm.TCacheInfo;
---lparams  system.TLexemeParams;
 vidh     airline_offices.id%TYPE;
 BEGIN
   IF vairp IS NOT NULL THEN

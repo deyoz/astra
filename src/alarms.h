@@ -6,6 +6,7 @@
 #include "astra_misc.h"
 #include "transfer.h"
 #include "trip_tasks.h"
+#include "passenger.h"
 #include "serverlib/posthooks.h"
 
 class Alarm
@@ -37,42 +38,47 @@ class Alarm
       APPSNegativeDirective,
       APPSError,
       WBDifferLayout,
-      WBDifferSeats
+      WBDifferSeats,
+//ниже перечислены не настоящие тревоги, а флаги о необходимости что-то сделать с пассажиром
+//относятся только к тревогам пассажиров, а не рейсов
+      SyncEmds,
+      SyncCabinClass
     };
 
     typedef std::list< std::pair<Enum, std::string> > TPairs;
 
     static const TPairs& pairs()
     {
-      static TPairs l;
-      if (l.empty())
-      {
-        l.push_back(std::make_pair(Salon,                  "SALON"                    ));
-        l.push_back(std::make_pair(Waitlist,               "WAITLIST"                 ));
-        l.push_back(std::make_pair(Brd,                    "BRD"                      ));
-        l.push_back(std::make_pair(Overload,               "OVERLOAD"                 ));
-        l.push_back(std::make_pair(ETStatus,               "ET_STATUS"                ));
-        l.push_back(std::make_pair(DiffComps,              "DIFF_COMPS"               ));
-        l.push_back(std::make_pair(SpecService,            "SPEC_SERVICE"             ));
-        l.push_back(std::make_pair(TlgIn,                  "TLG_IN"                   ));
-        l.push_back(std::make_pair(TlgOut,                 "TLG_OUT"                  ));
-        l.push_back(std::make_pair(UnattachedTrfer,        "UNATTACHED_TRFER"         ));
-        l.push_back(std::make_pair(ConflictTrfer,          "CONFLICT_TRFER"           ));
-        l.push_back(std::make_pair(CrewCheckin,            "CREW_CHECKIN"             ));
-        l.push_back(std::make_pair(CrewNumber,             "CREW_NUMBER"              ));
-        l.push_back(std::make_pair(CrewDiff,               "CREW_DIFF"                ));
-        l.push_back(std::make_pair(APISDiffersFromBooking, "APIS_DIFFERS_FROM_BOOKING"));
-        l.push_back(std::make_pair(APISIncomplete,         "APIS_INCOMPLETE"          ));
-        l.push_back(std::make_pair(APISManualInput,        "APIS_MANUAL_INPUT"        ));
-        l.push_back(std::make_pair(UnboundEMD,             "UNBOUND_EMD"              ));
-        l.push_back(std::make_pair(APPSProblem,            "APPS_PROBLEM"             ));
-        l.push_back(std::make_pair(APPSOutage,             "APPS_OUTAGE"              ));
-        l.push_back(std::make_pair(APPSConflict,           "APPS_CONFLICT"            ));
-        l.push_back(std::make_pair(APPSNegativeDirective,  "APPS_NEGATIVE_DIRECTIVE"  ));
-        l.push_back(std::make_pair(APPSError,              "APPS_ERROR"               ));
-        l.push_back(std::make_pair(WBDifferLayout,         "WB_DIFF_LAYOUT"           ));
-        l.push_back(std::make_pair(WBDifferSeats,          "WB_DIFF_SEATS"            ));
-      }
+      static TPairs l=
+       {
+        {Salon,                  "SALON"                    },
+        {Waitlist,               "WAITLIST"                 },
+        {Brd,                    "BRD"                      },
+        {Overload,               "OVERLOAD"                 },
+        {ETStatus,               "ET_STATUS"                },
+        {DiffComps,              "DIFF_COMPS"               },
+        {SpecService,            "SPEC_SERVICE"             },
+        {TlgIn,                  "TLG_IN"                   },
+        {TlgOut,                 "TLG_OUT"                  },
+        {UnattachedTrfer,        "UNATTACHED_TRFER"         },
+        {ConflictTrfer,          "CONFLICT_TRFER"           },
+        {CrewCheckin,            "CREW_CHECKIN"             },
+        {CrewNumber,             "CREW_NUMBER"              },
+        {CrewDiff,               "CREW_DIFF"                },
+        {APISDiffersFromBooking, "APIS_DIFFERS_FROM_BOOKING"},
+        {APISIncomplete,         "APIS_INCOMPLETE"          },
+        {APISManualInput,        "APIS_MANUAL_INPUT"        },
+        {UnboundEMD,             "UNBOUND_EMD"              },
+        {APPSProblem,            "APPS_PROBLEM"             },
+        {APPSOutage,             "APPS_OUTAGE"              },
+        {APPSConflict,           "APPS_CONFLICT"            },
+        {APPSNegativeDirective,  "APPS_NEGATIVE_DIRECTIVE"  },
+        {APPSError,              "APPS_ERROR"               },
+        {WBDifferLayout,         "WB_DIFF_LAYOUT"           },
+        {WBDifferSeats,          "WB_DIFF_SEATS"            },
+        {SyncEmds,               "SYNC_EMDS"                },
+        {SyncCabinClass,         "SYNC_CABIN_CLASS"         },
+       };
       return l;
     }
 };
@@ -189,6 +195,13 @@ class TPaxAlarmHook : public TSomeonesAlarmHook<TPaxAlarm>
   public:
     static void set(Alarm::Enum _type, const int& _id);
 };
+
+void addAlarmByPaxId(const int paxId, const Alarm::Enum alarmType, const PaxOrigin paxOrigin);
+void deleteAlarmByPaxId(const int paxId, const Alarm::Enum alarmType, const PaxOrigin paxOrigin);
+void deleteAlarmByGrpId(const int grpId, const Alarm::Enum alarmType);
+bool existsAlarmByPaxId(const int paxId, const Alarm::Enum alarmType, const PaxOrigin paxOrigin);
+bool existsAlarmByGrpId(const int grpId, const Alarm::Enum alarmType);
+void getAlarmByPointId(const int pointId, const Alarm::Enum alarmType, std::set<int>& paxIds);
 
 #endif
 

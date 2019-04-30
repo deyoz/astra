@@ -3120,9 +3120,9 @@ void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passG
       ostringstream grp_variant;
       std::vector<std::string> vrems;
       pass.get_remarks( vrems );
-      //grp_variant << pass.clname << separatelyRem( separately_seat_adult_with_baby?"INFT":"", vrems, pass.index );
-      grp_variant << separatelyRem( separately_seat_adult_with_baby?"INFT":"", vrems, pass.index );
-      grp_variant << separatelyRem( separately_seat_chin_emergency?"CHIN":"", vrems, pass.index );
+      grp_variant << pass.clname
+                  << separatelyRem( separately_seat_adult_with_baby?"INFT":"", vrems, pass.index )
+                  << separatelyRem( separately_seat_chin_emergency?"CHIN":"", vrems, pass.index );
       //дети и оплата
       grp_variant << pr_pay << (ignoreINFT || pass.isRemark( "INFT" ));
       //тариф
@@ -3995,7 +3995,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p )
     "       pax.reg_no, "
     "       surname, "
     "       pax.name, "
-    "       pax_grp.class, "
+    "       NVL(pax.cabin_class, pax_grp.class) AS class, "
     "       cls_grp.code subclass, "
     "       pax.seats, "
     "       pax.is_jmp, "
@@ -4015,7 +4015,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p )
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax_grp.point_dep=:point_id AND "
     "      pax_grp.status NOT IN ('E') AND "
-    "      pax_grp.class_grp = cls_grp.id AND "
+    "      NVL(pax.cabin_class_grp, pax_grp.class_grp) = cls_grp.id AND "
     "      pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND "
     "      pax.pr_brd IS NOT NULL AND "
     "      pax.seats > 0 ";
@@ -4330,11 +4330,11 @@ void SyncPRSA( const string &airline_oper,
 
 #warning 6 ChangeLayer: передавать TSalonList, чтобы не делать очередную начитку + определение приоритета слоя (layer_type,time_create,point_dep, point_arv)
 bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
-                  string first_xname, string first_yname, TSeatsType seat_type, TChangeLayerProcFlag seatFlag,
-                  bool waitlist /*признак того, что пересадка идет с ЛО*/  )
+                  string first_xname, string first_yname, TSeatsType seat_type,
+                  const BitSet<TChangeLayerProcFlag> &procFlags )
 {
   bool changedOrNotPay = true;
-  if ( seatFlag != clNotPaySeat &&
+  if ( procFlags.isFlag( procPaySeatSet ) &&
        ( seat_type != stSeat || ( layer_type != cltProtBeforePay && layer_type != cltProtAfterPay && layer_type != cltProtSelfCkin ) ) ) {
     tst();
     throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
@@ -4367,7 +4367,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
       Qry.SQLText =
        "SELECT surname, name, reg_no, pax.grp_id, pax.seats, pax.is_jmp, a.step step, pax.tid, '' airp_arv, point_dep, point_arv, "
        "       0 point_id, salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,:point_dep,'list',rownum) AS seat_no, "
-       "       class, pers_type "
+       "       NVL(pax.cabin_class, pax_grp.class) AS class, pers_type "
        " FROM pax, pax_grp, "
        "( SELECT COUNT(*) step FROM pax_rem "
        "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
@@ -4389,8 +4389,8 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
         " WHERE crs_pax.pax_id=:pax_id AND crs_pax.pr_del=0 AND "
         "       crs_pax.pnr_id=crs_pnr.pnr_id";
         if ( layer_type == cltProtCkin || layer_type == cltProtSelfCkin ||
-             (seatFlag == clNotPaySeat && ( layer_type == cltPNLAfterPay || layer_type == cltProtAfterPay )) ||
-             seatFlag != clNotPaySeat ) {
+             ( !procFlags.isFlag( procPaySeatSet ) && ( layer_type == cltPNLAfterPay || layer_type == cltProtAfterPay )) ||
+             procFlags.isFlag( procPaySeatSet ) ) {
           break;
         }
     default:
@@ -4457,7 +4457,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
     }
   }
   TSeatRanges seatRanges;
-  vector<pair<TSeatRange,TRFISC> > tariffs;
+  vector<pair<TSeatRange,TRFISC> > logSeats;
   TSeatRange r;
   vector<TPlaceList*>::const_iterator isalonList;
   SALONS2::TPoint coord;
@@ -4492,7 +4492,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
     QrySeatRules.DeclareVariable( "old_layer", otString );
   // считываем слои по новому месту и делаем проверку на то, что этот слой уже занят другим пассажиром
     seatRanges.clear();
-    tariffs.clear();
+    logSeats.clear();
     strcpy( r.first.line, first_xname.c_str() );
     strcpy( r.first.row, first_yname.c_str() );
     r.second = r.first;
@@ -4625,7 +4625,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
         }
         if ( ilayers->second.begin()->getPaxId() == pax_id &&
              ilayers->second.begin()->layer_type == layer_type ) {
-          if ( seatFlag == clNotPaySeat ) {
+          if ( !procFlags.isFlag( procPaySeatSet ) ) {
             throw UserException( "MSG.SEATS.SEAT_NO.PASSENGER_OWNER" );
           }
           else {
@@ -4669,8 +4669,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
       strcpy( r.first.row, seat->yname.c_str() );
       r.second = r.first;
       seatRanges.push_back( r );
-      //!!!tariffs.push_back( make_pair(r, seat->SeatTariff ) );
-      tariffs.push_back( make_pair(r, rfisc ) );
+      logSeats.push_back( make_pair(r, rfisc ) );
       if ( pr_down )
         coord.y++;
       else
@@ -4678,14 +4677,14 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
     }
     bool pr_INFT = ( TReqInfo::Instance()->client_type != ctTerm &&
                      TReqInfo::Instance()->client_type != ctPNL &&
-                     seatFlag == clNotPaySeat && // разметка платным слоем через
+                     !procFlags.isFlag( procPaySeatSet ) && // разметка платным слоем через
                      AllowedAttrsSeat.isWorkINFT( point_id ) &&
                      isINFT( point_id, pax_id ) );
     if ( pr_INFT && !AllowedAttrsSeat.passSeats( pers_type, pr_INFT, verifyPlaces ) ) { //web-пересадка INFT запрещена
       tst();
       throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
     }
-    if ( seatFlag != clNotPaySeat &&
+    if ( procFlags.isFlag( procPaySeatSet ) &&
          ( seatLayer.layer_type == cltProtBeforePay || seatLayer.layer_type == cltProtAfterPay ) &&
          !seats.empty() ) { // были платные места - не должны измениться!!!
       ProgTrace( TRACE5, "seats.size()=%zu, nseats.size()=%zu", seats.size(), nseats.size() );
@@ -4696,7 +4695,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
         throw  UserException( "MSG.SEATS.SEAT_NO.NOT_COINCIDE_WITH_PREPAID" );
       }
       changedOrNotPay = false;
-      if ( !( seatFlag == clPaySeatSet &&
+      if ( !( procFlags.isFlag( procPaySeatSet ) &&
              ( TReqInfo::Instance()->client_type == ctWeb ||
                TReqInfo::Instance()->client_type == ctMobile ) ) ) {
         return changedOrNotPay;
@@ -4705,14 +4704,9 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
     tst();
   }
 
-  if ( seatFlag == clPaySeatCheck ) {
-    tst();
-    return changedOrNotPay;
-  }
-
   std::set<TCompLayerType> checkinLayers { cltGoShow, cltTranzit, cltCheckin, cltTCheckin };
   if (
-       !waitlist && //  не ругаемся, если пересадка идет с ЛО
+       !procFlags.isFlag( procWaitList ) && //  не ругаемся, если пересадка идет с ЛО
        seat_type == stReseat && //пересадка
        checkinLayers.find( layer_type ) != checkinLayers.end() // уже зарегистрированного
      ) {
@@ -4819,10 +4813,17 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
   TReqInfo *reqinfo = TReqInfo::Instance();
   PrmEnum seatPrmEnum("seat", "");
 
-  for ( vector<pair<TSeatRange,TRFISC> >::iterator it=tariffs.begin(); it!=tariffs.end(); it++ ) {
-    if (it!=tariffs.begin())
-      seatPrmEnum.prms << PrmSmpl<string>("", " ");
+  if ( seat_type == stDropseat ) { //в переменной seats список старых мест, без учета тарифа в журнале
+    logSeats.clear();
+    for ( auto s : seats ) {
+      logSeats.push_back( make_pair(TSeatRange(TSeat(s->yname,s->xname), TSeat(s->yname,s->xname)),TRFISC()));
+    }
+  }
 
+
+  for ( vector<pair<TSeatRange,TRFISC> >::iterator it=logSeats.begin(); it!=logSeats.end(); it++ ) {
+    if (it!=logSeats.begin())
+      seatPrmEnum.prms << PrmSmpl<string>("", " ");
     seatPrmEnum.prms << PrmSmpl<string>("", it->first.first.denorm_view(salonList.isCraftLat()));
 
     if ( !it->second.code.empty() || !it->second.empty())
@@ -4853,7 +4854,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
         case cltTranzit:
         case cltCheckin:
         case cltTCheckin:
-          reqinfo->LocaleToLog(waitlist?"EVT.PASSENGER_SEATED_MANUALLY_WAITLIST":"EVT.PASSENGER_SEATED_MANUALLY",
+          reqinfo->LocaleToLog(procFlags.isFlag( procWaitList )?"EVT.PASSENGER_SEATED_MANUALLY_WAITLIST":"EVT.PASSENGER_SEATED_MANUALLY",
                                LEvntPrms() << PrmSmpl<std::string>("name", fullname)
                                            << seatPrmEnum,
                                evtPax, point_id, idx1, idx2);
@@ -4867,12 +4868,12 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
         case cltTranzit:
         case cltCheckin:
         case cltTCheckin:
-          reqinfo->LocaleToLog(waitlist?"EVT.PASSENGER_CHANGE_SEAT_MANUALLY_WAITLIST":"EVT.PASSENGER_CHANGE_SEAT_MANUALLY",
+          reqinfo->LocaleToLog(procFlags.isFlag( procWaitList )?"EVT.PASSENGER_CHANGE_SEAT_MANUALLY_WAITLIST":"EVT.PASSENGER_CHANGE_SEAT_MANUALLY",
                                LEvntPrms() << PrmSmpl<std::string>("name", fullname)
                                            << seatPrmEnum,
                                evtPax, point_id, idx1, idx2);
           if ( prCheckin ) {
-            SyncPRSA( operFlt.airline, pax_id, passTariffs.status(), tariffs );
+            SyncPRSA( operFlt.airline, pax_id, passTariffs.status(), logSeats );
           }
           break;
         default:;
@@ -4880,14 +4881,15 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
         break;
     case stDropseat:
         switch( layer_type ) {
-            case cltGoShow:
-        case cltTranzit:
-        case cltCheckin:
-        case cltTCheckin:
-          reqinfo->LocaleToLog("EVT.PASSENGER_DISEMBARKED_MANUALLY",
-                               LEvntPrms() << PrmSmpl<std::string>("name", fullname)
-                                           << seatPrmEnum,
-                               evtPax, point_id, idx1, idx2);
+          case cltGoShow:
+          case cltTranzit:
+          case cltCheckin:
+          case cltTCheckin:
+            if (!logSeats.empty())
+              reqinfo->LocaleToLog(procFlags.isFlag( procSyncCabinClass )?"EVT.PASSENGER_DISEMBARKED_DUE_TO_CLASS_CHANGE":"EVT.PASSENGER_DISEMBARKED_MANUALLY",
+                                   LEvntPrms() << PrmSmpl<std::string>("name", fullname)
+                                               << seatPrmEnum,
+                                   evtPax, point_id, idx1, idx2);
           break;
         default:;
         }

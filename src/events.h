@@ -173,7 +173,7 @@ class TPaxToLogInfoKey
 class TPaxToLogInfo
 {
   public:
-    std::string airp_arv, cl, status;
+    std::string airp_arv, orig_cl, cabin_cl, status;
     bool pr_mark_norms;
     std::string surname, name, pers_type, refuse, subcl, seat_no;
     int seats;
@@ -195,7 +195,8 @@ class TPaxToLogInfo
     void clear()
     {
       airp_arv.clear();
-      cl.clear();
+      orig_cl.clear();
+      cabin_cl.clear();
       status.clear();
       pr_mark_norms=false;
       surname.clear();
