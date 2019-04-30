@@ -183,6 +183,7 @@ namespace EXCH_CHECKIN_RESULT
      std::string scd_out;
      std::string name;
      std::string cl;
+     std::string cabin_cl;
      std::string subclass;
      std::string pers_type;
      std::string gender;
@@ -263,6 +264,7 @@ namespace EXCH_CHECKIN_RESULT
     int col_grp_id;
     int col_name;
     int col_class;
+    int col_cabin_class;
     int col_subclass;
     int col_pers_type;
     int col_is_female;
@@ -296,6 +298,7 @@ namespace EXCH_CHECKIN_RESULT
       col_grp_id = ASTRA::NoExists;
       col_name = ASTRA::NoExists;
       col_class = ASTRA::NoExists;
+      col_cabin_class = ASTRA::NoExists;
       col_subclass = ASTRA::NoExists;
       col_pers_type = ASTRA::NoExists;
       col_is_female = ASTRA::NoExists;
@@ -317,11 +320,11 @@ namespace EXCH_CHECKIN_RESULT
     void initPaxData( TQuery &PaxQry );
     void createSQLRequest( TQuery &PaxQry ) {
       PaxQry.SQLText =
-          "SELECT pax.pax_id,pax.reg_no,pax.surname||RTRIM(' '||pax.name) name,"
-          "       pax_grp.grp_id,"
-          "       pax_grp.airp_arv,pax_grp.airp_dep,"
-          "       pax_grp.class,pax.refuse,"
-          "       pax.pers_type, "
+          "SELECT pax.pax_id,pax.reg_no,pax.surname||RTRIM(' '||pax.name) name, "
+          "       pax_grp.grp_id, "
+          "       pax_grp.airp_arv,pax_grp.airp_dep, "
+          "       pax_grp.class, NVL(pax.cabin_class, pax_grp.class) AS cabin_class, "
+          "       pax.refuse, pax.pers_type, "
           "       NVL(pax.is_female,1) as is_female, "
           "       pax.subclass, "
           "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'tlg',rownum) AS seat_no, "
@@ -384,6 +387,7 @@ namespace EXCH_CHECKIN_RESULT
     col_grp_id = (col_grp_id = PaxQry.GetFieldIndex( "grp_id" )) >= 0 ?col_grp_id:ASTRA::NoExists;
     col_name = (col_name = PaxQry.GetFieldIndex( "name" )) >= 0 ?col_name:ASTRA::NoExists;
     col_class = (col_class = PaxQry.GetFieldIndex( "class" )) >= 0 ?col_class:ASTRA::NoExists;
+    col_cabin_class = (col_cabin_class = PaxQry.GetFieldIndex( "cabin_class" )) >= 0 ?col_cabin_class:ASTRA::NoExists;
     col_subclass = (col_subclass = PaxQry.GetFieldIndex( "subclass" )) >= 0 ?col_subclass:ASTRA::NoExists;
     col_pers_type = (col_pers_type = PaxQry.GetFieldIndex( "pers_type" )) >= 0 ?col_pers_type:ASTRA::NoExists;
     col_is_female = (col_is_female = PaxQry.GetFieldIndex( "is_female" )) >= 0 ?col_is_female:ASTRA::NoExists;
@@ -536,6 +540,7 @@ namespace EXCH_CHECKIN_RESULT
     paxData.grp_id = PaxQry.FieldAsInteger( col_grp_id );
     paxData.name = PaxQry.FieldAsString( col_name );
     paxData.cl = PaxQry.FieldAsString( col_class );
+    paxData.cabin_cl = PaxQry.FieldAsString( col_cabin_class );
     paxData.subclass = PaxQry.FieldAsString( col_subclass );
     paxData.pers_type = PaxQry.FieldAsString( col_pers_type );
     if ( DecodePerson( PaxQry.FieldAsString( col_pers_type ) ) == ASTRA::adult ) {
@@ -674,6 +679,7 @@ namespace EXCH_CHECKIN_RESULT
     NewTextChild( paxNode, "grp_id", grp_id );
     NewTextChild( paxNode, "name", name );
     NewTextChild( paxNode, "class", cl );
+    NewTextChild( paxNode, "cabin_class", cabin_cl );
     NewTextChild( paxNode, "subclass", subclass );
     NewTextChild( paxNode, "pers_type", pers_type );
     if ( !gender.empty() ) {

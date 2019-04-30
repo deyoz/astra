@@ -1648,6 +1648,17 @@ void  DocsInterface::RunSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
 }
 
+static std::string getClassView(const TRptParams &rpt_params,
+                                const std::string& orig_cls,
+                                const std::string& cabin_cls)
+{
+  ostringstream result;
+  result << rpt_params.ElemIdToReportElem(etClass, orig_cls, efmtCodeNative);
+  if (!cabin_cls.empty() && !orig_cls.empty() && cabin_cls!=orig_cls)
+    result << "->" << rpt_params.ElemIdToReportElem(etClass, cabin_cls, efmtCodeNative);
+  return result.str();
+}
+
 void RESEAT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     if(rpt_params.rpt_type == rtRESEATTXT)
@@ -1722,7 +1733,10 @@ void RESEAT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             ret = classes.insert(make_pair(i->second.pax.grp_id, grp.cl));
             i_cls = ret.first;
         }
-        NewTextChild(rowNode, "cls", rpt_params.ElemIdToReportElem(etClass, i_cls->second, efmtCodeNative));
+
+        NewTextChild(rowNode, "cls", getClassView(rpt_params,
+                                                  i_cls->second,
+                                                  i->second.pax.cabin.cl.empty()?i_cls->second:i->second.pax.cabin.cl));
 
         NewTextChild(rowNode, "document", CheckIn::GetPaxDocStr(NoExists, i->second.pax.id, false, rpt_params.GetLang()));
 

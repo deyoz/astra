@@ -392,7 +392,7 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type, bool inc
   }
   else
   {
-    sql << "SELECT class, subclass, "
+    sql << "SELECT NVL(pax.cabin_class, pax_grp.class) AS class, subclass, "
            "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax.is_female,0,1,NULL,1,0),0)),0) AS male, "
            "       NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax.is_female,0,0,NULL,0,1),0)),0) AS female, "
            "       NVL(SUM(DECODE(pax.pers_type,:chd,1,0)),0) AS child, "
@@ -409,7 +409,7 @@ void TFlightWeights::read( int point_id, TTypeFlightWeight weight_type, bool inc
       sql << " and salons.is_waitlist(pax.pax_id,pax.seats,pax.is_jmp,pax_grp.status,pax_grp.point_dep,rownum)=0 ";
     sql << " AND point_dep=:point_id "
            " AND pax_grp.status NOT IN ('E') "
-           "GROUP BY class, subclass "
+           "GROUP BY NVL(pax.cabin_class, pax_grp.class), subclass "
            "UNION "
            "SELECT class, NULL AS subclass, "
            "       0 AS male, 0 AS female, 0 AS child, 0 AS infant, "
@@ -618,7 +618,7 @@ void recountBySubcls(int point_id)
     "BEGIN "
     "  DELETE FROM counters_by_subcls WHERE point_id=:point_id; "
     "  INSERT INTO counters_by_subcls(point_id, class, subclass, male, female, child, infant, rk_weight, bag_weight)"
-    "  SELECT :point_id, class, subclass, "
+    "  SELECT :point_id, NVL(pax.cabin_class, pax_grp.class) AS class, subclass, "
     "         NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax.is_female,0,1,NULL,1,0),0)),0) AS male, "
     "         NVL(SUM(DECODE(pax.pers_type,:adl,DECODE(pax.is_female,0,0,NULL,0,1),0)),0) AS female, "
     "         NVL(SUM(DECODE(pax.pers_type,:chd,1,0)),0) AS child, "
@@ -630,7 +630,7 @@ void recountBySubcls(int point_id)
     "        pr_brd IS NOT NULL AND "
     "        point_dep=:point_id AND "
     "        pax_grp.status NOT IN ('E') "
-    "  GROUP BY class, subclass "
+    "  GROUP BY NVL(pax.cabin_class, pax_grp.class), subclass "
     "  UNION "
     "  SELECT :point_id, class, NULL AS subclass, "
     "         0 AS male, 0 AS female, 0 AS child, 0 AS infant, "
