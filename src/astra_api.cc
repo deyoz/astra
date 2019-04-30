@@ -220,6 +220,11 @@ XmlPax createCheckInPax(const XmlPax& basePax,
     }
     if(service) {
         addCheckInRems(ckiPax, *service);
+        auto tickCpn = service->findTicketCpn(pax.isInfant());
+        if(tickCpn) {
+            ckiPax.ticket_no = tickCpn->ticket().get();
+            ckiPax.coupon_no = tickCpn->cpn().get();
+        }
     }
     if(baggage) {
         ckiPax.iatci_bags = createCheckInIatciBags(*baggage);
