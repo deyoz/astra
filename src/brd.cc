@@ -88,9 +88,9 @@ void BrdInterface::readTripCounters( const int point_id,
     sql+=
         "WHERE "
         "    pax_grp.grp_id=pax.grp_id AND "
-        "    point_dep=:point_id AND class=:class AND "
+        "    pax_grp.point_dep=:point_id AND NVL(pax.cabin_class, pax_grp.class)=:class AND "
         "    pax_grp.status NOT IN ('E') AND "
-        "    pr_brd IS NOT NULL ";
+        "    pax.pr_brd IS NOT NULL ";
     if(used_for_norec_rpt or used_for_gosho_rpt) {
         sql +=
             " and pax.pax_id = crs_pax.pax_id(+) and "
@@ -519,7 +519,7 @@ void BrdInterface::GetPaxQuery(TQuery &Qry, const int point_id,
         "    pax_grp.grp_id, "
         "    pax_grp.airp_arv, "
         "    NVL(report.get_last_trfer_airp(pax_grp.grp_id),pax_grp.airp_arv) AS last_airp_arv, "
-        "    pax_grp.class, "
+        "    pax_grp.class, NVL(pax.cabin_class, pax_grp.class) AS cabin_class, "
         "    pax_grp.status, "
         "    pax_grp.client_type, "
         "    pax.*, "
@@ -1554,6 +1554,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       int col_name=Qry.FieldIndex("name");
       int col_pers_type=Qry.FieldIndex("pers_type");
       int col_class=Qry.FieldIndex("class");
+      int col_cabin_class=Qry.FieldIndex("cabin_class");
       int col_airp_arv=Qry.FieldIndex("airp_arv");
       int col_last_airp_arv=Qry.FieldIndex("last_airp_arv");
       int col_status=Qry.FieldIndex("status");
@@ -1609,7 +1610,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(paxNode, "surname", Qry.FieldAsString(col_surname));
           NewTextChild(paxNode, "name", Qry.FieldAsString(col_name), "");
           NewTextChild(paxNode, "pers_type", ElemIdToCodeNative(etPersType, Qry.FieldAsString(col_pers_type)), def_pers_type);
-          NewTextChild(paxNode, "class", ElemIdToCodeNative(etClass, Qry.FieldAsString(col_class)), def_class);
+          NewTextChild(paxNode, "class", classIdsToCodeNative(Qry.FieldAsString(col_class),
+                                                              Qry.FieldAsString(col_cabin_class)), def_class);
           NewTextChild(paxNode, "airp_arv", ElemIdToCodeNative(etAirp, Qry.FieldAsString(col_last_airp_arv)));
           NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
           NewTextChild(paxNode, "seats", Qry.FieldAsInteger(col_seats), 1);
