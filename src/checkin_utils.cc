@@ -280,7 +280,7 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
         if (pax.is_jmp) continue;
         SEATS2::TPassenger pas;
 
-        pas.clname=pax.cabin.cl.empty()?grp.cl:pax.cabin.cl;
+        pas.cabin_clname=pax.cabin.cl.empty()?grp.cl:pax.cabin.cl;
         pas.paxId = pax_id;
         pas.grp_status = grp.getCheckInLayerType();
         if (pas.grp_status==cltUnknown)

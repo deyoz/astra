@@ -1183,7 +1183,7 @@ int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep 
   condSeats.SavePoint();
   while ( !CurrSalon->isExistsOccupySeat( placeList->num, place->x, place->y ) &&
           //CurrSalon->placeIsFree( place ) && place->isplace && place->visible &&
-          place->clname == Passengers.clname &&
+          place->clname == Passengers.clnameAskDjek &&
           Result + foundCount < MAXPLACE() &&
           VerifyUseLayer( place ) &&
           condRates.CanUseRate( place )
@@ -2101,7 +2101,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
   string OLDSUBCLS_REM = SUBCLS_REM;
   vector<TPassenger> npass;
   Passengers.copyTo( npass );
-  string OLDclname = Passengers.clname;
+  string OLDclnameAskDjek = Passengers.clnameAskDjek;
   bool OLDSeatDescrPassengers = ( Passengers.SeatDescription && pr_autoreseats );
   bool OLDSeatDescrCondSeats = ( Passengers.SeatDescription && pr_autoreseats );
   bool OLDKTube = Passengers.KTube;
@@ -2242,7 +2242,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
     AllowedAttrsSeat.pr_isWorkINFT = isWorkINFT;
     Passengers.Clear();
     Passengers.copyFrom( npass );
-    Passengers.clname = OLDclname;
+    Passengers.clnameAskDjek = OLDclnameAskDjek;
     Passengers.SeatDescription = OLDSeatDescrPassengers;
     condSeats.SeatDescription = OLDSeatDescrCondSeats;
     Passengers.KTube = OLDKTube;
@@ -2260,7 +2260,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
   SUBCLS_REM = OLDSUBCLS_REM;
   Passengers.Clear();
   Passengers.copyFrom( npass );
-  Passengers.clname = OLDclname;
+  Passengers.clnameAskDjek = OLDclnameAskDjek;
   Passengers.SeatDescription = OLDSeatDescrPassengers;
   condSeats.SeatDescription = OLDSeatDescrCondSeats;
   Passengers.KTube = OLDKTube;
@@ -2423,47 +2423,6 @@ bool TPassenger::is_valid_seats( const std::vector<SALONS2::TPlace> &places )
   return AllowedAttrsSeat.passSeats( pers_type, isRemark( "INFT" ), places );
 }
 
-void TPassenger::build( xmlNodePtr pNode, const TDefaults& def, TComplexBagExcessNodeList &excessNodeList)
-{
-  NewTextChild( pNode, "grp_id", grpId );
-  NewTextChild( pNode, "pax_id", paxId );
-  NewTextChild( pNode, "clname", clname, def.clname );
-  NewTextChild( pNode, "grp_layer_type",
-                       EncodeCompLayerType(grp_status),
-                       EncodeCompLayerType(def.grp_status) );
-  NewTextChild( pNode, "pers_type",
-                       ElemIdToCodeNative(etPersType, pers_type),
-                       ElemIdToCodeNative(etPersType, def.pers_type) );
-  NewTextChild( pNode, "reg_no", regNo );
-  NewTextChild( pNode, "name", fullName );
-  NewTextChild( pNode, "seat_no", foundSeats, def.placeName );
-  NewTextChild( pNode, "seat_descr", seatsDescr.toString("one"), def.seat_descr );
-  NewTextChild( pNode, "wl_type", wl_type, def.wl_type );
-  NewTextChild( pNode, "seats", countPlace, def.countPlace );
-  NewTextChild( pNode, "tid", tid );
-  NewTextChild( pNode, "isseat", (int)isSeat, (int)def.isSeat );
-  NewTextChild( pNode, "ticket_no", ticket_no, def.ticket_no );
-  NewTextChild( pNode, "document", document, def.document );
-  NewTextChild( pNode, "bag_weight", bag_weight, def.bag_weight );
-  NewTextChild( pNode, "bag_amount", bag_amount, def.bag_amount );
-  excessNodeList.add(pNode, "excess", excess_pc, excess_wt);
-  NewTextChild( pNode, "trip_from", trip_from, def.trip_from );
-
-  string comp_rem;
-  bool pr_down = false;
-  if ( !rems.empty() ) {
-    for ( vector<string>::iterator r=rems.begin(); r!=rems.end(); r++ ) {
-        comp_rem += *r + " ";
-        if ( *r == "STCR" )
-            pr_down = true;
-    };
-  };
-  NewTextChild( pNode, "comp_rem", comp_rem, def.comp_rem );
-  NewTextChild( pNode, "pr_down", (int)pr_down, (int)def.pr_down );
-  NewTextChild( pNode, "pass_rem", pass_rem, def.pass_rem );
-}
-
-
 /*//////////////////////////////// CLASS TPASSENGERS ///////////////////////////////////*/
 TPassengers::TPassengers()
 {
@@ -2480,7 +2439,7 @@ void TPassengers::Clear()
   FPassengers.clear();
   KTube = false;
   KWindow = false;
-  clname.clear();
+  clnameAskDjek.clear();
   UseSmoke = false;
   SeatDescription = false;
   counters.Clear();
@@ -2568,8 +2527,8 @@ void TPassengers::Add( TPassenger &pass, int index )
    }
   }
  // высчитываем класс
-  if ( clname.empty() && !pass.clname.empty() )
-    clname = pass.clname;
+  if ( clnameAskDjek.empty() && !pass.cabin_clname.empty() )
+    clnameAskDjek = pass.cabin_clname;
  // высчитываем приоритет
   if ( remarks.empty() )
     SALONS2::LoadCompRemarksPriority( remarks );
@@ -2908,7 +2867,7 @@ bool ExistsBasePlace( SALONS2::TSalons &Salons, TPassenger &pass )
         }
 
         if ( !place->visible || !place->isplace ||
-             !Salons.placeIsFree( place ) || pass.clname != place->clname ||
+             !Salons.placeIsFree( place ) || pass.cabin_clname != place->clname ||
              findpass != findplace )
           break;
         vpl.push_back( place );
@@ -3120,7 +3079,7 @@ void dividePassengersToGrps( TPassengers &passengers, vector<TPassengers> &passG
       ostringstream grp_variant;
       std::vector<std::string> vrems;
       pass.get_remarks( vrems );
-      grp_variant << pass.clname
+      grp_variant << pass.cabin_clname
                   << separatelyRem( separately_seat_adult_with_baby?"INFT":"", vrems, pass.index )
                   << separatelyRem( separately_seat_chin_emergency?"CHIN":"", vrems, pass.index );
       //дети и оплата
@@ -3954,152 +3913,6 @@ void SeatsPassengers( SALONS2::TSalons *Salons,
     throw UserException( "MSG.SEATS.NOT_AVAIL_AUTO_SEATS.BABY_ZONES" );
   }
   throw UserException( "MSG.SEATS.NOT_AVAIL_AUTO_SEATS" );
-}
-
-bool GetPassengersForWaitList( int point_id, TPassengers &p )
-{
-  bool res = false;
-  TQuery Qry( &OraSession );
-  TQuery RemsQry( &OraSession );
-  TPaxSeats priorSeats( point_id );
-
-  p.Clear();
-  RemsQry.SQLText =
-    "SELECT rem, rem_code, pax.pax_id, comp_rem_types.pr_comp "
-    " FROM pax_rem, pax_grp, pax, comp_rem_types "
-    "WHERE pax_grp.grp_id=pax.grp_id AND "
-    "      pax_grp.point_dep=:point_id AND "
-    "      pax_grp.status NOT IN ('E') AND "
-    "      pax.pr_brd IS NOT NULL AND "
-    "      pax.seats > 0 AND "
-    "      pax_rem.pax_id=pax.pax_id AND "
-    "      rem_code=comp_rem_types.code(+) "
-    " ORDER BY pax.pax_id, pr_comp, code ";
-  RemsQry.CreateVariable( "point_id", otInteger, point_id );
-
-  Qry.SQLText =
-    "SELECT airline "
-    " FROM points "
-    " WHERE points.point_id=:point_id AND points.pr_del!=-1 AND points.pr_reg<>0";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  if ( Qry.Eof )
-    throw UserException( "MSG.FLIGHT.NOT_FOUND" );
-  string airline = Qry.FieldAsString( "airline" );
-  TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
-
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT pax_grp.grp_id, "
-    "       pax.pax_id, "
-    "       pax.reg_no, "
-    "       surname, "
-    "       pax.name, "
-    "       NVL(pax.cabin_class, pax_grp.class) AS class, "
-    "       cls_grp.code subclass, "
-    "       pax.seats, "
-    "       pax.is_jmp, "
-    "       pax_grp.status, "
-    "       pax.pers_type, "
-    "       pax.ticket_no, "
-    "       ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
-    "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
-    "       ckin.get_excess_wt(pax.grp_id, pax.pax_id, pax_grp.excess_wt, pax_grp.bag_refuse) AS excess_wt, "
-    "       ckin.get_excess_pc(pax.grp_id, pax.pax_id) AS excess_pc, "
-    "       pax.tid, "
-    "       pax.wl_type, "
-    "       pax_grp.point_arv, "
-    "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'list',rownum) AS seat_no, "
-    "       tckin_pax_grp.tckin_id, tckin_pax_grp.seg_no "
-    "FROM pax_grp, pax, cls_grp, tckin_pax_grp "
-    "WHERE pax_grp.grp_id=pax.grp_id AND "
-    "      pax_grp.point_dep=:point_id AND "
-    "      pax_grp.status NOT IN ('E') AND "
-    "      NVL(pax.cabin_class_grp, pax_grp.class_grp) = cls_grp.id AND "
-    "      pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND "
-    "      pax.pr_brd IS NOT NULL AND "
-    "      pax.seats > 0 ";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-
-  TSublsRems subcls_rems(airline);
-
-  RemsQry.Execute();
-  TCkinRoute tckin_route;
-  while ( !Qry.Eof ) {
-    TPassenger pass;
-    pass.paxId = Qry.FieldAsInteger( "pax_id" );
-    pass.foundSeats = Qry.FieldAsString( "seat_no" );
-    pass.clname = Qry.FieldAsString( "class" );
-    pass.countPlace = Qry.FieldAsInteger( "seats" );
-    pass.is_jmp = Qry.FieldAsInteger( "is_jmp" )!=0;
-    pass.tid = Qry.FieldAsInteger( "tid" );
-    pass.grpId = Qry.FieldAsInteger( "grp_id" );
-    pass.regNo = Qry.FieldAsInteger( "reg_no" );
-    string fname = Qry.FieldAsString( "surname" );
-    pass.fullName = TrimString( fname ) + " " + Qry.FieldAsString( "name" );
-    pass.ticket_no = Qry.FieldAsString( "ticket_no" );
-    pass.document = CheckIn::GetPaxDocStr(NoExists, Qry.FieldAsInteger( "pax_id" ), true);
-    pass.bag_weight = Qry.FieldAsInteger( "bag_weight" );
-    pass.bag_amount = Qry.FieldAsInteger( "bag_amount" );
-    pass.excess_wt = Qry.FieldAsInteger( "excess_wt" );
-    pass.excess_pc = Qry.FieldAsInteger( "excess_pc" );
-    pass.grp_status = DecodeCompLayerType(((const TGrpStatusTypesRow&)grp_status_types.get_row("code",Qry.FieldAsString( "status" ))).layer_type.c_str());
-    pass.pers_type = Qry.FieldAsString( "pers_type" );
-    pass.wl_type = Qry.FieldAsString( "wl_type" );
-    pass.point_arv = Qry.FieldAsInteger( "point_arv" );
-    pass.InUse = ( !pass.foundSeats.empty() );
-    pass.isSeat = pass.InUse;
-    if ( pass.foundSeats.empty() ) { // ???необходимо выбрать предыдущее место
-        res = true;
-        string old_seat_no;
-            if ( pass.wl_type.empty() ) {
-              old_seat_no = priorSeats.getSeats( pass.paxId, "seats" );
-              if ( !old_seat_no.empty() )
-                old_seat_no = "(" + old_seat_no + ")";
-            }
-            else
-                old_seat_no = AstraLocale::getLocaleText("ЛО");
-            if ( !old_seat_no.empty() )
-                pass.foundSeats = old_seat_no;
-    }
-    while ( !RemsQry.Eof && RemsQry.FieldAsInteger( "pax_id" ) <= pass.paxId ) {
-        if ( RemsQry.FieldAsInteger( "pax_id" ) == pass.paxId ) {
-            pass.add_rem( RemsQry.FieldAsString( "rem_code" ) );
-            pass.pass_rem += string( ".R/" ) + RemsQry.FieldAsString( "rem" ) + "   ";
-        }
-      RemsQry.Next();
-    }
-    string pass_rem;
-    if ( subcls_rems.IsSubClsRem( Qry.FieldAsString( "subclass" ), pass_rem ) )
-      pass.add_rem( pass_rem );
-
-
-    if (!Qry.FieldIsNULL("tckin_id"))
-    {
-      TCkinRouteItem priorSeg;
-      tckin_route.GetPriorSeg(Qry.FieldAsInteger("tckin_id"),
-                              Qry.FieldAsInteger("seg_no"),
-                              crtIgnoreDependent,
-                              priorSeg);
-      if (priorSeg.grp_id!=NoExists)
-      {
-        TDateTime local_scd_out = UTCToClient(priorSeg.operFlt.scd_out,AirpTZRegion(priorSeg.operFlt.airp));
-
-          ostringstream trip;
-          trip << ElemIdToElemCtxt( ecDisp, etAirline, priorSeg.operFlt.airline, priorSeg.operFlt.airline_fmt )
-               << setw(3) << setfill('0') << priorSeg.operFlt.flt_no
-               << ElemIdToElemCtxt( ecDisp, etSuffix, priorSeg.operFlt.suffix, priorSeg.operFlt.suffix_fmt )
-               << "/" << DateTimeToStr( local_scd_out, "dd" );
-
-          pass.trip_from = trip.str();
-      };
-    };
-
-    p.Add( pass );
-    Qry.Next();
-  }
-  return res;
 }
 
 void SaveTripSeatRanges( int point_id, TCompLayerType layer_type, TSeatRanges &seats,
@@ -4941,7 +4754,7 @@ void dividePassengersToGrpsAutoSeats( TIntStatusSalonPassengers::const_iterator 
     vpass.isSeat = false;
     vpass.countPlace = ipass->seats;
     vpass.is_jmp = ipass->is_jmp;
-    vpass.clname = ipass->cl;
+    vpass.cabin_clname = ipass->cabin_cl;
     if ( ipass->pr_infant != ASTRA::NoExists ) {
       ProgTrace( TRACE5, "AutoReSeatsPassengers: pax_id=%d add INFT", vpass.paxId );
       vpass.add_rem( "INFT" );
@@ -4972,7 +4785,7 @@ void dividePassengersToGrpsAutoSeats( TIntStatusSalonPassengers::const_iterator 
       vpass.add_rem( "CHIN" );
     }
     string rem;
-    const TBaseTableRow &row=cls_grp.get_row( "id", ipass->class_grp );
+    const TBaseTableRow &row=cls_grp.get_row( "id", ipass->cabin_class_grp );
     if ( subcls_rems.IsSubClsRem( row.AsString( "code" ), rem ) ) {
       vpass.add_rem( rem );
     }
@@ -5260,8 +5073,8 @@ TSeatAlgoParams GetSeatAlgo(TQuery &Qry, string airline, int flt_no, string airp
 bool CompGrp( TPassenger item1, TPassenger item2 )
 {
   TBaseTable &classes=base_tables.get("classes");
-  const TBaseTableRow &row1=classes.get_row("code",item1.clname);
-  const TBaseTableRow &row2=classes.get_row("code",item2.clname);
+  const TBaseTableRow &row1=classes.get_row("code",item1.cabin_clname);
+  const TBaseTableRow &row2=classes.get_row("code",item2.cabin_clname);
   if ( row1.AsInteger( "priority" ) < row2.AsInteger( "priority" ) )
     return true;
   else
@@ -5282,69 +5095,6 @@ bool CompGrp( TPassenger item1, TPassenger item2 )
                     else
                         return true;
 };
-
-
-void TPassengers::Build( xmlNodePtr dataNode )
-{
-  if ( !getCount() )
-    return;
-  for (VPassengers::iterator p=FPassengers.begin(); p!=FPassengers.end(); p++ ) {
-    p->InUse = false;
-  }
-
-  xmlNodePtr passNode = NewTextChild( dataNode, "passengers" );
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT code,layer_type,name FROM grp_status_types WHERE layer_type IS NOT NULL ORDER BY priority";
-  Qry.Execute();
-
-  TDefaults def;
-  bool createDefaults=false;
-  vector<TPassenger> ps;
-  TComplexBagExcessNodeList excessNodeList(OutputLang(), {TComplexBagExcessNodeList::ContainsOnlyNonZeroExcess,
-                                                          TComplexBagExcessNodeList::DeprecatedIntegerOutput});
-  while ( !Qry.Eof ) {
-    for (VPassengers::iterator p=FPassengers.begin(); p!=FPassengers.end(); p++ ) {
-        if ( p->InUse || p->grp_status != DecodeCompLayerType(Qry.FieldAsString( "layer_type" )) )
-            continue;
-        ps.push_back( *p );
-    }
-    // сортировка по grp_status + класс + группа
-    sort(ps.begin(),ps.end(),CompGrp);
-    ProgTrace( TRACE5, "ps.size()=%zu, layer_type=%s", ps.size(), Qry.FieldAsString( "layer_type" ) );
-    if ( !ps.empty() ) {
-      createDefaults=true;
-        xmlNodePtr pNode = NewTextChild( passNode, "layer_type", Qry.FieldAsString( "layer_type" ) );
-        SetProp( pNode, "name", Qry.FieldAsString( "name" ) );
-        for ( vector<TPassenger>::iterator ip=ps.begin(); ip!=ps.end(); ip++ ) {
-            ip->build( NewTextChild( pNode, "pass" ), def, excessNodeList );
-            ip->InUse = true;
-        }
-        ps.clear();
-    }
-    Qry.Next();
-  }
-  if (createDefaults)
-  {
-    xmlNodePtr defNode = NewTextChild( dataNode, "defaults" );
-    NewTextChild( defNode, "clname", def.clname );
-    NewTextChild( defNode, "grp_layer_type", EncodeCompLayerType(def.grp_status) );
-    NewTextChild( defNode, "pers_type", ElemIdToCodeNative(etPersType, def.pers_type) );
-    NewTextChild( defNode, "seat_no", def.placeName );
-    NewTextChild( defNode, "wl_type", def.wl_type );
-    NewTextChild( defNode, "seats", def.countPlace );
-    NewTextChild( defNode, "isseat", (int)def.isSeat );
-    NewTextChild( defNode, "ticket_no", def.ticket_no );
-    NewTextChild( defNode, "document", def.document );
-    NewTextChild( defNode, "bag_weight", def.bag_weight );
-    NewTextChild( defNode, "bag_amount", def.bag_amount );
-    NewTextChild( defNode, "excess", "0" );
-    NewTextChild( defNode, "trip_from", def.trip_from );
-    NewTextChild( defNode, "comp_rem", def.comp_rem );
-    NewTextChild( defNode, "pr_down", (int)def.pr_down );
-    NewTextChild( defNode, "pass_rem", def.pass_rem );
-  };
-}
 
 bool TPassengers::existsNoSeats()
 {

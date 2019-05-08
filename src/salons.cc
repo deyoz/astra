@@ -1325,7 +1325,7 @@ xmlNodePtr TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
                NewTextChild( passNode, "reg_no", ipax->second.reg_no );
                NewTextChild( passNode, "pers_type", EncodePerson( ipax->second.pers_type ) );
                NewTextChild( passNode, "seats", (int)ipax->second.seats );
-               NewTextChild( passNode, "cl", ipax->second.cl );
+               NewTextChild( passNode, "cl", ipax->second.cabin_cl );
                NewTextChild( passNode, "surname", ipax->second.surname );
                NewTextChild( passNode, "pr_infant", ipax->second.pr_infant != ASTRA::NoExists );
              }
@@ -1338,7 +1338,7 @@ xmlNodePtr TPlace::Build( xmlNodePtr node, int point_dep, bool pr_lat_seat,
                TPaxList::const_iterator ipax = pax_lists.find( ilayer->point_id )->second.find( ilayer->crs_pax_id );
                NewTextChild( passNode, "pers_type", EncodePerson( ipax->second.pers_type ) );
                NewTextChild( passNode, "seats", (int)ipax->second.seats );
-               NewTextChild( passNode, "cl", ipax->second.cl );
+               NewTextChild( passNode, "cl", ipax->second.cabin_cl );
                NewTextChild( passNode, "surname", ipax->second.surname );
                NewTextChild( passNode, "pr_infant", ipax->second.pr_infant != ASTRA::NoExists );
              }
@@ -2262,7 +2262,7 @@ void TSalonList::ReadLayers( TQuery &Qry, FilterRoutesProperty &filterRoutes,
           2. все места одного слоя в одном салоне
           3. все места одного слоя находятся рядом
         */
-        if ( pax_list[ id ].cl != place->clname || !place->isplace || !place->visible ) {
+        if ( pax_list[ id ].cabin_cl != place->clname || !place->isplace || !place->visible ) {
           if ( pax_list[ id ].layers.find( layer ) != pax_list[ id ].layers.end() ) {
             pax_list[ layer.getPaxId() ].layers[ layer ].waitListReason = TWaitListReason();
           }
@@ -2585,8 +2585,9 @@ void TSalonList::ReadPaxs( TQuery &Qry, TPaxList &pax_list )
   int idx_name = Qry.FieldIndex( "name" );
   int idx_surname = Qry.FieldIndex( "surname" );
   int idx_is_female = Qry.FieldIndex( "is_female" );
-  int idx_class = Qry.FieldIndex( "class" );
-  int idx_class_grp = Qry.FieldIndex( "class_grp" );
+  int idx_orig_class = Qry.FieldIndex( "orig_class" );
+  int idx_cabin_class = Qry.FieldIndex( "cabin_class" );
+  int idx_cabin_class_grp = Qry.FieldIndex( "cabin_class_grp" );
   int idx_point_dep = Qry.FieldIndex( "point_dep" );
   int idx_point_arv = Qry.FieldIndex( "point_arv" );
   int idx_pr_web = Qry.FieldIndex( "pr_web" );
@@ -2611,8 +2612,9 @@ void TSalonList::ReadPaxs( TQuery &Qry, TPaxList &pax_list )
         pass.crew_type = TCrewTypes().decode(Qry.FieldAsString(idx_crew_type));
     pass.seats = Qry.FieldAsInteger( idx_seats );
     pass.is_jmp = Qry.FieldAsInteger( idx_is_jmp )!=0;
-    pass.cl =  Qry.FieldAsString( idx_class );
-    pass.class_grp = Qry.FieldAsInteger( idx_class_grp );
+    pass.orig_cl =  Qry.FieldAsString( idx_orig_class );
+    pass.cabin_cl =  Qry.FieldAsString( idx_cabin_class );
+    pass.cabin_class_grp = Qry.FieldAsInteger( idx_cabin_class_grp );
     //!logProgTrace( TRACE5, "ReadPaxs: pax_id=%d, grp_status=%s, point_arv=%d, pass.pr_web=%d",
 //!log               pass.pax_id, pass.grp_status.c_str(), pass.point_arv, pass.pr_web );
     if ( pass.seats == 0 ) {
@@ -2663,7 +2665,8 @@ void TSalonList::ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list )
   int idx_pers_type = Qry.FieldIndex( "pers_type" );
   int idx_name = Qry.FieldIndex( "name" );
   int idx_surname = Qry.FieldIndex( "surname" );
-  int idx_class = Qry.FieldIndex( "class" );
+  int idx_orig_class = Qry.FieldIndex( "orig_class" );
+  int idx_cabin_class = Qry.FieldIndex( "cabin_class" );
   int idx_parent_pax_id = Qry.FieldIndex( "parent_pax_id" );
   for ( ; !Qry.Eof; Qry.Next() ) {
     int id = Qry.FieldAsInteger( idx_pax_id );
@@ -2674,7 +2677,8 @@ void TSalonList::ReadCrsPaxs( TQuery &Qry, TPaxList &pax_list )
     pax.seats = Qry.FieldAsInteger( idx_seats );
     pax.reg_no = NoExists;
     pax.pers_type = DecodePerson( Qry.FieldAsString( idx_pers_type ) );
-    pax.cl = Qry.FieldAsString( idx_class );
+    pax.orig_cl = Qry.FieldAsString( idx_orig_class );
+    pax.cabin_cl = Qry.FieldAsString( idx_cabin_class );
     pax.name = Qry.FieldAsString( idx_name );
     pax.surname = Qry.FieldAsString( idx_surname );
     if ( !Qry.FieldIsNULL( idx_parent_pax_id ) ) {
@@ -3683,7 +3687,7 @@ inline void __getpass( int point_dep,
                 //!log           filterRoutes.getDepartureId(), filterRoutes.getArrivalId(),
                 //!log           salonPax.cl.c_str(), salonPax.grp_status.c_str(),
                 //!log           salonPax.pax_id, salonPax.layers.size(), ipax->second.layers.size() );
-                passes[ salonPax.point_arv ][ salonPax.cl ][ salonPax.grp_status ].insert( salonPax );
+                passes[ salonPax.point_arv ][ salonPax.cabin_cl ][ salonPax.grp_status ].insert( salonPax );
             }
         }
     }
@@ -4249,8 +4253,9 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     Qry.Clear();
     Qry.SQLText =
       " SELECT pax.grp_id, pax.pax_id, pax.pers_type, pax.seats, pax.is_jmp, "
-      "        NVL(pax.cabin_class, pax_grp.class) AS class, "
-      "        NVL(pax.cabin_class_grp, pax_grp.class_grp) AS class_grp, "
+      "        NVL(pax.cabin_class, pax_grp.class) AS cabin_class, "
+      "        NVL(pax.cabin_class_grp, pax_grp.class_grp) AS cabin_class_grp, "
+      "        pax_grp.class AS orig_class, "
       "        reg_no, pax.name, pax.surname, pax.is_female, pax_grp.status, "
       "        pax_grp.point_dep, pax_grp.point_arv, "
       "        crs_inf.pax_id AS parent_pax_id, "
@@ -4275,7 +4280,9 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     // начитываем список забронированных пассажиров по рейсу  pax_list
     Qry.Clear();
     Qry.SQLText =
-      "SELECT crs_pax.pax_id, seats, pers_type, name, surname, class, "
+      "SELECT crs_pax.pax_id, seats, pers_type, name, surname, "
+      "       crs_pnr.class AS cabin_class, "
+      "       NVL(crs_pax.etick_class, NVL(crs_pax.orig_class, crs_pnr.class)) AS orig_class, "
       "       DECODE( crs_pax.inf_id, NULL, NULL, crs_pax.pax_id ) AS parent_pax_id "
       "    FROM crs_pax, crs_pnr, tlg_binding "
       "   WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
@@ -9319,13 +9326,13 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
       Qry.Execute();
       NewTextChild( passNode, "grp_id", ipass->grp_id );
       NewTextChild( passNode, "pax_id", ipass->pax_id );
-      NewTextChild( passNode, "clname", ipass->cl, def.clname );
+      NewTextChild( passNode, "clname", ipass->cabin_cl, def.cabin_clname );
       NewTextChild( passNode, "grp_layer_type",
                     grp_status_row.layer_type,
                     EncodeCompLayerType( def.grp_status ) );
       NewTextChild( passNode, "pers_type",
-                    ElemIdToCodeNative(etPersType, ipass->pers_type),
-                    ElemIdToCodeNative(etPersType, def.pers_type) );
+                    ElemIdToCodeNative(etPersType, EncodePerson(ipass->pers_type)),
+                    ElemIdToCodeNative(etPersType, EncodePerson(def.pers_type)) );
       NewTextChild( passNode, "reg_no", ipass->reg_no );
       string name = ipass->surname;
       NewTextChild( passNode, "name", TrimString( name ) + string(" ") + ipass->name );
@@ -9353,7 +9360,12 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
           seat_descr = paxsSeatDescr.getDescr( "multi", ipass->pax_id );
         }
       }
-      NewTextChild( passNode, "seat_no", seat_no, def.placeName );
+
+      std::string class_change_str;
+      if (!ipass->cabin_cl.empty() && ipass->orig_cl!=ipass->cabin_cl)
+        class_change_str=" "+classIdsToCodeNative(ipass->orig_cl, ipass->cabin_cl);
+
+      NewTextChild( passNode, "seat_no", seat_no+class_change_str, def.placeName );
       NewTextChild( passNode, "seat_descr", seat_descr, def.seat_descr );
       if ( !ipass->is_jmp && waitListReason.layerStatus != layerValid && status_wait_list == wlNo ) {
         status_wait_list = wlYes; //есть ЛО
@@ -9401,7 +9413,7 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
         }
       }
       string rem;
-      const TBaseTableRow &row=cls_grp.get_row( "id", ipass->class_grp );
+      const TBaseTableRow &row=cls_grp.get_row( "id", ipass->cabin_class_grp );
       if ( subcls_rems.IsSubClsRem( row.AsString( "code" ), rem ) ) {
         comp_rem += rem;
       }
@@ -9415,9 +9427,9 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
   if (createDefaults)
   {
     xmlNodePtr defNode = NewTextChild( dataNode, "defaults" );
-    NewTextChild( defNode, "clname", def.clname );
+    NewTextChild( defNode, "clname", def.cabin_clname );
     NewTextChild( defNode, "grp_layer_type", EncodeCompLayerType(def.grp_status) );
-    NewTextChild( defNode, "pers_type", ElemIdToCodeNative(etPersType, def.pers_type) );
+    NewTextChild( defNode, "pers_type", ElemIdToCodeNative(etPersType, EncodePerson(def.pers_type)) );
     NewTextChild( defNode, "seat_no", def.placeName );
     NewTextChild( defNode, "seat_descr", def.seat_descr );
     NewTextChild( defNode, "wl_type", def.wl_type );
@@ -9646,7 +9658,8 @@ void AddPass( int pax_id, const std::string &surname,  ASTRA::TCompLayerType lay
   //пассажир
   if ( pax_id != ASTRA::NoExists ) {
     paxList[ pax_id ].seats = seatnames.size();
-    paxList[ pax_id ].cl = "Э";
+    paxList[ pax_id ].orig_cl = "Э";
+    paxList[ pax_id ].cabin_cl = "Э";
     paxList[ pax_id ].reg_no = 1;
     paxList[ pax_id ].pers_type = ASTRA::adult;
     paxList[ pax_id ].surname = surname;

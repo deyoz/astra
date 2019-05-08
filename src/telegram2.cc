@@ -7250,10 +7250,10 @@ void TLCIPaxTotals::process()
                     category = BCAT_BT;
                 }
             } else {
-                if(pax->cl == "") {
+                if(pax->cabin_cl == "") {
                     category = BCAT_BF;
                 } else
-                if(pax->cl == "") {
+                if(pax->cabin_cl == "") {
                     category = BCAT_BC;
                 } else /*if(pax->cl == "")*/ {
                     category = BCAT_BY;
@@ -7268,16 +7268,16 @@ void TLCIPaxTotals::process()
     pax_bag.get(pax->grp_id, bag_pool_num);
     items[idx].rk_weight += pax_bag.rkWeight;
 
-    pax_tot_by_cls[pax->cl].append(getGender(pax->pax_id));
+    pax_tot_by_cls[pax->cabin_cl].append(getGender(pax->pax_id));
 
-    items[idx].cls_totals.items[pax->cl].pax_size++;
+    items[idx].cls_totals.items[pax->cabin_cl].pax_size++;
 
     if(isExtraCrew(pax->crew_type)) {
-        items[idx].cls_totals.extra_items[pax->cl].bag_amount += get_bag_totals(bag_info).first;
-        items[idx].cls_totals.extra_items[pax->cl].bag_weight += get_bag_totals(bag_info).second;
+        items[idx].cls_totals.extra_items[pax->cabin_cl].bag_amount += get_bag_totals(bag_info).first;
+        items[idx].cls_totals.extra_items[pax->cabin_cl].bag_weight += get_bag_totals(bag_info).second;
     } else {
-        items[idx].cls_totals.items[pax->cl].bag_amount += get_bag_totals(bag_info).first;
-        items[idx].cls_totals.items[pax->cl].bag_weight += get_bag_totals(bag_info).second;
+        items[idx].cls_totals.items[pax->cabin_cl].bag_amount += get_bag_totals(bag_info).first;
+        items[idx].cls_totals.items[pax->cabin_cl].bag_weight += get_bag_totals(bag_info).second;
     }
 }
 
@@ -8016,7 +8016,7 @@ void TIDM::append_evt_transit(
                 pax_item.name.name = pax.name;
                 pax_item.name.surname = pax.surname;
                 pax_item.priority = priority;
-                pax_item.cls = info.TlgElemIdToElem(etClass, pax.cl);
+                pax_item.cls = info.TlgElemIdToElem(etClass, pax.cabin_cl);
 
                 TTripInfo trip_info;
                 trip_info.getByPointId(pax.point_arv);
@@ -10151,7 +10151,7 @@ namespace CKIN_REPORT {
                  pax.point_dep == report.point_id and
                  pax_map_coord.point_dep == routeItem.point_id)
           ) {
-            report.route[routeIdx][routeItem.airp][pax.cl].tranzit.append(pax);
+            report.route[routeIdx][routeItem.airp][pax.cabin_cl].tranzit.append(pax);
             report.pax_list.insert(pax);
         }
     }
@@ -10169,7 +10169,7 @@ namespace CKIN_REPORT {
                 pax.point_dep == report.point_id and
                 pax.point_arv == routeItem.point_id
           ) {
-            report.route[routeIdx][routeItem.airp][pax.cl].self_checkin.append(pax);
+            report.route[routeIdx][routeItem.airp][pax.cabin_cl].self_checkin.append(pax);
             report.pax_list.insert(pax);
         }
     }
@@ -10187,7 +10187,7 @@ namespace CKIN_REPORT {
                 pax.point_dep == report.point_id and
                 pax.point_arv == routeItem.point_id
           ) {
-            report.route[routeIdx][routeItem.airp][pax.cl].goshow.append(pax);
+            report.route[routeIdx][routeItem.airp][pax.cabin_cl].goshow.append(pax);
             report.pax_list.insert(pax);
         }
     }
@@ -10426,7 +10426,7 @@ namespace CKIN_REPORT {
         LogTrace(TRACE5) << "get_chd pax_id: " << pax.pax_id;
 
         ClassesPersWeight cpw;
-        pwr.weight(pax.cl, string(), cpw);
+        pwr.weight(pax.cabin_cl, string(), cpw);
 
         TChilds::const_iterator iChd = chd.find(pax.pax_id);
 
@@ -10453,7 +10453,7 @@ namespace CKIN_REPORT {
         for(vector<TInfantsItem>::const_iterator i = inf.items.begin(); i != inf.items.end(); i++) {
             if(i->parent_pax_id == pax.pax_id) {
                 ClassesPersWeight cpw;
-                pwr.weight(pax.cl, string(), cpw);
+                pwr.weight(pax.cabin_cl, string(), cpw);
                 result << "1/" << cpw.infant << "/" << i->name;
             }
         }
@@ -10637,7 +10637,7 @@ namespace CKIN_REPORT {
             NewTextChild(itemNode, "del");
             NewTextChild(itemNode, "grp");
             NewTextChild(itemNode, "sn", get_seats(checkinPaxsSeats[iPax->pax_id]));
-            NewTextChild(itemNode, "clss", iPax->cl);
+            NewTextChild(itemNode, "clss", iPax->cabin_cl);
             NewTextChild(itemNode, "ures");
             NewTextChild(itemNode, "inf", get_inf(inf, *iPax, pwr));
             NewTextChild(itemNode, "chd", get_chd(childs, *iPax, pwr));

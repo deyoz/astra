@@ -1615,7 +1615,7 @@ void SalonFormInterface::Tranzit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
               Qry.SetVariable( "point_id", i->point_arv );
               Qry.Execute();
               NewTextChild( node, "airp_arv", Qry.FieldAsString( "airp" ) );
-              NewTextChild( node, "class", i->cl );
+              NewTextChild( node, "class", i->cabin_cl );
               NewTextChild( node, "pers_type", EncodePerson( i->pers_type ) );
               NewTextChild( node, "seats", (int)i->seats );
               NewTextChild( node, "reg_no", i->reg_no );
@@ -1650,7 +1650,7 @@ void SalonFormInterface::Tranzit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
               Qry.SetVariable( "point_id", i->point_arv );
               Qry.Execute();
               NewTextChild( node, "airp_arv", Qry.FieldAsString( "airp" ) );
-              NewTextChild( node, "class", i->cl );
+              NewTextChild( node, "class", i->cabin_cl );
               NewTextChild( node, "pers_type", EncodePerson( i->pers_type ) );
               NewTextChild( node, "seats", (int)i->seats );
               NewTextChild( node, "reg_no", i->reg_no );

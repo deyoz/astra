@@ -1049,8 +1049,9 @@ struct TPass {
   int temp_parent_id;
   bool pr_inf;
   bool pr_web;
-  std::string cl;
-  int class_grp;
+  std::string orig_cl;
+  std::string cabin_cl;
+  int cabin_class_grp;
   int seats;
   bool is_jmp;
   ASTRA::TPerson pers_type;
@@ -1062,7 +1063,7 @@ struct TPass {
     is_female = ASTRA::NoExists;
     point_dep = ASTRA::NoExists;
     point_arv = ASTRA::NoExists;
-    class_grp = ASTRA::NoExists;
+    cabin_class_grp = ASTRA::NoExists;
     parent_pax_id = ASTRA::NoExists;
     temp_parent_id = ASTRA::NoExists;
     pr_inf = false;
@@ -1084,8 +1085,9 @@ struct TSalonPax {
     int point_arv;
     unsigned int seats; //+
     bool is_jmp;
-    std::string cl; //+
-    int class_grp;
+    std::string orig_cl;
+    std::string cabin_cl; //+
+    int cabin_class_grp;
     int reg_no; //+
     ASTRA::TPerson pers_type; //+
     std::string surname; //+
@@ -1106,7 +1108,7 @@ struct TSalonPax {
       pr_infant = ASTRA::NoExists;
       pax_id = ASTRA::NoExists;
       grp_id = ASTRA::NoExists;
-      class_grp = ASTRA::NoExists;
+      cabin_class_grp = ASTRA::NoExists;
       point_arv = ASTRA::NoExists;
       parent_pax_id = ASTRA::NoExists;
       pr_web = false;
@@ -1122,8 +1124,9 @@ struct TSalonPax {
       is_jmp = pass.is_jmp;
       reg_no = pass.reg_no;
       pers_type = pass.pers_type;
-      cl = pass.cl;
-      class_grp = pass.class_grp;
+      orig_cl = pass.orig_cl;
+      cabin_cl = pass.cabin_cl;
+      cabin_class_grp = pass.cabin_class_grp;
       name = pass.name;
       surname = pass.surname;
       is_female = pass.is_female;
