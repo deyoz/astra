@@ -39,11 +39,17 @@ class AvailableByClasses : public std::map<AvailableByClassKey, AvailableByClass
     AvailableByClasses(const CheckIn::TPaxList& paxs)
     {
       for(const CheckIn::TPaxListItem& p : paxs)
-      {
-        AvailableByClassKey key(p.pax.cabin.cl, p.pax.is_jmp);
-        emplace(key, key).first->second.need+=p.pax.seats;
-      }
+        add(p.pax.cabin.cl, p.pax.is_jmp, p.pax.seats);
     }
+    AvailableByClasses() {}
+
+    void add(const std::string& cl, bool is_jmp, int seats)
+    {
+      AvailableByClassKey key(cl, is_jmp);
+      emplace(key, key).first->second.need+=seats;
+    }
+
+    void getSummaryResult(int& need, int& avail) const;
 
     void dump() const;
 };
@@ -54,12 +60,10 @@ void CheckCounters(const CheckIn::TPaxGrpItem& grp,
 
 void CheckCounters(int point_dep,
                    int point_arv,
-                   const std::string &cl,
                    ASTRA::TPaxStatus grp_status,
                    const TCFG &cfg,
                    bool free_seating,
-                   bool is_jmp,
-                   int &free);
+                   AvailableByClasses& availableByClasses);
 
 class TCrsCountersKey
 {

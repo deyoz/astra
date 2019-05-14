@@ -155,7 +155,7 @@ ORG+1H:ŒŽ‚+++$(airl)+Y+::xx+$(pult)"
 EQN+1:TD"
 TKT+$(tickno):T"
 CPN+$(cpnno):$(status)"
-TVL+$(depd)+$(depp)+$(arrp)+$(airl)+$(fltno):$(subcls)++1"
+TVL+$(depd)+$(depp)+$(arrp)+$(airl)+$(fltno)++1"
 UNT+8+1"
 UNZ+1+$(ediref)0001"}
 ) # end-of-macro TKCREQ_ET_COS

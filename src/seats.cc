@@ -1183,7 +1183,7 @@ int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep 
   condSeats.SavePoint();
   while ( !CurrSalon->isExistsOccupySeat( placeList->num, place->x, place->y ) &&
           //CurrSalon->placeIsFree( place ) && place->isplace && place->visible &&
-          place->clname == Passengers.clnameAskDjek &&
+          place->clname == Passengers.cabin_clname &&
           Result + foundCount < MAXPLACE() &&
           VerifyUseLayer( place ) &&
           condRates.CanUseRate( place )
@@ -2101,7 +2101,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
   string OLDSUBCLS_REM = SUBCLS_REM;
   vector<TPassenger> npass;
   Passengers.copyTo( npass );
-  string OLDclnameAskDjek = Passengers.clnameAskDjek;
+  string OLDcabin_clname = Passengers.cabin_clname;
   bool OLDSeatDescrPassengers = ( Passengers.SeatDescription && pr_autoreseats );
   bool OLDSeatDescrCondSeats = ( Passengers.SeatDescription && pr_autoreseats );
   bool OLDKTube = Passengers.KTube;
@@ -2242,7 +2242,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
     AllowedAttrsSeat.pr_isWorkINFT = isWorkINFT;
     Passengers.Clear();
     Passengers.copyFrom( npass );
-    Passengers.clnameAskDjek = OLDclnameAskDjek;
+    Passengers.cabin_clname = OLDcabin_clname;
     Passengers.SeatDescription = OLDSeatDescrPassengers;
     condSeats.SeatDescription = OLDSeatDescrCondSeats;
     Passengers.KTube = OLDKTube;
@@ -2260,7 +2260,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
   SUBCLS_REM = OLDSUBCLS_REM;
   Passengers.Clear();
   Passengers.copyFrom( npass );
-  Passengers.clnameAskDjek = OLDclnameAskDjek;
+  Passengers.cabin_clname = OLDcabin_clname;
   Passengers.SeatDescription = OLDSeatDescrPassengers;
   condSeats.SeatDescription = OLDSeatDescrCondSeats;
   Passengers.KTube = OLDKTube;
@@ -2439,7 +2439,7 @@ void TPassengers::Clear()
   FPassengers.clear();
   KTube = false;
   KWindow = false;
-  clnameAskDjek.clear();
+  cabin_clname.clear();
   UseSmoke = false;
   SeatDescription = false;
   counters.Clear();
@@ -2527,8 +2527,8 @@ void TPassengers::Add( TPassenger &pass, int index )
    }
   }
  // высчитываем класс
-  if ( clnameAskDjek.empty() && !pass.cabin_clname.empty() )
-    clnameAskDjek = pass.cabin_clname;
+  if ( cabin_clname.empty() && !pass.cabin_clname.empty() )
+    cabin_clname = pass.cabin_clname;
  // высчитываем приоритет
   if ( remarks.empty() )
     SALONS2::LoadCompRemarksPriority( remarks );

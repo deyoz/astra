@@ -9335,7 +9335,12 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
                     ElemIdToCodeNative(etPersType, EncodePerson(def.pers_type)) );
       NewTextChild( passNode, "reg_no", ipass->reg_no );
       string name = ipass->surname;
-      NewTextChild( passNode, "name", TrimString( name ) + string(" ") + ipass->name );
+
+      std::string class_change_str;
+      if (!ipass->cabin_cl.empty() && ipass->orig_cl!=ipass->cabin_cl)
+        class_change_str=" ("+classIdsToCodeNative(ipass->orig_cl, ipass->cabin_cl)+")";
+
+      NewTextChild( passNode, "name", TrimString( name ) + string(" ") + ipass->name + class_change_str );
       TWaitListReason waitListReason;
       string seat_no = ipass->seat_no( "list", pr_craft_lat, waitListReason );
       string seat_descr;
@@ -9361,11 +9366,7 @@ bool _TSalonPassengers::BuildWaitList( bool prSeatDescription, xmlNodePtr dataNo
         }
       }
 
-      std::string class_change_str;
-      if (!ipass->cabin_cl.empty() && ipass->orig_cl!=ipass->cabin_cl)
-        class_change_str=" "+classIdsToCodeNative(ipass->orig_cl, ipass->cabin_cl);
-
-      NewTextChild( passNode, "seat_no", seat_no+class_change_str, def.placeName );
+      NewTextChild( passNode, "seat_no", seat_no, def.placeName );
       NewTextChild( passNode, "seat_descr", seat_descr, def.seat_descr );
       if ( !ipass->is_jmp && waitListReason.layerStatus != layerValid && status_wait_list == wlNo ) {
         status_wait_list = wlYes; //есть ЛО

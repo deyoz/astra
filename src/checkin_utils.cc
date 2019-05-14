@@ -302,7 +302,7 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
           pas.add_rem(r->code);
         }
         string pass_rem;
-        if ( subcls_rems.IsSubClsRem( pax.subcl, pass_rem ) )  pas.add_rem(pass_rem);
+        if ( subcls_rems.IsSubClsRem( pax.getCabinSubclass(), pass_rem ) )  pas.add_rem(pass_rem);
         if ( AdultsWithBaby( pax_id, InfItems ) ) {
           flagCHIN = true;
           flagINFT = true;
@@ -1043,7 +1043,7 @@ void TMultiPNRSegInfo::add(const TAdvTripInfo &flt, const TWebPaxForCkin& pax, b
   seg.point_arv=arv.get().point_id;
   seg.pnr_id=pax.pnrId();
   seg.cls=pax.cl;
-  seg.subcls=pax.subcl;
+  seg.subcls=pax.subcl; //!!!vlad upgrade
   seg.pnr_addrs=pax.pnr_addrs;
   if (!pax.isTest() && pax.pnrId()!=ASTRA::NoExists)
   {

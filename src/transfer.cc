@@ -8,7 +8,7 @@
 #include "qrys.h"
 
 #define NICKNAME "VLAD"
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace std;
 using namespace BASIC::date_time;
@@ -54,6 +54,36 @@ void PaxTransferToXML(const list<TPaxTransferItem> &trfer, xmlNodePtr paxNode)
     };
   };
 };
+
+void PaxTransferToDB(int pax_id, int pax_no, const vector<CheckIn::TTransferItem> &trfer, int seg_no)
+{
+  vector<CheckIn::TTransferItem>::const_iterator firstTrfer=trfer.begin();
+  for(;firstTrfer!=trfer.end()&&seg_no>1;firstTrfer++,seg_no--);
+
+  TQuery TrferQry(&OraSession);
+  TrferQry.Clear();
+  TrferQry.SQLText="DELETE FROM transfer_subcls WHERE pax_id=:pax_id";
+  TrferQry.CreateVariable("pax_id",otInteger,pax_id);
+  TrferQry.Execute();
+
+  TrferQry.SQLText=
+    "INSERT INTO transfer_subcls(pax_id,transfer_num,subclass,subclass_fmt) "
+    "VALUES (:pax_id,:transfer_num,:subclass,:subclass_fmt)";
+  TrferQry.DeclareVariable("transfer_num",otInteger);
+  TrferQry.DeclareVariable("subclass",otString);
+  TrferQry.DeclareVariable("subclass_fmt",otInteger);
+
+  int trfer_num=1;
+  for(vector<CheckIn::TTransferItem>::const_iterator t=firstTrfer;t!=trfer.end();t++,trfer_num++)
+  {
+    const CheckIn::TPaxTransferItem &pax=t->pax.at(pax_no-1);
+    TrferQry.SetVariable("transfer_num",trfer_num);
+    TrferQry.SetVariable("subclass",pax.subclass);
+    TrferQry.SetVariable("subclass_fmt",(int)pax.subclass_fmt);
+    TrferQry.Execute();
+  }
+  TrferQry.Close();
+}
 
 void LoadTransfer(int grp_id, vector<TTransferItem> &trfer)
 {

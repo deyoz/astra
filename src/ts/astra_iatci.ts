@@ -68,6 +68,7 @@ $(defmacro CHECK_SEARCH_PAX
             <airp_arv>$(airp_arv)</airp_arv>
             <subclass>ù</subclass>
             <class>ù</class>
+            <cabin_class>ù</cabin_class>
             <passengers>
               <pax>
                 <pax_id>...
@@ -239,6 +240,7 @@ $(defmacro CHECK_TCKIN_ROUTE_2
                     <airp_arv>$(airp_arv)</airp_arv>
                     <subclass>ù</subclass>
                     <class>ù</class>
+                    <cabin_class>ù</cabin_class>
                     <passengers>
                       <pax>
                         <pax_id>-1</pax_id>
@@ -460,6 +462,7 @@ $(defmacro CHECK_TCKIN_ROUTE_GRP_2
                     <airp_arv>$(airp_arv)</airp_arv>
                     <subclass>ù</subclass>
                     <class>ù</class>
+                    <cabin_class>ù</cabin_class>
                     <passengers>
                       <pax>
                         <pax_id>-1</pax_id>
@@ -495,6 +498,7 @@ $(defmacro CHECK_TCKIN_ROUTE_GRP_2
                     <airp_arv>$(airp_arv)</airp_arv>
                     <subclass>ù</subclass>
                     <class>ù</class>
+                    <cabin_class>ù</cabin_class>
                     <passengers>
                       <pax>
                         <pax_id>-2</pax_id>

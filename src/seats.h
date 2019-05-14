@@ -376,7 +376,7 @@ class TPassengers {
   public:
     std::map<std::string, int> remarks;
     TCounters counters;
-    std::string clnameAskDjek;   // класс с которым мы работаем
+    std::string cabin_clname;   // класс с которым мы работаем
     bool KTube;
     bool KWindow;
     bool UseSmoke;

@@ -102,7 +102,7 @@ std::string GetSQL(const TListType ltype)
   if (ltype==allStatusesByPointIdFromTlg)
   {
     sql << "SELECT crs_pax_tkn.ticket_no, crs_pax_tkn.coupon_no, \n"
-           "       tlg_trips.airp_dep, crs_pnr.airp_arv, crs_pnr.subclass, \n"
+           "       tlg_trips.airp_dep, crs_pnr.airp_arv, \n"
            "       tlg_binding.point_id_spp AS point_id, \n"
            "       etickets.coupon_status, etickets.error \n"
            "FROM crs_pax_tkn, crs_pax, crs_pnr, tlg_trips, tlg_binding, etickets \n"
@@ -150,7 +150,7 @@ std::string GetSQL(const TListType ltype)
   if (ltype==allNotCheckedStatusesByPointId)
   {
     sql << "SELECT etickets.ticket_no, etickets.coupon_no, \n"
-           "       etickets.airp_dep, etickets.airp_arv, etickets.subclass, \n"
+           "       etickets.airp_dep, etickets.airp_arv, \n"
            "       etickets.point_id, \n"
            "       etickets.coupon_status, etickets.error \n"
            "FROM etickets, pax \n"
@@ -440,7 +440,6 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
                                               QParam("point_id", otInteger, FNull))
                 << QParam("airp_dep", otString, airp_dep)
                 << QParam("airp_arv", otString, airp_arv)
-                << QParam("subclass", otString, subclass)
                 << (et.status!=CouponStatus::Unavailable?QParam("coupon_status", otString, et.status->dispCode()):
                                                          QParam("coupon_status", otString, FNull))
                 << QParam("error", otString, change_status_error.substr(0,100));
@@ -501,7 +500,7 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
             "BEGIN "
             "  IF :error IS NULL THEN "
             "    UPDATE etickets "
-            "    SET point_id=:point_id, airp_dep=:airp_dep, airp_arv=:airp_arv, subclass=:subclass, "
+            "    SET point_id=:point_id, airp_dep=:airp_dep, airp_arv=:airp_arv, "
             "        coupon_status=:coupon_status, error=:error "
             "    WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
             "  ELSE "
@@ -510,8 +509,8 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
             "    WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
             "  END IF; "
             "  IF SQL%NOTFOUND THEN "
-            "    INSERT INTO etickets(ticket_no, coupon_no, point_id, airp_dep, airp_arv, subclass, coupon_status, error) "
-            "    VALUES(:ticket_no, :coupon_no, :point_id, :airp_dep, :airp_arv, :subclass, :coupon_status, :error); "
+            "    INSERT INTO etickets(ticket_no, coupon_no, point_id, airp_dep, airp_arv, coupon_status, error) "
+            "    VALUES(:ticket_no, :coupon_no, :point_id, :airp_dep, :airp_arv, :coupon_status, :error); "
             "  END IF; "
             "END;";
         TCachedQuery Qry(sql, QryParams);
@@ -580,7 +579,6 @@ TETickItem& TETickItem::fromDB(const TEdiAction ediAction,
                                              Qry.FieldAsInteger("point_id");
         airp_dep=Qry.FieldAsString("airp_dep");
         airp_arv=Qry.FieldAsString("airp_arv");
-        subclass=Qry.FieldAsString("subclass");
         et.status=Qry.FieldIsNULL("coupon_status")?CouponStatus(CouponStatus::Unavailable):
                                                    CouponStatus(CouponStatus::fromDispCode(Qry.FieldAsString("coupon_status")));
         change_status_error=Qry.FieldAsString("error");
@@ -709,7 +707,9 @@ static std::string airlineToXML(const std::string& code)
   return airlineToPrefferedCode(code, OutputLang(LANG_RU, {OutputLang::OnlyTrueIataCodes}));
 }
 
-Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltParams) const
+Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltParams,
+                                         const std::string& subclass,
+                                         const CouponStatus& real_status) const
 {
   Coupon_info ci(et.coupon, et.status);
   TDateTime scd_local=UTCToLocal(fltParams.fltInfo.scd_out,
@@ -735,7 +735,7 @@ Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltPara
             "",                                  //operating carrier
             wcItin?wcItin.get().flightnum():
                    fltParams.fltInfo.flt_no,0,
-            subclass.empty()?SubClass():SubClass(subclass),
+            (!subclass.empty() && real_status==CouponStatus::Flown)?SubClass(subclass):SubClass(),
             scd.date(),
             time_duration(not_a_date_time), // not a date time
             airp_dep,
@@ -1886,6 +1886,18 @@ void ETStatusInterface::ETRollbackStatus(xmlDocPtr ediResDocPtr,
 }
 
 xmlNodePtr TETChangeStatusList::addTicket(const TETChangeStatusKey &key,
+                                          const TETickItem& ETItem,
+                                          const AstraEdifact::TFltParams& fltParams,
+                                          const std::string& subclass)
+{
+  return addTicket(key,
+                   ETItem.makeTicket(fltParams,
+                                     subclass,
+                                     CouponStatus(key.coupon_status)),
+                   fltParams.strictlySingleTicketInTlg());
+}
+
+xmlNodePtr TETChangeStatusList::addTicket(const TETChangeStatusKey &key,
                                           const Ticketing::Ticket &tick,
                                           bool onlySingleTicketInTlg)
 {
@@ -1957,8 +1969,6 @@ void ETStatusInterface::ETCheckStatusForRollback(int point_id,
                                            NodeAsStringFast("airp_dep",node2));
           string airp_arv=NodeAsStringFast("prior_airp_arv",node2,
                                            NodeAsStringFast("airp_arv",node2));
-          string subclass=NodeAsStringFast("prior_subclass",node2,
-                                           NodeAsStringFast("subclass",node2));
           CouponStatus status=CouponStatus::fromDispCode(NodeAsStringFast("coupon_status",node2));
           CouponStatus prior_status=CouponStatus::fromDispCode(NodeAsStringFast("prior_coupon_status",node2));
           //надо вычислить реальный статус
@@ -1978,7 +1988,7 @@ void ETStatusInterface::ETCheckStatusForRollback(int point_id,
 
           if (status==real_status) continue;
 
-          TETickItem ETItem(ticket_no, coupon_no, point_id, airp_dep, airp_arv, subclass, real_status);
+          TETickItem ETItem(ticket_no, coupon_no, point_id, airp_dep, airp_arv, real_status);
           if (ETStatusInterface::ChangeStatusLocallyOnly(fltParams, ETItem, ETCtxt)) continue;
           if (!init_edi_addrs)
           {
@@ -1999,14 +2009,13 @@ void ETStatusInterface::ETCheckStatusForRollback(int point_id,
           ProgTrace(TRACE5,"status=%s prior_status=%s real_status=%s",
                            status->dispCode(),prior_status->dispCode(),real_status->dispCode());
 
-          xmlNodePtr node=mtick.addTicket(key, ETItem.makeTicket(fltParams), fltParams.strictlySingleTicketInTlg());
+          xmlNodePtr node=mtick.addTicket(key, ETItem, fltParams);
 
           NewTextChild(node,"ticket_no",ticket_no);
           NewTextChild(node,"coupon_no",coupon_no);
           NewTextChild(node,"point_id",point_id);
           NewTextChild(node,"airp_dep",airp_dep);
           NewTextChild(node,"airp_arv",airp_arv);
-          NewTextChild(node,"subclass",subclass);
           NewTextChild(node,"flight",GetTripName(fltParams.fltInfo,ecNone,true,false));
           if (GetNodeFast("grp_id",node2)!=NULL)
           {
@@ -2335,7 +2344,6 @@ void ETStatusInterface::ETCheckStatus(int id,
           "       etickets.point_id AS tick_point_id, "
           "       etickets.airp_dep AS tick_airp_dep, "
           "       etickets.airp_arv AS tick_airp_arv, "
-          "       etickets.subclass AS tick_subclass, "
           "       etickets.coupon_status AS coupon_status "
           "FROM pax_grp,pax,etickets "
           "WHERE pax_grp.grp_id=pax.grp_id AND pax.ticket_rem='TKNE' AND "
@@ -2382,7 +2390,8 @@ void ETStatusInterface::ETCheckStatus(int id,
 
             string airp_dep=Qry.FieldAsString("airp_dep");
             string airp_arv=Qry.FieldAsString("airp_arv");
-            string subclass=Qry.FieldAsString("subclass");
+            string cabin_subclass=Qry.FieldIsNULL("cabin_subclass")?Qry.FieldAsString("subclass"):
+                                                                    Qry.FieldAsString("cabin_subclass");
 
             CouponStatus status;
             if (Qry.FieldIsNULL("coupon_status"))
@@ -2399,10 +2408,9 @@ void ETStatusInterface::ETCheckStatus(int id,
                 (!Qry.FieldIsNULL("tick_point_id") &&
                  (Qry.FieldAsInteger("tick_point_id")!=point_id ||
                   Qry.FieldAsString("tick_airp_dep")!=airp_dep ||
-                  Qry.FieldAsString("tick_airp_arv")!=airp_arv ||
-                  (!Qry.FieldIsNULL("tick_subclass") && !subclass.empty() &&  Qry.FieldAsString("tick_subclass")!=subclass))))
+                  Qry.FieldAsString("tick_airp_arv")!=airp_arv)))
             {
-              TETickItem ETItem(ticket_no, coupon_no, point_id, airp_dep, airp_arv, subclass, real_status);
+              TETickItem ETItem(ticket_no, coupon_no, point_id, airp_dep, airp_arv, real_status);
               if (ETStatusInterface::ChangeStatusLocallyOnly(fltParams, ETItem, ETCtxt)) continue;
 
               if (!init_edi_addrs)
@@ -2423,14 +2431,13 @@ void ETStatusInterface::ETCheckStatus(int id,
 
               ProgTrace(TRACE5,"status=%s real_status=%s",status->dispCode(),real_status->dispCode());
 
-              xmlNodePtr node=mtick.addTicket(key, ETItem.makeTicket(fltParams), fltParams.strictlySingleTicketInTlg());
+              xmlNodePtr node=mtick.addTicket(key, ETItem, fltParams, cabin_subclass);
 
               NewTextChild(node,"ticket_no",ticket_no);
               NewTextChild(node,"coupon_no",coupon_no);
               NewTextChild(node,"point_id",point_id);
               NewTextChild(node,"airp_dep",airp_dep);
               NewTextChild(node,"airp_arv",airp_arv);
-              NewTextChild(node,"subclass",subclass);
               NewTextChild(node,"flight",GetTripName(fltParams.fltInfo,ecNone,true,false));
               NewTextChild(node,"grp_id",Qry.FieldAsInteger("grp_id"));
               NewTextChild(node,"pax_id",Qry.FieldAsInteger("pax_id"));
@@ -2448,7 +2455,6 @@ void ETStatusInterface::ETCheckStatus(int id,
                 NewTextChild(node,"prior_point_id",Qry.FieldAsInteger("tick_point_id"));
                 NewTextChild(node,"prior_airp_dep",Qry.FieldAsString("tick_airp_dep"));
                 NewTextChild(node,"prior_airp_arv",Qry.FieldAsString("tick_airp_arv"));
-                NewTextChild(node,"prior_subclass",Qry.FieldAsString("tick_subclass"));
               }
 
               ProgTrace(TRACE5,"ETCheckStatus %s/%d->%s",
@@ -2505,14 +2511,13 @@ void ETStatusInterface::ETCheckStatus(int id,
                                                            ETItem,
                                                            TETCtxtItem(*TReqInfo::Instance(), ET.point_id))) continue;
 
-            xmlNodePtr node=mtick.addTicket(key, ETItem.makeTicket(fltParams), fltParams.strictlySingleTicketInTlg());
+            xmlNodePtr node=mtick.addTicket(key, ETItem, fltParams);
 
             NewTextChild(node,"ticket_no",ET.et.no);
             NewTextChild(node,"coupon_no",ET.et.coupon);
             NewTextChild(node,"point_id",ET.point_id);
             NewTextChild(node,"airp_dep",ET.airp_dep);
             NewTextChild(node,"airp_arv",ET.airp_arv);
-            NewTextChild(node,"subclass",ET.subclass);
             NewTextChild(node,"flight",GetTripName(fltParams.fltInfo,ecNone,true,false));
             NewTextChild(node,"prior_coupon_status",ET.et.status->dispCode());
 
@@ -3691,7 +3696,6 @@ void handleEtCosResponse(const edifact::RemoteResults& remRes)
               ETickItem.point_id=NodeAsIntegerFast("point_id",node2);
               ETickItem.airp_dep=NodeAsStringFast("airp_dep",node2);
               ETickItem.airp_arv=NodeAsStringFast("airp_arv",node2);
-              ETickItem.subclass=NodeAsStringFast("subclass",node2);
               ETickItem.change_status_error=err;
               ETickItem.toDB(TETickItem::ChangeOfStatus);
 
@@ -3736,7 +3740,6 @@ void handleEtCosResponse(const edifact::RemoteResults& remRes)
                     ETickItem.point_id=NodeAsIntegerFast("point_id",node2);
                     ETickItem.airp_dep=NodeAsStringFast("airp_dep",node2);
                     ETickItem.airp_arv=NodeAsStringFast("airp_arv",node2);
-                    ETickItem.subclass=NodeAsStringFast("subclass",node2);
                     ETickItem.change_status_error=err;
                     ETickItem.toDB(TETickItem::ChangeOfStatus);
 
@@ -3791,7 +3794,6 @@ void handleEtCosResponse(const edifact::RemoteResults& remRes)
                     ETickItem.point_id=NodeAsIntegerFast("point_id",node2);
                     ETickItem.airp_dep=NodeAsStringFast("airp_dep",node2);
                     ETickItem.airp_arv=NodeAsStringFast("airp_arv",node2);
-                    ETickItem.subclass=NodeAsStringFast("subclass",node2);
                     ETickItem.change_status_error=err;
                     ETickItem.toDB(TETickItem::ChangeOfStatus);
 
@@ -3838,7 +3840,6 @@ void handleEtCosResponse(const edifact::RemoteResults& remRes)
                   ETickItem.point_id=NodeAsIntegerFast("point_id",node2);
                   ETickItem.airp_dep=NodeAsStringFast("airp_dep",node2);
                   ETickItem.airp_arv=NodeAsStringFast("airp_arv",node2);
-                  ETickItem.subclass=NodeAsStringFast("subclass",node2);
                   if (status->codeInt()!=CouponStatus::OriginalIssue)
                     ETickItem.et.status=CouponStatus(status);
                   else

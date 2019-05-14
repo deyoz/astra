@@ -277,8 +277,8 @@ struct TFlightInfo
 struct TPNRSegInfo
 {
     int point_dep, point_arv, pnr_id;
-    std::string cls;
-    std::string subcls;
+    std::string cls; //!!!vlad upgrade
+    std::string subcls; //!!!vlad upgrade
     TPnrAddrs pnr_addrs;
     boost::optional<TMktFlight> mktFlight;
     TPNRSegInfo() { clear(); }
