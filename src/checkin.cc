@@ -3356,12 +3356,16 @@ static boost::optional<TGrpMktFlight> LoadIatciMktFlight(int grpId)
 
 static void transformSavePaxRequestByIatci(xmlNodePtr reqNode)
 {
+    LogTrace(TRACE3) << "Enter to " << __FUNCTION__;
+    xmlNodePtr iatciSegsNode = NULL;
     xmlNodePtr segNode = findIatciSegNode(reqNode);
-    if(segNode)
+    while(segNode != NULL)
     {
-        xmlNodePtr node = newChild(reqNode, "iatci_segments");
-        CopyNode(node, segNode, true/*recursive*/);
+        if(iatciSegsNode == NULL)
+            iatciSegsNode = newChild(reqNode, "iatci_segments");
+        CopyNode(iatciSegsNode, segNode, true/*recursive*/);
         RemoveNode(segNode);
+        segNode = findIatciSegNode(reqNode);
     }
 }
 
@@ -6965,9 +6969,9 @@ static void CloneServiceLists(xmlNodePtr segsNode, int numToClone)
         xmlNodePtr svcListsNode = findNodeR(paxNode, "service_lists");
         if(svcListsNode) {
             for(int i = 1; i <= numToClone; i++) {
-                XmlEntityViewer::viewServiveList(svcListsNode,
+                XmlEntityViewer::viewServiceList(svcListsNode,
                                                  XmlServiceList(maxSegNo + i, 1, listIdCat1));
-                XmlEntityViewer::viewServiveList(svcListsNode,
+                XmlEntityViewer::viewServiceList(svcListsNode,
                                                  XmlServiceList(maxSegNo + i, 2, listIdCat2));
             }
         }

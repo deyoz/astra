@@ -157,7 +157,8 @@ std::ostream& operator<<(std::ostream &os, const FdqElem &fdq)
     os << "inb arrd: " << Dates::ddmmyyyy(fdq.m_inbArrDate) << "; ";
     os << "inb arrt: " << Dates::hh24mi(fdq.m_inbArrTime) << "; ";
     os << "inb deppoint: " << fdq.m_inbDepPoint << "; ";
-    os << "inb arrpoint: " << fdq.m_outbArrPoint;
+    os << "inb arrpoint: " << fdq.m_outbArrPoint << "; ";
+    os << "outb flight indicator: " << fdq.m_flIndicator;
     return os;
 }
 
@@ -288,6 +289,13 @@ std::ostream& operator<<(std::ostream &os, const ChdElem &chd)
     for(const std::string& hostAirline: chd.m_hostAirlines) {
         os << hostAirline << ", ";
     }
+    return os;
+}
+
+std::ostream& operator<<(std::ostream &os, const DmcElem &dmc)
+{
+    os << "DMC: ";
+    os << "max num of answer flights: " << dmc.m_maxNumRespFlights;
     return os;
 }
 

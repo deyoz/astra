@@ -22,6 +22,11 @@ IatciSeatmapRequestHandler::IatciSeatmapRequestHandler(_EDI_REAL_MES_STRUCT_ *pM
 {
 }
 
+std::string IatciSeatmapRequestHandler::fcIndicator() const
+{
+    return "T";
+}
+
 void IatciSeatmapRequestHandler::makeAnAnswer()
 {
     int curSg1 = 0;
@@ -31,8 +36,8 @@ void IatciSeatmapRequestHandler::makeAnAnswer()
         SetEdiSegGr(pMesW(), SegGrElement(1, curSg1));
         SetEdiPointToSegGrW(pMesW(), SegGrElement(1, curSg1), "SegGr1(flg) not found");
 
-        viewFdrElement(pMesW(), res.flight());
-        viewRadElement(pMesW(), respType(), res.statusAsString());
+        viewFdrElement(pMesW(), res.flight(), fcIndicator());
+        viewRadElement(pMesW(), respType(), "O");
         if(res.cascade())
             viewChdElement(pMesW(), *res.cascade());
 

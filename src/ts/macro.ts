@@ -176,6 +176,7 @@ $(defmacro TKCRES_ET_DISP_1CPN
     arrp
     fltno=103
     subcls=Y
+    cpnno=1
     depc=MOW
     arrc=LED
 {UNB+SIRE:1+$(from)+$(to)+091030:0529+$(ediref)0001+++T"
@@ -196,7 +197,7 @@ IFT+4:5+00001230161213"
 IFT+4:10+REFUNDABLE"
 IFT+4:39+HOUSTON+UNITED AIRLINES INC"
 TKT+$(tickno):T:1:3"
-CPN+1:$(status)"
+CPN+$(cpnno):$(status)"
 TVL+$(depd):2205+$(depp)+$(arrp)+$(airl)+$(fltno):$(subcls)+J"
 RPI++NS"
 PTS++YINF"
@@ -540,7 +541,7 @@ ENDPNL}
 
 #########################################################################################
 
-$(defmacro PNL_1PAX_3SEGS
+$(defmacro PNL_1PAX_3SEGS_WITH_REMARKS
     airl1
     depp1
     arrp1
@@ -589,6 +590,79 @@ Y059
 -LED000U
 ENDPNL}
 ) #end-of-macro PNL_1PAX_3SEGS
+
+#########################################################################################
+
+$(defmacro PNL_2PAXES_3SEGS_WITH_REMARKS
+    airl1
+    depp1
+    arrp1
+    flt1
+    airl2
+    depp2
+    arrp2
+    flt2
+    airl3
+    depp3
+    arrp3
+    flt3
+    surname1
+    name1
+    tickno1
+    cpnno1
+    pax1subclsdotO
+    pax1subclsdotO2
+    airl_recloc1
+    gds_recloc1
+    surname2
+    name2
+    tickno2
+    cpnno2
+    pax2subclsdotO
+    pax2subclsdotO2
+    airl_recloc2
+    gds_recloc2
+{MOWKB1H
+.MOWRMUT 020815
+PNL
+$(airl1)$(flt1)/$(ddmon +0 en) $(depp1) PART1
+CFG/060F060C060Y
+RBD F/F C/C Y/YKMU
+AVAIL
+ $(depp1)  $(arrp1)
+F060
+C060
+Y059
+-LED000F
+-LED000C
+-LED002Y
+1$(surname1)/$(name1)
+.L/$(airl_recloc1)/$(airl1)
+.L/$(gds_recloc1)/1H
+.O/$(airl2)$(flt2)$(pax1subclsdotO)$(dd +0 en)$(depp2)$(arrp2)2115HK
+.O2/$(airl3)$(flt3)$(pax1subclsdotO2)$(dd +0 en)$(depp3)$(arrp3)2330HK
+.R/TKNE HK1 $(tickno1)/$(cpnno1)-1$(surname1)/$(name1)
+.R/DOCS HK1/P/TJK/400522509/TJK/24JUL85/M/05FEB25/$(surname1)
+.RN//$(name1)-1$(surname1)/$(name1)
+.R/PSPT HK1 ZB400522509/TJK/24JUL85/$(surname1)/$(name1)/M
+.RN/-1$(surname1)/$(name1)
+.R/FOID PPZB400522509-1$(surname1)/$(name1)
+1$(surname2)/$(name2)
+.L/$(airl_recloc2)/$(airl2)
+.L/$(gds_recloc2)/1H
+.O/$(airl2)$(flt2)$(pax2subclsdotO)$(dd +0 en)$(depp2)$(arrp2)2115HK
+.O2/$(airl3)$(flt3)$(pax2subclsdotO2)$(dd +0 en)$(depp3)$(arrp3)2330HK
+.R/TKNE HK1 $(tickno2)/$(cpnno2)-1$(surname2)/$(name2)
+.R/DOCS HK1/P/TJK/400522512/TJK/24JUL86/M/05FEB22/$(surname2)
+.RN//$(name2)-1$(surname2)/$(name2)
+.R/PSPT HK1 ZB400522512/TJK/24JUL86/$(surname2)/$(name2)/M
+.RN/-1$(surname2)/$(name2)
+.R/FOID PPZB400522512-1$(surname2)/$(name2)
+-LED000K
+-LED000M
+-LED000U
+ENDPNL}
+) #end-of-macro PNL_2PAXES_3SEGS_WITH_REMARKS
 
 #########################################################################################
 
@@ -645,32 +719,8 @@ $(PNL_1PAX_2SEGS_WITH_REMARKS $(airl1) $(depp1) $(arrp1) $(flt1)
 
 >>
 $(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref) ž’ 2982401841689)
-
 <<
-UNB+SIRE:1+UTET+UTDC+091030:0529+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
-MSG+:131+3"
-TIF+$(surname)+$(name)"
-TAI+0162"
-RCI+UA:G4LK6W:1"
-MON+B:20.00:USD+T:20.00:USD"
-FOP+CA:3"
-PTK+++$(ddmmyy)+++:US"
-ODI+$(depp1)+$(arrp1)"
-ORG+UT:MOW++IAH++A+US+D80D1BWO"
-EQN+1:TD"
-TXD+700+0.00:::US"
-IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
-IFT+4:5+00001230161213"
-IFT+4:10+REFUNDABLE"
-IFT+4:39+HOUSTON+UNITED AIRLINES INC"
-TKT+2982401841689:T:1:3"
-CPN+1:I"
-TVL+$(ddmmyy):2205+$(depp1)+$(arrp1)+$(airl1)+$(flt1):Y+J"
-RPI++NS"
-PTS++YINF"
-UNT+19+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_DISP_1CPN UTET UTDC $(last_edifact_ref) $(airl1) $(tickno) I $(surname) $(name) $(ddmmyy) $(depp1) $(arrp1) $(flt1))
 
 $(create_random_trip_comp $(get_dep_point_id „Œ„ ž’ 103 $(yymmdd +0)) )
 }) #end-of-macro
@@ -773,64 +823,18 @@ $(PNL_2PAXES_2SEGS_WITH_REMARKS $(airl1) $(depp1) $(arrp1) $(flt1)
 
 $(create_random_trip_comp $(get_dep_point_id $(depp1) $(airl1) $(flt1) $(yymmdd +0)) )
 
->>
-$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 1) ž’ $(tickno1))
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
 
 >>
-$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 0) ž’ $(tickno2))
-
-
-<<
-UNB+SIRE:1+UTET+UTDC+091030:0529+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
-MSG+:131+3"
-TIF+$(surname1)+$(name1)"
-TAI+0162"
-RCI+UA:G4LK6W:1"
-MON+B:20.00:USD+T:20.00:USD"
-FOP+CA:3"
-PTK+++$(ddmmyy)+++:US"
-ODI+$(depp1)+$(arrp1)"
-ORG+UT:MOW++IAH++A+US+D80D1BWO"
-EQN+1:TD"
-TXD+700+0.00:::US"
-IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
-IFT+4:5+00001230161213"
-IFT+4:10+REFUNDABLE"
-IFT+4:39+HOUSTON+UNITED AIRLINES INC"
-TKT+$(tickno1):T:1:3"
-CPN+$(cpnno1):I"
-TVL+$(ddmmyy):2205+$(depp1)+$(arrp1)+$(airl1)+$(flt1):Y+J"
-RPI++NS"
-PTS++YINF"
-UNT+19+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_DISP UTDC UTET $(get edi_ref1) ž’ $(tickno1))
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(get edi_ref0) ž’ $(tickno2))
 
 <<
-UNB+SIRE:1+UTET+UTDC+091030:0529+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
-MSG+:131+3"
-TIF+$(surname2)+$(name2)"
-TAI+0162"
-RCI+UA:G4LK6W:1"
-MON+B:20.00:USD+T:20.00:USD"
-FOP+CA:3"
-PTK+++$(ddmmyy)+++:US"
-ODI+$(depp1)+$(arrp1)"
-ORG+UT:MOW++IAH++A+US+D80D1BWO"
-EQN+1:TD"
-TXD+700+0.00:::US"
-IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
-IFT+4:5+00001230161213"
-IFT+4:10+REFUNDABLE"
-IFT+4:39+HOUSTON+UNITED AIRLINES INC"
-TKT+$(tickno2):T:1:3"
-CPN+$(cpnno2):I"
-TVL+$(ddmmyy):2205+$(depp1)+$(arrp1)+$(airl1)+$(flt1):Y+J"
-RPI++NS"
-PTS++YINF"
-UNT+19+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_DISP_1CPN UTET UTDC $(get edi_ref1) $(airl1) $(tickno1) I $(surname1) $(name1) $(ddmmyy) $(depp1) $(arrp1) $(flt1) Y $(cpnno1))
+<<
+$(TKCRES_ET_DISP_1CPN UTET UTDC $(get edi_ref0) $(airl1) $(tickno2) I $(surname2) $(name2) $(ddmmyy) $(depp1) $(arrp1) $(flt1) Y $(cpnno2))
 
 }) #end-of-macro
 
@@ -868,64 +872,18 @@ $(PNL_1PAX_1INFT_1SEG $(airl1) $(depp1) $(arrp1) $(flt1)
 
 $(create_random_trip_comp $(get_dep_point_id $(depp1) $(airl1) $(flt1) $(yymmdd +0)) )
 
->>
-$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 1) ž’ $(tickno))
+$(set edi_ref1 $(last_edifact_ref 1))
+$(set edi_ref0 $(last_edifact_ref 0))
 
 >>
-$(TKCREQ_ET_DISP UTDC UTET $(last_edifact_ref 0) ž’ $(inftTickno))
-
-
-<<
-UNB+SIRE:1+UTET+UTDC+091030:0529+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
-MSG+:131+3"
-TIF+$(surname)+$(name)"
-TAI+0162"
-RCI+UA:G4LK6W:1"
-MON+B:20.00:USD+T:20.00:USD"
-FOP+CA:3"
-PTK+++$(ddmmyy)+++:US"
-ODI+$(depp1)+$(arrp1)"
-ORG+UT:MOW++IAH++A+US+D80D1BWO"
-EQN+1:TD"
-TXD+700+0.00:::US"
-IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
-IFT+4:5+00001230161213"
-IFT+4:10+REFUNDABLE"
-IFT+4:39+HOUSTON+UNITED AIRLINES INC"
-TKT+$(tickno):T:1:3"
-CPN+$(cpnno):I"
-TVL+$(ddmmyy):2205+$(depp1)+$(arrp1)+$(airl1)+$(flt1):Y+J"
-RPI++NS"
-PTS++YINF"
-UNT+19+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCREQ_ET_DISP UTDC UTET $(get edi_ref1) ž’ $(tickno))
+>>
+$(TKCREQ_ET_DISP UTDC UTET $(get edi_ref0) ž’ $(inftTickno))
 
 <<
-UNB+SIRE:1+UTET+UTDC+091030:0529+$(last_edifact_ref)0001+++T"
-UNH+1+TKCRES:06:1:IA+$(last_edifact_ref)"
-MSG+:131+3"
-TIF+$(inftSurname)+$(inftName)"
-TAI+0162"
-RCI+UA:G4LK6W:1"
-MON+B:20.00:USD+T:20.00:USD"
-FOP+CA:3"
-PTK+++$(ddmmyy)+++:US"
-ODI+$(depp1)+$(arrp1)"
-ORG+UT:MOW++IAH++A+US+D80D1BWO"
-EQN+1:TD"
-TXD+700+0.00:::US"
-IFT+4:15:1+ /FC 20DEC MOW UT SGC10.00YINF UT MOW10.00YINF NUC20.00END"
-IFT+4:5+00001230161213"
-IFT+4:10+REFUNDABLE"
-IFT+4:39+HOUSTON+UNITED AIRLINES INC"
-TKT+$(inftTickno):T:1:3"
-CPN+$(inftCouponno):I"
-TVL+$(ddmmyy):2205+$(depp1)+$(arrp1)+$(airl1)+$(flt1):Y+J"
-RPI++NS"
-PTS++YINF"
-UNT+19+1"
-UNZ+1+$(last_edifact_ref)0001"
+$(TKCRES_ET_DISP_1CPN UTET UTDC $(get edi_ref1) $(airl1) $(tickno) I $(surname) $(name) $(ddmmyy) $(depp1) $(arrp1) $(flt1) Y $(cpnno))
+<<
+$(TKCRES_ET_DISP_1CPN UTET UTDC $(get edi_ref0) $(airl1) $(inftTickno) I $(inftSurname) $(inftName) $(ddmmyy) $(depp1) $(arrp1) $(flt1) Y $(inftCouponno))
 
 }) #end-of-macro
 

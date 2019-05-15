@@ -22,8 +22,8 @@ public:
     virtual void fillErrorDetails();
     virtual void parse();
     virtual void handle();
-    virtual void onTimeOut() {}
-    virtual void onCONTRL() {}
+    virtual void onTimeOut();
+    virtual void onCONTRL();
 
     virtual ~IatciResponseHandler() {}
 };

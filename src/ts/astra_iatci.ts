@@ -5446,8 +5446,8 @@ $(init_eds ЮТ UTET UTDC)
 
 # подготовка рейса
 $(PREPARE_FLIGHT_1PAX_1INFT_1SEG ЮТ 103 ДМД ПЛК С7 1027 ПЛК СОЧ
-                   REPIN ADULT 2982401841689 1
-                   REPIN INFANT 2982401841612 1)
+                                 REPIN ADULT 2982401841689 1
+                                 REPIN INFANT 2982401841612 1)
 
 $(set point_dep $(last_point_id_spp))
 $(set point_arv $(get_next_trip_point_id $(get point_dep)))

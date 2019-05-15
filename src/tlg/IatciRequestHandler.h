@@ -28,14 +28,14 @@ public:
     virtual void makeAnAnswerErr();
 
     virtual std::string respType() const = 0;    // Значение RAD:9868
+    virtual std::string fcIndicator() const = 0; // Значение FDR:9856
 
     virtual ~IatciRequestHandler() {}
 
 protected:
-    virtual const iatci::IBaseParams* paramsNew() const = 0;
+    virtual const iatci::IBaseParams* params() const = 0;
 
-    virtual iatci::dcrcka::Result handleRequest() const = 0;
-    virtual edilib::EdiSessionId_t sendCascadeRequest() const = 0;
+    virtual std::list<iatci::dcrcka::Result> handleRequest() const = 0;
     virtual void saveErrorInfo(const Ticketing::ErrMsg_t& errCode,
                                const std::string& errText);
 
@@ -43,9 +43,6 @@ protected:
     const std::string& ediErrorLevel() const;
 
     bool postponeHandling() const;
-
-private:
-    virtual void loadDeferredData();
 };
 
 }//namespace TlgHandling

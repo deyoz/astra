@@ -15,14 +15,14 @@ public:
 
     virtual void parse();
     virtual std::string respType() const;
+    virtual std::string fcIndicator() const;
 
     virtual ~IatciPlfRequestHandler() {}
 
 protected:
-    virtual const iatci::IBaseParams* paramsNew() const;
+    virtual const iatci::IBaseParams* params() const;
 
-    virtual iatci::dcrcka::Result handleRequest() const;
-    virtual edilib::EdiSessionId_t sendCascadeRequest() const;
+    virtual std::list<iatci::dcrcka::Result> handleRequest() const;
 };
 
 }//namespace TlgHandling

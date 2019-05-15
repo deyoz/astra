@@ -210,26 +210,86 @@ bool operator!=(const FqtRemarks& left, const FqtRemarks& right);
 
 //---------------------------------------------------------------------------------------
 
+struct IatciBag
+{
+    int  num_of_pieces;
+    int  weight;
+    bool is_hand;
+
+    IatciBag()
+        : num_of_pieces(ASTRA::NoExists),
+          weight(ASTRA::NoExists),
+          is_hand(false)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
+struct IatciBags
+{
+   std::list<IatciBag> bags;
+
+   IatciBags()
+   {}
+   IatciBags(const std::list<IatciBag>& b)
+       : bags(b)
+   {}
+};
+
+//---------------------------------------------------------------------------------------
+
+struct IatciBagTag
+{
+    std::string carrier_code;
+    int         tag_num;
+    int         qtty;
+    std::string dest;
+    int         accode;
+
+    IatciBagTag()
+        : tag_num(ASTRA::NoExists),
+          qtty(ASTRA::NoExists),
+          accode(ASTRA::NoExists)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
+struct IatciBagTags
+{
+    std::list<IatciBagTag> tags;
+
+    IatciBagTags()
+    {}
+    IatciBagTags(const std::list<IatciBagTag>& t)
+        : tags(t)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
 struct PaxInfo
 {
-    int                          m_paxId;
-    std::string                  m_surname;
-    std::string                  m_name;
-    ASTRA::TPerson               m_persType;
-    std::string                  m_ticketNum;
-    unsigned                     m_couponNum;
-    std::string                  m_ticketRem;
-    std::string                  m_seatNo;
-    std::string                  m_regNo;
-    std::string                  m_iatciPaxId;
-    Ticketing::SubClass          m_subclass;
-    boost::optional<DocInfo>     m_doc;
-    boost::optional<Addresses>   m_addrs;
-    boost::optional<VisaInfo>    m_visa;
-    boost::optional<Remarks>     m_rems;
-    boost::optional<FqtRemarks>  m_fqtRems;
-    int                          m_bagPoolNum;
-    int                          m_iatciParentId;
+    int                           m_paxId;
+    std::string                   m_surname;
+    std::string                   m_name;
+    ASTRA::TPerson                m_persType;
+    std::string                   m_ticketNum;
+    unsigned                      m_couponNum;
+    std::string                   m_ticketRem;
+    std::string                   m_seatNo;
+    std::string                   m_regNo;
+    std::string                   m_iatciPaxId;
+    Ticketing::SubClass           m_subclass;
+    boost::optional<DocInfo>      m_doc;
+    boost::optional<Addresses>    m_addrs;
+    boost::optional<VisaInfo>     m_visa;
+    boost::optional<Remarks>      m_rems;
+    boost::optional<FqtRemarks>   m_fqtRems;
+    boost::optional<IatciBags>    m_iatciBags;
+    boost::optional<IatciBagTags> m_iatciBagTags;
+    int                           m_bagPoolNum;
+    int                           m_iatciParentId;
 
     PaxInfo(int paxId,
             const std::string& surname,
@@ -247,6 +307,8 @@ struct PaxInfo
             const boost::optional<VisaInfo>& visa,
             const boost::optional<Remarks>& rems = boost::none,
             const boost::optional<FqtRemarks>& fqtRems = boost::none,
+            const boost::optional<IatciBags>& iatciBags = boost::none,
+            const boost::optional<IatciBagTags>& iatciBagTags = boost::none,
             int bagPoolNum = 0,
             int iatciParentId = 0);
 
@@ -333,6 +395,10 @@ public:
 /////////////////////////////////////////////////////////////////////////////////////////
 
 namespace xml_entities {
+
+class PaxFilter;
+
+//
 
 class ReqParams
 {
@@ -449,61 +515,10 @@ struct XmlFqtRems
 
 //---------------------------------------------------------------------------------------
 
-struct XmlIatciBag
-{
-    int  num_of_pieces;
-    int  weight;
-    bool is_hand;
-
-    XmlIatciBag()
-        : num_of_pieces(ASTRA::NoExists),
-          weight(ASTRA::NoExists),
-          is_hand(false)
-    {}
-};
-
-//---------------------------------------------------------------------------------------
-
-struct XmlIatciBags
-{
-   std::list<XmlIatciBag> bags;
-
-   XmlIatciBags()
-   {}
-   XmlIatciBags(const std::list<XmlIatciBag>& b)
-       : bags(b)
-   {}
-};
-
-//---------------------------------------------------------------------------------------
-
-struct XmlIatciBagTag
-{
-    std::string carrier_code;
-    int 	tag_num;
-    int 	qtty;
-    std::string dest;
-    int 	accode;
-
-    XmlIatciBagTag()
-        : tag_num(ASTRA::NoExists),
-          qtty(ASTRA::NoExists),
-          accode(ASTRA::NoExists)
-    {}
-};
-
-//---------------------------------------------------------------------------------------
-
-struct XmlIatciBagTags
-{
-    std::list<XmlIatciBagTag> tags;
-
-    XmlIatciBagTags()
-    {}
-    XmlIatciBagTags(const std::list<XmlIatciBagTag>& t)
-        : tags(t)
-    {}
-};
+typedef astra_entities::IatciBag XmlIatciBag;
+typedef astra_entities::IatciBags XmlIatciBags;
+typedef astra_entities::IatciBagTag XmlIatciBagTag;
+typedef astra_entities::IatciBagTags XmlIatciBagTags;
 
 //---------------------------------------------------------------------------------------
 
@@ -572,10 +587,14 @@ struct XmlTrferSegment
     std::string subclass;
     int         trfer_permit;
 
+    std::string calc_status;
+
     XmlTrferSegment()
         : num(ASTRA::NoExists),
           trfer_permit(ASTRA::NoExists)
     {}
+
+    void updateCalcStatus(const std::string& calc_status);
 };
 
 //---------------------------------------------------------------------------------------
@@ -594,14 +613,11 @@ struct XmlPnr
         : pnr_id(ASTRA::NoExists)
     {}
 
-    // пока можем работать только с одним пассажиром
-    XmlPax& pax();
-    const XmlPax& pax() const;
 
-    std::list<XmlPax> applyNameFilter(const std::string& surname,
-                                      const std::string& name) const;
+    std::list<XmlPax> filterPaxes(const std::string& surname,
+                                  const std::string& name) const;
 
-    std::list<XmlPax> applyTickNumFilter(const Ticketing::TicketNum_t& ticknum) const;
+    std::list<XmlPax> filterPaxes(const PaxFilter& filter) const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -744,6 +760,23 @@ struct XmlSegmentInfo
 
 //---------------------------------------------------------------------------------------
 
+struct XmlHostOrigin
+{
+    std::string origAirline;
+    std::string origLocation;
+};
+
+//---------------------------------------------------------------------------------------
+
+struct XmlHostDetails
+{
+    boost::optional<XmlHostOrigin> hostOrigin;
+    std::list<std::string>         hostAirlines;
+    boost::optional<unsigned>      maxRespFlights;
+};
+
+//---------------------------------------------------------------------------------------
+
 struct XmlSegment
 {
     XmlTripHeader  trip_header;
@@ -752,6 +785,7 @@ struct XmlSegment
     XmlMarkFlight  mark_flight;
     std::list<XmlTripCounterItem> trip_counters;
     std::list<XmlPax> passengers;
+    boost::optional<XmlHostDetails> host_details;
 
     XmlSegment()
     {}
@@ -762,8 +796,12 @@ struct XmlSegment
                                       const std::string& name) const;
 
     boost::optional<XmlPax> findPaxById(int paxId) const;
+    boost::optional<XmlPax> findPaxByName(const std::string& surname,
+                                          const std::string& name) const;
 
     XmlPax firstNonInfant() const;
+
+    bool isIatci() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -878,10 +916,10 @@ struct XmlTrip
     XmlPnr& pnr();
     const XmlPnr& pnr() const;
 
-    std::list<XmlPnr> applyNameFilter(const std::string& surname,
-                                      const std::string& name) const;
+    std::list<XmlPnr> filterPnrs(const std::string& surname,
+                                 const std::string& name) const;
 
-    std::list<XmlPnr> applyTickNumFilter(const Ticketing::TicketNum_t& ticknum) const;
+    std::list<XmlPnr> filterPnrs(const PaxFilter& filter) const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -983,6 +1021,43 @@ struct XmlPlaceList
     XmlPlace minYPlace() const;
     XmlPlace maxYPlace() const;
     boost::optional<XmlPlace> findPlace(int y, const std::string& xname) const;
+};
+
+//---------------------------------------------------------------------------------------
+
+struct GetSeatmapXmlResult
+{
+    std::string trip;
+    std::string craft;
+    XmlFilterRoutes filterRoutes;
+
+    std::list<XmlPlaceList> lPlacelist;
+
+    iatci::dcrcka::Result toIatci(const iatci::FlightDetails& outbFlt) const;
+
+    GetSeatmapXmlResult(xmlNodePtr node);
+};
+
+//---------------------------------------------------------------------------------------
+
+struct XmlRouteSegment
+{
+    std::string trfer_permit;
+    std::string tckin_permit;
+    std::string flight;
+    std::string classes;
+    std::string total;
+    std::string calc_status;
+};
+
+//---------------------------------------------------------------------------------------
+
+struct XmlTCkinSegment
+{
+    XmlTripHeader      trip_header;
+    XmlTripData        trip_data;
+    XmlSegmentInfo     seg_info;
+    std::list<XmlTrip> trips;
 };
 
 //---------------------------------------------------------------------------------------
@@ -1104,6 +1179,15 @@ public:
     static std::list<XmlFilterRouteItem> readFilterRouteItems(xmlNodePtr itemsNode);
 
     static XmlFilterRoutes               readFilterRoutes(xmlNodePtr filterRoutesNode);
+
+    static XmlRouteSegment               readRouteSegment(xmlNodePtr routeNode);
+    static std::list<XmlRouteSegment>    readRouteSegments(xmlNodePtr routesNode);
+
+    static XmlTCkinSegment               readTCkinSegment(xmlNodePtr segNode);
+    static std::list<XmlTCkinSegment>    readTCkinSegments(xmlNodePtr segsNode);
+
+    static XmlHostOrigin                 readHostOrigin(xmlNodePtr hoNode);
+    static XmlHostDetails                readHostDetails(xmlNodePtr hdNode);
 };
 
 //---------------------------------------------------------------------------------------
@@ -1127,10 +1211,12 @@ public:
     static xmlNodePtr viewVisa(xmlNodePtr node, const XmlPaxVisa& visa);
 
     static xmlNodePtr viewPax(xmlNodePtr node, const XmlPax& pax);
+    static xmlNodePtr viewTrferPax(xmlNodePtr node, const XmlPax& pax);
 
     static xmlNodePtr viewSegInfo(xmlNodePtr node, const XmlSegmentInfo& segInfo);
 
     static xmlNodePtr viewSeg(xmlNodePtr node, const XmlSegment& seg);
+    static xmlNodePtr viewTrferSeg(xmlNodePtr node, const XmlTrferSegment& seg);
 
     static xmlNodePtr viewBag(xmlNodePtr node, const XmlBag& bag);
     static xmlNodePtr viewBag(xmlNodePtr node, const XmlIatciBag& bag);
@@ -1143,8 +1229,96 @@ public:
     static xmlNodePtr viewBagTagsHeader(xmlNodePtr node);
     static xmlNodePtr viewBagTags(xmlNodePtr node, const XmlBagTags& tags);
     static xmlNodePtr viewBagTags(xmlNodePtr node, const XmlIatciBagTags& tags);
+    static xmlNodePtr viewValueBagsHeader(xmlNodePtr node);
 
-    static xmlNodePtr viewServiveList(xmlNodePtr node, const XmlServiceList& svcList);
+    static xmlNodePtr viewServiceList(xmlNodePtr node, const XmlServiceList& svcList);
+
+    static xmlNodePtr viewHostOrigin(xmlNodePtr node, const XmlHostOrigin& hostOrigin);
+    static xmlNodePtr viewHostDetails(xmlNodePtr node, const XmlHostDetails& hostDetails);
+};
+
+//---------------------------------------------------------------------------------------
+
+struct SearchPaxXmlResult
+{
+    std::list<XmlTrip> lTrip;
+
+    std::list<XmlTrip> filterTrips(const std::string& surname,
+                                   const std::string& name) const;
+
+    std::list<XmlTrip> filterTrips(const PaxFilter& filter) const;
+
+
+    SearchPaxXmlResult(xmlNodePtr node);
+};
+
+//---------------------------------------------------------------------------------------
+
+struct LoadPaxXmlResult
+{
+    std::list<XmlSegment> lSeg;
+
+    std::list<XmlBag>     lBag;
+    std::list<XmlBagTag>  lBagTag;
+
+    std::vector<iatci::dcrcka::Result> toIatci(iatci::dcrcka::Result::Action_e action) const;
+
+    iatci::dcrcka::Result toIatciFirst(iatci::dcrcka::Result::Action_e action) const;
+
+
+    void applyPaxFilter(const PaxFilter& filters);
+
+    LoadPaxXmlResult(xmlNodePtr node);
+    LoadPaxXmlResult(const std::list<XmlSegment>& lSeg,
+                     const std::list<XmlBag>& lBag = std::list<XmlBag>(),
+                     const std::list<XmlBagTag>& lBagTag = std::list<XmlBagTag>());
+
+private:
+    void finalizeBags();
+    void finalizeBagTags();
+};
+
+//---------------------------------------------------------------------------------------
+
+struct PaxListXmlResult
+{
+    std::list<XmlPax> lPax;
+
+    std::list<XmlPax> applyNameFilter(const std::string& surname,
+                                      const std::string& name) const;
+
+    std::list<XmlPax> applyFilters(const PaxFilter& filters) const;
+
+    PaxListXmlResult(xmlNodePtr node);
+};
+
+//---------------------------------------------------------------------------------------
+
+struct GetAdvTripListXmlResult
+{
+    std::list<XmlTrip> lTrip;
+
+    std::list<XmlTrip> applyFlightFilter(const std::string& flightName) const;
+
+    GetAdvTripListXmlResult(xmlNodePtr node);
+};
+
+//---------------------------------------------------------------------------------------
+
+struct CheckTCkinRoute1XmlResult
+{
+    std::list<XmlRouteSegment> lRouteSeg;
+
+    CheckTCkinRoute1XmlResult(xmlNodePtr node);
+};
+
+//---------------------------------------------------------------------------------------
+
+struct CheckTCkinRoute2XmlResult
+{
+    std::list<XmlTCkinSegment> lTCkinSeg;
+
+    CheckTCkinRoute2XmlResult(xmlNodePtr node);
 };
 
 //---------------------------------------------------------------------------------------
@@ -1209,90 +1383,12 @@ struct PaxFilter
               const boost::optional<IdFilter>& idFilter);
 
     bool operator()(const XmlPax& pax) const;
+    bool operator()(const XmlPnr& pnr) const;
+    bool operator()(const XmlTrip& trip) const;
 };
 
-//---------------------------------------------------------------------------------------
-
-struct SearchPaxXmlResult
-{
-    std::list<XmlTrip> lTrip;
-
-    std::list<XmlTrip> applyNameFilter(const std::string& surname,
-                                       const std::string& name) const;
-
-    SearchPaxXmlResult(xmlNodePtr node);
-};
-
-//---------------------------------------------------------------------------------------
-
-struct LoadPaxXmlResult
-{
-    std::list<XmlSegment> lSeg;
-
-    std::list<XmlBag>     lBag;
-    std::list<XmlBagTag>  lBagTag;
-
-    std::vector<iatci::dcrcka::Result> toIatci(iatci::dcrcka::Result::Action_e action,
-                                               iatci::dcrcka::Result::Status_e status) const;
-
-    iatci::dcrcka::Result toIatciFirst(iatci::dcrcka::Result::Action_e action,
-                                       iatci::dcrcka::Result::Status_e status) const;
-
-
-    void applyPaxFilter(const PaxFilter& filters);
-
-    LoadPaxXmlResult(xmlNodePtr node);
-    LoadPaxXmlResult(const std::list<XmlSegment>& lSeg,
-                     const std::list<XmlBag>& lBag = std::list<XmlBag>(),
-                     const std::list<XmlBagTag>& lBagTag = std::list<XmlBagTag>());
-
-private:
-    void finalizeBags();
-    void finalizeBagTags();
-};
-
-//---------------------------------------------------------------------------------------
-
-struct PaxListXmlResult
-{
-    std::list<XmlPax> lPax;
-
-    std::list<XmlPax> applyNameFilter(const std::string& surname,
-                                      const std::string& name) const;
-
-    std::list<XmlPax> applyFilters(const PaxFilter& filters) const;
-
-    PaxListXmlResult(xmlNodePtr node);
-};
-
-//---------------------------------------------------------------------------------------
-
-struct GetAdvTripListXmlResult
-{
-    std::list<XmlTrip> lTrip;
-
-    std::list<XmlTrip> applyFlightFilter(const std::string& flightName) const;
-
-    GetAdvTripListXmlResult(xmlNodePtr node);
-};
-
-//---------------------------------------------------------------------------------------
-
-struct GetSeatmapXmlResult
-{
-    std::string trip;
-    std::string craft;
-    XmlFilterRoutes filterRoutes;
-
-    std::list<XmlPlaceList> lPlacelist;
-
-    iatci::dcrcka::Result toIatci(const iatci::FlightDetails& outbFlt) const;
-
-    GetSeatmapXmlResult(xmlNodePtr node);
-};
 
 }//namespace xml_entities
-
 
 /////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1313,6 +1409,9 @@ protected:
 
     AstraEngine();
 
+    void CheckTCkinRoute(xmlNodePtr reqNode, xmlNodePtr resNode,
+                         int pointDep, const xml_entities::XmlTrip& paxTrip);
+
 public:
     static AstraEngine& singletone();
 
@@ -1329,11 +1428,25 @@ public:
                                                       const std::string& paxSurname,
                                                       const std::string& paxName);
 
-    // сохранение информации о пассажире
-    xml_entities::LoadPaxXmlResult SavePax(int pointDep, const xml_entities::XmlTrip& paxTrip);
-    xml_entities::LoadPaxXmlResult SavePax(const xml_entities::XmlSegment& paxSeg,
-                                           boost::optional<xml_entities::XmlBags> bags = boost::none,
-                                           boost::optional<xml_entities::XmlBagTags> tags = boost::none);
+    // проверка возможности сквозной регистрации
+    xml_entities::CheckTCkinRoute1XmlResult CheckTCkinRoute1(int pointDep,
+                                                             const xml_entities::XmlTrip& paxTrip);
+
+    xml_entities::CheckTCkinRoute2XmlResult CheckTCkinRoute2(int pointDep,
+                                                             const xml_entities::XmlTrip& paxTrip);
+
+    // сохранение информации о пассажире(ах)
+    xml_entities::LoadPaxXmlResult CheckinPax(const xml_entities::XmlSegment& paxSeg,
+                                              boost::optional<xml_entities::XmlSegment> trferSeg);
+
+    xml_entities::LoadPaxXmlResult UpdatePax(const xml_entities::XmlSegment& paxSeg,
+                                             const std::list<xml_entities::XmlSegment>& trferSegs,
+                                             boost::optional<xml_entities::XmlBags> bags,
+                                             boost::optional<xml_entities::XmlBagTags> tags);
+
+    xml_entities::LoadPaxXmlResult CancelPax(const xml_entities::XmlSegment& paxSeg,
+                                             const std::list<xml_entities::XmlSegment>& trferSegs);
+
     xml_entities::LoadPaxXmlResult SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
     // изменение места
@@ -1347,7 +1460,7 @@ public:
     xml_entities::GetSeatmapXmlResult GetSeatmap(int depPointId);
 };
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 /**
  * Найти Id вылетного пойнта
@@ -1382,16 +1495,26 @@ int findGrpIdByRegNo(int pointDep, int regNo);
 */
 int findGrpIdByPaxId(int pointDep, int paxId);
 
+//---------------------------------------------------------------------------------------
+
+struct IatciCheckinResult
+{
+    int                   m_grpId;
+    iatci::dcrcka::Result m_iatciResult;
+};
+
+//---------------------------------------------------------------------------------------
 
 // первичная регистрация
-iatci::dcrcka::Result checkinIatciPaxes(xmlNodePtr reqNode, xmlNodePtr ediResNode);
+IatciCheckinResult checkinIatciPaxes(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 iatci::dcrcka::Result checkinIatciPaxes(const iatci::CkiParams& ckiParams);
 
 // обновление регистрационных данных
+IatciCheckinResult updateIatciPaxes(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 iatci::dcrcka::Result updateIatciPaxes(const iatci::CkuParams& ckuParams);
 
 // отмена регистрации
-iatci::dcrcka::Result cancelCheckinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
+IatciCheckinResult cancelCheckinIatciPax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 iatci::dcrcka::Result cancelCheckinIatciPaxes(const iatci::CkxParams& ckxParams);
 
 // информация по пассажиру

@@ -1443,6 +1443,56 @@ inline void serialize(Archive& ar, iatci::dcrcka::Result& par, const unsigned in
     boost::serialization::split_free(ar, par, version);
 }
 
+//---------------------------------------------------------------------------------------
+
+namespace {
+
+class DefferedDataAccessor: private iatci::DefferedIatciData
+{
+public:
+    // for save
+    explicit DefferedDataAccessor(const iatci::DefferedIatciData& par)
+        : iatci::DefferedIatciData(par)
+    {}
+
+    // for load
+    DefferedDataAccessor()
+    {}
+
+    iatci::DefferedIatciData& get() { return *this; }
+
+    using iatci::DefferedIatciData::m_status;
+    using iatci::DefferedIatciData::m_error;
+    using iatci::DefferedIatciData::m_lRes;
+};
+
+}//namespace
+
+/*****
+ * DefferedIatciData
+ *****/
+template<class Archive>
+inline void save(Archive& ar, const iatci::DefferedIatciData& par, const unsigned int version)
+{
+    DefferedDataAccessor acc(par);
+    ar & acc.m_status & acc.m_error & acc.m_lRes;
+}
+
+template<class Archive>
+inline void load(Archive& ar, iatci::DefferedIatciData& par, const unsigned int version)
+{
+    DefferedDataAccessor acc;
+    ar & acc.m_status & acc.m_error & acc.m_lRes;
+    par = acc.get();
+}
+
+template<class Archive>
+inline void serialize(Archive& ar, iatci::DefferedIatciData& par, const unsigned int version)
+{
+    boost::serialization::split_free(ar, par, version);
+}
+
+
 //namespace iatci {
 //namespace dcrcka {
 //    BOOST_CLASS_VERSION(Result, 1)

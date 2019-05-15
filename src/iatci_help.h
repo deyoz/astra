@@ -64,6 +64,7 @@ iatci::AddressDetails          makeAddress(const edifact::AddElem& add);
 iatci::VisaDetails             makeVisa(const edifact::PapElem& pap);
 iatci::OriginatorDetails       makeOrg(const edifact::LorElem& lor);
 iatci::CascadeHostDetails      makeCascade(const edifact::ChdElem& chd);
+iatci::MessageDetails          makeMessageDetails(const edifact::DmcElem& dmc);
 iatci::FlightDetails           makeOutboundFlight(const edifact::FdqElem& fdq);
 boost::optional<FlightDetails> makeInboundFlight(const edifact::FdqElem& fdq);
 iatci::SeatRequestDetails      makeSeatReq(const edifact::SrpElem& srp);
@@ -92,6 +93,7 @@ iatci::PaxDetails                          makeRespPax(const astra_api::astra_en
                                                        const boost::optional<astra_api::astra_entities::PaxInfo>& infant = boost::none);
 iatci::FlightDetails                       makeFlight(const astra_api::astra_entities::SegmentInfo& seg);
 iatci::OriginatorDetails                   makeOrg(const astra_api::astra_entities::SegmentInfo& seg);
+iatci::OriginatorDetails                   makeCascadeOrg(const astra_api::astra_entities::SegmentInfo& seg);
 boost::optional<iatci::FlightSeatDetails>  makeFlightSeat(const astra_api::astra_entities::PaxInfo& pax);
 boost::optional<iatci::ReservationDetails> makeReserv(const astra_api::astra_entities::PaxInfo& pax);
 boost::optional<iatci::SeatDetails>        makeSeat(const astra_api::astra_entities::PaxInfo& pax);
@@ -125,12 +127,15 @@ iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::BagP
 
 iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
                                 bool readAdditionals = false);
-iatci::CascadeHostDetails makeCascade(const astra_api::xml_entities::XmlSegment& seg);
+iatci::MessageDetails makeMessageDetails(const astra_api::xml_entities::XmlSegment& ediSeg);
+boost::optional<iatci::CascadeHostDetails> makeCascade(const astra_api::xml_entities::XmlSegment& seg,
+                                                       const astra_api::xml_entities::XmlSegment& ediSeg);
+boost::optional<iatci::CascadeHostDetails> makeCascade(const astra_api::xml_entities::XmlSegment& seg);
 boost::optional<iatci::SeatRequestDetails> makeSeatReq(const astra_api::xml_entities::XmlSegment& seg);
 //---------------------------------------------------------------------------------------
 
-void saveDeferredCkiData(tlgnum_t msgId, const std::list<dcrcka::Result>& lRes);
-std::list<dcrcka::Result> loadDeferredCkiData(tlgnum_t msgId);
+void saveDeferredCkiData(tlgnum_t msgId, const DefferedIatciData& defferedData);
+boost::optional<DefferedIatciData> loadDeferredCkiData(tlgnum_t msgId);
 
 void saveCkiData(edilib::EdiSessionId_t sessId, const std::list<dcrcka::Result>& lRes);
 std::list<dcrcka::Result> loadCkiData(edilib::EdiSessionId_t sessId);

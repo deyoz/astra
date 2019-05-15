@@ -419,15 +419,15 @@ static std::string FP_getSinglePaxId(const std::vector<std::string>& p)
                                                                   paxSurname,
                                                                   paxName);
 
-    std::list<XmlTrip> lTrip = spRes.applyNameFilter(paxSurname, paxName);
+    std::list<XmlTrip> lTrip = spRes.filterTrips(paxSurname, paxName);
     assert(!lTrip.empty());
     const XmlTrip& frontTrip = lTrip.front();
 
-    std::list<XmlPnr> lPnr = frontTrip.applyNameFilter(paxSurname, paxName);
+    std::list<XmlPnr> lPnr = frontTrip.filterPnrs(paxSurname, paxName);
     assert(!lPnr.empty());
     const XmlPnr& frontPnr = lPnr.front();
 
-    std::list<XmlPax> lPax = frontPnr.applyNameFilter(paxSurname, paxName);
+    std::list<XmlPax> lPax = frontPnr.filterPaxes(paxSurname, paxName);
     assert(!lPax.empty());
     const XmlPax& pax = lPax.front();
 

@@ -34,17 +34,21 @@ MagicTab MagicTab::fromNeg(int gt)
 
 int MagicTab::toNeg() const
 {
-    int id = genNextTabId();
-    OciCpp::CursCtl cur = make_curs(
-"insert into IATCI_TABS(ID, GRP_ID, TAB_IND) values (:id, :grp_id, :tab_ind)");
+    int id = read(m_grpId, m_tabInd);
+    if(!id) {
+        id = genNextTabId();
+        OciCpp::CursCtl cur = make_curs(
+    "insert into IATCI_TABS(ID, GRP_ID, TAB_IND) values (:id, :grp_id, :tab_ind)");
 
-    cur
-            .bind(":id",      id)
-            .bind(":grp_id",  m_grpId)
-            .bind(":tab_ind", m_tabInd)
-            .exec();
-    LogTrace(TRACE1) << "New iatci tab_id (-)" << id << " was generated "
-                     << "for grp_id:" << m_grpId << " and tab_ind:" << m_tabInd;
+        cur
+                .bind(":id",      id)
+                .bind(":grp_id",  m_grpId)
+                .bind(":tab_ind", m_tabInd)
+                .exec();
+        LogTrace(TRACE1) << "New iatci tab_id (-)" << id << " was generated "
+                         << "for grp_id:" << m_grpId << " and tab_ind:" << m_tabInd;
+    }
+
     return -id;
 }
 
@@ -67,6 +71,26 @@ boost::optional<MagicTab> MagicTab::readById(int id)
     }
 
     return MagicTab(grpId, tabInd);
+}
+
+int MagicTab::read(int grpId, unsigned tabInd)
+{
+    OciCpp::CursCtl cur = make_curs(
+"select ID from IATCI_TABS where GRP_ID=:grp_id and TAB_IND=:tab_ind");
+
+    int id = 0;
+
+    cur
+            .bind(":grp_id", grpId)
+            .bind(":tab_ind",tabInd)
+            .def(id)
+            .EXfet();
+    if(cur.err() == NO_DATA_FOUND) {
+        LogTrace(TRACE1) << "Iatci tab " << grpId << "," << tabInd << " not found in DB!";
+        return 0;
+    }
+
+    return id;
 }
 
 int MagicTab::genNextTabId()
@@ -1264,6 +1288,12 @@ const std::list<RowDetails>& SeatmapDetails::lRow() const
 
 //---------------------------------------------------------------------------------------
 
+CascadeHostDetails::CascadeHostDetails(const std::string& airline,
+                                       const std::string& location)
+    : m_airline(airline),
+      m_location(location)
+{}
+
 CascadeHostDetails::CascadeHostDetails(const std::string& destAirline,
                                        const Ticketing::FlightNum_t& destFlightNum,
                                        const boost::gregorian::date& destFlightDate,
@@ -1275,6 +1305,16 @@ CascadeHostDetails::CascadeHostDetails(const std::string& destAirline,
       m_destDepPort(destDepPort),
       m_destArrPort(destArrPort)
 {}
+
+const std::string& CascadeHostDetails::firstAirline() const
+{
+    return m_airline;
+}
+
+const std::string& CascadeHostDetails::firstLocation() const
+{
+    return m_location;
+}
 
 const std::string& CascadeHostDetails::destAirline() const
 {
@@ -1308,7 +1348,23 @@ const std::list<std::string>& CascadeHostDetails::hostAirlines() const
 
 void CascadeHostDetails::addHostAirline(const std::string& hostAirline)
 {
-    m_hostAirlines.push_back(hostAirline);
+    m_hostAirlines.push_front(hostAirline);
+}
+
+//---------------------------------------------------------------------------------------
+
+MessageDetails::MessageDetails(unsigned maxRespFlights)
+    : m_maxRespFlights(maxRespFlights)
+{}
+
+unsigned MessageDetails::maxRespFlights() const
+{
+    return m_maxRespFlights;
+}
+
+MessageDetails MessageDetails::createDefault()
+{
+    return MessageDetails(MessageDetails::DefaultMaxRespFlights);
 }
 
 //---------------------------------------------------------------------------------------
@@ -1440,6 +1496,26 @@ Result Result::makeResult(Action_e action,
                   equipment);
 }
 
+Result Result::makeOkResult(Action_e action,
+                            const FlightDetails& flight,
+                            const std::list<dcrcka::PaxGroup>& paxGroups,
+                            boost::optional<SeatmapDetails> seatmap,
+                            boost::optional<CascadeHostDetails> cascade,
+                            boost::optional<ErrorDetails> error,
+                            boost::optional<WarningDetails> warning,
+                            boost::optional<EquipmentDetails> equipment)
+{
+    return makeResult(action,
+                      Ok,
+                      flight,
+                      paxGroups,
+                      seatmap,
+                      cascade,
+                      error,
+                      warning,
+                      equipment);
+}
+
 Result Result::makeCancelResult(Status_e status,
                                 const FlightDetails& flight,
                                 const std::list<dcrcka::PaxGroup>& paxGroups,
@@ -1511,15 +1587,6 @@ const iatci::FlightDetails& Result::flight() const
 const std::list<dcrcka::PaxGroup>& Result::paxGroups() const
 {
     return m_paxGroups;
-}
-
-boost::optional<PaxDetails> Result::pax() const
-{
-    if(paxGroups().empty()) {
-        return boost::none;
-    }
-  
-    return m_paxGroups.front().pax();  
 }
 
 const boost::optional<SeatmapDetails>& Result::seatmap() const
@@ -2003,9 +2070,11 @@ const std::list<dcqbpr::PaxGroup>& FlightGroup::paxGroups() const
 
 CkiParams::CkiParams(const OriginatorDetails& org,
                      const boost::optional<CascadeHostDetails>& cascade,
+                     const boost::optional<MessageDetails>& msg,
                      const dcqcki::FlightGroup& flg)
     : m_org(org),
       m_cascade(cascade),
+      m_msg(msg),
       m_fltGroup(flg)
 {}
 
@@ -2027,6 +2096,11 @@ const boost::optional<FlightDetails>& CkiParams::inboundFlight() const
 const boost::optional<CascadeHostDetails>& CkiParams::cascade() const
 {
     return m_cascade;
+}
+
+boost::optional<MessageDetails> CkiParams::message() const
+{
+    return m_msg;
 }
 
 const dcqcki::FlightGroup& CkiParams::fltGroup() const
@@ -2064,6 +2138,11 @@ const boost::optional<CascadeHostDetails>& CkuParams::cascade() const
     return m_cascade;
 }
 
+boost::optional<MessageDetails> CkuParams::message() const
+{
+    return boost::none;
+}
+
 const dcqcku::FlightGroup& CkuParams::fltGroup() const
 {
     return m_fltGroup;
@@ -2097,6 +2176,11 @@ const boost::optional<FlightDetails>& CkxParams::inboundFlight() const
 const boost::optional<CascadeHostDetails>& CkxParams::cascade() const
 {
     return m_cascade;
+}
+
+boost::optional<MessageDetails> CkxParams::message() const
+{
+    return boost::none;
 }
 
 const dcqckx::FlightGroup& CkxParams::fltGroup() const
@@ -2136,6 +2220,11 @@ const boost::optional<CascadeHostDetails>& PlfParams::cascade() const
     return m_cascade;
 }
 
+boost::optional<MessageDetails> PlfParams::message() const
+{
+    return boost::none;
+}
+
 const SelectPersonalDetails& PlfParams::personal() const
 {
     return m_personal;
@@ -2173,6 +2262,11 @@ const boost::optional<CascadeHostDetails>& SmfParams::cascade() const
     return m_cascade;
 }
 
+boost::optional<MessageDetails> SmfParams::message() const
+{
+    return boost::none;
+}
+
 const boost::optional<SeatRequestDetails>& SmfParams::seatRequest() const
 {
     return m_seatReq;
@@ -2208,9 +2302,91 @@ const boost::optional<CascadeHostDetails>& BprParams::cascade() const
     return m_cascade;
 }
 
+boost::optional<MessageDetails> BprParams::message() const
+{
+    return boost::none;
+}
+
 const dcqbpr::FlightGroup& BprParams::fltGroup() const
 {
     return m_fltGroup;
+}
+
+//---------------------------------------------------------------------------------------
+
+DefferedIatciData::Status_e DefferedIatciData::status() const
+{
+    return m_status;
+}
+
+DefferedIatciData::Error_e DefferedIatciData::error() const
+{
+    return m_error;
+}
+
+const std::list<dcrcka::Result>& DefferedIatciData::lRes() const
+{
+    return m_lRes;
+}
+
+DefferedIatciData::Status_e DefferedIatciData::calcStatus(const std::list<dcrcka::Result>& lRes)
+{
+    DefferedIatciData::Status_e status = DefferedIatciData::Status_e::Success;
+    for(auto res: lRes)
+    {
+        if(res.status() != dcrcka::Result::Status_e::Ok &&
+           res.status() != dcrcka::Result::Status_e::OkWithNoData)
+        {
+            status = DefferedIatciData::Status_e::Failed;
+        }
+    }
+
+    return status;
+}
+
+DefferedIatciData::Error_e DefferedIatciData::calcError(const std::list<dcrcka::Result>& lRes)
+{
+    DefferedIatciData::Error_e error = DefferedIatciData::Error_e::None;
+    for(auto res: lRes)
+    {
+        if(res.status() != dcrcka::Result::Status_e::Ok &&
+           res.status() != dcrcka::Result::Status_e::OkWithNoData)
+        {
+            error = DefferedIatciData::Error_e::RemoteError;
+        }
+    }
+
+    return error;
+}
+
+DefferedIatciData DefferedIatciData::create(const std::list<dcrcka::Result>& lRes)
+{
+    return DefferedIatciData(calcStatus(lRes),
+                             calcError(lRes),
+                             lRes);
+}
+
+DefferedIatciData DefferedIatciData::createError(Error_e error)
+{
+    return DefferedIatciData(DefferedIatciData::Status_e::Failed,
+                             error,
+                             {});
+}
+
+DefferedIatciData DefferedIatciData::createTimeout()
+{
+    return createError(DefferedIatciData::Error_e::Timeout);
+}
+
+//---------------------------------------------------------------------------------------
+
+std::ostream& operator<<(std::ostream& os, const DefferedIatciData& ddata)
+{
+    os << "Deffered iatci data: "
+       << "status: " << (int)ddata.status() << "; "
+       << "error: " << (int)ddata.error() << "; "
+       << "lRes.size: " << ddata.lRes().size();
+    return os;
 }
 
 }//namespace iatci

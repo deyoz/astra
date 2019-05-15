@@ -40,6 +40,7 @@ public:
 
 protected:
     static boost::optional<MagicTab> readById(int id);
+    static int read(int grpId, unsigned tabInd);
     static int genNextTabId();
 };
 
@@ -100,7 +101,7 @@ protected:
     boost::gregorian::date           m_arrDate;
     boost::posix_time::time_duration m_depTime;
     boost::posix_time::time_duration m_arrTime;
-    boost::posix_time::time_duration m_boardingTime;    
+    boost::posix_time::time_duration m_boardingTime;
     std::string                      m_gate;
 
 public:
@@ -918,6 +919,8 @@ struct CascadeHostDetails
     friend class boost::serialization::access;
 
 protected:
+    std::string            m_airline;
+    std::string            m_location;
     std::string            m_destAirline;
     Ticketing::FlightNum_t m_destFlightNum;
     boost::gregorian::date m_destFlightDate;
@@ -928,12 +931,17 @@ protected:
 
 public:
     CascadeHostDetails() {}
+    CascadeHostDetails(const std::string& firstAirline,
+                       const std::string& firstLocation);
+
     CascadeHostDetails(const std::string& destAirline,
                        const Ticketing::FlightNum_t& destFlightNum,
                        const boost::gregorian::date& destFlightDate,
                        const std::string& destDepPort,
                        const std::string& destArrPort);
 
+    const std::string&            firstAirline() const;
+    const std::string&            firstLocation() const;
     const std::string&            destAirline() const;
     const Ticketing::FlightNum_t& destFlightNum() const;
     const boost::gregorian::date& destFlightDate() const;
@@ -943,6 +951,26 @@ public:
     const std::list<std::string>& hostAirlines() const;
 
     void addHostAirline(const std::string& hostAirline);
+};
+
+//---------------------------------------------------------------------------------------
+
+struct MessageDetails
+{
+    friend class dcrcka::Result;
+    friend class boost::serialization::access;
+
+protected:
+    unsigned m_maxRespFlights;
+
+public:
+    static const unsigned DefaultMaxRespFlights = 9;
+
+    MessageDetails(unsigned maxRespFlights);
+
+    unsigned maxRespFlights() const;
+
+    static MessageDetails createDefault();
 };
 
 //---------------------------------------------------------------------------------------
@@ -1141,6 +1169,7 @@ public:
     virtual const FlightDetails&                       outboundFlight() const = 0;
     virtual const boost::optional<FlightDetails>&      inboundFlight() const = 0;
     virtual const boost::optional<CascadeHostDetails>& cascade() const = 0;
+    virtual boost::optional<MessageDetails>            message() const = 0;
 
     virtual ~IBaseParams() {}
 };
@@ -1394,17 +1423,20 @@ class CkiParams: public IBaseParams
 protected:
     OriginatorDetails                   m_org;
     boost::optional<CascadeHostDetails> m_cascade;
+    boost::optional<MessageDetails>     m_msg;
     dcqcki::FlightGroup                 m_fltGroup;
 
 public:
     CkiParams(const OriginatorDetails& org,
               const boost::optional<CascadeHostDetails>& cascade,
+              const boost::optional<MessageDetails>& msg,
               const dcqcki::FlightGroup& flg);
 
-    virtual const OriginatorDetails&                   org() const;
+    virtual const OriginatorDetails&                   org() const;    
     virtual const FlightDetails&                       outboundFlight() const;
     virtual const boost::optional<FlightDetails>&      inboundFlight() const;
     virtual const boost::optional<CascadeHostDetails>& cascade() const;    
+    virtual boost::optional<MessageDetails>            message() const;
 
     const dcqcki::FlightGroup&                         fltGroup() const;
 };
@@ -1427,6 +1459,7 @@ public:
     virtual const FlightDetails&                       outboundFlight() const;
     virtual const boost::optional<FlightDetails>&      inboundFlight() const;
     virtual const boost::optional<CascadeHostDetails>& cascade() const;
+    boost::optional<MessageDetails>                    message() const;
 
     const dcqcku::FlightGroup&                         fltGroup() const;
 
@@ -1449,6 +1482,7 @@ public:
     virtual const FlightDetails&                       outboundFlight() const;
     virtual const boost::optional<FlightDetails>&      inboundFlight() const;
     virtual const boost::optional<CascadeHostDetails>& cascade() const;
+    virtual boost::optional<MessageDetails>            message() const;
 
     const dcqckx::FlightGroup&                         fltGroup() const;
 };
@@ -1475,8 +1509,9 @@ public:
     virtual const FlightDetails&                       outboundFlight() const;
     virtual const boost::optional<FlightDetails>&      inboundFlight() const;
     virtual const boost::optional<CascadeHostDetails>& cascade() const;
+    virtual boost::optional<MessageDetails>            message() const;
 
-    const SelectPersonalDetails& personal() const;
+    const SelectPersonalDetails&                       personal() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -1501,8 +1536,9 @@ public:
     virtual const FlightDetails&                       outboundFlight() const;
     virtual const boost::optional<FlightDetails>&      inboundFlight() const;
     virtual const boost::optional<CascadeHostDetails>& cascade() const;
+    virtual boost::optional<MessageDetails>            message() const;
 
-    const boost::optional<SeatRequestDetails>& seatRequest() const;
+    const boost::optional<SeatRequestDetails>&         seatRequest() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -1522,6 +1558,7 @@ public:
     virtual const FlightDetails&                       outboundFlight() const;
     virtual const boost::optional<FlightDetails>&      inboundFlight() const;
     virtual const boost::optional<CascadeHostDetails>& cascade() const;
+    virtual boost::optional<MessageDetails>            message() const;
 
     const dcqbpr::FlightGroup&                         fltGroup() const;
 };
@@ -1621,6 +1658,15 @@ public:
                              boost::optional<WarningDetails> warning,
                              boost::optional<EquipmentDetails> equipment);
 
+    static Result makeOkResult(Action_e action,
+                               const FlightDetails& flight,
+                               const std::list<dcrcka::PaxGroup>& paxGroups,
+                               boost::optional<SeatmapDetails> seatmap,
+                               boost::optional<CascadeHostDetails> cascade,
+                               boost::optional<ErrorDetails> error,
+                               boost::optional<WarningDetails> warning,
+                               boost::optional<EquipmentDetails> equipment);
+
     static Result makeCancelResult(Status_e status,
                                    const FlightDetails& flight,
                                    const std::list<dcrcka::PaxGroup>& paxGroups = std::list<dcrcka::PaxGroup>(),
@@ -1644,7 +1690,6 @@ public:
     Action_e                                   action() const;
     Status_e                                   status() const;
     const FlightDetails&                       flight() const;
-    boost::optional<PaxDetails> 	       pax() const;
     const std::list<dcrcka::PaxGroup>&         paxGroups() const;
     const boost::optional<SeatmapDetails>&     seatmap() const;
     const boost::optional<CascadeHostDetails>& cascade() const;
@@ -1667,5 +1712,61 @@ protected:
 };
 
 }// namespace dcrcka
+
+//---------------------------------------------------------------------------------------
+
+class DefferedIatciData
+{
+    friend class boost::serialization::access;
+
+public:
+    enum class Status_e
+    {
+        Success,
+        Failed
+    };
+
+    enum class Error_e
+    {
+        None,
+        Timeout,
+        RemoteError
+    };
+
+protected:
+    Status_e m_status;
+    Error_e  m_error;
+    std::list<dcrcka::Result> m_lRes;
+
+protected:
+    DefferedIatciData(Status_e status,
+                      Error_e error,
+                      const std::list<dcrcka::Result>& lRes)
+        : m_status(status),
+          m_error(error),
+          m_lRes(lRes)
+    {}
+
+    static DefferedIatciData::Status_e calcStatus(const std::list<dcrcka::Result>& lRes);
+    static DefferedIatciData::Error_e  calcError(const std::list<dcrcka::Result>& lRes);
+
+public:
+    Status_e                         status() const;
+    Error_e                          error() const;
+    const std::list<dcrcka::Result>& lRes() const;
+
+    static DefferedIatciData create(const std::list<dcrcka::Result>& lRes);
+    static DefferedIatciData createError(Error_e createError);
+    static DefferedIatciData createTimeout();
+
+    DefferedIatciData() // for boost serialization only
+        : m_status(DefferedIatciData::Status_e::Failed),
+          m_error(DefferedIatciData::Error_e::None)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
+std::ostream& operator<<(std::ostream& os, const DefferedIatciData& ddata);
 
 }//namespace iatci

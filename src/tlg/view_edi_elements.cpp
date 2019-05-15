@@ -649,6 +649,12 @@ void viewPbdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::BaggageDetails& ba
 void viewChdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::CascadeHostDetails& cascadeDetails)
 {
     std::ostringstream chd;
+    if(!cascadeDetails.firstAirline().empty()) {
+        chd << BaseTables::Company(cascadeDetails.firstAirline())->code(/*lang*/);
+    }
+    if(!cascadeDetails.firstLocation().empty()) {
+        chd << ":" << BaseTables::Port(cascadeDetails.firstLocation())->code(/*lang*/);
+    }
     chd << "+";
     if(!cascadeDetails.destAirline().empty()) {
         chd << BaseTables::Company(cascadeDetails.destAirline())->code(/*lang*/);
@@ -669,11 +675,18 @@ void viewChdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::CascadeHostDetails
     if(!cascadeDetails.destArrPort().empty()) {
         chd << BaseTables::Port(cascadeDetails.destArrPort())->code(/*lang*/);
     }
-    chd << "++";
+    chd << "+++";
     for(const std::string& hostAirline: cascadeDetails.hostAirlines()) {
         chd << "H::" << BaseTables::Company(hostAirline)->code(/*lang*/) << "+";
     }
     SetEdiFullSegment(pMes, SegmElement("CHD"), chd.str());
+}
+
+void viewDmcElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::MessageDetails& messageDetails)
+{
+    std::ostringstream dmc;
+    dmc << "+++" << messageDetails.maxRespFlights();
+    SetEdiFullSegment(pMes, SegmElement("DMC"), dmc.str());
 }
 
 void viewRadElement(_EDI_REAL_MES_STRUCT_* pMes, const std::string& respType,
