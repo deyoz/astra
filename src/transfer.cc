@@ -341,7 +341,7 @@ void TrferFromDB(TTrferType type,
 
   Qry.Clear();
   ostringstream sql;
-  sql << "SELECT pax_grp.point_dep, pax_grp.grp_id, bag2.bag_pool_num, pax_grp.class, \n"
+  sql << "SELECT pax_grp.point_dep, pax_grp.grp_id, bag2.bag_pool_num, NVL(pax.cabin_class, pax_grp.class) AS class, \n"
          "       SUM(DECODE(bag2.pr_cabin,NULL,0,0,bag2.amount,0)) AS bag_amount, \n"
          "       SUM(DECODE(bag2.pr_cabin,NULL,0,0,bag2.weight,0)) AS bag_weight, \n"
          "       SUM(DECODE(bag2.pr_cabin,NULL,0,0,0,bag2.weight)) AS rk_weight, \n";
@@ -351,10 +351,12 @@ void TrferFromDB(TTrferType type,
     //Информация о трансферном багаже/пассажирах, отправляющемся рейсом
     sql << "     pax_grp.point_dep AS point_id, pax_grp.airp_arv, \n"
            "     transfer.airp_arv AS last_airp_arv \n"
-           "FROM trfer_trips, transfer, pax_grp, bag2 \n"
+           "FROM trfer_trips, transfer, pax_grp, bag2, pax \n"
            "WHERE trfer_trips.point_id=transfer.point_id_trfer AND \n"
            "      transfer.grp_id=pax_grp.grp_id AND \n"
            "      pax_grp.grp_id=bag2.grp_id(+) AND \n"
+           "      pax_grp.grp_id=pax.grp_id(+) AND \n"
+           "      DECODE(pax.grp_id, NULL, 1, pax.bag_pool_num)=DECODE(pax.grp_id, NULL, 1, bag2.bag_pool_num(+)) AND \n"
            "      trfer_trips.point_id_spp=:point_id AND \n"
            "      transfer.transfer_num=1 AND \n";
     Qry.CreateVariable("point_id", otInteger, point_id);
@@ -364,9 +366,11 @@ void TrferFromDB(TTrferType type,
   {
     //Информация о трансферном багаже/пассажирах, прибывающем рейсом
     sql << "      transfer.point_id_trfer AS point_id, transfer.airp_arv \n"
-           "FROM pax_grp, transfer, bag2 \n"
+           "FROM pax_grp, transfer, bag2, pax \n"
            "WHERE pax_grp.grp_id=transfer.grp_id AND \n"
            "      pax_grp.grp_id=bag2.grp_id(+) AND \n"
+           "      pax_grp.grp_id=pax.grp_id(+) AND \n"
+           "      DECODE(pax.grp_id, NULL, 1, pax.bag_pool_num)=DECODE(pax.grp_id, NULL, 1, bag2.bag_pool_num(+)) AND \n"
            "      pax_grp.point_arv=:point_id AND \n"
            "      transfer.transfer_num=1 AND \n";
     Qry.CreateVariable("point_id", otInteger, point_id);
@@ -376,9 +380,11 @@ void TrferFromDB(TTrferType type,
   {
     //Информация о трансферном багаже/пассажирах, отправляющемся рейсом (данные на основе результатов регистрации)
     sql << "      transfer.point_id_trfer AS point_id, transfer.airp_arv \n"
-           "FROM pax_grp, transfer, bag2 \n"
+           "FROM pax_grp, transfer, bag2, pax \n"
            "WHERE pax_grp.grp_id=transfer.grp_id AND \n"
            "      pax_grp.grp_id=bag2.grp_id(+) AND \n"
+           "      pax_grp.grp_id=pax.grp_id(+) AND \n"
+           "      DECODE(pax.grp_id, NULL, 1, pax.bag_pool_num)=DECODE(pax.grp_id, NULL, 1, bag2.bag_pool_num(+)) AND \n"
            "      pax_grp.point_dep=:point_id AND \n"
            "      transfer.transfer_num=1 AND \n";
     Qry.CreateVariable("point_id", otInteger, point_id);
@@ -388,15 +394,17 @@ void TrferFromDB(TTrferType type,
     //Стыковочные рейсы, которыми прибывают пассажиры рейса (данные на основе сквозной регистрации)
     sql << "      tckin_pax_grp.tckin_id, tckin_pax_grp.seg_no, \n"
            "      pax_grp.point_dep AS point_id, pax_grp.airp_arv \n"
-           "FROM pax_grp, tckin_pax_grp, bag2 \n"
+           "FROM pax_grp, tckin_pax_grp, bag2, pax \n"
            "WHERE pax_grp.grp_id=tckin_pax_grp.grp_id AND \n"
            "      pax_grp.grp_id=bag2.grp_id(+) AND \n"
+           "      pax_grp.grp_id=pax.grp_id(+) AND \n"
+           "      DECODE(pax.grp_id, NULL, 1, pax.bag_pool_num)=DECODE(pax.grp_id, NULL, 1, bag2.bag_pool_num(+)) AND \n"
            "      pax_grp.point_dep=:point_id AND \n";
     Qry.CreateVariable("point_id", otInteger, point_id);
   };
 
   sql << "      pax_grp.bag_refuse=0 AND pax_grp.status NOT IN ('T', 'E') \n"
-         "GROUP BY pax_grp.point_dep, pax_grp.grp_id, bag2.bag_pool_num, pax_grp.class, \n";
+         "GROUP BY pax_grp.point_dep, pax_grp.grp_id, bag2.bag_pool_num, NVL(pax.cabin_class, pax_grp.class), \n";
   if (type==trferOut || type==trferOutForCkin)
   {
     sql << "         pax_grp.airp_arv, transfer.airp_arv \n";
@@ -419,17 +427,19 @@ void TrferFromDB(TTrferType type,
   if (type==trferOut || type==trferOutForCkin || type==tckinInbound)
   {
     sql << "       pax.subclass \n"
-           "FROM pax \n"
+           "FROM pax_grp, pax \n"
            "WHERE \n";
   };
   if (type==trferIn || type==trferCkin)
   {
     sql << "       transfer_subcls.subclass \n"
-           "FROM pax, transfer_subcls \n"
+           "FROM pax_grp, pax, transfer_subcls \n"
            "WHERE pax.pax_id=transfer_subcls.pax_id(+) AND transfer_subcls.transfer_num(+)=1 AND \n";
   };
 
-  sql << "      pax.grp_id=:grp_id AND \n"
+  sql << "      pax.grp_id=pax_grp.grp_id AND \n"
+         "      pax.grp_id=:grp_id AND \n"
+         "      NVL(pax.cabin_class, pax_grp.class)=:cabin_class AND \n"
          "      (pax.bag_pool_num=:bag_pool_num OR pax.bag_pool_num IS NULL AND :bag_pool_num IS NULL) AND \n";
   if (type==trferIn || type==trferOut || type==trferOutForCkin)
     sql << "      pax.pr_brd=1 \n";
@@ -438,9 +448,10 @@ void TrferFromDB(TTrferType type,
   PaxQry.SQLText=sql.str().c_str();
   //ProgTrace(TRACE5, "PaxQry.SQLText=\n%s", sql.str().c_str());
   PaxQry.DeclareVariable("grp_id", otInteger);
+  PaxQry.DeclareVariable("cabin_class", otString);
   PaxQry.DeclareVariable("bag_pool_num", otInteger);
 
-  set<int> grp_ids;
+  set<pair<int/*grp_id*/,string/*cabin_class*/>> grpKeys;
 
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
@@ -484,7 +495,9 @@ void TrferFromDB(TTrferType type,
       grp.last_airp_arv=Qry.FieldAsString("last_airp_arv");
     if (type==trferOut || type==trferOutForCkin || type==trferCkin || type==tckinInbound)
       grp.subcl=Qry.FieldAsString("class");
-    if (Qry.FieldIsNULL("class"))
+
+    std::string cabinClass=Qry.FieldAsString("class");
+    if (cabinClass.empty())
     {
       grp.fromDB(Qry, TagQry, false, pr_bag);
       grp.setPaxUnaccomp();
@@ -500,7 +513,7 @@ void TrferFromDB(TTrferType type,
 
         if (grp.bag_pool_num==NoExists)
         {
-          if (!grp_ids.insert(grp.grp_id).second) continue;  //уже обрабатывали для данного grp_id bag_pool_num==NoExists
+          if (!grpKeys.emplace(grp.grp_id, cabinClass).second) continue;  //уже обрабатывали для данного grp_id+cabin_class bag_pool_num==NoExists
         };
 
         if (grp.bag_pool_num!=NoExists)
@@ -510,6 +523,7 @@ void TrferFromDB(TTrferType type,
 
         //пассажиры группы
         PaxQry.SetVariable("grp_id", grp.grp_id);
+        PaxQry.SetVariable("cabin_class", cabinClass);
         if (grp.bag_pool_num!=NoExists)
           PaxQry.SetVariable("bag_pool_num", grp.bag_pool_num);
         else
