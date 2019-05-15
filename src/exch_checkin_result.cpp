@@ -760,7 +760,7 @@ namespace EXCH_CHECKIN_RESULT
       doc.toWebXML( paxNode, AstraLocale::OutputLang( "en" ) );
     }
     if ( !doco.empty() ) {
-      doco.toXML( paxNode );
+      doco.toWebXML( paxNode, AstraLocale::OutputLang( "en" ) );
     }
     if ( !rems.empty() ) {
       xmlNodePtr rnode = NewTextChild( paxNode, "rems" );
