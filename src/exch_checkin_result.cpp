@@ -757,7 +757,7 @@ namespace EXCH_CHECKIN_RESULT
       }
     }
     if ( !doc.empty() ) {
-      doc.toXML( paxNode );
+      doc.toWebXML( paxNode, AstraLocale::OutputLang( "en" ) );
     }
     if ( !doco.empty() ) {
       doco.toXML( paxNode );
@@ -772,7 +772,7 @@ namespace EXCH_CHECKIN_RESULT
       tkn.toXML( NewTextChild( paxNode, "tkn" ) );
     }
     if ( !pnrAddrs.empty() ) {
-      pnrAddrs.toSirenaXML(  NewTextChild( paxNode, "pnrAddrs" ),   AstraLocale::OutputLang( "en" ) );
+      pnrAddrs.toSirenaXML(  NewTextChild( paxNode, "pnrAddrs" ), AstraLocale::OutputLang( "en" ) );
       //pnrAddrs.toXML( NewTextChild( paxNode, "pnrAddrs" ) );
     }
     xmlNodePtr servicesNode = nullptr;
