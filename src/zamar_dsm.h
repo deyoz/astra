@@ -8,10 +8,18 @@
 #include "passenger.h"
 #include "print.h"
 #include "astra_misc.h"
+#include "baggage_base.h"
 
 using BASIC::date_time::TDateTime;
 
 enum class ZamarType { DSM, SBDO };
+
+struct ZamarDataInterface
+{
+  virtual void fromXML(xmlNodePtr reqNode, ZamarType type = ZamarType::SBDO) = 0;
+  virtual void toXML(xmlNodePtr resNode, ZamarType type = ZamarType::SBDO) const = 0;
+  virtual ~ZamarDataInterface() {}
+};
 
 //-----------------------------------------------------------------------------------
 // DSM
@@ -27,9 +35,7 @@ class ZamarDSMInterface: public JxtInterface
         void PassengerSearch(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
-//-----------------------------------------------------------------------------------
-
-class PassengerSearchResult
+class PassengerSearchResult : public ZamarDataInterface
 {
   PrintInterface::BPPax bppax;
   int point_id = ASTRA::NoExists;
@@ -54,9 +60,8 @@ class PassengerSearchResult
   std::multimap<TBagTagNumber, CheckIn::TBagItem> bagTagsExtended;
   
 public:
-  PassengerSearchResult& fromXML(xmlNodePtr reqNode, ZamarType type);
-  const PassengerSearchResult& toXML(xmlNodePtr resNode, ZamarType type) const;
-  static void errorXML(xmlNodePtr resNode, const std::string& cmd, const std::string& err);
+  void fromXML(xmlNodePtr reqNode, ZamarType type = ZamarType::SBDO) override final;
+  void toXML(xmlNodePtr resNode, ZamarType type = ZamarType::SBDO) const override final;
 };
 
 //-----------------------------------------------------------------------------------
@@ -77,6 +82,67 @@ class ZamarSBDOInterface: public JxtInterface
         void PassengerBaggageTagAdd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void PassengerBaggageTagConfirm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void PassengerBaggageTagRevoke(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+};
+
+struct ZamarBagTag
+{
+  bool generated_ = false;
+  bool activated_ = false;
+  bool deactivated_ = false;
+  
+  TBagConcept::Enum bag_concept_ = TBagConcept::Unknown;
+  double      no_dbl_ = 0.0;
+  int pax_id_ = ASTRA::NoExists;
+  int weight_ = ASTRA::NoExists;
+  int list_id_ = ASTRA::NoExists;
+  std::string bag_type_;
+  std::string rfisc_;
+  TServiceType::Enum service_type_ = TServiceType::Unknown;
+  std::string airline_;
+  
+  std::string ServiceType() const { return ServiceTypes().encode(service_type_); }
+  std::string NoToStr() const;
+  void Generate(int grp_id);
+  void GetListId(); // TODO const
+  
+  void fromXML_add(xmlNodePtr reqNode);
+  void fromXML(xmlNodePtr reqNode);
+  void toXML(xmlNodePtr resNode) const;
+  
+  void toDB_generated(); // TODO const
+  void toDB_activated(); // TODO const
+  void toDB_deactivated(); // TODO const
+  void fromDB();
+  
+  void Activate();
+  void Deactivate();
+};
+
+class ZamarBaggageTagAdd : public ZamarDataInterface
+{
+  ZamarBagTag tag_;
+  std::string session_id_;
+public:
+  void fromXML(xmlNodePtr reqNode, ZamarType = ZamarType::SBDO) override final;
+  void toXML(xmlNodePtr resNode, ZamarType = ZamarType::SBDO) const override final;
+};
+
+class ZamarBaggageTagConfirm : public ZamarDataInterface
+{
+  ZamarBagTag tag_;
+  std::string session_id_;
+public:
+  void fromXML(xmlNodePtr reqNode, ZamarType = ZamarType::SBDO) override final;
+  void toXML(xmlNodePtr resNode, ZamarType = ZamarType::SBDO) const override final;
+};
+
+class ZamarBaggageTagRevoke : public ZamarDataInterface
+{
+  ZamarBagTag tag_;
+  std::string session_id_;
+public:
+  void fromXML(xmlNodePtr reqNode, ZamarType = ZamarType::SBDO) override final;
+  void toXML(xmlNodePtr resNode, ZamarType = ZamarType::SBDO) const override final;
 };
 
 #endif // ZAMAR_DSM_H
