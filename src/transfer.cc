@@ -341,10 +341,13 @@ void TrferFromDB(TTrferType type,
 
   Qry.Clear();
   ostringstream sql;
-  sql << "SELECT pax_grp.point_dep, pax_grp.grp_id, bag2.bag_pool_num, NVL(pax.cabin_class, pax_grp.class) AS class, \n"
-         "       SUM(DECODE(bag2.pr_cabin,NULL,0,0,bag2.amount,0)) AS bag_amount, \n"
-         "       SUM(DECODE(bag2.pr_cabin,NULL,0,0,bag2.weight,0)) AS bag_weight, \n"
-         "       SUM(DECODE(bag2.pr_cabin,NULL,0,0,0,bag2.weight)) AS rk_weight, \n";
+  sql << "SELECT pax_grp.point_dep, pax_grp.grp_id, DECODE(pax.grp_id, NULL, bag2.bag_pool_num, pax.bag_pool_num) AS bag_pool_num, NVL(pax.cabin_class, pax_grp.class) AS class, \n"
+//         "       SUM(DECODE(bag2.pr_cabin,NULL,0,0,bag2.amount,0)) AS bag_amount, \n" //могло бы быть проще, но все из-за 11-го оракла
+//         "       SUM(DECODE(bag2.pr_cabin,NULL,0,0,bag2.weight,0)) AS bag_weight, \n"
+//         "       SUM(DECODE(bag2.pr_cabin,NULL,0,0,0,bag2.weight)) AS rk_weight, \n"
+         "       SUM(CASE WHEN pax.grp_id IS NOT NULL AND pax.bag_pool_num IS NULL THEN 0 ELSE DECODE(bag2.pr_cabin,NULL,0,0,bag2.amount,0) END) AS bag_amount, \n"
+         "       SUM(CASE WHEN pax.grp_id IS NOT NULL AND pax.bag_pool_num IS NULL THEN 0 ELSE DECODE(bag2.pr_cabin,NULL,0,0,bag2.weight,0) END) AS bag_weight, \n"
+         "       SUM(CASE WHEN pax.grp_id IS NOT NULL AND pax.bag_pool_num IS NULL THEN 0 ELSE DECODE(bag2.pr_cabin,NULL,0,0,0,bag2.weight) END) AS rk_weight, \n";
 
   if (type==trferOut || type==trferOutForCkin)
   {
@@ -356,7 +359,8 @@ void TrferFromDB(TTrferType type,
            "      transfer.grp_id=pax_grp.grp_id AND \n"
            "      pax_grp.grp_id=bag2.grp_id(+) AND \n"
            "      pax_grp.grp_id=pax.grp_id(+) AND \n"
-           "      DECODE(pax.grp_id, NULL, 1, pax.bag_pool_num)=DECODE(pax.grp_id, NULL, 1, bag2.bag_pool_num(+)) AND \n"
+//           "      DECODE(pax.grp_id, NULL, 1, pax.bag_pool_num)=DECODE(pax.grp_id, NULL, 1, bag2.bag_pool_num(+)) AND \n"
+           "      (pax.bag_pool_num IS NULL OR bag2.bag_pool_num IS NULL OR pax.bag_pool_num=bag2.bag_pool_num) AND \n"
            "      trfer_trips.point_id_spp=:point_id AND \n"
            "      transfer.transfer_num=1 AND \n";
     Qry.CreateVariable("point_id", otInteger, point_id);
@@ -370,7 +374,8 @@ void TrferFromDB(TTrferType type,
            "WHERE pax_grp.grp_id=transfer.grp_id AND \n"
            "      pax_grp.grp_id=bag2.grp_id(+) AND \n"
            "      pax_grp.grp_id=pax.grp_id(+) AND \n"
-           "      DECODE(pax.grp_id, NULL, 1, pax.bag_pool_num)=DECODE(pax.grp_id, NULL, 1, bag2.bag_pool_num(+)) AND \n"
+//           "      DECODE(pax.grp_id, NULL, 1, pax.bag_pool_num)=DECODE(pax.grp_id, NULL, 1, bag2.bag_pool_num(+)) AND \n"
+           "      (pax.bag_pool_num IS NULL OR bag2.bag_pool_num IS NULL OR pax.bag_pool_num=bag2.bag_pool_num) AND \n"
            "      pax_grp.point_arv=:point_id AND \n"
            "      transfer.transfer_num=1 AND \n";
     Qry.CreateVariable("point_id", otInteger, point_id);
@@ -384,7 +389,8 @@ void TrferFromDB(TTrferType type,
            "WHERE pax_grp.grp_id=transfer.grp_id AND \n"
            "      pax_grp.grp_id=bag2.grp_id(+) AND \n"
            "      pax_grp.grp_id=pax.grp_id(+) AND \n"
-           "      DECODE(pax.grp_id, NULL, 1, pax.bag_pool_num)=DECODE(pax.grp_id, NULL, 1, bag2.bag_pool_num(+)) AND \n"
+//           "      DECODE(pax.grp_id, NULL, 1, pax.bag_pool_num)=DECODE(pax.grp_id, NULL, 1, bag2.bag_pool_num(+)) AND \n"
+           "      (pax.bag_pool_num IS NULL OR bag2.bag_pool_num IS NULL OR pax.bag_pool_num=bag2.bag_pool_num) AND \n"
            "      pax_grp.point_dep=:point_id AND \n"
            "      transfer.transfer_num=1 AND \n";
     Qry.CreateVariable("point_id", otInteger, point_id);
@@ -398,13 +404,14 @@ void TrferFromDB(TTrferType type,
            "WHERE pax_grp.grp_id=tckin_pax_grp.grp_id AND \n"
            "      pax_grp.grp_id=bag2.grp_id(+) AND \n"
            "      pax_grp.grp_id=pax.grp_id(+) AND \n"
-           "      DECODE(pax.grp_id, NULL, 1, pax.bag_pool_num)=DECODE(pax.grp_id, NULL, 1, bag2.bag_pool_num(+)) AND \n"
+//           "      DECODE(pax.grp_id, NULL, 1, pax.bag_pool_num)=DECODE(pax.grp_id, NULL, 1, bag2.bag_pool_num(+)) AND \n"
+           "      (pax.bag_pool_num IS NULL OR bag2.bag_pool_num IS NULL OR pax.bag_pool_num=bag2.bag_pool_num) AND \n"
            "      pax_grp.point_dep=:point_id AND \n";
     Qry.CreateVariable("point_id", otInteger, point_id);
   };
 
   sql << "      pax_grp.bag_refuse=0 AND pax_grp.status NOT IN ('T', 'E') \n"
-         "GROUP BY pax_grp.point_dep, pax_grp.grp_id, bag2.bag_pool_num, NVL(pax.cabin_class, pax_grp.class), \n";
+         "GROUP BY pax_grp.point_dep, pax_grp.grp_id, DECODE(pax.grp_id, NULL, bag2.bag_pool_num, pax.bag_pool_num), NVL(pax.cabin_class, pax_grp.class), \n";
   if (type==trferOut || type==trferOutForCkin)
   {
     sql << "         pax_grp.airp_arv, transfer.airp_arv \n";
