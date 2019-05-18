@@ -16,7 +16,7 @@ namespace AstraHTTP
 #define KIOSK_CONFIG_JXT_INTERFACE_ID "KioskConfig"
 #define STAT_JXT_INTERFACE_ID "stat"
 #define HTML_JXT_INTERFACE_ID "html"
-#define PIECE_CONCEPT_JXT_INTERFACE_ID "PieceConcept"
+#define SVC_SIRENA_JXT_INTERFACE_ID "SvcSirena"
 #define PRINT_JXT_INTERFACE_ID "print"
 #define ZAMAR_DSM_JXT_INTERFACE_ID "ZamarDSM"
 #define ZAMAR_SBDO_JXT_INTERFACE_ID "ZamarSBDO"
@@ -103,7 +103,7 @@ struct HTTPClient
     jxt_interface["AppAliasesKiosk"] =       JxtInfo(KIOSK_CONFIG_JXT_INTERFACE_ID, NULL);
 
     jxt_interface["stat_srv"] =             JxtInfo(STAT_JXT_INTERFACE_ID,          NULL);
-    jxt_interface["piece_concept"] =        JxtInfo(PIECE_CONCEPT_JXT_INTERFACE_ID, NULL);
+    jxt_interface["piece_concept"] =        JxtInfo(SVC_SIRENA_JXT_INTERFACE_ID,    NULL);
     jxt_interface["GetGRPPrintData"] =      JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
     // Запрос с одинаковым названием, но в разных классах
     // данная мэпа не подходит для такого случая

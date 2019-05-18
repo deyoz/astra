@@ -2,11 +2,14 @@
 #define _BAGGAGE_CALC_H_
 
 #include <string>
+#include <set>
 
-#include "passenger.h"
+#include "astra_consts.h"
+#include "stl_utils.h"
+#include "baggage_wt.h"
 #include "events.h"
+#include "passenger.h"
 #include "astra_misc.h"
-#include "emdoc.h"
 
 namespace WeightConcept
 {
@@ -184,19 +187,6 @@ namespace PieceConcept
 {
 
 std::string GetBagRcptStr(int grp_id, int pax_id);
-
-bool TryEnlargeServicePayment(TPaidRFISCList &paid_bag,
-                              CheckIn::TServicePaymentList &payment,
-                              const TGrpServiceAutoList &svcsAuto,
-                              const TCkinGrpIds &tckin_grp_ids,
-                              const CheckIn::TGrpEMDProps &grp_emd_props,
-                              const boost::optional< std::list<TEMDCtxtItem> > &confirmed_emd);
-
-bool TryCheckinServicesAuto(TGrpServiceAutoList &svcsAuto,
-                            const CheckIn::TServicePaymentList &payment,
-                            const TCkinGrpIds &tckin_grp_ids,
-                            const CheckIn::TGrpEMDProps &emdProps,
-                            const boost::optional< std::list<TEMDCtxtItem> > &confirmed_emd);
 
 boost::optional<TBagTotals> getBagAllowance(const CheckIn::TSimplePaxItem& pax);
 

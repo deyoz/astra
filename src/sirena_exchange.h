@@ -111,6 +111,20 @@ class TLastExchangeInfo
     void toDB();
     void fromDB(int grp_id);
     static void cleanOldRecords();
+
+    bool completed() const
+    {
+      return pc_payment_req_created!=ASTRA::NoExists &&
+             pc_payment_res_created!=ASTRA::NoExists &&
+             !pc_payment_req.empty() &&
+             !pc_payment_res.empty();
+    }
+
+    bool possibleToUseLastResult(const TLastExchangeInfo& info)
+    {
+      return info.completed() &&
+             info.pc_payment_req==pc_payment_req;
+    }
 };
 
 

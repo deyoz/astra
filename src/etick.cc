@@ -34,7 +34,7 @@
 #include "points.h"
 #include "brd.h"
 #include "astra_elems.h"
-#include "baggage_calc.h"
+#include "rfisc_calc.h"
 #include "AirportControl.h"
 #include "passenger.h"
 #include "ckin_search.h"
@@ -490,7 +490,11 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
         TCachedQuery Qry(sql, QryParams);
         Qry.get().Execute();
         bool inserted=Qry.get().GetVariableAsInteger("inserted")!=0;
-        if (inserted) syncOriginalSubclass(this->et);
+        if (inserted)
+        {
+          toDB(DisplayTlg);
+          syncOriginalSubclass(this->et);
+        }
       }
       break;
 
@@ -886,7 +890,6 @@ void ETDisplayToDB(const Ticketing::EdiPnr& ediPnr)
       }
       ETickItem.fare_class = itin.rbd()->code(RUSSIAN);
 
-      ETickItem.toDB(TETickItem::DisplayTlg);
       ETickItem.toDB(TETickItem::Display);
     }
   };
@@ -3233,8 +3236,8 @@ void EMDAutoBoundInterface::EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
   TGrpServiceAutoList svcsAuto;
   svcsAuto.fromDB(first_grp_id, true);
 
-  bool enlargedServicePayment=PieceConcept::TryEnlargeServicePayment(paid_rfisc, payment, svcsAuto, tckin_grp_ids, emdProps, confirmed_emd);
-  bool checkinServicesAuto=PieceConcept::TryCheckinServicesAuto(svcsAuto, payment, tckin_grp_ids, emdProps, confirmed_emd);
+  bool enlargedServicePayment=tryEnlargeServicePayment(paid_rfisc, payment, svcsAuto, tckin_grp_ids, emdProps, confirmed_emd);
+  bool checkinServicesAuto=tryCheckinServicesAuto(svcsAuto, payment, tckin_grp_ids, emdProps, confirmed_emd);
 
   for(const int& grp_id : tckin_grp_ids)
     deleteAlarmByGrpId(grp_id, Alarm::SyncEmds);

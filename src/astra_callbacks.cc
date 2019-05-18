@@ -104,9 +104,8 @@ void AstraJxtCallbacks::InitInterfaces()
     new LibraInterface();
 
     new HTTPRequestsIface();
-    new PieceConceptInterface();
     new ServicePaymentInterface();
-    new SirenaExchangeInterface();
+    new SvcSirenaInterface();
 
     new ZamarDSMInterface();
     new ZamarSBDOInterface();

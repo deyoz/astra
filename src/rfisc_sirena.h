@@ -611,26 +611,13 @@ void fillProtBeforePaySvcs(const TAdvTripInfo &operFlt,
                            const int pax_id,
                            TExchange &exch);
 
+bool needSync(xmlNodePtr answerResNode);
+xmlNodePtr findAnswerNode(xmlNodePtr answerResNode);
+
 } //namespace SirenaExchange
 
 void unaccBagTypesToDB(int grp_id, bool ignore_unaccomp_sets=false);
 void CopyPaxServiceLists(int grp_id_src, int grp_id_dest, bool is_grp_id, bool rfisc_used);
-
-class PieceConceptInterface : public JxtInterface
-{
-public:
-  PieceConceptInterface() : JxtInterface("","PieceConcept")
-  {
-     Handler *evHandle;
-     evHandle=JxtHandler<PieceConceptInterface>::CreateHandler(&PieceConceptInterface::procPieceConcept);
-     AddEvent("piece_concept",evHandle);
-  };
-  void procPieceConcept(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  static void procPassengers( const SirenaExchange::TPassengersReq &req, SirenaExchange::TPassengersRes &res );
-  static void procGroupInfo( const SirenaExchange::TGroupInfoReq &req, SirenaExchange::TGroupInfoRes &res );
-  static void procPseudoGroupInfo( const SirenaExchange::TPseudoGroupInfoReq &req, SirenaExchange::TPseudoGroupInfoRes &res );
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
-};
 
 class ServicePaymentInterface : public JxtInterface
 {
@@ -643,6 +630,54 @@ public:
   };
   void LoadServiceLists(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
+};
+
+typedef std::function<void(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode)> SvcSirenaResponseHandler;
+
+class SvcSirenaInterface : public JxtInterface
+{
+  private:
+    std::list<SvcSirenaResponseHandler> resHandlers;
+    bool addResponseHandler(const SvcSirenaResponseHandler&);
+    void handleResponse(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode) const;
+    static bool equal(const SvcSirenaResponseHandler& handler1,
+                      const SvcSirenaResponseHandler& handler2);
+
+  protected:
+    static void DoRequest(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, const SirenaExchange::TExchange&, const SvcSirenaResponseHandler&);
+
+  public:
+    static std::string name() { return "SvcSirena"; }
+
+    SvcSirenaInterface() : JxtInterface("", name())
+    {
+      AddEvent("kick", JXT_HANDLER(SvcSirenaInterface, KickHandler));
+      AddEvent("piece_concept", JXT_HANDLER(SvcSirenaInterface, procRequestsFromSirena));
+    }
+
+    static void AvailabilityRequest(xmlNodePtr reqNode,
+                                    xmlNodePtr externalSysResNode,
+                                    const SirenaExchange::TAvailabilityReq& req,
+                                    const SvcSirenaResponseHandler& res)
+    {
+      DoRequest(reqNode, externalSysResNode, req, res);
+    }
+
+    static void PaymentStatusRequest(xmlNodePtr reqNode,
+                                     xmlNodePtr externalSysResNode,
+                                     const SirenaExchange::TPaymentStatusReq& req,
+                                     const SvcSirenaResponseHandler& res)
+    {
+      DoRequest(reqNode, externalSysResNode, req, res);
+    }
+
+    void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+
+    void procRequestsFromSirena(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+
+    static void procPassengers( const SirenaExchange::TPassengersReq &req, SirenaExchange::TPassengersRes &res );
+    static void procGroupInfo( const SirenaExchange::TGroupInfoReq &req, SirenaExchange::TGroupInfoRes &res );
+    static void procPseudoGroupInfo( const SirenaExchange::TPseudoGroupInfoReq &req, SirenaExchange::TPseudoGroupInfoRes &res );
 };
 
 #endif
