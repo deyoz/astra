@@ -2187,7 +2187,7 @@ namespace PRL_SPACE {
             "   pax_grp.point_dep = :point_id AND "
             "   pax_grp.status NOT IN ('E') AND "
             "   pax_grp.grp_id = bag2.grp_id AND "
-            "   ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,nvl(pax.cabin_class, pax_grp.class),pax_grp.bag_refuse) = 0 "
+            "   ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) = 0 "
             "GROUP BY "
             "   pax_grp.point_arv "
             "   ) b "
@@ -5616,7 +5616,7 @@ void TBagRems::get(TypeB::TDetailCreateInfo &info)
       "      pax_grp.point_dep = :point_id AND "
       "      pax_grp.status NOT IN ('E') AND "
       "      bag2.pr_cabin=0 AND "
-      "      ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,nvl(pax.cabin_class, pax_grp.class),pax_grp.bag_refuse) = 0 AND "
+      "      ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) = 0 AND "
       "      bag2.bag_type = bag_types.code(+) "
       "GROUP BY pax_grp.airp_arv, "
       "         bag2.list_id, "
@@ -5627,6 +5627,10 @@ void TBagRems::get(TypeB::TDetailCreateInfo &info)
       "         bag2.airline, "
       "         bag_types.rem_code",
       QParams() << QParam("point_id", otInteger, info.point_id));
+
+    char **a = NULL;
+    char *b = a[0];
+    LogTrace(TRACE5) << *b;
 
     Qry.get().Execute();
 
@@ -5669,9 +5673,9 @@ void TToRampBag::get(int point_id, Status st, const string &airp_arv)
             "   pax_grp.status NOT IN ('E') AND "
             "   bag2.pr_cabin=0 AND " +
             (st == rbBrd ?
-            "   ckin.bag_pool_boarded(bag2.grp_id,bag2.bag_pool_num,nvl(pax.cabin_class, pax_grp.class),pax_grp.bag_refuse)<>0 and "
+            "   ckin.bag_pool_boarded(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)<>0 and "
             :
-            "   ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,nvl(pax.cabin_class, pax_grp.class),pax_grp.bag_refuse) = 0 and "
+            "   ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) = 0 and "
             ) +
             (airp_arv.empty() ? "" : " pax_grp.airp_arv = :airp_arv and " ) +
             "   bag2.to_ramp <> 0 "
@@ -5698,7 +5702,7 @@ void TLDMBag::get(TypeB::TDetailCreateInfo &info, int point_arv)
         "      pax_grp.point_arv=:point_arv AND "
         "      pax_grp.status NOT IN ('E') AND "
         "      bag2.pr_cabin=0 AND "
-        "      ckin.bag_pool_boarded(bag2.grp_id,bag2.bag_pool_num,nvl(pax.cabin_class, pax_grp.class),pax_grp.bag_refuse)<>0";
+        "      ckin.bag_pool_boarded(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)<>0";
     Qry.CreateVariable("point_arv", otInteger, point_arv);
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.Execute();
@@ -7365,7 +7369,7 @@ string get_rem_category(int grp_id)
             "   pax_grp.grp_id = :grp_id and "
             "   pax_grp.grp_id = bag2.grp_id and "
             "   bag2.pr_cabin=0 AND "
-            "   ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,nvl(pax.cabin_class, pax_grp.class),pax_grp.bag_refuse) = 0 and "
+            "   ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse) = 0 and "
             "   bag2.bag_type = bag_types.code(+) ",
             QParams() << QParam("grp_id", otInteger, grp_id));
     Qry.get().Execute();
