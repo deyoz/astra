@@ -5627,10 +5627,6 @@ void TBagRems::get(TypeB::TDetailCreateInfo &info)
       "         bag_types.rem_code",
       QParams() << QParam("point_id", otInteger, info.point_id));
 
-    char **a = NULL;
-    char *b = a[0];
-    LogTrace(TRACE5) << *b;
-
     Qry.get().Execute();
 
     TRFISCListWithPropsCache lists;
