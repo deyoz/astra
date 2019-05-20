@@ -33,6 +33,7 @@ class SvcPaymentStatusNotApplicable : public EXCEPTIONS::Exception
 typedef std::function<void()> RollbackBeforeRequestFunction;
 
 bool getSvcPaymentStatus(int first_grp_id,
+                         const boost::optional< std::list< std::pair<int, TRFISCKey> > >& additionalBaggage,
                          xmlNodePtr reqNode,
                          xmlNodePtr externalSysResNode,
                          const RollbackBeforeRequestFunction& rollbackFunction,

@@ -449,12 +449,18 @@ void TSvcList::get(const std::list<TSvcItem>& svcsAuto, TPaidRFISCList &paid) co
   }
 }
 
+void TSvcList::addBaggageOrCarryOn(int pax_id, const TRFISCKey& key)
+{
+  _additionalBagList.emplace_back(TPaxSegRFISCKey(Sirena::TPaxSegKey(pax_id, 0), key), 1);
+}
+
 void TSvcList::addChecked(const TCheckedReqPassengers &req_grps, int grp_id, int tckin_seg_count, int trfer_seg_count)
 {
   //вручную введенные на стойке
   TGrpServiceList svcs;
   svcs.fromDB(grp_id, !req_grps.include_refused);
   svcs.addBagInfo(grp_id, tckin_seg_count, trfer_seg_count, req_grps.include_refused);
+  svcs.addBagList(_additionalBagList, tckin_seg_count, trfer_seg_count);
 
   TPaidRFISCList paid;
   paid.fromDB(grp_id, true);

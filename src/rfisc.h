@@ -605,6 +605,9 @@ class TGrpServiceList : public std::list<TGrpServiceItem>
                     int tckin_seg_count,
                     int trfer_seg_count,
                     bool include_refused);
+    void addBagList(const TGrpServiceList& bagList,
+                    int tckin_seg_count,
+                    int trfer_seg_count);
     void addTrueBagInfo(const TGrpServiceItem& item);
     void getAllListItems();
     static void clearDB(int grp_id);

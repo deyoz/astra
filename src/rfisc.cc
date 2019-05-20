@@ -1849,6 +1849,8 @@ void TGrpServiceList::addBagInfo(int grp_id,
                                  int trfer_seg_count,
                                  bool include_refused)
 {
+  TGrpServiceList bagList;
+
   TCachedQuery Qry("SELECT ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num, :include_refused) AS pax_id, "
                    "       0 AS transfer_num, "
                    "       bag2.list_id, "
@@ -1864,8 +1866,20 @@ void TGrpServiceList::addBagInfo(int grp_id,
   for(; !Qry.get().Eof; Qry.get().Next())
   {
     if (Qry.get().FieldIsNULL("pax_id")) continue;
-    TGrpServiceItem item;
-    item.fromDB(Qry.get());
+    bagList.push_back(TGrpServiceItem().fromDB(Qry.get()));
+  }
+
+  addBagList(bagList, tckin_seg_count, trfer_seg_count);
+}
+
+void TGrpServiceList::addBagList(const TGrpServiceList& bagList,
+                                 int tckin_seg_count,
+                                 int trfer_seg_count)
+{
+  for(TGrpServiceItem item : bagList)
+  {
+    if (item.trfer_num!=0)
+      throw Exception("%s: item.trfer_num!=0", __FUNCTION__);
     if (!item.list_item)
       throw Exception("%s: !item.list_item", __FUNCTION__);
     if (!item.list_item.get().isBaggageOrCarryOn())

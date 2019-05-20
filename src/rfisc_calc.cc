@@ -412,6 +412,7 @@ bool tryCheckinServicesAuto(TGrpServiceAutoList &svcsAuto,
 #include "rfisc_sirena.h"
 
 bool getSvcPaymentStatus(int first_grp_id,
+                         const boost::optional< std::list< std::pair<int, TRFISCKey> > >& additionalBaggage,
                          xmlNodePtr reqNode,
                          xmlNodePtr externalSysResNode,
                          const RollbackBeforeRequestFunction& rollbackFunction,
@@ -430,6 +431,12 @@ bool getSvcPaymentStatus(int first_grp_id,
   CheckIn::TPaxGrpCategory::Enum grp_cat;
 
   SirenaExchange::TPaymentStatusReq req;
+  if (additionalBaggage)
+  {
+    SirenaExchange::TSvcSection& svcSection=dynamic_cast<SirenaExchange::TSvcSection&>(req);
+    for(const auto& i : additionalBaggage.get())
+      svcSection.svcs.addBaggageOrCarryOn(i.first, i.second);
+  }
   SirenaExchange::fillPaxsBags(first_grp_id, req, grp_cat, tckin_grp_ids);
 
   if (tckin_grp_ids.empty() || grp_cat!=CheckIn::TPaxGrpCategory::Passenges)

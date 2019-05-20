@@ -6173,6 +6173,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     TCkinGrpIds tckin_grp_ids;
     TPaidRFISCList paid;
     if (getSvcPaymentStatus(AfterSaveInfo.segs.front().grp_id,
+                            boost::none,
                             reqNode,
                             ediResNode,
                             ASTRA::rollbackSavePax,

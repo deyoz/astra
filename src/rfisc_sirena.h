@@ -340,13 +340,16 @@ class TSvcList : public std::list<TSvcItem>
 {
   private:
     std::list<TSvcItem> _autoChecked;
+    TGrpServiceList _additionalBagList;
   public:
     void clear()
     {
       std::list<TSvcItem>::clear();
       _autoChecked.clear();
+      _additionalBagList.clear();
     }
 
+    void addBaggageOrCarryOn(int pax_id, const TRFISCKey& key);
     void addChecked(const TCheckedReqPassengers &req_grps, int grp_id, int tckin_seg_count, int trfer_seg_count);
     void addASVCs(int pax_id, const std::vector<CheckIn::TPaxASVCItem> &asvc);
     void addUnbound(const TCheckedReqPassengers &req_grps, int grp_id, int pax_id);
