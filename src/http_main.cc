@@ -283,8 +283,14 @@ reply& HTTPClient::fromJXT( std::string res, reply& rep )
 
   if(b64)
       rep.content = StrUtils::b64_decode(res);
-  else
+  else {
+      XMLDoc doc(res);
+      if(doc.docPtr()) {
+          // отформатировать отступы в XML
+          res = XMLTreeToText(doc.docPtr());
+      }
       rep.content = /*"<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +*/ res;
+  }
 
   rep.status = reply::ok;
   rep.headers.resize(4);
