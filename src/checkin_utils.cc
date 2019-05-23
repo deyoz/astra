@@ -327,7 +327,7 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
         pas.tariffStatus = tariffMap.status();
         tariffMap.trace(TRACE5);
 
-        pas.dont_check_payment = p->pax.dont_check_payment;
+        pas.dont_check_payment = p->dont_check_payment;
 
         SEATS2::Passengers.Add(salonList,pas);
       }

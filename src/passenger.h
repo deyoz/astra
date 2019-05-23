@@ -657,7 +657,7 @@ class TPaxItem : public TSimplePaxItem
     bool DocExists;
     bool DocoExists;
     bool DocaExists;
-    bool dont_check_payment;
+
     TPaxItem()
     {
       clear();
@@ -672,7 +672,6 @@ class TPaxItem : public TSimplePaxItem
       DocExists=false;
       DocoExists=false;
       DocaExists=false;
-      dont_check_payment=false;
     }
 
     const TPaxItem& toXML(xmlNodePtr node) const;
@@ -709,6 +708,8 @@ class TPaxListItem
 {
   public:
     CheckIn::TPaxItem pax;
+    bool dont_check_payment;
+    std::string crs_seat_no; //crs
     int generated_pax_id; //заполняется только при первоначальной регистрации (new_checkin) и только для NOREC
     bool remsExists;
     std::multiset<CheckIn::TPaxRemItem> rems;
@@ -726,6 +727,8 @@ class TPaxListItem
     void clear()
     {
       pax.clear();
+      dont_check_payment=false;
+      crs_seat_no.clear();
       generated_pax_id=ASTRA::NoExists;
       remsExists=false;
       rems.clear();
