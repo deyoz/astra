@@ -1516,7 +1516,6 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
   };
 
   subcl=NodeAsStringFast("subclass",node2,"");
-  dont_check_payment=NodeAsIntegerFast("dont_check_payment", node2, 0)!=0;
   return *this;
 };
 
@@ -1961,6 +1960,8 @@ TPaxListItem& TPaxListItem::fromXML(xmlNodePtr paxNode)
 
   node=paxNode;
   pax.fromXML(paxNode);
+  dont_check_payment=NodeAsIntegerFast("dont_check_payment", node2, 0)!=0;
+  crs_seat_no=NodeAsStringFast("preseat_no", node2, "");
   //६�ન
   xmlNodePtr remNode=GetNodeFast("rems",node2);
   if (remNode!=NULL)

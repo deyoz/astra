@@ -262,7 +262,8 @@ struct KioskServerEventContainer {
             "INSERT INTO kiosk_events(id,type,application,screen,kioskid,time,ev_order,session_id) "
             "VALUES(:event_id,:type,:application,:screen,:kioskid,:time,:ev_order,:session_id) ";
           Qry.CreateVariable( "event_id", otString, event_id );
-          Qry.CreateVariable( "type", otString, event->typeRequest == boost::none?string("unknown"):event->typeRequest.get() );
+          std::string requestTypeStr = event->typeRequest == boost::none?string("unknown"):event->typeRequest.get();
+          Qry.CreateVariable( "type", otString, requestTypeStr );
           Qry.CreateVariable( "application", otString, event->application == boost::none?string(""):event->application.get() );
           Qry.CreateVariable( "screen", otString, event->screen == boost::none?string(""):event->screen.get() );
           Qry.CreateVariable( "kioskid", otString, event->kioskId==boost::none?string(""):event->kioskId.get() );
@@ -291,6 +292,9 @@ struct KioskServerEventContainer {
                   }
                   Qry.SetVariable( "num", num );
                   string value = v->get();
+                  if ( requestTypeStr == "requestData" ) {
+                     LogError(STDLOG) << "KIOSK: " << value;
+                  }
                   int i=0;
                   while ( !value.empty() ) {
                     Qry.SetVariable( "value", value.substr( 0, 2000 ) );

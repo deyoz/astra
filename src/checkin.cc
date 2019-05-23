@@ -6017,6 +6017,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         timing.start("GetGrpToLogInfo", grp.point_dep);
         //записываем в лог только если не будет отката транзакции из-за обращения к СЭБ
         GetGrpToLogInfo(grp.id, grpInfoAfter);
+        if(new_checkin && reqInfo->client_type==ctTerm) {
+         grpInfoAfter.setTermAgentSeatNo(paxs);
+        }
         timing.finish("GetGrpToLogInfo", grp.point_dep);
       }
 
