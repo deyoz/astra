@@ -152,7 +152,7 @@ std::tuple<std::vector<uint8_t>, std::vector<uint8_t>> internet_main(const std::
     string::size_type pos=new_body.find(sss);
     if(pos!=string::npos)
     {
-        if ( new_body.find("<kick") == string::npos )
+      if ( new_body.find("<kick") == string::npos )
         new_body=new_body.substr(0,pos+sss.size())+" id='"+WEB_JXT_IFACE_ID/*client.client_type*/+"' screen='AIR.EXE' opr='"+CP866toUTF8(client.opr)+"'"+new_body.substr(pos+sss.size());
     }
     else

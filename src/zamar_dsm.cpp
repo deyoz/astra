@@ -275,7 +275,7 @@ static void DocoToZamarXML(xmlNodePtr resNode, const CheckIn::TPaxDocoItem& doco
   NewTextChild(docNode, "applicCountry", CheckIn::paxDocCountryToWebXML(doco.applic_country, lang));
 }
 
-static void BaggageListToZamarXML(xmlNodePtr allowanceNode, const TRFISCList& list, const AstraLocale::OutputLang& lang)
+static void BaggageListToZamarXML(xmlNodePtr allowanceNode, const TRFISCListWithProps& list, const AstraLocale::OutputLang& lang)
 {
   if (allowanceNode == nullptr || list.empty())
     return;
@@ -289,6 +289,12 @@ static void BaggageListToZamarXML(xmlNodePtr allowanceNode, const TRFISCList& li
     SetProp(typeNode, "displayName", lowerc(i.name_view(lang.get())));
     if(i.priority)
       SetProp(typeNode, "priority", i.priority.get());
+    boost::optional<TRFISCBagProps> props=list.getBagProps(i);
+    if (props)
+    {
+      SetProp(typeNode, "minWeight", props.get().min_weight, ASTRA::NoExists);
+      SetProp(typeNode, "maxWeight", props.get().max_weight, ASTRA::NoExists);
+    }
   }
 }
 
@@ -503,8 +509,9 @@ void PassengerSearchResult::toXML(xmlNodePtr resNode, ZamarType type) const
     }
     
     // baggageTypes -- SBDO
-    TRFISCList rfiscList;
+    TRFISCListWithProps rfiscList;
     pax_item.getBaggageListForSBDO(rfiscList);
+    rfiscList.setPriority(); //добавляем приоритет вывода
     BaggageListToZamarXML(allowanceNode, rfiscList, lang);
     TBagTypeList bagTypeList;
     pax_item.getBaggageListForSBDO(bagTypeList);
@@ -947,7 +954,7 @@ void ZamarBaggageTagAdd::fromXML(xmlNodePtr reqNode, ZamarType)
   // Что тип багажа есть среди типов багажа пассажира
   if (bag_concept == TBagConcept::Piece)
   {
-    TRFISCList rfiscList;
+    TRFISCListWithProps rfiscList;
     pax_item.getBaggageListForSBDO(rfiscList);
     auto found = find_if(rfiscList.cbegin(), rfiscList.cend(),
                          [this](const auto& i)

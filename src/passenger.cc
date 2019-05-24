@@ -1923,7 +1923,7 @@ static void getBaggageInHoldList(int id, T& list)
   }
 }
 
-void TSimplePaxItem::getBaggageListForSBDO(TRFISCList& list) const
+void TSimplePaxItem::getBaggageListForSBDO(TRFISCListWithProps& list) const
 {
   getBaggageInHoldList(id, list);
 }

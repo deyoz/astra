@@ -1194,7 +1194,6 @@ void ServicePaymentInterface::LoadServiceLists(XMLRequestCtxt *ctxt, xmlNodePtr 
     {
       TRFISCListWithProps list;
       list.fromDB(list_id, true);
-      list.getBagProps();
       list.setPriority();
       list.toXML(list_id.forTerminal(), NewTextChild(svcNode, "service_list"));
     }
