@@ -409,6 +409,20 @@ void confirm_notify_levb(int edi_sess_id, bool err_if_not_found)
   };
 };
 
+static std::string transformKickIfHttp(const std::string& kickText)
+{
+  //доклеим HTTP-заголовок, если обработка HTTP-запроса
+  ServerFramework::HTTP::request currRequest=ServerFramework::HTTP::get_cur_http_request();
+  if (currRequest.headers.empty()) return kickText;
+  const auto& contentLength=std::find(currRequest.headers.begin(),
+                                      currRequest.headers.end(),
+                                      "Content-Length");
+  if (contentLength!=currRequest.headers.end())
+    contentLength->value = std::to_string(kickText.size());
+
+  return currRequest.to_string() + kickText;
+}
+
 string make_xml_kick(const edifact::KickInfo &kickInfo)
 {
   if (!kickInfo.jxt)
@@ -432,12 +446,14 @@ string make_xml_kick(const edifact::KickInfo &kickInfo)
   std::string redisplay = ConvertCodepage(XMLTreeToText(kickDoc.docPtr()),"CP866","UTF-8");
 #ifdef XP_TESTING
   if(inTestMode()) {
-      if(kickInfo.jxt.get().iface == "SirenaExchange") {
+      if(kickInfo.jxt.get().iface == "SvcSirena") {
           ServerFramework::setRedisplay(redisplay);
       }
   }
-#endif//XP_TESTING
   return redisplay;
+#else
+  return transformKickIfHttp(redisplay);
+#endif//XP_TESTING
 };
 
 edifact::KickInfo createKickInfo(const int v_reqCtxtId,

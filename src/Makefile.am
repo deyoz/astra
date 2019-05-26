@@ -123,6 +123,7 @@ astra_SOURCES = \
   remarks.cc \
   request_dup.cc \
   rfisc.cc \
+  rfisc_calc.cc \
   rfisc_sirena.cc \
   rozysk.cc \
   salonform.cc \
@@ -314,6 +315,7 @@ noinst_HEADERS = \
   remarks.h \
   request_dup.h \
   rfisc.h \
+  rfisc_calc.h \
   rfisc_sirena.h \
   rozysk.h \
   salonform.h \

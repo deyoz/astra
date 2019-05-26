@@ -5,7 +5,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace BASIC::date_time;
 using namespace EXCEPTIONS;
@@ -449,12 +449,18 @@ void TSvcList::get(const std::list<TSvcItem>& svcsAuto, TPaidRFISCList &paid) co
   }
 }
 
+void TSvcList::addBaggageOrCarryOn(int pax_id, const TRFISCKey& key)
+{
+  _additionalBagList.emplace_back(TPaxSegRFISCKey(Sirena::TPaxSegKey(pax_id, 0), key), 1);
+}
+
 void TSvcList::addChecked(const TCheckedReqPassengers &req_grps, int grp_id, int tckin_seg_count, int trfer_seg_count)
 {
   //вручную введенные на стойке
   TGrpServiceList svcs;
   svcs.fromDB(grp_id, !req_grps.include_refused);
   svcs.addBagInfo(grp_id, tckin_seg_count, trfer_seg_count, req_grps.include_refused);
+  svcs.addBagList(_additionalBagList, tckin_seg_count, trfer_seg_count);
 
   TPaidRFISCList paid;
   paid.fromDB(grp_id, true);
@@ -743,7 +749,7 @@ void TPseudoGroupInfoRes::toXML(xmlNodePtr node) const
 
 } //namespace SirenaExchange
 
-void PieceConceptInterface::procPieceConcept(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void SvcSirenaInterface::procRequestsFromSirena(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ProgTrace( TRACE5, "%s: %s", __FUNCTION__, XMLTreeToText(resNode->doc).c_str());
   reqNode=NodeAsNode("content", reqNode);
@@ -798,7 +804,7 @@ void PieceConceptInterface::procPieceConcept(XMLRequestCtxt *ctxt, xmlNodePtr re
   }
 }
 
-void PieceConceptInterface::procPassengers( const SirenaExchange::TPassengersReq &req, SirenaExchange::TPassengersRes &res )
+void SvcSirenaInterface::procPassengers( const SirenaExchange::TPassengersReq &req, SirenaExchange::TPassengersRes &res )
 {
   res.clear();
 
@@ -856,8 +862,8 @@ void PieceConceptInterface::procPassengers( const SirenaExchange::TPassengersReq
   };
 }
 
-void PieceConceptInterface::procGroupInfo( const SirenaExchange::TGroupInfoReq &req,
-                                           SirenaExchange::TGroupInfoRes &res )
+void SvcSirenaInterface::procGroupInfo( const SirenaExchange::TGroupInfoReq &req,
+                                        SirenaExchange::TGroupInfoRes &res )
 {
   res.clear();
   TQuery Qry(&OraSession);
@@ -885,8 +891,8 @@ void PieceConceptInterface::procGroupInfo( const SirenaExchange::TGroupInfoReq &
   SirenaExchange::fillPaxsBags(req.grp_id, res, grp_cat, tckin_grp_ids);
 }
 
-void PieceConceptInterface::procPseudoGroupInfo( const SirenaExchange::TPseudoGroupInfoReq &req,
-                                                 SirenaExchange::TPseudoGroupInfoRes &res )
+void SvcSirenaInterface::procPseudoGroupInfo( const SirenaExchange::TPseudoGroupInfoReq &req,
+                                              SirenaExchange::TPseudoGroupInfoRes &res )
 {
   SirenaExchange::fillPaxsSvcs(req.entities, res);
 }
@@ -977,7 +983,7 @@ int verifyHTTP(int argc,char **argv)
     reqText = ConvertCodepage( reqText, "CP866", "UTF-8" );
 //    SirenaExchange::SendTestRequest(reqText);
     req.parse(reqText);
-    PieceConceptInterface::procPseudoGroupInfo(req, res);
+    SvcSirenaInterface::procPseudoGroupInfo(req, res);
     string resText;
     res.build(resText);
     printf("%s\n", resText.c_str());
@@ -1039,6 +1045,17 @@ void TAvailabilityReq::bagTypesToDB(const TCkinGrpIds &tckin_grp_ids, bool copy_
     else if (copy_all_segs)
       CopyPaxServiceLists(*tckin_grp_ids.begin(), *i, false, false);
   }
+}
+
+bool needSync(xmlNodePtr answerResNode)
+{
+    return (answerResNode == NULL ||
+            (answerResNode != NULL && !findNodeR(answerResNode, "answer")));
+}
+
+xmlNodePtr findAnswerNode(xmlNodePtr answerResNode)
+{
+    return findNodeR(answerResNode, "answer");
 }
 
 } //namespace SirenaExchange
@@ -1177,7 +1194,6 @@ void ServicePaymentInterface::LoadServiceLists(XMLRequestCtxt *ctxt, xmlNodePtr 
     {
       TRFISCListWithProps list;
       list.fromDB(list_id, true);
-      list.getBagProps();
       list.setPriority();
       list.toXML(list_id.forTerminal(), NewTextChild(svcNode, "service_list"));
     }
@@ -1189,3 +1205,116 @@ void ServicePaymentInterface::LoadServiceLists(XMLRequestCtxt *ctxt, xmlNodePtr 
     };
   }
 }
+
+#include "edi_utils.h"
+#include "astra_context.h"
+
+bool SvcSirenaInterface::equal(const SvcSirenaResponseHandler& handler1,
+                               const SvcSirenaResponseHandler& handler2)
+{
+  return handler1.target<SvcSirenaResponseHandler>()==handler2.target<SvcSirenaResponseHandler>();
+}
+
+bool SvcSirenaInterface::addResponseHandler(const SvcSirenaResponseHandler& res)
+{
+  if (!res) return false;
+  for(const SvcSirenaResponseHandler& handler : resHandlers)
+    if (equal(handler, res)) return false;
+
+  resHandlers.push_back(res);
+  return true;
+}
+
+void SvcSirenaInterface::handleResponse(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode) const
+{
+  for(const SvcSirenaResponseHandler& handler : resHandlers)
+    if (handler) handler(reqNode, externalSysResNode, resNode);
+}
+
+void SvcSirenaInterface::DoRequest(xmlNodePtr reqNode,
+                                   xmlNodePtr externalSysResNode,
+                                   const SirenaExchange::TExchange& req,
+                                   const SvcSirenaResponseHandler& res)
+{
+    using namespace AstraEdifact;
+
+    LogTrace(TRACE3) << __FUNCTION__ << ": " << req.exchangeId();
+
+    int reqCtxtId = AstraContext::SetContext("TERM_REQUEST", XMLTreeToText(reqNode->doc));
+    if (externalSysResNode!=nullptr)
+      addToEdiResponseCtxt(reqCtxtId, externalSysResNode->children, "");
+
+    SirenaExchange::SirenaClient sirClient;
+    std::string reqText;
+    req.build(reqText);
+    sirClient.sendRequest(reqText, createKickInfo(reqCtxtId, SvcSirenaInterface::name()));
+
+    SvcSirenaInterface* iface=dynamic_cast<SvcSirenaInterface*>(JxtInterfaceMng::Instance()->GetInterface(SvcSirenaInterface::name()));
+    if (iface!=nullptr && iface->addResponseHandler(res))
+      LogTrace(TRACE5) << "added response handler for <" << req.exchangeId() << ">";
+}
+
+void SvcSirenaInterface::KickHandler(XMLRequestCtxt *ctxt,
+                                     xmlNodePtr reqNode,
+                                     xmlNodePtr resNode)
+{
+    using namespace AstraEdifact;
+
+    const std::string DefaultAnswer = "<answer/>";
+    std::string pult = TReqInfo::Instance()->desk.code;
+    LogTrace(TRACE3) << __FUNCTION__ << " for pult [" << pult << "]";
+
+    boost::optional<httpsrv::HttpResp> resp = SirenaExchange::SirenaClient::receive(pult);
+    if(resp) {
+        //LogTrace(TRACE3) << "req:\n" << resp->req.text;
+        if(resp->commErr) {
+             LogError(STDLOG) << "Http communication error! "
+                              << "(" << resp->commErr->code << "/" << resp->commErr->errMsg << ")";
+        }
+    } else {
+        LogError(STDLOG) << "Enter to KickHandler but HttpResponse is empty!";
+    }
+
+    if(GetNode("@req_ctxt_id",reqNode) != NULL)
+    {
+        int req_ctxt_id = NodeAsInteger("@req_ctxt_id", reqNode);
+
+        XMLDoc termReqCtxt;
+        getTermRequestCtxt(req_ctxt_id, true, "SvcSirenaInterface::KickHandler", termReqCtxt);
+        xmlNodePtr termReqNode = NodeAsNode("/term/query", termReqCtxt.docPtr())->children;
+        if(termReqNode == NULL)
+          throw EXCEPTIONS::Exception("SvcSirenaInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
+
+        std::string answerStr = DefaultAnswer;
+        if(resp) {
+            const auto fnd = resp->text.find("<answer>");
+            if(fnd != std::string::npos) {
+                answerStr = resp->text.substr(fnd);
+            }
+        }
+
+        XMLDoc answerResDoc;
+        try
+        {
+          answerResDoc = ASTRA::createXmlDoc2(answerStr);
+          LogTrace(TRACE5) << "HTTP Response for [" << pult << "], text:\n" << XMLTreeToText(answerResDoc.docPtr());
+        }
+        catch(std::exception &e)
+        {
+          LogError(STDLOG) << "ASTRA::createXmlDoc2(answerStr) error";
+          answerResDoc = ASTRA::createXmlDoc2(DefaultAnswer);
+        }
+        xmlNodePtr answerResNode = NodeAsNode("/answer", answerResDoc.docPtr());
+        addToEdiResponseCtxt(req_ctxt_id, answerResNode, "");
+
+        XMLDoc answerResCtxt;
+        getEdiResponseCtxt(req_ctxt_id, true, "SvcSirenaInterface::KickHandler", answerResCtxt);
+        answerResNode = NodeAsNode("/context", answerResCtxt.docPtr());
+        if(answerResNode == NULL)
+          throw EXCEPTIONS::Exception("SvcSirenaInterface::KickHandler: context EDI_RESPONSE answerResNode=NULL");;
+        //LogTrace(TRACE3) << "answer res (old ediRes):\n" << XMLTreeToText(answerResCtxt.docPtr());
+
+        handleResponse(termReqNode, answerResNode, resNode);
+    }
+}
+

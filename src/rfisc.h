@@ -433,7 +433,7 @@ class TRFISCBagPropsList : public std::map<TRFISCListKey, TRFISCBagProps>
 class TRFISCListWithProps : public TRFISCList
 {
   private:
-    boost::optional<TRFISCBagPropsList> bagProps;
+    boost::optional<TRFISCBagPropsList> bagPropsList;
   public:
     TRFISCListWithProps()
     {
@@ -442,16 +442,20 @@ class TRFISCListWithProps : public TRFISCList
     void clear()
     {
       TRFISCList::clear();
-      bagProps=boost::none;
+      bagPropsList=boost::none;
     }
-    const TRFISCBagPropsList& getBagProps();
+    void bagPropsFromDB();
+    void fromDB(const ServiceListId& list_id, bool only_visible=false);
     void setPriority();
+
+    const TRFISCBagPropsList& getBagPropsList();
+    boost::optional<TRFISCBagProps> getBagProps(const TRFISCListKey& key) const;
 };
 
 class TRFISCListWithPropsCache : std::map<int/*list_id*/, TRFISCListWithProps>
 {
   public:
-    const TRFISCBagPropsList& getBagProps(int list_id);
+    const TRFISCBagPropsList& getBagPropsList(int list_id);
 };
 
 class TPaxServiceListsKey : public Sirena::TPaxSegKey
@@ -605,6 +609,9 @@ class TGrpServiceList : public std::list<TGrpServiceItem>
                     int tckin_seg_count,
                     int trfer_seg_count,
                     bool include_refused);
+    void addBagList(const TGrpServiceList& bagList,
+                    int tckin_seg_count,
+                    int trfer_seg_count);
     void addTrueBagInfo(const TGrpServiceItem& item);
     void getAllListItems();
     static void clearDB(int grp_id);

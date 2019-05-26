@@ -180,6 +180,8 @@ src/request_dup.cc
 src/request_dup.h
 src/rfisc.cc
 src/rfisc.h
+src/rfisc_calc.cc
+src/rfisc_calc.h
 src/rfisc_sirena.cc
 src/rfisc_sirena.h
 src/rozysk.cc

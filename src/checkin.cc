@@ -59,6 +59,7 @@
 #include "tlg/AgentWaitsForRemote.h"
 #include "tlg/tlg_parser.h"
 #include "ckin_search.h"
+#include "rfisc_calc.h"
 
 #include <jxtlib/jxt_cont.h>
 #include <serverlib/cursctl.h>
@@ -80,109 +81,6 @@ using namespace AstraLocale;
 using namespace AstraEdifact;
 using astra_api::xml_entities::ReqParams;
 using Ticketing::RemoteSystemContext::DcsSystemContext;
-
-
-void SirenaExchangeInterface::AvailabilityRequest(xmlNodePtr reqNode,
-                                                  xmlNodePtr answerResNode,
-                                                  const SirenaExchange::TAvailabilityReq& avlReq)
-{
-    LogTrace(TRACE3) << __FUNCTION__;
-
-    std::string reqText;
-    avlReq.build(reqText);
-
-    DoRequest(reqNode, answerResNode, reqText);
-}
-
-void SirenaExchangeInterface::PaymentStatusRequest(xmlNodePtr reqNode,
-                                                   xmlNodePtr answerResNode,
-                                                   const SirenaExchange::TPaymentStatusReq& psReq)
-{
-    LogTrace(TRACE3) << __FUNCTION__;
-
-    std::string reqText;
-    psReq.build(reqText);
-
-    DoRequest(reqNode, answerResNode, reqText);
-}
-
-void SirenaExchangeInterface::DoRequest(xmlNodePtr reqNode,
-                                        xmlNodePtr answerResNode,
-                                        const std::string& reqText)
-{
-    LogTrace(TRACE3) << __FUNCTION__;
-
-    int reqCtxtId = AstraContext::SetContext("TERM_REQUEST", XMLTreeToText(reqNode->doc));
-    if (answerResNode!=nullptr)
-      addToEdiResponseCtxt(reqCtxtId, answerResNode->children, "");
-
-    SirenaExchange::SirenaClient sirClient;
-    sirClient.sendRequest(reqText, createKickInfo(reqCtxtId, "SirenaExchange"));
-}
-
-void SirenaExchangeInterface::KickHandler(XMLRequestCtxt *ctxt,
-                                          xmlNodePtr reqNode,
-                                          xmlNodePtr resNode)
-{
-    const std::string DefaultAnswer = "<answer/>";
-    std::string pult = TReqInfo::Instance()->desk.code;
-    LogTrace(TRACE3) << __FUNCTION__ << " for pult [" << pult << "]";
-
-    boost::optional<httpsrv::HttpResp> resp = SirenaExchange::SirenaClient::receive(pult);
-    if(resp) {
-        //LogTrace(TRACE3) << "req:\n" << resp->req.text;
-        if(resp->commErr) {
-             LogError(STDLOG) << "Http communication error! "
-                              << "(" << resp->commErr->code << "/" << resp->commErr->errMsg << ")";
-        }
-    } else {
-        LogError(STDLOG) << "Enter to KickHandler but HttpResponse is empty!";
-    }
-
-    if(GetNode("@req_ctxt_id",reqNode) != NULL)
-    {
-        int req_ctxt_id = NodeAsInteger("@req_ctxt_id", reqNode);
-
-        XMLDoc termReqCtxt;
-        getTermRequestCtxt(req_ctxt_id, true, "SirenaExchangeInterface::KickHandler", termReqCtxt);
-        xmlNodePtr termReqNode = NodeAsNode("/term/query", termReqCtxt.docPtr())->children;
-        if(termReqNode == NULL)
-          throw EXCEPTIONS::Exception("ChangeStatusInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
-
-        std::string answerStr = DefaultAnswer;
-        if(resp) {
-            const auto fnd = resp->text.find("<answer>");
-            if(fnd != std::string::npos) {
-                answerStr = resp->text.substr(fnd);
-            }
-        }
-
-        XMLDoc answerResDoc;
-        try
-        {
-          answerResDoc = ASTRA::createXmlDoc2(answerStr);
-          LogTrace(TRACE5) << "HTTP Response for [" << pult << "], text:\n" << XMLTreeToText(answerResDoc.docPtr());
-        }
-        catch(std::exception &e)
-        {
-          LogError(STDLOG) << "ASTRA::createXmlDoc2(answerStr) error";
-          answerResDoc = ASTRA::createXmlDoc2(DefaultAnswer);
-        }
-        xmlNodePtr answerResNode = NodeAsNode("/answer", answerResDoc.docPtr());
-        addToEdiResponseCtxt(req_ctxt_id, answerResNode, "");
-
-        XMLDoc answerResCtxt;
-        getEdiResponseCtxt(req_ctxt_id, true, "ChangeStatusInterface::KickHandler", answerResCtxt);
-        answerResNode = NodeAsNode("/context", answerResCtxt.docPtr());
-        if(answerResNode == NULL)
-          throw EXCEPTIONS::Exception("ChangeStatusInterface::KickHandler: context EDI_RESPONSE answerResNode=NULL");;
-        //LogTrace(TRACE3) << "answer res (old ediRes):\n" << XMLTreeToText(answerResCtxt.docPtr());
-
-        ContinueCheckin(termReqNode, answerResNode, resNode);
-    }
-}
-
-//---------------------------------------------------------------------------------------
 
 void CheckInInterface::LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -3617,26 +3515,14 @@ void CheckIn::TAfterSaveInfo::toLog(const string& where)
   }
 }
 
-static bool needSyncSirena(xmlNodePtr answerResNode)
-{
-    return (answerResNode == NULL ||
-            (answerResNode != NULL && !findNodeR(answerResNode, "answer")));
-}
-
-static xmlNodePtr findAnswerNode(xmlNodePtr answerResNode)
-{
-    return findNodeR(answerResNode, "answer");
-}
-
-
 bool CheckIn::TAfterSaveInfoData::needSync() const
 {
-    return needSyncSirena(answerResNode);
+    return SirenaExchange::needSync(answerResNode);
 }
 
 xmlNodePtr CheckIn::TAfterSaveInfoData::getAnswerNode() const
 {
-    xmlNodePtr answerNode = findAnswerNode(answerResNode);
+    xmlNodePtr answerNode = SirenaExchange::findAnswerNode(answerResNode);
     ASSERT(answerNode != NULL);
     return answerNode;
 }
@@ -6303,138 +6189,58 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   {
     timing.start("svc_payment_status");
 
-    if (AfterSaveInfo.segs.empty()) throw 1;
-    int first_grp_id=AfterSaveInfo.segs.front().grp_id;
+    if (AfterSaveInfo.segs.empty())
+      throw SvcPaymentStatusNotApplicable("AfterSaveInfo.segs.empty()");
+
     TCkinGrpIds tckin_grp_ids;
-    CheckIn::TPaxGrpCategory::Enum grp_cat;
-
-    SirenaExchange::TPaymentStatusReq req;
-    SirenaExchange::fillPaxsBags(first_grp_id, req, grp_cat, tckin_grp_ids);
-
-    if (tckin_grp_ids.empty() || grp_cat!=CheckIn::TPaxGrpCategory::Passenges) throw 1;
-
     TPaidRFISCList paid;
-    ProgTrace(TRACE5, "actionRefreshPaidBagPC req.svcs.size()=%zu", req.svcs.size());
-    if (!req.svcs.empty() && !reqInfo->api_mode)
+    if (getSvcPaymentStatus(AfterSaveInfo.segs.front().grp_id,
+                            boost::none,
+                            reqNode,
+                            ediResNode,
+                            ASTRA::rollbackSavePax,
+                            ContinueCheckin,
+                            SirenaExchangeList,
+                            tckin_grp_ids,
+                            paid,
+                            httpWasSent))
     {
-      try
+      //paid получили
+      paid.getAllListItems();
+      bool update_payment=false;
+      bool check_emd_status=(needSyncEdsEts(ediResNode) && reqInfo->client_type!=ctPNL);
+      for(TCkinGrpIds::const_iterator i=tckin_grp_ids.begin(); i!=tckin_grp_ids.end(); ++i)
       {
-        SirenaExchange::TPaymentStatusRes res;
-//        res.setSrcFile("svc_payment_status_res.xml");
-//        res.setDestFile("svc_payment_status_res.xml");
-
-        SirenaExchange::TLastExchangeInfo prior, curr;
-        prior.fromDB(first_grp_id);
-        req.build(curr.pc_payment_req);
-        if (prior.pc_payment_req_created==NoExists ||
-            prior.pc_payment_res_created==NoExists ||
-            prior.pc_payment_req.empty() ||
-            prior.pc_payment_res.empty() ||
-            prior.pc_payment_req!=curr.pc_payment_req)
+        int grp_id=*i;
+        CheckIn::TServicePaymentListWithAuto paymentBeforeWithAuto;
+        if (check_emd_status)
+          paymentBeforeWithAuto.fromDB(grp_id);
+        if (i==tckin_grp_ids.begin())
         {
-//#define SVC_PAYMENT_STATUS_SYNC_MODE
-#ifndef SVC_PAYMENT_STATUS_SYNC_MODE
-          if(needSyncSirena(ediResNode)) {
-            if (httpWasSent)
-              throw Exception("%s: very bad situation! needSyncSirena again!", __FUNCTION__);
-
-            ASTRA::rollbackSavePax();
-            SirenaExchangeInterface::PaymentStatusRequest(reqNode,
-                                                          ediResNode,
-                                                          req);
-            httpWasSent = true;
-            return true;
-          } else {
-            xmlNodePtr answerNode = findAnswerNode(ediResNode);
-            ASSERT(answerNode != NULL);
-            res.parseResponse(answerNode);
-
-            curr.grp_id=first_grp_id;
-
-            XMLDoc answerDoc("answer");
-            CopyNodeList(NodeAsNode("/answer", answerDoc.docPtr()), answerNode);
-            xml_encode_nodelist(answerDoc.docPtr()->children);
-
-            curr.pc_payment_res=XMLTreeToText(answerDoc.docPtr());
-
-            SirenaExchangeList.push_back(curr);
-          }
-#else
-          RequestInfo requestInfo;
-          ResponseInfo responseInfo;
-          SirenaExchange::SendRequest(req, res, requestInfo, responseInfo);
-          curr.grp_id=first_grp_id;
-          curr.pc_payment_res=responseInfo.content;
-          SirenaExchangeList.push_back(curr);
-#endif
+          paid.toDB(grp_id);
+          CheckIn::TServicePaymentList payment;
+          payment.fromDB(grp_id);
+          update_payment=CheckIn::TryCleanServicePayment(paid, payment);
+          if (update_payment)
+            payment.toDB(grp_id);
         }
         else
-          res.parse(prior.pc_payment_res);
-
-        if (req.paxs.empty()) throw EXCEPTIONS::Exception("%s: strange situation: req.paxs.empty()", __FUNCTION__);
-        const SirenaExchange::TPaxSegMap &segs=req.paxs.front().segs;
-        if (segs.empty()) throw EXCEPTIONS::Exception("%s: strange situation: segs.empty()", __FUNCTION__);
-        for(SirenaExchange::TPaxSegMap::const_iterator s=segs.begin(); s!=segs.end(); ++s)
         {
-          string flight_view=GetTripName(s->second.operFlt, ecCkin);
-
-          set<TRFISCListKey> rfiscs;
-          res.check_unknown_status(s->second.id, rfiscs);
-          if (!rfiscs.empty())
-            throw UserException("MSG.CHECKIN.UNKNOWN_PAYMENT_STATUS_FOR_BAG_TYPE_ON_SEGMENT",
-                                LParams() << LParam("flight", flight_view)
-                                          << LParam("bag_type", rfiscs.begin()->str()));
-        }
-        //мы не должны допустить запись в БД статуса unknown
-        for(SirenaExchange::TSvcList::const_iterator i=res.svcs.begin(); i!=res.svcs.end(); ++i)
-          if (i->status==TServiceStatus::Unknown)
-            throw EXCEPTIONS::Exception("%s: strange situation: TServiceStatus::Unknown for trfer_num=%d", __FUNCTION__, i->trfer_num);
-
-        res.normsToDB(tckin_grp_ids);
-        res.svcs.get(req.svcs.autoChecked(), paid);
+          TPaidRFISCList::copyDB(tckin_grp_ids.front(), grp_id);
+          if (update_payment)
+            CheckIn::TServicePaymentList::copyDB(tckin_grp_ids.front(), grp_id);
+        };
+        if (check_emd_status)
+          EMDStatusInterface::EMDCheckStatus(grp_id, paymentBeforeWithAuto, ChangeStatusInfo.EMD);
       }
-      catch(UserException &e)
-      {
-        throw;
-      }
-      catch(std::exception &e)
-      {
-        ProgError(STDLOG, "%s: %s", __FUNCTION__, e.what());
-        throw UserException("MSG.CHECKIN.UNABLE_CALC_PAID_BAG_TRY_RE_CHECKIN");
-      }
-    }
-
-    paid.getAllListItems();
-    bool update_payment=false;
-    bool check_emd_status=(needSyncEdsEts(ediResNode) && reqInfo->client_type!=ctPNL);
-    for(TCkinGrpIds::const_iterator i=tckin_grp_ids.begin(); i!=tckin_grp_ids.end(); ++i)
-    {
-      int grp_id=*i;
-      CheckIn::TServicePaymentListWithAuto paymentBeforeWithAuto;
-      if (check_emd_status)
-        paymentBeforeWithAuto.fromDB(grp_id);
-      if (i==tckin_grp_ids.begin())
-      {
-        paid.toDB(grp_id);
-        CheckIn::TServicePaymentList payment;
-        payment.fromDB(grp_id);
-        update_payment=CheckIn::TryCleanServicePayment(paid, payment);
-        if (update_payment)
-          payment.toDB(grp_id);
-      }
-      else
-      {
-        TPaidRFISCList::copyDB(tckin_grp_ids.front(), grp_id);
-        if (update_payment)
-          CheckIn::TServicePaymentList::copyDB(tckin_grp_ids.front(), grp_id);
-      };
-      if (check_emd_status)
-        EMDStatusInterface::EMDCheckStatus(grp_id, paymentBeforeWithAuto, ChangeStatusInfo.EMD);
     }
 
     timing.finish("svc_payment_status");
   }
-  catch(int) {}
+  catch(SvcPaymentStatusNotApplicable &e)
+  {
+    LogTrace(TRACE5) << __FUNCTION__ << ": " << e.what();
+  }
 
   timing.finish("SavePax");
 
@@ -6759,9 +6565,10 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
                     throw Exception("%s: very bad situation! needSync again!", __FUNCTION__);
 
                   ASTRA::rollbackSavePax();
-                  SirenaExchangeInterface::AvailabilityRequest(data.reqNode,
-                                                               data.answerResNode,
-                                                               req);
+                  SvcSirenaInterface::AvailabilityRequest(data.reqNode,
+                                                          data.answerResNode,
+                                                          req,
+                                                          ContinueCheckin);
                   data.httpWasSent = true;
                   return;
               } else {
