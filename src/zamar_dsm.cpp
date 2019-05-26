@@ -275,6 +275,9 @@ static void DocoToZamarXML(xmlNodePtr resNode, const CheckIn::TPaxDocoItem& doco
   NewTextChild(docNode, "applicCountry", CheckIn::paxDocCountryToWebXML(doco.applic_country, lang));
 }
 
+// TODO сделать функцию, добавляющую в список язык запроса (при отсутствии такового в списке)
+const list<string> LANG_LIST = {AstraLocale::LANG_RU, AstraLocale::LANG_EN};
+
 static void BaggageListToZamarXML(xmlNodePtr allowanceNode, const TRFISCListWithProps& list, const AstraLocale::OutputLang& lang)
 {
   if (allowanceNode == nullptr || list.empty())
@@ -286,7 +289,12 @@ static void BaggageListToZamarXML(xmlNodePtr allowanceNode, const TRFISCListWith
     SetProp(typeNode, "airline", airlineToPrefferedCode(i.airline, lang));
     SetProp(typeNode, "rfisc", i.RFISC);
     SetProp(typeNode, "serviceType", ServiceTypes().encode(i.service_type));
-    SetProp(typeNode, "displayName", lowerc(i.name_view(lang.get())));
+//    SetProp(typeNode, "displayName", i.name_view(lang.get()));
+    for (auto lang_str : LANG_LIST)
+    {
+      xmlNodePtr displayNameNode = NewTextChild(typeNode, "displayName", i.name_view(lang_str));
+      SetProp(displayNameNode, "lang", lang_str);
+    }
     if(i.priority)
       SetProp(typeNode, "priority", i.priority.get());
     boost::optional<TRFISCBagProps> props=list.getBagProps(i);
@@ -308,7 +316,12 @@ static void BaggageListToZamarXML(xmlNodePtr allowanceNode, const TBagTypeList& 
     xmlNodePtr typeNode = NewTextChild(allowanceNode, "type");
     SetProp(typeNode, "airline", airlineToPrefferedCode(i.airline, lang));
     SetProp(typeNode, "bagType", i.bag_type);
-    SetProp(typeNode, "displayName", i.name_view(lang.get()));
+//    SetProp(typeNode, "displayName", i.name_view(lang.get()));
+    for (auto lang_str : LANG_LIST)
+    {
+      xmlNodePtr displayNameNode = NewTextChild(typeNode, "displayName", i.name_view(lang_str));
+      SetProp(displayNameNode, "lang", lang_str);
+    }
     SetProp(typeNode, "displayDescr", i.descr_view(lang.get()));
     if(i.priority)
       SetProp(typeNode, "priority", i.priority.get());
@@ -589,12 +602,12 @@ void ZamarBagTag::fromXML_add(xmlNodePtr reqNode)
   if (concept == "piece")
   {
     bag_concept_ = TBagConcept::Piece;
-    rfisc_ = NodeAsString("@RFISC", typeNode);
+    rfisc_ = NodeAsString("@rfisc", typeNode);
     if (rfisc_.empty())
-      throw Exception("Empty <RFISC>");
-    string service_type = NodeAsString( "@service_type", typeNode);
+      throw Exception("Empty <rfisc>");
+    string service_type = NodeAsString( "@serviceType", typeNode);
     if (service_type.empty())
-      throw Exception("Empty <service_type>");
+      throw Exception("Empty <serviceType>");
     service_type_ = ServiceTypes().decode(service_type);
   }
   else if (concept == "weight")
