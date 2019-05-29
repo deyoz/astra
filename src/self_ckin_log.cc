@@ -24,6 +24,7 @@ class TKioskEventTypes {
             getScreen,
             statusOperation,
             statusDevices,
+            requestData, //запросы к Астре
             Unknown
         };
 
@@ -36,6 +37,7 @@ class TKioskEventTypes {
                 l.push_back(std::make_pair(getScreen,       "getScreen"));
                 l.push_back(std::make_pair(statusOperation, "statusOperation"));
                 l.push_back(std::make_pair(statusDevices,   "statusDevices"));
+                l.push_back(std::make_pair(requestData,     "requestData"));
                 l.push_back(std::make_pair(Unknown, ""));
             }
             return l;

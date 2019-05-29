@@ -175,7 +175,7 @@ class TPaxToLogInfo
   public:
     std::string airp_arv, cl, status;
     bool pr_mark_norms;
-    std::string surname, name, pers_type, refuse, subcl, seat_no;
+    std::string surname, name, pers_type, refuse, subcl, seat_no, agent_seat_no;
     int seats;
     int is_female;
     bool pr_brd, pr_exam;
@@ -263,6 +263,7 @@ class TGrpToLogInfo
     void setExcess();
     void clearEmd();
     void setEmd();
+    void setTermAgentSeatNo(const CheckIn::TPaxList &paxs);
 };
 
 class TAgentStatInfo

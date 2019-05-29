@@ -430,6 +430,22 @@ void TGrpToLogInfo::setEmd()
   };
 }
 
+void TGrpToLogInfo::setTermAgentSeatNo( const CheckIn::TPaxList &paxs )
+{
+  for(const auto& p : paxs) {
+    if ( p.crs_seat_no == p.pax.seat_no ) { //агент ничего не выбирал
+      continue;
+    }
+    std::map<TPaxToLogInfoKey, TPaxToLogInfo>::iterator n = findPax( p.getExistingPaxIdOrSwear() );
+    if ( n != pax.end() &&
+         n->second.seat_no == p.pax.seat_no ) { // агент выбрал место и система посадила на это место
+      n->second.agent_seat_no = p.pax.seat_no;
+      ProgTrace(TRACE5, "pax_id=%d,crs_seat_no=%s,pax.seat_no=%s, currseat_no=%s",
+                p.getExistingPaxIdOrSwear(),  p.crs_seat_no.c_str(), p.pax.seat_no.c_str(), n->second.seat_no.c_str() );
+    }
+  }
+}
+
 void UpdGrpToLogInfo(int grp_id, TGrpToLogInfo &grpInfo)
 {
   TQuery Qry(&OraSession);
@@ -904,6 +920,13 @@ void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
                 lexema.prms << PrmSmpl<string>("seat_no", aPax->second.seat_no);
               else
                 lexema.prms << PrmBool("seat_no", false);
+              if (!aPax->second.agent_seat_no.empty()) {
+                lexema.prms << PrmLexema("agent_seat_no", "EVT.AGENT_SEAT_NO");
+              }
+              else {
+                lexema.prms << PrmSmpl<string>("agent_seat_no", "");
+              }
+
               params << lexema;
             }
             else
