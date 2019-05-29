@@ -723,10 +723,34 @@ void SeasonInterface::DelRangeList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   AstraLocale::showMessage( getLocaleText("MSG.FLIGHT_DELETED"));
 }
 
+struct CreatorSPPLocker {
+   bool islock;
+   CreatorSPPLocker() {
+     islock = false;
+   }
+
+   void lock() {
+     if ( islock ) {
+       return;
+     }
+     TQuery Qry(&OraSession);
+     Qry.SQLText =
+       "BEGIN "
+       "SELECT lock_spp INTO :lock_spp FROM season_spp FOR UPDATE; "
+       "END; ";
+     Qry.DeclareVariable( "lock_spp", otInteger );
+     Qry.Execute();
+     islock = true;
+   }
+   void commit() {
+      OraSession.Commit();
+      islock = false;
+   }
+};
 
 void CreateSPP( TDateTime localdate )
 {
-    throwOnScheduleLock();
+  throwOnScheduleLock();
 
   TPersWeights persWeights;
   TQuery MIDQry(&OraSession);
@@ -773,17 +797,19 @@ void CreateSPP( TDateTime localdate )
   string err_city;
   createSPP( localdate, spp, false, err_city );
   TDoubleTrip doubletrip;
+  CreatorSPPLocker locker;
 
   for ( TSpp::iterator sp=spp.begin(); sp!=spp.end(); sp++ ) {
     tmapds &mapds = sp->second;
     for ( map<int,TDestList>::iterator im=mapds.begin(); im!=mapds.end(); im++ ) {
+      locker.commit();
       TDests::iterator p = im->second.dests.end();
       int point_id = 0,first_point = 0;
 
+      locker.lock(); // лочка перед поиском
       TElemFmt fmt;
       /* проверка на не существование */
       bool exists = false;
-      string name;
       for ( TDests::iterator d=im->second.dests.begin(); d!=im->second.dests.end() - 1; d++ ) {
         TDateTime vscd_in, vscd_out;
         if ( d->scd_in > NoExists )
@@ -806,7 +832,6 @@ void CreateSPP( TDateTime localdate )
         }
       }
       if ( exists ) {
-          // А строка уже вставлена в таблицу move_ref
         continue;
       }
 
@@ -949,8 +974,8 @@ void CreateSPP( TDateTime localdate )
       for ( vector<int>::const_iterator i = points.begin(); i != points.end(); i++) {
         on_change_trip( CALL_POINT, *i, ChangeTrip::SeasonCreateSPP );
       };
-    }
-  }
+    }  //flights points
+  } //spp days
   TReqInfo::Instance()->LocaleToLog("EVT.SEASON.GET_SPP", LEvntPrms()
                                     << PrmDate("time", localdate, "dd.mm.yy"), evtSeason);
 }
@@ -966,9 +991,9 @@ void SeasonInterface::GetSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
 
 bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day, TDateTime vd, TDestList &ds)
 {
-  ProgTrace( TRACE5, "da=%s, move_id=%d, first_day=%s, vd=%s", 
+  ProgTrace( TRACE5, "da=%s, move_id=%d, first_day=%s, vd=%s",
              DateTimeToStr( da, "dd.mm.yy hh:nn" ).c_str(),
-             move_id, 
+             move_id,
              DateTimeToStr( first_day, "dd.mm.yy hh:nn" ).c_str(),
              DateTimeToStr( vd, "dd.mm.yy hh:nn" ).c_str() );
 
