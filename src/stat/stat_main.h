@@ -6,8 +6,9 @@
 #include "jxtlib/JxtInterface.h"
 #include "date_time.h"
 
+using BASIC::date_time::TDateTime;
+
 namespace STAT {
-    using BASIC::date_time::TDateTime;
 
     struct agent_stat_t {
         int inc, dec;
@@ -45,6 +46,7 @@ namespace STAT {
       public:
         void get_for_airp(TDateTime first_date, TDateTime last_date, const std::string& airp);
     };
+
 }
 
 
@@ -123,5 +125,7 @@ int nosir_seDCSAddReport(int argc, char **argv);
 
 void stat_orders_collect(void);
 void stat_orders_synchro(void);
+
+void get_full_stat(TDateTime utcdate);
 
 #endif

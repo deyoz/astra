@@ -8929,6 +8929,31 @@ void add_stat_time(map<string, long> &stat_times, const string &name, long time)
         stat_times[name] += time;
 }
 
+void get_full_stat(TDateTime utcdate)
+{
+    //соберем статистику по истечении двух дней от вылета,
+    //если не проставлен признак окончательного сбора статистики pr_stat
+
+    TQuery PointsQry(&OraSession);
+  PointsQry.Clear();
+  PointsQry.SQLText =
+    "SELECT points.point_id FROM points,trip_sets "
+    "WHERE points.point_id=trip_sets.point_id AND "
+    "      points.pr_del=0 AND points.pr_reg<>0 AND trip_sets.pr_stat=0 AND "
+    "      time_out<:stat_date AND time_out>TO_DATE('01.01.0001','DD.MM.YYYY')";
+  PointsQry.CreateVariable("stat_date",otDate,utcdate-2); //2 дня
+  PointsQry.Execute();
+  map<string, long> stat_times;
+  for(;!PointsQry.Eof;PointsQry.Next())
+  {
+    get_flight_stat(stat_times, PointsQry.FieldAsInteger("point_id"), true);
+    OraSession.Commit();
+  };
+  for(map<string, long>::iterator i = stat_times.begin(); i != stat_times.end(); i++)
+      LogTrace(TRACE5) << i->first << ": " << i->second;
+};
+
+
 void get_flight_stat(map<string, long> &stat_times, int point_id, bool final_collection)
 {
    TFlights flightsForLock;
