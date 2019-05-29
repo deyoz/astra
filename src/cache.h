@@ -73,6 +73,7 @@ const
                          {"COUNTRIES",               etCountry},
                          {"CRAFTS",                  etCraft},
                          {"CURRENCY",                etCurrency},
+                         {"CUSTOM_ALARM_TYPES",      etCustomAlarmType},
                          {"DCS_SERVICE_TYPES",       etDCSServiceType},
                          {"DESK_GRP",                etDeskGrp},
                          {"ENCODING_FMT",            etUserSetType},

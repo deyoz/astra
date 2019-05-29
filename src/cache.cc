@@ -1904,6 +1904,7 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
 
   if (cache.code() == "BI_PRINT_RULES" ||
       cache.code() == "REM_TXT_SETS" ||
+      cache.code() == "PAX_HIGHLIGHT_SETS" ||
       cache.code() == "DCS_SERVICE_APPLYING") {
     string rfisc;
     if (
