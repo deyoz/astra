@@ -1866,7 +1866,10 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
                 throw AstraLocale::UserException("MSG.INVALID_COPIES");
     }
 
-    if (cache.code() == "REM_TXT_SETS") {
+    if (
+            cache.code() == "REM_TXT_SETS" or
+            cache.code() == "PAX_HIGHLIGHT_SETS"
+       ) {
         if (
                 row.status != usDeleted and
                 row.status != usUnmodified
@@ -1879,7 +1882,14 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
                 throw AstraLocale::UserException("MSG.CANNOT_INSERT_NULL");
             if(assigned > 1)
                 throw AstraLocale::UserException("MSG.MORE_THAN_ONE_CRITERION");
+        }
+    }
 
+    if (cache.code() == "REM_TXT_SETS") {
+        if (
+                row.status != usDeleted and
+                row.status != usUnmodified
+           ) {
             int tag_index = ToInt(cache.FieldValue("tag_index", row));
             int text_length = ToInt(cache.FieldValue("text_length", row));
             if(tag_index > 9)
