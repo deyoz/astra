@@ -1741,17 +1741,21 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                        paxNode);
           };
 
+          xmlNodePtr alarmsNode=NULL;
           if (!alarms.empty())
           {
-            if (alarms.size()==1)
-              NewTextChild(paxNode, "alarm", APIS::EncodeAlarmType(*(alarms.begin())));
-            else
-            {
-              xmlNodePtr alarmsNode=NewTextChild(paxNode, "alarms");
+              alarmsNode=NewTextChild(paxNode, "alarms");
               for(set<APIS::TAlarmType>::const_iterator a=alarms.begin(); a!=alarms.end(); ++a)
-                NewTextChild(alarmsNode, "alarm", APIS::EncodeAlarmType(*a));
-            };
+                  NewTextChild(alarmsNode, "alarm", APIS::EncodeAlarmType(*a));
           };
+
+          vector<int> custom_alarms;
+          get_custom_alarms(fltInfo.airline, pax_id, custom_alarms);
+          for(const auto custom_alarm: custom_alarms) {
+              if(not alarmsNode)
+                  alarmsNode=NewTextChild(paxNode, "alarms");
+              NewTextChild(alarmsNode, "alarm", ElemIdToNameLong(etCustomAlarmType, custom_alarm));
+          }
 
 
           if (!Qry.FieldIsNULL(col_tckin_id))
