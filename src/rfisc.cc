@@ -2037,6 +2037,25 @@ void TPaidRFISCList::getAllListItems()
     i->second.getListItemByPaxId(i->second.pax_id, i->second.trfer_num, boost::none, "TPaidRFISCList");
 }
 
+bool TPaidRFISCList::becamePaid(int grp_id) const
+{
+  LogTrace(TRACE5) << __func__;
+
+  TPaidRFISCList prior;
+  prior.fromDB(grp_id, true);
+
+  for(const auto& a : *this)
+    if (a.second.paid_positive())
+    {
+      TPaidRFISCList::const_iterator b=prior.find(a.first);
+      if (b==prior.end()) return true;
+      if (b->second.paid==ASTRA::NoExists || a.second.paid>b->second.paid) return true;
+      if (a.second.need_positive() &&
+          (b->second.need==ASTRA::NoExists || a.second.need>b->second.need)) return true;
+    }
+  return false;
+}
+
 const TPaidRFISCViewKey& TPaidRFISCViewKey::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;

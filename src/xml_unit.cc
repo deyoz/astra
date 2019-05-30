@@ -610,6 +610,7 @@ void RemoveChildNodes(xmlNodePtr node)
 
 void RemoveNode(xmlNodePtr node)
 {
+    if (node==nullptr) return;
     // удалим всё содержимое тэга
     xmlClearNode(node);
     // и сам тэг

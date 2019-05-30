@@ -882,6 +882,8 @@ TWebPaxForChng& TWebPaxForChng::fromDB(TQuery &Qry)
   CheckIn::TSimplePaxGrpItem::fromDB(Qry);
   CheckIn::TSimplePaxItem::fromDB(Qry);
   TWebTids::fromDB(Qry);
+  CheckIn::TSimplePaxGrpItem::tid=TWebTids::pax_grp_tid;
+  CheckIn::TSimplePaxItem::tid=TWebTids::pax_tid;
   return *this;
 }
 
@@ -1203,33 +1205,18 @@ void CreateEmulDocs(const TWebPaxForSaveSegs &segs,
           emulChngNode=NewTextChild(emulChngNode,"TCkinSavePax");
 
           xmlNodePtr segNode=NewTextChild(NewTextChild(emulChngNode,"segments"),"segment");
-          NewTextChild(segNode,"point_dep",currPaxForChng.point_dep);
-          NewTextChild(segNode,"point_arv",currPaxForChng.point_arv);
-          NewTextChild(segNode,"airp_dep",currPaxForChng.airp_dep);
-          NewTextChild(segNode,"airp_arv",currPaxForChng.airp_arv);
-          NewTextChild(segNode,"class",currPaxForChng.cl);
-          NewTextChild(segNode,"grp_id",currPaxForChng.grp_id);
-          NewTextChild(segNode,"tid",currPaxForChng.pax_grp_tid);
+          static_cast<const CheckIn::TSimplePaxGrpItem&>(currPaxForChng).toEmulXML(emulChngNode, segNode);
           NewTextChild(segNode,"passengers");
-
-          NewTextChild(emulChngNode,"hall");
-          NewTextChild(emulChngNode,"bag_refuse",currPaxForChng.bag_refuse);
         };
         xmlNodePtr paxsNode=NodeAsNode("/term/query/TCkinSavePax/segments/segment/passengers",emulChngDoc.docPtr());
 
         xmlNodePtr paxNode=NewTextChild(paxsNode,"pax");
-        NewTextChild(paxNode,"pax_id",currPaxForChng.paxId());
-        NewTextChild(paxNode,"surname",currPaxForChng.surname);
-        NewTextChild(paxNode,"name",currPaxForChng.name);
-        if (currPaxFromReq.refuse ||
-            DocUpdatesPending ||
-            DocoUpdatesPending)
-        {
-          //были ли изменения по пассажиру CheckInInterface::SavePax определяет по наличию тега refuse
-          NewTextChild(paxNode,"refuse",currPaxFromReq.refuse?refuseAgentError:"");
-          NewTextChild(paxNode,"pers_type",currPaxForChng.pers_type);
-        };
-        NewTextChild(paxNode,"tid",pax_tid);
+        CheckIn::TSimplePaxItem pax(currPaxForChng);
+        pax.refuse=currPaxFromReq.refuse?refuseAgentError:"";
+        bool PaxUpdatesPending=currPaxFromReq.refuse ||
+                               DocUpdatesPending ||
+                               DocoUpdatesPending;
+        pax.toEmulXML(paxNode, PaxUpdatesPending);
 
         if (DocUpdatesPending)
           currPaxForChng.apis.doc.toXML(paxNode);
@@ -1423,3 +1410,56 @@ void tryGenerateBagTags(xmlNodePtr reqNode)
   //LogTrace(TRACE5) << XMLTreeToText(reqNode->doc);
 }
 
+void createEmulDocForSBDO(int pax_id,
+                          const TBagTagNumber& tag,
+                          const boost::optional<CheckIn::TSimpleBagItem>& bag,
+                          xmlNodePtr emulChngNode)
+{
+  if (emulChngNode==nullptr)
+    throw EXCEPTIONS::Exception("%s: emulChngNode==nullptr", __FUNCTION__);
+
+  CheckIn::TSimplePaxItem pax;
+  if (!pax.getByPaxId(pax_id))
+   throw UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+
+  TCkinRoute route;
+  route.GetRouteAfter(pax.grp_id, crtWithCurrent, crtOnlyDependent);
+
+  if (route.empty())
+    throw UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+
+  const TCkinRouteItem& first=route.front();
+
+  CheckIn::TGroupBagItem groupBag;
+  groupBag.fromDB(first.grp_id, ASTRA::NoExists, false);
+
+  CheckIn::TSimplePaxItem editablePax(pax);
+  if (bag)
+    groupBag.add(first.point_dep, tag, bag.get(), editablePax.bag_pool_num);
+  else
+    groupBag.remove(tag, editablePax.bag_pool_num);
+
+  xmlNodePtr segsNode=NewTextChild(emulChngNode,"segments");
+
+  for(TCkinRoute::const_iterator s=route.begin(); s!=route.end(); ++s)
+  {
+    CheckIn::TSimplePaxGrpItem grp;
+    if (!grp.getByGrpId(s->grp_id))
+      throw UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+
+    xmlNodePtr segNode=NewTextChild(segsNode,"segment");
+    grp.toEmulXML(emulChngNode, segNode);
+
+    xmlNodePtr paxsNode=NewTextChild(segNode,"passengers");
+
+    if (s!=route.begin()) continue;
+
+    if (pax.bag_pool_num!=editablePax.bag_pool_num)
+    {
+      xmlNodePtr paxNode=NewTextChild(paxsNode,"pax");
+      editablePax.toEmulXML(paxNode, true);
+    }
+  }
+
+  groupBag.toXML(emulChngNode, false);
+}

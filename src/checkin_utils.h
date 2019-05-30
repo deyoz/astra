@@ -582,4 +582,9 @@ void CreateEmulDocs(const TWebPaxForSaveSegs &segs,
 
 void tryGenerateBagTags(xmlNodePtr reqNode);
 
+void createEmulDocForSBDO(int pax_id,
+                          const TBagTagNumber& tag,
+                          const boost::optional<CheckIn::TSimpleBagItem>& bag,
+                          xmlNodePtr emulChngNode);
+
 #endif // PNR_INFORM_H

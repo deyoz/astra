@@ -578,6 +578,7 @@ class TSimplePaxItem
     static ASTRA::TGender::Enum genderFromDB(TQuery &Qry);
     static ASTRA::TTrickyGender::Enum getTrickyGender(ASTRA::TPerson pers_type, ASTRA::TGender::Enum gender);
 
+    const TSimplePaxItem& toEmulXML(xmlNodePtr node, bool PaxUpdatesPending) const;
     TSimplePaxItem& fromDB(TQuery &Qry);
     TSimplePaxItem& fromDBCrs(TQuery &Qry, bool withTkn);
     bool getByPaxId(int pax_id, TDateTime part_key = ASTRA::NoExists);
@@ -826,6 +827,8 @@ class TSimplePaxGrpItem
       return grpCategory()==TPaxGrpCategory::UnnacompBag;
     }
     TSimplePaxGrpItem& fromDB(TQuery &Qry);
+    const TSimplePaxGrpItem& toXML(xmlNodePtr node) const;
+    const TSimplePaxGrpItem& toEmulXML(xmlNodePtr emulReqNode, xmlNodePtr emulSegNode) const;
     bool getByGrpId(int grp_id);
 
     bool allowToBagCheckIn() const { return trfer_confirm; }

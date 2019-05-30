@@ -571,7 +571,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   CheckIn::TGroupBagItem group_bag;
   group_bag.fromDB(grp_id, ASTRA::NoExists, false);
-  group_bag.toXML(dataNode);
+  group_bag.toXML(dataNode, pr_unaccomp);
   WeightConcept::TPaidBagList paid;
   WeightConcept::PaidBagFromDB(NoExists, grp_id, paid);
 

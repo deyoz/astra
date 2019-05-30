@@ -755,23 +755,6 @@ void ClearPostponedContext(tlgnum_t tnum)
        .exec();
 }
 
-bool isTermCheckinRequest(xmlNodePtr reqNode)
-{
-  return reqNode!=nullptr &&
-         TReqInfo::Instance()->client_type==ctTerm &&
-         (strcmp((const char*)reqNode->name, "TCkinSavePax") == 0 ||
-          strcmp((const char*)reqNode->name, "TCkinSaveUnaccompBag") == 0);
-}
-
-bool isWebCheckinRequest(xmlNodePtr reqNode)
-{
-  return reqNode!=nullptr &&
-         (TReqInfo::Instance()->client_type==ctWeb ||
-          TReqInfo::Instance()->client_type==ctMobile ||
-          TReqInfo::Instance()->client_type==ctKiosk) &&
-         strcmp((const char*)reqNode->name, "SavePax") == 0;
-}
-
 void TOriginCtxt::toXML(xmlNodePtr node)
 {
   if (node==NULL) return;
@@ -875,3 +858,41 @@ void ProcEvent(const TLogLocale &event,
 };
 
 } //namespace AstraEdifact
+
+bool isTermCheckinRequest(xmlNodePtr reqNode)
+{
+  return reqNode!=nullptr &&
+         TReqInfo::Instance()->client_type==ctTerm &&
+         (strcmp((const char*)reqNode->name, "TCkinSavePax") == 0 ||
+          strcmp((const char*)reqNode->name, "TCkinSaveUnaccompBag") == 0);
+}
+
+bool isWebCheckinRequest(xmlNodePtr reqNode)
+{
+  return reqNode!=nullptr &&
+         (TReqInfo::Instance()->client_type==ctWeb ||
+          TReqInfo::Instance()->client_type==ctMobile ||
+          TReqInfo::Instance()->client_type==ctKiosk) &&
+         strcmp((const char*)reqNode->name, "SavePax") == 0;
+}
+
+bool isTagAddRequestSBDO(xmlNodePtr reqNode)
+{
+  return reqNode!=nullptr &&
+         TReqInfo::Instance()->client_type==ctHTTP &&
+         GetNode("/term/query/PassengerBaggageTagAdd", reqNode->doc)!=nullptr;
+}
+
+bool isTagConfirmRequestSBDO(xmlNodePtr reqNode)
+{
+  return reqNode!=nullptr &&
+         TReqInfo::Instance()->client_type==ctHTTP &&
+         GetNode("/term/query/PassengerBaggageTagConfirm", reqNode->doc)!=nullptr;
+}
+
+bool isTagRevokeRequestSBDO(xmlNodePtr reqNode)
+{
+  return reqNode!=nullptr &&
+         TReqInfo::Instance()->client_type==ctHTTP &&
+         GetNode("/term/query/PassengerBaggageTagRevoke", reqNode->doc)!=nullptr;
+}

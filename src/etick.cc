@@ -38,6 +38,7 @@
 #include "AirportControl.h"
 #include "passenger.h"
 #include "ckin_search.h"
+#include "zamar_dsm.h"
 #include "tlg/et_disp_request.h"
 #include "tlg/emd_disp_request.h"
 #include "tlg/emd_system_update_request.h"
@@ -47,7 +48,6 @@
 #include "tlg/remote_results.h"
 #include "tlg/remote_system_context.h"
 #include "tlg/postpone_edifact.h"
-#include "tlg/AgentWaitsForRemote.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -1071,16 +1071,16 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
                                      <<LParam("coupon", IntToString(cpnNum.get())));
     }
 
-    if (!Ticketing::isDoomedToWait())
+    if (!isDoomedToWait())
     {
-      ProgError(STDLOG, "%s: !Ticketing::isDoomedToWait()", __FUNCTION__);
+      ProgError(STDLOG, "%s: !isDoomedToWait()", __FUNCTION__);
       throw UserException("MSG.ETICK.UNABLE_RECEIVE_CONTROL",
                           LParams()<<LParam("eticket", tickNum.get())
                                    <<LParam("coupon", IntToString(cpnNum.get())));
     }
   }
 
-  if (!Ticketing::isDoomedToWait())
+  if (!isDoomedToWait())
   {
     edifact::KickInfo kickInfo=createKickInfo(AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc)),
                                               "ETSearchForm");
@@ -1091,7 +1091,7 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
              kickInfo);
   }
 
-  if (Ticketing::isDoomedToWait())
+  if (isDoomedToWait())
   {
     //в лог отсутствие связи
     xmlNodePtr errNode=NewTextChild(resNode,"ets_connect_error");
@@ -2946,13 +2946,31 @@ void ChangeStatusInterface::KickOnAnswer(xmlNodePtr reqNode, xmlNodePtr resNode)
     }
 }
 
-void ContinueCheckin(xmlNodePtr termReqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode)
+void ContinueCheckin(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode)
 {
+  if (isTagAddRequestSBDO(reqNode))
+  {
+    ZamarSBDOInterface::PassengerBaggageTagAdd(reqNode, externalSysResNode, resNode);
+    return;
+  }
+
+  if (isTagConfirmRequestSBDO(reqNode))
+  {
+    ZamarSBDOInterface::PassengerBaggageTagConfirm(reqNode, externalSysResNode, resNode);
+    return;
+  }
+
+  if (isTagRevokeRequestSBDO(reqNode))
+  {
+    ZamarSBDOInterface::PassengerBaggageTagRevoke(reqNode, externalSysResNode, resNode);
+    return;
+  }
+
   try
   {
-    if (isTermCheckinRequest(termReqNode))
+    if (isTermCheckinRequest(reqNode))
     {
-      if (!CheckInInterface::SavePax(termReqNode, externalSysResNode, resNode))
+      if (!CheckInInterface::SavePax(reqNode, externalSysResNode, resNode))
       {
         //откатываем статусы так как запись группы так и не прошла
         ETStatusInterface::ETRollbackStatus(externalSysResNode->doc,false);
@@ -2960,15 +2978,16 @@ void ContinueCheckin(xmlNodePtr termReqNode, xmlNodePtr externalSysResNode, xmlN
       }
     }
 
-    if (isWebCheckinRequest(termReqNode))
+    if (isWebCheckinRequest(reqNode))
     {
-      if (!AstraWeb::WebRequestsIface::SavePax(termReqNode, externalSysResNode, resNode))
+      if (!AstraWeb::WebRequestsIface::SavePax(reqNode, externalSysResNode, resNode))
       {
         //откатываем статусы так как запись группы так и не прошла
         ETStatusInterface::ETRollbackStatus(externalSysResNode->doc,false);
         return;
       }
     }
+
   }
   catch(ServerFramework::Exception &e)
   {
@@ -3099,7 +3118,7 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
 
   EMDSearch(id, reqNode, point_id, pax_ids_for_refresh);
 
-  if (Ticketing::isDoomedToWait())
+  if (isDoomedToWait())
   {
     AstraLocale::showErrorMessage("MSG.ETS_EDS_CONNECT_ERROR"); //потом переделать на MSG.ETS_CONNECT_ERROR, когда дисплей будет возвращать RFISC
     return;
@@ -3123,7 +3142,7 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
     }
   }
 
-  if (Ticketing::isDoomedToWait())
+  if (isDoomedToWait())
     AstraLocale::showErrorMessage("MSG.EDS_CONNECT_ERROR");
 }
 
@@ -3436,7 +3455,7 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
       EMDTryBind(tckin_grp_ids, termReqNode, ediResNode);
     };
 
-    if (Ticketing::isDoomedToWait())  //специально в этом месте, потому что LoadPax может вывести более важное сообщение
+    if (isDoomedToWait())  //специально в этом месте, потому что LoadPax может вывести более важное сообщение
       AstraLocale::showErrorMessage("MSG.EDS_CONNECT_ERROR");
 
     try
@@ -3445,7 +3464,7 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     }
     catch(...)
     {
-      if (!Ticketing::isDoomedToWait()) throw;
+      if (!isDoomedToWait()) throw;
     };
   }
   if (termReqName=="PaxByPaxId" ||
@@ -3460,7 +3479,7 @@ void EMDAutoBoundInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
       EMDTryBind(tckin_grp_ids, termReqNode, ediResNode);
     };
 
-    if (Ticketing::isDoomedToWait())
+    if (isDoomedToWait())
     {
       AstraLocale::showErrorMessage("MSG.EDS_CONNECT_ERROR");
       return;

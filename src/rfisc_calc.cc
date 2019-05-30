@@ -416,7 +416,6 @@ bool getSvcPaymentStatus(int first_grp_id,
                          xmlNodePtr reqNode,
                          xmlNodePtr externalSysResNode,
                          const RollbackBeforeRequestFunction& rollbackFunction,
-                         const SvcSirenaResponseHandler& resHandler,
                          SirenaExchange::TLastExchangeList &SirenaExchangeList,
                          TCkinGrpIds& tckin_grp_ids,
                          TPaidRFISCList& paid,
@@ -467,7 +466,7 @@ bool getSvcPaymentStatus(int first_grp_id,
         if (rollbackFunction)
           rollbackFunction();
 
-        SvcSirenaInterface::PaymentStatusRequest(reqNode, externalSysResNode, req, resHandler);
+        SvcSirenaInterface::PaymentStatusRequest(reqNode, externalSysResNode, req);
 
         httpWasSent = true;
         return false;
