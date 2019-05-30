@@ -739,4 +739,6 @@ std::string get_airp_country(const std::string &airp);
 std::string getDocMonth(int month, bool pr_lat);
 std::string getDocMonth(TDateTime claim_date, bool pr_lat);
 
+bool isDoomedToWait();
+
 #endif /*_ASTRA_UTILS_H_*/

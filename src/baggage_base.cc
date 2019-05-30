@@ -553,7 +553,8 @@ void PaxBrandsFromDB(int pax_id, TPaxBrandList &brands)
 
 std::string BagTypeFromXML(const std::string& bag_type)
 {
-  if (!TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION) && !bag_type.empty())
+  if (TReqInfo::Instance()->client_type==ASTRA::ctTerm &&
+      !TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION) && !bag_type.empty())
   {
     ostringstream s;
     s << setw(2) << setfill('0') <<  bag_type;

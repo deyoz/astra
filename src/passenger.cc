@@ -1391,6 +1391,31 @@ void SavePaxDoca(int pax_id, const CheckIn::TDocaMap &doca_map, TQuery& PaxDocaQ
 
 };
 
+const TSimplePaxItem& TSimplePaxItem::toEmulXML(xmlNodePtr node, bool PaxUpdatesPending) const
+{
+  if (node==nullptr) return *this;
+
+  xmlNodePtr paxNode=node;
+  NewTextChild(paxNode, "pax_id", id);
+  NewTextChild(paxNode, "surname", surname);
+  NewTextChild(paxNode, "name", name);
+  if (PaxUpdatesPending)
+  {
+    //были ли изменения по пассажиру CheckInInterface::SavePax определяет по наличию тега refuse
+    NewTextChild(paxNode, "pers_type", EncodePerson(pers_type));
+    NewTextChild(paxNode,"refuse", refuse);
+    if (bag_pool_num!=ASTRA::NoExists)
+      NewTextChild(paxNode, "bag_pool_num", bag_pool_num);
+    else
+      NewTextChild(paxNode, "bag_pool_num");
+
+    if (TknExists) tkn.toXML(paxNode);
+  }
+  NewTextChild(paxNode, "tid", tid);
+
+  return *this;
+}
+
 const TPaxItem& TPaxItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
@@ -1456,15 +1481,10 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
       crew_type=CrewTypes().decode(NodeAsStringFast("crew_type",node2));
     if (PaxUpdatesPending)
       refuse=NodeAsStringFast("refuse",node2);
-
-    if (tid==ASTRA::NoExists ||
-        (PaxUpdatesPending && reqInfo->client_type==ASTRA::ctTerm))
-    {
-      tkn.fromXML(node);
-      TknExists=true;
-      if (!NodeIsNULLFast("bag_pool_num",node2))
-        bag_pool_num=NodeAsIntegerFast("bag_pool_num",node2);
-    };
+    tkn.fromXML(node);
+    TknExists=true;
+    if (!NodeIsNULLFast("bag_pool_num",node2))
+      bag_pool_num=NodeAsIntegerFast("bag_pool_num",node2);
 
     if (refuse.empty() && api_doc_applied())
     {
@@ -2142,9 +2162,9 @@ int TPaxList::getBagPoolMainPaxId(int bag_pool_num) const
   return pax?pax.get().id:ASTRA::NoExists;
 }
 
-const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
+const TSimplePaxGrpItem& TSimplePaxGrpItem::toXML(xmlNodePtr node) const
 {
-  if (node==NULL) return *this;
+  if (node==nullptr) return *this;
 
   xmlNodePtr grpNode=node;
   NewTextChild(grpNode, "grp_id", id);
@@ -2155,13 +2175,35 @@ const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
   NewTextChild(grpNode, "class", cl);
   NewTextChild(grpNode, "status", EncodePaxStatus(status));
   NewTextChild(grpNode, "bag_refuse", bag_refuse);
-  if (!TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
+  if (TReqInfo::Instance()->client_type==ASTRA::ctTerm &&
+      !TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
   {
     NewTextChild(grpNode, "bag_types_id", id);
     NewTextChild(grpNode, "piece_concept", (int)baggage_pc);
   };
   NewTextChild(grpNode, "tid", tid);
+  return *this;
+}
 
+const TSimplePaxGrpItem& TSimplePaxGrpItem::toEmulXML(xmlNodePtr emulReqNode, xmlNodePtr emulSegNode) const
+{
+  if (emulReqNode!=nullptr)
+  {
+    NewTextChild(emulReqNode,"hall");
+    NewTextChild(emulReqNode,"bag_refuse", bag_refuse);
+  }
+
+  toXML(emulSegNode);
+  return *this;
+}
+
+const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+
+  TSimplePaxGrpItem::toXML(node);
+
+  xmlNodePtr grpNode=node;
   NewTextChild(grpNode, "show_ticket_norms", (int)pc);
   NewTextChild(grpNode, "show_wt_norms", (int)wt);
   return *this;

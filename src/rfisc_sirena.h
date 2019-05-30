@@ -647,7 +647,7 @@ class SvcSirenaInterface : public JxtInterface
                       const SvcSirenaResponseHandler& handler2);
 
   protected:
-    static void DoRequest(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, const SirenaExchange::TExchange&, const SvcSirenaResponseHandler&);
+    static void DoRequest(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, const SirenaExchange::TExchange&);
 
   public:
     static std::string name() { return "SvcSirena"; }
@@ -656,22 +656,22 @@ class SvcSirenaInterface : public JxtInterface
     {
       AddEvent("kick", JXT_HANDLER(SvcSirenaInterface, KickHandler));
       AddEvent("piece_concept", JXT_HANDLER(SvcSirenaInterface, procRequestsFromSirena));
+
+      addResponseHandler(ContinueCheckin);
     }
 
     static void AvailabilityRequest(xmlNodePtr reqNode,
                                     xmlNodePtr externalSysResNode,
-                                    const SirenaExchange::TAvailabilityReq& req,
-                                    const SvcSirenaResponseHandler& res)
+                                    const SirenaExchange::TAvailabilityReq& req)
     {
-      DoRequest(reqNode, externalSysResNode, req, res);
+      DoRequest(reqNode, externalSysResNode, req);
     }
 
     static void PaymentStatusRequest(xmlNodePtr reqNode,
                                      xmlNodePtr externalSysResNode,
-                                     const SirenaExchange::TPaymentStatusReq& req,
-                                     const SvcSirenaResponseHandler& res)
+                                     const SirenaExchange::TPaymentStatusReq& req)
     {
-      DoRequest(reqNode, externalSysResNode, req, res);
+      DoRequest(reqNode, externalSysResNode, req);
     }
 
     void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

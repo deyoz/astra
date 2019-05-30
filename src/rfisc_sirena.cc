@@ -1233,8 +1233,7 @@ void SvcSirenaInterface::handleResponse(xmlNodePtr reqNode, xmlNodePtr externalS
 
 void SvcSirenaInterface::DoRequest(xmlNodePtr reqNode,
                                    xmlNodePtr externalSysResNode,
-                                   const SirenaExchange::TExchange& req,
-                                   const SvcSirenaResponseHandler& res)
+                                   const SirenaExchange::TExchange& req)
 {
     using namespace AstraEdifact;
 
@@ -1249,9 +1248,9 @@ void SvcSirenaInterface::DoRequest(xmlNodePtr reqNode,
     req.build(reqText);
     sirClient.sendRequest(reqText, createKickInfo(reqCtxtId, SvcSirenaInterface::name()));
 
-    SvcSirenaInterface* iface=dynamic_cast<SvcSirenaInterface*>(JxtInterfaceMng::Instance()->GetInterface(SvcSirenaInterface::name()));
-    if (iface!=nullptr && iface->addResponseHandler(res))
-      LogTrace(TRACE5) << "added response handler for <" << req.exchangeId() << ">";
+//    SvcSirenaInterface* iface=dynamic_cast<SvcSirenaInterface*>(JxtInterfaceMng::Instance()->GetInterface(SvcSirenaInterface::name()));
+//    if (iface!=nullptr && iface->addResponseHandler(res))
+//      LogTrace(TRACE5) << "added response handler for <" << req.exchangeId() << ">";
 }
 
 void SvcSirenaInterface::KickHandler(XMLRequestCtxt *ctxt,

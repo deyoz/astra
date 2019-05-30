@@ -22,7 +22,6 @@ namespace Ticketing
                            const edilib::EdiSessionId_t& sida,
                            const edifact::KickInfo &kickInfo);
     void MeetAgentExpectations(const edifact::RemoteResults &res);
-    bool isDoomedToWait();
 
     void addTimeoutMessage();
     void addTimeoutMessage(const RemoteSystemContext::SystemContext &cont);
