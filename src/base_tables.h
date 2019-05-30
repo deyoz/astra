@@ -627,6 +627,27 @@ class TCrafts: public TICAOBaseTable {
     }
 };
 
+class TCustomAlarmTypesRow: public TTIDBaseTableRow {
+  public:
+    const char *get_row_name() const { return "TCustomAlarmTypesRow"; };
+};
+
+class TCustomAlarmTypes: public TTIDBaseTable {
+  private:
+    const char *get_select_sql_text()
+    {
+      return "SELECT custom_alarm_types.*, LPAD(TO_CHAR(id),9,'0') AS code FROM custom_alarm_types";
+    };
+    const char *get_refresh_sql_text()
+    {
+      static const std::string result = (std::string)get_select_sql_text() + " WHERE tid>:tid";
+      return result.c_str();
+    };
+  protected:
+    const char *get_table_name() { return "TCustomAlarmTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+};
+
 class TCurrencyRow: public TTIDBaseTableRow {
   public:
     const char *get_row_name() const { return "TCurrencyRow"; };
