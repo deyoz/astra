@@ -743,7 +743,9 @@ struct CreatorSPPLocker {
      islock = true;
    }
    void commit() {
+      #ifndef XP_TESTING
       OraSession.Commit();
+      #endif
       islock = false;
    }
 };
