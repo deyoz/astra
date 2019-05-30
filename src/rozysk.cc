@@ -1083,9 +1083,9 @@ void get_pax_list(int point_id,
       };
 
       pax.docNumber = Qry.FieldAsString( idx_doc_no );
-      pax.departPlace = airpToPrefferedCode( Qry.FieldAsString( idx_airp_dep ), outputLang);
+      pax.departPlace = /*airpToPrefferedCode(*/ Qry.FieldAsString( idx_airp_dep )/*, outputLang)*/;
       if (pax.departPlace.empty()) pax.departPlace = Qry.FieldAsString( idx_airp_dep );
-      pax.arrivePlace = airpToPrefferedCode( Qry.FieldAsString( idx_airp_arv ), outputLang);
+      pax.arrivePlace = /*airpToPrefferedCode(*/ Qry.FieldAsString( idx_airp_arv )/*, outputLang)*/;
       if (pax.arrivePlace.empty()) pax.arrivePlace = Qry.FieldAsString( idx_airp_arv );
       if ( Qry.FieldIsNULL( idx_route_type ) )
         pax.transfer = ASTRA::NoExists;
