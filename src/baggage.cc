@@ -1134,8 +1134,54 @@ void TGroupBagItem::toDB(int grp_id) const
   vals.toDB(grp_id);
   bags.toDB(grp_id);
   if (!isPayment)
+  {
     tags.toDB(grp_id);
+    checkTagUniquenessOnFlight(grp_id);
+  }
 };
+
+void TGroupBagItem::checkTagUniquenessOnFlight(int grp_id)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT pax_grp1.point_dep, bag_tags1.no, tag_types1.no_len, "
+    "       tag_types1.printable AS printable1, "
+    "       tag_types2.printable AS printable2 "
+    "FROM pax_grp pax_grp1, bag_tags bag_tags1, tag_types tag_types1, "
+    "     pax_grp pax_grp2, bag_tags bag_tags2, tag_types tag_types2 "
+    "WHERE pax_grp1.grp_id=bag_tags1.grp_id AND bag_tags1.tag_type=tag_types1.code AND "
+    "      pax_grp2.grp_id=bag_tags2.grp_id AND bag_tags2.tag_type=tag_types2.code AND "
+    "      pax_grp1.point_dep=pax_grp2.point_dep AND "
+    "      bag_tags1.no=bag_tags2.no AND "
+    "      NOT(bag_tags1.grp_id=bag_tags2.grp_id AND bag_tags1.num=bag_tags2.num) AND "
+    "      bag_tags1.grp_id=:grp_id "
+    "ORDER BY bag_tags1.no";
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.Execute();
+  boost::optional<TBagTagNumber> duplicatedNumberHard, duplicatedNumberSoft;
+  for(; !Qry.Eof; Qry.Next())
+  {
+    bool printable1=Qry.FieldAsInteger("printable1")!=0;
+    bool printable2=Qry.FieldAsInteger("printable2")!=0;
+    int point_id=Qry.FieldAsInteger("point_dep");
+    TBagTagNumber tag("", Qry.FieldAsFloat("no"), Qry.FieldAsInteger("no_len"));
+    boost::optional<TBagTagNumber>& duplicatedNumber=(printable1?duplicatedNumberSoft:duplicatedNumberHard);
+    if (!duplicatedNumber)
+      duplicatedNumber=tag;
+    if (printable1 && printable2)
+      //на рейсе сгенерированные бирки дублируются и это настораживает! что-то не так с генерацией...
+      ProgError(STDLOG, "%s: baggage tag duplicated (point_id=%d, no=%s)", __func__, point_id, tag.str().c_str());
+    else
+      ProgTrace(TRACE5, "%s: baggage tag duplicated (point_id=%d, no=%s)", __func__, point_id, tag.str().c_str());
+  }
+  if (duplicatedNumberHard)
+    throw UserException("MSG.CHECKIN.TAG_NUMBER_ALREADY_CHECKED_ON_FLIGHT",
+                        LParams() << LParam("num", duplicatedNumberHard.get().str()));
+  if (duplicatedNumberSoft)
+    showErrorMessage("MSG.CHECKIN.TAG_NUMBER_ALREADY_CHECKED_ON_FLIGHT",
+                     LParams() << LParam("num", duplicatedNumberSoft.get().str()));
+}
 
 void TGroupBagItem::toLists(list<TValueBagItem> &vals_list,
                             list<TBagItem> &bags_list,
