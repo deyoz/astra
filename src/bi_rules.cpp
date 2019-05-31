@@ -642,7 +642,7 @@ void get_custom_alarms(const string &airline, int pax_id, vector<int> &alarms)
                 Qry.get().SetVariable("fqt_airline", fqt.airline);
                 Qry.get().SetVariable("fqt_tier_level", fqt.tier_level);
                 Qry.get().Execute();
-                if(not Qry.get().Eof)
+                for(; not Qry.get().Eof; Qry.get().Next())
                     alarms.push_back(Qry.get().FieldAsInteger("alarm"));
             }
 }
