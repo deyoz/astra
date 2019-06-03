@@ -20,7 +20,10 @@
 #include "stages.h"
 #include "astra_date_time.h"
 #include "astra_service.h"
-#include "serverlib/xml_stuff.h"
+#include "payment_base.h"
+#include "rfisc.h"
+#include "baggage_tags.h"
+#include <serverlib/xml_stuff.h>
 
 #define NICKNAME "DJEK"
 #define NICKTRACE SYSTEM_TRACE
@@ -53,6 +56,7 @@ namespace MQRABBIT_TRANSPORT
 {
 
   const std::string PARAM_NAME_ADDR = "ADDR";
+  const std::string PARAM_NAME_ACTIONCODE = "ACTION_CODE";
   const int MAX_SEND_PAXS = 500;
   const int MAX_SEND_FLIGHTS = 500;
 
@@ -128,7 +132,14 @@ int main_exch_checkin_result_queue_tcl( int supervisorSocket, int argc, char *ar
 namespace EXCH_CHECKIN_RESULT
 {
   struct Request {
+    enum Enum
+    {
+      ServicePayment,
+      Docs,
+      Baggage
+    };
     std::string Sender;
+    std::string actionCode;
     std::vector<std::string> airps;
     std::vector<std::string> airlines;
     std::vector<int> flts;
@@ -140,11 +151,26 @@ namespace EXCH_CHECKIN_RESULT
     void clear() {
       lastRequestTime = ASTRA::NoExists;
       Sender.clear();
+      actionCode.clear();
       airps.clear();
       airlines.clear();
       flts.clear();
       pr_reset = false;
     }
+    bool isAction( Enum action ) const {
+      switch ( action ) {
+        case ServicePayment:
+          return ( actionCode.find("S") != std::string::npos );
+        case Docs:
+          return ( actionCode.find("D") != std::string::npos );
+        case Baggage:
+          return ( actionCode.find("B") != std::string::npos );
+        default:
+          return false;
+
+      }
+    }
+
   };
 
   struct FlightData {
@@ -192,6 +218,8 @@ namespace EXCH_CHECKIN_RESULT
      int seats;
      TBagKilos excess_wt;
      TBagPieces excess_pc;
+     int bag_pool_num;
+     multiset<TBagTagNumber> tags;
      int rkamount;
      int rkweight;
      int bagamount;
@@ -201,6 +229,9 @@ namespace EXCH_CHECKIN_RESULT
      std::vector<TCkinRouteItem> ckinRoutes;
      CheckIn::TPaxTknItem tkn;
      std::multiset<CheckIn::TPaxRemItem> rems;
+     CheckIn::TPaxDocItem doc;
+     CheckIn::TPaxDocoItem doco;
+     CheckIn::TPaidRFISCAndServicePaymentListWithAuto services;
      TDateTime time;
      TPnrAddrs pnrAddrs;
      PaxData( int vpax_id, int vpoint_id, TDateTime vmax_time ) :
@@ -210,6 +241,7 @@ namespace EXCH_CHECKIN_RESULT
        grp_id = ASTRA::NoExists;
        point_id = vpoint_id;
        seats = 0;
+       bag_pool_num = ASTRA::NoExists;
        rkamount = 0;
        rkweight = 0;
        bagamount = 0;
@@ -272,6 +304,7 @@ namespace EXCH_CHECKIN_RESULT
     int col_seats;
     int col_excess_wt;
     int col_excess_pc;
+    int col_bag_pool_num;
     int col_rkamount;
     int col_rkweight;
     int col_bagamount;
@@ -305,6 +338,7 @@ namespace EXCH_CHECKIN_RESULT
       col_seats = ASTRA::NoExists;
       col_excess_wt = ASTRA::NoExists;
       col_excess_pc = ASTRA::NoExists;
+      col_bag_pool_num = ASTRA::NoExists;
       col_rkamount = ASTRA::NoExists;
       col_rkweight = ASTRA::NoExists;
       col_bagamount = ASTRA::NoExists;
@@ -337,19 +371,17 @@ namespace EXCH_CHECKIN_RESULT
           "       pax.pr_brd, "
           "       pax_grp.status, "
           "       pax_grp.client_type, "
-          "       pax_doc.no document, "
           "       pax.ticket_no, pax.tid pax_tid, pax_grp.tid grp_tid "
-          " FROM pax_grp, pax, pax_doc "
+          " FROM pax_grp, pax"
           " WHERE pax_grp.grp_id=pax.grp_id AND "
           "       pax.pax_id=:pax_id AND "
-          "       pax.wl_type IS NULL AND "
-          "       pax.pax_id=pax_doc.pax_id(+) ";
+          "       pax.wl_type IS NULL";
       PaxQry.DeclareVariable( "pax_id", otInteger );
     }
     int getFltNo( int point_id );
     bool getFlightInfo( int point_id, TQuery &FltQry );
     void getPaxTids( TQuery &PaxQry, PaxData &paxData );
-    void getPaxData( TQuery &PaxQry, PaxData &paxData );
+    void getPaxData( const  Request &request, TQuery &PaxQry, PaxData &paxData );
     bool virtual is_sync( const TTripInfo &flight ) {
       return true;
     }
@@ -393,6 +425,7 @@ namespace EXCH_CHECKIN_RESULT
     col_seats = (col_seats = PaxQry.GetFieldIndex( "seats" )) >= 0 ?col_seats:ASTRA::NoExists;
     col_excess_wt = (col_excess_wt = PaxQry.GetFieldIndex( "excess_wt" )) >= 0 ?col_excess_wt:ASTRA::NoExists;
     col_excess_pc = (col_excess_pc = PaxQry.GetFieldIndex( "excess_pc" )) >= 0 ?col_excess_pc:ASTRA::NoExists;
+    col_bag_pool_num = ( col_bag_pool_num = PaxQry.GetFieldIndex( "bag_pool_num" )) >= 0 ?col_bag_pool_num:ASTRA::NoExists;
     col_rkamount = (col_rkamount = PaxQry.GetFieldIndex( "rkamount" )) >= 0 ?col_rkamount:ASTRA::NoExists;
     col_rkweight = (col_rkweight = PaxQry.GetFieldIndex( "rkweight" )) >= 0 ?col_rkweight:ASTRA::NoExists;
     col_bagamount = (col_bagamount = PaxQry.GetFieldIndex( "bagamount" )) >= 0 ?col_bagamount:ASTRA::NoExists;
@@ -525,7 +558,7 @@ namespace EXCH_CHECKIN_RESULT
     ProgTrace( TRACE5, "pax_tid=%d, grp_tid=%d", paxData.tids.pax_tid, paxData.tids.grp_tid );
   }
 
-  void PaxDBData::getPaxData( TQuery &PaxQry, PaxData &paxData )
+  void PaxDBData::getPaxData( const Request &request, TQuery &PaxQry, PaxData &paxData )
   {
     paxData.pr_del = PaxQry.Eof;
     if ( paxData.pr_del ) {
@@ -547,6 +580,7 @@ namespace EXCH_CHECKIN_RESULT
     paxData.seats = PaxQry.FieldAsInteger( col_seats );
     paxData.excess_wt = PaxQry.FieldAsInteger( col_excess_wt );
     paxData.excess_pc = PaxQry.FieldAsInteger( col_excess_pc );
+    paxData.bag_pool_num = PaxQry.FieldAsInteger( col_bag_pool_num );
     paxData.rkamount = PaxQry.FieldAsInteger( col_rkamount );
     paxData.rkweight = PaxQry.FieldAsInteger( col_rkweight );
     paxData.bagamount = PaxQry.FieldAsInteger( col_bagamount );
@@ -565,7 +599,18 @@ namespace EXCH_CHECKIN_RESULT
       paxData.ckinRoutes = ckinRoute;
     }
     LoadPaxTkn( paxData.pax_id, paxData.tkn );
-    LoadPaxRem( paxData.pax_id, paxData.rems );
+    LoadPaxRem( paxData.pax_id, paxData.rems ); //¢á¥ ®áâ «ì­ë¥ à¥¬ àª¨
+    if ( request.isAction( Request::ServicePayment ) ) {
+      CheckIn::TServiceReport service_report;
+      paxData.services=service_report.get(paxData.grp_id);
+    }
+    if ( request.isAction( Request::Docs ) ) {
+      CheckIn::LoadPaxDoc( paxData.pax_id, paxData.doc );
+      CheckIn::LoadPaxDoco( paxData.pax_id, paxData.doco );
+    }
+    if ( request.isAction( Request::Baggage ) ) {
+      GetTagsByPool(paxData.grp_id, paxData.bag_pool_num, paxData.tags, false);
+    }
     paxData.pnrAddrs.getByPaxIdFast( paxData.pax_id );
   }
 
@@ -705,8 +750,13 @@ namespace EXCH_CHECKIN_RESULT
          seg_no++;
       }
     }
+    if ( !doc.empty() ) {
+      doc.toWebXML( paxNode, AstraLocale::OutputLang( "en" ) );
+    }
+    if ( !doco.empty() ) {
+      doco.toWebXML( paxNode, AstraLocale::OutputLang( "en" ) );
+    }
     if ( !rems.empty() ) {
-      tst();
       xmlNodePtr rnode = NewTextChild( paxNode, "rems" );
       for ( std::multiset<CheckIn::TPaxRemItem>::const_iterator irem=rems.begin(); irem!=rems.end(); irem++ ) {
         irem->toXML( rnode );
@@ -716,8 +766,33 @@ namespace EXCH_CHECKIN_RESULT
       tkn.toXML( NewTextChild( paxNode, "tkn" ) );
     }
     if ( !pnrAddrs.empty() ) {
-      pnrAddrs.toSirenaXML(  NewTextChild( paxNode, "pnrAddrs" ),   AstraLocale::OutputLang( "en" ) );
+      pnrAddrs.toSirenaXML(  NewTextChild( paxNode, "pnrAddrs" ), AstraLocale::OutputLang( "en" ) );
       //pnrAddrs.toXML( NewTextChild( paxNode, "pnrAddrs" ) );
+    }
+    xmlNodePtr servicesNode = nullptr;
+    for(const auto &service: services) {
+      const TPaidRFISCStatus &item =service.first;
+      const boost::optional<CheckIn::TServicePaymentItem> &pay_info = service.second;
+      if (item.pax_id != pax_id or item.trfer_num != 0) continue;
+       if (service.first.list_item) {
+         if ( servicesNode == nullptr ) {
+           servicesNode = NewTextChild( paxNode, "services" );
+         }
+         xmlNodePtr itemNode = NewTextChild( servicesNode, "item" );
+         NewTextChild( itemNode, "rfic", item.list_item->RFIC );
+         NewTextChild( itemNode, "rfisc", item.list_item->RFISC );
+         NewTextChild( itemNode, "desc", services.getRFISCName(item, AstraLocale::LANG_EN) );
+         NewTextChild( itemNode, "status", ServiceStatuses().encode(item.status) );
+         if (pay_info) {
+           NewTextChild( itemNode, "num", pay_info->no_str() );
+         }
+       }
+    }
+    if ( !tags.empty() ) {
+      xmlNodePtr LuggageTagNode = NewTextChild(paxNode, "LuggageTags");
+      for(const auto &tag : tags) {
+        NewTextChild(LuggageTagNode, "LuggageNumber", tag.str());
+      }
     }
   }
 
@@ -859,7 +934,7 @@ namespace EXCH_CHECKIN_RESULT
       if ( !ret.second ) {
         ret.first->second = paxData.tids;
       }
-      paxDBData.getPaxData( PaxQry, paxData );
+      paxDBData.getPaxData( request, PaxQry, paxData );
       pax_count++;
       paxData.toXML( NewTextChild( node, "pax" ) );
     } //end for
@@ -1050,8 +1125,11 @@ namespace MQRABBIT_TRANSPORT {
       LogTrace(TRACE5) << "addr is empty";
       return;
     }
+    std::map<std::string,std::string>::const_iterator it;
+    if ( (it = params.find( MQRABBIT_TRANSPORT::PARAM_NAME_ACTIONCODE )) != params.end() ) {
+      request.actionCode = it->second;
+    }
     try {
-
       //emptyHookTables();
       EXCH_CHECKIN_RESULT::changePaxs chPaxs;
       xmlDocPtr docPaxs = NULL;
@@ -1238,16 +1316,20 @@ namespace MQRABBIT_TRANSPORT {
         request.Sender = Qry.FieldAsString( "point_addr" );
         params.clear();
       }
-      if ( !Qry.FieldIsNULL( "airp" ) ) {
-        request.airps.push_back( Qry.FieldAsString( "airp" ) );
+      if ( MQRABBIT_TRANSPORT::PARAM_NAME_ADDR == Qry.FieldAsString( "param_name" ) ) {
+        if ( !Qry.FieldIsNULL( "airp" ) ) {
+          request.airps.push_back( Qry.FieldAsString( "airp" ) );
+        }
+        if ( !Qry.FieldIsNULL( "airline" ) ) {
+          request.airlines.push_back( Qry.FieldAsString( "airline" ) );
+        }
+        if ( !Qry.FieldIsNULL( "flt_no" ) ) {
+          request.flts.push_back( Qry.FieldAsInteger( "flt_no" ) );
+        }
       }
-      if ( !Qry.FieldIsNULL( "airline" ) ) {
-        request.airlines.push_back( Qry.FieldAsString( "airline" ) );
+      if ( params.find( Qry.FieldAsString( "param_name" ) ) == params.end() ) {
+        params.insert( make_pair( Qry.FieldAsString( "param_name" ), Qry.FieldAsString( "param_value" ) ) );
       }
-      if ( !Qry.FieldIsNULL( "flt_no" ) ) {
-        request.flts.push_back( Qry.FieldAsInteger( "flt_no" ) );
-      }
-      params.insert( make_pair( Qry.FieldAsString( "param_name" ), Qry.FieldAsString( "param_value" ) ) );
     }
     if ( !request.Sender.empty() ) {
      if ( std::string( task ) == "paxs" ) {
@@ -1280,4 +1362,30 @@ namespace MQRABBIT_TRANSPORT {
 
 
  *
+*/
+/*
+ *
+<document>
+      <type>A</type>
+      <issue_country>ABW</issue_country>
+      <no>–“–“‰–“‰“</no>
+      <nationality>ABW</nationality>
+      <birth_date>12.12.2010 00:00:00</birth_date>
+      <gender>F</gender>
+      <expiry_date>12.12.2020 00:00:00</expiry_date>
+      <surname>‚Ž“‹</surname>
+      <pr_multi>1</pr_multi>
+    </document>
+    <doco>
+      <type>V</type>
+      <no>222222</no>
+      <issue_place>WQDAD</issue_place>
+      <issue_date>12.12.2010 00:00:00</issue_date>
+      <expiry_date>12.12.2020 00:00:00</expiry_date>
+      <applic_country>ABW</applic_country>
+    </doco>
+    <LuggageTag>
+      <LuggageNumber>0298726413</LuggageNumber>
+    </LuggageTag>
+
 */
