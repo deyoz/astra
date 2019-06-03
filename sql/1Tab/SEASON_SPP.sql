@@ -1,3 +1,3 @@
-CREATE TABLE season_spp(
-lock_spp NUMBER(1)
+CREATE TABLE SEASON_SPP (
+LOCK_SPP  NUMBER(1)
 );
