@@ -21,7 +21,7 @@ const std::string PARAM_PASSWORD = "PASSWORD";
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 bool TAPICheckInfo::CheckLet(const std::string &str, std::string::size_type &errorIdx) const
 {
@@ -1362,8 +1362,10 @@ void process_reply( const std::string& result, const std::string& type )
 
   xmlDocPtr doc = NULL;
   doc = TextToXMLTree( result );
-  if( doc == NULL )
-    throw Exception( "Wrong answer XML" );
+  if( doc == NULL ) {
+      LogTrace(TRACE5) << "process_reply: result: '" << result << "'";
+      throw Exception( "Wrong answer XML" );
+  }
   try
   {
     xmlNodePtr rootNode=xmlDocGetRootElement( doc );
