@@ -572,7 +572,7 @@ class TSimplePaxItem
 
     bool isTest() const { return isTestPaxId(id); }
     int paxId() const { return id; }
-    
+
     std::string checkInStatus() const;
 };
 
@@ -824,6 +824,8 @@ class TPaxGrpItem : public TSimplePaxGrpItem
                            const CheckIn::TSimplePaxList &curr_paxs) const;
 
     static void UpdTid(int grp_id);
+    static void setRollbackGuaranteedTo(int grp_id, bool value);
+    static bool allPassengersRefused(int grp_id);
 };
 
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc);
@@ -1026,7 +1028,7 @@ class TPnrAddrs : public std::vector<TPnrAddrInfo>
       }
       return s.str();
     }
-    
+
     const std::string traceStr() const
     {
       std::ostringstream s;

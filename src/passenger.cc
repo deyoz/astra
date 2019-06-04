@@ -2282,6 +2282,22 @@ void TPaxGrpItem::UpdTid(int grp_id)
   Qry.get().Execute();
 }
 
+void TPaxGrpItem::setRollbackGuaranteedTo(int grp_id, bool value)
+{
+  TCachedQuery Qry("UPDATE pax_grp SET rollback_guaranteed=:value WHERE grp_id=:grp_id",
+                   QParams() << QParam("grp_id", otInteger, grp_id)
+                             << QParam("value", otInteger, (int)value));
+  Qry.get().Execute();
+}
+
+bool TPaxGrpItem::allPassengersRefused(int grp_id)
+{
+  TCachedQuery Qry("SELECT 1 FROM pax WHERE grp_id=:grp_id AND refuse IS NULL AND rownum<2",
+                   QParams() << QParam("grp_id", otInteger, grp_id));
+  Qry.get().Execute();
+  return Qry.get().Eof;
+}
+
 TCkinPaxTknItem& TCkinPaxTknItem::fromDB(TQuery &Qry)
 {
   clear();
