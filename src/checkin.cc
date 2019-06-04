@@ -3216,15 +3216,15 @@ boost::optional<std::string> CheckRefusability(const TAdvTripInfo& fltInfo, int 
       if (GetTripSets(tsNoRefuseIfBrd, fltInfo) && pax.pr_brd) throw UnregDenialTerm();
     }
   }
-  catch(UnregDenial)
+  catch(const UnregDenial&)
   {
     return std::string("MSG.PASSENGER.UNREGISTRATION_DENIAL");
   }
-  catch(UnregDenialTerm)
+  catch(const UnregDenialTerm&)
   {
     return std::string("MSG.PASSENGER.UNREGISTRATION_DENIAL_BRD");
   }
-  catch(UnregAllowed) {}
+  catch(const UnregAllowed&) {}
 
   return boost::none;
 }
@@ -4075,6 +4075,12 @@ static int LastGeneratedPaxId = ASTRA::NoExists;
 int lastGeneratedPaxId()              { return LastGeneratedPaxId;  }
 void setLastGeneratedPaxId(int lgpid) { LastGeneratedPaxId = lgpid; }
 #endif/*XP_TESTING*/
+
+static bool rollbackBeforeSvcAvailability(const CheckIn::TAfterSaveInfo& info,
+                                          const xmlNodePtr& externalSysResNode,
+                                          const TTripSetList& setList,
+                                          const CheckIn::TSimplePaxGrpItem& grp,
+                                          const bool& isNewCheckIn);
 
 //процедура должна возвращать true только в том случае если произведена реальная регистрация
 bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
@@ -5898,7 +5904,16 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         EMDStatusInterface::EMDCheckStatus(grp.id, paymentBeforeWithAuto, ChangeStatusInfo.EMD);
       }
 
-      bool rollbackGuaranteed = needSyncEdsEts(ediResNode) && !ChangeStatusInfo.empty();
+      bool rollbackGuaranteed = (needSyncEdsEts(ediResNode) && !ChangeStatusInfo.empty()) ||
+                                 rollbackBeforeSvcAvailability(AfterSaveInfo,
+                                                               ediResNode,
+                                                               setList,
+                                                               grp,
+                                                               new_checkin);
+
+      CheckIn::TPaxGrpItem::setRollbackGuaranteedTo(grp.id, rollbackGuaranteed);
+      rollbackGuaranteed = (needSyncEdsEts(ediResNode) && !ChangeStatusInfo.empty());
+
 
       timing.finish("ETProcessing", grp.point_dep);
 
@@ -6531,13 +6546,34 @@ void fillPaxsBags(const TCheckedReqPassengers &req_grps, TExchange &exch, TCheck
 
 } //namespace SirenaExchange
 
+static bool rollbackBeforeSvcAvailability(const CheckIn::TAfterSaveInfo& info,
+                                          const xmlNodePtr& externalSysResNode,
+                                          const TTripSetList& setList,
+                                          const CheckIn::TSimplePaxGrpItem& grp,
+                                          const bool& isNewCheckIn)
+{
+  bool result=info.action==CheckIn::actionSvcAvailability &&
+              setList.value<bool>(tsPieceConcept) &&
+              grp.grpCategory()==CheckIn::TPaxGrpCategory::Passenges &&
+              !TReqInfo::Instance()->api_mode &&
+              SirenaExchange::needSync(externalSysResNode);
+
+  if (result && !isNewCheckIn)
+  {
+    //проверим, что не всем отменена регистрация в группе
+    result=!CheckIn::TPaxGrpItem::allPassengersRefused(grp.id);
+  }
+
+  return result;
+}
+
 void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
 {
   if (data.action!=CheckIn::actionSvcAvailability) return;
 
   ProgTrace(TRACE5, "%s started with actionSvcAvailability (first_grp_id=%d)", __FUNCTION__, data.grpId);
 
-  TCachedQuery Qry("SELECT point_dep, piece_concept "
+  TCachedQuery Qry("SELECT point_dep, piece_concept, NVL(rollback_guaranteed,0) AS rollback_guaranteed "
                    "FROM pax_grp "
                    "WHERE grp_id=:grp_id",
                    QParams() << QParam("grp_id", otInteger, data.grpId));
@@ -6547,27 +6583,35 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
       return; //это бывает когда разрегистрация всей группы по ошибке агента
   }
 
-  int point_id=Qry.get().FieldAsInteger("point_dep");
+  class SomethingHasChanged {};
 
-  TTripSetList setList;
-  setList.fromDB(point_id);
-  if (setList.empty()) return;
-
-  if (!Qry.get().FieldIsNULL("piece_concept")) return; //piece_cоncept уже установили
-
-  TCkinGrpIds tckin_grp_ids;
-  map<int/*seg_no*/,TBagConcept::Enum> bag_concept_by_seg;
-  CheckIn::TPaxGrpCategory::Enum grp_cat;
-  TLogLocale event;
-
-  SirenaExchange::TAvailabilityReq req;
-  SirenaExchange::fillPaxsBags(data.grpId, req, grp_cat, tckin_grp_ids);
-
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  if (setList.value<bool>(tsPieceConcept))
+  try
   {
-      if (tckin_grp_ids.empty()) return;
+    if (!Qry.get().FieldIsNULL("piece_concept"))
+      //piece_cоncept уже установили
+      throw SomethingHasChanged();
 
+    int point_id=Qry.get().FieldAsInteger("point_dep");
+    bool rollbackGuaranteed=Qry.get().FieldAsInteger("rollback_guaranteed")!=0;
+
+    TTripSetList setList;
+    setList.fromDB(point_id);
+    if (setList.empty())
+      throw SomethingHasChanged();
+
+    TCkinGrpIds tckin_grp_ids;
+    map<int/*seg_no*/,TBagConcept::Enum> bag_concept_by_seg;
+    CheckIn::TPaxGrpCategory::Enum grp_cat;
+    TLogLocale event;
+
+    SirenaExchange::TAvailabilityReq req;
+    SirenaExchange::fillPaxsBags(data.grpId, req, grp_cat, tckin_grp_ids);
+    if (tckin_grp_ids.empty())
+      throw SomethingHasChanged();
+
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    if (setList.value<bool>(tsPieceConcept))
+    {
       if (grp_cat==CheckIn::TPaxGrpCategory::Passenges)
       {
         SirenaExchange::TAvailabilityRes res;
@@ -6577,22 +6621,22 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
         {
           if (!req.paxs.empty() && !reqInfo->api_mode)
           {
-//#define SVC_AVAILABILITY_SYNC_MODE
+            //#define SVC_AVAILABILITY_SYNC_MODE
 #ifndef SVC_AVAILABILITY_SYNC_MODE
-              if(data.needSync()) {
-                  if (data.httpWasSent)
-                    throw Exception("%s: very bad situation! needSync again!", __FUNCTION__);
+            if(data.needSync()) {
+              if (data.httpWasSent)
+                throw Exception("%s: very bad situation! needSync again!", __FUNCTION__);
 
-                  ASTRA::rollbackSavePax();
-                  SvcSirenaInterface::AvailabilityRequest(data.reqNode,
-                                                          data.answerResNode,
-                                                          req);
-                  data.httpWasSent = true;
-                  return;
-              } else {
-                  res.parseResponse(data.getAnswerNode());
-                  if (res.error()) throw Exception("SIRENA ERROR: %s", res.traceError().c_str());
-              }
+              ASTRA::rollbackSavePax();
+              SvcSirenaInterface::AvailabilityRequest(data.reqNode,
+                                                      data.answerResNode,
+                                                      req);
+              data.httpWasSent = true;
+              return;
+            } else {
+              res.parseResponse(data.getAnswerNode());
+              if (res.error()) throw Exception("SIRENA ERROR: %s", res.traceError().c_str());
+            }
 #else
             SirenaExchange::SendRequest(req, res); //синхронный метод обмена с сиреной
 #endif
@@ -6692,82 +6736,92 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
           }
         }
       }
-  }
+    }
 
-  if (grp_cat!=CheckIn::TPaxGrpCategory::UnnacompBag) {
-    req.bagTypesToDB(tckin_grp_ids);  //дополняем весовыми типами багажа
-  } else {
-    unaccBagTypesToDB(data.grpId);
-  }
+    if (grp_cat!=CheckIn::TPaxGrpCategory::UnnacompBag) {
+      req.bagTypesToDB(tckin_grp_ids);  //дополняем весовыми типами багажа
+    } else {
+      unaccBagTypesToDB(data.grpId);
+    }
 
-  TCachedQuery GrpQry("BEGIN "
-                      "  UPDATE pax_grp "
-                      "  SET piece_concept=:piece_concept "
-                      "  WHERE grp_id=:grp_id "
-                      "  RETURNING point_dep INTO :point_id; "
-                      "END;",
-                      QParams() << QParam("grp_id", otInteger)
-                                << QParam("piece_concept", otInteger)
-                                << QParam("point_id", otInteger));
-
-  TCachedQuery TrferQry("UPDATE transfer SET piece_concept=:piece_concept WHERE grp_id=:grp_id AND transfer_num=:transfer_num",
+    TCachedQuery GrpQry("BEGIN "
+                        "  UPDATE pax_grp "
+                        "  SET piece_concept=:piece_concept "
+                        "  WHERE grp_id=:grp_id "
+                        "  RETURNING point_dep INTO :point_id; "
+                        "END;",
                         QParams() << QParam("grp_id", otInteger)
-                                  << QParam("transfer_num", otInteger)
-                                  << QParam("piece_concept", otInteger));
+                        << QParam("piece_concept", otInteger)
+                        << QParam("point_id", otInteger));
 
-  TCkinGrpIds::const_iterator grp_id=tckin_grp_ids.begin();
-  if (bag_concept_by_seg.empty())
-  {
-    for(; grp_id!=tckin_grp_ids.end(); ++grp_id)
+    TCachedQuery TrferQry("UPDATE transfer SET piece_concept=:piece_concept WHERE grp_id=:grp_id AND transfer_num=:transfer_num",
+                          QParams() << QParam("grp_id", otInteger)
+                          << QParam("transfer_num", otInteger)
+                          << QParam("piece_concept", otInteger));
+
+    TCkinGrpIds::const_iterator grp_id=tckin_grp_ids.begin();
+    if (bag_concept_by_seg.empty())
     {
-      GrpQry.get().SetVariable("grp_id", *grp_id);
-      GrpQry.get().SetVariable("piece_concept", (int)false);
-      GrpQry.get().SetVariable("point_id", FNull);
-      GrpQry.get().Execute();
-
-      if (!event.lexema_id.empty() &&
-          !GrpQry.get().VariableIsNULL("point_id"))
+      for(; grp_id!=tckin_grp_ids.end(); ++grp_id)
       {
-        event.id1=GrpQry.get().GetVariableAsInteger("point_id");
-        event.id3=*grp_id;
-        reqInfo->LocaleToLog(event);
+        GrpQry.get().SetVariable("grp_id", *grp_id);
+        GrpQry.get().SetVariable("piece_concept", (int)false);
+        GrpQry.get().SetVariable("point_id", FNull);
+        GrpQry.get().Execute();
+
+        if (!event.lexema_id.empty() &&
+            !GrpQry.get().VariableIsNULL("point_id"))
+        {
+          event.id1=GrpQry.get().GetVariableAsInteger("point_id");
+          event.id3=*grp_id;
+          reqInfo->LocaleToLog(event);
+        };
+      }
+    }
+    else
+    {
+      map<int/*seg_no*/,TBagConcept::Enum>::const_iterator i=bag_concept_by_seg.begin();
+      for(int seg_no=0; grp_id!=tckin_grp_ids.end(); ++grp_id, seg_no++)
+      {
+        if (i==bag_concept_by_seg.end())
+          throw EXCEPTIONS::Exception("%s: strange situation: i==bag_concept_by_seg.end()!", __FUNCTION__);
+        if (i->first!=seg_no)
+          throw EXCEPTIONS::Exception("%s: strange situation: i->first=%d seg_no=%d!", __FUNCTION__, i->first, seg_no);
+        GrpQry.get().SetVariable("grp_id", *grp_id);
+        GrpQry.get().SetVariable("piece_concept", (int)(i->second==TBagConcept::Piece));
+        GrpQry.get().SetVariable("point_id", FNull);
+        GrpQry.get().Execute();
+        ++i;
+
+        for(map<int/*seg_no*/,TBagConcept::Enum>::const_iterator j=i; j!=bag_concept_by_seg.end(); ++j)
+        {
+          TrferQry.get().SetVariable("grp_id", *grp_id);
+          TrferQry.get().SetVariable("transfer_num", j->first-seg_no);
+          if (j->second==TBagConcept::Unknown)
+            TrferQry.get().SetVariable("piece_concept", FNull);
+          else
+            TrferQry.get().SetVariable("piece_concept", (int)(j->second==TBagConcept::Piece));
+          TrferQry.get().Execute();
+        };
+
+        if (!event.lexema_id.empty() &&
+            !GrpQry.get().VariableIsNULL("point_id"))
+        {
+          event.id1=GrpQry.get().GetVariableAsInteger("point_id");
+          event.id3=*grp_id;
+          reqInfo->LocaleToLog(event);
+        };
       };
     }
-  }
-  else
-  {
-    map<int/*seg_no*/,TBagConcept::Enum>::const_iterator i=bag_concept_by_seg.begin();
-    for(int seg_no=0; grp_id!=tckin_grp_ids.end(); ++grp_id, seg_no++)
+    if (!isDoomedToWait() && rollbackGuaranteed)
     {
-      if (i==bag_concept_by_seg.end())
-        throw EXCEPTIONS::Exception("%s: strange situation: i==bag_concept_by_seg.end()!", __FUNCTION__);
-      if (i->first!=seg_no)
-        throw EXCEPTIONS::Exception("%s: strange situation: i->first=%d seg_no=%d!", __FUNCTION__, i->first, seg_no);
-      GrpQry.get().SetVariable("grp_id", *grp_id);
-      GrpQry.get().SetVariable("piece_concept", (int)(i->second==TBagConcept::Piece));
-      GrpQry.get().SetVariable("point_id", FNull);
-      GrpQry.get().Execute();
-      ++i;
-
-      for(map<int/*seg_no*/,TBagConcept::Enum>::const_iterator j=i; j!=bag_concept_by_seg.end(); ++j)
-      {
-        TrferQry.get().SetVariable("grp_id", *grp_id);
-        TrferQry.get().SetVariable("transfer_num", j->first-seg_no);
-        if (j->second==TBagConcept::Unknown)
-          TrferQry.get().SetVariable("piece_concept", FNull);
-        else
-          TrferQry.get().SetVariable("piece_concept", (int)(j->second==TBagConcept::Piece));
-        TrferQry.get().Execute();
-      };
-
-      if (!event.lexema_id.empty() &&
-          !GrpQry.get().VariableIsNULL("point_id"))
-      {
-        event.id1=GrpQry.get().GetVariableAsInteger("point_id");
-        event.id3=*grp_id;
-        reqInfo->LocaleToLog(event);
-      };
-    };
+      ProgError(STDLOG, "Warning: !isDoomedToWait() && rollbackGuaranteed (grp_id=%d)", data.grpId);
+      //throw SomethingHasChanged();
+    }
+  }
+  catch(const SomethingHasChanged&)
+  {
+    throw UserException("MSG.FLT_OR_PAX_INFO_CHANGED.REFRESH_DATA");
   }
 }
 
