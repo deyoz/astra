@@ -881,6 +881,8 @@ class TPaxGrpItem : public TSimplePaxGrpItem
                            const CheckIn::TSimplePaxList &curr_paxs) const;
 
     static void UpdTid(int grp_id);
+    static void setRollbackGuaranteedTo(int grp_id, bool value);
+    static bool allPassengersRefused(int grp_id);
 
     TBagConcept::Enum getBagAllowanceType() const
     {
