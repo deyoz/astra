@@ -145,6 +145,8 @@ src/events.cc
 src/events.h
 src/external_spp_synch.cc
 src/external_spp_synch.h
+src/exch_checkin_result.cpp
+src/exch_checkin_result.h
 src/ffp_sirena.cc
 src/ffp_sirena.h
 src/file_queue.cc
@@ -160,6 +162,10 @@ src/http_main.cc
 src/http_main.h
 src/images.cc
 src/images.h
+src/kiosk/kiosk_config.cc
+src/kiosk/kiosk_config.h
+src/kiosk/kiosk_events.cc
+src/kiosk/kiosk_events.h
 src/load_fr.cc
 src/load_fr.h
 src/locale.cc
@@ -219,6 +225,8 @@ src/seats.cc
 src/seats.h
 src/seats_utils.cc
 src/seats_utils.h
+src/self_ckin_log.cc
+src/self_ckin_log.h
 src/sirena_exchange.cc
 src/sirena_exchange.h
 src/sofi.cc

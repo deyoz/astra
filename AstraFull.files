@@ -125,6 +125,10 @@ src/http_main.cc
 src/http_main.h
 src/images.cc
 src/images.h
+src/kiosk/kiosk_config.cc
+src/kiosk/kiosk_config.h
+src/kiosk/kiosk_events.cc
+src/kiosk/kiosk_events.h
 src/load_fr.cc
 src/load_fr.h
 src/locale.cc
@@ -173,6 +177,8 @@ src/seats.cc
 src/seats.h
 src/seat_descript.cc
 src/seat_descript.h
+src/setPax.cc
+src/setPax.h
 src/seats_utils.cc
 src/seats_utils.h
 src/sofi.cc
@@ -285,7 +291,5 @@ src/tz_test.h
 src/icu_conversion.cpp
 src/astra_date_time.cpp
 src/astra_date_time.h
-src/kiosk_events.cc
-src/kiosk_events.h
 src/zamar_dsm.cpp
 src/zamar_dsm.h
