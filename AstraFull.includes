@@ -1,6 +1,7 @@
 /usr/include/libxml2
 debug
 src/tlg
+src/kiosk
 src
 locallibs/edilib/include
 locallibs/eticklib/include
