@@ -167,12 +167,12 @@ void taskToLog(
     }
     if(ts == TaskState::Update) {
         PrmLexema lexema("time", "EVT.OLD_NEW_PLAN_TIME");
-        lexema.prms << PrmDate("old_time", next_exec, "dd.mm.yy hh:nn")
-                    << PrmDate("new_time", new_next_exec, "dd.mm.yy hh:nn");
+        lexema.prms << PrmDate("old_time", next_exec, "dd.mm.yy hh:nn:ss")
+                    << PrmDate("new_time", new_next_exec, "dd.mm.yy hh:nn:ss");
         tlocale.prms << lexema;
     } else {
         PrmLexema lexema("time", "EVT.PLAN_TIME");
-        lexema.prms << PrmDate("time", next_exec, "dd.mm.yy hh:nn");
+        lexema.prms << PrmDate("time", next_exec, "dd.mm.yy hh:nn:ss");
         tlocale.prms << lexema;
     }
 
