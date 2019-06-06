@@ -45,6 +45,7 @@ const std::string HOST = "Host";
 const std::string AUTHORIZATION = "Authorization";
 const std::string REFERER = "Referer";
 const std::string KIOSKID = "kioskId";
+const std::string KIOSK_APPLICATION_NAME = "applicationName";
 
 const std::string LOGIN = "login";
 const std::string PASSWORD = "password";
@@ -124,8 +125,9 @@ HTTPClient getHTTPClient(const request& req)
     }
   }
   if (client.client_info.client_id.empty()) { //запрос от киоска?
-     if ( p.find(KIOSKID) != p.end() ) {
-        client.client_info = getInetClientByKioskId( p[KIOSKID] );
+     if ( p.find(KIOSKID) != p.end() &&
+          p.find(KIOSK_APPLICATION_NAME) != p.end() ) {
+        client.client_info = getInetClientByKioskId( p[KIOSKID], p[KIOSK_APPLICATION_NAME] );
      }
   }
 
