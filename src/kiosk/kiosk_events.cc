@@ -293,7 +293,15 @@ struct KioskServerEventContainer {
                   Qry.SetVariable( "num", num );
                   string value = v->get();
                   if ( requestTypeStr == "requestData" ) {
-                     LogError(STDLOG) << "KIOSK: " << value;
+                     std::vector<std::string> strs;
+                     SeparateString(value, '/n', strs);
+                     std::string str;
+                     for ( auto s : strs ) {
+                       if ( !str.empty() )
+                         str = " ";
+                       str += s;
+                     }
+                     LogError(STDLOG) << "KIOSK: " << str;
                   }
                   int i=0;
                   while ( !value.empty() ) {
