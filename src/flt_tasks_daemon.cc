@@ -113,7 +113,7 @@ static void check_trip_tasks(const std::string& handler_id)
     UpdQry.Clear();
     UpdQry.SQLText =
         "UPDATE trip_tasks "
-        "SET next_exec=DECODE(tid, :tid, DECODE(next_exec, :next_exec, NULL, next_exec), next_exec), last_exec=:last_exec "
+        "SET next_exec=DECODE(tid, :tid, DECODE(next_exec, :next_exec, TO_DATE(NULL), next_exec), next_exec), last_exec=:last_exec "
         "WHERE id=:id";
     UpdQry.DeclareVariable("id", otInteger);
     UpdQry.DeclareVariable("tid", otInteger);
