@@ -298,7 +298,7 @@ struct KioskServerEventContainer {
                      std::string str;
                      for ( auto s : strs ) {
                        if ( !str.empty() )
-                         str = " ";
+                         str += " ";
                        str += s;
                      }
                      LogError(STDLOG) << "KIOSK: " << str;
