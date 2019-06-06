@@ -3044,13 +3044,32 @@ void SyncCHKD(int point_id_tlg, int point_id_spp, bool sync_all) //регистрация C
   TUser prior_user=reqInfo->user;
   try
   {
+    const int maxDelaySecs=5;
+    time_t start_time=time(NULL);
+    int processed=0;
+
     reqInfo->client_type=ctPNL;
     reqInfo->user.user_type=utSupport;
     reqInfo->user.access.set_total_permit();
 
-    TQuery SavePointQry(&OraSession);
-
     TQuery UpdQry(&OraSession);
+    if (sync_all)
+    {
+      UpdQry.SQLText=
+        "UPDATE crs_pax SET sync_chkd=1 "
+        "WHERE pax_id IN "
+        "(SELECT crs_pax.pax_id "
+        " FROM crs_pnr, crs_pax, crs_pax_chkd"
+        " WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
+        "       crs_pax.pax_id=crs_pax_chkd.pax_id AND "
+        "       crs_pnr.point_id=:point_id_tlg AND "
+        "       crs_pnr.system='CRS' AND "
+        "       crs_pax.pr_del=0 AND "
+        "       crs_pax.sync_chkd=0) ";
+      UpdQry.CreateVariable("point_id_tlg", otInteger, point_id_tlg);
+      UpdQry.Execute();
+    }
+
     UpdQry.Clear();
     UpdQry.SQLText="UPDATE crs_pax SET sync_chkd=0 WHERE pax_id=:pax_id AND sync_chkd<>0";
     UpdQry.DeclareVariable("pax_id", otInteger);
@@ -3068,12 +3087,11 @@ void SyncCHKD(int point_id_tlg, int point_id_spp, bool sync_all) //регистрация C
       "      crs_pax.pax_id=pax.pax_id(+) AND "
       "      crs_pnr.point_id=:point_id_tlg AND "
       "      crs_pnr.system='CRS' AND "
-      "      crs_pax.seats>0 AND crs_pax.pr_del=0 AND "
-      "      (crs_pax.sync_chkd<>0 OR :sync_all<>0) "
+      "      crs_pax.pr_del=0 AND crs_pax.seats>0 AND "
+      "      crs_pax.sync_chkd<>0 "
       "GROUP BY crs_pax.pax_id, pax.pax_id "
       "ORDER BY reg_no, surname, name, crs_pax_id "; //пробуем обрабатывать в порядке регистрационных номеров - так справедливей
     Qry.CreateVariable("point_id_tlg", otInteger, point_id_tlg);
-    Qry.CreateVariable("sync_all", otInteger, (int)sync_all);
     Qry.Execute();
     if (!Qry.Eof)
     {
@@ -3092,11 +3110,7 @@ void SyncCHKD(int point_id_tlg, int point_id_spp, bool sync_all) //регистрация C
           crs_pax_ids.push_back(crs_pax_id);
         else
         {
-          SavePointQry.SQLText=
-            "BEGIN "
-            "  SAVEPOINT CHKD; "
-            "END;";
-          SavePointQry.Execute();
+          OciCpp::Savepoint spSyncCHKD("CHKD");
           try
           {
             XMLDoc emulDocHeader;
@@ -3129,19 +3143,15 @@ void SyncCHKD(int point_id_tlg, int point_id_spp, bool sync_all) //регистрация C
               };
             };
           }
-          catch(AstraLocale::UserException &e)
+          catch(const AstraLocale::UserException &e)
           {
             try
             {
-              dynamic_cast<CheckIn::OverloadException&>(e);
+              dynamic_cast<const CheckIn::OverloadException&>(e);
             }
-            catch (bad_cast)
+            catch (const bad_cast&)
             {
-              SavePointQry.SQLText=
-                "BEGIN "
-                "  ROLLBACK TO CHKD; "
-                "END;";
-              SavePointQry.Execute();
+              spSyncCHKD.rollback();
             };
 
             string surname=Qry.FieldAsString("surname");
@@ -3160,13 +3170,9 @@ void SyncCHKD(int point_id_tlg, int point_id_spp, bool sync_all) //регистрация C
             locale.prms << PrmSmpl<string>("name", surname+(name.empty()?"":" ")+name) << PrmLexema("what", err_id, err_prms);
             TReqInfo::Instance()->LocaleToLog(locale);
           }
-          catch(EXCEPTIONS::Exception &e)
+          catch(const EXCEPTIONS::Exception &e)
           {
-            SavePointQry.SQLText=
-              "BEGIN "
-              "  ROLLBACK TO CHKD; "
-              "END;";
-            SavePointQry.Execute();
+            spSyncCHKD.rollback();
             ProgError(STDLOG, "TypeB::SyncCHKDPax (crs_pax_id=%d): %s", crs_pax_id, e.what());
           };
         };
@@ -3176,6 +3182,16 @@ void SyncCHKD(int point_id_tlg, int point_id_spp, bool sync_all) //регистрация C
           UpdQry.SetVariable("pax_id", *i);
           UpdQry.Execute();
         };
+
+        processed+=crs_pax_ids.size();
+
+        int delaySecs=time(NULL)-start_time;
+        if (delaySecs>=maxDelaySecs && processed>0)
+        {
+          ProgTrace(TRACE5, "%s: delaySecs=%d processed=%d", __func__, delaySecs, processed);
+          add_trip_task(point_id_spp, SYNC_NEW_CHKD, "");
+          break;
+        }
       };
     };
     reqInfo->client_type=prior_client_type;
