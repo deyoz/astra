@@ -113,7 +113,8 @@ void TKiosksGrp::fromDB(int _kiosk_addr)
     clear();
     kiosk_addr = _kiosk_addr;
     if(kiosk_addr == NoExists) return;
-    TCachedQuery Qry("select kiosk_id from web_clients where kiosk_addr = :kiosk_addr",
+    //kiosk_clients key = kiosk_id+application_id
+    TCachedQuery Qry("select DISTINCT kiosk_id from kiosk_clients,kiosk_addr where kiosk_addr.id = :kiosk_addr AND kiosk_clients.addr_id=kiosk_addr.id",
             QParams() << QParam("kiosk_addr", otInteger, kiosk_addr));
     Qry.get().Execute();
     for(; not Qry.get().Eof; Qry.get().Next())

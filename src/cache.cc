@@ -1833,28 +1833,6 @@ void AfterApplyAll(TCacheTable &cache)
 
 void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCacheQueryType qryType)
 {
-    if (cache.code() == "WEB_CLIENTS") {
-        if (
-                row.status != usDeleted and
-                row.status != usUnmodified
-           ) {
-            string kiosk_addr = cache.FieldValue("kiosk_addr", row);
-            string kiosk_id = cache.FieldValue("kiosk_id", row);
-            if(DecodeClientType(cache.FieldValue("client_type", row).c_str()) == ctKiosk) {
-                if(not (kiosk_addr.empty() and kiosk_id.empty())) {
-                    if(kiosk_addr.empty())
-                        throw AstraLocale::UserException("MSG.KIOSK_ADDR.NOT_SET");
-                    if(kiosk_id.empty())
-                        throw AstraLocale::UserException("MSG.KIOSK_ID.NOT_SET");
-                }
-            } else if(not (kiosk_addr.empty() and kiosk_id.empty())) {
-                if(not kiosk_addr.empty())
-                    throw AstraLocale::UserException("MSG.KIOSK_ADDR.MUST_BE_NULL");
-                if(not kiosk_id.empty())
-                    throw AstraLocale::UserException("MSG.KIOSK_ID.MUST_BE_NULL");
-            }
-        }
-    }
     if (cache.code() == "DOC_NUM_COPIES") {
         string num;
         if (

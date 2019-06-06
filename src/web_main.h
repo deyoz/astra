@@ -29,10 +29,16 @@ struct InetClient
     std::string res = "pult=" + pult + ",opr=" + opr + ",client_type=" + client_type;
     return res;
   }
+  void clear() {
+    client_id.clear();
+    pult.clear();
+    opr.clear();
+    client_type.clear();
+  }
 };
 
 InetClient getInetClient(const std::string &client_id);
-InetClient getInetClientByKioskId(const std::string &kiosk_id);
+InetClient getInetClientByKioskId(const std::string &kiosk_id,const std::string &application);
 
 namespace AstraWeb
 {

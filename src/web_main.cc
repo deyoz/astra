@@ -78,27 +78,43 @@ InetClient getInetClient(const string &client_id)
   return client;
 }
 
-InetClient getInetClientByKioskId(const string &kiosk_id)
+InetClient getInetClientByKioskId(const std::string &kiosk_id,const std::string &application)
 {
   InetClient client;
   TQuery Qry(&OraSession);
   Qry.SQLText =
-    "SELECT client_type,web_clients.desk,login,client_id "
-    "FROM web_clients,users2 "
-    "WHERE web_clients.kiosk_id=:kiosk_id AND "
-    "      web_clients.client_type=:client_type AND "
-    "      web_clients.user_id=users2.user_id";
+    "SELECT client_id FROM kiosk_clients,kiosk_app_list "
+    " WHERE kiosk_app_list.id=kiosk_clients.app_id AND "
+    "       kiosk_app_list.code=:app AND "
+    "       kiosk_clients.kiosk_id=:kiosk_id";
+  Qry.CreateVariable( "app", otString, application );
   Qry.CreateVariable( "kiosk_id", otString, kiosk_id );
-  Qry.CreateVariable( "client_type", otString,  EncodeClientType(ctKiosk) );
   Qry.Execute();
-  if ( !Qry.Eof ) {
-    client.pult = Qry.FieldAsString( "desk" );
-    client.opr = Qry.FieldAsString( "login" );
-    client.client_id = Qry.FieldAsString( "client_id" );
-    client.client_type = Qry.FieldAsString( "client_type" );
-    ProgTrace( TRACE5, "client=%s", client.toString().c_str() );
+  client.client_id = Qry.Eof?"":Qry.FieldAsString( "client_id");
+  if ( !client.client_id.empty() ) {
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT client_type,web_clients.desk,login "
+      "FROM web_clients,users2 "
+      "WHERE web_clients.client_id=:client_id AND "
+      "      web_clients.client_type=:client_type AND "
+      "      web_clients.user_id=users2.user_id";
+    Qry.CreateVariable( "client_id", otString, client.client_id );
+    Qry.CreateVariable( "client_type", otString,  EncodeClientType(ctKiosk) );
+    Qry.Execute();
+    if ( Qry.Eof ) {
+      client.clear();
+    }
+    else {
+      client.pult = Qry.FieldAsString( "desk" );
+      client.opr = Qry.FieldAsString( "login" );
+      client.client_type = Qry.FieldAsString( "client_type" );
+      ProgTrace( TRACE5, "client=%s", client.toString().c_str() );
+    }
   }
-  else ProgError(STDLOG, "%s: kiosk_id=%s client_id=%s not found", __FUNCTION__, kiosk_id.c_str(), client.client_id.c_str());
+  if ( client.client_id.empty() ) {
+    ProgError(STDLOG, "%s: kiosk_id=%s application=%s not found", __FUNCTION__, kiosk_id.c_str(), application.c_str());
+  }
   return client;
 }
 
