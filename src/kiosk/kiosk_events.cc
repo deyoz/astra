@@ -294,14 +294,16 @@ struct KioskServerEventContainer {
                   string value = v->get();
                   if ( requestTypeStr == "requestData" ) {
                      std::vector<std::string> strs;
-                     SeparateString(value, '/n', strs);
+                     SeparateString(value, '\n', strs);
                      std::string str;
                      for ( auto s : strs ) {
-                       if ( !str.empty() )
+                       if ( str.empty() )
+                         str = "KIOSK: ";
+                       else
                          str += " ";
                        str += s;
                      }
-                     LogError(STDLOG) << "KIOSK: " << str;
+                     LogError(STDLOG) << str;
                   }
                   int i=0;
                   while ( !value.empty() ) {
