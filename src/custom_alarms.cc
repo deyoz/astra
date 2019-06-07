@@ -13,7 +13,7 @@ class CustomAlarmsCallbacks: public AstraPaxRemCallbacks
     public:
         virtual void afterPaxFQTChange(int pax_id)
         {
-            TCustomAlarms().get(pax_id).toDB();
+            TCustomAlarms().getByPaxId(pax_id).toDB();
         }
 };
 
@@ -74,18 +74,36 @@ void get_custom_alarms(const string &airline, int pax_id, vector<int> &alarms)
             }
 }
 
-const TCustomAlarms &TCustomAlarms::get(int pax_id)
+const TCustomAlarms &TCustomAlarms::getByGrpId(int grp_id)
 {
     clear();
     TTripInfo info;
-    info.getByPaxId(pax_id);
-    get_custom_alarms(info.airline, pax_id, items[pax_id]);
+    if(info.getByGrpId(grp_id)) {
+        TCachedQuery Qry("select pax_id from pax_grp where grp_id = :grp_id",
+                QParams() << QParam("grp_id", otInteger, grp_id));
+        Qry.get().Execute();
+        for(; not Qry.get().Eof; Qry.get().Next())
+            getByPaxId(Qry.get().FieldAsInteger("pax_id"), false, info.airline);
+    }
+    return *this;
+}
+
+const TCustomAlarms &TCustomAlarms::getByPaxId(int pax_id, bool pr_clear, const string &vairline)
+{
+    if(pr_clear) clear();
+    string airline;
+    if(vairline.empty()) {
+        TTripInfo info;
+        info.getByPaxId(pax_id);
+        airline = info.airline;
+    } else
+        airline = vairline;
+    get_custom_alarms(airline, pax_id, items[pax_id]);
     return *this;
 }
 
 void TCustomAlarms::toXML(xmlNodePtr paxNode, int pax_id)
 {
-    LogTrace(TRACE5) << "DEN: items.size(): " << items.size();
     if(not paxNode) return;
 
     map<int, vector<int>>::const_iterator pax = items.find(pax_id);

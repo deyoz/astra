@@ -8,10 +8,14 @@
 struct TCustomAlarms {
     std::map<int, std::vector<int>> items;
 
-    const TCustomAlarms &get(int pax_id);
+    const TCustomAlarms &getByGrpId(int pax_id);
+    const TCustomAlarms &getByPaxId(int pax_id, bool pr_clear = true, const std::string &vairline = "");
+
     void toDB() const;
     void fromDB(int point_id);
+
     void toXML(xmlNodePtr paxNode, int pax_id);
+
     void clear() { items.clear(); }
 };
 

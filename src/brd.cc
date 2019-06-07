@@ -1743,10 +1743,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                        paxNode);
           };
 
-          xmlNodePtr alarmsNode=NULL;
           if (!alarms.empty())
           {
-              alarmsNode=NewTextChild(paxNode, "alarms");
+              xmlNodePtr alarmsNode=NewTextChild(paxNode, "alarms");
               for(set<APIS::TAlarmType>::const_iterator a=alarms.begin(); a!=alarms.end(); ++a)
                   NewTextChild(alarmsNode, "alarm", APIS::EncodeAlarmType(*a));
           };
