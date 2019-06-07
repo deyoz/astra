@@ -4577,6 +4577,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   bool notCheckAPI=false;
   vector<CheckIn::TTransferItem>::const_iterator iTrfer;
   map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > trfer_segs;
+  bool rollbackGuaranteedOnFirstSegment=false;
 
   for(TSegList::iterator iSegListItem=segList.begin();
       segNode!=NULL && iSegListItem!=segList.end();
@@ -6022,15 +6023,17 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         EMDStatusInterface::EMDCheckStatus(grp.id, paymentBeforeWithAuto, ChangeStatusInfo.EMD);
       }
 
+      if (first_segment)
+        rollbackGuaranteedOnFirstSegment=rollbackBeforeSvcAvailability(AfterSaveInfo,
+                                                                       ediResNode,
+                                                                       setList,
+                                                                       grp,
+                                                                       new_checkin);
+
       bool rollbackGuaranteed = (needSyncEdsEts(ediResNode) && !ChangeStatusInfo.empty()) ||
-                                 rollbackBeforeSvcAvailability(AfterSaveInfo,
-                                                               ediResNode,
-                                                               setList,
-                                                               grp,
-                                                               new_checkin);
+                                rollbackGuaranteedOnFirstSegment;
 
       CheckIn::TPaxGrpItem::setRollbackGuaranteedTo(grp.id, rollbackGuaranteed);
-      rollbackGuaranteed = (needSyncEdsEts(ediResNode) && !ChangeStatusInfo.empty());
 
 
       timing.finish("ETProcessing", grp.point_dep);
@@ -7006,11 +7009,12 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
     if (!Ticketing::isDoomedToWait() && rollbackGuaranteed)
     {
       ProgError(STDLOG, "Warning: !isDoomedToWait() && rollbackGuaranteed (grp_id=%d)", data.grpId);
-      //throw SomethingHasChanged();
+      throw SomethingHasChanged();
     }
   }
   catch(const SomethingHasChanged&)
   {
+    ProgTrace(TRACE5, "%s: SomethingHasChanged", __func__);
     throw UserException("MSG.FLT_OR_PAX_INFO_CHANGED.REFRESH_DATA");
   }
 }
