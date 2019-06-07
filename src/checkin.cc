@@ -6030,6 +6030,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                                                                new_checkin);
 
       CheckIn::TPaxGrpItem::setRollbackGuaranteedTo(grp.id, rollbackGuaranteed);
+      rollbackGuaranteed = (needSyncEdsEts(ediResNode) && !ChangeStatusInfo.empty());
 
 
       timing.finish("ETProcessing", grp.point_dep);
@@ -7005,12 +7006,11 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
     if (!Ticketing::isDoomedToWait() && rollbackGuaranteed)
     {
       ProgError(STDLOG, "Warning: !isDoomedToWait() && rollbackGuaranteed (grp_id=%d)", data.grpId);
-      throw SomethingHasChanged();
+      //throw SomethingHasChanged();
     }
   }
   catch(const SomethingHasChanged&)
   {
-    ProgTrace(TRACE5, "%s: SomethingHasChanged", __func__);
     throw UserException("MSG.FLT_OR_PAX_INFO_CHANGED.REFRESH_DATA");
   }
 }
