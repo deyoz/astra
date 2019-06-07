@@ -4419,6 +4419,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   bool notCheckAPI=false;
   vector<CheckIn::TTransferItem>::const_iterator iTrfer;
   map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > trfer_segs;
+  bool rollbackGuaranteedOnFirstSegment=false;
 
   for(TSegList::iterator iSegListItem=segList.begin();
       segNode!=NULL && iSegListItem!=segList.end();
@@ -5904,12 +5905,15 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         EMDStatusInterface::EMDCheckStatus(grp.id, paymentBeforeWithAuto, ChangeStatusInfo.EMD);
       }
 
+      if (first_segment)
+        rollbackGuaranteedOnFirstSegment=rollbackBeforeSvcAvailability(AfterSaveInfo,
+                                                                       ediResNode,
+                                                                       setList,
+                                                                       grp,
+                                                                       new_checkin);
+
       bool rollbackGuaranteed = (needSyncEdsEts(ediResNode) && !ChangeStatusInfo.empty()) ||
-                                 rollbackBeforeSvcAvailability(AfterSaveInfo,
-                                                               ediResNode,
-                                                               setList,
-                                                               grp,
-                                                               new_checkin);
+                                rollbackGuaranteedOnFirstSegment;
 
       CheckIn::TPaxGrpItem::setRollbackGuaranteedTo(grp.id, rollbackGuaranteed);
 
