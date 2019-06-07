@@ -595,58 +595,6 @@ void TPrPrint::get_pr_print(int grp_id, int pax_id, bool &pr_bp_print, bool &pr_
         pr_bi_print = false;
 }
 
-void get_custom_alarms(const string &airline, int pax_id, vector<int> &alarms)
-{
-    alarms.clear();
-    // Достаем RFISC-и
-    // как платные, так и бесплатные
-    RFISCsSet paxRFISCs;
-    TPaidRFISCListWithAuto paid;
-    paid.fromDB(pax_id, false);
-    paid.getUniqRFISCSs(pax_id, paxRFISCs);
-    if(paxRFISCs.empty()) paxRFISCs.insert("");
-
-    // Достаем ремарки
-    set<CheckIn::TPaxFQTItem> fqts;
-    CheckIn::LoadPaxFQT(pax_id, fqts);
-    // Если не найдено ни одной ремарки, добавляем пустую
-    if(fqts.empty()) fqts.insert(CheckIn::TPaxFQTItem());
-
-    // Достаем бренды
-    TBrands brands;
-    brands.get(pax_id);
-    // Если не найдено ни одного бренда, добавляем пустой
-    if(brands.empty()) brands.emplace_back();
-
-    TCachedQuery Qry(
-            "select alarm from custom_alarm_sets where "
-            "   airline = :airline and "
-            "   (rfisc is null or rfisc = :rfisc) and "
-            "   (brand_airline is null or brand_airline = :brand_airline) and "
-            "   (brand_code is null or brand_code = :brand_code) and "
-            "   (fqt_airline is null or fqt_airline = :fqt_airline) and "
-            "   (fqt_tier_level is null or fqt_tier_level = :fqt_tier_level) ",
-            QParams()
-            << QParam("airline", otString, airline)
-            << QParam("rfisc", otString)
-            << QParam("brand_airline", otString)
-            << QParam("brand_code", otString)
-            << QParam("fqt_airline", otString)
-            << QParam("fqt_tier_level", otString));
-    for(const auto &rfisc: paxRFISCs)
-        for(const auto &fqt: fqts)
-            for(const auto &brand: brands) {
-                Qry.get().SetVariable("rfisc", rfisc);
-                Qry.get().SetVariable("brand_airline", brand.oper_airline);
-                Qry.get().SetVariable("brand_code", brand.code());
-                Qry.get().SetVariable("fqt_airline", fqt.airline);
-                Qry.get().SetVariable("fqt_tier_level", fqt.tier_level);
-                Qry.get().Execute();
-                for(; not Qry.get().Eof; Qry.get().Next())
-                    alarms.push_back(Qry.get().FieldAsInteger("alarm"));
-            }
-}
-
 string get_rem_txt(const string &airline, int pax_id, int tag_index)
 {
     // Достаем RFISC-и

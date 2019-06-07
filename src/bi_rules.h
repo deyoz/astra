@@ -149,6 +149,5 @@ class TPrPrint {
 };
 
 std::string get_rem_txt(const std::string &airline, int pax_id, int tag_index);
-void get_custom_alarms(const std::string &airline, int pax_id, std::vector<int> &alarms);
 
 #endif

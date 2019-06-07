@@ -3,6 +3,7 @@
 #include "astra_main.h"
 #include "astra_pnr.h"
 #include "etick.h"
+#include "custom_alarms.h"
 #include "tlg/tlg.h"
 #include "tlg/typeb_template_init.h"
 
@@ -121,6 +122,7 @@ int init_locale(void)
     typeb_parser::typeb_template_init();
     init_tlg_callbacks();
     init_pnr_callbacks();
+    init_custom_alarm_callbacks();
     TlgLogger::setLogging();
     return 0;
 }

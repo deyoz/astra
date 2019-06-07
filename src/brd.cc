@@ -26,6 +26,7 @@
 #include "rfisc.h"
 #include "dev_utils.h"
 #include "pax_events.h"
+#include "custom_alarms.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
@@ -1587,6 +1588,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
       TComplexBagExcessNodeList excessNodeList(OutputLang(), props, "+");
 
+      TCustomAlarms custom_alarms;
+      custom_alarms.fromDB(point_id);
       TBrands brands; //объявляем здесь, чтобы задействовать кэширование брендов
       for(;!Qry.Eof;Qry.Next())
       {
@@ -1748,14 +1751,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                   NewTextChild(alarmsNode, "alarm", APIS::EncodeAlarmType(*a));
           };
 
-          vector<int> custom_alarms;
-          get_custom_alarms(fltInfo.airline, pax_id, custom_alarms);
-          for(const auto custom_alarm: custom_alarms) {
-              if(not alarmsNode)
-                  alarmsNode=NewTextChild(paxNode, "alarms");
-              NewTextChild(alarmsNode, "alarm", ElemIdToNameLong(etCustomAlarmType, custom_alarm));
-          }
-
+          custom_alarms.toXML(paxNode, pax_id);
 
           if (!Qry.FieldIsNULL(col_tckin_id))
           {

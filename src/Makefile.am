@@ -192,6 +192,7 @@ astra_SOURCES = \
   astra_ssim.cc \
   bagmessage_daemon.cc \
   get_cls_upgrade.cc \
+  custom_alarms.cc \
   zamar_dsm.cpp
 
 
@@ -386,4 +387,5 @@ noinst_HEADERS = \
   kiosk_alias.h \
   astra_ssim.h \
   get_cls_upgrade.h \
+  custom_alarms.h \
   zamar_dsm.h
