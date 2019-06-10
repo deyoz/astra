@@ -201,7 +201,7 @@ static void saveRemoteCkxResults(int grpId, const std::list<iatci::dcrcka::Resul
     XMLDoc iatciResCtxt = ASTRA::createXmlDoc("<iatci_result/>");
     xmlNodePtr iatciResNode = NodeAsNode(std::string("/iatci_result").c_str(), iatciResCtxt.docPtr());
     xmlNodePtr segmentsNode = newChild(iatciResNode, "segments");
-    xmlNodePtr logSegmentsNode = newChild(iatciResNode, "segments_for_log");
+    /*xmlNodePtr logSegmentsNode = */newChild(iatciResNode, "segments_for_log");
 
     xmlNodePtr iatciSegmentsNode = findNodeR(reqNode, "iatci_segments");
     ASSERT(iatciSegmentsNode);
@@ -216,8 +216,8 @@ static void saveRemoteCkuResults(int grpId, const std::list<iatci::dcrcka::Resul
 
     XMLDoc iatciResCtxt = ASTRA::createXmlDoc("<iatci_result/>");
     xmlNodePtr iatciResNode = NodeAsNode(std::string("/iatci_result").c_str(), iatciResCtxt.docPtr());
-    xmlNodePtr segmentsNode = newChild(iatciResNode, "segments");
-    xmlNodePtr logSegmentsNode = newChild(iatciResNode, "segments_for_log");
+    /*xmlNodePtr segmentsNode = */newChild(iatciResNode, "segments");
+    /*xmlNodePtr logSegmentsNode = */newChild(iatciResNode, "segments_for_log");
 
     iatci::saveCkuGrp(grpId, reqNode, iatciResNode);
 }

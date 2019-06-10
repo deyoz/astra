@@ -474,6 +474,7 @@ void viewFdqElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& nex
     SetEdiDataElem(pMes, DataElement(2281, 0), fullDateTimeString(nextFlight.depDate(), nextFlight.depTime()));
     SetEdiDataElem(pMes, DataElement(3215, 0), BaseTables::Port(nextFlight.depPort())->code(/*lang*/));
     SetEdiDataElem(pMes, DataElement(3259, 0), BaseTables::Port(nextFlight.arrPort())->code(/*lang*/));
+    SetEdiDataElem(pMes, DataElement(9856, 0), nextFlight.fcIndicator());
 
     if(currFlight)
     {
@@ -493,6 +494,7 @@ void viewFdqElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::FlightDetails& nex
         SetEdiDataElem(pMes, DataElement(2107, 0),    fullDateTimeString(currFlight->arrDate(), currFlight->arrTime()));
         SetEdiDataElem(pMes, DataElement(3215, 0, 1), BaseTables::Port(currFlight->depPort())->code(/*lang*/));
         SetEdiDataElem(pMes, DataElement(3259, 0, 1), BaseTables::Port(currFlight->arrPort())->code(/*lang*/));
+        SetEdiDataElem(pMes, DataElement(9856, 0, 1), currFlight->fcIndicator());
     }
 
     PopEdiPointW(pMes);
@@ -675,7 +677,9 @@ void viewChdElement(_EDI_REAL_MES_STRUCT_* pMes, const iatci::CascadeHostDetails
     if(!cascadeDetails.destArrPort().empty()) {
         chd << BaseTables::Port(cascadeDetails.destArrPort())->code(/*lang*/);
     }
-    chd << "+++";
+    chd << "+" << cascadeDetails.fcIndicator();
+
+    chd << "++";
     for(const std::string& hostAirline: cascadeDetails.hostAirlines()) {
         chd << "H::" << BaseTables::Company(hostAirline)->code(/*lang*/) << "+";
     }

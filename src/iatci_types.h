@@ -103,6 +103,7 @@ protected:
     boost::posix_time::time_duration m_arrTime;
     boost::posix_time::time_duration m_boardingTime;
     std::string                      m_gate;
+    std::string                      m_fcIndicator;
 
 public:
     FlightDetails(const std::string& airl,
@@ -114,7 +115,8 @@ public:
                   const boost::posix_time::time_duration& depTime = boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
                   const boost::posix_time::time_duration& arrTime = boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
                   const boost::posix_time::time_duration& brdTime = boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
-                  const std::string& gate = "");
+                  const std::string& gate = "",
+                  const std::string& fcIndicator = "");
 
     const std::string&                      airline() const;
     Ticketing::FlightNum_t                  flightNum() const;
@@ -126,7 +128,8 @@ public:
     const boost::posix_time::time_duration& arrTime() const;
     const boost::posix_time::time_duration& boardingTime() const;
     const std::string&                      gate() const;
-    std::string                             toShortKeyString() const;
+    const std::string&                      fcIndicator() const;
+    std::string                             toKeyString() const;
 
 protected:
     FlightDetails() {} // for boost serialization only
@@ -926,6 +929,7 @@ protected:
     boost::gregorian::date m_destFlightDate;
     std::string            m_destDepPort;
     std::string            m_destArrPort;
+    std::string            m_fcIndicator;
 
     std::list<std::string> m_hostAirlines;
 
@@ -938,7 +942,17 @@ public:
                        const Ticketing::FlightNum_t& destFlightNum,
                        const boost::gregorian::date& destFlightDate,
                        const std::string& destDepPort,
-                       const std::string& destArrPort);
+                       const std::string& destArrPort,
+                       const std::string& fcIndicator);
+
+    CascadeHostDetails(const std::string& firstAirline,
+                       const std::string& firstLocation,
+                       const std::string& destAirline,
+                       const Ticketing::FlightNum_t& destFlightNum,
+                       const boost::gregorian::date& destFlightDate,
+                       const std::string& destDepPort,
+                       const std::string& destArrPort,
+                       const std::string& fcIndicator);
 
     const std::string&            firstAirline() const;
     const std::string&            firstLocation() const;
@@ -947,10 +961,15 @@ public:
     const boost::gregorian::date& destFlightDate() const;
     const std::string&            destDepPort() const;
     const std::string&            destArrPort() const;
+    const std::string&            fcIndicator() const;
 
     const std::list<std::string>& hostAirlines() const;
-
     void addHostAirline(const std::string& hostAirline);
+    
+    void setFirstAirlineAndLocation(const std::string& firstAirline,
+                                    const std::string& firstLocation);
+
+    std::string toKeyString() const;
 };
 
 //---------------------------------------------------------------------------------------

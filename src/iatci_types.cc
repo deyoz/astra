@@ -169,7 +169,8 @@ FlightDetails::FlightDetails(const std::string& airl,
                              const boost::posix_time::time_duration& depTime,
                              const boost::posix_time::time_duration& arrTime,
                              const boost::posix_time::time_duration& brdTime,
-                             const std::string& gate)
+                             const std::string& gate,
+                             const std::string& fcIndicator)
     : m_airline(airl),
       m_flightNum(flNum),
       m_depPort(depPoint),
@@ -179,7 +180,8 @@ FlightDetails::FlightDetails(const std::string& airl,
       m_depTime(depTime),
       m_arrTime(arrTime),
       m_boardingTime(brdTime),
-      m_gate(gate)
+      m_gate(gate),
+      m_fcIndicator(fcIndicator)
 {}
 
 const std::string& FlightDetails::airline() const
@@ -232,11 +234,18 @@ const std::string& FlightDetails::gate() const
     return m_gate;
 }
 
-std::string FlightDetails::toShortKeyString() const
+const std::string& FlightDetails::fcIndicator() const
 {
-    std::ostringstream os;
-    os << m_airline << m_flightNum;
-    return os.str();
+    return m_fcIndicator;
+}
+
+std::string FlightDetails::toKeyString() const
+{
+    return createFlightKey(m_airline,
+                           m_flightNum,
+                           m_depDate,
+                           m_depPort,
+                           m_arrPort);
 }
 
 //---------------------------------------------------------------------------------------
@@ -1298,12 +1307,32 @@ CascadeHostDetails::CascadeHostDetails(const std::string& destAirline,
                                        const Ticketing::FlightNum_t& destFlightNum,
                                        const boost::gregorian::date& destFlightDate,
                                        const std::string& destDepPort,
-                                       const std::string& destArrPort)
+                                       const std::string& destArrPort,
+                                       const std::string& fcIndicator)
     : m_destAirline(destAirline),
       m_destFlightNum(destFlightNum),
       m_destFlightDate(destFlightDate),
       m_destDepPort(destDepPort),
-      m_destArrPort(destArrPort)
+      m_destArrPort(destArrPort),
+      m_fcIndicator(fcIndicator)
+{}
+
+CascadeHostDetails::CascadeHostDetails(const std::string& firstAirline,
+                                       const std::string& firstLocation,
+                                       const std::string& destAirline,
+                                       const Ticketing::FlightNum_t& destFlightNum,
+                                       const boost::gregorian::date& destFlightDate,
+                                       const std::string& destDepPort,
+                                       const std::string& destArrPort,
+                                       const std::string& fcIndicator)
+    : m_airline(firstAirline),
+      m_location(firstLocation),
+      m_destAirline(destAirline),
+      m_destFlightNum(destFlightNum),
+      m_destFlightDate(destFlightDate),
+      m_destDepPort(destDepPort),
+      m_destArrPort(destArrPort),
+      m_fcIndicator(fcIndicator)
 {}
 
 const std::string& CascadeHostDetails::firstAirline() const
@@ -1341,6 +1370,11 @@ const std::string& CascadeHostDetails::destArrPort() const
     return m_destArrPort;
 }
 
+const std::string& CascadeHostDetails::fcIndicator() const
+{
+    return m_fcIndicator;
+}
+
 const std::list<std::string>& CascadeHostDetails::hostAirlines() const
 {
     return m_hostAirlines;
@@ -1349,6 +1383,22 @@ const std::list<std::string>& CascadeHostDetails::hostAirlines() const
 void CascadeHostDetails::addHostAirline(const std::string& hostAirline)
 {
     m_hostAirlines.push_front(hostAirline);
+}
+
+void CascadeHostDetails::setFirstAirlineAndLocation(const std::string& firstAirline,
+                          		            const std::string& firstLocation)
+{
+    m_airline  = firstAirline;
+    m_location = firstLocation;                               
+}
+
+std::string CascadeHostDetails::toKeyString() const
+{
+    return createFlightKey(m_destAirline,
+                           m_destFlightNum,
+                           m_destFlightDate,
+                           m_destDepPort,
+                           m_destArrPort);
 }
 
 //---------------------------------------------------------------------------------------

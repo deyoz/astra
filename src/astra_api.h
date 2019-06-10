@@ -324,6 +324,12 @@ struct PaxInfo
 
     int                  bagPoolNum() const { return m_bagPoolNum; }
     void setBagPoolNum(int poolNum) { m_bagPoolNum = poolNum; }
+
+    const boost::optional<IatciBags>& iatciBags() const { return m_iatciBags; }
+    void setIatciBags(const boost::optional<IatciBags>& iatciBags) { m_iatciBags = iatciBags; }
+
+    const boost::optional<IatciBagTags>& iatciBagTags() const { return m_iatciBagTags; }
+    void setIatciBagTags(const boost::optional<IatciBagTags>& iatciBagTags) { m_iatciBagTags = iatciBagTags; }
 };
 
 bool operator==(const PaxInfo& left, const PaxInfo& right);
@@ -802,6 +808,8 @@ struct XmlSegment
     XmlPax firstNonInfant() const;
 
     bool isIatci() const;
+
+    std::string toKeyString() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -1450,7 +1458,8 @@ public:
     xml_entities::LoadPaxXmlResult SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode);
 
     // изменение места
-    void ReseatPax(int pointDep, const xml_entities::XmlPax& pax);
+    void ReseatPax(int pointDep, const xml_entities::XmlPax& pax,
+                   boost::optional<xml_entities::XmlHostDetails> hostDetails);
     xml_entities::LoadPaxXmlResult Reseat(const xml_entities::XmlSegment& paxSeg);
 
     // расширенный поиск рейса на дату

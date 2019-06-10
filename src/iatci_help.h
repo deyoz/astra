@@ -18,6 +18,10 @@ namespace RemoteSystemContext {
 
 namespace iatci {
 
+const std::string FcIndicatorAllDefault = "";
+const std::string FcIndicatorAll = "A";
+const std::string FcIndicatorThis = "T";
+
 std::string fullFlightString(const FlightDetails& flight, bool edi = true);
 std::string flightString(const FlightDetails& flight);
 std::string airlineAccode(const std::string& airline);
@@ -109,6 +113,8 @@ iatci::AddressDetails::AddrInfo            makeAddrInfo(const astra_api::astra_e
 boost::optional<iatci::AddressDetails>     makeAddress(const astra_api::astra_entities::PaxInfo& pax);
 boost::optional<iatci::VisaDetails>        makeVisa(const astra_api::astra_entities::PaxInfo& pax);
 
+boost::optional<iatci::UpdateBaggageDetails> makeUpdBaggage(const astra_api::astra_entities::PaxInfo& pax);
+
 iatci::UpdatePaxDetails makeUpdPax(const astra_api::astra_entities::PaxInfo& newPax,
                                    iatci::UpdateDetails::UpdateActionCode_e act);
 iatci::UpdateServiceDetails::UpdSsrInfo makeUpdSsr(const astra_api::astra_entities::Remark& rem,
@@ -126,11 +132,14 @@ iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::BagP
 //---------------------------------------------------------------------------------------
 
 iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
-                                bool readAdditionals = false);
+                                bool readAdditionals = false,
+                                const std::string& fcIndicator = FcIndicatorAllDefault);
 iatci::MessageDetails makeMessageDetails(const astra_api::xml_entities::XmlSegment& ediSeg);
+boost::optional<iatci::CascadeHostDetails> makeCascade(const std::string& airline,
+                                                       boost::optional<astra_api::xml_entities::XmlHostDetails> hostDetails,
+                                                       boost::optional<iatci::CascadeHostDetails> cascadeBase = boost::none);
 boost::optional<iatci::CascadeHostDetails> makeCascade(const astra_api::xml_entities::XmlSegment& seg,
-                                                       const astra_api::xml_entities::XmlSegment& ediSeg);
-boost::optional<iatci::CascadeHostDetails> makeCascade(const astra_api::xml_entities::XmlSegment& seg);
+                                                       const std::string& fcIndicator = FcIndicatorAllDefault);
 boost::optional<iatci::SeatRequestDetails> makeSeatReq(const astra_api::xml_entities::XmlSegment& seg);
 //---------------------------------------------------------------------------------------
 
@@ -223,5 +232,22 @@ Ticketing::RemoteSystemContext::DcsSystemContext* readDcs(const iatci::FlightDet
 //---------------------------------------------------------------------------------------
 
 int getLastTCkinGrpId(int grpId);
+
+//---------------------------------------------------------------------------------------
+
+std::string createFlightKey(const std::string& airl,
+                            const Ticketing::FlightNum_t& flNum,
+                            const boost::gregorian::date& depDate,
+                            const std::string& depPort,
+                            const std::string& arrPort);
+
+//---------------------------------------------------------------------------------------
+
+std::string createFlightKey(const std::string& airl,
+                            int flNum,
+                            BASIC::date_time::TDateTime depDateTime,
+                            const std::string& depPort,
+                            const std::string& arrPort);
+
 
 }//namespace iatci

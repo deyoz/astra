@@ -7,6 +7,7 @@
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "basetables.h"
+#include "date_time.h"
 #include "convert.h"
 #include "tripinfo.h"
 #include "tlg/edi_msg.h"
@@ -449,7 +450,14 @@ iatci::OriginatorDetails makeOrg(const edifact::LorElem& lor)
 
 iatci::CascadeHostDetails makeCascade(const edifact::ChdElem& chd)
 {
-    iatci::CascadeHostDetails cascade(chd.m_origAirline, chd.m_origPoint);
+    iatci::CascadeHostDetails cascade(chd.m_origAirline,
+                                      chd.m_origPoint,
+                                      chd.m_outbAirline,
+                                      chd.m_outbFlNum,
+                                      chd.m_depDate,
+                                      chd.m_depPoint,
+                                      chd.m_arrPoint,
+                                      chd.m_outbFlContinIndic);
     for(const auto& hostAirline: chd.m_hostAirlines) {
         cascade.addHostAirline(BaseTables::Company(hostAirline)->rcode());
     }
@@ -763,11 +771,40 @@ boost::optional<iatci::ServiceDetails> makeService(const astra_api::astra_entiti
     return service;
 }
 
+boost::optional<iatci::UpdateBaggageDetails> makeUpdBaggage(const astra_api::astra_entities::PaxInfo& pax)
+{
+    if(!pax.m_iatciBags && !pax.m_iatciBagTags) {
+        return boost::none;
+    }
+
+    boost::optional<BaggageDetails::BagInfo> bag, handBag;
+    std::list<BaggageDetails::BagTagInfo> bagTags;
+
+    for(const auto& b: pax.m_iatciBags->bags) {
+        if(!b.is_hand) {
+            bag = BaggageDetails::BagInfo(b.num_of_pieces, b.weight);
+        } else {
+            handBag = BaggageDetails::BagInfo(b.num_of_pieces, b.weight);
+        }
+    }
+
+    if(bag && pax.m_iatciBagTags) {
+        for(const auto& t: pax.m_iatciBagTags->tags) {
+            bagTags.push_back(BaggageDetails::BagTagInfo(t.carrier_code,
+                                                         t.dest,
+                                                         BaggageDetails::BagTagInfo::makeFullTag(t.accode, t.tag_num),
+                                                         t.qtty));
+        }
+    }
+
+    return UpdateBaggageDetails(UpdateDetails::Replace,
+                                bag, handBag, bagTags);
+}
+
 boost::optional<iatci::BaggageDetails> makeBaggage(const astra_api::astra_entities::PaxInfo& pax)
 {
-    if(!pax.m_iatciBags || !pax.m_iatciBagTags) {
+    if(!pax.m_iatciBags && !pax.m_iatciBagTags) {
         return iatci::BaggageDetails(iatci::BaggageDetails::BagInfo());
-        //return boost::none;
     }
 
     boost::optional<BaggageDetails::BagInfo> bag, handBag;
@@ -968,7 +1005,8 @@ iatci::UpdateBaggageDetails makeUpdBaggage(const astra_api::astra_entities::BagP
 //---------------------------------------------------------------------------------------
 
 iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
-                                bool readAdditionals)
+                                bool readAdditionals,
+                                const std::string& fcIndicator)
 {
     std::string airl      = seg.trip_header.airline;
     int         flNum     = seg.trip_header.flt_no;
@@ -1017,47 +1055,58 @@ iatci::FlightDetails makeFlight(const astra_api::xml_entities::XmlSegment& seg,
                                 scd_dep_time,
                                 boost::posix_time::time_duration(boost::posix_time::not_a_date_time),
                                 scd_brd_to_time,
-                                gate);
+                                gate,
+                                fcIndicator);
 }
 
-boost::optional<iatci::CascadeHostDetails> makeCascade(const astra_api::xml_entities::XmlSegment& seg,
-                                                       const astra_api::xml_entities::XmlSegment& ediSeg)
+boost::optional<iatci::CascadeHostDetails> makeCascade(const std::string& airline,
+                                                       boost::optional<astra_api::xml_entities::XmlHostDetails> host_details,
+                                                       boost::optional<iatci::CascadeHostDetails> cascadeBase)
 {
-    if(!ediSeg.host_details) {
-        return boost::none;
+    boost::optional<iatci::CascadeHostDetails> cascade = cascadeBase;
+
+    if(!host_details) {
+        return cascade;
     }
-    boost::optional<iatci::CascadeHostDetails> cascade;
-    if(ediSeg.host_details) {
-        if(ediSeg.host_details->hostOrigin) {
-            cascade = iatci::CascadeHostDetails(ediSeg.host_details->hostOrigin->origAirline,
-                                                ediSeg.host_details->hostOrigin->origLocation);
+
+    if(host_details->hostOrigin) {
+        if(!cascade) {
+            cascade = iatci::CascadeHostDetails();
         }
 
-        if(!ediSeg.host_details->hostAirlines.empty()) {
-            if(!cascade) {
-                cascade = iatci::CascadeHostDetails();
-            }
-            for(const auto& ha: ediSeg.host_details->hostAirlines) {
-                cascade->addHostAirline(ha);
-            }
-        }
+        cascade->setFirstAirlineAndLocation(host_details->hostOrigin->origAirline,
+                                            host_details->hostOrigin->origLocation);
+    }
 
-        if(cascade) {
-            cascade->addHostAirline(seg.mark_flight.airline);
+    if(!cascade) {
+        cascade = iatci::CascadeHostDetails();
+    }
+
+    if(!host_details->hostAirlines.empty()) {
+        for(const auto& ha: host_details->hostAirlines) {
+            cascade->addHostAirline(ha);
+        }
+    } else {
+        if(!cascade->firstAirline().empty()) {
+            cascade->addHostAirline(cascade->firstAirline());
         }
     }
+
+    cascade->addHostAirline(airline);
 
     return cascade;
 }
 
-boost::optional<iatci::CascadeHostDetails> makeCascade(const astra_api::xml_entities::XmlSegment& seg)
+boost::optional<iatci::CascadeHostDetails> makeCascade(const astra_api::xml_entities::XmlSegment& seg,
+                                                       const std::string& fcIndicator)
 {
     auto fld = makeFlight(seg);
     return iatci::CascadeHostDetails(fld.airline(),
                                      fld.flightNum(),
                                      fld.depDate(),
                                      fld.depPort(),
-                                     fld.arrPort());
+                                     fld.arrPort(),
+                                     fcIndicator);
 }
 
 iatci::MessageDetails makeMessageDetails(const astra_api::xml_entities::XmlSegment& ediSeg)
@@ -2030,6 +2079,55 @@ int getLastTCkinGrpId(int grpId)
     } else {
         return grpId;
     }
+}
+
+//---------------------------------------------------------------------------------------
+
+std::string createFlightKey(const std::string& airl,
+                            const Ticketing::FlightNum_t& flNum,
+                            const boost::gregorian::date& depDate,
+                            const std::string& depPort,
+                            const std::string& arrPort)
+{
+    if(airl.empty()
+            || !flNum
+            || depDate.is_special()
+            || depPort.empty() || arrPort.empty())
+    {
+        return "";
+    }
+
+    std::ostringstream os;
+    os << BaseTables::Company(airl)->code() << "_" << flNum << "_"
+       << HelpCpp::string_cast(depDate, "%d%m%y") << "_"
+       << BaseTables::Port(depPort)->code() << "_"
+       << BaseTables::Port(arrPort)->code();
+
+    return os.str();
+}
+
+//---------------------------------------------------------------------------------------
+
+std::string createFlightKey(const std::string& airl,
+                            int flNum,
+                            BASIC::date_time::TDateTime depDateTime,
+                            const std::string& depPort,
+                            const std::string& arrPort)
+{
+    if(airl.empty()
+            || flNum == ASTRA::NoExists || !flNum
+            || depDateTime == ASTRA::NoExists
+            || depPort.empty() || arrPort.empty())
+    {
+        return "";
+    }
+    std::ostringstream os;
+    os << BaseTables::Company(airl)->code() << "_" << flNum << "_"
+       << BASIC::date_time::DateTimeToStr(depDateTime, "ddmmyy") << "_"
+       << BaseTables::Port(depPort)->code() << "_"
+       << BaseTables::Port(arrPort)->code();
+
+    return os.str();
 }
 
 }//namespace iatci

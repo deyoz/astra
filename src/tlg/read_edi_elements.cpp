@@ -925,11 +925,30 @@ boost::optional<ChdElem> readEdiChd(_EDI_REAL_MES_STRUCT_ *pMes)
     chd.m_origAirline = GetDBFName(pMes, DataElement(3127), CompElement("C059"));
     chd.m_origPoint = GetDBFName(pMes, DataElement(3800), CompElement("C059"));
 
+    chd.m_outbAirline = GetDBFName(pMes, DataElement(3127), CompElement("C013"));
+    std::string outbFlNum = GetDBFName(pMes, DataElement(3802), CompElement("C014"));
+    std::string outbDepDateTime = GetDBFName(pMes, DataElement(2281), CompElement());
+    chd.m_depPoint = GetDBFName(pMes, DataElement(3215), CompElement());
+    chd.m_arrPoint = GetDBFName(pMes, DataElement(3259), CompElement());
+    chd.m_outbFlContinIndic = GetDBFName(pMes, DataElement(9856), CompElement());
+
+    if(!outbFlNum.empty()) {
+        chd.m_outbFlNum = getFlightNum(outbFlNum);
+    }
+
+    if(outbDepDateTime.length() == 6) {
+        chd.m_depDate = Dates::rrmmdd(outbDepDateTime);
+    } else {
+        if(!outbDepDateTime.empty()) {
+            LogWarning(STDLOG) << "Invalid action flight date/time of departure: '" << outbDepDateTime << "'";
+        }
+    }
+
     unsigned num_hosts = GetNumComposite(pMes, "C696");
 
     EdiPointHolder c696_holder(pMes);
 
-    for (unsigned i = 0; i < num_hosts; i++)
+    for(unsigned i = 0; i < num_hosts; i++)
     {
         SetEdiPointToCompositeG(pMes, "C696", i, "EtErr::INV_HOST_DEFINITION");
 
