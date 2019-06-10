@@ -110,7 +110,7 @@ public:
 
 void init_pnr_callbacks()
 {
-    Ticketing::ControlMethod::Instance()->setPnrCallbacks(new EtickPnrCallbacks);
+    CallbacksSingleton<Ticketing::AstraPnrCallbacks>::Instance()->setCallbacks(new EtickPnrCallbacks);
 }
 
 int init_locale(void)

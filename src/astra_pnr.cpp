@@ -77,7 +77,7 @@ static void saveCouponWc(const std::string& recloc,
                        cpn.couponInfo().status());
 
         try {
-          pnrCallbacks()->afterReceiveAirportControl(wcCpn);
+          Callbacks<AstraPnrCallbacks>()->afterReceiveAirportControl(wcCpn);
         } catch(...) {
           LogError(STDLOG) << __FUNCTION__ << ": something wrong in pnrCallbacks()->afterReceiveAirportControl(wcCpn)";
         }
@@ -450,43 +450,11 @@ bool returnWcCoupon(const Ticketing::TicketNum_t& ticknum,
 
     ac->deleteDb();
     try {
-      pnrCallbacks()->afterReturnAirportControl(*cpn);
+      Callbacks<AstraPnrCallbacks>()->afterReturnAirportControl(*cpn);
     } catch(...) {
       LogError(STDLOG) << __FUNCTION__ << ": something wrong in pnrCallbacks()->afterReturnAirportControl(*cpn)";
     }
     return true;
-}
-
-//---------------------------------------------------------------------------------------
-
-ControlMethod::ControlMethod()
-{
-    m_cb = nullptr;
-}
-
-ControlMethod* ControlMethod::Instance()
-{
-    static ControlMethod* inst = nullptr;
-    if(!inst) {
-        inst = new ControlMethod;
-    }
-    return inst;
-}
-
-AstraPnrCallbacks* ControlMethod::pnrCallbacks()
-{
-    if(m_cb) {
-        return m_cb;
-    }
-    throw std::logic_error("PnrCallbacks not initialized");
-}
-
-void ControlMethod::setPnrCallbacks(AstraPnrCallbacks* cb)
-{
-    if(m_cb) {
-        delete m_cb;
-    }
-    m_cb = cb;
 }
 
 }//namespace Ticketing
