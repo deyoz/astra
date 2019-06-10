@@ -741,4 +741,47 @@ std::string getDocMonth(TDateTime claim_date, bool pr_lat);
 
 bool isDoomedToWait();
 
+template <class T>
+class CallbacksSingleton
+{
+    private:
+        T* m_cb;
+
+    protected:
+        CallbacksSingleton()
+        {
+            m_cb = nullptr;
+        }
+
+    public:
+        static CallbacksSingleton* Instance()
+        {
+            static CallbacksSingleton* inst = nullptr;
+            if(!inst) {
+                inst = new CallbacksSingleton;
+            }
+            return inst;
+        }
+        T* Callbacks()
+        {
+            if(m_cb) {
+                return m_cb;
+            }
+            throw std::logic_error("PaxRemCallbacks not initialized");
+        }
+        void setCallbacks(T* cb)
+        {
+            if(m_cb) {
+                delete m_cb;
+            }
+            m_cb = cb;
+        }
+};
+
+template <class T>
+inline T* Callbacks()
+{
+    return CallbacksSingleton<T>::Instance()->Callbacks();
+}
+
 #endif /*_ASTRA_UTILS_H_*/

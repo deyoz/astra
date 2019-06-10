@@ -8,7 +8,21 @@
 
 using namespace std;
 
-class CustomAlarmsCallbacks: public AstraPaxRemCallbacks
+class RFISCCustomAlarmCallbacks: public RFISCCallbacks
+{
+    public:
+        virtual void afterRFISCChange(int grp_id)
+        {
+            TCustomAlarms().getByGrpId(grp_id).toDB();
+        }
+};
+
+void init_rfisc_callbacks()
+{
+    CallbacksSingleton<RFISCCallbacks>::Instance()->setCallbacks(new RFISCCustomAlarmCallbacks);
+}
+
+class PaxFQTCallbacks: public PaxRemCallbacks
 {
     public:
         virtual void afterPaxFQTChange(int pax_id)
@@ -17,9 +31,9 @@ class CustomAlarmsCallbacks: public AstraPaxRemCallbacks
         }
 };
 
-void init_custom_alarm_callbacks()
+void init_fqt_callbacks()
 {
-    AstraPaxRemSingleton::Instance()->setPaxRemCallbacks(new CustomAlarmsCallbacks);
+    CallbacksSingleton<PaxRemCallbacks>::Instance()->setCallbacks(new PaxFQTCallbacks);
 }
 
 void get_custom_alarms(const string &airline, int pax_id, vector<int> &alarms)

@@ -122,7 +122,8 @@ int init_locale(void)
     typeb_parser::typeb_template_init();
     init_tlg_callbacks();
     init_pnr_callbacks();
-    init_custom_alarm_callbacks();
+    init_fqt_callbacks();
+    init_rfisc_callbacks();
     TlgLogger::setLogging();
     return 0;
 }

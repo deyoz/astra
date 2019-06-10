@@ -19,7 +19,8 @@ struct TCustomAlarms {
     void clear() { items.clear(); }
 };
 
-void init_custom_alarm_callbacks();
+void init_rfisc_callbacks();
+void init_fqt_callbacks();
 
 
 #endif

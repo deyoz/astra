@@ -965,9 +965,9 @@ void SavePaxFQT(int pax_id, const std::set<TPaxFQTItem> &fqts)
   };
 
   try {
-    paxRemCallbacks()->afterPaxFQTChange(pax_id);
+    Callbacks<PaxRemCallbacks>()->afterPaxFQTChange(pax_id);
   } catch(...) {
-    LogError(STDLOG) << __FUNCTION__ << ": something wrong in alarmCallbacks()->afterPaxFQTChange";
+    LogError(STDLOG) << __FUNCTION__ << ": something wrong in Callbacks()->afterPaxFQTChange";
   }
 };
 
@@ -1295,37 +1295,3 @@ bool forbiddenRemExists(const TRemGrp& forbiddenRemGrp,
 
   return false;
 }
-
-//-------------------- AstraPaxRemSingleton --------------------
-
-AstraPaxRemSingleton::AstraPaxRemSingleton()
-{
-    m_cb = nullptr;
-}
-
-AstraPaxRemSingleton* AstraPaxRemSingleton::Instance()
-{
-    static AstraPaxRemSingleton* inst = nullptr;
-    if(!inst) {
-        inst = new AstraPaxRemSingleton;
-    }
-    return inst;
-}
-
-AstraPaxRemCallbacks* AstraPaxRemSingleton::paxRemCallbacks()
-{
-    if(m_cb) {
-        return m_cb;
-    }
-    throw std::logic_error("PaxRemCallbacks not initialized");
-}
-
-void AstraPaxRemSingleton::setPaxRemCallbacks(AstraPaxRemCallbacks* cb)
-{
-    if(m_cb) {
-        delete m_cb;
-    }
-    m_cb = cb;
-}
-
-//-------------------- end of AstraPaxRemSingleton --------------------

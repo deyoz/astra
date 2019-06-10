@@ -8,6 +8,7 @@
 #include "oralib.h"
 #include "xml_unit.h"
 #include "astra_locale.h"
+#include "astra_utils.h"
 
 enum TRemCategory { remTKN, remDOC, remDOCO, remDOCA, remFQT, remASVC, remCREW, remUnknown };
 
@@ -427,34 +428,13 @@ CheckIn::TPaxRemItem CalcJmpRem(const ASTRA::TPaxStatus grp_status,
 bool forbiddenRemExists(const TRemGrp& forbiddenRemGrp,
                         const std::multiset<CheckIn::TPaxRemItem> &rems);
 
-//-------------------- AstraPaxRemSingleton --------------------
-
-class AstraPaxRemCallbacks
+class PaxRemCallbacks
 {
     public:
-        virtual ~AstraPaxRemCallbacks() {}
+        virtual ~PaxRemCallbacks() {}
         virtual void afterPaxFQTChange(int pax_id) = 0;
 };
 
-class AstraPaxRemSingleton
-{
-private:
-    AstraPaxRemCallbacks* m_cb;
-
-protected:
-    AstraPaxRemSingleton();
-
-public:
-    static AstraPaxRemSingleton* Instance();
-    AstraPaxRemCallbacks* paxRemCallbacks();
-    void setPaxRemCallbacks(AstraPaxRemCallbacks* cb);
-};
-
-inline AstraPaxRemCallbacks* paxRemCallbacks()
-{
-    return AstraPaxRemSingleton::Instance()->paxRemCallbacks();
-}
-//-------------------- end of AstraPaxRemSingleton --------------------
 
 #endif
 
