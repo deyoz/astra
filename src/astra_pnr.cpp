@@ -79,7 +79,7 @@ static void saveCouponWc(const std::string& recloc,
         try {
           Callbacks<AstraPnrCallbacks>()->afterReceiveAirportControl(wcCpn);
         } catch(...) {
-          LogError(STDLOG) << __FUNCTION__ << ": something wrong in pnrCallbacks()->afterReceiveAirportControl(wcCpn)";
+          LogError(STDLOG) << __FUNCTION__ << ": something wrong in Callbacks()->afterReceiveAirportControl(wcCpn)";
         }
     }
 }
@@ -452,7 +452,7 @@ bool returnWcCoupon(const Ticketing::TicketNum_t& ticknum,
     try {
       Callbacks<AstraPnrCallbacks>()->afterReturnAirportControl(*cpn);
     } catch(...) {
-      LogError(STDLOG) << __FUNCTION__ << ": something wrong in pnrCallbacks()->afterReturnAirportControl(*cpn)";
+      LogError(STDLOG) << __FUNCTION__ << ": something wrong in Callbacks()->afterReturnAirportControl(*cpn)";
     }
     return true;
 }

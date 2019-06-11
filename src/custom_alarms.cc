@@ -93,7 +93,7 @@ const TCustomAlarms &TCustomAlarms::getByGrpId(int grp_id)
     clear();
     TTripInfo info;
     if(info.getByGrpId(grp_id)) {
-        TCachedQuery Qry("select pax_id from pax_grp where grp_id = :grp_id",
+        TCachedQuery Qry("select pax_id from pax where grp_id = :grp_id",
                 QParams() << QParam("grp_id", otInteger, grp_id));
         Qry.get().Execute();
         for(; not Qry.get().Eof; Qry.get().Next())
