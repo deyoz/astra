@@ -23,6 +23,7 @@ using namespace BASIC::date_time;
 const std::string LCI = "LCI";
 const std::string COM = "COM";
 const std::string SOM = "SOM";
+const std::string PIL = "PIL";
 const std::string FWD_POSTFIX = "->>";
 const std::string UCM_FWD = "UCM" + FWD_POSTFIX;
 const std::string LDM_FWD = "LDM" + FWD_POSTFIX;
@@ -527,6 +528,10 @@ struct TSOMTripTask:public TTlgOutTripTask {
     TSOMTripTask(int vpoint_id): TTlgOutTripTask(vpoint_id, SOM) {}
 };
 
+struct TPILTripTask:public TTlgOutTripTask {
+    TPILTripTask(int vpoint_id): TTlgOutTripTask(vpoint_id, PIL) {}
+};
+
 struct TCOMTripTask:public TTlgOutTripTask {
     TCOMTripTask(int vpoint_id): TTlgOutTripTask(vpoint_id, COM) {}
 };
@@ -878,6 +883,7 @@ TSyncTlgOutMng::TSyncTlgOutMng()
     items.insert(make_pair(LCI, sync_trip_tasks<TLCITripTask>));
     items.insert(make_pair(COM, sync_trip_tasks<TCOMTripTask>));
     items.insert(make_pair(SOM, sync_trip_tasks<TSOMTripTask>));
+    items.insert(make_pair(PIL, sync_trip_tasks<TPILTripTask>));
     items.insert(make_pair(UCM_FWD, sync_trip_tasks<TUCMFwdTripTask>));
     items.insert(make_pair(LDM_FWD, sync_trip_tasks<TLDMFwdTripTask>));
     items.insert(make_pair(NTM_FWD, sync_trip_tasks<TNTMFwdTripTask>));
