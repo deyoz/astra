@@ -965,9 +965,9 @@ void SavePaxFQT(int pax_id, const std::set<TPaxFQTItem> &fqts)
   };
 
   try {
-    Callbacks<PaxRemCallbacks>()->afterPaxFQTChange(pax_id);
+    Callbacks<PaxRemCallbacks>()->afterPaxFQTChange(TRACE5, pax_id);
   } catch(...) {
-    LogError(STDLOG) << __FUNCTION__ << ": something wrong in Callbacks()->afterPaxFQTChange";
+      CallbacksExceptionFilter(STDLOG);
   }
 };
 

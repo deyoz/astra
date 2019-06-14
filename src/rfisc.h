@@ -800,7 +800,7 @@ class RFISCCallbacks
 {
     public:
         virtual ~RFISCCallbacks() {}
-        virtual void afterRFISCChange(int grp_id) = 0;
+        virtual void afterRFISCChange(TRACE_SIGNATURE, int grp_id) = 0;
 };
 
 #endif

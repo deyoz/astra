@@ -784,4 +784,6 @@ inline T* Callbacks()
     return CallbacksSingleton<T>::Instance()->Callbacks();
 }
 
+void CallbacksExceptionFilter(STDLOG_SIGNATURE);
+
 #endif /*_ASTRA_UTILS_H_*/

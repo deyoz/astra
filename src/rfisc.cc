@@ -1602,9 +1602,9 @@ void TGrpServiceAutoList::toDB(int grp_id) const
     Qry.get().Execute();
   }
   try {
-    Callbacks<RFISCCallbacks>()->afterRFISCChange(grp_id);
+      Callbacks<RFISCCallbacks>()->afterRFISCChange(TRACE5, grp_id);
   } catch(...) {
-    LogError(STDLOG) << __FUNCTION__ << ": something wrong in Callbacks()->afterRFISCChange";
+      CallbacksExceptionFilter(STDLOG);
   }
 }
 
@@ -1678,9 +1678,9 @@ void TGrpServiceAutoList::copyDB(int grp_id_src, int grp_id_dest, bool not_clear
               << QParam("grp_id_dest", otInteger, grp_id_dest));
   Qry.get().Execute();
   try {
-    Callbacks<RFISCCallbacks>()->afterRFISCChange(grp_id_dest);
+      Callbacks<RFISCCallbacks>()->afterRFISCChange(TRACE5, grp_id_dest);
   } catch(...) {
-    LogError(STDLOG) << __FUNCTION__ << ": something wrong in Callbacks()->afterRFISCChange";
+      CallbacksExceptionFilter(STDLOG);
   }
 }
 
@@ -1810,9 +1810,9 @@ void TPaidRFISCList::toDB(int grp_id) const
 
   updateExcess(grp_id);
   try {
-    Callbacks<RFISCCallbacks>()->afterRFISCChange(grp_id);
+      Callbacks<RFISCCallbacks>()->afterRFISCChange(TRACE5, grp_id);
   } catch(...) {
-    LogError(STDLOG) << __FUNCTION__ << ": something wrong in Callbacks()->afterRFISCChange";
+      CallbacksExceptionFilter(STDLOG);
   }
 }
 
@@ -1879,9 +1879,9 @@ void TPaidRFISCList::copyDB(int grp_id_src, int grp_id_dest)
 
   updateExcess(grp_id_dest);
   try {
-    Callbacks<RFISCCallbacks>()->afterRFISCChange(grp_id_dest);
+      Callbacks<RFISCCallbacks>()->afterRFISCChange(TRACE5, grp_id_dest);
   } catch(...) {
-    LogError(STDLOG) << __FUNCTION__ << ": something wrong in Callbacks()->afterRFISCChange";
+      CallbacksExceptionFilter(STDLOG);
   }
 }
 

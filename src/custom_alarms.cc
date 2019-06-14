@@ -2,18 +2,36 @@
 #include "dcs_services.h"
 #include "rfisc.h"
 #include "brands.h"
+#include "checkin.h"
+#include "alarms.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
 
 using namespace std;
 
+class TicketCustomAlarmCallbacks: public TicketCallbacks
+{
+    public:
+        virtual void onChangeTicket(TRACE_SIGNATURE, int grp_id)
+        {
+            LogTrace(TRACE_PARAMS) << __func__ << " started; grp_id: " << grp_id;
+            TGrpAlarmHook::set(Alarm::SyncCustomAlarms, grp_id);
+        }
+};
+
+void init_ticket_callbacks()
+{
+    CallbacksSingleton<TicketCallbacks>::Instance()->setCallbacks(new TicketCustomAlarmCallbacks);
+}
+
 class RFISCCustomAlarmCallbacks: public RFISCCallbacks
 {
     public:
-        virtual void afterRFISCChange(int grp_id)
+        virtual void afterRFISCChange(TRACE_SIGNATURE, int grp_id)
         {
-            TCustomAlarms().getByGrpId(grp_id).toDB();
+            LogTrace(TRACE_PARAMS) << __func__ << " started; grp_id: " << grp_id;
+            TGrpAlarmHook::set(Alarm::SyncCustomAlarms, grp_id);
         }
 };
 
@@ -25,9 +43,10 @@ void init_rfisc_callbacks()
 class PaxFQTCallbacks: public PaxRemCallbacks
 {
     public:
-        virtual void afterPaxFQTChange(int pax_id)
+        virtual void afterPaxFQTChange(TRACE_SIGNATURE, int pax_id)
         {
-            TCustomAlarms().getByPaxId(pax_id).toDB();
+            LogTrace(TRACE_PARAMS) << __func__ << " started, pax_id: " << pax_id;
+            TPaxAlarmHook::set(Alarm::SyncCustomAlarms, pax_id);
         }
 };
 
@@ -36,27 +55,28 @@ void init_fqt_callbacks()
     CallbacksSingleton<PaxRemCallbacks>::Instance()->setCallbacks(new PaxFQTCallbacks);
 }
 
-void get_custom_alarms(const string &airline, int pax_id, vector<int> &alarms)
+void get_custom_alarms(const string &airline, int pax_id, set<int> &alarms)
 {
+    LogTrace(TRACE5) << __func__ << ": started; airline: '" << airline << "'; pax_id: " << pax_id;
     alarms.clear();
-    // –î–æ—Å—Ç–∞–µ–º RFISC-–∏
-    // –∫–∞–∫ –ø–ª–∞—Ç–Ω—ã–µ, —Ç–∞–∫ –∏ –±–µ—Å–ø–ª–∞—Ç–Ω—ã–µ
+    // ÑÆ·‚†•¨ RFISC-®
+    // ™†™ Ø´†‚≠Î•, ‚†™ ® °•·Ø´†‚≠Î•
     RFISCsSet paxRFISCs;
     TPaidRFISCListWithAuto paid;
     paid.fromDB(pax_id, false);
     paid.getUniqRFISCSs(pax_id, paxRFISCs);
     if(paxRFISCs.empty()) paxRFISCs.insert("");
 
-    // –î–æ—Å—Ç–∞–µ–º —Ä–µ–º–∞—Ä–∫–∏
+    // ÑÆ·‚†•¨ ‡•¨†‡™®
     set<CheckIn::TPaxFQTItem> fqts;
     CheckIn::LoadPaxFQT(pax_id, fqts);
-    // –ï—Å–ª–∏ –Ω–µ –Ω–∞–π–¥–µ–Ω–æ –Ω–∏ –æ–¥–Ω–æ–π —Ä–µ–º–∞—Ä–∫–∏, –¥–æ–±–∞–≤–ª—è–µ–º –ø—É—Å—Ç—É—é
+    // Ö·´® ≠• ≠†©§•≠Æ ≠® Æ§≠Æ© ‡•¨†‡™®, §Æ°†¢´Ô•¨ Ø„·‚„Ó
     if(fqts.empty()) fqts.insert(CheckIn::TPaxFQTItem());
 
-    // –î–æ—Å—Ç–∞–µ–º –±—Ä–µ–Ω–¥—ã
+    // ÑÆ·‚†•¨ °‡•≠§Î
     TBrands brands;
     brands.get(pax_id);
-    // –ï—Å–ª–∏ –Ω–µ –Ω–∞–π–¥–µ–Ω–æ –Ω–∏ –æ–¥–Ω–æ–≥–æ –±—Ä–µ–Ω–¥–∞, –¥–æ–±–∞–≤–ª—è–µ–º –ø—É—Å—Ç–æ–π
+    // Ö·´® ≠• ≠†©§•≠Æ ≠® Æ§≠Æ£Æ °‡•≠§†, §Æ°†¢´Ô•¨ Ø„·‚Æ©
     if(brands.empty()) brands.emplace_back();
 
     TCachedQuery Qry(
@@ -82,9 +102,14 @@ void get_custom_alarms(const string &airline, int pax_id, vector<int> &alarms)
                 Qry.get().SetVariable("brand_code", brand.code());
                 Qry.get().SetVariable("fqt_airline", fqt.airline);
                 Qry.get().SetVariable("fqt_tier_level", fqt.tier_level);
+
+                LogTrace(TRACE5) << "--- vars list ---";
+                for(int i = 0; i < Qry.get().VariablesCount(); i++)
+                    LogTrace(TRACE5) << Qry.get().VariableName(i) << " = " << Qry.get().GetVariableAsString(i);
+
                 Qry.get().Execute();
                 for(; not Qry.get().Eof; Qry.get().Next())
-                    alarms.push_back(Qry.get().FieldAsInteger("alarm"));
+                    alarms.insert(Qry.get().FieldAsInteger("alarm"));
             }
 }
 
@@ -112,7 +137,9 @@ const TCustomAlarms &TCustomAlarms::getByPaxId(int pax_id, bool pr_clear, const 
         airline = info.airline;
     } else
         airline = vairline;
+    trace(TRACE5);
     get_custom_alarms(airline, pax_id, items[pax_id]);
+    trace(TRACE5);
     return *this;
 }
 
@@ -120,7 +147,7 @@ void TCustomAlarms::toXML(xmlNodePtr paxNode, int pax_id)
 {
     if(not paxNode) return;
 
-    map<int, vector<int>>::const_iterator pax = items.find(pax_id);
+    map<int, set<int>>::const_iterator pax = items.find(pax_id);
     if(pax != items.end()) {
         xmlNodePtr currNode = paxNode->children;
         if(not currNode) return;
@@ -150,11 +177,21 @@ void TCustomAlarms::fromDB(int point_id)
             QParams() << QParam("point_id", otInteger, point_id));
     Qry.get().Execute();
     for(; not Qry.get().Eof; Qry.get().Next())
-        items[Qry.get().FieldAsInteger("pax_id")].push_back(Qry.get().FieldAsInteger("alarm_type"));
+        items[Qry.get().FieldAsInteger("pax_id")].insert(Qry.get().FieldAsInteger("alarm_type"));
+}
+
+void TCustomAlarms::trace(TRACE_SIGNATURE) const
+{
+    LogTrace(TRACE_PARAMS) << "--- TCustomAlarms trace, size(): " << items.size() << "---";
+    for(const auto &pax: items)
+        for(const auto &alarm: pax.second)
+            LogTrace(TRACE_PARAMS) << "pax_id: " << pax.first << "; alarm: " << alarm;
+    LogTrace(TRACE_PARAMS) << "---------";
 }
 
 void TCustomAlarms::toDB() const
 {
+    trace(TRACE5);
     TCachedQuery delQry("delete from pax_custom_alarms where pax_id = :pax_id",
             QParams() << QParam("pax_id", otInteger));
     TCachedQuery Qry("insert into pax_custom_alarms(pax_id, alarm_type) values(:pax_id, :alarm_type)",
@@ -164,6 +201,7 @@ void TCustomAlarms::toDB() const
         delQry.get().Execute();
         Qry.get().SetVariable("pax_id", pax.first);
         for(const auto &alarm_type: pax.second) {
+            LogTrace(TRACE5) << "custom alarms before insert: pax_id: " << pax.first << "; alarm_type: " << alarm_type;
             Qry.get().SetVariable("alarm_type", alarm_type);
             Qry.get().Execute();
         }

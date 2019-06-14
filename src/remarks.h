@@ -432,7 +432,7 @@ class PaxRemCallbacks
 {
     public:
         virtual ~PaxRemCallbacks() {}
-        virtual void afterPaxFQTChange(int pax_id) = 0;
+        virtual void afterPaxFQTChange(TRACE_SIGNATURE, int pax_id) = 0;
 };
 
 

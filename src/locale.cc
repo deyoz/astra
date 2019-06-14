@@ -124,6 +124,7 @@ int init_locale(void)
     init_pnr_callbacks();
     init_fqt_callbacks();
     init_rfisc_callbacks();
+    init_ticket_callbacks();
     TlgLogger::setLogging();
     return 0;
 }
