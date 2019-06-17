@@ -2,6 +2,7 @@
 #include "oralib.h"
 #include "stl_utils.h"
 #include <fstream>
+#include <set>
 #include "boost/filesystem/operations.hpp"
 
 #define NICKNAME "DENIS"
@@ -48,6 +49,92 @@ void db_pkg_usage(string name, string what)
 
 }
 
+struct TTriggers {
+    TQuery Qry;
+
+    TTriggers(): Qry(&OraSession)
+    {
+        Qry.SQLText =
+            "select name, text from user_source where "
+            "   name = :name and "
+            "   type = 'TRIGGER' "
+            "order by line ";
+        Qry.DeclareVariable("name", otString);
+    }
+
+    void fromDB(const fs::path &full_path)
+    {
+        fs::path triggers_path = full_path / "5TRIGGER";
+        fs::create_directories(triggers_path);
+        for(const auto &fname: trg_files) {
+            cout << "fetching " << fname.first << "... ";
+            cout.flush();
+            boost::optional<ofstream> file;
+            for(vector<string>::const_iterator trg = fname.second.begin();
+                    trg != fname.second.end(); trg++) {
+                Qry.SetVariable("name", upperc(*trg));
+                Qry.Execute();
+                bool pr_begin = true;
+                for(; not Qry.Eof; Qry.Next()) {
+                    if(not file)
+                        file = boost::in_place((triggers_path / fname.first).string().c_str(), std::ios::binary|std::ios::trunc);
+                    string text;
+                    if(pr_begin) {
+                        pr_begin = false;
+                        text = "CREATE OR REPLACE ";
+                    }
+                    text += ConvertCodepage(Qry.FieldAsString("text"), "cp866", "utf-8");
+                    file.get() << RTrimString(text) << endl;
+                }
+                if(file) {
+                    file.get() << "/" << endl << endl << "show error;" << endl;
+                    if((trg + 1) != fname.second.end())
+                        file.get() << endl;
+                }
+            }
+            if(file) file.get().close();
+            cout << "OK" << endl;
+        }
+    }
+
+    const map<string, vector<string>> trg_files =
+    {
+        {"codes.sql",
+            {
+                "airlines__TRG",
+                "countries__TRG",
+                "cities__TRG",
+                "airps__TRG",
+                "crafts__TRG",
+            }
+        },
+        {"comp.sql",
+            {
+                "TRIP_COMP_LAYERS__BEFORE__TRG",
+                "TRIP_COMP_LAYERS__AFTER__TRG",
+                "COMP_ELEMS__BEFORE__TRG",
+                "TRIP_COMP_ELEMS__BEFORE__TRG",
+                "TRIP_COMP_ELEMS__AFTER__TRG",
+            }
+        },
+        {"points.sql",
+            {
+                "points__time_in_out__TRG",
+            }
+        },
+        {"trip_stages.sql",
+            {
+                "trip_stages__TRG",
+            }
+        },
+        {"web_clients.sql",
+            {
+                "web_clients__TRG",
+            }
+        },
+    };
+};
+
 int db_pkg(int argc, char **argv)
 {
     try {
@@ -65,6 +152,9 @@ int db_pkg(int argc, char **argv)
             throw Exception("path not found: %s", full_path.string().c_str());
         if ( not fs::is_directory( full_path ) )
             throw Exception("path is not a directory: %s", full_path.string().c_str());
+
+        fs::path sql_path = full_path / "3SQL";
+        fs::create_directories(sql_path);
 
         TQuery Qry(&OraSession);
         string SQLText =
@@ -96,7 +186,8 @@ int db_pkg(int argc, char **argv)
                     files.back().close();
                     cout << "OK" << endl;
                 }
-                fs::path apath = full_path / file_name(lowerc(name));
+                fs::path apath = sql_path / file_name(lowerc(name));
+                LogTrace(TRACE5) << "apath: " << apath.string().c_str();
                 files.push_back(ofstream(apath.string().c_str(), std::ios::binary|std::ios::trunc));
                 cout << "fetching " << name << "... ";
                 cout.flush();
@@ -119,6 +210,9 @@ int db_pkg(int argc, char **argv)
             files.back().close();
             cout << "OK" << endl;
         }
+
+        TTriggers().fromDB(full_path);
+
     } catch(Exception &E) {
         db_pkg_usage(argv[0], E.what());
         return 1;
