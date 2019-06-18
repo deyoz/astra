@@ -3,6 +3,7 @@
 #include "astra_main.h"
 #include "astra_pnr.h"
 #include "etick.h"
+#include "custom_alarms.h"
 #include "tlg/tlg.h"
 #include "tlg/typeb_template_init.h"
 
@@ -109,7 +110,7 @@ public:
 
 void init_pnr_callbacks()
 {
-    Ticketing::ControlMethod::Instance()->setPnrCallbacks(new EtickPnrCallbacks);
+    CallbacksSingleton<Ticketing::AstraPnrCallbacks>::Instance()->setCallbacks(new EtickPnrCallbacks);
 }
 
 int init_locale(void)
@@ -121,6 +122,9 @@ int init_locale(void)
     typeb_parser::typeb_template_init();
     init_tlg_callbacks();
     init_pnr_callbacks();
+    init_fqt_callbacks();
+    init_rfisc_callbacks();
+    init_ticket_callbacks();
     TlgLogger::setLogging();
     return 0;
 }

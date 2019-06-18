@@ -2055,3 +2055,13 @@ bool isDoomedToWait()
     return ServerFramework::getQueryRunner().getEdiHelpManager().mustWait();
 }
 
+void CallbacksExceptionFilter(STDLOG_SIGNATURE)
+{
+    try {
+        throw;
+    } catch(const std::exception &E) {
+        LogError(STDLOG_VARIABLE) << __FUNCTION__ << ": something wrong: " << E.what();
+    } catch(...) {
+        LogError(STDLOG_VARIABLE) << __FUNCTION__ << ": something wrong";
+    }
+}

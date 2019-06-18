@@ -88,6 +88,15 @@ bool TTripInfo::getByCRSPaxId(const int pax_id)
   return true;
 }
 
+bool TTripInfo::getByPaxId ( const int pax_id )
+{
+    TCachedQuery Qry("select grp_id from pax where pax_id = :pax_id",
+            QParams() << QParam("pax_id", otInteger, pax_id));
+    Qry.get().Execute();
+    if(Qry.get().Eof) return false;
+    return getByGrpId(Qry.get().FieldAsInteger("grp_id"));
+}
+
 bool TTripInfo::getByGrpId ( const int grp_id )
 {
   TQuery Qry(&OraSession);

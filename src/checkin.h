@@ -257,6 +257,13 @@ public:
   static CheckInInterface* instance();
 };
 
+class TicketCallbacks
+{
+    public:
+        virtual ~TicketCallbacks() {}
+        virtual void onChangeTicket(TRACE_SIGNATURE, int grp_id) = 0;
+};
+
 #ifdef XP_TESTING
 int lastGeneratedPaxId();
 void setLastGeneratedPaxId(int lgpid);

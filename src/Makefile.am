@@ -190,6 +190,7 @@ astra_SOURCES = \
   astra_ssim.cc \
   bagmessage_daemon.cc \
   get_cls_upgrade.cc \
+  custom_alarms.cc \
   zamar_dsm.cpp
 
 astra_LDADD = $(all_libraries) \
@@ -376,4 +377,5 @@ noinst_HEADERS = \
   report_common.h \
   astra_ssim.h \
   get_cls_upgrade.h \
+  custom_alarms.h \
   zamar_dsm.h

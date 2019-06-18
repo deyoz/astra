@@ -1601,6 +1601,11 @@ void TGrpServiceAutoList::toDB(int grp_id) const
     item.toDB(Qry.get());
     Qry.get().Execute();
   }
+  try {
+      Callbacks<RFISCCallbacks>()->afterRFISCChange(TRACE5, grp_id);
+  } catch(...) {
+      CallbacksExceptionFilter(STDLOG);
+  }
 }
 
 void TGrpServiceList::copyDB(int grp_id_src, int grp_id_dest)
@@ -1672,6 +1677,11 @@ void TGrpServiceAutoList::copyDB(int grp_id_src, int grp_id_dest, bool not_clear
     QParams() << QParam("grp_id_src", otInteger, grp_id_src)
               << QParam("grp_id_dest", otInteger, grp_id_dest));
   Qry.get().Execute();
+  try {
+      Callbacks<RFISCCallbacks>()->afterRFISCChange(TRACE5, grp_id_dest);
+  } catch(...) {
+      CallbacksExceptionFilter(STDLOG);
+  }
 }
 
 bool TGrpServiceAutoList::sameDocExists(const CheckIn::TPaxASVCItem& asvc) const
@@ -1799,6 +1809,11 @@ void TPaidRFISCList::toDB(int grp_id) const
   }
 
   updateExcess(grp_id);
+  try {
+      Callbacks<RFISCCallbacks>()->afterRFISCChange(TRACE5, grp_id);
+  } catch(...) {
+      CallbacksExceptionFilter(STDLOG);
+  }
 }
 
 void TPaidRFISCList::updateExcess(int grp_id)
@@ -1863,6 +1878,11 @@ void TPaidRFISCList::copyDB(int grp_id_src, int grp_id_dest)
   Qry.get().Execute();
 
   updateExcess(grp_id_dest);
+  try {
+      Callbacks<RFISCCallbacks>()->afterRFISCChange(TRACE5, grp_id_dest);
+  } catch(...) {
+      CallbacksExceptionFilter(STDLOG);
+  }
 }
 
 void TGrpServiceList::addBagInfo(int grp_id,
@@ -2336,5 +2356,3 @@ void GetBagConcepts(int grp_id, bool &pc, bool &wt, bool &rfisc_used)
     };
   }
 }
-
-

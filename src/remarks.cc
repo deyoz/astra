@@ -963,6 +963,12 @@ void SavePaxFQT(int pax_id, const std::set<TPaxFQTItem> &fqts)
     r->toDB(FQTQry);
     FQTQry.Execute();
   };
+
+  try {
+    Callbacks<PaxRemCallbacks>()->afterPaxFQTChange(TRACE5, pax_id);
+  } catch(...) {
+      CallbacksExceptionFilter(STDLOG);
+  }
 };
 
 class TPaxRemOriginItem
@@ -1289,7 +1295,3 @@ bool forbiddenRemExists(const TRemGrp& forbiddenRemGrp,
 
   return false;
 }
-
-
-
-

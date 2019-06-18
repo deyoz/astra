@@ -42,7 +42,8 @@ class Alarm
 //ниже перечислены не настоящие тревоги, а флаги о необходимости что-то сделать с пассажиром
 //относятся только к тревогам пассажиров, а не рейсов
       SyncEmds,
-      SyncCabinClass
+      SyncCabinClass,
+      SyncCustomAlarms
     };
 
     typedef std::list< std::pair<Enum, std::string> > TPairs;
@@ -78,6 +79,7 @@ class Alarm
         {WBDifferSeats,          "WB_DIFF_SEATS"            },
         {SyncEmds,               "SYNC_EMDS"                },
         {SyncCabinClass,         "SYNC_CABIN_CLASS"         },
+        {SyncCustomAlarms,       "SYNC_CUSTOM_ALARMS"       },
        };
       return l;
     }

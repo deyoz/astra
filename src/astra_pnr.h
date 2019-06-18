@@ -161,27 +161,4 @@ public:
     virtual void afterReturnAirportControl(const Ticketing::WcCoupon& cpn) = 0;
 };
 
-//---------------------------------------------------------------------------------------
-
-class ControlMethod
-{
-private:
-    AstraPnrCallbacks* m_cb;
-
-protected:
-    ControlMethod();
-
-public:
-    static ControlMethod* Instance();
-    AstraPnrCallbacks* pnrCallbacks();
-    void setPnrCallbacks(AstraPnrCallbacks* cb);
-};
-
-//---------------------------------------------------------------------------------------
-
-inline AstraPnrCallbacks* pnrCallbacks()
-{
-    return ControlMethod::Instance()->pnrCallbacks();
-}
-
 }//namespace Ticketing

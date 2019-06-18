@@ -8,6 +8,7 @@
 #include "oralib.h"
 #include "xml_unit.h"
 #include "astra_locale.h"
+#include "astra_utils.h"
 
 enum TRemCategory { remTKN, remDOC, remDOCO, remDOCA, remFQT, remASVC, remCREW, remUnknown };
 
@@ -426,6 +427,14 @@ CheckIn::TPaxRemItem CalcJmpRem(const ASTRA::TPaxStatus grp_status,
 
 bool forbiddenRemExists(const TRemGrp& forbiddenRemGrp,
                         const std::multiset<CheckIn::TPaxRemItem> &rems);
+
+class PaxRemCallbacks
+{
+    public:
+        virtual ~PaxRemCallbacks() {}
+        virtual void afterPaxFQTChange(TRACE_SIGNATURE, int pax_id) = 0;
+};
+
 
 #endif
 
