@@ -8998,7 +8998,7 @@ void get_flight_stat(map<string, long> &stat_times, int point_id, bool final_col
      add_stat_time(stat_times, "pfs_stat", tm.Print());
      tm.Init();
      get_trfer_pax_stat(point_id);
-     add_stat_time(stat_times, "pfs_stat", tm.Print());
+     add_stat_time(stat_times, "trfer_pax_stat", tm.Print());
      tm.Init();
      get_stat_vo(point_id);
      add_stat_time(stat_times, "stat_vo", tm.Print());
