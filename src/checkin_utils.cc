@@ -1422,16 +1422,36 @@ void createEmulDocForSBDO(int pax_id,
   if (!pax.getByPaxId(pax_id))
    throw UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
 
+  list<CheckIn::TSimplePaxGrpItem> grps;
+
   TCkinRoute route;
   route.GetRouteAfter(pax.grp_id, crtWithCurrent, crtOnlyDependent);
 
-  if (route.empty())
+  if (!route.empty())
+  {
+    for(TCkinRoute::const_iterator s=route.begin(); s!=route.end(); ++s)
+    {
+      CheckIn::TSimplePaxGrpItem grp;
+      if (!grp.getByGrpId(s->grp_id))
+        throw UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+      grps.push_back(grp);
+    }
+  }
+  else
+  {
+    CheckIn::TSimplePaxGrpItem grp;
+    if (!grp.getByGrpId(pax.grp_id))
+      throw UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
+    grps.push_back(grp);
+  }
+
+  if (grps.empty())
     throw UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
 
-  const TCkinRouteItem& first=route.front();
+  const CheckIn::TSimplePaxGrpItem& first=grps.front();
 
   CheckIn::TGroupBagItem groupBag;
-  groupBag.fromDB(first.grp_id, ASTRA::NoExists, false);
+  groupBag.fromDB(first.id, ASTRA::NoExists, false);
 
   CheckIn::TSimplePaxItem editablePax(pax);
   if (bag)
@@ -1441,18 +1461,14 @@ void createEmulDocForSBDO(int pax_id,
 
   xmlNodePtr segsNode=NewTextChild(emulChngNode,"segments");
 
-  for(TCkinRoute::const_iterator s=route.begin(); s!=route.end(); ++s)
+  for(list<CheckIn::TSimplePaxGrpItem>::const_iterator g=grps.begin(); g!=grps.end(); ++g)
   {
-    CheckIn::TSimplePaxGrpItem grp;
-    if (!grp.getByGrpId(s->grp_id))
-      throw UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
-
     xmlNodePtr segNode=NewTextChild(segsNode,"segment");
-    grp.toEmulXML(emulChngNode, segNode);
+    g->toEmulXML(emulChngNode, segNode);
 
     xmlNodePtr paxsNode=NewTextChild(segNode,"passengers");
 
-    if (s!=route.begin()) continue;
+    if (g!=grps.begin()) continue;
 
     if (pax.bag_pool_num!=editablePax.bag_pool_num)
     {
