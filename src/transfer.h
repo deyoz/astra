@@ -23,7 +23,12 @@ class TPaxTransferItem
     {
       pax_id=ASTRA::NoExists;
       subclass_fmt=efmtUnknown;
-    };
+    }
+    TPaxTransferItem(const std::string& _subclass,
+                     TElemFmt _subclass_fmt) :
+      pax_id(ASTRA::NoExists),
+      subclass(_subclass),
+      subclass_fmt(_subclass_fmt) {}
 };
 
 class TTransferItem
@@ -44,7 +49,7 @@ class TTransferItem
       grp_id=ASTRA::NoExists;
       airp_arv_fmt=efmtUnknown;
       subclass_fmt=efmtUnknown;
-    };
+    }
     bool Valid() const
     {
       return !operFlt.airline.empty() &&
@@ -52,7 +57,7 @@ class TTransferItem
              !operFlt.airp.empty() &&
              operFlt.scd_out!=ASTRA::NoExists &&
              !airp_arv.empty();
-    };
+    }
     bool equalSeg(const TTransferItem &item) const
     {
       return operFlt.airline==item.operFlt.airline &&
@@ -61,7 +66,8 @@ class TTransferItem
              operFlt.scd_out==item.operFlt.scd_out &&
              operFlt.airp==item.operFlt.airp &&
              airp_arv==item.airp_arv;
-    };
+    }
+    bool equalSubclasses(const TTransferItem &item) const;
 };
 
 void PaxTransferFromDB(int pax_id, std::list<TPaxTransferItem> &trfer);
@@ -424,9 +430,12 @@ class TGrpItem
 
     int equalRate(const TGrpItem &item, int minPaxEqualRate) const;
     bool equalTrfer(const TGrpItem &item) const;
-    bool similarTrfer(const TGrpItem &item) const;
+    bool similarTrfer(const TGrpItem &item, bool checkSubclassesEquality) const;
+    bool addSubclassesForEqualTrfer(const TGrpItem &item);
+    void printTrfer(const std::string &title, bool printSubclasses=false) const;
     void print() const;
     bool alreadyCheckedIn(int point_id) const;
+    void normalizeTrfer();
 };
 
 enum TConflictReason { conflictInPaxDuplicate,

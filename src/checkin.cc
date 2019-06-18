@@ -1053,41 +1053,15 @@ void CheckInInterface::GetTrferSets(const TTripInfo &operFlt,
   }
 }
 
-void CheckInInterface::GetOnwardCrsTransfer(int pnr_id, TQuery &Qry,
+void CheckInInterface::GetOnwardCrsTransfer(int id, bool isPnrId,
                                             const TTripInfo &operFlt,
                                             const string &oper_airp_arv,
                                             map<int, CheckIn::TTransferItem> &trfer)
 {
   trfer.clear();
-  vector<TypeB::TTransferItem> crs_trfer;
-  crs_trfer.clear();
-  const char* sql=
-    "SELECT transfer_num,airline,flt_no,suffix, "
-    "       local_date,airp_dep,airp_arv,subclass "
-    "FROM crs_transfer "
-    "WHERE pnr_id=:pnr_id AND transfer_num>0 "
-    "ORDER BY transfer_num";
-  if (strcmp(Qry.SQLText.SQLText(),sql)!=0)
-  {
-    Qry.Clear();
-    Qry.SQLText=sql;
-    Qry.DeclareVariable("pnr_id", otInteger);
-  }
-  Qry.SetVariable("pnr_id", pnr_id);
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-  {
-    TypeB::TTransferItem trferItem;
-    trferItem.num=Qry.FieldAsInteger("transfer_num");
-    strcpy(trferItem.airline, Qry.FieldAsString("airline"));
-    trferItem.flt_no=Qry.FieldAsInteger("flt_no");
-    strcpy(trferItem.suffix, Qry.FieldAsString("suffix"));
-    trferItem.local_date=Qry.FieldAsInteger("local_date");
-    strcpy(trferItem.airp_dep, Qry.FieldAsString("airp_dep"));
-    strcpy(trferItem.airp_arv, Qry.FieldAsString("airp_arv"));
-    strcpy(trferItem.subcl, Qry.FieldAsString("subclass"));
-    crs_trfer.push_back(trferItem) ;
-  }
+  TypeB::TTransferRoute crs_trfer;
+  isPnrId?crs_trfer.getByPnrId(id):
+          crs_trfer.getByPaxId(id);
 
   if (crs_trfer.empty()) return;
 
@@ -1096,7 +1070,7 @@ void CheckInInterface::GetOnwardCrsTransfer(int pnr_id, TQuery &Qry,
   int prior_transfer_num=0;
   string prior_airp_arv=oper_airp_arv;
   TElemFmt prior_airp_arv_fmt=efmtCodeNative;
-  for(vector<TypeB::TTransferItem>::const_iterator t=crs_trfer.begin();t!=crs_trfer.end();++t)
+  for(TypeB::TTransferRoute::const_iterator t=crs_trfer.begin();t!=crs_trfer.end();++t)
   {
     if ((prior_transfer_num+1!=t->num && *(t->airp_dep)==0) || *(t->airp_arv)==0)
       //иными словами, не знаем порта прилета и предыдущией стыковки нет
@@ -1261,8 +1235,6 @@ bool LoadUnconfirmedTransfer(const vector<CheckIn::TTransferItem> &segs, xmlNode
   PaxQry.CreateVariable("grp_id", otInteger, firstSeg.grp_id);
   PaxQry.Execute();
 
-  TQuery TrferQry(&OraSession);
-
   vector< pair< pair< string, map<int, CheckIn::TTransferItem> >, vector<int> > > crs_trfer, trfer; //вектор пар <tlg_airp_dep+трансферный маршрут, вектор ид. пассажиров>
 
   int pnr_id=NoExists;
@@ -1277,7 +1249,7 @@ bool LoadUnconfirmedTransfer(const vector<CheckIn::TTransferItem> &segs, xmlNode
       pair< pair< string, map<int, CheckIn::TTransferItem> >, vector<int> > &last_crs_trfer=crs_trfer.back();
 
       last_crs_trfer.first.first=PaxQry.FieldAsString("tlg_airp_dep");
-      CheckInInterface::GetOnwardCrsTransfer(pnr_id, TrferQry, firstSeg.operFlt, firstSeg.airp_arv, last_crs_trfer.first.second); //зачитаем из таблицы crs_transfer
+      CheckInInterface::GetOnwardCrsTransfer(pnr_id, true, firstSeg.operFlt, firstSeg.airp_arv, last_crs_trfer.first.second); //зачитаем из таблицы crs_transfer
     }
 
     if (crs_trfer.empty()) continue;
@@ -1639,8 +1611,6 @@ static int CreateSearchResponse(int point_dep,
     "FROM tlg_trips WHERE point_id=:point_id";
   FltQry.DeclareVariable("point_id",otInteger);
 
-  TQuery TrferQry(&OraSession);
-
   TQuery PnrAddrQry(&OraSession);
   PnrAddrQry.SQLText =
     "SELECT airline,addr FROM pnr_addrs WHERE pnr_id=:pnr_id";
@@ -1709,7 +1679,7 @@ static int CreateSearchResponse(int point_dep,
 
       trfer.clear();
       trfer_segs.clear();
-      CheckInInterface::GetOnwardCrsTransfer(curr_pnr_id, TrferQry,
+      CheckInInterface::GetOnwardCrsTransfer(curr_pnr_id, true,
                                              operFlt,
                                              PaxQry.FieldAsString("airp_arv"),
                                              trfer);
@@ -3804,89 +3774,106 @@ void GetInboundTransferForWeb(TSegList &segList,
   Qry.Clear();
   Qry.SQLText="SELECT pnr_id FROM crs_pax WHERE pax_id=:pax_id AND pr_del=0";
   Qry.DeclareVariable("pax_id", otInteger);
-  TQuery TrferQry(&OraSession);
 
-  set<int> pnr_ids;
+  map<int, InboundTrfer::TGrpItem> grpItems;
+  InboundTrfer::TGrpItem jointGrpItem;
   for(CheckIn::TPaxList::const_iterator p=segList.begin()->paxs.begin(); p!=segList.begin()->paxs.end(); ++p)
   {
-    if (p->pax.id!=NoExists)
+    if (p->pax.id==NoExists)
+      throw Exception("%s: strange situation: p->pax.id==NoExists", __func__);
+
+    inbound_trfer_pax_out_ids.insert(p->pax.id);
+
+    int pnr_id=NoExists;
+
+    Qry.SetVariable("pax_id", p->pax.id);
+    Qry.Execute();
+    if (!Qry.Eof) pnr_id=Qry.FieldAsInteger("pnr_id");
+
+    const auto& res=grpItems.emplace(pnr_id, InboundTrfer::TGrpItem());
+    InboundTrfer::TGrpItem& tmpGrpItem=res.first->second;
+    if (res.second && pnr_id!=NoExists)
     {
-      inbound_trfer_pax_out_ids.insert(p->pax.id);
+      //зачитаем трансферный маршрут
+      CheckInInterface::GetOnwardCrsTransfer(pnr_id,
+                                             true,
+                                             segList.begin()->flt,
+                                             segList.begin()->grp.airp_arv,
+                                             tmpGrpItem.trfer);
+      tmpGrpItem.normalizeTrfer();
 
-      Qry.SetVariable("pax_id", p->pax.id);
-      Qry.Execute();
-      if (!Qry.Eof)
-      {
-        int pnr_id=Qry.FieldAsInteger("pnr_id");
-        if (pnr_ids.insert(pnr_id).second)
+      map<int, pair<TCkinSegFlts, TTrferSetsInfo> > trfer_segs;
+
+      CheckInInterface::GetTrferSets(segList.begin()->flt,
+                                     segList.begin()->grp.airp_arv,
+                                     "",
+                                     tmpGrpItem.trfer,
+                                     true,
+                                     trfer_segs);
+      for(const auto& s : trfer_segs)
+        if (!s.second.second.trfer_permit)
         {
-          InboundTrfer::TGrpItem tmpGrpItem;
-          //зачитаем трансферный маршрут
-          CheckInInterface::GetOnwardCrsTransfer(pnr_id,
-                                                 TrferQry,
-                                                 segList.begin()->flt,
-                                                 segList.begin()->grp.airp_arv,
-                                                 tmpGrpItem.trfer);
-          //если есть разрыв трансферного маршрута - уберем часть после разрыва
-          //если есть неопределенные коды - уберем часть с ними
-          map<int, CheckIn::TTransferItem>::iterator t=tmpGrpItem.trfer.begin();
-          int num=1;
-          for(;t!=tmpGrpItem.trfer.end();++t,num++)
-            if (num!=t->first ||
-                t->second.operFlt.airline_fmt==efmtUnknown ||
-                (!t->second.operFlt.suffix.empty() && t->second.operFlt.suffix_fmt==efmtUnknown) ||
-                t->second.operFlt.airp_fmt==efmtUnknown ||
-                t->second.airp_arv_fmt==efmtUnknown ||
-                t->second.subclass_fmt==efmtUnknown) break;
-          tmpGrpItem.trfer.erase(t, tmpGrpItem.trfer.end());
-
-          if (inbound_trfer_grp_out.similarTrfer(tmpGrpItem))
-          {
-            if (tmpGrpItem.trfer.size() > inbound_trfer_grp_out.trfer.size())
-            {
-              //добавить дополнительно часть трансферного маршрута с установкой подклассов для пассажиров
-              size_t tmp_size=segList.begin()->paxs.size();
-              map<int, CheckIn::TTransferItem>::const_iterator t1=tmpGrpItem.trfer.begin();
-              map<int, CheckIn::TTransferItem>::iterator t2=inbound_trfer_grp_out.trfer.begin();
-              for(;t1!=tmpGrpItem.trfer.end() && t2!=inbound_trfer_grp_out.trfer.end();++t1,++t2);
-              for(;t1!=tmpGrpItem.trfer.end();++t1)
-              {
-                t2=inbound_trfer_grp_out.trfer.insert(*t1).first;
-                CheckIn::TPaxTransferItem paxTrfer;
-                paxTrfer.subclass=t1->second.subclass;
-                paxTrfer.subclass_fmt=t1->second.subclass_fmt;
-                t2->second.pax.assign(tmp_size, paxTrfer);
-              }
-            }
-          }
-          else
-          {
-            inbound_trfer.conflicts.insert(InboundTrfer::conflictOutRouteDiffer);
-            break;  //по сути выход из процедуры
-          }
+          tmpGrpItem.trfer.erase(tmpGrpItem.trfer.find(s.first), tmpGrpItem.trfer.end());
+          break;
         }
-      }
+    }
+
+    if (p==segList.begin()->paxs.begin())
+      jointGrpItem.trfer=tmpGrpItem.trfer;
+
+    if (!jointGrpItem.addSubclassesForEqualTrfer(tmpGrpItem))
+    {
+      jointGrpItem.printTrfer("jointGrpItem", true);
+      tmpGrpItem.printTrfer("tmpGrpItem", true);
+      inbound_trfer.conflicts.insert(InboundTrfer::conflictOutRouteDiffer);
+      break;  //по сути выход из процедуры
     }
 
     if (!p->trferAttachable()) continue;
 
     inbound_trfer_grp_out.paxs.push_back(InboundTrfer::TPaxItem("", p->pax.surname, p->pax.name));
   }
+
+  for(bool checkSubclassesEquality : {false, true})
+  {
+    if (!inbound_trfer_grp_out.similarTrfer(jointGrpItem, checkSubclassesEquality))
+    {
+      inbound_trfer_grp_out.printTrfer("inbound_trfer_grp_out", true);
+      jointGrpItem.printTrfer("jointGrpItem", true);
+      inbound_trfer.conflicts.insert(InboundTrfer::conflictOutRouteDiffer);
+      if (checkSubclassesEquality)
+        LogError(STDLOG) << __func__ << " warning: strange situation - different subclasses";
+      break;
+    }
+  }
+
+  inbound_trfer_grp_out.trfer=jointGrpItem.trfer;
+
   //входящий трансфер
   if (inbound_trfer.conflicts.empty())
   {
-    GetNewGrpInfo(segList.begin()->grp.point_dep,
-                  inbound_trfer_grp_out,
-                  inbound_trfer_pax_out_ids,
-                  inbound_trfer);
+    InboundTrfer::GetNewGrpInfo(segList.begin()->grp.point_dep,
+                                inbound_trfer_grp_out,
+                                inbound_trfer_pax_out_ids,
+                                inbound_trfer);
   }
-  if (!inbound_trfer.tag_map.empty() && inbound_trfer.conflicts.empty())
+  if (inbound_trfer.conflicts.empty())
   {
-    map<int, CheckIn::TTransferItem>::const_iterator t1=inbound_trfer_grp_out.trfer.begin();
-    map<int, CheckIn::TTransferItem>::const_iterator t2=inbound_trfer.tag_map.begin()->second.first.trfer.begin();
-    for(;t1!=inbound_trfer_grp_out.trfer.end() && t2!=inbound_trfer.tag_map.begin()->second.first.trfer.end(); ++t1,++t2)
-      //целостность маршрута проверили в GetNewGrpTags
-      inbound_trfer_route.push_back(t1->second); //важно, что берем за основу inbound_trfer_grp_out с заполненными подклассами пассажиров
+    if (!inbound_trfer.tag_map.empty())
+    {
+      map<int, CheckIn::TTransferItem>::const_iterator t1=inbound_trfer_grp_out.trfer.begin();
+      map<int, CheckIn::TTransferItem>::const_iterator t2=inbound_trfer.tag_map.begin()->second.first.trfer.begin();
+      for(;t1!=inbound_trfer_grp_out.trfer.end() && t2!=inbound_trfer.tag_map.begin()->second.first.trfer.end(); ++t1,++t2)
+        //целостность маршрута проверили в GetNewGrpTags
+        inbound_trfer_route.push_back(t1->second); //важно, что берем за основу inbound_trfer_grp_out с заполненными подклассами пассажиров
+    }
+    else
+    {
+      map<int, CheckIn::TTransferItem>::const_iterator t1=inbound_trfer_grp_out.trfer.begin();
+      for(;t1!=inbound_trfer_grp_out.trfer.end(); ++t1)
+        //целостность маршрута проверили в GetNewGrpTags
+        inbound_trfer_route.push_back(t1->second); //важно, что берем за основу inbound_trfer_grp_out с заполненными подклассами пассажиров
+    }
   }
 }
 
@@ -4308,6 +4295,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       throw UserException("MSG.CREW.THROUGH_CHECKIN_NOT_PERFORMED");
   }
 
+  bool trfer_confirm=reqInfo->client_type==ctTerm;
+  bool inbound_confirm=false;
+
   //проверим входящий трансфер только при первоначальной регистрации
   set<InboundTrfer::TConflictReason> inbound_trfer_conflicts;
   CheckIn::TGroupBagItem inbound_group_bag;
@@ -4331,14 +4321,15 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     }
 
     inbound_trfer_conflicts=info.conflicts;
-    if (save_trfer && !inbound_group_bag.empty())
+    if (save_trfer && info.conflicts.empty())
     {
       //привязка входящего трансфера для веб и киоск регистрации
       trfer=inbound_trfer_route;
+      trfer_confirm=true;
+      inbound_confirm=true;
     }
   }
 
-  bool inbound_confirm=false;
   if (!segList.empty() && save_trfer &&
       reqInfo->client_type == ctTerm &&
       segList.begin()->grp.status!=psCrew)
@@ -5094,7 +5085,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
         if (GetNode("generated_grp_id",segNode)!=NULL)
           Qry.SetVariable("grp_id",NodeAsInteger("generated_grp_id",segNode));
-        bool trfer_confirm=(reqInfo->client_type==ctTerm || !inbound_group_bag.empty());
         if (trfer_confirm) AfterSaveInfo.action=CheckIn::actionSvcAvailability;
         Qry.CreateVariable("trfer_confirm",otInteger,(int)trfer_confirm);
         Qry.CreateVariable("trfer_conflict",otInteger,(int)(!inbound_trfer_conflicts.empty() && reqInfo->client_type != ctTerm));  //зажигаем тревогу только для веба и киоска

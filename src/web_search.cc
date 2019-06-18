@@ -2342,7 +2342,7 @@ void getTCkinData( const TFlightInfo& first_flt,
 
   TQuery Qry(&OraSession);
   map<int, CheckIn::TTransferItem> crs_trfer;
-  CheckInInterface::GetOnwardCrsTransfer(first_seg.pnr_id, Qry, first_flt.oper, first_dest.airp_arv, crs_trfer);
+  CheckInInterface::GetOnwardCrsTransfer(first_seg.pnr_id, true, first_flt.oper, first_dest.airp_arv, crs_trfer);
   if (!crs_trfer.empty())
   {
     //проверяем разрешение сквозной регистрации для данного типа клиента
