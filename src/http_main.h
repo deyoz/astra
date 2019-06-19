@@ -25,6 +25,7 @@ struct HTTPClient;
 
 void HTTPPostProcessXMLAnswer();
 void TlgPostProcessXMLAnswer();
+void ZamarPostProcessXMLAnswer();
 
 struct JxtInfo {
   std::string interface;
@@ -118,11 +119,11 @@ struct HTTPClient
     jxt_interface["get_resource"] =         JxtInfo(HTML_JXT_INTERFACE_ID,          NULL);
     jxt_interface["print_bp"] =             JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
     jxt_interface["print_bp2"] =            JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
-    jxt_interface["PassengerSearch"] =      JxtInfo(ZAMAR_DSM_JXT_INTERFACE_ID,     NULL);
-    jxt_interface["PassengerSearchSBDO"] =        JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     NULL);
-    jxt_interface["PassengerBaggageTagAdd"] =     JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     NULL);
-    jxt_interface["PassengerBaggageTagConfirm"] = JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     NULL);
-    jxt_interface["PassengerBaggageTagRevoke"] =  JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     NULL);
+    jxt_interface["PassengerSearch"] =      JxtInfo(ZAMAR_DSM_JXT_INTERFACE_ID,     ZamarPostProcessXMLAnswer);
+    jxt_interface["PassengerSearchSBDO"] =        JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     ZamarPostProcessXMLAnswer);
+    jxt_interface["PassengerBaggageTagAdd"] =     JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     ZamarPostProcessXMLAnswer);
+    jxt_interface["PassengerBaggageTagConfirm"] = JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     ZamarPostProcessXMLAnswer);
+    jxt_interface["PassengerBaggageTagRevoke"] =  JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     ZamarPostProcessXMLAnswer);
   }
 };
 
