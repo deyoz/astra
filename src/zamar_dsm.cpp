@@ -24,63 +24,62 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace ASTRA;
 
-const string STR_PAX_NO_MATCH = "PAX_NO_MATCH";
-const string STR_PAX_REFUSE = "PAX_REFUSE";
-const string STR_TRFER_NO_CONFIRM = "TRFER_NO_CONFIRM";
-const string STR_WRONG_CHECKIN_STATUS = "WRONG_CHECKIN_STATUS";
-const string STR_CONCEPT_UNKNOWN = "CONCEPT_UNKNOWN";
-//const string STR_PIECE_EXCEED = "PIECE_EXCEED";
-const string STR_WEIGHT_EXCEED = "WEIGHT_EXCEED";
-const string STR_BAG_TYPE_NOT_ALLOWED = "BAG_TYPE_NOT_ALLOWED";
-//const string STR_CONCEPT_NO_MATCH = "CONCEPT_NO_MATCH";
-const string STR_BAG_TAG_PAID = "BAG_TAG_PAID";
-// TODO INVALID XML
+const string STR_INTERNAL_ERROR = "MSG.SBDO.INTERNAL_ERROR";
+const string STR_PAX_NO_MATCH = "MSG.SBDO.PAX_NO_MATCH"; // используется и для DSM
+const string STR_INCORRECT_DATA_IN_XML = "MSG.SBDO.INCORRECT_DATA_IN_XML";
+const string STR_WEIGHT_CONCEPT_NOT_ALLOWED = "WEIGHT CONCEPT IS NOT ALLOWED WHILE TESTING"; // !!!
+const string STR_BAG_TYPE_NOT_ALLOWED = "MSG.SBDO.BAG_TYPE_NOT_ALLOWED";
+const string STR_NO_ANSWER_FROM_REMOTE_SYSTEM = "MSG.SBDO.NO_ANSWER_FROM_REMOTE_SYSTEM";
+const string STR_BAGGAGE_NOT_ALLOWED = "MSG.SBDO.BAGGAGE_NOT_ALLOWED";
+const string STR_BAG_TAG_NOT_FOUND = "MSG.SBDO.BAG_TAG_NOT_FOUND";
+const string STR_TAG_NOT_ACTIVATED = "MSG.SBDO.TAG_NOT_ACTIVATED";
+const string STR_TAG_WAS_DEACTIVATED = "MSG.SBDO.TAG_WAS_DEACTIVATED";
+const string STR_TAG_ALREADY_ACTIVATED = "MSG.SBDO.TAG_ALREADY_ACTIVATED";
+const string STR_TAG_ALREADY_DEACTIVATED = "MSG.SBDO.TAG_ALREADY_DEACTIVATED";
+const string STR_WRONG_PAX_STATUS = "MSG.SBDO.WRONG_PAX_STATUS";
+const string STR_TRFER_NO_CONFIRM = "MSG.SBDO.TRFER_NO_CONFIRM";
+const string STR_WRONG_CHECKIN_STATUS = "MSG.SBDO.WRONG_CHECKIN_STATUS";
+const string STR_CONCEPT_UNKNOWN = "MSG.SBDO.CONCEPT_UNKNOWN";
+const string STR_WEIGHT_EXCEED = "MSG.SBDO.WEIGHT_EXCEED";
+// "MSG.SBDO.SERVICES_BECAME_PAID" checkin.cc
 
-const string STR_BAGGAGE_NOT_ALLOWED = "BAGGAGE_NOT_ALLOWED";
-
-const string STR_INTERNAL_ERROR = "INTERNAL_ERROR"; // TODO использовать по минимуму
-const string STR_UNDER_CONSTRUCTION = "UNDER_CONSTRUCTION";
-
-
-struct ZamarException : public Exception
+void ZamarException(const string& code, const string& comment, const string& func)
 {
-  string cmd;
-  ZamarException(string a_cmd, string a_err) : Exception(a_err.c_str()), cmd(a_cmd) {}
-};
-
-void ZamarErrorXML(xmlNodePtr resNode, const std::string& cmd, const std::string &err)
-{
-  if (resNode == nullptr)
-    return;
-  NewTextChild(resNode, "command", cmd);
-  NewTextChild(resNode, "error", err);
+  LogTrace(TRACE5) << "ZAMAR EXCEPTION: code='" << code << "' comment='" << comment << "' function='" << func << "'";
+  if (code == STR_INCORRECT_DATA_IN_XML)
+  {  
+    ProgError(STDLOG, "ZAMAR incorrect data in XML: %s", comment.c_str());
+    throw AstraLocale::UserException("WRAP.QRY_HANDLER_ERR", AstraLocale::LParams() << AstraLocale::LParam("text", comment));
+  }  
+  else
+  {
+    throw AstraLocale::UserException(code);
+  }
 }
 
-class FinishProcessXML {};
+class FinishProcess {};
 
 static void ProcessXML(ZamarDataInterface& data, xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode, ZamarType type)
 {
   try
   {
     data.fromXML(reqNode, externalSysResNode, type);
+    data.toXML(resNode, type);
   }
-  catch (FinishProcessXML)
+  catch (const AstraLocale::UserException&)
   {
-    return;
-  }
-  catch (ZamarException& ZE)
+    throw;
+  }    
+  catch (const std::exception& e)
   {
-    ASTRA::rollback(); //!!!вообще пересмотреть обработку ошибок
-    ZamarErrorXML(resNode, ZE.cmd, ZE.what());
-    return;
-  }
-  catch (Exception& E)
+    ProgError(STDLOG, "ZAMAR std::exception: %s", e.what());
+    throw AstraLocale::UserException("WRAP.QRY_HANDLER_ERR", AstraLocale::LParams() << AstraLocale::LParam("text", e.what()));    
+  }     
+  catch (const FinishProcess&)
   {
-    ASTRA::rollback(); //!!!вообще пересмотреть обработку ошибок
-    ZamarErrorXML(resNode, STR_INTERNAL_ERROR, E.what());
-    return;
+    if (isDoomedToWait())
+      AstraLocale::showError(STR_NO_ANSWER_FROM_REMOTE_SYSTEM);
   }
-  data.toXML(resNode, type);
 }
 
 //-----------------------------------------------------------------------------------
@@ -140,19 +139,19 @@ void ZamarSBDOInterface::PassengerBaggageTagRevoke(xmlNodePtr reqNode, xmlNodePt
 void PassengerSearchResult::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, ZamarType type)
 {
   if (reqNode == nullptr)
-    throw Exception("reqNode == nullptr");
+    ZamarException(STR_INTERNAL_ERROR, "reqNode == nullptr", __func__);
 
   AstraLocale::OutputLang lang("", {AstraLocale::OutputLang::OnlyTrueIataCodes});
   // sessionId
   sessionId = NodeAsString("sessionId", reqNode);
   if (sessionId.empty())
-    throw Exception("Empty <sessionId>");
+    ZamarException(STR_INCORRECT_DATA_IN_XML, "Empty <sessionId>", __func__);
   // bcbp
   string bcbp = NodeAsString( "bcbp", reqNode);
   if (bcbp.empty())
-    throw Exception("Empty <bcbp>");
+    ZamarException(STR_INCORRECT_DATA_IN_XML, "Empty <bcbp>", __func__);
 
-  AstraWeb::GetBPPaxFromScanCode(bcbp, bppax); // throws
+  AstraWeb::GetBPPaxFromScanCode(bcbp, bppax);
 
   if (not bppax.errors.empty())
   {
@@ -162,14 +161,11 @@ void PassengerSearchResult::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysRe
           err.lexema_id == "MSG.PASSENGER.NOT_FOUND" or
           err.lexema_id == "MSG.PASSENGERS.FOUND_MORE" or
           err.lexema_id == "MSG.FLIGHT.NOT_FOUND")
-      {
-        LogTrace(TRACE5) << "error command = '" << STR_PAX_NO_MATCH << "' lexema_id = '" << err.lexema_id << "'";
-        throw ZamarException(STR_PAX_NO_MATCH, getLocaleText(err.lexema_id, err.lparams, lang.get()));
-      }
+        ZamarException(STR_PAX_NO_MATCH, err.lexema_id, __func__);
     }
     const auto& err = *bppax.errors.cbegin();
-    LogTrace(TRACE5) << "error command = '" << STR_INTERNAL_ERROR << "' lexema_id = '" << err.lexema_id << "'";
-    throw ZamarException(STR_INTERNAL_ERROR, getLocaleText(err.lexema_id, err.lparams, lang.get()));
+    ZamarException(STR_INTERNAL_ERROR, err.lexema_id, __func__);
+    // getLocaleText(err.lexema_id, err.lparams, lang.get();
   }
 
   point_id = bppax.point_dep;
@@ -177,7 +173,11 @@ void PassengerSearchResult::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysRe
   pax_id = bppax.pax_id;
 
   if (not trip_info.getByPointId(point_id))
-    throw Exception("Failed trip_info.getByPointId %d", point_id);
+  {
+    stringstream ss;
+    ss << "Failed trip_info.getByPointId " << point_id;
+    ZamarException(STR_INTERNAL_ERROR, ss.str(), __func__);
+  }
 
   bool get_grp_result = false;
   if (type == ZamarType::DSM)
@@ -186,22 +186,33 @@ void PassengerSearchResult::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysRe
     get_grp_result = grp_item.getByGrpIdWithBagConcepts(grp_id);
   if (not get_grp_result)
   {
-    string err_str = "Unknown grp_id error %d";
+    stringstream ss;
     if (type == ZamarType::DSM)
-      err_str = "Failed grp_item.getByGrpId %d";
+      ss << "Failed grp_item.getByGrpId ";
     else if (type == ZamarType::SBDO)
-      err_str = "Failed grp_item.getByGrpIdWithBagConcepts %d";
-    throw Exception(err_str.c_str(), grp_id);
+      ss << "Failed grp_item.getByGrpIdWithBagConcepts ";
+    else
+      ss << "Unknown grp_id error ";
+    ss << grp_id;
+    ZamarException(STR_INTERNAL_ERROR, ss.str(), __func__);
   }
 
   if (not pax_item.getByPaxId(pax_id))
-    throw Exception("Failed pax_item.getByPaxId %d", pax_id);
+  {
+    stringstream ss;
+    ss << "Failed pax_item.getByPaxId " << pax_id;
+    ZamarException(STR_INTERNAL_ERROR, ss.str(), __func__);
+  }
 
   doc_exists = CheckIn::LoadPaxDoc(pax_id, doc);
   doco_exists = CheckIn::LoadPaxDoco(pax_id, doco);
   mkt_flt.getByPaxId(pax_id);
   if (mkt_flt.empty())
-    throw Exception("Failed mkt_flt.getByPaxId %d", pax_id);
+  {
+    stringstream ss;
+    ss << "Failed mkt_flt.getByPaxId " << pax_id;
+    ZamarException(STR_INTERNAL_ERROR, ss.str(), __func__);
+  }
 
   // flightStatus
   flightCheckinStage = TTripStages(point_id).getStage( stCheckIn );
@@ -566,7 +577,7 @@ void PassengerSearchResult::toXML(xmlNodePtr resNode, ZamarType type) const
 
 std::string ZamarBagTag::tagNumber() const
 {
-  if (!tagNumber_) return "";
+  if (!tagNumber_) return "NUMBER NOT DEFINED";
   return tagNumber_.get().str();
 }
 
@@ -592,17 +603,18 @@ TBagConcept::Enum ZamarBagTag::bagConcept() const
 
 void ZamarBagTag::Generate(int grp_id)
 {
+  // вызов функции генерации для существующей бирки - это нештатная ситуация
   if (generated_)
-    throw Exception("Tag number already generated %s", tagNumber().c_str());
+    ZamarException(STR_INTERNAL_ERROR, tagNumber() + " tag number already generated", __func__);
   if (activated_)
-    throw Exception("Cannot generate number for activated tag %s", tagNumber().c_str());
+    ZamarException(STR_INTERNAL_ERROR, tagNumber() + " tag number already activated", __func__);
   if (deactivated_)
-    throw Exception("Cannot generate number for deactivated tag %s", tagNumber().c_str());
+    ZamarException(STR_INTERNAL_ERROR, tagNumber() + " tag number already deactivated", __func__);
 
   TGeneratedTags generated;
   generated.generate(grp_id, 1);
   if (generated.tags().size()!=1)
-    throw Exception("ZamarBagTag::Generate: generated.tags().size()!=1");
+    ZamarException(STR_INTERNAL_ERROR, "generated.tags().size()!=1", __func__);
   tagNumber_=*(generated.tags().begin());
   generated_ = true;
 
@@ -612,20 +624,32 @@ void ZamarBagTag::Generate(int grp_id)
 void ZamarBagTag::fromXML_add(xmlNodePtr reqNode)
 {
   if (reqNode == nullptr)
-    throw Exception("reqNode == nullptr");
+    ZamarException(STR_INTERNAL_ERROR, "reqNode == nullptr", __func__);
 
   pax_id_ = NodeAsInteger("passengerId", reqNode);
   xmlNodePtr tagNode = NodeAsNode("baggageTag", reqNode);
   bag_.amount = 1;
-  bag_.weight = NodeAsInteger("@weight", tagNode); // TODO unit
+  bag_.weight = NodeAsInteger("@weight", tagNode);
+  string unit_xml = NodeAsString("@unit", tagNode);
+  if (unit_xml != "KG")
+  {
+    stringstream ss;
+    ss << "@unit must be 'KG' instead of '" << unit_xml << "'";
+    ZamarException(STR_INCORRECT_DATA_IN_XML, ss.str(), __func__);
+  }
   xmlNodePtr typeNode = NodeAsNode("baggageType", reqNode);
 
   string concept = NodeAsString("@type", typeNode);
 
   TElemFmt airline_fmt = efmtUnknown;
-  string airline = ElemToElemId(etAirline, NodeAsString("@airline", typeNode), airline_fmt);
+  string airline_xml = NodeAsString("@airline", typeNode);
+  string airline = ElemToElemId(etAirline, airline_xml, airline_fmt);
   if (airline.empty())
-    throw Exception("Unknown @airline");
+  {
+    stringstream ss;
+    ss << "Unknown @airline '" << airline_xml << "'";
+    ZamarException(STR_INCORRECT_DATA_IN_XML, ss.str(), __func__);
+  }
 
   if (concept == "piece")
   {
@@ -634,26 +658,36 @@ void ZamarBagTag::fromXML_add(xmlNodePtr reqNode)
 
     key.airline = airline;
     key.RFISC = NodeAsString("@rfisc", typeNode);
-    if (bag_.pc.get().RFISC.empty())
-      throw Exception("Empty @rfisc");
-    key.service_type=ServiceTypes().decode(NodeAsString( "@serviceType", typeNode));
+    if (bag_.pc.get().RFISC.empty()) // TODO почему не key.RFISC
+      ZamarException(STR_INCORRECT_DATA_IN_XML, "Empty @rfisc", __func__);
+    string service_type_xml = NodeAsString("@serviceType", typeNode);
+    key.service_type=ServiceTypes().decode(service_type_xml);
     if (key.service_type==TServiceType::Unknown)
-      throw Exception("Unknown @serviceType");
+    {
+      stringstream ss;
+      ss << "Unknown @serviceType '" << service_type_xml << "'";
+      ZamarException(STR_INCORRECT_DATA_IN_XML, ss.str(), __func__);
+    }
   }
   else if (concept == "weight")
   {
-    // НА ВРЕМЯ ТЕСТИРОВАНИЯ ЗАГЛУШЕК
-    throw Exception("WEIGHT CONCEPT IS NOT ALLOWED WHILE TESTING");
+    // !!! НА ВРЕМЯ ТЕСТИРОВАНИЯ !!!
+    ZamarException(STR_WEIGHT_CONCEPT_NOT_ALLOWED, "", __func__);
+    
     bag_.wt=boost::in_place();
     TBagTypeListKey& key=bag_.wt.get();
 
     key.airline = airline;
     key.bag_type = NodeAsString( "@bag_type", typeNode);
     if (key.bag_type.empty())
-      throw Exception("Empty @bag_type");
+      ZamarException(STR_INCORRECT_DATA_IN_XML, "Empty @bag_type", __func__);
   }
   else
-    throw Exception("Unrecognized <concept>");
+  {
+    stringstream ss;
+    ss << "Unrecognized baggageType @type '" << concept << "' (must be 'piece' or 'weight')";
+    ZamarException(STR_INCORRECT_DATA_IN_XML, ss.str(), __func__);
+  }
 
   SetListId();
 }
@@ -661,7 +695,7 @@ void ZamarBagTag::fromXML_add(xmlNodePtr reqNode)
 void ZamarBagTag::fromXML(xmlNodePtr reqNode)
 {
   if (reqNode == nullptr)
-    throw Exception("reqNode == nullptr");
+    ZamarException(STR_INTERNAL_ERROR, "reqNode == nullptr", __func__);
 
   int pax_id = NodeAsInteger("passengerId", reqNode);
   tagNumber_=boost::in_place("", NodeAsFloat("tag", reqNode));
@@ -669,7 +703,7 @@ void ZamarBagTag::fromXML(xmlNodePtr reqNode)
   fromDB();
 
   if (pax_id != pax_id_)
-    throw Exception("Passenger ID is wrong for this tag");
+    ZamarException(STR_INTERNAL_ERROR, "Passenger ID not match", __func__);
 }
 
 void ZamarBagTag::toXML(xmlNodePtr resNode) const
@@ -677,7 +711,7 @@ void ZamarBagTag::toXML(xmlNodePtr resNode) const
   if (resNode == nullptr)
     return;
   if (not generated_)
-    throw Exception("ZamarBagTag::toXML: tag not generated");
+    ZamarException(STR_INTERNAL_ERROR, "Tag not generated", __func__);
   NewTextChild(resNode, "passengerId", pax_id_);
   NewTextChild(resNode, "tag", tagNumber());
 }
@@ -692,7 +726,7 @@ void ZamarBagTag::SetListId()
       TRFISCKey& key=bag_.pc.get();
       key.getListItemByPaxId(pax_id_, 0, TServiceCategory::BaggageInHold, __FUNCTION__);
       if (!key.list_item || !key.list_item.get().isBaggageInHold())
-        throw ZamarException(STR_BAG_TYPE_NOT_ALLOWED, "");
+        ZamarException(STR_BAG_TYPE_NOT_ALLOWED, "", __func__);
     }
 
     if (bag_.wt)
@@ -700,20 +734,20 @@ void ZamarBagTag::SetListId()
       TBagTypeKey& key=bag_.wt.get();
       key.getListItemByPaxId(pax_id_, 0, TServiceCategory::BaggageInHold, __FUNCTION__);
       if (!key.list_item || !key.list_item.get().isBaggageInHold())
-        throw ZamarException(STR_BAG_TYPE_NOT_ALLOWED, "");
+        ZamarException(STR_BAG_TYPE_NOT_ALLOWED, "", __func__);
     }
   }
-  catch(EConvertError &e)
+  catch(const EConvertError &e)
   {
     LogTrace(TRACE5) << e.what();
-    throw ZamarException(STR_BAG_TYPE_NOT_ALLOWED, "");
+    ZamarException(STR_BAG_TYPE_NOT_ALLOWED, "EConvertError", __func__);
   }
 }
 
 void ZamarBagTag::toDB_generated()
 {
   if (not generated_)
-    throw Exception("ZamarBagTag::toDB_generated: tag not generated");
+    ZamarException(STR_INTERNAL_ERROR, "Tag not generated", __func__);
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
@@ -728,8 +762,10 @@ void ZamarBagTag::toDB_generated()
   Qry.DeclareVariable("rfisc", otString);
   Qry.DeclareVariable("service_type", otString);
   Qry.DeclareVariable("airline", otString);
-  if (bag_.pc) bag_.pc.get().toDB(Qry);
-  else if (bag_.wt) bag_.wt.get().toDB(Qry);
+  if (bag_.pc)
+    bag_.pc.get().toDB(Qry);
+  else if (bag_.wt)
+    bag_.wt.get().toDB(Qry);
 
   LogTrace(TRACE5) << __func__
                    << ": no=" << tagNumber()
@@ -741,18 +777,18 @@ void ZamarBagTag::toDB_generated()
   Qry.Execute();
 }
 
-void ZamarBagTag::toDB_activated(xmlNodePtr reqNode, xmlNodePtr externalSysResNode) // ПОВТОРЯЮЩИЙСЯ КОД!!!
+void ZamarBagTag::toDB_activated(xmlNodePtr reqNode, xmlNodePtr externalSysResNode)
 {
   if (not generated_)
-    throw Exception("ZamarBagTag::toDB_activated: tag not generated");
+    ZamarException(STR_INTERNAL_ERROR, "Tag not generated", __func__);
   if (not activated_)
-    throw Exception("ZamarBagTag::toDB_activated: tag not activated");
+    ZamarException(STR_INTERNAL_ERROR, "Tag not activated", __func__);
 
   RemoveNode(GetNode("TCkinSavePax", reqNode));
   xmlNodePtr emulReqNode=NewTextChild(reqNode, "TCkinSavePax");
 
   if (!tagNumber_)
-    throw Exception("%s: !tagNumber_", __FUNCTION__);
+    ZamarException(STR_INTERNAL_ERROR, "No tag number", __func__);
 
   createEmulDocForSBDO(pax_id_,
                        tagNumber_.get(),
@@ -762,21 +798,21 @@ void ZamarBagTag::toDB_activated(xmlNodePtr reqNode, xmlNodePtr externalSysResNo
   CheckInInterface::SavePax(emulReqNode, externalSysResNode, nullptr);
 
   if (isDoomedToWait())
-    throw FinishProcessXML();
+    throw FinishProcess();
 }
 
 void ZamarBagTag::toDB_deactivated(xmlNodePtr reqNode, xmlNodePtr externalSysResNode)
 {
   if (not generated_)
-    throw Exception("ZamarBagTag::toDB_deactivated: tag not generated");
+    ZamarException(STR_INTERNAL_ERROR, "Tag not generated", __func__);
   if (not deactivated_)
-    throw Exception("ZamarBagTag::toDB_deactivated: tag not deactivated");
+    ZamarException(STR_INTERNAL_ERROR, "Tag not deactivated", __func__);
 
   RemoveNode(GetNode("TCkinSavePax", reqNode));
   xmlNodePtr emulReqNode=NewTextChild(reqNode, "TCkinSavePax");
 
   if (!tagNumber_)
-    throw Exception("%s: !tagNumber_", __FUNCTION__);
+    ZamarException(STR_INTERNAL_ERROR, "No tag number", __func__);
 
   // удаляем из активированных=зарегистрированных
   createEmulDocForSBDO(pax_id_,
@@ -787,7 +823,7 @@ void ZamarBagTag::toDB_deactivated(xmlNodePtr reqNode, xmlNodePtr externalSysRes
   CheckInInterface::SavePax(emulReqNode, externalSysResNode, nullptr);
 
   if (isDoomedToWait())
-    throw FinishProcessXML();
+    throw FinishProcess();
 
   // выставляем статус деактивирована в таблице сгенерированных
   TQuery Qry(&OraSession);
@@ -806,7 +842,8 @@ void ZamarBagTag::fromDB()
       "SELECT sbdo_tags_generated.*, 1 AS amount FROM sbdo_tags_generated WHERE no = :no";
   tagNumberToDB(Qry);
   Qry.Execute();
-  if (Qry.Eof) throw Exception("Bag tag not found %s", tagNumber().c_str());
+  if (Qry.Eof)
+    ZamarException(STR_BAG_TAG_NOT_FOUND, tagNumber(), __func__);
 
   // сгенерирована
   generated_ = true;
@@ -823,18 +860,18 @@ void ZamarBagTag::fromDB()
     if (activated_ && (tagOwner==ASTRA::NoExists || tagOwner!=pax_id_))
       //по какой-то причине бирка есть в группе, но привязана к другому пассажиру (запросто могли перепривязать с терминала)
       //ну или не привязана вообще, но это странно
-      throw ZamarException(STR_BAGGAGE_NOT_ALLOWED, "Not allowed");
+      ZamarException(STR_BAGGAGE_NOT_ALLOWED, "", __func__);
   }
 }
 
 void ZamarBagTag::Activate(xmlNodePtr reqNode, xmlNodePtr externalSysResNode)
 {
   if (activated_)
-    throw Exception("ZamarBagTag::Activate: TAG ALREADY ACTIVATED");
+    ZamarException(STR_TAG_ALREADY_ACTIVATED, tagNumber(), __func__);
   if (deactivated_)
-    throw Exception("ZamarBagTag::Activate: TAG WAS DEACTIVATED");
+    ZamarException(STR_TAG_WAS_DEACTIVATED, tagNumber(), __func__);
   if (not generated_)
-    throw Exception("ZamarBagTag::Activate: TAG NOT GENERATED");
+    ZamarException(STR_INTERNAL_ERROR, "Tag not generated", __func__);
 
   activated_ = true;
   toDB_activated(reqNode, externalSysResNode);
@@ -843,11 +880,11 @@ void ZamarBagTag::Activate(xmlNodePtr reqNode, xmlNodePtr externalSysResNode)
 void ZamarBagTag::Deactivate(xmlNodePtr reqNode, xmlNodePtr externalSysResNode)
 {
   if (deactivated_)
-    throw Exception("ZamarBagTag::Deactivate: TAG ALREADY DEACTIVATED");
+    ZamarException(STR_TAG_ALREADY_DEACTIVATED, tagNumber(), __func__);
   if (not activated_)
-    throw Exception("ZamarBagTag::Deactivate: TAG NOT ACTIVATED");
+    ZamarException(STR_TAG_NOT_ACTIVATED, tagNumber(), __func__);
   if (not generated_)
-    throw Exception("ZamarBagTag::Deactivate: TAG NOT GENERATED");
+    ZamarException(STR_INTERNAL_ERROR, "Tag not generated", __func__);
 
   activated_ = false;
   deactivated_ = true;
@@ -865,7 +902,7 @@ static void CheckPieceConceptAllowance(const CheckIn::TSimplePaxItem& pax,
   list< pair<int/*pax_id*/, TRFISCKey> > additionalBaggage;
 
   if (!bag.pc)
-    throw Exception("%s: !bag.pc", __FUNCTION__);
+    ZamarException(STR_INTERNAL_ERROR, "!bag.pc", __func__);
   additionalBaggage.emplace_back(pax.id, bag.pc.get());
 
   TQuery Qry(&OraSession);
@@ -882,7 +919,7 @@ static void CheckPieceConceptAllowance(const CheckIn::TSimplePaxItem& pax,
     CheckIn::TSimpleBagItem item;
     item.fromDB(Qry);
     if (!item.pc)
-      throw Exception("%s: !item.pc", __FUNCTION__);
+      ZamarException(STR_INTERNAL_ERROR, "!item.pc", __func__);
     additionalBaggage.emplace_back(pax_id, item.pc.get());
   }
 
@@ -907,87 +944,80 @@ static void CheckPieceConceptAllowance(const CheckIn::TSimplePaxItem& pax,
     {
       SirenaExchangeList.handle(__FUNCTION__);
 
-      if (paidAfter.becamePaid(pax.grp_id)) //сравним со всеми зарегистрированными и оцененными раньше услугами группы (в т.ч. зарегистрированный=активированный багаж)
-        throw ZamarException(STR_BAG_TAG_PAID, "Not allowed"); //!!!UserException("MSG.SBDO.SERVICES_BECAME_PAID")
+      //сравним со всеми зарегистрированными и оцененными раньше услугами группы (в т.ч. зарегистрированный=активированный багаж)
+      if (paidAfter.becamePaid(pax.grp_id))
+        ZamarException("MSG.SBDO.SERVICES_BECAME_PAID", "", __func__);
     }
   }
-  catch(SvcPaymentStatusNotApplicable)
+  catch(const SvcPaymentStatusNotApplicable&)
   {
-    throw ZamarException(STR_BAGGAGE_NOT_ALLOWED, "Not allowed");
+    ZamarException(STR_BAGGAGE_NOT_ALLOWED, "", __func__);
   }
 
   if (isDoomedToWait())
-    throw FinishProcessXML();
+    throw FinishProcess();
+}
+
+void ZamarGetPax(const int pax_id, CheckIn::TSimplePaxItem& pax_item)
+{
+  stringstream ss_pax_id;
+  ss_pax_id << "pax_id='" << pax_id << "'";
+  if (not pax_item.getByPaxId(pax_id)) // Если пассажир не найден (ид. неверный)
+    ZamarException(STR_PAX_NO_MATCH, ss_pax_id.str(), __func__);
+  if (not pax_item.allowToBagCheckIn()) // Если пассажир не в том статусе
+    ZamarException(STR_WRONG_PAX_STATUS, ss_pax_id.str(), __func__);
 }
 
 void ZamarBaggageTagAdd::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, ZamarType)
 {
   if (reqNode == nullptr)
-    throw Exception("reqNode == nullptr");
+    ZamarException(STR_INTERNAL_ERROR, "reqNode == nullptr", __func__);
+  
   session_id_ = NodeAsString("sessionId", reqNode);
   if (session_id_.empty())
-    throw Exception("Empty <sessionId>");
+    ZamarException(STR_INCORRECT_DATA_IN_XML, "Empty <sessionId>", __func__);
 
   tag_.fromXML_add(reqNode);
 
-  const int pax_id = tag_.pax_id_;
-
   CheckIn::TSimplePaxItem pax_item;
-  stringstream ss_pax_id_err;
-  ss_pax_id_err << "pax_id='" << pax_id << "'";
-  if (not pax_item.getByPaxId(pax_id)) // Если пассажир не найден (ид. неверный)
-  {
-    ss_pax_id_err << " Failed pax_item.getByPaxId";
-    throw ZamarException(STR_PAX_NO_MATCH, ss_pax_id_err.str());
-  }
-  if (not pax_item.allowToBagCheckIn()) // Если пассажир не в том статусе
-    throw ZamarException(STR_PAX_REFUSE, ss_pax_id_err.str());
+  ZamarGetPax(tag_.pax_id_, pax_item);
 
   int grp_id = pax_item.grp_id;
   CheckIn::TPaxGrpItem grp_item;
-  stringstream ss_grp_id_err;
-  ss_grp_id_err << "grp_id='" << grp_id << "'";
+  stringstream ss_grp_id;
+  ss_grp_id << "grp_id='" << grp_id << "'";
   if (not grp_item.getByGrpIdWithBagConcepts(grp_id))
-  {
-    ss_grp_id_err << " Failed grp_item.getByGrpId";
-    throw ZamarException(STR_INTERNAL_ERROR, ss_grp_id_err.str());
-  }
+    ZamarException(STR_INTERNAL_ERROR, ss_grp_id.str(), __func__);
   if (not grp_item.allowToBagCheckIn()) // проанализировать trfer_confirm == true
-    throw ZamarException(STR_TRFER_NO_CONFIRM, ss_grp_id_err.str());
+    ZamarException(STR_TRFER_NO_CONFIRM, ss_grp_id.str(), __func__);
 
   // Если этап тех графика "регистрация" не в том статусе
   if (not TTripStages(grp_item.point_dep).allowToBagCheckIn())
-    throw ZamarException(STR_WRONG_CHECKIN_STATUS, "");
+    ZamarException(STR_WRONG_CHECKIN_STATUS, "", __func__);
 
   // Нужно проанализировать что concept != unknown
   TBagConcept::Enum bag_concept_grp = grp_item.getBagAllowanceType();
   if (bag_concept_grp == TBagConcept::Unknown)
-    throw ZamarException(STR_CONCEPT_UNKNOWN, "");
-//  if (bag_concept_grp != bag_concept) throw ZamarException(STR_CONCEPT_NO_MATCH, ""); // ???
+    ZamarException(STR_CONCEPT_UNKNOWN, "", __func__);
 
   const int ALLOWED_MIN = 1;
   const int ALLOWED_MAX = 99;
   if (tag_.bag_.weight < ALLOWED_MIN or tag_.bag_.weight > ALLOWED_MAX)
   {
     stringstream ss;
-    ss << "weight='" << tag_.bag_.weight << "' when allowed='" << ALLOWED_MAX << "'";
-    throw ZamarException(STR_WEIGHT_EXCEED, ss.str());
+    ss << "weight='" << tag_.bag_.weight << "'";
+    ZamarException(STR_WEIGHT_EXCEED, ss.str(), __func__);
   }
 
   if (tag_.bagConcept() == TBagConcept::Piece)
   {
-    try
-    {
-      CheckPieceConceptAllowance(pax_item, tag_.bag_, reqNode, externalSysResNode);
-    }
-    catch(AstraLocale::UserException &e)
-    {
-      LogTrace(TRACE5) << e.what();
-      throw ZamarException(STR_BAGGAGE_NOT_ALLOWED, e.what());
-    }
+    CheckPieceConceptAllowance(pax_item, tag_.bag_, reqNode, externalSysResNode);
   }
   else
-    throw Exception("WEIGHT CONCEPT IS NOT ALLOWED WHILE TESTING");
+  {
+    // !!! НА ВРЕМЯ ТЕСТИРОВАНИЯ !!!
+    ZamarException(STR_WEIGHT_CONCEPT_NOT_ALLOWED, "", __func__);
+  }
 
   tag_.Generate(grp_id);
 }
@@ -1007,24 +1037,16 @@ void ZamarBaggageTagAdd::toXML(xmlNodePtr resNode, ZamarType) const
 void ZamarBaggageTagConfirm::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, ZamarType)
 {
   if (reqNode == nullptr)
-    throw Exception("reqNode == nullptr");
+    ZamarException(STR_INTERNAL_ERROR, "reqNode == nullptr", __func__);
+  
   session_id_ = NodeAsString("sessionId", reqNode);
   if (session_id_.empty())
-    throw Exception("Empty <sessionId>");
+    ZamarException(STR_INCORRECT_DATA_IN_XML, "Empty <sessionId>", __func__);
 
   tag_.fromXML(reqNode);
 
-  const int pax_id = tag_.pax_id_;
-  CheckIn::TSimplePaxItem pax_item; // ПОВТОРЯЮЩИЙСЯ КОД !!!
-  stringstream ss_pax_id_err;
-  ss_pax_id_err << "pax_id='" << pax_id << "'";
-  if (not pax_item.getByPaxId(pax_id)) // Если пассажир не найден (ид. неверный)
-  {
-    ss_pax_id_err << " Failed pax_item.getByPaxId";
-    throw ZamarException(STR_PAX_NO_MATCH, ss_pax_id_err.str());
-  }
-  if (not pax_item.allowToBagCheckIn()) // Если пассажир не в том статусе
-    throw ZamarException(STR_PAX_REFUSE, ss_pax_id_err.str());
+  CheckIn::TSimplePaxItem pax_item;
+  ZamarGetPax(tag_.pax_id_, pax_item);
 
 // CheckPieceConceptAllowance TODO
 
@@ -1046,10 +1068,11 @@ void ZamarBaggageTagConfirm::toXML(xmlNodePtr resNode, ZamarType) const
 void ZamarBaggageTagRevoke::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, ZamarType)
 {
   if (reqNode == nullptr)
-    throw Exception("reqNode == nullptr");
+    ZamarException(STR_INTERNAL_ERROR, "reqNode == nullptr", __func__);
+  
   session_id_ = NodeAsString("sessionId", reqNode);
   if (session_id_.empty())
-    throw Exception("Empty <sessionId>");
+    ZamarException(STR_INCORRECT_DATA_IN_XML, "Empty <sessionId>", __func__);
 
   tag_.fromXML(reqNode);
   tag_.Deactivate(reqNode, externalSysResNode);
