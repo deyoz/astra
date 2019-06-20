@@ -1863,6 +1863,7 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
         }
     }
 
+    // перетестить
     if (cache.code() == "REM_TXT_SETS") {
         if (
                 row.status != usDeleted and

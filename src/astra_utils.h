@@ -762,7 +762,7 @@ class CallbacksSingleton
             }
             return inst;
         }
-        T* Callbacks()
+        T* getCallbacks()
         {
             if(m_cb) {
                 return m_cb;
@@ -779,9 +779,9 @@ class CallbacksSingleton
 };
 
 template <class T>
-inline T* Callbacks()
+inline T* callbacks()
 {
-    return CallbacksSingleton<T>::Instance()->Callbacks();
+    return CallbacksSingleton<T>::Instance()->getCallbacks();
 }
 
 void CallbacksExceptionFilter(STDLOG_SIGNATURE);

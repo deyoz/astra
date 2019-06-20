@@ -56,13 +56,9 @@ void init_fqt_callbacks()
 }
 
 
-void TCustomAlarms::TSets::fromDB(const std::string &airline, int pax_id, set<int> &alarms)
+bool TCustomAlarms::TSets::get(const std::string &airline)
 {
-    LogTrace(TRACE5) << __func__ << ": started; airline: '" << airline << "'; pax_id: " << pax_id;
-    alarms.clear();
-
     auto &sets = items[airline];
-
     if(not sets) {
         sets = boost::in_place();
         TCachedQuery Qry("select * from custom_alarm_sets where airline = :airline",
@@ -78,8 +74,16 @@ void TCustomAlarms::TSets::fromDB(const std::string &airline, int pax_id, set<in
                 =
                 Qry.get().FieldAsInteger("alarm");
     }
+    return not sets->empty();
+}
 
-    if(not sets.get().empty()) {
+void TCustomAlarms::TSets::fromDB(const std::string &airline, int pax_id, set<int> &alarms)
+{
+    LogTrace(TRACE5) << __func__ << ": started; airline: '" << airline << "'; pax_id: " << pax_id;
+    alarms.clear();
+
+    if(get(airline)) {
+        auto &sets = items[airline];
 
         boost::optional<RFISCsSet> paxRFISCs;
         boost::optional<set<CheckIn::TPaxFQTItem>> fqts;
@@ -142,7 +146,7 @@ const TCustomAlarms &TCustomAlarms::getByGrpId(int grp_id)
 {
     clear();
     TTripInfo info;
-    if(info.getByGrpId(grp_id)) {
+    if(info.getByGrpId(grp_id) and sets.get(info.airline)) {
         TCachedQuery Qry("select pax_id from pax where grp_id = :grp_id",
                 QParams() << QParam("grp_id", otInteger, grp_id));
         Qry.get().Execute();
@@ -182,22 +186,33 @@ void TCustomAlarms::toXML(xmlNodePtr paxNode, int pax_id)
     }
 }
 
-void TCustomAlarms::fromDB(int point_id)
+void TCustomAlarms::fromDB(bool all, int id)
 {
     clear();
-    TCachedQuery Qry(
-            "select "
-            "   pa.pax_id, "
-            "   pa.alarm_type "
-            "from "
+
+    string SQLText;
+    SQLText =
+        "select "
+        "   pa.pax_id, "
+        "   pa.alarm_type "
+        "from ";
+    if(all) {
+        SQLText +=
             "   pax_grp, "
-            "   pax, "
-            "   pax_custom_alarms pa "
-            "where "
-            "   pax_grp.point_dep = :point_id and "
+            "   pax, ";
+    }
+    SQLText +=
+        "   pax_custom_alarms pa "
+        "where ";
+    if(all)
+        SQLText +=
+            "   pax_grp.point_dep = :id and "
             "   pax_grp.grp_id = pax.grp_id and "
-            "   pax.pax_id = pa.pax_id ",
-            QParams() << QParam("point_id", otInteger, point_id));
+            "   pax.pax_id = pa.pax_id ";
+    else
+        SQLText += "   pa.pax_id = :id ";
+
+    TCachedQuery Qry(SQLText, QParams() << QParam("id", otInteger, id));
     Qry.get().Execute();
     for(; not Qry.get().Eof; Qry.get().Next())
         items[Qry.get().FieldAsInteger("pax_id")].insert(Qry.get().FieldAsInteger("alarm_type"));

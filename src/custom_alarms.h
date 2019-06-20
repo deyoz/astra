@@ -18,9 +18,10 @@ struct TCustomAlarms {
             typedef std::map<std::string, TBrandCodeMap> TBrandAirlineMap;
             typedef std::map<std::string, TBrandAirlineMap> TRFISCMap;
             typedef std::map<std::string, boost::optional<TRFISCMap>> TAirlineMap;
-            
+
             TAirlineMap items;
 
+            bool get(const std::string &airline);
             void fromDB(const std::string &airline, int pax_id, std::set<int> &alarms);
             TSets(TBrands &_brands): brands(_brands) {};
         };
@@ -35,7 +36,7 @@ struct TCustomAlarms {
         const TCustomAlarms &getByPaxId(int pax_id, bool pr_clear = true, const std::string &vairline = "");
 
         void toDB() const;
-        void fromDB(int point_id);
+        void fromDB(bool all, int id);
 
         void toXML(xmlNodePtr paxNode, int pax_id);
 

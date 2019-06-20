@@ -6091,7 +6091,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             check_conflict_trfer_alarm( grp.point_dep );
             if (new_checkin)
                 try {
-                    Callbacks<TicketCallbacks>()->onChangeTicket(TRACE5, grp.id);
+                    callbacks<TicketCallbacks>()->onChangeTicket(TRACE5, grp.id);
                 } catch(...) {
                     CallbacksExceptionFilter(STDLOG);
                 }

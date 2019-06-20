@@ -1588,8 +1588,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
       TComplexBagExcessNodeList excessNodeList(OutputLang(), props, "+");
 
-      TCustomAlarms custom_alarms;
-      custom_alarms.fromDB(point_id);
+      boost::optional<TCustomAlarms> custom_alarms;
       for(;!Qry.Eof;Qry.Next())
       {
           int grp_id=Qry.FieldAsInteger(col_grp_id);
@@ -1601,6 +1600,11 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           TPaxStatus grp_status=DecodePaxStatus(Qry.FieldAsString(col_status));
           TCrewType::Enum crew_type = CrewTypes().decode(Qry.FieldAsString("crew_type"));
           ASTRA::TPaxTypeExt pax_ext(grp_status, crew_type);
+
+          if(not custom_alarms) {
+              custom_alarms = boost::in_place();
+              custom_alarms->fromDB(showWholeFlight, showWholeFlight ? point_id : pax_id);
+          }
 
           xmlNodePtr paxNode = NewTextChild(listNode, "pax");
           NewTextChild(paxNode, "pax_id", pax_id);
@@ -1722,7 +1726,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                   NewTextChild(alarmsNode, "alarm", APIS::EncodeAlarmType(*a));
           };
 
-          custom_alarms.toXML(paxNode, pax_id);
+          custom_alarms->toXML(paxNode, pax_id);
 
           if (!Qry.FieldIsNULL(col_tckin_id))
           {
