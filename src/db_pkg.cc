@@ -198,7 +198,7 @@ int db_pkg(int argc, char **argv)
                     files.back()
                         << "/" << endl
                         << "show error" << endl;
-                files.back() << "create or replace ";
+                files.back() << "CREATE OR REPLACE ";
             }
             string cur_line = ConvertCodepage(Qry.FieldAsString("text"), "cp866", "utf-8");
             files.back() << RTrimString(cur_line) << endl;
