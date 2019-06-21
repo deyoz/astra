@@ -473,6 +473,10 @@ void getTCkinData( const TPnrData &first,
 
 } // namespace WebSearch
 
+bool SearchPaxByScanData(const std::string& bcbp,
+                         int &point_id,
+                         int &reg_no,
+                         int &pax_id, bool &isBoardingPass);
 
 #endif // __WEB_SEARCH_H__
 

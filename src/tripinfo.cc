@@ -3297,11 +3297,10 @@ bool SearchPaxByScanData(xmlNodePtr reqNode,
                          int &reg_no,
                          int &pax_id, bool &isBoardingPass)
 {
-  bool result=false;
-
   point_id=NoExists;
   reg_no=NoExists;
   pax_id=NoExists;
+  isBoardingPass=false;
 
   string bcbp;
   if (NodeAsInteger("scan_data/@hex", reqNode)!=0)
@@ -3311,106 +3310,7 @@ bool SearchPaxByScanData(xmlNodePtr reqNode,
   }
   else
     bcbp=NodeAsString("scan_data", reqNode);
-  WebSearch::TPNRFilters filters;
 
-  BCBPSections scanSections;
-  filters.getBCBPSections(bcbp, scanSections);
-  isBoardingPass = scanSections.isBoardingPass();
-  filters.fromBCBPSections(scanSections);
-  if (filters.segs.empty())
-    throw EXCEPTIONS::EConvertError("%s: filters.segs.empty()", __FUNCTION__);
-  const WebSearch::TPNRFilter &filter=*(filters.segs.begin());
-  try
-  {
-    if (filter.airlines.size()!=1)
-      throw EXCEPTIONS::EConvertError("airlines.size()!=1");
-    if (filter.scd_out_local_ranges.size()!=1)
-      throw EXCEPTIONS::EConvertError("scd_out_local_ranges.size()!=1");
-    TSearchFltInfo searchInfo;
-    searchInfo.airline=*(filter.airlines.begin());
-    searchInfo.flt_no=filter.flt_no;
-    searchInfo.suffix=filter.suffix;
-    searchInfo.airp_dep=filter.airp_dep;
-    searchInfo.scd_out=filter.scd_out_local_ranges.begin()->first;
-    searchInfo.scd_out_in_utc=false;
-    searchInfo.only_with_reg=false;
-    if (filter.reg_no==NoExists)
-      throw EXCEPTIONS::EConvertError("filter.reg_no==NoExists");
-
-    list<TAdvTripInfo> flts;
-    SearchFlt(searchInfo, flts);
-
-    if (flts.empty()) return result;
-
-    TQuery Qry( &OraSession );
-    Qry.Clear();
-
-    ostringstream sql;
-    sql << "SELECT pax.grp_id, pax.pax_id, pax.name, pax.seats, pax.reg_no "
-           "FROM pax_grp, pax "
-           "WHERE pax_grp.grp_id=pax.grp_id AND "
-           "      pax_grp.point_dep=:point_id AND "
-           "      pax_grp.airp_arv=:airp_arv AND "
-           "      pax.pr_brd IS NOT NULL AND "
-        << filter.getSurnameSQLFilter("pax.surname", Qry);
-    Qry.DeclareVariable("point_id", otInteger);
-    Qry.CreateVariable("airp_arv", otString, filter.airp_arv);
-    Qry.SQLText=sql.str().c_str();
-
-    int anySuitablePointId=NoExists;
-    int anySuitablePaxId=NoExists;
-
-    for(list<TAdvTripInfo>::const_iterator f=flts.begin(); f!=flts.end(); ++f)
-    {
-      anySuitablePointId=f->point_id;
-
-      int pax_id_with_seats=NoExists;
-      int pax_id_without_seats=NoExists;
-      int grp_id=NoExists;
-      Qry.SetVariable("point_id", f->point_id);
-      Qry.Execute();
-      for(;!Qry.Eof;Qry.Next())
-      {
-        if (!filter.isEqualName(Qry.FieldAsString("name"))) continue;
-        anySuitablePaxId=Qry.FieldAsInteger("pax_id");
-        if (!filter.isEqualRegNo(Qry.FieldAsInteger("reg_no"))) continue;
-
-        int &pax_id_ref=(Qry.FieldAsInteger("seats")>0?pax_id_with_seats:pax_id_without_seats);
-        if (pax_id_ref!=NoExists)
-          throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d, reg_no=%d)", f->point_id, filter.reg_no);
-        if (grp_id!=NoExists && grp_id!=Qry.FieldAsInteger("grp_id"))
-          throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d, reg_no=%d)", f->point_id, filter.reg_no);
-        grp_id=Qry.FieldAsInteger("grp_id");
-        pax_id_ref=Qry.FieldAsInteger("pax_id");
-      };
-
-      int new_pax_id=pax_id_with_seats!=NoExists?pax_id_with_seats:pax_id_without_seats;
-      if (new_pax_id!=NoExists)
-      {
-        if (pax_id!=NoExists)
-          throw EXCEPTIONS::Exception("More than one passenger found (pax_id1=%d, pax_id2=%d)", pax_id, new_pax_id);
-        point_id=f->point_id;
-        reg_no=filter.reg_no;
-        pax_id=new_pax_id;
-        result=true;
-      };
-    };
-
-    if (point_id==NoExists) point_id=anySuitablePointId;
-    if (pax_id==NoExists) pax_id=anySuitablePaxId;
-  }
-  catch(EXCEPTIONS::EConvertError &e)
-  {
-    filter.trace(TRACE5);
-    ProgTrace(TRACE5, ">>>> EConvertError: %s", e.what());
-    throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
-  }
-  catch(EXCEPTIONS::Exception &e)
-  {
-    filter.trace(TRACE5);
-    ProgTrace(TRACE5, ">>>> Exception: %s", e.what());
-    throw;
-  };
-  return result;
-};
+  return SearchPaxByScanData(bcbp, point_id, reg_no, pax_id, isBoardingPass);
+}
 
