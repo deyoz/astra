@@ -6298,8 +6298,15 @@ static bool SyncPaxASVC(int pax_id)
   if (CheckIn::AddPaxASVC(pax_id, false)) result=true;
   if (result)
   {
-    addAlarmByPaxId(pax_id, Alarm::SyncEmds, paxCheckIn);
-    TPaxAlarmHook::set(Alarm::UnboundEMD, pax_id);
+      addAlarmByPaxId(pax_id, Alarm::SyncEmds, paxCheckIn);
+      TPaxAlarmHook::set(Alarm::UnboundEMD, pax_id);
+
+      try {
+          callbacks<PaxASVCCallbacks>()->onSyncPaxASVC(TRACE5, pax_id);
+      } catch(...) {
+          CallbacksExceptionFilter(STDLOG);
+      }
+
   }
   return result;
 }

@@ -12,12 +12,42 @@ struct TCustomAlarms {
 
         struct TSets {
             TBrands &brands;
-            typedef std::map<std::string, int> TFQTLvlMap;
-            typedef std::map<std::string, TFQTLvlMap> TFQTAirlineMap;
-            typedef std::map<std::string, TFQTAirlineMap> TBrandCodeMap;
-            typedef std::map<std::string, TBrandCodeMap> TBrandAirlineMap;
-            typedef std::map<std::string, TBrandAirlineMap> TRFISCMap;
-            typedef std::map<std::string, boost::optional<TRFISCMap>> TAirlineMap;
+
+            struct TRow {
+                std::string
+                    rfisc,
+                    rfisc_tlg,
+                    brand_airline,
+                    brand_code,
+                    fqt_airline,
+                    fqt_tier_level;
+                int alarm;
+
+                bool operator < (const TRow &val) const;
+                std::string str() const;
+                size_t not_empty_amount() const;
+
+                TRow(
+                    const std::string &_rfisc,
+                    const std::string &_rfisc_tlg,
+                    const std::string &_brand_airline,
+                    const std::string &_brand_code,
+                    const std::string &_fqt_airline,
+                    const std::string &_fqt_tier_level,
+                    int _alarm
+                    ):
+                    rfisc(_rfisc),
+                    rfisc_tlg(_rfisc_tlg),
+                    brand_airline(_brand_airline),
+                    brand_code(_brand_code),
+                    fqt_airline(_fqt_airline),
+                    fqt_tier_level(_fqt_tier_level),
+                    alarm(_alarm)
+                {}
+            };
+
+            typedef std::set<TRow> TRowList;
+            typedef std::map<std::string, boost::optional<TRowList>> TAirlineMap;
 
             TAirlineMap items;
 
@@ -49,6 +79,7 @@ struct TCustomAlarms {
 void init_rfisc_callbacks();
 void init_fqt_callbacks();
 void init_ticket_callbacks();
+void init_asvc_callbacks();
 
 
 #endif

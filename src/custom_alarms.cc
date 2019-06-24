@@ -40,6 +40,21 @@ void init_rfisc_callbacks()
     CallbacksSingleton<RFISCCallbacks>::Instance()->setCallbacks(new RFISCCustomAlarmCallbacks);
 }
 
+class PaxASVCCustomAlarmCallbacks: public PaxASVCCallbacks
+{
+    public:
+        virtual void onSyncPaxASVC(TRACE_SIGNATURE, int pax_id)
+        {
+            LogTrace(TRACE_PARAMS) << __func__ << " started, pax_id: " << pax_id;
+            TPaxAlarmHook::set(Alarm::SyncCustomAlarms, pax_id);
+        }
+};
+
+void init_asvc_callbacks()
+{
+    CallbacksSingleton<PaxASVCCallbacks>::Instance()->setCallbacks(new PaxASVCCustomAlarmCallbacks);
+}
+
 class PaxFQTCallbacks: public PaxRemCallbacks
 {
     public:
@@ -56,6 +71,34 @@ void init_fqt_callbacks()
 }
 
 
+size_t TCustomAlarms::TSets::TRow::not_empty_amount() const
+{
+    return
+        not rfisc.empty() +
+        not rfisc_tlg.empty() +
+        not brand_airline.empty() +
+        not brand_code.empty() +
+        not fqt_airline.empty() +
+        not fqt_tier_level.empty();
+}
+
+bool TCustomAlarms::TSets::TRow::operator < (const TCustomAlarms::TSets::TRow &val) const
+{
+    if(not_empty_amount() != val.not_empty_amount())
+        return not_empty_amount() > val.not_empty_amount();
+    if(rfisc != val.rfisc)
+        return rfisc > val.rfisc;
+    if(rfisc_tlg != val.rfisc_tlg)
+        return rfisc_tlg > val.rfisc_tlg;
+    if(brand_airline != val.brand_airline)
+        return brand_airline > val.brand_airline;
+    if(brand_code != val.brand_code)
+        return brand_code > val.brand_code;
+    if(fqt_airline != val.fqt_airline)
+        return fqt_airline > val.fqt_airline;
+    return fqt_tier_level > val.fqt_tier_level;
+}
+
 bool TCustomAlarms::TSets::get(const std::string &airline)
 {
     auto &sets = items[airline];
@@ -65,16 +108,30 @@ bool TCustomAlarms::TSets::get(const std::string &airline)
                 QParams() << QParam("airline", otString, airline));
         Qry.get().Execute();
         for(; not Qry.get().Eof; Qry.get().Next())
-            sets.get()
-                [Qry.get().FieldAsString("rfisc")]
-                [Qry.get().FieldAsString("brand_airline")]
-                [Qry.get().FieldAsString("brand_code")]
-                [Qry.get().FieldAsString("fqt_airline")]
-                [Qry.get().FieldAsString("fqt_tier_level")]
-                =
-                Qry.get().FieldAsInteger("alarm");
+            sets->insert(TRow(
+                Qry.get().FieldAsString("rfisc"),
+                Qry.get().FieldAsString("rfisc_tlg"),
+                Qry.get().FieldAsString("brand_airline"),
+                Qry.get().FieldAsString("brand_code"),
+                Qry.get().FieldAsString("fqt_airline"),
+                Qry.get().FieldAsString("fqt_tier_level"),
+                Qry.get().FieldAsInteger("alarm")));
     }
     return not sets->empty();
+}
+
+string TCustomAlarms::TSets::TRow::str() const
+{
+    ostringstream result;
+    result
+        << setw(16) << rfisc
+        << setw(16) << rfisc_tlg
+        << setw(4) << brand_airline
+        << setw(11) << brand_code
+        << setw(4) << fqt_airline
+        << setw(30) << fqt_tier_level
+        << setw(10) << alarm;
+    return result.str();
 }
 
 void TCustomAlarms::TSets::fromDB(const std::string &airline, int pax_id, set<int> &alarms)
@@ -87,58 +144,71 @@ void TCustomAlarms::TSets::fromDB(const std::string &airline, int pax_id, set<in
 
         boost::optional<RFISCsSet> paxRFISCs;
         boost::optional<set<CheckIn::TPaxFQTItem>> fqts;
+        boost::optional<vector<CheckIn::TPaxASVCItem>> asvcs;
 
-        for(const auto &rfisc: sets.get())
-            for(const auto &brand_airline: rfisc.second)
-                for(const auto &brand_code: brand_airline.second)
-                    for(const auto &fqt_airline: brand_code.second)
-                        for(const auto &fqt_tier_level: fqt_airline.second) {
-                            bool result = false;
-                            // поиск rfsic
-                            if(not rfisc.first.empty()) {
-                                if(not paxRFISCs) {
-                                    paxRFISCs = boost::in_place();
-                                    TPaidRFISCListWithAuto paid;
-                                    paid.fromDB(pax_id, false);
-                                    paid.getUniqRFISCSs(pax_id, paxRFISCs.get());
-                                }
-                                for(const auto &_rfisc: paxRFISCs.get())
-                                    if(_rfisc == rfisc.first) {
-                                        result = true;
-                                        break;
-                                    }
-                            }
-                            // поиск по брендам
-                            if(not result and not brand_code.first.empty()) {
-                                brands.get(pax_id);
-                                for(const auto &_brand: brands)
-                                    if(
-                                            _brand.code() == brand_code.first and
-                                            _brand.oper_airline == brand_airline.first
-                                      ) {
-                                        result = true;
-                                        break;
-                                    }
+        for(const auto &row: sets.get()) {
+            bool result = true;
+            // поиск rfsic
+            if(not row.rfisc.empty()) {
+                result = false;
+                if(not paxRFISCs) {
+                    paxRFISCs = boost::in_place();
+                    TPaidRFISCListWithAuto paid;
+                    paid.fromDB(pax_id, false);
+                    paid.getUniqRFISCSs(pax_id, paxRFISCs.get());
+                }
+                for(const auto &rfisc: paxRFISCs.get())
+                    if(rfisc == row.rfisc) {
+                        result = true;
+                        break;
+                    }
+            }
+            // поиск rfsic_tlg
+            if(result and not row.rfisc_tlg.empty()) {
+                result = false;
+                if(not asvcs) {
+                    asvcs = boost::in_place();
+                    LoadPaxASVC(pax_id, asvcs.get());
+                }
+                for(const auto &asvc: asvcs.get())
+                    if(asvc.RFISC == row.rfisc_tlg) {
+                        result = true;
+                        break;
+                    }
+            }
+            // поиск по брендам
+            if(result and not row.brand_code.empty()) {
+                result = false;
+                brands.get(pax_id);
+                for(const auto &brand: brands)
+                    if(
+                            brand.code() == row.brand_code and
+                            brand.oper_airline == row.brand_airline
+                      ) {
+                        result = true;
+                        break;
+                    }
 
-                            }
-                            // поиск по уровню участия
-                            if(not result and not fqt_airline.first.empty()) {
-                                if(not fqts) {
-                                    fqts = boost::in_place();
-                                    CheckIn::LoadPaxFQT(pax_id, fqts.get());
-                                }
-                                for(const auto &_fqt: fqts.get())
-                                    if(
-                                            _fqt.airline == fqt_airline.first and
-                                            _fqt.tier_level == fqt_tier_level.first
-                                      ) {
-                                        result = true;
-                                        break;
-                                    }
-                            }
-                            if(result)
-                                alarms.insert(fqt_tier_level.second);
-                        }
+            }
+            // поиск по уровню участия
+            if(result and not row.fqt_airline.empty()) {
+                result = false;
+                if(not fqts) {
+                    fqts = boost::in_place();
+                    CheckIn::LoadPaxFQT(pax_id, fqts.get());
+                }
+                for(const auto &fqt: fqts.get())
+                    if(
+                            fqt.airline == row.fqt_airline and
+                            fqt.tier_level == row.fqt_tier_level
+                      ) {
+                        result = true;
+                        break;
+                    }
+            }
+            if(result)
+                alarms.insert(row.alarm);
+        }
     }
 }
 
