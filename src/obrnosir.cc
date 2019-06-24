@@ -78,8 +78,6 @@ const
 #ifdef XP_TESTING
     {"-tscript",                nosir_tscript,          NULL,                       NULL},
 #endif//XP_TESTING
-    {"-test_astra_locale_adv",  test_astra_locale_adv,  NULL,                       NULL},
-    {"-insert_locales",         insert_locales,         NULL,                       NULL},
     {"-file_by_id",             file_by_id,             NULL,                       NULL},
     {"-dst_points",             points_dst_format,      NULL,                       NULL},
     {"-ovb",                    STAT::ovb,              NULL,                       NULL},

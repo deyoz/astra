@@ -5068,7 +5068,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           Qry.SetVariable("grp_id",NodeAsInteger("generated_grp_id",segNode));
         if (trfer_confirm) AfterSaveInfo.action=CheckIn::actionSvcAvailability;
         Qry.CreateVariable("trfer_confirm",otInteger,(int)trfer_confirm);
-        Qry.CreateVariable("trfer_conflict",otInteger,(int)(!inbound_trfer_conflicts.empty() && reqInfo->client_type != ctTerm));  //зажигаем тревогу только для веба и киоска
+        Qry.CreateVariable("trfer_conflict",otInteger,(int)(!inbound_trfer_conflicts.empty() &&
+                                                            !inbound_group_bag.empty() &&
+                                                            reqInfo->client_type != ctTerm));  //зажигаем тревогу только для веба и киоска и только если есть входящий трансфер
         Qry.CreateVariable("inbound_confirm",otInteger,(int)inbound_confirm);
         if (reqInfo->client_type!=ctPNL && !reqInfo->api_mode)
           Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
@@ -5283,8 +5285,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         std::vector<TSegInfo> iatciSegs = iatci::readIatciSegs(grp.id, ediResNode);
         SaveTCkinSegs(grp.id,reqNode,segs,seg_no, iatciSegs, tlocale);
         if (!tlocale.lexema_id.empty()) reqInfo->LocaleToLog(tlocale);
-        if (!inbound_trfer_conflicts.empty())
-          ConflictReasonsToLog(inbound_trfer_conflicts, tlocale);
+        InboundTrfer::conflictReasonsToLog(inbound_trfer_conflicts, inbound_group_bag.empty(), tlocale);
 
         timing.finish("CheckInPassengers", grp.point_dep);
       } //new_checkin
