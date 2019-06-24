@@ -302,6 +302,7 @@ class TGroupBagItem
     void getAllListItems(const int grp_id, const bool is_unaccomp, const int transfer_num);
 
     static bool completeXMLForIatci(int grp_id, xmlNodePtr bagtagNode, xmlNodePtr firstSegNode);
+    static void checkTagUniquenessOnFlight(int grp_id);
 };
 
 } //namespace CheckIn
