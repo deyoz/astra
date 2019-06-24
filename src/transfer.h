@@ -495,7 +495,8 @@ void GetNewGrpInfo(int point_id,
 void NewGrpInfoToGrpsView(const TNewGrpInfo &inbound_trfer,
                           std::vector<TrferList::TGrpViewItem> &grps);
 
-void ConflictReasonsToLog(const std::set<TConflictReason> &conflicts,
+void conflictReasonsToLog(const std::set<TConflictReason> &conflicts,
+                          bool emptyInboundBaggage,
                           TLogLocale &locale);
 
 }; //namespace InboundTrfer

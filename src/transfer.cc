@@ -1951,7 +1951,8 @@ void NewGrpInfoToGrpsView(const TNewGrpInfo &inbound_trfer,
   TrferList::GrpsToGrpsView(TrferList::trferOutForCkin, true, grps_ckin, grps_tlg, alarms, grps);
 };
 
-void ConflictReasonsToLog(const set<TConflictReason> &conflicts,
+void conflictReasonsToLog(const set<TConflictReason> &conflicts,
+                          bool emptyInboundBaggage,
                           TLogLocale &tlocale)
 {
   for(set<TConflictReason>::const_iterator c=conflicts.begin(); c!=conflicts.end(); ++c)
@@ -1960,25 +1961,27 @@ void ConflictReasonsToLog(const set<TConflictReason> &conflicts,
     switch(*c)
     {
       case conflictInPaxDuplicate:
-        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.IN_PAX_DUPLICATE";
+        tlocale.lexema_id = "EVT.INBOUND_TRFER_CONFLICT_REASON.IN_PAX_DUPLICATE";
         break;
       case conflictOutPaxDuplicate:
-        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.OUT_PAX_DUPLICATE";
+        tlocale.lexema_id = "EVT.INBOUND_TRFER_CONFLICT_REASON.OUT_PAX_DUPLICATE";
         break;
       case conflictInRouteIncomplete:
-        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.IN_ROUTE_INCOMPLETE";
+        tlocale.lexema_id = "EVT.INBOUND_TRFER_CONFLICT_REASON.IN_ROUTE_INCOMPLETE";
         break;
       case conflictInRouteDiffer:
-        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.IN_ROUTE_DIFFER";
+        tlocale.lexema_id = "EVT.INBOUND_TRFER_CONFLICT_REASON.IN_ROUTE_DIFFER";
         break;
       case conflictOutRouteDiffer:
-        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.OUT_ROUTE_DIFFER";
+        tlocale.lexema_id = emptyInboundBaggage?
+                              "EVT.TRFER_CONFLICT_REASON.OUT_ROUTE_DIFFER":
+                              "EVT.INBOUND_TRFER_CONFLICT_REASON.OUT_ROUTE_DIFFER";
         break;
       case conflictInOutRouteDiffer:
-        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.IN_OUT_ROUTE_DIFFER";
+        tlocale.lexema_id = "EVT.INBOUND_TRFER_CONFLICT_REASON.IN_OUT_ROUTE_DIFFER";
         break;
       case conflictWeightNotDefined:
-        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.WEIGHT_NOT_DEFINED";
+        tlocale.lexema_id = "EVT.INBOUND_TRFER_CONFLICT_REASON.WEIGHT_NOT_DEFINED";
         break;
     };
     TReqInfo::Instance()->LocaleToLog(tlocale);
