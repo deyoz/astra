@@ -929,7 +929,8 @@ void SyncPaxEMD(const CheckIn::TTransferItem &trfer,
   if (emd_status!=CouponStatus::OriginalIssue &&
       emd_status!=CouponStatus::Checked &&
       emd_status!=CouponStatus::Boarded &&
-      emd_status!=CouponStatus::Flown) return;
+      emd_status!=CouponStatus::Flown &&
+      emd_status!=CouponStatus::Notification) return;
 
   set< pair<int/*grp_id*/, int/*pax_id*/> > ids;
 
