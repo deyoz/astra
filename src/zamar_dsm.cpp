@@ -14,6 +14,9 @@
 #include "rfisc_calc.h"
 #include "edi_utils.h" //только ради isTagAddRequestSBDO и т.п
 #include "checkin.h"
+#include "astra_callbacks.h"
+#include "http_main.h"
+#include "web_search.h"
 
 #define NICKNAME "GRISHA"
 #include <serverlib/slogger.h>
@@ -30,7 +33,9 @@ const string STR_INCORRECT_DATA_IN_XML = "MSG.SBDO.INCORRECT_DATA_IN_XML";
 const string STR_WEIGHT_CONCEPT_NOT_ALLOWED = "WEIGHT CONCEPT IS NOT ALLOWED WHILE TESTING"; // !!!
 const string STR_BAG_TYPE_NOT_ALLOWED = "MSG.SBDO.BAG_TYPE_NOT_ALLOWED";
 const string STR_NO_ANSWER_FROM_REMOTE_SYSTEM = "MSG.SBDO.NO_ANSWER_FROM_REMOTE_SYSTEM";
-const string STR_BAGGAGE_NOT_ALLOWED = "MSG.SBDO.BAGGAGE_NOT_ALLOWED";
+//const string STR_BAGGAGE_NOT_ALLOWED = "MSG.SBDO.BAGGAGE_NOT_ALLOWED";
+  const string STR_BAGGAGE_ADD_NOT_ALLOWED = "MSG.SBDO.BAGGAGE_ADD_NOT_ALLOWED";
+  const string STR_BAGGAGE_DEL_NOT_ALLOWED = "MSG.SBDO.BAGGAGE_DEL_NOT_ALLOWED";
 const string STR_BAG_TAG_NOT_FOUND = "MSG.SBDO.BAG_TAG_NOT_FOUND";
 const string STR_TAG_NOT_ACTIVATED = "MSG.SBDO.TAG_NOT_ACTIVATED";
 const string STR_TAG_WAS_DEACTIVATED = "MSG.SBDO.TAG_WAS_DEACTIVATED";
@@ -41,28 +46,37 @@ const string STR_TRFER_NO_CONFIRM = "MSG.SBDO.TRFER_NO_CONFIRM";
 const string STR_WRONG_CHECKIN_STATUS = "MSG.SBDO.WRONG_CHECKIN_STATUS";
 const string STR_CONCEPT_UNKNOWN = "MSG.SBDO.CONCEPT_UNKNOWN";
 const string STR_WEIGHT_EXCEED = "MSG.SBDO.WEIGHT_EXCEED";
-// "MSG.SBDO.SERVICES_BECAME_PAID" checkin.cc
+const string STR_SERVICES_BECAME_PAID = "MSG.SBDO.SERVICES_BECAME_PAID"; // в checkin.cc ещё есть эта строка
 
-void ZamarException(const string& code, const string& comment, const string& func)
+void ZamarException(const AstraLocale::LexemaData& lexemeData, const string& comment, const string& func)
 {
-  LogTrace(TRACE5) << "ZAMAR EXCEPTION: code='" << code << "' comment='" << comment << "' function='" << func << "'";
-  if (code == STR_INCORRECT_DATA_IN_XML)
+  LogTrace(TRACE5) << "ZAMAR EXCEPTION: lexema_id='" << lexemeData.lexema_id << "' comment='" << comment << "' function='" << func << "'";
+  if (lexemeData.lexema_id == STR_INCORRECT_DATA_IN_XML)
   {  
     ProgError(STDLOG, "ZAMAR incorrect data in XML: %s", comment.c_str());
     throw AstraLocale::UserException("WRAP.QRY_HANDLER_ERR", AstraLocale::LParams() << AstraLocale::LParam("text", comment));
   }  
   else
   {
-    throw AstraLocale::UserException(code);
+    throw AstraLocale::UserException(lexemeData.lexema_id, lexemeData.lparams);
   }
 }
 
 class FinishProcess {};
 
+void ZamarSetPostProcess()
+{
+  AstraJxtCallbacks* astra_cb_ptr = dynamic_cast<AstraJxtCallbacks*>(jxtlib::JXTLib::Instance()->GetCallbacks());
+  if (nullptr == astra_cb_ptr)
+    return;
+  astra_cb_ptr->SetPostProcessXMLAnswerCallback(AstraHTTP::ZamarPostProcessXMLAnswer);
+}
+
 static void ProcessXML(ZamarDataInterface& data, xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode, ZamarType type)
 {
   try
   {
+    ZamarSetPostProcess(); // для kick
     data.fromXML(reqNode, externalSysResNode, type);
     data.toXML(resNode, type);
   }
@@ -85,8 +99,11 @@ static void ProcessXML(ZamarDataInterface& data, xmlNodePtr reqNode, xmlNodePtr 
 //-----------------------------------------------------------------------------------
 // DSM
 
+const char* XML_QUERY_TYPE = "queryType";
+
 void ZamarDSMInterface::PassengerSearch(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  SetProp(resNode, XML_QUERY_TYPE, "PassengerSearch");
   PassengerSearchResult result;
   ProcessXML(result, reqNode, nullptr, resNode, ZamarType::DSM);
 }
@@ -96,6 +113,7 @@ void ZamarDSMInterface::PassengerSearch(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
 void ZamarSBDOInterface::PassengerSearchSBDO(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  SetProp(resNode, XML_QUERY_TYPE, "PassengerSearchSBDO");
   PassengerSearchResult result;
   ProcessXML(result, reqNode, nullptr, resNode, ZamarType::SBDO);
 }
@@ -107,6 +125,7 @@ void ZamarSBDOInterface::PassengerBaggageTagAdd(XMLRequestCtxt *ctxt, xmlNodePtr
 
 void ZamarSBDOInterface::PassengerBaggageTagAdd(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode)
 {
+  SetProp(resNode, XML_QUERY_TYPE, "PassengerBaggageTagAdd");
   ZamarBaggageTagAdd tag_add;
   ProcessXML(tag_add, reqNode, externalSysResNode, resNode, ZamarType::SBDO);
 }
@@ -118,6 +137,7 @@ void ZamarSBDOInterface::PassengerBaggageTagConfirm(XMLRequestCtxt *ctxt, xmlNod
 
 void ZamarSBDOInterface::PassengerBaggageTagConfirm(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode)
 {
+  SetProp(resNode, XML_QUERY_TYPE, "PassengerBaggageTagConfirm");
   ZamarBaggageTagConfirm tag_confirm;
   ProcessXML(tag_confirm, reqNode, externalSysResNode, resNode, ZamarType::SBDO);
 }
@@ -129,6 +149,7 @@ void ZamarSBDOInterface::PassengerBaggageTagRevoke(XMLRequestCtxt *ctxt, xmlNode
 
 void ZamarSBDOInterface::PassengerBaggageTagRevoke(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode)
 {
+  SetProp(resNode, XML_QUERY_TYPE, "PassengerBaggageTagRevoke");
   ZamarBaggageTagRevoke tag_revoke;
   ProcessXML(tag_revoke, reqNode, externalSysResNode, resNode, ZamarType::SBDO);
 }
@@ -151,34 +172,35 @@ void PassengerSearchResult::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysRe
   if (bcbp.empty())
     ZamarException(STR_INCORRECT_DATA_IN_XML, "Empty <bcbp>", __func__);
 
-  AstraWeb::GetBPPaxFromScanCode(bcbp, bppax);
-
-  if (not bppax.errors.empty())
+  bool isBoardingPass;
+  int reg_no;
+  SearchPaxByScanData(bcbp, point_id, reg_no, pax_id, isBoardingPass);
+  if (point_id==NoExists || reg_no==NoExists || pax_id==NoExists || !isBoardingPass)
   {
-    for (const auto& err : bppax.errors)
-    {
-      if (err.lexema_id == "MSG.PASSENGERS.NOT_FOUND" or
-          err.lexema_id == "MSG.PASSENGER.NOT_FOUND" or
-          err.lexema_id == "MSG.PASSENGERS.FOUND_MORE" or
-          err.lexema_id == "MSG.FLIGHT.NOT_FOUND")
-        ZamarException(STR_PAX_NO_MATCH, err.lexema_id, __func__);
-    }
-    const auto& err = *bppax.errors.cbegin();
-    ZamarException(STR_INTERNAL_ERROR, err.lexema_id, __func__);
-    // getLocaleText(err.lexema_id, err.lparams, lang.get();
+    LogTrace(TRACE5) << __FUNCTION__
+                     << ": found_point_id=" << point_id
+                     << ", reg_no=" << reg_no
+                     << ", found_pax_id=" << pax_id
+                     << boolalpha << ", isBoardingPass=" << isBoardingPass;
+    if (!isBoardingPass)
+      throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
+    if (point_id==NoExists)
+      ZamarException(STR_PAX_NO_MATCH, "", __func__);
+    if (pax_id==NoExists)
+      ZamarException(STR_PAX_NO_MATCH, "", __func__);
+    throw AstraLocale::UserException("MSG.PASSENGER.NOT_CHECKIN_WITH_REG_NO");
   }
 
-  point_id = bppax.point_dep;
-  grp_id = bppax.grp_id;
-  pax_id = bppax.pax_id;
-
-  if (not trip_info.getByPointId(point_id))
+  // pax
+  if (not pax_item.getByPaxId(pax_id))
   {
     stringstream ss;
-    ss << "Failed trip_info.getByPointId " << point_id;
+    ss << "Failed pax_item.getByPaxId " << pax_id;
     ZamarException(STR_INTERNAL_ERROR, ss.str(), __func__);
   }
-
+  
+  // grp
+  grp_id = pax_item.grp_id;
   bool get_grp_result = false;
   if (type == ZamarType::DSM)
     get_grp_result = grp_item.getByGrpId(grp_id);
@@ -197,15 +219,17 @@ void PassengerSearchResult::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysRe
     ZamarException(STR_INTERNAL_ERROR, ss.str(), __func__);
   }
 
-  if (not pax_item.getByPaxId(pax_id))
+  // point
+  if (not trip_info.getByPointId(point_id))
   {
     stringstream ss;
-    ss << "Failed pax_item.getByPaxId " << pax_id;
+    ss << "Failed trip_info.getByPointId " << point_id;
     ZamarException(STR_INTERNAL_ERROR, ss.str(), __func__);
   }
 
   doc_exists = CheckIn::LoadPaxDoc(pax_id, doc);
   doco_exists = CheckIn::LoadPaxDoco(pax_id, doco);
+  
   mkt_flt.getByPaxId(pax_id);
   if (mkt_flt.empty())
   {
@@ -375,11 +399,6 @@ void PassengerSearchResult::toXML(xmlNodePtr resNode, ZamarType type) const
   AstraLocale::OutputLang lang("", {AstraLocale::OutputLang::OnlyTrueIataCodes});
   // lang
   SetProp(resNode, "lang", lang.get());
-
-  // queryType
-  // TODO queryType for DSM -- согласовать с клиентом?
-  if (type == ZamarType::SBDO)
-    NewTextChild(resNode, "queryType", "PassengerSearchSBDO");
 
   // sessionId
   NewTextChild(resNode, "sessionId", sessionId);
@@ -692,7 +711,7 @@ void ZamarBagTag::fromXML_add(xmlNodePtr reqNode)
   SetListId();
 }
 
-void ZamarBagTag::fromXML(xmlNodePtr reqNode)
+void ZamarBagTag::fromXML(xmlNodePtr reqNode, ZamarActionType actionType)
 {
   if (reqNode == nullptr)
     ZamarException(STR_INTERNAL_ERROR, "reqNode == nullptr", __func__);
@@ -700,7 +719,7 @@ void ZamarBagTag::fromXML(xmlNodePtr reqNode)
   int pax_id = NodeAsInteger("passengerId", reqNode);
   tagNumber_=boost::in_place("", NodeAsFloat("tag", reqNode));
 
-  fromDB();
+  fromDB(actionType);
 
   if (pax_id != pax_id_)
     ZamarException(STR_INTERNAL_ERROR, "Passenger ID not match", __func__);
@@ -833,7 +852,7 @@ void ZamarBagTag::toDB_deactivated(xmlNodePtr reqNode, xmlNodePtr externalSysRes
   Qry.Execute();
 }
 
-void ZamarBagTag::fromDB()
+void ZamarBagTag::fromDB(ZamarActionType actionType)
 {
   TQuery Qry(&OraSession);
   //сначала всегда ищем в сгенерированных
@@ -858,9 +877,14 @@ void ZamarBagTag::fromDB()
     activated_=CheckIn::TGroupBagItem::tagNumberUsedInGroup(pax_id_, tagNumber_.get(), tagOwner);
 
     if (activated_ && (tagOwner==ASTRA::NoExists || tagOwner!=pax_id_))
+    {
       //по какой-то причине бирка есть в группе, но привязана к другому пассажиру (запросто могли перепривязать с терминала)
       //ну или не привязана вообще, но это странно
-      ZamarException(STR_BAGGAGE_NOT_ALLOWED, "", __func__);
+      if (actionType == ZamarActionType::CONFIRM)
+        ZamarException(STR_BAGGAGE_ADD_NOT_ALLOWED, "", __func__);
+      if (actionType == ZamarActionType::REVOKE)
+        ZamarException(STR_BAGGAGE_DEL_NOT_ALLOWED, "", __func__);
+    }
   }
 }
 
@@ -946,12 +970,12 @@ static void CheckPieceConceptAllowance(const CheckIn::TSimplePaxItem& pax,
 
       //сравним со всеми зарегистрированными и оцененными раньше услугами группы (в т.ч. зарегистрированный=активированный багаж)
       if (paidAfter.becamePaid(pax.grp_id))
-        ZamarException("MSG.SBDO.SERVICES_BECAME_PAID", "", __func__);
+        ZamarException(STR_SERVICES_BECAME_PAID, "", __func__);
     }
   }
   catch(const SvcPaymentStatusNotApplicable&)
   {
-    ZamarException(STR_BAGGAGE_NOT_ALLOWED, "", __func__);
+    ZamarException(STR_BAGGAGE_ADD_NOT_ALLOWED, "", __func__);
   }
 
   if (isDoomedToWait())
@@ -968,6 +992,22 @@ void ZamarGetPax(const int pax_id, CheckIn::TSimplePaxItem& pax_item)
     ZamarException(STR_WRONG_PAX_STATUS, ss_pax_id.str(), __func__);
 }
 
+void ZamarGetGrp(const int grp_id, CheckIn::TPaxGrpItem& grp_item)
+{
+  stringstream ss_grp_id;
+  ss_grp_id << "grp_id='" << grp_id << "'";
+  if (not grp_item.getByGrpIdWithBagConcepts(grp_id))
+    ZamarException(STR_INTERNAL_ERROR, ss_grp_id.str(), __func__);
+  if (not grp_item.allowToBagCheckIn()) // проанализировать trfer_confirm == true
+    ZamarException(STR_TRFER_NO_CONFIRM, ss_grp_id.str(), __func__);
+}
+
+void ZamarAllowToBagCheckIn(int point_id)
+{
+  if (not TTripStages(point_id).allowToBagCheckIn()) // Если этап тех графика "регистрация" не в том статусе
+    ZamarException(STR_WRONG_CHECKIN_STATUS, "", __func__);
+}
+
 void ZamarBaggageTagAdd::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, ZamarType)
 {
   if (reqNode == nullptr)
@@ -980,20 +1020,12 @@ void ZamarBaggageTagAdd::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysResNo
   tag_.fromXML_add(reqNode);
 
   CheckIn::TSimplePaxItem pax_item;
-  ZamarGetPax(tag_.pax_id_, pax_item);
+  ZamarGetPax(tag_.pax_id_, pax_item); // пассажир зарегистрирован или посажен
 
-  int grp_id = pax_item.grp_id;
   CheckIn::TPaxGrpItem grp_item;
-  stringstream ss_grp_id;
-  ss_grp_id << "grp_id='" << grp_id << "'";
-  if (not grp_item.getByGrpIdWithBagConcepts(grp_id))
-    ZamarException(STR_INTERNAL_ERROR, ss_grp_id.str(), __func__);
-  if (not grp_item.allowToBagCheckIn()) // проанализировать trfer_confirm == true
-    ZamarException(STR_TRFER_NO_CONFIRM, ss_grp_id.str(), __func__);
+  ZamarGetGrp(pax_item.grp_id, grp_item); // подтвержден маршрут багажа
 
-  // Если этап тех графика "регистрация" не в том статусе
-  if (not TTripStages(grp_item.point_dep).allowToBagCheckIn())
-    ZamarException(STR_WRONG_CHECKIN_STATUS, "", __func__);
+  ZamarAllowToBagCheckIn(grp_item.point_dep); // открыта регистрация в а/п
 
   // Нужно проанализировать что concept != unknown
   TBagConcept::Enum bag_concept_grp = grp_item.getBagAllowanceType();
@@ -1019,14 +1051,13 @@ void ZamarBaggageTagAdd::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysResNo
     ZamarException(STR_WEIGHT_CONCEPT_NOT_ALLOWED, "", __func__);
   }
 
-  tag_.Generate(grp_id);
+  tag_.Generate(pax_item.grp_id);
 }
 
 void ZamarBaggageTagAdd::toXML(xmlNodePtr resNode, ZamarType) const
 {
   if (resNode == nullptr)
     return;
-  NewTextChild(resNode, "queryType", "PassengerBaggageTagAdd");
   NewTextChild(resNode, "sessionId", session_id_);
   tag_.toXML(resNode);
 }
@@ -1043,12 +1074,16 @@ void ZamarBaggageTagConfirm::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysR
   if (session_id_.empty())
     ZamarException(STR_INCORRECT_DATA_IN_XML, "Empty <sessionId>", __func__);
 
-  tag_.fromXML(reqNode);
+  tag_.fromXML(reqNode, ZamarActionType::CONFIRM);
 
   CheckIn::TSimplePaxItem pax_item;
-  ZamarGetPax(tag_.pax_id_, pax_item);
-
-// CheckPieceConceptAllowance TODO
+  ZamarGetPax(tag_.pax_id_, pax_item); // пассажир зарегистрирован или посажен
+  
+  // --- добавлены проверки
+  CheckIn::TPaxGrpItem grp_item;
+  ZamarGetGrp(pax_item.grp_id, grp_item); // подтвержден маршрут багажа
+  ZamarAllowToBagCheckIn(grp_item.point_dep); // открыта регистрация в а/п
+  // --- добавлены проверки
 
   tag_.Activate(reqNode, externalSysResNode);
 }
@@ -1057,7 +1092,6 @@ void ZamarBaggageTagConfirm::toXML(xmlNodePtr resNode, ZamarType) const
 {
   if (resNode == nullptr)
     return;
-  NewTextChild(resNode, "queryType", "PassengerBaggageTagConfirm");
   NewTextChild(resNode, "sessionId", session_id_);
   tag_.toXML(resNode);
 }
@@ -1074,7 +1108,24 @@ void ZamarBaggageTagRevoke::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysRe
   if (session_id_.empty())
     ZamarException(STR_INCORRECT_DATA_IN_XML, "Empty <sessionId>", __func__);
 
-  tag_.fromXML(reqNode);
+  tag_.fromXML(reqNode, ZamarActionType::REVOKE);
+  
+  // --- добавлены проверки
+  int pax_id = tag_.pax_id_;
+  stringstream ss_pax_id;
+  ss_pax_id << "pax_id='" << pax_id << "'";
+  CheckIn::TSimplePaxItem pax_item;
+  if (not pax_item.getByPaxId(pax_id)) // Если пассажир не найден (ид. неверный)
+    ZamarException(STR_PAX_NO_MATCH, ss_pax_id.str(), __func__);
+  // allowToBagRevoke всегда возвращает true так что пока используем STR_WRONG_PAX_STATUS
+  if (not pax_item.allowToBagRevoke()) // зарегистрирован, посажен, разрегистрирован
+    ZamarException(STR_WRONG_PAX_STATUS, ss_pax_id.str(), __func__);
+  
+  CheckIn::TPaxGrpItem grp_item;
+  ZamarGetGrp(pax_item.grp_id, grp_item); // подтвержден маршрут багажа
+  ZamarAllowToBagCheckIn(grp_item.point_dep); // открыта регистрация в а/п
+  // --- добавлены проверки
+  
   tag_.Deactivate(reqNode, externalSysResNode);
 }
 
@@ -1082,7 +1133,6 @@ void ZamarBaggageTagRevoke::toXML(xmlNodePtr resNode, ZamarType) const
 {
   if (resNode == nullptr)
     return;
-  NewTextChild(resNode, "queryType", "PassengerBaggageTagRevoke");
   NewTextChild(resNode, "sessionId", session_id_);
   tag_.toXML(resNode);
 }

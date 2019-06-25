@@ -598,6 +598,10 @@ class TSimplePaxItem
     {
       return refuse.empty();
     }
+    bool allowToBagRevoke() const
+    {
+      return true;
+    }
 
     bool isTest() const { return isTestPaxId(id); }
     int paxId() const { return id; }
