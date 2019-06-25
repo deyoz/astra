@@ -629,7 +629,13 @@ class TCrafts: public TICAOBaseTable {
 
 class TCustomAlarmTypesRow: public TTIDBaseTableRow {
   public:
+    std::string airline;
     const char *get_row_name() const { return "TCustomAlarmTypesRow"; };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU) const
+    {
+      if (lowerc(field)=="airline") return airline;
+      return TTIDBaseTableRow::AsString(field,lang);
+    };
 };
 
 class TCustomAlarmTypes: public TTIDBaseTable {

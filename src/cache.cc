@@ -1839,22 +1839,16 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
                 throw AstraLocale::UserException("MSG.INVALID_COPIES");
     }
 
-    if (
-            cache.code() == "REM_TXT_SETS" or
-            cache.code() == "CUSTOM_ALARM_SETS"
-       ) {
+    if (cache.code() == "CUSTOM_ALARM_SETS") {
         if (
                 row.status != usDeleted and
                 row.status != usUnmodified
            ) {
-            int assigned = 0;
-            assigned += not cache.FieldValue("rfisc", row).empty();
-            assigned += not cache.FieldValue("brand_code", row).empty();
-            assigned += not cache.FieldValue("fqt_tier_level", row).empty();
-            if(not assigned)
-                throw AstraLocale::UserException("MSG.CANNOT_INSERT_NULL");
-            if(assigned > 1)
-                throw AstraLocale::UserException("MSG.MORE_THAN_ONE_CRITERION");
+            ostringstream alarm_id;
+            alarm_id << setw(9) << setfill('0') << cache.FieldValue("alarm", row);
+            string airline = getBaseTable(etCustomAlarmType).get_row("code", alarm_id.str()).AsString("airline");
+            if(not airline.empty() and airline != cache.FieldValue("airline", row))
+                throw AstraLocale::UserException("MSG.ALARM_DOES_NOT_MEET_AIRLINE");
         }
     }
 
@@ -1872,6 +1866,14 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
                     throw AstraLocale::UserException("MSG.REM_TXT_SETS.WRONG_TEXT_LENGTH_SMALL");
             } else if(text_length > 73)
                 throw AstraLocale::UserException("MSG.REM_TXT_SETS.WRONG_TEXT_LENGTH_BIG");
+            int assigned = 0;
+            assigned += not cache.FieldValue("rfisc", row).empty();
+            assigned += not cache.FieldValue("brand_code", row).empty();
+            assigned += not cache.FieldValue("fqt_tier_level", row).empty();
+            if(not assigned)
+                throw AstraLocale::UserException("MSG.CANNOT_INSERT_NULL");
+            if(assigned > 1)
+                throw AstraLocale::UserException("MSG.MORE_THAN_ONE_CRITERION");
         }
     }
 

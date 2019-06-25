@@ -8,7 +8,6 @@
 #include "oralib.h"
 #include "xml_unit.h"
 #include "astra_locale.h"
-#include "astra_utils.h"
 
 enum TRemCategory { remTKN, remDOC, remDOCO, remDOCA, remFQT, remASVC, remCREW, remUnknown };
 
