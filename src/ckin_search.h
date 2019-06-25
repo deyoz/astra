@@ -129,7 +129,7 @@ class Search
       startTime=boost::posix_time::microsec_clock::local_time();
 
       foundPaxIds.clear();
-      for(const PaxOrigin& o : { paxCheckIn, paxPnl })
+      for(const PaxOrigin& o : originList)
       {
         initSimplestSearch(o);
 
