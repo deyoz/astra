@@ -610,6 +610,7 @@ class TSimplePaxItem
 
     TComplexClass getCrsClass(bool onlyIfClassChange) const;
     std::string getCabinClass() const;
+    std::string getCabinSubclass() const;
     bool cabinClassToDB() const;
     bool hasCabinSeatNumber() const
     {

@@ -121,6 +121,7 @@ $(defmacro CHECK_SEARCH_PAX
             <airp_arv>$(airp_arv)</airp_arv>
             <subclass></subclass>
             <class></class>
+            <cabin_class></cabin_class>
             <passengers>
               <pax>
                 <pax_id>...
@@ -291,6 +292,7 @@ $(defmacro CHECK_TCKIN_ROUTE_2
                     <airp_arv>$(airp_arv)</airp_arv>
                     <subclass></subclass>
                     <class></class>
+                    <cabin_class></cabin_class>
                     <passengers>
                       <pax>
                         <pax_id>-1</pax_id>
@@ -510,6 +512,7 @@ $(defmacro CHECK_TCKIN_ROUTE_GRP_2
                     <airp_arv>$(airp_arv)</airp_arv>
                     <subclass></subclass>
                     <class></class>
+                    <cabin_class></cabin_class>
                     <passengers>
                       <pax>
                         <pax_id>-1</pax_id>
@@ -545,6 +548,7 @@ $(defmacro CHECK_TCKIN_ROUTE_GRP_2
                     <airp_arv>$(airp_arv)</airp_arv>
                     <subclass></subclass>
                     <class></class>
+                    <cabin_class></cabin_class>
                     <passengers>
                       <pax>
                         <pax_id>-2</pax_id>
@@ -1677,7 +1681,7 @@ ORG+1H:Œ‚+++’+Y+::RU+$(pult)"
 EQN+1:TD"
 TKT+$(tickno):T"
 CPN+$(cpnno):$(status)"
-TVL+$(ddmmyy)+„Œ„+‹Š+’+103:Y++1"
+TVL+$(ddmmyy)+„Œ„+‹Š+’+103++1"
 UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -1712,7 +1716,7 @@ ORG+1H:Œ‚+++’+Y+::RU+$(pult)"
 EQN+1:TD"
 TKT+$(tickno2):T"
 CPN+$(cpnno2):$(status)"
-TVL+$(ddmmyy)+„Œ„+‹Š+’+103:Y++1"
+TVL+$(ddmmyy)+„Œ„+‹Š+’+103++1"
 UNT+8+1"
 UNZ+1+$(last_edifact_ref 1)0001"
 
@@ -1724,7 +1728,7 @@ ORG+1H:Œ‚+++’+Y+::RU+$(pult)"
 EQN+1:TD"
 TKT+$(tickno1):T"
 CPN+$(cpnno1):$(status)"
-TVL+$(ddmmyy)+„Œ„+‹Š+’+103:Y++1"
+TVL+$(ddmmyy)+„Œ„+‹Š+’+103++1"
 UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -4165,7 +4169,7 @@ ORG+1H:Œ‚+++’+Y+::RU+SYSTEM"
 EQN+1:TD"
 TKT+2986120030297:T"
 CPN+1:I"
-TVL+$(ddmmyy)+„Œ„+‹Š+’+103:Y++1"
+TVL+$(ddmmyy)+„Œ„+‹Š+’+103++1"
 UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 
@@ -4292,7 +4296,7 @@ ORG+1H:Œ‚+++’+Y+::RU+SYSTEM"
 EQN+1:TD"
 TKT+2986120030297:T"
 CPN+1:CK"
-TVL+$(ddmmyy)+„Œ„+‹Š+’+103:Y++1"
+TVL+$(ddmmyy)+„Œ„+‹Š+’+103++1"
 UNT+8+1"
 UNZ+1+$(last_edifact_ref)0001"
 

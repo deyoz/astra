@@ -1650,11 +1650,15 @@ struct PaxLoadTotalRowStruct {
   }
 };
 
-void createReadPaxLoadTotalRow( TQuery &Qry, int point_id, PaxLoadTotalRowStruct &total )
+static void getPaxLoadTotal( int point_id, PaxLoadTotalRowStruct &total )
 {
+  TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
     "SELECT a.seats,a.adult_m,a.adult_f,a.child,a.baby, "
+    "       b.bag_amount, "
+    "       b.bag_weight, "
+    "       b.rk_weight, "
     "       c.crs_ok,c.crs_tranzit, "
     "       e.excess_wt,e.excess_pc,f.cfg "
     "FROM "
@@ -1666,6 +1670,13 @@ void createReadPaxLoadTotalRow( TQuery &Qry, int point_id, PaxLoadTotalRowStruct
     "  FROM pax_grp,pax "
     "  WHERE pax_grp.grp_id=pax.grp_id AND "
     "        point_dep=:point_id AND status NOT IN ('E') AND pr_brd IS NOT NULL) a, "
+    " (SELECT NVL(SUM(DECODE(pr_cabin,0,amount,0)),0) AS bag_amount, "
+    "         NVL(SUM(DECODE(pr_cabin,0,weight,0)),0) AS bag_weight, "
+    "         NVL(SUM(DECODE(pr_cabin,0,0,weight)),0) AS rk_weight "
+    "  FROM pax_grp,bag2 "
+    "  WHERE pax_grp.grp_id=bag2.grp_id AND "
+    "        point_dep=:point_id AND status NOT IN ('E') AND "
+    "        ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0) b, "
     " (SELECT NVL(SUM(crs_ok),0) AS crs_ok, "
     "         NVL(SUM(crs_tranzit),0) AS crs_tranzit "
     "  FROM counters2 "
@@ -1694,24 +1705,32 @@ void createReadPaxLoadTotalRow( TQuery &Qry, int point_id, PaxLoadTotalRowStruct
   total.excess_wt = Qry.FieldAsInteger("excess_wt");
   total.excess_pc = Qry.FieldAsInteger("excess_pc");
   total.cfg = Qry.FieldAsInteger("cfg");
+  total.bag_amount =  Qry.FieldAsInteger("bag_amount");
+  total.bag_weight = Qry.FieldAsInteger("bag_weight");
+  total.rk_weight = Qry.FieldAsInteger("rk_weight");
+}
+
+static void getBagLoadByCabinClasses( int point_id, PaxLoadTotalRowStruct &total )
+{
+  total.bags.clear();
+
+  TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
     "SELECT NVL(SUM(DECODE(pr_cabin,0,amount,0)),0) AS bag_amount, "
     "       NVL(SUM(DECODE(pr_cabin,0,weight,0)),0) AS bag_weight, "
     "       NVL(SUM(DECODE(pr_cabin,0,0,weight)),0) AS rk_weight, "
-    "       pax_grp.class "
-    "  FROM pax_grp,bag2 "
+    "       NVL(pax.cabin_class, pax_grp.class) AS class "
+    "  FROM pax_grp, bag2, pax "
     "  WHERE pax_grp.grp_id=bag2.grp_id AND "
+    "        bag2.grp_id=pax.grp_id(+) AND "
+    "        bag2.bag_pool_num=pax.bag_pool_num(+) AND "
     "        point_dep=:point_id AND status NOT IN ('E') AND "
     "        ckin.bag_pool_refused(bag2.grp_id,bag2.bag_pool_num,pax_grp.class,pax_grp.bag_refuse)=0 "
-    " GROUP BY class";
+    " GROUP BY NVL(pax.cabin_class, pax_grp.class)";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
-  total.bags.clear();
   for ( ; !Qry.Eof; Qry.Next() ) {
-     total.bag_amount +=  Qry.FieldAsInteger("bag_amount");
-     total.bag_weight += Qry.FieldAsInteger("bag_weight");
-     total.rk_weight += Qry.FieldAsInteger("rk_weight");
      total.bags[ Qry.FieldAsString( "class" ) ] = make_pair( Qry.FieldAsInteger("bag_amount"),  Qry.FieldAsInteger("bag_weight") );
   }
 }
@@ -1760,7 +1779,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   TTripInfo fltInfo(Qry);
   PaxLoadTotalRowStruct total;
   TComplexBagExcessNodeList  excessNodeList(OutputLang(), {TComplexBagExcessNodeList::ContainsOnlyNonZeroExcess});
-  createReadPaxLoadTotalRow( Qry, point_id, total );
+  getPaxLoadTotal( point_id, total );
   //секция строк
   xmlNodePtr rowsNode=NewTextChild(resNode,"rows");
 
@@ -2734,8 +2753,8 @@ void viewPaxLoadSectionReport(int point_id, xmlNodePtr resNode )
   xmlNodePtr datasetsNode = NewTextChild(resNode, "datasets");
   node = NewTextChild( datasetsNode, "sectionsData" );
   PaxLoadTotalRowStruct total;
-  Qry.Clear();
-  createReadPaxLoadTotalRow( Qry, point_id, total );
+  getPaxLoadTotal( point_id, total );
+  getBagLoadByCabinClasses( point_id, total );
   xmlNodePtr rowNode=NewTextChild(node,"row");
   NewTextChild(rowNode,"seats",total.seats);
   NewTextChild(rowNode,"adult_m",total.adult_m);

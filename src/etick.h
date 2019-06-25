@@ -209,7 +209,6 @@ class TETickItem
     std::string display_error, change_status_error;
     int point_id;
     std::string airp_dep, airp_arv;
-    std::string subclass;
     boost::optional<Ticketing::EdiPnr> ediPnr;
     TETickItem()
     {
@@ -222,7 +221,6 @@ class TETickItem
                const int &_point_id,
                const std::string &_airp_dep,
                const std::string &_airp_arv,
-               const std::string &_subclass,
                const Ticketing::CouponStatus &_status)
     {
       clear();
@@ -231,7 +229,6 @@ class TETickItem
       point_id=_point_id;
       airp_dep=_airp_dep;
       airp_arv=_airp_arv;
-      subclass=_subclass;
       et.status=_status;
     }
 
@@ -250,7 +247,6 @@ class TETickItem
       point_id=ASTRA::NoExists;
       airp_dep.clear();
       airp_arv.clear();
-      subclass.clear();
       ediPnr=boost::none;
     }
 
@@ -289,7 +285,9 @@ class TETickItem
                        const TEdiAction ediAction,
                        std::list<TETickItem> &eticks);
 
-    Ticketing::Ticket makeTicket(const AstraEdifact::TFltParams& fltParams) const;
+    Ticketing::Ticket makeTicket(const AstraEdifact::TFltParams& fltParams,
+                                 const std::string &subclass,
+                                 const Ticketing::CouponStatus& real_status) const;
     static void syncOriginalSubclass(const TETCoupon& et);
     static bool syncOriginalSubclass(int pax_id);
 };
@@ -430,10 +428,16 @@ class TETChangeStatusKey
 
 class TETChangeStatusList : public std::map<TETChangeStatusKey, std::vector<TETChangeStatusItem> >
 {
-  public:
+  private:
     xmlNodePtr addTicket(const TETChangeStatusKey &key,
                          const Ticketing::Ticket &tick,
                          bool onlySingleTicketInTlg);
+  public:
+    xmlNodePtr addTicket(const TETChangeStatusKey &key,
+                         const TETickItem& ETItem,
+                         const AstraEdifact::TFltParams& fltParams,
+                         const std::string& subclass="");
+
 };
 
 class TEMDChangeStatusKey

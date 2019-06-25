@@ -613,6 +613,21 @@ int TCounters::totalRegisteredPassengers(int point_id)
   return Qry.get().FieldAsInteger("reg");
 }
 
+void AvailableByClasses::getSummaryResult(int& need, int& avail) const
+{
+  need=0;
+  avail=0;
+  for(const auto& i : *this)
+  {
+    const CheckIn::AvailableByClass& item=i.second;
+    need+=item.need;
+    if (item.avail!=ASTRA::NoExists && item.avail<item.need)
+      avail+=item.avail;
+    else
+      avail+=item.need;
+  }
+}
+
 void AvailableByClasses::dump() const
 {
   for(const auto& i: *this)
@@ -622,14 +637,6 @@ void AvailableByClasses::dump() const
                      << ", need=" << item.need
                      << ", avail=" << (item.avail==ASTRA::NoExists?"NoExists":IntToString(item.avail));
   }
-}
-
-void CheckCounters(const CheckIn::TPaxGrpItem& grp,
-                   bool free_seating,
-                   AvailableByClasses& availableByClasses)
-{
-  for(auto& i : availableByClasses)
-    CheckCounters(grp.point_dep,grp.point_arv,i.second.cl,grp.status,TCFG(grp.point_dep),free_seating,i.second.is_jmp,i.second.avail);
 }
 
 void CheckCounters(int point_dep,
@@ -706,6 +713,25 @@ void CheckCounters(int point_dep,
       free=Qry.FieldAsInteger("jmp_nooccupy");
 
     if (free<0) free=0;
+}
+
+void CheckCounters(const CheckIn::TPaxGrpItem& grp,
+                   bool free_seating,
+                   AvailableByClasses& availableByClasses)
+{
+  for(auto& i : availableByClasses)
+    CheckCounters(grp.point_dep,grp.point_arv,i.second.cl,grp.status,TCFG(grp.point_dep),free_seating,i.second.is_jmp,i.second.avail);
+}
+
+void CheckCounters(int point_dep,
+                   int point_arv,
+                   ASTRA::TPaxStatus grp_status,
+                   const TCFG &cfg,
+                   bool free_seating,
+                   AvailableByClasses& availableByClasses)
+{
+  for(auto& i : availableByClasses)
+    CheckCounters(point_dep,point_arv,i.second.cl,grp_status,cfg,free_seating,i.second.is_jmp,i.second.avail);
 }
 
 } //namespace CheckIn

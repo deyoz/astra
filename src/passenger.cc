@@ -1680,7 +1680,7 @@ TSimplePaxItem& TSimplePaxItem::fromDBCrs(TQuery &Qry, bool withTkn)
   if (Qry.GetFieldIndex("seat_no")>=0)
     seat_no = Qry.FieldAsString("seat_no");
   if (Qry.GetFieldIndex("subclass")>=0)
-    subcl = Qry.FieldAsString("subclass");
+    subcl = Qry.FieldAsString("subclass"); //!!!vlad upgrade
   if (Qry.GetFieldIndex("reg_no")>=0)
     reg_no = Qry.FieldIsNULL("reg_no")?ASTRA::NoExists:Qry.FieldAsInteger("reg_no");
   if (withTkn)
@@ -1842,6 +1842,11 @@ std::string TSimplePaxItem::getCabinClass() const
   }
 
   return cabin.cl;
+}
+
+std::string TSimplePaxItem::getCabinSubclass() const
+{
+  return cabin.subcl.empty()?subcl:cabin.subcl;
 }
 
 std::string TSimplePaxItem::getSeatNo(const std::string& fmt) const

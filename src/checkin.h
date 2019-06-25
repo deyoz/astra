@@ -199,7 +199,6 @@ public:
                             const TDateTime scd_out_local,
                             std::vector<CheckIn::TTransferItem> &segs);
 
-  static void SavePaxTransfer(int pax_id, int pax_no, const std::vector<CheckIn::TTransferItem> &trfer, int seg_no);
   static void SaveTransfer(int grp_id, const std::vector<CheckIn::TTransferItem> &trfer,
                            const std::map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > &trfer_segs,
                            bool pr_unaccomp, int seg_no, TLogLocale& tlocale);

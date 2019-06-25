@@ -95,6 +95,24 @@ void PaxInfoForSearchList::trace() const
                      << "; timeOutAbsDistance=" << (info.timeOutAbsDistance?FloatToString(info.timeOutAbsDistance.get()):"boost::none");
 }
 
+void ClassesList::add(const std::string& cl)
+{
+  if (cls.find(cl)==string::npos) cls.append(cl);
+}
+
+std::string ClassesList::view() const
+{
+  std::string result;
+  for(const char& c : cls)
+    result.append(ElemIdToCodeNative(etClass, std::string(1,c)));
+  return result;
+}
+
+std::string ClassesList::getStrictlyOneClass() const
+{
+  return cls.size()==1?cls:"";
+}
+
 std::string getSearchPaxSubquery(const TPaxStatus& pax_status,
                                  const bool& return_pnr_ids,
                                  const bool& exclude_checked,
@@ -220,6 +238,81 @@ std::string getSearchPaxSubquery(const TPaxStatus& pax_status,
   return sql.str();
 }
 
+static std::string getSearchPaxQuerySelectPart()
+{
+  return "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.airp_arv, \n"
+         "       NVL(crs_pax.etick_class, NVL(crs_pax.orig_class, crs_pnr.class)) AS class, \n"
+         "       DECODE(crs_pnr.class, NVL(crs_pax.etick_class, NVL(crs_pax.orig_class, crs_pnr.class)), \n"
+         "         crs_pnr.subclass, \n"
+         "         NVL(crs_pax.etick_subclass, NVL(crs_pax.orig_subclass, crs_pnr.subclass))) AS subclass, \n"
+         "       crs_pnr.class AS cabin_class, \n"
+         "       crs_pnr.status AS pnr_status, crs_pnr.priority AS pnr_priority, \n"
+         "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, \n"
+         "       salons.get_crs_seat_no(crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, \n"
+         "       crs_pax.seat_type,crs_pax.seats, \n"
+         "       crs_pnr.pnr_id, \n"
+         "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, \n"
+         "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket \n";
+}
+
+static std::string getSearchPaxQueryOrderByPart()
+{
+  return "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,class,subclass,crs_pax.surname,crs_pax.pax_id \n";
+}
+
+void getTCkinSearchPaxQuery(TQuery& Qry)
+{
+    Qry.Clear();
+
+    ostringstream sql;
+
+    sql << getSearchPaxQuerySelectPart()
+        << "FROM tlg_binding,crs_pnr,crs_pax,pax "
+           "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
+           "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+           "      crs_pax.pax_id=pax.pax_id(+) AND "
+           "      tlg_binding.point_id_spp=:point_id AND "
+           "      crs_pnr.system='CRS' AND "
+           "      crs_pnr.airp_arv=:airp_arv AND "
+           "      crs_pnr.subclass=:subclass AND "
+           "      (crs_pnr.status IS NULL OR crs_pnr.status NOT IN ('DG2','RG2','ID2','WL')) AND "
+           "      crs_pax.pers_type=:pers_type AND "
+           "      DECODE(crs_pax.seats,0,0,1)=:seats AND "
+           "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
+           "      system.transliter_equal(crs_pax.name,:name)<>0 AND "
+           "      crs_pax.pr_del=0 AND "
+           "      pax.pax_id IS NULL "
+        << getSearchPaxQueryOrderByPart();
+
+    Qry.SQLText=sql.str().c_str();
+    Qry.DeclareVariable("point_id",otInteger);
+    Qry.DeclareVariable("airp_arv",otString);
+    Qry.DeclareVariable("subclass",otString);
+    Qry.DeclareVariable("pers_type",otString);
+    Qry.DeclareVariable("seats",otInteger);
+    Qry.DeclareVariable("surname",otString);
+    Qry.DeclareVariable("name",otString);}
+
+void executeSearchPaxQuery(const int& pnr_id,
+                           TQuery& Qry)
+{
+  ostringstream sql;
+
+  sql << getSearchPaxQuerySelectPart()
+      << "FROM crs_pnr,crs_pax,pax "
+         "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
+         "      crs_pax.pax_id=pax.pax_id(+) AND "
+         "      crs_pnr.pnr_id=:pnr_id AND "
+         "      crs_pax.pr_del=0 AND "
+         "      pax.pax_id IS NULL "
+      << getSearchPaxQueryOrderByPart();
+
+  Qry.Clear();
+  Qry.SQLText = sql.str().c_str();
+  Qry.CreateVariable("pnr_id", otInteger, pnr_id);
+  Qry.Execute();
+}
+
 void executeSearchPaxQuery(const int& point_dep,
                            const TPaxStatus& pax_status,
                            const bool& return_pnr_ids,
@@ -229,20 +322,8 @@ void executeSearchPaxQuery(const int& point_dep,
   //обычный поиск
   ostringstream sql;
 
-  sql <<
-    "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.airp_arv, \n"
-    "       NVL(crs_pax.etick_class, NVL(crs_pax.orig_class, crs_pnr.class)) AS class, \n"
-    "       DECODE(crs_pnr.class, NVL(crs_pax.etick_class, NVL(crs_pax.orig_class, crs_pnr.class)), \n"
-    "         crs_pnr.subclass, \n"
-    "         NVL(crs_pax.etick_subclass, NVL(crs_pax.orig_subclass, crs_pnr.subclass))) AS subclass, \n"
-    "       crs_pnr.status AS pnr_status, crs_pnr.priority AS pnr_priority, \n"
-    "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, \n"
-    "       salons.get_crs_seat_no(crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, \n"
-    "       crs_pax.seat_type,crs_pax.seats, \n"
-    "       crs_pnr.pnr_id, \n"
-    "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, \n"
-    "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket \n"
-    "FROM crs_pnr,crs_pax,pax,( \n";
+  sql << getSearchPaxQuerySelectPart()
+      << "FROM crs_pnr,crs_pax,pax,( \n";
 
 
   sql << getSearchPaxSubquery(pax_status,
@@ -264,7 +345,7 @@ void executeSearchPaxQuery(const int& point_dep,
 
   sql << "      crs_pax.pr_del=0 AND \n"
          "      pax.pax_id IS NULL \n"
-         "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,class,subclass,crs_pax.surname,crs_pax.pax_id \n";
+      << getSearchPaxQueryOrderByPart();
 
 //  ProgTrace(TRACE5,"CheckInInterface::SearchPax: status=%s",EncodePaxStatus(pax_status));
 //  ProgTrace(TRACE5,"CheckInInterface::SearchPax: sql=\n%s",sql.c_str());

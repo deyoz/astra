@@ -1438,6 +1438,7 @@ static void CreateEdiTCkinResponse(const CheckIn::TTransferItem &ti,
                                                                             : ENGLISH;
     NewTextChild(pnrNode, "subclass", subcls->code(lang));
     NewTextChild(pnrNode, "class",    subcls->baseClass()->code(lang));
+    NewTextChild(pnrNode, "cabin_class",    subcls->baseClass()->code(lang));
 
     xmlNodePtr paxesNode = NewTextChild(pnrNode, "passengers");
     xmlNodePtr paxNode = NewTextChild(paxesNode, "pax");
@@ -1611,11 +1612,6 @@ static int CreateSearchResponse(int point_dep,
     "FROM tlg_trips WHERE point_id=:point_id";
   FltQry.DeclareVariable("point_id",otInteger);
 
-  TQuery PnrAddrQry(&OraSession);
-  PnrAddrQry.SQLText =
-    "SELECT airline,addr FROM pnr_addrs WHERE pnr_id=:pnr_id";
-  PnrAddrQry.DeclareVariable("pnr_id",otInteger);
-
   int prior_point_id=NoExists;
   int prior_pnr_id=NoExists;
   std::string prior_orig_subclass;
@@ -1707,6 +1703,7 @@ static int CreateSearchResponse(int point_dep,
       NewTextChild(node,"airp_arv",PaxQry.FieldAsString("airp_arv"));
       NewTextChild(node,"subclass",curr_orig_subclass);
       NewTextChild(node,"class",curr_orig_class);
+      NewTextChild(node,"cabin_class",PaxQry.FieldAsString("cabin_class"));
       string pnr_status=PaxQry.FieldAsString("pnr_status");
       NewTextChild(node,"pnr_status",pnr_status,"");
       NewTextChild(node,"pnr_priority",PaxQry.FieldAsString("pnr_priority"),"");
@@ -1851,26 +1848,7 @@ void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if (GetNode("pnr_id",reqNode)!=NULL)
   {
     TQuery PaxQry(&OraSession);
-    PaxQry.Clear();
-    PaxQry.SQLText=
-      "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.airp_arv,crs_pnr.subclass, "
-      "       crs_pnr.class, crs_pnr.status AS pnr_status, crs_pnr.priority AS pnr_priority, "
-      "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
-      "       salons.get_crs_seat_no(crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, "
-      "       crs_pax.seat_type, "
-      "       crs_pax.seats, "
-      "       crs_pnr.pnr_id, "
-      "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, "
-      "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket "
-      "FROM crs_pnr,crs_pax,pax "
-      "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-      "      crs_pax.pax_id=pax.pax_id(+) AND "
-      "      crs_pnr.pnr_id=:pnr_id AND "
-      "      crs_pax.pr_del=0 AND "
-      "      pax.pax_id IS NULL "
-      "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
-    PaxQry.CreateVariable("pnr_id",otInteger,NodeAsInteger("pnr_id",reqNode));
-    PaxQry.Execute();
+    executeSearchPaxQuery(NodeAsInteger("pnr_id",reqNode), PaxQry);
     CreateSearchResponse(point_dep,PaxQry,resNode);
     CreateNoRecResponse(sum,resNode);
     NewTextChild(resNode,"ckin_state","Choice");
@@ -3762,7 +3740,7 @@ void GetInboundTransferForWeb(TSegList &segList,
     for(CheckIn::TPaxList::const_iterator p=iSegListItem->paxs.begin(); p!=iSegListItem->paxs.end(); ++p)
     {
       CheckIn::TPaxTransferItem paxTrfer;
-      paxTrfer.subclass=p->pax.subcl;
+      paxTrfer.subclass=p->pax.subcl; //!!!vlad upgrade
       paxTrfer.subclass_fmt=efmtCodeNative;
       trfer.pax.push_back(paxTrfer);
     }
@@ -4811,7 +4789,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               const CheckIn::TPaxItem &pax=p->pax;
               try
               {
-                if (iPaxTrfer->subclass!=pax.subcl)
+                if (iPaxTrfer->subclass!=pax.getCabinSubclass())
                   throw UserException("MSG.CHECKIN.DIFFERENT_TCKIN_AND_TRFER_SUBCLASSES");
               }
               catch(CheckIn::UserException)
@@ -5254,7 +5232,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 if (save_trfer)
                 {
                   //запись подклассов трансфера
-                  SavePaxTransfer(pax_id,pax_no,trfer,seg_no);
+                  CheckIn::PaxTransferToDB(pax_id,pax_no,trfer,seg_no);
                 }
                 //запись ремарок
                 if (p->remsExists)
@@ -5527,7 +5505,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               if (save_trfer)
               {
                 //запись подклассов трансфера
-                SavePaxTransfer(pax.id,pax_no,trfer,seg_no);
+                CheckIn::PaxTransferToDB(pax.id,pax_no,trfer,seg_no);
               }
               //запись ремарок
               if (p->remsExists)
@@ -6508,7 +6486,7 @@ void fillPaxsBags(const TCheckedReqPassengers &req_grps, TExchange &exch, TCheck
                 if (!res.second) continue;
                 SirenaExchange::TPaxSegItem &reqSeg=res.first->second;
                 reqSeg.set(trfer_num, *s);
-                reqSeg.subcl=p->subclass;
+                reqSeg.subcl=p->subclass; //!!!vlad upgrade
               }
               if (s!=trfer.end()) throw EXCEPTIONS::Exception("%s: strange situation s!=trfer.end()", __FUNCTION__);
               if (p!=pax_trfer.end()) throw EXCEPTIONS::Exception("%s: strange situation p!=pax_trfer.end()", __FUNCTION__);
@@ -6518,7 +6496,7 @@ void fillPaxsBags(const TCheckedReqPassengers &req_grps, TExchange &exch, TCheck
                 reqPax.segs.insert(make_pair(seg_no,SirenaExchange::TPaxSegItem()));
             SirenaExchange::TPaxSegItem &reqSeg=res.first->second;
             reqSeg.set(seg_no, operFlt, grp.airp_arv, mktFlight, scd_in);
-            reqSeg.subcl=pax.subcl;
+            reqSeg.subcl=pax.subcl; //!!!vlad upgrade
             reqSeg.set(pax.tkn, paxSection);
             CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);
             reqSeg.pnrAddrs.getByPaxIdFast(pax.id);
@@ -7017,7 +6995,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
 
         CheckIn::TPaxTransferItem paxTrferItem;
         paxTrferItem.pax_id=pax.id;
-        paxTrferItem.subclass=pax.subcl;
+        paxTrferItem.subclass=pax.subcl; //!!!vlad upgrade
         seg.pax.push_back(paxTrferItem);
 
         xmlNodePtr paxNode=NewTextChild(node, "pax");
@@ -7176,36 +7154,6 @@ void CheckInInterface::PaxRemToXML(xmlNodePtr paxNode)
 
   LoadPaxRemAndASVC(pax_id, paxNode, false);
   LoadPaxFQT(pax_id, paxNode, false);
-}
-
-void CheckInInterface::SavePaxTransfer(int pax_id, int pax_no, const vector<CheckIn::TTransferItem> &trfer, int seg_no)
-{
-  vector<CheckIn::TTransferItem>::const_iterator firstTrfer=trfer.begin();
-  for(;firstTrfer!=trfer.end()&&seg_no>1;firstTrfer++,seg_no--);
-
-  TQuery TrferQry(&OraSession);
-  TrferQry.Clear();
-  TrferQry.SQLText="DELETE FROM transfer_subcls WHERE pax_id=:pax_id";
-  TrferQry.CreateVariable("pax_id",otInteger,pax_id);
-  TrferQry.Execute();
-
-  TrferQry.SQLText=
-    "INSERT INTO transfer_subcls(pax_id,transfer_num,subclass,subclass_fmt) "
-    "VALUES (:pax_id,:transfer_num,:subclass,:subclass_fmt)";
-  TrferQry.DeclareVariable("transfer_num",otInteger);
-  TrferQry.DeclareVariable("subclass",otString);
-  TrferQry.DeclareVariable("subclass_fmt",otInteger);
-
-  int trfer_num=1;
-  for(vector<CheckIn::TTransferItem>::const_iterator t=firstTrfer;t!=trfer.end();t++,trfer_num++)
-  {
-    const CheckIn::TPaxTransferItem &pax=t->pax.at(pax_no-1);
-    TrferQry.SetVariable("transfer_num",trfer_num);
-    TrferQry.SetVariable("subclass",pax.subclass);
-    TrferQry.SetVariable("subclass_fmt",(int)pax.subclass_fmt);
-    TrferQry.Execute();
-  }
-  TrferQry.Close();
 }
 
 static void FormatTCkinSeg(PrmEnum& routeFmt, const TSegInfo& seg)
@@ -8236,61 +8184,10 @@ static std::vector<TCkinPaxInfo> GetRequestPaxes(xmlNodePtr paxNode, const Check
     return vPax;
 }
 
-static TQuery GetCrsQuery()
-{
-    TQuery crsQry(&OraSession);
-    crsQry.Clear();
-
-    ostringstream sql;
-
-    sql <<
-        "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.airp_arv,crs_pnr.subclass, "
-        "       crs_pnr.class, crs_pnr.status AS pnr_status, crs_pnr.priority AS pnr_priority, "
-        "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
-        "       salons.get_crs_seat_no(crs_pax.pax_id,crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, "
-        "       crs_pax.seat_type, "
-        "       crs_pax.seats, "
-        "       crs_pnr.pnr_id, "
-        "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, "
-        "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket "
-        "FROM tlg_binding,crs_pnr,crs_pax,pax "
-        "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
-        "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
-        "      crs_pax.pax_id=pax.pax_id(+) AND "
-        "      tlg_binding.point_id_spp=:point_id AND "
-        "      crs_pnr.system='CRS' AND "
-        "      crs_pnr.airp_arv=:airp_arv AND "
-        "      crs_pnr.subclass=:subclass AND "
-        "      (crs_pnr.status IS NULL OR crs_pnr.status NOT IN ('DG2','RG2','ID2','WL')) AND "
-        "      crs_pax.pers_type=:pers_type AND "
-        "      DECODE(crs_pax.seats,0,0,1)=:seats AND "
-        "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
-        "      system.transliter_equal(crs_pax.name,:name)<>0 AND "
-        "      crs_pax.pr_del=0 AND "
-        "      pax.pax_id IS NULL "
-        "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
-
-    crsQry.SQLText=sql.str().c_str();
-    crsQry.DeclareVariable("point_id",otInteger);
-    crsQry.DeclareVariable("airp_arv",otString);
-    crsQry.DeclareVariable("subclass",otString);
-    crsQry.DeclareVariable("pers_type",otString);
-    crsQry.DeclareVariable("seats",otInteger);
-    crsQry.DeclareVariable("surname",otString);
-    crsQry.DeclareVariable("name",otString);
-
-    return crsQry;
-}
-
 static void FillEdiTCkinPaxesNode(xmlNodePtr reqNode, xmlNodePtr tckinPaxesNode,
                                   std::vector<TCkinPaxInfo>& vPax,
                                   const CheckIn::TTransferItem& f)
 {
-    TQuery crsQry = GetCrsQuery();
-
-    crsQry.SetVariable("point_id", NodeAsInteger("point_dep", reqNode));
-    crsQry.SetVariable("airp_arv", NodeAsString("airp_arv", reqNode));
-
     std::vector<TCkinPaxInfo>::iterator iPax = vPax.begin();
     int paxId = 0;
     for(iPax=vPax.begin(); iPax != vPax.end(); iPax++)
@@ -8309,7 +8206,6 @@ static void FillEdiTCkinPaxesNode(xmlNodePtr reqNode, xmlNodePtr tckinPaxesNode,
                              iPax->seats);
         }
     }
-    //int pnrId = FindPnrIdByPointId
 }
 
 static TTripInfo makeTripInfo(const CheckIn::TTransferItem& f)
@@ -8482,15 +8378,17 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           NewTextChild(segNode,"classes",cfg.str());
         }
 
-        TQuery CrsQry = GetCrsQuery();
+        TQuery CrsQry(&OraSession);
+        getTCkinSearchPaxQuery(CrsQry);
         //класс пассажиров
         CrsQry.SetVariable("point_id",currSeg.point_dep);
         CrsQry.SetVariable("airp_arv",currSeg.airp_arv);
 
         xmlNodePtr paxNode=NodeAsNode("passengers",reqNode)->children;
         xmlNodePtr pax2Node=NewTextChild(segNode,"temp_passengers");
-        int paxCount=0,paxCountInPNL=0,seatsSum=0;
-        string cl;
+        int paxCount=0,paxCountInPNL=0;
+        ClassesList origCls, cabinCls;
+        CheckIn::AvailableByClasses availableByClasses;
         bool doublePax=false;
         std::vector<TCkinPaxInfo> pax = GetRequestPaxes(paxNode, *f);
         //массив pax на данный момент содержит пассажиров с уникальными:
@@ -8506,7 +8404,6 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         for(iPax=pax.begin();iPax!=pax.end();iPax++)
         {
           paxCount+=iPax->reqCount;
-          seatsSum+=iPax->seats * iPax->reqCount;
 
           CrsQry.SetVariable("subclass", iPax->subclass);
           CrsQry.SetVariable("pers_type",iPax->pers_type);
@@ -8523,8 +8420,10 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
           iPax->node=NewTextChild(pax2Node,"tckin_pax");
 
+          std::string cabinClassForAvailability;
           if (!CrsQry.Eof)
           {
+            cabinClassForAvailability=CrsQry.FieldAsString("cabin_class");
             if (tckin_route_confirm)
             {
               //это уже после подтверждения маршрута
@@ -8538,8 +8437,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
                                  pnrNode!=NULL;
                                  pnrNode=pnrNode->next)
                   {
-                    string pax_cl=NodeAsString("class",pnrNode);
-                    if (cl.find(pax_cl)==string::npos) cl.append(pax_cl);
+                    origCls.add(NodeAsString("class",pnrNode));
+                    cabinCls.add(NodeAsString("cabin_class",pnrNode));
                   }
               }
             }
@@ -8549,8 +8448,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
               for(;!CrsQry.Eof;CrsQry.Next())
               {
                 iPax->resCount++;
-                string pax_cl=CrsQry.FieldAsString("class");
-                if (cl.find(pax_cl)==string::npos) cl.append(pax_cl);
+                origCls.add(CrsQry.FieldAsString("class"));
+                cabinCls.add(CrsQry.FieldAsString("cabin_class"));
               }
             }
           }
@@ -8564,16 +8463,18 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
               "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
               "      tlg_binding.point_id_spp=:point_id AND "
               "      crs_pnr.system='CRS' AND "
-              "      crs_pnr.subclass=:subclass ";
+              "      crs_pnr.subclass=:subclass "
+              "ORDER BY class";
             Qry.CreateVariable("point_id",otInteger,currSeg.point_dep);
             Qry.CreateVariable("subclass",otString,iPax->subclass);
             Qry.Execute();
             if (!Qry.Eof)
             {
+              cabinClassForAvailability=Qry.FieldAsString("class");
               for(;!Qry.Eof;Qry.Next())
               {
-                string pax_cl=Qry.FieldAsString("class");
-                if (cl.find(pax_cl)==string::npos) cl.append(pax_cl);
+                origCls.add(Qry.FieldAsString("class"));
+                cabinCls.add(Qry.FieldAsString("class"));
               }
             }
             else
@@ -8581,12 +8482,15 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
               try
               {
                 const TSubclsRow& row=(const TSubclsRow&)base_tables.get("subcls").get_row("code/code_lat",iPax->subclass);
-                if (cl.find(row.cl)==string::npos) cl.append(row.cl);
+                cabinClassForAvailability=row.cl;
+                origCls.add(row.cl);
+                cabinCls.add(row.cl);
               }
               catch(EBaseTableError) {}
             }
           }
-
+          if (!cabinClassForAvailability.empty())
+            availableByClasses.add(cabinClassForAvailability, false, iPax->seats * iPax->reqCount);
 
 
           //resCount содержит кол-во реально найденных пассажиров
@@ -8668,16 +8572,19 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             NewTextChild(segNode,"pnl","+");
 
 
-        if (cl.size()==1)
+        if (origCls.strictlyOneClass())
         {
-          NewTextChild(segNode,"class",ElemIdToCodeNative(etClass,cl));
+          if (origCls==cabinCls)
+            NewTextChild(segNode,"class",origCls.view());
+          else
+            NewTextChild(segNode,"class",origCls.view()+"->"+cabinCls.view());
 
           //запишем класс если подтверждение маршрута
           if (tckin_route_confirm)
           {
             try
             {
-              const TClassesRow& classesRow=(const TClassesRow&)base_tables.get("classes").get_row("code",cl);
+              const TClassesRow& classesRow=(const TClassesRow&)base_tables.get("classes").get_row("code",origCls.getStrictlyOneClass());
               NewTextChild( seg2Node, "class_code", classesRow.code );
             }
             catch(EBaseTableError) {}
@@ -8685,15 +8592,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         }
         else
         {
-          if (cl.empty())
-            SetProp(NewTextChild(segNode,"class",AstraLocale::getLocaleText("Нет")),"error","CRITICAL");
-          else
-          {
-            string cl_view;
-            for(string::iterator c=cl.begin();c!=cl.end();c++)
-             cl_view.append(ElemIdToCodeNative(etClass,*c));
-            SetProp(NewTextChild(segNode,"class",cl_view),"error","CRITICAL");
-          }
+          SetProp(NewTextChild(segNode,"class", origCls.noClasses()?AstraLocale::getLocaleText("Нет"):origCls.view()),"error","CRITICAL");
         }
 
         //наличие мест
@@ -8708,28 +8607,29 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             SetProp(NewTextChild(segNode,"free",AstraLocale::getLocaleText("Нет п/н")),"error","CRITICAL");
           }
           else
-            if (cl.size()==1)
+            if (origCls.strictlyOneClass())
             {
-//              !!!vlad
-//              bool free_seating=SALONS2::isFreeSeating(currSeg.point_dep);
+              bool free_seating=SALONS2::isFreeSeating(currSeg.point_dep);
 
-//              //считаем кол-во свободных мест
-//              //(после поиска пассажиров, так как необходимо определить базовый класс)
-//              int free, jmp_free;
-//              CheckCounters(currSeg.point_dep,currSeg.point_arv,cl,psTCheckin,cfg,free_seating,free,jmp_free);
-//              if (free!=NoExists && free<seatsSum)
-//              {
-//                xmlNodePtr wlNode;
-//                if (free<=0)
-//                  wlNode=NewTextChild(segNode,"free",AstraLocale::getLocaleText("Нет"));
-//                else
-//                  wlNode=NewTextChild(segNode,"free",
-//                                      IntToString(free)+" "+AstraLocale::getLocaleText("из")+" "+IntToString(seatsSum));
-//                SetProp(wlNode,"error","WL");
-//                SetProp(wlNode,"wl_type","O");
-//              }
-//              else
-//              !!!vlad
+              //считаем кол-во свободных мест
+              //(после поиска пассажиров, так как необходимо определить базовый класс)
+
+              CheckIn::CheckCounters(currSeg.point_dep,currSeg.point_arv,psTCheckin,cfg,free_seating,availableByClasses);
+
+              int needSum, availSum;
+              availableByClasses.getSummaryResult(needSum, availSum);
+              if (availSum<needSum)
+              {
+                xmlNodePtr wlNode;
+                if (availSum<=0)
+                  wlNode=NewTextChild(segNode,"free",AstraLocale::getLocaleText("Нет"));
+                else
+                  wlNode=NewTextChild(segNode,"free",
+                                      IntToString(availSum)+" "+AstraLocale::getLocaleText("из")+" "+IntToString(needSum));
+                SetProp(wlNode,"error","WL");
+                SetProp(wlNode,"wl_type","O");
+              }
+              else
                 NewTextChild(segNode,"free","+");
             }
             else
