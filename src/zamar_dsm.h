@@ -6,7 +6,7 @@
 #include "date_time.h"
 #include "astra_consts.h"
 #include "passenger.h"
-#include "print.h"
+//#include "print.h"
 #include "astra_misc.h"
 #include "baggage_base.h"
 #include "baggage_tags.h"
@@ -14,6 +14,7 @@
 using BASIC::date_time::TDateTime;
 
 enum class ZamarType { DSM, SBDO };
+enum class ZamarActionType { CONFIRM, REVOKE };
 
 struct ZamarDataInterface
 {
@@ -38,7 +39,7 @@ class ZamarDSMInterface: public JxtInterface
 
 class PassengerSearchResult : public ZamarDataInterface
 {
-  PrintInterface::BPPax bppax;
+//  PrintInterface::BPPax bppax;
   int point_id = ASTRA::NoExists;
   int grp_id = ASTRA::NoExists;
   int pax_id = ASTRA::NoExists;
@@ -107,13 +108,13 @@ struct ZamarBagTag
   void SetListId();
 
   void fromXML_add(xmlNodePtr reqNode);
-  void fromXML(xmlNodePtr reqNode);
+  void fromXML(xmlNodePtr reqNode, ZamarActionType actionType);
   void toXML(xmlNodePtr resNode) const;
 
   void toDB_generated(); // TODO const
   void toDB_activated(xmlNodePtr reqNode, xmlNodePtr externalSysResNode); // TODO const
   void toDB_deactivated(xmlNodePtr reqNode, xmlNodePtr externalSysResNode); // TODO const
-  void fromDB();
+  void fromDB(ZamarActionType actionType);
 
   void Activate(xmlNodePtr reqNode, xmlNodePtr externalSysResNode);
   void Deactivate(xmlNodePtr reqNode, xmlNodePtr externalSysResNode);
