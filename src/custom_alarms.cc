@@ -71,32 +71,13 @@ void init_fqt_callbacks()
 }
 
 
-size_t TCustomAlarms::TSets::TRow::not_empty_amount() const
+size_t TCustomAlarms::TSets::TRow::cost() const
 {
     return
         not rfisc.empty() +
         not rfisc_tlg.empty() +
-        not brand_airline.empty() +
         not brand_code.empty() +
-        not fqt_airline.empty() +
         not fqt_tier_level.empty();
-}
-
-bool TCustomAlarms::TSets::TRow::operator < (const TCustomAlarms::TSets::TRow &val) const
-{
-    if(not_empty_amount() != val.not_empty_amount())
-        return not_empty_amount() > val.not_empty_amount();
-    if(rfisc != val.rfisc)
-        return rfisc > val.rfisc;
-    if(rfisc_tlg != val.rfisc_tlg)
-        return rfisc_tlg > val.rfisc_tlg;
-    if(brand_airline != val.brand_airline)
-        return brand_airline > val.brand_airline;
-    if(brand_code != val.brand_code)
-        return brand_code > val.brand_code;
-    if(fqt_airline != val.fqt_airline)
-        return fqt_airline > val.fqt_airline;
-    return fqt_tier_level > val.fqt_tier_level;
 }
 
 bool TCustomAlarms::TSets::get(const std::string &airline)
@@ -108,7 +89,7 @@ bool TCustomAlarms::TSets::get(const std::string &airline)
                 QParams() << QParam("airline", otString, airline));
         Qry.get().Execute();
         for(; not Qry.get().Eof; Qry.get().Next())
-            sets->insert(TRow(
+            sets->push_back(TRow(
                 Qry.get().FieldAsString("rfisc"),
                 Qry.get().FieldAsString("rfisc_tlg"),
                 Qry.get().FieldAsString("brand_airline"),
@@ -130,13 +111,15 @@ string TCustomAlarms::TSets::TRow::str() const
         << setw(11) << brand_code
         << setw(4) << fqt_airline
         << setw(30) << fqt_tier_level
-        << setw(10) << alarm;
+        << setw(10) << alarm
+        << " COST: " << cost();
     return result.str();
 }
 
 void TCustomAlarms::TSets::fromDB(const std::string &airline, int pax_id, set<int> &alarms)
 {
     LogTrace(TRACE5) << __func__ << ": started; airline: '" << airline << "'; pax_id: " << pax_id;
+
     alarms.clear();
 
     if(get(airline)) {
@@ -145,6 +128,8 @@ void TCustomAlarms::TSets::fromDB(const std::string &airline, int pax_id, set<in
         boost::optional<RFISCsSet> paxRFISCs;
         boost::optional<set<CheckIn::TPaxFQTItem>> fqts;
         boost::optional<vector<CheckIn::TPaxASVCItem>> asvcs;
+
+        map<size_t, list<TRow>> selected;
 
         for(const auto &row: sets.get()) {
             bool result = true;
@@ -207,8 +192,11 @@ void TCustomAlarms::TSets::fromDB(const std::string &airline, int pax_id, set<in
                     }
             }
             if(result)
-                alarms.insert(row.alarm);
+                selected[row.cost()].push_back(row);
         }
+        if(not selected.empty())
+            for(const auto &row: selected.rbegin()->second)
+                alarms.insert(row.alarm);
     }
 }
 

@@ -1844,6 +1844,35 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
                 throw AstraLocale::UserException("MSG.INVALID_COPIES");
     }
 
+    if (cache.code() == "CUSTOM_ALARM_TYPES") {
+        if(row.status == usModified) {
+            string airline = cache.FieldValue("airline", row);
+            string old_airline = cache.FieldOldValue("airline", row);
+            if(not airline.empty() and airline != old_airline) {
+                TCachedQuery Qry("select * from custom_alarm_sets where alarm = :alarm and airline <> :airline",
+                        QParams()
+                        << QParam("alarm", otInteger, ToInt(cache.FieldValue("id", row)))
+                        << QParam("airline", otString, airline));
+                Qry.get().Execute();
+                if(not Qry.get().Eof)
+                    throw AstraLocale::UserException("MSG.ALARM_DOES_NOT_MEET_AIRLINE");
+            }
+        }
+    }
+
+    if (cache.code() == "CUSTOM_ALARM_SETS") {
+        if (
+                row.status != usDeleted and
+                row.status != usUnmodified
+           ) {
+            ostringstream alarm_id;
+            alarm_id << setw(9) << setfill('0') << cache.FieldValue("alarm", row);
+            string airline = getBaseTable(etCustomAlarmType).get_row("code", alarm_id.str()).AsString("airline");
+            if(not airline.empty() and airline != cache.FieldValue("airline", row))
+                throw AstraLocale::UserException("MSG.ALARM_DOES_NOT_MEET_AIRLINE");
+        }
+    }
+
     if (cache.code() == "REM_TXT_SETS") {
         if (
                 row.status != usDeleted and

@@ -23,9 +23,8 @@ struct TCustomAlarms {
                     fqt_tier_level;
                 int alarm;
 
-                bool operator < (const TRow &val) const;
                 std::string str() const;
-                size_t not_empty_amount() const;
+                size_t cost() const;
 
                 TRow(
                     const std::string &_rfisc,
@@ -46,7 +45,7 @@ struct TCustomAlarms {
                 {}
             };
 
-            typedef std::set<TRow> TRowList;
+            typedef std::list<TRow> TRowList;
             typedef std::map<std::string, boost::optional<TRowList>> TAirlineMap;
 
             TAirlineMap items;

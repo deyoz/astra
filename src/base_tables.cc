@@ -770,6 +770,7 @@ void TCustomAlarmTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableR
 {
     *row = new TCustomAlarmTypesRow;
   mem.create(*row, STDLOG);
+  ((TCustomAlarmTypesRow*)*row)->airline=Qry.FieldAsString("airline");
     TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
 
