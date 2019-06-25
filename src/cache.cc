@@ -1881,19 +1881,23 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
       cache.code() == "REM_TXT_SETS" ||
       cache.code() == "CUSTOM_ALARM_SETS" ||
       cache.code() == "DCS_SERVICE_APPLYING") {
-    string rfisc;
-    if (
-            row.status != usDeleted and
-            row.status != usUnmodified
-            )
-      rfisc=cache.FieldValue("rfisc", row);
+      list<string> l;
+      if (
+              row.status != usDeleted and
+              row.status != usUnmodified
+         ) {
+          l.push_back(cache.FieldValue("rfisc", row));
+          if(cache.code() == "CUSTOM_ALARM_SETS")
+              l.push_back(cache.FieldValue("rfisc_tlg", row));
+      }
 
-    if(not rfisc.empty()) {
-        static const boost::regex e("^[€-ŸðA-Z0-9]{3,15}$");
-        boost::smatch results;
-        if(not boost::regex_match(rfisc, results, e))
-            throw AstraLocale::UserException("MSG.WRONG_RFISC");
-    }
+      for(const auto &i: l)
+          if(not i.empty()) {
+              static const boost::regex e("^[€-ŸðA-Z0-9]{3,15}$");
+              boost::smatch results;
+              if(not boost::regex_match(i, results, e))
+                  throw AstraLocale::UserException("MSG.WRONG_RFISC");
+          }
   }
   if (cache.code() == "CODESHARE_SETS")
   {
