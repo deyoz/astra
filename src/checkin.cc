@@ -5300,10 +5300,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             "  END IF; "
             "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,crew_type,is_jmp,is_female,seat_type,seats,pr_brd, "
             "                  wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm,doco_confirm, "
-            "                  pr_exam,subclass,bag_pool_num,sync_emds,tid) "
+            "                  pr_exam,subclass,bag_pool_num,tid) "
             "  VALUES(:pax_id,:grp_id,:surname,:name,:pers_type,:crew_type,:is_jmp,:is_female,:seat_type,:seats,:pr_brd, "
             "         :wl_type,NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:ticket_confirm,0, "
-            "         :pr_exam,:subclass,:bag_pool_num,0,cycle_tid__seq.currval); "
+            "         :pr_exam,:subclass,:bag_pool_num,cycle_tid__seq.currval); "
             "END;";
           Qry.DeclareVariable("pax_id",otInteger);
           Qry.DeclareVariable("grp_id",otInteger);
