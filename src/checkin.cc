@@ -3323,7 +3323,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             ts.act != NoExists and
             TReqInfo::Instance()->user.access.rights().permitted(997)
       )
-        throw AstraLocale::UserException("MSG.NO_ACCESS");
+        throw AstraLocale::UserException(ElemIdToNameLong(etRight, 997));
     SavePax(reqNode, NULL, resNode);
 }
 
