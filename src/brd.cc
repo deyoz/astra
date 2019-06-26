@@ -1601,7 +1601,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           TCrewType::Enum crew_type = CrewTypes().decode(Qry.FieldAsString("crew_type"));
           ASTRA::TPaxTypeExt pax_ext(grp_status, crew_type);
 
-          if(not custom_alarms) {
+          if(not custom_alarms or not showWholeFlight) {
               custom_alarms = boost::in_place();
               custom_alarms->fromDB(showWholeFlight, showWholeFlight ? point_id : pax_id);
           }
