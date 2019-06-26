@@ -36,6 +36,8 @@
 #include "astra_elems.h"
 #include "baggage_calc.h"
 #include "AirportControl.h"
+#include "passenger.h"
+#include "ckin_search.h"
 #include "tlg/et_disp_request.h"
 #include "tlg/emd_disp_request.h"
 #include "tlg/emd_system_update_request.h"
@@ -428,9 +430,10 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
                 << QParam("fare_basis", otString, fare_basis)
                 << (bag_norm!=ASTRA::NoExists?QParam("bag_norm", otInteger, bag_norm):
                                               QParam("bag_norm", otInteger, FNull))
-                << QParam("subcls", otString, subcls)
+                << QParam("fare_class", otString, fare_class)
                 << QParam("bag_norm_unit", otString, bag_norm_unit.get_db_form())
-                << QParam("last_display", otDate, NowUTC());
+                << QParam("last_display", otDate, NowUTC())
+                << QParam("inserted", otInteger, FNull);
       break;
     case ChangeOfStatus:
       QryParams << (point_id!=ASTRA::NoExists?QParam("point_id", otInteger, point_id):
@@ -469,21 +472,29 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
       {
         const char* sql=
             "BEGIN "
+            "  :inserted:=0; "
             "  UPDATE eticks_display "
             "  SET issue_date=:issue_date, surname=:surname, name=:name, "
-            "      fare_basis=:fare_basis, bag_norm=:bag_norm, subcls=:subcls, bag_norm_unit=:bag_norm_unit, "
-            "      last_display=:last_display "
+            "      fare_basis=:fare_basis, bag_norm=:bag_norm, bag_norm_unit=:bag_norm_unit, "
+            "      fare_class=:fare_class, last_display=:last_display "
             "  WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
             "  IF SQL%NOTFOUND THEN "
             "    INSERT INTO eticks_display(ticket_no, coupon_no, issue_date, surname, name, "
-            "      fare_basis, bag_norm, subcls, bag_norm_unit, last_display) "
+            "      fare_basis, bag_norm, bag_norm_unit, fare_class, orig_fare_class, last_display) "
             "    VALUES(:ticket_no, :coupon_no, :issue_date, :surname, :name, "
-            "      :fare_basis, :bag_norm, :subcls, :bag_norm_unit, :last_display); "
+            "      :fare_basis, :bag_norm, :bag_norm_unit, :fare_class, :fare_class, :last_display); "
+            "    :inserted:=1; "
             "  END IF; "
             "END;";
 
         TCachedQuery Qry(sql, QryParams);
         Qry.get().Execute();
+        bool inserted=Qry.get().GetVariableAsInteger("inserted")!=0;
+        if (inserted)
+        {
+          toDB(DisplayTlg);
+          syncOriginalSubclass(this->et);
+        }
       }
       break;
 
@@ -511,6 +522,7 @@ const TETickItem& TETickItem::toDB(const TEdiAction ediAction) const
       }
       break;
   };
+
   return *this;
 };
 
@@ -558,7 +570,7 @@ TETickItem& TETickItem::fromDB(const TEdiAction ediAction,
         surname=Qry.FieldAsString("surname");
         name=Qry.FieldAsString("name");
         fare_basis=Qry.FieldAsString("fare_basis");
-        subcls=Qry.FieldAsString("subcls");
+        fare_class=Qry.FieldAsString("fare_class");
         bag_norm=Qry.FieldIsNULL("bag_norm")?ASTRA::NoExists:
                                              Qry.FieldAsInteger("bag_norm");
         bag_norm_unit.set(Qry.FieldAsString("bag_norm_unit"));
@@ -700,7 +712,9 @@ static std::string airlineToXML(const std::string& code)
   return airlineToPrefferedCode(code, OutputLang(LANG_RU, {OutputLang::OnlyTrueIataCodes}));
 }
 
-Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltParams) const
+Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltParams,
+                                         const std::string& subclass,
+                                         const CouponStatus& real_status) const
 {
   Coupon_info ci(et.coupon, et.status);
   TDateTime scd_local=UTCToLocal(fltParams.fltInfo.scd_out,
@@ -727,7 +741,7 @@ Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltPara
             "",                                  //operating carrier
             wcItin?wcItin.get().flightnum():
                    fltParams.fltInfo.flt_no,0,
-            SubClass(),
+            (!subclass.empty() && real_status==CouponStatus::Flown)?SubClass(subclass):SubClass(),
             scd.date(),
             time_duration(not_a_date_time), // not a date time
             airp_dep,
@@ -738,6 +752,81 @@ Ticketing::Ticket TETickItem::makeTicket(const AstraEdifact::TFltParams& fltPara
   lcpn.push_back(cpn);
 
   return Ticket(et.no, lcpn);
+}
+
+bool TETickItem::syncOriginalSubclass(int pax_id)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText =
+    "DECLARE "
+    "  CURSOR cur IS "
+    "    SELECT 1 AS view_order, "
+    "           eticks_display.orig_fare_class AS etick_subclass, "
+    "           classes.code AS etick_class, "
+    "           classes.priority AS class_priority "
+    "    FROM crs_pax, crs_pax_tkn, eticks_display, crs_pnr, crs_rbd, subcls, classes "
+    "    WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND "
+    "          crs_pax_tkn.rem_code='TKNE' AND "
+    "          eticks_display.ticket_no=crs_pax_tkn.ticket_no AND "
+    "          eticks_display.coupon_no=crs_pax_tkn.coupon_no AND "
+    "          crs_pnr.pnr_id=crs_pax.pnr_id AND "
+    "          crs_pnr.system='CRS' AND "
+    "          crs_rbd.point_id=crs_pnr.point_id AND "
+    "          crs_rbd.sender=crs_pnr.sender AND "
+    "          crs_rbd.system=crs_pnr.system AND "
+    "          crs_rbd.fare_class=eticks_display.orig_fare_class AND "
+    "          subcls.code=crs_rbd.compartment AND "
+    "          classes.code=subcls.class AND "
+    "          crs_pax.pax_id=:pax_id "
+    "    UNION ALL "
+    "    SELECT 2 AS view_order, "
+    "           eticks_display.orig_fare_class AS etick_subclass, "
+    "           classes.code AS etick_class, "
+    "           classes.priority AS class_priority "
+    "    FROM crs_pax, crs_pax_tkn, eticks_display, crs_pnr, subcls, classes "
+    "    WHERE crs_pax_tkn.pax_id=crs_pax.pax_id AND "
+    "          crs_pax_tkn.rem_code='TKNE' AND "
+    "          eticks_display.ticket_no=crs_pax_tkn.ticket_no AND "
+    "          eticks_display.coupon_no=crs_pax_tkn.coupon_no AND "
+    "          crs_pnr.pnr_id=crs_pax.pnr_id AND "
+    "          crs_pnr.system='CRS' AND "
+    "          subcls.code=eticks_display.orig_fare_class AND "
+    "          classes.code=subcls.class AND "
+    "          crs_pax.pax_id=:pax_id "
+    "    ORDER BY view_order, class_priority, etick_subclass; "
+    "curRow	cur%ROWTYPE; "
+    "BEGIN "
+    "  OPEN cur; "
+    "  FETCH cur INTO curRow; "
+    "  CLOSE cur; "
+    "  UPDATE crs_pax "
+    "  SET etick_subclass=curRow.etick_subclass, etick_class=curRow.etick_class "
+    "  WHERE pax_id=:pax_id AND "
+    "        (DECODE(etick_subclass, curRow.etick_subclass, 0, 1)<>0 OR "
+    "         DECODE(etick_class, curRow.etick_class, 0, 1)<>0); "
+    "  IF SQL%NOTFOUND THEN :updated:=0; ELSE :updated:=1; END IF; "
+    "END; ";
+  Qry.CreateVariable("pax_id", otInteger, pax_id);
+  Qry.CreateVariable("updated", otInteger, FNull);
+  Qry.Execute();
+  bool updated=Qry.GetVariableAsInteger("updated")!=0;
+  if (updated)
+    ProgTrace(TRACE5, "%s: pax_id=%d updated", __FUNCTION__, pax_id);
+
+  return updated;
+}
+
+void TETickItem::syncOriginalSubclass(const TETCoupon& et)
+{
+  if (et.empty()) return;
+
+  CheckIn::TSimplePaxList paxs;
+  CheckIn::Search search(paxPnl);
+  search(paxs, CheckIn::TPaxTknItem(et.no, et.coupon));
+
+  for(const CheckIn::TSimplePaxItem& pax : paxs)
+    syncOriginalSubclass(pax.id);
 }
 
 void ETDisplayToDB(const Ticketing::EdiPnr& ediPnr)
@@ -801,9 +890,8 @@ void ETDisplayToDB(const Ticketing::EdiPnr& ediPnr)
         ETickItem.bag_norm=ASTRA::NoExists;
         ETickItem.bag_norm_unit.clear();
       }
-      ETickItem.subcls = itin.rbd()->code(RUSSIAN);
+      ETickItem.fare_class = itin.rbd()->code(RUSSIAN);
 
-      ETickItem.toDB(TETickItem::DisplayTlg);
       ETickItem.toDB(TETickItem::Display);
     }
   };
@@ -1803,6 +1891,18 @@ void ETStatusInterface::ETRollbackStatus(xmlDocPtr ediResDocPtr,
 }
 
 xmlNodePtr TETChangeStatusList::addTicket(const TETChangeStatusKey &key,
+                                          const TETickItem& ETItem,
+                                          const AstraEdifact::TFltParams& fltParams,
+                                          const std::string& subclass)
+{
+  return addTicket(key,
+                   ETItem.makeTicket(fltParams,
+                                     subclass,
+                                     CouponStatus(key.coupon_status)),
+                   fltParams.strictlySingleTicketInTlg());
+}
+
+xmlNodePtr TETChangeStatusList::addTicket(const TETChangeStatusKey &key,
                                           const Ticketing::Ticket &tick,
                                           bool onlySingleTicketInTlg)
 {
@@ -1914,7 +2014,7 @@ void ETStatusInterface::ETCheckStatusForRollback(int point_id,
           ProgTrace(TRACE5,"status=%s prior_status=%s real_status=%s",
                            status->dispCode(),prior_status->dispCode(),real_status->dispCode());
 
-          xmlNodePtr node=mtick.addTicket(key, ETItem.makeTicket(fltParams), fltParams.strictlySingleTicketInTlg());
+          xmlNodePtr node=mtick.addTicket(key, ETItem, fltParams);
 
           NewTextChild(node,"ticket_no",ticket_no);
           NewTextChild(node,"coupon_no",coupon_no);
@@ -2296,6 +2396,8 @@ void ETStatusInterface::ETCheckStatus(int id,
 
             string airp_dep=Qry.FieldAsString("airp_dep");
             string airp_arv=Qry.FieldAsString("airp_arv");
+            string cabin_subclass=Qry.FieldIsNULL("cabin_subclass")?Qry.FieldAsString("subclass"):
+                                                                    Qry.FieldAsString("cabin_subclass");
 
             CouponStatus status;
             if (Qry.FieldIsNULL("coupon_status"))
@@ -2335,7 +2437,7 @@ void ETStatusInterface::ETCheckStatus(int id,
 
               ProgTrace(TRACE5,"status=%s real_status=%s",status->dispCode(),real_status->dispCode());
 
-              xmlNodePtr node=mtick.addTicket(key, ETItem.makeTicket(fltParams), fltParams.strictlySingleTicketInTlg());
+              xmlNodePtr node=mtick.addTicket(key, ETItem, fltParams, cabin_subclass);
 
               NewTextChild(node,"ticket_no",ticket_no);
               NewTextChild(node,"coupon_no",coupon_no);
@@ -2415,7 +2517,7 @@ void ETStatusInterface::ETCheckStatus(int id,
                                                            ETItem,
                                                            TETCtxtItem(*TReqInfo::Instance(), ET.point_id))) continue;
 
-            xmlNodePtr node=mtick.addTicket(key, ETItem.makeTicket(fltParams), fltParams.strictlySingleTicketInTlg());
+            xmlNodePtr node=mtick.addTicket(key, ETItem, fltParams);
 
             NewTextChild(node,"ticket_no",ET.et.no);
             NewTextChild(node,"coupon_no",ET.et.coupon);
@@ -2944,6 +3046,12 @@ bool EMDAutoBoundInterface::Lock(const EMDAutoBoundId &id, int &point_id, TCkinG
   return true;
 }
 
+static bool needTryCheckinServicesAuto(int id, bool is_grp_id)
+{
+  return is_grp_id?existsAlarmByGrpId(id, Alarm::SyncEmds):
+                   existsAlarmByPaxId(id, Alarm::SyncEmds, paxCheckIn);
+
+}
 
 void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqNode)
 {
@@ -3012,7 +3120,7 @@ void EMDAutoBoundInterface::EMDRefresh(const EMDAutoBoundId &id, xmlNodePtr reqN
     if (Lock(id, point_id, tckin_grp_ids, string(__FUNCTION__)+"("+termReqName+")"))
     {
       if ((pax_ids_for_refresh && !pax_ids_for_refresh.get().empty()) ||
-          any_of(tckin_grp_ids.begin(), tckin_grp_ids.end(), bind2nd(ptr_fun(CheckIn::needTryCheckinServicesAuto), true)))
+          any_of(tckin_grp_ids.begin(), tckin_grp_ids.end(), bind2nd(ptr_fun(needTryCheckinServicesAuto), true)))
       {
         id.toXML(reqNode);
         EMDTryBind(tckin_grp_ids, reqNode, NULL);
@@ -3135,7 +3243,7 @@ void EMDAutoBoundInterface::EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
   bool checkinServicesAuto=PieceConcept::TryCheckinServicesAuto(svcsAuto, payment, tckin_grp_ids, emdProps, confirmed_emd);
 
   for(const int& grp_id : tckin_grp_ids)
-    CheckIn::setSyncEmdsFlag(grp_id, true, false);
+    deleteAlarmByGrpId(grp_id, Alarm::SyncEmds);
 
   if (enlargedServicePayment || checkinServicesAuto)
   {

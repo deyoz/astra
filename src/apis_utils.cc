@@ -1086,7 +1086,7 @@ bool isValidDocType(const string &fmt, const TPaxStatus &status, const string &d
 
 }; //namespace APIS
 
-void HandleDoc(const CheckIn::TPaxGrpItem &grp,
+void HandleDoc(const CheckIn::TSimplePaxGrpItem &grp,
                const CheckIn::TSimplePaxItem &pax,
                const TCompleteAPICheckInfo &checkInfo,
                const TDateTime &checkDate,
@@ -1118,7 +1118,7 @@ void HandleDoc(const CheckIn::TPaxGrpItem &grp,
   };
 };
 
-void HandleDoco(const CheckIn::TPaxGrpItem &grp,
+void HandleDoco(const CheckIn::TSimplePaxGrpItem &grp,
                 const CheckIn::TSimplePaxItem &pax,
                 const TCompleteAPICheckInfo &checkInfo,
                 const TDateTime &checkDate,
@@ -1145,7 +1145,7 @@ void HandleDoco(const CheckIn::TPaxGrpItem &grp,
   };
 };
 
-void HandleDoca(const CheckIn::TPaxGrpItem &grp,
+void HandleDoca(const CheckIn::TSimplePaxGrpItem &grp,
                 const CheckIn::TSimplePaxItem &pax,
                 const TCompleteAPICheckInfo &checkInfo,
                 const CheckIn::TDocaMap &doca_map)

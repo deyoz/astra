@@ -760,7 +760,7 @@ void SaveAPIS(int point_id, int pax_id, int tid, xmlNodePtr reqNode)
   if (Qry.Eof)
     throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
 
-  CheckIn::TPaxGrpItem grp;
+  CheckIn::TSimplePaxGrpItem grp;
   grp.fromDB(Qry);
 
   CheckIn::TSimplePaxItem pax;

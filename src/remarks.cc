@@ -759,34 +759,6 @@ bool LoadPaxFQTNotEmptyTierLevel(int pax_id, std::set<TPaxFQTItem> &fqts, bool o
   return !fqts.empty();
 }
 
-bool needTryCheckinServicesAuto(int id, bool is_grp_id)
-{
-  TCachedQuery Qry(is_grp_id?"SELECT 1 FROM pax WHERE grp_id=:id AND NVL(sync_emds, 0)<>0 AND rownum<2":
-                             "SELECT 1 FROM pax WHERE pax_id=:id AND NVL(sync_emds, 0)<>0",
-                   QParams() << QParam("id", otInteger, id));
-  Qry.get().Execute();
-  return (!Qry.get().Eof);
-}
-
-void setSyncEmdsFlag(int id, bool is_grp_id, bool flag)
-{
-  TCachedQuery Qry(is_grp_id?"UPDATE pax SET sync_emds=:flag WHERE grp_id=:id AND NVL(sync_emds, 0)<>:flag":
-                             "UPDATE pax SET sync_emds=:flag WHERE pax_id=:id AND NVL(sync_emds, 0)<>:flag",
-                   QParams() << QParam("id", otInteger, id)
-                             << QParam("flag", otInteger, (int)flag));
-  Qry.get().Execute();
-}
-
-bool SyncPaxASVC(int pax_id)
-{
-  bool result=false;
-  if (DeletePaxASVC(pax_id)) result=true;
-  if (AddPaxASVC(pax_id, false)) result=true;
-  if (result)
-    CheckIn::setSyncEmdsFlag(pax_id, false, true);
-  return result;
-}
-
 bool DeletePaxASVC(int pax_id)
 {
   TCachedQuery Qry("DELETE FROM pax_asvc WHERE pax_id=:id",

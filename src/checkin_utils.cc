@@ -21,6 +21,8 @@ using namespace SALONS2;
 namespace CheckIn
 {
 
+void syncCabinClass(const TTripTaskKey &task) {}
+
 void seatingWhenNewCheckIn(const TSegListItem& seg,
                            const TAdvTripInfo& fltAdvInfo,
                            const TTripInfo& markFltInfo)
