@@ -325,6 +325,7 @@ class TTripInfo
     virtual bool getByPointId ( const int point_id,
                                 const FlightProps& props = FlightProps() );
     virtual bool getByPointIdTlg ( const int point_id_tlg );
+    virtual bool getByPaxId ( const int pax_id );
     virtual bool getByGrpId ( const int grp_id );
     virtual bool getByCRSPnrId ( const int pnr_id );
     virtual bool getByCRSPaxId ( const int pax_id );

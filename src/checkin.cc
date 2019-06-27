@@ -6233,6 +6233,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             check_spec_service_alarm( grp.point_dep );
             TTripAlarmHook::set(Alarm::UnboundEMD, grp.point_dep);
             check_conflict_trfer_alarm( grp.point_dep );
+            if (new_checkin)
+                try {
+                    callbacks<TicketCallbacks>()->onChangeTicket(TRACE5, grp.id);
+                } catch(...) {
+                    CallbacksExceptionFilter(STDLOG);
+                }
           }
           else
           {

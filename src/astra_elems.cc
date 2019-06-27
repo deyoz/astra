@@ -83,6 +83,7 @@ const
                          {etCountry,               "etCountry",               "countries"},
                          {etCraft,                 "etCraft",                 "crafts"},
                          {etCurrency,              "etCurrency",              "currency"},
+                         {etCustomAlarmType,       "etCustomAlarmType",       "custom_alarm_types"},
                          {etDCSServiceType,        "etDCSServiceType",        "dcs_service_types"},
                          {etDelayType,             "etDelayType",             ""},
                          {etDeskGrp,               "etDeskGrp",               ""},

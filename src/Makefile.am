@@ -188,6 +188,7 @@ astra_SOURCES = \
   franchise.cc \
   astra_ssim.cc \
   bagmessage_daemon.cc \
+  custom_alarms.cc \
   zamar_dsm.cpp
 
 astra_LDADD = $(all_libraries) \
@@ -372,4 +373,5 @@ noinst_HEADERS = \
   franchise.h \
   report_common.h \
   astra_ssim.h \
+  custom_alarms.h \
   zamar_dsm.h

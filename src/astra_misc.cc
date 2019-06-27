@@ -88,6 +88,18 @@ bool TTripInfo::getByCRSPaxId(const int pax_id)
   return true;
 }
 
+bool TTripInfo::getByPaxId ( const int pax_id )
+{
+    TCachedQuery Qry(
+            "select point_dep from pax_grp, pax where "
+            "   pax.pax_id = :pax_id and "
+            "   pax.grp_id = pax_grp.grp_id ",
+            QParams() << QParam("pax_id", otInteger, pax_id));
+    Qry.get().Execute();
+    if(Qry.get().Eof) return false;
+    return getByPointId( Qry.get().FieldAsInteger( "point_dep" ) );
+}
+
 bool TTripInfo::getByGrpId ( const int grp_id )
 {
   TQuery Qry(&OraSession);

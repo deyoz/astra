@@ -739,4 +739,49 @@ std::string get_airp_country(const std::string &airp);
 std::string getDocMonth(int month, bool pr_lat);
 std::string getDocMonth(TDateTime claim_date, bool pr_lat);
 
+template <class T>
+class CallbacksSingleton
+{
+    private:
+        T* m_cb;
+
+    protected:
+        CallbacksSingleton()
+        {
+            m_cb = nullptr;
+        }
+
+    public:
+        static CallbacksSingleton* Instance()
+        {
+            static CallbacksSingleton* inst = nullptr;
+            if(!inst) {
+                inst = new CallbacksSingleton;
+            }
+            return inst;
+        }
+        T* getCallbacks()
+        {
+            if(m_cb) {
+                return m_cb;
+            }
+            throw std::logic_error("PaxRemCallbacks not initialized");
+        }
+        void setCallbacks(T* cb)
+        {
+            if(m_cb) {
+                delete m_cb;
+            }
+            m_cb = cb;
+        }
+};
+
+template <class T>
+inline T* callbacks()
+{
+    return CallbacksSingleton<T>::Instance()->getCallbacks();
+}
+
+void CallbacksExceptionFilter(STDLOG_SIGNATURE);
+
 #endif /*_ASTRA_UTILS_H_*/

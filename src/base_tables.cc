@@ -66,6 +66,8 @@ TBaseTable &TBaseTables::get(string name)
             base_tables[name] = new TClasses();
         else if(name == "PAY_TYPES")
             base_tables[name] = new TPayTypes();
+        else if(name == "CUSTOM_ALARM_TYPES")
+            base_tables[name] = new TCustomAlarmTypes();
         else if(name == "CURRENCY")
             base_tables[name] = new TCurrency();
         else if(name == "CLS_GRP")
@@ -764,6 +766,14 @@ void TCrafts::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **repla
   *row = new TCraftsRow;
   mem.create(*row, STDLOG);
   TICAOBaseTable::create_row(Qry,row,replaced_row);
+}
+
+void TCustomAlarmTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+    *row = new TCustomAlarmTypesRow;
+  mem.create(*row, STDLOG);
+  ((TCustomAlarmTypesRow*)*row)->airline=Qry.FieldAsString("airline");
+    TTIDBaseTable::create_row(Qry,row,replaced_row);
 }
 
 void TCurrency::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)

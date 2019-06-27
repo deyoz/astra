@@ -787,4 +787,11 @@ bool RFISCPaymentCompleted(int grp_id, int pax_id, bool only_tckin_segs);
 
 void GetBagConcepts(int grp_id, bool &pc, bool &wt, bool &rfisc_used);
 
+class RFISCCallbacks
+{
+    public:
+        virtual ~RFISCCallbacks() {}
+        virtual void afterRFISCChange(TRACE_SIGNATURE, int grp_id) = 0;
+};
+
 #endif

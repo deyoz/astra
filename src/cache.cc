@@ -1861,20 +1861,24 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
                 throw AstraLocale::UserException("MSG.INVALID_COPIES");
     }
 
+    if (cache.code() == "CUSTOM_ALARM_SETS") {
+        if (
+                row.status != usDeleted and
+                row.status != usUnmodified
+           ) {
+            ostringstream alarm_id;
+            alarm_id << setw(9) << setfill('0') << cache.FieldValue("alarm", row);
+            string airline = getBaseTable(etCustomAlarmType).get_row("code", alarm_id.str()).AsString("airline");
+            if(not airline.empty() and airline != cache.FieldValue("airline", row))
+                throw AstraLocale::UserException("MSG.ALARM_DOES_NOT_MEET_AIRLINE");
+        }
+    }
+
     if (cache.code() == "REM_TXT_SETS") {
         if (
                 row.status != usDeleted and
                 row.status != usUnmodified
            ) {
-            int assigned = 0;
-            assigned += not cache.FieldValue("rfisc", row).empty();
-            assigned += not cache.FieldValue("brand_code", row).empty();
-            assigned += not cache.FieldValue("fqt_tier_level", row).empty();
-            if(not assigned)
-                throw AstraLocale::UserException("MSG.CANNOT_INSERT_NULL");
-            if(assigned > 1)
-                throw AstraLocale::UserException("MSG.MORE_THAN_ONE_CRITERION");
-
             int tag_index = ToInt(cache.FieldValue("tag_index", row));
             int text_length = ToInt(cache.FieldValue("text_length", row));
             if(tag_index > 9)
@@ -1884,25 +1888,38 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TC
                     throw AstraLocale::UserException("MSG.REM_TXT_SETS.WRONG_TEXT_LENGTH_SMALL");
             } else if(text_length > 73)
                 throw AstraLocale::UserException("MSG.REM_TXT_SETS.WRONG_TEXT_LENGTH_BIG");
+            int assigned = 0;
+            assigned += not cache.FieldValue("rfisc", row).empty();
+            assigned += not cache.FieldValue("brand_code", row).empty();
+            assigned += not cache.FieldValue("fqt_tier_level", row).empty();
+            if(not assigned)
+                throw AstraLocale::UserException("MSG.CANNOT_INSERT_NULL");
+            if(assigned > 1)
+                throw AstraLocale::UserException("MSG.MORE_THAN_ONE_CRITERION");
         }
     }
 
   if (cache.code() == "BI_PRINT_RULES" ||
       cache.code() == "REM_TXT_SETS" ||
+      cache.code() == "CUSTOM_ALARM_SETS" ||
       cache.code() == "DCS_SERVICE_APPLYING") {
-    string rfisc;
-    if (
-            row.status != usDeleted and
-            row.status != usUnmodified
-            )
-      rfisc=cache.FieldValue("rfisc", row);
+      list<string> l;
+      if (
+              row.status != usDeleted and
+              row.status != usUnmodified
+         ) {
+          l.push_back(cache.FieldValue("rfisc", row));
+          if(cache.code() == "CUSTOM_ALARM_SETS")
+              l.push_back(cache.FieldValue("rfisc_tlg", row));
+      }
 
-    if(not rfisc.empty()) {
-        static const boost::regex e("^[€-ŸðA-Z0-9]{3,15}$");
-        boost::smatch results;
-        if(not boost::regex_match(rfisc, results, e))
-            throw AstraLocale::UserException("MSG.WRONG_RFISC");
-    }
+      for(const auto &i: l)
+          if(not i.empty()) {
+              static const boost::regex e("^[€-ŸðA-Z0-9]{3,15}$");
+              boost::smatch results;
+              if(not boost::regex_match(i, results, e))
+                  throw AstraLocale::UserException("MSG.WRONG_RFISC");
+          }
   }
   if (cache.code() == "CODESHARE_SETS")
   {

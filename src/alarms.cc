@@ -16,6 +16,7 @@
 #include "emdoc.h"
 #include "sopp.h"
 #include "date_time.h"
+#include "custom_alarms.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -762,12 +763,26 @@ void TTripAlarm::check()
 
 void TGrpAlarm::check()
 {
-  ProgError(STDLOG, "TGrpAlarm::check: alarm not supported (%s)", traceStr().c_str());
+    switch(type)
+    {
+        case Alarm::SyncCustomAlarms:
+            TCustomAlarms().getByGrpId(id).toDB();
+            break;
+        default:
+            ProgError(STDLOG, "TGrpAlarm::check: alarm not supported (%s)", traceStr().c_str());
+    }
 }
 
 void TPaxAlarm::check()
 {
-  ProgError(STDLOG, "TPaxAlarm::check: alarm not supported (%s)", traceStr().c_str());
+    switch(type)
+    {
+        case Alarm::SyncCustomAlarms:
+            TCustomAlarms().getByPaxId(id).toDB();
+            break;
+        default:
+            ProgError(STDLOG, "TPaxAlarm::check: alarm not supported (%s)", traceStr().c_str());
+    }
 }
 
 namespace Posthooks
@@ -795,22 +810,30 @@ void TTripAlarmHook::set(Alarm::Enum _type, const int& _id)
 
 void TGrpAlarmHook::set(Alarm::Enum _type, const int& _id)
 {
-  TCachedQuery Qry("SELECT point_dep FROM pax_grp WHERE grp_id=:grp_id",
-                   QParams() << QParam("grp_id", otInteger, _id));
-  Qry.get().Execute();
-  if (Qry.get().Eof) return;
+    if(_type == Alarm::SyncCustomAlarms)
+        sethBefore(TSomeonesAlarmHook<TGrpAlarm>(TGrpAlarm(_type, _id)));
+    else {
+        TCachedQuery Qry("SELECT point_dep FROM pax_grp WHERE grp_id=:grp_id",
+                QParams() << QParam("grp_id", otInteger, _id));
+        Qry.get().Execute();
+        if (Qry.get().Eof) return;
 
-  sethBefore(TSomeonesAlarmHook<TTripAlarm>(TTripAlarm(_type, Qry.get().FieldAsInteger("point_dep"))));
+        sethBefore(TSomeonesAlarmHook<TTripAlarm>(TTripAlarm(_type, Qry.get().FieldAsInteger("point_dep"))));
+    }
 }
 
 void TPaxAlarmHook::set(Alarm::Enum _type, const int& _id)
 {
-  TCachedQuery Qry("SELECT pax_grp.point_dep FROM pax_grp, pax WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id",
-                   QParams() << QParam("pax_id", otInteger, _id));
-  Qry.get().Execute();
-  if (Qry.get().Eof) return;
+    if(_type == Alarm::SyncCustomAlarms)
+        sethBefore(TSomeonesAlarmHook<TPaxAlarm>(TPaxAlarm(_type, _id)));
+    else {
+        TCachedQuery Qry("SELECT pax_grp.point_dep FROM pax_grp, pax WHERE pax_grp.grp_id=pax.grp_id AND pax.pax_id=:pax_id",
+                QParams() << QParam("pax_id", otInteger, _id));
+        Qry.get().Execute();
+        if (Qry.get().Eof) return;
 
-  sethBefore(TSomeonesAlarmHook<TTripAlarm>(TTripAlarm(_type, Qry.get().FieldAsInteger("point_dep"))));
+        sethBefore(TSomeonesAlarmHook<TTripAlarm>(TTripAlarm(_type, Qry.get().FieldAsInteger("point_dep"))));
+    }
 }
 
 static std::string getPaxAlarmTable(const PaxOrigin paxOrigin)

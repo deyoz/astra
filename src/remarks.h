@@ -372,7 +372,6 @@ bool DeletePaxASVC(int pax_id);
 bool AddPaxASVC(int id, bool is_grp_id);
 bool LoadPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
 bool LoadCrsPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
-bool ExistsPaxASVC(int pax_id, const std::string& rfisc);
 
 void GetPaxRemDifference(const boost::optional<TRemGrp> &rem_grp,
                          const PaxRems &prior_rems,
@@ -426,6 +425,14 @@ CheckIn::TPaxRemItem CalcJmpRem(const ASTRA::TPaxStatus grp_status,
 
 bool forbiddenRemExists(const TRemGrp& forbiddenRemGrp,
                         const std::multiset<CheckIn::TPaxRemItem> &rems);
+
+class PaxRemCallbacks
+{
+    public:
+        virtual ~PaxRemCallbacks() {}
+        virtual void afterPaxFQTChange(TRACE_SIGNATURE, int pax_id) = 0;
+};
+
 
 #endif
 

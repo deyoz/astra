@@ -2048,3 +2048,13 @@ string getDocMonth(TDateTime claim_date, bool pr_lat)
     return getDocMonth(Month, pr_lat);
 }
 
+void CallbacksExceptionFilter(STDLOG_SIGNATURE)
+{
+    try {
+        throw;
+    } catch(const std::exception &E) {
+        LogError(STDLOG_VARIABLE) << __FUNCTION__ << ": something wrong: " << E.what();
+    } catch(...) {
+        LogError(STDLOG_VARIABLE) << __FUNCTION__ << ": something wrong";
+    }
+}

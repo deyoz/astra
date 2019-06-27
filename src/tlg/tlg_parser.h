@@ -1124,5 +1124,13 @@ namespace regex {
 
 } //namespace TypeB
 
+class PaxASVCCallbacks
+{
+    public:
+        virtual ~PaxASVCCallbacks() {}
+        virtual void onSyncPaxASVC(TRACE_SIGNATURE, int pax_id) = 0;
+
+};
+
 #endif
 
