@@ -39,7 +39,7 @@ void sendNewAPPSInfo(const TTripTaskKey &task);
 void reSendMsg( const int send_attempts, const std::string& msg_text, const int msg_id );
 void deleteMsg( const int msg_id );
 void deleteAPPSData( const int pax_id );
-void deleteAPPSAlarms( const int pax_id );
+void deleteAPPSAlarms( const int pax_id, const int point_id_spp );
 const char* getAPPSRotName();
 
 int test_apps_tlg(int argc, char **argv);

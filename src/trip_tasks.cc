@@ -83,22 +83,25 @@ void sendTypeBOnTakeoffTask(const TTripTaskKey &task);
 
 TTripTasks::TTripTasks()
 {
-    items.insert(make_pair(BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL, create_apis_task));
-    items.insert(make_pair(BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL, create_apis_task));
-    items.insert(make_pair(BEFORE_TAKEOFF_70_US_CUSTOMS_ARRIVAL, check_crew_alarms_task));
-    items.insert(make_pair(SYNC_NEW_CHKD, TypeB::SyncNewCHKD ));
-    items.insert(make_pair(SYNC_ALL_CHKD, TypeB::SyncAllCHKD ));
-    items.insert(make_pair(EMD_REFRESH, emd_refresh_task ));
-    items.insert(make_pair(STAT_FV, stat_fv ));
-    items.insert(make_pair(EMD_TRY_BIND, emd_try_bind_task ));
-    items.insert(make_pair(EMD_SYS_UPDATE, emd_sys_update ));
-    items.insert(make_pair(SEND_NEW_APPS_INFO, sendNewAPPSInfo));
-    items.insert(make_pair(SEND_ALL_APPS_INFO, sendAllAPPSInfo));
+    items.emplace(BEFORE_TAKEOFF_30_US_CUSTOMS_ARRIVAL, create_apis_task);
+    items.emplace(BEFORE_TAKEOFF_60_US_CUSTOMS_ARRIVAL, create_apis_task);
+    items.emplace(BEFORE_TAKEOFF_70_US_CUSTOMS_ARRIVAL, check_crew_alarms_task);
+    items.emplace(SYNC_NEW_CHKD, TypeB::SyncNewCHKD);
+    items.emplace(SYNC_ALL_CHKD, TypeB::SyncAllCHKD);
+    items.emplace(EMD_REFRESH, emd_refresh_task);
+    items.emplace(STAT_FV, stat_fv);
+    items.emplace(EMD_TRY_BIND, emd_try_bind_task);
+    items.emplace(EMD_SYS_UPDATE, emd_sys_update);
+    items.emplace(SEND_NEW_APPS_INFO, sendNewAPPSInfo);
+    items.emplace(SEND_ALL_APPS_INFO, sendAllAPPSInfo);
     TSyncTlgOutMng::Instance()->add_tasks(items);
-    items.insert(make_pair(COLLECT_STAT, collectStatTask));
-    items.insert(make_pair(SEND_TYPEB_ON_TAKEOFF, sendTypeBOnTakeoffTask));
-    items.insert(make_pair(AlarmTypes().encode(Alarm::SyncCabinClass), CheckIn::syncCabinClass));
+    items.emplace(COLLECT_STAT, collectStatTask);
+    items.emplace(SEND_TYPEB_ON_TAKEOFF, sendTypeBOnTakeoffTask);
+    items.emplace(AlarmTypes().encode(Alarm::SyncCabinClass), CheckIn::syncCabinClass);
+    items.emplace(CHECK_ALARM, checkAlarm);
 }
+
+const std::set<std::string> notLoggingTasks = {CHECK_ALARM};
 
 TTripTasks *TTripTasks::Instance()
 {
@@ -143,6 +146,8 @@ void taskToLog(
         TDateTime next_exec,
         TDateTime new_next_exec)
 {
+    if (notLoggingTasks.find(task.name)!=notLoggingTasks.end()) return;
+
     TLogLocale tlocale;
 
     tlocale.ev_type=ASTRA::evtFltTask;

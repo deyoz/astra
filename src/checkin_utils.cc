@@ -130,7 +130,7 @@ void syncCabinClass(const TTripTaskKey &task)
   for(const int& paxId : paxIds)
   {
     LogTrace(TRACE5) << __FUNCTION__ << ": paxId=" << paxId;
-    deleteAlarmByPaxId(paxId, Alarm::SyncCabinClass, paxCheckIn);
+    deleteAlarmByPaxId(paxId, {Alarm::SyncCabinClass}, {paxCheckIn});
 
     OciCpp::Savepoint spSyncCabinClass("sync_cabin_class");
 
