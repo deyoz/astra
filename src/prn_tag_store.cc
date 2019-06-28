@@ -438,14 +438,12 @@ void TPrnTagStore::init_bp_tags()
 
 void TPrnTagStore::tagsFromXML(xmlNodePtr tagsNode)
 {
-    tags_from_xml.clear();
     if(tagsNode) {
         // Положим теги из клиентского запроса
         for(xmlNodePtr curNode = tagsNode->children; curNode; curNode = curNode->next) {
             string value = NodeAsString(curNode);
             if(value.empty()) continue;
-            const auto &res = tags_from_xml.insert(make_pair(upperc((const char *)curNode->name), NodeAsString(curNode)));
-            set_tag(res.first->first, res.first->second);
+            set_tag(upperc((const char *)curNode->name), NodeAsString(curNode));
         }
     }
 }
@@ -2252,32 +2250,7 @@ string TPrnTagStore::FULLNAME(TFieldParams fp)
 string TPrnTagStore::GATE(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
-        string result = boost::any_cast<std::string>(fp.TagInfo);
-        const auto &client_gate = tags_from_xml.find(TAG::GATE);
-        if(client_gate != tags_from_xml.end()) {
-            // гейт пришел с клиента
-            // ишем его среди гейтов рейса
-            vector<string>::const_iterator flt_gate = pointInfo.gates.begin();
-            for(; flt_gate != pointInfo.gates.end(); flt_gate++) {
-                if(*flt_gate == client_gate->second)
-                    break;
-            }
-            if(flt_gate == pointInfo.gates.end()) {
-                // Гейт с клиента не найден среди гейтов рейса
-                ostringstream s;
-                copy(pointInfo.gates.begin(), pointInfo.gates.end(), ostream_iterator<string>(s, " "));
-                LogTrace(TRACE5)
-                    << "TPrnTagStore::GATE: client gate '"
-                    << client_gate->second
-                    << "' not found among flt gates (" << s.str() << ")";
-                // Если на рейсе всего один гейт, печатаем его, иначе ругаемся
-                if(pointInfo.gates.size() == 1)
-                    result = pointInfo.gates[0];
-                else
-                    throw AstraLocale::UserException("MSG.WRONG_CLIENT_GATE");
-            }
-        }
-        return result;
+        return boost::any_cast<std::string>(fp.TagInfo);
     } else {
         if(scan_data != NULL) {
             return string();
