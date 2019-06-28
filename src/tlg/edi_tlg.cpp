@@ -450,10 +450,17 @@ edilib::EdiRequestHandler *
                                                    const hth::HthInfo *hth,
                                                    const edilib::EdiSessRdData *sessionHandler) const
 {
-    const std::string func_code = edilib::GetDBFName(pMes,
-                                                     edilib::DataElement(1225), "",
-                                                     edilib::CompElement("C302"),
-                                                     edilib::SegmElement("MSG"));
+    std::string func_code = edilib::GetDBFName(pMes,
+                                               edilib::DataElement(1225), "",
+                                               edilib::CompElement("C302"),
+                                               edilib::SegmElement("MSG"));
+
+    if(msgid == CUSRES) {
+        func_code = edilib::GetDBFName(pMes,
+                                       edilib::DataElement(1001), "",
+                                       edilib::CompElement("C002"),
+                                       edilib::SegmElement("BGM"));
+    }
 
     LogTrace(TRACE3) << "find request handler for msg " << msgid << " with func_code: " << func_code;
 
@@ -496,6 +503,13 @@ AstraEdiResponseHandler *
                                        edilib::CompElement(),
                                        edilib::SegmElement("RAD"),
                                        edilib::SegGrElement(1));
+    }
+
+    if(msgid == CUSRES) {
+        func_code = edilib::GetDBFName(pMes,
+                                       edilib::DataElement(1001), "",
+                                       edilib::CompElement("C002"),
+                                       edilib::SegmElement("BGM"));
     }
 
     LogTrace(TRACE3) << "find response handler for msg " << msgid << " with func_code: " << func_code;

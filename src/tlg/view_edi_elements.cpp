@@ -179,16 +179,16 @@ void viewTdtElement(_EDI_REAL_MES_STRUCT_* pMes, const TdtElem& elem, int num)
 void viewLocElement(_EDI_REAL_MES_STRUCT_* pMes, const LocElem& elem, int num)
 {
     std::ostringstream loc;
-    loc << std::to_string(elem.m_locQualifier) << "+" << elem.m_locName;
-    if(!elem.m_relatedLocName1.empty()||
-        !elem.m_relatedLocName2.empty())
+    loc << std::to_string(elem.m_qualifier) << "+" << elem.m_location;
+    if(!elem.m_relatedLocation1.empty()||
+        !elem.m_relatedLocation2.empty())
     {
       loc << "+";
-      if(!elem.m_relatedLocName1.empty())
-        loc << ":::" << elem.m_relatedLocName1;
+      if(!elem.m_relatedLocation1.empty())
+        loc << ":::" << elem.m_relatedLocation1;
       loc << "+";
-      if(!elem.m_relatedLocName2.empty())
-        loc << ":::" << elem.m_relatedLocName2;
+      if(!elem.m_relatedLocation2.empty())
+        loc << ":::" << elem.m_relatedLocation2;
     };
 
     SetEdiFullSegment(pMes, SegmElement("LOC", num), loc.str());
@@ -197,7 +197,7 @@ void viewLocElement(_EDI_REAL_MES_STRUCT_* pMes, const LocElem& elem, int num)
 void viewDtmElement(_EDI_REAL_MES_STRUCT_* pMes, const DtmElem& elem, int num)
 {
     std::ostringstream dtm;
-    dtm << std::to_string(elem.m_dtmQualifier) << ":";
+    dtm << std::to_string(elem.m_qualifier) << ":";
     std::string format = (elem.m_formatCode == "201" ? "yymmddhhnn" : "yymmdd");
     dtm << (elem.m_dateTime != ASTRA::NoExists ? DateTimeToStr(elem.m_dateTime, format) : "");
     dtm << ":" << elem.m_formatCode;
@@ -238,7 +238,7 @@ void viewNatElement(_EDI_REAL_MES_STRUCT_* pMes, const NatElem& elem, int num)
 void viewRffElement(_EDI_REAL_MES_STRUCT_* pMes, const RffElem& elem, int num)
 {
     std::ostringstream rff;
-    rff << elem.m_rffQualifier << ":" << elem.m_ref;
+    rff << elem.m_qualifier << ":" << elem.m_ref;
     SetEdiFullSegment(pMes, SegmElement("RFF", num), rff.str());
 }
 

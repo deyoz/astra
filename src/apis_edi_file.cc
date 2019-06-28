@@ -12,6 +12,7 @@
 #include "apis_edi_file.h"
 #include "exceptions.h"
 #include "tlg/view_edi_elements.h"
+#include "tlg/read_edi_elements.h"
 #include "config.h"
 #include "tlg/tlg.h"
 #include "astra_misc.h"
@@ -427,7 +428,7 @@ static void splitPaxlst( std::list< PaxlstInfo >& splitted,
     }
 }
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 void PaxlstInfo::addPassenger( const PassengerInfo& pass )
 {
@@ -669,8 +670,155 @@ void PaxlstInfo::checkInvariant() const
 }
 }//namespace Paxlst
 
+/////////////////////////////////////////////////////////////////////////////////////////
 
-//-----------------------------------------------------------------------------
+namespace edifact {
+
+using namespace Ticketing::TickReader;
+using namespace edilib;
+
+Cusres::Cusres(const BgmElem& bgm)
+    : m_bgm(bgm)
+{}
+
+
+Cusres::SegGr3::SegGr3(const RffElem& rff,
+                       const DtmElem& dtm1,
+                       const DtmElem& dtm2,
+                       const LocElem& loc1,
+                       const LocElem& loc2)
+    : m_rff(rff),
+      m_dtm1(dtm1),
+      m_dtm2(dtm2),
+      m_loc1(loc1),
+      m_loc2(loc2)
+{}
+
+Cusres::SegGr4::SegGr4(const ErpElem& erp,
+                       const ErcElem& erc)
+    : m_erp(erp),
+      m_erc(erc)
+{}
+
+Cusres readCUSRES(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    auto bgm = readEdiBgm(pMes);
+    ASSERT(bgm);
+
+    Cusres cusres(*bgm);
+
+    // RFF
+    cusres.m_rff = readEdiRff(pMes);
+
+    int numSg3 = GetNumSegGr(pMes, 3);
+    for(int currSg3 = 0; currSg3 < numSg3; ++currSg3)
+    {
+        EdiPointHolder sg3_holder(pMes);
+        SetEdiPointToSegGrG(pMes, SegGrElement(3, currSg3), "PROG_ERR");
+
+        // RFF
+        auto rff = readEdiRff(pMes);
+        ASSERT(rff);
+        // DTM
+        auto dtm1 = readEdiDtm(pMes, 0);
+        ASSERT(dtm1);
+        // DTM
+        auto dtm2 = readEdiDtm(pMes, 1);
+        ASSERT(dtm2);
+        // LOC
+        auto loc1 = readEdiLoc(pMes, 0);
+        ASSERT(loc1);
+        // LOC
+        auto loc2 = readEdiLoc(pMes, 1);
+        ASSERT(loc2);
+
+        cusres.m_vSegGr3.push_back(Cusres::SegGr3(*rff,
+                                                  *dtm1,
+                                                  *dtm2,
+                                                  *loc1,
+                                                  *loc2));
+    }
+
+    int numSg4 = GetNumSegGr(pMes, 4);
+    for(int currSg4 = 0; currSg4 < numSg4; ++currSg4)
+    {
+        EdiPointHolder sg4_holder(pMes);
+        SetEdiPointToSegGrG(pMes, SegGrElement(4, currSg4), "PROG_ERR");
+
+        // ERP
+        auto erp = readEdiErp(pMes);
+        ASSERT(erp);
+        // ERC
+        auto erc = readEdiErc(pMes);
+        ASSERT(erc);
+
+        Cusres::SegGr4 segGr4(*erp, *erc);
+        // RFF
+        segGr4.m_rff1 = readEdiRff(pMes, 0);
+        // RFF
+        segGr4.m_rff2 = readEdiRff(pMes, 1);
+        // FTX
+        segGr4.m_ftx  = readEdiFtx(pMes);
+
+        cusres.m_vSegGr4.push_back(segGr4);
+    }
+
+    return cusres;
+}
+
+Cusres readCUSRES(const std::string& ediText)
+{
+    int ret = ReadEdiMessage(ediText.c_str());
+    if(ret == EDI_MES_STRUCT_ERR){
+        throw EXCEPTIONS::Exception("Error in message structure: %s", EdiErrGetString());
+    } else if( ret == EDI_MES_NOT_FND){
+        throw EXCEPTIONS::Exception("No message found in template: %s", EdiErrGetString());
+    } else if( ret == EDI_MES_ERR) {
+        throw EXCEPTIONS::Exception("Edifact error ");
+    }
+
+    return readCUSRES(GetEdiMesStruct());
+}
+
+//---------------------------------------------------------------------------------------
+
+std::ostream& operator<<(std::ostream& os, const Cusres& cusres)
+{
+    os << "CUSRES:" << "\n";
+    os << cusres.m_bgm << "\n";
+    if(cusres.m_rff) {
+        os << *cusres.m_rff << "\n";
+    }
+    os << "Sg3:\n";
+    for(const Cusres::SegGr3& sg3: cusres.m_vSegGr3) {
+        os << sg3.m_rff << "\n"
+           << sg3.m_dtm1 << "\n"
+           << sg3.m_dtm2 << "\n"
+           << sg3.m_loc1 << "\n"
+           << sg3.m_loc2 << "\n";
+        os << "\n";
+    }
+    os << "\nSg4:\n";
+    for(const Cusres::SegGr4& sg4: cusres.m_vSegGr4) {
+        os << sg4.m_erp << "\n"
+           << sg4.m_erc << "\n";
+        if(sg4.m_rff1) {
+            os << *sg4.m_rff1 << "\n";
+        }
+        if(sg4.m_rff2) {
+            os << *sg4.m_rff2 << "\n";
+        }
+        if(sg4.m_ftx) {
+            os << *sg4.m_ftx << "\n";
+        }
+        os << "\n";
+    }
+    return os;
+}
+
+}//namespace edifact
+
+/////////////////////////////////////////////////////////////////////////////////////////
 
 #ifdef XP_TESTING
 
@@ -1333,5 +1481,6 @@ TCASEREGISTER( init, tear_down)
     ADD_TEST( test8 );
 }
 TCASEFINISH;
+#undef SUITENAME
 
 #endif /*XP_TESTING*/

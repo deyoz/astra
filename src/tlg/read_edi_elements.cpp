@@ -802,7 +802,7 @@ boost::optional<PbdElem> readEdiPbd(_EDI_REAL_MES_STRUCT_ *pMes)
     return pbd;
 }
 
-boost::optional<edifact::PsiElem> readEdiPsi(_EDI_REAL_MES_STRUCT_ *pMes)
+boost::optional<PsiElem> readEdiPsi(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     EdiPointHolder psi_holder(pMes);
     if(!SetEdiPointToSegmentG(pMes, "PSI")) {
@@ -963,7 +963,7 @@ boost::optional<ChdElem> readEdiChd(_EDI_REAL_MES_STRUCT_ *pMes)
     return chd;
 }
 
-boost::optional<edifact::DmcElem> readEdiDmc(_EDI_REAL_MES_STRUCT_ *pMes)
+boost::optional<DmcElem> readEdiDmc(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     EdiPointHolder pfd_holder(pMes);
     if(!SetEdiPointToSegmentG(pMes, "DMC")) {
@@ -1145,7 +1145,7 @@ boost::optional<UbdElem> readEdiUbd(_EDI_REAL_MES_STRUCT_ *pMes)
     return ubd;
 }
 
-boost::optional<edifact::WadElem> readEdiWad(_EDI_REAL_MES_STRUCT_ *pMes)
+boost::optional<WadElem> readEdiWad(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     EdiPointHolder wad_holder(pMes);
     if(!SetEdiPointToSegmentG(pMes, "WAD")) {
@@ -1162,7 +1162,7 @@ boost::optional<edifact::WadElem> readEdiWad(_EDI_REAL_MES_STRUCT_ *pMes)
     return wad;
 }
 
-boost::optional<edifact::SrpElem> readEdiSrp(_EDI_REAL_MES_STRUCT_ *pMes)
+boost::optional<SrpElem> readEdiSrp(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     EdiPointHolder srp_holder(pMes);
     if(!SetEdiPointToSegmentG(pMes, "SRP")) {
@@ -1178,7 +1178,7 @@ boost::optional<edifact::SrpElem> readEdiSrp(_EDI_REAL_MES_STRUCT_ *pMes)
     return srp;
 }
 
-boost::optional<edifact::EqdElem> readEdiEqd(_EDI_REAL_MES_STRUCT_ *pMes)
+boost::optional<EqdElem> readEdiEqd(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     EdiPointHolder eqd_holder(pMes);
     if(!SetEdiPointToSegmentG(pMes, "EQD")) {
@@ -1193,7 +1193,7 @@ boost::optional<edifact::EqdElem> readEdiEqd(_EDI_REAL_MES_STRUCT_ *pMes)
     return eqd;
 }
 
-boost::optional<edifact::CbdElem> readEdiCbd(_EDI_REAL_MES_STRUCT_ *pMes, unsigned n)
+boost::optional<CbdElem> readEdiCbd(_EDI_REAL_MES_STRUCT_ *pMes, unsigned n)
 {
     EdiPointHolder cbd_holder(pMes);
     if(!SetEdiPointToSegmentG(pMes, "CBD", n)) {
@@ -1248,7 +1248,7 @@ boost::optional<edifact::CbdElem> readEdiCbd(_EDI_REAL_MES_STRUCT_ *pMes, unsign
     return cbd;
 }
 
-boost::optional<edifact::RodElem> readEdiRod(_EDI_REAL_MES_STRUCT_ *pMes, unsigned n)
+boost::optional<RodElem> readEdiRod(_EDI_REAL_MES_STRUCT_ *pMes, unsigned n)
 {
     EdiPointHolder rod_holder(pMes);
     if(!SetEdiPointToSegmentG(pMes, "ROD", n)) {
@@ -1291,7 +1291,7 @@ static Dates::Date_t getDocExpiryDate(const std::string& ed)
     return expiryDate;
 }
 
-boost::optional<edifact::PapElem> readEdiPap(_EDI_REAL_MES_STRUCT_ *pMes)
+boost::optional<PapElem> readEdiPap(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     EdiPointHolder pap_holder(pMes);
     if(!SetEdiPointToSegmentG(pMes, "PAP")) {
@@ -1358,7 +1358,7 @@ boost::optional<edifact::PapElem> readEdiPap(_EDI_REAL_MES_STRUCT_ *pMes)
     return pap;
 }
 
-boost::optional<edifact::AddElem> readEdiAdd(_EDI_REAL_MES_STRUCT_ *pMes)
+boost::optional<AddElem> readEdiAdd(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     EdiPointHolder add_holder(pMes);
     if(!SetEdiPointToSegmentG(pMes, "ADD")) {
@@ -1372,7 +1372,7 @@ boost::optional<edifact::AddElem> readEdiAdd(_EDI_REAL_MES_STRUCT_ *pMes)
     EdiPointHolder c032_holder(pMes);
     for(unsigned i = 0; i < num_addrs; i++)
     {
-        edifact::AddElem::Address addr;
+        AddElem::Address addr;
 
         SetEdiPointToCompositeG(pMes, "C032", i, "EtErr::INV_ADDR_DETAILS");
         addr.m_purposeCode = GetDBFName(pMes, 3299);
@@ -1392,7 +1392,7 @@ boost::optional<edifact::AddElem> readEdiAdd(_EDI_REAL_MES_STRUCT_ *pMes)
     return add;
 }
 
-boost::optional<edifact::UapElem> readEdiUap(_EDI_REAL_MES_STRUCT_ *pMes)
+boost::optional<UapElem> readEdiUap(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     EdiPointHolder pap_holder(pMes);
     if(!SetEdiPointToSegmentG(pMes, "UAP")) {
@@ -1460,7 +1460,7 @@ boost::optional<edifact::UapElem> readEdiUap(_EDI_REAL_MES_STRUCT_ *pMes)
     return uap;
 }
 
-boost::optional<edifact::UsiElem> readEdiUsi(_EDI_REAL_MES_STRUCT_ *pMes)
+boost::optional<UsiElem> readEdiUsi(_EDI_REAL_MES_STRUCT_ *pMes)
 {
     EdiPointHolder pap_holder(pMes);
     if(!SetEdiPointToSegmentG(pMes, "USI")) {
@@ -1494,6 +1494,96 @@ boost::optional<edifact::UsiElem> readEdiUsi(_EDI_REAL_MES_STRUCT_ *pMes)
     LogTrace(TRACE3) << usi;
 
     return usi;
+}
+
+boost::optional<BgmElem> readEdiBgm(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder bgm_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "BGM")) {
+        return boost::optional<BgmElem>();
+    }
+
+    std::string docCode = GetDBFName(pMes, DataElement(1001), CompElement("C002"));
+    std::string docId   = GetDBFName(pMes, DataElement(1004), CompElement("C106"));
+
+    return BgmElem(docCode, docId);
+}
+
+boost::optional<ErcElem> readEdiErc(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder erc_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "ERC")) {
+        return boost::optional<ErcElem>();
+    }
+
+    std::string errorCode = GetDBFName(pMes, DataElement(9321), CompElement("C901"));
+
+    return ErcElem(errorCode);
+}
+
+boost::optional<FtxElem> readEdiFtx(_EDI_REAL_MES_STRUCT_ *pMes)
+{
+    EdiPointHolder ftx_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "FTX")) {
+        return boost::optional<FtxElem>();
+    }
+
+    std::string subjectCode = GetDBFName(pMes, DataElement(4451), CompElement());
+    std::string freeText    = GetDBFName(pMes, DataElement(4440), CompElement("C108"));
+
+    return FtxElem(subjectCode, freeText);
+}
+
+boost::optional<RffElem> readEdiRff(_EDI_REAL_MES_STRUCT_ *pMes, unsigned n)
+{
+    EdiPointHolder rff_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "RFF", n)) {
+        return boost::optional<RffElem>();
+    }
+
+    std::string qualifier = GetDBFName(pMes, DataElement(1153), CompElement("C506"));
+    std::string ref       = GetDBFName(pMes, DataElement(1154), CompElement("C506"));
+
+    return RffElem(qualifier, ref);
+}
+
+boost::optional<DtmElem> readEdiDtm(_EDI_REAL_MES_STRUCT_ *pMes, unsigned n)
+{
+    EdiPointHolder dtm_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "DTM", n)) {
+        return boost::optional<DtmElem>();
+    }
+
+    std::string qualifier = GetDBFName(pMes, DataElement(2005), CompElement("C507"));
+    std::string datetime  = GetDBFName(pMes, DataElement(2380), CompElement("C507"));
+    std::string format    = GetDBFName(pMes, DataElement(2379), CompElement("C507"));
+
+    return DtmElem(qualifier, datetime, format);
+}
+
+boost::optional<LocElem> readEdiLoc(_EDI_REAL_MES_STRUCT_ *pMes, unsigned n)
+{
+    EdiPointHolder loc_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "LOC", n)) {
+        return boost::optional<LocElem>();
+    }
+
+    std::string qualifier = GetDBFName(pMes, DataElement(3227), CompElement());
+    std::string location  = GetDBFName(pMes, DataElement(3225), CompElement("C517"));
+
+    return LocElem(qualifier, location);
+}
+
+boost::optional<ErpElem> readEdiErp(_EDI_REAL_MES_STRUCT_ *pMes, unsigned n)
+{
+    EdiPointHolder erp_holder(pMes);
+    if(!SetEdiPointToSegmentG(pMes, "ERP", n)) {
+        return boost::optional<ErpElem>();
+    }
+
+    std::string section = GetDBFName(pMes, DataElement(1049), CompElement());
+
+    return ErpElem(section);
 }
 
 } // namespace TickReader

@@ -23,11 +23,13 @@
 #include "remarks.h"
 #include "apis_tools.h"
 #include "astra_misc.h"
+#include "tlg/edi_elements.h"
+
+struct _EDI_REAL_MES_STRUCT_;
+
+namespace Paxlst {
 
 using BASIC::date_time::TDateTime;
-
-namespace Paxlst
-{
 
 class GeneralInfo
 {
@@ -101,7 +103,7 @@ public:
     }
 };
 
-//-------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 class FlightInfo
 {
@@ -203,7 +205,7 @@ public:
     }
 };
 
-//-------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 class PartyInfo
 {
@@ -260,7 +262,7 @@ public:
     }
 };
 
-//-------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 class PassengerInfo
 {
@@ -637,7 +639,7 @@ public:
 };
 typedef std::list< PassengerInfo > PassengersList_t;
 
-//-------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 class PaxlstSettings
 {
@@ -676,7 +678,7 @@ public:
     void set_view_RFF_TN( bool view_RFF_TN ) { m_view_RFF_TN = view_RFF_TN; }
 };
 
-//-------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 class PaxlstInfo: public GeneralInfo, public PartyInfo, public FlightInfo
 {
@@ -716,7 +718,7 @@ protected:
     void checkInvariant() const;
 };
 
-//-------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 
 std::string createEdiPaxlstFileName( const std::string& carrierCode,
                                      const int& flightNumber,
@@ -731,6 +733,64 @@ std::string createEdiPaxlstFileName( const std::string& carrierCode,
 std::string createIataCode( const std::string& flight,
                             const TDateTime& destDateTime,
                             const std::string& destDateTimeFmt = "/yymmdd/hhnn" );
+
+
 }//namespace Paxlst
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+namespace edifact {
+
+struct Cusres
+{
+    struct SegGr3
+    {
+        RffElem m_rff;
+        DtmElem m_dtm1;
+        DtmElem m_dtm2;
+        LocElem m_loc1;
+        LocElem m_loc2;
+
+        SegGr3(const RffElem& rff,
+               const DtmElem& dtm1,
+               const DtmElem& dtm2,
+               const LocElem& loc1,
+               const LocElem& loc2);
+    };
+
+    //---------------------------------
+
+    struct SegGr4
+    {
+        ErpElem                  m_erp;
+        ErcElem                  m_erc;
+        boost::optional<RffElem> m_rff1;
+        boost::optional<RffElem> m_rff2;
+        boost::optional<FtxElem> m_ftx;
+
+        SegGr4(const ErpElem& erp,
+               const ErcElem& erc);
+    };
+
+    //---------------------------------
+
+    BgmElem                  m_bgm;
+    boost::optional<RffElem> m_rff;
+    std::vector<SegGr3>      m_vSegGr3;
+    std::vector<SegGr4>      m_vSegGr4;
+
+    Cusres(const BgmElem& bgm);
+};
+
+//---------------------------------------------------------------------------------------
+
+Cusres readCUSRES(_EDI_REAL_MES_STRUCT_ *pMes);
+Cusres readCUSRES(const std::string& ediText);
+
+//---------------------------------------------------------------------------------------
+
+std::ostream& operator<<(std::ostream& os, const Cusres& cusres);
+
+}//namespace edifact
 
 #endif//_APIS_EDI_FILE_H_
