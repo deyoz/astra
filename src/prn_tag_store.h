@@ -787,6 +787,8 @@ class TPrnTagStore {
         // список всех тегов в пектабе
         std::vector<std::string> pectab_tags;
         bool rem_txt_exists();
+        
+        std::map<std::string, std::string> tags_from_xml;
 
     public:
         TTagProps prn_tag_props;
