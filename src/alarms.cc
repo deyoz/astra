@@ -34,6 +34,25 @@ const AlarmTypesList &AlarmTypes()
   return alarmTypes;
 }
 
+void checkAlarm(const TTripTaskKey &task)
+{
+  Alarm::Enum alarm=AlarmTypes().decode(task.params);
+  switch(alarm)
+  {
+    case Alarm::APPSProblem:
+      check_apps_alarm(task.point_id);
+      break;
+    default:
+      throw Exception("Unsupported");
+      break;
+  }
+}
+
+void addTaskForCheckingAlarm(int point_id, Alarm::Enum alarm)
+{
+  add_trip_task(TTripTaskKey(point_id, CHECK_ALARM, AlarmTypes().encode(alarm)));
+}
+
 void TripAlarms( int point_id, BitSet<Alarm::Enum> &Alarms )
 {
     Alarms.clearFlags();
@@ -70,27 +89,6 @@ void TripAlarms( int point_id, BitSet<Alarm::Enum> &Alarms )
     for(; not Qry.Eof; Qry.Next()) Alarms.setFlag(AlarmTypes().decode(Qry.FieldAsString("alarm_type")));
 }
 
-static void PassengerAlarms( const int pax_id, BitSet<Alarm::Enum> &Alarms, const bool is_crs )
-{
-    string table_name = is_crs?"crs_pax_alarms":"pax_alarms";
-    Alarms.clearFlags();
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select alarm_type from " + table_name + " where pax_id = :pax_id";
-    Qry.CreateVariable("pax_id", otInteger, pax_id);
-    Qry.Execute();
-    for(; not Qry.Eof; Qry.Next()) Alarms.setFlag(AlarmTypes().decode(Qry.FieldAsString("alarm_type")));
-}
-
-void PaxAlarms( int pax_id, BitSet<Alarm::Enum> &Alarms )
-{
-    PassengerAlarms( pax_id, Alarms, false );
-}
-
-void CrsPaxAlarms( int pax_id, BitSet<Alarm::Enum> &Alarms )
-{
-    PassengerAlarms( pax_id, Alarms, true );
-}
-
 string TripAlarmName( Alarm::Enum alarm )
 {
     return ElemIdToElem(etAlarmType, AlarmTypes().encode(alarm), efmtNameLong, AstraLocale::LANG_RU);
@@ -109,27 +107,6 @@ bool get_alarm( int point_id, Alarm::Enum alarm_type )
     Qry.CreateVariable("alarm_type", otString, AlarmTypes().encode(alarm_type));
     Qry.Execute();
     return !Qry.Eof;
-}
-
-static bool get_passenger_alarm( const int pax_id, const Alarm::Enum alarm_type, const bool is_crs )
-{
-    string table_name = is_crs?"crs_pax_alarms":"pax_alarms";
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select alarm_type from " + table_name + " where pax_id = :pax_id and alarm_type = :alarm_type";
-    Qry.CreateVariable("pax_id", otInteger, pax_id);
-    Qry.CreateVariable("alarm_type", otString, AlarmTypes().encode(alarm_type));
-    Qry.Execute();
-    return !Qry.Eof;
-}
-
-bool get_pax_alarm( int pax_id, Alarm::Enum alarm_type )
-{
-    return get_passenger_alarm( pax_id, alarm_type, false );
-}
-
-bool get_crs_pax_alarm( int pax_id, Alarm::Enum alarm_type )
-{
-    return get_passenger_alarm( pax_id, alarm_type, true );
 }
 
 void set_alarm( int point_id, Alarm::Enum alarm_type, bool alarm_value )
@@ -151,70 +128,6 @@ void set_alarm( int point_id, Alarm::Enum alarm_type, bool alarm_value )
     } catch (EOracleError &E) {
         if(E.Code != 1) throw;
     }
-}
-
-static void process_pax_alarm( const int pax_id, const Alarm::Enum alarm_type, const bool alarm_value, const bool crs_pax )
-{
-  TQuery Qry(&OraSession);
-  if (crs_pax)
-    Qry.SQLText = "SELECT point_id_spp AS point_dep "
-                  "FROM crs_pax, crs_pnr, tlg_binding "
-                  "WHERE crs_pax.pnr_id = crs_pnr.pnr_id AND "
-                  "      crs_pnr.point_id = tlg_binding.point_id_tlg AND "
-                  "      pax_id = :pax_id";
-  else
-    Qry.SQLText = "SELECT point_dep FROM pax, pax_grp "
-                  "WHERE pax.grp_id = pax_grp.grp_id AND pax_id = :pax_id";
-  Qry.CreateVariable("pax_id", otInteger, pax_id);
-  Qry.Execute();
-
-  if(Qry.Eof)
-      throw Exception("process_pax_alarm: passenger info not found");
-
-  synch_trip_alarm(Qry.FieldAsInteger("point_dep"), alarm_type);
-}
-
-static void set_passenger_alarm( const int pax_id, const Alarm::Enum alarm_type, const bool alarm_value, const bool is_crs )
-{
-    string table_name = is_crs?"crs_pax_alarms":"pax_alarms";
-    TQuery Qry(&OraSession);
-    if(alarm_value)
-        Qry.SQLText = "insert into " + table_name + "(pax_id, alarm_type) values(:pax_id, :alarm_type)";
-    else
-        Qry.SQLText = "delete from " + table_name + " where pax_id = :pax_id and alarm_type = :alarm_type";
-    Qry.CreateVariable("pax_id", otInteger, pax_id);
-    Qry.CreateVariable("alarm_type", otString, AlarmTypes().encode(alarm_type));
-    try {
-        Qry.Execute();
-
-        if(Qry.RowsProcessed()) {
-            process_pax_alarm(pax_id, alarm_type, alarm_value, is_crs);
-        }
-    } catch (EOracleError &E) {
-        if(E.Code != 1 && E.Code != 2291) throw; // parent key not found, unique constraint violated
-    }
-}
-
-void set_pax_alarm( int pax_id, Alarm::Enum alarm_type, bool alarm_value )
-{
-    set_passenger_alarm( pax_id, alarm_type, alarm_value, false );
-}
-
-void set_crs_pax_alarm( int pax_id, Alarm::Enum alarm_type, bool alarm_value )
-{
-    set_passenger_alarm( pax_id, alarm_type, alarm_value, true );
-}
-
-void synch_trip_alarm(int point_id, Alarm::Enum alarm_type) {
-  switch(alarm_type)
-  {
-      case Alarm::APPSConflict:
-      case Alarm::APPSNegativeDirective:
-      case Alarm::APPSError:
-          check_apps_alarm(point_id);
-          break;
-      default: throw Exception("synch_trip_alarm: alarm_type=%s not processed", AlarmTypes().encode(alarm_type).c_str());
-  };
 }
 
 bool calc_overload_alarm( int point_id )
@@ -703,46 +616,13 @@ void check_unbound_emd_alarm( int point_id )
 
 bool check_apps_alarm( int point_id )
 {
-  bool apps_alarm=calc_apps_alarm( point_id );
+  bool apps_alarm=existsAlarmByPointId(point_id,
+                                       {Alarm::APPSNegativeDirective,
+                                        Alarm::APPSError,
+                                        Alarm::APPSConflict},
+                                       {paxCheckIn, paxPnl});
   set_alarm( point_id, Alarm::APPSProblem, apps_alarm );
   return apps_alarm;
-}
-
-bool calc_apps_alarm( int point_id )
-{
-  LogTrace(TRACE5) << __FUNCTION__ << " started";
-
-  TQuery PaxQry(&OraSession);
-  PaxQry.Clear();
-  PaxQry.SQLText=
-    "SELECT alarm_type FROM pax_alarms, pax, pax_grp "
-    "WHERE pax_grp.point_dep = :point_id AND pax_alarms.pax_id = pax.pax_id "
-    "       AND pax.grp_id = pax_grp.grp_id AND ( alarm_type = :apps_error OR "
-    "       alarm_type = :apps_conflict OR alarm_type = :apps_negative )";
-  PaxQry.CreateVariable("point_id", otInteger, point_id);
-  PaxQry.CreateVariable("apps_error", otString, AlarmTypes().encode(Alarm::APPSError));
-  PaxQry.CreateVariable("apps_conflict", otString, AlarmTypes().encode(Alarm::APPSConflict));
-  PaxQry.CreateVariable("apps_negative", otString, AlarmTypes().encode(Alarm::APPSNegativeDirective));
-
-  PaxQry.Execute();
-
-  TQuery CrsPaxQry(&OraSession);
-  CrsPaxQry.Clear();
-  CrsPaxQry.SQLText=
-    "SELECT alarm_type FROM crs_pax_alarms, crs_pax, crs_pnr, tlg_binding "
-    "WHERE tlg_binding.point_id_spp = :point_id AND "
-    "      tlg_binding.point_id_tlg = crs_pnr.point_id AND "
-    "      crs_pnr.pnr_id = crs_pax.pnr_id AND crs_pax_alarms.pax_id = crs_pax.pax_id AND "
-    "      ( alarm_type = :apps_error OR alarm_type = :apps_conflict OR "
-    "      alarm_type = :apps_negative )";
-  CrsPaxQry.CreateVariable("point_id", otInteger, point_id);
-  CrsPaxQry.CreateVariable("apps_error", otString, AlarmTypes().encode(Alarm::APPSError));
-  CrsPaxQry.CreateVariable("apps_conflict", otString, AlarmTypes().encode(Alarm::APPSConflict));
-  CrsPaxQry.CreateVariable("apps_negative", otString, AlarmTypes().encode(Alarm::APPSNegativeDirective));
-
-  CrsPaxQry.Execute();
-
-  return (!PaxQry.Eof || !CrsPaxQry.Eof);
 }
 
 void TTripAlarm::check()
@@ -758,6 +638,9 @@ void TTripAlarm::check()
       break;
     case Alarm::SyncCabinClass:
       add_trip_task(id, AlarmTypes().encode(type), "");
+      break;
+    case Alarm::APPSProblem:
+      addTaskForCheckingAlarm(id, type);
       break;
     default:
       ProgError(STDLOG, "TTripAlarm::check: alarm not supported (%s)", traceStr().c_str());
@@ -839,6 +722,20 @@ void TPaxAlarmHook::set(Alarm::Enum _type, const int& _id)
     }
 }
 
+void TCrsPaxAlarmHook::set(Alarm::Enum _type, const int& _id)
+{
+  TCachedQuery Qry("SELECT tlg_binding.point_id_spp "
+                   "FROM tlg_binding, crs_pnr, crs_pax "
+                   "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
+                   "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+                   "      crs_pax.pax_id=:pax_id AND "
+                   "      crs_pnr.system='CRS' AND crs_pax.pr_del=0 ",
+                   QParams() << QParam("pax_id", otInteger, _id));
+  Qry.get().Execute();
+  for(; !Qry.get().Eof; Qry.get().Next())
+    sethBefore(TSomeonesAlarmHook<TTripAlarm>(TTripAlarm(_type, Qry.get().FieldAsInteger("point_id_spp"))));
+}
+
 static std::string getPaxAlarmTable(const PaxOrigin paxOrigin)
 {
   switch (paxOrigin)
@@ -856,10 +753,10 @@ static std::string getPaxAlarmTable(const PaxOrigin paxOrigin)
   return "";
 }
 
-static void setAlarmByPaxId(const int paxId, const Alarm::Enum alarmType, const bool alarmValue, const PaxOrigin paxOrigin)
+static bool setAlarmByPaxId(const int paxId, const Alarm::Enum alarmType, const bool alarmValue, const PaxOrigin paxOrigin)
 {
   string table_name=getPaxAlarmTable(paxOrigin);
-  if (table_name.empty()) return;
+  if (table_name.empty()) return false;
 
   TQuery Qry(&OraSession);
   if(alarmValue)
@@ -870,27 +767,46 @@ static void setAlarmByPaxId(const int paxId, const Alarm::Enum alarmType, const 
   Qry.CreateVariable("alarm_type", otString, AlarmTypes().encode(alarmType));
   try {
       Qry.Execute();
+      if(Qry.RowsProcessed()>0) return true;
+
   } catch (EOracleError &E) {
       if(E.Code != 1 && E.Code != 2291) throw; // parent key not found, unique constraint violated
   }
+
+  return false;
 }
 
-void addAlarmByPaxId(const int paxId, const Alarm::Enum alarmType, const PaxOrigin paxOrigin)
+bool addAlarmByPaxId(const int paxId,
+                     const std::initializer_list<Alarm::Enum>& alarms,
+                     const std::initializer_list<PaxOrigin>& origins)
 {
-  setAlarmByPaxId(paxId, alarmType, true, paxOrigin);
+  bool result=false;
+  for(const auto& alarmType : alarms)
+    for(const auto& paxOrigin : origins)
+      if (setAlarmByPaxId(paxId, alarmType, true, paxOrigin)) result=true;
+
+  return result;
 }
 
-void deleteAlarmByPaxId(const int paxId, const Alarm::Enum alarmType, const PaxOrigin paxOrigin)
+bool deleteAlarmByPaxId(const int paxId,
+                        const std::initializer_list<Alarm::Enum>& alarms,
+                        const std::initializer_list<PaxOrigin>& origins)
 {
-  setAlarmByPaxId(paxId, alarmType, false, paxOrigin);
+  bool result=false;
+  for(const auto& alarmType : alarms)
+    for(const auto& paxOrigin : origins)
+      if (setAlarmByPaxId(paxId, alarmType, false, paxOrigin)) result=true;
+
+  return result;
 }
 
-void deleteAlarmByGrpId(const int grpId, const Alarm::Enum alarmType)
+bool deleteAlarmByGrpId(const int grpId, const Alarm::Enum alarmType)
 {
   TCachedQuery Qry("DELETE FROM pax_alarms WHERE alarm_type=:alarm_type AND pax_id IN (SELECT pax_id FROM pax WHERE grp_id=:grp_id)",
                    QParams() << QParam("grp_id", otInteger, grpId)
                              << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)));
   Qry.get().Execute();
+  return (Qry.get().RowsProcessed()>0);
 }
 
 bool existsAlarmByPaxId(const int paxId, const Alarm::Enum alarmType, const PaxOrigin paxOrigin)
@@ -913,6 +829,52 @@ bool existsAlarmByGrpId(const int grpId, const Alarm::Enum alarmType)
                              << QParam("alarm_type", otString, AlarmTypes().encode(alarmType)));
   Qry.get().Execute();
   return (!Qry.get().Eof);
+}
+
+static std::string getAlarmSQLEnum(const std::initializer_list<Alarm::Enum>& alarms)
+{
+  set<string> values;
+  for(const auto& a : alarms)
+    values.insert(AlarmTypes().encode(a));
+  return GetSQLEnum(values);
+}
+
+bool existsAlarmByPointId(const int pointId,
+                          const std::initializer_list<Alarm::Enum>& alarms,
+                          const std::initializer_list<PaxOrigin>& origins)
+{
+  for(const auto& paxOrigin : origins)
+  {
+    string sql;
+    switch(paxOrigin)
+    {
+      case paxCheckIn:
+        sql = "SELECT 1 FROM pax_alarms, pax, pax_grp "
+              "WHERE pax_alarms.pax_id=pax.pax_id AND "
+              "      pax.grp_id=pax_grp.grp_id AND "
+              "      pax_grp.point_dep=:point_id AND "
+              "      rownum<2 AND "
+              "      pax_alarms.alarm_type IN "+ getAlarmSQLEnum(alarms);
+        break;
+      case paxPnl:
+        sql = "SELECT 1 FROM crs_pax_alarms, crs_pax, crs_pnr, tlg_binding "
+              "WHERE crs_pax_alarms.pax_id=crs_pax.pax_id AND "
+              "      crs_pax.pnr_id=crs_pnr.pnr_id AND "
+              "      crs_pnr.point_id=tlg_binding.point_id_tlg AND "
+              "      tlg_binding.point_id_spp=:point_id AND "
+              "      rownum<2 AND "
+              "      crs_pax_alarms.alarm_type IN "+ getAlarmSQLEnum(alarms);
+        break;
+      default:
+        continue;
+    }
+
+    TCachedQuery Qry(sql, QParams() << QParam("point_id", otInteger, pointId));
+
+    Qry.get().Execute();
+    if (!Qry.get().Eof) return true;
+  }
+  return false;
 }
 
 void getAlarmByPointId(const int pointId, const Alarm::Enum alarmType, std::set<int>& paxIds)

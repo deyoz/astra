@@ -363,14 +363,48 @@ void deleteAPPSData( const int pax_id )
   Qry.Execute();
 }
 
-void deleteAPPSAlarms( const int pax_id )
+static void syncAPPSAlarms(const int pax_id, const int point_id_spp)
 {
-  set_pax_alarm( pax_id, Alarm::APPSNegativeDirective, false );
-  set_crs_pax_alarm( pax_id, Alarm::APPSNegativeDirective, false );
-  set_pax_alarm( pax_id, Alarm::APPSError, false );
-  set_crs_pax_alarm( pax_id, Alarm::APPSError, false );
-  set_pax_alarm( pax_id, Alarm::APPSConflict, false );
-  set_crs_pax_alarm( pax_id, Alarm::APPSConflict, false );
+  if (point_id_spp!=ASTRA::NoExists)
+    TTripAlarmHook::set(Alarm::APPSProblem, point_id_spp);
+  else
+  {
+    if (pax_id!=ASTRA::NoExists)
+    {
+      TPaxAlarmHook::set(Alarm::APPSProblem, pax_id);
+      TCrsPaxAlarmHook::set(Alarm::APPSProblem, pax_id);
+    }
+  }
+}
+
+static void addAPPSAlarm( const int pax_id,
+                          const std::initializer_list<Alarm::Enum>& alarms,
+                          const int point_id_spp=ASTRA::NoExists )
+{
+  if (!addAlarmByPaxId(pax_id, alarms, {paxCheckIn, paxPnl})) return; //ничего не изменилось
+  syncAPPSAlarms(pax_id, point_id_spp);
+}
+
+static void deleteAPPSAlarm( const int pax_id,
+                             const std::initializer_list<Alarm::Enum>& alarms,
+                             const int point_id_spp=ASTRA::NoExists )
+{
+  if (!deleteAlarmByPaxId(pax_id, alarms, {paxCheckIn, paxPnl})) return; //ничего не изменилось
+  syncAPPSAlarms(pax_id, point_id_spp);
+}
+
+void deleteAPPSAlarms( const int pax_id, const int point_id_spp )
+{
+  if (!deleteAlarmByPaxId(pax_id,
+                          {Alarm::APPSNegativeDirective,
+                           Alarm::APPSError,
+                           Alarm::APPSConflict},
+                          {paxCheckIn, paxPnl})) return; //ничего не изменилось
+
+  if (point_id_spp!=ASTRA::NoExists)
+    syncAPPSAlarms(pax_id, point_id_spp);
+  else
+    LogError(STDLOG) << __func__ << ": point_id_spp==ASTRA::NoExists";
 }
 
 void TTransData::init(const bool pre_ckin, const std::string& trans_code,
@@ -427,11 +461,11 @@ void TFlightData::init( const int id, const std::string& flt_type, int ver )
   if( route.empty() )
     throw Exception( "Empty route, point_id %d", point_id );
 
-  TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", route.front().airline);
+  const TAirlinesRow &airline = (const TAirlinesRow&)base_tables.get("airlines").get_row("code", route.front().airline);
   if (airline.code_lat.empty()) throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
   string suffix;
   if (!route.front().suffix.empty()) {
-    TTripSuffixesRow &suffixRow = (TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code", route.front().suffix);
+    const TTripSuffixesRow &suffixRow = (const TTripSuffixesRow&)base_tables.get("trip_suffixes").get_row("code", route.front().suffix);
     if (suffixRow.code_lat.empty()) throw Exception("suffixRow.code_lat empty (code=%s)",suffixRow.code.c_str());
     suffix=suffixRow.code_lat;
   }
@@ -442,7 +476,7 @@ void TFlightData::init( const int id, const std::string& flt_type, int ver )
 
   flt_num = trip.str();
 
-  TAirpsRow &airp_dep = (TAirpsRow&)base_tables.get("airps").get_row("code", route.front().airp);
+  const TAirpsRow &airp_dep = (const TAirpsRow&)base_tables.get("airps").get_row("code", route.front().airp);
   if (airp_dep.code_lat.empty()) throw Exception("airp_dep.code_lat empty (code=%s)",airp_dep.code.c_str());
   port = airp_dep.code_lat;
 
@@ -450,7 +484,7 @@ void TFlightData::init( const int id, const std::string& flt_type, int ver )
     date = UTCToLocal( route.front().scd_out, CityTZRegion(airp_dep.city) );
 
   if( type == "INT" ) {
-  TAirpsRow &airp_arv = (TAirpsRow&)base_tables.get("airps").get_row("code", route.back().airp);
+  const TAirpsRow &airp_arv = (const TAirpsRow&)base_tables.get("airps").get_row("code", route.back().airp);
   if (airp_arv.code_lat.empty()) throw Exception("airp_arv.code_lat empty (code=%s)",airp_arv.code.c_str());
   arv_port = airp_arv.code_lat;
 
@@ -784,8 +818,8 @@ void TPaxAddData::init( const int pax_id, const int ver )
 
   if (!doco.applic_country.empty())
   {
-    string country_code = ((TPaxDocCountriesRow&)base_tables.get("pax_doc_countries").get_row("code", doco.applic_country)).country;
-    country_for_data = country_code.empty() ? "" : ((TCountriesRow&)base_tables.get("countries").get_row("code", country_code)).code_lat;
+    string country_code = ((const TPaxDocCountriesRow&)base_tables.get("pax_doc_countries").get_row("code", doco.applic_country)).country;
+    country_for_data = country_code.empty() ? "" : ((const TCountriesRow&)base_tables.get("countries").get_row("code", country_code)).code_lat;
   }
   doco_type = doco.type;
   doco_no = doco.no.substr(0, 20); // в БД doco.no VARCHAR2(25 BYTE)
@@ -908,7 +942,7 @@ bool TPaxRequest::getByPaxId( const int pax_id, Timing::Points& timing, const st
   }
   timing.finish("getByPaxId getByPointId");
 
-  TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
+  const TAirlinesRow &airline = (const TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
   if (airline.code_lat.empty())
   {
     timing.finish("getByPaxId");
@@ -1019,7 +1053,7 @@ bool TPaxRequest::getByCrsPaxId( const int pax_id, Timing::Points& timing, const
   }
   timing.finish("getByCrsPaxId getByPointId");
 
-  TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
+  const TAirlinesRow &airline = (const TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
   if (airline.code_lat.empty())
   {
     timing.finish("getByCrsPaxId");
@@ -1110,7 +1144,7 @@ bool TPaxRequest::fromDBByPaxId( const int pax_id )
     ProgTrace(TRACE5, "getByPointId returned false, point_id=%d, pax_id=%d", point_id, pax_id);
     return false; // или удалить пакса?
   }
-  TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
+  const TAirlinesRow &airline = (const TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
   if ( airline.code_lat.empty() )
     throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
   trans.init( Qry.FieldAsInteger("pre_ckin"), "CICX", airline, version );
@@ -1156,7 +1190,7 @@ bool TPaxRequest::fromDBByMsgId( const int msg_id )
     ProgTrace(TRACE5, "getByPointId returned false, point_id=%d, msg_id=%d", point_id, msg_id);
     return false;
   }
-  TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
+  const TAirlinesRow &airline = (const TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
   if (airline.code_lat.empty())
     throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
   trans.init( Qry.FieldAsInteger("pre_ckin"), "CICX", airline, version );
@@ -1281,14 +1315,14 @@ APPSAction TPaxRequest::typeOfAction( const bool is_exists, const std::string& s
 
   if( !is_exists ) {
     if ( is_cancel ) {
-      deleteAPPSAlarms( pax.pax_id );
+      deleteAPPSAlarms( pax.pax_id,  int_flt.point_id );
       return NoAction;
     }
     return NeedNew;
   }
 
   if ( !status.empty() && is_cancel ) {
-    deleteAPPSAlarms( pax.pax_id );
+    deleteAPPSAlarms( pax.pax_id, int_flt.point_id );
     if ( status != "B" ) {
       deleteAPPSData( pax.pax_id );
       return NoAction;
@@ -1318,8 +1352,7 @@ APPSAction TPaxRequest::typeOfAction( const bool is_exists, const std::string& s
   }
   else {
     // рассинхронизация
-    set_pax_alarm( pax.pax_id, Alarm::APPSConflict, true );
-    set_crs_pax_alarm( pax.pax_id, Alarm::APPSConflict, true );
+    addAPPSAlarm(pax.pax_id, {Alarm::APPSConflict}, int_flt.point_id);
     return NoAction;
   }
 }
@@ -1365,7 +1398,7 @@ bool TManifestRequest::init( const int point_id, const std::string& country_lat,
     ProgTrace(TRACE5, "getByPointId returned false, point_id=%d", point_id);
     return false;
   }
-  TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
+  const TAirlinesRow &airline = (const TAirlinesRow&)base_tables.get("airlines").get_row("code", info.airline);
   if (airline.code_lat.empty())
     throw Exception("airline.code_lat empty (code=%s)",airline.code.c_str());
   version = GetVersion(airline.code, country_code);
@@ -1641,8 +1674,7 @@ void TPaxReqAnswer::processErrors() const
     logAnswer( it->country, ASTRA::NoExists, it->error_code, it->error_text );
 
   if( /*!CheckIfNeedResend() &&*/ code == "CIRS" ) {
-    set_pax_alarm( pax_id, Alarm::APPSConflict, true ); // рассинхронизация
-    set_crs_pax_alarm( pax_id, Alarm::APPSConflict, true ); // рассинхронизация
+    addAPPSAlarm(pax_id, {Alarm::APPSConflict}); // рассинхронизация
     // удаляем apps_pax_data cirq_msg_id
     TQuery Qry( &OraSession );
     Qry.SQLText = "DELETE FROM apps_pax_data WHERE cirq_msg_id = :cirq_msg_id ";
@@ -1687,12 +1719,10 @@ void TPaxReqAnswer::processAnswer() const
        apps_pax_id = it->apps_pax_id;
     // включим тревоги
     if (it->status == "D" || it->status == "X") {
-      set_pax_alarm( pax_id, Alarm::APPSNegativeDirective, true );
-      set_crs_pax_alarm( pax_id, Alarm::APPSNegativeDirective, true );
+      addAPPSAlarm(pax_id, {Alarm::APPSNegativeDirective});
     }
     else if (it->status == "U" || it->status == "I" || it->status == "T" || it->status == "E") {
-      set_pax_alarm( pax_id, Alarm::APPSError, true );
-      set_crs_pax_alarm( pax_id, Alarm::APPSError, true );
+      addAPPSAlarm(pax_id, {Alarm::APPSError});
     }
     /* Каждая страна участник APPS присылает свой статус пассажира, т.е.
      * один пассажир может иметь несколько статусов. Получим по каждому пассажиру
@@ -1733,10 +1763,7 @@ void TPaxReqAnswer::processAnswer() const
 
   // погасим тревоги
   if ( status == "B" ) {
-    set_pax_alarm( pax_id, Alarm::APPSNegativeDirective, false );
-    set_crs_pax_alarm( pax_id, Alarm::APPSNegativeDirective, false );
-    set_pax_alarm( pax_id, Alarm::APPSError, false );
-    set_crs_pax_alarm( pax_id, Alarm::APPSError, false );
+    deleteAPPSAlarm(pax_id, {Alarm::APPSNegativeDirective, Alarm::APPSError});
   }
   // проверим, нужно ли гасить тревогу "рассинхронизация"
   TPaxRequest actual;
@@ -1758,8 +1785,7 @@ void TPaxReqAnswer::processAnswer() const
     received.fromDBByMsgId( msg_id );
   if ( pax_not_found || received == actual )
   {
-    set_pax_alarm( pax_id, Alarm::APPSConflict, false );
-    set_crs_pax_alarm( pax_id, Alarm::APPSConflict, false );
+    deleteAPPSAlarm(pax_id, {Alarm::APPSConflict});
   }
   deleteMsg( msg_id );
 }
@@ -1999,7 +2025,7 @@ void APPSFlightCloseout( const int point_id )
   set<string> countries_need_req = needFltCloseout( countries, route.front().airline );
   for( set<string>::const_iterator it = countries_need_req.begin(); it != countries_need_req.end(); it++ )
   {
-    string country_lat = ((TCountriesRow&)base_tables.get("countries").get_row("code",*it)).code_lat;
+    string country_lat = ((const TCountriesRow&)base_tables.get("countries").get_row("code",*it)).code_lat;
     TManifestRequest close_flt;
     if (close_flt.init( point_id, country_lat, *it ))
       close_flt.sendReq();
@@ -2013,6 +2039,7 @@ bool IsAPPSAnswText(const std::string& tlg_body)
            ( tlg_body.find( string("CIMA") + ":" ) != string::npos ) );
 }
 
+/*
 static std::string requestResStr()
 {
   switch(std::time(0) % 10) {
@@ -2044,6 +2071,7 @@ static std::string cancelResStr()
       return string("/8505/C///////");
   }
 }
+*/
 
 // РЕФАКТОРИНГ ФУНКЦИИ НЕ ПРОИЗВОДИЛСЯ
 // ВЕРСИИ ВЫШЕ 21 БУДУТ РАБОТАТЬ НЕКОРРЕКТНО

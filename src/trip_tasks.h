@@ -31,6 +31,7 @@ const std::string SEND_NEW_APPS_INFO="SEND_NEW_APPS_INFO";
 const std::string SEND_ALL_APPS_INFO="SEND_ALL_APPS_INFO";
 const std::string COLLECT_STAT="COLLECT_STAT";
 const std::string SEND_TYPEB_ON_TAKEOFF="SEND_TYPEB_ON_TAKEOFF";
+const std::string CHECK_ALARM="CHECK_ALARM";
 
 class TTripTaskKey
 {
