@@ -149,10 +149,13 @@ int main_nosir_user(int argc,char **argv)
         int res=obrnosirnick[i].p(argc,argv);
         ProgTrace(TRACE1,"nosir func finished: name='%s, id=%i, res=%i", argv[0], i, res);
 
+        callPostHooksBefore();
         if(res != 0)
             ASTRA::rollback();
         else
             ASTRA::commit();
+        callPostHooksAfter();
+        emptyHookTables();
         OraSession.LogOff();
       }
       catch(const std::exception &e)

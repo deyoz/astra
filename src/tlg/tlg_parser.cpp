@@ -6298,7 +6298,7 @@ static bool SyncPaxASVC(int pax_id)
   if (CheckIn::AddPaxASVC(pax_id, false)) result=true;
   if (result)
   {
-      addAlarmByPaxId(pax_id, Alarm::SyncEmds, paxCheckIn);
+      addAlarmByPaxId(pax_id, {Alarm::SyncEmds}, {paxCheckIn});
       TPaxAlarmHook::set(Alarm::UnboundEMD, pax_id);
 
       try {
@@ -6313,7 +6313,7 @@ static bool SyncPaxASVC(int pax_id)
 
 static void onChangeClass(int pax_id, ASTRA::TClass cl)
 {
-  addAlarmByPaxId(pax_id, Alarm::SyncCabinClass, paxCheckIn);
+  addAlarmByPaxId(pax_id, {Alarm::SyncCabinClass}, {paxCheckIn});
   TPaxAlarmHook::set(Alarm::SyncCabinClass, pax_id);
 }
 
@@ -7453,7 +7453,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                         DeleteTlgSeatRanges(cltProtBeforePay, paxId, tid, point_ids_spp);
                         DeleteTlgSeatRanges(cltProtAfterPay, paxId, tid, point_ids_spp);
                         if(is_need_apps) {
-                          deleteAPPSAlarms(paxId);
+                          deleteAPPSAlarms(paxId, point_id_spp);
                           deleteAPPSData(paxId);
                         }
                       };

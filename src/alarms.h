@@ -97,17 +97,13 @@ class AlarmTypesList : public ASTRA::PairList<Alarm::Enum, std::string>
 
 const AlarmTypesList& AlarmTypes();
 
+void checkAlarm(const TTripTaskKey &task);
+void addTaskForCheckingAlarm(int point_id, Alarm::Enum alarm);
+
 void TripAlarms( int point_id, BitSet<Alarm::Enum> &Alarms );
-void PaxAlarms( int pax_id, BitSet<Alarm::Enum> &Alarms );
-void CrsPaxAlarms( int pax_id, BitSet<Alarm::Enum> &Alarms );
 std::string TripAlarmString( Alarm::Enum alarm );
 bool get_alarm( int point_id, Alarm::Enum alarm_type );
-bool get_pax_alarm( int pax_id, Alarm::Enum alarm_type );
-bool get_crs_pax_alarm( int pax_id, Alarm::Enum alarm_type );
 void set_alarm( int point_id, Alarm::Enum alarm_type, bool alarm_value );
-void set_pax_alarm( int pax_id, Alarm::Enum alarm_type, bool alarm_value );
-void set_crs_pax_alarm( int pax_id, Alarm::Enum alarm_type, bool alarm_value );
-void synch_trip_alarm(int point_id, Alarm::Enum alarm_type);
 
 bool calc_overload_alarm( int point_id );
 bool check_overload_alarm( int point_id );
@@ -198,11 +194,24 @@ class TPaxAlarmHook : public TSomeonesAlarmHook<TPaxAlarm>
     static void set(Alarm::Enum _type, const int& _id);
 };
 
-void addAlarmByPaxId(const int paxId, const Alarm::Enum alarmType, const PaxOrigin paxOrigin);
-void deleteAlarmByPaxId(const int paxId, const Alarm::Enum alarmType, const PaxOrigin paxOrigin);
-void deleteAlarmByGrpId(const int grpId, const Alarm::Enum alarmType);
+class TCrsPaxAlarmHook : public TSomeonesAlarmHook<TPaxAlarm>
+{
+  public:
+    static void set(Alarm::Enum _type, const int& _id);
+};
+
+bool addAlarmByPaxId(const int paxId,
+                     const std::initializer_list<Alarm::Enum>& alarms,
+                     const std::initializer_list<PaxOrigin>& origins);
+bool deleteAlarmByPaxId(const int paxId,
+                        const std::initializer_list<Alarm::Enum>& alarms,
+                        const std::initializer_list<PaxOrigin>& origins);
+bool deleteAlarmByGrpId(const int grpId, const Alarm::Enum alarmType);
 bool existsAlarmByPaxId(const int paxId, const Alarm::Enum alarmType, const PaxOrigin paxOrigin);
 bool existsAlarmByGrpId(const int grpId, const Alarm::Enum alarmType);
+bool existsAlarmByPointId(const int pointId,
+                          const std::initializer_list<Alarm::Enum>& alarms,
+                          const std::initializer_list<PaxOrigin>& origins);
 void getAlarmByPointId(const int pointId, const Alarm::Enum alarmType, std::set<int>& paxIds);
 
 #endif
