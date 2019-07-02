@@ -80,7 +80,8 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, std::string xname, std
                       int time_limit,
                       const BitSet<SEATS2::TChangeLayerFlags> &flags,
                       int comp_crc, int tariff_pax_id,
-                      xmlNodePtr resNode );
+                      xmlNodePtr resNode,
+                      const std::string& whence );
 void trace( int pax_id, int grp_id, int parent_pax_id, int crs_pax_id, const std::string &pers_type, int seats );
 template <class T1>
 void ZonePax( int point_id, std::vector<T1> &PaxItems, std::vector<SALONS2::TCompSection> &compSections )

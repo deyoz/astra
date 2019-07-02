@@ -90,8 +90,6 @@ src/checkin_utils.cc
 src/checkin_utils.h
 src/ckin_search.cc
 src/ckin_search.h
-src/cobra.cc
-src/cobra.h
 src/comp_layers.cc
 src/comp_layers.h
 src/comp_props.cpp
@@ -104,6 +102,8 @@ src/crypt.cc
 src/crypt.h
 src/custom_alarms.cc
 src/custom_alarms.h
+src/crarf/CraftCaches.h
+src/crarf/CraftCaches.cc
 src/nosir_create_tlg.cc
 src/nosir_create_tlg.h
 src/dcs_services.cc

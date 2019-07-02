@@ -2766,8 +2766,8 @@ void set_seats_option(TPassSeats &seats, const TSeatRanges &seatRanges, int poin
 {
     SALONS2::TSalonList salonList;
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id_spp ), "", NoExists );
-    for ( std::vector<SALONS2::TPlaceList*>::iterator isalonList=salonList.begin();
-            isalonList!=salonList.end(); isalonList++ ) {
+    for ( std::vector<SALONS2::TPlaceList*>::iterator isalonList=salonList._seats.begin();
+            isalonList!=salonList._seats.end(); isalonList++ ) {
         for ( SALONS2::TPlaces::iterator iseat=(*isalonList)->places.begin(); iseat!=(*isalonList)->places.end(); iseat++ ) {
             if(not iseat->isplace) continue;
             seats.insert(TSeat(iseat->yname, iseat->xname));
