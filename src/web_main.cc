@@ -2435,16 +2435,26 @@ void WebRequestsIface::PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 {
   emulateClientType();
 
-  PaymentStatusRequest::PaxList paxListReq;
-  PaymentStatusResponse::PaxList paxListRes;
+  for(int attempts=1; attempts<=3; ++attempts)
+  try
+  {
+    PaymentStatusRequest::PaxList paxListReq;
+    PaymentStatusResponse::PaxList paxListRes;
 
-  paxListReq.fromXML(reqNode);
+    paxListReq.fromXML(reqNode);
 
-  paxListReq.lockFlights();  //лочка рейсов
+    paxListReq.lockFlights();  //лочка рейсов
 
-  changeStatus(paxListReq, paxListRes);
+    changeStatus(paxListReq, paxListRes);
 
-  paxListRes.toXML(NewTextChild(resNode, paxListReq.getRequestName().c_str()));
+    paxListRes.toXML(NewTextChild(resNode, paxListReq.getRequestName().c_str()));
+    break;
+  }
+  catch(const std::exception& e)
+  {
+    if (attempts>2) throw;
+    if (!clearResponseAndRollbackIfDeadlock(e, resNode)) throw;
+  }
 }
 
 
