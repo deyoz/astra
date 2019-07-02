@@ -104,6 +104,8 @@ src/crypt.cc
 src/crypt.h
 src/custom_alarms.cc
 src/custom_alarms.h
+src/nosir_create_tlg.cc
+src/nosir_create_tlg.h
 src/dcs_services.cc
 src/dcs_services.h
 src/dev_consts.cc
