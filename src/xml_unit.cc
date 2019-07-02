@@ -599,6 +599,8 @@ xmlNodePtr CopyNodeList(xmlNodePtr dest, xmlNodePtr src)
 
 void RemoveChildNodes(xmlNodePtr node)
 {
+    if (node==nullptr) return;
+
     xmlNodePtr chdNode = node->children;
     while(chdNode) {
         xmlNodePtr rmNode = chdNode;

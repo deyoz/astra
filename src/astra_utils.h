@@ -597,6 +597,7 @@ int ORDERS_TIMEOUT();
 
 std::string& EOracleError2UserException(std::string& msg);
 bool isIgnoredEOracleError(const std::exception& e);
+bool clearResponseAndRollbackIfDeadlock(const std::exception& e, xmlNodePtr resNode);
 
 std::string get_internal_msgid_hex();
 

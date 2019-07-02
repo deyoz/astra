@@ -1506,6 +1506,9 @@ string getVoucherCode(xmlNodePtr prnCodeNode)
 
 void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  for(bool optimistic : {true, false})
+  try
+  {
     TDevOper::Enum op_type = DevOperTypes().decode(NodeAsString("@op_type", reqNode, DevOperTypes().encode(TDevOper::PrnBP).c_str()));
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText =
@@ -1557,18 +1560,32 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     };
 
     vector<int> point_ids(ids_set.begin(), ids_set.end());
-    TFlights flightsForLock;
-    flightsForLock.Get( point_ids, ftTranzit );
-    //лочить рейсы надо по возрастанию poind_dep иначе может быть deadlock
-    flightsForLock.Lock(__FUNCTION__);
+    if (!optimistic)
+    {
+      LogTrace(TRACE5) << __func__ <<  ": not optimistic";
+      TFlights flightsForLock;
+      flightsForLock.Get( point_ids, ftTranzit );
+      flightsForLock.Lock(__FUNCTION__);
+    }
 
     CheckIn::UserException ue;
     ConfirmPrintBP(op_type, paxs, ue); //не надо прокидывать ue в терминал - подтверждаем все что можем!
     ConfirmPrintUnregVO(unreg_vo, ue);
+
+    break;
+  }
+  catch(const std::exception& e)
+  {
+    if (!optimistic) throw;
+    if (!clearResponseAndRollbackIfDeadlock(e, resNode)) throw;
+  }
 };
 
 void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  for(bool optimistic : {true, false})
+  try
+  {
     typedef pair<double, string> TNoColor;
     typedef pair<string, TNoColor> TType;
     list<TType> incoming_tags;
@@ -1607,10 +1624,13 @@ void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     }
 
     vector<int> point_ids(ids_set.begin(), ids_set.end());
-    TFlights flightsForLock;
-    flightsForLock.Get( point_ids, ftTranzit );
-    //лочить рейсы надо по возрастанию poind_dep иначе может быть deadlock
-    flightsForLock.Lock(__FUNCTION__);
+    if (!optimistic)
+    {
+      LogTrace(TRACE5) << __func__ <<  ": not optimistic";
+      TFlights flightsForLock;
+      flightsForLock.Get( point_ids, ftTranzit );
+      flightsForLock.Lock(__FUNCTION__);
+    }
 
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -1629,6 +1649,14 @@ void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         if (Qry.RowsProcessed()==0)
             throw AstraLocale::UserException("MSG.LUGGAGE.CHANGE_FROM_OTHER_DESK_REFRESH");
     }
+
+    break;
+  }
+  catch(const std::exception& e)
+  {
+    if (!optimistic) throw;
+    if (!clearResponseAndRollbackIfDeadlock(e, resNode)) throw;
+  }
 }
 
 void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser,
@@ -2044,9 +2072,9 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
 
     LogTrace(TRACE3) << __FUNCTION__ << " for grpId: " << grpId;
 
-    std::string loaded = iatci::IatciXmlDb::load(grpId);    
+    std::string loaded = iatci::IatciXmlDb::load(grpId);
     if(!loaded.empty())
-    {        
+    {
         if(!ReqParams(reqNode).getBoolParam("after_kick", false)) {
             tst();
             IatciInterface::ReprintRequest(reqNode);
