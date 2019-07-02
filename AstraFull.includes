@@ -2,6 +2,7 @@
 debug
 src/tlg
 src/kiosk
+src/crafts
 src
 locallibs/edilib/include
 locallibs/eticklib/include
