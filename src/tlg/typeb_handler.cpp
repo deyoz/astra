@@ -771,8 +771,8 @@ void handle_tpb_tlg(const tlg_info &tlg)
 }
 
 
-#define PARTS_NOT_RECEIVE_TIMEOUT  30.0/1440 //30 мин
-#define PARSING_FORCE_TIMEOUT      5.0/1440  //5 мин
+#define PARTS_NOT_RECEIVE_TIMEOUT  5.0/1440  //5 мин
+#define PARSING_FORCE_TIMEOUT      1.0/1440  //1 мин
 #define PARSING_MAX_TIMEOUT        0         //вообще не тормозим разборщик
 #define SCAN_TIMEOUT               60.0/1440 //1 час
 
