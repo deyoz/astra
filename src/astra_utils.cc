@@ -1725,6 +1725,18 @@ bool isIgnoredEOracleError(const std::exception& e)
            orae->Code==60));
 }
 
+bool clearResponseAndRollbackIfDeadlock(const std::exception& e, xmlNodePtr resNode)
+{
+  const EOracleError *orae=dynamic_cast<const EOracleError*>(&e);
+  if (orae!=nullptr && orae->Code==60)
+  {
+    RemoveChildNodes(resNode);
+    ASTRA::rollback();
+    return true;
+  }
+  return false;
+}
+
 string get_internal_msgid_hex()
 {
   string str_msg_id((const char*)get_internal_msgid(),sizeof(int)*3);
