@@ -246,6 +246,7 @@ src/tlg/EmdSysUpdateResponseHandler.cpp
 src/tlg/EmdSysUpdateResponseHandler.h
 src/tlg/ResponseHandler.cpp
 src/tlg/ResponseHandler.h
+src/tlg/apps_handler.cc
 src/tlg/edi_elements.cpp
 src/tlg/edi_elements.h
 src/tlg/edi_handler.cpp
