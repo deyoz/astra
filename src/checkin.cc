@@ -6104,7 +6104,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
           }
 
           check_apis_alarms( grp.point_dep );
-          check_apps_alarm( grp.point_dep );
         }
 
         check_TrferExists( grp.point_dep );
