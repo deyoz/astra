@@ -78,13 +78,13 @@ $(defmacro ASSIGN_GATE
 {
 {<?xml version='1.0' encoding='CP866'?>
 <term>
-  <query handle="0" id="sopp" ver="1" opr="PIKE" screen="SOPP.EXE" mode="STAND" lang="RU" term_id="2479792165">
+  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='RU' term_id='2479792165'>
     <WriteTrips>
       <trips>
         <trip>
           <point_id>$(point_id)</point_id>
           <stations>
-            <work_mode mode="П">
+            <work_mode mode='П'>
               <name>1</name>
             </work_mode>
           </stations>
@@ -711,8 +711,8 @@ $(PNL_1PAX_1SEG $(get_lat_code awk $(airl))
                 $(flt)
                 $(surname) $(name))
 
-$(create_random_trip_comp $(get_dep_point_id $(depp) $(airl) 103 $(yymmdd +0)) Э)
-$(ASSIGN_GATE $(get_dep_point_id $(depp) $(airl) 103 $(yymmdd +0)))
+$(create_random_trip_comp $(get_dep_point_id $(depp) $(airl) $(flt) $(yymmdd +0)) Э)
+$(ASSIGN_GATE $(get_dep_point_id $(depp) $(airl) $(flt) $(yymmdd +0)))
 }) #end-of-macro PREPARE_FLIGHT_1PAX_1SEG
 
 #########################################################################################
@@ -778,6 +778,7 @@ $(PNL_1PAX_2SEGS $(airl1) $(depp1) $(arrp1) $(flt1)
                  $(tickno) $(cpnno))
 
 $(create_random_trip_comp $(get_dep_point_id $(depp1) $(airl1) $(flt1) $(yymmdd +0)) Э)
+$(ASSIGN_GATE $(get_dep_point_id $(depp1) $(airl1) $(flt1) $(yymmdd +0)))
 }) #end-of-macro
 
 #########################################################################################

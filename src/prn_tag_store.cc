@@ -2294,7 +2294,7 @@ string TPrnTagStore::GATE(TFieldParams fp)
                 ostringstream s;
                 copy(pointInfo.gates.begin(), pointInfo.gates.end(), ostream_iterator<string>(s, " "));
                 LogTrace(TRACE5)
-                    << "TPrnTagStore::GATE: client gate '"
+                    << "TPrnTagStore::GATE: point_id: " << pointInfo.operFlt.point_id << "; client gate '"
                     << client_gate->second
                     << "' not found among flt gates (" << s.str() << ")";
                 // Если на рейсе всего один гейт, печатаем его, иначе ругаемся
