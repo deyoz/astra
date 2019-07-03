@@ -2301,7 +2301,8 @@ string TPrnTagStore::GATE(TFieldParams fp)
                 if(pointInfo.gates.size() == 1)
                     result = pointInfo.gates[0];
                 else
-                    throw AstraLocale::UserException("MSG.WRONG_CLIENT_GATE");
+                    LogTrace(TRACE5) << "MSG.WRONG_CLIENT_GATE result: '" << result << "'";
+//!!!                    throw AstraLocale::UserException("MSG.WRONG_CLIENT_GATE");
             }
         }
         return result;
