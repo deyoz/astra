@@ -474,7 +474,8 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
                       SALONS2::TAutoSeats &seats );
 bool ChangeLayer( const SALONS2::TSalonList &salonList, ASTRA::TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
                   std::string first_xname, std::string first_yname, TSeatsType seat_type, TChangeLayerProcFlag seatFlag,
-                  bool waitlist );
+                  bool waitlist,
+                  const std::string& whence );
 void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, TSeatRanges &seats,
                          int pax_id, int point_dep, int point_arv, TDateTime time_create );
 bool GetPassengersForWaitList( int point_id, TPassengers &p );

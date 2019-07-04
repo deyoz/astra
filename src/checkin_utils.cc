@@ -76,7 +76,7 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
   SEATS2::Passengers.Clear();
   SEATS2::TSublsRems subcls_rems( fltInfo.airline );
 
-  SALONS2::TSalonList salonList;
+  SALONS2::TSalonList salonList(true);
   salonList.ReadFlight( SALONS2::TFilterRoutesSets( grp.point_dep, grp.point_arv ), grp.cl, ASTRA::NoExists );
   //заполним массив для рассадки
   for(int k=0;k<=1;k++)
@@ -1042,7 +1042,8 @@ void CreateEmulDocs(const TWebPaxForSaveSegs &segs,
                            NoExists,
                            BitSet<SEATS2::TChangeLayerFlags>(),
                            0, NoExists,
-                           NULL );
+                           NULL,
+                           __func__ );
         };
       }
 

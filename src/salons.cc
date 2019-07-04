@@ -25,6 +25,7 @@
 #include "qrys.h"
 #include "etick.h"
 #include "counters.h"
+#include "crafts/CraftCaches.h"
 #include "seat_descript.h"
 
 #define NICKNAME "DJEK"
@@ -39,8 +40,6 @@ using namespace BASIC_SALONS;
 
 namespace SALONS2
 {
-
-int getCRC_Comp( int point_id );
 
 bool selfckin_client() {
   return ( TReqInfo::Instance()->client_type == ctWeb ||
@@ -468,22 +467,27 @@ void check_diffcomp_alarm( TCompsRoutes &routes );
 
 std::string TSeatLayer::toString() const
 {
-  string res;
-  res += "(p_id=" + IntToString( point_id );
-  res += ",p_dep=";
-  if ( point_dep != ASTRA::NoExists )
-    res += IntToString( point_dep );
-  res += ",p_arv=";
-  if ( point_arv != ASTRA::NoExists )
-    res += IntToString( point_arv );
-  if ( pax_id != NoExists )
-    res += ",pax_id=" + IntToString( pax_id );
-  if ( crs_pax_id != NoExists )
-    res += ",crs_id=" + IntToString( crs_pax_id );
-  res += string(",type=") + EncodeCompLayerType( layer_type );
-  res += ",time=" + DateTimeToStr( time_create );
-  res += ",in=" + IntToString( inRoute ) + ")";
-  return res;
+  std::ostringstream buf;
+  buf << "(p_id=" << point_id;
+  if ( point_dep != ASTRA::NoExists && point_id != point_dep ) {
+    buf << ",p_dep=" << point_dep;
+  }
+  if ( point_arv != ASTRA::NoExists ) {
+    buf <<  ",p_arv=" << point_arv;
+  }
+  if ( pax_id != NoExists ) {
+    buf << ",pax_id=" << pax_id;
+  }
+  if ( crs_pax_id != NoExists ) {
+    buf << ",crs_id=" << crs_pax_id;
+  }
+  buf << ",type=" << EncodeCompLayerType( layer_type );
+  buf << ",time=" << DateTimeToStr( time_create, "dd hh:nn:ss" );
+  if ( !inRoute ) {
+    buf << ",in=" << inRoute;
+  }
+  buf <<  ")";
+  return buf.str();
 }
 
 void getMenuBaseLayers( std::map<ASTRA::TCompLayerType,TMenuLayer> &menuLayers, bool isTripCraft )
@@ -689,7 +693,7 @@ bool isPropsLayer( ASTRA::TCompLayerType layer_type ) {
            layer_type == ASTRA::cltProtect ||
            layer_type == ASTRA::cltSmoke ||
            layer_type == ASTRA::cltUncomfort );
-};
+}
 
 bool isBaseLayer( ASTRA::TCompLayerType layer_type, bool isComponCraft )
 {
@@ -1977,84 +1981,9 @@ void SetValidPaxLayer( TPaxLayers::iterator ipax, vector<TPaxLayer>::iterator iv
 
 void TSalonList::Clear()
 {
-  for ( vector<TPlaceList*>::iterator i=begin(); i!=end(); i++ ) {
-    delete *i;
-  }
-  clear();
+  _seats.Clear();
+  //???pax_lists.clear();
 }
-
-void TSalonList::ReadSeats( TQuery &Qry, const string &FilterClass )
-{
-  Clear();
-  pax_lists.clear();
-  string ClassName = ""; /* перечисление всех классов, которые есть в салоне */
-  TPlaceList *placeList = NULL;
-  int num = -1;
-  TPoint point_p;
-  int col_num = Qry.FieldIndex( "num" );
-  int col_x = Qry.FieldIndex( "x" );
-  int col_y = Qry.FieldIndex( "y" );
-  int col_elem_type = Qry.FieldIndex( "elem_type" );
-  int col_xprior = Qry.FieldIndex( "xprior" );
-  int col_yprior = Qry.FieldIndex( "yprior" );
-  int col_agle = Qry.FieldIndex( "agle" );
-  int col_xname = Qry.FieldIndex( "xname" );
-  int col_yname = Qry.FieldIndex( "yname" );
-  int col_class = Qry.FieldIndex( "class" );
-  for ( ;!Qry.Eof; Qry.Next() ) {
-    if ( num != Qry.FieldAsInteger( col_num ) ) { //новый салон
-      if ( placeList && !FilterClass.empty() && ClassName.find( FilterClass ) == string::npos ) {
-        //есть салон и задан фильт по классам и это не наш класс
-        placeList->clearSeats();
-      }
-      else {
-        //переходим на новый салон
-        placeList = new TPlaceList();
-        push_back( placeList );
-      }
-      ClassName.clear();
-      num = Qry.FieldAsInteger( col_num );
-      placeList->num = num;
-    }
-    // повторение мест! - разные слои
-    TPlace place;
-    point_p.x = Qry.FieldAsInteger( col_x );
-    point_p.y = Qry.FieldAsInteger( col_y );
-    // если место еще не определено или место есть, но не проинициализировано
-    if ( !placeList->ValidPlace( point_p ) || placeList->place( point_p )->x == -1 ) {
-      place.x = point_p.x;
-      place.y = point_p.y;
-      place.num = num;
-      place.elem_type = Qry.FieldAsString( col_elem_type );
-      place.isplace = TCompElemTypes::Instance()->isSeat( place.elem_type );
-      if ( Qry.FieldIsNULL( col_xprior ) )
-        place.xprior = -1;
-      else
-        place.xprior = Qry.FieldAsInteger( col_xprior );
-      if ( Qry.FieldIsNULL( col_yprior ) )
-        place.yprior = -1;
-      else
-        place.yprior = Qry.FieldAsInteger( col_yprior );
-      place.agle = Qry.FieldAsInteger( col_agle );
-      place.clname = Qry.FieldAsString( col_class );
-      place.xname = Qry.FieldAsString( col_xname );
-      place.yname = Qry.FieldAsString( col_yname );
-      if ( ClassName.find( Qry.FieldAsString( col_class ) ) == string::npos )
-        ClassName += Qry.FieldAsString( col_class );
-    }
-    else { // это место проинициализировано - это новый слой
-      throw EXCEPTIONS::Exception( "Read trip_comp_elems: doublicate coord: x=%d, y=%d", point_p.x, point_p.y );
-    }
-    place.visible = true;
-    placeList->Add( place );
-  }	/* end for */
-  if ( placeList && !FilterClass.empty() && ClassName.find( FilterClass ) == string::npos ) {
-    ProgTrace( TRACE5, "Read trip_comp_elems: delete empty placeList->num=%d", placeList->num );
-    pop_back( );
-    delete placeList; // нам этот класс/салон не нужен
-  }
-}
-
 inline bool TSalonList::findSeat( std::map<int,TPlaceList*> &salons, TPlaceList** placelist,
                                   const TSalonPoint &point_s )
 {
@@ -2063,7 +1992,7 @@ inline bool TSalonList::findSeat( std::map<int,TPlaceList*> &salons, TPlaceList*
     *placelist = salons[ point_s.num ];
   }
   else {
-    for ( std::vector<TPlaceList*>::iterator isalon=begin(); isalon!=end(); isalon++ ) {
+    for ( CraftSeats::iterator isalon=_seats.begin(); isalon!=_seats.end(); isalon++ ) {
       if ( (*isalon)->num == point_s.num ) {
         *placelist = *isalon;
         salons[ point_s.num ] = *placelist;
@@ -2393,77 +2322,78 @@ void TPaxList::TranzitToSeatDrawProps( int point_dep )
   }
 }
 
-void TLayersPax::dumpPaxLayers( const TSeatLayer &seatLayer, const TPaxLayerSeats &seats,
-                                const TPlace *seat )
-{
-  string str;
-  switch ( seats.waitListReason.layerStatus ) {
-    case layerMultiVerify:
-      str += "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!>>>>>layerMultiVerify";
-      break;
-    case layerInvalid:
-      str += "Invalid";
-      break;
-    case layerLess:
-      str += string("Less reason=") + seats.waitListReason.layer.toString();
-      break;
-    case layerNotRoute:
-      str += string("NotRoute reason=") + seats.waitListReason.layer.toString();
-      break;
-    case layerVerify:
-      str += "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!>>>>>layerVerify";
-      break;
-    case layerValid:
-      str += "Valid";
-      break;
-    default:
-      str += "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!>>>>>";
-  };
-  if ( seatLayer.pax_id != ASTRA::NoExists ) {
-    str += " pax_id=" + IntToString( seatLayer.pax_id );
-  }
-  if ( seatLayer.crs_pax_id != ASTRA::NoExists ) {
-    str += " crs_id=" + IntToString( seatLayer.crs_pax_id );
-  }
-  str += string(" type=") + EncodeCompLayerType( seatLayer.layer_type );
-  str += " (";
-  for ( std::set<TPlace*,CompareSeats>::const_iterator iseat=seats.seats.begin(); iseat!=seats.seats.end(); iseat++ ) {
-    TPlace *place = *iseat;
-    if ( seat == NULL || seat == place ) {
-      if ( iseat != seats.seats.begin() )
-        str += ",";
-      str += place->yname + place->xname;
-    }
-  }
-  str += ")";
-  if ( seatLayer.point_dep != ASTRA::NoExists ) {
-    str += " p_dep=" + IntToString( seatLayer.point_dep );
-  }
-  if ( seatLayer.point_id != ASTRA::NoExists &&
-       seatLayer.point_id != seatLayer.point_dep ) {
-    str += " p_id=" + IntToString( seatLayer.point_id );
-  }
-  if ( seatLayer.point_arv != ASTRA::NoExists ) {
-    str += " p_arv=" + IntToString( seatLayer.point_arv );
-  }
-  str += string(" time=") + DateTimeToStr( seatLayer.time_create );
-  str += string( " in=" ) + IntToString( seatLayer.inRoute );
-  ProgTrace( TRACE5, "dumpLayers: %s", str.c_str() );
-}
-
 void TPaxList::dumpValidLayers()
 {
+  ostringstream buf;
   for ( std::map<int,TSalonPax>::iterator ipax=begin(); ipax!=end(); ipax++ ) {
     for ( std::map<TSeatLayer,TPaxLayerSeats>::iterator ilayer = ipax->second.layers.begin();
           ilayer != ipax->second.layers.end(); ++ilayer ) {
-      TLayersPax::dumpPaxLayers( ilayer->first, ilayer->second );
+      if ( ilayer->second.waitListReason.layerStatus == layerValid ) {
+        buf << "+";
+      }
+      else {
+        buf << "-";
+      }
+      buf << " " << EncodeCompLayerType( ilayer->first.layer_type );
+      buf << " (";
+      for ( std::set<TPlace*,CompareSeats>::const_iterator iseat=ilayer->second.seats.begin(); iseat!=ilayer->second.seats.end(); iseat++ ) {
+        TPlace *place = *iseat;
+        if ( iseat != ilayer->second.seats.begin() )
+          buf << ",";
+        buf << place->yname << place->xname;
+      }
+      buf << ")";
+      if ( ilayer->first.pax_id != ASTRA::NoExists ) {
+        buf << " pax_id=" << ilayer->first.pax_id;
+      }
+      if ( ilayer->first.crs_pax_id != ASTRA::NoExists ) {
+        buf << " crs_id=" << ilayer->first.crs_pax_id;
+      }
+      if ( ilayer->first.point_dep != ASTRA::NoExists ) {
+        buf << " p_dep=" << ilayer->first.point_dep;
+      }
+      if ( ilayer->first.point_id != ASTRA::NoExists &&
+           ilayer->first.point_id != ilayer->first.point_dep ) {
+        buf << " p_id=" << ilayer->first.point_id;
+      }
+      if ( ilayer->first.point_arv != ASTRA::NoExists ) {
+        buf << " p_arv=" << ilayer->first.point_arv;
+      }
+      buf << " time=" << DateTimeToStr( ilayer->first.time_create, "dd hh:nn:ss"  );
+      if ( !ilayer->first.inRoute ) {
+        buf << " in="  << ilayer->first.inRoute;
+      }
+      buf << " ";
+      switch ( ilayer->second.waitListReason.layerStatus ) {
+        case layerMultiVerify:
+          buf << "!!!>>>>>layerMultiVerify";
+          break;
+        case layerInvalid:
+          buf << "Invalid";
+          break;
+        case layerLess:
+          buf << "Priority layer=" << ilayer->second.waitListReason.layer.toString();
+          break;
+        case layerNotRoute:
+          buf << "NotRoute layer=" << ilayer->second.waitListReason.layer.toString();
+          break;
+        case layerVerify:
+          buf << "!!!>>>>>layerVerify";
+          break;
+        case layerValid:
+          break;
+        default:
+          buf << "!!!>>>>>";
+      };
+      buf << std::endl;
     }
   }
+  LogTrace(TRACE5) << __func__ << ":" << std::endl << buf.str();
 }
 
 void TSalonList::SetRFISC( int point_id, TSeatTariffMap &tariffMap )
 {
-  for ( std::vector<TPlaceList*>::iterator iplacelist=begin(); iplacelist!=end(); iplacelist++ ) {
+  for ( CraftSeats::iterator iplacelist=_seats.begin(); iplacelist!=_seats.end(); iplacelist++ ) {
     for ( TPlaces::iterator iseat=(*iplacelist)->places.begin(); iseat!=(*iplacelist)->places.end(); iseat++ ) {
       iseat->SetRFISC( point_id, tariffMap );
     }
@@ -3010,7 +2940,9 @@ void TSalonList::ReadCompon( int vcomp_id, int point_id )
   Qry.Execute();
   if ( Qry.Eof )
     throw UserException( "MSG.SALONS.NOT_FOUND" );
-  ReadSeats( Qry, filterSets.filterClass );
+  pax_lists.clear();
+
+  _seats.read( Qry, filterSets.filterClass );
   Qry.Clear();
   Qry.SQLText =
     "SELECT num,x,y,rem,pr_denial FROM comp_rem "
@@ -3437,8 +3369,8 @@ void TSalonList::CommitLayers()
       }
     }
   }
-  for ( TSalonList::iterator isalonlist=begin();
-        isalonlist!=end(); isalonlist++ ) {
+  for ( CraftSeats::iterator isalonlist=_seats.begin();
+        isalonlist!=_seats.end(); isalonlist++ ) {
     for ( TPlaces::iterator iseat=(*isalonlist)->places.begin();
           iseat!=(*isalonlist)->places.end(); iseat++ ) {
       //сохраняем только валидные слои
@@ -3474,8 +3406,8 @@ void TPlace::RollbackLayers( FilterRoutesProperty &filterRoutes,
 void TSalonList::RollbackLayers( )
 {
   FilterRoutesProperty &filterRoutes = filterSets.filterRoutes;
-  for ( TSalonList::iterator isalonlist=begin();
-        isalonlist!=end(); isalonlist++ ) {
+  for ( CraftSeats::iterator isalonlist=_seats.begin();
+        isalonlist!=_seats.end(); isalonlist++ ) {
     for ( TPlaces::iterator iseat=(*isalonlist)->places.begin();
           iseat!=(*isalonlist)->places.end(); iseat++ ) {
       iseat->RollbackLayers( filterRoutes, filterSets.filtersLayers );
@@ -3519,7 +3451,7 @@ void TSalonList::validateLayersSeats( )
 
   //pax_lists[ getDepartureId() ].dumpValidLayers();
 
-  for ( std::vector<TPlaceList*>::iterator iplacelist=begin(); iplacelist!=end(); iplacelist++ ) {
+  for ( CraftSeats::iterator iplacelist=_seats.begin(); iplacelist!=_seats.end(); iplacelist++ ) {
     for ( TPlaces::iterator iseat=(*iplacelist)->places.begin(); iseat!=(*iplacelist)->places.end(); iseat++ ) {
 //log      ProgTrace( TRACE5, "TSalonList::validateLayersSeats: before validate %s",
 //log                 string( iseat->yname + iseat->xname ).c_str() );
@@ -3603,7 +3535,7 @@ void TSalonList::validateLayersSeats( )
       }
     }
   }
-  for ( std::vector<TPlaceList*>::iterator iplacelist=begin(); iplacelist!=end(); iplacelist++ ) {
+  for ( CraftSeats::iterator iplacelist=_seats.begin(); iplacelist!=_seats.end(); iplacelist++ ) {
     for ( TPlaces::iterator iseat=(*iplacelist)->places.begin(); iseat!=(*iplacelist)->places.end(); iseat++ ) {
       iseat->GetLayers( layers, glBase );
       for ( std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp >::iterator ilayers=layers.begin();
@@ -4017,7 +3949,7 @@ void TSalonList::getSectionInfo( std::vector<TSectionInfo> &salonsInfo, const TG
   for ( vector<SALONS2::TSectionInfo>::iterator icompSection=salonsInfo.begin(); icompSection!=salonsInfo.end(); icompSection++ ) {
     icompSection->clearProps();
     int Idx = 0;
-    for ( vector<TPlaceList*>::const_iterator si=begin(); si!=end(); si++ ) {
+    for ( CraftSeats::const_iterator si=_seats.begin(); si!=_seats.end(); si++ ) {
       for ( int y=0; y<(*si)->GetYsCount(); y++ ) {
         if ( icompSection->inSection( Idx ) ) { // внутри секции или нет границ секции
           for ( int x=0; x<(*si)->GetXsCount(); x++ ) {
@@ -4107,6 +4039,38 @@ void TSalonList::getSectionInfo( std::vector<TSectionInfo> &salonsInfo, const TG
   } //end pass
 }
 
+void TSalonList::getLayerPlacesCompSection( TCompSection &compSection,
+                                            std::map<ASTRA::TCompLayerType, TPlaces> &uselayers_places,
+                                            int &seats_count )
+{
+  seats_count = 0;
+  for ( map<ASTRA::TCompLayerType, TPlaces>::iterator il=uselayers_places.begin(); il!=uselayers_places.end(); il++ ) {
+    uselayers_places[ il->first ].clear();
+  }
+  int Idx = 0;
+  for ( CraftSeats::const_iterator si=_seats.begin(); si!=_seats.end(); si++ ) {
+    for ( int y=0; y<(*si)->GetYsCount(); y++ ) {
+      if ( compSection.inSection( Idx ) ) { // внутри секции   !!!убрать
+        for ( int x=0; x<(*si)->GetXsCount(); x++ ) {
+          TPlace *seat = (*si)->place( (*si)->GetPlaceIndex( x, y ) );
+          if ( !seat->isplace || !seat->visible ) {
+             continue;
+          }
+          seats_count++;
+          for ( map<ASTRA::TCompLayerType, TPlaces>::iterator il=uselayers_places.begin(); il!=uselayers_places.end(); il++ ) {
+            if ( seat->getCurrLayer( getDepartureId() ).layer_type == il->first ) {
+              uselayers_places[ il->first ].push_back( *seat );
+              break;
+            }
+          }
+        }
+      }
+      Idx++;
+    }
+  }
+
+}
+
 /*
   filterRoutes - список пунктов у которых возможно есть места, кот. будуь влиять на нашу разметку
 */
@@ -4173,22 +4137,28 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
   }
   //==================================================
 
-  Qry.Clear();
-  //начитываем компоновку только по нашему пункту посадки
-  Qry.SQLText =
-    "SELECT num, x, y, elem_type, xprior, yprior, agle,"
-    "       xname, yname, class "
-    " FROM trip_comp_elems "
-    "WHERE point_id = :point_id "
-    "ORDER BY num, x desc, y desc";
-  Qry.CreateVariable( "point_id", otInteger, filterRoutes.getDepartureId() );
-  Qry.Execute();
-  bool empty_salons = Qry.Eof;
-  if ( empty_salons && !for_calc_waitlist ) {
+  pax_lists.clear();
+  if ( useSeatsCache ) {
+    _seats = CraftCache::CraftCaches::Instance()->get(filterRoutes.getDepartureId(),filterSets.filterClass);
+  }
+  else {
+    Qry.Clear();
+    //начитываем компоновку только по нашему пункту посадки
+    Qry.SQLText =
+      "SELECT num, x, y, elem_type, xprior, yprior, agle,"
+      "       xname, yname, class "
+      " FROM trip_comp_elems "
+      "WHERE point_id = :point_id "
+      "ORDER BY num, x desc, y desc";
+    Qry.CreateVariable( "point_id", otInteger, filterRoutes.getDepartureId() );
+    Qry.Execute();
+    _seats.Clear();
+    _seats.read(Qry,filterSets.filterClass);
+  }
+  if ( _seats.empty() && !for_calc_waitlist ) {
     ProgTrace( TRACE5, "point_id=%d", filterRoutes.getDepartureId() );
     throw UserException( "MSG.FLIGHT_WO_CRAFT_CONFIGURE" );
   }
-  ReadSeats( Qry, filterSets.filterClass );
   if ( /*!for_calc_waitlist*/ true ) { //при расчете WL требуются ремарки
     //начитываем ремарки по маршруту
     Qry.Clear();
@@ -4417,7 +4387,7 @@ void TSalonList::Build( xmlNodePtr salonsNode )
 
   //SEAT_DESCR::descrSeatTypeContainer descrContainer;
 
-  for( vector<TPlaceList*>::iterator placeList = begin(); placeList != end(); placeList++ ) {
+  for( CraftSeats::iterator placeList=_seats.begin(); placeList!=_seats.end(); placeList++ ) {
     xmlNodePtr placeListNode = NewTextChild( salonsNode, "placelist" );
     SetProp( placeListNode, "num", (*placeList)->num );
     int xcount=0, ycount=0;
@@ -4762,7 +4732,7 @@ void TSalonList::Parse( int vpoint_id, const std::string &airline, xmlNodePtr sa
       placeList->Add( place );
       placeNode = placeNode->next;
     }
-    push_back( placeList );
+    _seats.push_back( placeList );
     salonNode = salonNode->next;
   }
   if ( !pr_lat_seat_init ) {
@@ -4951,7 +4921,7 @@ void TSalonList::WriteFlight( int vpoint_id, bool saveContructivePlaces )
   std::map<int, TRFISC,classcomp> rfiscs;
   std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > layers;
   TDateTime layer_time_create = NowUTC();
-  for ( vector<TPlaceList*>::iterator plist = begin(); plist != end(); plist++ ) {
+  for ( CraftSeats::iterator plist=_seats.begin(); plist!=_seats.end(); plist++ ) {
     Qry.SetVariable( "num", (*plist)->num );
     QryRFISC.SetVariable( "num", (*plist)->num );
     QryTariffs.SetVariable( "num", (*plist)->num );
@@ -5239,7 +5209,7 @@ void TSalonList::WriteCompon( int &vcomp_id, const TComponSets &componSets, bool
   std::map<int, TSeatTariff,classcomp> tariffs;
   std::map<int, TRFISC,classcomp> rfiscs;
   std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > layers;
-  for ( vector<TPlaceList*>::iterator plist=begin(); plist!=end(); plist++ ) {
+  for ( CraftSeats::iterator plist=_seats.begin(); plist!=_seats.end(); plist++ ) {
     Qry.SetVariable( "num", (*plist)->num );
     QryRemarks.SetVariable( "num", (*plist)->num );
     QryBaseLayers.SetVariable( "num", (*plist)->num );
@@ -5452,7 +5422,7 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &Salons,
                    filterSets.filterClass,
                    menuLayers );
   //надо создать салон на основе filterRoutes.point_dep, filterRoutes.point_arv
-  for ( std::vector<TPlaceList*>::iterator iseatlist=begin(); iseatlist!=end(); iseatlist++ ) {
+  for ( CraftSeats::iterator iseatlist=_seats.begin(); iseatlist!=_seats.end(); iseatlist++ ) {
     Salons.placelists.push_back( *iseatlist );
   }
   //теперь фильтр по лишним свойствам и сохранение их в полях TPlace
@@ -5713,13 +5683,16 @@ void check_waitlist_alarm_on_tranzit_routes( const std::vector<int> &points_tran
                                              const std::set<int> &paxs_external_logged,
                                              const std::string& whence )
 {
+  if ( points_tranzit_check_wait_alarm.empty() ) {
+    return;
+  }
   TFlights flights;
   flights.Get( points_tranzit_check_wait_alarm, ftAll );
   flights.Lock( whence + "::check_waitlist_alarm" );
 
   boost::posix_time::ptime mst1 = boost::posix_time::microsec_clock::local_time();
 
-  TSalonList salonList;
+  TSalonList salonList(true);
   TSalonPassengers passengers;
   FilterRoutesProperty filterRoutes;
   //bool pr_exists_salons;
@@ -5921,7 +5894,7 @@ void TSalonList::check_waitlist_alarm_on_tranzit_routes( const std::set<int> &pa
   TQuery Qry( &OraSession );
   Qry.SQLText =
     "SELECT pax_id, xname, yname from pax_seats "
-    " WHERE point_id=:point_id AND NVL(pr_wl,0)=0";
+    " WHERE point_id=:point_id AND pr_wl=0";
   Qry.DeclareVariable( "point_id", otInteger );
   TQuery DelQry( &OraSession );
   DelQry.SQLText =
@@ -7278,31 +7251,8 @@ void getSeasonData( const vector<int> &points, map<int,TCounters> &crs_data )
   //!log           crs_data[ -1 ].point_id, crs_data[ -1 ].f, crs_data[ -1 ].c, crs_data[ -1 ].y );
 }
 
-int CRC32_Comp( const SALONS2::TSalonList &comp )
-{
-  std::vector<std::string> elem_types;
-  constructiveElemTypes( elem_types );
-  ostringstream buf;
-  for ( std::vector<TPlaceList*>::const_iterator isalon=comp.begin(); isalon!=comp.end(); isalon++ ) {
-    for ( TPlaces::const_iterator iseat=(*isalon)->places.begin(); iseat!=(*isalon)->places.end(); iseat++ ) {
-      if ( !iseat->visible || isConstructivePlace( iseat->elem_type, elem_types ) ) {
-        continue;
-      }
-      buf << (*isalon)->num << iseat->x << iseat->y << iseat->clname << iseat->xname << iseat->yname << TCompElemTypes::Instance()->isSeat( iseat->elem_type );
-    }
-  }
-  boost::crc_basic<32> crc32( 0x04C11DB7, 0xFFFFFFFF, 0xFFFFFFFF, true, true );
-  crc32.reset();
-  crc32.process_bytes( buf.str().c_str(), buf.str().size() );
-  int comp_crc = crc32.checksum();
-  //!logProgTrace( TRACE5, "CRC32_Comp: point_id=%d, crc_comp=%d", point_id, comp_id );
-  return comp_crc;
-
-}
-
 int CRC32_Comp( int point_id )
 {
-  vector<TSalonPoint> cltDisables;
   TQuery QryDisableLayer(&OraSession);
   //только для размеченных слоев в компоновке
   QryDisableLayer.SQLText =
@@ -7324,7 +7274,7 @@ int CRC32_Comp( int point_id )
   Qry.Execute();
   if ( Qry.Eof )
     return 0;
-  string buf;
+  ostringstream buf;
   int idx_num = Qry.FieldIndex( "num" );
   int idx_x = Qry.FieldIndex( "x" );
   int idx_y = Qry.FieldIndex( "y" );
@@ -7336,28 +7286,28 @@ int CRC32_Comp( int point_id )
     TSalonPoint p( Qry.FieldAsInteger( idx_x ),
                    Qry.FieldAsInteger( idx_y ),
                    Qry.FieldAsInteger( idx_num ) );
-    buf += IntToString( p.num );
-    buf += IntToString( p.x );
-    buf += IntToString( p.y );
-    buf += IntToString( TCompElemTypes::Instance()->isSeat( Qry.FieldAsString( idx_elem_type ) ) );
+    buf <<  p.num;
+    buf << p.x;
+    buf << p.y;
+    buf << TCompElemTypes::Instance()->isSeat( Qry.FieldAsString( idx_elem_type ) );
     bool pr_disable = ( !QryDisableLayer.Eof &&
                          QryDisableLayer.FieldAsInteger( idx_num_dis ) == p.num &&
                          QryDisableLayer.FieldAsInteger( idx_x_dis ) == p.x &&
                          QryDisableLayer.FieldAsInteger( idx_y_dis ) == p.y );
     if ( pr_disable ) {
       QryDisableLayer.Next();
-      buf += "1";
+      buf << "1";
     }
     else {
-      buf += "0";
+      buf << "0";
     }
-    buf += Qry.FieldAsString( idx_class );
-    buf += Qry.FieldAsString( idx_xname );
-    buf += Qry.FieldAsString( idx_yname );
+    buf << Qry.FieldAsString( idx_class );
+    buf << Qry.FieldAsString( idx_xname );
+    buf << Qry.FieldAsString( idx_yname );
   }
   boost::crc_basic<32> crc32( 0x04C11DB7, 0xFFFFFFFF, 0xFFFFFFFF, true, true );
   crc32.reset();
-  crc32.process_bytes( buf.c_str(), buf.size() );
+  crc32.process_bytes( buf.str().c_str(), buf.str().size() );
   int comp_id = crc32.checksum();
   //!logProgTrace( TRACE5, "CRC32_Comp: point_id=%d, crc_comp=%d", point_id, comp_id );
   return comp_id;
@@ -7780,7 +7730,7 @@ void getSalonChanges( const TSalonList &salonList,
   seats.clear();
   TSalonList NewSalonList;
   NewSalonList.ReadFlight( salonList.getFilterRoutes(), salonList.getFilterClass(), tariff_pax_id );
-  if ( !getSalonChanges( salonList, salonList.isCraftLat(), NewSalonList, NewSalonList.isCraftLat(), NewSalonList.getRFISCMode(), seats ) )
+  if ( !getSalonChanges( salonList._seats, salonList.isCraftLat(), NewSalonList._seats, NewSalonList.isCraftLat(), NewSalonList.getRFISCMode(), seats ) )
     throw UserException( "MSG.SALONS.COMPON_CHANGED.REFRESH_DATA" );
 }
 
@@ -8543,42 +8493,7 @@ void getXYName( int point_id, std::string seat_no, std::string &xname, std::stri
     }
 }
 
-void getLayerPlacesCompSection( const TSalonList &salonList,
-                                TCompSection &compSection,
-                                map<ASTRA::TCompLayerType, TPlaces> &uselayers_places,
-                                int &seats_count )
-{
-  seats_count = 0;
-  for ( map<ASTRA::TCompLayerType, TPlaces>::iterator il=uselayers_places.begin(); il!=uselayers_places.end(); il++ ) {
-    uselayers_places[ il->first ].clear();
-  }
-  int Idx = 0;
-  for ( vector<TPlaceList*>::const_iterator si=salonList.begin(); si!=salonList.end(); si++ ) {
-    for ( int y=0; y<(*si)->GetYsCount(); y++ ) {
-      if ( compSection.inSection( Idx ) ) { // внутри секции   !!!убрать
-        for ( int x=0; x<(*si)->GetXsCount(); x++ ) {
-          TPlace *seat = (*si)->place( (*si)->GetPlaceIndex( x, y ) );
-          if ( !seat->isplace || !seat->visible ) {
-             continue;
-          }
-          seats_count++;
-          for ( map<ASTRA::TCompLayerType, TPlaces>::iterator il=uselayers_places.begin(); il!=uselayers_places.end(); il++ ) {
-            if ( seat->getCurrLayer( salonList.getDepartureId() ).layer_type == il->first ) {
-              uselayers_places[ il->first ].push_back( *seat );
-              break;
-            }
-          }
-        }
-      }
-      Idx++;
-    }
-  }
-  for ( map<ASTRA::TCompLayerType, TPlaces>::iterator il=uselayers_places.begin(); il!=uselayers_places.end(); il++ ) {
-    //!logProgTrace( TRACE5, "getPaxPlacesCompSection: layer_type=%s, count=%zu", EncodeCompLayerType(il->first), il->second.size() );
-  }
-}
-
-void getLayerPlacesCompSection( SALONS2::TSalons &NSalons, TCompSection &compSection,
+/*void getLayerPlacesCompSection( SALONS2::TSalons &NSalons, TCompSection &compSection,
                                 bool only_high_layer,
                                 map<ASTRA::TCompLayerType, TPlaces> &uselayers_places,
                                 int &seats_count )
@@ -8611,7 +8526,7 @@ void getLayerPlacesCompSection( SALONS2::TSalons &NSalons, TCompSection &compSec
   for ( map<ASTRA::TCompLayerType, TPlaces>::iterator il=uselayers_places.begin(); il!=uselayers_places.end(); il++ ) {
     //!logProgTrace( TRACE5, "getPaxPlacesCompSection: layer_type=%s, count=%zu", EncodeCompLayerType(il->first), il->second.size() );
   }
-}
+}*/
 
 bool filterComponsForView( const string &airline, const string &airp )
 {
@@ -9328,8 +9243,8 @@ void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
   salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id ), "", NoExists );
   std::map<int, std::set<TSeatLayer,SeatLayerCompare>,classcomp > layers;
 
-  for ( std::vector<TPlaceList*>::iterator isalonList=salonList.begin();
-        isalonList!=salonList.end(); isalonList++ ) {
+  for ( CraftSeats::iterator isalonList=salonList._seats.begin();
+        isalonList!=salonList._seats.end(); isalonList++ ) {
     for ( TPlaces::iterator iseat=(*isalonList)->places.begin(); iseat!=(*isalonList)->places.end(); iseat++ ) {
       TSeatRanges::const_iterator iseatRange=seatRanges.begin();
       for ( ; iseatRange!=seatRanges.end(); iseatRange++ ) {
@@ -9374,7 +9289,7 @@ void resetLayers( int point_id, ASTRA::TCompLayerType layer_type,
   BitSet<ASTRA::TCompLayerType> editabeLayers;
   LEvntPrms salon_changes;
   salonList.getEditableFlightLayers( editabeLayers );
-  salonChangesToText( point_id, priorsalonList, priorsalonList.isCraftLat(), salonList,
+  salonChangesToText( point_id, priorsalonList._seats, priorsalonList.isCraftLat(), salonList._seats,
                       salonList.isCraftLat(), editabeLayers, salon_changes, false );
   TReqInfo::Instance()->LocaleToLog(lexema_id, LEvntPrms(), evtFlt, point_id);
   for (std::deque<LEvntPrm*>::const_iterator iter=salon_changes.begin(); iter != salon_changes.end(); iter++) {
@@ -9442,7 +9357,7 @@ const TAdjustmentRows &TAdjustmentRows::get( const TSalonList &salonList ) {
     return *this;
   }
   int idx = 0;
-  for ( auto isalon=salonList.begin(); isalon!=salonList.end(); isalon++ ) { // интересны последние ряды, которые могут не отображаться
+  for ( auto isalon=salonList._seats.begin(); isalon!=salonList._seats.end(); isalon++ ) { // интересны последние ряды, которые могут не отображаться
     int count = 0, constructiveRow;
     for ( int row=0; row<(*isalon)->GetYsCount(); row++ ) {
       if ( SEAT_DESCR::isConstructiveRow( *isalon, row ) ) {
@@ -9462,6 +9377,110 @@ const TAdjustmentRows &TAdjustmentRows::get( const TSalonList &salonList ) {
   }
   return *this;
 }
+
+//////////////////////////////////////======================CraftSeats=========================
+void CraftSeats::Clear()
+{
+  for ( vector<TPlaceList*>::iterator i=begin(); i!=end(); i++ ) {
+    delete *i;
+  }
+  clear();
+}
+
+void CraftSeats::read( TQuery &Qry, const std::string &cls )
+{
+  LogTrace(TRACE5) << "CraftSeats::" << __func__;
+  Clear();
+  //!!!pax_lists.clear();
+  string ClassName = ""; /* перечисление всех классов, которые есть в салоне */
+  TPlaceList *placeList = NULL;
+  int num = -1;
+  TPoint point_p;
+  int col_num = Qry.FieldIndex( "num" );
+  int col_x = Qry.FieldIndex( "x" );
+  int col_y = Qry.FieldIndex( "y" );
+  int col_elem_type = Qry.FieldIndex( "elem_type" );
+  int col_xprior = Qry.FieldIndex( "xprior" );
+  int col_yprior = Qry.FieldIndex( "yprior" );
+  int col_agle = Qry.FieldIndex( "agle" );
+  int col_xname = Qry.FieldIndex( "xname" );
+  int col_yname = Qry.FieldIndex( "yname" );
+  int col_class = Qry.FieldIndex( "class" );
+  for ( ;!Qry.Eof; Qry.Next() ) {
+    if ( num != Qry.FieldAsInteger( col_num ) ) { //новый салон
+      if ( placeList && !cls.empty() && ClassName.find( cls ) == string::npos ) {
+        //есть салон и задан фильт по классам и это не наш класс
+        placeList->clearSeats();
+      }
+      else {
+        //переходим на новый салон
+        placeList = new TPlaceList();
+        push_back( placeList );
+      }
+      ClassName.clear();
+      num = Qry.FieldAsInteger( col_num );
+      placeList->num = num;
+    }
+    // повторение мест! - разные слои
+    TPlace place;
+    point_p.x = Qry.FieldAsInteger( col_x );
+    point_p.y = Qry.FieldAsInteger( col_y );
+    // если место еще не определено или место есть, но не проинициализировано
+    if ( !placeList->ValidPlace( point_p ) || placeList->place( point_p )->x == -1 ) {
+      place.x = point_p.x;
+      place.y = point_p.y;
+      place.num = num;
+      place.elem_type = Qry.FieldAsString( col_elem_type );
+      place.isplace = TCompElemTypes::Instance()->isSeat( place.elem_type );
+      if ( Qry.FieldIsNULL( col_xprior ) )
+        place.xprior = -1;
+      else
+        place.xprior = Qry.FieldAsInteger( col_xprior );
+      if ( Qry.FieldIsNULL( col_yprior ) )
+        place.yprior = -1;
+      else
+        place.yprior = Qry.FieldAsInteger( col_yprior );
+      place.agle = Qry.FieldAsInteger( col_agle );
+      place.clname = Qry.FieldAsString( col_class );
+      place.xname = Qry.FieldAsString( col_xname );
+      place.yname = Qry.FieldAsString( col_yname );
+      if ( ClassName.find( Qry.FieldAsString( col_class ) ) == string::npos )
+        ClassName += Qry.FieldAsString( col_class );
+    }
+    else { // это место проинициализировано - это новый слой
+      throw EXCEPTIONS::Exception( "Read trip_comp_elems: doublicate coord: x=%d, y=%d", point_p.x, point_p.y );
+    }
+    place.visible = true;
+    placeList->Add( place );
+  }	/* end for */
+  if ( placeList && !cls.empty() && ClassName.find( cls ) == string::npos ) {
+    ProgTrace( TRACE5, "Read trip_comp_elems: delete empty placeList->num=%d", placeList->num );
+    pop_back( );
+    delete placeList; // нам этот класс/салон не нужен
+  }
+}
+
+int CraftSeats::crc32()
+{
+  std::vector<std::string> elem_types;
+  constructiveElemTypes( elem_types );
+  ostringstream buf;
+  for ( CraftSeats::const_iterator isalon=begin(); isalon!=end(); isalon++ ) {
+    for ( TPlaces::const_iterator iseat=(*isalon)->places.begin(); iseat!=(*isalon)->places.end(); iseat++ ) {
+      if ( !iseat->visible || isConstructivePlace( iseat->elem_type, elem_types ) ) {
+        continue;
+      }
+      buf << (*isalon)->num << iseat->x << iseat->y << iseat->clname << iseat->xname << iseat->yname << TCompElemTypes::Instance()->isSeat( iseat->elem_type );
+    }
+  }
+  boost::crc_basic<32> crc32( 0x04C11DB7, 0xFFFFFFFF, 0xFFFFFFFF, true, true );
+  crc32.reset();
+  crc32.process_bytes( buf.str().c_str(), buf.str().size() );
+  int comp_crc = crc32.checksum();
+  //!logProgTrace( TRACE5, "CRC32_Comp: point_id=%d, crc_comp=%d", point_id, comp_id );
+  return comp_crc;
+}
+
 
 } // end namespace SALONS2
 
