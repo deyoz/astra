@@ -61,6 +61,7 @@ class TFltParams
     bool in_final_status;
     ETSExchangeStatus::Enum ets_exchange_status;
     int et_final_attempt;
+    bool changeETStatusWhileBoarding;
     void clear()
     {
       fltInfo.Clear();
@@ -70,10 +71,13 @@ class TFltParams
       in_final_status=false;
       ets_exchange_status=ETSExchangeStatus::Unknown;
       et_final_attempt=ASTRA::NoExists;
+      changeETStatusWhileBoarding=false;
     }
     bool get(int point_id);
     bool get(const TAdvTripInfo& _fltInfo);
     bool strictlySingleTicketInTlg() const;
+    bool equalETStatus(const Ticketing::CouponStatus& status1,
+                       const Ticketing::CouponStatus& status2) const;
     static void incFinalAttempts(int point_id);
     static void finishFinalAttempts(int point_id);
     static void setETSExchangeStatus(int point_id, ETSExchangeStatus::Enum status);
