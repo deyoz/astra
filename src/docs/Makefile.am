@@ -14,6 +14,7 @@ libdocs_a_SOURCES = \
   docs_refuse.cc \
   docs_rem.cc \
   docs_services.cc \
+  docs_reseat.cc \
   docs_pax_list.cc
         
 
@@ -28,4 +29,5 @@ noinst_HEADERS = \
   docs_rem.h \
   docs_consts.h \
   docs_services.h \
+  docs_reseat.h \
   docs_pax_list.h
