@@ -80,6 +80,7 @@ bool TFltParams::get(const TAdvTripInfo& _fltInfo)
   fltInfo=_fltInfo;
   ets_no_exchange=GetTripSets(tsETSNoExchange,fltInfo);
   eds_no_exchange=GetTripSets(tsEDSNoExchange,fltInfo);
+  changeETStatusWhileBoarding=GetTripSets(tsChangeETStatusWhileBoarding,fltInfo);
   ets_exchange_status=ETSExchangeStatus::fromDB(Qry);
   et_final_attempt=Qry.FieldAsInteger("et_final_attempt");
   return get(fltInfo, control_method, in_final_status);
@@ -88,6 +89,16 @@ bool TFltParams::get(const TAdvTripInfo& _fltInfo)
 bool TFltParams::strictlySingleTicketInTlg() const
 {
   return control_method || fltInfo.airline=="EL";
+}
+
+bool TFltParams::equalETStatus(const Ticketing::CouponStatus& status1,
+                               const Ticketing::CouponStatus& status2) const
+{
+  if (!changeETStatusWhileBoarding &&
+      (status1==CouponStatus::Checked || status1==CouponStatus::Boarded) &&
+      (status2==CouponStatus::Checked || status2==CouponStatus::Boarded))
+    return true;
+  return status1==status2;
 }
 
 bool TFltParams::get(const TAdvTripInfo& fltInfo,

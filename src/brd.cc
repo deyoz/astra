@@ -990,7 +990,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     TTripInfo fltInfo;
     if (!fltInfo.getByPointId(point_id))
       throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
-    bool pr_etl_only=GetTripSets(tsETSNoExchange, fltInfo);
+    bool pr_etl_only=GetTripSets(tsETSNoExchange, fltInfo) ||
+                     !GetTripSets(tsChangeETStatusWhileBoarding, fltInfo);
     bool check_pay_on_tckin_segs=GetTripSets(tsCheckPayOnTCkinSegs, fltInfo);
 
     Qry.Clear();

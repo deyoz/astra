@@ -1991,7 +1991,7 @@ void ETStatusInterface::ETCheckStatusForRollback(int point_id,
                                             fltParams.in_final_status);
           };
 
-          if (status==real_status) continue;
+          if (fltParams.equalETStatus(status,real_status)) continue;
 
           TETickItem ETItem(ticket_no, coupon_no, point_id, airp_dep, airp_arv, real_status);
           if (ETStatusInterface::ChangeStatusLocallyOnly(fltParams, ETItem, ETCtxt)) continue;
@@ -2410,7 +2410,7 @@ void ETStatusInterface::ETCheckStatus(int id,
                                             ETCtxt.pax.pr_brd,
                                             fltParams.in_final_status);
 
-            if (status!=real_status ||
+            if (!fltParams.equalETStatus(status, real_status) ||
                 (!Qry.FieldIsNULL("tick_point_id") &&
                  (Qry.FieldAsInteger("tick_point_id")!=point_id ||
                   Qry.FieldAsString("tick_airp_dep")!=airp_dep ||
