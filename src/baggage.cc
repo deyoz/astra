@@ -783,9 +783,10 @@ void TGroupBagItem::checkAndGenerateTags(int point_id, int grp_id, bool generate
           tag.no=genTag.numeric_part;
           generated_tags[tag.num]=tag;
           num++;
-
-          if (generateAndDefer) generated.defer();
         }
+
+        if (generateAndDefer) generated.defer();
+
         //привязываем к багажу
         map<int, TTagItem>::iterator t=generated_tags.begin();
         for(TBagMap::const_iterator b=bags.begin();b!=bags.end();)
