@@ -1,0 +1,17 @@
+LOAD DATA
+INFILE *
+INTO TABLE stations
+APPEND
+FIELDS TERMINATED BY '|' OPTIONALLY ENCLOSED BY '"'
+TRAILING NULLCOLS
+(
+airp
+,name
+,desk
+,work_mode
+,using_scales
+,without_monitor
+,id
+)
+BEGINDATA
+"ÑåÑ"|"1"|"DMEG01"|"è"|0|0|180

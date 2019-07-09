@@ -2001,6 +2001,7 @@ void PrintInterface::GetPrintDataBP(
         //надо удалить выход на посадку из данных по пассажиру
         if (iPax->gate.second)
             parser->pts.set_tag("gate", iPax->gate.first);
+        parser->pts.set_tag(TAG::FIRST_SEG, iPax->first_seg);
 
         if(
                 TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION) or
@@ -2682,8 +2683,10 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
                                Qry.FieldAsInteger("reg_no") ) );
     };
 
-    for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
+    for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
       if(first_seg_grp_id != iPax->grp_id) iPax->gate=make_pair("", true);
+      iPax->first_seg = first_seg_grp_id == iPax->grp_id;
+    }
 
     // Начитываем правила БП для всех паксов
     BIPrintRules::Holder bi_rules(op_type);

@@ -369,6 +369,7 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::ETICKET_NO,              TTagListItem(&TPrnTagStore::ETICKET_NO, PAX_INFO))); // !!!
     tag_list.insert(make_pair(TAG::ETKT,                    TTagListItem(&TPrnTagStore::ETKT, PAX_INFO))); // !!!
     tag_list.insert(make_pair(TAG::EXCESS,                  TTagListItem(&TPrnTagStore::EXCESS)));
+    tag_list.insert(make_pair(TAG::FIRST_SEG,               TTagListItem(&TPrnTagStore::FIRST_SEG)));
     tag_list.insert(make_pair(TAG::FLT_NO,                  TTagListItem(&TPrnTagStore::FLT_NO, POINT_INFO))); // !!!
     tag_list.insert(make_pair(TAG::FQT,                     TTagListItem(&TPrnTagStore::FQT, FQT_INFO)));
     tag_list.insert(make_pair(TAG::FQT_TIER_LEVEL,          TTagListItem(&TPrnTagStore::FQT_TIER_LEVEL, FQT_INFO)));
@@ -436,14 +437,34 @@ void TPrnTagStore::init_bp_tags()
     tag_list.insert(make_pair(TAG::VOUCHER_TEXT10,          TTagListItem(&TPrnTagStore::VOUCHER_TEXT_FREE)));
 }
 
+string CLIENT_GATE()
+{
+    boost::optional<string> VAR;
+    if(not VAR) {
+        VAR = boost::in_place();
+        VAR.get() = getTCLParam("CLIENT_GATE", "");
+    }
+    return VAR.get();
+};
+
+
 void TPrnTagStore::tagsFromXML(xmlNodePtr tagsNode)
 {
+    tags_from_xml.clear();
+
+    if(not CLIENT_GATE().empty()) {
+        const auto &res = tags_from_xml.insert(make_pair(TAG::GATE, CLIENT_GATE()));
+        set_tag(res.first->first, res.first->second);
+        return;
+    }
+
     if(tagsNode) {
         // Положим теги из клиентского запроса
         for(xmlNodePtr curNode = tagsNode->children; curNode; curNode = curNode->next) {
             string value = NodeAsString(curNode);
             if(value.empty()) continue;
-            set_tag(upperc((char *)curNode->name), NodeAsString(curNode));
+            const auto &res = tags_from_xml.insert(make_pair(upperc((const char *)curNode->name), NodeAsString(curNode)));
+            set_tag(res.first->first, res.first->second);
         }
     }
 }
@@ -2157,6 +2178,14 @@ string TPrnTagStore::ETKT(TFieldParams fp)
     return result;
 }
 
+string TPrnTagStore::FIRST_SEG(TFieldParams fp)
+{
+    string result;
+    if(!fp.TagInfo.empty() and boost::any_cast<int>(fp.TagInfo) != 0)
+            result = TAG::FIRST_SEG;
+    return result;
+}
+
 string TPrnTagStore::FLT_NO(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
@@ -2255,7 +2284,33 @@ string TPrnTagStore::FULLNAME(TFieldParams fp)
 string TPrnTagStore::GATE(TFieldParams fp)
 {
     if(!fp.TagInfo.empty()) {
-        return boost::any_cast<std::string>(fp.TagInfo);
+        string result = boost::any_cast<std::string>(fp.TagInfo);
+        const auto &client_gate = tags_from_xml.find(TAG::GATE);
+        if(client_gate != tags_from_xml.end() and not get_tag(TAG::FIRST_SEG).empty()) {
+            // гейт пришел с клиента и тек. пакс с 0-го сегмента
+            // ишем гейт клиента среди гейтов рейса
+            vector<string>::const_iterator flt_gate = pointInfo.gates.begin();
+            for(; flt_gate != pointInfo.gates.end(); flt_gate++) {
+                if(*flt_gate == client_gate->second)
+                    break;
+            }
+            if(flt_gate == pointInfo.gates.end()) {
+                // Гейт с клиента не найден среди гейтов рейса
+                ostringstream s;
+                copy(pointInfo.gates.begin(), pointInfo.gates.end(), ostream_iterator<string>(s, " "));
+                LogTrace(TRACE5)
+                    << "TPrnTagStore::GATE: point_id: " << pointInfo.operFlt.point_id << "; client gate '"
+                    << client_gate->second
+                    << "' not found among flt gates (" << s.str() << ")";
+                // Если на рейсе всего один гейт, печатаем его, иначе ругаемся
+                if(pointInfo.gates.size() == 1)
+                    result = pointInfo.gates[0];
+                else
+                    LogTrace(TRACE5) << "MSG.WRONG_CLIENT_GATE result: '" << result << "'";
+//!!!                    throw AstraLocale::UserException("MSG.WRONG_CLIENT_GATE");
+            }
+        }
+        return result;
     } else {
         if(scan_data != NULL) {
             return string();
