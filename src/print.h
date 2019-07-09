@@ -67,6 +67,7 @@ class PrintInterface: public JxtInterface
           int reg_no;
           std::string full_name;
           std::pair<std::string, bool> gate; //bool=true, если делать set_tag, иначе с gate ничего не делаем
+          bool first_seg;
           TDateTime time_print;
           std::string prn_form;
           std::string scan; // если пакс брался из штрих кода и нашелся в базе, то scan пустой.
@@ -95,6 +96,7 @@ class PrintInterface: public JxtInterface
             reg_no=ASTRA::NoExists;
             full_name.clear();
             gate=std::make_pair("", false);
+            first_seg = false;
             time_print=ASTRA::NoExists;
             prn_form.clear();
             scan.clear();
