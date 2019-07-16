@@ -19,7 +19,7 @@ namespace WebCraft {
     bool pr_CHIN;
     std::vector<AstraWeb::TWebPax> pnr;
     std::string pass_rem;
-    std::string cabin_class;
+    std::set<std::string> cabin_classes;
     FilterWebSeat() {
       pr_lat = true;
       pr_CHIN = false;
@@ -34,7 +34,10 @@ namespace WebCraft {
       if( !pass_rem.empty() ) {
         buf << ",pass_rem=" << pass_rem;
       }
-      buf << ",cabin_class=" << cabin_class;
+      buf << ",cabin_classes=";
+      for ( const auto& str : cabin_classes ) {
+        buf << " " << str;
+      }
       return buf.str();
     }
   };
