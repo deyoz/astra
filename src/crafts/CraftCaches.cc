@@ -6,11 +6,10 @@
 
 namespace CraftCache {
 
-
 CraftSeats::~CraftSeats()
 {
   LogTrace(TRACE5) << __func__ << " point_dep=" << point_dep;
-  list.get()->Clear();
+  list.Clear();
 }
 
 CraftCaches::CraftCaches()
@@ -58,52 +57,47 @@ int CraftCaches::getCurrentCRC32( int point_dep )
   return SALONS2::getCRC_Comp( point_dep );
 }
 
-void CraftCaches::copy( const std::shared_ptr<SALONS2::CraftSeats>& src, SALONS2::CraftSeats &dest )
+void CraftCaches::copy( const SALONS2::CraftSeats& src, SALONS2::CraftSeats &dest )
 {
   dest.Clear();
-  for ( auto l : *src.get() ) {
+  for ( const auto l : src ) {
     SALONS2::TPlaceList* ls = new SALONS2::TPlaceList();
     *ls = *l;
     dest.push_back( ls );
   }
 }
 
-SALONS2::CraftSeats CraftCaches::get( int point_dep, const std::string &cls )
+void CraftCaches::get( int point_dep, const std::string &cls, SALONS2::CraftSeats& list )
 {
    LogTrace(TRACE5)<<__func__ << " point_dep=" << point_dep << ",cls=" << cls;
    CraftKey key(point_dep,cls);
-   SALONS2::CraftSeats dest;
    std::map<CraftKey,CraftSeats>::iterator icraft = caches.find( key );
    if ( icraft != caches.end() &&
         getCurrentCRC32( point_dep ) == icraft->second.crc32 ) {
-     copy( icraft->second.list, dest );
+     copy( icraft->second.list, list );
      LogTrace(TRACE5)<<__func__ << " use cache";
    }
    else {
-     copy( read( key ), dest );
+     copy( read( key ), list );
      LogTrace(TRACE5)<<__func__ << " read DB finished";
    }
-   return dest;
 }
 
-std::shared_ptr<SALONS2::CraftSeats>& CraftCaches::read( const int point_dep, const std::string &cls )
+SALONS2::CraftSeats& CraftCaches::read( const int point_dep, const std::string &cls )
 {
-  CraftKey key(point_dep,cls);
-  return read(key);
+  return read(CraftKey(point_dep,cls));
 }
 
-std::shared_ptr<SALONS2::CraftSeats>& CraftCaches::read( const CraftKey &key )
+SALONS2::CraftSeats& CraftCaches::read( const CraftKey &key )
 {
   drop( key );
-  int crc32 = getCurrentCRC32( key.point_dep );
-  SALONS2::CraftSeats *list = new SALONS2::CraftSeats();
   SeatsQry->SetVariable( "point_id", key.point_dep );
   SeatsQry->Execute();
-  list->read( *SeatsQry, key.cls );
   std::pair<std::map<CraftKey,CraftSeats>::iterator,bool> res = caches.emplace( std::piecewise_construct,
                                                                                 std::forward_as_tuple(key),
-                                                                                std::forward_as_tuple(key.point_dep, crc32, list) );
+                                                                                std::forward_as_tuple(key.point_dep, getCurrentCRC32( key.point_dep )) );
   if ( res.second ) {
+    res.first->second.list.read( *SeatsQry, key.cls );
     qCaches.push( key );
     checkSize();
     return res.first->second.list;

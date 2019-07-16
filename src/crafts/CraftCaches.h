@@ -11,10 +11,10 @@ namespace CraftCache
 struct CraftSeats {
   int point_dep;
   int crc32;
-  std::shared_ptr<SALONS2::CraftSeats> list;
-  CraftSeats( const int &vpoint_dep,
-              const int &vcrc32,
-                 SALONS2::CraftSeats *vlist ):point_dep(vpoint_dep),crc32(vcrc32),list(vlist) {
+  SALONS2::CraftSeats list;
+  CraftSeats( int vpoint_dep, int vcrc32 ) {
+    point_dep = vpoint_dep;
+    crc32 = vcrc32;
   }
   ~CraftSeats();
 };
@@ -50,9 +50,9 @@ private:
   std::map<CraftKey,CraftSeats> caches;
   std::queue<CraftKey> qCaches;
   void checkSize();
-  std::shared_ptr<SALONS2::CraftSeats>& read( const CraftKey &key );
-  std::shared_ptr<SALONS2::CraftSeats>& read( int point_dep, const std::string &cls );
-  void copy( const std::shared_ptr<SALONS2::CraftSeats>& src, SALONS2::CraftSeats &dest );
+  SALONS2::CraftSeats& read( const CraftKey &key );
+  SALONS2::CraftSeats& read( int point_dep, const std::string &cls );
+  void copy( const SALONS2::CraftSeats& src, SALONS2::CraftSeats &dest );
 public:
   CraftCaches();
   static CraftCaches *Instance() {
@@ -63,7 +63,7 @@ public:
     return _instance;
   }
   int getCurrentCRC32( int point_dep );
-  SALONS2::CraftSeats get( int point_dep, const std::string &cls );
+  void get( int point_dep, const std::string &cls, SALONS2::CraftSeats& list );
   void drop( const CraftKey &key );
   void clear();
 };
