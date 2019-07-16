@@ -53,17 +53,17 @@ namespace WebCraft {
   struct WebCraftFilters {
     CraftFilter filterCraft;
     FilterWebSeat filterWebSeat;
-    std::string crs_subclass;
+    std::string cabin_subclass;
     WebCraftFilters( int point_id, const std::vector<AstraWeb::TWebPax> &pnr ) {
       filterWebSeat.point_id = point_id;
       filterWebSeat.pnr = pnr;
       int point_arv = NoExists;
       for ( vector<TWebPax>::const_iterator ipax=pnr.begin(); ipax!=pnr.end(); ipax++ ) {
-        if ( !ipax->pass_class.empty() ) {
-          filterWebSeat.crs_class = ipax->pass_class;
+        if ( !ipax->cabin_class.empty() ) {
+          filterWebSeat.cabin_class = ipax->cabin_class;
         }
-        if ( !ipax->pass_subclass.empty() ) {
-          crs_subclass = ipax->pass_subclass;
+        if ( !ipax->cabin_subclass.empty() ) {
+          cabin_subclass = ipax->cabin_subclass;
         }
         TPerson p=DecodePerson(ipax->pers_type_extended.c_str());
         filterWebSeat.pr_CHIN=(filterWebSeat.pr_CHIN || p==ASTRA::child || p==ASTRA::baby); //среди типов может быть БГ (CBBG) который приравнивается к взрослому
@@ -71,11 +71,11 @@ namespace WebCraft {
           point_arv = SALONS2::getCrsPaxPointArv( ipax->crs_pax_id, point_id );
         }
       }
-      filterCraft = CraftFilter( point_id, point_arv, filterWebSeat.crs_class );
+      filterCraft = CraftFilter( point_id, point_arv, filterWebSeat.cabin_class );
     }
     void setPassRem( const std::string airline ) {
       TSublsRems subcls_rems( airline );
-      subcls_rems.IsSubClsRem( crs_subclass, filterWebSeat.pass_rem );
+      subcls_rems.IsSubClsRem( cabin_subclass, filterWebSeat.pass_rem );
     }
     void setPrLat( bool pr_lat ) {
       filterWebSeat.pr_lat = pr_lat;
@@ -143,7 +143,7 @@ namespace WebCraft {
     pax_id = NoExists;
     SeatTariff = seat->SeatTariff;
     rfisc = seat->getRFISC( filterWebSeat.point_id );
-    if ( seat->isplace && !seat->clname.empty() && seat->clname == filterWebSeat.crs_class ) {
+    if ( seat->isplace && !seat->clname.empty() && seat->clname == filterWebSeat.cabin_class ) {
       layerFromSeats( seat, filterWebSeat );
       if ( pr_free ) { //место свободно
         string seat_subcls = getSubCls( seat->rems );
@@ -180,7 +180,7 @@ namespace WebCraft {
           }
         }
       }
-    } // end if seat->isplace && !seat->clname.empty() && seat->clname == crs_class
+    } // end if ( seat->isplace && !seat->clname.empty() && seat->clname == filterWebSeat.cabin_class )
   }
 
   int TWebPlace::get_seat_status( bool pr_find_free_subcls_place, bool view_craft ) const {

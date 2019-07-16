@@ -577,6 +577,8 @@ class TSimplePaxItem
 
     static ASTRA::TGender::Enum genderFromDB(TQuery &Qry);
     static ASTRA::TTrickyGender::Enum getTrickyGender(ASTRA::TPerson pers_type, ASTRA::TGender::Enum gender);
+    static const std::string& origClassFromCrsSQL();
+    static const std::string& origSubclassFromCrsSQL();
 
     const TSimplePaxItem& toEmulXML(xmlNodePtr node, bool PaxUpdatesPending) const;
     TSimplePaxItem& fromDB(TQuery &Qry);
@@ -769,6 +771,7 @@ class TSimplePnrItem
     int id;
     std::string airp_arv;
     std::string cl;
+    std::string cabin_cl;
     std::string status;
 
     TSimplePnrItem() { clear(); }
@@ -778,6 +781,7 @@ class TSimplePnrItem
       id=ASTRA::NoExists;
       airp_arv.clear();
       cl.clear();
+      cabin_cl.clear();
       status.clear();
     }
 

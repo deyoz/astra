@@ -473,8 +473,8 @@ bool Pax::fromDB()
   seats=Qry.FieldAsInteger("seats");
   pnr_id=Qry.FieldAsInteger("pnr_id");
   pnr_status=Qry.FieldAsString("pnr_status");
-  pnr_class=Qry.FieldAsString("class");
-  pnr_subclass=Qry.FieldAsString("subclass");
+  pnr_cabin_class=Qry.FieldAsString("class");
+  pnr_cabin_subclass=Qry.FieldAsString("subclass");
 
   return true;
 }

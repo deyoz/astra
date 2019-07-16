@@ -20,6 +20,17 @@ using namespace AstraLocale;
 using namespace BASIC::date_time;
 using namespace SALONS2;
 
+void TSegListItem::setCabinClassAndSubclass()
+{
+  for(CheckIn::TPaxListItem& p : paxs)
+  {
+    CheckIn::TSimplePaxItem& pax=p.pax;
+    pax.cabin=pax.getCrsClass(true);
+    if (pax.cabin.cl.empty()) pax.cabin.cl=grp.cl;
+    if (pax.cabin.subcl.empty()) pax.cabin.subcl=pax.subcl;
+  }
+}
+
 namespace CheckIn
 {
 
@@ -1017,6 +1028,12 @@ void CreateEmulRems(xmlNodePtr paxNode, const multiset<CheckIn::TPaxRemItem> &re
 
 void TMultiPNRSegInfo::add(const TAdvTripInfo &flt, const TWebPaxForCkin& pax, bool first_segment)
 {
+  if (!empty())
+  {
+    if (_cls!=pax.cl)
+      throw UserException("MSG.PASSENGERS.COMM_FLIGHT_DEST_CLASS_NOT_EQUAL");
+  }
+
   if (find(pax.pnrId())!=end()) return;
 
   auto iRoute=routes.find(flt.point_id);
@@ -1045,8 +1062,6 @@ void TMultiPNRSegInfo::add(const TAdvTripInfo &flt, const TWebPaxForCkin& pax, b
   seg.point_dep=flt.point_id;
   seg.point_arv=arv.get().point_id;
   seg.pnr_id=pax.pnrId();
-  seg.cls=pax.cl;
-  seg.subcls=pax.subcl; //!!!vlad upgrade
   seg.pnr_addrs=pax.pnr_addrs;
   if (!pax.isTest() && pax.pnrId()!=ASTRA::NoExists)
   {
@@ -1061,6 +1076,20 @@ void TMultiPNRSegInfo::add(const TAdvTripInfo &flt, const TWebPaxForCkin& pax, b
     //проверим доступ
     if (!WebSearch::TPNRFilter::userAccessIsAllowed(flt, boost::optional<TSimpleMktFlight>(seg.mktFlight)))
       throw UserException( "MSG.FLIGHT.ACCESS_DENIED" );
+  }
+
+  if (size()>1)
+  {
+    if (!(_point_arv==seg.point_arv &&
+          _cls==pax.cl &&
+          _mktFlight==seg.mktFlight))
+      throw UserException("MSG.PASSENGERS.COMM_FLIGHT_DEST_CLASS_NOT_EQUAL");
+  }
+  else
+  {
+    _point_arv=seg.point_arv;
+    _cls=pax.cl;
+    _mktFlight=seg.mktFlight;
   }
 }
 
@@ -1276,7 +1305,7 @@ void CreateEmulDocs(const TWebPaxForSaveSegs &segs,
       NewTextChild(segNode,"point_arv",iPnrData->dest.point_arv);
       NewTextChild(segNode,"airp_dep",iPnrData->flt.oper.airp);
       NewTextChild(segNode,"airp_arv",iPnrData->dest.airp_arv);
-      NewTextChild(segNode,"class",iPnrData->segs.begin()->second.cls);
+      NewTextChild(segNode,"class",iPnrData->segs.origClass());
       NewTextChild(segNode,"status",EncodePaxStatus(currSeg.paxForCkin.status));
       NewTextChild(segNode,"wl_type");
 

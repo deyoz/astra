@@ -1622,6 +1622,20 @@ ASTRA::TTrickyGender::Enum TSimplePaxItem::getTrickyGender(ASTRA::TPerson pers_t
   return result;
 }
 
+const std::string& TSimplePaxItem::origClassFromCrsSQL()
+{
+  static const std::string result=" NVL(crs_pax.etick_class, NVL(crs_pax.orig_class, crs_pnr.class)) ";
+  return result;
+}
+
+const std::string& TSimplePaxItem::origSubclassFromCrsSQL()
+{
+  static const std::string result=" CASE WHEN crs_pnr.class="+origClassFromCrsSQL()+
+                                  "      THEN crs_pnr.subclass "
+                                  "      ELSE NVL(crs_pax.etick_subclass, NVL(crs_pax.orig_subclass, crs_pnr.subclass)) END ";
+  return result;
+}
+
 TComplexClass& TComplexClass::fromDB(TQuery &Qry, const std::string& fieldPrefix)
 {
   clear();
@@ -1679,10 +1693,12 @@ TSimplePaxItem& TSimplePaxItem::fromDBCrs(TQuery &Qry, bool withTkn)
   }
   if (Qry.GetFieldIndex("seat_no")>=0)
     seat_no = Qry.FieldAsString("seat_no");
-  if (Qry.GetFieldIndex("subclass")>=0)
-    subcl = Qry.FieldAsString("subclass"); //!!!vlad upgrade
   if (Qry.GetFieldIndex("reg_no")>=0)
     reg_no = Qry.FieldIsNULL("reg_no")?ASTRA::NoExists:Qry.FieldAsInteger("reg_no");
+
+  subcl = Qry.FieldAsString("subclass");
+  cabin.fromDB(Qry, "cabin_");
+
   if (withTkn)
   {
     if (isTest())
@@ -1811,7 +1827,7 @@ TComplexClass TSimplePaxItem::getCrsClass(bool onlyIfClassChange) const
   if (id==ASTRA::NoExists) return result;
 
   TCachedQuery Qry(
-    "SELECT NVL(crs_pax.etick_class, NVL(crs_pax.orig_class, crs_pnr.class)) AS orig_class, "
+    "SELECT "+origClassFromCrsSQL()+" AS orig_class, "
     "       crs_pnr.subclass, crs_pnr.class "
     "FROM crs_pnr, crs_pax "
     "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
@@ -2319,6 +2335,7 @@ TSimplePnrItem& TSimplePnrItem::fromDB(TQuery &Qry)
   id=Qry.FieldAsInteger("pnr_id");
   airp_arv=Qry.FieldAsString("airp_arv");
   cl=Qry.FieldAsString("class");
+  cabin_cl=Qry.FieldAsString("cabin_class");
   status=Qry.FieldAsString("status");
   return *this;
 }
@@ -2366,7 +2383,13 @@ ASTRA::TCompLayerType TSimplePaxGrpItem::getCheckInLayerType() const
 bool TSimplePnrItem::getByPaxId(int pax_id)
 {
   clear();
-  TCachedQuery Qry("SELECT crs_pnr.* FROM crs_pnr, crs_pax WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:pax_id",
+  TCachedQuery Qry("SELECT crs_pnr.pnr_id, "
+                   "       crs_pnr.airp_arv, "+
+                   TSimplePaxItem::origClassFromCrsSQL()+" AS class, "
+                   "       crs_pnr.class AS cabin_class, "
+                   "       crs_pnr.status "
+                   "FROM crs_pnr, crs_pax "
+                   "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND crs_pax.pax_id=:pax_id",
                    QParams() << QParam("pax_id", otInteger, pax_id));
   Qry.get().Execute();
   if (Qry.get().Eof) return false;

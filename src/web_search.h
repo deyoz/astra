@@ -274,22 +274,52 @@ struct TFlightInfo
     boost::optional<TStage> stage(const TStage_Type& type) const;
 };
 
-struct TPNRSegInfo
+struct TPNRSegId
 {
-    int point_dep, point_arv, pnr_id;
-    std::string cls; //!!!vlad upgrade
-    std::string subcls; //!!!vlad upgrade
+  int pnr_id;
+  std::string cls;    //orig_cls
+  std::string subcls; //orig_subcls
+
+  void clear()
+  {
+    pnr_id=ASTRA::NoExists;
+    cls.clear();
+    subcls.clear();
+  }
+
+  bool operator == (const TPNRSegId &segId) const
+  {
+    return pnr_id==segId.pnr_id &&
+           cls==segId.cls &&
+           subcls==segId.subcls;
+  }
+
+  bool operator < (const TPNRSegId &segId) const
+  {
+    if (pnr_id!=segId.pnr_id)
+      return pnr_id<segId.pnr_id;
+    if (cls!=segId.cls)
+      return cls<segId.cls;
+    return subcls<segId.subcls;
+  }
+
+  bool fromDB(TQuery &Qry);
+
+  std::string traceStr() const;
+};
+
+struct TPNRSegInfo : public TPNRSegId
+{
+    int point_dep, point_arv;
     TPnrAddrs pnr_addrs;
     boost::optional<TMktFlight> mktFlight;
     TPNRSegInfo() { clear(); }
 
   void clear()
   {
+    TPNRSegId::clear();
     point_dep=ASTRA::NoExists;
     point_arv=ASTRA::NoExists;
-    pnr_id=ASTRA::NoExists;
-    cls.clear();
-    subcls.clear();
     pnr_addrs.clear();
     mktFlight=boost::none;
   }
@@ -361,18 +391,18 @@ struct TPNRInfo
 struct TPNRs
 {
   std::set<TFlightInfo> flights;
-  std::map< int/*pnr_id*/, TPNRInfo > pnrs; //все PNR, которые подходят к критериям поиска
+  std::map< TPNRSegId, TPNRInfo > pnrs; //все PNR, которые подходят к критериям поиска
   boost::optional<AstraLocale::LexemaData> error;
 
   bool isSameTicketInAnotherPNR(const TPNRSegInfo &seg, const TPaxInfo &pax) const;
   bool add(const TFlightInfo &flt, const TPNRSegInfo &seg, const TPaxInfo &pax, bool is_test);
   const TFlightInfo& getFlightInfo(int point_dep) const;
-  const TPNRInfo& getPNRInfo(int pnr_id) const;
-  int getFirstPnrId() const;
+  const TPNRInfo& getPNRInfo(const TPNRSegId& segId) const;
+  const TPNRSegId& getFirstSegId() const;
   const TPNRInfo& getFirstPNRInfo() const;
   TPNRInfo& getFirstPNRInfo();
 
-  int calcStagePriority(int pnr_id) const;
+  int calcStagePriority(const TPNRSegId& segId) const;
   boost::optional<TDateTime> getFirstSegTime() const;
   void toXML(xmlNodePtr node, bool is_primary, XMLStyle xmlStyle, xmlNodePtr& segsNode) const;
   void toXML(xmlNodePtr node, bool is_primary, XMLStyle xmlStyle) const

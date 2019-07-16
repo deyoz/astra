@@ -238,13 +238,12 @@ std::string getSearchPaxSubquery(const TPaxStatus& pax_status,
   return sql.str();
 }
 
-static std::string getSearchPaxQuerySelectPart()
+static const std::string& getSearchPaxQuerySelectPart()
 {
-  return "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.airp_arv, \n"
-         "       NVL(crs_pax.etick_class, NVL(crs_pax.orig_class, crs_pnr.class)) AS class, \n"
-         "       DECODE(crs_pnr.class, NVL(crs_pax.etick_class, NVL(crs_pax.orig_class, crs_pnr.class)), \n"
-         "         crs_pnr.subclass, \n"
-         "         NVL(crs_pax.etick_subclass, NVL(crs_pax.orig_subclass, crs_pnr.subclass))) AS subclass, \n"
+  static const std::string result=
+         "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.airp_arv, \n"+
+         CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" AS class, \n"+
+         CheckIn::TSimplePaxItem::origSubclassFromCrsSQL()+" AS subclass, \n"
          "       crs_pnr.class AS cabin_class, \n"
          "       crs_pnr.status AS pnr_status, crs_pnr.priority AS pnr_priority, \n"
          "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, \n"
@@ -253,11 +252,14 @@ static std::string getSearchPaxQuerySelectPart()
          "       crs_pnr.pnr_id, \n"
          "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, \n"
          "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket \n";
+  return result;
 }
 
-static std::string getSearchPaxQueryOrderByPart()
+static const std::string& getSearchPaxQueryOrderByPart()
 {
-  return "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,class,subclass,crs_pax.surname,crs_pax.pax_id \n";
+  static const std::string result=
+         "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,class,subclass,crs_pax.surname,crs_pax.pax_id \n";
+  return result;
 }
 
 void getTCkinSearchPaxQuery(TQuery& Qry)
@@ -384,7 +386,11 @@ std::string Search::getSQLText() const
         sql << (c==conditions.begin()?"WHERE ":"  AND ") << *c << " \n";
       break;
     case paxPnl:
-      sql << "SELECT crs_pax.*, crs_pnr.subclass \n"
+      sql << "SELECT crs_pax.*, \n"
+          << CheckIn::TSimplePaxItem::origSubclassFromCrsSQL()+" AS subclass, \n"
+          << "       crs_pnr.subclass AS cabin_subclass, \n"
+             "       crs_pnr.class AS cabin_class, \n"
+             "       NULL AS cabin_class_grp \n"
              "FROM crs_pnr, crs_pax";
       for(const std::string& t : tables)
         sql << ", " << t;

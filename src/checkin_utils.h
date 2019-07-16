@@ -12,6 +12,8 @@ struct TSegListItem
   TTripInfo flt;
   CheckIn::TPaxGrpItem grp;
   CheckIn::TPaxList paxs;
+
+  void setCabinClassAndSubclass();
 };
 
 namespace CheckIn
@@ -417,9 +419,12 @@ class TWebPaxForCkin : public CheckIn::TSimplePnrItem, public CheckIn::TSimplePa
     {
       static const std::string result1=
           "SELECT crs_pnr.pnr_id, "
-          "       crs_pnr.airp_arv, "
-          "       crs_pnr.class, "
-          "       crs_pnr.subclass, "
+          "       crs_pnr.airp_arv, "+
+          CheckIn::TSimplePaxItem::origSubclassFromCrsSQL()+" AS subclass, "+
+          CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" AS class, "
+          "       crs_pnr.subclass AS cabin_subclass, "
+          "       crs_pnr.class AS cabin_class, "
+          "       NULL AS cabin_class_grp, "
           "       crs_pnr.status, "
           "       crs_pax.pax_id, "
           "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
@@ -438,8 +443,11 @@ class TWebPaxForCkin : public CheckIn::TSimplePnrItem, public CheckIn::TSimplePa
       static const std::string result2=
           "SELECT test_pax.id AS pnr_id, "
           "       NULL AS airp_arv, "
-          "       subcls.class, "
           "       subclass, "
+          "       subcls.class, "
+          "       subclass AS cabin_subclass, "
+          "       subcls.class AS cabin_class, "
+          "       NULL AS cabin_class_grp, "
           "       NULL AS status, "
           "       test_pax.id AS pax_id, "
           "       surname, name, "
@@ -536,9 +544,13 @@ class TMultiPNRSegInfo : public std::map<int/*pnr_id*/, WebSearch::TPNRSegInfo>
 {
   private:
     std::map<int/*point_id*/, TTripRoute> routes;
-
+    int _point_arv;
+    std::string _cls;
+    boost::optional<TMktFlight> _mktFlight;
   public:
+    TMultiPNRSegInfo() : _point_arv(ASTRA::NoExists) {}
     void add(const TAdvTripInfo &operFlt, const TWebPaxForCkin& pax, bool first_segment);
+    const std::string& origClass() const { return _cls; }
 };
 
 class TMultiPnrData

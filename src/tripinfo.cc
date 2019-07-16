@@ -2829,7 +2829,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      crs_pax.pers_type, "
      "      crs_pnr.class, "
      "      crs_pnr.subclass, "
-     "      NVL(crs_pax.etick_class, NVL(crs_pax.orig_class, crs_pnr.class)) AS orig_class, "
+      << CheckIn::TSimplePaxItem::origClassFromCrsSQL() << " AS orig_class, "
      "      crs_pax.seat_xname, "
      "      crs_pax.seat_yname, "
      "      crs_pax.seats seats, "
