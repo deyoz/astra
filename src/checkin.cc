@@ -6487,7 +6487,7 @@ void fillPaxsBags(const TCheckedReqPassengers &req_grps, TExchange &exch, TCheck
                 if (!res.second) continue;
                 SirenaExchange::TPaxSegItem &reqSeg=res.first->second;
                 reqSeg.set(trfer_num, *s);
-                reqSeg.subcl=p->subclass; //!!!vlad upgrade
+                reqSeg.subcl=p->subclass; //здесь передаем подкласс трансферного маршрута (после изменения класса). И это не очень правильно
               }
               if (s!=trfer.end()) throw EXCEPTIONS::Exception("%s: strange situation s!=trfer.end()", __FUNCTION__);
               if (p!=pax_trfer.end()) throw EXCEPTIONS::Exception("%s: strange situation p!=pax_trfer.end()", __FUNCTION__);
@@ -6497,7 +6497,7 @@ void fillPaxsBags(const TCheckedReqPassengers &req_grps, TExchange &exch, TCheck
                 reqPax.segs.insert(make_pair(seg_no,SirenaExchange::TPaxSegItem()));
             SirenaExchange::TPaxSegItem &reqSeg=res.first->second;
             reqSeg.set(seg_no, operFlt, grp.airp_arv, mktFlight, scd_in);
-            reqSeg.subcl=pax.subcl; //!!!vlad upgrade
+            reqSeg.subcl=pax.subcl; //здесь передаем подкласс, который был изначатьно в билете (до изменения класса). И это правильно
             reqSeg.set(pax.tkn, paxSection);
             CheckIn::LoadPaxFQT(pax.id, reqSeg.fqts);
             reqSeg.pnrAddrs.getByPaxIdFast(pax.id);
@@ -6996,7 +6996,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
 
         CheckIn::TPaxTransferItem paxTrferItem;
         paxTrferItem.pax_id=pax.id;
-        paxTrferItem.subclass=pax.subcl; //!!!vlad upgrade
+        paxTrferItem.subclass=pax.getCabinSubclass();
         seg.pax.push_back(paxTrferItem);
 
         xmlNodePtr paxNode=NewTextChild(node, "pax");

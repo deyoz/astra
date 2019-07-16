@@ -1382,7 +1382,7 @@ bool TPNRSegInfo::setIfSuitable(const TPNRFilter &filter,
   point_arv=arv.get().point_id;
   pnr_id=pnr.pnrId();
   cls=checked?grp.cl:pnr.cl;
-  subcls=pax.subcl; //!!!vlad upgrade
+  subcls=pax.subcl;
   pnr_addrs=pnrAddrs;
   mktFlight=markFlt;
 
