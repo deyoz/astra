@@ -4143,7 +4143,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
 
   pax_lists.clear();
   if ( useSeatsCache ) {
-    _seats = CraftCache::CraftCaches::Instance()->get(filterRoutes.getDepartureId(),filterSets.filterClass);
+    CraftCache::CraftCaches::Instance()->get(filterRoutes.getDepartureId(),filterSets.filterClass,_seats);
   }
   else {
     Qry.Clear();
@@ -9565,6 +9565,7 @@ const TAdjustmentRows &TAdjustmentRows::get( const TSalonList &salonList ) {
 void CraftSeats::Clear()
 {
   for ( vector<TPlaceList*>::iterator i=begin(); i!=end(); i++ ) {
+    (*i)->clearSeats();
     delete *i;
   }
   clear();
