@@ -150,8 +150,10 @@ struct TWebPax {
     std::string seat_status;
     std::string crs_seat_no;
     std::string seat_no;
-    std::string pass_class;
-    std::string pass_subclass;
+    std::string orig_class;
+    std::string orig_subclass;
+    std::string cabin_class;
+    std::string cabin_subclass;
     int seats;
     int pax_id;
     int crs_pnr_tid;
@@ -183,8 +185,8 @@ struct TWebPax {
       crs_pax_tid=pax.crs_pax_tid;
       pax_grp_tid=pax.pax_grp_tid;
       pax_tid=pax.pax_tid;
-      pass_class=pax.pnr_class;
-      pass_subclass=pax.pnr_subclass;
+      cabin_class=pax.pnr_cabin_class;
+      cabin_subclass=pax.pnr_cabin_subclass;
       seats=pax.seats;
     }
 

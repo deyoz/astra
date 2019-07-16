@@ -185,8 +185,8 @@ class Pax : public TWebTids
     int seats;
     int pnr_id;
     std::string pnr_status;
-    std::string pnr_class;
-    std::string pnr_subclass;
+    std::string pnr_cabin_class;
+    std::string pnr_cabin_subclass;
     SALONS2::TSeatTariff seatTariff;
     boost::optional<AstraLocale::UserException> userException;
 
@@ -205,8 +205,8 @@ class Pax : public TWebTids
       seats=ASTRA::NoExists;
       pnr_id=ASTRA::NoExists;
       pnr_status.clear();
-      pnr_class.clear();
-      pnr_subclass.clear();
+      pnr_cabin_class.clear();
+      pnr_cabin_subclass.clear();
       seatTariff.clear();
       userException=boost::none;
     }

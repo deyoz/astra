@@ -4251,8 +4251,8 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
     Qry.Clear();
     Qry.SQLText =
       "SELECT crs_pax.pax_id, seats, pers_type, name, surname, "
-      "       crs_pnr.class AS cabin_class, "
-      "       NVL(crs_pax.etick_class, NVL(crs_pax.orig_class, crs_pnr.class)) AS orig_class, "
+      "       crs_pnr.class AS cabin_class, "+
+      CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" AS orig_class, "
       "       DECODE( crs_pax.inf_id, NULL, NULL, crs_pax.pax_id ) AS parent_pax_id "
       "    FROM crs_pax, crs_pnr, tlg_binding "
       "   WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "

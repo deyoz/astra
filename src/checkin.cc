@@ -3744,7 +3744,7 @@ void GetInboundTransferForWeb(TSegList &segList,
     for(CheckIn::TPaxList::const_iterator p=iSegListItem->paxs.begin(); p!=iSegListItem->paxs.end(); ++p)
     {
       CheckIn::TPaxTransferItem paxTrfer;
-      paxTrfer.subclass=p->pax.subcl; //!!!vlad upgrade
+      paxTrfer.subclass=p->pax.cabin.subcl;
       paxTrfer.subclass_fmt=efmtCodeNative;
       trfer.pax.push_back(paxTrfer);
     }
@@ -4217,6 +4217,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
     }
 
     segList.back().flt=s->second.fltInfo;
+    if (new_checkin)
+      segList.back().setCabinClassAndSubclass();
 
     if (!pr_unaccomp && checkAPPSSets(segList.back().grp.point_dep, segList.back().grp.point_arv))
         need_apps = true;
@@ -4259,6 +4261,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             (!new_checkin && p->pax.PaxUpdatesPending && p->pax.pers_type!=adult))
           throw UserException("MSG.CREW.MEMBER_IS_ADULT_WITH_ONE_SEAT");
         p->pax.subcl.clear();
+        p->pax.cabin.clear();
         p->pax.tkn.clear();
       }
 
@@ -4538,11 +4541,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
               {
                 if (!flightRbd)
                   flightRbd=boost::in_place(fltInfo);
-                const TFlightRbd& rbds=flightRbd.get();
-                pax.cabin=pax.getCrsClass(true);
-                if (pax.cabin.cl.empty()) pax.cabin.cl=grp.cl;
-                if (pax.cabin.subcl.empty()) pax.cabin.subcl=pax.subcl;
-                CheckIn::setComplexClassGrp(rbds, pax.cabin);
+                CheckIn::setComplexClassGrp(flightRbd.get(), pax.cabin);
               }
             }
 

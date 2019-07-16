@@ -998,6 +998,23 @@ bool TFlightInfo::fromDBadditional(bool first_segment, bool pr_throw)
   return true;
 };
 
+bool TPNRSegId::fromDB(TQuery &Qry)
+{
+  clear();
+  if (Qry.Eof) return false;
+  pnr_id=Qry.FieldAsInteger("pnr_id");
+  cls=Qry.FieldAsString("orig_class");
+  subcls=Qry.FieldAsString("orig_subclass");
+  return true;
+}
+
+std::string TPNRSegId::traceStr() const
+{
+  ostringstream s;
+  s << "pnr_id=" << pnr_id << ", cls=" << cls << ", subcls=" << subcls;
+  return s.str();
+}
+
 bool TPNRSegInfo::fromTestPax(int point_id, const TTripRoute &route, const TTestPaxInfo &pax)
 {
   clear();
@@ -1292,12 +1309,9 @@ bool TPNRSegInfo::fromDB(int point_id, const TTripRoute &route, TQuery &Qry)
   boost::optional<TTripRouteItem> arv=route.findFirstAirp(Qry.FieldAsString("airp_arv"));
   if (!arv) return false;
 
+  TPNRSegId::fromDB(Qry);
   point_dep=point_id;
   point_arv=arv.get().point_id;
-  pnr_id=Qry.FieldAsInteger("pnr_id");
-  cls=Qry.FieldAsString("class");
-  subcls=Qry.FieldAsString("subclass");
-
   pnr_addrs.getByPnrIdFast(pnr_id);
 
   mktFlight=TMktFlight();
@@ -1691,7 +1705,7 @@ bool TPNRs::isSameTicketInAnotherPNR(const TPNRSegInfo &seg, const TPaxInfo &pax
 {
   for(const auto& p : pnrs)
   {
-    if (seg.pnr_id==p.first) continue;
+    if (seg==p.first) continue;
     for(const TPaxInfo& paxInfo : p.second.paxs)
       if (paxInfo.ticket.equalAttrs(pax.ticket)) return true;
   }
@@ -1705,7 +1719,7 @@ bool TPNRs::add(const TFlightInfo &flt, const TPNRSegInfo &seg, const TPaxInfo &
   if (seg.point_arv==NoExists) throw EXCEPTIONS::Exception("TPNRs::add: seg.point_arv not defined");
   if (seg.pnr_id==NoExists) throw EXCEPTIONS::Exception("TPNRs::add: seg.pnr_id not defined");
 
-  map< int/*pnr_id*/, TPNRInfo >::iterator iPNR=pnrs.find(seg.pnr_id);
+  map< TPNRSegId, TPNRInfo >::iterator iPNR=pnrs.find(seg);
   if (iPNR!=pnrs.end())
   {
     //такой PNR уже есть в PNRs - просто добавим пассажира
@@ -1760,7 +1774,7 @@ bool TPNRs::add(const TFlightInfo &flt, const TPNRSegInfo &seg, const TPaxInfo &
     };
   };
 
-  pnrs[seg.pnr_id] = pnr;
+  pnrs[seg] = pnr;
 
   return true;
 };
@@ -1773,15 +1787,15 @@ const TFlightInfo& TPNRs::getFlightInfo(int point_dep) const
   return *iFlt;
 }
 
-const TPNRInfo& TPNRs::getPNRInfo(int pnr_id) const
+const TPNRInfo& TPNRs::getPNRInfo(const TPNRSegId& segId) const
 {
-  map< int/*pnr_id*/, TPNRInfo >::const_iterator iPnr=pnrs.find(pnr_id);
+  map< TPNRSegId, TPNRInfo >::const_iterator iPnr=pnrs.find(segId);
   if (iPnr==pnrs.end())
-    throw EXCEPTIONS::Exception("TPNRs::getPNRInfo: pnr not found (pnr_id=%d)", pnr_id);
+    throw EXCEPTIONS::Exception("TPNRs::getPNRInfo: pnr not found (%s)", segId.traceStr().c_str());
   return iPnr->second;
 }
 
-int TPNRs::getFirstPnrId() const
+const TPNRSegId& TPNRs::getFirstSegId() const
 {
   if (pnrs.empty())
     throw EXCEPTIONS::Exception("TPNRs::getFirstPnrId: empty pnrs");
@@ -1802,9 +1816,9 @@ TPNRInfo& TPNRs::getFirstPNRInfo()
   return pnrs.begin()->second;
 }
 
-int TPNRs::calcStagePriority(int pnr_id) const
+int TPNRs::calcStagePriority(const TPNRSegId& segId) const
 {
-  return getFlightInfo(getPNRInfo(pnr_id).getFirstPointDep()).getStagePriority();
+  return getFlightInfo(getPNRInfo(segId).getFirstPointDep()).getStagePriority();
 }
 
 boost::optional<TDateTime> TPNRs::getFirstSegTime() const
@@ -1882,7 +1896,7 @@ void TPNRs::toXML(xmlNodePtr node, bool is_primary, XMLStyle xmlStyle, xmlNodePt
     for(set<TFlightInfo>::const_iterator i=flights.begin(); i!=flights.end(); ++i)
       i->toXML(NewTextChild(fltsNode, "flight"), xmlStyle);
     xmlNodePtr pnrsNode=NewTextChild(node, "pnrs");
-    for(map< int/*pnr_id*/, TPNRInfo >::const_iterator i=pnrs.begin(); i!=pnrs.end(); ++i)
+    for(map< TPNRSegId, TPNRInfo >::const_iterator i=pnrs.begin(); i!=pnrs.end(); ++i)
       i->second.toXML(NewTextChild(pnrsNode, "pnr"), xmlStyle);
   }
   else
@@ -2154,9 +2168,9 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, bool ignore_reg_no)
     PaxQry.Clear();
     sql.str("");
     sql << "SELECT crs_pnr.pnr_id, "
-           "       crs_pnr.airp_arv, "
-           "       crs_pnr.class, "
-           "       crs_pnr.subclass, "
+           "       crs_pnr.airp_arv, "+
+           CheckIn::TSimplePaxItem::origSubclassFromCrsSQL()+" AS orig_subclass, "+
+           CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" AS orig_class, "
            "       crs_pax.pax_id, "
            "       crs_pax.surname, "
            "       crs_pax.name "
@@ -2168,7 +2182,7 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, bool ignore_reg_no)
            "      (:airp_arv IS NULL OR crs_pnr.airp_arv=:airp_arv) AND "
         << filter.getSurnameSQLFilter("crs_pax.surname", PaxQry) << " AND "
         << "      crs_pax.pr_del=0 "
-           "ORDER BY crs_pnr.pnr_id";
+           "ORDER BY pnr_id, orig_class, orig_subclass";
 
     PaxQry.SQLText= sql.str().c_str();
     PaxQry.DeclareVariable("point_id", otInteger);
@@ -2236,14 +2250,16 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, bool ignore_reg_no)
           PaxQry.Execute();
           if (!PaxQry.Eof)
           {
-            int pnr_id=NoExists;
+            TPNRSegId priorSegId;
             bool pnr_filter=false;
             TPNRSegInfo seg;
             for(;!PaxQry.Eof;PaxQry.Next())
             {
-              if (pnr_id==NoExists || pnr_id!=PaxQry.FieldAsInteger("pnr_id"))
+              TPNRSegId currSegId;
+              currSegId.fromDB(PaxQry);
+              if (!(priorSegId==currSegId))
               {
-                pnr_id=PaxQry.FieldAsInteger("pnr_id");
+                priorSegId=currSegId;
                 pnr_filter=seg.fromDB(iFlt->first.oper.point_id, route, PaxQry);
                 pnr_filter=pnr_filter && seg.filterFromDB(filter);
               };
@@ -2444,8 +2460,9 @@ void getTCkinData( const TFlightInfo& first_flt,
         //ищем PNR по номеру
         Qry.Clear();
         Qry.SQLText=
-          "SELECT DISTINCT crs_pnr.pnr_id, crs_pnr.airp_arv, "
-          "                crs_pnr.class, crs_pnr.subclass "
+          "SELECT DISTINCT crs_pnr.pnr_id, crs_pnr.airp_arv, "+
+          CheckIn::TSimplePaxItem::origSubclassFromCrsSQL()+" AS orig_subclass, "+
+          CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" AS orig_class "
           "FROM tlg_binding, crs_pnr, crs_pax "
           "WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
           "      crs_pax.pnr_id=crs_pnr.pnr_id AND "
@@ -2474,8 +2491,16 @@ void getTCkinData( const TFlightInfo& first_flt,
             TPNRSegInfo seg;
             if (!seg.fromDB(pnrData.flt.oper.point_id, route, Qry)) continue;
             if (!seg.pnr_addrs.equalPnrExists(first_seg.pnr_addrs)) continue;
-            if (pnrData.seg.pnr_id!=NoExists) //дубль PNR
-              throw "More than one PNR found";
+            if (pnrData.seg.pnr_id!=NoExists) //дубль PNR или разные orig_subclass+orig_class в одном PNR
+            {
+              if (pnrData.seg.pnr_id==seg.pnr_id)
+              {
+                ProgError(STDLOG, "Warning! More than one original subclass in single PNR found (pnr_id=%d)", pnrData.seg.pnr_id);
+                throw "More than one original subclass in single PNR found"; //может когда-то в будущем докрутим, так как такая ситуация в общем нормальная, хоть и крайне редкая
+              }
+              else
+                throw "More than one PNR found";
+            }
             pnrData.seg=seg;
           };
         };
