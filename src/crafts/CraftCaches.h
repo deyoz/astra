@@ -35,7 +35,7 @@ struct CraftKey {
         else
           return false;
   }
-  bool operator!=(const CraftKey &a) {
+  bool operator!=(const CraftKey &a) const {
     return ( a.point_dep != this->point_dep ||
              a.cls != this->cls );
   }
@@ -65,6 +65,7 @@ public:
   int getCurrentCRC32( int point_dep );
   void get( int point_dep, const std::string &cls, SALONS2::CraftSeats& list );
   void drop( const CraftKey &key );
+  void drop( );
   void clear();
 };
 

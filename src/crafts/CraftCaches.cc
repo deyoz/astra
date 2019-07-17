@@ -29,7 +29,19 @@ void CraftCaches::checkSize()
 {
   if ( caches.size() > MAX_ELEM_SIZE ) {
     LogTrace(TRACE5) << __func__ << " more then " << MAX_ELEM_SIZE << " crafts cached!";
-    drop( qCaches.front() );
+    drop( );
+  }
+}
+
+void CraftCaches::drop( )
+{
+  if ( qCaches.empty() ) {
+    CraftKey key = qCaches.front();
+    qCaches.pop();
+    std::map<CraftKey,CraftSeats>::iterator icraft = caches.find( key );
+    if ( icraft != caches.end() ) {
+      caches.erase( icraft );
+    }
   }
 }
 
@@ -75,12 +87,13 @@ void CraftCaches::get( int point_dep, const std::string &cls, SALONS2::CraftSeat
    if ( icraft != caches.end() &&
         getCurrentCRC32( point_dep ) == icraft->second.crc32 ) {
      copy( icraft->second.list, list );
-     LogTrace(TRACE5)<<__func__ << " use cache";
+     LogTrace(TRACE5)<<__func__ << " use cache point_dep=" << point_dep << ",cls=" << cls;
    }
    else {
      copy( read( key ), list );
-     LogTrace(TRACE5)<<__func__ << " read DB finished";
+     LogTrace(TRACE5)<<__func__ << " read DB finished point_dep=" << point_dep << ",cls=" << cls;
    }
+   checkSize();
 }
 
 SALONS2::CraftSeats& CraftCaches::read( const int point_dep, const std::string &cls )
@@ -99,7 +112,6 @@ SALONS2::CraftSeats& CraftCaches::read( const CraftKey &key )
   if ( res.second ) {
     res.first->second.list.read( *SeatsQry, key.cls );
     qCaches.push( key );
-    checkSize();
     return res.first->second.list;
   }
   throw EXCEPTIONS::Exception( "unknown read craft exception" );
