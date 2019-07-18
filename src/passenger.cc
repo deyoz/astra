@@ -13,6 +13,8 @@
 #include "apis_utils.h"
 #include "base_tables.h"
 
+#include <regex>
+
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
@@ -1961,7 +1963,24 @@ static void getBaggageInHoldList(int id, T& list)
 
 void TSimplePaxItem::getBaggageListForSBDO(TRFISCListWithProps& list) const
 {
+  std::string rfiscs=Sirena::getRFISCsFromBaggageNorm(id);
+  if (rfiscs.empty())
+  {
+    list.clear();
+    return;
+  }
+
   getBaggageInHoldList(id, list);
+  list.setPriority();
+  //отфильтруем только те типы, которые входят в норму
+  for(TRFISCListWithProps::iterator i=list.begin(); i!=list.end();)
+  {
+    std::string line_regex("(^|,)\\s*"+i->first.RFISC+"\\s*(,|$)");
+    if (!std::regex_search(rfiscs, std::regex(line_regex)))
+      i=list.erase(i);
+    else
+      ++i;
+  }
 }
 
 void TSimplePaxItem::getBaggageListForSBDO(TBagTypeList& list) const

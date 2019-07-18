@@ -190,6 +190,7 @@ class TSimplePaxNormItem : public TLocaleTextMap
     bool carry_on;
     TBagConcept::Enum concept;
     std::string airline;
+    std::string rfiscs;
     TSimplePaxNormItem& fromSirenaXML(xmlNodePtr node);
     void fromSirenaXMLAdv(xmlNodePtr node, bool carry_on);
 
@@ -205,6 +206,7 @@ class TSimplePaxNormItem : public TLocaleTextMap
       carry_on=false;
       concept=TBagConcept::Unknown;
       airline.clear();
+      rfiscs.clear();
       TLocaleTextMap::clear();
     }
 };
@@ -323,6 +325,7 @@ void PaxNormsFromDB(int pax_id, TPaxNormList &norms);
 void PaxBrandsFromDB(int pax_id, TPaxBrandList &brands);
 void PaxNormsToDB(const TCkinGrpIds &tckin_grp_ids, const std::list<TPaxNormItem> &norms);
 void PaxBrandsToDB(const TCkinGrpIds &tckin_grp_ids, const std::list<TPaxBrandItem> &norms);
+std::string getRFISCsFromBaggageNorm(int pax_id);
 
 } //namespace Sirena
 

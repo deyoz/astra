@@ -561,7 +561,6 @@ void PassengerSearchResult::toXML(xmlNodePtr resNode, ZamarType type) const
     // baggageTypes -- SBDO
     TRFISCListWithProps rfiscList;
     pax_item.getBaggageListForSBDO(rfiscList);
-    rfiscList.setPriority(); //добавляем приоритет вывода
     BaggageListToZamarXML(allowanceNode, rfiscList, lang);
     TBagTypeList bagTypeList;
     pax_item.getBaggageListForSBDO(bagTypeList);
