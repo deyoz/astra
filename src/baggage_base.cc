@@ -262,6 +262,8 @@ TSimplePaxNormItem &TSimplePaxNormItem::fromSirenaXML(xmlNodePtr node)
     airline = ElemToElemId( etAirline, str, fmt );
     if (fmt==efmtUnknown) throw Exception("Unknown @company='%s'", str.c_str());
 
+    rfiscs = NodeAsString("@rfiscs", node, "");
+
     TLocaleTextMap::fromSirenaXML(node);
   }
   catch(Exception &e)
@@ -301,6 +303,7 @@ const TSimplePaxNormItem& TSimplePaxNormItem::toDB(TQuery &Qry) const
   Qry.SetVariable("carry_on", (int)carry_on);
   Qry.SetVariable("airline", airline);
   Qry.SetVariable("concept", BagConcepts().encode(concept));
+  Qry.SetVariable("rfiscs", rfiscs.substr(0,50));
   return *this;
 }
 
@@ -310,6 +313,7 @@ TSimplePaxNormItem& TSimplePaxNormItem::fromDB(TQuery &Qry)
   carry_on=Qry.FieldAsInteger("carry_on")!=0;
   airline=Qry.FieldAsString("airline");
   concept=BagConcepts().decode(Qry.FieldAsString("concept"));
+  rfiscs=Qry.FieldAsString("rfiscs");
   return *this;
 }
 
@@ -344,7 +348,7 @@ void CopyPaxNorms(int grp_id_src, int grp_id_dest)
   Qry.Execute();
   Qry.Clear();
   Qry.SQLText=
-    "INSERT INTO pax_norms_text(pax_id, transfer_num, carry_on, lang, page_no, airline, concept, text) "
+    "INSERT INTO pax_norms_text(pax_id, transfer_num, carry_on, lang, page_no, airline, concept, rfiscs, text) "
     "SELECT dest.pax_id, "
     "       pax_norms_text.transfer_num+src.seg_no-dest.seg_no, "
     "       pax_norms_text.carry_on, "
@@ -352,6 +356,7 @@ void CopyPaxNorms(int grp_id_src, int grp_id_dest)
     "       pax_norms_text.page_no, "
     "       pax_norms_text.airline, "
     "       pax_norms_text.concept, "
+    "       pax_norms_text.rfiscs, "
     "       pax_norms_text.text "
     "FROM pax_norms_text, "
     "     (SELECT pax.pax_id, "
@@ -421,8 +426,8 @@ void PaxNormsToDB(int grp_id, const list<TPaxNormItem> &norms)
   Qry.Execute();
   Qry.Clear();
   Qry.SQLText=
-    "INSERT INTO pax_norms_text(pax_id, transfer_num, carry_on, lang, page_no, airline, concept, text) "
-    "VALUES(:pax_id, :transfer_num, :carry_on, :lang, :page_no, :airline, :concept, :text)";
+    "INSERT INTO pax_norms_text(pax_id, transfer_num, carry_on, lang, page_no, airline, concept, rfiscs, text) "
+    "VALUES(:pax_id, :transfer_num, :carry_on, :lang, :page_no, :airline, :concept, :rfiscs, :text)";
   Qry.DeclareVariable("pax_id", otInteger);
   Qry.DeclareVariable("transfer_num", otInteger);
   Qry.DeclareVariable("carry_on", otInteger);
@@ -430,6 +435,7 @@ void PaxNormsToDB(int grp_id, const list<TPaxNormItem> &norms)
   Qry.DeclareVariable("page_no", otInteger);
   Qry.DeclareVariable("airline", otString);
   Qry.DeclareVariable("concept", otString);
+  Qry.DeclareVariable("rfiscs", otString);
   Qry.DeclareVariable("text", otString);
   for(list<TPaxNormItem>::const_iterator i=norms.begin(); i!=norms.end(); ++i)
   {
@@ -547,6 +553,18 @@ void PaxBrandsFromDB(int pax_id, TPaxBrandList &brands)
   }
 }
 
+std::string getRFISCsFromBaggageNorm(int pax_id)
+{
+  TPaxNormList norms;
+  PaxNormsFromDB(pax_id, norms);
+
+  TPaxNormListKey key(TPaxSegKey(pax_id, 0), false);
+  TPaxNormList::const_iterator n=norms.find(key);
+  if (n!=norms.end()) return n->second.rfiscs;
+
+  return "";
+}
+
 } //namespace Sirena
 
 #include "term_version.h"
@@ -603,6 +621,7 @@ int get_max_tckin_num(int grp_id)
   else
     return 0;
 }
+
 
 
 
