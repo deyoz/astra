@@ -303,7 +303,7 @@ const TSimplePaxNormItem& TSimplePaxNormItem::toDB(TQuery &Qry) const
   Qry.SetVariable("carry_on", (int)carry_on);
   Qry.SetVariable("airline", airline);
   Qry.SetVariable("concept", BagConcepts().encode(concept));
-  Qry.SetVariable("rfiscs", rfiscs);
+  Qry.SetVariable("rfiscs", rfiscs.substr(0,50));
   return *this;
 }
 
