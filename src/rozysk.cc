@@ -65,7 +65,7 @@ struct TRow {
     string tags;
     string pnr;
     string operation;
-    int next_route_not_rus;
+    int whole_route_not_rus;
     bool transfer_route;
     int reg_no;
     int pax_id;
@@ -84,7 +84,7 @@ struct TRow {
       landing_local=NoExists;
       bag_weight=NoExists;
       rk_weight=NoExists;
-      next_route_not_rus=NoExists;
+      whole_route_not_rus=NoExists;
       transfer_route=false;
       reg_no=NoExists;
       pax_id=NoExists;
@@ -95,6 +95,7 @@ struct TRow {
     TRow& setDoc(const CheckIn::TPaxDocItem &_doc);
     TRow& setVisa(const CheckIn::TPaxDocoItem &_visa);
     const TRow& toDB(TRowType type, TQuery &Qry, bool check_sql=true) const;
+    bool isCrew() const { return !(reg_no==NoExists || reg_no>0); }
 };
 
 TRow& TRow::fltFromDB(TQuery &Qry)
@@ -361,13 +362,13 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
   if (type==rowMintrans)
   {
     if (operation=="K1")
-      Qry.SetVariable("operation", "04");
+      Qry.SetVariable("operation", isCrew()?"50":"04");
     else if (operation=="K2")
-      Qry.SetVariable("operation", "05");
+      Qry.SetVariable("operation", isCrew()?"50":"05");
     else if (operation=="K3")
-      Qry.SetVariable("operation", "06");
+      Qry.SetVariable("operation", isCrew()?"50":"06");
     else if (operation=="K0")
-      Qry.SetVariable("operation", "16");
+      Qry.SetVariable("operation", isCrew()?"51":"16");
     else return *this;
   };
   if (transfer_route)
@@ -375,10 +376,10 @@ const TRow& TRow::toDB(TRowType type, TQuery &Qry, bool check_sql) const
   else
     Qry.SetVariable("route_type", 0);
 
-  if (next_route_not_rus==NoExists)
+  if (whole_route_not_rus==NoExists)
     Qry.SetVariable("route_type2", FNull);
   else
-    Qry.SetVariable("route_type2", next_route_not_rus);
+    Qry.SetVariable("route_type2", whole_route_not_rus);
 
   reg_no!=NoExists?Qry.SetVariable("reg_no", reg_no):
                    Qry.SetVariable("reg_no", FNull);
@@ -448,8 +449,8 @@ void get_crs_flight(int point_id, TRow &r)
 void get_route_not_rus(int point_dep, int point_arv, TRow &r)
 {
   TTripRoute route;
-  route.GetRouteAfter(NoExists, point_dep, trtNotCurrent, trtNotCancelled);
-  r.next_route_not_rus=NoExists;
+  route.GetRouteAfter(NoExists, point_dep, trtWithCurrent, trtNotCancelled);
+  r.whole_route_not_rus=NoExists;
   bool rus_exists=false;
   TTripRoute::const_iterator i=route.begin();
   for(; i!=route.end(); ++i)
@@ -465,7 +466,7 @@ void get_route_not_rus(int point_dep, int point_arv, TRow &r)
   if (i!=route.end())
   {
     //нашли конечный пункт
-    r.next_route_not_rus=rus_exists?0:1;
+    r.whole_route_not_rus=rus_exists?0:1;
   };
 };
 
@@ -1036,6 +1037,7 @@ void get_pax_list(int point_id,
     for ( ;!Qry.Eof; Qry.Next() )
     {
       mintrans::TPax pax;
+      bool isNotCrew=(Qry.FieldIsNULL( idx_reg_no ) || Qry.FieldAsInteger( idx_reg_no )>0);
       //Персональные данные о пассажире
       pax.surname = Qry.FieldAsString(idx_doc_surname);
       pax.name = Qry.FieldAsString(idx_doc_first_name);
@@ -1103,8 +1105,8 @@ void get_pax_list(int point_id,
         pax.arriveDateTime = ASTRA::NoExists;
       else
         pax.arriveDateTime = Qry.FieldAsDateTime( idx_landing );
-      pax.typePDP = (Qry.FieldIsNULL( idx_reg_no ) || Qry.FieldAsInteger( idx_reg_no )>0)?"1":"0";
-      pax.crewRoleCode = (Qry.FieldIsNULL( idx_reg_no ) || Qry.FieldAsInteger( idx_reg_no )>0)?"":"1"; //всегда 1, так как не храним, где член экипажа находится
+      pax.typePDP = isNotCrew?"1":"0";
+      pax.crewRoleCode = isNotCrew?"":"1"; //всегда 1, так как не храним, где член экипажа находится
       int is_female=CheckIn::is_female(Qry.FieldAsString( idx_doc_gender ),
                                        Qry.FieldAsString( idx_name ));
       pax.gender = (is_female==ASTRA::NoExists?"U":(is_female==0?"M":"F"));
