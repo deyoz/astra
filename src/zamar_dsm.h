@@ -60,6 +60,7 @@ class PassengerSearchResult : public ZamarDataInterface
   TPnrAddrs pnrs;
   // baggageTags
   std::multimap<TBagTagNumber, CheckIn::TBagItem> bagTagsExtended;
+  std::list<std::pair<double, int>> bagTagsGenerated;
 
 public:
   void fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, ZamarType type = ZamarType::SBDO) override final;
@@ -111,13 +112,13 @@ struct ZamarBagTag
   void fromXML(xmlNodePtr reqNode, ZamarActionType actionType);
   void toXML(xmlNodePtr resNode) const;
 
-  void toDB_generated(); // TODO const
-  void toDB_activated(xmlNodePtr reqNode, xmlNodePtr externalSysResNode); // TODO const
-  void toDB_deactivated(xmlNodePtr reqNode, xmlNodePtr externalSysResNode); // TODO const
+  void toDB_generated() const;
+  void toDB_activated(xmlNodePtr reqNode, xmlNodePtr externalSysResNode) const;
+  void toDB_deactivated(xmlNodePtr reqNode, xmlNodePtr externalSysResNode) const;
   void fromDB(ZamarActionType actionType);
 
   void Activate(xmlNodePtr reqNode, xmlNodePtr externalSysResNode);
-  void Deactivate(xmlNodePtr reqNode, xmlNodePtr externalSysResNode);
+  void Deactivate(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, bool force);
 };
 
 class ZamarBaggageTagAdd : public ZamarDataInterface
