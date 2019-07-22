@@ -35,7 +35,7 @@ void CraftCaches::checkSize()
 
 void CraftCaches::drop( )
 {
-  if ( qCaches.empty() ) {
+  if ( !qCaches.empty() ) {
     CraftKey key = qCaches.front();
     qCaches.pop();
     std::map<CraftKey,CraftSeats>::iterator icraft = caches.find( key );
