@@ -4138,7 +4138,7 @@ void TSalonList::ReadFlight( const TFilterRoutesSets &filterRoutesSets,
   //==================================================
 
   pax_lists.clear();
-  if ( useSeatsCache && filterRoutes.getAirline() == "" ) {
+  if ( useSeatsCache ) {
     CraftCache::CraftCaches::Instance()->get(filterRoutes.getDepartureId(),filterSets.filterClass,_seats);
   }
   else {
