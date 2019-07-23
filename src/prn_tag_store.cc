@@ -1418,7 +1418,7 @@ bool TPrnTagStore::isBoardingPass()
 {
 #ifdef XP_TESTING
     if(inTestMode()) {
-        return op_type == TDevOper::PrnBP;
+        return get_op_type() == TDevOper::PrnBP;
     }
 #endif //XP_TESTING
 
