@@ -1463,13 +1463,23 @@ void PrintInterface::ConfirmPrintBP(TDevOper::Enum op_type,
             string lexeme;
             switch(op_type) {
                 case TDevOper::PrnBP:
-                    lexeme = (iPax->voucher.empty() ? "EVT.PRINT_BOARDING_PASS" : "EVT.PRINT_VOUCHER");
-                    if(not iPax->voucher.empty())
-                        params << PrmSmpl<string>("voucher", ElemIdToNameLong(etVoucherType, iPax->voucher));
-                    else {
+                    if(TReqInfo::Instance()->desk.compatible(VO_EMDA_PECTAB_VERSION)) {
+                        lexeme = "EVT.PRINT_BOARDING_PASS";
                         if (seat_no.empty()) params << PrmBool("seat_no", false);
                         else params << PrmSmpl<std::string>("seat_no", seat_no);
+                    } else {
+                        lexeme = (iPax->voucher.empty() ? "EVT.PRINT_BOARDING_PASS" : "EVT.PRINT_VOUCHER");
+                        if(not iPax->voucher.empty())
+                            params << PrmSmpl<string>("voucher", ElemIdToNameLong(etVoucherType, iPax->voucher));
+                        else {
+                            if (seat_no.empty()) params << PrmBool("seat_no", false);
+                            else params << PrmSmpl<std::string>("seat_no", seat_no);
+                        }
                     }
+                    break;
+                case TDevOper::PrnVO:
+                    lexeme = "EVT.PRINT_VOUCHER";
+                    params << PrmSmpl<string>("voucher", ElemIdToNameLong(etVoucherType, iPax->voucher));
                     break;
                 case TDevOper::PrnBI:
                     lexeme = "EVT.PRINT_INVITATION";
@@ -1855,6 +1865,8 @@ void PrintInterface::check_pectab_availability(BPParams &params, TDevOper::Enum 
                 throw AstraLocale::UserException("MSG.BP_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS");
             case TDevOper::PrnBI:
                 throw AstraLocale::UserException("MSG.BI_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS");
+            case TDevOper::PrnVO:
+                throw AstraLocale::UserException("MSG.VO_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS");
             default:
                 throw Exception("%d: %d: unexpected dev oper type %d", op_type);
         }
@@ -1917,6 +1929,9 @@ void PrintInterface::get_pectab(
                 break;
             case TDevOper::PrnBI:
                 previewDeviceSets(true, "MSG.PRINT.BI_UNAVAILABLE_FOR_THIS_DEVICE");
+                break;
+            case TDevOper::PrnVO:
+                previewDeviceSets(true, "MSG.PRINT.VO_UNAVAILABLE_FOR_THIS_DEVICE");
                 break;
             default:
                 throw Exception("%d: %d: unexpected dev oper type %d", op_type);
@@ -2090,7 +2105,7 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
             for(const XmlPax& xmlPax: xmlSeg.passengers)
             {
                 boost::shared_ptr<PrintDataParser> parser;
-                parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(xmlSeg.seg_info.airp_dep,
+                parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(TDevOper::PrnBP, xmlSeg.seg_info.airp_dep,
                                                                                 xmlSeg.seg_info.airp_arv,
                                                                                 params.prnParams.pr_lat));
 
@@ -2279,7 +2294,9 @@ void PrintInterface::GetPrintDataVO(
 
         xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"), "print");
         string data, pectab;
-        get_pectab(TDevOper::PrnBP, params, data, pectab);
+        get_pectab(
+                TReqInfo::Instance()->desk.compatible(VO_EMDA_PECTAB_VERSION) ? TDevOper::PrnVO : TDevOper::PrnBP,
+                params, data, pectab);
         NewTextChild(BPNode, "pectab", pectab);
         xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
 
@@ -2302,7 +2319,9 @@ void PrintInterface::GetPrintDataVO(
                 int grp_id = Qry.get().FieldAsInteger("grp_id");
                 int reg_no = Qry.get().FieldAsInteger("reg_no");
 
-                PrintDataParser parser(TDevOper::PrnBP, grp_id, pax->first, false, params.prnParams.pr_lat, params.clientDataNode);
+                PrintDataParser parser(
+                        TReqInfo::Instance()->desk.compatible(VO_EMDA_PECTAB_VERSION) ? TDevOper::PrnVO : TDevOper::PrnBP,
+                        grp_id, pax->first, false, params.prnParams.pr_lat, params.clientDataNode);
 
                 parser.pts.set_tag(TAG::VOUCHER_CODE, v->first);
                 parser.pts.set_tag(TAG::VOUCHER_TEXT, v->first);
@@ -2319,7 +2338,8 @@ void PrintInterface::GetPrintDataVO(
                     LogTrace(TRACE5) << "after StringToHex prn_form: " << prn_form;
                     hex=true;
                 }
-                parser.pts.confirm_print(false, TDevOper::PrnBP);
+                parser.pts.confirm_print(false,
+                        TReqInfo::Instance()->desk.compatible(VO_EMDA_PECTAB_VERSION) ? TDevOper::PrnVO : TDevOper::PrnBP);
 
                 xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
                 SetProp(paxNode, "pax_id", pax->first);
@@ -2390,7 +2410,7 @@ void PrintInterface::GetPrintDataVOUnregistered(
 
         xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"), "print");
         string data, pectab;
-        get_pectab(TDevOper::PrnBP, params, data, pectab);
+        get_pectab(TReqInfo::Instance()->desk.compatible(VO_EMDA_PECTAB_VERSION) ? TDevOper::PrnVO : TDevOper::PrnBP, params, data, pectab);
         NewTextChild(BPNode, "pectab", pectab);
         xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
 
@@ -2403,7 +2423,8 @@ void PrintInterface::GetPrintDataVOUnregistered(
         TTripInfo info;
         info.getByPointId(point_id);
 
-        PrintDataParser parser(airp_dep, airp_arv, params.prnParams.pr_lat);
+        PrintDataParser parser(TReqInfo::Instance()->desk.compatible(VO_EMDA_PECTAB_VERSION) ? TDevOper::PrnVO : TDevOper::PrnBP,
+                airp_dep, airp_arv, params.prnParams.pr_lat);
 
         TBCBPData bcbp;
         bcbp.cls         = "ù";

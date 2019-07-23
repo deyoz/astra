@@ -17,6 +17,8 @@ enum TElemType {
                  etBIHall,                   //бизнес-залы
                  etBIPrintType,              //типы печати приглашений
                  etBIType,                   //типы приглашений
+                 etVOType,                   //типы ваучеров
+                 etEMDAType,                 //типы EMDA
                  etBrand,                    //бренды
                  etBPType,                   //типы посадочных талонов
                  etBTType,                   //типы багажных бирок
