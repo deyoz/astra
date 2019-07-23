@@ -3189,6 +3189,14 @@ void TFlights::GetForTCkinRouteDependent(const int grp_id, const TFlightType fli
   }
 }
 
+void TFlights::GetByPointIdTlg(const int point_id_tlg, const TFlightType flightType)
+{
+  set<int> point_ids_spp;
+  getPointIdsSppByPointIdTlg(point_id_tlg, point_ids_spp);
+
+  for(const int& id : point_ids_spp) Get(id, flightType);
+}
+
 const boost::posix_time::ptime start_abs(boost::posix_time::time_from_string("2017-01-01 00:00:00.000"));
 
 void TFlights::Lock(const std::string &from)

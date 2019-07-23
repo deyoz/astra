@@ -9,7 +9,7 @@
 #include "lci_parser.h"
 #include "ucm_parser.h"
 #include "astra_consts.h"
-#include "../astra_misc.h"
+#include "astra_misc.h"
 #include "astra_utils.h"
 #include "base_tables.h"
 #include "stl_utils.h"
@@ -29,6 +29,7 @@
 #include "apps_interaction.h"
 #include "etick.h"
 #include "qrys.h"
+#include "points.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -6317,42 +6318,106 @@ static void onChangeClass(int pax_id, ASTRA::TClass cl)
   TPaxAlarmHook::set(Alarm::SyncCabinClass, pax_id);
 }
 
-void SaveASVCRem(int pax_id, const vector<TASVCItem> &asvc)
+static void LoadASVCRem(int pax_id, vector<TASVCItem> &asvc)
 {
-  if (asvc.empty()) return;
+  asvc.clear();
+
   TQuery Qry(&OraSession);
   Qry.Clear();
-  Qry.SQLText=
-    "INSERT INTO crs_pax_asvc "
-    "  (pax_id,rem_status,rfic,rfisc,service_quantity,ssr_code,service_name,emd_type,emd_no,emd_coupon) "
-    "VALUES "
-    "  (:pax_id,:rem_status,:rfic,:rfisc,:service_quantity,:ssr_code,:service_name,:emd_type,:emd_no,:emd_coupon) ";
+  Qry.SQLText="SELECT * FROM crs_pax_asvc WHERE pax_id=:pax_id";
   Qry.CreateVariable("pax_id",otInteger,pax_id);
-  Qry.DeclareVariable("rem_status",otString);
-  Qry.DeclareVariable("rfic",otString);
-  Qry.DeclareVariable("rfisc",otString);
-  Qry.DeclareVariable("service_quantity",otInteger);
-  Qry.DeclareVariable("ssr_code",otString);
-  Qry.DeclareVariable("service_name",otString);
-  Qry.DeclareVariable("emd_type",otString);
-  Qry.DeclareVariable("emd_no",otString);
-  Qry.DeclareVariable("emd_coupon",otInteger);
-  for(vector<TASVCItem>::const_iterator i=asvc.begin();i!=asvc.end();++i)
+  Qry.Execute();
+  for(; !Qry.Eof; Qry.Next())
   {
-    if (i->Empty() || string(i->rem_status).empty()) continue;
-    Qry.SetVariable("rem_status",i->rem_status);
-    Qry.SetVariable("rfic",i->RFIC);
-    Qry.SetVariable("rfisc",i->RFISC);
-    i->service_quantity!=NoExists?Qry.SetVariable("service_quantity",i->service_quantity):
-                                  Qry.SetVariable("service_quantity",FNull);
-    Qry.SetVariable("ssr_code",i->ssr_code);
-    Qry.SetVariable("service_name",i->service_name);
-    Qry.SetVariable("emd_type",i->emd_type);
-    Qry.SetVariable("emd_no",i->emd_no);
-    i->emd_coupon!=NoExists?Qry.SetVariable("emd_coupon",i->emd_coupon):
-                            Qry.SetVariable("emd_coupon",FNull);
+    TASVCItem item;
+    strcpy(item.rem_code, "ASVC");
+    strcpy(item.rem_status, Qry.FieldAsString("rem_status"));
+    strcpy(item.RFIC, Qry.FieldAsString("rfic"));
+    strcpy(item.RFISC, Qry.FieldAsString("rfisc"));
+    if (!Qry.FieldIsNULL("service_quantity"))
+      item.service_quantity=Qry.FieldAsInteger("service_quantity");
+    strcpy(item.ssr_code, Qry.FieldAsString("ssr_code"));
+    strcpy(item.service_name, Qry.FieldAsString("service_name"));
+    strcpy(item.emd_type, Qry.FieldAsString("emd_type"));
+    strcpy(item.emd_no, Qry.FieldAsString("emd_no"));
+    if (!Qry.FieldIsNULL("emd_coupon"))
+      item.emd_coupon=Qry.FieldAsInteger("emd_coupon");
+    asvc.push_back(item);
+  }
+}
+
+static void SaveASVCRem(int pax_id,
+                        const vector<TASVCItem> &asvc,
+                        std::set<int>& paxIdsForSync)
+{
+  bool deleteASVC=true;
+  if (!asvc.empty())
+  {
+    vector<TASVCItem> prior;
+    LoadASVCRem(pax_id, prior);
+    if (prior.empty()) deleteASVC=false;
+    bool modified=false;
+    for(const TASVCItem& item : asvc)
+    {
+      if (item.Empty() || string(item.rem_status).empty()) continue;
+
+      vector<TASVCItem>::iterator i=find(prior.begin(), prior.end(), item);
+      if (i==prior.end())
+      {
+        modified=true;
+        break;
+      }
+      prior.erase(i);
+    }
+
+    if (!modified && prior.empty()) return;
+  }
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.CreateVariable("pax_id",otInteger,pax_id);
+  if (deleteASVC)
+  {
+    Qry.SQLText="DELETE FROM crs_pax_asvc WHERE pax_id=:pax_id";
     Qry.Execute();
-  };
+    if (asvc.empty() && Qry.RowsProcessed()==0) return;
+  }
+
+  if (!asvc.empty())
+  {
+    Qry.SQLText=
+        "INSERT INTO crs_pax_asvc "
+        "  (pax_id,rem_status,rfic,rfisc,service_quantity,ssr_code,service_name,emd_type,emd_no,emd_coupon) "
+        "VALUES "
+        "  (:pax_id,:rem_status,:rfic,:rfisc,:service_quantity,:ssr_code,:service_name,:emd_type,:emd_no,:emd_coupon) ";
+    Qry.DeclareVariable("rem_status",otString);
+    Qry.DeclareVariable("rfic",otString);
+    Qry.DeclareVariable("rfisc",otString);
+    Qry.DeclareVariable("service_quantity",otInteger);
+    Qry.DeclareVariable("ssr_code",otString);
+    Qry.DeclareVariable("service_name",otString);
+    Qry.DeclareVariable("emd_type",otString);
+    Qry.DeclareVariable("emd_no",otString);
+    Qry.DeclareVariable("emd_coupon",otInteger);
+    for(const TASVCItem& item : asvc)
+    {
+      if (item.Empty() || string(item.rem_status).empty()) continue;
+      Qry.SetVariable("rem_status",item.rem_status);
+      Qry.SetVariable("rfic",item.RFIC);
+      Qry.SetVariable("rfisc",item.RFISC);
+      item.service_quantity!=NoExists?Qry.SetVariable("service_quantity",item.service_quantity):
+                                      Qry.SetVariable("service_quantity",FNull);
+      Qry.SetVariable("ssr_code",item.ssr_code);
+      Qry.SetVariable("service_name",item.service_name);
+      Qry.SetVariable("emd_type",item.emd_type);
+      Qry.SetVariable("emd_no",item.emd_no);
+      item.emd_coupon!=NoExists?Qry.SetVariable("emd_coupon",item.emd_coupon):
+                                Qry.SetVariable("emd_coupon",FNull);
+      Qry.Execute();
+    }
+  }
+
+  paxIdsForSync.insert(pax_id);
 };
 
 void SaveFQTRem(int pax_id, const vector<TFQTItem> &fqt, const set<TFQTExtraItem> &fqt_extra)
@@ -6939,6 +7004,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
   ASTRA::commit();//OraSession.Commit();
 
+  class ParseLater {};
+
   try
   {
     if (pr_save_ne)
@@ -7095,6 +7162,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         bool UsePriorContext=false;
         TPointIdsForCheck point_ids_spp;
         set<int> et_display_pax_ids;
+        set<int> paxIdsForSyncASVC;
         bool chkd_exists=false;
         bool apps_pax_exists=false;
         int point_id_spp = ASTRA::NoExists;
@@ -7199,14 +7267,14 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                       if (ids.size()<=1)
                       {
                         if (!ids.empty()) pnr_id=*ids.begin();
-                        else throw 0;
+                        else throw ParseLater();
                         break;
                       };
                     };
                     if (iPaxItem!=ne.pax.end()) break;
                   };
                 };
-                if (pr_chg_del&&pnr_id==0) throw 0;
+                if (pr_chg_del&&pnr_id==0) throw ParseLater();
               }
               else
               {
@@ -7322,7 +7390,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
                     if (ne.indicator==CHG||ne.indicator==DEL)
                     {
-                      if (!forcibly) throw 0;
+                      if (!forcibly) throw ParseLater();
                     };
                   };
                 };
@@ -7415,7 +7483,6 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                       "    DELETE FROM crs_pax_doca WHERE pax_id=vpax_id; "
                       "    DELETE FROM crs_pax_fqt WHERE pax_id=vpax_id; "
                       "    DELETE FROM crs_pax_chkd WHERE pax_id=vpax_id; "
-                      "    DELETE FROM crs_pax_asvc WHERE pax_id=vpax_id; "
                       "  END delete_data; "
                       "BEGIN "
                       "  FOR curRow IN cur LOOP "
@@ -7537,8 +7604,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
                     if (!seatsBlockingPass) paxItem.seatsBlocking.toDB(pax_id);
 
-                    SaveASVCRem(pax_id, paxItem.asvc);
-                    SyncPaxASVC(pax_id);
+                    SaveASVCRem(pax_id, paxItem.asvc, paxIdsForSyncASVC);
+
                     //разметка слоев
                     InsertTlgSeatRanges(point_id,iTotals->dest,isPRL?cltPRLTrzt:cltPNLCkin,paxItem.seatRanges,
                                         pax_id,tlg_id,NoExists,UsePriorContext,tid,point_ids_spp);
@@ -7643,18 +7710,33 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
             };
           };//for(iPnrItem=iTotals->pnr.begin()
         };
-        check_layer_change(point_ids_spp, __FUNCTION__);
-        TlgETDisplay(point_id, et_display_pax_ids, true);
-        if (!isPRL && chkd_exists)
+
+        if (!isPRL)
         {
-          for(TAdvTripInfoList::const_iterator it = trips.begin(); it != trips.end(); it++)
-            add_trip_task((*it).point_id, SYNC_NEW_CHKD, "");
-        };
-        if(!isPRL && apps_pax_exists) {
-          TDateTime start_time;
-          bool result = checkTime( point_id_spp, start_time );
-          if ( result || start_time != ASTRA::NoExists )
-            add_trip_task( point_id_spp, SEND_NEW_APPS_INFO, "", start_time );
+          check_layer_change(point_ids_spp, __FUNCTION__);
+          TlgETDisplay(point_id, et_display_pax_ids, true);
+          if (chkd_exists)
+          {
+            for(TAdvTripInfoList::const_iterator it = trips.begin(); it != trips.end(); it++)
+              add_trip_task((*it).point_id, SYNC_NEW_CHKD, "");
+          };
+          if(apps_pax_exists) {
+            TDateTime start_time;
+            bool result = checkTime( point_id_spp, start_time );
+            if ( result || start_time != ASTRA::NoExists )
+              add_trip_task( point_id_spp, SEND_NEW_APPS_INFO, "", start_time );
+          }
+          if (!paxIdsForSyncASVC.empty())
+          {
+            TFlights flightsForLock;
+            flightsForLock.GetByPointIdTlg(point_id, ftTranzit);
+            flightsForLock.Lock(__func__);
+            Timing::Points timing(__func__);
+            timing.start("SyncPaxASVC");
+            for(int paxId : paxIdsForSyncASVC)
+              SyncPaxASVC(paxId);
+            timing.finish("SyncPaxASVC");
+          }
         }
       };
 
@@ -7692,11 +7774,11 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
     }
     else
     {
-      if (strcmp(info.tlg_type,"ADL")==0&&pr_pnl!=2) return false;//throw 0; //отложим разбор
+      if (strcmp(info.tlg_type,"ADL")==0&&pr_pnl!=2) return false;//throw ParseLater(); //отложим разбор
     };
     return true;
   }
-  catch (int)
+  catch (const ParseLater&)
   {
     OraSession.Rollback();  //отложим разбор
     return false;

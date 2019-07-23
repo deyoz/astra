@@ -582,6 +582,7 @@ class TFlights:public std::vector<FlightPoints> {
       Get( points, flightType );
     }
     void GetForTCkinRouteDependent(const int grp_id, const TFlightType flightType, TCkinGrpIds &tckin_grp_ids);
+    void GetByPointIdTlg(const int point_id_tlg, const TFlightType flightType);
     void Lock(const std::string &from);
 };
 

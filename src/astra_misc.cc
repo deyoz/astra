@@ -113,18 +113,30 @@ bool TTripInfo::getByGrpId ( const int grp_id )
   return getByPointId( Qry.FieldAsInteger( "point_dep" ) );
 }
 
+void getPointIdsSppByPointIdTlg(const int point_id_tlg, std::set<int>& point_ids_spp)
+{
+  point_ids_spp.clear();
+
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg = :point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id_tlg );
+  Qry.Execute();
+  for( ; !Qry.Eof; Qry.Next() )
+    point_ids_spp.insert(Qry.FieldAsInteger( "point_id_spp" ));
+}
+
 void getTripsByPointIdTlg( const int point_id_tlg, TAdvTripInfoList &trips )
 {
   trips.clear();
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg = :point_id ORDER BY point_id_spp";
-  Qry.CreateVariable( "point_id", otInteger, point_id_tlg );
-  Qry.Execute();
 
-  for( ; !Qry.Eof; Qry.Next() ) {
+  set<int> point_ids_spp;
+  getPointIdsSppByPointIdTlg(point_id_tlg, point_ids_spp);
+
+  for(const int& id : point_ids_spp)
+  {
     TAdvTripInfo info;
-    if (info.getByPointId( Qry.FieldAsInteger( "point_id_spp" ) ))
+    if (info.getByPointId( id ))
       trips.push_back( info );
   }
 }
