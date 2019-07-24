@@ -351,6 +351,10 @@ class TPaxASVCItem : public TPaxRemBasic, public TServiceBasic
     {
       return "ASVC";
     }
+    std::string rem_status() const
+    {
+      return withEMD()?"HI":"HK";
+    }
     std::string no_str() const;
 };
 
