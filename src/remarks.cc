@@ -638,7 +638,7 @@ std::string TPaxASVCItem::get_rem_text(bool inf_indicator,
 {
   ostringstream result;
   result << ElemIdToPrefferedElem(etCkinRemType, rem_code(), efmtCodeNative, lang)
-         << " HI" << service_quantity
+         << " " << rem_status() << service_quantity
          << " " << RFIC
          << "/" << RFISC
          << "/" << (strictly_lat && !IsAscii7(ssr_code)?"":ssr_code)
