@@ -333,6 +333,12 @@ class TDetailRemAncestor
     {
       return pr_inf==false;
     };
+    bool operator == (const TDetailRemAncestor &item) const
+    {
+      return strcmp(rem_code, item.rem_code)==0 &&
+             strcmp(rem_status, item.rem_status)==0 &&
+             pr_inf==item.pr_inf;
+    }
 };
 
 class TDocItem : public TDetailRemAncestor
@@ -566,6 +572,19 @@ class TASVCItem : public TDetailRemAncestor
     bool emdRequired() const
     {
       return strncmp(rem_status, "HD", 2)==0;
+    }
+
+    bool operator == (const TASVCItem &item) const
+    {
+      return TDetailRemAncestor::operator ==(item) &&
+             strcmp(RFIC, item.RFIC)==0 &&
+             strcmp(RFISC, item.RFISC)==0 &&
+             service_quantity==item.service_quantity &&
+             strcmp(ssr_code, item.ssr_code)==0 &&
+             strcmp(service_name, item.service_name)==0 &&
+             strcmp(emd_type, item.emd_type)==0 &&
+             strcmp(emd_no, item.emd_no)==0 &&
+             emd_coupon==item.emd_coupon;
     }
 };
 

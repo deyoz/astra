@@ -440,6 +440,7 @@ class TAdvTripInfo : public TTripInfo
 
 typedef std::list<TAdvTripInfo> TAdvTripInfoList;
 
+void getPointIdsSppByPointIdTlg(const int point_id_tlg, std::set<int>& point_ids_spp);
 void getTripsByPointIdTlg(const int point_id_tlg, TAdvTripInfoList &trips);
 void getTripsByCRSPnrId(const int pnr_id, TAdvTripInfoList &trips);
 void getTripsByCRSPaxId(const int pax_id, TAdvTripInfoList &trips);
