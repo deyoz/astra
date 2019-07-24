@@ -70,6 +70,8 @@ const
                          {etBIHall,                "etBIHall",                ""},
                          {etBIPrintType,           "etBIPrintType",           "bi_print_types"},
                          {etBIType,                "etBIType",                ""},
+                         {etVOType,                "etVOType",                ""},
+                         {etEMDAType,              "etEMDAType",              ""},
                          {etBrand,                 "etBrand",                 ""},
                          {etBPType,                "etBPType",                ""},
                          {etBTType,                "etBTType",                ""},
@@ -626,6 +628,8 @@ string ElemIdToElem(TElemType type, const string &id, const vector< pair<TElemFm
        case etCompElemType: Qry.SQLText="SELECT name,name_lat FROM comp_elem_types WHERE code=:id"; break;
              case etBPType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM bp_types WHERE code=:id AND op_type='PRINT_BP'"; break;
              case etBIType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM bp_types WHERE code=:id AND op_type='PRINT_BI'"; break;
+             case etVOType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM bp_types WHERE code=:id AND op_type='PRINT_VO'"; break;
+           case etEMDAType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM bp_types WHERE code=:id AND op_type='PRINT_EMDA'"; break;
              case etBTType: Qry.SQLText="SELECT name AS name, name AS name_lat FROM tag_types WHERE code=:id"; break;
       default: throw Exception("Unexpected elem type %s", EncodeElemType(type));
     };
