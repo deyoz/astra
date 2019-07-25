@@ -574,4 +574,133 @@ const SegList& SegList::toXML(const bool& isLayerAdded, xmlNodePtr resNode) cons
 
 } //namespace ProtLayerResponse
 
+namespace ManagePaxContexts
+{
+
+void Pax::toDB() const
+{
+  TQuery Qry(&OraSession);
+
+  for(Action action : {AddOrModify, Remove})
+  {
+    Qry.Clear();
+    for(const auto& i : context)
+    {
+      const ContextElement& elem=i.second;
+      if (!elem.action || elem.action!=action) continue;
+
+      if (Qry.SQLText.IsEmpty())
+      {
+        Qry.CreateVariable("pax_id", otInteger, id);
+        Qry.DeclareVariable("key", otString);
+        if (action==AddOrModify)
+        {
+          Qry.SQLText="BEGIN "
+                      "  UPDATE crs_pax_context SET value=:value WHERE pax_id=:pax_id AND key=:key; "
+                      "  IF SQL%NOTFOUND THEN "
+                      "    INSERT INTO crs_pax_context(pax_id, key, value) "
+                      "    SELECT pax_id, :key, :value FROM crs_pax WHERE pax_id=:pax_id;  "
+                      "  END IF; "
+                      "END;";
+          Qry.DeclareVariable("value", otString);
+        }
+        else
+        {
+          Qry.SQLText="DELETE FROM crs_pax_context WHERE pax_id=:pax_id AND key=:key";
+        }
+      }
+      Qry.SetVariable("key", elem.key);
+      if (action==AddOrModify)
+        Qry.SetVariable("value", elem.value);
+      Qry.Execute();
+    }
+  }
+}
+
+void Context::toXML(xmlNodePtr node) const
+{
+  if (node==nullptr) return;
+
+  for(const auto& i : *this)
+  {
+    const ContextElement& elem=i.second;
+    SetProp(NewTextChild(node, "element", elem.value), "key", elem.key);
+  }
+}
+
+void Pax::fromXML(xmlNodePtr node)
+{
+  clear();
+  if (node==nullptr) return;
+
+  id=NodeAsInteger("crsPaxId", node);
+  for(xmlNodePtr actionNode=node->children; actionNode!=nullptr; actionNode=actionNode->next)
+  {
+    string actionName((const char*)actionNode->name);
+    boost::optional<Action> action;
+    if (actionName=="addOrModify")
+      action=AddOrModify;
+    else if (actionName=="remove")
+      action=Remove;
+    else if (actionName=="crsPaxId")
+    {
+      if (NodeAsInteger(actionNode)!=id)
+        throw EXCEPTIONS::Exception("ManagePaxContexts: <crsPaxId> differs");
+      continue;
+    }
+    else continue;
+
+    for(xmlNodePtr elemNode=actionNode->children; elemNode!=nullptr; elemNode=elemNode->next)
+    {
+      if (string((const char*)elemNode->name)!="element") continue;
+      ContextElement elem(NodeAsString("@key", elemNode),
+                          NodeAsString(elemNode),
+                          action);
+      if (elem.key.empty())
+        throw EXCEPTIONS::Exception("ManagePaxContexts: key empty (crsPaxId=%d)", id);
+      if (elem.key.size()>1024 || elem.value.size()>4000)
+        throw EXCEPTIONS::Exception("ManagePaxContexts: key or value too long (crsPaxId=%d)", id);
+      if (!context.emplace(elem, elem).second)
+        throw EXCEPTIONS::Exception("ManagePaxContexts: key duplicated (crsPaxId=%d)", id);
+    }
+  }
+}
+
+void Context::fromDB(int paxId)
+{
+  clear();
+
+  TCachedQuery Qry("SELECT * FROM crs_pax_context WHERE pax_id=:pax_id",
+                   QParams() << QParam("pax_id", otInteger, paxId));
+  Qry.get().Execute();
+  for(; !Qry.get().Eof; Qry.get().Next())
+  {
+    ContextElement elem(Qry.get().FieldAsString("key"),
+                        Qry.get().FieldAsString("value"));
+    emplace(elem, elem);
+  }
+}
+
+void PaxList::fromXML(xmlNodePtr reqNode)
+{
+  clear();
+  if (reqNode==nullptr) return;
+
+  for(xmlNodePtr paxNode=NodeAsNode("contexts", reqNode)->children; paxNode!=nullptr; paxNode=paxNode->next)
+  {
+    if (string((const char*)paxNode->name)!="context") continue;
+    Pax pax;
+    pax.fromXML(paxNode);
+    if (!insert(pax).second)
+      throw EXCEPTIONS::Exception("ManagePaxContexts: crsPaxId=%d duplicated", pax.id);
+  }
+}
+
+void PaxList::toDB() const
+{
+  for(const Pax& pax : *this) pax.toDB();
+}
+
+} //namespace ManagePaxContexts
+
 } //namespace AstraWeb

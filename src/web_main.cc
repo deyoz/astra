@@ -910,6 +910,7 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
           pax.orig_subclass = Qry.FieldAsString( "subclass" );
           pax.cabin_class = Qry.FieldAsString( "cabin_class" );
           pax.cabin_subclass = Qry.FieldAsString( "cabin_subclass" );
+          pax.context.fromDB(pax.crs_pax_id);
           if ( !Qry.FieldIsNULL( "pax_id" ) )
           {
             //пассажир зарегистрирован
@@ -1290,6 +1291,8 @@ void TWebPax::toXML(xmlNodePtr paxParentNode, const TRemGrp& outputRemGrp) const
     if (remsNode==nullptr) remsNode=NewTextChild(paxNode, "rems");
     r.toXML(remsNode);
   }
+
+  context.toXML(NewTextChild(paxNode,"context"));
 
   xmlNodePtr tidsNode = NewTextChild( paxNode, "tids" );
   NewTextChild( tidsNode, "crs_pnr_tid", crs_pnr_tid );
@@ -2712,6 +2715,17 @@ void WebRequestsIface::GetPaxsInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 };
 //////////////////END MERIDIAN //////////////////////////////////
 
+void WebRequestsIface::ManagePaxContexts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  emulateClientType();
+
+  ManagePaxContexts::PaxList paxListReq;
+  paxListReq.fromXML(reqNode);
+  paxListReq.toDB();
+
+  NewTextChild(NewTextChild(resNode, "ManagePaxContexts"), "result", "ok");
+}
+
 } //end namespace AstraWeb
 
 int nosir_parse_bcbp(int argc, char **argv)
@@ -3502,3 +3516,4 @@ void fillPaxsSvcs(const TEntityList &entities, TExchange &exch)
 }
 
 } //namespace SirenaExchange
+

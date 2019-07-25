@@ -257,4 +257,74 @@ class SegList : public std::list<PaxList>
 
 } //namespace ProtLayerResponse
 
+namespace ManagePaxContexts
+{
+
+enum Action {AddOrModify, Remove};
+
+class ContextElementKey
+{
+  public:
+    std::string key;
+
+  ContextElementKey(const std::string& _key) : key(_key) {}
+
+  bool operator < (const ContextElementKey& element) const
+  {
+    return key<element.key;
+  }
+};
+
+class ContextElement : public ContextElementKey
+{
+  public:
+    std::string value;
+    boost::optional<Action> action;
+
+  ContextElement(const std::string& _key,
+                 const std::string& _value,
+                 const boost::optional<Action>& _action=boost::none) :
+    ContextElementKey(_key), value(_value), action(_action) {}
+};
+
+class Context : public std::map<ContextElementKey, ContextElement>
+{
+  public:
+    void toXML(xmlNodePtr node) const;
+    void fromDB(int paxId);
+};
+
+class Pax
+{
+  public:
+    int id;
+    Context context;
+
+    Pax() { clear(); }
+
+    void clear()
+    {
+      id=ASTRA::NoExists;
+      context.clear();
+    }
+
+    bool operator < (const Pax& pax) const
+    {
+      return id < pax.id;
+    }
+
+    void toDB() const;
+    void fromXML(xmlNodePtr node);
+};
+
+class PaxList : public std::set<Pax>
+{
+  public:
+    void toDB() const;
+    void fromXML(xmlNodePtr reqNode);
+};
+
+
+} //namespace ManagePaxContexts
+
 } //namespace AstraWeb
