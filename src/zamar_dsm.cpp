@@ -28,16 +28,14 @@ using namespace EXCEPTIONS;
 using namespace ASTRA;
 
 const string STR_INTERNAL_ERROR = "MSG.SBDO.INTERNAL_ERROR";
-const string STR_PAX_NO_MATCH = "MSG.SBDO.PAX_NO_MATCH"; // используется и для DSM
+const string STR_PAX_NO_MATCH = "MSG.SBDO.PAX_NO_MATCH"; // используется и для PaxCtl
 const string STR_INCORRECT_DATA_IN_XML = "MSG.SBDO.INCORRECT_DATA_IN_XML";
 const string STR_WEIGHT_CONCEPT_NOT_ALLOWED = "WEIGHT CONCEPT IS NOT ALLOWED WHILE TESTING"; // !!!
 const string STR_BAG_TYPE_NOT_ALLOWED = "MSG.SBDO.BAG_TYPE_NOT_ALLOWED";
 const string STR_NO_ANSWER_FROM_REMOTE_SYSTEM = "MSG.SBDO.NO_ANSWER_FROM_REMOTE_SYSTEM";
-//const string STR_BAGGAGE_NOT_ALLOWED = "MSG.SBDO.BAGGAGE_NOT_ALLOWED";
-  const string STR_BAGGAGE_ADD_NOT_ALLOWED = "MSG.SBDO.BAGGAGE_ADD_NOT_ALLOWED";
-  const string STR_BAGGAGE_DEL_NOT_ALLOWED = "MSG.SBDO.BAGGAGE_DEL_NOT_ALLOWED";
+const string STR_BAGGAGE_ADD_NOT_ALLOWED = "MSG.SBDO.BAGGAGE_ADD_NOT_ALLOWED";
+const string STR_BAGGAGE_DEL_NOT_ALLOWED = "MSG.SBDO.BAGGAGE_DEL_NOT_ALLOWED";
 const string STR_BAG_TAG_NOT_FOUND = "MSG.SBDO.BAG_TAG_NOT_FOUND";
-//const string STR_TAG_NOT_ACTIVATED = "MSG.SBDO.TAG_NOT_ACTIVATED";
 const string STR_TAG_WAS_DEACTIVATED = "MSG.SBDO.TAG_WAS_DEACTIVATED";
 const string STR_TAG_ALREADY_ACTIVATED = "MSG.SBDO.TAG_ALREADY_ACTIVATED";
 const string STR_TAG_ALREADY_DEACTIVATED = "MSG.SBDO.TAG_ALREADY_DEACTIVATED";
@@ -97,15 +95,15 @@ static void ProcessXML(ZamarDataInterface& data, xmlNodePtr reqNode, xmlNodePtr 
 }
 
 //-----------------------------------------------------------------------------------
-// DSM
+// PaxCtl
 
 const char* XML_QUERY_TYPE = "queryType";
 
-void ZamarDSMInterface::PassengerSearch(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void ZamarPaxCtlInterface::PassengerSearchPaxCtl(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  SetProp(resNode, XML_QUERY_TYPE, "PassengerSearch");
+  SetProp(resNode, XML_QUERY_TYPE, "PassengerSearchPaxCtl");
   PassengerSearchResult result;
-  ProcessXML(result, reqNode, nullptr, resNode, ZamarType::DSM);
+  ProcessXML(result, reqNode, nullptr, resNode, ZamarType::PaxCtl);
 }
 
 //-----------------------------------------------------------------------------------
@@ -212,14 +210,14 @@ void PassengerSearchResult::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysRe
   // grp
   grp_id = pax_item.grp_id;
   bool get_grp_result = false;
-  if (type == ZamarType::DSM)
+  if (type == ZamarType::PaxCtl)
     get_grp_result = grp_item.getByGrpId(grp_id);
   else if (type == ZamarType::SBDO)
     get_grp_result = grp_item.getByGrpIdWithBagConcepts(grp_id);
   if (not get_grp_result)
   {
     stringstream ss;
-    if (type == ZamarType::DSM)
+    if (type == ZamarType::PaxCtl)
       ss << "Failed grp_item.getByGrpId ";
     else if (type == ZamarType::SBDO)
       ss << "Failed grp_item.getByGrpIdWithBagConcepts ";
@@ -257,19 +255,22 @@ void PassengerSearchResult::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysRe
   
   // baggageTags
   GetTagsByPool(grp_id, pax_item.bag_pool_num, bagTagsExtended, false);
-  // generated
-  TQuery Qry( &OraSession );
-  Qry.SQLText="SELECT no, weight FROM sbdo_tags_generated WHERE pax_id = :pax_id AND deactivated = 0";
-  Qry.CreateVariable( "pax_id", otInteger, pax_id );
-  Qry.Execute();
-  for(; not Qry.Eof; Qry.Next())
+  if (type == ZamarType::SBDO)
   {
-    const double no = Qry.FieldAsFloat("no");
-    // проверяем что не активирована
-    if (find_if(bagTagsExtended.cbegin(), bagTagsExtended.cend(),
-                [no](auto & it){ return no == it.first.numeric_part; })
-        == bagTagsExtended.cend())
-      bagTagsGenerated.emplace_back(no, Qry.FieldAsInteger("weight"));
+    // generated
+    TQuery Qry( &OraSession );
+    Qry.SQLText="SELECT no, weight FROM sbdo_tags_generated WHERE pax_id = :pax_id AND deactivated = 0";
+    Qry.CreateVariable( "pax_id", otInteger, pax_id );
+    Qry.Execute();
+    for(; not Qry.Eof; Qry.Next())
+    {
+      const double no = Qry.FieldAsFloat("no");
+      // проверяем что не активирована
+      if (find_if(bagTagsExtended.cbegin(), bagTagsExtended.cend(),
+                  [no](auto & it){ return no == it.first.numeric_part; })
+          == bagTagsExtended.cend())
+        bagTagsGenerated.emplace_back(no, Qry.FieldAsInteger("weight"));
+    }
   }
 }
 
@@ -476,8 +477,8 @@ void PassengerSearchResult::toXML(xmlNodePtr resNode, ZamarType type) const
     NewTextChild(resNode, "allowCheckIn", allowCheckIn? 1: 0);
   }
 
-  // allowBoarding -- DSM
-  if (type == ZamarType::DSM)
+  // allowBoarding -- PaxCtl
+  if (type == ZamarType::PaxCtl)
     NewTextChild(resNode, "allowBoarding", pax_item.allowToBoarding()? 1: 0);
 
   // paxId
@@ -542,25 +543,6 @@ void PassengerSearchResult::toXML(xmlNodePtr resNode, ZamarType type) const
 
   if (type == ZamarType::SBDO)
   {
-    TBagTotals totals;
-    pax_item.getBaggageInHoldTotals(totals); // возвращаемое значение не используется, нули - валидные значения
-    // bagTotalCount -- SBDO
-    if (totals.amount != ASTRA::NoExists)
-      NewTextChild(resNode, "bagTotalCount", totals.amount);
-    else
-      NewTextChild(resNode, "bagTotalCount");
-    // bagTotalWeight -- SBDO
-    if (totals.weight != ASTRA::NoExists)
-    {
-      xmlNodePtr nodeBagTotalWeight = NewTextChild(resNode, "bagTotalWeight", totals.weight);
-      SetProp(nodeBagTotalWeight, "unit", "KG");
-    }
-    else
-      NewTextChild(resNode, "bagTotalWeight");
-  }
-
-  if (type == ZamarType::SBDO)
-  {
     TBagConcept::Enum bagAllowanceType = grp_item.getBagAllowanceType();
     string bagAllowanceType_str;
     switch (bagAllowanceType)
@@ -578,7 +560,7 @@ void PassengerSearchResult::toXML(xmlNodePtr resNode, ZamarType type) const
       break;
     }
     // bagAllowanceType -- SBDO
-    xmlNodePtr allowanceNode = NewTextChild(resNode, "bagAllowance");
+    xmlNodePtr allowanceNode = NewTextChild(resNode, "baggageAllowance");
     SetProp(allowanceNode, "type", bagAllowanceType_str);
 
     boost::optional<TBagTotals> totals = boost::none;
@@ -944,7 +926,7 @@ void ZamarBagTag::Deactivate(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, 
     ZamarException(STR_INTERNAL_ERROR, "Tag not generated", __func__);
 
   if (activated_ and not force)
-    ZamarException(STR_TAG_ALREADY_ACTIVATED, tagNumber(), __func__); // TODO другую реплику?
+    ZamarException(STR_BAGGAGE_DEL_NOT_ALLOWED, tagNumber(), __func__);
   
   toDB_deactivated(reqNode, externalSysResNode);
   activated_ = false;

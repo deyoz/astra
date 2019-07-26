@@ -13,7 +13,7 @@
 
 using BASIC::date_time::TDateTime;
 
-enum class ZamarType { DSM, SBDO };
+enum class ZamarType { PaxCtl, SBDO };
 enum class ZamarActionType { CONFIRM, REVOKE };
 
 struct ZamarDataInterface
@@ -24,17 +24,17 @@ struct ZamarDataInterface
 };
 
 //-----------------------------------------------------------------------------------
-// DSM
+// PaxCtl
 
-class ZamarDSMInterface: public JxtInterface
+class ZamarPaxCtlInterface: public JxtInterface
 {
     public:
-        ZamarDSMInterface(): JxtInterface("456", "ZamarDSM")
+        ZamarPaxCtlInterface(): JxtInterface("456", "ZamarPaxCtl")
         {
-            AddEvent("PassengerSearch",    JXT_HANDLER(ZamarDSMInterface, PassengerSearch));
+            AddEvent("PassengerSearchPaxCtl",    JXT_HANDLER(ZamarPaxCtlInterface, PassengerSearchPaxCtl));
         }
 
-        void PassengerSearch(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+        void PassengerSearchPaxCtl(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
 class PassengerSearchResult : public ZamarDataInterface
@@ -44,7 +44,7 @@ class PassengerSearchResult : public ZamarDataInterface
   int grp_id = ASTRA::NoExists;
   int pax_id = ASTRA::NoExists;
   TTripInfo trip_info;
-  CheckIn::TPaxGrpItem grp_item; // для DSM было TSimplePaxGrpItem
+  CheckIn::TPaxGrpItem grp_item; // для PaxCtl было TSimplePaxGrpItem
   CheckIn::TSimplePaxItem pax_item;
   CheckIn::TPaxDocItem doc;
   CheckIn::TPaxDocoItem doco;
