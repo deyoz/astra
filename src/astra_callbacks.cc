@@ -107,7 +107,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new ServicePaymentInterface();
     new SvcSirenaInterface();
 
-    new ZamarDSMInterface();
+    new ZamarPaxCtlInterface();
     new ZamarSBDOInterface();
 
     CheckInInterface::instance();

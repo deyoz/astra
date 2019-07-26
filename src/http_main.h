@@ -18,7 +18,7 @@ namespace AstraHTTP
 #define HTML_JXT_INTERFACE_ID "html"
 #define SVC_SIRENA_JXT_INTERFACE_ID "SvcSirena"
 #define PRINT_JXT_INTERFACE_ID "print"
-#define ZAMAR_DSM_JXT_INTERFACE_ID "ZamarDSM"
+#define ZAMAR_PAXCTL_JXT_INTERFACE_ID "ZamarPaxCtl"
 #define ZAMAR_SBDO_JXT_INTERFACE_ID "ZamarSBDO"
 
 struct HTTPClient;
@@ -119,7 +119,7 @@ struct HTTPClient
     jxt_interface["get_resource"] =         JxtInfo(HTML_JXT_INTERFACE_ID,          NULL);
     jxt_interface["print_bp"] =             JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
     jxt_interface["print_bp2"] =            JxtInfo(PRINT_JXT_INTERFACE_ID,         NULL);
-    jxt_interface["PassengerSearch"] =      JxtInfo(ZAMAR_DSM_JXT_INTERFACE_ID,     ZamarPostProcessXMLAnswer);
+    jxt_interface["PassengerSearchPaxCtl"] =      JxtInfo(ZAMAR_PAXCTL_JXT_INTERFACE_ID,   ZamarPostProcessXMLAnswer);
     jxt_interface["PassengerSearchSBDO"] =        JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     ZamarPostProcessXMLAnswer);
     jxt_interface["PassengerBaggageTagAdd"] =     JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     ZamarPostProcessXMLAnswer);
     jxt_interface["PassengerBaggageTagConfirm"] = JxtInfo(ZAMAR_SBDO_JXT_INTERFACE_ID,     ZamarPostProcessXMLAnswer);
