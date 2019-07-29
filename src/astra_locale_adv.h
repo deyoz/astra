@@ -364,8 +364,6 @@ class UserException2:public AstraLocale::UserException
     UserException2(): UserException(""){}
 };
 
-int test_astra_locale_adv(int argc,char **argv);
-int insert_locales(int argc,char **argv);
 void LocaleToXML (const xmlNodePtr node, const std::string& lexema_id, const LEvntPrms& params);
 void LocaleFromXML (const xmlNodePtr node, std::string& lexema_id, LEvntPrms& params);
 

@@ -1016,9 +1016,8 @@ bool TPaxRequest::getByCrsPaxId( const int pax_id, const std::string& override_t
   trans.init( true, Qry.FieldAsInteger("pr_del")?"CICX":"CIRQ", airline, version );
   int_flt.init( point_id, "INT", version );
 
-  TQuery TrferQry( &OraSession );
   map<int, CheckIn::TTransferItem> trfer;
-  CheckInInterface::GetOnwardCrsTransfer(Qry.FieldAsInteger("pnr_id"), TrferQry, info, airp_arv, trfer);
+  CheckInInterface::GetOnwardCrsTransfer(Qry.FieldAsInteger("pnr_id"), true, info, airp_arv, trfer);
 
   /* Проверим транзит. В случае транзита через страну-участницу APPS, выставим
      флаг "transfer at destination". Это противоречит тому, что написано в

@@ -271,7 +271,7 @@ public:
   static void readTripSets( int point_id, xmlNodePtr dataNode );
   static void readTripSets( int point_id, const TTripInfo &fltInfo, xmlNodePtr tripSetsNode );
 
-  static void GetOnwardCrsTransfer(int pnr_id, TQuery &Qry,
+  static void GetOnwardCrsTransfer(int id, bool isPnrId,
                                    const TTripInfo &operFlt,
                                    const std::string &oper_airp_arv,
                                    std::map<int, CheckIn::TTransferItem> &trfer);

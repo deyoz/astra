@@ -8,7 +8,7 @@
 #include "qrys.h"
 
 #define NICKNAME "VLAD"
-#include "serverlib/test.h"
+#include <serverlib/slogger.h>
 
 using namespace std;
 using namespace BASIC::date_time;
@@ -17,6 +17,15 @@ using namespace EXCEPTIONS;
 
 namespace CheckIn
 {
+
+bool TTransferItem::equalSubclasses(const TTransferItem &item) const
+{
+  vector<TPaxTransferItem>::const_iterator p1=pax.begin();
+  vector<TPaxTransferItem>::const_iterator p2=item.pax.begin();
+  for(;p1!=pax.end()&&p2!=item.pax.end();++p1,++p2)
+    if (p1->subclass!=p2->subclass) break;
+  return (p1==pax.end() && p2==item.pax.end());
+}
 
 void PaxTransferFromDB(int pax_id, list<TPaxTransferItem> &trfer)
 {
@@ -1182,17 +1191,53 @@ bool TGrpItem::equalTrfer(const TGrpItem &item) const
     if (s1->first!=s2->first ||
         !s1->second.equalSeg(s2->second)) break;
   return (s1==trfer.end() && s2==item.trfer.end());
-};
+}
 
-bool TGrpItem::similarTrfer(const TGrpItem &item) const
+bool TGrpItem::similarTrfer(const TGrpItem &item, bool checkSubclassesEquality) const
 {
   map<int, CheckIn::TTransferItem>::const_iterator s1=trfer.begin();
   map<int, CheckIn::TTransferItem>::const_iterator s2=item.trfer.begin();
   for(;s1!=trfer.end()&&s2!=item.trfer.end();++s1,++s2)
     if (s1->first!=s2->first ||
-        !s1->second.equalSeg(s2->second)) break;
+        !s1->second.equalSeg(s2->second) ||
+        (checkSubclassesEquality && !s1->second.equalSubclasses(s2->second))) break;
   return (s1==trfer.end() || s2==item.trfer.end());
-};
+}
+
+bool TGrpItem::addSubclassesForEqualTrfer(const TGrpItem &item)
+{
+  if (equalTrfer(item))
+  {
+    map<int, CheckIn::TTransferItem>::const_iterator t1=item.trfer.begin();
+    map<int, CheckIn::TTransferItem>::iterator t2=trfer.begin();
+    for(;t1!=item.trfer.end() && t2!=trfer.end();++t1,++t2)
+      t2->second.pax.emplace_back(t1->second.subclass, t1->second.subclass_fmt);
+    return true;
+  }
+
+  return false;
+}
+
+void TGrpItem::printTrfer(const std::string& title, bool printSubclasses) const
+{
+  LogTrace(TRACE5) << title << ":";
+
+  for(map<int, CheckIn::TTransferItem>::const_iterator t=trfer.begin(); t!=trfer.end(); ++t)
+  {
+    ostringstream s;
+    if (printSubclasses)
+    {
+      s << "/";
+      for(const CheckIn::TPaxTransferItem& p : t->second.pax)
+        s << p.subclass;
+    }
+
+    ProgTrace(TRACE5, "  %d: %s%d%s/%s %s-%s%s", t->first,
+                      t->second.operFlt.airline.c_str(), t->second.operFlt.flt_no, t->second.operFlt.suffix.c_str(),
+                      DateTimeToStr(t->second.operFlt.scd_out, "ddmmm").c_str(), t->second.operFlt.airp.c_str(), t->second.airp_arv.c_str(),
+                      s.str().c_str());
+  }
+}
 
 void TGrpItem::print() const
 {
@@ -1203,12 +1248,8 @@ void TGrpItem::print() const
   ProgTrace(TRACE5, "tags:");
   for(multiset<TBagTagNumber>::const_iterator t=tags.begin(); t!=tags.end(); ++t)
     ProgTrace(TRACE5, "  %15.0f", t->numeric_part);
-  ProgTrace(TRACE5, "trfer:");
-  for(map<int, CheckIn::TTransferItem>::const_iterator t=trfer.begin(); t!=trfer.end(); ++t)
-    ProgTrace(TRACE5, "  %d: %s%d%s/%s %s-%s", t->first,
-                      t->second.operFlt.airline.c_str(), t->second.operFlt.flt_no, t->second.operFlt.suffix.c_str(),
-                      DateTimeToStr(t->second.operFlt.scd_out, "ddmmm").c_str(), t->second.operFlt.airp.c_str(), t->second.airp_arv.c_str());
-};
+  printTrfer("trfer");
+}
 
 bool TGrpItem::alreadyCheckedIn(int point_id) const
 {
@@ -1290,6 +1331,22 @@ bool TGrpItem::alreadyCheckedIn(int point_id) const
   };
   return false;
 };
+
+void TGrpItem::normalizeTrfer()
+{
+  //если есть разрыв трансферного маршрута - уберем часть после разрыва
+  //если есть неопределенные коды - уберем часть с ними
+  map<int, CheckIn::TTransferItem>::iterator t=trfer.begin();
+  int num=1;
+  for(;t!=trfer.end();++t,num++)
+    if (num!=t->first ||
+        t->second.operFlt.airline_fmt==efmtUnknown ||
+        (!t->second.operFlt.suffix.empty() && t->second.operFlt.suffix_fmt==efmtUnknown) ||
+        t->second.operFlt.airp_fmt==efmtUnknown ||
+        t->second.airp_arv_fmt==efmtUnknown ||
+        t->second.subclass_fmt==efmtUnknown) break;
+  trfer.erase(t, trfer.end());
+}
 
 typedef map<TBagTagNumber, pair< list<TGrpId>,
                                  list<TGrpId> > > TTagMap;
@@ -1737,7 +1794,7 @@ void GetNewGrpInfo(int point_id,
               iTagMap=info.tag_map.insert( make_pair(grp_in_id, make_pair(*g, set<TConflictReason>()) ) ).first;
               if (iTagMap==info.tag_map.end())
                 throw Exception("%s: iTagMap==info.tag_map.end()", __FUNCTION__);
-              if (!grp_in.similarTrfer(grp_out) ||
+              if (!grp_in.similarTrfer(grp_out, false) ||
                   grp_in.trfer.size()>grp_out.trfer.size())
               {
                 //несовпадение дальнейших трансферных маршрутов
@@ -1894,7 +1951,8 @@ void NewGrpInfoToGrpsView(const TNewGrpInfo &inbound_trfer,
   TrferList::GrpsToGrpsView(TrferList::trferOutForCkin, true, grps_ckin, grps_tlg, alarms, grps);
 };
 
-void ConflictReasonsToLog(const set<TConflictReason> &conflicts,
+void conflictReasonsToLog(const set<TConflictReason> &conflicts,
+                          bool emptyInboundBaggage,
                           TLogLocale &tlocale)
 {
   for(set<TConflictReason>::const_iterator c=conflicts.begin(); c!=conflicts.end(); ++c)
@@ -1903,25 +1961,27 @@ void ConflictReasonsToLog(const set<TConflictReason> &conflicts,
     switch(*c)
     {
       case conflictInPaxDuplicate:
-        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.IN_PAX_DUPLICATE";
+        tlocale.lexema_id = "EVT.INBOUND_TRFER_CONFLICT_REASON.IN_PAX_DUPLICATE";
         break;
       case conflictOutPaxDuplicate:
-        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.OUT_PAX_DUPLICATE";
+        tlocale.lexema_id = "EVT.INBOUND_TRFER_CONFLICT_REASON.OUT_PAX_DUPLICATE";
         break;
       case conflictInRouteIncomplete:
-        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.IN_ROUTE_INCOMPLETE";
+        tlocale.lexema_id = "EVT.INBOUND_TRFER_CONFLICT_REASON.IN_ROUTE_INCOMPLETE";
         break;
       case conflictInRouteDiffer:
-        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.IN_ROUTE_DIFFER";
+        tlocale.lexema_id = "EVT.INBOUND_TRFER_CONFLICT_REASON.IN_ROUTE_DIFFER";
         break;
       case conflictOutRouteDiffer:
-        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.OUT_ROUTE_DIFFER";
+        tlocale.lexema_id = emptyInboundBaggage?
+                              "EVT.TRFER_CONFLICT_REASON.OUT_ROUTE_DIFFER":
+                              "EVT.INBOUND_TRFER_CONFLICT_REASON.OUT_ROUTE_DIFFER";
         break;
       case conflictInOutRouteDiffer:
-        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.IN_OUT_ROUTE_DIFFER";
+        tlocale.lexema_id = "EVT.INBOUND_TRFER_CONFLICT_REASON.IN_OUT_ROUTE_DIFFER";
         break;
       case conflictWeightNotDefined:
-        tlocale.lexema_id = "EVT.TRFER_CONFLICT_REASON.WEIGHT_NOT_DEFINED";
+        tlocale.lexema_id = "EVT.INBOUND_TRFER_CONFLICT_REASON.WEIGHT_NOT_DEFINED";
         break;
     };
     TReqInfo::Instance()->LocaleToLog(tlocale);

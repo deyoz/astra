@@ -7920,5 +7920,44 @@ TDateTime ParseDate(const string &buf)
     return date;
 }
 
+void TTransferRoute::getById(int id, bool isPnrId)
+{
+  clear();
+
+  TCachedQuery Qry(isPnrId?"SELECT crs_transfer.* FROM crs_transfer "
+                           "WHERE pnr_id=:id AND transfer_num>0 "
+                           "ORDER BY transfer_num":
+                           "SELECT crs_transfer.* FROM crs_pax, crs_transfer "
+                           "WHERE crs_pax.pnr_id=crs_transfer.pnr_id AND "
+                           "      crs_pax.pax_id=:id AND crs_transfer.transfer_num>0 "
+                           "ORDER BY transfer_num",
+                   QParams() << QParam("id", otInteger, id));
+
+  Qry.get().Execute();
+  for(;!Qry.get().Eof;Qry.get().Next())
+  {
+    TypeB::TTransferItem trferItem;
+    trferItem.num=Qry.get().FieldAsInteger("transfer_num");
+    strcpy(trferItem.airline, Qry.get().FieldAsString("airline"));
+    trferItem.flt_no=Qry.get().FieldAsInteger("flt_no");
+    strcpy(trferItem.suffix, Qry.get().FieldAsString("suffix"));
+    trferItem.local_date=Qry.get().FieldAsInteger("local_date");
+    strcpy(trferItem.airp_dep, Qry.get().FieldAsString("airp_dep"));
+    strcpy(trferItem.airp_arv, Qry.get().FieldAsString("airp_arv"));
+    strcpy(trferItem.subcl, Qry.get().FieldAsString("subclass"));
+    push_back(trferItem);
+  }
+}
+
+void TTransferRoute::getByPaxId(int pax_id)
+{
+  getById(pax_id, false);
+}
+
+void TTransferRoute::getByPnrId(int pnr_id)
+{
+  getById(pnr_id, true);
+}
+
 }
 

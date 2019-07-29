@@ -873,6 +873,15 @@ class TPnrAddrItem
     }
 };
 
+class TTransferRoute : public std::vector<TTransferItem>
+{
+  private:
+    void getById(int id, bool isPnrId);
+  public:
+    void getByPaxId(int pax_id);
+    void getByPnrId(int pnr_id);
+};
+
 class TPnrItem
 {
   public:
