@@ -297,13 +297,13 @@ void TBagItem::check(TRFISCListWithPropsCache &lists) const
                           LParams() << LParam("bag_type", pc.get().key().str()));
   }
   //сюда дошли, значит проверяем bagProps
-  check(lists.getBagProps(pc.get().list_id));
+  check(lists.getBagPropsList(pc.get().list_id));
 }
 
 std::string TSimpleBagItem::get_rem_code(TRFISCListWithPropsCache &lists) const
 {
   if (!pc) throw Exception("%s: !pc", __FUNCTION__);
-  const TRFISCBagPropsList &list=lists.getBagProps(pc.get().list_id);
+  const TRFISCBagPropsList &list=lists.getBagPropsList(pc.get().list_id);
   TRFISCBagPropsList::const_iterator i=list.find(pc.get().key());
   if (i==list.end()) return "";
   return i->second.rem_code;

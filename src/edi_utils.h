@@ -177,9 +177,6 @@ int ReadPostponedContext(tlgnum_t tnum, bool clear);
 
 void ClearPostponedContext(tlgnum_t tnum);
 
-bool isTermCheckinRequest(xmlNodePtr reqNode);
-bool isWebCheckinRequest(xmlNodePtr reqNode);
-
 class TOriginCtxt
 {
   public:
@@ -294,6 +291,9 @@ void ProcEvent(const TLogLocale &event,
                const bool repeated);
 
 } //namespace AstraEdifact
+
+bool isTermCheckinRequest(xmlNodePtr reqNode);
+bool isWebCheckinRequest(xmlNodePtr reqNode);
 
 #endif /*_EDI_UTILS_H_*/
 

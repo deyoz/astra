@@ -138,32 +138,6 @@ class TAfterSaveInfoList : public std::list<TAfterSaveInfo>
 
 } //namespace CheckIn
 
-
-class SirenaExchangeInterface : public JxtInterface
-{
-public:
-    SirenaExchangeInterface() : JxtInterface("", "SirenaExchange")
-    {
-        AddEvent("kick", JXT_HANDLER(SirenaExchangeInterface, KickHandler));
-    }
-
-    static void AvailabilityRequest(xmlNodePtr reqNode,
-                                    xmlNodePtr answerResNode,
-                                    const SirenaExchange::TAvailabilityReq& avlReq);
-
-    static void PaymentStatusRequest(xmlNodePtr reqNode,
-                                     xmlNodePtr answerResNode,
-                                     const SirenaExchange::TPaymentStatusReq& psReq);
-    void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-
-protected:
-    static void DoRequest(xmlNodePtr reqNode,
-                          xmlNodePtr answerResNode,
-                          const std::string& reqText);
-
-};
-
-
 class CheckInInterface : public JxtInterface
 {
 public:

@@ -243,10 +243,13 @@ void HTTPClient::toJXT( const ServerFramework::HTTP::request& req, std::string &
 
       if(pos!=string::npos)
       {
+        if ( req.content.find("<kick") == string::npos )
+        {
           string::size_type pos1=req.content.find("<", pos+1) + 1;
           string::size_type pos2=req.content.find(">", pos1);
           operation = req.content.substr(pos1, pos2-pos1);
           body=body.substr(0,pos+sss.size())+" id='"+jxt_interface[operation].interface+"' screen='AIR.EXE' opr='"+ CP866toUTF8(client_info.opr) +"'"+body.substr(pos+sss.size());
+        }
       }
       else
           ProgTrace(TRACE1,"Unable to find <query> tag!");

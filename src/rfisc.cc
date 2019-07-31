@@ -891,23 +891,29 @@ void TRFISCBagPropsList::fromDB(const set<string> &airlines)
   }
 }
 
-const TRFISCBagPropsList& TRFISCListWithProps::getBagProps()
+void TRFISCListWithProps::bagPropsFromDB()
 {
-  if (!bagProps)
-  {
-    set<string> airlines;
-    for(TRFISCListWithProps::const_iterator i=begin(); i!=end(); ++i)
-      airlines.insert(i->first.airline);
-    bagProps=TRFISCBagPropsList();
-    bagProps.get().fromDB(airlines);
-  }
-  return bagProps.get();
+  if (!bagPropsList)
+    bagPropsList=boost::in_place();
+  set<string> airlines;
+  for(TRFISCListWithProps::const_iterator i=begin(); i!=end(); ++i)
+    airlines.insert(i->first.airline);
+  bagPropsList.get().fromDB(airlines);
+}
+
+const TRFISCBagPropsList& TRFISCListWithProps::getBagPropsList()
+{
+  if (!bagPropsList) bagPropsFromDB();
+  if (!bagPropsList)
+    throw EXCEPTIONS::Exception("TRFISCListWithProps::getBagPropsList: !bagPropsList");
+  return bagPropsList.get();
 }
 
 void TRFISCListWithProps::setPriority()
 {
-  if (!bagProps) return;
-  for(TRFISCBagPropsList::const_iterator p=bagProps.get().begin(); p!=bagProps.get().end(); ++p)
+  if (!bagPropsList)
+    throw EXCEPTIONS::Exception("TRFISCListWithProps::setPriority: !bagPropsList");
+  for(TRFISCBagPropsList::const_iterator p=bagPropsList.get().begin(); p!=bagPropsList.get().end(); ++p)
   {
     if (p->second.priority==ASTRA::NoExists) continue;
     TRFISCListWithProps::iterator i=find(p->first);
@@ -916,7 +922,22 @@ void TRFISCListWithProps::setPriority()
   recalc_stat();
 }
 
-const TRFISCBagPropsList& TRFISCListWithPropsCache::getBagProps(int list_id)
+void TRFISCListWithProps::fromDB(const ServiceListId& list_id, bool only_visible)
+{
+  clear();
+  TRFISCList::fromDB(list_id, only_visible);
+  bagPropsFromDB();
+}
+
+boost::optional<TRFISCBagProps> TRFISCListWithProps::getBagProps(const TRFISCListKey& key) const
+{
+  if (!bagPropsList) return boost::none;
+  const auto& i=bagPropsList.get().find(key);
+  if (i==bagPropsList.get().end()) return boost::none;
+  return i->second;
+}
+
+const TRFISCBagPropsList& TRFISCListWithPropsCache::getBagPropsList(int list_id)
 {
   TRFISCListWithPropsCache::iterator i=find(list_id);
   if (i==end())
@@ -926,7 +947,7 @@ const TRFISCBagPropsList& TRFISCListWithPropsCache::getBagProps(int list_id)
       throw EXCEPTIONS::Exception("TRFISCListWithPropsCache::getBagProps: i==end() (list_id=%d)", list_id);
     i->second.fromDB(list_id);
   };
-  return i->second.getBagProps();
+  return i->second.getBagPropsList();
 }
 
 const ServiceListId& ServiceListId::toDB(TQuery &Qry) const
@@ -1864,6 +1885,8 @@ void TGrpServiceList::addBagInfo(int grp_id,
                                  int trfer_seg_count,
                                  bool include_refused)
 {
+  TGrpServiceList bagList;
+
   TCachedQuery Qry("SELECT ckin.get_bag_pool_pax_id(bag2.grp_id, bag2.bag_pool_num, :include_refused) AS pax_id, "
                    "       0 AS transfer_num, "
                    "       bag2.list_id, "
@@ -1879,8 +1902,20 @@ void TGrpServiceList::addBagInfo(int grp_id,
   for(; !Qry.get().Eof; Qry.get().Next())
   {
     if (Qry.get().FieldIsNULL("pax_id")) continue;
-    TGrpServiceItem item;
-    item.fromDB(Qry.get());
+    bagList.push_back(TGrpServiceItem().fromDB(Qry.get()));
+  }
+
+  addBagList(bagList, tckin_seg_count, trfer_seg_count);
+}
+
+void TGrpServiceList::addBagList(const TGrpServiceList& bagList,
+                                 int tckin_seg_count,
+                                 int trfer_seg_count)
+{
+  for(TGrpServiceItem item : bagList)
+  {
+    if (item.trfer_num!=0)
+      throw Exception("%s: item.trfer_num!=0", __FUNCTION__);
     if (!item.list_item)
       throw Exception("%s: !item.list_item", __FUNCTION__);
     if (!item.list_item.get().isBaggageOrCarryOn())

@@ -34,7 +34,7 @@
 #include "points.h"
 #include "brd.h"
 #include "astra_elems.h"
-#include "baggage_calc.h"
+#include "rfisc_calc.h"
 #include "AirportControl.h"
 #include "passenger.h"
 #include "ckin_search.h"
@@ -3239,8 +3239,8 @@ void EMDAutoBoundInterface::EMDTryBind(const TCkinGrpIds &tckin_grp_ids,
   TGrpServiceAutoList svcsAuto;
   svcsAuto.fromDB(first_grp_id, true);
 
-  bool enlargedServicePayment=PieceConcept::TryEnlargeServicePayment(paid_rfisc, payment, svcsAuto, tckin_grp_ids, emdProps, confirmed_emd);
-  bool checkinServicesAuto=PieceConcept::TryCheckinServicesAuto(svcsAuto, payment, tckin_grp_ids, emdProps, confirmed_emd);
+  bool enlargedServicePayment=tryEnlargeServicePayment(paid_rfisc, payment, svcsAuto, tckin_grp_ids, emdProps, confirmed_emd);
+  bool checkinServicesAuto=tryCheckinServicesAuto(svcsAuto, payment, tckin_grp_ids, emdProps, confirmed_emd);
 
   for(const int& grp_id : tckin_grp_ids)
     deleteAlarmByGrpId(grp_id, Alarm::SyncEmds);
