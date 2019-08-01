@@ -86,6 +86,9 @@ public:
      // Подтверждение оплаты
      evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::PaymentStatus);
      AddEvent("PaymentStatus",evHandle);
+     // Контекст пассажира
+     evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::ManagePaxContexts);
+     AddEvent("ManagePaxContexts",evHandle);
 
      //Система Меридиан
      evHandle=JxtHandler<WebRequestsIface>::CreateHandler(&WebRequestsIface::GetFlightInfo);
@@ -109,6 +112,7 @@ public:
   void ChangeProtLayer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ClientError(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void PaymentStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void ManagePaxContexts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   static bool SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);
 
   static void IntViewCraft(xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -161,6 +165,7 @@ struct TWebPax {
     std::set<CheckIn::TPaxFQTItem> fqts;
     std::multiset<CheckIn::TPaxRemItem> rems_and_asvc;
     TPnrAddrs pnr_addrs;
+    ManagePaxContexts::Context context;
     TWebPax() {
       clear();
     }
