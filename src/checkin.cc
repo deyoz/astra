@@ -4289,7 +4289,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
   vector<CheckIn::TTransferItem> inbound_trfer_route;
 
   if (!segList.empty() && new_checkin &&
-      reqInfo->client_type != ctTerm &&
+      reqInfo->isSelfCkinClientType() &&
       segList.begin()->grp.status!=psCrew)
   {
     InboundTrfer::TNewGrpInfo info;
