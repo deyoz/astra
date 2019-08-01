@@ -3126,7 +3126,7 @@ void SyncCHKD(int point_id_tlg, int point_id_spp, bool sync_all) //регистрация C
             locale.prms << PrmSmpl<string>("name", surname+(name.empty()?"":" ")+name) << PrmLexema("what", err_id, err_prms);
             TReqInfo::Instance()->LocaleToLog(locale);
           }
-          catch(const EXCEPTIONS::Exception &e)
+          catch(const ServerFramework::Exception &e)
           {
             spSyncCHKD.rollback();
             ProgError(STDLOG, "TypeB::SyncCHKDPax (crs_pax_id=%d): %s", crs_pax_id, e.what());
