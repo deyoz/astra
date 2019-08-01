@@ -8,6 +8,7 @@
 #include "astra_misc.h"
 #include "term_version.h"
 #include "baggage_wt.h"
+#include "etick.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -2373,6 +2374,20 @@ std::string GetBagAirline(const TTripInfo &operFlt, const TTripInfo &markFlt, bo
   return codeshareSets.pr_mark_norms?markFlt.airline:operFlt.airline;
 }
 
+boost::optional<TBagTotals> getBagAllowance(const CheckIn::TSimplePaxItem& pax)
+{
+  boost::optional<TNormItem> res=pax.getRegularNorm();
+  if (!res) return boost::none;
+
+  const TNormItem& norm=res.get();
+
+  if (norm.norm_type==bntFreeExcess ||
+      norm.norm_type==bntFreePaid)
+    return TBagTotals( norm.amount, norm.weight );
+
+  return TBagTotals(ASTRA::NoExists, 0);
+}
+
 } //namespace WeightConcept
 
 namespace PieceConcept
@@ -2392,6 +2407,22 @@ string GetBagRcptStr(int grp_id, int pax_id)
     return ::GetBagRcptStr(rcpts);
   };
   return "";
+}
+
+boost::optional<TBagTotals> getBagAllowance(const CheckIn::TSimplePaxItem& pax)
+{
+  if (!pax.tkn.validET()) return boost::none;
+
+  TETickItem etick;
+  etick.fromDB(pax.tkn.no, pax.tkn.coupon, TETickItem::Display, false);
+
+  if (etick.empty()) return boost::none;
+
+  if (etick.bag_norm_unit.get()==Ticketing::Baggage::NumPieces &&
+      !(etick.bag_norm==ASTRA::NoExists || etick.bag_norm==0))
+    return TBagTotals(etick.bag_norm, ASTRA::NoExists);
+
+  return TBagTotals(0, ASTRA::NoExists);
 }
 
 } //namespace PieceConcept

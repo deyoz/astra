@@ -611,6 +611,7 @@ BEGIN
         DELETE FROM pax_norms_text WHERE pax_id=curRow.pax_id;
         DELETE FROM trfer_pax_stat WHERE pax_id=curRow.pax_id;
         DELETE FROM bi_stat WHERE pax_id=curRow.pax_id;
+        DELETE FROM sbdo_tags_generated WHERE pax_id=curRow.pax_id;
         DELETE FROM pax WHERE pax_id=curRow.pax_id;
         FOR langCurRow IN langCur LOOP
           UPDATE events_bilingual SET id2=NULL

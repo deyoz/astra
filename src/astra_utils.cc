@@ -20,6 +20,8 @@
 #include <serverlib/lwriter.h>
 #include <serverlib/cursctl.h>
 #include <serverlib/dump_table.h>
+#include <serverlib/EdiHelpManager.h>
+#include <serverlib/query_runner.h>
 #include <jxtlib/JxtInterface.h>
 #include <jxtlib/jxt_cont.h>
 #include <jxtlib/xml_stuff.h>
@@ -2058,6 +2060,11 @@ string getDocMonth(TDateTime claim_date, bool pr_lat)
     int Year, Month, Day;
     DecodeDate(claim_date, Year, Month, Day);
     return getDocMonth(Month, pr_lat);
+}
+
+bool isDoomedToWait()
+{
+    return ServerFramework::getQueryRunner().getEdiHelpManager().mustWait();
 }
 
 void CallbacksExceptionFilter(STDLOG_SIGNATURE)

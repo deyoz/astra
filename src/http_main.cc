@@ -466,6 +466,33 @@ void HTTPPostProcessXMLAnswer()
     NewTextChild(resNode, "proc_status", "OK");
 }
 
+void ZamarPostProcessXMLAnswer()
+{
+  ProgTrace(TRACE5, "%s started", __FUNCTION__);
+
+  XMLRequestCtxt *xmlRC = getXmlCtxt();
+  xmlNodePtr resNode = NodeAsNode("/term/answer",xmlRC->resDoc);  
+  
+//  LogTrace(TRACE5) << __func__ << " GetXMLDocText: " << GetXMLDocText(xmlRC->resDoc);
+
+  std::string error_code, error_message;
+  xmlNodePtr errNode = AstraLocale::selectPriorityMessage(resNode, error_code, error_message);
+  
+  NewTextChild( resNode, "queryType", NodeAsString("@queryType", resNode));
+
+  if (errNode!=NULL)
+  {
+    if (strcmp((const char*)errNode->name,"error")==0 ||
+        strcmp((const char*)errNode->name,"checkin_user_error")==0 ||
+        strcmp((const char*)errNode->name,"user_error")==0)
+    {
+      NewTextChild( resNode, "command", error_code );
+      NewTextChild( resNode, "error", error_message );
+    };
+    xmlFreeNode(errNode);
+  }
+}
+
 } //end namespace AstraHTTP
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////

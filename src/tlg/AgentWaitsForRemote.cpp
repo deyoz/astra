@@ -104,7 +104,7 @@ void MeetAgentExpectations(const edifact::RemoteResults & res)
     }
 }
 
-bool isDoomedToWait()
+static bool isDoomedToWait()
 {
     return ServerFramework::getQueryRunner().getEdiHelpManager().mustWait();
 }

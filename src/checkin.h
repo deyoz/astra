@@ -67,7 +67,7 @@ void traceTrfer( TRACE_SIGNATURE,
 namespace CheckIn
 {
 
-enum TAfterSaveActionType { actionNone, actionCheckPieceConcept, actionRefreshPaidBagPC };
+enum TAfterSaveActionType { actionNone, actionSvcAvailability, actionSvcPaymentStatus };
 
 class TAfterSaveSegInfo
 {

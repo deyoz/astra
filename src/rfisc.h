@@ -239,6 +239,7 @@ class TRFISCListItem : public TRFISCListKey
     bool isBaggageOrCarryOn() const;
     TServiceCategory::Enum calc_category() const;
     bool isBaggageInCabinOrCarryOn() const;
+    bool isBaggageInHold() const;
     const std::string& name_view(const std::string& lang="") const;
     const std::string descr_view(const std::string& lang="") const;
 
@@ -700,6 +701,7 @@ class TPaidRFISCList : public std::map<TPaxSegRFISCKey, TPaidRFISCItem>
     void inc(const TPaxSegRFISCKey& key, const TServiceStatus::Enum status);
     boost::optional<TRFISCKey> getKeyIfSingleRFISC(int pax_id, int trfer_num, const std::string &rfisc) const;
     void getAllListItems();
+    bool becamePaid(int grp_id) const;
     static void clearDB(int grp_id);
     static void copyDB(int grp_id_src, int grp_id_dest);
     static void updateExcess(int grp_id);

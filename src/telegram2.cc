@@ -10516,7 +10516,7 @@ namespace CKIN_REPORT {
             TCachedQuery grpQry("select * from pax_grp where grp_id = :grp_id",
                     QParams() << QParam("grp_id", otInteger, route_item.grp_id));
             grpQry.get().Execute();
-            string cls = CheckIn::TPaxGrpItem().fromDB(grpQry.get()).cl;
+            string cls = CheckIn::TSimplePaxGrpItem().fromDB(grpQry.get()).cl;
 
             TTripInfo trip_info;
             trip_info.getByPointId(route_item.point_dep);
@@ -10615,16 +10615,16 @@ namespace CKIN_REPORT {
         TChilds childs;
         SetChildsToAdults(pax_list, childs);
 
-        map<int, CheckIn::TPaxGrpItem> grps;
+        map<int, CheckIn::TSimplePaxGrpItem> grps;
         TCachedQuery grpQry("select * from pax_grp where grp_id = :grp_id",
                 QParams() << QParam("grp_id", otInteger));
 
         for(TPaxList::iterator iPax = pax_list.begin(); iPax != pax_list.end(); iPax++) {
-            map<int, CheckIn::TPaxGrpItem>::iterator grp = grps.find(iPax->grp_id);
+            map<int, CheckIn::TSimplePaxGrpItem>::iterator grp = grps.find(iPax->grp_id);
             if(grp == grps.end()) {
                 grpQry.get().SetVariable("grp_id", iPax->grp_id);
                 grpQry.get().Execute();
-                pair<map<int, CheckIn::TPaxGrpItem>::iterator, bool> res = grps.insert(make_pair(iPax->grp_id, CheckIn::TPaxGrpItem().fromDB(grpQry.get())));
+                pair<map<int, CheckIn::TSimplePaxGrpItem>::iterator, bool> res = grps.insert(make_pair(iPax->grp_id, CheckIn::TSimplePaxGrpItem().fromDB(grpQry.get())));
                 grp = res.first;
             }
 

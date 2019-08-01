@@ -499,6 +499,27 @@ class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
     std::string logStr(const std::string &lang=AstraLocale::LANG_EN) const;
 };
 
+class TComplexClass
+{
+  public:
+    std::string subcl;
+    std::string cl;
+    int cl_grp;
+    TComplexClass()
+    {
+      clear();
+    }
+    void clear()
+    {
+      subcl.clear();
+      cl.clear();
+      cl_grp=ASTRA::NoExists;
+    }
+
+    const TComplexClass& toDB(TQuery &Qry, const std::string& fieldPrefix) const;
+    TComplexClass& fromDB(TQuery &Qry, const std::string& fieldPrefix);
+};
+
 class TSimplePaxItem
 {
   public:
@@ -518,6 +539,7 @@ class TSimplePaxItem
     std::string wl_type;
     int reg_no;
     std::string subcl;
+    TComplexClass cabin;
     int bag_pool_num;
     int tid;
     TPaxTknItem tkn;
@@ -545,6 +567,7 @@ class TSimplePaxItem
       wl_type.clear();
       reg_no=ASTRA::NoExists;
       subcl.clear();
+      cabin.clear();
       bag_pool_num=ASTRA::NoExists;
       tid=ASTRA::NoExists;
       tkn.clear();
@@ -554,7 +577,10 @@ class TSimplePaxItem
 
     static ASTRA::TGender::Enum genderFromDB(TQuery &Qry);
     static ASTRA::TTrickyGender::Enum getTrickyGender(ASTRA::TPerson pers_type, ASTRA::TGender::Enum gender);
+    static const std::string& origClassFromCrsSQL();
+    static const std::string& origSubclassFromCrsSQL();
 
+    const TSimplePaxItem& toEmulXML(xmlNodePtr node, bool PaxUpdatesPending) const;
     TSimplePaxItem& fromDB(TQuery &Qry);
     TSimplePaxItem& fromDBCrs(TQuery &Qry, bool withTkn);
     bool getByPaxId(int pax_id, TDateTime part_key = ASTRA::NoExists);
@@ -570,10 +596,34 @@ class TSimplePaxItem
       return refuse.empty() && !pr_brd;
     }
 
+    bool allowToBagCheckIn() const
+    {
+      return refuse.empty();
+    }
+    bool allowToBagRevoke() const
+    {
+      return true;
+    }
+
     bool isTest() const { return isTestPaxId(id); }
     int paxId() const { return id; }
 
     std::string checkInStatus() const;
+
+    TComplexClass getCrsClass(bool onlyIfClassChange) const;
+    std::string getCabinClass() const;
+    std::string getCabinSubclass() const;
+    bool cabinClassToDB() const;
+    bool hasCabinSeatNumber() const
+    {
+      return seats>0 && !is_jmp;
+    }
+    std::string getSeatNo(const std::string& fmt) const;
+
+    bool getBaggageInHoldTotals(TBagTotals& totals) const;
+    boost::optional<WeightConcept::TNormItem> getRegularNorm() const;
+    void getBaggageListForSBDO(TRFISCListWithProps &list) const;
+    void getBaggageListForSBDO(TBagTypeList& list) const;
 };
 
 template <class T>
@@ -675,6 +725,11 @@ class TPaxListItem
     xmlNodePtr node;
 
     TPaxListItem() { clear(); }
+    TPaxListItem(const TSimplePaxItem& _pax)
+    {
+      clear();
+      static_cast<TSimplePaxItem&>(pax)=_pax;
+    }
 
     void clear()
     {
@@ -716,6 +771,7 @@ class TSimplePnrItem
     int id;
     std::string airp_arv;
     std::string cl;
+    std::string cabin_cl;
     std::string status;
 
     TSimplePnrItem() { clear(); }
@@ -725,6 +781,7 @@ class TSimplePnrItem
       id=ASTRA::NoExists;
       airp_arv.clear();
       cl.clear();
+      cabin_cl.clear();
       status.clear();
     }
 
@@ -779,11 +836,19 @@ class TSimplePaxGrpItem
       return grpCategory()==TPaxGrpCategory::UnnacompBag;
     }
     TSimplePaxGrpItem& fromDB(TQuery &Qry);
+    const TSimplePaxGrpItem& toXML(xmlNodePtr node) const;
+    const TSimplePaxGrpItem& toEmulXML(xmlNodePtr emulReqNode, xmlNodePtr emulSegNode) const;
     bool getByGrpId(int grp_id);
+
+    bool allowToBagCheckIn() const { return trfer_confirm; }
+
+    ASTRA::TCompLayerType getCheckInLayerType() const;
 };
 
 class TPaxGrpItem : public TSimplePaxGrpItem
 {
+  private:
+    TSimplePaxGrpItem& fromDB(TQuery &Qry);
   public:
     bool pc, wt;
     bool rfisc_used;
@@ -817,7 +882,7 @@ class TPaxGrpItem : public TSimplePaxGrpItem
     bool fromXML(xmlNodePtr node);
     TPaxGrpItem& fromXMLadditional(xmlNodePtr node, xmlNodePtr firstSegNode, bool is_unaccomp);
     const TPaxGrpItem& toDB(TQuery &Qry) const;
-    TPaxGrpItem& fromDB(TQuery &Qry);
+    TPaxGrpItem& fromDBWithBagConcepts(TQuery &Qry);
     bool getByGrpIdWithBagConcepts(int grp_id);
     void SyncServiceAuto(const TTripInfo &flt);
     void checkInfantsCount(const CheckIn::TSimplePaxList &prior_paxs,
@@ -826,6 +891,12 @@ class TPaxGrpItem : public TSimplePaxGrpItem
     static void UpdTid(int grp_id);
     static void setRollbackGuaranteedTo(int grp_id, bool value);
     static bool allPassengersRefused(int grp_id);
+
+    TBagConcept::Enum getBagAllowanceType() const
+    {
+      if ( (!pc && !wt) || (pc && wt) ) return TBagConcept::Unknown;
+      return pc? TBagConcept::Piece: TBagConcept::Weight;
+    }
 };
 
 bool LoadPaxDoc(int pax_id, TPaxDocItem &doc);

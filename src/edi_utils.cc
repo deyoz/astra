@@ -887,3 +887,23 @@ bool isWebCheckinRequest(xmlNodePtr reqNode)
          strcmp((const char*)reqNode->name, "SavePax") == 0;
 }
 
+bool isTagAddRequestSBDO(xmlNodePtr reqNode)
+{
+  return reqNode!=nullptr &&
+         TReqInfo::Instance()->client_type==ctHTTP &&
+         GetNode("/term/query/PassengerBaggageTagAdd", reqNode->doc)!=nullptr;
+}
+
+bool isTagConfirmRequestSBDO(xmlNodePtr reqNode)
+{
+  return reqNode!=nullptr &&
+         TReqInfo::Instance()->client_type==ctHTTP &&
+         GetNode("/term/query/PassengerBaggageTagConfirm", reqNode->doc)!=nullptr;
+}
+
+bool isTagRevokeRequestSBDO(xmlNodePtr reqNode)
+{
+  return reqNode!=nullptr &&
+         TReqInfo::Instance()->client_type==ctHTTP &&
+         GetNode("/term/query/PassengerBaggageTagRevoke", reqNode->doc)!=nullptr;
+}

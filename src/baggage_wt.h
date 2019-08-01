@@ -94,6 +94,10 @@ class TBagTypeListItem : public TBagTypeListKey
     const TBagTypeListItem& toXML(xmlNodePtr node, const boost::optional<TBagTypeListItem> &def=boost::none) const;
     const TBagTypeListItem& toDB(TQuery &Qry) const;
     TBagTypeListItem& fromDB(TQuery &Qry);
+
+    bool isBaggageOrCarryOn() const;
+    bool isBaggageInCabinOrCarryOn() const;
+    bool isBaggageInHold() const;
 };
 
 class TBagTypeKey : public TBagTypeListKey

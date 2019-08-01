@@ -13,6 +13,8 @@
 #include "apis_utils.h"
 #include "base_tables.h"
 
+#include <regex>
+
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
@@ -390,7 +392,7 @@ TPaxDocItem& TPaxDocItem::fromXML(xmlNodePtr node)
   if (node==NULL) return *this;
   xmlNodePtr node2=node->children;
   if (node2==NULL) return *this;
-  
+
   TPaxDocCompoundType::fromXML(node);
   issue_country=NodeAsStringFast("issue_country",node2,"");
   no=NodeAsStringFast("no",node2,"");
@@ -1391,6 +1393,31 @@ void SavePaxDoca(int pax_id, const CheckIn::TDocaMap &doca_map, TQuery& PaxDocaQ
 
 };
 
+const TSimplePaxItem& TSimplePaxItem::toEmulXML(xmlNodePtr node, bool PaxUpdatesPending) const
+{
+  if (node==nullptr) return *this;
+
+  xmlNodePtr paxNode=node;
+  NewTextChild(paxNode, "pax_id", id);
+  NewTextChild(paxNode, "surname", surname);
+  NewTextChild(paxNode, "name", name);
+  if (PaxUpdatesPending)
+  {
+    //были ли изменения по пассажиру CheckInInterface::SavePax определяет по наличию тега refuse
+    NewTextChild(paxNode, "pers_type", EncodePerson(pers_type));
+    NewTextChild(paxNode,"refuse", refuse);
+    if (bag_pool_num!=ASTRA::NoExists)
+      NewTextChild(paxNode, "bag_pool_num", bag_pool_num);
+    else
+      NewTextChild(paxNode, "bag_pool_num");
+
+    if (TknExists) tkn.toXML(paxNode);
+  }
+  NewTextChild(paxNode, "tid", tid);
+
+  return *this;
+}
+
 const TPaxItem& TPaxItem::toXML(xmlNodePtr node) const
 {
   if (node==NULL) return *this;
@@ -1456,15 +1483,10 @@ TPaxItem& TPaxItem::fromXML(xmlNodePtr node)
       crew_type=CrewTypes().decode(NodeAsStringFast("crew_type",node2));
     if (PaxUpdatesPending)
       refuse=NodeAsStringFast("refuse",node2);
-
-    if (tid==ASTRA::NoExists ||
-        (PaxUpdatesPending && reqInfo->client_type==ASTRA::ctTerm))
-    {
-      tkn.fromXML(node);
-      TknExists=true;
-      if (!NodeIsNULLFast("bag_pool_num",node2))
-        bag_pool_num=NodeAsIntegerFast("bag_pool_num",node2);
-    };
+    tkn.fromXML(node);
+    TknExists=true;
+    if (!NodeIsNULLFast("bag_pool_num",node2))
+      bag_pool_num=NodeAsIntegerFast("bag_pool_num",node2);
 
     if (refuse.empty() && api_doc_applied())
     {
@@ -1753,12 +1775,95 @@ void TSimplePaxItem::UpdTid(int pax_id)
 }
 
 std::string TSimplePaxItem::checkInStatus() const
-{    
+{
   if (id==ASTRA::NoExists) return "unknown";
   if (!refuse.empty()) return "refused";
   if (pr_brd) return "boarded";
   if (grp_id!=ASTRA::NoExists) return "checked";
-  return "not_checked";  
+  return "not_checked";
+}
+
+bool TSimplePaxItem::getBaggageInHoldTotals(TBagTotals& totals) const
+{
+  totals.clear();
+  if (id==ASTRA::NoExists) return false;
+
+  TCachedQuery Qry(
+    "SELECT NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS amount, "
+    "       NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) AS weight "
+    "FROM pax "
+    "WHERE pax_id=:pax_id",
+    QParams() << QParam("pax_id", otInteger, id));
+  Qry.get().Execute();
+  if (!Qry.get().Eof)
+  {
+    totals.amount=Qry.get().FieldAsInteger("amount");
+    totals.weight=Qry.get().FieldAsInteger("weight");
+  }
+
+  return !Qry.get().Eof;
+}
+
+boost::optional<WeightConcept::TNormItem> TSimplePaxItem::getRegularNorm() const
+{
+  if (id==ASTRA::NoExists) return boost::none;
+
+  std::list< std::pair<WeightConcept::TPaxNormItem, WeightConcept::TNormItem> > norms;
+  PaxNormsFromDB(ASTRA::NoExists, id, norms);
+  for(const auto& norm : norms)
+    if (norm.first.isRegularBagType()) return norm.second;
+
+  return boost::none;
+}
+
+template<class T>
+static void getBaggageInHoldList(int id, T& list)
+{
+  list.clear();
+
+  if (id==ASTRA::NoExists) return;
+
+  TPaxServiceLists serviceLists;
+  serviceLists.fromDB(id, false);
+  for(const TPaxServiceListsItem& i : serviceLists)
+    if (i.trfer_num==0 && i.category==TServiceCategory::BaggageInHold)
+    {
+      list.fromDB(i.primary(), true);
+      break;
+    }
+
+  for(typename T::iterator i=list.begin(); i!=list.end();)
+  {
+    auto& item=i->second;
+    item.isBaggageInHold()?++i:i=list.erase(i);
+  }
+}
+
+void TSimplePaxItem::getBaggageListForSBDO(TRFISCListWithProps& list) const
+{
+  std::string rfiscs=Sirena::getRFISCsFromBaggageNorm(id);
+  if (rfiscs.empty())
+  {
+    list.clear();
+    return;
+  }
+
+  getBaggageInHoldList(id, list);
+  list.setPriority();
+  //отфильтруем только те типы, которые входят в норму
+  for(TRFISCListWithProps::iterator i=list.begin(); i!=list.end();)
+  {
+    std::string line_regex("(^|,)\\s*"+i->first.RFISC+"\\s*(,|$)");
+    if (!std::regex_search(rfiscs, std::regex(line_regex)))
+      i=list.erase(i);
+    else
+      ++i;
+  }
+}
+
+void TSimplePaxItem::getBaggageListForSBDO(TBagTypeList& list) const
+{
+  getBaggageInHoldList(id, list);
 }
 
 TAPISItem& TAPISItem::fromDB(int pax_id)
@@ -1970,9 +2075,9 @@ int TPaxList::getBagPoolMainPaxId(int bag_pool_num) const
   return pax?pax.get().id:ASTRA::NoExists;
 }
 
-const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
+const TSimplePaxGrpItem& TSimplePaxGrpItem::toXML(xmlNodePtr node) const
 {
-  if (node==NULL) return *this;
+  if (node==nullptr) return *this;
 
   xmlNodePtr grpNode=node;
   NewTextChild(grpNode, "grp_id", id);
@@ -1983,13 +2088,35 @@ const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
   NewTextChild(grpNode, "class", cl);
   NewTextChild(grpNode, "status", EncodePaxStatus(status));
   NewTextChild(grpNode, "bag_refuse", bag_refuse);
-  if (!TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
+  if (TReqInfo::Instance()->client_type==ASTRA::ctTerm &&
+      !TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
   {
     NewTextChild(grpNode, "bag_types_id", id);
     NewTextChild(grpNode, "piece_concept", (int)baggage_pc);
   };
   NewTextChild(grpNode, "tid", tid);
+  return *this;
+}
 
+const TSimplePaxGrpItem& TSimplePaxGrpItem::toEmulXML(xmlNodePtr emulReqNode, xmlNodePtr emulSegNode) const
+{
+  if (emulReqNode!=nullptr)
+  {
+    NewTextChild(emulReqNode,"hall");
+    NewTextChild(emulReqNode,"bag_refuse", bag_refuse);
+  }
+
+  toXML(emulSegNode);
+  return *this;
+}
+
+const TPaxGrpItem& TPaxGrpItem::toXML(xmlNodePtr node) const
+{
+  if (node==NULL) return *this;
+
+  TSimplePaxGrpItem::toXML(node);
+
+  xmlNodePtr grpNode=node;
   NewTextChild(grpNode, "show_ticket_norms", (int)pc);
   NewTextChild(grpNode, "show_wt_norms", (int)wt);
   return *this;
@@ -2155,7 +2282,7 @@ bool TSimplePnrItem::getByPaxId(int pax_id)
   return true;
 }
 
-TPaxGrpItem& TPaxGrpItem::fromDB(TQuery &Qry)
+TPaxGrpItem& TPaxGrpItem::fromDBWithBagConcepts(TQuery &Qry)
 {
   clear();
   TSimplePaxGrpItem::fromDB(Qry);

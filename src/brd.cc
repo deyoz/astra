@@ -24,7 +24,6 @@
 #include "baggage_calc.h"
 #include "sopp.h"
 #include "rfisc.h"
-#include "tlg/AgentWaitsForRemote.h"
 #include "dev_utils.h"
 #include "pax_events.h"
 #include "custom_alarms.h"
@@ -1027,7 +1026,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       if (set_mark && !EMDAutoBoundRegNo::exists(reqNode))
       {
         EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundRegNo(point_id, reg_no), reqNode);
-        if (Ticketing::isDoomedToWait()) return;
+        if (isDoomedToWait()) return;
       };
 
       Qry.Clear();

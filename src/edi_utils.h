@@ -294,6 +294,9 @@ void ProcEvent(const TLogLocale &event,
 
 bool isTermCheckinRequest(xmlNodePtr reqNode);
 bool isWebCheckinRequest(xmlNodePtr reqNode);
+bool isTagAddRequestSBDO(xmlNodePtr reqNode);
+bool isTagConfirmRequestSBDO(xmlNodePtr reqNode);
+bool isTagRevokeRequestSBDO(xmlNodePtr reqNode);
 
 #endif /*_EDI_UTILS_H_*/
 

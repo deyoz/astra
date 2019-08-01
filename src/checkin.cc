@@ -3408,6 +3408,8 @@ static bool needSyncEdsEts(xmlNodePtr answerResNode)
 // или в случае iatci-регистрации
 bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode)
 {
+//  LogTrace(TRACE5) << XMLTreeToText(reqNode->doc);
+
     if(ediResNode == NULL && IatciInterface::MayNeedSendIatci(reqNode))
     {
       tryGenerateBagTags(reqNode);
@@ -3486,14 +3488,15 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
         {
             int grp_id=AfterSaveInfoList.front().segs.front().grp_id;
 
-            if (AfterSaveInfoList.front().action==CheckIn::actionRefreshPaidBagPC)
+            if (AfterSaveInfoList.front().action==CheckIn::actionSvcPaymentStatus)
             {
                 if(!ReqParams(reqNode).getBoolParam("was_sent_iatci")) {
                     EMDAutoBoundInterface::EMDRefresh(EMDAutoBoundGrpId(grp_id), reqNode);
                 }
             }
 
-            LoadPax(grp_id, reqNode, resNode, true);
+            if (resNode!=nullptr)
+              LoadPax(grp_id, reqNode, resNode, true);
         }
     }
     return result;
@@ -4008,7 +4011,8 @@ void CheckServicePayment(int grp_id,
 {
   if (!curr_payment) return;
 
-  if (!TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
+  if (TReqInfo::Instance()->client_type==ctTerm &&
+      !TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION))
   {
     CheckIn::TServicePaymentList prior_compatible, prior_not_compatible, prior_other_svc;
     prior_payment.getCompatibleWithPriorTermVersions(prior_compatible, prior_not_compatible, prior_other_svc);
@@ -4439,8 +4443,8 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       b->second.is_trfer=true;
       b->second.handmade=false;
     }
-    for(map<int, CheckIn::TTagItem>::iterator t=inbound_group_bag.tags.begin();
-                                              t!=inbound_group_bag.tags.end(); ++t)
+    for(CheckIn::TTagMap::iterator t=inbound_group_bag.tags.begin();
+                                   t!=inbound_group_bag.tags.end(); ++t)
     {
       if (t->second.printable) t->second.pr_print=true;
     }
@@ -5102,7 +5106,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
         if (GetNode("generated_grp_id",segNode)!=NULL)
           Qry.SetVariable("grp_id",NodeAsInteger("generated_grp_id",segNode));
-        if (trfer_confirm) AfterSaveInfo.action=CheckIn::actionCheckPieceConcept;
+        if (trfer_confirm) AfterSaveInfo.action=CheckIn::actionSvcAvailability;
         Qry.CreateVariable("trfer_confirm",otInteger,(int)trfer_confirm);
         Qry.CreateVariable("trfer_conflict",otInteger,(int)(!inbound_trfer_conflicts.empty() &&
                                                             !inbound_group_bag.empty() &&
@@ -5372,7 +5376,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         grp.toDB(Qry);
         if (reqInfo->client_type==ctTerm)
         {
-          if (!grpInfoBefore.trfer_confirm) AfterSaveInfo.action=CheckIn::actionCheckPieceConcept;
+          if (!grpInfoBefore.trfer_confirm) AfterSaveInfo.action=CheckIn::actionSvcAvailability;
           Qry.CreateVariable("trfer_confirm",otInteger,(int)true);
           Qry.CreateVariable("trfer_conflict",otInteger,(int)false);
         }
@@ -5420,8 +5424,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                    "    coupon_no=:coupon_no, "
                    "    ticket_rem=:ticket_rem, "
                    "    ticket_confirm=:ticket_confirm, "
-                   "    subclass=:subclass, "
-                   "    bag_pool_num=:bag_pool_num, ";
+                   "    subclass=:subclass, ";
             PaxQry.DeclareVariable("surname",otString);
             PaxQry.DeclareVariable("name",otString);
             PaxQry.DeclareVariable("pers_type",otString);
@@ -5430,8 +5433,16 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             PaxQry.DeclareVariable("ticket_rem",otString);
             PaxQry.DeclareVariable("ticket_confirm",otInteger);
             PaxQry.DeclareVariable("subclass",otString);
+          }
+
+          if (reqInfo->client_type==ctTerm ||
+              isTagConfirmRequestSBDO(reqNode) ||
+              isTagRevokeRequestSBDO(reqNode))
+          {
+            sql << "    bag_pool_num=:bag_pool_num, ";
             PaxQry.DeclareVariable("bag_pool_num",otInteger);
           }
+
           sql << "    is_female=DECODE(:doc_exists,0,is_female,:is_female), "
                  "    refuse=:refuse, "
                  "    pr_brd=DECODE(:refuse,NULL,pr_brd,NULL), "
@@ -5582,7 +5593,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
       bool unknown_concept=!inbound_group_bag.empty() ||
                            (reqInfo->client_type==ASTRA::ctTerm &&
-                            AfterSaveInfo.action==CheckIn::actionCheckPieceConcept && setList.value<bool>(tsPieceConcept));
+                            AfterSaveInfo.action==CheckIn::actionSvcAvailability && setList.value<bool>(tsPieceConcept));
 
       AfterSaveInfo.segs.back().grp_id=grp.id;
 
@@ -5666,11 +5677,14 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
             }
           }
 
-          if (grp.rfisc_used && AfterSaveInfo.action==CheckIn::actionNone
-                && TReqInfo::Instance()->client_type==ctTerm)
+          if (grp.rfisc_used && AfterSaveInfo.action==CheckIn::actionNone &&
+              (TReqInfo::Instance()->client_type==ctTerm ||
+               isTagConfirmRequestSBDO(reqNode) ||
+               isTagRevokeRequestSBDO(reqNode)))
           {
-            if (TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION) || grp.pc)
-              AfterSaveInfo.action=CheckIn::actionRefreshPaidBagPC;
+            if (!(TReqInfo::Instance()->client_type==ctTerm &&
+                  !TReqInfo::Instance()->desk.compatible(PAX_SERVICE_VERSION)) || grp.pc)
+              AfterSaveInfo.action=CheckIn::actionSvcPaymentStatus;
           }
 
           if (grp.payment)
@@ -6213,7 +6227,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
 
   timing.finish("svc_auto");
 
-  if (AfterSaveInfo.action==CheckIn::actionRefreshPaidBagPC)
+  if (AfterSaveInfo.action==CheckIn::actionSvcPaymentStatus)
   try
   {
     timing.start("svc_payment_status");
@@ -6234,6 +6248,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                             httpWasSent))
     {
       //paid получили
+      if (isTagConfirmRequestSBDO(reqNode) ||
+          isTagRevokeRequestSBDO(reqNode))
+      {
+        if (paid.becamePaid(AfterSaveInfo.segs.front().grp_id))
+          throw UserException("MSG.SBDO.SERVICES_BECAME_PAID");
+      }
       paid.getAllListItems();
       bool update_payment=false;
       bool check_emd_status=(needSyncEdsEts(ediResNode) && reqInfo->client_type!=ctPNL);
@@ -6546,7 +6566,7 @@ static bool rollbackBeforeSvcAvailability(const CheckIn::TAfterSaveInfo& info,
                                           const CheckIn::TSimplePaxGrpItem& grp,
                                           const bool& isNewCheckIn)
 {
-  bool result=info.action==CheckIn::actionCheckPieceConcept &&
+  bool result=info.action==CheckIn::actionSvcAvailability &&
               setList.value<bool>(tsPieceConcept) &&
               grp.grpCategory()==CheckIn::TPaxGrpCategory::Passenges &&
               !TReqInfo::Instance()->api_mode &&
@@ -6563,9 +6583,9 @@ static bool rollbackBeforeSvcAvailability(const CheckIn::TAfterSaveInfo& info,
 
 void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
 {
-  if (data.action!=CheckIn::actionCheckPieceConcept) return;
+  if (data.action!=CheckIn::actionSvcAvailability) return;
 
-  ProgTrace(TRACE5, "%s started with actionCheckPieceConcept (first_grp_id=%d)", __FUNCTION__, data.grpId);
+  ProgTrace(TRACE5, "%s started with actionSvcAvailability (first_grp_id=%d)", __FUNCTION__, data.grpId);
 
   TCachedQuery Qry("SELECT point_dep, piece_concept, NVL(rollback_guaranteed,0) AS rollback_guaranteed "
                    "FROM pax_grp "
@@ -6807,7 +6827,7 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
         };
       };
     }
-    if (!Ticketing::isDoomedToWait() && rollbackGuaranteed)
+    if (!isDoomedToWait() && rollbackGuaranteed)
     {
       ProgError(STDLOG, "Warning: !isDoomedToWait() && rollbackGuaranteed (grp_id=%d)", data.grpId);
       throw SomethingHasChanged();
@@ -7081,7 +7101,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr reqNode, xmlNodePtr resNod
     }
     if (grp_id==tckin_grp_ids.begin())
     {
-      group_bag.toXML(resNode);
+      group_bag.toXML(resNode, grp.is_unaccomp());
 
       CheckIn::TServicePaymentListWithAuto payment;
       payment.fromDB(grp.id);

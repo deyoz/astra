@@ -179,12 +179,16 @@ bool BagPaymentCompleted(int grp_id, int *value_bag_count=NULL);
 
 std::string GetBagAirline(const TTripInfo &operFlt, const TTripInfo &markFlt, bool is_local_scd_out);
 
+boost::optional<TBagTotals> getBagAllowance(const CheckIn::TSimplePaxItem& pax);
+
 } //namespace WeightConcept
 
 namespace PieceConcept
 {
 
 std::string GetBagRcptStr(int grp_id, int pax_id);
+
+boost::optional<TBagTotals> getBagAllowance(const CheckIn::TSimplePaxItem& pax);
 
 } //namespace PieceConcept
 
