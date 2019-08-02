@@ -879,6 +879,8 @@ BEGIN
     DELETE FROM tlg_comp_layers WHERE crs_pax_id=paxids(i);
   FORALL i IN 1..paxids.COUNT
     DELETE FROM crs_pax_alarms WHERE pax_id=paxids(i);
+  FORALL i IN 1..paxids.COUNT
+    DELETE FROM crs_pax_context WHERE pax_id=paxids(i);
 
   FORALL i IN 1..pnrids.COUNT
     DELETE FROM pnr_addrs WHERE pnr_id=pnrids(i);
