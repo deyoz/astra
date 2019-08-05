@@ -6600,7 +6600,7 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
         {
           if (!req.paxs.empty() && !reqInfo->api_mode)
           {
-            //#define SVC_AVAILABILITY_SYNC_MODE
+//#define SVC_AVAILABILITY_SYNC_MODE
 #ifndef SVC_AVAILABILITY_SYNC_MODE
             if(data.needSync()) {
               if (data.httpWasSent)
