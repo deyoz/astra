@@ -873,7 +873,7 @@ void TMItem::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
         << info.TlgElemIdToElem(etAirline, m_flight.airline)
         << setw(3) << setfill('0') << m_flight.flt_no
         << (m_flight.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, m_flight.suffix))
-        << info.TlgElemIdToElem(etSubcls, m_flight.subcls) //!!!vlad при апгрейде будем брать NVL(pax.subclass,pax_grp.class) mark_subcls !
+        << info.TlgElemIdToElem(etSubcls, m_flight.subcls) //при апгрейде будем брать NVL(pax.subclass,pax_grp.class) mark_subcls !
         << setw(2) << setfill('0') << m_flight.scd_day_local
         << info.TlgElemIdToElem(etAirp, m_flight.airp_dep)
         << info.TlgElemIdToElem(etAirp, m_flight.airp_arv);

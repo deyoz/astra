@@ -544,7 +544,7 @@ class TPrnTagStore {
                 pr_bp_print(false),
                 pr_bi_print(false)
             {}
-            void Init(TGrpInfo &grp_info, int apax_id, TTagLang &tag_lang);
+            void Init(const TGrpInfo &grp_info, int apax_id, TTagLang &tag_lang);
         };
         TPaxInfo paxInfo;
 

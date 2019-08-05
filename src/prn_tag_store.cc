@@ -1063,7 +1063,7 @@ void TPrnTagStore::TBrdInfo::Init(int point_id)
     }
 }
 
-void TPrnTagStore::TPaxInfo::Init(TGrpInfo &grp_info, int apax_id, TTagLang &tag_lang)
+void TPrnTagStore::TPaxInfo::Init(const TGrpInfo &grp_info, int apax_id, TTagLang &tag_lang)
 {
     if(apax_id == NoExists) {
         LogTrace(TRACE3) << "Fake pax_id detected!";
