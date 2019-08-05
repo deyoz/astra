@@ -161,12 +161,12 @@ void PassengerSearchResult::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysRe
     ZamarException(STR_INTERNAL_ERROR, "reqNode == nullptr", __func__);
 
   AstraLocale::OutputLang lang("", {AstraLocale::OutputLang::OnlyTrueIataCodes});
-  
+
   // sessionId
   sessionId = NodeAsString("sessionId", reqNode);
   if (sessionId.empty())
     ZamarException(STR_INCORRECT_DATA_IN_XML, "Empty <sessionId>", __func__);
-  
+
   // bcbp or paxId
   bool isBoardingPass = false;
   int reg_no = NoExists;
@@ -226,7 +226,7 @@ void PassengerSearchResult::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysRe
     ss << grp_id;
     ZamarException(STR_INTERNAL_ERROR, ss.str(), __func__);
   }
-  
+
   // point
   if (NoExists == point_id)
     point_id = grp_item.point_dep;
@@ -252,7 +252,7 @@ void PassengerSearchResult::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysRe
   flightCheckinStage = TTripStages(point_id).getStage( stCheckIn );
   // pnr
   pnrs.getByPaxIdFast(pax_id);
-  
+
   // baggageTags
   GetTagsByPool(grp_id, pax_item.bag_pool_num, bagTagsExtended, false);
   if (type == ZamarType::SBDO)
@@ -821,7 +821,7 @@ void ZamarBagTag::toDB_activated(xmlNodePtr reqNode, xmlNodePtr externalSysResNo
 
   if (!tagNumber_)
     ZamarException(STR_INTERNAL_ERROR, "No tag number", __func__);
-  
+
   RemoveNode(GetNode("TCkinSavePax", reqNode));
   xmlNodePtr emulReqNode=NewTextChild(reqNode, "TCkinSavePax");
 
@@ -848,15 +848,15 @@ void ZamarBagTag::toDB_deactivated(xmlNodePtr reqNode, xmlNodePtr externalSysRes
   {
     RemoveNode(GetNode("TCkinSavePax", reqNode));
     xmlNodePtr emulReqNode=NewTextChild(reqNode, "TCkinSavePax");
-  
+
     // удаляем из активированных=зарегистрированных
     createEmulDocForSBDO(pax_id_,
                          tagNumber_.get(),
                          boost::none,
                          emulReqNode);
-  
+
     CheckInInterface::SavePax(emulReqNode, externalSysResNode, nullptr);
-  
+
     if (isDoomedToWait())
       throw FinishProcess();
   }
@@ -927,7 +927,7 @@ void ZamarBagTag::Deactivate(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, 
 
   if (activated_ and not force)
     ZamarException(STR_BAGGAGE_DEL_NOT_ALLOWED, tagNumber(), __func__);
-  
+
   toDB_deactivated(reqNode, externalSysResNode);
   activated_ = false;
   deactivated_ = true;
@@ -1125,7 +1125,7 @@ void ZamarBaggageTagRevoke::fromXML(xmlNodePtr reqNode, xmlNodePtr externalSysRe
   session_id_ = NodeAsString("sessionId", reqNode);
   if (session_id_.empty())
     ZamarException(STR_INCORRECT_DATA_IN_XML, "Empty <sessionId>", __func__);
-  
+
   bool force = static_cast<bool>(GetNode("force", reqNode));
 
   tag_.fromXML(reqNode, ZamarActionType::REVOKE);

@@ -5237,7 +5237,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 if (p->remsExists)
                 {
                     LogTrace(TRACE3) << "1 ant p->fqts.size=" << p->fqts.size();
-                  CheckIn::SavePaxRem(pax_id, p->rems);                  
+                  CheckIn::SavePaxRem(pax_id, p->rems);
                   CheckIn::SavePaxFQT(pax_id, p->fqts);
                 }
 
@@ -6597,7 +6597,7 @@ void CheckInInterface::AfterSaveAction(CheckIn::TAfterSaveInfoData& data)
         {
           if (!req.paxs.empty() && !reqInfo->api_mode)
           {
-            //#define SVC_AVAILABILITY_SYNC_MODE
+//#define SVC_AVAILABILITY_SYNC_MODE
 #ifndef SVC_AVAILABILITY_SYNC_MODE
             if(data.needSync()) {
               if (data.httpWasSent)
