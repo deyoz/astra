@@ -18,8 +18,10 @@ using namespace SALONS2;
 enum TSeatStep { sLeft, sRight, sUp, sDown };
 enum TWhere { sLeftRight, sUpDown, sEveryWhere };
 enum TSeatsType { stSeat, stReseat, stDropseat };
-enum TChangeLayerFlags { flWaitList, flQuestionReseat, flSetPayLayer, flCheckPayLayer };
-enum TChangeLayerProcFlag { clNotPaySeat, clPaySeatSet, clPaySeatCheck };
+enum TChangeLayerFlags { flWaitList, flQuestionReseat, flSetPayLayer, flSyncCabinClass };
+enum TChangeLayerProcFlag { procPaySeatSet,
+                            procWaitList, /*признак того, что пересадка идет с ЛО*/
+                            procSyncCabinClass };
 
 /* алгоритм рассадки пассажиров
        sdUpDown_Row - сверху вниз в ряд
@@ -61,8 +63,8 @@ class TCounters {
 
 struct TDefaults {
   ASTRA::TCompLayerType grp_status;
-  std::string pers_type;
-  std::string clname;
+  ASTRA::TPerson pers_type;
+  std::string cabin_clname;
   std::string placeName;
   std::string seat_descr;
   std::string wl_type;
@@ -78,8 +80,8 @@ struct TDefaults {
   bool pr_down;
   TDefaults() {
     grp_status = ASTRA::cltCheckin;
-    pers_type = EncodePerson( ASTRA::adult );
-    clname = EncodeClass( ASTRA::Y );
+    pers_type = ASTRA::adult;
+    cabin_clname = EncodeClass( ASTRA::Y );
     countPlace = 1;
     isSeat = true;
     bag_weight = 0;
@@ -186,7 +188,7 @@ struct TPassenger {
     std::string maxRem;
     std::string placeRem; /* 'NSSA', 'NSSW', 'NSSB' и т. д. */
     bool prSmoke;
-    std::string clname;
+    std::string cabin_clname;
     //ASTRA::TCompLayerType layer; // статус пассажира предв. рассадка, бронь, ...
     ASTRA::TCompLayerType grp_status; // статус группы Т - транзит ...
     int priority;
@@ -241,7 +243,6 @@ struct TPassenger {
     void get_remarks( std::vector<std::string> &vrems );
     bool isRemark( std::string code );
     bool is_valid_seats( const std::vector<SALONS2::TPlace> &places );
-    void build(xmlNodePtr pNode, const TDefaults& def, TComplexBagExcessNodeList &excessNodeList);
     std::string toString() const {
       std::ostringstream buf;
       buf << std::fixed << std::setprecision(2);
@@ -287,8 +288,8 @@ struct TPassenger {
       if ( prSmoke ) {
         buf << "prSmoke,";
       }
-      if ( !clname.empty() ) {
-        buf << "clname=" << clname << ",";
+      if ( !cabin_clname.empty() ) {
+        buf << "cabin_clname=" << cabin_clname << ",";
       }
       buf << "grp_status=" << EncodeCompLayerType(grp_status) << ",";
       if ( priority != 0 ) {
@@ -375,7 +376,7 @@ class TPassengers {
   public:
     std::map<std::string, int> remarks;
     TCounters counters;
-    std::string clname;   // класс с которым мы работаем
+    std::string cabin_clname;   // класс с которым мы работаем
     bool KTube;
     bool KWindow;
     bool UseSmoke;
@@ -393,7 +394,6 @@ class TPassengers {
     void copyFrom( VPassengers &npass );
     void SetCountersForPass( TPassenger  &pass );
     bool existsNoSeats();
-    void Build( xmlNodePtr passNode );
     void sortByIndex();
     void operator = (TPassengers &items);
     bool withBaby();
@@ -473,15 +473,14 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
                       TPassengers &passengers,
                       SALONS2::TAutoSeats &seats );
 bool ChangeLayer( const SALONS2::TSalonList &salonList, ASTRA::TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
-                  std::string first_xname, std::string first_yname, TSeatsType seat_type, TChangeLayerProcFlag seatFlag,
-                  bool waitlist,
+                  std::string first_xname, std::string first_yname, TSeatsType seat_type,
+                  const BitSet<TChangeLayerProcFlag> &procFlags,
                   const std::string& whence );
 void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, TSeatRanges &seats,
                          int pax_id, int point_dep, int point_arv, TDateTime time_create );
-bool GetPassengersForWaitList( int point_id, TPassengers &p );
 TSeatAlgoParams GetSeatAlgo(TQuery &Qry, std::string airline, int flt_no, std::string airp_dep);
 bool IsSubClsRem( const std::string &airline, const std::string &subclass, std::string &rem );
-  bool isCheckinWOChoiceSeats( int point_id );
+bool isCheckinWOChoiceSeats( int point_id );
 
 extern TPassengers Passengers;
 } // end namespace SEATS2

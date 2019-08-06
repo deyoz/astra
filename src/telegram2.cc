@@ -873,7 +873,7 @@ void TMItem::ToTlg(TypeB::TDetailCreateInfo &info, vector<string> &body)
         << info.TlgElemIdToElem(etAirline, m_flight.airline)
         << setw(3) << setfill('0') << m_flight.flt_no
         << (m_flight.suffix.empty() ? "" : info.TlgElemIdToElem(etSuffix, m_flight.suffix))
-        << info.TlgElemIdToElem(etSubcls, m_flight.subcls)
+        << info.TlgElemIdToElem(etSubcls, m_flight.subcls) //Ø‡® †Ø£‡•©§• °„§•¨ °‡†‚Ï NVL(pax.subclass,pax_grp.class) mark_subcls !
         << setw(2) << setfill('0') << m_flight.scd_day_local
         << info.TlgElemIdToElem(etAirp, m_flight.airp_dep)
         << info.TlgElemIdToElem(etAirp, m_flight.airp_arv);
@@ -1778,7 +1778,7 @@ namespace PRL_SPACE {
             "    pax.pax_id, "
             "    pax.grp_id, "
             "    pax.bag_pool_num, "
-            "    NVL(pax.subclass,pax_grp.class) subclass, "
+            "    nvl(nvl(pax.cabin_subclass, pax.subclass), nvl(pax.cabin_class, pax_grp.class)) subclass, "
             "    pax_grp.status grp_status, "
             "    pax.is_female, "
             "    pax.pers_type, "
@@ -1799,10 +1799,10 @@ namespace PRL_SPACE {
             "    pax_grp.grp_id=pax.grp_id AND ";
         if(PRLOptions and PRLOptions->rbd) {
             SQLText +=
-                "   NVL(pax.subclass,pax_grp.class) = :class and ";
+                "   nvl(nvl(pax.cabin_subclass, pax.subclass), nvl(pax.cabin_class, pax_grp.class)) = :class and ";
         } else {
             SQLText +=
-                "    pax_grp.class_grp = cls_grp.id(+) AND "
+                "    nvl(pax.cabin_class_grp, pax_grp.class_grp) = cls_grp.id(+) AND "
                 "    cls_grp.code = :class and ";
         }
         if((PRLOptions and PRLOptions->pax_state == "CKIN") or info.get_tlg_type() == "LCI")
@@ -2138,21 +2138,21 @@ namespace PRL_SPACE {
             "   ( "
             "SELECT "
             "   pax_grp.point_arv, "
-            "   SUM(DECODE(pax_grp.class, 'è', DECODE(seats,0,0,1), 0)) f, "
-            "   SUM(DECODE(pax_grp.class, 'Å', DECODE(seats,0,0,1), 0)) c, "
-            "   SUM(DECODE(pax_grp.class, 'ù', DECODE(seats,0,0,1), 0)) y, "
+            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class), 'è', DECODE(seats,0,0,1), 0)) f, "
+            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class), 'Å', DECODE(seats,0,0,1), 0)) c, "
+            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class), 'ù', DECODE(seats,0,0,1), 0)) y, "
             "   SUM(DECODE(pax.pers_type, 'Çá', 1, 0)) adult, "
             "   SUM(DECODE(pax.pers_type, 'êÅ', 1, 0)) child, "
             "   SUM(DECODE(pax.pers_type, 'êå', 1, 0)) baby, "
-            "   SUM(DECODE(pax_grp.class||pax.pers_type, 'èêÅ', 1, 0)) f_child, "
-            "   SUM(DECODE(pax_grp.class||pax.pers_type, 'èêå', 1, 0)) f_baby, "
-            "   SUM(DECODE(pax_grp.class||pax.pers_type, 'ÅêÅ', 1, 0)) c_child, "
-            "   SUM(DECODE(pax_grp.class||pax.pers_type, 'Åêå', 1, 0)) c_baby, "
-            "   SUM(DECODE(pax_grp.class||pax.pers_type, 'ùêÅ', 1, 0)) y_child, "
-            "   SUM(DECODE(pax_grp.class||pax.pers_type, 'ùêå', 1, 0)) y_baby, "
-            "   SUM(DECODE(pax_grp.class, 'è', decode(SIGN(1-pax.seats), -1, 1, 0), 0)) f_add_pax, "
-            "   SUM(DECODE(pax_grp.class, 'Å', decode(SIGN(1-pax.seats), -1, 1, 0), 0)) c_add_pax, "
-            "   SUM(DECODE(pax_grp.class, 'ù', decode(SIGN(1-pax.seats), -1, 1, 0), 0)) y_add_pax "
+            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||pax.pers_type, 'èêÅ', 1, 0)) f_child, "
+            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||pax.pers_type, 'èêå', 1, 0)) f_baby, "
+            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||pax.pers_type, 'ÅêÅ', 1, 0)) c_child, "
+            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||pax.pers_type, 'Åêå', 1, 0)) c_baby, "
+            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||pax.pers_type, 'ùêÅ', 1, 0)) y_child, "
+            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||pax.pers_type, 'ùêå', 1, 0)) y_baby, "
+            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class), 'è', decode(SIGN(1-pax.seats), -1, 1, 0), 0)) f_add_pax, "
+            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class), 'Å', decode(SIGN(1-pax.seats), -1, 1, 0), 0)) c_add_pax, "
+            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class), 'ù', decode(SIGN(1-pax.seats), -1, 1, 0), 0)) y_add_pax "
             "FROM "
             "   pax, pax_grp "
             "WHERE "
@@ -2171,12 +2171,12 @@ namespace PRL_SPACE {
             "   SUM(DECODE(bag2.pr_cabin, 0, amount, 0)) bag_amount, "
             "   SUM(DECODE(bag2.pr_cabin, 0, weight, 0)) bag_weight, "
             "   SUM(DECODE(bag2.pr_cabin, 0, 0, weight)) rk_weight, "
-            "   SUM(DECODE(pax_grp.class||bag2.pr_cabin, 'è0', weight, 0)) f_bag_weight, "
-            "   SUM(DECODE(pax_grp.class||bag2.pr_cabin, 'è1', weight, 0)) f_rk_weight, "
-            "   SUM(DECODE(pax_grp.class||bag2.pr_cabin, 'Å0', weight, 0)) c_bag_weight, "
-            "   SUM(DECODE(pax_grp.class||bag2.pr_cabin, 'Å1', weight, 0)) c_rk_weight, "
-            "   SUM(DECODE(pax_grp.class||bag2.pr_cabin, 'ù0', weight, 0)) y_bag_weight, "
-            "   SUM(DECODE(pax_grp.class||bag2.pr_cabin, 'ù1', weight, 0)) y_rk_weight "
+            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||bag2.pr_cabin, 'è0', weight, 0)) f_bag_weight, "
+            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||bag2.pr_cabin, 'è1', weight, 0)) f_rk_weight, "
+            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||bag2.pr_cabin, 'Å0', weight, 0)) c_bag_weight, "
+            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||bag2.pr_cabin, 'Å1', weight, 0)) c_rk_weight, "
+            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||bag2.pr_cabin, 'ù0', weight, 0)) y_bag_weight, "
+            "   SUM(DECODE(nvl(pax.cabin_class, pax_grp.class)||bag2.pr_cabin, 'ù1', weight, 0)) y_rk_weight "
             "FROM "
             "   pax_grp, bag2, pax "
             "WHERE "
@@ -2307,7 +2307,7 @@ namespace PRL_SPACE {
                 "   pax "
                 "WHERE "
                 "   :point_id = pax_grp.point_dep and "
-                "   :class = pax_grp.class and "
+                "   :class = nvl(pax.cabin_class, pax_grp.class) and "
                 "   pax_grp.status NOT IN ('E') AND "
                 "   pax_grp.grp_id = pax.grp_id ",
                 QryParams
@@ -3563,7 +3563,7 @@ void TPSM::get(TypeB::TDetailCreateInfo &info)
         "   pax.surname, "
         "   pax.name, "
         "   pax_grp.airp_arv, "
-        "   pax_grp.class "
+        "   nvl(pax.cabin_class, pax_grp.class) class "
         "from "
         "   pax, "
         "   pax_grp "
@@ -3638,7 +3638,7 @@ void TPIL::get(TypeB::TDetailCreateInfo &info)
         "   pax.surname, "
         "   pax.name, "
         "   pax_grp.airp_arv, "
-        "   pax_grp.class "
+        "   nvl(pax.cabin_class, pax_grp.class) class "
         "from "
         "   pax, "
         "   pax_grp "
@@ -4942,7 +4942,7 @@ void TFTLBody::get(TypeB::TDetailCreateInfo &info)
         "    pax.pax_id, "
         "    pax.surname, "
         "    pax.name, "
-        "    NVL(pax.subclass,pax_grp.class) subclass "
+        "    nvl(nvl(pax.cabin_subclass, pax.subclass), nvl(pax.cabin_class, pax_grp.class)) subclass "
         "FROM "
         "    pax_grp, "
         "    pax, "
@@ -4955,14 +4955,14 @@ void TFTLBody::get(TypeB::TDetailCreateInfo &info)
         "    crs_pax.pr_del(+)=0 AND "
         "    crs_pax.pnr_id=crs_pnr.pnr_id(+) AND "
         "    crs_pnr.system(+) = 'CRS' and "
-        "    pax_grp.class=classes.code AND "
+        "    nvl(pax.cabin_class, pax_grp.class)=classes.code AND "
         "    pax_grp.point_dep=:point_id AND "
         "    pax_grp.status NOT IN ('E') AND "
         "    pr_brd IS NOT NULL "
         "ORDER BY "
         "    pax_grp.airp_arv, "
         "    classes.priority, "
-        "    NVL(pax.subclass,pax_grp.class), "
+        "    nvl(nvl(pax.cabin_subclass, pax.subclass), nvl(pax.cabin_class, pax_grp.class)), "
         "    pax.surname, "
         "    pax.name ";
     Qry.CreateVariable("point_id", otInteger, info.point_id);
@@ -5075,7 +5075,7 @@ void TTPLDest::GetPaxList(TypeB::TDetailCreateInfo &info, vector<TTlgCompLayer> 
             "   pax_grp.point_dep = :point_id and "
             "   pax_grp.airp_arv = :airp and "
             "   pax_grp.grp_id=pax.grp_id AND "
-            "   pax_grp.class_grp = cls_grp.id(+) AND "
+            "   nvl(pax.cabin_class_grp, pax_grp.class_grp) = cls_grp.id(+) AND "
             "   cls_grp.code = :class and "
             "   pax.pr_brd = 1 and "
             "   pax.pax_id = crs_pax.pax_id(+) and "
@@ -5181,7 +5181,7 @@ void TASLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
         "    pax_grp.status NOT IN ('E') AND "
         "    pax_grp.airp_arv = :airp and "
         "    pax_grp.grp_id=pax.grp_id AND "
-        "    pax_grp.class_grp = cls_grp.id(+) AND "
+        "    nvl(pax.cabin_class_grp, pax_grp.class_grp) = cls_grp.id(+) AND "
         "    cls_grp.code = :class and "
         "    pax.pr_brd = 1 and "
         "    pax.seats>0 and "
@@ -5298,10 +5298,10 @@ void TETLDest::GetPaxList(TypeB::TDetailCreateInfo &info,vector<TTlgCompLayer> &
         "    pax_grp.grp_id=pax.grp_id AND ";
     if(ETLOptions and ETLOptions->rbd) {
         SQLText +=
-            "   NVL(pax.subclass,pax_grp.class) = :class and ";
+            "   nvl(nvl(pax.cabin_subclass, pax.subclass), nvl(pax.cabin_class, pax_grp.class)) = :class and ";
     } else {
         SQLText +=
-            "    pax_grp.class_grp = cls_grp.id(+) AND "
+            "    nvl(pax.cabin_class_grp, pax_grp.class_grp) = cls_grp.id(+) AND "
             "    cls_grp.code = :class and ";
     }
     SQLText +=
@@ -6118,9 +6118,9 @@ void TLDMDests::get(TypeB::TDetailCreateInfo &info)
         "FROM points, "
         "     (SELECT point_arv, "
         "             SUM(ckin.get_rkWeight2(pax_grp.grp_id, pax.pax_id, pax.bag_pool_num, rownum)) rk_weight, "
-        "             SUM(DECODE(class,'è',DECODE(seats,0,0,1),0)) AS f, "
-        "             SUM(DECODE(class,'Å',DECODE(seats,0,0,1),0)) AS c, "
-        "             SUM(DECODE(class,'ù',DECODE(seats,0,0,1),0)) AS y, "
+        "             SUM(DECODE(nvl(pax.cabin_class, pax_grp.class),'è',DECODE(seats,0,0,1),0)) AS f, "
+        "             SUM(DECODE(nvl(pax.cabin_class, pax_grp.class),'Å',DECODE(seats,0,0,1),0)) AS c, "
+        "             SUM(DECODE(nvl(pax.cabin_class, pax_grp.class),'ù',DECODE(seats,0,0,1),0)) AS y, "
         "             SUM(DECODE(pers_type,'Çá',1,0)) AS adl, "
         "             SUM(DECODE(pers_type,'êÅ',1,0)) AS chd, "
         "             SUM(DECODE(pers_type,'êå',1,0)) AS inf, "
@@ -7249,10 +7249,10 @@ void TLCIPaxTotals::process()
                     category = BCAT_BT;
                 }
             } else {
-                if(pax->cl == "è") {
+                if(pax->cabin_cl == "è") {
                     category = BCAT_BF;
                 } else
-                if(pax->cl == "Å") {
+                if(pax->cabin_cl == "Å") {
                     category = BCAT_BC;
                 } else /*if(pax->cl == "ù")*/ {
                     category = BCAT_BY;
@@ -7267,16 +7267,16 @@ void TLCIPaxTotals::process()
     pax_bag.get(pax->grp_id, bag_pool_num);
     items[idx].rk_weight += pax_bag.rkWeight;
 
-    pax_tot_by_cls[pax->cl].append(getGender(pax->pax_id));
+    pax_tot_by_cls[pax->cabin_cl].append(getGender(pax->pax_id));
 
-    items[idx].cls_totals.items[pax->cl].pax_size++;
+    items[idx].cls_totals.items[pax->cabin_cl].pax_size++;
 
     if(isExtraCrew(pax->crew_type)) {
-        items[idx].cls_totals.extra_items[pax->cl].bag_amount += get_bag_totals(bag_info).first;
-        items[idx].cls_totals.extra_items[pax->cl].bag_weight += get_bag_totals(bag_info).second;
+        items[idx].cls_totals.extra_items[pax->cabin_cl].bag_amount += get_bag_totals(bag_info).first;
+        items[idx].cls_totals.extra_items[pax->cabin_cl].bag_weight += get_bag_totals(bag_info).second;
     } else {
-        items[idx].cls_totals.items[pax->cl].bag_amount += get_bag_totals(bag_info).first;
-        items[idx].cls_totals.items[pax->cl].bag_weight += get_bag_totals(bag_info).second;
+        items[idx].cls_totals.items[pax->cabin_cl].bag_amount += get_bag_totals(bag_info).first;
+        items[idx].cls_totals.items[pax->cabin_cl].bag_weight += get_bag_totals(bag_info).second;
     }
 }
 
@@ -7492,7 +7492,7 @@ void TSeatPlan::fill_seats(TypeB::TDetailCreateInfo &info, const T &inserter)
         TCachedQuery Qry(
                 "select "
                 "   pax.*, "
-                "   pax_grp.class, "
+                "   nvl(pax.cabin_class, pax_grp.class) class, "
                 "   pax_grp.point_arv "
                 "from "
                 "   pax, "
@@ -8015,7 +8015,7 @@ void TIDM::append_evt_transit(
                 pax_item.name.name = pax.name;
                 pax_item.name.surname = pax.surname;
                 pax_item.priority = priority;
-                pax_item.cls = info.TlgElemIdToElem(etClass, pax.cl);
+                pax_item.cls = info.TlgElemIdToElem(etClass, pax.cabin_cl);
 
                 TTripInfo trip_info;
                 trip_info.getByPointId(pax.point_arv);
@@ -8313,7 +8313,7 @@ void TDestList<T>::get_subcls_lst(TypeB::TDetailCreateInfo &info, list<string> &
         QParams QryParams;
         QryParams << QParam("point_id", otInteger, info.point_id);
         TCachedQuery Qry(
-                "select distinct nvl(pax.subclass, pax_grp.class) subcls from pax, pax_grp "
+                "select distinct nvl(nvl(pax.cabin_subclass, pax.subclass), nvl(pax.cabin_class, pax_grp.class)) subcls from pax, pax_grp "
                 "where pax_grp.point_dep = :point_id and pax_grp.grp_id = pax.grp_id and "
                 "   pax_grp.status NOT IN ('E') ",
                 QryParams);
@@ -8337,8 +8337,9 @@ void TDestList<T>::get_subcls_lst(TypeB::TDetailCreateInfo &info, list<string> &
         QryParams << QParam("point_id", otInteger, info.point_id);
         TCachedQuery Qry(
                 "SELECT DISTINCT cls_grp.priority, cls_grp.code AS class "
-                "FROM pax_grp,cls_grp "
-                "WHERE pax_grp.class_grp=cls_grp.id AND "
+                "FROM pax_grp,pax,cls_grp "
+                "WHERE nvl(pax.cabin_class_grp, pax_grp.class_grp)=cls_grp.id AND "
+                "      pax_grp.grp_id = pax.grp_id and "
                 "      pax_grp.point_dep = :point_id AND pax_grp.bag_refuse=0 ",
                 QryParams);
         Qry.get().Execute();
@@ -8799,8 +8800,8 @@ struct TCKINPaxInfo {
                 "    pax.name, "
                 "    pax.seats, "
                 "    pax.pers_type, "
-                "    pax_grp.class cls, "
-                "    nvl(pax.subclass, pax_grp.class) subclass, "
+                "    nvl(pax.cabin_class, pax_grp.class) cls, "
+                "    nvl(nvl(pax.cabin_subclass, pax.subclass), nvl(pax.cabin_class, pax_grp.class)) subclass, "
                 "    pax_grp.airp_arv target, "
                 "    pax.pr_brd, "
                 "    pax_grp.status "
@@ -10150,7 +10151,7 @@ namespace CKIN_REPORT {
                  pax.point_dep == report.point_id and
                  pax_map_coord.point_dep == routeItem.point_id)
           ) {
-            report.route[routeIdx][routeItem.airp][pax.cl].tranzit.append(pax);
+            report.route[routeIdx][routeItem.airp][pax.cabin_cl].tranzit.append(pax);
             report.pax_list.insert(pax);
         }
     }
@@ -10168,7 +10169,7 @@ namespace CKIN_REPORT {
                 pax.point_dep == report.point_id and
                 pax.point_arv == routeItem.point_id
           ) {
-            report.route[routeIdx][routeItem.airp][pax.cl].self_checkin.append(pax);
+            report.route[routeIdx][routeItem.airp][pax.cabin_cl].self_checkin.append(pax);
             report.pax_list.insert(pax);
         }
     }
@@ -10186,7 +10187,7 @@ namespace CKIN_REPORT {
                 pax.point_dep == report.point_id and
                 pax.point_arv == routeItem.point_id
           ) {
-            report.route[routeIdx][routeItem.airp][pax.cl].goshow.append(pax);
+            report.route[routeIdx][routeItem.airp][pax.cabin_cl].goshow.append(pax);
             report.pax_list.insert(pax);
         }
     }
@@ -10425,7 +10426,7 @@ namespace CKIN_REPORT {
         LogTrace(TRACE5) << "get_chd pax_id: " << pax.pax_id;
 
         ClassesPersWeight cpw;
-        pwr.weight(pax.cl, string(), cpw);
+        pwr.weight(pax.cabin_cl, string(), cpw);
 
         TChilds::const_iterator iChd = chd.find(pax.pax_id);
 
@@ -10452,7 +10453,7 @@ namespace CKIN_REPORT {
         for(vector<TInfantsItem>::const_iterator i = inf.items.begin(); i != inf.items.end(); i++) {
             if(i->parent_pax_id == pax.pax_id) {
                 ClassesPersWeight cpw;
-                pwr.weight(pax.cl, string(), cpw);
+                pwr.weight(pax.cabin_cl, string(), cpw);
                 result << "1/" << cpw.infant << "/" << i->name;
             }
         }
@@ -10636,7 +10637,7 @@ namespace CKIN_REPORT {
             NewTextChild(itemNode, "del");
             NewTextChild(itemNode, "grp");
             NewTextChild(itemNode, "sn", get_seats(checkinPaxsSeats[iPax->pax_id]));
-            NewTextChild(itemNode, "clss", iPax->cl);
+            NewTextChild(itemNode, "clss", iPax->cabin_cl);
             NewTextChild(itemNode, "ures");
             NewTextChild(itemNode, "inf", get_inf(inf, *iPax, pwr));
             NewTextChild(itemNode, "chd", get_chd(childs, *iPax, pwr));

@@ -663,7 +663,7 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
         if (PNRsList.size()>1)
         {
-          int priority=PNRs.calcStagePriority(PNRs.getFirstPnrId());
+          int priority=PNRs.calcStagePriority(PNRs.getFirstSegId());
           ProgTrace(TRACE5, "%s: pass=%d priority=%d ", __FUNCTION__, pass, priority);
 
           if (pass!=priority) throw nextPNRs();
@@ -832,8 +832,10 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
           "       crs_pax.seat_xname, crs_pax.seat_yname, crs_pax.seats AS crs_seats, crs_pnr.point_id AS point_id_tlg, "
           "       salons.get_seat_no(pax.pax_id,pax.seats,NULL,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
           "       DECODE(pax.pax_id,NULL,crs_pax.seats,pax.seats) AS seats, "
-          "       DECODE(pax_grp.class,NULL,crs_pnr.class,pax_grp.class) AS class, "
-          "       DECODE(pax.subclass,NULL,crs_pnr.subclass,pax.subclass) AS subclass, "
+          "       CASE WHEN pax.pax_id IS NULL THEN "+CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" ELSE pax_grp.class END AS class, "
+          "       CASE WHEN pax.pax_id IS NULL THEN "+CheckIn::TSimplePaxItem::origSubclassFromCrsSQL()+" ELSE pax.subclass END AS subclass, "
+          "       CASE WHEN pax.pax_id IS NULL THEN crs_pnr.class ELSE NVL(pax.cabin_class, pax_grp.class) END AS cabin_class, "
+          "       CASE WHEN pax.pax_id IS NULL THEN crs_pnr.subclass ELSE NVL(pax.cabin_subclass, pax.subclass) END AS cabin_subclass, "
           "       DECODE(pax.pax_id,NULL,crs_pnr.airp_arv,pax_grp.airp_arv) AS airp_arv, "
           "       crs_pnr.status AS pnr_status, "
           "       crs_pnr.tid AS crs_pnr_tid, "
@@ -887,8 +889,10 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
           pax.seat_status=seat_status(DecodeCompLayerType(SeatQry.GetVariableAsString("layer_type")));
           pax.crs_seat_no=SeatQry.GetVariableAsString("crs_seat_no");
           pax.seats = Qry.FieldAsInteger( "seats" );
-          pax.pass_class = Qry.FieldAsString( "class" );
-          pax.pass_subclass = Qry.FieldAsString( "subclass" );
+          pax.orig_class = Qry.FieldAsString( "class" );
+          pax.orig_subclass = Qry.FieldAsString( "subclass" );
+          pax.cabin_class = Qry.FieldAsString( "cabin_class" );
+          pax.cabin_subclass = Qry.FieldAsString( "cabin_subclass" );
           pax.context.fromDB(pax.crs_pax_id);
           if ( !Qry.FieldIsNULL( "pax_id" ) )
           {
@@ -1009,8 +1013,10 @@ void TWebGrp::addPnr(int pnr_id, bool pr_throw, bool afterSave)
         pax.name = Qry.FieldAsString("name");
         pax.pers_type_extended = EncodePerson(adult);
         pax.seats = 1;
-        pax.pass_class = Qry.FieldAsString( "class" );
-        pax.pass_subclass = Qry.FieldAsString( "subclass" );
+        pax.orig_class = Qry.FieldAsString( "class" );
+        pax.orig_subclass = Qry.FieldAsString( "subclass" );
+        pax.cabin_class = Qry.FieldAsString( "class" );
+        pax.cabin_subclass = Qry.FieldAsString( "subclass" );
 
         if (afterSave)
         {
@@ -1205,7 +1211,7 @@ void TWebPax::toXML(xmlNodePtr paxParentNode, const TRemGrp& outputRemGrp) const
 
   xmlNodePtr paxNode = NewTextChild( paxParentNode, "pax" );
 
-  pnr_addrs.toXML(paxNode, AstraLocale::OutputLang());
+  pnr_addrs.toWebXML(paxNode, AstraLocale::OutputLang());
 
   NewTextChild( paxNode, "pax_no", pax_no, NoExists );
   NewTextChild( paxNode, "crs_pnr_id", crs_pnr_id );
@@ -1217,8 +1223,9 @@ void TWebPax::toXML(xmlNodePtr paxParentNode, const TRemGrp& outputRemGrp) const
   if ( doc.birth_date != NoExists )
     NewTextChild( paxNode, "birth_date", DateTimeToStr( doc.birth_date, ServerFormatDateTimeAsString ) );
   NewTextChild( paxNode, "pers_type", ElemIdToPrefferedElem(etExtendedPersType, pers_type_extended, efmtCodeNative, LANG_RU) ); //ElemIdToCodeNative возможно в будущем
-  NewTextChild( paxNode, "subclass", ElemIdToCodeNative(etSubcls, pass_subclass) );
-  NewTextChild( paxNode, "class", ElemIdToCodeNative(etClass, pass_class) );
+  NewTextChild( paxNode, "subclass", ElemIdToCodeNative(etSubcls, orig_subclass) );
+  NewTextChild( paxNode, "class", ElemIdToCodeNative(etClass, orig_class) );
+  NewTextChild( paxNode, "cabin_class", ElemIdToCodeNative(etClass, cabin_class) );
   string seat_no_view;
   if ( !seat_no.empty() )
     seat_no_view = seat_no;
@@ -1367,9 +1374,12 @@ bool CreateEmulCkinDocForCHKD(int crs_pax_id,
   Qry.Clear();
   Qry.SQLText=
     "SELECT crs_pnr.pnr_id, "
-    "       crs_pnr.airp_arv, "
-    "       crs_pnr.class, "
-    "       crs_pnr.subclass, "
+    "       crs_pnr.airp_arv, "+
+    CheckIn::TSimplePaxItem::origSubclassFromCrsSQL()+" AS subclass, "+
+    CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" AS class, "
+    "       crs_pnr.subclass AS cabin_subclass, "
+    "       crs_pnr.class AS cabin_class, "
+    "       NULL AS cabin_class_grp, "
     "       crs_pnr.status, "
     "       crs_pax.pax_id, "
     "       crs_pax.surname, "
@@ -2247,12 +2257,6 @@ static void changeLayer(const ProtLayerRequest::SegList& segListReq,
             if (!is_valid_pnr_status(paxRes.pnr_status) ||
                 !is_valid_pax_status(paxListRes.point_id, paxRes.id))
               throw UserException("MSG.PASSENGER.CHECKIN_DENIAL");
-
-            if (!paxListRes.empty() && paxRes.pnr_class!=paxListRes.front().pnr_class)
-              throw EXCEPTIONS::Exception("%s: passengers with different PNR classes (crs_pax_id=%d)", __FUNCTION__, paxRes.id);
-
-            if (!paxListRes.empty() && paxRes.pnr_subclass!=paxListRes.front().pnr_subclass) //!!!потом возможно пересмотреть для multiPNR
-              throw EXCEPTIONS::Exception("%s: passengers with different PNR fare classes (crs_pax_id=%d)", __FUNCTION__, paxRes.id);
 
             if (paxRes.seat_no.empty())
             {

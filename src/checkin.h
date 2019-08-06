@@ -199,7 +199,6 @@ public:
                             const TDateTime scd_out_local,
                             std::vector<CheckIn::TTransferItem> &segs);
 
-  static void SavePaxTransfer(int pax_id, int pax_no, const std::vector<CheckIn::TTransferItem> &trfer, int seg_no);
   static void SaveTransfer(int grp_id, const std::vector<CheckIn::TTransferItem> &trfer,
                            const std::map<int, std::pair<TCkinSegFlts, TTrferSetsInfo> > &trfer_segs,
                            bool pr_unaccomp, int seg_no, TLogLocale& tlocale);
@@ -226,15 +225,6 @@ public:
   static void BuildTransfer(const TTrferRoute &trfer, TTrferRouteType route_type, xmlNodePtr transferNode);
   static void BuildTCkinSegments(int grp_id, xmlNodePtr tckinNode);
   static void LoadTransfer(int grp_id, xmlNodePtr transferNode);
-
-  static void CheckCounters(int point_dep,
-                            int point_arv,
-                            const std::string &cl,
-                            ASTRA::TPaxStatus grp_status,
-                            const TCFG &cfg,
-                            bool free_seating,
-                            int &free,
-                            int &jmp_free);
 
   static bool CheckFQTRem(const CheckIn::TPaxRemItem &rem, CheckIn::TPaxFQTItem &fqt);
   static bool ParseFQTRem(TypeB::TTlgParser &tlg, std::string &rem_text, CheckIn::TPaxFQTItem &fqt);

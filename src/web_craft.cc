@@ -31,20 +31,15 @@ namespace WebCraft {
 
   struct CraftFilter {
     std::pair<int,int> leg;
-    std::string cls;
     CraftFilter( ){}
-    CraftFilter( int point_dep, int point_arv, const std::string &cls ) {
+    CraftFilter( int point_dep, int point_arv ) {
       leg = std::make_pair(point_dep, point_arv);
-      this->cls = cls;
     }
     std::string toString() const {
       std::ostringstream buf;
       buf << "CraftFilter: point_dep=" << leg.first;
       if ( leg.second != ASTRA::NoExists ) {
         buf << ",point_arv=" << leg.second;
-      }
-      if ( !cls.empty() ) {
-        buf << ",class=" + cls;
       }
       return buf.str();
     }
@@ -53,17 +48,17 @@ namespace WebCraft {
   struct WebCraftFilters {
     CraftFilter filterCraft;
     FilterWebSeat filterWebSeat;
-    std::string crs_subclass;
-    WebCraftFilters( int point_id, const std::vector<AstraWeb::TWebPax> &pnr ) {
+    std::string cabin_subclass;
+    WebCraftFilters( int point_id, const std::vector<AstraWeb::TWebPax> &pnr) {
       filterWebSeat.point_id = point_id;
       filterWebSeat.pnr = pnr;
       int point_arv = NoExists;
       for ( vector<TWebPax>::const_iterator ipax=pnr.begin(); ipax!=pnr.end(); ipax++ ) {
-        if ( !ipax->pass_class.empty() ) {
-          filterWebSeat.crs_class = ipax->pass_class;
+        if ( !ipax->cabin_class.empty() && filterWebSeat.cabin_classes.find( ipax->cabin_class ) == filterWebSeat.cabin_classes.end() ) {
+          filterWebSeat.cabin_classes.insert( ipax->cabin_class );
         }
-        if ( !ipax->pass_subclass.empty() ) {
-          crs_subclass = ipax->pass_subclass;
+        if ( !ipax->cabin_subclass.empty() ) {
+          cabin_subclass = ipax->cabin_subclass;
         }
         TPerson p=DecodePerson(ipax->pers_type_extended.c_str());
         filterWebSeat.pr_CHIN=(filterWebSeat.pr_CHIN || p==ASTRA::child || p==ASTRA::baby); //среди типов может быть БГ (CBBG) который приравнивается к взрослому
@@ -71,11 +66,11 @@ namespace WebCraft {
           point_arv = SALONS2::getCrsPaxPointArv( ipax->crs_pax_id, point_id );
         }
       }
-      filterCraft = CraftFilter( point_id, point_arv, filterWebSeat.crs_class );
+      filterCraft = CraftFilter( point_id, point_arv );
     }
     void setPassRem( const std::string airline ) {
       TSublsRems subcls_rems( airline );
-      subcls_rems.IsSubClsRem( crs_subclass, filterWebSeat.pass_rem );
+      subcls_rems.IsSubClsRem( cabin_subclass, filterWebSeat.pass_rem );
     }
     void setPrLat( bool pr_lat ) {
       filterWebSeat.pr_lat = pr_lat;
@@ -143,7 +138,9 @@ namespace WebCraft {
     pax_id = NoExists;
     SeatTariff = seat->SeatTariff;
     rfisc = seat->getRFISC( filterWebSeat.point_id );
-    if ( seat->isplace && !seat->clname.empty() && seat->clname == filterWebSeat.crs_class ) {
+    if ( seat->isplace &&
+         !seat->clname.empty() &&
+         filterWebSeat.cabin_classes.find( seat->clname ) != filterWebSeat.cabin_classes.end() ) {
       layerFromSeats( seat, filterWebSeat );
       if ( pr_free ) { //место свободно
         string seat_subcls = getSubCls( seat->rems );
@@ -180,7 +177,7 @@ namespace WebCraft {
           }
         }
       }
-    } // end if seat->isplace && !seat->clname.empty() && seat->clname == crs_class
+    } // end if ( seat->isplace && !seat->clname.empty() && seat->clname == filterWebSeat.cabin_class )
   }
 
   int TWebPlace::get_seat_status( bool pr_find_free_subcls_place, bool view_craft ) const {
@@ -223,11 +220,15 @@ namespace WebCraft {
     LogTrace(TRACE5) << "WebCraft:" <<__FUNCTION__ << " point_id=" << point_id << ",version=" << version;
     clear();
     WebCraftFilters filters( point_id, pnr );
-    if ( filters.filterCraft.cls.empty() ) {
+    if ( filters.filterWebSeat.cabin_classes.empty() ) {
       throw UserException( "MSG.CLASS.NOT_SET" );
     }
+    if ( version == FIRST_VERSION &&
+         filters.filterWebSeat.cabin_classes.size() > 1 ) {
+      throw EXCEPTIONS::Exception( "more then 1 cabin classes in pnr" );
+    }
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( filters.filterCraft.leg.first, filters.filterCraft.leg.second ),
-                          isCompatibleVersion( ALL_CLASS_CRAFT_VERSION, version )?"":filters.filterCraft.cls, NoExists );
+                          isCompatibleVersion( ALL_CLASS_CRAFT_VERSION, version )?"":(*filters.filterWebSeat.cabin_classes.begin()), NoExists );
     filters.setPassRem( salonList.getAirline() );
     filters.setPrLat( salonList.isCraftLat() );
     LogTrace(TRACE5) << __FUNCTION__ << filters.toString();
@@ -373,7 +374,7 @@ namespace WebCraft {
     xmlNodePtr nodeViewCraft = NewTextChild( resNode, "ViewCraft" );
     ProgTrace( TRACE5, "FreeSubclsExists=%d", webCraft.FreeSubclsExists() );
     if ( isCheckinWOChoiceSeats( point_id ) ) {
-      NewTextChild(nodeViewCraft, "checkin_wo_choice_seats"); //!!!DJEK
+      NewTextChild(nodeViewCraft, "checkin_wo_choice_seats");
     }
 
     webCraft.toXML( nodeViewCraft );
@@ -481,7 +482,7 @@ namespace WebCraft {
     if ( pnr.empty() ) {
       return;
     }
-    WebCraft webCraft( FIRST_VERSION );
+    WebCraft webCraft( ALL_CLASS_CRAFT_VERSION );
     webCraft.Read( point_id, pnr );
     for ( vector<TWebPax>::const_iterator ipax=pnr.begin(); ipax!=pnr.end(); ipax++ ) { // пробег по пассажирам
       LexemaData ld;

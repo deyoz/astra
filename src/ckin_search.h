@@ -29,12 +29,35 @@ class PaxInfoForSearchList : public std::multiset<PaxInfoForSearch>
     void trace() const;
 };
 
+class ClassesList
+{
+  private:
+    std::string cls;
+  public:
+    void add(const std::string& cl);
+    bool noClasses() const { return cls.empty(); }
+    bool moreThanOneClass() const { return cls.size()>1; }
+    bool strictlyOneClass() const { return cls.size()==1; }
+    std::string view() const;
+    std::string getStrictlyOneClass() const;
+
+    bool operator == (const ClassesList &classesList) const
+    {
+      return cls==classesList.cls;
+    }
+};
+
 std::string getSearchPaxSubquery(const ASTRA::TPaxStatus& pax_status,
                                  const bool& return_pnr_ids,
                                  const bool& exclude_checked,
                                  const bool& exclude_deleted,
                                  const bool& select_pad_with_ok,
                                  const std::string& sql_filter);
+
+void getTCkinSearchPaxQuery(TQuery& Qry);
+
+void executeSearchPaxQuery(const int& pnr_id,
+                           TQuery& Qry);
 
 void executeSearchPaxQuery(const int& point_dep,
                            const ASTRA::TPaxStatus& pax_status,

@@ -1024,7 +1024,7 @@ void GetWidePaxInfo(const TAirlines &airlines,
         pax.target=target;
         pax.final_target=final_target;
         pax.setCategory(false, CheckIn::TPaxListItem(), pPrior->second);
-        pax.cl=grp.status!=psCrew?pPrior->second.cl:EncodeClass(Y);
+        pax.cl=grp.status!=psCrew?pPrior->second.orig_cl:EncodeClass(Y);
         pax.subcl=pPrior->second.subcl;
         pax.refused=!pPrior->second.refuse.empty();
         std::list<TPaxNormItem> tmp_norms;

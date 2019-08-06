@@ -12,14 +12,14 @@
 
 namespace AstraWeb
 {
-namespace WebCraft {  
+namespace WebCraft {
   struct FilterWebSeat { // для расчета свойств мест веб регистрации
     int point_id;
     bool pr_lat;
     bool pr_CHIN;
     std::vector<AstraWeb::TWebPax> pnr;
     std::string pass_rem;
-    std::string crs_class;
+    std::set<std::string> cabin_classes;
     FilterWebSeat() {
       pr_lat = true;
       pr_CHIN = false;
@@ -34,11 +34,14 @@ namespace WebCraft {
       if( !pass_rem.empty() ) {
         buf << ",pass_rem=" << pass_rem;
       }
-      buf << ",crs_class=" << crs_class;
+      buf << ",cabin_classes=";
+      for ( const auto& str : cabin_classes ) {
+        buf << " " << str;
+      }
       return buf.str();
     }
   };
-  
+
   class TWebPlace {
     private:
       int x, y;
@@ -57,9 +60,9 @@ namespace WebCraft {
       SALONS2::TSeatTariff SeatTariff;
       SALONS2::TRFISC rfisc;
       std::string getSubCls( const std::vector<SALONS2::TRem> &rems );
-      void layerFromSeats( SALONS2::IPlace &seat, const FilterWebSeat &filterWebSeat );      
-      void propsFromPlace( SALONS2::IPlace &seat, const FilterWebSeat &filterWebSeat );         
-    public:   
+      void layerFromSeats( SALONS2::IPlace &seat, const FilterWebSeat &filterWebSeat );
+      void propsFromPlace( SALONS2::IPlace &seat, const FilterWebSeat &filterWebSeat );
+    public:
       TWebPlace() {
         pr_free = 0;
         pr_CHIN = 0;
@@ -67,10 +70,10 @@ namespace WebCraft {
         layer_type = ASTRA::TCompLayerType::cltUnknown;
         layer_pax_id = ASTRA::NoExists;
         reserv_owner = false;
-      }      
+      }
       TWebPlace( SALONS2::IPlace seat, const FilterWebSeat &filterWebSeat ):TWebPlace() {
         propsFromPlace( seat, filterWebSeat );
-      } 
+      }
       bool isFreeSubcls() const {
         return pr_free == 3;
       }
@@ -85,7 +88,7 @@ namespace WebCraft {
         return pax_id;
       }
       void setPaxId( int pax_id ) {
-         this->pax_id = pax_id; 
+         this->pax_id = pax_id;
       }
       std::string getSeatNo() const {
         return seat_no;
@@ -96,23 +99,23 @@ namespace WebCraft {
 
       std::string getXName() const {
         return xname;
-      }      
+      }
       std::string getYName() const {
         return yname;
-      }         
+      }
       SALONS2::TSeatTariff getTariff() const {
         return SeatTariff;
       }
       void toXML( int version, bool isFreeSubclsSeats, xmlNodePtr placeListNode ) const;
   };
-  
-  typedef std::vector<TWebPlace> TWebPlaces;    
-  
+
+  typedef std::vector<TWebPlace> TWebPlaces;
+
   class TWebPlaceList: public TWebPlaces {
     private:
       int xcount, ycount;
       bool pr_find_free_subcls_place;
-    public:      
+    public:
       TWebPlaceList() {
         xcount = 0;
         ycount = 0;
@@ -124,7 +127,7 @@ namespace WebCraft {
         }
         if ( seat.getY() > ycount ) {
           ycount = seat.getY();
-        }        
+        }
         pr_find_free_subcls_place |= seat.isFreeSubcls();
         push_back( seat );
       }
@@ -132,13 +135,13 @@ namespace WebCraft {
         return pr_find_free_subcls_place;
       }
       void toXML( int version, int num, bool isFreeSubclsSeats, xmlNodePtr viewCraftNode ) const;
-  };  
-  
+  };
+
   class WebCraft: public std::map<int, TWebPlaceList> {
-    private:    
+    private:
       int version;
       SALONS2::TSalonList salonList;
-      bool pr_find_free_subcls_place;    
+      bool pr_find_free_subcls_place;
       void add( int num, const TWebPlaceList &placeList );
     public:
       WebCraft( int version ) {
@@ -147,19 +150,19 @@ namespace WebCraft {
       }
       bool FreeSubclsExists() {
         return pr_find_free_subcls_place;
-      }      
+      }
       void Read( int point_id, const std::vector<AstraWeb::TWebPax> &pnr );
       void toXML( xmlNodePtr craftNode );
       SALONS2::TSalonList &getSalonList() {
         return salonList;
-      } 
+      }
       bool findSeat( std::string seat_no, TWebPlace &wsp );
   };
-  
-    
+
+
   void ViewCraft(const std::vector<TWebPax> &paxs, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetCrsPaxSeats( int point_id, const std::vector<TWebPax> &pnr,
                        std::vector< std::pair<TWebPlace, AstraLocale::LexemaData> > &pax_seats );
-} //namespace WebCraft  
+} //namespace WebCraft
 }
 

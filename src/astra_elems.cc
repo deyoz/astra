@@ -897,6 +897,18 @@ std::string PaxDocCountryIdToPrefferedElem(const std::string &id, TElemFmt fmt, 
   return result;
 }
 
+std::string classIdsToCodeNative(const std::string &orig_cl,
+                                 const std::string &cabin_cl)
+{
+  return (cabin_cl!=orig_cl?ElemIdToCodeNative(etClass, orig_cl)+"->":"") + ElemIdToCodeNative(etClass, cabin_cl);
+}
+
+std::string clsGrpIdsToCodeNative(const int orig_cl_grp,
+                                  const int cabin_cl_grp)
+{
+  return (cabin_cl_grp!=orig_cl_grp?ElemIdToCodeNative(etClsGrp, orig_cl_grp)+"->":"") + ElemIdToCodeNative(etClsGrp, cabin_cl_grp);
+}
+
 AstraLocale::OutputLang::OutputLang(const std::string& lang) :
   _lang(lang.empty()?TReqInfo::Instance()->desk.lang:lang),
   _onlyTrueIATACodes(TReqInfo::Instance()->isSelfCkinClientType()) {}

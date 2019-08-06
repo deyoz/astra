@@ -6,7 +6,7 @@
 #include "etick.h"
 #include "term_version.h"
 #include "brands.h"
-#include "rfisc.h"
+#include "dcs_services.h"
 
 using namespace std;
 using namespace ASTRA;
@@ -599,7 +599,7 @@ string get_rem_txt(const string &airline, int pax_id, int tag_index)
 {
     // Достаем RFISC-и
     // как платные, так и бесплатные
-    set<string> paxRFISCs;
+    RFISCsSet paxRFISCs;
     TPaidRFISCListWithAuto paid;
     paid.fromDB(pax_id, false);
     paid.getUniqRFISCSs(pax_id, paxRFISCs);

@@ -499,6 +499,27 @@ class TPaxDocaItem : public TPaxAPIItem, public TPaxRemBasic
     std::string logStr(const std::string &lang=AstraLocale::LANG_EN) const;
 };
 
+class TComplexClass
+{
+  public:
+    std::string subcl;
+    std::string cl;
+    int cl_grp;
+    TComplexClass()
+    {
+      clear();
+    }
+    void clear()
+    {
+      subcl.clear();
+      cl.clear();
+      cl_grp=ASTRA::NoExists;
+    }
+
+    const TComplexClass& toDB(TQuery &Qry, const std::string& fieldPrefix) const;
+    TComplexClass& fromDB(TQuery &Qry, const std::string& fieldPrefix);
+};
+
 class TSimplePaxItem
 {
   public:
@@ -518,6 +539,7 @@ class TSimplePaxItem
     std::string wl_type;
     int reg_no;
     std::string subcl;
+    TComplexClass cabin;
     int bag_pool_num;
     int tid;
     TPaxTknItem tkn;
@@ -545,6 +567,7 @@ class TSimplePaxItem
       wl_type.clear();
       reg_no=ASTRA::NoExists;
       subcl.clear();
+      cabin.clear();
       bag_pool_num=ASTRA::NoExists;
       tid=ASTRA::NoExists;
       tkn.clear();
@@ -554,6 +577,8 @@ class TSimplePaxItem
 
     static ASTRA::TGender::Enum genderFromDB(TQuery &Qry);
     static ASTRA::TTrickyGender::Enum getTrickyGender(ASTRA::TPerson pers_type, ASTRA::TGender::Enum gender);
+    static const std::string& origClassFromCrsSQL();
+    static const std::string& origSubclassFromCrsSQL();
 
     const TSimplePaxItem& toEmulXML(xmlNodePtr node, bool PaxUpdatesPending) const;
     TSimplePaxItem& fromDB(TQuery &Qry);
@@ -584,6 +609,16 @@ class TSimplePaxItem
     int paxId() const { return id; }
 
     std::string checkInStatus() const;
+
+    TComplexClass getCrsClass(bool onlyIfClassChange) const;
+    std::string getCabinClass() const;
+    std::string getCabinSubclass() const;
+    bool cabinClassToDB() const;
+    bool hasCabinSeatNumber() const
+    {
+      return seats>0 && !is_jmp;
+    }
+    std::string getSeatNo(const std::string& fmt) const;
 
     bool getBaggageInHoldTotals(TBagTotals& totals) const;
     boost::optional<WeightConcept::TNormItem> getRegularNorm() const;
@@ -736,6 +771,7 @@ class TSimplePnrItem
     int id;
     std::string airp_arv;
     std::string cl;
+    std::string cabin_cl;
     std::string status;
 
     TSimplePnrItem() { clear(); }
@@ -745,6 +781,7 @@ class TSimplePnrItem
       id=ASTRA::NoExists;
       airp_arv.clear();
       cl.clear();
+      cabin_cl.clear();
       status.clear();
     }
 
@@ -804,6 +841,8 @@ class TSimplePaxGrpItem
     bool getByGrpId(int grp_id);
 
     bool allowToBagCheckIn() const { return trfer_confirm; }
+
+    ASTRA::TCompLayerType getCheckInLayerType() const;
 };
 
 class TPaxGrpItem : public TSimplePaxGrpItem
@@ -1043,8 +1082,9 @@ class TPnrAddrs : public std::vector<TPnrAddrInfo>
         if (find(begin(), end(), addr)!=end()) return true;
       return false;
     }
-    const TPnrAddrs &toXML(xmlNodePtr addrsParentNode,
-                           const boost::optional<AstraLocale::OutputLang>& lang=boost::none) const;
+    const TPnrAddrs &toXML(xmlNodePtr addrsParentNode) const;
+    const TPnrAddrs &toWebXML(xmlNodePtr addrsParentNode,
+                              const boost::optional<AstraLocale::OutputLang>& lang=boost::none) const;
     const TPnrAddrs &toSirenaXML(xmlNodePtr addrParentNode,
                                  const AstraLocale::OutputLang& lang) const;
 

@@ -526,7 +526,7 @@ void PassengerSearchResult::toXML(xmlNodePtr resNode, ZamarType type) const
 
   // cabinClass -- SBDO
   if (type == ZamarType::SBDO)
-    NewTextChild(resNode, "cabinClass", ElemIdToPrefferedElem(etClass, grp_item.cl/*pax_item.getCabinClass()*/, efmtCodeNative, lang.get()));
+    NewTextChild(resNode, "cabinClass", ElemIdToPrefferedElem(etClass, pax_item.getCabinClass(), efmtCodeNative, lang.get()));
   // bookingClass -- SBDO
   if (type == ZamarType::SBDO)
     NewTextChild(resNode, "bookingClass", ElemIdToPrefferedElem(etSubcls, pax_item.subcl, efmtCodeNative, lang.get()));

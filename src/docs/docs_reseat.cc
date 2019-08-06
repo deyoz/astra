@@ -101,7 +101,10 @@ void RESEAT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             ret = classes.insert(make_pair(i->second.pax.grp_id, grp.cl));
             i_cls = ret.first;
         }
-        NewTextChild(rowNode, "cls", rpt_params.ElemIdToReportElem(etClass, i_cls->second, efmtCodeNative));
+
+        NewTextChild(rowNode, "cls", getClassView(rpt_params,
+                                                  i_cls->second,
+                                                  i->second.pax.cabin.cl.empty()?i_cls->second:i->second.pax.cabin.cl));
 
         NewTextChild(rowNode, "document", CheckIn::GetPaxDocStr(NoExists, i->second.pax.id, false, rpt_params.GetLang()));
 
