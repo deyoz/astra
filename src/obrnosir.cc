@@ -21,6 +21,7 @@
 #include "web_main.h"
 #include "kiosk/kiosk_config.h"
 #include "db_pkg.h"
+#include "nosir_create_tlg.h"
 
 int nosir_test(int argc,char **argv);
 void nosir_test_help(const char *name);
@@ -112,6 +113,7 @@ const
     {"-asvc_list_print_sql",    PaxASVCList::print_sql, NULL,                       NULL},
     {"-tzdump",                 tzdump,                 NULL,                       NULL},
     {"-tzdiff",                 tzdiff,                 NULL,                       NULL},
+    {"-create_tlg",             nosir_create_tlg,       NULL,                       NULL},
   };
 
 int nosir_test(int argc,char **argv)
