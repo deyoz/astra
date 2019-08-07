@@ -2082,9 +2082,7 @@ $(KICK_IN)
               <cfg>...
             </class>
           </classes>
-          <gates>
-            <gate_name>1</gate_name>
-          </gates>
+          <gates/>
           <halls>
             <hall>
               <id>1</id>
@@ -2502,9 +2500,7 @@ $(KICK_IN)
               <cfg>52</cfg>
             </class>
           </classes>
-          <gates>
-            <gate_name>1</gate_name>
-          </gates>
+          <gates/>
           <halls>
             <hall>
               <id>1</id>
@@ -3228,9 +3224,7 @@ $(KICK_IN)
               <cfg>...
             </class>
           </classes>
-          <gates>
-            <gate_name>1</gate_name>
-          </gates>
+          <gates/>
           <halls>
             <hall>
               <id>...

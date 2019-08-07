@@ -52,7 +52,6 @@ namespace TAG {
     const std::string ETICKET_NO = "ETICKET_NO";
     const std::string ETKT = "ETKT";
     const std::string EXCESS = "EXCESS";
-    const std::string FIRST_SEG = "FIRST_SEG";
     const std::string FLT_NO = "FLT_NO";
     const std::string FQT = "FQT";
     const std::string FQT_TIER_LEVEL = "FQT_TIER_LEVEL";
@@ -635,7 +634,6 @@ class TPrnTagStore {
         std::string ETICKET_NO(TFieldParams fp);
         std::string ETKT(TFieldParams fp);
         std::string EXCESS(TFieldParams fp);
-        std::string FIRST_SEG(TFieldParams fp);
         std::string FLT_NO(TFieldParams fp);
         std::string FQT_TIER_LEVEL(TFieldParams fp);
         std::string FQT(TFieldParams fp);
@@ -788,8 +786,6 @@ class TPrnTagStore {
         // список всех тегов в пектабе
         std::vector<std::string> pectab_tags;
         bool rem_txt_exists();
-        
-        std::map<std::string, std::string> tags_from_xml;
 
     public:
         TTagProps prn_tag_props;
