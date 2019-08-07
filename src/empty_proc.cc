@@ -1907,11 +1907,13 @@ void move_pos(const string &code, int &xpos, int &ypos)
 int prn_tags(int argc, char **argv)
 {
     TQuery Qry(&OraSession);
-    Qry.SQLText = "select code from prn_tag_props where op_type = 'PRINT_BP' order by code";
+    Qry.SQLText = "select op_type, code from prn_tag_props order by op_type, code";
     Qry.Execute();
-    ofstream prn_tags("prn_tags");
+    boost::optional<ofstream> prn_tags;
     int ypos = 20;
+    string op_type;
     for(; not Qry.Eof; Qry.Next(), ypos += 5) {
+        string tmp_op_type = Qry.FieldAsString("op_type");
         string code = Qry.FieldAsString("code");
         string date_format;
         if(
@@ -1921,7 +1923,11 @@ int prn_tags(int argc, char **argv)
                 code == "TIME_PRINT"
           )
             date_format = "dd mmm yy hh:nn:ss";
-        prn_tags
+        if(op_type != tmp_op_type) {
+            op_type = tmp_op_type;
+            prn_tags = boost::in_place("prn_tags_" + op_type);
+        }
+        prn_tags.get()
             << left << setw(20) << capt_code(code)
             << "'[<" << code << tag_params(date_format) << ">]'" << endl
             << left << setw(20) << capt_code(code, "RU")
@@ -1929,6 +1935,7 @@ int prn_tags(int argc, char **argv)
             << left << setw(20) << capt_code(code, "EN")
             << "'[<" << code << tag_params(date_format, "E") << ">]'" << endl;
     }
+    if(prn_tags) prn_tags.get().close();
     return 1;
 }
 

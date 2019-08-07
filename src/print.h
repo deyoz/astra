@@ -193,6 +193,7 @@ class PrintInterface: public JxtInterface
                 int pax_id,
                 int pr_all,
                 BPParams &params,
+                ASTRA::TDevOper::Enum op_type,
                 xmlNodePtr reqNode,
                 xmlNodePtr resNode
                 );
