@@ -2243,6 +2243,7 @@ void PrintInterface::GetPrintDataVO(
         int pax_id,
         int pr_all,
         BPParams &params,
+        TDevOper::Enum op_type,
         xmlNodePtr reqNode,
         xmlNodePtr resNode
         )
@@ -2294,9 +2295,7 @@ void PrintInterface::GetPrintDataVO(
 
         xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"), "print");
         string data, pectab;
-        get_pectab(
-                TReqInfo::Instance()->desk.compatible(VO_EMDA_PECTAB_VERSION) ? TDevOper::PrnVO : TDevOper::PrnBP,
-                params, data, pectab);
+        get_pectab(op_type, params, data, pectab);
         NewTextChild(BPNode, "pectab", pectab);
         xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
 
@@ -2319,9 +2318,7 @@ void PrintInterface::GetPrintDataVO(
                 int grp_id = Qry.get().FieldAsInteger("grp_id");
                 int reg_no = Qry.get().FieldAsInteger("reg_no");
 
-                PrintDataParser parser(
-                        TReqInfo::Instance()->desk.compatible(VO_EMDA_PECTAB_VERSION) ? TDevOper::PrnVO : TDevOper::PrnBP,
-                        grp_id, pax->first, false, params.prnParams.pr_lat, params.clientDataNode);
+                PrintDataParser parser(op_type, grp_id, pax->first, false, params.prnParams.pr_lat, params.clientDataNode);
 
                 parser.pts.set_tag(TAG::VOUCHER_CODE, v->first);
                 parser.pts.set_tag(TAG::VOUCHER_TEXT, v->first);
@@ -2338,8 +2335,7 @@ void PrintInterface::GetPrintDataVO(
                     LogTrace(TRACE5) << "after StringToHex prn_form: " << prn_form;
                     hex=true;
                 }
-                parser.pts.confirm_print(false,
-                        TReqInfo::Instance()->desk.compatible(VO_EMDA_PECTAB_VERSION) ? TDevOper::PrnVO : TDevOper::PrnBP);
+                parser.pts.confirm_print(false, op_type);
 
                 xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
                 SetProp(paxNode, "pax_id", pax->first);
@@ -2634,6 +2630,7 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
                 pax_id,
                 pr_all,
                 params,
+                op_type,
                 reqNode,
                 resNode
                 );
