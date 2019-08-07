@@ -5544,7 +5544,7 @@ bool TSalonList::CreateSalonsForAutoSeats( TSalons &Salons,
             break;
           }
           tmp_layer = *ilayer;
-          if ( ilayers->first != getDepartureId() ) { //если это не наш пункт вылета
+          if ( true /*ilayers->first != getDepartureId()*/ ) { //если это не наш пункт вылета, пакс может встать на Ло при регистрации, если в след. пункте есть слой после месты
             if ( !points.getPropRoute( ilayers->first, point ) ) { //слой не найден - такого не может быть
               //logProgTrace( TRACE5, "CreateSalonsForAutoSeats: %s, not add %s", string(iseat->yname+iseat->xname).c_str(),
               //log           ilayer->toString().c_str() );
