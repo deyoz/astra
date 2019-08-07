@@ -26,6 +26,7 @@
 #include "telegram.h"
 #include "cr_lf.h"
 #include "dcs_services.h"
+#include "tripinfo.h"
 
 #define NICKNAME "DENIS"
 #include <serverlib/slogger.h>
@@ -2590,8 +2591,47 @@ void PrintInterface::GetPrintDataVOUnregistered(
     }
 }
 
+void check_client_gate(xmlNodePtr reqNode)
+{
+    xmlNodePtr curNode = reqNode->children;
+    xmlNodePtr clientDataNode = NodeAsNodeFast("clientData", curNode);
+    int pax_id = NodeAsIntegerFast("pax_id", curNode, NoExists);
+    int grp_id = NodeAsIntegerFast("grp_id", curNode, NoExists);
+    if(clientDataNode) {
+        curNode = clientDataNode->children;
+        string gate = NodeAsStringFast("gate", curNode);
+        if(not gate.empty()) {
+            TTripInfo flt;
+            if(pax_id != NoExists)
+                flt.getByPaxId(pax_id);
+            else
+                flt.getByGrpId(grp_id);
+            std::vector<std::string> gates;
+            TripsInterface::readGates(flt.point_id, gates);
+            vector<string>::const_iterator flt_gate = gates.begin();
+            for(; flt_gate != gates.end(); flt_gate++)
+                if(*flt_gate == gate) break;
+            if(flt_gate == gates.end()) {
+                // Гейт с клиента не найден среди гейтов рейса
+                ostringstream s;
+                copy(gates.begin(), gates.end(), ostream_iterator<string>(s, "|"));
+                LogTrace(TRACE5)
+                    << "MSG.WRONG_CLIENT_GATE: point_id: " << flt.point_id << "; client gate '"
+                    << gate
+                    << "' not found among flt gates (" << s.str() << ")";
+
+                if(gates.size() == 1)
+                    LogTrace(TRACE5) << "MSG.WRONG_CLIENT_GATE: client gate '" << gate << "' will be replaced with flt gate '" << gates[0] << "'";
+                else
+                    LogTrace(TRACE5) << "MSG.WRONG_CLIENT_GATE: throw exception";
+            }
+        }
+    }
+}
+
 void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    check_client_gate(reqNode);
     xmlNodePtr currNode = reqNode->children;
     BPParams params;
     int first_seg_grp_id = NodeAsIntegerFast("grp_id", currNode, NoExists); // grp_id - первого сегмента или ид. группы
