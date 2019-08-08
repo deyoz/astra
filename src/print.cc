@@ -2594,12 +2594,12 @@ void PrintInterface::GetPrintDataVOUnregistered(
 void check_client_gate(xmlNodePtr reqNode)
 {
     xmlNodePtr curNode = reqNode->children;
-    xmlNodePtr clientDataNode = NodeAsNodeFast("clientData", curNode);
-    int pax_id = NodeAsIntegerFast("pax_id", curNode, NoExists);
-    int grp_id = NodeAsIntegerFast("grp_id", curNode, NoExists);
+    xmlNodePtr clientDataNode = GetNodeFast("clientData", curNode);
     if(clientDataNode) {
+        int pax_id = NodeAsIntegerFast("pax_id", curNode, NoExists);
+        int grp_id = NodeAsIntegerFast("grp_id", curNode, NoExists);
         curNode = clientDataNode->children;
-        string gate = NodeAsStringFast("gate", curNode);
+        string gate = NodeAsStringFast("gate", curNode, "");
         if(not gate.empty()) {
             TTripInfo flt;
             if(pax_id != NoExists)
