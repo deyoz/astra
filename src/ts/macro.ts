@@ -72,31 +72,6 @@ $(lastRedisplay)
 
 }) #end-of-macro
 
-#########################################################################################
-
-$(defmacro ASSIGN_GATE
-  point_id=0
-{
-{<?xml version='1.0' encoding='CP866'?>
-<term>
-  <query handle='0' id='sopp' ver='1' opr='PIKE' screen='SOPP.EXE' mode='STAND' lang='RU' term_id='2479792165'>
-    <WriteTrips>
-      <trips>
-        <trip>
-          <point_id>$(point_id)</point_id>
-          <stations>
-            <work_mode mode='П'>
-              <name>1</name>
-            </work_mode>
-          </stations>
-        </trip>
-      </trips>
-    </WriteTrips>
-  </query>
-</term>}
-}) # end-of-macro ASSIGN_GATE
-
-#########################################################################################
 
 $(defmacro PREPARE_SEASON_SCD
   airl=UT
@@ -195,7 +170,6 @@ $(INBOUND_PNL_1 $(get_lat_code awk $(airl))
                 $(surname) $(name))
 
 $(create_random_trip_comp $(get_dep_point_id $(depp) $(airl) 103 $(yymmdd +0)) Э)
-$(ASSIGN_GATE $(get_dep_point_id $(depp) $(airl) $(flt) $(yymmdd +0)))
 
 }) #end-of-macro
 
@@ -373,7 +347,6 @@ $(INBOUND_PNL_3 $(airl1) $(depp1) $(arrp1) $(flt1)
                 $(tickno) $(cpnno))
 
 $(create_random_trip_comp $(get_dep_point_id $(depp1) $(airl1) $(flt1) $(yymmdd +0)) Э)
-$(ASSIGN_GATE $(get_dep_point_id $(depp1) $(airl1) $(flt1) $(yymmdd +0)))
 
 }) #end-of-macro
 
