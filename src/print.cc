@@ -26,6 +26,7 @@
 #include "telegram.h"
 #include "cr_lf.h"
 #include "dcs_services.h"
+#include "tripinfo.h"
 
 #define NICKNAME "DENIS"
 #include <serverlib/slogger.h>
@@ -2001,7 +2002,6 @@ void PrintInterface::GetPrintDataBP(
         //надо удалить выход на посадку из данных по пассажиру
         if (iPax->gate.second)
             parser->pts.set_tag("gate", iPax->gate.first);
-        parser->pts.set_tag(TAG::FIRST_SEG, iPax->first_seg);
 
         if(
                 TReqInfo::Instance()->desk.compatible(OP_TYPE_VERSION) or
@@ -2574,8 +2574,47 @@ void PrintInterface::GetPrintDataVOUnregistered(
     }
 }
 
+void check_client_gate(xmlNodePtr reqNode)
+{
+    xmlNodePtr curNode = reqNode->children;
+    xmlNodePtr clientDataNode = GetNodeFast("clientData", curNode);
+    if(clientDataNode) {
+        int pax_id = NodeAsIntegerFast("pax_id", curNode, NoExists);
+        int grp_id = NodeAsIntegerFast("grp_id", curNode, NoExists);
+        curNode = clientDataNode->children;
+        string gate = NodeAsStringFast("gate", curNode, "");
+        if(not gate.empty()) {
+            TTripInfo flt;
+            if(pax_id != NoExists)
+                flt.getByPaxId(pax_id);
+            else
+                flt.getByGrpId(grp_id);
+            std::vector<std::string> gates;
+            TripsInterface::readGates(flt.point_id, gates);
+            vector<string>::const_iterator flt_gate = gates.begin();
+            for(; flt_gate != gates.end(); flt_gate++)
+                if(*flt_gate == gate) break;
+            if(flt_gate == gates.end()) {
+                // Гейт с клиента не найден среди гейтов рейса
+                ostringstream s;
+                copy(gates.begin(), gates.end(), ostream_iterator<string>(s, "|"));
+                LogTrace(TRACE5)
+                    << "MSG.WRONG_CLIENT_GATE: point_id: " << flt.point_id << "; client gate '"
+                    << gate
+                    << "' not found among flt gates (" << s.str() << ")";
+
+                if(gates.size() == 1)
+                    LogTrace(TRACE5) << "MSG.WRONG_CLIENT_GATE: client gate '" << gate << "' will be replaced with flt gate '" << gates[0] << "'";
+                else
+                    LogTrace(TRACE5) << "MSG.WRONG_CLIENT_GATE: throw exception";
+            }
+        }
+    }
+}
+
 void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    check_client_gate(reqNode);
     xmlNodePtr currNode = reqNode->children;
     BPParams params;
     int first_seg_grp_id = NodeAsIntegerFast("grp_id", currNode, NoExists); // grp_id - первого сегмента или ид. группы
@@ -2683,10 +2722,8 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
                                Qry.FieldAsInteger("reg_no") ) );
     };
 
-    for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax ) {
+    for (std::vector<BPPax>::iterator iPax=paxs.begin(); iPax!=paxs.end(); ++iPax )
       if(first_seg_grp_id != iPax->grp_id) iPax->gate=make_pair("", true);
-      iPax->first_seg = first_seg_grp_id == iPax->grp_id;
-    }
 
     // Начитываем правила БП для всех паксов
     BIPrintRules::Holder bi_rules(op_type);
