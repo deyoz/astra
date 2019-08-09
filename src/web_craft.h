@@ -20,6 +20,7 @@ namespace WebCraft {
     std::vector<AstraWeb::TWebPax> pnr;
     std::string pass_rem;
     std::set<std::string> cabin_classes;
+    std::string crs_pax_cabin_class;
     FilterWebSeat() {
       pr_lat = true;
       pr_CHIN = false;
@@ -151,7 +152,7 @@ namespace WebCraft {
       bool FreeSubclsExists() {
         return pr_find_free_subcls_place;
       }
-      void Read( int point_id, const std::vector<AstraWeb::TWebPax> &pnr );
+      void Read( int point_id, int crs_pax_id, const std::vector<AstraWeb::TWebPax> &pnr );
       void toXML( xmlNodePtr craftNode );
       SALONS2::TSalonList &getSalonList() {
         return salonList;
