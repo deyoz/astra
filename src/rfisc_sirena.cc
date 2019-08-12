@@ -1284,6 +1284,8 @@ void SvcSirenaInterface::KickHandler(XMLRequestCtxt *ctxt,
         if(termReqNode == NULL)
           throw EXCEPTIONS::Exception("SvcSirenaInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
 
+        transformKickRequest(termReqNode, reqNode);
+
         std::string answerStr = DefaultAnswer;
         if(resp) {
             const auto fnd = resp->text.find("<answer>");

@@ -2756,26 +2756,11 @@ void ChangeStatusInterface::KickOnAnswer(xmlNodePtr reqNode, xmlNodePtr resNode)
 
       xmlNodePtr termReqNode=NodeAsNode("/term/query",termReqCtxt.docPtr())->children;
       if (termReqNode==NULL)
-        throw EXCEPTIONS::Exception("ChangeStatusInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
-      //если эмулируем запрос web-регистрации с терминала - то делаем подмену client_type
-      xmlNodePtr ifaceNode=GetNode("/term/query/@id",termReqCtxt.docPtr());
-      if (ifaceNode!=NULL && strcmp(NodeAsString(ifaceNode), WEB_JXT_IFACE_ID)==0)
-      {
-        //это web-регистрация
-        if (reqInfo->client_type==ctTerm) reqInfo->client_type=EMUL_CLIENT_TYPE;
-      }
+        throw EXCEPTIONS::Exception("ChangeStatusInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");
+
+      transformKickRequest(termReqNode, reqNode);
+
       string termReqName=(const char*)(termReqNode->name);
-
-      if (reqInfo->client_type==ctWeb ||
-          reqInfo->client_type==ctMobile ||
-          reqInfo->client_type==ctKiosk) {
-        xmlNodePtr node = NodeAsNode("/term/query",reqNode->doc);
-        xmlUnlinkNode( reqNode );
-        xmlFreeNode( reqNode );
-        reqNode = NewTextChild( node, termReqName.c_str() );
-      }
-
-
       bool defer_etstatus=(termReqName=="ChangePaxStatus" ||
                            termReqName=="ChangeGrpStatus" ||
                            termReqName=="ChangeFltStatus");
@@ -2946,6 +2931,31 @@ void ChangeStatusInterface::KickOnAnswer(xmlNodePtr reqNode, xmlNodePtr resNode)
 
       ContinueCheckin(termReqNode, ediResNode, resNode);
     }
+}
+
+void transformKickRequest(xmlNodePtr termReqNode, xmlNodePtr kickReqNode)
+{
+  if (termReqNode==nullptr) return;
+
+  //если эмулируем запрос web-регистрации с терминала - то делаем подмену client_type
+  xmlNodePtr ifaceNode=GetNode("/term/query/@id",termReqNode->doc);
+  if (ifaceNode!=NULL && strcmp(NodeAsString(ifaceNode), WEB_JXT_IFACE_ID)==0)
+  {
+    //это web-регистрация
+    if (TReqInfo::Instance()->client_type==ctTerm)
+      TReqInfo::Instance()->client_type=EMUL_CLIENT_TYPE;
+  }
+
+  if (kickReqNode==nullptr) return;
+
+  if (isWebCheckinRequest(termReqNode))
+  {
+    string termReqName=(const char*)(termReqNode->name);
+    xmlNodePtr node = NodeAsNode("/term/query",kickReqNode->doc);
+    xmlUnlinkNode( kickReqNode );
+    xmlFreeNode( kickReqNode );
+    kickReqNode = NewTextChild( node, termReqName.c_str() );
+  }
 }
 
 void ContinueCheckin(xmlNodePtr reqNode, xmlNodePtr externalSysResNode, xmlNodePtr resNode)
