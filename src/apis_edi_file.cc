@@ -753,10 +753,19 @@ Cusres readCUSRES(_EDI_REAL_MES_STRUCT_ *pMes)
         ASSERT(erc);
 
         Cusres::SegGr4 segGr4(*erp, *erc);
-        // RFF
-        segGr4.m_rff1 = readEdiRff(pMes, 0);
-        // RFF
-        segGr4.m_rff2 = readEdiRff(pMes, 1);
+        // RFF        
+        if(auto rff0 = readEdiRff(pMes, 0)) {
+            segGr4.m_vRff.push_back(*rff0);
+        }
+
+        if(auto rff1 = readEdiRff(pMes, 1)) {
+            segGr4.m_vRff.push_back(*rff1);
+        }
+
+        if(auto rff2 = readEdiRff(pMes, 2)) {
+            segGr4.m_vRff.push_back(*rff2);
+        }
+
         // FTX
         segGr4.m_ftx  = readEdiFtx(pMes);
 
@@ -802,12 +811,10 @@ std::ostream& operator<<(std::ostream& os, const Cusres& cusres)
     for(const Cusres::SegGr4& sg4: cusres.m_vSegGr4) {
         os << sg4.m_erp << "\n"
            << sg4.m_erc << "\n";
-        if(sg4.m_rff1) {
-            os << *sg4.m_rff1 << "\n";
+        for(const RffElem& rff: sg4.m_vRff) {
+            os << rff << "\n";
         }
-        if(sg4.m_rff2) {
-            os << *sg4.m_rff2 << "\n";
-        }
+
         if(sg4.m_ftx) {
             os << *sg4.m_ftx << "\n";
         }

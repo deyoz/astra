@@ -764,8 +764,7 @@ struct Cusres
     {
         ErpElem                  m_erp;
         ErcElem                  m_erc;
-        boost::optional<RffElem> m_rff1;
-        boost::optional<RffElem> m_rff2;
+        std::vector<RffElem>     m_vRff;
         boost::optional<FtxElem> m_ftx;
 
         SegGr4(const ErpElem& erp,
