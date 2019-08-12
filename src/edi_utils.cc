@@ -881,9 +881,7 @@ bool isTermCheckinRequest(xmlNodePtr reqNode)
 bool isWebCheckinRequest(xmlNodePtr reqNode)
 {
   return reqNode!=nullptr &&
-         (TReqInfo::Instance()->client_type==ctWeb ||
-          TReqInfo::Instance()->client_type==ctMobile ||
-          TReqInfo::Instance()->client_type==ctKiosk) &&
+         TReqInfo::Instance()->isSelfCkinClientType() &&
          strcmp((const char*)reqNode->name, "SavePax") == 0;
 }
 
