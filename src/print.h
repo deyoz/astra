@@ -41,8 +41,8 @@ class PrintDataParser {
         PrintDataParser(const TBagReceipt &rcpt, bool pr_lat): pectab_format(0), pts(rcpt, pr_lat) {}
         PrintDataParser(ASTRA::TDevOper::Enum op_type, int grp_id, int pax_id, bool from_scan_code, bool pr_lat, xmlNodePtr tagsNode, const TTrferRoute &route = TTrferRoute()):
             pectab_format(0), pts(op_type, grp_id, pax_id, from_scan_code, pr_lat, tagsNode, route) {}
-        PrintDataParser(const std::string& airp_dep, const std::string& airp_arv, bool pr_lat)
-            : pectab_format(0), pts(airp_dep, airp_arv, pr_lat) {}
+        PrintDataParser(ASTRA::TDevOper::Enum op_type, const std::string& airp_dep, const std::string& airp_arv, bool pr_lat)
+            : pectab_format(0), pts(op_type, airp_dep, airp_arv, pr_lat) {}
 
         std::string parse(const std::string &form);
         void set_space_if_empty(bool val) { pts.set_space_if_empty(val); };
@@ -191,6 +191,7 @@ class PrintInterface: public JxtInterface
                 int pax_id,
                 int pr_all,
                 BPParams &params,
+                ASTRA::TDevOper::Enum op_type,
                 xmlNodePtr reqNode,
                 xmlNodePtr resNode
                 );

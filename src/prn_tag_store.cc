@@ -296,13 +296,13 @@ TPrnTagStore::TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat):
     remarksInfo.Init(*this);
 }
 
-TPrnTagStore::TPrnTagStore(const std::string& airp_dep,
+TPrnTagStore::TPrnTagStore(ASTRA::TDevOper::Enum _op_type, const std::string& airp_dep,
                            const std::string& airp_arv, bool apr_lat) :
     pax_id(NoExists),
     print_mode(0),
     time_print(NowUTC()),
     space_if_empty(false),
-    prn_tag_props(TDevOper::PrnBP)
+    prn_tag_props(_op_type)
 {
     from_scan_code = false;
     init_bp_tags();
@@ -322,11 +322,10 @@ TPrnTagStore::TPrnTagStore(bool apr_lat):
 }
 
 TPrnTagStore::TPrnTagStore(TDevOper::Enum _op_type, const string &ascan, boost::optional<const std::list<AstraLocale::LexemaData> &> aerrors, bool apr_lat):
-    op_type(_op_type),
     scan(ascan),
     time_print(NowUTC()),
     space_if_empty(false),
-    prn_tag_props(TDevOper::PrnBP)
+    prn_tag_props(_op_type)
 {
     errors = aerrors;
     from_scan_code = true;
@@ -450,12 +449,18 @@ void TPrnTagStore::tagsFromXML(xmlNodePtr tagsNode)
 
 // BP && BT
 TPrnTagStore::TPrnTagStore(TDevOper::Enum _op_type, int agrp_id, int apax_id, bool afrom_scan_code, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute):
-    op_type(_op_type),
     time_print(NowUTC()),
     space_if_empty(false),
-    prn_tag_props(aroute.empty() ? TDevOper::PrnBP : TDevOper::PrnBT)
+    prn_tag_props(_op_type)
 {
-    if(op_type == TDevOper::PrnBP or op_type == TDevOper::PrnBI) rfisc_descr.fromDB(agrp_id, apax_id);
+    if(get_op_type() == TDevOper::PrnBT and aroute.empty())
+        throw Exception("TPrnTagStore: aroute can't be empty for bt mode");
+    if(
+            get_op_type() == TDevOper::PrnBP or
+            get_op_type() == TDevOper::PrnBI or
+            get_op_type() == TDevOper::PrnVO
+      )
+        rfisc_descr.fromDB(agrp_id, apax_id);
 
     from_scan_code = afrom_scan_code;
     print_mode = 0;
@@ -1392,11 +1397,11 @@ bool TPrnTagStore::isBoardingPass()
 {
 #ifdef XP_TESTING
     if(inTestMode()) {
-        return op_type == TDevOper::PrnBP;
+        return get_op_type() == TDevOper::PrnBP;
     }
 #endif //XP_TESTING
 
-    return op_type == TDevOper::PrnBP and tag_list[TAG::VOUCHER_CODE].TagInfo.empty();
+    return get_op_type() == TDevOper::PrnBP and tag_list[TAG::VOUCHER_CODE].TagInfo.empty();
 }
 
 string airp_code_2D(const string &code)

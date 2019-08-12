@@ -6203,9 +6203,41 @@ void set_trip_sets(const TAdvTripInfo &flt)
     "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
     "ORDER BY class,priority DESC ";
   Qry.DeclareVariable("op_type", otString);
-  for(int pass=0; pass<2; pass++)
+  for(int pass=0; pass<4; pass++)
   {
-    Qry.SetVariable("op_type", DevOperTypes().encode(pass==0?TDevOper::PrnBP:TDevOper::PrnBI));
+
+    TDevOper::Enum op_type;
+    TElemType elem_op_type;
+    string ins_cls_lexeme;
+    string ins_lexeme;
+    switch(pass) {
+        case 0:
+            op_type = TDevOper::PrnBP;
+            elem_op_type = etBPType;
+            ins_cls_lexeme = "EVT.BP_FORM_INSERTED_FOR_CLASS";
+            ins_lexeme =     "EVT.BP_FORM_INSERTED";
+            break;
+        case 1:
+            op_type = TDevOper::PrnBI;
+            elem_op_type = etBIType;
+            ins_cls_lexeme = "EVT.BI_FORM_INSERTED_FOR_CLASS";
+            ins_lexeme =     "EVT.BI_FORM_INSERTED";
+            break;
+        case 2:
+            op_type = TDevOper::PrnVO;
+            elem_op_type = etVOType;
+            ins_cls_lexeme = "EVT.VO_FORM_INSERTED_FOR_CLASS";
+            ins_lexeme =     "EVT.VO_FORM_INSERTED";
+            break;
+        case 3:
+            op_type = TDevOper::PrnEMDA;
+            elem_op_type = etEMDAType;
+            ins_cls_lexeme = "EVT.EMDA_FORM_INSERTED_FOR_CLASS";
+            ins_lexeme =     "EVT.EMDA_FORM_INSERTED";
+            break;
+    }
+
+    Qry.SetVariable("op_type", DevOperTypes().encode(op_type));
     Qry.Execute();
 
     bool pr_first=true;
@@ -6218,20 +6250,20 @@ void set_trip_sets(const TAdvTripInfo &flt)
       {
         InsQry.SetVariable("class", cl);
         InsQry.SetVariable("bp_type", bp_type);
-        InsQry.SetVariable("op_type", DevOperTypes().encode(pass==0?TDevOper::PrnBP:TDevOper::PrnBI));
+        InsQry.SetVariable("op_type", DevOperTypes().encode(op_type));
         InsQry.Execute();
 
         ostringstream msg;
         string lexema_id;
         LEvntPrms params;
-        params << PrmElem<string>("name", pass==0?etBPType:etBIType, bp_type, efmtNameLong);
+        params << PrmElem<string>("name", elem_op_type, bp_type, efmtNameLong);
         if (!cl.empty())
         {
-          lexema_id = pass==0?"EVT.BP_FORM_INSERTED_FOR_CLASS":"EVT.BI_FORM_INSERTED_FOR_CLASS";
+          lexema_id = ins_cls_lexeme;
           params << PrmElem<string>("cls", etClass, cl, efmtCodeNative);
         }
         else
-          lexema_id = pass==0?"EVT.BP_FORM_INSERTED":"EVT.BI_FORM_INSERTED";
+          lexema_id = ins_lexeme;
         msg << ".";
         TReqInfo::Instance()->LocaleToLog(lexema_id, params, evtFlt, flt.point_id);
       };

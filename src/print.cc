@@ -27,6 +27,7 @@
 #include "cr_lf.h"
 #include "dcs_services.h"
 #include "tripinfo.h"
+#include "prn_forms_layout.h"
 
 #define NICKNAME "DENIS"
 #include <serverlib/slogger.h>
@@ -1464,13 +1465,23 @@ void PrintInterface::ConfirmPrintBP(TDevOper::Enum op_type,
             string lexeme;
             switch(op_type) {
                 case TDevOper::PrnBP:
-                    lexeme = (iPax->voucher.empty() ? "EVT.PRINT_BOARDING_PASS" : "EVT.PRINT_VOUCHER");
-                    if(not iPax->voucher.empty())
-                        params << PrmSmpl<string>("voucher", ElemIdToNameLong(etVoucherType, iPax->voucher));
-                    else {
+                    if(TReqInfo::Instance()->desk.compatible(VO_EMDA_PECTAB_VERSION)) {
+                        lexeme = "EVT.PRINT_BOARDING_PASS";
                         if (seat_no.empty()) params << PrmBool("seat_no", false);
                         else params << PrmSmpl<std::string>("seat_no", seat_no);
+                    } else {
+                        lexeme = (iPax->voucher.empty() ? "EVT.PRINT_BOARDING_PASS" : "EVT.PRINT_VOUCHER");
+                        if(not iPax->voucher.empty())
+                            params << PrmSmpl<string>("voucher", ElemIdToNameLong(etVoucherType, iPax->voucher));
+                        else {
+                            if (seat_no.empty()) params << PrmBool("seat_no", false);
+                            else params << PrmSmpl<std::string>("seat_no", seat_no);
+                        }
                     }
+                    break;
+                case TDevOper::PrnVO:
+                    lexeme = "EVT.PRINT_VOUCHER";
+                    params << PrmSmpl<string>("voucher", ElemIdToNameLong(etVoucherType, iPax->voucher));
                     break;
                 case TDevOper::PrnBI:
                     lexeme = "EVT.PRINT_INVITATION";
@@ -1851,14 +1862,7 @@ void PrintInterface::check_pectab_availability(BPParams &params, TDevOper::Enum 
     Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
     Qry.Execute();
     if(Qry.Eof)
-        switch(op_type) {
-            case TDevOper::PrnBP:
-                throw AstraLocale::UserException("MSG.BP_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS");
-            case TDevOper::PrnBI:
-                throw AstraLocale::UserException("MSG.BI_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS");
-            default:
-                throw Exception("%d: %d: unexpected dev oper type %d", op_type);
-        }
+        throw AstraLocale::UserException(prn_forms_layout.msg_type_not_assigned(op_type));
     params.form_type = Qry.FieldAsString("bp_type");
 }
 
@@ -1871,9 +1875,9 @@ void PrintInterface::check_pectab_availability(BPParams &params, int grp_id, TDe
     if(Qry.Eof)
         throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
     if (DecodePaxStatus(Qry.FieldAsString("status"))==psCrew)
-        throw AstraLocale::UserException("MSG.BOARDINGPASS_NOT_AVAILABLE_FOR_CREW");
+        throw AstraLocale::UserException(prn_forms_layout.msg_not_avail_for_crew(op_type));
     if(Qry.FieldIsNULL("class"))
-        throw AstraLocale::UserException("MSG.BOARDINGPASS_NOT_AVAILABLE_FOR_UNACC_BAGGAGE");
+        throw AstraLocale::UserException(prn_forms_layout.msg_not_avail_for_unacc(op_type));
     int point_id = Qry.FieldAsInteger("point_dep");
     string cl = Qry.FieldAsString("class");
     check_pectab_availability(params, op_type, point_id, cl);
@@ -1911,18 +1915,8 @@ void PrintInterface::get_pectab(
        Qry.FieldIsNULL("data") or
        (Qry.FieldIsNULL( "form" ) and (DevFmtTypes().decode(params.fmt_type) == TDevFmt::BTP or
                                      DevFmtTypes().decode(params.fmt_type) == TDevFmt::ATB))
-      ) {
-        switch(op_type) {
-            case TDevOper::PrnBP:
-                previewDeviceSets(true, "MSG.PRINT.BP_UNAVAILABLE_FOR_THIS_DEVICE");
-                break;
-            case TDevOper::PrnBI:
-                previewDeviceSets(true, "MSG.PRINT.BI_UNAVAILABLE_FOR_THIS_DEVICE");
-                break;
-            default:
-                throw Exception("%d: %d: unexpected dev oper type %d", op_type);
-        }
-    }
+      )
+        previewDeviceSets(true, prn_forms_layout.msg_unavail_for_device(op_type));
     pectab = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("form"));
     data = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("data"));
 }
@@ -2090,7 +2084,7 @@ bool PrintInterface::GetIatciPrintDataBP(xmlNodePtr reqNode,
             for(const XmlPax& xmlPax: xmlSeg.passengers)
             {
                 boost::shared_ptr<PrintDataParser> parser;
-                parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(xmlSeg.seg_info.airp_dep,
+                parser = boost::shared_ptr<PrintDataParser>(new PrintDataParser(TDevOper::PrnBP, xmlSeg.seg_info.airp_dep,
                                                                                 xmlSeg.seg_info.airp_arv,
                                                                                 params.prnParams.pr_lat));
 
@@ -2228,6 +2222,7 @@ void PrintInterface::GetPrintDataVO(
         int pax_id,
         int pr_all,
         BPParams &params,
+        TDevOper::Enum op_type,
         xmlNodePtr reqNode,
         xmlNodePtr resNode
         )
@@ -2279,7 +2274,7 @@ void PrintInterface::GetPrintDataVO(
 
         xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"), "print");
         string data, pectab;
-        get_pectab(TDevOper::PrnBP, params, data, pectab);
+        get_pectab(op_type, params, data, pectab);
         NewTextChild(BPNode, "pectab", pectab);
         xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
 
@@ -2302,7 +2297,7 @@ void PrintInterface::GetPrintDataVO(
                 int grp_id = Qry.get().FieldAsInteger("grp_id");
                 int reg_no = Qry.get().FieldAsInteger("reg_no");
 
-                PrintDataParser parser(TDevOper::PrnBP, grp_id, pax->first, false, params.prnParams.pr_lat, params.clientDataNode);
+                PrintDataParser parser(op_type, grp_id, pax->first, false, params.prnParams.pr_lat, params.clientDataNode);
 
                 parser.pts.set_tag(TAG::VOUCHER_CODE, v->first);
                 parser.pts.set_tag(TAG::VOUCHER_TEXT, v->first);
@@ -2319,7 +2314,7 @@ void PrintInterface::GetPrintDataVO(
                     LogTrace(TRACE5) << "after StringToHex prn_form: " << prn_form;
                     hex=true;
                 }
-                parser.pts.confirm_print(false, TDevOper::PrnBP);
+                parser.pts.confirm_print(false, op_type);
 
                 xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
                 SetProp(paxNode, "pax_id", pax->first);
@@ -2390,7 +2385,7 @@ void PrintInterface::GetPrintDataVOUnregistered(
 
         xmlNodePtr BPNode = NewTextChild(NewTextChild(resNode, "data"), "print");
         string data, pectab;
-        get_pectab(TDevOper::PrnBP, params, data, pectab);
+        get_pectab(TReqInfo::Instance()->desk.compatible(VO_EMDA_PECTAB_VERSION) ? TDevOper::PrnVO : TDevOper::PrnBP, params, data, pectab);
         NewTextChild(BPNode, "pectab", pectab);
         xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
 
@@ -2403,7 +2398,8 @@ void PrintInterface::GetPrintDataVOUnregistered(
         TTripInfo info;
         info.getByPointId(point_id);
 
-        PrintDataParser parser(airp_dep, airp_arv, params.prnParams.pr_lat);
+        PrintDataParser parser(TReqInfo::Instance()->desk.compatible(VO_EMDA_PECTAB_VERSION) ? TDevOper::PrnVO : TDevOper::PrnBP,
+                airp_dep, airp_arv, params.prnParams.pr_lat);
 
         TBCBPData bcbp;
         bcbp.cls         = "ù";
@@ -2652,6 +2648,7 @@ void PrintInterface::GetPrintDataBP(xmlNodePtr reqNode, xmlNodePtr resNode)
                 pax_id,
                 pr_all,
                 params,
+                op_type,
                 reqNode,
                 resNode
                 );

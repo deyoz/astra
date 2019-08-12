@@ -351,7 +351,6 @@ class TPrnTagStore {
             }
         };
 
-        ASTRA::TDevOper::Enum op_type;
         boost::shared_ptr<BCBPSections> scan_data;
         const std::string scan; // данные 2D баркода
         boost::optional<const std::list<AstraLocale::LexemaData> &> errors;
@@ -791,12 +790,12 @@ class TPrnTagStore {
     public:
         TTagProps prn_tag_props;
         TTagLang tag_lang;
-        ASTRA::TDevOper::Enum get_op_type() { return op_type; }
+        ASTRA::TDevOper::Enum get_op_type() { return prn_tag_props.op; }
         TPrnTagStore(ASTRA::TDevOper::Enum _op_type, int agrp_id, int apax_id, bool afrom_scan_code, int apr_lat, xmlNodePtr tagsNode, const TTrferRoute &aroute = TTrferRoute());
         TPrnTagStore(ASTRA::TDevOper::Enum _op_type, const std::string &ascan, boost::optional<const std::list<AstraLocale::LexemaData> &> _errors, bool apr_lat);
         TPrnTagStore(bool apr_lat);
         TPrnTagStore(const TBagReceipt &arcpt, bool apr_lat);
-        TPrnTagStore(const std::string& airp_dep, const std::string& airp_arv, bool apr_lat);
+        TPrnTagStore(ASTRA::TDevOper::Enum _op_type, const std::string& airp_dep, const std::string& airp_arv, bool apr_lat);
 
         void set_tag(std::string name, const TBCBPData &value);
         void set_tag(std::string name, const BIPrintRules::TRule &value);
