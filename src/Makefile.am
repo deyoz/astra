@@ -194,6 +194,7 @@ astra_SOURCES = \
   get_cls_upgrade.cc \
   custom_alarms.cc \
   nosir_create_tlg.cc \
+  prn_forms_layout.cc \
   zamar_dsm.cpp
 
 
@@ -390,4 +391,5 @@ noinst_HEADERS = \
   get_cls_upgrade.h \
   custom_alarms.h \
   nosir_create_tlg.h \
+  prn_forms_layout.h \
   zamar_dsm.h
