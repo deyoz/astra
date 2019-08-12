@@ -27,6 +27,7 @@
 #include "cr_lf.h"
 #include "dcs_services.h"
 #include "tripinfo.h"
+#include "prn_forms_layout.h"
 
 #define NICKNAME "DENIS"
 #include <serverlib/slogger.h>
@@ -1861,16 +1862,7 @@ void PrintInterface::check_pectab_availability(BPParams &params, TDevOper::Enum 
     Qry.CreateVariable("op_type", otString, DevOperTypes().encode(op_type));
     Qry.Execute();
     if(Qry.Eof)
-        switch(op_type) {
-            case TDevOper::PrnBP:
-                throw AstraLocale::UserException("MSG.BP_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS");
-            case TDevOper::PrnBI:
-                throw AstraLocale::UserException("MSG.BI_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS");
-            case TDevOper::PrnVO:
-                throw AstraLocale::UserException("MSG.VO_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS");
-            default:
-                throw Exception("%d: %d: unexpected dev oper type %d", op_type);
-        }
+        throw AstraLocale::UserException(prn_forms_layout.msg_type_not_assigned(op_type));
     params.form_type = Qry.FieldAsString("bp_type");
 }
 
@@ -1883,9 +1875,9 @@ void PrintInterface::check_pectab_availability(BPParams &params, int grp_id, TDe
     if(Qry.Eof)
         throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
     if (DecodePaxStatus(Qry.FieldAsString("status"))==psCrew)
-        throw AstraLocale::UserException("MSG.BOARDINGPASS_NOT_AVAILABLE_FOR_CREW");
+        throw AstraLocale::UserException(prn_forms_layout.msg_not_avail_for_crew(op_type));
     if(Qry.FieldIsNULL("class"))
-        throw AstraLocale::UserException("MSG.BOARDINGPASS_NOT_AVAILABLE_FOR_UNACC_BAGGAGE");
+        throw AstraLocale::UserException(prn_forms_layout.msg_not_avail_for_unacc(op_type));
     int point_id = Qry.FieldAsInteger("point_dep");
     string cl = Qry.FieldAsString("class");
     check_pectab_availability(params, op_type, point_id, cl);
@@ -1923,21 +1915,8 @@ void PrintInterface::get_pectab(
        Qry.FieldIsNULL("data") or
        (Qry.FieldIsNULL( "form" ) and (DevFmtTypes().decode(params.fmt_type) == TDevFmt::BTP or
                                      DevFmtTypes().decode(params.fmt_type) == TDevFmt::ATB))
-      ) {
-        switch(op_type) {
-            case TDevOper::PrnBP:
-                previewDeviceSets(true, "MSG.PRINT.BP_UNAVAILABLE_FOR_THIS_DEVICE");
-                break;
-            case TDevOper::PrnBI:
-                previewDeviceSets(true, "MSG.PRINT.BI_UNAVAILABLE_FOR_THIS_DEVICE");
-                break;
-            case TDevOper::PrnVO:
-                previewDeviceSets(true, "MSG.PRINT.VO_UNAVAILABLE_FOR_THIS_DEVICE");
-                break;
-            default:
-                throw Exception("%d: %d: unexpected dev oper type %d", op_type);
-        }
-    }
+      )
+        previewDeviceSets(true, prn_forms_layout.msg_unavail_for_device(op_type));
     pectab = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("form"));
     data = AdjustCR_LF::DoIt(params.fmt_type, Qry.FieldAsString("data"));
 }
