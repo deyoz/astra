@@ -197,8 +197,6 @@ src/prepreg.cc
 src/prepreg.h
 src/print.cc
 src/print.h
-src/prn_forms_layout.cc
-src/prn_forms_layout.h
 src/prn_tag_store.cc
 src/prn_tag_store.h
 src/qrys.cpp
