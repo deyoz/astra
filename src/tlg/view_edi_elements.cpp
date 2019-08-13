@@ -242,6 +242,13 @@ void viewRffElement(_EDI_REAL_MES_STRUCT_* pMes, const RffElem& elem, int num)
     SetEdiFullSegment(pMes, SegmElement("RFF", num), rff.str());
 }
 
+void viewGeiElement(_EDI_REAL_MES_STRUCT_* pMes, const GeiElem& elem, int num)
+{
+    std::ostringstream gei;
+    gei << elem.m_qualifier << "+" << elem.m_indicator;
+    SetEdiFullSegment(pMes, SegmElement("GEI", num), gei.str());
+}
+
 void viewDocElement(_EDI_REAL_MES_STRUCT_* pMes, const DocElem& elem, int num)
 {
     std::ostringstream doc;

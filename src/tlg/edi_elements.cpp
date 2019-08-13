@@ -667,4 +667,12 @@ std::ostream& operator<<(std::ostream &os, const ErpElem &erp)
     return os;
 }
 
+std::ostream& operator<<(std::ostream &os, const GeiElem &gei)
+{
+    os << "GEI: ";
+    os << "Qualifier: " << gei.m_qualifier << "; "
+       << "Indicator: " << gei.m_indicator;
+    return os;
+}
+
 }//namespace edifact

@@ -1146,6 +1146,21 @@ struct UsiElem
 
 //---------------------------------------------------------------------------------------
 
+///@class GeiElem - Processing indicator --GEI
+struct GeiElem
+{
+    std::string m_qualifier;
+    std::string m_indicator;
+
+    GeiElem(const std::string& qualifier,
+            const std::string& indicator)
+        : m_qualifier(qualifier),
+          m_indicator(indicator)
+    {}
+};
+
+//---------------------------------------------------------------------------------------
+
 std::ostream& operator<<(std::ostream &os, const LorElem &lor);
 std::ostream& operator<<(std::ostream &os, const FdqElem &fdq);
 std::ostream& operator<<(std::ostream &os, const PpdElem &ppd);
@@ -1180,6 +1195,7 @@ std::ostream& operator<<(std::ostream &os, const LocElem &loc);
 std::ostream& operator<<(std::ostream &os, const ErcElem &erc);
 std::ostream& operator<<(std::ostream &os, const FtxElem &ftx);
 std::ostream& operator<<(std::ostream &os, const ErpElem &erp);
+std::ostream& operator<<(std::ostream &os, const GeiElem &gei);
 
 }//namespace edifact
 

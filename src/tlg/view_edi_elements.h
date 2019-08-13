@@ -86,6 +86,11 @@ void viewNatElement(_EDI_REAL_MES_STRUCT_* pMes, const NatElem& elem, int num = 
 void viewRffElement(_EDI_REAL_MES_STRUCT_* pMes, const RffElem& elem, int num = 0);
 
 /**
+ * @brief makes a GEI element
+*/
+void viewGeiElement(_EDI_REAL_MES_STRUCT_* pMes, const GeiElem& elem, int num = 0);
+
+/**
  * @brief makes a DOC element
 */
 void viewDocElement(_EDI_REAL_MES_STRUCT_* pMes, const DocElem& elem, int num = 0);
