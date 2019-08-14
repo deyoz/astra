@@ -9,7 +9,7 @@
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
-#include "serverlib/test.h"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace ASTRA;
@@ -41,6 +41,72 @@ bool IsTlgCompLayer(TCompLayerType layer_type)
           layer_type==cltProtCkin ||
           layer_type==cltProtSelfCkin);
 };
+
+static std::string getTlgLayerTypeSQLEnum(const std::initializer_list<TCompLayerType>& layerTypes)
+{
+  set<string> values;
+  for(const auto& l : layerTypes)
+  {
+    if (!IsTlgCompLayer(l)) continue;
+    values.insert(EncodeCompLayerType(l));
+  }
+  return GetSQLEnum(values);
+}
+
+void PaxIdsForDeleteTlgSeatRanges::add(const std::initializer_list<ASTRA::TCompLayerType>& layerTypes,
+                                       int crs_pax_id)
+{
+  if (!emplace(crs_pax_id, layerTypes).second)
+    ProgError(STDLOG, "PaxIdsForDeleteTlgSeatRanges::add: Warning! crs_pax_id=%d duplicated", crs_pax_id);
+}
+
+void PaxIdsForDeleteTlgSeatRanges::handle(int &curr_tid,
+                                          TPointIdsForCheck &point_ids_spp) const
+{
+  for(const auto& i : *this)
+  {
+    const PaxIdsForDeleteTlgSeatRangesItem& item=i.second;
+    DeleteTlgSeatRanges(item.layerTypes, i.first, curr_tid, point_ids_spp);
+//    ProgTrace(TRACE5, "DeleteTlgSeatRanges: layer_types=%s crs_pax_id=%d", getTlgLayerTypeSQLEnum(item.layerTypes).c_str(), i.first);
+  }
+}
+
+void PaxIdsForInsertTlgSeatRanges::add(const std::string& airp_arv,
+                                       const TlgSeatRanges& tlgSeatRanges,
+                                       int crs_pax_id)
+{
+  if (!emplace(crs_pax_id, PaxIdsForInsertTlgSeatRangesItem(airp_arv, tlgSeatRanges)).second)
+    ProgError(STDLOG, "PaxIdsForInsertTlgSeatRanges::add: Warning! crs_pax_id=%d duplicated", crs_pax_id);
+}
+
+void PaxIdsForInsertTlgSeatRanges::handle(int point_id_tlg,
+                                          int tlg_id,
+                                          int &curr_tid,
+                                          TPointIdsForCheck &point_ids_spp) const
+{
+  bool usePriorContext=false;
+  for(const auto& i : *this)
+  {
+    const PaxIdsForInsertTlgSeatRangesItem& item=i.second;
+    for(const auto& r : item.tlgSeatRanges)
+    {
+      TSeatRanges seatRanges;
+      seatRanges.assign(r.second.begin(), r.second.end());
+      InsertTlgSeatRanges(point_id_tlg,
+                          item.airp_arv,
+                          r.first,
+                          seatRanges,
+                          i.first,
+                          tlg_id,
+                          ASTRA::NoExists,
+                          usePriorContext,
+                          curr_tid,
+                          point_ids_spp);
+//      ProgTrace(TRACE5, "InsertTlgSeatRanges: layer_type=%s seatRanges=%s crs_pax_id=%d", EncodeCompLayerType(r.first), seatRanges.traceStr().c_str(), i.first);
+      usePriorContext=true;
+    }
+  }
+}
 
 void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //вектор пар range_id и TSeatRange
                           int point_id_tlg,
@@ -233,7 +299,7 @@ void InsertTripSeatRanges(const vector< pair<int, TSeatRange> > &ranges, //векто
 };
 
 void InsertTlgSeatRanges(int point_id_tlg,
-                         string airp_arv,
+                         const string& airp_arv,
                          TCompLayerType layer_type,
                          const TSeatRanges &ranges,
                          int crs_pax_id, //может быть NoExists
@@ -337,7 +403,7 @@ void InsertTlgSeatRanges(int point_id_tlg,
                        point_ids_spp);
 };
 
-void DeleteTripSeatRanges(const vector<int>& range_ids,
+void DeleteTripSeatRanges(const SeatRangeIds& range_ids,
                           int point_id_spp, //может быть NoExists
                           int crs_pax_id,   //может быть NoExists
                           const string& crs_pax_name,
@@ -366,7 +432,7 @@ void DeleteTripSeatRanges(const vector<int>& range_ids,
     Qry.SQLText=sql.str().c_str();
     Qry.DeclareVariable("range_id", otInteger);
     map< pair<TCompLayerType, int> , pair<TSeatRanges, bool> > ranges; //ключ - пара layer_type, point_id
-    for(vector<int>::const_iterator i=range_ids.begin(); i!=range_ids.end(); i++)
+    for(SeatRangeIds::const_iterator i=range_ids.begin(); i!=range_ids.end(); i++)
     {
       Qry.SetVariable("range_id", *i);
       Qry.Execute();
@@ -444,7 +510,7 @@ void DeleteTripSeatRanges(const vector<int>& range_ids,
     sql << "FOR UPDATE";
     Qry.SQLText=sql.str().c_str();
     Qry.DeclareVariable("range_id", otInteger);
-    for(vector<int>::const_iterator i=range_ids.begin(); i!=range_ids.end(); i++)
+    for(SeatRangeIds::const_iterator i=range_ids.begin(); i!=range_ids.end(); i++)
     {
       Qry.SetVariable("range_id", *i);
       Qry.Execute();
@@ -469,14 +535,14 @@ void DeleteTripSeatRanges(const vector<int>& range_ids,
   };
   Qry.SQLText=sql.str().c_str();
   Qry.DeclareVariable("range_id", otInteger);
-  for(vector<int>::const_iterator i=range_ids.begin(); i!=range_ids.end(); i++)
+  for(SeatRangeIds::const_iterator i=range_ids.begin(); i!=range_ids.end(); i++)
   {
     Qry.SetVariable("range_id", *i);
     Qry.Execute();
   };
 };
 
-void DeleteTlgSeatRanges(const vector<int>& range_ids,
+void DeleteTlgSeatRanges(const SeatRangeIds& range_ids,
                          int crs_pax_id,
                          int &curr_tid,
                          TPointIdsForCheck &point_ids_spp) //вектор point_id_spp по которым были изменения
@@ -519,67 +585,127 @@ void DeleteTlgSeatRanges(const vector<int>& range_ids,
   Qry.Clear();
   Qry.SQLText="DELETE FROM tlg_comp_layers WHERE range_id=:range_id";
   Qry.DeclareVariable("range_id", otInteger);
-  for(vector<int>::const_iterator i=range_ids.begin(); i!=range_ids.end(); i++)
+  for(SeatRangeIds::const_iterator i=range_ids.begin(); i!=range_ids.end(); i++)
   {
     Qry.SetVariable("range_id", *i);
     Qry.Execute();
   };
 };
 
-void DeleteTlgSeatRanges(TCompLayerType layer_type,
+void DeleteTlgSeatRanges(const std::initializer_list<TCompLayerType>& layer_types,
                          int crs_pax_id,
                          int &curr_tid,                    //может быть NoExists, тогда устанавливается в процедуре
                          TPointIdsForCheck &point_ids_spp) //вектор point_id_spp по которым были изменения
 {
-  if (!IsTlgCompLayer(layer_type)) return;
   if (crs_pax_id==NoExists) return;
 
-  vector<int> range_ids;
-  GetTlgSeatRangeIds(layer_type, crs_pax_id, range_ids);
+  SeatRangeIds range_ids;
+  GetTlgSeatRangeIds(layer_types, crs_pax_id, range_ids);
 
   DeleteTlgSeatRanges(range_ids, crs_pax_id, curr_tid, point_ids_spp);
 }
 
-void GetTlgSeatRanges(TCompLayerType layer_type,
+void DeleteTlgSeatRanges(const std::initializer_list<ASTRA::TCompLayerType>& layer_types,
+                         int crs_pax_id,
+                         int &curr_tid)
+{
+  TPointIdsForCheck point_ids_spp;
+  DeleteTlgSeatRanges(layer_types, crs_pax_id, curr_tid, point_ids_spp);
+}
+
+void TlgSeatRanges::add(TCompLayerType layerType,
+                        const TSeatRange& seatRange)
+{
+  if (!IsTlgCompLayer(layerType)) return;
+  auto i=find(layerType);
+  if (i==end())
+    i=emplace(layerType, set<TSeatRange>()).first;
+  i->second.emplace(seatRange);
+}
+
+void TlgSeatRanges::add(TCompLayerType layerType,
+                        const TSeatRanges& seatRanges)
+{
+  if (!IsTlgCompLayer(layerType)) return;
+  if (seatRanges.empty()) return;
+  auto i=find(layerType);
+  if (i==end())
+    i=emplace(layerType, set<TSeatRange>()).first;
+  for(const TSeatRange& r : seatRanges)
+    i->second.emplace(r);
+}
+
+void TlgSeatRanges::get(const std::initializer_list<ASTRA::TCompLayerType>& layerTypes,
+                        int crs_pax_id)
+{
+  clear();
+
+  string sql=getTlgLayerTypeSQLEnum(layerTypes);
+  if (sql.empty()) return;
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT layer_type, first_xname, last_xname, first_yname, last_yname FROM tlg_comp_layers "
+    "WHERE crs_pax_id=:crs_pax_id AND layer_type IN " + sql;
+  Qry.CreateVariable("crs_pax_id", otInteger, crs_pax_id);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    add(DecodeCompLayerType(Qry.FieldAsString("layer_type")),
+        TSeatRange(TSeat(Qry.FieldAsString("first_yname"),
+                         Qry.FieldAsString("first_xname")),
+                   TSeat(Qry.FieldAsString("last_yname"),
+                         Qry.FieldAsString("last_xname"))));
+  }
+}
+
+void TlgSeatRanges::dump(const std::string& title) const
+{
+  LogTrace(TRACE5) << title;
+  if (empty()) LogTrace(TRACE5) << "empty";
+  for(const auto& i : *this)
+  {
+    if (i.second.empty())
+      LogTrace(TRACE5) << EncodeCompLayerType(i.first) << ": empty";
+    for(const TSeatRange& r : i.second)
+      LogTrace(TRACE5) << EncodeCompLayerType(i.first) << ": " << r.traceStr();
+  }
+}
+
+void GetTlgSeatRanges(ASTRA::TCompLayerType layer_type,
                       int crs_pax_id,
                       TSeatRanges &ranges)
 {
   ranges.clear();
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT first_xname, last_xname, first_yname, last_yname FROM tlg_comp_layers "
-    "WHERE crs_pax_id=:crs_pax_id AND layer_type=:layer_type";
-  Qry.CreateVariable("crs_pax_id", otInteger, crs_pax_id);
-  Qry.CreateVariable("layer_type", otString, EncodeCompLayerType(layer_type));
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-  {
-    TSeatRange range(TSeat(Qry.FieldAsString("first_yname"),
-                           Qry.FieldAsString("first_xname")),
-                     TSeat(Qry.FieldAsString("last_yname"),
-                           Qry.FieldAsString("last_xname")));
-    ranges.push_back(range);
-  };
+  TlgSeatRanges tlgSeatRanges;
+  tlgSeatRanges.get({layer_type}, crs_pax_id);
+
+  if (!tlgSeatRanges.empty())
+    ranges.assign(tlgSeatRanges.begin()->second.begin(),
+                  tlgSeatRanges.begin()->second.end());
 }
 
-void GetTlgSeatRangeIds(TCompLayerType layer_type,
+
+void GetTlgSeatRangeIds(const std::initializer_list<TCompLayerType>& layerTypes,
                         int crs_pax_id,
-                        std::vector<int>& range_ids)
+                        SeatRangeIds& range_ids)
 {
   range_ids.clear();
+
+  string sql=getTlgLayerTypeSQLEnum(layerTypes);
+  if (sql.empty()) return;
 
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
     "SELECT range_id FROM tlg_comp_layers "
-    "WHERE crs_pax_id=:crs_pax_id AND layer_type=:layer_type";
+    "WHERE crs_pax_id=:crs_pax_id AND layer_type IN " + sql;
   Qry.CreateVariable("crs_pax_id", otInteger, crs_pax_id);
-  Qry.CreateVariable("layer_type", otString, EncodeCompLayerType(layer_type));
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
-    range_ids.push_back(Qry.FieldAsInteger("range_id"));
+    range_ids.insert(Qry.FieldAsInteger("range_id"));
 }
 
 void SyncTripCompLayers(int point_id_tlg,
@@ -733,7 +859,7 @@ void DeleteTripCompLayers(int point_id_tlg,
   };
   Qry.CreateVariable("layer_type",otString,EncodeCompLayerType(layer_type));
   Qry.Execute();
-  vector<int> ranges_for_sync;
+  SeatRangeIds ranges_for_sync;
   int prior_range_id=NoExists;
   for(;!Qry.Eof;)
   {
@@ -741,7 +867,7 @@ void DeleteTripCompLayers(int point_id_tlg,
     if (prior_range_id==NoExists || prior_range_id!=range_id)
     {
       prior_range_id=range_id;
-      ranges_for_sync.push_back( range_id );
+      ranges_for_sync.insert( range_id );
     };
     int crs_pax_id=(Qry.FieldIsNULL("crs_pax_id")?NoExists:Qry.FieldAsInteger("crs_pax_id"));
     string crs_pax_name=GetPaxName(Qry.FieldAsString("surname"),

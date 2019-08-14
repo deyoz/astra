@@ -5441,16 +5441,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                 {
                   LayerQry.SetVariable("pax_id",pax.id);
                   LayerQry.Execute();
-                  TPointIdsForCheck point_ids_spp; //!!!DJEK
                   int tid = pax.tid;
-                  point_ids_spp.insert( make_pair( grp.point_dep, ASTRA::cltProtSelfCkin ) ); //!!!DJEK
-                  DeleteTlgSeatRanges( ASTRA::cltProtSelfCkin , pax.id, tid, point_ids_spp ); //!!!DJEK
-                  point_ids_spp.clear();
-                  point_ids_spp.insert( make_pair( grp.point_dep, ASTRA::cltProtBeforePay ) ); //!!!DJEK
-                  DeleteTlgSeatRanges( ASTRA::cltProtBeforePay , pax.id, tid, point_ids_spp ); //!!!DJEK
-                  point_ids_spp.clear();
-                  point_ids_spp.insert( make_pair( grp.point_dep, ASTRA::cltProtAfterPay ) ); //!!!DJEK
-                  DeleteTlgSeatRanges( ASTRA::cltProtAfterPay , pax.id, tid, point_ids_spp ); //!!!DJEK
+                  DeleteTlgSeatRanges( {ASTRA::cltProtSelfCkin,
+                                        ASTRA::cltProtBeforePay,
+                                        ASTRA::cltProtAfterPay}, pax.id, tid);
                 }
                 pax.toDB(PaxQry);
                 PaxQry.SetVariable("doc_exists", (int)pax.DocExists);

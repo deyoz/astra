@@ -7159,10 +7159,10 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
         int pnr_id;
         bool pr_sync_pnr;
-        bool UsePriorContext=false;
-        TPointIdsForCheck point_ids_spp;
         set<int> et_display_pax_ids;
         set<int> paxIdsForSyncASVC;
+        PaxIdsForDeleteTlgSeatRanges paxIdsForDeleteTlgSeatRanges;
+        PaxIdsForInsertTlgSeatRanges paxIdsForInsertTlgSeatRanges;
         bool chkd_exists=false;
         bool apps_pax_exists=false;
         int point_id_spp = ASTRA::NoExists;
@@ -7508,22 +7508,24 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                     Qry.CreateVariable("last_op", otDate, info.time_create);
                     Qry.Execute();
 
-                    for(const int& paxId : paxIds)
+                    if (ne.indicator==DEL)
                     {
-                      DeleteTlgSeatRanges(cltPNLCkin, paxId, tid, point_ids_spp);
-                      DeleteTlgSeatRanges(cltPNLBeforePay, paxId, tid, point_ids_spp);
-                      DeleteTlgSeatRanges(cltPNLAfterPay, paxId, tid, point_ids_spp);
-                      if (ne.indicator==DEL)
+                      for(const int& paxId : paxIds)
                       {
-                        DeleteTlgSeatRanges(cltProtCkin, paxId, tid, point_ids_spp);
-                        DeleteTlgSeatRanges(cltProtSelfCkin, paxId, tid, point_ids_spp);
-                        DeleteTlgSeatRanges(cltProtBeforePay, paxId, tid, point_ids_spp);
-                        DeleteTlgSeatRanges(cltProtAfterPay, paxId, tid, point_ids_spp);
+                        paxIdsForDeleteTlgSeatRanges.add({cltPNLCkin,
+                                                          cltPNLBeforePay,
+                                                          cltPNLAfterPay,
+                                                          cltProtCkin,
+                                                          cltProtSelfCkin,
+                                                          cltProtBeforePay,
+                                                          cltProtAfterPay},
+                                                         paxId);
+
                         if(is_need_apps) {
                           deleteAPPSAlarms(paxId, point_id_spp);
                           deleteAPPSData(paxId);
                         }
-                      };
+                      }
                     }
                   };
                   if (ne.indicator!=DEL)
@@ -7606,25 +7608,45 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
                     SaveASVCRem(pax_id, paxItem.asvc, paxIdsForSyncASVC);
 
-                    //разметка слоев
-                    InsertTlgSeatRanges(point_id,iTotals->dest,isPRL?cltPRLTrzt:cltPNLCkin,paxItem.seatRanges,
-                                        pax_id,tlg_id,NoExists,UsePriorContext,tid,point_ids_spp);
+                    //ремарки, не привязанные к пассажиру
+                    SavePNLADLRemarks(pax_id,ne.rem);
+
+                    paxIdsForDeleteTlgSeatRanges.erase(pax_id); //могла ранее обработаться секция DEL в результате чего мы бы удалили все телеграммные слои
                     if (!isPRL)
                     {
+                      //текущие слои
+                      TlgSeatRanges currTlgSeatRanges;
+                      currTlgSeatRanges.add(cltPNLCkin, paxItem.seatRanges);
                       TCompLayerType rem_layer=GetSeatRemLayer(pnr.market_flt.Empty()?con.flt.airline:
                                                                                       pnr.market_flt.airline,
                                                                paxItem.seat_rem);
-                      if (rem_layer!=cltPNLCkin && rem_layer!=cltUnknown)
-                        InsertTlgSeatRanges(point_id,iTotals->dest,rem_layer,
-                                            TSeatRanges(paxItem.seat),
-                                            pax_id,tlg_id,NoExists,UsePriorContext,tid,point_ids_spp);
-                    };
-                    UsePriorContext=true;
-                    //ремарки, не привязанные к пассажиру
-                    SavePNLADLRemarks(pax_id,ne.rem);
-                    InsertTlgSeatRanges(point_id,iTotals->dest,isPRL?cltPRLTrzt:cltPNLCkin,ne.seatRanges,
-                                        pax_id,tlg_id,NoExists,UsePriorContext,tid,point_ids_spp);
-                    //восстановим номер места предварительной рассадки
+                      if (rem_layer==cltPNLBeforePay ||
+                          rem_layer==cltPNLAfterPay)
+                        currTlgSeatRanges.add(rem_layer, TSeatRange(paxItem.seat));
+                      //слои, не привязанные к пассажиру
+                      currTlgSeatRanges.add(cltPNLCkin, ne.seatRanges);
+
+                      //предыдущие слои
+                      TlgSeatRanges priorTlgSeatRanges;
+                      priorTlgSeatRanges.get({cltPNLCkin, cltPNLBeforePay, cltPNLAfterPay}, pax_id);
+
+                      if (currTlgSeatRanges!=priorTlgSeatRanges)
+                      {
+                        priorTlgSeatRanges.dump("priorTlgSeatRanges (pax_id="+IntToString(pax_id)+"):");
+                        currTlgSeatRanges.dump("currTlgSeatRanges (pax_id="+IntToString(pax_id)+"):");
+                        //слои различаются, удаляем старые, добавляем новые
+                        paxIdsForDeleteTlgSeatRanges.add({cltPNLCkin, cltPNLBeforePay, cltPNLAfterPay}, pax_id);
+                        paxIdsForInsertTlgSeatRanges.add(iTotals->dest, currTlgSeatRanges, pax_id);
+                      }
+                    }
+                    else
+                    {
+                      TlgSeatRanges currTlgSeatRanges;
+                      currTlgSeatRanges.add(cltPRLTrzt, paxItem.seatRanges);
+                      //слои, не привязанные к пассажиру
+                      currTlgSeatRanges.add(cltPRLTrzt, ne.seatRanges);
+                      paxIdsForInsertTlgSeatRanges.add(iTotals->dest, currTlgSeatRanges, pax_id);
+                    }
                   };
 
                   if (!isPRL && !pr_sync_pnr)
@@ -7711,34 +7733,53 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
           };//for(iPnrItem=iTotals->pnr.begin()
         };
 
-        if (!isPRL)
-        {
-          check_layer_change(point_ids_spp, __FUNCTION__);
-          TlgETDisplay(point_id, et_display_pax_ids, true);
-          if (chkd_exists)
-          {
-            for(TAdvTripInfoList::const_iterator it = trips.begin(); it != trips.end(); it++)
-              add_trip_task((*it).point_id, SYNC_NEW_CHKD, "");
-          };
-          if(apps_pax_exists) {
-            TDateTime start_time;
-            bool result = checkTime( point_id_spp, start_time );
-            if ( result || start_time != ASTRA::NoExists )
-              add_trip_task( point_id_spp, SEND_NEW_APPS_INFO, "", start_time );
-          }
-          if (!paxIdsForSyncASVC.empty())
-          {
-            TFlights flightsForLock;
-            flightsForLock.GetByPointIdTlg(point_id, ftTranzit);
-            flightsForLock.Lock(__func__);
-            Timing::Points timing(__func__);
-            timing.start("SyncPaxASVC");
-            for(int paxId : paxIdsForSyncASVC)
-              SyncPaxASVC(paxId);
-            timing.finish("SyncPaxASVC");
-          }
-        }
-      };
+       if (!isPRL)
+       {
+         TlgETDisplay(point_id, et_display_pax_ids, true);
+         if (chkd_exists)
+         {
+           for(TAdvTripInfoList::const_iterator it = trips.begin(); it != trips.end(); it++)
+             add_trip_task((*it).point_id, SYNC_NEW_CHKD, "");
+         };
+         if(apps_pax_exists) {
+           TDateTime start_time;
+           bool result = checkTime( point_id_spp, start_time );
+           if ( result || start_time != ASTRA::NoExists )
+             add_trip_task( point_id_spp, SEND_NEW_APPS_INFO, "", start_time );
+         }
+       }
+
+       bool lock=!paxIdsForDeleteTlgSeatRanges.empty() ||
+                 !paxIdsForInsertTlgSeatRanges.empty() ||
+                 (!isPRL && !paxIdsForSyncASVC.empty());
+       if (lock)
+       {
+         TFlights flightsForLock;
+         flightsForLock.GetByPointIdTlg(point_id, ftTranzit);
+         flightsForLock.Lock(__func__);
+       }
+
+       Timing::Points timing(__func__);
+
+       if (!paxIdsForDeleteTlgSeatRanges.empty() ||
+           !paxIdsForInsertTlgSeatRanges.empty())
+       {
+         TPointIdsForCheck point_ids_spp;
+         timing.start("SyncTlgSeatRanges");
+         paxIdsForDeleteTlgSeatRanges.handle(tid, point_ids_spp);
+         paxIdsForInsertTlgSeatRanges.handle(point_id, tlg_id, tid, point_ids_spp);
+         timing.finish("SyncTlgSeatRanges");
+         check_layer_change(point_ids_spp, __func__);
+       }
+
+       if (!isPRL && !paxIdsForSyncASVC.empty())
+       {
+         timing.start("SyncPaxASVC");
+         for(int paxId : paxIdsForSyncASVC)
+           SyncPaxASVC(paxId);
+         timing.finish("SyncPaxASVC");
+       }
+      } //if (pr_ne)
 
       if (!isPRL)
       {
