@@ -1063,6 +1063,7 @@ bool AdultsWithBaby( int adult_id, const std::vector<T1> &InfItems )
 bool is_sync_paxs( int point_id );
 bool is_sync_flights( int point_id );
 void update_pax_change( int point_id, int pax_id, int reg_no, const std::string &work_mode );
+void update_pax_change( const TTripInfo &fltInfo, int pax_id, int reg_no, const std::string &work_mode );
 void update_flights_change( int point_id );
 
 class TPaxNameTitle

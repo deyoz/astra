@@ -2342,7 +2342,7 @@ void DeletePaxGrp( const TAdvTripInfo &fltInfo, int grp_id, bool toLog,
   //набираем вектор BSMsegs
   if (BSMsegs.find(fltInfo.point_id)==BSMsegs.end())
   {
-    BSM::IsSend(fltInfo,BSMsegs[fltInfo.point_id].BSMaddrs);
+    BSM::IsSend(fltInfo,BSMsegs[fltInfo.point_id].BSMaddrs, false);
   };
 
   TSegBSMInfo &BSMseg=BSMsegs[fltInfo.point_id];

@@ -300,7 +300,7 @@ struct TBSMAddrs {
     std::vector<TypeB::TCreateInfo> createInfo;
     bool empty() const { return createInfo.empty(); }
 };
-bool IsSend( const TAdvTripInfo &fltInfo, TBSMAddrs &addrs );
+bool IsSend( const TAdvTripInfo &fltInfo, TBSMAddrs &addrs, bool pr_brd );
 void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &addrs );
 
 }; //namespace BSM

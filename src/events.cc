@@ -1169,7 +1169,7 @@ void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
       if (aodb_pax_id!=NoExists && aodb_reg_no!=NoExists)
       {
         if (changed) //были изменения по регистрации
-          update_pax_change( point_id, aodb_pax_id, aodb_reg_no, "Р" );
+          update_pax_change( operFlt, aodb_pax_id, aodb_reg_no, "Р" );
 
         bool boardedAfter=false, boardedBefore=false;
         if (aPax!=grpInfoAfter.pax.end())
@@ -1177,7 +1177,7 @@ void SaveGrpToLog(const TGrpToLogInfo &grpInfoBefore,
         if (bPax!=grpInfoBefore.pax.end())
           boardedBefore=bPax->second.pr_brd;
         if (boardedAfter!=boardedBefore) //были изменения с посадкой/высадкой
-          update_pax_change( point_id, aodb_pax_id, aodb_reg_no, "П" );
+          update_pax_change( operFlt, aodb_pax_id, aodb_reg_no, "П" );
       };
     };
   };
