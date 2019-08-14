@@ -1503,12 +1503,18 @@ class TBSMOptions : public TFranchiseOptions
       tag_printer_id=false;
       pas_name_rp1745=false;
       actual_dep_date=false;
+      brd=false;
+      trfer_in=false;
+      long_flt_no=false;
     };
   public:
     bool class_of_travel;
     bool tag_printer_id;
     bool pas_name_rp1745;
     bool actual_dep_date;
+    bool brd;
+    bool trfer_in;
+    bool long_flt_no;
     TBSMOptions() {init();};
     virtual ~TBSMOptions() {};
     virtual void clear()
@@ -1525,6 +1531,9 @@ class TBSMOptions : public TFranchiseOptions
       tag_printer_id= NodeAsBooleanFast("tag_printer_id",  node2, tag_printer_id);
       pas_name_rp1745=NodeAsBooleanFast("pas_name_rp1745", node2, pas_name_rp1745);
       actual_dep_date=NodeAsBooleanFast("actual_dep_date", node2, actual_dep_date);
+      brd=            NodeAsBooleanFast("brd", node2, brd);
+      trfer_in=       NodeAsBooleanFast("trfer_in", node2, trfer_in);
+      long_flt_no=    NodeAsBooleanFast("long_flt_no", node2, long_flt_no);
     };
     virtual void fromDB(TQuery &Qry, TQuery &OptionsQry)
     {
@@ -1555,6 +1564,21 @@ class TBSMOptions : public TFranchiseOptions
           actual_dep_date=OptionsQry.FieldAsInteger("value")!=0;
           continue;
         };
+        if (cat=="BRD")
+        {
+          brd=OptionsQry.FieldAsInteger("value")!=0;
+          continue;
+        };
+        if (cat=="TRFER_IN")
+        {
+          trfer_in=OptionsQry.FieldAsInteger("value")!=0;
+          continue;
+        };
+        if (cat=="LONG_FLT_NO")
+        {
+          long_flt_no=OptionsQry.FieldAsInteger("value")!=0;
+          continue;
+        };
       };
     };
     virtual localizedstream& logStr(localizedstream &s) const
@@ -1571,7 +1595,16 @@ class TBSMOptions : public TFranchiseOptions
         << s(pas_name_rp1745)
         << ", "
         << s("CAP.TYPEB_OPTIONS.BSM.ACTUAL_DEP_DATE") << ": "
-        << s(actual_dep_date);
+        << s(actual_dep_date)
+        << ", "
+        << s("CAP.TYPEB_OPTIONS.BSM.BRD") << ": "
+        << s(brd)
+        << ", "
+        << s("CAP.TYPEB_OPTIONS.BSM.TRFER_IN") << ": "
+        << s(trfer_in)
+        << ", "
+        << s("CAP.TYPEB_OPTIONS.BSM.LONG_FLT_NO") << ": "
+        << s(long_flt_no);
       return s;
     };
     virtual localizedstream& extraStr(localizedstream &s) const
@@ -1588,6 +1621,15 @@ class TBSMOptions : public TFranchiseOptions
         << endl
         << s("CAP.TYPEB_OPTIONS.BSM.ACTUAL_DEP_DATE") << ": "
         << s(actual_dep_date)
+        << endl
+        << s("CAP.TYPEB_OPTIONS.BSM.BRD") << ": "
+        << s(brd)
+        << endl
+        << s("CAP.TYPEB_OPTIONS.BSM.TRFER_IN") << ": "
+        << s(trfer_in)
+        << endl
+        << s("CAP.TYPEB_OPTIONS.BSM.LONG_FLT_NO") << ": "
+        << s(long_flt_no)
         << endl;
       return s;
     };
@@ -1604,7 +1646,10 @@ class TBSMOptions : public TFranchiseOptions
         return class_of_travel==opt.class_of_travel &&
                tag_printer_id==opt.tag_printer_id &&
                pas_name_rp1745==opt.pas_name_rp1745 &&
-               actual_dep_date==opt.actual_dep_date;
+               actual_dep_date==opt.actual_dep_date &&
+               brd==opt.brd &&
+               trfer_in==opt.trfer_in &&
+               long_flt_no==opt.long_flt_no;
       }
       catch(std::bad_cast&)
       {
@@ -1620,7 +1665,10 @@ class TBSMOptions : public TFranchiseOptions
         return class_of_travel==opt.class_of_travel &&
                tag_printer_id==opt.tag_printer_id &&
                pas_name_rp1745==opt.pas_name_rp1745 &&
-               actual_dep_date==opt.actual_dep_date;
+               actual_dep_date==opt.actual_dep_date &&
+               brd==opt.brd &&
+               trfer_in==opt.trfer_in &&
+               long_flt_no==opt.long_flt_no;
       }
       catch(std::bad_cast&)
       {
@@ -1637,6 +1685,9 @@ class TBSMOptions : public TFranchiseOptions
         tag_printer_id=opt.tag_printer_id;
         pas_name_rp1745=opt.pas_name_rp1745;
         actual_dep_date=opt.actual_dep_date;
+        brd=opt.brd;
+        trfer_in=opt.trfer_in;
+        long_flt_no=opt.long_flt_no;
       }
       catch(std::bad_cast&) {};
     };
@@ -2435,6 +2486,26 @@ class TForwarder : public TCreator
     void getInfo(std::vector<TCreateInfo> &info);
 
     virtual bool validInfo(const TCreateInfo &info) const;
+};
+
+class TBrdBSMCreator : public TCreator
+{
+  public:
+    TBrdBSMCreator(const TAdvTripInfo &fltInfo) : TCreator(fltInfo)
+    {
+      *this << "BSM";
+    };
+
+    virtual bool validInfo(const TCreateInfo &info) const {
+        if (!TCreator::validInfo(info)) return false;
+
+        if (info.optionsIs<TBSMOptions>())
+        {
+          return info.optionsAs<TBSMOptions>()->brd;
+        };
+
+        return true;
+    };
 };
 
 class TCloseCheckInCreator : public TCreator

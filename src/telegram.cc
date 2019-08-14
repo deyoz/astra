@@ -1841,6 +1841,11 @@ std::string TlgElemIdToElem(TElemType type, std::string id, bool pr_lat)
     }
 };
 
+int get_flt_no_len(const TypeB::TBSMOptions &options)
+{
+    return options.long_flt_no ? 4 : 3;
+}
+
 bool CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo, bool is_trfer, TTlgOutPartInfo &partInfo)
 {
   const TypeB::TBSMOptions &options=*(createInfo.optionsAs<TypeB::TBSMOptions>());
@@ -1916,7 +1921,7 @@ bool CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
 
   body << ".F/"
        << TlgElemIdToElem(etAirline, flt.airline, options.is_lat)
-       << setw(3) << setfill('0') << flt.flt_no
+       << setw(get_flt_no_len(options)) << setfill('0') << flt.flt_no
        << (flt.suffix.empty() ? "" : TlgElemIdToElem(etSuffix, flt.suffix, options.is_lat)) << '/'
        << DateTimeToStr( options.actual_dep_date?con.OutFlt.operFlt.act_est_scd_out():
                                                  con.OutFlt.operFlt.scd_out,
@@ -1931,7 +1936,7 @@ bool CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
   {
     body << ".O/"
          << TlgElemIdToElem(etAirline, i->operFlt.airline, options.is_lat)
-         << setw(3) << setfill('0') << i->operFlt.flt_no
+         << setw(get_flt_no_len(options)) << setfill('0') << i->operFlt.flt_no
          << (i->operFlt.suffix.empty() ? "" : TlgElemIdToElem(etSuffix, i->operFlt.suffix, options.is_lat)) << '/'
          << DateTimeToStr( i->operFlt.scd_out, "ddmmm", options.is_lat) << '/'
          << TlgElemIdToElem(etAirp, i->airp_arv, options.is_lat);
@@ -2007,11 +2012,16 @@ bool CreateTlgBody(const TTlgContent& con, const TypeB::TCreateInfo &createInfo,
   return true;
 };
 
-bool IsSend( const TAdvTripInfo &fltInfo, TBSMAddrs &addrs )
+bool IsSend( const TAdvTripInfo &fltInfo, TBSMAddrs &addrs, bool pr_brd )
 {
-    TypeB::TCreator creator(fltInfo);
-    creator << "BSM";
-    creator.getInfo(addrs.createInfo);
+    boost::shared_ptr<TypeB::TCreator> creator;
+    if(pr_brd) {
+        creator = boost::shared_ptr<TypeB::TBrdBSMCreator>(new TypeB::TBrdBSMCreator(fltInfo));
+    } else {
+        creator = boost::shared_ptr<TypeB::TCreator>(new TypeB::TCreator(fltInfo));
+        *creator << "BSM";
+    }
+    creator->getInfo(addrs.createInfo);
 
     return !addrs.empty();
 };
