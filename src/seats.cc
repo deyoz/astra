@@ -4075,7 +4075,7 @@ void SyncPRSA( const string &airline_oper,
   {
     if (tariffs_status==TSeatTariffMap::stNotFound ||
         tariffs_status==TSeatTariffMap::stNotRFISC) continue;
-    if ((tariffs_status==TSeatTariffMap::stUseRFISC && it->second.rate==0.0) || it->second.code.empty()) continue;
+    if (/*(tariffs_status==TSeatTariffMap::stUseRFISC && it->second.rate==0.0) ||*/ it->second.code.empty()) continue;
     ostringstream rem;
     rem << "PRSA/" << it->second.code;
     if (tariffs_status==TSeatTariffMap::stUseRFISC)
