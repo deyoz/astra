@@ -291,9 +291,12 @@ class TTlgContent
     bool addTag(const TTagKey& tagKey, const TTlgContent& src);
     bool addTag(const CheckIn::TTagItem &tag);
     bool addBag(const CheckIn::TBagItem &bag);
+    virtual ~TTlgContent() = default;
 };
 
-void LoadContent(int grp_id, TTlgContent& con);
+class TTlgContentCHG: public TTlgContent {};
+
+void LoadContent(int id, bool pr_grp, TTlgContent& con);
 void CompareContent(const TTlgContent& con1, const TTlgContent& con2, std::vector<TTlgContent>& bsms);
 
 struct TBSMAddrs {
@@ -301,7 +304,7 @@ struct TBSMAddrs {
     bool empty() const { return createInfo.empty(); }
 };
 bool IsSend( const TAdvTripInfo &fltInfo, TBSMAddrs &addrs, bool pr_brd );
-void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &addrs );
+void Send( int point_dep, int id, bool pr_grp, const TTlgContent &con1, const TBSMAddrs &addrs );
 
 }; //namespace BSM
 

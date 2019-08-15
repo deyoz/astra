@@ -296,10 +296,6 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
   if (!PaxQry.Eof)
   {
-    //BSM
-    map<int, BSM::TTlgContent> content_before;
-    boost::optional<BSM::TBSMAddrs> BSMaddrs;
-
     TQuery Qry(&OraSession);
     Qry.Clear();
     sql.str("");
@@ -316,6 +312,8 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     TAdvTripInfo fltInfo;
     fltInfo.getByPointId(point_id);
 
+    set<int> bsm_grp;
+
     for(;!PaxQry.Eof;PaxQry.Next())
     {
       int pax_id=PaxQry.FieldAsInteger("pax_id");
@@ -323,15 +321,8 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
       bool boarded=!PaxQry.FieldIsNULL("pr_brd") && PaxQry.FieldAsInteger("pr_brd")!=0;
 
-      if (reqInfo->screen.name == "BRDBUS.EXE" and boarded) {
-          int grp_id = PaxQry.FieldAsInteger("grp_id");
-          if(not BSMaddrs) {
-              BSMaddrs = boost::in_place();
-              BSM::IsSend(fltInfo, BSMaddrs.get(), true);
-          }
-          if (not BSMaddrs->empty() and content_before.find(grp_id) == content_before.end())
-              BSM::LoadContent(grp_id,content_before[grp_id]);
-      }
+      if (reqInfo->screen.name == "BRDBUS.EXE" and boarded)
+          bsm_grp.insert(PaxQry.FieldAsInteger("grp_id"));
 
       Qry.Execute();
 
@@ -343,8 +334,13 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       if (reqInfo->screen.name == "BRDBUS.EXE" and boarded)
           update_pax_change( fltInfo, pax_id, PaxQry.FieldAsInteger("reg_no"), "П" );
     };
-    for(const auto &i: content_before)
-        BSM::Send(point_id,i.first,i.second,BSMaddrs.get());
+    if(not bsm_grp.empty()) {
+        BSM::TBSMAddrs BSMaddrs;
+        BSM::IsSend(fltInfo, BSMaddrs, true);
+        if(not BSMaddrs.empty())
+            for(const auto &i: bsm_grp)
+                BSM::Send(point_id,i,true,BSM::TTlgContentCHG(),BSMaddrs);
+    }
   };
 
   string lexeme_id;
@@ -1463,29 +1459,29 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         //============================ собственно посадка пассажира(ов) ============================
         lock_and_get_new_tid(NoExists);  //не лочим рейс, так как лочим ранее
 
-        //BSM
-        bool BSMsend = false;
-        BSM::TBSMAddrs BSMaddrs;
-        BSM::TTlgContent BSMContentBefore;
-        if(screen == sBoarding) {
-            BSMsend= BSM::IsSend(fltInfo, BSMaddrs, true);
-            if (BSMsend)
-                BSM::LoadContent(grp_id,BSMContentBefore);
-        }
+        boost::optional<BSM::TBSMAddrs> BSMaddrs;
 
         for(int pass=0;pass<2;pass++)
         {
-          TPaxItem &pax=(pass==0?paxWithSeat:paxWithoutSeat);
-          if (!pax.exists()) continue;
-          if (set_mark==pax.already_marked) continue;
+            TPaxItem &pax=(pass==0?paxWithSeat:paxWithoutSeat);
+            if (!pax.exists()) continue;
+            if (set_mark==pax.already_marked) continue;
 
-          if (!PaxUpdate(point_id,pax.pax_id,pax.tid,set_mark,pr_exam_with_brd))
-            throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
-                                             LParams() << LParam("surname", pax.full_name()));
-          pax.updated=true;
+            if (!PaxUpdate(point_id,pax.pax_id,pax.tid,set_mark,pr_exam_with_brd))
+                throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
+                        LParams() << LParam("surname", pax.full_name()));
+            //BSM
+            if(screen == sBoarding) {
+                if(not BSMaddrs) {
+                    BSMaddrs = boost::in_place();
+                    BSM::IsSend(fltInfo, BSMaddrs.get(), true);
+                }
+                if(not BSMaddrs->empty())
+                    BSM::Send(point_id,pax.pax_id,false,BSM::TTlgContentCHG(),BSMaddrs.get());
+            }
+
+            pax.updated=true;
         };
-
-        if (BSMsend) BSM::Send(point_id,grp_id,BSMContentBefore,BSMaddrs);
 
         throw CompleteWithSuccess();
       }

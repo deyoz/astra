@@ -2349,7 +2349,7 @@ void DeletePaxGrp( const TAdvTripInfo &fltInfo, int grp_id, bool toLog,
   if (!BSMseg.BSMaddrs.empty())
   {
     BSM::TTlgContent BSMContent;
-    BSM::LoadContent(grp_id,BSMContent);
+    BSM::LoadContent(grp_id,true,BSMContent);
     BSMseg.BSMContentBefore[grp_id]=BSMContent;
   };
 
@@ -2602,7 +2602,7 @@ void DeletePassengers( int point_id, const TDeletePaxFilter &filter,
     for(map<int/*grp_id*/,BSM::TTlgContent>::const_iterator i=s->second.BSMContentBefore.begin();
                                                             i!=s->second.BSMContentBefore.end(); ++i)
     {
-      BSM::Send(s->first,i->first,i->second,s->second.BSMaddrs);
+      BSM::Send(s->first,i->first,true,i->second,s->second.BSMaddrs);
     };
   };
 }

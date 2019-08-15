@@ -5303,7 +5303,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         paymentBeforeWithAuto.fromDB(grp.id);
         //BSM
         if (BSMsend)
-          BSM::LoadContent(grp.id,BSMContentBefore);
+          BSM::LoadContent(grp.id,true,BSMContentBefore);
 
         InboundTrfer::GetNextTrferCheckedFlts(grp.id, idGrp, nextTrferSegs);
 
@@ -6112,7 +6112,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
       timing.start("BSM", grp.point_dep);
 
       //BSM
-      if (BSMsend) BSM::Send(grp.point_dep,grp.id,BSMContentBefore,BSMaddrs);
+      if (BSMsend) BSM::Send(grp.point_dep,grp.id,true,BSMContentBefore,BSMaddrs);
 
       timing.finish("BSM", grp.point_dep);
 
