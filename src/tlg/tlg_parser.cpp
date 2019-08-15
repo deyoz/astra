@@ -7633,8 +7633,11 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
                       if (currTlgSeatRanges!=priorTlgSeatRanges)
                       {
-                        priorTlgSeatRanges.dump("priorTlgSeatRanges (pax_id="+IntToString(pax_id)+"):");
-                        currTlgSeatRanges.dump("currTlgSeatRanges (pax_id="+IntToString(pax_id)+"):");
+                        if (!priorTlgSeatRanges.empty())
+                        {
+                          priorTlgSeatRanges.dump("priorTlgSeatRanges (pax_id="+IntToString(pax_id)+"):");
+                          currTlgSeatRanges.dump("currTlgSeatRanges (pax_id="+IntToString(pax_id)+"):");
+                        }
                         //слои различаются, удаляем старые, добавляем новые
                         paxIdsForDeleteTlgSeatRanges.add({cltPNLCkin, cltPNLBeforePay, cltPNLAfterPay}, pax_id);
                         paxIdsForInsertTlgSeatRanges.add(iTotals->dest, currTlgSeatRanges, pax_id);
