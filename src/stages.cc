@@ -899,13 +899,13 @@ void astra_timer( TDateTime utcdate )
     "WHERE time_remove<=SYSTEM.UTCSYSDATE "
     "ORDER BY crs_pax_id";
   Qry.Execute();
-  vector<int> range_ids;
+  SeatRangeIds range_ids;
   for(;!Qry.Eof;)
   {
     int crs_pax_id=NoExists;
     if (!Qry.FieldIsNULL("crs_pax_id"))
       crs_pax_id=Qry.FieldAsInteger("crs_pax_id");
-    range_ids.push_back(Qry.FieldAsInteger("range_id"));
+    range_ids.insert(Qry.FieldAsInteger("range_id"));
 
     Qry.Next();
 

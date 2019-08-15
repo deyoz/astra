@@ -2301,25 +2301,7 @@ static void changeLayer(const ProtLayerRequest::SegList& segListReq,
                 {
                   if (isTestPaxId(paxRes.id)) continue;
 
-                  for ( int i=0; i<2; i++ )
-                  {
-                    TCompLayerType layerTypeForRemoving;
-                    switch( i ) {
-                      case 0:
-                        layerTypeForRemoving = ASTRA::cltProtBeforePay;
-                        break;
-                      case 1:
-                        layerTypeForRemoving = ASTRA::cltProtSelfCkin;
-                        break;
-                    }
-
-                    std::vector<int> range_ids;
-                    GetTlgSeatRangeIds( layerTypeForRemoving, paxRes.id, range_ids );
-
-                    point_ids_spp.insert( make_pair(paxListRes.point_id, layerTypeForRemoving) );
-
-                    DeleteTlgSeatRanges( range_ids, paxRes.id, tid, point_ids_spp );
-                  }
+                  DeleteTlgSeatRanges( {cltProtBeforePay, cltProtSelfCkin}, paxRes.id, tid, point_ids_spp );
                 }
                 else
                 {
@@ -2375,7 +2357,7 @@ static void changeLayer(const ProtLayerRequest::SegList& segListReq,
               LogTrace(TRACE5) << __FUNCTION__
                                << ": segListRes.layer_type=" << EncodeCompLayerType(segListRes.layer_type)
                                << ", paxRes.id=" << paxRes.id;
-              DeleteTlgSeatRanges(segListRes.layer_type, paxRes.id, segListRes.curr_tid, point_ids_spp);
+              DeleteTlgSeatRanges({segListRes.layer_type}, paxRes.id, segListRes.curr_tid, point_ids_spp);
             }
             catch(UserException &e)
             {
@@ -2498,8 +2480,7 @@ static void changeStatus(const PaymentStatusRequest::PaxList& paxListReq,
                             ranges,
                             paxRes.id,
                             NoExists,NoExists,false,curr_tid,point_ids_spp);
-        DeleteTlgSeatRanges(cltProtBeforePay, paxRes.id, curr_tid, point_ids_spp);
-        DeleteTlgSeatRanges(cltProtSelfCkin, paxRes.id, curr_tid, point_ids_spp);
+        DeleteTlgSeatRanges({cltProtBeforePay, cltProtSelfCkin}, paxRes.id, curr_tid, point_ids_spp);
       }
     }
 

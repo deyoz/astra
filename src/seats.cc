@@ -4519,7 +4519,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
         case cltProtBeforePay:
         case cltProtSelfCkin:
             // удаление из салона, если есть разметка
-            DeleteTlgSeatRanges( layer_type, pax_id, curr_tid, point_ids_spp );
+            DeleteTlgSeatRanges( {layer_type}, pax_id, curr_tid, point_ids_spp );
         break;
      //   case cltProtBeforePay: //WEB ChangeProtPaidLayer
 //          break;

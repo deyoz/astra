@@ -438,12 +438,7 @@ void seatingWhenNewCheckIn(const TSegListItem& seg,
             throw EXCEPTIONS::Exception("%s: Not applied for grp.status=%s", __func__, EncodePaxStatus(grp.status));
 
           SEATS2::SaveTripSeatRanges( grp.point_dep, layer_type, ranges, pax_id, grp.point_dep, grp.point_arv, NowUTC() );
-          TPointIdsForCheck point_ids_spp; //!!!DJEK
-          point_ids_spp.insert( make_pair( grp.point_dep, ASTRA::cltProtSelfCkin ) ); //!!!DJEK
-          DeleteTlgSeatRanges( ASTRA::cltProtSelfCkin , pax_id, pas.tid, point_ids_spp ); //!!!DJEK
-          point_ids_spp.clear();
-          point_ids_spp.insert( make_pair( grp.point_dep, ASTRA::cltProtBeforePay ) ); //!!!DJEK
-          DeleteTlgSeatRanges( ASTRA::cltProtBeforePay , pax_id, pas.tid, point_ids_spp ); //!!!DJEK
+          DeleteTlgSeatRanges( {ASTRA::cltProtSelfCkin, ASTRA::cltProtBeforePay} , pax_id, pas.tid );
 
           if ( !pr_do_check_wait_list_alarm ) {
             autoSeats.WritePaxSeats( grp.point_dep, pax_id );

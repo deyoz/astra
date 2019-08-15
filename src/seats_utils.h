@@ -69,19 +69,25 @@ class TSeatRange : public std::pair<TSeat,TSeat>
     TSeatRange() : std::pair<TSeat,TSeat>()
     {
       *rem=0;
-    };
-    TSeatRange(TSeat seat1, TSeat seat2) : std::pair<TSeat,TSeat>(seat1,seat2)
+    }
+    TSeatRange(const TSeat& seat1, const TSeat& seat2) : std::pair<TSeat,TSeat>(seat1,seat2)
     {
       *rem=0;
-    };
-    TSeatRange(TSeat seat1, TSeat seat2, const std::string &rem) : std::pair<TSeat,TSeat>(seat1,seat2)
+    }
+    TSeatRange(const TSeat& seat) : std::pair<TSeat,TSeat>(seat,seat)
+    {
+      *rem=0;
+    }
+    TSeatRange(const TSeat& seat1, const TSeat& seat2, const std::string &rem) : std::pair<TSeat,TSeat>(seat1,seat2)
     {
       strncpy(this->rem,rem.c_str(),sizeof(this->rem));
-    };
-    friend bool operator < ( const TSeatRange& range1, const TSeatRange& range2 )
+    }
+    bool operator < ( const TSeatRange& range ) const
     {
-      return range1.first<range2.first;
-    };
+      if (first!=range.first)
+        return first<range.first;
+      return second<range.second;
+    }
     std::string traceStr() const;
 };
 
