@@ -30,6 +30,7 @@ string GetPaxName(const char* surname,
 };
 
 void getPaxInfo(int crs_pax_id,
+                int &curr_tid,
                 std::string& crs_pax_name,
                 std::string& pers_type)
 {
@@ -38,14 +39,27 @@ void getPaxInfo(int crs_pax_id,
 
   TQuery Qry(&OraSession);
   Qry.Clear();
-  Qry.SQLText=
-    "SELECT surname, name, pers_type FROM crs_pax WHERE pax_id=:pax_id";
+  if (curr_tid==NoExists)
+    Qry.SQLText="SELECT surname, name, pers_type, cycle_tid__seq.nextval AS tid FROM crs_pax WHERE pax_id=:pax_id";
+  else
+    Qry.SQLText="SELECT surname, name, pers_type FROM crs_pax WHERE pax_id=:pax_id";
   Qry.CreateVariable("pax_id",otInteger,crs_pax_id);
   Qry.Execute();
-  if (Qry.Eof) return;
-  crs_pax_name=GetPaxName(Qry.FieldAsString("surname"),
-                          Qry.FieldAsString("name"));
-  pers_type = Qry.FieldAsString("pers_type");
+  if (!Qry.Eof)
+  {
+    crs_pax_name=GetPaxName(Qry.FieldAsString("surname"),
+                            Qry.FieldAsString("name"));
+    pers_type = Qry.FieldAsString("pers_type");
+  }
+  else if (curr_tid==NoExists)
+  {
+    Qry.Clear();
+    Qry.SQLText="SELECT cycle_tid__seq.nextval AS tid FROM dual";
+    Qry.Execute();
+  }
+
+  if (!Qry.Eof && curr_tid==NoExists)
+    curr_tid=Qry.FieldAsInteger("tid");
 }
 
 bool IsTlgCompLayer(TCompLayerType layer_type)
@@ -333,7 +347,7 @@ void InsertTlgSeatRanges(int point_id_tlg,
 
   string crs_pax_name, pers_type;
   if (crs_pax_id!=NoExists)
-    getPaxInfo(crs_pax_id, crs_pax_name, pers_type);
+    getPaxInfo(crs_pax_id, curr_tid, crs_pax_name, pers_type);
 
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -547,7 +561,7 @@ void DeleteTlgSeatRanges(const SeatRangeIds& range_ids,
 
   string crs_pax_name, pers_type;
   if (crs_pax_id!=NoExists)
-    getPaxInfo(crs_pax_id, crs_pax_name, pers_type);
+    getPaxInfo(crs_pax_id, curr_tid, crs_pax_name, pers_type);
 
   DeleteTripSeatRanges(range_ids,
                        NoExists,
