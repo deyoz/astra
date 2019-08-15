@@ -29,6 +29,25 @@ string GetPaxName(const char* surname,
     return (string)surname+(*name!=0?" ":"")+name;
 };
 
+void getPaxInfo(int crs_pax_id,
+                std::string& crs_pax_name,
+                std::string& pers_type)
+{
+  crs_pax_name.clear();
+  pers_type.clear();
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT surname, name, pers_type FROM crs_pax WHERE pax_id=:pax_id";
+  Qry.CreateVariable("pax_id",otInteger,crs_pax_id);
+  Qry.Execute();
+  if (Qry.Eof) return;
+  crs_pax_name=GetPaxName(Qry.FieldAsString("surname"),
+                          Qry.FieldAsString("name"));
+  pers_type = Qry.FieldAsString("pers_type");
+}
+
 bool IsTlgCompLayer(TCompLayerType layer_type)
 {
   return (layer_type==cltSOMTrzt||
@@ -312,34 +331,11 @@ void InsertTlgSeatRanges(int point_id_tlg,
   if (ranges.empty()) return;
   if (!IsTlgCompLayer(layer_type)) return;
 
-  TQuery Qry(&OraSession);
-
   string crs_pax_name, pers_type;
   if (crs_pax_id!=NoExists)
-  {
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  IF :tid IS NULL THEN "
-      "    SELECT cycle_tid__seq.nextval INTO :tid FROM dual; "
-      "  END IF; "
-      "  UPDATE crs_pax SET tid=:tid WHERE pax_id=:pax_id "
-      "  RETURNING surname,name,pers_type INTO :surname,:name,:pers_type; "
-      "END;";
-    Qry.CreateVariable("pax_id",otInteger,crs_pax_id);
-    if (curr_tid!=NoExists)
-      Qry.CreateVariable("tid", otInteger, curr_tid);
-    else
-      Qry.CreateVariable("tid", otInteger, FNull);
-    Qry.CreateVariable("surname", otString, FNull);
-    Qry.CreateVariable("name", otString, FNull);
-    Qry.CreateVariable("pers_type", otString, FNull);
-    Qry.Execute();
-    crs_pax_name=GetPaxName(Qry.GetVariableAsString("surname"),
-                            Qry.GetVariableAsString("name"));
-    curr_tid=(Qry.VariableIsNULL("tid")?NoExists:Qry.GetVariableAsInteger("tid"));
-    pers_type = Qry.GetVariableAsString("pers_type");
-  };
+    getPaxInfo(crs_pax_id, crs_pax_name, pers_type);
+
+  TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
     "BEGIN "
@@ -548,33 +544,10 @@ void DeleteTlgSeatRanges(const SeatRangeIds& range_ids,
                          TPointIdsForCheck &point_ids_spp) //вектор point_id_spp по которым были изменения
 {
   if (range_ids.empty()) return;
-  TQuery Qry(&OraSession);
+
   string crs_pax_name, pers_type;
   if (crs_pax_id!=NoExists)
-  {
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  IF :tid IS NULL THEN "
-      "    SELECT cycle_tid__seq.nextval INTO :tid FROM dual; "
-      "  END IF; "
-      "  UPDATE crs_pax SET tid=:tid WHERE pax_id=:pax_id "
-      "  RETURNING surname,name,pers_type INTO :surname,:name,:pers_type; "
-      "END;";
-    Qry.CreateVariable("pax_id",otInteger,crs_pax_id);
-    if (curr_tid!=NoExists)
-      Qry.CreateVariable("tid", otInteger, curr_tid);
-    else
-      Qry.CreateVariable("tid", otInteger, FNull);
-    Qry.CreateVariable("surname", otString, FNull);
-    Qry.CreateVariable("name", otString, FNull);
-    Qry.CreateVariable("pers_type", otString, FNull);
-    Qry.Execute();
-    crs_pax_name=GetPaxName(Qry.GetVariableAsString("surname"),
-                            Qry.GetVariableAsString("name"));
-    pers_type = Qry.GetVariableAsString("pers_type");
-    curr_tid=(Qry.VariableIsNULL("tid")?NoExists:Qry.GetVariableAsInteger("tid"));
-  };
+    getPaxInfo(crs_pax_id, crs_pax_name, pers_type);
 
   DeleteTripSeatRanges(range_ids,
                        NoExists,
@@ -582,6 +555,7 @@ void DeleteTlgSeatRanges(const SeatRangeIds& range_ids,
                        crs_pax_name,
                        pers_type,
                        point_ids_spp);
+  TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText="DELETE FROM tlg_comp_layers WHERE range_id=:range_id";
   Qry.DeclareVariable("range_id", otInteger);
