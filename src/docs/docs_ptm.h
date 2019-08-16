@@ -73,7 +73,6 @@ namespace REPORTS {
         std::string rems() const;
     };
 
-    std::string get_last_target(TQuery &Qry, TRptParams &rpt_params);
     int nosir_cbbg(int argc, char** argv);
     bool pax_compare(TPaxPtr pax1, TPaxPtr pax2);
 

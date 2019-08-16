@@ -285,3 +285,15 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     }
 }
 
+void WEB(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    NewTextChild(reqNode, "client_type", rpt_params.client_type);
+    EXAM(rpt_params, reqNode, resNode);
+}
+
+void WEBTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    NewTextChild(reqNode, "client_type", rpt_params.client_type);
+    EXAMTXT(rpt_params, reqNode, resNode);
+}
+

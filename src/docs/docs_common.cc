@@ -755,3 +755,71 @@ void get_compatible_report_form(const string name, xmlNodePtr reqNode, xmlNodePt
 {
     get_new_report_form(name, reqNode, resNode);
 }
+
+void t_rpt_bm_bag_name::get(string class_code, TBagTagRow &bag_tag_row, TRptParams &rpt_params)
+{
+    string &result = bag_tag_row.bag_name;
+    for(vector<TBagNameRow>::iterator iv = bag_names.begin(); iv != bag_names.end(); iv++) {
+        bool eval = false;
+        if(class_code == iv->class_code) {
+            if(bag_tag_row.rfisc.empty()) {
+                if(bag_tag_row.bag_type != NoExists and bag_tag_row.bag_type == iv->bag_type) {
+                    eval = true;
+                }
+            } else if(bag_tag_row.rfisc == iv->rfisc) {
+                eval = true;
+            }
+        }
+        if(eval) {
+            result = rpt_params.IsInter() ? iv->name_lat : iv->name;
+            if(result.empty())
+                result = iv->name;
+            break;
+        }
+    }
+    if(not result.empty())
+        bag_tag_row.bag_name_priority = bag_tag_row.bag_type;
+}
+
+void t_rpt_bm_bag_name::init(const string &airp, const string &airline, bool pr_stat_fv)
+{
+    bag_names.clear();
+    TQuery Qry(&OraSession);
+    string SQLText = (string)
+        "select "
+        "   bag_type, "
+        "   rfisc, "
+        "   class, "
+        "   airp, "
+        "   airline, "
+        "   name, "
+        "   name_lat "
+        "from " +
+        (pr_stat_fv ? "stat_fv_bag_names" : "rpt_bm_bag_names ") +
+        " where "
+        "   (airp is null or "
+        "   airp = :airp) and "
+        "   (airline is null or "
+        "   airline = :airline) "
+        "order by "
+        "   airline nulls last, "
+        "   airp nulls last, "
+        "   name, name_lat ";
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("airp", otString, airp);
+    Qry.CreateVariable("airline", otString, airline);
+    Qry.Execute();
+    for(; !Qry.Eof; Qry.Next()) {
+        TBagNameRow bag_name_row;
+        if(not Qry.FieldIsNULL("bag_type"))
+            bag_name_row.bag_type = Qry.FieldAsInteger("bag_type");
+        bag_name_row.rfisc = Qry.FieldAsString("rfisc");
+        bag_name_row.class_code = Qry.FieldAsString("class");
+        bag_name_row.airp = Qry.FieldAsString("airp");
+        bag_name_row.airline = Qry.FieldAsString("airline");
+        bag_name_row.name = Qry.FieldAsString("name");
+        bag_name_row.name_lat = Qry.FieldAsString("name_lat");
+        bag_names.push_back(bag_name_row);
+    }
+}
+
