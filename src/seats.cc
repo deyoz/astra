@@ -4341,7 +4341,7 @@ BitSet<TChangeLayerSeatsProps>
       //bool pr_departure_tariff_only = true;
       TRFISC rfisc;
       ProgTrace( TRACE5, "RFISCMode=%d", salonList.getRFISCMode() );
-      if ( salonList.getRFISCMode() && layer_type == cltProtCkin ) {
+      if ( salonList.getRFISCMode() ) {
         std::map<int, TRFISC,classcomp> vrfiscs;
         seat->GetRFISCs( vrfiscs );
         if ( vrfiscs.find( point_id ) != vrfiscs.end() ) {
@@ -4349,12 +4349,18 @@ BitSet<TChangeLayerSeatsProps>
         }
         if ( !rfisc.empty() &&
              passTariffs.find( rfisc.color ) != passTariffs.end() ) {
-          LogTrace(TRACE5) << passTariffs[ rfisc.color ].str() << ",pr_prot_ckin=" << passTariffs[ rfisc.color ].pr_prot_ckin;
-          if (!passTariffs[ rfisc.color ].pr_prot_ckin ) {
-            throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL_WITH_RFISC",
-                                LParams()<<LParam("code", rfisc.code) );
+          if ( layer_type == cltProtCkin ) {
+            LogTrace(TRACE5) << passTariffs[ rfisc.color ].str() << ",pr_prot_ckin=" << passTariffs[ rfisc.color ].pr_prot_ckin;
+            if (!passTariffs[ rfisc.color ].pr_prot_ckin ) {
+              throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL_WITH_RFISC",
+                                  LParams()<<LParam("code", rfisc.code) );
+            }
           }
-        }
+          if ( !rfisc.empty() ) {
+            ProgTrace( TRACE5, "rfisc=%s", rfisc.str().c_str() );
+            propsSeatsFlags.setFlag(propRFISC);
+          }
+        }                                                  
       }
       passTariffs.trace( TRACE5 );
       if ( passTariffs.status() == TSeatTariffMap::stUseRFISC ) {
@@ -4375,7 +4381,6 @@ BitSet<TChangeLayerSeatsProps>
       }
       if ( !rfisc.empty() ) {
         ProgTrace( TRACE5, "rfisc=%s", rfisc.str().c_str() );
-        propsSeatsFlags.setFlag(propRFISC);
       }
 
 /*!!!!      seat->convertSeatTariffs( point_id );
