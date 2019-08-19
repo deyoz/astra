@@ -1585,18 +1585,29 @@ bool TTlgContent::addBag(const CheckIn::TBagItem &bag)
   return true;
 };
 
-void LoadContent(int grp_id, TTlgContent& con)
+void LoadContent(int id, bool pr_grp, TTlgContent& con)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
-  Qry.SQLText=
-    "SELECT points.point_id, points.point_num, points.first_point, points.pr_tranzit, "
+  string SQLText= "SELECT ";
+  if(not pr_grp)
+      SQLText += " pax.grp_id, ";
+  SQLText +=
+    "       points.point_id, points.point_num, points.first_point, points.pr_tranzit, "
     "       NVL(trip_sets.pr_lat_seat,1) AS pr_lat_seat, pax_grp.class "
-    "FROM points,pax_grp,trip_sets "
+    "FROM points,pax_grp,trip_sets ";
+  if(not pr_grp)
+      SQLText += ", pax ";
+  SQLText +=
     "WHERE points.point_id=pax_grp.point_dep AND points.pr_del>=0 AND "
     "      points.point_id=trip_sets.point_id(+) AND "
-    "      grp_id=:grp_id AND bag_refuse=0";
-  Qry.CreateVariable("grp_id",otInteger,grp_id);
+    "      bag_refuse=0 ";
+  if(pr_grp)
+      SQLText += " and grp_id=:id ";
+  else
+      SQLText += " and pax_grp.grp_id=pax.grp_id and pax_id = :id ";
+  Qry.SQLText= SQLText;
+  Qry.CreateVariable("id",otInteger,id);
   Qry.Execute();
   if (Qry.Eof) return;
   con.pr_lat_seat=Qry.FieldAsInteger("pr_lat_seat")!=0;
@@ -1606,6 +1617,7 @@ void LoadContent(int grp_id, TTlgContent& con)
   int point_num=Qry.FieldAsInteger("point_num");
   int first_point=Qry.FieldIsNULL("first_point")?NoExists:Qry.FieldAsInteger("first_point");
   bool pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
+  int grp_id = pr_grp ? id : Qry.FieldAsInteger("grp_id");
 
   bool pr_unaccomp=con.OutCls.empty();
 
@@ -1623,15 +1635,16 @@ void LoadContent(int grp_id, TTlgContent& con)
     }
 
     Qry.Clear();
-    Qry.SQLText=
+    SQLText=(string)
       "SELECT DISTINCT transfer_subcls.transfer_num, classes.code, classes.priority "
       "FROM pax, transfer_subcls, subcls, classes "
       "WHERE pax.pax_id=transfer_subcls.pax_id AND "
       "      transfer_subcls.subclass=subcls.code AND "
       "      subcls.class=classes.code AND "
-      "      pax.grp_id=:grp_id AND transfer_subcls.transfer_num>0 "
+      "      pax." + (pr_grp ? "grp_id" : "pax_id") + "=:id AND transfer_subcls.transfer_num>0 "
       "ORDER BY transfer_num, priority ";
-    Qry.CreateVariable("grp_id",otInteger,grp_id);
+    Qry.SQLText=SQLText;
+    Qry.CreateVariable("id",otInteger,id);
     Qry.Execute();
     int num=0;
     for(;!Qry.Eof;Qry.Next())
@@ -1645,13 +1658,14 @@ void LoadContent(int grp_id, TTlgContent& con)
     };
 
     Qry.Clear();
-    Qry.SQLText=
+    SQLText=(string)
       "SELECT pax_id, bag_pool_num, reg_no, surname, name,  "
       "       DECODE(pr_brd,NULL,'N',0,'C','B') AS status "
       "FROM pax "
-      "WHERE grp_id=:grp_id AND bag_pool_num IS NOT NULL AND "
+      "WHERE " + (pr_grp ? "grp_id" : "pax_id") + "=:id AND bag_pool_num IS NOT NULL AND "
       "      pax_id=ckin.get_bag_pool_pax_id(grp_id,bag_pool_num,0)";
-    Qry.CreateVariable("grp_id",otInteger,grp_id);
+    Qry.SQLText=SQLText;
+    Qry.CreateVariable("id",otInteger,id);
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
     {
@@ -1718,7 +1732,11 @@ void CompareContent(const TTlgContent& con1, const TTlgContent& con2, vector<TTl
   conDEL.OutCls=con1.OutCls;
   conDEL.OnwardCls=con1.OnwardCls;
 
-
+  if(dynamic_cast<const TTlgContentCHG*>(&con1)) {
+    conCHG.tags=con2.tags;
+    conCHG.bags=con2.bags;
+    conCHG.pax=con2.pax;
+  } else
   //проверяем рейс
   if (con1.OutFlt.operFlt.airline==con2.OutFlt.operFlt.airline &&
       con1.OutFlt.operFlt.flt_no==con2.OutFlt.operFlt.flt_no &&
@@ -2026,10 +2044,10 @@ bool IsSend( const TAdvTripInfo &fltInfo, TBSMAddrs &addrs, bool pr_brd )
     return !addrs.empty();
 };
 
-void Send( int point_dep, int grp_id, const TTlgContent &con1, const TBSMAddrs &addrs )
+void Send( int point_dep, int id, bool pr_grp, const TTlgContent &con1, const TBSMAddrs &addrs )
 {
     TTlgContent con2;
-    LoadContent(grp_id,con2);
+    LoadContent(id,pr_grp,con2);
     vector<TTlgContent> bsms;
     CompareContent(con1,con2,bsms);
     TTlgOutPartInfo p;
