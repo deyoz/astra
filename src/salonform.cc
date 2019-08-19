@@ -526,7 +526,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     throw UserException( "MSG.SALONS.FREE_SEATING" );
   }
 
-  SALONS2::TSalonList salonList;
+  SALONS2::TSalonList salonList(true);
   try {
     salonList.ReadFlight( SALONS2::TFilterRoutesSets( point_id, point_arv ), filterClass, tariff_pax_id );
   }
@@ -1018,9 +1018,10 @@ void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no,
     }
 /*!!!djek  if ( slayer_type.empty() )
     throw EXCEPTIONS::Exception( "getSeat_no: slayer_type.empty()" );*/
-};
+}
 
-bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string yname,
+BitSet<SEATS2::TChangeLayerSeatsProps>
+     IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string yname,
                       SEATS2::TSeatsType seat_type,
                       TCompLayerType layer_type,
                       int time_limit,
@@ -1029,7 +1030,9 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
                       xmlNodePtr resNode,
                       const std::string& whence  )
 {
-  bool changedOrNotPay = true;
+   BitSet<TChangeLayerSeatsProps> propsSeatsFlags;
+   propsSeatsFlags.clearFlags();
+   propsSeatsFlags.setFlag(changedOrNotPay);
   if ( flags.isFlag( flSetPayLayer ) &&
        ( seat_type != stSeat || ( layer_type != cltProtBeforePay && layer_type != cltProtAfterPay && layer_type != cltProtSelfCkin ) ) ) {
     throw UserException("MSG.SEATS.SEAT_NO.NOT_AVAIL");
@@ -1137,7 +1140,7 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
             if ( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) != cltProtSelfCkin ) { //pay layers
               NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PAID_SEATS.RESEAT"));
             }
-          return changedOrNotPay;
+          return propsSeatsFlags;
         }
       }
     }
@@ -1156,9 +1159,9 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
     procFlags.setFlag( procSyncCabinClass );
   }
   try {
-    changedOrNotPay = SEATS2::ChangeLayer( salonList, layer_type, time_limit, point_id, pax_id, tid, xname, yname, seat_type, procFlags, whence );
+    propsSeatsFlags = SEATS2::ChangeLayer( salonList, layer_type, time_limit, point_id, pax_id, tid, xname, yname, seat_type, procFlags, whence );
     if ( TReqInfo::Instance()->client_type != ctTerm || resNode == NULL )
-        return changedOrNotPay; // web-регистрация
+        return propsSeatsFlags; // web-регистрация
     salonList.JumpToLeg( SALONS2::TFilterRoutesSets( point_id, ASTRA::NoExists ) );
     int ncomp_crc = CRC32_Comp( point_id );
     if ( (comp_crc != 0 && ncomp_crc != 0 && comp_crc != ncomp_crc) ) { //update
@@ -1183,6 +1186,7 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
       NewTextChild( dataNode, "layer_type", slayer_type );
     }
     SALONS2::BuildSalonChanges( dataNode, point_id, seats, true, NewSalonList.pax_lists );
+    bool pr_show_error_message = false;
     if ( flags.isFlag( flWaitList ) ) {
       SALONS2::TGetPassFlags flags;
       flags.setFlag( SALONS2::gpPassenger );
@@ -1190,9 +1194,17 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
       SALONS2::TSalonPassengers passengers;
       NewSalonList.getPassengers( passengers, flags );
       passengers.BuildWaitList( point_id, NewSalonList.getSeatDescription(), dataNode );
-        if ( !passengers.isWaitList( point_id ) ) {
+      if ( !passengers.isWaitList( point_id ) ) {
         AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
+        pr_show_error_message = true;
       }
+    }
+    if (!pr_show_error_message &&
+        TReqInfo::Instance()->client_type == ctTerm &&
+        seat_type == SEATS2::stReseat &&
+        propsSeatsFlags.isFlag(propRFISC) //!!!
+        ) {
+      AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_WARNING_RFISC" );
     }
   }
   catch( UserException ue ) {
@@ -1229,7 +1241,7 @@ bool IntChangeSeatsN( int point_id, int pax_id, int &tid, string xname, string y
     }
     showErrorMessageAndRollback( ue.getLexemaData( ) );
   }
-  return changedOrNotPay;
+  return propsSeatsFlags;
 }
 
 static void ChangeIatciSeats(xmlNodePtr reqNode)

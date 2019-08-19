@@ -4097,12 +4097,15 @@ void SyncPRSA( const string &airline_oper,
                             reqInfo->desk.code);
 }
 
-bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
+BitSet<TChangeLayerSeatsProps>
+     ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
                   string first_xname, string first_yname, TSeatsType seat_type,
                   const BitSet<TChangeLayerProcFlag> &procFlags,
                   const std::string& whence )
 {
-  bool changedOrNotPay = true;
+  BitSet<TChangeLayerSeatsProps> propsSeatsFlags;
+  propsSeatsFlags.clearFlags();
+  propsSeatsFlags.setFlag(changedOrNotPay);
   if ( procFlags.isFlag( procPaySeatSet ) &&
        ( seat_type != stSeat || ( layer_type != cltProtBeforePay && layer_type != cltProtAfterPay && layer_type != cltProtSelfCkin ) ) ) {
     tst();
@@ -4463,11 +4466,11 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
         tst();
         throw  UserException( "MSG.SEATS.SEAT_NO.NOT_COINCIDE_WITH_PREPAID" );
       }
-      changedOrNotPay = false;
+      propsSeatsFlags.clearFlag(changedOrNotPay);
       if ( !( procFlags.isFlag( procPaySeatSet ) &&
              ( TReqInfo::Instance()->client_type == ctWeb ||
                TReqInfo::Instance()->client_type == ctMobile ) ) ) {
-        return changedOrNotPay;
+        return propsSeatsFlags;
       }
     }
     tst();
@@ -4667,7 +4670,7 @@ bool ChangeLayer( const TSalonList &salonList, TCompLayerType layer_type, int ti
   std::set<int> paxs_external_logged;
   paxs_external_logged.insert( pax_id );
   check_layer_change( point_ids_spp, paxs_external_logged, whence );
-  return changedOrNotPay;
+  return propsSeatsFlags;
 }
 
 //point_arv,class,ASTRA::TCompLayerType
