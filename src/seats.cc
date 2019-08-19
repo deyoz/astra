@@ -4373,7 +4373,10 @@ BitSet<TChangeLayerSeatsProps>
         rfisc.rate = seat->SeatTariff.rate;
         rfisc.currency_id = seat->SeatTariff.currency_id;
       }
-      ProgTrace( TRACE5, "rfisc=%s", rfisc.str().c_str() );
+      if ( !rfisc.empty() ) {
+        ProgTrace( TRACE5, "rfisc=%s", rfisc.str().c_str() );
+        propsSeatsFlags.setFlag(propRFISC);
+      }
 
 /*!!!!      seat->convertSeatTariffs( point_id );
       seat->SetTariffsByColor( passTariffs, true );

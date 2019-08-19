@@ -1199,12 +1199,19 @@ BitSet<SEATS2::TChangeLayerSeatsProps>
         pr_show_error_message = true;
       }
     }
+    std::set<TCompLayerType> checkinLayers { cltGoShow, cltTranzit, cltCheckin, cltTCheckin };
     if (!pr_show_error_message &&
         TReqInfo::Instance()->client_type == ctTerm &&
-        seat_type == SEATS2::stReseat &&
-        propsSeatsFlags.isFlag(propRFISC) //!!!
-        ) {
-      AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_WARNING_RFISC" );
+        seat_type == SEATS2::stReseat && //пересадка
+        propsSeatsFlags.isFlag(propRFISC) && //!!!
+        !procFlags.isFlag( procWaitList ) && //  не ругаемся, если пересадка идет с ЛО
+        checkinLayers.find( layer_type ) != checkinLayers.end() ) { // уже зарегистрированного
+      TTripInfo fltInfo;
+      if (!fltInfo.getByPointId(point_id))
+        throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+      if ( GetTripSets(tsReseatOnRFISC,fltInfo) ) {
+        AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_WARNING_RFISC" );
+      }
     }
   }
   catch( UserException ue ) {
