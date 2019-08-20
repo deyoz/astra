@@ -27,6 +27,7 @@
 #include "dev_utils.h"
 #include "pax_events.h"
 #include "custom_alarms.h"
+#include "telegram.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/slogger.h"
@@ -280,7 +281,7 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   TQuery PaxQry(&OraSession);
   PaxQry.Clear();
   sql.str("");
-  sql << "SELECT pax_id,reg_no,pr_brd FROM pax_grp,pax "
+  sql << "SELECT pax.grp_id, pax_id,reg_no,pr_brd FROM pax_grp,pax "
          "WHERE pax_grp.grp_id=pax.grp_id AND "
          "      point_dep=:point_id AND "
          "      pax_grp.status NOT IN ('E') AND ";
@@ -292,6 +293,7 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   PaxQry.CreateVariable( "point_id", otInteger, point_id );
   PaxQry.CreateVariable( "mark", otInteger, (int)!boarding );
   PaxQry.Execute();
+
   if (!PaxQry.Eof)
   {
     TQuery Qry(&OraSession);
@@ -306,21 +308,39 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     Qry.SQLText=sql.str().c_str();
     Qry.DeclareVariable( "pax_id", otInteger );
     Qry.CreateVariable( "mark", otInteger, (int)!boarding );
+
+    TAdvTripInfo fltInfo;
+    fltInfo.getByPointId(point_id);
+
+    set<int> bsm_grp;
+
     for(;!PaxQry.Eof;PaxQry.Next())
     {
       int pax_id=PaxQry.FieldAsInteger("pax_id");
       Qry.SetVariable("pax_id", pax_id);
+
+      bool boarded=!PaxQry.FieldIsNULL("pr_brd") && PaxQry.FieldAsInteger("pr_brd")!=0;
+
+      if (reqInfo->screen.name == "BRDBUS.EXE" and boarded)
+          bsm_grp.insert(PaxQry.FieldAsInteger("grp_id"));
+
       Qry.Execute();
+
       TPaxEvent().toDB(pax_id, (boarding ? TPaxEventTypes::BRD : TPaxEventTypes::UNBRD));
+
       if (Qry.RowsProcessed()>0)
         rozysk::sync_pax(pax_id, reqInfo->desk.code, reqInfo->user.descr);
-      if (reqInfo->screen.name == "BRDBUS.EXE")
-      {
-        bool boarded=!PaxQry.FieldIsNULL("pr_brd") && PaxQry.FieldAsInteger("pr_brd")!=0;
-        if (boarded)
-          update_pax_change( point_id, pax_id, PaxQry.FieldAsInteger("reg_no"), "П" );
-      };
+
+      if (reqInfo->screen.name == "BRDBUS.EXE" and boarded)
+          update_pax_change( fltInfo, pax_id, PaxQry.FieldAsInteger("reg_no"), "П" );
     };
+    if(not bsm_grp.empty()) {
+        BSM::TBSMAddrs BSMaddrs;
+        BSM::IsSend(fltInfo, BSMaddrs, true);
+        if(not BSMaddrs.empty())
+            for(const auto &i: bsm_grp)
+                BSM::Send(point_id,i,true,BSM::TTlgContentCHG(),BSMaddrs);
+    }
   };
 
   string lexeme_id;
@@ -986,7 +1006,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       showWholeFlight=true;
     };
 
-    TTripInfo fltInfo;
+    TAdvTripInfo fltInfo;
     if (!fltInfo.getByPointId(point_id))
       throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
     bool pr_etl_only=GetTripSets(tsETSNoExchange, fltInfo) ||
@@ -1438,16 +1458,29 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
         //============================ собственно посадка пассажира(ов) ============================
         lock_and_get_new_tid(NoExists);  //не лочим рейс, так как лочим ранее
+
+        boost::optional<BSM::TBSMAddrs> BSMaddrs;
+
         for(int pass=0;pass<2;pass++)
         {
-          TPaxItem &pax=(pass==0?paxWithSeat:paxWithoutSeat);
-          if (!pax.exists()) continue;
-          if (set_mark==pax.already_marked) continue;
+            TPaxItem &pax=(pass==0?paxWithSeat:paxWithoutSeat);
+            if (!pax.exists()) continue;
+            if (set_mark==pax.already_marked) continue;
 
-          if (!PaxUpdate(point_id,pax.pax_id,pax.tid,set_mark,pr_exam_with_brd))
-            throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
-                                             LParams() << LParam("surname", pax.full_name()));
-          pax.updated=true;
+            if (!PaxUpdate(point_id,pax.pax_id,pax.tid,set_mark,pr_exam_with_brd))
+                throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
+                        LParams() << LParam("surname", pax.full_name()));
+            //BSM
+            if(screen == sBoarding) {
+                if(not BSMaddrs) {
+                    BSMaddrs = boost::in_place();
+                    BSM::IsSend(fltInfo, BSMaddrs.get(), true);
+                }
+                if(not BSMaddrs->empty())
+                    BSM::Send(point_id,pax.pax_id,false,BSM::TTlgContentCHG(),BSMaddrs.get());
+            }
+
+            pax.updated=true;
         };
 
         throw CompleteWithSuccess();

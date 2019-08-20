@@ -1987,10 +1987,13 @@ bool is_sync_flights( int point_id )
 
 void update_pax_change( int point_id, int pax_id, int reg_no, const string &work_mode )
 {
-  TTripInfo tripInfo;
-  if ( !tripInfo.getByPointId ( point_id ) ) {
-    return;
-  }
+    TTripInfo tripInfo;
+    if (tripInfo.getByPointId ( point_id ) )
+        update_pax_change(tripInfo, pax_id, reg_no, work_mode);
+}
+
+void update_pax_change( const TTripInfo &fltInfo, int pax_id, int reg_no, const string &work_mode )
+{
   TQuery Qry( &OraSession );
   Qry.SQLText =
      "BEGIN "
@@ -2005,12 +2008,12 @@ void update_pax_change( int point_id, int pax_id, int reg_no, const string &work
   Qry.CreateVariable( "pax_id", otInteger, pax_id );
   Qry.CreateVariable( "reg_no", otInteger, reg_no );
   Qry.CreateVariable( "work_mode", otString, work_mode );
-  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "point_id", otInteger, fltInfo.point_id );
   Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
   Qry.CreateVariable( "client_type", otString,  EncodeClientType(TReqInfo::Instance()->client_type) );
   Qry.CreateVariable( "time", otDate, NowUTC() );
-  Qry.CreateVariable( "airline", otString, tripInfo.airline );
-  Qry.CreateVariable( "airp", otString, tripInfo.airp );
+  Qry.CreateVariable( "airline", otString, fltInfo.airline );
+  Qry.CreateVariable( "airp", otString, fltInfo.airp );
   Qry.Execute();
 }
 
