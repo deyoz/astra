@@ -18,6 +18,7 @@
 #include "edi_utils.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
+#include "apps_interaction.h" // getAPPSRotName TODO заменить потом на IAPI
 
 #include <serverlib/posthooks.h>
 #include <serverlib/cursctl.h>
@@ -650,6 +651,26 @@ std::string DcsSystemContext::getSelectSql()
 "       decode(OWN_FLT_NO,null,0,1) as PRIORITY "
 "from DCS_ADDR_SET ";
 }
+
+//---------------------------------------------------------------------------------------
+
+IapiSystemContext::IapiSystemContext(const SystemContext& baseCnt)
+    : SystemContext(baseCnt)
+{
+}
+
+IapiSystemContext* IapiSystemContext::read()
+{
+    SystemContextMaker mk;
+    mk.setIda(Ticketing::SystemAddrs_t());
+    mk.setCanonName(getIAPIRotName());
+    mk.setOurAddrEdifact("NORDWIND");
+    mk.setOurAddrEdifactExt("ZZ");
+    mk.setRemoteAddrEdifact("NIAC");
+    mk.setRemoteAddrEdifactExt("ZZ");
+    return new IapiSystemContext(mk.getSystemContext());
+}
+
 
 //---------------------------------------------------------------------------------------
 

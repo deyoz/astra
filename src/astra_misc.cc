@@ -2412,3 +2412,20 @@ void TInfantAdults::clear()
    parent_pax_id = NoExists;
    temp_parent_id = NoExists;
 }
+
+TAdvTripRoute GetPaxRoute(int pax_id)
+{
+  TAdvTripRoute route, result;
+  CheckIn::TSimplePaxItem pax_item;
+  CheckIn::TSimplePaxGrpItem grp_item;
+  if (pax_item.getByPaxId(pax_id) && grp_item.getByGrpId(pax_item.grp_id))
+  {
+    route.GetRouteAfter(NoExists, grp_item.point_dep, trtWithCurrent, trtNotCancelled);
+    auto i_arv = find_if(route.cbegin(), route.cend(), [&grp_item](auto i){return i.point_id == grp_item.point_arv;});
+    if (i_arv != route.cend())
+      result.insert(result.end(), route.cbegin(), i_arv);
+    else
+      ProgError(STDLOG, "%s pax point_arv not found in flight route, id=%d", __func__, pax_id);
+  }
+  return result;
+}

@@ -11,17 +11,25 @@
 #include "qrys.h"
 #include "trip_tasks.h"
 #include "counters.h"
+#include "apis_edi_file.h"
+
+//const bool CHINA_IAPI = true;
 
 const int NumSendAttempts = 5; // количество попыток до включения тревоги "Нет связи с APPS"
 const int MaxSendAttempts = 99; // максимальное количество попыток
 
 const std::string APPS_FORMAT_21 = "APPS_21";
 const std::string APPS_FORMAT_26 = "APPS_26";
+const std::string APPS_FORMAT_CHINA = "IAPI_CN"; // временное решение, потом перенести в таблицу APIS_SETS
+
 const int APPS_VERSION_21 = 21;
 const int APPS_VERSION_26 = 26;
 const int APPS_VERSION_27 = 27;
+const int APPS_VERSION_CHINA = 80; // временное решение, потом перенести в таблицу APIS_SETS
 
 enum APPSAction { NoAction, NeedUpdate, NeedNew, NeedCancel };
+
+void ProcessChinaCusres(const edifact::Cusres& cusres);
 
 void processPax( const int pax_id, Timing::Points& timing, const std::string& override_type = "", const bool is_forced = false );
 void APPSFlightCloseout( const int point_id );
@@ -37,11 +45,12 @@ bool IsAPPSAnswText( const std::string& tlg_body );
 std::set<std::string> needFltCloseout( const std::set<std::string>& countries, const std::string airline );
 void sendAllAPPSInfo(const TTripTaskKey &task);
 void sendNewAPPSInfo(const TTripTaskKey &task);
-void reSendMsg( const int send_attempts, const std::string& msg_text, const int msg_id );
+void reSendMsg( const int send_attempts, const std::string& msg_text, const int msg_id, const int version );
 void deleteMsg( const int msg_id );
 void deleteAPPSData( const int pax_id );
 void deleteAPPSAlarms( const int pax_id, const int point_id_spp );
 const char* getAPPSRotName();
+const char* getIAPIRotName();
 
 int test_apps_tlg(int argc, char **argv);
 
@@ -262,6 +271,7 @@ public:
   APPSAction typeOfAction( const bool is_exists, const std::string& status,
                            const bool is_the_same, const bool is_forced ) const;
   std::string msg() const;
+  std::string msg_china_iapi() const;
   void sendReq(Timing::Points& timing) const;
   std::string getStatus() const {
     return pax.status;

@@ -343,6 +343,20 @@ namespace RemoteSystemContext
 
 //---------------------------------------------------------------------------------------
 
+    /// @class IapiSystemContext
+    /// @brief Edifact-аналог apps
+    class IapiSystemContext : public SystemContext
+    {
+    public:
+        IapiSystemContext(const SystemContext& baseCnt);
+
+        static IapiSystemContext* read(/*TODO*/);
+
+        virtual ~IapiSystemContext() {}
+    };
+
+//---------------------------------------------------------------------------------------
+
     class SystemContextMaker
     {
         SystemContext cont;

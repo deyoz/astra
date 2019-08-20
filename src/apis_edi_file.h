@@ -25,6 +25,8 @@
 #include "astra_misc.h"
 #include "tlg/edi_elements.h"
 
+#include <edilib/edi_types.h>
+
 struct _EDI_REAL_MES_STRUCT_;
 
 namespace Paxlst {
@@ -359,15 +361,19 @@ class PassengerInfo
     int m_bagWeight;
     std::set<std::string> m_bagTags;
     std::set<CheckIn::TPaxFQTItem> pax_fqts;
+    std::string m_pax_ref;
+    std::string m_proc_info; // Processing Information
 
     std::string m_doco_type;
     std::string m_doco_no;
     std::string m_doco_applic_country;
+    TDateTime   m_docoExpirateDate = ASTRA::NoExists;
 
 public:
     PassengerInfo()
         : m_birthDate( ASTRA::NoExists ), m_docExpirateDate( ASTRA::NoExists ),
-          m_bagCount( ASTRA::NoExists ), m_bagWeight( ASTRA::NoExists )
+          m_bagCount( ASTRA::NoExists ), m_bagWeight( ASTRA::NoExists ),
+          m_docoExpirateDate( ASTRA::NoExists )
     {}
 
     // passenger's surname
@@ -607,6 +613,22 @@ public:
     void setFqts(std::set<CheckIn::TPaxFQTItem>& values) {
       pax_fqts = values;
     }
+    const std::string& paxRef() const
+    {
+      return m_pax_ref;
+    }
+    void setPaxRef( const std::string& s )
+    {
+      m_pax_ref = upperc( s.substr( 0, 35 ) );
+    }
+    const std::string& procInfo() const
+    {
+      return m_proc_info;
+    }
+    void setProcInfo( const std::string& s )
+    {
+      m_proc_info = upperc( s.substr( 0, 3 ) );
+    }
 
     // passenger's visa type
     const std::string& docoType() const
@@ -617,6 +639,7 @@ public:
     {
       m_doco_type = upperc( t.substr( 0, 3 ) );
     }
+
     // passenger's visa number
     const std::string& docoNumber() const
     {
@@ -626,6 +649,7 @@ public:
     {
       m_doco_no = upperc( dn.substr( 0, 35 ) );
     }
+
     // passenger's visa country
     const std::string& docoCountry() const
     {
@@ -635,6 +659,17 @@ public:
     {
       m_doco_applic_country = upperc( dc.substr( 0, 25 ) );
     }
+
+    // passenger's visa expirate date
+    const TDateTime& docoExpirateDate() const
+    {
+        return m_docoExpirateDate;
+    }
+    void setDocoExpirateDate( const TDateTime& ded )
+    {
+        m_docoExpirateDate = ded;
+    }
+
 
 };
 typedef std::list< PassengerInfo > PassengersList_t;
@@ -649,6 +684,8 @@ class PaxlstSettings
     std::string m_respAgnCode;
     bool m_viewUNGandUNE;
     bool m_view_RFF_TN = false;
+    std::string m_RFF_TN;
+    std::string m_unh_number;
 
 public:
     PaxlstSettings()
@@ -676,6 +713,12 @@ public:
 
     bool view_RFF_TN() const { return m_view_RFF_TN; }
     void set_view_RFF_TN( bool view_RFF_TN ) { m_view_RFF_TN = view_RFF_TN; }
+
+    const std::string& RFF_TN() const { return m_RFF_TN; }
+    void set_RFF_TN( const std::string& rff_tn ) { m_RFF_TN = rff_tn; }
+
+    const std::string& unh_number() const { return m_unh_number; }
+    void set_unh_number( const std::string& num ) { m_unh_number = num.substr(0, EDI_MESNUM_LEN); }
 };
 
 //---------------------------------------------------------------------------------------

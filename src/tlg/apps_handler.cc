@@ -154,7 +154,7 @@ void resend_tlg(void)
 
   // проверим, есть ли сообщения без ответа или нуждающиеся в повторной отправке
   TQuery Qry(&OraSession);
-  Qry.SQLText = "SELECT send_time, msg_id, send_attempts, msg_text, point_id "
+  Qry.SQLText = "SELECT send_time, msg_id, send_attempts, msg_text, point_id, version "
                 "FROM apps_messages ";
   Qry.Execute();
 
@@ -182,7 +182,8 @@ void resend_tlg(void)
       set_alarm(point_id, Alarm::APPSOutage, true);
     }
     ProgTrace(TRACE5, "resend_tlg: elapsed time %s", DateTimeToStr( (NowUTC() - send_time), "hh:nn:ss" ).c_str());
-    reSendMsg(send_attempts, Qry.FieldAsString("msg_text"), msg_id);
+    int version = Qry.FieldIsNULL("version")? APPS_VERSION_21: Qry.FieldAsInteger("version");
+    reSendMsg(send_attempts, Qry.FieldAsString("msg_text"), msg_id, version);
     callPostHooksBefore();
     ASTRA::commit();
     callPostHooksAfter();

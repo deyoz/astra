@@ -1,5 +1,6 @@
 #include "CusResponseHandler.h"
 #include "apis_edi_file.h"
+#include "apps_interaction.h"
 
 #define NICKNAME "ANTON"
 #define NICK_TRACE ANTON_TRACE
@@ -20,7 +21,13 @@ CusResponseHandler::CusResponseHandler(_EDI_REAL_MES_STRUCT_ *PMes,
 
 void CusResponseHandler::parse()
 {
-    Cusres cusres = readCUSRES(pMes());
+    m_data.reset(new edifact::Cusres(readCUSRES(pMes())));
+}
+
+void CusResponseHandler::handle()
+{
+    ASSERT(m_data);
+    ProcessChinaCusres(*m_data);
 }
 
 }//namespace TlgHandling

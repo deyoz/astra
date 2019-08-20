@@ -145,7 +145,12 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
 
     // RFF
     if (paxlst.settings().view_RFF_TN())
-      viewRffElement( pMes, RffElem( "TN", createEdiInterchangeReference().substr(0,35) ), 0 );
+    {
+      std::string rff_tn =  (!paxlst.settings().RFF_TN().empty())?
+                            paxlst.settings().RFF_TN():
+                            createEdiInterchangeReference();
+      viewRffElement( pMes, RffElem( "TN", rff_tn.substr(0,35) ), 0 );
+    }
 
     if( !paxlst.partyName().empty() )
     {
@@ -222,6 +227,10 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
         // DTM
         viewDtmElement( pMes, DtmElem( DtmElem::DateOfBirth, it->birthDate() ) );
 
+        // GEI
+        if (!it->procInfo().empty())
+          viewGeiElement( pMes, GeiElem("4", it->procInfo()) );
+
         int meaNum = 0;
         if( it->bagCount() != ASTRA::NoExists )
         {
@@ -283,6 +292,16 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
             // RFF
             viewRffElement( pMes, RffElem( "AVF", it->reservNum() ), rffNum++ );
         }
+        if( !it->paxRef().empty() )
+        {
+            // RFF
+            viewRffElement( pMes, RffElem( "ABO", it->paxRef() ), rffNum++ );
+        }
+        if( !it->ticketNumber().empty() )
+        {
+            // RFF
+            viewRffElement( pMes, RffElem( "YZY", it->ticketNumber() ), rffNum++ );
+        }
 
         for( vector<pair<int,string>>::const_iterator i = it->seats().begin(); i != it->seats().end(); i++ )
         {
@@ -326,6 +345,12 @@ static void collectPaxlstMessage( _EDI_REAL_MES_STRUCT_* pMes,
 
             // DOC
             viewDocElement( pMes, DocElem( it->docoType(), it->docoNumber(), paxlst.settings().respAgnCode() ) );
+
+            if( it->docoExpirateDate() != ASTRA::NoExists )
+            {
+                // DTM
+                viewDtmElement( pMes, DtmElem( DtmElem::DocExpireDate, it->docoExpirateDate() ) );
+            }
 
             if( !it->docoCountry().empty() )
             {
@@ -393,6 +418,10 @@ static std::string createEdiPaxlstString( const PaxlstInfo& paxlst,
     strcpy( edih.our_ref, ediRef.c_str() );
     strcpy( edih.FseId, paxlst.settings().appRef().c_str() );
     strcpy( edih.unh_number, UnhNumber );
+//    strcpy( edih.unh_number,
+//            !paxlst.settings().unh_number().empty()?
+//             paxlst.settings().unh_number().c_str():
+//             UnhNumber );
     strcpy( edih.ver_num, VerNum );
     strcpy( edih.rel_num, paxlst.settings().mesRelNum().c_str() );
     strcpy( edih.cntrl_agn, CntrlAgn );
@@ -406,6 +435,11 @@ static std::string createEdiPaxlstString( const PaxlstInfo& paxlst,
         throw EXCEPTIONS::Exception( "pMes is null" );
 
     collectPaxlstMessage( pMes, paxlst, nowUtc, partNum, partsCnt, totalCnt );
+
+//    ResetEdiPointW( pMes );
+//    SetEdiPointToSegmentW(pMes, SegmElement("UNH"));
+//    SetEdiDataElem(pMes, DataElement(62, 0), "11085B94E1F8FA");
+
     return "UNA:+.? '\n" + ediMessageToStr( pMes );
 }
 
@@ -753,7 +787,7 @@ Cusres readCUSRES(_EDI_REAL_MES_STRUCT_ *pMes)
         ASSERT(erc);
 
         Cusres::SegGr4 segGr4(*erp, *erc);
-        // RFF        
+        // RFF
         if(auto rff0 = readEdiRff(pMes, 0)) {
             segGr4.m_vRff.push_back(*rff0);
         }
