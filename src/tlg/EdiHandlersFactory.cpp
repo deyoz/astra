@@ -85,7 +85,7 @@ TlgHandling::AstraEdiResponseHandler* EdiResHandlersFactory(EDI_REAL_MES_STRUCT 
     __DECLARE_HANDLER__(IatciBprResponseHandler,     DCRCKA, "B");
     __DECLARE_HANDLER__(IatciPlfResponseHandler,     DCRCKA, "P");
     __DECLARE_HANDLER__(IatciSmfResponseHandler,     DCRSMF, "S");
-    // apis
+    // iapi
     __DECLARE_HANDLER__(CusResponseHandler,          CUSRES, "962");
 
     LogError(STDLOG) <<
@@ -111,7 +111,7 @@ TlgHandling::AstraEdiRequestHandler* EdiReqHandlersFactory(EDI_REAL_MES_STRUCT *
     // control method
     __DECLARE_HANDLER__(UacRequestHandler,          TKCUAC, "733");
     __DECLARE_HANDLER__(CosRequestHandler,          TKCREQ, "142");
-    // apis
+    // iapi
     __DECLARE_HANDLER__(CusRequestHandler,          CUSRES, "132");
 
     LogError(STDLOG) <<

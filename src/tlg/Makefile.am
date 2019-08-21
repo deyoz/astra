@@ -25,7 +25,7 @@ libtlg_a_SOURCES = apps_handler.cc apps_answer_emul.cc edi_handler.cpp edi_msg.c
         et_disp_request.cpp et_cos_request.cpp typeb_handler.cpp IatciIfm.cpp tlg_source_typeb.cpp \
         TpbMessage.cpp ifm_parser.cpp typeb_template_init.cpp UacRequestHandler.cpp et_rac_request.cpp \
         EtRacResponseHandler.cpp EtCosRequestHandler.cpp CusResponseHandler.cpp CusRequestHandler.cpp \ 
-        ldm_parser.cpp
+        ldm_parser.cpp paxlst_request.cpp
         
 
 noinst_HEADERS = EdifactRequest.h read_edi_elements.h edi_msg.h edi_elements.h \
@@ -47,5 +47,5 @@ noinst_HEADERS = EdifactRequest.h read_edi_elements.h edi_msg.h edi_elements.h \
    	et_disp_request.h et_cos_request.h typeb_handler.h IatciIfm.h tlg_source_typeb.h \
    	TpbMessage.h ifm_parser.h typeb_template_init.h UacRequestHandler.h et_rac_request.h \
    	EtRacResponseHandler.h EtCosRequestHandler.h CusResponseHandler.h CusRequestHandler.h \
-   	ldm_parser.h
+   	ldm_parser.h paxlst_request.h
    	  	

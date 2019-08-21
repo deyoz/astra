@@ -711,6 +711,13 @@ namespace edifact {
 using namespace Ticketing::TickReader;
 using namespace edilib;
 
+void collectPAXLST(_EDI_REAL_MES_STRUCT_ *pMes, const Paxlst::PaxlstInfo& paxlst)
+{
+    Paxlst::collectPaxlstMessage(pMes, paxlst, NowUTC(), 1, 1, paxlst.passengersList().size());
+}
+
+//
+
 Cusres::Cusres(const BgmElem& bgm)
     : m_bgm(bgm)
 {}

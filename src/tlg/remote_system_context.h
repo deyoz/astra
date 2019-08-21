@@ -352,6 +352,10 @@ namespace RemoteSystemContext
 
         static IapiSystemContext* read(/*TODO*/);
 
+        static SystemContext* readByEdiAddrs(const std::string& source, const std::string& source_ext,
+                                             const std::string& dest,   const std::string& dest_ext,
+                                             bool throwNf = true);
+
         virtual ~IapiSystemContext() {}
     };
 

@@ -123,18 +123,20 @@ SystemContext SystemContext::readByEdiAddrs(const std::string &source, const std
                      << dest << "/" << dest_ext;
     std::unique_ptr<SystemContext> dcs(DcsSystemContext::readByEdiAddrs(source, source_ext, dest, dest_ext, false));
     std::unique_ptr<SystemContext> eds(EdsSystemContext::readByEdiAddrs(source, source_ext, dest, dest_ext, false));
-    if(!dcs && !eds) {
+    std::unique_ptr<SystemContext> iapi(IapiSystemContext::readByEdiAddrs(source, source_ext, dest, dest_ext, false));
+    if(!dcs && !eds && !iapi) {
         throw UnknownSystAddrs(source + "/" + source_ext,
                                dest + "/" + dest_ext);
     }
 
-    if(dcs && eds) {
+    if(dcs && eds && iapi) {
         throw EXCEPTIONS::ExceptionFmt() <<
-                "unknown system type (DCS or EDS?)";
+                "unknown system type (DCS or EDS or IAPI?)";
     }
 
-    if(dcs) return *dcs;
-    if(eds) return *eds;
+    if(dcs)  return *dcs;
+    if(eds)  return *eds;
+    if(iapi) return *iapi;
 
     throw EXCEPTIONS::ExceptionFmt() << "Can't be here";
 }
@@ -661,14 +663,31 @@ IapiSystemContext::IapiSystemContext(const SystemContext& baseCnt)
 
 IapiSystemContext* IapiSystemContext::read()
 {
+    std::string remEdiAddr = getIAPIRemEdiAddr(),
+                ourEdiAddr = getIAPIOurEdiAddr(),
+                ediProfile = getIAPIEdiProfileName();
     SystemContextMaker mk;
     mk.setIda(Ticketing::SystemAddrs_t());
-    mk.setCanonName(getIAPIRotName());
-    mk.setOurAddrEdifact("NORDWIND");
-    mk.setOurAddrEdifactExt("ZZ");
-    mk.setRemoteAddrEdifact("NIAC");
-    mk.setRemoteAddrEdifactExt("ZZ");
+    mk.setOurAddrEdifact(ourEdiAddr);
+    mk.setRemoteAddrEdifact(remEdiAddr);
+    mk.setEdifactProfileName(ediProfile);
+    mk.setCanonName(AstraEdifact::get_canon_name(remEdiAddr));
     return new IapiSystemContext(mk.getSystemContext());
+}
+
+SystemContext* IapiSystemContext::readByEdiAddrs(const std::string& source, const std::string& source_ext,
+                                                 const std::string& dest,   const std::string& dest_ext,
+                                                 bool throwNf)
+{
+    if(source == getIAPIRemEdiAddr() && dest == getIAPIOurEdiAddr()) {
+        return read();
+    } else {
+        if(throwNf) {
+            throw UnknownSystAddrs(source, dest);
+        }
+    }
+
+    return nullptr;
 }
 
 

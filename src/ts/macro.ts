@@ -1015,6 +1015,8 @@ $(defmacro SAVE_ET_DISP
     dcs_addr=UTDC
     ets_addr=UTET
     recloc=G4LK6W
+    depp=DME
+    arrp=LED
 {
 {<?xml version='1.0' encoding='CP866'?>
 <term>
@@ -1029,7 +1031,7 @@ $(defmacro SAVE_ET_DISP
 >>
 $(TKCREQ_ET_DISP $(dcs_addr) $(ets_addr) $(last_edifact_ref 0) $(airl) $(tickno))
 <<
-$(TKCRES_ET_DISP_1CPN $(ets_addr) $(dcs_addr) $(last_edifact_ref) $(airl) $(tickno) I $(surname) $(name) $(ddmmyy) DME LED)
+$(TKCRES_ET_DISP_1CPN $(ets_addr) $(dcs_addr) $(last_edifact_ref) $(airl) $(tickno) I $(surname) $(name) $(ddmmyy) $(depp) $(arrp))
 
 $(KICK_IN_SILENT)
 

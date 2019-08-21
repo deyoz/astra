@@ -52,6 +52,10 @@ void deleteAPPSAlarms( const int pax_id, const int point_id_spp );
 const char* getAPPSRotName();
 const char* getIAPIRotName();
 
+const std::string getIAPIRemEdiAddr();
+const std::string getIAPIOurEdiAddr();
+const std::string getIAPIEdiProfileName();
+
 int test_apps_tlg(int argc, char **argv);
 
 struct TAppsSets
@@ -272,6 +276,7 @@ public:
                            const bool is_the_same, const bool is_forced ) const;
   std::string msg() const;
   std::string msg_china_iapi() const;
+  Paxlst::PaxlstInfo toPaxlst() const;
   void sendReq(Timing::Points& timing) const;
   std::string getStatus() const {
     return pax.status;

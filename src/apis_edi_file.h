@@ -784,6 +784,10 @@ std::string createIataCode( const std::string& flight,
 
 namespace edifact {
 
+void collectPAXLST(_EDI_REAL_MES_STRUCT_ *pMes, const Paxlst::PaxlstInfo& paxlst);
+
+//
+
 struct Cusres
 {
     struct SegGr3

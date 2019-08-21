@@ -43,7 +43,6 @@ EdifactRequest::EdifactRequest(const std::string &pult,
      ediSessCtxt(ctxt), m_kickInfo(v_kickInfo), SysCont(sysCont)
 {
     setEdiSessionController(new AstraEdiSessWR(pult, msgHead(), sysCont));
-    setEdiSessMesAttr();
 }
 
 EdifactRequest::~EdifactRequest()
@@ -57,6 +56,8 @@ void EdifactRequest::sendTlg()
     if(TlgOut)
         delete TlgOut;
 
+    updateMesHead();
+    setEdiSessMesAttr();
     collectMessage();
 
     TlgOut = new TlgSourceEdifact(makeEdifactText(), ediSess()->hth());
@@ -72,10 +73,12 @@ void EdifactRequest::sendTlg()
 
     ediSess()->ediSession()->CommitEdiSession();
 
-    //запишем контексты
-    AstraContext::SetContext("EDI_SESSION",
-                             ediSessId().get(),
-                             context());
+    if(needSaveEdiSessionContext()) {
+        //запишем контексты
+        AstraContext::SetContext("EDI_SESSION",
+                                 ediSessId().get(),
+                                 context());
+    }
 
     // Записать информацию о timeout отправленной телеграммы
     if(!kickInfo().background_mode()) {
@@ -88,15 +91,19 @@ void EdifactRequest::sendTlg()
         LogTrace(TRACE1) << "No need to save EdiSessionTimeOut in background_mode";
     }
 
-    RemoteResults::add(kickInfo().msgId,
-                       kickInfo().desk,
-                       ediSess()->ediSession()->ida(),
-                       sysCont()->ida());
+    if(needRemoteResults()) {
+        RemoteResults::add(kickInfo().msgId,
+                           kickInfo().desk,
+                           ediSess()->ediSession()->ida(),
+                           sysCont()->ida());
+    }
 
-    Ticketing::ConfigAgentToWait(sysCont()->ida(),
-                                 ediSess()->ediSession()->pult(),
-                                 ediSess()->ediSession()->ida(),
-                                 kickInfo());
+    if(needConfigAgentToWait()) {
+        Ticketing::ConfigAgentToWait(sysCont()->ida(),
+                                     ediSess()->ediSession()->pult(),
+                                     ediSess()->ediSession()->ida(),
+                                     kickInfo());
+    }
 }
 
 std::string EdifactRequest::funcCode() const

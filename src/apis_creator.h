@@ -1518,6 +1518,14 @@ struct TAPPSVersion26 : public TAppsSitaFormat
   bool CheckDocoIssueCountry(string issue_place);
 };
 
+struct TIAPIVersion_EDI_CN : public TAppsSitaFormat
+{
+    long int required_fields(TPaxType pax, TAPIType api) const
+    {
+      return NO_FIELDS;
+    }
+};
+
 //---------------------------------------------------------------------------------------
 
 inline TAPISFormat* SpawnAPISFormat(const string& fmt)
@@ -1545,7 +1553,9 @@ inline TAPISFormat* SpawnAPISFormat(const string& fmt)
   if (fmt=="EDI_VN")      p = new TAPISFormat_EDI_VN; else
 
   if (fmt=="APPS_21")     p = new TAPPSVersion21; else
-  if (fmt=="APPS_26")     p = new TAPPSVersion26;
+  if (fmt=="APPS_26")     p = new TAPPSVersion26; else
+
+  if (fmt=="IAPI_CN")     p = new TIAPIVersion_EDI_CN;;
 
   if (p == nullptr) throw Exception("SpawnAPISFormat: unhandled format %s", fmt.c_str());
   p->fmt = fmt;
