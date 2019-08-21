@@ -22,6 +22,7 @@ enum TChangeLayerFlags { flWaitList, flQuestionReseat, flSetPayLayer, flSyncCabi
 enum TChangeLayerProcFlag { procPaySeatSet,
                             procWaitList, /*признак того, что пересадка идет с ЛО*/
                             procSyncCabinClass };
+enum TChangeLayerSeatsProps { propRFISC, changedOrNotPay };
 
 /* алгоритм рассадки пассажиров
        sdUpDown_Row - сверху вниз в ряд
@@ -472,7 +473,8 @@ void SeatsPassengers( SALONS2::TSalonList &salonList,
                       ASTRA::TClientType client_type,
                       TPassengers &passengers,
                       SALONS2::TAutoSeats &seats );
-bool ChangeLayer( const SALONS2::TSalonList &salonList, ASTRA::TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
+BitSet<TChangeLayerSeatsProps>
+     ChangeLayer( const SALONS2::TSalonList &salonList, ASTRA::TCompLayerType layer_type, int time_limit, int point_id, int pax_id, int &tid,
                   std::string first_xname, std::string first_yname, TSeatsType seat_type,
                   const BitSet<TChangeLayerProcFlag> &procFlags,
                   const std::string& whence );
