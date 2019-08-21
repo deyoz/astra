@@ -1138,9 +1138,6 @@ $(init_jxt_pult åéÇêéå)
 $(login)
 $(init_eds ûí UTET UTDC)
 
-$(settcl APPS_H2H_ADDR "APPSHTH")
-$(settcl IAPI_ROT_NAME "MOWET")
-
 $(PREPARE_FLIGHT_1PAX_1SEG ûí 103 ÑåÑ BJS REPIN IVAN)
 
 $(sql "update DESKS set VERSION='201707-0195750'")
