@@ -317,21 +317,14 @@ static void sendNewReq( const std::string& text, const int msg_id, const int poi
 static void sendNewReq( const TPaxRequest& paxReq, const int msg_id, const int point_id, int version )
 {
     // отправим телеграмму
-    std::string text;
     using namespace edifact;
     if (version == APPS_VERSION_CHINA)
     {
         PaxlstRequest ediReq(PaxlstReqParams("", paxReq.toPaxlst()));
         ediReq.sendTlg();
-        text = ediReq.tlgOut()->text();
     }
     else
-        sendTlg( getAPPSRotName(), OWN_CANON_NAME(), qpOutApp, 20, text,
-                 ASTRA::NoExists, ASTRA::NoExists );
-
-    sendCmd("CMD_APPS_HANDLER","H");
-
-    saveAppsMessage(text, msg_id, point_id, version);
+        sendNewReq(paxReq.msg(), msg_id, point_id, version);
 }
 
 const char* getAPPSRotName()
@@ -2490,13 +2483,6 @@ std::string emulateAnswer( const std::string& request )
 
 void reSendMsg( const int send_attempts, const std::string& msg_text, const int msg_id, const int version )
 {
-  if (version == APPS_VERSION_CHINA)
-  {
-//    EdiSessionHandler e;
-//    sendTlg( getIAPIRotName(), OWN_CANON_NAME(), qpOutA, 20, msg_text,
-//        ASTRA::NoExists, ASTRA::NoExists );
-  }
-  else
     sendTlg( getAPPSRotName(), OWN_CANON_NAME(), qpOutApp, 20, msg_text,
             ASTRA::NoExists, ASTRA::NoExists );
 
