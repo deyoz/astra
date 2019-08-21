@@ -74,7 +74,8 @@ void ZoneLoads(int point_id,
                std::vector<TZoneOccupiedSeats> &zones,
                std::vector<SALONS2::TCompSectionLayers> &CompSectionsLayers,
                std::vector<SALONS2::TCompSection> &compSections );
-bool IntChangeSeatsN( int point_id, int pax_id, int &tid, std::string xname, std::string yname,
+BitSet<SEATS2::TChangeLayerSeatsProps>
+     IntChangeSeatsN( int point_id, int pax_id, int &tid, std::string xname, std::string yname,
                       SEATS2::TSeatsType seat_type,
                       ASTRA::TCompLayerType layer_type,
                       int time_limit,
