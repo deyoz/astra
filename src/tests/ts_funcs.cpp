@@ -607,6 +607,12 @@ static std::string FP_lastGeneratedPaxId(const std::vector<std::string>& par)
     return std::to_string(lgpid);
 }
 
+static std::string FP_substr(const std::vector<std::string>& par)
+{
+    ASSERT(par.size() == 3);
+    return par.at(0).substr(std::atoi(par.at(1).c_str()), std::atoi(par.at(2).c_str()));
+}
+
 
 
 FP_REGISTER("<<", FP_tlg_in);
@@ -635,5 +641,6 @@ FP_REGISTER("prepare_bp_printing", FP_prepare_bp_printing);
 FP_REGISTER("deny_ets_interactive", FP_deny_ets_interactive);
 FP_REGISTER("settcl", FP_settcl);
 FP_REGISTER("last_generated_pax_id", FP_lastGeneratedPaxId);
+FP_REGISTER("substr", FP_substr);
 
 #endif /* XP_TESTING */

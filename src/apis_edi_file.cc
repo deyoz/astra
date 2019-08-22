@@ -22,6 +22,7 @@
 #include <edilib/edi_func_cpp.h>
 #include <edilib/edi_astra_msg_types.h>
 #include <edilib/edi_sess.h>
+#include <serverlib/str_utils.h>
 
 #include <boost/lexical_cast.hpp>
 
@@ -436,11 +437,7 @@ static std::string createEdiPaxlstString( const PaxlstInfo& paxlst,
 
     collectPaxlstMessage( pMes, paxlst, nowUtc, partNum, partsCnt, totalCnt );
 
-//    ResetEdiPointW( pMes );
-//    SetEdiPointToSegmentW(pMes, SegmElement("UNH"));
-//    SetEdiDataElem(pMes, DataElement(62, 0), "11085B94E1F8FA");
-
-    return "UNA:+.? '\n" + ediMessageToStr( pMes );
+    return "UNA:+.? '\n" + StrUtils::replaceSubstrCopy(ediMessageToStr(pMes), "'", "'\n");
 }
 
 static void splitPaxlst( std::list< PaxlstInfo >& splitted,
