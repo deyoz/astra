@@ -1522,6 +1522,8 @@ struct TIAPIVersion_EDI_CN : public TAppsSitaFormat
 {
     long int required_fields(TPaxType pax, TAPIType api) const
     {
+      if (api == apiDoc) return DOC_IAPI_CN_FIELDS;
+      if (api == apiDoco) return DOCO_IAPI_CN_FIELDS;
       return NO_FIELDS;
     }
 };
@@ -1555,7 +1557,7 @@ inline TAPISFormat* SpawnAPISFormat(const string& fmt)
   if (fmt=="APPS_21")     p = new TAPPSVersion21; else
   if (fmt=="APPS_26")     p = new TAPPSVersion26; else
 
-  if (fmt=="IAPI_CN")     p = new TIAPIVersion_EDI_CN;;
+  if (fmt=="IAPI_CN")     p = new TIAPIVersion_EDI_CN;
 
   if (p == nullptr) throw Exception("SpawnAPISFormat: unhandled format %s", fmt.c_str());
   p->fmt = fmt;

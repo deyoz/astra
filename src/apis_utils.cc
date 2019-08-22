@@ -1081,6 +1081,20 @@ bool isValidDocType(const string &fmt, const TPaxStatus &status, const string &d
           doc_type=="G" ||
           doc_type=="R")) return false;
   };
+
+  if (fmt=="IAPI_CN")
+  {
+    /*
+    Valid Travel Document codes are:
+    P=passport and other international travel documents.
+    T=regional document in China Mainland.
+    The above documents can be entered as passport-type documents including the First Document and the Secondary Document.
+    V refers to visas or other entry permits (V is optional and only entered as visa-type documents).
+    */
+    if (!(doc_type=="P" ||
+          doc_type=="T")) return false;
+  }
+
   return true;
 };
 

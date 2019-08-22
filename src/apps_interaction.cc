@@ -66,11 +66,13 @@ using namespace edilib;
 class AppsPaxNotFoundException : public std::exception {} ;
 
 // версия спецификации документа
-enum ESpecVer { SPEC_6_76, SPEC_6_83 };
+enum ESpecVer { SPEC_6_76, SPEC_6_83, SPEC_IAPI_CHINA };
 
 ESpecVer GetSpecVer(int msg_ver)
 {
-  if (msg_ver == APPS_VERSION_21)
+  if (msg_ver == APPS_VERSION_CHINA)
+    return SPEC_IAPI_CHINA;
+  else if (msg_ver == APPS_VERSION_21)
     return SPEC_6_76;
   else
     return SPEC_6_83;
@@ -669,6 +671,9 @@ void TPaxData::init( const int pax_ident, const std::string& surname, const std:
       doc_type = "P";
     else
       doc_type = "O";
+    break;
+  case SPEC_IAPI_CHINA:
+    doc_type = doc.type; // предполагаем что всегда правильный
     break;
   default:
     throw Exception( "Unknown specification version" );
@@ -1461,11 +1466,13 @@ Paxlst::PaxlstInfo TPaxRequest::toPaxlst() const
     paxlstInfo.settings().set_RFF_TN(rff_tn.str());
 
     // 5.7 NAD: Name and Address ? Reporting Party-GR.1
-  //  paxlstInfo.setPartyName("TESTPARTYNAME");
+    // HARDCODE FOR TEST
+    paxlstInfo.setPartyName("TEST CONTACT");
 
     // 5.8 COM: Communication Contact-GR.1
-  //  paxlstInfo.setPhone("11111111");
-  //  paxlstInfo.setFax("22222222");
+    // HARDCODE FOR TEST
+    paxlstInfo.setPhone("12 34 56 78");
+    paxlstInfo.setFax("98765432");
 
     // 5.9 TDT: Details of Transport-GR.2
     paxlstInfo.setFlight(int_flt.flt_num);
@@ -1498,16 +1505,29 @@ Paxlst::PaxlstInfo TPaxRequest::toPaxlst() const
     paxInfo.setProcInfo("173"); // FIXME TESTING
 
     // 5.16 LOC: Place/Location Identification ? Residence/Itinerary -GR4
-    paxInfo.setCBPPort(da.airpCBP);
+    // 22
+//    paxInfo.setCBPPort(da.airpCBP);
+    // 178
     paxInfo.setDepPort(pax_airp_dep);
+    // 179
     paxInfo.setArrPort(pax_airp_arv);
+    // 174 - не вполне корректно, лучше DocaR
+//    if (!pax.birth_country.empty())
+//      paxInfo.setResidCountry(pax.birth_country);
 
     // 5.17 NAT: Nationality-GR4
     paxInfo.setNationality(pax.nationality);
 
     // 5.18 RFF: Reference-GR.4
-    paxInfo.setReservNum(pax.pnr_locator.empty()?"XXX":pax.pnr_locator);
+    // AVF
+    string pnr_addr = TPnrAddrs().firstAddrByPaxId(pax.pax_id, TPnrAddrInfo::AddrOnly);
+    if (!pnr_addr.empty())
+      paxInfo.setReservNum(convert_pnr_addr(pnr_addr, 1));
+    else
+      paxInfo.setReservNum("XXXXXX");
+    // ABO
     paxInfo.setPaxRef(IntToString(pax.pax_id));
+    // YZY
     paxInfo.setTicketNumber(pax_item.tkn.no_str("C"));
 
     // 5.19 DOC: Document/Message Details-GR.5
@@ -1515,8 +1535,8 @@ Paxlst::PaxlstInfo TPaxRequest::toPaxlst() const
     // 5.21 LOC: Place/Location Identification - Travel Document Issuing Country-GR.5
     // travel document
     // 5.19
-    if ("P" == pax.doc_type or "T" == pax.doc_type)
-      paxInfo.setDocType(pax.doc_type);
+//    if ("P" == pax.doc_type or "T" == pax.doc_type)
+    paxInfo.setDocType(pax.doc_type);
     paxInfo.setDocNumber(pax.passport);
     // 5.20
     TDateTime doc_expiry_date;
@@ -1526,8 +1546,8 @@ Paxlst::PaxlstInfo TPaxRequest::toPaxlst() const
     paxInfo.setDocCountry(pax.issuing_state);
     // visa
     // 5.19
-    if ("V" == pax_add.doco_type)
-      paxInfo.setDocoType(pax_add.doco_type);
+//    if ("V" == pax_add.doco_type)
+    paxInfo.setDocoType(pax_add.doco_type);
     paxInfo.setDocoNumber(pax_add.doco_no);
     // 5.20
     TDateTime doco_expiry_date;
