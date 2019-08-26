@@ -20,6 +20,7 @@
 #include "salons.h"
 #include "seats.h"
 #include "docs/docs_common.h"
+#include "docs/docs_vouchers.h"
 #include "dev_utils.h"
 #include "checkin_utils.h"
 #include "stat/stat_utils.h"
@@ -5912,6 +5913,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
         rozysk::sync_pax_grp(grp.id, reqInfo->desk.code, reqInfo->user.descr);
         timing.finish("sync_pax_grp", grp.point_dep);
       }
+
+      timing.start("del_vo", grp.point_dep);
+      TVouchers().fromDB(grp.point_dep, grp.id).to_deleted();
+      timing.finish("del_vo", grp.point_dep);
 
       timing.start("check_grp", grp.point_dep);
 

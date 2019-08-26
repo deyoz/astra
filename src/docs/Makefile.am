@@ -23,6 +23,7 @@ libdocs_a_SOURCES = \
   docs_crs.cc \
   docs_annul_tags.cc \
   docs_wb_msg.cc \
+  docs_vouchers.cc \
   docs_pax_list.cc
         
 
@@ -46,4 +47,5 @@ noinst_HEADERS = \
   docs_crs.h \
   docs_annul_tags.h \
   docs_wb_msg.h \
+  docs_vouchers.h \
   docs_pax_list.h
