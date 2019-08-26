@@ -1357,7 +1357,7 @@ public:
   }
 };
 
-DepArr get_dep_arr(const TAdvTripRoute& route, string country)
+DepArr get_dep_arr(const TAdvTripRoute& route, const string& country)
 {
   struct FindCountry
   {
@@ -1444,8 +1444,10 @@ Paxlst::PaxlstInfo TPaxRequest::toPaxlst() const
     if (not da.valid())
       throw Exception("%s cannot get departure or arrival", __func__);
 
-    const string DOC_ID = ""; // empty docId for Clear Passenger Request
-    Paxlst::PaxlstInfo paxlstInfo(Paxlst::PaxlstInfo::FlightPassengerManifest, DOC_ID);
+    string doc_id = ""; // empty docId for Clear Passenger Request
+    if (!pax.override_codes.empty())
+      doc_id = "CP"; // Change Passenger Data
+    Paxlst::PaxlstInfo paxlstInfo(Paxlst::PaxlstInfo::FlightPassengerManifest, doc_id);
     paxlstInfo.settings().setRespAgnCode("ZZZ");
     paxlstInfo.settings().setAppRef("IAPI");
     paxlstInfo.settings().setMesRelNum("05B");
@@ -1458,6 +1460,9 @@ Paxlst::PaxlstInfo TPaxRequest::toPaxlst() const
     paxlstInfo.setRecipientName("NIAC");
     paxlstInfo.setRecipientCarrierCode("ZZ");
     paxlstInfo.setIataCode("");
+
+    string airline_lat = (static_cast<const TAirlinesRow&>(base_tables.get("airlines").get_row("code", route.front().airline))).code_lat;
+    paxlstInfo.setCarrier(airline_lat);
 
     // 5.6 RFF: Reference
     paxlstInfo.settings().set_view_RFF_TN(true);
