@@ -3,6 +3,7 @@
 #include "astra_utils.h"
 #include "salons.h"
 #include "stat/stat_utils.h"
+#include "docs_utils.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
@@ -103,26 +104,6 @@ void TPMPax::trace(TRACE_SIGNATURE)
 {
     TPax::trace(TRACE_PARAMS);
     LogTrace(TRACE_PARAMS) << "_seat_no: '" << _seat_no << "'";
-}
-
-string REPORTS::get_last_target(TQuery &Qry, TRptParams &rpt_params)
-{
-    string result;
-    if(rpt_params.pr_trfer) {
-        string airline = Qry.FieldAsString("trfer_airline");
-        if(!airline.empty()) {
-            ostringstream buf;
-            buf
-                << rpt_params.ElemIdToReportElem(etAirp, Qry.FieldAsString("trfer_airp_arv"), efmtNameLong).substr(0, 50)
-                << "("
-                << rpt_params.ElemIdToReportElem(etAirline, airline, efmtCodeNative)
-                << setw(3) << setfill('0') << Qry.FieldAsInteger("trfer_flt_no")
-                << rpt_params.ElemIdToReportElem(etSuffix, Qry.FieldAsString("trfer_suffix"), efmtCodeNative)
-                << ")/" << DateTimeToStr(Qry.FieldAsDateTime("trfer_scd"), "dd");
-            result = buf.str();
-        }
-    }
-    return result;
 }
 
 string TPMPax::rems() const
