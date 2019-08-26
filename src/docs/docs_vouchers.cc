@@ -87,27 +87,40 @@ void TVouchers::to_deleted() const
 {
     if(items.empty()) return;
     TCachedQuery Qry(
-            "insert into del_vo ( "
-            "  point_id, "
-            "  full_name, "
-            "  pers_type, "
-            "  reg_no, "
-            "  ticket_no, "
-            "  coupon_no, "
-            "  rem_codes, "
-            "  voucher, "
-            "  total "
-            ") values ( "
-            "  :point_id, "
-            "  :full_name, "
-            "  :pers_type, "
-            "  :reg_no, "
-            "  :ticket_no, "
-            "  :coupon_no, "
-            "  :rem_codes, "
-            "  :voucher, "
-            "  :total "
-            ") ",
+            "begin "
+            "  insert into del_vo ( "
+            "    point_id, "
+            "    full_name, "
+            "    pers_type, "
+            "    reg_no, "
+            "    ticket_no, "
+            "    coupon_no, "
+            "    rem_codes, "
+            "    voucher, "
+            "    total "
+            "  ) values ( "
+            "    :point_id, "
+            "    :full_name, "
+            "    :pers_type, "
+            "    :reg_no, "
+            "    :ticket_no, "
+            "    :coupon_no, "
+            "    :rem_codes, "
+            "    :voucher, "
+            "    :total "
+            "  ); "
+            "exception "
+            "  when dup_val_on_index then "
+            "    update del_vo set total = total + :total where "
+            "      point_id = :point_id and "
+            "      full_name = :full_name and "
+            "      pers_type = :pers_type and "
+            "      reg_no = :reg_no and "
+            "      nvl(ticket_no, ' ') = nvl(:ticket_no, ' ') and "
+            "      nvl(coupon_no, 0) = nvl(:coupon_no, 0) and "
+            "      nvl(rem_codes, ' ') = nvl(:rem_codes, ' ') and "
+            "      voucher = :voucher;"
+            "end; ",
         QParams()
             << QParam("point_id", otInteger, point_id)
             << QParam("full_name", otString)
@@ -127,13 +140,9 @@ void TVouchers::to_deleted() const
             Qry.get().SetVariable("coupon_no", i.first.coupon_no);
         else
             Qry.get().SetVariable("coupon_no", FNull);
-        Qry.get().SetVariable("rem_codes", i.first.rem_codes);
+        Qry.get().SetVariable("rem_codes", i.first.rem_codes.substr(0, 500));
         Qry.get().SetVariable("voucher", i.first.voucher);
         Qry.get().SetVariable("total", i.second);
-
-        for(int i = 0; i < Qry.get().VariablesCount(); i++)
-            LogTrace(TRACE5) << "to_deleted: " << Qry.get().VariableName(i) << " = " << Qry.get().GetVariableAsString(i);
-
         Qry.get().Execute();
     }
 }
