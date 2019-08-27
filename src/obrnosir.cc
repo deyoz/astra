@@ -1,6 +1,6 @@
 #include "telegram.h"
 #include "maindcs.h"
-#include "docs/docs_main.h"
+#include "docs/docs_btm.h"
 #include "load_fr.h"
 #include "apis.h"
 #include "salons.h"

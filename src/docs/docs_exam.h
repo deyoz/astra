@@ -6,5 +6,7 @@
 
 void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode);
 void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode);
+void WEB(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode);
+void WEBTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode);
 
 #endif
