@@ -318,7 +318,7 @@ void TLastExchangeInfo::fromDB(int grp_id)
 
 void TLastExchangeInfo::cleanOldRecords()
 {
-  TDateTime d=NowUTC()-15/1440.0;
+  TDateTime d=NowUTC()-1.0; //раньше было 15 мин, теперь 1 день
   AstraContext::ClearContext("pc_payment_req", d);
   AstraContext::ClearContext("pc_payment_res", d);
 }
