@@ -23,10 +23,10 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
   string str;
   ostringstream s;
-  //╤В╨╡╨║╤Б╤В╨╛╨▓╤Л╨╣ ╤Д╨╛╤А╨╝╨░╤В
+  //текстовый формат
   int page_width=75;
-  //╤Б╨┐╨╡╤Ж╨╕╨░╨╗╤М╨╜╨╛ ╨▓╨▓╨╛╨┤╨╕╨╝ ╨┤╨╗╤П ╨║╨╕╤А╨╕╨╗╨╗╨╕╤З╨╡╤Б╨║╨╕╤Е ╤Б╨╕╨╝╨▓╨╛╨╗╨╛╨▓, ╤В╨░╨║ ╨║╨░╨║ ╨▓ ╤В╨╡╤А╨╝╨╕╨╜╨░╨╗╨╡ ╨┐╤А╨╕ ╤Н╨║╤Б╨┐╨╛╤А╤В╨╡ ╨┐╤А╨╛╨▒╨╗╨╡╨╝╤Л
-  //╨╝╨░╨║╤Б╨╕╨╝╨░╨╗╤М╨╜╨░╤П ╨┤╨╗╨╕╨╜╨░ ╤Б╤В╤А╨╛╨║╨╕ ╨┐╤А╨╕ ╤Н╨║╤Б╨┐╨╛╤А╤В╨╡ ╨▓ ╨▒╨░╨╣╤В╨░╤Е! ╨╜╨╡ ╨┤╨╛╨╗╨╢╨╜╨░ ╨┐╤А╨╡╨▓╤Л╤И╨░╤В╤М ~147 (65 ╤А╤Г╤Б + 15 ╨╗╨░╤В)
+  //специально вводим для кириллических символов, так как в терминале при экспорте проблемы
+  //максимальная длина строки при экспорте в байтах! не должна превышать ~147 (65 рус + 15 лат)
   int max_symb_count= rpt_params.IsInter() ? page_width : 60;
   NewTextChild(variablesNode, "page_width", page_width);
   NewTextChild(variablesNode, "test_server", STAT::bad_client_img_version() ? 2 : get_test_server());
@@ -45,7 +45,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       str.assign(NodeAsString((rpt_params.IsInter() ? "ptm_lat" : "ptm"), variablesNode));
   }
   else
-    str.assign(getLocaleText("╨С╨Р╨У╨Р╨Ц╨Э╨Р╨п ╨Т╨Х╨Ф╨Ю╨Ь╨Ю╨б╨в╨м", rpt_params.GetLang()));
+    str.assign(getLocaleText("БАГАЖНАЯ ВЕДОМОСТЬ", rpt_params.GetLang()));
 
   s << setfill(' ')
     << str
@@ -55,24 +55,24 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
 
   s.str("");
-  str.assign(getLocaleText("╨Т╨╗╨░╨┤╨╡╨╗╨╡╤Ж ╨╕╨╗╨╕ ╨Ю╨┐╨╡╤А╨░╤В╨╛╤А: ", rpt_params.GetLang()));
+  str.assign(getLocaleText("Владелец или Оператор: ", rpt_params.GetLang()));
   s << left
     << str
     << string(NodeAsString("airline_name",variablesNode)).substr(0,max_symb_count-str.size()) << endl
-    << setw(10) << getLocaleText("тДЦ ╤А╨╡╨╣╤Б╨░", rpt_params.GetLang());
+    << setw(10) << getLocaleText("№ рейса", rpt_params.GetLang());
   if (rpt_params.IsInter())
     s << setw(19) << "Aircraft";
   else
-    s << setw(9)  << "тДЦ ╨Т╨б"
-      << setw(10) << "╨в╨╕╨┐╨Т╨б ╨б╤В. ";
+    s << setw(9)  << "№ ВС"
+      << setw(10) << "ТипВС Ст. ";
 
   if (!NodeIsNULL("airp_arv_name",variablesNode))
-    s << setw(15) << getLocaleText("╨Р/╨┐ ╨▓╤Л╨╗╨╡╤В╨░", rpt_params.GetLang())
-      << setw(20) << getLocaleText("╨Р/╨┐ ╨╜╨░╨╖╨╜╨░╤З╨╡╨╜╨╕╤П", rpt_params.GetLang());
+    s << setw(15) << getLocaleText("А/п вылета", rpt_params.GetLang())
+      << setw(20) << getLocaleText("А/п назначения", rpt_params.GetLang());
   else
-    s << setw(35) << getLocaleText("╨Р/╨┐ ╨▓╤Л╨╗╨╡╤В╨░", rpt_params.GetLang());
-  s << setw(6)  << getLocaleText("╨Ф╨░╤В╨░", rpt_params.GetLang())
-    << setw(5)  << getLocaleText("╨Т╤А╨╡╨╝╤П", rpt_params.GetLang()) << endl;
+    s << setw(35) << getLocaleText("А/п вылета", rpt_params.GetLang());
+  s << setw(6)  << getLocaleText("Дата", rpt_params.GetLang())
+    << setw(5)  << getLocaleText("Время", rpt_params.GetLang()) << endl;
 
   s << setw(10) << NodeAsString("flt",variablesNode)
     << setw(11) << NodeAsString("bort",variablesNode)
@@ -89,7 +89,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     << setw(5) << NodeAsString("scd_time",variablesNode);
   string departure = NodeAsString("takeoff", variablesNode);
   if(not departure.empty())
-      s << endl << getLocaleText("╨Т╤Л╨╗╨╡╤В", rpt_params.GetLang()) << ": " << departure;
+      s << endl << getLocaleText("Вылет", rpt_params.GetLang()) << ": " << departure;
   NewTextChild(variablesNode, "page_header_center", s.str() );
 
   s.str("");
@@ -111,25 +111,25 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
   if (rpt_params.rpt_type==rtPTMTXT)
     s << left
       << setw(4)  << (getLocaleText("CAP.DOC.REG", rpt_params.GetLang()))
-      << setw(rpt_params.IsInter()?13:14) << (getLocaleText("╨д╨░╨╝╨╕╨╗╨╕╤П", rpt_params.GetLang()))
-      << setw(4)  << (getLocaleText("╨Я╨╛╨╗", rpt_params.GetLang()))
-      << setw(rpt_params.IsInter()?4:3)   << (getLocaleText("╨Ъ╨╗", rpt_params.GetLang()))
+      << setw(rpt_params.IsInter()?13:14) << (getLocaleText("Фамилия", rpt_params.GetLang()))
+      << setw(4)  << (getLocaleText("Пол", rpt_params.GetLang()))
+      << setw(rpt_params.IsInter()?4:3)   << (getLocaleText("Кл", rpt_params.GetLang()))
       << setw(5)  << (getLocaleText("CAP.DOC.SEAT_NO", rpt_params.GetLang()))
-      << setw(4)  << (getLocaleText("╨а╨С", rpt_params.GetLang()))
-      << setw(4)  << (getLocaleText("╨а╨Ь", rpt_params.GetLang()))
+      << setw(4)  << (getLocaleText("РБ", rpt_params.GetLang()))
+      << setw(4)  << (getLocaleText("РМ", rpt_params.GetLang()))
       << setw(7)  << (getLocaleText("CAP.DOC.BAG", rpt_params.GetLang()))
-      << setw(6)  << (getLocaleText("╨а/╨║╨╗", rpt_params.GetLang()))
+      << setw(6)  << (getLocaleText("Р/кл", rpt_params.GetLang()))
       << setw(15) << (getLocaleText("CAP.DOC.BAG_TAG_NOS", rpt_params.GetLang()))
-      << setw(9)  << (getLocaleText("╨а╨╡╨╝╨░╤А╨║╨╕", rpt_params.GetLang()));
+      << setw(9)  << (getLocaleText("Ремарки", rpt_params.GetLang()));
   else
     s << left
-      << setw(29) << (getLocaleText("╨Э╨╛╨╝╨╡╤А╨░ ╨▒╨░╨│╨░╨╢╨╜╤Л╤Е ╨▒╨╕╤А╨╛╨║", rpt_params.GetLang()))
-      << setw(10) << (getLocaleText("╨ж╨▓╨╡╤В", rpt_params.GetLang()))
-      << setw(5)  << (getLocaleText("╨Ь╨╡╤Б╤В", rpt_params.GetLang()))
-      << setw(7)  << (getLocaleText("╨Т╨╡╤Б", rpt_params.GetLang()))
-      << setw(8)  << (getLocaleText("тДЦ ╨Ъ╨╛╨╜╤В.", rpt_params.GetLang()))
+      << setw(29) << (getLocaleText("Номера багажных бирок", rpt_params.GetLang()))
+      << setw(10) << (getLocaleText("Цвет", rpt_params.GetLang()))
+      << setw(5)  << (getLocaleText("Мест", rpt_params.GetLang()))
+      << setw(7)  << (getLocaleText("Вес", rpt_params.GetLang()))
+      << setw(8)  << (getLocaleText("№ Конт.", rpt_params.GetLang()))
       << setw(10) << (getLocaleText("CAP.DOC.HOLD", rpt_params.GetLang()))
-      << setw(11) << (getLocaleText("╨Ю╤В╤Б╨╡╨║", rpt_params.GetLang()));
+      << setw(11) << (getLocaleText("Отсек", rpt_params.GetLang()));
 
   NewTextChild(variablesNode, "page_header_bottom", s.str() );
 
@@ -138,26 +138,26 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     s.str("");
     s
         << setw(17)
-        << (getLocaleText("╨Т╤Б╨╡╨│╨╛ ╨▓ ╨║╨╗╨░╤Б╤Б╨╡", rpt_params.GetLang()))
+        << (getLocaleText("Всего в классе", rpt_params.GetLang()))
         << setw(9)
         << "M/F"
         << setw(4)
-        << getLocaleText("╨Ъ╤А╤Б", rpt_params.GetLang())
+        << getLocaleText("Крс", rpt_params.GetLang())
         << right
         << setw(3)
-        << getLocaleText("╨а╨С", rpt_params.GetLang()) << " "
+        << getLocaleText("РБ", rpt_params.GetLang()) << " "
         << setw(3)
-        << getLocaleText("╨а╨Ь", rpt_params.GetLang()) << " "
+        << getLocaleText("РМ", rpt_params.GetLang()) << " "
         << left
         << setw(7)
-        << getLocaleText("╨С╨░╨│.", rpt_params.GetLang())
+        << getLocaleText("Баг.", rpt_params.GetLang())
         << right
         << setw(5)
-        << getLocaleText("╨а/╨║╨╗", rpt_params.GetLang())
-        << setw(7) << " " // ╨╖╨░╨┐╨╛╨╗╨╜╨╡╨╜╨╕╨╡ 7 ╨┐╤А╨╛╨▒╨╡╨╗╨╛╨▓ (╨╛╨▒╤П╨╖╨░╤В. ╨┤.╨▒. ╨▓╨║╨╗. ╤Д╨╗╨░╨│ right, ╤Б╨╝. ╨▓╤Л╤И╨╡)
+        << getLocaleText("Р/кл", rpt_params.GetLang())
+        << setw(7) << " " // заполнение 7 пробелов (обязат. д.б. вкл. флаг right, см. выше)
         << "XCR DHC MOS JMP"
         << endl
-        // ╨Ч╨┤╨╡╤Б╤М ╨▓╨╕╨┤╨╜╨╛, ╤З╤В╨╛ ╨С╨░╨│╨░╨╢ ╨╕ ╤А/╨║╨╗ (%2u/%-4u%5u) ╤А╨░╤Б╨┐╨╛╨╗╨╛╨╢╨╡╨╜╤Л ╨▓╨┐╨╗╨╛╤В╨╜╤Г╤О, ╤З╤В╨╛ ╨╜╨╡ ╨╡╤Б╤В╤М ╤Е╨╛╤А╨╛╤И╨╛.
+        // Здесь видно, что Багаж и р/кл (%2u/%-4u%5u) расположены вплотную, что не есть хорошо.
         << "%-16s %-7s  %3u %3u %3u %2u/%-4u%5u       %3u %3u %3u %3u";
     NewTextChild(variablesNode, "total_in_class_fmt", s.str());
 
@@ -168,25 +168,25 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       str.append(NodeAsString("airp_arv_name",variablesNode));
 
       s << left
-        << setw(6) << (getLocaleText("╨Т╤Б╨╡╨│╨╛", rpt_params.GetLang()))
+        << setw(6) << (getLocaleText("Всего", rpt_params.GetLang()))
         << setw(50) << str.substr(0,50-1)
-        << (getLocaleText("╨Я╨╛╨┤╨┐╨╕╤Б╤М", rpt_params.GetLang())) << endl;
+        << (getLocaleText("Подпись", rpt_params.GetLang())) << endl;
     }
     else
       s << left
-        << (getLocaleText("╨Т╤Б╨╡╨│╨╛", rpt_params.GetLang())) << endl;
+        << (getLocaleText("Всего", rpt_params.GetLang())) << endl;
 
-    s << setw(7) << (getLocaleText("╨Ъ╤А╨╡╤Б╨╡╨╗", rpt_params.GetLang()))
-      << setw(8) << (getLocaleText("╨Т╨Ч/╨Ц", rpt_params.GetLang()))
-      << setw(7) << (getLocaleText("╨а╨С", rpt_params.GetLang()))
-      << setw(7) << (getLocaleText("╨а╨Ь", rpt_params.GetLang()))
-      << setw(7) << (getLocaleText("╨Ь╨╡╤Б╤В", rpt_params.GetLang()))
-      << setw(7) << (getLocaleText("╨Т╨╡╤Б", rpt_params.GetLang()))
-      << setw(7) << (getLocaleText("╨а/╨║╨╗", rpt_params.GetLang()))
+    s << setw(7) << (getLocaleText("Кресел", rpt_params.GetLang()))
+      << setw(8) << (getLocaleText("ВЗ/Ж", rpt_params.GetLang()))
+      << setw(7) << (getLocaleText("РБ", rpt_params.GetLang()))
+      << setw(7) << (getLocaleText("РМ", rpt_params.GetLang()))
+      << setw(7) << (getLocaleText("Мест", rpt_params.GetLang()))
+      << setw(7) << (getLocaleText("Вес", rpt_params.GetLang()))
+      << setw(7) << (getLocaleText("Р/кл", rpt_params.GetLang()))
       << setw(8) << (getLocaleText("CAP.DOC.EX_BAG", rpt_params.GetLang()))
       << setw(16) << "XCR DHC MOS JMP" << endl
       << "%-6u %-7s %-6u %-6u %-6u %-6u %-6u %-6s  %-3u %-3u %-3u %-3u" << endl
-      << (getLocaleText("╨Я╨╛╨┤╨┐╨╕╤Б╤М", rpt_params.GetLang())) << endl
+      << (getLocaleText("Подпись", rpt_params.GetLang())) << endl
       << setw(30) << string(NodeAsString("pts_agent", variablesNode)).substr(0, 30) << endl
       << (getLocaleText("CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)), rpt_params.GetLang()));
 
@@ -204,11 +204,11 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       ReplaceTextChild(rowNode,"airp_arv_name",str.substr(0,max_symb_count));
       if (!NodeIsNULL("last_target",rowNode))
       {
-        str.assign(getLocaleText("╨Ф╨Ю", rpt_params.GetLang()) + ": ").append(NodeAsString("last_target",rowNode));
+        str.assign(getLocaleText("ДО", rpt_params.GetLang()) + ": ").append(NodeAsString("last_target",rowNode));
         ReplaceTextChild(rowNode,"last_target",str.substr(0,max_symb_count));
       };
 
-      //╤А╨░╨▒╨╕╨▓╨░╨╡╨╝ ╤Д╨░╨╝╨╕╨╗╨╕╤О, ╨▒╨╕╤А╨║╨╕, ╤А╨╡╨╝╨░╤А╨║╨╕
+      //рабиваем фамилию, бирки, ремарки
       SeparateString(NodeAsString("full_name",rowNode),13,rows);
       fields["full_name"]=rows;
       SeparateString(NodeAsString("tags",rowNode),15,rows);
@@ -261,22 +261,22 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     {
       s.str("");
       if (!rpt_params.pr_trfer)
-        s << setw(15) << (getLocaleText("╨Т╤Б╨╡╨│╨╛ ╨▒╨░╨│╨░╨╢╨░", rpt_params.GetLang()));
+        s << setw(15) << (getLocaleText("Всего багажа", rpt_params.GetLang()));
       else
       {
         if (k==0)
-          s << setw(19) << (getLocaleText("╨Т╤Б╨╡╨│╨╛ ╨╜╨╡╤В╤А. ╨▒╨░╨│.", rpt_params.GetLang()));
+          s << setw(19) << (getLocaleText("Всего нетр. баг.", rpt_params.GetLang()));
         else
-          s << setw(19) << (getLocaleText("╨Т╤Б╨╡╨│╨╛ ╤В╤А. ╨▒╨░╨│.", rpt_params.GetLang()));
+          s << setw(19) << (getLocaleText("Всего тр. баг.", rpt_params.GetLang()));
       };
 
-      s << setw(7) << (getLocaleText("╨Ъ╤А╨╡╤Б╨╡╨╗", rpt_params.GetLang()))
-        << setw(8) << (getLocaleText("╨Т╨Ч/╨Ц", rpt_params.GetLang()))
-        << setw(7) << (getLocaleText("╨а╨С", rpt_params.GetLang()))
-        << setw(7) << (getLocaleText("╨а╨Ь", rpt_params.GetLang()))
-        << setw(7) << (getLocaleText("╨Ь╨╡╤Б╤В", rpt_params.GetLang()))
-        << setw(7) << (getLocaleText("╨Т╨╡╤Б", rpt_params.GetLang()))
-        << setw(7) << (getLocaleText("╨а/╨║╨╗", rpt_params.GetLang()))
+      s << setw(7) << (getLocaleText("Кресел", rpt_params.GetLang()))
+        << setw(8) << (getLocaleText("ВЗ/Ж", rpt_params.GetLang()))
+        << setw(7) << (getLocaleText("РБ", rpt_params.GetLang()))
+        << setw(7) << (getLocaleText("РМ", rpt_params.GetLang()))
+        << setw(7) << (getLocaleText("Мест", rpt_params.GetLang()))
+        << setw(7) << (getLocaleText("Вес", rpt_params.GetLang()))
+        << setw(7) << (getLocaleText("Р/кл", rpt_params.GetLang()))
         << setw(7) << (getLocaleText("CAP.DOC.EX_BAG", rpt_params.GetLang()));
 
       if (!rpt_params.pr_trfer)
@@ -334,11 +334,11 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       ReplaceTextChild(rowNode,"airp_arv_name",str.substr(0,max_symb_count));
       if (!NodeIsNULL("last_target",rowNode))
       {
-        str.assign(getLocaleText("╨Ф╨Ю", rpt_params.GetLang()) + ": ").append(NodeAsString("last_target",rowNode));
+        str.assign(getLocaleText("ДО", rpt_params.GetLang()) + ": ").append(NodeAsString("last_target",rowNode));
         ReplaceTextChild(rowNode,"last_target",str.substr(0,max_symb_count));
       };
 
-      //╤А╨░╨╖╨▒╨╕╨▓╨░╨╡╨╝ ╨┤╨╕╨░╨┐╨░╨╖╨╛╨╜╤Л ╨▒╨╕╤А╨╛╨║, ╤Ж╨▓╨╡╤В
+      //разбиваем диапазоны бирок, цвет
       int offset = 2;
       if(not NodeIsNULL("bag_name", rowNode))
           offset += 2;
@@ -355,7 +355,7 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       do
       {
         if (row!=0) s << endl;
-        s << setw(offset) << "" //╨╛╤В╤Б╤В╤Г╨┐
+        s << setw(offset) << "" //отступ
           << left << setw(28 - offset) << (!fields["birk_range"].empty()?*(fields["birk_range"].begin()):"") << " "
           << left << setw(9) << (!fields["color"].empty()?*(fields["color"].begin()):"") << " "
           << right << setw(4) << (row==0?NodeAsString("num",rowNode):"") << " ";
@@ -377,9 +377,9 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         s.str("");
         s << left;
         if (k==0)
-          s << setw(39) << (getLocaleText("╨Т╤Б╨╡╨│╨╛ ╨▒╨░╨│╨░╨╢╨░, ╨╕╤Б╨║╨╗╤О╤З╨░╤П ╤В╤А╨░╨╜╤Б╤Д╨╡╤А╨╜╤Л╨╣", rpt_params.GetLang()));
+          s << setw(39) << (getLocaleText("Всего багажа, исключая трансферный", rpt_params.GetLang()));
         else
-          s << setw(39) << (getLocaleText("╨Т╤Б╨╡╨│╨╛ ╤В╤А╨░╨╜╤Б╤Д╨╡╤А╨╜╨╛╨│╨╛ ╨▒╨░╨│╨░╨╢╨░", rpt_params.GetLang()));
+          s << setw(39) << (getLocaleText("Всего трансферного багажа", rpt_params.GetLang()));
         s << "%4u %6u";
         if (k==0)
           NewTextChild(variablesNode, "total_not_trfer_fmt", s.str() );
@@ -388,9 +388,9 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       };
 
       s.str("");
-      s << setw(39) << (getLocaleText("╨Т╤Б╨╡╨│╨╛ ╨▒╨░╨│╨░╨╢╨░", rpt_params.GetLang()))
+      s << setw(39) << (getLocaleText("Всего багажа", rpt_params.GetLang()))
         << "%4u %6u" << endl
-        << setw(39) << (getLocaleText("╨в╤А╨░╨╜╤Б╤Д╨╡╤А╨╜╨╛╨│╨╛ ╨▒╨░╨│╨░╨╢╨░", rpt_params.GetLang()))
+        << setw(39) << (getLocaleText("Трансферного багажа", rpt_params.GetLang()))
         << "%4u %6u";
       NewTextChild(variablesNode, "report_footer", s.str() );
     };
@@ -408,18 +408,18 @@ void PTMBTMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
       str.append(NodeAsString("airp_arv_name",variablesNode));
 
       s << left
-        << setw(6) << (getLocaleText("╨Т╤Б╨╡╨│╨╛", rpt_params.GetLang()))
+        << setw(6) << (getLocaleText("Всего", rpt_params.GetLang()))
         << setw(50) << str.substr(0,50-1)
-        << (getLocaleText("╨Я╨╛╨┤╨┐╨╕╤Б╤М ╨░╨│╨╡╨╜╤В╨░ ╨б╨Ю╨Я╨Я", rpt_params.GetLang())) << endl;
+        << (getLocaleText("Подпись агента СОПП", rpt_params.GetLang())) << endl;
     }
     else
       s << left
-        << setw(56) << (getLocaleText("╨Т╤Б╨╡╨│╨╛", rpt_params.GetLang()))
-        << (getLocaleText("╨Я╨╛╨┤╨┐╨╕╤Б╤М ╨░╨│╨╡╨╜╤В╨░ ╨б╨Ю╨Я╨Я", rpt_params.GetLang())) << endl;
+        << setw(56) << (getLocaleText("Всего", rpt_params.GetLang()))
+        << (getLocaleText("Подпись агента СОПП", rpt_params.GetLang())) << endl;
 
-    s << setw(6)  << (getLocaleText("╨Ь╨╡╤Б╤В", rpt_params.GetLang()))
-      << setw(7)  << (getLocaleText("╨Т╨╡╤Б", rpt_params.GetLang()))
-      << setw(43) << (getLocaleText("╨Ъ╨╛╨╗╨╕╤З╨╡╤Б╤В╨▓╨╛ ╨╝╨╡╤Б╤В ╨┐╤А╨╛╨┐╨╕╤Б╤М╤О", rpt_params.GetLang()))
+    s << setw(6)  << (getLocaleText("Мест", rpt_params.GetLang()))
+      << setw(7)  << (getLocaleText("Вес", rpt_params.GetLang()))
+      << setw(43) << (getLocaleText("Количество мест прописью", rpt_params.GetLang()))
       << setw(24) << string(NodeAsString("pts_agent", variablesNode)).substr(0, 24) << endl;
 
     SeparateString(NodeAsString("Tot",variablesNode),42,rows);
