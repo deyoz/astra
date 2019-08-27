@@ -2185,7 +2185,8 @@ void IntReadTrips( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode,
 {
 //  createCentringFile( 13672, "ASTRA", "DMDTST" );
   ProgTrace( TRACE5, "ReadTrips" );
-  if ( TReqInfo::Instance()->user.access.airlines().totally_permitted() &&
+  if ( not get_test_server() &&
+       TReqInfo::Instance()->user.access.airlines().totally_permitted() &&
        TReqInfo::Instance()->user.access.airps().totally_permitted() ) {
      throw UserException( "MSG.SET_LEVEL_PERMIT" );
   }
