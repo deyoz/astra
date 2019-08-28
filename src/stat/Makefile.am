@@ -18,6 +18,7 @@ libstat_a_SOURCES = \
   stat_rem.cc \
   stat_services.cc \
   stat_rfisc.cc \
+  stat_tlg_out.cc \
   stat_vo.cc
         
 
@@ -36,4 +37,5 @@ noinst_HEADERS = \
   stat_rem.h \
   stat_services.h \
   stat_rfisc.h \
+  stat_tlg_out.h \
   stat_vo.h

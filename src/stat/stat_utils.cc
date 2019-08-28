@@ -63,3 +63,4 @@ xmlNodePtr STAT::set_variables(xmlNodePtr resNode, string lang)
     NewTextChild(variablesNode, "skip_header", 0);
     return variablesNode;
 }
+
