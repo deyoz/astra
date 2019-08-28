@@ -416,6 +416,16 @@ bool returnWcCoupon(const Ticketing::TicketNum_t& ticknum,
     LogTrace(TRACE3) << __FUNCTION__ << " "
                      << ticknum << "/" << cpnnum;
 
+    boost::optional<WcCoupon> cpn = readWcCoupon(ticknum, cpnnum);
+    if(!cpn) {
+        LogWarning(STDLOG) << "Coupon not found: "
+                           << ticknum << "/" << cpnnum;
+        if(throwErr) {
+            throw WcCouponNotFound(ticknum, cpnnum);
+        }
+        return false;
+    }
+
     boost::scoped_ptr<AirportControl> ac(AirportControl::readDb(ticknum,
                                                                 cpnnum));
     if(!ac) {
@@ -423,16 +433,6 @@ bool returnWcCoupon(const Ticketing::TicketNum_t& ticknum,
                            << ticknum << "/" << cpnnum;
         if(throwErr) {
             throw AirportControlNotFound(ticknum, cpnnum);
-        }
-        return false;
-    }
-
-    boost::optional<WcCoupon> cpn = readWcCoupon(ticknum, cpnnum);
-    if(!cpn) {
-        LogWarning(STDLOG) << "Coupon not found: "
-                           << ticknum << "/" << cpnnum;
-        if(throwErr) {
-            throw WcCouponNotFound(ticknum, cpnnum);
         }
         return false;
     }

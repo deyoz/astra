@@ -92,6 +92,7 @@ void EdiErrMsg::init()
     EdiErrMsgDataElem* el_9321 = new EdiErrMsgDataElem(9321, EdiErrMsgERC::DefaultEdiErr);
  #define ADD_MSG2(s, e) ADD_MSG(9321, AstraErr::s, e)
      ADD_MSG2(INV_COUPON_STATUS,              "396");
+     ADD_MSG2(TICK_NO_MATCH,                  "401");
 #undef ADD_MSG2
     (*m_ediErrMsgMap)[9321] = el_9321;
 
