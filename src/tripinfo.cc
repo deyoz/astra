@@ -2002,6 +2002,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
                     << "        pax_fqt.rem_code IN " << GetSQLEnum(iRem->second) << endl;
                 break;
               case remCREW:
+              case remPD:
               case remUnknown:
                 sql << "  SELECT DISTINCT pax.pax_id,pax_rem.rem_code " << endl
                     << "  FROM pax_grp,pax,pax_rem " << endl

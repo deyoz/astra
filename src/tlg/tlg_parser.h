@@ -612,7 +612,26 @@ class TRemItem
     TRemItem()
     {
       *code=0;
-    };
+    }
+    bool isPDRem() const
+    {
+      return strlen(code)==4 && strncmp(code, "PD", 2)==0;
+    }
+};
+
+class TPDRemItem : public TRemItem
+{
+  public:
+    TPDRemItem(const TRemItem &item) : TRemItem(item) {}
+    TPDRemItem() : TRemItem() {}
+    bool operator < (const TPDRemItem &item) const
+    {
+      return text<item.text;
+    }
+    bool operator == (const TPDRemItem &item) const
+    {
+      return text==item.text;
+    }
 };
 
 typedef std::pair<std::string,std::string> TChdItem;
