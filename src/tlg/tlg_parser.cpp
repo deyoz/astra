@@ -6312,6 +6312,14 @@ static bool SyncPaxASVC(int pax_id)
   return result;
 }
 
+static bool SyncPaxPD(int pax_id)
+{
+  bool result=false;
+  if (CheckIn::DeletePaxPD(pax_id)) result=true;
+  if (CheckIn::AddPaxPD(pax_id, false)) result=true;
+  return result;
+}
+
 static void onChangeClass(int pax_id, ASTRA::TClass cl)
 {
   addAlarmByPaxId(pax_id, {Alarm::SyncCabinClass}, {paxCheckIn});
@@ -6343,6 +6351,25 @@ static void LoadASVCRem(int pax_id, vector<TASVCItem> &asvc)
     if (!Qry.FieldIsNULL("emd_coupon"))
       item.emd_coupon=Qry.FieldAsInteger("emd_coupon");
     asvc.push_back(item);
+  }
+}
+
+static void LoadPDRem(int pax_id, multiset<TPDRemItem> &pdRems)
+{
+  pdRems.clear();
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="SELECT * FROM crs_pax_rem WHERE pax_id=:pax_id AND rem_code LIKE 'PD__'";
+  Qry.CreateVariable("pax_id",otInteger,pax_id);
+  Qry.Execute();
+  for(; !Qry.Eof; Qry.Next())
+  {
+    TPDRemItem item;
+    strcpy(item.code, Qry.FieldAsString("rem_code"));
+    item.text=Qry.FieldAsString("rem");
+    if (item.isPDRem())
+      pdRems.insert(item);
   }
 }
 
@@ -6418,6 +6445,41 @@ static void SaveASVCRem(int pax_id,
   }
 
   paxIdsForSync.insert(pax_id);
+};
+
+static void DeletePDRem(int pax_id,
+                        const vector<TRemItem> &rem1,
+                        const vector<TRemItem> &rem2,
+                        std::set<int>& paxIdsForSync)
+{
+  multiset<TPDRemItem> curr;
+  for(const TRemItem& r : rem1)
+    if (r.isPDRem()) curr.insert(r);
+  for(const TRemItem& r : rem2)
+    if (r.isPDRem()) curr.insert(r);
+
+  bool deletePD=true;
+  bool modified=true;
+  if (!curr.empty())
+  {
+    multiset<TPDRemItem> prior;
+    LoadPDRem(pax_id, prior);
+    if (prior.empty()) deletePD=false;
+    if (prior==curr) modified=false;
+  }
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.CreateVariable("pax_id",otInteger,pax_id);
+  if (deletePD)
+  {
+    Qry.SQLText="DELETE FROM crs_pax_rem WHERE pax_id=:pax_id AND rem_code LIKE 'PD__'";
+    Qry.Execute();
+    if (curr.empty() && Qry.RowsProcessed()==0) modified=false;
+  }
+
+  if (modified)
+    paxIdsForSync.insert(pax_id);
 };
 
 void SaveFQTRem(int pax_id, const vector<TFQTItem> &fqt, const set<TFQTExtraItem> &fqt_extra)
@@ -7160,7 +7222,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
         int pnr_id;
         bool pr_sync_pnr;
         set<int> et_display_pax_ids;
-        set<int> paxIdsForSyncASVC;
+        set<int> paxIdsForSyncASVC, paxIdsForSyncPD;
         PaxIdsForDeleteTlgSeatRanges paxIdsForDeleteTlgSeatRanges;
         PaxIdsForInsertTlgSeatRanges paxIdsForInsertTlgSeatRanges;
         bool chkd_exists=false;
@@ -7477,7 +7539,7 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                       "    SELECT seat_id FROM crs_seats_blocking WHERE pax_id=:pax_id AND pr_del=0 FOR UPDATE; "
                       "  PROCEDURE delete_data(vpax_id crs_pax.pax_id%TYPE) IS "
                       "  BEGIN "
-                      "    DELETE FROM crs_pax_rem WHERE pax_id=vpax_id; "
+                      "    DELETE FROM crs_pax_rem WHERE pax_id=vpax_id AND rem_code NOT LIKE 'PD__'; "
                       "    DELETE FROM crs_pax_doc WHERE pax_id=vpax_id; "
                       "    DELETE FROM crs_pax_doco WHERE pax_id=vpax_id; "
                       "    DELETE FROM crs_pax_doca WHERE pax_id=vpax_id; "
@@ -7591,6 +7653,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
                       TETickItem::syncOriginalSubclass(inf_id);
                       if (infClassChanged) onChangeClass(inf_id, iTotals->cl);
                     };
+
+                    DeletePDRem(pax_id, paxItem.rem, ne.rem, paxIdsForSyncPD); //обязательно до записи ремарок
 
                     //ремарки пассажира
                     SavePNLADLRemarks(pax_id,paxItem.rem);
@@ -7754,7 +7818,8 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
 
        bool lock=!paxIdsForDeleteTlgSeatRanges.empty() ||
                  !paxIdsForInsertTlgSeatRanges.empty() ||
-                 (!isPRL && !paxIdsForSyncASVC.empty());
+                 (!isPRL && !paxIdsForSyncASVC.empty()) ||
+                 (!isPRL && !paxIdsForSyncPD.empty());
        if (lock)
        {
          TFlights flightsForLock;
@@ -7781,6 +7846,13 @@ bool SavePNLADLPRLContent(int tlg_id, TDCSHeadingInfo& info, TPNLADLPRLContent& 
          for(int paxId : paxIdsForSyncASVC)
            SyncPaxASVC(paxId);
          timing.finish("SyncPaxASVC");
+       }
+       if (!isPRL && !paxIdsForSyncPD.empty())
+       {
+         timing.start("SyncPaxPD");
+         for(int paxId : paxIdsForSyncPD)
+           SyncPaxPD(paxId);
+         timing.finish("SyncPaxPD");
        }
       } //if (pr_ne)
 

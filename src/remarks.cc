@@ -54,6 +54,8 @@ TRemCategory getRemCategory( const string &rem_code, const string &rem_text )
       if (rem_text.substr(0,iRem->first.size())==iRem->first) return iRem->second;
     };
   };
+  if (rem_code.size()==4 && rem_code.substr(0,2)=="PD")
+    return remPD;
   return remUnknown;
 };
 
@@ -77,7 +79,12 @@ const char *ReadonlyRemCodes[]=
      "YCLS","ZCLS",
      "PRSA"};
 
-bool IsReadonlyRem( const string &rem_code, const string &rem_text )
+bool isReadonlyRemCategory( TRemCategory cat )
+{
+  return cat==remTKN || cat==remDOC || cat==remDOCO || cat==remDOCA || cat==remASVC || cat==remPD;
+};
+
+bool isReadonlyRem( const string &rem_code, const string &rem_text )
 {
   static set<string> rems;
   if (rems.empty())
@@ -767,6 +774,14 @@ bool DeletePaxASVC(int pax_id)
   return (Qry.get().RowsProcessed()>0);
 }
 
+bool DeletePaxPD(int pax_id)
+{
+  TCachedQuery Qry("DELETE FROM pax_rem WHERE pax_id=:id AND rem_code LIKE 'PD__'",
+                   QParams() << QParam("id", otInteger, pax_id));
+  Qry.get().Execute();
+  return (Qry.get().RowsProcessed()>0);
+}
+
 bool AddPaxASVC(int id, bool is_grp_id)
 {
   ostringstream sql;
@@ -787,6 +802,27 @@ bool AddPaxASVC(int id, bool is_grp_id)
     "       emd_type IS NULL AND "
     "       emd_no IS NULL AND "
     "       emd_coupon IS NULL) AND ";
+  if (is_grp_id)
+    sql <<  "      pax.grp_id=:id ";
+  else
+    sql <<  "      pax.pax_id=:id ";
+
+  QParams QryParams;
+  QryParams << QParam("id", otInteger, id);
+  TCachedQuery Qry(sql.str().c_str(), QryParams);
+  Qry.get().Execute();
+  return (Qry.get().RowsProcessed()>0);
+}
+
+bool AddPaxPD(int id, bool is_grp_id)
+{
+  ostringstream sql;
+  sql <<
+    "INSERT INTO pax_rem(pax_id, rem, rem_code) "
+    "SELECT pax.pax_id, crs_pax_rem.rem, crs_pax_rem.rem_code "
+    "FROM pax, crs_pax_rem "
+    "WHERE pax.pax_id=crs_pax_rem.pax_id AND "
+    "      crs_pax_rem.rem_code LIKE 'PD__' AND ";
   if (is_grp_id)
     sql <<  "      pax.grp_id=:id ";
   else
