@@ -76,7 +76,7 @@ void TStatParams::fromFileParams(map<string, string> &file_params)
         if(i->first.substr(0, PARAM_AIRLINES_PREFIX.size()) == PARAM_AIRLINES_PREFIX)
             airlines.add_elem(i->second);
         if(i->first.substr(0, PARAM_AIRPS_PREFIX.size()) == PARAM_AIRPS_PREFIX)
-            airlines.add_elem(i->second);
+            airps.add_elem(i->second);
     }
     airlines.set_elems_permit(ToInt(file_params[PARAM_AIRLINES_PERMIT]));
     airps.set_elems_permit(ToInt(file_params[PARAM_AIRPS_PERMIT]));

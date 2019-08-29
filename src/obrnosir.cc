@@ -22,6 +22,12 @@
 #include "kiosk/kiosk_config.h"
 #include "db_pkg.h"
 #include "nosir_create_tlg.h"
+#include "stat/stat_rfisc.h"
+#include "stat/stat_self_ckin.h"
+#include "stat/stat_limited_capab.h"
+#include "stat/stat_seDCSAddReport.h"
+#include "stat/stat_departed.h"
+#include "stat/stat_ovb.h"
 
 int nosir_test(int argc,char **argv);
 void nosir_test_help(const char *name);

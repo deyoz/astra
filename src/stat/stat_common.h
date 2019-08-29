@@ -12,9 +12,9 @@ namespace STAT {
     static const std::string PARAM_TYPE                  = "type";
     static const std::string PARAM_STAT_TYPE             = "stat_type";
     static const std::string PARAM_AIRLINES_PREFIX       = "airlines.";
-    static const std::string PARAM_AIRLINES_PERMIT       = "airlines.permit";
+    static const std::string PARAM_AIRLINES_PERMIT       = "airlines_permit";
     static const std::string PARAM_AIRPS_PREFIX          = "airps.";
-    static const std::string PARAM_AIRPS_PERMIT          = "airps.permit";
+    static const std::string PARAM_AIRPS_PERMIT          = "airps_permit";
     static const std::string PARAM_AIRP_COLUMN_FIRST     = "airp_column_first";
     static const std::string PARAM_FIRSTDATE             = "FirstDate";
     static const std::string PARAM_LASTDATE              = "LastDate";

@@ -19,6 +19,18 @@ libstat_a_SOURCES = \
   stat_services.cc \
   stat_rfisc.cc \
   stat_tlg_out.cc \
+  stat_trfer_pax.cc \
+  stat_self_ckin.cc \
+  stat_general.cc \
+  stat_limited_capab.cc \
+  stat_agent.cc \
+  stat_pfs.cc \
+  stat_layout.cc \
+  stat_arx.cc \
+  stat_seDCSAddReport.cc \
+  stat_departed.cc \
+  stat_orders.cc \
+  stat_ovb.cc \
   stat_vo.cc
         
 
@@ -38,4 +50,15 @@ noinst_HEADERS = \
   stat_services.h \
   stat_rfisc.h \
   stat_tlg_out.h \
+  stat_trfer_pax.h \
+  stat_self_ckin.h \
+  stat_general.h \
+  stat_limited_capab.h \
+  stat_agent.h \
+  stat_pfs.h \
+  stat_layout.h \
+  stat_seDCSAddReport.h \
+  stat_departed.h \
+  stat_orders.h \
+  stat_ovb.h \
   stat_vo.h
