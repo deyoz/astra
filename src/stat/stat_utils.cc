@@ -307,3 +307,68 @@ int nosir_months(int argc,char **argv)
     return 1;
 }
 
+void GetMinMaxPartKey(const string &where, TDateTime &min_part_key, TDateTime &max_part_key)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="SELECT TRUNC(MIN(part_key)) AS min_part_key FROM arx_points";
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldIsNULL("min_part_key"))
+    min_part_key=NoExists;
+  else
+    min_part_key=Qry.FieldAsDateTime("min_part_key");
+
+  Qry.SQLText="SELECT MAX(part_key) AS max_part_key FROM arx_points";
+  Qry.Execute();
+  if (Qry.Eof || Qry.FieldIsNULL("max_part_key"))
+    max_part_key=NoExists;
+  else
+    max_part_key=Qry.FieldAsDateTime("max_part_key");
+
+  ProgTrace(TRACE5, "%s: min_part_key=%s max_part_key=%s",
+                    where.c_str(),
+                    DateTimeToStr(min_part_key, ServerFormatDateTimeAsString).c_str(),
+                    DateTimeToStr(max_part_key, ServerFormatDateTimeAsString).c_str());
+};
+
+template <class T>
+bool EqualCollections(const string &where, const T &c1, const T &c2, const string &err1, const string &err2,
+                      pair<typename T::const_iterator, typename T::const_iterator> &diff)
+{
+  diff.first=c1.end();
+  diff.second=c2.end();
+  if (!err1.empty() || !err2.empty())
+  {
+    if (err1!=err2)
+    {
+      ProgError(STDLOG, "%s: err1=%s err2=%s", where.c_str(), err1.c_str(), err2.c_str());
+      return false;
+    };
+  }
+  else
+  {
+    //ошибок нет
+    if (c1.size() != c2.size())
+    {
+      ProgError(STDLOG, "%s: c1.size()=%zu c2.size()=%zu", where.c_str(), c1.size(), c2.size());
+      diff.first=c1.begin();
+      diff.second=c2.begin();
+      for(;diff.first!=c1.end() && diff.second!=c2.end(); diff.first++,diff.second++)
+      {
+        if (*(diff.first)==*(diff.second)) continue;
+        break;
+      };
+      return false;
+    }
+    else
+    {
+      //размер векторов совпадает
+      if (!c1.empty() && !c2.empty())
+      {
+        diff=mismatch(c1.begin(),c1.end(),c2.begin());
+        if (diff.first!=c1.end() || diff.second!=c2.end()) return false;
+      };
+    };
+  };
+  return true;
+};

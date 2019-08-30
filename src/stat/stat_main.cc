@@ -1,176 +1,59 @@
-#include <fstream>
 #include "stat_main.h"
-#include "oralib.h"
-#include "cache.h"
-#include "xml_unit.h"
-#include "exceptions.h"
-#include "stl_utils.h"
-#include "misc.h"
-#include "docs/docs_common.h"
-#include "base_tables.h"
-#include "astra_utils.h"
-#include "astra_date_time.h"
-#include "term_version.h"
-#include "passenger.h"
-#include "points.h"
-#include "telegram.h"
-#include "qrys.h"
-#include "tlg/tlg.h"
+#include <boost/shared_array.hpp>
+#include "stat_common.h"
 #include "astra_elem_utils.h"
-#include "astra_elems.h"
-#include "serverlib/xml_stuff.h"
 #include "astra_misc.h"
 #include "file_queue.h"
-#include "jxtlib/zip.h"
-#include "astra_context.h"
-#include "serverlib/str_utils.h"
-#include <boost/filesystem.hpp>
-#include <boost/shared_array.hpp>
-#include <boost/algorithm/string/split.hpp>
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/crc.hpp>
-#include "md5_sum.h"
-#include "payment_base.h"
-#include "report_common.h"
-#include "stat_utils.h"
-#include "stat_bi.h"
-#include "stat_vo.h"
-#include "stat_ha.h"
-#include "stat_ad.h"
-#include "stat_unacc.h"
-#include "stat_reprint.h"
-#include "stat_annul_bt.h"
-#include "stat_rem.h"
-#include "stat_services.h"
-#include "stat_rfisc.h"
-#include "stat_tlg_out.h"
+#include "counters.h"
+#include "points.h"
+#include "telegram.h"
+#include "stat_layout.h"
+#include "stat_orders.h"
 #include "stat_trfer_pax.h"
+#include "stat_rfisc.h"
+#include "stat_rem.h"
+#include "stat_unacc.h"
+#include "stat_tlg_out.h"
 #include "stat_self_ckin.h"
+#include "stat_annul_bt.h"
 #include "stat_general.h"
 #include "stat_limited_capab.h"
 #include "stat_agent.h"
 #include "stat_pfs.h"
-#include "stat_layout.h"
-#include "stat_orders.h"
-#include "counters.h"
+#include "stat_bi.h"
+#include "stat_vo.h"
+#include "stat_ad.h"
+#include "stat_ha.h"
+#include "stat_reprint.h"
+#include "stat_services.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/slogger.h"
 
-
 using namespace std;
 using namespace EXCEPTIONS;
-using namespace STAT;
+using namespace ASTRA;
 using namespace AstraLocale;
 using namespace BASIC::date_time;
-using namespace ASTRA::date_time;
-
-void GetMinMaxPartKey(const string &where, TDateTime &min_part_key, TDateTime &max_part_key)
-{
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText="SELECT TRUNC(MIN(part_key)) AS min_part_key FROM arx_points";
-  Qry.Execute();
-  if (Qry.Eof || Qry.FieldIsNULL("min_part_key"))
-    min_part_key=NoExists;
-  else
-    min_part_key=Qry.FieldAsDateTime("min_part_key");
-
-  Qry.SQLText="SELECT MAX(part_key) AS max_part_key FROM arx_points";
-  Qry.Execute();
-  if (Qry.Eof || Qry.FieldIsNULL("max_part_key"))
-    max_part_key=NoExists;
-  else
-    max_part_key=Qry.FieldAsDateTime("max_part_key");
-
-  ProgTrace(TRACE5, "%s: min_part_key=%s max_part_key=%s",
-                    where.c_str(),
-                    DateTimeToStr(min_part_key, ServerFormatDateTimeAsString).c_str(),
-                    DateTimeToStr(max_part_key, ServerFormatDateTimeAsString).c_str());
-};
-
-template <class T>
-bool EqualCollections(const string &where, const T &c1, const T &c2, const string &err1, const string &err2,
-                      pair<typename T::const_iterator, typename T::const_iterator> &diff)
-{
-  diff.first=c1.end();
-  diff.second=c2.end();
-  if (!err1.empty() || !err2.empty())
-  {
-    if (err1!=err2)
-    {
-      ProgError(STDLOG, "%s: err1=%s err2=%s", where.c_str(), err1.c_str(), err2.c_str());
-      return false;
-    };
-  }
-  else
-  {
-    //ошибок нет
-    if (c1.size() != c2.size())
-    {
-      ProgError(STDLOG, "%s: c1.size()=%zu c2.size()=%zu", where.c_str(), c1.size(), c2.size());
-      diff.first=c1.begin();
-      diff.second=c2.begin();
-      for(;diff.first!=c1.end() && diff.second!=c2.end(); diff.first++,diff.second++)
-      {
-        if (*(diff.first)==*(diff.second)) continue;
-        break;
-      };
-      return false;
-    }
-    else
-    {
-      //размер векторов совпадает
-      if (!c1.empty() && !c2.empty())
-      {
-        diff=mismatch(c1.begin(),c1.end(),c2.begin());
-        if (diff.first!=c1.end() || diff.second!=c2.end()) return false;
-      };
-    };
-  };
-  return true;
-};
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-
-/**************************************************/
-
-// Отображение параметров Сирены-трэвел в параметры Астры.
-
-/* !!! Если бы это был С++11
-const map<string, string> m =
-{
-{"Short",       "Общая"},
-{"Detail",      "Детализированная"},
-{"Full",        "Подробная"},
-{"Transfer",    "Трансфер"},
-{"Pact",        "Договор"},
-{"SelfCkin",    "Саморегистрация"},
-{"Agent",       "По агентам"},
-{"Tlg",         "Отпр. телеграммы"}
-};
-*/
-
-#include <boost/assign/list_of.hpp>
-
-const map<string, string> ST_to_Astra = boost::assign::map_list_of
-("Short",       "Общая")
-("Detail",      "Детализированная")
-("Full",        "Подробная")
-("Total",       "Итого")
-("Transfer",    "Трансфер")
-("Pact",        "Договор")
-("SelfCkin",    "Саморегистрация")
-("Agent",       "По агентам")
-("Tlg",         "Отпр. телеграммы");
+using namespace STAT;
 
 void convertStatParam(xmlNodePtr paramNode)
 {
+    static const map<string, string> ST_to_Astra =
+    {
+        {"Short",       "Общая"},
+        {"Detail",      "Детализированная"},
+        {"Full",        "Подробная"},
+        {"Total",       "Итого"},
+        {"Transfer",    "Трансфер"},
+        {"Pact",        "Договор"},
+        {"SelfCkin",    "Саморегистрация"},
+        {"Agent",       "По агентам"},
+        {"Tlg",         "Отпр. телеграммы"}
+    };
+
     string val = NodeAsString(paramNode);
-    map<string, string>::const_iterator idx = ST_to_Astra.find(val);
+    const auto idx = ST_to_Astra.find(val);
     if(idx == ST_to_Astra.end())
         throw Exception("wrong param value '%s'", val.c_str());
     NodeSetContent(paramNode, idx->second.c_str());
