@@ -25,6 +25,7 @@
 #include <boost/enable_shared_from_this.hpp>
 #include "base_tables.h"
 #include "docs/docs_common.h"
+#include "docs/docs_vouchers.h"
 #include "stat/stat_utils.h"
 #include "salons.h"
 #include "seats.h"
@@ -2400,6 +2401,8 @@ void DeletePaxGrp( const TAdvTripInfo &fltInfo, int grp_id, bool toLog,
 
   TAnnulBT annul_bt;
   annul_bt.get(grp_id);
+
+  TVouchers().fromDB(point_id, grp_id).to_deleted();
 
   TQuery Qry(&OraSession);
     Qry.Clear();
