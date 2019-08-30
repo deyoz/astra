@@ -98,6 +98,9 @@ REGERR(INV_COUPON_STATUS,
 REGERR(TOO_MANY_BAGS,
        "TOO MANY BAGS",
        "‘‹ˆ˜ŠŽŒ ŒŽƒŽ ‘“ŒŽŠ")
+REGERR(TICK_NO_MATCH,
+       "TICKET/DOCUMENT NUMBER NOT FOUND",
+       "ˆ‹…’/„ŽŠ“Œ…’ … €‰„… Ž ‡€„€›Œ Šˆ’…ˆŸŒ")
 
 }//namespace Ticketing
 

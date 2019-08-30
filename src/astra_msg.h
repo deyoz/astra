@@ -38,6 +38,7 @@ namespace Ticketing {
         DEFERR(FUNC_NOT_SUPPORTED);
         DEFERR(INV_COUPON_STATUS);
         DEFERR(TOO_MANY_BAGS);
+        DEFERR(TICK_NO_MATCH);
     };
 }//namespace Ticketing
 
