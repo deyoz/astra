@@ -72,7 +72,7 @@ $(lastRedisplay)
     </passenger>
     <recloc>
       <awk>UT</awk>
-      <regnum>00D5LW</regnum>
+      <regnum>045PCC</regnum>
     </recloc>
     <origin>
       <date_of_issue>...
@@ -231,7 +231,7 @@ $(lastRedisplay)
     </passenger>
     <recloc>
       <awk>1H</awk>
-      <regnum/>
+      <regnum>09SKR6</regnum>
     </recloc>
     <origin>
       <date_of_issue>...
@@ -343,7 +343,7 @@ $(lastRedisplay)
     </passenger>
     <recloc>
       <awk>UT</awk>
-      <regnum>09FB3W</regnum>
+      <regnum>084M5S</regnum>
     </recloc>
     <origin>
       <date_of_issue>16Œ€‰16</date_of_issue>
