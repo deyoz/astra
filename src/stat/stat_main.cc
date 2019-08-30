@@ -153,6 +153,9 @@ void create_plain_files(
         DateTimeToStr(item.time, "yymmddhhnn") + "." +
         DateTimeToStr(params.FirstDate, "yymm") + ".csv";
 
+    Timing::Points timing("Timing::create_plain_files");
+    timing.start(file_name, item.id);
+
     TPrintAirline airline;
     TOrderStatWriter order_writer(item.id, params.FirstDate, file_name);
     switch(params.statType) {
@@ -249,6 +252,8 @@ void create_plain_files(
     order_writer.finish();
     data_size += order_writer.data_size;
     data_size_zip += order_writer.data_size_zip;
+
+    timing.finish(file_name);
 }
 
 void processStatOrders(TQueueItem &item) {
