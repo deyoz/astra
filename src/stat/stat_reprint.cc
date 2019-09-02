@@ -153,6 +153,11 @@ void RunReprintStat(
             SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
         SQLText += "   stat_reprint.scd_out >= :FirstDate AND stat_reprint.scd_out < :LastDate ";
         TCachedQuery Qry(SQLText, QryParams);
+
+        LogTrace(TRACE5) << "reprint SQLText: " << SQLText;
+        for(int i = 0; i < Qry.get().VariablesCount(); i++)
+            LogTrace(TRACE5) << Qry.get().VariableName(i) << " = " << Qry.get().GetVariableAsString(i);
+
         Qry.get().Execute();
         if(not Qry.get().Eof) {
             int col_part_key = Qry.get().GetFieldIndex("part_key");

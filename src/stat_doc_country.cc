@@ -1,9 +1,9 @@
 #include "oralib.h"
 #include "exceptions.h"
-#include "stat/stat_main.h"
 #include "qrys.h"
 #include "passenger.h"
 #include "obrnosir.h"
+#include "stat/stat_utils.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -11,7 +11,26 @@
 
 using namespace BASIC::date_time;
 using namespace std;
-using namespace STAT;
+
+class TMoveIds : public std::set< std::pair<TDateTime, int> >
+{
+    public:
+        void get_for_airp(TDateTime first_date, TDateTime last_date, const std::string& airp);
+};
+
+void TMoveIds::get_for_airp(TDateTime first_date, TDateTime last_date, const std::string& airp)
+{
+  clear();
+
+  TReqInfo &reqInfo = *(TReqInfo::Instance());
+  reqInfo.user.access.set_total_permit();
+  reqInfo.user.access.merge_airps(TAccessElems<std::string>(airp, true));
+
+  vector<TPointsRow> points;
+  GetFltCBoxList(ssPaxList, first_date, last_date, false, points);
+  for(vector<TPointsRow>::const_iterator i=points.begin(); i!=points.end(); ++i)
+    insert(make_pair(i->part_key, i->move_id));
+}
 
 int stat_belgorod(int argc, char **argv)
 {

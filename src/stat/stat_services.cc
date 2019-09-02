@@ -128,15 +128,7 @@ void RunServicesStat(
             "   stat_services.point_id = points.point_id and "
             "   points.pr_del >= 0 and ";
 
-        if(not params.ap.empty()) {
-            SQLText += " points.airp = :airp and ";
-            QryParams << QParam("airp", otString, params.ap);
-        }
-
-        if(not params.ak.empty()) {
-            SQLText += " points.airline = :airline and ";
-            QryParams << QParam("airline", otString, params.ak);
-        }
+        params.AccessClause(SQLText);
 
         if(params.flt_no != NoExists) {
             SQLText += " points.flt_no = :flt_no and ";

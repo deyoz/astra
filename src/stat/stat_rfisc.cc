@@ -822,18 +822,7 @@ void RunRFISCStat(
         SQLText +=
             "   rfisc_stat.point_id = points.point_id and "
             "   points.pr_del >= 0 and ";
-        if (!params.airps.elems().empty()) {
-            if (params.airps.elems_permit())
-                SQLText += " points.airp IN " + GetSQLEnum(params.airps.elems()) + "and \n";
-            else
-                SQLText += " points.airp NOT IN " + GetSQLEnum(params.airps.elems()) + "and \n";
-        };
-        if (!params.airlines.elems().empty()) {
-            if (params.airlines.elems_permit())
-                SQLText += " points.airline IN " + GetSQLEnum(params.airlines.elems()) + "and \n";
-            else
-                SQLText += " points.airline NOT IN " + GetSQLEnum(params.airlines.elems()) + "and \n";
-        };
+        params.AccessClause(SQLText);
         if (pass!=0)
           SQLText +=
             "    points.part_key >= :FirstDate AND points.part_key < :LastDate and \n"
