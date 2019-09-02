@@ -1656,6 +1656,9 @@ void TPaxRequest::saveData() const
 APPSAction TPaxRequest::typeOfAction( const bool is_exists, const std::string& status,
                                       const bool is_the_same, const bool is_forced) const
 {
+  if (version == APPS_VERSION_CHINA)
+    return NeedNew; // HACK
+
   bool is_cancel = (trans.code == "CICX");
 
   if( !is_exists ) {
@@ -1828,9 +1831,9 @@ void TAnsPaxData::init( std::string source, int ver )
   }
 }
 
-bool TAnsPaxData::init_china_cusres(const edifact::Cusres& cusres)
+bool TAnsPaxData::init_china_cusres(const edifact::Cusres& cusres, int ver)
 {
-  version = APPS_VERSION_CHINA;
+  version = ver;
   country = "CN";
   code = 0;
   status = "E";
@@ -2104,7 +2107,7 @@ bool TPaxReqAnswer::init_china_cusres(const edifact::Cusres& cusres)
 
   // пока только одного пассажира
   TAnsPaxData data;
-  if (data.init_china_cusres(cusres))
+  if (data.init_china_cusres(cusres, version))
     passengers.push_back(data);
 
   return true;
