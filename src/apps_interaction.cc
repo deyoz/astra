@@ -1461,9 +1461,6 @@ Paxlst::PaxlstInfo TPaxRequest::toPaxlst() const
     paxlstInfo.setRecipientCarrierCode("ZZ");
     paxlstInfo.setIataCode("");
 
-    string airline_lat = (static_cast<const TAirlinesRow&>(base_tables.get("airlines").get_row("code", route.front().airline))).code_lat;
-    paxlstInfo.setCarrier(airline_lat);
-
     // 5.6 RFF: Reference
     paxlstInfo.settings().set_view_RFF_TN(true);
     stringstream rff_tn;
@@ -1481,6 +1478,8 @@ Paxlst::PaxlstInfo TPaxRequest::toPaxlst() const
 
     // 5.9 TDT: Details of Transport-GR.2
     paxlstInfo.setFlight(int_flt.flt_num);
+    string airline_lat = (static_cast<const TAirlinesRow&>(base_tables.get("airlines").get_row("code", route.front().airline))).code_lat;
+    paxlstInfo.setCarrier(airline_lat);
 
     // 5.10 LOC: Place/Location Identification ? Flight Itinerary-GR.3 DEPARTURE
     paxlstInfo.setDepPort(da.airp125);
@@ -1829,6 +1828,50 @@ void TAnsPaxData::init( std::string source, int ver )
   }
 }
 
+bool TAnsPaxData::init_china_cusres(const edifact::Cusres& cusres)
+{
+  version = APPS_VERSION_CHINA;
+  country = "CN";
+  code = 0;
+  status = "E";
+  if (!cusres.m_vSegGr4.empty())
+  {
+    edifact::Cusres::SegGr4 gr4 = cusres.m_vSegGr4.front();
+    if (gr4.m_vRff.empty())
+      return false;
+    auto beg = gr4.m_vRff.cbegin();
+    auto end = gr4.m_vRff.cend();
+    auto abo = find_if(beg, end, [](const auto &x){return x.m_qualifier == "ABO";});
+    if (abo != end)
+      apps_pax_id = abo->m_ref;
+    else
+      return false;
+
+    if (gr4.m_erc.m_errorCode == "0Z")
+    {
+      code = 8501;
+      status = "B";
+    }
+    else if (gr4.m_erc.m_errorCode == "1Z")
+    {
+      code = 8502;
+      status = "X";
+    }
+    else if (gr4.m_erc.m_errorCode == "2Z")
+    {
+      code = 8516;
+      status = "I";
+    }
+    else if (gr4.m_erc.m_errorCode == "4Z")
+    {
+      code = 8516;
+      status = "E";
+    }
+    return true;
+  }
+  return false;
+}
+
 std::string TAnsPaxData::toString() const
 {
   std::ostringstream res;
@@ -1924,6 +1967,47 @@ bool TAPPSAns::init( const std::string& trans_type, const std::string& source )
   return true;
 }
 
+bool TAPPSAns::init_china_cusres(const edifact::Cusres& cusres)
+{
+  code = "CIRS";
+  if (!cusres.m_rff or cusres.m_rff->m_qualifier != "TN")
+    return false;
+  msg_id = getInt(cusres.m_rff->m_ref);
+
+  TQuery Qry(&OraSession);
+  Qry.SQLText="SELECT send_attempts, msg_text, point_id, version "
+              "FROM apps_messages "
+              "WHERE msg_id = :msg_id";
+  Qry.CreateVariable("msg_id", otInteger, msg_id);
+  Qry.Execute();
+
+  if(Qry.Eof)
+    return false;
+
+  point_id = Qry.FieldAsInteger("point_id");
+  msg_text = Qry.FieldAsString("msg_text");
+  send_attempts = Qry.FieldAsInteger("send_attempts");
+  version = Qry.FieldIsNULL("version")? APPS_VERSION_21: Qry.FieldAsInteger("version");
+//  version = APPS_VERSION_CHINA; // ???
+
+  // ERRORS
+  if (!cusres.m_vSegGr4.empty())
+  {
+    edifact::Cusres::SegGr4 gr4 = cusres.m_vSegGr4.front();
+    if (gr4.m_erp.m_msgSectionCode == "1" && gr4.m_erc.m_errorCode == "1")
+    {
+      TError error;
+      error.country = "CN";
+      error.error_code = 5057; // на время тестирования
+      if (gr4.m_ftx)
+        error.error_text = gr4.m_ftx->m_freeText;
+      errors.push_back(error);
+    }
+  }
+
+  return true;
+}
+
 std::string TAPPSAns::toString() const
 {
   std::ostringstream res;
@@ -1997,6 +2081,32 @@ bool TPaxReqAnswer::init( const std::string& code, const std::string& source )
     passengers.push_back( data );
     pos1 = pos2;
   }
+  return true;
+}
+
+bool TPaxReqAnswer::init_china_cusres(const edifact::Cusres& cusres)
+{
+  if (not TAPPSAns::init_china_cusres(cusres))
+    return false;
+
+  TQuery Qry( &OraSession );
+  Qry.SQLText = "SELECT pax_id, family_name "
+                "FROM apps_pax_data "
+                "WHERE cirq_msg_id = :msg_id";
+  Qry.CreateVariable( "msg_id", otInteger, msg_id );
+  Qry.Execute();
+
+  if(Qry.Eof)
+    return false;
+
+  pax_id = Qry.FieldAsInteger( "pax_id" );
+  family_name = Qry.FieldAsString( "family_name" );
+
+  // пока только одного пассажира
+  TAnsPaxData data;
+  if (data.init_china_cusres(cusres))
+    passengers.push_back(data);
+
   return true;
 }
 
@@ -2219,6 +2329,11 @@ std::string TMftAnswer::toString() const
 void ProcessChinaCusres(const edifact::Cusres& cusres)
 {
     LogTrace(TRACE5) << __func__<< std::endl << cusres;
+    TPaxReqAnswer res;
+    res.init_china_cusres(cusres);
+    res.beforeProcessAnswer();
+    res.processErrors();
+    res.processAnswer();
 }
 
 //-----------------------------------------------------------------------------------

@@ -316,6 +316,7 @@ struct TAnsPaxData
                   error_code2(ASTRA::NoExists), error_code3(ASTRA::NoExists) {}
   std::string toString() const;
   void init( std::string source, int ver );
+  bool init_china_cusres(const edifact::Cusres& cusres);
 };
 
 struct TError
@@ -352,6 +353,7 @@ public:
   virtual void processAnswer() const = 0;
   virtual void logAnswer( const std::string& country, const int status_code,
                   const int error_code, const std::string& error_text ) const = 0;
+  bool init_china_cusres(const edifact::Cusres& cusres);
 };
 
 class TPaxReqAnswer : public TAPPSAns
@@ -369,6 +371,7 @@ public:
   virtual std::string toString() const;
   virtual void logAnswer( const std::string& country, const int status_code,
                   const int error_code, const std::string& error_text ) const;
+  bool init_china_cusres(const edifact::Cusres& cusres);
 };
 
 class TMftAnswer : public TAPPSAns
