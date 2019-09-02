@@ -78,6 +78,8 @@ void TStatParams::fromFileParams(map<string, string> &file_params)
         if(i->first.substr(0, PARAM_AIRPS_PREFIX.size()) == PARAM_AIRPS_PREFIX)
             airps.add_elem(i->second);
     }
+    ak = file_params[PARAM_AK];
+    ap = file_params[PARAM_AP];
     airlines.set_elems_permit(ToInt(file_params[PARAM_AIRLINES_PERMIT]));
     airps.set_elems_permit(ToInt(file_params[PARAM_AIRPS_PERMIT]));
     airp_column_first = ToInt(file_params[PARAM_AIRP_COLUMN_FIRST]);
@@ -110,6 +112,8 @@ void TStatParams::toFileParams(map<string, string> &file_params) const
     file_params[PARAM_TYPE] = type;
     file_params[PARAM_STAT_TYPE] = EncodeStatType(statType);
     file_params[PARAM_STAT_TYPE] = EncodeStatType(statType);
+    file_params[PARAM_AK] = ak;
+    file_params[PARAM_AP] = ap;
     int idx = 0;
     for(set<string>::iterator i = airlines.elems().begin(); i != airlines.elems().end(); i++, idx++) {
         file_params[PARAM_AIRLINES_PREFIX + IntToString(idx)] = *i;
@@ -126,7 +130,7 @@ void TStatParams::toFileParams(map<string, string> &file_params) const
     file_params[PARAM_LASTDATE] = DateTimeToStr(LastDate, ServerFormatDateTimeAsString);
     file_params[PARAM_FLT_NO] = IntToString(flt_no);
     file_params[PARAM_DESK] = desk;
-    file_params[PARAM_USER_ID] = IntToString(user_id);
+    file_params[PARAM_USER_ID] = IntToString(TReqInfo::Instance()->user.user_id);
     file_params[PARAM_USER_LOGIN] = user_login;
     file_params[PARAM_TYPEB_TYPE] = typeb_type;
     file_params[PARAM_SENDER_ADDR] = sender_addr;
@@ -261,10 +265,6 @@ void TStatParams::get(xmlNodePtr reqNode)
     else
       flt_no = NoExists;
     desk = NodeAsStringFast("desk", curNode, NodeAsStringFast("kiosk", curNode, ""));
-    if (!NodeIsNULLFast("user", curNode, true))
-      user_id = NodeAsIntegerFast("user", curNode, NoExists);
-    else
-      user_id = NoExists;
     user_login = NodeAsStringFast("user_login", curNode, "");
     typeb_type = NodeAsStringFast("typeb_type", curNode, "");
     sender_addr = NodeAsStringFast("sender_addr", curNode, "");

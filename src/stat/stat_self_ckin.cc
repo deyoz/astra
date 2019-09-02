@@ -111,6 +111,9 @@ void RunSelfCkinStat(const TStatParams &params,
             SQLText += " points.part_key=arx_ext.part_key AND points.move_id=arx_ext.move_id AND \n";
         if (pass!=0)
             SQLText += " self_ckin_stat.part_key = points.part_key AND \n";
+
+        params.AccessClause(SQLText);
+
         SQLText +=
             "    self_ckin_stat.point_id = points.point_id and "
             "    points.pr_del >= 0 and "
@@ -125,18 +128,6 @@ void RunSelfCkinStat(const TStatParams &params,
             SQLText += " and points.flt_no = :flt_no ";
             Qry.CreateVariable("flt_no", otInteger, params.flt_no);
         }
-        if (!params.airps.elems().empty()) {
-            if (params.airps.elems_permit())
-                SQLText += " AND points.airp IN " + GetSQLEnum(params.airps.elems()) + "\n";
-            else
-                SQLText += " AND points.airp NOT IN " + GetSQLEnum(params.airps.elems()) + "\n";
-        };
-        if (!params.airlines.elems().empty()) {
-            if (params.airlines.elems_permit())
-                SQLText += " AND points.airline IN " + GetSQLEnum(params.airlines.elems()) + "\n";
-            else
-                SQLText += " AND points.airline NOT IN " + GetSQLEnum(params.airlines.elems()) + "\n";
-        };
         if(!params.desk.empty()) {
             SQLText += "and self_ckin_stat.desk = :desk ";
             Qry.CreateVariable("desk", otString, params.desk);

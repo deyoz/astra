@@ -253,7 +253,7 @@ void create_plain_files(
     data_size += order_writer.data_size;
     data_size_zip += order_writer.data_size_zip;
 
-    timing.finish(file_name);
+    timing.finish(file_name, item.id);
 }
 
 void processStatOrders(TQueueItem &item) {
@@ -285,6 +285,7 @@ void processStatOrders(TQueueItem &item) {
 
         TReqInfo::Instance()->Initialize(params.desk_city);
         TReqInfo::Instance()->desk.lang = params.desk_lang;
+        TReqInfo::Instance()->user.user_id = params.user_id;
 
         // По client_type = ctHTTP будем определять, что статистика формируется из заказа
         // В частности в статистике Саморегистрация

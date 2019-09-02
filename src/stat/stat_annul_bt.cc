@@ -503,3 +503,11 @@ void TAnnulBTStatCombo::add_data(ostringstream &buf) const
     buf << endl;
 }
 
+void RunAnnulBTStatFile(const TStatParams &params, TOrderStatWriter &writer, TPrintAirline &prn_airline)
+{
+    TAnnulBTStat AnnulBTStat;
+    RunAnnulBTStat(params, AnnulBTStat, prn_airline);
+    for (std::list<TAnnulBTStatRow>::const_iterator i = AnnulBTStat.rows.begin(); i != AnnulBTStat.rows.end(); ++i)
+        writer.insert(TAnnulBTStatCombo(*i));
+}
+

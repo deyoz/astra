@@ -112,6 +112,7 @@ void RunAgentStat(const TStatParams &params,
             "    ags.point_id = points.point_id AND \n"
             "    points.pr_del >= 0 AND \n"
             "    ags.user_id = users2.user_id AND \n";
+        params.AccessClause(SQLText);
         if (pass!=0)
           SQLText +=
             "    ags.part_key >= :FirstDate AND ags.part_key < :LastDate \n";
@@ -122,18 +123,6 @@ void RunAgentStat(const TStatParams &params,
             SQLText += " AND points.flt_no = :flt_no \n";
             Qry.CreateVariable("flt_no", otInteger, params.flt_no);
         }
-        if (!params.airps.elems().empty()) {
-            if (params.airps.elems_permit())
-                SQLText += " AND points.airp IN " + GetSQLEnum(params.airps.elems()) + "\n";
-            else
-                SQLText += " AND points.airp NOT IN " + GetSQLEnum(params.airps.elems()) + "\n";
-        };
-        if (!params.airlines.elems().empty()) {
-            if (params.airlines.elems_permit())
-                SQLText += " AND points.airline IN " + GetSQLEnum(params.airlines.elems()) + "\n";
-            else
-                SQLText += " AND points.airline NOT IN " + GetSQLEnum(params.airlines.elems()) + "\n";
-        };
         if(!params.desk.empty()) {
             SQLText += " AND ags.desk = :desk \n";
             Qry.CreateVariable("desk", otString, params.desk);

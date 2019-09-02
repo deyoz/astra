@@ -11,6 +11,8 @@ namespace STAT {
     static const std::string PARAM_NAME                  = "name";
     static const std::string PARAM_TYPE                  = "type";
     static const std::string PARAM_STAT_TYPE             = "stat_type";
+    static const std::string PARAM_AK                    = "ak";
+    static const std::string PARAM_AP                    = "ap";
     static const std::string PARAM_AIRLINES_PREFIX       = "airlines.";
     static const std::string PARAM_AIRLINES_PERMIT       = "airlines_permit";
     static const std::string PARAM_AIRPS_PREFIX          = "airps.";
