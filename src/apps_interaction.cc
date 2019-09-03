@@ -1537,9 +1537,9 @@ Paxlst::PaxlstInfo TPaxRequest::toPaxlst() const
     // 5.19 DOC: Document/Message Details-GR.5
     // 5.20 DTM: Date/Time/Period - Traveler Document Expiration/issue-GR.5
     // 5.21 LOC: Place/Location Identification - Travel Document Issuing Country-GR.5
+
     // travel document
     // 5.19
-//    if ("P" == pax.doc_type or "T" == pax.doc_type)
     paxInfo.setDocType(pax.doc_type);
     paxInfo.setDocNumber(pax.passport);
     // 5.20
@@ -1548,17 +1548,20 @@ Paxlst::PaxlstInfo TPaxRequest::toPaxlst() const
     paxInfo.setDocExpirateDate(doc_expiry_date);
     // 5.21
     paxInfo.setDocCountry(pax.issuing_state);
+
     // visa
-    // 5.19
-//    if ("V" == pax_add.doco_type)
-    paxInfo.setDocoType(pax_add.doco_type);
-    paxInfo.setDocoNumber(pax_add.doco_no);
-    // 5.20
-    TDateTime doco_expiry_date;
-    StrToDateTime(pax_add.doco_expiry_date.c_str(), "yyyymmdd", doco_expiry_date);
-    paxInfo.setDocoExpirateDate(doco_expiry_date);
-    // 5.21
-    paxInfo.setDocoCountry(pax_add.country_issuance);
+    if (!pax_add.doco_no.empty())
+    {
+      // 5.19
+      paxInfo.setDocoType(pax_add.doco_type);
+      paxInfo.setDocoNumber(pax_add.doco_no);
+      // 5.20
+      TDateTime doco_expiry_date;
+      StrToDateTime(pax_add.doco_expiry_date.c_str(), "yyyymmdd", doco_expiry_date);
+      paxInfo.setDocoExpirateDate(doco_expiry_date);
+      // 5.21
+      paxInfo.setDocoCountry(pax_add.country_issuance);
+    }
 
     paxlstInfo.addPassenger(paxInfo);
 
