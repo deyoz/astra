@@ -1003,15 +1003,15 @@ bool TPNRSegId::fromDB(TQuery &Qry)
   clear();
   if (Qry.Eof) return false;
   pnr_id=Qry.FieldAsInteger("pnr_id");
-  cls=Qry.FieldAsString("orig_class");
-  subcls=Qry.FieldAsString("orig_subclass");
+  orig_cls=Qry.FieldAsString("orig_class");
+  orig_subcls=Qry.FieldAsString("orig_subclass");
   return true;
 }
 
 std::string TPNRSegId::traceStr() const
 {
   ostringstream s;
-  s << "pnr_id=" << pnr_id << ", cls=" << cls << ", subcls=" << subcls;
+  s << "pnr_id=" << pnr_id << ", orig_cls=" << orig_cls << ", orig_subcls=" << orig_subcls;
   return s.str();
 }
 
@@ -1026,13 +1026,15 @@ bool TPNRSegInfo::fromTestPax(int point_id, const TTripRoute &route, const TTest
   pnr_id=pax.pax_id;
   try
   {
-    cls=((const TSubclsRow&)base_tables.get( "subcls" ).get_row( "code", pax.subcls, true )).cl;
+    orig_cls=((const TSubclsRow&)base_tables.get( "subcls" ).get_row( "code", pax.subcls, true )).cl;
   }
   catch(EBaseTableError)
   {
     return false;
   };
-  subcls=pax.subcls;
+  orig_subcls=pax.subcls;
+  cabin_cls=orig_cls;
+  cabin_subcls=orig_subcls;
   if (!pax.pnr_addr.airline.empty() && !pax.pnr_addr.addr.empty())
     pnr_addrs.push_back(pax.pnr_addr);
   return true;
@@ -1319,6 +1321,9 @@ bool TPNRSegInfo::fromDB(int point_id, const TTripRoute &route, TQuery &Qry)
   if (mktFlight.get().empty())
     throw EXCEPTIONS::Exception("TPNRSegInfo::fromDB: mktFlight.get().empty() (pnr_id=%d)",pnr_id);
 
+  cabin_cls=Qry.FieldAsString("cabin_class");
+  cabin_subcls=Qry.FieldAsString("cabin_subclass");
+
   return true;
 };
 
@@ -1381,8 +1386,10 @@ bool TPNRSegInfo::setIfSuitable(const TPNRFilter &filter,
   point_dep=flt.point_id;
   point_arv=arv.get().point_id;
   pnr_id=pnr.pnrId();
-  cls=checked?grp.cl:pnr.cl;
-  subcls=pax.subcl;
+  orig_cls=checked?grp.cl:pnr.cl;
+  orig_subcls=pax.subcl;
+  cabin_cls=checked?pax.getCabinClass():pnr.cabin_cl;
+  cabin_subcls=pax.getCabinSubclass();
   pnr_addrs=pnrAddrs;
   mktFlight=markFlt;
 
@@ -1417,7 +1424,7 @@ void TPNRSegInfo::toXML(xmlNodePtr node, XMLStyle xmlStyle) const
   {
     pnr_id==NoExists?NewTextChild(node, "pnr_id"):
                      NewTextChild(node, "pnr_id", pnr_id);
-    NewTextChild(node, "subclass", ElemIdToCodeNative(etSubcls, subcls));
+    NewTextChild(node, "subclass", ElemIdToCodeNative(etSubcls, cabin_subcls));
     pnr_addrs.toWebXML(node, AstraLocale::OutputLang());
   }
 
@@ -1594,8 +1601,8 @@ bool TPNRInfo::fromDBadditional(const TFlightInfo &flt, const TDestInfo &dest)
     WeightConcept::TPaxInfo paxInfo;
     paxInfo.target=dest.city_arv;
     paxInfo.final_target=""; //трансфер пока не анализируем
-    paxInfo.subcl=segs.begin()->second.subcls;
-    paxInfo.cl=segs.begin()->second.cls;
+    paxInfo.subcl=segs.begin()->second.orig_subcls;
+    paxInfo.cl=segs.begin()->second.orig_cls;
 
     WeightConcept::TBagNormInfo norm;
     WeightConcept::CheckOrGetPaxBagNorm(fltInfo, paxInfo, false, WeightConcept::REGULAR_BAG_TYPE, WeightConcept::TPaxNormItem(), norm); //обычный багаж
@@ -2036,12 +2043,12 @@ bool TPNRSegInfo::isJointCheckInPossible(const TPNRSegInfo& seg1,
   if (seg1.point_dep!=seg2.point_dep ||
       seg1.point_arv!=seg2.point_arv)
     errors.emplace_back("MSG.INCOMPATIBLE_SEGMENTS");
-  if (seg1.cls!=seg2.cls)
+  if (seg1.orig_cls!=seg2.orig_cls)
     errors.emplace_back("MSG.DIFFERENT_CLASS");
   if (!(seg1.mktFlight==seg2.mktFlight))
     errors.emplace_back("MSG.DIFFERENT_MARK_FLIGHT");
-  boost::optional<TSubclassGroup> subclass_grp1=rbds.getSubclassGroup(seg1.subcls, seg1.cls);
-  boost::optional<TSubclassGroup> subclass_grp2=rbds.getSubclassGroup(seg2.subcls, seg2.cls);
+  boost::optional<TSubclassGroup> subclass_grp1=rbds.getSubclassGroup(seg1.orig_subcls, seg1.orig_cls);
+  boost::optional<TSubclassGroup> subclass_grp2=rbds.getSubclassGroup(seg2.orig_subcls, seg2.orig_cls);
   if (subclass_grp1!=subclass_grp2)
     errors.emplace_back("MSG.INCOMPATIBLE_FARE_CLASS");
 
@@ -2168,7 +2175,9 @@ void findPNRs(const TPNRFilter &filter, TPNRs &PNRs, bool ignore_reg_no)
     PaxQry.Clear();
     sql.str("");
     sql << "SELECT crs_pnr.pnr_id, "
-           "       crs_pnr.airp_arv, "+
+           "       crs_pnr.airp_arv, "
+           "       crs_pnr.subclass AS cabin_subclass, "
+           "       crs_pnr.class AS cabin_class, "+
            CheckIn::TSimplePaxItem::origSubclassFromCrsSQL()+" AS orig_subclass, "+
            CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" AS orig_class, "
            "       crs_pax.pax_id, "
@@ -2460,7 +2469,9 @@ void getTCkinData( const TFlightInfo& first_flt,
         //ищем PNR по номеру
         Qry.Clear();
         Qry.SQLText=
-          "SELECT DISTINCT crs_pnr.pnr_id, crs_pnr.airp_arv, "+
+          "SELECT DISTINCT crs_pnr.pnr_id, crs_pnr.airp_arv, "
+          "                crs_pnr.subclass AS cabin_subclass, "
+          "                crs_pnr.class AS cabin_class, "+
           CheckIn::TSimplePaxItem::origSubclassFromCrsSQL()+" AS orig_subclass, "+
           CheckIn::TSimplePaxItem::origClassFromCrsSQL()+" AS orig_class "
           "FROM tlg_binding, crs_pnr, crs_pax "
