@@ -70,14 +70,7 @@ struct TAnnulBTStatCombo : public TOrderStatItem
     void add_data(std::ostringstream &buf) const;
 };
 
-template <class T>
-void RunAnnulBTStatFile(const TStatParams &params, T &writer, TPrintAirline &prn_airline)
-{
-    TAnnulBTStat AnnulBTStat;
-    RunAnnulBTStat(params, AnnulBTStat, prn_airline);
-    for (std::list<TAnnulBTStatRow>::const_iterator i = AnnulBTStat.rows.begin(); i != AnnulBTStat.rows.end(); ++i)
-        writer.insert(TAnnulBTStatCombo(*i));
-}
+void RunAnnulBTStatFile(const TStatParams &params, TOrderStatWriter &writer, TPrintAirline &prn_airline);
 
 void createXMLAnnulBTStat(
         const TStatParams &params,

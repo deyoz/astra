@@ -72,4 +72,7 @@ void RunRFISCStat(
         );
 void createXMLRFISCStat(const TStatParams &params, const TRFISCStat &RFISCStat, const TPrintAirline &prn_airline, xmlNodePtr resNode);
 
+int nosir_rfisc_stat(int argc,char **argv);
+int nosir_rfisc_all(int argc,char **argv);
+
 #endif
