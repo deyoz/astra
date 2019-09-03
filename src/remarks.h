@@ -9,12 +9,13 @@
 #include "xml_unit.h"
 #include "astra_locale.h"
 
-enum TRemCategory { remTKN, remDOC, remDOCO, remDOCA, remFQT, remASVC, remCREW, remUnknown };
+enum TRemCategory { remTKN, remDOC, remDOCO, remDOCA, remFQT, remASVC, remPD, remCREW, remUnknown };
 
 TRemCategory getRemCategory( const std::string &rem_code, const std::string &rem_text );
 bool isDisabledRemCategory( TRemCategory cat );
 bool isDisabledRem(const std::string &rem_code, const std::string &rem_text);
-bool IsReadonlyRem( const std::string &rem_code, const std::string &rem_text );
+bool isReadonlyRemCategory( TRemCategory cat );
+bool isReadonlyRem( const std::string &rem_code, const std::string &rem_text );
 
 enum TRemEventType {
     retBP,
@@ -373,7 +374,9 @@ void GetPaxFQTCards(const std::set<TPaxFQTItem> &fqts, TPaxFQTCards &cards);
 void SyncFQTTierLevel(int pax_id, bool from_crs, std::set<TPaxFQTItem> &fqts);
 
 bool DeletePaxASVC(int pax_id);
+bool DeletePaxPD(int pax_id);
 bool AddPaxASVC(int id, bool is_grp_id);
+bool AddPaxPD(int id, bool is_grp_id);
 bool LoadPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
 bool LoadCrsPaxASVC(int pax_id, std::vector<TPaxASVCItem> &asvc);
 

@@ -4676,7 +4676,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode,
                   if (r->code.empty()) continue;
                   TRemCategory cat=getRemCategory(r->code, r->text);
                   if (cat==remASVC) continue; //пропускаем ASVC
-                  if (IsReadonlyRem(r->code, r->text)) {
+                  if (isReadonlyRemCategory(cat) || isReadonlyRem(r->code, r->text)) {
                     if(!inTestMode()) {
                         throw UserException(pass==0?"MSG.REMARK.ADD_OR_CHANGE_DENIAL":"MSG.REMARK.CHANGE_OR_DEL_DENIAL",
                                         LParams() << LParam("remark", r->code.empty()?r->text.substr(0,5):r->code));
