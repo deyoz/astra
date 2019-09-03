@@ -127,10 +127,6 @@ void RunAgentStat(const TStatParams &params,
             SQLText += " AND ags.desk = :desk \n";
             Qry.CreateVariable("desk", otString, params.desk);
         }
-        if(params.user_id != NoExists) {
-            SQLText += " AND users2.user_id = :user_id \n";
-            Qry.CreateVariable("user_id", otInteger, params.user_id);
-        }
         if(!params.user_login.empty()) {
             SQLText += " AND users2.login = :user_login \n";
             Qry.CreateVariable("user_login", otString, params.user_login);
