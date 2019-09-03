@@ -322,8 +322,10 @@ static void sendNewReq( const TPaxRequest& paxReq, const int msg_id, const int p
     using namespace edifact;
     if (version == APPS_VERSION_CHINA)
     {
-        PaxlstRequest ediReq(PaxlstReqParams("", paxReq.toPaxlst()));
+        const auto paxlst = paxReq.toPaxlst();
+        PaxlstRequest ediReq(PaxlstReqParams("", paxlst));
         ediReq.sendTlg();
+        saveAppsMessage(paxlst.toEdiString(), msg_id, point_id, version);
     }
     else
         sendNewReq(paxReq.msg(), msg_id, point_id, version);
@@ -2629,11 +2631,14 @@ std::string emulateAnswer( const std::string& request )
 
 void reSendMsg( const int send_attempts, const std::string& msg_text, const int msg_id, const int version )
 {
+  if (version != APPS_VERSION_CHINA)
+  {
     sendTlg( getAPPSRotName(), OWN_CANON_NAME(), qpOutApp, 20, msg_text,
             ASTRA::NoExists, ASTRA::NoExists );
 
 //  sendCmd("CMD_APPS_ANSWER_EMUL","H");
-  sendCmd("CMD_APPS_HANDLER","H");
+    sendCmd("CMD_APPS_HANDLER","H");
+  }
 
   TQuery Qry(&OraSession);
   Qry.SQLText = "UPDATE apps_messages "
