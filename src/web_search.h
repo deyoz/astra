@@ -277,30 +277,30 @@ struct TFlightInfo
 struct TPNRSegId
 {
   int pnr_id;
-  std::string cls;    //orig_cls
-  std::string subcls; //orig_subcls
+  std::string orig_cls;
+  std::string orig_subcls;
 
   void clear()
   {
     pnr_id=ASTRA::NoExists;
-    cls.clear();
-    subcls.clear();
+    orig_cls.clear();
+    orig_subcls.clear();
   }
 
   bool operator == (const TPNRSegId &segId) const
   {
     return pnr_id==segId.pnr_id &&
-           cls==segId.cls &&
-           subcls==segId.subcls;
+           orig_cls==segId.orig_cls &&
+           orig_subcls==segId.orig_subcls;
   }
 
   bool operator < (const TPNRSegId &segId) const
   {
     if (pnr_id!=segId.pnr_id)
       return pnr_id<segId.pnr_id;
-    if (cls!=segId.cls)
-      return cls<segId.cls;
-    return subcls<segId.subcls;
+    if (orig_cls!=segId.orig_cls)
+      return orig_cls<segId.orig_cls;
+    return orig_subcls<segId.orig_subcls;
   }
 
   bool fromDB(TQuery &Qry);
@@ -313,6 +313,8 @@ struct TPNRSegInfo : public TPNRSegId
     int point_dep, point_arv;
     TPnrAddrs pnr_addrs;
     boost::optional<TMktFlight> mktFlight;
+    std::string cabin_cls;
+    std::string cabin_subcls;
     TPNRSegInfo() { clear(); }
 
   void clear()
@@ -322,6 +324,8 @@ struct TPNRSegInfo : public TPNRSegId
     point_arv=ASTRA::NoExists;
     pnr_addrs.clear();
     mktFlight=boost::none;
+    cabin_cls.clear();
+    cabin_subcls.clear();
   }
 
   bool fromDB(int point_id, const TTripRoute &route, TQuery &Qry);
