@@ -1223,9 +1223,8 @@ void TWebPax::toXML(xmlNodePtr paxParentNode, const TRemGrp& outputRemGrp) const
   if ( doc.birth_date != NoExists )
     NewTextChild( paxNode, "birth_date", DateTimeToStr( doc.birth_date, ServerFormatDateTimeAsString ) );
   NewTextChild( paxNode, "pers_type", ElemIdToPrefferedElem(etExtendedPersType, pers_type_extended, efmtCodeNative, LANG_RU) ); //ElemIdToCodeNative возможно в будущем
-  NewTextChild( paxNode, "subclass", ElemIdToCodeNative(etSubcls, orig_subclass) );
-  NewTextChild( paxNode, "class", ElemIdToCodeNative(etClass, orig_class) );
-  NewTextChild( paxNode, "cabin_class", ElemIdToCodeNative(etClass, cabin_class) );
+  NewTextChild( paxNode, "subclass", ElemIdToCodeNative(etSubcls, cabin_subclass) );
+  NewTextChild( paxNode, "class", ElemIdToCodeNative(etClass, cabin_class) );
   string seat_no_view;
   if ( !seat_no.empty() )
     seat_no_view = seat_no;
