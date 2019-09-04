@@ -1842,7 +1842,9 @@ bool TAnsPaxData::init_china_cusres(const edifact::Cusres& cusres, int ver)
   country = "CN";
   code = 0;
   status = "E";
-  if (!cusres.m_vSegGr4.empty())
+  if (cusres.m_vSegGr4.empty())
+    return false;
+  else
   {
     edifact::Cusres::SegGr4 gr4 = cusres.m_vSegGr4.front();
     if (gr4.m_vRff.empty())
@@ -1855,29 +1857,31 @@ bool TAnsPaxData::init_china_cusres(const edifact::Cusres& cusres, int ver)
     else
       return false;
 
-    if (gr4.m_erc.m_errorCode == "0Z")
+    auto erc = gr4.m_erc.m_errorCode;
+    if (erc == "0Z")
     {
       code = 8501;
       status = "B";
     }
-    else if (gr4.m_erc.m_errorCode == "1Z")
+    else if (erc == "1Z")
     {
       code = 8502;
       status = "X";
     }
-    else if (gr4.m_erc.m_errorCode == "2Z")
+    else if (erc == "2Z")
     {
       code = 8516;
       status = "I";
     }
-    else if (gr4.m_erc.m_errorCode == "4Z")
+    else if (erc == "4Z")
     {
       code = 8516;
       status = "E";
     }
+    LogTrace(TRACE5) << "TAnsPaxData::init_china_cusres erc='" << erc <<
+                        "' code='" << code << "' status=" << status << "'";
     return true;
   }
-  return false;
 }
 
 std::string TAnsPaxData::toString() const
@@ -1922,7 +1926,8 @@ void TAPPSAns::getLogParams( LEvntPrms& params, const std::string& country, cons
   else
     params << PrmSmpl<string>( "result", "" );
 
-  if ( error_code != ASTRA::NoExists ) {
+  if ( error_code != ASTRA::NoExists )
+  {
     string id = string( "MSG.APPS_" ) + IntToString(error_code);
     if ( AstraLocale::getLocaleText( id, AstraLocale::LANG_RU ) != id &&
          AstraLocale::getLocaleText( id, AstraLocale::LANG_EN ) != id ) {
@@ -1932,7 +1937,12 @@ void TAPPSAns::getLogParams( LEvntPrms& params, const std::string& country, cons
       params << PrmSmpl<string>( "error", error_text );
   }
   else
-    params << PrmSmpl<string>( "error", "" );
+  {
+    if (!error_text.empty())
+      params << PrmSmpl<string>( "error", error_text );
+    else
+      params << PrmSmpl<string>( "error", "" );
+  }
 }
 
 bool TAPPSAns::init( const std::string& trans_type, const std::string& source )
@@ -2006,7 +2016,7 @@ bool TAPPSAns::init_china_cusres(const edifact::Cusres& cusres)
     {
       TError error;
       error.country = "CN";
-      error.error_code = 5057; // на время тестирования
+      error.error_code = ASTRA::NoExists;
       if (gr4.m_ftx)
         error.error_text = gr4.m_ftx->m_freeText;
       errors.push_back(error);
@@ -2159,6 +2169,9 @@ void TPaxReqAnswer::processAnswer() const
   string apps_pax_id;
   for ( vector<TAnsPaxData>::const_iterator it = passengers.begin(); it < passengers.end(); it++ ) {
     // запишем в журнал операций присланный статус
+    LogTrace(TRACE5) << "TPaxReqAnswer::processAnswer logging: country='" << it->country <<
+                        "' code='" << it->code << "' error_code1='" << it->error_code1 <<
+                        "' error_text1='" << it->error_text1 << "'";
     logAnswer( it->country, it->code, it->error_code1, it->error_text1 );
     if ( it->error_code2 != ASTRA::NoExists ) {
       logAnswer( it->country, it->code, it->error_code2, it->error_text2 );
@@ -2265,7 +2278,12 @@ void TPaxReqAnswer::logAnswer( const std::string& country, const int status_code
 
   CheckIn::TSimplePaxItem pax;
   if (pax.getByPaxId(pax_id))
+  {
     TReqInfo::Instance()->LocaleToLog( "MSG.APPS_RESP", params, evtPax, point_id, pax.reg_no );
+    LogTrace(TRACE5) << "TPaxReqAnswer::logAnswer getByPaxId " << pax_id << " OK";
+  }
+  else
+    LogTrace(TRACE5) << "TPaxReqAnswer::logAnswer getByPaxId " << pax_id << " FAIL";
 }
 
 void TMftAnswer::logAnswer( const std::string& country, const int status_code,
