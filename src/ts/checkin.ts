@@ -738,6 +738,8 @@ $(KICK_IN)
             <refuse/>
             <reg_no>1</reg_no>
             <subclass>ù</subclass>
+            <cabin_subclass>ù</cabin_subclass>
+            <cabin_class>ù</cabin_class>
             <bag_pool_num/>
             <tid>...
             <ticket_no>2981212121212</ticket_no>
@@ -784,6 +786,8 @@ $(KICK_IN)
             <refuse/>
             <reg_no>2</reg_no>
             <subclass>ù</subclass>
+            <cabin_subclass>ù</cabin_subclass>
+            <cabin_class>ù</cabin_class>
             <bag_pool_num/>
             <tid>...
             <ticket_no>2981212121213</ticket_no>

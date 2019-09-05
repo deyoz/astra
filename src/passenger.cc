@@ -1560,8 +1560,6 @@ const TComplexClass& TComplexClass::toXML(xmlNodePtr node, const std::string& fi
 
   NewTextChild(node, string(fieldPrefix+"subclass").c_str(), subcl);
   NewTextChild(node, string(fieldPrefix+"class").c_str(), cl);
-  cl_grp!=ASTRA::NoExists?NewTextChild(node, string(fieldPrefix+"class_grp").c_str(), cl_grp):
-                          NewTextChild(node, string(fieldPrefix+"class_grp").c_str());
 
   return *this;
 }

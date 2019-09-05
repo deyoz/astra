@@ -2151,6 +2151,8 @@ $(KICK_IN)
             <refuse/>
             <reg_no>1</reg_no>
             <subclass>ù</subclass>
+            <cabin_subclass>ù</cabin_subclass>
+            <cabin_class>ù</cabin_class>
             <bag_pool_num/>
             <tid>...
             <ticket_no>2986120030297</ticket_no>
@@ -2569,6 +2571,8 @@ $(KICK_IN)
             <refuse/>
             <reg_no>1</reg_no>
             <subclass>ù</subclass>
+            <cabin_subclass>ù</cabin_subclass>
+            <cabin_class>ù</cabin_class>
             <bag_pool_num/>
             <tid>...
             <ticket_no>2986120030297</ticket_no>
@@ -3293,6 +3297,8 @@ $(KICK_IN)
             <refuse/>
             <reg_no>1</reg_no>
             <subclass>ù</subclass>
+            <cabin_subclass>ù</cabin_subclass>
+            <cabin_class>ù</cabin_class>
             <bag_pool_num/>
             <tid>...
             <ticket_no>2986120030297</ticket_no>
@@ -5019,6 +5025,8 @@ $(KICK_IN)
             <refuse/>
             <reg_no>1</reg_no>
             <subclass>ù</subclass>
+            <cabin_subclass>ù</cabin_subclass>
+            <cabin_class>ù</cabin_class>
             <bag_pool_num/>
             <tid>...
             <ticket_no>2982401841689</ticket_no>
@@ -5088,6 +5096,8 @@ $(KICK_IN)
             <refuse/>
             <reg_no>2</reg_no>
             <subclass>ù</subclass>
+            <cabin_subclass>ù</cabin_subclass>
+            <cabin_class>ù</cabin_class>
             <bag_pool_num/>
             <tid>...
             <ticket_no>2982401841612</ticket_no>
