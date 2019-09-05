@@ -1354,7 +1354,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
         //============================ проверка APPS статуса пассажира ============================
         if (checkAPPSSets(point_id, point_arv)) {
-          TPaxRequest * apps_pax = new TPaxRequest();
+          std::unique_ptr<TPaxRequest> apps_pax(new TPaxRequest());
           for(int pass=0;pass<2;pass++)
           {
             TPaxItem &pax=(pass==0?paxWithSeat:paxWithoutSeat);

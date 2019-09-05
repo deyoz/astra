@@ -58,6 +58,8 @@ const std::string getIAPIEdiProfileName();
 
 int test_apps_tlg(int argc, char **argv);
 
+int GetVersionByPaxId(const int pax_id);
+
 struct TAppsSets
 {
   TAppsSets(const std::string& airline, const std::string& country);
@@ -252,9 +254,16 @@ class TPaxRequest
   TPaxData pax;
   TPaxAddData pax_add;
   int version = 0;
+  int m_point_id = ASTRA::NoExists;
+  std::string m_airp_dep;
+  std::string m_airp_arv;
   bool getByPaxId( const int pax_id, Timing::Points& timing, const std::string& override_type );
   bool getByCrsPaxId( const int pax_id, Timing::Points& timing, const std::string& override_type );
+public:
   void saveData() const;
+  int get_msg_id() const { return trans.msg_id; }
+  int get_point_id() const { return int_flt.point_id; }
+  int get_version() const { return version; }
 
 public:
   void init( const int pax_id, Timing::Points& timing, const std::string& override_type = "" );
@@ -275,12 +284,30 @@ public:
   APPSAction typeOfAction( const bool is_exists, const std::string& status,
                            const bool is_the_same, const bool is_forced ) const;
   std::string msg() const;
-  std::string msg_china_iapi() const;
+//  std::string msg_china_iapi() const;
   Paxlst::PaxlstInfo toPaxlst() const;
+
+  void InitPaxlstInfo(Paxlst::PaxlstInfo&) const;
+  void InitPaxInfo(Paxlst::PassengerInfo&) const;
+
   void sendReq(Timing::Points& timing) const;
   std::string getStatus() const {
     return pax.status;
   }
+};
+
+class TAPPSPaxCollector
+{
+  int version = 0, msg_id = ASTRA::NoExists, point_id = ASTRA::NoExists;
+  bool first_pax = true;
+  std::unique_ptr<Paxlst::PaxlstInfo> paxlstInfo;
+public:
+  void AddPassenger(const int pax_id,
+                    Timing::Points& timing,
+                    const bool change = false,
+                    const std::string& override_type = "",
+                    const bool is_forced = false);
+  void Flush();
 };
 
 class TManifestRequest
