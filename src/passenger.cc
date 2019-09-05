@@ -1434,6 +1434,7 @@ const TPaxItem& TPaxItem::toXML(xmlNodePtr node) const
   NewTextChild(paxNode, "refuse", refuse);
   NewTextChild(paxNode, "reg_no", reg_no);
   NewTextChild(paxNode, "subclass", subcl);
+  cabin.toXML(paxNode, "cabin_");
   if (bag_pool_num!=ASTRA::NoExists)
     NewTextChild(paxNode, "bag_pool_num", bag_pool_num);
   else
@@ -1550,6 +1551,18 @@ const TComplexClass& TComplexClass::toDB(TQuery &Qry, const std::string& fieldPr
   if (Qry.GetVariableIndex(fieldPrefix+"class_grp")>=0)
     cl_grp!=ASTRA::NoExists?Qry.SetVariable(fieldPrefix+"class_grp", cl_grp):
                             Qry.SetVariable(fieldPrefix+"class_grp", FNull);
+  return *this;
+}
+
+const TComplexClass& TComplexClass::toXML(xmlNodePtr node, const std::string& fieldPrefix) const
+{
+  if (node==NULL) return *this;
+
+  NewTextChild(node, string(fieldPrefix+"subclass").c_str(), subcl);
+  NewTextChild(node, string(fieldPrefix+"class").c_str(), cl);
+  cl_grp!=ASTRA::NoExists?NewTextChild(node, string(fieldPrefix+"class_grp").c_str(), cl_grp):
+                          NewTextChild(node, string(fieldPrefix+"class_grp").c_str());
+
   return *this;
 }
 
