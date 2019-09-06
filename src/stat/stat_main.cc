@@ -698,14 +698,14 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         }
     }
     /* GRISHA */
-    catch (StatOverflowException &E)
+    catch (StatOverflowException &)
     {
         if(TReqInfo::Instance()->desk.compatible(STAT_ORDERS_VERSION))
         {
             RemoveChildNodes(resNode);
             return orderStat(params, ctxt, reqNode, resNode);
         } else {
-            AstraLocale::showErrorMessage(E.getLexemaData());
+            throw AstraLocale::UserException("MSG.NOT_DATA");
         }
     }
     catch (EOracleError &E)

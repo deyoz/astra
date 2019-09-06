@@ -198,12 +198,7 @@ const std::string EncodeOrderSource(TOrderSource s);
 
 int MAX_STAT_ROWS();
 
-namespace AstraLocale {
-    class StatOverflowException: public UserException
-    {
-        public: StatOverflowException(const std::string &vlexema, const LParams &aparams): UserException(vlexema, aparams) {}
-    };
-}
+class StatOverflowException: public std::exception {};
 
 struct TOrderStatItem {
     static const char delim = ';';

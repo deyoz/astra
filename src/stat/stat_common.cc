@@ -579,12 +579,13 @@ int MAX_STAT_SECONDS()
 
 void TStatOverflow::check(size_t RowCount) const
 {
-    if(apply_type == apply) {
-        if(RowCount > (size_t)MAX_STAT_ROWS())
-            throw StatOverflowException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", RowCount));
-        if(tm.Print() > MAX_STAT_SECONDS() * 1000)
-            throw StatOverflowException("MSG.TIMEOUT_EXPIRED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", RowCount));
-    }
+    if(
+            apply_type == apply and (
+                RowCount > (size_t)MAX_STAT_ROWS() or
+                tm.Print() > MAX_STAT_SECONDS() * 1000
+                )
+      )
+        throw StatOverflowException();
 }
 
 TStatParams::TStatParams(TStatOverflow::Enum apply_type): overflow(apply_type)
