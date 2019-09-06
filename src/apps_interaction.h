@@ -344,7 +344,7 @@ struct TAnsPaxData
                   error_code2(ASTRA::NoExists), error_code3(ASTRA::NoExists) {}
   std::string toString() const;
   void init( std::string source, int ver );
-  bool init_china_cusres(const edifact::Cusres& cusres, int ver);
+  bool init_china_cusres(const edifact::Cusres::SegGr4 gr4, int ver);
 };
 
 struct TError

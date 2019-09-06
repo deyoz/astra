@@ -2091,52 +2091,46 @@ void TAnsPaxData::init( std::string source, int ver )
   }
 }
 
-bool TAnsPaxData::init_china_cusres(const edifact::Cusres& cusres, int ver)
+bool TAnsPaxData::init_china_cusres(const edifact::Cusres::SegGr4 gr4, int ver)
 {
   version = ver;
   country = "CN";
   code = 0;
   status = "E";
-  if (cusres.m_vSegGr4.empty())
+  if (gr4.m_vRff.empty())
     return false;
+  auto beg = gr4.m_vRff.cbegin();
+  auto end = gr4.m_vRff.cend();
+  auto abo = find_if(beg, end, [](const auto &x){return x.m_qualifier == "ABO";});
+  if (abo != end)
+    apps_pax_id = abo->m_ref;
   else
-  {
-    edifact::Cusres::SegGr4 gr4 = cusres.m_vSegGr4.front();
-    if (gr4.m_vRff.empty())
-      return false;
-    auto beg = gr4.m_vRff.cbegin();
-    auto end = gr4.m_vRff.cend();
-    auto abo = find_if(beg, end, [](const auto &x){return x.m_qualifier == "ABO";});
-    if (abo != end)
-      apps_pax_id = abo->m_ref;
-    else
-      return false;
+    return false;
 
-    auto erc = gr4.m_erc.m_errorCode;
-    if (erc == "0Z")
-    {
-      code = 8501;
-      status = "B";
-    }
-    else if (erc == "1Z")
-    {
-      code = 8502;
-      status = "X";
-    }
-    else if (erc == "2Z")
-    {
-      code = 8516;
-      status = "I";
-    }
-    else if (erc == "4Z")
-    {
-      code = 8516;
-      status = "E";
-    }
-    LogTrace(TRACE5) << "TAnsPaxData::init_china_cusres erc='" << erc <<
-                        "' code='" << code << "' status='" << status << "'";
-    return true;
+  auto erc = gr4.m_erc.m_errorCode;
+  if (erc == "0Z")
+  {
+    code = 8501;
+    status = "B";
   }
+  else if (erc == "1Z")
+  {
+    code = 8502;
+    status = "X";
+  }
+  else if (erc == "2Z")
+  {
+    code = 8516;
+    status = "I";
+  }
+  else if (erc == "4Z")
+  {
+    code = 8516;
+    status = "E";
+  }
+  LogTrace(TRACE5) << "TAnsPaxData::init_china_cusres erc='" << erc <<
+                      "' code='" << code << "' status='" << status << "'";
+  return true;
 }
 
 std::string TAnsPaxData::toString() const
@@ -2375,10 +2369,12 @@ bool TPaxReqAnswer::init_china_cusres(const edifact::Cusres& cusres)
   pax_id = Qry.FieldAsInteger( "pax_id" );
   family_name = Qry.FieldAsString( "family_name" );
 
-  // пока только одного пассажира
-  TAnsPaxData data;
-  if (data.init_china_cusres(cusres, version))
-    passengers.push_back(data);
+  for (const auto& gr4 : cusres.m_vSegGr4)
+  {
+    TAnsPaxData data;
+    if (data.init_china_cusres(gr4, version))
+      passengers.push_back(data);
+  }
 
   return true;
 }
