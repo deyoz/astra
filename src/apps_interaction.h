@@ -263,7 +263,7 @@ public:
   void saveData() const;
   int get_msg_id() const { return trans.msg_id; }
   int get_point_id() const { return int_flt.point_id; }
-  int get_version() const { return version; }
+//  int get_version() const { return version; }
 
 public:
   void init( const int pax_id, Timing::Points& timing, const std::string& override_type = "" );
@@ -298,7 +298,8 @@ public:
 
 class TAPPSPaxCollector
 {
-  int version = 0, msg_id = ASTRA::NoExists, point_id = ASTRA::NoExists;
+  int version = 0;
+  std::vector<std::pair<int,int>> msg_ids;
   bool first_pax = true;
   std::unique_ptr<Paxlst::PaxlstInfo> paxlstInfo;
 public:

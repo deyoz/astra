@@ -316,12 +316,14 @@ static void sendNewReq( const std::string& text, const int msg_id, const int poi
     saveAppsMessage(text, msg_id, point_id, version);
 }
 
-static void sendNewReq(const Paxlst::PaxlstInfo& paxlst, const int msg_id, const int point_id, int version)
+static void sendNewReq(const Paxlst::PaxlstInfo& paxlst, const std::vector<std::pair<int,int>>& msg_ids, const int version)
 {
   using namespace edifact;
   PaxlstRequest ediReq(PaxlstReqParams("", paxlst));
   ediReq.sendTlg();
-  saveAppsMessage(paxlst.toEdiString(), msg_id, point_id, version);
+  string msg = paxlst.toEdiString();
+  for (const auto& id : msg_ids)
+    saveAppsMessage(msg, id.first, id.second, version);
 }
 
 /*static void sendNewReq( const TPaxRequest& paxReq, const int msg_id, const int point_id, int version )
@@ -1643,8 +1645,6 @@ void TAPPSPaxCollector::AddPassenger(const int pax_id,
     new_data.saveData();
     if (first_pax)
     {
-      msg_id = new_data.get_msg_id(); // Ž—…œ “’Ž—ˆ’œ !!!
-      point_id = new_data.get_point_id();
       string doc_id; // empty docId for Clear Passenger Request
       if (change)
         doc_id = "CP"; // Change Passenger Data
@@ -1655,6 +1655,7 @@ void TAPPSPaxCollector::AddPassenger(const int pax_id,
     Paxlst::PassengerInfo paxInfo;
     new_data.InitPaxInfo(paxInfo);
     paxlstInfo->addPassenger(paxInfo);
+    msg_ids.emplace_back(new_data.get_msg_id(), new_data.get_point_id());
   }
   else
   {
@@ -1668,7 +1669,8 @@ void TAPPSPaxCollector::Flush()
 {
   if (version == APPS_VERSION_CHINA && paxlstInfo)
   {
-    sendNewReq(*paxlstInfo, msg_id, point_id, version);
+    LogTrace(TRACE5) << "TAPPSPaxCollector: sending '" << msg_ids.size() << "' passengers";
+    sendNewReq(*paxlstInfo, msg_ids, version);
   }
 }
 
