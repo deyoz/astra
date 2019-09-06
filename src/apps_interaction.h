@@ -30,6 +30,7 @@ const int APPS_VERSION_CHINA = 80; // временное решение, потом перенести в табли
 enum APPSAction { NoAction, NeedUpdate, NeedNew, NeedCancel };
 
 void ProcessChinaCusres(const edifact::Cusres& cusres);
+int PaxIdFromCusres(const edifact::Cusres::SegGr4 &gr4);
 
 void processPax( const int pax_id, Timing::Points& timing, const std::string& override_type = "", const bool is_forced = false );
 void APPSFlightCloseout( const int point_id );
@@ -379,7 +380,7 @@ public:
   virtual void beforeProcessAnswer() const;
   virtual std::string toString() const;
   virtual void processErrors() const = 0;
-  virtual void processAnswer() const = 0;
+  virtual void processAnswer(bool=true) const = 0;
   virtual void logAnswer( const std::string& country, const int status_code,
                   const int error_code, const std::string& error_text ) const = 0;
   bool init_china_cusres(const edifact::Cusres& cusres);
@@ -396,7 +397,7 @@ public:
   virtual ~TPaxReqAnswer() {}
   virtual bool init( const std::string& code, const std::string& source );
   virtual void processErrors() const;
-  virtual void processAnswer() const;
+  virtual void processAnswer(bool last_pax = true) const;
   virtual std::string toString() const;
   virtual void logAnswer( const std::string& country, const int status_code,
                   const int error_code, const std::string& error_text ) const;
@@ -416,7 +417,7 @@ public:
   virtual ~TMftAnswer() {}
   virtual bool init( const std::string& code, const std::string& source );
   virtual void processErrors() const;
-  virtual void processAnswer() const;
+  virtual void processAnswer(bool=true) const;
   virtual std::string toString() const;
   virtual void logAnswer( const std::string& country, const int status_code,
                   const int error_code, const std::string& error_text ) const;

@@ -2112,19 +2112,27 @@ bool TAnsPaxData::init_china_cusres(const edifact::Cusres::SegGr4& gr4, int ver)
     LogTrace(TRACE5) << __func__ << ": gr4.m_vRff.empty";
     return false;
   }
-  auto beg = gr4.m_vRff.cbegin();
-  auto end = gr4.m_vRff.cend();
-  auto abo = find_if(beg, end, [](const auto &x){return x.m_qualifier == "ABO";});
-  if (abo != end)
+//  auto beg = gr4.m_vRff.cbegin();
+//  auto end = gr4.m_vRff.cend();
+//  auto abo = find_if(beg, end, [](const auto &x){return x.m_qualifier == "ABO";});
+//  if (abo != end)
+//  {
+//    apps_pax_id = abo->m_ref;
+//  }
+//  else
+//  {
+//    LogTrace(TRACE5) << __func__ << ": ABO not found";
+//    return false;
+//  }
+  int i_apps_pax_id = PaxIdFromCusres(gr4);
+  if (i_apps_pax_id == ASTRA::NoExists)
   {
-    apps_pax_id = abo->m_ref;
-//    LogTrace(TRACE5) << __func__ << ": apps_pax_id='" << apps_pax_id << "'";
-  }
-  else
-  {
-    LogTrace(TRACE5) << __func__ << ": ABO not found";
+    LogTrace(TRACE5) << __func__ << ": apps_pax_id == ASTRA::NoExists";
     return false;
   }
+  stringstream ss;
+  ss << i_apps_pax_id;
+  apps_pax_id = ss.str();
 
   auto erc = gr4.m_erc.m_errorCode;
   if (erc == "0Z")
@@ -2380,17 +2388,32 @@ bool TPaxReqAnswer::init( const std::string& code, const std::string& source )
 bool TPaxReqAnswer::init_china_cusres(const edifact::Cusres& cusres, const edifact::Cusres::SegGr4& gr4)
 {
   LogTrace(TRACE5) << __func__ << ": begin";
+
   if (not TAPPSAns::init_china_cusres(cusres))
   {
     LogTrace(TRACE5) << __func__ << ": TAPPSAns returned false";
     return false;
   }
 
+  int recv_pax_id = PaxIdFromCusres(gr4);
+  LogTrace(TRACE5) << __func__ << ": recv_pax_id='" << recv_pax_id << "' msg_id='" << msg_id << "'";
+
   TQuery Qry( &OraSession );
-  Qry.SQLText = "SELECT pax_id, family_name "
-                "FROM apps_pax_data "
-                "WHERE cirq_msg_id = :msg_id";
-  Qry.CreateVariable( "msg_id", otInteger, msg_id );
+  if (recv_pax_id != ASTRA::NoExists)
+  {
+    Qry.SQLText = "SELECT family_name "
+                  "FROM apps_pax_data "
+                  "WHERE cirq_msg_id = :msg_id AND pax_id = :pax_id";
+    Qry.CreateVariable( "msg_id", otInteger, msg_id );
+    Qry.CreateVariable( "pax_id", otInteger, pax_id );
+  }
+  else
+  {
+    Qry.SQLText = "SELECT pax_id, family_name "
+                  "FROM apps_pax_data "
+                  "WHERE cirq_msg_id = :msg_id";
+    Qry.CreateVariable( "msg_id", otInteger, msg_id );
+  }
   Qry.Execute();
 
   if(Qry.Eof)
@@ -2399,7 +2422,7 @@ bool TPaxReqAnswer::init_china_cusres(const edifact::Cusres& cusres, const edifa
     return false;
   }
 
-  pax_id = Qry.FieldAsInteger( "pax_id" );
+  pax_id = (recv_pax_id == ASTRA::NoExists)? Qry.FieldAsInteger( "pax_id" ): recv_pax_id;
   family_name = Qry.FieldAsString( "family_name" );
 
   TAnsPaxData data;
@@ -2442,7 +2465,7 @@ void TPaxReqAnswer::processErrors() const
   deleteMsg( msg_id );
 }
 
-void TPaxReqAnswer::processAnswer() const
+void TPaxReqAnswer::processAnswer(bool last_pax) const
 {
   if ( passengers.empty() )
     return;
@@ -2548,7 +2571,8 @@ void TPaxReqAnswer::processAnswer() const
   {
     deleteAPPSAlarm(pax_id, {Alarm::APPSConflict});
   }
-  deleteMsg( msg_id );
+  if (last_pax)
+    deleteMsg( msg_id );
 }
 
 void TPaxReqAnswer::logAnswer( const std::string& country, const int status_code,
@@ -2615,7 +2639,7 @@ void TMftAnswer::processErrors() const
   deleteMsg( msg_id );
 }
 
-void TMftAnswer::processAnswer() const
+void TMftAnswer::processAnswer(bool) const
 {
   if( resp_code == ASTRA::NoExists  )
     return;
@@ -2640,14 +2664,26 @@ void ProcessChinaCusres(const edifact::Cusres& cusres)
 {
     LogTrace(TRACE5) << __func__<< std::endl << cusres;
     LogTrace(TRACE5) << __func__ << ": cusres.m_vSegGr4 size='" << cusres.m_vSegGr4.size() << "'";
+    int gr4_num = cusres.m_vSegGr4.size();
     for (const auto& gr4 : cusres.m_vSegGr4)
     {
       TPaxReqAnswer res;
       res.init_china_cusres(cusres, gr4);
       res.beforeProcessAnswer();
       res.processErrors();
-      res.processAnswer();
+      res.processAnswer(--gr4_num == 0);
     }
+}
+
+int PaxIdFromCusres(const edifact::Cusres::SegGr4& gr4)
+{
+  auto beg = gr4.m_vRff.cbegin();
+  auto end = gr4.m_vRff.cend();
+  auto abo = find_if(beg, end, [](const auto &x){return x.m_qualifier == "ABO";});
+  if (abo != end)
+    return getInt(abo->m_ref);
+  else
+    return ASTRA::NoExists;
 }
 
 //-----------------------------------------------------------------------------------
