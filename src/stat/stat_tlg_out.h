@@ -39,7 +39,7 @@ typedef std::map<TTlgOutStatKey, TTlgOutStatRow, TTlgOutStatCmp> TTlgOutStat;
 
 void RunTlgOutStat(const TStatParams &params,
                    TTlgOutStat &TlgOutStat, TTlgOutStatRow &TlgOutStatTotal,
-                   TPrintAirline &prn_airline, bool full = false);
+                   TPrintAirline &prn_airline);
 
 void createXMLTlgOutStat(const TStatParams &params,
                          const TTlgOutStat &TlgOutStat, const TTlgOutStatRow &TlgOutStatTotal,

@@ -66,8 +66,7 @@ struct TReprintShortStat: public TReprintShortDeskMap, TReprintAbstractStat  {
 
 void RunReprintStat(
         const TStatParams &params,
-        TReprintAbstractStat &ReprintStat,
-        bool full = false
+        TReprintAbstractStat &ReprintStat
         );
 
 void createXMLReprintFullStat(

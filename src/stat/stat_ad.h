@@ -91,8 +91,7 @@ struct TADFullStat: public TADFullAirlineMap, TADAbstractStat {
 
 void RunADStat(
         const TStatParams &params,
-        TADAbstractStat &ADStat,
-        bool full = false
+        TADAbstractStat &ADStat
         );
 
 void createXMLADFullStat(

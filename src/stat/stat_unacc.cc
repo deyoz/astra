@@ -35,8 +35,7 @@ void TUNACCFullStat::add(const TUNACCStatRow &row)
 
 void RunUNACCStat(
         const TStatParams &params,
-        TUNACCAbstractStat &UNACCFullStat,
-        bool full
+        TUNACCAbstractStat &UNACCFullStat
         )
 {
     for(int pass = 0; pass <= 2; pass++) {
@@ -223,8 +222,7 @@ void RunUNACCStat(
                 row.trfer_airp_arv = Qry.get().FieldAsString(col_trfer_airp_arv);
 
                 UNACCFullStat.add(row);
-                if ((not full) and (UNACCFullStat.RowCount() > (size_t)MAX_STAT_ROWS()))
-                    throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
+                params.overflow.check(UNACCFullStat.RowCount());
             }
         }
     }
@@ -566,7 +564,7 @@ void TUNACCStatRow::add_header(ostringstream &buf) const
 void RunUNACCFullFile(const TStatParams &params, TOrderStatWriter &writer)
 {
     TUNACCFullStat UNACCFullStat;
-    RunUNACCStat(params, UNACCFullStat, true);
+    RunUNACCStat(params, UNACCFullStat);
     for(TUNACCFullStat::const_iterator i = UNACCFullStat.begin(); i != UNACCFullStat.end(); i++) {
         // копирование объекта только из-за того, чтобы проинициализировать поле.
         TUNACCStatRow row = *i;

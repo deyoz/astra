@@ -22,11 +22,17 @@ struct TFlight {
 };
 
 struct TLimitedCapabStat {
-    typedef std::map<std::string, int> TRems;
-    typedef std::map<std::string, TRems> TAirpArv;
-    typedef std::map<TFlight, TAirpArv> TRows;
-    TRems total;
-    TRows rows;
+    private:
+        size_t FRowCount;
+    public:
+        typedef std::map<std::string, int> TRems;
+        typedef std::map<std::string, TRems> TAirpArv;
+        typedef std::map<TFlight, TAirpArv> TRows;
+        TRems total;
+        TRows rows;
+        TLimitedCapabStat(): FRowCount(0) {}
+        void add(const TFlight &row, const std::string &airp_arv, const std::string &rem_code, int pax_amount);
+        size_t RowCount() const { return FRowCount; }
 };
 
 void RunLimitedCapabStat(

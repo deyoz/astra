@@ -95,8 +95,7 @@ struct TServicesShortStat: public TServicesShortAirpMap, TServicesAbstractStat  
 
 void RunServicesStat(
         const TStatParams &params,
-        TServicesAbstractStat &ServicesStat,
-        bool full = false
+        TServicesAbstractStat &ServicesStat
         );
 
 void createXMLServicesFullStat(

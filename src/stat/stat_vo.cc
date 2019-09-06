@@ -15,8 +15,7 @@ using namespace BASIC::date_time;
 
 void RunVOStat(
         const TStatParams &params,
-        TVOAbstractStat &VOStat,
-        bool full
+        TVOAbstractStat &VOStat
         )
 {
     for(int pass = 0; pass <= 2; pass++) {
@@ -73,8 +72,7 @@ void RunVOStat(
                 row.scd_out = Qry.get().FieldAsDateTime(col_scd_out);
                 row.amount = Qry.get().FieldAsDateTime(col_amount);
                 VOStat.add(row);
-                if ((not full) and (VOStat.RowCount() > (size_t)MAX_STAT_ROWS()))
-                    throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
+                params.overflow.check(VOStat.RowCount());
             }
         }
     }
@@ -293,7 +291,7 @@ void TVOFullStatCombo::add_data(ostringstream &buf) const
 void RunVOFullFile(const TStatParams &params, TOrderStatWriter &writer)
 {
     TVOFullStat VOFullStat;
-    RunVOStat(params, VOFullStat, true);
+    RunVOStat(params, VOFullStat);
 
     for(TVOFullStat::const_iterator airline = VOFullStat.begin();
             airline != VOFullStat.end(); airline++) {
@@ -359,7 +357,7 @@ void TVOShortStatCombo::add_data(ostringstream &buf) const
 void RunVOShortFile(const TStatParams &params, TOrderStatWriter &writer)
 {
     TVOShortStat VOShortStat;
-    RunVOStat(params, VOShortStat, true);
+    RunVOStat(params, VOShortStat);
 
     for(TVOShortStat::const_iterator airline = VOShortStat.begin();
             airline != VOShortStat.end(); airline++) {

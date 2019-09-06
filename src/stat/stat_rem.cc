@@ -181,6 +181,7 @@ void RunRemStat(
                     row.rate = Qry.get().FieldAsFloat(col_rate);
                 row.rate_cur = Qry.get().FieldAsString(col_rate_cur);
                 RemStat.insert(row);
+                params.overflow.check(RemStat.size());
             }
         }
     }
@@ -189,7 +190,6 @@ void RunRemStat(
 void createXMLRemStat(const TStatParams &params, const TRemStat &RemStat, const TPrintAirline &prn_airline, xmlNodePtr resNode)
 {
     if(RemStat.empty()) throw AstraLocale::UserException("MSG.NOT_DATA");
-    if (RemStat.size() > (size_t)MAX_STAT_ROWS()) throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
     NewTextChild(resNode, "airline", prn_airline.get(), "");
     xmlNodePtr grdNode = NewTextChild(resNode, "grd");
 
@@ -292,7 +292,7 @@ void createXMLRemStat(const TStatParams &params, const TRemStat &RemStat, const 
         NewTextChild(rowNode, "col", ElemIdToCodeNative(etCurrency, i->rate_cur));
     }
 
-    xmlNodePtr variablesNode = STAT::set_variables(resNode);
+    STAT::set_variables(resNode);
 }
 
 namespace RemStat {

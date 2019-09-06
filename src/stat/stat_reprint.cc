@@ -99,8 +99,7 @@ void TReprintShortStat::add(const TReprintStatRow &row)
 
 void RunReprintStat(
         const TStatParams &params,
-        TReprintAbstractStat &ReprintStat,
-        bool full
+        TReprintAbstractStat &ReprintStat
         )
 {
     TFltInfoCache flt_cache;
@@ -185,9 +184,7 @@ void RunReprintStat(
                 row.ckin_type = Qry.get().FieldAsString(col_ckin_type);
                 row.amount = Qry.get().FieldAsInteger(col_amount);
                 ReprintStat.add(row);
-
-                if ((not full) and (ReprintStat.RowCount() > (size_t)MAX_STAT_ROWS()))
-                    throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
+                params.overflow.check(ReprintStat.RowCount());
             }
         }
     }
@@ -248,9 +245,7 @@ void RunReprintStat(
                 row.route = route.str();
                 row.amount = 1;
                 ReprintStat.add(row);
-
-                if ((not full) and (ReprintStat.RowCount() > (size_t)MAX_STAT_ROWS()))
-                    throw MaxStatRowsException("MSG.TOO_MANY_ROWS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_STAT_SEARCH", LParams() << LParam("num", MAX_STAT_ROWS()));
+                params.overflow.check(ReprintStat.RowCount());
             }
         }
     }
@@ -483,7 +478,7 @@ void TReprintShortStatCombo::add_header(ostringstream &buf) const
 void RunReprintFullFile(const TStatParams &params, TOrderStatWriter &writer)
 {
     TReprintFullStat ReprintFullStat;
-    RunReprintStat(params, ReprintFullStat, true);
+    RunReprintStat(params, ReprintFullStat);
     for(const auto &desk: ReprintFullStat) {
         for(const auto &airline: desk.second) {
             for(const auto &flt: airline.second) {
@@ -510,7 +505,7 @@ void RunReprintFullFile(const TStatParams &params, TOrderStatWriter &writer)
 void RunReprintShortFile(const TStatParams &params, TOrderStatWriter &writer)
 {
     TReprintShortStat ReprintShortStat;
-    RunReprintStat(params, ReprintShortStat, true);
+    RunReprintStat(params, ReprintShortStat);
     for(const auto &desk: ReprintShortStat) {
         for(const auto &airline: desk.second) {
             writer.insert(TReprintShortStatCombo(

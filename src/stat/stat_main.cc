@@ -280,7 +280,7 @@ void processStatOrders(TQueueItem &item) {
                 << QParam("progress", otInteger)
                 );
 
-        TStatParams params;
+        TStatParams params(TStatOverflow::ignore);
         params.fromFileParams(item.params);
 
         TReqInfo::Instance()->Initialize(params.desk_city);
@@ -403,7 +403,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     if (reqInfo->user.access.totally_not_permitted())
         throw AstraLocale::UserException("MSG.NOT_DATA");
 
-    TStatParams params;
+    TStatParams params(TStatOverflow::apply);
     params.get(reqNode);
 
 /*
@@ -594,7 +594,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         {
             TPrintAirline airline;
             TAnnulBTStat AnnulBTStat;
-            RunAnnulBTStat(params, AnnulBTStat, airline);
+            RunAnnulBTStat(params, AnnulBTStat, airline, false);
             createXMLAnnulBTStat(params, AnnulBTStat, airline, resNode);
         }
         if(params.statType == statPFSFull)
@@ -698,7 +698,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         }
     }
     /* GRISHA */
-    catch (MaxStatRowsException &E)
+    catch (StatOverflowException &E)
     {
         if(TReqInfo::Instance()->desk.compatible(STAT_ORDERS_VERSION))
         {
