@@ -1049,8 +1049,8 @@ int GetVersionByPaxId(const int pax_id)
 
 void TPaxRequest::init(const int pax_id, Timing::Points &timing, const std::string& override_type , const int msg_id)
 {
-  if ( !getByPaxId( pax_id, timing, override_type ) )
-    getByCrsPaxId( pax_id, timing, override_type );
+  if ( !getByPaxId( pax_id, timing, override_type, msg_id ) )
+    getByCrsPaxId( pax_id, timing, override_type, msg_id );
 }
 
 bool TPaxRequest::getByPaxId( const int pax_id, Timing::Points& timing, const std::string& override_type, const int msg_id )
