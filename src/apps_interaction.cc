@@ -1924,7 +1924,7 @@ APPSAction TPaxRequest::typeOfAction( const bool is_exists, const std::string& s
                                       const bool is_the_same, const bool is_forced) const
 {
   if (version == APPS_VERSION_CHINA)
-    return NeedNew; // HACK
+    return NeedNew; // HACK - ‡€ƒ‹“˜Š€ !!!
 
   bool is_cancel = (trans.code == "CICX");
 
@@ -2099,7 +2099,7 @@ void TAnsPaxData::init( std::string source, int ver )
   }
 }
 
-bool TAnsPaxData::init_china_cusres(const edifact::Cusres::SegGr4 gr4, int ver)
+bool TAnsPaxData::init_china_cusres(const edifact::Cusres::SegGr4& gr4, int ver)
 {
   version = ver;
   country = "CN";
@@ -2283,9 +2283,8 @@ bool TAPPSAns::init_china_cusres(const edifact::Cusres& cusres)
 //  version = APPS_VERSION_CHINA; // ???
 
   // ERRORS
-  if (!cusres.m_vSegGr4.empty())
+  for (const auto& gr4 : cusres.m_vSegGr4)
   {
-    edifact::Cusres::SegGr4 gr4 = cusres.m_vSegGr4.front();
     if (gr4.m_erp.m_msgSectionCode == "1" && gr4.m_erc.m_errorCode == "1")
     {
       TError error;
@@ -2376,7 +2375,7 @@ bool TPaxReqAnswer::init( const std::string& code, const std::string& source )
   return true;
 }
 
-bool TPaxReqAnswer::init_china_cusres(const edifact::Cusres& cusres)
+bool TPaxReqAnswer::init_china_cusres(const edifact::Cusres& cusres, const edifact::Cusres::SegGr4& gr4)
 {
   LogTrace(TRACE5) << __func__ << ": begin";
   if (not TAPPSAns::init_china_cusres(cusres))
@@ -2401,15 +2400,11 @@ bool TPaxReqAnswer::init_china_cusres(const edifact::Cusres& cusres)
   pax_id = Qry.FieldAsInteger( "pax_id" );
   family_name = Qry.FieldAsString( "family_name" );
 
-  LogTrace(TRACE5) << __func__ << ": cusres.m_vSegGr4 size='" << cusres.m_vSegGr4.size() << "'";
-  for (const auto& gr4 : cusres.m_vSegGr4)
+  TAnsPaxData data;
+  if (data.init_china_cusres(gr4, version))
   {
-    TAnsPaxData data;
-    if (data.init_china_cusres(gr4, version))
-    {
-      LogTrace(TRACE5) << __func__ << ": received correct answer, apps_pax_id='" << data.apps_pax_id << "'";
-      passengers.push_back(data);
-    }
+//    LogTrace(TRACE5) << __func__ << ": received correct answer, apps_pax_id='" << data.apps_pax_id << "'";
+    passengers.push_back(data);
   }
 
   return true;
@@ -2642,11 +2637,15 @@ std::string TMftAnswer::toString() const
 void ProcessChinaCusres(const edifact::Cusres& cusres)
 {
     LogTrace(TRACE5) << __func__<< std::endl << cusres;
-    TPaxReqAnswer res;
-    res.init_china_cusres(cusres);
-    res.beforeProcessAnswer();
-    res.processErrors();
-    res.processAnswer();
+    LogTrace(TRACE5) << __func__ << ": cusres.m_vSegGr4 size='" << cusres.m_vSegGr4.size() << "'";
+    for (const auto& gr4 : cusres.m_vSegGr4)
+    {
+      TPaxReqAnswer res;
+      res.init_china_cusres(cusres, gr4);
+      res.beforeProcessAnswer();
+      res.processErrors();
+      res.processAnswer();
+    }
 }
 
 //-----------------------------------------------------------------------------------
