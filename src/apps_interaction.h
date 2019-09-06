@@ -85,7 +85,7 @@ struct TTransData
   int version = 0;
 
   TTransData() : type( false ) {}
-  void init( const bool pre_ckin, const std::string& trans_code, const TAirlinesRow& airline, int ver );
+  void init(const bool pre_ckin, const std::string& trans_code, const TAirlinesRow& airline, int ver, const int a_msg_id = ASTRA::NoExists );
   bool operator == ( const TTransData& data ) const
   {
     return type == data.type &&
@@ -257,8 +257,8 @@ class TPaxRequest
   int m_point_id = ASTRA::NoExists;
   std::string m_airp_dep;
   std::string m_airp_arv;
-  bool getByPaxId( const int pax_id, Timing::Points& timing, const std::string& override_type );
-  bool getByCrsPaxId( const int pax_id, Timing::Points& timing, const std::string& override_type );
+  bool getByPaxId( const int pax_id, Timing::Points& timing, const std::string& override_type, const int msg_id = ASTRA::NoExists );
+  bool getByCrsPaxId( const int pax_id, Timing::Points& timing, const std::string& override_type, const int msg_id = ASTRA::NoExists );
 public:
   void saveData() const;
   int get_msg_id() const { return trans.msg_id; }
@@ -266,7 +266,7 @@ public:
 //  int get_version() const { return version; }
 
 public:
-  void init( const int pax_id, Timing::Points& timing, const std::string& override_type = "" );
+  void init( const int pax_id, Timing::Points& timing, const std::string& override_type = "", const int msg_id = ASTRA::NoExists );
   bool fromDBByPaxId( const int pax_id );
   bool fromDBByMsgId( const int msg_id );
   bool operator == (const TPaxRequest &c) const
@@ -299,8 +299,8 @@ public:
 class TAPPSPaxCollector
 {
   int version = 0;
-  int msg_id = ASTRA::NoExists;
-  std::vector<std::pair<int,int>> msg_ids;
+  int msg_id = ASTRA::NoExists, point_id = ASTRA::NoExists;
+//  std::vector<std::pair<int,int>> msg_ids;
   bool first_pax = true;
   std::unique_ptr<Paxlst::PaxlstInfo> paxlstInfo;
 public:

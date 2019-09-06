@@ -319,14 +319,13 @@ static void sendNewReq( const std::string& text, const int msg_id, const int poi
     saveAppsMessage(text, msg_id, point_id, version);
 }
 
-static void sendNewReq(const Paxlst::PaxlstInfo& paxlst, const std::vector<std::pair<int,int>>& msg_ids, const int version)
+static void sendNewReq(const Paxlst::PaxlstInfo& paxlst, const int msg_id, const int point_id, const int version)
 {
   using namespace edifact;
   PaxlstRequest ediReq(PaxlstReqParams("", paxlst));
   ediReq.sendTlg();
   string msg = paxlst.toEdiString();
-  for (const auto& id : msg_ids)
-    saveAppsMessage(msg, id.first, id.second, version);
+  saveAppsMessage(msg, msg_id, point_id, version);
 }
 
 /*static void sendNewReq( const TPaxRequest& paxReq, const int msg_id, const int point_id, int version )
@@ -514,10 +513,10 @@ void deleteAPPSAlarms( const int pax_id, const int point_id_spp )
 }
 
 void TTransData::init(const bool pre_ckin, const std::string& trans_code,
-                      const TAirlinesRow& airline, int ver)
+                      const TAirlinesRow& airline, int ver, const int a_msg_id)
 {
   code = trans_code;
-  msg_id = getIdent();
+  msg_id = (a_msg_id == ASTRA::NoExists)?getIdent():a_msg_id;
   user_id = getUserId(airline);
   type = pre_ckin;
   version = ver;
@@ -1048,13 +1047,13 @@ int GetVersionByPaxId(const int pax_id)
   return GetVersion(info.airline, getCountryByAirp(airp_arv).code);
 }
 
-void TPaxRequest::init(const int pax_id, Timing::Points &timing, const std::string& override_type )
+void TPaxRequest::init(const int pax_id, Timing::Points &timing, const std::string& override_type , const int msg_id)
 {
   if ( !getByPaxId( pax_id, timing, override_type ) )
     getByCrsPaxId( pax_id, timing, override_type );
 }
 
-bool TPaxRequest::getByPaxId( const int pax_id, Timing::Points& timing, const std::string& override_type )
+bool TPaxRequest::getByPaxId( const int pax_id, Timing::Points& timing, const std::string& override_type, const int msg_id )
 {
   ProgTrace( TRACE5, "TPaxRequest::getByPaxId: %d", pax_id );
   timing.start("getByPaxId");
@@ -1102,7 +1101,7 @@ bool TPaxRequest::getByPaxId( const int pax_id, Timing::Points& timing, const st
   version = GetVersion(airline.code, getCountryByAirp( airp_arv ).code);
   timing.finish("getByPaxId version, header");
   timing.start("getByPaxId trans.init");
-  trans.init( false, (Qry.FieldIsNULL("refuse"))?"CIRQ":"CICX", airline, version );
+  trans.init( false, (Qry.FieldIsNULL("refuse"))?"CIRQ":"CICX", airline, version, msg_id );
   timing.finish("getByPaxId trans.init");
   timing.start("getByPaxId int_flt.init");
   int_flt.init( point_dep, "INT", version );
@@ -1170,7 +1169,7 @@ bool TPaxRequest::getByPaxId( const int pax_id, Timing::Points& timing, const st
   return true;
 }
 
-bool TPaxRequest::getByCrsPaxId( const int pax_id, Timing::Points& timing, const std::string& override_type )
+bool TPaxRequest::getByCrsPaxId( const int pax_id, Timing::Points& timing, const std::string& override_type, const int msg_id )
 {
   timing.start("getByCrsPaxId");
   ProgTrace(TRACE5, "TPaxRequest::getByCrsPaxId: %d", pax_id);
@@ -1219,7 +1218,7 @@ bool TPaxRequest::getByCrsPaxId( const int pax_id, Timing::Points& timing, const
   version = GetVersion(airline.code, getCountryByAirp( airp_arv ).code);
   timing.finish("getByCrsPaxId version, header");
   timing.start("getByCrsPaxId trans.init");
-  trans.init( true, Qry.FieldAsInteger("pr_del")?"CICX":"CIRQ", airline, version );
+  trans.init( true, Qry.FieldAsInteger("pr_del")?"CICX":"CIRQ", airline, version, msg_id );
   timing.finish("getByCrsPaxId trans.init");
   timing.start("getByCrsPaxId int_flt.init");
   int_flt.init( point_id, "INT", version );
@@ -1644,7 +1643,8 @@ void TAPPSPaxCollector::AddPassenger(const int pax_id,
   if (version == APPS_VERSION_CHINA)
   {
     TPaxRequest new_data;
-    new_data.init(pax_id, timing, override_type);
+    int init_msg_id = first_pax? ASTRA::NoExists: msg_id;
+    new_data.init(pax_id, timing, override_type, init_msg_id);
     new_data.saveData();
     if (first_pax)
     {
@@ -1654,12 +1654,13 @@ void TAPPSPaxCollector::AddPassenger(const int pax_id,
       paxlstInfo.reset(new Paxlst::PaxlstInfo(Paxlst::PaxlstInfo::FlightPassengerManifest, doc_id));
       new_data.InitPaxlstInfo(*paxlstInfo);
       msg_id = new_data.get_msg_id();
+      point_id = new_data.get_point_id();
       first_pax = false;
     }
     Paxlst::PassengerInfo paxInfo;
     new_data.InitPaxInfo(paxInfo);
     paxlstInfo->addPassenger(paxInfo);
-    msg_ids.emplace_back(msg_id, new_data.get_point_id());
+//    msg_ids.emplace_back(msg_id, new_data.get_point_id());
     LogTrace(TRACE5) << __func__ << ": pax_id='" << pax_id << "' msg_id='" << msg_id << "'";
   }
   else
@@ -1674,8 +1675,7 @@ void TAPPSPaxCollector::Flush()
 {
   if (version == APPS_VERSION_CHINA && paxlstInfo)
   {
-    LogTrace(TRACE5) << "TAPPSPaxCollector: sending '" << msg_ids.size() << "' passengers";
-    sendNewReq(*paxlstInfo, msg_ids, version);
+    sendNewReq(*paxlstInfo, msg_id, point_id, version);
   }
 }
 
