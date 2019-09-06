@@ -2405,7 +2405,7 @@ bool TPaxReqAnswer::init_china_cusres(const edifact::Cusres& cusres, const edifa
                   "FROM apps_pax_data "
                   "WHERE cirq_msg_id = :msg_id AND pax_id = :pax_id";
     Qry.CreateVariable( "msg_id", otInteger, msg_id );
-    Qry.CreateVariable( "pax_id", otInteger, pax_id );
+    Qry.CreateVariable( "pax_id", otInteger, recv_pax_id );
   }
   else
   {
@@ -2424,6 +2424,7 @@ bool TPaxReqAnswer::init_china_cusres(const edifact::Cusres& cusres, const edifa
 
   pax_id = (recv_pax_id == ASTRA::NoExists)? Qry.FieldAsInteger( "pax_id" ): recv_pax_id;
   family_name = Qry.FieldAsString( "family_name" );
+  LogTrace(TRACE5) << __func__ << ": pax_id='" << pax_id << "' family_name='" << family_name << "'";
 
   TAnsPaxData data;
   if (data.init_china_cusres(gr4, version))
