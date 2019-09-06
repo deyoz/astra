@@ -299,6 +299,7 @@ public:
 class TAPPSPaxCollector
 {
   int version = 0;
+  int msg_id = ASTRA::NoExists;
   std::vector<std::pair<int,int>> msg_ids;
   bool first_pax = true;
   std::unique_ptr<Paxlst::PaxlstInfo> paxlstInfo;

@@ -1653,12 +1653,14 @@ void TAPPSPaxCollector::AddPassenger(const int pax_id,
         doc_id = "CP"; // Change Passenger Data
       paxlstInfo.reset(new Paxlst::PaxlstInfo(Paxlst::PaxlstInfo::FlightPassengerManifest, doc_id));
       new_data.InitPaxlstInfo(*paxlstInfo);
+      msg_id = new_data.get_msg_id();
       first_pax = false;
     }
     Paxlst::PassengerInfo paxInfo;
     new_data.InitPaxInfo(paxInfo);
     paxlstInfo->addPassenger(paxInfo);
-    msg_ids.emplace_back(new_data.get_msg_id(), new_data.get_point_id());
+    msg_ids.emplace_back(msg_id, new_data.get_point_id());
+    LogTrace(TRACE5) << __func__ << ": pax_id='" << pax_id << "' msg_id='" << msg_id << "'";
   }
   else
   {
