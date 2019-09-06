@@ -294,6 +294,9 @@ static void saveAppsMessage(const std::string& text,
                             const int point_id,
                             int version)
 {
+    LogTrace(TRACE5) << __func__ << ": msg_id='" << msg_id <<
+                        "' point_id='" << point_id <<
+                        "' version='" << version << "'";
     TQuery Qry( &OraSession );
     Qry.SQLText = "INSERT INTO apps_messages(msg_id, msg_text, send_attempts, send_time, point_id, version) "
                   "VALUES (:msg_id, :msg_text, :send_attempts, :send_time, :point_id, :version)";
@@ -1828,6 +1831,11 @@ void TAPPSPaxCollector::Flush()
 
 void TPaxRequest::saveData() const
 {
+  LogTrace(TRACE5) << __func__ << ": code='" << trans.code <<
+                      "' pax_id='" << pax.pax_id <<
+                      "' apps_pax_id='" << pax.apps_pax_id <<
+                      "' point_id='" << int_flt.point_id << "'";
+
   TQuery Qry(&OraSession);
 
   if( trans.code == "CICX" )
@@ -2098,14 +2106,23 @@ bool TAnsPaxData::init_china_cusres(const edifact::Cusres::SegGr4 gr4, int ver)
   code = 0;
   status = "E";
   if (gr4.m_vRff.empty())
+  {
+    LogTrace(TRACE5) << __func__ << ": gr4.m_vRff.empty";
     return false;
+  }
   auto beg = gr4.m_vRff.cbegin();
   auto end = gr4.m_vRff.cend();
   auto abo = find_if(beg, end, [](const auto &x){return x.m_qualifier == "ABO";});
   if (abo != end)
+  {
     apps_pax_id = abo->m_ref;
+//    LogTrace(TRACE5) << __func__ << ": apps_pax_id='" << apps_pax_id << "'";
+  }
   else
+  {
+    LogTrace(TRACE5) << __func__ << ": ABO not found";
     return false;
+  }
 
   auto erc = gr4.m_erc.m_errorCode;
   if (erc == "0Z")
@@ -2128,8 +2145,10 @@ bool TAnsPaxData::init_china_cusres(const edifact::Cusres::SegGr4 gr4, int ver)
     code = 8516;
     status = "E";
   }
-  LogTrace(TRACE5) << "TAnsPaxData::init_china_cusres erc='" << erc <<
-                      "' code='" << code << "' status='" << status << "'";
+  LogTrace(TRACE5) << __func__ << ": apps_pax_id='" << apps_pax_id <<
+                      "' erc='" << erc <<
+                      "' code='" << code <<
+                      "' status='" << status << "'";
   return true;
 }
 
@@ -2238,7 +2257,10 @@ bool TAPPSAns::init_china_cusres(const edifact::Cusres& cusres)
 {
   code = "CIRS";
   if (!cusres.m_rff or cusres.m_rff->m_qualifier != "TN")
+  {
+    LogTrace(TRACE5) << __func__ << ": TN not present";
     return false;
+  }
   msg_id = getInt(cusres.m_rff->m_ref);
 
   TQuery Qry(&OraSession);
@@ -2249,7 +2271,10 @@ bool TAPPSAns::init_china_cusres(const edifact::Cusres& cusres)
   Qry.Execute();
 
   if(Qry.Eof)
+  {
+    LogTrace(TRACE5) << __func__ << ": apps_messages Eof msg_id='" << msg_id << "'";
     return false;
+  }
 
   point_id = Qry.FieldAsInteger("point_id");
   msg_text = Qry.FieldAsString("msg_text");
@@ -2265,7 +2290,7 @@ bool TAPPSAns::init_china_cusres(const edifact::Cusres& cusres)
     {
       TError error;
       error.country = "CN";
-      error.error_code = ASTRA::NoExists;
+      error.error_code = ASTRA::NoExists; // чтобы вывести текст ошибки в журнал
       if (gr4.m_ftx)
         error.error_text = gr4.m_ftx->m_freeText;
       errors.push_back(error);
@@ -2353,8 +2378,12 @@ bool TPaxReqAnswer::init( const std::string& code, const std::string& source )
 
 bool TPaxReqAnswer::init_china_cusres(const edifact::Cusres& cusres)
 {
+  LogTrace(TRACE5) << __func__ << ": begin";
   if (not TAPPSAns::init_china_cusres(cusres))
+  {
+    LogTrace(TRACE5) << __func__ << ": TAPPSAns returned false";
     return false;
+  }
 
   TQuery Qry( &OraSession );
   Qry.SQLText = "SELECT pax_id, family_name "
@@ -2364,16 +2393,23 @@ bool TPaxReqAnswer::init_china_cusres(const edifact::Cusres& cusres)
   Qry.Execute();
 
   if(Qry.Eof)
+  {
+    LogTrace(TRACE5) << __func__ << ": apps_pax_data Eof msg_id='" << msg_id << "'";
     return false;
+  }
 
   pax_id = Qry.FieldAsInteger( "pax_id" );
   family_name = Qry.FieldAsString( "family_name" );
 
+  LogTrace(TRACE5) << __func__ << ": cusres.m_vSegGr4 size='" << cusres.m_vSegGr4.size() << "'";
   for (const auto& gr4 : cusres.m_vSegGr4)
   {
     TAnsPaxData data;
     if (data.init_china_cusres(gr4, version))
+    {
+      LogTrace(TRACE5) << __func__ << ": received correct answer, apps_pax_id='" << data.apps_pax_id << "'";
       passengers.push_back(data);
+    }
   }
 
   return true;
