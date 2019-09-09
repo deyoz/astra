@@ -1513,7 +1513,7 @@ void TPaxRequest::InitPaxlstInfo(Paxlst::PaxlstInfo& paxlstInfo) const
   paxlstInfo.setPartyName("TEST CONTACT"); // FIXME HARDCODE FOR TEST
 
   // 5.8 COM: Communication Contact-GR.1
-  paxlstInfo.setPhone("12345678"); // FIXME HARDCODE FOR TEST
+  paxlstInfo.setPhone("12 34 56 78"); // FIXME HARDCODE FOR TEST
   paxlstInfo.setFax("98765432"); // FIXME HARDCODE FOR TEST
 
   TAdvTripRoute route, tmp;
