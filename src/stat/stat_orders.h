@@ -126,6 +126,6 @@ struct TErrCommit {
 };
 
 const std::string EncodeOrderStatus(TOrderStatus s);
-void commit_progress(TQuery &Qry, int parts, int size);
+void commit_progress(TQuery &Qry, int parts, int size, long time_processing, int interval);
 
 #endif

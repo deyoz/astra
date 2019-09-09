@@ -17,14 +17,14 @@ namespace STAT {
 template <class keyClass, class rowClass, class cmpClass>
 void AddStatRow(const TStatOverflow &overflow, const keyClass &key, const rowClass &row, std::map<keyClass, rowClass, cmpClass> &stat)
 {
-  typename std::map< keyClass, rowClass, cmpClass >::iterator i = stat.find(key);
-  if (i!=stat.end())
-    i->second+=row;
-  else
-  {
-      overflow.check(stat.size());
-      stat.insert(std::make_pair(key,row));
-  };
+    overflow.check(stat.size());
+    typename std::map< keyClass, rowClass, cmpClass >::iterator i = stat.find(key);
+    if (i!=stat.end())
+        i->second+=row;
+    else
+    {
+        stat.insert(std::make_pair(key,row));
+    };
 };
 
 struct TStatPlaces {

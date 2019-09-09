@@ -577,15 +577,19 @@ int MAX_STAT_SECONDS()
   return VAR;
 };
 
+void TStatOverflow::trace(TRACE_SIGNATURE) const
+{
+    LogTrace(TRACE_PARAMS) << "TStatOverflow::trace: " << tm.Print();
+}
+
 void TStatOverflow::check(size_t RowCount) const
 {
-    if(
-            apply_type == apply and (
-                RowCount > (size_t)MAX_STAT_ROWS() or
-                tm.Print() > MAX_STAT_SECONDS() * 1000
-                )
-      )
-        throw StatOverflowException();
+    if(apply_type == apply) {
+        if(RowCount > (size_t)MAX_STAT_ROWS())
+            throw StatOverflowException("MSG.TOO_MANY_ROWS_SELECTED.UPDATE_TERM");
+        if(tm.Print() > MAX_STAT_SECONDS() * 1000)
+            throw StatOverflowException("MSG.TIMEOUT_EXPIRED.UPDATE_TERM");
+    }
 }
 
 TStatParams::TStatParams(TStatOverflow::Enum apply_type): overflow(apply_type)

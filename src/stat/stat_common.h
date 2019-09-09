@@ -127,6 +127,7 @@ struct TStatOverflow {
             apply
         } apply_type;
         void check(size_t RowCount) const;
+        void trace(TRACE_SIGNATURE) const;
         TStatOverflow(TStatOverflow::Enum _apply_type): apply_type(_apply_type) {}
     private:
         mutable TPerfTimer tm;
@@ -198,7 +199,16 @@ const std::string EncodeOrderSource(TOrderSource s);
 
 int MAX_STAT_ROWS();
 
-class StatOverflowException: public std::exception {};
+namespace AstraLocale {
+    class StatOverflowException: public UserException
+    {
+        public:
+            StatOverflowException(const std::string &vlexema): UserException(vlexema) {}
+            StatOverflowException(): UserException("") {}
+    };
+}
+
+
 
 struct TOrderStatItem {
     static const char delim = ';';
