@@ -45,7 +45,7 @@ void CusRequestHandler::handle()
 
 void CusRequestHandler::makeAnAnswer()
 {
-    viewBgmElement(pMesW(), BgmElem("132", ""));
+    viewBgmElement(pMesW(), BgmElem("312", ""));
      
     PushEdiPointW(pMesW());
     SetEdiSegGr(pMesW(), SegGrElement(4));
