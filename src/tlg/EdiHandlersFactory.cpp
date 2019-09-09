@@ -112,7 +112,7 @@ TlgHandling::AstraEdiRequestHandler* EdiReqHandlersFactory(EDI_REAL_MES_STRUCT *
     __DECLARE_HANDLER__(UacRequestHandler,          TKCUAC, "733");
     __DECLARE_HANDLER__(CosRequestHandler,          TKCREQ, "142");
     // iapi
-    __DECLARE_HANDLER__(CusRequestHandler,          CUSRES, "132");
+    __DECLARE_HANDLER__(CusRequestHandler,          CUSUMS, "132");
 
     LogError(STDLOG) <<
             "There is no factory for message " << msgid <<

@@ -455,7 +455,7 @@ edilib::EdiRequestHandler *
                                                edilib::CompElement("C302"),
                                                edilib::SegmElement("MSG"));
 
-    if(msgid == CUSRES) {
+    if(msgid == CUSRES || msgid == CUSUMS) {
         func_code = edilib::GetDBFName(pMes,
                                        edilib::DataElement(1001), "",
                                        edilib::CompElement("C002"),
