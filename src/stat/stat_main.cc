@@ -705,6 +705,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     {
         if(TReqInfo::Instance()->desk.compatible(STAT_ORDERS_VERSION))
         {
+            LogTrace(TRACE5) << E.getLexemaData().lexema_id << " thrown. Move to orders";
             RemoveChildNodes(resNode);
             return orderStat(params, ctxt, reqNode, resNode);
         } else {
